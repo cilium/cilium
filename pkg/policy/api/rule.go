@@ -508,7 +508,7 @@ var KafkaAPIKeyMap = map[string]int16{
 // KafkaReverseApiKeyMap is the map of all allowed kafka API keys
 // with the key values.
 // Reference: https://kafka.apache.org/protocol#protocol_api_keys
-var KafkaReverseApiKeyMap = map[int16]string{
+var KafkaReverseAPIKeyMap = map[int16]string{
 	0:  "produce",              /* Produce */
 	1:  "fetch",                /* Fetch */
 	2:  "offsets",              /* Offsets */
@@ -556,7 +556,7 @@ const (
 // KafkaMaxTopicVal is the maximum value of supported API Keys in KafkaAPIKeyMap
 // KafkaReverseAPIKeyMap
 const (
-	KafkaMaxApiKeyVal = 33
+	KafkaMaxAPIKeyVal = 33
 )
 
 // KafkaTopicValidChar is a one-time regex generation of all allowed characters

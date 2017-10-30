@@ -139,7 +139,7 @@ func LogHTTP(l *LogRecord, typ FlowType, verdict FlowVerdict, code int) {
 // LogKafka logs a Kafka record to the logfile
 func LogKafka(l *LogRecord, typ FlowType, verdict FlowVerdict, code int) {
 	apiKey := l.KafkaRequest.GetAPIKey()
-	if apiKey < 0 || apiKey > api.KafkaMaxApiKeyVal {
+	if apiKey < 0 || apiKey > api.KafkaMaxAPIKeyVal {
 		log.WithFields(log.Fields{
 			FieldFilePath: logPath,
 		}).Error("Invalid Kafka Api Key")
@@ -149,7 +149,7 @@ func LogKafka(l *LogRecord, typ FlowType, verdict FlowVerdict, code int) {
 	l.Kafka = &LogRecordKafka{
 		ErrorCode:     code,
 		APIVersion:    l.KafkaRequest.GetVersion(),
-		APIKey:        api.KafkaReverseApiKeyMap[apiKey],
+		APIKey:        api.KafkaReverseAPIKeyMap[apiKey],
 		CorrelationID: l.KafkaRequest.GetCorrelationID(),
 	}
 
@@ -157,7 +157,7 @@ func LogKafka(l *LogRecord, typ FlowType, verdict FlowVerdict, code int) {
 		FieldType:               typ,
 		FieldVerdict:            verdict,
 		FieldCode:               code,
-		FieldKafkaAPIKey:        api.KafkaReverseApiKeyMap[apiKey],
+		FieldKafkaAPIKey:        api.KafkaReverseAPIKeyMap[apiKey],
 		FieldKafkaAPIVersion:    l.KafkaRequest.GetVersion(),
 		FieldKafkaCorrelationID: l.KafkaRequest.GetCorrelationID(),
 		FieldFilePath:           logPath,

@@ -220,6 +220,9 @@ func (k *kafkaRedirect) handleRequest(pair *connectionPair, req *kafka.RequestMe
 	addr := pair.rx.conn.RemoteAddr()
 	if addr == nil {
 		scopedLog.Warn("RemoteAddr() is nil")
+		record.Info = fmt.Sprint("RemoteAddr() is nil")
+		accesslog.Log(record, accesslog.TypeRequest, accesslog.VerdictError,
+			kafka.ErrInvalidMessage, accesslog.L7TypeKafka)
 		return
 	}
 
@@ -247,11 +250,16 @@ func (k *kafkaRedirect) handleRequest(pair *connectionPair, req *kafka.RequestMe
 	if !k.canAccess(req, policy.NumericIdentity(srcIdentity)) {
 		scopedLog.Debug("Kafka request is denied by policy")
 
+		record.Info = fmt.Sprint("Kafka request is denied by policy")
 		accesslog.Log(record, accesslog.TypeRequest, accesslog.VerdictDenied,
 			kafka.ErrTopicAuthorizationFailed, accesslog.L7TypeKafka)
+
 		resp, err := req.CreateResponse(proto.ErrTopicAuthorizationFailed)
 		if err != nil {
 			scopedLog.WithError(err).Error("Unable to create response message")
+			record.Info = fmt.Sprintf("Unable to create response message: %s", err)
+			accesslog.Log(record, accesslog.TypeRequest, accesslog.VerdictError,
+				kafka.ErrInvalidMessage, accesslog.L7TypeKafka)
 			return
 		}
 
@@ -296,13 +304,20 @@ func (k *kafkaRedirect) handleRequest(pair *connectionPair, req *kafka.RequestMe
 
 type kafkaMessageHander func(pair *connectionPair, req *kafka.RequestMessage)
 
-func handleConnection(pair *connectionPair, c *proxyConnection, handler kafkaMessageHander) {
+func handleConnection(pair *connectionPair, c *proxyConnection,
+	record *accesslog.LogRecord, handler kafkaMessageHander) {
 	for {
 		req, err := kafka.ReadRequest(c.conn)
 		if err != nil {
 			if err == io.EOF || err == io.ErrUnexpectedEOF {
 				c.Close()
 				return
+			}
+
+			if record != nil {
+				record.Info = fmt.Sprintf("Unable to parse Kafka request: %s", err)
+				accesslog.Log(record, accesslog.TypeRequest, accesslog.VerdictError,
+					kafka.ErrInvalidMessage, accesslog.L7TypeKafka)
 			}
 
 			log.WithError(err).Error("Unable to parse Kafka request")
@@ -319,7 +334,7 @@ func (k *kafkaRedirect) handleRequestConnection(pair *connectionPair) {
 		"to":   pair.tx,
 	}).Debug("Proxying request Kafka connection")
 
-	handleConnection(pair, pair.rx, k.handleRequest)
+	handleConnection(pair, pair.rx, nil, k.handleRequest)
 }
 
 func (k *kafkaRedirect) handleResponseConnection(pair *connectionPair,
@@ -329,7 +344,7 @@ func (k *kafkaRedirect) handleResponseConnection(pair *connectionPair,
 		"to":   pair.rx,
 	}).Debug("Proxying response Kafka connection")
 
-	handleConnection(pair, pair.tx, func(pair *connectionPair, req *kafka.RequestMessage) {
+	handleConnection(pair, pair.tx, record, func(pair *connectionPair, req *kafka.RequestMessage) {
 		pair.rx.Enqueue(req.GetRaw())
 	})
 
