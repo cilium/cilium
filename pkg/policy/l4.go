@@ -18,6 +18,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -39,13 +40,22 @@ func (l7 L7DataMap) MarshalJSON() ([]byte, error) {
 		return []byte("[]"), nil
 	}
 
+	/* First, create a sorted slice of the selectors so we can get
+	 * consistent JSON output */
+	selectors := make(api.EndpointSelectorSlice, 0, len(l7))
+	for es := range l7 {
+		selectors = append(selectors, es)
+	}
+	sort.Sort(selectors)
+
+	/* Now we can iterate the slice and generate JSON entries. */
 	var err error
 	buffer := bytes.NewBufferString("[")
-	for k, v := range l7 {
+	for _, es := range selectors {
 		buffer.WriteString("\n  {    \n    \"")
-		buffer.WriteString(k.LabelSelectorString())
+		buffer.WriteString(es.LabelSelectorString())
 		buffer.WriteString("\": ")
-		b, err := json.MarshalIndent(v, "    ", "  ")
+		b, err := json.MarshalIndent(l7[es], "    ", "  ")
 		if err == nil {
 			buffer.Write(b)
 		} else {
