@@ -1,6 +1,6 @@
 pipeline {
     agent {
-        label 'ginkgo-test-1'
+        label 'ginkgo-test-2'
     }
     environment {
         PROJ_PATH = "src/github.com/cilium/cilium"
