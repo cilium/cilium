@@ -70,6 +70,10 @@ func (req *RequestMessage) String() string {
 
 // GetTopics returns the Kafka request list of topics
 func (req *RequestMessage) GetTopics() []string {
+	if req.request == nil {
+		return nil
+	}
+
 	switch val := req.request.(type) {
 	case *proto.ProduceReq:
 		return produceTopics(val)
@@ -174,7 +178,8 @@ func ReadRequest(reader io.Reader) (*RequestMessage, error) {
 	}
 
 	if len(req.rawMsg) < 12 {
-		return nil, fmt.Errorf("unable to read full request")
+		return nil,
+			fmt.Errorf("unexpected end of request (length < 12 bytes)")
 	}
 	req.version = req.extractVersion()
 
@@ -202,7 +207,6 @@ func ReadRequest(reader io.Reader) (*RequestMessage, error) {
 		log.WithFields(log.Fields{
 			fieldRequest: req.String(),
 		}).WithError(err).Debug("Ignoring Kafka message due to parse error")
-
 	}
 	return req, nil
 }

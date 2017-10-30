@@ -17,6 +17,7 @@ package accesslog
 import (
 	"bufio"
 	"encoding/json"
+	"fmt"
 	"os"
 
 	"github.com/cilium/cilium/pkg/lock"
@@ -136,20 +137,22 @@ func LogHTTP(l *LogRecord, typ FlowType, verdict FlowVerdict, code int) {
 	}
 }
 
+func apiKeyToString(apiKey int16) string {
+	if key, ok := api.KafkaReverseAPIKeyMap[apiKey]; ok {
+		return key
+	} else {
+		return fmt.Sprintf("%d", apiKey)
+	}
+}
+
 // LogKafka logs a Kafka record to the logfile
 func LogKafka(l *LogRecord, typ FlowType, verdict FlowVerdict, code int) {
 	apiKey := l.KafkaRequest.GetAPIKey()
-	if apiKey < 0 || apiKey > api.KafkaMaxAPIKeyVal {
-		log.WithFields(log.Fields{
-			FieldFilePath: logPath,
-		}).Error("Invalid Kafka Api Key")
-		return
-	}
 
 	l.Kafka = &LogRecordKafka{
 		ErrorCode:     code,
 		APIVersion:    l.KafkaRequest.GetVersion(),
-		APIKey:        api.KafkaReverseAPIKeyMap[apiKey],
+		APIKey:        apiKeyToString(apiKey),
 		CorrelationID: l.KafkaRequest.GetCorrelationID(),
 	}
 
@@ -157,7 +160,7 @@ func LogKafka(l *LogRecord, typ FlowType, verdict FlowVerdict, code int) {
 		FieldType:               typ,
 		FieldVerdict:            verdict,
 		FieldCode:               code,
-		FieldKafkaAPIKey:        api.KafkaReverseAPIKeyMap[apiKey],
+		FieldKafkaAPIKey:        apiKeyToString(apiKey),
 		FieldKafkaAPIVersion:    l.KafkaRequest.GetVersion(),
 		FieldKafkaCorrelationID: l.KafkaRequest.GetCorrelationID(),
 		FieldFilePath:           logPath,
@@ -169,10 +172,10 @@ func LogKafka(l *LogRecord, typ FlowType, verdict FlowVerdict, code int) {
 		return
 	}
 
-	/*
-	 *	Log multiple entries for multiple Kafka topics in a single
-	 *  request. GH #1815
-	 */
+	//
+	// Log multiple entries for multiple Kafka topics in a single
+	// request. GH #1815
+	//
 
 	topics := l.KafkaRequest.GetTopics()
 	for i := 0; i < len(topics); i++ {
