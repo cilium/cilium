@@ -130,6 +130,14 @@ func findRoute(link netlink.Link, route *netlink.Route) *netlink.Route {
 	}
 
 	for _, r := range routes {
+		if r.Dst != nil && route.Dst == nil {
+			continue
+		}
+
+		if route.Dst != nil && r.Dst == nil {
+			continue
+		}
+
 		aMaskLen, aMaskBits := r.Dst.Mask.Size()
 		bMaskLen, bMaskBits := route.Dst.Mask.Size()
 		if r.LinkIndex == route.LinkIndex && r.Scope == route.Scope &&
