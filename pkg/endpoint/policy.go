@@ -525,7 +525,7 @@ func (e *Endpoint) Regenerate(owner Owner) <-chan bool {
 		// We should only queue the request after we use all the endpoint's
 		// lock/unlock. Otherwise this can get a deadlock if the endpoint is
 		// being deleted at the same time. More info PR-1777.
-		owner.QueueEndpointBuild(newReq)
+		owner.QueueEndpointBuild(req)
 
 		isMyTurn, isMyTurnChanOK := <-req.MyTurn
 		if isMyTurnChanOK && isMyTurn {
