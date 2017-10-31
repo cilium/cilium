@@ -23,7 +23,7 @@ pipeline {
         stage('UnitTesting') {
             environment {
                 GOPATH="${WORKSPACE}"
-                TESTDIR="${WORKSPACE}/${PROJ_PATH}/"
+                TESTDIR="${WORKSPACE}"
             }
             steps {
                 sh "cd ${TESTDIR}; make tests-ginkgo"
