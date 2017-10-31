@@ -17,8 +17,6 @@ package accesslog
 import (
 	"net/http"
 	"net/url"
-
-	"github.com/cilium/cilium/pkg/kafka"
 )
 
 // FlowType is the type to indicate the flow direction
@@ -178,12 +176,6 @@ type LogRecord struct {
 
 	// Kafka contains information for Kafka request/responses
 	Kafka *LogRecordKafka `json:"Kafka,omitempty"`
-
-	// Internal HTTP request
-	HTTPRequest *http.Request `json:"-"`
-
-	// Internal Kafka request
-	KafkaRequest *kafka.RequestMessage `json:"-"`
 }
 
 // LogRecordHTTP contains the HTTP specific portion of a log record

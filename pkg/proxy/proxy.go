@@ -64,6 +64,7 @@ type Redirect interface {
 	UpdateRules(l4 *policy.L4Filter) error
 	getSource() ProxySource
 	Close()
+	IsIngress() bool
 }
 
 // GetMagicMark returns the magic marker with which each packet must be marked.
@@ -162,51 +163,53 @@ func localEndpointInfo(r Redirect, info *accesslog.EndpointInfo) {
 	source.RUnlock()
 }
 
-// getSourceInfo resolves source information
-// using source identity and fills the access log.
-func getSourceInfo(RemoteAddr string,
-	srcIdentity policy.NumericIdentity,
-	ingress bool, r Redirect) (accesslog.EndpointInfo, accesslog.IPVersion) {
-	info := accesslog.EndpointInfo{}
-	version := accesslog.VersionIPv4
-	ipstr, port, err := net.SplitHostPort(RemoteAddr)
+func fillInfo(r Redirect, l *accesslog.LogRecord, srcIPPort, dstIPPort string, srcIdentity uint32) {
+
+	ingress := r.IsIngress()
+
+	if ingress {
+		// At ingress the local origin endpoint is the destination
+		localEndpointInfo(r, &l.DestinationEndpoint)
+	} else {
+		// At egress, the local origin endpoint is the source
+		localEndpointInfo(r, &l.SourceEndpoint)
+	}
+
+	l.IPVersion = accesslog.VersionIPv4
+	ipstr, port, err := net.SplitHostPort(srcIPPort)
+	if err == nil {
+		ip := net.ParseIP(ipstr)
+		if ip != nil && ip.To4() == nil {
+			l.IPVersion = accesslog.VersionIPV6
+		}
+
+		p, err := strconv.ParseUint(port, 10, 16)
+		if err == nil {
+			l.SourceEndpoint.Port = uint16(p)
+			if ingress {
+				fillIngressSourceInfo(&l.SourceEndpoint, &ip, srcIdentity)
+			}
+		}
+	}
+
+	ipstr, port, err = net.SplitHostPort(dstIPPort)
 	if err == nil {
 		p, err := strconv.ParseUint(port, 10, 16)
 		if err == nil {
-			info.Port = uint16(p)
-		}
-
-		ip := net.ParseIP(ipstr)
-		if ip != nil && ip.To4() == nil {
-			version = accesslog.VersionIPV6
+			l.DestinationEndpoint.Port = uint16(p)
+			if !ingress {
+				fillEgressDestinationInfo(&l.DestinationEndpoint, ipstr)
+			}
 		}
 	}
-
-	// At egress, the local origin endpoint is the source
-	if !ingress {
-		localEndpointInfo(r, &info)
-	} else if err == nil {
-		if srcIdentity != 0 {
-			getInfoFromConsumable(ipstr, &info, srcIdentity, r)
-		} else {
-			// source security identity 0 is possible when somebody else other
-			// than the BPF datapath attempts to connect to the proxy. We should
-			// log no source information in that case, in the proxy log.
-			log.Warn("Missing security identity in source endpoint info")
-		}
-
-	}
-
-	return info, version
 }
 
-// fillReservedIdentity resolves the labels of the specified identity if known
+// fillIdentity resolves the labels of the specified identity if known
 // locally and fills in the following info member fields:
 //  - info.Identity
 //  - info.Labels
 //  - info.LabelsSHA256
-func fillReservedIdentity(info *accesslog.EndpointInfo,
-	id policy.NumericIdentity) {
+func fillIdentity(info *accesslog.EndpointInfo, id policy.NumericIdentity) {
 	info.Identity = uint64(id)
 
 	if c := policy.GetConsumableCache().Lookup(id); c != nil {
@@ -217,17 +220,14 @@ func fillReservedIdentity(info *accesslog.EndpointInfo,
 	}
 }
 
-// getInfoFromConsumable fills the accesslog.EndpointInfo fields, by fetching
+// fillIngressSourceInfo fills the EndpointInfo fields, by fetching
 // the consumable from the consumable cache of endpoint using identity sent by
 // source. This is needed in ingress proxy while logging the source endpoint
 // info.  Since there will be 2 proxies on the same host, if both egress and
 // ingress policies are set, the ingress policy cannot determine the source
 // endpoint info based on ip address, as the ip address would be that of the
 // egress proxy i.e host.
-func getInfoFromConsumable(ipstr string, info *accesslog.EndpointInfo,
-	srcIdentity policy.NumericIdentity, r Redirect) {
-	ep := r.getSource()
-	ip := net.ParseIP(ipstr)
+func fillIngressSourceInfo(info *accesslog.EndpointInfo, ip *net.IP, srcIdentity uint32) {
 	if ip != nil {
 		if ip.To4() != nil {
 			info.IPv4 = ip.String()
@@ -235,25 +235,27 @@ func getInfoFromConsumable(ipstr string, info *accesslog.EndpointInfo,
 			info.IPv6 = ip.String()
 		}
 	}
-	secIdentity := ep.ResolveIdentity(srcIdentity)
 
-	if secIdentity != nil {
-		info.Labels = secIdentity.Labels.GetModel()
-		info.LabelsSHA256 = secIdentity.Labels.SHA256Sum()
-		info.Identity = uint64(srcIdentity)
+	if srcIdentity != 0 {
+		fillIdentity(info, policy.NumericIdentity(srcIdentity))
+	} else {
+		// source security identity 0 is possible when somebody else other than the BPF datapath attempts to
+		// connect to the proxy.
+		// We should log no source information in that case, in the proxy log.
+		log.Warn("Missing security identity in source endpoint info")
 	}
 }
 
-// egressDestinationInfo returns the destination EndpointInfo for a flow
+// fillEgressDestinationInfo returns the destination EndpointInfo for a flow
 // leaving the proxy at egress.
-func egressDestinationInfo(ipstr string, info *accesslog.EndpointInfo) {
+func fillEgressDestinationInfo(info *accesslog.EndpointInfo, ipstr string) {
 	ip := net.ParseIP(ipstr)
 	if ip != nil {
 		if ip.To4() != nil {
 			info.IPv4 = ip.String()
 
 			if node.IsHostIPv4(ip) {
-				fillReservedIdentity(info, policy.ReservedIdentityHost)
+				fillIdentity(info, policy.ReservedIdentityHost)
 				return
 			}
 
@@ -268,16 +270,16 @@ func egressDestinationInfo(ipstr string, info *accesslog.EndpointInfo) {
 					info.Identity = uint64(ep.GetIdentity())
 					ep.RUnlock()
 				} else {
-					fillReservedIdentity(info, policy.ReservedIdentityCluster)
+					fillIdentity(info, policy.ReservedIdentityCluster)
 				}
 			} else {
-				fillReservedIdentity(info, policy.ReservedIdentityWorld)
+				fillIdentity(info, policy.ReservedIdentityWorld)
 			}
 		} else {
 			info.IPv6 = ip.String()
 
 			if node.IsHostIPv6(ip) {
-				fillReservedIdentity(info, policy.ReservedIdentityHost)
+				fillIdentity(info, policy.ReservedIdentityHost)
 				return
 			}
 
@@ -294,34 +296,13 @@ func egressDestinationInfo(ipstr string, info *accesslog.EndpointInfo) {
 					info.Identity = uint64(ep.GetIdentity())
 					ep.RUnlock()
 				} else {
-					fillReservedIdentity(info, policy.ReservedIdentityCluster)
+					fillIdentity(info, policy.ReservedIdentityCluster)
 				}
 			} else {
-				fillReservedIdentity(info, policy.ReservedIdentityWorld)
+				fillIdentity(info, policy.ReservedIdentityWorld)
 			}
 		}
 	}
-}
-
-// getDestinationInfo returns the destination EndpointInfo.
-func getDestinationInfo(dstIPPort string, ingress bool, r Redirect) accesslog.EndpointInfo {
-	info := accesslog.EndpointInfo{}
-	ipstr, port, err := net.SplitHostPort(dstIPPort)
-	if err == nil {
-		p, err := strconv.ParseUint(port, 10, 16)
-		if err == nil {
-			info.Port = uint16(p)
-		}
-	}
-
-	// At ingress the local origin endpoint is the source
-	if ingress {
-		localEndpointInfo(r, &info)
-	} else if err == nil {
-		egressDestinationInfo(ipstr, &info)
-	}
-
-	return info
 }
 
 // CreateOrUpdateRedirect creates or updates a L4 redirect with corresponding
