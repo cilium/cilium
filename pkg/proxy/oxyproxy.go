@@ -71,16 +71,6 @@ func (r *OxyRedirect) getSource() ProxySource {
 	return r.source
 }
 
-func (r *OxyRedirect) getSourceInfo(req *http.Request,
-	srcIdentity policy.NumericIdentity) (accesslog.EndpointInfo, accesslog.IPVersion) {
-	return GetSourceInfo(req.RemoteAddr, srcIdentity, r.ingress, r)
-}
-
-// getDestinationInfo returns the destination EndpointInfo.
-func (r *OxyRedirect) getDestinationInfo(dstIPPort string) accesslog.EndpointInfo {
-	return GetDestinationInfo(dstIPPort, r, r.ingress)
-}
-
 func getOxyPolicyRules(rules []api.PortRuleHTTP) ([]string, error) {
 	var l7rules []string
 
@@ -224,7 +214,8 @@ func createOxyRedirect(l4 *policy.L4Filter, id string, source ProxySource, to ui
 			return
 		}
 
-		info, version := redir.getSourceInfo(req, policy.NumericIdentity(srcIdentity))
+		info, version := getSourceInfo(req.RemoteAddr,
+			policy.NumericIdentity(srcIdentity), redir.ingress, redir)
 		record.SourceEndpoint = info
 		record.IPVersion = version
 
@@ -232,7 +223,8 @@ func createOxyRedirect(l4 *policy.L4Filter, id string, source ProxySource, to ui
 			record.SourceEndpoint.Identity = uint64(srcIdentity)
 		}
 
-		record.DestinationEndpoint = redir.getDestinationInfo(dstIPPort)
+		record.DestinationEndpoint = getDestinationInfo(dstIPPort,
+			redir.ingress, redir)
 
 		// Validate access to L4/L7 resource
 		redir.mutex.Lock()
@@ -246,7 +238,8 @@ func createOxyRedirect(l4 *policy.L4Filter, id string, source ProxySource, to ui
 				return
 			}
 			ar := rule.(string)
-			log.WithField(logfields.Object, logfields.Repr(ar)).Debug("Allowing request based on rule")
+			log.WithField(logfields.Object,
+				logfields.Repr(ar)).Debug("Allowing request based on rule")
 			record.Info = fmt.Sprintf("rule: %+v", ar)
 		} else {
 			log.Debug("Allowing request as there are no rules")

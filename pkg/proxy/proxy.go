@@ -162,9 +162,9 @@ func localEndpointInfo(r Redirect, info *accesslog.EndpointInfo) {
 	source.RUnlock()
 }
 
-// GetSourceInfo resolves source information
+// getSourceInfo resolves source information
 // using source identity and fills the access log.
-func GetSourceInfo(RemoteAddr string,
+func getSourceInfo(RemoteAddr string,
 	srcIdentity policy.NumericIdentity,
 	ingress bool, r Redirect) (accesslog.EndpointInfo, accesslog.IPVersion) {
 	info := accesslog.EndpointInfo{}
@@ -303,8 +303,8 @@ func egressDestinationInfo(ipstr string, info *accesslog.EndpointInfo) {
 	}
 }
 
-// GetDestinationInfo returns the destination EndpointInfo.
-func GetDestinationInfo(dstIPPort string, r Redirect, ingress bool) accesslog.EndpointInfo {
+// getDestinationInfo returns the destination EndpointInfo.
+func getDestinationInfo(dstIPPort string, ingress bool, r Redirect) accesslog.EndpointInfo {
 	info := accesslog.EndpointInfo{}
 	ipstr, port, err := net.SplitHostPort(dstIPPort)
 	if err == nil {

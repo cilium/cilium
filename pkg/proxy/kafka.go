@@ -160,19 +160,8 @@ func (k *kafkaRedirect) canAccess(req *kafka.RequestMessage, numIdentity policy.
 	return req.MatchesRule(rules.Kafka)
 }
 
-func (r *kafkaRedirect) getSource() ProxySource {
-	return r.conf.source
-}
-
-func (k *kafkaRedirect) getSourceInfo(remoteAddr string,
-	srcIdentity policy.NumericIdentity) (accesslog.EndpointInfo,
-	accesslog.IPVersion) {
-	return GetSourceInfo(remoteAddr, srcIdentity, k.ingress, k)
-}
-
-// getDestinationInfo returns the destination EndpointInfo.
-func (k *kafkaRedirect) getDestinationInfo(dstIPPort string) accesslog.EndpointInfo {
-	return GetDestinationInfo(dstIPPort, k, k.ingress)
+func (k *kafkaRedirect) getSource() ProxySource {
+	return k.conf.source
 }
 
 func (k *kafkaRedirect) handleRequest(pair *connectionPair, req *kafka.RequestMessage) {
@@ -213,7 +202,8 @@ func (k *kafkaRedirect) handleRequest(pair *connectionPair, req *kafka.RequestMe
 		return
 	}
 
-	info, version := k.getSourceInfo(addr.String(), policy.NumericIdentity(srcIdentity))
+	info, version := getSourceInfo(addr.String(),
+		policy.NumericIdentity(srcIdentity), k.ingress, k)
 	record.SourceEndpoint = info
 	record.IPVersion = version
 
@@ -221,7 +211,7 @@ func (k *kafkaRedirect) handleRequest(pair *connectionPair, req *kafka.RequestMe
 		record.SourceEndpoint.Identity = uint64(srcIdentity)
 	}
 
-	record.DestinationEndpoint = k.getDestinationInfo(dstIPPort)
+	record.DestinationEndpoint = getDestinationInfo(dstIPPort, k.ingress, k)
 
 	if !k.canAccess(req, policy.NumericIdentity(srcIdentity)) {
 		scopedLog.Debug("Kafka request is denied by policy")
