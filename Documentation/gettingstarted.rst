@@ -71,10 +71,9 @@ Step 1: Installing Cilium
 The next step is to install Cilium into your Kubernetes cluster.  Cilium installation
 leverages the `Kubernetes Daemon Set <https://kubernetes.io/docs/concepts/workloads/controllers/daemonset/>`_
 abstraction, which will deploy one Cilium pod per
-cluster node.   This Cilium pod will run in the ``kube-system`` namespace along with
+cluster node.  This Cilium pod will run in the ``kube-system`` namespace along with
 all other system relevant daemons and services.  The Cilium pod will run both the Cilium
-agent and the Cilium CNI plugin.  The Cilium daemonset also starts a pod running
-`Consul <https://www.consul.io/>`_ as the underlying key-value store.
+agent and the Cilium CNI plugin.
 
 To deploy Cilium, run:
 
@@ -95,12 +94,16 @@ Run the following command to check the progress of the deployment:
 
 ::
 
-    $ kubectl get ds --namespace kube-system
-    NAME            DESIRED   CURRENT   READY     NODE-SELECTOR   AGE
-    cilium          1         1         1         <none>          2m
+    $ kubectl get pods --namespace kube-system
+    NAME                          READY     STATUS    RESTARTS   AGE
+    cilium-wjb9t                  0/1       Running   0          1m
+    kube-addon-manager-minikube   1/1       Running   0          1m
+    kube-dns-910330662-hmw9k      3/3       Running   0          1m
+    kubernetes-dashboard-nfg7m    1/1       Running   0          1m
 
-Wait until the cilium and cilium-consul Deployments shows a ``READY``
-count of ``1`` like above.
+
+Wait until the Cilium pod shows the ``STATUS`` as ``Running``, like above. In this tutorial, it's okay to 
+move forward with the ``READY`` status as 0.
 
 Step 2: Deploy the Demo Application
 ===================================
