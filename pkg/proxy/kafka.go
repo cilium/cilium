@@ -25,6 +25,7 @@ import (
 	"github.com/cilium/cilium/pkg/logfields"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/policy"
+	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/proxy/accesslog"
 
 	"github.com/optiopay/kafka/proto"
@@ -40,17 +41,20 @@ type kafkaRedirect struct {
 	// protects all fields of this struct
 	lock.RWMutex
 
-	conf     kafkaConfiguration
-	epID     uint64
-	ingress  bool
-	nodeInfo accesslog.NodeAddressInfo
-	rules    policy.L7DataMap
-	socket   *proxySocket
+	conf    kafkaConfiguration
+	epID    uint64
+	ingress bool
+	rules   policy.L7DataMap
+	socket  *proxySocket
 }
 
 // ToPort returns the redirect port of KafkaRedirect
 func (k *kafkaRedirect) ToPort() uint16 {
 	return k.conf.listenPort
+}
+
+func (k *kafkaRedirect) IsIngress() bool {
+	return k.ingress
 }
 
 type destLookupFunc func(remoteAddr string, dport uint16) (uint32, string, error)
@@ -71,10 +75,6 @@ func createKafkaRedirect(conf kafkaConfiguration) (Redirect, error) {
 		conf:    conf,
 		epID:    conf.source.GetID(),
 		ingress: conf.policy.Ingress,
-		nodeInfo: accesslog.NodeAddressInfo{
-			IPv4: node.GetExternalIPv4().String(),
-			IPv6: node.GetIPv6().String(),
-		},
 	}
 
 	if redir.conf.lookupNewDest == nil {
@@ -170,31 +170,90 @@ func (k *kafkaRedirect) getSource() ProxySource {
 	return k.conf.source
 }
 
-func (k *kafkaRedirect) handleRequest(pair *connectionPair, req *kafka.RequestMessage) {
-	log.WithFields(log.Fields{
-		fieldID:   pair.String(),
-		"request": req.String(),
-	}).Debug("Handling Kafka request")
+func apiKeyToString(apiKey int16) string {
+	if key, ok := api.KafkaReverseAPIKeyMap[apiKey]; ok {
+		return key
+	}
+	return fmt.Sprintf("%d", apiKey)
+}
 
-	record := &accesslog.LogRecord{
-		KafkaRequest:      req,
-		Timestamp:         time.Now().UTC().Format(time.RFC3339Nano),
-		NodeAddressInfo:   k.nodeInfo,
-		TransportProtocol: 6, // TCP's IANA-assigned protocol number
+// kafkaLogRecord wraps an accesslog.LogRecord so that we can define methods with a receiver
+type kafkaLogRecord struct {
+	accesslog.LogRecord
+
+	req *kafka.RequestMessage
+}
+
+func (k *kafkaRedirect) newKafkaLogRecord(req *kafka.RequestMessage) *kafkaLogRecord {
+	record := &kafkaLogRecord{
+		req: req,
+		LogRecord: accesslog.LogRecord{
+			Kafka: &accesslog.LogRecordKafka{
+				APIVersion:    req.GetVersion(),
+				APIKey:        apiKeyToString(req.GetAPIKey()),
+				CorrelationID: req.GetCorrelationID(),
+			},
+			NodeAddressInfo: accesslog.NodeAddressInfo{
+				IPv4: node.GetExternalIPv4().String(),
+				IPv6: node.GetIPv6().String(),
+			},
+			TransportProtocol: 6, // TCP's IANA-assigned protocol number
+		},
 	}
 
-	if k.ingress {
+	if k.IsIngress() {
 		record.ObservationPoint = accesslog.Ingress
 	} else {
 		record.ObservationPoint = accesslog.Egress
 	}
 
+	return record
+}
+
+func (l *kafkaLogRecord) fillInfo(r Redirect, srcIPPort, dstIPPort string, srcIdentity uint32) {
+	fillInfo(r, &l.LogRecord, srcIPPort, dstIPPort, srcIdentity)
+}
+
+// log Kafka log records
+func (l *kafkaLogRecord) log(typ accesslog.FlowType, verdict accesslog.FlowVerdict, code int, info string) {
+	l.Type = typ
+	l.Verdict = verdict
+	l.Kafka.ErrorCode = code
+	l.Info = info
+	l.Timestamp = time.Now().UTC().Format(time.RFC3339Nano)
+
+	log.WithFields(log.Fields{
+		accesslog.FieldType:               l.Type,
+		accesslog.FieldVerdict:            l.Verdict,
+		accesslog.FieldCode:               l.Kafka.ErrorCode,
+		accesslog.FieldKafkaAPIKey:        l.Kafka.APIKey,
+		accesslog.FieldKafkaAPIVersion:    l.Kafka.APIVersion,
+		accesslog.FieldKafkaCorrelationID: l.Kafka.CorrelationID,
+	}).Debug("Logging Kafka L7 flow record")
+
+	//
+	// Log multiple entries for multiple Kafka topics in a single
+	// request. GH #1815
+	//
+
+	topics := l.req.GetTopics()
+	for i := 0; i < len(topics); i++ {
+		l.Kafka.Topic.Topic = topics[i]
+		l.Log()
+	}
+}
+
+func (k *kafkaRedirect) handleRequest(pair *connectionPair, req *kafka.RequestMessage) {
+	scopedLog := log.WithField(fieldID, pair.String())
+	scopedLog.WithField(logfields.Request, req.String()).Debug("Handling Kafka request")
+
+	record := k.newKafkaLogRecord(req)
+
 	addr := pair.rx.conn.RemoteAddr()
 	if addr == nil {
-		record.Info = fmt.Sprint("RemoteAddr() is nil")
-		log.Warn(record.Info)
-		accesslog.Log(record, accesslog.TypeRequest, accesslog.VerdictError,
-			kafka.ErrInvalidMessage, accesslog.L7TypeKafka)
+		info := fmt.Sprint("RemoteAddr() is nil")
+		scopedLog.Warn(info)
+		record.log(accesslog.TypeRequest, accesslog.VerdictError, kafka.ErrInvalidMessage, info)
 		return
 	}
 
@@ -204,38 +263,26 @@ func (k *kafkaRedirect) handleRequest(pair *connectionPair, req *kafka.RequestMe
 	if err != nil {
 		log.WithField("source",
 			addr.String()).WithError(err).Error("Unable lookup original destination")
-		record.Info = fmt.Sprintf("Unable lookup original destination: %s", err)
-		accesslog.Log(record, accesslog.TypeRequest, accesslog.VerdictError,
-			kafka.ErrInvalidMessage, accesslog.L7TypeKafka)
+		record.log(accesslog.TypeRequest, accesslog.VerdictError, kafka.ErrInvalidMessage,
+			fmt.Sprintf("Unable lookup original destination: %s", err))
 		return
 	}
 
-	info, version := getSourceInfo(addr.String(),
-		policy.NumericIdentity(srcIdentity), k.ingress, k)
-	record.SourceEndpoint = info
-	record.IPVersion = version
-
-	if srcIdentity != 0 {
-		record.SourceEndpoint.Identity = uint64(srcIdentity)
-	}
-
-	record.DestinationEndpoint = getDestinationInfo(dstIPPort, k.ingress, k)
+	record.fillInfo(k, addr.String(), dstIPPort, srcIdentity)
 
 	if !k.canAccess(req, policy.NumericIdentity(srcIdentity)) {
 		log.WithFields(log.Fields{
 			fieldID: pair.String(),
 		}).Debug("Kafka request is denied by policy")
 
-		record.Info = fmt.Sprint("Kafka request is denied by policy")
-		accesslog.Log(record, accesslog.TypeRequest, accesslog.VerdictDenied,
-			kafka.ErrTopicAuthorizationFailed, accesslog.L7TypeKafka)
+		record.log(accesslog.TypeRequest, accesslog.VerdictDenied,
+			kafka.ErrTopicAuthorizationFailed, fmt.Sprint("Kafka request is denied by policy"))
 
 		resp, err := req.CreateResponse(proto.ErrTopicAuthorizationFailed)
 		if err != nil {
-			log.WithError(err).Error("Unable to create response message")
-			record.Info = fmt.Sprintf("Unable to create response message: %s", err)
-			accesslog.Log(record, accesslog.TypeRequest, accesslog.VerdictError,
-				kafka.ErrInvalidMessage, accesslog.L7TypeKafka)
+			scopedLog.WithError(err).Error("Unable to create response message")
+			record.log(accesslog.TypeRequest, accesslog.VerdictError,
+				kafka.ErrInvalidMessage, fmt.Sprintf("Unable to create response message: %s", err))
 			return
 		}
 
@@ -272,9 +319,7 @@ func (k *kafkaRedirect) handleRequest(pair *connectionPair, req *kafka.RequestMe
 
 	log.Debug("Forwarding Kafka request")
 	// log valid request
-	record.Timestamp = time.Now().UTC().Format(time.RFC3339Nano)
-	accesslog.Log(record, accesslog.TypeRequest, accesslog.VerdictForwarded,
-		kafka.ErrNone, accesslog.L7TypeKafka)
+	record.log(accesslog.TypeRequest, accesslog.VerdictForwarded, kafka.ErrNone, "")
 
 	// Write the entire raw request onto the outgoing connection
 	pair.tx.Enqueue(req.GetRaw())
@@ -283,7 +328,7 @@ func (k *kafkaRedirect) handleRequest(pair *connectionPair, req *kafka.RequestMe
 type kafkaMessageHander func(pair *connectionPair, req *kafka.RequestMessage)
 
 func handleConnection(pair *connectionPair, c *proxyConnection,
-	record *accesslog.LogRecord, handler kafkaMessageHander) {
+	record *kafkaLogRecord, handler kafkaMessageHander) {
 	for {
 		req, err := kafka.ReadRequest(c.conn)
 		if err != nil {
@@ -293,9 +338,8 @@ func handleConnection(pair *connectionPair, c *proxyConnection,
 			}
 
 			if record != nil {
-				record.Info = fmt.Sprintf("Unable to parse Kafka request: %s", err)
-				accesslog.Log(record, accesslog.TypeRequest, accesslog.VerdictError,
-					kafka.ErrInvalidMessage, accesslog.L7TypeKafka)
+				record.log(accesslog.TypeRequest, accesslog.VerdictError,
+					kafka.ErrInvalidMessage, fmt.Sprintf("Unable to parse Kafka request: %s", err))
 			}
 
 			log.WithError(err).Error("Unable to parse Kafka request")
@@ -315,8 +359,7 @@ func (k *kafkaRedirect) handleRequestConnection(pair *connectionPair) {
 	handleConnection(pair, pair.rx, nil, k.handleRequest)
 }
 
-func (k *kafkaRedirect) handleResponseConnection(pair *connectionPair,
-	record *accesslog.LogRecord) {
+func (k *kafkaRedirect) handleResponseConnection(pair *connectionPair, record *kafkaLogRecord) {
 	log.WithFields(log.Fields{
 		"from": pair.tx,
 		"to":   pair.rx,
@@ -327,9 +370,7 @@ func (k *kafkaRedirect) handleResponseConnection(pair *connectionPair,
 	})
 
 	// log valid response
-	record.Timestamp = time.Now().UTC().Format(time.RFC3339Nano)
-	accesslog.Log(record, accesslog.TypeResponse, accesslog.VerdictForwarded,
-		kafka.ErrNone, accesslog.L7TypeKafka)
+	record.log(accesslog.TypeResponse, accesslog.VerdictForwarded, kafka.ErrNone, "")
 }
 
 // UpdateRules replaces old l7 rules of a redirect with new ones.
