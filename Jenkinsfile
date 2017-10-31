@@ -1,6 +1,6 @@
 pipeline {
     agent {
-                label 'ginkgo-parallel'
+        label 'ginkgo-parallel'
     }
     environment {
         PROJ_PATH = "src/github.com/cilium/cilium"
@@ -22,7 +22,7 @@ pipeline {
                 checkout scm
             }
         }
-        /*stage('UnitTesting') {
+        stage('UnitTesting') {
             environment {
                 GOPATH="${WORKSPACE}"
                 TESTDIR="${WORKSPACE}/${PROJ_PATH}/"
@@ -30,11 +30,8 @@ pipeline {
             steps {
                 sh "cd ${TESTDIR}; make tests-ginkgo"
             }
-        }*/
+        }
         stage('BDD-Test') {
-            agent {
-                label 'ginkgo-parallel'
-            }
             environment {
                 GOPATH="${WORKSPACE}"
                 TESTDIR="${WORKSPACE}/${PROJ_PATH}/test"
@@ -65,7 +62,7 @@ pipeline {
             post {
                 always {
                     // Ginkgo test logs
-                    junit 'test/*.xml'
+                    junit 'test/*.xml' || true
                     sh 'cd test/; vagrant destroy -f'
                     sh 'cd test/; K8S_VERSION=1.6 vagrant destroy -f'
                     // Bash test logs
