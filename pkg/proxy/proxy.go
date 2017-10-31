@@ -25,7 +25,7 @@ import (
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logfields"
-	"github.com/cilium/cilium/pkg/nodeaddress"
+	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/proxy/accesslog"
 
@@ -252,12 +252,12 @@ func egressDestinationInfo(ipstr string, info *accesslog.EndpointInfo) {
 		if ip.To4() != nil {
 			info.IPv4 = ip.String()
 
-			if nodeaddress.IsHostIPv4(ip) {
+			if node.IsHostIPv4(ip) {
 				fillReservedIdentity(info, policy.ReservedIdentityHost)
 				return
 			}
 
-			if nodeaddress.GetIPv4ClusterRange().Contains(ip) {
+			if node.GetIPv4ClusterRange().Contains(ip) {
 				c := addressing.DeriveCiliumIPv4(ip)
 				ep := endpointmanager.LookupIPv4(c.String())
 				if ep != nil {
@@ -276,12 +276,12 @@ func egressDestinationInfo(ipstr string, info *accesslog.EndpointInfo) {
 		} else {
 			info.IPv6 = ip.String()
 
-			if nodeaddress.IsHostIPv6(ip) {
+			if node.IsHostIPv6(ip) {
 				fillReservedIdentity(info, policy.ReservedIdentityHost)
 				return
 			}
 
-			if nodeaddress.GetIPv6ClusterRange().Contains(ip) {
+			if node.GetIPv6ClusterRange().Contains(ip) {
 				c := addressing.DeriveCiliumIPv6(ip)
 				id := c.EndpointID()
 				info.ID = uint64(id)
