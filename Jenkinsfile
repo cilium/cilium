@@ -1,7 +1,4 @@
 pipeline {
-    agent {
-        label 'ginkgo-parallel'
-    }
     environment {
         PROJ_PATH = "src/github.com/cilium/cilium"
         MEMORY = '4096'
@@ -22,7 +19,10 @@ pipeline {
                 checkout scm
             }
         }
-        stage('UnitTesting') {
+        /*stage('UnitTesting') {
+            agent {
+                label 'ginkgo-parallel'
+            }
             environment {
                 GOPATH="${WORKSPACE}"
                 TESTDIR="${WORKSPACE}/${PROJ_PATH}/"
@@ -30,8 +30,11 @@ pipeline {
             steps {
                 sh "cd ${TESTDIR}; make tests-ginkgo"
             }
-        }
+        }*/
         stage('BDD-Test') {
+            agent {
+                label 'ginkgo-parallel'
+            }
             environment {
                 GOPATH="${WORKSPACE}"
                 TESTDIR="${WORKSPACE}/${PROJ_PATH}/test"
