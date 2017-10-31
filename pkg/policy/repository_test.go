@@ -410,6 +410,7 @@ func (ds *PolicyTestSuite) TestPolicyTrace(c *C) {
 1/1 rules selected
 Found allow rule
 Label verdict: allowed
+L4 ingress & egress policies skipped
 `
 	ctx := buildSearchCtx("foo", "bar", 0)
 	repo.checkTrace(c, ctx, expectedOut, api.Allowed)
