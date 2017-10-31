@@ -102,8 +102,8 @@ var _ = Describe("RuntimeConnectivityTest", func() {
 		Expect(res.WasSuccessful()).Should(BeTrue())
 
 		By("Ping from host to server")
-		ping := docker.Node.Execute(fmt.Sprintf("ping -c 4 %s", serverIP), nil, nil)
-		Expect(ping).Should(BeTrue())
+		res = docker.Node.Exec(fmt.Sprintf("ping -c 4 %s", serverIP))
+		Expect(res.WasSuccessful()).Should(BeTrue())
 	}, 300)
 
 	It("Test containers NAT46 connectivity ", func() {
@@ -203,12 +203,12 @@ var _ = Describe("RunConntrackTest", func() {
 			"Client can't netperf to server %s", srvIP["IPv4"]))
 
 		By("Ping from host to server IPv6")
-		ping := docker.Node.Execute(fmt.Sprintf("ping6 -c 4 %s", srvIP["IPv6"]), nil, nil)
-		Expect(ping).Should(BeTrue(), "Host Can't ping to server")
+		res = docker.Node.Exec(fmt.Sprintf("ping6 -c 4 %s", srvIP["IPv6"]))
+		Expect(res.WasSuccessful()).Should(BeTrue(), "Host Can't ping to server")
 
 		By("Ping from host to server IPv4")
-		ping = docker.Node.Execute(fmt.Sprintf("ping -c 4 %s", srvIP["IPv4"]), nil, nil)
-		Expect(ping).Should(BeTrue(), "Host can't ping to server")
+		res = docker.Node.Exec(fmt.Sprintf("ping -c 4 %s", srvIP["IPv4"]))
+		Expect(res.WasSuccessful()).Should(BeTrue(), "Host can't ping to server")
 
 		By("Ping from server to client IPv6")
 		res = docker.ContainerExec("server", fmt.Sprintf("ping6 -c 4 %s", cliIP["IPv6"]))
