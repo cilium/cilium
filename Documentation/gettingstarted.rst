@@ -626,10 +626,11 @@ it using the ``cilium`` CLI client. Check the status of the agent by running
 ::
 
     $ cilium status
-    KVStore:            Ok
+    KVStore:            Ok         Consul: 172.18.0.2:8300
     ContainerRuntime:   Ok
     Kubernetes:         Disabled
-    Cilium:             Ok
+    Cilium:             Ok         OK
+    NodeMonitor:        Listening for events on 1 CPUs with 64x4096 of shared memory
 
 The status indicates that all components are operational with the Kubernetes
 integration currently being disabled.
@@ -721,6 +722,7 @@ policy by running:
 ::
 
   $ cilium policy import l3_l4_policy.json
+  Revision: 1
 
 
 Step 8: Test L3/L4 Policy
@@ -828,11 +830,22 @@ import this policy to Cilium by running:
 ::
 
   $ cilium policy delete --all
+  Revision: 2
   $ cilium policy import l7_aware_policy.json
+  Revision: 3
 
 ::
 
     $ docker run --rm -ti --net cilium-net -l "id=app2" cilium/demo-client curl -si 'http://app1/public'
+    HTTP/1.1 200 OK
+    Accept-Ranges: bytes
+    Content-Length: 28
+    Date: Tue, 31 Oct 2017 14:30:56 GMT
+    Etag: "1c-54bb868cec400"
+    Last-Modified: Mon, 27 Mar 2017 15:58:08 GMT
+    Server: Apache/2.4.25 (Unix)
+    Content-Type: text/plain; charset=utf-8
+
     { 'val': 'this is public' }
 
 and
@@ -840,6 +853,12 @@ and
 ::
 
     $ docker run --rm -ti --net cilium-net -l "id=app2" cilium/demo-client curl -si 'http://app1/private'
+    HTTP/1.1 403 Forbidden
+    Content-Type: text/plain; charset=utf-8
+    X-Content-Type-Options: nosniff
+    Date: Tue, 31 Oct 2017 14:31:09 GMT
+    Content-Length: 14
+    
     Access denied
 
 As you can see, with Cilium L7 security policies, we are able to permit
