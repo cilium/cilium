@@ -160,7 +160,8 @@ func (n *EndpointSelector) Matches(lblsToMatch k8sLbls.Labels) bool {
 		// FIXME: Omit this error or throw it to the caller?
 		// We are doing the verification in the ParseEndpointSelector but
 		// don't make sure the user can modify the current labels.
-		log.WithError(err).WithField(logfields.EndpointLabelSelector, logfields.Repr(n)).Error("unable to match label selector in selector")
+		log.WithError(err).WithField(logfields.EndpointLabelSelector,
+			logfields.Repr(n)).Error("unable to match label selector in selector")
 		return false
 	}
 
