@@ -45,9 +45,9 @@ pipeline {
                     "K8s-1.7":{
                         sh 'cd ${TESTDIR}; K8S_VERSION=1.7 ginkgo --focus="K8s*" -v -noColor'
                     },
-                    "K8s-1.6":{
-                        sh 'cd ${TESTDIR}; K8S_VERSION=1.6 ginkgo --focus="K8s*" -v -noColor'
-                    },
+                    //"K8s-1.6":{
+                    //    sh 'cd ${TESTDIR}; K8S_VERSION=1.6 ginkgo --focus="K8s*" -v -noColor'
+                    //},
                     "Runtime Tests": {
                          // Make sure that VMs from prior runs are cleaned up in case something went wrong in a prior build.
                          sh 'vagrant destroy -f || true'
@@ -63,7 +63,7 @@ pipeline {
                 always {
                     // Ginkgo test logs
                     junit 'test/*.xml' || true
-                    sh 'cd test/; vagrant destroy -f'
+                    sh 'cd test/; K8S_VERSION=1.7 vagrant destroy -f'
                     sh 'cd test/; K8S_VERSION=1.6 vagrant destroy -f'
                     // Bash test logs
                     sh './tests/copy_files || true'
