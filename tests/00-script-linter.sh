@@ -25,6 +25,7 @@ function check_flags_set
 {
   if grep -RL --include=\*.sh "set -.*e.*x" * | \
     grep -v "00-script-linter" | \
+    grep -v "00-fmt" | \
     grep -v "start.sh" | \
     grep -v "helpers.bash" | \
     grep -v "cilium-files" | \
