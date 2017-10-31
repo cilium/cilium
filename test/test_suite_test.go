@@ -18,8 +18,10 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"time"
 
 	. "github.com/onsi/ginkgo"
+	ginkgoconfig "github.com/onsi/ginkgo/config"
 	"github.com/onsi/ginkgo/reporters"
 	. "github.com/onsi/gomega"
 
@@ -62,8 +64,44 @@ func TestTest(t *testing.T) {
 		t, ginkgoext.GetScopeWithVersion(), []Reporter{junitReporter})
 }
 
+func goReportVagrantStatus() chan bool {
+	if ginkgoconfig.DefaultReporterConfig.Verbose ||
+		ginkgoconfig.DefaultReporterConfig.Succinct {
+		// Dev told us they want more/less information than default. Skip.
+		return nil
+	}
+
+	exit := make(chan bool)
+	go func() {
+		done := false
+		iter := 0
+		for {
+			var out string
+
+			select {
+			case ok := <-exit:
+				if ok {
+					out = "●\n"
+				} else {
+					out = "◌\n"
+				}
+				done = true
+			default:
+				out = string(rune(int('◜') + iter%4))
+			}
+			fmt.Printf("\rSpinning up vagrant VMs... %s", out)
+			if done {
+				return
+			}
+			time.Sleep(250 * time.Millisecond)
+			iter++
+		}
+	}()
+	return exit
+}
+
 var _ = BeforeSuite(func() {
-	scope := ginkgoext.GetScope()
+	var err error
 
 	if !reprovision {
 		// The developer has explicitly told us that they don't care
@@ -71,9 +109,12 @@ var _ = BeforeSuite(func() {
 		return
 	}
 
-	switch scope {
+	progressChan := goReportVagrantStatus()
+	defer func() { progressChan <- err == nil }()
+
+	switch ginkgoext.GetScope() {
 	case "runtime":
-		err := vagrant.Create("runtime")
+		err = vagrant.Create("runtime")
 		if err != nil {
 			Fail(fmt.Sprintf("Vagrant could not start correctly: %s", err))
 		}
@@ -90,7 +131,7 @@ var _ = BeforeSuite(func() {
 		// When finish, start to build cilium in background
 		// Start k8s2
 		// Wait until compilation finished, and pull cilium image on k8s2
-		err := vagrant.Create(fmt.Sprintf("k8s1-%s", helpers.GetCurrentK8SEnv()))
+		err = vagrant.Create(fmt.Sprintf("k8s1-%s", helpers.GetCurrentK8SEnv()))
 		if err != nil {
 			Fail(fmt.Sprintf("Vagrant k8s1 could not started correctly: %s", err))
 		}
