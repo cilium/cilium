@@ -21,7 +21,7 @@
 #include <bpf_features.h>
 #include <bpf/api.h>
 #include <linux/ipv6.h>
-#include <linux/in.h>
+#include <netinet/in.h>
 #include <stdint.h>
 #include <stdbool.h>
 
