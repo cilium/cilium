@@ -4,11 +4,16 @@
 $BUILD_NUMBER = ENV['BUILD_NUMBER'] || "0"
 $JOB_NAME = ENV['JOB_BASE_NAME'] || "LOCAL"
 $K8S_VERSION = ENV['K8S_VERSION'] || "1.7"
+$BUILD_ID = "#{$JOB_NAME}-#{$BUILD_NUMBER}"
+
 
 ENV["VAGRANT_DEFAULT_PROVIDER"] = "virtualbox"
 Vagrant.configure("2") do |config|
 
     config.vm.define "runtime" do |server|
+        server.vm.network "private_network", ip: "192.168.33.11",
+            virtualbox__intnet: "cilium-ginkgo-runtime-#{$BUILD_ID}"
+
         server.vm.provider "virtualbox" do |vb|
             vb.customize ["modifyvm", :id, "--hwvirtex", "on"]
             vb.cpus = 2
