@@ -229,6 +229,7 @@ func (p *Repository) AllowsRLocked(ctx *SearchContext) api.Decision {
 	decision := p.CanReachRLocked(ctx)
 	ctx.PolicyTrace("Label verdict: %s", decision.String())
 	if decision == api.Allowed {
+		ctx.PolicyTrace("L4 ingress & egress policies skipped")
 		return decision
 	}
 
