@@ -23,7 +23,6 @@ import (
 
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logfields"
-	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/proxy/accesslog"
@@ -36,13 +35,12 @@ import (
 
 // OxyRedirect implements the Redirect interface for a l7 proxy
 type OxyRedirect struct {
-	id       string
-	toPort   uint16
-	epID     uint64
-	source   ProxySource
-	server   *manners.GracefulServer
-	ingress  bool
-	nodeInfo accesslog.NodeAddressInfo
+	id      string
+	toPort  uint16
+	epID    uint64
+	source  ProxySource
+	server  *manners.GracefulServer
+	ingress bool
 
 	mutex  lock.RWMutex // protecting the fields below
 	rules  []string
@@ -52,6 +50,10 @@ type OxyRedirect struct {
 // ToPort returns the redirect port of an OxyRedirect
 func (r *OxyRedirect) ToPort() uint16 {
 	return r.toPort
+}
+
+func (r *OxyRedirect) IsIngress() bool {
+	return r.ingress
 }
 
 func (r *OxyRedirect) updateRules(rules []string) {
@@ -134,8 +136,8 @@ func translateOxyPolicyRules(l4 *policy.L4Filter) ([]string, error) {
 	return l7rules, nil
 }
 
-func generateURL(req *http.Request, hostport string) *url.URL {
-	newURL := *req.URL
+func generateURL(url *url.URL, hostport string) *url.URL {
+	newURL := *url
 	newURL.Scheme = "http"
 	newURL.Host = hostport
 
@@ -144,6 +146,7 @@ func generateURL(req *http.Request, hostport string) *url.URL {
 
 // createOxyRedirect creates a redirect with corresponding proxy
 // configuration. This will launch a proxy instance.
+// Called with the source/endpoint and consumable locked!
 func createOxyRedirect(l4 *policy.L4Filter, id string, source ProxySource, to uint16) (Redirect, error) {
 	for _, ep := range l4.L7RulesPerEp {
 		if len(ep.Kafka) > 0 {
@@ -181,51 +184,26 @@ func createOxyRedirect(l4 *policy.L4Filter, id string, source ProxySource, to ui
 		source:  source,
 		router:  route.New(),
 		ingress: l4.Ingress,
-		nodeInfo: accesslog.NodeAddressInfo{
-			IPv4: node.GetExternalIPv4().String(),
-			IPv6: node.GetIPv6().String(),
-		},
 	}
 
 	redir.epID = source.GetID()
 
 	redirect := http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-		record := &accesslog.LogRecord{
-			HTTPRequest:       req,
-			Timestamp:         time.Now().UTC().Format(time.RFC3339Nano),
-			NodeAddressInfo:   redir.nodeInfo,
-			TransportProtocol: 6, // TCP's IANA-assigned protocol number
-		}
+		record := newHTTPLogRecord(redir, req.Method, req.URL, req.Proto, req.Header)
 
-		if redir.ingress {
-			record.ObservationPoint = accesslog.Ingress
-		} else {
-			record.ObservationPoint = accesslog.Egress
-		}
-
-		srcIdentity, dstIPPort, err := lookupNewDestFromHttp(req, to)
+		srcIdentity, dstIPPort, err := lookupNewDest(req.RemoteAddr, to)
 		if err != nil {
 			// FIXME: What do we do here long term?
 			log.WithError(err).Error("cannot generate redirect destination url")
 			http.Error(w, err.Error(), http.StatusBadRequest)
-			record.Info = fmt.Sprintf("cannot generate url: %s", err)
-			accesslog.Log(record, accesslog.TypeRequest, accesslog.VerdictError,
-				http.StatusBadRequest, accesslog.L7TypeHTTP)
+			record.log(accesslog.TypeRequest, accesslog.VerdictError,
+				http.StatusBadRequest, fmt.Sprintf("cannot generate url: %s", err))
 			return
 		}
 
-		info, version := getSourceInfo(req.RemoteAddr,
-			policy.NumericIdentity(srcIdentity), redir.ingress, redir)
-		record.SourceEndpoint = info
-		record.IPVersion = version
+		record.fillInfo(redir, req.RemoteAddr, dstIPPort, srcIdentity)
 
-		if srcIdentity != 0 {
-			record.SourceEndpoint.Identity = uint64(srcIdentity)
-		}
-
-		record.DestinationEndpoint = getDestinationInfo(dstIPPort,
-			redir.ingress, redir)
-
+		var info string
 		// Validate access to L4/L7 resource
 		redir.mutex.Lock()
 		if len(redir.rules) > 0 {
@@ -233,38 +211,35 @@ func createOxyRedirect(l4 *policy.L4Filter, id string, source ProxySource, to ui
 			if rule == nil {
 				http.Error(w, "Access denied", http.StatusForbidden)
 				redir.mutex.Unlock()
-				accesslog.Log(record, accesslog.TypeRequest, accesslog.VerdictDenied,
-					http.StatusForbidden, accesslog.L7TypeHTTP)
+				record.log(accesslog.TypeRequest, accesslog.VerdictDenied,
+					http.StatusForbidden, "")
 				return
 			}
 			ar := rule.(string)
 			log.WithField(logfields.Object,
 				logfields.Repr(ar)).Debug("Allowing request based on rule")
-			record.Info = fmt.Sprintf("rule: %+v", ar)
+			info = fmt.Sprintf("rule: %+v", ar)
 		} else {
 			log.Debug("Allowing request as there are no rules")
 		}
 		redir.mutex.Unlock()
 
 		// Reconstruct original URL used for the request
-		req.URL = generateURL(req, dstIPPort)
+		req.URL = generateURL(req.URL, dstIPPort)
 
 		// log valid request
-		accesslog.Log(record, accesslog.TypeRequest, accesslog.VerdictForwarded,
-			http.StatusOK, accesslog.L7TypeHTTP)
+		record.log(accesslog.TypeRequest, accesslog.VerdictForwarded, http.StatusOK, info)
 
 		ctx := req.Context()
 		if ctx != nil {
-			marker := GetMagicMark(redir.ingress) | int(record.SourceEndpoint.Identity)
+			marker := GetMagicMark(redir.ingress) | int(srcIdentity)
 			req = req.WithContext(newIdentityContext(ctx, marker))
 		}
 
 		fwd.ServeHTTP(w, req)
 
 		// log valid response
-		record.Timestamp = time.Now().UTC().Format(time.RFC3339Nano)
-		accesslog.Log(record, accesslog.TypeResponse, accesslog.VerdictForwarded,
-			http.StatusOK, accesslog.L7TypeHTTP)
+		record.log(accesslog.TypeResponse, accesslog.VerdictForwarded, http.StatusOK, info)
 	})
 
 	redir.server = manners.NewWithServer(&http.Server{

@@ -18,7 +18,6 @@ import (
 	"context"
 	"fmt"
 	"net"
-	"net/http"
 	"os"
 	"strconv"
 	"sync/atomic"
@@ -307,10 +306,6 @@ func (p *connectionPair) queueClose() {
 
 func (p *connectionPair) CloseRx() {
 	p.rx.conn.Close()
-}
-
-func lookupNewDestFromHttp(req *http.Request, dport uint16) (uint32, string, error) {
-	return lookupNewDest(req.RemoteAddr, dport)
 }
 
 func lookupNewDest(remoteAddr string, dport uint16) (uint32, string, error) {
