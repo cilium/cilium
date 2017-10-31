@@ -15,6 +15,7 @@
 package ciliumTest
 
 import (
+	"flag"
 	"fmt"
 	"os"
 
@@ -33,7 +34,10 @@ var DefaultSettings map[string]string = map[string]string{
 	"K8S_VERSION": "1.7",
 }
 
-var vagrant helpers.Vagrant
+var (
+	vagrant     helpers.Vagrant
+	reprovision bool
+)
 
 func init() {
 	log.SetOutput(GinkgoWriter)
@@ -45,6 +49,9 @@ func init() {
 	for k, v := range DefaultSettings {
 		getOrSetEnvVar(k, v)
 	}
+
+	flag.BoolVar(&reprovision, "cilium.provision", true,
+		"Provision Vagrant boxes and Cilium before running test")
 }
 
 func TestTest(t *testing.T) {
@@ -57,6 +64,13 @@ func TestTest(t *testing.T) {
 
 var _ = BeforeSuite(func() {
 	scope := ginkgoext.GetScope()
+
+	if !reprovision {
+		// The developer has explicitly told us that they don't care
+		// about updating Cilium inside the guest, so skip setup below.
+		return
+	}
+
 	switch scope {
 	case "runtime":
 		err := vagrant.Create("runtime")
