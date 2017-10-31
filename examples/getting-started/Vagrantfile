@@ -36,7 +36,7 @@ sudo -E docker-compose up -d --remove-orphans
 SCRIPT
 
 Vagrant.configure(2) do |config|
-    config.vm.box = "bento/ubuntu-16.10"
+    config.vm.box = "bento/ubuntu-17.04"
 
     # http://foo-o-rama.com/vagrant--stdin-is-not-a-tty--fix.html
     config.vm.provision "fix-no-tty", type: "shell" do |s|
