@@ -1,4 +1,7 @@
 pipeline {
+    agent {
+                label 'ginkgo-parallel'
+    }
     environment {
         PROJ_PATH = "src/github.com/cilium/cilium"
         MEMORY = '4096'
@@ -20,9 +23,6 @@ pipeline {
             }
         }
         /*stage('UnitTesting') {
-            agent {
-                label 'ginkgo-parallel'
-            }
             environment {
                 GOPATH="${WORKSPACE}"
                 TESTDIR="${WORKSPACE}/${PROJ_PATH}/"
