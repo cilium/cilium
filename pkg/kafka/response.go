@@ -19,6 +19,7 @@ import (
 	"fmt"
 
 	"github.com/optiopay/kafka/proto"
+	"io"
 )
 
 // ResponseMessage represents a Kafka response message.
@@ -39,6 +40,25 @@ func (res *ResponseMessage) String() string {
 		return err.Error()
 	}
 	return string(b)
+}
+
+// ReadResponse will read a Kafka response from an io.Reader and return the
+// message or an error.
+func ReadResponse(reader io.Reader) (*ResponseMessage, error) {
+	rsp := &ResponseMessage{}
+	var err error
+
+	_, rsp.rawMsg, err = proto.ReadResp(reader)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(rsp.rawMsg) < 6 {
+		return nil,
+			fmt.Errorf("unexpected end of response (length < 6 bytes)")
+	}
+
+	return rsp, nil
 }
 
 func createProduceResponse(req *proto.ProduceReq, err error) (*ResponseMessage, error) {
