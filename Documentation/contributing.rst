@@ -210,8 +210,22 @@ commands, respectively:
     $ service cilium status
     $ cilium status
 
+.. _testsuite:
+
 Testsuite
 ~~~~~~~~~
+
+.. Warning::
+
+  Running the testsuite will modify the host environment. If you are using the
+  default VM that might not be an issue, but if you are running bare-metal or a
+  different VM the tests might fail or worst case remove possibly important
+  configuration. Specifically, they are modifying the state and configuration of
+  the system including, changes to ``iptables`` configuration, kernel
+  configuration via ``sysctl``, adding and removing networking devices, routes,
+  etc. via ``iproute2``. Please note this is not meant to be a complete summary,
+  but a heads-up if you are planning to run the testsuite somewhere else than in
+  the developer VM.
 
 After the new version of Cilium is running, you should run the runtime tests:
 
@@ -325,7 +339,7 @@ requirements have been met:
   and details of the change.
 * You have added unit and/or runtime tests where feasible.
 * You have tested the changes and checked for regressions by running
-  the existing testsuite against your changes. See the "Testsuite"
+  the existing testsuite against your changes. See the :ref:`testsuite`
   section for additional details.
 * You have signed off on your commits, see the section "Developer's
   Certificate of Origin" for more details.
