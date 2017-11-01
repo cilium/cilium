@@ -18,7 +18,7 @@
 #define _LINUX_IP_H
 
 #include <linux/type_mapper.h>
-#include <linux/in.h>
+#include <netinet/in.h>
 
 #define IPTOS_TOS_MASK		0x1E
 #define IPTOS_TOS(tos)		((tos)&IPTOS_TOS_MASK)
