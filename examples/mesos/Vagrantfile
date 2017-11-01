@@ -62,7 +62,7 @@ echo "Deploying Vagrant VM + Cilium + Mesos...done"
 SCRIPT
 
 Vagrant.configure(2) do |config|
-  config.vm.box = "bento/ubuntu-16.10"
+  config.vm.box = "bento/ubuntu-17.04"
   config.vm.provision "file", source: "./allfiles.tar.gz", destination: "./allfiles.tar.gz"
   config.vm.provision "bootstrap", type: "shell", inline: $bootstrap
   config.vm.network "forwarded_port", guest: 8080, host: 8080
