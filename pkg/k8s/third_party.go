@@ -222,6 +222,13 @@ func (r *CiliumNetworkPolicy) Parse() (api.Rules, error) {
 	return retRules, nil
 }
 
+// DeepCopy will return the same receiver of the DeepCopy function.
+// Deprecated
+func (cnp *CiliumNetworkPolicy) DeepCopy() *CiliumNetworkPolicy {
+	// FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME
+	return cnp
+}
+
 // CiliumNetworkPolicyList is a list of CiliumNetworkPolicy objects
 type CiliumNetworkPolicyList struct {
 	metav1.TypeMeta `json:",inline"`
