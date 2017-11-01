@@ -62,6 +62,9 @@ for more details, see the [Developer / Contributor Guide](http://docs.cilium.io/
   * Address any feedback received from the reviewers
   * You can push individual commits to address feedback and then rebase your
     branch at the end before merging.
+* Owners of the repository will automatically adjust the labels on the pull
+  request to track its state and progress towards merging. See [Use of GitHub
+  Labels](#use-of-github-labels) for more information.
 * Once the PR has been reviewed and the CI tests have passed, the PR will be
   merged by one of the repository owners. In case this does not happen, ping us
   on Slack.
@@ -98,3 +101,52 @@ first line.
     Fixes: #2222
 
     Signed-off-by: Jeanette Developer <jeanette.developer@corp.io>
+
+## Issue tracker
+
+All ongoing and future work as well as all bugs reports are managed via GitHub
+issues [GitHub issues](https://github.com/cilium/cilium/issues).
+
+If you are a user and are looking to report a bug or request a feature, then
+please refer to the [Issue template] directly.
+
+## Use of GitHub Labels
+
+* `area/*`: Describes the area of code that the issue/pull request affect. If
+  multiple areas area affected, all corresponding labels should be added.
+* `dont-merge/*`: A required condition for merging is unmet that requires
+  attention by the original pull request author.
+  * `dont-merge/needs-release-note`: The PR is significant and requires a
+    release note to be added to the body of the pull request.
+  * `dont-merge/needs-sign-off`: The commits in the pull request need to be
+    signed off, please see [Developer’s Certificate of Origin]
+* `good first issue`: This is a great issue to get started contributing to
+  Cilium.
+* `help wanted`: Looking for help to finish this pull request. This can refer
+  to feedback or help in form of contributions.
+* `kind/*`: Describes the kind of bug/pull request.
+  * `kind/bug`: This is a bug report or a pull request fixing a bug
+  * `kind/enhancement`: This is request for an enhacements or a pull request
+    implementing a feature.
+  * `kind/question`: This was a bug report or question that was resolved and
+    now is now part of the FAQ.
+* `need more info`: Additional information is required from the reporter before
+  progress can be made.
+* `needs/triage`: This is a bug report that has not been looked at yet.
+  Requires to be triaged.
+* `pending review`: The pull request is seeking for reviews by the code owners.
+* `priority/{high|medium|low}`: Current assessment of priority of this feature
+  or bug.
+* `project/*`: Special projects or initiatives that will affect many issues and
+  pull requests.
+  * `project/1.0-gap`: This issue has been identified as a gap to reach 1.0.
+* `release-note/{major|minor|bug}`: Include this pull request in the release
+  notes of the next release.
+* `requires doc change`: This pull request requires doc changes
+* `stable/backport`: This is a backport to the stable branch
+* `stable/needs-backport`: This pull request must be backported to stable
+* `stable/backport-done`: Backport has been done.
+* `wip`: Work in progress, do not review yet.
+
+[Developer’s Certificate of Origin]: http://docs.cilium.io/en/stable/contributing/#developer-s-certificate-of-origin
+[Issue template]: https://raw.githubusercontent.com/cilium/cilium/master/.github/issue_template.md
