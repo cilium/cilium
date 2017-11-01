@@ -372,8 +372,8 @@ type PortRuleHTTP struct {
 }
 
 // PortRuleKafka is a list of Kafka protocol constraints. All fields are
-// optional, if all fields are empty or missing, the rule does not have any
-// effect.
+// optional, if all fields are empty or missing, the rule will match all
+// Kafka messages.
 type PortRuleKafka struct {
 	// APIVersion is the version matched against the api version of the
 	// Kafka message. If set, it has to be a string representing a positive
@@ -404,15 +404,18 @@ type PortRuleKafka struct {
 	// reside on multiple servers). This id acts as a logical grouping
 	// across all requests from a particular client.
 	//
-	// If omitempty or empty, all client identifiers are allowed.
+	// If omitted or empty, all client identifiers are allowed.
 	//
 	// +optional
 	ClientID string `json:"clientID,omitempty"`
 
-	// Topic is a regex matched against the topic of the
-	// Kafka message. Ignored if the matched request message type doesn't
-	// contain any topic. Maximum size of Topic can be 249 characters as
-	// per recent Kafka spec and allowed characters are
+	// Topic is the topic name contained in the message. If a Kafka request
+	// contains multiple topics, then all topics must be allowed or the
+	// message will be rejected.
+	//
+	// This constraint is ignored if the matched request message type
+	// doesn't contain any topic. Maximum size of Topic can be 249
+	// characters as per recent Kafka spec and allowed characters are
 	// a-z, A-Z, 0-9, -, . and _
 	// Older Kafka versions had longer topic lengths of 255, but in Kafka 0.10
 	// version the length was changed from 255 to 249. For compatibility
