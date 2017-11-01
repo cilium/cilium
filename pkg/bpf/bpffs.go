@@ -21,6 +21,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"syscall"
 
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logfields"
@@ -112,8 +113,8 @@ func OpenAfterMount(m *Map) error {
 	return nil
 }
 
-//isBpffs check if the path is a valid bpf filesystem
-func isBpffs(path string) bool {
+//IsBpffs check if the path is a valid bpf filesystem
+func IsBpffs(path string) bool {
 	// This is the value of the BPF Filesystem. If is into the container the
 	// mountpoint doesn't provide enough information. Defined on uapi/linux/magic.h
 	magic := uint32(0xCAFE4A11)
@@ -210,7 +211,7 @@ func mountFS() error {
 		}
 
 	}
-	if !isBpffs(mapRoot) {
+	if !IsBpffs(mapRoot) {
 		// TODO currently on minikube isBpffs check is failing. We need to make the following log
 		// fatal again. This will be tracked in #Issue 1475
 		//log.WithField(logfields.Path, mapRoot).Fatal("BPF: path is not mounted as a BPF filesystem.")
@@ -236,4 +237,18 @@ func MountFS() {
 			log.WithError(err).Fatal("Unable to mount BPF filesystem")
 		}
 	})
+}
+
+// UnMountFS unmounts the BPF filesystem.
+func UnMountFS() error {
+	mountMutex.Lock()
+	defer mountMutex.Unlock()
+
+	if err := syscall.Unmount(GetMapRoot(), syscall.MNT_DETACH); err != nil {
+		return err
+	}
+
+	mounted = false
+
+	return nil
 }
