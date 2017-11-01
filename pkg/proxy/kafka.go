@@ -325,10 +325,11 @@ func (k *kafkaRedirect) handleRequest(pair *connectionPair, req *kafka.RequestMe
 	pair.tx.Enqueue(req.GetRaw())
 }
 
-type kafkaMessageHander func(pair *connectionPair, req *kafka.RequestMessage)
+type kafkaReqMessageHander func(pair *connectionPair, req *kafka.RequestMessage)
+type kafkaRespMessageHander func(pair *connectionPair, req *kafka.ResponseMessage)
 
-func handleConnection(pair *connectionPair, c *proxyConnection,
-	record *kafkaLogRecord, handler kafkaMessageHander) {
+func handleRequest(pair *connectionPair, c *proxyConnection,
+	record *kafkaLogRecord, handler kafkaReqMessageHander) {
 	for {
 		req, err := kafka.ReadRequest(c.conn)
 		if err != nil {
@@ -350,24 +351,51 @@ func handleConnection(pair *connectionPair, c *proxyConnection,
 	}
 }
 
+func handleResponse(pair *connectionPair, c *proxyConnection,
+	record *kafkaLogRecord, handler kafkaRespMessageHander) {
+	for {
+		rsp, err := kafka.ReadResponse(c.conn)
+		if err != nil {
+			if err == io.EOF || err == io.ErrUnexpectedEOF {
+				c.Close()
+				return
+			}
+
+			if record != nil {
+				record.log(accesslog.TypeResponse, accesslog.VerdictError,
+					kafka.ErrInvalidMessage,
+					fmt.Sprintf("Unable to parse Kafka response: %s", err))
+			}
+
+			log.WithError(err).Error("Unable to parse Kafka response")
+			continue
+		} else {
+			handler(pair, rsp)
+		}
+	}
+}
+
 func (k *kafkaRedirect) handleRequestConnection(pair *connectionPair) {
 	log.WithFields(log.Fields{
 		"from": pair.rx,
 		"to":   pair.tx,
 	}).Debug("Proxying request Kafka connection")
 
-	handleConnection(pair, pair.rx, nil, k.handleRequest)
+	handleRequest(pair, pair.rx, nil, k.handleRequest)
 }
 
-func (k *kafkaRedirect) handleResponseConnection(pair *connectionPair, record *kafkaLogRecord) {
+func (k *kafkaRedirect) handleResponseConnection(pair *connectionPair,
+	record *kafkaLogRecord) {
 	log.WithFields(log.Fields{
 		"from": pair.tx,
 		"to":   pair.rx,
 	}).Debug("Proxying response Kafka connection")
 
-	handleConnection(pair, pair.tx, record, func(pair *connectionPair, req *kafka.RequestMessage) {
-		pair.rx.Enqueue(req.GetRaw())
-	})
+	handleResponse(pair, pair.tx, record,
+		func(pair *connectionPair,
+			rsp *kafka.ResponseMessage) {
+			pair.rx.Enqueue(rsp.GetRaw())
+		})
 
 	// log valid response
 	record.log(accesslog.TypeResponse, accesslog.VerdictForwarded, kafka.ErrNone, "")
