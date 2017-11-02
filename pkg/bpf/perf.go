@@ -202,6 +202,8 @@ type PerfEvent struct {
 	data     []byte
 	// state is placed here to reduce memory allocations
 	state unsafe.Pointer
+	// buf is placed here to reduce memory allocations
+	buf [256]byte
 }
 
 // PerfEventHeader must match 'struct perf_event_header in <linux/perf_event.h>.
@@ -305,8 +307,6 @@ func (e *PerfEvent) Disable() error {
 }
 
 func (e *PerfEvent) Read(receive ReceiveFunc, lostFn LostFunc) {
-	buf := make([]byte, 256)
-
 	// Prepare for reading and check if events are available
 	available := C.perf_event_read_init(C.int(e.npages), C.int(e.pagesize),
 		unsafe.Pointer(&e.data[0]), unsafe.Pointer(e.state))
@@ -320,7 +320,7 @@ func (e *PerfEvent) Read(receive ReceiveFunc, lostFn LostFunc) {
 		var msg *PerfEventHeader
 
 		if ok := C.perf_event_read(unsafe.Pointer(e.state),
-			unsafe.Pointer(&buf[0]), unsafe.Pointer(&msg)); ok == 0 {
+			unsafe.Pointer(&e.buf[0]), unsafe.Pointer(&msg)); ok == 0 {
 			break
 		}
 
