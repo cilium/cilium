@@ -44,7 +44,7 @@ import (
 
 const (
 	// ExecTimeout is the execution timeout to use in join_ep.sh executions
-	ExecTimeout = 30 * time.Second
+	ExecTimeout = 60 * time.Second
 )
 
 func (e *Endpoint) writeL4Map(fw *bufio.Writer, owner Owner, m policy.L4PolicyMap, config string) error {
