@@ -521,6 +521,28 @@ var _ = Describe("RunPolicies", func() {
 		connectivityTest(httpRequestsPublic, "app2", "httpd1", BeFalse)
 	})
 
+	It("L4Policy Checks", func() {
+		_, err := cilium.PolicyImport(cilium.GetFullPath("Policies-l4-policy.json"), 300)
+		Expect(err).Should(BeNil())
+
+		for _, app := range []string{"app1", "app2"} {
+			connectivityTest(allRequests, app, "httpd1", BeFalse)
+			connectivityTest(pingRequests, app, "httpd2", BeFalse)
+			connectivityTest(httpRequestsPublic, app, "httpd2", BeTrue)
+		}
+
+		By("Disabling all the policies. All should work")
+
+		status := cilium.Exec("policy delete --all")
+		Expect(status.WasSuccessful()).Should(BeTrue())
+		cilium.EndpointWaitUntilReady()
+
+		for _, app := range []string{"app1", "app2"} {
+			connectivityTest(allRequests, app, "httpd1", BeTrue)
+			connectivityTest(allRequests, app, "httpd2", BeTrue)
+		}
+	})
+
 	It("L7 Checks", func() {
 
 		_, err := cilium.PolicyImport(cilium.GetFullPath("Policies-l7-simple.json"), 300)
