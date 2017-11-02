@@ -442,7 +442,7 @@ var _ = Describe("RunPolicies", func() {
 		// APP2 can't reach using TCP to HTTP2
 		connectivityTest([]string{"http", "http6"}, "app2", "httpd2", BeFalse)
 
-		// APP3 can reach using TCP HTTP2, but can't ping EGRESS
+		// APP3 can reach using TCP HTTP3, but can't ping EGRESS
 		connectivityTest([]string{"http", "http6"}, "app3", "httpd3", BeTrue)
 
 		By("Disabling all the policies. All should work")
