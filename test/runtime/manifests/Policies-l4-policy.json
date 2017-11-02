@@ -1,0 +1,27 @@
+[{
+    "endpointSelector": {
+        "matchLabels":{"id.httpd1":""}
+    },
+    "ingress": [{
+        "toPorts": [{
+            "ports": [
+                {"port": "80",   "protocol": "tcp"}
+            ]
+        }]
+    }]
+},
+{
+    "endpointSelector": {
+        "matchLabels":{"id.httpd2":""}
+    },
+    "ingress": [{
+        "fromEndpoints": [
+            {"matchLabels":{}}
+        ],
+        "toPorts": [{
+            "ports": [
+                {"port": "80",   "protocol": "tcp"}
+            ]
+        }]
+   }]
+}]
