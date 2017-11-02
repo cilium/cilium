@@ -167,5 +167,4 @@ texinfo_documents = [
      'Miscellaneous'),
 ]
 
-
-
+http_strict_mode = False
