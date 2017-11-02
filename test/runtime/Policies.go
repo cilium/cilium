@@ -390,12 +390,12 @@ var _ = Describe("RunPolicies", func() {
 			switch test {
 			case "ping":
 				By(title("Client '%s' pinging server '%s' IPv4"))
-				res := docker.ContainerExec(client, fmt.Sprintf("ping -c 4 %s", srvIP["IPv4"]))
+				res := docker.ContainerExec(client, fmt.Sprintf("ping -c 3 -W 2 %s", srvIP["IPv4"]))
 				ExpectWithOffset(1, res.WasSuccessful()).Should(assertFn(), fmt.Sprintf(
 					"Client '%s' can't ping to server '%s'", client, srvIP["IPv4"]))
 			case "ping6":
 				By(title("Client '%s' pinging server '%s' IPv6"))
-				res := docker.ContainerExec(client, fmt.Sprintf("ping6 -c 4 %s", srvIP["IPv6"]))
+				res := docker.ContainerExec(client, fmt.Sprintf("ping6 -c 3 -W 2 %s", srvIP["IPv6"]))
 				ExpectWithOffset(1, res.WasSuccessful()).Should(assertFn(), fmt.Sprintf(
 					"Client '%s' can't ping to server '%s'", client, srvIP["IPv6"]))
 			case "http":
