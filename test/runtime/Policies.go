@@ -424,7 +424,7 @@ var _ = Describe("RunPolicies", func() {
 			case "http6_private":
 				By(title("Client '%s' HttpReq to server '%s' private Ipv6"))
 				res := docker.ContainerExec(client, fmt.Sprintf(
-					"curl -s --fail --connect-timeout 3 http://%s:80/private", srvIP["IPv6"]))
+					"curl -s --fail --connect-timeout 3 http://[%s]:80/private", srvIP["IPv6"]))
 				ExpectWithOffset(1, res.WasSuccessful()).Should(assertFn(), fmt.Sprintf(
 					"Client '%s' can't curl to server '%s' private", client, srvIP["IPv6"]))
 			}
