@@ -200,6 +200,8 @@ type PerfEvent struct {
 	lost     uint64
 	unknown  uint64
 	data     []byte
+	// state is placed here to reduce memory allocations
+	state unsafe.Pointer
 }
 
 // PerfEventHeader must match 'struct perf_event_header in <linux/perf_event.h>.
@@ -286,7 +288,7 @@ func (e *PerfEvent) Enable() error {
 	if err := unix.IoctlSetInt(e.Fd, unix.PERF_EVENT_IOC_ENABLE, 0); err != nil {
 		return fmt.Errorf("Unable to enable perf event: %v", err)
 	}
-
+	e.state = C.malloc(C.size_t(unsafe.Sizeof(C.struct_read_state{})))
 	return nil
 }
 
@@ -295,21 +297,19 @@ func (e *PerfEvent) Disable() error {
 		return nil
 	}
 
+	C.free(e.state)
 	if err := unix.IoctlSetInt(e.Fd, unix.PERF_EVENT_IOC_DISABLE, 0); err != nil {
 		return fmt.Errorf("Unable to disable perf event: %v", err)
 	}
-
 	return nil
 }
 
 func (e *PerfEvent) Read(receive ReceiveFunc, lostFn LostFunc) {
 	buf := make([]byte, 256)
-	state := C.malloc(C.size_t(unsafe.Sizeof(C.struct_read_state{})))
-	defer C.free(state)
 
 	// Prepare for reading and check if events are available
 	available := C.perf_event_read_init(C.int(e.npages), C.int(e.pagesize),
-		unsafe.Pointer(&e.data[0]), unsafe.Pointer(state))
+		unsafe.Pointer(&e.data[0]), unsafe.Pointer(e.state))
 
 	// Poll false positive
 	if available == 0 {
@@ -319,7 +319,7 @@ func (e *PerfEvent) Read(receive ReceiveFunc, lostFn LostFunc) {
 	for {
 		var msg *PerfEventHeader
 
-		if ok := C.perf_event_read(unsafe.Pointer(state),
+		if ok := C.perf_event_read(unsafe.Pointer(e.state),
 			unsafe.Pointer(&buf[0]), unsafe.Pointer(&msg)); ok == 0 {
 			break
 		}
@@ -341,7 +341,7 @@ func (e *PerfEvent) Read(receive ReceiveFunc, lostFn LostFunc) {
 	}
 
 	// Move ring buffer tail pointer
-	C.perf_event_read_finish(unsafe.Pointer(&e.data[0]), unsafe.Pointer(state))
+	C.perf_event_read_finish(unsafe.Pointer(&e.data[0]), unsafe.Pointer(e.state))
 }
 
 func (e *PerfEvent) Close() {
