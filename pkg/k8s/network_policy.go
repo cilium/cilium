@@ -17,12 +17,12 @@ package k8s
 import (
 	"fmt"
 
+	k8sconst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/pkg/api/v1"
 	networkingv1 "k8s.io/client-go/pkg/apis/networking/v1"
 )
 
@@ -33,16 +33,7 @@ func ExtractPolicyName(np *networkingv1.NetworkPolicy) string {
 		policyName = np.Name
 	}
 
-	return fmt.Sprintf("%s=%s", PolicyLabelName, policyName)
-}
-
-// ExtractNamespace extracts the namespace of ObjectMeta.
-func ExtractNamespace(np *metav1.ObjectMeta) string {
-	if np.Namespace == "" {
-		return v1.NamespaceDefault
-	}
-
-	return np.Namespace
+	return fmt.Sprintf("%s=%s", k8sconst.PolicyLabelName, policyName)
 }
 
 func parseNetworkPolicyPeer(namespace string, peer *networkingv1.NetworkPolicyPeer) (*api.EndpointSelector, error) {
@@ -57,7 +48,7 @@ func parseNetworkPolicyPeer(namespace string, peer *networkingv1.NetworkPolicyPe
 		// The PodSelector should only reflect to the same namespace
 		// the policy is being stored, thus we add the namespace to
 		// the MatchLabels map.
-		peer.PodSelector.MatchLabels[PodNamespaceLabel] = namespace
+		peer.PodSelector.MatchLabels[k8sconst.PodNamespaceLabel] = namespace
 	} else if peer.NamespaceSelector != nil {
 		labelSelector = peer.NamespaceSelector
 		matchLabels := map[string]string{}
@@ -84,7 +75,7 @@ func parseNetworkPolicyPeer(namespace string, peer *networkingv1.NetworkPolicyPe
 // Cilium policy rules that can be added
 func ParseNetworkPolicy(np *networkingv1.NetworkPolicy) (api.Rules, error) {
 	ingresses := []api.IngressRule{}
-	namespace := ExtractNamespace(&np.ObjectMeta)
+	namespace := k8sconst.ExtractNamespace(&np.ObjectMeta)
 	for _, iRule := range np.Spec.Ingress {
 		ingress := api.IngressRule{}
 		if iRule.From != nil && len(iRule.From) > 0 {
@@ -117,7 +108,7 @@ func ParseNetworkPolicy(np *networkingv1.NetworkPolicy) (api.Rules, error) {
 	if np.Spec.PodSelector.MatchLabels == nil {
 		np.Spec.PodSelector.MatchLabels = map[string]string{}
 	}
-	np.Spec.PodSelector.MatchLabels[PodNamespaceLabel] = namespace
+	np.Spec.PodSelector.MatchLabels[k8sconst.PodNamespaceLabel] = namespace
 
 	rule := &api.Rule{
 		EndpointSelector: api.NewESFromK8sLabelSelector(labels.LabelSourceK8sKeyPrefix, &np.Spec.PodSelector),

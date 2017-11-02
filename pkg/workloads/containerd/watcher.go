@@ -29,6 +29,7 @@ import (
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/ipam"
 	"github.com/cilium/cilium/pkg/k8s"
+	k8sconst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logfields"
 	"github.com/cilium/cilium/pkg/node"
@@ -197,7 +198,7 @@ func fetchK8sLabels(dockerLbls map[string]string) (map[string]string, error) {
 	if k8sLabels == nil {
 		return nil, nil
 	}
-	k8sLabels[k8s.PodNamespaceLabel] = ns
+	k8sLabels[k8sconst.PodNamespaceLabel] = ns
 	return k8sLabels, nil
 }
 

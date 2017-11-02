@@ -19,6 +19,7 @@ package k8s
 import (
 	"fmt"
 
+	k8sconst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
@@ -33,14 +34,14 @@ func ExtractPolicyNameDeprecated(np *v1beta1.NetworkPolicy) string {
 		policyName = np.Name
 	}
 
-	return fmt.Sprintf("%s=%s", PolicyLabelName, policyName)
+	return fmt.Sprintf("%s=%s", k8sconst.PolicyLabelName, policyName)
 }
 
 // ParseNetworkPolicyDeprecated parses a k8s NetworkPolicy and returns a list of
 // Cilium policy rules that can be added
 func ParseNetworkPolicyDeprecated(np *v1beta1.NetworkPolicy) (api.Rules, error) {
 	ingresses := []api.IngressRule{}
-	namespace := ExtractNamespace(&np.ObjectMeta)
+	namespace := k8sconst.ExtractNamespace(&np.ObjectMeta)
 	for _, iRule := range np.Spec.Ingress {
 		// Based on NetworkPolicyIngressRule docs:
 		//   From []NetworkPolicyPeer
@@ -62,7 +63,7 @@ func ParseNetworkPolicyDeprecated(np *v1beta1.NetworkPolicy) (api.Rules, error) 
 					// The PodSelector should only reflect to the same namespace
 					// the policy is being stored, thus we add the namespace to
 					// the MatchLabels map.
-					rule.PodSelector.MatchLabels[PodNamespaceLabel] = namespace
+					rule.PodSelector.MatchLabels[k8sconst.PodNamespaceLabel] = namespace
 					ingress.FromEndpoints = append(ingress.FromEndpoints,
 						api.NewESFromK8sLabelSelector(labels.LabelSourceK8sKeyPrefix, rule.PodSelector))
 				} else if rule.NamespaceSelector != nil {
@@ -119,7 +120,7 @@ func ParseNetworkPolicyDeprecated(np *v1beta1.NetworkPolicy) (api.Rules, error) 
 	if np.Spec.PodSelector.MatchLabels == nil {
 		np.Spec.PodSelector.MatchLabels = map[string]string{}
 	}
-	np.Spec.PodSelector.MatchLabels[PodNamespaceLabel] = namespace
+	np.Spec.PodSelector.MatchLabels[k8sconst.PodNamespaceLabel] = namespace
 
 	rule := &api.Rule{
 		EndpointSelector: api.NewESFromK8sLabelSelector(labels.LabelSourceK8sKeyPrefix, &np.Spec.PodSelector),

@@ -15,11 +15,18 @@
 package k8s
 
 import (
-	"k8s.io/kubernetes/pkg/kubelet/types"
 	"time"
 )
 
 const (
+	// BackOffLoopTimeout is the default duration when trying to reach the
+	// kube-apiserver.
+	BackOffLoopTimeout = 2 * time.Minute
+
+	// maxUpdateRetries is the maximum number of update retries when
+	// updating k8s resources
+	maxUpdateRetries = 30
+
 	// AnnotationName is an optional annotation to the NetworkPolicy
 	// resource which specifies the name of the policy node to which all
 	// rules should be applied to.
@@ -35,22 +42,7 @@ const (
 	// EnvNodeNameSpec is the environment label used by Kubernetes to
 	// specify the node's name.
 	EnvNodeNameSpec = "K8S_NODE_NAME"
-
-	// PolicyLabelName is the name of the policy label which refers to the
-	// k8s policy name
-	PolicyLabelName = "io.cilium.k8s-policy-name"
-	// PodNamespaceLabel is the label used in kubernetes containers to
-	// specify which namespace they belong to.
-	PodNamespaceLabel = types.KubernetesPodNamespaceLabel
 	// PodNamespaceMetaLabels is the label used to store the labels of the
 	// kubernetes namespace's labels.
 	PodNamespaceMetaLabels = "ns-labels"
-
-	// BackOffLoopTimeout is the default duration when trying to reach the
-	// kube-apiserver.
-	BackOffLoopTimeout = 2 * time.Minute
-
-	// maxUpdateRetries is the maximum number of update retries when
-	// updating k8s resources
-	maxUpdateRetries = 30
 )

@@ -22,6 +22,8 @@ import (
 	"time"
 
 	"github.com/cilium/cilium/api/v1/models"
+	k8sconst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
+	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/logfields"
 	"github.com/cilium/cilium/pkg/node"
 
@@ -160,7 +162,7 @@ func CreateThirdPartyResourcesDefinitions(cli kubernetes.Interface) error {
 		return err
 	}
 
-	log.Info("Creating CiliumNetworkPolicy ThirdPartyResource")
+	log.Info("Creating v2.CiliumNetworkPolicy ThirdPartyResource")
 	// wait for TPR being established
 	err = wait.Poll(500*time.Millisecond, 60*time.Second, func() (bool, error) {
 		_, err := cli.ExtensionsV1beta1().ThirdPartyResources().Get(cnpTPRName, metav1.GetOptions{})
@@ -209,7 +211,7 @@ func CreateCustomResourceDefinitions(clientset apiextensionsclient.Interface) er
 		return err
 	}
 
-	log.Info("Creating CiliumNetworkPolicy CustomResourceDefinition")
+	log.Info("Creating v2.CiliumNetworkPolicy CustomResourceDefinition")
 	// wait for CRD being established
 	err = wait.Poll(500*time.Millisecond, 60*time.Second, func() (bool, error) {
 		crd, err := clientset.ApiextensionsV1beta1().CustomResourceDefinitions().Get(cnpCRDName, metav1.GetOptions{})
@@ -245,8 +247,8 @@ func CreateCustomResourceDefinitions(clientset apiextensionsclient.Interface) er
 func addKnownTypesCRD(scheme *runtime.Scheme) error {
 	scheme.AddKnownTypes(
 		crdGV,
-		&CiliumNetworkPolicy{},
-		&CiliumNetworkPolicyList{},
+		&v2.CiliumNetworkPolicy{},
+		&v2.CiliumNetworkPolicyList{},
 	)
 	metav1.AddToGroupVersion(scheme, crdGV)
 
@@ -259,12 +261,12 @@ type cnpClient struct {
 
 // CNPCliInterface is the interface for the CNP client
 type CNPCliInterface interface {
-	Update(cnp *CiliumNetworkPolicy) (*CiliumNetworkPolicy, error)
-	Create(cnp *CiliumNetworkPolicy) (*CiliumNetworkPolicy, error)
+	Update(cnp *v2.CiliumNetworkPolicy) (*v2.CiliumNetworkPolicy, error)
+	Create(cnp *v2.CiliumNetworkPolicy) (*v2.CiliumNetworkPolicy, error)
 	Delete(namespace, name string, options *metav1.DeleteOptions) error
-	Get(namespace, name string) (*CiliumNetworkPolicy, error)
-	List(namespace string) (*CiliumNetworkPolicyList, error)
-	ListAll() (*CiliumNetworkPolicyList, error)
+	Get(namespace, name string) (*v2.CiliumNetworkPolicy, error)
+	List(namespace string) (*v2.CiliumNetworkPolicyList, error)
+	ListAll() (*v2.CiliumNetworkPolicyList, error)
 	NewListWatch() *cache.ListWatch
 }
 
@@ -288,9 +290,9 @@ func CreateCRDClient(cfg *rest.Config) (CNPCliInterface, error) {
 
 // Update updates the given CNP and returns the object returned from the
 // api-server and respective error.
-func (c *cnpClient) Update(cnp *CiliumNetworkPolicy) (*CiliumNetworkPolicy, error) {
-	var res CiliumNetworkPolicy
-	ns := ExtractNamespace(&cnp.Metadata)
+func (c *cnpClient) Update(cnp *v2.CiliumNetworkPolicy) (*v2.CiliumNetworkPolicy, error) {
+	var res v2.CiliumNetworkPolicy
+	ns := k8sconst.ExtractNamespace(&cnp.Metadata)
 	err := c.RESTClient.Put().Resource(CustomResourceDefinitionPluralName).
 		Namespace(ns).Name(cnp.Metadata.Name).
 		Body(cnp).Do().Into(&res)
@@ -299,9 +301,9 @@ func (c *cnpClient) Update(cnp *CiliumNetworkPolicy) (*CiliumNetworkPolicy, erro
 
 // Create creates the given CNP and returns the object returned from the
 // api-server and respective error.
-func (c *cnpClient) Create(cnp *CiliumNetworkPolicy) (*CiliumNetworkPolicy, error) {
-	var res CiliumNetworkPolicy
-	ns := ExtractNamespace(&cnp.Metadata)
+func (c *cnpClient) Create(cnp *v2.CiliumNetworkPolicy) (*v2.CiliumNetworkPolicy, error) {
+	var res v2.CiliumNetworkPolicy
+	ns := k8sconst.ExtractNamespace(&cnp.Metadata)
 	err := c.RESTClient.Post().Resource(CustomResourceDefinitionPluralName).
 		Namespace(ns).
 		Body(cnp).Do().Into(&res)
@@ -317,8 +319,8 @@ func (c *cnpClient) Delete(namespace, name string, options *metav1.DeleteOptions
 }
 
 // Get gets CNP CRD from the kube-apiserver
-func (c *cnpClient) Get(namespace, name string) (*CiliumNetworkPolicy, error) {
-	var result CiliumNetworkPolicy
+func (c *cnpClient) Get(namespace, name string) (*v2.CiliumNetworkPolicy, error) {
+	var result v2.CiliumNetworkPolicy
 	err := c.RESTClient.Get().
 		Namespace(namespace).Resource(CustomResourceDefinitionPluralName).
 		Name(name).Do().Into(&result)
@@ -326,8 +328,8 @@ func (c *cnpClient) Get(namespace, name string) (*CiliumNetworkPolicy, error) {
 }
 
 // List returns the list of CNPs in the given namespace
-func (c *cnpClient) List(namespace string) (*CiliumNetworkPolicyList, error) {
-	var result CiliumNetworkPolicyList
+func (c *cnpClient) List(namespace string) (*v2.CiliumNetworkPolicyList, error) {
+	var result v2.CiliumNetworkPolicyList
 	err := c.RESTClient.Get().
 		Namespace(namespace).Resource(CustomResourceDefinitionPluralName).
 		Do().Into(&result)
@@ -335,8 +337,8 @@ func (c *cnpClient) List(namespace string) (*CiliumNetworkPolicyList, error) {
 }
 
 // ListAll returns the list of CNPs in all the namespaces
-func (c *cnpClient) ListAll() (*CiliumNetworkPolicyList, error) {
-	var result CiliumNetworkPolicyList
+func (c *cnpClient) ListAll() (*v2.CiliumNetworkPolicyList, error) {
+	var result v2.CiliumNetworkPolicyList
 	err := c.RESTClient.Get().
 		Resource(CustomResourceDefinitionPluralName).
 		Do().Into(&result)
@@ -357,8 +359,8 @@ func addKnownTypesTPR(scheme *runtime.Scheme) error {
 			Group:   CustomResourceDefinitionGroup,
 			Version: ThirdPartyResourceVersion,
 		},
-		&CiliumNetworkPolicy{},
-		&CiliumNetworkPolicyList{},
+		&v2.CiliumNetworkPolicy{},
+		&v2.CiliumNetworkPolicyList{},
 		&metav1.ListOptions{},
 		&metav1.DeleteOptions{},
 	)
@@ -452,12 +454,12 @@ func AnnotateNodeCIDR(c kubernetes.Interface, nodeName string, v4CIDR, v6CIDR *n
 // to do successful update into the kube-apiserver until it reaches the given
 // timeout.
 func UpdateCNPStatus(cnpClient CNPCliInterface, timeout time.Duration,
-	ciliumRulesStore cache.Store, rule *CiliumNetworkPolicy, cnpns CiliumNetworkPolicyNodeStatus) {
+	ciliumRulesStore cache.Store, rule *v2.CiliumNetworkPolicy, cnpns v2.CiliumNetworkPolicyNodeStatus) {
 
 	rule.SetPolicyStatus(node.GetName(), cnpns)
 	_, err := cnpClient.Update(rule)
 	if err != nil {
-		ns := ExtractNamespace(&rule.Metadata)
+		ns := k8sconst.ExtractNamespace(&rule.Metadata)
 		name := rule.Metadata.GetObjectMeta().GetName()
 		scopedLog := log.WithFields(logrus.Fields{
 			logfields.K8sNamespace:            ns,
@@ -475,14 +477,14 @@ func UpdateCNPStatus(cnpClient CNPCliInterface, timeout time.Duration,
 				break
 			}
 			if err != nil {
-				scopedLog.WithError(err).Warn("Unable to find CiliumNetworkPolicy in local cache")
+				scopedLog.WithError(err).Warn("Unable to find v2.CiliumNetworkPolicy in local cache")
 				break
 			}
-			serverRule, ok := serverRuleStore.(*CiliumNetworkPolicy)
+			serverRule, ok := serverRuleStore.(*v2.CiliumNetworkPolicy)
 			if !ok {
 				scopedLog.WithError(err).WithFields(logrus.Fields{
 					logfields.CiliumNetworkPolicy: logfields.Repr(serverRuleStore),
-				}).Warn("Received object of unknown type from API server, expecting CiliumNetworkPolicy")
+				}).Warn("Received object of unknown type from API server, expecting v2.CiliumNetworkPolicy")
 				return
 			}
 			if serverRule.Metadata.UID != rule.Metadata.UID &&

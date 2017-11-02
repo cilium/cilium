@@ -12,13 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package k8s
+package v2
 
 import (
 	"fmt"
 	"reflect"
 	"time"
 
+	k8sconst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logfields"
 	"github.com/cilium/cilium/pkg/policy/api"
@@ -26,6 +27,16 @@ import (
 	"github.com/sirupsen/logrus"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+)
+
+const (
+	// subsysK8s is the value for logfields.LogSubsys
+	subsysK8s = "k8s"
+)
+
+var (
+	// log is the k8s package logger object.
+	log = logrus.WithField(logfields.LogSubsys, subsysK8s)
 )
 
 // CiliumNetworkPolicy is a Kubernetes third-party resource with an extended version
@@ -104,7 +115,7 @@ func parseToCilium(namespace, name string, r *api.Rule) *api.Rule {
 			retRule.EndpointSelector.LabelSelector.MatchLabels = map[string]string{}
 		}
 
-		userNamespace, ok := retRule.EndpointSelector.LabelSelector.MatchLabels[labels.LabelSourceK8sKeyPrefix+PodNamespaceLabel]
+		userNamespace, ok := retRule.EndpointSelector.LabelSelector.MatchLabels[labels.LabelSourceK8sKeyPrefix+k8sconst.PodNamespaceLabel]
 		if ok && userNamespace != namespace {
 			log.WithFields(logrus.Fields{
 				logfields.K8sNamespace:              namespace,
@@ -113,7 +124,7 @@ func parseToCilium(namespace, name string, r *api.Rule) *api.Rule {
 			}).Warn("CiliumNetworkPolicy contains illegal namespace match in EndpointSelector." +
 				" EndpointSelector always applies in namespace of the policy resource, removing illegal namespace match'.")
 		}
-		retRule.EndpointSelector.LabelSelector.MatchLabels[labels.LabelSourceK8sKeyPrefix+PodNamespaceLabel] = namespace
+		retRule.EndpointSelector.LabelSelector.MatchLabels[labels.LabelSourceK8sKeyPrefix+k8sconst.PodNamespaceLabel] = namespace
 	}
 
 	if r.Ingress != nil {
@@ -134,8 +145,8 @@ func parseToCilium(namespace, name string, r *api.Rule) *api.Rule {
 					// The user can explicitly specify the namespace in the
 					// FromEndpoints selector. If omitted, we limit the
 					// scope to the namespace the policy lives in.
-					if _, ok := retRule.Ingress[i].FromEndpoints[j].MatchLabels[labels.LabelSourceK8sKeyPrefix+PodNamespaceLabel]; !ok {
-						retRule.Ingress[i].FromEndpoints[j].MatchLabels[labels.LabelSourceK8sKeyPrefix+PodNamespaceLabel] = namespace
+					if _, ok := retRule.Ingress[i].FromEndpoints[j].MatchLabels[labels.LabelSourceK8sKeyPrefix+k8sconst.PodNamespaceLabel]; !ok {
+						retRule.Ingress[i].FromEndpoints[j].MatchLabels[labels.LabelSourceK8sKeyPrefix+k8sconst.PodNamespaceLabel] = namespace
 					}
 				}
 			}
@@ -164,8 +175,8 @@ func parseToCilium(namespace, name string, r *api.Rule) *api.Rule {
 					// The user can explicitly specify the namespace in the
 					// FromEndpoints selector. If omitted, we limit the
 					// scope to the namespace the policy lives in.
-					if _, ok := retRule.Ingress[i].FromRequires[j].MatchLabels[labels.LabelSourceK8sKeyPrefix+PodNamespaceLabel]; !ok {
-						retRule.Ingress[i].FromRequires[j].MatchLabels[labels.LabelSourceK8sKeyPrefix+PodNamespaceLabel] = namespace
+					if _, ok := retRule.Ingress[i].FromRequires[j].MatchLabels[labels.LabelSourceK8sKeyPrefix+k8sconst.PodNamespaceLabel]; !ok {
+						retRule.Ingress[i].FromRequires[j].MatchLabels[labels.LabelSourceK8sKeyPrefix+k8sconst.PodNamespaceLabel] = namespace
 					}
 				}
 			}
@@ -178,7 +189,7 @@ func parseToCilium(namespace, name string, r *api.Rule) *api.Rule {
 	}
 
 	// Convert resource name to a Cilium policy rule label
-	label := fmt.Sprintf("%s=%s", PolicyLabelName, name)
+	label := fmt.Sprintf("%s=%s", k8sconst.PolicyLabelName, name)
 
 	// TODO: Warn about overwritten labels?
 	retRule.Labels = labels.ParseLabelArray(label)
@@ -195,7 +206,7 @@ func (r *CiliumNetworkPolicy) Parse() (api.Rules, error) {
 		return nil, fmt.Errorf("CiliumNetworkPolicy must have name")
 	}
 
-	namespace := ExtractNamespace(&r.Metadata)
+	namespace := k8sconst.ExtractNamespace(&r.Metadata)
 	name := r.Metadata.Name
 
 	retRules := api.Rules{}
