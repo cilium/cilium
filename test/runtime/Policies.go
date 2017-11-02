@@ -375,6 +375,11 @@ var _ = Describe("RunPolicies", func() {
 		docker.SampleContainersActions("delete", networkName)
 	})
 
+	pingRequests := []string{"ping", "ping6"}
+	httpRequestsPublic := []string{"http", "http6"}
+	httpRequestsPrivate := []string{"http_private", "http6_private"}
+	httpRequests := append(httpRequestsPublic, httpRequestsPrivate...)
+	allRequests := append(pingRequests, httpRequests...)
 	connectivityTest := func(tests []string, client, server string, assertFn func() types.GomegaMatcher) {
 		title := func(title string) string {
 			return fmt.Sprintf(title, client, server)
@@ -431,19 +436,19 @@ var _ = Describe("RunPolicies", func() {
 		Expect(err).Should(BeNil())
 
 		//APP1 can connect to all Httpd1
-		connectivityTest([]string{"ping", "ping6", "http", "http6"}, "app1", "httpd1", BeTrue)
+		connectivityTest(allRequests, "app1", "httpd1", BeTrue)
 
 		//APP2 can't connect to Httpd1
 		connectivityTest([]string{"http"}, "app2", "httpd1", BeFalse)
 
 		// APP1 can reach using TCP HTTP2
-		connectivityTest([]string{"http", "http6"}, "app1", "httpd2", BeTrue)
+		connectivityTest(httpRequestsPublic, "app1", "httpd2", BeTrue)
 
 		// APP2 can't reach using TCP to HTTP2
-		connectivityTest([]string{"http", "http6"}, "app2", "httpd2", BeFalse)
+		connectivityTest(httpRequestsPublic, "app2", "httpd2", BeFalse)
 
 		// APP3 can reach using TCP HTTP3, but can't ping EGRESS
-		connectivityTest([]string{"http", "http6"}, "app3", "httpd3", BeTrue)
+		connectivityTest(httpRequestsPublic, "app3", "httpd3", BeTrue)
 
 		By("Disabling all the policies. All should work")
 
@@ -451,8 +456,8 @@ var _ = Describe("RunPolicies", func() {
 		status.ExpectSuccess()
 		cilium.EndpointWaitUntilReady()
 
-		connectivityTest([]string{"ping", "ping6", "http", "http6"}, "app1", "httpd1", BeTrue)
-		connectivityTest([]string{"ping", "ping6", "http", "http6"}, "app2", "httpd1", BeTrue)
+		connectivityTest(allRequests, "app1", "httpd1", BeTrue)
+		connectivityTest(allRequests, "app2", "httpd1", BeTrue)
 
 		By("Ingress CIDR")
 
@@ -481,8 +486,8 @@ var _ = Describe("RunPolicies", func() {
 		Expect(err).Should(BeNil())
 		defer os.Remove("ingress.json")
 
-		connectivityTest([]string{"http", "http6"}, "app1", "httpd1", BeTrue)
-		connectivityTest([]string{"http", "http6"}, "app2", "httpd1", BeFalse)
+		connectivityTest(httpRequests, "app1", "httpd1", BeTrue)
+		connectivityTest(httpRequests, "app2", "httpd1", BeFalse)
 
 		By("Egress CIDR")
 
@@ -512,8 +517,8 @@ var _ = Describe("RunPolicies", func() {
 		_, err = cilium.PolicyImport(path, 300)
 		Expect(err).Should(BeNil())
 
-		connectivityTest([]string{"http", "http6"}, "app1", "httpd1", BeTrue)
-		connectivityTest([]string{"http", "http6"}, "app2", "httpd1", BeFalse)
+		connectivityTest(httpRequestsPublic, "app1", "httpd1", BeTrue)
+		connectivityTest(httpRequestsPublic, "app2", "httpd1", BeFalse)
 	})
 
 	It("L7 Checks", func() {
@@ -523,25 +528,25 @@ var _ = Describe("RunPolicies", func() {
 
 		By("Simple Ingress")
 		//APP1 can connnect to public, but no to private
-		connectivityTest([]string{"http", "http6"}, "app1", "httpd1", BeTrue)
-		connectivityTest([]string{"http_private", "http6_private"}, "app1", "httpd1", BeFalse)
+		connectivityTest(httpRequestsPublic, "app1", "httpd1", BeTrue)
+		connectivityTest(httpRequestsPrivate, "app1", "httpd1", BeFalse)
 
 		//App2 can't connect
-		connectivityTest([]string{"http", "http6"}, "app2", "httpd1", BeFalse)
+		connectivityTest(httpRequestsPublic, "app2", "httpd1", BeFalse)
 
 		By("Simple Egress")
 
 		//APP2 can connnect to public, but no to private
-		connectivityTest([]string{"http", "http6"}, "app2", "httpd2", BeTrue)
-		connectivityTest([]string{"http_private", "http6_private"}, "app2", "httpd2", BeFalse)
+		connectivityTest(httpRequestsPublic, "app2", "httpd2", BeTrue)
+		connectivityTest(httpRequestsPrivate, "app2", "httpd2", BeFalse)
 
 		By("Disabling all the policies. All should work")
 		status := cilium.Exec("policy delete --all")
 		status.ExpectSuccess()
 		cilium.EndpointWaitUntilReady()
 
-		connectivityTest([]string{"ping", "ping6", "http", "http6"}, "app1", "httpd1", BeTrue)
-		connectivityTest([]string{"ping", "ping6", "http", "http6"}, "app2", "httpd1", BeTrue)
+		connectivityTest(allRequests, "app1", "httpd1", BeTrue)
+		connectivityTest(allRequests, "app2", "httpd1", BeTrue)
 
 		By("Multiple Ingress")
 
@@ -550,16 +555,16 @@ var _ = Describe("RunPolicies", func() {
 		Expect(err).Should(BeNil())
 
 		//APP1 can connnect to public, but no to private
-		connectivityTest([]string{"http", "http6"}, "app1", "httpd1", BeTrue)
-		connectivityTest([]string{"http_private", "http6_private"}, "app1", "httpd1", BeFalse)
+		connectivityTest(httpRequestsPublic, "app1", "httpd1", BeTrue)
+		connectivityTest(httpRequestsPrivate, "app1", "httpd1", BeFalse)
 
 		//App2 can't connect
-		connectivityTest([]string{"http", "http6"}, "app2", "httpd1", BeFalse)
+		connectivityTest(httpRequestsPublic, "app2", "httpd1", BeFalse)
 
 		By("Multiple Egress")
 		//APP2 can connnect to public, but no to private
-		connectivityTest([]string{"http", "http6"}, "app2", "httpd2", BeTrue)
-		connectivityTest([]string{"http_private", "http6_private"}, "app2", "httpd2", BeFalse)
+		connectivityTest(httpRequestsPublic, "app2", "httpd2", BeTrue)
+		connectivityTest(httpRequestsPrivate, "app2", "httpd2", BeFalse)
 
 		By("Disabling all the policies. All should work")
 
@@ -567,8 +572,8 @@ var _ = Describe("RunPolicies", func() {
 		status.ExpectSuccess()
 		cilium.EndpointWaitUntilReady()
 
-		connectivityTest([]string{"ping", "ping6", "http", "http6"}, "app1", "httpd1", BeTrue)
-		connectivityTest([]string{"ping", "ping6", "http", "http6"}, "app2", "httpd1", BeTrue)
+		connectivityTest(allRequests, "app1", "httpd1", BeTrue)
+		connectivityTest(allRequests, "app2", "httpd1", BeTrue)
 	})
 
 	It("Invalid Policies", func() {
