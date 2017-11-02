@@ -25,6 +25,7 @@ import (
 
 	"github.com/cilium/cilium/common/types"
 	"github.com/cilium/cilium/pkg/k8s"
+	cilium_crd "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logfields"
@@ -127,7 +128,7 @@ func k8sErrorHandler(e error) {
 	// CustomResourceDefinition. This would occur when a user mixes these within
 	// the k8s cluster, and might occur when upgrading from versions of cilium
 	// that used ThirdPartyResource to define CiliumNetworkPolicy.
-	case strings.Contains(errstr, "Failed to list *k8s.CiliumNetworkPolicy: the server could not find the requested resource"):
+	case strings.Contains(errstr, "Failed to list *v2.CiliumNetworkPolicy: the server could not find the requested resource"):
 		if k8sErrorUpdateCheckUnmuteTime(errstr, now) {
 			log.WithError(e).Error("Conflicting TPR and CRD resources")
 			log.Warn("Detected conflicting TPR and CRD, please migrate all ThirdPartyResource to CustomResourceDefinition! More info: https://cilium.link/migrate-tpr")
@@ -140,7 +141,7 @@ func k8sErrorHandler(e error) {
 	// this decode error. We have since changed the definition to be a simple
 	// list of strings.
 	case strings.Contains(errstr, "Unable to decode an event from the watch stream: unable to decode watch event"),
-		strings.Contains(errstr, "Failed to list *k8s.CiliumNetworkPolicy: only encoded map or array can be decoded into a struct"):
+		strings.Contains(errstr, "Failed to list *v2.CiliumNetworkPolicy: only encoded map or array can be decoded into a struct"):
 		if k8sErrorUpdateCheckUnmuteTime(errstr, now) {
 			log.WithError(e).Error("Unable to decode k8s watch event")
 			log.Warn("Unable to decode an event from watch, restarting cilium policy rules controller")
@@ -264,7 +265,7 @@ func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 	var ciliumRulesController cache.Controller
 	ciliumRulesStore, ciliumRulesController = cache.NewInformer(
 		cnpClient.NewListWatch(),
-		&k8s.CiliumNetworkPolicy{},
+		&cilium_crd.CiliumNetworkPolicy{},
 		reSyncPeriod,
 		ciliumNetworkPolicyHandler,
 	)
@@ -281,7 +282,7 @@ func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 			// we need to create new controller after stopping old one
 			ciliumRulesStore, ciliumRulesController = cache.NewInformer(
 				cnpClient.NewListWatch(),
-				&k8s.CiliumNetworkPolicy{},
+				&cilium_crd.CiliumNetworkPolicy{},
 				reSyncPeriod,
 				ciliumNetworkPolicyHandler,
 			)
@@ -1229,7 +1230,7 @@ func (d *Daemon) syncExternalLB(newSN, modSN, delSN *types.K8sServiceNamespace) 
 }
 
 func (d *Daemon) addCiliumNetworkPolicy(obj interface{}) {
-	rule, ok := obj.(*k8s.CiliumNetworkPolicy)
+	rule, ok := obj.(*cilium_crd.CiliumNetworkPolicy)
 	if !ok {
 		log.WithField(logfields.Object, logfields.Repr(obj)).
 			Warn("Ignoring invalid k8s CiliumNetworkPolicy addition")
@@ -1253,16 +1254,16 @@ func (d *Daemon) addCiliumNetworkPolicy(obj interface{}) {
 		}
 	}
 
-	var cnpns k8s.CiliumNetworkPolicyNodeStatus
+	var cnpns cilium_crd.CiliumNetworkPolicyNodeStatus
 	if err != nil {
-		cnpns = k8s.CiliumNetworkPolicyNodeStatus{
+		cnpns = cilium_crd.CiliumNetworkPolicyNodeStatus{
 			OK:          false,
 			Error:       fmt.Sprintf("%s", err),
 			LastUpdated: time.Now(),
 		}
 		scopedLog.WithError(err).Warn("Unable to add CiliumNetworkPolicy")
 	} else {
-		cnpns = k8s.CiliumNetworkPolicyNodeStatus{
+		cnpns = cilium_crd.CiliumNetworkPolicyNodeStatus{
 			OK:          true,
 			LastUpdated: time.Now(),
 		}
@@ -1273,7 +1274,7 @@ func (d *Daemon) addCiliumNetworkPolicy(obj interface{}) {
 }
 
 func (d *Daemon) deleteCiliumNetworkPolicy(obj interface{}) {
-	rule, ok := obj.(*k8s.CiliumNetworkPolicy)
+	rule, ok := obj.(*cilium_crd.CiliumNetworkPolicy)
 	if !ok {
 		log.WithField(logfields.Object, logfields.Repr(obj)).
 			Warn("Ignoring invalid k8s CiliumNetworkPolicy deletion")
@@ -1303,13 +1304,13 @@ func (d *Daemon) deleteCiliumNetworkPolicy(obj interface{}) {
 func (d *Daemon) updateCiliumNetworkPolicy(oldObj interface{}, newObj interface{}) {
 	// We don't need to deepcopy the objects since they are being copied
 	// on each d.deleteCiliumNetworkPolicy and d.addCiliumNetworkPolicy calls.
-	oldRule, ok := oldObj.(*k8s.CiliumNetworkPolicy)
+	oldRule, ok := oldObj.(*cilium_crd.CiliumNetworkPolicy)
 	if !ok {
 		log.WithField(logfields.Object+".old", logfields.Repr(oldObj)).
 			Warn("Ignoring invalid k8s CiliumNetworkPolicy modification")
 		return
 	}
-	newRules, ok := newObj.(*k8s.CiliumNetworkPolicy)
+	newRules, ok := newObj.(*cilium_crd.CiliumNetworkPolicy)
 	if !ok {
 		log.WithField(logfields.Object+".new", logfields.Repr(newObj)).
 			Warn("Ignoring invalid k8s CiliumNetworkPolicy modification")
