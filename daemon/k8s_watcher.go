@@ -35,6 +35,7 @@ import (
 	"github.com/cilium/cilium/pkg/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/node"
+	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/serializer"
 
 	"github.com/sirupsen/logrus"
@@ -902,6 +903,8 @@ func (d *Daemon) addK8sEndpointV1(ep *v1.Endpoints) {
 		err := d.policy.TranslateRules(translator)
 		if err != nil {
 			log.Errorf("Unable to repopulate egress policies from ToService rules: %v", err)
+		} else {
+			d.TriggerPolicyUpdates([]policy.NumericIdentity{})
 		}
 	}
 }
@@ -942,6 +945,8 @@ func (d *Daemon) deleteK8sEndpointV1(ep *v1.Endpoints) {
 			err := d.policy.TranslateRules(translator)
 			if err != nil {
 				log.Errorf("Unable to depopulate egress policies from ToService rules: %v", err)
+			} else {
+				d.TriggerPolicyUpdates([]policy.NumericIdentity{})
 			}
 		}
 	}
