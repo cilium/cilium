@@ -11,9 +11,10 @@ your machine. It is designed to take 15-30 minutes.
 If you haven't read the :ref:`intro` yet, we'd encourage you to do that first.
 
 This document includes three different guides:
- * `Getting Started Using Kubernetes`_ (Estimated time 10-15 minutes)
- * `Getting Started Using Docker`_
- * `Getting Started Using Mesos`_
+ * `Getting Started Using Kubernetes`_ with HTTP (Estimated time 10-15 minutes)
+ * `Getting Started Using Docker`_ with HTTP
+ * `Getting Started Using Mesos`_ with HTTP
+ * `Getting Started Using Kubernetes with Kafka`_
 
 The guides follow the same basic flow.   The flow in the Kubernetes variant
 is more realistic of a production deployment, but is also a bit more complex.
@@ -1184,3 +1185,5 @@ Troubleshooting
 
 For assistance on any of the Getting Started Guides, please reach out and ask a question on the `Cilium
 Slack channel <https://cilium.herokuapp.com>`_.
+
+.. include:: gettingstarted_kafka.rst
