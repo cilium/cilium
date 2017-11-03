@@ -13,3 +13,8 @@ Fixes: #issue-number
 ```release-note
 <!-- Enter the release note text here if needed -->
 ```
+
+**How to test (optional)**:
+e.g. Run `make tests`, `make runtime-tests` and/or some more specific way to
+exercise the new behavior(s).
+Note: [The runtime testsuite will modify the host it runs on.](http://cilium.readthedocs.io/en/latest/contributing/#testsuite)
