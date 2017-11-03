@@ -1259,13 +1259,13 @@ func (d *Daemon) addCiliumNetworkPolicy(obj interface{}) {
 		cnpns = cilium_crd.CiliumNetworkPolicyNodeStatus{
 			OK:          false,
 			Error:       fmt.Sprintf("%s", err),
-			LastUpdated: time.Now(),
+			LastUpdated: cilium_crd.NewTimestamp(),
 		}
 		scopedLog.WithError(err).Warn("Unable to add CiliumNetworkPolicy")
 	} else {
 		cnpns = cilium_crd.CiliumNetworkPolicyNodeStatus{
 			OK:          true,
-			LastUpdated: time.Now(),
+			LastUpdated: cilium_crd.NewTimestamp(),
 		}
 		scopedLog.Info("Imported CiliumNetworkPolicy")
 	}

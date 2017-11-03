@@ -15,5 +15,5 @@
 // +k8s:deepcopy-gen=package
 
 // Package api defines the API of the Cilium network policy interface
-// +groupName=policy
-package api
+// +groupName=labels
+package labels
