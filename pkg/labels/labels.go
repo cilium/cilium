@@ -56,16 +56,6 @@ type OpLabels struct {
 	OrchestrationInfo Labels
 }
 
-// DeepCopy returns deep copy of the label.
-func (o *OpLabels) DeepCopy() *OpLabels {
-	return &OpLabels{
-		Custom:                o.Custom.DeepCopy(),
-		Disabled:              o.Disabled.DeepCopy(),
-		OrchestrationIdentity: o.OrchestrationIdentity.DeepCopy(),
-		OrchestrationInfo:     o.OrchestrationInfo.DeepCopy(),
-	}
-}
-
 // IdentityLabels returns map of labels that are used when determining a
 // security identity.
 func (o *OpLabels) IdentityLabels() Labels {
@@ -235,13 +225,6 @@ func NewLabel(key string, value string, source string) *Label {
 	}
 }
 
-// DeepCopy returns a Deep copy of the receiver's label.
-func (l *Label) DeepCopy() *Label {
-	ret := NewLabel(l.Key, l.Value, l.Source)
-	ret.DeletionMark = l.DeletionMark
-	return ret
-}
-
 // Equals returns true if source, AbsoluteKey() and Value are equal and false otherwise.
 func (l *Label) Equals(b *Label) bool {
 	if !l.IsAnySource() {
@@ -378,12 +361,12 @@ func Map2Labels(m map[string]string, source string) Labels {
 
 // DeepCopy returns a deep copy of the labels.
 func (l Labels) DeepCopy() Labels {
-	o := Labels{}
+	o := make(Labels, len(l))
 	for k, v := range l {
-		o[k] = &Label{
-			Key:    v.Key,
-			Value:  v.Value,
-			Source: v.Source,
+		if v == nil {
+			o[k] = nil
+		} else {
+			o[k] = v.DeepCopy()
 		}
 	}
 	return o

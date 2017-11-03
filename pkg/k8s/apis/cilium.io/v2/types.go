@@ -39,6 +39,9 @@ var (
 	log = logrus.WithField(logfields.LogSubsys, subsysK8s)
 )
 
+// +genclient
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
 // CiliumNetworkPolicy is a Kubernetes third-party resource with an extended version
 // of NetworkPolicy
 type CiliumNetworkPolicy struct {
@@ -71,7 +74,25 @@ type CiliumNetworkPolicyNodeStatus struct {
 	Error string `json:"error,omitempty"`
 
 	// LastUpdated contains the last time this status was updated
-	LastUpdated time.Time `json:"lastUpdated,omitempty"`
+	LastUpdated Timestamp `json:"lastUpdated,omitempty"`
+}
+
+// NewTimestamp creates a new Timestamp with the current time.Now()
+func NewTimestamp() Timestamp {
+	return Timestamp{time.Now()}
+}
+
+// Timestamp is a wrapper of time.Time so that we can create our own
+// implementation of DeepCopyInto.
+type Timestamp struct {
+	time.Time
+}
+
+// DeepCopyInto creates a deep-copy of the Time value.  The underlying time.Time
+// type is effectively immutable in the time API, so it is safe to
+// copy-by-assign, despite the presence of (unexported) Pointer fields.
+func (t *Timestamp) DeepCopyInto(out *Timestamp) {
+	*out = *t
 }
 
 // SetPolicyStatus sets the given policy status for the given nodes' map
@@ -232,12 +253,7 @@ func (r *CiliumNetworkPolicy) Parse() (api.Rules, error) {
 	return retRules, nil
 }
 
-// DeepCopy will return the same receiver of the DeepCopy function.
-// Deprecated
-func (cnp *CiliumNetworkPolicy) DeepCopy() *CiliumNetworkPolicy {
-	// FIXME FIXME FIXME FIXME FIXME FIXME FIXME FIXME
-	return cnp
-}
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 // CiliumNetworkPolicyList is a list of CiliumNetworkPolicy objects
 type CiliumNetworkPolicyList struct {
