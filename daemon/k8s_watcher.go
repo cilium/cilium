@@ -1239,9 +1239,9 @@ func (d *Daemon) addCiliumNetworkPolicy(obj interface{}) {
 	ruleCpy := rule.DeepCopy()
 
 	scopedLog := log.WithFields(log.Fields{
-		logfields.CiliumNetworkPolicyName: ruleCpy.Metadata.Name,
+		logfields.CiliumNetworkPolicyName: ruleCpy.ObjectMeta.Name,
 		logfields.K8sAPIVersion:           ruleCpy.TypeMeta.APIVersion,
-		logfields.K8sNamespace:            ruleCpy.Metadata.Namespace,
+		logfields.K8sNamespace:            ruleCpy.ObjectMeta.Namespace,
 	})
 
 	scopedLog.Debug("Adding CiliumNetworkPolicy")
@@ -1283,9 +1283,9 @@ func (d *Daemon) deleteCiliumNetworkPolicy(obj interface{}) {
 	ruleCpy := rule.DeepCopy()
 
 	scopedLog := log.WithFields(log.Fields{
-		logfields.CiliumNetworkPolicyName: ruleCpy.Metadata.Name,
+		logfields.CiliumNetworkPolicyName: ruleCpy.ObjectMeta.Name,
 		logfields.K8sAPIVersion:           ruleCpy.TypeMeta.APIVersion,
-		logfields.K8sNamespace:            ruleCpy.Metadata.Namespace,
+		logfields.K8sNamespace:            ruleCpy.ObjectMeta.Namespace,
 	})
 
 	scopedLog.Debug("Deleting CiliumNetworkPolicy")
@@ -1343,10 +1343,10 @@ func (d *Daemon) updateCiliumNetworkPolicy(oldObj interface{}, newObj interface{
 
 	log.WithFields(log.Fields{
 		logfields.K8sAPIVersion:                    oldRule.TypeMeta.APIVersion,
-		logfields.CiliumNetworkPolicyName + ".old": oldRule.Metadata.Name,
-		logfields.K8sNamespace + ".old":            oldRule.Metadata.Namespace,
-		logfields.CiliumNetworkPolicyName + ".new": newRules.Metadata.Name,
-		logfields.K8sNamespace + ".new":            newRules.Metadata.Namespace,
+		logfields.CiliumNetworkPolicyName + ".old": oldRule.ObjectMeta.Name,
+		logfields.K8sNamespace + ".old":            oldRule.ObjectMeta.Namespace,
+		logfields.CiliumNetworkPolicyName + ".new": newRules.ObjectMeta.Name,
+		logfields.K8sNamespace + ".new":            newRules.ObjectMeta.Namespace,
 	}).Debug("Modified CiliumNetworkPolicy")
 
 	d.deleteCiliumNetworkPolicy(oldObj)

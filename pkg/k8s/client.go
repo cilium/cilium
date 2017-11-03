@@ -292,9 +292,9 @@ func CreateCRDClient(cfg *rest.Config) (CNPCliInterface, error) {
 // api-server and respective error.
 func (c *cnpClient) Update(cnp *v2.CiliumNetworkPolicy) (*v2.CiliumNetworkPolicy, error) {
 	var res v2.CiliumNetworkPolicy
-	ns := k8sconst.ExtractNamespace(&cnp.Metadata)
+	ns := k8sconst.ExtractNamespace(&cnp.ObjectMeta)
 	err := c.RESTClient.Put().Resource(CustomResourceDefinitionPluralName).
-		Namespace(ns).Name(cnp.Metadata.Name).
+		Namespace(ns).Name(cnp.ObjectMeta.Name).
 		Body(cnp).Do().Into(&res)
 	return &res, err
 }
@@ -303,7 +303,7 @@ func (c *cnpClient) Update(cnp *v2.CiliumNetworkPolicy) (*v2.CiliumNetworkPolicy
 // api-server and respective error.
 func (c *cnpClient) Create(cnp *v2.CiliumNetworkPolicy) (*v2.CiliumNetworkPolicy, error) {
 	var res v2.CiliumNetworkPolicy
-	ns := k8sconst.ExtractNamespace(&cnp.Metadata)
+	ns := k8sconst.ExtractNamespace(&cnp.ObjectMeta)
 	err := c.RESTClient.Post().Resource(CustomResourceDefinitionPluralName).
 		Namespace(ns).
 		Body(cnp).Do().Into(&res)
@@ -459,8 +459,8 @@ func UpdateCNPStatus(cnpClient CNPCliInterface, timeout time.Duration,
 	rule.SetPolicyStatus(node.GetName(), cnpns)
 	_, err := cnpClient.Update(rule)
 	if err != nil {
-		ns := k8sconst.ExtractNamespace(&rule.Metadata)
-		name := rule.Metadata.GetObjectMeta().GetName()
+		ns := k8sconst.ExtractNamespace(&rule.ObjectMeta)
+		name := rule.ObjectMeta.Name
 		scopedLog := log.WithFields(logrus.Fields{
 			logfields.K8sNamespace:            ns,
 			logfields.CiliumNetworkPolicyName: name,
@@ -487,7 +487,7 @@ func UpdateCNPStatus(cnpClient CNPCliInterface, timeout time.Duration,
 				}).Warn("Received object of unknown type from API server, expecting v2.CiliumNetworkPolicy")
 				return
 			}
-			if serverRule.Metadata.UID != rule.Metadata.UID &&
+			if serverRule.ObjectMeta.UID != rule.ObjectMeta.UID &&
 				serverRule.SpecEquals(rule) {
 				// Although the policy was found this means it was deleted,
 				// and re-added with the same name.
