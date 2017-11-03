@@ -42,9 +42,8 @@ var (
 // CiliumNetworkPolicy is a Kubernetes third-party resource with an extended version
 // of NetworkPolicy
 type CiliumNetworkPolicy struct {
-	metav1.TypeMeta `json:",inline"`
-	// +optional
-	Metadata metav1.ObjectMeta `json:"metadata"`
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata"`
 
 	// Spec is the desired Cilium specific rule specification.
 	Spec *api.Rule `json:"spec,omitempty"`
@@ -99,7 +98,7 @@ func (r *CiliumNetworkPolicy) GetObjectKind() schema.ObjectKind {
 
 // GetObjectMeta returns the metadata of the object
 func (r *CiliumNetworkPolicy) GetObjectMeta() metav1.Object {
-	return &r.Metadata
+	return &r.ObjectMeta
 }
 
 // parseToCilium returns an api.Rule with all the labels parsed into cilium
@@ -202,12 +201,12 @@ func parseToCilium(namespace, name string, r *api.Rule) *api.Rule {
 // Parse parses a CiliumNetworkPolicy and returns a list of cilium policy
 // rules.
 func (r *CiliumNetworkPolicy) Parse() (api.Rules, error) {
-	if r.Metadata.Name == "" {
+	if r.ObjectMeta.Name == "" {
 		return nil, fmt.Errorf("CiliumNetworkPolicy must have name")
 	}
 
-	namespace := k8sconst.ExtractNamespace(&r.Metadata)
-	name := r.Metadata.Name
+	namespace := k8sconst.ExtractNamespace(&r.ObjectMeta)
+	name := r.ObjectMeta.Name
 
 	retRules := api.Rules{}
 
@@ -243,8 +242,7 @@ func (cnp *CiliumNetworkPolicy) DeepCopy() *CiliumNetworkPolicy {
 // CiliumNetworkPolicyList is a list of CiliumNetworkPolicy objects
 type CiliumNetworkPolicyList struct {
 	metav1.TypeMeta `json:",inline"`
-	// +optional
-	Metadata metav1.ListMeta `json:"metadata"`
+	metav1.ListMeta `json:"metadata"`
 
 	// Items is a list of CiliumNetworkPolicy
 	Items []CiliumNetworkPolicy `json:"items"`
@@ -257,5 +255,5 @@ func (r *CiliumNetworkPolicyList) GetObjectKind() schema.ObjectKind {
 
 // GetListMeta returns the metadata of the object
 func (r *CiliumNetworkPolicyList) GetListMeta() metav1.List {
-	return &r.Metadata
+	return &r.ListMeta
 }

@@ -218,7 +218,7 @@ func (s *CiliumV2Suite) TestParseSpec(c *C) {
 	apiRule.EndpointSelector = es
 
 	expectedPolicyRule := &CiliumNetworkPolicy{
-		Metadata: metav1.ObjectMeta{
+		ObjectMeta: metav1.ObjectMeta{
 			Name: "rule1",
 		},
 		Spec: &apiRule,
@@ -254,7 +254,7 @@ func (s *CiliumV2Suite) TestParseRules(c *C) {
 	apiRule.EndpointSelector = es
 
 	expectedPolicyRuleList := &CiliumNetworkPolicy{
-		Metadata: metav1.ObjectMeta{
+		ObjectMeta: metav1.ObjectMeta{
 			Name: "rule1",
 		},
 		Specs: api.Rules{&apiRule, &apiRule},
