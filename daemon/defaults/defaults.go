@@ -42,4 +42,7 @@ const (
 	// MonitorSockPath is the path to the UNIX domain socket used to distribute events
 	// between multiple monitors.
 	MonitorSockPath = RuntimePath + "/monitor.sock"
+
+	// PidFilePath is the path to the pid file for the agent.
+	PidFilePath = RuntimePath + "/cilium.pid"
 )
