@@ -22,13 +22,9 @@ import (
 
 	"github.com/cilium/cilium/pkg/labels"
 
-	"k8s.io/client-go/pkg/api"
-	"k8s.io/client-go/pkg/api/v1"
-	// Use a blank import for calls to Decode the contents of YAML files.
-	_ "k8s.io/client-go/pkg/api/install"
-	// Use a blank import for calls to Decode the contents of YAML files.
-	_ "k8s.io/client-go/pkg/apis/extensions/install"
-	"k8s.io/client-go/pkg/apis/extensions/v1beta1"
+	"k8s.io/api/core/v1"
+	"k8s.io/api/extensions/v1beta1"
+	"k8s.io/client-go/kubernetes/scheme"
 )
 
 const (
@@ -62,7 +58,7 @@ func GetLabelsFromYaml(file string) ([][]string, error) {
 			continue
 		}
 
-		obj, _, err := api.Codecs.UniversalDeserializer().Decode(v, nil, nil)
+		obj, _, err := scheme.Codecs.UniversalDeserializer().Decode(v, nil, nil)
 		if err != nil {
 			return nil, err
 		}

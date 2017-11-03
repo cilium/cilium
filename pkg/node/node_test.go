@@ -19,7 +19,7 @@ import (
 	"testing"
 
 	. "gopkg.in/check.v1"
-	"k8s.io/client-go/pkg/api/v1"
+	"k8s.io/api/core/v1"
 )
 
 // Hook up gocheck into the "go test" runner.

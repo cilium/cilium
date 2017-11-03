@@ -16,8 +16,8 @@ package k8s
 
 import (
 	. "gopkg.in/check.v1"
+	"k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/pkg/api/v1"
 )
 
 func (s *K8sSuite) TestParseNode(c *C) {

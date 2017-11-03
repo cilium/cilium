@@ -268,8 +268,3 @@ type CiliumNetworkPolicyList struct {
 func (r *CiliumNetworkPolicyList) GetObjectKind() schema.ObjectKind {
 	return &r.TypeMeta
 }
-
-// GetListMeta returns the metadata of the object
-func (r *CiliumNetworkPolicyList) GetListMeta() metav1.List {
-	return &r.ListMeta
-}
