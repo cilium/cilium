@@ -24,7 +24,7 @@ import (
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
 
-	"k8s.io/client-go/pkg/apis/extensions/v1beta1"
+	"k8s.io/api/extensions/v1beta1"
 )
 
 // ExtractPolicyNameDeprecated extracts the name of policy name

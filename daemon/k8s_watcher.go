@@ -32,14 +32,14 @@ import (
 	"github.com/cilium/cilium/pkg/node"
 
 	log "github.com/sirupsen/logrus"
+	"k8s.io/api/core/v1"
+	"k8s.io/api/extensions/v1beta1"
+	networkingv1 "k8s.io/api/networking/v1"
 	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/client-go/pkg/api/v1"
-	"k8s.io/client-go/pkg/apis/extensions/v1beta1"
-	networkingv1 "k8s.io/client-go/pkg/apis/networking/v1"
 	"k8s.io/client-go/tools/cache"
 )
 
@@ -1009,7 +1009,7 @@ func (d *Daemon) addIngressV1beta1(obj interface{}) {
 	}
 
 	hostname, _ := os.Hostname()
-	dpyCopyIngress := k8s.DeepCopyv1beta1Ingress(ingress)
+	dpyCopyIngress := ingress.DeepCopy()
 	dpyCopyIngress.Status.LoadBalancer.Ingress = []v1.LoadBalancerIngress{
 		{
 			IP:       host.String(),
