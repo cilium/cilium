@@ -33,7 +33,8 @@ import re
 # ones.
 extensions = ['sphinx.ext.ifconfig',
     'sphinx.ext.githubpages',
-    'sphinxcontrib.openapi']
+    'sphinxcontrib.openapi',
+    'sphinx_tabs.tabs']
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']
