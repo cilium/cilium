@@ -153,7 +153,19 @@ Example (Basic)
 This example shows to enable all endpoints with the label ``role=frontend`` to
 communicate with all endpoints with the label ``role=backend``:
 
-.. literalinclude:: ../examples/policies/l3.json
+.. only:: html
+
+   .. tabs::
+     .. group-tab:: JSON
+
+        .. literalinclude:: ../examples/policies/l3.json
+     .. group-tab:: YAML
+
+        .. literalinclude:: ../examples/policies/l3.yaml
+
+.. only:: epub or latex
+
+        .. literalinclude:: ../examples/policies/l3.json
 
 Example (Requires)
 ------------------
