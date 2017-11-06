@@ -87,43 +87,33 @@ wait_for_service_endpoints_ready default productpage 9080
 #wait_for_service_ready_cilium_pod ${NAMESPACE} ${LOCAL_CILIUM_POD} 9080 9080
 wait_for_cilium_ep_gen k8s ${NAMESPACE} ${LOCAL_CILIUM_POD}
 
+should_connect() {
+	log "trying to reach $2 from $1 pod (should work)"
+	kubectl exec -t $1 wget -- --tries=5 $2
+	if [ $? -ne 0 ]; then abort "Error: could not connect from $1 to $2 service" ; fi
+}
+
+should_not_connect() {
+	log "trying to reach $2 from $1 pod (should not work)"
+	kubectl exec -t $1 wget -- --tries=5 $2
+	if [ $? -eq 0 ]; then abort "Error: could connect from $1 to $2 service" ; fi
+}
+
 set +e
 
 # Every thing should be reachable since we are not enforcing any policies
 
 reviews_pod_v1=$(kubectl get pods | grep reviews-v1 | awk '{print $1}')
 
-log "trying to reach ratings:9080/health from reviews pod (should work)"
-kubectl exec -t ${reviews_pod_v1} wget -- --tries=5 ratings:9080/health
-
-if [ $? -ne 0 ]; then abort "Error: could not connect from reviews-v1 to ratings:9080/health service" ; fi
-
-log "trying to reach ratings:9080 from reviews (should work)"
-kubectl exec -t ${reviews_pod_v1} wget -- --tries=5 ratings:9080
-
-if [ $? -ne 0 ]; then abort "Error: could not connect from reviews-v1 to ratings:9080 service" ; fi
+should_connect ${reviews_pod_v1} "ratings:9080/health"
+should_connect ${reviews_pod_v1} "ratings:9080"
 
 productpage_v1=$(kubectl get pods | grep productpage-v1 | awk '{print $1}')
 
-log "trying to access details:9080/health from productpage (should work)"
-kubectl exec -t ${productpage_v1} wget -- --tries=5 details:9080/health
-
-if [ $? -ne 0 ]; then abort "Error: could not connect from productpage-v1 to details:9080/health service" ; fi
-
-log "trying to access details:9080 from productpage (should work)"
-kubectl exec -t ${productpage_v1} wget -- --tries=5 details:9080
-
-if [ $? -ne 0 ]; then abort "Error: could not connect from productpage-v1 to details:9080 service" ; fi
-
-log "trying to ratings:9080/health from productpage (should work)"
-kubectl exec -t ${productpage_v1} wget -- --tries=5 ratings:9080/health
-
-if [ $? -ne 0 ]; then abort "Error: could not connect from productpage-v1 to ratings:9080/health service" ; fi
-
-log "trying to reach ratings:9080 from productpage (should work)"
-kubectl exec -t ${productpage_v1} wget -- --tries=5 ratings:9080
-
-if [ $? -ne 0 ]; then abort "Error: could not connect from productpage-v1 to ratings:9080 service" ; fi
+should_connect ${productpage_v1} "details:9080/health"
+should_connect ${productpage_v1} "details:9080"
+should_connect ${productpage_v1} "ratings:9080/health"
+should_connect ${productpage_v1} "ratings:9080"
 
 cilium_id=$(docker ps -aql --filter=name=cilium-agent)
 
@@ -157,39 +147,18 @@ fi
 
 reviews_pod_v1=$(kubectl get pods | grep reviews-v1 | awk '{print $1}')
 
-log "checking that reviews can reach ratings:9080/health (should work)"
-kubectl exec -t ${reviews_pod_v1} wget -- --tries=5 ratings:9080/health
-
-if [ $? -ne 0 ]; then abort "Error: could not connect from reviews-v1 to ratings:9080/health service" ; fi
-
-log "checking that reviews can't reach ratings:9080 (shouldn't work)"
-kubectl exec -t ${reviews_pod_v1} wget -- --connect-timeout=10 --tries=2 ratings:9080
-
-if [ $? -eq 0 ]; then abort "Error: unexpected success from reviews-v1 to ratings:9080 service" ; fi
+should_connect ${reviews_pod_v1} "ratings:9080/health"
+should_not_connect ${reviews_pod_v1} "ratings:9080"
 
 # Productpage should reach every page from Details.
 productpage_v1=$(kubectl get pods | grep productpage-v1 | awk '{print $1}')
 
-log "checking that productpage can reach details:9080/health (should work)"
-kubectl exec -t ${productpage_v1} wget -- --tries=5 details:9080/health
-
-if [ $? -ne 0 ]; then abort "Error: could not connect from productpage-v1 to details:9080/health service" ; fi
-
-log "checking that productpage can reach details:9080 (should work)"
-kubectl exec -t ${productpage_v1} wget -- --tries=5 details:9080
-
-if [ $? -ne 0 ]; then abort "Error: could not connect from productpage-v1 to details:9080 service" ; fi
+should_connect ${productpage_v1} "details:9080/health"
+should_connect ${productpage_v1} "details:9080"
 
 # But it should fail while reaching out Ratings
-log "checking that productpage can't reach ratings:9080/health (shouldn't work)"
-kubectl exec -t ${productpage_v1} wget -- --connect-timeout=10 --tries=2 ratings:9080/health
-
-if [ $? -eq 0 ]; then abort "Error: unexpected success from productpage-v1 to ratings:9080/health service" ; fi
-
-log "checking that productpage can't reach ratings:9080 (shouldn't work)"
-kubectl exec -t ${productpage_v1} wget -- --connect-timeout=10 --tries=2 ratings:9080
-
-if [ $? -eq 0 ]; then abort "Error: unexpected success from productpage-v1 to ratings:9080 service" ; fi
+should_not_connect ${productpage_v1} "ratings:9080/health"
+should_not_connect ${productpage_v1} "ratings:9080"
 
 test_succeeded "${TEST_NAME}"
 
@@ -207,4 +176,3 @@ log "checking that all policies were deleted in Cilium"
 docker exec -i ${cilium_id} cilium policy get io.cilium.k8s-policy-name=multi-rules 2>/dev/null
 
 if [ $? -eq 0 ]; then abort "multi-rules policy found in cilium; policy should have been deleted" ; fi
-
