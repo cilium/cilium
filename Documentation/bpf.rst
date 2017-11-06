@@ -33,7 +33,7 @@ for a list of projects which use BPF.
 
 Cilium uses BPF heavily in its data path, see :ref:`arch_guide` for further
 information. The goal of this chapter is to provide a BPF reference guide in
-oder to gain understanding of BPF, its networking specific use including loading
+order to gain understanding of BPF, its networking specific use including loading
 BPF programs with tc (traffic control) and XDP (eXpress Data Path), and to aid
 with developing Cilium's BPF templates.
 
