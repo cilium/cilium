@@ -306,9 +306,8 @@ function wait_for_cilium_ep_gen {
   local NUM_DESIRED="0"
   local MAX_MINS="2"
   local ERROR_OUTPUT="Timeout while waiting for endpoints to regenerate"
- 
   local sleep_time=1
- 
+
   local iter=0
   local found
   found=$(eval "$CMD")
@@ -333,7 +332,7 @@ function wait_for_cilium_ep_gen {
     found=$(eval "${CMD}")
     log "found: $found"
   done
-  set -e 
+  set -e
   restore_flag $save "e"
 }
 
@@ -370,7 +369,7 @@ function wait_for_daemon_set_not_ready {
 }
 
 function wait_for_policy_enforcement {
-  check_num_params "$#" "1" 
+  check_num_params "$#" "1"
   local NUM_DESIRED="$1"
   local CMD="cilium endpoint list | grep -c Disabled"
   local INFO_CMD="cilium endpoint list"
@@ -551,9 +550,9 @@ function gather_files {
     # Get logs from Consul container.
     mkdir -p "${CILIUM_DIR}/consul"
     docker logs cilium-consul > "${CILIUM_DIR}/consul/consul-logs.txt" 2>/dev/null
-  else 
+  else
     # Get logs from each Cilium pod.
-    local NAMESPACE="kube-system" 
+    local NAMESPACE="kube-system"
     local CILIUM_POD_1=$(kubectl -n ${NAMESPACE} get pods -l k8s-app=cilium | awk 'NR==2{ print $1 }')
     local CILIUM_POD_2=$(kubectl -n ${NAMESPACE} get pods -l k8s-app=cilium | awk 'NR==3{ print $1 }')
     local CLI_OUT_DIR=${CILIUM_DIR}/cli
@@ -749,12 +748,12 @@ function wait_for_service_ready_cilium_pod {
   local be_port="${4}"
 
   log "Waiting for Cilium pod ${pod} to have services ready with frontend port: ${fe_port} and backend port: ${be_port}"
-  
+
   wait_specified_time_test "test \"\$(kubectl -n ${namespace} exec ${pod} -- cilium service list | awk '{ print \$2 }' | grep -c \":${fe_port}\")\" -ge \"1\"" "5"
   wait_specified_time_test "test \"\$(kubectl -n ${namespace} exec ${pod} -- cilium service list | awk '{ print \$5 }' | grep -c \":${be_port}\")\" -ge \"1\"" "5"
-  
+
   log "Done waiting for Cilium pod ${pod} to have services ready with frontend port: ${fe_port} and backend port: ${be_port}"
-  
+
   log "Listing all services:"
   kubectl -n ${namespace} exec ${pod} -- cilium service list
 }
@@ -901,7 +900,7 @@ function wait_for_kill {
   check_num_params "$#" "2"
   TARGET_PID=$1
   MAX_WAIT=$2
-  
+
   log "waiting at most ${MAX_WAIT} iterations for PID ${TARGET_PID} to be killed"
   local i=0
 
@@ -1023,7 +1022,7 @@ function wait_specified_time_test {
 
   local sleep_time=1
   local iter=0
- 
+
   log "waiting for at most ${MAX_MINS} minutes for command ${CMD} to succeed"
   while [[ "${iter}" -lt $((${MAX_MINS}*60/$sleep_time)) ]]; do
     if eval "${CMD}" ; then
@@ -1097,7 +1096,7 @@ function ping_success {
   docker exec -i ${C1} bash -c "ping -c 5 ${C2}" || {
     abort "Error: Could not ping ${C2} from ${C1}"
   }
-} 
+}
 
 function wait_for_cilium_shutdown {
   log "waiting for cilium to shutdown"
