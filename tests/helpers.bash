@@ -161,6 +161,10 @@ function kafka_consumer_delay {
   sleep 5
 }
 
+function to_services_delay {
+  sleep 5
+}
+
 function restore_flag {
   check_num_params "$#" "2"
   local save=$1
