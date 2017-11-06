@@ -69,7 +69,7 @@ var _ = Describe("RuntimeChaosMonkey", func() {
 		http://localhost/v1beta/healthz/ | jq ".ipam.ipv4|length"`)
 
 		res := cilium.Node.Exec("sudo systemctl restart cilium")
-		Expect(res.WasSuccessful()).Should(BeTrue())
+		res.ExpectSuccess()
 
 		waitForCilium()
 
@@ -87,13 +87,12 @@ var _ = Describe("RuntimeChaosMonkey", func() {
 		_ = docker.Node.Exec("sudo ip link add lxc12345 type veth peer name tmp54321")
 
 		res := cilium.Node.Exec("sudo systemctl restart cilium")
-		Expect(res.WasSuccessful()).Should(BeTrue())
+		res.ExpectSuccess()
 
 		waitForCilium()
 
 		status := docker.Node.Exec("sudo ip link show lxc12345")
-		Expect(status.WasSuccessful()).Should(BeFalse(),
-			"leftover interface were not properly cleaned up")
+		status.ExpectFail("leftover interface were not properly cleaned up")
 
 		links, err := docker.Node.Exec("sudo ip link show | wc -l").IntOutput()
 		Expect(links).Should(Equal(originalLinks),

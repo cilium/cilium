@@ -81,7 +81,7 @@ var _ = Describe("K8sTunnelTest", func() {
 			kubectl.CiliumReport("kube-system", ciliumPod, cmds)
 		}
 
-		Expect(status.WasSuccessful()).Should(BeTrue())
+		status.ExpectSuccess()
 		Expect(status.IntOutput()).Should(Equal(4))
 
 		By("Checking that BPF tunnels are working correctly")
@@ -109,7 +109,7 @@ var _ = Describe("K8sTunnelTest", func() {
 		//Check that cilium detects a
 		By("Checking that BPF tunnels are in place")
 		status := kubectl.CiliumExec(ciliumPod, "cilium bpf tunnel list | wc -l")
-		Expect(status.WasSuccessful()).Should(BeTrue())
+		status.ExpectSuccess()
 		if tunnels, _ := status.IntOutput(); tunnels != 4 {
 			cmds := []string{
 				"cilium bpf tunnel list",

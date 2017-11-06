@@ -113,7 +113,7 @@ var _ = Describe("K8sPolicyTest", func() {
 		Expect(err).Should(BeNil())
 
 		status := kubectl.CiliumExec(ciliumPod, "cilium config PolicyEnforcement=default")
-		Expect(status.WasSuccessful()).Should(BeTrue())
+		status.ExpectSuccess()
 		helpers.Sleep(5)
 		kubectl.CiliumEndpointWait(ciliumPod)
 
@@ -136,7 +136,7 @@ var _ = Describe("K8sPolicyTest", func() {
 		By("Set PolicyEnforcement to always")
 
 		status = kubectl.CiliumExec(ciliumPod, "cilium config PolicyEnforcement=always")
-		Expect(status.WasSuccessful()).Should(BeTrue())
+		status.ExpectSuccess()
 		kubectl.CiliumEndpointWait(ciliumPod)
 
 		endpoints, err = kubectl.CiliumEndpointsListByTag(ciliumPod, podFilter)
@@ -148,7 +148,7 @@ var _ = Describe("K8sPolicyTest", func() {
 
 		By("Return PolicyEnforcement to default")
 		status = kubectl.CiliumExec(ciliumPod, "cilium config PolicyEnforcement=default")
-		Expect(status.WasSuccessful()).Should(BeTrue())
+		status.ExpectSuccess()
 		kubectl.CiliumEndpointWait(ciliumPod)
 
 		endpoints, err = kubectl.CiliumEndpointsListByTag(ciliumPod, podFilter)
@@ -170,7 +170,7 @@ var _ = Describe("K8sPolicyTest", func() {
 		Expect(err).Should(BeNil())
 
 		status := kubectl.CiliumExec(ciliumPod, "cilium config PolicyEnforcement=default")
-		Expect(status.WasSuccessful()).Should(BeTrue())
+		status.ExpectSuccess()
 		kubectl.CiliumEndpointWait(ciliumPod)
 
 		By("Testing L3/L4 rules")
@@ -200,14 +200,13 @@ var _ = Describe("K8sPolicyTest", func() {
 		trace := kubectl.CiliumExec(ciliumPod, fmt.Sprintf(
 			"cilium policy trace --src-k8s-pod default:%s --dst-k8s-pod default:%s --dport 80",
 			appPods["app2"], appPods["app1"]))
-
-		Expect(trace.WasSuccessful()).Should(BeTrue(), trace.Output().String())
+		trace.ExpectSuccess(trace.Output().String())
 		Expect(trace.Output().String()).Should(ContainSubstring("Final verdict: ALLOWED"))
 
 		trace = kubectl.CiliumExec(ciliumPod, fmt.Sprintf(
 			"cilium policy trace --src-k8s-pod default:%s --dst-k8s-pod default:%s",
 			appPods["app3"], appPods["app1"]))
-		Expect(trace.WasSuccessful()).Should(BeTrue())
+		trace.ExpectSuccess()
 		Expect(trace.Output().String()).Should(ContainSubstring("Final verdict: DENIED"))
 
 		_, err = kubectl.Exec(
@@ -220,7 +219,7 @@ var _ = Describe("K8sPolicyTest", func() {
 
 		eps = kubectl.CiliumEndpointPolicyVersion(ciliumPod)
 		status = kubectl.Delete(l3Policy)
-		Expect(status.WasSuccessful()).Should(BeTrue())
+		status.ExpectSuccess()
 		kubectl.CiliumEndpointWait(ciliumPod)
 
 		//Only 1 endpoint is affected by L7 rule
@@ -256,7 +255,7 @@ var _ = Describe("K8sPolicyTest", func() {
 
 		eps = kubectl.CiliumEndpointPolicyVersion(ciliumPod)
 		status = kubectl.Delete(l7Policy)
-		Expect(status.WasSuccessful()).Should(BeTrue())
+		status.ExpectSuccess()
 
 		//Only 1 endpoint is affected by L7 rule
 		err = waitUntilEndpointUpdates(ciliumPod, eps, 4)

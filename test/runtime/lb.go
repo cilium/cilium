@@ -78,70 +78,57 @@ var _ = Describe("RuntimeLB", func() {
 
 		By("Creating a valid service")
 		result := cilium.ServiceAdd(1, "[::]:80", []string{"[::1]:90", "[::2]:91"}, 2)
-		Expect(result.WasSuccessful()).Should(BeTrue(),
-			"Service can't be added in cilium")
+		result.ExpectSuccess("Service can't be added in cilium")
 
 		result = cilium.ServiceGet(1)
-		Expect(result.WasSuccessful()).Should(BeTrue(),
-			"Service can't be retrieved correctly")
+		result.ExpectSuccess("Service can't be retrieved correctly")
 		Expect(result.Output()).Should(ContainSubstring("[::1]:90"), fmt.Sprintf(
 			"No service backends added correctly '%s'", result.Output()))
 		helpers.Sleep(5)
 		//TODO: This need to be with Wait,Timeout
 		//Checking that bpf lb list is working correctly
 		result = cilium.Exec("bpf lb list")
-		Expect(result.WasSuccessful()).Should(BeTrue(),
-			"Service can't be retrieved correctly")
+		result.ExpectSuccess("Service can't be retrieved correctly")
 		Expect(result.Output()).Should(ContainSubstring("[::1]:90"), fmt.Sprintf(
 			"No service backends added correctly '%s'", result.Output()))
 
 		By("Service ID 0")
 		result = cilium.ServiceAdd(0, "[::]:10000", []string{"[::1]:90", "[::2]:91"}, 2)
-		Expect(result.WasSuccessful()).Should(BeFalse(),
-			"Service with id 0 can be added in cilium")
+		result.ExpectFail("Service with id 0 can be added in cilium")
 
 		By("Service ID -1")
 		result = cilium.ServiceAdd(-1, "[::]:10000", []string{"[::1]:90", "[::2]:91"}, 2)
-		Expect(result.WasSuccessful()).Should(BeFalse(),
-			"Service with id -1 can be added in cilium")
+		result.ExpectFail("Service with id -1 can be added in cilium")
 
 		By("Duplicating serviceID")
 		result = cilium.ServiceAdd(1, "[::]:10000", []string{"[::1]:90", "[::2]:91"}, 2)
-		Expect(result.WasSuccessful()).Should(BeFalse(),
-			"Service with duplicated id can be added in cilium")
+		result.ExpectFail("Service with duplicated id can be added in cilium")
 
 		By("Duplicating service FE address")
 		//Trying to create a new service with id 10, that conflicts with the FE addr on id=1
 		result = cilium.ServiceAdd(10, "[::]:80", []string{"[::1]:90", "[::2]:91"}, 2)
-		Expect(result.WasSuccessful()).Should(BeFalse(),
-			"Service with duplicated FE can be added in cilium")
+		result.ExpectFail("Service with duplicated FE can be added in cilium")
 
 		result = cilium.ServiceGet(10)
-		Expect(result.WasSuccessful()).Should(BeFalse(),
-			"Service was added and it shouldn't")
+		result.ExpectFail("Service was added and it shouldn't")
 
 		//Deleting service ID=1
 		result = cilium.ServiceDel(1)
-		Expect(result.WasSuccessful()).Should(BeTrue(),
-			"Service can't be deleted")
+		result.ExpectSuccess("Service can't be deleted")
 
 		By("IPv4 testing")
 		result = cilium.ServiceAdd(1, "127.0.0.1:80", []string{"127.0.0.1:90", "127.0.0.1:91"}, 2)
-		Expect(result.WasSuccessful()).Should(BeTrue(),
-			"Service can't be added in cilium")
+		result.ExpectSuccess("Service can't be added in cilium")
 
 		result = cilium.ServiceGet(1)
-		Expect(result.WasSuccessful()).Should(BeTrue(),
-			"Service can't be retrieved correctly")
+		result.ExpectSuccess("Service can't be retrieved correctly")
 
 		By("Duplicating service FE address IPv4")
 		result = cilium.ServiceAdd(2, "127.0.0.1:80", []string{"127.0.0.1:90", "127.0.0.1:91"}, 2)
-		Expect(result.WasSuccessful()).Should(BeFalse(),
-			"Service can be added in cilium with duplicated FE")
+		result.ExpectFail("Service can be added in cilium with duplicated FE")
 
 		result = cilium.ServiceGet(10)
-		Expect(result.WasSuccessful()).Should(BeFalse(),
-			"Service was added and it shouldn't")
+		result.ExpectSuccess("Service was added and it shouldn't")
 	}, 500)
 
 	It("Service L3 tests", func() {
@@ -172,19 +159,19 @@ var _ = Describe("RuntimeLB", func() {
 
 		By("Cilium L3 service with Ipv4")
 		status := docker.ContainerExec("client", "ping -c 4 2.2.2.2")
-		Expect(status.WasSuccessful()).Should(BeTrue(), "L3 Proxy is not working IPv4")
+		status.ExpectSuccess("L3 Proxy is not working IPv4")
 
 		By("Cilium L3 service with Ipv6")
 		status = docker.ContainerExec("client", "ping6 -c 4 f00d::1:1")
-		Expect(status.WasSuccessful()).Should(BeTrue(), "L3 Proxy is not working IPv6")
+		status.ExpectSuccess("L3 Proxy is not working IPv6")
 
 		By("Cilium L3 service with Ipv4 Reverse")
 		status = docker.ContainerExec("client", "ping -c 4 3.3.3.3")
-		Expect(status.WasSuccessful()).Should(BeTrue(), "L3 Proxy is not working IPv6")
+		status.ExpectSuccess("L3 Proxy is not working IPv6")
 
 		By("Cilium L3 service with Ipv6 Reverse")
 		status = docker.ContainerExec("client", "ping6 -c 4 f00d::1:2")
-		Expect(status.WasSuccessful()).Should(BeTrue(), "L3 Proxy is not working IPv6")
+		status.ExpectSuccess("L3 Proxy is not working IPv6")
 	}, 500)
 
 	It("Service L4 tests", func() {
@@ -203,30 +190,29 @@ var _ = Describe("RuntimeLB", func() {
 		status := cilium.ServiceAdd(1, "2.2.2.2:80", []string{
 			fmt.Sprintf("%s:80", httpd1["IPv4"]),
 			fmt.Sprintf("%s:80", httpd2["IPv4"])}, 2)
-		Expect(status.WasSuccessful()).Should(BeTrue(), "L4 service can't be created")
+		status.ExpectSuccess("L4 service can't be created")
 
 		status = docker.ContainerExec(
 			"client",
 			"curl -s --fail --connect-timeout 4 http://2.2.2.2:80/public")
-		Expect(status.WasSuccessful()).Should(BeTrue(), "L3 Proxy is not working IPv4")
+		status.ExpectSuccess("L3 Proxy is not working IPv4")
 
 		By("Valid IPV6 nat")
 		status = cilium.ServiceAdd(2, "[f00d::1:1]:80", []string{
 			fmt.Sprintf("[%s]:80", httpd1["IPv6"]),
 			fmt.Sprintf("[%s]:80", httpd2["IPv6"])}, 2)
-		Expect(status.WasSuccessful()).Should(BeTrue(), "L4 service can't be created")
+		status.ExpectSuccess("L4 service can't be created")
 
 		status = docker.ContainerExec(
 			"client",
 			"curl -s --fail --connect-timeout 4 http://2.2.2.2:80/public")
-		Expect(status.WasSuccessful()).Should(BeTrue(), "L3 Proxy is not working IPv6")
+		status.ExpectSuccess("L3 Proxy is not working IPv6")
 
 		By("L3 redirect to L4")
 		status = cilium.ServiceAdd(3, "2.2.2.2:0", []string{
 			fmt.Sprintf("%s:80", httpd1["IPv4"]),
 			fmt.Sprintf("%s:80", httpd2["IPv4"])}, 2)
-		Expect(status.WasSuccessful()).Should(BeFalse(),
-			"Service created with invalid data")
+		status.ExpectFail("Service created with invalid data")
 	}, 500)
 })
 
@@ -275,7 +261,7 @@ tc filter add dev lbtest2 ingress bpf da obj tmp_lb.o sec from-netdev
 	}
 	path := "/vagrant/create_veth_interface"
 	res := node.Exec("sudo ip addr add fd02:1:1:1:1:1:1:1 dev cilium_host")
-	Expect(res.WasSuccessful()).Should(BeTrue())
+	res.ExpectSuccess()
 	node.Exec(fmt.Sprintf("sudo %s", path))
 	return os.Remove(path)
 }
