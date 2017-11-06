@@ -46,7 +46,7 @@ var _ = Describe("RuntimeMonitorTest", func() {
 		docker.NetworkCreate(networkName, "")
 
 		res := cilium.PolicyEnforcementSet("default", false)
-		Expect(res.WasSuccessful()).Should(BeTrue())
+		res.ExpectSuccess()
 
 		initialized = true
 	}
@@ -62,7 +62,7 @@ var _ = Describe("RuntimeMonitorTest", func() {
 	It("Cilium monitor verbose mode", func() {
 
 		res := cilium.Exec("config Debug=true DropNotification=true TraceNotification=true")
-		Expect(res.WasSuccessful()).Should(BeTrue())
+		res.ExpectSuccess()
 
 		ctx, cancel := context.WithCancel(context.Background())
 
@@ -88,7 +88,7 @@ var _ = Describe("RuntimeMonitorTest", func() {
 		}
 
 		res := cilium.Exec("config Debug=true DropNotification=true TraceNotification=true")
-		Expect(res.WasSuccessful()).Should(BeTrue())
+		res.ExpectSuccess()
 		for k, v := range eventTypes {
 			By(fmt.Sprintf("Type %s", k))
 
@@ -107,7 +107,7 @@ var _ = Describe("RuntimeMonitorTest", func() {
 
 	It("cilium monitor check --from", func() {
 		res := cilium.Exec("config Debug=true DropNotification=true TraceNotification=true")
-		Expect(res.WasSuccessful()).Should(BeTrue())
+		res.ExpectSuccess()
 
 		docker.SampleContainersActions("create", networkName)
 		endpoints, err := cilium.GetEndpointsIds()
@@ -133,7 +133,7 @@ var _ = Describe("RuntimeMonitorTest", func() {
 
 		res := cilium.Exec(
 			"config Debug=true DropNotification=true TraceNotification=true PolicyEnforcement=always")
-		Expect(res.WasSuccessful()).Should(BeTrue())
+		res.ExpectSuccess()
 
 		docker.SampleContainersActions("create", networkName)
 		endpoints, err := cilium.GetEndpointsIds()
@@ -158,7 +158,7 @@ var _ = Describe("RuntimeMonitorTest", func() {
 
 		res := cilium.Exec(
 			"config Debug=true DropNotification=true TraceNotification=true PolicyEnforcement=always")
-		Expect(res.WasSuccessful()).Should(BeTrue())
+		res.ExpectSuccess()
 
 		docker.SampleContainersActions("create", networkName)
 		endpoints, err := cilium.GetEndpointsIds()
@@ -181,7 +181,7 @@ var _ = Describe("RuntimeMonitorTest", func() {
 
 		res := cilium.Exec(
 			"config Debug=true DropNotification=true TraceNotification=true PolicyEnforcement=default")
-		Expect(res.WasSuccessful()).Should(BeTrue())
+		res.ExpectSuccess()
 
 		var monitorRes []*helpers.CmdRes
 

@@ -22,6 +22,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/onsi/gomega"
 	"k8s.io/client-go/util/jsonpath"
 )
 
@@ -37,6 +38,20 @@ type CmdRes struct {
 //WasSuccessful returns true if the command was sucessful
 func (res *CmdRes) WasSuccessful() bool {
 	return res.exit
+}
+
+//ExpectFail make an assertion that checks command failed to execute
+//It accepts an optional parameter that can be used to annotate failure messages.
+func (res *CmdRes) ExpectFail(optionalDescription ...interface{}) bool {
+	return gomega.ExpectWithOffset(1, res.WasSuccessful()).Should(
+		gomega.BeFalse(), optionalDescription...)
+}
+
+//ExpectSucess make an assertion that checks command executes successfully
+//It accepts an optional parameter that can be used to annotate failure messages.
+func (res *CmdRes) ExpectSuccess(optionalDescription ...interface{}) bool {
+	return gomega.ExpectWithOffset(1, res.WasSuccessful()).Should(
+		gomega.BeTrue(), optionalDescription...)
 }
 
 //CountLines return the number of stdout lines

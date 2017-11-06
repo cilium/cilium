@@ -63,17 +63,18 @@ var _ = Describe("RuntimeConnectivityTest", func() {
 
 		By("Client can ping to server IPV6")
 		res := docker.ContainerExec("client", fmt.Sprintf("ping6 -c 4 %s", serverIPv6))
-		Expect(res.WasSuccessful()).Should(BeTrue())
+		res.ExpectSuccess()
 
 		By("Client can ping to server Ipv4")
 		res = docker.ContainerExec("client", fmt.Sprintf("ping -c 5 %s", serverIP))
-		Expect(res.WasSuccessful()).Should(BeTrue())
+		res.ExpectSuccess()
 
 		By("Netperf to server from client IPv6")
 		cmd := fmt.Sprintf(
 			"netperf -c -C -t TCP_SENDFILE -H %s", serverIPv6)
 		res = docker.ContainerExec("client", cmd)
-		Expect(res.WasSuccessful()).Should(BeTrue())
+		res.ExpectSuccess()
+
 	}, 300)
 
 	It("Test containers connectivity WITH policy", func() {
@@ -89,21 +90,21 @@ var _ = Describe("RuntimeConnectivityTest", func() {
 
 		By("Client can ping to server IPV6")
 		res := docker.ContainerExec("client", fmt.Sprintf("ping6 -c 4 %s", serverIPv6))
-		Expect(res.WasSuccessful()).Should(BeTrue())
+		res.ExpectSuccess()
 
 		By("Client can ping to server Ipv4")
 		res = docker.ContainerExec("client", fmt.Sprintf("ping -c 5 %s", serverIP))
-		Expect(res.WasSuccessful()).Should(BeTrue())
+		res.ExpectSuccess()
 
 		By("Netperf to server from client IPv6")
 		cmd := fmt.Sprintf(
 			"netperf -c -C -t TCP_SENDFILE -H %s", serverIPv6)
 		res = docker.ContainerExec("client", cmd)
-		Expect(res.WasSuccessful()).Should(BeTrue())
+		res.ExpectSuccess()
 
 		By("Ping from host to server")
 		res = docker.Node.Exec(fmt.Sprintf("ping -c 4 %s", serverIP))
-		Expect(res.WasSuccessful()).Should(BeTrue())
+		res.ExpectSuccess()
 	}, 300)
 
 	It("Test containers NAT46 connectivity ", func() {
@@ -122,11 +123,11 @@ var _ = Describe("RuntimeConnectivityTest", func() {
 
 		res := docker.ContainerExec("client", fmt.Sprintf(
 			"ping6 -c 4 ::FFFF:%s", server["IPv4"]))
-		Expect(res.WasSuccessful()).Should(BeTrue())
+		res.ExpectSuccess()
 
 		res = docker.ContainerExec("server", fmt.Sprintf(
 			"ping6 -c 4 ::FFFF:%s", client["IPv4"]))
-		Expect(res.WasSuccessful()).Should(BeFalse(), "Unexpected NAT46 access")
+		res.ExpectFail("Unexpected NAT46 access")
 	})
 })
 

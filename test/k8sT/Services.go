@@ -66,14 +66,14 @@ var _ = Describe("K8sServicesTest", func() {
 		Expect(govalidator.IsIP(svcIP.String())).Should(BeTrue())
 
 		status := kubectl.Node.Exec(fmt.Sprintf("curl http://%s/", svcIP))
-		Expect(status.WasSuccessful()).Should(BeTrue())
+		status.ExpectSuccess()
 
 		ciliumPod, err := kubectl.GetCiliumPodOnNode("kube-system", "k8s1")
 		Expect(err).Should(BeNil())
 
 		service := kubectl.CiliumExec(ciliumPod, "cilium service list")
 		Expect(service.Output()).Should(ContainSubstring(svcIP.String()))
-		Expect(service.WasSuccessful()).Should(BeTrue())
+		service.ExpectSuccess()
 
 	}, 300)
 
@@ -92,11 +92,11 @@ var _ = Describe("K8sServicesTest", func() {
 		Expect(govalidator.IsIP(svcIP.String())).Should(BeTrue())
 
 		status := kubectl.Node.Exec(fmt.Sprintf("curl http://%s/", svcIP))
-		Expect(status.WasSuccessful()).Should(BeTrue())
+		status.ExpectSuccess()
 
 		k8s2 := helpers.CreateKubectl("k8s2", logger)
 		status = k8s2.Node.Exec(fmt.Sprintf("curl http://%s/", svcIP))
-		Expect(status.WasSuccessful()).Should(BeTrue())
+		status.ExpectSuccess()
 	})
 
 	//TODO: Check service with IPV6
