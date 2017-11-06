@@ -47,6 +47,7 @@ import (
 	"github.com/cilium/cilium/pkg/workloads/containerd"
 
 	"github.com/go-openapi/loads"
+	"github.com/go-openapi/spec"
 	gops "github.com/google/gops/agent"
 	go_version "github.com/hashicorp/go-version"
 	flags "github.com/jessevdk/go-flags"
@@ -440,7 +441,7 @@ func initConfig() {
 		scopedLog.WithError(err).Fatal("Could not create library directory")
 	}
 	if !config.KeepTemplates {
-		if err := RestoreAssets(config.LibDir, defaults.BpfDir); err != nil {
+		if err := spec.RestoreAssets(config.LibDir, defaults.BpfDir); err != nil {
 			scopedLog.WithError(err).Fatal("Unable to restore agent assets")
 		}
 		// Restore permissions of executable files
