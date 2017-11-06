@@ -158,6 +158,7 @@ func defaultLabelPrefixCfg() *labelPrefixCfg {
 		K8sNamespaceLabel,                                          // include io.kubernetes.pod.namspace
 		"!io.kubernetes",                                           // ignore all other io.kubernetes labels
 		"!.*kubernetes.io",                                         // ignore all other kubernetes.io labels (annotation.*.k8s.io)
+		"!pod-template-generation",                                 // ignore pod-template-generation
 		"!pod-template-hash",                                       // ignore pod-template-hash
 		"!controller-revision-hash",                                // ignore controller-revision-hash
 		"!annotation." + common.CiliumK8sAnnotationPrefix,          // ignore all cilium annotations
