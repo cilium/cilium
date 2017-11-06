@@ -204,26 +204,7 @@ same TCP/UDP connection.
 
 We can achieve that with the following Kubernetes NetworkPolicy:
 
-::
-
-    kind: NetworkPolicy
-    apiVersion: networking.k8s.io/v1
-    #for k8s <1.7 use:
-    #apiVersion: extensions/v1beta1
-    metadata:
-      name: access-backend
-    spec:
-      podSelector:
-        matchLabels:
-          id: app1
-      ingress:
-      - from:
-        - podSelector:
-            matchLabels:
-              id: app2
-        ports:
-        - port: 80
-          protocol: TCP
+.. literalinclude:: ../examples/minikube/l3_l4_policy.yaml
 
 Kubernetes NetworkPolicies match on pod labels using "podSelector" to
 identify the sources and destinations to which the policy applies.
@@ -337,31 +318,7 @@ URLs *app2* is allowed to reach.  Here is an example policy file that
 extends our original policy by limiting *app2* to making only a GET /public
 API call, but disallowing all other calls (including GET /private).
 
-::
-
-    apiVersion: "cilium.io/v2"
-    #for k8s <1.7 use:
-    #apiVersion: "cilium.io/v1"
-    kind: CiliumNetworkPolicy
-    description: "L7 policy for getting started using Kubernetes guide"
-    metadata:
-      name: "rule1"
-    spec:
-      endpointSelector:
-        matchLabels:
-          id: app1
-      ingress:
-      - fromEndpoints:
-        - matchLabels:
-            id: app2
-        toPorts:
-        - ports:
-          - port: "80"
-            protocol: TCP
-          rules:
-            http:
-            - method: "GET"
-              path: "/public"
+.. literalinclude:: ../examples/minikube/l3_l4_l7_policy.yaml
 
 Create an L7-aware policy to protect *app1* using:
 
