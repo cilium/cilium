@@ -30,8 +30,6 @@ import (
 	"github.com/sirupsen/logrus"
 	"k8s.io/api/core/v1"
 	"k8s.io/api/extensions/v1beta1"
-	apiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
-	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
@@ -58,17 +56,11 @@ var (
 )
 
 const (
-	// CustomResourceDefinitionSingularName is the singular name of custom resource definition
-	CustomResourceDefinitionSingularName = "ciliumnetworkpolicy"
-
 	// ThirdPartyResourcesSingularName is the singular name of third party resources
 	ThirdPartyResourcesSingularName = "cilium-network-policy"
 
 	// CustomResourceDefinitionPluralName is the plural name of custom resource definition
 	CustomResourceDefinitionPluralName = "ciliumnetworkpolicies"
-
-	// CustomResourceDefinitionKind is the Kind name of custom resource definition
-	CustomResourceDefinitionKind = "CiliumNetworkPolicy"
 
 	// CustomResourceDefinitionGroup is the name of the third party resource group
 	CustomResourceDefinitionGroup = "cilium.io"
@@ -179,66 +171,6 @@ func CreateThirdPartyResourcesDefinitions(cli kubernetes.Interface) error {
 		deleteErr := cli.ExtensionsV1beta1().ThirdPartyResources().Delete(cnpTPRName, nil)
 		if deleteErr != nil {
 			return fmt.Errorf("unable to delete k8s TPR %s. Deleting TPR due: %s", deleteErr, err)
-		}
-		return err
-	}
-
-	return nil
-}
-
-// CreateCustomResourceDefinitions creates the CRD object in the kubernetes
-// cluster
-func CreateCustomResourceDefinitions(clientset apiextensionsclient.Interface) error {
-	cnpCRDName := CustomResourceDefinitionPluralName + "." + crdGV.Group
-
-	res := &apiextensionsv1beta1.CustomResourceDefinition{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: cnpCRDName,
-		},
-		Spec: apiextensionsv1beta1.CustomResourceDefinitionSpec{
-			Group:   crdGV.Group,
-			Version: crdGV.Version,
-			Names: apiextensionsv1beta1.CustomResourceDefinitionNames{
-				Plural:     CustomResourceDefinitionPluralName,
-				Singular:   CustomResourceDefinitionSingularName,
-				ShortNames: []string{"cnp", "ciliumnp"},
-				Kind:       CustomResourceDefinitionKind,
-			},
-			Scope: apiextensionsv1beta1.NamespaceScoped,
-		},
-	}
-
-	_, err := clientset.ApiextensionsV1beta1().CustomResourceDefinitions().Create(res)
-	if err != nil && !errors.IsAlreadyExists(err) {
-		return err
-	}
-
-	log.Info("Creating v2.CiliumNetworkPolicy CustomResourceDefinition")
-	// wait for CRD being established
-	err = wait.Poll(500*time.Millisecond, 60*time.Second, func() (bool, error) {
-		crd, err := clientset.ApiextensionsV1beta1().CustomResourceDefinitions().Get(cnpCRDName, metav1.GetOptions{})
-		if err != nil {
-			return false, err
-		}
-		for _, cond := range crd.Status.Conditions {
-			switch cond.Type {
-			case apiextensionsv1beta1.Established:
-				if cond.Status == apiextensionsv1beta1.ConditionTrue {
-					return true, err
-				}
-			case apiextensionsv1beta1.NamesAccepted:
-				if cond.Status == apiextensionsv1beta1.ConditionFalse {
-					log.Errorf("Name conflict: %s", cond.Reason)
-					return false, err
-				}
-			}
-		}
-		return false, err
-	})
-	if err != nil {
-		deleteErr := clientset.ApiextensionsV1beta1().CustomResourceDefinitions().Delete(cnpCRDName, nil)
-		if deleteErr != nil {
-			return fmt.Errorf("unable to delete k8s CRD %s. Deleting CRD due: %s", deleteErr, err)
 		}
 		return err
 	}
