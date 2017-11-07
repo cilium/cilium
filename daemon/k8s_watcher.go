@@ -160,9 +160,8 @@ func k8sErrorHandler(e error) {
 			// Stop the v1 API policy controller, which is causing these error
 			// messages to occur. This happens when we are talking to a k8s <1.7
 			// installation
-			log.Warn("Disabling k8s networking.k8s.io/v1 API watcher. " +
-				"Consider upgrading k8s to >=1.7 to enforce networking.k8s.io/v1. " +
-				"Continuing to watch for events on k8s extensions/v1beta1")
+			log.Warn("k8s <1.7 detected. Some newer k8s API Groups are not available." +
+				"For k8s API version compatibilty see http://cilium.readthedocs.io/en/latest/k8scompatibility")
 			// This disables the matching watcher set up in EnableK8sWatcher below.
 			close(stopPolicyController)
 		})
