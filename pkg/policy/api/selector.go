@@ -77,6 +77,11 @@ func (n *EndpointSelector) UnmarshalJSON(b []byte) error {
 // MarshalJSON returns a JSON representation of the byte array.
 func (n EndpointSelector) MarshalJSON() ([]byte, error) {
 	ls := metav1.LabelSelector{}
+
+	if n.LabelSelector == nil {
+		return json.Marshal(ls)
+	}
+
 	if n.MatchLabels != nil {
 		newLabels := map[string]string{}
 		for k, v := range n.MatchLabels {
