@@ -29,7 +29,6 @@ import (
 
 	"github.com/sirupsen/logrus"
 	"k8s.io/api/core/v1"
-	"k8s.io/api/extensions/v1beta1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
@@ -56,8 +55,6 @@ var (
 )
 
 const (
-	// ThirdPartyResourcesSingularName is the singular name of third party resources
-	ThirdPartyResourcesSingularName = "cilium-network-policy"
 
 	// CustomResourceDefinitionPluralName is the plural name of custom resource definition
 	CustomResourceDefinitionPluralName = "ciliumnetworkpolicies"
@@ -135,47 +132,6 @@ func CreateClient(config *rest.Config) (*kubernetes.Clientset, error) {
 func isConnReady(c *kubernetes.Clientset) error {
 	_, err := c.CoreV1().ComponentStatuses().Get("controller-manager", metav1.GetOptions{})
 	return err
-}
-
-// CreateThirdPartyResourcesDefinitions creates the TPR object in the kubernetes
-// cluster
-func CreateThirdPartyResourcesDefinitions(cli kubernetes.Interface) error {
-	cnpTPRName := ThirdPartyResourcesSingularName + "." + CustomResourceDefinitionGroup
-	res := &v1beta1.ThirdPartyResource{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: cnpTPRName,
-		},
-		Description: "Cilium network policy rule",
-		Versions: []v1beta1.APIVersion{
-			{Name: ThirdPartyResourceVersion},
-		},
-	}
-
-	_, err := cli.ExtensionsV1beta1().ThirdPartyResources().Create(res)
-	if err != nil && !errors.IsAlreadyExists(err) {
-		return err
-	}
-
-	log.Info("Creating v2.CiliumNetworkPolicy ThirdPartyResource")
-	// wait for TPR being established
-	err = wait.Poll(500*time.Millisecond, 60*time.Second, func() (bool, error) {
-		_, err := cli.ExtensionsV1beta1().ThirdPartyResources().Get(cnpTPRName, metav1.GetOptions{})
-		if err != nil {
-			return false, err
-		}
-		// The only way we can know if the TPR was installed in the cluster
-		// is to check if the return error was or not nil
-		return true, nil
-	})
-	if err != nil {
-		deleteErr := cli.ExtensionsV1beta1().ThirdPartyResources().Delete(cnpTPRName, nil)
-		if deleteErr != nil {
-			return fmt.Errorf("unable to delete k8s TPR %s. Deleting TPR due: %s", deleteErr, err)
-		}
-		return err
-	}
-
-	return nil
 }
 
 func addKnownTypesCRD(scheme *runtime.Scheme) error {

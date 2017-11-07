@@ -25,6 +25,7 @@ import (
 
 	"github.com/cilium/cilium/common/types"
 	"github.com/cilium/cilium/pkg/k8s"
+	cilium_tpr "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v1"
 	cilium_crd "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
@@ -219,7 +220,7 @@ func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 		// If CRD was not found it means we are running in k8s <1.7
 		// then we should set up TPR instead
 		log.Debug("Detected k8s <1.7, using TPR instead of CRD")
-		err = k8s.CreateThirdPartyResourcesDefinitions(k8s.Client())
+		err := cilium_tpr.CreateThirdPartyResourcesDefinitions(k8s.Client())
 		if err != nil {
 			return fmt.Errorf("Unable to create third party resource: %s", err)
 		}

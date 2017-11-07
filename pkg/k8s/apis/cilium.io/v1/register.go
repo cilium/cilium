@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package v2
+package v1
 
 import (
 	"fmt"
@@ -20,36 +20,30 @@ import (
 
 	k8sconst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 
-	apiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
-	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
+	"k8s.io/api/extensions/v1beta1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/kubernetes"
 )
 
 const (
-	// CustomResourceDefinitionSingularName is the singular name of custom resource definition
-	CustomResourceDefinitionSingularName = "ciliumnetworkpolicy"
+	// ThirdPartyResourcesSingularName is the singular name of third party resources
+	ThirdPartyResourcesSingularName = "cilium-network-policy"
 
-	// CustomResourceDefinitionPluralName is the plural name of custom resource definition
-	CustomResourceDefinitionPluralName = "ciliumnetworkpolicies"
-
-	// CustomResourceDefinitionKind is the Kind name of custom resource definition
-	CustomResourceDefinitionKind = "CiliumNetworkPolicy"
-
-	// CustomResourceDefinitionGroup is the name of the third party resource group
-	CustomResourceDefinitionGroup = k8sconst.GroupName
+	// ThirdPartyResourceGroup is the name of the third party resource group
+	ThirdPartyResourceGroup = k8sconst.GroupName
 
 	// CustomResourceDefinitionVersion is the current version of the resource
-	CustomResourceDefinitionVersion = "v2"
+	ThirdPartyResourceVersion = "v1"
 )
 
 // SchemeGroupVersion is group version used to register these objects
 var SchemeGroupVersion = schema.GroupVersion{
-	Group:   CustomResourceDefinitionGroup,
-	Version: CustomResourceDefinitionVersion,
+	Group:   ThirdPartyResourceGroup,
+	Version: ThirdPartyResourceVersion,
 }
 
 // Resource takes an unqualified resource and returns a Group qualified GroupResource
@@ -94,59 +88,40 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 	return nil
 }
 
-// CreateCustomResourceDefinitions creates the CRD object in the kubernetes
+// CreateThirdPartyResourcesDefinitions creates the TPR object in the kubernetes
 // cluster
-func CreateCustomResourceDefinitions(clientset apiextensionsclient.Interface) error {
-	cnpCRDName := CustomResourceDefinitionPluralName + "." + SchemeGroupVersion.Group
-
-	res := &apiextensionsv1beta1.CustomResourceDefinition{
+func CreateThirdPartyResourcesDefinitions(cli kubernetes.Interface) error {
+	cnpTPRName := ThirdPartyResourcesSingularName + "." + ThirdPartyResourceGroup
+	res := &v1beta1.ThirdPartyResource{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: cnpCRDName,
+			Name: cnpTPRName,
 		},
-		Spec: apiextensionsv1beta1.CustomResourceDefinitionSpec{
-			Group:   SchemeGroupVersion.Group,
-			Version: SchemeGroupVersion.Version,
-			Names: apiextensionsv1beta1.CustomResourceDefinitionNames{
-				Plural:     CustomResourceDefinitionPluralName,
-				Singular:   CustomResourceDefinitionSingularName,
-				ShortNames: []string{"cnp", "ciliumnp"},
-				Kind:       CustomResourceDefinitionKind,
-			},
-			Scope: apiextensionsv1beta1.NamespaceScoped,
+		Description: "Cilium network policy rule",
+		Versions: []v1beta1.APIVersion{
+			{Name: ThirdPartyResourceVersion},
 		},
 	}
 
-	_, err := clientset.ApiextensionsV1beta1().CustomResourceDefinitions().Create(res)
+	_, err := cli.ExtensionsV1beta1().ThirdPartyResources().Create(res)
 	if err != nil && !errors.IsAlreadyExists(err) {
 		return err
 	}
 
-	log.Info("Creating v2.CiliumNetworkPolicy CustomResourceDefinition")
-	// wait for CRD being established
+	log.Info("Creating v1.CiliumNetworkPolicy ThirdPartyResource")
+	// wait for TPR being established
 	err = wait.Poll(500*time.Millisecond, 60*time.Second, func() (bool, error) {
-		crd, err := clientset.ApiextensionsV1beta1().CustomResourceDefinitions().Get(cnpCRDName, metav1.GetOptions{})
+		_, err := cli.ExtensionsV1beta1().ThirdPartyResources().Get(cnpTPRName, metav1.GetOptions{})
 		if err != nil {
 			return false, err
 		}
-		for _, cond := range crd.Status.Conditions {
-			switch cond.Type {
-			case apiextensionsv1beta1.Established:
-				if cond.Status == apiextensionsv1beta1.ConditionTrue {
-					return true, err
-				}
-			case apiextensionsv1beta1.NamesAccepted:
-				if cond.Status == apiextensionsv1beta1.ConditionFalse {
-					log.Errorf("Name conflict: %s", cond.Reason)
-					return false, err
-				}
-			}
-		}
-		return false, err
+		// The only way we can know if the TPR was installed in the cluster
+		// is to check if the return error was or not nil
+		return true, nil
 	})
 	if err != nil {
-		deleteErr := clientset.ApiextensionsV1beta1().CustomResourceDefinitions().Delete(cnpCRDName, nil)
+		deleteErr := cli.ExtensionsV1beta1().ThirdPartyResources().Delete(cnpTPRName, nil)
 		if deleteErr != nil {
-			return fmt.Errorf("unable to delete k8s CRD %s. Deleting CRD due: %s", deleteErr, err)
+			return fmt.Errorf("unable to delete k8s TPR %s. Deleting TPR due: %s", deleteErr, err)
 		}
 		return err
 	}
