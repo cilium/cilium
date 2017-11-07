@@ -157,6 +157,7 @@ worker nodes.
 
 Should you encounter any issues during the installation, please refer to the
 :ref:`troubleshooting_k8s` section and / or seek help on `Slack channel`_.
+See the :ref:`k8scompatibility` section for kubernetes API version compatibility.
 
 Quick Guide
 ===========
