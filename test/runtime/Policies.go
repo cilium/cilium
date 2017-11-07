@@ -90,6 +90,12 @@ var _ = Describe("RuntimePolicyEnforcement", func() {
 			Expect(endPoints["enabled"]).To(Equal(1))
 		})
 
+		It("Handles missing required fields", func() {
+			By("Apply a policy with no endpointSelector without crashing")
+			_, err := cilium.PolicyImport(cilium.GetFullPath("no_endpointselector_policy.json"), 300)
+			Expect(err).ShouldNot(BeNil())
+		})
+
 		It("Default to Always without policy", func() {
 			By("Check no policy enforcement")
 			endPoints, err := cilium.PolicyEndpointsSummary()

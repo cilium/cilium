@@ -97,6 +97,19 @@ cat <<EOF | cilium -D policy import -
 }]
 EOF
 
+set +e
+log "import policy without an endpointSelector. This should fail"
+cat <<EOF | cilium -D policy import -
+[{
+    "labels": ["key4"]
+}]
+EOF
+if [ $? -eq 0 ]; then 
+  cilium policy delete key4
+	abort "Agent accepted a CiliumNetworkPolicy without an endpointSelector"
+fi
+set -e
+
 log "retrieve policy by labels"
 cilium policy get key1
 cilium policy get key2
