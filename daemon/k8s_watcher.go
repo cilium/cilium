@@ -213,7 +213,7 @@ func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 		return fmt.Errorf("Unable to create rest configuration for k8s CRD: %s", err)
 	}
 
-	err = k8s.CreateCustomResourceDefinitions(apiextensionsclientset)
+	err = cilium_crd.CreateCustomResourceDefinitions(apiextensionsclientset)
 	switch {
 	case errors.IsNotFound(err):
 		// If CRD was not found it means we are running in k8s <1.7
