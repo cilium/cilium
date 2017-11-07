@@ -69,7 +69,7 @@ wait_for_service_endpoints_ready default details 9080
 
 # FIXME(ianvernon) - since we have multiple services listening on port 9080, wait_for_service_ready_cilium_pod
 # isn't capable of determining which service is ready on that port at this time. GH-1448 will add
-# support for JSON output for services which can be parsed and then utilized in 
+# support for JSON output for services which can be parsed and then utilized in
 # wait_for_service_ready_cilium_pod
 
 #wait_for_service_ready_cilium_pod ${NAMESPACE} ${LOCAL_CILIUM_POD} 9080 9080
@@ -95,7 +95,7 @@ should_connect() {
 
 should_not_connect() {
 	log "trying to reach $2 from $1 pod (should not work)"
-	kubectl exec -t $1 wget -- --tries=5 $2
+	kubectl exec -t $1 wget -- --tries=2 --connect-timeout 10 $2
 	if [ $? -eq 0 ]; then abort "Error: could connect from $1 to $2 service" ; fi
 }
 
