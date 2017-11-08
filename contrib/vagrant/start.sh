@@ -303,6 +303,8 @@ function write_cilium_cfg() {
         cilium_options+=" ${TUNNEL_MODE_STRING}"
     fi
 
+    cilium_options+=" --access-log=/var/log/cilium-access.log"
+
 cat <<EOF >> "$filename"
 sleep 2s
 if [ -n "\$(grep DISTRIB_RELEASE=14.04 /etc/lsb-release)" ]; then

@@ -15,20 +15,18 @@
 package accesslog
 
 import (
-	"bufio"
 	"encoding/json"
-	"os"
 
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logfields"
 
 	log "github.com/sirupsen/logrus"
+	"gopkg.in/natefinch/lumberjack.v2"
 )
 
 var (
 	logMutex lock.Mutex
-	logFile  *os.File
-	logBuf   *bufio.Writer
+	logger   *lumberjack.Logger
 	logPath  string
 	metadata []string
 )
@@ -54,16 +52,17 @@ const (
 
 // Called with lock held
 func openLogfileLocked(lf string) error {
-	var err error
-
-	if logFile, err = os.OpenFile(lf, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0666); err != nil {
-		return err
-	}
-
 	logPath = lf
 	log.WithField(FieldFilePath, logPath).Debug("Opened access log")
 
-	logBuf = bufio.NewWriter(logFile)
+	logger = &lumberjack.Logger{
+		Filename:   lf,
+		MaxSize:    100, // megabytes
+		MaxBackups: 3,
+		MaxAge:     28,   //days
+		Compress:   true, // disabled by default
+	}
+
 	return nil
 }
 
@@ -78,9 +77,6 @@ func OpenLogfile(lf string) error {
 // Called with lock held.
 func closeLogfileLocked() {
 	log.WithField(FieldFilePath, logPath).Debug("Closed access log")
-
-	logBuf.Flush()
-	logFile.Close()
 }
 
 // CloseLogfile closes the log file.
@@ -101,17 +97,11 @@ func SetMetadata(md []string) {
 
 // Called with lock held.
 func logString(outStr string, retry bool) {
-	_, err := logBuf.WriteString(outStr + "\n")
+	output := []byte(outStr + "\n")
+	_, err := logger.Write(output)
 	if err != nil {
-		if retry {
-			log.WithError(err).WithField(FieldFilePath, logPath).Warn("Error encountered while writing to access log, retrying once...")
-
-			closeLogfileLocked()
-			openLogfileLocked(logPath)
-
-			// retry once
-			logString(outStr, false)
-		}
+		log.WithField(FieldFilePath,
+			logPath).Errorf("Error writing to access file %+v", err)
 	}
 }
 
@@ -122,9 +112,9 @@ func (l *LogRecord) Log() {
 	logMutex.Lock()
 	defer logMutex.Unlock()
 
-	if logBuf == nil {
+	if logger == nil {
 		log.WithField(FieldFilePath,
-			logPath).Debug("Skipping writing to access log (write buffer nil)")
+			logPath).Debug("Skipping writing to access log (logger nil)")
 		return
 	}
 
@@ -135,10 +125,5 @@ func (l *LogRecord) Log() {
 		logString(err.Error(), true)
 	} else {
 		logString(string(b), true)
-	}
-
-	if err := logBuf.Flush(); err != nil {
-		log.WithError(err).WithField(FieldFilePath,
-			logPath).Warn("Error encountered while flushing to access log")
 	}
 }
