@@ -109,8 +109,9 @@ var _ = BeforeSuite(func() {
 		return
 	}
 
-	progressChan := goReportVagrantStatus()
-	defer func() { progressChan <- err == nil }()
+	if progressChan := goReportVagrantStatus(); progressChan != nil {
+		defer func() { progressChan <- err == nil }()
+	}
 
 	switch ginkgoext.GetScope() {
 	case "runtime":
