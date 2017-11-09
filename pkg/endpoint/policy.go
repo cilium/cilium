@@ -155,7 +155,7 @@ func getSecurityIdentities(owner Owner, selector *api.EndpointSelector) []policy
 	return identities
 }
 
-func (e *Endpoint) removeOldFilter(owner Owner, filter *policy.L4Filter) int {
+func (e *Endpoint) removeOldFilter(owner Owner, filter *policy.L4Filter) {
 	port := uint16(filter.Port)
 	proto, err := u8proto.ParseProtocol(string(filter.Protocol))
 	if err != nil {
@@ -163,17 +163,18 @@ func (e *Endpoint) removeOldFilter(owner Owner, filter *policy.L4Filter) int {
 		return 1
 	}
 
-	errors := 0
 	for _, sel := range filter.FromEndpoints {
 		for _, id := range getSecurityIdentities(owner, &sel) {
 			srcID := id.Uint32()
 			if err = e.PolicyMap.DeleteL4(srcID, port, uint8(proto)); err != nil {
+				// This happens when the policy would add
+				// multiple copies of the same L4 policy. Only
+				// one of them is actually added, but we'll
+				// still try to remove it multiple times.
 				e.getLogger().WithError(err).WithField(logfields.L4PolicyID, srcID).Debug("Delete old l4 policy failed")
 			}
 		}
 	}
-
-	return errors
 }
 
 func (e *Endpoint) applyNewFilter(owner Owner, filter *policy.L4Filter) int {
@@ -205,17 +206,17 @@ func (e *Endpoint) applyNewFilter(owner Owner, filter *policy.L4Filter) int {
 // Looks for mismatches between 'oldPolicy' and 'newPolicy', and fixes up
 // this Endpoint's BPF PolicyMap to reflect the new L3+L4 combined policy.
 func (e *Endpoint) applyL4PolicyLocked(owner Owner, oldPolicy *policy.L4Policy, newPolicy *policy.L4Policy) error {
-	errors := 0
-
 	if oldPolicy != nil {
 		for _, filter := range oldPolicy.Ingress {
-			errors = e.removeOldFilter(owner, &filter)
+			e.removeOldFilter(owner, &filter)
 		}
 	}
 
 	if newPolicy == nil {
 		return nil
 	}
+
+	errors := 0
 
 	for _, filter := range newPolicy.Ingress {
 		errors += e.applyNewFilter(owner, &filter)
