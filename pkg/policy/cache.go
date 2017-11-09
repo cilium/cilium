@@ -26,8 +26,7 @@ type ConsumableCache struct {
 	cacheMU lock.RWMutex // Protects the `cache` map
 	cache   map[NumericIdentity]*Consumable
 	// List of consumables representing the reserved identities
-	reserved  []*Consumable
-	iteration int
+	reserved []*Consumable
 }
 
 // GetConsumableCache returns the consumable cache. The cache is a list of all
@@ -39,9 +38,8 @@ func GetConsumableCache() *ConsumableCache {
 
 func newConsumableCache() *ConsumableCache {
 	return &ConsumableCache{
-		cache:     map[NumericIdentity]*Consumable{},
-		reserved:  make([]*Consumable, 0),
-		iteration: 1,
+		cache:    map[NumericIdentity]*Consumable{},
+		reserved: make([]*Consumable, 0),
 	}
 }
 
@@ -101,24 +99,6 @@ func (c *ConsumableCache) GetConsumables() map[NumericIdentity][]NumericIdentity
 	}
 	c.cacheMU.RUnlock()
 	return consumables
-}
-
-// GetIteration returns the current iteration of the ConsumableCache.
-func (c *ConsumableCache) GetIteration() int {
-	c.cacheMU.RLock()
-	defer c.cacheMU.RUnlock()
-	return c.iteration
-}
-
-// IncrementIteration increments by 1 the current iteration of the
-// ConsumableCache.
-func (c *ConsumableCache) IncrementIteration() {
-	c.cacheMU.Lock()
-	c.iteration++
-	if c.iteration == 0 {
-		c.iteration = 1
-	}
-	c.cacheMU.Unlock()
 }
 
 // ConsumablesInANotInB returns a map of consumables numeric identity mapped to
