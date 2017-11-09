@@ -1206,12 +1206,13 @@ func init() {
       "type": "string",
       "enum": [
         "creating",
-        "disconnecting",
-        "disconnected",
         "waiting-for-identity",
         "not-ready",
+        "waiting-to-regenerate",
         "regenerating",
-        "ready"
+        "ready",
+        "disconnecting",
+        "disconnected"
       ]
     },
     "EndpointStatusChange": {
