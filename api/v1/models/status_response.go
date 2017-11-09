@@ -27,7 +27,7 @@ type StatusResponse struct {
 	IPAM *IPAMStatus `json:"ipam,omitempty"`
 
 	// Status of Kubernetes integration
-	Kubernetes *Status `json:"kubernetes,omitempty"`
+	Kubernetes *K8sStatus `json:"kubernetes,omitempty"`
 
 	// Status of key/value datastore
 	Kvstore *Status `json:"kvstore,omitempty"`

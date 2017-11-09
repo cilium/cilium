@@ -987,7 +987,7 @@ definitions:
         "$ref": "#/definitions/Status"
       kubernetes:
         description: Status of Kubernetes integration
-        "$ref": "#/definitions/Status"
+        "$ref": "#/definitions/K8sStatus"
       ipam:
         description: Status of IP address management
         "$ref": "#/definitions/IPAMStatus"
@@ -1007,6 +1007,25 @@ definitions:
         - Warning
         - Failure
         - Disabled
+      msg:
+        type: string
+        description: Human readable status/error/warning message
+  K8sStatus:
+    description: Status of Kubernetes integration
+    type: object
+    properties:
+      state:
+        type: string
+        description: State the component is in
+        enum:
+        - Ok
+        - Warning
+        - Failure
+        - Disabled
+      k8s-api-versions:
+          type: array
+          items:
+            type: string
       msg:
         type: string
         description: Human readable status/error/warning message

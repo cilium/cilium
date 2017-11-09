@@ -1338,6 +1338,32 @@ func init() {
         }
       }
     },
+    "K8sStatus": {
+      "description": "Status of Kubernetes integration",
+      "type": "object",
+      "properties": {
+        "k8s-api-versions": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "msg": {
+          "description": "Human readable status/error/warning message",
+          "type": "string"
+        },
+        "state": {
+          "description": "State the component is in",
+          "type": "string",
+          "enum": [
+            "Ok",
+            "Warning",
+            "Failure",
+            "Disabled"
+          ]
+        }
+      }
+    },
     "L4Policy": {
       "description": "L4 endpoint policy",
       "type": "object",
@@ -1578,7 +1604,7 @@ func init() {
         },
         "kubernetes": {
           "description": "Status of Kubernetes integration",
-          "$ref": "#/definitions/Status"
+          "$ref": "#/definitions/K8sStatus"
         },
         "kvstore": {
           "description": "Status of key/value datastore",
