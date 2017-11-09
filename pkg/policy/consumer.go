@@ -33,18 +33,6 @@ type Consumer struct {
 	Decision     api.Decision
 }
 
-func (c *Consumer) DeepCopy() *Consumer {
-	cpy := &Consumer{
-		ID:           c.ID,
-		DeletionMark: c.DeletionMark,
-		Decision:     c.Decision,
-	}
-	if c.Reverse != nil {
-		cpy.Reverse = c.Reverse.DeepCopy()
-	}
-	return cpy
-}
-
 func (c *Consumer) StringID() string {
 	return c.ID.String()
 }
@@ -105,37 +93,6 @@ func (c *Consumable) ResolveIdentityFromCache(id NumericIdentity) *Identity {
 		return cc.Labels
 	}
 	return nil
-}
-
-func (c *Consumable) DeepCopy() *Consumable {
-	c.Mutex.RLock()
-	cpy := &Consumable{
-		ID:           c.ID,
-		Iteration:    c.Iteration,
-		LabelArray:   make(labels.LabelArray, len(c.LabelArray)),
-		Maps:         make(map[int]*policymap.PolicyMap, len(c.Maps)),
-		Consumers:    make(map[string]*Consumer, len(c.Consumers)),
-		ReverseRules: make(map[NumericIdentity]*Consumer, len(c.ReverseRules)),
-		cache:        c.cache,
-	}
-	copy(cpy.LabelArray, c.LabelArray)
-	if c.Labels != nil {
-		cpy.Labels = c.Labels.DeepCopy()
-	}
-	if c.L4Policy != nil {
-		cpy.L4Policy = c.L4Policy.DeepCopy()
-	}
-	for k, v := range c.Maps {
-		cpy.Maps[k] = v.DeepCopy()
-	}
-	for k, v := range c.Consumers {
-		cpy.Consumers[k] = v.DeepCopy()
-	}
-	for k, v := range c.ReverseRules {
-		cpy.ReverseRules[k] = v.DeepCopy()
-	}
-	c.Mutex.RUnlock()
-	return cpy
 }
 
 func (c *Consumable) AddMap(m *policymap.PolicyMap) {

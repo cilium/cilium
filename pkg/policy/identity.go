@@ -128,18 +128,6 @@ func (id *Identity) GetModel() *models.Identity {
 	return ret
 }
 
-func (id *Identity) DeepCopy() *Identity {
-	cpy := &Identity{
-		ID:        id.ID,
-		Labels:    id.Labels.DeepCopy(),
-		Endpoints: make(map[string]time.Time, len(id.Endpoints)),
-	}
-	for k, v := range id.Endpoints {
-		cpy.Endpoints[k] = v
-	}
-	return cpy
-}
-
 func NewIdentity() *Identity {
 	return &Identity{
 		Endpoints: make(map[string]time.Time),

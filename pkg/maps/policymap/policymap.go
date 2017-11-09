@@ -32,13 +32,6 @@ type PolicyMap struct {
 	Fd   int
 }
 
-func (pm *PolicyMap) DeepCopy() *PolicyMap {
-	return &PolicyMap{
-		path: pm.path,
-		Fd:   pm.Fd,
-	}
-}
-
 const (
 	MAX_KEYS = 1024
 )

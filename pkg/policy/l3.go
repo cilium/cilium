@@ -119,21 +119,6 @@ func (m *L3PolicyMap) PopulateBPF(cidrmap *cidrmap.CIDRMap) error {
 	return nil
 }
 
-// DeepCopy makes a duplicate of 'm'.
-func (m L3PolicyMap) DeepCopy() L3PolicyMap {
-	cpy := L3PolicyMap{
-		Map:         make(map[string]net.IPNet, len(m.Map)),
-		IPv6Changed: m.IPv6Changed,
-		IPv6Count:   m.IPv6Count,
-		IPv4Changed: m.IPv4Changed,
-		IPv4Count:   m.IPv4Count,
-	}
-	for k, v := range m.Map {
-		cpy.Map[k] = v
-	}
-	return cpy
-}
-
 // L3Policy contains L3 policy maps for ingress and egress.
 type L3Policy struct {
 	Ingress L3PolicyMap
@@ -145,14 +130,6 @@ func NewL3Policy() *L3Policy {
 	return &L3Policy{
 		Ingress: L3PolicyMap{Map: make(map[string]net.IPNet)},
 		Egress:  L3PolicyMap{Map: make(map[string]net.IPNet)},
-	}
-}
-
-// DeepCopy duplicates 'l3'.
-func (l3 *L3Policy) DeepCopy() *L3Policy {
-	return &L3Policy{
-		Ingress: l3.Ingress.DeepCopy(),
-		Egress:  l3.Egress.DeepCopy(),
 	}
 }
 
