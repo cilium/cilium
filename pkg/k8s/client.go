@@ -23,21 +23,18 @@ import (
 
 	"github.com/cilium/cilium/api/v1/models"
 	k8sconst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
-	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	cilium_v1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v1"
+	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	cilium_client_v1 "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/cilium/v1"
+	cilium_client_v2 "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/cilium/v2"
 	"github.com/cilium/cilium/pkg/logfields"
-	"github.com/cilium/cilium/pkg/node"
 
 	"github.com/sirupsen/logrus"
 	"k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/fields"
-	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/clientcmd"
@@ -46,27 +43,6 @@ import (
 var (
 	// ErrNilNode is returned when the Kubernetes API server has returned a nil node
 	ErrNilNode = goerrors.New("API server returned nil node")
-
-	// crdGV is the GroupVersion used for CRDs
-	crdGV = schema.GroupVersion{
-		Group:   CustomResourceDefinitionGroup,
-		Version: CustomResourceDefinitionVersion,
-	}
-)
-
-const (
-
-	// CustomResourceDefinitionPluralName is the plural name of custom resource definition
-	CustomResourceDefinitionPluralName = "ciliumnetworkpolicies"
-
-	// CustomResourceDefinitionGroup is the name of the third party resource group
-	CustomResourceDefinitionGroup = "cilium.io"
-
-	// CustomResourceDefinitionVersion is the current version of the resource
-	CustomResourceDefinitionVersion = "v2"
-
-	// ThirdPartyResourceVersion is the version of the TPR resource
-	ThirdPartyResourceVersion = "v1"
 )
 
 // CreateConfig creates a rest.Config for a given endpoint using a kubeconfig file.
@@ -132,146 +108,6 @@ func CreateClient(config *rest.Config) (*kubernetes.Clientset, error) {
 func isConnReady(c *kubernetes.Clientset) error {
 	_, err := c.CoreV1().ComponentStatuses().Get("controller-manager", metav1.GetOptions{})
 	return err
-}
-
-func addKnownTypesCRD(scheme *runtime.Scheme) error {
-	scheme.AddKnownTypes(
-		crdGV,
-		&v2.CiliumNetworkPolicy{},
-		&v2.CiliumNetworkPolicyList{},
-	)
-	metav1.AddToGroupVersion(scheme, crdGV)
-
-	return nil
-}
-
-type cnpClient struct {
-	*rest.RESTClient
-}
-
-// CNPCliInterface is the interface for the CNP client
-type CNPCliInterface interface {
-	Update(cnp *v2.CiliumNetworkPolicy) (*v2.CiliumNetworkPolicy, error)
-	Create(cnp *v2.CiliumNetworkPolicy) (*v2.CiliumNetworkPolicy, error)
-	Delete(namespace, name string, options *metav1.DeleteOptions) error
-	Get(namespace, name string) (*v2.CiliumNetworkPolicy, error)
-	List(namespace string) (*v2.CiliumNetworkPolicyList, error)
-	ListAll() (*v2.CiliumNetworkPolicyList, error)
-	NewListWatch() *cache.ListWatch
-}
-
-// CreateCRDClient creates a new k8s client for custom resource definition
-func CreateCRDClient(cfg *rest.Config) (CNPCliInterface, error) {
-	schemeBuilder := runtime.NewSchemeBuilder(addKnownTypesCRD)
-	sch := runtime.NewScheme()
-	if err := schemeBuilder.AddToScheme(sch); err != nil {
-		return nil, err
-	}
-
-	config := *cfg
-	config.GroupVersion = &crdGV
-	config.APIPath = "/apis"
-	config.ContentType = runtime.ContentTypeJSON
-	config.NegotiatedSerializer = serializer.DirectCodecFactory{CodecFactory: serializer.NewCodecFactory(sch)}
-
-	rc, err := rest.RESTClientFor(&config)
-	return &cnpClient{rc}, err
-}
-
-// Update updates the given CNP and returns the object returned from the
-// api-server and respective error.
-func (c *cnpClient) Update(cnp *v2.CiliumNetworkPolicy) (*v2.CiliumNetworkPolicy, error) {
-	var res v2.CiliumNetworkPolicy
-	ns := k8sconst.ExtractNamespace(&cnp.ObjectMeta)
-	err := c.RESTClient.Put().Resource(CustomResourceDefinitionPluralName).
-		Namespace(ns).Name(cnp.ObjectMeta.Name).
-		Body(cnp).Do().Into(&res)
-	return &res, err
-}
-
-// Create creates the given CNP and returns the object returned from the
-// api-server and respective error.
-func (c *cnpClient) Create(cnp *v2.CiliumNetworkPolicy) (*v2.CiliumNetworkPolicy, error) {
-	var res v2.CiliumNetworkPolicy
-	ns := k8sconst.ExtractNamespace(&cnp.ObjectMeta)
-	err := c.RESTClient.Post().Resource(CustomResourceDefinitionPluralName).
-		Namespace(ns).
-		Body(cnp).Do().Into(&res)
-	return &res, err
-}
-
-// Create deletes the CNP with the name in the namespace.
-func (c *cnpClient) Delete(namespace, name string, options *metav1.DeleteOptions) error {
-	return c.RESTClient.Delete().
-		Namespace(namespace).Resource(CustomResourceDefinitionPluralName).
-		Name(name).Body(options).Do().
-		Error()
-}
-
-// Get gets CNP CRD from the kube-apiserver
-func (c *cnpClient) Get(namespace, name string) (*v2.CiliumNetworkPolicy, error) {
-	var result v2.CiliumNetworkPolicy
-	err := c.RESTClient.Get().
-		Namespace(namespace).Resource(CustomResourceDefinitionPluralName).
-		Name(name).Do().Into(&result)
-	return &result, err
-}
-
-// List returns the list of CNPs in the given namespace
-func (c *cnpClient) List(namespace string) (*v2.CiliumNetworkPolicyList, error) {
-	var result v2.CiliumNetworkPolicyList
-	err := c.RESTClient.Get().
-		Namespace(namespace).Resource(CustomResourceDefinitionPluralName).
-		Do().Into(&result)
-	return &result, err
-}
-
-// ListAll returns the list of CNPs in all the namespaces
-func (c *cnpClient) ListAll() (*v2.CiliumNetworkPolicyList, error) {
-	var result v2.CiliumNetworkPolicyList
-	err := c.RESTClient.Get().
-		Resource(CustomResourceDefinitionPluralName).
-		Do().Into(&result)
-	return &result, err
-}
-
-// NewListWatch returns a ListWatch for cilium CRD on all namespaces.
-func (c *cnpClient) NewListWatch() *cache.ListWatch {
-	return cache.NewListWatchFromClient(c.RESTClient,
-		CustomResourceDefinitionPluralName,
-		v1.NamespaceAll,
-		fields.Everything())
-}
-
-func addKnownTypesTPR(scheme *runtime.Scheme) error {
-	scheme.AddKnownTypes(
-		schema.GroupVersion{
-			Group:   CustomResourceDefinitionGroup,
-			Version: ThirdPartyResourceVersion,
-		},
-		&v2.CiliumNetworkPolicy{},
-		&v2.CiliumNetworkPolicyList{},
-		&metav1.ListOptions{},
-		&metav1.DeleteOptions{},
-	)
-
-	return nil
-}
-
-// CreateTPRClient creates a new k8s client for third party resources
-func CreateTPRClient(config *rest.Config) (CNPCliInterface, error) {
-	config.GroupVersion = &schema.GroupVersion{
-		Group:   CustomResourceDefinitionGroup,
-		Version: ThirdPartyResourceVersion,
-	}
-	config.APIPath = "/apis"
-	config.ContentType = runtime.ContentTypeJSON
-	config.NegotiatedSerializer = serializer.DirectCodecFactory{CodecFactory: scheme.Codecs}
-	schemeBuilder := runtime.NewSchemeBuilder(addKnownTypesTPR)
-	schemeBuilder.AddToScheme(scheme.Scheme)
-
-	rc, err := rest.RESTClientFor(config)
-	return &cnpClient{rc}, err
 }
 
 func updateNodeAnnotation(c kubernetes.Interface, node *v1.Node, v4CIDR, v6CIDR *net.IPNet) (*v1.Node, error) {
@@ -340,68 +176,6 @@ func AnnotateNodeCIDR(c kubernetes.Interface, nodeName string, v4CIDR, v6CIDR *n
 	return nil
 }
 
-// UpdateCNPStatus updates the status into the given CNP. This function retries
-// to do successful update into the kube-apiserver until it reaches the given
-// timeout.
-func UpdateCNPStatus(cnpClient CNPCliInterface, timeout time.Duration,
-	ciliumRulesStore cache.Store, rule *v2.CiliumNetworkPolicy, cnpns v2.CiliumNetworkPolicyNodeStatus) {
-
-	rule.SetPolicyStatus(node.GetName(), cnpns)
-	_, err := cnpClient.Update(rule)
-	if err != nil {
-		ns := k8sconst.ExtractNamespace(&rule.ObjectMeta)
-		name := rule.ObjectMeta.Name
-		scopedLog := log.WithFields(logrus.Fields{
-			logfields.K8sNamespace:            ns,
-			logfields.CiliumNetworkPolicyName: name,
-		})
-
-		scopedLog.WithError(err).Warn("unable to update CNP, retrying...")
-		t := time.NewTimer(timeout)
-		defer t.Stop()
-		loopTimer := time.NewTimer(time.Second)
-		defer loopTimer.Stop()
-		for n := 0; ; n++ {
-			serverRuleStore, exists, err := ciliumRulesStore.Get(rule)
-			if !exists {
-				break
-			}
-			if err != nil {
-				scopedLog.WithError(err).Warn("Unable to find v2.CiliumNetworkPolicy in local cache")
-				break
-			}
-			serverRule, ok := serverRuleStore.(*v2.CiliumNetworkPolicy)
-			if !ok {
-				scopedLog.WithError(err).WithFields(logrus.Fields{
-					logfields.CiliumNetworkPolicy: logfields.Repr(serverRuleStore),
-				}).Warn("Received object of unknown type from API server, expecting v2.CiliumNetworkPolicy")
-				return
-			}
-			if serverRule.ObjectMeta.UID != rule.ObjectMeta.UID &&
-				serverRule.SpecEquals(rule) {
-				// Although the policy was found this means it was deleted,
-				// and re-added with the same name.
-				scopedLog.Debug("rule changed while updating node status, stopping retry")
-				break
-			}
-			serverRule.SetPolicyStatus(node.GetName(), cnpns)
-			_, err = cnpClient.Update(serverRule)
-			if err == nil {
-				scopedLog.WithField("status", serverRule.Status).Debug("successfully updated with status")
-				break
-			}
-			loopTimer.Reset(time.Duration(n) * time.Second)
-			select {
-			case <-t.C:
-				scopedLog.WithError(err).Error("unable to update CNP with status")
-				break
-			case <-loopTimer.C:
-			}
-			scopedLog.WithError(err).Warn("unable to update CNP with status, retrying...")
-		}
-	}
-}
-
 var (
 	client kubernetes.Interface
 )
@@ -425,4 +199,142 @@ func createDefaultClient() error {
 	client = k8sClient
 
 	return nil
+}
+
+// UpdateCNPStatusV1 updates the status into the given CNP. This function retries
+// to do successful update into the kube-apiserver until it reaches the given
+// timeout.
+func UpdateCNPStatusV1(ciliumNPClientV1 cilium_client_v1.CiliumV1Interface,
+	ciliumRulesStore cache.Store, timeout time.Duration, nodeName string,
+	rule *cilium_v1.CiliumNetworkPolicy, cnpns cilium_v1.CiliumNetworkPolicyNodeStatus) {
+
+	rule.SetPolicyStatus(nodeName, cnpns)
+
+	ns := k8sconst.ExtractNamespace(&rule.ObjectMeta)
+
+	_, err := ciliumNPClientV1.CiliumNetworkPolicies(ns).Update(rule)
+	if err == nil {
+		// If the Update went successful no need to retry again
+		return
+	}
+
+	name := rule.ObjectMeta.Name
+
+	scopedLog := log.WithFields(logrus.Fields{
+		logfields.K8sNamespace:            ns,
+		logfields.CiliumNetworkPolicyName: name,
+	})
+	scopedLog.WithError(err).Warn("unable to update CNP, retrying...")
+
+	t := time.NewTimer(timeout)
+	defer t.Stop()
+	loopTimer := time.NewTimer(time.Second)
+	defer loopTimer.Stop()
+	for n := 1; ; n++ {
+		serverRuleStore, exists, err := ciliumRulesStore.Get(rule)
+		if !exists {
+			return
+		}
+		if err != nil {
+			scopedLog.WithError(err).Warn("Unable to find v1.CiliumNetworkPolicy in local cache")
+			return
+		}
+		serverRule, ok := serverRuleStore.(*cilium_v1.CiliumNetworkPolicy)
+		if !ok {
+			scopedLog.WithError(err).WithFields(logrus.Fields{
+				logfields.CiliumNetworkPolicy: logfields.Repr(serverRuleStore),
+			}).Warn("Received object of unknown type from API server, expecting v1.CiliumNetworkPolicy")
+			return
+		}
+		if serverRule.ObjectMeta.UID != rule.ObjectMeta.UID &&
+			serverRule.SpecEquals(rule) {
+			// Although the policy was found this means it was deleted,
+			// and re-added with the same name.
+			scopedLog.Debug("rule changed while updating node status, stopping retry")
+			return
+		}
+		serverRule.SetPolicyStatus(nodeName, cnpns)
+		_, err = ciliumNPClientV1.CiliumNetworkPolicies(ns).Update(serverRule)
+		if err == nil {
+			scopedLog.WithField("status", serverRule.Status).Debug("successfully updated with status")
+			return
+		}
+		loopTimer.Reset(time.Duration(n) * time.Second)
+		select {
+		case <-t.C:
+			scopedLog.WithError(err).Error("unable to update CNP with status due timeout")
+			return
+		case <-loopTimer.C:
+		}
+		scopedLog.WithError(err).Warn("unable to update CNP with status, retrying...")
+	}
+}
+
+// UpdateCNPStatusV2 updates the status into the given CNP. This function retries
+// to do successful update into the kube-apiserver until it reaches the given
+// timeout.
+func UpdateCNPStatusV2(ciliumNPClientV2 cilium_client_v2.CiliumV2Interface,
+	ciliumRulesStore cache.Store, timeout time.Duration, nodeName string,
+	rule *cilium_v2.CiliumNetworkPolicy, cnpns cilium_v2.CiliumNetworkPolicyNodeStatus) {
+
+	rule.SetPolicyStatus(nodeName, cnpns)
+
+	ns := k8sconst.ExtractNamespace(&rule.ObjectMeta)
+
+	_, err := ciliumNPClientV2.CiliumNetworkPolicies(ns).Update(rule)
+	if err == nil {
+		// If the Update went successful no need to retry again
+		return
+	}
+
+	name := rule.ObjectMeta.Name
+
+	scopedLog := log.WithFields(logrus.Fields{
+		logfields.K8sNamespace:            ns,
+		logfields.CiliumNetworkPolicyName: name,
+	})
+	scopedLog.WithError(err).Warn("unable to update CNP, retrying...")
+
+	t := time.NewTimer(timeout)
+	defer t.Stop()
+	loopTimer := time.NewTimer(time.Second)
+	defer loopTimer.Stop()
+	for n := 1; ; n++ {
+		serverRuleStore, exists, err := ciliumRulesStore.Get(rule)
+		if !exists {
+			return
+		}
+		if err != nil {
+			scopedLog.WithError(err).Warn("Unable to find v1.CiliumNetworkPolicy in local cache")
+			return
+		}
+		serverRule, ok := serverRuleStore.(*cilium_v2.CiliumNetworkPolicy)
+		if !ok {
+			scopedLog.WithError(err).WithFields(logrus.Fields{
+				logfields.CiliumNetworkPolicy: logfields.Repr(serverRuleStore),
+			}).Warn("Received object of unknown type from API server, expecting v1.CiliumNetworkPolicy")
+			return
+		}
+		if serverRule.ObjectMeta.UID != rule.ObjectMeta.UID &&
+			serverRule.SpecEquals(rule) {
+			// Although the policy was found this means it was deleted,
+			// and re-added with the same name.
+			scopedLog.Debug("rule changed while updating node status, stopping retry")
+			return
+		}
+		serverRule.SetPolicyStatus(nodeName, cnpns)
+		_, err = ciliumNPClientV2.CiliumNetworkPolicies(ns).Update(serverRule)
+		if err == nil {
+			scopedLog.WithField("status", serverRule.Status).Debug("successfully updated with status")
+			return
+		}
+		loopTimer.Reset(time.Duration(n) * time.Second)
+		select {
+		case <-t.C:
+			scopedLog.WithError(err).Error("unable to update CNP with status due timeout")
+			return
+		case <-loopTimer.C:
+		}
+		scopedLog.WithError(err).Warn("unable to update CNP with status, retrying...")
+	}
 }

@@ -25,7 +25,6 @@ import (
 
 	"github.com/sirupsen/logrus"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
 const (
@@ -39,6 +38,7 @@ var (
 )
 
 // +genclient
+// +genclient:noStatus
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 // CiliumNetworkPolicy is a Kubernetes third-party resource with an extended version
@@ -111,16 +111,6 @@ func (r *CiliumNetworkPolicy) SpecEquals(o *CiliumNetworkPolicy) bool {
 		reflect.DeepEqual(r.Specs, o.Specs)
 }
 
-// GetObjectKind returns the kind of the object
-func (r *CiliumNetworkPolicy) GetObjectKind() schema.ObjectKind {
-	return &r.TypeMeta
-}
-
-// GetObjectMeta returns the metadata of the object
-func (r *CiliumNetworkPolicy) GetObjectMeta() metav1.Object {
-	return &r.ObjectMeta
-}
-
 // Parse parses a CiliumNetworkPolicy and returns a list of cilium policy
 // rules.
 func (r *CiliumNetworkPolicy) Parse() (api.Rules, error) {
@@ -164,9 +154,4 @@ type CiliumNetworkPolicyList struct {
 
 	// Items is a list of CiliumNetworkPolicy
 	Items []CiliumNetworkPolicy `json:"items"`
-}
-
-// GetObjectKind returns the kind of the object
-func (r *CiliumNetworkPolicyList) GetObjectKind() schema.ObjectKind {
-	return &r.TypeMeta
 }
