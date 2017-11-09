@@ -220,28 +220,32 @@ func (c *Consumable) removeFromMaps(id NumericIdentity) {
 
 // AllowConsumerLocked adds the given consumer ID to the Consumable's
 // consumers map. Must be called with Consumable mutex Locked.
-func (c *Consumable) AllowConsumerLocked(cache *ConsumableCache, id NumericIdentity) {
-	if consumer := c.getConsumer(id); consumer == nil {
+// returns true if changed, false if not
+func (c *Consumable) AllowConsumerLocked(cache *ConsumableCache, id NumericIdentity) bool {
+	consumer := c.getConsumer(id)
+	if consumer == nil {
 		log.WithFields(log.Fields{
 			logfields.Identity: id,
 			"consumable":       logfields.Repr(c),
 		}).Debug("New consumer Identity for consumable")
 		c.addToMaps(id)
 		c.Consumers[id.StringID()] = NewConsumer(id)
-	} else {
-		consumer.DeletionMark = false
+		return true
 	}
+	consumer.DeletionMark = false
+	return false // not changed.
 }
 
 // AllowConsumerAndReverseLocked adds the given consumer ID to the Consumable's
 // consumers map and the given consumable to the given consumer's consumers map.
 // Must be called with Consumable mutex Locked.
-func (c *Consumable) AllowConsumerAndReverseLocked(cache *ConsumableCache, id NumericIdentity) {
+// returns true if changed, false if not
+func (c *Consumable) AllowConsumerAndReverseLocked(cache *ConsumableCache, id NumericIdentity) bool {
 	log.WithFields(log.Fields{
 		logfields.Identity + ".from": id,
 		logfields.Identity + ".to":   c.ID,
 	}).Debug("Allowing direction")
-	c.AllowConsumerLocked(cache, id)
+	changed := c.AllowConsumerLocked(cache, id)
 
 	if reverse := cache.Lookup(id); reverse != nil {
 		log.WithFields(log.Fields{
@@ -251,13 +255,14 @@ func (c *Consumable) AllowConsumerAndReverseLocked(cache *ConsumableCache, id Nu
 		if _, ok := reverse.ReverseRules[c.ID]; !ok {
 			reverse.addToMaps(c.ID)
 			reverse.ReverseRules[c.ID] = NewConsumer(c.ID)
+			return true
 		}
-	} else {
-		log.WithFields(log.Fields{
-			logfields.Identity + ".from": c.ID,
-			logfields.Identity + ".to":   id,
-		}).Warn("Allowed a consumer which can't be found in the reverse direction")
 	}
+	log.WithFields(log.Fields{
+		logfields.Identity + ".from": c.ID,
+		logfields.Identity + ".to":   id,
+	}).Warn("Allowed a consumer which can't be found in the reverse direction")
+	return changed
 }
 
 // BanConsumerLocked removes the given consumer from the Consumable's consumers

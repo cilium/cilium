@@ -1138,6 +1138,8 @@ func mapValidateWalker(path string) error {
 }
 
 func changedOption(key string, value bool, data interface{}) {
+	d := data.(*Daemon)
+	d.policy.BumpRevision() // force policy recalculation
 }
 
 type patchConfig struct {
@@ -1189,7 +1191,7 @@ func (h *patchConfig) Handle(params PatchConfigParams) middleware.Responder {
 			if enforcement != oldEnforcementValue {
 				changes++
 				policy.SetPolicyEnabled(enforcement)
-				d.TriggerPolicyUpdates()
+				d.TriggerPolicyUpdates(true)
 			}
 		default:
 			msg := fmt.Errorf("Invalid option for PolicyEnforcement %s", enforcement)

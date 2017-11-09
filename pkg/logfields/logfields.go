@@ -29,6 +29,9 @@ const (
 	// EndpointID is the numeric endpoint identifier
 	EndpointID = "endpointID"
 
+	// EndpointState is the current endpoint state
+	EndpointState = "endpointState"
+
 	// ContainerID is the container identifier
 	ContainerID = "containerID"
 

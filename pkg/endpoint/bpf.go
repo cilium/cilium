@@ -31,6 +31,7 @@ import (
 	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/geneve"
+	"github.com/cilium/cilium/pkg/logfields"
 	"github.com/cilium/cilium/pkg/maps/cidrmap"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
 	"github.com/cilium/cilium/pkg/maps/lxcmap"
@@ -305,10 +306,11 @@ func writeGeneve(prefix string, e *Endpoint) ([]byte, error) {
 	return rawData, nil
 }
 
-func (e *Endpoint) runInit(libdir, rundir, epdir, debug string) error {
-	e.Mutex.RLock()
-	args := []string{libdir, rundir, epdir, e.IfName, debug}
+func (e *Endpoint) runInit(libdir, rundir, epdir, ifName, debug string) error {
+	args := []string{libdir, rundir, epdir, ifName, debug}
 	prog := filepath.Join(libdir, "join_ep.sh")
+
+	e.Mutex.RLock()
 	scopedLog := e.getLogger() // must be called with e.Mutex held
 	e.Mutex.RUnlock()
 
@@ -335,8 +337,46 @@ func (e *Endpoint) runInit(libdir, rundir, epdir, debug string) error {
 	return nil
 }
 
+// epInfoCache describes the set of lxcmap entries necessary to describe an Endpoint
+// in the BPF maps. It is generated while holding the Endpoint lock, then used
+// after releasing that lock to push the entries into the datapath.
+// Functions below implement the EndpointFrontend interface with this cached information.
+type epInfoCache struct {
+	keys     []lxcmap.EndpointKey
+	value    *lxcmap.EndpointInfo
+	ifName   string
+	revision uint64
+}
+
+// Must be called when endpoint is still locked.
+func (e *Endpoint) createEpInfoCache() *epInfoCache {
+	ep := &epInfoCache{ifName: e.IfName, revision: e.nextPolicyRevision}
+	var err error
+	ep.keys = e.GetBPFKeys()
+	ep.value, err = e.GetBPFValue()
+	if err != nil {
+		log.WithField(logfields.EndpointID, e.ID).WithError(err).Error("getBPFValue failed")
+		return nil
+	}
+	return ep
+}
+
+// GetBPFKeys returns all keys which should represent this endpoint in the BPF
+// endpoints map
+func (ep *epInfoCache) GetBPFKeys() []lxcmap.EndpointKey {
+	return ep.keys
+}
+
+// GetBPFValue returns the value which should represent this endpoint in the
+// BPF endpoints map
+// Must only be called if init() succeeded.
+func (ep *epInfoCache) GetBPFValue() (*lxcmap.EndpointInfo, error) {
+	return ep.value, nil
+}
+
 // regenerateBPF rewrites all headers and updates all BPF maps to reflect the
 // specified endpoint.
+// Must be called with endpoint.Mutex not held and endpoint.BuildMutex held.
 func (e *Endpoint) regenerateBPF(owner Owner, epdir string) error {
 	var err error
 
@@ -345,15 +385,35 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir string) error {
 	owner.GetCompilationLock().RLock()
 	defer owner.GetCompilationLock().RUnlock()
 
-	e.Mutex.RLock()
-	if err = e.writeHeaderfile(epdir, owner); err != nil {
-		e.Mutex.RUnlock()
-		return fmt.Errorf("unable to write header file: %s", err)
-	}
-	e.Mutex.RUnlock()
+	e.Mutex.Lock()
 
-	// If dry mode is enabled, no changes to BPF maps are performed
+	// If endpoint was marked as disconnected then
+	// it won't be regenerated.
+	// When building the initial drop policy in waiting-for-identity state
+	// the state remains unchanged
+	if e.GetStateLocked() != StateWaitingForIdentity && !e.BuilderSetStateLocked(StateRegenerating) {
+		e.getLogger().WithField(logfields.EndpointState, e.state).Debug("Skipping build due to invalid state")
+		e.Mutex.Unlock()
+		return fmt.Errorf("Skipping build due to invalid state: %s", e.state)
+	}
+
+	if err = e.writeHeaderfile(epdir, owner); err != nil {
+		e.Mutex.Unlock()
+		return fmt.Errorf("Unable to write header file: %s", err)
+	}
+
+	// If dry mode is enabled, no further changes to BPF maps are performed
 	if owner.DryModeEnabled() {
+		// Regenerate policy and apply any options resulting in the
+		// policy change.
+		// Note that e.PolicyMap is not initialized!
+		if _, err = e.regeneratePolicy(owner, nil); err != nil {
+			e.Mutex.Unlock()
+			return fmt.Errorf("Unable to regenerate policy: %s", err)
+		}
+		e.Mutex.Unlock()
+
+		log.WithField(logfields.EndpointID, e.ID).Debug("Skipping bpf updates due to dry mode")
 		return nil
 	}
 
@@ -364,14 +424,20 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir string) error {
 	createdIPv6EgressMap := false
 	createdIPv4IngressMap := false
 	createdIPv4EgressMap := false
+
+	// Endpoint's identity can be changed while we are compiling
+	// bpf. To be able to undo changes in case of an error we need
+	// to keep a local reference to the current consumable.
+	c := e.Consumable
+
 	defer func() {
 		if err != nil {
 			e.Mutex.Lock()
 			if createdPolicyMap {
 				// Remove policy map file only if it was created
 				// in this update cycle
-				if e.Consumable != nil {
-					e.Consumable.RemoveMap(e.PolicyMap)
+				if c != nil {
+					c.RemoveMap(e.PolicyMap)
 				}
 
 				os.RemoveAll(e.PolicyMapPathLocked())
@@ -393,8 +459,7 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir string) error {
 		}
 	}()
 
-	e.Mutex.Lock()
-
+	// Create the policymap on the first pass
 	if e.PolicyMap == nil {
 		e.PolicyMap, createdPolicyMap, err = policymap.OpenMap(e.PolicyMapPathLocked())
 		if err != nil {
@@ -404,8 +469,23 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir string) error {
 	}
 
 	// Only generate & populate policy map if a seclabel and consumer model is set up
-	if e.Consumable != nil {
-		e.Consumable.AddMap(e.PolicyMap)
+	if c != nil {
+		c.AddMap(e.PolicyMap)
+
+		// Regenerate policy and apply any options resulting in the
+		// policy change.
+		// This also populates e.PolicyMap
+		if _, err = e.regeneratePolicy(owner, nil); err != nil {
+			e.Mutex.Unlock()
+			return fmt.Errorf("Unable to regenerate policy for '%s': %s",
+				e.PolicyMap.String(), err)
+		}
+	}
+
+	epInfoCache := e.createEpInfoCache()
+	if epInfoCache == nil {
+		e.Mutex.Unlock()
+		return fmt.Errorf("Unable to cache endpoint information")
 	}
 
 	if e.L3Policy != nil {
@@ -439,24 +519,23 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir string) error {
 			e.L3Maps.DestroyBpfMap(IPv4Egress, e.IPv4EgressMapPathLocked())
 		}
 	}
-
 	e.Mutex.Unlock()
 
 	libdir := owner.GetBpfDir()
 	rundir := owner.GetStateDir()
 	debug := strconv.FormatBool(owner.DebugEnabled())
 
-	if err = e.runInit(libdir, rundir, epdir, debug); err != nil {
-		return err
-	}
-
-	// The last operation hooks the endpoint into the endpoint table and exposes it
-	err = lxcmap.WriteEndpoint(e)
-
-	// Mark the endpoint to be running the policy revision it was
-	// compiled for
+	err = e.runInit(libdir, rundir, epdir, epInfoCache.ifName, debug)
 	if err == nil {
-		e.bumpPolicyRevision()
+		// The last operation hooks the endpoint into the endpoint table and exposes it
+		err = lxcmap.WriteEndpoint(epInfoCache)
+		if err == nil {
+			// Mark the endpoint to be running the policy revision it was
+			// compiled for
+			e.bumpPolicyRevision(epInfoCache.revision)
+		} else {
+			log.WithField(logfields.EndpointID, e.ID).WithError(err).Error("Exposing new bpf failed!")
+		}
 	}
 
 	return err

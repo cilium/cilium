@@ -63,9 +63,16 @@ func (d *Daemon) GetCachedLabelList(ID policy.NumericIdentity) (labels.LabelArra
 }
 
 // TriggerPolicyUpdates triggers policy updates for every daemon's endpoint.
+// This is called after policy changes, but also after some changes in daemon
+// configuration and endpoint labels.
 // Returns a waiting group which signalizes when all endpoints are regenerated.
-func (d *Daemon) TriggerPolicyUpdates() *sync.WaitGroup {
-	log.Debugf("Full policy recalculation triggered")
+func (d *Daemon) TriggerPolicyUpdates(force bool) *sync.WaitGroup {
+	if force {
+		d.policy.BumpRevision() // force policy recalculation
+		log.Debugf("Forced policy recalculation triggered")
+	} else {
+		log.Debugf("Full policy recalculation triggered")
+	}
 	return endpointmanager.TriggerPolicyUpdates(d)
 }
 
@@ -82,6 +89,7 @@ func (d *Daemon) EnableEndpointPolicyEnforcement(e *endpoint.Endpoint) bool {
 	} else if policy.GetPolicyEnabled() == endpoint.DefaultEnforcement {
 		// Default mode means that if rules contain labels that match this endpoint,
 		// then enable policy enforcement for this endpoint.
+		// GH-1676: Could check e.Consumable instead? Would be much cheaper.
 		return d.GetPolicyRepository().GetRulesMatching(e.Consumable.LabelArray, false)
 	}
 	// If policy enforcement isn't enabled for the daemon we do not enable
@@ -243,7 +251,7 @@ func (d *Daemon) PolicyAdd(rules api.Rules, opts *AddOptions) (uint64, error) {
 	}
 
 	log.Info("New policy imported, regenerating...")
-	d.TriggerPolicyUpdates()
+	d.TriggerPolicyUpdates(false)
 
 	return rev, nil
 }
@@ -266,7 +274,7 @@ func (d *Daemon) PolicyDelete(labels labels.LabelArray) (uint64, error) {
 		// to check which consumables were removed with the new policy.
 		oldConsumables := policy.GetConsumableCache().GetConsumables()
 
-		wg := d.TriggerPolicyUpdates()
+		wg := d.TriggerPolicyUpdates(false)
 
 		// If daemon doesn't enforce policy then skip the cleanup
 		// of CT entries.
@@ -305,7 +313,6 @@ func (d *Daemon) PolicyDelete(labels labels.LabelArray) (uint64, error) {
 						logfields.EndpointID:             ep.ID,
 						logfields.EndpointID + ".remove": logfields.Repr(idsToRm),
 					}).Debug("Removing entries of EP")
-					log.Debugf("Removing entries of EP %d: %+v", ep.ID, idsToRm)
 					endpointmanager.RmCTEntriesOf(!d.conf.IPv4Disabled, ep, idsToRm)
 				}
 			}

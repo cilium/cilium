@@ -405,3 +405,10 @@ func (p *Repository) TranslateRules(translator Translator) error {
 	}
 	return nil
 }
+
+// BumpRevision allows forcing policy regeneration
+func (p *Repository) BumpRevision() {
+	p.Mutex.Lock()
+	defer p.Mutex.Unlock()
+	p.revision++
+}
