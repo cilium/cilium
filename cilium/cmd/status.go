@@ -59,18 +59,6 @@ func statusDaemon(cmd *cobra.Command, args []string) {
 			fmt.Fprintf(w, "Cilium:\t%s\t%s\n", sr.Cilium.State, sr.Cilium.Msg)
 		}
 
-		if sr.IPAM != nil {
-			fmt.Printf("Allocated IPv4 addresses:\n")
-			for _, ipv4 := range sr.IPAM.IPV4 {
-				fmt.Printf(" %s\n", ipv4)
-
-			}
-			fmt.Printf("Allocated IPv6 addresses:\n")
-			for _, ipv6 := range sr.IPAM.IPV6 {
-				fmt.Printf(" %s\n", ipv6)
-			}
-		}
-
 		if nm := sr.NodeMonitor; nm != nil {
 			fmt.Fprintf(w, "NodeMonitor:\tListening for events on %d CPUs with %dx%d of shared memory\n",
 				nm.Cpus, nm.Npages, nm.Pagesize)
@@ -79,6 +67,18 @@ func statusDaemon(cmd *cobra.Command, args []string) {
 			}
 		} else {
 			fmt.Fprintf(w, "NodeMonitor:\tDisabled\n")
+		}
+
+		if sr.IPAM != nil {
+			fmt.Fprintf(w, "Allocated IPv4 addresses:\n")
+			for _, ipv4 := range sr.IPAM.IPV4 {
+				fmt.Fprintf(w, " %s\n", ipv4)
+
+			}
+			fmt.Fprintf(w, "Allocated IPv6 addresses:\n")
+			for _, ipv6 := range sr.IPAM.IPV6 {
+				fmt.Fprintf(w, " %s\n", ipv6)
+			}
 		}
 
 		w.Flush()
