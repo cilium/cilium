@@ -409,42 +409,34 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir string) error {
 	}
 
 	if e.L3Policy != nil {
-		if e.L3Policy.Ingress.IPv6Changed {
-			if e.L3Policy.Ingress.IPv6Count > 0 &&
-				e.L3Maps.ResetBpfMap(IPv6Ingress, e.IPv6IngressMapPathLocked()) == nil {
-				createdIPv6IngressMap = true
-				e.L3Policy.Ingress.PopulateBPF(e.L3Maps[IPv6Ingress])
-			} else {
-				e.L3Maps.DestroyBpfMap(IPv6Ingress, e.IPv6IngressMapPathLocked())
-			}
+		if e.L3Policy.Ingress.IPv6Count > 0 &&
+			e.L3Maps.ResetBpfMap(IPv6Ingress, e.IPv6IngressMapPathLocked()) == nil {
+			createdIPv6IngressMap = true
+			e.L3Policy.Ingress.PopulateBPF(e.L3Maps[IPv6Ingress])
+		} else {
+			e.L3Maps.DestroyBpfMap(IPv6Ingress, e.IPv6IngressMapPathLocked())
 		}
-		if e.L3Policy.Egress.IPv6Changed {
-			if e.L3Policy.Egress.IPv6Count > 0 &&
-				e.L3Maps.ResetBpfMap(IPv6Egress, e.IPv6EgressMapPathLocked()) == nil {
-				createdIPv6EgressMap = true
-				e.L3Policy.Egress.PopulateBPF(e.L3Maps[IPv6Egress])
-			} else {
-				e.L3Maps.DestroyBpfMap(IPv6Egress, e.IPv6EgressMapPathLocked())
-			}
+		if e.L3Policy.Egress.IPv6Count > 0 &&
+			e.L3Maps.ResetBpfMap(IPv6Egress, e.IPv6EgressMapPathLocked()) == nil {
+			createdIPv6EgressMap = true
+			e.L3Policy.Egress.PopulateBPF(e.L3Maps[IPv6Egress])
+		} else {
+			e.L3Maps.DestroyBpfMap(IPv6Egress, e.IPv6EgressMapPathLocked())
 		}
 
-		if e.L3Policy.Ingress.IPv4Changed {
-			if e.L3Policy.Ingress.IPv4Count > 0 &&
-				e.L3Maps.ResetBpfMap(IPv4Ingress, e.IPv4IngressMapPathLocked()) == nil {
-				createdIPv4IngressMap = true
-				e.L3Policy.Ingress.PopulateBPF(e.L3Maps[IPv4Ingress])
-			} else {
-				e.L3Maps.DestroyBpfMap(IPv4Ingress, e.IPv4IngressMapPathLocked())
-			}
+		if e.L3Policy.Ingress.IPv4Count > 0 &&
+			e.L3Maps.ResetBpfMap(IPv4Ingress, e.IPv4IngressMapPathLocked()) == nil {
+			createdIPv4IngressMap = true
+			e.L3Policy.Ingress.PopulateBPF(e.L3Maps[IPv4Ingress])
+		} else {
+			e.L3Maps.DestroyBpfMap(IPv4Ingress, e.IPv4IngressMapPathLocked())
 		}
-		if e.L3Policy.Egress.IPv4Changed {
-			if e.L3Policy.Egress.IPv4Count > 0 &&
-				e.L3Maps.ResetBpfMap(IPv4Egress, e.IPv4EgressMapPathLocked()) == nil {
-				createdIPv4EgressMap = true
-				e.L3Policy.Egress.PopulateBPF(e.L3Maps[IPv4Egress])
-			} else {
-				e.L3Maps.DestroyBpfMap(IPv4Egress, e.IPv4EgressMapPathLocked())
-			}
+		if e.L3Policy.Egress.IPv4Count > 0 &&
+			e.L3Maps.ResetBpfMap(IPv4Egress, e.IPv4EgressMapPathLocked()) == nil {
+			createdIPv4EgressMap = true
+			e.L3Policy.Egress.PopulateBPF(e.L3Maps[IPv4Egress])
+		} else {
+			e.L3Maps.DestroyBpfMap(IPv4Egress, e.IPv4EgressMapPathLocked())
 		}
 	}
 

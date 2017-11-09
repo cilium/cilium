@@ -543,21 +543,17 @@ func (ds *PolicyTestSuite) TestL3Policy(c *C) {
 	expected.Ingress.Map["10.0.1.0/24"] = net.IPNet{IP: []byte{10, 0, 1, 0}, Mask: []byte{255, 255, 255, 0}}
 	expected.Ingress.Map["192.168.2.0/24"] = net.IPNet{IP: []byte{192, 168, 2, 0}, Mask: []byte{255, 255, 255, 0}}
 	expected.Ingress.Map["10.0.3.1/32"] = net.IPNet{IP: []byte{10, 0, 3, 1}, Mask: []byte{255, 255, 255, 255}}
-	expected.Ingress.IPv4Changed = true
 	expected.Ingress.IPv4Count = 3
 	expected.Ingress.Map["2001:db8::/48"] = net.IPNet{IP: []byte{0x20, 1, 0xd, 0xb8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, Mask: []byte{255, 255, 255, 255, 255, 255, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}}
 	expected.Ingress.Map["2001:db9::/128"] = net.IPNet{IP: []byte{0x20, 1, 0xd, 0xb9, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, Mask: []byte{255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255}}
-	expected.Ingress.IPv6Changed = true
 	expected.Ingress.IPv6Count = 2
 	expected.Egress.Map["10.1.0.0/16"] = net.IPNet{IP: []byte{10, 1, 0, 0}, Mask: []byte{255, 255, 0, 0}}
 	expected.Egress.Map["10.128.0.0/9"] = net.IPNet{IP: []byte{10, 128, 0, 0}, Mask: []byte{255, 128, 0, 0}}
 	expected.Egress.Map["10.0.0.0/10"] = net.IPNet{IP: []byte{10, 0, 0, 0}, Mask: []byte{255, 192, 0, 0}}
 	expected.Egress.Map["10.64.0.0/11"] = net.IPNet{IP: []byte{10, 64, 0, 0}, Mask: []byte{255, 224, 0, 0}}
 	expected.Egress.Map["10.112.0.0/12"] = net.IPNet{IP: []byte{10, 112, 0, 0}, Mask: []byte{255, 240, 0, 0}}
-	expected.Egress.IPv4Changed = true
 	expected.Egress.IPv4Count = 5
 	expected.Egress.Map["2001:dbf::/64"] = net.IPNet{IP: []byte{0x20, 1, 0xd, 0xbf, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, Mask: []byte{255, 255, 255, 255, 255, 255, 255, 255, 0, 0, 0, 0, 0, 0, 0, 0}}
-	expected.Egress.IPv6Changed = true
 	expected.Egress.IPv6Count = 1
 
 	toBar := &SearchContext{To: labels.ParseSelectLabelArray("bar")}

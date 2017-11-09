@@ -32,11 +32,9 @@ import (
 // L3PolicyMap does no locking internally, so the user is responsible for synchronizing
 // between multiple threads when applicable.
 type L3PolicyMap struct {
-	Map         map[string]net.IPNet // Allowed L3 prefixes
-	IPv6Changed bool
-	IPv6Count   int // Count of IPv6 prefixes in 'Map'
-	IPv4Changed bool
-	IPv4Count   int // Count of IPv4 prefixes in 'Map'
+	Map       map[string]net.IPNet // Allowed L3 prefixes
+	IPv6Count int                  // Count of IPv6 prefixes in 'Map'
+	IPv4Count int                  // Count of IPv4 prefixes in 'Map'
 }
 
 // Insert places 'cidr' in to map 'm'. Returns `1` if `cidr` is added
@@ -69,10 +67,8 @@ func (m *L3PolicyMap) Insert(cidr string) int {
 		m.Map[key] = *ipnet
 		if ipnet.IP.To4() == nil {
 			m.IPv6Count++
-			m.IPv6Changed = true
 		} else {
 			m.IPv4Count++
-			m.IPv4Changed = true
 		}
 		return 1
 	}
