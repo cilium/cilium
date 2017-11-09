@@ -133,6 +133,13 @@ function abort {
   echo ""
   echo "------------------------------------------------------------------------"
 
+  if [ ! -z "$DEBUG" ]; then
+    cilium status
+    cilium endpoint list
+    cilium policy get
+    read -n 1 -p "Press any key to continue..."
+  fi
+
   monitor_dump
   monitor_stop
 
