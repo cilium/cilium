@@ -1,4 +1,4 @@
-// Copyright 2016-2017 Authors of Cilium
+// Copyright 2017 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,24 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package ciliumio
+package v2
 
-import (
-	"k8s.io/kubernetes/pkg/kubelet/types"
-)
-
-const (
-	// PolicyLabelName is the name of the policy label which refers to the
-	// k8s policy name
-	PolicyLabelName = "io.cilium.k8s-policy-name"
-	// PodNamespaceLabel is the label used in kubernetes containers to
-	// specify which namespace they belong to.
-	PodNamespaceLabel = types.KubernetesPodNamespaceLabel
-)
-
-const (
-	// V1 represents version 1 of cilium API
-	V1 = iota
-	// V2 represents version 2 of cilium API
-	V2
-)
+type CiliumNetworkPolicyExpansion interface{}
