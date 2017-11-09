@@ -169,7 +169,7 @@ func CreateL4Filter(fromEndpoints []api.EndpointSelector, rule api.PortRule, por
 		l4.Ingress = true
 	}
 
-	if rule.Rules != nil {
+	if protocol == api.ProtoTCP && rule.Rules != nil {
 		switch {
 		case len(rule.Rules.HTTP) > 0:
 			l4.L7Parser = ParserTypeHTTP
