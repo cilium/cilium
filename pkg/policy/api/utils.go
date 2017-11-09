@@ -63,7 +63,7 @@ func (k *PortRuleKafka) Exists(rules L7Rules) bool {
 	return false
 }
 
-// Equal returns true if both HTTP rules are equal
+// Equal returns true if both rules are equal
 func (k *PortRuleKafka) Equal(o PortRuleKafka) bool {
 	return k.APIVersion == o.APIVersion && k.APIKey == o.APIKey && k.Topic == o.Topic
 }
