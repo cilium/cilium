@@ -411,7 +411,6 @@ func (d *Daemon) EndpointUpdate(id string, opts models.ConfigurationMap) error {
 	}
 
 	if ep != nil {
-		invalidateCache()
 		if err := ep.Update(d, opts); err != nil {
 			switch err.(type) {
 			case endpoint.UpdateValidationError:
@@ -676,7 +675,7 @@ func (d *Daemon) EndpointLabelsUpdate(ep *endpoint.Endpoint, identityLabels, inf
 		ep.Regenerate(d)
 
 		// FIXME: Does this rebuild epID twice?
-		d.TriggerPolicyUpdates([]policy.NumericIdentity{identity.ID})
+		d.TriggerPolicyUpdates()
 	}
 
 	return nil
