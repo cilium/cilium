@@ -74,8 +74,6 @@ function proxy_init {
   wait_for_docker_ipv6_addr server2
   wait_for_docker_ipv6_addr client
 
-  wait_for_cilium_ep_gen
-  cilium endpoint list
   log "finished proxy_init"
 }
 
@@ -262,7 +260,6 @@ EOF
 
 function proxy_test {
   log "beginning proxy test"
-  wait_for_endpoints 3
 
   log "trying to reach server IPv4 at http://$SERVER_IP4:80/public from client (expected: 200)"
   RETURN=$(docker exec -i client bash -c "curl -s --output /dev/stderr -w '%{http_code}' --connect-timeout 10 -XGET http://$SERVER_IP4:80/public")
@@ -287,6 +284,7 @@ function proxy_test {
   if [[ "${RETURN//$'\n'}" != "403" ]]; then
     abort "GET /private, unexpected return ${RETURN//$'\n'} != 403"
   fi
+
   log "finished proxy test"
 }
 
@@ -303,6 +301,11 @@ for state in "false" "true"; do
     esac
 
     for policy in "egress" "ingress" "egress_and_ingress" "many_egress" "many_ingress"; do
+
+      log "+----------------------------------------------------------------------+"
+      log "Testing with Policy=$policy, Service=$service, Conntrack=$state"
+      log "+----------------------------------------------------------------------+"
+
       case $policy in
         "many_egress")
           policy_many_egress;;
@@ -315,12 +318,6 @@ for state in "false" "true"; do
         "egress_and_ingress")
           policy_egress_and_ingress;;
       esac
-
-      log "+----------------------------------------------------------------------+"
-      log "Testing with Policy=$policy, Service=$service, Conntrack=$state"
-      log "+----------------------------------------------------------------------+"
-
-      wait_for_cilium_ep_gen
 
       proxy_test
     done

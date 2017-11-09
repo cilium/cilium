@@ -129,8 +129,6 @@ cat <<EOF | policy_import_and_wait -
 }]
 EOF
 
-wait_for_endpoints 6
-
 function connectivity_test() {
   local TIMEOUT="5"
   local DROP_TIMEOUT="2"
