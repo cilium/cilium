@@ -97,24 +97,31 @@ func (d *Daemon) SyncState(dir string, clean bool) error {
 	endpointmanager.Mutex.Lock()
 	nEndpoints := len(endpointmanager.Endpoints)
 	wg := make(chan bool, nEndpoints)
-	for k := range endpointmanager.Endpoints {
-		ep := endpointmanager.Endpoints[k]
+	for _, ep := range endpointmanager.Endpoints {
 		go func(ep *endpoint.Endpoint, wg chan<- bool) {
 			scopedLog := log.WithField(logfields.EndpointID, ep.ID)
-			if err := d.allocateIPs(ep); err != nil {
+			ep.Mutex.Lock()
+			if err := d.allocateIPsLocked(ep); err != nil {
+				ep.Mutex.Unlock()
 				scopedLog.WithError(err).Error("Failed to re-allocate IP of endpoint. Not restoring endpoint.")
 				d.deleteEndpoint(ep)
 				wg <- false
 				return
 			}
-
+			ready := ep.SetStateLocked(endpoint.StateWaitingToRegenerate)
+			ep.Mutex.Unlock()
+			if !ready {
+				scopedLog.WithField(logfields.EndpointState, ep.GetState()).Warn("Endpoint in inconsistent state")
+				wg <- false
+				return
+			}
 			if buildSuccess := <-ep.Regenerate(d); !buildSuccess {
 				scopedLog.Warn("Failed while regenerating endpoint")
 				wg <- false
 				return
 			}
 			ep.Mutex.RLock()
-			log.WithField(logfields.IPAddr, []string{ep.IPv4.String(), ep.IPv6.String()}).Info("Restored endpoint with IPs")
+			scopedLog.WithField(logfields.IPAddr, []string{ep.IPv4.String(), ep.IPv6.String()}).Info("Restored endpoint with IPs")
 			ep.Mutex.RUnlock()
 			wg <- true
 		}(ep, wg)
@@ -143,9 +150,7 @@ func (d *Daemon) SyncState(dir string, clean bool) error {
 	return nil
 }
 
-func (d *Daemon) allocateIPs(ep *endpoint.Endpoint) error {
-	ep.Mutex.RLock()
-	defer ep.Mutex.RUnlock()
+func (d *Daemon) allocateIPsLocked(ep *endpoint.Endpoint) error {
 	err := ipam.AllocateIP(ep.IPv6.IP())
 	if err != nil {
 		// TODO if allocation failed reallocate a new IP address and setup veth

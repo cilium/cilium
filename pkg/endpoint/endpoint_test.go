@@ -163,15 +163,119 @@ func (s *EndpointSuite) TestEndpointStatus(c *C) {
 	c.Assert(eps.String(), Equals, "OK")
 }
 
-func (s *EndpointSuite) TestEndpointPolicyID(c *C) {
-	ep := &Endpoint{
-		ID: 12,
-	}
-	c.Assert(ep.PolicyID(), Equals, "Policy ID 0")
+func (s *EndpointSuite) TestEndpointState(c *C) {
+	e := Endpoint{ID: IPv6Addr.EndpointID(), IPv6: IPv6Addr, IPv4: IPv4Addr}
+	e.Mutex.Lock()
+	defer e.Mutex.Unlock()
 
-	id := policy.NewIdentity()
-	id.ID = 55
-	ep.SecLabel = id
+	e.state = StateCreating
+	c.Assert(e.SetStateLocked(StateCreating), Equals, false)
+	c.Assert(e.SetStateLocked(StateWaitingForIdentity), Equals, true)
+	e.state = StateCreating
+	c.Assert(e.SetStateLocked(StateReady), Equals, false)
+	c.Assert(e.SetStateLocked(StateWaitingToRegenerate), Equals, false)
+	c.Assert(e.SetStateLocked(StateRegenerating), Equals, false)
+	c.Assert(e.SetStateLocked(StateDisconnecting), Equals, true)
+	e.state = StateCreating
+	c.Assert(e.SetStateLocked(StateDisconnected), Equals, false)
 
-	c.Assert(ep.PolicyID(), Equals, "Policy ID 55")
+	e.state = StateWaitingForIdentity
+	c.Assert(e.SetStateLocked(StateCreating), Equals, false)
+	c.Assert(e.SetStateLocked(StateWaitingForIdentity), Equals, false)
+	c.Assert(e.SetStateLocked(StateReady), Equals, true)
+	e.state = StateWaitingForIdentity
+	c.Assert(e.SetStateLocked(StateWaitingToRegenerate), Equals, false)
+	c.Assert(e.SetStateLocked(StateRegenerating), Equals, false)
+	c.Assert(e.SetStateLocked(StateDisconnecting), Equals, true)
+	e.state = StateWaitingForIdentity
+	c.Assert(e.SetStateLocked(StateDisconnected), Equals, false)
+
+	e.state = StateReady
+	c.Assert(e.SetStateLocked(StateCreating), Equals, false)
+	c.Assert(e.SetStateLocked(StateWaitingForIdentity), Equals, false)
+	c.Assert(e.SetStateLocked(StateReady), Equals, false)
+	c.Assert(e.SetStateLocked(StateWaitingToRegenerate), Equals, true)
+	e.state = StateReady
+	c.Assert(e.SetStateLocked(StateRegenerating), Equals, false)
+	c.Assert(e.SetStateLocked(StateDisconnecting), Equals, true)
+	e.state = StateReady
+	c.Assert(e.SetStateLocked(StateDisconnected), Equals, false)
+
+	e.state = StateWaitingToRegenerate
+	c.Assert(e.SetStateLocked(StateCreating), Equals, false)
+	c.Assert(e.SetStateLocked(StateWaitingForIdentity), Equals, false)
+	c.Assert(e.SetStateLocked(StateReady), Equals, false)
+	c.Assert(e.SetStateLocked(StateWaitingToRegenerate), Equals, false)
+	c.Assert(e.SetStateLocked(StateRegenerating), Equals, false)
+	c.Assert(e.SetStateLocked(StateDisconnecting), Equals, true)
+	e.state = StateWaitingToRegenerate
+	c.Assert(e.SetStateLocked(StateDisconnected), Equals, false)
+
+	e.state = StateRegenerating
+	c.Assert(e.SetStateLocked(StateCreating), Equals, false)
+	c.Assert(e.SetStateLocked(StateWaitingForIdentity), Equals, false)
+	c.Assert(e.SetStateLocked(StateReady), Equals, false)
+	c.Assert(e.SetStateLocked(StateWaitingToRegenerate), Equals, true)
+	e.state = StateRegenerating
+	c.Assert(e.SetStateLocked(StateRegenerating), Equals, false)
+	c.Assert(e.SetStateLocked(StateDisconnecting), Equals, true)
+	e.state = StateRegenerating
+	c.Assert(e.SetStateLocked(StateDisconnected), Equals, false)
+
+	e.state = StateDisconnecting
+	c.Assert(e.SetStateLocked(StateCreating), Equals, false)
+	c.Assert(e.SetStateLocked(StateWaitingForIdentity), Equals, false)
+	c.Assert(e.SetStateLocked(StateReady), Equals, false)
+	c.Assert(e.SetStateLocked(StateWaitingToRegenerate), Equals, false)
+	c.Assert(e.SetStateLocked(StateRegenerating), Equals, false)
+	c.Assert(e.SetStateLocked(StateDisconnecting), Equals, false)
+	c.Assert(e.SetStateLocked(StateDisconnected), Equals, true)
+
+	e.state = StateDisconnected
+	c.Assert(e.SetStateLocked(StateCreating), Equals, false)
+	c.Assert(e.SetStateLocked(StateWaitingForIdentity), Equals, false)
+	c.Assert(e.SetStateLocked(StateReady), Equals, false)
+	c.Assert(e.SetStateLocked(StateWaitingToRegenerate), Equals, false)
+	c.Assert(e.SetStateLocked(StateRegenerating), Equals, false)
+	c.Assert(e.SetStateLocked(StateDisconnecting), Equals, false)
+	c.Assert(e.SetStateLocked(StateDisconnected), Equals, false)
+
+	// Builder-specific transitions
+	e.state = StateWaitingToRegenerate
+	// Builder can't transition to ready from waiting-to-regenerate
+	// as (another) build is pending
+	c.Assert(e.BuilderSetStateLocked(StateReady), Equals, false)
+	// Only builder knows when bpf regeneration starts
+	c.Assert(e.SetStateLocked(StateRegenerating), Equals, false)
+	c.Assert(e.BuilderSetStateLocked(StateRegenerating), Equals, true)
+	// Builder does not trigger the need for regeneration
+	c.Assert(e.BuilderSetStateLocked(StateWaitingToRegenerate), Equals, false)
+	// Builder transitions to ready state after build is done
+	c.Assert(e.BuilderSetStateLocked(StateReady), Equals, true)
+
+	// Typical lifecycle
+	e.state = StateCreating
+	c.Assert(e.SetStateLocked(StateWaitingForIdentity), Equals, true)
+	// Initial build does not change the state
+	c.Assert(e.BuilderSetStateLocked(StateRegenerating), Equals, false)
+	c.Assert(e.BuilderSetStateLocked(StateReady), Equals, false)
+	// identity arrives
+	c.Assert(e.SetStateLocked(StateReady), Equals, true)
+	// a build is triggered after the identity is set
+	c.Assert(e.SetStateLocked(StateWaitingToRegenerate), Equals, true)
+	// build starts
+	c.Assert(e.BuilderSetStateLocked(StateRegenerating), Equals, true)
+	// another change arrives while building
+	c.Assert(e.SetStateLocked(StateWaitingToRegenerate), Equals, true)
+	// Builder's transition to ready fails due to the queued build
+	c.Assert(e.BuilderSetStateLocked(StateReady), Equals, false)
+	// second build starts
+	c.Assert(e.BuilderSetStateLocked(StateRegenerating), Equals, true)
+	// second build finishes
+	c.Assert(e.BuilderSetStateLocked(StateReady), Equals, true)
+	// endpoint is being deleted
+	c.Assert(e.SetStateLocked(StateDisconnecting), Equals, true)
+	// parallel disconnect fails
+	c.Assert(e.SetStateLocked(StateDisconnecting), Equals, false)
+	c.Assert(e.SetStateLocked(StateDisconnected), Equals, true)
 }

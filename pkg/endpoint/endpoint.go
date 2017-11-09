@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"sort"
 	"strconv"
 	"strings"
@@ -162,27 +163,33 @@ const (
 	// StateCreating is used to set the endpoint is being created.
 	StateCreating = string(models.EndpointStateCreating)
 
+	// StateWaitingForIdentity is used to set if the endpoint is waiting
+	// for an identity from the KVStore.
+	StateWaitingForIdentity = string(models.EndpointStateWaitingForIdentity)
+
+	// StateReady specifies if the endpoint is ready to be used.
+	StateReady = string(models.EndpointStateReady)
+
+	// StateWaitingToRegenerate specifies when the endpoint needs to be regenerated, but regeneration has not started yet.
+	StateWaitingToRegenerate = string(models.EndpointStateWaitingToRegenerate)
+
+	// StateRegenerating specifies when the endpoint is being regenerated.
+	StateRegenerating = string(models.EndpointStateRegenerating)
+
 	// StateDisconnecting indicates that the endpoint is being disconnected
 	StateDisconnecting = string(models.EndpointStateDisconnecting)
 
 	// StateDisconnected is used to set the endpoint is disconnected.
 	StateDisconnected = string(models.EndpointStateDisconnected)
 
-	// StateWaitingForIdentity is used to set if the endpoint is waiting
-	// for an identity from the KVStore.
-	StateWaitingForIdentity = string(models.EndpointStateWaitingForIdentity)
-
-	// StateReady specifies if the endpoint is read to be used.
-	StateReady = string(models.EndpointStateReady)
-
-	// StateRegenerating specifies when the endpoint is being regenerated.
-	StateRegenerating = string(models.EndpointStateRegenerating)
-
 	// CallsMapName specifies the base prefix for EP specific call map.
 	CallsMapName = "cilium_calls_"
 	// PolicyGlobalMapName specifies the global tail call map for EP handle_policy() lookup.
 	PolicyGlobalMapName = "cilium_policy"
 )
+
+// LabelsMap holds mapping from numeric policy identity to labels
+type LabelsMap map[policy.NumericIdentity]pkgLabels.LabelArray
 
 // Endpoint represents a container or similar which can be individually
 // addresses on L3 with its own IP addresses. This structured is managed by the
@@ -249,12 +256,22 @@ type Endpoint struct {
 	// LabelsHash is a SHA256 hash over the SecLabel labels
 	LabelsHash string
 
+	// LabelsMap is the Set of all security labels used in the last policy computation
+	LabelsMap *LabelsMap
+
 	// PortMap is port mapping configuration of the endpoint
 	PortMap []PortMap // Port mapping used for this endpoint.
 
 	// Consumable is the list of allowed consumers of this endpoint. This
 	// is populated based on the policy.
 	Consumable *policy.Consumable `json:"-"`
+
+	// L4Policy is the L4Policy in effect for the
+	// endpoint. Normally it is the same as the Consumable's
+	// L4Policy, but this is needed during policy recalculation to
+	// be able to clean up PolicyMap after consumable has already
+	// been updated.
+	L4Policy *policy.L4Policy `json:"-"`
 
 	// PolicyMap is the policy related state of the datapath including
 	// reference to all policy related BPF
@@ -272,9 +289,8 @@ type Endpoint struct {
 	// Status are the last n state transitions this endpoint went through
 	Status *EndpointStatus
 
-	// State is the state the endpoint is in. It can be { Creating |
-	// Disconnected | WaitingForIdentity | Ready | Regenerating }
-	State string
+	// state is the state the endpoint is in. See SetStateLocked()
+	state string
 
 	// PolicyCalculated is true as soon as the policy has been calculated
 	// for the first time. As long as this value is false, all packets sent
@@ -293,6 +309,11 @@ type Endpoint struct {
 	// updated to and that will become effective with the next regenerate
 	nextPolicyRevision uint64
 
+	// forcePolicyCompute full endpoint policy recomputation
+	// Set when endpoint options have been changed. Cleared right before releasing the
+	// endpoint mutex after policy recalculation.
+	forcePolicyCompute bool
+
 	// BuildMutex synchronizes builds of individual endpoints and locks out
 	// deletion during builds
 	//
@@ -303,6 +324,16 @@ type Endpoint struct {
 	// logger is a logrus object with fields set to report an endpoints information.
 	// You must hold Endpoint.Mutex to read or write it (but not to log with it).
 	logger *log.Entry
+}
+
+// NewEndpointWithState creates a new endpoint useful for testing purposes
+func NewEndpointWithState(ID uint16, state string) *Endpoint {
+	return &Endpoint{
+		ID:     ID,
+		Opts:   option.NewBoolOptions(&EndpointOptionLibrary),
+		Status: NewEndpointStatus(),
+		state:  state,
+	}
 }
 
 // NewEndpointFromChangeModel creates a new endpoint from a request
@@ -325,7 +356,7 @@ func NewEndpointFromChangeModel(base *models.EndpointChangeRequest, l pkgLabels.
 			OrchestrationIdentity: l.DeepCopy(),
 			OrchestrationInfo:     pkgLabels.Labels{},
 		},
-		State:  string(base.State),
+		state:  string(base.State),
 		Status: NewEndpointStatus(),
 	}
 
@@ -373,7 +404,7 @@ func (e *Endpoint) GetModelRLocked() *models.Endpoint {
 		return nil
 	}
 
-	currentState := models.EndpointState(e.State)
+	currentState := models.EndpointState(e.state)
 	if currentState == models.EndpointStateReady && e.Status.CurrentStatus() != OK {
 		currentState = models.EndpointStateNotReady
 	}
@@ -694,31 +725,20 @@ func (e *Endpoint) String() string {
 	return string(b)
 }
 
-// PolicyID returns an identifier for the endpoint's policy. Must be called
-// with the endpoint's lock held.
-func (e *Endpoint) PolicyID() string {
-	pid := uint32(0)
-	if e.SecLabel != nil {
-		pid = e.SecLabel.ID.Uint32()
-	}
-	return fmt.Sprintf("Policy ID %d", pid)
-}
-
 // optionChanged is a callback used with pkg/option to apply the options to an
-// endpoint.
-// Note: You must hold Endpoint.Mutex when calling it
+// endpoint.  Not used for anything at the moment.
 func optionChanged(key string, value bool, data interface{}) {
-	e := data.(*Endpoint)
-	switch key {
-	case OptionConntrack:
-		e.invalidatePolicy()
-	}
 }
 
 // applyOptsLocked applies the given options to the endpoint's options and
 // returns true if there were any options changed.
 func (e *Endpoint) applyOptsLocked(opts map[string]string) bool {
 	return e.Opts.Apply(opts, optionChanged, e) > 0
+}
+
+// ForcePolicyCompute marks the endpoint for forced bpf regeneration.
+func (e *Endpoint) ForcePolicyCompute() {
+	e.forcePolicyCompute = true
 }
 
 func (e *Endpoint) SetDefaultOpts(opts *option.BoolOptions) {
@@ -829,6 +849,8 @@ func ParseEndpoint(strEp string) (*Endpoint, error) {
 	if ep.Status == nil {
 		ep.Status = NewEndpointStatus()
 	}
+
+	ep.state = StateWaitingForIdentity
 
 	return &ep, nil
 }
@@ -998,21 +1020,32 @@ func (e UpdateCompilationError) Error() string { return e.msg }
 
 // Update modifies the endpoint options and regenerates the program.
 func (e *Endpoint) Update(owner Owner, opts models.ConfigurationMap) error {
+	if opts == nil {
+		return nil
+	}
+
 	e.Mutex.Lock()
 	if err := e.Opts.Validate(opts); err != nil {
 		e.Mutex.Unlock()
 		return UpdateValidationError{err.Error()}
 	}
 
-	if opts != nil && !e.applyOptsLocked(opts) {
+	// Option changes may be overridden by the policy configuration.
+	// Currently we return all-OK even in that case.
+	changed, err := e.TriggerPolicyUpdatesLocked(owner, opts)
+	if err != nil {
 		e.Mutex.Unlock()
-		// No changes have been applied, skip update
-		return nil
+		return UpdateCompilationError{err.Error()}
+	}
+
+	if changed {
+		changed = e.SetStateLocked(StateWaitingToRegenerate)
 	}
 	e.Mutex.Unlock()
 
-	// FIXME: restore previous configuration on failure
-	e.Regenerate(owner)
+	if changed {
+		e.Regenerate(owner)
+	}
 
 	return nil
 }
@@ -1091,10 +1124,10 @@ func (e *Endpoint) LeaveLocked(owner Owner) {
 	owner.RemoveFromEndpointQueue(uint64(e.ID))
 	if c := e.Consumable; c != nil {
 		c.Mutex.RLock()
-		if c.L4Policy != nil {
+		if e.L4Policy != nil {
 			// Passing a new map of nil will purge all redirects
-			e.cleanUnusedRedirects(owner, c.L4Policy.Ingress, nil)
-			e.cleanUnusedRedirects(owner, c.L4Policy.Egress, nil)
+			e.cleanUnusedRedirects(owner, e.L4Policy.Ingress, nil)
+			e.cleanUnusedRedirects(owner, e.L4Policy.Egress, nil)
 		}
 		c.Mutex.RUnlock()
 	}
@@ -1108,7 +1141,8 @@ func (e *Endpoint) LeaveLocked(owner Owner) {
 	e.L3Maps.Close()
 
 	e.removeDirectory()
-	e.State = StateDisconnected
+
+	e.SetStateLocked(StateDisconnected)
 }
 
 func (e *Endpoint) removeDirectory() {
@@ -1132,14 +1166,9 @@ func (e *Endpoint) CreateDirectory() error {
 	return nil
 }
 
-func (e *Endpoint) RegenerateIfReady(owner Owner) error {
-	e.Mutex.RLock()
-	if e.State != StateReady && e.State != StateWaitingForIdentity {
-		e.Mutex.RUnlock()
-		return nil
-	}
-	e.Mutex.RUnlock()
-
+// RegenerateWait should only be called when endpoint's state has successfully
+// been changed to "waiting-to-regenerate"
+func (e *Endpoint) RegenerateWait(owner Owner) error {
 	if !<-e.Regenerate(owner) {
 		return fmt.Errorf("error while regenerating endpoint."+
 			" For more info run: 'cilium endpoint get %d'", e.ID)
@@ -1206,40 +1235,133 @@ func (e *Endpoint) GetDockerNetworkID() string {
 
 // GetState returns the endpoint's state
 // endpoint.Mutex may only be RLock()ed
+func (e *Endpoint) GetStateLocked() string {
+	return e.state
+}
+
+// GetState returns the endpoint's state
+// endpoint.Mutex may only be RLock()ed
 func (e *Endpoint) GetState() string {
 	e.Mutex.RLock()
 	defer e.Mutex.RUnlock()
-	return e.State
+	return e.GetStateLocked()
 }
 
-// SetState modifies the endpoint's state
-// endpoint.Mutex may not be held
-func (e *Endpoint) SetState(state string) {
-	e.Mutex.Lock()
-	e.State = state
-	e.Mutex.Unlock()
+// SetStateLocked modifies the endpoint's state
+// endpoint.Mutex must be held
+// Returns true only if endpoints state was changed as requested
+func (e *Endpoint) SetStateLocked(toState string) bool {
+	// Validate the state transition.
+
+	switch e.state { // From state
+	case StateCreating:
+		switch toState {
+		case StateDisconnecting, StateWaitingForIdentity:
+			goto OKState
+		}
+	case StateWaitingForIdentity:
+		switch toState {
+		case StateReady, StateDisconnecting:
+			goto OKState
+		}
+	case StateReady:
+		switch toState {
+		case StateDisconnecting, StateWaitingToRegenerate:
+			goto OKState
+		}
+	case StateDisconnecting:
+		switch toState {
+		case StateDisconnected:
+			goto OKState
+		}
+	case StateDisconnected:
+		// No valid transitions, as disconnected is a terminal state for the endpoint.
+	case StateWaitingToRegenerate:
+		switch toState {
+		// Note that transitions to waiting-to-regenerate state
+		case StateDisconnecting:
+			goto OKState
+		}
+	case StateRegenerating:
+		switch toState {
+		// Even while the endpoint is regenerating it is
+		// possible that further changes require a new
+		// build. In this case the endpoint is transitioned
+		// from the regenerating state to
+		// waiting-to-regenerate state.
+		case StateDisconnecting, StateWaitingToRegenerate:
+			goto OKState
+		}
+	}
+	if toState != e.state {
+		_, fileName, fileLine, _ := runtime.Caller(1)
+		e.getLogger().WithFields(log.Fields{
+			logfields.EndpointState + ".from": e.state,
+			logfields.EndpointState + ".to":   toState,
+			"file": fileName,
+			"line": fileLine,
+		}).Info("Invalid state transition skipped")
+	}
+	return false
+
+OKState:
+	e.state = toState
+	return true
+}
+
+// BuilderSetStateLocked modifies the endpoint's state
+// endpoint.Mutex must be held
+// endpoint BuildMutex must be held!
+func (e *Endpoint) BuilderSetStateLocked(toState string) bool {
+	// Validate the state transition.
+
+	switch e.state { // From state
+	case StateCreating, StateWaitingForIdentity, StateReady, StateDisconnecting, StateDisconnected:
+		// No valid transitions for the builder
+	case StateWaitingToRegenerate:
+		switch toState {
+		// Builder transitions the endpoint from
+		// waiting-to-regenerate state to regenerating state
+		// right after aquiring the endpoint lock, and while
+		// endpoint's build mutex is held. All changes to
+		// cilium and endpoint configuration, policy as well
+		// as the existing set of security identities will be
+		// reconsidered after this point, i.e., even if some
+		// of them are changed regeneration need not be queued
+		// if the endpoint is already in waiting-to-regenerate
+		// state.
+		case StateRegenerating:
+			goto OKState
+		}
+	case StateRegenerating:
+		switch toState {
+		// While still holding the build mutex, the builder
+		// tries to transition the endpoint to ready
+		// state. But since the endpoint mutex was released
+		// for the duration of the bpf generation, it is
+		// possible that another build request has been
+		// queued. In this case the endpoint has been
+		// transitioned to waiting-to-regenerate state
+		// already, and the transition to ready state is
+		// skipped.
+		case StateReady:
+			goto OKState
+		}
+	}
+	return false
+
+OKState:
+	e.state = toState
+	return true
 }
 
 // bumpPolicyRevision marks the endpoint to be running the next scheduled
-// policy revision as setup by e.regenerate(). endpoint.Mutex may not be held
-func (e *Endpoint) bumpPolicyRevision() {
+// policy revision as setup by e.regenerate(). endpoint.Mutex should not be held.
+func (e *Endpoint) bumpPolicyRevision(revision uint64) {
 	e.Mutex.Lock()
-	e.policyRevision = e.nextPolicyRevision
-	e.updateLogger()
+	if revision > e.policyRevision {
+		e.policyRevision = revision
+		e.updateLogger()
+	}
 	e.Mutex.Unlock()
-}
-
-// IsDisconnecting returns true if the endpoint is being disconnected or
-// already disconnected
-// endpoint.Mutex may only be RLock()ed
-func (e *Endpoint) IsDisconnecting() bool {
-	e.Mutex.RLock()
-	defer e.Mutex.RUnlock()
-	return e.IsDisconnectingLocked()
-}
-
-// IsDisconnectingLocked is identical to IsDisconnecting but with the endpoint
-// lock held for reading or writing
-func (e *Endpoint) IsDisconnectingLocked() bool {
-	return e.State == StateDisconnected || e.State == StateDisconnecting
 }

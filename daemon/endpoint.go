@@ -15,6 +15,7 @@
 package main
 
 import (
+	"bytes"
 	"fmt"
 	"os"
 
@@ -159,9 +160,25 @@ func (h *putEndpointID) Handle(params PutEndpointIDParams) middleware.Responder 
 		return apierror.Error(PutEndpointIDFailedCode, err)
 	}
 
-	if err := ep.RegenerateIfReady(h.d); err != nil {
-		ep.RemoveDirectory()
-		return apierror.Error(PatchEndpointIDFailedCode, err)
+	// Regenerate immediately if ready
+	ep.Mutex.Lock()
+	ready := false
+	state := ep.GetStateLocked()
+	if state == endpoint.StateReady || state == endpoint.StateWaitingForIdentity {
+		// state not changed if it is "waiting-for-identity",
+		// but we still trigger the initial build.
+		// Note that the endpoint state can initially also be "creating", and the
+		// initial build will not be done yet in that case. A following PATCH
+		// request will be needed to change the state and trigger bpf build.
+		ep.SetStateLocked(endpoint.StateWaitingToRegenerate)
+		ready = true
+	}
+	ep.Mutex.Unlock()
+	if ready {
+		if err := ep.RegenerateWait(h.d); err != nil {
+			ep.RemoveDirectory()
+			return apierror.Error(PatchEndpointIDFailedCode, err)
+		}
 	}
 
 	endpointmanager.Insert(ep)
@@ -173,6 +190,7 @@ func (h *putEndpointID) Handle(params PutEndpointIDParams) middleware.Responder 
 		errLabelsAdd := h.d.UpdateSecLabels(params.ID, add, labels.Labels{})
 		endpointmanager.Mutex.Lock()
 		if errLabelsAdd != nil {
+			// XXX: Why should the endpoint remain in this case?
 			log.WithFields(log.Fields{
 				logfields.EndpointID:              params.ID,
 				logfields.IdentityLabels:          logfields.Repr(add),
@@ -200,6 +218,7 @@ func (h *patchEndpointID) Handle(params PatchEndpointIDParams) middleware.Respon
 	epTemplate := params.Endpoint
 
 	// Validate the template. Assignment afterwards is atomic.
+	// Note: newEp's labels are ignored.
 	addLabels := labels.ParseStringLabels(params.Endpoint.Labels)
 	newEp, err2 := endpoint.NewEndpointFromChangeModel(epTemplate, addLabels)
 	if err2 != nil {
@@ -214,8 +233,6 @@ func (h *patchEndpointID) Handle(params PatchEndpointIDParams) middleware.Respon
 		return NewPatchEndpointIDNotFound()
 	}
 
-	changed := false
-
 	// FIXME: Support changing these?
 	//  - container ID
 	//  - docker network id
@@ -224,39 +241,51 @@ func (h *patchEndpointID) Handle(params PatchEndpointIDParams) middleware.Respon
 	//  Support arbitrary changes? Support only if unset?
 
 	ep.Mutex.Lock()
-	if epTemplate.InterfaceIndex != 0 {
-		ep.IfIndex = int(epTemplate.InterfaceIndex)
+
+	changed := false
+
+	if epTemplate.InterfaceIndex != 0 && ep.IfIndex != newEp.IfIndex {
+		ep.IfIndex = newEp.IfIndex
 		changed = true
 	}
 
-	if epTemplate.InterfaceName != "" {
-		ep.IfName = epTemplate.InterfaceName
+	if epTemplate.InterfaceName != "" && ep.IfName != newEp.IfName {
+		ep.IfName = newEp.IfName
 		changed = true
 	}
 
-	if epTemplate.State != "" {
-		// FIXME: Validate
-		ep.State = string(epTemplate.State)
-		changed = true
+	// Only support transition to waiting-for-identity state, also
+	// if the request is for ready state, as we will check the
+	// existence of the security label below. Other transitions
+	// are always internally managed, but we do not error out for
+	// backwards compatibility.
+	if epTemplate.State != "" &&
+		(string(epTemplate.State) == endpoint.StateWaitingForIdentity ||
+			string(epTemplate.State) == endpoint.StateReady) &&
+		ep.GetStateLocked() != endpoint.StateWaitingForIdentity {
+		// Will not change state if the current state does not allow the transition.
+		if ep.SetStateLocked(endpoint.StateWaitingForIdentity) {
+			changed = true
+		}
 	}
 
-	if epTemplate.Mac != "" {
+	if epTemplate.Mac != "" && bytes.Compare(ep.LXCMAC, newEp.LXCMAC) != 0 {
 		ep.LXCMAC = newEp.LXCMAC
 		changed = true
 	}
 
-	if epTemplate.HostMac != "" {
+	if epTemplate.HostMac != "" && bytes.Compare(ep.NodeMAC, newEp.NodeMAC) != 0 {
 		ep.NodeMAC = newEp.NodeMAC
 		changed = true
 	}
 
 	if epTemplate.Addressing != nil {
-		if ip := epTemplate.Addressing.IPV6; ip != "" {
+		if ip := epTemplate.Addressing.IPV6; ip != "" && bytes.Compare(ep.IPv6, newEp.IPv6) != 0 {
 			ep.IPv6 = newEp.IPv6
 			changed = true
 		}
 
-		if ip := epTemplate.Addressing.IPV4; ip != "" {
+		if ip := epTemplate.Addressing.IPV4; ip != "" && bytes.Compare(ep.IPv4, newEp.IPv4) != 0 {
 			ep.IPv4 = newEp.IPv4
 			changed = true
 		}
@@ -264,17 +293,26 @@ func (h *patchEndpointID) Handle(params PatchEndpointIDParams) middleware.Respon
 
 	// If desired state is waiting-for-identity but identity is already
 	// known, bump it to ready state immediately to force re-generation
-	if ep.State == endpoint.StateWaitingForIdentity && ep.SecLabel != nil {
-		ep.State = endpoint.StateReady
+	if ep.GetStateLocked() == endpoint.StateWaitingForIdentity && ep.SecLabel != nil {
+		ep.SetStateLocked(endpoint.StateReady)
 		changed = true
+	}
+
+	if changed {
+		// Force policy regeneration as endpoint's configuration was changed.
+		// Other endpoints need not be regenerated as no labels were changed.
+		ep.ForcePolicyCompute()
+		// Transition to waiting-to-regenerate if ready.
+		if ep.GetStateLocked() == endpoint.StateReady {
+			ep.SetStateLocked(endpoint.StateWaitingToRegenerate)
+		}
 	}
 	ep.Mutex.Unlock()
 
 	if changed {
-		if err := ep.RegenerateIfReady(h.d); err != nil {
+		if err := ep.RegenerateWait(h.d); err != nil {
 			return apierror.Error(PatchEndpointIDFailedCode, err)
 		}
-
 		// FIXME: Special return code to indicate regeneration happened?
 	}
 
@@ -293,12 +331,10 @@ func (d *Daemon) deleteEndpoint(ep *endpoint.Endpoint) int {
 
 	// In case multiple delete requests have been enqueued, have all of them
 	// except the first return here.
-	if ep.IsDisconnectingLocked() {
+	if !ep.SetStateLocked(endpoint.StateDisconnecting) {
 		ep.Mutex.Unlock()
 		return 0
 	}
-
-	ep.State = endpoint.StateDisconnecting
 
 	sha256sum := ep.OpLabels.IdentityLabels().SHA256Sum()
 	if err := d.DeleteIdentityBySHA256(sha256sum, ep.StringID()); err != nil {
@@ -403,7 +439,7 @@ func (h *deleteEndpointID) Handle(params DeleteEndpointIDParams) middleware.Resp
 	}
 }
 
-// EndpointUpdate updates the given endpoint and regenerates the endpoint
+// EndpointUpdate updates the options of the given endpoint and regenerates the endpoint
 func (d *Daemon) EndpointUpdate(id string, opts models.ConfigurationMap) error {
 	ep, err := endpointmanager.Lookup(id)
 	if err != nil {
@@ -523,6 +559,7 @@ func (d *Daemon) UpdateSecLabels(id string, add, del labels.Labels) middleware.R
 		return NewPutEndpointIDLabelsNotFound()
 	}
 
+	// This is safe only if no other goroutine may change the labels in parallel
 	ep.Mutex.RLock()
 	oldLabels := ep.OpLabels.DeepCopy()
 	ep.Mutex.RUnlock()
@@ -573,7 +610,7 @@ func (d *Daemon) UpdateSecLabels(id string, add, del labels.Labels) middleware.R
 	}
 
 	ep.Mutex.Lock()
-	if ep.State == endpoint.StateDisconnected {
+	if ep.GetStateLocked() == endpoint.StateDisconnected {
 		ep.Mutex.Unlock()
 		if err := d.DeleteIdentity(identity.ID, ep.StringID()); err != nil {
 			log.WithFields(log.Fields{
@@ -587,9 +624,15 @@ func (d *Daemon) UpdateSecLabels(id string, add, del labels.Labels) middleware.R
 	ep.LabelsHash = newHash
 	ep.OpLabels = *oldLabels
 	ep.SetIdentity(d, identity)
+	ready := ep.SetStateLocked(endpoint.StateWaitingToRegenerate)
+	if ready {
+		ep.ForcePolicyCompute()
+	}
 	ep.Mutex.Unlock()
 
-	ep.Regenerate(d)
+	if ready {
+		ep.Regenerate(d)
+	}
 
 	return nil
 }
@@ -653,7 +696,7 @@ func (d *Daemon) EndpointLabelsUpdate(ep *endpoint.Endpoint, identityLabels, inf
 	// Endpoint might have transitioned to disconnected state. If
 	// disconnected, do not associate the identity with the endpoint and
 	// release it again
-	if ep.State == endpoint.StateDisconnected {
+	if ep.GetStateLocked() == endpoint.StateDisconnected {
 		ep.Mutex.Unlock()
 		if err := d.DeleteIdentity(identity.ID, ep.StringID()); err != nil {
 			log.WithFields(log.Fields{
@@ -672,11 +715,8 @@ func (d *Daemon) EndpointLabelsUpdate(ep *endpoint.Endpoint, identityLabels, inf
 
 	// Skip building endpoint if identity is invalid or unchanged
 	if identity.ID != oldIdentity {
-		ep.Regenerate(d)
-
-		// FIXME: Does this rebuild epID twice?
-		d.TriggerPolicyUpdates()
+		// Triggers policy updates on all endpoints
+		d.TriggerPolicyUpdates(true)
 	}
-
 	return nil
 }

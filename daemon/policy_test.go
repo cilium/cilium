@@ -19,11 +19,9 @@ import (
 	"time"
 
 	"github.com/cilium/cilium/common/addressing"
-	"github.com/cilium/cilium/daemon/options"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/mac"
-	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy/api"
 
 	. "gopkg.in/check.v1"
@@ -101,16 +99,13 @@ func (ds *DaemonSuite) TestUpdateConsumerMap(c *C) {
 	prodFooJoeSecLblsCtx, _, err := ds.d.CreateOrUpdateIdentity(prodFooJoeLbls, "cc08ff400e355f736dce1c291a6a4007ab9f2d56d42e1f3630ba87b861d45307")
 	c.Assert(err, Equals, nil)
 
-	e := endpoint.Endpoint{
-		ID:      1,
-		IfName:  "dummy1",
-		IPv6:    IPv6Addr,
-		IPv4:    IPv4Addr,
-		LXCMAC:  HardAddr,
-		NodeMAC: HardAddr,
-		Status:  endpoint.NewEndpointStatus(),
-	}
-	e.Opts = option.NewBoolOptions(&options.Library)
+	e := endpoint.NewEndpointWithState(1, endpoint.StateWaitingForIdentity)
+	e.IfName = "dummy1"
+	e.IPv6 = IPv6Addr
+	e.IPv4 = IPv4Addr
+	e.LXCMAC = HardAddr
+	e.NodeMAC = HardAddr
+
 	err2 := os.Mkdir("1", 755)
 	c.Assert(err2, IsNil)
 	defer func() {
@@ -121,6 +116,10 @@ func (ds *DaemonSuite) TestUpdateConsumerMap(c *C) {
 		os.RemoveAll("1_backup")
 	}()
 	e.SetIdentity(ds.d, qaBarSecLblsCtx)
+	e.Mutex.Lock()
+	ready := e.SetStateLocked(endpoint.StateWaitingToRegenerate)
+	e.Mutex.Unlock()
+	c.Assert(ready, Equals, true)
 	buildSuccess := <-e.Regenerate(ds.d)
 	c.Assert(buildSuccess, Equals, true)
 	c.Assert(e.Allows(qaBarSecLblsCtx.ID), Equals, false)
@@ -128,17 +127,17 @@ func (ds *DaemonSuite) TestUpdateConsumerMap(c *C) {
 	c.Assert(e.Allows(qaFooSecLblsCtx.ID), Equals, true)
 	c.Assert(e.Allows(prodFooSecLblsCtx.ID), Equals, false)
 
-	e = endpoint.Endpoint{
-		ID:      1,
-		IfName:  "dummy1",
-		IPv6:    IPv6Addr,
-		IPv4:    IPv4Addr,
-		LXCMAC:  HardAddr,
-		NodeMAC: HardAddr,
-		Status:  endpoint.NewEndpointStatus(),
-	}
-	e.Opts = option.NewBoolOptions(&options.Library)
+	e = endpoint.NewEndpointWithState(1, endpoint.StateWaitingForIdentity)
+	e.IfName = "dummy1"
+	e.IPv6 = IPv6Addr
+	e.IPv4 = IPv4Addr
+	e.LXCMAC = HardAddr
+	e.NodeMAC = HardAddr
 	e.SetIdentity(ds.d, prodBarSecLblsCtx)
+	e.Mutex.Lock()
+	ready = e.SetStateLocked(endpoint.StateWaitingToRegenerate)
+	e.Mutex.Unlock()
+	c.Assert(ready, Equals, true)
 	buildSuccess = <-e.Regenerate(ds.d)
 	c.Assert(buildSuccess, Equals, true)
 	c.Assert(e.Allows(0), Equals, false)

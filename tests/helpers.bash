@@ -296,10 +296,10 @@ function wait_for_cilium_ep_gen {
     log "mode is K8s"
     NAMESPACE=$2
     POD=$3
-    CMD="kubectl exec -n ${NAMESPACE} ${POD} -- cilium endpoint list | grep -c regenerating"
+    CMD="kubectl exec -n ${NAMESPACE} ${POD} -- cilium endpoint list | grep -c regenerat"
     INFO_CMD="kubectl exec -n ${NAMESPACE} ${POD} -- cilium endpoint list"
   else
-    CMD="cilium endpoint list | grep -c regenerating"
+    CMD="cilium endpoint list | grep -c regenerat"
     INFO_CMD="cilium endpoint list"
   fi
 
