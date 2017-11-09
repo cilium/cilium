@@ -64,8 +64,6 @@ cat <<EOF | policy_import_and_wait -
 }]
 EOF
 
-wait_for_endpoints 1
-
 monitor_clear
 log "pinging service1 from service3"
 docker run --rm -i --net ${TEST_NET} -l "id.service3" --cap-add NET_ADMIN ${DEMO_CONTAINER} ping -c 10 ${HTTPD_CONTAINER_NAME} && {
@@ -118,8 +116,6 @@ cat <<EOF | policy_import_and_wait -
     }]
 }]
 EOF
-
-wait_for_cilium_ep_gen
 
 monitor_clear
 log "performing HTTP GET on ${HTTPD_CONTAINER_NAME}/public from service2 (expected: 200)"

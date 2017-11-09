@@ -180,14 +180,12 @@ check_endpoints_policy_enabled ${NUM_ENDPOINTS}
 # Policy enforcement should be 'true' for all endpoints.
 log " Test 10: always mode: check that each endpoint has policy enforcement enabled after policy is removed  "
 policy_delete_and_wait "--all"
-wait_for_endpoints ${NUM_ENDPOINTS}
 check_endpoints_policy_enabled ${NUM_ENDPOINTS}
 
 # Test 11: always mode, import policy.
 # All endpoints should have policy enforcement enabled.
 log " Test 11: always mode: check that each endpoint has policy enforcement enabled after policy is imported "
 import_sample_policy
-wait_for_endpoints ${NUM_ENDPOINTS}
 check_endpoints_policy_enabled ${NUM_ENDPOINTS}
 
 # Test 12: always --> never mode, policy imported.
@@ -201,7 +199,6 @@ check_endpoints_policy_disabled ${NUM_ENDPOINTS}
 # All endpoints should have policy enforcement disabled.
 log " Test 13: never mode: check that each endpoint has policy disabled when policy is deleted "
 policy_delete_and_wait "--all"
-wait_for_endpoints ${NUM_ENDPOINTS}
 check_endpoints_policy_disabled ${NUM_ENDPOINTS}
 
 # Test 14: never --> always, no policy imported.
