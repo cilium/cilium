@@ -74,19 +74,20 @@ EOF
 log "updating client endpoint configuration: NAT46=true"
 cilium endpoint config ${CLIENT_ID} NAT46=true
 
-function connectivity_test64() {
-  log "beginning connectivity_test64"
+function connectivity_test46() {
+  log "beginning connectivity_test46"
   # ICMPv4 echo request from client to server should succeed
   monitor_clear
-  log "pinging NAT64 address of client from host (should work)" 
+  log "pinging NAT46 address of server from client (should work)" 
   docker exec -i client ping6 -c 10 ::FFFF:$SERVER_IP4 || {
-    abort "Error: Could not ping nat64 address of client from host"
+    abort "Error: Could not ping nat46 address of server from client"
   }
-  log "finished connectivity_test64"
+  log "finished connectivity_test46"
 }
 
-connectivity_test64
+connectivity_test46
 log "deleting all policies from Cilium"
 cilium -D policy delete --all
 
 test_succeeded "${TEST_NAME}"
+
