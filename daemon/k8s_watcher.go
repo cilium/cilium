@@ -45,6 +45,17 @@ import (
 
 const (
 	k8sErrLogTimeout = time.Minute
+
+	k8sAPIGroupCRD               = "CustomResourceDefinition"
+	k8sAPIGroupTPR               = "ThirdPartyResource"
+	k8sAPIGroupNodeV1Core        = "core/v1::Node"
+	k8sAPIGroupServiceV1Core     = "core/v1::Service"
+	k8sAPIGroupEndpointV1Core    = "core/v1::Endpoint"
+	k8sAPIGroupNetworkingV1Core  = "networking.k8s.io/v1::NetworkPolicy"
+	k8sAPIGroupNetworkingV1Beta1 = "extensions/v1beta1::NetworkPolicy"
+	k8sAPIGroupIngressV1Beta1    = "extensions/v1beta1::Ingress"
+	k8sAPIGroupCiliumV1          = "cilium/v1::CiliumNetworkPolicy"
+	k8sAPIGroupCiliumV2          = "cilium/v2::CiliumNetworkPolicy"
 )
 
 var (
@@ -62,6 +73,37 @@ var (
 	// ciliumRulesStore is the local cache for the CNP
 	ciliumRulesStore cache.Store
 )
+
+// k8sAPIGroupsUsed is a lockable map to hold which k8s API Groups we have
+// enabled/in-use
+// Note: We can replace it with a Go 1.9 map once we require that version
+type k8sAPIGroupsUsed struct {
+	sync.Mutex
+	apis map[string]bool
+}
+
+func (m *k8sAPIGroupsUsed) addAPI(api string) {
+	m.Lock()
+	defer m.Unlock()
+	if m.apis == nil {
+		m.apis = make(map[string]bool)
+	}
+	m.apis[api] = true
+}
+
+func (m *k8sAPIGroupsUsed) removeAPI(api string) {
+	m.Lock()
+	defer m.Unlock()
+	delete(m.apis, api)
+}
+
+func (m *k8sAPIGroupsUsed) Range(f func(key string, value bool) bool) {
+	for k, v := range m.apis {
+		if !f(k, v) {
+			return
+		}
+	}
+}
 
 func init() {
 	// Replace error handler with our own
@@ -121,7 +163,8 @@ func k8sErrorHandler(e error) {
 			log.Warn("Disabling k8s networking.k8s.io/v1 API watcher. " +
 				"Consider upgrading k8s to >=1.7 to enforce networking.k8s.io/v1. " +
 				"Continuing to watch for events on k8s extensions/v1beta1")
-			stopPolicyController <- struct{}{}
+			// This disables the matching watcher set up in EnableK8sWatcher below.
+			close(stopPolicyController)
 		})
 
 	// k8s does not allow us to watch both ThirdPartyResource and
@@ -171,24 +214,33 @@ func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 		return fmt.Errorf("Unable to create rest configuration for k8s CRD: %s", err)
 	}
 
-	if err := k8s.CreateCustomResourceDefinitions(apiextensionsclientset); errors.IsNotFound(err) {
+	err = k8s.CreateCustomResourceDefinitions(apiextensionsclientset)
+	switch {
+	case errors.IsNotFound(err):
 		// If CRD was not found it means we are running in k8s <1.7
 		// then we should set up TPR instead
 		log.Debug("Detected k8s <1.7, using TPR instead of CRD")
-		if err := k8s.CreateThirdPartyResourcesDefinitions(k8s.Client()); err != nil {
+		err = k8s.CreateThirdPartyResourcesDefinitions(k8s.Client())
+		if err != nil {
 			return fmt.Errorf("Unable to create third party resource: %s", err)
 		}
 		cnpClient, err = k8s.CreateTPRClient(restConfig)
 		if err != nil {
 			return fmt.Errorf("Unable to create third party resource client: %s", err)
 		}
-	} else if err != nil {
+		d.k8sAPIGroups.addAPI(k8sAPIGroupTPR)
+		d.k8sAPIGroups.addAPI(k8sAPIGroupCiliumV1)
+
+	case err != nil:
 		return fmt.Errorf("Unable to create custom resource definition: %s", err)
-	} else {
+
+	default:
 		cnpClient, err = k8s.CreateCRDClient(restConfig)
 		if err != nil {
 			return fmt.Errorf("Unable to create custom resource definition client: %s", err)
 		}
+		d.k8sAPIGroups.addAPI(k8sAPIGroupCRD)
+		d.k8sAPIGroups.addAPI(k8sAPIGroupCiliumV2)
 	}
 
 	_, policyControllerDeprecated := cache.NewInformer(
@@ -203,6 +255,7 @@ func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 		},
 	)
 	go policyControllerDeprecated.Run(wait.NeverStop)
+	d.k8sAPIGroups.addAPI(k8sAPIGroupNetworkingV1Beta1)
 
 	_, policyController := cache.NewInformer(
 		cache.NewListWatchFromClient(k8s.Client().NetworkingV1().RESTClient(),
@@ -216,6 +269,15 @@ func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 		},
 	)
 	go policyController.Run(stopPolicyController)
+	d.k8sAPIGroups.addAPI(k8sAPIGroupNetworkingV1Core)
+	// This is here because we turn this off in k8sErrorHandler but it does not
+	// have a *Daemon pointer.
+	// Note: We put stopPolicyController in the closure in case the global is
+	// ever changed.
+	go func(stop chan struct{}) {
+		<-stop
+		d.k8sAPIGroups.removeAPI(k8sAPIGroupNetworkingV1Core)
+	}(stopPolicyController)
 
 	_, svcController := cache.NewInformer(
 		cache.NewListWatchFromClient(k8s.Client().CoreV1().RESTClient(),
@@ -229,6 +291,7 @@ func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 		},
 	)
 	go svcController.Run(wait.NeverStop)
+	d.k8sAPIGroups.addAPI(k8sAPIGroupServiceV1Core)
 
 	_, endpointController := cache.NewInformer(
 		cache.NewListWatchFromClient(k8s.Client().CoreV1().RESTClient(),
@@ -242,6 +305,7 @@ func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 		},
 	)
 	go endpointController.Run(wait.NeverStop)
+	d.k8sAPIGroups.addAPI(k8sAPIGroupEndpointV1Core)
 
 	_, ingressController := cache.NewInformer(
 		cache.NewListWatchFromClient(k8s.Client().ExtensionsV1beta1().RESTClient(),
@@ -255,6 +319,7 @@ func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 		},
 	)
 	go ingressController.Run(wait.NeverStop)
+	d.k8sAPIGroups.addAPI(k8sAPIGroupIngressV1Beta1)
 
 	ciliumNetworkPolicyHandler := cache.ResourceEventHandlerFuncs{
 		AddFunc:    d.addCiliumNetworkPolicy,
@@ -303,6 +368,8 @@ func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 		},
 	)
 	go nodesController.Run(wait.NeverStop)
+	d.k8sAPIGroups.addAPI(k8sAPIGroupNodeV1Core)
+
 	return nil
 }
 

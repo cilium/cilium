@@ -28,32 +28,45 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func getK8sStatus() *models.Status {
-	var k8sStatus *models.Status
-	if k8s.IsEnabled() {
-		if v, err := k8s.Client().CoreV1().ComponentStatuses().Get("controller-manager", metav1.GetOptions{}); err != nil {
-			k8sStatus = &models.Status{State: models.StatusStateFailure, Msg: err.Error()}
-		} else if len(v.Conditions) == 0 {
-			k8sStatus = &models.Status{
-				State: models.StatusStateWarning,
-				Msg:   "Unable to retrieve controller-manager's kubernetes status",
-			}
-		} else {
-			if v.Conditions[0].Status == k8sTypes.ConditionTrue {
-				k8sStatus = &models.Status{
-					State: models.StatusStateOk,
-					Msg:   "OK",
-				}
-			} else {
-				k8sStatus = &models.Status{
-					State: models.StatusStateFailure,
-					Msg:   v.Conditions[0].Message,
-				}
-			}
-		}
-	} else {
-		k8sStatus = &models.Status{State: models.StatusStateDisabled}
+func (d *Daemon) getK8sStatus() *models.K8sStatus {
+	if !k8s.IsEnabled() {
+		return &models.K8sStatus{State: models.StatusStateDisabled}
+
 	}
+
+	var (
+		k8sStatus *models.K8sStatus
+		status    *k8sTypes.ComponentStatus
+		err       error
+	)
+	if status, err = k8s.Client().CoreV1().ComponentStatuses().Get("controller-manager", metav1.GetOptions{}); err != nil {
+		return &models.K8sStatus{State: models.StatusStateFailure, Msg: err.Error()}
+	}
+	switch {
+	case len(status.Conditions) == 0:
+		k8sStatus = &models.K8sStatus{
+			State: models.StatusStateWarning,
+			Msg:   "Unable to retrieve controller-manager's kubernetes status",
+		}
+	case status.Conditions[0].Status == k8sTypes.ConditionTrue:
+		k8sStatus = &models.K8sStatus{
+			State: models.StatusStateOk,
+			Msg:   "OK",
+		}
+	default:
+		k8sStatus = &models.K8sStatus{
+			State: models.StatusStateFailure,
+			Msg:   status.Conditions[0].Message,
+		}
+	}
+
+	d.k8sAPIGroups.Range(func(key string, value bool) bool {
+		if value {
+			k8sStatus.K8sAPIVersions = append(k8sStatus.K8sAPIVersions, key)
+		}
+		return true
+	})
+
 	return k8sStatus
 }
 
@@ -77,7 +90,7 @@ func (h *getHealthz) Handle(params GetHealthzParams) middleware.Responder {
 
 	sr.ContainerRuntime = containerd.Status()
 
-	sr.Kubernetes = getK8sStatus()
+	sr.Kubernetes = d.getK8sStatus()
 
 	if sr.Kvstore.State != models.StatusStateOk {
 		sr.Cilium = &models.Status{

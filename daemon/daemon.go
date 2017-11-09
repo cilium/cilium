@@ -103,6 +103,12 @@ type Daemon struct {
 
 	nodeMonitor *monitor.NodeMonitor
 
+	// k8sAPIs is a set of k8s API in use. They are setup in EnableK8sWatcher,
+	// and may be disabled while the agent runs.
+	// This is on this object, instead of a global, because EnableK8sWatcher is
+	// on Daemon.
+	k8sAPIGroups k8sAPIGroupsUsed
+
 	// Used to synchronize generation of daemon's BPF programs and endpoint BPF
 	// programs.
 	compilationMutex *lock.RWMutex
