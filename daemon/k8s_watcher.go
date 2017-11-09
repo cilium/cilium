@@ -1302,8 +1302,6 @@ func (d *Daemon) deleteCiliumNetworkPolicy(obj interface{}) {
 }
 
 func (d *Daemon) updateCiliumNetworkPolicy(oldObj interface{}, newObj interface{}) {
-	// We don't need to deepcopy the objects since they are being copied
-	// on each d.deleteCiliumNetworkPolicy and d.addCiliumNetworkPolicy calls.
 	oldRule, ok := oldObj.(*cilium_crd.CiliumNetworkPolicy)
 	if !ok {
 		log.WithField(logfields.Object+".old", logfields.Repr(oldObj)).
@@ -1317,36 +1315,34 @@ func (d *Daemon) updateCiliumNetworkPolicy(oldObj interface{}, newObj interface{
 		return
 	}
 
-	// Parse rules before checking whether they are equal. When rules are parsed,
-	// fields are sanitized and changed. Since Parse() is called on a pointer
-	// to a rule, the oldRule, which is cached locally, is modified, while the
-	// newRule is not modified yet. See GH-1885.
-	_, err := oldRule.Parse()
+	oldRuleCpy := oldRule.DeepCopy()
+	_, err := oldRuleCpy.Parse()
 	if err != nil {
-		log.WithError(err).WithField(logfields.Object, logfields.Repr(oldRule)).
+		log.WithError(err).WithField(logfields.Object, logfields.Repr(oldRuleCpy)).
 			Warn("Error parsing old CiliumNetworkPolicy rule")
 		return
 	}
 
+	newRuleCpy := newRules.DeepCopy()
 	_, err = newRules.Parse()
 	if err != nil {
-		log.WithError(err).WithField(logfields.Object, logfields.Repr(newRules)).
+		log.WithError(err).WithField(logfields.Object, logfields.Repr(newRuleCpy)).
 			Warn("Error parsing new CiliumNetworkPolicy rule")
 		return
 	}
 
 	// Since we are updating the status map from all nodes we need to prevent
 	// deletion and addition of all rules in cilium.
-	if oldRule.SpecEquals(newRules) {
+	if oldRuleCpy.SpecEquals(newRuleCpy) {
 		return
 	}
 
 	log.WithFields(log.Fields{
-		logfields.K8sAPIVersion:                    oldRule.TypeMeta.APIVersion,
-		logfields.CiliumNetworkPolicyName + ".old": oldRule.ObjectMeta.Name,
-		logfields.K8sNamespace + ".old":            oldRule.ObjectMeta.Namespace,
-		logfields.CiliumNetworkPolicyName + ".new": newRules.ObjectMeta.Name,
-		logfields.K8sNamespace + ".new":            newRules.ObjectMeta.Namespace,
+		logfields.K8sAPIVersion:                    oldRuleCpy.TypeMeta.APIVersion,
+		logfields.CiliumNetworkPolicyName + ".old": oldRuleCpy.ObjectMeta.Name,
+		logfields.K8sNamespace + ".old":            oldRuleCpy.ObjectMeta.Namespace,
+		logfields.CiliumNetworkPolicyName + ".new": newRuleCpy.ObjectMeta.Name,
+		logfields.K8sNamespace + ".new":            newRuleCpy.ObjectMeta.Namespace,
 	}).Debug("Modified CiliumNetworkPolicy")
 
 	d.deleteCiliumNetworkPolicy(oldObj)
