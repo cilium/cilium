@@ -248,16 +248,14 @@ func (d *Daemon) PolicyAdd(rules api.Rules, opts *AddOptions) (uint64, error) {
 	return rev, nil
 }
 
-// PolicyDelete deletes the policy set in the given path from the policy tree.
-// If cover256Sum is set it finds the rule with the respective coverage that
-// rule from the node. If the path's node becomes ruleless it is removed from
-// the tree.
+// PolicyDelete deletes rules containing the given labels, or all rules if no
+// labels are given.
 func (d *Daemon) PolicyDelete(labels labels.LabelArray) (uint64, error) {
 	log.WithField(logfields.IdentityLabels, logfields.Repr(labels)).Debug("Policy Delete Request")
 
 	// An error is only returned if a label filter was provided and then
-	// not found A deletion request for all policy entries if no policied
-	// are loaded should not fail.
+	// not found. A deletion request for all policy entries should not fail
+	// if no policies are loaded.
 	rev, deleted := d.policy.DeleteByLabels(labels)
 	if deleted == 0 && len(labels) != 0 {
 		return rev, apierror.New(DeletePolicyNotFoundCode, "policy not found")
@@ -297,17 +295,18 @@ func (d *Daemon) PolicyDelete(labels labels.LabelArray) (uint64, error) {
 
 			ep.Mutex.RUnlock()
 
-			idsToKeep := map[uint32]bool{}
+			idsToRm := map[uint32]bool{}
 			if consumers, ok := consumablesToRm[epSecID]; ok {
 				for _, consumer := range consumers {
-					idsToKeep[consumer.Uint32()] = true
+					idsToRm[consumer.Uint32()] = true
 				}
-				if len(idsToKeep) != 0 {
+				if len(idsToRm) != 0 {
 					log.WithFields(log.Fields{
-						logfields.EndpointID:           ep.ID,
-						logfields.EndpointID + ".keep": logfields.Repr(idsToKeep),
+						logfields.EndpointID:             ep.ID,
+						logfields.EndpointID + ".remove": logfields.Repr(idsToRm),
 					}).Debug("Removing entries of EP")
-					endpointmanager.RmCTEntriesOf(!d.conf.IPv4Disabled, ep, idsToKeep)
+					log.Debugf("Removing entries of EP %d: %+v", ep.ID, idsToRm)
+					endpointmanager.RmCTEntriesOf(!d.conf.IPv4Disabled, ep, idsToRm)
 				}
 			}
 		}
