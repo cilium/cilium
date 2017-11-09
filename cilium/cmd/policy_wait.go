@@ -19,6 +19,8 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/cilium/cilium/api/v1/models"
+
 	"github.com/spf13/cobra"
 )
 
@@ -48,7 +50,8 @@ var policyWaitCmd = &cobra.Command{
 			ready := 0
 
 			for _, ep := range eps {
-				if ep.Policy != nil && ep.PolicyRevision >= reqRevision {
+				if ep.Policy != nil && ep.PolicyRevision >= reqRevision &&
+					ep.State == models.EndpointStateReady {
 					ready++
 				}
 			}
