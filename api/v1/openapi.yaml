@@ -88,7 +88,7 @@ paths:
     put:
       summary: Create endpoint
       description: |
-        Updates an existing endpoint
+        Creates a new endpoint
       tags:
       - endpoint
       parameters:
@@ -813,12 +813,13 @@ definitions:
     type: string
     enum:
       - creating
-      - disconnecting
-      - disconnected
       - waiting-for-identity
       - not-ready
+      - waiting-to-regenerate
       - regenerating
       - ready
+      - disconnecting
+      - disconnected
   EndpointStatusChange:
     description: Indication of a change of status
     type: object
