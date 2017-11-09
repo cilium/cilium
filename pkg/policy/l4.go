@@ -345,20 +345,3 @@ func (l4 *L4Policy) GetModel() *models.L4Policy {
 		Egress:  egress,
 	}
 }
-
-func (l4 *L4Policy) DeepCopy() *L4Policy {
-	cpy := &L4Policy{
-		Ingress: make(L4PolicyMap, len(l4.Ingress)),
-		Egress:  make(L4PolicyMap, len(l4.Egress)),
-	}
-
-	for k, v := range l4.Ingress {
-		cpy.Ingress[k] = v
-	}
-
-	for k, v := range l4.Egress {
-		cpy.Egress[k] = v
-	}
-
-	return cpy
-}

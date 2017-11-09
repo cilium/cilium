@@ -37,20 +37,6 @@ type CIDRMap struct {
 	Prefixlen uint32
 }
 
-// DeepCopy duplicates CIDRMap 'cm', but both copies refer to the same map.
-func (cm *CIDRMap) DeepCopy() *CIDRMap {
-	if cm == nil {
-		return nil
-	}
-
-	return &CIDRMap{
-		path:      cm.path,
-		Fd:        cm.Fd,
-		AddrSize:  cm.AddrSize,
-		Prefixlen: cm.Prefixlen,
-	}
-}
-
 const (
 	MAX_KEYS           = 1024
 	LPM_MAP_VALUE_SIZE = 1

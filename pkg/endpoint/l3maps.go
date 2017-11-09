@@ -60,16 +60,6 @@ func (l3 *L3Maps) ResetBpfMap(mt L3MapType, path string) error {
 	return err
 }
 
-// DeepCopy duplicates the bpf map references, but the duplicates
-// refer to the same bpf maps.
-func (l3 *L3Maps) DeepCopy() L3Maps {
-	var cpy L3Maps
-	for i, v := range l3 {
-		cpy[i] = v.DeepCopy()
-	}
-	return cpy
-}
-
 // Close closes all bpf maps, but does not destroy them.
 func (l3 *L3Maps) Close() {
 	for _, v := range l3 {

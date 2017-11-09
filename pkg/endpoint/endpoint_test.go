@@ -22,11 +22,6 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/common/addressing"
 	"github.com/cilium/cilium/pkg/comparator"
-	"github.com/cilium/cilium/pkg/labels"
-	"github.com/cilium/cilium/pkg/mac"
-	"github.com/cilium/cilium/pkg/maps/policymap"
-	"github.com/cilium/cilium/pkg/option"
-	"github.com/cilium/cilium/pkg/policy"
 
 	. "gopkg.in/check.v1"
 )
@@ -67,79 +62,6 @@ func (s *EndpointSuite) TestOrderEndpointAsc(c *C) {
 	}
 	OrderEndpointAsc(eps)
 	c.Assert(eps, comparator.DeepEquals, epsWant)
-}
-
-func (s *EndpointSuite) TestDeepCopy(c *C) {
-	ipv4, err := addressing.NewCiliumIPv4("127.0.0.1")
-	c.Assert(err, IsNil)
-	ipv6, err := addressing.NewCiliumIPv6("::1")
-	c.Assert(err, IsNil)
-	epWant := &Endpoint{
-		ID:               12,
-		DockerID:         "123",
-		DockerNetworkID:  "1234",
-		DockerEndpointID: "12345",
-		IfName:           "lxcifname",
-		LXCMAC:           mac.MAC{1, 2, 3, 4, 5, 6},
-		IPv6:             ipv6,
-		IPv4:             ipv4,
-		IfIndex:          4,
-		NodeMAC:          mac.MAC{1, 2, 3, 4, 5, 6},
-		PortMap:          make([]PortMap, 2),
-		Opts:             option.NewBoolOptions(&EndpointOptionLibrary),
-		Status:           NewEndpointStatus(),
-	}
-	cpy := epWant.DeepCopy()
-	c.Assert(cpy, comparator.DeepEquals, epWant)
-	epWant.SecLabel = &policy.Identity{
-		ID: 1,
-		Labels: labels.Labels{
-			"io.cilium.kubernetes": labels.NewLabel("io.cilium.kubernetes", "", "cilium"),
-		},
-		Endpoints: map[string]time.Time{
-			"1234": time.Now(),
-		},
-	}
-	epWant.Consumable = &policy.Consumable{
-		ID:        123,
-		Iteration: 3,
-		Labels:    nil,
-		LabelArray: labels.LabelArray{
-			labels.NewLabel("io.cilium.kubernetes", "", "cilium"),
-		},
-		Maps: map[int]*policymap.PolicyMap{
-			0: {},
-		},
-		Consumers: map[string]*policy.Consumer{
-			"foo": policy.NewConsumer(12),
-		},
-		ReverseRules: map[policy.NumericIdentity]*policy.Consumer{
-			12: policy.NewConsumer(12),
-		},
-	}
-	epWant.PolicyMap = &policymap.PolicyMap{}
-	cpy = epWant.DeepCopy()
-	c.Assert(*cpy.SecLabel, comparator.DeepEquals, *epWant.SecLabel)
-	c.Assert(cpy.Consumable, comparator.DeepEquals, epWant.Consumable)
-	c.Assert(*cpy.PolicyMap, comparator.DeepEquals, *epWant.PolicyMap)
-
-	epWant.Consumable.Labels = &policy.Identity{
-		ID: 1,
-		Labels: labels.Labels{
-			"io.cilium.kubernetes": labels.NewLabel("io.cilium.kubernetes", "", "cilium"),
-		},
-		Endpoints: map[string]time.Time{
-			"1234": time.Now(),
-		},
-	}
-
-	epWant.PolicyMap = &policymap.PolicyMap{}
-	cpy = epWant.DeepCopy()
-
-	c.Assert(*cpy.Consumable.Labels, comparator.DeepEquals, *epWant.Consumable.Labels)
-
-	cpy.Consumable.Labels.Endpoints["1234"] = time.Now()
-	c.Assert(*cpy.Consumable.Labels, Not(DeepEquals), *epWant.Consumable.Labels)
 }
 
 func (s *EndpointSuite) TestEndpointStatus(c *C) {

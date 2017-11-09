@@ -652,67 +652,6 @@ func (e *EndpointStatus) String() string {
 	return e.CurrentStatus().String()
 }
 
-func (e *EndpointStatus) DeepCopy() *EndpointStatus {
-	cpy := NewEndpointStatus()
-	e.indexMU.RLock()
-	defer e.indexMU.RUnlock()
-	cpy.Index = e.Index
-	cpy.Log = statusLog{}
-	for _, v := range e.Log {
-		cpy.Log = append(cpy.Log, v)
-	}
-	return cpy
-}
-
-func (e *Endpoint) DeepCopy() *Endpoint {
-	e.Mutex.RLock()
-	defer e.Mutex.RUnlock()
-	cpy := &Endpoint{
-		ID:               e.ID,
-		DockerID:         e.DockerID,
-		ContainerName:    e.ContainerName,
-		DockerNetworkID:  e.DockerNetworkID,
-		DockerEndpointID: e.DockerEndpointID,
-		IfName:           e.IfName,
-		LXCMAC:           make(mac.MAC, len(e.LXCMAC)),
-		IPv6:             make(addressing.CiliumIPv6, len(e.IPv6)),
-		IfIndex:          e.IfIndex,
-		NodeMAC:          make(mac.MAC, len(e.NodeMAC)),
-		PortMap:          make([]PortMap, len(e.PortMap)),
-		Status:           NewEndpointStatus(),
-	}
-	copy(cpy.LXCMAC, e.LXCMAC)
-	copy(cpy.IPv6, e.IPv6)
-	copy(cpy.NodeMAC, e.NodeMAC)
-	copy(cpy.PortMap, e.PortMap)
-
-	if e.IPv4 != nil {
-		cpy.IPv4 = make(addressing.CiliumIPv4, len(e.IPv4))
-		copy(cpy.IPv4, e.IPv4)
-	}
-	if e.SecLabel != nil {
-		cpy.SecLabel = e.SecLabel.DeepCopy()
-	}
-	if e.Consumable != nil {
-		cpy.Consumable = e.Consumable.DeepCopy()
-	}
-	if e.PolicyMap != nil {
-		cpy.PolicyMap = e.PolicyMap.DeepCopy()
-	}
-	if e.L3Policy != nil {
-		cpy.L3Policy = e.L3Policy.DeepCopy()
-	}
-	cpy.L3Maps = e.L3Maps.DeepCopy()
-	if e.Opts != nil {
-		cpy.Opts = e.Opts.DeepCopy()
-	}
-	if e.Status != nil {
-		cpy.Status = e.Status.DeepCopy()
-	}
-
-	return cpy
-}
-
 // StringID returns the endpoint's ID in a string.
 func (e *Endpoint) StringID() string {
 	return strconv.Itoa(int(e.ID))
