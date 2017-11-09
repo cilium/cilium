@@ -23,7 +23,6 @@ import (
 	"github.com/cilium/cilium/pkg/logfields"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
-	"github.com/cilium/cilium/pkg/u8proto"
 
 	"github.com/cilium/cilium/common"
 	log "github.com/sirupsen/logrus"
@@ -157,16 +156,12 @@ func getSecurityIdentities(owner Owner, selector *api.EndpointSelector) []policy
 
 func (e *Endpoint) removeOldFilter(owner Owner, filter *policy.L4Filter) {
 	port := uint16(filter.Port)
-	proto, err := u8proto.ParseProtocol(string(filter.Protocol))
-	if err != nil {
-		e.getLogger().WithError(err).Warn("Parse policy protocol failed")
-		return 1
-	}
+	proto := uint8(filter.U8Proto)
 
 	for _, sel := range filter.FromEndpoints {
 		for _, id := range getSecurityIdentities(owner, &sel) {
 			srcID := id.Uint32()
-			if err = e.PolicyMap.DeleteL4(srcID, port, uint8(proto)); err != nil {
+			if err := e.PolicyMap.DeleteL4(srcID, port, proto); err != nil {
 				// This happens when the policy would add
 				// multiple copies of the same L4 policy. Only
 				// one of them is actually added, but we'll
@@ -179,21 +174,17 @@ func (e *Endpoint) removeOldFilter(owner Owner, filter *policy.L4Filter) {
 
 func (e *Endpoint) applyNewFilter(owner Owner, filter *policy.L4Filter) int {
 	port := uint16(filter.Port)
-	proto, err := u8proto.ParseProtocol(string(filter.Protocol))
-	if err != nil {
-		e.getLogger().WithError(err).Warn("Parse policy protocol failed")
-		return 1
-	}
+	proto := uint8(filter.U8Proto)
 
 	errors := 0
 	for _, sel := range filter.FromEndpoints {
 		for _, id := range getSecurityIdentities(owner, &sel) {
 			srcID := id.Uint32()
-			if e.PolicyMap.L4Exists(srcID, port, uint8(proto)) {
+			if e.PolicyMap.L4Exists(srcID, port, proto) {
 				e.getLogger().WithField("l4Filter", filter).Debug("L4 filter exists")
 				continue
 			}
-			if err = e.PolicyMap.AllowL4(srcID, port, uint8(proto)); err != nil {
+			if err = e.PolicyMap.AllowL4(srcID, port, proto); err != nil {
 				e.getLogger().WithError(err).Warn("Update of l4 policy map failed")
 				errors++
 			}

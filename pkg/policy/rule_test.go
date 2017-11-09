@@ -146,19 +146,19 @@ func (ds *PolicyTestSuite) TestL4Policy(c *C) {
 
 	expected := NewL4Policy()
 	expected.Ingress["80/TCP"] = L4Filter{
-		Port: 80, Protocol: api.ProtoTCP, FromEndpoints: nil,
+		Port: 80, Protocol: api.ProtoTCP, U8Proto: 6, FromEndpoints: nil,
 		L7Parser: "http", L7RulesPerEp: l7map, Ingress: true,
 	}
 	expected.Ingress["8080/TCP"] = L4Filter{
-		Port: 8080, Protocol: api.ProtoTCP, FromEndpoints: nil,
+		Port: 8080, Protocol: api.ProtoTCP, U8Proto: 6, FromEndpoints: nil,
 		L7Parser: "http", L7RulesPerEp: l7map, Ingress: true,
 	}
 	expected.Egress["3000/TCP"] = L4Filter{
-		Port: 3000, Protocol: api.ProtoTCP, Ingress: false,
+		Port: 3000, Protocol: api.ProtoTCP, U8Proto: 6, Ingress: false,
 		L7RulesPerEp: L7DataMap{},
 	}
 	expected.Egress["3000/UDP"] = L4Filter{
-		Port: 3000, Protocol: api.ProtoUDP, Ingress: false,
+		Port: 3000, Protocol: api.ProtoUDP, U8Proto: 17, Ingress: false,
 		L7RulesPerEp: L7DataMap{},
 	}
 
@@ -217,15 +217,15 @@ func (ds *PolicyTestSuite) TestL4Policy(c *C) {
 
 	expected = NewL4Policy()
 	expected.Ingress["80/TCP"] = L4Filter{
-		Port: 80, Protocol: api.ProtoTCP, FromEndpoints: nil,
+		Port: 80, Protocol: api.ProtoTCP, U8Proto: 6, FromEndpoints: nil,
 		L7Parser: "http", L7RulesPerEp: l7map, Ingress: true,
 	}
 	expected.Egress["3000/TCP"] = L4Filter{
-		Port: 3000, Protocol: api.ProtoTCP, Ingress: false,
+		Port: 3000, Protocol: api.ProtoTCP, U8Proto: 6, Ingress: false,
 		L7RulesPerEp: L7DataMap{},
 	}
 	expected.Egress["3000/UDP"] = L4Filter{
-		Port: 3000, Protocol: api.ProtoUDP, Ingress: false,
+		Port: 3000, Protocol: api.ProtoUDP, U8Proto: 17, Ingress: false,
 		L7RulesPerEp: L7DataMap{},
 	}
 
@@ -278,7 +278,7 @@ func (ds *PolicyTestSuite) TestMergeL4Policy(c *C) {
 	mergedES := []api.EndpointSelector{fooSelector, bazSelector}
 	expected := NewL4Policy()
 	expected.Ingress["80/TCP"] = L4Filter{
-		Port: 80, Protocol: api.ProtoTCP, FromEndpoints: mergedES,
+		Port: 80, Protocol: api.ProtoTCP, U8Proto: 6, FromEndpoints: mergedES,
 		L7Parser: "", L7RulesPerEp: L7DataMap{}, Ingress: true,
 	}
 
@@ -348,7 +348,7 @@ func (ds *PolicyTestSuite) TestMergeL7Policy(c *C) {
 
 	expected := NewL4Policy()
 	expected.Ingress["80/TCP"] = L4Filter{
-		Port: 80, Protocol: api.ProtoTCP, FromEndpoints: nil,
+		Port: 80, Protocol: api.ProtoTCP, U8Proto: 6, FromEndpoints: nil,
 		L7Parser: "http", L7RulesPerEp: l7map, Ingress: true,
 	}
 
@@ -416,7 +416,7 @@ func (ds *PolicyTestSuite) TestMergeL7Policy(c *C) {
 
 	expected = NewL4Policy()
 	expected.Ingress["80/TCP"] = L4Filter{
-		Port: 80, Protocol: api.ProtoTCP, FromEndpoints: nil,
+		Port: 80, Protocol: api.ProtoTCP, U8Proto: 6, FromEndpoints: nil,
 		L7Parser: "kafka", L7RulesPerEp: l7map, Ingress: true,
 	}
 
@@ -493,7 +493,7 @@ func (ds *PolicyTestSuite) TestMergeL7Policy(c *C) {
 	}
 	expected = NewL4Policy()
 	expected.Ingress["80/TCP"] = L4Filter{
-		Port: 80, Protocol: api.ProtoTCP, FromEndpoints: nil,
+		Port: 80, Protocol: api.ProtoTCP, U8Proto: 6, FromEndpoints: nil,
 		L7Parser: "kafka", L7RulesPerEp: l7map, Ingress: true,
 	}
 

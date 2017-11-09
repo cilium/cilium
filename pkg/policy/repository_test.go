@@ -316,7 +316,7 @@ func (ds *PolicyTestSuite) TestMinikubeGettingStarted(c *C) {
 
 	expected := NewL4Policy()
 	expected.Ingress["80/TCP"] = L4Filter{
-		Port: 80, Protocol: api.ProtoTCP,
+		Port: 80, Protocol: api.ProtoTCP, U8Proto: 6,
 		FromEndpoints: selectorFromApp2DupList,
 		L7Parser:      "http",
 		L7RulesPerEp: L7DataMap{

@@ -25,6 +25,7 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/policy/api"
+	"github.com/cilium/cilium/pkg/u8proto"
 )
 
 var (
@@ -87,6 +88,8 @@ type L4Filter struct {
 	Port int `json:"port"`
 	// Protocol is the L4 protocol to allow or NONE
 	Protocol api.L4Proto `json:"protocol"`
+	// U8Proto is the Protocol in numeric format, or 0 for NONE
+	U8Proto u8proto.U8proto `json:"-"`
 	// FromEndpoints limit the source labels for allowing traffic. If
 	// FromEndpoints is empty, then it selects all endpoints.
 	FromEndpoints []api.EndpointSelector `json:"-"`
@@ -156,10 +159,13 @@ func CreateL4Filter(fromEndpoints []api.EndpointSelector, rule api.PortRule, por
 
 	// already validated via PortRule.Validate()
 	p, _ := strconv.ParseUint(port.Port, 0, 16)
+	// already validated via L4Proto.Validate()
+	u8p, _ := u8proto.ParseProtocol(string(protocol))
 
 	l4 := L4Filter{
 		Port:           int(p),
 		Protocol:       protocol,
+		U8Proto:        u8p,
 		L7RedirectPort: rule.RedirectPort,
 		L7RulesPerEp:   make(L7DataMap),
 		FromEndpoints:  fromEndpoints,
