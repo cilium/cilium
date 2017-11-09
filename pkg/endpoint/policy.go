@@ -646,11 +646,7 @@ func (e *Endpoint) TriggerPolicyUpdatesLocked(owner Owner, opts models.Configura
 // Caller triggers policy regeneration if needed.
 // Called with e.Mutex Locked
 func (e *Endpoint) SetIdentity(owner Owner, id *policy.Identity) {
-	repo := owner.GetPolicyRepository()
 	cache := policy.GetConsumableCache()
-
-	repo.Mutex.Lock()
-	defer repo.Mutex.Unlock()
 
 	if e.Consumable != nil {
 		if e.SecLabel != nil && id.ID == e.Consumable.ID {
