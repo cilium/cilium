@@ -20,9 +20,77 @@ import (
 )
 
 var (
-	timeout     = 300 * time.Second
-	basePath    = "/vagrant/"
-	networkName = "cilium-net"
+	timeout    = 300 * time.Second
+	K8s1VMName = fmt.Sprintf("%s-%s", K8s1, GetCurrentK8SEnv())
+	K8s2VMName = fmt.Sprintf(fmt.Sprintf("%s-%s", K8s2, GetCurrentK8SEnv()))
+)
+
+const (
+	basePath = "/home/vagrant/go/src/github.com/cilium/cilium/test"
+
+	// VM / Test suite constants.
+	K8s     = "k8s"
+	K8s1    = "k8s1"
+	K8s2    = "k8s2"
+	Runtime = "runtime"
+
+	Enabled  = "enabled"
+	Disabled = "disabled"
+	Total    = "total"
+
+	// Policy Enforcement flag and accepted values for setting it.
+	PolicyEnforcement        = "PolicyEnforcement"
+	PolicyEnforcementDefault = "default"
+	PolicyEnforcementAlways  = "always"
+	PolicyEnforcementNever   = "never"
+
+	// Docker Image names
+	CiliumDockerNetwork = "cilium-net"
+	NetperfImage        = "tgraf/netperf"
+	HttpdImage          = "cilium/demo-httpd"
+
+	// Endpoint names
+	Httpd1 = "httpd1"
+	Httpd2 = "httpd2"
+	Httpd3 = "httpd3"
+	App1   = "app1"
+	App2   = "app2"
+	App3   = "app3"
+	Client = "client"
+	Server = "server"
+	Host   = "host"
+
+	// Lifecycle actions
+	Create = "create"
+	Delete = "delete"
+
+	// IP Address families.
+	IPv4 = "IPv4"
+	IPv6 = "IPv6"
+
+	// Configuration options for endpoints. Copied from endpoint/endpoint.go
+	// TODO: these should be converted into types for use in configuration
+	// functions instead of using basic strings.
+
+	OptionAllowToHost         = "AllowToHost"
+	OptionAllowToWorld        = "AllowToWorld"
+	OptionConntrackAccounting = "ConntrackAccounting"
+	OptionConntrackLocal      = "ConntrackLocal"
+	OptionConntrack           = "Conntrack"
+	OptionDebug               = "Debug"
+	OptionDropNotify          = "DropNotification"
+	OptionTraceNotify         = "TraceNotification"
+	OptionNAT46               = "NAT46"
+	OptionPolicy              = "Policy"
+
+	OptionDisabled = "Disabled"
+	OptionEnabled  = "Enabled"
+
+	PingCount          = 5
+	CurlConnectTimeout = 5
+
+	DefaultNamespace    = "default"
+	KubeSystemNamespace = "kube-system"
 )
 
 //GetFilePath returns the absolute path of the provided filename
