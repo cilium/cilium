@@ -220,6 +220,68 @@ func fillIdentity(info *accesslog.EndpointInfo, id policy.NumericIdentity) {
 	}
 }
 
+// fillEndpointInfo tries to resolve the IP address and fills the EndpointInfo
+// fields with either ReservedIdentityHost or ReservedIdentityWorld
+func fillEndpointInfo(info *accesslog.EndpointInfo, ip net.IP) {
+	if ip.To4() != nil {
+		info.IPv4 = ip.String()
+
+		// first we try to resolve and check if the IP is
+		// same as Host
+		if node.IsHostIPv4(ip) {
+			fillIdentity(info, policy.ReservedIdentityHost)
+			return
+		}
+
+		// If Host IP check fails, we try to resolve and check
+		// if IP belongs to the cluster.
+		if node.GetIPv4ClusterRange().Contains(ip) {
+			c := addressing.DeriveCiliumIPv4(ip)
+			ep := endpointmanager.LookupIPv4(c.String())
+			if ep != nil {
+				ep.RLock()
+				info.ID = uint64(ep.ID)
+				info.Labels = ep.GetLabels()
+				info.LabelsSHA256 = ep.GetLabelsSHA()
+				info.Identity = uint64(ep.GetIdentity())
+				ep.RUnlock()
+			} else {
+				fillIdentity(info, policy.ReservedIdentityCluster)
+			}
+		} else {
+			// If we are unable to resolve the HostIP as well
+			// as the cluster IP we mark this as a 'world' identity.
+			fillIdentity(info, policy.ReservedIdentityWorld)
+		}
+	} else {
+		info.IPv6 = ip.String()
+
+		if node.IsHostIPv6(ip) {
+			fillIdentity(info, policy.ReservedIdentityHost)
+			return
+		}
+
+		if node.GetIPv6ClusterRange().Contains(ip) {
+			c := addressing.DeriveCiliumIPv6(ip)
+			id := c.EndpointID()
+			info.ID = uint64(id)
+
+			ep := endpointmanager.LookupCiliumID(id)
+			if ep != nil {
+				ep.RLock()
+				info.Labels = ep.GetLabels()
+				info.LabelsSHA256 = ep.GetLabelsSHA()
+				info.Identity = uint64(ep.GetIdentity())
+				ep.RUnlock()
+			} else {
+				fillIdentity(info, policy.ReservedIdentityCluster)
+			}
+		} else {
+			fillIdentity(info, policy.ReservedIdentityWorld)
+		}
+	}
+}
+
 // fillIngressSourceInfo fills the EndpointInfo fields, by fetching
 // the consumable from the consumable cache of endpoint using identity sent by
 // source. This is needed in ingress proxy while logging the source endpoint
@@ -228,21 +290,27 @@ func fillIdentity(info *accesslog.EndpointInfo, id policy.NumericIdentity) {
 // endpoint info based on ip address, as the ip address would be that of the
 // egress proxy i.e host.
 func fillIngressSourceInfo(info *accesslog.EndpointInfo, ip *net.IP, srcIdentity uint32) {
-	if ip != nil {
-		if ip.To4() != nil {
-			info.IPv4 = ip.String()
-		} else {
-			info.IPv6 = ip.String()
-		}
-	}
 
 	if srcIdentity != 0 {
+		if ip != nil {
+			if ip.To4() != nil {
+				info.IPv4 = ip.String()
+			} else {
+				info.IPv6 = ip.String()
+			}
+		}
 		fillIdentity(info, policy.NumericIdentity(srcIdentity))
 	} else {
-		// source security identity 0 is possible when somebody else other than the BPF datapath attempts to
+		// source security identity 0 is possible when somebody else other than
+		// the BPF datapath attempts to
 		// connect to the proxy.
-		// We should log no source information in that case, in the proxy log.
-		log.Warn("Missing security identity in source endpoint info")
+		// We should try to resolve if the identity belongs to reserved_host
+		// or reserved_world.
+		if ip != nil {
+			fillEndpointInfo(info, *ip)
+		} else {
+			log.Warn("Missing security identity in source endpoint info")
+		}
 	}
 }
 
@@ -251,57 +319,7 @@ func fillIngressSourceInfo(info *accesslog.EndpointInfo, ip *net.IP, srcIdentity
 func fillEgressDestinationInfo(info *accesslog.EndpointInfo, ipstr string) {
 	ip := net.ParseIP(ipstr)
 	if ip != nil {
-		if ip.To4() != nil {
-			info.IPv4 = ip.String()
-
-			if node.IsHostIPv4(ip) {
-				fillIdentity(info, policy.ReservedIdentityHost)
-				return
-			}
-
-			if node.GetIPv4ClusterRange().Contains(ip) {
-				c := addressing.DeriveCiliumIPv4(ip)
-				ep := endpointmanager.LookupIPv4(c.String())
-				if ep != nil {
-					ep.RLock()
-					info.ID = uint64(ep.ID)
-					info.Labels = ep.GetLabels()
-					info.LabelsSHA256 = ep.GetLabelsSHA()
-					info.Identity = uint64(ep.GetIdentity())
-					ep.RUnlock()
-				} else {
-					fillIdentity(info, policy.ReservedIdentityCluster)
-				}
-			} else {
-				fillIdentity(info, policy.ReservedIdentityWorld)
-			}
-		} else {
-			info.IPv6 = ip.String()
-
-			if node.IsHostIPv6(ip) {
-				fillIdentity(info, policy.ReservedIdentityHost)
-				return
-			}
-
-			if node.GetIPv6ClusterRange().Contains(ip) {
-				c := addressing.DeriveCiliumIPv6(ip)
-				id := c.EndpointID()
-				info.ID = uint64(id)
-
-				ep := endpointmanager.LookupCiliumID(id)
-				if ep != nil {
-					ep.RLock()
-					info.Labels = ep.GetLabels()
-					info.LabelsSHA256 = ep.GetLabelsSHA()
-					info.Identity = uint64(ep.GetIdentity())
-					ep.RUnlock()
-				} else {
-					fillIdentity(info, policy.ReservedIdentityCluster)
-				}
-			} else {
-				fillIdentity(info, policy.ReservedIdentityWorld)
-			}
-		}
+		fillEndpointInfo(info, ip)
 	}
 }
 
@@ -318,7 +336,8 @@ func (p *Proxy) CreateOrUpdateRedirect(l4 *policy.L4Filter, id string, source Pr
 	gcOnce.Do(func() {
 		if lf := viper.GetString("access-log"); lf != "" {
 			if err := accesslog.OpenLogfile(lf); err != nil {
-				scopedLog.WithError(err).WithField(accesslog.FieldFilePath, lf).Warn("Cannot open L7 access log")
+				scopedLog.WithError(err).WithField(accesslog.FieldFilePath, lf).
+					Warn("Cannot open L7 access log")
 			}
 		}
 
@@ -330,7 +349,8 @@ func (p *Proxy) CreateOrUpdateRedirect(l4 *policy.L4Filter, id string, source Pr
 			for {
 				time.Sleep(time.Duration(10) * time.Second)
 				if deleted := GC(); deleted > 0 {
-					scopedLog.WithField("count", deleted).Debug("Evicted entries from proxy table")
+					scopedLog.WithField("count", deleted).
+						Debug("Evicted entries from proxy table")
 				}
 			}
 		}()
@@ -344,7 +364,8 @@ func (p *Proxy) CreateOrUpdateRedirect(l4 *policy.L4Filter, id string, source Pr
 		if err != nil {
 			return nil, err
 		}
-		scopedLog.WithField(logfields.Object, logfields.Repr(r)).Debug("updated existing proxy instance")
+		scopedLog.WithField(logfields.Object, logfields.Repr(r)).
+			Debug("updated existing proxy instance")
 		return r, nil
 	}
 
@@ -362,7 +383,8 @@ func (p *Proxy) CreateOrUpdateRedirect(l4 *policy.L4Filter, id string, source Pr
 			id:         id,
 			source:     source,
 			listenPort: to})
-		scopedLog.WithField(logfields.Object, logfields.Repr(redir)).Debug("Created new kafka proxy instance")
+		scopedLog.WithField(logfields.Object, logfields.Repr(redir)).
+			Debug("Created new kafka proxy instance")
 	case policy.ParserTypeHTTP:
 		switch kind {
 		case ProxyKindOxy:
@@ -371,7 +393,8 @@ func (p *Proxy) CreateOrUpdateRedirect(l4 *policy.L4Filter, id string, source Pr
 			return nil, fmt.Errorf("Unknown proxy kind: %s", kind)
 		}
 
-		scopedLog.WithField(logfields.Object, logfields.Repr(redir)).Debug("Created new proxy instance")
+		scopedLog.WithField(logfields.Object, logfields.Repr(redir)).
+			Debug("Created new proxy instance")
 	}
 	if err != nil {
 		scopedLog.WithError(err).Error("Unable to create proxy of kind")
@@ -393,7 +416,8 @@ func (p *Proxy) RemoveRedirect(id string) error {
 		return fmt.Errorf("unable to find redirect %s", id)
 	}
 
-	log.WithField(fieldProxyRedirectID, id).Debug("removing proxy redirect")
+	log.WithField(fieldProxyRedirectID, id).
+		Debug("removing proxy redirect")
 	toPort := r.ToPort()
 	r.Close()
 
