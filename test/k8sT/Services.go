@@ -41,10 +41,10 @@ var _ = Describe("K8sServicesTest", func() {
 		logger = log.WithFields(log.Fields{"testName": "K8sServiceTest"})
 		logger.Info("Starting")
 
-		kubectl = helpers.CreateKubectl("k8s1", logger)
+		kubectl = helpers.CreateKubectl(helpers.K8s1VMName, logger)
 		path := fmt.Sprintf("%s/cilium_ds.yaml", kubectl.ManifestsPath())
 		kubectl.Apply(path)
-		_, err := kubectl.WaitforPods("kube-system", "-l k8s-app=cilium", 600)
+		_, err := kubectl.WaitforPods(helpers.KubeSystemNamespace, "-l k8s-app=cilium", 600)
 		Expect(err).Should(BeNil())
 		initialized = true
 	}
@@ -63,7 +63,7 @@ var _ = Describe("K8sServicesTest", func() {
 	})
 
 	testHTTPRequest := func(url string) {
-		output, err := kubectl.GetPods("default", "-l zgroup=testDSClient").Filter("{.items[*].metadata.name}")
+		output, err := kubectl.GetPods(helpers.DefaultNamespace, "-l zgroup=testDSClient").Filter("{.items[*].metadata.name}")
 		ExpectWithOffset(1, err).Should(BeNil())
 		pods := strings.Split(output.String(), " ")
 		// A DS with client is running in each node. So we try from each node
@@ -72,7 +72,7 @@ var _ = Describe("K8sServicesTest", func() {
 		// two nodes
 		for _, pod := range pods {
 			for i := 1; i <= 10; i++ {
-				_, err := kubectl.Exec("default", pod, fmt.Sprintf("curl --connect-timeout 5 %s", url))
+				_, err := kubectl.Exec(helpers.DefaultNamespace, pod, fmt.Sprintf("curl --connect-timeout 5 %s", url))
 				ExpectWithOffset(1, err).Should(BeNil(), "Pod '%s' can not connect to service '%s'", pod, url)
 			}
 		}
@@ -81,7 +81,7 @@ var _ = Describe("K8sServicesTest", func() {
 	waitPodsDs := func() {
 		groups := []string{"zgroup=testDS", "zgroup=testDSClient"}
 		for _, pod := range groups {
-			pods, err := kubectl.WaitforPods("default", fmt.Sprintf("-l %s", pod), 300)
+			pods, err := kubectl.WaitforPods(helpers.DefaultNamespace, fmt.Sprintf("-l %s", pod), 300)
 			ExpectWithOffset(1, pods).Should(BeTrue())
 			ExpectWithOffset(1, err).Should(BeNil())
 		}
@@ -92,19 +92,19 @@ var _ = Describe("K8sServicesTest", func() {
 		kubectl.Apply(demoDSPath)
 		defer kubectl.Delete(demoDSPath)
 
-		pods, err := kubectl.WaitforPods("default", "-l zgroup=testapp", 300)
+		pods, err := kubectl.WaitforPods(helpers.DefaultNamespace, "-l zgroup=testapp", 300)
 		Expect(pods).Should(BeTrue())
 		Expect(err).Should(BeNil())
 
 		svcIP, err := kubectl.Get(
-			"default", fmt.Sprintf("service %s", serviceName)).Filter("{.spec.clusterIP}")
+			helpers.DefaultNamespace, fmt.Sprintf("service %s", serviceName)).Filter("{.spec.clusterIP}")
 		Expect(err).Should(BeNil())
 		Expect(govalidator.IsIP(svcIP.String())).Should(BeTrue())
 
 		status := kubectl.Node.Exec(fmt.Sprintf("curl http://%s/", svcIP))
 		status.ExpectSuccess()
 
-		ciliumPod, err := kubectl.GetCiliumPodOnNode("kube-system", "k8s1")
+		ciliumPod, err := kubectl.GetCiliumPodOnNode(helpers.KubeSystemNamespace, helpers.K8s1)
 		Expect(err).Should(BeNil())
 
 		service := kubectl.CiliumExec(ciliumPod, "cilium service list")
@@ -121,9 +121,11 @@ var _ = Describe("K8sServicesTest", func() {
 		waitPodsDs()
 
 		svcIP, err := kubectl.Get(
-			"default", "service testds-service").Filter("{.spec.clusterIP}")
+			helpers.DefaultNamespace, "service testds-service").Filter("{.spec.clusterIP}")
 		Expect(err).Should(BeNil())
+		log.Debugf("svcIP: %s", svcIP.String())
 		Expect(govalidator.IsIP(svcIP.String())).Should(BeTrue())
+
 		url := fmt.Sprintf("http://%s/", svcIP)
 		testHTTPRequest(url)
 	})

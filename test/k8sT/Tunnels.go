@@ -39,7 +39,7 @@ var _ = Describe("K8sTunnelTest", func() {
 		logger = log.WithFields(log.Fields{"testName": "K8sTunnelTest"})
 		logger.Info("Starting")
 
-		kubectl = helpers.CreateKubectl("k8s1", logger)
+		kubectl = helpers.CreateKubectl(helpers.K8s1VMName, logger)
 		demoDSPath = fmt.Sprintf("%s/demo_ds.yaml", kubectl.ManifestsPath())
 		kubectl.Node.Exec("kubectl -n kube-system delete ds cilium")
 		// Expect(res.Correct()).Should(BeTrue())
@@ -61,10 +61,10 @@ var _ = Describe("K8sTunnelTest", func() {
 	It("Check VXLAN mode", func() {
 		path := fmt.Sprintf("%s/cilium_ds.yaml", kubectl.ManifestsPath())
 		kubectl.Apply(path)
-		_, err := kubectl.WaitforPods("kube-system", "-l k8s-app=cilium", 5000)
+		_, err := kubectl.WaitforPods(helpers.KubeSystemNamespace, "-l k8s-app=cilium", 5000)
 		Expect(err).Should(BeNil())
 
-		ciliumPod, err := kubectl.GetCiliumPodOnNode("kube-system", "k8s1")
+		ciliumPod, err := kubectl.GetCiliumPodOnNode(helpers.KubeSystemNamespace, helpers.K8s1)
 		Expect(err).Should(BeNil())
 
 		_, err = kubectl.CiliumNodesWait()
@@ -78,7 +78,7 @@ var _ = Describe("K8sTunnelTest", func() {
 			cmds := []string{
 				"cilium bpf tunnel list",
 			}
-			kubectl.CiliumReport("kube-system", ciliumPod, cmds)
+			kubectl.CiliumReport(helpers.KubeSystemNamespace, ciliumPod, cmds)
 		}
 
 		status.ExpectSuccess()
@@ -94,10 +94,10 @@ var _ = Describe("K8sTunnelTest", func() {
 	It("Check Geneve mode", func() {
 		path := fmt.Sprintf("%s/cilium_ds_geneve.yaml", kubectl.ManifestsPath())
 		kubectl.Apply(path)
-		_, err := kubectl.WaitforPods("kube-system", "-l k8s-app=cilium", 5000)
+		_, err := kubectl.WaitforPods(helpers.KubeSystemNamespace, "-l k8s-app=cilium", 5000)
 		Expect(err).Should(BeNil())
 
-		ciliumPod, err := kubectl.GetCiliumPodOnNode("kube-system", "k8s1")
+		ciliumPod, err := kubectl.GetCiliumPodOnNode(helpers.KubeSystemNamespace, helpers.K8s1)
 		Expect(err).Should(BeNil())
 
 		_, err = kubectl.CiliumNodesWait()
@@ -114,7 +114,7 @@ var _ = Describe("K8sTunnelTest", func() {
 			cmds := []string{
 				"cilium bpf tunnel list",
 			}
-			kubectl.CiliumReport("kube-system", ciliumPod, cmds)
+			kubectl.CiliumReport(helpers.KubeSystemNamespace, ciliumPod, cmds)
 		}
 		Expect(status.IntOutput()).Should(Equal(4))
 
@@ -128,15 +128,15 @@ var _ = Describe("K8sTunnelTest", func() {
 })
 
 func isNodeNetworkingWorking(kubectl *helpers.Kubectl, filter string) bool {
-	waitReady, _ := kubectl.WaitforPods("default", fmt.Sprintf("-l %s", filter), 3000)
+	waitReady, _ := kubectl.WaitforPods(helpers.DefaultNamespace, fmt.Sprintf("-l %s", filter), 3000)
 	Expect(waitReady).Should(BeTrue())
-	pods, err := kubectl.GetPodNames("default", filter)
+	pods, err := kubectl.GetPodNames(helpers.DefaultNamespace, filter)
 	Expect(err).Should(BeNil())
 	podIP, err := kubectl.Get(
-		"default",
+		helpers.DefaultNamespace,
 		fmt.Sprintf("pod %s -o json", pods[1])).Filter("{.status.podIP}")
 	Expect(err).Should(BeNil())
-	_, err = kubectl.Exec("default", pods[0], fmt.Sprintf("ping -c 1 %s", podIP))
+	_, err = kubectl.Exec(helpers.DefaultNamespace, pods[0], helpers.Ping(podIP.String()))
 	if err != nil {
 		return false
 	}
@@ -146,9 +146,9 @@ func isNodeNetworkingWorking(kubectl *helpers.Kubectl, filter string) bool {
 func waitToDeleteCilium(kubectl *helpers.Kubectl, logger *log.Entry) {
 	status := 1
 	for status > 0 {
-		pods, err := kubectl.GetCiliumPods("kube-system")
+		pods, err := kubectl.GetCiliumPods(helpers.KubeSystemNamespace)
 		status := len(pods)
-		logger.Infof("Cilium pods termintating '%d' err='%v' pods='%v'", status, err, pods)
+		logger.Infof("Cilium pods terminating '%d' err='%v' pods='%v'", status, err, pods)
 		if status == 0 {
 			return
 		}
