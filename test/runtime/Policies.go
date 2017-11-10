@@ -26,10 +26,29 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+const (
+	// Commands
+	ping         = "ping"
+	ping6        = "ping6"
+	http         = "http"
+	http6        = "http6"
+	httpPrivate  = "http_private"
+	http6Private = "http6_private"
+
+	// Policy files
+	policyJSON         = "policy.json"
+	invalidJSON        = "invalid.json"
+	sampleJSON         = "sample_policy.json"
+	ingressJSON        = "ingress.json"
+	egressJSON         = "egress.json"
+	multL7PoliciesJSON = "Policies-l7-multiple.json"
+	policiesL7JSON     = "Policies-l7-simple.json"
+	policiesL3JSON     = "Policies-l3-policy.json"
+)
+
 var _ = Describe("RuntimePolicyEnforcement", func() {
 
 	var initialized bool
-	var networkName string = "cilium-net"
 	var logger *log.Entry
 	var docker *helpers.Docker
 	var cilium *helpers.Cilium
@@ -40,11 +59,11 @@ var _ = Describe("RuntimePolicyEnforcement", func() {
 		}
 		logger = log.WithFields(log.Fields{"testName": "RuntimePolicyEnforcement"})
 		logger.Info("Starting")
-		docker, cilium = helpers.CreateNewRuntimeHelper("runtime", logger)
+		docker, cilium = helpers.CreateNewRuntimeHelper(helpers.Runtime, logger)
 		cilium.WaitUntilReady(100)
-		docker.NetworkCreate(networkName, "")
+		docker.NetworkCreate(helpers.CiliumDockerNetwork, "")
 
-		res := cilium.PolicyEnforcementSet("default", false)
+		res := cilium.SetPolicyEnforcement(helpers.PolicyEnforcementDefault, false)
 		res.ExpectSuccess()
 
 		initialized = true
@@ -52,8 +71,8 @@ var _ = Describe("RuntimePolicyEnforcement", func() {
 
 	BeforeEach(func() {
 		initialize()
-		docker.ContainerCreate("app", "cilium/demo-httpd", networkName, "-l id.app")
-		cilium.Exec("policy delete --all")
+		cilium.PolicyDelAll()
+		docker.ContainerCreate("app", "cilium/demo-httpd", helpers.CiliumDockerNetwork, "-l id.app")
 		cilium.EndpointWaitUntilReady()
 	})
 
@@ -69,7 +88,7 @@ var _ = Describe("RuntimePolicyEnforcement", func() {
 
 		BeforeEach(func() {
 			initialize()
-			res := cilium.PolicyEnforcementSet("default")
+			res := cilium.SetPolicyEnforcement(helpers.PolicyEnforcementDefault)
 			res.ExpectSuccess()
 		})
 
@@ -78,16 +97,16 @@ var _ = Describe("RuntimePolicyEnforcement", func() {
 			By("Policy Enforcement should be disabled for containers", func() {
 				endPoints, err := cilium.PolicyEndpointsSummary()
 				Expect(err).Should(BeNil())
-				Expect(endPoints["disabled"]).To(Equal(1))
+				Expect(endPoints[helpers.Disabled]).To(Equal(1))
 			})
 
 			By("Apply a new sample policy")
-			_, err := cilium.PolicyImport(cilium.GetFullPath("sample_policy.json"), 300)
+			_, err := cilium.PolicyImport(cilium.GetFullPath(sampleJSON), 300)
 			Expect(err).Should(BeNil())
 
 			endPoints, err := cilium.PolicyEndpointsSummary()
 			Expect(err).Should(BeNil())
-			Expect(endPoints["enabled"]).To(Equal(1))
+			Expect(endPoints[helpers.Enabled]).To(Equal(1))
 		})
 
 		It("Handles missing required fields", func() {
@@ -100,89 +119,89 @@ var _ = Describe("RuntimePolicyEnforcement", func() {
 			By("Check no policy enforcement")
 			endPoints, err := cilium.PolicyEndpointsSummary()
 			Expect(err).Should(BeNil())
-			Expect(endPoints["disabled"]).To(Equal(1))
+			Expect(endPoints[helpers.Disabled]).To(Equal(1))
 
 			By("Setting to Always")
 
-			res := cilium.PolicyEnforcementSet("always", true)
+			res := cilium.SetPolicyEnforcement(helpers.PolicyEnforcementAlways, true)
 			res.ExpectSuccess()
 
 			endPoints, err = cilium.PolicyEndpointsSummary()
 			Expect(err).Should(BeNil())
-			Expect(endPoints["enabled"]).To(Equal(1))
+			Expect(endPoints[helpers.Enabled]).To(Equal(1))
 
 			By("Setting to default from Always")
-			res = cilium.PolicyEnforcementSet("default", true)
+			res = cilium.SetPolicyEnforcement(helpers.PolicyEnforcementDefault, true)
 			res.ExpectSuccess()
 
 			endPoints, err = cilium.PolicyEndpointsSummary()
 			Expect(err).Should(BeNil())
-			Expect(endPoints["disabled"]).To(Equal(1))
+			Expect(endPoints[helpers.Disabled]).To(Equal(1))
 		})
 
 		It("Default to Always with policy", func() {
-			_, err := cilium.PolicyImport(cilium.GetFullPath("sample_policy.json"), 300)
+			_, err := cilium.PolicyImport(cilium.GetFullPath(sampleJSON), 300)
 			Expect(err).Should(BeNil())
 
 			endPoints, err := cilium.PolicyEndpointsSummary()
 			Expect(err).Should(BeNil())
-			Expect(endPoints["enabled"]).To(Equal(1))
+			Expect(endPoints[helpers.Enabled]).To(Equal(1))
 			//DEfault =APP with PolicyEnforcement
 
-			res := cilium.PolicyEnforcementSet("always", true)
+			res := cilium.SetPolicyEnforcement(helpers.PolicyEnforcementAlways, true)
 			res.ExpectSuccess()
 
 			endPoints, err = cilium.PolicyEndpointsSummary()
 			Expect(err).Should(BeNil())
-			Expect(endPoints["enabled"]).To(Equal(1))
+			Expect(endPoints[helpers.Enabled]).To(Equal(1))
 
-			res = cilium.PolicyEnforcementSet("default", true)
+			res = cilium.SetPolicyEnforcement(helpers.PolicyEnforcementDefault, true)
 			res.ExpectSuccess()
 
 			endPoints, err = cilium.PolicyEndpointsSummary()
 			Expect(err).Should(BeNil())
-			Expect(endPoints["enabled"]).To(Equal(1))
+			Expect(endPoints[helpers.Enabled]).To(Equal(1))
 		})
 
 		It("Default to Never without policy", func() {
 			endPoints, err := cilium.PolicyEndpointsSummary()
 			Expect(err).Should(BeNil())
-			Expect(endPoints["disabled"]).To(Equal(1))
+			Expect(endPoints[helpers.Disabled]).To(Equal(1))
 
-			res := cilium.PolicyEnforcementSet("never", true)
+			res := cilium.SetPolicyEnforcement(helpers.PolicyEnforcementNever, true)
 			res.ExpectSuccess()
 
 			endPoints, err = cilium.PolicyEndpointsSummary()
 			Expect(err).Should(BeNil())
-			Expect(endPoints["disabled"]).To(Equal(1))
+			Expect(endPoints[helpers.Disabled]).To(Equal(1))
 
 			endPoints, err = cilium.PolicyEndpointsSummary()
 			Expect(err).Should(BeNil())
-			Expect(endPoints["disabled"]).To(Equal(1))
+			Expect(endPoints[helpers.Disabled]).To(Equal(1))
 		})
 
 		It("Default to Never with policy", func() {
 
-			_, err := cilium.PolicyImport(cilium.GetFullPath("sample_policy.json"), 300)
+			_, err := cilium.PolicyImport(cilium.GetFullPath(sampleJSON), 300)
 			Expect(err).Should(BeNil())
 
 			endPoints, err := cilium.PolicyEndpointsSummary()
 			Expect(err).Should(BeNil())
-			Expect(endPoints["enabled"]).To(Equal(1))
+			Expect(endPoints[helpers.Enabled]).To(Equal(1))
 
-			res := cilium.PolicyEnforcementSet("never", true)
+			res := cilium.SetPolicyEnforcement(helpers.PolicyEnforcementNever, true)
 			res.ExpectSuccess()
 
 			endPoints, err = cilium.PolicyEndpointsSummary()
 			Expect(err).Should(BeNil())
-			Expect(endPoints["enabled"]).To(Equal(0))
+			Expect(endPoints[helpers.Enabled]).To(Equal(0))
 
-			res = cilium.PolicyEnforcementSet("default", true)
+			res = cilium.SetPolicyEnforcement(helpers.PolicyEnforcementDefault, true)
 			res.ExpectSuccess()
 
 			endPoints, err = cilium.PolicyEndpointsSummary()
 			Expect(err).Should(BeNil())
-			Expect(endPoints["enabled"]).To(Equal(1))
+			Expect(endPoints[helpers.Enabled]).To(Equal(1))
 		})
 	})
 
@@ -190,7 +209,8 @@ var _ = Describe("RuntimePolicyEnforcement", func() {
 		//The test Always to Default is already tested in from default-always
 		BeforeEach(func() {
 			initialize()
-			res := cilium.PolicyEnforcementSet("always", true)
+
+			res := cilium.SetPolicyEnforcement(helpers.PolicyEnforcementAlways, true)
 			res.ExpectSuccess()
 		})
 
@@ -198,67 +218,67 @@ var _ = Describe("RuntimePolicyEnforcement", func() {
 			//Check default containers are in place.
 			endPoints, err := cilium.PolicyEndpointsSummary()
 			Expect(err).Should(BeNil())
-			Expect(endPoints["enabled"]).To(Equal(1))
-			Expect(endPoints["disabled"]).To(Equal(0))
+			Expect(endPoints[helpers.Enabled]).To(Equal(1))
+			Expect(endPoints[helpers.Disabled]).To(Equal(0))
 
 			By("Create a new container")
-			docker.ContainerCreate("new", "cilium/demo-httpd", networkName, "-l id.new")
+			docker.ContainerCreate("new", "cilium/demo-httpd", helpers.CiliumDockerNetwork, "-l id.new")
 			endPoints, err = cilium.PolicyEndpointsSummary()
 			Expect(err).Should(BeNil())
-			Expect(endPoints["enabled"]).To(Equal(2))
-			Expect(endPoints["disabled"]).To(Equal(0))
+			Expect(endPoints[helpers.Enabled]).To(Equal(2))
+			Expect(endPoints[helpers.Disabled]).To(Equal(0))
 			docker.ContainerRm("new")
 		}, 300)
 
 		It("Always to Never with policy", func() {
 			endPoints, err := cilium.PolicyEndpointsSummary()
 			Expect(err).Should(BeNil())
-			Expect(endPoints["enabled"]).To(Equal(1))
-			Expect(endPoints["disabled"]).To(Equal(0))
+			Expect(endPoints[helpers.Enabled]).To(Equal(1))
+			Expect(endPoints[helpers.Disabled]).To(Equal(0))
 
-			_, err = cilium.PolicyImport(cilium.GetFullPath("sample_policy.json"), 300)
+			_, err = cilium.PolicyImport(cilium.GetFullPath(sampleJSON), 300)
 			Expect(err).Should(BeNil())
 
 			endPoints, err = cilium.PolicyEndpointsSummary()
 			Expect(err).Should(BeNil())
-			Expect(endPoints["enabled"]).To(Equal(1))
-			Expect(endPoints["disabled"]).To(Equal(0))
+			Expect(endPoints[helpers.Enabled]).To(Equal(1))
+			Expect(endPoints[helpers.Disabled]).To(Equal(0))
 
-			res := cilium.PolicyEnforcementSet("never", true)
+			res := cilium.SetPolicyEnforcement(helpers.PolicyEnforcementNever, true)
 			res.ExpectSuccess()
 
 			endPoints, err = cilium.PolicyEndpointsSummary()
 			Expect(err).Should(BeNil())
-			Expect(endPoints["enabled"]).To(Equal(0))
+			Expect(endPoints[helpers.Enabled]).To(Equal(0))
 
-			res = cilium.PolicyEnforcementSet("always", true)
+			res = cilium.SetPolicyEnforcement(helpers.PolicyEnforcementAlways, true)
 			res.ExpectSuccess()
 
 			endPoints, err = cilium.PolicyEndpointsSummary()
 			Expect(err).Should(BeNil())
-			Expect(endPoints["enabled"]).To(Equal(1))
+			Expect(endPoints[helpers.Enabled]).To(Equal(1))
 		})
 
 		It("Always to Never without policy", func() {
 			endPoints, err := cilium.PolicyEndpointsSummary()
 			Expect(err).Should(BeNil())
-			Expect(endPoints["enabled"]).To(Equal(1))
-			Expect(endPoints["disabled"]).To(Equal(0))
+			Expect(endPoints[helpers.Enabled]).To(Equal(1))
+			Expect(endPoints[helpers.Disabled]).To(Equal(0))
 
-			res := cilium.PolicyEnforcementSet("never", true)
+			res := cilium.SetPolicyEnforcement(helpers.PolicyEnforcementNever, true)
 			res.ExpectSuccess()
 
 			endPoints, err = cilium.PolicyEndpointsSummary()
 			Expect(err).Should(BeNil())
-			Expect(endPoints["enabled"]).To(Equal(0))
-			Expect(endPoints["disabled"]).To(Equal(1))
+			Expect(endPoints[helpers.Enabled]).To(Equal(0))
+			Expect(endPoints[helpers.Disabled]).To(Equal(1))
 
-			res = cilium.PolicyEnforcementSet("always", true)
+			res = cilium.SetPolicyEnforcement(helpers.PolicyEnforcementAlways, true)
 			res.ExpectSuccess()
 
 			endPoints, err = cilium.PolicyEndpointsSummary()
 			Expect(err).Should(BeNil())
-			Expect(endPoints["enabled"]).To(Equal(1))
+			Expect(endPoints[helpers.Enabled]).To(Equal(1))
 		})
 
 	})
@@ -267,7 +287,8 @@ var _ = Describe("RuntimePolicyEnforcement", func() {
 		//The test Always to Default is already tested in from default-always
 		BeforeEach(func() {
 			initialize()
-			res := cilium.PolicyEnforcementSet("never")
+
+			res := cilium.SetPolicyEnforcement(helpers.PolicyEnforcementNever)
 			res.ExpectSuccess()
 		})
 
@@ -275,70 +296,70 @@ var _ = Describe("RuntimePolicyEnforcement", func() {
 			//Check default containers are in place.
 			endPoints, err := cilium.PolicyEndpointsSummary()
 			Expect(err).Should(BeNil())
-			Expect(endPoints["enabled"]).To(Equal(0))
-			Expect(endPoints["disabled"]).To(Equal(1))
+			Expect(endPoints[helpers.Enabled]).To(Equal(0))
+			Expect(endPoints[helpers.Disabled]).To(Equal(1))
 
-			docker.ContainerCreate("new", "cilium/demo-httpd", networkName, "-l id.new")
+			docker.ContainerCreate("new", "cilium/demo-httpd", helpers.CiliumDockerNetwork, "-l id.new")
 			cilium.EndpointWaitUntilReady()
 			endPoints, err = cilium.PolicyEndpointsSummary()
 			Expect(err).Should(BeNil())
-			Expect(endPoints["enabled"]).To(Equal(0))
-			Expect(endPoints["disabled"]).To(Equal(2))
+			Expect(endPoints[helpers.Enabled]).To(Equal(0))
+			Expect(endPoints[helpers.Disabled]).To(Equal(2))
 			docker.ContainerRm("new")
 		}, 300)
 
 		It("Never to default with policy", func() {
 			endPoints, err := cilium.PolicyEndpointsSummary()
 			Expect(err).Should(BeNil())
-			Expect(endPoints["enabled"]).To(Equal(0))
-			Expect(endPoints["disabled"]).To(Equal(1))
+			Expect(endPoints[helpers.Enabled]).To(Equal(0))
+			Expect(endPoints[helpers.Disabled]).To(Equal(1))
 
-			_, err = cilium.PolicyImport(cilium.GetFullPath("sample_policy.json"), 300)
+			_, err = cilium.PolicyImport(cilium.GetFullPath(sampleJSON), 300)
 			Expect(err).Should(BeNil())
 
 			endPoints, err = cilium.PolicyEndpointsSummary()
 			Expect(err).Should(BeNil())
-			Expect(endPoints["enabled"]).To(Equal(0))
-			Expect(endPoints["disabled"]).To(Equal(1))
+			Expect(endPoints[helpers.Enabled]).To(Equal(0))
+			Expect(endPoints[helpers.Disabled]).To(Equal(1))
 
-			res := cilium.PolicyEnforcementSet("default", true)
+			res := cilium.SetPolicyEnforcement(helpers.PolicyEnforcementDefault, true)
 			res.ExpectSuccess()
 
 			endPoints, err = cilium.PolicyEndpointsSummary()
 			Expect(err).Should(BeNil())
-			Expect(endPoints["enabled"]).To(Equal(1))
-			Expect(endPoints["disabled"]).To(Equal(0))
+			Expect(endPoints[helpers.Enabled]).To(Equal(1))
+			Expect(endPoints[helpers.Disabled]).To(Equal(0))
 
-			res = cilium.PolicyEnforcementSet("never", true)
+			res = cilium.SetPolicyEnforcement(helpers.PolicyEnforcementNever, true)
 			res.ExpectSuccess()
 
 			endPoints, err = cilium.PolicyEndpointsSummary()
 			Expect(err).Should(BeNil())
-			Expect(endPoints["enabled"]).To(Equal(0))
-			Expect(endPoints["disabled"]).To(Equal(1))
+			Expect(endPoints[helpers.Enabled]).To(Equal(0))
+			Expect(endPoints[helpers.Disabled]).To(Equal(1))
 		})
 
 		It("Never to default without policy", func() {
 			endPoints, err := cilium.PolicyEndpointsSummary()
 			Expect(err).Should(BeNil())
-			Expect(endPoints["enabled"]).To(Equal(0))
-			Expect(endPoints["disabled"]).To(Equal(1))
+			Expect(endPoints[helpers.Enabled]).To(Equal(0))
+			Expect(endPoints[helpers.Disabled]).To(Equal(1))
 
-			res := cilium.PolicyEnforcementSet("default", true)
+			res := cilium.SetPolicyEnforcement(helpers.PolicyEnforcementDefault, true)
 			res.ExpectSuccess()
 
 			endPoints, err = cilium.PolicyEndpointsSummary()
 			Expect(err).Should(BeNil())
-			Expect(endPoints["enabled"]).To(Equal(0))
-			Expect(endPoints["disabled"]).To(Equal(1))
+			Expect(endPoints[helpers.Enabled]).To(Equal(0))
+			Expect(endPoints[helpers.Disabled]).To(Equal(1))
 
-			res = cilium.PolicyEnforcementSet("never", true)
+			res = cilium.SetPolicyEnforcement(helpers.PolicyEnforcementNever, true)
 			res.ExpectSuccess()
 
 			endPoints, err = cilium.PolicyEndpointsSummary()
 			Expect(err).Should(BeNil())
-			Expect(endPoints["enabled"]).To(Equal(0))
-			Expect(endPoints["disabled"]).To(Equal(1))
+			Expect(endPoints[helpers.Enabled]).To(Equal(0))
+			Expect(endPoints[helpers.Disabled]).To(Equal(1))
 		})
 	})
 })
@@ -346,7 +367,6 @@ var _ = Describe("RuntimePolicyEnforcement", func() {
 var _ = Describe("RunPolicies", func() {
 
 	var initialized bool
-	var networkName string = "cilium-net"
 	var logger *log.Entry
 	var docker *helpers.Docker
 	var cilium *helpers.Cilium
@@ -357,11 +377,11 @@ var _ = Describe("RunPolicies", func() {
 		}
 		logger = log.WithFields(log.Fields{"test": "RunPolicies"})
 		logger.Info("Starting")
-		docker, cilium = helpers.CreateNewRuntimeHelper("runtime", logger)
-		docker.NetworkCreate(networkName, "")
+		docker, cilium = helpers.CreateNewRuntimeHelper(helpers.Runtime, logger)
+		docker.NetworkCreate(helpers.CiliumDockerNetwork, "")
 
 		cilium.WaitUntilReady(100)
-		res := cilium.PolicyEnforcementSet("default", false)
+		res := cilium.SetPolicyEnforcement(helpers.PolicyEnforcementDefault, false)
 		res.ExpectSuccess()
 		initialized = true
 
@@ -369,8 +389,8 @@ var _ = Describe("RunPolicies", func() {
 
 	BeforeEach(func() {
 		initialize()
-		cilium.Exec("policy delete --all")
-		docker.SampleContainersActions("create", networkName)
+		cilium.PolicyDelAll()
+		docker.SampleContainersActions(helpers.Create, helpers.CiliumDockerNetwork)
 		cilium.EndpointWaitUntilReady()
 	})
 
@@ -378,7 +398,7 @@ var _ = Describe("RunPolicies", func() {
 		if CurrentGinkgoTestDescription().Failed {
 			cilium.ReportFailed()
 		}
-		docker.SampleContainersActions("delete", networkName)
+		docker.SampleContainersActions(helpers.Delete, helpers.CiliumDockerNetwork)
 	})
 
 	pingRequests := []string{"ping", "ping6"}
@@ -392,82 +412,84 @@ var _ = Describe("RunPolicies", func() {
 		}
 		_, err := docker.ContainerInspectNet(client)
 		Expect(err).Should(BeNil(), fmt.Sprintf(
-			"Couldn't get container '%s' client meta", client))
+			"could not get container %q (client) meta", client))
 
 		srvIP, err := docker.ContainerInspectNet(server)
 		Expect(err).Should(BeNil(), fmt.Sprintf(
-			"Couldn't get container '%s' server meta", server))
+			"could not get container %q (server) meta", server))
 		for _, test := range tests {
 			switch test {
-			case "ping":
-				By(title("Client '%s' pinging server '%s' IPv4"))
-				res := docker.ContainerExec(client, fmt.Sprintf("ping -c 3 -W 2 %s", srvIP["IPv4"]))
+			case ping:
+				By(title("Client %q pinging server %q IPv4"))
+				res := docker.ContainerExec(client, helpers.Ping(srvIP[helpers.IPv4]))
 				ExpectWithOffset(1, res.WasSuccessful()).Should(assertFn(), fmt.Sprintf(
-					"Client '%s' can't ping to server '%s'", client, srvIP["IPv4"]))
-			case "ping6":
-				By(title("Client '%s' pinging server '%s' IPv6"))
-				res := docker.ContainerExec(client, fmt.Sprintf("ping6 -c 3 -W 2 %s", srvIP["IPv6"]))
+					"Client %q can't ping to server %q", client, srvIP[helpers.IPv4]))
+			case ping6:
+
+				By(title("Client %q pinging server %q IPv6"))
+				res := docker.ContainerExec(client, helpers.Ping6(srvIP[helpers.IPv6]))
 				ExpectWithOffset(1, res.WasSuccessful()).Should(assertFn(), fmt.Sprintf(
-					"Client '%s' can't ping to server '%s'", client, srvIP["IPv6"]))
-			case "http":
+					"Client %q can't ping to server %q", client, srvIP[helpers.IPv6]))
+			case http:
 				By(title("Client '%s' HttpReq to server '%s' Ipv4"))
-				res := docker.ContainerExec(client, fmt.Sprintf(
-					"curl -s --fail --connect-timeout 3 http://%s:80/public", srvIP["IPv4"]))
+				res := docker.ContainerExec(client, helpers.CurlFail(fmt.Sprintf(
+					"http://%s:80/public", srvIP[helpers.IPv4])))
 				ExpectWithOffset(1, res.WasSuccessful()).Should(assertFn(), fmt.Sprintf(
-					"Client '%s' can't curl to server '%s'", client, srvIP["IPv4"]))
-			case "http6":
-				By(title("Client '%s' HttpReq to server '%s' IPv6"))
-				res := docker.ContainerExec(client, fmt.Sprintf(
-					"curl -s --fail --connect-timeout 3 http://[%s]:80/public", srvIP["IPv6"]))
+					"Client %q can't curl to server %q", client, srvIP[helpers.IPv4]))
+			case http6:
+				By(title("Client %q HttpReq to server %q IPv6"))
+				res := docker.ContainerExec(client, helpers.CurlFail(fmt.Sprintf(
+					"http://[%s]:80/public", srvIP[helpers.IPv6])))
 				ExpectWithOffset(1, res.WasSuccessful()).Should(assertFn(), fmt.Sprintf(
-					"Client '%s' can't curl to server '%s'", client, srvIP["IPv6"]))
-			case "http_private":
-				By(title("Client '%s' HttpReq to server '%s' private Ipv4"))
-				res := docker.ContainerExec(client, fmt.Sprintf(
-					"curl -s --fail --connect-timeout 3 http://%s:80/private", srvIP["IPv4"]))
+					"Client %q can't curl to server %q", client, srvIP[helpers.IPv6]))
+			case httpPrivate:
+				By(title("Client %q HttpReq to server %q private Ipv4"))
+				res := docker.ContainerExec(client, helpers.CurlFail(fmt.Sprintf(
+					"http://%s:80/private", srvIP[helpers.IPv4])))
 				ExpectWithOffset(1, res.WasSuccessful()).Should(assertFn(), fmt.Sprintf(
-					"Client '%s' can't curl to server '%s' private", client, srvIP["IPv4"]))
-			case "http6_private":
-				By(title("Client '%s' HttpReq to server '%s' private Ipv6"))
-				res := docker.ContainerExec(client, fmt.Sprintf(
-					"curl -s --fail --connect-timeout 3 http://[%s]:80/private", srvIP["IPv6"]))
+					"Client %q can't curl to server %q private", client, srvIP[helpers.IPv4]))
+			case http6Private:
+				By(title("Client %q HttpReq to server %q private Ipv6"))
+				res := docker.ContainerExec(client, helpers.CurlFail(fmt.Sprintf(
+					"http://%s:80/private", srvIP[helpers.IPv6])))
 				ExpectWithOffset(1, res.WasSuccessful()).Should(assertFn(), fmt.Sprintf(
-					"Client '%s' can't curl to server '%s' private", client, srvIP["IPv6"]))
+					"Client %q can't curl to server %q private", client, srvIP[helpers.IPv6]))
 			}
 		}
 	}
 
 	It("L3/L4 Checks", func() {
-		_, err := cilium.PolicyImport(cilium.GetFullPath("Policies-l3-policy.json"), 300)
+		_, err := cilium.PolicyImport(cilium.GetFullPath(policiesL3JSON), 300)
 		Expect(err).Should(BeNil())
 
 		//APP1 can connect to all Httpd1
-		connectivityTest(allRequests, "app1", "httpd1", BeTrue)
+		connectivityTest([]string{ping, ping6, http, http6}, helpers.App1, helpers.Httpd1, BeTrue)
 
 		//APP2 can't connect to Httpd1
-		connectivityTest([]string{"http"}, "app2", "httpd1", BeFalse)
+		connectivityTest([]string{http}, helpers.App2, helpers.Httpd1, BeFalse)
 
 		// APP1 can reach using TCP HTTP2
-		connectivityTest(httpRequestsPublic, "app1", "httpd2", BeTrue)
+		connectivityTest([]string{http, http6}, helpers.App1, helpers.Httpd2, BeTrue)
 
 		// APP2 can't reach using TCP to HTTP2
-		connectivityTest(httpRequestsPublic, "app2", "httpd2", BeFalse)
+		connectivityTest([]string{http, http6}, helpers.App2, helpers.Httpd2, BeFalse)
 
-		// APP3 can reach using TCP HTTP3, but can't ping EGRESS
-		connectivityTest(httpRequestsPublic, "app3", "httpd3", BeTrue)
+		// APP3 can reach using TCP HTTP2, but can't ping EGRESS
+		connectivityTest([]string{http, http6}, helpers.App3, helpers.Httpd3, BeTrue)
 
 		By("Disabling all the policies. All should work")
 
-		status := cilium.Exec("policy delete --all")
+		status := cilium.PolicyDelAll()
 		status.ExpectSuccess()
+
 		cilium.EndpointWaitUntilReady()
 
-		connectivityTest(allRequests, "app1", "httpd1", BeTrue)
-		connectivityTest(allRequests, "app2", "httpd1", BeTrue)
+		connectivityTest([]string{ping, ping6, http, http6}, helpers.App1, helpers.Httpd1, BeTrue)
+		connectivityTest([]string{ping, ping6, http, http6}, helpers.App2, helpers.Httpd1, BeTrue)
 
 		By("Ingress CIDR")
 
-		app1, err := docker.ContainerInspectNet("app1")
+		app1, err := docker.ContainerInspectNet(helpers.App1)
 		Expect(err).Should(BeNil())
 
 		script := fmt.Sprintf(`
@@ -482,22 +504,22 @@ var _ = Describe("RunPolicies", func() {
 				{"fromCIDR":
 					[ "%s/32", "%s" ]}
 			]
-		}]`, app1["IPv4"], app1["IPv6"])
+		}]`, app1[helpers.IPv4], app1[helpers.IPv6])
 
-		err = helpers.RenderTemplateToFile("ingress.json", script, 0777)
+		err = helpers.RenderTemplateToFile(ingressJSON, script, 0777)
 		Expect(err).Should(BeNil())
 
-		path := helpers.GetFilePath("ingress.json")
+		path := helpers.GetFilePath(ingressJSON)
 		_, err = cilium.PolicyImport(path, 300)
 		Expect(err).Should(BeNil())
-		defer os.Remove("ingress.json")
+		defer os.Remove(ingressJSON)
 
-		connectivityTest(httpRequests, "app1", "httpd1", BeTrue)
-		connectivityTest(httpRequests, "app2", "httpd1", BeFalse)
+		connectivityTest([]string{http, http6}, helpers.App1, helpers.Httpd1, BeTrue)
+		connectivityTest([]string{http, http6}, helpers.App2, helpers.Httpd1, BeFalse)
 
 		By("Egress CIDR")
 
-		httpd1, err := docker.ContainerInspectNet("httpd1")
+		httpd1, err := docker.ContainerInspectNet(helpers.Httpd1)
 		Expect(err).Should(BeNil())
 
 		script = fmt.Sprintf(`
@@ -515,105 +537,110 @@ var _ = Describe("RunPolicies", func() {
 			 "egress": [{
 				"toCIDR": [ "%s/32", "%s" ]
 			 }]
-		}]`, "app1", httpd1["IPv4"], httpd1["IPv6"])
-		err = helpers.RenderTemplateToFile("egress.json", script, 0777)
+		}]`, helpers.App1, httpd1[helpers.IPv4], httpd1[helpers.IPv6])
+		err = helpers.RenderTemplateToFile(egressJSON, script, 0777)
 		Expect(err).Should(BeNil())
-		path = helpers.GetFilePath("egress.json")
-		defer os.Remove("egress.json")
+		path = helpers.GetFilePath(egressJSON)
+		defer os.Remove(egressJSON)
 		_, err = cilium.PolicyImport(path, 300)
 		Expect(err).Should(BeNil())
 
-		connectivityTest(httpRequestsPublic, "app1", "httpd1", BeTrue)
-		connectivityTest(httpRequestsPublic, "app2", "httpd1", BeFalse)
+		connectivityTest(httpRequestsPublic, helpers.App1, helpers.Httpd1, BeTrue)
+		connectivityTest(httpRequestsPublic, helpers.App2, helpers.Httpd1, BeFalse)
 	})
 
 	It("L4Policy Checks", func() {
 		_, err := cilium.PolicyImport(cilium.GetFullPath("Policies-l4-policy.json"), 300)
 		Expect(err).Should(BeNil())
 
-		for _, app := range []string{"app1", "app2"} {
-			connectivityTest(allRequests, app, "httpd1", BeFalse)
-			connectivityTest(pingRequests, app, "httpd2", BeFalse)
-			connectivityTest(httpRequestsPublic, app, "httpd2", BeTrue)
+		for _, app := range []string{helpers.App1, helpers.App2} {
+			connectivityTest(allRequests, app, helpers.Httpd1, BeFalse)
+			connectivityTest(pingRequests, app, helpers.Httpd2, BeFalse)
+			connectivityTest(httpRequestsPublic, app, helpers.Httpd2, BeTrue)
 		}
 
 		By("Disabling all the policies. All should work")
 
-		status := cilium.Exec("policy delete --all")
+		status := cilium.PolicyDelAll()
 		Expect(status.WasSuccessful()).Should(BeTrue())
 		cilium.EndpointWaitUntilReady()
 
-		for _, app := range []string{"app1", "app2"} {
-			connectivityTest(allRequests, app, "httpd1", BeTrue)
-			connectivityTest(allRequests, app, "httpd2", BeTrue)
+		for _, app := range []string{helpers.App1, helpers.App2} {
+			connectivityTest(allRequests, app, helpers.Httpd1, BeTrue)
+			connectivityTest(allRequests, app, helpers.Httpd2, BeTrue)
 		}
+
+		connectivityTest([]string{http, http6}, helpers.App1, helpers.Httpd1, BeTrue)
+		connectivityTest([]string{http, http6}, helpers.App2, helpers.Httpd1, BeFalse)
 	})
 
 	It("L7 Checks", func() {
 
-		_, err := cilium.PolicyImport(cilium.GetFullPath("Policies-l7-simple.json"), 300)
+		_, err := cilium.PolicyImport(cilium.GetFullPath(policiesL7JSON), 300)
 		Expect(err).Should(BeNil())
 
 		By("Simple Ingress")
-		//APP1 can connnect to public, but no to private
-		connectivityTest(httpRequestsPublic, "app1", "httpd1", BeTrue)
-		connectivityTest(httpRequestsPrivate, "app1", "httpd1", BeFalse)
+		//APP1 can connect to public, but no to private
+		connectivityTest(httpRequestsPublic, helpers.App1, helpers.Httpd1, BeTrue)
+		connectivityTest(httpRequestsPrivate, helpers.App1, helpers.Httpd1, BeFalse)
 
 		//App2 can't connect
-		connectivityTest(httpRequestsPublic, "app2", "httpd1", BeFalse)
+		connectivityTest(httpRequestsPublic, helpers.App2, helpers.Httpd1, BeFalse)
 
 		By("Simple Egress")
 
 		//APP2 can connnect to public, but no to private
-		connectivityTest(httpRequestsPublic, "app2", "httpd2", BeTrue)
-		connectivityTest(httpRequestsPrivate, "app2", "httpd2", BeFalse)
+		connectivityTest(httpRequestsPublic, helpers.App2, helpers.Httpd2, BeTrue)
+		connectivityTest(httpRequestsPrivate, helpers.App2, helpers.Httpd2, BeFalse)
 
 		By("Disabling all the policies. All should work")
-		status := cilium.Exec("policy delete --all")
+
+		status := cilium.PolicyDelAll()
 		status.ExpectSuccess()
 		cilium.EndpointWaitUntilReady()
 
-		connectivityTest(allRequests, "app1", "httpd1", BeTrue)
-		connectivityTest(allRequests, "app2", "httpd1", BeTrue)
+		connectivityTest(allRequests, helpers.App1, helpers.Httpd1, BeTrue)
+		connectivityTest(allRequests, helpers.App2, helpers.Httpd1, BeTrue)
 
 		By("Multiple Ingress")
 
-		cilium.Exec("policy delete --all")
-		_, err = cilium.PolicyImport(cilium.GetFullPath("Policies-l7-multiple.json"), 300)
+		cilium.PolicyDelAll()
+		_, err = cilium.PolicyImport(cilium.GetFullPath(multL7PoliciesJSON), 300)
 		Expect(err).Should(BeNil())
 
 		//APP1 can connnect to public, but no to private
-		connectivityTest(httpRequestsPublic, "app1", "httpd1", BeTrue)
-		connectivityTest(httpRequestsPrivate, "app1", "httpd1", BeFalse)
+
+		connectivityTest(httpRequestsPublic, helpers.App1, helpers.Httpd1, BeTrue)
+		connectivityTest(httpRequestsPrivate, helpers.App1, helpers.Httpd1, BeFalse)
 
 		//App2 can't connect
-		connectivityTest(httpRequestsPublic, "app2", "httpd1", BeFalse)
+		connectivityTest(httpRequestsPublic, helpers.App2, helpers.Httpd1, BeFalse)
 
 		By("Multiple Egress")
-		//APP2 can connnect to public, but no to private
-		connectivityTest(httpRequestsPublic, "app2", "httpd2", BeTrue)
-		connectivityTest(httpRequestsPrivate, "app2", "httpd2", BeFalse)
+		// app2 can connect to /public, but not to /private
+		connectivityTest(httpRequestsPublic, helpers.App2, helpers.Httpd2, BeTrue)
+		connectivityTest(httpRequestsPrivate, helpers.App2, helpers.Httpd2, BeFalse)
 
 		By("Disabling all the policies. All should work")
 
-		status = cilium.Exec("policy delete --all")
+		status = cilium.PolicyDelAll()
 		status.ExpectSuccess()
 		cilium.EndpointWaitUntilReady()
 
-		connectivityTest(allRequests, "app1", "httpd1", BeTrue)
-		connectivityTest(allRequests, "app2", "httpd1", BeTrue)
+		connectivityTest(allRequests, helpers.App1, helpers.Httpd1, BeTrue)
+		connectivityTest(allRequests, helpers.App2, helpers.Httpd1, BeTrue)
 	})
 
 	It("Invalid Policies", func() {
 
 		testInvalidPolicy := func(data string) {
-			err := helpers.RenderTemplateToFile("invalid.json", data, 0777)
+			err := helpers.RenderTemplateToFile(invalidJSON, data, 0777)
 			Expect(err).Should(BeNil())
 
-			path := helpers.GetFilePath("invalid.json")
+			path := helpers.GetFilePath(invalidJSON)
 			_, err = cilium.PolicyImport(path, 300)
 			Expect(err).Should(HaveOccurred())
-			defer os.Remove("invalid.json")
+			defer os.Remove(invalidJSON)
 		}
 		By("Invalid Json")
 
@@ -624,7 +651,7 @@ var _ = Describe("RunPolicies", func() {
 			},`)
 		testInvalidPolicy(script)
 
-		By("Test maximun tcp ports")
+		By("Test maximum tcp ports")
 		var ports string
 		for i := 0; i < 50; i++ {
 			ports += fmt.Sprintf(`{"port": "%d", "protocol": "tcp"}`, i)
@@ -669,16 +696,16 @@ var _ = Describe("RunPolicies", func() {
 			"labels": ["key3"]
 		}]`
 
-		err := helpers.RenderTemplateToFile("policy.json", policy, 0777)
+		err := helpers.RenderTemplateToFile(policyJSON, policy, 0777)
 		Expect(err).Should(BeNil())
 
-		path := helpers.GetFilePath("policy.json")
+		path := helpers.GetFilePath(policyJSON)
 		_, err = cilium.PolicyImport(path, 300)
 		Expect(err).Should(BeNil())
-		defer os.Remove("policy.json")
+		defer os.Remove(policyJSON)
 		for _, v := range []string{"key1", "key2", "key3"} {
 			res := cilium.PolicyGet(v)
-			res.ExpectSuccess(fmt.Sprintf("Key %s can't get get", v))
+			res.ExpectSuccess(fmt.Sprintf("cannot get key %q", v))
 		}
 
 		res := cilium.PolicyDel("key2")
@@ -695,10 +722,11 @@ var _ = Describe("RunPolicies", func() {
 			res = cilium.PolicyDel(v)
 			res.ExpectSuccess()
 		}
-		res = cilium.Exec("policy get")
+
+		res = cilium.PolicyGetAll()
 		res.ExpectSuccess()
 
-		res = cilium.Exec("policy delete --all")
+		res = cilium.PolicyDelAll()
 		res.ExpectSuccess()
 
 	})

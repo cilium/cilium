@@ -27,9 +27,6 @@ import (
 var _ = Describe("RuntimeKVStoreTest", func() {
 
 	var initialized bool
-	var networkName string = "cilium-net"
-
-	var netperfImage string = "tgraf/netperf"
 	var logger *log.Entry
 	var docker *helpers.Docker
 	var cilium *helpers.Cilium
@@ -40,16 +37,17 @@ var _ = Describe("RuntimeKVStoreTest", func() {
 		}
 		logger = log.WithFields(log.Fields{"testName": "RuntimeKVStoreTest"})
 		logger.Info("Starting")
-		docker, cilium = helpers.CreateNewRuntimeHelper("runtime", logger)
+		docker, cilium = helpers.CreateNewRuntimeHelper(helpers.Runtime, logger)
+		logger.Info("done creating Cilium and Docker helpers")
 		initialized = true
 	}
 	containers := func(option string) {
 		switch option {
-		case "create":
-			docker.NetworkCreate(networkName, "")
-			docker.ContainerCreate("client", netperfImage, networkName, "-l id.client")
-		case "delete":
-			docker.ContainerRm("client")
+		case helpers.Create:
+			docker.NetworkCreate(helpers.CiliumDockerNetwork, "")
+			docker.ContainerCreate(helpers.Client, helpers.NetperfImage, helpers.CiliumDockerNetwork, "-l id.client")
+		case helpers.Delete:
+			docker.ContainerRm(helpers.Client)
 
 		}
 	}
@@ -65,7 +63,7 @@ var _ = Describe("RuntimeKVStoreTest", func() {
 				"sudo docker ps -a",
 				"sudo cilium endpoint list")
 		}
-		containers("delete")
+		containers(helpers.Delete)
 		docker.Node.Exec("sudo systemctl start cilium")
 	})
 
@@ -80,7 +78,7 @@ var _ = Describe("RuntimeKVStoreTest", func() {
 
 		docker.Node.Exec("sudo systemctl restart cilium-docker")
 		helpers.Sleep(2)
-		containers("create")
+		containers(helpers.Create)
 		cilium.EndpointWaitUntilReady()
 		eps, err := cilium.GetEndpointsNames()
 		Expect(err).Should(BeNil())
@@ -98,7 +96,7 @@ var _ = Describe("RuntimeKVStoreTest", func() {
 
 		docker.Node.Exec("sudo systemctl restart cilium-docker")
 		helpers.Sleep(2)
-		containers("create")
+		containers(helpers.Create)
 		cilium.EndpointWaitUntilReady()
 
 		eps, err := cilium.GetEndpointsNames()
