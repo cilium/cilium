@@ -71,6 +71,11 @@ var _ = Describe("RuntimeLB", func() {
 	}, 500)
 
 	AfterEach(func() {
+		if CurrentGinkgoTestDescription().Failed {
+			cilium.ReportFailed(
+				"sudo cilium service list",
+				"sudo cilium endpoint list")
+		}
 		containers("delete")
 	}, 500)
 
@@ -124,11 +129,11 @@ var _ = Describe("RuntimeLB", func() {
 		result.ExpectSuccess("Service can't be retrieved correctly")
 
 		By("Duplicating service FE address IPv4")
-		result = cilium.ServiceAdd(2, "127.0.0.1:80", []string{"127.0.0.1:90", "127.0.0.1:91"}, 2)
+		result = cilium.ServiceAdd(20, "127.0.0.1:80", []string{"127.0.0.1:90", "127.0.0.1:91"}, 2)
 		result.ExpectFail("Service can be added in cilium with duplicated FE")
 
-		result = cilium.ServiceGet(10)
-		result.ExpectSuccess("Service was added and it shouldn't")
+		result = cilium.ServiceGet(20)
+		result.ExpectFail("Service was added and it shouldn't")
 	}, 500)
 
 	It("Service L3 tests", func() {
