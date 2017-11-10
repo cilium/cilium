@@ -72,14 +72,18 @@ func (state *traceState) trace(p *Repository, ctx *SearchContext) {
 // CanReachRLocked evaluates the policy repository for the provided search
 // context and returns the verdict or api.Undecided if no rule matches. The
 // policy repository mutex must be held.
-func (p *Repository) CanReachRLocked(ctx *SearchContext) api.Decision {
+func (p *Repository) CanReachRLocked(ctx SearchContext) api.Decision {
 	decision := api.Undecided
 	state := traceState{}
+
+	ctx.IngressL4Only = true
+
+	// TODO: Refactor canReach and this method to avoid multiple loops over p.rules below.
 
 loop:
 	for i, r := range p.rules {
 		state.ruleID = i
-		switch r.canReach(ctx, &state) {
+		switch r.canReach(&ctx, &state) {
 		// The rule contained a constraint which was not met, this
 		// connection is not allowed
 		case api.Denied:
@@ -93,8 +97,23 @@ loop:
 			decision = api.Allowed
 		}
 	}
+	state.trace(p, &ctx)
 
-	state.trace(p, ctx)
+	if decision == api.Undecided {
+		ctx.PolicyTrace("\nResolving L4 policy for matching on labels\n")
+		// The calls to rule.canReach above check canReachEntities, FromEntities, etc.
+		// But that's NOT sufficient to determine reachability because resolving the L4 policy
+		// may result in the synthesis of new rules that may allow broader reachability.
+		policy, err := p.ResolveL4Policy(&ctx)
+		if err != nil {
+			log.WithError(err).Warning("Evaluation error while resolving L4 ingress policy")
+		}
+		if err == nil && len(policy.Ingress) > 0 {
+			ctx2 := ctx
+			ctx2.DPorts = nil
+			decision = policy.IngressCoversContext(&ctx2)
+		}
+	}
 
 	return decision
 }
@@ -110,7 +129,7 @@ func (p *Repository) AllowsLabelAccess(ctx *SearchContext) api.Decision {
 	if len(p.rules) == 0 {
 		ctx.PolicyTrace("  No rules found\n")
 	} else {
-		if p.CanReachRLocked(ctx) == api.Allowed {
+		if p.CanReachRLocked(*ctx) == api.Allowed {
 			decision = api.Allowed
 		}
 	}
@@ -152,6 +171,23 @@ func (p *Repository) ResolveL4Policy(ctx *SearchContext) (*L4Policy, error) {
 		}
 	}
 
+	ctx.PolicyTrace("Resolving ingress visibility rules for %+v\n", ctx.To)
+	for _, r := range p.rules {
+		err := r.resolveIngressVisibility(ctx, &state, result)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	// Empty the rules that were not requested.
+	if ctx.EgressL4Only {
+		result.Ingress = make(L4PolicyMap)
+	}
+	if ctx.IngressL4Only {
+		result.Egress = make(L4PolicyMap)
+	}
+
+	ctx.PolicyTrace("%d rules matched\n", state.selectedRules)
 	state.trace(p, ctx)
 	return result, nil
 }
@@ -175,8 +211,7 @@ func (p *Repository) ResolveL3Policy(ctx *SearchContext) *L3Policy {
 	return result
 }
 
-func (p *Repository) allowsL4Egress(searchCtx *SearchContext) api.Decision {
-	ctx := *searchCtx
+func (p *Repository) allowsL4Egress(ctx SearchContext) api.Decision {
 	ctx.To = ctx.From
 	ctx.From = labels.LabelArray{}
 	ctx.EgressL4Only = true
@@ -199,16 +234,16 @@ func (p *Repository) allowsL4Egress(searchCtx *SearchContext) api.Decision {
 	return verdict
 }
 
-func (p *Repository) allowsL4Ingress(ctx *SearchContext) api.Decision {
+func (p *Repository) allowsL4Ingress(ctx SearchContext) api.Decision {
 	ctx.IngressL4Only = true
 
-	policy, err := p.ResolveL4Policy(ctx)
+	policy, err := p.ResolveL4Policy(&ctx)
 	if err != nil {
 		log.WithError(err).Warn("Evaluation error while resolving L4 ingress policy")
 	}
 	verdict := api.Undecided
 	if err == nil && len(policy.Ingress) > 0 {
-		verdict = policy.IngressCoversContext(ctx)
+		verdict = policy.IngressCoversContext(&ctx)
 	}
 
 	if len(ctx.DPorts) == 0 {
@@ -226,25 +261,24 @@ func (p *Repository) allowsL4Ingress(ctx *SearchContext) api.Decision {
 // held.
 func (p *Repository) AllowsRLocked(ctx *SearchContext) api.Decision {
 	ctx.PolicyTrace("Tracing %s\n", ctx.String())
-	decision := p.CanReachRLocked(ctx)
+	decision := p.CanReachRLocked(*ctx)
 	ctx.PolicyTrace("Label verdict: %s", decision.String())
 	if decision == api.Allowed {
 		ctx.PolicyTrace("L4 ingress & egress policies skipped")
 		return decision
 	}
 
-	// We only report the overall decision as L4 inclusive if a port has
-	// been specified
-	if len(ctx.DPorts) != 0 {
-		l4Egress := p.allowsL4Egress(ctx)
-		l4Ingress := p.allowsL4Ingress(ctx)
+	ctx.PolicyTrace("\nResolving L4 policy for matching on ports\n")
 
-		// Explicit deny should deny; Allow+Undecided should allow
-		if l4Egress == api.Denied || l4Ingress == api.Denied {
-			decision = api.Denied
-		} else if l4Egress == api.Allowed || l4Ingress == api.Allowed {
-			decision = api.Allowed
-		}
+	// TODO: Avoid resolving the L4 policy twice, once in each of the following calls.
+	l4Egress := p.allowsL4Egress(*ctx)
+	l4Ingress := p.allowsL4Ingress(*ctx)
+
+	// Explicit deny should deny; Allow+Undecided should allow
+	if l4Egress == api.Denied || l4Ingress == api.Denied {
+		decision = api.Denied
+	} else if l4Egress == api.Allowed || l4Ingress == api.Allowed {
+		decision = api.Allowed
 	}
 
 	if decision != api.Allowed {

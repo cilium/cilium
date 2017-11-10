@@ -115,7 +115,7 @@ func (ds *PolicyTestSuite) TestAddSearchDelete(c *C) {
 func (ds *PolicyTestSuite) TestCanReach(c *C) {
 	repo := NewPolicyRepository()
 
-	fooToBar := &SearchContext{
+	fooToBar := SearchContext{
 		From: labels.ParseSelectLabelArray("foo"),
 		To:   labels.ParseSelectLabelArray("bar"),
 	}
@@ -124,7 +124,7 @@ func (ds *PolicyTestSuite) TestCanReach(c *C) {
 	// no rules loaded: CanReach => undecided
 	c.Assert(repo.CanReachRLocked(fooToBar), Equals, api.Undecided)
 	// no rules loaded: Allows() => denied
-	c.Assert(repo.AllowsRLocked(fooToBar), Equals, api.Denied)
+	c.Assert(repo.AllowsRLocked(&fooToBar), Equals, api.Denied)
 	repo.Mutex.RUnlock()
 
 	tag1 := labels.LabelArray{labels.ParseLabel("tag1")}
@@ -173,7 +173,7 @@ func (ds *PolicyTestSuite) TestCanReach(c *C) {
 	c.Assert(err, IsNil)
 
 	// foo=>bar is OK
-	c.Assert(repo.AllowsRLocked(fooToBar), Equals, api.Allowed)
+	c.Assert(repo.AllowsRLocked(&fooToBar), Equals, api.Allowed)
 
 	// foo=>bar2 is OK
 	c.Assert(repo.AllowsRLocked(&SearchContext{
@@ -209,13 +209,13 @@ func (ds *PolicyTestSuite) TestCanReach(c *C) {
 func (ds *PolicyTestSuite) TestMinikubeGettingStarted(c *C) {
 	repo := NewPolicyRepository()
 
-	fromApp2 := &SearchContext{
+	fromApp2 := SearchContext{
 		From:  labels.ParseSelectLabelArray("id=app2"),
 		To:    labels.ParseSelectLabelArray("id=app1"),
 		Trace: TRACE_VERBOSE,
 	}
 
-	fromApp3 := &SearchContext{
+	fromApp3 := SearchContext{
 		From: labels.ParseSelectLabelArray("id=app3"),
 		To:   labels.ParseSelectLabelArray("id=app1"),
 	}
@@ -226,8 +226,8 @@ func (ds *PolicyTestSuite) TestMinikubeGettingStarted(c *C) {
 	c.Assert(repo.CanReachRLocked(fromApp3), Equals, api.Undecided)
 
 	// no rules loaded: Allows() => denied
-	c.Assert(repo.AllowsLabelAccess(fromApp2), Equals, api.Denied)
-	c.Assert(repo.AllowsLabelAccess(fromApp3), Equals, api.Denied)
+	c.Assert(repo.AllowsLabelAccess(&fromApp2), Equals, api.Denied)
+	c.Assert(repo.AllowsLabelAccess(&fromApp3), Equals, api.Denied)
 	repo.Mutex.RUnlock()
 
 	selectorFromApp2 := []api.EndpointSelector{
@@ -295,7 +295,7 @@ func (ds *PolicyTestSuite) TestMinikubeGettingStarted(c *C) {
 	defer repo.Mutex.RUnlock()
 
 	// L4 from app2 is restricted
-	l4policy, err := repo.ResolveL4Policy(fromApp2)
+	l4policy, err := repo.ResolveL4Policy(&fromApp2)
 	c.Assert(err, IsNil)
 
 	// Due to the lack of a set structure for L4Filter.FromEndpoints,
@@ -330,10 +330,10 @@ func (ds *PolicyTestSuite) TestMinikubeGettingStarted(c *C) {
 	c.Assert(len(l4policy.Ingress), Equals, 1)
 	c.Assert(*l4policy, comparator.DeepEquals, *expected)
 
-	// L4 from app3 has no rules
-	expected = NewL4Policy()
-	l4policy, err = repo.ResolveL4Policy(fromApp3)
-	c.Assert(len(l4policy.Ingress), Equals, 0)
+	// L4 from app3 has no rules matching it, but the policy still contains the
+	// exact same rules.
+	l4policy, err = repo.ResolveL4Policy(&fromApp3)
+	c.Assert(len(l4policy.Ingress), Equals, 1)
 	c.Assert(*l4policy, comparator.DeepEquals, *expected)
 }
 
@@ -424,21 +424,69 @@ L4 ingress & egress policies skipped
 	expectedOut = `
 0/1 rules selected
 Found no allow rule
+
+Resolving L4 policy for matching on labels
+
+Resolving ingress port policy for [any:foo]
+Resolving ingress visibility rules for [any:foo]
+0 rules matched
+0/1 rules selected
+Found no allow rule
 Label verdict: undecided
+
+Resolving L4 policy for matching on ports
+
+Resolving egress port policy for [any:bar]
+* Rule {"matchLabels":{"any:bar":""}}: selected
+    No Egress L4 rules
+Resolving ingress visibility rules for [any:bar]
+* Rule {"matchLabels":{"any:bar":""}}: selected
+    No active ingress visibility rules
+1 rules matched
+1/1 rules selected
+Found no allow rule
+L4 egress verdict: [no port context specified]
+
+Resolving ingress port policy for [any:foo]
+Resolving ingress visibility rules for [any:foo]
+0 rules matched
+0/1 rules selected
+Found no allow rule
+L4 ingress verdict: [no port context specified]
 `
 	repo.checkTrace(c, ctx, expectedOut, api.Denied)
 
 	// bar=>foo:80 is Denied, also checks L4 policy
 	ctx = buildSearchCtx("bar", "foo", 80)
-	expectedOut += `
+	expectedOut = `
+0/1 rules selected
+Found no allow rule
+
+Resolving L4 policy for matching on labels
+
+Resolving ingress port policy for [any:foo]
+Resolving ingress visibility rules for [any:foo]
+0 rules matched
+0/1 rules selected
+Found no allow rule
+Label verdict: undecided
+
+Resolving L4 policy for matching on ports
+
 Resolving egress port policy for [any:bar]
 * Rule {"matchLabels":{"any:bar":""}}: selected
-    No L4 rules
+    No Egress L4 rules
+Resolving ingress visibility rules for [any:bar]
+* Rule {"matchLabels":{"any:bar":""}}: selected
+    No active ingress visibility rules
+1 rules matched
 1/1 rules selected
 Found no allow rule
 L4 egress verdict: undecided
 
 Resolving ingress port policy for [any:foo]
+Resolving ingress visibility rules for [any:foo]
+0 rules matched
 0/1 rules selected
 Found no allow rule
 L4 ingress verdict: undecided
@@ -466,19 +514,48 @@ L4 ingress verdict: undecided
         Rule restricts traffic to specific L4 destinations; deferring policy decision to L4 policy stage
 2/2 rules selected
 Found no allow rule
-Label verdict: undecided
+
+Resolving L4 policy for matching on labels
+
+Resolving ingress port policy for [any:bar]
+* Rule {"matchLabels":{"any:bar":""}}: selected
+  Allows Ingress any port from endpoints [{"matchLabels":{"reserved:host":""}} {"matchLabels":{"any:foo":""}}]
+      Labels [any:baz] not found
+* Rule {"matchLabels":{"any:bar":""}}: selected
+    Allows Ingress port [{80 ANY}] from endpoints [{"matchLabels":{"reserved:host":""}} {"matchLabels":{"any:baz":""}}]
+      Found all required labels
+Resolving ingress visibility rules for [any:bar]
+* Rule {"matchLabels":{"any:bar":""}}: selected
+    No active ingress visibility rules
+* Rule {"matchLabels":{"any:bar":""}}: selected
+    No active ingress visibility rules
+2 rules matched
+2/2 rules selected
+Found allow rule
+Label verdict: denied
+
+Resolving L4 policy for matching on ports
 
 Resolving egress port policy for [any:baz]
+Resolving ingress visibility rules for [any:baz]
+0 rules matched
 0/2 rules selected
 Found no allow rule
 L4 egress verdict: undecided
 
 Resolving ingress port policy for [any:bar]
 * Rule {"matchLabels":{"any:bar":""}}: selected
-    No L4 rules
+  Allows Ingress any port from endpoints [{"matchLabels":{"reserved:host":""}} {"matchLabels":{"any:foo":""}}]
+      Labels [any:baz] not found
 * Rule {"matchLabels":{"any:bar":""}}: selected
     Allows Ingress port [{80 ANY}] from endpoints [{"matchLabels":{"reserved:host":""}} {"matchLabels":{"any:baz":""}}]
       Found all required labels
+Resolving ingress visibility rules for [any:bar]
+* Rule {"matchLabels":{"any:bar":""}}: selected
+    No active ingress visibility rules
+* Rule {"matchLabels":{"any:bar":""}}: selected
+    No active ingress visibility rules
+2 rules matched
 2/2 rules selected
 Found allow rule
 L4 ingress verdict: allowed
@@ -500,26 +577,59 @@ L4 ingress verdict: allowed
       Labels [any:bar] not found
 2/2 rules selected
 Found no allow rule
-Label verdict: undecided
+
+Resolving L4 policy for matching on labels
+
+Resolving ingress port policy for [any:bar]
+* Rule {"matchLabels":{"any:bar":""}}: selected
+  Allows Ingress any port from endpoints [{"matchLabels":{"reserved:host":""}} {"matchLabels":{"any:foo":""}}]
+      Labels [any:bar] not found
+* Rule {"matchLabels":{"any:bar":""}}: selected
+    Allows Ingress port [{80 ANY}] from endpoints [{"matchLabels":{"reserved:host":""}} {"matchLabels":{"any:baz":""}}]
+      Labels [any:bar] not found
+Resolving ingress visibility rules for [any:bar]
+* Rule {"matchLabels":{"any:bar":""}}: selected
+    No active ingress visibility rules
+* Rule {"matchLabels":{"any:bar":""}}: selected
+    No active ingress visibility rules
+2 rules matched
+2/2 rules selected
+Found allow rule
+Label verdict: denied
+
+Resolving L4 policy for matching on ports
 
 Resolving egress port policy for [any:bar]
 * Rule {"matchLabels":{"any:bar":""}}: selected
-    No L4 rules
+    No Egress L4 rules
 * Rule {"matchLabels":{"any:bar":""}}: selected
-    No L4 rules
+    No Egress L4 rules
+Resolving ingress visibility rules for [any:bar]
+* Rule {"matchLabels":{"any:bar":""}}: selected
+    No active ingress visibility rules
+* Rule {"matchLabels":{"any:bar":""}}: selected
+    No active ingress visibility rules
+2 rules matched
 2/2 rules selected
 Found no allow rule
 L4 egress verdict: undecided
 
 Resolving ingress port policy for [any:bar]
 * Rule {"matchLabels":{"any:bar":""}}: selected
-    No L4 rules
+  Allows Ingress any port from endpoints [{"matchLabels":{"reserved:host":""}} {"matchLabels":{"any:foo":""}}]
+      Labels [any:bar] not found
 * Rule {"matchLabels":{"any:bar":""}}: selected
     Allows Ingress port [{80 ANY}] from endpoints [{"matchLabels":{"reserved:host":""}} {"matchLabels":{"any:baz":""}}]
       Labels [any:bar] not found
+Resolving ingress visibility rules for [any:bar]
+* Rule {"matchLabels":{"any:bar":""}}: selected
+    No active ingress visibility rules
+* Rule {"matchLabels":{"any:bar":""}}: selected
+    No active ingress visibility rules
+2 rules matched
 2/2 rules selected
-Found no allow rule
-L4 ingress verdict: undecided
+Found allow rule
+L4 ingress verdict: denied
 `
 	repo.checkTrace(c, ctx, expectedOut, api.Denied)
 
@@ -555,6 +665,37 @@ L4 ingress verdict: undecided
 3/3 rules selected
 Found unsatisfied FromRequires constraint
 Label verdict: denied
+
+Resolving L4 policy for matching on ports
+
+Resolving egress port policy for [any:foo]
+Resolving ingress visibility rules for [any:foo]
+0 rules matched
+0/3 rules selected
+Found no allow rule
+L4 egress verdict: [no port context specified]
+
+Resolving ingress port policy for [any:bar]
+* Rule {"matchLabels":{"any:bar":""}}: selected
+  Allows Ingress any port from endpoints [{"matchLabels":{"reserved:host":""}} {"matchLabels":{"any:foo":""}}]
+      Found all required labels
+* Rule {"matchLabels":{"any:bar":""}}: selected
+    Allows Ingress port [{80 ANY}] from endpoints [{"matchLabels":{"reserved:host":""}} {"matchLabels":{"any:baz":""}}]
+      Labels [any:foo] not found
+* Rule {"matchLabels":{"any:bar":""}}: selected
+  Allows Ingress any port
+      Labels [any:foo] not found
+Resolving ingress visibility rules for [any:bar]
+* Rule {"matchLabels":{"any:bar":""}}: selected
+    No active ingress visibility rules
+* Rule {"matchLabels":{"any:bar":""}}: selected
+    No active ingress visibility rules
+* Rule {"matchLabels":{"any:bar":""}}: selected
+    No active ingress visibility rules
+3 rules matched
+3/3 rules selected
+Found allow rule
+L4 ingress verdict: [no port context specified]
 `
 	repo.checkTrace(c, ctx, expectedOut, api.Denied)
 
@@ -577,7 +718,61 @@ Label verdict: denied
 +     Found all required labels
 3/3 rules selected
 Found no allow rule
-Label verdict: undecided
+
+Resolving L4 policy for matching on labels
+
+Resolving ingress port policy for [any:bar]
+* Rule {"matchLabels":{"any:bar":""}}: selected
+  Allows Ingress any port from endpoints [{"matchLabels":{"reserved:host":""}} {"matchLabels":{"any:foo":""}}]
+      Labels [any:baz] not found
+* Rule {"matchLabels":{"any:bar":""}}: selected
+    Allows Ingress port [{80 ANY}] from endpoints [{"matchLabels":{"reserved:host":""}} {"matchLabels":{"any:baz":""}}]
+      Found all required labels
+* Rule {"matchLabels":{"any:bar":""}}: selected
+  Allows Ingress any port
+      Labels [any:baz] not found
+Resolving ingress visibility rules for [any:bar]
+* Rule {"matchLabels":{"any:bar":""}}: selected
+    No active ingress visibility rules
+* Rule {"matchLabels":{"any:bar":""}}: selected
+    No active ingress visibility rules
+* Rule {"matchLabels":{"any:bar":""}}: selected
+    No active ingress visibility rules
+3 rules matched
+3/3 rules selected
+Found allow rule
+Label verdict: denied
+
+Resolving L4 policy for matching on ports
+
+Resolving egress port policy for [any:baz]
+Resolving ingress visibility rules for [any:baz]
+0 rules matched
+0/3 rules selected
+Found no allow rule
+L4 egress verdict: [no port context specified]
+
+Resolving ingress port policy for [any:bar]
+* Rule {"matchLabels":{"any:bar":""}}: selected
+  Allows Ingress any port from endpoints [{"matchLabels":{"reserved:host":""}} {"matchLabels":{"any:foo":""}}]
+      Labels [any:baz] not found
+* Rule {"matchLabels":{"any:bar":""}}: selected
+    Allows Ingress port [{80 ANY}] from endpoints [{"matchLabels":{"reserved:host":""}} {"matchLabels":{"any:baz":""}}]
+      Found all required labels
+* Rule {"matchLabels":{"any:bar":""}}: selected
+  Allows Ingress any port
+      Labels [any:baz] not found
+Resolving ingress visibility rules for [any:bar]
+* Rule {"matchLabels":{"any:bar":""}}: selected
+    No active ingress visibility rules
+* Rule {"matchLabels":{"any:bar":""}}: selected
+    No active ingress visibility rules
+* Rule {"matchLabels":{"any:bar":""}}: selected
+    No active ingress visibility rules
+3 rules matched
+3/3 rules selected
+Found allow rule
+L4 ingress verdict: [no port context specified]
 `
 	repo.checkTrace(c, ctx, expectedOut, api.Denied)
 

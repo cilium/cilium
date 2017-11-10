@@ -485,7 +485,6 @@ func (ds *PolicyTestSuite) TestMergeL7Policy(c *C) {
 	barRules := api.L7Rules{
 		Kafka: []api.PortRuleKafka{{Topic: "bar"}},
 	}
-
 	// The l3-dependent l7 rules are not merged together.
 	l7map = L7DataMap{
 		fooSelector[0]:           fooRules,

@@ -187,7 +187,7 @@ func (k *proxyTestSuite) TestKafkaRedirect(c *C) {
 		policy: &policy.L4Filter{
 			Port:           serverPort,
 			Protocol:       api.ProtoTCP,
-			L7Parser:       policy.ParserTypeKafka,
+			L7Parser:       api.ParserTypeKafka,
 			L7RedirectPort: proxyPort,
 			L7RulesPerEp: policy.L7DataMap{
 				policy.WildcardEndpointSelector: api.L7Rules{

@@ -155,7 +155,7 @@ func createOxyRedirect(l4 *policy.L4Filter, id string, source ProxySource, to ui
 		}
 	}
 
-	if l4.L7Parser != policy.ParserTypeHTTP {
+	if l4.L7Parser != api.ParserTypeHTTP {
 		return nil, fmt.Errorf("unknown L7 protocol \"%s\"", l4.L7Parser)
 	}
 

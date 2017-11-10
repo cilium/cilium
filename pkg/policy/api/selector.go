@@ -40,8 +40,11 @@ func (n *EndpointSelector) LabelSelectorString() string {
 
 // String returns a string representation of EndpointSelector.
 func (n EndpointSelector) String() string {
-	j, _ := n.MarshalJSON()
-	return string(j)
+	if n.LabelSelector != nil {
+		j, _ := n.MarshalJSON()
+		return string(j)
+	}
+	return "{}"
 }
 
 // Hash return hash of the internal json structure that represents the endpoint selector

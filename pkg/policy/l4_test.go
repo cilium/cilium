@@ -114,8 +114,7 @@ func (s *PolicyTestSuite) TestCreateL4Filter(c *C) {
 			// Regardless of ingress/egress, we should end up with
 			// a single L7 rule whether the selector is wildcarded
 			// or if it is based on specific labels.
-			filter := CreateL4Filter(eps, portrule, tuple,
-				direction, tuple.Protocol)
+			filter := CreateL4Filter(eps, portrule, tuple, direction)
 			c.Assert(len(filter.L7RulesPerEp), Equals, 1)
 		}
 	}
@@ -180,7 +179,7 @@ func (s *PolicyTestSuite) TestJSONMarshal(c *C) {
 	expected = `[{
   "port": 80,
   "protocol": "TCP",
-  "l7-rules": [
+  "l7Rules": [
     {
       "any.foo=": {
         "http": [
@@ -195,7 +194,7 @@ func (s *PolicyTestSuite) TestJSONMarshal(c *C) {
 } {
   "port": 8080,
   "protocol": "TCP",
-  "l7-rules": [
+  "l7Rules": [
     {
       "\u003cnone\u003e": {
         "http": [

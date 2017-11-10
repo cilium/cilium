@@ -155,9 +155,26 @@ func getSecurityIdentities(owner Owner, selector *api.EndpointSelector) []policy
 	return identities
 }
 
+func parsePortProtocol(filter *policy.L4Filter) (port uint16, proto uint8, err error) {
+	if filter.MatchesAnyPort() {
+		port = 0
+		proto = 0
+	} else {
+		port = uint16(filter.Port)
+		var protoUint8 u8proto.U8proto
+		protoUint8, err = u8proto.ParseProtocol(string(filter.Protocol))
+		proto = uint8(protoUint8)
+	}
+	return
+}
+
 func (e *Endpoint) removeOldFilter(owner Owner, filter *policy.L4Filter) int {
-	port := uint16(filter.Port)
-	proto, err := u8proto.ParseProtocol(string(filter.Protocol))
+	if filter.MatchesAnyPort() {
+		// Matches any port. This is handled by e.allowConsumer.
+		return 0
+	}
+
+	port, proto, err := parsePortProtocol(filter)
 	if err != nil {
 		e.getLogger().WithError(err).Warn("Parse policy protocol failed")
 		return 1
@@ -167,7 +184,7 @@ func (e *Endpoint) removeOldFilter(owner Owner, filter *policy.L4Filter) int {
 	for _, sel := range filter.FromEndpoints {
 		for _, id := range getSecurityIdentities(owner, &sel) {
 			srcID := id.Uint32()
-			if err = e.PolicyMap.DeleteL4(srcID, port, uint8(proto)); err != nil {
+			if err = e.PolicyMap.DeleteL4(srcID, port, proto); err != nil {
 				e.getLogger().WithError(err).WithField(logfields.L4PolicyID, srcID).Debug("Delete old l4 policy failed")
 			}
 		}
@@ -177,8 +194,12 @@ func (e *Endpoint) removeOldFilter(owner Owner, filter *policy.L4Filter) int {
 }
 
 func (e *Endpoint) applyNewFilter(owner Owner, filter *policy.L4Filter) int {
-	port := uint16(filter.Port)
-	proto, err := u8proto.ParseProtocol(string(filter.Protocol))
+	if filter.MatchesAnyPort() {
+		// Matches any port. This is handled by e.allowConsumer.
+		return 0
+	}
+
+	port, proto, err := parsePortProtocol(filter)
 	if err != nil {
 		e.getLogger().WithError(err).Warn("Parse policy protocol failed")
 		return 1
@@ -188,11 +209,11 @@ func (e *Endpoint) applyNewFilter(owner Owner, filter *policy.L4Filter) int {
 	for _, sel := range filter.FromEndpoints {
 		for _, id := range getSecurityIdentities(owner, &sel) {
 			srcID := id.Uint32()
-			if e.PolicyMap.L4Exists(srcID, port, uint8(proto)) {
+			if e.PolicyMap.L4Exists(srcID, port, proto) {
 				e.getLogger().WithField("l4Filter", filter).Debug("L4 filter exists")
 				continue
 			}
-			if err = e.PolicyMap.AllowL4(srcID, port, uint8(proto)); err != nil {
+			if err = e.PolicyMap.AllowL4(srcID, port, proto); err != nil {
 				e.getLogger().WithError(err).Warn("Update of l4 policy map failed")
 				errors++
 			}

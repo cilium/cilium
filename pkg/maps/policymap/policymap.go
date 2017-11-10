@@ -79,9 +79,7 @@ func (key *policyKey) String() string {
 }
 
 func (pm *PolicyMap) AllowConsumer(id uint32) error {
-	key := policyKey{Identity: id}
-	entry := PolicyEntry{Action: 1}
-	return bpf.UpdateElement(pm.Fd, unsafe.Pointer(&key), unsafe.Pointer(&entry), 0)
+	return pm.AllowL4(id, 0, 0)
 }
 
 // AllowL4 pushes an entry into the PolicyMap to allow source identity `id`
@@ -93,9 +91,7 @@ func (pm *PolicyMap) AllowL4(id uint32, dport uint16, proto uint8) error {
 }
 
 func (pm *PolicyMap) ConsumerExists(id uint32) bool {
-	key := policyKey{Identity: id}
-	var entry PolicyEntry
-	return bpf.LookupElement(pm.Fd, unsafe.Pointer(&key), unsafe.Pointer(&entry)) == nil
+	return pm.L4Exists(id, 0, 0)
 }
 
 // L4Exists determines whether PolicyMap currently contains an entry that
@@ -108,8 +104,7 @@ func (pm *PolicyMap) L4Exists(id uint32, dport uint16, proto uint8) bool {
 }
 
 func (pm *PolicyMap) DeleteConsumer(id uint32) error {
-	key := policyKey{Identity: id}
-	return bpf.DeleteElement(pm.Fd, unsafe.Pointer(&key))
+	return pm.DeleteL4(id, 0, 0)
 }
 
 // DeleteL4 removes an entry from the PolicyMap for source identity `id`

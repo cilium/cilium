@@ -1354,6 +1354,13 @@ func init() {
           "items": {
             "type": "string"
           }
+        },
+        "ingress-visibility": {
+          "description": "List of L4 ingress visibility rules",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
         }
       }
     },

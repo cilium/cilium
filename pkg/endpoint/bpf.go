@@ -52,6 +52,11 @@ func (e *Endpoint) writeL4Map(fw *bufio.Writer, owner Owner, m policy.L4PolicyMa
 	index := 0
 
 	for _, l4 := range m {
+		// Ignore L4 filters that match any port.
+		if l4.MatchesAnyPort() {
+			continue
+		}
+
 		// Represents struct l4_allow in bpf/lib/l4.h
 		protoNum, err := u8proto.ParseProtocol(string(l4.Protocol))
 		if err != nil {
