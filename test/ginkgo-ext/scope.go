@@ -28,11 +28,11 @@ func GetScope() string {
 	focusString := strings.ToLower(config.GinkgoConfig.FocusString)
 	switch {
 	case strings.HasPrefix(focusString, "run"):
-		return "runtime"
-	case strings.HasPrefix(focusString, "k8s"):
-		return "k8s"
+		return helpers.Runtime
+	case strings.HasPrefix(focusString, helpers.K8s):
+		return helpers.K8s
 	default:
-		return "runtime"
+		return helpers.Runtime
 	}
 }
 
@@ -40,7 +40,7 @@ func GetScope() string {
 // k8s, then return k8s scope along with the version of k8s that is running.
 func GetScopeWithVersion() string {
 	result := GetScope()
-	if result != "k8s" {
+	if result != helpers.K8s {
 		return result
 	}
 	return fmt.Sprintf("%s-%s", result, helpers.GetCurrentK8SEnv())
