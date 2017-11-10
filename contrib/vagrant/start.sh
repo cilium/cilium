@@ -587,8 +587,35 @@ create_k8s_config
 
 cd "${dir}/../.."
 
+
+VM_BUILD_NUMBER=${BUILD_NUMBER:-0}
+VM_JOB_BASE_NAME=${JOB_BASE_NAME:-"local"}
+
+if [ -n "${DESTROY}" ]; then
+  if [ -z "${K8S_VERSION}" ]; then
+    VM_BUILD_ID="${VM_JOB_BASE_NAME}-${VM_BUILD_NUMBER}"
+    VM_BUILD_ID_NAME="cilium-master-build-${VM_BUILD_ID}"
+    BUILD_NUMBER=${BUILD_NUMBER:-0} JOB_BASE_NAME=${JOB_BASE_NAME:-"local"} vagrant destroy -f "${VM_BUILD_ID_NAME}"
+  else  
+    VM_BUILD_ID="${VM_JOB_BASE_NAME}-${VM_BUILD_NUMBER}-${K8S_VERSION}"
+    VM_BUILD_ID_NAME_1="k8s1-build-${VM_BUILD_ID}" 
+    VM_BUILD_ID_NAME_2="k8s2-build-${VM_BUILD_ID}"
+    BUILD_NUMBER=${BUILD_NUMBER:-0} JOB_BASE_NAME=${JOB_BASE_NAME:-"local"} vagrant destroy -f "${VM_BUILD_ID_NAME_1}"
+    BUILD_NUMBER=${BUILD_NUMBER:-0} JOB_BASE_NAME=${JOB_BASE_NAME:-"local"} vagrant destroy -f "${VM_BUILD_ID_NAME_2}"
+  fi
+  exit 0
+fi
+
 if [ -n "${RELOAD}" ]; then
-    vagrant reload
+  vagrant reload
 else
-    vagrant up
+  echo "K8S_VERSION: ${K8S_VERSION}"
+  # Only launch K8s VMs if K8s Version is specified
+  if [ -z "${K8S_VERSION}" ]; then
+    echo "booting runtime"
+    BUILD_NUMBER=${BUILD_NUMBER:-0} JOB_BASE_NAME=${JOB_BASE_NAME:-"local"} vagrant up "runtime"
+  else  
+    BUILD_NUMBER=${BUILD_NUMBER:-0} JOB_BASE_NAME=${JOB_BASE_NAME:-"local"} vagrant up "k8s1-${K8S_VERSION}"
+    BUILD_NUMBER=${BUILD_NUMBER:-0} JOB_BASE_NAME=${JOB_BASE_NAME:-"local"} vagrant up "k8s2-${K8S_VERSION}"
+  fi
 fi
