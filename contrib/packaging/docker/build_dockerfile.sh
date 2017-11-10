@@ -55,6 +55,14 @@ EOF
 
 }
 
+function add_gopath_cmd {
+  cat <<EOF >> ./Dockerfile
+ENV GOROOT /usr/local/go
+ENV GOPATH /tmp/cilium-net-build
+ENV PATH "\$GOROOT/bin:/usr/local/clang+llvm/bin:\$GOPATH/bin:\$PATH"
+EOF
+}
+
 function build_dockerfile_dependencies {
  cat <<EOF > ./Dockerfile
 FROM ubuntu:16.04
@@ -64,6 +72,7 @@ ADD ./contrib/packaging/docker/clang-3.8.1.key /tmp/cilium-net-build/src/github.
 EOF
   append_docker_install_deps
   add_golang_install_cmd
+  add_gopath_cmd
 
 }
 
