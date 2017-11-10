@@ -16,7 +16,6 @@ Vagrant.configure("2") do |config|
             vb.linked_clone = true
         end
 
-        # server.vm.box = "bento/ubuntu-17.04"
         server.vm.box = "cilium/ginkgo"
         server.vm.hostname = "runtime"
         server.vm.synced_folder "../", "/src/"
