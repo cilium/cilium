@@ -1,7 +1,5 @@
 #!/bin/bash
 
-set -xv
-
 dir=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
 source "${dir}/helpers.bash"
 # dir might have been overwritten by helpers.bash
