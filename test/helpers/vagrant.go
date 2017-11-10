@@ -22,6 +22,7 @@ import (
 	"strings"
 
 	log "github.com/sirupsen/logrus"
+	//"regexp"
 )
 
 //Vagrant helper struct
@@ -30,25 +31,38 @@ type Vagrant struct{}
 //Create a new vagrant server. Receives and scope that it's the target server that need to be created.
 // In case of any error on vagrant [provision|up|ssh-config] error will be returned.
 func (vagrant *Vagrant) Create(scope string) error {
-	createCMD := "vagrant up %s --provision"
+	//createCMD := "vagrant up %s --provision"
+	var createCMD string
+	if strings.Contains(scope, Runtime) {
+		createCMD = "../contrib/vagrant/start.sh"
+	} else if strings.Contains(scope, K8s) {
+		log.Infof("%s", strings.TrimLeft(scope, "-"))
+		createCMD = fmt.Sprintf("K8S_VERSION=%s ../contrib/vagrant/start.sh", strings.TrimLeft(scope, "-"))
+	} else {
+		return fmt.Errorf("%s scope is not supported", scope)
+	}
+	//createCMD := "../contrib/vagrant/start.sh"
+
 	for _, v := range vagrant.Status(scope) {
 		switch v {
 		case "running":
-			//Sometimes Jenkins is not deleting the servers. So we need to make
-			//sure that we destroy before starts
+			// Always destroy if we are running in Jenkins. If not, just
+			// provisiong
 			if !IsRunningOnJenkins() {
-				createCMD = "vagrant provision %s"
+				//createCMD = "vagrant provision %s"
+				createCMD = "../contrib/vagrant/start.sh"
 			} else {
 				vagrant.Destroy(scope)
 			}
 		case "not_created":
-			createCMD = "vagrant up %s --provision"
+			//createCMD = "vagrant up %s --provision"
+			createCMD = "../contrib/vagrant/start.sh"
 		default:
 			//Sometimes server are stoped and not destroyed. Destroy just in case
 			vagrant.Destroy(scope)
 		}
 	}
-	createCMD = fmt.Sprintf(createCMD, scope)
+	//createCMD = fmt.Sprintf(createCMD, scope)
 	log.Infof("Vagrant:Create: running '%s'", createCMD)
 	cmd := vagrant.getCmd(createCMD)
 	stdout, err := cmd.StdoutPipe()
@@ -89,10 +103,11 @@ func (vagrant *Vagrant) Create(scope string) error {
 	return nil
 }
 
-//GetSSHConfig returns an string with the ssh-cofnig for a target vm. REturn
-//error if fails to run `vagrant ssh-config`
-func (vagrant *Vagrant) GetSSHConfig(scope string) ([]byte, error) {
-	cmd := vagrant.getCmd(fmt.Sprintf("vagrant ssh-config %s", scope))
+// GetVagrantSSHMetadata returns a string containing the output of `vagrant ssh-config`
+// for the provided Vagrant of name vmName. Returns an error if
+// `vagrant ssh-config` fails to execute.
+func (vagrant *Vagrant) GetVagrantSSHMetadata(vmName string) ([]byte, error) {
+	cmd := vagrant.getCmd(fmt.Sprintf("vagrant ssh-config %s", vmName))
 	result, err := cmd.Output()
 	if err != nil {
 		return nil, err
@@ -104,7 +119,6 @@ func (vagrant *Vagrant) GetSSHConfig(scope string) ([]byte, error) {
 //error if deletion of either the VMs fails
 func (vagrant *Vagrant) Destroy(scope string) error {
 	command := fmt.Sprintf("vagrant destroy -f %s ", scope)
-	log.Infof("Vagrant:Destroy: running '%s'", command)
 	cmd := vagrant.getCmd(command)
 	_, err := cmd.CombinedOutput()
 	if err != nil {
@@ -113,8 +127,9 @@ func (vagrant *Vagrant) Destroy(scope string) error {
 	return nil
 }
 
-func (vagrant *Vagrant) getCmd(op string) *exec.Cmd {
-	cmd := exec.Command(vagrant.getPath("bash"), "-c", op)
+func (vagrant *Vagrant) getCmd(vmCommand string) *exec.Cmd {
+	log.Infof("Vagrant: running command %q", vmCommand)
+	cmd := exec.Command(vagrant.getPath("bash"), "-c", vmCommand)
 	cmd.Dir = vagrant.getDir()
 	return cmd
 }
