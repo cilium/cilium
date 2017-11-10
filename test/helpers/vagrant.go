@@ -31,11 +31,12 @@ type Vagrant struct{}
 // In case of any error on vagrant [provision|up|ssh-config] error will be returned.
 func (vagrant *Vagrant) Create(scope string) error {
 	createCMD := "vagrant up %s --provision"
+
 	for _, v := range vagrant.Status(scope) {
 		switch v {
 		case "running":
-			//Sometimes Jenkins is not deleting the servers. So we need to make
-			//sure that we destroy before starts
+			// Always destroy if we are running in Jenkins. If not, just
+			// provision the VM.
 			if !IsRunningOnJenkins() {
 				createCMD = "vagrant provision %s"
 			} else {
@@ -89,10 +90,11 @@ func (vagrant *Vagrant) Create(scope string) error {
 	return nil
 }
 
-//GetSSHConfig returns an string with the ssh-cofnig for a target vm. REturn
-//error if fails to run `vagrant ssh-config`
-func (vagrant *Vagrant) GetSSHConfig(scope string) ([]byte, error) {
-	cmd := vagrant.getCmd(fmt.Sprintf("vagrant ssh-config %s", scope))
+// GetVagrantSSHMetadata returns a string containing the output of `vagrant ssh-config`
+// for the provided Vagrant of name vmName. Returns an error if
+// `vagrant ssh-config` fails to execute.
+func (vagrant *Vagrant) GetVagrantSSHMetadata(vmName string) ([]byte, error) {
+	cmd := vagrant.getCmd(fmt.Sprintf("vagrant ssh-config %s", vmName))
 	result, err := cmd.Output()
 	if err != nil {
 		return nil, err
@@ -104,7 +106,6 @@ func (vagrant *Vagrant) GetSSHConfig(scope string) ([]byte, error) {
 //error if deletion of either the VMs fails
 func (vagrant *Vagrant) Destroy(scope string) error {
 	command := fmt.Sprintf("vagrant destroy -f %s ", scope)
-	log.Infof("Vagrant:Destroy: running '%s'", command)
 	cmd := vagrant.getCmd(command)
 	_, err := cmd.CombinedOutput()
 	if err != nil {
@@ -113,8 +114,9 @@ func (vagrant *Vagrant) Destroy(scope string) error {
 	return nil
 }
 
-func (vagrant *Vagrant) getCmd(op string) *exec.Cmd {
-	cmd := exec.Command(vagrant.getPath("bash"), "-c", op)
+func (vagrant *Vagrant) getCmd(vmCommand string) *exec.Cmd {
+	log.Infof("Vagrant: running command %q", vmCommand)
+	cmd := exec.Command(vagrant.getPath("bash"), "-c", vmCommand)
 	cmd.Dir = vagrant.getDir()
 	return cmd
 }

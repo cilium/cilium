@@ -26,52 +26,67 @@ import (
 	"k8s.io/client-go/util/jsonpath"
 )
 
-//CmdRes Command response with all the data
+// CmdRes contains the result from running a command.
 type CmdRes struct {
-	cmd    string
-	params []string
-	stdout *bytes.Buffer
-	stderr *bytes.Buffer
-	exit   bool
+	cmd    string        // Command to run
+	params []string      // Parameters to provide to command
+	stdout *bytes.Buffer // Stdout from running cmd
+	stderr *bytes.Buffer // Stderr from running cmd
+	exit   bool          // Whether command successfully ran.
 }
 
-//WasSuccessful returns true if the command was sucessful
+// GetCmd returns res's cmd.
+func (res *CmdRes) GetCmd() string {
+	return res.cmd
+}
+
+// GetStdOut returns the contents of the stdout buffer of res as a string.
+func (res *CmdRes) GetStdOut() string {
+	return res.stdout.String()
+}
+
+// GetStdErr returns the contents of the stderr buffer of res as a string.
+func (res *CmdRes) GetStdErr() string {
+	return res.stderr.String()
+}
+
+// WasSuccessful returns true if cmd completed successfully.
 func (res *CmdRes) WasSuccessful() bool {
 	return res.exit
 }
 
-//ExpectFail make an assertion that checks command failed to execute
-//It accepts an optional parameter that can be used to annotate failure messages.
+// ExpectFail asserts whether res failed to execute. It accepts an optional
+// parameter that can be used to annotate failure messages.
 func (res *CmdRes) ExpectFail(optionalDescription ...interface{}) bool {
 	return gomega.ExpectWithOffset(1, res.WasSuccessful()).Should(
 		gomega.BeFalse(), optionalDescription...)
 }
 
-//ExpectSucess make an assertion that checks command executes successfully
-//It accepts an optional parameter that can be used to annotate failure messages.
+// ExpectSuccess asserts whether res executed successfully. It accepts an optional
+// parameter that can be used to annotate failure messages.
 func (res *CmdRes) ExpectSuccess(optionalDescription ...interface{}) bool {
 	return gomega.ExpectWithOffset(1, res.WasSuccessful()).Should(
 		gomega.BeTrue(), optionalDescription...)
 }
 
-//CountLines return the number of stdout lines
+//CountLines return the number of lines in the stdout of res.
 func (res *CmdRes) CountLines() int {
 	return strings.Count(res.stdout.String(), "\n")
 }
 
-//CombineOutput returns the combined output of stdout and stderr
+// CombineOutput returns the combined output of stdout and stderr for res.
 func (res *CmdRes) CombineOutput() *bytes.Buffer {
 	result := res.stdout
 	result.WriteString(res.stderr.String())
 	return result
 }
 
-//IntOutput returns the stdout of res as an integer
+// IntOutput returns the stdout of res as an integer
 func (res *CmdRes) IntOutput() (int, error) {
 	return strconv.Atoi(strings.Trim(res.stdout.String(), "\n"))
 }
 
-//FindResults filter CmdRes using jsonpath and returns an interface with the values
+// FindResults filter CmdRes using jsonpath and returns an interface with the values
 func (res *CmdRes) FindResults(filter string) ([]reflect.Value, error) {
 
 	var data interface{}
@@ -99,7 +114,7 @@ func (res *CmdRes) Filter(filter string) (*bytes.Buffer, error) {
 
 	err := json.Unmarshal(res.stdout.Bytes(), &data)
 	if err != nil {
-		return nil, fmt.Errorf("Coundn't parse json")
+		return nil, fmt.Errorf("could not parse JSON")
 	}
 	parser := jsonpath.New("").AllowMissingKeys(true)
 	parser.Parse(filter)
@@ -133,23 +148,23 @@ func (res *CmdRes) KVOutput() map[string]string {
 	return result
 }
 
-//Output returns the contents of stdout
+// Output returns the contents of res's stdout.
 func (res *CmdRes) Output() *bytes.Buffer {
 	return res.stdout
 }
 
-//Reset stdout bytes with an empty buffer
+// Reset stdout bytes with an empty buffer
 func (res *CmdRes) Reset() {
 	res.stdout.Reset()
 	return
 }
 
-//SingleOut returns the stdout of res without any newline characters
+// SingleOut returns the stdout of res without any newline characters
 func (res *CmdRes) SingleOut() string {
 	return strings.Replace(res.stdout.String(), "\n", "", -1)
 }
 
-//UnMarshal unmarshals res's stdout into data
+// UnMarshal unmarshals res's stdout into data
 func (res *CmdRes) UnMarshal(data interface{}) error {
 	err := json.Unmarshal(res.stdout.Bytes(), &data)
 	return err
