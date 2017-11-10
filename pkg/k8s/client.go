@@ -121,7 +121,7 @@ func CreateClient(config *rest.Config) (*kubernetes.Clientset, error) {
 	defer timeout.Stop()
 	wait.Until(func() {
 		log.Info("Waiting for k8s api-server to be ready...")
-		err := isConnReady(cs)
+		err = isConnReady(cs)
 		if err == nil {
 			close(stop)
 			return
@@ -133,8 +133,10 @@ func CreateClient(config *rest.Config) (*kubernetes.Clientset, error) {
 		default:
 		}
 	}, 5*time.Second, stop)
-	log.WithField(logfields.IPAddr, config.Host).Info("Connected to k8s api-server")
-	return cs, nil
+	if err == nil {
+		log.WithField(logfields.IPAddr, config.Host).Info("Connected to k8s api-server")
+	}
+	return cs, err
 }
 
 // isConnReady returns the err for the controller-manager status
