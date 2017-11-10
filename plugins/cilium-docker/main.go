@@ -22,7 +22,7 @@ import (
 	"github.com/cilium/cilium/pkg/logfields"
 	"github.com/cilium/cilium/plugins/cilium-docker/driver"
 
-	"github.com/sirupsen/logrus"
+	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
 
@@ -31,7 +31,6 @@ var (
 	driverSock string
 	debug      bool
 	ciliumAPI  string
-	log        = logrus.New()
 )
 
 // RootCmd represents the base command when called without any subcommands
@@ -78,9 +77,9 @@ func init() {
 
 func initConfig() {
 	if debug {
-		log.Level = logrus.DebugLevel
+		log.SetLevel(log.DebugLevel)
 	} else {
-		log.Level = logrus.InfoLevel
+		log.SetLevel(log.InfoLevel)
 	}
 
 	common.RequireRootPrivilege("cilium-docker")
