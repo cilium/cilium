@@ -23,7 +23,7 @@ import (
 
 //Docker kubectl command helper
 type Docker struct {
-	Node *Node
+	Node *SSHMeta
 
 	logCxt *log.Entry
 }
@@ -31,7 +31,7 @@ type Docker struct {
 //CreateDocker returns a new Docker instance based on the provided target
 func CreateDocker(target string, log *log.Entry) *Docker {
 	log.Infof("Docker: set target to '%s'", target)
-	node := CreateNodeFromTarget(target)
+	node := GetVagrantSSHMetadata(target)
 	if node == nil {
 		return nil
 	}
@@ -57,8 +57,8 @@ func (do *Docker) ContainerExec(name string, cmd string) *CmdRes {
 	}
 }
 
-//ContainerCreate runs an instance of the provided Docker image with network,
-//and with the provided options.
+// ContainerCreate is a wrapper for `docker run`. It runs an instance of the
+// specified Docker image with the provided network, name, and options.
 func (do *Docker) ContainerCreate(name, image, net, options string) *CmdRes {
 
 	stdout := new(bytes.Buffer)
@@ -66,6 +66,7 @@ func (do *Docker) ContainerCreate(name, image, net, options string) *CmdRes {
 
 	cmd := fmt.Sprintf(
 		"docker run -d --name %s --net %s %s %s", name, net, options, image)
+	log.Infof("spinning up container with command %q", cmd)
 	exit := do.Node.ExecWithSudo(cmd, stdout, stderr)
 
 	return &CmdRes{
@@ -76,9 +77,9 @@ func (do *Docker) ContainerCreate(name, image, net, options string) *CmdRes {
 	}
 }
 
-//ContainerRm force a deletigion of a container based on a name
+// ContainerRm is a wrapper around `docker rm -f`. It forcibly removes the
+// Docker container of the provided name.
 func (do *Docker) ContainerRm(name string) *CmdRes {
-
 	stdout := new(bytes.Buffer)
 	stderr := new(bytes.Buffer)
 
@@ -93,7 +94,8 @@ func (do *Docker) ContainerRm(name string) *CmdRes {
 	}
 }
 
-//ContainerInspect runs docker inspect for the container with the provided name
+// ContainerInspect runs `docker inspect` for the container with the provided
+// name.
 func (do *Docker) ContainerInspect(name string) *CmdRes {
 	stdout := new(bytes.Buffer)
 	stderr := new(bytes.Buffer)
@@ -109,21 +111,22 @@ func (do *Docker) ContainerInspect(name string) *CmdRes {
 	}
 }
 
-//ContainerInspectNet returns the networking information for the container with
-//the provided name
+// ContainerInspectNet returns a map of Docker networking information fields and
+// their associated values for the container of the provided name. An error
+// is returned if the networking information could not be retrieved.
 func (do *Docker) ContainerInspectNet(name string) (map[string]string, error) {
 	res := do.ContainerInspect(name)
 	properties := map[string]string{
 		"EndpointID":        "EndpointID",
-		"GlobalIPv6Address": "IPv6",
-		"IPAddress":         "IPv4",
+		"GlobalIPv6Address": IPv6,
+		"IPAddress":         IPv4,
 		"NetworkID":         "NetworkID",
 	}
 
 	if !res.WasSuccessful() {
-		return nil, fmt.Errorf("Can not get the container %s", name)
+		return nil, fmt.Errorf("could not inspect container %s", name)
 	}
-	filter := fmt.Sprintf(`{ [0].NetworkSettings.Networks.%s }`, networkName)
+	filter := fmt.Sprintf(`{ [0].NetworkSettings.Networks.%s }`, CiliumDockerNetwork)
 	result := make(map[string]string)
 	data, err := res.FindResults(filter)
 	if err != nil {
@@ -191,23 +194,23 @@ func (do *Docker) NetworkGet(name string) *CmdRes {
 }
 
 // SampleContainersActions creates or deletes various containers used for
-// testing Cilium and adds said containers to the provided Docker network
+// testing Cilium and adds said containers to the provided Docker network.
 func (do *Docker) SampleContainersActions(mode string, networkName string) {
 	images := map[string]string{
-		"httpd1": "cilium/demo-httpd",
-		"httpd2": "cilium/demo-httpd",
-		"httpd3": "cilium/demo-httpd",
-		"app1":   "tgraf/netperf",
-		"app2":   "tgraf/netperf",
-		"app3":   "tgraf/netperf",
+		Httpd1: HttpdImage,
+		Httpd2: HttpdImage,
+		Httpd3: HttpdImage,
+		App1:   NetperfImage,
+		App2:   NetperfImage,
+		App3:   NetperfImage,
 	}
 
 	switch mode {
-	case "create":
+	case Create:
 		for k, v := range images {
 			do.ContainerCreate(k, v, networkName, fmt.Sprintf("-l id.%s", k))
 		}
-	case "delete":
+	case Delete:
 		for k := range images {
 			do.ContainerRm(k)
 		}

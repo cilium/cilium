@@ -18,54 +18,59 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	log "github.com/sirupsen/logrus"
 	"io"
 	"os"
 )
 
-//Node contains metadata about Vagrant boxes used for running tests
-type Node struct {
+// SSHMeta contains metadata to SSH into a remote location to run tests
+type SSHMeta struct {
 	sshClient *SSHClient
-	host      string
-	port      int
 	env       []string
 }
 
-//CreateNode returns a Node with the specified host, port, and user.
-func CreateNode(host string, port int, user string) *Node {
-	return &Node{
-		host:      host,
-		port:      port,
-		sshClient: GetSSHclient(host, port, user),
+// CreateSSHMeta returns an SSHMeta with the specified host, port, and user, as
+// well as an according SSHClient.
+func CreateSSHMeta(host string, port int, user string) *SSHMeta {
+	return &SSHMeta{
+		sshClient: GetSSHClient(host, port, user),
 	}
 }
 
-//CreateNodeFromTarget returns a Node initialized based on the provided SSH-config target
-func CreateNodeFromTarget(target string) *Node {
+func (s *SSHMeta) String() string {
+	return fmt.Sprintf("environment: %s, SSHClient: %s", s.env, s.sshClient.String())
+
+}
+
+// GetVagrantSSHMetadata returns a SSHMeta initialized based on the provided
+// SSH-config target.
+func GetVagrantSSHMetadata(vmName string) *SSHMeta {
 	var vagrant Vagrant
-	config, err := vagrant.GetSSHConfig(target)
+	config, err := vagrant.GetVagrantSSHMetadata(vmName)
 	if err != nil {
 		return nil
 	}
+
+	log.Debugf("generated SSHConfig for node %s", vmName)
 	nodes, err := ImportSSHconfig(config)
 	if err != nil {
 		return nil
 	}
-	node := nodes[target]
+	log.Debugf("done importing ssh config")
+	node := nodes[vmName]
 	if node == nil {
 		return nil
 	}
 
-	return &Node{
-		host:      node.host,
-		port:      node.port,
+	return &SSHMeta{
 		sshClient: node.GetSSHClient(),
 	}
 }
 
-//Execute executes cmd on the provided node and stores the stdout / stderr of
-//the command in the provided buffers. Returns false if the command failed
-//during its execution.
-func (node *Node) Execute(cmd string, stdout io.Writer, stderr io.Writer) bool {
+// Execute executes cmd on the provided node and stores the stdout / stderr of
+// the command in the provided buffers. Returns false if the command failed
+// during its execution.
+func (s *SSHMeta) Execute(cmd string, stdout io.Writer, stderr io.Writer) bool {
 	if stdout == nil {
 		stdout = os.Stdout
 	}
@@ -80,7 +85,7 @@ func (node *Node) Execute(cmd string, stdout io.Writer, stderr io.Writer) bool {
 		Stdout: stdout,
 		Stderr: stderr,
 	}
-	err := node.sshClient.RunCommand(command)
+	err := s.sshClient.RunCommand(command)
 	if err != nil {
 		return false
 	}
@@ -90,17 +95,17 @@ func (node *Node) Execute(cmd string, stdout io.Writer, stderr io.Writer) bool {
 //ExecWithSudo executes the provided command using sudo privileges. The stdout
 //and stderr of the command are written to the specified stdout / stderr
 //buffers accordingly. Returns false if execution of cmd failed.
-func (node *Node) ExecWithSudo(cmd string, stdout io.Writer, stderr io.Writer) bool {
+func (s *SSHMeta) ExecWithSudo(cmd string, stdout io.Writer, stderr io.Writer) bool {
 	command := fmt.Sprintf("sudo %s", cmd)
-	return node.Execute(command, stdout, stderr)
+	return s.Execute(command, stdout, stderr)
 }
 
 //Exec executes the provided cmd and returns metadata about its result in CmdRes
-func (node *Node) Exec(cmd string) *CmdRes {
+func (s *SSHMeta) Exec(cmd string) *CmdRes {
 	stdout := new(bytes.Buffer)
 	stderr := new(bytes.Buffer)
 
-	exit := node.Execute(cmd, stdout, stderr)
+	exit := s.Execute(cmd, stdout, stderr)
 
 	return &CmdRes{
 		cmd:    cmd,
@@ -111,7 +116,7 @@ func (node *Node) Exec(cmd string) *CmdRes {
 }
 
 //ExecContext run a command in background and stop when cancel the context
-func (node *Node) ExecContext(ctx context.Context, cmd string) *CmdRes {
+func (s *SSHMeta) ExecContext(ctx context.Context, cmd string) *CmdRes {
 	if ctx == nil {
 		panic("no context provided")
 	}
@@ -125,9 +130,11 @@ func (node *Node) ExecContext(ctx context.Context, cmd string) *CmdRes {
 		Stdout: stdout,
 		Stderr: stderr,
 	}
+
 	go func() {
-		node.sshClient.RunCommandContext(ctx, command)
+		s.sshClient.RunCommandContext(ctx, command)
 	}()
+
 	return &CmdRes{
 		cmd:    cmd,
 		stdout: stdout,
