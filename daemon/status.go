@@ -98,7 +98,9 @@ func (h *getHealthz) Handle(params GetHealthzParams) middleware.Responder {
 		sr.Cilium = &models.Status{State: models.StatusStateOk, Msg: "OK"}
 	}
 
-	sr.IPAM = d.DumpIPAM()
+	if d.DebugEnabled() {
+		sr.IPAM = d.DumpIPAM()
+	}
 
 	if nm := d.nodeMonitor; nm != nil {
 		sr.NodeMonitor = d.nodeMonitor.State()
