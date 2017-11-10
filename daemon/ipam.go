@@ -20,7 +20,6 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	ipamapi "github.com/cilium/cilium/api/v1/server/restapi/ipam"
 	"github.com/cilium/cilium/pkg/apierror"
-	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/ipam"
 
 	"github.com/go-openapi/runtime/middleware"
@@ -93,10 +92,6 @@ func (h *deleteIPAMIP) Handle(params ipamapi.DeleteIPAMIPParams) middleware.Resp
 // DumpIPAM dumps in the form of a map, and only if debug is enabled, the list of
 // reserved IPv4 and IPv6 addresses.
 func (d *Daemon) DumpIPAM() *models.IPAMStatus {
-	if !d.conf.Opts.IsEnabled(endpoint.OptionDebug) {
-		return nil
-	}
-
 	allocv4, allocv6 := ipam.Dump()
 	return &models.IPAMStatus{
 		IPV4: allocv4,
