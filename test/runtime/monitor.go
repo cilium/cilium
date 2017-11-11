@@ -66,7 +66,7 @@ var _ = Describe("RuntimeMonitorTest", func() {
 
 		ctx, cancel := context.WithCancel(context.Background())
 
-		res = docker.Node.ExecContext(ctx, "sudo cilium monitor -v")
+		res = docker.Node.ExecContext(ctx, "cilium monitor -v")
 		docker.SampleContainersActions("create", networkName)
 		helpers.Sleep(5)
 		cancel()
@@ -93,7 +93,7 @@ var _ = Describe("RuntimeMonitorTest", func() {
 			By(fmt.Sprintf("Type %s", k))
 
 			ctx, cancel := context.WithCancel(context.Background())
-			res := docker.Node.ExecContext(ctx, fmt.Sprintf("sudo cilium monitor --type %s -v", k))
+			res := docker.Node.ExecContext(ctx, fmt.Sprintf("cilium monitor --type %s -v", k))
 			docker.SampleContainersActions("create", networkName)
 			docker.ContainerExec("app1", "ping -c 4 httpd1")
 			helpers.Sleep(5)
@@ -115,7 +115,7 @@ var _ = Describe("RuntimeMonitorTest", func() {
 
 		ctx, cancel := context.WithCancel(context.Background())
 		res = docker.Node.ExecContext(ctx, fmt.Sprintf(
-			"sudo cilium monitor --type debug --from %s -v", endpoints["app1"]))
+			"cilium monitor --type debug --from %s -v", endpoints["app1"]))
 		docker.ContainerExec("app1", "ping -c 5 httpd1")
 		helpers.Sleep(5)
 		cancel()
@@ -141,7 +141,7 @@ var _ = Describe("RuntimeMonitorTest", func() {
 		cilium.EndpointWaitUntilReady()
 		ctx, cancel := context.WithCancel(context.Background())
 		res = docker.Node.ExecContext(ctx, fmt.Sprintf(
-			"sudo cilium monitor --type drop -v --to %s", endpoints["httpd1"]))
+			"cilium monitor --type drop -v --to %s", endpoints["httpd1"]))
 
 		docker.ContainerExec("app1", "ping -c 5 httpd1")
 		docker.ContainerExec("app2", "ping -c 5 httpd1")
@@ -166,7 +166,7 @@ var _ = Describe("RuntimeMonitorTest", func() {
 
 		ctx, cancel := context.WithCancel(context.Background())
 		res = docker.Node.ExecContext(ctx, fmt.Sprintf(
-			"sudo cilium monitor -v --type drop --related-to %s", endpoints["httpd1"]))
+			"cilium monitor -v --type drop --related-to %s", endpoints["httpd1"]))
 		cilium.EndpointWaitUntilReady()
 		docker.ContainerExec("app1", "curl -s --fail --connect-timeout 3 http://httpd1/public")
 
@@ -194,7 +194,7 @@ var _ = Describe("RuntimeMonitorTest", func() {
 		ctx, cancelfn := context.WithCancel(context.Background())
 
 		for i := 1; i <= 3; i++ {
-			monitorRes = append(monitorRes, docker.Node.ExecContext(ctx, "sudo cilium monitor"))
+			monitorRes = append(monitorRes, docker.Node.ExecContext(ctx, "cilium monitor"))
 		}
 
 		docker.ContainerExec("client", "ping -c 5 server")
