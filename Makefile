@@ -1,7 +1,7 @@
 include Makefile.defs
 
 SUBDIRS = plugins bpf cilium daemon monitor
-GOFILES ?= $(shell go list ./... | grep -v /vendor/ | grep -v /contrib/ | grep -v /test)
+GOFILES ?= $(shell go list ./... | grep -v /vendor/ | grep -v /contrib/ | grep -v /test  | grep -v /envoy-api/ )
 GOLANGVERSION = $(shell go version 2>/dev/null | grep -Eo '(go[0-9].[0-9])')
 GOLANG_SRCFILES=$(shell for pkg in $GOFILES; do find $(pkg) -name *.go -print; done | grep -v /vendor/)
 BPF_SRCFILES=$(shell find bpf/ -name *.[ch] -print)
@@ -33,8 +33,8 @@ tests-common: force
 	go vet $(GOFILES)
 
 tests-etcd:
-	@docker rm -f "cilium-etcd-test-container" 2> /dev/null || true
-	-docker run -d \
+	@sudo docker rm -f "cilium-etcd-test-container" 2> /dev/null || true
+	-sudo docker run -d \
 	    --name "cilium-etcd-test-container" \
 	    -p 4002:4001 \
         quay.io/coreos/etcd:v3.1.0 \
@@ -54,7 +54,7 @@ tests-etcd:
 	rm coverage-all.out
 	rm coverage.out
 	@rmdir ./daemon/1 ./daemon/1_backup 2> /dev/null || true
-	docker rm -f "cilium-etcd-test-container"
+	sudo docker rm -f "cilium-etcd-test-container"
 
 tests-consul-ginkgo:
 	echo "mode: count" > coverage-all.out
@@ -71,8 +71,8 @@ tests-consul-ginkgo:
 
 
 tests-consul:
-	@docker rm -f "cilium-consul-test-container" 2> /dev/null || true
-	-docker run -d \
+	@sudo docker rm -f "cilium-consul-test-container" 2> /dev/null || true
+	-sudo docker run -d \
            --name "cilium-consul-test-container" \
            -p 8501:8500 \
            -e 'CONSUL_LOCAL_CONFIG={"skip_leave_on_interrupt": true}' \
@@ -89,7 +89,7 @@ tests-consul:
 	rm coverage-all.out
 	rm coverage.out
 	@rmdir ./daemon/1 ./daemon/1_backup 2> /dev/null || true
-	docker rm -f "cilium-consul-test-container"
+	sudo docker rm -f "cilium-consul-test-container"
 
 clean-tags:
 	-$(MAKE) -C bpf/ clean-tags
