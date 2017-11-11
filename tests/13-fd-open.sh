@@ -13,7 +13,7 @@ set -ex
 
 threshold=5000
 
-fd_open=$(sudo lsof 2>/dev/null | grep cilium | wc -l)
+fd_open=$(sudo lsof -p `pidof cilium-node-monitor` -p `pidof cilium-agent` -p `pidof cilium-docker` 2>/dev/null | wc -l)
 
 if [[ ${fd_open} -gt ${threshold} ]]; then
     abort "Number of fd open seems abnormal: ${fd_open} (expecting less than ${threshold})"
