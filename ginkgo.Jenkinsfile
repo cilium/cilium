@@ -52,6 +52,7 @@ pipeline {
                     junit 'test/*.xml'
                     // Temporary workaround to test cleanup
                     // rm -rf ${GOPATH}/src/github.com/cilium/cilium
+                    sh 'cd test/; ./post_build_agent.sh || true'                    
                     sh 'cd test/; vagrant destroy -f'
                     sh 'cd test/; K8S_VERSION=1.6 vagrant destroy -f'
                 }
