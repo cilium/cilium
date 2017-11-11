@@ -30,3 +30,4 @@ else
         systemctl restart $service || echo "service $service failed to restart"
     done
 fi
+sudo adduser vagrant cilium
