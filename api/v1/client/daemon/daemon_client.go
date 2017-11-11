@@ -56,6 +56,34 @@ func (a *Client) GetConfig(params *GetConfigParams) (*GetConfigOK, error) {
 }
 
 /*
+GetDebuginfo retrieves information about the agent and evironment for debugging
+*/
+func (a *Client) GetDebuginfo(params *GetDebuginfoParams) (*GetDebuginfoOK, error) {
+	// TODO: Validate the params before sending
+	if params == nil {
+		params = NewGetDebuginfoParams()
+	}
+
+	result, err := a.transport.Submit(&runtime.ClientOperation{
+		ID:                 "GetDebuginfo",
+		Method:             "GET",
+		PathPattern:        "/debuginfo",
+		ProducesMediaTypes: []string{"application/json"},
+		ConsumesMediaTypes: []string{"application/json"},
+		Schemes:            []string{"http"},
+		Params:             params,
+		Reader:             &GetDebuginfoReader{formats: a.formats},
+		Context:            params.Context,
+		Client:             params.HTTPClient,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return result.(*GetDebuginfoOK), nil
+
+}
+
+/*
 GetHealthz gets health of cilium daemon
 
 Returns health and status information of the Cilium daemon and related

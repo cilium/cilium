@@ -80,6 +80,29 @@ func init() {
         }
       }
     },
+    "/debuginfo": {
+      "get": {
+        "tags": [
+          "daemon"
+        ],
+        "summary": "Retrieve information about the agent and evironment for debugging",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "schema": {
+              "$ref": "#/definitions/DebugInfo"
+            }
+          },
+          "500": {
+            "description": "DebugInfo get failed",
+            "schema": {
+              "$ref": "#/definitions/Error"
+            },
+            "x-go-name": "Failure"
+          }
+        }
+      }
+    },
     "/endpoint": {
       "get": {
         "description": "Retrieves a list of endpoints that have metadata matching the provided parameters, or all endpoints if no parameters provided.\n",
@@ -1089,6 +1112,48 @@ func init() {
         },
         "policy-enforcement": {
           "type": "string"
+        }
+      }
+    },
+    "DebugInfo": {
+      "description": "groups some debugging related information on the agent",
+      "type": "object",
+      "properties": {
+        "cilium-memory-map": {
+          "type": "string"
+        },
+        "cilium-nodemonitor-memory-map": {
+          "type": "string"
+        },
+        "cilium-status": {
+          "$ref": "#/definitions/StatusResponse"
+        },
+        "cilium-version": {
+          "type": "string"
+        },
+        "endpoint-list": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Endpoint"
+          }
+        },
+        "environment-variables": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "kernel-version": {
+          "type": "string"
+        },
+        "policy": {
+          "$ref": "#/definitions/Policy"
+        },
+        "service-list": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Service"
+          }
         }
       }
     },

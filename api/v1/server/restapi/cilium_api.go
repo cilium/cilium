@@ -60,6 +60,9 @@ func NewCiliumAPI(spec *loads.Document) *CiliumAPI {
 		DaemonGetConfigHandler: daemon.GetConfigHandlerFunc(func(params daemon.GetConfigParams) middleware.Responder {
 			return middleware.NotImplemented("operation DaemonGetConfig has not yet been implemented")
 		}),
+		DaemonGetDebuginfoHandler: daemon.GetDebuginfoHandlerFunc(func(params daemon.GetDebuginfoParams) middleware.Responder {
+			return middleware.NotImplemented("operation DaemonGetDebuginfo has not yet been implemented")
+		}),
 		EndpointGetEndpointHandler: endpoint.GetEndpointHandlerFunc(func(params endpoint.GetEndpointParams) middleware.Responder {
 			return middleware.NotImplemented("operation EndpointGetEndpoint has not yet been implemented")
 		}),
@@ -173,6 +176,8 @@ type CiliumAPI struct {
 	ServiceDeleteServiceIDHandler service.DeleteServiceIDHandler
 	// DaemonGetConfigHandler sets the operation handler for the get config operation
 	DaemonGetConfigHandler daemon.GetConfigHandler
+	// DaemonGetDebuginfoHandler sets the operation handler for the get debuginfo operation
+	DaemonGetDebuginfoHandler daemon.GetDebuginfoHandler
 	// EndpointGetEndpointHandler sets the operation handler for the get endpoint operation
 	EndpointGetEndpointHandler endpoint.GetEndpointHandler
 	// EndpointGetEndpointIDHandler sets the operation handler for the get endpoint ID operation
@@ -306,6 +311,10 @@ func (o *CiliumAPI) Validate() error {
 
 	if o.DaemonGetConfigHandler == nil {
 		unregistered = append(unregistered, "daemon.GetConfigHandler")
+	}
+
+	if o.DaemonGetDebuginfoHandler == nil {
+		unregistered = append(unregistered, "daemon.GetDebuginfoHandler")
 	}
 
 	if o.EndpointGetEndpointHandler == nil {
@@ -523,6 +532,11 @@ func (o *CiliumAPI) initHandlerCache() {
 		o.handlers["GET"] = make(map[string]http.Handler)
 	}
 	o.handlers["GET"]["/config"] = daemon.NewGetConfig(o.context, o.DaemonGetConfigHandler)
+
+	if o.handlers["GET"] == nil {
+		o.handlers["GET"] = make(map[string]http.Handler)
+	}
+	o.handlers["GET"]["/debuginfo"] = daemon.NewGetDebuginfo(o.context, o.DaemonGetDebuginfoHandler)
 
 	if o.handlers["GET"] == nil {
 		o.handlers["GET"] = make(map[string]http.Handler)
