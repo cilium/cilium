@@ -31,6 +31,7 @@ pipeline {
     }
     post {
         always {
+            sh './test/post_build_agent.sh || true'
             sh './tests/copy_files || true'
             archiveArtifacts artifacts: "cilium-files-runtime-${JOB_BASE_NAME}-${BUILD_NUMBER}.tar.gz", allowEmptyArchive: true
             sh './tests/k8s/copy_files || true'
