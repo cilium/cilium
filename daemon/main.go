@@ -721,6 +721,9 @@ func runDaemon() {
 	api.IPAMPostIPAMIPHandler = NewPostIPAMIPHandler(d)
 	api.IPAMDeleteIPAMIPHandler = NewDeleteIPAMIPHandler(d)
 
+	// /debuginfo
+	api.DaemonGetDebuginfoHandler = NewGetDebugInfoHandler(d)
+
 	server := server.NewServer(api)
 	server.EnabledListeners = []string{"unix"}
 	server.SocketPath = flags.Filename(socketPath)
