@@ -636,6 +636,22 @@ paths:
           x-go-name: Failure
           schema:
             "$ref": "#/definitions/Error"
+  "/debuginfo":
+    get:
+      summary: Retrieve information about the agent and evironment for debugging
+      tags:
+      - daemon
+      responses:
+        '200':
+          description: Success
+          schema:
+            "$ref": "#/definitions/DebugInfo"
+        '500':
+          description: DebugInfo get failed
+          x-go-name: Failure
+          schema:
+            "$ref": "#/definitions/Error"
+
 parameters:
   endpoint-id:
     name: id
@@ -965,6 +981,34 @@ definitions:
       revision:
         type: integer
       list:
+        type: array
+        items:
+          type: string
+  DebugInfo:
+    description: groups some debugging related information on the agent
+    type: object
+    properties:
+      cilium-version:
+        type: string
+      kernel-version:
+        type: string
+      cilium-status:
+        "$ref": "#/definitions/StatusResponse"
+      endpoint-list:
+        type: array
+        items:
+          "$ref": "#/definitions/Endpoint"
+      service-list:
+        type: array
+        items:
+          "$ref": "#/definitions/Service"
+      policy:
+        "$ref": "#/definitions/Policy"
+      cilium-memory-map:
+        type: string
+      cilium-nodemonitor-memory-map:
+        type: string
+      environment-variables:
         type: array
         items:
           type: string
