@@ -22,6 +22,7 @@ CLI for interacting with the local Cilium Agent
 * [cilium cleanup](cilium_cleanup.html)	 - Reset the agent state
 * [cilium completion](cilium_completion.html)	 - Output shell completion code for bash
 * [cilium config](cilium_config.html)	 - Cilium configuration options
+* [cilium debuginfo](cilium_debuginfo.html)	 - Request available debugging information from agent
 * [cilium endpoint](cilium_endpoint.html)	 - Manage endpoints
 * [cilium identity](cilium_identity.html)	 - Manage security identities
 * [cilium monitor](cilium_monitor.html)	 - Monitoring
