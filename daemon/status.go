@@ -107,9 +107,14 @@ func (h *getHealthz) Handle(params GetHealthzParams) middleware.Responder {
 	metrics.SetTSValue(metrics.EventTSAPI, time.Now())
 
 	d := h.daemon
+	sr := h.getStatus(d)
+	return NewGetHealthzOK().WithPayload(&sr)
+}
+
+func (h *getHealthz) getStatus(d *Daemon) models.StatusResponse {
 	sr := models.StatusResponse{}
 
-	checkLocks(h.daemon)
+	checkLocks(d)
 
 	if info, err := kvstore.Client().Status(); err != nil {
 		sr.Kvstore = &models.Status{State: models.StatusStateFailure, Msg: fmt.Sprintf("Err: %s - %s", err, info)}
@@ -151,5 +156,5 @@ func (h *getHealthz) Handle(params GetHealthzParams) middleware.Responder {
 	sr.Cluster = h.getNodeStatus()
 	sr.Cluster.CiliumHealth = d.ciliumHealth.GetStatus()
 
-	return NewGetHealthzOK().WithPayload(&sr)
+	return sr
 }
