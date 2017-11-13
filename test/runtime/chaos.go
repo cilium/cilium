@@ -56,9 +56,14 @@ var _ = Describe("RuntimeChaosMonkey", func() {
 		docker.ContainerCreate("client", netperfImage, networkName, "-l id.client")
 		docker.ContainerCreate("server", netperfImage, networkName, "-l id.server")
 
+		areEndpointsReady := cilium.EndpointWaitUntilReady()
+		Expect(areEndpointsReady).Should(BeTrue())
 	})
 
 	AfterEach(func() {
+		if CurrentGinkgoTestDescription().Failed {
+			cilium.ReportFailed()
+		}
 		docker.ContainerRm("client")
 		docker.ContainerRm("server")
 	})
@@ -76,7 +81,7 @@ var _ = Describe("RuntimeChaosMonkey", func() {
 		ips := cilium.Node.Exec(`
 		curl -s --unix-socket /var/run/cilium/cilium.sock \
 		http://localhost/v1beta/healthz/ | jq ".ipam.ipv4|length"`)
-		Expect(originalIps.Output()).To(Equal(ips.Output()))
+		Expect(originalIps.Output().String()).To(Equal(ips.Output().String()))
 
 	}, 300)
 
