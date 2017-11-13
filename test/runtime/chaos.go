@@ -71,8 +71,6 @@ var _ = Describe("RuntimeChaos", func() {
 		curl -s --unix-socket /var/run/cilium/cilium.sock \
 		http://localhost/v1beta/healthz/ | jq ".ipam.ipv4|length"`)
 
-
-
 		res := cilium.Node.Exec("sudo systemctl restart cilium")
 		res.ExpectSuccess()
 
