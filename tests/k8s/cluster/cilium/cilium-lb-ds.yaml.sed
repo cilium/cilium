@@ -9,6 +9,13 @@ spec:
       labels:
         k8s-app: cilium
         kubernetes.io/cluster-service: "true"
+      annotations:
+       # This annotation plus the CriticalAddonsOnly toleration makes
+       # cilium to be a critical pod in the cluster, which ensures cilium
+       # gets priority scheduling.
+       # https://kubernetes.io/docs/tasks/administer-cluster/guaranteed-scheduling-critical-addon-pods/
+        scheduler.alpha.kubernetes.io/critical-pod: ''
+
     spec:
       serviceAccountName: cilium
       containers:
@@ -86,3 +93,7 @@ spec:
         - name: etc-cni-netd
           hostPath:
               path: /etc/cni/net.d
+      tolerations:
+      # Mark cilium's pod as critical for rescheduling
+      - key: CriticalAddonsOnly
+        operator: "Exists"
