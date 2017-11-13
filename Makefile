@@ -171,7 +171,7 @@ gofmt:
 	for pkg in $(GOFILES); do go fmt $$pkg; done
 
 precheck-gofmt:
-	tests/00-fmt.sh
+	test/shell_scripts/00-fmt.sh
 
 pprof-help:
 	@echo "Available pprof targets:"
