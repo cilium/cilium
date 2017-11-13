@@ -27,9 +27,9 @@ import (
 )
 
 const (
-	MonitorDropNotification  = "MonitorDropNotification"
-	MonitorTraceNotification = "MonitorTraceNotification"
-	MonitorDebug             = "MonitorDebug"
+	MonitorDropNotification  = "DropNotification"
+	MonitorTraceNotification = "TraceNotification"
+	MonitorDebug             = "Debug"
 )
 
 var _ = Describe("RuntimeMonitorTest", func() {
@@ -65,7 +65,7 @@ var _ = Describe("RuntimeMonitorTest", func() {
 
 	It("Cilium monitor verbose mode", func() {
 
-		res := cilium.Exec("config MonitorDebug=true MonitorDropNotification=true MonitorTraceNotification=true")
+		res := cilium.Exec(fmt.Sprintf("config %s=true %s=true %s=true", MonitorDebug, MonitorDropNotification, MonitorTraceNotification))
 		res.ExpectSuccess()
 
 		ctx, cancel := context.WithCancel(context.Background())
