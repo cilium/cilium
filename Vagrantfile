@@ -41,6 +41,7 @@ SCRIPT
 $build = <<SCRIPT
 echo "build: building Cilium"
 ~/go/src/github.com/cilium/cilium/common/build.sh
+echo "return code of build.sh: $?"
 rm -fr ~/go/bin/cilium*
 echo "build: done building Cilium"
 SCRIPT
