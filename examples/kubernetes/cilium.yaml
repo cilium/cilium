@@ -75,6 +75,11 @@ spec:
         k8s-app: cilium
         kubernetes.io/cluster-service: "true"
       annotations:
+        # This annotation plus the CriticalAddonsOnly toleration makes
+        # cilium to be a critical pod in the cluster, which ensures cilium
+        # gets priority scheduling.
+        # https://kubernetes.io/docs/tasks/administer-cluster/guaranteed-scheduling-critical-addon-pods/
+        scheduler.alpha.kubernetes.io/critical-pod: ''
         scheduler.alpha.kubernetes.io/tolerations: >-
           [{"key":"dedicated","operator":"Equal","value":"master","effect":"NoSchedule"}]
     spec:
@@ -194,6 +199,9 @@ spec:
       - effect: NoSchedule
         key: node.cloudprovider.kubernetes.io/uninitialized
         value: "true"
+      # Mark cilium's pod as critical for rescheduling
+      - key: CriticalAddonsOnly
+        operator: "Exists"
 ---
 kind: ClusterRole
 apiVersion: rbac.authorization.k8s.io/v1beta1
