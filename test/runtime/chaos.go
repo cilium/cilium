@@ -54,17 +54,24 @@ var _ = Describe("RuntimeChaos", func() {
 		docker.ContainerCreate(helpers.Client, helpers.NetperfImage, helpers.CiliumDockerNetwork, "-l id.client")
 		docker.ContainerCreate(helpers.Server, helpers.NetperfImage, helpers.CiliumDockerNetwork, "-l id.server")
 
+		_ = cilium.EndpointWaitUntilReady()
 	})
 
 	AfterEach(func() {
+		if CurrentGinkgoTestDescription().Failed {
+			cilium.ReportFailed()
+		}
 		docker.ContainerRm(helpers.Client)
 		docker.ContainerRm(helpers.Server)
+
 	})
 
 	It("Endpoint recovery on restart", func() {
 		originalIps := cilium.Node.Exec(`
 		curl -s --unix-socket /var/run/cilium/cilium.sock \
 		http://localhost/v1beta/healthz/ | jq ".ipam.ipv4|length"`)
+
+
 
 		res := cilium.Node.Exec("sudo systemctl restart cilium")
 		res.ExpectSuccess()
@@ -74,7 +81,7 @@ var _ = Describe("RuntimeChaos", func() {
 		ips := cilium.Node.Exec(`
 		curl -s --unix-socket /var/run/cilium/cilium.sock \
 		http://localhost/v1beta/healthz/ | jq ".ipam.ipv4|length"`)
-		Expect(originalIps.Output()).To(Equal(ips.Output()))
+		Expect(originalIps.Output().String()).To(Equal(ips.Output().String()))
 
 	}, 300)
 
