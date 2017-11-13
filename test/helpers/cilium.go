@@ -170,7 +170,7 @@ func (c *Cilium) EndpointWaitUntilReady(validation ...bool) bool {
 			}
 			if len(validation) > 0 && validation[0] {
 				// If the endpoint's latest statest message does not contain "Policy regeneration skipped", then it must be regenerating; wait until length of status message array changes.
-				if originalVal, _ := epsStatus[eps.ID];  !(len(eps.Status) > 0 && eps.Status[0].Message == "Policy regeneration skipped" ) && len(eps.Status) <= originalVal  {
+				if originalVal, _ := epsStatus[eps.ID]; !(len(eps.Status) > 0 && eps.Status[0].Message == "Policy regeneration skipped") && len(eps.Status) <= originalVal {
 					logger.Infof("endpoint %d not regenerated", eps.ID)
 					return false
 				}
@@ -354,7 +354,7 @@ func (c *Cilium) ReportFailed(commands ...string) {
 		fmt.Fprint(wr, res.Output())
 	}
 	fmt.Fprint(wr, "StackTrace Ends\n")
-	Sleep(120*time.Second)
+	Sleep(120 * time.Second)
 }
 
 //ServiceAdd Creates a new cilium service
