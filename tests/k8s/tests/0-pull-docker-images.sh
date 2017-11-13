@@ -11,18 +11,12 @@ redirect_debug_logs ${LOGS_DIR}
 
 set -ex
 
+
 for img in borkmann/misc \
-  busybox:latest \
-  cilium/demo-client \
-  cilium/demo-httpd \
-  cilium/kafkaclient2 \
-  consul:0.8.3 \
-  digitalwonderland/zookeeper \
+  gcr.io/google_samples/gb-redisslave:v1 \
   httpd \
-  quay.io/coreos/etcd:v3.1.0 \
-  tgraf/netperf \
-  tgraf/nettools \
-  wurstmeister/kafka; do
+  kubernetes/guestbook:v2 \
+  redis; do
 
   docker pull $img &
 done
