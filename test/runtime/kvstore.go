@@ -16,6 +16,7 @@ package RuntimeTest
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/cilium/cilium/test/helpers"
 
@@ -68,12 +69,17 @@ var _ = Describe("RuntimeKVStoreTest", func() {
 	})
 
 	It("Consul KVStore", func() {
+		var err error
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
-		cilium.Node.ExecContext(
+		res := cilium.Node.ExecContext(
 			ctx,
-			"sudo cilium-agent --kvstore consul --kvstore-opt consul.address=127.0.0.1:8500 --debug")
-		err := cilium.WaitUntilReady(150)
+			"sudo env \"PATH=$PATH:/usr/local/clang/bin\" cilium-agent --kvstore consul --kvstore-opt consul.address=127.0.0.1:8500 --debug")
+		defer func() {
+			if err != nil {
+				fmt.Print(res.CombineOutput())
+			}}()
+		err = cilium.WaitUntilReady(150)
 		Expect(err).Should(BeNil())
 
 		docker.Node.Exec("sudo systemctl restart cilium-docker")
@@ -86,12 +92,19 @@ var _ = Describe("RuntimeKVStoreTest", func() {
 	})
 
 	It("Etcd KVStore", func() {
+		var err error
+		cilium.Node.Exec("sudo service cilium-etcd start")
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
-		cilium.Node.ExecContext(
+		defer cilium.Node.Exec("sudo service cilium-etcd stop")
+		res := cilium.Node.ExecContext(
 			ctx,
-			"sudo cilium-agent --kvstore etcd --kvstore-opt etcd.address=127.0.0.1:4001")
-		err := cilium.WaitUntilReady(150)
+			"sudo env \"PATH=$PATH:/usr/local/clang/bin\" cilium-agent --kvstore etcd --kvstore-opt etcd.address=127.0.0.1:4001")
+		defer func() {
+			if err != nil {
+				fmt.Print(res.CombineOutput())
+			} }()
+		err = cilium.WaitUntilReady(150)
 		Expect(err).Should(BeNil())
 
 		docker.Node.Exec("sudo systemctl restart cilium-docker")
