@@ -1023,6 +1023,22 @@ func init() {
         }
       }
     },
+    "ClusterStatus": {
+      "description": "Status of cluster",
+      "properties": {
+        "nodes": {
+          "description": "List of known nodes",
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/NodeElement"
+          }
+        },
+        "self": {
+          "description": "Name of local node (if available)",
+          "type": "string"
+        }
+      }
+    },
     "Configuration": {
       "description": "General purpose structure to hold configuration of the daemon and\nendpoints. Split into a mutable and immutable section.\n",
       "type": "object",
@@ -1567,6 +1583,10 @@ func init() {
       "description": "Addressing information",
       "type": "object",
       "properties": {
+        "address-type": {
+          "description": "Node address type, one of HostName, ExternalIP or InternalIP",
+          "type": "string"
+        },
         "alloc-range": {
           "description": "Address pool to be used for local endpoints",
           "type": "string"
@@ -1578,6 +1598,25 @@ func init() {
         "ip": {
           "description": "IP address of node",
           "type": "string"
+        }
+      }
+    },
+    "NodeElement": {
+      "description": "Known node in the cluster",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "primary-address": {
+          "description": "Primary address used for intra-cluster communication",
+          "$ref": "#/definitions/NodeAddressing"
+        },
+        "secondary-addresses": {
+          "description": "Alternative addresses assigned to the node",
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/NodeAddressingElement"
+          }
         }
       }
     },
@@ -1692,6 +1731,10 @@ func init() {
         "cilium": {
           "description": "Status of Cilium daemon",
           "$ref": "#/definitions/Status"
+        },
+        "cluster": {
+          "description": "Status of cluster",
+          "$ref": "#/definitions/ClusterStatus"
         },
         "container-runtime": {
           "description": "Status of local container runtime",

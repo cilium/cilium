@@ -20,6 +20,9 @@ type StatusResponse struct {
 	// Status of Cilium daemon
 	Cilium *Status `json:"cilium,omitempty"`
 
+	// Status of cluster
+	Cluster *ClusterStatus `json:"cluster,omitempty"`
+
 	// Status of local container runtime
 	ContainerRuntime *Status `json:"container-runtime,omitempty"`
 
@@ -38,6 +41,8 @@ type StatusResponse struct {
 
 /* polymorph StatusResponse cilium false */
 
+/* polymorph StatusResponse cluster false */
+
 /* polymorph StatusResponse container-runtime false */
 
 /* polymorph StatusResponse ipam false */
@@ -53,6 +58,11 @@ func (m *StatusResponse) Validate(formats strfmt.Registry) error {
 	var res []error
 
 	if err := m.validateCilium(formats); err != nil {
+		// prop
+		res = append(res, err)
+	}
+
+	if err := m.validateCluster(formats); err != nil {
 		// prop
 		res = append(res, err)
 	}
@@ -99,6 +109,25 @@ func (m *StatusResponse) validateCilium(formats strfmt.Registry) error {
 		if err := m.Cilium.Validate(formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("cilium")
+			}
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (m *StatusResponse) validateCluster(formats strfmt.Registry) error {
+
+	if swag.IsZero(m.Cluster) { // not required
+		return nil
+	}
+
+	if m.Cluster != nil {
+
+		if err := m.Cluster.Validate(formats); err != nil {
+			if ve, ok := err.(*errors.Validation); ok {
+				return ve.ValidateName("cluster")
 			}
 			return err
 		}

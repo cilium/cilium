@@ -338,6 +338,19 @@ func DeleteNode(ni Identity, routesTypes RouteType) {
 	clusterConf.Unlock()
 }
 
+// GetNodes returns a copy of all of the nodes as a map from Identity to Node.
+func GetNodes() map[Identity]Node {
+	clusterConf.RLock()
+	defer clusterConf.RUnlock()
+
+	nodes := make(map[Identity]Node)
+	for id, node := range clusterConf.nodes {
+		nodes[id] = *node
+	}
+
+	return nodes
+}
+
 // updateIPRoute updates the IP routing entry for the given node n via the
 // network interface that as ownAddr.
 func updateIPRoute(oldNode, n *Node, ownAddr net.IP) {
