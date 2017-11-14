@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"net"
 
+	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/logfields"
 
 	log "github.com/sirupsen/logrus"
@@ -365,4 +366,20 @@ func IsHostIPv4(ip net.IP) bool {
 // IsHostIPv6 returns true if the IP specified is a host IP
 func IsHostIPv6(ip net.IP) bool {
 	return ip.Equal(GetIPv6()) || ip.Equal(GetIPv6Router())
+}
+
+// GetNodeAddressing returns the NodeAddressing model for the local IPs.
+func GetNodeAddressing(enableIPv4 bool) *models.NodeAddressing {
+	return &models.NodeAddressing{
+		IPV6: &models.NodeAddressingElement{
+			Enabled:    true,
+			IP:         GetIPv6Router().String(),
+			AllocRange: GetIPv6AllocRange().String(),
+		},
+		IPV4: &models.NodeAddressingElement{
+			Enabled:    enableIPv4,
+			IP:         GetInternalIPv4().String(),
+			AllocRange: GetIPv4AllocRange().String(),
+		},
+	}
 }
