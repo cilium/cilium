@@ -1017,6 +1017,9 @@ definitions:
       nodeMonitor:
         description: Status of the node monitor
         "$ref": "#/definitions/MonitorStatus"
+      cluster:
+        description: Status of cluster
+        "$ref": "#/definitions/ClusterStatus"
 
   Status:
     description: Status of an individual component
@@ -1063,6 +1066,17 @@ definitions:
         type: array
         items:
           type: string
+  ClusterStatus:
+    description: Status of cluster
+    properties:
+      self:
+        description: Name of local node (if available)
+        type: string
+      nodes:
+        description: List of known nodes
+        type: array
+        items:
+          "$ref": "#/definitions/NodeElement"
   MonitorStatus:
     description: Status of the node monitor
     properties:
@@ -1120,6 +1134,19 @@ definitions:
     type: object
     additionalProperties:
       type: string
+  NodeElement:
+    description: Known node in the cluster
+    properties:
+      name:
+        type: string
+      primary-address:
+        description: Primary address used for intra-cluster communication
+        "$ref": "#/definitions/NodeAddressing"
+      secondary-addresses:
+        description: Alternative addresses assigned to the node
+        type: array
+        items:
+          "$ref": "#/definitions/NodeAddressingElement"
   NodeAddressing:
     description: Addressing information of a node for all address families
     type: object
@@ -1140,6 +1167,9 @@ definitions:
         type: string
       alloc-range:
         description: Address pool to be used for local endpoints
+        type: string
+      address-type:
+        description: Node address type, one of HostName, ExternalIP or InternalIP
         type: string
   Policy:
     description: Policy definition
