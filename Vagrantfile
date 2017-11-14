@@ -167,7 +167,7 @@ $K8S_VERSION = ENV['K8S_VERSION'] || "1.7"
 #end
 
 Vagrant.configure(2) do |config|
-    config.vm.box = "combined/test2"
+    config.vm.box = "cilium/ginkgo-merged"
     ###############################
     # Dev / Runtime test VM Setup #
     ###############################
