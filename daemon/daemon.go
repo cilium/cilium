@@ -1285,18 +1285,7 @@ func (h *patchConfig) Handle(params PatchConfigParams) middleware.Responder {
 }
 
 func (d *Daemon) getNodeAddressing() *models.NodeAddressing {
-	return &models.NodeAddressing{
-		IPV6: &models.NodeAddressingElement{
-			Enabled:    true,
-			IP:         node.GetIPv6Router().String(),
-			AllocRange: node.GetIPv6AllocRange().String(),
-		},
-		IPV4: &models.NodeAddressingElement{
-			Enabled:    !d.conf.IPv4Disabled,
-			IP:         node.GetInternalIPv4().String(),
-			AllocRange: node.GetIPv4AllocRange().String(),
-		},
-	}
+	return node.GetNodeAddressing(!d.conf.IPv4Disabled)
 }
 
 type getConfig struct {
