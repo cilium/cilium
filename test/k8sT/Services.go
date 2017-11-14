@@ -16,14 +16,16 @@ package k8sTest
 
 import (
 	"fmt"
+	"net"
+	"strings"
 
 	"github.com/asaskevich/govalidator"
 	"github.com/cilium/cilium/test/helpers"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-
 	log "github.com/sirupsen/logrus"
+	"k8s.io/client-go/pkg/api/v1"
 )
 
 var _ = Describe("K8sServicesTest", func() {
@@ -50,6 +52,40 @@ var _ = Describe("K8sServicesTest", func() {
 	BeforeEach(func() {
 		initialize()
 	})
+
+	AfterEach(func() {
+		if CurrentGinkgoTestDescription().Failed {
+			ciliumPod, _ := kubectl.GetCiliumPodOnNode("kube-system", "k8s1")
+			kubectl.CiliumReport("kube-system", ciliumPod, []string{
+				"cilium service list",
+				"cilium endpoint list"})
+		}
+	})
+
+	testHTTPRequest := func(url string) {
+		output, err := kubectl.GetPods("default", "-l zgroup=testDSClient").Filter("{.items[*].metadata.name}")
+		ExpectWithOffset(1, err).Should(BeNil())
+		pods := strings.Split(output.String(), " ")
+		// A DS with client is running in each node. So we try from each node
+		// that can connect to the service.  To make sure that the cross-node
+		// service connectivity is correct we tried 10 times, so balance in the
+		// two nodes
+		for _, pod := range pods {
+			for i := 1; i <= 10; i++ {
+				_, err := kubectl.Exec("default", pod, fmt.Sprintf("curl --connect-timeout 5 %s", url))
+				ExpectWithOffset(1, err).Should(BeNil(), "Pod '%s' can not connect to service '%s'", pod, url)
+			}
+		}
+	}
+
+	waitPodsDs := func() {
+		groups := []string{"zgroup=testDS", "zgroup=testDSClient"}
+		for _, pod := range groups {
+			pods, err := kubectl.WaitforPods("default", fmt.Sprintf("-l %s", pod), 300)
+			ExpectWithOffset(1, pods).Should(BeTrue())
+			ExpectWithOffset(1, err).Should(BeNil())
+		}
+	}
 
 	It("Check Service", func() {
 		demoDSPath := fmt.Sprintf("%s/demo.yaml", kubectl.ManifestsPath())
@@ -82,24 +118,30 @@ var _ = Describe("K8sServicesTest", func() {
 		kubectl.Apply(demoDSPath)
 		defer kubectl.Delete(demoDSPath)
 
-		pods, err := kubectl.WaitforPods("default", "-l zgroup=testDS", 300)
-		Expect(pods).Should(BeTrue())
-		Expect(err).Should(BeNil())
+		waitPodsDs()
 
 		svcIP, err := kubectl.Get(
 			"default", "service testds-service").Filter("{.spec.clusterIP}")
 		Expect(err).Should(BeNil())
 		Expect(govalidator.IsIP(svcIP.String())).Should(BeTrue())
-
-		status := kubectl.Node.Exec(fmt.Sprintf("curl http://%s/", svcIP))
-		status.ExpectSuccess()
-
-		k8s2 := helpers.CreateKubectl("k8s2", logger)
-		status = k8s2.Node.Exec(fmt.Sprintf("curl http://%s/", svcIP))
-		status.ExpectSuccess()
+		url := fmt.Sprintf("http://%s/", svcIP)
+		testHTTPRequest(url)
 	})
 
 	//TODO: Check service with IPV6
-	//TODO: NodePort? It is ready?
 
+	It("Check NodePort", func() {
+		demoDSPath := fmt.Sprintf("%s/demo_ds.yaml", kubectl.ManifestsPath())
+		kubectl.Apply(demoDSPath)
+		defer kubectl.Delete(demoDSPath)
+
+		waitPodsDs()
+
+		var data v1.Service
+		err := kubectl.Get("default", "service test-nodeport").UnMarshal(&data)
+		Expect(err).Should(BeNil(), "Can not retrieve service")
+		url := fmt.Sprintf("http://%s",
+			net.JoinHostPort(data.Spec.ClusterIP, fmt.Sprintf("%d", data.Spec.Ports[0].Port)))
+		testHTTPRequest(url)
+	})
 })
