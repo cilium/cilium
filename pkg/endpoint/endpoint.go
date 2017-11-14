@@ -1045,12 +1045,12 @@ func (e *Endpoint) Update(owner Owner, opts models.ConfigurationMap) error {
 	}
 
 	if changed {
-		changed = e.SetStateLocked(StateWaitingToRegenerate)
+		changed = e.SetStateLocked(StateWaitingToRegenerate, "Updated endpoint options; policy changes apply to this endpoint")
 	}
 	e.Mutex.Unlock()
 
 	if changed {
-		e.Regenerate(owner)
+		e.Regenerate(owner, "updated endpoint options & policy changes apply to this endpoint")
 	}
 
 	return nil
@@ -1148,7 +1148,7 @@ func (e *Endpoint) LeaveLocked(owner Owner) {
 
 	e.removeDirectory()
 
-	e.SetStateLocked(StateDisconnected)
+	e.SetStateLocked(StateDisconnected, "Endpoint removed")
 }
 
 func (e *Endpoint) removeDirectory() {
@@ -1174,8 +1174,8 @@ func (e *Endpoint) CreateDirectory() error {
 
 // RegenerateWait should only be called when endpoint's state has successfully
 // been changed to "waiting-to-regenerate"
-func (e *Endpoint) RegenerateWait(owner Owner) error {
-	if !<-e.Regenerate(owner) {
+func (e *Endpoint) RegenerateWait(owner Owner, reason string) error {
+	if !<-e.Regenerate(owner, reason) {
 		return fmt.Errorf("error while regenerating endpoint."+
 			" For more info run: 'cilium endpoint get %d'", e.ID)
 	}
@@ -1256,10 +1256,10 @@ func (e *Endpoint) GetState() string {
 // SetStateLocked modifies the endpoint's state
 // endpoint.Mutex must be held
 // Returns true only if endpoints state was changed as requested
-func (e *Endpoint) SetStateLocked(toState string) bool {
+func (e *Endpoint) SetStateLocked(toState, reason string) bool {
 	// Validate the state transition.
-
-	switch e.state { // From state
+	fromState := e.state
+	switch fromState { // From state
 	case StateCreating:
 		switch toState {
 		case StateDisconnecting, StateWaitingForIdentity:
@@ -1299,29 +1299,31 @@ func (e *Endpoint) SetStateLocked(toState string) bool {
 			goto OKState
 		}
 	}
-	if toState != e.state {
+	if toState != fromState {
 		_, fileName, fileLine, _ := runtime.Caller(1)
 		e.getLogger().WithFields(log.Fields{
-			logfields.EndpointState + ".from": e.state,
+			logfields.EndpointState + ".from": fromState,
 			logfields.EndpointState + ".to":   toState,
 			"file": fileName,
 			"line": fileLine,
 		}).Info("Invalid state transition skipped")
 	}
+	e.logStatusLocked(Other, Warning, fmt.Sprintf("Skipped invalid state transition to %s due to: %s", toState, reason))
 	return false
 
 OKState:
 	e.state = toState
+	e.logStatusLocked(Other, OK, reason)
 	return true
 }
 
 // BuilderSetStateLocked modifies the endpoint's state
 // endpoint.Mutex must be held
 // endpoint BuildMutex must be held!
-func (e *Endpoint) BuilderSetStateLocked(toState string) bool {
+func (e *Endpoint) BuilderSetStateLocked(toState, reason string) bool {
 	// Validate the state transition.
-
-	switch e.state { // From state
+	fromState := e.state
+	switch fromState { // From state
 	case StateCreating, StateWaitingForIdentity, StateReady, StateDisconnecting, StateDisconnected:
 		// No valid transitions for the builder
 	case StateWaitingToRegenerate:
@@ -1354,10 +1356,12 @@ func (e *Endpoint) BuilderSetStateLocked(toState string) bool {
 			goto OKState
 		}
 	}
+	e.logStatusLocked(Other, Warning, fmt.Sprintf("Skipped invalid state transition to %s due to: %s", toState, reason))
 	return false
 
 OKState:
 	e.state = toState
+	e.logStatusLocked(Other, OK, reason)
 	return true
 }
 

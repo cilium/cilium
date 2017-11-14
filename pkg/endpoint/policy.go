@@ -509,7 +509,7 @@ func (e *Endpoint) regeneratePolicy(owner Owner, opts models.ConfigurationMap) (
 }
 
 // Called with e.Mutex UNlocked
-func (e *Endpoint) regenerate(owner Owner) error {
+func (e *Endpoint) regenerate(owner Owner, reason string) error {
 	e.BuildMutex.Lock()
 	defer e.BuildMutex.Unlock()
 
@@ -529,7 +529,7 @@ func (e *Endpoint) regenerate(owner Owner) error {
 		return fmt.Errorf("Failed to create endpoint directory: %s", err)
 	}
 
-	if err := e.regenerateBPF(owner, tmpDir); err != nil {
+	if err := e.regenerateBPF(owner, tmpDir, reason); err != nil {
 		os.RemoveAll(tmpDir)
 		return err
 	}
@@ -563,7 +563,7 @@ func (e *Endpoint) regenerate(owner Owner) error {
 	// changes are needed. There should be an another regenerate
 	// queued for taking care of it.
 	e.Mutex.Lock()
-	e.BuilderSetStateLocked(StateReady)
+	e.BuilderSetStateLocked(StateReady, "Completed endpoint regeneration with no pending regeneration requests")
 	e.getLogger().Info("Regenerated program of endpoint")
 	e.Mutex.Unlock()
 
@@ -572,7 +572,7 @@ func (e *Endpoint) regenerate(owner Owner) error {
 
 // Regenerate forces the regeneration of endpoint programs & policy
 // Should only be called with e.state == StateWaitingToRegenerate
-func (e *Endpoint) Regenerate(owner Owner) <-chan bool {
+func (e *Endpoint) Regenerate(owner Owner, reason string) <-chan bool {
 	newReq := &Request{
 		ID:           uint64(e.ID),
 		MyTurn:       make(chan bool),
@@ -597,12 +597,12 @@ func (e *Endpoint) Regenerate(owner Owner) <-chan bool {
 		if isMyTurnChanOK && isMyTurn {
 			scopedLog.Debug("Dequeued endpoint from build queue")
 
-			if err := e.regenerate(owner); err != nil {
+			if err := e.regenerate(owner, reason); err != nil {
 				buildSuccess = false
-				e.LogStatus(BPF, Failure, err.Error())
+				e.LogStatus(BPF, Failure, "Error regenerating endpoint: "+err.Error())
 			} else {
 				buildSuccess = true
-				e.LogStatusOK(BPF, "Successfully regenerated endpoint program")
+				e.LogStatusOK(BPF, "Successfully regenerated endpoint program due to "+reason)
 			}
 
 			req.Done <- buildSuccess
@@ -671,7 +671,7 @@ func (e *Endpoint) SetIdentity(owner Owner, id *policy.Identity) {
 
 	// Sets endpoint state to ready if was waiting for identity
 	if e.GetStateLocked() == StateWaitingForIdentity {
-		e.SetStateLocked(StateReady)
+		e.SetStateLocked(StateReady, "Set identity for this endpoint")
 	}
 
 	// Annotate pod that this endpoint represents with its security identity

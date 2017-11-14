@@ -164,18 +164,19 @@ func (h *putEndpointID) Handle(params PutEndpointIDParams) middleware.Responder 
 	ep.Mutex.Lock()
 	ready := false
 	state := ep.GetStateLocked()
+	reason := "Create endpoint from API PUT"
 	if state == endpoint.StateReady || state == endpoint.StateWaitingForIdentity {
 		// state not changed if it is "waiting-for-identity",
 		// but we still trigger the initial build.
 		// Note that the endpoint state can initially also be "creating", and the
 		// initial build will not be done yet in that case. A following PATCH
 		// request will be needed to change the state and trigger bpf build.
-		ep.SetStateLocked(endpoint.StateWaitingToRegenerate)
+		ep.SetStateLocked(endpoint.StateWaitingToRegenerate, reason)
 		ready = true
 	}
 	ep.Mutex.Unlock()
 	if ready {
-		if err := ep.RegenerateWait(h.d); err != nil {
+		if err := ep.RegenerateWait(h.d, reason); err != nil {
 			ep.RemoveDirectory()
 			return apierror.Error(PatchEndpointIDFailedCode, err)
 		}
@@ -264,7 +265,7 @@ func (h *patchEndpointID) Handle(params PatchEndpointIDParams) middleware.Respon
 			string(epTemplate.State) == endpoint.StateReady) &&
 		ep.GetStateLocked() != endpoint.StateWaitingForIdentity {
 		// Will not change state if the current state does not allow the transition.
-		if ep.SetStateLocked(endpoint.StateWaitingForIdentity) {
+		if ep.SetStateLocked(endpoint.StateWaitingForIdentity, "Update endpoint from API PATCH") {
 			changed = true
 		}
 	}
@@ -294,7 +295,7 @@ func (h *patchEndpointID) Handle(params PatchEndpointIDParams) middleware.Respon
 	// If desired state is waiting-for-identity but identity is already
 	// known, bump it to ready state immediately to force re-generation
 	if ep.GetStateLocked() == endpoint.StateWaitingForIdentity && ep.SecLabel != nil {
-		ep.SetStateLocked(endpoint.StateReady)
+		ep.SetStateLocked(endpoint.StateReady, "Preparing to force endpoint regeneration because identity is known while handling API PATCH")
 		changed = true
 	}
 
@@ -304,13 +305,13 @@ func (h *patchEndpointID) Handle(params PatchEndpointIDParams) middleware.Respon
 		ep.ForcePolicyCompute()
 		// Transition to waiting-to-regenerate if ready.
 		if ep.GetStateLocked() == endpoint.StateReady {
-			ep.SetStateLocked(endpoint.StateWaitingToRegenerate)
+			ep.SetStateLocked(endpoint.StateWaitingToRegenerate, "Forcing endpoint regeneration because identity is known while handling API PATCH")
 		}
 	}
 	ep.Mutex.Unlock()
 
 	if changed {
-		if err := ep.RegenerateWait(h.d); err != nil {
+		if err := ep.RegenerateWait(h.d, "Waiting on endpoint regeneration because identity is known while handling API PATCH"); err != nil {
 			return apierror.Error(PatchEndpointIDFailedCode, err)
 		}
 		// FIXME: Special return code to indicate regeneration happened?
@@ -331,7 +332,7 @@ func (d *Daemon) deleteEndpoint(ep *endpoint.Endpoint) int {
 
 	// In case multiple delete requests have been enqueued, have all of them
 	// except the first return here.
-	if !ep.SetStateLocked(endpoint.StateDisconnecting) {
+	if !ep.SetStateLocked(endpoint.StateDisconnecting, "Deleting endpoint") {
 		ep.Mutex.Unlock()
 		return 0
 	}
@@ -646,14 +647,14 @@ func (d *Daemon) UpdateSecLabels(id string, add, del labels.Labels) middleware.R
 	ep.LabelsHash = newHash
 	ep.OpLabels = *oldLabels
 	ep.SetIdentity(d, identity)
-	ready := ep.SetStateLocked(endpoint.StateWaitingToRegenerate)
+	ready := ep.SetStateLocked(endpoint.StateWaitingToRegenerate, "Triggering regeneration due to updated security labels")
 	if ready {
 		ep.ForcePolicyCompute()
 	}
 	ep.Mutex.Unlock()
 
 	if ready {
-		ep.Regenerate(d)
+		ep.Regenerate(d, "updated security labels")
 	}
 
 	return nil

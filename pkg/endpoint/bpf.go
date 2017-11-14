@@ -377,7 +377,7 @@ func (ep *epInfoCache) GetBPFValue() (*lxcmap.EndpointInfo, error) {
 // regenerateBPF rewrites all headers and updates all BPF maps to reflect the
 // specified endpoint.
 // Must be called with endpoint.Mutex not held and endpoint.BuildMutex held.
-func (e *Endpoint) regenerateBPF(owner Owner, epdir string) error {
+func (e *Endpoint) regenerateBPF(owner Owner, epdir, reason string) error {
 	var err error
 
 	// Make sure that owner is not compiling base programs while we are
@@ -391,7 +391,7 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir string) error {
 	// it won't be regenerated.
 	// When building the initial drop policy in waiting-for-identity state
 	// the state remains unchanged
-	if e.GetStateLocked() != StateWaitingForIdentity && !e.BuilderSetStateLocked(StateRegenerating) {
+	if e.GetStateLocked() != StateWaitingForIdentity && !e.BuilderSetStateLocked(StateRegenerating, "Regenerating Endpoint BPF: "+reason) {
 		e.getLogger().WithField(logfields.EndpointState, e.state).Debug("Skipping build due to invalid state")
 		e.Mutex.Unlock()
 		return fmt.Errorf("Skipping build due to invalid state: %s", e.state)

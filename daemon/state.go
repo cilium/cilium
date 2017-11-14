@@ -108,14 +108,14 @@ func (d *Daemon) SyncState(dir string, clean bool) error {
 				wg <- false
 				return
 			}
-			ready := ep.SetStateLocked(endpoint.StateWaitingToRegenerate)
+			ready := ep.SetStateLocked(endpoint.StateWaitingToRegenerate, "Triggering synchronous endpoint regeneration while syncing state to host")
 			ep.Mutex.Unlock()
 			if !ready {
 				scopedLog.WithField(logfields.EndpointState, ep.GetState()).Warn("Endpoint in inconsistent state")
 				wg <- false
 				return
 			}
-			if buildSuccess := <-ep.Regenerate(d); !buildSuccess {
+			if buildSuccess := <-ep.Regenerate(d, "syncing state to host"); !buildSuccess {
 				scopedLog.Warn("Failed while regenerating endpoint")
 				wg <- false
 				return
