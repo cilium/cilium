@@ -334,8 +334,8 @@ Vagrant.configure(2) do |config|
             #vb.linked_clone = true
 
             # Do not inherit DNS server from host, use proxy
-            vb.customize ["modifyvm", :id, "--natdnshostresolver1", "on"]
-            vb.customize ["modifyvm", :id, "--natdnsproxy1", "on"]
+            #vb.customize ["modifyvm", :id, "--natdnshostresolver1", "on"]
+            #vb.customize ["modifyvm", :id, "--natdnsproxy1", "on"]
 
             if ENV["NFS"] then
                 server.vm.synced_folder '.', '/home/vagrant/go/src/github.com/cilium/cilium', type: "nfs"
@@ -359,7 +359,8 @@ Vagrant.configure(2) do |config|
         ####################
         server.vm.hostname = "k8s#{i}"
         server.vm.network "private_network", ip: "192.168.36.1#{i}", virtualbox__intnet: "cilium-k8s-multi-test-#{$build_id}-#{$K8S_VERSION}"
-        server.vm.network "private_network", ip: "192.168.37.1#{i}", bridge: "enp0s9"
+        # TODO - remove me?
+        #server.vm.network "private_network", ip: "192.168.37.1#{i}", bridge: "enp0s9"
 
         # Hack to ensure that Kubernetes picks up the node-ip of the private_network
         # instead of the NATed vagrant IP

@@ -141,6 +141,7 @@ var _ = BeforeSuite(func() {
 		// Wait until compilation finished, and pull cilium image on k8s2
 
 		// Name for K8s VMs depends on K8s version that is running.
+
 		err = vagrant.Create(helpers.K8s1VMName)
 		if err != nil {
 			Fail(fmt.Sprintf("error starting VM %q: %s", helpers.K8s1VMName, err))

@@ -100,6 +100,7 @@ EOF
   sudo cp /etc/kubernetes/admin.conf ${CILIUM_CONFIG_DIR}/kubeconfig
   kubectl taint nodes --all node-role.kubernetes.io/master-
 
+  sudo systemctl start etcd
   /tmp/provision/compile.sh
 else
     cat <<EOF > /etc/docker/daemon.json
@@ -113,7 +114,7 @@ EOF
     
     kubeadm join --token=$TOKEN 192.168.36.11:6443
     cp /etc/kubernetes/kubelet.conf ${CILIUM_CONFIG_DIR}/kubeconfig
-
+    sudo systemctl stop etcd || true
     #certs_dir="/home/vagrant/go/src/github.com/cilium/cilium/tests/k8s/cluster/certs"
     #sudo mkdir -p /etc/docker/certs.d/192.168.36.11:5000
     #sudo cp ${certs_dir}/ca.pem /etc/docker/certs.d/192.168.36.11:5000/ca.crt

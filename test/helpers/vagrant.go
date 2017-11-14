@@ -31,34 +31,31 @@ type Vagrant struct{}
 //Create a new vagrant server. Receives and scope that it's the target server that need to be created.
 // In case of any error on vagrant [provision|up|ssh-config] error will be returned.
 func (vagrant *Vagrant) Create(scope string) error {
-	//createCMD := "vagrant up %s --provision"
+
 	var createCMD string
 	if strings.Contains(scope, Runtime) {
 		createCMD = "../contrib/vagrant/start.sh"
 	} else if strings.Contains(scope, K8s) {
+		log.Infof("scope: %s", scope)
 		log.Infof("%s", strings.TrimLeft(scope, "-"))
-		createCMD = fmt.Sprintf("K8S_VERSION=%s ../contrib/vagrant/start.sh", strings.TrimLeft(scope, "-"))
+		createCMD = fmt.Sprintf("K8S_VERSION=%s ../contrib/vagrant/start.sh", GetCurrentK8SEnv())
 	} else {
 		return fmt.Errorf("%s scope is not supported", scope)
 	}
-	//createCMD := "../contrib/vagrant/start.sh"
 
 	for _, v := range vagrant.Status(scope) {
 		switch v {
 		case "running":
-			// Always destroy if we are running in Jenkins. If not, just
-			// provisiong
-			if !IsRunningOnJenkins() {
-				//createCMD = "vagrant provision %s"
-				createCMD = "../contrib/vagrant/start.sh"
-			} else {
+			// Always destroy if tests are running on Jenkins. Otherwise,
+			// calling the Vagrant wrapper script will provision the VMs.
+			if IsRunningOnJenkins() {
 				vagrant.Destroy(scope)
 			}
 		case "not_created":
 			//createCMD = "vagrant up %s --provision"
-			createCMD = "../contrib/vagrant/start.sh"
+			//createCMD = "../contrib/vagrant/start.sh"
 		default:
-			//Sometimes server are stoped and not destroyed. Destroy just in case
+			// Case where VMs are stopped and not destroyed. Destroy just in case.
 			vagrant.Destroy(scope)
 		}
 	}
