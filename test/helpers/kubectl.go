@@ -17,11 +17,13 @@ package helpers
 import (
 	"bytes"
 	"fmt"
+	"io/ioutil"
 	"os"
 	"strings"
 	"time"
 
 	"github.com/asaskevich/govalidator"
+	"github.com/onsi/ginkgo"
 	log "github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/api/v1/models"
@@ -251,6 +253,22 @@ func (kub *Kubectl) CiliumEndpointsListByLabel(pod, label string) (EndpointMap, 
 	return result, nil
 }
 
+//CiliumEndpointsIDs returns a mapping with of a pod name to it is
+//corresponding endpoint ID.
+func (kub *Kubectl) CiliumEndpointsIDs(pod string) map[string]string {
+	filter := `{range [*]}{@.container-name}{"="}{@.id}{"\n"}{end}`
+	return kub.CiliumExec(pod, fmt.Sprintf(
+		"cilium endpoint list -o jsonpath='%s'", filter)).KVOutput()
+}
+
+//CiliumEndpointsIdentityIDs returns a mapping with of a pod name to it is
+//corresponding endpoint identity ID.
+func (kub *Kubectl) CiliumEndpointsIdentityIDs(pod string) map[string]string {
+	filter := `{range [*]}{@.container-name}{"="}{@.identity.id}{"\n"}{end}`
+	return kub.CiliumExec(pod, fmt.Sprintf(
+		"cilium endpoint list -o jsonpath='%s'", filter)).KVOutput()
+}
+
 // CiliumEndpointWait waits until all endpoints managed by the specified Cilium
 // pod are ready. Returns false if the command to retrieve the state of the
 // endpoints times out.
@@ -443,6 +461,94 @@ func (kub *Kubectl) CiliumReport(namespace string, pod string, commands []string
 	}
 	fmt.Fprint(wr, "StackTrace Ends\n")
 	return nil
+}
+
+//CiliumReportFull writes to testResultsPath all the output of a variety of
+//cilium commands to know the state of cilium
+func (kub *Kubectl) CiliumReportFull(namespace string, pod string) {
+	reportCiliumCommands := map[string]string{
+		"cilium endpoint list -o json": "endpoint_list_txt",
+		"cilium service list -o json":  "service_list.txt",
+		"cilium config":                "config.txt",
+		"cilium bpf lb list":           "bpf_lb_list.txt",
+		"cilium bpf ct list global":    "bpf_ct_list.txt",
+		"cilium bpf tunnel list":       "bpf_tunnel_list.txt",
+		"cilium policy get":            "policy_get.txt",
+		"cilium status":                "status.txt",
+	}
+	reportEndpointCommands := map[string]string{
+		"cilium endpoint get %s":    "endpoint_get_%s.txt",
+		"cilium bpf policy list %s": "bpf_policy_list_%s.txt",
+	}
+
+	reportCmds := map[string]string{
+		"kubectl get pods --all-namespaces":     "pods.txt",
+		"kubectl get services --all-namespaces": "svc.txt",
+		"kubectl get ds --all-namespaces":       "ds.txt",
+	}
+
+	testDesc := ginkgo.CurrentGinkgoTestDescription()
+	testPath := fmt.Sprintf("%s%s/",
+		testResultsPath,
+		strings.Replace(testDesc.FullTestText, " ", "", -1))
+	err := os.MkdirAll(testPath, 0777)
+	if err != nil {
+		kub.logCxt.Errorf("Can't create Test results path '%s' err '%s'", testPath, err)
+	}
+
+	for cmd, logfile := range reportCiliumCommands {
+		command := fmt.Sprintf("kubectl exec -n %s %s -- %s", namespace, pod, cmd)
+		res := kub.Node.Exec(command)
+		err = ioutil.WriteFile(
+			fmt.Sprintf("%s/%s", testPath, logfile),
+			res.CombineOutput().Bytes(),
+			0777)
+		if err != nil {
+			kub.logCxt.Errorf("Can not create test results for command '%s' err='%s'", cmd, err)
+		}
+	}
+
+	for _, ep := range kub.CiliumEndpointsIDs(pod) {
+		for cmd, logfile := range reportEndpointCommands {
+			command := fmt.Sprintf(cmd, ep)
+			res := kub.Node.Exec(fmt.Sprintf(
+				"kubectl exec -n %s %s -- %s", namespace, pod, command))
+			err = ioutil.WriteFile(
+				fmt.Sprintf("%s/%s", testPath, fmt.Sprintf(logfile, ep)),
+				res.CombineOutput().Bytes(),
+				0777)
+			if err != nil {
+				kub.logCxt.Errorf("Can not create test results for command '%s' err='%s'",
+					command, err)
+			}
+		}
+	}
+
+	for _, id := range kub.CiliumEndpointsIdentityIDs(pod) {
+		cmd := fmt.Sprintf("kubectl exec -n %s %s -- cilium identity get %s", namespace, pod, id)
+
+		res := kub.Node.Exec(cmd)
+		err = ioutil.WriteFile(
+			fmt.Sprintf("%s/%s", testPath, fmt.Sprintf("identity_%s.txt", id)),
+			res.CombineOutput().Bytes(),
+			0777)
+		if err != nil {
+			kub.logCxt.Errorf("Can not create test results for command '%s' err='%s'", cmd, err)
+		}
+	}
+
+	//services description
+	for cmd, logfile := range reportCmds {
+		res := kub.Node.Exec(cmd)
+		err = ioutil.WriteFile(
+			fmt.Sprintf("%s/%s", testPath, logfile),
+			res.CombineOutput().Bytes(),
+			0777)
+		if err != nil {
+			kub.logCxt.Errorf("Can not create test results for command '%s' err='%s'", cmd, err)
+		}
+	}
+
 }
 
 // GetCiliumPodOnNode returns the name of the Cilium pod that is running on / in

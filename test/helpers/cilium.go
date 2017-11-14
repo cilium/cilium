@@ -17,6 +17,7 @@ package helpers
 import (
 	"bytes"
 	"fmt"
+	"io/ioutil"
 	"net"
 	"os"
 	"strconv"
@@ -25,10 +26,12 @@ import (
 
 	"github.com/cilium/cilium/api/v1/models"
 
+	"github.com/onsi/ginkgo"
 	log "github.com/sirupsen/logrus"
 )
 
 const (
+	//MaxRetries number of times that a loop should try until fails
 	MaxRetries = 30
 )
 
@@ -264,6 +267,19 @@ func (c *Cilium) GetEndpointsIds() (map[string]string, error) {
 	return endpoints.KVOutput(), nil
 }
 
+//GetEndpointsIdentityIds returns a mapping of a Docker container name to to
+//its corresponding endpoint identity ID, and an error if the list of endpoints
+//cannot be retrieved via the Cilium CLI.
+func (c *Cilium) GetEndpointsIdentityIds() (map[string]string, error) {
+	// cilium endpoint list -o jsonpath='{range [*]}{@.container-name}{"="}{@.id}{"\n"}{end}'
+	filter := `{range [*]}{@.container-name}{"="}{@.identity.id}{"\n"}{end}`
+	endpoints := c.Exec(fmt.Sprintf("endpoint list -o jsonpath='%s'", filter))
+	if !endpoints.WasSuccessful() {
+		return nil, fmt.Errorf("Can't get endpoint list: %s", endpoints.CombineOutput())
+	}
+	return endpoints.KVOutput(), nil
+}
+
 // GetEndpointsNames returns the container-name field of each Cilium endpoint.
 func (c *Cilium) GetEndpointsNames() ([]string, error) {
 	data := c.GetEndpoints()
@@ -416,6 +432,83 @@ func (c *Cilium) ReportFailed(commands ...string) {
 		fmt.Fprint(wr, res.Output())
 	}
 	fmt.Fprint(wr, "StackTrace Ends\n")
+	c.ReportFailedFull()
+}
+
+//ReportFailedFull runs a variety of commands and write the results to
+//testResultsPath
+func (c *Cilium) ReportFailedFull() {
+	reportCommands := map[string]string{
+		"cilium endpoint list -o json": "endpoint_list_txt",
+		"cilium service list -o json":  "service_list.txt",
+		"cilium config":                "config.txt",
+		"cilium bpf lb list":           "bpf_lb_list.txt",
+		"cilium bpf ct list global":    "bpf_ct_list.txt",
+		"cilium bpf tunnel list":       "bpf_tunnel_list.txt",
+		"cilium policy get":            "policy_get.txt",
+		"cilium status":                "status.txt",
+	}
+
+	reportEndpointsCommands := map[string]string{
+		"cilium endpoint get %s":    "endpoint_%s.txt",
+		"cilium bpf policy list %s": "bpf_policy_list_%s.txt",
+	}
+
+	testDesc := ginkgo.CurrentGinkgoTestDescription()
+	testPath := fmt.Sprintf("%s%s/",
+		testResultsPath,
+		strings.Replace(testDesc.FullTestText, " ", "", -1))
+	err := os.MkdirAll(testPath, 0777)
+	if err != nil {
+		c.logCxt.Errorf("Can't create Test results path '%s' err '%s'", testPath, err)
+	}
+
+	for cmd, logfile := range reportCommands {
+		res := c.Node.Exec(fmt.Sprintf("sudo %s", cmd))
+		err = ioutil.WriteFile(
+			fmt.Sprintf("%s/%s", testPath, logfile),
+			res.CombineOutput().Bytes(),
+			0777)
+		if err != nil {
+			c.logCxt.Errorf("Can not create test results for command '%s' err='%s'", cmd, err)
+		}
+	}
+
+	//Endpoint specific information:
+	eps, err := c.GetEndpointsIds()
+	if err != nil {
+		c.logCxt.Errorf("Can not get endpoint ids")
+	}
+	for _, ep := range eps {
+		for cmd, logfile := range reportEndpointsCommands {
+			command := fmt.Sprintf(cmd, ep)
+			res := c.Node.Exec(fmt.Sprintf("sudo %s", cmd))
+
+			err = ioutil.WriteFile(
+				fmt.Sprintf("%s/%s", testPath, fmt.Sprintf(logfile, ep)),
+				res.CombineOutput().Bytes(),
+				0777)
+
+			if err != nil {
+				c.logCxt.Errorf("Can not create test results for %s err='%s'", command, err)
+			}
+		}
+	}
+
+	eps, err = c.GetEndpointsIdentityIds()
+	if err != nil {
+		c.logCxt.Errorf("Can not get endpoint identity ids")
+	}
+	for _, ep := range eps {
+		res := c.Node.Exec(fmt.Sprintf("sudo cilium identity get %s", ep))
+		err = ioutil.WriteFile(
+			fmt.Sprintf("%s/%s", testPath, fmt.Sprintf("identity_%s.txt", ep)),
+			res.CombineOutput().Bytes(),
+			0777)
+		if err != nil {
+			c.logCxt.Errorf("Can not create test results for identity get err='%s'", err)
+		}
+	}
 }
 
 // ServiceAdd creates a new Cilium service with the provided ID, frontend,

@@ -119,6 +119,7 @@ const (
 
 	DefaultNamespace    = "default"
 	KubeSystemNamespace = "kube-system"
+	testResultsPath     = "test_results/"
 )
 
 //GetFilePath returns the absolute path of the provided filename
