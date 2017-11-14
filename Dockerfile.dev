@@ -1,6 +1,6 @@
 FROM cilium/dependencies:0.13.90
 LABEL maintainer="andre@cilium.io"
-# New packages can be added by appending ../cp-dirs
+# New packages can be added by extending $cilium/contrib/packaging/cp-dirs
 ADD . /tmp/cilium-net-build/src/github.com/cilium/cilium
 RUN cd /tmp/cilium-net-build/src/github.com/cilium/cilium && \
 export GOROOT=/usr/local/go && \
