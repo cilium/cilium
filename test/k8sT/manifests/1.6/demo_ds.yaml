@@ -22,6 +22,24 @@ spec:
         key: node.cloudprovider.kubernetes.io/uninitialized
         value: "true"
 ---
+apiVersion: extensions/v1beta1
+kind: DaemonSet
+metadata:
+  name: testclient
+  namespace: default
+spec:
+  template:
+    metadata:
+      labels:
+        zgroup: testDSClient
+    spec:
+      containers:
+      - name: web
+        image: cilium/demo-client
+        command: [ "sleep" ]
+        args:
+          - "1000h"
+---
 apiVersion: v1
 kind: Service
 metadata:
@@ -31,22 +49,18 @@ spec:
   - port: 80
   selector:
     zgroup: testDS
-
 ---
-apiVersion: extensions/v1beta1
-kind: Deployment
+
+apiVersion: v1
+kind: Service
 metadata:
-  name: testclient
+  name: test-nodeport
 spec:
-  replicas: 1
-  template:
-    metadata:
-      labels:
-        id: testClient
-    spec:
-      containers:
-      - name: app-frontend
-        image: cilium/demo-client
-        command: [ "sleep" ]
-        args:
-          - "1000h"
+  type: NodePort
+  ports:
+  - port: 10080
+    targetPort: 80
+    protocol: TCP
+    name: http
+  selector:
+    zgroup: testDS
