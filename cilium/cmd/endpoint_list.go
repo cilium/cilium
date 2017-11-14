@@ -60,10 +60,12 @@ func listEndpoints() {
 	if err != nil {
 		Fatalf("cannot get endpoint list: %s\n", err)
 	}
-
-	endpoint.OrderEndpointAsc(eps)
-
 	w := tabwriter.NewWriter(os.Stdout, 5, 0, 3, ' ', 0)
+	printEndpointList(w, eps)
+}
+
+func printEndpointList(w *tabwriter.Writer, eps []*models.Endpoint) {
+	endpoint.OrderEndpointAsc(eps)
 
 	const (
 		labelsIDTitle    = "IDENTITY"

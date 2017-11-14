@@ -48,7 +48,16 @@ func NewGetEndpointHandler(d *Daemon) GetEndpointHandler {
 func (h *getEndpoint) Handle(params GetEndpointParams) middleware.Responder {
 	metrics.SetTSValue(metrics.EventTSAPI, time.Now())
 	log.WithField(logfields.Params, logfields.Repr(params)).Debug("GET /endpoint request")
+	resEPs := getEndpointList(params)
 
+	if params.Labels != nil && len(resEPs) == 0 {
+		return NewGetEndpointNotFound()
+	}
+
+	return NewGetEndpointOK().WithPayload(resEPs)
+}
+
+func getEndpointList(params GetEndpointParams) []*models.Endpoint {
 	var (
 		epModelsWg, epsAppendWg sync.WaitGroup
 		convertedLabels         labels.Labels
@@ -88,11 +97,7 @@ func (h *getEndpoint) Handle(params GetEndpointParams) middleware.Responder {
 	close(epModelsCh)
 	epsAppendWg.Wait()
 
-	if params.Labels != nil && len(resEPs) == 0 {
-		return NewGetEndpointNotFound()
-	}
-
-	return NewGetEndpointOK().WithPayload(resEPs)
+	return resEPs
 }
 
 type getEndpointID struct {
