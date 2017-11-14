@@ -3,7 +3,6 @@ set -e
 export GOPATH="/home/vagrant/go"
 
 cd $GOPATH/src/github.com/cilium/cilium
-
 if echo $(hostname) | grep "k8s" -q;
 then
     if [[ "$(hostname)" == "k8s1" ]]; then

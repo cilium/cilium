@@ -51,6 +51,8 @@ ff02::2 ip6-allrouters
 192.168.36.12 k8s2
 EOF
 
+sudo iptables --policy FORWARD ACCEPT
+
 cat <<EOF > /etc/apt/sources.list.d/kubernetes.list
 deb http://apt.kubernetes.io/ kubernetes-xenial main
 EOF
@@ -87,7 +89,7 @@ EOF
   install_etcd
   
   # FIXME: IP needs to be dynamic
-  kubeadm init --token=$TOKEN --apiserver-advertise-address="192.168.36.11" --pod-network-cidr=10.10.0.0/16
+  kubeadm init --token=$TOKEN --apiserver-advertise-address="192.168.36.11" --pod-network-cidr=10.20.0.0/10
 
   mkdir -p /root/.kube
   sudo cp -i /etc/kubernetes/admin.conf /root/.kube/config
