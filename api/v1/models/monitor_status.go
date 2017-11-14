@@ -23,6 +23,9 @@ type MonitorStatus struct {
 	// Number of samples lost by perf.
 	Lost int64 `json:"lost,omitempty"`
 
+	// Number of connections to the node monitor
+	Nlisteners int64 `json:"nlisteners,omitempty"`
+
 	// Number of pages used for the perf ring buffer.
 	Npages int64 `json:"npages,omitempty"`
 
@@ -36,6 +39,8 @@ type MonitorStatus struct {
 /* polymorph MonitorStatus cpus false */
 
 /* polymorph MonitorStatus lost false */
+
+/* polymorph MonitorStatus nlisteners false */
 
 /* polymorph MonitorStatus npages false */
 

@@ -1080,6 +1080,9 @@ definitions:
       unknown:
         description: Number of unknown samples.
         type: integer
+      nlisteners:
+        description: Number of connections to the node monitor
+        type: integer
   DaemonConfigurationResponse:
     description: |
       Response to a daemon configuration request. Contains the addressing

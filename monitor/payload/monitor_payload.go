@@ -105,6 +105,11 @@ func ReadMetaPayload(r io.Reader, meta *Meta, pl *Payload) error {
 		return err
 	}
 
+	// If there is no payload just abort
+	if meta.Size == 0 {
+		return nil
+	}
+
 	// Meta.Size is not necessary for framing/decoding, but is useful to validate the payload size.
 	return pl.ReadBinary(io.LimitReader(r, int64(meta.Size)))
 }

@@ -61,9 +61,11 @@ func statusDaemon(cmd *cobra.Command, args []string) {
 			fmt.Fprintf(w, "Cilium:\t%s\t%s\n", sr.Cilium.State, sr.Cilium.Msg)
 		}
 
-		if nm := sr.NodeMonitor; nm != nil {
-			fmt.Fprintf(w, "NodeMonitor:\tListening for events on %d CPUs with %dx%d of shared memory\n",
-				nm.Cpus, nm.Npages, nm.Pagesize)
+		// If  there are no listeners, let it appear as if the node
+		// monitor is disabled.
+		if nm := sr.NodeMonitor; nm != nil && nm.Nlisteners > 0 {
+			fmt.Fprintf(w, "NodeMonitor:\tListening for events on %d CPU(s) with %dx%d of shared memory and %d listener(s)\n",
+				nm.Cpus, nm.Npages, nm.Pagesize, nm.Nlisteners)
 			if nm.Lost != 0 || nm.Unknown != 0 {
 				fmt.Fprintf(w, "\t%d events lost, %d unknown notifications\n", nm.Lost, nm.Unknown)
 			}

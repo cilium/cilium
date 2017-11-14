@@ -72,7 +72,7 @@ drops happen.
 .. code:: bash
 
     $ cilium monitor --type drop
-    Listening for events on 2 CPUs with 64x4096 of shared memory
+    Listening for events on 2 CPU(s) with 64x4096 of shared memory
     Press Ctrl-C to quit
     xx drop (Policy denied (L3)) to endpoint 25729, identity 261->264: fd02::c0a8:210b:0:bf00 -> fd02::c0a8:210b:0:6481 EchoRequest
     xx drop (Policy denied (L3)) to endpoint 25729, identity 261->264: fd02::c0a8:210b:0:bf00 -> fd02::c0a8:210b:0:6481 EchoRequest
@@ -106,7 +106,7 @@ running agent. Debugging of an individual endpoint can be enabled by running
     $ cilium endpoint config 3978 Debug=true
     Endpoint 3978 configuration updated successfully
     $ cilium monitor -v --hex
-    Listening for events on 2 CPUs with 64x4096 of shared memory
+    Listening for events on 2 CPU(s) with 64x4096 of shared memory
     Press Ctrl-C to quit
     ------------------------------------------------------------------------------
     CPU 00: MARK 0x1c56d86c FROM 3978 DEBUG: 70 bytes Incoming packet from container ifindex 85
