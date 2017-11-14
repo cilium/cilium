@@ -20,6 +20,7 @@ import (
 	"sort"
 	"text/tabwriter"
 
+	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/common/types"
 
 	"github.com/spf13/cobra"
@@ -44,8 +45,11 @@ func listServices(cmd *cobra.Command, args []string) {
 	if err != nil {
 		Fatalf("Cannot get services list: %s", err)
 	}
-
 	w := tabwriter.NewWriter(os.Stdout, 5, 0, 3, ' ', 0)
+	printServiceList(w, list)
+}
+
+func printServiceList(w *tabwriter.Writer, list []*models.Service) {
 	fmt.Fprintln(w, "ID\tFrontend\tBackend\t")
 
 	type ServiceOutput struct {

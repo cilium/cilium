@@ -18,7 +18,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/cilium/cilium/api/v1/models"
 	. "github.com/cilium/cilium/api/v1/server/restapi/service"
 	"github.com/cilium/cilium/common/types"
 	"github.com/cilium/cilium/pkg/apierror"
@@ -349,16 +348,7 @@ func NewGetServiceHandler(d *Daemon) GetServiceHandler {
 func (h *getService) Handle(params GetServiceParams) middleware.Responder {
 	metrics.SetTSValue(metrics.EventTSAPI, time.Now())
 	log.WithField(logfields.Params, logfields.Repr(params)).Debug("GET /service request")
-
-	list := []*models.Service{}
-
-	h.d.loadBalancer.BPFMapMU.RLock()
-	defer h.d.loadBalancer.BPFMapMU.RUnlock()
-
-	for _, v := range h.d.loadBalancer.SVCMap {
-		list = append(list, v.GetModel())
-	}
-
+	list := h.d.GetServiceList()
 	return NewGetServiceOK().WithPayload(list)
 }
 
