@@ -24,6 +24,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/metrics"
+	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/workloads/containerd"
 
 	"github.com/go-openapi/runtime/middleware"
@@ -90,6 +91,22 @@ func checkLocks(d *Daemon) {
 	d.GetCompilationLock().Unlock()
 }
 
+func (h *getHealthz) getNodeStatus() *models.ClusterStatus {
+	ipv4 := !h.daemon.conf.IPv4Disabled
+
+	local, _ := node.GetLocalNode()
+	clusterStatus := models.ClusterStatus{
+		Self: local.Name,
+	}
+	for _, node := range node.GetNodes() {
+		clusterStatus.Nodes = append(clusterStatus.Nodes, node.GetModel(ipv4))
+	}
+	if len(clusterStatus.Nodes) == 0 {
+		return nil
+	}
+	return &clusterStatus
+}
+
 func (h *getHealthz) Handle(params GetHealthzParams) middleware.Responder {
 	metrics.SetTSValue(metrics.EventTSAPI, time.Now())
 
@@ -134,6 +151,8 @@ func (h *getHealthz) Handle(params GetHealthzParams) middleware.Responder {
 	if nm := d.nodeMonitor; nm != nil {
 		sr.NodeMonitor = d.nodeMonitor.State()
 	}
+
+	sr.Cluster = h.getNodeStatus()
 
 	return NewGetHealthzOK().WithPayload(&sr)
 }

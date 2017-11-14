@@ -17,6 +17,9 @@ import (
 
 type NodeAddressingElement struct {
 
+	// Node address type, one of HostName, ExternalIP or InternalIP
+	AddressType string `json:"address-type,omitempty"`
+
 	// Address pool to be used for local endpoints
 	AllocRange string `json:"alloc-range,omitempty"`
 
@@ -26,6 +29,8 @@ type NodeAddressingElement struct {
 	// IP address of node
 	IP string `json:"ip,omitempty"`
 }
+
+/* polymorph NodeAddressingElement address-type false */
 
 /* polymorph NodeAddressingElement alloc-range false */
 
