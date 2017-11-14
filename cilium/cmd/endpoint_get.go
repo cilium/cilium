@@ -15,6 +15,7 @@
 package cmd
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -63,10 +64,14 @@ var endpointGetCmd = &cobra.Command{
 			return
 		}
 
-		if result, err := json.MarshalIndent(endpointInst, "", "  "); err != nil {
+		result := bytes.Buffer{}
+		enc := json.NewEncoder(&result)
+		enc.SetEscapeHTML(false)
+		enc.SetIndent("", "  ")
+		if err := enc.Encode(endpointInst); err != nil {
 			Fatalf("Cannot marshal endpoints %s", err.Error())
 		} else {
-			fmt.Println(string(result))
+			fmt.Println(string(result.Bytes()))
 		}
 	},
 }
