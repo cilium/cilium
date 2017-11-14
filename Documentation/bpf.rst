@@ -16,7 +16,7 @@ Linux kernel allowing to execute bytecode at various hook points in a safe
 manner. It is used in a number of Linux kernel subsystems, most prominently
 networking, tracing and security (e.g. sandboxing).
 
-Although BPF exists since 1992, this document covers the extended Berkley
+Although BPF exists since 1992, this document covers the extended Berkeley
 Packet Filter (eBPF) version which has first appeared in Kernel 3.18 and
 renders the original version which is being referred to as "classic" BPF
 (cBPF) these days mostly obsolete. cBPF is known to many as being the packet
@@ -26,7 +26,7 @@ in the kernel before program execution. This documentation will generally refer
 to the term BPF unless explicit differences between eBPF and cBPF are being
 pointed out.
 
-Even though the name Berkley Packet Filter hints at a packet filtering specific
+Even though the name Berkeley Packet Filter hints at a packet filtering specific
 purpose, the instruction set is generic and flexible enough these days that
 there are many use cases for BPF apart from networking. See :ref:`bpf_users`
 for a list of projects which use BPF.
