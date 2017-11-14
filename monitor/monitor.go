@@ -36,6 +36,8 @@ var (
 	mutex         lock.Mutex
 	listeners     = list.New()
 	monitorEvents *bpf.PerCpuEvents
+	eventConfig   = bpf.DefaultPerfEventConfig()
+	emptyMetaBuf  []byte
 )
 
 // Monitor structure for centralizing the responsibilities of the main events reader.
@@ -44,45 +46,45 @@ type Monitor struct {
 
 // Run starts monitoring.
 func (m *Monitor) Run(npages int) {
-	log.Info("Starting monitoring traffic")
-	c := bpf.DefaultPerfEventConfig()
-	c.NumPages = npages
-
-	me, err := bpf.NewPerCpuEvents(c)
-	if err != nil {
-		log.WithError(err).Error("Error while starting monitor")
-		return
-	}
-	monitorEvents = me
-
-	// Dump stat
+	eventConfig.NumPages = npages
 	t := time.NewTicker(5 * time.Second)
-	go func(t *time.Ticker) {
-		for {
-			select {
-			case <-t.C:
-				if monitorEvents != nil {
-					m.dumpStat()
-				}
-			}
-		}
-	}(t)
-
-	// Main event loop
-	for {
-		todo, err := monitorEvents.Poll(pollTimeout)
-		if err != nil {
-			log.WithError(err).Error("Error in Poll")
-			if err == syscall.EBADF {
-				break
-			}
-		}
-		if todo > 0 {
-			if err := monitorEvents.ReadAll(m.receiveEvent, m.lostEvent); err != nil {
-				log.WithError(err).Warn("Error received while reading from perf buffer")
-			}
+	emptyMetaBuf = generateHealthCheckMsg()
+	for range t.C {
+		// This loop is meant to loop forever so our process does not become
+		// defunct and we still print the stat for connected monitors.
+		if monitorEvents != nil {
+			m.dumpStat()
 		}
 	}
+}
+
+func purgeInactiveListeners() {
+	var next *list.Element
+	for e := listeners.Front(); e != nil; e = next {
+		client := e.Value.(net.Conn)
+		next = e.Next()
+		if _, err := client.Write(emptyMetaBuf); err != nil {
+			log.WithError(err).Warn("metadata write failed; removing client")
+			client.Close()
+			listeners.Remove(e)
+			continue
+		}
+	}
+}
+
+func generateHealthCheckMsg() []byte {
+	meta := &payload.Meta{Size: uint32(0)}
+	metaBuf, err := meta.MarshalBinary()
+	if err != nil {
+		log.WithError(err).Info("connection probe")
+	}
+	return metaBuf
+}
+
+func numListeners() int {
+	mutex.Lock()
+	defer mutex.Unlock()
+	return listeners.Len()
 }
 
 // dumpStat prints out the monitor status in JSON.
@@ -91,7 +93,8 @@ func (m *Monitor) dumpStat() {
 	n := int64(monitorEvents.Npages)
 	p := int64(monitorEvents.Pagesize)
 	l, u := monitorEvents.Stats()
-	ms := models.MonitorStatus{Cpus: c, Npages: n, Pagesize: p, Lost: int64(l), Unknown: int64(u)}
+	ms := models.MonitorStatus{Cpus: c, Npages: n, Pagesize: p,
+		Lost: int64(l), Unknown: int64(u), Nlisteners: int64(numListeners())}
 
 	mp, err := json.Marshal(ms)
 	if err != nil {
@@ -111,9 +114,52 @@ func (m *Monitor) handleConnection(server net.Listener) {
 		}
 
 		mutex.Lock()
+		first := listeners.Len() == 0
 		listeners.PushBack(conn)
 		log.WithField("count.listener", listeners.Len()).Info("New monitor connected.")
+		if first {
+			// Since this is our first listener that means the event loop
+			// is not running and has to be started.
+			go m.mainEventLoop()
+		}
 		mutex.Unlock()
+	}
+}
+
+// mainEventLoop is responsible for reading events from the perf ring buffer
+// and manage the connections to the socket
+func (m *Monitor) mainEventLoop() {
+	log.Info("Starting monitoring traffic")
+	monitorEvents, err := bpf.NewPerCpuEvents(eventConfig)
+	if err != nil {
+		log.WithError(err).Error("Error while starting monitor")
+		return
+	}
+
+	for {
+		purgeInactiveListeners()
+		if numListeners() == 0 {
+			// No listeners, exit the main loop completely
+			if err := monitorEvents.CloseAll(); err != nil {
+				log.WithError(err).Warn("Error while closing monitor events")
+			}
+			log.Infof("No listeners, stop monitoring")
+			break
+		}
+
+		todo, err := monitorEvents.Poll(pollTimeout)
+		if err != nil {
+			log.WithError(err).Error("Error in Poll")
+			if err == syscall.EBADF {
+				break
+			}
+		}
+
+		if todo > 0 {
+			if err := monitorEvents.ReadAll(m.receiveEvent, m.lostEvent); err != nil {
+				log.WithError(err).Warn("Error received while reading from perf buffer")
+			}
+		}
 	}
 }
 
