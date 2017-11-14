@@ -983,24 +983,20 @@ func (e *Endpoint) LogStatus(typ StatusType, code StatusCode, msg string) {
 	// log message to a single writer?
 	e.Status.indexMU.Lock()
 	defer e.Status.indexMU.Unlock()
+	e.logStatusLocked(typ, code, msg)
+}
+
+func (e *Endpoint) LogStatusOK(typ StatusType, msg string) {
+	e.LogStatus(typ, OK, msg)
+}
+
+func (e *Endpoint) logStatusLocked(typ StatusType, code StatusCode, msg string) {
 	sts := &statusLogMsg{
 		Status: Status{
 			Code: code,
 			Msg:  msg,
 			Type: typ,
 		},
-		Timestamp: time.Now().UTC(),
-	}
-	e.Status.addStatusLog(sts)
-}
-
-func (e *Endpoint) LogStatusOK(typ StatusType, msg string) {
-	e.Mutex.Lock()
-	defer e.Mutex.Unlock()
-	e.Status.indexMU.Lock()
-	defer e.Status.indexMU.Unlock()
-	sts := &statusLogMsg{
-		Status:    NewStatusOK(typ, msg),
 		Timestamp: time.Now().UTC(),
 	}
 	e.Status.addStatusLog(sts)
