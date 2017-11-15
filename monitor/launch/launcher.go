@@ -41,6 +41,7 @@ type NodeMonitor struct {
 func (nm *NodeMonitor) Run() {
 	for {
 		cmd := exec.Command(targetName, nm.GetArg())
+		cmd.Stderr = os.Stderr
 		stdout, _ := cmd.StdoutPipe()
 		if err := cmd.Start(); err != nil {
 			cmdStr := fmt.Sprintf("%s %s", targetName, nm.GetArg())
