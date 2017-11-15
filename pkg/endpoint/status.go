@@ -40,9 +40,10 @@ const (
 )
 
 type Status struct {
-	Code StatusCode `json:"code"`
-	Msg  string     `json:"msg"`
-	Type StatusType `json:"status-type"`
+	Code  StatusCode `json:"code"`
+	Msg   string     `json:"msg"`
+	Type  StatusType `json:"status-type"`
+	State string     `json:"state"`
 }
 
 func (sc StatusCode) ColorString() string {
