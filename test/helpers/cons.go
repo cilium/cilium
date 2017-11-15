@@ -26,7 +26,7 @@ var (
 )
 
 const (
-	basePath = "/home/vagrant/go/src/github.com/cilium/cilium/test"
+	BasePath = "/home/vagrant/go/src/github.com/cilium/cilium/test"
 
 	// VM / Test suite constants.
 	K8s     = "k8s"
@@ -95,5 +95,5 @@ const (
 
 //GetFilePath returns the absolute path of the provided filename
 func GetFilePath(filename string) string {
-	return fmt.Sprintf("%s%s", basePath, filename)
+	return fmt.Sprintf("%s%s", BasePath, filename)
 }

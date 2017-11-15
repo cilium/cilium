@@ -126,7 +126,7 @@ func (c *Cilium) EndpointSetConfig(id, option, value string) bool {
 var EndpointWaitUntilReadyRetry int = 0 //List how many retries EndpointWaitUntilReady should have
 
 func (c *Cilium) WaitEndpointGeneration() bool {
-	logger := c.logger.WithFields(log.Fields{"WaitEndpointGeneration": ""})
+	logger := c.logger.WithFields(log.Fields{"functionName": "WaitEndpointGeneration"})
 
 	numDesired := 0
 	counter := 0
@@ -141,7 +141,6 @@ func (c *Cilium) WaitEndpointGeneration() bool {
 	// to be set to zero. Handle this error and set to -1 so that the loop below
 	// continues to execute up until MaxRetries are exceeded.
 	if err != nil {
-		logger.Infof("getting numerical output of AtoI failed: %s", err)
 		numEndpointsRegenerating = -1
 	}
 	for numDesired != numEndpointsRegenerating {
@@ -157,13 +156,16 @@ func (c *Cilium) WaitEndpointGeneration() bool {
 		Sleep(1)
 		res = c.Node.Exec(cmdString)
 		numEndpointsRegenerating, err = strconv.Atoi(strings.TrimSuffix(res.stdout.String(), "\n"))
-		logger.Infof("string output of cmd: %s", res.stdout.String())
+		logger.Infof("output of: '%s'", res.stdout.String())
 		if err != nil {
-			logger.Infof("getting numerical output of AtoI failed: %s", err)
 			numEndpointsRegenerating = -1
 		}
 		counter++
 	}
+
+	res = c.Node.Exec(infoCmd)
+	fmt.Println("output of %q", infoCmd)
+	fmt.Print(res.stdout.String())
 
 	return true
 }
@@ -269,7 +271,7 @@ func (c *Cilium) GetEndpointsNames() ([]string, error) {
 
 //ManifestsPath returns the manifest path
 func (c *Cilium) ManifestsPath() string {
-	return fmt.Sprintf("%s/runtime/manifests/", basePath)
+	return fmt.Sprintf("%s/runtime/manifests/", BasePath)
 }
 
 //GetFullPath returns the valid path for a file

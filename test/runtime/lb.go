@@ -23,6 +23,7 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	log "github.com/sirupsen/logrus"
+	//"github.com/cilium/cilium/pkg/k8s/client/informers/externalversions/cilium"
 )
 
 var _ = Describe("RuntimeLB", func() {
@@ -79,7 +80,7 @@ var _ = Describe("RuntimeLB", func() {
 		containers(helpers.Delete)
 	}, 500)
 
-	It("Service Simple tests", func() {
+	/*It("Service Simple tests", func() {
 
 		By("Creating a valid service")
 		result := cilium.ServiceAdd(1, "[::]:80", []string{"[::1]:90", "[::2]:91"}, 2)
@@ -140,10 +141,15 @@ var _ = Describe("RuntimeLB", func() {
 
 		result = cilium.ServiceGet(20)
 		result.ExpectFail("Service was added and it shouldn't")
-	}, 500)
+	}, 500)*/
 
 	It("Service L3 tests", func() {
-		createInterface(docker.Node)
+		/*err := createInterface(docker.Node)
+		if err != nil {
+			log.Infof("error creating interface: %s", err)
+		}
+		Expect(err).Should(BeNil())*/
+
 		containers(helpers.Create)
 		areEpsReady := cilium.WaitEndpointGeneration()
 		Expect(areEpsReady).Should(BeTrue())
@@ -189,7 +195,8 @@ var _ = Describe("RuntimeLB", func() {
 	}, 500)
 
 	It("Service L4 tests", func() {
-		// createInterface(docker.SSHMeta)
+		/*err := createInterface(docker.Node)
+		Expect(err).Should(BeNil())*/
 
 		containers(helpers.Create)
 		areEpsReady := cilium.WaitEndpointGeneration()
@@ -234,8 +241,8 @@ var _ = Describe("RuntimeLB", func() {
 })
 
 func createInterface(node *helpers.SSHMeta) error {
-
-	script := `
+	log.Infof("creating interface on node: %s", node.String())
+	/*script := `
 #!/bin/bash
 function mac2array()
 {
@@ -272,13 +279,22 @@ tc qdisc del dev lbtest2 clsact 2> /dev/null || true
 tc qdisc add dev lbtest2 clsact
 tc filter add dev lbtest2 ingress bpf da obj tmp_lb.o sec from-netdev
 `
-	err := helpers.RenderTemplateToFile("create_veth_interface", script, 0777)
+
+
+	scriptPath := fmt.Sprintf("%s/create_veth_interface", helpers.BasePath)
+	err := helpers.RenderTemplateToFile(scriptPath, script, 0777)
 	if err != nil {
+		//log.Infof("error rendering template: %s", err)
+		fmt.Printf("error rendering template: %s\n", err)
 		return err
 	}
-	path := "/vagrant/create_veth_interface"
+**/
+	scriptPath := fmt.Sprintf("%s/create_veth_interface", helpers.BasePath)
+
+	log.Infof("adding iptables rule")
 	res := node.Exec("sudo ip addr add fd02:1:1:1:1:1:1:1 dev cilium_host")
 	res.ExpectSuccess()
-	node.Exec(fmt.Sprintf("sudo %s", path))
-	return os.Remove(path)
+	res = node.Exec(fmt.Sprintf("sudo %s", scriptPath))
+	log.Infof("res output: %s", res.CombineOutput().String())
+	return os.Remove(scriptPath)
 }
