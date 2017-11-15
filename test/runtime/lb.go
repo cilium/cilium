@@ -80,7 +80,7 @@ var _ = Describe("RuntimeLB", func() {
 		containers(helpers.Delete)
 	}, 500)
 
-	/*It("Service Simple tests", func() {
+	It("Service Simple tests", func() {
 
 		By("Creating a valid service")
 		result := cilium.ServiceAdd(1, "[::]:80", []string{"[::1]:90", "[::2]:91"}, 2)
@@ -141,14 +141,13 @@ var _ = Describe("RuntimeLB", func() {
 
 		result = cilium.ServiceGet(20)
 		result.ExpectFail("Service was added and it shouldn't")
-	}, 500)*/
+	}, 500)
+
+	// TODO these need to cleanup the stuff they create from test/create_veth_interface script
 
 	It("Service L3 tests", func() {
-		/*err := createInterface(docker.Node)
-		if err != nil {
-			log.Infof("error creating interface: %s", err)
-		}
-		Expect(err).Should(BeNil())*/
+		err := createInterface(docker.Node)
+		Expect(err).Should(BeNil())
 
 		containers(helpers.Create)
 		areEpsReady := cilium.WaitEndpointGeneration()
@@ -195,8 +194,8 @@ var _ = Describe("RuntimeLB", func() {
 	}, 500)
 
 	It("Service L4 tests", func() {
-		/*err := createInterface(docker.Node)
-		Expect(err).Should(BeNil())*/
+		err := createInterface(docker.Node)
+		Expect(err).Should(BeNil())
 
 		containers(helpers.Create)
 		areEpsReady := cilium.WaitEndpointGeneration()
@@ -243,52 +242,52 @@ var _ = Describe("RuntimeLB", func() {
 func createInterface(node *helpers.SSHMeta) error {
 	log.Infof("creating interface on node: %s", node.String())
 	/*script := `
-#!/bin/bash
-function mac2array()
-{
-echo "{0x${1//:/,0x}}"
-}
-
-ip link add lbtest1 type veth peer name lbtest2
-ip link set lbtest1 up
-
-# Route f00d::1:1 IPv6 packets to a fantasy router ("fbfb::10:10") behind lbtest1
-ip -6 route add fbfb::10:10/128 dev lbtest1
-MAC=$(ip link show lbtest1 | grep ether | awk '{print $2}')
-ip neigh add fbfb::10:10 lladdr $MAC dev lbtest1
-ip -6 route add f00d::1:1/128 via fbfb::10:10
-
-# Route 2.2.2.2 IPv4 packets to a fantasy router ("3.3.3.3") behind lbtest1
-ip route add 3.3.3.3/32 dev lbtest1
-MAC=$(ip link show lbtest1 | grep ether | awk '{print $2}')
-ip neigh add 3.3.3.3 lladdr $MAC dev lbtest1
-ip route add 2.2.2.2/32 via 3.3.3.3
-
-ip link set lbtest2 up
-
-LIB=/var/lib/cilium/bpf
-RUN=/var/run/cilium/state
-NH_IFINDEX=$(cat /sys/class/net/cilium_host/ifindex)
-NH_MAC=$(ip link show cilium_host | grep ether | awk '{print $2}')
-NH_MAC="{.addr=$(mac2array $NH_MAC)}"
-CLANG_OPTS="-D__NR_CPUS__=$(nproc) -DLB_L3 -DLB_REDIRECT=$NH_IFINDEX -DLB_DSTMAC=$NH_MAC -DCALLS_MAP=lbtest -O2 -target bpf -I. -I$LIB/include -I$RUN/globals -DDEBUG -Wno-address-of-packed-member -Wno-unknown-warning-option"
-touch netdev_config.h
-clang $CLANG_OPTS -c $LIB/bpf_lb.c -o tmp_lb.o
-
-tc qdisc del dev lbtest2 clsact 2> /dev/null || true
-tc qdisc add dev lbtest2 clsact
-tc filter add dev lbtest2 ingress bpf da obj tmp_lb.o sec from-netdev
-`
-
-
-	scriptPath := fmt.Sprintf("%s/create_veth_interface", helpers.BasePath)
-	err := helpers.RenderTemplateToFile(scriptPath, script, 0777)
-	if err != nil {
-		//log.Infof("error rendering template: %s", err)
-		fmt.Printf("error rendering template: %s\n", err)
-		return err
+	#!/bin/bash
+	function mac2array()
+	{
+	echo "{0x${1//:/,0x}}"
 	}
-**/
+
+	ip link add lbtest1 type veth peer name lbtest2
+	ip link set lbtest1 up
+
+	# Route f00d::1:1 IPv6 packets to a fantasy router ("fbfb::10:10") behind lbtest1
+	ip -6 route add fbfb::10:10/128 dev lbtest1
+	MAC=$(ip link show lbtest1 | grep ether | awk '{print $2}')
+	ip neigh add fbfb::10:10 lladdr $MAC dev lbtest1
+	ip -6 route add f00d::1:1/128 via fbfb::10:10
+
+	# Route 2.2.2.2 IPv4 packets to a fantasy router ("3.3.3.3") behind lbtest1
+	ip route add 3.3.3.3/32 dev lbtest1
+	MAC=$(ip link show lbtest1 | grep ether | awk '{print $2}')
+	ip neigh add 3.3.3.3 lladdr $MAC dev lbtest1
+	ip route add 2.2.2.2/32 via 3.3.3.3
+
+	ip link set lbtest2 up
+
+	LIB=/var/lib/cilium/bpf
+	RUN=/var/run/cilium/state
+	NH_IFINDEX=$(cat /sys/class/net/cilium_host/ifindex)
+	NH_MAC=$(ip link show cilium_host | grep ether | awk '{print $2}')
+	NH_MAC="{.addr=$(mac2array $NH_MAC)}"
+	CLANG_OPTS="-D__NR_CPUS__=$(nproc) -DLB_L3 -DLB_REDIRECT=$NH_IFINDEX -DLB_DSTMAC=$NH_MAC -DCALLS_MAP=lbtest -O2 -target bpf -I. -I$LIB/include -I$RUN/globals -DDEBUG -Wno-address-of-packed-member -Wno-unknown-warning-option"
+	touch netdev_config.h
+	clang $CLANG_OPTS -c $LIB/bpf_lb.c -o tmp_lb.o
+
+	tc qdisc del dev lbtest2 clsact 2> /dev/null || true
+	tc qdisc add dev lbtest2 clsact
+	tc filter add dev lbtest2 ingress bpf da obj tmp_lb.o sec from-netdev
+	`
+
+
+		scriptPath := fmt.Sprintf("%s/create_veth_interface", helpers.BasePath)
+		err := helpers.RenderTemplateToFile(scriptPath, script, 0777)
+		if err != nil {
+			//log.Infof("error rendering template: %s", err)
+			fmt.Printf("error rendering template: %s\n", err)
+			return err
+		}
+	**/
 	scriptPath := fmt.Sprintf("%s/create_veth_interface", helpers.BasePath)
 
 	log.Infof("adding iptables rule")
