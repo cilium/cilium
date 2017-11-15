@@ -191,6 +191,34 @@ func (a *Client) GetEndpointIDLabels(params *GetEndpointIDLabelsParams) (*GetEnd
 }
 
 /*
+GetEndpointIDLog retrieves the status logs associated with this endpoint
+*/
+func (a *Client) GetEndpointIDLog(params *GetEndpointIDLogParams) (*GetEndpointIDLogOK, error) {
+	// TODO: Validate the params before sending
+	if params == nil {
+		params = NewGetEndpointIDLogParams()
+	}
+
+	result, err := a.transport.Submit(&runtime.ClientOperation{
+		ID:                 "GetEndpointIDLog",
+		Method:             "GET",
+		PathPattern:        "/endpoint/{id}/log",
+		ProducesMediaTypes: []string{"application/json"},
+		ConsumesMediaTypes: []string{"application/json"},
+		Schemes:            []string{"http"},
+		Params:             params,
+		Reader:             &GetEndpointIDLogReader{formats: a.formats},
+		Context:            params.Context,
+		Client:             params.HTTPClient,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return result.(*GetEndpointIDLogOK), nil
+
+}
+
+/*
 PatchEndpointID modifies existing endpoint
 
 Applies the endpoint change request to an existing endpoint
@@ -256,7 +284,7 @@ func (a *Client) PatchEndpointIDConfig(params *PatchEndpointIDConfigParams) (*Pa
 /*
 PutEndpointID creates endpoint
 
-Updates an existing endpoint
+Creates a new endpoint
 
 */
 func (a *Client) PutEndpointID(params *PutEndpointIDParams) (*PutEndpointIDCreated, error) {

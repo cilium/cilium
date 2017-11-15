@@ -64,6 +64,16 @@ func (c *Client) EndpointDelete(id string) error {
 	return Hint(err)
 }
 
+// EndpointLogGet returns endpoint log
+func (c *Client) EndpointLogGet(id string) (models.EndpointStatusLog, error) {
+	params := endpoint.NewGetEndpointIDLogParams().WithID(id)
+	resp, err := c.Endpoint.GetEndpointIDLog(params)
+	if err != nil {
+		return nil, Hint(err)
+	}
+	return resp.Payload, nil
+}
+
 // EndpointConfigGet returns endpoint configuration
 func (c *Client) EndpointConfigGet(id string) (*models.Configuration, error) {
 	params := endpoint.NewGetEndpointIDConfigParams().WithID(id)

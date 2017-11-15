@@ -140,7 +140,7 @@ func init() {
         }
       },
       "put": {
-        "description": "Updates an existing endpoint\n",
+        "description": "Creates a new endpoint\n",
         "tags": [
           "endpoint"
         ],
@@ -375,6 +375,34 @@ func init() {
               "$ref": "#/definitions/Error"
             },
             "x-go-name": "UpdateFailed"
+          }
+        }
+      }
+    },
+    "/endpoint/{id}/log": {
+      "get": {
+        "tags": [
+          "endpoint"
+        ],
+        "summary": "Retrieves the status logs associated with this endpoint.",
+        "parameters": [
+          {
+            "$ref": "#/parameters/endpoint-id"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "schema": {
+              "$ref": "#/definitions/EndpointStatusLog"
+            }
+          },
+          "400": {
+            "description": "Invalid identity provided",
+            "x-go-name": "Invalid"
+          },
+          "404": {
+            "description": "Endpoint not found"
           }
         }
       }
@@ -1092,11 +1120,8 @@ func init() {
           "$ref": "#/definitions/EndpointState"
         },
         "status": {
-          "description": "Current state of endpoint",
-          "type": "array",
-          "items": {
-            "$ref": "#/definitions/EndpointStatusChange"
-          }
+          "description": "Most recent status log. See endpoint/{id}/log for the complete log.",
+          "$ref": "#/definitions/EndpointStatusLog"
         }
       }
     },
@@ -1231,10 +1256,20 @@ func init() {
           "description": "Status message",
           "type": "string"
         },
+        "state": {
+          "$ref": "#/definitions/EndpointState"
+        },
         "timestamp": {
           "description": "Timestamp when status change occurred",
           "type": "string"
         }
+      }
+    },
+    "EndpointStatusLog": {
+      "description": "Status log of endpoint",
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/EndpointStatusChange"
       }
     },
     "Error": {

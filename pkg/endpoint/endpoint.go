@@ -411,6 +411,14 @@ func (e *Endpoint) GetModelRLocked() *models.Endpoint {
 
 	policyEnabled := e.Opts.IsEnabled(OptionPolicy)
 
+	// This returns the most recent log entry for this endpoint. It is backwards
+	// compatible with the json from before we added `cilium endpoint log` but it
+	// only returns 1 entry.
+	statusLog := e.Status.GetModel()
+	if len(statusLog) > 0 {
+		statusLog = statusLog[:1]
+	}
+
 	return &models.Endpoint{
 		ID:               int64(e.ID),
 		ContainerID:      e.DockerID,
@@ -430,10 +438,10 @@ func (e *Endpoint) GetModelRLocked() *models.Endpoint {
 		HostMac:        e.NodeMAC.String(),
 		PodName:        e.PodName,
 		State:          currentState, // TODO: Validate
+		Status:         statusLog,
 		Policy:         e.GetPolicyModel(),
 		PolicyEnabled:  &policyEnabled,
 		PolicyRevision: int64(e.policyRevision),
-		Status:         e.Status.GetModel(),
 		Addressing: &models.EndpointAddressing{
 			IPV4: e.IPv4.String(),
 			IPV6: e.IPv6.String(),
@@ -658,6 +666,7 @@ func (e *EndpointStatus) GetModel() []*models.EndpointStatusChange {
 				Timestamp: e.Log[i].Timestamp.Format(time.RFC3339),
 				Code:      e.Log[i].Status.Code.String(),
 				Message:   e.Log[i].Status.Msg,
+				State:     models.EndpointState(e.Log[i].Status.State),
 			})
 		}
 		if i == e.Index {

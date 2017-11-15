@@ -26,6 +26,9 @@ type EndpointStatusChange struct {
 	// Status message
 	Message string `json:"message,omitempty"`
 
+	// state
+	State EndpointState `json:"state,omitempty"`
+
 	// Timestamp when status change occurred
 	Timestamp string `json:"timestamp,omitempty"`
 }
@@ -34,6 +37,8 @@ type EndpointStatusChange struct {
 
 /* polymorph EndpointStatusChange message false */
 
+/* polymorph EndpointStatusChange state false */
+
 /* polymorph EndpointStatusChange timestamp false */
 
 // Validate validates this endpoint status change
@@ -41,6 +46,11 @@ func (m *EndpointStatusChange) Validate(formats strfmt.Registry) error {
 	var res []error
 
 	if err := m.validateCode(formats); err != nil {
+		// prop
+		res = append(res, err)
+	}
+
+	if err := m.validateState(formats); err != nil {
 		// prop
 		res = append(res, err)
 	}
@@ -86,6 +96,22 @@ func (m *EndpointStatusChange) validateCode(formats strfmt.Registry) error {
 
 	// value enum
 	if err := m.validateCodeEnum("code", "body", m.Code); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (m *EndpointStatusChange) validateState(formats strfmt.Registry) error {
+
+	if swag.IsZero(m.State) { // not required
+		return nil
+	}
+
+	if err := m.State.Validate(formats); err != nil {
+		if ve, ok := err.(*errors.Validation); ok {
+			return ve.ValidateName("state")
+		}
 		return err
 	}
 
