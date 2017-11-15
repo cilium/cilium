@@ -1,6 +1,6 @@
 include Makefile.defs
 
-SUBDIRS = envoy plugins bpf cilium daemon monitor
+SUBDIRS = envoy plugins bpf cilium daemon monitor cilium-health
 GOFILES ?= $(shell go list ./... | grep -v /vendor/ | grep -v /contrib/ | grep -v /test | grep -v cilium/envoy | grep -v envoy.*api)
 GOLANGVERSION = $(shell go version 2>/dev/null | grep -Eo '(go[0-9].[0-9])')
 GOLANG_SRCFILES=$(shell for pkg in $GOFILES; do find $(pkg) -name *.go -print; done | grep -v /vendor/)
