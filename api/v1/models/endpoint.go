@@ -6,8 +6,6 @@ package models
 // Editing this file might prove futile when you re-run the swagger generate command
 
 import (
-	"strconv"
-
 	strfmt "github.com/go-openapi/strfmt"
 
 	"github.com/go-openapi/errors"
@@ -73,8 +71,8 @@ type Endpoint struct {
 	// Required: true
 	State EndpointState `json:"state"`
 
-	// Current state of endpoint
-	Status []*EndpointStatusChange `json:"status"`
+	// Most recent status log. See endpoint/{id}/log for the complete log.
+	Status EndpointStatusLog `json:"status"`
 }
 
 /* polymorph Endpoint addressing false */
@@ -143,11 +141,6 @@ func (m *Endpoint) Validate(formats strfmt.Registry) error {
 	}
 
 	if err := m.validateState(formats); err != nil {
-		// prop
-		res = append(res, err)
-	}
-
-	if err := m.validateStatus(formats); err != nil {
 		// prop
 		res = append(res, err)
 	}
@@ -250,33 +243,6 @@ func (m *Endpoint) validateState(formats strfmt.Registry) error {
 			return ve.ValidateName("state")
 		}
 		return err
-	}
-
-	return nil
-}
-
-func (m *Endpoint) validateStatus(formats strfmt.Registry) error {
-
-	if swag.IsZero(m.Status) { // not required
-		return nil
-	}
-
-	for i := 0; i < len(m.Status); i++ {
-
-		if swag.IsZero(m.Status[i]) { // not required
-			continue
-		}
-
-		if m.Status[i] != nil {
-
-			if err := m.Status[i].Validate(formats); err != nil {
-				if ve, ok := err.(*errors.Validation); ok {
-					return ve.ValidateName("status" + "." + strconv.Itoa(i))
-				}
-				return err
-			}
-		}
-
 	}
 
 	return nil

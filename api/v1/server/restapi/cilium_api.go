@@ -72,6 +72,9 @@ func NewCiliumAPI(spec *loads.Document) *CiliumAPI {
 		EndpointGetEndpointIDLabelsHandler: endpoint.GetEndpointIDLabelsHandlerFunc(func(params endpoint.GetEndpointIDLabelsParams) middleware.Responder {
 			return middleware.NotImplemented("operation EndpointGetEndpointIDLabels has not yet been implemented")
 		}),
+		EndpointGetEndpointIDLogHandler: endpoint.GetEndpointIDLogHandlerFunc(func(params endpoint.GetEndpointIDLogParams) middleware.Responder {
+			return middleware.NotImplemented("operation EndpointGetEndpointIDLog has not yet been implemented")
+		}),
 		DaemonGetHealthzHandler: daemon.GetHealthzHandlerFunc(func(params daemon.GetHealthzParams) middleware.Responder {
 			return middleware.NotImplemented("operation DaemonGetHealthz has not yet been implemented")
 		}),
@@ -175,6 +178,8 @@ type CiliumAPI struct {
 	EndpointGetEndpointIDConfigHandler endpoint.GetEndpointIDConfigHandler
 	// EndpointGetEndpointIDLabelsHandler sets the operation handler for the get endpoint ID labels operation
 	EndpointGetEndpointIDLabelsHandler endpoint.GetEndpointIDLabelsHandler
+	// EndpointGetEndpointIDLogHandler sets the operation handler for the get endpoint ID log operation
+	EndpointGetEndpointIDLogHandler endpoint.GetEndpointIDLogHandler
 	// DaemonGetHealthzHandler sets the operation handler for the get healthz operation
 	DaemonGetHealthzHandler daemon.GetHealthzHandler
 	// PolicyGetIdentityHandler sets the operation handler for the get identity operation
@@ -312,6 +317,10 @@ func (o *CiliumAPI) Validate() error {
 
 	if o.EndpointGetEndpointIDLabelsHandler == nil {
 		unregistered = append(unregistered, "endpoint.GetEndpointIDLabelsHandler")
+	}
+
+	if o.EndpointGetEndpointIDLogHandler == nil {
+		unregistered = append(unregistered, "endpoint.GetEndpointIDLogHandler")
 	}
 
 	if o.DaemonGetHealthzHandler == nil {
@@ -525,6 +534,11 @@ func (o *CiliumAPI) initHandlerCache() {
 		o.handlers["GET"] = make(map[string]http.Handler)
 	}
 	o.handlers["GET"]["/endpoint/{id}/labels"] = endpoint.NewGetEndpointIDLabels(o.context, o.EndpointGetEndpointIDLabelsHandler)
+
+	if o.handlers["GET"] == nil {
+		o.handlers["GET"] = make(map[string]http.Handler)
+	}
+	o.handlers["GET"]["/endpoint/{id}/log"] = endpoint.NewGetEndpointIDLog(o.context, o.EndpointGetEndpointIDLogHandler)
 
 	if o.handlers["GET"] == nil {
 		o.handlers["GET"] = make(map[string]http.Handler)

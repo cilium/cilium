@@ -537,6 +537,28 @@ func (h *getEndpointIDLabels) Handle(params GetEndpointIDLabelsParams) middlewar
 	return NewGetEndpointIDLabelsOK().WithPayload(&cfg)
 }
 
+type getEndpointIDLog struct {
+	d *Daemon
+}
+
+func NewGetEndpointIDLogHandler(d *Daemon) GetEndpointIDLogHandler {
+	return &getEndpointIDLog{d: d}
+}
+
+func (h *getEndpointIDLog) Handle(params GetEndpointIDLogParams) middleware.Responder {
+	log.WithField(logfields.EndpointID, params.ID).Debug("GET /endpoint/{id}/log request")
+
+	ep, err := endpointmanager.Lookup(params.ID)
+
+	if err != nil {
+		return apierror.Error(GetEndpointIDLogInvalidCode, err)
+	} else if ep == nil {
+		return NewGetEndpointIDLogNotFound()
+	} else {
+		return NewGetEndpointIDLogOK().WithPayload(ep.Status.GetModel())
+	}
+}
+
 // UpdateSecLabels add and deletes the given labels on given endpoint ID.
 // The received `add` and `del` labels will be filtered with the valid label
 // prefixes.

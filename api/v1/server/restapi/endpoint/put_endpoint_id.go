@@ -33,7 +33,7 @@ func NewPutEndpointID(ctx *middleware.Context, handler PutEndpointIDHandler) *Pu
 
 Create endpoint
 
-Updates an existing endpoint
+Creates a new endpoint
 
 
 */

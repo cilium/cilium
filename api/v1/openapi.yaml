@@ -278,6 +278,23 @@ paths:
           x-go-name: UpdateFailed
           schema:
             "$ref": "#/definitions/Error"
+  "/endpoint/{id}/log":
+    get:
+      summary: Retrieves the status logs associated with this endpoint.
+      tags:
+      - endpoint
+      parameters:
+      - "$ref": "#/parameters/endpoint-id"
+      responses:
+        '200':
+          description: Success
+          schema:
+            "$ref": "#/definitions/EndpointStatusLog"
+        '400':
+          description: Invalid identity provided
+          x-go-name: Invalid
+        '404':
+          description: Endpoint not found
   "/identity":
     get:
       summary: Retrieves a list of identities that have metadata matching the provided parameters.
@@ -736,10 +753,8 @@ definitions:
         description: Current state of endpoint
         "$ref": "#/definitions/EndpointState"
       status:
-        description: Current state of endpoint
-        type: array
-        items:
-          "$ref": "#/definitions/EndpointStatusChange"
+        description: Most recent status log. See endpoint/{id}/log for the complete log.
+        "$ref": "#/definitions/EndpointStatusLog"
       mac:
         description: MAC address
         type: string
@@ -820,6 +835,11 @@ definitions:
       - ready
       - disconnecting
       - disconnected
+  EndpointStatusLog:
+    description: Status log of endpoint
+    type: array
+    items:
+      "$ref": "#/definitions/EndpointStatusChange"
   EndpointStatusChange:
     description: Indication of a change of status
     type: object
@@ -836,6 +856,8 @@ definitions:
       message:
         description: Status message
         type: string
+      state:
+        "$ref": "#/definitions/EndpointState"
   EndpointPolicy:
     description: Policy information of an endpoint
     type: object
