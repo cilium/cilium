@@ -36,6 +36,7 @@ import (
 	"github.com/cilium/cilium/pkg/node"
 
 	log "github.com/sirupsen/logrus"
+	"github.com/spf13/viper"
 	"k8s.io/api/core/v1"
 	"k8s.io/api/extensions/v1beta1"
 	networkingv1 "k8s.io/api/networking/v1"
@@ -832,6 +833,11 @@ func getUniqPorts(svcPorts map[types.FEPortName]*types.FEPort) map[uint16]bool {
 }
 
 func (d *Daemon) delK8sSVCs(svc types.K8sServiceNamespace, svcInfo *types.K8sServiceInfo, se *types.K8sServiceEndpoint) error {
+	// If east-west load balancing is disabled, we should not sync(add or delete)
+	// K8s service to a cilium service.
+	if lb := viper.GetBool("disable-k8s-services"); lb == true {
+		return nil
+	}
 	isSvcIPv4 := svcInfo.FEIP.To4() != nil
 	if err := areIPsConsistent(!d.conf.IPv4Disabled, isSvcIPv4, svc, se); err != nil {
 		return err
@@ -880,6 +886,12 @@ func (d *Daemon) delK8sSVCs(svc types.K8sServiceNamespace, svcInfo *types.K8sSer
 }
 
 func (d *Daemon) addK8sSVCs(svc types.K8sServiceNamespace, svcInfo *types.K8sServiceInfo, se *types.K8sServiceEndpoint) error {
+	// If east-west load balancing is disabled, we should not sync(add or delete)
+	// K8s service to a cilium service.
+	if lb := viper.GetBool("disable-k8s-services"); lb == true {
+		return nil
+	}
+
 	scopedLog := log.WithFields(log.Fields{
 		logfields.K8sSvcName:   svc.ServiceName,
 		logfields.K8sNamespace: svc.Namespace,
