@@ -72,8 +72,9 @@ var _ = Describe("RuntimeLB", func() {
 	AfterEach(func() {
 		if CurrentGinkgoTestDescription().Failed {
 			cilium.ReportFailed(
-				"sudo cilium service list",
-				"sudo cilium endpoint list")
+				"cilium service list",
+				"cilium endpoint list",
+				"sudo cilium bpf lb list")
 		}
 		containers(helpers.Delete)
 	}, 500)
@@ -144,6 +145,8 @@ var _ = Describe("RuntimeLB", func() {
 	It("Service L3 tests", func() {
 		createInterface(docker.Node)
 		containers(helpers.Create)
+		areEpsReady := cilium.WaitEndpointGeneration()
+		Expect(areEpsReady).Should(BeTrue())
 
 		httpd1, err := docker.ContainerInspectNet(helpers.Httpd1)
 		Expect(err).Should(BeNil())
@@ -167,20 +170,20 @@ var _ = Describe("RuntimeLB", func() {
 		cilium.ServiceAdd(22, "[f00d::1:2]:0", []string{
 			fmt.Sprintf("[%s]:0", "fd02:1:1:1:1:1:1:1")}, 100)
 
-		By("Cilium L3 service with Ipv4")
+		By("Cilium L3 service with IPv4")
 
 		status := docker.ContainerExec(helpers.Client, helpers.Ping("2.2.2.2"))
 		status.ExpectSuccess("L3 Proxy is not working IPv4")
 
-		By("Cilium L3 service with Ipv6")
+		By("Cilium L3 service with IPv6")
 		status = docker.ContainerExec(helpers.Client, helpers.Ping6("f00d::1:1"))
 		status.ExpectSuccess("L3 Proxy is not working IPv6")
 
-		By("Cilium L3 service with Ipv4 Reverse")
+		By("Cilium L3 service with IPv4 Reverse")
 		status = docker.ContainerExec(helpers.Client, helpers.Ping("3.3.3.3"))
 		status.ExpectSuccess("L3 Proxy is not working IPv6")
 
-		By("Cilium L3 service with Ipv6 Reverse")
+		By("Cilium L3 service with IPv6 Reverse")
 		status = docker.ContainerExec(helpers.Client, helpers.Ping("f00d::1:2"))
 		status.ExpectSuccess("L3 Proxy is not working IPv6")
 	}, 500)
@@ -189,7 +192,8 @@ var _ = Describe("RuntimeLB", func() {
 		// createInterface(docker.SSHMeta)
 
 		containers(helpers.Create)
-		cilium.EndpointWaitUntilReady()
+		areEpsReady := cilium.WaitEndpointGeneration()
+		Expect(areEpsReady).Should(BeTrue())
 
 		httpd1, err := docker.ContainerInspectNet(helpers.Httpd1)
 		Expect(err).Should(BeNil())

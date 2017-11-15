@@ -51,6 +51,7 @@ func (vagrant *Vagrant) Create(scope string) error {
 			if IsRunningOnJenkins() {
 				vagrant.Destroy(scope)
 			}
+			return nil
 		case "not_created":
 			//createCMD = "vagrant up %s --provision"
 			//createCMD = "../contrib/vagrant/start.sh"

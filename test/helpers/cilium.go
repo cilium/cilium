@@ -23,10 +23,11 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 
 	log "github.com/sirupsen/logrus"
+	"strconv"
 )
 
 const (
-	MaxRetries = 30
+	MaxRetries = 120
 )
 
 // Cilium is utilized to run cilium-specific commands on its SSHMeta. Informational
@@ -123,6 +124,49 @@ func (c *Cilium) EndpointSetConfig(id, option, value string) bool {
 }
 
 var EndpointWaitUntilReadyRetry int = 0 //List how many retries EndpointWaitUntilReady should have
+
+func (c *Cilium) WaitEndpointGeneration() bool {
+	logger := c.logger.WithFields(log.Fields{"WaitEndpointGeneration": ""})
+
+	numDesired := 0
+	counter := 0
+
+	cmdString := "cilium endpoint list | grep -c regenerat"
+	infoCmd := "cilium endpoint list"
+	res := c.Node.Exec(cmdString)
+	logger.Infof("string output of cmd: %s", res.stdout.String())
+	numEndpointsRegenerating, err :=  strconv.Atoi(strings.TrimSuffix(res.stdout.String(), "\n"))
+
+	// If the command error'd out for whatever reason, do not want numEndpointsRegenerating
+	// to be set to zero. Handle this error and set to -1 so that the loop below
+	// continues to execute up until MaxRetries are exceeded.
+	if err != nil {
+		logger.Infof("getting numerical output of AtoI failed: %s", err)
+		numEndpointsRegenerating = -1
+	}
+	for numDesired != numEndpointsRegenerating {
+		logger.Infof("%d endpoints are still regenerating; want %d", numEndpointsRegenerating, numDesired)
+		if counter > MaxRetries {
+			logger.Infof("%d retries have been exceeded for waiting for endpoint regeneration", MaxRetries)
+			return false
+		}
+		res := c.Node.Exec(infoCmd)
+		fmt.Println("output of %q", infoCmd)
+		fmt.Print(res.stdout.String())
+		logger.Infof("still within retry limit for waiting for endpoints to be in \"ready\" state; sleeping and checking again")
+		Sleep(1)
+		res = c.Node.Exec(cmdString)
+		numEndpointsRegenerating, err = strconv.Atoi(strings.TrimSuffix(res.stdout.String(), "\n"))
+		logger.Infof("string output of cmd: %s", res.stdout.String())
+		if err != nil {
+			logger.Infof("getting numerical output of AtoI failed: %s", err)
+			numEndpointsRegenerating = -1
+		}
+		counter++
+	}
+
+	return true
+}
 
 //EndpointWaitUntilReady waits until all of the endpoints that Cilium manages
 // are in 'ready' state.
@@ -341,13 +385,13 @@ func (c *Cilium) ReportFailed(commands ...string) {
 	fmt.Fprint(wr, "StackTrace Begin\n")
 
 	//FIXME: Ginkgo PR383 add here --since option
-	res := c.Node.Exec("sudo journalctl --no-pager -u cilium | tail -n 50")
+	res := c.Node.Exec("sudo journalctl --no-pager -u cilium | tail -n 5")
 	fmt.Fprint(wr, res.Output())
 
 	fmt.Fprint(wr, "\n")
 	res = c.Exec("endpoint list")
 	fmt.Fprint(wr, res.Output())
-	commands = []string{"cilium policy get", "cilium config"}
+
 	for _, cmd := range commands {
 		fmt.Fprintf(wr, "\nOuput of command '%s': \n", cmd)
 		res = c.Node.Exec(fmt.Sprintf("%s", cmd))
@@ -362,6 +406,7 @@ func (c *Cilium) ServiceAdd(id int, frontend string, backends []string, rev int)
 	cmd := fmt.Sprintf(
 		"service update --frontend '%s' --backends '%s' --id '%d' --rev '%d'",
 		frontend, strings.Join(backends, ","), id, rev)
+	log.Infof("running cilium command: %s", cmd)
 	return c.Exec(cmd)
 }
 

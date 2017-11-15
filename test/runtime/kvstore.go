@@ -86,7 +86,10 @@ var _ = Describe("RuntimeKVStoreTest", func() {
 		docker.Node.Exec("sudo systemctl restart cilium-docker")
 		helpers.Sleep(2)
 		containers(helpers.Create)
-		cilium.EndpointWaitUntilReady()
+
+		status := cilium.WaitEndpointGeneration()
+		Expect(status).Should(BeTrue())
+
 		eps, err := cilium.GetEndpointsNames()
 		Expect(err).Should(BeNil())
 		Expect(len(eps)).To(Equal(1))
@@ -112,7 +115,9 @@ var _ = Describe("RuntimeKVStoreTest", func() {
 		docker.Node.Exec("sudo systemctl restart cilium-docker")
 		helpers.Sleep(2)
 		containers(helpers.Create)
-		cilium.EndpointWaitUntilReady()
+
+		status := cilium.WaitEndpointGeneration()
+		Expect(status).Should(BeTrue())
 
 		eps, err := cilium.GetEndpointsNames()
 		Expect(err).Should(BeNil())

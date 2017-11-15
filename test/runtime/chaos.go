@@ -44,7 +44,7 @@ var _ = Describe("RuntimeChaos", func() {
 		err := cilium.WaitUntilReady(100)
 		Expect(err).Should(BeNil())
 
-		status := cilium.EndpointWaitUntilReady()
+		status := cilium.WaitEndpointGeneration()
 		Expect(status).Should(BeTrue())
 
 	}
@@ -54,7 +54,7 @@ var _ = Describe("RuntimeChaos", func() {
 		docker.ContainerCreate(helpers.Client, helpers.NetperfImage, helpers.CiliumDockerNetwork, "-l id.client")
 		docker.ContainerCreate(helpers.Server, helpers.NetperfImage, helpers.CiliumDockerNetwork, "-l id.server")
 
-		_ = cilium.EndpointWaitUntilReady()
+		_ = cilium.WaitEndpointGeneration()
 	})
 
 	AfterEach(func() {

@@ -35,7 +35,8 @@ var _ = Describe("RuntimeConnectivityTest", func() {
 		docker.ContainerCreate(helpers.Client, helpers.NetperfImage, helpers.CiliumDockerNetwork, "-l id.client")
 		docker.ContainerCreate(helpers.Server, helpers.NetperfImage, helpers.CiliumDockerNetwork, "-l id.server")
 		cilium.PolicyDelAll()
-		cilium.EndpointWaitUntilReady()
+		//cilium.EndpointWaitUntilReady()
+		cilium.WaitEndpointGeneration()
 		err := helpers.WithTimeout(func() bool {
 			if data, _ := cilium.GetEndpointsNames(); len(data) < 2 {
 				logger.Info("Waiting for endpoints to be ready")

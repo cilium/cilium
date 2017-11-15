@@ -48,6 +48,7 @@ func (do *Docker) ContainerExec(name string, cmd string) *CmdRes {
 	stderr := new(bytes.Buffer)
 
 	command := fmt.Sprintf("docker exec -i %s %s", name, cmd)
+	log.Infof("running docker command: %s", command)
 	exit := do.Node.ExecWithSudo(command, stdout, stderr)
 	return &CmdRes{
 		cmd:    command,

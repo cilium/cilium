@@ -86,8 +86,8 @@ const (
 	OptionDisabled = "Disabled"
 	OptionEnabled  = "Enabled"
 
-	PingCount          = 5
-	CurlConnectTimeout = 5
+	PingCount          = 10
+	CurlConnectTimeout = 10
 
 	DefaultNamespace    = "default"
 	KubeSystemNamespace = "kube-system"
