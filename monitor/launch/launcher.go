@@ -31,6 +31,11 @@ type NodeMonitor struct {
 	state *models.MonitorStatus
 }
 
+// GetPid returns the node monitor's pid.
+func (m *NodeMonitor) GetPid() int {
+	return m.GetProcess().Pid
+}
+
 // Run starts the node monitor.
 func (nm *NodeMonitor) Run() {
 	nm.SetTarget(targetName)
