@@ -262,7 +262,7 @@ func init() {
 	cobra.OnInitialize(initConfig)
 	flags := RootCmd.Flags()
 	flags.String(
-		"access-log", "", "Path to access log of all HTTP requests observed")
+		"access-log", "", "Path to access log of supported L7 requests observed")
 	flags.StringSlice(
 		"agent-labels", []string{}, "Additional labels to identify this agent")
 	flags.StringVar(&config.AllowLocalhost,
@@ -287,6 +287,8 @@ func init() {
 		"disable-conntrack", false, "Disable connection tracking")
 	flags.BoolVar(&config.IPv4Disabled,
 		"disable-ipv4", false, "Disable IPv4 mode")
+	flags.Bool("disable-k8s-services",
+		false, "Disable east-west K8s load balancing by cilium")
 	flags.StringVarP(&dockerEndpoint,
 		"docker", "e", "unix:///var/run/docker.sock", "Path to docker runtime socket")
 	flags.String("enable-policy", endpoint.DefaultEnforcement, "Enable policy enforcement")
