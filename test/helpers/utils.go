@@ -20,6 +20,7 @@ import (
 	"html/template"
 	"io/ioutil"
 	"os"
+	"strings"
 	"syscall"
 	"time"
 
@@ -137,4 +138,34 @@ func Fail(description string, callerSkip ...int) {
 		syscall.Kill(pid, syscall.SIGSTOP)
 	}
 	ginkgo.Fail(description, callerSkip...)
+}
+
+// ReportDirectory creates and returns the directory path to export all report
+// commands that need to be run in case of fail.
+// If dir can not be created it'll return an error
+func ReportDirectory() (string, error) {
+	testDesc := ginkgo.CurrentGinkgoTestDescription()
+	testPath := fmt.Sprintf("%s%s/",
+		testResultsPath,
+		strings.Replace(testDesc.FullTestText, " ", "", -1))
+	if _, err := os.Stat(testPath); err == nil {
+		return testPath, nil
+	}
+	err := os.MkdirAll(testPath, 0777)
+	return testPath, err
+}
+
+//reportMap get a path, a map with command and output file and a node instance,
+//run the commands and save the output in the defined file
+func reportMap(path string, reportCmds map[string]string, node *Node) {
+	for cmd, logfile := range reportCmds {
+		res := node.Exec(cmd)
+		err := ioutil.WriteFile(
+			fmt.Sprintf("%s/%s", path, logfile),
+			res.CombineOutput().Bytes(),
+			0777)
+		if err != nil {
+			log.Errorf("Can not create test results for command '%s' err='%s'", cmd, err)
+		}
+	}
 }

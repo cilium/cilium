@@ -26,7 +26,6 @@ import (
 
 	"github.com/cilium/cilium/api/v1/models"
 
-	"github.com/onsi/ginkgo"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -439,14 +438,14 @@ func (c *Cilium) ReportFailed(commands ...string) {
 //testResultsPath
 func (c *Cilium) ReportFailedFull() {
 	reportCommands := map[string]string{
-		"cilium endpoint list -o json": "endpoint_list_txt",
-		"cilium service list -o json":  "service_list.txt",
-		"cilium config":                "config.txt",
-		"cilium bpf lb list":           "bpf_lb_list.txt",
-		"cilium bpf ct list global":    "bpf_ct_list.txt",
-		"cilium bpf tunnel list":       "bpf_tunnel_list.txt",
-		"cilium policy get":            "policy_get.txt",
-		"cilium status":                "status.txt",
+		"sudo cilium endpoint list -o json": "endpoint_list_txt",
+		"sudo cilium service list -o json":  "service_list.txt",
+		"sudo cilium config":                "config.txt",
+		"sudo cilium bpf lb list":           "bpf_lb_list.txt",
+		"sudo cilium bpf ct list global":    "bpf_ct_list.txt",
+		"sudo cilium bpf tunnel list":       "bpf_tunnel_list.txt",
+		"sudo cilium policy get":            "policy_get.txt",
+		"sudo cilium status":                "status.txt",
 	}
 
 	reportEndpointsCommands := map[string]string{
@@ -454,25 +453,12 @@ func (c *Cilium) ReportFailedFull() {
 		"cilium bpf policy list %s": "bpf_policy_list_%s.txt",
 	}
 
-	testDesc := ginkgo.CurrentGinkgoTestDescription()
-	testPath := fmt.Sprintf("%s%s/",
-		testResultsPath,
-		strings.Replace(testDesc.FullTestText, " ", "", -1))
-	err := os.MkdirAll(testPath, 0777)
+	testPath, err := ReportDirectory()
 	if err != nil {
 		c.logCxt.Errorf("Can't create Test results path '%s' err '%s'", testPath, err)
+		return
 	}
-
-	for cmd, logfile := range reportCommands {
-		res := c.Node.Exec(fmt.Sprintf("sudo %s", cmd))
-		err = ioutil.WriteFile(
-			fmt.Sprintf("%s/%s", testPath, logfile),
-			res.CombineOutput().Bytes(),
-			0777)
-		if err != nil {
-			c.logCxt.Errorf("Can not create test results for command '%s' err='%s'", cmd, err)
-		}
-	}
+	reportMap(testPath, reportCommands, c.Node)
 
 	//Endpoint specific information:
 	eps, err := c.GetEndpointsIds()
@@ -507,6 +493,32 @@ func (c *Cilium) ReportFailedFull() {
 			0777)
 		if err != nil {
 			c.logCxt.Errorf("Can not create test results for identity get err='%s'", err)
+		}
+	}
+}
+
+//ReportEnd Write to the testReport directory all logs related with the Vagrant vm
+func (c *Cilium) ReportEnd() {
+	reportCommands := map[string]string{
+		"sudo journalctl -xe -u cilium --no-pager":           "cilium.log",
+		"sudo journalctl -xe -u cilium-docker --no-pager":    "cilium-docker.log",
+		"sudo docker logs cilium-consul":                     "consul.log",
+		`sudo bash -c "gops memstats $(pgrep cilium-agent)"`: "gops_memstats.txt",
+		`sudo bash -c "gops stack $(pgrep cilium-agent)"`:    "gops_stack.txt",
+		`sudo bash -c "gops stats $(pgrep cilium-agent)"`:    "gops_stats.txt",
+	}
+
+	gatherCommands := []string{
+		fmt.Sprintf("sudo cp -r /var/lib/cilium /vagrant/%s/lib", testResultsPath),
+		fmt.Sprintf("sudo cp -r /var/run/cilium /vagrant/%s/run", testResultsPath),
+	}
+
+	reportMap(testResultsPath, reportCommands, c.Node)
+
+	for _, cmd := range gatherCommands {
+		res := c.Node.Exec(cmd)
+		if !res.WasSuccessful() {
+			c.logCxt.Errorf("Can not gather files for cmd '%s'", cmd)
 		}
 	}
 }
