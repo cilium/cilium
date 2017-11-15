@@ -147,6 +147,12 @@ generate-api:
 	    -s server --default-scheme=unix -C api/v1/cilium-server.yml
 	swagger generate client -t api/v1 -f api/v1/openapi.yaml -a restapi
 
+generate-health-api:
+	swagger generate server -t api/v1 -f api/v1/health/openapi.yaml \
+	    -a restapi -t api/v1/health/ -s server
+	swagger generate client -t api/v1 -f api/v1/health/openapi.yaml \
+	    -a restapi -t api/v1/health/
+
 vps:
 	VBoxManage list runningvms
 
