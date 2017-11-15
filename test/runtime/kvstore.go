@@ -78,7 +78,8 @@ var _ = Describe("RuntimeKVStoreTest", func() {
 		defer func() {
 			if err != nil {
 				fmt.Print(res.CombineOutput())
-			}}()
+			}
+		}()
 		err = cilium.WaitUntilReady(150)
 		Expect(err).Should(BeNil())
 
@@ -103,7 +104,8 @@ var _ = Describe("RuntimeKVStoreTest", func() {
 		defer func() {
 			if err != nil {
 				fmt.Print(res.CombineOutput())
-			} }()
+			}
+		}()
 		err = cilium.WaitUntilReady(150)
 		Expect(err).Should(BeNil())
 
