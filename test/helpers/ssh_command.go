@@ -157,8 +157,6 @@ func runCommand(session *ssh.Session, cmd *SSHCommand) error {
 	}
 	outChan := copyWait(cmd.Stdout, stdout)
 
-	//log.Debugf("running SSH command %q\n", cmd.Path)
-
 	if err = session.Run(cmd.Path); err != nil {
 		return err
 	}
