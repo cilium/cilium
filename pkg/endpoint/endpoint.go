@@ -993,9 +993,10 @@ func (e *Endpoint) LogStatusOK(typ StatusType, msg string) {
 func (e *Endpoint) logStatusLocked(typ StatusType, code StatusCode, msg string) {
 	sts := &statusLogMsg{
 		Status: Status{
-			Code: code,
-			Msg:  msg,
-			Type: typ,
+			Code:  code,
+			Msg:   msg,
+			Type:  typ,
+			State: e.state,
 		},
 		Timestamp: time.Now().UTC(),
 	}
