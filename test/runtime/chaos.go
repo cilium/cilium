@@ -22,11 +22,9 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-var _ = Describe("RuntimeChaosMonkey", func() {
+var _ = Describe("RuntimeChaos", func() {
 
 	var initialized bool
-	var networkName string = "cilium-net"
-	var netperfImage string = "tgraf/netperf"
 	var logger *log.Entry
 	var docker *helpers.Docker
 	var cilium *helpers.Cilium
@@ -35,10 +33,10 @@ var _ = Describe("RuntimeChaosMonkey", func() {
 		if initialized == true {
 			return
 		}
-		logger = log.WithFields(log.Fields{"testName": "RuntimeChaosMonkey"})
+		logger = log.WithFields(log.Fields{"testName": "RuntimeChaos"})
 		logger.Info("Starting")
-		docker, cilium = helpers.CreateNewRuntimeHelper("runtime", logger)
-		docker.NetworkCreate(networkName, "")
+		docker, cilium = helpers.CreateNewRuntimeHelper(helpers.Runtime, logger)
+		docker.NetworkCreate(helpers.CiliumDockerNetwork, "")
 		initialized = true
 	}
 
@@ -53,8 +51,8 @@ var _ = Describe("RuntimeChaosMonkey", func() {
 
 	BeforeEach(func() {
 		initialize()
-		docker.ContainerCreate("client", netperfImage, networkName, "-l id.client")
-		docker.ContainerCreate("server", netperfImage, networkName, "-l id.server")
+		docker.ContainerCreate(helpers.Client, helpers.NetperfImage, helpers.CiliumDockerNetwork, "-l id.client")
+		docker.ContainerCreate(helpers.Server, helpers.NetperfImage, helpers.CiliumDockerNetwork, "-l id.server")
 
 		areEndpointsReady := cilium.EndpointWaitUntilReady()
 		Expect(areEndpointsReady).Should(BeTrue())
@@ -64,8 +62,8 @@ var _ = Describe("RuntimeChaosMonkey", func() {
 		if CurrentGinkgoTestDescription().Failed {
 			cilium.ReportFailed()
 		}
-		docker.ContainerRm("client")
-		docker.ContainerRm("server")
+		docker.ContainerRm(helpers.Client)
+		docker.ContainerRm(helpers.Server)
 	})
 
 	It("Endpoint recovery on restart", func() {
