@@ -459,23 +459,13 @@ func (kub *Kubectl) CiliumReport(namespace string, pod string, commands []string
 		fmt.Fprintln(wr, out.CombineOutput())
 	}
 	fmt.Fprint(wr, "StackTrace Ends\n")
-	kub.CiliumReportFull(namespace, pod)
+	kub.CiliumReportDump(namespace, pod)
 	return nil
 }
 
-//CiliumReportFull writes to testResultsPath all the output of a variety of
-//cilium commands to know the state of cilium
-func (kub *Kubectl) CiliumReportFull(namespace string, pod string) {
-	reportCiliumCommands := map[string]string{
-		"cilium endpoint list -o json": "endpoint_list_txt",
-		"cilium service list -o json":  "service_list.txt",
-		"cilium config":                "config.txt",
-		"cilium bpf lb list":           "bpf_lb_list.txt",
-		"cilium bpf ct list global":    "bpf_ct_list.txt",
-		"cilium bpf tunnel list":       "bpf_tunnel_list.txt",
-		"cilium policy get":            "policy_get.txt",
-		"cilium status":                "status.txt",
-	}
+//CiliumReportDump runs a variety of commands(reportCommands) and writes the results to
+//testResultsPath
+func (kub *Kubectl) CiliumReportDump(namespace string, pod string) {
 	reportEndpointCommands := map[string]string{
 		"cilium endpoint get %s":    "endpoint_get_%s.txt",
 		"cilium bpf policy list %s": "bpf_policy_list_%s.txt",
@@ -483,11 +473,12 @@ func (kub *Kubectl) CiliumReportFull(namespace string, pod string) {
 
 	testPath, err := ReportDirectory()
 	if err != nil {
-		kub.logCxt.Errorf("Can't create Test results path '%s' err '%s'", testPath, err)
+		kub.logCxt.WithError(err).Errof("Cannot create test result path '%s'", testPath)
+		return
 	}
 
 	reportCmds := map[string]string{}
-	for cmd, logfile := range reportCiliumCommands {
+	for cmd, logfile := range reportCommands {
 		command := fmt.Sprintf("kubectl exec -n %s %s -- %s", namespace, pod, cmd)
 		reportCmds[command] = logfile
 	}
@@ -503,8 +494,8 @@ func (kub *Kubectl) CiliumReportFull(namespace string, pod string) {
 				res.CombineOutput().Bytes(),
 				0777)
 			if err != nil {
-				kub.logCxt.Errorf("Can not create test results for command '%s' err='%s'",
-					command, err)
+				kub.logCxt.WithError(err).Errorf(
+					"Cannot create test results for command '%s'", command)
 			}
 		}
 	}
@@ -518,13 +509,14 @@ func (kub *Kubectl) CiliumReportFull(namespace string, pod string) {
 			res.CombineOutput().Bytes(),
 			0777)
 		if err != nil {
-			kub.logCxt.Errorf("Can not create test results for command '%s' err='%s'", cmd, err)
+			kub.logCxt.WithError(err).Errorf("Cannot create test results for command '%s'", cmd)
 		}
 	}
 }
 
-//ReportEnd Write to the testReport directory all logs related with kubernetes status
-func (kub *Kubectl) ReportEnd() {
+//GatherLogs dumps kubernetes pods, serices, ds to the testResultsPath
+//directory
+func (kub *Kubectl) GatherLogs() {
 	reportCmds := map[string]string{
 		"kubectl get pods --all-namespaces":     "pods.txt",
 		"kubectl get services --all-namespaces": "svc.txt",

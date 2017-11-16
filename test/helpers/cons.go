@@ -120,7 +120,24 @@ const (
 	DefaultNamespace    = "default"
 	KubeSystemNamespace = "kube-system"
 	testResultsPath     = "test_results/"
+	testResultsPath     = "test_results/"
+	runDir              = "/var/run/cilium"
+	libDir              = "/var/lib/cilium"
+	agentDaemon         = "cilium-agent"
+	daemonName          = "cilium"
+	dockerDaemonName    = "cilium-docker"
 )
+
+var reportCommands = map[string]string{
+	"cilium endpoint list -o json": "endpoint_list_txt",
+	"cilium service list -o json":  "service_list.txt",
+	"cilium config":                "config.txt",
+	"cilium bpf lb list":           "bpf_lb_list.txt",
+	"cilium bpf ct list global":    "bpf_ct_list.txt",
+	"cilium bpf tunnel list":       "bpf_tunnel_list.txt",
+	"cilium policy get":            "policy_get.txt",
+	"cilium status":                "status.txt",
+}
 
 //GetFilePath returns the absolute path of the provided filename
 func GetFilePath(filename string) string {
