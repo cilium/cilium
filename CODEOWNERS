@@ -87,3 +87,11 @@ daemon/endpoint.go @cilium/endpoint
 # load balancer - will be moved out of daemon
 daemon/services.* @cilium/loadbalancer
 daemon/loadbalancer.* @cilium/loadbalancer
+
+# Vagrantfiles
+contrib/vagrant @cilium/vagrant
+Vagrantfile @cilium/vagrant
+tests/k8s/Vagrantfile @cilium/vagrant
+test/Vagrantfile @cilium/vagrant
+examples/getting-started/Vagrantfile @cilium/vagrant
+examples/mesos/Vagrantfile @cilium/vagrant
