@@ -20,7 +20,8 @@ import (
 )
 
 var (
-	timeout time.Duration = 300 // WithTimeout helper translates it to seconds
+	// HelperTimeout is a predefined timeout value for commands.
+	HelperTimeout time.Duration = 300 // WithTimeout helper translates it to seconds
 
 	// K8s1VMName is the name of the Kubernetes master node when running
 	// Kubernetes tests.

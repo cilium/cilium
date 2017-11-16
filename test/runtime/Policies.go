@@ -101,7 +101,7 @@ var _ = Describe("RuntimePolicyEnforcement", func() {
 			})
 
 			By("Apply a new sample policy")
-			_, err := cilium.PolicyImport(cilium.GetFullPath(sampleJSON), 300)
+			_, err := cilium.PolicyImport(cilium.GetFullPath(sampleJSON), helpers.HelperTimeout)
 			Expect(err).Should(BeNil())
 
 			endPoints, err := cilium.PolicyEndpointsSummary()
@@ -111,7 +111,7 @@ var _ = Describe("RuntimePolicyEnforcement", func() {
 
 		It("Handles missing required fields", func() {
 			By("Apply a policy with no endpointSelector without crashing")
-			_, err := cilium.PolicyImport(cilium.GetFullPath("no_endpointselector_policy.json"), 300)
+			_, err := cilium.PolicyImport(cilium.GetFullPath("no_endpointselector_policy.json"), helpers.HelperTimeout)
 			Expect(err).ShouldNot(BeNil())
 		})
 
@@ -140,7 +140,7 @@ var _ = Describe("RuntimePolicyEnforcement", func() {
 		})
 
 		It("Default to Always with policy", func() {
-			_, err := cilium.PolicyImport(cilium.GetFullPath(sampleJSON), 300)
+			_, err := cilium.PolicyImport(cilium.GetFullPath(sampleJSON), helpers.HelperTimeout)
 			Expect(err).Should(BeNil())
 
 			endPoints, err := cilium.PolicyEndpointsSummary()
@@ -182,7 +182,7 @@ var _ = Describe("RuntimePolicyEnforcement", func() {
 
 		It("Default to Never with policy", func() {
 
-			_, err := cilium.PolicyImport(cilium.GetFullPath(sampleJSON), 300)
+			_, err := cilium.PolicyImport(cilium.GetFullPath(sampleJSON), helpers.HelperTimeout)
 			Expect(err).Should(BeNil())
 
 			endPoints, err := cilium.PolicyEndpointsSummary()
@@ -236,7 +236,7 @@ var _ = Describe("RuntimePolicyEnforcement", func() {
 			Expect(endPoints[helpers.Enabled]).To(Equal(1))
 			Expect(endPoints[helpers.Disabled]).To(Equal(0))
 
-			_, err = cilium.PolicyImport(cilium.GetFullPath(sampleJSON), 300)
+			_, err = cilium.PolicyImport(cilium.GetFullPath(sampleJSON), helpers.HelperTimeout)
 			Expect(err).Should(BeNil())
 
 			endPoints, err = cilium.PolicyEndpointsSummary()
@@ -314,7 +314,7 @@ var _ = Describe("RuntimePolicyEnforcement", func() {
 			Expect(endPoints[helpers.Enabled]).To(Equal(0))
 			Expect(endPoints[helpers.Disabled]).To(Equal(1))
 
-			_, err = cilium.PolicyImport(cilium.GetFullPath(sampleJSON), 300)
+			_, err = cilium.PolicyImport(cilium.GetFullPath(sampleJSON), helpers.HelperTimeout)
 			Expect(err).Should(BeNil())
 
 			endPoints, err = cilium.PolicyEndpointsSummary()
@@ -459,7 +459,7 @@ var _ = Describe("RuntimePolicies", func() {
 	}
 
 	It("L3/L4 Checks", func() {
-		_, err := cilium.PolicyImport(cilium.GetFullPath(policiesL3JSON), 300)
+		_, err := cilium.PolicyImport(cilium.GetFullPath(policiesL3JSON), helpers.HelperTimeout)
 		Expect(err).Should(BeNil())
 
 		//APP1 can connect to all Httpd1
@@ -510,7 +510,7 @@ var _ = Describe("RuntimePolicies", func() {
 		Expect(err).Should(BeNil())
 
 		path := helpers.GetFilePath(ingressJSON)
-		_, err = cilium.PolicyImport(path, 300)
+		_, err = cilium.PolicyImport(path, helpers.HelperTimeout)
 		Expect(err).Should(BeNil())
 		defer os.Remove(ingressJSON)
 
@@ -542,7 +542,7 @@ var _ = Describe("RuntimePolicies", func() {
 		Expect(err).Should(BeNil())
 		path = helpers.GetFilePath(egressJSON)
 		defer os.Remove(egressJSON)
-		_, err = cilium.PolicyImport(path, 300)
+		_, err = cilium.PolicyImport(path, helpers.HelperTimeout)
 		Expect(err).Should(BeNil())
 
 		connectivityTest(httpRequestsPublic, helpers.App1, helpers.Httpd1, BeTrue)
@@ -550,7 +550,7 @@ var _ = Describe("RuntimePolicies", func() {
 	})
 
 	It("L4Policy Checks", func() {
-		_, err := cilium.PolicyImport(cilium.GetFullPath("Policies-l4-policy.json"), 300)
+		_, err := cilium.PolicyImport(cilium.GetFullPath("Policies-l4-policy.json"), helpers.HelperTimeout)
 		Expect(err).Should(BeNil())
 
 		for _, app := range []string{helpers.App1, helpers.App2} {
@@ -573,7 +573,7 @@ var _ = Describe("RuntimePolicies", func() {
 
 	It("L7 Checks", func() {
 
-		_, err := cilium.PolicyImport(cilium.GetFullPath(policiesL7JSON), 300)
+		_, err := cilium.PolicyImport(cilium.GetFullPath(policiesL7JSON), helpers.HelperTimeout)
 		Expect(err).Should(BeNil())
 
 		By("Simple Ingress")
@@ -602,7 +602,7 @@ var _ = Describe("RuntimePolicies", func() {
 		By("Multiple Ingress")
 
 		cilium.PolicyDelAll()
-		_, err = cilium.PolicyImport(cilium.GetFullPath(multL7PoliciesJSON), 300)
+		_, err = cilium.PolicyImport(cilium.GetFullPath(multL7PoliciesJSON), helpers.HelperTimeout)
 		Expect(err).Should(BeNil())
 
 		//APP1 can connnect to public, but no to private
@@ -635,7 +635,7 @@ var _ = Describe("RuntimePolicies", func() {
 			Expect(err).Should(BeNil())
 
 			path := helpers.GetFilePath(invalidJSON)
-			_, err = cilium.PolicyImport(path, 300)
+			_, err = cilium.PolicyImport(path, helpers.HelperTimeout)
 			Expect(err).Should(HaveOccurred())
 			defer os.Remove(invalidJSON)
 		}
@@ -697,7 +697,7 @@ var _ = Describe("RuntimePolicies", func() {
 		Expect(err).Should(BeNil())
 
 		path := helpers.GetFilePath(policyJSON)
-		_, err = cilium.PolicyImport(path, 300)
+		_, err = cilium.PolicyImport(path, helpers.HelperTimeout)
 		Expect(err).Should(BeNil())
 		defer os.Remove(policyJSON)
 		for _, v := range []string{"key1", "key2", "key3"} {

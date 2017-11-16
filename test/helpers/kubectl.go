@@ -266,7 +266,7 @@ func (kub *Kubectl) CiliumEndpointWait(pod string) bool {
 		return false
 	}
 
-	err := WithTimeout(body, "cannot retrieve endpoints", &TimeoutConfig{Timeout: timeout})
+	err := WithTimeout(body, "cannot retrieve endpoints", &TimeoutConfig{Timeout: HelperTimeout})
 	if err != nil {
 		return false
 	}
@@ -297,7 +297,7 @@ func (kub *Kubectl) CiliumExec(pod string, cmd string) *CmdRes {
 
 //CiliumNodesWait When a new cilium DS is set, the status can be ok but tunnels
 //are not in place yet. Checking the `kubectl get nodes` we can know if cilium
-//added the node correctly. In case of timeout will return an error
+//added the node correctly. If the command times out, will return an error
 func (kub *Kubectl) CiliumNodesWait() (bool, error) {
 	body := func() bool {
 		filter := `{range .items[*]}{@.metadata.name}{"="}{@.metadata.annotations.io\.cilium\.network\.ipv4-pod-cidr}{"\n"}{end}`
@@ -316,7 +316,7 @@ func (kub *Kubectl) CiliumNodesWait() (bool, error) {
 		}
 		return true
 	}
-	err := WithTimeout(body, "Kubernetes node does not have cilium metadata", &TimeoutConfig{Timeout: timeout})
+	err := WithTimeout(body, "Kubernetes node does not have cilium metadata", &TimeoutConfig{Timeout: HelperTimeout})
 	if err != nil {
 		return false, err
 	}
