@@ -16,12 +16,13 @@ package helpers
 
 import (
 	"fmt"
+	"time"
 )
 
 var (
-	timeout     = 300 //WithTimeout helper translate it to seconds
-	basePath    = "/vagrant/"
-	networkName = "cilium-net"
+	timeout     time.Duration = 300 //WithTimeout helper translate it to seconds
+	basePath                  = "/vagrant/"
+	networkName               = "cilium-net"
 )
 
 //GetFilePath returns the absolute path of the provided filename
