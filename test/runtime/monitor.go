@@ -26,11 +26,15 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+const (
+	MonitorDropNotification  = "DropNotification"
+	MonitorTraceNotification = "TraceNotification"
+	MonitorDebug             = "Debug"
+)
+
 var _ = Describe("RuntimeMonitorTest", func() {
 
 	var initialized bool
-	var networkName string = "cilium-net"
-	var netperfImage string = "tgraf/netperf"
 	var logger *log.Entry
 	var docker *helpers.Docker
 	var cilium *helpers.Cilium
@@ -41,11 +45,11 @@ var _ = Describe("RuntimeMonitorTest", func() {
 		}
 		logger = log.WithFields(log.Fields{"testName": "RuntimeMonitorTest"})
 		logger.Info("Starting")
-		docker, cilium = helpers.CreateNewRuntimeHelper("runtime", logger)
+		docker, cilium = helpers.CreateNewRuntimeHelper(helpers.Runtime, logger)
 		cilium.WaitUntilReady(100)
-		docker.NetworkCreate(networkName, "")
+		docker.NetworkCreate(helpers.CiliumDockerNetwork, "")
 
-		res := cilium.PolicyEnforcementSet("default", false)
+		res := cilium.SetPolicyEnforcement(helpers.PolicyEnforcementDefault, false)
 		res.ExpectSuccess()
 
 		initialized = true
@@ -56,18 +60,18 @@ var _ = Describe("RuntimeMonitorTest", func() {
 	})
 
 	AfterEach(func() {
-		docker.SampleContainersActions("delete", networkName)
+		docker.SampleContainersActions(helpers.Delete, helpers.CiliumDockerNetwork)
 	})
 
 	It("Cilium monitor verbose mode", func() {
 
-		res := cilium.Exec("config Debug=true DropNotification=true TraceNotification=true")
+		res := cilium.Exec(fmt.Sprintf("config %s=true %s=true %s=true", MonitorDebug, MonitorDropNotification, MonitorTraceNotification))
 		res.ExpectSuccess()
 
 		ctx, cancel := context.WithCancel(context.Background())
 
 		res = docker.Node.ExecContext(ctx, "cilium monitor -v")
-		docker.SampleContainersActions("create", networkName)
+		docker.SampleContainersActions(helpers.Create, helpers.CiliumDockerNetwork)
 		helpers.Sleep(5)
 		cancel()
 		endpoints, err := cilium.GetEndpointsIds()
@@ -75,7 +79,7 @@ var _ = Describe("RuntimeMonitorTest", func() {
 
 		for k, v := range endpoints {
 			filter := fmt.Sprintf("FROM %s DEBUG:", v)
-			docker.ContainerExec(k, "ping -c 1 httpd1")
+			docker.ContainerExec(k, helpers.Ping(helpers.Httpd1))
 			Expect(res.Output().String()).Should(ContainSubstring(filter))
 		}
 	})
@@ -87,109 +91,115 @@ var _ = Describe("RuntimeMonitorTest", func() {
 			"capture": "DEBUG:",
 		}
 
-		res := cilium.Exec("config Debug=true DropNotification=true TraceNotification=true")
+		res := cilium.Exec(fmt.Sprintf("config %s=true %s=true %s=true", MonitorDebug, MonitorDropNotification, MonitorTraceNotification))
 		res.ExpectSuccess()
 		for k, v := range eventTypes {
 			By(fmt.Sprintf("Type %s", k))
 
 			ctx, cancel := context.WithCancel(context.Background())
 			res := docker.Node.ExecContext(ctx, fmt.Sprintf("cilium monitor --type %s -v", k))
-			docker.SampleContainersActions("create", networkName)
-			docker.ContainerExec("app1", "ping -c 4 httpd1")
+			docker.SampleContainersActions(helpers.Create, helpers.CiliumDockerNetwork)
+			docker.ContainerExec(helpers.App1, helpers.Ping(helpers.Httpd1))
 			helpers.Sleep(5)
 			cancel()
 
 			Expect(res.CountLines()).Should(BeNumerically(">", 3))
 			Expect(res.Output().String()).Should(ContainSubstring(v))
-			docker.SampleContainersActions("delete", networkName)
+			docker.SampleContainersActions(helpers.Delete, helpers.CiliumDockerNetwork)
 		}
 	})
 
 	It("cilium monitor check --from", func() {
-		res := cilium.Exec("config Debug=true DropNotification=true TraceNotification=true")
+		res := cilium.Exec(fmt.Sprintf("config %s=true %s=true %s=true", MonitorDebug, MonitorDropNotification, MonitorTraceNotification))
 		res.ExpectSuccess()
 
-		docker.SampleContainersActions("create", networkName)
+		docker.SampleContainersActions(helpers.Create, helpers.CiliumDockerNetwork)
 		endpoints, err := cilium.GetEndpointsIds()
 		Expect(err).Should(BeNil())
 
 		ctx, cancel := context.WithCancel(context.Background())
 		res = docker.Node.ExecContext(ctx, fmt.Sprintf(
-			"cilium monitor --type debug --from %s -v", endpoints["app1"]))
-		docker.ContainerExec("app1", "ping -c 5 httpd1")
+			"cilium monitor --type debug --from %s -v", endpoints[helpers.App1]))
+		docker.ContainerExec(helpers.App1, helpers.Ping(helpers.Httpd1))
 		helpers.Sleep(5)
 		cancel()
 
 		Expect(res.CountLines()).Should(BeNumerically(">", 3))
-		filter := fmt.Sprintf("FROM %s DEBUG:", endpoints["app1"])
+		filter := fmt.Sprintf("FROM %s DEBUG:", endpoints[helpers.App1])
 		Expect(res.Output().String()).Should(ContainSubstring(filter))
 
-		//Debug mode shouldn't have DROP lines
+		//MonitorDebug mode shouldn't have DROP lines
 		Expect(res.Output().String()).ShouldNot(ContainSubstring("DROP"))
 
 	})
 
 	It("cilium monitor check --to", func() {
 
-		res := cilium.Exec(
-			"config Debug=true DropNotification=true TraceNotification=true PolicyEnforcement=always")
+		res := cilium.Exec(fmt.Sprintf(
+			"config %s=true %s=true %s=true %s=always", MonitorDebug, MonitorDropNotification, MonitorTraceNotification, helpers.PolicyEnforcement))
 		res.ExpectSuccess()
 
-		docker.SampleContainersActions("create", networkName)
+		docker.SampleContainersActions(helpers.Create, helpers.CiliumDockerNetwork)
 		endpoints, err := cilium.GetEndpointsIds()
 		Expect(err).Should(BeNil())
-		cilium.EndpointWaitUntilReady()
+
+		areEndpointsGenerated := cilium.WaitEndpointGeneration()
+		Expect(areEndpointsGenerated).Should(BeTrue())
+
 		ctx, cancel := context.WithCancel(context.Background())
 		res = docker.Node.ExecContext(ctx, fmt.Sprintf(
-			"cilium monitor --type drop -v --to %s", endpoints["httpd1"]))
+			"cilium monitor --type drop -v --to %s", endpoints[helpers.Httpd1]))
 
-		docker.ContainerExec("app1", "ping -c 5 httpd1")
-		docker.ContainerExec("app2", "ping -c 5 httpd1")
+		docker.ContainerExec(helpers.App1, helpers.Ping(helpers.Httpd1))
+		docker.ContainerExec(helpers.App2, helpers.Ping(helpers.Httpd1))
 		helpers.Sleep(5)
 		cancel()
 
 		Expect(res.CountLines()).Should(BeNumerically(">", 3))
-		filter := fmt.Sprintf("FROM %s DROP:", endpoints["httpd1"])
+		filter := fmt.Sprintf("FROM %s DROP:", endpoints[helpers.Httpd1])
 		Expect(res.Output().String()).Should(ContainSubstring(filter))
 
 	})
 
 	It("cilium monitor check --related-to", func() {
 
-		res := cilium.Exec(
-			"config Debug=true DropNotification=true TraceNotification=true PolicyEnforcement=always")
+		res := cilium.Exec(fmt.Sprintf(
+			"config %s=true %s=true %s=true %s=always", MonitorDebug, MonitorDropNotification, MonitorTraceNotification, helpers.PolicyEnforcement))
 		res.ExpectSuccess()
 
-		docker.SampleContainersActions("create", networkName)
+		docker.SampleContainersActions(helpers.Create, helpers.CiliumDockerNetwork)
 		endpoints, err := cilium.GetEndpointsIds()
 		Expect(err).Should(BeNil())
 
 		ctx, cancel := context.WithCancel(context.Background())
 		res = docker.Node.ExecContext(ctx, fmt.Sprintf(
-			"cilium monitor -v --type drop --related-to %s", endpoints["httpd1"]))
-		cilium.EndpointWaitUntilReady()
-		docker.ContainerExec("app1", "curl -s --fail --connect-timeout 3 http://httpd1/public")
+			"cilium monitor -v --type drop --related-to %s", endpoints[helpers.Httpd1]))
+
+		areEndpointsReady := cilium.WaitEndpointGeneration()
+		Expect(areEndpointsReady).Should(BeTrue())
+
+		docker.ContainerExec(helpers.App1, helpers.CurlFail("http://httpd1/public"))
 
 		helpers.Sleep(2)
 		cancel()
 		Expect(res.CountLines()).Should(BeNumerically(">=", 3))
-		filter := fmt.Sprintf("FROM %s DROP:", endpoints["httpd1"])
+		filter := fmt.Sprintf("FROM %s DROP:", endpoints[helpers.Httpd1])
 		Expect(res.Output().String()).Should(ContainSubstring(filter))
 	})
 
-	It("multiple monitor", func() {
+	It("multiple monitors", func() {
 
-		res := cilium.Exec(
-			"config Debug=true DropNotification=true TraceNotification=true PolicyEnforcement=default")
+		res := cilium.Exec(fmt.Sprintf(
+			"config %s=true %s=true %s=true %s=default", MonitorDebug, MonitorDropNotification, MonitorTraceNotification, helpers.PolicyEnforcement))
 		res.ExpectSuccess()
 
 		var monitorRes []*helpers.CmdRes
 
-		docker.ContainerCreate("client", netperfImage, networkName, "-l id.client")
-		docker.ContainerCreate("server", netperfImage, networkName, "-l id.server")
+		docker.ContainerCreate(helpers.Client, helpers.NetperfImage, helpers.CiliumDockerNetwork, "-l id.client")
+		docker.ContainerCreate(helpers.Server, helpers.NetperfImage, helpers.CiliumDockerNetwork, "-l id.server")
 
-		defer docker.ContainerRm("client")
-		defer docker.ContainerRm("server")
+		defer docker.ContainerRm(helpers.Client)
+		defer docker.ContainerRm(helpers.Server)
 
 		ctx, cancelfn := context.WithCancel(context.Background())
 
@@ -197,7 +207,7 @@ var _ = Describe("RuntimeMonitorTest", func() {
 			monitorRes = append(monitorRes, docker.Node.ExecContext(ctx, "cilium monitor"))
 		}
 
-		docker.ContainerExec("client", "ping -c 5 server")
+		docker.ContainerExec(helpers.Client, helpers.Ping(helpers.Server))
 		cancelfn()
 
 		Expect(monitorRes[0].CountLines()).Should(BeNumerically(">", 2))

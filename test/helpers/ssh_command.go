@@ -24,10 +24,12 @@ import (
 	"os"
 	"strconv"
 
+	//"bufio"
 	"github.com/kevinburke/ssh_config"
 	log "github.com/sirupsen/logrus"
 	"golang.org/x/crypto/ssh"
 	"golang.org/x/crypto/ssh/agent"
+	"time"
 )
 
 //SSHCommand struct to send commands over SSHClient
@@ -48,7 +50,7 @@ type SSHClient struct {
 	// subprocesses, TCP port/streamlocal forwarding and tunneled dialing.
 }
 
-//SSHConfig contains metadata for running an SSH session .
+//SSHConfig contains metadata for an SSH session with a Vagrant VM .
 type SSHConfig struct {
 	target       string
 	host         string
@@ -57,25 +59,33 @@ type SSHConfig struct {
 	identityFile string
 }
 
-//SSHConfigs map with all sshconfig. Key represent the virtualserver target name
+// SSHConfigs maps the name of a host (VM) to the SSHConfiguration
 type SSHConfigs map[string]*SSHConfig
 
-//GetSSHClient initializes an SSHClient based on the provided SSHConfig
+// GetSSHClient initializes an SSHClient based on the provided SSHConfig
 func (cfg *SSHConfig) GetSSHClient() *SSHClient {
-
 	sshConfig := &ssh.ClientConfig{
 		User: cfg.user,
 		Auth: []ssh.AuthMethod{
 			cfg.GetSSHAgent(),
 		},
 		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
+		Timeout:         15 * time.Second,
 	}
-
+	//log.Debugf("generated SSHClient from SSHConfig %s", cfg.String())
 	return &SSHClient{
 		Config: sshConfig,
 		Host:   cfg.host,
 		Port:   cfg.port,
 	}
+}
+
+func (client *SSHClient) String() string {
+	return fmt.Sprintf("host: %s, port: %d, user: %s", client.Host, client.Port, client.Config.User)
+}
+
+func (cfg *SSHConfig) String() string {
+	return fmt.Sprintf("target: %s, host: %s, port %d, user, %s, identityFile: %s", cfg.target, cfg.host, cfg.port, cfg.user, cfg.identityFile)
 }
 
 //GetSSHAgent returns the ssh.AuthMethod corresponding to SSHConfig cfg
@@ -95,6 +105,7 @@ func (cfg *SSHConfig) GetSSHAgent() ssh.AuthMethod {
 //ImportSSHconfig imports the SSH configuration stored at the provided path.
 //Returns an error if the SSH configuration could not be instantiated.
 func ImportSSHconfig(config []byte) (SSHConfigs, error) {
+	//log.Infof("importing SSH config")
 	result := make(SSHConfigs)
 	cfg, err := ssh_config.Decode(bytes.NewBuffer(config))
 	if err != nil {
@@ -113,6 +124,7 @@ func ImportSSHconfig(config []byte) (SSHConfigs, error) {
 		hostConfig.user, _ = cfg.Get(key, "User")
 		hostConfig.port, _ = strconv.Atoi(port)
 		result[key] = &hostConfig
+		//log.Infof("generated SSHConfig for host %s: port: %d, user: %s, identity file: %s", hostConfig.host, hostConfig.port, hostConfig.user, hostConfig.identityFile)
 	}
 	return result, nil
 }
@@ -148,6 +160,7 @@ func runCommand(session *ssh.Session, cmd *SSHCommand) error {
 	if err = session.Run(cmd.Path); err != nil {
 		return err
 	}
+
 	if err = <-errChan; err != nil {
 		return err
 	}
@@ -170,11 +183,11 @@ func (client *SSHClient) RunCommand(cmd *SSHCommand) error {
 	return runCommand(session, cmd)
 }
 
-// RunCommandContext runs a ssh command in a similar way to RunCommand, but
+// RunCommandContext runs an SSH command in a similar way to RunCommand, but
 // with a context which allows the command to be cancelled at any time.
 func (client *SSHClient) RunCommandContext(ctx context.Context, cmd *SSHCommand) error {
 	if ctx == nil {
-		panic("nil Context to RunCommandContext()")
+		panic("nil context provided to RunCommandContext()")
 	}
 
 	session, err := client.newSession()
@@ -237,9 +250,9 @@ func SSHAgent() ssh.AuthMethod {
 	return nil
 }
 
-//GetSSHclient initializes an SSHClient for the specified host/port/user
+//GetSSHClient initializes an SSHClient for the specified host/port/user
 //combination.
-func GetSSHclient(host string, port int, user string) *SSHClient {
+func GetSSHClient(host string, port int, user string) *SSHClient {
 
 	sshConfig := &ssh.ClientConfig{
 		User: user,
@@ -247,6 +260,7 @@ func GetSSHclient(host string, port int, user string) *SSHClient {
 			SSHAgent(),
 		},
 		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
+		Timeout:         15 * time.Second,
 	}
 
 	return &SSHClient{

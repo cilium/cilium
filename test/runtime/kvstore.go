@@ -16,6 +16,7 @@ package RuntimeTest
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/cilium/cilium/test/helpers"
 
@@ -27,9 +28,6 @@ import (
 var _ = Describe("RuntimeKVStoreTest", func() {
 
 	var initialized bool
-	var networkName string = "cilium-net"
-
-	var netperfImage string = "tgraf/netperf"
 	var logger *log.Entry
 	var docker *helpers.Docker
 	var cilium *helpers.Cilium
@@ -40,16 +38,17 @@ var _ = Describe("RuntimeKVStoreTest", func() {
 		}
 		logger = log.WithFields(log.Fields{"testName": "RuntimeKVStoreTest"})
 		logger.Info("Starting")
-		docker, cilium = helpers.CreateNewRuntimeHelper("runtime", logger)
+		docker, cilium = helpers.CreateNewRuntimeHelper(helpers.Runtime, logger)
+		logger.Info("done creating Cilium and Docker helpers")
 		initialized = true
 	}
 	containers := func(option string) {
 		switch option {
-		case "create":
-			docker.NetworkCreate(networkName, "")
-			docker.ContainerCreate("client", netperfImage, networkName, "-l id.client")
-		case "delete":
-			docker.ContainerRm("client")
+		case helpers.Create:
+			docker.NetworkCreate(helpers.CiliumDockerNetwork, "")
+			docker.ContainerCreate(helpers.Client, helpers.NetperfImage, helpers.CiliumDockerNetwork, "-l id.client")
+		case helpers.Delete:
+			docker.ContainerRm(helpers.Client)
 
 		}
 	}
@@ -65,41 +64,60 @@ var _ = Describe("RuntimeKVStoreTest", func() {
 				"sudo docker ps -a",
 				"sudo cilium endpoint list")
 		}
-		containers("delete")
+		containers(helpers.Delete)
 		docker.Node.Exec("sudo systemctl start cilium")
 	})
 
 	It("Consul KVStore", func() {
+		var err error
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
-		cilium.Node.ExecContext(
+		res := cilium.Node.ExecContext(
 			ctx,
-			"sudo cilium-agent --kvstore consul --kvstore-opt consul.address=127.0.0.1:8500 --debug")
-		err := cilium.WaitUntilReady(150)
+			"sudo env \"PATH=$PATH:/usr/local/clang/bin\" cilium-agent --kvstore consul --kvstore-opt consul.address=127.0.0.1:8500 --debug")
+		defer func() {
+			if err != nil {
+				fmt.Print(res.CombineOutput())
+			}
+		}()
+		err = cilium.WaitUntilReady(150)
 		Expect(err).Should(BeNil())
 
 		docker.Node.Exec("sudo systemctl restart cilium-docker")
 		helpers.Sleep(2)
-		containers("create")
-		cilium.EndpointWaitUntilReady()
+		containers(helpers.Create)
+
+		status := cilium.WaitEndpointGeneration()
+		Expect(status).Should(BeTrue())
+
 		eps, err := cilium.GetEndpointsNames()
 		Expect(err).Should(BeNil())
 		Expect(len(eps)).To(Equal(1))
 	})
 
 	It("Etcd KVStore", func() {
+		var err error
+		cilium.Node.Exec("sudo service cilium-etcd start")
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
-		cilium.Node.ExecContext(
+		defer cilium.Node.Exec("sudo service cilium-etcd stop")
+		res := cilium.Node.ExecContext(
 			ctx,
-			"sudo cilium-agent --kvstore etcd --kvstore-opt etcd.address=127.0.0.1:4001")
-		err := cilium.WaitUntilReady(150)
+			"sudo env \"PATH=$PATH:/usr/local/clang/bin\" cilium-agent --kvstore etcd --kvstore-opt etcd.address=127.0.0.1:4001")
+		defer func() {
+			if err != nil {
+				fmt.Print(res.CombineOutput())
+			}
+		}()
+		err = cilium.WaitUntilReady(150)
 		Expect(err).Should(BeNil())
 
 		docker.Node.Exec("sudo systemctl restart cilium-docker")
 		helpers.Sleep(2)
-		containers("create")
-		cilium.EndpointWaitUntilReady()
+		containers(helpers.Create)
+
+		status := cilium.WaitEndpointGeneration()
+		Expect(status).Should(BeTrue())
 
 		eps, err := cilium.GetEndpointsNames()
 		Expect(err).Should(BeNil())

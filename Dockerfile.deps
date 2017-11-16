@@ -63,3 +63,6 @@ export GOPATH=/tmp/cilium-net-build && \
 export PATH="$GOROOT/bin:/usr/local/clang+llvm/bin:$GOPATH/bin:$PATH" && \
 go get -u github.com/jteeuwen/go-bindata/... && go get -u github.com/google/gops && \
 mv /tmp/cilium-net-build/bin/gops /usr/local/bin/
+ENV GOROOT /usr/local/go
+ENV GOPATH /tmp/cilium-net-build
+ENV PATH "$GOROOT/bin:/usr/local/clang+llvm/bin:$GOPATH/bin:$PATH"

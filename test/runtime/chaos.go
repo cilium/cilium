@@ -22,11 +22,9 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-var _ = Describe("RuntimeChaosMonkey", func() {
+var _ = Describe("RuntimeChaos", func() {
 
 	var initialized bool
-	var networkName string = "cilium-net"
-	var netperfImage string = "tgraf/netperf"
 	var logger *log.Entry
 	var docker *helpers.Docker
 	var cilium *helpers.Cilium
@@ -35,10 +33,10 @@ var _ = Describe("RuntimeChaosMonkey", func() {
 		if initialized == true {
 			return
 		}
-		logger = log.WithFields(log.Fields{"testName": "RuntimeChaosMonkey"})
+		logger = log.WithFields(log.Fields{"testName": "RuntimeChaos"})
 		logger.Info("Starting")
-		docker, cilium = helpers.CreateNewRuntimeHelper("runtime", logger)
-		docker.NetworkCreate(networkName, "")
+		docker, cilium = helpers.CreateNewRuntimeHelper(helpers.Runtime, logger)
+		docker.NetworkCreate(helpers.CiliumDockerNetwork, "")
 		initialized = true
 	}
 
@@ -46,21 +44,26 @@ var _ = Describe("RuntimeChaosMonkey", func() {
 		err := cilium.WaitUntilReady(100)
 		Expect(err).Should(BeNil())
 
-		status := cilium.EndpointWaitUntilReady()
+		status := cilium.WaitEndpointGeneration()
 		Expect(status).Should(BeTrue())
 
 	}
 
 	BeforeEach(func() {
 		initialize()
-		docker.ContainerCreate("client", netperfImage, networkName, "-l id.client")
-		docker.ContainerCreate("server", netperfImage, networkName, "-l id.server")
+		docker.ContainerCreate(helpers.Client, helpers.NetperfImage, helpers.CiliumDockerNetwork, "-l id.client")
+		docker.ContainerCreate(helpers.Server, helpers.NetperfImage, helpers.CiliumDockerNetwork, "-l id.server")
 
+		_ = cilium.WaitEndpointGeneration()
 	})
 
 	AfterEach(func() {
-		docker.ContainerRm("client")
-		docker.ContainerRm("server")
+		if CurrentGinkgoTestDescription().Failed {
+			cilium.ReportFailed()
+		}
+		docker.ContainerRm(helpers.Client)
+		docker.ContainerRm(helpers.Server)
+
 	})
 
 	It("Endpoint recovery on restart", func() {
@@ -76,7 +79,7 @@ var _ = Describe("RuntimeChaosMonkey", func() {
 		ips := cilium.Node.Exec(`
 		curl -s --unix-socket /var/run/cilium/cilium.sock \
 		http://localhost/v1beta/healthz/ | jq ".ipam.ipv4|length"`)
-		Expect(originalIps.Output()).To(Equal(ips.Output()))
+		Expect(originalIps.Output().String()).To(Equal(ips.Output().String()))
 
 	}, 300)
 

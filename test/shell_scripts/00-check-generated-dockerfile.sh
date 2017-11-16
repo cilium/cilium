@@ -1,20 +1,21 @@
 #!/bin/bash 
 
 dir=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
-source "${dir}/helpers.bash"
+source "${dir}/../../tests/helpers.bash"
 # dir might have been overwritten by helpers.bash
 dir=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
 
 TEST_NAME=$(get_filename_without_extension $0)
 LOGS_DIR="${dir}/cilium-files/${TEST_NAME}/logs"
+REPO_ROOT=${PWD}/../..
 redirect_debug_logs ${LOGS_DIR}
 
 set -ex
 
-DEV_DOCKERFILE="$PWD/../Dockerfile.dev"
-PROD_DOCKERFILE="$PWD/../Dockerfile"
-DEP_DOCKERFILE="$PWD/../Dockerfile.deps"
-DOCKERFILE_SCRIPT="$PWD/../contrib/packaging/docker/build_dockerfile.sh"
+DEV_DOCKERFILE="${REPO_ROOT}/Dockerfile.dev"
+PROD_DOCKERFILE="${REPO_ROOT}/Dockerfile"
+DEP_DOCKERFILE="${REPO_ROOT}/Dockerfile.deps"
+DOCKERFILE_SCRIPT="${REPO_ROOT}/contrib/packaging/docker/build_dockerfile.sh"
 
 function cleanup {
   rm ./Dockerfile.dev.tmpgen || true
@@ -46,9 +47,9 @@ function error_if_files_diff {
 trap cleanup EXIT
 
 # Generate each separate Dockerfile.
-${DOCKERFILE_SCRIPT} build_dockerfile_dev && mv ${PWD}/../contrib/packaging/docker/Dockerfile Dockerfile.dev.tmpgen
-${DOCKERFILE_SCRIPT} build_dockerfile_prod && mv ${PWD}/../contrib/packaging/docker/Dockerfile Dockerfile.prod.tmpgen
-${DOCKERFILE_SCRIPT} build_dockerfile_dependencies && mv ${PWD}/../contrib/packaging/docker/Dockerfile Dockerfile.deps.tmpgen
+${DOCKERFILE_SCRIPT} build_dockerfile_dev && mv ${REPO_ROOT}/contrib/packaging/docker/Dockerfile Dockerfile.dev.tmpgen
+${DOCKERFILE_SCRIPT} build_dockerfile_prod && mv ${REPO_ROOT}/contrib/packaging/docker/Dockerfile Dockerfile.prod.tmpgen
+${DOCKERFILE_SCRIPT} build_dockerfile_dependencies && mv ${REPO_ROOT}/contrib/packaging/docker/Dockerfile Dockerfile.deps.tmpgen
 
 # Check if the generated Dockerfiles differ from those that are already in the repo.
 error_if_files_diff ${DEV_DOCKERFILE} ./Dockerfile.dev.tmpgen

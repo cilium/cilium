@@ -38,7 +38,7 @@ func IsRunningOnJenkins() bool {
 	for _, varName := range env {
 		if val := os.Getenv(varName); val == "" {
 			result = false
-			log.Infof("Variable '%s' is not present, it is not running on jenkins", varName)
+			log.Infof("build is not running on Jenkins; environment variable %q is not set", varName)
 		}
 	}
 	return result
@@ -62,9 +62,10 @@ func CountValues(key string, data []string) (int, int) {
 	return result, len(data)
 }
 
-//RenderTemplateToFile renders a text/template string into a target filename with specific persmision.
-// It will return an error if the template can't be validated or can't write the file
+//RenderTemplateToFile renders a text/template string into a target filename with specific persmisions.
+// It will return an error if the template can't be validated or if the file cannot be created.
 func RenderTemplateToFile(filename string, tmplt string, perm os.FileMode) error {
+	log.Infof("creating template in file with name %s and permissions %s", filename, perm.String())
 	t, err := template.New("").Parse(tmplt)
 	if err != nil {
 		return err

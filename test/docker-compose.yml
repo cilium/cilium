@@ -11,7 +11,7 @@ services:
   test:
     depends_on:
       - consul
-    image: "eloycoto/cilium_dependencies"
+    image: "cilium/dependencies:test_path"
     command: "bash -c 'cd /tmp/cilium-net-build/src/github.com/cilium/cilium/; make tests-consul-ginkgo'"
     privileged: true
     volumes:

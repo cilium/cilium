@@ -3,6 +3,9 @@
 set -e
 set -o pipefail
 
+pwd
+ls
+
 # Set path to contain Go binaries explicitly; see issue 566.
 export PATH=$PATH:/usr/local/go/bin:/usr/local/clang/bin:/home/vagrant/go/bin:/home/vagrant/bin
 export TEST_SUITE="runtime-tests"

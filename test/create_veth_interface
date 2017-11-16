@@ -1,0 +1,38 @@
+#!/bin/bash
+
+set -xv 
+
+function mac2array()
+{
+echo "{0x${1//:/,0x}}"
+}
+
+ip link add lbtest1 type veth peer name lbtest2
+ip link set lbtest1 up
+
+# Route f00d::1:1 IPv6 packets to a fantasy router ("fbfb::10:10") behind lbtest1
+ip -6 route add fbfb::10:10/128 dev lbtest1
+MAC=$(ip link show lbtest1 | grep ether | awk '{print $2}')
+ip neigh add fbfb::10:10 lladdr $MAC dev lbtest1
+ip -6 route add f00d::1:1/128 via fbfb::10:10
+
+# Route 2.2.2.2 IPv4 packets to a fantasy router ("3.3.3.3") behind lbtest1
+ip route add 3.3.3.3/32 dev lbtest1
+MAC=$(ip link show lbtest1 | grep ether | awk '{print $2}')
+ip neigh add 3.3.3.3 lladdr $MAC dev lbtest1
+ip route add 2.2.2.2/32 via 3.3.3.3
+
+ip link set lbtest2 up
+
+LIB=/var/lib/cilium/bpf
+RUN=/var/run/cilium/state
+NH_IFINDEX=$(cat /sys/class/net/cilium_host/ifindex)
+NH_MAC=$(ip link show cilium_host | grep ether | awk '{print $2}')
+NH_MAC="{.addr=$(mac2array $NH_MAC)}"
+CLANG_OPTS="-D__NR_CPUS__=$(nproc) -DLB_L3 -DLB_REDIRECT=$NH_IFINDEX -DLB_DSTMAC=$NH_MAC -DCALLS_MAP=lbtest -O2 -target bpf -I. -I$LIB/include -I$RUN/globals -DDEBUG -Wno-address-of-packed-member -Wno-unknown-warning-option"
+touch netdev_config.h
+/usr/local/clang/bin/clang $CLANG_OPTS -c $LIB/bpf_lb.c -o tmp_lb.o
+
+tc qdisc del dev lbtest2 clsact 2> /dev/null || true
+tc qdisc add dev lbtest2 clsact
+tc filter add dev lbtest2 ingress bpf da obj tmp_lb.o sec from-netdev

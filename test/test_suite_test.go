@@ -17,6 +17,7 @@ package ciliumTest
 import (
 	"fmt"
 	"os"
+	"testing"
 	"time"
 
 	. "github.com/onsi/ginkgo"
@@ -24,21 +25,29 @@ import (
 	"github.com/onsi/ginkgo/reporters"
 	. "github.com/onsi/gomega"
 
-	"testing"
-
 	"github.com/cilium/cilium/test/config"
 	ginkgoext "github.com/cilium/cilium/test/ginkgo-ext"
 	"github.com/cilium/cilium/test/helpers"
+	gops "github.com/google/gops/agent"
 	log "github.com/sirupsen/logrus"
 )
 
-var DefaultSettings map[string]string = map[string]string{
-	"K8S_VERSION": "1.7",
-}
-
-var vagrant helpers.Vagrant
+var (
+	vagrant         helpers.Vagrant
+	DefaultSettings = map[string]string{
+	//"K8S_VERSION": "1.7",
+	}
+)
 
 func init() {
+
+	// Open socket for using gops to get stacktraces in case the tests deadlock.
+	if err := gops.Listen(gops.Options{}); err != nil {
+		errorString := fmt.Sprintf("unable to start gops: %s", err)
+		fmt.Println(errorString)
+		os.Exit(-1)
+	}
+
 	log.SetOutput(GinkgoWriter)
 	log.SetLevel(log.DebugLevel)
 	log.SetFormatter(&log.TextFormatter{
@@ -76,7 +85,6 @@ func goReportVagrantStatus() chan bool {
 		iter := 0
 		for {
 			var out string
-
 			select {
 			case ok := <-exit:
 				if ok {
@@ -113,31 +121,34 @@ var _ = BeforeSuite(func() {
 	}
 
 	switch ginkgoext.GetScope() {
-	case "runtime":
-		err = vagrant.Create("runtime")
+	case helpers.Runtime:
+		err = vagrant.Create(helpers.Runtime)
 		if err != nil {
-			Fail(fmt.Sprintf("Vagrant could not start correctly: %s", err))
+			Fail(fmt.Sprintf("error starting VM %q: %s", helpers.Runtime, err))
 		}
-		cilium := helpers.CreateCilium("runtime", log.WithFields(
+		cilium := helpers.CreateCilium(helpers.Runtime, log.WithFields(
 			log.Fields{"testName": "BeforeSuite"}))
 		err = cilium.SetUp()
 		if err != nil {
-			Fail(fmt.Sprintf("Vagrant could not setup cilium correctly: %s", err))
+			Fail(fmt.Sprintf("cilium was unable to be set up correctly: %s", err))
 		}
 
-	case "k8s":
+	case helpers.K8s:
 		//FIXME: This should be:
 		// Start k8s1 and provision kubernetes.
 		// When finish, start to build cilium in background
 		// Start k8s2
 		// Wait until compilation finished, and pull cilium image on k8s2
-		err = vagrant.Create(fmt.Sprintf("k8s1-%s", helpers.GetCurrentK8SEnv()))
+
+		// Name for K8s VMs depends on K8s version that is running.
+
+		err = vagrant.Create(helpers.K8s1VMName)
 		if err != nil {
-			Fail(fmt.Sprintf("Vagrant k8s1 could not started correctly: %s", err))
+			Fail(fmt.Sprintf("error starting VM %q: %s", helpers.K8s1VMName, err))
 		}
-		err = vagrant.Create(fmt.Sprintf("k8s2-%s", helpers.GetCurrentK8SEnv()))
+		err = vagrant.Create(helpers.K8s2VMName)
 		if err != nil {
-			Fail(fmt.Sprintf("Vagrant k8s2 could not started correctly: %s", err))
+			Fail(fmt.Sprintf("error starting VM %q: %s", helpers.K8s2VMName, err))
 		}
 	}
 	return
@@ -145,25 +156,25 @@ var _ = BeforeSuite(func() {
 
 var _ = AfterSuite(func() {
 	if !helpers.IsRunningOnJenkins() {
-		log.Infof("AfterSuite: is dev env, keep templates as it is")
+		log.Infof("AfterSuite: not running on Jenkins; leaving VMs running for debugging")
 		return
 	}
 
 	scope := ginkgoext.GetScope()
-	log.Infof("Running After Suite flag for scope='%s'", scope)
+	log.Infof("cleaning up VMs started for %s tests", scope)
 	switch scope {
-	case "runtime":
-		vagrant.Destroy("runtime")
-	case "k8s":
-		vagrant.Destroy(fmt.Sprintf("k8s1-%s", helpers.GetCurrentK8SEnv()))
-		vagrant.Destroy(fmt.Sprintf("k8s2-%s", helpers.GetCurrentK8SEnv()))
+	case helpers.Runtime:
+		vagrant.Destroy(helpers.Runtime)
+	case helpers.K8s:
+		vagrant.Destroy(helpers.K8s1VMName)
+		vagrant.Destroy(helpers.K8s2VMName)
 	}
 	return
 })
 
 func getOrSetEnvVar(key, value string) {
 	if val := os.Getenv(key); val == "" {
-		log.Infof("Init: Env var '%s' was not set, set default value '%s'", key, value)
+		log.Infof("environment variable %q was not set; setting to default value %q", key, value)
 		os.Setenv(key, value)
 	}
 }

@@ -17,42 +17,44 @@ package helpers
 import (
 	"bytes"
 	"fmt"
-	"os"
 	"strings"
 	"time"
 
 	"github.com/cilium/cilium/api/v1/models"
 
 	log "github.com/sirupsen/logrus"
+	"strconv"
 )
 
 const (
-	MaxRetries = 30
+	MaxRetries = 120
 )
 
-//Cilium struct helper. Struct that has a Node and logCxt with all relevant
-//functions across cilium actions
+// Cilium is utilized to run cilium-specific commands on its SSHMeta. Informational
+// output about the result of commands and the state of the node is stored in its
+// associated logger.
 type Cilium struct {
-	Node *Node
+	Node *SSHMeta
 
-	logCxt *log.Entry
+	logger *log.Entry
 }
 
-//CreateCilium returns a Cilium struct
-func CreateCilium(target string, log *log.Entry) *Cilium {
-	log.Infof("Cilium: set target to '%s'", target)
-	node := CreateNodeFromTarget(target)
+// CreateCilium returns a Cilium object containing the SSHMeta of the provided vmName,
+// as well as the provided logger.
+func CreateCilium(vmName string, log *log.Entry) *Cilium {
+	log.Infof("Cilium: set vmName to '%s'", vmName)
+	node := GetVagrantSSHMetadata(vmName)
 	if node == nil {
 		return nil
 	}
 
 	return &Cilium{
 		Node:   node,
-		logCxt: log,
+		logger: log,
 	}
 }
 
-//Exec runs a Cilium command and returns the resultant cmdRes.
+// Exec runs a Cilium CLI command and returns the resultant cmdRes.
 func (c *Cilium) Exec(cmd string) *CmdRes {
 	stdout := new(bytes.Buffer)
 	stderr := new(bytes.Buffer)
@@ -66,13 +68,14 @@ func (c *Cilium) Exec(cmd string) *CmdRes {
 	}
 }
 
-//EndpointGet returns the output of cilium endpoint get for the provided endpoint ID
+// EndpointGet returns the output of `cilium endpoint get` for the provided
+// endpoint ID.
 func (c *Cilium) EndpointGet(id string) *models.Endpoint {
 
 	var data []models.Endpoint
 	err := c.Exec(fmt.Sprintf("endpoint get %s", id)).UnMarshal(&data)
 	if err != nil {
-		c.logCxt.Errorf("EndpointGet fail %d: %s", id, err)
+		c.logger.Errorf("EndpointGet fail %d: %s", id, err)
 		return nil
 	}
 	if len(data) > 0 {
@@ -81,12 +84,14 @@ func (c *Cilium) EndpointGet(id string) *models.Endpoint {
 	return nil
 }
 
-//EndpointSetConfig sets the provided configuration option to the provided
-//value for the endpoint with the provided id.
+// EndpointSetConfig sets the provided configuration option to the provided
+// value for the endpoint with the provided id.
 func (c *Cilium) EndpointSetConfig(id, option, value string) bool {
-	// on grep we use an space, so we are sure that only match the key that we want.
-
-	logger := c.logCxt.WithFields(log.Fields{"EndpointId": id})
+	// TODO: GH-1725.
+	// For now use `grep` with an extra space to ensure that we only match
+	// on specified option.
+	// TODO: for consistency, all fields should be constants if they are reused.
+	logger := c.logger.WithFields(log.Fields{"EndpointId": id})
 	res := c.Exec(fmt.Sprintf(
 		"endpoint config %s | grep '%s ' | awk '{print $2}'", id, option))
 
@@ -100,7 +105,7 @@ func (c *Cilium) EndpointSetConfig(id, option, value string) bool {
 	}
 	data := c.Exec(fmt.Sprintf("endpoint config %s %s=%s", id, option, value))
 	if !data.WasSuccessful() {
-		logger.Errorf("Can't set endoint config %s=%s", option, value)
+		logger.Errorf("cannot set endpoint configuration %s=%s", option, value)
 		return false
 	}
 	err := WithTimeout(func() bool {
@@ -108,11 +113,11 @@ func (c *Cilium) EndpointSetConfig(id, option, value string) bool {
 		if len(status.Status) > len(before.Status) {
 			return true
 		}
-		logger.Info("Endpoint is not regenerated")
+		logger.Info("endpoint not regenerated")
 		return false
-	}, "Endpoint is not regenerated", &TimeoutConfig{Timeout: 100})
+	}, "endpoint not regenerated", &TimeoutConfig{Timeout: 100})
 	if err != nil {
-		logger.Errorf("Endpoint set failed:%s", err)
+		logger.Errorf("endpoint configuration update failed:%s", err)
 		return false
 	}
 	return true
@@ -120,70 +125,52 @@ func (c *Cilium) EndpointSetConfig(id, option, value string) bool {
 
 var EndpointWaitUntilReadyRetry int = 0 //List how many retries EndpointWaitUntilReady should have
 
-//EndpointWaitUntilReady This function wait until all the endpoints are in the ready status
-func (c *Cilium) EndpointWaitUntilReady(validation ...bool) bool {
+func (c *Cilium) WaitEndpointGeneration() bool {
+	logger := c.logger.WithFields(log.Fields{"functionName": "WaitEndpointGeneration"})
 
-	logger := c.logCxt.WithFields(log.Fields{"EndpointWaitReady": ""})
+	numDesired := 0
+	counter := 0
 
-	getEpsStatus := func(data []models.Endpoint) map[int64]int {
-		result := make(map[int64]int)
-		for _, v := range data {
-			result[v.ID] = len(v.Status)
-		}
-		return result
-	}
+	cmdString := "cilium endpoint list | grep -c regenerat"
+	infoCmd := "cilium endpoint list"
+	res := c.Node.Exec(cmdString)
+	logger.Infof("string output of cmd: %s", res.stdout.String())
+	numEndpointsRegenerating, err := strconv.Atoi(strings.TrimSuffix(res.stdout.String(), "\n"))
 
-	var data []models.Endpoint
-
-	if err := c.GetEndpoints().UnMarshal(&data); err != nil {
-		logger.Info("Can't get endpoints: %s", err)
-		if EndpointWaitUntilReadyRetry > MaxRetries {
-			logger.Errorf("Can not get endpoints, die :%s", err)
-			return false
-		}
-		EndpointWaitUntilReadyRetry++
-		Sleep(5)
-		return c.EndpointWaitUntilReady(validation...)
-	}
-	EndpointWaitUntilReadyRetry = 0 //Reset to 0
-	epsStatus := getEpsStatus(data)
-
-	body := func() bool {
-		var data []models.Endpoint
-
-		if err := c.GetEndpoints().UnMarshal(&data); err != nil {
-			logger.Info("Can't get endpoints: %s", err)
-			return false
-		}
-		var valid, invalid int
-		for _, eps := range data {
-			if eps.State != "ready" {
-				invalid++
-			} else {
-				valid++
-			}
-			if len(validation) > 0 && validation[0] {
-				if originalVal, _ := epsStatus[eps.ID]; len(eps.Status) <= originalVal {
-					logger.Infof("Endpoint '%d' is not regenerated", eps.ID)
-					return false
-				}
-			}
-		}
-
-		if invalid == 0 {
-			return true
-		}
-		logger.Infof("Endpoints are not ready valid='%d' invalid='%d'", valid, invalid)
-		return false
-	}
-	err := WithTimeout(body, "Endpoints are not ready", &TimeoutConfig{Timeout: 300})
+	// If the command error'd out for whatever reason, do not want numEndpointsRegenerating
+	// to be set to zero. Handle this error and set to -1 so that the loop below
+	// continues to execute up until MaxRetries are exceeded.
 	if err != nil {
-		return false
+		numEndpointsRegenerating = -1
 	}
+	for numDesired != numEndpointsRegenerating {
+		logger.Infof("%d endpoints are still regenerating; want %d", numEndpointsRegenerating, numDesired)
+		if counter > MaxRetries {
+			logger.Infof("%d retries have been exceeded for waiting for endpoint regeneration", MaxRetries)
+			return false
+		}
+		res := c.Node.Exec(infoCmd)
+		fmt.Println("output of %q", infoCmd)
+		fmt.Print(res.stdout.String())
+		logger.Infof("still within retry limit for waiting for endpoints to be in \"ready\" state; sleeping and checking again")
+		Sleep(1)
+		res = c.Node.Exec(cmdString)
+		numEndpointsRegenerating, err = strconv.Atoi(strings.TrimSuffix(res.stdout.String(), "\n"))
+		logger.Infof("output of: '%s'", res.stdout.String())
+		if err != nil {
+			numEndpointsRegenerating = -1
+		}
+		counter++
+	}
+
+	res = c.Node.Exec(infoCmd)
+	fmt.Println("output of %q", infoCmd)
+	fmt.Print(res.stdout.String())
+
 	return true
 }
 
-//GetEndpoints Return the output of cilium endpoint list -o json
+// GetEndpoints returns the output of `cilium endpoint list -o json`.
 func (c *Cilium) GetEndpoints() *CmdRes {
 	return c.Exec("endpoint list -o json")
 }
@@ -194,9 +181,10 @@ func (c *Cilium) GetEndpoints() *CmdRes {
 func (c *Cilium) GetEndpointsIds() (map[string]string, error) {
 	// cilium endpoint list -o jsonpath='{range [*]}{@.container-name}{"="}{@.id}{"\n"}{end}'
 	filter := `{range [*]}{@.container-name}{"="}{@.id}{"\n"}{end}`
-	endpoints := c.Exec(fmt.Sprintf("endpoint list -o jsonpath='%s'", filter))
+	cmd := fmt.Sprintf("endpoint list -o jsonpath='%s'", filter)
+	endpoints := c.Exec(cmd)
 	if !endpoints.WasSuccessful() {
-		return nil, fmt.Errorf("Can't get endpoint list: %s", endpoints.CombineOutput())
+		return nil, fmt.Errorf("%q failed: %s", cmd, endpoints.CombineOutput())
 	}
 	return endpoints.KVOutput(), nil
 }
@@ -205,7 +193,7 @@ func (c *Cilium) GetEndpointsIds() (map[string]string, error) {
 func (c *Cilium) GetEndpointsNames() ([]string, error) {
 	data := c.GetEndpoints()
 	if data.WasSuccessful() == false {
-		return nil, fmt.Errorf("Could't get endpoints")
+		return nil, fmt.Errorf("`cilium endpoint get` was not successful")
 	}
 	result, err := data.Filter("{ [*].container-name }")
 	if err != nil {
@@ -217,7 +205,7 @@ func (c *Cilium) GetEndpointsNames() ([]string, error) {
 
 //ManifestsPath returns the manifest path
 func (c *Cilium) ManifestsPath() string {
-	return fmt.Sprintf("%s/runtime/manifests/", basePath)
+	return fmt.Sprintf("%s/runtime/manifests/", BasePath)
 }
 
 //GetFullPath returns the valid path for a file
@@ -230,35 +218,41 @@ func (c *Cilium) GetFullPath(name string) string {
 //Cilium endpoint metadata cannot be retrieved via the API.
 func (c *Cilium) PolicyEndpointsSummary() (map[string]int, error) {
 	result := map[string]int{
-		"enabled":  0,
-		"disabled": 0,
-		"total":    0,
+		Enabled:  0,
+		Disabled: 0,
+		Total:    0,
 	}
 
 	endpoints, err := c.GetEndpoints().Filter("{ [*].policy-enabled }")
 	if err != nil {
-		return result, fmt.Errorf("Can't get the endpoints")
+		return result, fmt.Errorf("cannot get endpoints")
 	}
 	status := strings.Split(endpoints.String(), " ")
-	result["enabled"], result["total"] = CountValues("true", status)
-	result["disabled"], result["total"] = CountValues("false", status)
+	result[Enabled], result[Total] = CountValues("true", status)
+	result[Disabled], result[Total] = CountValues("false", status)
 	return result, nil
 }
 
-//PolicyEnforcementSet sets the PolicyEnforcement configuration value for the
-//Cilium agent to the provided status.
-func (c *Cilium) PolicyEnforcementSet(status string, waitReady ...bool) *CmdRes {
+// SetPolicyEnforcement sets the PolicyEnforcement configuration value for the
+// Cilium agent to the provided status.
+func (c *Cilium) SetPolicyEnforcement(status string, waitReady ...bool) *CmdRes {
 	// We check before setting PolicyEnforcement; if we do not, EndpointWait
 	// will fail due to the status of the endpoints not changing.
-	res := c.Exec("config | grep PolicyEnforcement | awk '{print $2}'")
+	log.Infof("setting PolicyEnforcement=%s", status)
+	res := c.Exec(fmt.Sprintf("config | grep %s | awk '{print $2}'", PolicyEnforcement))
 	if res.SingleOut() == status {
 		return res
 	}
-	res = c.Exec(fmt.Sprintf("config PolicyEnforcement=%s", status))
+	res = c.Exec(fmt.Sprintf("config %s=%s", PolicyEnforcement, status))
 	if len(waitReady) > 0 && waitReady[0] {
-		c.EndpointWaitUntilReady(true)
+		// TODO - we should handle errors from this
+		c.WaitEndpointGeneration()
 	}
 	return res
+}
+
+func (c *Cilium) PolicyDelAll() *CmdRes {
+	return c.PolicyDel("--all")
 }
 
 //PolicyDel delete a policy with the given ID
@@ -266,9 +260,16 @@ func (c *Cilium) PolicyDel(id string) *CmdRes {
 	return c.Exec(fmt.Sprintf("policy delete %s", id))
 }
 
-//PolicyGet return the policy value
+//PolicyGet runs `cilium policy get <id>`, where id is the name of a specific
+// policy imported into Cilium. It returns the resultant CmdRes from running
+// the aforementioned command.
 func (c *Cilium) PolicyGet(id string) *CmdRes {
 	return c.Exec(fmt.Sprintf("policy get %s", id))
+}
+
+func (c *Cilium) PolicyGetAll() *CmdRes {
+	return c.Exec("policy get")
+
 }
 
 //PolicyGetRevision Get the current Policy revision
@@ -283,13 +284,13 @@ func (c *Cilium) PolicyGetRevision() (int, error) {
 func (c *Cilium) PolicyImport(path string, timeout time.Duration) (int, error) {
 	revision, err := c.PolicyGetRevision()
 	if err != nil {
-		return -1, fmt.Errorf("Can't get policy revision: %s", err)
+		return -1, fmt.Errorf("cannot get policy revision: %s", err)
 	}
-	c.logCxt.Infof("PolicyImport: %s and current policy revision is '%d'", path, revision)
+	c.logger.Infof("PolicyImport: %s and current policy revision is '%d'", path, revision)
 	res := c.Exec(fmt.Sprintf("policy import %s", path))
 	if res.WasSuccessful() == false {
-		c.logCxt.Errorf("Could not import policy: %s", res.CombineOutput())
-		return -1, fmt.Errorf("Could not import policy %s", path)
+		c.logger.Errorf("could not import policy: %s", res.CombineOutput())
+		return -1, fmt.Errorf("could not import policy %s", path)
 	}
 	body := func() bool {
 		currentRev, _ := c.PolicyGetRevision()
@@ -297,15 +298,15 @@ func (c *Cilium) PolicyImport(path string, timeout time.Duration) (int, error) {
 			c.PolicyWait(currentRev)
 			return true
 		}
-		c.logCxt.Infof("PolicyImport: current revision %d same as %d", currentRev, revision)
+		c.logger.Infof("PolicyImport: current revision %d same as %d", currentRev, revision)
 		return false
 	}
-	err = WithTimeout(body, "Could not import policy revision", &TimeoutConfig{Timeout: timeout})
+	err = WithTimeout(body, "could not import policy revision", &TimeoutConfig{Timeout: timeout})
 	if err != nil {
 		return -1, err
 	}
 	revision, err = c.PolicyGetRevision()
-	c.logCxt.Infof("PolicyImport: finished '%s' with revision '%d'", path, revision)
+	c.logger.Infof("PolicyImport: finished %q with revision '%d'", path, revision)
 	return revision, err
 }
 
@@ -317,22 +318,24 @@ func (c *Cilium) PolicyWait(revisionNum int) *CmdRes {
 
 //ReportFailed gathers relevant Cilium runtime data and logs for debugging purposes
 func (c *Cilium) ReportFailed(commands ...string) {
-	wr := c.logCxt.Logger.Out
+	wr := c.logger.Logger.Out
 	fmt.Fprint(wr, "StackTrace Begin\n")
 
 	//FIXME: Ginkgo PR383 add here --since option
-	res := c.Node.Exec("sudo journalctl --no-pager -u cilium")
+	res := c.Node.Exec("sudo journalctl --no-pager -u cilium | tail -n 5")
 	fmt.Fprint(wr, res.Output())
 
-	res = c.Node.Exec("sudo cilium endpoint list")
+	fmt.Fprint(wr, "\n")
+	res = c.Exec("endpoint list")
 	fmt.Fprint(wr, res.Output())
 
 	for _, cmd := range commands {
-		fmt.Fprintf(wr, "Command '%s': \n", cmd)
+		fmt.Fprintf(wr, "\nOuput of command '%s': \n", cmd)
 		res = c.Node.Exec(fmt.Sprintf("%s", cmd))
 		fmt.Fprint(wr, res.Output())
 	}
 	fmt.Fprint(wr, "StackTrace Ends\n")
+	Sleep(120 * time.Second)
 }
 
 //ServiceAdd Creates a new cilium service
@@ -340,6 +343,7 @@ func (c *Cilium) ServiceAdd(id int, frontend string, backends []string, rev int)
 	cmd := fmt.Sprintf(
 		"service update --frontend '%s' --backends '%s' --id '%d' --rev '%d'",
 		frontend, strings.Join(backends, ","), id, rev)
+	log.Infof("running cilium command: %s", cmd)
 	return c.Exec(cmd)
 }
 
@@ -355,25 +359,10 @@ func (c *Cilium) ServiceDel(id int) *CmdRes {
 
 //SetUp setup cilium config
 func (c *Cilium) SetUp() error {
-	template := `
-PATH=/usr/lib/llvm-3.8/bin:/usr/local/sbin:/usr/local/bin:/usr/bin:/usr/sbin:/sbin:/bin
-CILIUM_OPTS=--kvstore consul --kvstore-opt consul.address=127.0.0.1:8500 --debug
-INITSYSTEM=SYSTEMD`
-
-	err := RenderTemplateToFile("cilium", template, 0777)
-	if err != nil {
-		return err
-	}
-	defer os.Remove("cilium")
-
-	res := c.Node.Exec("sudo cp /vagrant/cilium /etc/sysconfig/cilium")
-	if !res.WasSuccessful() {
-		return fmt.Errorf("%s", res.CombineOutput())
-	}
-	res = c.Node.Exec("sudo systemctl restart cilium")
-	if !res.WasSuccessful() {
-		return fmt.Errorf("%s", res.CombineOutput())
-	}
+	// TODO: no need for custom systemd configuration, so we might be able
+	// to remove this function.
+	log.Infof("beginning setup of Cilium")
+	log.Infof("setup of Cilium completed successfully")
 	return nil
 }
 
@@ -383,8 +372,8 @@ INITSYSTEM=SYSTEMD`
 func (c *Cilium) WaitUntilReady(timeout time.Duration) error {
 
 	body := func() bool {
-		res := c.Node.Exec("sudo cilium status")
-		c.logCxt.Infof("Cilium status is %t", res.WasSuccessful())
+		res := c.Exec("status")
+		c.logger.Infof("Cilium status is %t", res.WasSuccessful())
 		return res.WasSuccessful()
 	}
 	err := WithTimeout(body, "Cilium is not ready", &TimeoutConfig{Timeout: timeout})
