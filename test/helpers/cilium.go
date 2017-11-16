@@ -231,7 +231,7 @@ func (c *Cilium) GetEndpointsNames() ([]string, error) {
 
 //ManifestsPath returns the manifest path
 func (c *Cilium) ManifestsPath() string {
-	return fmt.Sprintf("%s/runtime/manifests/", basePath)
+	return fmt.Sprintf("%s/runtime/manifests/", BasePath)
 }
 
 //GetFullPath returns the valid path for a file

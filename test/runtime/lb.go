@@ -143,7 +143,12 @@ var _ = Describe("RuntimeLB", func() {
 	}, 500)
 
 	It("Service L3 tests", func() {
-		createInterface(docker.Node)
+		err := createInterface(docker.Node)
+		if err != nil {
+			log.Errorf("error creating interface: %s", err)
+		}
+		Expect(err).Should(BeNil())
+
 		containers(helpers.Create)
 
 		httpd1, err := docker.ContainerInspectNet(helpers.Httpd1)
@@ -187,7 +192,11 @@ var _ = Describe("RuntimeLB", func() {
 	}, 500)
 
 	It("Service L4 tests", func() {
-		// createInterface(docker.SSHMeta)
+		err := createInterface(docker.Node)
+		if err != nil {
+			log.Errorf("error creating interface: %s", err)
+		}
+		Expect(err).Should(BeNil())
 
 		containers(helpers.Create)
 		cilium.EndpointWaitUntilReady()
@@ -231,12 +240,9 @@ var _ = Describe("RuntimeLB", func() {
 })
 
 func createInterface(node *helpers.SSHMeta) error {
-
-	script := `
-#!/bin/bash
-function mac2array()
-{
-echo "{0x${1//:/,0x}}"
+	script := `#!/bin/bash
+function mac2array() {
+    echo "{0x${1//:/,0x}}"
 }
 
 ip link add lbtest1 type veth peer name lbtest2
@@ -269,13 +275,25 @@ tc qdisc del dev lbtest2 clsact 2> /dev/null || true
 tc qdisc add dev lbtest2 clsact
 tc filter add dev lbtest2 ingress bpf da obj tmp_lb.o sec from-netdev
 `
-	err := helpers.RenderTemplateToFile("create_veth_interface", script, 0777)
+	scriptName := "create_veth_interface"
+	log.Infof("generating veth script: %s", scriptName)
+	err := helpers.RenderTemplateToFile(scriptName, script, os.ModePerm)
 	if err != nil {
 		return err
 	}
-	path := "/vagrant/create_veth_interface"
-	res := node.Exec("sudo ip addr add fd02:1:1:1:1:1:1:1 dev cilium_host")
-	res.ExpectSuccess()
-	node.Exec(fmt.Sprintf("sudo %s", path))
-	return os.Remove(path)
+
+	// filesystem is mounted at path /vagrant on VM
+	scriptPath := fmt.Sprintf("%s%s", helpers.BasePath, scriptName)
+
+	ipAddrCmd := "sudo ip addr add fd02:1:1:1:1:1:1:1 dev cilium_host"
+	res := node.Exec(ipAddrCmd)
+	log.Infof("output of %q: %s", ipAddrCmd, res.CombineOutput())
+
+	log.Infof("running script %s", scriptPath)
+	runScriptCmd := fmt.Sprintf("sudo %s", scriptPath)
+	res = node.Exec(runScriptCmd)
+	log.Infof("output of %q: %s", runScriptCmd, res.CombineOutput())
+	log.Infof("removing file %q", scriptName)
+	err = os.Remove(scriptName)
+	return err
 }

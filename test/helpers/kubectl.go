@@ -130,7 +130,7 @@ func (kub *Kubectl) Logs(namespace string, pod string) *CmdRes {
 
 //ManifestsPath returns the manifests path for the k8s version
 func (kub *Kubectl) ManifestsPath() string {
-	return fmt.Sprintf("%s/k8sT/manifests/%s", basePath, GetCurrentK8SEnv())
+	return fmt.Sprintf("%s/k8sT/manifests/%s", BasePath, GetCurrentK8SEnv())
 }
 
 //NodeCleanMetadata delete all cilium metadata info to all nodes

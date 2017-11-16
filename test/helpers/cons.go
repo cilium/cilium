@@ -20,7 +20,7 @@ import (
 )
 
 var (
-	timeout time.Duration = 300
+	timeout time.Duration = 300 // WithTimeout helper translates it to seconds
 
 	// K8s1VMName is the name of the Kubernetes master node when running
 	// Kubernetes tests.
@@ -32,7 +32,9 @@ var (
 )
 
 const (
-	basePath = "/vagrant/"
+	// BasePath is the path in the Vagrant VMs to which the test directory
+	// is mounted
+	BasePath = "/vagrant/"
 
 	// VM / Test suite constants.
 	K8s     = "k8s"
@@ -120,5 +122,5 @@ const (
 
 //GetFilePath returns the absolute path of the provided filename
 func GetFilePath(filename string) string {
-	return fmt.Sprintf("%s%s", basePath, filename)
+	return fmt.Sprintf("%s%s", BasePath, filename)
 }
