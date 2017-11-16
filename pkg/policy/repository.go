@@ -17,6 +17,7 @@ package policy
 import (
 	"encoding/json"
 
+	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/metrics"
@@ -417,4 +418,18 @@ func (p *Repository) BumpRevision() {
 	p.Mutex.Lock()
 	defer p.Mutex.Unlock()
 	p.revision++
+}
+
+// GetRulesList returns the current policy
+func (p *Repository) GetRulesList() *models.Policy {
+	p.Mutex.RLock()
+	defer p.Mutex.RUnlock()
+
+	lbls := labels.ParseSelectLabelArrayFromArray([]string{})
+	ruleList := p.SearchRLocked(lbls)
+
+	return &models.Policy{
+		Revision: int64(p.GetRevision()),
+		Policy:   JSONMarshalRules(ruleList),
+	}
 }
