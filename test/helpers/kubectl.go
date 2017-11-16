@@ -315,7 +315,7 @@ func (kub *Kubectl) CiliumNodesWait() (bool, error) {
 	}
 	err := WithTimeout(body, "k8s nodes does not have cilium metadata", &TimeoutConfig{Timeout: timeout})
 	if err != nil {
-		return false, nil
+		return false, err
 	}
 	return true, nil
 }
