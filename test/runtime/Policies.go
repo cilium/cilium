@@ -73,7 +73,8 @@ var _ = Describe("RuntimePolicyEnforcement", func() {
 		initialize()
 		cilium.PolicyDelAll()
 		docker.ContainerCreate("app", "cilium/demo-httpd", helpers.CiliumDockerNetwork, "-l id.app")
-		cilium.EndpointWaitUntilReady()
+		areEndpointsReady := cilium.WaitEndpointGeneration()
+		Expect(areEndpointsReady).Should(BeTrue())
 	})
 
 	AfterEach(func() {
@@ -300,7 +301,8 @@ var _ = Describe("RuntimePolicyEnforcement", func() {
 			Expect(endPoints[helpers.Disabled]).To(Equal(1))
 
 			docker.ContainerCreate("new", "cilium/demo-httpd", helpers.CiliumDockerNetwork, "-l id.new")
-			cilium.EndpointWaitUntilReady()
+			areEndpointsReady := cilium.WaitEndpointGeneration()
+			Expect(areEndpointsReady).Should(BeTrue())
 			endPoints, err = cilium.PolicyEndpointsSummary()
 			Expect(err).Should(BeNil())
 			Expect(endPoints[helpers.Enabled]).To(Equal(0))
@@ -391,13 +393,15 @@ var _ = Describe("RunPolicies", func() {
 		initialize()
 		cilium.PolicyDelAll()
 		docker.SampleContainersActions(helpers.Create, helpers.CiliumDockerNetwork)
-		cilium.EndpointWaitUntilReady()
+		areEndpointsReady := cilium.WaitEndpointGeneration()
+		Expect(areEndpointsReady).Should(BeTrue())
 	})
 
 	AfterEach(func() {
 		if CurrentGinkgoTestDescription().Failed {
 			cilium.ReportFailed()
 		}
+		// TODO - need to inform via console whether deletion failed.
 		docker.SampleContainersActions(helpers.Delete, helpers.CiliumDockerNetwork)
 	})
 
@@ -482,7 +486,8 @@ var _ = Describe("RunPolicies", func() {
 		status := cilium.PolicyDelAll()
 		status.ExpectSuccess()
 
-		cilium.EndpointWaitUntilReady()
+		areEndpointsReady := cilium.WaitEndpointGeneration()
+		Expect(areEndpointsReady).Should(BeTrue())
 
 		connectivityTest([]string{ping, ping6, http, http6}, helpers.App1, helpers.Httpd1, BeTrue)
 		connectivityTest([]string{ping, ping6, http, http6}, helpers.App2, helpers.Httpd1, BeTrue)
@@ -563,7 +568,8 @@ var _ = Describe("RunPolicies", func() {
 
 		status := cilium.PolicyDelAll()
 		Expect(status.WasSuccessful()).Should(BeTrue())
-		cilium.EndpointWaitUntilReady()
+		areEndpointsReady := cilium.WaitEndpointGeneration()
+		Expect(areEndpointsReady).Should(BeTrue())
 
 		for _, app := range []string{helpers.App1, helpers.App2} {
 			connectivityTest(allRequests, app, helpers.Httpd1, BeTrue)
@@ -597,7 +603,8 @@ var _ = Describe("RunPolicies", func() {
 
 		status := cilium.PolicyDelAll()
 		status.ExpectSuccess()
-		cilium.EndpointWaitUntilReady()
+		areEndpointsReady := cilium.WaitEndpointGeneration()
+		Expect(areEndpointsReady).Should(BeTrue())
 
 		connectivityTest(allRequests, helpers.App1, helpers.Httpd1, BeTrue)
 		connectivityTest(allRequests, helpers.App2, helpers.Httpd1, BeTrue)
@@ -625,7 +632,8 @@ var _ = Describe("RunPolicies", func() {
 
 		status = cilium.PolicyDelAll()
 		status.ExpectSuccess()
-		cilium.EndpointWaitUntilReady()
+		areEndpointsReady = cilium.WaitEndpointGeneration()
+		Expect(areEndpointsReady).Should(BeTrue())
 
 		connectivityTest(allRequests, helpers.App1, helpers.Httpd1, BeTrue)
 		connectivityTest(allRequests, helpers.App2, helpers.Httpd1, BeTrue)

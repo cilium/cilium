@@ -135,7 +135,7 @@ func (c *Cilium) WaitEndpointGeneration() bool {
 	infoCmd := "cilium endpoint list"
 	res := c.Node.Exec(cmdString)
 	logger.Infof("string output of cmd: %s", res.stdout.String())
-	numEndpointsRegenerating, err :=  strconv.Atoi(strings.TrimSuffix(res.stdout.String(), "\n"))
+	numEndpointsRegenerating, err := strconv.Atoi(strings.TrimSuffix(res.stdout.String(), "\n"))
 
 	// If the command error'd out for whatever reason, do not want numEndpointsRegenerating
 	// to be set to zero. Handle this error and set to -1 so that the loop below
@@ -167,72 +167,6 @@ func (c *Cilium) WaitEndpointGeneration() bool {
 	fmt.Println("output of %q", infoCmd)
 	fmt.Print(res.stdout.String())
 
-	return true
-}
-
-//EndpointWaitUntilReady waits until all of the endpoints that Cilium manages
-// are in 'ready' state.
-func (c *Cilium) EndpointWaitUntilReady(validation ...bool) bool {
-
-	logger := c.logger.WithFields(log.Fields{"EndpointWaitReady": ""})
-
-	getEpsStatus := func(data []models.Endpoint) map[int64]int {
-		result := make(map[int64]int)
-		for _, v := range data {
-			result[v.ID] = len(v.Status)
-		}
-		return result
-	}
-
-	var data []models.Endpoint
-
-	if err := c.GetEndpoints().UnMarshal(&data); err != nil {
-		if EndpointWaitUntilReadyRetry > MaxRetries {
-			logger.Errorf("%d retries exceeded to get endpoints: %s", MaxRetries, err)
-			return false
-		}
-		logger.Infof("cannot get endpoints: %s", err)
-		logger.Infof("sleeping 5 seconds and trying again to get endpoints")
-		EndpointWaitUntilReadyRetry++
-		Sleep(5)
-		return c.EndpointWaitUntilReady(validation...)
-	}
-	EndpointWaitUntilReadyRetry = 0 //Reset to 0
-	epsStatus := getEpsStatus(data)
-
-	body := func() bool {
-		var data []models.Endpoint
-
-		if err := c.GetEndpoints().UnMarshal(&data); err != nil {
-			logger.Info("cannot get endpoints: %s", err)
-			return false
-		}
-		var valid, invalid int
-		for _, eps := range data {
-			if eps.State != "ready" {
-				invalid++
-			} else {
-				valid++
-			}
-			if len(validation) > 0 && validation[0] {
-				// If the endpoint's latest statest message does not contain "Policy regeneration skipped", then it must be regenerating; wait until length of status message array changes.
-				if originalVal, _ := epsStatus[eps.ID]; !(len(eps.Status) > 0 && eps.Status[0].Message == "Policy regeneration skipped") && len(eps.Status) <= originalVal {
-					logger.Infof("endpoint %d not regenerated", eps.ID)
-					return false
-				}
-			}
-		}
-
-		if invalid == 0 {
-			return true
-		}
-		logger.Infof("endpoints not ready; valid=%d invalid=%d", valid, invalid)
-		return false
-	}
-	err := WithTimeout(body, "endpoints not ready", &TimeoutConfig{Timeout: 300})
-	if err != nil {
-		return false
-	}
 	return true
 }
 
@@ -311,7 +245,8 @@ func (c *Cilium) SetPolicyEnforcement(status string, waitReady ...bool) *CmdRes 
 	}
 	res = c.Exec(fmt.Sprintf("config %s=%s", PolicyEnforcement, status))
 	if len(waitReady) > 0 && waitReady[0] {
-		c.EndpointWaitUntilReady(true)
+		// TODO - we should handle errors from this
+		c.WaitEndpointGeneration()
 	}
 	return res
 }
