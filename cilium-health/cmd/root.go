@@ -72,6 +72,10 @@ func init() {
 	flags.BoolP("daemon", "d", false, "Run as a daemon")
 	flags.StringP("host", "H", "", "URI to cilum-health server API")
 	flags.StringP("cilium", "c", "", "URI to Cilium server API")
+	flags.IntP("interval", "i", 60, "Interval (in seconds) for periodic connectivity probes")
+	flags.BoolP("json", "j", false, "Format as JSON")
+	// TODO GH #2083 Hide until all commands support JSON output
+	flags.MarkHidden("json")
 	viper.BindPFlags(flags)
 }
 
@@ -90,8 +94,10 @@ func initConfig() {
 
 	if viper.GetBool("daemon") {
 		config := serverPkg.Config{
-			CiliumURI: viper.GetString("cilium"),
-			Debug:     viper.GetBool("debug"),
+			CiliumURI:     viper.GetString("cilium"),
+			Debug:         viper.GetBool("debug"),
+			ProbeInterval: time.Duration(viper.GetInt("interval")) * time.Second,
+			ProbeDeadline: time.Second,
 		}
 		if srv, err := serverPkg.NewServer(config); err != nil {
 			Fatalf("Error while creating server: %s\n", err)

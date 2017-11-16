@@ -17,14 +17,18 @@ package server
 import (
 	"time"
 
+	healthModels "github.com/cilium/cilium/api/v1/health/models"
 	healthApi "github.com/cilium/cilium/api/v1/health/server"
 	"github.com/cilium/cilium/api/v1/health/server/restapi"
+	ciliumModels "github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/common"
 	ciliumPkg "github.com/cilium/cilium/pkg/client"
 	"github.com/cilium/cilium/pkg/health/defaults"
+	"github.com/cilium/cilium/pkg/lock"
 
 	"github.com/go-openapi/loads"
 	flags "github.com/jessevdk/go-flags"
+	"github.com/sirupsen/logrus"
 )
 
 var (
@@ -33,9 +37,18 @@ var (
 
 // Config stores the configuration data for a cilium-health server.
 type Config struct {
-	Debug     bool
-	CiliumURI string
+	Debug         bool
+	CiliumURI     string
+	ProbeInterval time.Duration
+	ProbeDeadline time.Duration
 }
+
+// ipString is an IP address used as a more descriptive type name in maps.
+type ipString string
+
+// nodeMap maps IP addresses to NodeElements for convenient access to node
+// information.
+type nodeMap map[ipString]*ciliumModels.NodeElement
 
 // Server is the cilium-health daemon that is in charge of performing health
 // and connectivity checks periodically, and serving the cilium-health API.
@@ -45,6 +58,15 @@ type Server struct {
 	Config
 
 	startTime time.Time
+
+	// The lock protects against read and write access to the IP->Node map,
+	// the list of statuses as most recently seen, and the last time a
+	// probe was conducted.
+	lock.RWMutex
+	nodes        nodeMap
+	connectivity []*healthModels.NodeStatus
+	lastProbe    time.Time
+	localStatus  *healthModels.SelfStatus
 }
 
 // DumpUptime returns the time that this server has been running.
@@ -52,11 +74,171 @@ func (s *Server) DumpUptime() string {
 	return time.Since(s.startTime).String()
 }
 
+// getNodes fetches the latest set of nodes in the cluster from the Cilium
+// daemon, and updates the Server's 'nodes' map.
+func (s *Server) getNodes() (nodeMap, error) {
+	scopedLog := logrus.NewEntry(log)
+	if s.CiliumURI != "" {
+		scopedLog = log.WithField("URI", s.CiliumURI)
+	}
+	scopedLog.Debug("Sending request for /healthz ...")
+
+	resp, err := s.Daemon.GetHealthz(nil)
+	if err != nil {
+		log.WithError(err).Warn("Failed to retrieve Cilium /healthz")
+		return nil, err
+	}
+	log.Debug("Got cilium /healthz")
+
+	if resp.Payload.Cluster.Self != "" {
+		s.localStatus = &healthModels.SelfStatus{
+			Name: resp.Payload.Cluster.Self,
+		}
+	}
+
+	nodes := make(nodeMap)
+	for _, n := range resp.Payload.Cluster.Nodes {
+		if n.PrimaryAddress.IPV4 != nil {
+			nodes[ipString(n.PrimaryAddress.IPV4.IP)] = n
+		}
+		if n.PrimaryAddress.IPV6 != nil {
+			nodes[ipString(n.PrimaryAddress.IPV6.IP)] = n
+		}
+		for _, addr := range n.SecondaryAddresses {
+			nodes[ipString(addr.IP)] = n
+		}
+	}
+	return nodes, nil
+}
+
+func (s *Server) updateCluster(nodes nodeMap, connectivity []*healthModels.NodeStatus) {
+	s.Lock()
+	defer s.Unlock()
+
+	s.nodes = nodes
+	s.lastProbe = time.Now()
+	s.connectivity = connectivity
+}
+
+// GetStatusResponse returns the most recent cluster connectivity status.
+func (s *Server) GetStatusResponse() *healthModels.HealthStatusResponse {
+	s.RLock()
+	defer s.RUnlock()
+	return &healthModels.HealthStatusResponse{
+		Local:     s.localStatus,
+		Nodes:     s.connectivity,
+		Timestamp: s.lastProbe.Format(time.RFC3339),
+	}
+}
+
+// FetchStatusResponse updates the cluster with the latest set of nodes,
+// runs a synchronous probe across the cluster, updates the connectivity cache
+// and returns the results.
+func (s *Server) FetchStatusResponse() (*healthModels.HealthStatusResponse, error) {
+	nodes, err := s.getNodes()
+	if err != nil {
+		return nil, err
+	}
+
+	prober := newProber(s, nodes)
+	if err := prober.Run(); err != nil {
+		log.WithError(err).Info("Failed to run ping")
+		return nil, err
+	}
+	log.Debug("Run complete")
+	s.updateCluster(nodes, prober.getResults())
+
+	return s.GetStatusResponse(), nil
+}
+
+// Serve spins up two parallel goroutines:
+// * Prober: Periodically run pings across the cluster at a configured interval
+//   and update the server's connectivity status cache
+// * API Server: Handle API requests.
+func (s *Server) Serve() error {
+	var prober *prober
+
+	// Run it once at the start so we get some initial status
+	s.FetchStatusResponse()
+
+	go func() {
+		for {
+			nodes, err := s.getNodes()
+			if err != nil {
+				time.Sleep(time.Second)
+				continue
+			}
+
+			prober = newProber(s, nodes)
+			prober.MaxRTT = s.ProbeInterval
+			prober.OnIdle = func() {
+				s.updateCluster(prober.getNodes(), prober.getResults())
+				if nodes, err := s.getNodes(); err == nil {
+					prober.setNodes(nodes)
+				}
+			}
+			prober.RunLoop()
+
+			if <-prober.Done() {
+				if err := prober.Err(); err != nil {
+					log.WithError(err).Debug("Restarting prober")
+				}
+			}
+		}
+
+	}()
+
+	err := s.Server.Serve()
+	if prober != nil {
+		prober.Stop()
+	}
+	return err
+}
+
+// newServer instantiates a new instance of the API that serves the health
+// API on the specified port. If tcpPort is 0, then a unix socket is opened
+// which serves the entire API. If a tcpPort is specified, then it returns
+// a server which only answers get requests for the root URL "/".
+func (s *Server) newServer(spec *loads.Document, tcpPort int) *healthApi.Server {
+	api := restapi.NewCiliumHealthAPI(spec)
+	api.Logger = log.Printf
+
+	if tcpPort == 0 {
+		// /healthz/
+		api.GetHealthzHandler = NewGetHealthzHandler(s)
+
+		// /status/
+		// /status/probe/
+		api.ConnectivityGetStatusHandler = NewGetStatusHandler(s)
+		api.ConnectivityPutStatusProbeHandler = NewPutStatusProbeHandler(s)
+	}
+
+	srv := healthApi.NewServer(api)
+	if tcpPort == 0 {
+		srv.EnabledListeners = []string{"unix"}
+		srv.SocketPath = flags.Filename(defaults.SockPath)
+	} else {
+		srv.EnabledListeners = []string{"http"}
+		srv.Port = tcpPort
+		srv.Host = "" // FIXME: Allow binding to specific IPs
+	}
+	srv.ConfigureAPI()
+
+	return srv
+}
+
 // NewServer creates a server to handle health requests.
 func NewServer(config Config) (*Server, error) {
 	server := &Server{
-		startTime: time.Now(),
-		Config:    config,
+		startTime:    time.Now(),
+		Config:       config,
+		nodes:        make(nodeMap),
+		connectivity: []*healthModels.NodeStatus{},
+	}
+
+	cl, err := ciliumPkg.NewClient(config.CiliumURI)
+	if err != nil {
+		return nil, err
 	}
 
 	swaggerSpec, err := loads.Analyzed(healthApi.SwaggerJSON, "")
@@ -64,29 +246,8 @@ func NewServer(config Config) (*Server, error) {
 		return nil, err
 	}
 
-	if cl, err := ciliumPkg.NewClient(config.CiliumURI); err != nil {
-		return nil, err
-	} else {
-		server.Client = cl
-	}
-
-	api := restapi.NewCiliumHealthAPI(swaggerSpec)
-	api.Logger = log.Printf
-
-	// /healthz/
-	api.GetHealthzHandler = NewGetHealthzHandler(server)
-
-	// /status/
-	// /status/probe/
-	// FIXME: Implement /status
-
-	srv := healthApi.NewServer(api)
-	srv.EnabledListeners = []string{"unix"}
-	srv.SocketPath = flags.Filename(defaults.SockPath)
-	// FIXME: Initialize httpServerL
-	// FIXME: Listen on ports 4240+ for Connectivity probes
-	srv.ConfigureAPI()
-	server.Server = *srv
+	server.Client = cl
+	server.Server = *server.newServer(swaggerSpec, 0)
 
 	return server, nil
 }
