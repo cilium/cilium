@@ -158,6 +158,14 @@ func (res *CmdRes) Output() *bytes.Buffer {
 	return res.stdout
 }
 
+//ExpectEqual makes an assertion that compare cmdRes.Output().String() and the
+//given parameter.  It accepts an optional parameter that can be used to
+//annotate failure messages.
+func (res *CmdRes) ExpectEqual(expected string, optionalDescription ...interface{}) bool {
+	return gomega.ExpectWithOffset(1, res.Output().String()).Should(
+		gomega.Equal(expected), optionalDescription...)
+}
+
 // Reset resets res's stdout buffer to be empty.
 func (res *CmdRes) Reset() {
 	res.stdout.Reset()

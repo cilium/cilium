@@ -409,16 +409,32 @@ func (c *Cilium) ServiceAdd(id int, frontend string, backends []string, rev int)
 	return c.Exec(cmd)
 }
 
+// ServiceDel is a wrapper around `cilium service delete <id>`. It returns the
+// result of deleting said service.
+func (c *Cilium) ServiceDel(id int) *CmdRes {
+	return c.Exec(fmt.Sprintf("service delete '%d'", id))
+}
+
+// ServiceList returns the output of  `cilium service list`
+func (c *Cilium) ServiceList() *CmdRes {
+	return c.Exec("service list -o json")
+}
+
 // ServiceGet is a wrapper around `cilium service get <id>`. It returns the
 // result of retrieving said service.
 func (c *Cilium) ServiceGet(id int) *CmdRes {
 	return c.Exec(fmt.Sprintf("service get '%d'", id))
 }
 
-// ServiceDel is a wrapper around `cilium service delete <id>`. It returns the
-// result of deleting said service.
-func (c *Cilium) ServiceDel(id int) *CmdRes {
-	return c.Exec(fmt.Sprintf("service delete '%d'", id))
+// ServiceGetIds returns an array with the IDs of all Cilium services. Returns
+// an error if the IDs cannot be retrieved
+func (c *Cilium) ServiceGetIds() ([]string, error) {
+	filter := `{range [*]}{@.ID}{end}`
+	res, err := c.ServiceList().Filter(filter)
+	if err != nil {
+		return nil, err
+	}
+	return strings.Split(res.String(), "\n"), nil
 }
 
 // SetUp sets up Cilium as a systemd service with a hardcoded set of options. It
