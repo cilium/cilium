@@ -71,6 +71,8 @@ function run_tests(){
     # Run ipv4 tests
     vmssh ${node2} 'set -e; set -o pipefail; for test in /home/vagrant/go/src/github.com/cilium/cilium/tests/k8s/tests/ipv4/*.sh; do file=$(basename $test); filename="${file%.*}"; mkdir -p /home/vagrant/go/src/github.com/cilium/cilium/tests/k8s/tests/cilium-files/$filename; $test | tee /home/vagrant/go/src/github.com/cilium/cilium/tests/k8s/tests/cilium-files/"${filename}"/output.txt; done'
 
+    # Check for deadlocks on node1 cilium pods
+    vmssh ${node1} 'set -e; set -o pipefail; for test in /home/vagrant/go/src/github.com/cilium/cilium/tests/k8s/tests/999*.sh; do file=$(basename $test); filename="${file%.*}"; mkdir -p /home/vagrant/go/src/github.com/cilium/cilium/tests/k8s/tests/cilium-files/$filename;  $test | tee /home/vagrant/go/src/github.com/cilium/cilium/tests/k8s/tests/cilium-files/"${filename}"/output.txt; done'
     # Run IPv6 tests
 
     # Reinstall everything with IPv6 addresses
