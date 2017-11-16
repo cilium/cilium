@@ -16,11 +16,10 @@ package helpers
 
 import (
 	"fmt"
-	"time"
 )
 
 var (
-	timeout     = 300 * time.Second
+	timeout     = 300 //WithTimeout helper translate it to seconds
 	basePath    = "/vagrant/"
 	networkName = "cilium-net"
 )
