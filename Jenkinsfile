@@ -1,6 +1,6 @@
 pipeline {
     agent {
-        label 'vagrant'
+        label 'out-of-service'
     }
     options {
         timeout(time: 120, unit: 'MINUTES')
