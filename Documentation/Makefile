@@ -7,6 +7,7 @@ SPHINXBUILD   = sphinx-build
 SPHINXPROJ    = Cilium
 SOURCEDIR     = .
 BUILDDIR      = _build
+CMDREFDIR     = cmdref
 
 # Put it first so that "make" without argument is like "make help".
 help:
@@ -33,7 +34,12 @@ render:
 	docker run -dit --name docs-cilium -p 8080:80 -v $$(pwd)/Documentation/_build/html/:/usr/local/apache2/htdocs/ httpd:2.4
 	@echo "$$(tput setaf 2)Running at http://localhost:8080$$(tput sgr0)"
 
-.PHONY: help Makefile check-requirements
+cmdref:
+	# We don't know what changed so recreate the directory
+	-rm -rvf $(CMDREFDIR) && mkdir $(CMDREFDIR)
+	cilium cmdref -d $(CMDREFDIR)
+
+.PHONY: help Makefile check-requirements cmdref
 
 # Catch-all target: route all unknown targets to Sphinx using the new
 # "make mode" option.  $(O) is meant as a shortcut for $(SPHINXOPTS).
