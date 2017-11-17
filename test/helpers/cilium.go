@@ -85,7 +85,7 @@ func (c *Cilium) EndpointGet(id string) *models.Endpoint {
 }
 
 // EndpointSetConfig sets the provided configuration option to the provided
-// value for the endpoint with the provided id.
+// value for the endpoint with the endpoint ID id.
 func (c *Cilium) EndpointSetConfig(id, option, value string) bool {
 	// TODO: GH-1725.
 	// For now use `grep` with an extra space to ensure that we only match
@@ -125,7 +125,7 @@ func (c *Cilium) EndpointSetConfig(id, option, value string) bool {
 
 var EndpointWaitUntilReadyRetry int = 0 //List how many retries EndpointWaitUntilReady should have
 
-//EndpointWaitUntilReady waits until all of the endpoints that Cilium manages
+// EndpointWaitUntilReady waits until all of the endpoints that Cilium manages
 // are in 'ready' state.
 func (c *Cilium) EndpointWaitUntilReady(validation ...bool) bool {
 
@@ -196,14 +196,15 @@ func (c *Cilium) EndpointWaitUntilReady(validation ...bool) bool {
 	return true
 }
 
-// GetEndpoints returns the output of `cilium endpoint list -o json`.
+// GetEndpoints returns the CmdRes resulting from executing
+// `cilium endpoint list -o json`.
 func (c *Cilium) GetEndpoints() *CmdRes {
 	return c.Exec("endpoint list -o json")
 }
 
-//GetEndpointsIds returns a mapping of a Docker container name to to its
-//corresponding endpoint ID, and an error if the list of endpoints cannot be
-//retrieved via the Cilium CLI.
+// GetEndpointsIds returns a mapping of a Docker container name to to its
+// corresponding endpoint ID, and an error if the list of endpoints cannot be
+// retrieved via the Cilium CLI.
 func (c *Cilium) GetEndpointsIds() (map[string]string, error) {
 	// cilium endpoint list -o jsonpath='{range [*]}{@.container-name}{"="}{@.id}{"\n"}{end}'
 	filter := `{range [*]}{@.container-name}{"="}{@.id}{"\n"}{end}`
@@ -215,7 +216,7 @@ func (c *Cilium) GetEndpointsIds() (map[string]string, error) {
 	return endpoints.KVOutput(), nil
 }
 
-//GetEndpointsNames returns the container-name field of each Cilium endpoint.
+// GetEndpointsNames returns the container-name field of each Cilium endpoint.
 func (c *Cilium) GetEndpointsNames() ([]string, error) {
 	data := c.GetEndpoints()
 	if data.WasSuccessful() == false {
@@ -229,19 +230,22 @@ func (c *Cilium) GetEndpointsNames() ([]string, error) {
 	return strings.Split(result.String(), " "), nil
 }
 
-//ManifestsPath returns the manifest path
+// ManifestsPath returns the path of the directory where manifests (YAMLs
+// containing policies, DaemonSets, etc.) are stored for the runtime tests.
+// TODO: this can just be a constant; there's no need to have a function.
 func (c *Cilium) ManifestsPath() string {
 	return fmt.Sprintf("%s/runtime/manifests/", BasePath)
 }
 
-//GetFullPath returns the valid path for a file
+// GetFullPath returns the path of file name prepended with the absolute path
+// where manifests (YAMLs containing policies, DaemonSets, etc.) are stored.
 func (c *Cilium) GetFullPath(name string) string {
 	return fmt.Sprintf("%s%s", c.ManifestsPath(), name)
 }
 
-//PolicyEndpointsSummary returns the count of whether policy enforcement is
-//enabled, disabled, and the total number of endpoints, and an error if the
-//Cilium endpoint metadata cannot be retrieved via the API.
+// PolicyEndpointsSummary returns the count of whether policy enforcement is
+// enabled, disabled, and the total number of endpoints, and an error if the
+// Cilium endpoint metadata cannot be retrieved via the API.
 func (c *Cilium) PolicyEndpointsSummary() (map[string]int, error) {
 	result := map[string]int{
 		Enabled:  0,
@@ -281,12 +285,12 @@ func (c *Cilium) PolicyDelAll() *CmdRes {
 	return c.PolicyDel("--all")
 }
 
-//PolicyDel delete a policy with the given ID
+// PolicyDel deletes the policy with the given ID from Cilium.
 func (c *Cilium) PolicyDel(id string) *CmdRes {
 	return c.Exec(fmt.Sprintf("policy delete %s", id))
 }
 
-//PolicyGet runs `cilium policy get <id>`, where id is the name of a specific
+// PolicyGet runs `cilium policy get <id>`, where id is the name of a specific
 // policy imported into Cilium. It returns the resultant CmdRes from running
 // the aforementioned command.
 func (c *Cilium) PolicyGet(id string) *CmdRes {
@@ -299,15 +303,16 @@ func (c *Cilium) PolicyGetAll() *CmdRes {
 
 }
 
-//PolicyGetRevision Get the current Policy revision
+// PolicyGetRevision retrieves the current policy revision number in the Cilium
+// agent.
 func (c *Cilium) PolicyGetRevision() (int, error) {
 	//FIXME GH-1725
 	rev := c.Exec("policy get | grep Revision| awk '{print $2}'")
 	return rev.IntOutput()
 }
 
-//PolicyImport imports a new policy into Cilium and waits until the policy
-//revision number increments.
+// PolicyImport imports a new policy into Cilium and waits until the policy
+// revision number increments.
 func (c *Cilium) PolicyImport(path string, timeout time.Duration) (int, error) {
 	revision, err := c.PolicyGetRevision()
 	if err != nil {
@@ -337,13 +342,14 @@ func (c *Cilium) PolicyImport(path string, timeout time.Duration) (int, error) {
 	return revision, err
 }
 
-//PolicyWait executes cilium policy wait, which waits until all endpoints are
-//updated to the given policy revision.
+// PolicyWait executes `cilium policy wait`, which waits until all endpoints are
+// updated to the given policy revision.
 func (c *Cilium) PolicyWait(revisionNum int) *CmdRes {
 	return c.Exec(fmt.Sprintf("policy wait %d", revisionNum))
 }
 
-//ReportFailed gathers relevant Cilium runtime data and logs for debugging purposes
+// ReportFailed gathers relevant Cilium runtime data and logs for debugging
+// purposes.
 func (c *Cilium) ReportFailed(commands ...string) {
 	wr := c.logger.Logger.Out
 	fmt.Fprint(wr, "StackTrace Begin\n")
@@ -364,7 +370,8 @@ func (c *Cilium) ReportFailed(commands ...string) {
 	fmt.Fprint(wr, "StackTrace Ends\n")
 }
 
-//ServiceAdd Creates a new cilium service
+// ServiceAdd creates a new Cilium service with the provided ID, frontend,
+// backends, and revNAT number. Returns the result of creating said service.
 func (c *Cilium) ServiceAdd(id int, frontend string, backends []string, rev int) *CmdRes {
 	cmd := fmt.Sprintf(
 		"service update --frontend '%s' --backends '%s' --id '%d' --rev '%d'",
@@ -372,12 +379,14 @@ func (c *Cilium) ServiceAdd(id int, frontend string, backends []string, rev int)
 	return c.Exec(cmd)
 }
 
-//ServiceGet Get a service from cilium
+// ServiceGet is a wrapper around `cilium service get <id>`. It returns the
+// result of retrieving said service.
 func (c *Cilium) ServiceGet(id int) *CmdRes {
 	return c.Exec(fmt.Sprintf("service get '%d'", id))
 }
 
-//ServiceDel delete the service ID
+// ServiceDel is a wrapper around `cilium service delete <id>`. It returns the
+// result of deleting said service.
 func (c *Cilium) ServiceDel(id int) *CmdRes {
 	return c.Exec(fmt.Sprintf("service delete '%d'", id))
 }
@@ -407,9 +416,9 @@ INITSYSTEM=SYSTEMD`
 	return nil
 }
 
-//WaitUntilReady waits until the output of cilium status returns with code
-//zero. Returns an error if the output of cilium status returns a nonzero
-//return code after the specified timeout duration has elapsed.
+// WaitUntilReady waits until the output of `cilium status` returns with code
+// zero. Returns an error if the output of `cilium status` returns a nonzero
+// return code after the specified timeout duration has elapsed.
 func (c *Cilium) WaitUntilReady(timeout time.Duration) error {
 
 	body := func() bool {
