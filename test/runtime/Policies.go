@@ -343,7 +343,7 @@ var _ = Describe("RuntimePolicyEnforcement", func() {
 	})
 })
 
-var _ = Describe("RunPolicies", func() {
+var _ = Describe("RuntimePolicies", func() {
 
 	var initialized bool
 	var networkName string = "cilium-net"
