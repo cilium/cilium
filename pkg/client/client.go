@@ -88,7 +88,7 @@ func NewClient(host string) (*Client, error) {
 
 	transport := configureTransport(nil, tmp[0], host)
 	httpClient := &http.Client{Transport: transport}
-	clientTrans := runtime_client.NewWithClient(host, clientapi.DefaultBasePath,
+	clientTrans := runtime_client.NewWithClient(tmp[1], clientapi.DefaultBasePath,
 		clientapi.DefaultSchemes, httpClient)
 	return &Client{*clientapi.New(clientTrans, strfmt.Default)}, nil
 }
