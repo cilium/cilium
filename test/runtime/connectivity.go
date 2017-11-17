@@ -131,7 +131,7 @@ var _ = Describe("RuntimeConnectivityTest", func() {
 	})
 })
 
-var _ = Describe("RunConntrackTest", func() {
+var _ = Describe("RuntimeConntrackTest", func() {
 
 	var initialized bool
 	var networkName string = "cilium-net"
