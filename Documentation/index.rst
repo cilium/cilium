@@ -13,6 +13,7 @@ Welcome to Cilium's documentation!
    intro
    gettingstarted
    gettinghelp
+   cheatsheet
    concepts
    install
    policy
