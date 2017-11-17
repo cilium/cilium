@@ -30,7 +30,7 @@ import (
 )
 
 const (
-	//MaxRetries is the number of times that a loop should iterate until a
+	// MaxRetries is the number of times that a loop should iterate until a
 	//specified condition is not met
 	MaxRetries = 30
 )
@@ -267,7 +267,7 @@ func (c *Cilium) GetEndpointsIds() (map[string]string, error) {
 	return endpoints.KVOutput(), nil
 }
 
-//GetEndpointsIdentityIds returns a mapping of a Docker container name to to
+// GetEndpointsIdentityIds returns a mapping of a Docker container name to to
 //its corresponding endpoint identity ID, and an error if the list of endpoints
 //cannot be retrieved via the Cilium CLI.
 func (c *Cilium) GetEndpointsIdentityIds() (map[string]string, error) {
@@ -434,12 +434,12 @@ func (c *Cilium) ReportFailed(commands ...string) {
 	c.ReportDump()
 }
 
-//ReportDump runs a variety of commands and writes the results to
+// ReportDump runs a variety of commands and writes the results to
 //testResultsPath
 func (c *Cilium) ReportDump() {
 	reportCmds := map[string]string{}
 
-	for cmd, log := range reportCommands {
+	for cmd, log := range ciliumCLICommands {
 		reportCmds[fmt.Sprintf("sudo %s", cmd)] = log
 	}
 
@@ -451,7 +451,7 @@ func (c *Cilium) ReportDump() {
 	testPath, err := ReportDirectory()
 	if err != nil {
 		c.logCxt.WithError(err).Errorf(
-			"Cannot create Test results path '%s'", testPath)
+			"cannot create Test results path '%s'", testPath)
 		return
 	}
 	reportMap(testPath, reportCmds, c.Node)
@@ -459,7 +459,7 @@ func (c *Cilium) ReportDump() {
 	//Endpoint specific information:
 	eps, err := c.GetEndpointsIds()
 	if err != nil {
-		c.logCxt.Errorf("Cannot get endpoint ids")
+		c.logCxt.Errorf("cannot get endpoint ids")
 	}
 	for _, ep := range eps {
 		for cmd, logfile := range reportEndpointsCommands {
@@ -469,53 +469,53 @@ func (c *Cilium) ReportDump() {
 			err = ioutil.WriteFile(
 				fmt.Sprintf("%s/%s", testPath, fmt.Sprintf(logfile, ep)),
 				res.CombineOutput().Bytes(),
-				0777)
+				os.ModePerm)
 
 			if err != nil {
-				c.logCxt.WithError(err).Errorf("Cannot create test results for '%s'", command)
+				c.logCxt.WithError(err).Errorf("cannot create test results for '%s'", command)
 			}
 		}
 	}
 
 	eps, err = c.GetEndpointsIdentityIds()
 	if err != nil {
-		c.logCxt.Errorf("Cannot get endpoint identity ids")
+		c.logCxt.Errorf("cannot get endpoint identity ids")
 	}
 	for _, ep := range eps {
 		res := c.Node.Exec(fmt.Sprintf("cilium identity get %s", ep))
 		err = ioutil.WriteFile(
 			fmt.Sprintf("%s/%s", testPath, fmt.Sprintf("identity_%s.txt", ep)),
 			res.CombineOutput().Bytes(),
-			0777)
+			os.ModePerm)
 		if err != nil {
-			c.logCxt.WithError(err).Errorf("Cannot create test results for identity get")
+			c.logCxt.WithError(err).Errorf("cannot create test results for identity get")
 		}
 	}
 }
 
-//GatherLogs dumps Cilium, Cilium Docker, key-value store logs, and gops output
+// GatherLogs dumps Cilium, Cilium Docker, key-value store logs, and gops output
 //to the directory testResultsPath
 func (c *Cilium) GatherLogs() {
-	reportCmds := map[string]string{
-		"sudo journalctl -xe -u " + daemonName + " --no-pager":       "cilium.log",
-		"sudo journalctl -xe -u " + dockerDaemonName + " --no-pager": "cilium-docker.log",
-		"sudo docker logs cilium-consul":                             "consul.log",
-		`sudo bash -c "gops memstats $(pgrep ` + agentDaemon + `)"`:  "gops_memstats.txt",
-		`sudo bash -c "gops stack $(pgrep ` + agentDaemon + `)"`:     "gops_stack.txt",
-		`sudo bash -c "gops stats $(pgrep ` + agentDaemon + `)"`:     "gops_stats.txt",
+	ciliumLogCommands := map[string]string{
+		fmt.Sprintf("sudo journalctl -xe -u %s --no-pager", daemonName):            "cilium.log",
+		fmt.Sprintf("sudo journalctl -xe -u %s--no-pager", ciliumDockerDaemonName): "cilium-docker.log",
+		"sudo docker logs cilium-consul":                                           "consul.log",
+		fmt.Sprintf(`sudo bash -c "gops memstats $(pgrep %s)"`, agentDaemon):       "gops_memstats.txt",
+		fmt.Sprintf(`sudo bash -c "gops stack $(pgrep %s)"`, agentDaemon):          "gops_stack.txt",
+		fmt.Sprintf(`sudo bash -c "gops stats $(pgrep %s)"`, agentDaemon):          "gops_stats.txt",
 	}
 
-	gatherCommands := []string{
-		fmt.Sprintf("sudo cp -r %s /vagrant/%s/lib", runDir, testResultsPath),
-		fmt.Sprintf("sudo cp -r %s /vagrant/%s/run", libDir, testResultsPath),
+	ciliumBPFStateCommands := []string{
+		fmt.Sprintf("sudo cp -r %s %s/%s/lib", runDir, basePath, testResultsPath),
+		fmt.Sprintf("sudo cp -r %s %s/%s/run", libDir, basePath, testResultsPath),
 	}
 
-	reportMap(testResultsPath, reportCmds, c.Node)
+	reportMap(testResultsPath, ciliumLogCommands, c.Node)
 
-	for _, cmd := range gatherCommands {
+	for _, cmd := range ciliumBPFStateCommands {
 		res := c.Node.Exec(cmd)
 		if !res.WasSuccessful() {
-			c.logCxt.Errorf("cannot gather files for cmd '%s'", cmd)
+			c.logCxt.Errorf("cannot gather files for cmd '%s': %s", cmd, res.CombineOutput())
 		}
 	}
 }
@@ -634,7 +634,7 @@ PATH=/usr/lib/llvm-3.8/bin:/usr/local/sbin:/usr/local/bin:/usr/bin:/usr/sbin:/sb
 CILIUM_OPTS=--kvstore consul --kvstore-opt consul.address=127.0.0.1:8500 --debug
 INITSYSTEM=SYSTEMD`
 
-	err := RenderTemplateToFile("cilium", template, 0777)
+	err := RenderTemplateToFile("cilium", template, os.ModePerm)
 	if err != nil {
 		return err
 	}

@@ -142,7 +142,7 @@ func Fail(description string, callerSkip ...int) {
 
 // ReportDirectory creates and returns the directory path to export all report
 // commands that need to be run in the that a test has failed.
-// If dir can not be created it'll return an error
+// If the directory cannot be created it'll return an error
 func ReportDirectory() (string, error) {
 	testDesc := ginkgo.CurrentGinkgoTestDescription()
 	testPath := fmt.Sprintf("%s%s/",
@@ -151,23 +151,22 @@ func ReportDirectory() (string, error) {
 	if _, err := os.Stat(testPath); err == nil {
 		return testPath, nil
 	}
-	err := os.MkdirAll(testPath, 0777)
+	err := os.MkdirAll(testPath, os.ModePerm)
 	return testPath, err
 }
 
-//reportMap saves the output of the commands in the filename to which they map
-//to in reportCmds
-// Function needs the directory path where the files are going to be written and
-// a node. instance to execute the commands
+// reportMap saves the output of the given commands to the specified filename.
+// Function needs a directory path where the files are going to be written and
+// a *Node instance to execute the commands
 func reportMap(path string, reportCmds map[string]string, node *Node) {
 	for cmd, logfile := range reportCmds {
 		res := node.Exec(cmd)
 		err := ioutil.WriteFile(
 			fmt.Sprintf("%s/%s", path, logfile),
 			res.CombineOutput().Bytes(),
-			0777)
+			os.ModePerm)
 		if err != nil {
-			log.WithError(err).Errorf("Cannot create test results for command '%s'", cmd)
+			log.WithError(err).Errorf("cannot create test results for command '%s'", cmd)
 		}
 	}
 }

@@ -117,18 +117,27 @@ const (
 	PingCount          = 5
 	CurlConnectTimeout = 5
 
-	DefaultNamespace    = "default"
-	KubeSystemNamespace = "kube-system"
-	testResultsPath     = "test_results/"
-	testResultsPath     = "test_results/"
-	runDir              = "/var/run/cilium"
-	libDir              = "/var/lib/cilium"
-	agentDaemon         = "cilium-agent"
-	daemonName          = "cilium"
-	dockerDaemonName    = "cilium-docker"
+	DefaultNamespace                     = "default"
+	KubeSystemNamespace                  = "kube-system"
+	testResultsPath                      = "test_results/"
+	testResultsPath                      = "test_results/"
+	runDir                               = "/var/run/cilium"
+	libDir                               = "/var/lib/cilium"
+	agentDaemon                          = "cilium-agent"
+	daemonName                           = "cilium"
+	dockerDaemonName                     = "cilium-docker"
+	timeout                time.Duration = 300 //WithTimeout helper translate it to seconds
+	basePath                             = "/vagrant/"
+	networkName                          = "cilium-net"
+	testResultsPath                      = "test_results/"
+	runDir                               = "/var/run/cilium"
+	libDir                               = "/var/lib/cilium"
+	agentDaemon                          = "cilium-agent"
+	daemonName                           = "cilium"
+	ciliumDockerDaemonName               = "cilium-docker"
 )
 
-var reportCommands = map[string]string{
+var ciliumCLICommands = map[string]string{
 	"cilium endpoint list -o json": "endpoint_list_txt",
 	"cilium service list -o json":  "service_list.txt",
 	"cilium config":                "config.txt",
