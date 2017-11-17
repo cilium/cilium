@@ -37,14 +37,15 @@ const (
 	kubectl              = "kubectl"
 )
 
-// GetCurrentK8SEnv returns the value of K8S_VERSION from the OS environment
+// GetCurrentK8SEnv returns the value of K8S_VERSION from the OS environment.
 func GetCurrentK8SEnv() string { return os.Getenv("K8S_VERSION") }
 
-// Kubectl kubectl command helper to connect to Kubectl instance
+// Kubectl is utilized to run Kubernetes-specific commands on its SSHMeta.
+// Informational output about the result of commands and the state of the node
+// is stored in its associated logCxt.
 type Kubectl struct {
-	Node *SSHMeta //helpers.SSHMeta struct to connect to ssh
-
-	logCxt *log.Entry //log context with test fields
+	Node   *SSHMeta
+	logCxt *log.Entry
 }
 
 // CreateKubectl initializes a Kubectl helper with the provided vmName and log
@@ -60,7 +61,9 @@ func CreateKubectl(vmName string, log *log.Entry) *Kubectl {
 	}
 }
 
-// Exec runs the provided command in a pod running in a specific namespace
+// Exec executes command cmd in the specified pod residing in the specified
+// namespace. It returns the stdout of the command that was executed, and an
+// error if cmd did not execute successfully.
 func (kub *Kubectl) Exec(namespace string, pod string, cmd string) (string, error) {
 	command := fmt.Sprintf("%s exec -n %s %s -- %s", kubectl, namespace, pod, cmd)
 	stdout := new(bytes.Buffer)
@@ -77,7 +80,7 @@ func (kub *Kubectl) Exec(namespace string, pod string, cmd string) (string, erro
 	return stdout.String(), nil
 }
 
-// Get retrieves the provided Kubernetes objects from the specified namespace
+// Get retrieves the provided Kubernetes objects from the specified namespace.
 func (kub *Kubectl) Get(namespace string, command string) *CmdRes {
 	return kub.Node.Exec(fmt.Sprintf(
 		"%s -n %s get %s -o json", kubectl, namespace, command))
@@ -89,9 +92,9 @@ func (kub *Kubectl) GetPods(namespace string, filter string) *CmdRes {
 	return kub.Node.Exec(fmt.Sprintf("%s -n %s get pods %s -o json", kubectl, namespace, filter))
 }
 
-//GetPodNames returns the names of all of the pods that are labelled with label
-//in the specified namespace, along with an error if the pod names cannot be
-//retrieved.
+// GetPodNames returns the names of all of the pods that are labeled with label
+// in the specified namespace, along with an error if the pod names cannot be
+// retrieved.
 func (kub *Kubectl) GetPodNames(namespace string, label string) ([]string, error) {
 	stdout := new(bytes.Buffer)
 	filter := "-o jsonpath='{.items[*].metadata.name}'"
@@ -112,7 +115,8 @@ func (kub *Kubectl) GetPodNames(namespace string, label string) ([]string, error
 	return strings.Split(out, " "), nil
 }
 
-//Logs returns CmdRes with the output of kubectl logs <pod> command
+// Logs returns a CmdRes with containing the resulting metadata from the
+// execution of `kubectl logs <pod> -n <namespace>`.
 func (kub *Kubectl) Logs(namespace string, pod string) *CmdRes {
 	stdout := new(bytes.Buffer)
 	stderr := new(bytes.Buffer)
@@ -128,12 +132,16 @@ func (kub *Kubectl) Logs(namespace string, pod string) *CmdRes {
 	}
 }
 
-//ManifestsPath returns the manifests path for the k8s version
+// ManifestsPath returns the the full path of manifests (DaemonSets, YAML files,
+// etc.) for the Kubernetes version specified in the environment. This path
+// is the path specified in the VMs, not the host of the Vagrant VMs.
 func (kub *Kubectl) ManifestsPath() string {
 	return fmt.Sprintf("%s/k8sT/manifests/%s", BasePath, GetCurrentK8SEnv())
 }
 
-//NodeCleanMetadata delete all cilium metadata info to all nodes
+// NodeCleanMetadata annotates each node in the Kubernetes cluster with the
+// Annotationv4CIDRName and Annotationv6CIDRName annotations. It returns an
+// error if the nodes cannot be retrieved via the Kubernetes API.
 func (kub *Kubectl) NodeCleanMetadata() error {
 	metadata := []string{
 		Annotationv4CIDRName,
@@ -152,7 +160,11 @@ func (kub *Kubectl) NodeCleanMetadata() error {
 	return nil
 }
 
-//WaitforPods waits until pods are ready in the specified namespace using the provided JSONPath filter. It waits up to timeout seconds for the command to complete. Returns true if the command succeeded within the specified timeout, and an error if the command failed or did not succeed during the specified timeout.
+// WaitforPods waits up until timeout seconds have elapsed for all pods in the
+// specified namespace that match the provided JSONPath filter to have their
+// containterStatuses equal to "ready". Returns true if all pods achieve
+// the aforementioned desired state within timeout seconds. Returns false and
+// an error if the command failed or the timeout was exceeded.
 func (kub *Kubectl) WaitforPods(namespace string, filter string, timeout time.Duration) (bool, error) {
 	body := func() bool {
 		var jsonPath = "{.items[*].status.containerStatuses[*].ready}"
@@ -187,14 +199,14 @@ func (kub *Kubectl) WaitforPods(namespace string, filter string, timeout time.Du
 	return true, nil
 }
 
-//Apply applies the Kubernetes manifest located at path filepath
+// Apply applies the Kubernetes manifest located at path filepath.
 func (kub *Kubectl) Apply(filePath string) *CmdRes {
 	kub.logCxt.Debugf("applying %s", filePath)
 	return kub.Node.Exec(
 		fmt.Sprintf("%s apply -f  %s", kubectl, filePath))
 }
 
-//Delete Deletes the Kubernetes manifest at path filepath.
+// Delete deletes the Kubernetes manifest at path filepath.
 func (kub *Kubectl) Delete(filePath string) *CmdRes {
 	kub.logCxt.Debugf("deleting %s", filePath)
 	return kub.Node.Exec(
@@ -213,9 +225,12 @@ func (kub *Kubectl) CiliumEndpointsList(pod string) *CmdRes {
 	return kub.CiliumExec(pod, "cilium endpoint list -o json")
 }
 
-// CiliumEndpointsListByLabel returns a list of endpoints
-func (kub *Kubectl) CiliumEndpointsListByLabel(pod, label string) (EndPointMap, error) {
-	result := make(EndPointMap)
+// CiliumEndpointsListByLabel returns all endpoints that are labeled with label
+// in the form of an EndpointMap, which maps an endpoint's container name to its
+// corresponding Cilium API endpoint model. It returns an error if the extraction
+// of the command to retrieve the endpoints via the Cilium API fails.
+func (kub *Kubectl) CiliumEndpointsListByLabel(pod, label string) (EndpointMap, error) {
+	result := make(EndpointMap)
 	var data []models.Endpoint
 	eps := kub.CiliumEndpointsList(pod)
 
@@ -236,9 +251,9 @@ func (kub *Kubectl) CiliumEndpointsListByLabel(pod, label string) (EndPointMap, 
 	return result, nil
 }
 
-//CiliumEndpointWait waits until all endpoints managed by the specified Cilium
-//pod are ready. Returns false if the command to retrieve the state of the
-//endpoints times out.
+// CiliumEndpointWait waits until all endpoints managed by the specified Cilium
+// pod are ready. Returns false if the command to retrieve the state of the
+// endpoints times out.
 func (kub *Kubectl) CiliumEndpointWait(pod string) bool {
 
 	body := func() bool {
@@ -273,8 +288,8 @@ func (kub *Kubectl) CiliumEndpointWait(pod string) bool {
 	return true
 }
 
-//CiliumEndpointPolicyVersion returns a map with the endpoint id and the policy
-//revision that are in a cilium pod
+// CiliumEndpointPolicyVersion returns a mapping of each endpoint's ID to its
+// policy revision number for all endpoints in the specified Cilium pod.
 func (kub *Kubectl) CiliumEndpointPolicyVersion(pod string) map[string]int64 {
 	result := map[string]int64{}
 	filter := `{range [*]}{@.id}{"="}{@.policy-revision}{"\n"}{end}`
@@ -289,15 +304,18 @@ func (kub *Kubectl) CiliumEndpointPolicyVersion(pod string) map[string]int64 {
 	return result
 }
 
-//CiliumExec runs cmd in the specified Cilium pod
+// CiliumExec runs cmd in the specified Cilium pod.
 func (kub *Kubectl) CiliumExec(pod string, cmd string) *CmdRes {
 	cmd = fmt.Sprintf("%s exec -n kube-system %s -- %s", kubectl, pod, cmd)
 	return kub.Node.Exec(cmd)
 }
 
-//CiliumNodesWait When a new cilium DS is set, the status can be ok but tunnels
-//are not in place yet. Checking the `kubectl get nodes` we can know if cilium
-//added the node correctly. If the command times out, will return an error
+// CiliumNodesWait waits up until the specified timeout has elapsed
+// until all nodes in the Kubernetes cluster are annotated  with Cilium
+// annotations. When a node is annotated with said annotations,  it indicates
+// that the tunnels in the nodes are set up and that cross-node traffic can be
+// tested. Returns an error if the timeout is exceeded for waiting for the nodes
+// to be annotated.
 func (kub *Kubectl) CiliumNodesWait() (bool, error) {
 	body := func() bool {
 		filter := `{range .items[*]}{@.metadata.name}{"="}{@.metadata.annotations.io\.cilium\.network\.ipv4-pod-cidr}{"\n"}{end}`
@@ -323,8 +341,8 @@ func (kub *Kubectl) CiliumNodesWait() (bool, error) {
 	return true, nil
 }
 
-//CiliumPolicyRevision returns the policy revision in the specified Cilium pod.
-//If the policy revision cannot be retrieved, returns an error.
+// CiliumPolicyRevision returns the policy revision in the specified Cilium pod.
+// Returns an error if the policy revision cannot be retrieved.
 func (kub *Kubectl) CiliumPolicyRevision(pod string) (int, error) {
 	// FIXME GH-1725
 	res := kub.CiliumExec(pod, "cilium policy get | grep Revision | awk '{print $2}'")
@@ -340,9 +358,10 @@ func (kub *Kubectl) CiliumPolicyRevision(pod string) (int, error) {
 	return revi, nil
 }
 
-//CiliumImportPolicy imports the policy stored in path filepath and waits up
-//until timeout seconds for the policy to be applied in all Cilium endpoints.
-//Returns an error if the command fails or times out.
+// CiliumImportPolicy imports the policy stored in path filepath and waits up
+// until timeout seconds for the policy to be applied in all Cilium endpoints.
+// Returns an error if the policy is not imported before the timeout is
+// exceeded.
 func (kub *Kubectl) CiliumImportPolicy(namespace string, filepath string, timeout time.Duration) (string, error) {
 	var revision int
 	revisions := map[string]int{}
@@ -386,7 +405,7 @@ func (kub *Kubectl) CiliumImportPolicy(namespace string, filepath string, timeou
 		}
 
 		if valid == true {
-			//Wait until all the pods are synced
+			// Wait until all the pods are synced
 			for pod, rev := range waitingRev {
 				kub.logCxt.Infof("CiliumImportPolicy: Wait for endpoints to sync on pod '%s'", pod)
 				kub.Exec(namespace, pod, fmt.Sprintf("cilium policy wait %d", rev))
@@ -426,7 +445,7 @@ func (kub *Kubectl) CiliumReport(namespace string, pod string, commands []string
 	return nil
 }
 
-//GetCiliumPodOnNode returns the name of the Cilium pod that is running on / in
+// GetCiliumPodOnNode returns the name of the Cilium pod that is running on / in
 //the specified node / namespace.
 func (kub *Kubectl) GetCiliumPodOnNode(namespace string, node string) (string, error) {
 	filter := fmt.Sprintf(
@@ -441,12 +460,12 @@ func (kub *Kubectl) GetCiliumPodOnNode(namespace string, node string) (string, e
 	return res.Output().String(), nil
 }
 
-//EndPointMap Map with all the endpoints in cilium
-type EndPointMap map[string]models.Endpoint
+// EndpointMap maps an endpoint's container name to its Cilium API endpoint model.
+type EndpointMap map[string]models.Endpoint
 
-//GetPolicyStatus returns a mapping of how many endpoints have policy
-//enforcement enabled and disabled.
-func (epMap *EndPointMap) GetPolicyStatus() map[string]int {
+// GetPolicyStatus returns a mapping of how many endpoints in epMap have policy
+// enforcement enabled and disabled.
+func (epMap *EndpointMap) GetPolicyStatus() map[string]int {
 	result := map[string]int{
 		Enabled:  0,
 		Disabled: 0,
@@ -462,8 +481,8 @@ func (epMap *EndPointMap) GetPolicyStatus() map[string]int {
 	return result
 }
 
-//AreReady return true if all cilium endpoints are in 'ready' state
-func (epMap *EndPointMap) AreReady() bool {
+// AreReady returns true if all Cilium endpoints are in 'ready' state
+func (epMap *EndpointMap) AreReady() bool {
 	for _, ep := range *epMap {
 		if ep.State != "ready" {
 			return false
