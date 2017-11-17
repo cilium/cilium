@@ -200,13 +200,13 @@ var _ = Describe("K8sPolicyTest", func() {
 		trace := kubectl.CiliumExec(ciliumPod, fmt.Sprintf(
 			"cilium policy trace --src-k8s-pod default:%s --dst-k8s-pod default:%s --dport 80",
 			appPods["app2"], appPods["app1"]))
-		trace.ExpectSuccess(trace.Output().String())
+		trace.ExpectSuccess(trace.CombineOutput().String())
 		Expect(trace.Output().String()).Should(ContainSubstring("Final verdict: ALLOWED"))
 
 		trace = kubectl.CiliumExec(ciliumPod, fmt.Sprintf(
 			"cilium policy trace --src-k8s-pod default:%s --dst-k8s-pod default:%s",
 			appPods["app3"], appPods["app1"]))
-		trace.ExpectSuccess()
+		trace.ExpectSuccess(trace.CombineOutput().String())
 		Expect(trace.Output().String()).Should(ContainSubstring("Final verdict: DENIED"))
 
 		_, err = kubectl.Exec(
