@@ -1290,6 +1290,17 @@ Example of the etcd configuration file:
     key-file: '/var/lib/cilium/etcd-client.key'
     cert-file: '/var/lib/cilium/etcd-client.crt'
 
+.. only:: html
+
+  ************************
+  Cilium Command Reference
+  ************************
+  
+  
+    .. toctree::
+       :glob:
+    
+       cmdref/*
 
 .. _Slack channel: https://cilium.herokuapp.com
 .. _DaemonSet: https://kubernetes.io/docs/admin/daemons/
