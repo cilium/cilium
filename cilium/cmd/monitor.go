@@ -22,11 +22,11 @@ import (
 	"net"
 	"os"
 	"os/signal"
+	"sort"
 	"time"
 
 	"github.com/cilium/cilium/daemon/defaults"
 	"github.com/cilium/cilium/monitor/payload"
-	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/bpfdebug"
 	"github.com/cilium/cilium/pkg/byteorder"
 
@@ -68,10 +68,13 @@ const (
 )
 
 func listEventTypes() []string {
-	types := []string{}
+	types := make([]string, len(eventTypes))
+	i := 0
 	for k := range eventTypes {
-		types = append(types, k)
+		types[i] = k
+		i++
 	}
+	sort.Strings(types)
 	return types
 }
 
@@ -86,14 +89,7 @@ func init() {
 }
 
 var (
-	hex         = false
-	eventConfig = bpf.PerfEventConfig{
-		MapName:      bpf.EventsMapName,
-		Type:         bpf.PERF_TYPE_SOFTWARE,
-		Config:       bpf.PERF_COUNT_SW_BPF_OUTPUT,
-		SampleType:   bpf.PERF_SAMPLE_RAW,
-		WakeupEvents: 1,
-	}
+	hex          = false
 	eventTypeIdx = bpfdebug.MessageTypeUnspec // for integer comparison
 	eventType    = ""
 	eventTypes   = map[string]int{
