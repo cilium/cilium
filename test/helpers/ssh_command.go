@@ -31,8 +31,11 @@ import (
 	"golang.org/x/crypto/ssh/agent"
 )
 
-//SSHCommand struct to send commands over SSHClient
+// SSHCommand stores the data associated with executing a command.
+// TODO: this is poorly named in that it's not related to a command only
+// ran over SSH - rename this.
 type SSHCommand struct {
+	// TODO: path is not a clear name - rename to something more clear.
 	Path   string
 	Env    []string
 	Stdin  io.Reader
@@ -40,7 +43,8 @@ type SSHCommand struct {
 	Stderr io.Writer
 }
 
-//SSHClient struct to store the configuration for a specific vagrant box
+// SSHClient stores the information needed to SSH into a remote location for
+// running tests.
 type SSHClient struct {
 	Config *ssh.ClientConfig // ssh client configuration information.
 	Host   string            // Ip/Host from the target virtualserver
@@ -49,7 +53,7 @@ type SSHClient struct {
 	// subprocesses, TCP port/streamlocal forwarding and tunneled dialing.
 }
 
-//SSHConfig contains metadata for an SSH session with a Vagrant VM .
+// SSHConfig contains metadata for an SSH session with a Vagrant VM.
 type SSHConfig struct {
 	target       string
 	host         string
