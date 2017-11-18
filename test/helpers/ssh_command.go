@@ -53,7 +53,7 @@ type SSHClient struct {
 	// subprocesses, TCP port/streamlocal forwarding and tunneled dialing.
 }
 
-// SSHConfig contains metadata for an SSH session with a Vagrant VM.
+// SSHConfig contains metadata for an SSH session.
 type SSHConfig struct {
 	target       string
 	host         string
@@ -62,7 +62,7 @@ type SSHConfig struct {
 	identityFile string
 }
 
-// SSHConfigs maps the name of a host (VM) to the SSHConfiguration
+// SSHConfigs maps the name of a host (VM) to its corresponding SSHConfiguration
 type SSHConfigs map[string]*SSHConfig
 
 // GetSSHClient initializes an SSHClient based on the provided SSHConfig
@@ -91,7 +91,7 @@ func (cfg *SSHConfig) String() string {
 	return fmt.Sprintf("target: %s, host: %s, port %d, user, %s, identityFile: %s", cfg.target, cfg.host, cfg.port, cfg.user, cfg.identityFile)
 }
 
-//GetSSHAgent returns the ssh.AuthMethod corresponding to SSHConfig cfg
+// GetSSHAgent returns the ssh.AuthMethod corresponding to SSHConfig cfg.
 func (cfg *SSHConfig) GetSSHAgent() ssh.AuthMethod {
 	key, err := ioutil.ReadFile(cfg.identityFile)
 	if err != nil {
@@ -105,8 +105,8 @@ func (cfg *SSHConfig) GetSSHAgent() ssh.AuthMethod {
 	return ssh.PublicKeys(signer)
 }
 
-//ImportSSHconfig imports the SSH configuration stored at the provided path.
-//Returns an error if the SSH configuration could not be instantiated.
+// ImportSSHconfig imports the SSH configuration stored at the provided path.
+// Returns an error if the SSH configuration could not be instantiated.
 func ImportSSHconfig(config []byte) (SSHConfigs, error) {
 	result := make(SSHConfigs)
 	cfg, err := ssh_config.Decode(bytes.NewBuffer(config))
@@ -171,9 +171,9 @@ func runCommand(session *ssh.Session, cmd *SSHCommand) error {
 	return nil
 }
 
-//RunCommand runs a SSHCommand using SSHClient client. The returned error is
-//nil if the command runs, has no problems copying stdin, stdout, and stderr,
-//and exits with a zero exit status.
+// RunCommand runs a SSHCommand using SSHClient client. The returned error is
+// nil if the command runs, has no problems copying stdin, stdout, and stderr,
+// and exits with a zero exit status.
 func (client *SSHClient) RunCommand(cmd *SSHCommand) error {
 	session, err := client.newSession()
 	if err != nil {
@@ -242,8 +242,8 @@ func (client *SSHClient) newSession() (*ssh.Session, error) {
 	return session, nil
 }
 
-//SSHAgent return the ssh.Authmethod using the Public keys. If can connect to
-//SSH_AUTH_SHOCK it will return nil
+// SSHAgent returns the ssh.Authmethod using the Public keys. Returns nil if
+// a connection to SSH_AUTH_SHOCK does not succeed.
 func SSHAgent() ssh.AuthMethod {
 	if sshAgent, err := net.Dial("unix", os.Getenv("SSH_AUTH_SOCK")); err == nil {
 		return ssh.PublicKeysCallback(agent.NewClient(sshAgent).Signers)
@@ -251,8 +251,8 @@ func SSHAgent() ssh.AuthMethod {
 	return nil
 }
 
-//GetSSHClient initializes an SSHClient for the specified host/port/user
-//combination.
+// GetSSHClient initializes an SSHClient for the specified host/port/user
+// combination.
 func GetSSHClient(host string, port int, user string) *SSHClient {
 
 	sshConfig := &ssh.ClientConfig{
