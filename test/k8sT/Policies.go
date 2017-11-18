@@ -212,11 +212,11 @@ var _ = Describe("K8sPolicyTest", func() {
 		trace.ExpectSuccess(trace.CombineOutput().String())
 		Expect(trace.Output().String()).Should(ContainSubstring("Final verdict: DENIED"))
 
-		_, err = kubectl.Exec(
+		_, err = kubectl.ExecPodCmd(
 			helpers.DefaultNamespace, appPods[helpers.App2], fmt.Sprintf("curl http://%s/public", clusterIP))
 		Expect(err).Should(BeNil())
 
-		_, err = kubectl.Exec(
+		_, err = kubectl.ExecPodCmd(
 			helpers.DefaultNamespace, appPods[helpers.App3], fmt.Sprintf("curl --fail -s http://%s/public", clusterIP))
 		Expect(err).Should(HaveOccurred())
 
@@ -240,19 +240,19 @@ var _ = Describe("K8sPolicyTest", func() {
 
 		appPods = getAppPods()
 
-		_, err = kubectl.Exec(
+		_, err = kubectl.ExecPodCmd(
 			helpers.DefaultNamespace, appPods[helpers.App2], fmt.Sprintf("curl http://%s/public", clusterIP))
 		Expect(err).Should(BeNil())
 
-		msg, err := kubectl.Exec(
+		msg, err := kubectl.ExecPodCmd(
 			helpers.DefaultNamespace, appPods[helpers.App2], fmt.Sprintf("curl --fail -s http://%s/private", clusterIP))
 		Expect(err).Should(HaveOccurred(), msg)
 
-		_, err = kubectl.Exec(
+		_, err = kubectl.ExecPodCmd(
 			helpers.DefaultNamespace, appPods[helpers.App3], fmt.Sprintf("curl --fail -s http://%s/public", clusterIP))
 		Expect(err).Should(HaveOccurred())
 
-		msg, err = kubectl.Exec(
+		msg, err = kubectl.ExecPodCmd(
 			helpers.DefaultNamespace, appPods[helpers.App3], fmt.Sprintf("curl --fail -s http://%s/private", clusterIP))
 		Expect(err).Should(HaveOccurred(), msg)
 
@@ -264,7 +264,7 @@ var _ = Describe("K8sPolicyTest", func() {
 		err = waitUntilEndpointUpdates(ciliumPod, eps, 4)
 		Expect(err).Should(BeNil())
 
-		_, err = kubectl.Exec(
+		_, err = kubectl.ExecPodCmd(
 			helpers.DefaultNamespace, appPods[helpers.App3], fmt.Sprintf("curl --fail -s http://%s/public", clusterIP))
 		Expect(err).Should(BeNil())
 	}, 500)

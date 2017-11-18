@@ -41,7 +41,7 @@ var _ = Describe("K8sTunnelTest", func() {
 
 		kubectl = helpers.CreateKubectl(helpers.K8s1VMName(), logger)
 		demoDSPath = fmt.Sprintf("%s/demo_ds.yaml", kubectl.ManifestsPath())
-		kubectl.Node.Exec("kubectl -n kube-system delete ds cilium")
+		kubectl.Exec("kubectl -n kube-system delete ds cilium")
 		// Expect(res.Correct()).Should(BeTrue())
 
 		waitToDeleteCilium(kubectl, logger)
@@ -136,7 +136,7 @@ func isNodeNetworkingWorking(kubectl *helpers.Kubectl, filter string) bool {
 		helpers.DefaultNamespace,
 		fmt.Sprintf("pod %s -o json", pods[1])).Filter("{.status.podIP}")
 	Expect(err).Should(BeNil())
-	_, err = kubectl.Exec(helpers.DefaultNamespace, pods[0], helpers.Ping(podIP.String()))
+	_, err = kubectl.ExecPodCmd(helpers.DefaultNamespace, pods[0], helpers.Ping(podIP.String()))
 	if err != nil {
 		return false
 	}
