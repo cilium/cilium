@@ -23,7 +23,7 @@ import (
 	"github.com/cilium/cilium/test/helpers"
 )
 
-//GetScope returns the scope for the currently running test.
+// GetScope returns the scope for the currently running test.
 func GetScope() string {
 	focusString := strings.ToLower(config.GinkgoConfig.FocusString)
 	switch {
@@ -36,8 +36,8 @@ func GetScope() string {
 	}
 }
 
-//GetScopeWithVersion  returns the scope of the running test. If the scope is
-// k8s, then return k8s scope along with the version of k8s that is running.
+// GetScopeWithVersion returns the scope of the running test. If the scope is
+// k8s, then it returns k8s scope along with the version of k8s that is running.
 func GetScopeWithVersion() string {
 	result := GetScope()
 	if result != helpers.K8s {
