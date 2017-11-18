@@ -19,29 +19,6 @@ import (
 	"fmt"
 )
 
-// Docker is utilized to run docker-specific commands on its SSHMeta. Informational
-// output about the result of commands and the state of the node is stored in its
-// associated logCxt.
-type Docker struct {
-	Node *SSHMeta
-}
-
-// CreateDocker returns a Docker object containing the SSHMeta of the provided vmName.
-// TODO - I don't understand why we need separate Cilium vs. Docker constructs.
-// The contents are exactly the same. Why not just declare a single type that we name
-// accordingly?
-func CreateDocker(target string) *Docker {
-	log.Infof("Docker: set target to '%s'", target)
-	node := GetVagrantSSHMetadata(target)
-	if node == nil {
-		return nil
-	}
-
-	return &Docker{
-		Node: node,
-	}
-}
-
 // ContainerExec executes cmd in the container with the provided name.
 func (s *SSHMeta) ContainerExec(name string, cmd string) *CmdRes {
 	return s.execCmd(fmt.Sprintf("docker exec -i %s %s", name, cmd))
