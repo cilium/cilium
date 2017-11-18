@@ -38,30 +38,6 @@ const (
 	MaxRetries = 30
 )
 
-// Cilium is utilized to run cilium-specific commands on its SSHMeta. Informational
-// output about the result of commands and the state of the node is stored in its
-// associated logger.
-type Cilium struct {
-	Node *SSHMeta
-
-	logger *logrus.Entry
-}
-
-// CreateCilium returns a Cilium object containing the SSHMeta of the provided vmName,
-// as well as the provided logger.
-func CreateCilium(vmName string, log *logrus.Entry) *Cilium {
-	log.Infof("Cilium: set vmName to '%s'", vmName)
-	node := GetVagrantSSHMetadata(vmName)
-	if node == nil {
-		return nil
-	}
-
-	return &Cilium{
-		Node:   node,
-		logger: log,
-	}
-}
-
 // BpfLBList returns the output of `cilium bpf lb list -o json` as a map
 // Key will be the frontend address and the value is an array with all backend
 // addresses
