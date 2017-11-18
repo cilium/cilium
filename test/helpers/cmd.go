@@ -26,13 +26,13 @@ import (
 	"k8s.io/client-go/util/jsonpath"
 )
 
-// CmdRes contains the result from running a command.
+// CmdRes contains a variety of data which results from running a command.
 type CmdRes struct {
 	cmd    string        // Command to run
 	params []string      // Parameters to provide to command
 	stdout *bytes.Buffer // Stdout from running cmd
 	stderr *bytes.Buffer // Stderr from running cmd
-	exit   bool          // Whether command successfully ran.
+	exit   bool          // Whether command successfully executed
 }
 
 // GetCmd returns res's cmd.
@@ -69,7 +69,7 @@ func (res *CmdRes) ExpectSuccess(optionalDescription ...interface{}) bool {
 		gomega.BeTrue(), optionalDescription...)
 }
 
-//CountLines return the number of lines in the stdout of res.
+// CountLines return the number of lines in the stdout of res.
 func (res *CmdRes) CountLines() int {
 	return strings.Count(res.stdout.String(), "\n")
 }
@@ -86,7 +86,10 @@ func (res *CmdRes) IntOutput() (int, error) {
 	return strconv.Atoi(strings.Trim(res.stdout.String(), "\n"))
 }
 
-// FindResults filter CmdRes using jsonpath and returns an interface with the values
+// FindResults filters res's stdout using the provided JSONPath filter. It
+// returns an array of the values that match the filter, and an error if
+// the unmarshalling of the stdout of res fails.
+// TODO - what exactly is the need for this vs. Filter function below?
 func (res *CmdRes) FindResults(filter string) ([]reflect.Value, error) {
 
 	var data interface{}
@@ -107,14 +110,17 @@ func (res *CmdRes) FindResults(filter string) ([]reflect.Value, error) {
 	return result, nil
 }
 
-//Filter filters cmdRes using the provided JSONPath filter.
+// Filter returns the contents of res's stdout filtered using the provided
+// JSONPath filter in a buffer. Returns an error if the unmarshalling of the
+// contents of res's stdout fails.
 func (res *CmdRes) Filter(filter string) (*bytes.Buffer, error) {
 	var data interface{}
 	result := new(bytes.Buffer)
 
 	err := json.Unmarshal(res.stdout.Bytes(), &data)
 	if err != nil {
-		return nil, fmt.Errorf("could not parse JSON")
+		return nil, fmt.Errorf("could not parse JSON from command %q",
+			res.cmd)
 	}
 	parser := jsonpath.New("").AllowMissingKeys(true)
 	parser.Parse(filter)
@@ -125,18 +131,17 @@ func (res *CmdRes) Filter(filter string) (*bytes.Buffer, error) {
 	return result, nil
 }
 
-//ByLines return an array with all stdout lines
+// ByLines returns res's stdout split by the newline character .
 func (res *CmdRes) ByLines() []string {
 	return strings.Split(res.stdout.String(), "\n")
 }
 
-// KVOutput returns a map of the stdout of the provided CmdRes split based on
+// KVOutput returns a map of the stdout of res split based on
 // the separator '='.
-// This is going to be used when the output will be like this:
+// For example, the following strings would be split as follows:
 // 		a=1
 // 		b=2
 // 		c=3
-// This funtion will return a map with the values in the stdout output
 func (res *CmdRes) KVOutput() map[string]string {
 	result := make(map[string]string)
 	for _, line := range res.ByLines() {
@@ -148,23 +153,24 @@ func (res *CmdRes) KVOutput() map[string]string {
 	return result
 }
 
-// Output returns the contents of res's stdout.
+// Output returns res's stdout.
 func (res *CmdRes) Output() *bytes.Buffer {
 	return res.stdout
 }
 
-// Reset stdout bytes with an empty buffer
+// Reset resets res's stdout buffer to be empty.
 func (res *CmdRes) Reset() {
 	res.stdout.Reset()
 	return
 }
 
-// SingleOut returns the stdout of res without any newline characters
+// SingleOut returns res's stdout as a string without any newline characters
 func (res *CmdRes) SingleOut() string {
 	return strings.Replace(res.stdout.String(), "\n", "", -1)
 }
 
-// Unmarshal unmarshals res's stdout into data
+// Unmarshal unmarshalls res's stdout into data. It assumes that the stdout of
+// res is in JSON format. Returns an error if the unmarshalling fails.
 func (res *CmdRes) Unmarshal(data interface{}) error {
 	err := json.Unmarshal(res.stdout.Bytes(), &data)
 	return err
