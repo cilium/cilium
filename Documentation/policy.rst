@@ -619,8 +619,6 @@ Kafka Example
 .. literalinclude:: ../examples/policies/kafka.yaml
 
 
-.. _policy_tracing:
-
 ************
 Integrations
 ************
@@ -786,12 +784,15 @@ With this mode, policy enforcement is disabled on all endpoints, even if rules
 do select specific endpoints. In other words, all traffic is allowed from any
 source with respect to an endpoint.
 
-*******
-Tracing
-*******
+.. _policy_tracing:
 
-If Cilium is denying connections which it shouldn't. There is an easy way to
-verify if and why Cilium is denying connectivity in between particular
+**************
+Policy Tracing
+**************
+
+If Cilium is allowing / denying connections in a way that is not aligned with the
+intent of your Cilium Network policy, there is an easy way to
+verify if and what policy rules apply between two
 endpoints. The following example shows how to use ``cilium policy trace`` to
 simulate a policy decision from an endpoint with the label ``id.curl`` to an
 endpoint with the label ``id.http`` on port 80:
