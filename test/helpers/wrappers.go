@@ -32,6 +32,7 @@ const (
 // Ping returns the string representing the ping command to ping the specified
 // endpoint.
 func Ping(endpoint string) string {
+	// TODO: add W -2 ?
 	return fmt.Sprintf("ping -c %d %s", PingCount, endpoint)
 }
 
