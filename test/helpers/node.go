@@ -93,15 +93,15 @@ func (s *SSHMeta) Execute(cmd string, stdout io.Writer, stderr io.Writer) bool {
 	return true
 }
 
-//ExecWithSudo executes the provided command using sudo privileges. The stdout
-//and stderr of the command are written to the specified stdout / stderr
-//buffers accordingly. Returns false if execution of cmd failed.
+// ExecWithSudo executes the provided command using sudo privileges via SSH.
+// The stdout  and stderr of the command are written to the specified stdout and
+// stderr buffers accordingly. Returns false if execution of cmd fails.
 func (s *SSHMeta) ExecWithSudo(cmd string, stdout io.Writer, stderr io.Writer) bool {
 	command := fmt.Sprintf("sudo %s", cmd)
 	return s.Execute(command, stdout, stderr)
 }
 
-//Exec executes the provided cmd and returns metadata about its result in CmdRes
+// Exec returns the results of executing the provided cmd via SSH.
 func (s *SSHMeta) Exec(cmd string) *CmdRes {
 	stdout := new(bytes.Buffer)
 	stderr := new(bytes.Buffer)
@@ -116,7 +116,8 @@ func (s *SSHMeta) Exec(cmd string) *CmdRes {
 	}
 }
 
-//ExecContext run a command in background and stop when cancel the context
+// ExecContext returns the results of running cmd via SSH in the specified
+// context.
 func (s *SSHMeta) ExecContext(ctx context.Context, cmd string) *CmdRes {
 	if ctx == nil {
 		panic("no context provided")
