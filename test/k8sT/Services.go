@@ -72,7 +72,7 @@ var _ = Describe("K8sServicesTest", func() {
 		// two nodes
 		for _, pod := range pods {
 			for i := 1; i <= 10; i++ {
-				_, err := kubectl.Exec(helpers.DefaultNamespace, pod, fmt.Sprintf("curl --connect-timeout 5 %s", url))
+				_, err := kubectl.ExecPodCmd(helpers.DefaultNamespace, pod, fmt.Sprintf("curl --connect-timeout 5 %s", url))
 				ExpectWithOffset(1, err).Should(BeNil(), "Pod '%s' can not connect to service '%s'", pod, url)
 			}
 		}
@@ -101,7 +101,7 @@ var _ = Describe("K8sServicesTest", func() {
 		Expect(err).Should(BeNil())
 		Expect(govalidator.IsIP(svcIP.String())).Should(BeTrue())
 
-		status := kubectl.Node.Exec(fmt.Sprintf("curl http://%s/", svcIP))
+		status := kubectl.Exec(fmt.Sprintf("curl http://%s/", svcIP))
 		status.ExpectSuccess()
 
 		ciliumPod, err := kubectl.GetCiliumPodOnNode(helpers.KubeSystemNamespace, helpers.K8s1)
