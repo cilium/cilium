@@ -128,9 +128,11 @@ var _ = BeforeSuite(func() {
 		if err != nil {
 			Fail(fmt.Sprintf("error starting VM %q: %s", helpers.Runtime, err))
 		}
-		cilium := helpers.CreateCilium(helpers.Runtime, log.WithFields(
+
+		vm := helpers.CreateNewRuntimeHelper(helpers.Runtime, log.WithFields(
 			logrus.Fields{"testName": "BeforeSuite"}))
-		err = cilium.SetUp()
+		err = vm.SetUpCilium()
+
 		if err != nil {
 			Fail(fmt.Sprintf("cilium was unable to be set up correctly: %s", err))
 		}

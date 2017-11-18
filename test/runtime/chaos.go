@@ -25,9 +25,7 @@ import (
 var _ = Describe("RuntimeChaos", func() {
 
 	var initialized bool
-
-	var docker *helpers.SSHMeta
-	var cilium *helpers.Cilium
+	var vm *helpers.SSHMeta
 
 	initialize := func() {
 		if initialized == true {
@@ -35,48 +33,48 @@ var _ = Describe("RuntimeChaos", func() {
 		}
 		logger := log.WithFields(logrus.Fields{"testName": "RuntimeChaos"})
 		logger.Info("Starting")
-		docker, cilium = helpers.CreateNewRuntimeHelper(helpers.Runtime, logger)
-		docker.NetworkCreate(helpers.CiliumDockerNetwork, "")
+		vm = helpers.CreateNewRuntimeHelper(helpers.Runtime, logger)
+		vm.NetworkCreate(helpers.CiliumDockerNetwork, "")
 		initialized = true
 	}
 
 	waitForCilium := func() {
-		err := cilium.WaitUntilReady(100)
+		err := vm.WaitUntilReady(100)
 		Expect(err).Should(BeNil())
 
-		status := cilium.WaitEndpointsReady()
+		status := vm.WaitEndpointsReady()
 		Expect(status).Should(BeTrue())
 
 	}
 
 	BeforeEach(func() {
 		initialize()
-		docker.ContainerCreate(helpers.Client, helpers.NetperfImage, helpers.CiliumDockerNetwork, "-l id.client")
-		docker.ContainerCreate(helpers.Server, helpers.NetperfImage, helpers.CiliumDockerNetwork, "-l id.server")
+		vm.ContainerCreate(helpers.Client, helpers.NetperfImage, helpers.CiliumDockerNetwork, "-l id.client")
+		vm.ContainerCreate(helpers.Server, helpers.NetperfImage, helpers.CiliumDockerNetwork, "-l id.server")
 
-		areEndpointsReady := cilium.WaitEndpointsReady()
+		areEndpointsReady := vm.WaitEndpointsReady()
 		Expect(areEndpointsReady).Should(BeTrue())
 	})
 
 	AfterEach(func() {
 		if CurrentGinkgoTestDescription().Failed {
-			cilium.ReportFailed()
+			vm.ReportFailed()
 		}
-		docker.ContainerRm(helpers.Client)
-		docker.ContainerRm(helpers.Server)
+		vm.ContainerRm(helpers.Client)
+		vm.ContainerRm(helpers.Server)
 	})
 
 	It("Endpoint recovery on restart", func() {
-		originalIps := cilium.Node.Exec(`
+		originalIps := vm.Exec(`
 		curl -s --unix-socket /var/run/cilium/cilium.sock \
 		http://localhost/v1beta/healthz/ | jq ".ipam.ipv4|length"`)
 
-		res := cilium.Node.Exec("sudo systemctl restart cilium")
+		res := vm.Exec("sudo systemctl restart cilium")
 		res.ExpectSuccess()
 
 		waitForCilium()
 
-		ips := cilium.Node.Exec(`
+		ips := vm.Exec(`
 		curl -s --unix-socket /var/run/cilium/cilium.sock \
 		http://localhost/v1beta/healthz/ | jq ".ipam.ipv4|length"`)
 		Expect(originalIps.Output().String()).To(Equal(ips.Output().String()))
@@ -84,20 +82,20 @@ var _ = Describe("RuntimeChaos", func() {
 	}, 300)
 
 	It("removing leftover Cilium interfaces", func() {
-		originalLinks, err := docker.Exec("sudo ip link show | wc -l").IntOutput()
+		originalLinks, err := vm.Exec("sudo ip link show | wc -l").IntOutput()
 		Expect(err).Should(BeNil())
 
-		_ = docker.Exec("sudo ip link add lxc12345 type veth peer name tmp54321")
+		_ = vm.Exec("sudo ip link add lxc12345 type veth peer name tmp54321")
 
-		res := cilium.Node.Exec("sudo systemctl restart cilium")
+		res := vm.Exec("sudo systemctl restart cilium")
 		res.ExpectSuccess()
 
 		waitForCilium()
 
-		status := docker.Exec("sudo ip link show lxc12345")
+		status := vm.Exec("sudo ip link show lxc12345")
 		status.ExpectFail("leftover interface were not properly cleaned up")
 
-		links, err := docker.Exec("sudo ip link show | wc -l").IntOutput()
+		links, err := vm.Exec("sudo ip link show | wc -l").IntOutput()
 		Expect(links).Should(Equal(originalLinks),
 			"Some network interfaces were accidentally removed!")
 	}, 300)
