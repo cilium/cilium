@@ -22,7 +22,7 @@ import (
 //runtime tests on the provided VM target and using logger log .
 func CreateNewRuntimeHelper(target string, log *logrus.Entry) (*Docker, *Cilium) {
 	log.Infof("creating docker")
-	docker := CreateDocker(target, log)
+	docker := CreateDocker(target)
 	log.Infof("creating cilium")
 	cilium := CreateCilium(target, log)
 	return docker, cilium
