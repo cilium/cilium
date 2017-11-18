@@ -25,6 +25,7 @@ import (
 )
 
 //Vagrant helper struct
+// TODO - this is useless. we can just have functions without receivers?
 type Vagrant struct{}
 
 //Create a new vagrant server. Receives and scope that it's the target server that need to be created.
