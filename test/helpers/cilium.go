@@ -71,9 +71,13 @@ func (c *Cilium) Exec(cmd string) *CmdRes {
 // EndpointGet returns the output of `cilium endpoint get` for the provided
 // endpoint ID.
 func (c *Cilium) EndpointGet(id string) *models.Endpoint {
-
+	if id == "" {
+		return nil
+	}
 	var data []models.Endpoint
-	err := c.Exec(fmt.Sprintf("endpoint get %s", id)).UnMarshal(&data)
+	endpointGetCmd := fmt.Sprintf("endpoint get %s", id)
+	res := c.Exec(endpointGetCmd)
+	err := res.UnMarshal(&data)
 	if err != nil {
 		c.logger.Errorf("EndpointGet fail %d: %s", id, err)
 		return nil
@@ -96,6 +100,7 @@ func (c *Cilium) EndpointSetConfig(id, option, value string) bool {
 		"endpoint config %s | grep '%s ' | awk '{print $2}'", id, option))
 
 	if res.SingleOut() == value {
+		logger.Debugf("no need to update %s=%s; value already set", option, value)
 		return res.WasSuccessful()
 	}
 
@@ -103,14 +108,18 @@ func (c *Cilium) EndpointSetConfig(id, option, value string) bool {
 	if before == nil {
 		return false
 	}
-	data := c.Exec(fmt.Sprintf("endpoint config %s %s=%s", id, option, value))
+	configCmd := fmt.Sprintf("endpoint config %s %s=%s", id, option, value)
+	data := c.Exec(configCmd)
 	if !data.WasSuccessful() {
 		logger.Errorf("cannot set endpoint configuration %s=%s", option, value)
 		return false
 	}
 	err := WithTimeout(func() bool {
-		status := c.EndpointGet(id)
-		if len(status.Status) > len(before.Status) {
+		endpoint := c.EndpointGet(id)
+		if endpoint == nil {
+			return false
+		}
+		if len(endpoint.Status) > len(before.Status) {
 			return true
 		}
 		logger.Info("endpoint not regenerated")
