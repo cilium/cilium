@@ -25,7 +25,8 @@ import (
 var _ = Describe("RuntimeChaos", func() {
 
 	var initialized bool
-	var docker *helpers.Docker
+
+	var docker *helpers.SSHMeta
 	var cilium *helpers.Cilium
 
 	initialize := func() {
@@ -83,20 +84,20 @@ var _ = Describe("RuntimeChaos", func() {
 	}, 300)
 
 	It("removing leftover Cilium interfaces", func() {
-		originalLinks, err := docker.Node.Exec("sudo ip link show | wc -l").IntOutput()
+		originalLinks, err := docker.Exec("sudo ip link show | wc -l").IntOutput()
 		Expect(err).Should(BeNil())
 
-		_ = docker.Node.Exec("sudo ip link add lxc12345 type veth peer name tmp54321")
+		_ = docker.Exec("sudo ip link add lxc12345 type veth peer name tmp54321")
 
 		res := cilium.Node.Exec("sudo systemctl restart cilium")
 		res.ExpectSuccess()
 
 		waitForCilium()
 
-		status := docker.Node.Exec("sudo ip link show lxc12345")
+		status := docker.Exec("sudo ip link show lxc12345")
 		status.ExpectFail("leftover interface were not properly cleaned up")
 
-		links, err := docker.Node.Exec("sudo ip link show | wc -l").IntOutput()
+		links, err := docker.Exec("sudo ip link show | wc -l").IntOutput()
 		Expect(links).Should(Equal(originalLinks),
 			"Some network interfaces were accidentally removed!")
 	}, 300)

@@ -28,7 +28,7 @@ var _ = Describe("RuntimeKVStoreTest", func() {
 
 	var initialized bool
 	var logger *logrus.Entry
-	var docker *helpers.Docker
+	var docker *helpers.SSHMeta
 	var cilium *helpers.Cilium
 
 	initialize := func() {
@@ -54,7 +54,7 @@ var _ = Describe("RuntimeKVStoreTest", func() {
 
 	BeforeEach(func() {
 		initialize()
-		docker.Node.Exec("sudo systemctl stop cilium")
+		docker.Exec("sudo systemctl stop cilium")
 	}, 150)
 
 	AfterEach(func() {
@@ -64,7 +64,7 @@ var _ = Describe("RuntimeKVStoreTest", func() {
 				"sudo cilium endpoint list")
 		}
 		containers(helpers.Delete)
-		docker.Node.Exec("sudo systemctl start cilium")
+		docker.Exec("sudo systemctl start cilium")
 	})
 
 	It("Consul KVStore", func() {
@@ -76,7 +76,7 @@ var _ = Describe("RuntimeKVStoreTest", func() {
 		err := cilium.WaitUntilReady(150)
 		Expect(err).Should(BeNil())
 
-		docker.Node.Exec("sudo systemctl restart cilium-docker")
+		docker.Exec("sudo systemctl restart cilium-docker")
 		helpers.Sleep(2)
 		containers(helpers.Create)
 		cilium.WaitEndpointsReady()
@@ -94,7 +94,7 @@ var _ = Describe("RuntimeKVStoreTest", func() {
 		err := cilium.WaitUntilReady(150)
 		Expect(err).Should(BeNil())
 
-		docker.Node.Exec("sudo systemctl restart cilium-docker")
+		docker.Exec("sudo systemctl restart cilium-docker")
 		helpers.Sleep(2)
 		containers(helpers.Create)
 		cilium.WaitEndpointsReady()

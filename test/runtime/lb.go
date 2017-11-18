@@ -29,7 +29,7 @@ var _ = Describe("RuntimeLB", func() {
 
 	var initialized bool
 	var logger *logrus.Entry
-	var docker *helpers.Docker
+	var docker *helpers.SSHMeta
 	var cilium *helpers.Cilium
 
 	initialize := func() {
@@ -145,7 +145,7 @@ var _ = Describe("RuntimeLB", func() {
 	}, 500)
 
 	It("Service L3 tests", func() {
-		err := createInterface(docker.Node)
+		err := createInterface(docker)
 		if err != nil {
 			log.Errorf("error creating interface: %s", err)
 		}
@@ -194,7 +194,7 @@ var _ = Describe("RuntimeLB", func() {
 	}, 500)
 
 	It("Service L4 tests", func() {
-		err := createInterface(docker.Node)
+		err := createInterface(docker)
 		if err != nil {
 			log.Errorf("error creating interface: %s", err)
 		}

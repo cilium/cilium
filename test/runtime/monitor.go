@@ -44,7 +44,7 @@ var _ = Describe("RuntimeMonitorTest", func() {
 
 	var initialized bool
 	var logger *logrus.Entry
-	var docker *helpers.Docker
+	var docker *helpers.SSHMeta
 	var cilium *helpers.Cilium
 
 	initialize := func() {
@@ -84,7 +84,7 @@ var _ = Describe("RuntimeMonitorTest", func() {
 
 		ctx, cancel := context.WithCancel(context.Background())
 
-		res = docker.Node.ExecContext(ctx, "cilium monitor -v")
+		res = docker.ExecContext(ctx, "cilium monitor -v")
 		docker.SampleContainersActions(helpers.Create, helpers.CiliumDockerNetwork)
 		helpers.Sleep(5)
 		cancel()
@@ -112,7 +112,7 @@ var _ = Describe("RuntimeMonitorTest", func() {
 			By(fmt.Sprintf("Type %s", k))
 
 			ctx, cancel := context.WithCancel(context.Background())
-			res := docker.Node.ExecContext(ctx, fmt.Sprintf("cilium monitor --type %s -v", k))
+			res := docker.ExecContext(ctx, fmt.Sprintf("cilium monitor --type %s -v", k))
 			docker.SampleContainersActions(helpers.Create, helpers.CiliumDockerNetwork)
 			docker.ContainerExec(helpers.App1, helpers.Ping(helpers.Httpd1))
 			helpers.Sleep(5)
@@ -133,7 +133,7 @@ var _ = Describe("RuntimeMonitorTest", func() {
 		Expect(err).Should(BeNil())
 
 		ctx, cancel := context.WithCancel(context.Background())
-		res = docker.Node.ExecContext(ctx, fmt.Sprintf(
+		res = docker.ExecContext(ctx, fmt.Sprintf(
 			"cilium monitor --type debug --from %s -v", endpoints[helpers.App1]))
 		docker.ContainerExec(helpers.App1, helpers.Ping(helpers.Httpd1))
 		helpers.Sleep(5)
@@ -159,7 +159,7 @@ var _ = Describe("RuntimeMonitorTest", func() {
 		Expect(err).Should(BeNil())
 		cilium.WaitEndpointsReady()
 		ctx, cancel := context.WithCancel(context.Background())
-		res = docker.Node.ExecContext(ctx, fmt.Sprintf(
+		res = docker.ExecContext(ctx, fmt.Sprintf(
 			"cilium monitor --type drop -v --to %s", endpoints[helpers.Httpd1]))
 
 		docker.ContainerExec(helpers.App1, helpers.Ping(helpers.Httpd1))
@@ -184,7 +184,7 @@ var _ = Describe("RuntimeMonitorTest", func() {
 		Expect(err).Should(BeNil())
 
 		ctx, cancel := context.WithCancel(context.Background())
-		res = docker.Node.ExecContext(ctx, fmt.Sprintf(
+		res = docker.ExecContext(ctx, fmt.Sprintf(
 			"cilium monitor -v --type drop --related-to %s", endpoints[helpers.Httpd1]))
 		cilium.WaitEndpointsReady()
 		docker.ContainerExec(helpers.App1, helpers.CurlFail("http://httpd1/public"))
@@ -213,7 +213,7 @@ var _ = Describe("RuntimeMonitorTest", func() {
 		ctx, cancelfn := context.WithCancel(context.Background())
 
 		for i := 1; i <= 3; i++ {
-			monitorRes = append(monitorRes, docker.Node.ExecContext(ctx, "cilium monitor"))
+			monitorRes = append(monitorRes, docker.ExecContext(ctx, "cilium monitor"))
 		}
 
 		docker.ContainerExec(helpers.Client, helpers.Ping(helpers.Server))
