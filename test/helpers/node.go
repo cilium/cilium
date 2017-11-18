@@ -20,6 +20,8 @@ import (
 	"fmt"
 	"io"
 	"os"
+
+	"github.com/sirupsen/logrus"
 )
 
 // SSHMeta contains metadata to SSH into a remote location to run tests
@@ -28,6 +30,7 @@ type SSHMeta struct {
 	env       []string
 	rawConfig []byte
 	nodeName  string
+	logger    *logrus.Entry
 }
 
 // CreateSSHMeta returns an SSHMeta with the specified host, port, and user, as
