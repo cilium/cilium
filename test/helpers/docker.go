@@ -21,14 +21,20 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-//Docker kubectl command helper
+// Docker is utilized to run docker-specific commands on its SSHMeta. Informational
+// output about the result of commands and the state of the node is stored in its
+// associated logCxt.
 type Docker struct {
 	Node *SSHMeta
 
 	logCxt *log.Entry
 }
 
-//CreateDocker returns a new Docker instance based on the provided target
+// CreateDocker returns a Docker object containing the SSHMeta of the provided vmName,
+// as well as the provided logger.
+// TODO - I don't understand why we need separate Cilium vs. Docker constructs.
+// The contents are exactly the same. Why not just declare a single type that we name
+// accordingly?
 func CreateDocker(target string, log *log.Entry) *Docker {
 	log.Infof("Docker: set target to '%s'", target)
 	node := GetVagrantSSHMetadata(target)
@@ -42,73 +48,30 @@ func CreateDocker(target string, log *log.Entry) *Docker {
 	}
 }
 
-//ContainerExec executes cmd in the container with the provided name
+// ContainerExec executes cmd in the container with the provided name.
 func (do *Docker) ContainerExec(name string, cmd string) *CmdRes {
-	stdout := new(bytes.Buffer)
-	stderr := new(bytes.Buffer)
-
-	command := fmt.Sprintf("docker exec -i %s %s", name, cmd)
-	exit := do.Node.ExecWithSudo(command, stdout, stderr)
-	return &CmdRes{
-		cmd:    command,
-		stdout: stdout,
-		stderr: stderr,
-		exit:   exit,
-	}
+	return do.execCmd(fmt.Sprintf("docker exec -i %s %s", name, cmd))
 }
 
 // ContainerCreate is a wrapper for `docker run`. It runs an instance of the
 // specified Docker image with the provided network, name, and options.
 func (do *Docker) ContainerCreate(name, image, net, options string) *CmdRes {
-
-	stdout := new(bytes.Buffer)
-	stderr := new(bytes.Buffer)
-
 	cmd := fmt.Sprintf(
 		"docker run -d --name %s --net %s %s %s", name, net, options, image)
-	log.Infof("spinning up container with command %q", cmd)
-	exit := do.Node.ExecWithSudo(cmd, stdout, stderr)
-
-	return &CmdRes{
-		cmd:    cmd,
-		stdout: stdout,
-		stderr: stderr,
-		exit:   exit,
-	}
+	log.Debugf("spinning up container with command %q", cmd)
+	return do.execCmd(cmd)
 }
 
 // ContainerRm is a wrapper around `docker rm -f`. It forcibly removes the
 // Docker container of the provided name.
 func (do *Docker) ContainerRm(name string) *CmdRes {
-	stdout := new(bytes.Buffer)
-	stderr := new(bytes.Buffer)
-
-	cmd := fmt.Sprintf("docker rm -f %s", name)
-	exit := do.Node.ExecWithSudo(cmd, stdout, stderr)
-
-	return &CmdRes{
-		cmd:    cmd,
-		stdout: stdout,
-		stderr: stderr,
-		exit:   exit,
-	}
+	return do.execCmd(fmt.Sprintf("docker rm -f %s", name))
 }
 
 // ContainerInspect runs `docker inspect` for the container with the provided
 // name.
 func (do *Docker) ContainerInspect(name string) *CmdRes {
-	stdout := new(bytes.Buffer)
-	stderr := new(bytes.Buffer)
-
-	cmd := fmt.Sprintf("docker inspect %s", name)
-	exit := do.Node.ExecWithSudo(cmd, stdout, stderr)
-
-	return &CmdRes{
-		cmd:    cmd,
-		stdout: stdout,
-		stderr: stderr,
-		exit:   exit,
-	}
+	return do.execCmd(fmt.Sprintf("docker inspect %s", name))
 }
 
 // ContainerInspectNet returns a map of Docker networking information fields and
@@ -143,48 +106,34 @@ func (do *Docker) ContainerInspectNet(name string) (map[string]string, error) {
 	return result, nil
 }
 
-//NetworkCreate creates a Docker network of the provided name with the specified subnet
+// NetworkCreate creates a Docker network of the provided name with the
+// specified subnet. It is a wrapper around `docker network create`.
 func (do *Docker) NetworkCreate(name string, subnet string) *CmdRes {
-	stdout := new(bytes.Buffer)
-	stderr := new(bytes.Buffer)
 	if subnet == "" {
 		subnet = "::1/112"
 	}
 	cmd := fmt.Sprintf(
 		"docker network create --ipv6 --subnet %s --driver cilium --ipam-driver cilium %s",
 		subnet, name)
-	exit := do.Node.ExecWithSudo(cmd, stdout, stderr)
-
-	return &CmdRes{
-		cmd:    cmd,
-		stdout: stdout,
-		stderr: stderr,
-		exit:   exit,
-	}
+	return do.execCmd(cmd)
 }
 
-//NetworkDelete deletes the Docker network of the provided name
+// NetworkDelete deletes the Docker network of the provided name. It is a wrapper
+// around `docker network rm`.
 func (do *Docker) NetworkDelete(name string) *CmdRes {
-	stdout := new(bytes.Buffer)
-	stderr := new(bytes.Buffer)
-	cmd := fmt.Sprintf("docker network rm  %s", name)
-	exit := do.Node.ExecWithSudo(cmd, stdout, stderr)
-	return &CmdRes{
-		cmd:    cmd,
-		stdout: stdout,
-		stderr: stderr,
-		exit:   exit,
-	}
+	return do.execCmd(fmt.Sprintf("docker network rm  %s", name))
 }
 
-//NetworkGet returns all of the Docker network configuration for the provided
-//network
+// NetworkGet returns all of the Docker network configuration for the provided
+// network. It is a wrapper around `docker network inspect`.
 func (do *Docker) NetworkGet(name string) *CmdRes {
+	return do.execCmd(fmt.Sprintf("docker network inspect %s", name))
+}
+
+func (do *Docker) execCmd(cmd string) *CmdRes {
 	stdout := new(bytes.Buffer)
 	stderr := new(bytes.Buffer)
-	cmd := fmt.Sprintf("docker network inspect %s", name)
 	exit := do.Node.ExecWithSudo(cmd, stdout, stderr)
-
 	return &CmdRes{
 		cmd:    cmd,
 		stdout: stdout,
