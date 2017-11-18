@@ -50,7 +50,7 @@ var _ = Describe("RuntimePolicyEnforcement", func() {
 
 	var initialized bool
 	var logger *logrus.Entry
-	var docker *helpers.Docker
+	var docker *helpers.SSHMeta
 	var cilium *helpers.Cilium
 
 	initialize := func() {
@@ -368,7 +368,7 @@ var _ = Describe("RuntimePolicies", func() {
 
 	var initialized bool
 	var logger *logrus.Entry
-	var docker *helpers.Docker
+	var docker *helpers.SSHMeta
 	var cilium *helpers.Cilium
 
 	initialize := func() {

@@ -14,7 +14,8 @@ var _ = Describe("RuntimeConnectivityTest", func() {
 
 	var initialized bool
 	var logger *logrus.Entry
-	var docker *helpers.Docker
+	var docker *helpers.SSHMeta
+
 	var cilium *helpers.Cilium
 
 	initialize := func() {
@@ -127,7 +128,7 @@ var _ = Describe("RuntimeConnectivityTest", func() {
 		res.ExpectSuccess()
 
 		By(fmt.Sprintf("ping from %s to %s", helpers.Host, helpers.Server))
-		res = docker.Node.Exec(helpers.Ping(serverIP.String()))
+		res = docker.Exec(helpers.Ping(serverIP.String()))
 		res.ExpectSuccess()
 	}, 300)
 
@@ -161,8 +162,9 @@ var _ = Describe("RuntimeConnectivityTest", func() {
 var _ = Describe("RuntimeConntrackTest", func() {
 
 	var initialized bool
+
 	var logger *logrus.Entry
-	var docker *helpers.Docker
+	var docker *helpers.SSHMeta
 	var cilium *helpers.Cilium
 
 	initialize := func() {
@@ -228,11 +230,11 @@ var _ = Describe("RuntimeConntrackTest", func() {
 			"%s cannot netperf to %s %s", helpers.Client, helpers.Server, srvIP[helpers.IPv4]))
 
 		By(fmt.Sprintf("ping from %s to %s IPv6", helpers.Host, helpers.Server))
-		res = docker.Node.Exec(helpers.Ping6(srvIP[helpers.IPv6]))
+		res = docker.Exec(helpers.Ping6(srvIP[helpers.IPv6]))
 		Expect(res.WasSuccessful()).Should(BeTrue(), fmt.Sprintf("%s cannot ping %s", helpers.Host, helpers.Server))
 
 		By(fmt.Sprintf("ping from %s to %s IPv4", helpers.Host, helpers.Server))
-		res = docker.Node.Exec(helpers.Ping(srvIP[helpers.IPv4]))
+		res = docker.Exec(helpers.Ping(srvIP[helpers.IPv4]))
 		Expect(res.WasSuccessful()).Should(BeTrue(), fmt.Sprintf("%s cannot ping %s", helpers.Host, helpers.Server))
 
 		By(fmt.Sprintf("ping from %s to %s IPv6", helpers.Server, helpers.Client))
