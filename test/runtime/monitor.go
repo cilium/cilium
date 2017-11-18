@@ -44,8 +44,7 @@ var _ = Describe("RuntimeMonitorTest", func() {
 
 	var initialized bool
 	var logger *logrus.Entry
-	var docker *helpers.SSHMeta
-	var cilium *helpers.Cilium
+	var vm *helpers.SSHMeta
 
 	initialize := func() {
 		if initialized == true {
@@ -53,11 +52,11 @@ var _ = Describe("RuntimeMonitorTest", func() {
 		}
 		logger = log.WithFields(logrus.Fields{"testName": "RuntimeMonitorTest"})
 		logger.Info("Starting")
-		docker, cilium = helpers.CreateNewRuntimeHelper(helpers.Runtime, logger)
-		cilium.WaitUntilReady(100)
-		docker.NetworkCreate(helpers.CiliumDockerNetwork, "")
+		vm = helpers.CreateNewRuntimeHelper(helpers.Runtime, logger)
+		vm.WaitUntilReady(100)
+		vm.NetworkCreate(helpers.CiliumDockerNetwork, "")
 
-		res := cilium.SetPolicyEnforcement(helpers.PolicyEnforcementDefault, false)
+		res := vm.SetPolicyEnforcement(helpers.PolicyEnforcementDefault, false)
 		res.ExpectSuccess()
 
 		initialized = true
@@ -68,32 +67,31 @@ var _ = Describe("RuntimeMonitorTest", func() {
 	})
 
 	AfterEach(func() {
-
 		if CurrentGinkgoTestDescription().Failed {
-			cilium.ReportFailed()
+			vm.ReportFailed()
 		}
 
-		docker.SampleContainersActions(helpers.Delete, helpers.CiliumDockerNetwork)
+		vm.SampleContainersActions(helpers.Delete, helpers.CiliumDockerNetwork)
 	})
 
 	It("Cilium monitor verbose mode", func() {
 
-		res := cilium.Exec(fmt.Sprintf("config %s=true %s=true %s=true",
+		res := vm.ExecCilium(fmt.Sprintf("config %s=true %s=true %s=true",
 			MonitorDebug, MonitorDropNotification, MonitorTraceNotification))
 		res.ExpectSuccess()
 
 		ctx, cancel := context.WithCancel(context.Background())
 
-		res = docker.ExecContext(ctx, "cilium monitor -v")
-		docker.SampleContainersActions(helpers.Create, helpers.CiliumDockerNetwork)
+		res = vm.ExecContext(ctx, "cilium monitor -v")
+		vm.SampleContainersActions(helpers.Create, helpers.CiliumDockerNetwork)
 		helpers.Sleep(5)
 		cancel()
-		endpoints, err := cilium.GetEndpointsIds()
+		endpoints, err := vm.GetEndpointsIds()
 		Expect(err).Should(BeNil())
 
 		for k, v := range endpoints {
 			filter := fmt.Sprintf("FROM %s DEBUG:", v)
-			docker.ContainerExec(k, helpers.Ping(helpers.Httpd1))
+			vm.ContainerExec(k, helpers.Ping(helpers.Httpd1))
 			Expect(res.Output().String()).Should(ContainSubstring(filter))
 		}
 	})
@@ -105,37 +103,37 @@ var _ = Describe("RuntimeMonitorTest", func() {
 			"capture": "DEBUG:",
 		}
 
-		res := cilium.Exec(fmt.Sprintf("config %s=true %s=true %s=true",
+		res := vm.ExecCilium(fmt.Sprintf("config %s=true %s=true %s=true",
 			MonitorDebug, MonitorDropNotification, MonitorTraceNotification))
 		res.ExpectSuccess()
 		for k, v := range eventTypes {
 			By(fmt.Sprintf("Type %s", k))
 
 			ctx, cancel := context.WithCancel(context.Background())
-			res := docker.ExecContext(ctx, fmt.Sprintf("cilium monitor --type %s -v", k))
-			docker.SampleContainersActions(helpers.Create, helpers.CiliumDockerNetwork)
-			docker.ContainerExec(helpers.App1, helpers.Ping(helpers.Httpd1))
+			res := vm.ExecContext(ctx, fmt.Sprintf("cilium monitor --type %s -v", k))
+			vm.SampleContainersActions(helpers.Create, helpers.CiliumDockerNetwork)
+			vm.ContainerExec(helpers.App1, helpers.Ping(helpers.Httpd1))
 			helpers.Sleep(5)
 			cancel()
 
 			Expect(res.CountLines()).Should(BeNumerically(">", 3))
 			Expect(res.Output().String()).Should(ContainSubstring(v))
-			docker.SampleContainersActions(helpers.Delete, helpers.CiliumDockerNetwork)
+			vm.SampleContainersActions(helpers.Delete, helpers.CiliumDockerNetwork)
 		}
 	})
 
 	It("cilium monitor check --from", func() {
-		res := cilium.Exec(fmt.Sprintf("config %s=true %s=true %s=true", MonitorDebug, MonitorDropNotification, MonitorTraceNotification))
+		res := vm.ExecCilium(fmt.Sprintf("config %s=true %s=true %s=true", MonitorDebug, MonitorDropNotification, MonitorTraceNotification))
 		res.ExpectSuccess()
 
-		docker.SampleContainersActions(helpers.Create, helpers.CiliumDockerNetwork)
-		endpoints, err := cilium.GetEndpointsIds()
+		vm.SampleContainersActions(helpers.Create, helpers.CiliumDockerNetwork)
+		endpoints, err := vm.GetEndpointsIds()
 		Expect(err).Should(BeNil())
 
 		ctx, cancel := context.WithCancel(context.Background())
-		res = docker.ExecContext(ctx, fmt.Sprintf(
+		res = vm.ExecContext(ctx, fmt.Sprintf(
 			"cilium monitor --type debug --from %s -v", endpoints[helpers.App1]))
-		docker.ContainerExec(helpers.App1, helpers.Ping(helpers.Httpd1))
+		vm.ContainerExec(helpers.App1, helpers.Ping(helpers.Httpd1))
 		helpers.Sleep(5)
 		cancel()
 
@@ -150,20 +148,21 @@ var _ = Describe("RuntimeMonitorTest", func() {
 
 	It("cilium monitor check --to", func() {
 
-		res := cilium.Exec(fmt.Sprintf(
+		res := vm.ExecCilium(fmt.Sprintf(
 			"config %s=true %s=true %s=true %s=always", MonitorDebug, MonitorDropNotification, MonitorTraceNotification, helpers.PolicyEnforcement))
 		res.ExpectSuccess()
 
-		docker.SampleContainersActions(helpers.Create, helpers.CiliumDockerNetwork)
-		endpoints, err := cilium.GetEndpointsIds()
+		vm.SampleContainersActions(helpers.Create, helpers.CiliumDockerNetwork)
+		endpoints, err := vm.GetEndpointsIds()
 		Expect(err).Should(BeNil())
-		cilium.WaitEndpointsReady()
+
+		vm.WaitEndpointsReady()
 		ctx, cancel := context.WithCancel(context.Background())
-		res = docker.ExecContext(ctx, fmt.Sprintf(
+		res = vm.ExecContext(ctx, fmt.Sprintf(
 			"cilium monitor --type drop -v --to %s", endpoints[helpers.Httpd1]))
 
-		docker.ContainerExec(helpers.App1, helpers.Ping(helpers.Httpd1))
-		docker.ContainerExec(helpers.App2, helpers.Ping(helpers.Httpd1))
+		vm.ContainerExec(helpers.App1, helpers.Ping(helpers.Httpd1))
+		vm.ContainerExec(helpers.App2, helpers.Ping(helpers.Httpd1))
 		helpers.Sleep(5)
 		cancel()
 
@@ -175,19 +174,20 @@ var _ = Describe("RuntimeMonitorTest", func() {
 
 	It("cilium monitor check --related-to", func() {
 
-		res := cilium.Exec(fmt.Sprintf(
+		res := vm.ExecCilium(fmt.Sprintf(
 			"config %s=true %s=true %s=true %s=always", MonitorDebug, MonitorDropNotification, MonitorTraceNotification, helpers.PolicyEnforcement))
 		res.ExpectSuccess()
 
-		docker.SampleContainersActions(helpers.Create, helpers.CiliumDockerNetwork)
-		endpoints, err := cilium.GetEndpointsIds()
+		vm.SampleContainersActions(helpers.Create, helpers.CiliumDockerNetwork)
+		endpoints, err := vm.GetEndpointsIds()
 		Expect(err).Should(BeNil())
 
 		ctx, cancel := context.WithCancel(context.Background())
-		res = docker.ExecContext(ctx, fmt.Sprintf(
+		res = vm.ExecContext(ctx, fmt.Sprintf(
 			"cilium monitor -v --type drop --related-to %s", endpoints[helpers.Httpd1]))
-		cilium.WaitEndpointsReady()
-		docker.ContainerExec(helpers.App1, helpers.CurlFail("http://httpd1/public"))
+
+		vm.WaitEndpointsReady()
+		vm.ContainerExec(helpers.App1, helpers.CurlFail("http://httpd1/public"))
 
 		helpers.Sleep(2)
 		cancel()
@@ -198,25 +198,25 @@ var _ = Describe("RuntimeMonitorTest", func() {
 
 	It("multiple monitors", func() {
 
-		res := cilium.Exec(fmt.Sprintf(
+		res := vm.ExecCilium(fmt.Sprintf(
 			"config %s=true %s=true %s=true %s=default", MonitorDebug, MonitorDropNotification, MonitorTraceNotification, helpers.PolicyEnforcement))
 		res.ExpectSuccess()
 
 		var monitorRes []*helpers.CmdRes
 
-		docker.ContainerCreate(helpers.Client, helpers.NetperfImage, helpers.CiliumDockerNetwork, "-l id.client")
-		docker.ContainerCreate(helpers.Server, helpers.NetperfImage, helpers.CiliumDockerNetwork, "-l id.server")
+		vm.ContainerCreate(helpers.Client, helpers.NetperfImage, helpers.CiliumDockerNetwork, "-l id.client")
+		vm.ContainerCreate(helpers.Server, helpers.NetperfImage, helpers.CiliumDockerNetwork, "-l id.server")
 
-		defer docker.ContainerRm(helpers.Client)
-		defer docker.ContainerRm(helpers.Server)
+		defer vm.ContainerRm(helpers.Client)
+		defer vm.ContainerRm(helpers.Server)
 
 		ctx, cancelfn := context.WithCancel(context.Background())
 
 		for i := 1; i <= 3; i++ {
-			monitorRes = append(monitorRes, docker.ExecContext(ctx, "cilium monitor"))
+			monitorRes = append(monitorRes, vm.ExecContext(ctx, "cilium monitor"))
 		}
 
-		docker.ContainerExec(helpers.Client, helpers.Ping(helpers.Server))
+		vm.ContainerExec(helpers.Client, helpers.Ping(helpers.Server))
 		cancelfn()
 
 		Expect(monitorRes[0].CountLines()).Should(BeNumerically(">", 2))

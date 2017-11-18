@@ -20,10 +20,11 @@ import (
 
 //CreateNewRuntimeHelper returns Docker and Cilium helpers for running the
 //runtime tests on the provided VM target and using logger log .
-func CreateNewRuntimeHelper(target string, log *logrus.Entry) (*SSHMeta, *Cilium) {
-	log.Infof("creating docker")
-	docker := CreateDocker(target)
-	log.Infof("creating cilium")
-	cilium := CreateCilium(target, log)
-	return docker.Node, cilium
+func CreateNewRuntimeHelper(target string, log *logrus.Entry) *SSHMeta {
+	node := GetVagrantSSHMetadata(target)
+	if node == nil {
+		return nil
+	}
+	node.logger = log
+	return node
 }
