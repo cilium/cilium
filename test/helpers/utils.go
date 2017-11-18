@@ -28,8 +28,10 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-//IsRunningOnJenkins detects if the current Ginkgo application is running in
-//Jenkins. Returns true if yes.
+// IsRunningOnJenkins detects if the currently running Ginkgo application is
+// most likely running in a Jenkins environment. Returns true if certain
+// environment variables that are present in Jenkins jobs are set, false
+// otherwise.
 func IsRunningOnJenkins() bool {
 	result := true
 
@@ -44,13 +46,13 @@ func IsRunningOnJenkins() bool {
 	return result
 }
 
-//Sleep sleeps for the specified duration in seconds
+// Sleep sleeps for the specified duration in seconds
 func Sleep(delay time.Duration) {
 	time.Sleep(delay * time.Second)
 }
 
-//CountValues filters data based on the specified key. Returns the number of
-//matches in data for key and the length of data.
+// CountValues returns the count of the occurrences of key in data, as well as
+// the length of data.
 func CountValues(key string, data []string) (int, int) {
 	var result int
 
@@ -62,8 +64,9 @@ func CountValues(key string, data []string) (int, int) {
 	return result, len(data)
 }
 
-//RenderTemplateToFile renders a text/template string into a target filename with specific persmision.
-// It will return an error if the template can't be validated or can't write the file
+// RenderTemplateToFile renders a text/template string into a target filename
+// with specific persmisions. Returns eturn an error if the template cannot be
+// validated or the file cannot be created.
 func RenderTemplateToFile(filename string, tmplt string, perm os.FileMode) error {
 	t, err := template.New("").Parse(tmplt)
 	if err != nil {
@@ -82,15 +85,15 @@ func RenderTemplateToFile(filename string, tmplt string, perm os.FileMode) error
 	return nil
 }
 
-//TimeoutConfig represents the configuration for the timeout of a command.
+// TimeoutConfig represents the configuration for the timeout of a command.
 type TimeoutConfig struct {
 	Ticker  time.Duration // Check interval in duration.
 	Timeout time.Duration // Timeout definition
 }
 
-//WithTimeout executes function body using the interval specified in config
-//until the timeout in config is reached. Returns an error if the timeout is
-//exceeded for body to execute successfully.
+// WithTimeout executes body using the time interval specified in config until
+// the timeout in config is reached. Returns an error if the timeout is
+// exceeded for body to execute successfully.
 func WithTimeout(body func() bool, msg string, config *TimeoutConfig) error {
 	if config.Ticker == 0 {
 		config.Ticker = 5
