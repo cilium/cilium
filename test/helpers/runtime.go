@@ -21,7 +21,8 @@ import (
 //CreateNewRuntimeHelper returns Docker and Cilium helpers for running the
 //runtime tests on the provided VM target and using logger log .
 func CreateNewRuntimeHelper(target string, log *logrus.Entry) *SSHMeta {
-	node := GetVagrantSSHMetadata(target)
+	node := GetVagrantSSHMeta(target)
+
 	if node == nil {
 		return nil
 	}

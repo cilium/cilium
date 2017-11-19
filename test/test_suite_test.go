@@ -35,7 +35,6 @@ import (
 
 var (
 	log             = common.DefaultLogger
-	vagrant         helpers.Vagrant
 	DefaultSettings = map[string]string{
 		"K8S_VERSION": "1.7",
 	}
@@ -124,7 +123,7 @@ var _ = BeforeSuite(func() {
 
 	switch ginkgoext.GetScope() {
 	case helpers.Runtime:
-		err = vagrant.Create(helpers.Runtime)
+		err = helpers.CreateVM(helpers.Runtime)
 		if err != nil {
 			Fail(fmt.Sprintf("error starting VM %q: %s", helpers.Runtime, err))
 		}
@@ -145,11 +144,14 @@ var _ = BeforeSuite(func() {
 		// Wait until compilation finished, and pull cilium image on k8s2
 
 		// Name for K8s VMs depends on K8s version that is running.
-		err = vagrant.Create(helpers.K8s1VMName())
+
+		err = helpers.CreateVM(helpers.K8s1VMName())
 		if err != nil {
 			Fail(fmt.Sprintf("error starting VM %q: %s", helpers.K8s1VMName(), err))
 		}
-		err = vagrant.Create(helpers.K8s2VMName())
+
+		err = helpers.CreateVM(helpers.K8s2VMName())
+
 		if err != nil {
 			Fail(fmt.Sprintf("error starting VM %q: %s", helpers.K8s2VMName(), err))
 		}
@@ -167,10 +169,10 @@ var _ = AfterSuite(func() {
 	log.Infof("cleaning up VMs started for %s tests", scope)
 	switch scope {
 	case helpers.Runtime:
-		vagrant.Destroy(helpers.Runtime)
+		helpers.DestroyVM(helpers.Runtime)
 	case helpers.K8s:
-		vagrant.Destroy(helpers.K8s1VMName())
-		vagrant.Destroy(helpers.K8s2VMName())
+		helpers.DestroyVM(helpers.K8s1VMName())
+		helpers.DestroyVM(helpers.K8s2VMName())
 	}
 	return
 })
