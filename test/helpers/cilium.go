@@ -320,11 +320,7 @@ func (c *Cilium) ReportFailed(commands ...string) {
 	wr := c.logCxt.Logger.Out
 	fmt.Fprint(wr, "StackTrace Begin\n")
 
-	//FIXME: Ginkgo PR383 add here --since option
-	res := c.Node.Exec("sudo journalctl --no-pager -u cilium")
-	fmt.Fprint(wr, res.Output())
-
-	res = c.Node.Exec("sudo cilium endpoint list")
+	res := c.Node.Exec("sudo cilium endpoint list")
 	fmt.Fprint(wr, res.Output())
 
 	for _, cmd := range commands {
@@ -332,6 +328,10 @@ func (c *Cilium) ReportFailed(commands ...string) {
 		res = c.Node.Exec(fmt.Sprintf("%s", cmd))
 		fmt.Fprint(wr, res.Output())
 	}
+	//FIXME: Ginkgo Issue 383: add here "--since" option
+	logCmd := "sudo journalctl --no-pager -u cilium"
+	fmt.Fprintf(wr, "Logs can be gathered by running '%s' in vagrant\n", logCmd)
+	fmt.Fprint(wr, "Consider debugging the live environment using \"ginkgo -- -cilium.holdEnvironment\"\n")
 	fmt.Fprint(wr, "StackTrace Ends\n")
 }
 
