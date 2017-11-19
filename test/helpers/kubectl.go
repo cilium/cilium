@@ -50,7 +50,7 @@ type Kubectl struct {
 
 // CreateKubectl initializes a Kubectl helper with the provided vmName and log
 func CreateKubectl(vmName string, log *logrus.Entry) *Kubectl {
-	node := GetVagrantSSHMetadata(vmName)
+	node := GetVagrantSSHMeta(vmName)
 	if node == nil {
 		return nil
 	}

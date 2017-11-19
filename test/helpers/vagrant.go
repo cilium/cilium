@@ -24,16 +24,12 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-//Vagrant helper struct
-// TODO - this is useless. we can just have functions without receivers?
-type Vagrant struct{}
-
 //Create a new vagrant server. Receives and scope that it's the target server that need to be created.
 // In case of any error on vagrant [provision|up|ssh-config] error will be returned.
-func (vagrant *Vagrant) Create(scope string) error {
+func CreateVM(scope string) error {
 	createCMD := "vagrant up %s --provision"
 
-	for _, v := range vagrant.Status(scope) {
+	for _, v := range Status(scope) {
 		switch v {
 		case "running":
 			// Always destroy if we are running in Jenkins. If not, just
@@ -41,18 +37,18 @@ func (vagrant *Vagrant) Create(scope string) error {
 			if !IsRunningOnJenkins() {
 				createCMD = "vagrant provision %s"
 			} else {
-				vagrant.Destroy(scope)
+				DestroyVM(scope)
 			}
 		case "not_created":
 			createCMD = "vagrant up %s --provision"
 		default:
-			//Sometimes server are stoped and not destroyed. Destroy just in case
-			vagrant.Destroy(scope)
+			//Sometimes server are stoped and not destroyed. DestroyVM just in case
+			DestroyVM(scope)
 		}
 	}
 	createCMD = fmt.Sprintf(createCMD, scope)
 	log.Infof("Vagrant:Create: running '%s'", createCMD)
-	cmd := vagrant.getCmd(createCMD)
+	cmd := getCmd(createCMD)
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
 		return fmt.Errorf("error getting stdout: %s", err)
@@ -94,8 +90,8 @@ func (vagrant *Vagrant) Create(scope string) error {
 // GetVagrantSSHMetadata returns a string containing the output of `vagrant ssh-config`
 // for the provided Vagrant of name vmName. Returns an error if
 // `vagrant ssh-config` fails to execute.
-func (vagrant *Vagrant) GetVagrantSSHMetadata(vmName string) ([]byte, error) {
-	cmd := vagrant.getCmd(fmt.Sprintf("vagrant ssh-config %s", vmName))
+func GetVagrantSSHMetadata(vmName string) ([]byte, error) {
+	cmd := getCmd(fmt.Sprintf("vagrant ssh-config %s", vmName))
 	result, err := cmd.Output()
 	if err != nil {
 		return nil, err
@@ -103,11 +99,11 @@ func (vagrant *Vagrant) GetVagrantSSHMetadata(vmName string) ([]byte, error) {
 	return result, nil
 }
 
-//Destroy destroys all running Vagrant VMs in the provided scope. It returns an
+//DestroyVM destroys all running Vagrant VMs in the provided scope. It returns an
 //error if deletion of either the VMs fails
-func (vagrant *Vagrant) Destroy(scope string) error {
+func DestroyVM(scope string) error {
 	command := fmt.Sprintf("vagrant destroy -f %s ", scope)
-	cmd := vagrant.getCmd(command)
+	cmd := getCmd(command)
 	_, err := cmd.CombinedOutput()
 	if err != nil {
 		return err
@@ -115,14 +111,14 @@ func (vagrant *Vagrant) Destroy(scope string) error {
 	return nil
 }
 
-func (vagrant *Vagrant) getCmd(vmCommand string) *exec.Cmd {
+func getCmd(vmCommand string) *exec.Cmd {
 	log.Infof("Vagrant: running command %q", vmCommand)
-	cmd := exec.Command(vagrant.getPath("bash"), "-c", vmCommand)
-	cmd.Dir = vagrant.getDir()
+	cmd := exec.Command(getPath("bash"), "-c", vmCommand)
+	cmd.Dir = getDir()
 	return cmd
 }
 
-func (vagrant *Vagrant) getDir() string {
+func getDir() string {
 	dir, err := os.Getwd()
 	if err != nil {
 		return "/tmp/"
@@ -130,7 +126,7 @@ func (vagrant *Vagrant) getDir() string {
 	return fmt.Sprintf("%s/", dir)
 }
 
-func (vagrant *Vagrant) getPath(prog string) string {
+func getPath(prog string) string {
 	path, err := exec.LookPath(prog)
 	if err != nil {
 		return ""
@@ -139,10 +135,10 @@ func (vagrant *Vagrant) getPath(prog string) string {
 }
 
 //Status returns a mapping of Vagrant VM name to its status
-func (vagrant *Vagrant) Status(key string) map[string]string {
+func Status(key string) map[string]string {
 	result := map[string]string{}
 
-	cmd := vagrant.getCmd(fmt.Sprintf("vagrant status %s --machine-readable", key))
+	cmd := getCmd(fmt.Sprintf("vagrant status %s --machine-readable", key))
 	data, err := cmd.CombinedOutput()
 	if err != nil {
 		return result

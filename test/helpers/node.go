@@ -46,11 +46,10 @@ func (s *SSHMeta) String() string {
 
 }
 
-// GetVagrantSSHMetadata returns a SSHMeta initialized based on the provided
+// GetVagrantSSHMeta returns a SSHMeta initialized based on the provided
 // SSH-config target.
-func GetVagrantSSHMetadata(vmName string) *SSHMeta {
-	var vagrant Vagrant
-	config, err := vagrant.GetVagrantSSHMetadata(vmName)
+func GetVagrantSSHMeta(vmName string) *SSHMeta {
+	config, err := GetVagrantSSHMetadata(vmName)
 	if err != nil {
 		return nil
 	}
