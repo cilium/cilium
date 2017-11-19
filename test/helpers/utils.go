@@ -141,12 +141,12 @@ func Fail(description string, callerSkip ...int) {
 }
 
 // ReportDirectory creates and returns the directory path to export all report
-// commands that need to be run in the that a test has failed.
+// commands that need to be run in the case that a test has failed.
 // If the directory cannot be created it'll return an error
 func ReportDirectory() (string, error) {
 	testDesc := ginkgo.CurrentGinkgoTestDescription()
 	testPath := fmt.Sprintf("%s%s/",
-		testResultsPath,
+		TestResultsPath,
 		strings.Replace(testDesc.FullTestText, " ", "", -1))
 	if _, err := os.Stat(testPath); err == nil {
 		return testPath, nil
@@ -157,8 +157,13 @@ func ReportDirectory() (string, error) {
 
 // reportMap saves the output of the given commands to the specified filename.
 // Function needs a directory path where the files are going to be written and
-// a *Node instance to execute the commands
-func reportMap(path string, reportCmds map[string]string, node *Node) {
+// a *SSHMeta instance to execute the commands
+func reportMap(path string, reportCmds map[string]string, node *SSHMeta) {
+	if node == nil {
+		log.Errorf("cannot execute reportMap due invalid node instance")
+		return
+	}
+
 	for cmd, logfile := range reportCmds {
 		res := node.Exec(cmd)
 		err := ioutil.WriteFile(

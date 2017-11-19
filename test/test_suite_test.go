@@ -154,8 +154,6 @@ var _ = BeforeSuite(func() {
 })
 
 var _ = AfterSuite(func() {
-
-	var destroy bool = true
 	if !helpers.IsRunningOnJenkins() {
 		log.Infof("AfterSuite: not running on Jenkins; leaving VMs running for debugging")
 		return
