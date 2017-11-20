@@ -595,6 +595,8 @@ function dump_cli_output {
   cilium bpf tunnel list > ${DIR}/bpf_tunnel_list.txt
   cilium policy get > ${DIR}/policy_get.txt
   cilium status > ${DIR}/status.txt
+  cilium debuginfo -f ${DIR}/debuginfo.txt
+  cilium-bugtool -t ${DIR}
 }
 
 function dump_cli_output_k8s {
@@ -623,6 +625,9 @@ function dump_cli_output_k8s {
   kubectl exec -n ${NAMESPACE} ${POD} -- cilium bpf tunnel list > ${DIR}/${POD}_bpf_tunnel_list.txt
   kubectl exec -n ${NAMESPACE} ${POD} -- cilium policy get > ${DIR}/${POD}_policy_get.txt
   kubectl exec -n ${NAMESPACE} ${POD} -- cilium status > ${DIR}/${POD}_status.txt
+  kubectl exec -n ${NAMESPACE} ${POD} -- cilium debuginfo > ${DIR}/${POD}_debuginfo.txt
+  local DEBUGTOOL_ARCHIVE=`kubectl exec -n ${NAMESPACE} ${POD} -- cilium-bugtool | grep ARCHIVE | awk '{ print $3}'`
+  kubectl cp ${NAMESPACE}/${POD}:${DEBUGTOOL_ARCHIVE} ${DIR}/${POD}_bugtool.tar
 }
 
 function dump_gops_output {
