@@ -14,12 +14,7 @@
 
 package logfields
 
-import (
-	"fmt"
-
-	// Initialize logrus package with debug log level if needed
-	_ "github.com/cilium/cilium/pkg/debugdetection"
-)
+import "fmt"
 
 // Repr formats an object with the Printf %+v formatter
 func Repr(s interface{}) string {
