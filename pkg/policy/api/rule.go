@@ -457,16 +457,11 @@ type PortRuleKafka struct {
 	// via the API.
 
 	// apiKeyInt is the integer representation of APIKey
-	apiKeyInt int16
+	apiKeyInt *int16
 
 	// apiVersionInt is the integer representation of APIVersion
-	apiVersionInt int16
+	apiVersionInt *int16
 }
-
-const (
-	apiKeyWildcard     int16 = -1
-	apiVersionWildcard int16 = -1
-)
 
 // KafkaAPIKeyMap is the map of all allowed kafka API keys
 // with the key values.
@@ -569,19 +564,19 @@ var KafkaTopicValidChar = regexp.MustCompile(`^[a-zA-Z0-9\\._\\-]+$`)
 // GetAPIKey returns the APIKey as integer or the bool set to true if any API
 // key is allowed
 func (kr *PortRuleKafka) GetAPIKey() (int16, bool) {
-	if kr.apiKeyInt == apiKeyWildcard {
+	if kr.apiKeyInt == nil {
 		return 0, true
 	}
 
-	return kr.apiKeyInt, false
+	return *kr.apiKeyInt, false
 }
 
 // GetAPIVersion returns the APIVersion as integer or the bool set to true if
 // any API version is allowed
 func (kr *PortRuleKafka) GetAPIVersion() (int16, bool) {
-	if kr.apiVersionInt == apiVersionWildcard {
+	if kr.apiVersionInt == nil {
 		return 0, true
 	}
 
-	return kr.apiVersionInt, false
+	return *kr.apiVersionInt, false
 }

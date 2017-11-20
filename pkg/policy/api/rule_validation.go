@@ -117,9 +117,7 @@ func (kr *PortRuleKafka) Sanitize() error {
 		if !ok {
 			return fmt.Errorf("invalid Kafka APIKey :%q", kr.APIKey)
 		}
-		kr.apiKeyInt = n
-	} else {
-		kr.apiKeyInt = apiKeyWildcard
+		kr.apiKeyInt = &n
 	}
 
 	if len(kr.APIVersion) > 0 {
@@ -128,9 +126,8 @@ func (kr *PortRuleKafka) Sanitize() error {
 			return fmt.Errorf("invalid Kafka APIVersion :%q",
 				kr.APIVersion)
 		}
-		kr.apiVersionInt = int16(n)
-	} else {
-		kr.apiVersionInt = apiVersionWildcard
+		n16 := int16(n)
+		kr.apiVersionInt = &n16
 	}
 
 	if len(kr.Topic) > 0 {
