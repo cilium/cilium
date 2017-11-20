@@ -95,28 +95,6 @@ func ipFamily(ip net.IP) int {
 	return netlink.FAMILY_V4
 }
 
-// findAddress finds a particular IP address assigned to the specified link
-func findAddress(link netlink.Link, ip net.IP) *netlink.Addr {
-	addrs, err := netlink.AddrList(link, ipFamily(ip))
-	if err != nil {
-		log.WithError(err).WithFields(log.Fields{
-			logfields.IPAddr:    ip,
-			logfields.Interface: link.Attrs().Name,
-		}).Warn("Listing of addresses failed")
-
-		// return address not found on error
-		return nil
-	}
-
-	for _, a := range addrs {
-		if ip.Equal(a.IP) {
-			return &a
-		}
-	}
-
-	return nil
-}
-
 // findRoute finds a particular route as specified by the filter which points
 // to the specified device. The filter route can have the following fields set:
 //  - Dst
@@ -153,21 +131,7 @@ func findRoute(link netlink.Link, route *netlink.Route) *netlink.Route {
 // replaceNodeRoute verifies that the L2 route for the router IP which is used
 // as nexthop for all node routes is properly installed. If unavailable or
 // incorrect, it will be replaced with the proper L2 route.
-func replaceNexthopRoute(link netlink.Link, routerIP, routerNet *net.IPNet) error {
-	// Add the Cilium router IP as address to the "cilium_host" if not
-	// already assigned
-	if routerIP != nil && findAddress(link, routerIP.IP) == nil {
-		addr := &netlink.Addr{IPNet: routerIP}
-		if err := netlink.AddrReplace(link, addr); err != nil {
-			return fmt.Errorf("unable to add nexthop address \"%s\": %q", routerIP, err)
-		}
-
-		log.WithFields(log.Fields{
-			logfields.IPAddr:    routerIP,
-			logfields.Interface: link.Attrs().Name,
-		}).Info("Added Cilium router IP address")
-	}
-
+func replaceNexthopRoute(link netlink.Link, routerNet *net.IPNet) error {
 	// This is the L2 route which makes the Cilium router IP available behind
 	// the "cilium_host" interface. All other routes will use this router IP
 	// as nexthop.
@@ -205,22 +169,19 @@ func replaceNodeRoute(ip *net.IPNet) {
 		return
 	}
 
-	var routerIP, routerNet *net.IPNet
+	var routerNet *net.IPNet
 	var via, local net.IP
 	if ip.IP.To4() != nil {
-		via = net.IPv4(169, 254, 254, 1)
-		routerIP = &net.IPNet{IP: via, Mask: net.CIDRMask(32, 32)}
-		routerNet = &net.IPNet{IP: net.IPv4(169, 254, 254, 0), Mask: net.CIDRMask(24, 32)}
+		via = GetInternalIPv4()
+		routerNet = &net.IPNet{IP: via, Mask: net.CIDRMask(32, 32)}
 		local = GetInternalIPv4()
 	} else {
 		via = GetIPv6Router()
-		// IPv6 does not require the router IP to be added as address, leaving
-		routerIP = nil
 		routerNet = &net.IPNet{IP: via, Mask: net.CIDRMask(128, 128)}
 		local = GetIPv6()
 	}
 
-	if err := replaceNexthopRoute(link, routerIP, routerNet); err != nil {
+	if err := replaceNexthopRoute(link, routerNet); err != nil {
 		log.WithError(err).Error("Unable to add nexthop route")
 	}
 
