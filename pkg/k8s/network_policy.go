@@ -75,6 +75,8 @@ func parseNetworkPolicyPeer(namespace string, peer *networkingv1.NetworkPolicyPe
 // Cilium policy rules that can be added
 func ParseNetworkPolicy(np *networkingv1.NetworkPolicy) (api.Rules, error) {
 	ingresses := []api.IngressRule{}
+	egresses := []api.EgressRule{}
+
 	namespace := k8sconst.ExtractNamespace(&np.ObjectMeta)
 	for _, iRule := range np.Spec.Ingress {
 		ingress := api.IngressRule{}
@@ -83,6 +85,9 @@ func ParseNetworkPolicy(np *networkingv1.NetworkPolicy) (api.Rules, error) {
 				endpointSelector, err := parseNetworkPolicyPeer(namespace, &rule)
 				if err != nil {
 					return nil, err
+				}
+				if rule.IPBlock != nil {
+					ingress.FromCIDRSet = append(ingress.FromCIDRSet, ipBlockToCIDRRule(rule.IPBlock))
 				}
 				ingress.FromEndpoints = append(ingress.FromEndpoints, *endpointSelector)
 			}
@@ -104,6 +109,22 @@ func ParseNetworkPolicy(np *networkingv1.NetworkPolicy) (api.Rules, error) {
 		ingresses = append(ingresses, ingress)
 	}
 
+	for _, eRule := range np.Spec.Egress {
+		egress := api.EgressRule{}
+		if eRule.To != nil && len(eRule.To) > 0 {
+			for _, rule := range eRule.To {
+				if rule.NamespaceSelector != nil || rule.PodSelector != nil {
+					// TODO: GH-2095
+					log.Warning("Cilium does not support PodSelector or NamespaceSelector for K8s Egress rules")
+				}
+				if rule.IPBlock != nil {
+					egress.ToCIDRSet = append(egress.ToCIDRSet, ipBlockToCIDRRule(rule.IPBlock))
+				}
+			}
+		}
+		egresses = append(egresses, egress)
+	}
+
 	tag := ExtractPolicyName(np)
 	if np.Spec.PodSelector.MatchLabels == nil {
 		np.Spec.PodSelector.MatchLabels = map[string]string{}
@@ -114,6 +135,7 @@ func ParseNetworkPolicy(np *networkingv1.NetworkPolicy) (api.Rules, error) {
 		EndpointSelector: api.NewESFromK8sLabelSelector(labels.LabelSourceK8sKeyPrefix, &np.Spec.PodSelector),
 		Labels:           labels.ParseLabelArray(tag),
 		Ingress:          ingresses,
+		Egress:           egresses,
 	}
 
 	if err := rule.Sanitize(); err != nil {
@@ -121,6 +143,15 @@ func ParseNetworkPolicy(np *networkingv1.NetworkPolicy) (api.Rules, error) {
 	}
 
 	return api.Rules{rule}, nil
+}
+
+func ipBlockToCIDRRule(block *networkingv1.IPBlock) api.CIDRRule {
+	cidrRule := api.CIDRRule{}
+	cidrRule.Cidr = api.CIDR(block.CIDR)
+	for _, v := range block.Except {
+		cidrRule.ExceptCIDRs = append(cidrRule.ExceptCIDRs, api.CIDR(v))
+	}
+	return cidrRule
 }
 
 // Converts list of K8s NetworkPolicyPorts to Cilium PortRules.
