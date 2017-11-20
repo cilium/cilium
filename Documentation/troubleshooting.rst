@@ -134,6 +134,103 @@ running agent. Debugging of an individual endpoint can be enabled by running
     CPU 00: MARK 0x7dc2b704 FROM 3978 DEBUG: Handling ICMPv6 type=135
     CPU 00: MARK 0x7dc2b704 FROM 3978 DEBUG: ICMPv6 neighbour soliciation for address b21a8c0:d68a0000
 
+Debugging information
+=====================
+
+``cilium debuginfo`` can print useful output from the Cilium API. The output
+format is in Markdown format so this can be used when reporting a bug on the
+`issue tracker`_.  Running without arguments will print to standard output, but
+you can also redirect to a file like
+
+::
+
+    cilium debuginfo -f debuginfo.md
+
+.. Note::
+
+          Please check the debuginfo file for sensitive information and strip it
+          away before sharing it with us.
+
+Single Node Bugtool
+===================
+
+The ``cilium-bugtool`` captures potentially useful informations about your
+environment for debugging. The tool is meant to be used for debugging a single
+Cilium agent node but in the Kubernetes case if you have multiple Cilium pods
+it can retrieve debugging information from all of them. The tool works by
+archiving a collection of command outputs and files from several places.  With
+no options it writes to the ``tmp`` directory.
+
+::
+
+  cilium-bugtool
+
+When running it with no option as shown above, it will try to copy various
+files and execute some commands. If ``kubectl`` is detected it will search for
+Cilium pods. The default label being ``k8s-app=cilium``, but this and the
+namespace can be changed via ``k8s-namespace`` and ``k8s-label`` respectively.
+
+If you'd prefer to browse the dump, there is a HTTP flag.
+
+::
+  
+  cilium-bugtool --serve
+
+
+If you want to capture the archive from a Kubernetes pod, the the process is a
+little bit different
+
+::
+
+    # First we need to get the Cilium pod
+    $ kubectl get pods --namespace kube-system
+      NAME                          READY     STATUS    RESTARTS   AGE
+      cilium-kg8lv                  1/1       Running   0          13m
+      kube-addon-manager-minikube   1/1       Running   0          1h
+      kube-dns-6fc954457d-sf2nk     3/3       Running   0          1h
+      kubernetes-dashboard-6xvc7    1/1       Running   0          1h
+
+    # Run the bugtool from this pod
+    $ kubectl -n kube-system exec cilium-kg8lv cilium-bugtool
+      [...]
+
+    # Copy the archive from the pod
+    $ kubectl cp kube-system/cilium-kg8lv:/tmp/cilium-bugtool-243785589.tar /tmp/cilium-bugtool-243785589.tar
+      [...]
+
+.. Note::
+
+          Please check the dump files for sensitive informations and strip it
+          away before sharing it with us.
+
+Below is a approximate list of what kind of information is in the archive, but
+you should still verify before sharing.
+
+* Cilium status
+* Cilium version
+* Kernel configuration
+* Resolve configuration
+* Cilium endpoint state
+* Cilium logs
+* Docker logs
+* ``dmesg``
+* ``ethtool``
+* ``ip a``
+* ``ip link``
+* ``ip r``
+* ``iptables-save``
+* ``kubectl -n kube-system get pods``
+* ``kubectl get pods,svc for all namespaces``
+* ``uname``
+* ``uptime``
+* ``cilium bpf * list``
+* ``cilium endpoint get for each endpoint``
+* ``cilium endpoint list``
+* ``hostname``
+* ``cilium policy get``
+* ``cilium service list``
+* ...
+
 .. _Slack channel: https://cilium.herokuapp.com
 .. _DaemonSet: https://kubernetes.io/docs/admin/daemons/
 .. _NodeSelector: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/
@@ -145,3 +242,5 @@ running agent. Debugging of an individual endpoint can be enabled by running
 .. _llvm: http://releases.llvm.org/
 .. _Linux kernel: https://www.kernel.org/
 .. _Cilium Frequently Asked Questions (FAQ): https://github.com/cilium/cilium/issues?utf8=%E2%9C%93&q=label%3Akind%2Fquestion%20
+
+.. _issue tracker: https://github.com/cilium/cilium/issues
