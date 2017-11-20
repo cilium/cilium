@@ -17,6 +17,7 @@ package helpers
 import (
 	"bytes"
 	"fmt"
+	"net"
 	"os"
 	"strconv"
 	"strings"
@@ -53,6 +54,23 @@ func CreateCilium(vmName string, log *log.Entry) *Cilium {
 		Node:   node,
 		logger: log,
 	}
+}
+
+// BpfLBList returns the output of `cilium bpf lb list -o json` as a map
+// Key will be the frontend address and the value is an array with all backend
+// addresses
+func (c *Cilium) BpfLBList() (map[string][]string, error) {
+	var result map[string][]string
+
+	res := c.Exec("bpf lb list -o json")
+	if !res.WasSuccessful() {
+		return nil, fmt.Errorf("cannot get bpf lb list: %s", res.CombineOutput())
+	}
+	err := res.Unmarshal(&result)
+	if err != nil {
+		return nil, err
+	}
+	return result, nil
 }
 
 // Exec runs a Cilium CLI command and returns the resultant cmdRes.
@@ -415,6 +433,54 @@ func (c *Cilium) ServiceDel(id int) *CmdRes {
 	return c.Exec(fmt.Sprintf("service delete '%d'", id))
 }
 
+// ServiceIsSynced checks that the Cilium service with the specified id has its
+// metadata match that of the load balancer BPF maps
+func (c *Cilium) ServiceIsSynced(id int) (bool, error) {
+	var svc *models.Service
+	svcRes := c.ServiceGet(id)
+	if !svcRes.WasSuccessful() {
+		return false, fmt.Errorf("cannot get service id %d: %s", id, svcRes.CombineOutput())
+	}
+	err := svcRes.Unmarshal(&svc)
+	if err != nil {
+		return false, err
+	}
+
+	bpfLB, err := c.BpfLBList()
+	if err != nil {
+		return false, err
+	}
+
+	frontendAddr := net.JoinHostPort(
+		svc.FrontendAddress.IP,
+		fmt.Sprintf("%d", svc.FrontendAddress.Port))
+	lb, ok := bpfLB[frontendAddr]
+	if ok == false {
+		return false, fmt.Errorf(
+			"frontend address from the service %d does not have it's corresponding frontend address(%s) on bpf maps",
+			id, frontendAddr)
+	}
+
+	for _, backendAddr := range svc.BackendAddresses {
+		result := false
+		backendSVC := net.JoinHostPort(
+			*backendAddr.IP,
+			fmt.Sprintf("%d", backendAddr.Port))
+		target := fmt.Sprintf("%s (%d)", backendSVC, id)
+
+		for _, addr := range lb {
+			if addr == target {
+				result = true
+			}
+		}
+		if result == false {
+			return false, fmt.Errorf(
+				"backend address %s does not exists on BPF load balancer metadata id=%d", target, id)
+		}
+	}
+	return true, nil
+}
+
 // ServiceList returns the output of  `cilium service list`
 func (c *Cilium) ServiceList() *CmdRes {
 	return c.Exec("service list -o json")
@@ -423,7 +489,7 @@ func (c *Cilium) ServiceList() *CmdRes {
 // ServiceGet is a wrapper around `cilium service get <id>`. It returns the
 // result of retrieving said service.
 func (c *Cilium) ServiceGet(id int) *CmdRes {
-	return c.Exec(fmt.Sprintf("service get '%d'", id))
+	return c.Exec(fmt.Sprintf("service get '%d' -o json", id))
 }
 
 // ServiceGetIds returns an array with the IDs of all Cilium services. Returns

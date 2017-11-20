@@ -239,8 +239,14 @@ var _ = Describe("RuntimeLB", func() {
 	}, 500)
 
 	It("Service recovery on restart", func() {
+		service := "2.2.2.2:80"
+		svcID := 1
+		testCmd := fmt.Sprintf(
+			"curl -s --fail --connect-timeout 4 http://%s/public", service)
+
 		containers("create")
-		cilium.EndpointWaitUntilReady()
+		epStatus := cilium.WaitEndpointsReady()
+		Expect(epStatus).Should(BeTrue())
 
 		httpd1, err := docker.ContainerInspectNet("httpd1")
 		Expect(err).Should(BeNil())
@@ -248,14 +254,12 @@ var _ = Describe("RuntimeLB", func() {
 		httpd2, err := docker.ContainerInspectNet("httpd2")
 		Expect(err).Should(BeNil())
 
-		status := cilium.ServiceAdd(1, "2.2.2.2:80", []string{
+		status := cilium.ServiceAdd(svcID, service, []string{
 			fmt.Sprintf("%s:80", httpd1["IPv4"]),
 			fmt.Sprintf("%s:80", httpd2["IPv4"])}, 2)
 		status.ExpectSuccess("L4 service can't be created")
 
-		status = docker.ContainerExec(
-			"client",
-			"curl -s --fail --connect-timeout 4 http://2.2.2.2:80/public")
+		status = docker.ContainerExec("client", testCmd)
 		status.ExpectSuccess("L4 Proxy is not working IPv4")
 
 		oldSvc := cilium.ServiceList()
@@ -263,9 +267,8 @@ var _ = Describe("RuntimeLB", func() {
 
 		oldSvcIds, err := cilium.ServiceGetIds()
 		Expect(err).Should(BeNil())
-
-		oldbpflb := cilium.Exec("bpf lb list -o json")
-		oldbpflb.ExpectSuccess()
+		oldBpfLB, err := cilium.BpfLBList()
+		Expect(err).Should(BeNil())
 
 		res := cilium.Node.Exec("sudo systemctl restart cilium")
 		res.ExpectSuccess()
@@ -273,8 +276,8 @@ var _ = Describe("RuntimeLB", func() {
 		err = cilium.WaitUntilReady(100)
 		Expect(err).Should(BeNil())
 
-		eps := cilium.EndpointWaitUntilReady()
-		Expect(eps).Should(BeTrue())
+		epStatus = cilium.WaitEndpointsReady()
+		Expect(epStatus).Should(BeTrue())
 
 		svcIds, err := cilium.ServiceGetIds()
 		Expect(err).Should(BeNil())
@@ -284,13 +287,15 @@ var _ = Describe("RuntimeLB", func() {
 		newSvc.ExpectSuccess("Cannot retrieve service list after restart")
 		newSvc.ExpectEqual(oldSvc.Output().String(), "Service list does not match")
 
-		newBpflb := cilium.Exec("bpf lb list -o json")
-		newBpflb.ExpectSuccess("Cannot retrieve bpf lb list after restart")
-		newBpflb.ExpectEqual(oldbpflb.Output().String(), "BPF LB list does not match")
+		newBpfLB, err := cilium.BpfLBList()
+		Expect(err).Should(BeNil(), "Cannot retrieve bpf lb list after restart")
+		Expect(oldBpfLB).Should(Equal(newBpfLB))
 
-		status = docker.ContainerExec(
-			"client",
-			"curl -s --fail --connect-timeout 4 http://2.2.2.2:80/public")
+		svcSync, err := cilium.ServiceIsSynced(svcID)
+		Expect(err).Should(BeNil(), "Service is not sync with BPF LB")
+		Expect(svcSync).Should(BeTrue())
+
+		status = docker.ContainerExec("client", testCmd)
 		status.ExpectSuccess("LB is not working after restart")
 	})
 })
