@@ -956,3 +956,110 @@ func (s *K8sSuite) TestNetworkPolicyExamples(c *C) {
 	// Should be ACCEPT since the environment is from dev.
 	c.Assert(repo.AllowsRLocked(&ctx), Equals, api.Allowed)
 }
+
+func (s *K8sSuite) TestCIDRPolicyExamples(c *C) {
+	ex1 := []byte(`{
+  "kind": "NetworkPolicy",
+  "apiVersion": "extensions/networkingv1",
+  "metadata": {
+    "name": "ingress-cidr-test",
+    "namespace": "myns"
+  },
+  "spec": {
+    "podSelector": {
+      "matchLabels": {
+        "role": "backend"
+      }
+    },
+    "ingress": [
+      {
+        "from": [
+          {
+            "namespaceSelector": {
+              "matchLabels": {
+                "user": "bob"
+              }
+            },
+            "ipBlock": {
+              "cidr": "10.0.0.0/8",
+	          "except": [
+	            "10.96.0.0/12"
+	          ]
+            }
+          }
+        ]
+      }
+    ]
+  }
+}`)
+	np := networkingv1.NetworkPolicy{}
+	err := json.Unmarshal(ex1, &np)
+	c.Assert(err, IsNil)
+
+	rules, err := ParseNetworkPolicy(&np)
+	c.Assert(err, IsNil)
+	c.Assert(rules, NotNil)
+	c.Assert(len(rules), Equals, 1)
+	c.Assert(len(rules[0].Ingress), Equals, 1)
+
+	ex2 := []byte(`{
+  "kind": "NetworkPolicy",
+  "apiVersion": "extensions/networkingv1",
+  "metadata": {
+    "name": "ingress-cidr-test",
+    "namespace": "myns"
+  },
+  "spec": {
+    "podSelector": {
+      "matchLabels": {
+        "role": "backend"
+      }
+    },
+    "egress": [
+      {
+        "to": [
+          {
+            "ipBlock": {
+              "cidr": "10.0.0.0/8",
+	          "except": [
+	            "10.96.0.0/12", "10.255.255.254/32"
+	          ]
+            }
+          },
+	      {
+            "ipBlock": {
+              "cidr": "11.0.0.0/8",
+	          "except": [
+	            "11.96.0.0/12", "11.255.255.254/32"
+	          ]
+            }
+          }
+        ]
+      }
+    ]
+  }
+}`)
+
+	np = networkingv1.NetworkPolicy{}
+	err = json.Unmarshal(ex2, &np)
+	c.Assert(err, IsNil)
+
+	rules, err = ParseNetworkPolicy(&np)
+	c.Assert(err, IsNil)
+	c.Assert(rules, NotNil)
+	c.Assert(len(rules), Equals, 1)
+	c.Assert(rules[0].Egress[0].ToCIDRSet[0].Cidr, Equals, api.CIDR("10.0.0.0/8"))
+
+	expectedCIDRs := []api.CIDR{"10.96.0.0/12", "10.255.255.254/32"}
+	for k, v := range rules[0].Egress[0].ToCIDRSet[0].ExceptCIDRs {
+		c.Assert(v, Equals, expectedCIDRs[k])
+	}
+
+	expectedCIDRs = []api.CIDR{"11.96.0.0/12", "11.255.255.254/32"}
+	for k, v := range rules[0].Egress[0].ToCIDRSet[1].ExceptCIDRs {
+		c.Assert(v, Equals, expectedCIDRs[k])
+	}
+
+	c.Assert(len(rules[0].Egress), Equals, 1)
+
+}
