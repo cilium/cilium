@@ -164,8 +164,8 @@ func (res *CmdRes) SingleOut() string {
 	return strings.Replace(res.stdout.String(), "\n", "", -1)
 }
 
-// UnMarshal unmarshals res's stdout into data
-func (res *CmdRes) UnMarshal(data interface{}) error {
+// Unmarshal unmarshals res's stdout into data
+func (res *CmdRes) Unmarshal(data interface{}) error {
 	err := json.Unmarshal(res.stdout.Bytes(), &data)
 	return err
 }
