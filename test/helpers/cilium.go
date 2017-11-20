@@ -156,7 +156,7 @@ func (c *Cilium) EndpointWaitUntilReady(validation ...bool) bool {
 			return false
 		}
 		logger.Infof("cannot get endpoints: %s", err)
-		logger.Infof("sleeping 5 seconds and trying again to get endpoints")
+		logger.Info("sleeping 5 seconds and trying again to get endpoints")
 		EndpointWaitUntilReadyRetry++
 		Sleep(5)
 		return c.EndpointWaitUntilReady(validation...)
@@ -168,7 +168,7 @@ func (c *Cilium) EndpointWaitUntilReady(validation ...bool) bool {
 		var data []models.Endpoint
 
 		if err := c.GetEndpoints().Unmarshal(&data); err != nil {
-			logger.Info("cannot get endpoints: %s", err)
+			logger.Infof("cannot get endpoints: %s", err)
 			return false
 		}
 		var valid, invalid int
