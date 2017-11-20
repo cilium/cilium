@@ -1239,7 +1239,8 @@ func (h *patchConfig) Handle(params PatchConfigParams) middleware.Responder {
 	if numPagesEntry, ok := params.Configuration.Mutable["MonitorNumPages"]; ok {
 		nmArgs := d.nodeMonitor.GetArgs()
 		if len(nmArgs) == 0 || nmArgs[0] != numPagesEntry {
-			d.nodeMonitor.Restart([]string{numPagesEntry})
+			args := []string{"--num-pages %s", numPagesEntry}
+			d.nodeMonitor.Restart(args)
 		}
 		if len(params.Configuration.Mutable) == 0 {
 			return NewPatchConfigOK()

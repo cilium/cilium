@@ -17,21 +17,49 @@ package main
 import (
 	"net"
 	"os"
-	"strconv"
 
 	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/daemon/defaults"
 	"github.com/cilium/cilium/pkg/apisocket"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+
 	gops "github.com/google/gops/agent"
+	"github.com/spf13/cobra"
 )
 
 var log = logging.DefaultLogger
 
 const targetName = "cilium-node-monitor"
 
+var (
+	rootCmd = &cobra.Command{
+		Use:   targetName,
+		Short: "Cilium node monitor",
+		Long:  `Agent for reading the events from the BPF datapath.`,
+		Run: func(cmd *cobra.Command, args []string) {
+			runNodeMonitor()
+		},
+	}
+	npages int
+)
+
+func init() {
+	rootCmd.Flags().IntVar(&npages, "num-pages", 64, "Number of pages for ring buffer")
+}
+
+func execute() {
+	if err := rootCmd.Execute(); err != nil {
+		log.WithError(err)
+		os.Exit(-1)
+	}
+}
+
 func main() {
+	execute()
+}
+
+func runNodeMonitor() {
 	scopedLog := log.WithField(logfields.Path, defaults.MonitorSockPath)
 	// Open socket for using gops to get stacktraces of the agent.
 	if err := gops.Listen(gops.Options{}); err != nil {
@@ -55,12 +83,6 @@ func main() {
 
 	m := Monitor{}
 	go m.handleConnection(server)
-	npages := 64
-	if len(os.Args) > 1 {
-		v, _ := strconv.Atoi(os.Args[1])
-		if v > 0 {
-			npages = v
-		}
-	}
+
 	m.Run(npages)
 }
