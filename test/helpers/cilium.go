@@ -180,7 +180,8 @@ func (c *Cilium) EndpointWaitUntilReady(validation ...bool) bool {
 			}
 			if len(validation) > 0 && validation[0] {
 				// If the endpoint's latest statest message does not contain "Policy regeneration skipped", then it must be regenerating; wait until length of status message array changes.
-				if originalVal, _ := epsStatus[eps.ID]; !(len(eps.Status) > 0 && eps.Status[0].Message == "Policy regeneration skipped") && len(eps.Status) <= originalVal {
+				originalVal, _ := epsStatus[eps.ID]
+				if !(len(eps.Status) > 0 && eps.Status[0].Message == "Policy regeneration skipped") && len(eps.Status) <= originalVal {
 					logger.Infof("endpoint %d not regenerated", eps.ID)
 					return false
 				}
