@@ -109,11 +109,20 @@ var _ = Describe("RuntimeConnectivityTest", func() {
 		res = docker.ContainerExec(helpers.Client, helpers.Ping(serverIP.String()))
 		res.ExpectSuccess()
 
+		By(fmt.Sprintf("netperf to %s from %s (should succeed)", helpers.Server, helpers.Client))
+		cmd := fmt.Sprintf("netperf -c -C -H %s", serverIP)
+		res = docker.ContainerExec(helpers.Client, cmd)
+
 		// TODO: remove this hardcoding ; it is not clean. Have command wrappers that take maps of strings.
-		By(fmt.Sprintf("netperf to %s from %s IPv6", helpers.Server, helpers.Client))
-		cmd := fmt.Sprintf(
+		By(fmt.Sprintf("netperf to %s from %s IPv6 with -t TCP_SENDFILE", helpers.Server, helpers.Client))
+		cmd = fmt.Sprintf(
 			"netperf -c -C -t TCP_SENDFILE -H %s", serverIPv6)
 
+		res = docker.ContainerExec(helpers.Client, cmd)
+		res.ExpectSuccess()
+
+		By(fmt.Sprintf("super_netperf to %s from %s (should succeed)", helpers.Server, helpers.Client))
+		cmd = fmt.Sprintf("super_netperf 10 -c -C -t TCP_SENDFILE -H %s", serverIP)
 		res = docker.ContainerExec(helpers.Client, cmd)
 		res.ExpectSuccess()
 
