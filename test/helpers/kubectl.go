@@ -234,7 +234,7 @@ func (kub *Kubectl) CiliumEndpointsListByLabel(pod, label string) (EndpointMap, 
 	var data []models.Endpoint
 	eps := kub.CiliumEndpointsList(pod)
 
-	err := eps.UnMarshal(&data)
+	err := eps.Unmarshal(&data)
 	if err != nil {
 		return nil, err
 	}

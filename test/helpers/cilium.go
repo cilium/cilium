@@ -77,7 +77,7 @@ func (c *Cilium) EndpointGet(id string) *models.Endpoint {
 	var data []models.Endpoint
 	endpointGetCmd := fmt.Sprintf("endpoint get %s", id)
 	res := c.Exec(endpointGetCmd)
-	err := res.UnMarshal(&data)
+	err := res.Unmarshal(&data)
 	if err != nil {
 		c.logger.Errorf("EndpointGet fail %d: %s", id, err)
 		return nil
@@ -150,7 +150,7 @@ func (c *Cilium) EndpointWaitUntilReady(validation ...bool) bool {
 
 	var data []models.Endpoint
 
-	if err := c.GetEndpoints().UnMarshal(&data); err != nil {
+	if err := c.GetEndpoints().Unmarshal(&data); err != nil {
 		if EndpointWaitUntilReadyRetry > MaxRetries {
 			logger.Errorf("%d retries exceeded to get endpoints: %s", MaxRetries, err)
 			return false
@@ -167,7 +167,7 @@ func (c *Cilium) EndpointWaitUntilReady(validation ...bool) bool {
 	body := func() bool {
 		var data []models.Endpoint
 
-		if err := c.GetEndpoints().UnMarshal(&data); err != nil {
+		if err := c.GetEndpoints().Unmarshal(&data); err != nil {
 			logger.Info("cannot get endpoints: %s", err)
 			return false
 		}
