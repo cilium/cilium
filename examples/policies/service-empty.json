@@ -1,0 +1,17 @@
+[{
+      "endpointSelector": {
+        "matchLabels": {
+          "id": "app2"
+        }
+      },
+      "egress": [
+        {
+          "toServices": []
+        },
+        {
+          "toServices": [
+            {}
+          ]
+        }
+      ]
+}]

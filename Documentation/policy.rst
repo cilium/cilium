@@ -341,6 +341,14 @@ for this policy to take effect.
 
 .. literalinclude:: ../examples/policies/service.json
 
+Example (empty toServices rule)
+-------------------------------
+
+When ``toServices`` doesn't have any services specified or the rules are empty
+the policy doesn't have any effect.
+
+.. literalinclude:: ../examples/policies/service-empty.json
+
 .. _policy_l4:
 
 Layer 4: Ports
