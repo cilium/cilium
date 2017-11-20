@@ -5,6 +5,7 @@ set -x
 diff="$(find . ! \( -path './contrib' -prune \) \
         ! \( -path './vendor' -prune \) \
         ! \( -path './.git' -prune \) \
+        ! \( -path './envoy-api' -prune \) \
         ! -samefile ./daemon/bindata.go \
         -type f -name '*.go' -print0 \
                 | xargs -0 gofmt -d -l -s )"

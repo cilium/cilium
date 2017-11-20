@@ -97,7 +97,7 @@ Vagrant.configure(2) do |config|
     config.vm.provision "install", type: "shell", run: "always", privileged: false, inline: $install
 
     config.vm.provider :libvirt do |libvirt|
-        config.vm.box = "cilium/ubuntu-16.10"
+        config.vm.box = "cilium/ginkgo-merged"
         libvirt.memory = ENV['VM_MEMORY'].to_i
         libvirt.cpus = ENV['VM_CPUS'].to_i
         config.vm.synced_folder ".", "/home/vagrant/go/src/github.com/cilium/cilium", disabled: false
@@ -108,7 +108,7 @@ Vagrant.configure(2) do |config|
         vb.customize ["modifyvm", :id, "--natdnshostresolver1", "on"]
         vb.customize ["modifyvm", :id, "--natdnsproxy1", "on"]
 
-        config.vm.box = "cilium/ubuntu-16.10"
+        config.vm.box = "cilium/ginkgo-merged"
         vb.memory = ENV['VM_MEMORY'].to_i
         vb.cpus = ENV['VM_CPUS'].to_i
 
