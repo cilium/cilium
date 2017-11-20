@@ -51,7 +51,7 @@ var serviceGetCmd = &cobra.Command{
 		}
 
 		if len(dumpOutput) > 0 {
-			if err := OutputPrinter(slice); err != nil {
+			if err := OutputPrinter(svc); err != nil {
 				os.Exit(1)
 			}
 			return
