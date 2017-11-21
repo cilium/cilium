@@ -31,6 +31,9 @@ func GetScope() string {
 		return helpers.Runtime
 	case strings.HasPrefix(focusString, helpers.K8s):
 		return helpers.K8s
+	case strings.Contains(focusString, "nightly"):
+		// Nightly tests run in a Kubernetes environment.
+		return helpers.K8s
 	default:
 		return helpers.Runtime
 	}
