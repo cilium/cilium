@@ -1,0 +1,47 @@
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: app1-service
+spec:
+  ports:
+  - port: 80
+  selector:
+    id: app1
+---
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: app1
+spec:
+  replicas: 5
+  template:
+    metadata:
+      labels:
+        id: app1
+        zgroup: testapp
+    spec:
+      containers:
+      - name: web
+        image: cilium/demo-httpd
+        ports:
+        - containerPort: 80
+---
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: app2
+spec:
+  replicas: 5
+  template:
+    metadata:
+      labels:
+        id: app2
+        zgroup: testapp
+    spec:
+      containers:
+      - name: app-frontend
+        image: cilium/demo-client
+        command: [ "sleep" ]
+        args:
+          - "1000h"
