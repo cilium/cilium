@@ -30,7 +30,7 @@ var printJSONGetEndpointLog bool
 var endpointLogCmd = &cobra.Command{
 	Use:     "log <endpoint id> [<json>=(enable|disable) ...]",
 	Short:   "View endpoint status log",
-	Example: "endpoint log 5421",
+	Example: "cilium endpoint log 5421",
 	Run: func(cmd *cobra.Command, args []string) {
 		requireEndpointID(cmd, args)
 		getEndpointLog(cmd, args)
