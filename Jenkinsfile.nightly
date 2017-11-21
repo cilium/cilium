@@ -1,0 +1,44 @@
+pipeline {
+    agent {
+        label 'nightly'
+    }
+    environment {
+        PROJ_PATH = "src/github.com/cilium/cilium"
+    }
+
+    options {
+        timeout(time: 120, unit: 'MINUTES')
+        timestamps()
+    }
+
+    stages {
+        stage('Checkout') {
+            steps {
+                sh 'env'
+                sh 'rm -rf src; mkdir -p src/github.com/cilium'
+                sh 'ln -s $WORKSPACE src/github.com/cilium/cilium'
+                checkout scm
+            }
+        }
+        stage('Nightly-Tests') {
+            environment {
+                GOPATH="${WORKSPACE}"
+                TESTDIR="${WORKSPACE}/${PROJ_PATH}/test"
+            }
+            steps {
+                parallel(
+                    "Nightly":{
+                        sh 'cd ${TESTDIR}; K8S_VERSION=1.7 ginkgo --focus="Nightly*" -v -noColor'
+                    },
+                )
+            }
+            post {
+                always {
+                    junit 'test/*.xml'
+                    sh 'cd test/; ./post_build_agent.sh || true'                    
+                    sh 'cd test/; K8S_VERSION=1.7 vagrant destroy -f'
+                }
+            }
+        }
+    }
+}
