@@ -70,6 +70,7 @@ func init() {
 	flags := rootCmd.PersistentFlags()
 	flags.BoolP("debug", "D", false, "Enable debug messages")
 	flags.BoolP("daemon", "d", false, "Run as a daemon")
+	flags.BoolP("passive", "p", false, "Only respond to health checks")
 	flags.StringP("host", "H", "", "URI to cilum-health server API")
 	flags.StringP("cilium", "c", "", "URI to Cilium server API")
 	flags.IntP("interval", "i", 60, "Interval (in seconds) for periodic connectivity probes")
@@ -96,6 +97,7 @@ func initConfig() {
 		config := serverPkg.Config{
 			CiliumURI:     viper.GetString("cilium"),
 			Debug:         viper.GetBool("debug"),
+			Passive:       viper.GetBool("passive"),
 			ProbeInterval: time.Duration(viper.GetInt("interval")) * time.Second,
 			ProbeDeadline: time.Second,
 		}
