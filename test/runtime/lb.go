@@ -199,7 +199,7 @@ var _ = Describe("RuntimeLB", func() {
 		Expect(err).Should(BeNil())
 
 		containers(helpers.Create)
-		cilium.EndpointWaitUntilReady()
+		cilium.WaitEndpointsReady()
 
 		httpd1, err := docker.ContainerInspectNet(helpers.Httpd1)
 		Expect(err).Should(BeNil())

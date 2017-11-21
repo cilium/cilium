@@ -73,7 +73,7 @@ var _ = Describe("RuntimePolicyEnforcement", func() {
 		initialize()
 		cilium.PolicyDelAll()
 		docker.ContainerCreate("app", "cilium/demo-httpd", helpers.CiliumDockerNetwork, "-l id.app")
-		cilium.EndpointWaitUntilReady()
+		cilium.WaitEndpointsReady()
 	})
 
 	AfterEach(func() {
@@ -300,7 +300,7 @@ var _ = Describe("RuntimePolicyEnforcement", func() {
 			Expect(endPoints[helpers.Disabled]).To(Equal(1))
 
 			docker.ContainerCreate("new", "cilium/demo-httpd", helpers.CiliumDockerNetwork, "-l id.new")
-			cilium.EndpointWaitUntilReady()
+			cilium.WaitEndpointsReady()
 			endPoints, err = cilium.PolicyEndpointsSummary()
 			Expect(err).Should(BeNil())
 			Expect(endPoints[helpers.Enabled]).To(Equal(0))
@@ -391,7 +391,7 @@ var _ = Describe("RuntimePolicies", func() {
 		initialize()
 		cilium.PolicyDelAll()
 		docker.SampleContainersActions(helpers.Create, helpers.CiliumDockerNetwork)
-		cilium.EndpointWaitUntilReady()
+		cilium.WaitEndpointsReady()
 	})
 
 	AfterEach(func() {
@@ -482,7 +482,7 @@ var _ = Describe("RuntimePolicies", func() {
 		status := cilium.PolicyDelAll()
 		status.ExpectSuccess()
 
-		cilium.EndpointWaitUntilReady()
+		cilium.WaitEndpointsReady()
 
 		connectivityTest(allRequests, helpers.App1, helpers.Httpd1, BeTrue)
 		connectivityTest(allRequests, helpers.App2, helpers.Httpd1, BeTrue)
@@ -563,7 +563,7 @@ var _ = Describe("RuntimePolicies", func() {
 
 		status := cilium.PolicyDelAll()
 		Expect(status.WasSuccessful()).Should(BeTrue())
-		cilium.EndpointWaitUntilReady()
+		cilium.WaitEndpointsReady()
 
 		for _, app := range []string{helpers.App1, helpers.App2} {
 			connectivityTest(allRequests, app, helpers.Httpd1, BeTrue)
@@ -594,7 +594,7 @@ var _ = Describe("RuntimePolicies", func() {
 
 		status := cilium.PolicyDelAll()
 		status.ExpectSuccess()
-		cilium.EndpointWaitUntilReady()
+		cilium.WaitEndpointsReady()
 
 		connectivityTest(allRequests, helpers.App1, helpers.Httpd1, BeTrue)
 		connectivityTest(allRequests, helpers.App2, helpers.Httpd1, BeTrue)
@@ -622,7 +622,7 @@ var _ = Describe("RuntimePolicies", func() {
 
 		status = cilium.PolicyDelAll()
 		status.ExpectSuccess()
-		cilium.EndpointWaitUntilReady()
+		cilium.WaitEndpointsReady()
 
 		connectivityTest(allRequests, helpers.App1, helpers.Httpd1, BeTrue)
 		connectivityTest(allRequests, helpers.App2, helpers.Httpd1, BeTrue)
