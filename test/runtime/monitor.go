@@ -152,7 +152,7 @@ var _ = Describe("RuntimeMonitorTest", func() {
 		docker.SampleContainersActions(helpers.Create, helpers.CiliumDockerNetwork)
 		endpoints, err := cilium.GetEndpointsIds()
 		Expect(err).Should(BeNil())
-		cilium.EndpointWaitUntilReady()
+		cilium.WaitEndpointsReady()
 		ctx, cancel := context.WithCancel(context.Background())
 		res = docker.Node.ExecContext(ctx, fmt.Sprintf(
 			"cilium monitor --type drop -v --to %s", endpoints[helpers.Httpd1]))
@@ -181,7 +181,7 @@ var _ = Describe("RuntimeMonitorTest", func() {
 		ctx, cancel := context.WithCancel(context.Background())
 		res = docker.Node.ExecContext(ctx, fmt.Sprintf(
 			"cilium monitor -v --type drop --related-to %s", endpoints[helpers.Httpd1]))
-		cilium.EndpointWaitUntilReady()
+		cilium.WaitEndpointsReady()
 		docker.ContainerExec(helpers.App1, helpers.CurlFail("http://httpd1/public"))
 
 		helpers.Sleep(2)

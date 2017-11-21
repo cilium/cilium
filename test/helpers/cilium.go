@@ -18,6 +18,7 @@ import (
 	"bytes"
 	"fmt"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -79,7 +80,7 @@ func (c *Cilium) EndpointGet(id string) *models.Endpoint {
 	res := c.Exec(endpointGetCmd)
 	err := res.Unmarshal(&data)
 	if err != nil {
-		c.logger.Errorf("EndpointGet fail %d: %s", id, err)
+		c.logger.WithError(err).Errorf("EndpointGet fail %d", id)
 		return nil
 	}
 	if len(data) > 0 {
@@ -88,14 +89,125 @@ func (c *Cilium) EndpointGet(id string) *models.Endpoint {
 	return nil
 }
 
+// EndpointStatusLog returns the status log API model for the specified endpoint.
+// Returns nil if no endpoint corresponds to the provided ID.
+func (c *Cilium) EndpointStatusLog(id string) *models.EndpointStatusLog {
+	if id == "" {
+		return nil
+	}
+
+	var epStatusLog models.EndpointStatusLog
+
+	endpointLogCmd := fmt.Sprintf("endpoint log %s", id)
+	res := c.Exec(endpointLogCmd)
+	err := res.Unmarshal(&epStatusLog)
+	if err != nil {
+		c.logger.WithFields(log.Fields{"endpointID": id}).WithError(err).Errorf("unable to get endpoint status log")
+		return nil
+	}
+
+	return &epStatusLog
+}
+
+// WaitEndpointRegenerated attempts up until MaxRetries are exceeded for the
+// endpoint with the specified ID to be in "ready" state. Returns false if
+// no such endpoint corresponds to the given id or if MaxRetries are exceeded.
+func (c *Cilium) WaitEndpointRegenerated(id string) bool {
+	logger := c.logger.WithFields(log.Fields{
+		"functionName": "WaitEndpointRegenerated",
+		"id":           id,
+	})
+
+	counter := 0
+	desiredState := models.EndpointStateReady
+
+	endpoint := c.EndpointGet(id)
+	if endpoint == nil {
+		return false
+	}
+
+	epState := endpoint.State
+
+	for ; epState != desiredState && counter < MaxRetries; counter++ {
+
+		logger.WithFields(log.Fields{
+			"endpointState": epState,
+		}).Info("endpoint not ready")
+
+		logger.Infof("still within retry limit for waiting for endpoint to be in %s state; sleeping and checking again", desiredState)
+		Sleep(1)
+
+		endpoint = c.EndpointGet(id)
+		if endpoint == nil {
+			return false
+		}
+		epState = endpoint.State
+	}
+
+	if counter > MaxRetries {
+		logger.Infof("%d retries have been exceeded for waiting for endpoint to be %s", MaxRetries, desiredState)
+		return false
+	}
+
+	return true
+}
+
+// WaitEndpointsReady waits up until MaxRetries times for all endpoints to
+// not be in any regenerating or waiting-to-generate state. Returns true if
+// all endpoints regenerate before MaxRetries are exceeded, false otherwise.
+func (c *Cilium) WaitEndpointsReady() bool {
+	logger := c.logger.WithFields(log.Fields{"functionName": "WaitEndpointsReady"})
+
+	numDesired := 0
+	counter := 0
+
+	cmdString := "cilium endpoint list | grep -c regenerat"
+	infoCmd := "cilium endpoint list"
+	res := c.Node.Exec(cmdString)
+	logger.Infof("string output of cmd: %s", res.stdout.String())
+	numEndpointsRegenerating, err := strconv.Atoi(strings.TrimSuffix(res.stdout.String(), "\n"))
+
+	// If the command error'd out for whatever reason, do not want numEndpointsRegenerating
+	// to be set to zero. Handle this error and set to -1 so that the loop below
+	// continues to execute up until MaxRetries are exceeded.
+	if err != nil {
+		numEndpointsRegenerating = -1
+	}
+	for numDesired != numEndpointsRegenerating {
+
+		logger.WithFields(log.Fields{
+			"regenerating": numEndpointsRegenerating,
+		}).Info("endpoints are still regenerating")
+
+		if counter > MaxRetries {
+			logger.Infof("%d retries have been exceeded for waiting for endpoint regeneration", MaxRetries)
+			return false
+		}
+
+		res := c.Node.Exec(infoCmd)
+		logger.Infof("still within retry limit for waiting for endpoints to be in \"ready\" state; sleeping and checking again")
+		Sleep(1)
+		res = c.Node.Exec(cmdString)
+		numEndpointsRegenerating, err = strconv.Atoi(strings.TrimSuffix(res.stdout.String(), "\n"))
+		if err != nil {
+			numEndpointsRegenerating = -1
+		}
+		counter++
+	}
+
+	return true
+}
+
 // EndpointSetConfig sets the provided configuration option to the provided
-// value for the endpoint with the endpoint ID id.
+// value for the endpoint with the endpoint ID id. It returns true if the
+// configuration update command returned successfully and if the endpoint
+// was able to regenerate successfully, false otherwise.
 func (c *Cilium) EndpointSetConfig(id, option, value string) bool {
 	// TODO: GH-1725.
 	// For now use `grep` with an extra space to ensure that we only match
 	// on specified option.
 	// TODO: for consistency, all fields should be constants if they are reused.
-	logger := c.logger.WithFields(log.Fields{"EndpointId": id})
+	logger := c.logger.WithFields(log.Fields{"endpointID": id})
 	res := c.Exec(fmt.Sprintf(
 		"endpoint config %s | grep '%s ' | awk '{print $2}'", id, option))
 
@@ -104,106 +216,14 @@ func (c *Cilium) EndpointSetConfig(id, option, value string) bool {
 		return res.WasSuccessful()
 	}
 
-	before := c.EndpointGet(id)
-	if before == nil {
-		return false
-	}
 	configCmd := fmt.Sprintf("endpoint config %s %s=%s", id, option, value)
 	data := c.Exec(configCmd)
 	if !data.WasSuccessful() {
 		logger.Errorf("cannot set endpoint configuration %s=%s", option, value)
 		return false
 	}
-	err := WithTimeout(func() bool {
-		endpoint := c.EndpointGet(id)
-		if endpoint == nil {
-			return false
-		}
-		if len(endpoint.Status) > len(before.Status) {
-			return true
-		}
-		logger.Info("endpoint not regenerated")
-		return false
-	}, "endpoint not regenerated", &TimeoutConfig{Timeout: 100})
-	if err != nil {
-		logger.Errorf("endpoint configuration update failed:%s", err)
-		return false
-	}
-	return true
-}
 
-var EndpointWaitUntilReadyRetry int = 0 //List how many retries EndpointWaitUntilReady should have
-
-// EndpointWaitUntilReady waits until all of the endpoints that Cilium manages
-// are in 'ready' state.
-func (c *Cilium) EndpointWaitUntilReady(validation ...bool) bool {
-
-	logger := c.logger.WithFields(log.Fields{"EndpointWaitReady": ""})
-
-	getEpsStatus := func(data []models.Endpoint) map[int64]int {
-		result := make(map[int64]int)
-		for _, v := range data {
-			result[v.ID] = len(v.Status)
-		}
-		return result
-	}
-
-	var data []models.Endpoint
-
-	if err := c.GetEndpoints().Unmarshal(&data); err != nil {
-		if EndpointWaitUntilReadyRetry > MaxRetries {
-			logger.Errorf("%d retries exceeded to get endpoints: %s", MaxRetries, err)
-			return false
-		}
-		logger.Infof("cannot get endpoints: %s", err)
-		logger.Info("sleeping 5 seconds and trying again to get endpoints")
-		EndpointWaitUntilReadyRetry++
-		Sleep(5)
-		return c.EndpointWaitUntilReady(validation...)
-	}
-	EndpointWaitUntilReadyRetry = 0 //Reset to 0
-	epsStatus := getEpsStatus(data)
-
-	body := func() bool {
-		var data []models.Endpoint
-
-		if err := c.GetEndpoints().Unmarshal(&data); err != nil {
-			logger.Infof("cannot get endpoints: %s", err)
-			return false
-		}
-		var valid, invalid int
-		for _, eps := range data {
-			if eps.State != "ready" {
-				invalid++
-			} else {
-				valid++
-			}
-			if len(validation) > 0 && validation[0] {
-				// If the endpoint's latest statest message does not contain "Policy regeneration skipped", then it must be regenerating; wait until length of status message array changes.
-				originalVal, _ := epsStatus[eps.ID]
-				if !(len(eps.Status) > 0 && eps.Status[0].Message == "Policy regeneration skipped") && len(eps.Status) <= originalVal {
-					logger.Infof("endpoint %d not regenerated", eps.ID)
-					return false
-				}
-			}
-		}
-
-		if invalid == 0 {
-			return true
-		}
-
-		logger.WithFields(log.Fields{
-			"valid":   valid,
-			"invalid": invalid,
-		}).Info("endpoints not ready")
-
-		return false
-	}
-	err := WithTimeout(body, "endpoints not ready", &TimeoutConfig{Timeout: 300})
-	if err != nil {
-		return false
-	}
-	return true
+	return c.WaitEndpointRegenerated(id)
 }
 
 // GetEndpoints returns the CmdRes resulting from executing
@@ -285,7 +305,7 @@ func (c *Cilium) SetPolicyEnforcement(status string, waitReady ...bool) *CmdRes 
 	}
 	res = c.Exec(fmt.Sprintf("config %s=%s", PolicyEnforcement, status))
 	if len(waitReady) > 0 && waitReady[0] {
-		c.EndpointWaitUntilReady(true)
+		c.WaitEndpointsReady()
 	}
 	return res
 }
