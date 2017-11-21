@@ -110,7 +110,7 @@ Vagrant.configure(2) do |config|
         vb.customize ["modifyvm", :id, "--natdnsproxy1", "on"]
 
         config.vm.box = "cilium/ubuntu-16.10"
-        config.vm.box_version = "2.0"
+        config.vm.box_version = "2.1"
         vb.memory = ENV['VM_MEMORY'].to_i
         vb.cpus = ENV['VM_CPUS'].to_i
 
@@ -124,8 +124,17 @@ Vagrant.configure(2) do |config|
         else
             # Ignore contrib/packaging/docker/stage to prevent concurrent
             # problems when using rsync on multiple VMs
+            #
+            # run rsync with options:
+            #  --links: preserve symlinks
+            #  --checksum: skip based on checksum, not mod-time & size (avoid unnecessary bazel rebuilds)
+            #  --delete: delete extraneous files from dest dirs
+            #  --force: force deletion of dirs even if not empty
+            #  --delete-excluded: also delete excluded files from dest dirs
+            #  --archive: archive mode; equals -rlptgoD (no -H,-A,-X)
+            #  -z: compress file data during the transfer
             config.vm.synced_folder '.', '/home/vagrant/go/src/github.com/cilium/cilium', type: "rsync",
-            rsync__exclude: ["contrib/packaging/docker/stage", "src"]
+                rsync__exclude: ["contrib/packaging/docker/stage", "src"], rsync__args: ["--verbose", "--archive", "--delete", "--force", "--delete-excluded", "-z", "--links", "--checksum"]
         end
     end
 
