@@ -8,6 +8,7 @@ SPHINXPROJ    = Cilium
 SOURCEDIR     = .
 BUILDDIR      = _build
 CMDREFDIR     = cmdref
+CILIUMDIR     = ../cilium
 
 # Put it first so that "make" without argument is like "make help".
 help:
@@ -37,7 +38,7 @@ render:
 cmdref:
 	# We don't know what changed so recreate the directory
 	-rm -rvf $(CMDREFDIR) && mkdir $(CMDREFDIR)
-	cilium cmdref -d $(CMDREFDIR)
+	${CILIUMDIR}/cilium cmdref -d $(CMDREFDIR)
 
 .PHONY: help Makefile check-requirements cmdref
 
