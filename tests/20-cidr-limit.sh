@@ -18,7 +18,7 @@ function cleanup() {
   cilium policy delete --all 2> /dev/null || true
   systemctl stop cilium
   wait_for_cilium_shutdown
-  cilium cleanup -f
+  log "cleanup: `cilium cleanup -f`"
   systemctl start cilium
 }
 
