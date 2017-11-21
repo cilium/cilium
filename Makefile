@@ -208,5 +208,14 @@ update-authors:
 docs-container:
 	docker build -t cilium/docs-builder -f Documentation/Dockerfile .
 
+manpages:
+	-rm -r man
+	mkdir -p man
+	cilium cmdman -d man
+
+install-manpages:
+	cp man/* /usr/local/share/man/man1/
+	mandb
+
 .PHONY: force
 force :;
