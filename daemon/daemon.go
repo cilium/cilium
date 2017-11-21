@@ -421,6 +421,7 @@ func runProg(prog string, args []string, quiet bool) error {
 
 const (
 	ciliumPostNatChain = "CILIUM_POST"
+	ciliumForwardChain = "CILIUM_FORWARD"
 	feederDescription  = "cilium-feeder:"
 )
 
@@ -523,10 +524,16 @@ var ciliumChains = []customChain{
 		hook:       "POSTROUTING",
 		feederArgs: []string{""},
 	},
+	{
+		name:       ciliumForwardChain,
+		table:      "filter",
+		hook:       "FORWARD",
+		feederArgs: []string{""},
+	},
 }
 
-func (d *Daemon) removeMasqRule() {
-	tables := []string{"nat", "mangle", "raw"}
+func (d *Daemon) removeIptablesRules() {
+	tables := []string{"nat", "mangle", "raw", "filter"}
 	for _, t := range tables {
 		removeCiliumRules(t)
 	}
@@ -536,36 +543,78 @@ func (d *Daemon) removeMasqRule() {
 	}
 }
 
-func (d *Daemon) installMasqRule() error {
+func (d *Daemon) installIptablesRules() error {
 	for _, c := range ciliumChains {
 		if err := c.add(); err != nil {
 			return fmt.Errorf("cannot add custom chain %s: %s", c.name, err)
 		}
 	}
 
-	// Masquerade all traffic from the host into the cilium_host interface
-	// if the source is not the internal IP
+	// Clear the Kubernetes masquerading mark bit to skip source PAT
+	// performed by kube-proxy for all packets destined for Cilium. Cilium
+	// installs a dedicated rule which does the source PAT to the right
+	// source IP.
 	if err := runProg("iptables", []string{
-		"-t", "nat",
-		"-A", ciliumPostNatChain,
-		"!", "-s", node.GetHostMasqueradeIPv4().String(),
+		"-A", ciliumForwardChain,
 		"-o", "cilium_host",
-		"-m", "comment", "--comment", "cilium host->cluster masquerade",
-		"-j", "SNAT", "--to-source", node.GetHostMasqueradeIPv4().String()}, false); err != nil {
+		"-m", "comment", "--comment", "cilium: clear masq bit for pkts to cilium_host",
+		"-j", "MARK", "--set-xmark", "0x0000/0x4000"}, false); err != nil {
 		return err
 	}
 
-	// Masquerade all traffic from node prefix not going to node prefix
-	// which is not going over the tunnel device
+	// kube-proxy does not change the default policy of the FORWARD chain
+	// which means that while packets to services are properly DNAT'ed,
+	// they are later dropped in the FORWARD chain. The issue has been
+	// resolved in #52569 and will be fixed in k8s >= 1.8. The following is
+	// a workaround for earlier Kubernetes versions.
+	//
+	// Accept all packets in FORWARD chain that are going to cilium_host
+	// with a destination IP in the cluster range.
 	if err := runProg("iptables", []string{
-		"-t", "nat",
-		"-A", "CILIUM_POST",
-		"-s", node.GetIPv4AllocRange().String(),
-		"!", "-d", node.GetIPv4AllocRange().String(),
-		"!", "-o", "cilium_+",
-		"-m", "comment", "--comment", "cilium masquerade non-cluster",
-		"-j", "MASQUERADE"}, false); err != nil {
+		"-A", ciliumForwardChain,
+		"-d", node.GetIPv4ClusterRange().String(),
+		"-o", "cilium_host",
+		"-m", "comment", "--comment", "cilium: any->cluster forward accept",
+		"-j", "ACCEPT"}, false); err != nil {
 		return err
+	}
+
+	// Accept all packets in the FORWARD chain that are coming from the
+	// cilium_host interface with a source IP in the cluster range.
+	if err := runProg("iptables", []string{
+		"-A", ciliumForwardChain,
+		"-i", "cilium_host",
+		"-s", node.GetIPv4ClusterRange().String(),
+		"-m", "comment", "--comment", "cilium: cluster->any forward accept",
+		"-j", "ACCEPT"}, false); err != nil {
+		return err
+	}
+
+	if masquerade {
+		// Masquerade all traffic from the host into the cilium_host interface
+		// if the source is not the internal IP
+		if err := runProg("iptables", []string{
+			"-t", "nat",
+			"-A", ciliumPostNatChain,
+			"!", "-s", node.GetHostMasqueradeIPv4().String(),
+			"-o", "cilium_host",
+			"-m", "comment", "--comment", "cilium host->cluster masquerade",
+			"-j", "SNAT", "--to-source", node.GetHostMasqueradeIPv4().String()}, false); err != nil {
+			return err
+		}
+
+		// Masquerade all traffic from node prefix not going to node prefix
+		// which is not going over the tunnel device
+		if err := runProg("iptables", []string{
+			"-t", "nat",
+			"-A", "CILIUM_POST",
+			"-s", node.GetIPv4AllocRange().String(),
+			"!", "-d", node.GetIPv4AllocRange().String(),
+			"!", "-o", "cilium_+",
+			"-m", "comment", "--comment", "cilium masquerade non-cluster",
+			"-j", "MASQUERADE"}, false); err != nil {
+			return err
+		}
 	}
 
 	for _, c := range ciliumChains {
@@ -684,11 +733,9 @@ func (d *Daemon) compileBase() error {
 
 	if !d.conf.IPv4Disabled {
 		// Always remove masquerade rule and then re-add it if required
-		d.removeMasqRule()
-		if masquerade {
-			if err := d.installMasqRule(); err != nil {
-				return err
-			}
+		d.removeIptablesRules()
+		if err := d.installIptablesRules(); err != nil {
+			return err
 		}
 	}
 
