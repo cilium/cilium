@@ -8,7 +8,7 @@ BPF_SRCFILES=$(shell find bpf/ -name *.[ch] -print)
 
 GOTEST_OPTS = -test.v -check.v
 
-all: precheck-gofmt build
+all: precheck-gofmt build cmdref-check
 
 build: $(SUBDIRS)
 
@@ -216,6 +216,9 @@ manpages:
 install-manpages:
 	cp man/* /usr/local/share/man/man1/
 	mandb
+
+cmdref-check:
+	tests/00-check-cmdref.sh
 
 .PHONY: force
 force :;
