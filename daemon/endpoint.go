@@ -325,7 +325,6 @@ func (d *Daemon) deleteEndpoint(ep *endpoint.Endpoint) int {
 
 	// Wait for existing builds to complete and prevent further builds
 	ep.BuildMutex.Lock()
-	defer ep.BuildMutex.Unlock()
 
 	// Lock out any other writers to the endpoint
 	ep.Mutex.Lock()
@@ -334,6 +333,7 @@ func (d *Daemon) deleteEndpoint(ep *endpoint.Endpoint) int {
 	// except the first return here.
 	if !ep.SetStateLocked(endpoint.StateDisconnecting, "Deleting endpoint") {
 		ep.Mutex.Unlock()
+		ep.BuildMutex.Unlock()
 		return 0
 	}
 
@@ -400,6 +400,7 @@ func (d *Daemon) deleteEndpoint(ep *endpoint.Endpoint) int {
 
 	ep.LeaveLocked(d)
 	ep.Mutex.Unlock()
+	ep.BuildMutex.Unlock()
 
 	endpointmanager.Remove(ep)
 
