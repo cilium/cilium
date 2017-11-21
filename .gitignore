@@ -43,3 +43,5 @@ outgoing
 *cscope.in.out
 *cscope.po.out
 *tags
+
+man/
