@@ -12,16 +12,25 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package logfields
+package debugdetection
 
 import (
-	"fmt"
+	"io/ioutil"
+	"os"
 
-	// Initialize logrus package with debug log level if needed
-	_ "github.com/cilium/cilium/pkg/debugdetection"
+	log "github.com/sirupsen/logrus"
+	flag "github.com/spf13/pflag"
 )
 
-// Repr formats an object with the Printf %+v formatter
-func Repr(s interface{}) string {
-	return fmt.Sprintf("%+v", s)
+func init() {
+	flags := flag.NewFlagSet("init-debug", flag.ContinueOnError)
+	flags.Usage = func() {}
+	flags.SetOutput(ioutil.Discard)
+
+	debug := flags.Bool("debug", false, "")
+	flags.Parse(os.Args)
+
+	if *debug {
+		log.SetLevel(log.DebugLevel)
+	}
 }
