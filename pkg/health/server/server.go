@@ -15,6 +15,7 @@
 package server
 
 import (
+	"sync"
 	"time"
 
 	healthModels "github.com/cilium/cilium/api/v1/health/models"
@@ -44,6 +45,7 @@ var (
 // Config stores the configuration data for a cilium-health server.
 type Config struct {
 	Debug         bool
+	Passive       bool
 	CiliumURI     string
 	ProbeInterval time.Duration
 	ProbeDeadline time.Duration
@@ -63,6 +65,7 @@ type Server struct {
 	*ciliumPkg.Client // Client to "GET /healthz" on cilium daemon
 	Config
 
+	waitgroup  sync.WaitGroup      // Used to synchronize all goroutines
 	tcpServers []*healthApi.Server // Servers for external pings
 	startTime  time.Time
 
@@ -158,52 +161,81 @@ func (s *Server) FetchStatusResponse() (*healthModels.HealthStatusResponse, erro
 	return s.GetStatusResponse(), nil
 }
 
-// Serve spins up two parallel goroutines:
-// * Prober: Periodically run pings across the cluster at a configured interval
-//   and update the server's connectivity status cache
-// * API Server: Handle API requests.
-func (s *Server) Serve() error {
+// Run services that are not considered 'Passive': Actively probing other
+// hosts and endpoints over ICMP and HTTP, and hosting a local Unix socket.
+// Blocks indefinitely, or returns any errors that occur hosting the Unix
+// socket API server.
+func (s *Server) runActiveServices() error {
 	var prober *prober
 
 	// Run it once at the start so we get some initial status
 	s.FetchStatusResponse()
 
+	s.waitgroup.Add(1)
 	go func() {
-		for {
-			nodes, err := s.getNodes()
-			if err != nil {
-				time.Sleep(time.Second)
-				continue
-			}
+		defer s.waitgroup.Done()
 
-			prober = newProber(s, nodes)
-			prober.MaxRTT = s.ProbeInterval
-			prober.OnIdle = func() {
-				s.updateCluster(prober.getNodes(), prober.getResults())
-				if nodes, err := s.getNodes(); err == nil {
-					prober.setNodes(nodes)
-				}
-			}
-			prober.RunLoop()
-
-			if <-prober.Done() {
-				if err := prober.Err(); err != nil {
-					log.WithError(err).Debug("Restarting prober")
-				}
+		nodes, _ := s.getNodes()
+		prober = newProber(s, nodes)
+		prober.MaxRTT = s.ProbeInterval
+		prober.OnIdle = func() {
+			// Fetch results and update set of nodes to probe every
+			// ProbeInterval
+			s.updateCluster(prober.getNodes(), prober.getResults())
+			if nodes, err := s.getNodes(); err == nil {
+				prober.setNodes(nodes)
 			}
 		}
+		prober.RunLoop()
 
+		if <-prober.Done() {
+			if err := prober.Err(); err != nil {
+				log.WithError(err).Debug("Received prober finish")
+			}
+		}
 	}()
-
-	for i := range s.tcpServers {
-		go s.tcpServers[i].Serve()
-	}
 
 	err := s.Server.Serve()
 	if prober != nil {
 		prober.Stop()
 	}
+
 	return err
+}
+
+// Serve spins up the following goroutines:
+// * TCP API Server: Responders to the health API "/hello" message, one per path
+//
+// Also, if "Passive" is not set in s.Config:
+// * Prober: Periodically run pings across the cluster at a configured interval
+//   and update the server's connectivity status cache.
+// * Unix API Server: Handle all health API requests over a unix socket.
+func (s *Server) Serve() (err error) {
+	for i := range s.tcpServers {
+		s.waitgroup.Add(1)
+		srv := s.tcpServers[i]
+		go func() {
+			defer s.waitgroup.Done()
+			srv.Serve()
+		}()
+	}
+
+	if !s.Config.Passive {
+		err = s.runActiveServices()
+	}
+	s.waitgroup.Wait()
+
+	return err
+}
+
+// Shutdown server and clean up resources
+func (s *Server) Shutdown() {
+	for i := range s.tcpServers {
+		s.tcpServers[i].Shutdown()
+	}
+	if !s.Config.Passive {
+		s.Server.Shutdown()
+	}
 }
 
 // newServer instantiates a new instance of the API that serves the health
@@ -251,18 +283,20 @@ func NewServer(config Config) (*Server, error) {
 		connectivity: []*healthModels.NodeStatus{},
 	}
 
-	cl, err := ciliumPkg.NewClient(config.CiliumURI)
-	if err != nil {
-		return nil, err
-	}
-
 	swaggerSpec, err := loads.Analyzed(healthApi.SwaggerJSON, "")
 	if err != nil {
 		return nil, err
 	}
 
-	server.Client = cl
-	server.Server = *server.newServer(swaggerSpec, 0)
+	if !config.Passive {
+		cl, err := ciliumPkg.NewClient(config.CiliumURI)
+		if err != nil {
+			return nil, err
+		}
+
+		server.Client = cl
+		server.Server = *server.newServer(swaggerSpec, 0)
+	}
 	for port := range PortToPaths {
 		srv := server.newServer(swaggerSpec, port)
 		server.tcpServers = append(server.tcpServers, srv)
