@@ -1,6 +1,5 @@
 #pragma once
 
-#include <linux/bpf.h>
 #include <string.h>
 #include <unistd.h>
 
@@ -11,6 +10,8 @@
 #include <sstream>
 #include <string>
 #include <vector>
+
+#include "linux/bpf.h"
 
 namespace Envoy {
 namespace Cilium {

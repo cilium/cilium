@@ -1,6 +1,5 @@
 #include "bpf.h"
 
-#include <linux/bpf.h>
 #include <string.h>
 #include <sys/resource.h>
 #include <unistd.h>

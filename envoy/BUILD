@@ -53,6 +53,9 @@ envoy_cc_library(
     hdrs = [
         "bpf.h",
         "bpf_metadata.h",
+        "linux/bpf.h",
+        "linux/bpf_common.h",
+        "linux/type_mapper.h",
         "proxymap.h",
     ],
     repository = "@envoy",
