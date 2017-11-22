@@ -246,17 +246,24 @@ func UpdateCNPStatusV1(ciliumNPClientV1 cilium_client_v1.CiliumV1Interface,
 			}).Warn("Received object of unknown type from API server, expecting v1.CiliumNetworkPolicy")
 			return
 		}
-		if serverRule.ObjectMeta.UID != rule.ObjectMeta.UID &&
-			serverRule.SpecEquals(rule) {
+		serverRuleCpy := serverRule.DeepCopy()
+		_, err = serverRuleCpy.Parse()
+		if err != nil {
+			log.WithError(err).WithField(logfields.Object, logfields.Repr(serverRuleCpy)).
+				Warn("Error parsing new CiliumNetworkPolicy rule")
+			return
+		}
+		if serverRuleCpy.ObjectMeta.UID != rule.ObjectMeta.UID &&
+			serverRuleCpy.SpecEquals(rule) {
 			// Although the policy was found this means it was deleted,
 			// and re-added with the same name.
 			scopedLog.Debug("rule changed while updating node status, stopping retry")
 			return
 		}
-		serverRule.SetPolicyStatus(nodeName, cnpns)
-		_, err = ciliumNPClientV1.CiliumNetworkPolicies(ns).Update(serverRule)
+		serverRuleCpy.SetPolicyStatus(nodeName, cnpns)
+		_, err = ciliumNPClientV1.CiliumNetworkPolicies(ns).Update(serverRuleCpy)
 		if err == nil {
-			scopedLog.WithField("status", serverRule.Status).Debug("successfully updated with status")
+			scopedLog.WithField("status", serverRuleCpy.Status).Debug("successfully updated with status")
 			return
 		}
 		loopTimer.Reset(time.Duration(n) * time.Second)
@@ -315,17 +322,24 @@ func UpdateCNPStatusV2(ciliumNPClientV2 cilium_client_v2.CiliumV2Interface,
 			}).Warn("Received object of unknown type from API server, expecting v1.CiliumNetworkPolicy")
 			return
 		}
-		if serverRule.ObjectMeta.UID != rule.ObjectMeta.UID &&
-			serverRule.SpecEquals(rule) {
+		serverRuleCpy := serverRule.DeepCopy()
+		_, err = serverRuleCpy.Parse()
+		if err != nil {
+			log.WithError(err).WithField(logfields.Object, logfields.Repr(serverRuleCpy)).
+				Warn("Error parsing new CiliumNetworkPolicy rule")
+			return
+		}
+		if serverRuleCpy.ObjectMeta.UID != rule.ObjectMeta.UID &&
+			serverRuleCpy.SpecEquals(rule) {
 			// Although the policy was found this means it was deleted,
 			// and re-added with the same name.
 			scopedLog.Debug("rule changed while updating node status, stopping retry")
 			return
 		}
-		serverRule.SetPolicyStatus(nodeName, cnpns)
-		_, err = ciliumNPClientV2.CiliumNetworkPolicies(ns).Update(serverRule)
+		serverRuleCpy.SetPolicyStatus(nodeName, cnpns)
+		_, err = ciliumNPClientV2.CiliumNetworkPolicies(ns).Update(serverRuleCpy)
 		if err == nil {
-			scopedLog.WithField("status", serverRule.Status).Debug("successfully updated with status")
+			scopedLog.WithField("status", serverRuleCpy.Status).Debug("successfully updated with status")
 			return
 		}
 		loopTimer.Reset(time.Duration(n) * time.Second)
