@@ -578,11 +578,12 @@ func createBootstrap(filePath string, name, cluster, version string, ldsName, ld
 		StaticResources: &envoy_api.Bootstrap_StaticResources{
 			Clusters: []*envoy_api.Cluster{
 				{
-					Name:           envoyClusterName,
-					Type:           envoy_api.Cluster_ORIGINAL_DST,
-					ConnectTimeout: &duration.Duration{Seconds: 1, Nanos: 0},
-					LbPolicy:       envoy_api.Cluster_ORIGINAL_DST_LB,
-					AutoHttp2:      true,
+					Name:            envoyClusterName,
+					Type:            envoy_api.Cluster_ORIGINAL_DST,
+					ConnectTimeout:  &duration.Duration{Seconds: 1, Nanos: 0},
+					CleanupInterval: &duration.Duration{Seconds: 1, Nanos: 500000000},
+					LbPolicy:        envoy_api.Cluster_ORIGINAL_DST_LB,
+					AutoHttp2:       true,
 				},
 				{
 					Name:           ldsName,
