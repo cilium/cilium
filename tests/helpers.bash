@@ -564,6 +564,7 @@ function gather_files {
     dump_cli_output_k8s "${CLI_OUT_DIR}" "${NAMESPACE}" "${CILIUM_POD_2}" || true
   fi
   sudo cp -r ${RUN}/state "${RUN_DIR}" || true
+  sudo cp ${RUN}/*.log "${RUN_DIR}" || true
   sudo cp -r ${LIB}/* "${LIB_DIR}" || true
   find "${CILIUM_DIR}" -type d -exec sudo chmod 777 {} \;
   find "${CILIUM_DIR}" -exec sudo chmod a+r {} \;
