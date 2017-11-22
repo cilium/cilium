@@ -60,6 +60,7 @@ import (
 	"github.com/go-openapi/runtime/middleware"
 	"github.com/mattn/go-shellwords"
 	log "github.com/sirupsen/logrus"
+	"github.com/spf13/viper"
 	"github.com/vishvananda/netlink"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -121,16 +122,11 @@ func (d *Daemon) UpdateProxyRedirect(e *endpoint.Endpoint, l4 *policy.L4Filter) 
 		return 0, fmt.Errorf("can't redirect, proxy disabled")
 	}
 
+	// proxyKind only has an effects on newly created redirects
 	proxyKind := proxy.ProxyKindOxy
-	if useEnvoy {
+	if viper.GetBool("envoy-proxy") {
 		proxyKind = proxy.ProxyKindEnvoy
 	}
-
-	log.WithFields(log.Fields{
-		logfields.EndpointID: e.ID,
-		logfields.L4PolicyID: e.ProxyID(l4),
-		logfields.Object:     logfields.Repr(l4),
-	}).Debugf("Adding %s redirect to endpoint", proxyKind)
 
 	r, err := d.l7Proxy.CreateOrUpdateRedirect(l4, e.ProxyID(l4), e, proxyKind)
 	if err != nil {

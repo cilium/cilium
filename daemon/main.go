@@ -323,6 +323,7 @@ func init() {
 		"enable-tracing", false, "Enable tracing while determining policy (debugging)")
 	flags.BoolVar(&useEnvoy,
 		"envoy-proxy", false, "Use Envoy for HTTP proxy")
+	viper.BindEnv("envoy-proxy", "CILIUM_USE_ENVOY")
 	flags.StringVar(&v4Prefix,
 		"ipv4-range", AutoCIDR, "Per-node IPv4 endpoint prefix, e.g. 10.16.0.0/16")
 	flags.StringVar(&v6Prefix,
