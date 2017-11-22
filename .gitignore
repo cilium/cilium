@@ -47,4 +47,3 @@ outgoing
 man/
 
 bazel-*
-pkg/envoy/api

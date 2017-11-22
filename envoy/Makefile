@@ -96,15 +96,9 @@ install-debug: force
 
 clean: force
 	echo "Bazel clean skipped, try \"make distclean\" instead."
-	-rm $(API_TARGETS) $(FILTER_TARGETS) $(CILIUM_TARGETS)
-	-rmdir $(GO_OUT)/api/filter
-	-rmdir $(GO_OUT)/api
 
 distclean: force
 	$(BAZEL) $(BAZEL_OPTS) clean $(BAZEL_BUILD_OPTS)
-	-rm $(API_TARGETS) $(FILTER_TARGETS)
-	-rmdir $(GO_OUT)/api/filter
-	-rmdir $(GO_OUT)/api
 
 check: $(CHECK_FORMAT) force
 	CLANG_FORMAT=$(CLANG_FORMAT) BUILDIFIER=$(BUILDIFIER) $(CHECK_FORMAT) --add-excluded-prefixes="./linux/" check
