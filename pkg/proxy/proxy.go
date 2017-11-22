@@ -383,23 +383,24 @@ func (p *Proxy) CreateOrUpdateRedirect(l4 *policy.L4Filter, id string, source Pr
 			id:         id,
 			source:     source,
 			listenPort: to})
-		scopedLog.WithField(logfields.Object, logfields.Repr(redir)).
-			Debug("Created new kafka proxy instance")
 	case policy.ParserTypeHTTP:
 		switch kind {
 		case ProxyKindOxy:
 			redir, err = createOxyRedirect(l4, id, source, to)
+		case ProxyKindEnvoy:
+			redir, err = createEnvoyRedirect(l4, id, source, to)
 		default:
 			return nil, fmt.Errorf("Unknown proxy kind: %s", kind)
 		}
-
-		scopedLog.WithField(logfields.Object, logfields.Repr(redir)).
-			Debug("Created new proxy instance")
+	default:
+		return nil, fmt.Errorf("Unsupported L7 parser type: %s", l4.L7Parser)
 	}
 	if err != nil {
-		scopedLog.WithError(err).Error("Unable to create proxy of kind")
+		scopedLog.WithError(err).Error("Unable to create ", l4.L7Parser, " proxy")
 		return nil, err
 	}
+	scopedLog.WithField(logfields.Object, logfields.Repr(redir)).
+		Debug("Created new ", l4.L7Parser, " proxy instance")
 
 	p.allocatedPorts[to] = redir
 	p.redirects[id] = redir

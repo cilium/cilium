@@ -121,12 +121,18 @@ func (d *Daemon) UpdateProxyRedirect(e *endpoint.Endpoint, l4 *policy.L4Filter) 
 		return 0, fmt.Errorf("can't redirect, proxy disabled")
 	}
 
+	proxyKind := proxy.ProxyKindOxy
+	if useEnvoy {
+		proxyKind = proxy.ProxyKindEnvoy
+	}
+
 	log.WithFields(log.Fields{
 		logfields.EndpointID: e.ID,
 		logfields.L4PolicyID: e.ProxyID(l4),
 		logfields.Object:     logfields.Repr(l4),
-	}).Debug("Adding redirect to endpoint")
-	r, err := d.l7Proxy.CreateOrUpdateRedirect(l4, e.ProxyID(l4), e, proxy.ProxyKindOxy)
+	}).Debugf("Adding %s redirect to endpoint", proxyKind)
+
+	r, err := d.l7Proxy.CreateOrUpdateRedirect(l4, e.ProxyID(l4), e, proxyKind)
 	if err != nil {
 		return 0, err
 	}
