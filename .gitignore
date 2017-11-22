@@ -45,3 +45,6 @@ outgoing
 *tags
 
 man/
+
+bazel-*
+pkg/envoy/api

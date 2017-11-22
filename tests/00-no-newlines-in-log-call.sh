@@ -12,6 +12,7 @@ redirect_debug_logs ${LOGS_DIR}
 set -ex
 
 if grep --include \*.go -r 'log\.' ../ | grep -v vendor \
+  | grep -v envoy \
   | grep -v contrib \
   | grep -v logging.go \
   | grep -F "\n"; then
