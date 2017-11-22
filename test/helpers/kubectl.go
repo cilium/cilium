@@ -200,6 +200,18 @@ func (kub *Kubectl) WaitforPods(namespace string, filter string, timeout time.Du
 	return true, nil
 }
 
+func (kub *Kubectl) ApplyFromManifest(manifest string) *CmdRes {
+	kub.logCxt.Debugf("applying string manifest")
+	return kub.Node.Exec(
+		fmt.Sprintf("echo '%s' | %s apply -f -", manifest, kubectl))
+}
+
+func (kub *Kubectl) DeleteFromManifest(manifest string) *CmdRes {
+	kub.logCxt.Debugf("deleting string manifest")
+	return kub.Node.Exec(
+		fmt.Sprintf("echo '%s' | %s delete -f -", manifest, kubectl))
+}
+
 // Apply applies the Kubernetes manifest located at path filepath.
 func (kub *Kubectl) Apply(filePath string) *CmdRes {
 	kub.logCxt.Debugf("applying %s", filePath)

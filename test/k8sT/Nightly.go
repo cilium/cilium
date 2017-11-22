@@ -26,7 +26,7 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-var _ = Describe("K8sNightlyTest", func() {
+var _ = Describe("NightlyK8sEpsMeasurement", func() {
 
 	var kubectl *helpers.Kubectl
 	var logger *log.Entry
@@ -62,9 +62,11 @@ var _ = Describe("K8sNightlyTest", func() {
 	endpointCount := 10
 
 	Measure(fmt.Sprintf("%d endpoint creation", endpointCount), func(b Benchmarker) {
-		demoDSPath := fmt.Sprintf("%s/scaled_deployment.yaml", kubectl.ManifestsPath())
-		kubectl.Apply(demoDSPath)
-		defer kubectl.Delete(demoDSPath)
+		manifest, err := helpers.GenerateManifestForEndpoints(endpointCount)
+		Expect(err).Should(BeNil())
+
+		kubectl.ApplyFromManifest(manifest)
+		defer kubectl.DeleteFromManifest(manifest)
 
 		waitForPodsTime := b.Time("Wait for pods", func() {
 			pods, err := kubectl.WaitforPods(helpers.DefaultNamespace, "-l zgroup=testapp", 300)
