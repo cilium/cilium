@@ -1,6 +1,7 @@
 package envoy
 
 import (
+	"os"
 	"testing"
 	"time"
 
@@ -29,6 +30,10 @@ func (t *testRedirect) Log(pblog *HttpLogEntry) {
 
 func (s *EnvoySuite) TestEnvoy(c *C) {
 	log.SetLevel(log.DebugLevel)
+
+	if os.Getenv("CILIUM_USE_ENVOY") == "" {
+		c.Skip("skipping test; CILIUM_USE_ENVOY not set")
+	}
 
 	// launch debug variant of the Envoy proxy
 	Envoy := StartEnvoy(true, 9901, "", "", 42)
