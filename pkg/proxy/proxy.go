@@ -328,15 +328,10 @@ func fillEgressDestinationInfo(info *accesslog.EndpointInfo, ipstr string) {
 // a proxy instance. If the redirect is already in place, only the rules will be
 // updated.
 func (p *Proxy) CreateOrUpdateRedirect(l4 *policy.L4Filter, id string, source ProxySource, kind string) (Redirect, error) {
-	scopedLog := log.WithFields(log.Fields{
-		fieldProxyRedirectID: id,
-		fieldProxyKind:       kind,
-	})
-
 	gcOnce.Do(func() {
 		if lf := viper.GetString("access-log"); lf != "" {
 			if err := accesslog.OpenLogfile(lf); err != nil {
-				scopedLog.WithError(err).WithField(accesslog.FieldFilePath, lf).
+				log.WithError(err).WithField(accesslog.FieldFilePath, lf).
 					Warn("Cannot open L7 access log")
 			}
 		}
@@ -349,7 +344,7 @@ func (p *Proxy) CreateOrUpdateRedirect(l4 *policy.L4Filter, id string, source Pr
 			for {
 				time.Sleep(time.Duration(10) * time.Second)
 				if deleted := GC(); deleted > 0 {
-					scopedLog.WithField("count", deleted).
+					log.WithField("count", deleted).
 						Debug("Evicted entries from proxy table")
 				}
 			}
@@ -359,15 +354,20 @@ func (p *Proxy) CreateOrUpdateRedirect(l4 *policy.L4Filter, id string, source Pr
 	p.mutex.Lock()
 	defer p.mutex.Unlock()
 
+	scopedLog := log.WithField(fieldProxyRedirectID, id)
+
 	if r, ok := p.redirects[id]; ok {
 		err := r.UpdateRules(l4)
 		if err != nil {
+			scopedLog.WithError(err).Error("Unable to update ", l4.L7Parser, " proxy")
 			return nil, err
 		}
 		scopedLog.WithField(logfields.Object, logfields.Repr(r)).
-			Debug("updated existing proxy instance")
+			Debug("updated existing ", l4.L7Parser, " proxy instance")
 		return r, nil
 	}
+
+	scopedLog = scopedLog.WithField(fieldProxyKind, kind)
 
 	to, err := p.allocatePort()
 	if err != nil {
