@@ -1419,7 +1419,7 @@ func (d *Daemon) updateCiliumNetworkPolicyV1(ciliumV1Store cache.Store,
 	}
 
 	newRuleCpy := newRules.DeepCopy()
-	_, err = newRules.Parse()
+	_, err = newRuleCpy.Parse()
 	if err != nil {
 		log.WithError(err).WithField(logfields.Object, logfields.Repr(newRuleCpy)).
 			Warn("Error parsing new CiliumNetworkPolicy rule")
@@ -1552,7 +1552,7 @@ func (d *Daemon) updateCiliumNetworkPolicyV2(ciliumV2Store cache.Store,
 	}
 
 	newRuleCpy := newRules.DeepCopy()
-	_, err = newRules.Parse()
+	_, err = newRuleCpy.Parse()
 	if err != nil {
 		log.WithError(err).WithField(logfields.Object, logfields.Repr(newRuleCpy)).
 			Warn("Error parsing new CiliumNetworkPolicy rule")
