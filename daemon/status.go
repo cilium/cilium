@@ -19,6 +19,7 @@ import (
 
 	"github.com/cilium/cilium/api/v1/models"
 	. "github.com/cilium/cilium/api/v1/server/restapi/daemon"
+	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/workloads/containerd"
@@ -78,9 +79,25 @@ func NewGetHealthzHandler(d *Daemon) GetHealthzHandler {
 	return &getHealthz{daemon: d}
 }
 
+func checkLocks(d *Daemon) {
+	// Try to acquire a couple of global locks to have the status API fail
+	// in case of a deadlock on these locks
+
+	endpointmanager.Mutex.Lock()
+	endpointmanager.Mutex.Unlock()
+
+	d.conf.ConfigPatchMutex.Lock()
+	d.conf.ConfigPatchMutex.Unlock()
+
+	d.GetCompilationLock().Lock()
+	d.GetCompilationLock().Unlock()
+}
+
 func (h *getHealthz) Handle(params GetHealthzParams) middleware.Responder {
 	d := h.daemon
 	sr := models.StatusResponse{}
+
+	checkLocks(h.daemon)
 
 	if info, err := kvstore.Client().Status(); err != nil {
 		sr.Kvstore = &models.Status{State: models.StatusStateFailure, Msg: fmt.Sprintf("Err: %s - %s", err, info)}
