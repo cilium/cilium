@@ -1,0 +1,18 @@
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: app{{.Index}}
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        id: app{{.Index}}
+        zgroup: testapp
+    spec:
+      containers:
+      - name: app-frontend
+        image: cilium/demo-client
+        command: [ "sleep" ]
+        args:
+          - "1000h"
