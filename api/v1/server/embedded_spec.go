@@ -1235,6 +1235,7 @@ func init() {
         "not-ready",
         "waiting-to-regenerate",
         "regenerating",
+        "restoring",
         "ready",
         "disconnecting",
         "disconnected"

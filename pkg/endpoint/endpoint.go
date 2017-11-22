@@ -182,6 +182,9 @@ const (
 	// StateDisconnected is used to set the endpoint is disconnected.
 	StateDisconnected = string(models.EndpointStateDisconnected)
 
+	// StateRestoring is used to set the endpoint is being restored.
+	StateRestoring = string(models.EndpointStateRestoring)
+
 	// CallsMapName specifies the base prefix for EP specific call map.
 	CallsMapName = "cilium_calls_"
 	// PolicyGlobalMapName specifies the global tail call map for EP handle_policy() lookup.
@@ -859,7 +862,7 @@ func ParseEndpoint(strEp string) (*Endpoint, error) {
 		ep.Status = NewEndpointStatus()
 	}
 
-	ep.state = StateWaitingForIdentity
+	ep.state = StateRestoring
 
 	return &ep, nil
 }
@@ -1296,6 +1299,11 @@ func (e *Endpoint) SetStateLocked(toState, reason string) bool {
 		// from the regenerating state to
 		// waiting-to-regenerate state.
 		case StateDisconnecting, StateWaitingToRegenerate:
+			goto OKState
+		}
+	case StateRestoring:
+		switch toState {
+		case StateDisconnecting, StateRestoring, StateWaitingToRegenerate:
 			goto OKState
 		}
 	}
