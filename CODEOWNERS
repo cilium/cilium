@@ -50,7 +50,6 @@ pkg/proxy/ @cilium/proxy
 # based on not yet merged PR 1580
 pkg/envoy/ @cilium/proxy
 envoy/ @cilium/proxy
-envoy-api/ @cilium/proxy
 pkg/proxy/oxyproxy.go @tgraf
 
 # Agent API

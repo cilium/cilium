@@ -60,12 +60,11 @@ func (l *HTTPLogRecord) fillInfo(r Redirect, srcIPPort, dstIPPort string, srcIde
 	fillInfo(r, &l.LogRecord, srcIPPort, dstIPPort, srcIdentity)
 }
 
-func (l *HTTPLogRecord) log(typ accesslog.FlowType, verdict accesslog.FlowVerdict, code int, info string) {
+func (l *HTTPLogRecord) logStamped(typ accesslog.FlowType, verdict accesslog.FlowVerdict, code int, info string) {
 	l.Type = typ
 	l.Verdict = verdict
 	l.HTTP.Code = code
 	l.Info = info
-	l.Timestamp = time.Now().UTC().Format(time.RFC3339Nano)
 
 	log.WithFields(log.Fields{
 		accesslog.FieldType:     l.Type,
@@ -78,4 +77,9 @@ func (l *HTTPLogRecord) log(typ accesslog.FlowType, verdict accesslog.FlowVerdic
 	}).Debug("Logging HTTP L7 flow record")
 
 	l.Log()
+}
+
+func (l *HTTPLogRecord) log(typ accesslog.FlowType, verdict accesslog.FlowVerdict, code int, info string) {
+	l.Timestamp = time.Now().UTC().Format(time.RFC3339Nano)
+	l.logStamped(typ, verdict, code, info)
 }

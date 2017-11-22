@@ -1,7 +1,7 @@
 include Makefile.defs
 
-SUBDIRS = plugins bpf cilium daemon monitor
-GOFILES ?= $(shell go list ./... | grep -v /vendor/ | grep -v /contrib/ | grep -v /test)
+SUBDIRS = envoy plugins bpf cilium daemon monitor
+GOFILES ?= $(shell go list ./... | grep -v /vendor/ | grep -v /contrib/ | grep -v /test | grep -v cilium/envoy | grep -v envoy.*api)
 GOLANGVERSION = $(shell go version 2>/dev/null | grep -Eo '(go[0-9].[0-9])')
 GOLANG_SRCFILES=$(shell for pkg in $GOFILES; do find $(pkg) -name *.go -print; done | grep -v /vendor/)
 BPF_SRCFILES=$(shell find bpf/ -name *.[ch] -print)
@@ -15,7 +15,7 @@ build: $(SUBDIRS)
 $(SUBDIRS): force
 	@ $(MAKE) -C $@ all
 
-tests: tests-common tests-consul
+tests: tests-common tests-consul tests-envoy
 
 tests-ginkgo: tests-common-ginkgo
 
@@ -31,6 +31,9 @@ tests-common-ginkgo: force
 tests-common: force
 	tests/00-fmt.sh
 	go vet $(GOFILES)
+
+tests-envoy:
+	@ $(MAKE) -C envoy tests
 
 tests-etcd:
 	@docker rm -f "cilium-etcd-test-container" 2> /dev/null || true
