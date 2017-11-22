@@ -391,7 +391,9 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir, reason string) error {
 	// it won't be regenerated.
 	// When building the initial drop policy in waiting-for-identity state
 	// the state remains unchanged
-	if e.GetStateLocked() != StateWaitingForIdentity && !e.BuilderSetStateLocked(StateRegenerating, "Regenerating Endpoint BPF: "+reason) {
+	if e.GetStateLocked() != StateWaitingForIdentity && e.GetStateLocked() != StateRestoring &&
+		!e.BuilderSetStateLocked(StateRegenerating, "Regenerating Endpoint BPF: "+reason) {
+
 		e.getLogger().WithField(logfields.EndpointState, e.state).Debug("Skipping build due to invalid state")
 		e.Mutex.Unlock()
 		return fmt.Errorf("Skipping build due to invalid state: %s", e.state)
