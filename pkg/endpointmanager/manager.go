@@ -20,6 +20,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/metrics"
 
 	log "github.com/sirupsen/logrus"
 )
@@ -156,12 +157,14 @@ func UpdateReferences(ep *endpoint.Endpoint) {
 // Insert inserts the endpoint into the global maps
 func Insert(ep *endpoint.Endpoint) {
 	Endpoints[ep.ID] = ep
+	metrics.EndpointCount.Inc()
 	updateReferences(ep)
 }
 
 // RemoveLocked is identical to Remove but with endpointmanager.Mutex already held
 func RemoveLocked(ep *endpoint.Endpoint) {
 	delete(Endpoints, ep.ID)
+	metrics.EndpointCount.Dec()
 
 	if ep.DockerID != "" {
 		delete(endpointsAux, endpoint.NewID(endpoint.ContainerIdPrefix, ep.DockerID))

@@ -26,6 +26,7 @@ import (
 	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logfields"
+	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
 
@@ -605,7 +606,19 @@ func (e *Endpoint) regeneratePolicy(owner Owner, opts models.ConfigurationMap) (
 }
 
 // Called with e.Mutex UNlocked
-func (e *Endpoint) regenerate(owner Owner, reason string) error {
+func (e *Endpoint) regenerate(owner Owner, reason string) (retErr error) {
+	metrics.EndpointCountRegenerating.Inc()
+	defer func() {
+		metrics.EndpointCountRegenerating.Dec()
+		if retErr == nil {
+			metrics.EndpointRegenerationCount.
+				WithLabelValues(metrics.LabelValueOutcomeSuccess).Inc()
+		} else {
+			metrics.EndpointRegenerationCount.
+				WithLabelValues(metrics.LabelValueOutcomeFail).Inc()
+		}
+	}()
+
 	e.BuildMutex.Lock()
 	defer e.BuildMutex.Unlock()
 
