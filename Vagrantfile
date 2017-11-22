@@ -179,7 +179,8 @@ Vagrant.configure(2) do |config|
                    privileged: true,
                    path: k8sinstall
            end
-           script = "#{ENV['CILIUM_TEMP']}/cilium-master.sh"
+           script = "#{ENV['CILIUM_TEMP']}/"
+           script += ENV['CILIUM_USE_ENVOY'] ? "cilium-master-envoy.sh" : "cilium-master.sh"
            cm.vm.provision "config-install", type: "shell", privileged: true, run: "always", path: script
            # In k8s mode cilium needs etcd in order to run which was started in
            # the first part of the script. The 2nd part will install the

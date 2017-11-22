@@ -401,7 +401,11 @@ EOF
 function create_master(){
     split_ipv4 ipv4_array "${MASTER_IPV4}"
     get_cilium_node_addr master_cilium_ipv6 "${MASTER_IPV4}"
-    output_file="${dir}/cilium-master.sh"
+    if test ${CILIUM_USE_ENVOY}; then
+	output_file="${dir}/cilium-master-envoy.sh"
+    else
+	output_file="${dir}/cilium-master.sh"
+    fi
     write_netcfg_header "${MASTER_IPV6}" "${MASTER_IPV6}" "${output_file}"
 
     if [ -n "${NWORKERS}" ]; then
