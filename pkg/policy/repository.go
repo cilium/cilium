@@ -19,6 +19,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/policy/api"
 
 	log "github.com/sirupsen/logrus"
@@ -279,6 +280,8 @@ func (p *Repository) Add(r api.Rule) (uint64, error) {
 
 	p.rules = append(p.rules, realRule)
 	p.revision++
+	metrics.PolicyCount.Inc()
+	metrics.PolicyRevision.Inc()
 
 	return p.revision, nil
 }
@@ -297,6 +300,8 @@ func (p *Repository) AddListLocked(rules api.Rules) (uint64, error) {
 
 	p.rules = append(p.rules, newList...)
 	p.revision++
+	metrics.PolicyCount.Add(float64(len(newList)))
+	metrics.PolicyRevision.Inc()
 
 	return p.revision, nil
 }
@@ -325,6 +330,8 @@ func (p *Repository) DeleteByLabelsLocked(labels labels.LabelArray) (uint64, int
 	if deleted > 0 {
 		p.revision++
 		p.rules = new
+		metrics.PolicyCount.Sub(float64(deleted))
+		metrics.PolicyRevision.Inc()
 	}
 
 	return p.revision, deleted
@@ -408,6 +415,7 @@ func (p *Repository) TranslateRules(translator Translator) error {
 
 // BumpRevision allows forcing policy regeneration
 func (p *Repository) BumpRevision() {
+	metrics.PolicyRevision.Inc()
 	p.Mutex.Lock()
 	defer p.Mutex.Unlock()
 	p.revision++

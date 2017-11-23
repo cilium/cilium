@@ -29,6 +29,7 @@ import (
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logfields"
 	"github.com/cilium/cilium/pkg/maps/policymap"
+	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
 
@@ -216,6 +217,7 @@ func (d *Daemon) policyAdd(rules api.Rules, opts *AddOptions) (uint64, error) {
 
 	rev, err := d.policy.AddListLocked(rules)
 	if err != nil {
+		metrics.PolicyImportErrors.Inc()
 		// Restore old rules
 		if len(oldRules) > 0 {
 			if rev, err2 := d.policy.AddListLocked(oldRules); err2 != nil {

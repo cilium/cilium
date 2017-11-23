@@ -69,6 +69,29 @@ var (
 		Help:      "Count of all endpoint regenerations that have completed, tagged by outcome",
 	},
 		[]string{"outcome"})
+
+	// Policy
+
+	// PolicyCount is the number of policies loaded into the agent
+	PolicyCount = prometheus.NewGauge(prometheus.GaugeOpts{
+		Namespace: Namespace,
+		Name:      "policy_count",
+		Help:      "Number of policies currently loaded",
+	})
+
+	// PolicyRevision is the current policy revision number for this agent
+	PolicyRevision = prometheus.NewGauge(prometheus.GaugeOpts{
+		Namespace: Namespace,
+		Name:      "policy_max_revision",
+		Help:      "Highest policy revision number in the agent",
+	})
+
+	// PolicyImportErrors is a count of failed policy imports
+	PolicyImportErrors = prometheus.NewCounter(prometheus.CounterOpts{
+		Namespace: Namespace,
+		Name:      "policy_import_errors",
+		Help:      "Number of times a policy import has failed",
+	})
 )
 
 func init() {
@@ -79,6 +102,10 @@ func init() {
 	registry.MustRegister(EndpointCount)
 	registry.MustRegister(EndpointCountRegenerating)
 	registry.MustRegister(EndpointRegenerationCount)
+
+	registry.MustRegister(PolicyCount)
+	registry.MustRegister(PolicyRevision)
+	registry.MustRegister(PolicyImportErrors)
 }
 
 // Enable begins serving prometheus metrics on the address passed in. Addresses
