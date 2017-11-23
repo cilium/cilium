@@ -10,6 +10,7 @@ WORKDIR /go/src/github.com/cilium/cilium
 ARG LOCKDEBUG
 ARG V
 ARG LIBNETWORK_PLUGIN
+ARG RACE
 COPY --from=cilium-envoy / /
 COPY plugins/cilium-cni/cni-install.sh /cni-install.sh
 COPY plugins/cilium-cni/cni-uninstall.sh /cni-uninstall.sh
@@ -25,7 +26,7 @@ COPY ./proxylib ./proxylib
 COPY ./Makefile* ./
 RUN for i in proxylib envoy plugins/cilium-cni bpf cilium daemon cilium-health bugtool; \
      do LOCKDEBUG=$LOCKDEBUG PKG_BUILD=1 V=$V LIBNETWORK_PLUGIN=$LIBNETWORK_PLUGIN \
-            SKIP_DOCS=true DESTDIR= \
+            SKIP_DOCS=true DESTDIR= RACE=$RACE \
             make -C $i install; done
 RUN groupadd -f cilium \
     && echo ". /etc/profile.d/bash_completion.sh" >> /etc/bash.bashrc

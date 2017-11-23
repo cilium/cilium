@@ -8,7 +8,8 @@ docker-cilium-image-for-developers:
 	# a dedicated dockerignore file per Dockerfile.
 	$(QUIET)DOCKER_BUILDKIT=1 $(CONTAINER_ENGINE) build \
 		$(DOCKER_FLAGS) \
-		--build-arg LOCKDEBUG=\
+		--build-arg LOCKDEBUG=${RACE}\
+		--build-arg RACE=${RACE}\
 		--build-arg V=\
 		--build-arg LIBNETWORK_PLUGIN=\
 		-t $(DOCKER_DEV_ACCOUNT)/cilium-dev:latest . -f ./cilium-dev.Dockerfile
@@ -26,6 +27,7 @@ docker-cilium-image: GIT_VERSION $(BUILD_DIR)/Dockerfile build-context-update
 		$(DOCKER_FLAGS) \
 		--build-arg NOSTRIP=${NOSTRIP} \
 		--build-arg LOCKDEBUG=${LOCKDEBUG} \
+		--build-arg RACE=${RACE}\
 		--build-arg V=${V} \
 		--build-arg LIBNETWORK_PLUGIN=${LIBNETWORK_PLUGIN} \
 		--build-arg CILIUM_SHA=$(firstword $(GIT_VERSION)) \
@@ -47,6 +49,7 @@ dev-docker-image: GIT_VERSION $(BUILD_DIR)/Dockerfile build-context-update
 		$(DOCKER_FLAGS) \
 		--build-arg NOSTRIP=${NOSTRIP} \
 		--build-arg LOCKDEBUG=${LOCKDEBUG} \
+		--build-arg RACE=${RACE}\
 		--build-arg V=${V} \
 		--build-arg CILIUM_SHA=$(firstword $(GIT_VERSION)) \
 		--build-arg LIBNETWORK_PLUGIN=${LIBNETWORK_PLUGIN} \
@@ -69,8 +72,10 @@ docker-cilium-dev-manifest:
 docker-opera%-image: GIT_VERSION $(BUILD_DIR)/cilium-opera%.Dockerfile build-context-update
 	$(QUIET)$(CONTAINER_ENGINE) build \
 		$(DOCKER_FLAGS) \
+		--build-arg BASE_IMAGE=${BASE_IMAGE} \
 		--build-arg NOSTRIP=${NOSTRIP} \
 		--build-arg LOCKDEBUG=${LOCKDEBUG} \
+		--build-arg RACE=${RACE}\
 		--build-arg CILIUM_SHA=$(firstword $(GIT_VERSION)) \
 		-f $(BUILD_DIR)/cilium-opera$*.Dockerfile \
 		-t cilium/opera$*$(UNSTRIPPED):$(DOCKER_IMAGE_TAG) $(DOCKER_BUILD_DIR)
@@ -90,6 +95,7 @@ docker-plugin-image: GIT_VERSION $(BUILD_DIR)/cilium-docker-plugin.Dockerfile bu
 		$(DOCKER_FLAGS) \
 		--build-arg NOSTRIP=${NOSTRIP} \
 		--build-arg LOCKDEBUG=${LOCKDEBUG} \
+		--build-arg RACE=${RACE}\
 		--build-arg CILIUM_SHA=$(firstword $(GIT_VERSION)) \
 		-f $(BUILD_DIR)/cilium-docker-plugin.Dockerfile \
 		-t cilium/docker-plugin$(UNSTRIPPED):$(DOCKER_IMAGE_TAG) $(DOCKER_BUILD_DIR)
@@ -124,8 +130,10 @@ docker-cilium-builder-manifest:
 docker-hubble-relay-image: $(BUILD_DIR)/hubble-relay.Dockerfile build-context-update
 	$(QUIET)$(CONTAINER_ENGINE) build \
 		$(DOCKER_FLAGS) \
+		--build-arg BASE_IMAGE=${BASE_IMAGE} \
 		--build-arg NOSTRIP=${NOSTRIP} \
 		--build-arg LOCKDEBUG=${LOCKDEBUG} \
+		--build-arg RACE=${RACE}\
 		--build-arg CILIUM_SHA=$(firstword $(GIT_VERSION)) \
 		-f $(BUILD_DIR)/hubble-relay.Dockerfile \
 		-t cilium/hubble-relay$(UNSTRIPPED):$(DOCKER_IMAGE_TAG) $(DOCKER_BUILD_DIR)
