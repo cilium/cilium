@@ -34,6 +34,7 @@ import (
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logfields"
 	"github.com/cilium/cilium/pkg/node"
+	"github.com/cilium/cilium/pkg/serializer"
 
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
@@ -242,15 +243,44 @@ func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 		return fmt.Errorf("Unable to create cilium network policy client: %s", err)
 	}
 
+	serKNPs := serializer.NewFunctionQueue(20)
+	serSvcs := serializer.NewFunctionQueue(20)
+	serEps := serializer.NewFunctionQueue(20)
+	serCNPs := serializer.NewFunctionQueue(20)
+	serNodes := serializer.NewFunctionQueue(20)
+
 	_, policyControllerDeprecated := cache.NewInformer(
 		cache.NewListWatchFromClient(k8s.Client().ExtensionsV1beta1().RESTClient(),
 			"networkpolicies", v1.NamespaceAll, fields.Everything()),
 		&v1beta1.NetworkPolicy{},
 		reSyncPeriod,
 		cache.ResourceEventHandlerFuncs{
-			AddFunc:    d.addK8sNetworkPolicyV1beta1,
-			UpdateFunc: d.updateK8sNetworkPolicyV1beta1,
-			DeleteFunc: d.deleteK8sNetworkPolicyV1beta1,
+			AddFunc: func(obj interface{}) {
+				if k8sNP := copyObjToV1beta1NetworkPolicy(obj); k8sNP != nil {
+					serKNPs.Enqueue(func() error {
+						d.addK8sNetworkPolicyV1beta1(k8sNP)
+						return nil
+					}, serializer.NoRetry)
+				}
+			},
+			UpdateFunc: func(oldObj, newObj interface{}) {
+				if oldK8sNP := copyObjToV1beta1NetworkPolicy(oldObj); oldK8sNP != nil {
+					if newK8sNP := copyObjToV1beta1NetworkPolicy(newObj); newK8sNP != nil {
+						serKNPs.Enqueue(func() error {
+							d.updateK8sNetworkPolicyV1beta1(oldK8sNP, newK8sNP)
+							return nil
+						}, serializer.NoRetry)
+					}
+				}
+			},
+			DeleteFunc: func(obj interface{}) {
+				if k8sNP := copyObjToV1beta1NetworkPolicy(obj); k8sNP != nil {
+					serKNPs.Enqueue(func() error {
+						d.deleteK8sNetworkPolicyV1beta1(k8sNP)
+						return nil
+					}, serializer.NoRetry)
+				}
+			},
 		},
 	)
 	go policyControllerDeprecated.Run(wait.NeverStop)
@@ -262,9 +292,32 @@ func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 		&networkingv1.NetworkPolicy{},
 		reSyncPeriod,
 		cache.ResourceEventHandlerFuncs{
-			AddFunc:    d.addK8sNetworkPolicyV1,
-			UpdateFunc: d.updateK8sNetworkPolicyV1,
-			DeleteFunc: d.deleteK8sNetworkPolicyV1,
+			AddFunc: func(obj interface{}) {
+				if k8sNP := copyObjToV1NetworkPolicy(obj); k8sNP != nil {
+					serKNPs.Enqueue(func() error {
+						d.addK8sNetworkPolicyV1(k8sNP)
+						return nil
+					}, serializer.NoRetry)
+				}
+			},
+			UpdateFunc: func(oldObj, newObj interface{}) {
+				if oldK8sNP := copyObjToV1NetworkPolicy(oldObj); oldK8sNP != nil {
+					if newK8sNP := copyObjToV1NetworkPolicy(newObj); newK8sNP != nil {
+						serKNPs.Enqueue(func() error {
+							d.updateK8sNetworkPolicyV1(oldK8sNP, newK8sNP)
+							return nil
+						}, serializer.NoRetry)
+					}
+				}
+			},
+			DeleteFunc: func(obj interface{}) {
+				if k8sNP := copyObjToV1NetworkPolicy(obj); k8sNP != nil {
+					serKNPs.Enqueue(func() error {
+						d.deleteK8sNetworkPolicyV1(k8sNP)
+						return nil
+					}, serializer.NoRetry)
+				}
+			},
 		},
 	)
 	go policyController.Run(stopPolicyController)
@@ -284,9 +337,32 @@ func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 		&v1.Service{},
 		reSyncPeriod,
 		cache.ResourceEventHandlerFuncs{
-			AddFunc:    d.addK8sServiceV1,
-			UpdateFunc: d.updateK8sServiceV1,
-			DeleteFunc: d.deleteK8sServiceV1,
+			AddFunc: func(obj interface{}) {
+				if svc := copyObjToV1Services(obj); svc != nil {
+					serSvcs.Enqueue(func() error {
+						d.addK8sServiceV1(svc)
+						return nil
+					}, serializer.NoRetry)
+				}
+			},
+			UpdateFunc: func(oldObj, newObj interface{}) {
+				if oldK8sSvc := copyObjToV1Services(oldObj); oldK8sSvc != nil {
+					if newK8sSvc := copyObjToV1Services(newObj); newK8sSvc != nil {
+						serSvcs.Enqueue(func() error {
+							d.updateK8sServiceV1(oldK8sSvc, newK8sSvc)
+							return nil
+						}, serializer.NoRetry)
+					}
+				}
+			},
+			DeleteFunc: func(obj interface{}) {
+				if svc := copyObjToV1Services(obj); svc != nil {
+					serSvcs.Enqueue(func() error {
+						d.deleteK8sServiceV1(svc)
+						return nil
+					}, serializer.NoRetry)
+				}
+			},
 		},
 	)
 	go svcController.Run(wait.NeverStop)
@@ -298,9 +374,32 @@ func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 		&v1.Endpoints{},
 		reSyncPeriod,
 		cache.ResourceEventHandlerFuncs{
-			AddFunc:    d.addK8sEndpointV1,
-			UpdateFunc: d.updateK8sEndpointV1,
-			DeleteFunc: d.deleteK8sEndpointV1,
+			AddFunc: func(obj interface{}) {
+				if k8sEP := copyObjToV1Endpoints(obj); k8sEP != nil {
+					serEps.Enqueue(func() error {
+						d.addK8sEndpointV1(k8sEP)
+						return nil
+					}, serializer.NoRetry)
+				}
+			},
+			UpdateFunc: func(oldObj, newObj interface{}) {
+				if oldK8sEP := copyObjToV1Endpoints(oldObj); oldK8sEP != nil {
+					if newK8sEP := copyObjToV1Endpoints(newObj); newK8sEP != nil {
+						serEps.Enqueue(func() error {
+							d.updateK8sEndpointV1(oldK8sEP, newK8sEP)
+							return nil
+						}, serializer.NoRetry)
+					}
+				}
+			},
+			DeleteFunc: func(obj interface{}) {
+				if k8sEP := copyObjToV1Endpoints(obj); k8sEP != nil {
+					serEps.Enqueue(func() error {
+						d.deleteK8sEndpointV1(k8sEP)
+						return nil
+					}, serializer.NoRetry)
+				}
+			},
 		},
 	)
 	go endpointController.Run(wait.NeverStop)
@@ -312,9 +411,32 @@ func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 		&v1beta1.Ingress{},
 		reSyncPeriod,
 		cache.ResourceEventHandlerFuncs{
-			AddFunc:    d.addIngressV1beta1,
-			UpdateFunc: d.updateIngressV1beta1,
-			DeleteFunc: d.deleteIngressV1beta1,
+			AddFunc: func(obj interface{}) {
+				if ing := copyObjToV1beta1Ingress(obj); ing != nil {
+					serEps.Enqueue(func() error {
+						d.addIngressV1beta1(ing)
+						return nil
+					}, serializer.NoRetry)
+				}
+			},
+			UpdateFunc: func(oldObj, newObj interface{}) {
+				if oldIng := copyObjToV1beta1Ingress(oldObj); oldIng != nil {
+					if newIng := copyObjToV1beta1Ingress(newObj); newIng != nil {
+						serEps.Enqueue(func() error {
+							d.updateIngressV1beta1(oldIng, newIng)
+							return nil
+						}, serializer.NoRetry)
+					}
+				}
+			},
+			DeleteFunc: func(obj interface{}) {
+				if ing := copyObjToV1beta1Ingress(obj); ing != nil {
+					serEps.Enqueue(func() error {
+						d.deleteIngressV1beta1(ing)
+						return nil
+					}, serializer.NoRetry)
+				}
+			},
 		},
 	)
 	go ingressController.Run(wait.NeverStop)
@@ -328,32 +450,64 @@ func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 		cnpStore := ciliumV1Controller.GetStore()
 		ciliumV1Controller.AddEventHandler(cache.ResourceEventHandlerFuncs{
 			AddFunc: func(obj interface{}) {
-				d.addCiliumNetworkPolicyV1(cnpStore, obj)
+				if cnp := copyObjToV1CNP(obj); cnp != nil {
+					serCNPs.Enqueue(func() error {
+						d.addCiliumNetworkPolicyV1(cnpStore, cnp)
+						return nil
+					}, serializer.NoRetry)
+				}
 			},
 			UpdateFunc: func(oldObj, newObj interface{}) {
-				d.updateCiliumNetworkPolicyV1(cnpStore, oldObj, newObj)
+				if oldCNP := copyObjToV1CNP(oldObj); oldCNP != nil {
+					if newCNP := copyObjToV1CNP(newObj); newCNP != nil {
+						serCNPs.Enqueue(func() error {
+							d.updateCiliumNetworkPolicyV1(cnpStore, oldCNP, newCNP)
+							return nil
+						}, serializer.NoRetry)
+					}
+				}
 			},
 			DeleteFunc: func(obj interface{}) {
-				d.deleteCiliumNetworkPolicyV1(obj)
+				if cnp := copyObjToV1CNP(obj); cnp != nil {
+					serCNPs.Enqueue(func() error {
+						d.deleteCiliumNetworkPolicyV1(cnp)
+						return nil
+					}, serializer.NoRetry)
+				}
 			},
 		})
 
 	default:
 		ciliumV2Controller := si.Cilium().V2().CiliumNetworkPolicies().Informer()
 		cnpStore := ciliumV2Controller.GetStore()
-		cnpHandler := cache.ResourceEventHandlerFuncs{
+		ciliumV2Controller.AddEventHandler(cache.ResourceEventHandlerFuncs{
 			AddFunc: func(obj interface{}) {
-				d.addCiliumNetworkPolicyV2(cnpStore, obj)
+				if cnp := copyObjToV2CNP(obj); cnp != nil {
+					serCNPs.Enqueue(func() error {
+						d.addCiliumNetworkPolicyV2(cnpStore, cnp)
+						return nil
+					}, serializer.NoRetry)
+				}
 			},
 			UpdateFunc: func(oldObj, newObj interface{}) {
-				d.updateCiliumNetworkPolicyV2(cnpStore, oldObj, newObj)
+				if oldCNP := copyObjToV2CNP(oldObj); oldCNP != nil {
+					if newCNP := copyObjToV2CNP(newObj); newCNP != nil {
+						serCNPs.Enqueue(func() error {
+							d.updateCiliumNetworkPolicyV2(cnpStore, oldCNP, newCNP)
+							return nil
+						}, serializer.NoRetry)
+					}
+				}
 			},
 			DeleteFunc: func(obj interface{}) {
-				d.deleteCiliumNetworkPolicyV2(obj)
+				if cnp := copyObjToV2CNP(obj); cnp != nil {
+					serCNPs.Enqueue(func() error {
+						d.deleteCiliumNetworkPolicyV2(cnp)
+						return nil
+					}, serializer.NoRetry)
+				}
 			},
-		}
-
-		ciliumV2Controller.AddEventHandler(cnpHandler)
+		})
 	}
 
 	si.Start(wait.NeverStop)
@@ -364,9 +518,32 @@ func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 		&v1.Node{},
 		reSyncPeriod,
 		cache.ResourceEventHandlerFuncs{
-			AddFunc:    d.addK8sNodeV1,
-			UpdateFunc: d.updateK8sNodeV1,
-			DeleteFunc: d.deleteK8sNodeV1,
+			AddFunc: func(obj interface{}) {
+				if k8sNode := copyObjToV1Node(obj); k8sNode != nil {
+					serNodes.Enqueue(func() error {
+						d.addK8sNodeV1(k8sNode)
+						return nil
+					}, serializer.NoRetry)
+				}
+			},
+			UpdateFunc: func(oldObj, newObj interface{}) {
+				if oldK8sNode := copyObjToV1Node(oldObj); oldK8sNode != nil {
+					if newK8sNode := copyObjToV1Node(newObj); newK8sNode != nil {
+						serNodes.Enqueue(func() error {
+							d.updateK8sNodeV1(oldK8sNode, newK8sNode)
+							return nil
+						}, serializer.NoRetry)
+					}
+				}
+			},
+			DeleteFunc: func(obj interface{}) {
+				if k8sNode := copyObjToV1Node(obj); k8sNode != nil {
+					serNodes.Enqueue(func() error {
+						d.deleteK8sNodeV1(k8sNode)
+						return nil
+					}, serializer.NoRetry)
+				}
+			},
 		},
 	)
 	go nodesController.Run(wait.NeverStop)
@@ -375,16 +552,87 @@ func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 	return nil
 }
 
-func (d *Daemon) addK8sNetworkPolicyV1(obj interface{}) {
-	// We don't need to deepcopy the object since we are creating a Cilium
-	// Network Policy rule with ParseNetworkPolicy below.
+func copyObjToV1NetworkPolicy(obj interface{}) *networkingv1.NetworkPolicy {
 	k8sNP, ok := obj.(*networkingv1.NetworkPolicy)
 	if !ok {
 		log.WithField(logfields.Object, logfields.Repr(obj)).
-			Warn("Ignoring invalid k8s NetworkPolicy addition")
-		return
+			Warn("Ignoring invalid k8s v1 NetworkPolicy")
+		return nil
 	}
+	return k8sNP.DeepCopy()
+}
 
+func copyObjToV1beta1NetworkPolicy(obj interface{}) *v1beta1.NetworkPolicy {
+	k8sNP, ok := obj.(*v1beta1.NetworkPolicy)
+	if !ok {
+		log.WithField(logfields.Object, logfields.Repr(obj)).
+			Warn("Ignoring invalid k8s v1beta1 NetworkPolicy")
+		return nil
+	}
+	return k8sNP.DeepCopy()
+}
+
+func copyObjToV1Services(obj interface{}) *v1.Service {
+	svc, ok := obj.(*v1.Service)
+	if !ok {
+		log.WithField(logfields.Object, logfields.Repr(obj)).
+			Warn("Ignoring invalid k8s v1 Service")
+		return nil
+	}
+	return svc.DeepCopy()
+}
+
+func copyObjToV1Endpoints(obj interface{}) *v1.Endpoints {
+	ep, ok := obj.(*v1.Endpoints)
+	if !ok {
+		log.WithField(logfields.Object, logfields.Repr(obj)).
+			Warn("Ignoring invalid k8s v1 Endpoints")
+		return nil
+	}
+	return ep.DeepCopy()
+}
+
+func copyObjToV1beta1Ingress(obj interface{}) *v1beta1.Ingress {
+	ing, ok := obj.(*v1beta1.Ingress)
+	if !ok {
+		log.WithField(logfields.Object, logfields.Repr(obj)).
+			Warn("Ignoring invalid k8s v1beta1 Ingress")
+		return nil
+	}
+	return ing.DeepCopy()
+}
+
+func copyObjToV1CNP(obj interface{}) *cilium_v1.CiliumNetworkPolicy {
+	cnp, ok := obj.(*cilium_v1.CiliumNetworkPolicy)
+	if !ok {
+		log.WithField(logfields.Object, logfields.Repr(obj)).
+			Warn("Ignoring invalid k8s v1 CiliumNetworkPolicy")
+		return nil
+	}
+	return cnp.DeepCopy()
+}
+
+func copyObjToV2CNP(obj interface{}) *cilium_v2.CiliumNetworkPolicy {
+	cnp, ok := obj.(*cilium_v2.CiliumNetworkPolicy)
+	if !ok {
+		log.WithField(logfields.Object, logfields.Repr(obj)).
+			Warn("Ignoring invalid k8s v2 CiliumNetworkPolicy")
+		return nil
+	}
+	return cnp.DeepCopy()
+}
+
+func copyObjToV1Node(obj interface{}) *v1.Node {
+	node, ok := obj.(*v1.Node)
+	if !ok {
+		log.WithField(logfields.Object, logfields.Repr(obj)).
+			Warn("Ignoring invalid k8s v1 Node")
+		return nil
+	}
+	return node.DeepCopy()
+}
+
+func (d *Daemon) addK8sNetworkPolicyV1(k8sNP *networkingv1.NetworkPolicy) {
 	scopedLog := log.WithField(logfields.K8sAPIVersion, k8sNP.TypeMeta.APIVersion)
 	rules, err := k8s.ParseNetworkPolicy(k8sNP)
 	if err != nil {
@@ -406,21 +654,7 @@ func (d *Daemon) addK8sNetworkPolicyV1(obj interface{}) {
 	scopedLog.Info("NetworkPolicy successfully added")
 }
 
-func (d *Daemon) updateK8sNetworkPolicyV1(oldObj interface{}, newObj interface{}) {
-	// We don't need to deepcopy the object since we are creating a Cilium
-	// Network Policy rule with ParseNetworkPolicy below.
-	oldk8sNP, ok := oldObj.(*networkingv1.NetworkPolicy)
-	if !ok {
-		log.WithField(logfields.Object+".old", logfields.Repr(oldObj)).
-			Warn("Ignoring invalid k8s NetworkPolicy modification")
-		return
-	}
-	newk8sNP, ok := newObj.(*networkingv1.NetworkPolicy)
-	if !ok {
-		log.WithField(logfields.Object+".new", logfields.Repr(newk8sNP)).
-			Warn("Ignoring invalid k8s NetworkPolicy modification")
-		return
-	}
+func (d *Daemon) updateK8sNetworkPolicyV1(oldk8sNP, newk8sNP *networkingv1.NetworkPolicy) {
 	log.WithFields(log.Fields{
 		logfields.K8sAPIVersion:                 oldk8sNP.TypeMeta.APIVersion,
 		logfields.K8sNetworkPolicyName + ".old": oldk8sNP.ObjectMeta.Name,
@@ -429,19 +663,10 @@ func (d *Daemon) updateK8sNetworkPolicyV1(oldObj interface{}, newObj interface{}
 		logfields.K8sNamespace + ".new":         newk8sNP.ObjectMeta.Namespace,
 	}).Debug("Received policy update")
 
-	d.addK8sNetworkPolicyV1(newObj)
+	d.addK8sNetworkPolicyV1(newk8sNP)
 }
 
-func (d *Daemon) deleteK8sNetworkPolicyV1(obj interface{}) {
-	// We don't need to deepcopy the object since we are creating a Cilium
-	// Network Policy rule with ParseNetworkPolicy below.
-	k8sNP, ok := obj.(*networkingv1.NetworkPolicy)
-	if !ok {
-		log.WithField(logfields.Object, logfields.Repr(obj)).
-			Warn("Ignoring invalid k8s NetworkPolicy deletion")
-		return
-	}
-
+func (d *Daemon) deleteK8sNetworkPolicyV1(k8sNP *networkingv1.NetworkPolicy) {
 	labels := labels.ParseSelectLabelArray(k8s.ExtractPolicyName(k8sNP))
 
 	scopedLog := log.WithFields(log.Fields{
@@ -459,19 +684,11 @@ func (d *Daemon) deleteK8sNetworkPolicyV1(obj interface{}) {
 
 // addK8sNetworkPolicyV1beta1
 // FIXME remove when we drop support to k8s Network Policy extensions/v1beta1
-func (d *Daemon) addK8sNetworkPolicyV1beta1(obj interface{}) {
-	// We don't need to deepcopy the object since we are creating a Cilium
-	// Network Policy rule with ParseNetworkPolicy below.
-	k8sNP, ok := obj.(*v1beta1.NetworkPolicy)
-	if !ok {
-		log.WithField(logfields.Object, logfields.Repr(obj)).
-			Warn("Ignoring invalid k8s v1beta1 NetworkPolicy addition")
-		return
-	}
+func (d *Daemon) addK8sNetworkPolicyV1beta1(k8sNP *v1beta1.NetworkPolicy) {
 	scopedLog := log.WithField(logfields.K8sAPIVersion, k8sNP.TypeMeta.APIVersion)
 	rules, err := k8s.ParseNetworkPolicyDeprecated(k8sNP)
 	if err != nil {
-		scopedLog.WithError(err).WithField(logfields.Object, logfields.Repr(obj)).Error("Error while parsing k8s NetworkPolicy")
+		scopedLog.WithError(err).WithField(logfields.Object, logfields.Repr(k8sNP)).Error("Error while parsing k8s NetworkPolicy")
 		return
 	}
 
@@ -488,21 +705,7 @@ func (d *Daemon) addK8sNetworkPolicyV1beta1(obj interface{}) {
 
 // updateK8sNetworkPolicyV1beta1
 // FIXME remove when we drop support to k8s Network Policy extensions/v1beta1
-func (d *Daemon) updateK8sNetworkPolicyV1beta1(oldObj interface{}, newObj interface{}) {
-	// We don't need to deepcopy the object since we are creating a Cilium
-	// Network Policy rule with ParseNetworkPolicy below.
-	oldk8sNP, ok := oldObj.(*v1beta1.NetworkPolicy)
-	if !ok {
-		log.WithField(logfields.Object+".old", logfields.Repr(oldObj)).
-			Warn("Ignoring invalid k8s v1beta1 NetworkPolicy modification")
-		return
-	}
-	newk8sNP, ok := newObj.(*v1beta1.NetworkPolicy)
-	if !ok {
-		log.WithField(logfields.Object+".new", logfields.Repr(newObj)).
-			Warn("Ignoring invalid k8s v1beta1 NetworkPolicy modification")
-		return
-	}
+func (d *Daemon) updateK8sNetworkPolicyV1beta1(oldk8sNP, newk8sNP *v1beta1.NetworkPolicy) {
 	log.WithFields(log.Fields{
 		logfields.K8sAPIVersion:                 oldk8sNP.TypeMeta.APIVersion,
 		logfields.K8sNetworkPolicyName + ".old": oldk8sNP.ObjectMeta.Name,
@@ -511,21 +714,12 @@ func (d *Daemon) updateK8sNetworkPolicyV1beta1(oldObj interface{}, newObj interf
 		logfields.K8sNamespace + ".new":         newk8sNP.ObjectMeta.Namespace,
 	}).Debug("Received policy update")
 
-	d.addK8sNetworkPolicyV1beta1(newObj)
+	d.addK8sNetworkPolicyV1beta1(newk8sNP)
 }
 
 // deleteK8sNetworkPolicyV1beta1
 // FIXME remove when we drop support to k8s Network Policy extensions/v1beta1
-func (d *Daemon) deleteK8sNetworkPolicyV1beta1(obj interface{}) {
-	// We don't need to deepcopy the object since we are creating a Cilium
-	// Network Policy rule with ParseNetworkPolicy below.
-	k8sNP, ok := obj.(*v1beta1.NetworkPolicy)
-	if !ok {
-		log.WithField(logfields.Object, logfields.Repr(obj)).
-			Warn("Ignoring invalid k8s v1beta1 NetworkPolicy deletion")
-		return
-	}
-
+func (d *Daemon) deleteK8sNetworkPolicyV1beta1(k8sNP *v1beta1.NetworkPolicy) {
 	labels := labels.ParseSelectLabelArray(k8s.ExtractPolicyNameDeprecated(k8sNP))
 
 	scopedLog := log.WithFields(log.Fields{
@@ -542,16 +736,7 @@ func (d *Daemon) deleteK8sNetworkPolicyV1beta1(obj interface{}) {
 	}
 }
 
-func (d *Daemon) addK8sServiceV1(obj interface{}) {
-	// We don't need to deepcopy the object since we are creating a
-	// types.K8sServiceInfo object with NewK8sServiceInfo below.
-	svc, ok := obj.(*v1.Service)
-	if !ok {
-		log.WithField(logfields.Object, logfields.Repr(obj)).
-			Warn("Ignoring invalid k8s Service addition")
-		return
-	}
-
+func (d *Daemon) addK8sServiceV1(svc *v1.Service) {
 	scopedLog := log.WithFields(log.Fields{
 		logfields.K8sSvcName:    svc.ObjectMeta.Name,
 		logfields.K8sNamespace:  svc.ObjectMeta.Namespace,
@@ -611,21 +796,7 @@ func (d *Daemon) addK8sServiceV1(obj interface{}) {
 	d.syncLB(&svcns, nil, nil)
 }
 
-func (d *Daemon) updateK8sServiceV1(oldObj interface{}, newObj interface{}) {
-	// We don't need to deepcopy the object since we d.addK8sServiceV1 will do
-	// that.
-	oldSvc, ok := oldObj.(*v1.Service)
-	if !ok {
-		log.WithField(logfields.Object+".old", logfields.Repr(oldObj)).
-			Warn("Ignoring invalid k8s Service modification")
-		return
-	}
-	newSvc, ok := newObj.(*v1.Service)
-	if !ok {
-		log.WithField(logfields.Object+".new", logfields.Repr(newObj)).
-			Warn("Ignoring invalid k8s Service modification")
-		return
-	}
+func (d *Daemon) updateK8sServiceV1(oldSvc, newSvc *v1.Service) {
 	log.WithFields(log.Fields{
 		logfields.K8sAPIVersion:         oldSvc.TypeMeta.APIVersion,
 		logfields.K8sSvcName + ".old":   oldSvc.ObjectMeta.Name,
@@ -636,18 +807,10 @@ func (d *Daemon) updateK8sServiceV1(oldObj interface{}, newObj interface{}) {
 		logfields.K8sSvcType + ".new":   newSvc.Spec.Type,
 	}).Debug("Received service update")
 
-	d.addK8sServiceV1(newObj)
+	d.addK8sServiceV1(newSvc)
 }
 
-func (d *Daemon) deleteK8sServiceV1(obj interface{}) {
-	// We don't need to deepcopy the object since we are creating a
-	// types.K8sServiceNamespace below.
-	svc, ok := obj.(*v1.Service)
-	if !ok {
-		log.WithField(logfields.Object, logfields.Repr(obj)).
-			Warn("Ignoring invalid k8s Service deletion")
-		return
-	}
+func (d *Daemon) deleteK8sServiceV1(svc *v1.Service) {
 	log.WithFields(log.Fields{
 		logfields.K8sSvcName:    svc.ObjectMeta.Name,
 		logfields.K8sNamespace:  svc.ObjectMeta.Namespace,
@@ -664,16 +827,7 @@ func (d *Daemon) deleteK8sServiceV1(obj interface{}) {
 	d.syncLB(nil, nil, svcns)
 }
 
-func (d *Daemon) addK8sEndpointV1(obj interface{}) {
-	// We don't need to deepcopy the object since we are creating a
-	// types.K8sServiceEndpoint below.
-	ep, ok := obj.(*v1.Endpoints)
-	if !ok {
-		log.WithField(logfields.Object, logfields.Repr(obj)).
-			Warn("Ignoring invalid k8s Endpoint addition")
-		return
-	}
-
+func (d *Daemon) addK8sEndpointV1(ep *v1.Endpoints) {
 	scopedLog := log.WithFields(log.Fields{
 		logfields.K8sEndpointName: ep.ObjectMeta.Name,
 		logfields.K8sNamespace:    ep.ObjectMeta.Namespace,
@@ -725,21 +879,7 @@ func (d *Daemon) addK8sEndpointV1(obj interface{}) {
 	}
 }
 
-func (d *Daemon) updateK8sEndpointV1(oldObj interface{}, newObj interface{}) {
-	// We don't need to deepcopy the object since we are creating a
-	// types.K8sServiceEndpoint in d.addK8sEndpointV1.
-	_, ok := oldObj.(*v1.Endpoints)
-	if !ok {
-		log.WithField(logfields.Object+".old", logfields.Repr(oldObj)).
-			Warn("Ignoring invalid k8s Endpoint modification")
-		return
-	}
-	_, ok = newObj.(*v1.Endpoints)
-	if !ok {
-		log.WithField(logfields.Object+".new", logfields.Repr(newObj)).
-			Warn("Ignoring invalid k8s Endpoint modification")
-		return
-	}
+func (d *Daemon) updateK8sEndpointV1(oldEP, newEP *v1.Endpoints) {
 	// TODO only print debug message if the difference between the old endpoint
 	// and the new endpoint are important to us.
 	//log.WithFields(log.Fields{
@@ -750,19 +890,10 @@ func (d *Daemon) updateK8sEndpointV1(oldObj interface{}, newObj interface{}) {
 	//	logfields.K8sNamespace + ".new":    newEP.ObjectMeta.Namespace,
 	//}).Debug("Received endpoint update")
 
-	d.addK8sEndpointV1(newObj)
+	d.addK8sEndpointV1(newEP)
 }
 
-func (d *Daemon) deleteK8sEndpointV1(obj interface{}) {
-	// We don't need to deepcopy the object since we are creating a
-	// types.K8sServiceNamespace below.
-	ep, ok := obj.(*v1.Endpoints)
-	if !ok {
-		log.WithField(logfields.Object, logfields.Repr(obj)).
-			Warn("Ignoring invalid k8s Endpoint deletion")
-		return
-	}
-
+func (d *Daemon) deleteK8sEndpointV1(ep *v1.Endpoints) {
 	scopedLog := log.WithFields(log.Fields{
 		logfields.K8sEndpointName: ep.ObjectMeta.Name,
 		logfields.K8sNamespace:    ep.ObjectMeta.Namespace,
@@ -1027,18 +1158,11 @@ func (d *Daemon) syncLB(newSN, modSN, delSN *types.K8sServiceNamespace) {
 	}
 }
 
-func (d *Daemon) addIngressV1beta1(obj interface{}) {
+func (d *Daemon) addIngressV1beta1(ingress *v1beta1.Ingress) {
 	if !d.conf.IsLBEnabled() {
 		// Add operations don't matter to non-LB nodes.
 		return
 	}
-	ingress, ok := obj.(*v1beta1.Ingress)
-	if !ok {
-		log.WithField(logfields.Object, logfields.Repr(obj)).
-			Warn("Ignoring invalid k8s v1beta1 Ingress addition")
-		return
-	}
-
 	scopedLog := log.WithFields(log.Fields{
 		logfields.K8sIngressName: ingress.ObjectMeta.Name,
 		logfields.K8sAPIVersion:  ingress.TypeMeta.APIVersion,
@@ -1106,22 +1230,7 @@ func (d *Daemon) addIngressV1beta1(obj interface{}) {
 	}
 }
 
-func (d *Daemon) updateIngressV1beta1(oldObj interface{}, newObj interface{}) {
-	// We don't need to deepcopy the objects since that copy will be done
-	// on the addIngressV1beta1.
-	oldIngress, ok := oldObj.(*v1beta1.Ingress)
-	if !ok {
-		log.WithField(logfields.Object+".old", logfields.Repr(oldIngress)).
-			Warn("Ignoring invalid k8s v1beta1 Ingress modification")
-		return
-	}
-	newIngress, ok := newObj.(*v1beta1.Ingress)
-	if !ok {
-		log.WithField(logfields.Object+".new", logfields.Repr(newIngress)).
-			Warn("Ignoring invalid k8s v1beta1 Ingress modification")
-		return
-	}
-
+func (d *Daemon) updateIngressV1beta1(oldIngress, newIngress *v1beta1.Ingress) {
 	scopedLog := log.WithFields(log.Fields{
 		logfields.K8sIngressName + ".old": oldIngress.ObjectMeta.Name,
 		logfields.K8sAPIVersion + ".old":  oldIngress.TypeMeta.APIVersion,
@@ -1177,19 +1286,10 @@ func (d *Daemon) updateIngressV1beta1(oldObj interface{}, newObj interface{}) {
 		return
 	}
 
-	d.addIngressV1beta1(newObj)
+	d.addIngressV1beta1(newIngress)
 }
 
-func (d *Daemon) deleteIngressV1beta1(obj interface{}) {
-	// We don't need to deepcopy the object since we are reading the ingress
-	// attributes.
-	ingress, ok := obj.(*v1beta1.Ingress)
-	if !ok {
-		log.WithField(logfields.Object, logfields.Repr(obj)).
-			Warn("Ignoring invalid k8s v1beta1 Ingress deletion")
-		return
-	}
-
+func (d *Daemon) deleteIngressV1beta1(ingress *v1beta1.Ingress) {
 	scopedLog := log.WithFields(log.Fields{
 		logfields.K8sIngressName: ingress.ObjectMeta.Name,
 		logfields.K8sAPIVersion:  ingress.TypeMeta.APIVersion,
@@ -1310,24 +1410,16 @@ func (d *Daemon) syncExternalLB(newSN, modSN, delSN *types.K8sServiceNamespace) 
 }
 
 // Deprecated: use addCiliumNetworkPolicyV2
-func (d *Daemon) addCiliumNetworkPolicyV1(ciliumV1Store cache.Store, obj interface{}) {
-	rule, ok := obj.(*cilium_v1.CiliumNetworkPolicy)
-	if !ok {
-		log.WithField(logfields.Object, logfields.Repr(obj)).
-			Warn("Ignoring invalid k8s CiliumNetworkPolicy addition")
-		return
-	}
-	ruleCpy := rule.DeepCopy()
-
+func (d *Daemon) addCiliumNetworkPolicyV1(ciliumV1Store cache.Store, cnp *cilium_v1.CiliumNetworkPolicy) {
 	scopedLog := log.WithFields(log.Fields{
-		logfields.CiliumNetworkPolicyName: ruleCpy.ObjectMeta.Name,
-		logfields.K8sAPIVersion:           ruleCpy.TypeMeta.APIVersion,
-		logfields.K8sNamespace:            ruleCpy.ObjectMeta.Namespace,
+		logfields.CiliumNetworkPolicyName: cnp.ObjectMeta.Name,
+		logfields.K8sAPIVersion:           cnp.TypeMeta.APIVersion,
+		logfields.K8sNamespace:            cnp.ObjectMeta.Namespace,
 	})
 
 	scopedLog.Debug("Adding CiliumNetworkPolicy")
 
-	rules, err := ruleCpy.Parse()
+	rules, err := cnp.Parse()
 	if err == nil && len(rules) > 0 {
 		d.loadBalancer.K8sMU.Lock()
 		err = k8s.PreprocessRules(rules, d.loadBalancer.K8sEndpoints, d.loadBalancer.K8sServices)
@@ -1355,29 +1447,21 @@ func (d *Daemon) addCiliumNetworkPolicyV1(ciliumV1Store cache.Store, obj interfa
 
 	go func() {
 		k8s.UpdateCNPStatusV1(ciliumNPClient.CiliumV1(), ciliumV1Store,
-			k8s.BackOffLoopTimeout, node.GetName(), ruleCpy, cnpns)
+			k8s.BackOffLoopTimeout, node.GetName(), cnp, cnpns)
 	}()
 }
 
 // Deprecated: use deleteCiliumNetworkPolicyV2
-func (d *Daemon) deleteCiliumNetworkPolicyV1(obj interface{}) {
-	rule, ok := obj.(*cilium_v1.CiliumNetworkPolicy)
-	if !ok {
-		log.WithField(logfields.Object, logfields.Repr(obj)).
-			Warn("Ignoring invalid k8s CiliumNetworkPolicy deletion")
-		return
-	}
-	ruleCpy := rule.DeepCopy()
-
+func (d *Daemon) deleteCiliumNetworkPolicyV1(cnp *cilium_v1.CiliumNetworkPolicy) {
 	scopedLog := log.WithFields(log.Fields{
-		logfields.CiliumNetworkPolicyName: ruleCpy.ObjectMeta.Name,
-		logfields.K8sAPIVersion:           ruleCpy.TypeMeta.APIVersion,
-		logfields.K8sNamespace:            ruleCpy.ObjectMeta.Namespace,
+		logfields.CiliumNetworkPolicyName: cnp.ObjectMeta.Name,
+		logfields.K8sAPIVersion:           cnp.TypeMeta.APIVersion,
+		logfields.K8sNamespace:            cnp.ObjectMeta.Namespace,
 	})
 
 	scopedLog.Debug("Deleting CiliumNetworkPolicy")
 
-	rules, err := ruleCpy.Parse()
+	rules, err := cnp.Parse()
 	if err == nil {
 		if len(rules) > 0 {
 			// On a CNP, the transformed rule is stored in the local repository
@@ -1397,72 +1481,49 @@ func (d *Daemon) deleteCiliumNetworkPolicyV1(obj interface{}) {
 
 // Deprecated: use updateCiliumNetworkPolicyV2
 func (d *Daemon) updateCiliumNetworkPolicyV1(ciliumV1Store cache.Store,
-	oldObj interface{}, newObj interface{}) {
+	oldCNP, newCNP *cilium_v1.CiliumNetworkPolicy) {
 
-	oldRule, ok := oldObj.(*cilium_v1.CiliumNetworkPolicy)
-	if !ok {
-		log.WithField(logfields.Object+".old", logfields.Repr(oldObj)).
-			Warn("Ignoring invalid k8s CiliumNetworkPolicy modification")
-		return
-	}
-	newRules, ok := newObj.(*cilium_v1.CiliumNetworkPolicy)
-	if !ok {
-		log.WithField(logfields.Object+".new", logfields.Repr(newObj)).
-			Warn("Ignoring invalid k8s CiliumNetworkPolicy modification")
-		return
-	}
-
-	oldRuleCpy := oldRule.DeepCopy()
-	_, err := oldRuleCpy.Parse()
+	_, err := oldCNP.Parse()
 	if err != nil {
-		log.WithError(err).WithField(logfields.Object, logfields.Repr(oldRuleCpy)).
+		log.WithError(err).WithField(logfields.Object, logfields.Repr(oldCNP)).
 			Warn("Error parsing old CiliumNetworkPolicy rule")
 		return
 	}
 
-	newRuleCpy := newRules.DeepCopy()
-	_, err = newRuleCpy.Parse()
+	_, err = newCNP.Parse()
 	if err != nil {
-		log.WithError(err).WithField(logfields.Object, logfields.Repr(newRuleCpy)).
+		log.WithError(err).WithField(logfields.Object, logfields.Repr(newCNP)).
 			Warn("Error parsing new CiliumNetworkPolicy rule")
 		return
 	}
 
 	// Ignore updates of the spec remains unchanged.
-	if oldRuleCpy.SpecEquals(newRuleCpy) {
+	if oldCNP.SpecEquals(newCNP) {
 		return
 	}
 
 	log.WithFields(log.Fields{
-		logfields.K8sAPIVersion:                    oldRuleCpy.TypeMeta.APIVersion,
-		logfields.CiliumNetworkPolicyName + ".old": oldRuleCpy.ObjectMeta.Name,
-		logfields.K8sNamespace + ".old":            oldRuleCpy.ObjectMeta.Namespace,
-		logfields.CiliumNetworkPolicyName + ".new": newRuleCpy.ObjectMeta.Name,
-		logfields.K8sNamespace + ".new":            newRuleCpy.ObjectMeta.Namespace,
+		logfields.K8sAPIVersion:                    oldCNP.TypeMeta.APIVersion,
+		logfields.CiliumNetworkPolicyName + ".old": oldCNP.ObjectMeta.Name,
+		logfields.K8sNamespace + ".old":            oldCNP.ObjectMeta.Namespace,
+		logfields.CiliumNetworkPolicyName + ".new": newCNP.ObjectMeta.Name,
+		logfields.K8sNamespace + ".new":            newCNP.ObjectMeta.Namespace,
 	}).Debug("Modified CiliumNetworkPolicy")
 
-	d.deleteCiliumNetworkPolicyV1(oldObj)
-	d.addCiliumNetworkPolicyV1(ciliumV1Store, newObj)
+	d.deleteCiliumNetworkPolicyV1(oldCNP)
+	d.addCiliumNetworkPolicyV1(ciliumV1Store, newCNP)
 }
 
-func (d *Daemon) addCiliumNetworkPolicyV2(ciliumV2Store cache.Store, obj interface{}) {
-	rule, ok := obj.(*cilium_v2.CiliumNetworkPolicy)
-	if !ok {
-		log.WithField(logfields.Object, logfields.Repr(obj)).
-			Warn("Ignoring invalid k8s CiliumNetworkPolicy addition")
-		return
-	}
-	ruleCpy := rule.DeepCopy()
-
+func (d *Daemon) addCiliumNetworkPolicyV2(ciliumV2Store cache.Store, cnp *cilium_v2.CiliumNetworkPolicy) {
 	scopedLog := log.WithFields(log.Fields{
-		logfields.CiliumNetworkPolicyName: ruleCpy.ObjectMeta.Name,
-		logfields.K8sAPIVersion:           ruleCpy.TypeMeta.APIVersion,
-		logfields.K8sNamespace:            ruleCpy.ObjectMeta.Namespace,
+		logfields.CiliumNetworkPolicyName: cnp.ObjectMeta.Name,
+		logfields.K8sAPIVersion:           cnp.TypeMeta.APIVersion,
+		logfields.K8sNamespace:            cnp.ObjectMeta.Namespace,
 	})
 
 	scopedLog.Debug("Adding CiliumNetworkPolicy")
 
-	rules, err := ruleCpy.Parse()
+	rules, err := cnp.Parse()
 	if err == nil && len(rules) > 0 {
 		d.loadBalancer.K8sMU.Lock()
 		err = k8s.PreprocessRules(rules, d.loadBalancer.K8sEndpoints, d.loadBalancer.K8sServices)
@@ -1490,28 +1551,20 @@ func (d *Daemon) addCiliumNetworkPolicyV2(ciliumV2Store cache.Store, obj interfa
 
 	go func() {
 		k8s.UpdateCNPStatusV2(ciliumNPClient.CiliumV2(), ciliumV2Store,
-			k8s.BackOffLoopTimeout, node.GetName(), ruleCpy, cnpns)
+			k8s.BackOffLoopTimeout, node.GetName(), cnp, cnpns)
 	}()
 }
 
-func (d *Daemon) deleteCiliumNetworkPolicyV2(obj interface{}) {
-	rule, ok := obj.(*cilium_v2.CiliumNetworkPolicy)
-	if !ok {
-		log.WithField(logfields.Object, logfields.Repr(obj)).
-			Warn("Ignoring invalid k8s CiliumNetworkPolicy deletion")
-		return
-	}
-	ruleCpy := rule.DeepCopy()
-
+func (d *Daemon) deleteCiliumNetworkPolicyV2(cnp *cilium_v2.CiliumNetworkPolicy) {
 	scopedLog := log.WithFields(log.Fields{
-		logfields.CiliumNetworkPolicyName: ruleCpy.ObjectMeta.Name,
-		logfields.K8sAPIVersion:           ruleCpy.TypeMeta.APIVersion,
-		logfields.K8sNamespace:            ruleCpy.ObjectMeta.Namespace,
+		logfields.CiliumNetworkPolicyName: cnp.ObjectMeta.Name,
+		logfields.K8sAPIVersion:           cnp.TypeMeta.APIVersion,
+		logfields.K8sNamespace:            cnp.ObjectMeta.Namespace,
 	})
 
 	scopedLog.Debug("Deleting CiliumNetworkPolicy")
 
-	rules, err := ruleCpy.Parse()
+	rules, err := cnp.Parse()
 	if err == nil {
 		if len(rules) > 0 {
 			// On a CNP, the transformed rule is stored in the local repository
@@ -1530,32 +1583,14 @@ func (d *Daemon) deleteCiliumNetworkPolicyV2(obj interface{}) {
 }
 
 func (d *Daemon) updateCiliumNetworkPolicyV2(ciliumV2Store cache.Store,
-	oldObj interface{}, newObj interface{}) {
+	oldRuleCpy, newRuleCpy *cilium_v2.CiliumNetworkPolicy) {
 
-	// We don't need to deepcopy the objects since they are being copied
-	// on each d.deleteCiliumNetworkPolicyV2 and d.addCiliumNetworkPolicyV2 calls.
-	oldRule, ok := oldObj.(*cilium_v2.CiliumNetworkPolicy)
-	if !ok {
-		log.WithField(logfields.Object+".old", logfields.Repr(oldObj)).
-			Warn("Ignoring invalid k8s CiliumNetworkPolicy modification")
-		return
-	}
-	newRules, ok := newObj.(*cilium_v2.CiliumNetworkPolicy)
-	if !ok {
-		log.WithField(logfields.Object+".new", logfields.Repr(newObj)).
-			Warn("Ignoring invalid k8s CiliumNetworkPolicy modification")
-		return
-	}
-
-	oldRuleCpy := oldRule.DeepCopy()
 	_, err := oldRuleCpy.Parse()
 	if err != nil {
 		log.WithError(err).WithField(logfields.Object, logfields.Repr(oldRuleCpy)).
 			Warn("Error parsing old CiliumNetworkPolicy rule")
 		return
 	}
-
-	newRuleCpy := newRules.DeepCopy()
 	_, err = newRuleCpy.Parse()
 	if err != nil {
 		log.WithError(err).WithField(logfields.Object, logfields.Repr(newRuleCpy)).
@@ -1576,19 +1611,11 @@ func (d *Daemon) updateCiliumNetworkPolicyV2(ciliumV2Store cache.Store,
 		logfields.K8sNamespace + ".new":            newRuleCpy.ObjectMeta.Namespace,
 	}).Debug("Modified CiliumNetworkPolicy")
 
-	d.deleteCiliumNetworkPolicyV2(oldObj)
-	d.addCiliumNetworkPolicyV2(ciliumV2Store, newObj)
+	d.deleteCiliumNetworkPolicyV2(oldRuleCpy)
+	d.addCiliumNetworkPolicyV2(ciliumV2Store, newRuleCpy)
 }
 
-func (d *Daemon) addK8sNodeV1(obj interface{}) {
-	// We don't need to deepcopy the object since we are creating a node.Node
-	// below.
-	k8sNode, ok := obj.(*v1.Node)
-	if !ok {
-		log.WithField(logfields.Object, logfields.Repr(obj)).
-			Warn("Invalid objected, expected v1.Node")
-		return
-	}
+func (d *Daemon) addK8sNodeV1(k8sNode *v1.Node) {
 	ni := node.Identity{Name: k8sNode.ObjectMeta.Name}
 	n := k8s.ParseNode(k8sNode)
 
@@ -1614,16 +1641,7 @@ func (d *Daemon) addK8sNodeV1(obj interface{}) {
 	}).Debug("Added node")
 }
 
-func (d *Daemon) updateK8sNodeV1(_ interface{}, newObj interface{}) {
-	// We don't need to deepcopy the object since we are transforming it to
-	// a node.Node
-	k8sNode, ok := newObj.(*v1.Node)
-	if !ok {
-		log.WithField(logfields.Object+".new", logfields.Repr(newObj)).
-			Warn("Ignoring invalid k8s v1.Node modification")
-		return
-	}
-
+func (d *Daemon) updateK8sNodeV1(_, k8sNode *v1.Node) {
 	newNode := k8s.ParseNode(k8sNode)
 	ni := node.Identity{Name: k8sNode.ObjectMeta.Name}
 
@@ -1655,16 +1673,7 @@ func (d *Daemon) updateK8sNodeV1(_ interface{}, newObj interface{}) {
 	}).Debug("Updated node")
 }
 
-func (d *Daemon) deleteK8sNodeV1(obj interface{}) {
-	// We don't need to deepcopy the object since we are only reading the
-	// node's name.
-	k8sNode, ok := obj.(*v1.Node)
-	if !ok {
-		log.WithField(logfields.Object, logfields.Repr(obj)).
-			Warn("Ignoring invalid k8s v1.Node deletion")
-		return
-	}
-
+func (d *Daemon) deleteK8sNodeV1(k8sNode *v1.Node) {
 	ni := node.Identity{Name: k8sNode.ObjectMeta.Name}
 
 	node.DeleteNode(ni, node.TunnelRoute|node.DirectRoute)
