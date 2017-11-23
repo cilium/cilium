@@ -1329,7 +1329,9 @@ func (d *Daemon) addCiliumNetworkPolicyV1(ciliumV1Store cache.Store, obj interfa
 
 	rules, err := ruleCpy.Parse()
 	if err == nil && len(rules) > 0 {
+		d.loadBalancer.K8sMU.Lock()
 		err = k8s.PreprocessRules(rules, d.loadBalancer.K8sEndpoints, d.loadBalancer.K8sServices)
+		d.loadBalancer.K8sMU.Unlock()
 		if err == nil {
 			_, err = d.PolicyAdd(rules, &AddOptions{Replace: true})
 		}
@@ -1462,7 +1464,9 @@ func (d *Daemon) addCiliumNetworkPolicyV2(ciliumV2Store cache.Store, obj interfa
 
 	rules, err := ruleCpy.Parse()
 	if err == nil && len(rules) > 0 {
+		d.loadBalancer.K8sMU.Lock()
 		err = k8s.PreprocessRules(rules, d.loadBalancer.K8sEndpoints, d.loadBalancer.K8sServices)
+		d.loadBalancer.K8sMU.Unlock()
 		if err == nil {
 			_, err = d.PolicyAdd(rules, &AddOptions{Replace: true})
 		}
