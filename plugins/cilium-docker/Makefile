@@ -8,7 +8,7 @@ SOURCES := $(shell find ../../api/v1 ../../common ../../pkg/client ../../pkg/end
 
 $(TARGET): $(SOURCES)
 	@$(ECHO_GO)
-	$(QUIET) CGO_ENABLED=0 $(GO) build $(GOBUILD) -o $(TARGET)
+	$(QUIET) $(GO) build $(GOBUILD) -o $(TARGET)
 
 run:
 	./cilium-docker -d
