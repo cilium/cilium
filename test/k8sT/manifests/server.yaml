@@ -21,3 +21,10 @@ spec:
     image: jojomi/lighttpd-static
     ports:
     - containerPort: 80
+    volumeMounts:
+    - name: html-volume
+      mountPath: /var/www
+  volumes:
+    - name: html-volume
+      configMap:
+        name: html

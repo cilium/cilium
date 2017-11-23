@@ -19,7 +19,6 @@ import (
 	"io/ioutil"
 	"os"
 	"path"
-	"strings"
 	"text/template"
 )
 
@@ -32,43 +31,52 @@ type ManifestValues struct {
 // GenerateManifestForEndpoints generates k8s manifests that will create
 // endpointCount cilium endpoints when applied.
 // 1/3 of endpoints is going to be servers, the rest clients.
-func GenerateManifestForEndpoints(endpointCount int, manifestPath string) (string, error) {
+// returns lastServer index
+func GenerateManifestForEndpoints(endpointCount int, manifestPath string) (string, int, error) {
+	configMapStr, err := ioutil.ReadFile(path.Join(manifestBase, "html.yaml"))
+	if err != nil {
+		return "", 0, err
+	}
+
 	serverTemplateStr, err := ioutil.ReadFile(path.Join(manifestBase, "server.yaml"))
 	if err != nil {
-		return "", err
+		return "", 0, err
 	}
 	serverTemplate, err := template.New("server").Parse(string(serverTemplateStr))
 	if err != nil {
-		return "", err
+		return "", 0, err
 	}
 
 	clientTemplateStr, err := ioutil.ReadFile(path.Join(manifestBase, "client.yaml"))
 	if err != nil {
-		return "", err
+		return "", 0, err
 	}
 	clientTemplate, err := template.New("client").Parse(string(clientTemplateStr))
 	if err != nil {
-		return "", err
+		return "", 0, err
 	}
 
-	partials := make([]string, endpointCount)
-
+	separator := "\n---\n"
 	buf := new(bytes.Buffer)
+	buf.Write(configMapStr)
 	i := 0
 	for ; i < endpointCount/3; i++ {
+		buf.WriteString(separator)
+
 		vals := ManifestValues{i}
 		serverTemplate.Execute(buf, vals)
-		partials[i] = buf.String()
 	}
+	lastServer := i
 
-	for ; i < endpointCount; i++ {
+	for i++; i < endpointCount; i++ {
+		buf.WriteString(separator)
+
 		vals := ManifestValues{i}
 		clientTemplate.Execute(buf, vals)
-		partials[i] = buf.String()
 	}
 
-	result := strings.Join(partials, "\n---\n")
+	result := buf.String()
 	ioutil.WriteFile(manifestPath, []byte(result), os.ModePerm)
 
-	return result, nil
+	return result, lastServer, nil
 }
