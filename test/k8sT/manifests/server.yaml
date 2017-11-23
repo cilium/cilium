@@ -8,20 +8,16 @@ spec:
   selector:
     id: app{{.Index}}
 ---
-apiVersion: extensions/v1beta1
-kind: Deployment
+apiVersion: v1
+kind: Pod
 metadata:
   name: app{{.Index}}
+  labels:
+    id: app{{.Index}}
+    zgroup: testapp
 spec:
-  replicas: 1
-  template:
-    metadata:
-      labels:
-        id: app{{.Index}}
-        zgroup: testapp
-    spec:
-      containers:
-      - name: web
-        image: cilium/demo-httpd
-        ports:
-        - containerPort: 80
+  containers:
+  - name: web
+    image: jojomi/lighttpd-static
+    ports:
+    - containerPort: 80

@@ -60,13 +60,19 @@ var _ = Describe("NightlyK8sEpsMeasurement", func() {
 	})
 
 	endpointCount := 10
+	manifestPath := "tmp.yaml"
 
 	Measure(fmt.Sprintf("%d endpoint creation", endpointCount), func(b Benchmarker) {
-		manifest, err := helpers.GenerateManifestForEndpoints(endpointCount)
+		_, err := helpers.GenerateManifestForEndpoints(endpointCount, manifestPath)
 		Expect(err).Should(BeNil())
 
-		kubectl.ApplyFromManifest(manifest)
-		defer kubectl.DeleteFromManifest(manifest)
+		vagrantManifestPath := "/vagrant/" + manifestPath
+
+		res := kubectl.Apply(vagrantManifestPath)
+		if !res.WasSuccessful() {
+			log.Fatal(res.GetStdErr())
+		}
+		defer kubectl.Delete(vagrantManifestPath)
 
 		waitForPodsTime := b.Time("Wait for pods", func() {
 			pods, err := kubectl.WaitforPods(helpers.DefaultNamespace, "-l zgroup=testapp", 300)
@@ -94,7 +100,7 @@ var _ = Describe("NightlyK8sEpsMeasurement", func() {
 
 				return count >= endpointCount
 
-			}, 300*time.Second, 5*time.Second).Should(BeTrue())
+			}, 300*time.Second, 3*time.Second).Should(BeTrue())
 		})
 		log.WithFields(log.Fields{"endpoint creation time": runtime}).Info("")
 	}, 1)

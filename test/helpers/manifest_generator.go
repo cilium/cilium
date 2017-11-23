@@ -17,6 +17,7 @@ package helpers
 import (
 	"bytes"
 	"io/ioutil"
+	"os"
 	"path"
 	"strings"
 	"text/template"
@@ -31,7 +32,7 @@ type ManifestValues struct {
 // GenerateManifestForEndpoints generates k8s manifests that will create
 // endpointCount cilium endpoints when applied.
 // 1/3 of endpoints is going to be servers, the rest clients.
-func GenerateManifestForEndpoints(endpointCount int) (string, error) {
+func GenerateManifestForEndpoints(endpointCount int, manifestPath string) (string, error) {
 	serverTemplateStr, err := ioutil.ReadFile(path.Join(manifestBase, "server.yaml"))
 	if err != nil {
 		return "", err
@@ -66,5 +67,8 @@ func GenerateManifestForEndpoints(endpointCount int) (string, error) {
 		partials[i] = buf.String()
 	}
 
-	return strings.Join(partials, "\n---\n"), nil
+	result := strings.Join(partials, "\n---\n")
+	ioutil.WriteFile(manifestPath, []byte(result), os.ModePerm)
+
+	return result, nil
 }
