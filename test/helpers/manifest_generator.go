@@ -22,8 +22,7 @@ import (
 	"text/template"
 )
 
-var manifestBase = "k8sT/manifests"
-
+// ManifestValues wraps manifest index
 type ManifestValues struct {
 	Index int
 }
@@ -32,13 +31,14 @@ type ManifestValues struct {
 // endpointCount cilium endpoints when applied.
 // 1/3 of endpoints is going to be servers, the rest clients.
 // returns lastServer index
+// Saves generated manifest to manifestPath, also returns it via string
 func GenerateManifestForEndpoints(endpointCount int, manifestPath string) (string, int, error) {
-	configMapStr, err := ioutil.ReadFile(path.Join(manifestBase, "html.yaml"))
+	configMapStr, err := ioutil.ReadFile(path.Join(ManifestBase, GeneratedHTMLManifest))
 	if err != nil {
 		return "", 0, err
 	}
 
-	serverTemplateStr, err := ioutil.ReadFile(path.Join(manifestBase, "server.yaml"))
+	serverTemplateStr, err := ioutil.ReadFile(path.Join(ManifestBase, GeneratedServerManifest))
 	if err != nil {
 		return "", 0, err
 	}
@@ -47,7 +47,7 @@ func GenerateManifestForEndpoints(endpointCount int, manifestPath string) (strin
 		return "", 0, err
 	}
 
-	clientTemplateStr, err := ioutil.ReadFile(path.Join(manifestBase, "client.yaml"))
+	clientTemplateStr, err := ioutil.ReadFile(path.Join(ManifestBase, GeneratedClientManifest))
 	if err != nil {
 		return "", 0, err
 	}

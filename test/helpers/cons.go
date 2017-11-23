@@ -37,6 +37,9 @@ const (
 	// is mounted
 	BasePath = "/vagrant/"
 
+	// ManifestBase tells ginkgo suite where to look for manifests
+	ManifestBase = "k8sT/manifests"
+
 	// VM / Test suite constants.
 	K8s     = "k8s"
 	K8s1    = "k8s1"
@@ -127,6 +130,10 @@ const (
 	DaemonName             = "cilium"
 	CiliumDockerDaemonName = "cilium-docker"
 	AgentDaemon            = "cilium-agent"
+
+	GeneratedHTMLManifest   = "html.yaml"
+	GeneratedServerManifest = "server.yaml"
+	GeneratedClientManifest = "client.yaml"
 )
 
 var ciliumCLICommands = map[string]string{

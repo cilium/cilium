@@ -16,7 +16,9 @@ package k8sTest
 
 import (
 	"fmt"
+	"path"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/cilium/cilium/test/helpers"
@@ -63,15 +65,13 @@ var _ = Describe("NightlyK8sEpsMeasurement", func() {
 	manifestPath := "tmp.yaml"
 
 	Measure(fmt.Sprintf("%d endpoint creation", endpointCount), func(b Benchmarker) {
-		_, err := helpers.GenerateManifestForEndpoints(endpointCount, manifestPath)
+		_, lastServer, err := helpers.GenerateManifestForEndpoints(endpointCount, manifestPath)
 		Expect(err).Should(BeNil())
 
-		vagrantManifestPath := "/vagrant/" + manifestPath
+		vagrantManifestPath := path.Join(helpers.BasePath, manifestPath)
 
 		res := kubectl.Apply(vagrantManifestPath)
-		if !res.WasSuccessful() {
-			log.Fatal(res.GetStdErr())
-		}
+		res.ExpectSuccess(res.GetDebugMessage())
 		defer kubectl.Delete(vagrantManifestPath)
 
 		waitForPodsTime := b.Time("Wait for pods", func() {
@@ -103,5 +103,22 @@ var _ = Describe("NightlyK8sEpsMeasurement", func() {
 			}, 300*time.Second, 3*time.Second).Should(BeTrue())
 		})
 		log.WithFields(log.Fields{"endpoint creation time": runtime}).Info("")
+
+		var wg sync.WaitGroup
+
+		for serverIndex := 0; serverIndex <= lastServer; serverIndex++ {
+			for clientIndex := lastServer + 1; clientIndex < endpointCount; clientIndex++ {
+				wg.Add(1)
+				//TODO: run these functions with go after figuring out why they fail while run in parallel
+				func(to, from int) {
+					defer wg.Done()
+					defer GinkgoRecover()
+
+					result := kubectl.TestConnectivityPodService(fmt.Sprintf("app%d", from), fmt.Sprintf("app%d-service", to))
+					result.ExpectSuccess(result.GetDebugMessage())
+				}(serverIndex, clientIndex)
+			}
+		}
+		wg.Wait()
 	}, 1)
 })
