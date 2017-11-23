@@ -200,18 +200,6 @@ func (kub *Kubectl) WaitforPods(namespace string, filter string, timeout time.Du
 	return true, nil
 }
 
-func (kub *Kubectl) ApplyFromManifest(manifest string) *CmdRes {
-	kub.logCxt.Debugf("applying string manifest")
-	return kub.Node.Exec(
-		fmt.Sprintf("echo '%s' | %s apply -f -", manifest, kubectl))
-}
-
-func (kub *Kubectl) DeleteFromManifest(manifest string) *CmdRes {
-	kub.logCxt.Debugf("deleting string manifest")
-	return kub.Node.Exec(
-		fmt.Sprintf("echo '%s' | %s delete -f -", manifest, kubectl))
-}
-
 // Apply applies the Kubernetes manifest located at path filepath.
 func (kub *Kubectl) Apply(filePath string) *CmdRes {
 	kub.logCxt.Debugf("applying %s", filePath)
@@ -558,6 +546,17 @@ func (kub *Kubectl) GetCiliumPodOnNode(namespace string, node string) (string, e
 	}
 
 	return res.Output().String(), nil
+}
+
+// TestConnectivityPodService runs HTTP connectivity test from pod to ClusterIP service
+func (kub *Kubectl) TestConnectivityPodService(from, to string) *CmdRes {
+	kub.logCxt.WithFields(log.Fields{
+		"from": from,
+		"to":   to,
+	}).Info("Testing connectivity")
+
+	cmd := fmt.Sprintf("kubectl get services %s --template \"{{.spec.clusterIP}}\" | xargs -I{} kubectl exec %s -- curl --retry-delay 1 --max-time 10 --retry 10 --fail -s {}/index.html", to, from)
+	return kub.Node.Exec(cmd)
 }
 
 // EndpointMap maps an endpoint's container name to its Cilium API endpoint model.
