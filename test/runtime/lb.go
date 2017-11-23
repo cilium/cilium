@@ -89,13 +89,15 @@ var _ = Describe("RuntimeLB", func() {
 		result = cilium.ServiceGet(1)
 		result.ExpectSuccess("Service cannot be retrieved correctly")
 
-		Expect(result.Output()).Should(ContainSubstring("[::1]:90"), fmt.Sprintf(
-			"No service backends added correctly %q", result.Output()))
+		frontendAddress, err := cilium.ServiceGetFrontendAddress(1)
+		Expect(err).Should(BeNil())
+		Expect(frontendAddress).Should(ContainSubstring("[::]:80"),
+			"No service backends added correctly %q", result.Output())
+
 		helpers.Sleep(5)
 		//TODO: This need to be with Wait,Timeout
 		//Checking that bpf lb list is working correctly
 		result = cilium.Exec("bpf lb list")
-
 		result.ExpectSuccess("service cannot be retrieved correctly")
 
 		Expect(result.Output()).Should(ContainSubstring("[::1]:90"), fmt.Sprintf(

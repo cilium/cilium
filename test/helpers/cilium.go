@@ -492,6 +492,27 @@ func (c *Cilium) ServiceGet(id int) *CmdRes {
 	return c.Exec(fmt.Sprintf("service get '%d' -o json", id))
 }
 
+// ServiceGetFrontendAddress returns a string with the frontend address and
+// port. It returns an error if the ID cannot be retrieved.
+func (c *Cilium) ServiceGetFrontendAddress(id int) (string, error) {
+
+	var svc *models.Service
+	res := c.ServiceGet(id)
+	if !res.WasSuccessful() {
+		return "", fmt.Errorf("Cannot get service id %d: %s", id, res.CombineOutput())
+	}
+
+	err := res.Unmarshal(&svc)
+	if err != nil {
+		return "", err
+	}
+
+	frontendAddress := net.JoinHostPort(
+		svc.FrontendAddress.IP,
+		fmt.Sprintf("%d", svc.FrontendAddress.Port))
+	return frontendAddress, nil
+}
+
 // ServiceGetIds returns an array with the IDs of all Cilium services. Returns
 // an error if the IDs cannot be retrieved
 func (c *Cilium) ServiceGetIds() ([]string, error) {
