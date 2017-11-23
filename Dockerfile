@@ -31,13 +31,14 @@ WORKDIR /go/src/github.com/cilium/cilium
 COPY . ./
 ARG NOSTRIP
 ARG LOCKDEBUG
+ARG RACE
 ARG V
 ARG LIBNETWORK_PLUGIN
 #
 # Please do not add any dependency updates before the 'make install' here,
 # as that will mess with caching for incremental builds!
 #
-RUN make NOSTRIP=$NOSTRIP LOCKDEBUG=$LOCKDEBUG PKG_BUILD=1 V=$V LIBNETWORK_PLUGIN=$LIBNETWORK_PLUGIN \
+RUN make RACE=$RACE NOSTRIP=$NOSTRIP LOCKDEBUG=$LOCKDEBUG PKG_BUILD=1 V=$V LIBNETWORK_PLUGIN=$LIBNETWORK_PLUGIN \
     SKIP_DOCS=true DESTDIR=/tmp/install build-container install-container
 
 #

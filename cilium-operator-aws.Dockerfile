@@ -1,5 +1,7 @@
 # (first line comment needed for DOCKER_BUILDKIT use)
 #
+ARG BASE_IMAGE=scratch
+
 FROM docker.io/library/golang:1.15.2 as builder
 ARG CILIUM_SHA=""
 LABEL cilium-sha=${CILIUM_SHA}
@@ -10,7 +12,8 @@ ADD . /go/src/github.com/cilium/cilium
 WORKDIR /go/src/github.com/cilium/cilium/operator
 ARG NOSTRIP
 ARG LOCKDEBUG
-RUN make NOSTRIP=$NOSTRIP LOCKDEBUG=$LOCKDEBUG cilium-operator-aws
+ARG RACE
+RUN make NOSTRIP=$NOSTRIP LOCKDEBUG=$LOCKDEBUG RACE=$RACE cilium-operator-aws
 
 FROM docker.io/library/alpine:3.9.3 as certs
 ARG CILIUM_SHA=""
@@ -28,7 +31,7 @@ RUN go get -d github.com/google/gops && \
     CGO_ENABLED=0 go install && \
     strip /go/bin/gops
 
-FROM scratch
+FROM ${BASE_IMAGE}
 ARG CILIUM_SHA=""
 LABEL cilium-sha=${CILIUM_SHA}
 LABEL maintainer="maintainer@cilium.io"
