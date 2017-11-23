@@ -18,7 +18,7 @@ TARGET=cilium-bugtool
 SOURCES := $(shell find ../common . -name '*.go')
 $(TARGET): $(SOURCES)
 	@$(ECHO_GO)
-	$(QUIET)CGO_ENABLED=0 $(GO) build $(GOBUILD) -o $(TARGET)
+	$(QUIET) $(GO) build $(GOBUILD) -o $(TARGET)
 
 all: $(TARGET)
 

@@ -5,7 +5,7 @@ TARGET=cilium-operator
 SOURCES := $(shell find ../pkg . \( -name '*.go'  ! -name '*_test.go' \))
 $(TARGET): $(SOURCES)
 	@$(ECHO_GO)
-	$(QUIET) CGO_ENABLED=0 $(GO) build $(GOBUILD) -o $(TARGET)
+	$(QUIET) $(GO) build $(GOBUILD) -o $(TARGET)
 
 all: $(TARGET)
 
