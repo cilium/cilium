@@ -43,7 +43,7 @@ COVERPKG_EVAL := $(shell if [ $$(echo "$(TESTPKGS)" | wc -w) -gt 1 ]; then echo 
 COVERPKG ?= $(COVERPKG_EVAL)
 GOTEST_BASE := -test.v -timeout 360s
 GOTEST_UNIT_BASE := $(GOTEST_BASE) -check.vv
-GOTEST_PRIV_OPTS := $(GOTEST_UNIT_BASE) -tags=privileged_tests
+GOTEST_PRIV_OPTS := $(GOTEST_UNIT_BASE)
 GOTEST_COVER_OPTS += -coverprofile=coverage.out -coverpkg $(COVERPKG)
 BENCH_EVAL := "."
 BENCH ?= $(BENCH_EVAL)
@@ -156,7 +156,7 @@ tests-privileged:
 	$(QUIET) $(MAKE) $(SUBMAKEOPTS) -C bpf cilium-map-migrate
 	$(MAKE) init-coverage
 	for pkg in $(patsubst %,github.com/cilium/cilium/%,$(PRIV_TEST_PKGS)); do \
-		PATH=$(PATH):$(ROOT_DIR)/bpf $(GO_TEST) $(TEST_LDFLAGS) $$pkg $(GOTEST_PRIV_OPTS) $(GOTEST_COVER_OPTS) \
+		PATH=$(PATH):$(ROOT_DIR)/bpf go test -mod=vendor -race -tags lockdebug,privileged_tests $(TEST_LDFLAGS) $$pkg $(GOTEST_PRIV_OPTS) $(GOTEST_COVER_OPTS) \
 		|| exit 1; \
 		tail -n +2 coverage.out >> coverage-all-tmp.out; \
 	done

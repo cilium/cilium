@@ -113,6 +113,7 @@ endif
 GO_BUILD = CGO_ENABLED=0 $(GO) build
 GO_BUILD_WITH_CGO = CGO_ENABLED=1 $(GO) build
 
+RACE=1
 ifneq ($(RACE),)
     GO_BUILD_FLAGS += -race
     GO_TEST_FLAGS += -race
@@ -124,6 +125,7 @@ else
     GOTEST_COVER_OPTS += -covermode=count
 endif
 
+LOCKDEBUG=1
 ifneq ($(LOCKDEBUG),)
     GO_BUILD_FLAGS += -tags lockdebug
     GO_TEST_FLAGS += -tags lockdebug

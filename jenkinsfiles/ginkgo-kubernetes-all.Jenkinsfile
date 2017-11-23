@@ -177,7 +177,7 @@ pipeline {
                 CONTAINER_RUNTIME=setIfLabel("area/containerd", "containerd", "docker")
             }
             options {
-                timeout(time: 180, unit: 'MINUTES')
+                timeout(time: 360, unit: 'MINUTES')
             }
             parallel {
                 stage('BDD-Test-k8s-1.12') {
@@ -308,7 +308,7 @@ pipeline {
                 CONTAINER_RUNTIME=setIfLabel("area/containerd", "containerd", "docker")
             }
             options {
-                timeout(time: 180, unit: 'MINUTES')
+                timeout(time: 300, unit: 'MINUTES')
             }
             parallel {
                 stage('BDD-Test-k8s-1.14') {

@@ -581,3 +581,5 @@ global:
             values:
             - cilium
         topologyKey: "kubernetes.io/hostname"
+test/helpers/cons:
+  go:
