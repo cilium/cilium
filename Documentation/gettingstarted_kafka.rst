@@ -288,40 +288,7 @@ from producing to *empire-announce* or consuming from *deathstar-plans*.
 Here is the *CiliumNetworkPolicy* rule that limits access of pods with label *app=empire-outpost* to
 only consume on topic *empire-announce*:
 
-::
-
-  apiVersion: "cilium.io/v2"
-  kind: CiliumNetworkPolicy
-  description: "enable outposts to consume empire-announce"
-  metadata:
-    name: "rule2"
-  spec:
-    endpointSelector:
-      matchLabels:
-        app: kafka
-    ingress:
-    - fromEndpoints:
-      - matchLabels:
-          app: empire-outpost
-      toPorts:
-      - ports:
-        - port: "9092"
-          protocol: TCP
-        rules:
-          kafka:
-          - apiKey: "fetch"
-            topic: "empire-announce"
-          - apiKey: "apiversions"
-          - apiKey: "metadata"
-          - apiKey: "findcoordinator"
-          - apiKey: "joingroup"
-          - apiKey: "leavegroup"
-          - apiKey: "syncgroup"
-          - apiKey: "offsets"
-          - apiKey: "offsetcommit"
-          - apiKey: "offsetfetch"
-          - apiKey: "heartbeat"
-
+.. literalinclude:: ../examples/policies/getting-started/kafka.yaml
 
 A *CiliumNetworkPolicy* contains a list of rules that define allowed requests, meaning that requests
 that do not match any rules are denied as invalid.
