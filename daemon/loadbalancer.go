@@ -16,6 +16,7 @@ package main
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/cilium/cilium/api/v1/models"
 	. "github.com/cilium/cilium/api/v1/server/restapi/service"
@@ -24,6 +25,7 @@ import (
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/logfields"
 	"github.com/cilium/cilium/pkg/maps/lbmap"
+	"github.com/cilium/cilium/pkg/metrics"
 
 	"github.com/go-openapi/runtime/middleware"
 	log "github.com/sirupsen/logrus"
@@ -144,6 +146,7 @@ func NewPutServiceIDHandler(d *Daemon) PutServiceIDHandler {
 }
 
 func (h *putServiceID) Handle(params PutServiceIDParams) middleware.Responder {
+	metrics.SetTSValue(metrics.EventTSAPI, time.Now())
 	log.WithField(logfields.Params, logfields.Repr(params)).Debug("PUT /service/{id} request")
 
 	f, err := types.NewL3n4AddrFromModel(params.Config.FrontendAddress)
@@ -192,6 +195,7 @@ func NewDeleteServiceIDHandler(d *Daemon) DeleteServiceIDHandler {
 }
 
 func (h *deleteServiceID) Handle(params DeleteServiceIDParams) middleware.Responder {
+	metrics.SetTSValue(metrics.EventTSAPI, time.Now())
 	log.WithField(logfields.Params, logfields.Repr(params)).Debug("DELETE /service/{id} request")
 
 	d := h.d
@@ -298,6 +302,7 @@ func NewGetServiceIDHandler(d *Daemon) GetServiceIDHandler {
 }
 
 func (h *getServiceID) Handle(params GetServiceIDParams) middleware.Responder {
+	metrics.SetTSValue(metrics.EventTSAPI, time.Now())
 	log.WithField(logfields.Params, logfields.Repr(params)).Debug("GET /service/{id} request")
 
 	d := h.daemon
@@ -342,6 +347,7 @@ func NewGetServiceHandler(d *Daemon) GetServiceHandler {
 }
 
 func (h *getService) Handle(params GetServiceParams) middleware.Responder {
+	metrics.SetTSValue(metrics.EventTSAPI, time.Now())
 	log.WithField(logfields.Params, logfields.Repr(params)).Debug("GET /service request")
 
 	list := []*models.Service{}
