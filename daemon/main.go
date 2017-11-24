@@ -154,16 +154,34 @@ func initCleanup() {
 	}()
 }
 
+func parseKernelVersion(ver string) (*go_version.Version, error) {
+	verStrs := strings.Split(ver, ".")
+	switch {
+	case len(verStrs) < 2:
+		return nil, fmt.Errorf("unable to get kernel version from %q", ver)
+	case len(verStrs) < 3:
+		verStrs = append(verStrs, "0")
+	}
+	// We are assuming the kernel version will be something as:
+	// 4.9.17-040917-generic
+
+	// If verStrs is []string{ "4", "9", "17-040917-generic" }
+	// then we need to retrieve patch number.
+	patch := regexp.MustCompilePOSIX(`^[0-9]+`).FindString(verStrs[2])
+	if patch == "" {
+		verStrs[2] = "0"
+	} else {
+		verStrs[2] = patch
+	}
+	return go_version.NewVersion(strings.Join(verStrs[:3], "."))
+}
+
 func getKernelVersion() (*go_version.Version, error) {
 	verOut, err := exec.Command("uname", "-r").CombinedOutput()
 	if err != nil {
 		log.WithError(err).Fatal("kernel version: NOT OK")
 	}
-	verStrs := strings.Split(string(verOut), ".")
-	if len(verStrs) < 2 {
-		return nil, fmt.Errorf("unable to get kernel version from %q", string(verOut))
-	}
-	return go_version.NewVersion(strings.Join(verStrs[:2], "."))
+	return parseKernelVersion(string(verOut))
 }
 
 func getClangVersion(filePath string) (*go_version.Version, error) {
@@ -178,10 +196,10 @@ func getClangVersion(filePath string) (*go_version.Version, error) {
 	}
 	// at this point res is []string{"clang", "version", "maj.min.patch"}
 	verStrs := strings.Split(res[2], ".")
-	if len(verStrs) < 2 {
-		return nil, fmt.Errorf("unable to get kernel version from %q", string(verOut))
+	if len(verStrs) < 3 {
+		return nil, fmt.Errorf("unable to get clang version from %q", string(verOut))
 	}
-	return go_version.NewVersion(strings.Join(verStrs[:2], "."))
+	return go_version.NewVersion(strings.Join(verStrs[:3], "."))
 }
 
 func checkBPFLogs(logType string, fatal bool) {
