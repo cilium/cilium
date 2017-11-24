@@ -15,12 +15,15 @@
 package server
 
 import (
+	"fmt"
 	"net"
 	"strings"
 	"time"
 
 	"github.com/cilium/cilium/api/v1/health/models"
 	ciliumModels "github.com/cilium/cilium/api/v1/models"
+	"github.com/cilium/cilium/pkg/health/client"
+	"github.com/cilium/cilium/pkg/health/defaults"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logfields"
 
@@ -191,25 +194,123 @@ func (p *prober) setNodes(nodes nodeMap) {
 	}
 }
 
+func (p *prober) httpProbe(node string, ip string, port int) *models.ConnectivityStatus {
+	result := &models.ConnectivityStatus{}
+
+	host := fmt.Sprintf("http://%s:%d", ip, port)
+	scopedLog := log.WithFields(logrus.Fields{
+		logfields.NodeName: node,
+		logfields.IPAddr:   ip,
+		"host":             host,
+		"path":             PortToPaths[port],
+	})
+
+	client, err := client.NewClient(host)
+	if err == nil {
+		scopedLog.Debug("Greeting host")
+		start := time.Now()
+		_, err = client.Restapi.GetHello(nil)
+		rtt := time.Since(start)
+		if err == nil {
+			scopedLog.WithField("rtt", rtt).Debug("Greeting successful")
+			result.Status = ""
+			result.Latency = rtt.Nanoseconds()
+		} else {
+			scopedLog.WithError(err).Debug("Greeting snubbed")
+			result.Status = "Connection timed out"
+		}
+	} else {
+		scopedLog.WithError(err).Info("Failed to express greeting to host")
+		result.Status = err.Error()
+	}
+
+	return result
+}
+
+func (p *prober) runHTTPProbe() {
+	p.RLock()
+	nodes := p.nodes
+	p.RUnlock()
+
+	for _, node := range nodes {
+		for elem := range getNodeAddresses(node) {
+			if skipAddress(elem) {
+				continue
+			}
+
+			status := &models.PathStatus{}
+			ports := map[int]**models.ConnectivityStatus{
+				defaults.HTTPPathPort: &status.HTTP,
+			}
+			for port, result := range ports {
+				*result = p.httpProbe(node.Name, elem.IP, port)
+				if status.HTTP.Status != "" {
+					log.WithFields(logrus.Fields{
+						logfields.NodeName: node.Name,
+						logfields.IPAddr:   elem.IP,
+						logfields.Port:     port,
+					}).Debugf("Failed to probe: %s", status.HTTP.Status)
+				}
+			}
+
+			p.Lock()
+			p.results[ipString(elem.IP)].HTTP = status.HTTP
+			p.Unlock()
+		}
+	}
+}
+
+// Done returns a channel that is closed when RunLoop() is stopped by an error.
+// It must be called after the RunLoop() call.
+func (p *prober) Done() <-chan bool {
+	go func() {
+		res := <-p.Pinger.Done()
+		p.done <- res
+	}()
+	return p.done
+}
+
 // Run sends a single probes out to all of the other cilium nodes to gather
 // connectivity status for the cluster.
 func (p *prober) Run() error {
-	// TODO: Launch goroutines to probe HTTP ports on other nodes
-
 	err := p.Pinger.Run()
-	// TODO: For each other probe, fetch error and return errors in
-	//       priority of p.Pinger(), then connect(), etc.?
+	p.runHTTPProbe()
 	return err
+}
+
+// Stop disrupts the currently running RunLoop(). This may only be called after
+// a call to RunLoop().
+func (p *prober) Stop() {
+	p.Pinger.Stop()
+	close(p.stop)
+	<-p.Pinger.Done()
+	<-p.Done()
 }
 
 // RunLoop periodically sends probes out to all of the other cilium nodes to
 // gather connectivity status for the cluster.
 //
 // This is a non-blocking method so it immediately returns. If you want to
-// stop sending packets, call Done().
+// stop sending packets, call Stop().
 func (p *prober) RunLoop() {
 	// FIXME: Spread the probes out across the probing interval
 	p.Pinger.RunLoop()
+
+	go func() {
+		tick := time.NewTicker(p.server.ProbeInterval)
+	loop:
+		for {
+			select {
+			case <-p.stop:
+				break loop
+			case <-tick.C:
+				p.runHTTPProbe()
+				continue
+			}
+		}
+		tick.Stop()
+		close(p.done)
+	}()
 }
 
 // newPinger prepares a prober. The caller may invoke one the Run* methods of
@@ -218,6 +319,8 @@ func newProber(s *Server, nodes nodeMap) *prober {
 	prober := &prober{
 		Pinger:  fastping.NewPinger(),
 		server:  s,
+		done:    make(chan bool),
+		stop:    make(chan bool),
 		results: make(map[ipString]*models.PathStatus),
 		nodes:   nodes,
 	}

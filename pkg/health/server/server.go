@@ -33,6 +33,12 @@ import (
 
 var (
 	log = common.DefaultLogger
+
+	// PortToPaths is a convenience map for access to the ports and their
+	// common string representations
+	PortToPaths = map[int]string{
+		defaults.HTTPPathPort: "Via L3",
+	}
 )
 
 // Config stores the configuration data for a cilium-health server.
@@ -57,7 +63,8 @@ type Server struct {
 	*ciliumPkg.Client // Client to "GET /healthz" on cilium daemon
 	Config
 
-	startTime time.Time
+	tcpServers []*healthApi.Server // Servers for external pings
+	startTime  time.Time
 
 	// The lock protects against read and write access to the IP->Node map,
 	// the list of statuses as most recently seen, and the last time a
@@ -188,6 +195,10 @@ func (s *Server) Serve() error {
 
 	}()
 
+	for i := range s.tcpServers {
+		go s.tcpServers[i].Serve()
+	}
+
 	err := s.Server.Serve()
 	if prober != nil {
 		prober.Stop()
@@ -202,6 +213,9 @@ func (s *Server) Serve() error {
 func (s *Server) newServer(spec *loads.Document, tcpPort int) *healthApi.Server {
 	api := restapi.NewCiliumHealthAPI(spec)
 	api.Logger = log.Printf
+
+	// /hello
+	api.GetHelloHandler = NewGetHelloHandler(s)
 
 	if tcpPort == 0 {
 		// /healthz/
@@ -232,6 +246,7 @@ func NewServer(config Config) (*Server, error) {
 	server := &Server{
 		startTime:    time.Now(),
 		Config:       config,
+		tcpServers:   []*healthApi.Server{},
 		nodes:        make(nodeMap),
 		connectivity: []*healthModels.NodeStatus{},
 	}
@@ -248,6 +263,10 @@ func NewServer(config Config) (*Server, error) {
 
 	server.Client = cl
 	server.Server = *server.newServer(swaggerSpec, 0)
+	for port := range PortToPaths {
+		srv := server.newServer(swaggerSpec, port)
+		server.tcpServers = append(server.tcpServers, srv)
+	}
 
 	return server, nil
 }
