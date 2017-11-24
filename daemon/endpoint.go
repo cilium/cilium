@@ -18,6 +18,7 @@ import (
 	"bytes"
 	"fmt"
 	"os"
+	"time"
 
 	"github.com/cilium/cilium/api/v1/models"
 	. "github.com/cilium/cilium/api/v1/server/restapi/endpoint"
@@ -28,6 +29,7 @@ import (
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logfields"
 	"github.com/cilium/cilium/pkg/maps/lxcmap"
+	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/policy"
 
 	"github.com/go-openapi/runtime/middleware"
@@ -43,6 +45,7 @@ func NewGetEndpointHandler(d *Daemon) GetEndpointHandler {
 }
 
 func (h *getEndpoint) Handle(params GetEndpointParams) middleware.Responder {
+	metrics.SetTSValue(metrics.EventTSAPI, time.Now())
 	log.WithField(logfields.Params, logfields.Repr(params)).Debug("GET /endpoint request")
 
 	modelChan := make(chan *models.Endpoint, 1)
@@ -100,6 +103,7 @@ func NewGetEndpointIDHandler(d *Daemon) GetEndpointIDHandler {
 }
 
 func (h *getEndpointID) Handle(params GetEndpointIDParams) middleware.Responder {
+	metrics.SetTSValue(metrics.EventTSAPI, time.Now())
 	log.WithField(logfields.EndpointID, params.ID).Debug("GET /endpoint/{id} request")
 
 	ep, err := endpointmanager.Lookup(params.ID)
@@ -122,6 +126,7 @@ func NewPutEndpointIDHandler(d *Daemon) PutEndpointIDHandler {
 }
 
 func (h *putEndpointID) Handle(params PutEndpointIDParams) middleware.Responder {
+	metrics.SetTSValue(metrics.EventTSAPI, time.Now())
 	log.WithField(logfields.Params, logfields.Repr(params)).Debug("PUT /endpoint/{id} request")
 
 	epTemplate := params.Endpoint
@@ -214,6 +219,7 @@ func NewPatchEndpointIDHandler(d *Daemon) PatchEndpointIDHandler {
 }
 
 func (h *patchEndpointID) Handle(params PatchEndpointIDParams) middleware.Responder {
+	metrics.SetTSValue(metrics.EventTSAPI, time.Now())
 	log.WithField(logfields.Params, logfields.Repr(params)).Debug("PATCH /endpoint/{id} request")
 
 	epTemplate := params.Endpoint
@@ -426,6 +432,7 @@ func NewDeleteEndpointIDHandler(d *Daemon) DeleteEndpointIDHandler {
 }
 
 func (h *deleteEndpointID) Handle(params DeleteEndpointIDParams) middleware.Responder {
+	metrics.SetTSValue(metrics.EventTSAPI, time.Now())
 	log.WithField(logfields.Params, logfields.Repr(params)).Debug("DELETE /endpoint/{id} request")
 
 	d := h.daemon
@@ -474,6 +481,7 @@ func NewPatchEndpointIDConfigHandler(d *Daemon) PatchEndpointIDConfigHandler {
 }
 
 func (h *patchEndpointIDConfig) Handle(params PatchEndpointIDConfigParams) middleware.Responder {
+	metrics.SetTSValue(metrics.EventTSAPI, time.Now())
 	log.WithField(logfields.Params, logfields.Repr(params)).Debug("PATCH /endpoint/{id}/config request")
 
 	d := h.daemon
@@ -496,6 +504,7 @@ func NewGetEndpointIDConfigHandler(d *Daemon) GetEndpointIDConfigHandler {
 }
 
 func (h *getEndpointIDConfig) Handle(params GetEndpointIDConfigParams) middleware.Responder {
+	metrics.SetTSValue(metrics.EventTSAPI, time.Now())
 	log.WithField(logfields.Params, logfields.Repr(params)).Debug("GET /endpoint/{id}/config")
 
 	ep, err := endpointmanager.Lookup(params.ID)
@@ -517,6 +526,7 @@ func NewGetEndpointIDLabelsHandler(d *Daemon) GetEndpointIDLabelsHandler {
 }
 
 func (h *getEndpointIDLabels) Handle(params GetEndpointIDLabelsParams) middleware.Responder {
+	metrics.SetTSValue(metrics.EventTSAPI, time.Now())
 	log.WithField(logfields.Params, logfields.Repr(params)).Debug("GET /endpoint/{id}/labels")
 
 	ep, err := endpointmanager.Lookup(params.ID)
@@ -548,6 +558,7 @@ func NewGetEndpointIDLogHandler(d *Daemon) GetEndpointIDLogHandler {
 }
 
 func (h *getEndpointIDLog) Handle(params GetEndpointIDLogParams) middleware.Responder {
+	metrics.SetTSValue(metrics.EventTSAPI, time.Now())
 	log.WithField(logfields.EndpointID, params.ID).Debug("GET /endpoint/{id}/log request")
 
 	ep, err := endpointmanager.Lookup(params.ID)
@@ -670,10 +681,10 @@ func NewPutEndpointIDLabelsHandler(d *Daemon) PutEndpointIDLabelsHandler {
 }
 
 func (h *putEndpointIDLabels) Handle(params PutEndpointIDLabelsParams) middleware.Responder {
-	d := h.daemon
-
+	metrics.SetTSValue(metrics.EventTSAPI, time.Now())
 	log.WithField(logfields.Params, logfields.Repr(params)).Debug("PUT /endpoint/{id}/labels request")
 
+	d := h.daemon
 	mod := params.Configuration
 	add := labels.NewLabelsFromModel(mod.Add)
 	del := labels.NewLabelsFromModel(mod.Delete)

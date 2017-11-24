@@ -33,6 +33,7 @@ import (
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logfields"
+	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/serializer"
 
@@ -258,6 +259,7 @@ func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 		reSyncPeriod,
 		cache.ResourceEventHandlerFuncs{
 			AddFunc: func(obj interface{}) {
+				metrics.SetTSValue(metrics.EventTSK8s, time.Now())
 				if k8sNP := copyObjToV1beta1NetworkPolicy(obj); k8sNP != nil {
 					serKNPs.Enqueue(func() error {
 						d.addK8sNetworkPolicyV1beta1(k8sNP)
@@ -266,6 +268,7 @@ func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 				}
 			},
 			UpdateFunc: func(oldObj, newObj interface{}) {
+				metrics.SetTSValue(metrics.EventTSK8s, time.Now())
 				if oldK8sNP := copyObjToV1beta1NetworkPolicy(oldObj); oldK8sNP != nil {
 					if newK8sNP := copyObjToV1beta1NetworkPolicy(newObj); newK8sNP != nil {
 						serKNPs.Enqueue(func() error {
@@ -276,6 +279,7 @@ func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 				}
 			},
 			DeleteFunc: func(obj interface{}) {
+				metrics.SetTSValue(metrics.EventTSK8s, time.Now())
 				if k8sNP := copyObjToV1beta1NetworkPolicy(obj); k8sNP != nil {
 					serKNPs.Enqueue(func() error {
 						d.deleteK8sNetworkPolicyV1beta1(k8sNP)
@@ -295,6 +299,7 @@ func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 		reSyncPeriod,
 		cache.ResourceEventHandlerFuncs{
 			AddFunc: func(obj interface{}) {
+				metrics.SetTSValue(metrics.EventTSK8s, time.Now())
 				if k8sNP := copyObjToV1NetworkPolicy(obj); k8sNP != nil {
 					serKNPs.Enqueue(func() error {
 						d.addK8sNetworkPolicyV1(k8sNP)
@@ -303,6 +308,7 @@ func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 				}
 			},
 			UpdateFunc: func(oldObj, newObj interface{}) {
+				metrics.SetTSValue(metrics.EventTSK8s, time.Now())
 				if oldK8sNP := copyObjToV1NetworkPolicy(oldObj); oldK8sNP != nil {
 					if newK8sNP := copyObjToV1NetworkPolicy(newObj); newK8sNP != nil {
 						serKNPs.Enqueue(func() error {
@@ -313,6 +319,7 @@ func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 				}
 			},
 			DeleteFunc: func(obj interface{}) {
+				metrics.SetTSValue(metrics.EventTSK8s, time.Now())
 				if k8sNP := copyObjToV1NetworkPolicy(obj); k8sNP != nil {
 					serKNPs.Enqueue(func() error {
 						d.deleteK8sNetworkPolicyV1(k8sNP)
@@ -340,6 +347,7 @@ func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 		reSyncPeriod,
 		cache.ResourceEventHandlerFuncs{
 			AddFunc: func(obj interface{}) {
+				metrics.SetTSValue(metrics.EventTSK8s, time.Now())
 				if svc := copyObjToV1Services(obj); svc != nil {
 					serSvcs.Enqueue(func() error {
 						d.addK8sServiceV1(svc)
@@ -348,6 +356,7 @@ func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 				}
 			},
 			UpdateFunc: func(oldObj, newObj interface{}) {
+				metrics.SetTSValue(metrics.EventTSK8s, time.Now())
 				if oldK8sSvc := copyObjToV1Services(oldObj); oldK8sSvc != nil {
 					if newK8sSvc := copyObjToV1Services(newObj); newK8sSvc != nil {
 						serSvcs.Enqueue(func() error {
@@ -358,6 +367,7 @@ func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 				}
 			},
 			DeleteFunc: func(obj interface{}) {
+				metrics.SetTSValue(metrics.EventTSK8s, time.Now())
 				if svc := copyObjToV1Services(obj); svc != nil {
 					serSvcs.Enqueue(func() error {
 						d.deleteK8sServiceV1(svc)
@@ -377,6 +387,7 @@ func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 		reSyncPeriod,
 		cache.ResourceEventHandlerFuncs{
 			AddFunc: func(obj interface{}) {
+				metrics.SetTSValue(metrics.EventTSK8s, time.Now())
 				if k8sEP := copyObjToV1Endpoints(obj); k8sEP != nil {
 					serEps.Enqueue(func() error {
 						d.addK8sEndpointV1(k8sEP)
@@ -385,6 +396,7 @@ func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 				}
 			},
 			UpdateFunc: func(oldObj, newObj interface{}) {
+				metrics.SetTSValue(metrics.EventTSK8s, time.Now())
 				if oldK8sEP := copyObjToV1Endpoints(oldObj); oldK8sEP != nil {
 					if newK8sEP := copyObjToV1Endpoints(newObj); newK8sEP != nil {
 						serEps.Enqueue(func() error {
@@ -395,6 +407,7 @@ func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 				}
 			},
 			DeleteFunc: func(obj interface{}) {
+				metrics.SetTSValue(metrics.EventTSK8s, time.Now())
 				if k8sEP := copyObjToV1Endpoints(obj); k8sEP != nil {
 					serEps.Enqueue(func() error {
 						d.deleteK8sEndpointV1(k8sEP)
@@ -414,6 +427,7 @@ func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 		reSyncPeriod,
 		cache.ResourceEventHandlerFuncs{
 			AddFunc: func(obj interface{}) {
+				metrics.SetTSValue(metrics.EventTSK8s, time.Now())
 				if ing := copyObjToV1beta1Ingress(obj); ing != nil {
 					serEps.Enqueue(func() error {
 						d.addIngressV1beta1(ing)
@@ -422,6 +436,7 @@ func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 				}
 			},
 			UpdateFunc: func(oldObj, newObj interface{}) {
+				metrics.SetTSValue(metrics.EventTSK8s, time.Now())
 				if oldIng := copyObjToV1beta1Ingress(oldObj); oldIng != nil {
 					if newIng := copyObjToV1beta1Ingress(newObj); newIng != nil {
 						serEps.Enqueue(func() error {
@@ -432,6 +447,7 @@ func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 				}
 			},
 			DeleteFunc: func(obj interface{}) {
+				metrics.SetTSValue(metrics.EventTSK8s, time.Now())
 				if ing := copyObjToV1beta1Ingress(obj); ing != nil {
 					serEps.Enqueue(func() error {
 						d.deleteIngressV1beta1(ing)
@@ -452,6 +468,7 @@ func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 		cnpStore := ciliumV1Controller.GetStore()
 		ciliumV1Controller.AddEventHandler(cache.ResourceEventHandlerFuncs{
 			AddFunc: func(obj interface{}) {
+				metrics.SetTSValue(metrics.EventTSK8s, time.Now())
 				if cnp := copyObjToV1CNP(obj); cnp != nil {
 					serCNPs.Enqueue(func() error {
 						d.addCiliumNetworkPolicyV1(cnpStore, cnp)
@@ -460,6 +477,7 @@ func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 				}
 			},
 			UpdateFunc: func(oldObj, newObj interface{}) {
+				metrics.SetTSValue(metrics.EventTSK8s, time.Now())
 				if oldCNP := copyObjToV1CNP(oldObj); oldCNP != nil {
 					if newCNP := copyObjToV1CNP(newObj); newCNP != nil {
 						serCNPs.Enqueue(func() error {
@@ -470,6 +488,7 @@ func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 				}
 			},
 			DeleteFunc: func(obj interface{}) {
+				metrics.SetTSValue(metrics.EventTSK8s, time.Now())
 				if cnp := copyObjToV1CNP(obj); cnp != nil {
 					serCNPs.Enqueue(func() error {
 						d.deleteCiliumNetworkPolicyV1(cnp)
@@ -484,6 +503,7 @@ func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 		cnpStore := ciliumV2Controller.GetStore()
 		ciliumV2Controller.AddEventHandler(cache.ResourceEventHandlerFuncs{
 			AddFunc: func(obj interface{}) {
+				metrics.SetTSValue(metrics.EventTSK8s, time.Now())
 				if cnp := copyObjToV2CNP(obj); cnp != nil {
 					serCNPs.Enqueue(func() error {
 						d.addCiliumNetworkPolicyV2(cnpStore, cnp)
@@ -492,6 +512,7 @@ func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 				}
 			},
 			UpdateFunc: func(oldObj, newObj interface{}) {
+				metrics.SetTSValue(metrics.EventTSK8s, time.Now())
 				if oldCNP := copyObjToV2CNP(oldObj); oldCNP != nil {
 					if newCNP := copyObjToV2CNP(newObj); newCNP != nil {
 						serCNPs.Enqueue(func() error {
@@ -502,6 +523,7 @@ func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 				}
 			},
 			DeleteFunc: func(obj interface{}) {
+				metrics.SetTSValue(metrics.EventTSK8s, time.Now())
 				if cnp := copyObjToV2CNP(obj); cnp != nil {
 					serCNPs.Enqueue(func() error {
 						d.deleteCiliumNetworkPolicyV2(cnp)
@@ -521,6 +543,7 @@ func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 		reSyncPeriod,
 		cache.ResourceEventHandlerFuncs{
 			AddFunc: func(obj interface{}) {
+				metrics.SetTSValue(metrics.EventTSK8s, time.Now())
 				if k8sNode := copyObjToV1Node(obj); k8sNode != nil {
 					serNodes.Enqueue(func() error {
 						d.addK8sNodeV1(k8sNode)
@@ -529,6 +552,7 @@ func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 				}
 			},
 			UpdateFunc: func(oldObj, newObj interface{}) {
+				metrics.SetTSValue(metrics.EventTSK8s, time.Now())
 				if oldK8sNode := copyObjToV1Node(oldObj); oldK8sNode != nil {
 					if newK8sNode := copyObjToV1Node(newObj); newK8sNode != nil {
 						serNodes.Enqueue(func() error {
@@ -539,6 +563,7 @@ func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 				}
 			},
 			DeleteFunc: func(obj interface{}) {
+				metrics.SetTSValue(metrics.EventTSK8s, time.Now())
 				if k8sNode := copyObjToV1Node(obj); k8sNode != nil {
 					serNodes.Enqueue(func() error {
 						d.deleteK8sNodeV1(k8sNode)

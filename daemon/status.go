@@ -16,12 +16,14 @@ package main
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/cilium/cilium/api/v1/models"
 	. "github.com/cilium/cilium/api/v1/server/restapi/daemon"
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/kvstore"
+	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/workloads/containerd"
 
 	"github.com/go-openapi/runtime/middleware"
@@ -89,6 +91,8 @@ func checkLocks(d *Daemon) {
 }
 
 func (h *getHealthz) Handle(params GetHealthzParams) middleware.Responder {
+	metrics.SetTSValue(metrics.EventTSAPI, time.Now())
+
 	d := h.daemon
 	sr := models.StatusResponse{}
 

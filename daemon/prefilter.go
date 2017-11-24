@@ -17,10 +17,12 @@ package main
 import (
 	"fmt"
 	"net"
+	"time"
 
 	"github.com/cilium/cilium/api/v1/models"
 	. "github.com/cilium/cilium/api/v1/server/restapi/prefilter"
 	"github.com/cilium/cilium/pkg/apierror"
+	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/go-openapi/runtime/middleware"
 )
 
@@ -34,6 +36,8 @@ func NewGetPrefilterHandler(d *Daemon) GetPrefilterHandler {
 }
 
 func (h *getPrefilter) Handle(params GetPrefilterParams) middleware.Responder {
+	metrics.SetTSValue(metrics.EventTSAPI, time.Now())
+
 	var list []string
 	var revision int64
 	if h.d.preFilter == nil {
@@ -58,6 +62,8 @@ func NewPutPrefilterHandler(d *Daemon) PutPrefilterHandler {
 }
 
 func (h *putPrefilter) Handle(params PutPrefilterParams) middleware.Responder {
+	metrics.SetTSValue(metrics.EventTSAPI, time.Now())
+
 	var list []net.IPNet
 	cl := params.CidrList
 	if h.d.preFilter == nil {
@@ -89,6 +95,8 @@ func NewDeletePrefilterHandler(d *Daemon) DeletePrefilterHandler {
 }
 
 func (h *deletePrefilter) Handle(params DeletePrefilterParams) middleware.Responder {
+	metrics.SetTSValue(metrics.EventTSAPI, time.Now())
+
 	var list []net.IPNet
 	cl := params.CidrList
 	if h.d.preFilter == nil {

@@ -28,6 +28,7 @@ import (
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logfields"
+	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/policy"
 
@@ -227,6 +228,7 @@ func NewGetIdentityHandler(d *Daemon) GetIdentityHandler {
 }
 
 func (h *getIdentity) Handle(params GetIdentityParams) middleware.Responder {
+	metrics.SetTSValue(metrics.EventTSAPI, time.Now())
 	log.WithField(logfields.Params, logfields.Repr(params)).Debug("GET /identity request")
 
 	identities := []*models.Identity{}
@@ -267,6 +269,8 @@ func NewGetIdentityIDHandler(d *Daemon) GetIdentityIDHandler {
 }
 
 func (h *getIdentityID) Handle(params GetIdentityIDParams) middleware.Responder {
+	metrics.SetTSValue(metrics.EventTSAPI, time.Now())
+
 	d := h.daemon
 
 	nid, err := policy.ParseNumericIdentity(params.ID)

@@ -32,6 +32,7 @@ import (
 	k8sconst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logfields"
+	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/workloads"
 
@@ -91,6 +92,8 @@ func EnableEventListener() error {
 func listenForDockerEvents(ws *watcherState, reader io.ReadCloser) {
 	scanner := bufio.NewScanner(reader)
 	for scanner.Scan() {
+		metrics.SetTSValue(metrics.EventTSContainerd, time.Now())
+
 		var e dTypesEvents.Message
 		if err := json.Unmarshal(scanner.Bytes(), &e); err != nil {
 			log.WithError(err).Error("Error while unmarshalling event")
