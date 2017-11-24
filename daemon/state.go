@@ -52,7 +52,6 @@ func (d *Daemon) SyncState(dir string, clean bool) error {
 		return nil
 	}
 
-	endpointmanager.Mutex.Lock()
 	nEndpoints := len(possibleEPs)
 
 	// we need to signalize when the endpoints are restored, i.e., when the
@@ -123,7 +122,6 @@ func (d *Daemon) SyncState(dir string, clean bool) error {
 			epRegenerated <- true
 		}(ep, epRestored, epRegenerated)
 	}
-	endpointmanager.Mutex.Unlock()
 
 	go func() {
 		regenerated, total := 0, 0

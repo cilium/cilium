@@ -69,17 +69,17 @@ func (d *Daemon) EnableLogstash(LogstashAddr string, refreshTime int) {
 			timeToProcess1 := time.Now()
 
 			allPes := map[uint16][]policymap.PolicyEntryDump{}
-			endpointmanager.Mutex.RLock()
-			for _, ep := range endpointmanager.Endpoints {
+			eps := endpointmanager.GetEndpoints()
+			for _, ep := range eps {
 				ep.Mutex.RLock()
 				pes, err := ep.PolicyMap.DumpToSlice()
 				if err != nil {
+					ep.Mutex.RUnlock()
 					continue
 				}
 				allPes[ep.ID] = pes
 				ep.Mutex.RUnlock()
 			}
-			endpointmanager.Mutex.RUnlock()
 			lss := d.processStats(allPes)
 			for _, ls := range lss {
 				if err := json.NewEncoder(c).Encode(ls); err != nil {
