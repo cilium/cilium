@@ -99,6 +99,17 @@ if ENV['K8S'] then
     $k8stag = ENV['K8STAG'] || "-k8s"
 end
 
+# We need this workaround since kube-proxy is not aware of multiple network
+# interfaces. If we send a packet to a service IP that packet is sent
+# to the default route, because the service IP is unknown by the linux routing
+# table, with the source IP of the interface in the default routing table, even
+# though the service IP should be routed to a different interface.
+# This particular workaround is only needed for cilium, running on a pod on host
+# network namespace, to reach out kube-api-server.
+$kube_proxy_workaround = <<SCRIPT
+sudo iptables -t nat -A POSTROUTING -o enp0s8 ! -s 192.168.34.12 -j MASQUERADE
+SCRIPT
+
 Vagrant.configure(2) do |config|
     config.vm.provision "bootstrap", type: "shell", inline: $bootstrap
     config.vm.provision "build", type: "shell", run: "always", privileged: false, inline: $build
@@ -227,6 +238,7 @@ Vagrant.configure(2) do |config|
             node.vm.hostname = "cilium#{$k8stag}-node-#{n+2}"
             if ENV['CILIUM_TEMP'] then
                 if ENV["K8S"] then
+                    node.vm.provision "kube-proxy-workaround", type: "shell", run: "always", inline: $kube_proxy_workaround
                     k8sinstall = "#{ENV['CILIUM_TEMP']}/cilium-k8s-install-1st-part.sh"
                     node.vm.provision "k8s-install-node-part-1",
                         type: "shell",
