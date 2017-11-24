@@ -1136,6 +1136,8 @@ func (e *Endpoint) Update(owner Owner, opts models.ConfigurationMap) error {
 // HasLabels returns whether endpoint e contains all labels l. Will return 'false'
 // if any label in l is not in the endpoint's labels.
 func (e *Endpoint) HasLabels(l pkgLabels.Labels) bool {
+	e.Mutex.RLock()
+	defer e.Mutex.RUnlock()
 	allEpLabels := e.OpLabels.AllLabels()
 
 	for _, v := range l {

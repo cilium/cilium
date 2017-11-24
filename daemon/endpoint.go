@@ -18,6 +18,7 @@ import (
 	"bytes"
 	"fmt"
 	"os"
+	"sync"
 	"time"
 
 	"github.com/cilium/cilium/api/v1/models"
@@ -48,50 +49,50 @@ func (h *getEndpoint) Handle(params GetEndpointParams) middleware.Responder {
 	metrics.SetTSValue(metrics.EventTSAPI, time.Now())
 	log.WithField(logfields.Params, logfields.Repr(params)).Debug("GET /endpoint request")
 
-	modelChan := make(chan *models.Endpoint, 1)
-	defer close(modelChan)
+	var (
+		epModelsWg, epsAppendWg sync.WaitGroup
+		convertedLabels         labels.Labels
+		resEPs                  []*models.Endpoint
+	)
 
-	// FIXME @aanm hide use of endpoint manager lock
-	endpointmanager.Mutex.RLock()
-	numEndpoints := len(endpointmanager.Endpoints)
-	eps := make([]*models.Endpoint, 0, numEndpoints)
-
-	if params.Labels == nil {
-		for _, v := range endpointmanager.Endpoints {
-			go func(ep *endpoint.Endpoint) {
-				modelChan <- ep.GetModel()
-			}(v)
-		}
-		endpointmanager.Mutex.RUnlock()
-		for i := 0; i < numEndpoints; i++ {
-			eps = append(eps, <-modelChan)
-		}
-		return NewGetEndpointOK().WithPayload(eps)
+	if params.Labels != nil {
+		// Convert params.Labels to model that we can compare with the endpoint's labels.
+		convertedLabels = labels.NewLabelsFromModel(params.Labels)
 	}
 
-	// Convert params.Labels to model that we can compare with the endpoint's labels.
-	convertedLabels := labels.NewLabelsFromModel(params.Labels)
+	eps := endpointmanager.GetEndpoints()
+	epModelsCh := make(chan *models.Endpoint, len(eps))
 
-	for _, v := range endpointmanager.Endpoints {
-		go func(ep *endpoint.Endpoint) {
-			ep.Mutex.RLock()
+	epModelsWg.Add(len(eps))
+	for _, ep := range eps {
+		go func(wg *sync.WaitGroup, epChan chan<- *models.Endpoint, ep *endpoint.Endpoint) {
 			if ep.HasLabels(convertedLabels) {
-				modelChan <- ep.GetModelRLocked()
+				epChan <- ep.GetModel()
 			}
-			ep.Mutex.RUnlock()
-		}(v)
-	}
-	endpointmanager.Mutex.RUnlock()
-
-	for i := 0; i < numEndpoints; i++ {
-		eps = append(eps, <-modelChan)
+			wg.Done()
+		}(&epModelsWg, epModelsCh, ep)
 	}
 
-	if len(eps) == 0 {
+	epsAppendWg.Add(1)
+	// This needs to be done over channels since we might not receive all
+	// the existing endpoints since not all endpoints contain the list of
+	// labels that we will use to filter in `ep.HasLabels(convertedLabels)`
+	go func(epsAppended *sync.WaitGroup) {
+		for ep := range epModelsCh {
+			resEPs = append(resEPs, ep)
+		}
+		epsAppended.Done()
+	}(&epsAppendWg)
+
+	epModelsWg.Wait()
+	close(epModelsCh)
+	epsAppendWg.Wait()
+
+	if params.Labels != nil && len(resEPs) == 0 {
 		return NewGetEndpointNotFound()
 	}
 
-	return NewGetEndpointOK().WithPayload(eps)
+	return NewGetEndpointOK().WithPayload(resEPs)
 }
 
 type getEndpointID struct {
@@ -150,10 +151,7 @@ func (h *putEndpointID) Handle(params PutEndpointIDParams) middleware.Responder 
 	alwaysEnforce := policy.GetPolicyEnabled() == endpoint.AlwaysEnforce
 	ep.Opts.Set(endpoint.OptionPolicy, alwaysEnforce)
 
-	endpointmanager.Mutex.Lock()
-	defer endpointmanager.Mutex.Unlock()
-
-	oldEp, err2 := endpointmanager.LookupLocked(params.ID)
+	oldEp, err2 := endpointmanager.Lookup(params.ID)
 	if err2 != nil {
 		return apierror.Error(GetEndpointIDInvalidCode, err2)
 	} else if oldEp != nil {
@@ -187,14 +185,14 @@ func (h *putEndpointID) Handle(params PutEndpointIDParams) middleware.Responder 
 		}
 	}
 
+	ep.RLock()
 	endpointmanager.Insert(ep)
+	ep.RUnlock()
 
 	add := labels.NewLabelsFromModel(params.Endpoint.Labels)
 
 	if len(add) > 0 {
-		endpointmanager.Mutex.Unlock()
 		errLabelsAdd := h.d.UpdateSecLabels(params.ID, add, labels.Labels{})
-		endpointmanager.Mutex.Lock()
 		if errLabelsAdd != nil {
 			// XXX: Why should the endpoint remain in this case?
 			log.WithFields(logrus.Fields{
@@ -392,6 +390,7 @@ func (d *Daemon) deleteEndpoint(ep *endpoint.Endpoint) int {
 		}
 	}
 
+	endpointmanager.Remove(ep)
 	if !d.conf.IPv4Disabled {
 		if err := ipam.ReleaseIP(ep.IPv4.IP()); err != nil {
 			scopedLog.WithError(err).WithField(logfields.IPAddr, ep.IPv4.IP()).Warn("Error while releasing IPv4")
@@ -464,7 +463,9 @@ func (d *Daemon) EndpointUpdate(id string, opts models.ConfigurationMap) error {
 				return apierror.Error(PatchEndpointIDConfigFailedCode, err)
 			}
 		}
+		ep.RLock()
 		endpointmanager.UpdateReferences(ep)
+		ep.RUnlock()
 	} else {
 		return apierror.New(PatchEndpointIDConfigNotFoundCode, "endpoint %s not found", id)
 	}

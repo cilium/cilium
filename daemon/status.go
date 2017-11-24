@@ -20,7 +20,6 @@ import (
 
 	"github.com/cilium/cilium/api/v1/models"
 	. "github.com/cilium/cilium/api/v1/server/restapi/daemon"
-	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/metrics"
@@ -80,9 +79,6 @@ func NewGetHealthzHandler(d *Daemon) GetHealthzHandler {
 func checkLocks(d *Daemon) {
 	// Try to acquire a couple of global locks to have the status API fail
 	// in case of a deadlock on these locks
-
-	endpointmanager.Mutex.Lock()
-	endpointmanager.Mutex.Unlock()
 
 	d.conf.ConfigPatchMutex.Lock()
 	d.conf.ConfigPatchMutex.Unlock()
