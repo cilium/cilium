@@ -80,7 +80,7 @@ var (
 // enabled/in-use
 // Note: We can replace it with a Go 1.9 map once we require that version
 type k8sAPIGroupsUsed struct {
-	sync.Mutex
+	lock.RWMutex
 	apis map[string]bool
 }
 
@@ -99,12 +99,14 @@ func (m *k8sAPIGroupsUsed) removeAPI(api string) {
 	delete(m.apis, api)
 }
 
-func (m *k8sAPIGroupsUsed) Range(f func(key string, value bool) bool) {
-	for k, v := range m.apis {
-		if !f(k, v) {
-			return
-		}
+func (m *k8sAPIGroupsUsed) getGroups() []string {
+	m.RLock()
+	defer m.RUnlock()
+	groups := make([]string, 0, len(m.apis))
+	for k := range m.apis {
+		groups = append(groups, k)
 	}
+	return groups
 }
 
 func init() {

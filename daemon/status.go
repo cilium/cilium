@@ -61,12 +61,7 @@ func (d *Daemon) getK8sStatus() *models.K8sStatus {
 		}
 	}
 
-	d.k8sAPIGroups.Range(func(key string, value bool) bool {
-		if value {
-			k8sStatus.K8sAPIVersions = append(k8sStatus.K8sAPIVersions, key)
-		}
-		return true
-	})
+	k8sStatus.K8sAPIVersions = d.k8sAPIGroups.getGroups()
 
 	return k8sStatus
 }
