@@ -15,6 +15,8 @@
 package endpoint
 
 import (
+	"net"
+
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/policy"
@@ -75,6 +77,12 @@ type Owner interface {
 	// GetCompilationLock returns the mutex responsible for synchronizing compilation
 	// of BPF programs.
 	GetCompilationLock() *lock.RWMutex
+
+	// CleanCTEntries cleans the connection tracking of the given endpoint
+	// where the given endpoint IPs' and the idsToRm match the CT entry fields.
+	// isCTLocal should bet set as true if the endpoint's CT table is either
+	// local or not (if is not local then is assumed to be global).
+	CleanCTEntries(e *Endpoint, isCTLocal bool, ips []net.IP, idsToRm policy.RuleContexts)
 }
 
 // Request is used to create the endpoint's request and send it to the endpoints

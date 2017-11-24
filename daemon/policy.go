@@ -256,8 +256,12 @@ func (d *Daemon) PolicyAdd(rules api.Rules, opts *AddOptions) (uint64, error) {
 	return rev, nil
 }
 
-// PolicyDelete deletes rules containing the given labels, or all rules if no
-// labels are given.
+// PolicyDelete deletes the policy set in the given path from the policy tree.
+// If cover256Sum is set it finds the rule with the respective coverage that
+// rule from the node. If the path's node becomes ruleless it is removed from
+// the tree.
+// Returns the revision number and an error in case it was not possible to
+// delete the policy.
 func (d *Daemon) PolicyDelete(labels labels.LabelArray) (uint64, error) {
 	log.WithField(logfields.IdentityLabels, logfields.Repr(labels)).Debug("Policy Delete Request")
 
@@ -269,56 +273,8 @@ func (d *Daemon) PolicyDelete(labels labels.LabelArray) (uint64, error) {
 		return rev, apierror.New(DeletePolicyNotFoundCode, "policy not found")
 	}
 
-	go func() {
-		// Store the consumables before we make any policy changes
-		// to check which consumables were removed with the new policy.
-		oldConsumables := policy.GetConsumableCache().GetConsumables()
+	d.TriggerPolicyUpdates(false)
 
-		wg := d.TriggerPolicyUpdates(false)
-
-		// If daemon doesn't enforce policy then skip the cleanup
-		// of CT entries.
-		if d.PolicyEnforcement() == endpoint.NeverEnforce {
-			return
-		}
-
-		// Wait for all policies to be updated so that
-		// we can grab a fresh map of consumables.
-		wg.Wait()
-
-		newConsumables := policy.GetConsumableCache().GetConsumables()
-
-		consumablesToRm := policy.ConsumablesInANotInB(oldConsumables, newConsumables)
-		endpointmanager.Mutex.RLock()
-		for _, ep := range endpointmanager.Endpoints {
-			ep.Mutex.RLock()
-			// If the policy is not being enforced then keep the CT
-			// entries.
-			if ep.SecLabel == nil ||
-				!ep.Opts.IsEnabled(endpoint.OptionPolicy) {
-				ep.Mutex.RUnlock()
-				continue
-			}
-			epSecID := ep.SecLabel.ID
-
-			ep.Mutex.RUnlock()
-
-			idsToRm := map[uint32]bool{}
-			if consumers, ok := consumablesToRm[epSecID]; ok {
-				for _, consumer := range consumers {
-					idsToRm[consumer.Uint32()] = true
-				}
-				if len(idsToRm) != 0 {
-					log.WithFields(log.Fields{
-						logfields.EndpointID:             ep.ID,
-						logfields.EndpointID + ".remove": logfields.Repr(idsToRm),
-					}).Debug("Removing entries of EP")
-					endpointmanager.RmCTEntriesOf(!d.conf.IPv4Disabled, ep, idsToRm)
-				}
-			}
-		}
-		endpointmanager.Mutex.RUnlock()
-	}()
 	return rev, nil
 }
 

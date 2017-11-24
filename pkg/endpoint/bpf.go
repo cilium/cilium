@@ -19,6 +19,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"net"
 	"os"
 	"os/exec"
 	"path"
@@ -26,6 +27,7 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/cilium/cilium/common"
@@ -52,7 +54,7 @@ func (e *Endpoint) writeL4Map(fw *bufio.Writer, owner Owner, m policy.L4PolicyMa
 	array := ""
 	index := 0
 
-	for _, l4 := range m {
+	for k, l4 := range m {
 		// Represents struct l4_allow in bpf/lib/l4.h
 		protoNum, err := u8proto.ParseProtocol(string(l4.Protocol))
 		if err != nil {
@@ -67,6 +69,8 @@ func (e *Endpoint) writeL4Map(fw *bufio.Writer, owner Owner, m policy.L4PolicyMa
 			if err != nil {
 				return err
 			}
+			l4.L7RedirectPort = int(redirect)
+			m[k] = l4
 		}
 
 		redirect = byteorder.HostToNetwork(redirect).(uint16)
@@ -409,7 +413,7 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir, reason string) error {
 		// Regenerate policy and apply any options resulting in the
 		// policy change.
 		// Note that e.PolicyMap is not initialized!
-		if _, err = e.regeneratePolicy(owner, nil); err != nil {
+		if _, _, err = e.regeneratePolicy(owner, nil); err != nil {
 			e.Mutex.Unlock()
 			return fmt.Errorf("Unable to regenerate policy: %s", err)
 		}
@@ -470,6 +474,9 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir, reason string) error {
 		}
 	}
 
+	wg := sync.WaitGroup{}
+	defer wg.Wait()
+
 	// Only generate & populate policy map if a seclabel and consumer model is set up
 	if c != nil {
 		c.AddMap(e.PolicyMap)
@@ -477,10 +484,21 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir, reason string) error {
 		// Regenerate policy and apply any options resulting in the
 		// policy change.
 		// This also populates e.PolicyMap
-		if _, err = e.regeneratePolicy(owner, nil); err != nil {
+		_, consumersToRm, err := e.regeneratePolicy(owner, nil)
+		if err != nil {
 			e.Mutex.Unlock()
 			return fmt.Errorf("Unable to regenerate policy for '%s': %s",
 				e.PolicyMap.String(), err)
+		}
+		if len(consumersToRm) != 0 {
+			ip4 := e.IPv4.IP()
+			ip6 := e.IPv6.IP()
+			isLocal := e.Opts.IsEnabled(OptionConntrackLocal)
+			wg.Add(1)
+			go func(wg *sync.WaitGroup) {
+				owner.CleanCTEntries(e, isLocal, []net.IP{ip4, ip6}, consumersToRm)
+				wg.Done()
+			}(&wg)
 		}
 	}
 

@@ -23,6 +23,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/byteorder"
+	"github.com/cilium/cilium/pkg/policy"
 
 	log "github.com/sirupsen/logrus"
 )
@@ -71,7 +72,9 @@ type CtEntry struct {
 	tx_bytes   uint64
 	lifetime   uint32
 	flags      uint16
-	revnat     uint16
+	// revnat is in network byte order
+	revnat uint16
+	// proxy_port is in network byte order
 	proxy_port uint16
 	src_sec_id uint32
 }
@@ -99,7 +102,7 @@ type GCFilterFlags uint
 type GCFilter struct {
 	Time    uint32
 	IP      net.IP
-	IDsToRm map[uint32]bool
+	IDsToRm policy.RuleContexts
 	fType   GCFilterFlags
 }
 
@@ -107,7 +110,7 @@ type GCFilter struct {
 func NewGCFilterBy(f GCFilterFlags) *GCFilter {
 	return &GCFilter{
 		fType:   f,
-		IDsToRm: map[uint32]bool{},
+		IDsToRm: policy.RuleContexts{},
 	}
 }
 
@@ -220,6 +223,13 @@ func doGC6(m *bpf.Map, filter *GCFilter) int {
 		return 0
 	}
 
+	// If the filter is by ID and the IDsToRm is empty then skip GC.
+	if filter.fType&GCFilterByID != 0 {
+		if len(filter.IDsToRm) == 0 {
+			return 0
+		}
+	}
+
 	for {
 		del = false
 		nextKeyValid := m.GetNextKey(&nextKey, &tmpKey)
@@ -237,22 +247,25 @@ func doGC6(m *bpf.Map, filter *GCFilter) int {
 			entry.lifetime < filter.Time {
 
 			del = true
-			//log.WithField(logfields.Object, logfields.Repr(entry)).Debug("Deleting IPv4 entry since it timeout")
 		}
+
 		if filter.fType&GCFilterByID != 0 &&
 			// In CT's entries, saddr is the packet's receiver,
 			// which means, is the destination container IP.
 			nextKey.saddr.IP().Equal(filter.IP) {
 
+			ruleCtx := policy.RuleContext{
+				SecID:          policy.NumericIdentity(entry.src_sec_id),
+				Port:           nextKey.sport,
+				Proto:          uint8(nextKey.nexthdr),
+				L7RedirectPort: entry.proxy_port,
+				IsRedirect:     entry.proxy_port != 0,
+			}
+
 			// Check if the src_sec_id of that entry is not allowed
 			// to talk with the destination container IP.
-			if _, ok := filter.IDsToRm[entry.src_sec_id]; ok {
-
+			if _, ok := filter.IDsToRm[ruleCtx]; ok {
 				del = true
-				//log.WithFields(log.Fields{
-				//	logfields.IPAddr:   filter.IP,
-				//	logfields.Identity: entry.src_sec_id,
-				//}).Debug("Deleting IPv6 entry since ID is no longer being consumed by filter")
 			}
 		}
 
@@ -287,6 +300,13 @@ func doGC4(m *bpf.Map, filter *GCFilter) int {
 		return 0
 	}
 
+	// If the filter is by ID and the IDsToRm is empty then skip GC.
+	if filter.fType&GCFilterByID != 0 {
+		if len(filter.IDsToRm) == 0 {
+			return 0
+		}
+	}
+
 	for true {
 		del = false
 		nextKeyValid := m.GetNextKey(&nextKey, &tmpKey)
@@ -304,22 +324,25 @@ func doGC4(m *bpf.Map, filter *GCFilter) int {
 			entry.lifetime < filter.Time {
 
 			del = true
-			//log.WithField(logfields.Object, logfields.Repr(entry)).Debug("Deleting IPv6 entry since it timeout")
 		}
+
 		if filter.fType&GCFilterByID != 0 &&
 			// In CT's entries, saddr is the packet's receiver,
 			// which means, is the destination container IP.
 			nextKey.saddr.IP().Equal(filter.IP) {
 
+			ruleCtx := policy.RuleContext{
+				SecID:          policy.NumericIdentity(entry.src_sec_id),
+				Port:           nextKey.sport,
+				Proto:          uint8(nextKey.nexthdr),
+				L7RedirectPort: entry.proxy_port,
+				IsRedirect:     entry.proxy_port != 0,
+			}
+
 			// Check if the src_sec_id of that entry is not allowed
 			// to talk with the destination container IP.
-			if _, ok := filter.IDsToRm[entry.src_sec_id]; ok {
-
+			if _, ok := filter.IDsToRm[ruleCtx]; ok {
 				del = true
-				//log.WithFields(log.Fields{
-				//	logfields.IPAddr:   filter.IP,
-				//	logfields.Identity: entry.src_sec_id,
-				//}).Debug("Deleting IPv4 entry since ID is no longer being consumed by filter")
 			}
 		}
 
@@ -344,6 +367,10 @@ func doGC4(m *bpf.Map, filter *GCFilter) int {
 // It returns how many items were deleted from m.
 func GC(m *bpf.Map, mapName string, filter *GCFilter) int {
 	if filter.fType&GCFilterByTime != 0 {
+		// If LRUHashtable, no need to garbage collect as LRUHashtable cleans itself up.
+		if m.MapInfo.MapType == bpf.MapTypeLRUHash {
+			return 0
+		}
 		t, _ := bpf.GetMtime()
 		tsec := t / 1000000000
 		filter.Time = uint32(tsec)

@@ -317,18 +317,7 @@ wait_for_endpoints 6
 BIDIRECTIONAL=0
 connectivity_test
 
-entriesBefore=$(sudo cilium bpf ct list global | wc -l)
-
 policy_delete_and_wait id=httpd
-
-# FIXME: Disabled for now, need a reliable way to know when this happened as it occurs async
-#entriesAfter=$(sudo cilium bpf ct list global | wc -l)
-
-#if [ "${entriesAfter}" -eq 0 ]; then
-#    abort "CT map should not be empty"
-#elif [ "${entriesBefore}" -le "${entriesAfter}" ]; then
-#    abort "some of the CT entries should have been removed after policy change"
-#fi
 
 log "deleting all policies in Cilium"
 cilium policy delete --all
