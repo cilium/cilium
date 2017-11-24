@@ -15,13 +15,21 @@
 package main
 
 import (
+	"io/ioutil"
 	"net"
+	"os"
+	"path/filepath"
 	"runtime"
 	"testing"
+	"time"
 
+	"github.com/cilium/cilium/common"
+	"github.com/cilium/cilium/daemon/options"
 	e "github.com/cilium/cilium/pkg/endpoint"
+	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
 
 	. "gopkg.in/check.v1"
@@ -41,11 +49,11 @@ type DaemonSuite struct {
 	OnAlwaysAllowLocalhost            func() bool
 	OnGetCachedLabelList              func(id policy.NumericIdentity) (labels.LabelArray, error)
 	OnGetPolicyRepository             func() *policy.Repository
-	OnGetCachedMaxLabelID             func() (policy.NumericIdentity, error)
 	OnUpdateProxyRedirect             func(e *e.Endpoint, l4 *policy.L4Filter) (uint16, error)
 	OnRemoveProxyRedirect             func(e *e.Endpoint, l4 *policy.L4Filter) error
 	OnGetStateDir                     func() string
 	OnGetBpfDir                       func() string
+	OnGetTunnelMode                   func() string
 	OnQueueEndpointBuild              func(r *e.Request)
 	OnRemoveFromEndpointQueue         func(epID uint64)
 	OnDebugEnabled                    func() bool
@@ -54,7 +62,75 @@ type DaemonSuite struct {
 	OnFlushCTEntries                  func(e *e.Endpoint, isCTLocal bool, ips []net.IP, idsToKeep policy.RuleContexts)
 }
 
-var _ = Suite(&DaemonSuite{})
+func (ds *DaemonSuite) SetUpTest(c *C) {
+	time.Local = time.UTC
+	tempRunDir, err := ioutil.TempDir("", "cilium-test-run")
+	c.Assert(err, IsNil)
+	err = os.Mkdir(filepath.Join(tempRunDir, "globals"), 0777)
+	c.Assert(err, IsNil)
+
+	daemonConf := &Config{
+		DryMode:  true,
+		Opts:     option.NewBoolOptions(&options.Library),
+		Device:   "undefined",
+		RunDir:   tempRunDir,
+		StateDir: tempRunDir,
+	}
+
+	// Get the default labels prefix filter
+	err = labels.ParseLabelPrefixCfg(nil, "")
+	c.Assert(err, IsNil)
+	daemonConf.Opts.Set(e.OptionDropNotify, true)
+	daemonConf.Opts.Set(e.OptionTraceNotify, true)
+
+	d, err := NewDaemon(daemonConf)
+	c.Assert(err, IsNil)
+	ds.d = d
+
+	kvstore.DeletePrefix(common.OperationalPath)
+	kvstore.DeletePrefix(kvstore.BaseKeyPrefix)
+
+	policy.InitIdentityAllocator(d)
+}
+
+func (ds *DaemonSuite) TearDownTest(c *C) {
+	if ds.d != nil {
+		os.RemoveAll(ds.d.conf.RunDir)
+	}
+
+	kvstore.DeletePrefix(common.OperationalPath)
+	kvstore.DeletePrefix(kvstore.BaseKeyPrefix)
+}
+
+type DaemonEtcdSuite struct {
+	DaemonSuite
+}
+
+var _ = Suite(&DaemonEtcdSuite{})
+
+func (e *DaemonEtcdSuite) SetUpTest(c *C) {
+	kvstore.SetupDummy("etcd")
+	e.DaemonSuite.SetUpTest(c)
+}
+
+func (e *DaemonEtcdSuite) TearDownTest(c *C) {
+	e.DaemonSuite.TearDownTest(c)
+}
+
+type DaemonConsulSuite struct {
+	DaemonSuite
+}
+
+var _ = Suite(&DaemonConsulSuite{})
+
+func (e *DaemonConsulSuite) SetUpTest(c *C) {
+	kvstore.SetupDummy("consul")
+	e.DaemonSuite.SetUpTest(c)
+}
+
+func (e *DaemonConsulSuite) TearDownTest(c *C) {
+	e.DaemonSuite.TearDownTest(c)
+}
 
 func (ds *DaemonSuite) TestMiniumWorkerThreadsIsSet(c *C) {
 	c.Assert(numWorkerThreads() >= 4, Equals, true)
@@ -110,13 +186,6 @@ func (ds *DaemonSuite) GetPolicyRepository() *policy.Repository {
 	panic("GetPolicyRepository should not have been called")
 }
 
-func (ds *DaemonSuite) GetCachedMaxLabelID() (policy.NumericIdentity, error) {
-	if ds.OnGetCachedMaxLabelID != nil {
-		return ds.OnGetCachedMaxLabelID()
-	}
-	panic("GetCachedMaxLabelID should not have been called")
-}
-
 func (ds *DaemonSuite) UpdateProxyRedirect(e *e.Endpoint, l4 *policy.L4Filter) (uint16, error) {
 	if ds.OnUpdateProxyRedirect != nil {
 		return ds.OnUpdateProxyRedirect(e, l4)
@@ -143,6 +212,13 @@ func (ds *DaemonSuite) GetBpfDir() string {
 		return ds.OnGetBpfDir()
 	}
 	panic("GetBpfDir should not have been called")
+}
+
+func (ds *DaemonSuite) GetTunnelMode() string {
+	if ds.OnGetTunnelMode != nil {
+		return ds.OnGetTunnelMode()
+	}
+	panic("GetTunnelMode should not have been called")
 }
 
 func (ds *DaemonSuite) QueueEndpointBuild(r *e.Request) {

@@ -23,12 +23,10 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	. "github.com/cilium/cilium/api/v1/server/restapi/policy"
 	"github.com/cilium/cilium/pkg/apierror"
-	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-	"github.com/cilium/cilium/pkg/maps/policymap"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
@@ -36,31 +34,6 @@ import (
 	"github.com/go-openapi/runtime/middleware"
 	"github.com/op/go-logging"
 )
-
-// GetCachedLabelList returns the cached labels for the given identity.
-func (d *Daemon) GetCachedLabelList(ID policy.NumericIdentity) (labels.LabelArray, error) {
-	// Check if we have the source security context in our local
-	// consumable cache
-	if c := policy.GetConsumableCache().Lookup(ID); c != nil {
-		return c.LabelArray, nil
-	}
-
-	// No cache entry or labels not available, do full lookup of labels
-	// via KV store
-	lbls, err := d.LookupIdentity(ID)
-	if err != nil {
-		return nil, err
-	}
-
-	// ID is not associated with anything, skip...
-	if lbls == nil {
-		return nil, nil
-	}
-
-	l := lbls.Labels.ToSlice()
-
-	return l, nil
-}
 
 // TriggerPolicyUpdates triggers policy updates for every daemon's endpoint.
 // This is called after policy changes, but also after some changes in daemon
@@ -359,34 +332,4 @@ func (h *getPolicy) Handle(params GetPolicyParams) middleware.Responder {
 		Policy:   policy.JSONMarshalRules(ruleList),
 	}
 	return NewGetPolicyOK().WithPayload(policy)
-}
-
-func (d *Daemon) PolicyInit() error {
-	for k, v := range policy.ReservedIdentities {
-		log.WithField(logfields.Identity, k).Debug("creating policy for identity")
-		key := v.String()
-		lbl := labels.NewLabel(
-			key, "", labels.LabelSourceReserved,
-		)
-		secLbl := policy.NewIdentity()
-		secLbl.ID = v
-		secLbl.AssociateEndpoint(lbl.String())
-		secLbl.Labels[k] = lbl
-
-		policyMapPath := bpf.MapPath(fmt.Sprintf("%sreserved_%d", policymap.MapName, int(v)))
-
-		policyMap, _, err := policymap.OpenMap(policyMapPath)
-		if err != nil {
-			return fmt.Errorf("Could not create policy BPF map '%s': %s", policyMapPath, err)
-		}
-
-		c := policy.GetConsumableCache().GetOrCreate(v, secLbl)
-		if c == nil {
-			return fmt.Errorf("Unable to initialize consumable for %v", secLbl)
-		}
-		policy.GetConsumableCache().AddReserved(c)
-		c.AddMap(policyMap)
-	}
-
-	return nil
 }

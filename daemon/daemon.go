@@ -97,9 +97,6 @@ type Daemon struct {
 	policy            *policy.Repository
 	preFilter         *policy.PreFilter
 
-	maxCachedLabelIDMU lock.RWMutex
-	maxCachedLabelID   policy.NumericIdentity
-
 	uniqueIDMU lock.Mutex
 	uniqueID   map[uint64]bool
 
@@ -216,6 +213,11 @@ func (d *Daemon) StartEndpointBuilders(nRoutines int) {
 			}
 		}()
 	}
+}
+
+// GetTunnelMode returns the path to the state directory
+func (d *Daemon) GetTunnelMode() string {
+	return d.conf.Tunnel
 }
 
 // GetStateDir returns the path to the state directory
@@ -899,6 +901,7 @@ func NewDaemon(c *Config) (*Daemon, error) {
 		compilationMutex:  new(lock.RWMutex),
 	}
 
+	policy.InitIdentityAllocator(&d)
 	workloads.Init(&d)
 
 	// Clear previous leftovers before listening for new requests

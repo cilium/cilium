@@ -1,4 +1,4 @@
-// Copyright 2016-2017 Authors of Cilium
+// Copyright 2016-2018 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,13 +14,7 @@
 
 package kvstore
 
-import (
-	"sync"
-
-	"github.com/sirupsen/logrus"
-)
-
-// EventType defines the type of watch event that occurred
+// EventType defines the type of watch event that occured
 type EventType int
 
 const (
@@ -30,6 +24,8 @@ const (
 	EventTypeModify
 	// EventTypeDelete represents a deleted key
 	EventTypeDelete
+	//EventTypeListDone signals that the initial list operation has completed
+	EventTypeListDone
 )
 
 // String() returns the human readable format of an event type
@@ -41,6 +37,8 @@ func (t EventType) String() string {
 		return "modify"
 	case EventTypeDelete:
 		return "delete"
+	case EventTypeListDone:
+		return "listDone"
 	default:
 		return "unknown"
 	}
@@ -64,6 +62,10 @@ type EventChan chan KeyValueEvent
 // stopChan is the channel used to indicate stopping of the watcher
 type stopChan chan struct{}
 
+// signalChan is used to signal readiness, the purpose is specific to the
+// individual functions
+type signalChan chan struct{}
+
 // Watcher represents a KVstore watcher
 type Watcher struct {
 	// Events is the channel to which change notifications will be sent to
@@ -74,45 +76,11 @@ type Watcher struct {
 	stopWatch stopChan
 
 	stopped bool
-
-	// stopWait is used to wait for the watcher subroutine to quit
-	stopWait sync.WaitGroup
 }
 
 // String returns the name of the wather
 func (w *Watcher) String() string {
 	return w.name
-}
-
-func watch(name, prefix string, chanSize int, list bool) *Watcher {
-	w := &Watcher{
-		name:      name,
-		prefix:    prefix,
-		Events:    make(EventChan, chanSize),
-		stopWatch: make(stopChan, 0),
-	}
-
-	log.WithFields(logrus.Fields{
-		fieldWatcher:      w,
-		fieldListAndWatch: list,
-	}).Debug("Starting watcher...")
-
-	go func() {
-		// Signal termination of watcher routine
-		defer w.stopWait.Done()
-		Client().Watch(w, list)
-	}()
-
-	return w
-}
-
-// Watch creates a new watcher which will watch the specified prefix for
-// changes. Name can be set to anything and is used for logging messages. The
-// Events channel is created with the specified sizes. Upon every change
-// observed, a KeyValueEvent will be sent to the Events channel
-func Watch(name, prefix string, chanSize int) *Watcher {
-	return watch(name, prefix, chanSize, false)
-
 }
 
 // ListAndWatch creates a new watcher which will watch the specified prefix for
@@ -121,8 +89,22 @@ func Watch(name, prefix string, chanSize int) *Watcher {
 // for logging messages. The Events channel is created with the specified
 // sizes. Upon every change observed, a KeyValueEvent will be sent to the
 // Events channel
+//
+// Returns a watcher structure plus a channel that is closed when the initial
+// list operation has been completed
 func ListAndWatch(name, prefix string, chanSize int) *Watcher {
-	return watch(name, prefix, chanSize, true)
+	w := &Watcher{
+		name:      name,
+		prefix:    prefix,
+		Events:    make(EventChan, chanSize),
+		stopWatch: make(stopChan, 0),
+	}
+
+	log.WithField(fieldWatcher, w).Debug("Starting watcher...")
+
+	go Client().Watch(w)
+
+	return w
 }
 
 // Stop stops a watcher previously created and started with Watch()
@@ -131,15 +113,8 @@ func (w *Watcher) Stop() {
 		return
 	}
 
-	// Stop watcher go routine and wait for it to terminate before closing
-	// the events channel
-	w.stopWait.Add(1)
-	close(w.stopWatch)
-	w.stopWait.Wait()
-
 	close(w.Events)
-
+	close(w.stopWatch)
 	log.WithField(fieldWatcher, w).Debug("Stopped watcher...")
-
 	w.stopped = true
 }

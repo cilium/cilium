@@ -15,21 +15,10 @@
 package kvstore
 
 import (
-	"testing"
-
-	. "gopkg.in/check.v1"
+	"github.com/cilium/cilium/common"
 )
 
-func Test(t *testing.T) {
-	TestingT(t)
-}
-
-// independentSuite tests are tests which can run without creating a backend
-type independentSuite struct{}
-
-var _ = Suite(&independentSuite{})
-
-func (s *independentSuite) TestGetLockPath(c *C) {
-	const path = "foo/path"
-	c.Assert(getLockPath(path), Equals, path+".lock")
+func deleteLegacyPrefixes() {
+	// Delete all keys in old services prefix
+	DeletePrefix(common.ServicePathV1)
 }

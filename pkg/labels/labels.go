@@ -384,6 +384,11 @@ func NewLabelsFromModel(base []string) Labels {
 	return lbls
 }
 
+// NewLabelsFromSortedList returns labels based on the output of SortedList()
+func NewLabelsFromSortedList(list string) Labels {
+	return NewLabelsFromModel(strings.Split(list, ";"))
+}
+
 // NewSelectLabelArrayFromModel parses a slice of strings and converts them
 // into an array of selecting labels.
 func NewSelectLabelArrayFromModel(base []string) LabelArray {
@@ -422,10 +427,14 @@ func (l Labels) MergeLabels(from Labels) {
 // SHA256Sum calculates l' internal SHA256Sum. For a particular set of labels is
 // guarantee that it will always have the same SHA256Sum.
 func (l Labels) SHA256Sum() string {
-	return fmt.Sprintf("%x", sha512.Sum512_256(l.sortedList()))
+	return fmt.Sprintf("%x", sha512.Sum512_256(l.SortedList()))
 }
 
-func (l Labels) sortedList() []byte {
+// SortedList returns the labels as a sorted list, separated by semicolon
+//
+// DO NOT BREAK THE FORMAT OF THIS. THE RETURNED STRING IS USED AS KEY IN
+// THE KEY-VALUE STORE.
+func (l Labels) SortedList() []byte {
 	var keys []string
 	for k := range l {
 		keys = append(keys, k)

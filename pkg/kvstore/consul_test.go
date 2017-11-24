@@ -1,4 +1,4 @@
-// Copyright 2016-2017 Authors of Cilium
+// Copyright 2016-2018 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -22,7 +22,18 @@ import (
 	"time"
 
 	consulAPI "github.com/hashicorp/consul/api"
+	. "gopkg.in/check.v1"
 )
+
+type ConsulSuite struct {
+	BaseTests
+}
+
+var _ = Suite(&ConsulSuite{})
+
+func (e *ConsulSuite) SetUpTest(c *C) {
+	SetupDummy("consul")
+}
 
 var handler http.HandlerFunc
 

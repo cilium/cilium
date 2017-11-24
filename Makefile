@@ -19,11 +19,7 @@ build: $(SUBDIRS)
 $(SUBDIRS): force
 	@ $(MAKE) -C $@ all
 
-tests: tests-common tests-consul tests-envoy
-
-tests-ginkgo: tests-common-ginkgo
-
-tests-common-ginkgo: force
+tests-ginkgo: force
 	tests/00-fmt.sh
 	go vet $(GOFILES)
 	# Make the bindata to run the unittest
@@ -36,14 +32,12 @@ clean-ginkgo-tests:
 	docker-compose -f test/docker-compose.yml -p $$JOB_BASE_NAME-$$BUILD_NUMBER down
 	docker-compose -f test/docker-compose.yml -p $$JOB_BASE_NAME-$$BUILD_NUMBER rm
 
-tests-common: force
-	tests/00-fmt.sh
-	go vet $(GOFILES)
-
 tests-envoy:
 	@ $(MAKE) -C envoy tests
 
-tests-etcd:
+tests: tests-envoy
+	tests/00-fmt.sh
+	go vet $(GOFILES)
 	@docker rm -f "cilium-etcd-test-container" 2> /dev/null || true
 	-docker run -d \
 	    --name "cilium-etcd-test-container" \
@@ -54,34 +48,6 @@ tests-etcd:
         -listen-client-urls http://0.0.0.0:4001 \
         -initial-cluster-token etcd-cluster-1 \
         -initial-cluster-state new
-	echo "mode: count" > coverage-all.out
-	echo "mode: count" > coverage.out
-	$(foreach pkg,$(GOFILES),\
-	go test \
-            -ldflags "-X "github.com/cilium/cilium/pkg/kvstore".backend=etcd" \
-            -timeout 30s -coverprofile=coverage.out -covermode=count $(pkg) $(GOTEST_OPTS) || exit 1;\
-            tail -n +2 coverage.out >> coverage-all.out;)
-	go tool cover -html=coverage-all.out -o=coverage-all.html
-	rm coverage-all.out
-	rm coverage.out
-	@rmdir ./daemon/1 ./daemon/1_backup 2> /dev/null || true
-	docker rm -f "cilium-etcd-test-container"
-
-tests-consul-ginkgo:
-	echo "mode: count" > coverage-all.out
-	echo "mode: count" > coverage.out
-	$(foreach pkg,$(GOFILES),\
-	go test \
-            -ldflags "-X github.com/cilium/cilium/pkg/kvstore.backend=consul -X github.com/cilium/cilium/pkg/kvstore.consulAddress=consul:8500" \
-            -timeout 30s -coverprofile=coverage.out -covermode=count $(pkg) $(GOTEST_OPTS) || exit 1;\
-            tail -n +2 coverage.out >> coverage-all.out;)
-	go tool cover -html=coverage-all.out -o=coverage-all.html
-	rm coverage-all.out
-	rm coverage.out
-	@rmdir ./daemon/1 ./daemon/1_backup 2> /dev/null || true
-
-
-tests-consul:
 	@docker rm -f "cilium-consul-test-container" 2> /dev/null || true
 	-docker run -d \
            --name "cilium-consul-test-container" \
@@ -93,14 +59,39 @@ tests-consul:
 	echo "mode: count" > coverage.out
 	$(foreach pkg,$(GOFILES),\
 	go test \
-            -ldflags "-X "github.com/cilium/cilium/pkg/kvstore".backend=consul" \
             -timeout 30s -coverprofile=coverage.out -covermode=count $(pkg) $(GOTEST_OPTS) || exit 1;\
             tail -n +2 coverage.out >> coverage-all.out;)
 	go tool cover -html=coverage-all.out -o=coverage-all.html
 	rm coverage-all.out
 	rm coverage.out
 	@rmdir ./daemon/1 ./daemon/1_backup 2> /dev/null || true
+	docker rm -f "cilium-etcd-test-container"
 	docker rm -f "cilium-consul-test-container"
+
+tests-ginkgo: tests-common-ginkgo
+
+tests-common-ginkgo: force
+	tests/00-fmt.sh
+	go vet $(GOFILES)
+	# Make the bindata to run the unittest
+	make -C daemon go-bindata
+	docker-compose -f test/docker-compose.yml -p $$JOB_BASE_NAME-$$BUILD_NUMBER run --rm test
+	# Remove the networks
+	docker-compose -f test/docker-compose.yml -p $$JOB_BASE_NAME-$$BUILD_NUMBER down
+
+tests-consul-ginkgo:
+	echo "mode: count" > coverage-all.out
+	echo "mode: count" > coverage.out
+	$(foreach pkg,$(GOFILES),\
+	go test \
+            -ldflags "-X github.com/cilium/cilium/pkg/kvstore.consulAddress=consul:8500" \
+            -timeout 30s -coverprofile=coverage.out -covermode=count $(pkg) $(GOTEST_OPTS) || exit 1;\
+            tail -n +2 coverage.out >> coverage-all.out;)
+	go tool cover -html=coverage-all.out -o=coverage-all.html
+	rm coverage-all.out
+	rm coverage.out
+	@rmdir ./daemon/1 ./daemon/1_backup 2> /dev/null || true
+
 
 clean-tags:
 	-$(MAKE) -C bpf/ clean-tags
