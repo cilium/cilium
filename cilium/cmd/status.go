@@ -15,6 +15,7 @@
 package cmd
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"text/tabwriter"
@@ -23,6 +24,7 @@ import (
 	pkg "github.com/cilium/cilium/pkg/client"
 
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 )
 
 // statusCmd represents the daemon_status command
@@ -42,6 +44,12 @@ func statusDaemon(cmd *cobra.Command, args []string) {
 	if resp, err := client.Daemon.GetHealthz(nil); err != nil {
 		fmt.Fprintf(os.Stderr, "%s\n", pkg.Hint(err))
 		os.Exit(1)
+	} else if viper.GetBool("json") {
+		result, err := json.MarshalIndent(resp.Payload, "", "  ")
+		if err != nil {
+			Fatalf("Cannot marshal status: %s", err.Error())
+		}
+		fmt.Printf("%s\n", result)
 	} else {
 		sr := resp.Payload
 		w := tabwriter.NewWriter(os.Stdout, 2, 0, 3, ' ', 0)
