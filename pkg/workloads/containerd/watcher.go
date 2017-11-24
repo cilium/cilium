@@ -94,6 +94,8 @@ func listenForDockerEvents(ws *watcherState, reader io.ReadCloser) {
 		var e dTypesEvents.Message
 		if err := json.Unmarshal(scanner.Bytes(), &e); err != nil {
 			log.WithError(err).Error("Error while unmarshalling event")
+			time.Sleep(100 * time.Millisecond)
+			continue
 		}
 
 		if e.ID != "" {
