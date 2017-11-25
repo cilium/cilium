@@ -90,24 +90,24 @@ func listEndpoints() {
 	}
 
 	for _, ep := range eps {
-		if ep.Identity == nil {
-			listEndpoint(w, ep, "<no label id>", "")
-		} else {
-			id := fmt.Sprintf("%d", ep.Identity.ID)
+		id := "<no label id>"
+		if ep.Identity != nil {
+			id = fmt.Sprintf("%d", ep.Identity.ID)
+		}
 
-			if len(ep.Identity.Labels) == 0 {
-				listEndpoint(w, ep, id, "no labels")
-			} else {
-				first := true
-				lbls := []string(ep.Identity.Labels)
-				sort.Strings(lbls)
-				for _, lbl := range lbls {
-					if first {
-						listEndpoint(w, ep, id, lbl)
-						first = false
-					} else {
-						fmt.Fprintf(w, "\t\t\t%s\t\t\t\t\n", lbl)
-					}
+		if len(ep.Labels.OrchestrationIdentity) == 0 {
+			listEndpoint(w, ep, id, "no labels")
+		} else {
+
+			first := true
+			lbls := ep.Labels.OrchestrationIdentity
+			sort.Strings(lbls)
+			for _, lbl := range lbls {
+				if first {
+					listEndpoint(w, ep, id, lbl)
+					first = false
+				} else {
+					fmt.Fprintf(w, "\t\t\t%s\t\t\t\t\n", lbl)
 				}
 			}
 		}
