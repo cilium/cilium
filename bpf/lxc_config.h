@@ -46,7 +46,8 @@
 #define CFG_L4_INGRESS 0, 80, 8080, 0, 1, 80, 8080, 0, (), 0
 #define NR_CFG_L4_EGRESS 1
 #define CFG_L4_EGRESS 0, 80, 8080, 0, (), 0
-#define POLICY_ENFORCEMENT
+#define POLICY_INGRESS
+#define POLICY_EGRESS
 #define ENABLE_IPv4
 #define ALLOW_TO_WORLD
 #define ALLOW_TO_HOST

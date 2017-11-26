@@ -131,9 +131,14 @@ var (
 		},
 	}
 
-	OptionSpecPolicy = option.Option{
-		Define:      "POLICY_ENFORCEMENT",
-		Description: "Enable policy enforcement",
+	OptionIngressSpecPolicy = option.Option{
+		Define:      "POLICY_INGRESS",
+		Description: "Enable ingress policy enforcement",
+	}
+
+	OptionEgressSpecPolicy = option.Option{
+		Define:      "POLICY_EGRESS",
+		Description: "Enable egress policy enforcement",
 	}
 
 	EndpointMutableOptionLibrary = option.OptionLibrary{
