@@ -28,6 +28,14 @@ check-requirements:
 	 (echo "sphinx-rtd-theme not installed."; \
 	  echo "Run pip install sphinx-rtd-theme";  \
 	  exit 1)
+	@pip list --format=json | grep sphinx-tabs> /dev/null || \
+	 (echo "sphinx-tabs not installed."; \
+	  echo "Run pip install sphinx-tabs";  \
+	  exit 1)
+	@pip list --format=json | grep recommonmark> /dev/null || \
+	 (echo "recommonmark not installed."; \
+	  echo "Run pip install recommonmark";  \
+	  exit 1)
 
 render:
 	-docker rm -f docs-cilium >/dev/null
