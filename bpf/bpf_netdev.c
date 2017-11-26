@@ -24,6 +24,9 @@
  * Pass unknown ICMPv6 NS to stack */
 #define ACTION_UNKNOWN_ICMP6_NS TC_ACT_OK
 
+/* Include policy_can_access() */
+#define REQUIRES_CAN_ACCESS
+
 #include <bpf/api.h>
 
 #include <stdint.h>

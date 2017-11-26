@@ -21,7 +21,7 @@
 #include "drop.h"
 #include "maps.h"
 
-#ifdef POLICY_ENFORCEMENT
+#if defined POLICY_INGRESS || defined REQUIRES_CAN_ACCESS
 
 static inline int policy_can_access(void *map, struct __sk_buff *skb, __u32 src_label,
 				    __u16 dport, __u8 proto, size_t cidr_addr_size, void *cidr_addr)
@@ -82,6 +82,19 @@ allow:
 #endif /* DROP_ALL */
 }
 
+#else /* POLICY_INGRESS || REQUIRES_CAN_ACCESS */
+
+static inline int policy_can_access(void *map, struct __sk_buff *skb, __u32 src_label,
+				    __u16 dport, __u8 proto, size_t cidr_addr_size,
+				    void *cidr_addr)
+{
+	return TC_ACT_OK;
+}
+
+#endif /* POLICY_INGRESS || REQUIRES_CAN_ACCESS */
+
+#if defined POLICY_INGRESS || defined POLICY_EGRESS
+
 /**
  * Mark skb to skip policy enforcement
  * @arg skb	packet
@@ -104,14 +117,8 @@ static inline int is_policy_skip(struct __sk_buff *skb)
 	return skb->cb[CB_POLICY];
 }
 
-#else /* POLICY_ENFORCEMENT */
+#else /* POLICY_INGRESS || POLICY_EGRESS */
 
-static inline int policy_can_access(void *map, struct __sk_buff *skb, __u32 src_label,
-				    __u16 dport, __u8 proto, size_t cidr_addr_size,
-				    void *cidr_addr)
-{
-	return TC_ACT_OK;
-}
 
 static inline void policy_mark_skip(struct __sk_buff *skb)
 {
@@ -125,6 +132,6 @@ static inline int is_policy_skip(struct __sk_buff *skb)
 {
 	return 1;
 }
-#endif /* !POLICY_ENFORCEMENT */
+#endif /* POLICY_INGRESS || POLICY_EGRESS */
 
 #endif

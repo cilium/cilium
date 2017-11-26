@@ -362,7 +362,7 @@ to_host:
 		if (ret != TC_ACT_OK)
 			return ret;
 
-#ifndef POLICY_ENFORCEMENT
+#ifndef POLICY_EGRESS
 		send_trace_notify(skb, TRACE_TO_HOST, SECLABEL, 0, 0, HOST_IFINDEX,
 				  forwarding_reason);
 		return redirect(HOST_IFINDEX, 0);
@@ -389,7 +389,7 @@ pass_to_stack:
 	if (ipv6_store_flowlabel(skb, l3_off, SECLABEL_NB) < 0)
 		return DROP_WRITE_ERROR;
 
-#ifndef POLICY_ENFORCEMENT
+#ifndef POLICY_EGRESS
 	/* No policy, pass directly down to stack */
 	send_trace_notify(skb, TRACE_TO_STACK, SECLABEL, 0, 0, 0,
 			  forwarding_reason);
@@ -673,7 +673,7 @@ to_host:
 		if (ret != TC_ACT_OK)
 			return ret;
 
-#ifndef POLICY_ENFORCEMENT
+#ifndef POLICY_EGRESS
 		send_trace_notify(skb, TRACE_TO_HOST, SECLABEL, 0, 0, HOST_IFINDEX,
 				  forwarding_reason);
 		return redirect(HOST_IFINDEX, 0);
@@ -702,7 +702,7 @@ pass_to_stack:
 	 * network.
 	 */
 
-#ifndef POLICY_ENFORCEMENT
+#ifndef POLICY_EGRESS
 	/* No policy, pass directly down to stack */
 	send_trace_notify(skb, TRACE_TO_STACK, SECLABEL, 0, 0, 0,
 			  forwarding_reason);
