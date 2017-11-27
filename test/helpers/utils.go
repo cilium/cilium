@@ -20,6 +20,7 @@ import (
 	"html/template"
 	"io/ioutil"
 	"os"
+	"strings"
 	"syscall"
 	"time"
 
@@ -137,4 +138,40 @@ func Fail(description string, callerSkip ...int) {
 		syscall.Kill(pid, syscall.SIGSTOP)
 	}
 	ginkgo.Fail(description, callerSkip...)
+}
+
+// ReportDirectory creates and returns the directory path to export all report
+// commands that need to be run in the case that a test has failed.
+// If the directory cannot be created it'll return an error
+func ReportDirectory() (string, error) {
+	testDesc := ginkgo.CurrentGinkgoTestDescription()
+	testPath := fmt.Sprintf("%s%s/",
+		TestResultsPath,
+		strings.Replace(testDesc.FullTestText, " ", "", -1))
+	if _, err := os.Stat(testPath); err == nil {
+		return testPath, nil
+	}
+	err := os.MkdirAll(testPath, os.ModePerm)
+	return testPath, err
+}
+
+// reportMap saves the output of the given commands to the specified filename.
+// Function needs a directory path where the files are going to be written and
+// a *SSHMeta instance to execute the commands
+func reportMap(path string, reportCmds map[string]string, node *SSHMeta) {
+	if node == nil {
+		log.Errorf("cannot execute reportMap due invalid node instance")
+		return
+	}
+
+	for cmd, logfile := range reportCmds {
+		res := node.Exec(cmd)
+		err := ioutil.WriteFile(
+			fmt.Sprintf("%s/%s", path, logfile),
+			res.CombineOutput().Bytes(),
+			os.ModePerm)
+		if err != nil {
+			log.WithError(err).Errorf("cannot create test results for command '%s'", cmd)
+		}
+	}
 }

@@ -17,6 +17,7 @@ package helpers
 import (
 	"bytes"
 	"fmt"
+	"io/ioutil"
 	"os"
 	"strings"
 	"time"
@@ -223,6 +224,22 @@ func (kub *Kubectl) GetCiliumPods(namespace string) ([]string, error) {
 // specified pod.
 func (kub *Kubectl) CiliumEndpointsList(pod string) *CmdRes {
 	return kub.CiliumExec(pod, "cilium endpoint list -o json")
+}
+
+// CiliumEndpointsIDs returns a mapping  of a pod name to it is corresponding
+// endpoint's security identity
+func (kub *Kubectl) CiliumEndpointsIDs(pod string) map[string]string {
+	filter := `{range [*]}{@.container-name}{"="}{@.id}{"\n"}{end}`
+	return kub.CiliumExec(pod, fmt.Sprintf(
+		"cilium endpoint list -o jsonpath='%s'", filter)).KVOutput()
+}
+
+// CiliumEndpointsIdentityIDs returns a mapping with of a pod name to it is
+// corresponding endpoint's security identity
+func (kub *Kubectl) CiliumEndpointsIdentityIDs(pod string) map[string]string {
+	filter := `{range [*]}{@.container-name}{"="}{@.identity.id}{"\n"}{end}`
+	return kub.CiliumExec(pod, fmt.Sprintf(
+		"cilium endpoint list -o jsonpath='%s'", filter)).KVOutput()
 }
 
 // CiliumEndpointsListByLabel returns all endpoints that are labeled with label
@@ -442,7 +459,78 @@ func (kub *Kubectl) CiliumReport(namespace string, pod string, commands []string
 		fmt.Fprintln(wr, out.CombineOutput())
 	}
 	fmt.Fprint(wr, "StackTrace Ends\n")
+	kub.CiliumReportDump(namespace, pod)
+	kub.GatherLogs()
 	return nil
+}
+
+// CiliumReportDump runs a variety of commands (CiliumKubCLICommands) and writes the results to
+// TestResultsPath
+func (kub *Kubectl) CiliumReportDump(namespace string, pod string) {
+	reportEndpointCommands := map[string]string{
+		"cilium endpoint get %s":    "endpoint_get_%s.txt",
+		"cilium bpf policy list %s": "bpf_policy_list_%s.txt",
+	}
+
+	testPath, err := ReportDirectory()
+	if err != nil {
+		kub.logCxt.WithError(err).Errorf("cannot create test result path '%s'", testPath)
+		return
+	}
+
+	reportCmds := map[string]string{}
+	for cmd, logfile := range ciliumKubCLICommands {
+		command := fmt.Sprintf("kubectl exec -n %s %s -- %s", namespace, pod, cmd)
+		reportCmds[command] = logfile
+	}
+	reportMap(testPath, reportCmds, kub.Node)
+
+	for _, ep := range kub.CiliumEndpointsIDs(pod) {
+		for cmd, logfile := range reportEndpointCommands {
+			command := fmt.Sprintf(cmd, ep)
+			res := kub.Node.Exec(fmt.Sprintf(
+				"kubectl exec -n %s %s -- %s", namespace, pod, command))
+			err = ioutil.WriteFile(
+				fmt.Sprintf("%s/%s", testPath, fmt.Sprintf(logfile, ep)),
+				res.CombineOutput().Bytes(),
+				os.ModePerm)
+			if err != nil {
+				kub.logCxt.WithError(err).Errorf(
+					"cannot create test results for command '%s'", command)
+			}
+		}
+	}
+
+	for _, id := range kub.CiliumEndpointsIdentityIDs(pod) {
+		cmd := fmt.Sprintf("kubectl exec -n %s %s -- cilium identity get %s", namespace, pod, id)
+
+		res := kub.Node.Exec(cmd)
+		err = ioutil.WriteFile(
+			fmt.Sprintf("%s/%s", testPath, fmt.Sprintf("identity_%s.txt", id)),
+			res.CombineOutput().Bytes(),
+			os.ModePerm)
+		if err != nil {
+			kub.logCxt.WithError(err).Errorf("cannot create test results for command '%s'", cmd)
+		}
+	}
+}
+
+// GatherLogs dumps kubernetes pods, services, DaemonSet to the testResultsPath
+// directory
+func (kub *Kubectl) GatherLogs() {
+	reportCmds := map[string]string{
+		"kubectl get pods --all-namespaces":     "pods.txt",
+		"kubectl get services --all-namespaces": "svc.txt",
+		"kubectl get ds --all-namespaces":       "ds.txt",
+	}
+
+	testPath, err := ReportDirectory()
+	if err != nil {
+		kub.logCxt.WithError(err).Errorf(
+			"cannot create test results path '%s'", testPath)
+		return
+	}
+	reportMap(testPath, reportCmds, kub.Node)
 }
 
 // GetCiliumPodOnNode returns the name of the Cilium pod that is running on / in

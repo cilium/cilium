@@ -68,6 +68,11 @@ var _ = Describe("RuntimeMonitorTest", func() {
 	})
 
 	AfterEach(func() {
+
+		if CurrentGinkgoTestDescription().Failed {
+			cilium.ReportFailed()
+		}
+
 		docker.SampleContainersActions(helpers.Delete, helpers.CiliumDockerNetwork)
 	})
 

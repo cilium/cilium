@@ -119,7 +119,39 @@ const (
 
 	DefaultNamespace    = "default"
 	KubeSystemNamespace = "kube-system"
+
+	TestResultsPath = "test_results/"
+	RunDir          = "/var/run/cilium"
+	LibDir          = "/var/lib/cilium"
+
+	DaemonName             = "cilium"
+	CiliumDockerDaemonName = "cilium-docker"
+	AgentDaemon            = "cilium-agent"
 )
+
+var ciliumCLICommands = map[string]string{
+	"cilium endpoint list -o json":   "endpoint_list_txt",
+	"cilium service list -o json":    "service_list.txt",
+	"cilium config":                  "config.txt",
+	"sudo cilium bpf lb list":        "bpf_lb_list.txt",
+	"sudo cilium bpf ct list global": "bpf_ct_list.txt",
+	"sudo cilium bpf tunnel list":    "bpf_tunnel_list.txt",
+	"cilium policy get":              "policy_get.txt",
+	"cilium status":                  "status.txt",
+}
+
+// ciliumKubCLICommands these commands are the same as `ciliumCLICommands` but
+// it'll run inside a container and it does not have sudo support
+var ciliumKubCLICommands = map[string]string{
+	"cilium endpoint list -o json": "endpoint_list_txt",
+	"cilium service list -o json":  "service_list.txt",
+	"cilium config":                "config.txt",
+	"cilium bpf lb list":           "bpf_lb_list.txt",
+	"cilium bpf ct list global":    "bpf_ct_list.txt",
+	"cilium bpf tunnel list":       "bpf_tunnel_list.txt",
+	"cilium policy get":            "policy_get.txt",
+	"cilium status":                "status.txt",
+}
 
 //GetFilePath returns the absolute path of the provided filename
 func GetFilePath(filename string) string {
