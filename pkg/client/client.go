@@ -150,6 +150,11 @@ func FormatStatusResponse(w io.Writer, sr *models.StatusResponse) {
 		fmt.Fprintf(w, "NodeMonitor:\tDisabled\n")
 	}
 
+	if sr.Cluster != nil && sr.Cluster.CiliumHealth != nil {
+		ch := sr.Cluster.CiliumHealth
+		fmt.Fprintf(w, "Cilium health daemon:\t%s\t%s\n", ch.State, ch.Msg)
+	}
+
 	if sr.IPAM != nil {
 		fmt.Fprintf(w, "Allocated IPv4 addresses:\n")
 		for _, ipv4 := range sr.IPAM.IPV4 {

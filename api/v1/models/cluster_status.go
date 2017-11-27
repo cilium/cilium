@@ -19,12 +19,17 @@ import (
 
 type ClusterStatus struct {
 
+	// Status of local cilium-health daemon
+	CiliumHealth *Status `json:"ciliumHealth,omitempty"`
+
 	// List of known nodes
 	Nodes []*NodeElement `json:"nodes"`
 
 	// Name of local node (if available)
 	Self string `json:"self,omitempty"`
 }
+
+/* polymorph ClusterStatus ciliumHealth false */
 
 /* polymorph ClusterStatus nodes false */
 
@@ -34,6 +39,11 @@ type ClusterStatus struct {
 func (m *ClusterStatus) Validate(formats strfmt.Registry) error {
 	var res []error
 
+	if err := m.validateCiliumHealth(formats); err != nil {
+		// prop
+		res = append(res, err)
+	}
+
 	if err := m.validateNodes(formats); err != nil {
 		// prop
 		res = append(res, err)
@@ -42,6 +52,25 @@ func (m *ClusterStatus) Validate(formats strfmt.Registry) error {
 	if len(res) > 0 {
 		return errors.CompositeValidationError(res...)
 	}
+	return nil
+}
+
+func (m *ClusterStatus) validateCiliumHealth(formats strfmt.Registry) error {
+
+	if swag.IsZero(m.CiliumHealth) { // not required
+		return nil
+	}
+
+	if m.CiliumHealth != nil {
+
+		if err := m.CiliumHealth.Validate(formats); err != nil {
+			if ve, ok := err.(*errors.Validation); ok {
+				return ve.ValidateName("ciliumHealth")
+			}
+			return err
+		}
+	}
+
 	return nil
 }
 
