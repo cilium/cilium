@@ -9,51 +9,131 @@
 [![Join the Cilium slack channel](https://cilium.herokuapp.com/badge.svg)](https://cilium.herokuapp.com/)
 
 Cilium is open source software for providing and transparently securing network
-connectivity and loadbalancing between application containers and services
-deployed using Linux container management platforms like Docker and Kubernetes.
+connectivity and loadbalancing between application workloads such as
+application containers or processes. Cilium operates at Layer 3/4 to provide
+traditional networking and security services as well as Layer 7 to protect and
+secure use of modern application protocols such as HTTP, gRPC and Kafka. Cilium
+is integrates to common orchestration frameworks such as Kubernetes and Mesos.
 
-A new Linux kernel technology called eBPF is at the foundation of Cilium, which
-enables the dynamic insertion of BPF bytecode into the Linux kernel. Cilium
-generates eBPF programs for each individual application container to provide
-networking, security, loadbalancing and visibility.
+A new Linux kernel technology called BPF is at the foundation of Cilium. It
+supports dynamic insertion of BPF bytecode into the Linux kernel at various
+integration points such as: network IO, application sockets, and traceptions to
+implement security, networking and visibility logic. BPF is highly efficient
+and flexible. To learn more about BPF, read mode in our our extensive [BPF
+reference guide][bpf-reference].
 
 <p align="center">
    <img src="Documentation/images/cilium-arch.png" />
 </p>
 
-## Features Overview
+## Functionality Overview
 
- * **Security Policies:** Enforcement of security policies at application (L7)
-   and networking (L3-L4) layer. Application level policies include filtering
-   of HTTP protocol properties such as method, path, host, and headers.
-   Networking policies include container/pod/service interconnectivity rules
-   based on labels, restriction of traffic to certain CIDR and/or port ranges
-   for both ingress and egress.
- * **Networking:** A simple flat Layer 3 network with the ability to span
-   multiple clusters connects all application containers and services. Simple
-   IP allocation using host scope allocators (dedicated /24 per cluster node
-   for IPv4, dedicated /112 per cluster node for IPv6). Choice of either
-   integrating with Linux routing to run a routing daemon or to create an
-   overlay network using encapsulation (VXLAN/Geneve).
- * **Load balancing:** Distributed load balancing for east-west traffic from
-   application container to application container, e.g. implementation of
-   Kubernetes services. North-south traffic to load balance external traffic,
-   e.g. implementation of Kubernetes ingress. All load-balancing performed
-   with direct server return (DSR) by default for improved performance.
- * **Troubleshooting:** Built-in troubleshooting tools providing an alternative
-   to traditional tcpdump troubleshooting techniques.
+ * **Protect and secure APIs transparently:** Ability to secure modern
+   application protocols such as REST/HTTP, gRPC and Kafka. Traditional
+   firewalls operates at Layer 3 and 4. A protocol running on a particular port
+   is either completely trusted or blocked entirely. Cilium provides the ability
+   to filter on individual application protocol requests such as:
+
+   - Allow all HTTP requests with method `GET` and path `/public/.*`. Deny all
+     other requests.
+   - Allow `service1` to produce on Kafka topic `topic1` and `service2` to
+     consume on `topic1`. Reject all other Kafka messages.
+   - Require the HTTP header `X-Token: [0-9]+` to be present in all REST calls.
+
+   See the section [Layer 7 Protocol Enforcement][l7-proto] in our
+   documentation for the latest list of supported protocols and examples on how
+   to use it.
+
+ * **Secure service to service communication based on identities**: Modern
+   distributed applications rely on technologies such as application containers
+   to facilitate agility in deployment and scale out on demand. This results in
+   a large number of application containers to be started in a short period of
+   time. Typical container firewalls secure workloads by filtering on source IP
+   addresses and destination ports. This concept requires the firewalls on all
+   servers to be manipulated whenever a container is started anywhere in the
+   cluster.
+
+   In order to avoid this situation which limits scale, Cilium assigns a
+   security identity to groups of application containers which share identical
+   security polices. The identity is then associated with all network packets
+   emitted by the application containers, allowing to validate the identity at
+   the receiving node. Security identity management is performed using a
+   key-value store.
+
+ * **Secure access to and from external services:** Label based security is the
+   tool of choice for cluster internal access control. In order to secure
+   access to and from external services, traditional CIDR based security
+   policies for both ingress and egress are supported. This allows to limit
+   access to and from application containers to particular IP ranges.
+
+ * **Simple Networking:** A simple flat Layer 3 network with the ability to
+   span multiple clusters connects all application containers. IP allocation is
+   kept simple by using host scope allocators. This means that each host can
+   allocate IPs without any coordination between hosts.
+
+   The following multi node networking models are supported:
+
+   * **Overlay:** Encapsulation based virtual network spawning all hosts.
+     Currently VXLAN and Geneve are baked in but all encapsulation formats
+     supported by Linux can be enabled.
+
+     When to use this mode: This mode has minimal infrastructure and
+     integration requirements. It works on almost any network infrastructure as
+     the only requirement is IP connectivity between hosts which is typically
+     already given.
+
+   * **Native Routing:** Use of the regular routing table of the Linux host.
+     The network is required to be capable to route the IP addresses of the
+     application containers.
+
+     When to use this mode: This mode is for advanced users and requires some
+     awareness of the underlying networking infrastructure. This mode works
+     well with:
+
+     - Native IPv6 networks
+     - In conjunction with cloud network routers
+     - If you are already running routing daemons
+
+   Additional transport mechanisms will be supported in the future, see the
+   [roadmap][roadmap].
+
+ * **Load balancing:** Distributed load balancing for traffic between
+   application containers and to external services. The loadbalancing is
+   implemented using BPF using efficient hashtables allowing for almost
+   unlimited scale and supports direct server return (DSR) if the loadbalancing
+   operation is not performed on the source host.
+
+ * **Monitoring and Troubleshooting:** The ability to gain visibility and to
+   troubleshoot issues is fundamental to the operation of any distributed
+   system. While we learned to love tools like `tcpdump` and `ping` and while
+   they will always find a special place in our hearts, we strive to provide
+   better tooling for troubleshooting. This includes tooling to provide:
+
+   - Event monitoring with metadata: When a packet is dropped, the tool doesn't
+     just report the source and destination IP of the packet, the tool provides
+     the full label information of both the sender and receiving among a lot of
+     other information.
+
+   - Policy decision tracing: Why is a packet being dropped or a request
+     rejected. The policy tracing framework allows to trace the policy decision
+     process for both, running workloads and based on artbirary label
+     definitions.
+
+   - Metrics export via Prometheus: Key metrics are exported via Prometheus for
+     integration with your existing dashboards.
+
  * **Integrations:**
     * Network plugin integrations: [CNI][cni], [libnetwork][libnetwork]
     * Container runtime events: [containerd][containerd]
     * Kubernetes: [NetworkPolicy][k8s_netpolicy], [Labels][k8s_labels], [Ingress][k8s_ingress], [Service][k8s_service]
-    * Logging: [fluentd][fluentd]
+    * Logging: syslog, [fluentd][fluentd]
 
 ## Getting Started
 
  * [Why Cilium?](http://docs.cilium.io/en/latest/intro/#why-cilium)
- * [Getting Started with Vagrant](http://docs.cilium.io/en/latest/gettingstarted/)
- * [Architecture](http://docs.cilium.io/en/latest/concepts/#cilium-components)
- * [Administrator Guide](http://docs.cilium.io/en/latest/admin/)
+ * [Getting Started](http://docs.cilium.io/en/latest/gettingstarted/)
+ * [Architecture and Concepts](http://docs.cilium.io/en/latest/concepts/)
+ * [Installing Cilium](http://cilium.readthedocs.io/en/latest/install/)
  * [Frequently Asked Questions](https://github.com/cilium/cilium/issues?utf8=%E2%9C%93&q=is%3Aissue%20label%3Aquestion%20)
  * [Contributing](http://docs.cilium.io/en/latest/contributing)
 
@@ -84,7 +164,8 @@ kernel version by running ``uname -a``. If you are not yet running a recent
 enough kernel, check the Documentation of your Linux distribution on how to run
 Linux kernel 4.9.x or later.
 
-For more detail on kernel versions, see: [Prerequisites][prerequisites]
+To read up on the necessary kernel versions to run the BPF runtime, see the
+section [Prerequisites][prerequisites].
 
 <p align="center">
    <img src="Documentation/images/bpf-overview.png"/>
@@ -97,11 +178,15 @@ where programs can be attached to in order to allow for a programmable, high
 performance packet processor in the Linux kernel networking data path.
 
 Further information about BPF and XDP targeted for developers can be found in
-the [BPF and XDP reference guide](http://docs.cilium.io/en/latest/bpf).
+the [BPF and XDP reference guide][bpf-reference]
 
-## Installation
+## Related Material
 
-See the [Installation instructions][installation]
+ * [k8s-snowflake](https://github.com/jessfraz/k8s-snowflake): Configs and
+   scripts for bootstrapping an opinionated Kubernetes cluster anywhere using
+   Cilium plugin.
+ * [Using Cilium for NetworkPolicy][k8s-cilium-netpolicy]: Kubernetes
+   documentation on how to use Cilium to implement NetworkPolicy.
 
 ## Presentations
 
@@ -149,3 +234,7 @@ under the [General Public License, Version 2.0](bpf/COPYING).
 [k8s_netpolicy]: https://kubernetes.io/docs/concepts/services-networking/network-policies/
 [k8s_labels]: https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/
 [fluentd]: http://www.fluentd.org/
+[roadmap]: http://docs.cilium.io/en/latest/roadmap/
+[bpf-reference]: http://cilium.readthedocs.io/en/latest/bpf/
+[l7-proto]: http://cilium.readthedocs.io/en/latest/policy/#layer-7
+[k8s-cilium-netpolicy]: https://kubernetes.io/docs/tasks/administer-cluster/cilium-network-policy/
