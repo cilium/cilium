@@ -18,7 +18,6 @@ import (
 	"fmt"
 	"path"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/cilium/cilium/test/helpers"
@@ -37,7 +36,7 @@ var _ = Describe("NightlyK8sEpsMeasurement", func() {
 		if initialized == true {
 			return
 		}
-		logger = log.WithFields(log.Fields{"testName": "K8sServiceTest"})
+		logger = log.WithFields(log.Fields{"testName": "NightlyK8sEpsMeasurement"})
 		logger.Info("Starting")
 
 		kubectl = helpers.CreateKubectl(helpers.K8s1VMName, logger)
@@ -63,16 +62,16 @@ var _ = Describe("NightlyK8sEpsMeasurement", func() {
 
 	endpointCount := 10
 	manifestPath := "tmp.yaml"
+	vagrantManifestPath := path.Join(helpers.BasePath, manifestPath)
+	var lastServer int
 
 	Measure(fmt.Sprintf("%d endpoint creation", endpointCount), func(b Benchmarker) {
-		_, lastServer, err := helpers.GenerateManifestForEndpoints(endpointCount, manifestPath)
+		var err error
+		_, lastServer, err = helpers.GenerateManifestForEndpoints(endpointCount, manifestPath)
 		Expect(err).Should(BeNil())
-
-		vagrantManifestPath := path.Join(helpers.BasePath, manifestPath)
 
 		res := kubectl.Apply(vagrantManifestPath)
 		res.ExpectSuccess(res.GetDebugMessage())
-		defer kubectl.Delete(vagrantManifestPath)
 
 		waitForPodsTime := b.Time("Wait for pods", func() {
 			pods, err := kubectl.WaitforPods(helpers.DefaultNamespace, "-l zgroup=testapp", 300)
@@ -104,21 +103,30 @@ var _ = Describe("NightlyK8sEpsMeasurement", func() {
 		})
 		log.WithFields(log.Fields{"endpoint creation time": runtime}).Info("")
 
-		var wg sync.WaitGroup
+	}, 1)
+
+	It("Should be able to connect from client pods to services", func() {
+		defer kubectl.Delete(vagrantManifestPath)
+
+		concurrency := 5
+		sem := make(chan struct{}, concurrency)
 
 		for serverIndex := 0; serverIndex <= lastServer; serverIndex++ {
 			for clientIndex := lastServer + 1; clientIndex < endpointCount; clientIndex++ {
-				wg.Add(1)
-				//TODO: run these functions with go after figuring out why they fail while run in parallel
-				func(to, from int) {
-					defer wg.Done()
+				sem <- struct{}{}
+				go func(to, from int) {
+					defer func() { <-sem }()
 					defer GinkgoRecover()
 
 					result := kubectl.TestConnectivityPodService(fmt.Sprintf("app%d", from), fmt.Sprintf("app%d-service", to))
 					result.ExpectSuccess(result.GetDebugMessage())
+
 				}(serverIndex, clientIndex)
 			}
 		}
-		wg.Wait()
-	}, 1)
+		// fill the channel to make sure there are no goroutines left
+		for i := 0; i < cap(sem); i++ {
+			sem <- struct{}{}
+		}
+	})
 })
