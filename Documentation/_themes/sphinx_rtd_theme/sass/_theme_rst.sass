@@ -50,7 +50,7 @@
   .literal-block, pre.literal-block
     @extend .codeblock
   // These are the various note pullouts that sphinx applies
-  .note, .attention, .caution, .danger, .error, .hint, .important, .tip, .warning, .seealso, .admonition-todo
+  .note, .attention, .caution, .danger, .error, .hint, .important, .tip, .warning, .seealso, .admonition-todo, .admonition
     @extend .wy-alert
     .last
       margin-bottom: 0
@@ -119,7 +119,7 @@
         display: inline-block
     &:hover .headerlink
       display: inline-block
-  
+
   .centered
     text-align: center
 
@@ -185,17 +185,14 @@
     border: none
     td
       border: none
-      padding-top: 5px
     td > strong
       display: inline-block
-      margin-top: 3px
     .field-name
       padding-right: 10px
       text-align: left
       white-space: nowrap
     .field-body
       text-align: left
-      padding-left: 0
 
   // These are the "literals" that get spit out when you mark stuff as ``code`` as your write.
   tt, code
