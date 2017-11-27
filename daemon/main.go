@@ -30,6 +30,7 @@ import (
 
 	"github.com/cilium/cilium/api/v1/server"
 	"github.com/cilium/cilium/api/v1/server/restapi"
+	health "github.com/cilium/cilium/cilium-health/launch"
 	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/daemon/defaults"
 	"github.com/cilium/cilium/daemon/options"
@@ -631,6 +632,9 @@ func runDaemon() {
 
 	d.nodeMonitor = &monitor.NodeMonitor{}
 	go d.nodeMonitor.Run()
+
+	d.ciliumHealth = &health.CiliumHealth{}
+	go d.ciliumHealth.Run()
 
 	if err := containerd.EnableEventListener(); err != nil {
 		log.WithError(err).Fatal("Error while enabling containerd event watcher")

@@ -30,7 +30,7 @@ var log = common.DefaultLogger
 type Launcher struct {
 	Mutex   lock.RWMutex
 	target  string
-	arg     string
+	args    []string
 	process *os.Process
 	stdout  io.ReadCloser
 }
@@ -38,11 +38,11 @@ type Launcher struct {
 // Run starts the daemon.
 func (launcher *Launcher) Run() {
 	targetName := launcher.GetTarget()
-	cmd := exec.Command(targetName, launcher.GetArg())
+	cmd := exec.Command(targetName, launcher.GetArgs()...)
 	cmd.Stderr = os.Stderr
 	stdout, _ := cmd.StdoutPipe()
 	if err := cmd.Start(); err != nil {
-		cmdStr := fmt.Sprintf("%s %s", targetName, launcher.GetArg())
+		cmdStr := fmt.Sprintf("%s %s", targetName, launcher.GetArgs())
 		log.WithError(err).WithField("cmd", cmdStr).Error("cmd.Start()")
 	}
 
@@ -51,10 +51,10 @@ func (launcher *Launcher) Run() {
 }
 
 // Restart stops the launcher which will trigger a rerun.
-func (launcher *Launcher) Restart(arg string) {
+func (launcher *Launcher) Restart(args []string) {
 	launcher.Mutex.Lock()
 	defer launcher.Mutex.Unlock()
-	launcher.arg = arg
+	launcher.args = args
 
 	if launcher.process == nil {
 		return
@@ -80,19 +80,19 @@ func (launcher *Launcher) GetTarget() string {
 	return arg
 }
 
-// SetArg sets the Launcher arg.
-func (launcher *Launcher) SetArg(arg string) {
+// SetArgs sets the Launcher arg.
+func (launcher *Launcher) SetArgs(args []string) {
 	launcher.Mutex.Lock()
-	launcher.arg = arg
+	launcher.args = args
 	launcher.Mutex.Unlock()
 }
 
-// GetArg returns the Launcher arg.
-func (launcher *Launcher) GetArg() string {
+// GetArgs returns the Launcher arg.
+func (launcher *Launcher) GetArgs() []string {
 	launcher.Mutex.RLock()
-	arg := launcher.arg
+	args := launcher.args
 	launcher.Mutex.RUnlock()
-	return arg
+	return args
 }
 
 // setProcess sets the internal process with the given process.

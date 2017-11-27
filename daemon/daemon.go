@@ -31,6 +31,7 @@ import (
 
 	"github.com/cilium/cilium/api/v1/models"
 	. "github.com/cilium/cilium/api/v1/server/restapi/daemon"
+	health "github.com/cilium/cilium/cilium-health/launch"
 	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/common/types"
 	"github.com/cilium/cilium/daemon/defaults"
@@ -103,7 +104,8 @@ type Daemon struct {
 	uniqueIDMU lock.Mutex
 	uniqueID   map[uint64]bool
 
-	nodeMonitor *monitor.NodeMonitor
+	nodeMonitor  *monitor.NodeMonitor
+	ciliumHealth *health.CiliumHealth
 
 	// k8sAPIs is a set of k8s API in use. They are setup in EnableK8sWatcher,
 	// and may be disabled while the agent runs.
@@ -1226,8 +1228,9 @@ func (h *patchConfig) Handle(params PatchConfigParams) middleware.Responder {
 	defer d.conf.ConfigPatchMutex.Unlock()
 
 	if numPagesEntry, ok := params.Configuration.Mutable["MonitorNumPages"]; ok {
-		if d.nodeMonitor.GetArg() != numPagesEntry {
-			d.nodeMonitor.Restart(numPagesEntry)
+		nmArgs := d.nodeMonitor.GetArgs()
+		if len(nmArgs) == 0 || nmArgs[0] != numPagesEntry {
+			d.nodeMonitor.Restart([]string{numPagesEntry})
 		}
 		if len(params.Configuration.Mutable) == 0 {
 			return NewPatchConfigOK()

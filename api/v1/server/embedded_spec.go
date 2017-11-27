@@ -1026,6 +1026,10 @@ func init() {
     "ClusterStatus": {
       "description": "Status of cluster",
       "properties": {
+        "ciliumHealth": {
+          "description": "Status of local cilium-health daemon",
+          "$ref": "#/definitions/Status"
+        },
         "nodes": {
           "description": "List of known nodes",
           "type": "array",

@@ -153,6 +153,7 @@ func (h *getHealthz) Handle(params GetHealthzParams) middleware.Responder {
 	}
 
 	sr.Cluster = h.getNodeStatus()
+	sr.Cluster.CiliumHealth = d.ciliumHealth.GetStatus()
 
 	return NewGetHealthzOK().WithPayload(&sr)
 }
