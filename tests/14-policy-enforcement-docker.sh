@@ -17,8 +17,11 @@ NUM_ENDPOINTS="3"
 NAMESPACE="kube-system"
 GOPATH="/home/vagrant/go"
 
-ENABLED_CMD="cilium endpoint list | awk '{print \$2}' | grep 'Enabled' -c"
-DISABLED_CMD="cilium endpoint list | awk '{print \$2}' | grep 'Disabled' -c"
+INGRESS_ENABLED_CMD="cilium endpoint list | awk '{print $2}' | grep 'Enabled' -c"
+INGRESS_DISABLED_CMD="cilium endpoint list | awk '{print $2}' | grep 'Disabled' -c"
+
+EGRESS_ENABLED_CMD="cilium endpoint list | awk '{print $3}' | grep 'Enabled' -c"
+EGRESS_DISABLED_CMD="cilium endpoint list | awk '{print $3}' | grep 'Disabled' -c"
 
 function cleanup {
   log "beginning cleanup for ${TEST_NAME}"
@@ -36,7 +39,6 @@ function finish_test {
   cleanup
 }
 
-
 #######################################
 # Checks that the provided number of endpoints have policy enforcement enabled
 # Globals:
@@ -50,12 +52,18 @@ function check_endpoints_policy_enabled {
   local NUM_EPS=$1
   log " checking if ${NUM_EPS} endpoints have policy enforcement enabled "
   cilium endpoint list
-  POLICY_ENABLED_COUNT=`eval ${ENABLED_CMD}`
-  if [ "${POLICY_ENABLED_COUNT}" -ne "${NUM_EPS}" ] ; then
+  INGRESS_POLICY_ENABLED_COUNT=`eval ${INGRESS_ENABLED_CMD}`
+  EGRESS_POLICY_ENABLED_COUNT=`eval ${EGRESS_ENABLED_CMD}`
+  if [ "${INGRESS_POLICY_ENABLED_COUNT}" -ne "${NUM_EPS}" ]; then
     cilium config
     cilium endpoint list
-    abort "Policy Enforcement  should be set to 'Disabled' since policy enforcement was set to never be enabled"
+    abort "Ingress Policy Enforcement  should be set to 'Disabled' since policy enforcement was set to never be enabled"
   fi
+  if [ "${EGRESS_POLICY_ENABLED_COUNT}" -ne "${NUM_EPS}" ]; then
+      cilium config
+      cilium endpoint list
+      abort "Egress Policy Enforcement  should be set to 'Disabled' since policy enforcement was set to never be enabled"
+    fi
   log "${NUM_EPS} endpoints have policy enforcement enabled; continuing"
 }
 
@@ -71,13 +79,20 @@ function check_endpoints_policy_enabled {
 function check_endpoints_policy_disabled {
   local NUM_EPS=$1
   log "checking if ${NUM_EPS} endpoints have policy enforcement disabled"
-  cilium endpoint list 
-  POLICY_DISABLED_COUNT=`eval ${DISABLED_CMD}`
-  if [ "${POLICY_DISABLED_COUNT}" -ne "${NUM_EPS}" ] ; then 
+  cilium endpoint list
+  INGRESS_POLICY_DISABLED_COUNT=`eval ${INGRESS_DISABLED_CMD}`
+  EGRESS_POLICY_DISABLED_COUNT=`eval ${EGRESS_DISABLED_CMD}`
+  if [ "${INGRESS_POLICY_DISABLED_COUNT}" -ne "${NUM_EPS}" ] ; then
     cilium config
     cilium endpoint list
-    abort "Policy Enforcement  should be set to 'Disabled' since policy enforcement was set to never be enabled"
+    abort "Ingress Policy Enforcement  should be set to 'Enabled' since policy enforcement was set to never be disabled"
   fi
+  if [ "${EGRESS_POLICY_DISABLED_COUNT}" -ne "${NUM_EPS}" ] ; then
+      cilium config
+      cilium endpoint list
+      abort "Egress Policy Enforcement  should be set to 'Enabled' since policy enforcement was set to never be disabled"
+  fi
+
   log "${NUM_EPS} endpoints have policy enforcement disabled; continuing"
 }
 

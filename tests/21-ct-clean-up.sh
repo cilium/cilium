@@ -35,7 +35,7 @@ function start_containers {
 }
 
 function get_container_metadata {
-  CLIENT_SEC_ID=$(cilium endpoint list | grep id.client-2 | awk '{ print $3}')
+  CLIENT_SEC_ID=$(cilium endpoint list | grep id.client-2 | awk '{ print $4}')
   log "CLIENT_SEC_ID: $CLIENT_SEC_ID"
   CLIENT_IP=$(docker inspect --format '{{ .NetworkSettings.Networks.cilium.GlobalIPv6Address }}' client)
   log "CLIENT_IP: $CLIENT_IP"

@@ -66,7 +66,8 @@ const (
 	OptionDropNotify          = "DropNotification"
 	OptionTraceNotify         = "TraceNotification"
 	OptionNAT46               = "NAT46"
-	OptionPolicy              = "Policy"
+	OptionIngressPolicy       = "IngressPolicy"
+	OptionEgressPolicy        = "EgressPolicy"
 	AlwaysEnforce             = "always"
 	NeverEnforce              = "never"
 	DefaultEnforcement        = "default"
@@ -149,7 +150,8 @@ var (
 		OptionDropNotify:          &OptionSpecDropNotify,
 		OptionTraceNotify:         &OptionSpecTraceNotify,
 		OptionNAT46:               &OptionSpecNAT46,
-		OptionPolicy:              &OptionSpecPolicy,
+		OptionIngressPolicy:       &OptionIngressSpecPolicy,
+		OptionEgressPolicy:        &OptionEgressSpecPolicy,
 	}
 
 	EndpointOptionLibrary = option.OptionLibrary{
@@ -408,6 +410,7 @@ func NewEndpointFromChangeModel(base *models.EndpointChangeRequest, l pkgLabels.
 // GetModelRLocked returns the API model of endpoint e.
 // e.Mutex must be RLocked.
 func (e *Endpoint) GetModelRLocked() *models.Endpoint {
+	policy := models.EndpointPolicyEnabledNone
 	if e == nil {
 		return nil
 	}
@@ -417,7 +420,16 @@ func (e *Endpoint) GetModelRLocked() *models.Endpoint {
 		currentState = models.EndpointStateNotReady
 	}
 
-	policyEnabled := e.Opts.IsEnabled(OptionPolicy)
+	policyIngressEnabled := e.Opts.IsEnabled(OptionIngressPolicy)
+	policyEgressEnabled := e.Opts.IsEnabled(OptionEgressPolicy)
+
+	if policyIngressEnabled && policyEgressEnabled {
+		policy = models.EndpointPolicyEnabledBoth
+	} else if policyIngressEnabled {
+		policy = models.EndpointPolicyEnabledIngress
+	} else if policyEgressEnabled {
+		policy = models.EndpointPolicyEnabledEgress
+	}
 
 	// This returns the most recent log entry for this endpoint. It is backwards
 	// compatible with the json from before we added `cilium endpoint log` but it
@@ -449,7 +461,7 @@ func (e *Endpoint) GetModelRLocked() *models.Endpoint {
 		Status:         statusLog,
 		Health:         e.getHealthModel(),
 		Policy:         e.GetPolicyModel(),
-		PolicyEnabled:  &policyEnabled,
+		PolicyEnabled:  &policy,
 		PolicyRevision: int64(e.policyRevision),
 		Addressing: &models.EndpointAddressing{
 			IPV4: e.IPv4.String(),

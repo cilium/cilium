@@ -32,7 +32,7 @@ type Owner interface {
 
 	// EnableEndpointPolicyEnforcement returns whether policy enforcement
 	// should be enabled for the specified endpoint.
-	EnableEndpointPolicyEnforcement(e *Endpoint) bool
+	EnableEndpointPolicyEnforcement(e *Endpoint) (bool, bool)
 
 	// GetPolicyEnforcementType returns the type of policy enforcement for the Owner.
 	PolicyEnforcement() string

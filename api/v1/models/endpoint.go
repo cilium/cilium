@@ -6,6 +6,8 @@ package models
 // Editing this file might prove futile when you re-run the swagger generate command
 
 import (
+	"encoding/json"
+
 	strfmt "github.com/go-openapi/strfmt"
 
 	"github.com/go-openapi/errors"
@@ -63,9 +65,9 @@ type Endpoint struct {
 	// Policy information of endpoint
 	Policy *EndpointPolicy `json:"policy,omitempty"`
 
-	// Whether policy enforcement is enabled or not
+	// Whether policy enforcement is enabled (ingress, egress, both or none)
 	// Required: true
-	PolicyEnabled *bool `json:"policy-enabled"`
+	PolicyEnabled *string `json:"policy-enabled"`
 
 	// The policy revision this endpoint is running on
 	PolicyRevision int64 `json:"policy-revision,omitempty"`
@@ -256,9 +258,45 @@ func (m *Endpoint) validatePolicy(formats strfmt.Registry) error {
 	return nil
 }
 
+var endpointTypePolicyEnabledPropEnum []interface{}
+
+func init() {
+	var res []string
+	if err := json.Unmarshal([]byte(`["none","ingress","egress","both"]`), &res); err != nil {
+		panic(err)
+	}
+	for _, v := range res {
+		endpointTypePolicyEnabledPropEnum = append(endpointTypePolicyEnabledPropEnum, v)
+	}
+}
+
+const (
+	// EndpointPolicyEnabledNone captures enum value "none"
+	EndpointPolicyEnabledNone string = "none"
+	// EndpointPolicyEnabledIngress captures enum value "ingress"
+	EndpointPolicyEnabledIngress string = "ingress"
+	// EndpointPolicyEnabledEgress captures enum value "egress"
+	EndpointPolicyEnabledEgress string = "egress"
+	// EndpointPolicyEnabledBoth captures enum value "both"
+	EndpointPolicyEnabledBoth string = "both"
+)
+
+// prop value enum
+func (m *Endpoint) validatePolicyEnabledEnum(path, location string, value string) error {
+	if err := validate.Enum(path, location, value, endpointTypePolicyEnabledPropEnum); err != nil {
+		return err
+	}
+	return nil
+}
+
 func (m *Endpoint) validatePolicyEnabled(formats strfmt.Registry) error {
 
 	if err := validate.Required("policy-enabled", "body", m.PolicyEnabled); err != nil {
+		return err
+	}
+
+	// value enum
+	if err := m.validatePolicyEnabledEnum("policy-enabled", "body", *m.PolicyEnabled); err != nil {
 		return err
 	}
 

@@ -104,7 +104,8 @@ const (
 	OptionDropNotify          = "DropNotification"
 	OptionTraceNotify         = "TraceNotification"
 	OptionNAT46               = "NAT46"
-	OptionPolicy              = "Policy"
+	OptionIngressPolicy       = "IngressPolicy"
+	OptionEgressPolicy        = "EgressPolicy"
 
 	OptionDisabled = "Disabled"
 	OptionEnabled  = "Enabled"

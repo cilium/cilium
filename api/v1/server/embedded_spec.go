@@ -1160,8 +1160,14 @@ func init() {
           "$ref": "#/definitions/EndpointPolicy"
         },
         "policy-enabled": {
-          "description": "Whether policy enforcement is enabled or not",
-          "type": "boolean"
+          "description": "Whether policy enforcement is enabled (ingress, egress, both or none)",
+          "type": "string",
+          "enum": [
+            "none",
+            "ingress",
+            "egress",
+            "both"
+          ]
         },
         "policy-revision": {
           "description": "The policy revision this endpoint is running on",

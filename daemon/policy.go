@@ -81,12 +81,12 @@ func (d *Daemon) TriggerPolicyUpdates(force bool) *sync.WaitGroup {
 // enabled for the specified endpoint.
 //
 // Must be called with e.Consumable.Mutex and d.GetPolicyRepository().Mutex held.
-func (d *Daemon) EnableEndpointPolicyEnforcement(e *endpoint.Endpoint) bool {
+func (d *Daemon) EnableEndpointPolicyEnforcement(e *endpoint.Endpoint) (ingress bool, egress bool) {
 	// First check if policy enforcement should be enabled at the daemon level.
 	// If policy enforcement is enabled for the daemon, then it has to be
 	// enabled for the endpoint.
 	if policy.GetPolicyEnabled() == endpoint.AlwaysEnforce {
-		return true
+		return true, true
 	} else if policy.GetPolicyEnabled() == endpoint.DefaultEnforcement {
 		// Default mode means that if rules contain labels that match this endpoint,
 		// then enable policy enforcement for this endpoint.
@@ -97,7 +97,7 @@ func (d *Daemon) EnableEndpointPolicyEnforcement(e *endpoint.Endpoint) bool {
 	// policy enforcement for the endpoint.
 	// This means that daemon policy enforcement mode is 'never', so no policy
 	// enforcement should be applied to the specified endpoint.
-	return false
+	return false, false
 }
 
 type getPolicyResolve struct {
@@ -128,8 +128,9 @@ func (h *getPolicyResolve) Handle(params GetPolicyResolveParams) middleware.Resp
 		// the API request, that means that policy enforcement is not enabled
 		// for the endpoints corresponding to said sets of labels; thus, we allow
 		// traffic between these sets of labels, and do not enforce policy between them.
-		if !(d.policy.GetRulesMatching(labels.NewSelectLabelArrayFromModel(params.IdentityContext.From), true) ||
-			d.policy.GetRulesMatching(labels.NewSelectLabelArrayFromModel(params.IdentityContext.To), true)) {
+		fromIngress, fromEgress := d.policy.GetRulesMatching(labels.NewSelectLabelArrayFromModel(params.IdentityContext.From), true)
+		toIngress, toEgress := d.policy.GetRulesMatching(labels.NewSelectLabelArrayFromModel(params.IdentityContext.To), true)
+		if !fromIngress && !fromEgress && !toIngress && !toEgress {
 			policyEnforcementMsg = "Policy enforcement is disabled because " +
 				"no rules in the policy repository match any endpoint selector " +
 				"from the provided destination sets of labels."

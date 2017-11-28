@@ -191,8 +191,10 @@ echo "Conntrack=false test won't be run!"
 #kubectl exec ${client_cilium} -- cilium endpoint config $CLIENT_ID Conntrack=false
 #perf_test
 
-kubectl exec ${server_cilium} -- cilium endpoint config $SERVER_ID Policy=false
-kubectl exec ${client_cilium} -- cilium endpoint config $CLIENT_ID Policy=false
+kubectl exec ${server_cilium} -- cilium endpoint config $SERVER_ID IngressPolicy=false
+kubectl exec ${server_cilium} -- cilium endpoint config $SERVER_ID EgressPolicy=false
+kubectl exec ${client_cilium} -- cilium endpoint config $CLIENT_ID IngressPolicy=false
+kubectl exec ${client_cilium} -- cilium endpoint config $CLIENT_ID EgressPolicy=false
 perf_test
 
 kubectl exec ${server_cilium} -- cilium policy delete "${SERVER_LABEL}"

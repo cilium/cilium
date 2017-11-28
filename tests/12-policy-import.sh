@@ -159,7 +159,7 @@ if [[ "$DIFF" != "" ]]; then
 fi
 
 BAR_ID=$(cilium endpoint list | grep id.bar | awk '{ print $1}')
-FOO_SEC_ID=$(cilium endpoint list | grep id.foo | awk '{ print $3}')
+FOO_SEC_ID=$(cilium endpoint list | grep id.foo | awk '{ print $4}')
 
 EXPECTED_CONSUMER="1\n$FOO_SEC_ID"
 
@@ -205,8 +205,8 @@ fi
 
 FOO_ID=$(cilium endpoint list | grep id.foo | awk '{print $1}')
 BAR_ID=$(cilium endpoint list | grep id.bar | awk '{ print $1}')
-FOO_SEC_ID=$(cilium endpoint list | grep id.foo | awk '{ print $3}')
-BAR_SEC_ID=$(cilium endpoint list | grep id.bar | awk '{print $3}')
+FOO_SEC_ID=$(cilium endpoint list | grep id.foo | awk '{ print $4}')
+BAR_SEC_ID=$(cilium endpoint list | grep id.bar | awk '{print $4}')
 
 log "verify verbose trace for expected output using security identities"
 DIFF=$(diff -Nru <(echo "$ALLOWED") <(cilium policy trace --src-identity $FOO_SEC_ID --dst-identity $BAR_SEC_ID -v | grep "Final verdict:")) || true

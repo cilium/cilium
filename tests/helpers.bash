@@ -585,7 +585,7 @@ function dump_cli_output {
   for svc in ${SVCS} ; do
     cilium service get ${svc} > ${DIR}/service_get_${svc}.txt
   done
-  local IDS=$(cilium endpoint list | tail -n+3 | awk '{print $3}' | grep -o '[0-9]*')
+  local IDS=$(cilium endpoint list | tail -n+3 | awk '{print $4}' | grep -o '[0-9]*')
   for id in ${IDS} ; do
     cilium identity get ${id} > ${DIR}/identity_get_${id}.txt
   done
@@ -613,7 +613,7 @@ function dump_cli_output_k8s {
   for svc in ${SVCS} ; do
     kubectl exec -n ${NAMESPACE} ${POD} -- cilium service get ${svc} > ${DIR}/${POD}_service_get_${svc}.txt
   done
-  local IDS=$(kubectl exec -n ${NAMESPACE} ${POD} -- cilium endpoint list | tail -n+3 | awk '{print $3}' | grep -o '[0-9]*')
+  local IDS=$(kubectl exec -n ${NAMESPACE} ${POD} -- cilium endpoint list | tail -n+3 | awk '{print $4}' | grep -o '[0-9]*')
   for id in ${IDS} ; do
     kubectl exec -n ${NAMESPACE} ${POD} -- cilium identity get ${id} > ${DIR}/${POD}_identity_get_${id}.txt
   done

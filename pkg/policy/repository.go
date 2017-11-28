@@ -369,21 +369,38 @@ func (p *Repository) GetJSON() string {
 
 // GetRulesMatching returns whether any of the rules in a repository contain a
 // rule with labels matching the labels in the provided LabelArray.
+// If includeEntities is true, we check if repository contains rules matching
+// fromEntities and toEntities.
 //
 // Must be called with p.Mutex held
-func (p *Repository) GetRulesMatching(labels labels.LabelArray, includeEntities bool) bool {
-
+func (p *Repository) GetRulesMatching(labels labels.LabelArray, includeEntities bool) (ingressMatch bool, egressMatch bool) {
+	ingressMatch = false
+	egressMatch = false
 	for _, r := range p.rules {
 		rulesMatch := r.EndpointSelector.Matches(labels)
 		if rulesMatch {
-			return true
+			if len(r.Ingress) > 0 {
+				ingressMatch = true
+			}
+			if len(r.Egress) > 0 {
+				egressMatch = true
+			}
 		}
 
-		if includeEntities && len(r.toEntities)+len(r.fromEntities) > 0 {
-			return true
+		if includeEntities {
+			if len(r.fromEntities) > 0 {
+				ingressMatch = true
+			}
+			if len(r.toEntities) > 0 {
+				egressMatch = true
+			}
+		}
+
+		if ingressMatch && egressMatch {
+			return
 		}
 	}
-	return false
+	return
 }
 
 // NumRules returns the amount of rules in the policy repository.

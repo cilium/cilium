@@ -149,7 +149,8 @@ func (h *putEndpointID) Handle(params PutEndpointIDParams) middleware.Responder 
 
 	ep.SetDefaultOpts(h.d.conf.Opts)
 	alwaysEnforce := policy.GetPolicyEnabled() == endpoint.AlwaysEnforce
-	ep.Opts.Set(endpoint.OptionPolicy, alwaysEnforce)
+	ep.Opts.Set(endpoint.OptionIngressPolicy, alwaysEnforce)
+	ep.Opts.Set(endpoint.OptionEgressPolicy, alwaysEnforce)
 
 	oldEp, err2 := endpointmanager.Lookup(params.ID)
 	if err2 != nil {

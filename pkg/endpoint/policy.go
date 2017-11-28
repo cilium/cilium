@@ -34,6 +34,13 @@ import (
 	"sync"
 )
 
+// optionEnabled  and optionDisabled are used
+// to fill the models.ConfigurationMap opt state
+const (
+	optionEnabled  = "enabled"
+	optionDisabled = "disabled"
+)
+
 func (e *Endpoint) checkEgressAccess(owner Owner, dstLabels labels.LabelArray, opts models.ConfigurationMap, opt string) {
 	ctx := policy.SearchContext{
 		From: e.Consumable.LabelArray,
@@ -51,10 +58,10 @@ func (e *Endpoint) checkEgressAccess(owner Owner, dstLabels labels.LabelArray, o
 
 	switch owner.GetPolicyRepository().AllowsLabelAccess(&ctx) {
 	case api.Allowed:
-		opts[opt] = "enabled"
+		opts[opt] = optionEnabled
 		scopedLog.Debug("checkEgressAccess: Enabled")
 	case api.Denied:
-		opts[opt] = "disabled"
+		opts[opt] = optionDisabled
 		scopedLog.Debug("checkEgressAccess: Disabled")
 	}
 }
@@ -548,19 +555,34 @@ func (e *Endpoint) regeneratePolicy(owner Owner, opts models.ConfigurationMap) (
 	// depends on the conntrack options
 	if c.L4Policy != nil {
 		if c.L4Policy.RequiresConntrack() {
-			opts[OptionConntrack] = "enabled"
+			opts[OptionConntrack] = optionEnabled
 		}
 	}
 
-	e.checkEgressAccess(owner, (*labelsMap)[policy.ReservedIdentityHost], opts, OptionAllowToHost)
-	e.checkEgressAccess(owner, (*labelsMap)[policy.ReservedIdentityWorld], opts, OptionAllowToWorld)
+	ingress, egress := owner.EnableEndpointPolicyEnforcement(e)
 
-	if owner.EnableEndpointPolicyEnforcement(e) {
-		e.getLogger().Info("Policy enabled")
-		opts[OptionPolicy] = "enabled"
+	opts[OptionIngressPolicy] = optionDisabled
+	opts[OptionEgressPolicy] = optionDisabled
+
+	if egress {
+		e.checkEgressAccess(owner, (*labelsMap)[policy.ReservedIdentityHost], opts, OptionAllowToHost)
+		e.checkEgressAccess(owner, (*labelsMap)[policy.ReservedIdentityWorld], opts, OptionAllowToWorld)
+	}
+
+	if !ingress && !egress {
+		e.getLogger().Info("Policy Ingress and Egress disabled")
 	} else {
-		e.getLogger().Info("Policy disabled")
-		opts[OptionPolicy] = "disabled"
+		if ingress && egress {
+			e.getLogger().Info("Policy Ingress and Egress enabled")
+			opts[OptionIngressPolicy] = optionEnabled
+			opts[OptionEgressPolicy] = optionEnabled
+		} else if ingress {
+			e.getLogger().Info("Policy Ingress enabled")
+			opts[OptionIngressPolicy] = optionEnabled
+		} else {
+			e.getLogger().Info("Policy Egress enabled")
+			opts[OptionEgressPolicy] = optionEnabled
+		}
 	}
 
 	optsChanged := e.applyOptsLocked(opts)
