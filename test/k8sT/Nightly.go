@@ -32,6 +32,9 @@ var _ = Describe("NightlyK8sEpsMeasurement", func() {
 	var kubectl *helpers.Kubectl
 	var logger *log.Entry
 	var initialized bool
+
+	ciliumPath := fmt.Sprintf("%s/cilium_ds.yaml", kubectl.ManifestsPath())
+
 	initialize := func() {
 		if initialized == true {
 			return
@@ -40,8 +43,7 @@ var _ = Describe("NightlyK8sEpsMeasurement", func() {
 		logger.Info("Starting")
 
 		kubectl = helpers.CreateKubectl(helpers.K8s1VMName, logger)
-		path := fmt.Sprintf("%s/cilium_ds.yaml", kubectl.ManifestsPath())
-		kubectl.Apply(path)
+		kubectl.Apply(ciliumPath)
 		_, err := kubectl.WaitforPods(helpers.KubeSystemNamespace, "-l k8s-app=cilium", 600)
 		Expect(err).Should(BeNil())
 		initialized = true
@@ -60,7 +62,7 @@ var _ = Describe("NightlyK8sEpsMeasurement", func() {
 		}
 	})
 
-	endpointCount := 10
+	endpointCount := 20
 	manifestPath := "tmp.yaml"
 	vagrantManifestPath := path.Join(helpers.BasePath, manifestPath)
 	var lastServer int
@@ -105,28 +107,53 @@ var _ = Describe("NightlyK8sEpsMeasurement", func() {
 
 	}, 1)
 
-	It("Should be able to connect from client pods to services", func() {
+	It("Should be able to connect from client pods to services while cilium pod is being restarted", func() {
 		defer kubectl.Delete(vagrantManifestPath)
 
-		concurrency := 5
-		sem := make(chan struct{}, concurrency)
+		connectivityTestsFinished := make(chan struct{})
 
-		for serverIndex := 0; serverIndex <= lastServer; serverIndex++ {
-			for clientIndex := lastServer + 1; clientIndex < endpointCount; clientIndex++ {
-				sem <- struct{}{}
-				go func(to, from int) {
-					defer func() { <-sem }()
-					defer GinkgoRecover()
+		// Run connectivity tests
+		go func() {
+			concurrency := 5
+			sem := make(chan struct{}, concurrency)
 
-					result := kubectl.TestConnectivityPodService(fmt.Sprintf("app%d", from), fmt.Sprintf("app%d-service", to))
-					result.ExpectSuccess(result.GetDebugMessage())
+			for serverIndex := 0; serverIndex <= lastServer; serverIndex++ {
+				for clientIndex := lastServer + 1; clientIndex < endpointCount; clientIndex++ {
+					sem <- struct{}{}
+					go func(to, from int) {
+						defer func() { <-sem }()
+						defer GinkgoRecover()
 
-				}(serverIndex, clientIndex)
+						result := kubectl.TestConnectivityPodService(fmt.Sprintf("app%d", from), fmt.Sprintf("app%d-service", to))
+						result.ExpectSuccess(result.GetDebugMessage())
+
+					}(serverIndex, clientIndex)
+				}
 			}
-		}
-		// fill the channel to make sure there are no goroutines left
-		for i := 0; i < cap(sem); i++ {
-			sem <- struct{}{}
+			// fill the channel to make sure there are no goroutines left
+			for i := 0; i < cap(sem); i++ {
+				sem <- struct{}{}
+			}
+			log.Info("Connectivity checks finished")
+			connectivityTestsFinished <- struct{}{}
+		}()
+
+		// Randomly redeploy cilium agent
+	Redeploy:
+		for {
+			select {
+			case <-connectivityTestsFinished:
+				break Redeploy
+			default:
+				res := kubectl.Delete(ciliumPath)
+				res.ExpectSuccess(res.GetDebugMessage())
+
+				res = kubectl.Apply(ciliumPath)
+				res.ExpectSuccess(res.GetDebugMessage())
+
+				_, err := kubectl.WaitforPods(helpers.KubeSystemNamespace, "-l k8s-app=cilium", 600)
+				Expect(err).Should(BeNil())
+			}
 		}
 	})
 })
