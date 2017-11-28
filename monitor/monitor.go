@@ -55,19 +55,7 @@ func (m *Monitor) Run(npages int) {
 	}
 	monitorEvents = me
 
-	// Dump stat
-	t := time.NewTicker(5 * time.Second)
-	go func(t *time.Ticker) {
-		for {
-			select {
-			case <-t.C:
-				if monitorEvents != nil {
-					m.dumpStat()
-				}
-			}
-		}
-	}(t)
-
+	last := time.Now()
 	// Main event loop
 	for {
 		todo, err := monitorEvents.Poll(pollTimeout)
@@ -81,6 +69,11 @@ func (m *Monitor) Run(npages int) {
 			if err := monitorEvents.ReadAll(m.receiveEvent, m.lostEvent); err != nil {
 				log.WithError(err).Warn("Error received while reading from perf buffer")
 			}
+		}
+
+		if time.Since(last) > 5*time.Second {
+			last = time.Now()
+			m.dumpStat()
 		}
 	}
 }
