@@ -49,11 +49,9 @@ func main() {
 	go m.handleConnection(server)
 	npages := 64
 	if len(os.Args) > 1 {
-		v, err := strconv.Atoi(os.Args[1])
+		v, _ := strconv.Atoi(os.Args[1])
 		if v > 0 {
 			npages = v
-		} else {
-			log.WithError(err).Info("Cannot parse number of pages with strconv")
 		}
 	}
 	m.Run(npages)
