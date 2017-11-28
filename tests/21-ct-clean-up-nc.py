@@ -20,7 +20,7 @@ clientsocket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 clientsocket.bind(('', localport))
 clientsocket.settimeout(timeout)
 clientsocket.connect((serverAddr, serverPort))
-clientsocket.send('GET '+httpPath+' HTTP/1.0\r\nHost: '+host+
+clientsocket.send('GET '+httpPath+' HTTP/1.1\r\nHost: '+host+
                   '\r\nUser-Agent: curl/7.38.0\r\nAccept: */*\r\n\r\n')
 
 data = clientsocket.recv(4096)
