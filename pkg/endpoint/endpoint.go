@@ -579,6 +579,16 @@ func (e *Endpoint) RUnlock() {
 	e.Mutex.RUnlock()
 }
 
+// Lock locks the endpoint for reading  or writing
+func (e *Endpoint) Lock() {
+	e.Mutex.Lock()
+}
+
+// Unlock unlocks the endpoint after reading or writing
+func (e *Endpoint) Unlock() {
+	e.Mutex.Unlock()
+}
+
 // GetLabels returns the labels as slice
 func (e *Endpoint) GetLabels() []string {
 	if e.SecLabel == nil {

@@ -84,13 +84,15 @@ func GetMagicMark(isIngress bool) int {
 type ProxySource interface {
 	GetID() uint64
 	RLock()
+	RUnlock()
+	Lock()
+	Unlock()
 	GetLabels() []string
 	GetLabelsSHA() string
 	GetIdentity() policy.NumericIdentity
 	ResolveIdentity(policy.NumericIdentity) *policy.Identity
 	GetIPv4Address() string
 	GetIPv6Address() string
-	RUnlock()
 }
 
 // Proxy maintains state about redirects
@@ -155,14 +157,14 @@ var gcOnce sync.Once
 // localEndpointInfo fills the access log with the local endpoint info.
 func localEndpointInfo(r Redirect, info *accesslog.EndpointInfo) {
 	source := r.getSource()
-	source.RLock()
+	source.Lock()
 	info.ID = source.GetID()
 	info.IPv4 = source.GetIPv4Address()
 	info.IPv6 = source.GetIPv6Address()
 	info.Labels = source.GetLabels()
 	info.LabelsSHA256 = source.GetLabelsSHA()
 	info.Identity = uint64(source.GetIdentity())
-	source.RUnlock()
+	source.Unlock()
 }
 
 func fillInfo(r Redirect, l *accesslog.LogRecord, srcIPPort, dstIPPort string, srcIdentity uint32) {
@@ -241,12 +243,14 @@ func fillEndpointInfo(info *accesslog.EndpointInfo, ip net.IP) {
 			c := addressing.DeriveCiliumIPv4(ip)
 			ep := endpointmanager.LookupIPv4(c.String())
 			if ep != nil {
-				ep.RLock()
+				// Needs to be Lock as ep.GetLabelsSHA()
+				// might overwrite internal endpoint attributes
+				ep.Lock()
 				info.ID = uint64(ep.ID)
 				info.Labels = ep.GetLabels()
 				info.LabelsSHA256 = ep.GetLabelsSHA()
 				info.Identity = uint64(ep.GetIdentity())
-				ep.RUnlock()
+				ep.Unlock()
 			} else {
 				fillIdentity(info, policy.ReservedIdentityCluster)
 			}
@@ -270,11 +274,13 @@ func fillEndpointInfo(info *accesslog.EndpointInfo, ip net.IP) {
 
 			ep := endpointmanager.LookupCiliumID(id)
 			if ep != nil {
-				ep.RLock()
+				// Needs to be Lock as ep.GetLabelsSHA()
+				// might overwrite internal endpoint attributes
+				ep.Lock()
 				info.Labels = ep.GetLabels()
 				info.LabelsSHA256 = ep.GetLabelsSHA()
 				info.Identity = uint64(ep.GetIdentity())
-				ep.RUnlock()
+				ep.Unlock()
 			} else {
 				fillIdentity(info, policy.ReservedIdentityCluster)
 			}
