@@ -141,13 +141,13 @@ var _ = BeforeSuite(func() {
 		// Wait until compilation finished, and pull cilium image on k8s2
 
 		// Name for K8s VMs depends on K8s version that is running.
-		err = vagrant.Create(helpers.K8s1VMName)
+		err = vagrant.Create(helpers.K8s1VMName())
 		if err != nil {
-			Fail(fmt.Sprintf("error starting VM %q: %s", helpers.K8s1VMName, err))
+			Fail(fmt.Sprintf("error starting VM %q: %s", helpers.K8s1VMName(), err))
 		}
-		err = vagrant.Create(helpers.K8s2VMName)
+		err = vagrant.Create(helpers.K8s2VMName())
 		if err != nil {
-			Fail(fmt.Sprintf("error starting VM %q: %s", helpers.K8s2VMName, err))
+			Fail(fmt.Sprintf("error starting VM %q: %s", helpers.K8s2VMName(), err))
 		}
 	}
 	return
@@ -165,8 +165,8 @@ var _ = AfterSuite(func() {
 	case helpers.Runtime:
 		vagrant.Destroy(helpers.Runtime)
 	case helpers.K8s:
-		vagrant.Destroy(helpers.K8s1VMName)
-		vagrant.Destroy(helpers.K8s2VMName)
+		vagrant.Destroy(helpers.K8s1VMName())
+		vagrant.Destroy(helpers.K8s2VMName())
 	}
 	return
 })

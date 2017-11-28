@@ -41,7 +41,7 @@ var _ = Describe("K8sServicesTest", func() {
 		logger = log.WithFields(log.Fields{"testName": "K8sServiceTest"})
 		logger.Info("Starting")
 
-		kubectl = helpers.CreateKubectl(helpers.K8s1VMName, logger)
+		kubectl = helpers.CreateKubectl(helpers.K8s1VMName(), logger)
 		path := fmt.Sprintf("%s/cilium_ds.yaml", kubectl.ManifestsPath())
 		kubectl.Apply(path)
 		_, err := kubectl.WaitforPods(helpers.KubeSystemNamespace, "-l k8s-app=cilium", 600)

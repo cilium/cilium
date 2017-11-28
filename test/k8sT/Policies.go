@@ -40,7 +40,7 @@ var _ = Describe("K8sPolicyTest", func() {
 
 		logger = log.WithFields(log.Fields{"testName": "K8sPolicyTest"})
 		logger.Info("Starting")
-		kubectl = helpers.CreateKubectl(helpers.K8s1VMName, logger)
+		kubectl = helpers.CreateKubectl(helpers.K8s1VMName(), logger)
 		podFilter = "k8s:zgroup=testapp"
 
 		//Manifest paths

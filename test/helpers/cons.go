@@ -22,14 +22,6 @@ import (
 var (
 	// HelperTimeout is a predefined timeout value for commands.
 	HelperTimeout time.Duration = 300 // WithTimeout helper translates it to seconds
-
-	// K8s1VMName is the name of the Kubernetes master node when running
-	// Kubernetes tests.
-	K8s1VMName = fmt.Sprintf("k8s1-%s", GetCurrentK8SEnv())
-
-	// K8s2VMName is the name of the Kubernetes worker node when running
-	// Kubernetes tests.
-	K8s2VMName = fmt.Sprintf("k8s2-%s", GetCurrentK8SEnv())
 )
 
 const (
@@ -163,4 +155,14 @@ var ciliumKubCLICommands = map[string]string{
 //GetFilePath returns the absolute path of the provided filename
 func GetFilePath(filename string) string {
 	return fmt.Sprintf("%s%s", BasePath, filename)
+}
+
+// K8s1VMName is the name of the Kubernetes master node when running K8s tests.
+func K8s1VMName() string {
+	return fmt.Sprintf("k8s1-%s", GetCurrentK8SEnv())
+}
+
+// K8s2VMName is the name of the Kubernetes worker node when running K8s tests.
+func K8s2VMName() string {
+	return fmt.Sprintf("k8s2-%s", GetCurrentK8SEnv())
 }
