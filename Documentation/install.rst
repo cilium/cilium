@@ -264,6 +264,9 @@ Due to how systemd mounts <link rel="this SO article for example" href="https://
         What=bpffs
         Where=/sys/fs/bpf
         Type=bpf
+
+        [Install]
+        WantedBy=multi-user.target
         EOF
 
 
