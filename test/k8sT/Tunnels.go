@@ -39,7 +39,7 @@ var _ = Describe("K8sTunnelTest", func() {
 		logger = log.WithFields(log.Fields{"testName": "K8sTunnelTest"})
 		logger.Info("Starting")
 
-		kubectl = helpers.CreateKubectl(helpers.K8s1VMName, logger)
+		kubectl = helpers.CreateKubectl(helpers.K8s1VMName(), logger)
 		demoDSPath = fmt.Sprintf("%s/demo_ds.yaml", kubectl.ManifestsPath())
 		kubectl.Node.Exec("kubectl -n kube-system delete ds cilium")
 		// Expect(res.Correct()).Should(BeTrue())

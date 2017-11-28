@@ -42,7 +42,7 @@ var _ = Describe("NightlyK8sEpsMeasurement", func() {
 		logger = log.WithFields(log.Fields{"testName": "NightlyK8sEpsMeasurement"})
 		logger.Info("Starting")
 
-		kubectl = helpers.CreateKubectl(helpers.K8s1VMName, logger)
+		kubectl = helpers.CreateKubectl(helpers.K8s1VMName(), logger)
 		kubectl.Apply(ciliumPath)
 		_, err := kubectl.WaitforPods(helpers.KubeSystemNamespace, "-l k8s-app=cilium", 600)
 		Expect(err).Should(BeNil())
