@@ -337,17 +337,26 @@ func (d *Daemon) writeNetdevHeader(dir string) error {
 
 	fw := bufio.NewWriter(f)
 	fw.WriteString(d.conf.Opts.GetFmtList())
-	fw.WriteString(d.fmtPolicyEnforcement())
+	fw.WriteString(d.fmtPolicyEnforcementIngress())
+	fw.WriteString(d.fmtPolicyEnforcementEgress())
 
 	return fw.Flush()
 }
 
-// returns #define for PolicyEnforcement based on the configuration of the daemon.
-func (d *Daemon) fmtPolicyEnforcement() string {
+// returns #define for PolicyIngress based on the configuration of the daemon.
+func (d *Daemon) fmtPolicyEnforcementIngress() string {
 	if policy.GetPolicyEnabled() == endpoint.AlwaysEnforce {
-		return fmt.Sprintf("#define %s\n", endpoint.OptionSpecPolicy.Define)
+		return fmt.Sprintf("#define %s\n", endpoint.OptionIngressSpecPolicy.Define)
 	}
-	return fmt.Sprintf("#undef %s\n", endpoint.OptionSpecPolicy.Define)
+	return fmt.Sprintf("#undef %s\n", endpoint.OptionIngressSpecPolicy.Define)
+}
+
+// returns #define for PolicyEgress based on the configuration of the daemon.
+func (d *Daemon) fmtPolicyEnforcementEgress() string {
+	if policy.GetPolicyEnabled() == endpoint.AlwaysEnforce {
+		return fmt.Sprintf("#define %s\n", endpoint.OptionEgressSpecPolicy.Define)
+	}
+	return fmt.Sprintf("#undef %s\n", endpoint.OptionEgressSpecPolicy.Define)
 }
 
 // Must be called with d.conf.EnablePolicyMU locked.

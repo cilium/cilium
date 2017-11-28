@@ -27,6 +27,12 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// PolicyEnabled and PolicyDisabled represent the endpoint policy status
+const (
+	PolicyEnabled  = "Enabled"
+	PolicyDisabled = "Disabled"
+)
+
 var noHeaders bool
 
 // endpointListCmd represents the endpoint_list command
@@ -45,14 +51,24 @@ func init() {
 }
 
 func listEndpoint(w *tabwriter.Writer, ep *models.Endpoint, id string, label string) {
-	var isPolicyEnabled string
-	if swag.BoolValue(ep.PolicyEnabled) {
-		isPolicyEnabled = "Enabled"
-	} else {
-		isPolicyEnabled = "Disabled"
+	var isIngressPolicyEnabled string
+	var isEgressPolicyEnabled string
+	switch swag.StringValue(ep.PolicyEnabled) {
+	case models.EndpointPolicyEnabledNone:
+		isIngressPolicyEnabled = PolicyDisabled
+		isEgressPolicyEnabled = PolicyDisabled
+	case models.EndpointPolicyEnabledBoth:
+		isIngressPolicyEnabled = PolicyEnabled
+		isEgressPolicyEnabled = PolicyEnabled
+	case models.EndpointPolicyEnabledIngress:
+		isIngressPolicyEnabled = PolicyEnabled
+		isEgressPolicyEnabled = PolicyDisabled
+	case models.EndpointPolicyEnabledEgress:
+		isIngressPolicyEnabled = PolicyDisabled
+		isEgressPolicyEnabled = PolicyEnabled
 	}
-	fmt.Fprintf(w, "%d\t%s\t%s\t%s\t%s\t%s\t%s\t\n",
-		ep.ID, isPolicyEnabled, id, label, ep.Addressing.IPV6, ep.Addressing.IPV4, ep.State)
+	fmt.Fprintf(w, "%d\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t\n",
+		ep.ID, isIngressPolicyEnabled, isEgressPolicyEnabled, id, label, ep.Addressing.IPV6, ep.Addressing.IPV4, ep.State)
 }
 
 func listEndpoints() {
@@ -68,20 +84,21 @@ func printEndpointList(w *tabwriter.Writer, eps []*models.Endpoint) {
 	endpoint.OrderEndpointAsc(eps)
 
 	const (
-		labelsIDTitle    = "IDENTITY"
-		labelsDesTitle   = "LABELS (source:key[=value])"
-		ipv6Title        = "IPv6"
-		ipv4Title        = "IPv4"
-		endpointTitle    = "ENDPOINT"
-		statusTitle      = "STATUS"
-		policyTitle      = "POLICY"
-		enforcementTitle = "ENFORCEMENT"
+		labelsIDTitle      = "IDENTITY"
+		labelsDesTitle     = "LABELS (source:key[=value])"
+		ipv6Title          = "IPv6"
+		ipv4Title          = "IPv4"
+		endpointTitle      = "ENDPOINT"
+		statusTitle        = "STATUS"
+		policyIngressTitle = "POLICY (ingress)"
+		policyEgressTitle  = "POLICY (egress)"
+		enforcementTitle   = "ENFORCEMENT"
 	)
 
 	if !noHeaders {
-		fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%s\t%s\t\n",
-			endpointTitle, policyTitle, labelsIDTitle, labelsDesTitle, ipv6Title, ipv4Title, statusTitle)
-		fmt.Fprintf(w, "\t%s\t\t\t\t\t\t\n", enforcementTitle)
+		fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t\n",
+			endpointTitle, policyIngressTitle, policyEgressTitle, labelsIDTitle, labelsDesTitle, ipv6Title, ipv4Title, statusTitle)
+		fmt.Fprintf(w, "\t%s\t%s\t\t\t\t\t\n", enforcementTitle, enforcementTitle)
 	}
 
 	if len(dumpOutput) > 0 {

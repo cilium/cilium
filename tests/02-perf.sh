@@ -181,8 +181,10 @@ cilium endpoint config $SERVER_ID Conntrack=false
 cilium endpoint config $CLIENT_ID Conntrack=false
 perf_test
 
-cilium endpoint config $SERVER_ID Policy=false
-cilium endpoint config $CLIENT_ID Policy=false
+cilium endpoint config $SERVER_ID IngressPolicy=false
+cilium endpoint config $SERVER_ID EgressPolicy=false
+cilium endpoint config $CLIENT_ID IngressPolicy=false
+cilium endpoint config $CLIENT_ID EgressPolicy=false
 perf_test
 
 cilium policy delete --all

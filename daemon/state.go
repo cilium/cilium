@@ -90,7 +90,8 @@ func (d *Daemon) SyncState(dir string, clean bool) error {
 			} else {
 				ep.SetDefaultOpts(d.conf.Opts)
 				alwaysEnforce := policy.GetPolicyEnabled() == endpoint.AlwaysEnforce
-				ep.Opts.Set(endpoint.OptionPolicy, alwaysEnforce)
+				ep.Opts.Set(endpoint.OptionIngressPolicy, alwaysEnforce)
+				ep.Opts.Set(endpoint.OptionEgressPolicy, alwaysEnforce)
 			}
 
 			endpointmanager.Insert(ep)

@@ -399,23 +399,23 @@ CLIENT_ID=$(cilium endpoint list | grep $CLIENT_IP | awk '{ print $1}')
 
 SERVER1_IP=$(docker inspect --format '{{ .NetworkSettings.Networks.cilium.GlobalIPv6Address }}' server1)
 SERVER1_ID=$(cilium endpoint list | grep $SERVER1_IP | awk '{ print $1}')
-SERVER1_IP4=$(cilium endpoint list | grep $SERVER1_IP | awk '{ print $6}')
+SERVER1_IP4=$(cilium endpoint list | grep $SERVER1_IP | awk '{ print $7}')
 
 SERVER2_IP=$(docker inspect --format '{{ .NetworkSettings.Networks.cilium.GlobalIPv6Address }}' server2)
 SERVER2_ID=$(cilium endpoint list | grep $SERVER2_IP | awk '{ print $1}')
-SERVER2_IP4=$(cilium endpoint list | grep $SERVER2_IP | awk '{ print $6}')
+SERVER2_IP4=$(cilium endpoint list | grep $SERVER2_IP | awk '{ print $7}')
 
 SERVER3_IP=$(docker inspect --format '{{ .NetworkSettings.Networks.cilium.GlobalIPv6Address }}' server3)
 SERVER3_ID=$(cilium endpoint list | grep $SERVER3_IP | awk '{ print $1}')
-SERVER3_IP4=$(cilium endpoint list | grep $SERVER3_IP | awk '{ print $6}')
+SERVER3_IP4=$(cilium endpoint list | grep $SERVER3_IP | awk '{ print $7}')
 
 SERVER4_IP=$(docker inspect --format '{{ .NetworkSettings.Networks.cilium.GlobalIPv6Address }}' server4)
 SERVER4_ID=$(cilium endpoint list | grep $SERVER4_IP | awk '{ print $1}')
-SERVER4_IP4=$(cilium endpoint list | grep $SERVER4_IP | awk '{ print $6}')
+SERVER4_IP4=$(cilium endpoint list | grep $SERVER4_IP | awk '{ print $7}')
 
 SERVER5_IP=$(docker inspect --format '{{ .NetworkSettings.Networks.cilium.GlobalIPv6Address }}' server5)
 SERVER5_ID=$(cilium endpoint list | grep $SERVER5_IP | awk '{ print $1}')
-SERVER5_IP4=$(cilium endpoint list | grep $SERVER5_IP | awk '{ print $6}')
+SERVER5_IP4=$(cilium endpoint list | grep $SERVER5_IP | awk '{ print $7}')
 
 log "getting ConntrackLocal setting for client"
 cilium endpoint config $CLIENT_ID  | grep ConntrackLocal
@@ -547,8 +547,9 @@ docker exec --privileged -i client ping -c 4 $SVC_IP4 || {
   abort "Error: Unable to reach netperf TCP IPv4 endpoint"
 }
 
-log "setting configuration for client: Policy=false"
-cilium endpoint config $CLIENT_ID Policy=false
+log "setting configuration for client: IngressPolicy=false and EgressPolicy=false"
+cilium endpoint config $CLIENT_ID IngressPolicy=false
+cilium endpoint config $CLIENT_ID EgressPolicy=false
 
 ## Test 3: local container => bpf_lxc (LB) => local host
 log "pinging IPv6 loadbalancer $LB_HOST_IP6 from client container (local container => bpf_lxc (LB) => local host)"
