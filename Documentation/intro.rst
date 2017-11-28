@@ -57,6 +57,13 @@ to providing traditional Layer 3 and Layer 4 segmentation.
 The use of BPF enables Cilium to achieve all of this in a way that is highly
 scalable even for large-scale environments.
 
+Functionality Overview
+======================
+
+.. include:: ../README.rst
+     :start-after: begin-functionality-overview
+     :end-before: end-functionality-overview
+
 Documentation Roadmap
 =====================
 

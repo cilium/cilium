@@ -22,4 +22,5 @@ Welcome to Cilium's documentation!
    bpf
    api
    contributing
+   further_reading
    glossary
