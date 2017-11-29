@@ -15,7 +15,9 @@
 package client
 
 import (
+	"bytes"
 	"fmt"
+	"io"
 	"net"
 	"net/http"
 	"net/url"
@@ -23,6 +25,7 @@ import (
 	"strings"
 
 	clientapi "github.com/cilium/cilium/api/v1/client"
+	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/daemon/defaults"
 
 	runtime_client "github.com/go-openapi/runtime/client"
@@ -100,4 +103,87 @@ func Hint(err error) error {
 		return fmt.Errorf("%s\nIs the agent running?", e)
 	}
 	return fmt.Errorf("%s", e)
+}
+
+func formatNodeAddress(w io.Writer, elem *models.NodeAddressingElement, primary bool, prefix string) bool {
+	if elem.Enabled || !primary {
+		if primary {
+			fmt.Fprintf(w, "%sPrimary Address:\t%s\n", prefix, elem.IP)
+		} else {
+			fmt.Fprintf(w, "%s%s:\n", prefix, elem.IP)
+		}
+		fmt.Fprintf(w, "%s Type:\t%s\n", prefix, elem.AddressType)
+		if elem.AllocRange != "" {
+			fmt.Fprintf(w, "%sAllocRange:\t%s\n", prefix, elem.AllocRange)
+		}
+
+		return true
+	}
+
+	return false
+}
+
+// FormatStatusResponse writes a StatusResponse as a string to the writer
+func FormatStatusResponse(w io.Writer, sr *models.StatusResponse) {
+	if sr.Kvstore != nil {
+		fmt.Fprintf(w, "KVStore:\t%s\t%s\n", sr.Kvstore.State, sr.Kvstore.Msg)
+	}
+	if sr.ContainerRuntime != nil {
+		fmt.Fprintf(w, "ContainerRuntime:\t%s\t%s\n",
+			sr.ContainerRuntime.State, sr.ContainerRuntime.Msg)
+	}
+	if sr.Kubernetes != nil {
+		fmt.Fprintf(w, "Kubernetes:\t%s\t%s\n", sr.Kubernetes.State, sr.Kubernetes.Msg)
+		fmt.Fprintf(w, "Kubernetes APIs:\t[\"%s\"]\n", strings.Join(sr.Kubernetes.K8sAPIVersions, "\", \""))
+	}
+	if sr.Cilium != nil {
+		fmt.Fprintf(w, "Cilium:\t%s\t%s\n", sr.Cilium.State, sr.Cilium.Msg)
+	}
+
+	if nm := sr.NodeMonitor; nm != nil {
+		fmt.Fprintf(w, "NodeMonitor:\tListening for events on %d CPUs with %dx%d of shared memory\n",
+			nm.Cpus, nm.Npages, nm.Pagesize)
+		if nm.Lost != 0 || nm.Unknown != 0 {
+			fmt.Fprintf(w, "\t%d events lost, %d unknown notifications\n", nm.Lost, nm.Unknown)
+		}
+	} else {
+		fmt.Fprintf(w, "NodeMonitor:\tDisabled\n")
+	}
+
+	if sr.IPAM != nil {
+		fmt.Fprintf(w, "Allocated IPv4 addresses:\n")
+		for _, ipv4 := range sr.IPAM.IPV4 {
+			fmt.Fprintf(w, " %s\n", ipv4)
+
+		}
+		fmt.Fprintf(w, "Allocated IPv6 addresses:\n")
+		for _, ipv6 := range sr.IPAM.IPV6 {
+			fmt.Fprintf(w, " %s\n", ipv6)
+		}
+	}
+
+	if sr.Cluster != nil {
+		fmt.Fprintf(w, "Known cluster nodes:\n")
+		for _, node := range sr.Cluster.Nodes {
+			localStr := ""
+			if node.Name == sr.Cluster.Self {
+				localStr = " (localhost)"
+			}
+			fmt.Fprintf(w, " %s%s:\n", node.Name, localStr)
+			formatNodeAddress(w, node.PrimaryAddress.IPV4, true, "  ")
+			formatNodeAddress(w, node.PrimaryAddress.IPV6, true, "  ")
+
+			buf := new(bytes.Buffer)
+			secondary := false
+			fmt.Fprintf(buf, "  Secondary Addresses:\n")
+			for _, elem := range node.SecondaryAddresses {
+				if formatNodeAddress(buf, elem, false, "   ") {
+					secondary = true
+				}
+			}
+			if secondary {
+				fmt.Fprintf(w, "%s", buf.String())
+			}
+		}
+	}
 }

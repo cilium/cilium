@@ -17,6 +17,8 @@ package node
 import (
 	"net"
 
+	"github.com/cilium/cilium/api/v1/models"
+
 	"k8s.io/api/core/v1"
 )
 
@@ -53,13 +55,11 @@ type Address struct {
 	IP          net.IP
 }
 
-// GetNodeIP returns one of the node's IP addresses available with the
-// following priority:
-// - NodeInternalIP
-// - NodeExternalIP
-// - other IP address type
-func (n *Node) GetNodeIP(ipv6 bool) net.IP {
-	var backupIP net.IP
+func (n *Node) getNodeIP(ipv6 bool) (net.IP, v1.NodeAddressType) {
+	var (
+		backupIP net.IP
+		ipType   v1.NodeAddressType
+	)
 	for _, addr := range n.IPAddresses {
 		if (ipv6 && addr.IP.To4() != nil) ||
 			(!ipv6 && addr.IP.To4() == nil) {
@@ -68,20 +68,79 @@ func (n *Node) GetNodeIP(ipv6 bool) net.IP {
 		switch addr.AddressType {
 		// Always prefer a cluster internal IP
 		case v1.NodeInternalIP:
-			return addr.IP
+			return addr.IP, addr.AddressType
 		case v1.NodeExternalIP:
 			// Fall back to external Node IP
 			// if no internal IP could be found
 			backupIP = addr.IP
+			ipType = addr.AddressType
 		default:
 			// As a last resort, if no internal or external
 			// IP was found, use any node address available
 			if backupIP == nil {
 				backupIP = addr.IP
+				ipType = addr.AddressType
 			}
 		}
 	}
-	return backupIP
+	return backupIP, ipType
+}
+
+// GetNodeIP returns one of the node's IP addresses available with the
+// following priority:
+// - NodeInternalIP
+// - NodeExternalIP
+// - other IP address type
+func (n *Node) GetNodeIP(ipv6 bool) net.IP {
+	result, _ := n.getNodeIP(ipv6)
+	return result
+}
+
+func (n *Node) getPrimaryAddress(ipv4 bool) *models.NodeAddressing {
+	v4, v4Type := n.getNodeIP(false)
+	v6, v6Type := n.getNodeIP(true)
+	return &models.NodeAddressing{
+		IPV4: &models.NodeAddressingElement{
+			Enabled:     ipv4,
+			IP:          v4.String(),
+			AllocRange:  n.IPv4AllocCIDR.String(),
+			AddressType: string(v4Type),
+		},
+		IPV6: &models.NodeAddressingElement{
+			Enabled:     !ipv4,
+			IP:          v6.String(),
+			AllocRange:  n.IPv6AllocCIDR.String(),
+			AddressType: string(v6Type),
+		},
+	}
+}
+
+func (n *Node) isPrimaryAddress(addr Address, ipv4 bool) bool {
+	return addr.IP.String() == n.GetNodeIP(!ipv4).String()
+}
+
+func (n *Node) getSecondaryAddresses(ipv4 bool) []*models.NodeAddressingElement {
+	result := []*models.NodeAddressingElement{}
+
+	for _, addr := range n.IPAddresses {
+		if !n.isPrimaryAddress(addr, ipv4) {
+			result = append(result, &models.NodeAddressingElement{
+				IP:          addr.IP.String(),
+				AddressType: string(addr.AddressType),
+			})
+		}
+	}
+
+	return result
+}
+
+// GetModel returns the API model representation of a node.
+func (n *Node) GetModel(ipv4 bool) *models.NodeElement {
+	return &models.NodeElement{
+		Name:               n.Name,
+		PrimaryAddress:     n.getPrimaryAddress(ipv4),
+		SecondaryAddresses: n.getSecondaryAddresses(ipv4),
+	}
 }
 
 // GetLocalNode returns the identity and node spec for the local node
