@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: app{{.Index}}
+  labels:
+    id: app{{.Index}}
+    zgroup: testapp
+spec:
+  containers:
+  - name: app-frontend
+    image: byrnedo/alpine-curl
+    command: [ "sleep" ]
+    args:
+      - "1000h"

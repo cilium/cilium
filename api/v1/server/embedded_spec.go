@@ -1474,10 +1474,6 @@ func init() {
           "description": "Number of samples lost by perf.",
           "type": "integer"
         },
-        "nlisteners": {
-          "description": "Number of connections to the node monitor",
-          "type": "integer"
-        },
         "npages": {
           "description": "Number of pages used for the perf ring buffer.",
           "type": "integer"

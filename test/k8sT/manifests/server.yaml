@@ -1,0 +1,30 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: app{{.Index}}-service
+spec:
+  ports:
+  - port: 80
+  selector:
+    id: app{{.Index}}
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: app{{.Index}}
+  labels:
+    id: app{{.Index}}
+    zgroup: testapp
+spec:
+  containers:
+  - name: web
+    image: jojomi/lighttpd-static
+    ports:
+    - containerPort: 80
+    volumeMounts:
+    - name: html-volume
+      mountPath: /var/www
+  volumes:
+    - name: html-volume
+      configMap:
+        name: html

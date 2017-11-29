@@ -47,3 +47,5 @@ outgoing
 man/
 
 bazel-*
+
+test/tmp.yaml

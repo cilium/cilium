@@ -28,6 +28,8 @@ import (
 type SSHMeta struct {
 	sshClient *SSHClient
 	env       []string
+	rawConfig []byte
+	nodeName  string
 }
 
 // CreateSSHMeta returns an SSHMeta with the specified host, port, and user, as
@@ -55,16 +57,20 @@ func GetVagrantSSHMetadata(vmName string) *SSHMeta {
 	log.Debugf("generated SSHConfig for node %s", vmName)
 	nodes, err := ImportSSHconfig(config)
 	if err != nil {
+		log.WithError(err).Error("Error importing ssh config")
 		return nil
 	}
 	log.Debugf("done importing ssh config")
 	node := nodes[vmName]
 	if node == nil {
+		log.Error("Node %s not found in ssh config", vmName)
 		return nil
 	}
 
 	return &SSHMeta{
 		sshClient: node.GetSSHClient(),
+		rawConfig: config,
+		nodeName:  vmName,
 	}
 }
 
@@ -88,6 +94,7 @@ func (s *SSHMeta) Execute(cmd string, stdout io.Writer, stderr io.Writer) bool {
 	}
 	err := s.sshClient.RunCommand(command)
 	if err != nil {
+		log.WithError(err).Debugf("error while running command: %s", cmd)
 		return false
 	}
 	return true
@@ -114,6 +121,29 @@ func (s *SSHMeta) Exec(cmd string) *CmdRes {
 		stderr: stderr,
 		exit:   exit,
 	}
+}
+
+// GetCopy returns a copy of SSHMeta, useful for parallel requests
+func (s *SSHMeta) GetCopy() *SSHMeta {
+	nodes, err := ImportSSHconfig(s.rawConfig)
+	if err != nil {
+		log.WithError(err).Error("While importing ssh config for meta copy")
+		return nil
+	}
+
+	config := nodes[s.nodeName]
+	if config == nil {
+		log.Errorf("No node %s in imported config", s.nodeName)
+		return nil
+	}
+
+	copy := &SSHMeta{
+		sshClient: config.GetSSHClient(),
+		rawConfig: s.rawConfig,
+		nodeName:  s.nodeName,
+	}
+
+	return copy
 }
 
 // ExecContext returns the results of running cmd via SSH in the specified

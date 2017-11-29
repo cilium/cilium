@@ -250,7 +250,7 @@ func runMonitor() {
 	setupSigHandler()
 	if resp, err := client.Daemon.GetHealthz(nil); err == nil {
 		if nm := resp.Payload.NodeMonitor; nm != nil {
-			fmt.Printf("Listening for events on %d CPU(s) with %dx%d of shared memory\n",
+			fmt.Printf("Listening for events on %d CPUs with %dx%d of shared memory\n",
 				nm.Cpus, nm.Npages, nm.Pagesize)
 		}
 	}
@@ -283,17 +283,9 @@ start:
 			}
 		}
 
-		switch {
-		case meta.Size == 0:
-			// The intention of writing an empty meta is so that node
-			// monitor can detect a write failure when any of the known
-			// connections are gone / inactive.  Go API has no good way for
-			// us to know when a connection is inactive.  So the node
-			// monitor needs to try to write in order to detect a failure.
-			continue
-		case pl.Type == payload.EventSample:
+		if pl.Type == payload.EventSample {
 			receiveEvent(pl.Data, pl.CPU)
-		default: /* if pl.Type == payload.RecordLost */
+		} else /* if pl.Type == payload.RecordLost */ {
 			lostEvent(pl.Lost, pl.CPU)
 		}
 	}

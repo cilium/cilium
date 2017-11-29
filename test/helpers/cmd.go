@@ -183,3 +183,8 @@ func (res *CmdRes) Unmarshal(data interface{}) error {
 	err := json.Unmarshal(res.stdout.Bytes(), &data)
 	return err
 }
+
+// GetDebugMessage returns executed command and its output
+func (res *CmdRes) GetDebugMessage() string {
+	return fmt.Sprintf("cmd: %s\noutput: %s", res.GetCmd(), res.CombineOutput())
+}

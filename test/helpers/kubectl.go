@@ -548,6 +548,18 @@ func (kub *Kubectl) GetCiliumPodOnNode(namespace string, node string) (string, e
 	return res.Output().String(), nil
 }
 
+// TestConnectivityPodService runs HTTP connectivity test from pod to ClusterIP service
+func (kub *Kubectl) TestConnectivityPodService(from, to string) *CmdRes {
+	kub.logCxt.WithFields(log.Fields{
+		"from": from,
+		"to":   to,
+	}).Info("Testing connectivity")
+
+	cmd := fmt.Sprintf("kubectl get services %s --template \"{{.spec.clusterIP}}\" | xargs -I{} kubectl exec %s -- curl --retry-delay 1 --max-time 10 --retry 10 --fail -s {}/index.html", to, from)
+
+	return kub.Node.GetCopy().Exec(cmd)
+}
+
 // EndpointMap maps an endpoint's container name to its Cilium API endpoint model.
 type EndpointMap map[string]models.Endpoint
 
