@@ -33,6 +33,9 @@ type Endpoint struct {
 	// Docker network ID
 	DockerNetworkID string `json:"docker-network-id,omitempty"`
 
+	// Health of the endpoint
+	Health *EndpointHealth `json:"health,omitempty"`
+
 	// MAC address
 	HostMac string `json:"host-mac,omitempty"`
 
@@ -85,6 +88,8 @@ type Endpoint struct {
 
 /* polymorph Endpoint docker-network-id false */
 
+/* polymorph Endpoint health false */
+
 /* polymorph Endpoint host-mac false */
 
 /* polymorph Endpoint id false */
@@ -116,6 +121,11 @@ func (m *Endpoint) Validate(formats strfmt.Registry) error {
 	var res []error
 
 	if err := m.validateAddressing(formats); err != nil {
+		// prop
+		res = append(res, err)
+	}
+
+	if err := m.validateHealth(formats); err != nil {
 		// prop
 		res = append(res, err)
 	}
@@ -162,6 +172,25 @@ func (m *Endpoint) validateAddressing(formats strfmt.Registry) error {
 		if err := m.Addressing.Validate(formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("addressing")
+			}
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (m *Endpoint) validateHealth(formats strfmt.Registry) error {
+
+	if swag.IsZero(m.Health) { // not required
+		return nil
+	}
+
+	if m.Health != nil {
+
+		if err := m.Health.Validate(formats); err != nil {
+			if ve, ok := err.(*errors.Validation); ok {
+				return ve.ValidateName("health")
 			}
 			return err
 		}

@@ -74,6 +74,16 @@ func (c *Client) EndpointLogGet(id string) (models.EndpointStatusLog, error) {
 	return resp.Payload, nil
 }
 
+// EndpointHealthGet returns endpoint healthz
+func (c *Client) EndpointHealthGet(id string) (*models.EndpointHealth, error) {
+	params := endpoint.NewGetEndpointIDHealthzParams().WithID(id)
+	resp, err := c.Endpoint.GetEndpointIDHealthz(params)
+	if err != nil {
+		return nil, Hint(err)
+	}
+	return resp.Payload, nil
+}
+
 // EndpointConfigGet returns endpoint configuration
 func (c *Client) EndpointConfigGet(id string) (*models.Configuration, error) {
 	params := endpoint.NewGetEndpointIDConfigParams().WithID(id)

@@ -163,6 +163,34 @@ func (a *Client) GetEndpointIDConfig(params *GetEndpointIDConfigParams) (*GetEnd
 }
 
 /*
+GetEndpointIDHealthz retrieves the status logs associated with this endpoint
+*/
+func (a *Client) GetEndpointIDHealthz(params *GetEndpointIDHealthzParams) (*GetEndpointIDHealthzOK, error) {
+	// TODO: Validate the params before sending
+	if params == nil {
+		params = NewGetEndpointIDHealthzParams()
+	}
+
+	result, err := a.transport.Submit(&runtime.ClientOperation{
+		ID:                 "GetEndpointIDHealthz",
+		Method:             "GET",
+		PathPattern:        "/endpoint/{id}/healthz",
+		ProducesMediaTypes: []string{"application/json"},
+		ConsumesMediaTypes: []string{"application/json"},
+		Schemes:            []string{"http"},
+		Params:             params,
+		Reader:             &GetEndpointIDHealthzReader{formats: a.formats},
+		Context:            params.Context,
+		Client:             params.HTTPClient,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return result.(*GetEndpointIDHealthzOK), nil
+
+}
+
+/*
 GetEndpointIDLabels retrieves the list of labels associated with an endpoint
 */
 func (a *Client) GetEndpointIDLabels(params *GetEndpointIDLabelsParams) (*GetEndpointIDLabelsOK, error) {

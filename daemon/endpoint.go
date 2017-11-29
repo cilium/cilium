@@ -572,6 +572,28 @@ func (h *getEndpointIDLog) Handle(params GetEndpointIDLogParams) middleware.Resp
 	}
 }
 
+type getEndpointIDHealthz struct {
+	d *Daemon
+}
+
+func NewGetEndpointIDHealthzHandler(d *Daemon) GetEndpointIDHealthzHandler {
+	return &getEndpointIDHealthz{d: d}
+}
+
+func (h *getEndpointIDHealthz) Handle(params GetEndpointIDHealthzParams) middleware.Responder {
+	log.WithField(logfields.EndpointID, params.ID).Debug("GET /endpoint/{id}/log request")
+
+	ep, err := endpointmanager.Lookup(params.ID)
+
+	if err != nil {
+		return apierror.Error(GetEndpointIDHealthzInvalidCode, err)
+	} else if ep == nil {
+		return NewGetEndpointIDHealthzNotFound()
+	} else {
+		return NewGetEndpointIDHealthzOK().WithPayload(ep.GetHealthModel())
+	}
+}
+
 // UpdateSecLabels add and deletes the given labels on given endpoint ID.
 // The received `add` and `del` labels will be filtered with the valid label
 // prefixes.

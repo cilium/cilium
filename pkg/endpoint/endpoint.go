@@ -442,6 +442,7 @@ func (e *Endpoint) GetModelRLocked() *models.Endpoint {
 		PodName:        e.PodName,
 		State:          currentState, // TODO: Validate
 		Status:         statusLog,
+		Health:         e.getHealthModel(),
 		Policy:         e.GetPolicyModel(),
 		PolicyEnabled:  &policyEnabled,
 		PolicyRevision: int64(e.policyRevision),
@@ -450,6 +451,77 @@ func (e *Endpoint) GetModelRLocked() *models.Endpoint {
 			IPV6: e.IPv6.String(),
 		},
 	}
+}
+
+// GetHealthModel returns the endpoint's health object.
+//
+// Must be called with e.Mutex locked.
+func (e *Endpoint) getHealthModel() *models.EndpointHealth {
+	// Duplicated from GetModelRLocked.
+	currentState := models.EndpointState(e.state)
+	if currentState == models.EndpointStateReady && e.Status.CurrentStatus() != OK {
+		currentState = models.EndpointStateNotReady
+	}
+
+	h := models.EndpointHealth{
+		Bpf:           models.EndpointHealthStatusDisabled,
+		Policy:        models.EndpointHealthStatusDisabled,
+		Connected:     false,
+		OverallHealth: models.EndpointHealthStatusDisabled,
+	}
+	switch currentState {
+	case models.EndpointStateRegenerating, models.EndpointStateWaitingToRegenerate, models.EndpointStateDisconnecting:
+		h = models.EndpointHealth{
+			Bpf:           models.EndpointHealthStatusPending,
+			Policy:        models.EndpointHealthStatusPending,
+			Connected:     true,
+			OverallHealth: models.EndpointHealthStatusPending,
+		}
+	case models.EndpointStateCreating:
+		h = models.EndpointHealth{
+			Bpf:           models.EndpointHealthStatusBootstrap,
+			Policy:        models.EndpointHealthStatusDisabled,
+			Connected:     true,
+			OverallHealth: models.EndpointHealthStatusDisabled,
+		}
+	case models.EndpointStateWaitingForIdentity:
+		h = models.EndpointHealth{
+			Bpf:           models.EndpointHealthStatusDisabled,
+			Policy:        models.EndpointHealthStatusBootstrap,
+			Connected:     true,
+			OverallHealth: models.EndpointHealthStatusDisabled,
+		}
+	case models.EndpointStateNotReady:
+		h = models.EndpointHealth{
+			Bpf:           models.EndpointHealthStatusWarning,
+			Policy:        models.EndpointHealthStatusWarning,
+			Connected:     true,
+			OverallHealth: models.EndpointHealthStatusWarning,
+		}
+	case models.EndpointStateDisconnected:
+		h = models.EndpointHealth{
+			Bpf:           models.EndpointHealthStatusDisabled,
+			Policy:        models.EndpointHealthStatusDisabled,
+			Connected:     false,
+			OverallHealth: models.EndpointHealthStatusDisabled,
+		}
+	case models.EndpointStateReady:
+		h = models.EndpointHealth{
+			Bpf:           models.EndpointHealthStatusOK,
+			Policy:        models.EndpointHealthStatusOK,
+			Connected:     true,
+			OverallHealth: models.EndpointHealthStatusOK,
+		}
+	}
+
+	return &h
+}
+
+// GetHealthModel returns the endpoint's health object.
+func (e *Endpoint) GetHealthModel() *models.EndpointHealth {
+	e.Mutex.RLock()
+	defer e.Mutex.RUnlock()
+	return e.getHealthModel()
 }
 
 // GetModel returns the API model of endpoint e.
