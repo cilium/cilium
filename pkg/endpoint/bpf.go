@@ -379,7 +379,7 @@ func (ep *epInfoCache) GetBPFValue() (*lxcmap.EndpointInfo, error) {
 // regenerateBPF rewrites all headers and updates all BPF maps to reflect the
 // specified endpoint.
 // Must be called with endpoint.Mutex not held and endpoint.BuildMutex held.
-func (e *Endpoint) regenerateBPF(owner Owner, epdir, reason string) error {
+func (e *Endpoint) regenerateBPF(owner Owner, epdir, reason string) (uint64, error) {
 	var err error
 
 	// Make sure that owner is not compiling base programs while we are
@@ -398,12 +398,12 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir, reason string) error {
 
 		e.getLogger().WithField(logfields.EndpointState, e.state).Debug("Skipping build due to invalid state")
 		e.Mutex.Unlock()
-		return fmt.Errorf("Skipping build due to invalid state: %s", e.state)
+		return 0, fmt.Errorf("Skipping build due to invalid state: %s", e.state)
 	}
 
 	if err = e.writeHeaderfile(epdir, owner); err != nil {
 		e.Mutex.Unlock()
-		return fmt.Errorf("Unable to write header file: %s", err)
+		return 0, fmt.Errorf("Unable to write header file: %s", err)
 	}
 
 	// If dry mode is enabled, no further changes to BPF maps are performed
@@ -413,12 +413,12 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir, reason string) error {
 		// Note that e.PolicyMap is not initialized!
 		if _, _, err = e.regeneratePolicy(owner, nil); err != nil {
 			e.Mutex.Unlock()
-			return fmt.Errorf("Unable to regenerate policy: %s", err)
+			return 0, fmt.Errorf("Unable to regenerate policy: %s", err)
 		}
 		e.Mutex.Unlock()
 
 		log.WithField(logfields.EndpointID, e.ID).Debug("Skipping bpf updates due to dry mode")
-		return nil
+		return e.nextPolicyRevision, nil
 	}
 
 	// Anything below this point must be reverted upon failure as we are
@@ -468,7 +468,7 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir, reason string) error {
 		e.PolicyMap, createdPolicyMap, err = policymap.OpenMap(e.PolicyMapPathLocked())
 		if err != nil {
 			e.Mutex.Unlock()
-			return err
+			return 0, err
 		}
 	}
 
@@ -485,8 +485,9 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir, reason string) error {
 		_, consumersToRm, err := e.regeneratePolicy(owner, nil)
 		if err != nil {
 			e.Mutex.Unlock()
-			return fmt.Errorf("Unable to regenerate policy for '%s': %s",
+			err = fmt.Errorf("Unable to regenerate policy for '%s': %s",
 				e.PolicyMap.String(), err)
+			return 0, err
 		}
 		if len(consumersToRm) != 0 {
 			ip4 := e.IPv4.IP()
@@ -503,7 +504,8 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir, reason string) error {
 	epInfoCache := e.createEpInfoCache()
 	if epInfoCache == nil {
 		e.Mutex.Unlock()
-		return fmt.Errorf("Unable to cache endpoint information")
+		err = fmt.Errorf("Unable to cache endpoint information")
+		return 0, err
 	}
 
 	if e.L3Policy != nil {
@@ -547,14 +549,10 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir, reason string) error {
 	if err == nil {
 		// The last operation hooks the endpoint into the endpoint table and exposes it
 		err = lxcmap.WriteEndpoint(epInfoCache)
-		if err == nil {
-			// Mark the endpoint to be running the policy revision it was
-			// compiled for
-			e.bumpPolicyRevision(epInfoCache.revision)
-		} else {
+		if err != nil {
 			log.WithField(logfields.EndpointID, e.ID).WithError(err).Error("Exposing new bpf failed!")
 		}
 	}
 
-	return err
+	return epInfoCache.revision, err
 }
