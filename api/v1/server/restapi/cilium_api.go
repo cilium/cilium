@@ -69,6 +69,9 @@ func NewCiliumAPI(spec *loads.Document) *CiliumAPI {
 		EndpointGetEndpointIDConfigHandler: endpoint.GetEndpointIDConfigHandlerFunc(func(params endpoint.GetEndpointIDConfigParams) middleware.Responder {
 			return middleware.NotImplemented("operation EndpointGetEndpointIDConfig has not yet been implemented")
 		}),
+		EndpointGetEndpointIDHealthzHandler: endpoint.GetEndpointIDHealthzHandlerFunc(func(params endpoint.GetEndpointIDHealthzParams) middleware.Responder {
+			return middleware.NotImplemented("operation EndpointGetEndpointIDHealthz has not yet been implemented")
+		}),
 		EndpointGetEndpointIDLabelsHandler: endpoint.GetEndpointIDLabelsHandlerFunc(func(params endpoint.GetEndpointIDLabelsParams) middleware.Responder {
 			return middleware.NotImplemented("operation EndpointGetEndpointIDLabels has not yet been implemented")
 		}),
@@ -176,6 +179,8 @@ type CiliumAPI struct {
 	EndpointGetEndpointIDHandler endpoint.GetEndpointIDHandler
 	// EndpointGetEndpointIDConfigHandler sets the operation handler for the get endpoint ID config operation
 	EndpointGetEndpointIDConfigHandler endpoint.GetEndpointIDConfigHandler
+	// EndpointGetEndpointIDHealthzHandler sets the operation handler for the get endpoint ID healthz operation
+	EndpointGetEndpointIDHealthzHandler endpoint.GetEndpointIDHealthzHandler
 	// EndpointGetEndpointIDLabelsHandler sets the operation handler for the get endpoint ID labels operation
 	EndpointGetEndpointIDLabelsHandler endpoint.GetEndpointIDLabelsHandler
 	// EndpointGetEndpointIDLogHandler sets the operation handler for the get endpoint ID log operation
@@ -313,6 +318,10 @@ func (o *CiliumAPI) Validate() error {
 
 	if o.EndpointGetEndpointIDConfigHandler == nil {
 		unregistered = append(unregistered, "endpoint.GetEndpointIDConfigHandler")
+	}
+
+	if o.EndpointGetEndpointIDHealthzHandler == nil {
+		unregistered = append(unregistered, "endpoint.GetEndpointIDHealthzHandler")
 	}
 
 	if o.EndpointGetEndpointIDLabelsHandler == nil {
@@ -529,6 +538,11 @@ func (o *CiliumAPI) initHandlerCache() {
 		o.handlers["GET"] = make(map[string]http.Handler)
 	}
 	o.handlers["GET"]["/endpoint/{id}/config"] = endpoint.NewGetEndpointIDConfig(o.context, o.EndpointGetEndpointIDConfigHandler)
+
+	if o.handlers["GET"] == nil {
+		o.handlers["GET"] = make(map[string]http.Handler)
+	}
+	o.handlers["GET"]["/endpoint/{id}/healthz"] = endpoint.NewGetEndpointIDHealthz(o.context, o.EndpointGetEndpointIDHealthzHandler)
 
 	if o.handlers["GET"] == nil {
 		o.handlers["GET"] = make(map[string]http.Handler)

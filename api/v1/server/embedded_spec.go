@@ -313,6 +313,34 @@ func init() {
         }
       }
     },
+    "/endpoint/{id}/healthz": {
+      "get": {
+        "tags": [
+          "endpoint"
+        ],
+        "summary": "Retrieves the status logs associated with this endpoint.",
+        "parameters": [
+          {
+            "$ref": "#/parameters/endpoint-id"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "schema": {
+              "$ref": "#/definitions/EndpointHealth"
+            }
+          },
+          "400": {
+            "description": "Invalid identity provided",
+            "x-go-name": "Invalid"
+          },
+          "404": {
+            "description": "Endpoint not found"
+          }
+        }
+      }
+    },
     "/endpoint/{id}/labels": {
       "get": {
         "tags": [
@@ -1071,6 +1099,10 @@ func init() {
           "description": "Docker network ID",
           "type": "string"
         },
+        "health": {
+          "description": "Health of the endpoint",
+          "$ref": "#/definitions/EndpointHealth"
+        },
         "host-mac": {
           "description": "MAC address",
           "type": "string"
@@ -1198,6 +1230,37 @@ func init() {
           "$ref": "#/definitions/EndpointState"
         }
       }
+    },
+    "EndpointHealth": {
+      "description": "Health of the endpoint",
+      "type": "object",
+      "properties": {
+        "bpf": {
+          "$ref": "#/definitions/EndpointHealthStatus"
+        },
+        "connected": {
+          "description": "Is this endpoint reachable",
+          "type": "boolean"
+        },
+        "overallHealth": {
+          "$ref": "#/definitions/EndpointHealthStatus"
+        },
+        "policy": {
+          "$ref": "#/definitions/EndpointHealthStatus"
+        }
+      }
+    },
+    "EndpointHealthStatus": {
+      "description": "A common set of statuses for endpoint health * ` + "`" + `OK` + "`" + ` = All components operational * ` + "`" + `Bootstrap` + "`" + ` = This component is being created * ` + "`" + `Pending` + "`" + ` = A change is being processed to be applied * ` + "`" + `Warning` + "`" + ` = This component is not applying up-to-date policies (but is still applying the previous version) * ` + "`" + `Failure` + "`" + ` = An error has occurred and no policy is being applied * ` + "`" + `Disabled` + "`" + ` = This endpoint is disabled and will not handle traffic\n",
+      "type": "string",
+      "enum": [
+        "OK",
+        "Bootstrap",
+        "Pending",
+        "Warning",
+        "Failure",
+        "Disabled"
+      ]
     },
     "EndpointPolicy": {
       "description": "Policy information of an endpoint",

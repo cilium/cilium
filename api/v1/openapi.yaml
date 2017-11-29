@@ -295,6 +295,24 @@ paths:
           x-go-name: Invalid
         '404':
           description: Endpoint not found
+
+  "/endpoint/{id}/healthz":
+    get:
+      summary: Retrieves the status logs associated with this endpoint.
+      tags:
+      - endpoint
+      parameters:
+      - "$ref": "#/parameters/endpoint-id"
+      responses:
+        '200':
+          description: Success
+          schema:
+            "$ref": "#/definitions/EndpointHealth"
+        '400':
+          description: Invalid identity provided
+          x-go-name: Invalid
+        '404':
+          description: Endpoint not found
   "/identity":
     get:
       summary: Retrieves a list of identities that have metadata matching the provided parameters.
@@ -755,6 +773,9 @@ definitions:
       status:
         description: Most recent status log. See endpoint/{id}/log for the complete log.
         "$ref": "#/definitions/EndpointStatusLog"
+      health:
+        description: Health of the endpoint
+        "$ref": "#/definitions/EndpointHealth"
       mac:
         description: MAC address
         type: string
@@ -836,6 +857,36 @@ definitions:
       - ready
       - disconnecting
       - disconnected
+  EndpointHealth:
+    description: Health of the endpoint
+    type: object
+    properties:
+      overallHealth:
+       "$ref": "#/definitions/EndpointHealthStatus"
+      bpf:
+       "$ref": "#/definitions/EndpointHealthStatus"
+      policy:
+       "$ref": "#/definitions/EndpointHealthStatus"
+      connected:
+        description: Is this endpoint reachable
+        type: boolean
+  EndpointHealthStatus:
+    description: >
+      A common set of statuses for endpoint health
+      * `OK` = All components operational
+      * `Bootstrap` = This component is being created
+      * `Pending` = A change is being processed to be applied
+      * `Warning` = This component is not applying up-to-date policies (but is still applying the previous version)
+      * `Failure` = An error has occurred and no policy is being applied
+      * `Disabled` = This endpoint is disabled and will not handle traffic
+    type: string
+    enum:
+      - OK
+      - Bootstrap
+      - Pending
+      - Warning
+      - Failure
+      - Disabled
   EndpointStatusLog:
     description: Status log of endpoint
     type: array
