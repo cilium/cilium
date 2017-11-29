@@ -24,7 +24,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var waitTime int
+var waitTime, failWaitTime, maxWaitTime int
 var policyWaitCmd = &cobra.Command{
 	Use:   "wait <revision>",
 	Short: "Wait for all endpoints to have updated to a given policy revision",
@@ -38,6 +38,10 @@ var policyWaitCmd = &cobra.Command{
 			Fatalf("invalid revision '%s': %s", args[0], err)
 		}
 
+		startTime := time.Now()
+		failDeadline := startTime.Add(time.Duration(failWaitTime) * time.Second)
+		maxDeadline := startTime.Add(time.Duration(maxWaitTime) * time.Second)
+
 		haveWaited := false
 
 		for {
@@ -48,11 +52,16 @@ var policyWaitCmd = &cobra.Command{
 
 			needed := len(eps)
 			ready := 0
+			notReady := 0
 
 			for _, ep := range eps {
-				if ep.Policy != nil && ep.PolicyRevision >= reqRevision &&
-					ep.State == models.EndpointStateReady {
-					ready++
+				if ep.Policy != nil {
+					if ep.PolicyRevision >= reqRevision &&
+						ep.State == models.EndpointStateReady {
+						ready++
+					} else if ep.State == models.EndpointStateNotReady {
+						notReady++
+					}
 				}
 			}
 
@@ -61,6 +70,12 @@ var policyWaitCmd = &cobra.Command{
 					fmt.Printf("\n")
 				}
 				return
+			} else if time.Now().After(failDeadline) && notReady > 0 {
+				// Fail earlier if any endpoints have a failed state
+				Fatalf("\n%d endpoints have failed regeneration after %s\n", notReady, time.Since(startTime))
+			} else if time.Now().After(maxDeadline) {
+				// Fail after timeout
+				Fatalf("\n%d endpoints still not ready after %s (%d failed)\n", needed-ready, time.Since(startTime), notReady)
 			}
 
 			fmt.Printf("\rWaiting for endpoints to run policy revision %d: %d/%d              ",
@@ -74,4 +89,6 @@ var policyWaitCmd = &cobra.Command{
 func init() {
 	policyCmd.AddCommand(policyWaitCmd)
 	policyWaitCmd.Flags().IntVar(&waitTime, "sleep-time", 1, "Sleep interval between checks (seconds)")
+	policyWaitCmd.Flags().IntVar(&failWaitTime, "fail-wait-time", 60, "Wait time after which command fails if endpoint regeration fails (seconds)")
+	policyWaitCmd.Flags().IntVar(&maxWaitTime, "max-wait-time", 360, "Wait time after which command fails (seconds)")
 }
