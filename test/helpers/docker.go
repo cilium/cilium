@@ -17,6 +17,8 @@ package helpers
 import (
 	"bytes"
 	"fmt"
+
+	"github.com/sirupsen/logrus"
 )
 
 // Docker is utilized to run docker-specific commands on its SSHMeta. Informational
@@ -25,7 +27,7 @@ import (
 type Docker struct {
 	Node *SSHMeta
 
-	logCxt *log.Entry
+	logCxt *logrus.Entry
 }
 
 // CreateDocker returns a Docker object containing the SSHMeta of the provided vmName,
@@ -33,7 +35,7 @@ type Docker struct {
 // TODO - I don't understand why we need separate Cilium vs. Docker constructs.
 // The contents are exactly the same. Why not just declare a single type that we name
 // accordingly?
-func CreateDocker(target string, log *log.Entry) *Docker {
+func CreateDocker(target string, log *logrus.Entry) *Docker {
 	log.Infof("Docker: set target to '%s'", target)
 	node := GetVagrantSSHMetadata(target)
 	if node == nil {

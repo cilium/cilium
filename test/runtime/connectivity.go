@@ -13,7 +13,7 @@ import (
 var _ = Describe("RuntimeConnectivityTest", func() {
 
 	var initialized bool
-	var logger *log.Entry
+	var logger *logrus.Entry
 	var docker *helpers.Docker
 	var cilium *helpers.Cilium
 
@@ -161,7 +161,7 @@ var _ = Describe("RuntimeConnectivityTest", func() {
 var _ = Describe("RuntimeConntrackTest", func() {
 
 	var initialized bool
-	var logger *log.Entry
+	var logger *logrus.Entry
 	var docker *helpers.Docker
 	var cilium *helpers.Cilium
 

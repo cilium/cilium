@@ -44,12 +44,12 @@ const (
 type Cilium struct {
 	Node *SSHMeta
 
-	logger *log.Entry
+	logger *logrus.Entry
 }
 
 // CreateCilium returns a Cilium object containing the SSHMeta of the provided vmName,
 // as well as the provided logger.
-func CreateCilium(vmName string, log *log.Entry) *Cilium {
+func CreateCilium(vmName string, log *logrus.Entry) *Cilium {
 	log.Infof("Cilium: set vmName to '%s'", vmName)
 	node := GetVagrantSSHMetadata(vmName)
 	if node == nil {

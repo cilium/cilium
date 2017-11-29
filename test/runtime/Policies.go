@@ -48,7 +48,7 @@ const (
 var _ = Describe("RuntimePolicyEnforcement", func() {
 
 	var initialized bool
-	var logger *log.Entry
+	var logger *logrus.Entry
 	var docker *helpers.Docker
 	var cilium *helpers.Cilium
 
@@ -366,7 +366,7 @@ var _ = Describe("RuntimePolicyEnforcement", func() {
 var _ = Describe("RuntimePolicies", func() {
 
 	var initialized bool
-	var logger *log.Entry
+	var logger *logrus.Entry
 	var docker *helpers.Docker
 	var cilium *helpers.Cilium
 
