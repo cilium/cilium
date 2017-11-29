@@ -129,7 +129,7 @@ Vagrant.configure(2) do |config|
         vb.customize ["modifyvm", :id, "--natdnsproxy1", "on"]
 
         config.vm.box = "cilium/ubuntu-16.10"
-        config.vm.box_version = "2.1"
+        config.vm.box_version = "2.3"
         vb.memory = ENV['VM_MEMORY'].to_i
         vb.cpus = ENV['VM_CPUS'].to_i
 
