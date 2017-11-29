@@ -24,7 +24,7 @@ import (
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	log "github.com/sirupsen/logrus"
+	"github.com/sirupsen/logrus"
 )
 
 var _ = Describe("NightlyK8sEpsMeasurement", func() {
@@ -39,7 +39,7 @@ var _ = Describe("NightlyK8sEpsMeasurement", func() {
 		if initialized == true {
 			return
 		}
-		logger = log.WithFields(log.Fields{"testName": "NightlyK8sEpsMeasurement"})
+		logger = log.WithFields(logrus.Fields{"testName": "NightlyK8sEpsMeasurement"})
 		logger.Info("Starting")
 
 		kubectl = helpers.CreateKubectl(helpers.K8s1VMName(), logger)
@@ -80,7 +80,7 @@ var _ = Describe("NightlyK8sEpsMeasurement", func() {
 			Expect(pods).Should(BeTrue())
 			Expect(err).Should(BeNil())
 		})
-		log.WithFields(log.Fields{"pod creation time": waitForPodsTime}).Info("")
+		log.WithFields(logrus.Fields{"pod creation time": waitForPodsTime}).Info("")
 
 		ciliumPod, err := kubectl.GetCiliumPodOnNode(helpers.KubeSystemNamespace, helpers.K8s1)
 		Expect(err).Should(BeNil())
@@ -103,7 +103,7 @@ var _ = Describe("NightlyK8sEpsMeasurement", func() {
 
 			}, 300*time.Second, 3*time.Second).Should(BeTrue())
 		})
-		log.WithFields(log.Fields{"endpoint creation time": runtime}).Info("")
+		log.WithFields(logrus.Fields{"endpoint creation time": runtime}).Info("")
 
 	}, 1)
 

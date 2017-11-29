@@ -21,7 +21,7 @@ import (
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	log "github.com/sirupsen/logrus"
+	"github.com/sirupsen/logrus"
 )
 
 var _ = Describe("RuntimeKVStoreTest", func() {
@@ -35,7 +35,7 @@ var _ = Describe("RuntimeKVStoreTest", func() {
 		if initialized == true {
 			return
 		}
-		logger = log.WithFields(log.Fields{"testName": "RuntimeKVStoreTest"})
+		logger = log.WithFields(logrus.Fields{"testName": "RuntimeKVStoreTest"})
 		logger.Info("Starting")
 		docker, cilium = helpers.CreateNewRuntimeHelper(helpers.Runtime, logger)
 		logger.Info("done creating Cilium and Docker helpers")

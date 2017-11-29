@@ -29,7 +29,7 @@ import (
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/workloads/containerd"
 
-	log "github.com/sirupsen/logrus"
+	"github.com/sirupsen/logrus"
 )
 
 // SyncState syncs cilium state against the containers running in the host. dir is the
@@ -140,7 +140,7 @@ func (d *Daemon) SyncState(dir string, clean bool) error {
 		}
 		close(epRegenerated)
 
-		log.WithFields(log.Fields{
+		log.WithFields(logrus.Fields{
 			"count.regenerated": regenerated,
 			"count.total":       total,
 		}).Info("Finish regenerating all restored endpoints")
@@ -158,7 +158,7 @@ func (d *Daemon) SyncState(dir string, clean bool) error {
 		}
 		close(epRestored)
 
-		log.WithFields(log.Fields{
+		log.WithFields(logrus.Fields{
 			"count.restored": nEPsRestored,
 			"count.total":    nEndpoints,
 		}).Info("Finish restoring endpoints")
@@ -198,7 +198,7 @@ func readEPsFromDirNames(basePath string, eptsDirNames []string) []*endpoint.End
 	for _, epID := range eptsDirNames {
 		epDir := filepath.Join(basePath, epID)
 		readDir := func() string {
-			scopedLog := log.WithFields(log.Fields{
+			scopedLog := log.WithFields(logrus.Fields{
 				logfields.EndpointID: epID,
 				logfields.Path:       filepath.Join(epDir, common.CHeaderFileName),
 			})
@@ -221,7 +221,7 @@ func readEPsFromDirNames(basePath string, eptsDirNames []string) []*endpoint.End
 			cHeaderFile = readDir()
 		}
 
-		scopedLog := log.WithFields(log.Fields{
+		scopedLog := log.WithFields(logrus.Fields{
 			logfields.EndpointID: epID,
 			logfields.Path:       cHeaderFile,
 		})
@@ -274,7 +274,7 @@ func (d *Daemon) syncLabels(ep *endpoint.Endpoint) error {
 	}
 
 	if labels.ID != ep.SecLabel.ID {
-		log.WithFields(log.Fields{
+		log.WithFields(logrus.Fields{
 			logfields.EndpointID:              ep.ID,
 			logfields.IdentityLabels + ".old": ep.SecLabel.ID,
 			logfields.IdentityLabels + ".new": labels.ID,

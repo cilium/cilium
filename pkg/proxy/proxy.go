@@ -21,6 +21,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/common/addressing"
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/lock"
@@ -29,9 +30,10 @@ import (
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/proxy/accesslog"
 
-	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 )
+
+var log = common.DefaultLogger
 
 // Magic markers are attached to each packet. The upper 16 bits are used to
 // identify packets which have gone through the proxy and to determine whether

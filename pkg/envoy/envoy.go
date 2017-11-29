@@ -12,12 +12,13 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/pkg/policy"
 
 	"github.com/golang/protobuf/proto"
-
-	log "github.com/sirupsen/logrus"
 )
+
+var log = common.DefaultLogger
 
 // Envoy manages a running Envoy proxy instance via the
 // ListenerDiscoveryService and RouteDiscoveryService gRPC APIs.

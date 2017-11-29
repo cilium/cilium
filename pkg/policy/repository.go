@@ -21,8 +21,6 @@ import (
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/policy/api"
-
-	log "github.com/sirupsen/logrus"
 )
 
 // Repository is a list of policy rules which in combination form the security

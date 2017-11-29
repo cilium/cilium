@@ -8,7 +8,7 @@ import (
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
 
-	log "github.com/sirupsen/logrus"
+	"github.com/sirupsen/logrus"
 
 	. "gopkg.in/check.v1"
 )
@@ -29,7 +29,7 @@ func (t *testRedirect) Log(pblog *HttpLogEntry) {
 }
 
 func (s *EnvoySuite) TestEnvoy(c *C) {
-	log.SetLevel(log.DebugLevel)
+	log.SetLevel(logrus.DebugLevel)
 
 	if os.Getenv("CILIUM_USE_ENVOY") == "" {
 		c.Skip("skipping test; CILIUM_USE_ENVOY not set")

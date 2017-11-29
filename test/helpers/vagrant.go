@@ -21,7 +21,7 @@ import (
 	"os/exec"
 	"strings"
 
-	log "github.com/sirupsen/logrus"
+	"github.com/sirupsen/logrus"
 )
 
 //Vagrant helper struct
@@ -77,7 +77,7 @@ func (vagrant *Vagrant) Create(scope string) error {
 	}()
 
 	if err := cmd.Start(); err != nil {
-		log.WithFields(log.Fields{
+		log.WithFields(logrus.Fields{
 			"command": createCMD,
 			"err":     err,
 		}).Fatalf("Create error on start")

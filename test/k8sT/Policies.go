@@ -20,7 +20,7 @@ import (
 	"github.com/cilium/cilium/test/helpers"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	log "github.com/sirupsen/logrus"
+	"github.com/sirupsen/logrus"
 )
 
 var _ = Describe("K8sPolicyTest", func() {
@@ -38,7 +38,7 @@ var _ = Describe("K8sPolicyTest", func() {
 			return
 		}
 
-		logger = log.WithFields(log.Fields{"testName": "K8sPolicyTest"})
+		logger = log.WithFields(logrus.Fields{"testName": "K8sPolicyTest"})
 		logger.Info("Starting")
 		kubectl = helpers.CreateKubectl(helpers.K8s1VMName(), logger)
 		podFilter = "k8s:zgroup=testapp"

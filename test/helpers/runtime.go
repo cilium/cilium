@@ -14,10 +14,6 @@
 
 package helpers
 
-import (
-	log "github.com/sirupsen/logrus"
-)
-
 //CreateNewRuntimeHelper returns Docker and Cilium helpers for running the
 //runtime tests on the provided VM target and using logger log .
 func CreateNewRuntimeHelper(target string, log *log.Entry) (*Docker, *Cilium) {

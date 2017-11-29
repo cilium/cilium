@@ -19,7 +19,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/lock"
 
-	log "github.com/sirupsen/logrus"
+	"github.com/sirupsen/logrus"
 )
 
 type kvLocker interface {
@@ -50,7 +50,7 @@ func LockPath(path string) (*Lock, error) {
 	}
 	lockPathsMU.Unlock()
 
-	trace("Creating lock", nil, log.Fields{fieldKey: path})
+	trace("Creating lock", nil, logrus.Fields{fieldKey: path})
 
 	// Take the local lock as both etcd and consul protect per client
 	lockPaths[path].Lock()
@@ -61,7 +61,7 @@ func LockPath(path string) (*Lock, error) {
 		return nil, fmt.Errorf("Error while locking path %s: %s", path, err)
 	}
 
-	trace("Successful lock", nil, log.Fields{fieldKey: path})
+	trace("Successful lock", nil, logrus.Fields{fieldKey: path})
 	return &Lock{lock: lock, path: path}, nil
 }
 
@@ -71,7 +71,7 @@ func (l *Lock) Unlock() error {
 
 	lockPaths[l.path].Unlock()
 	if err == nil {
-		trace("Unlocked", nil, log.Fields{fieldKey: l.path})
+		trace("Unlocked", nil, logrus.Fields{fieldKey: l.path})
 	}
 	return err
 }

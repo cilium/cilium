@@ -36,7 +36,6 @@ import (
 
 	"github.com/go-openapi/runtime/middleware"
 	"github.com/op/go-logging"
-	log "github.com/sirupsen/logrus"
 )
 
 // GetCachedLabelList returns the cached labels for the given identity.

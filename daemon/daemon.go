@@ -60,7 +60,7 @@ import (
 
 	"github.com/go-openapi/runtime/middleware"
 	"github.com/mattn/go-shellwords"
-	log "github.com/sirupsen/logrus"
+	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 	"github.com/vishvananda/netlink"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -145,7 +145,7 @@ func (d *Daemon) RemoveProxyRedirect(e *endpoint.Endpoint, l4 *policy.L4Filter) 
 	}
 
 	id := e.ProxyID(l4)
-	log.WithFields(log.Fields{
+	log.WithFields(logrus.Fields{
 		logfields.EndpointID: e.ID,
 		logfields.L4PolicyID: id,
 		logfields.Object:     l4,
@@ -270,7 +270,7 @@ func (d *Daemon) AnnotateEndpoint(e *endpoint.Endpoint, annotationKey, annotatio
 			// Endpoint's PodName is in the format namespace:pod-name
 			split := strings.Split(e.PodName, ":")
 			if len(split) < 2 {
-				log.WithFields(log.Fields{
+				log.WithFields(logrus.Fields{
 					logfields.EndpointID:            e.ID,
 					logfields.K8sPodName:            e.PodName,
 					logfields.K8sIdentityAnnotation: common.CiliumIdentityAnnotation,
@@ -278,7 +278,7 @@ func (d *Daemon) AnnotateEndpoint(e *endpoint.Endpoint, annotationKey, annotatio
 				return
 			}
 
-			scopedLog := log.WithFields(log.Fields{
+			scopedLog := log.WithFields(logrus.Fields{
 				logfields.EndpointID:            e.ID,
 				logfields.K8sNamespace:          split[0],
 				logfields.K8sPodName:            split[1],

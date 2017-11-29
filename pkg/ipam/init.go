@@ -18,17 +18,19 @@ import (
 	"fmt"
 	"net"
 
+	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/pkg/logfields"
 	"github.com/cilium/cilium/pkg/node"
 
 	cniTypes "github.com/containernetworking/cni/pkg/types"
 	"github.com/containernetworking/cni/plugins/ipam/host-local/backend/allocator"
-	log "github.com/sirupsen/logrus"
+	"github.com/sirupsen/logrus"
 	"github.com/vishvananda/netlink"
 	"k8s.io/kubernetes/pkg/registry/core/service/ipallocator"
 )
 
 var (
+	log      = common.DefaultLogger
 	ipamConf *Config
 )
 
@@ -72,7 +74,7 @@ func reserveLocalRoutes(ipam *Config) {
 		log.WithField("route", logfields.Repr(r)).Debug("Considering route")
 
 		if allocRange.Contains(r.Dst.IP) {
-			log.WithFields(log.Fields{
+			log.WithFields(logrus.Fields{
 				"route":            r.Dst,
 				logfields.V4Prefix: allocRange,
 			}).Info("Marking local route as no-alloc in node allocation prefix")

@@ -33,7 +33,7 @@ import (
 	clientyaml "github.com/coreos/etcd/clientv3/yaml"
 	"github.com/coreos/etcd/mvcc/mvccpb"
 	"github.com/hashicorp/go-version"
-	log "github.com/sirupsen/logrus"
+	"github.com/sirupsen/logrus"
 	ctx "golang.org/x/net/context"
 )
 
@@ -160,7 +160,7 @@ func (e *EtcdClient) CheckMinVersion(timeout time.Duration) error {
 			return fmt.Errorf("Minimal etcd version not met in %q,"+
 				" required: %s, found: %s", ep, minEVersion.String(), v.String())
 		}
-		log.WithFields(log.Fields{
+		log.WithFields(logrus.Fields{
 			fieldEtcdEndpoint: ep,
 			"version":         v,
 		}).Info("Version of etcd endpoint OK")
@@ -428,7 +428,7 @@ func (e *EtcdClient) Watch(w *Watcher, list bool) {
 		res, err := e.cli.Get(ctx.Background(), w.prefix, client.WithPrefix(),
 			client.WithRev(lastRev), client.WithSerializable())
 		if err != nil {
-			log.WithFields(log.Fields{
+			log.WithFields(logrus.Fields{
 				fieldRev:     lastRev,
 				fieldPrefix:  w.prefix,
 				fieldWatcher: w,
@@ -471,7 +471,7 @@ func (e *EtcdClient) Watch(w *Watcher, list bool) {
 				lastRev = r.Header.Revision
 
 				if err := r.Err(); err != nil {
-					log.WithFields(log.Fields{
+					log.WithFields(logrus.Fields{
 						fieldRev:     lastRev,
 						fieldWatcher: w,
 					}).WithError(err).Warn("etcd watcher received error")

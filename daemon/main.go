@@ -54,7 +54,7 @@ import (
 	gops "github.com/google/gops/agent"
 	go_version "github.com/hashicorp/go-version"
 	flags "github.com/jessevdk/go-flags"
-	log "github.com/sirupsen/logrus"
+	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -69,6 +69,8 @@ var (
 
 var (
 	config = NewConfig()
+
+	log = common.DefaultLogger
 
 	// Arguments variables keep in alphabetical order
 
@@ -473,7 +475,7 @@ func initConfig() {
 		node.EnableIPv4 = false
 	}
 
-	scopedLog := log.WithFields(log.Fields{
+	scopedLog := log.WithFields(logrus.Fields{
 		logfields.Path + ".RunDir": config.RunDir,
 		logfields.Path + ".LibDir": config.LibDir,
 	})

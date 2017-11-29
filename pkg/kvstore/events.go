@@ -17,7 +17,7 @@ package kvstore
 import (
 	"sync"
 
-	log "github.com/sirupsen/logrus"
+	"github.com/sirupsen/logrus"
 )
 
 // EventType defines the type of watch event that occurred
@@ -92,7 +92,7 @@ func watch(name, prefix string, chanSize int, list bool) *Watcher {
 		stopWatch: make(stopChan, 0),
 	}
 
-	log.WithFields(log.Fields{
+	log.WithFields(logrus.Fields{
 		fieldWatcher:      w,
 		fieldListAndWatch: list,
 	}).Debug("Starting watcher...")

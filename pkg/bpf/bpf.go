@@ -24,9 +24,12 @@ import (
 	"path/filepath"
 	"unsafe"
 
-	log "github.com/sirupsen/logrus"
+	"github.com/cilium/cilium/common"
+
 	"golang.org/x/sys/unix"
 )
+
+var log = common.DefaultLogger
 
 const (
 	// BPF map type constants. Must match enum bpf_map_type from linux/bpf.h

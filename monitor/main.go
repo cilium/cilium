@@ -23,9 +23,9 @@ import (
 	"github.com/cilium/cilium/daemon/defaults"
 	"github.com/cilium/cilium/pkg/apisocket"
 	"github.com/cilium/cilium/pkg/logfields"
-
-	log "github.com/sirupsen/logrus"
 )
+
+var log = common.DefaultLogger
 
 const targetName = "cilium-node-monitor"
 

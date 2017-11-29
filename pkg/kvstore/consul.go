@@ -28,7 +28,7 @@ import (
 	"github.com/cilium/cilium/pkg/policy"
 
 	consulAPI "github.com/hashicorp/consul/api"
-	log "github.com/sirupsen/logrus"
+	"github.com/sirupsen/logrus"
 )
 
 const (
@@ -115,7 +115,7 @@ retry:
 
 	ch, err := lockKey.Lock(nil)
 	if ch == nil && err == nil {
-		trace("Acquiring lock timed out", nil, log.Fields{fieldKey: path})
+		trace("Acquiring lock timed out", nil, logrus.Fields{fieldKey: path})
 		goto retry
 	}
 
@@ -400,7 +400,7 @@ func (c *ConsulClient) Watch(w *Watcher, list bool) {
 		if err != nil {
 			// in case of error, sleep for 15 seconds before retrying
 			sleepTime = 15 * time.Second
-			log.WithFields(log.Fields{
+			log.WithFields(logrus.Fields{
 				fieldWatcher:      w,
 				fieldListAndWatch: list,
 			}).WithError(err).Debug("Consul watcher failed, will retry")

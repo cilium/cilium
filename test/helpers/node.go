@@ -20,8 +20,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-
-	log "github.com/sirupsen/logrus"
 )
 
 // SSHMeta contains metadata to SSH into a remote location to run tests

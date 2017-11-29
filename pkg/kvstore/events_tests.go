@@ -18,7 +18,7 @@ import (
 	"time"
 
 	"github.com/cilium/cilium/pkg/comparator"
-	log "github.com/sirupsen/logrus"
+	"github.com/sirupsen/logrus"
 	. "gopkg.in/check.v1"
 )
 
@@ -31,7 +31,7 @@ func (s *KvstoreSuite) SetUpTest(c *C) {
 }
 
 func expectEvent(c *C, w *Watcher, typ EventType, key string, val []byte) {
-	log.WithFields(log.Fields{
+	log.WithFields(logrus.Fields{
 		"type":  typ,
 		"key":   key,
 		"value": string(val),

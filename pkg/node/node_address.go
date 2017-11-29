@@ -20,7 +20,6 @@ import (
 
 	"github.com/cilium/cilium/pkg/logfields"
 
-	log "github.com/sirupsen/logrus"
 	"github.com/vishvananda/netlink"
 	"golang.org/x/sys/unix"
 )

@@ -29,7 +29,7 @@ import (
 	"github.com/cilium/cilium/pkg/proxy/accesslog"
 
 	"github.com/optiopay/kafka/proto"
-	log "github.com/sirupsen/logrus"
+	"github.com/sirupsen/logrus"
 )
 
 const (
@@ -132,7 +132,7 @@ func (k *kafkaRedirect) canAccess(req *kafka.RequestMessage, numIdentity policy.
 	if numIdentity != 0 {
 		identity = k.conf.source.ResolveIdentity(numIdentity)
 		if identity == nil {
-			log.WithFields(log.Fields{
+			log.WithFields(logrus.Fields{
 				logfields.Request:  req.String(),
 				logfields.Identity: numIdentity,
 			}).Warn("Unable to resolve identity to labels")
@@ -151,7 +151,7 @@ func (k *kafkaRedirect) canAccess(req *kafka.RequestMessage, numIdentity policy.
 	if err != nil {
 		log.WithError(err).WithField(logfields.Request, req.String()).Debug("Error marshalling kafka rules to apply")
 	} else {
-		log.WithFields(log.Fields{
+		log.WithFields(logrus.Fields{
 			logfields.Request: req.String(),
 			"rule":            string(b),
 		}).Debug("Applying rule")
@@ -216,7 +216,7 @@ func (l *kafkaLogRecord) log(typ accesslog.FlowType, verdict accesslog.FlowVerdi
 	l.Info = info
 	l.Timestamp = time.Now().UTC().Format(time.RFC3339Nano)
 
-	log.WithFields(log.Fields{
+	log.WithFields(logrus.Fields{
 		accesslog.FieldType:               l.Type,
 		accesslog.FieldVerdict:            l.Verdict,
 		accesslog.FieldCode:               l.Kafka.ErrorCode,
@@ -288,14 +288,14 @@ func (k *kafkaRedirect) handleRequest(pair *connectionPair, req *kafka.RequestMe
 			marker = GetMagicMark(k.ingress) | int(srcIdentity)
 		}
 
-		scopedLog.WithFields(log.Fields{
+		scopedLog.WithFields(logrus.Fields{
 			"marker":      marker,
 			"destination": dstIPPort,
 		}).Debug("Dialing original destination")
 
 		txConn, err := ciliumDialer(marker, addr.Network(), dstIPPort)
 		if err != nil {
-			scopedLog.WithError(err).WithFields(log.Fields{
+			scopedLog.WithError(err).WithFields(logrus.Fields{
 				"origNetwork": addr.Network(),
 				"origDest":    dstIPPort,
 			}).Error("Unable to dial original destination")
@@ -366,7 +366,7 @@ func handleResponse(pair *connectionPair, c *proxyConnection,
 }
 
 func (k *kafkaRedirect) handleRequestConnection(pair *connectionPair) {
-	log.WithFields(log.Fields{
+	log.WithFields(logrus.Fields{
 		"from": pair.rx,
 		"to":   pair.tx,
 	}).Debug("Proxying request Kafka connection")
@@ -376,7 +376,7 @@ func (k *kafkaRedirect) handleRequestConnection(pair *connectionPair) {
 
 func (k *kafkaRedirect) handleResponseConnection(pair *connectionPair,
 	record *kafkaLogRecord) {
-	log.WithFields(log.Fields{
+	log.WithFields(logrus.Fields{
 		"from": pair.tx,
 		"to":   pair.rx,
 	}).Debug("Proxying response Kafka connection")

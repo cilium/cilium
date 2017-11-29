@@ -19,7 +19,7 @@ import (
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	log "github.com/sirupsen/logrus"
+	"github.com/sirupsen/logrus"
 )
 
 var _ = Describe("RuntimeChaos", func() {
@@ -33,7 +33,7 @@ var _ = Describe("RuntimeChaos", func() {
 		if initialized == true {
 			return
 		}
-		logger = log.WithFields(log.Fields{"testName": "RuntimeChaos"})
+		logger = log.WithFields(logrus.Fields{"testName": "RuntimeChaos"})
 		logger.Info("Starting")
 		docker, cilium = helpers.CreateNewRuntimeHelper(helpers.Runtime, logger)
 		docker.NetworkCreate(helpers.CiliumDockerNetwork, "")

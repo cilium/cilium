@@ -22,7 +22,7 @@ import (
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/proxy/accesslog"
 
-	log "github.com/sirupsen/logrus"
+	"github.com/sirupsen/logrus"
 )
 
 // HTTPLogRecord wraps an accesslog.LogRecord so that we can define methods with a receiver
@@ -66,7 +66,7 @@ func (l *HTTPLogRecord) logStamped(typ accesslog.FlowType, verdict accesslog.Flo
 	l.HTTP.Code = code
 	l.Info = info
 
-	log.WithFields(log.Fields{
+	log.WithFields(logrus.Fields{
 		accesslog.FieldType:     l.Type,
 		accesslog.FieldVerdict:  l.Verdict,
 		accesslog.FieldCode:     l.HTTP.Code,

@@ -22,10 +22,13 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/pkg/logfields"
 
-	log "github.com/sirupsen/logrus"
+	"github.com/sirupsen/logrus"
 )
+
+var log = common.DefaultLogger
 
 // GetGroupIDByName returns the group ID for the given grpName.
 func GetGroupIDByName(grpName string) (int, error) {
@@ -56,7 +59,7 @@ func GetGroupIDByName(grpName string) (int, error) {
 func SetDefaultPermissions(socketPath string) error {
 	gid, err := GetGroupIDByName(CiliumGroupName)
 	if err != nil {
-		log.WithError(err).WithFields(log.Fields{
+		log.WithError(err).WithFields(logrus.Fields{
 			logfields.Path: socketPath,
 			"group":        CiliumGroupName,
 		}).Info("Group not found")

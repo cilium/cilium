@@ -18,7 +18,6 @@ import (
 	"os"
 
 	"github.com/cilium/cilium/pkg/logfields"
-	log "github.com/sirupsen/logrus"
 )
 
 var (

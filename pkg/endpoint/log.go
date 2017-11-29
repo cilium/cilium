@@ -15,15 +15,18 @@
 package endpoint
 
 import (
+	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/pkg/logfields"
 
-	log "github.com/sirupsen/logrus"
+	"github.com/sirupsen/logrus"
 )
+
+var log = common.DefaultLogger
 
 // logger returns a logrus object with EndpointID, ContainerID and the Endpoint
 // revision fields.
 // Note: You must host Endpoint.Mutex
-func (e *Endpoint) getLogger() *log.Entry {
+func (e *Endpoint) getLogger() *logrus.Entry {
 	if e.logger == nil {
 		e.updateLogger()
 	}
@@ -33,7 +36,7 @@ func (e *Endpoint) getLogger() *log.Entry {
 // updateLogger
 // Note: You must hold Endpoint.Mutex
 func (e *Endpoint) updateLogger() {
-	e.logger = log.WithFields(log.Fields{
+	e.logger = log.WithFields(logrus.Fields{
 		logfields.EndpointID:  e.ID,
 		logfields.ContainerID: e.DockerID,
 		"policyRevision":      e.policyRevision,

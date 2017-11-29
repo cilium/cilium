@@ -26,7 +26,7 @@ import (
 	"github.com/cilium/cilium/pkg/maps/ctmap"
 	"github.com/cilium/cilium/pkg/policy"
 
-	log "github.com/sirupsen/logrus"
+	"github.com/sirupsen/logrus"
 )
 
 const (
@@ -72,7 +72,7 @@ func RunGC(e *endpoint.Endpoint, isLocal, isIPv6 bool, filter *ctmap.GCFilter) {
 	deleted := ctmap.GC(m, mapType, filter)
 
 	if deleted > 0 {
-		log.WithFields(log.Fields{
+		log.WithFields(logrus.Fields{
 			logfields.Path:  file,
 			"ctFilter.type": filter.TypeString(),
 			"count":         deleted,

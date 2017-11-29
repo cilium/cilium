@@ -26,7 +26,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/logfields"
 
-	log "github.com/sirupsen/logrus"
+	"github.com/sirupsen/logrus"
 )
 
 const (
@@ -145,7 +145,7 @@ func newProxyConnection(rx bool, queueClose func()) *proxyConnection {
 // connection
 func (c *proxyConnection) SetConnection(conn net.Conn) {
 	if c.conn != nil {
-		log.WithFields(log.Fields{
+		log.WithFields(logrus.Fields{
 			fieldConn: c,
 		}).Panic("Established connection is already associated")
 	}
@@ -229,7 +229,7 @@ func (c *proxyConnection) direction() string {
 
 // Enqueue queues a message to be written to the socket
 func (c *proxyConnection) Enqueue(msg []byte) {
-	scopedLog := log.WithFields(log.Fields{
+	scopedLog := log.WithFields(logrus.Fields{
 		fieldConn: c,
 		fieldSize: len(msg),
 	})
@@ -373,7 +373,7 @@ func identityFromContext(ctx context.Context) (int, bool) {
 }
 
 func setFdMark(fd, mark int) {
-	scopedLog := log.WithFields(log.Fields{
+	scopedLog := log.WithFields(logrus.Fields{
 		fieldFd:     fd,
 		fieldMarker: mark,
 	})

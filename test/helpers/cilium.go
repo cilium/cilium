@@ -25,9 +25,12 @@ import (
 	"time"
 
 	"github.com/cilium/cilium/api/v1/models"
+	"github.com/cilium/cilium/common"
 
-	log "github.com/sirupsen/logrus"
+	"github.com/sirupsen/logrus"
 )
+
+var log = common.DefaultLogger
 
 const (
 	// MaxRetries is the number of times that a loop should iterate until a
@@ -123,7 +126,7 @@ func (c *Cilium) EndpointStatusLog(id string) *models.EndpointStatusLog {
 	res := c.Exec(endpointLogCmd)
 	err := res.Unmarshal(&epStatusLog)
 	if err != nil {
-		c.logger.WithFields(log.Fields{"endpointID": id}).WithError(err).Errorf("unable to get endpoint status log")
+		c.logger.WithFields(logrus.Fields{"endpointID": id}).WithError(err).Errorf("unable to get endpoint status log")
 		return nil
 	}
 
@@ -134,7 +137,7 @@ func (c *Cilium) EndpointStatusLog(id string) *models.EndpointStatusLog {
 // endpoint with the specified ID to be in "ready" state. Returns false if
 // no such endpoint corresponds to the given id or if MaxRetries are exceeded.
 func (c *Cilium) WaitEndpointRegenerated(id string) bool {
-	logger := c.logger.WithFields(log.Fields{
+	logger := c.logger.WithFields(logrus.Fields{
 		"functionName": "WaitEndpointRegenerated",
 		"id":           id,
 	})
@@ -151,7 +154,7 @@ func (c *Cilium) WaitEndpointRegenerated(id string) bool {
 
 	for ; epState != desiredState && counter < MaxRetries; counter++ {
 
-		logger.WithFields(log.Fields{
+		logger.WithFields(logrus.Fields{
 			"endpointState": epState,
 		}).Info("endpoint not ready")
 
@@ -177,7 +180,7 @@ func (c *Cilium) WaitEndpointRegenerated(id string) bool {
 // not be in any regenerating or waiting-to-generate state. Returns true if
 // all endpoints regenerate before MaxRetries are exceeded, false otherwise.
 func (c *Cilium) WaitEndpointsReady() bool {
-	logger := c.logger.WithFields(log.Fields{"functionName": "WaitEndpointsReady"})
+	logger := c.logger.WithFields(logrus.Fields{"functionName": "WaitEndpointsReady"})
 
 	numDesired := 0
 	counter := 0
@@ -196,7 +199,7 @@ func (c *Cilium) WaitEndpointsReady() bool {
 	}
 	for numDesired != numEndpointsRegenerating {
 
-		logger.WithFields(log.Fields{
+		logger.WithFields(logrus.Fields{
 			"regenerating": numEndpointsRegenerating,
 		}).Info("endpoints are still regenerating")
 
@@ -228,7 +231,7 @@ func (c *Cilium) EndpointSetConfig(id, option, value string) bool {
 	// For now use `grep` with an extra space to ensure that we only match
 	// on specified option.
 	// TODO: for consistency, all fields should be constants if they are reused.
-	logger := c.logger.WithFields(log.Fields{"endpointID": id})
+	logger := c.logger.WithFields(logrus.Fields{"endpointID": id})
 	res := c.Exec(fmt.Sprintf(
 		"endpoint config %s | grep '%s ' | awk '{print $2}'", id, option))
 

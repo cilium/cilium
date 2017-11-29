@@ -22,11 +22,12 @@ import (
 	"github.com/cilium/cilium/pkg/logfields"
 	"github.com/cilium/cilium/plugins/cilium-docker/driver"
 
-	log "github.com/sirupsen/logrus"
+	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
 
 var (
+	log        = common.DefaultLogger
 	pluginPath string
 	driverSock string
 	debug      bool
@@ -77,9 +78,9 @@ func init() {
 
 func initConfig() {
 	if debug {
-		log.SetLevel(log.DebugLevel)
+		log.SetLevel(logrus.DebugLevel)
 	} else {
-		log.SetLevel(log.InfoLevel)
+		log.SetLevel(logrus.InfoLevel)
 	}
 
 	common.RequireRootPrivilege("cilium-docker")

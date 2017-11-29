@@ -23,7 +23,7 @@ import (
 	"time"
 
 	"github.com/asaskevich/govalidator"
-	log "github.com/sirupsen/logrus"
+	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/api/v1/models"
 )
@@ -186,7 +186,7 @@ func (kub *Kubectl) WaitforPods(namespace string, filter string, timeout time.Du
 		if valid == true {
 			return true
 		}
-		kub.logCxt.WithFields(log.Fields{
+		kub.logCxt.WithFields(logrus.Fields{
 			"namespace": namespace,
 			"filter":    filter,
 			"data":      data,
@@ -290,7 +290,7 @@ func (kub *Kubectl) CiliumEndpointWait(pod string) bool {
 		if invalid == 0 {
 			return true
 		}
-		kub.logCxt.WithFields(log.Fields{
+		kub.logCxt.WithFields(logrus.Fields{
 			"pod":     pod,
 			"valid":   valid,
 			"invalid": invalid,
@@ -550,7 +550,7 @@ func (kub *Kubectl) GetCiliumPodOnNode(namespace string, node string) (string, e
 
 // TestConnectivityPodService runs HTTP connectivity test from pod to ClusterIP service
 func (kub *Kubectl) TestConnectivityPodService(from, to string) *CmdRes {
-	kub.logCxt.WithFields(log.Fields{
+	kub.logCxt.WithFields(logrus.Fields{
 		"from": from,
 		"to":   to,
 	}).Info("Testing connectivity")

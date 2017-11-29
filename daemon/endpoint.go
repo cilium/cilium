@@ -33,7 +33,7 @@ import (
 	"github.com/cilium/cilium/pkg/policy"
 
 	"github.com/go-openapi/runtime/middleware"
-	log "github.com/sirupsen/logrus"
+	"github.com/sirupsen/logrus"
 )
 
 type getEndpoint struct {
@@ -197,7 +197,7 @@ func (h *putEndpointID) Handle(params PutEndpointIDParams) middleware.Responder 
 		endpointmanager.Mutex.Lock()
 		if errLabelsAdd != nil {
 			// XXX: Why should the endpoint remain in this case?
-			log.WithFields(log.Fields{
+			log.WithFields(logrus.Fields{
 				logfields.EndpointID:              params.ID,
 				logfields.IdentityLabels:          logfields.Repr(add),
 				logfields.IdentityLabels + ".bad": errLabelsAdd,
@@ -345,7 +345,7 @@ func (d *Daemon) deleteEndpoint(ep *endpoint.Endpoint) int {
 
 	sha256sum := ep.OpLabels.IdentityLabels().SHA256Sum()
 	if err := d.DeleteIdentityBySHA256(sha256sum, ep.StringID()); err != nil {
-		log.WithError(err).WithFields(log.Fields{
+		log.WithError(err).WithFields(logrus.Fields{
 			logfields.SHA:            sha256sum,
 			logfields.IdentityLabels: ep.OpLabels.IdentityLabels(),
 		}).Error("Error while deleting labels")
@@ -648,7 +648,7 @@ func (d *Daemon) UpdateSecLabels(id string, add, del labels.Labels) middleware.R
 	if ep.GetStateLocked() == endpoint.StateDisconnected {
 		ep.Mutex.Unlock()
 		if err := d.DeleteIdentity(identity.ID, ep.StringID()); err != nil {
-			log.WithFields(log.Fields{
+			log.WithFields(logrus.Fields{
 				logfields.EndpointID: ep.StringID(),
 				logfields.Identity:   identity.ID,
 			}).WithError(err).Warn("Unable to release temporary identity")
@@ -706,7 +706,7 @@ func (h *putEndpointIDLabels) Handle(params PutEndpointIDLabelsParams) middlewar
 //  - trigger endpoint regeneration if required
 //  - trigger policy regeneration if required
 func (d *Daemon) EndpointLabelsUpdate(ep *endpoint.Endpoint, identityLabels, infoLabels labels.Labels) error {
-	log.WithFields(log.Fields{
+	log.WithFields(logrus.Fields{
 		logfields.ContainerID:    ep.GetShortContainerID(),
 		logfields.EndpointID:     ep.StringID(),
 		logfields.IdentityLabels: identityLabels.String(),
@@ -734,7 +734,7 @@ func (d *Daemon) EndpointLabelsUpdate(ep *endpoint.Endpoint, identityLabels, inf
 	if ep.GetStateLocked() == endpoint.StateDisconnected {
 		ep.Mutex.Unlock()
 		if err := d.DeleteIdentity(identity.ID, ep.StringID()); err != nil {
-			log.WithFields(log.Fields{
+			log.WithFields(logrus.Fields{
 				logfields.EndpointID: ep.StringID(),
 				logfields.Identity:   identity.ID,
 			}).WithError(err).Warn("Unable to release temporary identity")

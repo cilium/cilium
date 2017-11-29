@@ -41,7 +41,7 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
 
-	log "github.com/sirupsen/logrus"
+	"github.com/sirupsen/logrus"
 )
 
 var (
@@ -326,7 +326,7 @@ type Endpoint struct {
 
 	// logger is a logrus object with fields set to report an endpoints information.
 	// You must hold Endpoint.Mutex to read or write it (but not to log with it).
-	logger *log.Entry
+	logger *logrus.Entry
 }
 
 // NewEndpointWithState creates a new endpoint useful for testing purposes
@@ -1311,7 +1311,7 @@ func (e *Endpoint) SetStateLocked(toState, reason string) bool {
 	}
 	if toState != fromState {
 		_, fileName, fileLine, _ := runtime.Caller(1)
-		e.getLogger().WithFields(log.Fields{
+		e.getLogger().WithFields(logrus.Fields{
 			logfields.EndpointState + ".from": fromState,
 			logfields.EndpointState + ".to":   toState,
 			"file": fileName,
