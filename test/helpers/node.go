@@ -127,13 +127,13 @@ func (s *SSHMeta) Exec(cmd string) *CmdRes {
 func (s *SSHMeta) GetCopy() *SSHMeta {
 	nodes, err := ImportSSHconfig(s.rawConfig)
 	if err != nil {
-		log.WithError(err).Error("While importing ssh config for meta copy")
+		log.WithError(err).Error("while importing ssh config for meta copy")
 		return nil
 	}
 
 	config := nodes[s.nodeName]
 	if config == nil {
-		log.Errorf("No node %s in imported config", s.nodeName)
+		log.Errorf("no node %s in imported config", s.nodeName)
 		return nil
 	}
 
