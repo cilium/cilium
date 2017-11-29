@@ -32,6 +32,18 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+// AdminOption is an option for determining over which protocols the APIs are
+// exposed.
+type AdminOption string
+
+const (
+	// AdminOptionAny exposes every API over both Unix and HTTP sockets.
+	AdminOptionAny AdminOption = "any"
+
+	// AdminOptionUnix restricts most APIs to hosting over Unix sockets.
+	AdminOptionUnix AdminOption = "unix"
+)
+
 var (
 	log = common.DefaultLogger
 
@@ -40,12 +52,19 @@ var (
 	PortToPaths = map[int]string{
 		defaults.HTTPPathPort: "Via L3",
 	}
+
+	// AdminOptions is the slice of all valid AdminOption values.
+	AdminOptions = []AdminOption{
+		AdminOptionAny,
+		AdminOptionUnix,
+	}
 )
 
 // Config stores the configuration data for a cilium-health server.
 type Config struct {
 	Debug         bool
 	Passive       bool
+	Admin         AdminOption
 	CiliumURI     string
 	ProbeInterval time.Duration
 	ProbeDeadline time.Duration
@@ -238,6 +257,17 @@ func (s *Server) Shutdown() {
 	}
 }
 
+func enableAPI(opt AdminOption, tcpPort int) bool {
+	switch opt {
+	case AdminOptionAny:
+		return true
+	case AdminOptionUnix:
+		return tcpPort == 0
+	default:
+		return false
+	}
+}
+
 // newServer instantiates a new instance of the API that serves the health
 // API on the specified port. If tcpPort is 0, then a unix socket is opened
 // which serves the entire API. If a tcpPort is specified, then it returns
@@ -249,12 +279,8 @@ func (s *Server) newServer(spec *loads.Document, tcpPort int) *healthApi.Server 
 	// /hello
 	api.GetHelloHandler = NewGetHelloHandler(s)
 
-	if tcpPort == 0 {
-		// /healthz/
+	if enableAPI(s.Config.Admin, tcpPort) {
 		api.GetHealthzHandler = NewGetHealthzHandler(s)
-
-		// /status/
-		// /status/probe/
 		api.ConnectivityGetStatusHandler = NewGetStatusHandler(s)
 		api.ConnectivityPutStatusProbeHandler = NewPutStatusProbeHandler(s)
 	}

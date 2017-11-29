@@ -17,6 +17,7 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/cilium/cilium/common"
@@ -68,9 +69,10 @@ func Execute() {
 func init() {
 	cobra.OnInitialize(initConfig)
 	flags := rootCmd.PersistentFlags()
+	flags.StringP("admin", "", string(serverPkg.AdminOptionAny), "Expose resources over 'unix' socket, 'any' socket")
 	flags.BoolP("debug", "D", false, "Enable debug messages")
 	flags.BoolP("daemon", "d", false, "Run as a daemon")
-	flags.BoolP("passive", "p", false, "Only respond to health checks")
+	flags.BoolP("passive", "p", false, "Only respond to HTTP health checks")
 	flags.StringP("host", "H", "", "URI to cilum-health server API")
 	flags.StringP("cilium", "c", "", "URI to Cilium server API")
 	flags.IntP("interval", "i", 60, "Interval (in seconds) for periodic connectivity probes")
@@ -78,6 +80,19 @@ func init() {
 	// TODO GH #2083 Hide until all commands support JSON output
 	flags.MarkHidden("json")
 	viper.BindPFlags(flags)
+}
+
+func getAdminOption() serverPkg.AdminOption {
+	userOpt := strings.ToLower(viper.GetString("admin"))
+	for _, opt := range serverPkg.AdminOptions {
+		if opt == serverPkg.AdminOption(userOpt) {
+			return opt
+		}
+	}
+
+	Fatalf("Invalid admin option \"%s\" (must be one of %s)",
+		strings.ToLower(viper.GetString("admin")), serverPkg.AdminOptions)
+	return serverPkg.AdminOption("")
 }
 
 // initConfig reads in config file and ENV variables if set.
@@ -98,6 +113,7 @@ func initConfig() {
 			CiliumURI:     viper.GetString("cilium"),
 			Debug:         viper.GetBool("debug"),
 			Passive:       viper.GetBool("passive"),
+			Admin:         getAdminOption(),
 			ProbeInterval: time.Duration(viper.GetInt("interval")) * time.Second,
 			ProbeDeadline: time.Second,
 		}
