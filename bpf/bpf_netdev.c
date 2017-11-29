@@ -123,18 +123,16 @@ reverse_proxy6(struct __sk_buff *skb, int l4_off, struct ipv6hdr *ip6, __u8 nh)
 #ifdef FROM_HOST
 static inline void __inline__ handle_identity_from_proxy(struct __sk_buff *skb, __u32 *identity)
 {
-	int ret;
+	__u32 magic = skb->mark & MARK_MAGIC_PROXY_MASK;
 
-	/* For packets from the proxy the identity can be specified via
-	 * skb->mark */
-	if ((ret = mark_is_from_proxy(skb))) {
+	/* Packets from the ingress proxy must skip the proxy when the
+	 * destination endpoint evaluates the policy. As the packet
+	 * would loop otherwise. */
+	if (magic == MARK_MAGIC_PROXY_INGRESS) {
 		*identity = get_identity_via_proxy(skb);
-
-		/* Packets from the ingress proxy must skip the proxy when the
-		 * destination endpoint evaluates the policy. As the packet
-		 * would loop otherwise. */
-		if (ret == SOURCE_INGRESS_PROXY)
-			skb->tc_index |= TC_INDEX_F_SKIP_PROXY;
+		skb->tc_index |= TC_INDEX_F_SKIP_PROXY;
+	} else if (magic == MARK_MAGIC_PROXY_EGRESS) {
+		*identity = get_identity_via_proxy(skb);
 	}
 
 	/* Reset packet mark to avoid hitting routing rules again */
