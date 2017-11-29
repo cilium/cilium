@@ -26,7 +26,6 @@ import (
 	"time"
 
 	"github.com/kevinburke/ssh_config"
-	log "github.com/sirupsen/logrus"
 	"golang.org/x/crypto/ssh"
 	"golang.org/x/crypto/ssh/agent"
 )

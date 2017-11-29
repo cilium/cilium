@@ -17,14 +17,17 @@ package accesslog
 import (
 	"encoding/json"
 
+	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logfields"
 
-	log "github.com/sirupsen/logrus"
 	"gopkg.in/natefinch/lumberjack.v2"
 )
 
 var (
+	// the agent-level logrus logger
+	log = common.DefaultLogger
+
 	logMutex lock.Mutex
 	logger   *lumberjack.Logger
 	logPath  string
@@ -100,8 +103,8 @@ func logString(outStr string, retry bool) {
 	output := []byte(outStr + "\n")
 	_, err := logger.Write(output)
 	if err != nil {
-		log.WithField(FieldFilePath,
-			logPath).Errorf("Error writing to access file %+v", err)
+		log.WithError(err).WithField(FieldFilePath, logPath).
+			Errorf("Error writing to access file")
 	}
 }
 
@@ -113,8 +116,8 @@ func (l *LogRecord) Log() {
 	defer logMutex.Unlock()
 
 	if logger == nil {
-		log.WithField(FieldFilePath,
-			logPath).Debug("Skipping writing to access log (logger nil)")
+		log.WithField(FieldFilePath, logPath).
+			Debug("Skipping writing to access log (logger nil)")
 		return
 	}
 

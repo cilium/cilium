@@ -18,14 +18,15 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/metrics"
-
-	log "github.com/sirupsen/logrus"
 )
 
 var (
+	log = common.DefaultLogger
+
 	// Mutex protects Endpoints and endpointsAux
 	//
 	// Warning: This lock may not be taken while an individual endpoint

@@ -14,11 +14,7 @@
 
 package kvstore
 
-import (
-	"fmt"
-
-	log "github.com/sirupsen/logrus"
-)
+import "fmt"
 
 var (
 	clientInstance KVClient

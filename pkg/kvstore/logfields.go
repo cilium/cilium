@@ -14,6 +14,10 @@
 
 package kvstore
 
+import "github.com/cilium/cilium/common"
+
+var log = common.DefaultLogger
+
 const (
 	// name of watcher
 	fieldWatcher = "watcher"

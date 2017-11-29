@@ -23,7 +23,6 @@ import (
 	"github.com/cilium/cilium/pkg/logfields"
 
 	"github.com/docker/libnetwork/ipams/remote/api"
-	log "github.com/sirupsen/logrus"
 )
 
 const (

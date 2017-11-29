@@ -25,7 +25,7 @@ import (
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logfields"
 
-	log "github.com/sirupsen/logrus"
+	"github.com/sirupsen/logrus"
 	"golang.org/x/sys/unix"
 )
 
@@ -247,7 +247,7 @@ func (m *Map) migrate(fd int) (bool, error) {
 	mismatch := false
 
 	if info.MapType != m.MapType {
-		scopedLog.WithFields(log.Fields{
+		scopedLog.WithFields(logrus.Fields{
 			"old": info.MapType,
 			"new": m.MapType,
 		}).Info("Map type mismatch for BPF map")
@@ -255,7 +255,7 @@ func (m *Map) migrate(fd int) (bool, error) {
 	}
 
 	if info.KeySize != m.KeySize {
-		scopedLog.WithFields(log.Fields{
+		scopedLog.WithFields(logrus.Fields{
 			"old": info.KeySize,
 			"new": m.KeySize,
 		}).Info("Key-size mismatch for BPF map")
@@ -263,7 +263,7 @@ func (m *Map) migrate(fd int) (bool, error) {
 	}
 
 	if info.ValueSize != m.ValueSize {
-		scopedLog.WithFields(log.Fields{
+		scopedLog.WithFields(logrus.Fields{
 			"old": info.ValueSize,
 			"new": m.ValueSize,
 		}).Info("Value-size mismatch for BPF map")
@@ -271,7 +271,7 @@ func (m *Map) migrate(fd int) (bool, error) {
 	}
 
 	if info.MaxEntries != m.MaxEntries {
-		scopedLog.WithFields(log.Fields{
+		scopedLog.WithFields(logrus.Fields{
 			"old": info.MaxEntries,
 			"new": m.MaxEntries,
 		}).Info("Max entries mismatch for BPF map")
@@ -279,7 +279,7 @@ func (m *Map) migrate(fd int) (bool, error) {
 	}
 
 	if info.Flags != m.Flags {
-		scopedLog.WithFields(log.Fields{
+		scopedLog.WithFields(logrus.Fields{
 			"old": info.Flags,
 			"new": m.Flags,
 		}).Info("Flags mismatch for BPF map")

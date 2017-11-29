@@ -37,7 +37,7 @@ import (
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/serializer"
 
-	log "github.com/sirupsen/logrus"
+	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 	"k8s.io/api/core/v1"
 	"k8s.io/api/extensions/v1beta1"
@@ -663,7 +663,7 @@ func (d *Daemon) addK8sNetworkPolicyV1(k8sNP *networkingv1.NetworkPolicy) {
 	scopedLog := log.WithField(logfields.K8sAPIVersion, k8sNP.TypeMeta.APIVersion)
 	rules, err := k8s.ParseNetworkPolicy(k8sNP)
 	if err != nil {
-		scopedLog.WithError(err).WithFields(log.Fields{
+		scopedLog.WithError(err).WithFields(logrus.Fields{
 			logfields.CiliumNetworkPolicy: logfields.Repr(k8sNP),
 		}).Error("Error while parsing k8s kubernetes NetworkPolicy")
 		return
@@ -672,7 +672,7 @@ func (d *Daemon) addK8sNetworkPolicyV1(k8sNP *networkingv1.NetworkPolicy) {
 
 	opts := AddOptions{Replace: true}
 	if _, err := d.PolicyAdd(rules, &opts); err != nil {
-		scopedLog.WithError(err).WithFields(log.Fields{
+		scopedLog.WithError(err).WithFields(logrus.Fields{
 			logfields.CiliumNetworkPolicy: logfields.Repr(rules),
 		}).Error("Unable to add NetworkPolicy rules to policy repository")
 		return
@@ -682,7 +682,7 @@ func (d *Daemon) addK8sNetworkPolicyV1(k8sNP *networkingv1.NetworkPolicy) {
 }
 
 func (d *Daemon) updateK8sNetworkPolicyV1(oldk8sNP, newk8sNP *networkingv1.NetworkPolicy) {
-	log.WithFields(log.Fields{
+	log.WithFields(logrus.Fields{
 		logfields.K8sAPIVersion:                 oldk8sNP.TypeMeta.APIVersion,
 		logfields.K8sNetworkPolicyName + ".old": oldk8sNP.ObjectMeta.Name,
 		logfields.K8sNamespace + ".old":         oldk8sNP.ObjectMeta.Namespace,
@@ -696,7 +696,7 @@ func (d *Daemon) updateK8sNetworkPolicyV1(oldk8sNP, newk8sNP *networkingv1.Netwo
 func (d *Daemon) deleteK8sNetworkPolicyV1(k8sNP *networkingv1.NetworkPolicy) {
 	labels := labels.ParseSelectLabelArray(k8s.ExtractPolicyName(k8sNP))
 
-	scopedLog := log.WithFields(log.Fields{
+	scopedLog := log.WithFields(logrus.Fields{
 		logfields.K8sNetworkPolicyName: k8sNP.ObjectMeta.Name,
 		logfields.K8sNamespace:         k8sNP.ObjectMeta.Namespace,
 		logfields.K8sAPIVersion:        k8sNP.TypeMeta.APIVersion,
@@ -733,7 +733,7 @@ func (d *Daemon) addK8sNetworkPolicyV1beta1(k8sNP *v1beta1.NetworkPolicy) {
 // updateK8sNetworkPolicyV1beta1
 // FIXME remove when we drop support to k8s Network Policy extensions/v1beta1
 func (d *Daemon) updateK8sNetworkPolicyV1beta1(oldk8sNP, newk8sNP *v1beta1.NetworkPolicy) {
-	log.WithFields(log.Fields{
+	log.WithFields(logrus.Fields{
 		logfields.K8sAPIVersion:                 oldk8sNP.TypeMeta.APIVersion,
 		logfields.K8sNetworkPolicyName + ".old": oldk8sNP.ObjectMeta.Name,
 		logfields.K8sNamespace + ".old":         oldk8sNP.ObjectMeta.Namespace,
@@ -749,7 +749,7 @@ func (d *Daemon) updateK8sNetworkPolicyV1beta1(oldk8sNP, newk8sNP *v1beta1.Netwo
 func (d *Daemon) deleteK8sNetworkPolicyV1beta1(k8sNP *v1beta1.NetworkPolicy) {
 	labels := labels.ParseSelectLabelArray(k8s.ExtractPolicyNameDeprecated(k8sNP))
 
-	scopedLog := log.WithFields(log.Fields{
+	scopedLog := log.WithFields(logrus.Fields{
 		logfields.K8sNetworkPolicyName: k8sNP.ObjectMeta.Name,
 		logfields.K8sNamespace:         k8sNP.ObjectMeta.Namespace,
 		logfields.K8sAPIVersion:        k8sNP.TypeMeta.APIVersion,
@@ -764,7 +764,7 @@ func (d *Daemon) deleteK8sNetworkPolicyV1beta1(k8sNP *v1beta1.NetworkPolicy) {
 }
 
 func (d *Daemon) addK8sServiceV1(svc *v1.Service) {
-	scopedLog := log.WithFields(log.Fields{
+	scopedLog := log.WithFields(logrus.Fields{
 		logfields.K8sSvcName:    svc.ObjectMeta.Name,
 		logfields.K8sNamespace:  svc.ObjectMeta.Namespace,
 		logfields.K8sAPIVersion: svc.TypeMeta.APIVersion,
@@ -824,7 +824,7 @@ func (d *Daemon) addK8sServiceV1(svc *v1.Service) {
 }
 
 func (d *Daemon) updateK8sServiceV1(oldSvc, newSvc *v1.Service) {
-	log.WithFields(log.Fields{
+	log.WithFields(logrus.Fields{
 		logfields.K8sAPIVersion:         oldSvc.TypeMeta.APIVersion,
 		logfields.K8sSvcName + ".old":   oldSvc.ObjectMeta.Name,
 		logfields.K8sNamespace + ".old": oldSvc.ObjectMeta.Namespace,
@@ -838,7 +838,7 @@ func (d *Daemon) updateK8sServiceV1(oldSvc, newSvc *v1.Service) {
 }
 
 func (d *Daemon) deleteK8sServiceV1(svc *v1.Service) {
-	log.WithFields(log.Fields{
+	log.WithFields(logrus.Fields{
 		logfields.K8sSvcName:    svc.ObjectMeta.Name,
 		logfields.K8sNamespace:  svc.ObjectMeta.Namespace,
 		logfields.K8sAPIVersion: svc.TypeMeta.APIVersion,
@@ -855,7 +855,7 @@ func (d *Daemon) deleteK8sServiceV1(svc *v1.Service) {
 }
 
 func (d *Daemon) addK8sEndpointV1(ep *v1.Endpoints) {
-	scopedLog := log.WithFields(log.Fields{
+	scopedLog := log.WithFields(logrus.Fields{
 		logfields.K8sEndpointName: ep.ObjectMeta.Name,
 		logfields.K8sNamespace:    ep.ObjectMeta.Namespace,
 		logfields.K8sAPIVersion:   ep.TypeMeta.APIVersion,
@@ -909,7 +909,7 @@ func (d *Daemon) addK8sEndpointV1(ep *v1.Endpoints) {
 func (d *Daemon) updateK8sEndpointV1(oldEP, newEP *v1.Endpoints) {
 	// TODO only print debug message if the difference between the old endpoint
 	// and the new endpoint are important to us.
-	//log.WithFields(log.Fields{
+	//log.WithFields(logrus.Fields{
 	//	logfields.K8sAPIVersion:            oldEP.TypeMeta.APIVersion,
 	//	logfields.K8sEndpointName + ".old": oldEP.ObjectMeta.Name,
 	//	logfields.K8sNamespace + ".old":    oldEP.ObjectMeta.Namespace,
@@ -921,7 +921,7 @@ func (d *Daemon) updateK8sEndpointV1(oldEP, newEP *v1.Endpoints) {
 }
 
 func (d *Daemon) deleteK8sEndpointV1(ep *v1.Endpoints) {
-	scopedLog := log.WithFields(log.Fields{
+	scopedLog := log.WithFields(logrus.Fields{
 		logfields.K8sEndpointName: ep.ObjectMeta.Name,
 		logfields.K8sNamespace:    ep.ObjectMeta.Namespace,
 		logfields.K8sAPIVersion:   ep.TypeMeta.APIVersion,
@@ -1001,7 +1001,7 @@ func (d *Daemon) delK8sSVCs(svc types.K8sServiceNamespace, svcInfo *types.K8sSer
 		return err
 	}
 
-	scopedLog := log.WithFields(log.Fields{
+	scopedLog := log.WithFields(logrus.Fields{
 		logfields.K8sSvcName:   svc.ServiceName,
 		logfields.K8sNamespace: svc.Namespace,
 	})
@@ -1050,7 +1050,7 @@ func (d *Daemon) addK8sSVCs(svc types.K8sServiceNamespace, svcInfo *types.K8sSer
 		return nil
 	}
 
-	scopedLog := log.WithFields(log.Fields{
+	scopedLog := log.WithFields(logrus.Fields{
 		logfields.K8sSvcName:   svc.ServiceName,
 		logfields.K8sNamespace: svc.Namespace,
 	})
@@ -1073,7 +1073,7 @@ func (d *Daemon) addK8sSVCs(svc types.K8sServiceNamespace, svcInfo *types.K8sSer
 		if fePort.ID == 0 {
 			feAddr, err := types.NewL3n4Addr(fePort.Protocol, svcInfo.FEIP, fePort.Port)
 			if err != nil {
-				scopedLog.WithError(err).WithFields(log.Fields{
+				scopedLog.WithError(err).WithFields(logrus.Fields{
 					logfields.ServiceID: fePortName,
 					logfields.IPAddr:    svcInfo.FEIP,
 					logfields.Port:      fePort.Port,
@@ -1083,7 +1083,7 @@ func (d *Daemon) addK8sSVCs(svc types.K8sServiceNamespace, svcInfo *types.K8sSer
 			}
 			feAddrID, err := PutL3n4Addr(*feAddr, 0)
 			if err != nil {
-				scopedLog.WithError(err).WithFields(log.Fields{
+				scopedLog.WithError(err).WithFields(logrus.Fields{
 					logfields.ServiceID: fePortName,
 					logfields.IPAddr:    svcInfo.FEIP,
 					logfields.Port:      fePort.Port,
@@ -1091,7 +1091,7 @@ func (d *Daemon) addK8sSVCs(svc types.K8sServiceNamespace, svcInfo *types.K8sSer
 				}).Error("Error while getting a new service ID. Ignoring service...")
 				continue
 			}
-			scopedLog.WithFields(log.Fields{
+			scopedLog.WithFields(logrus.Fields{
 				logfields.ServiceName: fePortName,
 				logfields.ServiceID:   feAddrID.ID,
 				logfields.Object:      logfields.Repr(svc),
@@ -1113,7 +1113,7 @@ func (d *Daemon) addK8sSVCs(svc types.K8sServiceNamespace, svcInfo *types.K8sSer
 
 		fe, err := types.NewL3n4AddrID(fePort.Protocol, svcInfo.FEIP, fePort.Port, fePort.ID)
 		if err != nil {
-			scopedLog.WithError(err).WithFields(log.Fields{
+			scopedLog.WithError(err).WithFields(logrus.Fields{
 				logfields.IPAddr: svcInfo.FEIP,
 				logfields.Port:   svcInfo.Ports,
 			}).Error("Error while creating a New L3n4AddrID. Ignoring service...")
@@ -1141,7 +1141,7 @@ func (d *Daemon) syncLB(newSN, modSN, delSN *types.K8sServiceNamespace) {
 		}
 
 		if err := d.delK8sSVCs(delSN, svc, endpoint); err != nil {
-			log.WithError(err).WithFields(log.Fields{
+			log.WithError(err).WithFields(logrus.Fields{
 				logfields.K8sSvcName:   delSN.ServiceName,
 				logfields.K8sNamespace: delSN.Namespace,
 			}).Error("Unable to delete k8s service")
@@ -1164,7 +1164,7 @@ func (d *Daemon) syncLB(newSN, modSN, delSN *types.K8sServiceNamespace) {
 		}
 
 		if err := d.addK8sSVCs(addSN, svcInfo, endpoint); err != nil {
-			log.WithError(err).WithFields(log.Fields{
+			log.WithError(err).WithFields(logrus.Fields{
 				logfields.K8sSvcName:   addSN.ServiceName,
 				logfields.K8sNamespace: addSN.Namespace,
 			}).Error("Unable to add k8s service")
@@ -1190,7 +1190,7 @@ func (d *Daemon) addIngressV1beta1(ingress *v1beta1.Ingress) {
 		// Add operations don't matter to non-LB nodes.
 		return
 	}
-	scopedLog := log.WithFields(log.Fields{
+	scopedLog := log.WithFields(logrus.Fields{
 		logfields.K8sIngressName: ingress.ObjectMeta.Name,
 		logfields.K8sAPIVersion:  ingress.TypeMeta.APIVersion,
 		logfields.K8sNamespace:   ingress.ObjectMeta.Namespace,
@@ -1250,7 +1250,7 @@ func (d *Daemon) addIngressV1beta1(ingress *v1beta1.Ingress) {
 
 	_, err = k8s.Client().ExtensionsV1beta1().Ingresses(dpyCopyIngress.ObjectMeta.Namespace).UpdateStatus(dpyCopyIngress)
 	if err != nil {
-		scopedLog.WithError(err).WithFields(log.Fields{
+		scopedLog.WithError(err).WithFields(logrus.Fields{
 			logfields.K8sIngress: dpyCopyIngress,
 		}).Error("Unable to update status of ingress")
 		return
@@ -1258,7 +1258,7 @@ func (d *Daemon) addIngressV1beta1(ingress *v1beta1.Ingress) {
 }
 
 func (d *Daemon) updateIngressV1beta1(oldIngress, newIngress *v1beta1.Ingress) {
-	scopedLog := log.WithFields(log.Fields{
+	scopedLog := log.WithFields(logrus.Fields{
 		logfields.K8sIngressName + ".old": oldIngress.ObjectMeta.Name,
 		logfields.K8sAPIVersion + ".old":  oldIngress.TypeMeta.APIVersion,
 		logfields.K8sNamespace + ".old":   oldIngress.ObjectMeta.Namespace,
@@ -1292,12 +1292,12 @@ func (d *Daemon) updateIngressV1beta1(oldIngress, newIngress *v1beta1.Ingress) {
 				scopedLog.WithError(err).Error("Error while getting a new service ID. Ignoring ingress...")
 				continue
 			}
-			scopedLog.WithFields(log.Fields{
+			scopedLog.WithFields(logrus.Fields{
 				logfields.ServiceID: feAddrID.ID,
 			}).Debug("Got service ID for ingress")
 
 			if err := d.RevNATAdd(feAddrID.ID, feAddrID.L3n4Addr); err != nil {
-				scopedLog.WithError(err).WithFields(log.Fields{
+				scopedLog.WithError(err).WithFields(logrus.Fields{
 					logfields.ServiceID: feAddrID.ID,
 					logfields.IPAddr:    feAddrID.L3n4Addr.IP,
 					logfields.Port:      feAddrID.L3n4Addr.Port,
@@ -1317,7 +1317,7 @@ func (d *Daemon) updateIngressV1beta1(oldIngress, newIngress *v1beta1.Ingress) {
 }
 
 func (d *Daemon) deleteIngressV1beta1(ingress *v1beta1.Ingress) {
-	scopedLog := log.WithFields(log.Fields{
+	scopedLog := log.WithFields(logrus.Fields{
 		logfields.K8sIngressName: ingress.ObjectMeta.Name,
 		logfields.K8sAPIVersion:  ingress.TypeMeta.APIVersion,
 		logfields.K8sNamespace:   ingress.ObjectMeta.Namespace,
@@ -1352,7 +1352,7 @@ func (d *Daemon) deleteIngressV1beta1(ingress *v1beta1.Ingress) {
 			svc := d.svcGetBySHA256Sum(feAddr.SHA256Sum())
 			if svc != nil {
 				if err := d.RevNATDelete(svc.FE.ID); err != nil {
-					scopedLog.WithError(err).WithFields(log.Fields{
+					scopedLog.WithError(err).WithFields(logrus.Fields{
 						logfields.ServiceID: svc.FE.ID,
 					}).Error("Error while removing RevNAT for ingress")
 				}
@@ -1438,7 +1438,7 @@ func (d *Daemon) syncExternalLB(newSN, modSN, delSN *types.K8sServiceNamespace) 
 
 // Deprecated: use addCiliumNetworkPolicyV2
 func (d *Daemon) addCiliumNetworkPolicyV1(ciliumV1Store cache.Store, cnp *cilium_v1.CiliumNetworkPolicy) {
-	scopedLog := log.WithFields(log.Fields{
+	scopedLog := log.WithFields(logrus.Fields{
 		logfields.CiliumNetworkPolicyName: cnp.ObjectMeta.Name,
 		logfields.K8sAPIVersion:           cnp.TypeMeta.APIVersion,
 		logfields.K8sNamespace:            cnp.ObjectMeta.Namespace,
@@ -1480,7 +1480,7 @@ func (d *Daemon) addCiliumNetworkPolicyV1(ciliumV1Store cache.Store, cnp *cilium
 
 // Deprecated: use deleteCiliumNetworkPolicyV2
 func (d *Daemon) deleteCiliumNetworkPolicyV1(cnp *cilium_v1.CiliumNetworkPolicy) {
-	scopedLog := log.WithFields(log.Fields{
+	scopedLog := log.WithFields(logrus.Fields{
 		logfields.CiliumNetworkPolicyName: cnp.ObjectMeta.Name,
 		logfields.K8sAPIVersion:           cnp.TypeMeta.APIVersion,
 		logfields.K8sNamespace:            cnp.ObjectMeta.Namespace,
@@ -1529,7 +1529,7 @@ func (d *Daemon) updateCiliumNetworkPolicyV1(ciliumV1Store cache.Store,
 		return
 	}
 
-	log.WithFields(log.Fields{
+	log.WithFields(logrus.Fields{
 		logfields.K8sAPIVersion:                    oldCNP.TypeMeta.APIVersion,
 		logfields.CiliumNetworkPolicyName + ".old": oldCNP.ObjectMeta.Name,
 		logfields.K8sNamespace + ".old":            oldCNP.ObjectMeta.Namespace,
@@ -1542,7 +1542,7 @@ func (d *Daemon) updateCiliumNetworkPolicyV1(ciliumV1Store cache.Store,
 }
 
 func (d *Daemon) addCiliumNetworkPolicyV2(ciliumV2Store cache.Store, cnp *cilium_v2.CiliumNetworkPolicy) {
-	scopedLog := log.WithFields(log.Fields{
+	scopedLog := log.WithFields(logrus.Fields{
 		logfields.CiliumNetworkPolicyName: cnp.ObjectMeta.Name,
 		logfields.K8sAPIVersion:           cnp.TypeMeta.APIVersion,
 		logfields.K8sNamespace:            cnp.ObjectMeta.Namespace,
@@ -1583,7 +1583,7 @@ func (d *Daemon) addCiliumNetworkPolicyV2(ciliumV2Store cache.Store, cnp *cilium
 }
 
 func (d *Daemon) deleteCiliumNetworkPolicyV2(cnp *cilium_v2.CiliumNetworkPolicy) {
-	scopedLog := log.WithFields(log.Fields{
+	scopedLog := log.WithFields(logrus.Fields{
 		logfields.CiliumNetworkPolicyName: cnp.ObjectMeta.Name,
 		logfields.K8sAPIVersion:           cnp.TypeMeta.APIVersion,
 		logfields.K8sNamespace:            cnp.ObjectMeta.Namespace,
@@ -1630,7 +1630,7 @@ func (d *Daemon) updateCiliumNetworkPolicyV2(ciliumV2Store cache.Store,
 		return
 	}
 
-	log.WithFields(log.Fields{
+	log.WithFields(logrus.Fields{
 		logfields.K8sAPIVersion:                    oldRuleCpy.TypeMeta.APIVersion,
 		logfields.CiliumNetworkPolicyName + ".old": oldRuleCpy.ObjectMeta.Name,
 		logfields.K8sNamespace + ".old":            oldRuleCpy.ObjectMeta.Namespace,
@@ -1661,7 +1661,7 @@ func (d *Daemon) addK8sNodeV1(k8sNode *v1.Node) {
 
 	node.UpdateNode(ni, n, routeTypes, ownAddr)
 
-	log.WithFields(log.Fields{
+	log.WithFields(logrus.Fields{
 		logfields.K8sNodeID:     ni,
 		logfields.K8sAPIVersion: k8sNode.TypeMeta.APIVersion,
 		logfields.Node:          logfields.Repr(n),
@@ -1693,7 +1693,7 @@ func (d *Daemon) updateK8sNodeV1(_, k8sNode *v1.Node) {
 
 	node.UpdateNode(ni, newNode, routeTypes, ownAddr)
 
-	log.WithFields(log.Fields{
+	log.WithFields(logrus.Fields{
 		logfields.K8sNodeID:     ni,
 		logfields.K8sAPIVersion: k8sNode.TypeMeta.APIVersion,
 		logfields.Node:          logfields.Repr(newNode),
@@ -1705,7 +1705,7 @@ func (d *Daemon) deleteK8sNodeV1(k8sNode *v1.Node) {
 
 	node.DeleteNode(ni, node.TunnelRoute|node.DirectRoute)
 
-	log.WithFields(log.Fields{
+	log.WithFields(logrus.Fields{
 		logfields.K8sNodeID:     ni,
 		logfields.K8sAPIVersion: k8sNode.TypeMeta.APIVersion,
 	}).Debug("Removed node")

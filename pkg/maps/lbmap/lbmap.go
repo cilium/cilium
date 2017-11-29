@@ -19,12 +19,15 @@ import (
 	"net"
 	"unsafe"
 
+	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/common/types"
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/logfields"
 
-	log "github.com/sirupsen/logrus"
+	"github.com/sirupsen/logrus"
 )
+
+var log = common.DefaultLogger
 
 const (
 	// Maximum number of entries in each hashtable
@@ -118,7 +121,7 @@ type RRSeqValue struct {
 func (s RRSeqValue) GetValuePtr() unsafe.Pointer { return unsafe.Pointer(&s) }
 
 func UpdateService(key ServiceKey, value ServiceValue) error {
-	log.WithFields(log.Fields{
+	log.WithFields(logrus.Fields{
 		"frontend": key,
 		"backend":  value,
 	}).Debug("adding frontend for backend to BPF maps")
@@ -208,7 +211,7 @@ type RevNatValue interface {
 }
 
 func UpdateRevNat(key RevNatKey, value RevNatValue) error {
-	log.WithFields(log.Fields{
+	log.WithFields(logrus.Fields{
 		logfields.BPFMapKey:   key,
 		logfields.BPFMapValue: value,
 	}).Debug("adding revNat to lbmap")
@@ -387,7 +390,7 @@ func L3n4Addr2ServiceKey(l3n4Addr types.L3n4AddrID) ServiceKey {
 
 // LBSVC2ServiceKeynValue transforms the SVC Cilium type into a bpf SVC type.
 func LBSVC2ServiceKeynValue(svc types.LBSVC) (ServiceKey, []ServiceValue, error) {
-	log.WithFields(log.Fields{
+	log.WithFields(logrus.Fields{
 		"lbFrontend": svc.FE.String(),
 		"lbBackend":  svc.BES,
 	}).Debug("converting Cilium load-balancer service (frontend -> backend(s)) into BPF service")
@@ -406,12 +409,12 @@ func LBSVC2ServiceKeynValue(svc types.LBSVC) (ServiceKey, []ServiceValue, error)
 		beValue.SetWeight(be.Weight)
 
 		besValues = append(besValues, beValue)
-		log.WithFields(log.Fields{
+		log.WithFields(logrus.Fields{
 			"lbFrontend": fe,
 			"lbBackend":  beValue,
 		}).Debug("associating frontend -> backend")
 	}
-	log.WithFields(log.Fields{
+	log.WithFields(logrus.Fields{
 		"lbFrontend":        svc.FE.String(),
 		"lbBackend":         svc.BES,
 		logfields.ServiceID: fe,
@@ -457,7 +460,7 @@ func ServiceKeynValue2FEnBE(svcKey ServiceKey, svcValue ServiceValue) (*types.L3
 		beWeight uint16
 	)
 
-	log.WithFields(log.Fields{
+	log.WithFields(logrus.Fields{
 		logfields.ServiceID: svcKey,
 		logfields.Object:    logfields.Repr(svcValue),
 	}).Debug("converting ServiceKey and ServiceValue to frontend and backend")

@@ -29,7 +29,7 @@ import (
 	ginkgoext "github.com/cilium/cilium/test/ginkgo-ext"
 	"github.com/cilium/cilium/test/helpers"
 	gops "github.com/google/gops/agent"
-	log "github.com/sirupsen/logrus"
+	"github.com/sirupsen/logrus"
 )
 
 var (
@@ -127,7 +127,7 @@ var _ = BeforeSuite(func() {
 			Fail(fmt.Sprintf("error starting VM %q: %s", helpers.Runtime, err))
 		}
 		cilium := helpers.CreateCilium(helpers.Runtime, log.WithFields(
-			log.Fields{"testName": "BeforeSuite"}))
+			logrus.Fields{"testName": "BeforeSuite"}))
 		err = cilium.SetUp()
 		if err != nil {
 			Fail(fmt.Sprintf("cilium was unable to be set up correctly: %s", err))

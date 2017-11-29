@@ -18,9 +18,13 @@ import (
 	"io/ioutil"
 	"os"
 
-	log "github.com/sirupsen/logrus"
+	"github.com/cilium/cilium/common"
+
+	"github.com/sirupsen/logrus"
 	flag "github.com/spf13/pflag"
 )
+
+var log = common.DefaultLogger
 
 func init() {
 	flags := flag.NewFlagSet("init-debug", flag.ContinueOnError)
@@ -31,6 +35,6 @@ func init() {
 	flags.Parse(os.Args)
 
 	if *debug {
-		log.SetLevel(log.DebugLevel)
+		log.SetLevel(logrus.DebugLevel)
 	}
 }

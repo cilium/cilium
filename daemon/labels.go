@@ -33,7 +33,7 @@ import (
 	"github.com/cilium/cilium/pkg/policy"
 
 	"github.com/go-openapi/runtime/middleware"
-	log "github.com/sirupsen/logrus"
+	"github.com/sirupsen/logrus"
 )
 
 func updateSecLabelIDRef(id policy.Identity) error {
@@ -54,7 +54,7 @@ func gasNewSecLabelID(id *policy.Identity) error {
 func (d *Daemon) CreateOrUpdateIdentity(lbls labels.Labels, epid string) (*policy.Identity, bool, error) {
 	clusterEndpointID := node.GetExternalIPv4().String() + ":" + epid
 
-	log.WithFields(log.Fields{
+	log.WithFields(logrus.Fields{
 		logfields.EndpointID:     epid,
 		logfields.IdentityLabels: lbls.String(),
 	}).Debug("Associating endpoint with identity")
@@ -104,7 +104,7 @@ func (d *Daemon) CreateOrUpdateIdentity(lbls labels.Labels, epid string) (*polic
 	// K/V store operations
 
 	if isNew {
-		log.WithFields(log.Fields{
+		log.WithFields(logrus.Fields{
 			logfields.EndpointID:     epid,
 			logfields.IdentityLabels: lbls.String(),
 		}).Debug("Creating new identity")
@@ -113,7 +113,7 @@ func (d *Daemon) CreateOrUpdateIdentity(lbls labels.Labels, epid string) (*polic
 			return nil, false, err
 		}
 	} else {
-		log.WithFields(log.Fields{
+		log.WithFields(logrus.Fields{
 			logfields.EndpointID:     epid,
 			logfields.Identity:       identity.StringID(),
 			logfields.IdentityLabels: lbls.String(),
@@ -136,7 +136,7 @@ func (d *Daemon) CreateOrUpdateIdentity(lbls labels.Labels, epid string) (*polic
 func (d *Daemon) updateEndpointIdentity(epID, oldLabelsHash string, opLabels *labels.OpLabels) (*policy.Identity, string, error) {
 	lbls := opLabels.IdentityLabels()
 
-	log.WithFields(log.Fields{
+	log.WithFields(logrus.Fields{
 		logfields.EndpointID:     epID,
 		logfields.IdentityLabels: lbls,
 	}).Debug("Resolving identity for endpoint")
@@ -149,14 +149,14 @@ func (d *Daemon) updateEndpointIdentity(epID, oldLabelsHash string, opLabels *la
 
 	if newLabelsHash != oldLabelsHash {
 		if err := d.DeleteIdentityBySHA256(oldLabelsHash, epID); err != nil {
-			log.WithFields(log.Fields{
+			log.WithFields(logrus.Fields{
 				"oldIdentityHash":    oldLabelsHash,
 				logfields.EndpointID: epID,
 			}).WithError(err).Warn("Unable to delete old identity of endpoint")
 		}
 	}
 
-	log.WithFields(log.Fields{
+	log.WithFields(logrus.Fields{
 		logfields.EndpointID:     epID,
 		logfields.IdentityLabels: lbls,
 		logfields.Identity:       identity.StringID(),
@@ -352,7 +352,7 @@ func (d *Daemon) DeleteIdentityBySHA256(sha256Sum string, epid string) error {
 		return err
 	}
 
-	log.WithFields(log.Fields{
+	log.WithFields(logrus.Fields{
 		logfields.EndpointID:     epid,
 		logfields.IdentityLabels: dbSecCtxLbls.ID,
 		"count":                  dbSecCtxLbls.RefCount(),

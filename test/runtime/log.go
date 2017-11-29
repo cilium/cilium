@@ -1,4 +1,4 @@
-// Copyright 2016-2017 Authors of Cilium
+// Copyright 2017 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,24 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package kvstore
+package RuntimeTest
 
-import (
-	"strings"
+import "github.com/cilium/cilium/common"
 
-	"github.com/sirupsen/logrus"
-)
-
-var (
-	// Debug enables kvstore tracing messages
-	//
-	// Debugging can be enabled at compile with:
-	// -ldflags "-X "github.com/cilium/cilium/pkg/kvstore".Debug=true"
-	Debug string
-)
-
-func trace(format string, err error, fields logrus.Fields, a ...interface{}) {
-	if strings.ToLower(Debug) == "true" {
-		log.WithError(err).WithFields(fields).Debugf(format)
-	}
-}
+var log = common.DefaultLogger

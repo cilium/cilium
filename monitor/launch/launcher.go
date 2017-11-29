@@ -22,10 +22,11 @@ import (
 	"os/exec"
 
 	"github.com/cilium/cilium/api/v1/models"
+	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/pkg/lock"
-
-	log "github.com/sirupsen/logrus"
 )
+
+var log = common.DefaultLogger
 
 const targetName = "cilium-node-monitor"
 

@@ -21,7 +21,7 @@ import (
 	"github.com/cilium/cilium/common/types"
 	"github.com/cilium/cilium/pkg/policy"
 
-	log "github.com/sirupsen/logrus"
+	"github.com/sirupsen/logrus"
 )
 
 type KVClient interface {
@@ -80,49 +80,49 @@ type KVClient interface {
 // Get returns value of key
 func Get(key string) ([]byte, error) {
 	v, err := Client().Get(key)
-	trace("Get", err, log.Fields{fieldKey: key, fieldValue: string(v)})
+	trace("Get", err, logrus.Fields{fieldKey: key, fieldValue: string(v)})
 	return v, err
 }
 
 // GetPrefix returns the first key which matches the prefix
 func GetPrefix(prefix string) ([]byte, error) {
 	v, err := Client().GetPrefix(prefix)
-	trace("GetPrefix", err, log.Fields{fieldPrefix: prefix, fieldValue: string(v)})
+	trace("GetPrefix", err, logrus.Fields{fieldPrefix: prefix, fieldValue: string(v)})
 	return v, err
 }
 
 // ListPrefix returns the list of keys matching the prefix
 func ListPrefix(prefix string) (KeyValuePairs, error) {
 	v, err := Client().ListPrefix(prefix)
-	trace("ListPrefix", err, log.Fields{fieldPrefix: prefix, fieldNumEntries: len(v)})
+	trace("ListPrefix", err, logrus.Fields{fieldPrefix: prefix, fieldNumEntries: len(v)})
 	return v, err
 }
 
 // CreateOnly atomically creates a key or fails if it already exists
 func CreateOnly(key string, value []byte, lease bool) error {
 	err := Client().CreateOnly(key, value, lease)
-	trace("CreateOnly", err, log.Fields{fieldKey: key, fieldValue: string(value), fieldAttachLease: lease})
+	trace("CreateOnly", err, logrus.Fields{fieldKey: key, fieldValue: string(value), fieldAttachLease: lease})
 	return err
 }
 
 // Set sets the value of a key
 func Set(key string, value []byte) error {
 	err := Client().Set(key, value)
-	trace("Set", err, log.Fields{fieldKey: key, fieldValue: string(value)})
+	trace("Set", err, logrus.Fields{fieldKey: key, fieldValue: string(value)})
 	return err
 }
 
 // Delete deletes a key
 func Delete(key string) error {
 	err := Client().Delete(key)
-	trace("Delete", err, log.Fields{fieldKey: key})
+	trace("Delete", err, logrus.Fields{fieldKey: key})
 	return err
 }
 
 // DeleteTree deletes all keys matching a prefix
 func DeleteTree(prefix string) error {
 	err := Client().DeleteTree(prefix)
-	trace("DeleteTree", err, log.Fields{fieldPrefix: prefix})
+	trace("DeleteTree", err, logrus.Fields{fieldPrefix: prefix})
 	return err
 }
 

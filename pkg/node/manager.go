@@ -21,13 +21,16 @@ import (
 	"os/exec"
 	"strings"
 
+	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logfields"
 	"github.com/cilium/cilium/pkg/maps/tunnel"
 
-	log "github.com/sirupsen/logrus"
+	"github.com/sirupsen/logrus"
 	"github.com/vishvananda/netlink"
 )
+
+var log = common.DefaultLogger
 
 // RouteType represents the route type to be configured when adding the node
 // routes
@@ -278,7 +281,7 @@ func UpdateNode(ni Identity, n *Node, routesTypes RouteType, ownAddr net.IP) {
 			deleteNodeCIDR(oldNode.IPv6AllocCIDR)
 		}
 		// FIXME if PodCIDR is empty retrieve the CIDR from the KVStore
-		log.WithFields(log.Fields{
+		log.WithFields(logrus.Fields{
 			logfields.IPAddr:   n.GetNodeIP(false),
 			logfields.V4Prefix: n.IPv4AllocCIDR,
 			logfields.V6Prefix: n.IPv6AllocCIDR,
@@ -302,7 +305,7 @@ func DeleteNode(ni Identity, routesTypes RouteType) {
 	clusterConf.Lock()
 	if n, ok := clusterConf.nodes[ni]; ok {
 		if (routesTypes & TunnelRoute) != 0 {
-			log.WithFields(log.Fields{
+			log.WithFields(logrus.Fields{
 				logfields.IPAddr:   n.GetNodeIP(false),
 				logfields.V4Prefix: n.IPv4AllocCIDR,
 				logfields.V6Prefix: n.IPv6AllocCIDR,
@@ -362,7 +365,7 @@ func updateIPRoute(oldNode, n *Node, ownAddr net.IP) {
 
 			err = routeDel(oldNodeIPv6.String(), oldNode.IPv6AllocCIDR.String(), oldNode.dev)
 			if err != nil {
-				log.WithError(err).WithFields(log.Fields{
+				log.WithError(err).WithFields(logrus.Fields{
 					logfields.IPAddr:   oldNodeIPv6,
 					logfields.V6Prefix: oldNode.IPv6AllocCIDR,
 					"device":           oldNode.dev,
@@ -376,7 +379,7 @@ func updateIPRoute(oldNode, n *Node, ownAddr net.IP) {
 	// Always re add
 	err = routeAdd(nodeIPv6.String(), n.IPv6AllocCIDR.String(), dev)
 	if err != nil {
-		log.WithError(err).WithFields(log.Fields{
+		log.WithError(err).WithFields(logrus.Fields{
 			logfields.IPAddr:   nodeIPv6,
 			logfields.V6Prefix: n.IPv6AllocCIDR,
 			"device":           dev,
@@ -392,7 +395,7 @@ func deleteIPRoute(node *Node) {
 
 	err := routeDel(oldNodeIPv6.String(), node.IPv6AllocCIDR.String(), node.dev)
 	if err != nil {
-		log.WithError(err).WithFields(log.Fields{
+		log.WithError(err).WithFields(logrus.Fields{
 			logfields.IPAddr:   oldNodeIPv6,
 			logfields.V6Prefix: node.IPv6AllocCIDR,
 			"device":           node.dev,

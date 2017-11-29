@@ -25,7 +25,7 @@ import (
 
 	"github.com/optiopay/kafka"
 	"github.com/optiopay/kafka/proto"
-	log "github.com/sirupsen/logrus"
+	"github.com/sirupsen/logrus"
 	. "gopkg.in/check.v1"
 )
 
@@ -60,8 +60,8 @@ func newTestBrokerConf(clientID string) kafka.BrokerConf {
 
 type loggerMap struct{}
 
-func fields(args ...interface{}) log.Fields {
-	fields := log.Fields{}
+func fields(args ...interface{}) logrus.Fields {
+	fields := logrus.Fields{}
 	for i := 0; i+1 < len(args); i += 2 {
 		fields[args[i].(string)] = args[i+1]
 	}
@@ -162,15 +162,17 @@ func (m *metadataTester) Handler() RequestHandler {
 }
 
 func (k *proxyTestSuite) TestKafkaRedirect(c *C) {
-	oldLevel := log.GetLevel()
+	// this isn't thread safe but there is no function to get it
+	// SetLevel is atomic, however.
+	oldLevel := log.Level
 	defer log.SetLevel(oldLevel)
-	log.SetLevel(log.DebugLevel)
+	log.SetLevel(logrus.DebugLevel)
 
 	server := NewServer()
 	server.Start()
 	defer server.Close()
 
-	log.WithFields(log.Fields{
+	log.WithFields(logrus.Fields{
 		"address": server.Address(),
 	}).Debug("Started kafka server")
 
@@ -208,7 +210,7 @@ func (k *proxyTestSuite) TestKafkaRedirect(c *C) {
 	c.Assert(err, IsNil)
 	defer redir.Close()
 
-	log.WithFields(log.Fields{
+	log.WithFields(logrus.Fields{
 		"address": proxyAddress,
 	}).Debug("Started kafka proxy")
 

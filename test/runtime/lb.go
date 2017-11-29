@@ -22,7 +22,7 @@ import (
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	log "github.com/sirupsen/logrus"
+	"github.com/sirupsen/logrus"
 )
 
 var _ = Describe("RuntimeLB", func() {
@@ -36,7 +36,7 @@ var _ = Describe("RuntimeLB", func() {
 		if initialized == true {
 			return
 		}
-		logger = log.WithFields(log.Fields{"test": "RuntimeLB"})
+		logger = log.WithFields(logrus.Fields{"test": "RuntimeLB"})
 		logger.Info("Starting")
 		docker, cilium = helpers.CreateNewRuntimeHelper(helpers.Runtime, logger)
 		cilium.WaitUntilReady(100)

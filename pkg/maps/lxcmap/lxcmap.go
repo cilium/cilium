@@ -22,12 +22,13 @@ import (
 	"strings"
 	"unsafe"
 
+	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/logfields"
-
-	log "github.com/sirupsen/logrus"
 )
+
+var log = common.DefaultLogger
 
 const (
 	MapName = "cilium_lxc"

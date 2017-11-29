@@ -7,7 +7,7 @@ import (
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	log "github.com/sirupsen/logrus"
+	"github.com/sirupsen/logrus"
 )
 
 var _ = Describe("RuntimeConnectivityTest", func() {
@@ -21,7 +21,7 @@ var _ = Describe("RuntimeConnectivityTest", func() {
 		if initialized == true {
 			return
 		}
-		logger = log.WithFields(log.Fields{"test": "RuntimeConnectivityTest"})
+		logger = log.WithFields(logrus.Fields{"test": "RuntimeConnectivityTest"})
 		logger.Info("Starting")
 		docker, cilium = helpers.CreateNewRuntimeHelper(helpers.Runtime, logger)
 		cilium.WaitUntilReady(100)
@@ -169,7 +169,7 @@ var _ = Describe("RuntimeConntrackTest", func() {
 		if initialized == true {
 			return
 		}
-		logger = log.WithFields(log.Fields{"test": "RunConntrackTest"})
+		logger = log.WithFields(logrus.Fields{"test": "RunConntrackTest"})
 		logger.Info("Starting")
 		docker, cilium = helpers.CreateNewRuntimeHelper(helpers.Runtime, logger)
 		docker.NetworkCreate(helpers.CiliumDockerNetwork, "")

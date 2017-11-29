@@ -6,8 +6,6 @@ import (
 	"time"
 
 	"github.com/cilium/cilium/pkg/lock"
-
-	log "github.com/sirupsen/logrus"
 )
 
 // StreamControlCtx holds the state of a gRPC stream server instance we need to know about.

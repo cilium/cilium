@@ -18,7 +18,7 @@ import (
 	"github.com/cilium/cilium/pkg/policy/api"
 
 	"github.com/optiopay/kafka/proto"
-	log "github.com/sirupsen/logrus"
+	"github.com/sirupsen/logrus"
 )
 
 func produceTopicContained(neededTopic string, topics []proto.ProduceReqTopic) bool {
@@ -182,7 +182,7 @@ func (req *RequestMessage) ruleMatches(rule api.PortRuleKafka) bool {
 		return false
 	}
 
-	log.WithFields(log.Fields{
+	log.WithFields(logrus.Fields{
 		fieldRequest: req.String(),
 		fieldRule:    rule,
 	}).Debug("Matching Kafka rule")
@@ -204,7 +204,7 @@ func (req *RequestMessage) ruleMatches(rule api.PortRuleKafka) bool {
 	}
 
 	if req.request == nil {
-		log.WithFields(log.Fields{
+		log.WithFields(logrus.Fields{
 			fieldRequest: req.String(),
 			fieldRule:    rule,
 		}).Debug("Unparseable kafka message, denying...")

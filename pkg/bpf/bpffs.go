@@ -27,7 +27,6 @@ import (
 	"github.com/cilium/cilium/pkg/logfields"
 	"github.com/cilium/cilium/pkg/syncbytes"
 
-	log "github.com/sirupsen/logrus"
 	"golang.org/x/sys/unix"
 )
 

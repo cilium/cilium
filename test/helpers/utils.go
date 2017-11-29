@@ -26,7 +26,6 @@ import (
 
 	"github.com/cilium/cilium/test/config"
 	"github.com/onsi/ginkgo"
-	log "github.com/sirupsen/logrus"
 )
 
 // IsRunningOnJenkins detects if the currently running Ginkgo application is

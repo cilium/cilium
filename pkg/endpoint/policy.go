@@ -30,7 +30,7 @@ import (
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
 
-	log "github.com/sirupsen/logrus"
+	"github.com/sirupsen/logrus"
 	"sync"
 )
 
@@ -44,7 +44,7 @@ func (e *Endpoint) checkEgressAccess(owner Owner, dstLabels labels.LabelArray, o
 		ctx.Trace = policy.TRACE_ENABLED
 	}
 
-	scopedLog := e.getLogger().WithFields(log.Fields{
+	scopedLog := e.getLogger().WithFields(logrus.Fields{
 		logfields.Labels + ".from": ctx.From,
 		logfields.Labels + ".to":   ctx.To,
 	})
@@ -103,7 +103,7 @@ func getSecurityIdentities(labelsMap *LabelsMap, selector *api.EndpointSelector)
 	identities := []policy.NumericIdentity{}
 	for idx, labels := range *labelsMap {
 		if selector.Matches(labels) {
-			log.WithFields(log.Fields{
+			log.WithFields(logrus.Fields{
 				logfields.IdentityLabels: labels,
 				logfields.L4PolicyID:     idx,
 			}).Debug("L4 Policy matches")
@@ -366,7 +366,7 @@ func (e *Endpoint) regenerateConsumable(owner Owner, labelsMap *LabelsMap,
 
 	for srcID, srcLabels := range *labelsMap {
 		ctx.From = srcLabels
-		e.getLogger().WithFields(log.Fields{
+		e.getLogger().WithFields(logrus.Fields{
 			logfields.PolicyID: srcID,
 			"ctx":              ctx,
 		}).Debug("Evaluating context for source PolicyID")
@@ -399,7 +399,7 @@ func (e *Endpoint) regenerateConsumable(owner Owner, labelsMap *LabelsMap,
 		}
 	}
 
-	e.getLogger().WithFields(log.Fields{
+	e.getLogger().WithFields(logrus.Fields{
 		logfields.Identity: c.ID,
 		"consumers":        logfields.Repr(c.Consumers),
 	}).Debug("New consumable with consumers")
@@ -499,7 +499,7 @@ func (e *Endpoint) regeneratePolicy(owner Owner, opts models.ConfigurationMap) (
 	if !e.forcePolicyCompute && e.nextPolicyRevision >= revision &&
 		labelsMap == e.LabelsMap && opts == nil {
 
-		e.getLogger().WithFields(log.Fields{
+		e.getLogger().WithFields(logrus.Fields{
 			"policyRevision.next": e.nextPolicyRevision,
 			"policyRevision.repo": revision,
 		}).Debug("Skipping policy recalculation")
@@ -595,7 +595,7 @@ func (e *Endpoint) regeneratePolicy(owner Owner, opts models.ConfigurationMap) (
 		e.updateLogger()
 	}
 
-	e.getLogger().WithFields(log.Fields{
+	e.getLogger().WithFields(logrus.Fields{
 		"policyChanged":       policyChanged,
 		"optsChanged":         optsChanged,
 		"policyRevision.next": e.nextPolicyRevision,
@@ -655,7 +655,7 @@ func (e *Endpoint) regenerate(owner Owner, reason string) (retErr error) {
 		os.RemoveAll(tmpDir)
 
 		if err2 := os.Rename(backupDir, origDir); err2 != nil {
-			e.getLogger().WithFields(log.Fields{
+			e.getLogger().WithFields(logrus.Fields{
 				logfields.Path: backupDir,
 			}).Warn("Restoring directory for endpoint failed, endpoint " +
 				"is in inconsistent state. Keeping stale directory.")
@@ -798,7 +798,7 @@ func (e *Endpoint) SetIdentity(owner Owner, id *policy.Identity) {
 	// Annotate pod that this endpoint represents with its security identity
 	go owner.AnnotateEndpoint(e, common.CiliumIdentityAnnotation, e.SecLabel.ID.String())
 	e.Consumable.Mutex.RLock()
-	e.getLogger().WithFields(log.Fields{
+	e.getLogger().WithFields(logrus.Fields{
 		logfields.Identity: id,
 		"consumable":       e.Consumable,
 	}).Debug("Set identity and consumable of EP")

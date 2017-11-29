@@ -24,7 +24,7 @@ import (
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	log "github.com/sirupsen/logrus"
+	"github.com/sirupsen/logrus"
 	"k8s.io/api/core/v1"
 )
 
@@ -38,7 +38,7 @@ var _ = Describe("K8sServicesTest", func() {
 		if initialized == true {
 			return
 		}
-		logger = log.WithFields(log.Fields{"testName": "K8sServiceTest"})
+		logger = log.WithFields(logrus.Fields{"testName": "K8sServiceTest"})
 		logger.Info("Starting")
 
 		kubectl = helpers.CreateKubectl(helpers.K8s1VMName(), logger)

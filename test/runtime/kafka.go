@@ -22,7 +22,7 @@ import (
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	log "github.com/sirupsen/logrus"
+	"github.com/sirupsen/logrus"
 )
 
 var _ = Describe("RuntimeKafka", func() {
@@ -40,7 +40,7 @@ var _ = Describe("RuntimeKafka", func() {
 		if initialized == true {
 			return
 		}
-		logger = log.WithFields(log.Fields{"testName": "RuntimeKafka"})
+		logger = log.WithFields(logrus.Fields{"testName": "RuntimeKafka"})
 		logger.Info("Starting")
 		docker, cilium = helpers.CreateNewRuntimeHelper("runtime", logger)
 		docker.NetworkCreate(helpers.CiliumDockerNetwork, "")

@@ -25,7 +25,6 @@ import (
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/proxy/accesslog"
 
-	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 )
 

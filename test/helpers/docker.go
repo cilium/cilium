@@ -17,8 +17,6 @@ package helpers
 import (
 	"bytes"
 	"fmt"
-
-	log "github.com/sirupsen/logrus"
 )
 
 // Docker is utilized to run docker-specific commands on its SSHMeta. Informational

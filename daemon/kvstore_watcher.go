@@ -21,8 +21,6 @@ import (
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/logfields"
 	"github.com/cilium/cilium/pkg/policy"
-
-	log "github.com/sirupsen/logrus"
 )
 
 // EnableKVStoreWatcher watches for kvstore changes in the common.LastFreeIDKeyPath key.

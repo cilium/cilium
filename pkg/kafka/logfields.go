@@ -14,6 +14,10 @@
 
 package kafka
 
+import "github.com/cilium/cilium/common"
+
+var log = common.DefaultLogger
+
 const (
 	fieldRequest = "request.kafka"
 	fieldRule    = "rule.kafka"

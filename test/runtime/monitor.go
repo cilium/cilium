@@ -23,7 +23,7 @@ import (
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	log "github.com/sirupsen/logrus"
+	"github.com/sirupsen/logrus"
 )
 
 const (
@@ -51,7 +51,7 @@ var _ = Describe("RuntimeMonitorTest", func() {
 		if initialized == true {
 			return
 		}
-		logger = log.WithFields(log.Fields{"testName": "RuntimeMonitorTest"})
+		logger = log.WithFields(logrus.Fields{"testName": "RuntimeMonitorTest"})
 		logger.Info("Starting")
 		docker, cilium = helpers.CreateNewRuntimeHelper(helpers.Runtime, logger)
 		cilium.WaitUntilReady(100)

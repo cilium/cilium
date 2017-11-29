@@ -44,6 +44,10 @@ const (
 	Logstash = "logstash"
 )
 
+// DefaultLogger is the base logrus logger. It is different from the logrus
+// default to avoid external dependencies from writing out unexpectedly
+var DefaultLogger = logrus.New()
+
 // syslogOpts is the set of supported options for syslog configuration.
 var syslogOpts = map[string]bool{
 	"syslog.level": true,
@@ -103,14 +107,18 @@ func SetupLogging(loggers []string, logOpts map[string]string, tag string, debug
 
 	// Set default logger to output to stdout if no loggers are provided.
 	if len(loggers) == 0 {
+		// TODO: switch to a per-logger version when we upgrade to logrus >1.0.3
 		logrus.SetOutput(os.Stdout)
 	}
 
 	if debug {
-		logrus.SetLevel(logrus.DebugLevel)
+		DefaultLogger.SetLevel(logrus.DebugLevel)
 	} else {
-		logrus.SetLevel(logrus.InfoLevel)
+		DefaultLogger.SetLevel(logrus.InfoLevel)
 	}
+
+	// always suppress the default logger so libraries don't print things
+	logrus.SetLevel(logrus.PanicLevel)
 
 	// Iterate through all provided loggers and configure them according
 	// to user-provided settings.
@@ -164,15 +172,16 @@ func setupSyslog(logOpts map[string]string, tag string, debug bool) {
 	//Validate provided log level.
 	level, err := logrus.ParseLevel(logLevel)
 	if err != nil {
-		logrus.Fatal(err)
+		DefaultLogger.Fatal(err)
 	}
 
-	logrus.SetLevel(level)
+	DefaultLogger.SetLevel(level)
 	// Create syslog hook.
 	h, err := logrus_syslog.NewSyslogHook("", "", syslogLevelMap[level], tag)
 	if err != nil {
-		logrus.Fatal(err)
+		DefaultLogger.Fatal(err)
 	}
+	// TODO: switch to a per-logger version when we upgrade to logrus >1.0.3
 	logrus.AddHook(h)
 }
 
@@ -187,6 +196,7 @@ func setupFormatter() {
 	default:
 		fileFormat.TimestampFormat = time.RFC3339
 	}
+	// TODO: switch to a per-logger version when we upgrade to logrus >1.0.3
 	logrus.SetFormatter(fileFormat)
 }
 
@@ -206,7 +216,7 @@ func setupFluentD(logOpts map[string]string, debug bool) {
 	}
 	level, err := logrus.ParseLevel(logLevel)
 	if err != nil {
-		logrus.Fatal(err)
+		DefaultLogger.Fatal(err)
 	}
 
 	hostAndPort, ok := logOpts[fAddr]
@@ -216,16 +226,16 @@ func setupFluentD(logOpts map[string]string, debug bool) {
 
 	host, strPort, err := net.SplitHostPort(hostAndPort)
 	if err != nil {
-		logrus.Fatal(err)
+		DefaultLogger.Fatal(err)
 	}
 	port, err := strconv.Atoi(strPort)
 	if err != nil {
-		logrus.Fatal(err)
+		DefaultLogger.Fatal(err)
 	}
 
 	h, err := logrus_fluent.New(host, port)
 	if err != nil {
-		logrus.Fatal(err)
+		DefaultLogger.Fatal(err)
 	}
 
 	tag, ok := logOpts[fTag]
@@ -235,6 +245,7 @@ func setupFluentD(logOpts map[string]string, debug bool) {
 
 	// set custom fire level
 	h.SetLevels(setFireLevels(level))
+	// TODO: switch to a per-logger version when we upgrade to logrus >1.0.3
 	logrus.AddHook(h)
 }
 
@@ -254,10 +265,10 @@ func setupFluentD(logOpts map[string]string, debug bool) {
 //
 //	h, err := logrustash.NewHook(protocol, hostAndPort, "cilium")
 //	if err != nil {
-//		logrus.Fatal(err)
+//		DefaultLogger.Fatal(err)
 //	}
 //
-//	logrus.AddHook(h)
+//	DefaultLogger.AddHook(h)
 //}
 
 // validateOpts iterates through all of the keys in logOpts, and errors out if
@@ -278,7 +289,7 @@ func getLogDriverConfig(logDriver string, logOpts map[string]string) map[string]
 	for k, v := range logOpts {
 		ok, err := regexp.MatchString(logDriver+".*", k)
 		if err != nil {
-			logrus.Fatal(err)
+			DefaultLogger.Fatal(err)
 		}
 		if ok {
 			keysToValidate[k] = v

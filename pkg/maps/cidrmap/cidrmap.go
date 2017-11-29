@@ -19,11 +19,14 @@ import (
 	"net"
 	"unsafe"
 
+	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/logfields"
 
-	log "github.com/sirupsen/logrus"
+	"github.com/sirupsen/logrus"
 )
+
+var log = common.DefaultLogger
 
 const (
 	MapName = "cilium_cidr_"
@@ -170,7 +173,7 @@ func OpenMapElems(path string, prefixlen int, prefixdyn bool, maxelem uint32) (*
 
 	m := &CIDRMap{path: path, Fd: fd, AddrSize: bytes, Prefixlen: uint32(prefix)}
 
-	log.WithFields(log.Fields{
+	log.WithFields(logrus.Fields{
 		logfields.Path: path,
 		"fd":           fd,
 	}).Debug("Created CIDR map")

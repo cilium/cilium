@@ -17,7 +17,7 @@ package kvstore
 import (
 	"time"
 
-	log "github.com/sirupsen/logrus"
+	"github.com/sirupsen/logrus"
 )
 
 var (
@@ -38,14 +38,14 @@ var (
 // CreateLease creates a new lease with the given ttl
 func CreateLease(ttl time.Duration) (interface{}, error) {
 	lease, err := Client().CreateLease(ttl)
-	trace("CreateLease", err, log.Fields{fieldTTL: ttl, fieldLease: lease})
+	trace("CreateLease", err, logrus.Fields{fieldTTL: ttl, fieldLease: lease})
 	return lease, err
 }
 
 // KeepAlive keeps a lease created with CreateLease alive
 func KeepAlive(lease interface{}) error {
 	err := Client().KeepAlive(lease)
-	trace("KeepAlive", err, log.Fields{fieldLease: lease})
+	trace("KeepAlive", err, logrus.Fields{fieldLease: lease})
 	return err
 }
 

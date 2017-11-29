@@ -21,7 +21,7 @@ import (
 	"github.com/cilium/cilium/pkg/maps/policymap"
 	"github.com/cilium/cilium/pkg/policy/api"
 
-	log "github.com/sirupsen/logrus"
+	"github.com/sirupsen/logrus"
 )
 
 // Consumer is the entity that consumes a Consumable. It identifies a source
@@ -107,7 +107,7 @@ func (c *Consumable) AddMap(m *policymap.PolicyMap) {
 		return
 	}
 
-	log.WithFields(log.Fields{
+	log.WithFields(logrus.Fields{
 		"policymap":  m,
 		"consumable": c,
 	}).Debug("Adding policy map to consumable")
@@ -160,7 +160,7 @@ func (c *Consumable) RemoveMap(m *policymap.PolicyMap) {
 	if m != nil {
 		c.Mutex.Lock()
 		delete(c.Maps, m.Fd)
-		log.WithFields(log.Fields{
+		log.WithFields(logrus.Fields{
 			"policymap":  m,
 			"consumable": c,
 			"count":      len(c.Maps),
@@ -188,7 +188,7 @@ func (c *Consumable) addToMaps(id NumericIdentity) {
 			continue
 		}
 
-		scopedLog := log.WithFields(log.Fields{
+		scopedLog := log.WithFields(logrus.Fields{
 			"policymap":        m,
 			logfields.Identity: id,
 		})
@@ -206,7 +206,7 @@ func (c *Consumable) wasLastRule(id NumericIdentity) bool {
 
 func (c *Consumable) removeFromMaps(id NumericIdentity) {
 	for _, m := range c.Maps {
-		scopedLog := log.WithFields(log.Fields{
+		scopedLog := log.WithFields(logrus.Fields{
 			"policymap":        m,
 			logfields.Identity: id,
 		})
@@ -224,7 +224,7 @@ func (c *Consumable) removeFromMaps(id NumericIdentity) {
 func (c *Consumable) AllowConsumerLocked(cache *ConsumableCache, id NumericIdentity) bool {
 	consumer := c.getConsumer(id)
 	if consumer == nil {
-		log.WithFields(log.Fields{
+		log.WithFields(logrus.Fields{
 			logfields.Identity: id,
 			"consumable":       logfields.Repr(c),
 		}).Debug("New consumer Identity for consumable")
@@ -241,14 +241,14 @@ func (c *Consumable) AllowConsumerLocked(cache *ConsumableCache, id NumericIdent
 // Must be called with Consumable mutex Locked.
 // returns true if changed, false if not
 func (c *Consumable) AllowConsumerAndReverseLocked(cache *ConsumableCache, id NumericIdentity) bool {
-	log.WithFields(log.Fields{
+	log.WithFields(logrus.Fields{
 		logfields.Identity + ".from": id,
 		logfields.Identity + ".to":   c.ID,
 	}).Debug("Allowing direction")
 	changed := c.AllowConsumerLocked(cache, id)
 
 	if reverse := cache.Lookup(id); reverse != nil {
-		log.WithFields(log.Fields{
+		log.WithFields(logrus.Fields{
 			logfields.Identity + ".from": c.ID,
 			logfields.Identity + ".to":   id,
 		}).Debug("Allowing reverse direction")
@@ -258,7 +258,7 @@ func (c *Consumable) AllowConsumerAndReverseLocked(cache *ConsumableCache, id Nu
 			return true
 		}
 	}
-	log.WithFields(log.Fields{
+	log.WithFields(logrus.Fields{
 		logfields.Identity + ".from": c.ID,
 		logfields.Identity + ".to":   id,
 	}).Warn("Allowed a consumer which can't be found in the reverse direction")

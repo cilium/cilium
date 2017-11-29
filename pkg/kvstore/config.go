@@ -23,7 +23,6 @@ import (
 
 	etcdAPI "github.com/coreos/etcd/clientv3"
 	consulAPI "github.com/hashicorp/consul/api"
-	log "github.com/sirupsen/logrus"
 )
 
 // Supported key-value store types.

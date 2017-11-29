@@ -22,7 +22,7 @@ import (
 	"io"
 
 	"github.com/optiopay/kafka/proto"
-	log "github.com/sirupsen/logrus"
+	"github.com/sirupsen/logrus"
 )
 
 // RequestMessage represents a Kafka request message
@@ -204,7 +204,7 @@ func ReadRequest(reader io.Reader) (*RequestMessage, error) {
 	}
 
 	if err != nil {
-		log.WithFields(log.Fields{
+		log.WithFields(logrus.Fields{
 			fieldRequest: req.String(),
 		}).WithError(err).Debug("Ignoring Kafka message due to parse error")
 	}

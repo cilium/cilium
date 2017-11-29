@@ -28,7 +28,7 @@ import (
 	"github.com/cilium/cilium/pkg/metrics"
 
 	"github.com/go-openapi/runtime/middleware"
-	log "github.com/sirupsen/logrus"
+	"github.com/sirupsen/logrus"
 )
 
 // addSVC2BPFMap adds the given bpf service to the bpf maps. If addRevNAT is set, adds the
@@ -102,7 +102,7 @@ func (d *Daemon) SVCAdd(feL3n4Addr types.L3n4AddrID, be []types.LBBackEnd, addRe
 // therefore there won't be any traffic going to the given backends.
 // All of the backends added will be DeepCopied to the internal load balancer map.
 func (d *Daemon) svcAdd(feL3n4Addr types.L3n4AddrID, bes []types.LBBackEnd, addRevNAT bool) (bool, error) {
-	log.WithFields(log.Fields{
+	log.WithFields(logrus.Fields{
 		logfields.ServiceID: feL3n4Addr.String(),
 		logfields.Object:    logfields.Repr(bes),
 	}).Debug("adding service")
@@ -275,7 +275,7 @@ func (d *Daemon) svcDeleteBPF(svc *types.LBSVC) error {
 		} else {
 			slaveKey = lbmap.NewService6Key(svc.FE.IP, svc.FE.Port, i)
 		}
-		log.WithFields(log.Fields{
+		log.WithFields(logrus.Fields{
 			"idx.backend": i,
 			"key":         slaveKey,
 		}).Debug("deleting backend # for slave ServiceKey")
@@ -469,7 +469,7 @@ func (d *Daemon) SyncLBMap() error {
 	failedSyncRevNAT := map[types.ServiceID]types.L3n4Addr{}
 
 	addSVC2BPFMap := func(oldID types.ServiceID, svc types.LBSVC) error {
-		scopedLog := log.WithFields(log.Fields{
+		scopedLog := log.WithFields(logrus.Fields{
 			logfields.ServiceID: oldID,
 			logfields.SHA:       svc.FE.SHA256Sum(),
 		})
@@ -496,7 +496,7 @@ func (d *Daemon) SyncLBMap() error {
 			scopedLog.Debug("deleting old ID from newRevNATMap")
 			delete(newRevNATMap, oldID)
 
-			log.WithFields(log.Fields{
+			log.WithFields(logrus.Fields{
 				logfields.ServiceName: svc.FE.String(),
 				"revNAT":              revNAT,
 			}).Debug("adding service --> revNAT to newRevNATMap")
@@ -525,7 +525,7 @@ func (d *Daemon) SyncLBMap() error {
 		}
 		svcValue := value.(lbmap.ServiceValue)
 
-		scopedLog := log.WithFields(log.Fields{
+		scopedLog := log.WithFields(logrus.Fields{
 			logfields.BPFMapKey:   svcKey,
 			logfields.BPFMapValue: svcValue,
 		})
@@ -544,7 +544,7 @@ func (d *Daemon) SyncLBMap() error {
 	parseRevNATEntries := func(key bpf.MapKey, value bpf.MapValue) {
 		revNatK := key.(lbmap.RevNatKey)
 		revNatV := value.(lbmap.RevNatValue)
-		scopedLog := log.WithFields(log.Fields{
+		scopedLog := log.WithFields(logrus.Fields{
 			logfields.BPFMapKey:   revNatK,
 			logfields.BPFMapValue: revNatV,
 		})
@@ -590,7 +590,7 @@ func (d *Daemon) SyncLBMap() error {
 		// KVStore.
 		kvL3n4AddrID, err := PutL3n4Addr(svc.FE.L3n4Addr, 0)
 		if err != nil {
-			log.WithError(err).WithFields(log.Fields{
+			log.WithError(err).WithFields(logrus.Fields{
 				logfields.L3n4Addr: logfields.Repr(svc.FE.L3n4Addr),
 			}).Error("Unable to retrieve service ID from KVStore. This entry will be removed from the bpf's LB map.")
 			failedSyncSVC = append(failedSyncSVC, *svc)
@@ -603,7 +603,7 @@ func (d *Daemon) SyncLBMap() error {
 		// Mismatch detected between BPF Maps and KVstore, so we need to update
 		// the ID in the BPF Maps to reflect the ID of the KVstore.
 		if svc.FE.ID != kvL3n4AddrID.ID {
-			log.WithError(err).WithFields(log.Fields{
+			log.WithError(err).WithFields(logrus.Fields{
 				logfields.ServiceID + ".old": svc.FE.ID,
 				logfields.ServiceID + ".new": kvL3n4AddrID.ID,
 			}).Info("Frontend service ID read from BPF map was out of sync with KVStore, got new ID")
@@ -612,7 +612,7 @@ func (d *Daemon) SyncLBMap() error {
 			// If we cannot add the service to the BPF maps, update the list of
 			// services that failed to sync.
 			if err := addSVC2BPFMap(oldID, *svc); err != nil {
-				log.WithError(err).WithFields(log.Fields{
+				log.WithError(err).WithFields(logrus.Fields{
 					logfields.ServiceID + ".old": oldID,
 					logfields.ServiceID + ".new": svc.FE.ID,
 					logfields.Object:             logfields.Repr(svc),
@@ -645,7 +645,7 @@ func (d *Daemon) SyncLBMap() error {
 	}
 
 	for id, revNAT := range failedSyncRevNAT {
-		log.WithFields(log.Fields{
+		log.WithFields(logrus.Fields{
 			logfields.ServiceID: id,
 			"revNAT":            revNAT,
 		}).Debug("unable to restore, so removing revNAT")
@@ -657,7 +657,7 @@ func (d *Daemon) SyncLBMap() error {
 		}
 
 		if err := lbmap.DeleteRevNat(revNATK); err != nil {
-			log.WithError(err).WithFields(log.Fields{
+			log.WithError(err).WithFields(logrus.Fields{
 				logfields.ServiceID: id,
 				"revNAT":            revNAT,
 			}).Warn("Unable to clean rev NAT from BPF map")

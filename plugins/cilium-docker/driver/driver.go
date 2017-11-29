@@ -23,6 +23,7 @@ import (
 
 	"github.com/cilium/cilium/api/v1/client/endpoint"
 	"github.com/cilium/cilium/api/v1/models"
+	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/common/addressing"
 	"github.com/cilium/cilium/common/plugins"
 	"github.com/cilium/cilium/pkg/client"
@@ -32,9 +33,11 @@ import (
 	"github.com/docker/libnetwork/drivers/remote/api"
 	lnTypes "github.com/docker/libnetwork/types"
 	"github.com/gorilla/mux"
-	log "github.com/sirupsen/logrus"
+	"github.com/sirupsen/logrus"
 	"github.com/vishvananda/netlink"
 )
+
+var log = common.DefaultLogger
 
 const (
 	// ContainerInterfacePrefix is the container's internal interface name prefix.
@@ -173,7 +176,7 @@ func notFound(w http.ResponseWriter, r *http.Request) {
 }
 
 func sendError(w http.ResponseWriter, msg string, code int) {
-	log.WithFields(log.Fields{
+	log.WithFields(logrus.Fields{
 		"code": code,
 		"msg":  msg,
 	}).Error("Sending error")

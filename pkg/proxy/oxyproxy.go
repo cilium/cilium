@@ -28,7 +28,6 @@ import (
 	"github.com/cilium/cilium/pkg/proxy/accesslog"
 
 	"github.com/braintree/manners"
-	log "github.com/sirupsen/logrus"
 	"github.com/vulcand/oxy/forward"
 	"github.com/vulcand/route"
 )
