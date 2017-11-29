@@ -31,7 +31,7 @@ import (
 var _ = Describe("K8sServicesTest", func() {
 
 	var kubectl *helpers.Kubectl
-	var logger *log.Entry
+	var logger *logrus.Entry
 	var initialized bool
 	var serviceName string = "app1-service"
 	initialize := func() {

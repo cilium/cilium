@@ -25,7 +25,6 @@ import (
 var _ = Describe("RuntimeChaos", func() {
 
 	var initialized bool
-	var logger *log.Entry
 	var docker *helpers.Docker
 	var cilium *helpers.Cilium
 
@@ -33,7 +32,7 @@ var _ = Describe("RuntimeChaos", func() {
 		if initialized == true {
 			return
 		}
-		logger = log.WithFields(logrus.Fields{"testName": "RuntimeChaos"})
+		logger := log.WithFields(logrus.Fields{"testName": "RuntimeChaos"})
 		logger.Info("Starting")
 		docker, cilium = helpers.CreateNewRuntimeHelper(helpers.Runtime, logger)
 		docker.NetworkCreate(helpers.CiliumDockerNetwork, "")

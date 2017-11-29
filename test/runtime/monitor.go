@@ -43,7 +43,7 @@ const (
 var _ = Describe("RuntimeMonitorTest", func() {
 
 	var initialized bool
-	var logger *log.Entry
+	var logger *logrus.Entry
 	var docker *helpers.Docker
 	var cilium *helpers.Cilium
 

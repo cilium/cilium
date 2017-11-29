@@ -30,7 +30,7 @@ import (
 var _ = Describe("NightlyK8sEpsMeasurement", func() {
 
 	var kubectl *helpers.Kubectl
-	var logger *log.Entry
+	var logger *logrus.Entry
 	var initialized bool
 
 	ciliumPath := fmt.Sprintf("%s/cilium_ds.yaml", kubectl.ManifestsPath())

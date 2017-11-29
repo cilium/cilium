@@ -29,7 +29,7 @@ var _ = Describe("K8sPolicyTest", func() {
 	var initialized bool
 	var kubectl *helpers.Kubectl
 	var l3Policy, l7Policy string
-	var logger *log.Entry
+	var logger *logrus.Entry
 	var path string
 	var podFilter string
 

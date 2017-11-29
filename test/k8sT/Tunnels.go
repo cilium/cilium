@@ -29,14 +29,13 @@ var _ = Describe("K8sTunnelTest", func() {
 
 	var kubectl *helpers.Kubectl
 	var demoDSPath string
-	var logger *log.Entry
 	var initialized bool
 
 	initialize := func() {
 		if initialized == true {
 			return
 		}
-		logger = log.WithFields(logrus.Fields{"testName": "K8sTunnelTest"})
+		logger := log.WithFields(logrus.Fields{"testName": "K8sTunnelTest"})
 		logger.Info("Starting")
 
 		kubectl = helpers.CreateKubectl(helpers.K8s1VMName(), logger)
@@ -143,7 +142,7 @@ func isNodeNetworkingWorking(kubectl *helpers.Kubectl, filter string) bool {
 	return true
 }
 
-func waitToDeleteCilium(kubectl *helpers.Kubectl, logger *log.Entry) {
+func waitToDeleteCilium(kubectl *helpers.Kubectl, logger *logrus.Entry) {
 	status := 1
 	for status > 0 {
 		pods, err := kubectl.GetCiliumPods(helpers.KubeSystemNamespace)

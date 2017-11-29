@@ -46,11 +46,11 @@ func GetCurrentK8SEnv() string { return os.Getenv("K8S_VERSION") }
 // is stored in its associated logCxt.
 type Kubectl struct {
 	Node   *SSHMeta
-	logCxt *log.Entry
+	logCxt *logrus.Entry
 }
 
 // CreateKubectl initializes a Kubectl helper with the provided vmName and log
-func CreateKubectl(vmName string, log *log.Entry) *Kubectl {
+func CreateKubectl(vmName string, log *logrus.Entry) *Kubectl {
 	node := GetVagrantSSHMetadata(vmName)
 	if node == nil {
 		return nil
