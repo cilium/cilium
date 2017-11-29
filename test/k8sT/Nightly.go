@@ -96,6 +96,12 @@ var _ = Describe("NightlyEpsMeasurement", func() {
 		kubectl.WaitCleanAllTerminatingPods()
 	})
 
+	endpointCount := 20
+	endpointGenerationTimeout := 300 * time.Second
+	manifestPath := "tmp.yaml"
+	vagrantManifestPath := path.Join(helpers.BasePath, manifestPath)
+	var lastServer int
+
 	deployEndpoints := func() {
 		_, lastServer, err = helpers.GenerateManifestForEndpoints(endpointCount, manifestPath)
 		ExpectWithOffset(1, err).Should(BeNil(), "Manifest cannot be created correctly")
@@ -155,30 +161,57 @@ var _ = Describe("NightlyEpsMeasurement", func() {
 		})
 		log.WithFields(logrus.Fields{"endpoint creation time": runtime}).Info("")
 
-		services := getServices()
-		Expect(len(services)).To(BeNumerically(">", 0), "Was not able to get services")
+		waitForEndpointRegenerationAfterRestartTime := b.Time("Endpoint regeneration after cilium restart", func() {
+			res := kubectl.Delete(ciliumPath)
+			res.ExpectSuccess(res.GetDebugMessage())
 
-		pods, err := kubectl.GetPodNames(helpers.DefaultNamespace, "zgroup=testapp")
-		Expect(err).To(BeNil(), "cannot retrieve pods names")
+			res = kubectl.Apply(ciliumPath)
+			res.ExpectSuccess(res.GetDebugMessage())
 
-		By("Testing if http requests to multiple endpoints do not timeout")
-		for i := 0; i < 5; i++ {
-			for _, pod := range pods {
-				for service, ip := range services {
-					b.Time("Curl to service", func() {
+			_, err := kubectl.WaitforPods(helpers.KubeSystemNamespace, "-l k8s-app=cilium", 600)
+			Expect(err).Should(BeNil())
 
-						res := kubectl.ExecPodCmd(
-							helpers.DefaultNamespace, pod,
-							helpers.CurlFail(fmt.Sprintf("http://%s:80/", ip)))
-						res.ExpectSuccess(
-							"Cannot curl from %s to service %s on  ip %s", pod, service, ip)
-					})
+			Eventually(func() bool {
+				count := 0
+				for _, pod := range ciliumPods {
+					status := kubectl.CiliumEndpointsStatus(pod)
+					result := map[string]int{}
+					for _, state := range status {
+						result[state]++
+					}
+					count += result[desiredState]
+					log.WithField("status", result).Debugf("Cilium %s endpoint status are:", pod)
 				}
 
-			}
-		}
+				return count >= endpointCount
 
+			}, endpointGenerationTimeout, 3*time.Second).Should(BeTrue())
+		})
+		log.WithFields(logrus.Fields{"endpoint regeneration time": waitForEndpointRegenerationAfterRestartTime}).Info("")
 	}, 1)
+
+	services := getServices()
+	Expect(len(services)).To(BeNumerically(">", 0), "Was not able to get services")
+
+	pods, err := kubectl.GetPodNames(helpers.DefaultNamespace, "zgroup=testapp")
+	Expect(err).To(BeNil(), "cannot retrieve pods names")
+
+	By("Testing if http requests to multiple endpoints do not timeout")
+	for i := 0; i < 5; i++ {
+		for _, pod := range pods {
+			for service, ip := range services {
+				b.Time("Curl to service", func() {
+
+					res := kubectl.ExecPodCmd(
+						helpers.DefaultNamespace, pod,
+						helpers.CurlFail(fmt.Sprintf("http://%s:80/", ip)))
+					res.ExpectSuccess(
+						"Cannot curl from %s to service %s on  ip %s", pod, service, ip)
+				})
+			}
+
+		}
+	}
 
 	Context("Nightly Policies", func() {
 		numPods := 20
