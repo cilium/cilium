@@ -28,17 +28,17 @@ type ManifestValues struct {
 }
 
 // GenerateManifestForEndpoints generates k8s manifests that will create
-// endpointCount cilium endpoints when applied.
-// 1/3 of endpoints is going to be servers, the rest clients.
+// endpointCount Cilium endpoints when applied.
+// 1/3 of endpoints are servers, the rest are clients.
 // returns lastServer index
 // Saves generated manifest to manifestPath, also returns it via string
 func GenerateManifestForEndpoints(endpointCount int, manifestPath string) (string, int, error) {
-	configMapStr, err := ioutil.ReadFile(path.Join(ManifestBase, GeneratedHTMLManifest))
+	configMapStr, err := ioutil.ReadFile(path.Join(K8sManifestBase, GeneratedHTMLManifest))
 	if err != nil {
 		return "", 0, err
 	}
 
-	serverTemplateStr, err := ioutil.ReadFile(path.Join(ManifestBase, GeneratedServerManifest))
+	serverTemplateStr, err := ioutil.ReadFile(path.Join(K8sManifestBase, GeneratedServerManifest))
 	if err != nil {
 		return "", 0, err
 	}
@@ -47,7 +47,7 @@ func GenerateManifestForEndpoints(endpointCount int, manifestPath string) (strin
 		return "", 0, err
 	}
 
-	clientTemplateStr, err := ioutil.ReadFile(path.Join(ManifestBase, GeneratedClientManifest))
+	clientTemplateStr, err := ioutil.ReadFile(path.Join(K8sManifestBase, GeneratedClientManifest))
 	if err != nil {
 		return "", 0, err
 	}

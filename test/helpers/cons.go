@@ -38,7 +38,7 @@ const (
 	BasePath = "/vagrant/"
 
 	// ManifestBase tells ginkgo suite where to look for manifests
-	ManifestBase = "k8sT/manifests"
+	K8sManifestBase = "k8sT/manifests"
 
 	// VM / Test suite constants.
 	K8s     = "k8s"
