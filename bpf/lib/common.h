@@ -242,24 +242,6 @@ enum {
 #define SOURCE_EGRESS_PROXY 2
 
 /**
- * mark_is_from_proxy - returns > 0 if packet is coming from proxy
- *
- * Returns:
- *  - SOURCE_INGRESS_PROXY if from ingress proxy
- *  - SOURCE_EGRESS_PROXY if from egress proxy
- */
-static inline int __inline__ mark_is_from_proxy(struct __sk_buff *skb)
-{
-	int magic = skb->mark & MARK_MAGIC_PROXY_MASK;
-
-	if (magic == MARK_MAGIC_PROXY_INGRESS)
-		return SOURCE_INGRESS_PROXY;
-	else if (magic == MARK_MAGIC_PROXY_EGRESS)
-		return SOURCE_EGRESS_PROXY;
-	return 0;
-}
-
-/**
  * get_identity_via_proxy - returns source identity as specified by the proxy
  */
 static inline int __inline__ get_identity_via_proxy(struct __sk_buff *skb)
