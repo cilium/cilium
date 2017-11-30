@@ -1,0 +1,19 @@
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: authaudit-logger-v1
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: authaudit-logger
+        version: v1
+    spec:
+      containers:
+      - name: authaudit-logger
+        image: spotify/kafka:latest
+        command:
+        - /opt/kafka_2.11-0.10.1.0/bin/kafka-console-consumer.sh
+        - --bootstrap-server=kafka:9092
+        - --topic=authaudit

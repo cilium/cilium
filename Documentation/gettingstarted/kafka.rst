@@ -9,42 +9,7 @@ minutes.
 
 .. include:: gsg_intro.rst
 .. include:: minikube_intro.rst
-
-Step 1: Installing Cilium
-=========================
-
-The next step is to install Cilium into your Kubernetes cluster.  Cilium installation
-leverages the `Kubernetes Daemon Set <https://kubernetes.io/docs/concepts/workloads/controllers/daemonset/>`_
-abstraction, which will deploy one Cilium pod per
-cluster node.   This Cilium pod will run in the ``kube-system`` namespace along with
-all other system relevant daemons and services.  The Cilium pod will run both the Cilium
-agent and the Cilium CNI plugin.
-
-To deploy Cilium, run:
-
-.. parsed-literal::
-
-    $ kubectl create -f \ |SCM_WEB|\/examples/kubernetes/cilium.yaml
-    clusterrole "cilium" created
-    serviceaccount "cilium" created
-    clusterrolebinding "cilium" created
-    configmap "cilium-config" created
-    secret "cilium-etcd-secrets" created
-    daemonset "cilium" created
-
-Kubernetes is now deploying Cilium with its RBAC, ConfigMap and Daemon Set as a
-pod on minkube. This operation is performed in the background.
-
-Run the following command to check the progress of the deployment:
-
-::
-
-    $ kubectl get ds --namespace kube-system
-    NAME            DESIRED   CURRENT   READY     NODE-SELECTOR   AGE
-    cilium          1         1         0         <none>          2m
-
-Wait until the cilium Deployment shows a ``CURRENT`` count of ``1`` like above (a ``READY`` value of ``0`` is OK
-for this tutorial).
+.. include:: cilium_install.rst
 
 Step 2: Deploy the Demo Application
 ===================================
@@ -303,15 +268,14 @@ To test, from the outpost-9999 terminal, run:
 This is blocked as well, thanks to the Cilium network policy.  Imagine how different things would have been if the empire had been using
 Cilium from the beginning!
 
-Step 6:  Clean-Up
-=================
+Step 6: Clean Up
+================
 
 You have now installed Cilium, deployed a demo app, and tested both
-L7 Kafka-aware network security policies.   To clean-up, run:
+L7 Kafka-aware network security policies.  To clean up, run:
 
 ::
 
-   $ minikube delete
+    $ minikube delete
 
 After this, you can re-run the tutorial from Step 1.
-
