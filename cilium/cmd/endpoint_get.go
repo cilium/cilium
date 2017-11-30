@@ -23,6 +23,7 @@ import (
 	endpointApi "github.com/cilium/cilium/api/v1/client/endpoint"
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 )
 
 var lbls []string
@@ -64,13 +65,20 @@ var endpointGetCmd = &cobra.Command{
 			return
 		}
 
-		result := bytes.Buffer{}
-		enc := json.NewEncoder(&result)
-		enc.SetEscapeHTML(false)
-		enc.SetIndent("", "  ")
-		if err := enc.Encode(endpointInst); err != nil {
-			Fatalf("Cannot marshal endpoints %s", err.Error())
+		if viper.GetBool("json") {
+			result, err := json.MarshalIndent(endpointInst, "", "  ")
+			if err != nil {
+				Fatalf("Cannot marshal endpoints: %s", err.Error())
+			}
+			fmt.Printf("%s\n", result)
 		} else {
+			result := bytes.Buffer{}
+			enc := json.NewEncoder(&result)
+			enc.SetEscapeHTML(false)
+			enc.SetIndent("", "  ")
+			if err := enc.Encode(endpointInst); err != nil {
+				Fatalf("Cannot marshal endpoints %s", err.Error())
+			}
 			fmt.Println(string(result.Bytes()))
 		}
 	},
