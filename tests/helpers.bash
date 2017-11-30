@@ -1095,6 +1095,7 @@ function ping_success {
 } 
 
 function wait_for_cilium_shutdown {
+  log "waiting for cilium to shutdown"
   i=0
   while [[ -f /var/run/cilium/cilium.pid ]]; do
     micro_sleep
@@ -1104,4 +1105,5 @@ function wait_for_cilium_shutdown {
     fi
     ((i++))
   done
+  log "finished waiting for cilium to shutdown"
 }

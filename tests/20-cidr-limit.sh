@@ -14,11 +14,16 @@ set +x # Reduce noise
 
 function cleanup() {
   gather_files 20-cidr-limit ${TEST_SUITE}
+  log "removing container id.server2"
   docker rm -f id.service2 2> /dev/null || true
+  log "deleting all policies from cilium"
   cilium policy delete --all 2> /dev/null || true
+  log "stopping cilium with systemctl"
   systemctl stop cilium
   wait_for_cilium_shutdown
+  log "running \"cilium cleanup -f\""
   log "cleanup: `cilium cleanup -f`"
+  log "starting cilium with systemctl"
   systemctl start cilium
 }
 
