@@ -397,7 +397,7 @@ func (s *SSHMeta) ReportFailed(commands ...string) {
 	fmt.Fprint(wr, "StackTrace Begin\n")
 
 	//FIXME: Ginkgo PR383 add here --since option
-	res := s.Exec("sudo journalctl --no-pager -u cilium")
+	res := s.Exec("sudo journalctl --no-pager -u cilium | tail -n 50")
 	fmt.Fprint(wr, res.Output())
 
 	fmt.Fprint(wr, "\n")
