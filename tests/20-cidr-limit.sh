@@ -10,7 +10,6 @@ LOGS_DIR="${dir}/cilium-files/${TEST_NAME}/logs"
 redirect_debug_logs ${LOGS_DIR}
 
 set -ex # Required for the linter
-set +x # Reduce noise
 
 function cleanup() {
   gather_files 20-cidr-limit ${TEST_SUITE}
