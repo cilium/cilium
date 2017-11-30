@@ -185,10 +185,11 @@ ipv6_redirect_to_host_port(struct __sk_buff *skb, struct csum_offset *csum,
  */
 static inline bool __inline__ tc_index_skip_proxy(struct __sk_buff *skb)
 {
+	volatile __u32 tc_index = skb->tc_index;
 #ifdef DEBUG
-	if (skb->tc_index & TC_INDEX_F_SKIP_PROXY)
-		cilium_dbg(skb, DBG_SKIP_PROXY, skb->tc_index, 0);
+	if (tc_index & TC_INDEX_F_SKIP_PROXY)
+		cilium_dbg(skb, DBG_SKIP_PROXY, tc_index, 0);
 #endif
 
-	return skb->tc_index & TC_INDEX_F_SKIP_PROXY;
+	return tc_index & TC_INDEX_F_SKIP_PROXY;
 }
