@@ -21,5 +21,5 @@ if ! diff -r ${OLD_DIR} ${TMP_DIR}; then
   echo "Detected a difference in the cmdref directory"
   echo "diff -r: `diff -r ${OLD_DIR} ${TMP_DIR}`"
   echo "Please rerun 'make -C Documentation cmdref' and commit your changes"
-  exit
+  exit 1
 fi
