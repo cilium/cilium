@@ -23,6 +23,7 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/types"
+	"github.com/sirupsen/logrus"
 )
 
 const (
@@ -56,7 +57,7 @@ var _ = Describe("RuntimePolicyEnforcement", func() {
 		if initialized == true {
 			return
 		}
-		logger = log.WithFields(log.Fields{"testName": "RuntimePolicyEnforcement"})
+		logger = log.WithFields(logrus.Fields{"testName": "RuntimePolicyEnforcement"})
 		logger.Info("Starting")
 		docker, cilium = helpers.CreateNewRuntimeHelper(helpers.Runtime, logger)
 		cilium.WaitUntilReady(100)
@@ -374,7 +375,7 @@ var _ = Describe("RuntimePolicies", func() {
 		if initialized == true {
 			return
 		}
-		logger = log.WithFields(log.Fields{"test": "RunPolicies"})
+		logger = log.WithFields(logrus.Fields{"test": "RunPolicies"})
 		logger.Info("Starting")
 		docker, cilium = helpers.CreateNewRuntimeHelper(helpers.Runtime, logger)
 		docker.NetworkCreate(helpers.CiliumDockerNetwork, "")

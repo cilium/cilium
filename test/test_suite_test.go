@@ -20,19 +20,21 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cilium/cilium/common"
+	ginkgoext "github.com/cilium/cilium/test/ginkgo-ext"
+	"github.com/cilium/cilium/test/helpers"
+
+	"github.com/cilium/cilium/test/config"
+	gops "github.com/google/gops/agent"
 	. "github.com/onsi/ginkgo"
 	ginkgoconfig "github.com/onsi/ginkgo/config"
 	"github.com/onsi/ginkgo/reporters"
 	. "github.com/onsi/gomega"
-
-	"github.com/cilium/cilium/test/config"
-	ginkgoext "github.com/cilium/cilium/test/ginkgo-ext"
-	"github.com/cilium/cilium/test/helpers"
-	gops "github.com/google/gops/agent"
 	"github.com/sirupsen/logrus"
 )
 
 var (
+	log             = common.DefaultLogger
 	vagrant         helpers.Vagrant
 	DefaultSettings = map[string]string{
 		"K8S_VERSION": "1.7",
@@ -48,9 +50,9 @@ func init() {
 		os.Exit(-1)
 	}
 
-	log.SetOutput(GinkgoWriter)
-	log.SetLevel(log.DebugLevel)
-	log.SetFormatter(&log.TextFormatter{
+	logrus.SetOutput(GinkgoWriter)
+	log.SetLevel(logrus.DebugLevel)
+	logrus.SetFormatter(&logrus.TextFormatter{
 		DisableTimestamp: true,
 	})
 

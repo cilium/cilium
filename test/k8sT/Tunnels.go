@@ -30,12 +30,13 @@ var _ = Describe("K8sTunnelTest", func() {
 	var kubectl *helpers.Kubectl
 	var demoDSPath string
 	var initialized bool
+	var logger *logrus.Entry
 
 	initialize := func() {
 		if initialized == true {
 			return
 		}
-		logger := log.WithFields(logrus.Fields{"testName": "K8sTunnelTest"})
+		logger = log.WithFields(logrus.Fields{"testName": "K8sTunnelTest"})
 		logger.Info("Starting")
 
 		kubectl = helpers.CreateKubectl(helpers.K8s1VMName(), logger)
