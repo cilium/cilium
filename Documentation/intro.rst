@@ -77,6 +77,8 @@ The remainder of this documentation is divided into the following sections:
 * :ref:`policy_guide` : Detailed walkthrough of the policy language structure
   and the supported formats.
 
+* :ref:`metrics` : Instructions for configuring metrics collection from Cilium.
+
 * :ref:`admin_guide` : Describes how to troubleshoot Cilium in different
   deployment modes.
 

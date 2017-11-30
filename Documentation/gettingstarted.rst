@@ -508,6 +508,24 @@ L3/L4 and L7 network security policies.
 
 After this, you can re-run the `Getting Started Using Kubernetes`_ from Step 1.
 
+Extra:  Metrics
+===============
+
+To try out the metrics exported by cilium, simply install the example prometheus spec file:
+
+.. parsed-literal::
+
+   $ kubectl create -f \ |SCM_WEB|\/examples/kubernetes/prometheus.yaml
+
+
+This will create a barebones prometheus installation that you can use to
+inspect metrics from the agent. Navigate to the web ui with:
+
+::
+
+   $ minikube service prometheus -n prometheus
+
+
 ****************************
 Getting Started Using Docker
 ****************************
