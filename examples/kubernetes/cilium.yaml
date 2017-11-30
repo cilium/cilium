@@ -25,6 +25,10 @@ data:
   # If you want to run cilium in debug mode change this value to true
   debug: "false"
   disable-ipv4: "false"
+
+  # Allow prometheus to scrape on this addr:port. Not specifying an address
+  # will bind to all available interfaces inthe container.
+  prometheus-serve-addr: ":9090"
 ---
 # The etcd secrets can be populated in kubernetes.
 # For more information see: https://kubernetes.io/docs/concepts/configuration/secret
@@ -82,6 +86,8 @@ spec:
         scheduler.alpha.kubernetes.io/critical-pod: ''
         scheduler.alpha.kubernetes.io/tolerations: >-
           [{"key":"dedicated","operator":"Equal","value":"master","effect":"NoSchedule"}]
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "9090"
     spec:
       serviceAccountName: cilium
       containers:
@@ -98,6 +104,10 @@ spec:
           - "--kvstore-opt"
           - "etcd.config=/var/lib/etcd-config/etcd.config"
           - "--disable-ipv4=$(DISABLE_IPV4)"
+          - "--prometheus-serve-addr=$(PROMETHEUS_SERVE_ADDR)"
+        ports:
+          - name: prometheus
+            containerPort: 9090
         lifecycle:
           postStart:
             exec:
@@ -122,6 +132,11 @@ spec:
               configMapKeyRef:
                 name: cilium-config
                 key: disable-ipv4
+          - name: "PROMETHEUS_SERVE_ADDR"
+            valueFrom:
+              configMapKeyRef:
+                name: cilium-config
+                key: prometheus-serve-addr
         livenessProbe:
           exec:
             command:

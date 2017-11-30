@@ -16,6 +16,7 @@ Welcome to Cilium's documentation!
    concepts
    install
    policy
+   metrics
    troubleshooting
    bpf
    api
