@@ -22,6 +22,11 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+var (
+	lockPathsMU lock.RWMutex
+	lockPaths   = map[string]*localLock{}
+)
+
 type kvLocker interface {
 	Unlock() error
 }
@@ -33,43 +38,81 @@ func getLockPath(path string) string {
 
 // Lock is a lock return by LockPath
 type Lock struct {
-	path string
-	lock kvLocker
+	path   string
+	kvLock kvLocker
 }
 
-var (
-	lockPathsMU lock.Mutex
-	lockPaths   = map[string]*lock.Mutex{}
-)
+type localLock struct {
+	refCount int
+	lock.Mutex
+}
+
+// incRefCount increments the reference count of this localLock
+// must be called with lockPathsMU mutex held.
+func (l *localLock) incRefCount() {
+	l.refCount++
+}
+
+// decRefCount decrements the reference count of this localLock
+// must be called with lockPathsMU mutex held.
+func (l *localLock) decRefCount() int {
+	l.refCount--
+	return l.refCount
+}
 
 // LockPath locks the specified path and returns the Lock
-func LockPath(path string) (*Lock, error) {
+func LockPath(path string) (l *Lock, err error) {
 	lockPathsMU.Lock()
-	if lockPaths[path] == nil {
-		lockPaths[path] = &lock.Mutex{}
+	ll, ok := lockPaths[path]
+	if !ok {
+		ll = &localLock{}
+		lockPaths[path] = ll
 	}
+	ll.incRefCount()
 	lockPathsMU.Unlock()
+
+	defer func() {
+		if err != nil {
+			lockPathsMU.Lock()
+			if ll.decRefCount() == 0 {
+				delete(lockPaths, l.path)
+			}
+			lockPathsMU.Unlock()
+		}
+	}()
 
 	trace("Creating lock", nil, logrus.Fields{fieldKey: path})
 
 	// Take the local lock as both etcd and consul protect per client
-	lockPaths[path].Lock()
+	ll.Lock()
 
 	lock, err := Client().LockPath(path)
 	if err != nil {
-		lockPaths[path].Unlock()
-		return nil, fmt.Errorf("Error while locking path %s: %s", path, err)
+		ll.Unlock()
+		err = fmt.Errorf("Error while locking path %s: %s", path, err)
+		return nil, err
 	}
 
-	trace("Successful lock", nil, logrus.Fields{fieldKey: path})
-	return &Lock{lock: lock, path: path}, nil
+	trace("Successful lock", err, logrus.Fields{fieldKey: path})
+	return &Lock{kvLock: lock, path: path}, err
 }
 
 // Unlock unlocks a lock
 func (l *Lock) Unlock() error {
-	err := l.lock.Unlock()
+	// Unlock kvstore mutex first
+	err := l.kvLock.Unlock()
 
-	lockPaths[l.path].Unlock()
+	lockPathsMU.Lock()
+	ll, ok := lockPaths[l.path]
+	if ok && ll.decRefCount() == 0 {
+		delete(lockPaths, l.path)
+	}
+	lockPathsMU.Unlock()
+
+	// Unlock local lock
+	if ok {
+		ll.Unlock()
+	}
 	if err == nil {
 		trace("Unlocked", nil, logrus.Fields{fieldKey: l.path})
 	}
