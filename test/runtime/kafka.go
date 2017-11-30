@@ -29,8 +29,7 @@ var _ = Describe("RuntimeKafka", func() {
 
 	var initialized bool
 	var logger *logrus.Entry
-	var docker *helpers.Docker
-	var cilium *helpers.Cilium
+	var vm *helpers.SSHMeta
 
 	var allowedTopic string = "allowedTopic"
 	var disallowTopic string = "disallowTopic"
@@ -42,8 +41,8 @@ var _ = Describe("RuntimeKafka", func() {
 		}
 		logger = log.WithFields(logrus.Fields{"testName": "RuntimeKafka"})
 		logger.Info("Starting")
-		docker, cilium = helpers.CreateNewRuntimeHelper("runtime", logger)
-		docker.NetworkCreate(helpers.CiliumDockerNetwork, "")
+		vm := helpers.CreateNewRuntimeHelper("runtime", logger)
+		vm.NetworkCreate(helpers.CiliumDockerNetwork, "")
 		initialized = true
 	}
 
@@ -57,25 +56,25 @@ var _ = Describe("RuntimeKafka", func() {
 		switch mode {
 		case "create":
 			for k, v := range images {
-				docker.ContainerCreate(k, v, helpers.CiliumDockerNetwork, fmt.Sprintf("-l id.%s", k))
+				vm.ContainerCreate(k, v, helpers.CiliumDockerNetwork, fmt.Sprintf("-l id.%s", k))
 			}
-			zook, err := docker.ContainerInspectNet("zook")
+			zook, err := vm.ContainerInspectNet("zook")
 			Expect(err).Should(BeNil())
 
-			docker.ContainerCreate("kafka", "wurstmeister/kafka", helpers.CiliumDockerNetwork, fmt.Sprintf(
+			vm.ContainerCreate("kafka", "wurstmeister/kafka", helpers.CiliumDockerNetwork, fmt.Sprintf(
 				"-l id.kafka -e KAFKA_ZOOKEEPER_CONNECT=%s:2181 ", zook["IPv4"]))
 
 		case "delete":
 			for k := range images {
-				docker.ContainerRm(k)
+				vm.ContainerRm(k)
 			}
-			docker.ContainerRm("kafka")
+			vm.ContainerRm("kafka")
 		}
 	}
 
 	createTopic := func(name string) {
 		logger.Infof("Creating new kafka topic %s", name)
-		res := docker.ContainerExec("client", fmt.Sprintf(
+		res := vm.ContainerExec("client", fmt.Sprintf(
 			"/opt/kafka/bin/kafka-topics.sh --create --zookeeper zook:2181 "+
 				"--replication-factor 1 --partitions 1 --topic %s", name))
 		res.ExpectSuccess()
@@ -92,29 +91,29 @@ var _ = Describe("RuntimeKafka", func() {
 			"echo %s | docker exec -i client /opt/kafka/bin/kafka-console-producer.sh "+
 				"--broker-list kafka:9092 --topic %s",
 			message, topic)
-		docker.Node.Exec(cmd)
+		vm.Exec(cmd)
 	}
 
 	BeforeEach(func() {
 		initialize()
 		containers("create")
-		epsReady := cilium.WaitEndpointsReady()
+		epsReady := vm.WaitEndpointsReady()
 		Expect(epsReady).Should(BeTrue())
 	})
 
 	AfterEach(func() {
 		if CurrentGinkgoTestDescription().Failed {
-			cilium.ReportFailed()
+			vm.ReportFailed()
 		}
-		cilium.Exec("policy delete --all")
+		vm.Exec("policy delete --all")
 		containers("delete")
 	})
 
 	It("Kafka Policy Ingress", func() {
-		_, err := cilium.PolicyImport(cilium.GetFullPath("Policies-kafka.json"), 300)
+		_, err := vm.PolicyImport(vm.GetFullPath("Policies-kafka.json"), 300)
 		Expect(err).Should(BeNil())
 
-		endPoints, err := cilium.PolicyEndpointsSummary()
+		endPoints, err := vm.PolicyEndpointsSummary()
 		Expect(err).Should(BeNil())
 		Expect(endPoints[helpers.Enabled]).To(Equal(1))
 		Expect(endPoints[helpers.Disabled]).To(Equal(2))
@@ -122,13 +121,13 @@ var _ = Describe("RuntimeKafka", func() {
 		createTopic(allowedTopic)
 		createTopic(disallowTopic)
 
-		res := docker.ContainerExec("client",
+		res := vm.ContainerExec("client",
 			"/opt/kafka/bin/kafka-topics.sh --list --zookeeper zook:2181")
 		res.ExpectSuccess("Cannot get kafka topics")
 
 		By("Allowed topic")
 		ctx, cancel := context.WithCancel(context.Background())
-		data := cilium.Node.ExecContext(ctx, consumer(allowedTopic, MaxMessages))
+		data := vm.ExecContext(ctx, consumer(allowedTopic, MaxMessages))
 
 		//TODO: wait until ready
 		helpers.Sleep(5)
@@ -141,7 +140,7 @@ var _ = Describe("RuntimeKafka", func() {
 			"Processed a total of %d messages", MaxMessages))
 
 		By("Disable topic")
-		res = cilium.Node.Exec(consumer(disallowTopic, MaxMessages))
+		res = vm.Exec(consumer(disallowTopic, MaxMessages))
 		res.ExpectFail("Kafka consumer can access to disallowTopic")
 	})
 })
