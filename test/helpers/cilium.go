@@ -311,7 +311,7 @@ func (s *SSHMeta) PolicyEndpointsSummary() (map[string]int, error) {
 
 // SetPolicyEnforcement sets the PolicyEnforcement configuration value for the
 // Cilium agent to the provided status.
-func (s *SSHMeta) SetPolicyEnforcement(status string, waitReady ...bool) *CmdRes {
+func (s *SSHMeta) SetPolicyEnforcement(status string) *CmdRes {
 	// We check before setting PolicyEnforcement; if we do not, EndpointWait
 	// will fail due to the status of the endpoints not changing.
 	log.Infof("setting PolicyEnforcement=%s", status)
@@ -319,11 +319,7 @@ func (s *SSHMeta) SetPolicyEnforcement(status string, waitReady ...bool) *CmdRes
 	if res.SingleOut() == status {
 		return res
 	}
-	res = s.ExecCilium(fmt.Sprintf("config %s=%s", PolicyEnforcement, status))
-	if len(waitReady) > 0 && waitReady[0] {
-		s.WaitEndpointsReady()
-	}
-	return res
+	return s.ExecCilium(fmt.Sprintf("config %s=%s", PolicyEnforcement, status))
 }
 
 // PolicyDelAll deletes all policy rules currently imported into Cilium.

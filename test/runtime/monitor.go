@@ -56,8 +56,11 @@ var _ = Describe("RuntimeMonitorTest", func() {
 		vm.WaitUntilReady(100)
 		vm.NetworkCreate(helpers.CiliumDockerNetwork, "")
 
-		res := vm.SetPolicyEnforcement(helpers.PolicyEnforcementDefault, false)
+		res := vm.SetPolicyEnforcement(helpers.PolicyEnforcementDefault)
 		res.ExpectSuccess()
+
+		areEndpointsReady := vm.WaitEndpointsReady()
+		Expect(areEndpointsReady).Should(BeTrue())
 
 		initialized = true
 	}
