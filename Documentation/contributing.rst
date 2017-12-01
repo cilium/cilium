@@ -212,8 +212,8 @@ commands, respectively:
 
 .. _testsuite:
 
-Testsuite
-~~~~~~~~~
+Runtime Tests
+~~~~~~~~~~~~~
 
 .. Warning::
 
@@ -232,6 +232,57 @@ After the new version of Cilium is running, you should run the runtime tests:
 ::
    
     $ sudo make runtime-tests
+
+Nightly Tests
+~~~~~~~~~~~~~
+
+`Ginkgo <https://onsi.github.io/ginkgo/>`_ is used for tests that run at a nightly cadence on Jenkins.
+
+Jenkins Setup
+^^^^^^^^^^^^^
+
+Nightly tests run once per day in the `Cilium-Nightly-Tests Job <https://jenkins.cilium.io/job/Cilium-Nightly-Tests/>`_. 
+The configuration for this job is stored in ``Jenkinsfile.nightly``.
+
+To see the results of these tests, you can view the JUnit Report for an individual job:
+
+1. Click on the build number you wish to get test results from on the left hand side of the `Cilium-Nightly-Tests Job <https://jenkins.cilium.io/job/Cilium-Nightly-Tests/>`_. 
+2. Click on 'Test Results' on the left side of the page to view the results from the build.
+   This will give you a report of which tests passed and failed. You can click on each test
+   to view its corresponding output created from Ginkgo. 
+
+Running Nightly Tests Locally
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+To understand more about how Cilium testing works with Ginkgo and to get your environment setup, refer to ``test/readme.md``.
+
+To run the nightly tests locally, run the following command:
+
+::
+
+    $ cd ${TESTDIR}; ginkgo --focus="Nightly*" -v -noColor
+
+The above statement will pick up all tests that are prefixed with "Nightly", e.g.:
+
+::
+
+    var _ = Describe("NightlyK8sEpsMeasurement", func() {
+
+For more information about how to write tests with Ginkgo, we recommend checking the `Ginkgo Documentation <https://onsi.github.io/ginkgo/>`_.
+We have many examples of tests in the Cilium repository. For instance, you can take a look at is ``test/k8sT/Nightly.go``.
+
+Guidelines for Writing Nightly Tests
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+We require and recommend the following when writing tests:
+
+* Your tests should always clean up after themselves (i.e., removing containers / pods, deleting imported policies, and restarting Cilium if configuration changes have been made to the Cilium daemon throughout the tests).
+* You should always add informative logs using Ginkgo's `By <https://onsi.github.io/ginkgo/#documenting-complex-its-by>`_ to describe what is going on during your test. This will make debugging easier for those who have not interacted deeply with the tests if they hit an error.
+
+Further Assistance
+^^^^^^^^^^^^^^^^^^
+
+Have a question about how the tests work or want to chat more about improving the testing infrastructure for Cilium? Hop on over to the `testing <https://cilium.slack.com/messages/C7PE7V806>`_ channel on Slack. 
 
 Building Documentation
 ~~~~~~~~~~~~~~~~~~~~~~
