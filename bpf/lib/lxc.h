@@ -19,6 +19,7 @@
 #define __LIB_LXC_H_
 
 #include "common.h"
+#include "utils.h"
 #include "ipv6.h"
 #include "ipv4.h"
 #include "eth.h"
@@ -87,6 +88,13 @@ static inline int is_valid_gw_dst_mac(struct ethhdr *eth)
 #endif
 
 #ifdef LXC_IPV4
+static inline void __inline__ proxy4_update_timeout(struct proxy4_tbl_value *value)
+{
+#ifdef NEEDS_TIMEOUT
+	value->lifetime = bpf_ktime_get_sec() + PROXY_DEFAULT_LIFETIME;
+#endif
+}
+
 static inline int __inline__
 ipv4_redirect_to_host_port(struct __sk_buff *skb, struct csum_offset *csum,
 			  int l4_off, __be16 new_port, __be16 old_port, __be32 old_ip,
@@ -102,9 +110,9 @@ ipv4_redirect_to_host_port(struct __sk_buff *skb, struct csum_offset *csum,
 	struct proxy4_tbl_value value = {
 		.orig_daddr = old_ip,
 		.orig_dport = old_port,
-		.lifetime = 360,
 		.identity = identity,
 	};
+	proxy4_update_timeout(&value);
 
 	// Trace the packet before its destination address and port are rewritten.
 	send_trace_notify(skb, TRACE_TO_PROXY, SECLABEL, 0, 0, HOST_IFINDEX,
@@ -134,6 +142,12 @@ ipv4_redirect_to_host_port(struct __sk_buff *skb, struct csum_offset *csum,
 	return 0;
 }
 #endif /* LXC_IPV4 */
+static inline void __inline__ proxy6_update_timeout(struct proxy6_tbl_value *value)
+{
+#ifdef NEEDS_TIMEOUT
+	value->lifetime = bpf_ktime_get_sec() + PROXY_DEFAULT_LIFETIME;
+#endif
+}
 
 static inline int __inline__
 ipv6_redirect_to_host_port(struct __sk_buff *skb, struct csum_offset *csum,
@@ -150,9 +164,9 @@ ipv6_redirect_to_host_port(struct __sk_buff *skb, struct csum_offset *csum,
 	struct proxy6_tbl_value value = {
 		.orig_daddr = old_ip,
 		.orig_dport = old_port,
-		.lifetime = 360,
 		.identity = identity,
 	};
+	proxy6_update_timeout(&value);
 
 	// Trace the packet before its destination address and port are rewritten.
 	send_trace_notify(skb, TRACE_TO_PROXY, SECLABEL, 0, 0, HOST_IFINDEX,
