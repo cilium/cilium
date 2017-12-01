@@ -44,8 +44,9 @@ func (k *Proxy4Key) HostPort() string {
 type Proxy4Value struct {
 	OrigDAddr      types.IPv4
 	OrigDPort      uint16
-	Lifetime       uint16
+	Pad            uint16
 	SourceIdentity uint32
+	Lifetime       uint32
 }
 
 func (v *Proxy4Value) HostPort() string {
@@ -136,7 +137,7 @@ func Dump(cb bpf.DumpCallback) error {
 	return proxy4Map.Dump(proxy4DumpParser, cb)
 }
 
-func doGc(interval uint16, key unsafe.Pointer, nextKey unsafe.Pointer, deleted *int) bool {
+func doGc(key unsafe.Pointer, nextKey unsafe.Pointer, deleted *int, time uint32) bool {
 	var entry Proxy4Value
 
 	err := bpf.GetNextKey(proxy4Map.GetFd(), key, nextKey)
@@ -149,18 +150,17 @@ func doGc(interval uint16, key unsafe.Pointer, nextKey unsafe.Pointer, deleted *
 		return false
 	}
 
-	if entry.Lifetime <= interval {
+	if entry.Lifetime < time {
 		bpf.DeleteElement(proxy4Map.GetFd(), nextKey)
 		(*deleted)++
-	} else {
-		entry.Lifetime -= interval
-		bpf.UpdateElement(proxy4Map.GetFd(), nextKey, unsafe.Pointer(&entry), 0)
 	}
 
 	return true
 }
 
 func GC() int {
+	t, _ := bpf.GetMtime()
+	tsec := t / 1000000000
 	deleted := 0
 
 	if err := proxy4Map.Open(); err != nil {
@@ -168,7 +168,7 @@ func GC() int {
 	}
 
 	var key, nextKey Proxy4Key
-	for doGc(10, unsafe.Pointer(&key), unsafe.Pointer(&nextKey), &deleted) {
+	for doGc(unsafe.Pointer(&key), unsafe.Pointer(&nextKey), &deleted, uint32(tsec)) {
 		key = nextKey
 	}
 

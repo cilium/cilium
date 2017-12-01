@@ -44,8 +44,9 @@ func (k *Proxy6Key) HostPort() string {
 type Proxy6Value struct {
 	OrigDAddr      types.IPv6
 	OrigDPort      uint16
-	Lifetime       uint16
+	Pad            uint16
 	SourceIdentity uint32
+	Lifetime       uint32
 }
 
 func (v *Proxy6Value) HostPort() string {
@@ -137,6 +138,8 @@ func Dump6(cb bpf.DumpCallback) error {
 }
 
 func GC6() int {
+	t, _ := bpf.GetMtime()
+	tsec := t / 1000000000
 	deleted := 0
 
 	if err := proxy6Map.Open(); err != nil {
@@ -144,7 +147,7 @@ func GC6() int {
 	}
 
 	var key, nextKey Proxy6Key
-	for doGc(10, unsafe.Pointer(&key), unsafe.Pointer(&nextKey), &deleted) {
+	for doGc(unsafe.Pointer(&key), unsafe.Pointer(&nextKey), &deleted, uint32(tsec)) {
 		key = nextKey
 	}
 

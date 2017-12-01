@@ -367,6 +367,8 @@ struct ct_state {
 	__u32 src_sec_id;
 };
 
+#define PROXY_DEFAULT_LIFETIME	360
+
 struct proxy4_tbl_key {
 	__be32 saddr;
 	__be16 dport; /* dport must be in front of sport, loaded with 4 bytes read */
@@ -378,8 +380,9 @@ struct proxy4_tbl_key {
 struct proxy4_tbl_value {
 	__be32 orig_daddr;
 	__be16 orig_dport;
-	__u16 lifetime;
+	__u16 pad;
 	__u32 identity;
+	__u32 lifetime;
 } __attribute__((packed));
 
 struct proxy6_tbl_key {
@@ -393,8 +396,9 @@ struct proxy6_tbl_key {
 struct proxy6_tbl_value {
 	union v6addr orig_daddr;
 	__be16 orig_dport;
-	__u16 lifetime;
+	__u16 pad;
 	__u32 identity;
+	__u32 lifetime;
 } __attribute__((packed));
 
 #endif
