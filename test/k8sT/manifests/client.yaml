@@ -8,7 +8,7 @@ metadata:
 spec:
   containers:
   - name: app-frontend
-    image: byrnedo/alpine-curl
+    image: cilium/connectivity-container
     command: [ "sleep" ]
     args:
       - "1000h"
