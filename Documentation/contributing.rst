@@ -351,7 +351,7 @@ CI / Testing environment
 Logging into VM running tests
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-1. Log into the Jenkins slave running the test workload
+1. If you have access to credentials for Jenkins, log into the Jenkins slave running the test workload
 2. Identify the vagrant box running the specific test
 
 .. code:: bash
