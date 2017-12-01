@@ -8,25 +8,30 @@ export PATH=$PATH:/usr/local/go/bin:/usr/local/clang/bin:/home/vagrant/go/bin:/h
 export TEST_SUITE="runtime-tests"
 mkdir -p ./cilium-files
 
+function run_test() {
+  test=$1
+  file=$(basename $test)
+  filename="${file%.*}"
+  mkdir -p ./cilium-files/"${filename}"
+  echo "#################################################"
+  echo
+  echo
+  echo
+  echo "Starting test $test"
+  echo
+  echo
+  echo
+  ./$test | tee ./cilium-files/"${filename}"/output.txt
+  echo
+  echo
+  echo
+  echo "Finished test $test"
+  echo
+  echo
+  echo
+  echo "#################################################"
+}
+
 for test in *.sh; do
-	file=$(basename $test)
-	filename="${file%.*}"
-        mkdir -p ./cilium-files/"${filename}"
-	echo "#################################################"
-	echo
-	echo
-	echo
-	echo "Starting test $test"
-	echo
-	echo
-	echo
-	./$test | tee ./cilium-files/"${filename}"/output.txt
-	echo
-	echo
-	echo
-	echo "Finished test $test"
-	echo
-	echo
-	echo
-	echo "#################################################"
+  run_test $test
 done
