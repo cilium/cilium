@@ -1,96 +1,79 @@
-# Catch-all
+# Code owners groups and a brief description of their areas:
+# @cilium-janitors      Catch-all for code not otherwise owned
+# @cilium/agent         Cilium Agent
+# @cilium/bpf           BPF Data Path
+# @cilium/bpf-loader    Agent -> Kernel interaction
+# @cilium/ci            Continuous integration, testing
+# @cilium/cli           Commandline interfaces
+# @cilium/contributing  Developer documentation
+# @cilium/docker        Docker plugin
+# @cilium/docs          Documentation, examples
+# @cilium/endpoint      Endpoint package
+# @cilium/kubernetes    K8s integration, K8s CNI plugin
+# @cilium/kvstore       Key/Value store: Consul, etcd
+# @cilium/loadbalancer  Load balancer
+# @cilium/monitor       Cilium node monitor tool
+# @cilium/policy        Policy behaviour
+# @cilium/proxy         L7 proxy, Envoy
+# @cilium/vendor        Vendoring, dependency management
+#
+# Specific code owners:
+# @eloycoto             Debian packaging
+# @aanm @ianvernon      Docker packaging
+# @tgraf                Oxy proxy
+# @scanf @borkmann      BPF documentation
+
+# The following filepaths should be sorted so that more specific paths occur
+# after the less specific paths, otherwise the ownership for the specific paths
+# is not properly picked up in Github.
 * @cilium/janitors
-
-# BPF Data Path
+api/ @cilium/api
 bpf/ @cilium/bpf
-pkg/maps/ @cilium/bpf
-pkg/bpf/ @cilium/bpf
-pkg/policy/prefilter.go @cilium/bpf
-daemon/prefilter.go @cilium/bpf
-daemon/bpf.sha @cilium/bpf
-
-# Agent -> Kernel interaction
 bpf/*.sh @cilium/bpf-loader
-
-# CI
-test/ @cilium/ci
-tests/ @cilium/ci
-Jenkinsfile @cilium/ci
-
-# KVStore
-pkg/kvstore/ @cilium/kvstore
-
-# CLI
 cilium/ @cilium/cli
-
-# Examples
-examples/ @cilium/docs
-
-# K8s integration, K8s CNI plugin
-daemon/k8s_watcher.go @cilium/kubernetes
-pkg/k8s/ @cilium/kubernetes
-plugins/cilium-cni/ @cilium/kubernetes
-examples/kubernetes/ @cilium/kubernetes
-examples/minikube/ @cilium/kubernetes
-examples/kubernetes-ingress/ @cilium/kubernetes
-
-# Docker plugin
-plugins/cilium-docker/ @cilium/docker
-
-# Policy behaviour
-pkg/policy @cilium/policy
-
-# Packaging
 contrib/packaging/deb/ @eloycoto
 contrib/packaging/docker/ @aanm @ianvernon
-
-# Proxy
-pkg/proxy/ @cilium/proxy
-
-# based on not yet merged PR 1580
-pkg/envoy/ @cilium/proxy
+contrib/vagrant @cilium/vagrant
+daemon/bpf.sha @cilium/bpf
+daemon/ @cilium/agent
+daemon/endpoint.go @cilium/endpoint
+daemon/k8s_watcher.go @cilium/kubernetes
+daemon/loadbalancer.* @cilium/loadbalancer
+daemon/prefilter.go @cilium/bpf
+daemon/services.* @cilium/loadbalancer
+Documentation/bpf.rst @scanf @borkmann
+Documentation/ @cilium/docs
+Documentation/contributing.rst @cilium/contributing
 envoy/ @cilium/proxy
-pkg/proxy/oxyproxy.go @tgraf
-
-# Agent API
-api/ @cilium/api
-pkg/policy/api/ @cilium/api
+examples/ @cilium/docs
+examples/getting-started/Vagrantfile @cilium/vagrant
+examples/kubernetes/ @cilium/kubernetes
+examples/kubernetes-ingress/ @cilium/kubernetes
+examples/mesos/Vagrantfile @cilium/vagrant
+examples/minikube/ @cilium/kubernetes
+Jenkinsfile @cilium/ci
+monitor/ @cilium/monitor
+monitor/payload @cilium/api
 pkg/apierror/ @cilium/api
 pkg/apisocket/ @cilium/api
-pkg/proxy/accesslog @cilium/api
-monitor/payload @cilium/api
-
-# Docs
-README.md @cilium/docs
-Documentation/ @cilium/docs
-
-# BPF Docs
-Documentation/bpf.rst @scanf @borkmann
-
-# Developer docs
-Documentation/contributing.rst @cilium/contributing
-
-# Dependencies/vendor
-vendor/ @cilium/vendor
-
-# Monitor
-monitor/ @cilium/monitor
-
-# Agent
-daemon/ @cilium/agent
-
-# endpoint package
+pkg/bpf/ @cilium/bpf
 pkg/endpoint/ @cilium/endpoint
-daemon/endpoint.go @cilium/endpoint
-
-# load balancer - will be moved out of daemon
-daemon/services.* @cilium/loadbalancer
-daemon/loadbalancer.* @cilium/loadbalancer
-
-# Vagrantfiles
-contrib/vagrant @cilium/vagrant
-Vagrantfile @cilium/vagrant
+pkg/envoy/ @cilium/proxy
+pkg/k8s/ @cilium/kubernetes
+pkg/kvstore/ @cilium/kvstore
+pkg/maps/ @cilium/bpf
+pkg/policy/api/ @cilium/api
+pkg/policy @cilium/policy
+pkg/policy/prefilter.go @cilium/bpf
+pkg/proxy/accesslog @cilium/api
+pkg/proxy/ @cilium/proxy
+pkg/proxy/oxyproxy.go @tgraf
+plugins/cilium-cni/ @cilium/kubernetes
+plugins/cilium-docker/ @cilium/docker
+README.md @cilium/docs
+test/ @cilium/ci
+tests/ @cilium/ci
 tests/k8s/Vagrantfile @cilium/vagrant
 test/Vagrantfile @cilium/vagrant
-examples/getting-started/Vagrantfile @cilium/vagrant
-examples/mesos/Vagrantfile @cilium/vagrant
+Vagrantfile @cilium/vagrant
+vendor/ @cilium/vendor
