@@ -9,6 +9,12 @@ This guide will help you make sure you have an environment capable of testing
 changes to the Cilium source code, and that you understand the workflow of getting
 these changes reviewed and merged upstream.
 
+If you're interested in contributing, but don't know where to start, then you
+should consider looking through the `good-first-issue <https://github.com/cilium/cilium/issues?q=is%3Aopen+is%3Aissue+label%3Agood-first-issue>`_
+tag on the Cilium github issues page. Other small tasks are often tagged with
+the `kind/microtask <https://github.com/cilium/cilium/issues?q=is%3Aopen+is%3Aissue+label%3Akind%2Fmicrotask>`_
+label.
+
 Setting up a development environment
 ------------------------------------
 
