@@ -265,7 +265,9 @@ func updateNodeCIDR(n *Node, ip *net.IPNet) {
 	}
 
 	if err := tunnel.SetTunnelEndpoint(ip.IP, n.GetNodeIP(false)); err != nil {
-		log.WithError(err).WithField(logfields.IPAddr, ip).Error("bpf: Unable to update in tunnel endpoint map")
+		log.WithError(err).WithFields(logrus.Fields{
+			logfields.IPAddr: ip,
+		}).Error("bpf: Unable to update in tunnel endpoint map")
 	}
 }
 
@@ -304,6 +306,8 @@ func UpdateNode(ni Identity, n *Node, routesTypes RouteType, ownAddr net.IP) {
 // reach that node.
 func DeleteNode(ni Identity, routesTypes RouteType) {
 	clusterConf.Lock()
+	defer clusterConf.Unlock()
+
 	if n, ok := clusterConf.nodes[ni]; ok {
 		if (routesTypes & TunnelRoute) != 0 {
 			log.WithFields(logrus.Fields{
@@ -321,7 +325,6 @@ func DeleteNode(ni Identity, routesTypes RouteType) {
 		delete(clusterConf.nodes, ni)
 		clusterConf.replaceHostRoutes()
 	}
-	clusterConf.Unlock()
 }
 
 // GetNodes returns a copy of all of the nodes as a map from Identity to Node.
