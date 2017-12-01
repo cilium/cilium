@@ -86,7 +86,9 @@ func deleteNodeCIDR(ip *net.IPNet) {
 	}
 
 	if err := tunnel.DeleteTunnelEndpoint(ip.IP); err != nil {
-		log.WithError(err).WithField(logfields.IPAddr, ip).Error("bpf: Unable to delete in tunnel endpoint map")
+		log.WithError(err).WithFields(logrus.Fields{
+			logfields.IPAddr: ip,
+		}).Debug("bpf: Unable to delete in tunnel endpoint map")
 	}
 }
 
