@@ -1097,7 +1097,7 @@ function ping_success {
 function wait_for_cilium_shutdown {
   log "waiting for cilium to shutdown"
   i=0
-  while [[ -f /var/run/cilium/cilium.pid ]]; do
+  while pgrep cilium-agent; do
     micro_sleep
     if [[ ${i} -ge 120 ]]; then
       log "Timeout while waiting for Cilium to shutdown"
