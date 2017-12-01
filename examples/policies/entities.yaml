@@ -1,0 +1,11 @@
+apiVersion: "cilium.io/v2"
+kind: CiliumNetworkPolicy
+metadata:
+  name: "entities-rule"
+spec:
+  endpointSelector:
+    matchLabels:
+      env: prod
+  ingress:
+    - fromEntities:
+      - world

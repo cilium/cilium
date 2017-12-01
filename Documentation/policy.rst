@@ -174,7 +174,19 @@ The following example builds on top of the previous one but requires that *all*
 endpoints which carry the label ``env=prod`` require the consumer to also carry
 the label ``env=prod`` in order for access to be granted:
 
-.. literalinclude:: ../examples/policies/requires.json
+.. only:: html
+
+   .. tabs::
+     .. group-tab:: JSON
+
+        .. literalinclude:: ../examples/policies/requires.json
+     .. group-tab:: YAML
+
+        .. literalinclude:: ../examples/policies/requires.yaml
+
+.. only:: epub or latex
+
+        .. literalinclude:: ../examples/policies/requires.json
 
 .. _policy_cidr:
 
@@ -183,7 +195,19 @@ Layer 3: Entities
 
 There is an additional syntactic sugar for explicitly whitelisting ``world`` and ``host`` entities:
 
-.. literalinclude:: ../examples/policies/entities.json
+.. only:: html
+
+   .. tabs::
+     .. group-tab:: JSON
+
+        .. literalinclude:: ../examples/policies/entities.json
+     .. group-tab:: YAML
+
+        .. literalinclude:: ../examples/policies/entities.yaml
+
+.. only:: epub or latex
+
+        .. literalinclude:: ../examples/policies/entities.json
 
 Layer 3: IP/CIDR based
 ======================
@@ -300,7 +324,19 @@ This example shows how to allow all endpoints with the label ``app=myService``
 to talk to the external IP ``20.1.1.1``, as well as the CIDR prefix ``10.0.0.0/8``,
 but not CIDR prefix ``10.96.0.0/12``
 
-.. literalinclude:: ../examples/policies/cidr.json
+.. only:: html
+
+   .. tabs::
+     .. group-tab:: JSON
+
+        .. literalinclude:: ../examples/policies/cidr.json
+     .. group-tab:: YAML
+
+        .. literalinclude:: ../examples/policies/cidr.yaml
+
+.. only:: epub or latex
+
+        .. literalinclude:: ../examples/policies/cidr.json
 
 Layer 3: Services
 ~~~~~~~~~~~~~~~~~
@@ -339,7 +375,19 @@ to talk to all endpoints of kubernetes service ``myservice`` in kubernetes
 namespace ``default``. Note that ``myservice`` needs to be a headless service
 for this policy to take effect.
 
-.. literalinclude:: ../examples/policies/service.json
+.. only:: html
+
+   .. tabs::
+     .. group-tab:: JSON
+
+        .. literalinclude:: ../examples/policies/service.json
+     .. group-tab:: YAML
+
+        .. literalinclude:: ../examples/policies/service.yaml
+
+.. only:: epub or latex
+
+        .. literalinclude:: ../examples/policies/service.json
 
 Example (empty toServices rule)
 -------------------------------
@@ -347,7 +395,19 @@ Example (empty toServices rule)
 When ``toServices`` doesn't have any services specified or the rules are empty
 the policy doesn't have any effect.
 
-.. literalinclude:: ../examples/policies/service-empty.json
+.. only:: html
+
+   .. tabs::
+     .. group-tab:: JSON
+
+        .. literalinclude:: ../examples/policies/service-empty.json
+     .. group-tab:: YAML
+
+        .. literalinclude:: ../examples/policies/service-empty.yaml
+
+.. only:: epub or latex
+
+        .. literalinclude:: ../examples/policies/service-empty.json
 
 .. _policy_l4:
 
@@ -419,7 +479,19 @@ Example (L4)
 The following rule limits all endpoints with the label ``app=myService`` to
 only be able to emit packets using TCP on port 80:
 
-.. literalinclude:: ../examples/policies/l4.json
+.. only:: html
+
+   .. tabs::
+     .. group-tab:: JSON
+
+        .. literalinclude:: ../examples/policies/l4.json
+     .. group-tab:: YAML
+
+        .. literalinclude:: ../examples/policies/l4.yaml
+
+.. only:: epub or latex
+
+        .. literalinclude:: ../examples/policies/l4.json
 
 Example (Combining Labels + L4)
 -------------------------------
@@ -428,7 +500,19 @@ This example enables all endpoints with the label ``role=frontend`` to
 communicate with all endpoints with the label ``role=backend``, but they must
 communicate using using TCP on port 80:
 
-.. literalinclude:: ../examples/policies/l3_l4_combined.json
+.. only:: html
+
+   .. tabs::
+     .. group-tab:: JSON
+
+        .. literalinclude:: ../examples/policies/l3_l4_combined.json
+     .. group-tab:: YAML
+
+        .. literalinclude:: ../examples/policies/l3_l4_combined.yaml
+
+.. only:: epub or latex
+
+        .. literalinclude:: ../examples/policies/l3_l4_combined.json
 
 Example (Multiple Rules with Labels, L4)
 ----------------------------------------
@@ -439,7 +523,19 @@ communication to only endpoints communicating over TCP on port 80 from
 ``role=frontend`` to reach ``role=backend``, *as well as* traffic from any
 endpoint that is communicating over TCP on port 80:
 
-.. literalinclude:: ../examples/policies/multi_rule.json
+.. only:: html
+
+   .. tabs::
+     .. group-tab:: JSON
+
+        .. literalinclude:: ../examples/policies/multi_rule.json
+     .. group-tab:: YAML
+
+        .. literalinclude:: ../examples/policies/multi_rule.yaml
+
+.. only:: epub or latex
+
+        .. literalinclude:: ../examples/policies/multi_rule.json
 
 Layer 7
 =======
@@ -553,7 +649,19 @@ While communicating on this port, the only API endpoints allowed will be ``GET
 /path1`` and ``PUT /path2`` with the HTTP header ``X-My_header`` set to
 ``true``:
 
-.. literalinclude:: ../examples/policies/http.json
+.. only:: html
+
+   .. tabs::
+     .. group-tab:: JSON
+
+        .. literalinclude:: ../examples/policies/http.json
+     .. group-tab:: YAML
+
+        .. literalinclude:: ../examples/policies/http.yaml
+
+.. only:: epub or latex
+
+        .. literalinclude:: ../examples/policies/http.json
 
 
 Kafka (Tech Preview)
@@ -624,7 +732,19 @@ Kafka (Tech Preview)
 Kafka Example
 ~~~~~~~~~~~~~
 
-.. literalinclude:: ../examples/policies/kafka.yaml
+.. only:: html
+
+   .. tabs::
+     .. group-tab:: JSON
+
+        .. literalinclude:: ../examples/policies/kafka.json
+     .. group-tab:: YAML
+
+        .. literalinclude:: ../examples/policies/kafka.yaml
+
+.. only:: epub or latex
+
+        .. literalinclude:: ../examples/policies/kafka.json
 
 
 ************
@@ -683,7 +803,19 @@ Example (Single Rule)
 The following example allows all prod-labeled pods to access ``/public`` HTTP
 endpoint on service-labeled.
 
-.. literalinclude:: ../examples/policies/l7.yaml
+.. only:: html
+
+   .. tabs::
+     .. group-tab:: JSON
+
+        .. literalinclude:: ../examples/policies/l7.json
+     .. group-tab:: YAML
+
+        .. literalinclude:: ../examples/policies/l7.yaml
+
+.. only:: epub or latex
+
+        .. literalinclude:: ../examples/policies/l7.json
 
 
 Example (Multiple Rules)
@@ -692,7 +824,19 @@ Example (Multiple Rules)
 This example builds on previous example to show how to define multiple policy specs
 in single rule. Added spec allows production pods to POST requests to ``external-service.org``.
 
-.. literalinclude:: ../examples/policies/l7_multi.yaml
+.. only:: html
+
+   .. tabs::
+     .. group-tab:: JSON
+
+        .. literalinclude:: ../examples/policies/l7_multi.json
+     .. group-tab:: YAML
+
+        .. literalinclude:: ../examples/policies/l7_multi.yaml
+
+.. only:: epub or latex
+
+        .. literalinclude:: ../examples/policies/l7_multi.json
 
 
 ***********************
