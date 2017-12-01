@@ -144,8 +144,8 @@ function abort {
   monitor_stop
 
   echo "------------------------------------------------------------------------"
-  echo "                            Cilium logs"
-  journalctl --no-pager --since "${LAST_LOG_DATE}" -u cilium
+  echo "                            Cilium logs (last 200 lines)"
+  journalctl --no-pager --since "${LAST_LOG_DATE}" -u cilium | tail -n 200
   echo ""
   echo "------------------------------------------------------------------------"
 

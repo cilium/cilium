@@ -16,14 +16,14 @@ function abort {
 
 	cilium_id=$(docker ps -aql --filter=name=cilium-agent)
 	echo "------------------------------------------------------------------------"
-	echo "                            Cilium logs"
-	docker logs ${cilium_id}
+	echo "                            Cilium logs (last 200 lines)"
+	docker logs ${cilium_id} --tail 200
 	echo ""
 	echo "------------------------------------------------------------------------"
 
     echo "------------------------------------------------------------------------"
-    echo "                            L7 Proxy logs"
-    cat /var/lib/cilium/proxy.log
+    echo "                            L7 Proxy logs (last 200 lines)"
+    tail -n 200 /var/lib/cilium/proxy.log
 	echo ""
 	echo "------------------------------------------------------------------------"
 
