@@ -1,0 +1,38 @@
+[{
+  "endpointSelector": {"matchLabels": {"app": "service"}},
+  "ingress": [{
+    "fromEndpoints": [
+      {"matchLabels": {"env": "prod"}}
+    ],
+    "toPorts": [{
+      "ports": [
+        {"port": "80", "protocol": "TCP"}
+      ],
+      "rules": {
+        "HTTP": [
+          {
+            "method": "GET",
+            "path": "/public"
+          }
+        ]
+      }
+    }]
+  }]
+},{
+  "endpointSelector": {"matchLabels": {"env": "prod"}},
+  "egress":[{
+    "toPorts": [{
+      "ports": [
+        { "port": "80", "protocol": "TCP"}
+      ],
+      "rules": {
+        "HTTP": [
+          {
+            "method": "POST",
+            "host": "^external-service.org$"
+          }
+        ]
+      }
+    }]
+  }]
+}]
