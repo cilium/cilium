@@ -32,8 +32,9 @@ struct proxy4_tbl_key {
 struct proxy4_tbl_value {
   __be32 orig_daddr;
   __u16 orig_dport;
-  __u16 lifetime;
+  __u16 pad;
   __u32 identity;
+  __u32 lifetime;
 } __attribute__((packed));
 
 struct proxy6_tbl_key {
@@ -47,8 +48,9 @@ struct proxy6_tbl_key {
 struct proxy6_tbl_value {
   __be32 orig_daddr[4];
   __u16 orig_dport;
-  __u16 lifetime;
+  __u16 pad;
   __u32 identity;
+  __u32 lifetime;
 } __attribute__((packed));
 
 ProxyMap::Proxy4Map::Proxy4Map()
