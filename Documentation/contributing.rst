@@ -293,6 +293,12 @@ Have a question about how the tests work or want to chat more about improving th
 Building Documentation
 ~~~~~~~~~~~~~~~~~~~~~~
 
+The documentation has several dependencies which can be installed using pip:
+
+::
+
+    $ pip install -r Documentation/requirements.txt
+
 Whenever making changes to Cilium documentation you should check that you did not introduce any new warnings or errors, and also check that your changes look as you intended.  To do this you can build the docs:
 
 ::
