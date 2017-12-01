@@ -28,7 +28,7 @@
 #include "l4.h"
 #include "nat46.h"
 
-#define CT_DEFAULT_LIFEIME	360
+#define CT_DEFAULT_LIFETIME	360
 #define CT_CLOSE_TIMEOUT	10
 
 enum {
@@ -61,7 +61,7 @@ static inline void __inline__ __ct_update_timeout(struct ct_entry *entry,
 
 static inline void __inline__ ct_update_timeout(struct ct_entry *entry)
 {
-	__ct_update_timeout(entry, CT_DEFAULT_LIFEIME);
+	__ct_update_timeout(entry, CT_DEFAULT_LIFETIME);
 }
 
 static inline void __inline__ ct_reset_closing(struct ct_entry *entry)
