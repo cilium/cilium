@@ -303,7 +303,6 @@ func UpdateNode(ni Identity, n *Node, routesTypes RouteType, ownAddr net.IP) {
 // DeleteNode remove the node from the nodes' maps and / or the L3 routes to
 // reach that node.
 func DeleteNode(ni Identity, routesTypes RouteType) {
-	var err1, err2 error
 	clusterConf.Lock()
 	if n, ok := clusterConf.nodes[ni]; ok {
 		if (routesTypes & TunnelRoute) != 0 {
@@ -313,30 +312,15 @@ func DeleteNode(ni Identity, routesTypes RouteType) {
 				logfields.V6Prefix: n.IPv6AllocCIDR,
 			}).Debug("bpf: Removing tunnel endpoint")
 
-			if n.IPv4AllocCIDR != nil {
-				err1 = tunnel.DeleteTunnelEndpoint(n.IPv4AllocCIDR.IP)
-				if err1 == nil {
-					n.IPv4AllocCIDR = nil
-				}
-			}
-
-			if n.IPv6AllocCIDR != nil {
-				err2 = tunnel.DeleteTunnelEndpoint(n.IPv6AllocCIDR.IP)
-				if err2 == nil {
-					n.IPv6AllocCIDR = nil
-				}
-			}
+			deleteNodeCIDR(n.IPv4AllocCIDR)
+			deleteNodeCIDR(n.IPv6AllocCIDR)
 		}
 		if (routesTypes & DirectRoute) != 0 {
 			deleteIPRoute(n)
 		}
-	}
-
-	if err1 == nil && err2 == nil {
 		delete(clusterConf.nodes, ni)
+		clusterConf.replaceHostRoutes()
 	}
-
-	clusterConf.replaceHostRoutes()
 	clusterConf.Unlock()
 }
 
