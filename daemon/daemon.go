@@ -322,6 +322,15 @@ func (d *Daemon) CleanCTEntries(e *endpoint.Endpoint, isCTLocal bool, ips []net.
 	endpointmanager.RmCTEntriesOf(!d.conf.IPv4Disabled, e, isCTLocal, ips, idsToRm)
 }
 
+// FlushCTEntries flushes the connection tracking of the given endpoint
+// where the given endpoint IPs' match the CT entry fields.
+// isCTLocal should bet set as true if the endpoint's CT table is either
+// local or not (if is not local then is assumed to be global).
+// Implementation of pkg/endpoint.Owner interface
+func (d *Daemon) FlushCTEntries(e *endpoint.Endpoint, isCTLocal bool, ips []net.IP, idsToKeep policy.RuleContexts) {
+	endpointmanager.FlushCTEntriesOf(!d.conf.IPv4Disabled, e, isCTLocal, ips, idsToKeep)
+}
+
 func (d *Daemon) writeNetdevHeader(dir string) error {
 
 	headerPath := filepath.Join(dir, common.NetdevHeaderFileName)

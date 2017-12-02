@@ -80,9 +80,15 @@ type Owner interface {
 
 	// CleanCTEntries cleans the connection tracking of the given endpoint
 	// where the given endpoint IPs' and the idsToRm match the CT entry fields.
-	// isCTLocal should bet set as true if the endpoint's CT table is either
+	// isCTLocal should be set as true if the endpoint's CT table is either
 	// local or not (if is not local then is assumed to be global).
 	CleanCTEntries(e *Endpoint, isCTLocal bool, ips []net.IP, idsToRm policy.RuleContexts)
+
+	// FlushCTEntries flushes the connection tracking of the given endpoint
+	// where the given endpoint IPs' and the idsToKeep don't match any of the CT entry fields.
+	// isCTLocal should be set as true if the endpoint's CT table is either
+	// local or not (if is not local then is assumed to be global).
+	FlushCTEntries(e *Endpoint, isCTLocal bool, ips []net.IP, idsToKeep policy.RuleContexts)
 }
 
 // Request is used to create the endpoint's request and send it to the endpoints
