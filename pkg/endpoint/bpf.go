@@ -380,6 +380,31 @@ func (ep *epInfoCache) GetBPFValue() (*lxcmap.EndpointInfo, error) {
 	return ep.value, nil
 }
 
+// updateCT update the CT by flushing it completely for the given endpoint or by removing the entries that have
+// the list of consumers to remove.
+func (e *Endpoint) updateCT(owner Owner, flushEndpointCT bool, consumersAdd, consumersToRm policy.RuleContexts) *sync.WaitGroup {
+	wg := &sync.WaitGroup{}
+
+	isLocal := e.Opts.IsEnabled(OptionConntrackLocal)
+	ip4 := e.IPv4.IP()
+	ip6 := e.IPv6.IP()
+
+	if flushEndpointCT {
+		wg.Add(1)
+		go func(wg *sync.WaitGroup) {
+			owner.FlushCTEntries(e, isLocal, []net.IP{ip4, ip6}, consumersAdd)
+			wg.Done()
+		}(wg)
+	} else if len(consumersToRm) != 0 {
+		wg.Add(1)
+		go func(wg *sync.WaitGroup) {
+			owner.CleanCTEntries(e, isLocal, []net.IP{ip4, ip6}, consumersToRm)
+			wg.Done()
+		}(wg)
+	}
+	return wg
+}
+
 // regenerateBPF rewrites all headers and updates all BPF maps to reflect the
 // specified endpoint.
 // Must be called with endpoint.Mutex not held and endpoint.BuildMutex held.
@@ -415,7 +440,7 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir, reason string) (uint64, err
 		// Regenerate policy and apply any options resulting in the
 		// policy change.
 		// Note that e.PolicyMap is not initialized!
-		if _, _, err = e.regeneratePolicy(owner, nil); err != nil {
+		if _, _, _, _, err = e.regeneratePolicy(owner, nil); err != nil {
 			e.Mutex.Unlock()
 			return 0, fmt.Errorf("Unable to regenerate policy: %s", err)
 		}
@@ -476,9 +501,6 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir, reason string) (uint64, err
 		}
 	}
 
-	wg := sync.WaitGroup{}
-	defer wg.Wait()
-
 	// Only generate & populate policy map if a seclabel and consumer model is set up
 	if c != nil {
 		c.AddMap(e.PolicyMap)
@@ -486,24 +508,19 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir, reason string) (uint64, err
 		// Regenerate policy and apply any options resulting in the
 		// policy change.
 		// This also populates e.PolicyMap
-		var consumersToRm policy.RuleContexts
-		_, consumersToRm, err = e.regeneratePolicy(owner, nil)
+		var (
+			consumersToRm, consumersAdd policy.RuleContexts
+			flushEndpointCT             bool
+		)
+		_, flushEndpointCT, consumersAdd, consumersToRm, err = e.regeneratePolicy(owner, nil)
 		if err != nil {
 			e.Mutex.Unlock()
 			err = fmt.Errorf("Unable to regenerate policy for '%s': %s",
 				e.PolicyMap.String(), err)
 			return 0, err
 		}
-		if len(consumersToRm) != 0 {
-			ip4 := e.IPv4.IP()
-			ip6 := e.IPv6.IP()
-			isLocal := e.Opts.IsEnabled(OptionConntrackLocal)
-			wg.Add(1)
-			go func(wg *sync.WaitGroup) {
-				owner.CleanCTEntries(e, isLocal, []net.IP{ip4, ip6}, consumersToRm)
-				wg.Done()
-			}(&wg)
-		}
+		wg := e.updateCT(owner, flushEndpointCT, consumersAdd, consumersToRm)
+		defer wg.Wait()
 	}
 
 	epInfoCache := e.createEpInfoCache()

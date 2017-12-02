@@ -149,3 +149,23 @@ func RmCTEntriesOf(ipv4Enabled bool, e *endpoint.Endpoint, isLocal bool, ips []n
 		}
 	}
 }
+
+// FlushCTEntriesOf cleans the connection tracking table of the given endpoint `e`.
+// It removes all CT entries that of the CT table local or global, defined by isLocal,
+// that contains:
+//  - all the IP addresses given in the ips slice AND
+//  - does not belong to the list of ids to keep
+func FlushCTEntriesOf(ipv4Enabled bool, e *endpoint.Endpoint, isLocal bool, ips []net.IP, idsToKeep policy.RuleContexts) {
+
+	gcFilter := ctmap.NewGCFilterBy(ctmap.GCFilterByIDsToKeep)
+	gcFilter.IDsToKeep = idsToKeep
+	for _, ip := range ips {
+		gcFilter.IP = ip
+
+		if ip.To4() == nil {
+			RunGC(e, isLocal, true, gcFilter)
+		} else if ipv4Enabled {
+			RunGC(e, isLocal, false, gcFilter)
+		}
+	}
+}

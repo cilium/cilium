@@ -52,6 +52,7 @@ type DaemonSuite struct {
 	OnAnnotateEndpoint                func(e *e.Endpoint, annotationKey, annotationValue string)
 	OnGetCompilationLock              func() *lock.RWMutex
 	OnCleanCTEntries                  func(e *e.Endpoint, isCTLocal bool, ips []net.IP, idsToRm policy.RuleContexts)
+	OnFlushCTEntries                  func(e *e.Endpoint, isCTLocal bool, ips []net.IP, idsToKeep policy.RuleContexts)
 }
 
 var _ = Suite(&DaemonSuite{})
@@ -182,10 +183,19 @@ func (ds *DaemonSuite) GetCompilationLock() *lock.RWMutex {
 	}
 	panic("GetCompilationLock should not have been called")
 }
+
 func (ds *DaemonSuite) CleanCTEntries(e *e.Endpoint, isCTLocal bool, ips []net.IP, idsToRm policy.RuleContexts) {
 	if ds.OnCleanCTEntries != nil {
 		ds.OnCleanCTEntries(e, isCTLocal, ips, idsToRm)
 		return
 	}
 	panic("CleanCTEntries should not have been called")
+}
+
+func (ds *DaemonSuite) FlushCTEntries(e *e.Endpoint, isCTLocal bool, ips []net.IP, idsToKeep policy.RuleContexts) {
+	if ds.OnFlushCTEntries != nil {
+		ds.OnFlushCTEntries(e, isCTLocal, ips, idsToKeep)
+		return
+	}
+	panic("FlushCTEntries should not have been called")
 }
