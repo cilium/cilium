@@ -1,8 +1,8 @@
 .. _metrics:
 
-######################
-Cilium Runtime Metrics
-######################
+###############
+Runtime Metrics
+###############
 
 cilium-agent can be configured to serve `Prometheus <https://prometheus.io>`_
 metrics. Prometheus is a pluggable metrics collection and storage system and
