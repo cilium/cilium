@@ -6,8 +6,10 @@ source "${dir}/helpers.bash"
 dir=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
 
 function check_no_sleep {
+  # Ignoring 21-ct-clean-up.sh because we need to use sleep inside the containers
   if grep -R "sleep" * | \
      grep -v "00-script-linter" | \
+     grep -v "21-ct-clean-up.sh" | \
      grep -v "helpers.bash" | \
      grep -v "cilium-files" | \
      grep -v ".diff" | \
