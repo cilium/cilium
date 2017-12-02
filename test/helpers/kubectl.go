@@ -564,18 +564,22 @@ type EndpointMap map[string]models.Endpoint
 
 // GetPolicyStatus returns a mapping of how many endpoints in epMap have policy
 // enforcement enabled and disabled.
+//
+// map can be index with the following keys:
+//	models.EndpointPolicyEnabledNone
+//	models.EndpointPolicyEnabledIngress
+//	models.EndpointPolicyEnabledEgress
+//	models.EndpointPolicyEnabledBoth
 func (epMap *EndpointMap) GetPolicyStatus() map[string]int {
 	result := map[string]int{
-		Enabled:  0,
-		Disabled: 0,
+		models.EndpointPolicyEnabledNone:    0,
+		models.EndpointPolicyEnabledIngress: 0,
+		models.EndpointPolicyEnabledEgress:  0,
+		models.EndpointPolicyEnabledBoth:    0,
 	}
 
 	for _, ep := range *epMap {
-		if *ep.PolicyEnabled == true {
-			result[Enabled]++
-		} else {
-			result[Disabled]++
-		}
+		result[*ep.PolicyEnabled]++
 	}
 	return result
 }

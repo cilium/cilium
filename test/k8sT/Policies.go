@@ -17,6 +17,7 @@ package k8sTest
 import (
 	"fmt"
 
+	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/test/helpers"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -129,8 +130,11 @@ var _ = Describe("K8sPolicyTest", func() {
 		Expect(err).Should(BeNil())
 		Expect(endpoints.AreReady()).Should(BeTrue())
 		policyStatus := endpoints.GetPolicyStatus()
-		Expect(policyStatus[helpers.Enabled]).Should(Equal(0))
-		Expect(policyStatus[helpers.Disabled]).Should(Equal(4))
+		// default mode with no policy, all endpoints must be in allow all
+		Expect(policyStatus[models.EndpointPolicyEnabledNone]).Should(Equal(4))
+		Expect(policyStatus[models.EndpointPolicyEnabledIngress]).Should(Equal(0))
+		Expect(policyStatus[models.EndpointPolicyEnabledEgress]).Should(Equal(0))
+		Expect(policyStatus[models.EndpointPolicyEnabledBoth]).Should(Equal(0))
 
 		By("Set PolicyEnforcement to always")
 
@@ -143,8 +147,11 @@ var _ = Describe("K8sPolicyTest", func() {
 		Expect(err).Should(BeNil())
 		Expect(endpoints.AreReady()).Should(BeTrue())
 		policyStatus = endpoints.GetPolicyStatus()
-		Expect(policyStatus[helpers.Enabled]).Should(Equal(4))
-		Expect(policyStatus[helpers.Disabled]).Should(Equal(0))
+		// Always-on mode with no policy, all endpoints must be in default deny
+		Expect(policyStatus[models.EndpointPolicyEnabledNone]).Should(Equal(0))
+		Expect(policyStatus[models.EndpointPolicyEnabledIngress]).Should(Equal(0))
+		Expect(policyStatus[models.EndpointPolicyEnabledEgress]).Should(Equal(0))
+		Expect(policyStatus[models.EndpointPolicyEnabledBoth]).Should(Equal(4))
 
 		By("Return PolicyEnforcement to default")
 
@@ -157,8 +164,11 @@ var _ = Describe("K8sPolicyTest", func() {
 		Expect(err).Should(BeNil())
 		Expect(endpoints.AreReady()).Should(BeTrue())
 		policyStatus = endpoints.GetPolicyStatus()
-		Expect(policyStatus[helpers.Enabled]).Should(Equal(0))
-		Expect(policyStatus[helpers.Disabled]).Should(Equal(4))
+		// Default mode with no policy, all endpoints must still be in default allow
+		Expect(policyStatus[models.EndpointPolicyEnabledNone]).Should(Equal(4))
+		Expect(policyStatus[models.EndpointPolicyEnabledIngress]).Should(Equal(0))
+		Expect(policyStatus[models.EndpointPolicyEnabledEgress]).Should(Equal(0))
+		Expect(policyStatus[models.EndpointPolicyEnabledBoth]).Should(Equal(0))
 	}, 500)
 
 	It("Policies", func() {
@@ -197,8 +207,11 @@ var _ = Describe("K8sPolicyTest", func() {
 
 		endpoints, err := kubectl.CiliumEndpointsListByLabel(ciliumPod, podFilter)
 		policyStatus := endpoints.GetPolicyStatus()
-		Expect(policyStatus[helpers.Enabled]).Should(Equal(2))
-		Expect(policyStatus[helpers.Disabled]).Should(Equal(2))
+		// only the two app1 replicas should be in default-deny at ingress
+		Expect(policyStatus[models.EndpointPolicyEnabledNone]).Should(Equal(2))
+		Expect(policyStatus[models.EndpointPolicyEnabledIngress]).Should(Equal(2))
+		Expect(policyStatus[models.EndpointPolicyEnabledEgress]).Should(Equal(0))
+		Expect(policyStatus[models.EndpointPolicyEnabledBoth]).Should(Equal(0))
 
 		trace := kubectl.CiliumExec(ciliumPod, fmt.Sprintf(
 			"cilium policy trace --src-k8s-pod default:%s --dst-k8s-pod default:%s --dport 80",
