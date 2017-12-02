@@ -42,7 +42,6 @@ type Monitor struct {
 
 // Run starts monitoring.
 func (m *Monitor) Run(npages int) {
-	log.Info("Starting monitoring traffic")
 	c := bpf.DefaultPerfEventConfig()
 	c.NumPages = npages
 

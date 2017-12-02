@@ -44,6 +44,7 @@ func main() {
 			scopedLog.WithError(err).Fatal("Cannot set default permissions on socket")
 		}
 	}
+	log.Infof("Serving cilium node monitor at unix://%s", defaults.MonitorSockPath)
 
 	m := Monitor{}
 	go m.handleConnection(server)
