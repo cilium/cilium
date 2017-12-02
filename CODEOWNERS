@@ -34,15 +34,15 @@ cilium/ @cilium/cli
 contrib/packaging/deb/ @eloycoto
 contrib/packaging/docker/ @aanm @ianvernon
 contrib/vagrant @cilium/vagrant
-daemon/bpf.sha @cilium/bpf
 daemon/ @cilium/agent
+daemon/bpf.sha @cilium/bpf
 daemon/endpoint.go @cilium/endpoint
 daemon/k8s_watcher.go @cilium/kubernetes
 daemon/loadbalancer.* @cilium/loadbalancer
 daemon/prefilter.go @cilium/bpf
 daemon/services.* @cilium/loadbalancer
-Documentation/bpf.rst @scanf @borkmann
 Documentation/ @cilium/docs
+Documentation/bpf.rst @scanf @borkmann
 Documentation/contributing.rst @cilium/contributing
 envoy/ @cilium/proxy
 examples/ @cilium/docs
@@ -62,18 +62,18 @@ pkg/envoy/ @cilium/proxy
 pkg/k8s/ @cilium/kubernetes
 pkg/kvstore/ @cilium/kvstore
 pkg/maps/ @cilium/bpf
-pkg/policy/api/ @cilium/api
 pkg/policy @cilium/policy
+pkg/policy/api/ @cilium/api
 pkg/policy/prefilter.go @cilium/bpf
-pkg/proxy/accesslog @cilium/api
 pkg/proxy/ @cilium/proxy
+pkg/proxy/accesslog @cilium/api
 pkg/proxy/oxyproxy.go @tgraf
 plugins/cilium-cni/ @cilium/kubernetes
 plugins/cilium-docker/ @cilium/docker
 README.md @cilium/docs
 test/ @cilium/ci
+test/Vagrantfile @cilium/vagrant
 tests/ @cilium/ci
 tests/k8s/Vagrantfile @cilium/vagrant
-test/Vagrantfile @cilium/vagrant
 Vagrantfile @cilium/vagrant
 vendor/ @cilium/vendor
