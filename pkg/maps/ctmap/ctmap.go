@@ -92,8 +92,10 @@ type CtEntryDump struct {
 const (
 	// GCFilterByTime filters CT entries by time
 	GCFilterByTime = 1 << iota
-	// GCFilterByID filters CT entries by IP and IDsToRem
+	// GCFilterByID filters CT entries by IP and IDsToRm
 	GCFilterByID
+	// GCFilterByIDsToKeep filters CT entries by IP and for all IDs that are not in the IDsToKeep
+	GCFilterByIDsToKeep
 )
 
 // GCFilterFlags is the type for the different filter flags
@@ -101,17 +103,19 @@ type GCFilterFlags uint
 
 // GCFilter contains the necessary fields to filter the CT maps.
 type GCFilter struct {
-	Time    uint32
-	IP      net.IP
-	IDsToRm policy.RuleContexts
-	fType   GCFilterFlags
+	Time      uint32
+	IP        net.IP
+	IDsToRm   policy.RuleContexts
+	IDsToKeep policy.RuleContexts
+	fType     GCFilterFlags
 }
 
 // NewGCFilterBy creates a new GCFilter with the given flags.
 func NewGCFilterBy(f GCFilterFlags) *GCFilter {
 	return &GCFilter{
-		fType:   f,
-		IDsToRm: policy.RuleContexts{},
+		fType:     f,
+		IDsToRm:   policy.RuleContexts{},
+		IDsToKeep: policy.RuleContexts{},
 	}
 }
 
@@ -122,6 +126,8 @@ func (f *GCFilter) TypeString() string {
 		return "timeout"
 	case GCFilterByID:
 		return "security ID"
+	case GCFilterByIDsToKeep:
+		return "security ID to keep"
 	default:
 		return "(unknown)"
 	}
@@ -250,6 +256,26 @@ func doGC6(m *bpf.Map, filter *GCFilter) int {
 			del = true
 		}
 
+		if filter.fType&GCFilterByIDsToKeep != 0 &&
+			// In CT's entries, saddr is the packet's receiver,
+			// which means, is the destination container IP.
+			nextKey.saddr.IP().Equal(filter.IP) {
+
+			ruleCtx := policy.RuleContext{
+				SecID:          policy.NumericIdentity(entry.src_sec_id),
+				Port:           nextKey.sport,
+				Proto:          uint8(nextKey.nexthdr),
+				L7RedirectPort: entry.proxy_port,
+				IsRedirect:     entry.proxy_port != 0,
+			}
+
+			// Check if the src_sec_id of that entry is not allowed
+			// to talk with the destination container IP.
+			if _, ok := filter.IDsToKeep[ruleCtx]; !ok {
+				del = true
+			}
+		}
+
 		if filter.fType&GCFilterByID != 0 &&
 			// In CT's entries, saddr is the packet's receiver,
 			// which means, is the destination container IP.
@@ -325,6 +351,26 @@ func doGC4(m *bpf.Map, filter *GCFilter) int {
 			entry.lifetime < filter.Time {
 
 			del = true
+		}
+
+		if filter.fType&GCFilterByIDsToKeep != 0 &&
+			// In CT's entries, saddr is the packet's receiver,
+			// which means, is the destination container IP.
+			nextKey.saddr.IP().Equal(filter.IP) {
+
+			ruleCtx := policy.RuleContext{
+				SecID:          policy.NumericIdentity(entry.src_sec_id),
+				Port:           nextKey.sport,
+				Proto:          uint8(nextKey.nexthdr),
+				L7RedirectPort: entry.proxy_port,
+				IsRedirect:     entry.proxy_port != 0,
+			}
+
+			// Check if the src_sec_id of that entry is not allowed
+			// to talk with the destination container IP.
+			if _, ok := filter.IDsToKeep[ruleCtx]; !ok {
+				del = true
+			}
 		}
 
 		if filter.fType&GCFilterByID != 0 &&

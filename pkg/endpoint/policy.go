@@ -16,10 +16,10 @@ package endpoint
 
 import (
 	"fmt"
-	"net"
 	"os"
 	"path/filepath"
 	"reflect"
+	"sync"
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/common"
@@ -31,7 +31,6 @@ import (
 	"github.com/cilium/cilium/pkg/policy/api"
 
 	"github.com/sirupsen/logrus"
-	"sync"
 )
 
 // optionEnabled  and optionDisabled are used
@@ -322,7 +321,7 @@ func (e *Endpoint) resolveL4Policy(owner Owner, repo *policy.Repository, c *poli
 
 // Must be called with global endpoint.Mutex held
 func (e *Endpoint) regenerateConsumable(owner Owner, labelsMap *LabelsMap,
-	repo *policy.Repository, c *policy.Consumable) (bool, policy.RuleContexts) {
+	repo *policy.Repository, c *policy.Consumable) (bool, policy.RuleContexts, policy.RuleContexts) {
 
 	var (
 		changed     = false
@@ -409,8 +408,11 @@ func (e *Endpoint) regenerateConsumable(owner Owner, labelsMap *LabelsMap,
 	e.getLogger().WithFields(logrus.Fields{
 		logfields.Identity: c.ID,
 		"consumers":        logfields.Repr(c.Consumers),
+		"l4Add":            l4Add,
+		"l4Rm":             l4Rm,
+		"rulesToDelete":    rulesToDelete,
 	}).Debug("New consumable with consumers")
-	return changed, rulesToDelete
+	return changed, l4Add, rulesToDelete
 }
 
 // Must be called with global repo.Mutrex, e.Mutex, and c.Mutex held
@@ -438,6 +440,12 @@ func (e *Endpoint) regenerateL3Policy(owner Owner, repo *policy.Repository, revi
 	return valid, err
 }
 
+// IngressOrEgressIsEnforced returns true if either ingress or egress is in
+// enforcement mode
+func (e *Endpoint) IngressOrEgressIsEnforced() bool {
+	return e.Opts.IsEnabled(OptionIngressPolicy) || e.Opts.IsEnabled(OptionEgressPolicy)
+}
+
 // regeneratePolicy regenerates endpoint's policy if needed and returns
 // whether the BPF for the given endpoint should be regenerated. Only
 // called when e.Consumable != nil.
@@ -461,8 +469,15 @@ func (e *Endpoint) regenerateL3Policy(owner Owner, repo *policy.Repository, revi
 // possible that policy update succeeds for some endpoints, while it
 // fails for other endpoints.
 //
+// Returns:
+//  - changed: true if the policy was changed for this endpoint;
+//  - flushEndpointCT: true if the CT should be flushed by keeping the returned
+//                     consumersAdd;
+//  - consumersAdd: map of rule contexts that were added to the L4 policy map;
+//  - consumersAdd: map of rule contexts that were removed to the L4 policy map;
+//  - err: error in case of an error.
 // Must be called with endpoint mutex held.
-func (e *Endpoint) regeneratePolicy(owner Owner, opts models.ConfigurationMap) (bool, policy.RuleContexts, error) {
+func (e *Endpoint) regeneratePolicy(owner Owner, opts models.ConfigurationMap) (bool, bool, policy.RuleContexts, policy.RuleContexts, error) {
 	// Dry mode does not regenerate policy via bpf regeneration, so we let it pass
 	// through. Some bpf/redirect updates are skipped in that case.
 	//
@@ -479,7 +494,7 @@ func (e *Endpoint) regeneratePolicy(owner Owner, opts models.ConfigurationMap) (
 			e.applyOptsLocked(opts)
 		}
 
-		return true, nil, nil
+		return true, false, nil, nil, nil
 	}
 
 	e.getLogger().Debug("Starting regenerate...")
@@ -491,7 +506,7 @@ func (e *Endpoint) regeneratePolicy(owner Owner, opts models.ConfigurationMap) (
 	labelsMap, err := getLabelsMap(owner)
 	if err != nil {
 		e.getLogger().WithError(err).Debug("Received error while evaluating policy")
-		return false, nil, err
+		return false, false, nil, nil, err
 	}
 	if reflect.DeepEqual(e.LabelsMap, labelsMap) {
 		labelsMap = e.LabelsMap
@@ -511,7 +526,7 @@ func (e *Endpoint) regeneratePolicy(owner Owner, opts models.ConfigurationMap) (
 			"policyRevision.repo": revision,
 		}).Debug("Skipping policy recalculation")
 		// This revision already computed, but may still need to be applied to BPF
-		return e.nextPolicyRevision > e.policyRevision, nil, nil
+		return e.nextPolicyRevision > e.policyRevision, false, nil, nil, nil
 	}
 
 	if opts == nil {
@@ -527,7 +542,7 @@ func (e *Endpoint) regeneratePolicy(owner Owner, opts models.ConfigurationMap) (
 	// Containers without a security label are not accessible
 	if c.ID == 0 {
 		e.getLogger().Warn("Endpoint lacks identity, skipping policy calculation")
-		return false, nil, nil
+		return false, false, nil, nil, nil
 	}
 
 	// Skip L4 policy recomputation for this consumable if already valid.
@@ -536,7 +551,7 @@ func (e *Endpoint) regeneratePolicy(owner Owner, opts models.ConfigurationMap) (
 	if c.Iteration != revision {
 		err = e.resolveL4Policy(owner, repo, c)
 		if err != nil {
-			return false, nil, err
+			return false, false, nil, nil, err
 		}
 		// Result is valid until cache iteration advances
 		c.Iteration = revision
@@ -546,7 +561,7 @@ func (e *Endpoint) regeneratePolicy(owner Owner, opts models.ConfigurationMap) (
 
 	var policyChanged bool
 	if policyChanged, err = e.regenerateL3Policy(owner, repo, revision, c); err != nil {
-		return false, nil, err
+		return false, false, nil, nil, err
 	}
 
 	// no failures after this point
@@ -560,6 +575,8 @@ func (e *Endpoint) regeneratePolicy(owner Owner, opts models.ConfigurationMap) (
 	}
 
 	ingress, egress := owner.EnableEndpointPolicyEnforcement(e)
+
+	wasPolicyEnforced := e.IngressOrEgressIsEnforced()
 
 	opts[OptionIngressPolicy] = optionDisabled
 	opts[OptionEgressPolicy] = optionDisabled
@@ -587,7 +604,11 @@ func (e *Endpoint) regeneratePolicy(owner Owner, opts models.ConfigurationMap) (
 
 	optsChanged := e.applyOptsLocked(opts)
 
-	policyChanged2, consumersToRm := e.regenerateConsumable(owner, labelsMap, repo, c)
+	// If the policy started to be enforced then we will clean up all CT
+	// entries for this endpoint
+	flushEndpointCT := !wasPolicyEnforced && e.IngressOrEgressIsEnforced()
+
+	policyChanged2, consumersAdd, consumersToRm := e.regenerateConsumable(owner, labelsMap, repo, c)
 	if policyChanged2 {
 		policyChanged = true
 	}
@@ -624,7 +645,7 @@ func (e *Endpoint) regeneratePolicy(owner Owner, opts models.ConfigurationMap) (
 	}).Debug("Done regenerating")
 
 	// Return true if need to regenerate BPF
-	return optsChanged || policyChanged || e.nextPolicyRevision > e.policyRevision, consumersToRm, nil
+	return optsChanged || policyChanged || e.nextPolicyRevision > e.policyRevision, flushEndpointCT, consumersAdd, consumersToRm, nil
 }
 
 // Called with e.Mutex UNlocked
@@ -774,20 +795,12 @@ func (e *Endpoint) TriggerPolicyUpdatesLocked(owner Owner, opts models.Configura
 		return false, ctCleaned, nil
 	}
 
-	changed, consumersToRm, err := e.regeneratePolicy(owner, opts)
+	changed, flushEndpointCT, consumersAdd, consumersToRm, err := e.regeneratePolicy(owner, opts)
 	if err != nil {
 		return false, ctCleaned, fmt.Errorf("%s: %s", e.StringID(), err)
 	}
-	if len(consumersToRm) != 0 {
-		ip4 := e.IPv4.IP()
-		ip6 := e.IPv6.IP()
-		isLocal := e.Opts.IsEnabled(OptionConntrackLocal)
-		ctCleaned.Add(1)
-		go func(wg *sync.WaitGroup) {
-			owner.CleanCTEntries(e, isLocal, []net.IP{ip4, ip6}, consumersToRm)
-			wg.Done()
-		}(ctCleaned)
-	}
+
+	ctCleaned = e.updateCT(owner, flushEndpointCT, consumersAdd, consumersToRm)
 
 	e.getLogger().Debugf("TriggerPolicyUpdatesLocked: changed: %d", changed)
 
