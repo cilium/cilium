@@ -18,7 +18,7 @@ metadata:
 spec:
   containers:
   - name: web
-    image: jojomi/lighttpd-static
+    image: cilium/connectivity-container:v1.0
     ports:
     - containerPort: 80
     volumeMounts:
