@@ -248,7 +248,7 @@ to be automatically mounted when the node boots.
 If you are using systemd to manage the kubelet, another option is to add a
 mountd systemd service on all hosts:
 
-Due to how systemd mounts `this SO article for example <https://unix.stackexchange.com/questions/283442/systemd-mount-fails-where-setting-doesnt-match-unit-name>`_  This string must be reflected in the unit filename.
+Due to how systemd mounts works, `this SO article for example <https://unix.stackexchange.com/questions/283442/systemd-mount-fails-where-setting-doesnt-match-unit-name>`_  Path to what unit mounts must be reflected in the unit filename.
 
 .. code:: bash
 
