@@ -1,0 +1,280 @@
+kind: ConfigMap
+apiVersion: v1
+metadata:
+  name: cilium-config
+  namespace: kube-system
+data:
+  # This etcd-config contains the etcd endpoints of your cluster. If you use
+  # TLS please make sure you uncomment the ca-file line and add the respective
+  # certificate has a k8s secret, see explanation bellow in the comment labeled
+  # "ETCD-CERT"
+  etcd-config: |-
+    ---
+    endpoints:
+    - http://127.0.0.1:2379
+    #
+    # In case you want to use TLS in etcd, uncomment the following line
+    # and add the certificate as explained in the comment labeled "ETCD-CERT"
+    #ca-file: '/var/lib/etcd-secrets/etcd-ca'
+    #
+    # In case you want client to server authentication, uncomment the following
+    # lines and add the certificate and key in cilium-etcd-secrets bellow
+    #key-file: '/var/lib/etcd-secrets/etcd-client-key'
+    #cert-file: '/var/lib/etcd-secrets/etcd-client-crt'
+
+  # If you want to run cilium in debug mode change this value to true
+  debug: "false"
+  disable-ipv4: "false"
+
+  # Allow prometheus to scrape on this addr:port. Not specifying an address
+  # will bind to all available interfaces inthe container.
+  prometheus-serve-addr: ":9090"
+---
+# The etcd secrets can be populated in kubernetes.
+# For more information see: https://kubernetes.io/docs/concepts/configuration/secret
+apiVersion: v1
+kind: Secret
+type: Opaque
+metadata:
+  name: cilium-etcd-secrets
+  namespace: kube-system
+data:
+  # ETCD-CERT: Each value should contain the whole certificate in base64, on a
+  # single line. You can generate the base64 with: $ base64 -w 0 ./ca.pem
+  # (the "-w 0" generates the output on a single line)
+  etcd-ca: ""
+  etcd-client-key: ""
+  etcd-client-crt: ""
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: cilium
+  namespace: kube-system
+---
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1beta1
+metadata:
+  name: cilium
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: cilium
+subjects:
+- kind: ServiceAccount
+  name: cilium
+  namespace: kube-system
+- kind: Group
+  name: system:nodes
+---
+apiVersion: extensions/v1beta1
+kind: DaemonSet
+metadata:
+  name: cilium
+  namespace: kube-system
+spec:
+  template:
+    metadata:
+      labels:
+        k8s-app: cilium
+        kubernetes.io/cluster-service: "true"
+      annotations:
+        # This annotation plus the CriticalAddonsOnly toleration makes
+        # cilium to be a critical pod in the cluster, which ensures cilium
+        # gets priority scheduling.
+        # https://kubernetes.io/docs/tasks/administer-cluster/guaranteed-scheduling-critical-addon-pods/
+        scheduler.alpha.kubernetes.io/critical-pod: ''
+        scheduler.alpha.kubernetes.io/tolerations: >-
+          [{"key":"dedicated","operator":"Equal","value":"master","effect":"NoSchedule"}]
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "9090"
+    spec:
+      serviceAccountName: cilium
+      containers:
+      - image: cilium/cilium:stable
+        imagePullPolicy: Always
+        name: cilium-agent
+        command: [ "cilium-agent" ]
+        args:
+          - "--debug=$(CILIUM_DEBUG)"
+          - "-t"
+          - "vxlan"
+          - "--kvstore"
+          - "etcd"
+          - "--kvstore-opt"
+          - "etcd.config=/var/lib/etcd-config/etcd.config"
+          - "--disable-ipv4=$(DISABLE_IPV4)"
+        ports:
+          - name: prometheus
+            containerPort: 9090
+        lifecycle:
+          postStart:
+            exec:
+              command:
+                - "/cni-install.sh"
+          preStop:
+            exec:
+              command:
+                - "/cni-uninstall.sh"
+        env:
+          - name: "K8S_NODE_NAME"
+            valueFrom:
+              fieldRef:
+                fieldPath: spec.nodeName
+          - name: "CILIUM_DEBUG"
+            valueFrom:
+              configMapKeyRef:
+                name: cilium-config
+                key: debug
+          - name: "DISABLE_IPV4"
+            valueFrom:
+              configMapKeyRef:
+                name: cilium-config
+                key: disable-ipv4
+          - name: "PROMETHEUS_SERVE_ADDR"
+            valueFrom:
+              configMapKeyRef:
+                name: cilium-config
+                key: prometheus-serve-addr
+        livenessProbe:
+          exec:
+            command:
+            - cilium
+            - status
+          initialDelaySeconds: 180
+          failureThreshold: 10
+          periodSeconds: 10
+        readinessProbe:
+          exec:
+            command:
+            - cilium
+            - status
+          initialDelaySeconds: 180
+          periodSeconds: 15
+        volumeMounts:
+          - name: bpf-maps
+            mountPath: /sys/fs/bpf
+          - name: cilium-run
+            mountPath: /var/run/cilium
+          - name: cni-path
+            mountPath: /host/opt/cni/bin
+          - name: etc-cni-netd
+            mountPath: /host/etc/cni/net.d
+          - name: docker-socket
+            mountPath: /var/run/docker.sock
+            readOnly: true
+          - name: etcd-config-path
+            mountPath: /var/lib/etcd-config
+            readOnly: true
+          - name: etcd-secrets
+            mountPath: /var/lib/etcd-secrets
+            readOnly: true
+        securityContext:
+          capabilities:
+            add:
+              - "NET_ADMIN"
+          privileged: true
+      hostNetwork: true
+      volumes:
+          # To keep state between restarts / upgrades
+        - name: cilium-run
+          hostPath:
+            path: /var/run/cilium
+          # To keep state between restarts / upgrades
+        - name: bpf-maps
+          hostPath:
+            path: /sys/fs/bpf
+          # To read docker events from the node
+        - name: docker-socket
+          hostPath:
+            path: /var/run/docker.sock
+          # To install cilium cni plugin in the host
+        - name: cni-path
+          hostPath:
+            path: /opt/cni/bin
+          # To install cilium cni configuration in the host
+        - name: etc-cni-netd
+          hostPath:
+              path: /etc/cni/net.d
+          # To read the etcd config stored in config maps
+        - name: etcd-config-path
+          configMap:
+            name: cilium-config
+            items:
+            - key: etcd-config
+              path: etcd.config
+          # To read the k8s etcd secrets in case the user might want to use TLS
+        - name: etcd-secrets
+          secret:
+            secretName: cilium-etcd-secrets
+      tolerations:
+      - effect: NoSchedule
+        key: node-role.kubernetes.io/master
+      - effect: NoSchedule
+        key: node.cloudprovider.kubernetes.io/uninitialized
+        value: "true"
+      # Mark cilium's pod as critical for rescheduling
+      - key: CriticalAddonsOnly
+        operator: "Exists"
+---
+kind: ClusterRole
+apiVersion: rbac.authorization.k8s.io/v1beta1
+metadata:
+  name: cilium
+rules:
+- apiGroups:
+  - "networking.k8s.io"
+  resources:
+  - networkpolicies
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - namespaces
+  - services
+  - nodes
+  - endpoints
+  - componentstatuses
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - pods
+  - nodes
+  verbs:
+  - get
+  - list
+  - watch
+  - update
+- apiGroups:
+  - extensions
+  resources:
+  - networkpolicies #FIXME remove this when we drop support for k8s NP-beta GH-1202
+  - thirdpartyresources
+  - ingresses
+  verbs:
+  - create
+  - get
+  - list
+  - watch
+- apiGroups:
+  - "apiextensions.k8s.io"
+  resources:
+  - customresourcedefinitions
+  verbs:
+  - create
+  - get
+  - list
+  - watch
+- apiGroups:
+  - cilium.io
+  resources:
+  - ciliumnetworkpolicies
+  verbs:
+  - "*"
