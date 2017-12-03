@@ -61,12 +61,14 @@ author = u'Cilium Authors'
 # built documents.
 #
 # The short X.Y version.
-release = re.sub('^v', '', os.popen('git describe --tags').read().strip())
-# The full version, including alpha/beta/rc tags.
-version = release
+release = open("../VERSION", "r").read().strip()
 
-# The current branch
-branch = os.popen('git rev-parse --abbrev-ref HEAD').read().strip()
+# Asume the current branch is master but check with VERSION file.
+branch = "master"
+if not release.endswith(".90"):
+    semver = release.split(".")
+    branch = "v{}.{}".format(semver[0], semver[1])
+
 githubusercontent = 'https://raw.githubusercontent.com/cilium/cilium/'
 scm_web = githubusercontent + branch
 
