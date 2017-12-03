@@ -1,0 +1,6 @@
+[{
+    "endpointSelector": {"matchLabels": {"role":"public"}},
+    "ingress": [{
+        "fromEntities": ["world"]
+    }]
+}]

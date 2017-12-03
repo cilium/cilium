@@ -33,7 +33,7 @@ contribute to Cilium:
 +----------------------------------------------------------------------------------+-----------------------+------------------------------------------------------------+
 | `go-swagger <https://github.com/go-swagger/go-swagger/tree/master/cmd/swagger>`_ | 0.12.0                | ``go get -u github.com/go-swagger/go-swagger/cmd/swagger`` |
 +----------------------------------------------------------------------------------+-----------------------+------------------------------------------------------------+
-| `go-bindata <https://github.com/jteeuwen/go-bindata>`_                           | `a0ff2567cfb`         | ``go get -u github.com/jteeuwen/go-bindata/...``           |
+| `go-bindata <https://github.com/jteeuwen/go-bindata>`_                           | ``a0ff2567cfb``       | ``go get -u github.com/jteeuwen/go-bindata/...``           |
 +----------------------------------------------------------------------------------+-----------------------+------------------------------------------------------------+
 
 To run Cilium locally on VMs, you need:
@@ -52,18 +52,18 @@ Finally, in order to build the documentation, you should have Sphinx installed:
 
     $ sudo pip install sphinx
   
-You should start with the :ref:`gs_guide`, which walks you through the
-set-up, such as installing Vagrant, getting the Cilium sources, and
-going through some Cilium basics.
+You should start with the `gs_guide`, which walks you through the set-up, such
+as installing Vagrant, getting the Cilium sources, and going through some
+Cilium basics.
 
   
 Vagrant Setup
 ~~~~~~~~~~~~~
 
-While the :ref:`gs_guide` uses a Vagrantfile tuned for the basic
-walk through, the setup for the Vagrantfile in the root of the Cilium
-tree depends on a number of environment variables and network setup
-that are managed via ``contrib/vagrant/start.sh``.
+While the `gs_guide` uses a Vagrantfile tuned for the basic walk through, the
+setup for the Vagrantfile in the root of the Cilium tree depends on a number of
+environment variables and network setup that are managed via
+``contrib/vagrant/start.sh``.
 
 Using the provided Vagrantfile
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -439,23 +439,23 @@ Release Process
 ---------------
 
 Cilium schedules a major release every 3 months. Each major release is
-performed by incrementing the `Y` in the version format `X.Y.0`. The group of
-committers can decide to increment `X` instead to mark major milestones in
-which case `Y` is reset to 0.
+performed by incrementing the ``Y`` in the version format ``X.Y.0``. The group
+of committers can decide to increment ``X`` instead to mark major milestones in
+which case ``Y`` is reset to 0.
 
 The following steps are performed to publish a release:
 
-1. The master branch is set to the version `X.Y.90` at all times. This ensures
+1. The master branch is set to the version ``X.Y.90`` at all times. This ensures
    that a development snapshot is considered more recent than a stable release
    at all times.
 2. The committers can agree on a series of release candidates which will be
-   tagged `vX.Y-rcN` in the master branch.
+   tagged ``vX.Y-rcN`` in the master branch.
 3. The committers declare the master branch ready for the release and fork the
-   master branch into a release branch `vX.Y+1.0`.
+   master branch into a release branch ``vX.Y+1.0``.
 4. The first commit in the release branch is to change the version to
-   `X.Y+1.0`.
+   ``X.Y+1.0``.
 5. The next commit goes into the master branch and sets the version to
-   `X.Y+1.90` to ensure that the master branch will be considered more recent
+   ``X.Y+1.90`` to ensure that the master branch will be considered more recent
    than any stable release of the major release that is about to be published.
 
 Stable releases
@@ -463,7 +463,7 @@ Stable releases
 
 The committers can nominate commits pushed to the master as stable release
 candidates in which case they will be backported to previous release branches.
-Upon necessity, stable releases are published with the version `X.Y.Z+1`.
+Upon necessity, stable releases are published with the version ``X.Y.Z+1``.
 
 Criteria for the inclusion into stable release branches are:
 

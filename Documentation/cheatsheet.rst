@@ -1,6 +1,6 @@
-##########
-Cheatsheet
-##########
+******************
+Command Cheatsheet
+******************
 
 Below is a short list of examples of the various commands Cilium has to offer.
 If a command you use is missing please don’t hesitate to add it to one of the

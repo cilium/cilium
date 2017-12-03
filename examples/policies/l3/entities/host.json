@@ -1,0 +1,6 @@
+[{
+    "endpointSelector": {"matchLabels": {"env":"dev"}},
+    "egress": [{
+        "toEntities": ["host"]
+    }]
+}]

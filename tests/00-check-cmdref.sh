@@ -15,7 +15,7 @@ TMP_DIR=`mktemp -d`
 
 make CMDREFDIR=${TMP_DIR} -C ${DOCS_DIR} cmdref
 
-if ! diff -r ${OLD_DIR} ${TMP_DIR}; then
+if ! diff -x '*.rst' -r ${OLD_DIR} ${TMP_DIR}; then
   # echo is used here intentional to avoid the splat when running from top
   # level directory.
   echo "Detected a difference in the cmdref directory"

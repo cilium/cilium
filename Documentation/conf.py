@@ -174,3 +174,6 @@ texinfo_documents = [
 ]
 
 http_strict_mode = False
+
+# Try as hard as possible to find references
+default_role = 'any'

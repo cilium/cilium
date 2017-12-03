@@ -13,7 +13,7 @@ A new Linux kernel technology called BPF is at the foundation of Cilium. It
 supports dynamic insertion of BPF bytecode into the Linux kernel at various
 integration points such as: network IO, application sockets, and traceptions to
 implement security, networking and visibility logic. BPF is highly efficient
-and flexible. To learn more about BPF, read mode in our our extensive
+and flexible. To learn more about BPF, read more in our our extensive
 `BPF and XDP Reference Guide`_.
 
 .. image:: https://cdn.rawgit.com/cilium/cilium/master/Documentation/images/cilium-arch.png
@@ -98,9 +98,6 @@ The following multi node networking models are supported:
   - In conjunction with cloud network routers
   - If you are already running routing daemons
 
-Additional transport mechanisms will be supported in the future, see the
-[roadmap][roadmap].
-
 Load balancing
 --------------
 
@@ -126,7 +123,7 @@ tooling to provide:
 
 - Policy decision tracing: Why is a packet being dropped or a request rejected.
   The policy tracing framework allows to trace the policy decision process for
-  both, running workloads and based on artbirary label definitions.
+  both, running workloads and based on arbitrary label definitions.
 
 - Metrics export via Prometheus: Key metrics are exported via Prometheus for
   integration with your existing dashboards.
@@ -147,6 +144,7 @@ Integrations
 .. _NetworkPolicy: https://kubernetes.io/docs/concepts/services-networking/network-policies/
 .. _Labels: https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/
 .. _fluentd: http://www.fluentd.org/
+.. _`Layer 7 Policy`: http://docs.cilium.io/en/latest/policy/#layer-7
 
 .. end-functionality-overview
 
@@ -180,7 +178,7 @@ BPF continues to evolve and gain additional capabilities with each new Linux
 release. Cilium leverages BPF to perform core data path filtering, mangling,
 monitoring and redirection, and requires BPF capabilities that are in any Linux
 kernel version 4.8.0 or newer (the latest current stable Linux kernel is
-4.10.x).
+4.14.x).
 
 Many Linux distributions including CoreOS, Debian, Docker's LinuxKit, Fedora,
 and Ubuntu already ship kernel versions >= 4.8.x. You can check your Linux
@@ -274,7 +272,6 @@ under the `General Public License, Version 2.0 <bpf/COPYING>`_.
 .. _Contributing: http://docs.cilium.io/en/latest/contributing
 .. _Prerequisites: http://docs.cilium.io/en/stable/install/#system-requirements
 .. _`BPF and XDP Reference Guide`: http://docs.cilium.io/en/latest/bpf/
-.. _`Layer 7 Policy`: http://docs.cilium.io/en/latest/policy/#layer-7
 
 .. |logo| image:: https://cdn.rawgit.com/cilium/cilium/master/Documentation/images/logo.svg
     :alt: Cilium Logo

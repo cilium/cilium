@@ -1,0 +1,8 @@
+[{
+    "endpointSelector": {"matchLabels": {"env":"prod"}},
+    "ingress": [{
+        "fromRequires": [
+          {"matchLabels":{"env":"prod"}}
+        ]
+    }]
+}]
