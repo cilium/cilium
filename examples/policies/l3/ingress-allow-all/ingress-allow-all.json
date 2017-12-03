@@ -1,0 +1,8 @@
+[{
+    "endpointSelector": {"matchLabels": {"role":"victim"}},
+    "ingress": [{
+        "fromEndpoints": [
+          {"matchLabels":{}}
+        ]
+    }]
+}]

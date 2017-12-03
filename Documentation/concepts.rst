@@ -8,11 +8,11 @@ The goal of this document is to describe the components of the Cilium
 architecture, and the different models for deploying Cilium within your
 datacenter or cloud environment.  It focuses on the higher-level understanding
 required to run a full Cilium deployment.  You can then use the more detailed
-:ref:`install_guide` to understand the details of setting up Cilium.
+`install_guide` to understand the details of setting up Cilium.
 
-*****************
-Cilium Components
-*****************
+******************
+Component Overview
+******************
 
 .. image:: images/cilium-arch.png
     :width: 600px
@@ -70,7 +70,7 @@ access in / out of those containers.  In more detail, the agent:
 
 * Gathers metadata about each new container that is created.  In particular, it
   queries identity metadata like container / pod labels, which are used to
-  identify endpoints in Cilium security policies.
+  identify `endpoints` in Cilium security policies.
 
 * Interacts with the container platforms network plugin to perform IP address
   management (IPAM), which controls what IPv4 and IPv6 addresses are assigned
@@ -150,7 +150,7 @@ If Cilium loses connectivity with the KV-Store, it guarantees that:
 
 * Normal networking operations will continue;
 
-* If policy enforcement is enabled, the existing endpoints will still have
+* If policy enforcement is enabled, the existing `endpoints` will still have
   their policy enforced but you will lose the ability to add additional
   containers that belong to security identities which are unknown on the node;
 
@@ -173,26 +173,30 @@ guaranteed:
 * When running Cilium on a different way, just make sure the bpf fs is mounted
   :ref:`admin_mount_bpffs`.
 
+***********
+Terminology
+***********
 
+
+.. _label:
 .. _labels:
 
-******
 Labels
-******
+======
 
 Labels are a generic, flexible and highly scaleable way of addressing a large
 set of resources as they allow for arbitrary grouping and creation of sets.
 Whenever something needs to be described, addressed or selected this is done
 based on labels:
 
-- Endpoints are assigned labels as derived from container runtime or the
-  orchestration system.
-- Network policies select endpoints based on labels and allow consumers based
-  on labels.
-- Network policies themselves are described and addressed by labels.
+- `Endpoints` are assigned labels as derived from container runtime, the
+  orchestration system, or other sources.
+- `Network policies` select pairs of `endpoints` which are allowed to
+  communicate based on labels. The policies themselves are identified by labels
+  as well.
 
-Basic Label: Key/Value Pair
-===========================
+What is a Label?
+----------------
 
 A label is a pair of strings consisting of a ``key`` and ``value``. A label can
 be formatted as a single string with the format ``key=value``. The key portion
@@ -208,13 +212,13 @@ e.g. when a policy should be applied to all endpoints with the label
 selector.
 
 Label Source
-============
+------------
 
-A label can be derived from various sources. For example, a Cilium endpoint
-will derive the labels associated to the container by the local container
-runtime as well as the labels associated with the pod as provided by
-Kubernetes. As these two label namespaces are not aware of each other, this may
-result in conflicting label keys.
+A label can be derived from various sources. For example, an `endpoint` will
+derive the labels associated to the container by the local container runtime as
+well as the labels associated with the pod as provided by Kubernetes. As these
+two label namespaces are not aware of each other, this may result in
+conflicting label keys.
 
 To resolve this potential conflict, Cilium prefixes all label keys with
 ``source:`` to indicate the source of the label when importing labels, e.g.
@@ -238,40 +242,44 @@ label source defaults to ``any:`` which will match all labels regardless of
 their source. If a source is provided, the source of the selecting and matching
 labels need to match.
 
-*********
+.. _endpoint:
+.. _endpoints:
+
 Endpoints
-*********
+=========
 
 Cilium makes application containers available on the network by assigning them
 IP addresses. Multiple application containers can share the same IP address; a
-typical example for this model is a Kubernetes Pod_. All application containers
+typical example for this model is a Kubernetes `Pod`. All application containers
 which share a common address are grouped together in what Cilium refers to as
-an *endpoint*.
+an endpoint.
 
 Allocating individual IP addresses enables the use of the entire Layer 4 port
-range by each *endpoint*. This essentially allows multiple application
-containers running on the same cluster node to all bind to well known ports such
-`80` without causing any conflicts.
+range by each endpoint. This essentially allows multiple application containers
+running on the same cluster node to all bind to well known ports such ``80``
+without causing any conflicts.
 
 The default behaviour of Cilium is to assign both an IPv6 and IPv4 address to
-every *endpoint*. However, this behaviour can be configured to only allocate an
+every endpoint. However, this behaviour can be configured to only allocate an
 IPv6 address with the ``--disable-ipv4`` option. If both an IPv6 and IPv4
 address are assigned, either address can be used to reach the endpoint. The
 same behaviour will apply with regard to policy rules, load-balancing, etc. See
-`address management`_ for more details.
+:ref:`address_management` for more details.
 
 Identification
-==============
+--------------
 
-For identification purposes, Cilium assigns an *endpoint id* to all endpoints on
-a cluster node. The *endpoint id* is unique within the context of an individual
-cluster node.
+For identification purposes, Cilium assigns an internal endpoint id to all
+endpoints on a cluster node. The endpoint id is unique within the context of
+an individual cluster node.
 
-Endpoint Metadata (Labels)
-==========================
+.. _endpoint id:
 
-An *endpoint* automatically derives metadata from the application containers
-associated with the *endpoint*. The metadata can then be used to identify the
+Endpoint Metadata
+-----------------
+
+An endpoint automatically derives metadata from the application containers
+associated with the endpoint. The metadata can then be used to identify the
 endpoint for security/policy, load-balancing and routing purposes.
 
 The source of the metadata will depend on the orchestration system and
@@ -288,10 +296,10 @@ currently supported:
 | containerd (Docker) | Container labels (via Docker API)                 |
 +---------------------+---------------------------------------------------+
 
-Metadata is attached to *endpoints* in the form of Labels_.
+Metadata is attached to endpoints in the form of `labels`.
 
 The following example launches a container with the label ``app=benchmark``
-which is then associated with the *endpoint*. The label is prefixed with
+which is then associated with the endpoint. The label is prefixed with
 ``container:`` to indicate that the label was derived from the container
 runtime.
 
@@ -307,12 +315,92 @@ runtime.
 
 An endpoint can have metadata associated from multiple sources. A typical
 example is a Kubernetes cluster which uses containerd as the container runtime.
-Endpoints will derive Kubernetes pod labels (prefixed with the `k8s:` source
-prefix) and containerd labels (prefixed with `container:` source prefix).
+Endpoints will derive Kubernetes pod labels (prefixed with the ``k8s:`` source
+prefix) and containerd labels (prefixed with ``container:`` source prefix).
 
-************
-Cluster Node
-************
+.. _identity:
+
+Identity
+========
+
+All `endpoints` are assigned an identity. The identity is what is used to enforce
+basic connectivity between endpoints. In traditional networking terminology,
+this would be equivalent to Layer 3 enforcement.
+
+An identity is identified by `labels` and is given a cluster wide unique
+identifier. The endpoint is assigned the identity which matches the endpoint's
+`security relevant labels`, i.e. all endpoints which share the same set of
+`security relevant labels` will share the same identity. This concept allows to
+scale policy enforcement to massive number of endpoints as many individual
+endpoints will typically share the same set of security `labels` as applications
+are scaled.
+
+What is an Identity?
+--------------------
+
+The identity of an endpoint is derived based on the `labels` associated with
+the pod or container which are derived to the `endpoint`. When a pod or
+container is started, Cilium will create an `endpoint` based on the event
+received by the container runtime to represent the pod or container on the
+network. As a next step, Cilium will resolve the identity of the `endpoint`
+created. Whenever the `labels` of the pod or container change, the identity is
+reconfirmed and automatically modified as required.
+
+.. _security relevant labels:
+
+Security Relevant Labels
+------------------------
+
+Not all `labels` associated with a container or pod are meaningful when
+deriving the `identity`. Labels may be used to store metadata such as the
+timestamp when a container was launched. Cilium requires to know which labels
+are meaningful and are subject to being considered when deriving the identity.
+For this purpose, the user is required to specify a list of string prefixes of
+meaningful labels. The standard behavior is to include all labels which start
+with the prefix ``id.``, e.g.  ``id.service1``, ``id.service2``,
+``id.groupA.service44``. The list of meaningful label prefixes can be specified
+when starting the agent.
+
+.. _reserved_labels:
+
+Special Identities
+------------------
+
+All endpoints which are managed by Cilium will be assigned an identity. In
+order to allow communication to network endpoints which are not managed by
+Cilium, special identities exist to represent those. Special reserved
+identities are prefixed with the string ``reserved:``.
+
++---------------------+---------------------------------------------------+
+| Identity            | Description                                       |
++=====================+===================================================+
+| reserved:host       | The host network namespace on which the pod or    |
+|                     | container is running.                             |
++---------------------+---------------------------------------------------+
+| reserved:world      | Any network endpoint outside of the cluster       |
++---------------------+---------------------------------------------------+
+
+Identity Management in the Cluster
+----------------------------------
+
+Identities are valid in the entire cluster which means that if several pods or
+containers are started on several cluster nodes, all of them will resolve and
+share a single identity if they share the identity relevant labels. This
+requires coordination between cluster nodes.
+
+.. image:: images/identity_store.png
+    :align: center
+
+The operation to resolve an endpoint identity is performed with the help of the
+distributed key-value store which allows to perform atomic operations in the
+form *generate a new unique identifier if the following value has not been seen
+before*. This allows each cluster node to create the identity relevant subset
+of labels and then query the key-value store to derive the identity. Depending
+on whether the set of labels has been queried before, either a new identity
+will be created, or the identity of the initial query will be returned.
+
+Node
+====
 
 Cilium refers to a node as an individual member of a cluster. Each node must be
 running the ``cilium-agent`` and will operate in a mostly autonomous manner.
@@ -321,7 +409,7 @@ kept to a minimum for simplicity and scale. It occurs exclusively via the
 Key-Value store or with packet metadata.
 
 Node Address
-============
+------------
 
 Cilium will automatically detect the node's IPv4 and IPv6 address. The detected
 node address is printed out when the ``cilium-agent`` starts:
@@ -332,6 +420,8 @@ node address is printed out when the ``cilium-agent`` starts:
     Node-IPv6: f00d::ac10:14:0:1
     External-Node IPv4: 172.16.0.20
     Internal-Node IPv4: 10.200.28.238
+
+.. _address_management:
 
 ******************
 Address Management
@@ -386,6 +476,7 @@ specified manually with the option ``--ipv4-range`` respectively
 ``--ipv6-range``.
 
 .. _arch_ip_connectivity:
+.. _multi host networking:
 
 *********************
 Multi Host Networking
@@ -425,7 +516,7 @@ Overlay Network Mode
 When no configuration is provided, Cilium automatically runs in this mode.
 
 In this mode, all cluster nodes form a mesh of tunnels using the UDP based
-encapsulation protocols VXLAN_ or Geneve_. All container-to-container network
+encapsulation protocols `VXLAN` or `Geneve`. All container-to-container network
 traffic is routed through these tunnels. This mode has several major
 advantages:
 
@@ -438,7 +529,7 @@ advantages:
   such as Kubernetes, the list of all nodes in the cluster including their
   associated allocation prefix node is made available to each agent
   automatically. This means that if Kubernetes is being run with the
-  `--allocate-node-cidrs` option, Cilium can form an overlay network
+  ``--allocate-node-cidrs`` option, Cilium can form an overlay network
   automatically without any configuration by the user. New nodes joining the
   cluster will automatically be incorporated into the mesh.
 
@@ -554,26 +645,26 @@ Cilium provides security on multiple levels. Each can be used individually or
 combined together.
 
 * :ref:`arch_id_security`: Connectivity policies between endpoints (Layer 3),
-  e.g. any endpoint with label `role=frontend` can connect to any endpoint with
-  label `role=backend`.
+  e.g. any endpoint with label ``role=frontend`` can connect to any endpoint with
+  label ``role=backend``.
 * Restriction of accessible ports (Layer 4) for both incoming and outgoing
-  connections, e.g. endpoint with label `role=frontend` can only make outgoing
-  connections on port 443 (https) and endpoint `role=backend` can only accept
+  connections, e.g. endpoint with label ``role=frontend`` can only make outgoing
+  connections on port 443 (https) and endpoint ``role=backend`` can only accept
   connections on port 443 (https).
 * Fine grained access control on application protocol level to secure HTTP and
   remote procedure call (RPC) protocols, e.g the endpoint with label
-  `role=frontend` can only perform the REST API call `GET /userdata/[0-9]+`,
-  all other API interactions with `role=backend` are restricted.
+  ``role=frontend`` can only perform the REST API call ``GET /userdata/[0-9]+``,
+  all other API interactions with ``role=backend`` are restricted.
 
 Currently on the roadmap, to be added soon:
 
 * Authentication: Any endpoint which wants to initiate a connection to an
-  endpoint with the label `role=backend` must have a particular security
+  endpoint with the label ``role=backend`` must have a particular security
   certificate to authenticate itself before being able to initiate any
   connections. See `GH issue 502
   <https://github.com/cilium/cilium/issues/502>`_ for additional details.
-* Encryption: Communication between any endpoint with the label `role=frontend`
-  to any endpoint with the label `role=backend` is automatically encrypted with
+* Encryption: Communication between any endpoint with the label ``role=frontend``
+  to any endpoint with the label ``role=backend`` is automatically encrypted with
   a key that is automatically rotated. See `GH issue 504
   <https://github.com/cilium/cilium/issues/504>`_ to track progress on this
   feature.
@@ -593,35 +684,35 @@ manage a large number of IP addresses.
 
 Traditionally security enforcement architectures have been based on IP address
 filters.  Let's walk through a simple example: If all pods with the label
-`role=frontend` should be allowed to initiate connections to all pods with the
-label `role=backend` then each cluster node which runs at least one pod with
-the label `role=backend` must have a corresponding filter installed which
-allows all IP addresses of all `role=frontend` pods to initiate a connection to
-the IP addresses of all local `role=backend` pods. All other connection
-requests should be denied. This could look like this: If the destination
-address is *10.1.1.2* then allow the connection only if the source address is
-one of the following *[10.1.2.2,10.1.2.3,20.4.9.1]*.
+```role=frontend``` should be allowed to initiate connections to all pods with
+the label ```role=backend``` then each cluster node which runs at least one pod
+with the label ```role=backend``` must have a corresponding filter installed
+which allows all IP addresses of all ```role=frontend``` pods to initiate a
+connection to the IP addresses of all local ```role=backend``` pods. All other
+connection requests should be denied. This could look like this: If the
+destination address is *10.1.1.2* then allow the connection only if the source
+address is one of the following *[10.1.2.2,10.1.2.3,20.4.9.1]*.
 
-Every time a new pod with the label `role=frontend` or `role=backend` is either
-started or stopped, the rules on every cluster node which run any such pods
-must be updated by either adding or removing the corresponding IP address from
-the list of allowed IP addresses. In large distributed applications, this could
-imply updating thousands of cluster nodes multiple times per second depending
-on the churn rate of deployed pods. Worse, the starting of new `role=frontend`
-pods must be delayed until all servers running `role=backend` pods have been
-updated with the new security rules as otherwise connection attempts from the
-new pod could be mistakenly dropped. This makes it difficult to scale
-efficiently. 
+Every time a new pod with the label ```role=frontend``` or ``role=backend`` is
+either started or stopped, the rules on every cluster node which run any such
+pods must be updated by either adding or removing the corresponding IP address
+from the list of allowed IP addresses. In large distributed applications, this
+could imply updating thousands of cluster nodes multiple times per second
+depending on the churn rate of deployed pods. Worse, the starting of new
+``role=frontend`` pods must be delayed until all servers running
+``role=backend`` pods have been updated with the new security rules as
+otherwise connection attempts from the new pod could be mistakenly dropped.
+This makes it difficult to scale efficiently. 
 
 In order to avoid these complications which can limit scalability and
 flexibility, Cilium entirely separates security from network addressing.
 Instead, security is based on the identity of a pod, which is derived through
 labels.  This identity can be shared between pods. This means that when the
-first `role=frontend` pod is started, Cilium assigns an identity to that pod
+first ``role=frontend`` pod is started, Cilium assigns an identity to that pod
 which is then allowed to initiate connections to the identity of the
-`role=backend` pod. The subsequent start of additional `role=frontend` pods
+``role=backend`` pod. The subsequent start of additional ``role=frontend`` pods
 only requires to resolve this identity via a key-value store, no action has to
-be performed on any of the cluster nodes hosting `role=backend` pods. The
+be performed on any of the cluster nodes hosting ``role=backend`` pods. The
 starting of a new pod must only be delayed until the identity of the pod has
 been resolved which is a much simpler operation than updating the security
 rules on all other cluster nodes.
@@ -629,75 +720,17 @@ rules on all other cluster nodes.
 .. image:: images/identity.png
     :align: center
 
-What is an Endpoint Identity?
------------------------------
-
-The identity of an endpoint is derived based on the labels associated with the
-pod or container. When a pod or container is started, Cilium will create an
-endpoint based on the event received by the container runtime to represent the
-pod or container on the network. As a next step, Cilium will resolve the
-identity of the endpoint created. Whenever the labels of the pod or container
-change, the identity is reconfirmed and automatically modified as required.
-
-Not all labels associated with a container or pod are meaningful when deriving
-the security identity. Labels may be used to store metadata such as the
-timestamp when a container was launched. Cilium requires to know which labels
-are meaningful and are subject to being considered when deriving the identity.
-For this purpose, the user is required to specify a list of string prefixes of
-meaningful labels. The standard behavior is to include all labels which start
-with the prefix `id.`, e.g.  `id.service1`, `id.service2`,
-`id.groupA.service44`. The list of meaningful label prefixes can be specified
-when starting the cilium agent, see :ref:`admin_agent_options`.
-
-.. _reserved_labels:
-
-Special Identities
-------------------
-
-All endpoints which are managed by Cilium will be assigned an identity. In
-order to allow communication to network endpoints which are not managed by
-Cilium, special identities exist to represent those. Special reserved
-identities are prefixed with the string `reserved:`.
-
-+---------------------+---------------------------------------------------+
-| Identity            | Description                                       |
-+=====================+===================================================+
-| reserved:host       | The host network namespace on which the pod or    |
-|                     | container is running.                             |
-+---------------------+---------------------------------------------------+
-| reserved:world      | Any network endpoint outside of the cluster       |
-+---------------------+---------------------------------------------------+
-
-TODO: Document `cidr:` identity once implemented.
-
-Identity Management in the Cluster
-----------------------------------
-
-Identities are valid in the entire cluster which means that if several pods or
-containers are started on several cluster nodes, all of them will resolve and
-share a single identity if they share the identity relevant labels. This
-requires coordination between cluster nodes.
-
-.. image:: images/identity_store.png
-    :align: center
-
-The operation to resolve an endpoint identity is performed with the help of the
-distributed key-value store which allows to perform atomic operations in the
-form *generate a new unique identifier if the following value has not been seen
-before*. This allows each cluster node to create the identity relevant subset
-of labels and then query the key-value store to derive the identity. Depending
-on whether the set of labels has been queried before, either a new identity
-will be created, or the identity of the initial query will be returned.
 
 Policy Enforcement
 ==================
 
 All security policies are described assuming stateful policy enforcement for
 session based protocols. This means that the intent of the policy is to
-describe allowed direction of connection establishment. If the policy allows `A
-=> B` then reply packets from `B` to `A` are automatically allowed as well.
-However, `B` is not automatically allowed to initiate connections to `A`. If
-that outcome is desired, then both directions must be explicitly allowed.
+describe allowed direction of connection establishment. If the policy allows
+``A => B`` then reply packets from ``B`` to ``A`` are automatically allowed as
+well.  However, ``B`` is not automatically allowed to initiate connections to
+``A``. If that outcome is desired, then both directions must be explicitly
+allowed.
 
 Security policies are primarily enforced at *ingress* which means that each
 cluster node verifies all incoming packets and determines whether the packet is
@@ -735,105 +768,9 @@ Orchestration System Specifics
 Kubernetes
 ----------
 
-Cilium regards each deployed Pod as an endpoint with regards to networking and
+Cilium regards each deployed `Pod` as an endpoint with regards to networking and
 security policy enforcement. Labels associated with pods can be used to define
 the identity of the endpoint.
 
 When two pods communicate via a service construct, then the labels of the
 origin pod apply to determine the identity.
-
-
-************
-Integrations
-************
-
-Cilium is deeply integrated with container platforms like Docker or Kubernetes.
-This enables Cilium to perform network forwarding and security using a model
-that maps directly to notions of identity (e.g., labels) and service
-abstractions that are native to the container platform.
-
-In this section, we will provide more detail on how Cilium integrates with
-Docker and Kubernetes.
-
-Kubernetes
-==========
-
-When deployed with Kubernetes, Cilium provides four core Kubernetes networking
-capabilities:
-
-* Direct pod-to-pod network inter-connectivity.
-* Service-based load-balancing for pod-to-pod inter-connectivity (i.e., a
-  kube-proxy replacement).
-* Identity-based security policies for all  (direct and service-based)
-  Pod-to-Pod inter-connectivity.
-* External-to-Pod service-based load-balancing (referred to as `Ingress` in
-  Kubernetes)
-
-The Kubernetes documentation contains more background on the `Kubernetes
-Networking Model
-<https://kubernetes.io/docs/concepts/cluster-administration/networking/>`_ and
-`Kubernetes Network Plugins
-<https://kubernetes.io/docs/concepts/cluster-administration/network-plugins/>`_
-.
-
-Pod-to-Pod Connectivity
------------------------
-
-In Kubernetes, containers are deployed within units referred to as Pod_, which
-include one or more containers reachable via a single IP address.  With Cilium,
-each Pod gets an IP address from the node prefix of the Linux node running the
-Pod. See `address management`_ for additional details. In the absence of any
-network security policies, all Pods can reach each other.
-
-Pod IP addresses are typically local to the Kubernetes cluster. If pods need to
-reach services outside the cluster as a client, the network traffic is
-automatically masqueraded as it leaves the node. You can find additional
-information in the section :ref:`concepts_external_access`.
-
-Service Load-balancing
-----------------------
-
-Kubernetes has developed the Services abstraction which provides the user the
-ability to load balance network traffic to different pods. This abstraction
-allows the pods reaching out to other pods by a single IP address, a virtual IP
-address, without knowing all the pods that are running that particular service.
-
-Without Cilium, kube-proxy is installed on every node, watches for endpoints
-and services addition and removal on the kube-master which allows it to to
-apply the necessary enforcement on iptables. Thus, the received and sent
-traffic from and to the pods are properly routed to the node and port serving
-for that service. For more information you can check out the kubernetes user
-guide for `Services  <http://kubernetes.io/docs/user-guide/services>`__.
-
-Cilium load-balancer acts on the same principles as kube-proxy, it watches for
-services addition or removal, but instead of doing the enforcement on the
-iptables, it updates BPF map entries on each node. For more information, see
-the `Pull Request <https://github.com/cilium/cilium/pull/109>`__.
-
-
-Docker
-======
-
-Docker supports network plugins via the `libnetwork plugin interface
-<https://github.com/docker/libnetwork/blob/master/docs/design.md>`_ .
-
-When using Cilium with Docker, one creates a single logical Docker network of
-type `cilium` and with an IPAM-driver of type `cilium`, which delegates
-control over IP address management and network connectivity to Cilium for all
-containers attached to this network for both IPv4 and IPv6 connectivity.  Each
-Docker container gets an IP address from the node prefix of the node running
-the container.
-
-When deployed with Docker, each Linux node runs a `cilium-docker` agent,
-which receives libnetwork calls from Docker and then communicates with the
-Cilium Agent to control container networking.
-
-Security policies controlling connectivity between the Docker containers can be
-written in terms of the Docker container labels passed to Docker while creating
-the container.  These policies can be created/updated via communication
-directly with the Cilium agent, either via API or by using the Cilium CLI
-client.
-
-.. _Pod: https://kubernetes.io/docs/concepts/workloads/pods/pod/
-.. _VXLAN: https://tools.ietf.org/html/rfc7348
-.. _Geneve: https://tools.ietf.org/html/draft-ietf-nvo3-geneve-04

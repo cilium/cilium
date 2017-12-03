@@ -16,50 +16,6 @@ We use GitHub issues to maintain a list of `Cilium Frequently Asked Questions
 (FAQ)`_. You can also check there to see if your question(s) is already
 addressed.
 
-.. _troubleshooting_k8s:
-
-Kubernetes
-==========
-
-Check the status of the DaemonSet_ and verify that all desired instances are in
-"ready" state:
-
-.. code:: bash
-
-        $ kubectl --namespace kube-system get ds
-        NAME      DESIRED   CURRENT   READY     NODE-SELECTOR   AGE
-        cilium    1         1         0         <none>          3s
-
-In this example, we see a desired state of 1 with 0 being ready. This indicates
-a problem. The next step is to list all cilium pods by matching on the label
-``k8s-app=cilium`` and also sort the list by the restart count of each pod to
-easily identify the failing pods:
-
-.. code:: bash
-
-        $ kubectl --namespace kube-system get pods --selector k8s-app=cilium \
-                  --sort-by='.status.containerStatuses[0].restartCount'
-        NAME           READY     STATUS             RESTARTS   AGE
-        cilium-813gf   0/1       CrashLoopBackOff   2          44s
-
-Pod ``cilium-813gf`` is failing and has already been restarted 2 times. Let's
-print the logfile of that pod to investigate the cause:
-
-.. code:: bash
-
-        $ kubectl --namespace kube-system logs cilium-813gf
-        INFO      _ _ _
-        INFO  ___|_| |_|_ _ _____
-        INFO |  _| | | | | |     |
-        INFO |___|_|_|_|___|_|_|_|
-        INFO Cilium 0.8.90 f022e2f Thu, 27 Apr 2017 23:17:56 -0700 go version go1.7.5 linux/amd64
-        CRIT kernel version: NOT OK: minimal supported kernel version is >= 4.8
-
-In this example, the cause for the failure is a Linux kernel running on the
-worker node which is not meeting :ref:`admin_system_reqs`.
-
-If the cause for the problem is not apparent based on these simple steps,
-please come and seek help on our `Slack channel`_.
 
 Monitoring Packet Drops
 =======================
@@ -80,7 +36,7 @@ drops happen.
     xx drop (Policy denied (L3)) to endpoint 25729, identity 261->264: 10.11.13.37 -> 10.11.101.61 EchoRequest
     xx drop (Invalid destination mac) to endpoint 0, identity 0->0: fe80::5c25:ddff:fe8e:78d8 -> ff02::2 RouterSolicitation
 
-The above indicates that a packet to endpoint ID `25729` has been dropped due
+The above indicates that a packet to endpoint ID ``25729`` has been dropped due
 to violation of the Layer 3 policy.
 
 Policy Tracing
@@ -232,15 +188,11 @@ you should still verify before sharing.
 * ...
 
 .. _Slack channel: https://cilium.herokuapp.com
-.. _DaemonSet: https://kubernetes.io/docs/admin/daemons/
 .. _NodeSelector: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/
 .. _RBAC: https://kubernetes.io/docs/admin/authorization/rbac/
 .. _CNI: https://github.com/containernetworking/cni
 .. _Volumes: https://kubernetes.io/docs/tasks/configure-pod-container/configure-volume-storage/
 
-.. _iproute2: https://www.kernel.org/pub/linux/utils/net/iproute2/
-.. _llvm: http://releases.llvm.org/
-.. _Linux kernel: https://www.kernel.org/
 .. _Cilium Frequently Asked Questions (FAQ): https://github.com/cilium/cilium/issues?utf8=%E2%9C%93&q=label%3Akind%2Fquestion%20
 
 .. _issue tracker: https://github.com/cilium/cilium/issues

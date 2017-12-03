@@ -46,7 +46,7 @@ render:
 
 cmdref:
 	# We don't know what changed so recreate the directory
-	-rm -rvf $(CMDREFDIR) && mkdir $(CMDREFDIR)
+	-rm -rvf $(CMDREFDIR)/cilium*
 	${CILIUMDIR}/cilium cmdref -d $(CMDREFDIR)
 	${AGENTDIR}/cilium-agent --cmdref $(CMDREFDIR)
 
