@@ -9,6 +9,7 @@ SOURCEDIR     = .
 BUILDDIR      = _build
 CMDREFDIR     = cmdref
 CILIUMDIR     = ../cilium
+AGENTDIR      = ../daemon
 
 # Put it first so that "make" without argument is like "make help".
 help:
@@ -39,6 +40,7 @@ cmdref:
 	# We don't know what changed so recreate the directory
 	-rm -rvf $(CMDREFDIR) && mkdir $(CMDREFDIR)
 	${CILIUMDIR}/cilium cmdref -d $(CMDREFDIR)
+	${AGENTDIR}/cilium-agent --cmdref $(CMDREFDIR)
 
 .PHONY: help Makefile check-requirements cmdref
 
