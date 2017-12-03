@@ -104,7 +104,6 @@ spec:
           - "--kvstore-opt"
           - "etcd.config=/var/lib/etcd-config/etcd.config"
           - "--disable-ipv4=$(DISABLE_IPV4)"
-          - "--prometheus-serve-addr=$(PROMETHEUS_SERVE_ADDR)"
         ports:
           - name: prometheus
             containerPort: 9090
