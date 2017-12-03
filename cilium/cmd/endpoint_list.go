@@ -126,7 +126,7 @@ func printEndpointList(w *tabwriter.Writer, eps []*models.Endpoint) {
 					listEndpoint(w, ep, id, lbl)
 					first = false
 				} else {
-					fmt.Fprintf(w, "\t\t\t%s\t\t\t\t\n", lbl)
+					fmt.Fprintf(w, "\t\t\t\t%s\t\t\t\t\n", lbl)
 				}
 			}
 		}
