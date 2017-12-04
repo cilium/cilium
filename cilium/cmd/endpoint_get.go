@@ -19,8 +19,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"regexp"
-	"strconv"
 
 	endpointApi "github.com/cilium/cilium/api/v1/client/endpoint"
 	"github.com/cilium/cilium/api/v1/models"
@@ -29,54 +27,6 @@ import (
 )
 
 var lbls []string
-
-// L4Policy is nested JSON, so search 'result' for strings that have
-// backslashes inside, and interpet the JSON.
-func expandNestedJSON(result bytes.Buffer) bytes.Buffer {
-	re := regexp.MustCompile(`"[^"\\]*\\.*[^\\]"`)
-	for {
-		var (
-			loc    []int
-			indent string
-		)
-
-		// Search for nested JSON; if we don't find any, then break.
-		resBytes := result.Bytes()
-		if loc = re.FindIndex(resBytes); loc == nil {
-			break
-		}
-
-		// Determine the current indentation
-		for i := 0; i < loc[0]-1; i++ {
-			idx := loc[0] - i - 1
-			if resBytes[idx] != ' ' {
-				break
-			}
-			indent = fmt.Sprintf("%s ", indent)
-		}
-
-		// Unquote the nested json, decode it into a map, then marshal.
-		m := make(map[string]interface{})
-		s, _ := strconv.Unquote(string(resBytes[loc[0]:loc[1]]))
-		nested := bytes.NewBufferString(s)
-		dec := json.NewDecoder(nested)
-		if err := dec.Decode(&m); err != nil {
-			Fatalf("Failed to decode nested JSON: %s", err.Error())
-		}
-		out, err := json.MarshalIndent(m, indent, "  ")
-		if err != nil {
-			Fatalf("Cannot marshal nested JSON: %s", err.Error())
-		}
-
-		nextResult := bytes.Buffer{}
-		nextResult.Write(resBytes[0:loc[0]])
-		nextResult.WriteString(string(out))
-		nextResult.Write(resBytes[loc[1]:])
-		result = nextResult
-	}
-
-	return result
-}
 
 // endpointGetCmd represents the endpoint_get command
 var endpointGetCmd = &cobra.Command{
