@@ -186,7 +186,7 @@ var _ = Describe("RuntimeConntrackTest", func() {
 		By(fmt.Sprintf("%s pinging %s IPv6", helpers.Client, helpers.Server))
 		res := vm.ContainerExec(helpers.Client, helpers.Ping6(srvIP[helpers.IPv6]))
 		Expect(res.WasSuccessful()).Should(BeTrue(), fmt.Sprintf(
-			fmt.Sprintf("%s cannot ping to % %s", helpers.Client, helpers.Server, srvIP[helpers.IPv6])))
+			fmt.Sprintf("%s cannot ping to %s %s", helpers.Client, helpers.Server, srvIP[helpers.IPv6])))
 
 		By(fmt.Sprintf("%s pinging %s IPv4", helpers.Client, helpers.Server))
 		res = vm.ContainerExec(helpers.Client, helpers.Ping(srvIP[helpers.IPv4]))
