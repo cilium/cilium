@@ -408,8 +408,15 @@ func init() {
 		"version", false, "Print version information")
 	flags.Bool(
 		"pprof", false, "Enable serving the pprof debugging API")
+	// We expect only one of the possible variables to be filled. The evaluation order is:
+	// --prometheus-serve-addr, CILIUM_PROMETHEUS_SERVE_ADDR, then PROMETHEUS_SERVE_ADDR
+	// The second environment variable (without the CILIUM_ prefix) is here to
+	// handle the case where someone uses a new image with an older spec, and the
+	// older spec used the older variable name.
 	flags.StringVar(&prometheusServeAddr,
 		"prometheus-serve-addr", "", "IP:Port on which to serve prometheus metrics (pass \":Port\" to bind on all interfaces, \"\" is off)")
+	viper.BindEnv("prometheus-serve-addr", "CILIUM_PROMETHEUS_SERVE_ADDR")
+	viper.BindEnv("prometheus-serve-addr-deprecated", "PROMETHEUS_SERVE_ADDR")
 	flags.StringVar(&cmdRefDir,
 		"cmdref", "", "Path to cmdref output directory")
 	flags.MarkHidden("cmdref")
@@ -665,8 +672,13 @@ func runDaemon() {
 		log.WithError(err).Fatal("Cannot load swagger spec")
 	}
 
-	if prometheusServeAddr != "" {
-		if err := metrics.Enable(prometheusServeAddr); err != nil {
+	promAddr := viper.GetString("prometheus-serve-addr")
+	if promAddr == "" {
+		promAddr = viper.GetString("prometheus-serve-addr-deprecated")
+	}
+	if promAddr != "" {
+		log.Infof("Serving prometheus metrics on %s", promAddr)
+		if err := metrics.Enable(promAddr); err != nil {
 			log.WithError(err).Fatal("Error while starting metrics")
 		}
 	}
