@@ -40,6 +40,14 @@ B.Lock() // defer B.Unlock() or similar.
 ...
 A.Lock() // defer A.Unlock() or similar.
 ```
+
+Another common sources of deadlocs is duplicate take a lock in a goroutine:
+```
+A.Rlock() or lock()
+
+A.lock() or A.RLock()
+```
+
 This does not guarantee a deadlock (maybe the goroutines above can never be running at the same time), but it usually a design flaw at least.
 
 go-deadlock can detect such cases (unless you cross goroutine boundary - say lock A, then spawn a goroutine, block until it is singals, and lock B inside of the goroutine), even if the deadlock itself happens very infrequently and is painful to reproduce!
