@@ -118,6 +118,20 @@ func (n EndpointSelector) HasKeyPrefix(prefix string) bool {
 	return false
 }
 
+// HasKey checks if the endpoint selector contains the given key in
+// its MatchLabels map or in its MatchExpressions slice.
+func (n EndpointSelector) HasKey(key string) bool {
+	if _, ok := n.MatchLabels[key]; ok {
+		return true
+	}
+	for _, v := range n.MatchExpressions {
+		if v.Key == key {
+			return true
+		}
+	}
+	return false
+}
+
 // NewWildcardEndpointSelector returns a selector that matches on all endpoints
 func NewWildcardEndpointSelector() EndpointSelector {
 	return EndpointSelector{&metav1.LabelSelector{MatchLabels: map[string]string{}}}

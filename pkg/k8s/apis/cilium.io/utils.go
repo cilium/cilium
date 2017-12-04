@@ -30,6 +30,9 @@ import (
 const (
 	// subsysK8s is the value for logfields.LogSubsys
 	subsysK8s = "k8s"
+	// podPrefixLbl is the value the prefix used in the label selector to
+	// represent pods on the default namespace.
+	podPrefixLbl = labels.LabelSourceK8sKeyPrefix + PodNamespaceLabel
 )
 
 var (
@@ -59,7 +62,7 @@ func ParseToCiliumRule(namespace, name string, r *api.Rule) *api.Rule {
 			retRule.EndpointSelector.LabelSelector.MatchLabels = map[string]string{}
 		}
 
-		userNamespace, ok := retRule.EndpointSelector.LabelSelector.MatchLabels[labels.LabelSourceK8sKeyPrefix+PodNamespaceLabel]
+		userNamespace, ok := retRule.EndpointSelector.LabelSelector.MatchLabels[podPrefixLbl]
 		if ok && userNamespace != namespace {
 			log.WithFields(logrus.Fields{
 				logfields.K8sNamespace:              namespace,
@@ -68,7 +71,7 @@ func ParseToCiliumRule(namespace, name string, r *api.Rule) *api.Rule {
 			}).Warn("CiliumNetworkPolicy contains illegal namespace match in EndpointSelector." +
 				" EndpointSelector always applies in namespace of the policy resource, removing illegal namespace match'.")
 		}
-		retRule.EndpointSelector.LabelSelector.MatchLabels[labels.LabelSourceK8sKeyPrefix+PodNamespaceLabel] = namespace
+		retRule.EndpointSelector.LabelSelector.MatchLabels[podPrefixLbl] = namespace
 	}
 
 	if r.Ingress != nil {
@@ -89,8 +92,8 @@ func ParseToCiliumRule(namespace, name string, r *api.Rule) *api.Rule {
 					// The user can explicitly specify the namespace in the
 					// FromEndpoints selector. If omitted, we limit the
 					// scope to the namespace the policy lives in.
-					if _, ok := retRule.Ingress[i].FromEndpoints[j].MatchLabels[labels.LabelSourceK8sKeyPrefix+PodNamespaceLabel]; !ok {
-						retRule.Ingress[i].FromEndpoints[j].MatchLabels[labels.LabelSourceK8sKeyPrefix+PodNamespaceLabel] = namespace
+					if !retRule.Ingress[i].FromEndpoints[j].HasKey(podPrefixLbl) {
+						retRule.Ingress[i].FromEndpoints[j].MatchLabels[podPrefixLbl] = namespace
 					}
 				}
 			}
@@ -119,8 +122,8 @@ func ParseToCiliumRule(namespace, name string, r *api.Rule) *api.Rule {
 					// The user can explicitly specify the namespace in the
 					// FromEndpoints selector. If omitted, we limit the
 					// scope to the namespace the policy lives in.
-					if _, ok := retRule.Ingress[i].FromRequires[j].MatchLabels[labels.LabelSourceK8sKeyPrefix+PodNamespaceLabel]; !ok {
-						retRule.Ingress[i].FromRequires[j].MatchLabels[labels.LabelSourceK8sKeyPrefix+PodNamespaceLabel] = namespace
+					if _, ok := retRule.Ingress[i].FromRequires[j].MatchLabels[podPrefixLbl]; !ok {
+						retRule.Ingress[i].FromRequires[j].MatchLabels[podPrefixLbl] = namespace
 					}
 				}
 			}
