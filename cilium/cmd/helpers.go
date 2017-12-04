@@ -146,7 +146,8 @@ func dumpJSON(data interface{}, jsonPath string) error {
 
 // Search 'result' for strings with escaped JSON inside, and expand the JSON.
 func expandNestedJSON(result bytes.Buffer) (bytes.Buffer, error) {
-	re := regexp.MustCompile(`"[^"\\]*\\.*[^\\]"`)
+	reStringWithJSON := regexp.MustCompile(`"[^"\\{]*{.*[^\\]"`)
+	reJSON := regexp.MustCompile(`{.*}`)
 	for {
 		var (
 			loc    []int
@@ -155,7 +156,7 @@ func expandNestedJSON(result bytes.Buffer) (bytes.Buffer, error) {
 
 		// Search for nested JSON; if we don't find any, then break.
 		resBytes := result.Bytes()
-		if loc = re.FindIndex(resBytes); loc == nil {
+		if loc = reStringWithJSON.FindIndex(resBytes); loc == nil {
 			break
 		}
 
@@ -168,23 +169,51 @@ func expandNestedJSON(result bytes.Buffer) (bytes.Buffer, error) {
 			indent = fmt.Sprintf("%s ", indent)
 		}
 
-		// Unquote the nested json, decode it into a map, then marshal.
-		m := make(map[string]interface{})
-		s, _ := strconv.Unquote(string(resBytes[loc[0]:loc[1]]))
-		nested := bytes.NewBufferString(s)
-		dec := json.NewDecoder(nested)
-		if err := dec.Decode(&m); err != nil {
-			return bytes.Buffer{}, fmt.Errorf("Failed to decode nested JSON: %s", err.Error())
-		}
-		out, err := json.MarshalIndent(m, indent, "  ")
+		stringStart := loc[0]
+		stringEnd := loc[1]
+
+		// Unquote the string with the nested json.
+		quotedBytes := resBytes[stringStart:stringEnd]
+		unquoted, err := strconv.Unquote(string(quotedBytes))
 		if err != nil {
-			return bytes.Buffer{}, fmt.Errorf("Cannot marshal nested JSON: %s", err.Error())
+			return bytes.Buffer{}, fmt.Errorf("Failed to Unquote string: %s\n%s", err.Error(), string(quotedBytes))
 		}
 
+		// Find the JSON within the quoted string.
+		nestedStart := 0
+		nestedEnd := 0
+		if locs := reJSON.FindAllStringIndex(unquoted, -1); locs != nil {
+			// The last match is the longest one.
+			last := len(locs) - 1
+			nestedStart = locs[last][0]
+			nestedEnd = locs[last][1]
+		} else if reJSON.Match(quotedBytes) {
+			// The entire string is JSON
+			nestedEnd = len(unquoted)
+		}
+
+		// Decode the nested JSON
+		decoded := ""
+		if nestedEnd != 0 {
+			m := make(map[string]interface{})
+			nested := bytes.NewBufferString(unquoted[nestedStart:nestedEnd])
+			if err := json.NewDecoder(nested).Decode(&m); err != nil {
+				return bytes.Buffer{}, fmt.Errorf("Failed to decode nested JSON: %s", err.Error())
+			}
+			decodedBytes, err := json.MarshalIndent(m, indent, "  ")
+			if err != nil {
+				return bytes.Buffer{}, fmt.Errorf("Cannot marshal nested JSON: %s", err.Error())
+			}
+			decoded = string(decodedBytes)
+		}
+
+		// Serialize
 		nextResult := bytes.Buffer{}
-		nextResult.Write(resBytes[0:loc[0]])
-		nextResult.WriteString(string(out))
-		nextResult.Write(resBytes[loc[1]:])
+		nextResult.Write(resBytes[0:stringStart])
+		nextResult.WriteString(string(unquoted[:nestedStart]))
+		nextResult.WriteString(string(decoded))
+		nextResult.WriteString(string(unquoted[nestedEnd:]))
+		nextResult.Write(resBytes[stringEnd:])
 		result = nextResult
 	}
 
