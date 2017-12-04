@@ -80,7 +80,7 @@ func (s *SSHMeta) EndpointGet(id string) *models.Endpoint {
 	res := s.ExecCilium(endpointGetCmd)
 	err := res.Unmarshal(&data)
 	if err != nil {
-		s.logger.WithError(err).Errorf("EndpointGet fail %d", id)
+		s.logger.WithError(err).Errorf("EndpointGet fail %s", id)
 		return nil
 	}
 	if len(data) > 0 {
