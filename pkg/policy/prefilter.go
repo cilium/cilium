@@ -20,10 +20,10 @@ import (
 	"net"
 	"os/exec"
 	"path"
-	"sync"
 	"syscall"
 
 	"github.com/cilium/cilium/pkg/bpf"
+	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/maps/cidrmap"
 )
 
@@ -58,7 +58,7 @@ type PreFilter struct {
 	maps     preFilterMaps
 	config   preFilterConfig
 	revision int64
-	mutex    sync.RWMutex
+	mutex    lock.RWMutex
 }
 
 // WriteConfig dumps the configuration for the corresponding header file

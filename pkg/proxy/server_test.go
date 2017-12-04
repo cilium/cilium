@@ -7,8 +7,9 @@ import (
 	"fmt"
 	"net"
 	"strconv"
-	"sync"
 	"time"
+
+	"github.com/cilium/cilium/pkg/lock"
 
 	"github.com/optiopay/kafka/proto"
 )
@@ -33,7 +34,7 @@ type RequestHandler func(request Serializable) (response Serializable)
 type Server struct {
 	Processed int
 
-	mu       sync.RWMutex
+	mu       lock.RWMutex
 	ln       net.Listener
 	clients  map[int64]net.Conn
 	handlers map[int16]RequestHandler
