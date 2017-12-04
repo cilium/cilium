@@ -47,7 +47,7 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/pprof"
-	"github.com/cilium/cilium/pkg/proxy"
+	proxyConst "github.com/cilium/cilium/pkg/proxy/constant"
 	"github.com/cilium/cilium/pkg/version"
 	"github.com/cilium/cilium/pkg/workloads/containerd"
 
@@ -369,7 +369,7 @@ func init() {
 	flags.StringSliceVar(&validLabels,
 		"labels", []string{}, "List of label prefixes used to determine identity of an endpoint")
 	flags.StringVar(&config.proxyKind,
-		"l7-proxy", proxy.ProxyKindOxy, "L7 proxy: "+proxy.ProxyKindOxy+" or "+proxy.ProxyKindEnvoy)
+		"l7-proxy", proxyConst.ProxyKindOxy, "L7 proxy: "+proxyConst.ProxyKindOxy+" or "+proxyConst.ProxyKindEnvoy)
 	flags.StringVar(&config.LBInterface,
 		"lb", "", "Enables load balancer mode where load balancer bpf program is attached to the given interface")
 	flags.StringVar(&config.LibDir,
@@ -489,7 +489,7 @@ func initEnv(cmd *cobra.Command) {
 
 	if os.Getenv("CILIUM_USE_ENVOY") != "" {
 		log.Info("CILIUM_USE_ENVOY set, using envoy proxy")
-		config.proxyKind = proxy.ProxyKindEnvoy
+		config.proxyKind = proxyConst.ProxyKindEnvoy
 	}
 
 	if config.IPv4Disabled {

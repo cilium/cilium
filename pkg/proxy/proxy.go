@@ -29,6 +29,7 @@ import (
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/proxy/accesslog"
+	"github.com/cilium/cilium/pkg/proxy/constant"
 
 	"github.com/spf13/viper"
 )
@@ -51,12 +52,6 @@ const (
 	fieldFd              = "fd"
 	fieldProxyRedirectID = "id"
 	fieldProxyKind       = "kind"
-)
-
-// Supported proxy types
-const (
-	ProxyKindOxy   = "oxy"
-	ProxyKindEnvoy = "envoy"
 )
 
 // Redirect is the generic proxy redirect interface that each proxy redirect
@@ -335,6 +330,10 @@ func fillEgressDestinationInfo(info *accesslog.EndpointInfo, ipstr string) {
 	}
 }
 
+func (p *Proxy) GetKind() string {
+	return p.proxyKind
+}
+
 // CreateOrUpdateRedirect creates or updates a L4 redirect with corresponding
 // proxy configuration. This will allocate a proxy port as required and launch
 // a proxy instance. If the redirect is already in place, only the rules will be
@@ -397,9 +396,9 @@ func (p *Proxy) CreateOrUpdateRedirect(l4 *policy.L4Filter, id string, source Pr
 			listenPort: to})
 	case policy.ParserTypeHTTP:
 		switch p.proxyKind {
-		case ProxyKindOxy:
+		case constant.ProxyKindOxy:
 			redir, err = createOxyRedirect(l4, id, source, to)
-		case ProxyKindEnvoy:
+		case constant.ProxyKindEnvoy:
 			redir, err = createEnvoyRedirect(l4, id, source, to)
 		default:
 			return nil, fmt.Errorf("Unknown proxy kind: %s", p.proxyKind)
