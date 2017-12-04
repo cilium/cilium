@@ -23,7 +23,7 @@ var Opts = struct {
 	// Waiting for a lock for longer than DeadlockTimeout is considered a deadlock.
 	// Ignored is DeadlockTimeout <= 0.
 	DeadlockTimeout time.Duration
-	// OnPotentialDeadlock is called each time a potential deadlock is deetcted -- either based on
+	// OnPotentialDeadlock is called each time a potential deadlock is detected -- either based on
 	// lock order or on lock wait time.
 	OnPotentialDeadlock func()
 	// Will keep MaxMapSize lock pairs (happens before // happens after) in the map.
@@ -51,7 +51,7 @@ type Mutex struct {
 // If the lock is already in use, the calling goroutine
 // blocks until the mutex is available.
 //
-// Unless deadlock detection is disabled, logs potential deadlocks to stderr,
+// Unless deadlock detection is disabled, logs potential deadlocks to Opts.LogBuf,
 // calling Opts.OnPotentialDeadlock on each occasion.
 func (m *Mutex) Lock() {
 	lock(m.mu.Lock, m)
@@ -83,7 +83,7 @@ type RWMutex struct {
 // a blocked Lock call excludes new readers from acquiring
 // the lock.
 //
-// Unless deadlock detection is disabled, logs potential deadlocks to stderr,
+// Unless deadlock detection is disabled, logs potential deadlocks to Opts.LogBuf,
 // calling Opts.OnPotentialDeadlock on each occasion.
 func (m *RWMutex) Lock() {
 	lock(m.mu.Lock, m)
@@ -104,7 +104,7 @@ func (m *RWMutex) Unlock() {
 
 // RLock locks the mutex for reading.
 //
-// Unless deadlock detection is disabled, logs potential deadlocks to stderr,
+// Unless deadlock detection is disabled, logs potential deadlocks to Opts.LogBuf,
 // calling Opts.OnPotentialDeadlock on each occasion.
 func (m *RWMutex) RLock() {
 	lock(m.mu.RLock, m)
@@ -185,12 +185,12 @@ func lock(lockFn func(), ptr interface{}) {
 				lo.other(ptr)
 				fmt.Fprintln(Opts.LogBuf, "All current goroutines:")
 				Opts.LogBuf.Write(stacks)
-				lo.mu.Unlock()
-				Opts.mu.Unlock()
 				fmt.Fprintln(Opts.LogBuf)
 				if buf, ok := Opts.LogBuf.(*bufio.Writer); ok {
 					buf.Flush()
 				}
+				lo.mu.Unlock()
+				Opts.mu.Unlock()
 				Opts.OnPotentialDeadlock()
 				<-ch
 				PostLock(4, ptr)
@@ -251,6 +251,21 @@ func (l *lockOrder) PreLock(skip int, p interface{}) {
 	l.mu.Lock()
 	for b, bs := range l.cur {
 		if b == p {
+			if bs.gid == gid {
+				Opts.mu.Lock()
+				fmt.Fprintln(Opts.LogBuf, header, "Duplicate locking, saw callers this locks in one goroutine:")
+				fmt.Fprintf(Opts.LogBuf, "current goroutine %d lock %v \n", gid, b)
+				fmt.Fprintln(Opts.LogBuf, "all callers to this lock in the goroutine")
+				printStack(Opts.LogBuf, bs.stack)
+				printStack(Opts.LogBuf, stack)
+				l.other(p)
+				fmt.Fprintln(Opts.LogBuf)
+				if buf, ok := Opts.LogBuf.(*bufio.Writer); ok {
+					buf.Flush()
+				}
+				Opts.mu.Unlock()
+				Opts.OnPotentialDeadlock()
+			}
 			continue
 		}
 		if bs.gid != gid { // We want locks taken in the same goroutine only.
