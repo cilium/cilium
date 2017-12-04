@@ -8,7 +8,7 @@ BPF_SRCFILES=$(shell find bpf/ -name *.[ch] -print)
 
 GOTEST_OPTS = -test.v -check.v
 
-all: precheck-gofmt build cmdref-check
+all: precheck-gofmt build cmdref-check lock-check
 	@echo "Build finished."
 
 build: $(SUBDIRS)
@@ -233,6 +233,9 @@ install-manpages:
 
 cmdref-check:
 	tests/00-check-cmdref.sh
+
+lock-check:
+	contrib/scripts/lock-check.sh
 
 .PHONY: force
 force :;
