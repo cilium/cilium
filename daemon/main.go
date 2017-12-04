@@ -410,6 +410,7 @@ func init() {
 		"pprof", false, "Enable serving the pprof debugging API")
 	flags.StringVar(&prometheusServeAddr,
 		"prometheus-serve-addr", "", "IP:Port on which to serve prometheus metrics (pass \":Port\" to bind on all interfaces, \"\" is off)")
+	viper.BindEnv("prometheus-serve-addr", "CILIUM_PROMETHEUS_SERVE_ADDR")
 	flags.StringVar(&cmdRefDir,
 		"cmdref", "", "Path to cmdref output directory")
 	flags.MarkHidden("cmdref")
@@ -665,8 +666,9 @@ func runDaemon() {
 		log.WithError(err).Fatal("Cannot load swagger spec")
 	}
 
-	if prometheusServeAddr != "" {
-		if err := metrics.Enable(prometheusServeAddr); err != nil {
+	if promAddr := viper.GetString("prometheus-serve-addr"); promAddr != "" {
+		log.Infof("Serving prometheus metrics on %s", promAddr)
+		if err := metrics.Enable(promAddr); err != nil {
 			log.WithError(err).Fatal("Error while starting metrics")
 		}
 	}
