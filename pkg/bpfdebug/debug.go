@@ -159,8 +159,8 @@ func ctInfo(arg1 uint32, arg2 uint32) string {
 }
 
 func ctLookup4Info1(n *DebugMsg) string {
-	return fmt.Sprintf("src=%s:%d dst=%s:%d", ip4Str(n.Arg2),
-		n.Arg3&0xFFFF, ip4Str(n.Arg1), n.Arg3>>16)
+	return fmt.Sprintf("src=%s:%d dst=%s:%d", ip4Str(n.Arg1),
+		n.Arg3&0xFFFF, ip4Str(n.Arg2), n.Arg3>>16)
 }
 
 func ctLookup4Info2(n *DebugMsg) string {
