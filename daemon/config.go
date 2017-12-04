@@ -87,6 +87,9 @@ type Config struct {
 
 	// Monitor contains the configuration for the node monitor.
 	Monitor *models.MonitorStatus
+
+	// proxyKind contains which proxy will be used.
+	proxyKind string
 }
 
 func NewConfig() *Config {

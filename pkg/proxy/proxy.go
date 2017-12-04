@@ -97,6 +97,9 @@ type ProxySource interface {
 
 // Proxy maintains state about redirects
 type Proxy struct {
+	// proxyKind specifies which proxy is being used.
+	proxyKind string
+
 	// mutex is the lock required when modifying any proxy datastructure
 	mutex lock.RWMutex
 
@@ -122,8 +125,9 @@ type Proxy struct {
 }
 
 // NewProxy creates a Proxy to keep track of redirects.
-func NewProxy(minPort uint16, maxPort uint16) *Proxy {
+func NewProxy(proxyKind string, minPort, maxPort uint16) *Proxy {
 	return &Proxy{
+		proxyKind:      proxyKind,
 		rangeMin:       minPort,
 		rangeMax:       maxPort,
 		nextPort:       minPort,
@@ -335,7 +339,7 @@ func fillEgressDestinationInfo(info *accesslog.EndpointInfo, ipstr string) {
 // proxy configuration. This will allocate a proxy port as required and launch
 // a proxy instance. If the redirect is already in place, only the rules will be
 // updated.
-func (p *Proxy) CreateOrUpdateRedirect(l4 *policy.L4Filter, id string, source ProxySource, kind string) (Redirect, error) {
+func (p *Proxy) CreateOrUpdateRedirect(l4 *policy.L4Filter, id string, source ProxySource) (Redirect, error) {
 	gcOnce.Do(func() {
 		if lf := viper.GetString("access-log"); lf != "" {
 			if err := accesslog.OpenLogfile(lf); err != nil {
@@ -375,7 +379,7 @@ func (p *Proxy) CreateOrUpdateRedirect(l4 *policy.L4Filter, id string, source Pr
 		return r, nil
 	}
 
-	scopedLog = scopedLog.WithField(fieldProxyKind, kind)
+	scopedLog = scopedLog.WithField(fieldProxyKind, p.proxyKind)
 
 	to, err := p.allocatePort()
 	if err != nil {
@@ -392,13 +396,13 @@ func (p *Proxy) CreateOrUpdateRedirect(l4 *policy.L4Filter, id string, source Pr
 			source:     source,
 			listenPort: to})
 	case policy.ParserTypeHTTP:
-		switch kind {
+		switch p.proxyKind {
 		case ProxyKindOxy:
 			redir, err = createOxyRedirect(l4, id, source, to)
 		case ProxyKindEnvoy:
 			redir, err = createEnvoyRedirect(l4, id, source, to)
 		default:
-			return nil, fmt.Errorf("Unknown proxy kind: %s", kind)
+			return nil, fmt.Errorf("Unknown proxy kind: %s", p.proxyKind)
 		}
 	default:
 		return nil, fmt.Errorf("Unsupported L7 parser type: %s", l4.L7Parser)
