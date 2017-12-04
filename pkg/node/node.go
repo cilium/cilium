@@ -99,17 +99,25 @@ func (n *Node) GetNodeIP(ipv6 bool) net.IP {
 func (n *Node) getPrimaryAddress(ipv4 bool) *models.NodeAddressing {
 	v4, v4Type := n.getNodeIP(false)
 	v6, v6Type := n.getNodeIP(true)
+
+	var ipv4AllocStr, ipv6AllocStr string
+	if n.IPv4AllocCIDR != nil {
+		ipv4AllocStr = n.IPv4AllocCIDR.String()
+	}
+	if n.IPv6AllocCIDR != nil {
+		ipv6AllocStr = n.IPv6AllocCIDR.String()
+	}
 	return &models.NodeAddressing{
 		IPV4: &models.NodeAddressingElement{
 			Enabled:     ipv4,
 			IP:          v4.String(),
-			AllocRange:  n.IPv4AllocCIDR.String(),
+			AllocRange:  ipv4AllocStr,
 			AddressType: string(v4Type),
 		},
 		IPV6: &models.NodeAddressingElement{
 			Enabled:     !ipv4,
 			IP:          v6.String(),
-			AllocRange:  n.IPv6AllocCIDR.String(),
+			AllocRange:  ipv6AllocStr,
 			AddressType: string(v6Type),
 		},
 	}
