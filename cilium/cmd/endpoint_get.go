@@ -65,6 +65,7 @@ var endpointGetCmd = &cobra.Command{
 			return
 		}
 
+		var err error
 		if viper.GetBool("json") {
 			result, err := json.MarshalIndent(endpointInst, "", "  ")
 			if err != nil {
@@ -80,7 +81,9 @@ var endpointGetCmd = &cobra.Command{
 				Fatalf("Cannot marshal endpoints %s", err.Error())
 			}
 
-			result = expandNestedJSON(result)
+			if result, err = expandNestedJSON(result); err != nil {
+				Fatalf(err.Error())
+			}
 			fmt.Println(string(result.Bytes()))
 		}
 	},
