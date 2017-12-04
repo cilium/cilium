@@ -145,7 +145,7 @@ func dumpJSON(data interface{}, jsonPath string) error {
 }
 
 // Search 'result' for strings with escaped JSON inside, and expand the JSON.
-func expandNestedJSON(result bytes.Buffer) bytes.Buffer {
+func expandNestedJSON(result bytes.Buffer) (bytes.Buffer, error) {
 	re := regexp.MustCompile(`"[^"\\]*\\.*[^\\]"`)
 	for {
 		var (
@@ -174,11 +174,11 @@ func expandNestedJSON(result bytes.Buffer) bytes.Buffer {
 		nested := bytes.NewBufferString(s)
 		dec := json.NewDecoder(nested)
 		if err := dec.Decode(&m); err != nil {
-			Fatalf("Failed to decode nested JSON: %s", err.Error())
+			return bytes.Buffer{}, fmt.Errorf("Failed to decode nested JSON: %s", err.Error())
 		}
 		out, err := json.MarshalIndent(m, indent, "  ")
 		if err != nil {
-			Fatalf("Cannot marshal nested JSON: %s", err.Error())
+			return bytes.Buffer{}, fmt.Errorf("Cannot marshal nested JSON: %s", err.Error())
 		}
 
 		nextResult := bytes.Buffer{}
@@ -188,5 +188,5 @@ func expandNestedJSON(result bytes.Buffer) bytes.Buffer {
 		result = nextResult
 	}
 
-	return result
+	return result, nil
 }
