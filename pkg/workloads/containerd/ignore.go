@@ -15,11 +15,11 @@
 package containerd
 
 import (
-	"sync"
+	"github.com/cilium/cilium/pkg/lock"
 )
 
 var (
-	ignoredMutex      sync.RWMutex
+	ignoredMutex      lock.RWMutex
 	ignoredContainers = make(map[string]int)
 )
 
