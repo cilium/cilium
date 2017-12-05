@@ -195,7 +195,7 @@ func (s *EndpointSuite) TestEndpointState(c *C) {
 	c.Assert(e.SetStateLocked(StateWaitingForIdentity, "test"), Equals, false)
 	c.Assert(e.SetStateLocked(StateReady, "test"), Equals, true)
 	e.state = StateWaitingForIdentity
-	c.Assert(e.SetStateLocked(StateWaitingToRegenerate, "test"), Equals, true)
+	c.Assert(e.SetStateLocked(StateWaitingToRegenerate, "test"), Equals, false)
 	c.Assert(e.SetStateLocked(StateRegenerating, "test"), Equals, false)
 	c.Assert(e.SetStateLocked(StateDisconnecting, "test"), Equals, true)
 	e.state = StateWaitingForIdentity
