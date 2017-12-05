@@ -207,6 +207,7 @@ func ReadRequest(reader io.Reader) (*RequestMessage, error) {
 		log.WithFields(logrus.Fields{
 			fieldRequest: req.String(),
 		}).WithError(err).Debug("Ignoring Kafka message due to parse error")
+		return nil, err
 	}
 	return req, nil
 }
