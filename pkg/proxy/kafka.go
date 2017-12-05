@@ -34,6 +34,10 @@ import (
 
 const (
 	fieldID = "id"
+
+	// consecutiveErrorsBarrier is the maximum number of consecutive
+	// parsing errors before the connection gets closed
+	consecutiveErrorsBarrier = 32
 )
 
 // kafkaRedirect implements the Redirect interface for an l7 proxy
@@ -320,6 +324,7 @@ type kafkaRespMessageHander func(pair *connectionPair, req *kafka.ResponseMessag
 
 func handleRequest(pair *connectionPair, c *proxyConnection,
 	record *kafkaLogRecord, handler kafkaReqMessageHander) {
+	consecutiveErrors := 0
 	for {
 		req, err := kafka.ReadRequest(c.conn)
 		if err != nil {
@@ -333,9 +338,17 @@ func handleRequest(pair *connectionPair, c *proxyConnection,
 					kafka.ErrInvalidMessage, fmt.Sprintf("Unable to parse Kafka request: %s", err))
 			}
 
+			consecutiveErrors++
+			if consecutiveErrors > consecutiveErrorsBarrier {
+				log.WithError(err).Error("Too many errors parsing, closing connection")
+				c.Close()
+				return
+			}
+
 			log.WithError(err).Error("Unable to parse Kafka request")
 			continue
 		} else {
+			consecutiveErrors = 0
 			handler(pair, req)
 		}
 	}
