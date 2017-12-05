@@ -304,8 +304,15 @@ func (s *SSHMeta) PolicyEndpointsSummary() (map[string]int, error) {
 		return result, fmt.Errorf("cannot get endpoints")
 	}
 	status := strings.Split(endpoints.String(), " ")
-	result[Enabled], result[Total] = CountValues("true", status)
-	result[Disabled], result[Total] = CountValues("false", status)
+	for _, kind := range status {
+		switch kind {
+		case OptionIngress, OptionEgress:
+			result[Enabled]++
+		case OptionNone:
+			result[Disabled]++
+		}
+		result[Total]++
+	}
 	return result, nil
 }
 

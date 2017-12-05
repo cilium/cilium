@@ -41,7 +41,7 @@ var _ = Describe("RuntimeKafka", func() {
 		}
 		logger = log.WithFields(logrus.Fields{"testName": "RuntimeKafka"})
 		logger.Info("Starting")
-		vm := helpers.CreateNewRuntimeHelper("runtime", logger)
+		vm = helpers.CreateNewRuntimeHelper(helpers.Runtime, logger)
 		vm.NetworkCreate(helpers.CiliumDockerNetwork, "")
 		initialized = true
 	}

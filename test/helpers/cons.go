@@ -106,9 +106,11 @@ const (
 	OptionNAT46               = "NAT46"
 	OptionIngressPolicy       = "IngressPolicy"
 	OptionEgressPolicy        = "EgressPolicy"
-
-	OptionDisabled = "Disabled"
-	OptionEnabled  = "Enabled"
+	OptionIngress             = "ingress"
+	OptionEgress              = "egress"
+	OptionNone                = "none"
+	OptionDisabled            = "Disabled"
+	OptionEnabled             = "Enabled"
 
 	PingCount          = 5
 	CurlConnectTimeout = 5
