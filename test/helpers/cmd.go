@@ -30,16 +30,22 @@ import (
 
 // CmdRes contains a variety of data which results from running a command.
 type CmdRes struct {
-	cmd    string        // Command to run
-	params []string      // Parameters to provide to command
-	stdout *bytes.Buffer // Stdout from running cmd
-	stderr *bytes.Buffer // Stderr from running cmd
-	exit   bool          // Whether command successfully executed
+	cmd      string        // Command to run
+	params   []string      // Parameters to provide to command
+	stdout   *bytes.Buffer // Stdout from running cmd
+	stderr   *bytes.Buffer // Stderr from running cmd
+	exit     bool          // Whether command successfully executed
+	exitcode int           // The exitcode result from command execution
 }
 
 // GetCmd returns res's cmd.
 func (res *CmdRes) GetCmd() string {
 	return res.cmd
+}
+
+// GetExitCode returns res's exitcode.
+func (res *CmdRes) GetExitCode() int {
+	return res.exitcode
 }
 
 // GetStdOut returns the contents of the stdout buffer of res as a string.

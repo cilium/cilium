@@ -27,6 +27,7 @@ import (
 	"github.com/asaskevich/govalidator"
 	"github.com/onsi/ginkgo"
 	"github.com/sirupsen/logrus"
+	"k8s.io/api/core/v1"
 )
 
 const (
@@ -80,7 +81,7 @@ func (kub *Kubectl) ExecPodCmd(namespace string, pod string, cmd string) (string
 	command := fmt.Sprintf("%s exec -n %s %s -- %s", kubectl, namespace, pod, cmd)
 	stdout := new(bytes.Buffer)
 	stderr := new(bytes.Buffer)
-	exit := kub.Execute(command, stdout, stderr)
+	exit, _ := kub.Execute(command, stdout, stderr)
 	if exit == false {
 		// TODO: Return CmdRes here
 		// Return the string is not fired on the assertion :\ Need to check
@@ -110,7 +111,8 @@ func (kub *Kubectl) GetPods(namespace string, filter string) *CmdRes {
 func (kub *Kubectl) GetPodNames(namespace string, label string) ([]string, error) {
 	stdout := new(bytes.Buffer)
 	filter := "-o jsonpath='{.items[*].metadata.name}'"
-	exit := kub.Execute(
+
+	exit, _ := kub.Execute(
 		fmt.Sprintf("%s -n %s get pods -l %s %s", kubectl, namespace, label, filter),
 		stdout, nil)
 
@@ -127,21 +129,22 @@ func (kub *Kubectl) GetPodNames(namespace string, label string) ([]string, error
 	return strings.Split(out, " "), nil
 }
 
+// GetServiceHostPort returns the Host and the first Port for the given service name.
+// It will return an error if service cannot be retrieved.
+func (kub *Kubectl) GetServiceHostPort(namespace string, service string) (string, int, error) {
+	var data v1.Service
+	err := kub.Get(namespace, fmt.Sprintf("service %s", service)).Unmarshal(&data)
+	if err != nil {
+		return "", 0, err
+	}
+	return data.Spec.ClusterIP, int(data.Spec.Ports[0].Port), nil
+}
+
 // Logs returns a CmdRes with containing the resulting metadata from the
 // execution of `kubectl logs <pod> -n <namespace>`.
 func (kub *Kubectl) Logs(namespace string, pod string) *CmdRes {
-	stdout := new(bytes.Buffer)
-	stderr := new(bytes.Buffer)
-
-	exit := kub.Execute(
-		fmt.Sprintf("%s -n %s logs %s", kubectl, namespace, pod),
-		stdout, stderr)
-	return &CmdRes{
-		cmd:    "",
-		stdout: stdout,
-		stderr: stderr,
-		exit:   exit,
-	}
+	return kub.Exec(
+		fmt.Sprintf("%s -n %s logs %s", kubectl, namespace, pod))
 }
 
 // ManifestsPath returns the the full path of manifests (DaemonSets, YAML files,
