@@ -16,6 +16,7 @@ complete will help you to get started in your area of choice:
 
    minikube
    kafka
+   grpc
    mesos
    docker
 
