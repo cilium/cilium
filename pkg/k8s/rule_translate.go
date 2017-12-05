@@ -101,8 +101,8 @@ func generateToCidrFromEndpoint(
 		}
 
 		found := false
-		for _, c := range egress.ToCIDR {
-			_, cidr, err := net.ParseCIDR(string(c))
+		for _, c := range egress.ToCIDRSet {
+			_, cidr, err := net.ParseCIDR(string(c.Cidr))
 			if err != nil {
 				return err
 			}
@@ -113,7 +113,10 @@ func generateToCidrFromEndpoint(
 		}
 		if !found {
 			cidr := net.IPNet{IP: epIP.Mask(mask), Mask: mask}
-			egress.ToCIDR = append(egress.ToCIDR, api.CIDR(cidr.String()))
+			egress.ToCIDRSet = append(egress.ToCIDRSet, api.CIDRRule{
+				Cidr:      api.CIDR(cidr.String()),
+				Generated: true,
+			})
 		}
 	}
 	return nil
@@ -124,7 +127,7 @@ func generateToCidrFromEndpoint(
 func deleteToCidrFromEndpoint(
 	egress *api.EgressRule, endpoint types.K8sServiceEndpoint) error {
 
-	newToCIDR := make([]api.CIDR, 0, len(egress.ToCIDR))
+	newToCIDR := make([]api.CIDRRule, 0, len(egress.ToCIDRSet))
 
 	for ip := range endpoint.BEIPs {
 		epIP := net.ParseIP(ip)
@@ -132,19 +135,20 @@ func deleteToCidrFromEndpoint(
 			return fmt.Errorf("Unable to parse ip: %s", ip)
 		}
 
-		for _, c := range egress.ToCIDR {
-			_, cidr, err := net.ParseCIDR(string(c))
+		for _, c := range egress.ToCIDRSet {
+			_, cidr, err := net.ParseCIDR(string(c.Cidr))
 			if err != nil {
 				return err
 			}
-			if !cidr.Contains(epIP) {
-				//if endpoint is not in CIDR it's ok to retain it
+			// if endpoint is not in CIDR or it's not
+			// generated it's ok to retain it
+			if !cidr.Contains(epIP) || !c.Generated {
 				newToCIDR = append(newToCIDR, c)
 			}
 		}
 	}
 
-	egress.ToCIDR = newToCIDR
+	egress.ToCIDRSet = newToCIDR
 
 	return nil
 }
