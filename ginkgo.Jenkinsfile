@@ -45,6 +45,7 @@ pipeline {
                     "K8s-1.6":{
                         sh 'cd ${TESTDIR}; K8S_VERSION=1.6 ginkgo --focus="K8s*" -v -noColor'
                     },
+                    failFast: true
                 )
             }
             post {
