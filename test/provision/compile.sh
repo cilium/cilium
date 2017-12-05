@@ -1,5 +1,10 @@
 #!/bin/bash
 set -e
+
+CILIUM_DS_TAG="k8s-app=cilium"
+KUBE_SYSTEM_NAMESPACE="kube-system"
+KUBECTL="/usr/bin/kubectl"
+
 export GOPATH="/go/"
 
 mkdir -p $GOPATH/src/github.com/cilium/
@@ -14,6 +19,8 @@ then
         make docker-image-dev
         docker tag cilium k8s1:5000/cilium/cilium-dev
         docker push k8s1:5000/cilium/cilium-dev
+        echo "Executing: $KUBECTL delete pods -n $KUBE_SYSTEM_NAMESPACE -l $CILIUM_DS_TAG"
+        $KUBECTL delete pods -n $KUBE_SYSTEM_NAMESPACE -l $CILIUM_DS_TAG
     else
         echo "No on master K8S node; no need to compile Cilium container"
     fi
