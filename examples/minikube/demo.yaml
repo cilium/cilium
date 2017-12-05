@@ -26,38 +26,30 @@ spec:
         ports:
         - containerPort: 80
 ---
-apiVersion: extensions/v1beta1
-kind: Deployment
+apiVersion: v1
+kind: Pod 
 metadata:
   name: app2
+  labels:
+    id: app2
 spec:
-  replicas: 1
-  template:
-    metadata:
-      labels:
-        id: app2
-    spec:
-      containers:
-      - name: app-frontend
-        image: cilium/demo-client
-        command: [ "sleep" ]
-        args:
-          - "1000h"
+  containers:
+    - name: app-frontend
+      image: cilium/demo-client
+      command: [ "sleep" ]
+      args:
+        - "1000h"
 ---
-apiVersion: extensions/v1beta1
-kind: Deployment
+apiVersion: v1 
+kind: Pod
 metadata:
   name: app3
+  labels:
+    id: app3
 spec:
-  replicas: 1
-  template:
-    metadata:
-      labels:
-        id: app3
-    spec:
-      containers:
-      - name: app-frontend
-        image: cilium/demo-client
-        command: [ "sleep" ]
-        args:
-          - "1000h"
+  containers:
+    - name: app-frontend
+      image: cilium/demo-client
+      command: [ "sleep" ]
+      args:
+        - "1000h"
