@@ -336,6 +336,10 @@ type CIDRRule struct {
 	//
 	// +optional
 	ExceptCIDRs []CIDR `json:"except,omitempty"`
+
+	// Generated indicates whether the rule was generated based on other rules
+	// or provided by user
+	Generated bool `json:"-"`
 }
 
 // L7Rules is a union of port level rule types. Mixing of different port
