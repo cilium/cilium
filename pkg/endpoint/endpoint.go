@@ -1375,7 +1375,7 @@ func (e *Endpoint) SetStateLocked(toState, reason string) bool {
 		}
 	case StateWaitingForIdentity:
 		switch toState {
-		case StateReady, StateDisconnecting, StateWaitingToRegenerate:
+		case StateReady, StateDisconnecting:
 			goto OKState
 		}
 	case StateReady:
