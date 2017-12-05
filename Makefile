@@ -9,6 +9,7 @@ BPF_SRCFILES=$(shell find bpf/ -name *.[ch] -print)
 GOTEST_OPTS = -test.v -check.v
 
 all: precheck-gofmt build cmdref-check
+	@echo "Build finished."
 
 build: $(SUBDIRS)
 
