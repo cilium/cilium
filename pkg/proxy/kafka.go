@@ -16,6 +16,7 @@ package proxy
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"time"
@@ -319,6 +320,8 @@ func (k *kafkaRedirect) handleRequest(pair *connectionPair, req *kafka.RequestMe
 	pair.tx.Enqueue(req.GetRaw())
 }
 
+var ErrUnexpectedEOFDecode = errors.New("cannot decode message: unexpected EOF")
+
 type kafkaReqMessageHander func(pair *connectionPair, req *kafka.RequestMessage)
 type kafkaRespMessageHander func(pair *connectionPair, req *kafka.ResponseMessage)
 
@@ -328,7 +331,8 @@ func handleRequest(pair *connectionPair, c *proxyConnection,
 	for {
 		req, err := kafka.ReadRequest(c.conn)
 		if err != nil {
-			if err == io.EOF || err == io.ErrUnexpectedEOF {
+			if err == io.EOF || err == io.ErrUnexpectedEOF || err == ErrUnexpectedEOFDecode {
+				log.Debug("TEMP DEBUG LOG: Closing connection due to err:", err)
 				c.Close()
 				return
 			}
@@ -345,6 +349,7 @@ func handleRequest(pair *connectionPair, c *proxyConnection,
 				return
 			}
 
+			log.Debug("TEMP DEBUG LOG: parse error:", err)
 			log.WithError(err).Error("Unable to parse Kafka request")
 			continue
 		} else {
