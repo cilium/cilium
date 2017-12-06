@@ -31,8 +31,6 @@ var _ = Describe("NightlyK8sPolicies", func() {
 	var logger *logrus.Entry
 	var initialized bool
 
-	ciliumPath := fmt.Sprintf("%s/cilium_ds.yaml", kubectl.ManifestsPath())
-
 	initialize := func() {
 		if initialized == true {
 			return
@@ -42,6 +40,7 @@ var _ = Describe("NightlyK8sPolicies", func() {
 		logger.Info("Starting")
 
 		kubectl = helpers.CreateKubectl(helpers.K8s1VMName(), logger)
+		ciliumPath := fmt.Sprintf("%s/cilium_ds.yaml", kubectl.ManifestsPath())
 		kubectl.Apply(ciliumPath)
 		_, err := kubectl.WaitforPods(helpers.KubeSystemNamespace, "-l k8s-app=cilium", 600)
 		Expect(err).Should(BeNil())
