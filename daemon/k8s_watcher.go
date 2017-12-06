@@ -902,6 +902,8 @@ func (d *Daemon) addK8sEndpointV1(ep *v1.Endpoints) {
 		err := d.policy.TranslateRules(translator)
 		if err != nil {
 			log.Errorf("Unable to repopulate egress policies from ToService rules: %v", err)
+		} else {
+			d.TriggerPolicyUpdates(true)
 		}
 	}
 }
@@ -942,6 +944,8 @@ func (d *Daemon) deleteK8sEndpointV1(ep *v1.Endpoints) {
 			err := d.policy.TranslateRules(translator)
 			if err != nil {
 				log.Errorf("Unable to depopulate egress policies from ToService rules: %v", err)
+			} else {
+				d.TriggerPolicyUpdates(true)
 			}
 		}
 	}

@@ -9,6 +9,7 @@
 # @cilium/docker        Docker plugin
 # @cilium/docs          Documentation, examples
 # @cilium/endpoint      Endpoint package
+# @cilium/health        Cilium cluster health tool
 # @cilium/kubernetes    K8s integration, K8s CNI plugin
 # @cilium/kvstore       Key/Value store: Consul, etcd
 # @cilium/loadbalancer  Load balancer
@@ -30,7 +31,9 @@
 api/ @cilium/api
 bpf/ @cilium/bpf
 bpf/*.sh @cilium/bpf-loader
+bugtool/cmd/ @cilium/cli
 cilium/ @cilium/cli
+cilium-health/cmd/ @cilium/cli
 contrib/packaging/deb/ @eloycoto
 contrib/packaging/docker/ @aanm @ianvernon
 contrib/vagrant @cilium/vagrant
@@ -51,7 +54,9 @@ examples/kubernetes/ @cilium/kubernetes
 examples/kubernetes-ingress/ @cilium/kubernetes
 examples/mesos/Vagrantfile @cilium/vagrant
 examples/minikube/ @cilium/kubernetes
+ginkgo.Jenkinsfile @cilium/ci
 Jenkinsfile @cilium/ci
+Jenkinsfile.nightly @cilium/ci
 monitor/ @cilium/monitor
 monitor/payload @cilium/api
 pkg/apierror/ @cilium/api
@@ -59,7 +64,9 @@ pkg/apisocket/ @cilium/api
 pkg/bpf/ @cilium/bpf
 pkg/endpoint/ @cilium/endpoint
 pkg/envoy/ @cilium/proxy
+pkg/health/ @cilium/health
 pkg/k8s/ @cilium/kubernetes
+pkg/kafka/ @cilium/proxy
 pkg/kvstore/ @cilium/kvstore
 pkg/maps/ @cilium/bpf
 pkg/policy @cilium/policy
