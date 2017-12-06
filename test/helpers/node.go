@@ -78,7 +78,7 @@ func GetVagrantSSHMeta(vmName string) *SSHMeta {
 // Execute executes cmd on the provided node and stores the stdout / stderr of
 // the command in the provided buffers. Returns false if the command failed
 // during its execution.
-func (s *SSHMeta) Execute(cmd string, stdout io.Writer, stderr io.Writer) (bool, error) {
+func (s *SSHMeta) Execute(cmd string, stdout io.Writer, stderr io.Writer) error {
 	if stdout == nil {
 		stdout = os.Stdout
 	}
@@ -94,11 +94,7 @@ func (s *SSHMeta) Execute(cmd string, stdout io.Writer, stderr io.Writer) (bool,
 		Stderr: stderr,
 	}
 	err := s.sshClient.RunCommand(command)
-	if err != nil {
-		log.WithError(err).Debugf("error while running command: %s", cmd)
-		return false, err
-	}
-	return true, nil
+	return err
 }
 
 // ExecWithSudo returns the result of executing the provided cmd via SSH using
@@ -112,7 +108,11 @@ func (s *SSHMeta) ExecWithSudo(cmd string) *CmdRes {
 func (s *SSHMeta) Exec(cmd string) *CmdRes {
 	stdout := new(bytes.Buffer)
 	stderr := new(bytes.Buffer)
-	exit, err := s.Execute(cmd, stdout, stderr)
+	exit := true
+	err := s.Execute(cmd, stdout, stderr)
+	if err != nil {
+		exit = false
+	}
 	res := CmdRes{
 		cmd:    cmd,
 		stdout: stdout,
