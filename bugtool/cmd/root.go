@@ -214,6 +214,10 @@ func copySystemInfo(cmdDir string) {
 			}
 			k8sCommands = append(k8sCommands, podPrefix(pod, cmd))
 		}
+
+		// Check for previous logs of the pod
+		cmd := fmt.Sprintf("kubectl -n %s logs --previous -p %s", k8sNamespace, pod)
+		k8sCommands = append(k8sCommands, cmd)
 	}
 
 	runAll(k8sCommands, cmdDir)
