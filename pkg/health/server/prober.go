@@ -144,6 +144,34 @@ func getNodeAddresses(node *ciliumModels.NodeElement) map[*ciliumModels.NodeAddr
 	return addresses
 }
 
+// resolveIP attempts to sanitize 'node' and 'ip', and if successful, returns
+// the name of the node and the IP address specified in the addressing element.
+// If validation fails or this IP should not be pinged, 'ip' is returned as nil.
+func resolveIP(node *ciliumModels.NodeElement, addr *ciliumModels.NodeAddressingElement, proto string, primary bool) (string, *net.IPAddr) {
+	if skipAddress(addr) {
+		return "", nil
+	}
+
+	network := "ip6:icmp"
+	if isIPv4(addr.IP) {
+		network = "ip4:icmp"
+	}
+	scopedLog := log.WithFields(logrus.Fields{
+		logfields.NodeName: node.Name,
+		logfields.IPAddr:   addr.IP,
+		"primary":          primary,
+	})
+
+	ra, err := net.ResolveIPAddr(network, addr.IP)
+	if err != nil {
+		scopedLog.Debug("Skipping probe for node")
+		return "", nil
+	}
+
+	scopedLog.WithField("protocol", proto).Debug("Probing for connectivity to node")
+	return node.Name, ra
+}
+
 // setNodes sets the list of nodes for the prober, and updates the pinger to
 // start sending pings to all of the nodes.
 // setNodes will steal references to nodes referenced from 'nodes', so the
@@ -154,32 +182,18 @@ func (p *prober) setNodes(nodes nodeMap) {
 
 	for _, n := range nodes {
 		for elem, primary := range getNodeAddresses(n) {
-			if skipAddress(elem) {
-				continue
-			}
-
-			network := "ip6:icmp"
-			if isIPv4(elem.IP) {
-				network = "ip4:icmp"
-			}
-			scopedLog := log.WithFields(logrus.Fields{
-				logfields.NodeName: n.Name,
-				logfields.IPAddr:   elem.IP,
-				"primary":          primary,
-			})
-
-			result := &models.ConnectivityStatus{}
-			ra, err := net.ResolveIPAddr(network, elem.IP)
-			if err == nil {
-				scopedLog.Debug("Probing for connectivity to node")
-				result.Status = "Connection timed out"
-				p.AddIPAddr(ra)
-			} else {
-				scopedLog.Debug("Skipping probe for node")
-				result.Status = "Failed to resolve IP"
-			}
+			_, addr := resolveIP(n, elem, "icmp", primary)
 
 			ip := ipString(elem.IP)
+			result := &models.ConnectivityStatus{}
+			if addr == nil {
+				result.Status = "Failed to resolve IP"
+			} else {
+				result.Status = "Connection timed out"
+				p.AddIPAddr(addr)
+				p.nodes[ip] = n
+			}
+
 			if p.results[ip] == nil {
 				p.results[ip] = &models.PathStatus{
 					IP: elem.IP,
@@ -224,12 +238,12 @@ func (p *prober) httpProbe(node string, ip string, port int) *models.Connectivit
 }
 
 func (p *prober) runHTTPProbe() {
-	nodes := make(map[string]ipString)
+	nodes := make(map[string]*net.IPAddr)
 	p.RLock()
 	for _, node := range p.nodes {
-		for elem := range getNodeAddresses(node) {
-			if !skipAddress(elem) {
-				nodes[name] = ipString(elem.IP)
+		for elem, primary := range getNodeAddresses(node) {
+			if name, addr := resolveIP(node, elem, "icmp", primary); addr != nil {
+				nodes[name] = addr
 			}
 		}
 	}
@@ -241,18 +255,18 @@ func (p *prober) runHTTPProbe() {
 			defaults.HTTPPathPort: &status.HTTP,
 		}
 		for port, result := range ports {
-			*result = p.httpProbe(name, string(ip), port)
+			*result = p.httpProbe(name, ip.String(), port)
 			if status.HTTP.Status != "" {
 				log.WithFields(logrus.Fields{
 					logfields.NodeName: name,
-					logfields.IPAddr:   ip,
+					logfields.IPAddr:   ip.String(),
 					logfields.Port:     port,
 				}).Debugf("Failed to probe: %s", status.HTTP.Status)
 			}
 		}
 
 		p.Lock()
-		p.results[ip].HTTP = status.HTTP
+		p.results[ipString(ip.String())].HTTP = status.HTTP
 		p.Unlock()
 	}
 }
