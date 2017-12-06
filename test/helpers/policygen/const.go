@@ -12,7 +12,7 @@ var (
 		ResultTimeout,
 		ResultAuth,
 	}
-	ConnTestsActions = map[string]func(srcPod string, dest *TargetDetails, kub *helpers.Kubectl) *ResultType{
+	ConnTestsActions = map[string]func(srcPod string, dest TargetDetails, kub *helpers.Kubectl) ResultType{
 		Ping:        PingAction,
 		HTTP:        HTTPActionPublic,
 		HTTPPrivate: HTTPActionPrivate,

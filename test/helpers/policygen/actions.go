@@ -10,7 +10,7 @@ import (
 // HTTPAction runs a helpers.CurlFail from specified pod to a specified target.
 // It needs a `helpers.Kubectl` instance to run the comamnd in the pod. It
 // returns a ResultType struct.
-func HTTPAction(srcPod string, target string, kub *helpers.Kubectl) *ResultType {
+func HTTPAction(srcPod string, target string, kub *helpers.Kubectl) ResultType {
 	command := fmt.Sprintf("%s exec -n %s %s -- %s",
 		"kubectl", helpers.DefaultNamespace,
 		srcPod, helpers.CurlFail(target))
@@ -18,23 +18,23 @@ func HTTPAction(srcPod string, target string, kub *helpers.Kubectl) *ResultType 
 	log.Infof("Executing HTTPAction '%s'", command)
 	res := kub.Exec(command)
 	if res.WasSuccessful() {
-		return &ResultOK
+		return ResultOK
 	}
 	// Curl exitcodes are described in https://curl.haxx.se/libcurl/c/libcurl-errors.html
 	switch exitCode := res.GetExitCode(); exitCode {
 	case 28: //CURLE_OPERATION_TIMEDOUT (28)
-		return &ResultTimeout
+		return ResultTimeout
 	case 22: //CURLE_HTTP_RETURNED_ERROR
-		return &ResultAuth
+		return ResultAuth
 	default:
-		log.Infof("HTTPAction returns exitcode '%d' and it's not handle", exitCode)
-		return &ResultOK
+		log.Infof("HTTPAction returns exitcode '%d' and it's not handled", exitCode)
+		return ResultOK
 	}
-	return nil
+	return ResultType{}
 }
 
 // HTTPActionPrivate runs a CurlAction to private http target using destTargetDetails
-func HTTPActionPrivate(srcPod string, dest *TargetDetails, kub *helpers.Kubectl) *ResultType {
+func HTTPActionPrivate(srcPod string, dest TargetDetails, kub *helpers.Kubectl) ResultType {
 	return HTTPAction(
 		srcPod,
 		fmt.Sprintf("http://%s/private", dest),
@@ -42,7 +42,7 @@ func HTTPActionPrivate(srcPod string, dest *TargetDetails, kub *helpers.Kubectl)
 }
 
 // HTTPActionPublic runs a CurlAction to public http target using destTargetDetails
-func HTTPActionPublic(srcPod string, dest *TargetDetails, kub *helpers.Kubectl) *ResultType {
+func HTTPActionPublic(srcPod string, dest TargetDetails, kub *helpers.Kubectl) ResultType {
 	return HTTPAction(
 		srcPod,
 		fmt.Sprintf("http://%s/public", dest),
@@ -50,20 +50,20 @@ func HTTPActionPublic(srcPod string, dest *TargetDetails, kub *helpers.Kubectl) 
 }
 
 // NetPerfAction TODO make this function
-func NetPerfAction(srcPod string, dest *TargetDetails, kub *helpers.Kubectl) *ResultType {
-	return nil
+func NetPerfAction(srcPod string, dest TargetDetails, kub *helpers.Kubectl) ResultType {
+	return ResultType{}
 }
 
 // PingAction executes a ping from the `srcPod` to the destination Target using
 // Kubectl object. It will return a ResultType based on the exitCode
-func PingAction(srcPod string, dest *TargetDetails, kub *helpers.Kubectl) *ResultType {
+func PingAction(srcPod string, dest TargetDetails, kub *helpers.Kubectl) ResultType {
 	command := fmt.Sprintf("%s exec -n %s %s -- %s",
 		"kubectl", helpers.DefaultNamespace,
 		srcPod, helpers.Ping(dest.IP))
 
 	res := kub.Exec(command)
 	if res.WasSuccessful() {
-		return &ResultOK
+		return ResultOK
 	}
-	return &ResultTimeout
+	return ResultTimeout
 }
