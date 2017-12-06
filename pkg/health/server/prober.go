@@ -37,8 +37,9 @@ type prober struct {
 
 	// 'stop' is closed upon a call to prober.Stop(). When the stopping is
 	// finished, then prober.Done() will be notified.
-	stop chan bool
-	done chan bool
+	stop         chan bool
+	proberExited chan bool
+	done         chan bool
 
 	// The lock protects multiple requests attempting to update the status
 	// at the same time - ie, serialize updates between the periodic prober
@@ -257,10 +258,6 @@ func (p *prober) runHTTPProbe() {
 // Done returns a channel that is closed when RunLoop() is stopped by an error.
 // It must be called after the RunLoop() call.
 func (p *prober) Done() <-chan bool {
-	go func() {
-		res := <-p.Pinger.Done()
-		p.done <- res
-	}()
 	return p.done
 }
 
@@ -277,8 +274,8 @@ func (p *prober) Run() error {
 func (p *prober) Stop() {
 	p.Pinger.Stop()
 	close(p.stop)
-	<-p.Pinger.Done()
-	<-p.Done()
+	<-p.proberExited
+	close(p.done)
 }
 
 // RunLoop periodically sends probes out to all of the other cilium nodes to
@@ -303,7 +300,7 @@ func (p *prober) RunLoop() {
 			}
 		}
 		tick.Stop()
-		close(p.done)
+		close(p.proberExited)
 	}()
 }
 
@@ -311,12 +308,13 @@ func (p *prober) RunLoop() {
 // the prober to populate its 'results' map.
 func newProber(s *Server, nodes nodeMap) *prober {
 	prober := &prober{
-		Pinger:  fastping.NewPinger(),
-		server:  s,
-		done:    make(chan bool),
-		stop:    make(chan bool),
-		results: make(map[ipString]*models.PathStatus),
-		nodes:   nodes,
+		Pinger:       fastping.NewPinger(),
+		server:       s,
+		done:         make(chan bool),
+		proberExited: make(chan bool),
+		stop:         make(chan bool),
+		results:      make(map[ipString]*models.PathStatus),
+		nodes:        nodes,
 	}
 	prober.MaxRTT = s.ProbeDeadline
 
