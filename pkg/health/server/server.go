@@ -152,7 +152,9 @@ func (s *Server) GetStatusResponse() *healthModels.HealthStatusResponse {
 	s.RLock()
 	defer s.RUnlock()
 	return &healthModels.HealthStatusResponse{
-		Local:     s.localStatus,
+		Local: &healthModels.SelfStatus{
+			Name: s.localStatus.Name,
+		},
 		Nodes:     s.connectivity,
 		Timestamp: s.lastProbe.Format(time.RFC3339),
 	}
