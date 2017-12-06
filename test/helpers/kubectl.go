@@ -137,6 +137,9 @@ func (kub *Kubectl) GetServiceHostPort(namespace string, service string) (string
 	if err != nil {
 		return "", 0, err
 	}
+	if len(data.Spec.Ports) == 0 {
+		return "", 0, fmt.Errorf("Service %q does not have ports defined", service)
+	}
 	return data.Spec.ClusterIP, int(data.Spec.Ports[0].Port), nil
 }
 

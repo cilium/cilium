@@ -1,8 +1,8 @@
 package policygen
 
 var policiesTestSuite = PolicyTestSuite{
-	l3Checks: []PolicyTest{
-		PolicyTest{
+	l3Checks: []PolicyTestKind{
+		PolicyTestKind{
 			name:  "No Policy",
 			kind:  ingress,
 			tests: ConnResultAllOK,
@@ -10,7 +10,7 @@ var policiesTestSuite = PolicyTestSuite{
 				"FromEndpoints": `[{}]`,
 			},
 		},
-		PolicyTest{
+		PolicyTestKind{
 			name:  "Ingress Label",
 			kind:  ingress,
 			tests: ConnResultAllOK,
@@ -18,7 +18,7 @@ var policiesTestSuite = PolicyTestSuite{
 				"FromEndpoints": `[{"matchLabels": { "id": "{{.SrcPod}}"}}]`,
 			},
 		},
-		PolicyTest{
+		PolicyTestKind{
 			name:  "Ingress Label Invalid",
 			kind:  ingress,
 			tests: ConnResultAllTimeout,
@@ -27,14 +27,14 @@ var policiesTestSuite = PolicyTestSuite{
 			},
 		},
 	},
-	l4Checks: []PolicyTest{
-		PolicyTest{
+	l4Checks: []PolicyTestKind{
+		PolicyTestKind{
 			name:     "No Policy",
 			kind:     ingress,
 			tests:    ConnResultAllOK,
 			template: map[string]string{},
 		},
-		PolicyTest{
+		PolicyTestKind{
 			name:  "Ingress Port 80 No protocol",
 			kind:  ingress,
 			tests: ConnResultOnlyHTTP,
@@ -42,7 +42,7 @@ var policiesTestSuite = PolicyTestSuite{
 				"Ports": `[{"port": "80"}]`,
 			},
 		},
-		PolicyTest{
+		PolicyTestKind{
 			name:  "Ingress Port 80 TCP",
 			kind:  ingress,
 			tests: ConnResultOnlyHTTP,
@@ -50,7 +50,7 @@ var policiesTestSuite = PolicyTestSuite{
 				"Ports": `[{"port": "80", "protocol": "TCP"}]`,
 			},
 		},
-		PolicyTest{
+		PolicyTestKind{
 			name:  "Ingress Port 80 UDP",
 			kind:  ingress,
 			tests: ConnResultAllTimeout,
@@ -59,14 +59,14 @@ var policiesTestSuite = PolicyTestSuite{
 			},
 		},
 	},
-	l7Checks: []PolicyTest{
-		PolicyTest{
+	l7Checks: []PolicyTestKind{
+		PolicyTestKind{
 			name:     "No Policy",
 			kind:     ingress,
 			tests:    ConnResultAllOK,
 			template: map[string]string{},
 		},
-		PolicyTest{
+		PolicyTestKind{
 			name:  "Ingress policy /private/",
 			kind:  ingress,
 			tests: ConnResultOnlyHTTPPrivate,
@@ -75,7 +75,7 @@ var policiesTestSuite = PolicyTestSuite{
 				"Ports": `[{"port": "80", "protocol": "TCP"}]`,
 			},
 		},
-		PolicyTest{
+		PolicyTestKind{
 			name:  "Egress policy to /private/",
 			kind:  egress,
 			tests: ConnResultOnlyHTTPPrivate,

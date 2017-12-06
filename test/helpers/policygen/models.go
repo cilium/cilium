@@ -19,7 +19,7 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-// ConnTestSpec Connectivy Test Specification. This is a struct to use in
+// ConnTestSpec Connectivity Test Specification. This is a struct to use in
 // PolicyTest to determine the result of the TestCase.
 type ConnTestSpec struct {
 	HTTP        ResultType
@@ -36,11 +36,11 @@ func (conn *ConnTestSpec) GetField(field string) ResultType {
 	return (f.Interface()).(ResultType)
 }
 
-// PolicyTest is utilized to decribe a new TestCase
+// PolicyTestKind is utilized to decribe a new TestCase
 // It needs a described name, the kind of the test (Egrees or Ingress) and the
 // expected result of `ConnTestSpec`
 // Template field is used to render the cilium network policy.
-type PolicyTest struct {
+type PolicyTestKind struct {
 	name     string
 	kind     string //Egress/ingress
 	tests    ConnTestSpec
@@ -51,7 +51,7 @@ type PolicyTest struct {
 // templates. The result will be stored in the result parameter, the spec
 // parameters is needed to retrieve the source and destination pods and pass
 // the information to the go template.
-func (pol *PolicyTest) SetTemplate(result *map[string]interface{}, spec *TestSpec) error {
+func (pol *PolicyTestKind) SetTemplate(result *map[string]interface{}, spec *TestSpec) error {
 	getTemplate := func(tmpl string) (*bytes.Buffer, error) {
 		t, err := template.New("").Parse(tmpl)
 		if err != nil {
@@ -100,9 +100,9 @@ func (res ResultType) String() string {
 
 // PolicyTestSuite  helper struct to store all different policies types
 type PolicyTestSuite struct {
-	l3Checks []PolicyTest
-	l4Checks []PolicyTest
-	l7Checks []PolicyTest
+	l3Checks []PolicyTestKind
+	l4Checks []PolicyTestKind
+	l7Checks []PolicyTestKind
 }
 
 // Target struct to define the destination that wee need to use for the
@@ -284,9 +284,9 @@ func (target TargetDetails) String() string {
 // executed using a type of Destination that is defined under Target struct.
 // This struct needs a `*helpers.Kubectl` to run the needed commands
 type TestSpec struct {
-	l3          PolicyTest
-	l4          PolicyTest
-	l7          PolicyTest
+	l3          PolicyTestKind
+	l4          PolicyTestKind
+	l7          PolicyTestKind
 	SrcPod      string
 	DestPod     string
 	Prefix      string
@@ -594,22 +594,22 @@ type connTestResultType struct {
 	result ResultType
 }
 
-// GetConnectivyTest returns and array with the expected results of the given
-// connectivy test kind
-func (t *TestSpec) GetConnectivyTest(kind string) []connTestResultType {
+// getConnectivityTest returns and array with the expected results of the given
+// connectivity test kind
+func (t *TestSpec) getConnectivityTest(kind string) []connTestResultType {
 	return []connTestResultType{
 		connTestResultType{t.l3.kind, t.l3.tests.GetField(kind)},
 		connTestResultType{t.l4.kind, t.l4.tests.GetField(kind)},
 		connTestResultType{t.l7.kind, t.l7.tests.GetField(kind)}}
 }
 
-// GetTestExpects returns a map with the connTestType and the exepected result
+// GetTestExpects returns a map with the connTestType and the expected result
 // based on the `testExpect`
 func (t *TestSpec) GetTestExpects() map[string]ResultType {
-	DetermineStatus := func(testType string) ResultType {
-		connTest := t.GetConnectivyTest(testType)
+	expectedTestResult := func(testType string) ResultType {
+		connTest := t.getConnectivityTest(testType)
 
-		//First check the egress rules that are the first rules that matchs
+		//First check the egress rules that are the first rules that match
 		for _, kind := range ConnTestsFailedResults {
 			for _, test := range connTest {
 				if test.kind == egress {
@@ -635,13 +635,13 @@ func (t *TestSpec) GetTestExpects() map[string]ResultType {
 
 	result := map[string]ResultType{}
 	for _, connTestType := range ConnTests {
-		result[connTestType] = DetermineStatus(connTestType)
+		result[connTestType] = expectedTestResult(connTestType)
 	}
 
 	return result
 }
 
-// ExecTest runs the connectivyTest for the expected `PolicyTest`. It will
+// ExecTest runs the connectivityTest for the expected `PolicyTest`. It will
 // assert using gomega.
 func (t *TestSpec) ExecTest() error {
 	testFailMessage := func(kind string) string {
@@ -657,8 +657,8 @@ func (t *TestSpec) ExecTest() error {
 		if err != nil {
 			return fmt.Errorf("cannot get target in '%s': %s", t.Prefix, err)
 		}
-		result := fn(t.SrcPod, target, t.Kub)
-		gomega.Expect(result).To(gomega.Equal(&expectResult), testFailMessage(connType))
+		result := fn(t.SrcPod, *target, t.Kub)
+		gomega.Expect(result).To(gomega.Equal(expectResult), testFailMessage(connType))
 	}
 	return nil
 }
