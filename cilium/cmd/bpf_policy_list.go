@@ -72,6 +72,9 @@ func listMap(cmd *cobra.Command, args []string) {
 		Fatalf("Error while opening bpf Map: %s\n", err)
 	}
 
+	if handleJSON(statsMap) {
+		return
+	}
 	w := tabwriter.NewWriter(os.Stdout, 5, 0, 3, ' ', 0)
 	formatMap(w, statsMap)
 	w.Flush()
