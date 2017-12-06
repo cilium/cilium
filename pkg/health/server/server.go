@@ -185,39 +185,24 @@ func (s *Server) FetchStatusResponse() (*healthModels.HealthStatusResponse, erro
 // Blocks indefinitely, or returns any errors that occur hosting the Unix
 // socket API server.
 func (s *Server) runActiveServices() error {
-	var prober *prober
-
 	// Run it once at the start so we get some initial status
 	s.FetchStatusResponse()
 
-	s.waitgroup.Add(1)
-	go func() {
-		defer s.waitgroup.Done()
-
-		nodes, _ := s.getNodes()
-		prober = newProber(s, nodes)
-		prober.MaxRTT = s.ProbeInterval
-		prober.OnIdle = func() {
-			// Fetch results and update set of nodes to probe every
-			// ProbeInterval
-			s.updateCluster(prober.getResults())
-			if nodes, err := s.getNodes(); err == nil {
-				prober.setNodes(nodes)
-			}
+	nodes, _ := s.getNodes()
+	prober := newProber(s, nodes)
+	prober.MaxRTT = s.ProbeInterval
+	prober.OnIdle = func() {
+		// Fetch results and update set of nodes to probe every
+		// ProbeInterval
+		s.updateCluster(prober.getResults())
+		if nodes, err := s.getNodes(); err == nil {
+			prober.setNodes(nodes)
 		}
-		prober.RunLoop()
-
-		if <-prober.Done() {
-			if err := prober.Err(); err != nil {
-				log.WithError(err).Debug("Received prober finish")
-			}
-		}
-	}()
+	}
+	prober.RunLoop()
 
 	err := s.Server.Serve()
-	if prober != nil {
-		prober.Stop()
-	}
+	prober.Stop()
 
 	return err
 }
