@@ -27,7 +27,7 @@ var protoNames = map[int]string{
 	58: "ICMPv6",
 }
 
-var protoIDs = map[string]U8proto{
+var ProtoIDs = map[string]U8proto{
 	"icmp":   1,
 	"tcp":    6,
 	"udp":    17,
@@ -46,7 +46,7 @@ func (p *U8proto) String() string {
 }
 
 func ParseProtocol(proto string) (U8proto, error) {
-	if u, ok := protoIDs[strings.ToLower(proto)]; ok {
+	if u, ok := ProtoIDs[strings.ToLower(proto)]; ok {
 		return u, nil
 	}
 	return 0, fmt.Errorf("unknown protocol '%s'", proto)
