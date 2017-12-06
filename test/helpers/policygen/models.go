@@ -66,7 +66,11 @@ func (pol *PolicyTest) SetTemplate(result *map[string]interface{}, spec *TestSpe
 	}
 
 	for k, v := range pol.template {
-
+		// If any key was already set we do not need to overwrite it.
+		// This is in use on L7 when a port is always needed
+		if _, ok := (*result)[k]; ok {
+			continue
+		}
 		tmpl, err := getTemplate(v)
 		if err != nil {
 			return err

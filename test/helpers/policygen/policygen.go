@@ -72,6 +72,7 @@ var policiesTestSuite = PolicyTestSuite{
 			tests: ConnResultOnlyHTTPPrivate,
 			template: map[string]string{
 				"Rules": `{"http": [{"method": "GET", "path": "/private"}]}`,
+				"Ports": `[{"port": "80", "protocol": "TCP"}]`,
 			},
 		},
 		PolicyTest{
@@ -80,6 +81,7 @@ var policiesTestSuite = PolicyTestSuite{
 			tests: ConnResultOnlyHTTPPrivate,
 			template: map[string]string{
 				"Rules": `{"http": [{"method": "GET", "path": "/private"}]}`,
+				"Ports": `[{"port": "80", "protocol": "TCP"}]`,
 			},
 		},
 	},
