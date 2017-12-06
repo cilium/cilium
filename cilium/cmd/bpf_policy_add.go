@@ -21,13 +21,14 @@ import (
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/maps/policymap"
 	"github.com/cilium/cilium/pkg/policy"
+	"github.com/cilium/cilium/pkg/u8proto"
 
 	"github.com/spf13/cobra"
 )
 
 // bpfPolicyAddCmd represents the bpf_policy_add command
 var bpfPolicyAddCmd = &cobra.Command{
-	Use:    "add <endpoint id> <identity>",
+	Use:    "add <endpoint id> <identity> [port/proto]",
 	Short:  "Add/update policy entry",
 	PreRun: requireEndpointID,
 	Run: func(cmd *cobra.Command, args []string) {
@@ -61,12 +62,24 @@ func updatePolicyKey(cmd *cobra.Command, args []string, add bool) {
 		Fatalf("Failed to convert %s", args[1])
 	}
 
+	port := uint16(0)
+	proto := u8proto.U8proto(0)
+	if len(args) > 2 {
+		pp, err := parseL4PortsSlice([]string{args[2]})
+		if err != nil {
+			Fatalf("Failed to parse L4: %s", err)
+		}
+		port = pp[0].Port
+		proto, _ = u8proto.ParseProtocol(pp[0].Protocol)
+	}
+
+	label := uint32(peerLbl)
 	if add == true {
-		if err := policyMap.AllowConsumer(uint32(peerLbl)); err != nil {
+		if err := policyMap.AllowL4(label, port, uint8(proto)); err != nil {
 			Fatalf("Cannot add policy key: %s", err)
 		}
 	} else {
-		if err := policyMap.DeleteConsumer(uint32(peerLbl)); err != nil {
+		if err := policyMap.DeleteL4(label, port, uint8(proto)); err != nil {
 			Fatalf("Cannot delete policy key: %s", err)
 		}
 	}
