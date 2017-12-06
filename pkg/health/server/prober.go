@@ -122,12 +122,6 @@ func (p *prober) getResults() []*models.NodeStatus {
 	return result
 }
 
-func (p *prober) getNodes() nodeMap {
-	p.RLock()
-	defer p.RUnlock()
-	return p.nodes
-}
-
 func isIPv4(ip string) bool {
 	netIP := net.ParseIP(ip)
 	return netIP != nil && !strings.Contains(ip, ":")
