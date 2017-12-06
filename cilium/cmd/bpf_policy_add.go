@@ -15,6 +15,8 @@
 package cmd
 
 import (
+	"fmt"
+	"os"
 	"strconv"
 
 	"github.com/cilium/cilium/common"
@@ -63,24 +65,46 @@ func updatePolicyKey(cmd *cobra.Command, args []string, add bool) {
 	}
 
 	port := uint16(0)
-	proto := u8proto.U8proto(0)
+	protos := []uint8{}
 	if len(args) > 2 {
 		pp, err := parseL4PortsSlice([]string{args[2]})
 		if err != nil {
 			Fatalf("Failed to parse L4: %s", err)
 		}
 		port = pp[0].Port
-		proto, _ = u8proto.ParseProtocol(pp[0].Protocol)
+		if port != 0 {
+			proto, _ := u8proto.ParseProtocol(pp[0].Protocol)
+			if proto == 0 {
+				for _, proto := range u8proto.ProtoIDs {
+					protos = append(protos, uint8(proto))
+				}
+			} else {
+				protos = append(protos, uint8(proto))
+			}
+		}
+	}
+	if len(protos) == 0 {
+		protos = append(protos, 0)
 	}
 
+	ok := true
 	label := uint32(peerLbl)
-	if add == true {
-		if err := policyMap.AllowL4(label, port, uint8(proto)); err != nil {
-			Fatalf("Cannot add policy key: %s", err)
+	for _, proto := range protos {
+		u8p := u8proto.U8proto(proto)
+		entry := fmt.Sprintf("%d %d/%s", label, port, u8p.String())
+		if add == true {
+			if err := policyMap.AllowL4(label, port, proto); err != nil {
+				fmt.Printf("Cannot add policy key '%s': %s\n", entry, err)
+				ok = false
+			}
+		} else {
+			if err := policyMap.DeleteL4(label, port, proto); err != nil {
+				fmt.Printf("Cannot delete policy key '%s': %s\n", entry, err)
+				ok = false
+			}
 		}
-	} else {
-		if err := policyMap.DeleteL4(label, port, uint8(proto)); err != nil {
-			Fatalf("Cannot delete policy key: %s", err)
-		}
+	}
+	if !ok {
+		os.Exit(1)
 	}
 }
