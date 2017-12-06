@@ -81,8 +81,8 @@ func (kub *Kubectl) ExecPodCmd(namespace string, pod string, cmd string) (string
 	command := fmt.Sprintf("%s exec -n %s %s -- %s", kubectl, namespace, pod, cmd)
 	stdout := new(bytes.Buffer)
 	stderr := new(bytes.Buffer)
-	exit, _ := kub.Execute(command, stdout, stderr)
-	if exit == false {
+	err := kub.Execute(command, stdout, stderr)
+	if err != nil {
 		// TODO: Return CmdRes here
 		// Return the string is not fired on the assertion :\ Need to check
 		kub.logger.Errorf(
@@ -112,11 +112,11 @@ func (kub *Kubectl) GetPodNames(namespace string, label string) ([]string, error
 	stdout := new(bytes.Buffer)
 	filter := "-o jsonpath='{.items[*].metadata.name}'"
 
-	exit, _ := kub.Execute(
+	err := kub.Execute(
 		fmt.Sprintf("%s -n %s get pods -l %s %s", kubectl, namespace, label, filter),
 		stdout, nil)
 
-	if exit == false {
+	if err != nil {
 		return nil, fmt.Errorf(
 			"could not find pods in namespace %q with label %q", namespace, label)
 	}
