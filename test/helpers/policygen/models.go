@@ -585,14 +585,18 @@ func (t *TestSpec) NetworkPolicyApply() error {
 	return nil
 }
 
+type connTestResultType struct {
+	kind   string
+	result ResultType
+}
+
 // GetConnectivyTest returns and array with the expected results of the given
 // connectivy test kind
-func (t *TestSpec) GetConnectivyTest(kind string) []ResultType {
-	return []ResultType{
-		t.l3.tests.GetField(kind),
-		t.l4.tests.GetField(kind),
-		t.l7.tests.GetField(kind)}
-
+func (t *TestSpec) GetConnectivyTest(kind string) []connTestResultType {
+	return []connTestResultType{
+		connTestResultType{t.l3.kind, t.l3.tests.GetField(kind)},
+		connTestResultType{t.l4.kind, t.l4.tests.GetField(kind)},
+		connTestResultType{t.l7.kind, t.l7.tests.GetField(kind)}}
 }
 
 // GetTestExpects returns a map with the connTestType and the exepected result
@@ -600,10 +604,25 @@ func (t *TestSpec) GetConnectivyTest(kind string) []ResultType {
 func (t *TestSpec) GetTestExpects() map[string]ResultType {
 	DetermineStatus := func(testType string) ResultType {
 		connTest := t.GetConnectivyTest(testType)
-		for _, kind := range ConnTestsResults {
+
+		//First check the egress rules that are the first rules that matchs
+		for _, kind := range ConnTestsFailedResults {
 			for _, test := range connTest {
-				if test == kind {
-					return kind
+				if test.kind == egress {
+					if test.result == kind {
+						return kind
+					}
+				}
+			}
+		}
+		// If no resulttype for egress, we need to check if any specific
+		// resultType on ingress
+		for _, kind := range ConnTestsFailedResults {
+			for _, test := range connTest {
+				if test.kind == ingress {
+					if test.result == kind {
+						return kind
+					}
 				}
 			}
 		}

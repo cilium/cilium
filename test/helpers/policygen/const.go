@@ -7,11 +7,10 @@ import (
 )
 
 var (
-	ConnTests        = []string{Ping, HTTP, HTTPPrivate}
-	ConnTestsResults = []ResultType{
+	ConnTests              = []string{Ping, HTTP, HTTPPrivate}
+	ConnTestsFailedResults = []ResultType{
 		ResultTimeout,
 		ResultAuth,
-		ResultOK,
 	}
 	ConnTestsActions = map[string]func(srcPod string, dest *TargetDetails, kub *helpers.Kubectl) *ResultType{
 		Ping:        PingAction,
