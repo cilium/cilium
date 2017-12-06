@@ -16,6 +16,7 @@ package cmd
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"strconv"
 	"text/tabwriter"
@@ -70,10 +71,16 @@ func listMap(cmd *cobra.Command, args []string) {
 	if err != nil {
 		Fatalf("Error while opening bpf Map: %s\n", err)
 	}
-	labelsID := map[policy.NumericIdentity]*policy.Identity{}
 
 	w := tabwriter.NewWriter(os.Stdout, 5, 0, 3, ' ', 0)
+	formatMap(w, statsMap)
+	w.Flush()
+	if len(statsMap) == 0 {
+		fmt.Printf("Policy stats empty. Perhaps the policy enforcement is disabled?\n")
+	}
+}
 
+func formatMap(w io.Writer, statsMap []policymap.PolicyEntryDump) {
 	const (
 		labelsIDTitle  = "IDENTITY"
 		labelsDesTitle = "LABELS (source:key[=value])"
@@ -82,6 +89,7 @@ func listMap(cmd *cobra.Command, args []string) {
 		packetsTitle   = "PACKETS"
 	)
 
+	labelsID := map[policy.NumericIdentity]*policy.Identity{}
 	for _, stat := range statsMap {
 		if !printIDs {
 			id := policy.NumericIdentity(stat.Key.Identity)
@@ -118,9 +126,5 @@ func listMap(cmd *cobra.Command, args []string) {
 		} else {
 			fmt.Fprintf(w, "%d\t%s\t%d\t%d\t\n", id, act.String(), stat.Bytes, stat.Packets)
 		}
-	}
-	w.Flush()
-	if len(statsMap) == 0 {
-		fmt.Printf("Policy stats empty. Perhaps the policy enforcement is disabled?\n")
 	}
 }
