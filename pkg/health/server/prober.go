@@ -146,10 +146,11 @@ func getNodeAddresses(node *ciliumModels.NodeElement) map[*ciliumModels.NodeAddr
 
 // setNodes sets the list of nodes for the prober, and updates the pinger to
 // start sending pings to all of the nodes.
+// setNodes will steal references to nodes referenced from 'nodes', so the
+// caller should not modify them after a call to setNodes.
 func (p *prober) setNodes(nodes nodeMap) {
 	p.Lock()
 	defer p.Unlock()
-	p.nodes = nodes
 
 	for _, n := range nodes {
 		for elem, primary := range getNodeAddresses(n) {
@@ -223,35 +224,36 @@ func (p *prober) httpProbe(node string, ip string, port int) *models.Connectivit
 }
 
 func (p *prober) runHTTPProbe() {
+	nodes := make(map[string]ipString)
 	p.RLock()
-	nodes := p.nodes
+	for _, node := range p.nodes {
+		for elem := range getNodeAddresses(node) {
+			if !skipAddress(elem) {
+				nodes[name] = ipString(elem.IP)
+			}
+		}
+	}
 	p.RUnlock()
 
-	for _, node := range nodes {
-		for elem := range getNodeAddresses(node) {
-			if skipAddress(elem) {
-				continue
-			}
-
-			status := &models.PathStatus{}
-			ports := map[int]**models.ConnectivityStatus{
-				defaults.HTTPPathPort: &status.HTTP,
-			}
-			for port, result := range ports {
-				*result = p.httpProbe(node.Name, elem.IP, port)
-				if status.HTTP.Status != "" {
-					log.WithFields(logrus.Fields{
-						logfields.NodeName: node.Name,
-						logfields.IPAddr:   elem.IP,
-						logfields.Port:     port,
-					}).Debugf("Failed to probe: %s", status.HTTP.Status)
-				}
-			}
-
-			p.Lock()
-			p.results[ipString(elem.IP)].HTTP = status.HTTP
-			p.Unlock()
+	for name, ip := range nodes {
+		status := &models.PathStatus{}
+		ports := map[int]**models.ConnectivityStatus{
+			defaults.HTTPPathPort: &status.HTTP,
 		}
+		for port, result := range ports {
+			*result = p.httpProbe(name, string(ip), port)
+			if status.HTTP.Status != "" {
+				log.WithFields(logrus.Fields{
+					logfields.NodeName: name,
+					logfields.IPAddr:   ip,
+					logfields.Port:     port,
+				}).Debugf("Failed to probe: %s", status.HTTP.Status)
+			}
+		}
+
+		p.Lock()
+		p.results[ip].HTTP = status.HTTP
+		p.Unlock()
 	}
 }
 
