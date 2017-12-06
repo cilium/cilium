@@ -10,7 +10,7 @@ Delete a policy entry
 Delete a policy entry
 
 ```
-cilium bpf policy delete <endpoint id> <identity>
+cilium bpf policy delete <endpoint id> <identity> [port/proto]
 ```
 
 ### Options inherited from parent commands
