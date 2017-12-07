@@ -1,0 +1,27 @@
+#!/bin/bash
+
+set -e
+
+# This script must be launched with Jenkins only. 
+cd ${WORKSPACE}
+
+echo "Destroying runtime test VM if it's already running"
+vagrant destroy -f
+
+echo "Starting runtime test VM"
+NO_PROVISION=1 ./contrib/vagrant/start.sh
+
+echo "Destroying Envoy runtime test VM if it's already running"
+CILIUM_USE_ENVOY=1 vagrant destroy -f
+
+echo "Starting Envoy runtime test VM"
+NO_PROVISION=1 CILIUM_USE_ENVOY=1 ./contrib/vagrant/start.sh
+
+
+cd tests/k8s
+
+echo "Destorying K8s VMs if they are already running"
+vagrant destroy -f
+
+echo "Starting K8s VMs"
+VAGRANT_DEFAULT_PROVIDER=virtualbox vagrant up --provider=virtualbox --no-provision

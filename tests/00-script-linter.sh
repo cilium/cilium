@@ -33,6 +33,7 @@ function check_flags_set
     grep -v "cilium-files" | \
     grep -v ".diff" | \
     grep -v ".yaml" | \
+    grep -v "start_vms" | \
     grep -v ".json" ; then
     echo "Please make sure that all tests contain 'set -ex'"
     exit 1
