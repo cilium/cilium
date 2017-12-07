@@ -34,6 +34,7 @@ bpf/*.sh @cilium/bpf-loader
 bugtool/cmd/ @cilium/cli
 cilium/ @cilium/cli
 cilium-health/cmd/ @cilium/cli
+cilium-health/launch/ @cilium/health
 contrib/packaging/deb/ @eloycoto
 contrib/packaging/docker/ @aanm @ianvernon
 contrib/vagrant @cilium/vagrant

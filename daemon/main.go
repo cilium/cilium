@@ -661,7 +661,6 @@ func initEnv(cmd *cobra.Command) {
 
 	log.Infof("Container runtimes being used: %s", workloads.GetRuntimesString())
 }
-
 func runDaemon() {
 	d, err := NewDaemon(config)
 	if err != nil {
@@ -682,8 +681,14 @@ func runDaemon() {
 	d.nodeMonitor = &monitor.NodeMonitor{}
 	go d.nodeMonitor.Run()
 
+	// Launch cilium-health in the same namespace as cilium.
 	d.ciliumHealth = &health.CiliumHealth{}
 	go d.ciliumHealth.Run()
+
+	// Launch another cilium-health as an endpoint, managed by cilium.
+	addressing := d.getNodeAddressing()
+	cancelHealth := health.LaunchAsEndpoint(d, addressing, d.conf.Opts)
+	defer cancelHealth()
 
 	if err := containerd.EnableEventListener(); err != nil {
 		log.WithError(err).Fatal("Error while enabling containerd event watcher")
