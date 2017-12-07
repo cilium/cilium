@@ -316,12 +316,61 @@ none from ``reviews v1``.
 Step 5: Deploy the Product Page Service V2
 ==========================================
 
-We will now deploy version ``v2`` of the ``productpage`` service.
-This version will be deployed with a more restrictive Cilium Network
-Policy.  The policy for ``v1`` currently allows read access to the
-``productpage`` REST API, under the ``/api/v1`` URI path.  To check
-that the REST API is currently accessible and returns valid JSON data,
-run:
+We will now deploy version ``v2`` of the ``productpage`` service,
+which brings two changes:
+
+- It is deployed with a more restrictive CiliumNetworkPolicy, which
+  restricts access to a subset of the HTTP URLs, at Layer-7.
+- It implements a new authentication audit log into Kafka.
+
+.. image:: images/istio-bookinfo-productpage-v2-kafka.png
+   :scale: 75 %
+   :align: center
+  
+Because ``productpage v2`` sends messages into Kafka, we must first
+deploy a Kafka broker:
+
+.. parsed-literal::
+
+    $ curl -s \ |SCM_WEB|\/examples/kubernetes-istio/kafka-v1.yaml | \\
+          istioctl kube-inject -f - | \\
+          sed -e 's,istio/proxy_init:0.2.12,cilium/istio_proxy_init:0.2.12,' | \\
+          kubectl create -f -
+    service "kafka" created
+    ciliumnetworkpolicy "kafka-authaudit" created
+    statefulset "kafka-v1" created
+
+Wait until the ``kafka-v1-0`` pod is ready, i.e. until it has a
+``READY`` count of ``2/2``:
+
+::
+
+    $ kubectl get pods -n default -l app=kafka
+    NAME         READY     STATUS    RESTARTS   AGE
+    kafka-v1-0   2/2       Running   0          21m
+
+Create the ``authaudit`` Kafka topic, which will be used by
+``productpage v2``:
+
+::
+
+    $ kubectl exec kafka-v1-0 -c kafka -- bash -c '/opt/kafka_2.11-0.10.1.0/bin/kafka-topics.sh --zookeeper localhost:2181/kafka --create --topic authaudit --partitions 1 --replication-factor 1'
+    Created topic "authaudit".
+
+We are now ready to deploy ``productpage v2``.
+
+The policy for ``v1`` currently allows read access to the full HTTP
+REST API, under the ``/api/v1`` HTTP URI path:
+
+- ``/api/v1/products``: Returns the list of books and their details.
+- ``/api/v1/products/<id>``: Returns details about a specific book.
+- ``/api/v1/products/<id>/reviews``: Returns reviews for a specific
+  book.
+- ``/api/v1/products/<id>/ratings``: Returns ratings for a specific
+  book.
+
+Check that the full REST API is currently accessible in ``v1`` and
+returns valid JSON data:
 
 ::
 
@@ -336,12 +385,17 @@ run:
 
     {"ratings": {"Reviewer2": 4, "Reviewer1": 5}, "id": 0}
 
-This REST API is meant only for consumption by other internal
-services, and will be blocked from external clients using the updated
-Cilium Network Policy in ``productpage v2``.
+We realized that the REST API to get the book reviews and ratings was
+meant only for consumption by other internal services, and will be
+blocked from external clients using the updated Layer-7
+CiliumNetworkPolicy in ``productpage v2``, i.e. only the
+``/api/v1/products`` and ``/api/v1/products/<id>`` HTTP URLs will be
+whitelisted:
 
-Create the ``productpage v2`` service and its updated Cilium Network
-Policy, then delete ``productpage v1``:
+.. literalinclude:: ../../examples/kubernetes-istio/bookinfo-productpage-v2-policy.yaml
+
+Create the ``productpage v2`` service and its updated
+CiliumNetworkPolicy and delete ``productpage v1``:
 
 .. parsed-literal::
 
@@ -354,21 +408,112 @@ Policy, then delete ``productpage v1``:
 
     $ kubectl delete -f \ |SCM_WEB|\/examples/kubernetes-istio/bookinfo-productpage-v1.yaml
 
-Check that the ``/productpage`` is still accessible in your web
-browser.  To also check that Cilium now denies access to the REST API,
-run:
+Check that the product REST API is still accessible, and that Cilium
+now denies at Layer-7 any access to the reviews and ratings REST API:
 
 ::
 
     $ export PRODUCTPAGE=`minikube service productpage -n default --url`
-    $ for APIPATH in /api/v1/products /api/v1/products/0 /api/v1/products/0/reviews /api/v1/products/0/ratings; do curl -s -S "${PRODUCTPAGE}${APIPATH}" ; done
-    Access denied
-    Access denied
-    Access denied
+    $ for APIPATH in /api/v1/products /api/v1/products/0 /api/v1/products/0/reviews /api/v1/products/0/ratings; do echo ; curl -s -S "${PRODUCTPAGE}${APIPATH}" ; echo ; done
+
+    [{"descriptionHtml": "<a href=\"https://en.wikipedia.org/wiki/The_Comedy_of_Errors\">Wikipedia Summary</a>: The Comedy of Errors is one of <b>William Shakespeare's</b> early plays. It is his shortest and one of his most farcical comedies, with a major part of the humour coming from slapstick and mistaken identity, in addition to puns and word play.", "id": 0, "title": "The Comedy of Errors"}]
+
+    {"publisher": "PublisherA", "language": "English", "author": "William Shakespeare", "id": 0, "ISBN-10": "1234567890", "ISBN-13": "123-1234567890", "year": 1595, "type": "paperback", "pages": 200}
+
     Access denied
 
-Accesses to the ``/api/v1`` URIs now result in ``HTTP 403 Forbidden``
-responses returned by Cilium.
+
+    Access denied
+
+This demonstrated that requests to the
+``/api/v1/products/<id>/reviews`` and
+``/api/v1/products/<id>/ratings`` URIs now result in Cilium returning
+``HTTP 403 Forbidden`` HTTP responses.
+
+``productpage v2`` also implements an authorization audit logging.  On
+every user login or logout, it produces into Kafka topic ``authaudit``
+a JSON-formatted message which contains the following information:
+
+- event: ``login`` or ``logout``
+- username
+- client IP address
+- timestamp
+
+To observe the Kafka messages sent by ``productpage``, we will run an
+additional ``authaudit-logger`` service.  This service fetches and
+prints out all messages from the ``authaudit`` Kafka topic.  Start
+this service:
+
+.. parsed-literal::
+
+    $ curl -s \ |SCM_WEB|\/examples/kubernetes-istio/authaudit-logger-v1.yaml | \\
+          istioctl kube-inject -f - | \\
+          sed -e 's,istio/proxy_init:0.2.12,cilium/istio_proxy_init:0.2.12,' | \\
+          kubectl apply -f -
+
+Every login and logout on the product page will result in a line in
+this service's log:
+
+::
+
+    $ export POD_LOGGER_V1=`kubectl get pods -n default -l app=authaudit-logger,version=v1 -o jsonpath='{.items[0].metadata.name}'`
+    $ kubectl logs ${POD_LOGGER_V1} -c authaudit-logger
+    ...
+    {"timestamp": "2017-12-04T09:34:24.341668", "remote_addr": "10.15.28.238", "event": "login", "user": "richard"}
+    {"timestamp": "2017-12-04T09:34:40.943772", "remote_addr": "10.15.28.238", "event": "logout", "user": "richard"}
+    {"timestamp": "2017-12-04T09:35:03.096497", "remote_addr": "10.15.28.238", "event": "login", "user": "gilfoyle"}
+    {"timestamp": "2017-12-04T09:35:08.777389", "remote_addr": "10.15.28.238", "event": "logout", "user": "gilfoyle"}
+
+As you can see, the user-identifiable information sent by
+``productpage`` in every Kafka message is sensitive, so access to this
+Kafka topic must be protected using Cilium.  The CiliumNetworkPolicy
+configured on the Kafka broker enforces that:
+
+- only ``productpage v2`` is allowed to produce messages into the
+  ``authaudit`` topic;
+- only ``authaudit-logger`` can fetch messages from this topic;
+- no service can access any other topic.
+
+.. literalinclude:: ../../examples/kubernetes-istio/kafka-v1-policy.yaml
+
+Check that Cilium prevents the ``authaudit-logger`` service from
+writing into the ``authaudit`` topic (enter a message followed by
+ENTER, e.g. ``test message``):
+
+::
+
+    $ export POD_LOGGER_V1=`kubectl get pods -n default -l app=authaudit-logger,version=v1 -o jsonpath='{.items[0].metadata.name}'`
+    $ kubectl exec ${POD_LOGGER_V1} -c authaudit-logger -ti -- /opt/kafka_2.11-0.10.1.0/bin/kafka-console-producer.sh --broker-list=kafka:9092 --topic=authaudit
+    test message
+    [2017-12-07 02:13:47,020] ERROR Error when sending message to topic authaudit with key: null, value: 12 bytes with error: (org.apache.kafka.clients.producer.internals.ErrorLoggingCallback)
+    org.apache.kafka.common.errors.TopicAuthorizationException: Not authorized to access topics: [authaudit]
+
+This demonstrated that Cilium sent a response with an authorization
+error for any ``Produce`` request from this service.
+
+Create another topic named ``credit-card-payments``, meant to transmit
+highly-sensitive credit card payment requests:
+
+::
+
+    $ kubectl exec kafka-v1-0 -c kafka -- bash -c '/opt/kafka_2.11-0.10.1.0/bin/kafka-topics.sh --zookeeper localhost:2181/kafka --create --topic credit-card-payments --partitions 1 --replication-factor 1'
+    Created topic "credit-card-payments".
+
+Check that Cilium prevents the ``authaudit-logger`` service from
+fetching messages from this topic:
+
+::
+
+    $ export POD_LOGGER_V1=`kubectl get pods -n default -l app=authaudit-logger,version=v1 -o jsonpath='{.items[0].metadata.name}'`
+    $ kubectl exec ${POD_LOGGER_V1} -c authaudit-logger -ti -- /opt/kafka_2.11-0.10.1.0/bin/kafka-console-consumer.sh --bootstrap-server=kafka:9092 --topic=credit-card-payments
+    [2017-12-07 03:08:54,513] WARN Not authorized to read from topic credit-card-payments. (org.apache.kafka.clients.consumer.internals.Fetcher)
+    [2017-12-07 03:08:54,517] ERROR Error processing message, terminating consumer process:  (kafka.tools.ConsoleConsumer$)
+    org.apache.kafka.common.errors.TopicAuthorizationException: Not authorized to access topics: [credit-card-payments]
+    Processed a total of 0 messages
+
+This demonstrated that Cilium sent a response with an authorization
+error for any ``Fetch`` request from this service for any topic other
+than ``authaudit``.
 
 Step 6: Clean Up
 ================

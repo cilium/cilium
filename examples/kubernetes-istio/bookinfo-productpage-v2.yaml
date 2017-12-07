@@ -42,6 +42,10 @@ specs:
             path: "^/logout$"
           - method: GET
             path: "^/productpage$"
+          - method: GET
+            path: "^/api/v1/products$"
+          - method: GET
+            path: "^/api/v1/products/[0-9]*$"
 ---
 apiVersion: extensions/v1beta1
 kind: Deployment
