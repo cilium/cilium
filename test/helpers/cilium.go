@@ -306,7 +306,8 @@ func (s *SSHMeta) PolicyEndpointsSummary() (map[string]int, error) {
 	status := strings.Split(endpoints.String(), " ")
 	for _, kind := range status {
 		switch kind {
-		case OptionIngress, OptionEgress:
+		case models.EndpointPolicyEnabledBoth, models.EndpointPolicyEnabledEgress,
+			models.EndpointPolicyEnabledIngress:
 			result[Enabled]++
 		case OptionNone:
 			result[Disabled]++
