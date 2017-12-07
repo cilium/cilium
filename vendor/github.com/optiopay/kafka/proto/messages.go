@@ -386,8 +386,7 @@ func readMessageSet(r io.Reader, size int32, version int16) ([]*Message, error) 
 
 		attributes := msgdec.DecodeInt8()
 
-		switch version {
-		case KafkaV1:
+		if version >= KafkaV1 {
 			// timestamp
 			_ = msgdec.DecodeInt64()
 		}
