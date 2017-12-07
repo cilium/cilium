@@ -195,7 +195,7 @@ If you want to capture the archive from a Kubernetes pod, then the process is a
 
 .. Note::
 
-          Please check the dump files for sensitive information and strip it
+          Please check the archive for sensitive information and strip it
           away before sharing it with us.
 
 Below is an approximate list of the kind of information in the archive. It is
