@@ -132,7 +132,6 @@ func initConfig() {
 
 func runServer() {
 	common.RequireRootPrivilege(targetName)
-	os.Remove(defaults.SockPath)
 
 	// Open socket for using gops to get stacktraces of the daemon.
 	if err := gops.Listen(gops.Options{}); err != nil {
