@@ -72,7 +72,7 @@ function test_event_types {
 }
 
 function last_endpoint_id {
-  echo `cilium endpoint list|tail -n1|awk '{ print $1}'`
+  echo `cilium endpoint list | grep -v reserved | tail -n1 | awk '{ print $1}'`
 }
 
 function container_addr {

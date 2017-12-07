@@ -191,17 +191,22 @@ const (
 	// ReservedIdentityCluster represents any endpoint inside the cluster
 	// that does not have a more specific identity
 	ReservedIdentityCluster
+
+	// ReservedIdentityHealth represents the local cilium-health endpoint
+	ReservedIdentityHealth
 )
 
 var (
 	ReservedIdentities = map[string]NumericIdentity{
 		labels.IDNameHost:    ReservedIdentityHost,
 		labels.IDNameWorld:   ReservedIdentityWorld,
+		labels.IDNameHealth:  ReservedIdentityHealth,
 		labels.IDNameCluster: ReservedIdentityCluster,
 	}
 	ReservedIdentityNames = map[NumericIdentity]string{
 		ReservedIdentityHost:    labels.IDNameHost,
 		ReservedIdentityWorld:   labels.IDNameWorld,
+		ReservedIdentityHealth:  labels.IDNameHealth,
 		ReservedIdentityCluster: labels.IDNameCluster,
 	}
 )

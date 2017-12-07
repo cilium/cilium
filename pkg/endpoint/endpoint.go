@@ -356,10 +356,6 @@ func NewEndpointFromChangeModel(base *models.EndpointChangeRequest, l pkgLabels.
 		return nil, nil
 	}
 
-	if lbls := l.FindReserved(); lbls != nil {
-		return nil, fmt.Errorf("Not allowed to create endpoint with reserved labels %s", lbls)
-	}
-
 	ep := &Endpoint{
 		ID:               uint16(base.ID),
 		ContainerName:    base.ContainerName,

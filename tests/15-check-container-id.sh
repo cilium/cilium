@@ -80,7 +80,7 @@ docker exec -ti server ping6 -c 1 ${CLIENT_IP} || true
 log "pinging server at IP ${SERVER_IP} from client"
 docker exec -ti client ping6 -c 1 ${SERVER_IP} || true
 
-known_ids=(`cilium endpoint list| awk '{ if (NR > 1) print " "$1 }' |tr -d '\n'`)
+known_ids=(`cilium endpoint list | awk '{ if (NR > 1) print " "$1 }' |tr -d '\n'`)
 
 grep "Attempting local delivery for container id " ${DUMP_FILE} | while read -r entry ; do
   # CPU 01: MARK 0x3de3947b FROM 48896 DEBUG: Attempting local delivery for container id 29381 from seclabel 263

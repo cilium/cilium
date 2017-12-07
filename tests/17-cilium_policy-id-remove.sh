@@ -40,7 +40,7 @@ log "creating containerB"
 docker run -dt --net=$TEST_NET --name containerB -l id.b tgraf/netperf
 log "done creating containerB"
 
-known_endpoints=`cilium endpoint list|awk 'NR>2 { print $1 }'`
+known_endpoints=`cilium endpoint list | grep -v reserved | awk 'NR>2 { print $1 }'`
 
 # Sanity check
 for ep in $known_endpoints; do
@@ -68,7 +68,8 @@ wait_for_endpoints_deletion
 # There should only be one cilium_policy file after the containers are gone.
 # Ignoring the reserved files.
 log "checking that only one cilium_policy map exists after containers have been removed"
-actual=`find /sys/fs/bpf/tc/globals/cilium_policy*|grep -v reserved`
+healthEP=$(cilium endpoint list -o jsonpath="{[?(@.labels.orchestration-identity[0]=='reserved:health')].id}")
+actual=`find /sys/fs/bpf/tc/globals/cilium_policy* | grep -v reserved | grep -v $healthEP`
 expected="/sys/fs/bpf/tc/globals/cilium_policy"
 if [ "$actual" != "$expected" ]; then
   abort "want $expected got $actual"
