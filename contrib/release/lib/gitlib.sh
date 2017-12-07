@@ -25,7 +25,7 @@ JCURL="curl -g -s --fail --retry 10"
 CILIUM_GITHUB_API='https://api.github.com/repos/cilium/cilium'
 CILIUM_GITHUB_RAW_ORG='https://raw.githubusercontent.com/cilium'
 
-CILIUM_GITHUB_SEARCHAPI='https://api.github.com/search/issues?per_page=100&q=is:pr%20repo:cilium/cilium%20'
+CILIUM_GITHUB_SEARCHAPI='https://api.github.com/search/issues?per_page=100&q=is:pr%20is:closed%20repo:cilium/cilium%20'
 CILIUM_GITHUB_URL='https://github.com/cilium/cilium'
 CILIUM_GITHUB_SSH='git@github.com:cilium/cilium.git'
 
