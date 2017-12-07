@@ -1,0 +1,174 @@
+#!/bin/bash
+#
+# Copyright 2016 The Kubernetes Authors All rights reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+# Set PROGram name
+PROG=${0##*/}
+
+source $(dirname $(readlink -ne $BASH_SOURCE))/../release/lib/common.sh
+source $TOOL_LIB_PATH/gitlib.sh
+
+# Validate command-line
+common::argc_validate 1
+
+###############################################################################
+# FUNCTIONS
+###############################################################################
+###############################################################################
+# Get titles from a list of PRs
+# @param prs - A space separated list of PRs to extract
+#
+extract_pr_title () {
+  local prs="$*"
+  local pr
+  local content
+  local body
+  local author
+  local pull_json
+
+  for pr in $prs; do
+    pull_json="$($GHCURL $CILIUM_GITHUB_API/pulls/$pr)"
+    [[ -z "$pull_json" ]] && return 1
+    body="$(echo "$pull_json" |jq -r '.body' |tr -d '\r')"
+
+    content=$(echo "$pull_json" | jq -r '.title')
+    author=$(echo "$pull_json" | jq -r '.user.login')
+    content=$(echo "$content" |sed -e '1s/^ *\** *//g' \
+                                   -e "1s/$/ (@$author)/g")
+
+    logecho -r "$content"
+  done
+}
+
+###############################################################################
+# Get merged PRs that match a specified label
+get_prs () {
+  local label=$1
+  local -a prs
+  local total
+  local current_page
+  local num_pages
+  local prs_per_page
+  local url
+
+  prs_per_page=100
+
+  url="https://api.github.com/search/issues?per_page=1&q=is:pr%20repo:cilium/cilium%20is:closed%20label:$label"
+  total="$($GHCURL $url | jq -r '.total_count')"
+
+  # Calculate number of pages, rounding up
+  num_pages=$(((total + prs_per_page - 1) / prs_per_page ))
+
+  for current_page in `seq 1 $num_pages`; do
+    prs+=($($GHCURL "${CILIUM_GITHUB_SEARCHAPI}label:${label}&page=$current_page" | jq -r '.items[] | (.number | tostring)'))
+  done
+
+  echo "${prs[@]}"
+}
+
+###############################################################################
+# Generates the release notes for one particular PR
+generate_commit_list_for_pr () {
+  local pr=$1
+  local url
+  local pr_json
+  local merge_sha
+  local merge_at
+  local commits
+  local remote
+  local branch
+  local tmp_file
+  local patchid
+  local subject
+  local tmp_file
+  local entry_array
+  local entry_id
+  local entry_sha
+  local entry_sub
+  local upstream
+
+  remote=`git remote -v | grep "github.com.cilium/cilium" | head -n1 | cut -f1`
+
+  url="https://api.github.com/repos/cilium/cilium/pulls/$pr"
+  pr_json="$($GHCURL $url)"
+  merge_sha="$(echo -n $pr_json | jq -r '.merge_commit_sha')"
+  merged_at="$(echo -n $pr_json | jq -r '.merged_at')"
+
+  url="https://api.github.com/repos/cilium/cilium/pulls/$pr/commits"
+  pr_json="$($GHCURL $url)"
+  commits="$(echo -n $pr_json | jq -r '.[] | (.sha | tostring)')"
+
+  if [[ "$merge_sha" = "null" ]]; then
+    return
+  fi
+  # Never merged ...
+  if [[ "$merged_at" = "null" ]]; then
+    return
+  fi
+
+  SAVEIFS=$IFS
+  IFS=$'\n'
+  commits=($commits)
+  IFS=$SAVEIFS
+
+  tmp_file=`mktemp pr-correlation.XXXXXX`
+  branch="check-for-stable-$pr"
+  git fetch -q $remote pull/$pr/head:$branch
+  for commit in "${commits[@]}"; do
+    patchid="$(git show $commit | git patch-id)"
+    subject="$(git show -s --pretty="%s" $commit)"
+    echo "$patchid $subject" >> $tmp_file
+  done
+  git branch -q -D $branch
+  echo "   Merge with ${#commits[@]} commit(s) merged at: `date -R -d "$(echo $merged_at | sed 's/T/ /')"`!"
+  echo "     Branch:     master (!)                          refs/pull/$pr/head"
+  echo "                 ----------                          -------------------"
+  echo "     v (start)"
+  while read entry; do
+    entry_array=($entry)
+    entry_id=${entry_array[0]}
+    entry_sha=${entry_array[1]}
+    entry_sub=${entry_array[@]:2}
+    upstream="$(git log --since="1year" --pretty="%H" --no-merges --grep "$entry_sub" $remote/master)"
+    upstream="$(git show $upstream | git patch-id)"
+    upstream=($upstream)
+    if [ "$entry_id" == "${upstream[0]}" ]; then
+      echo -e "     |  ${upstream[1]} via $entry_sha (\"$entry_sub\")"
+    else
+      echo -e "     |  Warning: No commit correlation found!    via $entry_sha (\"$entry_sub\")"
+    fi
+  done < $tmp_file
+  echo "     v (end)"
+  rm -f $tmp_file
+}
+
+###############################################################################
+# MAIN
+###############################################################################
+# Initialize and save up to 10 (rotated logs)
+MYLOG=/tmp/$PROG.log
+# Check token
+gitlib::github_api_token
+
+stable_prs=($(get_prs "stable/needs-backport"))
+echo -e "PRs for stable backporting: ${#stable_prs[@]}\n"
+if [[ ${#stable_prs[@]} > 0 ]]; then
+  for pr in "${stable_prs[@]}"; do
+    title=$(extract_pr_title "$pr")
+    echo " * PR: $pr -- $title"
+    generate_commit_list_for_pr $pr
+    echo ""
+  done
+fi
