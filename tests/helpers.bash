@@ -188,7 +188,7 @@ function wait_for_endpoints {
   set +e
   check_num_params "$#" "1"
   local NUM_DESIRED="$1"
-  local CMD="cilium endpoint list | grep -v \"not-ready\" | grep ready -c || true"
+  local CMD="cilium endpoint list | grep -v -e \"not-ready\" -e \"reserved\" | grep ready -c || true"
   local INFO_CMD="cilium endpoint list"
   local MAX_MINS="2"
   local ERROR_OUTPUT="Timeout while waiting for $NUM_DESIRED endpoints"
@@ -202,7 +202,7 @@ function wait_for_endpoints_deletion {
   local save=$-
   set +e
   local NUM_DESIRED="2" # When no endpoints are present there should be two lines only.
-  local CMD="cilium endpoint list | wc -l || true"
+  local CMD="cilium endpoint list | grep -v \"reserved\" | wc -l || true"
   local INFO_CMD="cilium endpoint list"
   local MAX_MINS="2"
   local ERROR_OUTPUT="Timeout while waiting for endpoint removal"
@@ -218,7 +218,7 @@ function k8s_num_ready {
   local NAMESPACE=$1
   local CILIUM_POD=$2
   local FILTER=$3
-  kubectl -n ${NAMESPACE} exec ${CILIUM_POD} cilium endpoint list | grep $FILTER | grep -v 'not-ready' | grep -c 'ready' || true
+  kubectl -n ${NAMESPACE} exec ${CILIUM_POD} cilium endpoint list | grep $FILTER | grep -v -e 'not-ready' -e 'reserved' | grep -c 'ready' || true
   restore_flag $save "e"
 }
 

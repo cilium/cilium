@@ -39,6 +39,9 @@ const (
 	// IDNameCluster is the label used to identify an unspecified endpoint
 	// inside the cluster
 	IDNameCluster = "cluster"
+
+	// IDNameHealth is the label used for the local cilium-health endpoint
+	IDNameHealth = "health"
 )
 
 // OpLabels represents the the possible types.
