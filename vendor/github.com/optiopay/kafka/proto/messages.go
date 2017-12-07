@@ -5,7 +5,6 @@ import (
 	"compress/gzip"
 	"encoding/binary"
 	"errors"
-	"fmt"
 	"hash/crc32"
 	"io"
 	"io/ioutil"
@@ -307,7 +306,8 @@ func (w *slicewriter) Slice() []byte {
 // off part of the last message. This also means that the last message can be
 // shorter than the header is saying. In such case just ignore the last
 // malformed message from the set and returned earlier data.
-func readMessageSet(r io.Reader, size int32) ([]*Message, error) {
+// The version refers to the kafka version used for the requests and responses.
+func readMessageSet(r io.Reader, size int32, version int16) ([]*Message, error) {
 	if size < 0 || size > maxParseBufSize {
 		return nil, messageSizeError(int(size))
 	}
@@ -385,46 +385,52 @@ func readMessageSet(r io.Reader, size int32) ([]*Message, error) {
 		_ = msgdec.DecodeInt8()
 
 		attributes := msgdec.DecodeInt8()
+
+		if version >= KafkaV1 {
+			// timestamp
+			_ = msgdec.DecodeInt64()
+		}
+
 		switch compression := Compression(attributes & 3); compression {
 		case CompressionNone:
 			msg.Key = msgdec.DecodeBytes()
 			msg.Value = msgdec.DecodeBytes()
 			if err := msgdec.Err(); err != nil {
-				return nil, fmt.Errorf("cannot decode message: %s", err)
+				return nil, err
 			}
 			set = append(set, msg)
 		case CompressionGzip, CompressionSnappy:
 			_ = msgdec.DecodeBytes() // ignore key
 			val := msgdec.DecodeBytes()
 			if err := msgdec.Err(); err != nil {
-				return nil, fmt.Errorf("cannot decode message: %s", err)
+				return nil, err
 			}
 			var decoded []byte
 			switch compression {
 			case CompressionGzip:
 				cr, err := gzip.NewReader(bytes.NewReader(val))
 				if err != nil {
-					return nil, fmt.Errorf("error decoding gzip message: %s", err)
+					return nil, err
 				}
 				decoded, err = ioutil.ReadAll(cr)
 				if err != nil {
-					return nil, fmt.Errorf("error decoding gzip message: %s", err)
+					return nil, err
 				}
 				_ = cr.Close()
 			case CompressionSnappy:
 				var err error
 				decoded, err = snappyDecode(val)
 				if err != nil {
-					return nil, fmt.Errorf("error decoding snappy message: %s", err)
+					return nil, err
 				}
 			}
-			msgs, err := readMessageSet(bytes.NewReader(decoded), int32(len(decoded)))
+			msgs, err := readMessageSet(bytes.NewReader(decoded), int32(len(decoded)), version)
 			if err != nil {
 				return nil, err
 			}
 			set = append(set, msgs...)
 		default:
-			return nil, fmt.Errorf("cannot handle compression method: %d", compression)
+			return nil, err
 		}
 	}
 }
@@ -932,7 +938,7 @@ func ReadFetchResp(r io.Reader) (*FetchResp, error) {
 			if dec.Err() != nil {
 				return nil, dec.Err()
 			}
-			if part.Messages, err = readMessageSet(r, msgSetSize); err != nil {
+			if part.Messages, err = readMessageSet(r, msgSetSize, 0); err != nil {
 				return nil, err
 			}
 			for _, msg := range part.Messages {
@@ -1562,7 +1568,7 @@ func ReadProduceReq(r io.Reader) (*ProduceReq, error) {
 				return nil, dec.Err()
 			}
 			var err error
-			if part.Messages, err = readMessageSet(r, msgSetSize); err != nil {
+			if part.Messages, err = readMessageSet(r, msgSetSize, req.Version); err != nil {
 				return nil, err
 			}
 		}
