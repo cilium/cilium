@@ -16,15 +16,19 @@ package cmd
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"strconv"
 	"text/tabwriter"
 
+	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/pkg/bpf"
+	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/maps/policymap"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
+	"github.com/cilium/cilium/pkg/u8proto"
 
 	"github.com/spf13/cobra"
 )
@@ -33,9 +37,10 @@ var printIDs bool
 
 // bpfPolicyListCmd represents the bpf_policy_list command
 var bpfPolicyListCmd = &cobra.Command{
-	Use:    "list",
-	Short:  "List contents of a policy BPF map",
-	PreRun: requireEndpointID,
+	Use:     "list",
+	Aliases: []string{"get"},
+	Short:   "List contents of a policy BPF map",
+	PreRun:  requireEndpointID,
 	Run: func(cmd *cobra.Command, args []string) {
 		common.RequireRootPrivilege("cilium bpf policy list")
 		listMap(cmd, args)
@@ -70,18 +75,29 @@ func listMap(cmd *cobra.Command, args []string) {
 	if err != nil {
 		Fatalf("Error while opening bpf Map: %s\n", err)
 	}
-	labelsID := map[policy.NumericIdentity]*policy.Identity{}
 
+	if handleJSON(statsMap) {
+		return
+	}
 	w := tabwriter.NewWriter(os.Stdout, 5, 0, 3, ' ', 0)
+	formatMap(w, statsMap)
+	w.Flush()
+	if len(statsMap) == 0 {
+		fmt.Printf("Policy stats empty. Perhaps the policy enforcement is disabled?\n")
+	}
+}
 
+func formatMap(w io.Writer, statsMap []policymap.PolicyEntryDump) {
 	const (
 		labelsIDTitle  = "IDENTITY"
 		labelsDesTitle = "LABELS (source:key[=value])"
+		portTitle      = "PORT/PROTO"
 		actionTitle    = "ACTION"
 		bytesTitle     = "BYTES"
 		packetsTitle   = "PACKETS"
 	)
 
+	labelsID := map[policy.NumericIdentity]*policy.Identity{}
 	for _, stat := range statsMap {
 		if !printIDs {
 			id := policy.NumericIdentity(stat.Key.Identity)
@@ -96,31 +112,33 @@ func listMap(cmd *cobra.Command, args []string) {
 	}
 
 	if printIDs {
-		fmt.Fprintf(w, "%s\t%s\t%s\t%s\t\n", labelsIDTitle, actionTitle, bytesTitle, packetsTitle)
+		fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t\n", labelsIDTitle, portTitle, actionTitle, bytesTitle, packetsTitle)
 	} else {
-		fmt.Fprintf(w, "%s\t%s\t%s\t%s\t\n", labelsDesTitle, actionTitle, bytesTitle, packetsTitle)
+		fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t\n", labelsDesTitle, portTitle, actionTitle, bytesTitle, packetsTitle)
 	}
 	for _, stat := range statsMap {
 		id := policy.NumericIdentity(stat.Key.Identity)
+		port := models.PortProtocolANY
+		if stat.Key.DestPort != 0 {
+			dport := byteorder.NetworkToHost(stat.Key.DestPort).(uint16)
+			proto := u8proto.U8proto(stat.Key.Nexthdr)
+			port = fmt.Sprintf("%d/%s", dport, proto.String())
+		}
 		act := api.Decision(stat.Action)
 		if printIDs {
-			fmt.Fprintf(w, "%d\t%s\t%d\t%d\t\n", id, act.String(), stat.Bytes, stat.Packets)
+			fmt.Fprintf(w, "%d\t%s\t%s\t%d\t%d\t\n", id, port, act.String(), stat.Bytes, stat.Packets)
 		} else if lbls := labelsID[id]; lbls != nil {
 			first := true
 			for _, lbl := range lbls.Labels {
 				if first {
-					fmt.Fprintf(w, "%s\t%s\t%d\t%d\t\n", lbl, act.String(), stat.Bytes, stat.Packets)
+					fmt.Fprintf(w, "%s\t%s\t%s\t%d\t%d\t\n", lbl, port, act.String(), stat.Bytes, stat.Packets)
 					first = false
 				} else {
 					fmt.Fprintf(w, "%s\t\t\t\t\t\n", lbl)
 				}
 			}
 		} else {
-			fmt.Fprintf(w, "%d\t%s\t%d\t%d\t\n", id, act.String(), stat.Bytes, stat.Packets)
+			fmt.Fprintf(w, "%d\t%s\t%s\t%d\t%d\t\n", id, port, act.String(), stat.Bytes, stat.Packets)
 		}
-	}
-	w.Flush()
-	if len(statsMap) == 0 {
-		fmt.Printf("Policy stats empty. Perhaps the policy enforcement is disabled?\n")
 	}
 }
