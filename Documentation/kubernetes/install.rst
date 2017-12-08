@@ -50,9 +50,9 @@ filesystem to be automatically mounted when the node boots.
 If you are using systemd to manage the kubelet, another option is to add a
 mountd systemd service on all hosts:
 
-Due to how systemd mounts <link rel="this SO article for example"
-href="https://unix.stackexchange.com/questions/283442/systemd-mount-fails-where-setting-doesnt-match-unit-name">
-This string must be reflected in the unit filename.
+Due to how systemd `mounts
+<https://unix.stackexchange.com/questions/283442/systemd-mount-fails-where-setting-doesnt-match-unit-name>`__
+filesystems, the mount point path must be reflected in the unit filename.
 
 .. code:: bash
 
@@ -63,7 +63,7 @@ This string must be reflected in the unit filename.
         DefaultDependencies=no
         Before=local-fs.target umount.target
         After=swap.target
-        
+
         [Mount]
         What=bpffs
         Where=/sys/fs/bpf
