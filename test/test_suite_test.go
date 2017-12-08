@@ -16,6 +16,7 @@ package ciliumTest
 
 import (
 	"fmt"
+	"io/ioutil"
 	"os"
 	"testing"
 	"time"
@@ -49,11 +50,11 @@ func init() {
 		os.Exit(-1)
 	}
 
-	logrus.SetOutput(GinkgoWriter)
 	log.SetLevel(logrus.DebugLevel)
-	logrus.SetFormatter(&logrus.TextFormatter{
-		DisableTimestamp: true,
-	})
+	log.Out = &config.TestLogWriter
+	logrus.SetFormatter(&config.Formatter)
+	log.Formatter = &config.Formatter
+	log.Hooks.Add(&config.LogHook{})
 
 	for k, v := range DefaultSettings {
 		getOrSetEnvVar(k, v)
@@ -183,3 +184,23 @@ func getOrSetEnvVar(key, value string) {
 		os.Setenv(key, value)
 	}
 }
+
+var _ = AfterEach(func() {
+	path, err := helpers.ReportDirectory()
+
+	if err != nil {
+		log.WithError(err).Errorf("cannot create ReportDirectory")
+		return
+	}
+
+	defer config.TestLogWriterReset()
+	filePath := fmt.Sprintf("%s/%s", path, config.TestLogFileName)
+	err = ioutil.WriteFile(
+		filePath,
+		config.TestLogWriter.Bytes(),
+		os.ModePerm)
+	if err != nil {
+		log.WithError(err).Errorf("cannot create log file '%s'", filePath)
+		return
+	}
+})

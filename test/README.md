@@ -124,5 +124,12 @@ On Vagrantfile, we have an ENV variable that selects the K8S version, so to run
 specific K8s version you should run the following:
 
 ```
-cd test; K8S_VERSION=1.6 ginkgo --focus="K8s*" -v -noColor'
+cd test; K8S_VERSION=1.6 ginkgo --focus="K8s*" -v -noColor
 ```
+
+### Are there further logs that I can check if tests fail?
+
+Per each test, a new logfile is created. This file will be created under
+`test/test_results` directory. Each test will create a new folder where a log
+file is created. In case of a failed test, a bunch of reporting commands will
+write in the same folder.
