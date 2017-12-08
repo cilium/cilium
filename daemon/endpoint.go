@@ -29,7 +29,6 @@ import (
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/lxcmap"
-	"github.com/cilium/cilium/pkg/policy"
 
 	"github.com/go-openapi/runtime/middleware"
 	"github.com/sirupsen/logrus"
@@ -136,11 +135,7 @@ func (d *Daemon) createEndpoint(epTemplate *models.EndpointChangeRequest, id str
 	if err != nil {
 		return PutEndpointIDInvalidCode, err
 	}
-
 	ep.SetDefaultOpts(d.conf.Opts)
-	alwaysEnforce := policy.GetPolicyEnabled() == endpoint.AlwaysEnforce
-	ep.Opts.Set(endpoint.OptionIngressPolicy, alwaysEnforce)
-	ep.Opts.Set(endpoint.OptionEgressPolicy, alwaysEnforce)
 
 	oldEp, err2 := endpointmanager.Lookup(id)
 	if err2 != nil {
@@ -149,38 +144,10 @@ func (d *Daemon) createEndpoint(epTemplate *models.EndpointChangeRequest, id str
 		return PutEndpointIDExistsCode, fmt.Errorf("Endpoint ID %s exists", id)
 	}
 
-	if err := ep.CreateDirectory(); err != nil {
+	if err := endpointmanager.AddEndpoint(h.d, ep, "Create endpoint from API PUT"); err != nil {
 		log.WithError(err).Warn("Aborting endpoint join")
 		return PutEndpointIDFailedCode, err
 	}
-
-	// Regenerate immediately if ready or waiting for identity
-	ep.Mutex.Lock()
-	build := false
-	state := ep.GetStateLocked()
-	reason := "Create endpoint from API PUT"
-	// Note that the endpoint state can initially also be "creating", and the
-	// initial build will not be done yet in that case. A following PATCH
-	// request will be needed to change the state and trigger bpf build.
-	if state == endpoint.StateReady {
-		ep.SetStateLocked(endpoint.StateWaitingToRegenerate, reason)
-		build = true
-	} else if state == endpoint.StateWaitingForIdentity {
-		// state not changed if it is "waiting-for-identity",
-		// but we still trigger the initial build.
-		build = true
-	}
-	ep.Mutex.Unlock()
-	if build {
-		if err := ep.RegenerateWait(d, reason); err != nil {
-			ep.RemoveDirectory()
-			return PutEndpointIDFailedCode, err
-		}
-	}
-
-	ep.Mutex.RLock()
-	endpointmanager.Insert(ep)
-	ep.Mutex.RUnlock()
 
 	add := labels.NewLabelsFromModel(lbls)
 
