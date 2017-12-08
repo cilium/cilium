@@ -15,7 +15,6 @@
 package helpers
 
 import (
-	"bytes"
 	"fmt"
 )
 
@@ -102,15 +101,7 @@ func (s *SSHMeta) NetworkGet(name string) *CmdRes {
 }
 
 func (s *SSHMeta) execCmd(cmd string) *CmdRes {
-	stdout := new(bytes.Buffer)
-	stderr := new(bytes.Buffer)
-	exit := s.ExecWithSudo(cmd, stdout, stderr)
-	return &CmdRes{
-		cmd:    cmd,
-		stdout: stdout,
-		stderr: stderr,
-		exit:   exit,
-	}
+	return s.ExecWithSudo(cmd)
 }
 
 // SampleContainersActions creates or deletes various containers used for

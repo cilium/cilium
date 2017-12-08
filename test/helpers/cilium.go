@@ -15,7 +15,6 @@
 package helpers
 
 import (
-	"bytes"
 	"fmt"
 	"io/ioutil"
 	"net"
@@ -57,16 +56,8 @@ func (s *SSHMeta) BpfLBList() (map[string][]string, error) {
 
 // ExecCilium runs a Cilium CLI command and returns the resultant cmdRes.
 func (s *SSHMeta) ExecCilium(cmd string) *CmdRes {
-	stdout := new(bytes.Buffer)
-	stderr := new(bytes.Buffer)
 	command := fmt.Sprintf("cilium %s", cmd)
-	exit := s.ExecWithSudo(command, stdout, stderr)
-	return &CmdRes{
-		cmd:    command,
-		stdout: stdout,
-		stderr: stderr,
-		exit:   exit,
-	}
+	return s.ExecWithSudo(command)
 }
 
 // EndpointGet returns the output of `cilium endpoint get` for the provided

@@ -22,6 +22,8 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/cilium/cilium/test/config"
+
 	"github.com/onsi/gomega"
 	"k8s.io/client-go/util/jsonpath"
 )
@@ -48,6 +50,14 @@ func (res *CmdRes) GetStdOut() string {
 // GetStdErr returns the contents of the stderr buffer of res as a string.
 func (res *CmdRes) GetStdErr() string {
 	return res.stderr.String()
+}
+
+// SendToLog writes to `TestLogWriter` the debug message for the running command
+func (res *CmdRes) SendToLog() {
+	fmt.Fprintf(&config.TestLogWriter, "cmd: %q exitCode: %q \n %s\n",
+		res.cmd,
+		res.exit,
+		res.CombineOutput())
 }
 
 // WasSuccessful returns true if cmd completed successfully.

@@ -100,12 +100,11 @@ func (s *SSHMeta) Execute(cmd string, stdout io.Writer, stderr io.Writer) bool {
 	return true
 }
 
-// ExecWithSudo executes the provided command using sudo privileges via SSH.
-// The stdout  and stderr of the command are written to the specified stdout and
-// stderr buffers accordingly. Returns false if execution of cmd fails.
-func (s *SSHMeta) ExecWithSudo(cmd string, stdout io.Writer, stderr io.Writer) bool {
+// ExecWithSudo returns the result of executing the provided cmd via SSH using
+// sudo.
+func (s *SSHMeta) ExecWithSudo(cmd string) *CmdRes {
 	command := fmt.Sprintf("sudo %s", cmd)
-	return s.Execute(command, stdout, stderr)
+	return s.Exec(command)
 }
 
 // Exec returns the results of executing the provided cmd via SSH.
@@ -115,12 +114,14 @@ func (s *SSHMeta) Exec(cmd string) *CmdRes {
 
 	exit := s.Execute(cmd, stdout, stderr)
 
-	return &CmdRes{
+	res := &CmdRes{
 		cmd:    cmd,
 		stdout: stdout,
 		stderr: stderr,
 		exit:   exit,
 	}
+	res.SendToLog()
+	return res
 }
 
 // GetCopy returns a copy of SSHMeta, useful for parallel requests
