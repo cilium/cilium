@@ -9,3 +9,6 @@ After=swap.target
 What=bpffs
 Where=/sys/fs/bpf
 Type=bpf
+
+[Install]
+WantedBy=multi-user.target

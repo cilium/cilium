@@ -5,6 +5,10 @@ HOST=$(hostname)
 TOKEN="258062.5d84c017c9b2796c"
 CILIUM_CONFIG_DIR="/opt/cilium"
 ETCD_VERSION="v3.1.0"
+SRC_FOLDER="/src/"
+SYSTEMD_SERVICES="$SRC_FOLDER/contrib/systemd/"
+MOUNT_SYSTEMD="sys-fs-bpf.mount"
+
 NODE=$1
 IP=$2
 K8S_VERSION=$3
@@ -45,7 +49,9 @@ apt-get install --allow-downgrades -y \
 
 sudo mkdir -p ${CILIUM_CONFIG_DIR}
 
-sudo mount bpffs /sys/fs/bpf -t bpf
+sudo cp "$SYSTEMD_SERVICES/$MOUNT_SYSTEMD" /etc/systemd/system/
+sudo systemctl enable $MOUNT_SYSTEMD
+sudo systemctl restart $MOUNT_SYSTEMD
 sudo rm -rfv /var/lib/kubelet
 
 #check hostname to know if is kubernetes or runtime test
