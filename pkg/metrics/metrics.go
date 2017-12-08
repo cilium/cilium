@@ -57,12 +57,9 @@ var (
 
 	// Endpoint
 
-	// EndpointCount is the number of managed endpoints
-	EndpointCount = prometheus.NewGauge(prometheus.GaugeOpts{
-		Namespace: Namespace,
-		Name:      "endpoint_count",
-		Help:      "Number of endpoints managed by this agent",
-	})
+	// EndpointCount is a function used to collect this metric.
+	// It must be thread-safe.
+	EndpointCount prometheus.GaugeFunc
 
 	// EndpointCountRegenerating is the number of endpoints currently regenerating
 	EndpointCountRegenerating = prometheus.NewGauge(prometheus.GaugeOpts{
@@ -135,21 +132,27 @@ var (
 )
 
 func init() {
-	registry.MustRegister(prometheus.NewProcessCollector(os.Getpid(), Namespace))
+	MustRegister(prometheus.NewProcessCollector(os.Getpid(), Namespace))
 	// TODO: Figure out how to put this into a Namespace
-	//registry.MustRegister(prometheus.NewGoCollector())
+	//MustRegister(prometheus.NewGoCollector())
 
-	registry.MustRegister(EndpointCount)
-	registry.MustRegister(EndpointCountRegenerating)
-	registry.MustRegister(EndpointRegenerationCount)
+	MustRegister(EndpointCountRegenerating)
+	MustRegister(EndpointRegenerationCount)
 
-	registry.MustRegister(PolicyCount)
-	registry.MustRegister(PolicyRevision)
-	registry.MustRegister(PolicyImportErrors)
+	MustRegister(PolicyCount)
+	MustRegister(PolicyRevision)
+	MustRegister(PolicyImportErrors)
 
-	registry.MustRegister(EventTSK8s)
-	registry.MustRegister(EventTSContainerd)
-	registry.MustRegister(EventTSAPI)
+	MustRegister(EventTSK8s)
+	MustRegister(EventTSContainerd)
+	MustRegister(EventTSAPI)
+}
+
+// MustRegister adds the collector to the registry, exposing this metric to
+// prometheus scrapes.
+// It will panic on error.
+func MustRegister(c prometheus.Collector) {
+	registry.MustRegister(c)
 }
 
 // Enable begins serving prometheus metrics on the address passed in. Addresses
