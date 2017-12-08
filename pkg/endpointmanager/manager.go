@@ -22,6 +22,7 @@ import (
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/metrics"
+	"github.com/prometheus/client_golang/prometheus"
 )
 
 var (
@@ -36,11 +37,25 @@ var (
 	endpointsAux = map[string]*endpoint.Endpoint{}
 )
 
+func init() {
+	// EndpointCount is a function used to collect this metric. We cannot
+	// increment/decrement a gauge since we invoke Remove gratuitiously and that
+	// would result in negative counts.
+	// It must be thread-safe.
+	metrics.EndpointCount = prometheus.NewGaugeFunc(prometheus.GaugeOpts{
+		Namespace: metrics.Namespace,
+		Name:      "endpoint_count",
+		Help:      "Number of endpoints managed by this agent",
+	},
+		func() float64 { return float64(len(GetEndpoints())) },
+	)
+	metrics.MustRegister(metrics.EndpointCount)
+}
+
 // Insert inserts the endpoint into the global maps.
 // Must be called with ep.Mutex.RLock held.
 func Insert(ep *endpoint.Endpoint) {
 	mutex.Lock()
-	metrics.EndpointCount.Inc()
 	endpoints[ep.ID] = ep
 	updateReferences(ep)
 	mutex.Unlock()
@@ -125,7 +140,6 @@ func UpdateReferences(ep *endpoint.Endpoint) {
 func Remove(ep *endpoint.Endpoint) {
 	mutex.Lock()
 	defer mutex.Unlock()
-	metrics.EndpointCount.Dec()
 	delete(endpoints, ep.ID)
 
 	if ep.DockerID != "" {
