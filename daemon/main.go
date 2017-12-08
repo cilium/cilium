@@ -20,12 +20,10 @@ import (
 	"net"
 	"os"
 	"os/exec"
-	"os/signal"
 	"path"
 	"path/filepath"
 	"regexp"
 	"strings"
-	"syscall"
 	"time"
 
 	"github.com/cilium/cilium/api/v1/server"
@@ -47,13 +45,13 @@ import (
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/pidfile"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/pprof"
 	"github.com/cilium/cilium/pkg/version"
 	"github.com/cilium/cilium/pkg/workloads"
 	"github.com/cilium/cilium/pkg/workloads/containerd"
 
-	"github.com/facebookgo/pidfile"
 	"github.com/go-openapi/loads"
 	gops "github.com/google/gops/agent"
 	go_version "github.com/hashicorp/go-version"
@@ -148,26 +146,6 @@ func main() {
 		fmt.Println(err)
 		os.Exit(-1)
 	}
-}
-
-func setupPidFile() {
-	pidfile.SetPidfilePath(defaults.PidFilePath)
-	if err := pidfile.Write(); err != nil {
-		log.WithError(err).Fatal("could not create pidfile")
-	}
-}
-
-func initCleanup() {
-	// Handle the cleanup
-	sig := make(chan os.Signal, 1)
-	signal.Notify(sig, syscall.SIGQUIT, syscall.SIGINT, syscall.SIGHUP, syscall.SIGTERM)
-	go func() {
-		for s := range sig {
-			log.WithField("signal", s).Info("Exiting due to signal")
-			os.Remove(defaults.PidFilePath)
-			os.Exit(0)
-		}
-	}()
 }
 
 func parseKernelVersion(ver string) (*go_version.Version, error) {
@@ -514,9 +492,6 @@ func initEnv(cmd *cobra.Command) {
 		os.Exit(0)
 	}
 
-	setupPidFile()
-	initCleanup()
-
 	common.RequireRootPrivilege("cilium-agent")
 
 	log.Info("     _ _ _")
@@ -564,6 +539,10 @@ func initEnv(cmd *cobra.Command) {
 		}
 	}
 	checkMinRequirements()
+
+	if err := pidfile.Write(defaults.PidFilePath); err != nil {
+		log.WithField(logfields.Path, defaults.PidFilePath).WithError(err).Fatal("Failed to create Pidfile")
+	}
 
 	config.AllowLocalhost = strings.ToLower(config.AllowLocalhost)
 	switch config.AllowLocalhost {
