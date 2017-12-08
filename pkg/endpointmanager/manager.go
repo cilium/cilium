@@ -22,6 +22,8 @@ import (
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/metrics"
+	"github.com/cilium/cilium/pkg/policy"
+
 	"github.com/prometheus/client_golang/prometheus"
 )
 
@@ -300,4 +302,44 @@ func GetEndpoints() []*endpoint.Endpoint {
 	}
 	mutex.RUnlock()
 	return eps
+}
+
+// AddEndpoint takes the prepared endpoint object and starts managing it.
+func AddEndpoint(owner endpoint.Owner, ep *endpoint.Endpoint, reason string) error {
+	alwaysEnforce := policy.GetPolicyEnabled() == endpoint.AlwaysEnforce
+	ep.Opts.Set(endpoint.OptionIngressPolicy, alwaysEnforce)
+	ep.Opts.Set(endpoint.OptionEgressPolicy, alwaysEnforce)
+
+	if err := ep.CreateDirectory(); err != nil {
+		return err
+	}
+
+	// Regenerate immediately if ready or waiting for identity
+	ep.Mutex.Lock()
+	build := false
+	state := ep.GetStateLocked()
+	// Note that the endpoint state can initially also be "creating", and the
+	// initial build will not be done yet in that case. A following PATCH
+	// request will be needed to change the state and trigger bpf build.
+	if state == endpoint.StateReady {
+		ep.SetStateLocked(endpoint.StateWaitingToRegenerate, reason)
+		build = true
+	} else if state == endpoint.StateWaitingForIdentity {
+		// state not changed if it is "waiting-for-identity",
+		// but we still trigger the initial build.
+		build = true
+	}
+	ep.Mutex.Unlock()
+	if build {
+		if err := ep.RegenerateWait(owner, reason); err != nil {
+			ep.RemoveDirectory()
+			return err
+		}
+	}
+
+	ep.Mutex.RLock()
+	Insert(ep)
+	ep.Mutex.RUnlock()
+
+	return nil
 }
