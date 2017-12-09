@@ -25,10 +25,6 @@ data:
   # If you want to run cilium in debug mode change this value to true
   debug: "false"
   disable-ipv4: "false"
-
-  # Allow prometheus to scrape on this addr:port. Not specifying an address
-  # will bind to all available interfaces inthe container.
-  prometheus-serve-addr: ":9090"
 ---
 # The etcd secrets can be populated in kubernetes.
 # For more information see: https://kubernetes.io/docs/concepts/configuration/secret
@@ -131,10 +127,13 @@ spec:
               configMapKeyRef:
                 name: cilium-config
                 key: disable-ipv4
-          - name: "PROMETHEUS_SERVE_ADDR"
+          # Note: this variable is a no-op if not defined, and is used in the
+          # prometheus examples.
+          - name: "CILIUM_PROMETHEUS_SERVE_ADDR"
             valueFrom:
               configMapKeyRef:
-                name: cilium-config
+                name: cilium-metrics-config
+                optional: true
                 key: prometheus-serve-addr
         livenessProbe:
           exec:
