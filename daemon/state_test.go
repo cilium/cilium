@@ -202,3 +202,7 @@ func (ds *DaemonSuite) TestSyncLabels(c *C) {
 	// kv store
 	c.Assert(ep2SecLabelID, Equals, ep2.SecLabel.ID)
 }
+
+func (ds *DaemonSuite) UpdateSecLabels(id string, add, del labels.Labels) (int, error) {
+	return 501, fmt.Errorf("Not implemented")
+}
