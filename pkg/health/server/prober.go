@@ -85,6 +85,16 @@ func getPrimaryIP(node *ciliumModels.NodeElement) string {
 	return node.PrimaryAddress.IPV6.IP
 }
 
+func getHealthIP(node *ciliumModels.NodeElement) string {
+	if node.HealthEndpointAddress == nil {
+		return ""
+	}
+	if node.HealthEndpointAddress.IPV4.Enabled {
+		return node.HealthEndpointAddress.IPV4.IP
+	}
+	return node.HealthEndpointAddress.IPV6.IP
+}
+
 // getResults gathers a copy of all of the results for nodes currently in the
 // cluster.
 func (p *prober) getResults() []*models.NodeStatus {
@@ -98,12 +108,15 @@ func (p *prober) getResults() []*models.NodeStatus {
 			continue
 		}
 		primaryIP := getPrimaryIP(node)
+		healthIP := getHealthIP(node)
 		status := &models.NodeStatus{
 			Name: node.Name,
 			Host: &models.HostStatus{
 				PrimaryAddress: p.copyResultRLocked(primaryIP),
 			},
-			// TODO: Endpoint: &models.PathStatus{},
+		}
+		if healthIP != "" {
+			status.Endpoint = p.copyResultRLocked(healthIP)
 		}
 		secondaryResults := []*models.PathStatus{}
 		for _, addr := range node.SecondaryAddresses {
@@ -134,9 +147,14 @@ func skipAddress(elem *ciliumModels.NodeAddressingElement) bool {
 
 // getAddresses returns a map of the node's addresses -> "primary" bool
 func getNodeAddresses(node *ciliumModels.NodeElement) map[*ciliumModels.NodeAddressingElement]bool {
-	addresses := map[*ciliumModels.NodeAddressingElement]bool{
-		node.PrimaryAddress.IPV4: node.PrimaryAddress.IPV4.Enabled,
-		node.PrimaryAddress.IPV6: node.PrimaryAddress.IPV6.Enabled,
+	addresses := map[*ciliumModels.NodeAddressingElement]bool{}
+	if node.PrimaryAddress != nil {
+		addresses[node.PrimaryAddress.IPV4] = node.PrimaryAddress.IPV4.Enabled
+		addresses[node.PrimaryAddress.IPV6] = node.PrimaryAddress.IPV6.Enabled
+	}
+	if node.HealthEndpointAddress != nil {
+		addresses[node.HealthEndpointAddress.IPV4] = false
+		addresses[node.HealthEndpointAddress.IPV6] = false
 	}
 	for _, elem := range node.SecondaryAddresses {
 		addresses[elem] = false
