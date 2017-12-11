@@ -338,23 +338,30 @@ func (r *rule) resolveL3Policy(ctx *SearchContext, state *traceState, result *L3
 	state.selectRule(ctx, r)
 	found := 0
 
-	for _, r := range r.Ingress {
+	for _, ingressRule := range r.Ingress {
 		// TODO (ianvernon): GH-1658
 		var allCIDRs []api.CIDR
-		allCIDRs = append(allCIDRs, r.FromCIDR...)
+		allCIDRs = append(allCIDRs, ingressRule.FromCIDR...)
 
-		allCIDRs = append(allCIDRs, computeResultantCIDRSet(r.FromCIDRSet)...)
+		allCIDRs = append(allCIDRs, computeResultantCIDRSet(ingressRule.FromCIDRSet)...)
 
-		found += mergeL3(ctx, "Ingress", allCIDRs, &result.Ingress)
+		if cnt := mergeL3(ctx, "Ingress", allCIDRs, &result.Ingress); cnt > 0 {
+			found += cnt
+			result.Ingress.SourceRuleLabels = append(result.Ingress.SourceRuleLabels, r.Rule.Labels.DeepCopy())
+		}
 	}
-	for _, r := range r.Egress {
+
+	for _, egressRule := range r.Egress {
 		// TODO(ianvernon): GH-1658
 		var allCIDRs []api.CIDR
-		allCIDRs = append(allCIDRs, r.ToCIDR...)
+		allCIDRs = append(allCIDRs, egressRule.ToCIDR...)
 
-		allCIDRs = append(allCIDRs, computeResultantCIDRSet(r.ToCIDRSet)...)
+		allCIDRs = append(allCIDRs, computeResultantCIDRSet(egressRule.ToCIDRSet)...)
 
-		found += mergeL3(ctx, "Egress", allCIDRs, &result.Egress)
+		if cnt := mergeL3(ctx, "Egress", allCIDRs, &result.Egress); cnt > 0 {
+			found += cnt
+			result.Egress.SourceRuleLabels = append(result.Egress.SourceRuleLabels, r.Rule.Labels.DeepCopy())
+		}
 	}
 
 	if found > 0 {

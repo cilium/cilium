@@ -547,6 +547,7 @@ func (ds *PolicyTestSuite) TestL3Policy(c *C) {
 	expected.Ingress.Map["2001:db8::/48"] = net.IPNet{IP: []byte{0x20, 1, 0xd, 0xb8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, Mask: []byte{255, 255, 255, 255, 255, 255, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}}
 	expected.Ingress.Map["2001:db9::/128"] = net.IPNet{IP: []byte{0x20, 1, 0xd, 0xb9, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, Mask: []byte{255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255}}
 	expected.Ingress.IPv6Count = 2
+	expected.Ingress.SourceRuleLabels = []labels.LabelArray{labels.ParseLabelArray()}
 	expected.Egress.Map["10.1.0.0/16"] = net.IPNet{IP: []byte{10, 1, 0, 0}, Mask: []byte{255, 255, 0, 0}}
 	expected.Egress.Map["10.128.0.0/9"] = net.IPNet{IP: []byte{10, 128, 0, 0}, Mask: []byte{255, 128, 0, 0}}
 	expected.Egress.Map["10.0.0.0/10"] = net.IPNet{IP: []byte{10, 0, 0, 0}, Mask: []byte{255, 192, 0, 0}}
@@ -555,6 +556,7 @@ func (ds *PolicyTestSuite) TestL3Policy(c *C) {
 	expected.Egress.IPv4Count = 5
 	expected.Egress.Map["2001:dbf::/64"] = net.IPNet{IP: []byte{0x20, 1, 0xd, 0xbf, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, Mask: []byte{255, 255, 255, 255, 255, 255, 255, 255, 0, 0, 0, 0, 0, 0, 0, 0}}
 	expected.Egress.IPv6Count = 1
+	expected.Egress.SourceRuleLabels = []labels.LabelArray{labels.ParseLabelArray()}
 
 	toBar := &SearchContext{To: labels.ParseSelectLabelArray("bar")}
 	state := traceState{}
@@ -756,4 +758,95 @@ func (ds *PolicyTestSuite) TestPolicyEntityValidationEntitySelectorsFill(c *C) {
 	c.Assert(r.sanitize(), IsNil)
 	c.Assert(len(r.fromEntities), Equals, 2)
 	c.Assert(len(r.toEntities), Equals, 2)
+}
+
+func (ds *PolicyTestSuite) TestL3RuleLabels(c *C) {
+	ruleLabels := map[string]labels.LabelArray{
+		"rule0": labels.ParseLabelArray("name=apiRule0"),
+		"rule1": labels.ParseLabelArray("name=apiRule1"),
+		"rule2": labels.ParseLabelArray("name=apiRule2"),
+	}
+
+	rules := map[string]api.Rule{
+		"rule0": {
+			EndpointSelector: api.NewESFromLabels(labels.ParseSelectLabel("bar")),
+			Labels:           ruleLabels["rule0"],
+			Ingress:          []api.IngressRule{},
+			Egress:           []api.EgressRule{},
+		},
+		"rule1": {
+			EndpointSelector: api.NewESFromLabels(labels.ParseSelectLabel("bar")),
+			Labels:           ruleLabels["rule1"],
+			Ingress: []api.IngressRule{
+				{
+					FromCIDR: []api.CIDR{"10.0.1.0/24"},
+				},
+			},
+			Egress: []api.EgressRule{
+				{
+					ToCIDR: []api.CIDR{"10.1.0.0/16"},
+				},
+			},
+		},
+		"rule2": {
+			EndpointSelector: api.NewESFromLabels(labels.ParseSelectLabel("bar")),
+			Labels:           ruleLabels["rule2"],
+			Ingress: []api.IngressRule{
+				{
+					FromCIDR: []api.CIDR{"10.0.2.0/24"},
+				},
+			},
+			Egress: []api.EgressRule{
+				{
+					ToCIDR: []api.CIDR{"10.2.0.0/16"},
+				},
+			},
+		},
+	}
+
+	testCases := []struct {
+		description           string              // the description to print in asserts
+		rulesToApply          []string            // the rules from the rules map to resolve, in order
+		expectedIngressLabels []labels.LabelArray // the slice of LabelArray we should see, in order
+		expectedEgressLabels  []labels.LabelArray // the slice of LabelArray we should see, in order
+
+	}{
+		{
+			description:           "Empty rule that matches. Should not apply labels",
+			rulesToApply:          []string{"rule0"},
+			expectedIngressLabels: []labels.LabelArray{},
+			expectedEgressLabels:  []labels.LabelArray{},
+		},
+		{
+			description:           "A rule that matches. Should apply labels",
+			rulesToApply:          []string{"rule1"},
+			expectedIngressLabels: []labels.LabelArray{ruleLabels["rule1"]},
+			expectedEgressLabels:  []labels.LabelArray{ruleLabels["rule1"]},
+		}, {
+			description:           "Multiple matching rules. Should apply labels from all that have rule entries",
+			rulesToApply:          []string{"rule0", "rule1", "rule2"},
+			expectedIngressLabels: []labels.LabelArray{ruleLabels["rule1"], ruleLabels["rule2"]},
+			expectedEgressLabels:  []labels.LabelArray{ruleLabels["rule1"], ruleLabels["rule2"]},
+		}}
+
+	// endpoint selector for all tests
+	toBar := &SearchContext{To: labels.ParseSelectLabelArray("bar")}
+
+	for _, test := range testCases {
+		finalPolicy := NewL3Policy()
+		for _, r := range test.rulesToApply {
+			apiRule := rules[r]
+			err := apiRule.Sanitize()
+			c.Assert(err, IsNil, Commentf("Cannot sanitize api.Rule: %+v", apiRule))
+
+			rule := &rule{Rule: apiRule}
+			err = rule.sanitize()
+			c.Assert(err, IsNil, Commentf("Cannot sanitize Rule: %+v", rule))
+
+			rule.resolveL3Policy(toBar, &traceState{}, finalPolicy)
+		}
+
+		c.Assert(finalPolicy.Ingress.SourceRuleLabels, comparator.DeepEquals, test.expectedIngressLabels, Commentf(test.description))
+		c.Assert(finalPolicy.Egress.SourceRuleLabels, comparator.DeepEquals, test.expectedEgressLabels, Commentf(test.description))
+	}
 }

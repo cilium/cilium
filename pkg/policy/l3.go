@@ -22,6 +22,7 @@ import (
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/byteorder"
+	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/maps/cidrmap"
 	"github.com/cilium/cilium/pkg/policy/api"
 )
@@ -32,9 +33,10 @@ import (
 // L3PolicyMap does no locking internally, so the user is responsible for synchronizing
 // between multiple threads when applicable.
 type L3PolicyMap struct {
-	Map       map[string]net.IPNet // Allowed L3 prefixes
-	IPv6Count int                  // Count of IPv6 prefixes in 'Map'
-	IPv4Count int                  // Count of IPv4 prefixes in 'Map'
+	Map              map[string]net.IPNet // Allowed L3 prefixes
+	IPv6Count        int                  // Count of IPv6 prefixes in 'Map'
+	IPv4Count        int                  // Count of IPv4 prefixes in 'Map'
+	SourceRuleLabels []labels.LabelArray  // The User rule labels that resulted in this Map. Can be empty
 }
 
 // Insert places 'cidr' in to map 'm'. Returns `1` if `cidr` is added
@@ -124,8 +126,14 @@ type L3Policy struct {
 // NewL3Policy creates a new L3Policy.
 func NewL3Policy() *L3Policy {
 	return &L3Policy{
-		Ingress: L3PolicyMap{Map: make(map[string]net.IPNet)},
-		Egress:  L3PolicyMap{Map: make(map[string]net.IPNet)},
+		Ingress: L3PolicyMap{
+			Map:              make(map[string]net.IPNet),
+			SourceRuleLabels: make([]labels.LabelArray, 0),
+		},
+		Egress: L3PolicyMap{
+			Map:              make(map[string]net.IPNet),
+			SourceRuleLabels: make([]labels.LabelArray, 0),
+		},
 	}
 }
 
@@ -139,15 +147,25 @@ func (l3 *L3Policy) GetModel() *models.CIDRPolicy {
 	for _, v := range l3.Ingress.Map {
 		ingress = append(ingress, v.String())
 	}
+	ingressLabels := make([][]string, 0, len(l3.Ingress.SourceRuleLabels))
+	for _, lbls := range l3.Ingress.SourceRuleLabels {
+		ingressLabels = append(ingressLabels, lbls.GetModel())
+	}
 
 	egress := []string{}
 	for _, v := range l3.Egress.Map {
 		egress = append(egress, v.String())
 	}
+	egressLabels := make([][]string, 0, len(l3.Egress.SourceRuleLabels))
+	for _, lbls := range l3.Egress.SourceRuleLabels {
+		egressLabels = append(egressLabels, lbls.GetModel())
+	}
 
 	return &models.CIDRPolicy{
-		Ingress: ingress,
-		Egress:  egress,
+		Ingress:                 ingress,
+		IngressSourceRuleLabels: ingressLabels,
+		Egress:                  egress,
+		EgressSourceRuleLabels:  egressLabels,
 	}
 }
 

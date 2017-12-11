@@ -1037,11 +1037,31 @@ func init() {
             "type": "string"
           }
         },
+        "egress-source-rule-labels": {
+          "description": "Labels of egress L3 rules in effect on this endpoint",
+          "type": "array",
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
         "ingress": {
           "description": "List of CIDR ingress rules",
           "type": "array",
           "items": {
             "type": "string"
+          }
+        },
+        "ingress-source-rule-labels": {
+          "description": "Labels of ingress L3 rules in effect on this endpoint",
+          "type": "array",
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
           }
         }
       }
