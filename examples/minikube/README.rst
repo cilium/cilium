@@ -5,13 +5,17 @@ Deploying Cilium on a minikube cluster is simple. The provided
 ``cilium-ds.yaml`` file contains a DaemonSet spec which can be used to take
 care of all deployments steps.
 
-Deploy a minikube cluster as described bellow to instruct Kubernetes to use the
-CNI plugin infrastructure plus the ``localkube`` bootstrapper since it contains
-``etcd`` >= ``3.1.0`` required by Cilium.:
+Boot a minukube cluster with the Container Network Interface (CNI) network
+plugin, the ``localkube`` bootstrapper, and CustomResourceValidation.
+
+The ``localkube`` bootstrapper provides ``etcd`` >= ``3.1.0``, a cilium
+dependency. ``CustomResourceValidation`` will allow Cilium to install the Cilium
+Network Policy validator into kubernetes
+(`more info <https://kubernetes.io/docs/tasks/access kubernetes-api/extend-api-custom-resource-definitions/#validation>`_)
 
 ::
 
-	$ minikube start --network-plugin=cni --bootstrapper=localkube
+	$ minikube start --network-plugin=cni --bootstrapper=localkube --feature-gates=CustomResourceValidation=true
         [...]
 	$ kubectl create -f cilium-ds.yaml
 
