@@ -540,20 +540,20 @@ func (ds *PolicyTestSuite) TestL3Policy(c *C) {
 	c.Assert(err, IsNil)
 
 	expected := NewL3Policy()
-	expected.Ingress.Map["10.0.1.0/24"] = net.IPNet{IP: []byte{10, 0, 1, 0}, Mask: []byte{255, 255, 255, 0}}
-	expected.Ingress.Map["192.168.2.0/24"] = net.IPNet{IP: []byte{192, 168, 2, 0}, Mask: []byte{255, 255, 255, 0}}
-	expected.Ingress.Map["10.0.3.1/32"] = net.IPNet{IP: []byte{10, 0, 3, 1}, Mask: []byte{255, 255, 255, 255}}
+	expected.Ingress.Map["10.0.1.0/24"] = &L3PolicyMapRule{Prefix: net.IPNet{IP: []byte{10, 0, 1, 0}, Mask: []byte{255, 255, 255, 0}}, DerivedFromRules: labels.LabelArrayList{nil}}
+	expected.Ingress.Map["192.168.2.0/24"] = &L3PolicyMapRule{Prefix: net.IPNet{IP: []byte{192, 168, 2, 0}, Mask: []byte{255, 255, 255, 0}}, DerivedFromRules: labels.LabelArrayList{nil}}
+	expected.Ingress.Map["10.0.3.1/32"] = &L3PolicyMapRule{Prefix: net.IPNet{IP: []byte{10, 0, 3, 1}, Mask: []byte{255, 255, 255, 255}}, DerivedFromRules: labels.LabelArrayList{nil}}
 	expected.Ingress.IPv4Count = 3
-	expected.Ingress.Map["2001:db8::/48"] = net.IPNet{IP: []byte{0x20, 1, 0xd, 0xb8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, Mask: []byte{255, 255, 255, 255, 255, 255, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}}
-	expected.Ingress.Map["2001:db9::/128"] = net.IPNet{IP: []byte{0x20, 1, 0xd, 0xb9, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, Mask: []byte{255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255}}
+	expected.Ingress.Map["2001:db8::/48"] = &L3PolicyMapRule{Prefix: net.IPNet{IP: []byte{0x20, 1, 0xd, 0xb8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, Mask: []byte{255, 255, 255, 255, 255, 255, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}}, DerivedFromRules: labels.LabelArrayList{nil}}
+	expected.Ingress.Map["2001:db9::/128"] = &L3PolicyMapRule{Prefix: net.IPNet{IP: []byte{0x20, 1, 0xd, 0xb9, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, Mask: []byte{255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255}}, DerivedFromRules: labels.LabelArrayList{nil}}
 	expected.Ingress.IPv6Count = 2
-	expected.Egress.Map["10.1.0.0/16"] = net.IPNet{IP: []byte{10, 1, 0, 0}, Mask: []byte{255, 255, 0, 0}}
-	expected.Egress.Map["10.128.0.0/9"] = net.IPNet{IP: []byte{10, 128, 0, 0}, Mask: []byte{255, 128, 0, 0}}
-	expected.Egress.Map["10.0.0.0/10"] = net.IPNet{IP: []byte{10, 0, 0, 0}, Mask: []byte{255, 192, 0, 0}}
-	expected.Egress.Map["10.64.0.0/11"] = net.IPNet{IP: []byte{10, 64, 0, 0}, Mask: []byte{255, 224, 0, 0}}
-	expected.Egress.Map["10.112.0.0/12"] = net.IPNet{IP: []byte{10, 112, 0, 0}, Mask: []byte{255, 240, 0, 0}}
+	expected.Egress.Map["10.1.0.0/16"] = &L3PolicyMapRule{Prefix: net.IPNet{IP: []byte{10, 1, 0, 0}, Mask: []byte{255, 255, 0, 0}}, DerivedFromRules: labels.LabelArrayList{nil}}
+	expected.Egress.Map["10.128.0.0/9"] = &L3PolicyMapRule{Prefix: net.IPNet{IP: []byte{10, 128, 0, 0}, Mask: []byte{255, 128, 0, 0}}, DerivedFromRules: labels.LabelArrayList{nil}}
+	expected.Egress.Map["10.0.0.0/10"] = &L3PolicyMapRule{Prefix: net.IPNet{IP: []byte{10, 0, 0, 0}, Mask: []byte{255, 192, 0, 0}}, DerivedFromRules: labels.LabelArrayList{nil}}
+	expected.Egress.Map["10.64.0.0/11"] = &L3PolicyMapRule{Prefix: net.IPNet{IP: []byte{10, 64, 0, 0}, Mask: []byte{255, 224, 0, 0}}, DerivedFromRules: labels.LabelArrayList{nil}}
+	expected.Egress.Map["10.112.0.0/12"] = &L3PolicyMapRule{Prefix: net.IPNet{IP: []byte{10, 112, 0, 0}, Mask: []byte{255, 240, 0, 0}}, DerivedFromRules: labels.LabelArrayList{nil}}
 	expected.Egress.IPv4Count = 5
-	expected.Egress.Map["2001:dbf::/64"] = net.IPNet{IP: []byte{0x20, 1, 0xd, 0xbf, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, Mask: []byte{255, 255, 255, 255, 255, 255, 255, 255, 0, 0, 0, 0, 0, 0, 0, 0}}
+	expected.Egress.Map["2001:dbf::/64"] = &L3PolicyMapRule{Prefix: net.IPNet{IP: []byte{0x20, 1, 0xd, 0xbf, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, Mask: []byte{255, 255, 255, 255, 255, 255, 255, 255, 0, 0, 0, 0, 0, 0, 0, 0}}, DerivedFromRules: labels.LabelArrayList{nil}}
 	expected.Egress.IPv6Count = 1
 
 	toBar := &SearchContext{To: labels.ParseSelectLabelArray("bar")}
@@ -756,4 +756,110 @@ func (ds *PolicyTestSuite) TestPolicyEntityValidationEntitySelectorsFill(c *C) {
 	c.Assert(r.sanitize(), IsNil)
 	c.Assert(len(r.fromEntities), Equals, 2)
 	c.Assert(len(r.toEntities), Equals, 2)
+}
+
+func (ds *PolicyTestSuite) TestL3RuleLabels(c *C) {
+	ruleLabels := map[string]labels.LabelArray{
+		"rule0": labels.ParseLabelArray("name=apiRule0"),
+		"rule1": labels.ParseLabelArray("name=apiRule1"),
+		"rule2": labels.ParseLabelArray("name=apiRule2"),
+	}
+
+	rules := map[string]api.Rule{
+		"rule0": {
+			EndpointSelector: api.NewESFromLabels(labels.ParseSelectLabel("bar")),
+			Labels:           ruleLabels["rule0"],
+			Ingress:          []api.IngressRule{},
+			Egress:           []api.EgressRule{},
+		},
+		"rule1": {
+			EndpointSelector: api.NewESFromLabels(labels.ParseSelectLabel("bar")),
+			Labels:           ruleLabels["rule1"],
+			Ingress: []api.IngressRule{
+				{
+					FromCIDR: []api.CIDR{"10.0.1.0/32"},
+				},
+			},
+			Egress: []api.EgressRule{
+				{
+					ToCIDR: []api.CIDR{"10.1.0.0/32"},
+				},
+			},
+		},
+		"rule2": {
+			EndpointSelector: api.NewESFromLabels(labels.ParseSelectLabel("bar")),
+			Labels:           ruleLabels["rule2"],
+			Ingress: []api.IngressRule{
+				{
+					FromCIDR: []api.CIDR{"10.0.2.0/32"},
+				},
+			},
+			Egress: []api.EgressRule{
+				{
+					ToCIDR: []api.CIDR{"10.2.0.0/32"},
+				},
+			},
+		},
+	}
+
+	testCases := []struct {
+		description           string                           // the description to print in asserts
+		rulesToApply          []string                         // the rules from the rules map to resolve, in order
+		expectedIngressLabels map[string]labels.LabelArrayList // the slice of LabelArray we should see, per CIDR prefix
+		expectedEgressLabels  map[string]labels.LabelArrayList // the slice of LabelArray we should see, per CIDR prefix
+
+	}{
+		{
+			description:           "Empty rule that matches. Should not apply labels",
+			rulesToApply:          []string{"rule0"},
+			expectedIngressLabels: nil,
+			expectedEgressLabels:  nil,
+		},
+		{
+			description:           "A rule that matches. Should apply labels",
+			rulesToApply:          []string{"rule1"},
+			expectedIngressLabels: map[string]labels.LabelArrayList{"10.0.1.0/32": {ruleLabels["rule1"]}},
+			expectedEgressLabels:  map[string]labels.LabelArrayList{"10.1.0.0/32": {ruleLabels["rule1"]}},
+		}, {
+			description:  "Multiple matching rules. Should apply labels from all that have rule entries",
+			rulesToApply: []string{"rule0", "rule1", "rule2"},
+			expectedIngressLabels: map[string]labels.LabelArrayList{
+				"10.0.1.0/32": {ruleLabels["rule1"]},
+				"10.0.2.0/32": {ruleLabels["rule2"]}},
+			expectedEgressLabels: map[string]labels.LabelArrayList{
+				"10.1.0.0/32": {ruleLabels["rule1"]},
+				"10.2.0.0/32": {ruleLabels["rule2"]}},
+		}}
+
+	// endpoint selector for all tests
+	toBar := &SearchContext{To: labels.ParseSelectLabelArray("bar")}
+
+	for _, test := range testCases {
+		finalPolicy := NewL3Policy()
+		for _, r := range test.rulesToApply {
+			apiRule := rules[r]
+			err := apiRule.Sanitize()
+			c.Assert(err, IsNil, Commentf("Cannot sanitize api.Rule: %+v", apiRule))
+
+			rule := &rule{Rule: apiRule}
+			err = rule.sanitize()
+			c.Assert(err, IsNil, Commentf("Cannot sanitize Rule: %+v", rule))
+
+			rule.resolveL3Policy(toBar, &traceState{}, finalPolicy)
+		}
+
+		c.Assert(len(finalPolicy.Ingress.Map), Equals, len(test.expectedIngressLabels), Commentf(test.description))
+		for cidrKey := range test.expectedIngressLabels {
+			out := finalPolicy.Ingress.Map[cidrKey]
+			c.Assert(out, Not(IsNil), Commentf(test.description))
+			c.Assert(out.DerivedFromRules, comparator.DeepEquals, test.expectedIngressLabels[cidrKey], Commentf(test.description))
+		}
+
+		c.Assert(len(finalPolicy.Egress.Map), Equals, len(test.expectedEgressLabels), Commentf(test.description))
+		for cidrKey := range test.expectedEgressLabels {
+			out := finalPolicy.Egress.Map[cidrKey]
+			c.Assert(out, Not(IsNil), Commentf(test.description))
+			c.Assert(out.DerivedFromRules, comparator.DeepEquals, test.expectedEgressLabels[cidrKey], Commentf(test.description))
+		}
+	}
 }

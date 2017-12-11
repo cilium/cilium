@@ -951,6 +951,19 @@ definitions:
         "$ref": "#/definitions/L4Policy"
       cidr-policy:
         "$ref": "#/definitions/CIDRPolicy"
+  PolicyRule:
+    description: A policy rule including the rule labels it derives from
+    properties:
+      rule:
+        description: The policy rule as json
+        type: string
+      derived-from-rules:
+        description: The policy rule labels identifying the policy rules this rule derives from
+        type: array
+        items: 
+          type: array
+          items:
+            type: string
   L4Policy:
     description: L4 endpoint policy
     type: object
@@ -973,12 +986,13 @@ definitions:
         description: List of CIDR ingress rules
         type: array
         items:
-          type: string
+          "$ref": "#/definitions/PolicyRule"
       egress:
         description: List of CIDR egress rules
         type: array
         items:
-          type: string
+          "$ref": "#/definitions/PolicyRule"
+
   CIDRList:
     description: List of CIDRs
     type: object
