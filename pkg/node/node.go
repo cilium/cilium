@@ -47,6 +47,14 @@ type Node struct {
 
 	// dev contains the device name to where the IPv6 traffic should be send
 	dev string
+
+	// IPv4HealthIP if not nil, this is the IPv4 address of the
+	// cilium-health endpoint located on the node.
+	IPv4HealthIP net.IP
+
+	// IPv6HealthIP if not nil, this is the IPv6 address of the
+	// cilium-health endpoint located on the node.
+	IPv6HealthIP net.IP
 }
 
 // Address is a node address which contains an IP and the address type.
@@ -163,6 +171,8 @@ func GetLocalNode() (Identity, *Node) {
 		},
 		IPv4AllocCIDR: GetIPv4AllocRange(),
 		IPv6AllocCIDR: GetIPv6AllocRange(),
+		IPv4HealthIP:  GetIPv4HealthIP(),
+		IPv6HealthIP:  GetIPv6HealthIP(),
 	}
 
 }

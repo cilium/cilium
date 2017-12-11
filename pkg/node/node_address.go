@@ -37,6 +37,8 @@ var (
 	ipv6RouterAddress   net.IP
 	ipv4AllocRange      *net.IPNet
 	ipv6AllocRange      *net.IPNet
+	ipv4HealthAddress   net.IP
+	ipv6HealthAddress   net.IP
 )
 
 func makeIPv6HostIP() net.IP {
@@ -303,6 +305,26 @@ func GetIPv6Router() net.IP {
 // SetIPv6Router returns the IPv6 address of the node
 func SetIPv6Router(ip net.IP) {
 	ipv6RouterAddress = ip
+}
+
+// GetIPv4HealthIP returns the IPv4 address of the local cilium-health endpoint
+func GetIPv4HealthIP() net.IP {
+	return ipv4HealthAddress
+}
+
+// SetIPv4HealthIP sets the IPv4 address of the local cilium-health endpoint
+func SetIPv4HealthIP(ip net.IP) {
+	ipv4HealthAddress = ip
+}
+
+// GetIPv6HealthIP returns the IPv6 address of the local cilium-health endpoint
+func GetIPv6HealthIP() net.IP {
+	return ipv6HealthAddress
+}
+
+// SetIPv6HealthIP sets the IPv6 address of the local cilium-health endpoint
+func SetIPv6HealthIP(ip net.IP) {
+	ipv6HealthAddress = ip
 }
 
 // GetIPv6NodeRoute returns a route pointing to the IPv6 node address
