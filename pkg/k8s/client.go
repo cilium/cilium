@@ -110,7 +110,7 @@ func isConnReady(c *kubernetes.Clientset) error {
 	return err
 }
 
-func updateNodeAnnotation(c kubernetes.Interface, node *v1.Node, v4CIDR, v6CIDR *net.IPNet) (*v1.Node, error) {
+func updateNodeAnnotation(c kubernetes.Interface, node *v1.Node, v4CIDR, v6CIDR *net.IPNet, v4HealthIP, v6HealthIP net.IP) (*v1.Node, error) {
 	if node.Annotations == nil {
 		node.Annotations = map[string]string{}
 	}
@@ -118,9 +118,15 @@ func updateNodeAnnotation(c kubernetes.Interface, node *v1.Node, v4CIDR, v6CIDR 
 	if v4CIDR != nil {
 		node.Annotations[Annotationv4CIDRName] = v4CIDR.String()
 	}
-
 	if v6CIDR != nil {
 		node.Annotations[Annotationv6CIDRName] = v6CIDR.String()
+	}
+
+	if v4HealthIP != nil {
+		node.Annotations[Annotationv4HealthName] = v4HealthIP.String()
+	}
+	if v6HealthIP != nil {
+		node.Annotations[Annotationv6HealthName] = v6HealthIP.String()
 	}
 
 	node, err := c.CoreV1().Nodes().Update(node)
@@ -135,25 +141,27 @@ func updateNodeAnnotation(c kubernetes.Interface, node *v1.Node, v4CIDR, v6CIDR 
 	return node, nil
 }
 
-// AnnotateNodeCIDR writes both v4 and v6 CIDRs in the given k8s node name.
+// AnnotateNode writes v4 and v6 CIDRs and health IPs in the given k8s node name.
 // In case of failure while updating the node, this function while spawn a go
 // routine to retry the node update indefinitely.
-func AnnotateNodeCIDR(c kubernetes.Interface, nodeName string, v4CIDR, v6CIDR *net.IPNet) error {
+func AnnotateNode(c kubernetes.Interface, nodeName string, v4CIDR, v6CIDR *net.IPNet, v4HealthIP, v6HealthIP net.IP) error {
 	scopedLog := log.WithFields(logrus.Fields{
-		logfields.NodeName: nodeName,
-		logfields.V4Prefix: v4CIDR,
-		logfields.V6Prefix: v6CIDR,
+		logfields.NodeName:   nodeName,
+		logfields.V4Prefix:   v4CIDR,
+		logfields.V6Prefix:   v6CIDR,
+		logfields.V4HealthIP: v4HealthIP,
+		logfields.V6HealthIP: v6HealthIP,
 	})
 	scopedLog.Debug("Updating node annotations with node CIDRs")
 
-	go func(c kubernetes.Interface, nodeName string, v4CIDR, v6CIDR *net.IPNet) {
+	go func(c kubernetes.Interface, nodeName string, v4CIDR, v6CIDR *net.IPNet, v4HealthIP, v6HealthIP net.IP) {
 		var node *v1.Node
 		var err error
 
 		for n := 1; n <= maxUpdateRetries; n++ {
 			node, err = GetNode(c, nodeName)
 			if err == nil {
-				node, err = updateNodeAnnotation(c, node, v4CIDR, v6CIDR)
+				node, err = updateNodeAnnotation(c, node, v4CIDR, v6CIDR, v4HealthIP, v6HealthIP)
 			} else {
 				if errors.IsNotFound(err) {
 					err = ErrNilNode
@@ -164,14 +172,14 @@ func AnnotateNodeCIDR(c kubernetes.Interface, nodeName string, v4CIDR, v6CIDR *n
 				scopedLog.WithFields(logrus.Fields{
 					fieldRetry:    n,
 					fieldMaxRetry: maxUpdateRetries,
-				}).WithError(err).Error("Unable to update node resource with CIDR annotation")
+				}).WithError(err).Error("Unable to update node resource with annotation")
 			} else {
 				break
 			}
 
 			time.Sleep(time.Duration(n) * time.Second)
 		}
-	}(c, nodeName, v4CIDR, v6CIDR)
+	}(c, nodeName, v4CIDR, v6CIDR, v4HealthIP, v6HealthIP)
 
 	return nil
 }

@@ -76,9 +76,11 @@ func (s *K8sSuite) TestUseNodeCIDR(c *C) {
 	c.Assert(node.GetIPv4AllocRange().String(), Equals, "10.2.0.0/16")
 	// IPv6 Node range is not checked because it shouldn't be changed.
 
-	AnnotateNodeCIDR(k8sClient, "node1",
+	AnnotateNode(k8sClient, "node1",
 		node.GetIPv4AllocRange(),
-		node.GetIPv6NodeRange())
+		node.GetIPv6NodeRange(),
+		nil,
+		nil)
 
 	c.Assert(err, IsNil)
 
@@ -142,9 +144,11 @@ func (s *K8sSuite) TestUseNodeCIDR(c *C) {
 	c.Assert(node.GetIPv4AllocRange().String(), Equals, "10.254.0.0/16")
 	c.Assert(node.GetIPv6NodeRange().String(), Equals, "aaaa:aaaa:aaaa:aaaa:beef:beef::/96")
 
-	err = AnnotateNodeCIDR(k8sClient, "node2",
+	err = AnnotateNode(k8sClient, "node2",
 		node.GetIPv4AllocRange(),
-		node.GetIPv6NodeRange())
+		node.GetIPv6NodeRange(),
+		nil,
+		nil)
 
 	c.Assert(err, IsNil)
 

@@ -31,6 +31,7 @@ import (
 	"github.com/cilium/cilium/common/plugins"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/endpointmanager"
+	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/node"
@@ -205,6 +206,14 @@ func LaunchAsEndpoint(owner endpoint.Owner, hostAddressing *models.NodeAddressin
 	// Set up the endpoint routes
 	if err = configureHealthRouting(info.ContainerName, vethPeerName, hostAddressing); err != nil {
 		log.WithError(err).Fatal("Error while configuring cilium-health routes")
+	}
+
+	// Propagate health IPs to all other nodes
+	if k8s.IsEnabled() {
+		err := k8s.AnnotateNode(k8s.Client(), node.GetName(), nil, nil, ip4, ip6)
+		if err != nil {
+			log.WithError(err).Fatal("Cannot annotate node CIDR range data")
+		}
 	}
 
 	return func() {
