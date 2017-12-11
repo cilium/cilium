@@ -148,10 +148,6 @@ func getNodeAddresses(node *ciliumModels.NodeElement) map[*ciliumModels.NodeAddr
 // the name of the node and the IP address specified in the addressing element.
 // If validation fails or this IP should not be pinged, 'ip' is returned as nil.
 func resolveIP(node *ciliumModels.NodeElement, addr *ciliumModels.NodeAddressingElement, proto string, primary bool) (string, *net.IPAddr) {
-	if skipAddress(addr) {
-		return "", nil
-	}
-
 	network := "ip6:icmp"
 	if isIPv4(addr.IP) {
 		network = "ip4:icmp"
@@ -162,9 +158,14 @@ func resolveIP(node *ciliumModels.NodeElement, addr *ciliumModels.NodeAddressing
 		"primary":          primary,
 	})
 
+	if skipAddress(addr) {
+		scopedLog.Debug("Skipping probe for address")
+		return "", nil
+	}
+
 	ra, err := net.ResolveIPAddr(network, addr.IP)
 	if err != nil {
-		scopedLog.Debug("Skipping probe for node")
+		scopedLog.Debug("Unable to resolve address")
 		return "", nil
 	}
 
