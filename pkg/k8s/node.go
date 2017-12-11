@@ -101,6 +101,26 @@ func ParseNode(k8sNode *v1.Node) *node.Node {
 		}
 	}
 
+	if node.IPv4HealthIP == nil {
+		if healthIP, ok := k8sNode.Annotations[Annotationv4HealthName]; !ok {
+			scopedLog.Debug("Empty IPv4 health endpoint annotation in node")
+		} else if ip := net.ParseIP(healthIP); ip == nil {
+			scopedLog.WithField(logfields.V4HealthIP, healthIP).Error("BUG, invalid IPv4 health endpoint annotation in node")
+		} else {
+			node.IPv4HealthIP = ip
+		}
+	}
+
+	if node.IPv6HealthIP == nil {
+		if healthIP, ok := k8sNode.Annotations[Annotationv6HealthName]; !ok {
+			scopedLog.Debug("Empty IPv6 health endpoint annotation in node")
+		} else if ip := net.ParseIP(healthIP); ip == nil {
+			scopedLog.WithField(logfields.V6HealthIP, healthIP).Error("BUG, invalid IPv6 health endpoint annotation in node")
+		} else {
+			node.IPv6HealthIP = ip
+		}
+	}
+
 	return node
 }
 
