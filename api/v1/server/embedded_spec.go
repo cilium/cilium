@@ -1679,6 +1679,10 @@ func init() {
     "NodeElement": {
       "description": "Known node in the cluster",
       "properties": {
+        "health-endpoint-address": {
+          "description": "Addresses used for probing cluster connectivity",
+          "$ref": "#/definitions/NodeAddressing"
+        },
         "name": {
           "type": "string"
         },
