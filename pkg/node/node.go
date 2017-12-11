@@ -150,12 +150,29 @@ func (n *Node) getSecondaryAddresses(ipv4 bool) []*models.NodeAddressingElement 
 	return result
 }
 
+func (n *Node) getHealthAddresses(ipv4 bool) *models.NodeAddressing {
+	if n.IPv4HealthIP == nil || n.IPv6HealthIP == nil {
+		return nil
+	}
+	return &models.NodeAddressing{
+		IPV4: &models.NodeAddressingElement{
+			Enabled: ipv4,
+			IP:      n.IPv4HealthIP.String(),
+		},
+		IPV6: &models.NodeAddressingElement{
+			Enabled: !ipv4,
+			IP:      n.IPv6HealthIP.String(),
+		},
+	}
+}
+
 // GetModel returns the API model representation of a node.
 func (n *Node) GetModel(ipv4 bool) *models.NodeElement {
 	return &models.NodeElement{
-		Name:               n.Name,
-		PrimaryAddress:     n.getPrimaryAddress(ipv4),
-		SecondaryAddresses: n.getSecondaryAddresses(ipv4),
+		Name:                  n.Name,
+		PrimaryAddress:        n.getPrimaryAddress(ipv4),
+		SecondaryAddresses:    n.getSecondaryAddresses(ipv4),
+		HealthEndpointAddress: n.getHealthAddresses(ipv4),
 	}
 }
 
