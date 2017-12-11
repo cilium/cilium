@@ -19,11 +19,10 @@ import (
 	"reflect"
 	"time"
 
+	"github.com/cilium/cilium/common"
 	k8sconst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	"github.com/cilium/cilium/pkg/logfields"
 	"github.com/cilium/cilium/pkg/policy/api"
-
-	"github.com/sirupsen/logrus"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -34,7 +33,7 @@ const (
 
 var (
 	// log is the k8s package logger object.
-	log = logrus.WithField(logfields.LogSubsys, subsysK8s)
+	log = common.DefaultLogger.WithField(logfields.LogSubsys, subsysK8s)
 )
 
 // +genclient
