@@ -19,6 +19,7 @@ import (
 	"net"
 
 	"github.com/cilium/cilium/pkg/ip"
+	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/policy/api"
 
@@ -292,14 +293,14 @@ func (r *rule) resolveL4Policy(ctx *SearchContext, state *traceState, result *L4
 	return nil, nil
 }
 
-func mergeL3(ctx *SearchContext, dir string, ipRules []api.CIDR, resMap *L3PolicyMap) int {
+func mergeL3(ctx *SearchContext, dir string, ipRules []api.CIDR, ruleLabels labels.LabelArray, resMap *L3PolicyMap) int {
 	found := 0
 
 	for _, r := range ipRules {
 		strCIDR := string(r)
 		ctx.PolicyTrace("  Allows %s IP %s\n", dir, strCIDR)
 
-		found += resMap.Insert(strCIDR)
+		found += resMap.Insert(strCIDR, ruleLabels)
 	}
 
 	return found
@@ -338,23 +339,28 @@ func (r *rule) resolveL3Policy(ctx *SearchContext, state *traceState, result *L3
 	state.selectRule(ctx, r)
 	found := 0
 
-	for _, r := range r.Ingress {
+	for _, ingressRule := range r.Ingress {
 		// TODO (ianvernon): GH-1658
 		var allCIDRs []api.CIDR
-		allCIDRs = append(allCIDRs, r.FromCIDR...)
+		allCIDRs = append(allCIDRs, ingressRule.FromCIDR...)
 
-		allCIDRs = append(allCIDRs, computeResultantCIDRSet(r.FromCIDRSet)...)
+		allCIDRs = append(allCIDRs, computeResultantCIDRSet(ingressRule.FromCIDRSet)...)
 
-		found += mergeL3(ctx, "Ingress", allCIDRs, &result.Ingress)
+		if cnt := mergeL3(ctx, "Ingress", allCIDRs, r.Labels, &result.Ingress); cnt > 0 {
+			found += cnt
+		}
 	}
-	for _, r := range r.Egress {
+
+	for _, egressRule := range r.Egress {
 		// TODO(ianvernon): GH-1658
 		var allCIDRs []api.CIDR
-		allCIDRs = append(allCIDRs, r.ToCIDR...)
+		allCIDRs = append(allCIDRs, egressRule.ToCIDR...)
 
-		allCIDRs = append(allCIDRs, computeResultantCIDRSet(r.ToCIDRSet)...)
+		allCIDRs = append(allCIDRs, computeResultantCIDRSet(egressRule.ToCIDRSet)...)
 
-		found += mergeL3(ctx, "Egress", allCIDRs, &result.Egress)
+		if cnt := mergeL3(ctx, "Egress", allCIDRs, r.Labels, &result.Egress); cnt > 0 {
+			found += cnt
+		}
 	}
 
 	if found > 0 {
