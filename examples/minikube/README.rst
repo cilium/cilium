@@ -5,12 +5,13 @@ Deploying Cilium on a minikube cluster is simple. The provided
 ``cilium-ds.yaml`` file contains a DaemonSet spec which can be used to take
 care of all deployments steps.
 
-Deploy a minikube cluster using the ISO as described below and instruct
-Kubernetes to use the CNI plugin infrastructure:
+Deploy a minikube cluster as described bellow to instruct Kubernetes to use the
+CNI plugin infrastructure plus the ``localkube`` bootstrapper since it contains
+``etcd`` >= ``3.1.0`` required by Cilium.:
 
 ::
 
-	$ minikube start --network-plugin=cni --iso-url https://raw.githubusercontent.com/cilium/minikube-iso/master/minikube.iso
+	$ minikube start --network-plugin=cni --bootstrapper=localkube
         [...]
 	$ kubectl create -f cilium-ds.yaml
 
