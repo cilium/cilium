@@ -43,7 +43,9 @@ var (
 // CiliumNetworkPolicy is a Kubernetes third-party resource with an extended version
 // of NetworkPolicy
 type CiliumNetworkPolicy struct {
-	metav1.TypeMeta   `json:",inline"`
+	// +k8s:openapi-gen=false
+	metav1.TypeMeta `json:",inline"`
+	// +k8s:openapi-gen=false
 	metav1.ObjectMeta `json:"metadata"`
 
 	// Spec is the desired Cilium specific rule specification.
@@ -53,6 +55,7 @@ type CiliumNetworkPolicy struct {
 	Specs api.Rules `json:"specs,omitempty"`
 
 	// Status is the status of the Cilium policy rule
+	// +optional
 	Status CiliumNetworkPolicyStatus `json:"status"`
 }
 
@@ -147,6 +150,7 @@ func (r *CiliumNetworkPolicy) Parse() (api.Rules, error) {
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 // CiliumNetworkPolicyList is a list of CiliumNetworkPolicy objects
+// +k8s:openapi-gen=false
 type CiliumNetworkPolicyList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata"`

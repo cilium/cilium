@@ -42,6 +42,7 @@ const (
 )
 
 // OpLabels represents the the possible types.
+// +k8s:openapi-gen=false
 type OpLabels struct {
 	// Active labels that are enabled and disabled but not deleted
 	Custom Labels
