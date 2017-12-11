@@ -1000,7 +1000,6 @@ func NewDaemon(c *Config) (*Daemon, error) {
 	if err := node.ValidatePostInit(); err != nil {
 		log.WithError(err).Fatal("postinit failed")
 	}
-
 	// REVIEW should these be changed? they seem intended for humans
 	log.Infof("Local node-name: %s", node.GetName())
 	log.Infof("Node-IPv6: %s", node.GetIPv6())
@@ -1049,6 +1048,16 @@ func NewDaemon(c *Config) (*Daemon, error) {
 	}
 
 	d.collectStaleMapGarbage()
+
+	// Allocate health endpoint IPs after restoring state
+	health4, health6, err := ipam.AllocateNext("")
+	if err != nil {
+		log.WithError(err).Fatal("Error while allocating cilium-health IP")
+	}
+	node.SetIPv4HealthIP(health4)
+	node.SetIPv6HealthIP(health6)
+	log.Debugf("IPv4 health endpoint address: %s", node.GetIPv4HealthIP())
+	log.Debugf("IPv6 health endpoint address: %s", node.GetIPv6HealthIP())
 
 	return &d, nil
 }

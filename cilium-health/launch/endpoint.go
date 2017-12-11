@@ -31,7 +31,6 @@ import (
 	"github.com/cilium/cilium/common/plugins"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/endpointmanager"
-	"github.com/cilium/cilium/pkg/ipam"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/node"
@@ -104,14 +103,8 @@ func configureHealthRouting(netns, dev string, addressing *models.NodeAddressing
 // namespace and attaches it to Cilium the same way as any other endpoint,
 // but with special reserved labels.
 func LaunchAsEndpoint(owner endpoint.Owner, hostAddressing *models.NodeAddressing, opts *option.BoolOptions) context.CancelFunc {
-	ip4, ip6, err := ipam.AllocateNext("")
-	if err != nil {
-		log.WithError(err).Fatal("Error while allocating cilium-health IP")
-	}
-
-	// XXX: Make the above IPs known to pkg/node
-
-	// XXX: Release IPs later on?
+	ip4 := node.GetIPv4HealthIP()
+	ip6 := node.GetIPv6HealthIP()
 
 	// Prepare the endpoint change request
 	id := int64(addressing.CiliumIPv6(ip6).EndpointID())
