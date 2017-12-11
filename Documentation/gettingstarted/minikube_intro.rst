@@ -10,11 +10,12 @@ Step 0: Install kubectl & minikube
 <https://github.com/kubernetes/minikube/releases>`_.
 
 Then, boot a minikube cluster with the Container Network Interface (CNI)
-network plugin enabled:
+network plugin enabled plus the ``localkube`` bootstrapper since it contains
+``etcd`` >= ``3.1.0`` required by cilium.
 
 ::
 
-    $ minikube start --network-plugin=cni
+    $ minikube start --network-plugin=cni --bootstrapper=localkube
 
 After minikube has finished  setting up your new Kubernetes cluster, you can
 check the status of the cluster by running ``kubectl get cs``:
