@@ -279,7 +279,7 @@ check_ct_entries_of "${aft_client4_2_server_2_ct_entries}" 0 "${SERVER_2_IP4}" "
 
 entriesAfter=$(cilium bpf ct list global | wc -l)
 
-if [ "$(( entriesBefore - entriesAfter ))" -ne "8" ]; then
+if [ "$(( entriesBefore - entriesAfter ))" -gt "8" ]; then
     abort "CT map should have exactly 8 entries less and not $(( entriesBefore - entriesAfter )) after deleting the policy"
 fi
 
