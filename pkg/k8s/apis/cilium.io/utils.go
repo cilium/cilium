@@ -49,6 +49,14 @@ func ExtractNamespace(np *metav1.ObjectMeta) string {
 	return np.Namespace
 }
 
+// GetPolicyLabels returns a LabelArray for the given namespace and name.
+func GetPolicyLabels(ns, name string) labels.LabelArray {
+	return labels.ParseLabelArray(
+		fmt.Sprintf("%s=%s", PolicyLabelName, name),
+		fmt.Sprintf("%s=%s", PolicyLabelNamespace, ns),
+	)
+}
+
 // ParseToCiliumRule returns an api.Rule with all the labels parsed into cilium
 // labels.
 func ParseToCiliumRule(namespace, name string, r *api.Rule) *api.Rule {
@@ -135,11 +143,11 @@ func ParseToCiliumRule(namespace, name string, r *api.Rule) *api.Rule {
 		copy(retRule.Egress, r.Egress)
 	}
 
-	// Convert resource name to a Cilium policy rule label
-	label := fmt.Sprintf("%s=%s", PolicyLabelName, name)
-
-	// TODO: Warn about overwritten labels?
-	retRule.Labels = labels.ParseLabelArray(label)
+	policyLbls := GetPolicyLabels(namespace, name)
+	if retRule.Labels == nil {
+		retRule.Labels = make(labels.LabelArray, 0, len(policyLbls))
+	}
+	retRule.Labels = append(retRule.Labels, policyLbls...)
 
 	retRule.Description = r.Description
 

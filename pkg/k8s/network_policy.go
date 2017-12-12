@@ -15,8 +15,6 @@
 package k8s
 
 import (
-	"fmt"
-
 	k8sconst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/policy"
@@ -26,14 +24,16 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// ExtractPolicyName extracts the name of policy name
-func ExtractPolicyName(np *networkingv1.NetworkPolicy) string {
+// GetPolicyLabelsv1 extracts the name of policy name
+func GetPolicyLabelsv1(np *networkingv1.NetworkPolicy) labels.LabelArray {
 	policyName := np.Annotations[AnnotationName]
 	if policyName == "" {
 		policyName = np.Name
 	}
 
-	return fmt.Sprintf("%s=%s", k8sconst.PolicyLabelName, policyName)
+	ns := k8sconst.ExtractNamespace(&np.ObjectMeta)
+
+	return k8sconst.GetPolicyLabels(ns, policyName)
 }
 
 func parseNetworkPolicyPeer(namespace string, peer *networkingv1.NetworkPolicyPeer) (*api.EndpointSelector, error) {
@@ -125,7 +125,6 @@ func ParseNetworkPolicy(np *networkingv1.NetworkPolicy) (api.Rules, error) {
 		egresses = append(egresses, egress)
 	}
 
-	tag := ExtractPolicyName(np)
 	if np.Spec.PodSelector.MatchLabels == nil {
 		np.Spec.PodSelector.MatchLabels = map[string]string{}
 	}
@@ -133,7 +132,7 @@ func ParseNetworkPolicy(np *networkingv1.NetworkPolicy) (api.Rules, error) {
 
 	rule := &api.Rule{
 		EndpointSelector: api.NewESFromK8sLabelSelector(labels.LabelSourceK8sKeyPrefix, &np.Spec.PodSelector),
-		Labels:           labels.ParseLabelArray(tag),
+		Labels:           GetPolicyLabelsv1(np),
 		Ingress:          ingresses,
 		Egress:           egresses,
 	}

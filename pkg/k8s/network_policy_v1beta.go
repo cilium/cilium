@@ -17,8 +17,6 @@ package k8s
 // FIXME Remove this file in k8s 1.8
 
 import (
-	"fmt"
-
 	k8sconst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/policy"
@@ -27,14 +25,17 @@ import (
 	"k8s.io/api/extensions/v1beta1"
 )
 
-// ExtractPolicyNameDeprecated extracts the name of policy name
-func ExtractPolicyNameDeprecated(np *v1beta1.NetworkPolicy) string {
+// GetPolicyLabelsv1beta1 returns the label selector for the given network
+// policy.
+func GetPolicyLabelsv1beta1(np *v1beta1.NetworkPolicy) labels.LabelArray {
 	policyName := np.Annotations[AnnotationName]
 	if policyName == "" {
 		policyName = np.Name
 	}
 
-	return fmt.Sprintf("%s=%s", k8sconst.PolicyLabelName, policyName)
+	ns := k8sconst.ExtractNamespace(&np.ObjectMeta)
+
+	return k8sconst.GetPolicyLabels(ns, policyName)
 }
 
 // ParseNetworkPolicyDeprecated parses a k8s NetworkPolicy and returns a list of
@@ -116,7 +117,6 @@ func ParseNetworkPolicyDeprecated(np *v1beta1.NetworkPolicy) (api.Rules, error) 
 		ingresses = append(ingresses, ingress)
 	}
 
-	tag := ExtractPolicyNameDeprecated(np)
 	if np.Spec.PodSelector.MatchLabels == nil {
 		np.Spec.PodSelector.MatchLabels = map[string]string{}
 	}
@@ -124,7 +124,7 @@ func ParseNetworkPolicyDeprecated(np *v1beta1.NetworkPolicy) (api.Rules, error) 
 
 	rule := &api.Rule{
 		EndpointSelector: api.NewESFromK8sLabelSelector(labels.LabelSourceK8sKeyPrefix, &np.Spec.PodSelector),
-		Labels:           labels.ParseLabelArray(tag),
+		Labels:           GetPolicyLabelsv1beta1(np),
 		Ingress:          ingresses,
 	}
 
