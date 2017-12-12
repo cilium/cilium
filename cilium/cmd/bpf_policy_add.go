@@ -15,19 +15,22 @@
 package cmd
 
 import (
+	"fmt"
+	"os"
 	"strconv"
 
 	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/maps/policymap"
 	"github.com/cilium/cilium/pkg/policy"
+	"github.com/cilium/cilium/pkg/u8proto"
 
 	"github.com/spf13/cobra"
 )
 
 // bpfPolicyAddCmd represents the bpf_policy_add command
 var bpfPolicyAddCmd = &cobra.Command{
-	Use:    "add <endpoint id> <identity>",
+	Use:    "add <endpoint id> <identity> [port/proto]",
 	Short:  "Add/update policy entry",
 	PreRun: requireEndpointID,
 	Run: func(cmd *cobra.Command, args []string) {
@@ -61,13 +64,47 @@ func updatePolicyKey(cmd *cobra.Command, args []string, add bool) {
 		Fatalf("Failed to convert %s", args[1])
 	}
 
-	if add == true {
-		if err := policyMap.AllowConsumer(uint32(peerLbl)); err != nil {
-			Fatalf("Cannot add policy key: %s", err)
+	port := uint16(0)
+	protos := []uint8{}
+	if len(args) > 2 {
+		pp, err := parseL4PortsSlice([]string{args[2]})
+		if err != nil {
+			Fatalf("Failed to parse L4: %s", err)
 		}
-	} else {
-		if err := policyMap.DeleteConsumer(uint32(peerLbl)); err != nil {
-			Fatalf("Cannot delete policy key: %s", err)
+		port = pp[0].Port
+		if port != 0 {
+			proto, _ := u8proto.ParseProtocol(pp[0].Protocol)
+			if proto == 0 {
+				for _, proto := range u8proto.ProtoIDs {
+					protos = append(protos, uint8(proto))
+				}
+			} else {
+				protos = append(protos, uint8(proto))
+			}
 		}
+	}
+	if len(protos) == 0 {
+		protos = append(protos, 0)
+	}
+
+	ok := true
+	label := uint32(peerLbl)
+	for _, proto := range protos {
+		u8p := u8proto.U8proto(proto)
+		entry := fmt.Sprintf("%d %d/%s", label, port, u8p.String())
+		if add == true {
+			if err := policyMap.AllowL4(label, port, proto); err != nil {
+				fmt.Printf("Cannot add policy key '%s': %s\n", entry, err)
+				ok = false
+			}
+		} else {
+			if err := policyMap.DeleteL4(label, port, proto); err != nil {
+				fmt.Printf("Cannot delete policy key '%s': %s\n", entry, err)
+				ok = false
+			}
+		}
+	}
+	if !ok {
+		os.Exit(1)
 	}
 }
