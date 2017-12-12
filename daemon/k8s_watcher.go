@@ -30,7 +30,6 @@ import (
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	clientset "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned"
 	informer "github.com/cilium/cilium/pkg/k8s/client/informers/externalversions"
-	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
@@ -694,7 +693,7 @@ func (d *Daemon) updateK8sNetworkPolicyV1(oldk8sNP, newk8sNP *networkingv1.Netwo
 }
 
 func (d *Daemon) deleteK8sNetworkPolicyV1(k8sNP *networkingv1.NetworkPolicy) {
-	labels := labels.ParseSelectLabelArray(k8s.ExtractPolicyName(k8sNP))
+	labels := k8s.GetPolicyLabelsv1(k8sNP)
 
 	scopedLog := log.WithFields(logrus.Fields{
 		logfields.K8sNetworkPolicyName: k8sNP.ObjectMeta.Name,
@@ -747,7 +746,7 @@ func (d *Daemon) updateK8sNetworkPolicyV1beta1(oldk8sNP, newk8sNP *v1beta1.Netwo
 // deleteK8sNetworkPolicyV1beta1
 // FIXME remove when we drop support to k8s Network Policy extensions/v1beta1
 func (d *Daemon) deleteK8sNetworkPolicyV1beta1(k8sNP *v1beta1.NetworkPolicy) {
-	labels := labels.ParseSelectLabelArray(k8s.ExtractPolicyNameDeprecated(k8sNP))
+	labels := k8s.GetPolicyLabelsv1beta1(k8sNP)
 
 	scopedLog := log.WithFields(logrus.Fields{
 		logfields.K8sNetworkPolicyName: k8sNP.ObjectMeta.Name,

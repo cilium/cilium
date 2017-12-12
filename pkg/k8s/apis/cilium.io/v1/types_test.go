@@ -16,7 +16,6 @@ package v1
 
 import (
 	"encoding/json"
-	"fmt"
 	"testing"
 
 	"github.com/cilium/cilium/pkg/comparator"
@@ -106,7 +105,7 @@ var (
 				ToCIDRSet: []api.CIDRRule{{Cidr: api.CIDR("10.0.0.0/8"), ExceptCIDRs: []api.CIDR{"10.96.0.0/12"}}},
 			},
 		},
-		Labels: labels.ParseLabelArray(fmt.Sprintf("%s=%s", k8sconst.PolicyLabelName, "rule1")),
+		Labels: k8sconst.GetPolicyLabels("default", "rule1"),
 	}
 
 	rawRule = []byte(`{

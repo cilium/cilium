@@ -20,8 +20,10 @@ import (
 
 const (
 	// PolicyLabelName is the name of the policy label which refers to the
-	// k8s policy name
+	// k8s policy name.
 	PolicyLabelName = "io.cilium.k8s-policy-name"
+	// PolicyLabelNamespace is the policy's namespace set in k8s.
+	PolicyLabelNamespace = "io.cilium.k8s-policy-namespace"
 	// PodNamespaceLabel is the label used in kubernetes containers to
 	// specify which namespace they belong to.
 	PodNamespaceLabel = types.KubernetesPodNamespaceLabel
