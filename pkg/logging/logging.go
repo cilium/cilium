@@ -49,6 +49,9 @@ var (
 	// default to avoid external dependencies from writing out unexpectedly
 	DefaultLogger = logrus.New()
 
+	// DefaultLogLevel is the alternative we provide to Debug
+	DefaultLogLevel = logrus.InfoLevel
+
 	// syslogOpts is the set of supported options for syslog configuration.
 	syslogOpts = map[string]bool{
 		"syslog.level": true,
@@ -113,11 +116,8 @@ func SetupLogging(loggers []string, logOpts map[string]string, tag string, debug
 		logrus.SetOutput(os.Stdout)
 	}
 
-	if debug {
-		DefaultLogger.SetLevel(logrus.DebugLevel)
-	} else {
-		DefaultLogger.SetLevel(logrus.InfoLevel)
-	}
+	SetLogLevel(DefaultLogLevel)
+	ToggleDebugLogs(debug)
 
 	// always suppress the default logger so libraries don't print things
 	logrus.SetLevel(logrus.PanicLevel)
@@ -157,6 +157,26 @@ func SetupLogging(loggers []string, logOpts map[string]string, tag string, debug
 		}
 	}
 	return nil
+}
+
+// SetLogLevel sets the log level on DefaultLogger. This logger is, by
+// convention, the base logger for package specific ones thus setting the level
+// here impacts the default logging behaviour.
+// This function is thread-safe when logging, reading DefaultLogger.Level is
+// not protected this way, however.
+func SetLogLevel(level logrus.Level) {
+	DefaultLogger.SetLevel(level)
+}
+
+// ToggleDebugLogs switches on or off debugging logs. It will select
+// DefaultLogLevel when turning debug off.
+// It is thread-safe.
+func ToggleDebugLogs(debug bool) {
+	if debug {
+		SetLogLevel(logrus.DebugLevel)
+	} else {
+		SetLogLevel(DefaultLogLevel)
+	}
 }
 
 // setupSyslog sets up and configures syslog with the provided options in

@@ -14,6 +14,8 @@
 
 package defaults
 
+import "github.com/sirupsen/logrus"
+
 const (
 	// RuntimePath is the default path to the runtime directory
 	RuntimePath = "/var/run/cilium"
@@ -45,4 +47,8 @@ const (
 
 	// PidFilePath is the path to the pid file for the agent.
 	PidFilePath = RuntimePath + "/cilium.pid"
+
+	// DefaultLogLevel is the alternative we provide to Debug
+	// We set this in pkg/logging.
+	DefaultLogLevel = logrus.InfoLevel
 )

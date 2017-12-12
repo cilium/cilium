@@ -46,6 +46,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
 	"github.com/cilium/cilium/pkg/maps/lbmap"
@@ -1275,8 +1276,11 @@ func (h *patchConfig) Handle(params PatchConfigParams) middleware.Responder {
 
 	log.WithField("count", changes).Debug("Applied changes to daemon's configuration")
 
-	// Only recompile if configuration has changed.
 	if changes > 0 {
+		// Set the debug toggle (this can be a no-op)
+		logging.ToggleDebugLogs(d.DebugEnabled())
+
+		// Only recompile if configuration has changed.
 		log.Debug("daemon configuration has changed; recompiling base programs")
 		if err := d.compileBase(); err != nil {
 			log.WithError(err).Warn("Invalid option for PolicyEnforcement")
