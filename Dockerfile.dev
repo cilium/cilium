@@ -1,4 +1,4 @@
-FROM cilium/dependencies:0.13.90
+FROM cilium/dependencies:1.0.0-rc2
 LABEL maintainer="andre@cilium.io"
 # New packages can be added by extending $cilium/contrib/packaging/cp-dirs
 ADD . /tmp/cilium-net-build/src/github.com/cilium/cilium

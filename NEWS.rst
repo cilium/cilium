@@ -2,38 +2,86 @@
 NEWS
 ******
 
-Version 0.13
-============
+Version 1.0-rc2
+===============
 
-:date: 1970-01-01
+:date: 2017-12-04
 :commit: nil
 
-Bug Fixes
----------
+Major Changes
+-------------
 
-Features
---------
+* Tech preview of Envoy as Cilium HTTP proxy, adding HTTP2 and gRPC support. (#1580, @jrajahalme)
+* Introduce "cilium-health", a new tool for investigating cluster connectivity issues. (#2052, @joestringer)
+* cilium-agent collects and serves prometheus metrics (#2127, @raybejjani)
+* bugtool and debuginfo (#2044, @scanf)
+* Add nightly test infrastructure (#2212, @ianvernon)
+* Separate ingress and egress default deny modes with better control (#2156, @manalibhutiyani)
+* k8s: add support for IPBlock and Egress Rules with IPBlock (#2096, @ianvernon)
+* Kafka: Support access logging for Kafka requests/responses (#1870, @manalibhutiyani)
+* Added cilium endpoint log command that returns the endpoint's status log (#2060, @raybejjani)
+    * Change endpoint status log in cilium endpoint get to show only the most recent log
 * Routes connecting the host to the Cilium IP space is now implemented as
   individual route for each node in the cluster. This allows to assign IPs
   which are part of the cluster CIDR to endpoints outside of the cluster
-  as long as the IPs are never used as node CIDRs. (1888_)
-* Improved ``cilium policy trace`` output (1810_)
-* Add ``cilium cilium bpf ct flush`` command (1788_)
+  as long as the IPs are never used as node CIDRs. (#1888, @tgraf)
+* Standardized structured logging (#1801, #1828, #1836, #1826, #1833, #1834, #1827, #1829, #1832, #1835, @raybejjani)
 
-Kubernetes
-----------
+Bugfixes Changes
+----------------
 
-Documentation
+* Fix L4Filter JSON marshalling (#1871, @joestringer)
+* Fix swapped src dst IPs on Conntrack related messages on the monitor's output (#2228, @aanm)
+* Fix output of cilium endpoint list for endpoints using multiple labels. (#2225, @aanm)
+* bpf: fix verifier error in dameon debug mode with newer LLVM versions (#2181, @borkmann)
+* pkg/kvstore: fixed race in internal mutex map (#2179, @aanm)
+* Proxy ingress policy fix for LLVM 4.0 and greater. Resolves return code 500 'Internal Error' seen with some policies and traffic patterns. (#2162, @jrfastab)
+* Printing patch clang and kernel patch versions when starting cilium. (#2137, @aanm)
+* Clean up Connection Tracking entries when a new policy no longer allows it. #1667, #1823 (#2136, @aanm)
+* k8s: fix data race in d.loadBalancer.K8sEndpoints (#2129, @aanm)
+* Add internal queue for k8s watcher updates #1966 (#2123, @aanm)
+* k8s: fix missing deep copy when updating status (#2115, @aanm)
+* Accept traffic to Cilium in FORWARD chain (#2112, @tgraf)
+    * Also clear the masquerade bit in the FORWARD chain to skip the masquerade rule installed by kube-proxy
+* Fix SNAT issue in combination with kube-proxy, when masquerade rule installed by kube-proxy takes precedence over rule installed by Cilium. (#2108, @tgraf)
+* Fixed infinite loop when importing CNP to kubernetes with an empty kafka version (#2090, @aanm)
+* Mark cilium pod as CriticalPod in the DaemonSet (#2024, @manalibhutiyani)
+* proxy: Provide identities { host | world | cluster } in SourceEndpoint (#2022, @manalibhutiyani)
+* In kubernetes mode, fixed bug that was allowing cilium to start up even if the kubernetes api-server was not reachable #1973 (#2014, @aanm)
+* Support policy with EndpointSelector missing (#1987, @raybejjani)
+* Implemented deep copy functionality when receiving events from kubernetes watcher #1885 (#1986, @aanm)
+* pkg/labels: Filter out pod-template-generation label (#1979, @michi-covalent)
+* bpf: Double timeout on building BPF programs (#1949, @raybejjani)
+* policy: add PolicyTrace msg to AllowsRLocked() when L4 policies not evaluated (#1939, @gnahckire)
+* Handle Kafka responses correctly (#1924, @manalibhutiyani)
+* bpf: Avoid excessive proxymap updates (#2210, @joestringer)
+* cilium-agent correctly restarts listening for CiliumNetworkPolicy changes when it sees decoding errors (#1899, @raybejjani)
+
+Other Changes
 -------------
 
-CI
---
-* Improved CI testing infrastructure and fixed several test flakes (1848_, 1865_)
-* Foundation of new Ginkgo build-driven-development framework for CI (1733_)
-
-Other
------
-* Standardized structured logging (1801_, 1828_, 1836_, 1826_, 1833_, 1834_, 1827_, 1829_, 1832_, 1835_)
+* Automatically generate command reference of agent (#2223, @tgraf)
+* Access log rotation support with backup compression and automatic deletion support. (#1995, @manalibhutiyani)
+* kubernetes examples support prometheus metrics scraping (along with sample prometheus configuration) (#2192, @raybejjani)
+* Start serving the cilium API almost immediately while restoring endpoints on the background. (#2116, @aanm)
+* Added cilium endpoint healthz command that returns a summary of the endpoint's health (#2099, @raybejjani)
+* Documentation: add a CLI reference section (#2079, @scanf)
+* Documentation: add support for tabs via plugin (#2078, @scanf)
+* Feature Request: Add option to disable loadbalancing  (#2048, @manalibhutiyani)
+* monitor: reduce overhead (#2037, @scanf)
+* Use auto-generated client to communicate with kube-apiserver (#2007, @aanm)
+* Documented kubernetes API Group usage in docs (#1989, @raybejjani)
+    * cilium status returns which kubernetes API Groups are supported/used by the agent
+* doc: Add Kafka policy documentation (#1970, @tgraf)
+* Add Pull request and issue template (#1951, @tgraf)
+* Update Vagrant images to ubuntu 17.04 for the getting started guides (#1917, @aanm)
+* Add CONTRIBUTING.md (#1898, @tgraf)
+* Introduction of release notes gathering script in use by the Kubernetes project (#1893, @tgraf)
+* node: Install individual per node routes (#1888, @tgraf)
+* Add CLI for dumping BPF endpoint map (lxcmap) (#1854, @joestringer)
+* add command for resetting agent state (#1678, @scanf)
+* Improved CI testing infrastructure and fixed several test flakes (#1848, #1865)
+* Foundation of new Ginkgo build-driven-development framework for CI (#1733)
 
 Version 0.12
 ============
