@@ -25,7 +25,7 @@ import (
 	"github.com/cilium/cilium/pkg/health/client"
 	"github.com/cilium/cilium/pkg/health/defaults"
 	"github.com/cilium/cilium/pkg/lock"
-	"github.com/cilium/cilium/pkg/logfields"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 
 	"github.com/servak/go-fastping"
 	"github.com/sirupsen/logrus"

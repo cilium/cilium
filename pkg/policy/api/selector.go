@@ -19,8 +19,8 @@ import (
 	"strings"
 
 	"github.com/cilium/cilium/pkg/labels"
-	"github.com/cilium/cilium/pkg/logfields"
 	"github.com/cilium/cilium/pkg/logging"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 
 	"github.com/mitchellh/hashstructure"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"

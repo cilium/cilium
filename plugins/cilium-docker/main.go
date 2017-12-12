@@ -19,8 +19,8 @@ import (
 	"path/filepath"
 
 	"github.com/cilium/cilium/common"
-	"github.com/cilium/cilium/pkg/logfields"
 	"github.com/cilium/cilium/pkg/logging"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/plugins/cilium-docker/driver"
 
 	"github.com/sirupsen/logrus"

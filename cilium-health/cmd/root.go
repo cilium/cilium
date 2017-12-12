@@ -25,8 +25,8 @@ import (
 	clientPkg "github.com/cilium/cilium/pkg/health/client"
 	"github.com/cilium/cilium/pkg/health/defaults"
 	serverPkg "github.com/cilium/cilium/pkg/health/server"
-	"github.com/cilium/cilium/pkg/logfields"
 	"github.com/cilium/cilium/pkg/logging"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 
 	gops "github.com/google/gops/agent"
 	"github.com/sirupsen/logrus"

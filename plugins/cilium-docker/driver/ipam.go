@@ -20,7 +20,7 @@ import (
 	"net/http"
 
 	"github.com/cilium/cilium/pkg/client"
-	"github.com/cilium/cilium/pkg/logfields"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 
 	"github.com/docker/libnetwork/ipams/remote/api"
 )
