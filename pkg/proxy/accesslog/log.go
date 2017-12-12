@@ -17,16 +17,16 @@ package accesslog
 import (
 	"encoding/json"
 
-	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logfields"
+	"github.com/cilium/cilium/pkg/logging"
 
 	"gopkg.in/natefinch/lumberjack.v2"
 )
 
 var (
 	// the agent-level logrus logger
-	log = common.DefaultLogger
+	log = logging.DefaultLogger
 
 	logMutex lock.Mutex
 	logger   *lumberjack.Logger

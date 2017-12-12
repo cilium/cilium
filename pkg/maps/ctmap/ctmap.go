@@ -21,13 +21,13 @@ import (
 	"net"
 	"unsafe"
 
-	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/byteorder"
+	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/policy"
 )
 
-var log = common.DefaultLogger
+var log = logging.DefaultLogger
 
 const (
 	MapName6       = "cilium_ct6_"

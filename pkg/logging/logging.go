@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package common
+package logging
 
 import (
 	"fmt"
@@ -44,38 +44,40 @@ const (
 	Logstash = "logstash"
 )
 
-// DefaultLogger is the base logrus logger. It is different from the logrus
-// default to avoid external dependencies from writing out unexpectedly
-var DefaultLogger = logrus.New()
+var (
+	// DefaultLogger is the base logrus logger. It is different from the logrus
+	// default to avoid external dependencies from writing out unexpectedly
+	DefaultLogger = logrus.New()
 
-// syslogOpts is the set of supported options for syslog configuration.
-var syslogOpts = map[string]bool{
-	"syslog.level": true,
-}
+	// syslogOpts is the set of supported options for syslog configuration.
+	syslogOpts = map[string]bool{
+		"syslog.level": true,
+	}
 
-// fluentDOpts is the set of supported options for fluentD configuration.
-var fluentDOpts = map[string]bool{
-	fAddr:  true,
-	fTag:   true,
-	fLevel: true,
-}
+	// fluentDOpts is the set of supported options for fluentD configuration.
+	fluentDOpts = map[string]bool{
+		fAddr:  true,
+		fTag:   true,
+		fLevel: true,
+	}
 
-// logstashOpts is the set of supported options for logstash configuration.
-var logstashOpts = map[string]bool{
-	lAddr:     true,
-	lLevel:    true,
-	lProtocol: true,
-}
+	// logstashOpts is the set of supported options for logstash configuration.
+	logstashOpts = map[string]bool{
+		lAddr:     true,
+		lLevel:    true,
+		lProtocol: true,
+	}
 
-// syslogLevelMap maps logrus.Level values to syslog.Priority levels.
-var syslogLevelMap = map[logrus.Level]syslog.Priority{
-	logrus.PanicLevel: syslog.LOG_ALERT,
-	logrus.FatalLevel: syslog.LOG_CRIT,
-	logrus.ErrorLevel: syslog.LOG_ERR,
-	logrus.WarnLevel:  syslog.LOG_WARNING,
-	logrus.InfoLevel:  syslog.LOG_INFO,
-	logrus.DebugLevel: syslog.LOG_DEBUG,
-}
+	// syslogLevelMap maps logrus.Level values to syslog.Priority levels.
+	syslogLevelMap = map[logrus.Level]syslog.Priority{
+		logrus.PanicLevel: syslog.LOG_ALERT,
+		logrus.FatalLevel: syslog.LOG_CRIT,
+		logrus.ErrorLevel: syslog.LOG_ERR,
+		logrus.WarnLevel:  syslog.LOG_WARNING,
+		logrus.InfoLevel:  syslog.LOG_INFO,
+		logrus.DebugLevel: syslog.LOG_DEBUG,
+	}
+)
 
 // setFireLevels returns a slice of logrus.Level values higher in priority
 // and including level, excluding any levels lower in priority.

@@ -42,6 +42,7 @@ import (
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logfields"
+	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
@@ -72,7 +73,7 @@ var (
 var (
 	config = NewConfig()
 
-	log = common.DefaultLogger
+	log = logging.DefaultLogger
 
 	// Arguments variables keep in alphabetical order
 
@@ -552,7 +553,7 @@ func initEnv(cmd *cobra.Command) {
 			ModePreFilterNative, ModePreFilterGeneric)
 	}
 
-	common.SetupLogging(loggers, logOpts, "cilium-agent", viper.GetBool("debug"))
+	logging.SetupLogging(loggers, logOpts, "cilium-agent", viper.GetBool("debug"))
 
 	scopedLog = log.WithField(logfields.Path, socketPath)
 	socketDir := path.Dir(socketPath)

@@ -26,6 +26,7 @@ import (
 	"github.com/cilium/cilium/pkg/health/defaults"
 	serverPkg "github.com/cilium/cilium/pkg/health/server"
 	"github.com/cilium/cilium/pkg/logfields"
+	"github.com/cilium/cilium/pkg/logging"
 
 	gops "github.com/google/gops/agent"
 	"github.com/sirupsen/logrus"
@@ -39,7 +40,7 @@ var (
 	cfgFile string
 	client  *clientPkg.Client
 	server  *serverPkg.Server
-	log     = common.DefaultLogger
+	log     = logging.DefaultLogger
 )
 
 // rootCmd represents the base command when called without any subcommands

@@ -15,8 +15,8 @@
 package k8s
 
 import (
-	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/pkg/logfields"
+	"github.com/cilium/cilium/pkg/logging"
 )
 
 // logging field definitions
@@ -33,5 +33,5 @@ const (
 
 var (
 	// log is the k8s package logger object.
-	log = common.DefaultLogger.WithField(logfields.LogSubsys, subsysK8s)
+	log = logging.DefaultLogger.WithField(logfields.LogSubsys, subsysK8s)
 )

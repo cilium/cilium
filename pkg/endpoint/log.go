@@ -15,13 +15,13 @@
 package endpoint
 
 import (
-	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/pkg/logfields"
+	"github.com/cilium/cilium/pkg/logging"
 
 	"github.com/sirupsen/logrus"
 )
 
-var log = common.DefaultLogger
+var log = logging.DefaultLogger
 
 // logger returns a logrus object with EndpointID, ContainerID and the Endpoint
 // revision fields.

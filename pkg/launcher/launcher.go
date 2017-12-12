@@ -20,11 +20,11 @@ import (
 	"os"
 	"os/exec"
 
-	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/logging"
 )
 
-var log = common.DefaultLogger
+var log = logging.DefaultLogger
 
 // Launcher is used to wrap the node executable binary.
 type Launcher struct {

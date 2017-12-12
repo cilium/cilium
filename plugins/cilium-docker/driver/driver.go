@@ -23,12 +23,12 @@ import (
 
 	"github.com/cilium/cilium/api/v1/client/endpoint"
 	"github.com/cilium/cilium/api/v1/models"
-	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/common/addressing"
 	"github.com/cilium/cilium/common/plugins"
 	"github.com/cilium/cilium/pkg/client"
 	endpointPkg "github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/logfields"
+	"github.com/cilium/cilium/pkg/logging"
 
 	"github.com/docker/libnetwork/drivers/remote/api"
 	lnTypes "github.com/docker/libnetwork/types"
@@ -37,7 +37,7 @@ import (
 	"github.com/vishvananda/netlink"
 )
 
-var log = common.DefaultLogger
+var log = logging.DefaultLogger
 
 const (
 	// ContainerInterfacePrefix is the container's internal interface name prefix.

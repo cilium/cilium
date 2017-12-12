@@ -18,16 +18,16 @@ import (
 	"encoding/json"
 	"strings"
 
-	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logfields"
+	"github.com/cilium/cilium/pkg/logging"
 
 	"github.com/mitchellh/hashstructure"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8sLbls "k8s.io/apimachinery/pkg/labels"
 )
 
-var log = common.DefaultLogger
+var log = logging.DefaultLogger
 
 // EndpointSelector is a wrapper for k8s LabelSelector.
 type EndpointSelector struct {

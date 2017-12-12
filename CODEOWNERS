@@ -68,6 +68,7 @@ pkg/health/ @cilium/health
 pkg/k8s/ @cilium/kubernetes
 pkg/kafka/ @cilium/proxy
 pkg/kvstore/ @cilium/kvstore
+pkg/logging/ @cilium/cli
 pkg/maps/ @cilium/bpf
 pkg/policy @cilium/policy
 pkg/policy/api/ @cilium/api
