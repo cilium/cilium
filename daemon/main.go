@@ -576,9 +576,8 @@ func initEnv(cmd *cobra.Command) {
 
 	bpf.MountFS()
 
-	if viper.GetBool("debug") {
-		config.Opts.Set(endpoint.OptionDebug, true)
-	}
+	logging.DefaultLogLevel = defaults.DefaultLogLevel
+	config.Opts.Set(endpoint.OptionDebug, viper.GetBool("debug"))
 
 	autoIPv6NodeRoutes = viper.GetBool("auto-ipv6-node-routes")
 
