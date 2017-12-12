@@ -18,8 +18,8 @@ import (
 	"encoding/json"
 
 	"github.com/cilium/cilium/pkg/lock"
-	"github.com/cilium/cilium/pkg/logfields"
 	"github.com/cilium/cilium/pkg/logging"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 
 	"gopkg.in/natefinch/lumberjack.v2"
 )

@@ -15,8 +15,8 @@
 package k8s
 
 import (
-	"github.com/cilium/cilium/pkg/logfields"
 	"github.com/cilium/cilium/pkg/logging"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
 // logging field definitions

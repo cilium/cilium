@@ -23,7 +23,7 @@ import (
 	"unsafe"
 
 	"github.com/cilium/cilium/pkg/lock"
-	"github.com/cilium/cilium/pkg/logfields"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 
 	"github.com/sirupsen/logrus"
 	"golang.org/x/sys/unix"

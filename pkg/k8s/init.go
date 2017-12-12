@@ -19,7 +19,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/cilium/cilium/pkg/logfields"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/node"
 
 	"github.com/sirupsen/logrus"

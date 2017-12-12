@@ -23,7 +23,7 @@ import (
 	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/labels"
-	"github.com/cilium/cilium/pkg/logfields"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 
 	"github.com/spf13/cobra"
 )
