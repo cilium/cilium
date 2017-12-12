@@ -18,13 +18,13 @@ import (
 	"io/ioutil"
 	"os"
 
-	"github.com/cilium/cilium/common"
+	"github.com/cilium/cilium/pkg/logging"
 
 	"github.com/sirupsen/logrus"
 	flag "github.com/spf13/pflag"
 )
 
-var log = common.DefaultLogger
+var log = logging.DefaultLogger
 
 func init() {
 	flags := flag.NewFlagSet("init-debug", flag.ContinueOnError)

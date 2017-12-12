@@ -17,9 +17,9 @@ package ciliumio
 import (
 	"fmt"
 
-	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logfields"
+	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/policy/api"
 
 	"github.com/sirupsen/logrus"
@@ -37,7 +37,7 @@ const (
 
 var (
 	// log is the k8s package logger object.
-	log = common.DefaultLogger.WithField(logfields.LogSubsys, subsysK8s)
+	log = logging.DefaultLogger.WithField(logfields.LogSubsys, subsysK8s)
 )
 
 // ExtractNamespace extracts the namespace of ObjectMeta.

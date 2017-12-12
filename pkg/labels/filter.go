@@ -23,10 +23,11 @@ import (
 	"sync"
 
 	"github.com/cilium/cilium/common"
+	"github.com/cilium/cilium/pkg/logging"
 )
 
 var (
-	log                  = common.DefaultLogger
+	log                  = logging.DefaultLogger
 	validLabelPrefixesMU sync.RWMutex
 	validLabelPrefixes   *labelPrefixCfg // Label prefixes used to filter from all labels
 )

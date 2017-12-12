@@ -21,7 +21,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/cilium/cilium/common"
+	"github.com/cilium/cilium/pkg/logging"
 	ginkgoext "github.com/cilium/cilium/test/ginkgo-ext"
 	"github.com/cilium/cilium/test/helpers"
 
@@ -35,7 +35,7 @@ import (
 )
 
 var (
-	log             = common.DefaultLogger
+	log             = logging.DefaultLogger
 	DefaultSettings = map[string]string{
 		"K8S_VERSION": "1.7",
 	}

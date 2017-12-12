@@ -14,9 +14,9 @@
 
 package kvstore
 
-import "github.com/cilium/cilium/common"
+import "github.com/cilium/cilium/pkg/logging"
 
-var log = common.DefaultLogger
+var log = logging.DefaultLogger
 
 const (
 	// name of watcher

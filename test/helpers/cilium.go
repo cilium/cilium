@@ -24,12 +24,12 @@ import (
 	"time"
 
 	"github.com/cilium/cilium/api/v1/models"
-	"github.com/cilium/cilium/common"
+	"github.com/cilium/cilium/pkg/logging"
 
 	"github.com/sirupsen/logrus"
 )
 
-var log = common.DefaultLogger
+var log = logging.DefaultLogger
 
 const (
 	// MaxRetries is the number of times that a loop should iterate until a

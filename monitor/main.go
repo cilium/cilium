@@ -23,9 +23,10 @@ import (
 	"github.com/cilium/cilium/daemon/defaults"
 	"github.com/cilium/cilium/pkg/apisocket"
 	"github.com/cilium/cilium/pkg/logfields"
+	"github.com/cilium/cilium/pkg/logging"
 )
 
-var log = common.DefaultLogger
+var log = logging.DefaultLogger
 
 const targetName = "cilium-node-monitor"
 

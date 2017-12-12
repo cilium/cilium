@@ -19,10 +19,10 @@ import (
 	"net/http"
 	_ "net/http/pprof"
 
-	"github.com/cilium/cilium/common"
+	"github.com/cilium/cilium/pkg/logging"
 )
 
-var log = common.DefaultLogger
+var log = logging.DefaultLogger
 
 const apiAddress = "localhost:6060"
 

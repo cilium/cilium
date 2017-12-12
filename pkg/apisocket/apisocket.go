@@ -22,13 +22,13 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/pkg/logfields"
+	"github.com/cilium/cilium/pkg/logging"
 
 	"github.com/sirupsen/logrus"
 )
 
-var log = common.DefaultLogger
+var log = logging.DefaultLogger
 
 // GetGroupIDByName returns the group ID for the given grpName.
 func GetGroupIDByName(grpName string) (int, error) {

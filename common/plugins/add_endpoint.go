@@ -19,13 +19,13 @@ import (
 	"os/exec"
 
 	"github.com/cilium/cilium/api/v1/models"
-	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/pkg/logfields"
+	"github.com/cilium/cilium/pkg/logging"
 
 	"github.com/vishvananda/netlink"
 )
 
-var log = common.DefaultLogger
+var log = logging.DefaultLogger
 
 const (
 	// hostInterfacePrefix is the Host interface prefix.

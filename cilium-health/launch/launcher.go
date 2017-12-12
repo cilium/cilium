@@ -18,10 +18,10 @@ import (
 	"time"
 
 	"github.com/cilium/cilium/api/v1/models"
-	"github.com/cilium/cilium/common"
 	ciliumPkg "github.com/cilium/cilium/pkg/client"
 	healthPkg "github.com/cilium/cilium/pkg/health/client"
 	"github.com/cilium/cilium/pkg/launcher"
+	"github.com/cilium/cilium/pkg/logging"
 )
 
 // CiliumHealth is used to wrap the node executable binary.
@@ -32,7 +32,7 @@ type CiliumHealth struct {
 }
 
 var (
-	log = common.DefaultLogger
+	log = logging.DefaultLogger
 
 	connectRetryInterval = 1 * time.Second
 	statusProbeInterval  = 5 * time.Second

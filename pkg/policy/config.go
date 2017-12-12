@@ -15,12 +15,12 @@
 package policy
 
 import (
-	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/logging"
 )
 
 var (
-	log          = common.DefaultLogger
+	log          = logging.DefaultLogger
 	mutex        lock.RWMutex // Protects enablePolicy
 	enablePolicy string       // Whether policy enforcement is enabled.
 )
