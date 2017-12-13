@@ -19,7 +19,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"sync"
-	"time"
 
 	"github.com/cilium/cilium/api/v1/models"
 	. "github.com/cilium/cilium/api/v1/server/restapi/policy"
@@ -109,7 +108,6 @@ func NewGetPolicyResolveHandler(d *Daemon) GetPolicyResolveHandler {
 }
 
 func (h *getPolicyResolve) Handle(params GetPolicyResolveParams) middleware.Responder {
-	metrics.SetTSValue(metrics.EventTSAPI, time.Now())
 	log.WithField(logfields.Params, logfields.Repr(params)).Debug("GET /policy/resolve request")
 
 	d := h.daemon
@@ -291,8 +289,6 @@ func newDeletePolicyHandler(d *Daemon) DeletePolicyHandler {
 }
 
 func (h *deletePolicy) Handle(params DeletePolicyParams) middleware.Responder {
-	metrics.SetTSValue(metrics.EventTSAPI, time.Now())
-
 	d := h.daemon
 	lbls := labels.ParseSelectLabelArrayFromArray(params.Labels)
 	rev, err := d.PolicyDelete(lbls)
@@ -317,8 +313,6 @@ func newPutPolicyHandler(d *Daemon) PutPolicyHandler {
 }
 
 func (h *putPolicy) Handle(params PutPolicyParams) middleware.Responder {
-	metrics.SetTSValue(metrics.EventTSAPI, time.Now())
-
 	d := h.daemon
 
 	var rules api.Rules
@@ -347,8 +341,6 @@ func newGetPolicyHandler(d *Daemon) GetPolicyHandler {
 }
 
 func (h *getPolicy) Handle(params GetPolicyParams) middleware.Responder {
-	metrics.SetTSValue(metrics.EventTSAPI, time.Now())
-
 	d := h.daemon
 	d.policy.Mutex.RLock()
 	defer d.policy.Mutex.RUnlock()
