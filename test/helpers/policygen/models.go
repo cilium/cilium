@@ -1,3 +1,17 @@
+// Copyright 2017 Authors of Cilium
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package policygen
 
 import (
@@ -8,7 +22,6 @@ import (
 	"io/ioutil"
 	"net"
 	"os"
-	"reflect"
 	"strconv"
 	"strings"
 	"time"
@@ -19,8 +32,9 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-// ConnTestSpec Connectivity Test Specification. This is a struct to use in
-// PolicyTest to determine the result of the TestCase.
+// ConnTestSpec Connectivity Test Specification. This structs contains the
+// mapping of all protocols tested and the expected result based on the context
+// of each test case
 type ConnTestSpec struct {
 	HTTP        ResultType
 	HTTPPrivate ResultType
@@ -31,9 +45,17 @@ type ConnTestSpec struct {
 // GetField method to retrieve the value of any type of the struct.
 // It is used by `TestSpec` to created expected results
 func (conn *ConnTestSpec) GetField(field string) ResultType {
-	r := reflect.ValueOf(conn)
-	f := reflect.Indirect(r).FieldByName(field)
-	return (f.Interface()).(ResultType)
+	switch field {
+	case HTTP:
+		return conn.HTTP
+	case HTTPPrivate:
+		return conn.HTTPPrivate
+	case Ping:
+		return conn.Ping
+	case UDP:
+		return conn.UDP
+	}
+	return ResultType{}
 }
 
 // PolicyTestKind is utilized to decribe a new TestCase
@@ -48,7 +70,7 @@ type PolicyTestKind struct {
 }
 
 // SetTemplate renders the template field from the PolicyTest struct using go
-// templates. The result will be stored in the result parameter, the spec
+// templates. The result will be stored in the result parameter. The spec
 // parameters is needed to retrieve the source and destination pods and pass
 // the information to the go template.
 func (pol *PolicyTestKind) SetTemplate(result *map[string]interface{}, spec *TestSpec) error {
@@ -85,46 +107,43 @@ func (pol *PolicyTestKind) SetTemplate(result *map[string]interface{}, spec *Tes
 	return nil
 }
 
-// ResultType each connectivity test needs to have an expected result. This
-// result is defined in ResultType. Some ResultTypes s are defined under
-// policygen.const
+// ResultType defines the expected result for a connectivity test.
 type ResultType struct {
 	kind    string // Timeout, reply
 	success bool   // If the cmd exec is valid or not.
 }
 
-// String returns the the ResultType in humman readable format
+// String returns the ResultType in humman readable format
 func (res ResultType) String() string {
 	return fmt.Sprintf("kind: %s sucess: %t", res.kind, res.success)
 }
 
-// PolicyTestSuite  helper struct to store all different policies types
+// PolicyTestSuite groups together L3, L4, and L7 policy-related tests.
 type PolicyTestSuite struct {
 	l3Checks []PolicyTestKind
 	l4Checks []PolicyTestKind
 	l7Checks []PolicyTestKind
 }
 
-// Target struct to define the destination that wee need to use for the
-// testcase
+// Target defines the destination for traffic when running tests
 type Target struct {
 	Kind       string // serviceL3, serviceL4, NodePort, Direct
 	PortNumber int
 }
 
-// SetPortNumber returns a non used host(Kubernetes node) port to set in the
-// NodePort Service configuration.
+// SetPortNumber returns an unused port on the host to use in a Kubernetes
+// NodePort service
 func (t *Target) SetPortNumber() int {
 	NodePortStart++
 	t.PortNumber = NodePortStart
 	return t.PortNumber
 }
 
-// GetTarget returns a `TargetDetails` struct with the IP and Port to  be able
-// to execute the actions for the test spec. It needs the `TestSpec` parameter
-// to be able to retrieve the service name. It'll return an error if the
-// service is not defined or cannot be retrieved. This function only returns
-// the first port mapped in the service, it'll not work with multiple ports.
+// GetTarget returns a `TargetDetails`  with the IP and Port to run the tests
+// in spec. It needs the `TestSpec` parameter to be able to retrieve the
+// service name. It'll return an error if the service is not defined or cannot
+// be retrieved. This function only returns the first port mapped in the
+// service;  It'll not work with multiple ports.
 func (t *Target) GetTarget(spec *TestSpec) (*TargetDetails, error) {
 
 	switch t.Kind {
@@ -135,7 +154,7 @@ func (t *Target) GetTarget(spec *TestSpec) (*TargetDetails, error) {
 		}
 		return &TargetDetails{
 			Port: port,
-			IP:   host,
+			IP:   []byte(host),
 		}, nil
 	case direct:
 		filter := `{.status.podIP}{"="}{.spec.containers[0].ports[0].containerPort}`
@@ -150,20 +169,20 @@ func (t *Target) GetTarget(spec *TestSpec) (*TargetDetails, error) {
 		}
 		return &TargetDetails{
 			Port: port,
-			IP:   vals[0],
+			IP:   []byte(vals[0]),
 		}, nil
 	}
-	return nil, fmt.Errorf("Not Implemented yet")
+	return nil, fmt.Errorf("%s not Implemented yet", t.Kind)
 }
 
-// GetServiceName returns an string with the service name using the spec
-// parameter
+// GetServiceName returns the prefix of spec prefixed with the kind of the the
+// target
 func (t *Target) GetServiceName(spec *TestSpec) string {
 	return fmt.Sprintf("%s-%s", strings.ToLower(t.Kind), spec.Prefix)
 }
 
-//GetManifestName returns the manifest filename for the target using the spec
-//parameter
+// GetManifestName returns the manifest filename for the target using the spec
+// parameter
 func (t *Target) GetManifestName(spec *TestSpec) string {
 	return fmt.Sprintf("%s_%s_manifest.json", spec.Prefix, strings.ToLower(t.Kind))
 }
@@ -174,9 +193,9 @@ func (t *Target) GetManifestPath(spec *TestSpec) string {
 	return fmt.Sprintf("%s/%s", helpers.BasePath, t.GetManifestName(spec))
 }
 
-// CreateApplyManifest it creates the manifest for the type of the target and
-// applied it in kubernetes. It will fail if the service manifest cannot be
-// created correctly or applied to kubernetes
+// CreateApplyManifest creates the manifest for the type of the target and
+// applies it in kubernetes. It will fail if the service manifest cannot be
+// created correctly or applied to Kubernetes
 func (t *Target) CreateApplyManifest(spec *TestSpec) error {
 	manifestPath := t.GetManifestPath(spec)
 	getTemplate := func(tmpl string) (*bytes.Buffer, error) {
@@ -264,25 +283,22 @@ func (t *Target) CreateApplyManifest(spec *TestSpec) error {
 	return nil
 }
 
-// TargetDetails helper struct to store the IP and Port
-type TargetDetails struct {
-	Port int
-	IP   string
-}
+// TargetDetails represents the address of a TCP end point.
+type TargetDetails net.TCPAddr
 
 // String combines host and port into a network address of the
 // form "host:port" or, if host contains a colon or a percent sign,
 // "[host]:port".
 func (target TargetDetails) String() string {
-	return net.JoinHostPort(target.IP, fmt.Sprintf("%d", target.Port))
+	return net.JoinHostPort(string(target.IP), fmt.Sprintf("%d", target.Port))
 }
 
-// TestSpec struct is where a new test specification is defined. It contains
-// three different rules (l3,l4,l7) and a destination and source pod in which
-// test will run. Each testSpec has a prefix, that is a label that is used to
-// group all resources created by the TestSpec. Each test is going to be
-// executed using a type of Destination that is defined under Target struct.
-// This struct needs a `*helpers.Kubectl` to run the needed commands
+// TestSpec defined a new test specification. It contains three different rules
+// (l3, l4, l7) and a destination and source pod in which test will run. Each
+// testSpec has a prefix, which is a label used to group all resources created
+// by the TestSpec. Each test is  executed using a type of Destination which is
+// defined under Target struct.  This struct needs a `*helpers.Kubectl` to run
+// the needed commands
 type TestSpec struct {
 	l3          PolicyTestKind
 	l4          PolicyTestKind
@@ -294,18 +310,17 @@ type TestSpec struct {
 	Kub         *helpers.Kubectl
 }
 
-// String: return the testSpec definition on human readable format
+// String return the testSpec definition on human-readable format
 func (t TestSpec) String() string {
 	return fmt.Sprintf("L3:%s L4:%s L7:%s Destination:%s",
 		t.l3.name, t.l4.name, t.l7.name, t.Destination.Kind)
 }
 
-// RunTest is the method that runs all the `TestSpec` methods and makes the
-// needed assertions for Ginkgo tests. This method will create pods manifest,
-// wait for pods to be ready, apply a new cilium network policy and create a
-// new Destination (Service, NodePort) if it's needed. When all of this happen
-// it'll execute the `connectivityTest` and validated that it is the expected
-// result.
+// RunTest runs all the `TestSpec` methods and makes the needed assertions for
+// Ginkgo tests. This method will create pods, wait for pods to be ready, apply
+// a new CiliumNetworkPolicy and create a new Destination (Service, NodePort)
+// if needed. Then it will execute `connectivityTest` and compare the results
+// with the expected results within the test specification
 func (t *TestSpec) RunTest(kub *helpers.Kubectl) {
 	defer func() { go t.Destroy(destroyDelay) }()
 	t.Kub = kub
@@ -326,9 +341,9 @@ func (t *TestSpec) RunTest(kub *helpers.Kubectl) {
 	gomega.Expect(err).To(gomega.BeNil(), "cannot execute test for %s", t.Prefix)
 }
 
-// Destroy will delete all the pods, cnp and Destinations that was created by
-// `TestSpec`. It needs a delay parameter that means that it'll delete it after
-// the specified time. (This is to keep the Nightly test under consider load)
+// Destroy deletes the pods, CiliumNetworkPolicies and Destinations created by
+// `TestSpec` after specified delay. The delay parameter is used to have the
+// pod running for a while and keep Cilium and Kubernetes with a consider load.
 func (t *TestSpec) Destroy(delay time.Duration) error {
 	manifestToDestroy := []string{
 		t.GetManifestsPath(),
@@ -348,7 +363,7 @@ func (t *TestSpec) Destroy(delay time.Duration) error {
 	}
 }
 
-// GetManifestName returns an string with the `TestSpec` manifest name
+// GetManifestName returns a string with the `TestSpec` manifest name
 func (t *TestSpec) GetManifestName() string {
 	return fmt.Sprintf("%s_manifest.yaml", t.Prefix)
 }
@@ -358,9 +373,9 @@ func (t *TestSpec) GetManifestsPath() string {
 	return fmt.Sprintf("%s/%s", helpers.BasePath, t.GetManifestName())
 }
 
-// CreateManifests creates a new pod manifest. It will set a random prefix for
-// the `TestCase` and it creates two new pods (srcPod and DestPod). It will
-// return an error in case that the manifest cannot be created.
+// CreateManifests creates a new pod manifest. It sets a random prefix for the
+// `TestCase` and creates two new pods (srcPod and DestPod). Returns an error
+// if the manifest cannot be created
 func (t *TestSpec) CreateManifests() error {
 	t.Prefix = helpers.MakeUID()
 	t.SrcPod = fmt.Sprintf("%s-%s", t.Prefix, helpers.MakeUID())
@@ -406,8 +421,8 @@ spec:
 	return nil
 }
 
-// ApplyManifest applies a new deployment manifest into the kubernetes cluster.
-// It'll return an error if the manifest cannot be applied correctly
+// ApplyManifest applies a new deployment manifest into the Kubernetes cluster.
+// Returns an error if the manifest cannot be applied correctly
 func (t *TestSpec) ApplyManifest() (string, error) {
 	err := t.CreateManifests()
 	if err != nil {
@@ -425,7 +440,7 @@ func (t *TestSpec) ApplyManifest() (string, error) {
 }
 
 // GetPodMetadata returns a map with the pod name and the IP for the pods used
-// by the `TestSpec`. It will return an error in case that the pod info cannot
+// by the `TestSpec`. Returns an error in case that the pod info cannot
 // be retrieved correctly.
 func (t *TestSpec) GetPodMetadata() (map[string]string, error) {
 	result := make(map[string]string)
@@ -446,10 +461,10 @@ func (t *TestSpec) GetPodMetadata() (map[string]string, error) {
 	return result, nil
 }
 
-// NetworkPolicyCreate returns a network policy based on the `TestSpec` l3,l4
-// and l7 rules. It will return an error if any of the `PolicyTest` set
-// Template fails or if spec cannot be dump as string
-func (t *TestSpec) NetworkPolicyCreate() (string, error) {
+// CreateCiliumNetworkPolicy returns a CiliumNetworkPolicy based on the
+// `TestSpec` l3, l4 and l7 rules. Returns an error if any of the `PolicyTest`
+// set Template fails or if spec cannot be dump as string
+func (t *TestSpec) CreateCiliumNetworkPolicy() (string, error) {
 
 	type rule map[string]interface{}
 
@@ -558,11 +573,11 @@ func (t *TestSpec) NetworkPolicyName() string {
 	return fmt.Sprintf("%s_policy.json", t.Prefix)
 }
 
-// NetworkPolicyApply applies the cilium network policy in kubernetes and wait
-// until all  pods updates their status. It'll return an error if pods did not
-// update the state or policy cannot be applied
+// NetworkPolicyApply applies the CiliumNetworkPolicy in Kubernetes and wait
+// until the statuses of all pods have been updated. Returns an error if the
+// status of the pods did not update or if the policy was unable to be applied
 func (t *TestSpec) NetworkPolicyApply() error {
-	policy, err := t.NetworkPolicyCreate()
+	policy, err := t.CreateCiliumNetworkPolicy()
 	if err != nil {
 		return fmt.Errorf("Network policy cannot be created prefix=%s: %s", t.Prefix, err)
 	}
@@ -594,13 +609,13 @@ type connTestResultType struct {
 	result ResultType
 }
 
-// getConnectivityTest returns and array with the expected results of the given
+// getConnectivityTest returns an array with the expected results of the given
 // connectivity test kind
 func (t *TestSpec) getConnectivityTest(kind string) []connTestResultType {
 	return []connTestResultType{
-		connTestResultType{t.l3.kind, t.l3.tests.GetField(kind)},
-		connTestResultType{t.l4.kind, t.l4.tests.GetField(kind)},
-		connTestResultType{t.l7.kind, t.l7.tests.GetField(kind)}}
+		{t.l3.kind, t.l3.tests.GetField(kind)},
+		{t.l4.kind, t.l4.tests.GetField(kind)},
+		{t.l7.kind, t.l7.tests.GetField(kind)}}
 }
 
 // GetTestExpects returns a map with the connTestType and the expected result
@@ -619,8 +634,8 @@ func (t *TestSpec) GetTestExpects() map[string]ResultType {
 				}
 			}
 		}
-		// If no resulttype for egress, we need to check if any specific
-		// resultType on ingress
+		// If no ResultType for egress, we need to check if any specific
+		// ResultType on ingress
 		for _, kind := range ConnTestsFailedResults {
 			for _, test := range connTest {
 				if test.kind == ingress {

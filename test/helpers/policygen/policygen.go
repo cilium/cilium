@@ -1,8 +1,21 @@
+// Copyright 2017 Authors of Cilium
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 package policygen
 
 var policiesTestSuite = PolicyTestSuite{
 	l3Checks: []PolicyTestKind{
-		PolicyTestKind{
+		{
 			name:  "No Policy",
 			kind:  ingress,
 			tests: ConnResultAllOK,
@@ -10,7 +23,7 @@ var policiesTestSuite = PolicyTestSuite{
 				"FromEndpoints": `[{}]`,
 			},
 		},
-		PolicyTestKind{
+		{
 			name:  "Ingress Label",
 			kind:  ingress,
 			tests: ConnResultAllOK,
@@ -18,7 +31,7 @@ var policiesTestSuite = PolicyTestSuite{
 				"FromEndpoints": `[{"matchLabels": { "id": "{{.SrcPod}}"}}]`,
 			},
 		},
-		PolicyTestKind{
+		{
 			name:  "Ingress Label Invalid",
 			kind:  ingress,
 			tests: ConnResultAllTimeout,
@@ -28,13 +41,13 @@ var policiesTestSuite = PolicyTestSuite{
 		},
 	},
 	l4Checks: []PolicyTestKind{
-		PolicyTestKind{
+		{
 			name:     "No Policy",
 			kind:     ingress,
 			tests:    ConnResultAllOK,
 			template: map[string]string{},
 		},
-		PolicyTestKind{
+		{
 			name:  "Ingress Port 80 No protocol",
 			kind:  ingress,
 			tests: ConnResultOnlyHTTP,
@@ -42,7 +55,7 @@ var policiesTestSuite = PolicyTestSuite{
 				"Ports": `[{"port": "80"}]`,
 			},
 		},
-		PolicyTestKind{
+		{
 			name:  "Ingress Port 80 TCP",
 			kind:  ingress,
 			tests: ConnResultOnlyHTTP,
@@ -50,7 +63,7 @@ var policiesTestSuite = PolicyTestSuite{
 				"Ports": `[{"port": "80", "protocol": "TCP"}]`,
 			},
 		},
-		PolicyTestKind{
+		{
 			name:  "Ingress Port 80 UDP",
 			kind:  ingress,
 			tests: ConnResultAllTimeout,
@@ -60,13 +73,13 @@ var policiesTestSuite = PolicyTestSuite{
 		},
 	},
 	l7Checks: []PolicyTestKind{
-		PolicyTestKind{
+		{
 			name:     "No Policy",
 			kind:     ingress,
 			tests:    ConnResultAllOK,
 			template: map[string]string{},
 		},
-		PolicyTestKind{
+		{
 			name:  "Ingress policy /private/",
 			kind:  ingress,
 			tests: ConnResultOnlyHTTPPrivate,
@@ -75,7 +88,7 @@ var policiesTestSuite = PolicyTestSuite{
 				"Ports": `[{"port": "80", "protocol": "TCP"}]`,
 			},
 		},
-		PolicyTestKind{
+		{
 			name:  "Egress policy to /private/",
 			kind:  egress,
 			tests: ConnResultOnlyHTTPPrivate,
@@ -87,8 +100,8 @@ var policiesTestSuite = PolicyTestSuite{
 	},
 }
 
-// GeneratedTestSpec retuns a `TestSpec` array with all the policies
-// possibilities
+// GeneratedTestSpec returns a `TestSpec` array with all the policies
+// possibilities based on all combinations of `policiesTestSuite`
 func GeneratedTestSpec() []TestSpec {
 	var testSpecs = []TestSpec{}
 	for _, l3 := range policiesTestSuite.l3Checks {

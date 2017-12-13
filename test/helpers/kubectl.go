@@ -37,7 +37,7 @@ const (
 	// Annotationv6CIDRName is the annotation name used to store the IPv6
 	// pod CIDR in the node's annotations. From pkg/k8s
 	Annotationv6CIDRName = "io.cilium.network.ipv6-pod-cidr"
-	kubectl              = "kubectl"
+	KubectlCmd           = "kubectl"
 )
 
 // GetCurrentK8SEnv returns the value of K8S_VERSION from the OS environment.
@@ -78,16 +78,16 @@ func CreateKubectl(vmName string, log *logrus.Entry) *Kubectl {
 // namespace. It returns the stdout of the command that was executed, and an
 // error if cmd did not execute successfully.
 func (kub *Kubectl) ExecPodCmd(namespace string, pod string, cmd string) (string, error) {
-	command := fmt.Sprintf("%s exec -n %s %s -- %s", kubectl, namespace, pod, cmd)
+	command := fmt.Sprintf("%s exec -n %s %s -- %s", KubectlCmd, namespace, pod, cmd)
 	stdout := new(bytes.Buffer)
 	stderr := new(bytes.Buffer)
 	err := kub.Execute(command, stdout, stderr)
 	if err != nil {
 		// TODO: Return CmdRes here
 		// Return the string is not fired on the assertion :\ Need to check
-		kub.logger.Errorf(
-			"ExecPodCmd command failed '%s' pod='%s' error='%s||%s'",
-			cmd, pod, stdout.String(), stderr.String())
+		kub.logger.WithError(err).WithField("pod", pod).Errorf(
+			"ExecPodCmd command failed '%s'|| %s'",
+			cmd, stdout.String(), stderr.String())
 		return "", fmt.Errorf("ExecPodCmd: command '%s' failed '%s'", command, stdout.String())
 	}
 	return stdout.String(), nil
@@ -96,13 +96,13 @@ func (kub *Kubectl) ExecPodCmd(namespace string, pod string, cmd string) (string
 // Get retrieves the provided Kubernetes objects from the specified namespace.
 func (kub *Kubectl) Get(namespace string, command string) *CmdRes {
 	return kub.Exec(fmt.Sprintf(
-		"%s -n %s get %s -o json", kubectl, namespace, command))
+		"%s -n %s get %s -o json", KubectlCmd, namespace, command))
 }
 
 // GetPods gets all of the pods in the given namespace that match the provided
 // filter.
 func (kub *Kubectl) GetPods(namespace string, filter string) *CmdRes {
-	return kub.Exec(fmt.Sprintf("%s -n %s get pods %s -o json", kubectl, namespace, filter))
+	return kub.Exec(fmt.Sprintf("%s -n %s get pods %s -o json", KubectlCmd, namespace, filter))
 }
 
 // GetPodNames returns the names of all of the pods that are labeled with label
@@ -113,12 +113,12 @@ func (kub *Kubectl) GetPodNames(namespace string, label string) ([]string, error
 	filter := "-o jsonpath='{.items[*].metadata.name}'"
 
 	err := kub.Execute(
-		fmt.Sprintf("%s -n %s get pods -l %s %s", kubectl, namespace, label, filter),
+		fmt.Sprintf("%s -n %s get pods -l %s %s", KubectlCmd, namespace, label, filter),
 		stdout, nil)
 
 	if err != nil {
 		return nil, fmt.Errorf(
-			"could not find pods in namespace %q with label %q", namespace, label)
+			"could not find pods in namespace %q with label %q: %s", namespace, label, err)
 	}
 
 	out := strings.Trim(stdout.String(), "\n")
@@ -129,7 +129,7 @@ func (kub *Kubectl) GetPodNames(namespace string, label string) ([]string, error
 	return strings.Split(out, " "), nil
 }
 
-// GetServiceHostPort returns the Host and the first Port for the given service name.
+// GetServiceHostPort returns the host and the first port for the given service name.
 // It will return an error if service cannot be retrieved.
 func (kub *Kubectl) GetServiceHostPort(namespace string, service string) (string, int, error) {
 	var data v1.Service
@@ -147,7 +147,7 @@ func (kub *Kubectl) GetServiceHostPort(namespace string, service string) (string
 // execution of `kubectl logs <pod> -n <namespace>`.
 func (kub *Kubectl) Logs(namespace string, pod string) *CmdRes {
 	return kub.Exec(
-		fmt.Sprintf("%s -n %s logs %s", kubectl, namespace, pod))
+		fmt.Sprintf("%s -n %s logs %s", KubectlCmd, namespace, pod))
 }
 
 // ManifestsPath returns the the full path of manifests (DaemonSets, YAML files,
@@ -166,13 +166,13 @@ func (kub *Kubectl) NodeCleanMetadata() error {
 		Annotationv6CIDRName,
 	}
 
-	data := kub.Exec(fmt.Sprintf("%s get nodes -o jsonpath='{.items[*].metadata.name}'", kubectl))
+	data := kub.Exec(fmt.Sprintf("%s get nodes -o jsonpath='{.items[*].metadata.name}'", KubectlCmd))
 	if !data.WasSuccessful() {
-		return fmt.Errorf("could not get nodes via %s: %s", kubectl, data.CombineOutput())
+		return fmt.Errorf("could not get nodes via %s: %s", KubectlCmd, data.CombineOutput())
 	}
 	for _, node := range strings.Split(data.Output().String(), " ") {
 		for _, label := range metadata {
-			kub.Exec(fmt.Sprintf("%s annotate nodes %s %s", kubectl, node, label))
+			kub.Exec(fmt.Sprintf("%s annotate nodes %s %s", KubectlCmd, node, label))
 		}
 	}
 	return nil
@@ -221,14 +221,14 @@ func (kub *Kubectl) WaitforPods(namespace string, filter string, timeout time.Du
 func (kub *Kubectl) Apply(filePath string) *CmdRes {
 	kub.logger.Debugf("applying %s", filePath)
 	return kub.Exec(
-		fmt.Sprintf("%s apply -f  %s", kubectl, filePath))
+		fmt.Sprintf("%s apply -f  %s", KubectlCmd, filePath))
 }
 
 // Delete deletes the Kubernetes manifest at path filepath.
 func (kub *Kubectl) Delete(filePath string) *CmdRes {
 	kub.logger.Debugf("deleting %s", filePath)
 	return kub.Exec(
-		fmt.Sprintf("%s delete -f  %s", kubectl, filePath))
+		fmt.Sprintf("%s delete -f  %s", KubectlCmd, filePath))
 }
 
 // GetCiliumPods returns a list of all Cilium pods in the specified namespace,
@@ -341,7 +341,7 @@ func (kub *Kubectl) CiliumEndpointPolicyVersion(pod string) map[string]int64 {
 
 // CiliumExec runs cmd in the specified Cilium pod.
 func (kub *Kubectl) CiliumExec(pod string, cmd string) *CmdRes {
-	cmd = fmt.Sprintf("%s exec -n kube-system %s -- %s", kubectl, pod, cmd)
+	cmd = fmt.Sprintf("%s exec -n kube-system %s -- %s", KubectlCmd, pod, cmd)
 	return kub.Exec(cmd)
 }
 
@@ -355,7 +355,7 @@ func (kub *Kubectl) CiliumNodesWait() (bool, error) {
 	body := func() bool {
 		filter := `{range .items[*]}{@.metadata.name}{"="}{@.metadata.annotations.io\.cilium\.network\.ipv4-pod-cidr}{"\n"}{end}`
 		data := kub.Exec(fmt.Sprintf(
-			"%s get nodes -o jsonpath='%s'", kubectl, filter))
+			"%s get nodes -o jsonpath='%s'", KubectlCmd, filter))
 		if !data.WasSuccessful() {
 			return false
 		}
@@ -468,11 +468,11 @@ func (kub *Kubectl) CiliumReport(namespace string, pod string, commands []string
 	data := kub.Logs(namespace, pod)
 	fmt.Fprintln(wr, data.Output())
 
-	data = kub.Exec(fmt.Sprintf("%s get pods -o wide", kubectl))
+	data = kub.Exec(fmt.Sprintf("%s get pods -o wide", KubectlCmd))
 	fmt.Fprintln(wr, data.Output())
 
 	for _, cmd := range commands {
-		command := fmt.Sprintf("%s exec -n %s %s -- %s", kubectl, namespace, pod, cmd)
+		command := fmt.Sprintf("%s exec -n %s %s -- %s", KubectlCmd, namespace, pod, cmd)
 		out := kub.Exec(command)
 		fmt.Fprintln(wr, out.CombineOutput())
 	}
@@ -558,7 +558,7 @@ func (kub *Kubectl) GetCiliumPodOnNode(namespace string, node string) (string, e
 		"-o jsonpath='{.items[?(@.spec.nodeName == \"%s\")].metadata.name}'", node)
 
 	res := kub.Exec(fmt.Sprintf(
-		"%s -n %s get pods -l k8s-app=cilium %s", kubectl, namespace, filter))
+		"%s -n %s get pods -l k8s-app=cilium %s", KubectlCmd, namespace, filter))
 	if !res.WasSuccessful() {
 		return "", fmt.Errorf("Cilium pod not found on node '%s'", node)
 	}
