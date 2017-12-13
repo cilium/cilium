@@ -15,9 +15,8 @@
 package containerd
 
 import (
+	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/pkg/logfields"
-
-	"github.com/sirupsen/logrus"
 )
 
 // logging field definitions
@@ -33,5 +32,5 @@ const (
 )
 
 var (
-	log = logrus.WithField(logfields.LogSubsys, fieldSubsys)
+	log = common.DefaultLogger.WithField(logfields.LogSubsys, fieldSubsys)
 )
