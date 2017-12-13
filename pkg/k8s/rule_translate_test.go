@@ -15,6 +15,8 @@
 package k8s
 
 import (
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	"github.com/cilium/cilium/common/types"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/policy"
@@ -23,7 +25,7 @@ import (
 	. "gopkg.in/check.v1"
 )
 
-func (s *K8sSuite) TestTranslator(c *C) {
+func (s *K8sSuite) TestTranslatorDirect(c *C) {
 	repo := policy.NewPolicyRepository()
 
 	tag1 := labels.LabelArray{labels.ParseLabel("tag1")}
@@ -58,7 +60,7 @@ func (s *K8sSuite) TestTranslator(c *C) {
 		Labels: tag1,
 	}
 
-	translator := NewK8sTranslator(serviceInfo, endpointInfo, false)
+	translator := NewK8sTranslator(serviceInfo, endpointInfo, false, map[string]string{})
 
 	_, err := repo.Add(rule1)
 	c.Assert(err, IsNil)
@@ -71,7 +73,73 @@ func (s *K8sSuite) TestTranslator(c *C) {
 	c.Assert(len(rule.ToCIDRSet), Equals, 1)
 	c.Assert(string(rule.ToCIDRSet[0].Cidr), Equals, epIP+"/32")
 
-	translator = NewK8sTranslator(serviceInfo, endpointInfo, true)
+	translator = NewK8sTranslator(serviceInfo, endpointInfo, true, map[string]string{})
+	err = repo.TranslateRules(translator)
+
+	rule = repo.SearchRLocked(tag1)[0].Egress[0]
+
+	c.Assert(err, IsNil)
+	c.Assert(len(rule.ToCIDRSet), Equals, 0)
+}
+
+func (s *K8sSuite) TestTranslatorLabels(c *C) {
+	repo := policy.NewPolicyRepository()
+	svcLabels := map[string]string{
+		"app": "tested-service",
+	}
+
+	tag1 := labels.LabelArray{labels.ParseLabel("tag1")}
+	serviceInfo := types.K8sServiceNamespace{
+		ServiceName: "doesn't matter",
+		Namespace:   "default",
+	}
+
+	epIP := "10.1.1.1"
+
+	endpointInfo := types.K8sServiceEndpoint{
+		BEIPs: map[string]bool{
+			epIP: true,
+		},
+		Ports: map[types.FEPortName]*types.L4Addr{
+			"port": {
+				Protocol: types.TCP,
+				Port:     80,
+			},
+		},
+	}
+
+	selector := api.ServiceSelector{
+		LabelSelector: &metav1.LabelSelector{
+			MatchLabels: svcLabels,
+		},
+	}
+
+	rule1 := api.Rule{
+		EndpointSelector: api.NewESFromLabels(labels.ParseSelectLabel("bar")),
+		Egress: []api.EgressRule{{
+			ToServices: []api.Service{
+				{
+					K8sServiceSelector: selector,
+				},
+			}},
+		},
+		Labels: tag1,
+	}
+
+	translator := NewK8sTranslator(serviceInfo, endpointInfo, false, svcLabels)
+
+	_, err := repo.Add(rule1)
+	c.Assert(err, IsNil)
+
+	err = repo.TranslateRules(translator)
+	c.Assert(err, IsNil)
+
+	rule := repo.SearchRLocked(tag1)[0].Egress[0]
+
+	c.Assert(len(rule.ToCIDRSet), Equals, 1)
+	c.Assert(string(rule.ToCIDRSet[0].Cidr), Equals, epIP+"/32")
+
+	translator = NewK8sTranslator(serviceInfo, endpointInfo, true, svcLabels)
 	err = repo.TranslateRules(translator)
 
 	rule = repo.SearchRLocked(tag1)[0].Egress[0]
