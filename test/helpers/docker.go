@@ -100,6 +100,10 @@ func (s *SSHMeta) NetworkGet(name string) *CmdRes {
 	return s.ExecWithSudo(fmt.Sprintf("docker network inspect %s", name))
 }
 
+func (s *SSHMeta) execCmd(cmd string) *CmdRes {
+	return s.ExecWithSudo(cmd)
+}
+
 // SampleContainersActions creates or deletes various containers used for
 // testing Cilium and adds said containers to the provided Docker network.
 func (s *SSHMeta) SampleContainersActions(mode string, networkName string) {

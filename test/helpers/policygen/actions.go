@@ -1,18 +1,32 @@
+// Copyright 2017 Authors of Cilium
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 package policygen
 
 import (
 	"fmt"
 
 	"github.com/cilium/cilium/test/helpers"
+
 	log "github.com/sirupsen/logrus"
 )
 
 // HTTPAction runs a helpers.CurlFail from specified pod to a specified target.
-// It needs a `helpers.Kubectl` instance to run the comamnd in the pod. It
+// It needs a `helpers.Kubectl` instance to run the command in the pod. It
 // returns a ResultType struct.
 func HTTPAction(srcPod string, target string, kub *helpers.Kubectl) ResultType {
 	command := fmt.Sprintf("%s exec -n %s %s -- %s",
-		"kubectl", helpers.DefaultNamespace,
+		helpers.KubectlCmd, helpers.DefaultNamespace,
 		srcPod, helpers.CurlFail(target))
 
 	log.Infof("Executing HTTPAction '%s'", command)
@@ -27,13 +41,13 @@ func HTTPAction(srcPod string, target string, kub *helpers.Kubectl) ResultType {
 	case 22: //CURLE_HTTP_RETURNED_ERROR
 		return ResultAuth
 	default:
-		log.Infof("HTTPAction returns exitcode '%d' and it's not handled", exitCode)
+		log.Infof("HTTPAction returned unexpected exit code %d", exitCode)
 		return ResultOK
 	}
 	return ResultType{}
 }
 
-// HTTPActionPrivate runs a CurlAction to private http target using destTargetDetails
+// HTTPActionPrivate runs a HTTPAction to /private/ using destTargetDetails
 func HTTPActionPrivate(srcPod string, dest TargetDetails, kub *helpers.Kubectl) ResultType {
 	return HTTPAction(
 		srcPod,
@@ -41,7 +55,7 @@ func HTTPActionPrivate(srcPod string, dest TargetDetails, kub *helpers.Kubectl) 
 		kub)
 }
 
-// HTTPActionPublic runs a CurlAction to public http target using destTargetDetails
+// HTTPActionPublic runs a CurlAction to /public/ using destTargetDetails
 func HTTPActionPublic(srcPod string, dest TargetDetails, kub *helpers.Kubectl) ResultType {
 	return HTTPAction(
 		srcPod,
@@ -49,17 +63,18 @@ func HTTPActionPublic(srcPod string, dest TargetDetails, kub *helpers.Kubectl) R
 		kub)
 }
 
-// NetPerfAction TODO make this function
+// NetPerfAction TODO make this function (GH-2029)
 func NetPerfAction(srcPod string, dest TargetDetails, kub *helpers.Kubectl) ResultType {
 	return ResultType{}
 }
 
-// PingAction executes a ping from the `srcPod` to the destination Target using
-// Kubectl object. It will return a ResultType based on the exitCode
+// PingAction executes a ping from the `srcPod` to the dest using Kubectl
+// object. Returns a ResultType corresponding to the exit code of the ping
+// command.
 func PingAction(srcPod string, dest TargetDetails, kub *helpers.Kubectl) ResultType {
 	command := fmt.Sprintf("%s exec -n %s %s -- %s",
-		"kubectl", helpers.DefaultNamespace,
-		srcPod, helpers.Ping(dest.IP))
+		helpers.KubectlCmd, helpers.DefaultNamespace,
+		srcPod, helpers.Ping(string(dest.IP)))
 
 	res := kub.Exec(command)
 	if res.WasSuccessful() {

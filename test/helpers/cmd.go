@@ -35,7 +35,7 @@ type CmdRes struct {
 	stdout   *bytes.Buffer // Stdout from running cmd
 	stderr   *bytes.Buffer // Stderr from running cmd
 	exit     bool          // Whether command successfully executed
-	exitcode int           // The exitcode result from command execution
+	exitcode int           // The exit code of cmd
 }
 
 // GetCmd returns res's cmd.
