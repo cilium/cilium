@@ -45,7 +45,8 @@ func (e *Endpoint) updateLogger() {
 	shouldUpdate := e.logger == nil ||
 		e.logger.Data[logfields.EndpointID] != e.ID ||
 		e.logger.Data[logfields.ContainerID] != e.DockerID ||
-		e.logger.Data["policyRevision"] != e.policyRevision
+		e.logger.Data["policyRevision"] != e.policyRevision ||
+		e.Opts.IsEnabled("Debug") != (e.logger.Level == logrus.DebugLevel)
 
 	// do nothing if we do not need an update
 	if !shouldUpdate {
