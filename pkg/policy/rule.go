@@ -47,11 +47,6 @@ func (r *rule) sanitize() error {
 		return err
 	}
 
-	if len(r.EndpointSelector.MatchLabels) == 0 &&
-		len(r.EndpointSelector.MatchExpressions) == 0 {
-		return fmt.Errorf("empty EndpointSelector")
-	}
-
 	// resetting entity selector slices
 	r.fromEntities = []api.EndpointSelector{}
 	r.toEntities = []api.EndpointSelector{}
