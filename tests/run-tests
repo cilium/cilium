@@ -8,25 +8,70 @@ export PATH=$PATH:/usr/local/go/bin:/usr/local/clang/bin:/home/vagrant/go/bin:/h
 export TEST_SUITE="runtime-tests"
 mkdir -p ./cilium-files
 
+function run_test() {
+  test=$1
+  msg=$2
+  file=$(basename $test)
+  filename="${file%.*}"
+  mkdir -p ./cilium-files/"${filename}"
+  echo "#################################################"
+  echo
+  echo
+  echo
+  echo "Starting test ${test}${msg}"
+  echo
+  echo
+  echo
+  ./$test | tee ./cilium-files/"${filename}"/output.txt
+  echo
+  echo
+  echo
+  echo "Finished test ${test}${msg}"
+  echo
+  echo
+  echo
+  echo "#################################################"
+}
+
+# Run all of the runtime tests
 for test in *.sh; do
-	file=$(basename $test)
-	filename="${file%.*}"
-        mkdir -p ./cilium-files/"${filename}"
-	echo "#################################################"
-	echo
-	echo
-	echo
-	echo "Starting test $test"
-	echo
-	echo
-	echo
-	./$test | tee ./cilium-files/"${filename}"/output.txt
-	echo
-	echo
-	echo
-	echo "Finished test $test"
-	echo
-	echo
-	echo
-	echo "#################################################"
+  run_test $test
+done
+
+# Reuse some functions
+dir=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
+source "${dir}/helpers.bash"
+# dir might have been overwritten by helpers.bash
+dir=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
+
+# We want to manually start and stop the agent without the '--debug' field.
+# This might catch potential bugs which could show in a production setting.
+sudo systemctl stop cilium
+wait_for_cilium_shutdown
+
+# Run only a few tests with multiple Clang versions
+CLANG_VERSIONS=("5.0.0" "4.0.0" "3.9.1" "3.9.0" "4.0.1")
+SELECTED_TESTS=("01-ct.sh" "06-lb.sh")
+for test in ${SELECTED_TESTS[@]}; do
+  for c in ${CLANG_VERSIONS[@]}; do
+    CLANG_PATH="/usr/local/clang+llvm-$c"
+    if [ -d "$CLANG_PATH" ]; then
+      # Manually start Cilium
+      cilium-agent --auto-ipv6-node-routes --ipv4-range 10.11.0.0/16 --kvstore-opt consul.address=192.168.33.11:8500 --kvstore consul -t vxlan --access-log=/var/log/cilium-access.log &
+      AGENT_PID=$!
+      wait_for_cilium_status
+
+      # Change clang version and run test
+      export PATH=$CLANG_PATH/bin:$PATH
+      run_test $test " using LLVM release $c"
+
+      # Stop the agent
+      if [ ! -z "$AGENT_PID" ]; then
+	kill $AGENT_PID || true > /dev/null 2>&1
+      fi
+      wait_for_cilium_shutdown
+    else
+      echo "skipping no clang at ${CLANG_PATH}"
+    fi
+  done
 done
