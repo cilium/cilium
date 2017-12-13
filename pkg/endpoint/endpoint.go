@@ -1092,7 +1092,7 @@ func (e *Endpoint) Ct4MapPathLocked() string {
 func (e *Endpoint) LogStatus(typ StatusType, code StatusCode, msg string) {
 	e.Mutex.Lock()
 	defer e.Mutex.Unlock()
-	// FIXME instead of a mutex we could use a channel to send the status
+	// FIXME GH2323 instead of a mutex we could use a channel to send the status
 	// log message to a single writer?
 	e.Status.indexMU.Lock()
 	defer e.Status.indexMU.Unlock()
@@ -1101,6 +1101,15 @@ func (e *Endpoint) LogStatus(typ StatusType, code StatusCode, msg string) {
 
 func (e *Endpoint) LogStatusOK(typ StatusType, msg string) {
 	e.LogStatus(typ, OK, msg)
+}
+
+// LogStatusOKLocked will log an OK message of the given status type with the
+// given msg string.
+// must be called with endpoint.Mutex held
+func (e *Endpoint) LogStatusOKLocked(typ StatusType, msg string) {
+	e.Status.indexMU.Lock()
+	defer e.Status.indexMU.Unlock()
+	e.logStatusLocked(typ, OK, msg)
 }
 
 func (e *Endpoint) logStatusLocked(typ StatusType, code StatusCode, msg string) {
@@ -1408,7 +1417,7 @@ func (e *Endpoint) SetStateLocked(toState, reason string) bool {
 		}
 	case StateRestoring:
 		switch toState {
-		case StateDisconnecting, StateRestoring, StateWaitingToRegenerate:
+		case StateDisconnecting, StateWaitingToRegenerate:
 			goto OKState
 		}
 	}
