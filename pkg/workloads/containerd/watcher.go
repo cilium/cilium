@@ -167,7 +167,7 @@ func getCiliumIPv6(networks map[string]*dNetwork.EndpointSettings) *addressing.C
 
 		ipv6gw := net.ParseIP(contNetwork.IPv6Gateway)
 		if !ipv6gw.Equal(node.GetIPv6Router()) {
-			scopedLog.WithField(logfields.Object, contNetwork).Debug("Skipping networt because of gateway mismatch")
+			scopedLog.WithField(logfields.Object, contNetwork).Debug("Skipping network because of gateway mismatch")
 			continue
 		}
 		ip, err := addressing.NewCiliumIPv6(contNetwork.GlobalIPv6Address)
