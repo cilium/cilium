@@ -75,6 +75,7 @@ func (d *Daemon) SyncState(dir string, clean bool) error {
 
 			ep.Mutex.Lock()
 			scopedLog.Debug("Restoring endpoint")
+			ep.LogStatusOKLocked(endpoint.Other, "Restoring endpoint from previous cilium instance")
 
 			if err := d.allocateIPsLocked(ep); err != nil {
 				ep.Mutex.Unlock()
@@ -97,13 +98,14 @@ func (d *Daemon) SyncState(dir string, clean bool) error {
 			endpointmanager.Insert(ep)
 			epRestored <- true
 
+			ep.LogStatusOKLocked(endpoint.Other, "Synchronizing endpoint labels with KVStore")
 			if err := d.syncLabels(ep); err != nil {
 				scopedLog.WithError(err).Warn("Unable to restore endpoint")
 				ep.Mutex.Unlock()
 				epRegenerated <- false
 				return
 			}
-			ready := ep.SetStateLocked(endpoint.StateRestoring, "Triggering synchronous endpoint regeneration while syncing state to host")
+			ready := ep.SetStateLocked(endpoint.StateWaitingToRegenerate, "Triggering synchronous endpoint regeneration while syncing state to host")
 			ep.Mutex.Unlock()
 
 			if !ready {
