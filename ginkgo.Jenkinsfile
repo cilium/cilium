@@ -59,6 +59,9 @@ pipeline {
                     sh 'cd test/; ./post_build_agent.sh || true'
                     sh 'cd test/; vagrant destroy -f'
                     sh 'cd test/; K8S_VERSION=1.6 vagrant destroy -f'
+                    sh 'cd test/; ./archive_test_results.sh || true'
+                    archiveArtifacts artifacts: "test_results_${JOB_BASE_NAME}_${BUILD_NUMBER}.tar", allowEmptyArchive: true
+                    
                 }
             }
         }
