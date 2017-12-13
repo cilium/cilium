@@ -75,7 +75,7 @@ func LockPath(path string) (l *Lock, err error) {
 		if err != nil {
 			lockPathsMU.Lock()
 			if ll.decRefCount() == 0 {
-				delete(lockPaths, l.path)
+				delete(lockPaths, path)
 			}
 			lockPathsMU.Unlock()
 		}
