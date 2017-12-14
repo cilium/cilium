@@ -13,7 +13,7 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 )
 
-// PutServiceIDOKCode is the HTTP code returned for type PutServiceIDOK
+// TESTINGPutServiceIDOKCode is the HTTP code returned for type PutServiceIDOK
 const PutServiceIDOKCode int = 200
 
 /*PutServiceIDOK Updated
@@ -30,6 +30,8 @@ func NewPutServiceIDOK() *PutServiceIDOK {
 
 // WriteResponse to the client
 func (o *PutServiceIDOK) WriteResponse(rw http.ResponseWriter, producer runtime.Producer) {
+
+	rw.Header().Del(runtime.HeaderContentType) //Remove Content-Type on empty responses
 
 	rw.WriteHeader(200)
 }
@@ -51,6 +53,8 @@ func NewPutServiceIDCreated() *PutServiceIDCreated {
 
 // WriteResponse to the client
 func (o *PutServiceIDCreated) WriteResponse(rw http.ResponseWriter, producer runtime.Producer) {
+
+	rw.Header().Del(runtime.HeaderContentType) //Remove Content-Type on empty responses
 
 	rw.WriteHeader(201)
 }

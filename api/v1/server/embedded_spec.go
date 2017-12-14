@@ -10,7 +10,7 @@ import (
 )
 
 // SwaggerJSON embedded version of the swagger document used at generation time
-var SwaggerJSON json.RawMessage
+var SwaggerJSON, FlatSwaggerJSON json.RawMessage
 
 func init() {
 	SwaggerJSON = json.RawMessage([]byte(`{
@@ -464,7 +464,7 @@ func init() {
         "tags": [
           "daemon"
         ],
-        "summary": "Get health of Cilium daemon",
+        "summary": "get health of Cilium daemon",
         "responses": {
           "200": {
             "description": "Success",
@@ -1832,6 +1832,2098 @@ func init() {
           "$ref": "#/definitions/MonitorStatus"
         }
       }
+    }
+  },
+  "parameters": {
+    "cidr-list": {
+      "description": "List of CIDRs for filter table",
+      "name": "cidr-list",
+      "in": "body",
+      "required": true,
+      "schema": {
+        "$ref": "#/definitions/CIDRList"
+      }
+    },
+    "endpoint-change-request": {
+      "name": "endpoint",
+      "in": "body",
+      "required": true,
+      "schema": {
+        "$ref": "#/definitions/EndpointChangeRequest"
+      }
+    },
+    "endpoint-id": {
+      "type": "string",
+      "description": "String describing an endpoint with the format ` + "`" + `[prefix:]id` + "`" + `. If no prefix\nis specified, a prefix of ` + "`" + `cilium-local:` + "`" + ` is assumed. Not all endpoints\nwill be addressable by all endpoint ID prefixes with the exception of the\nlocal Cilium UUID which is assigned to all endpoints.\n\nSupported endpoint id prefixes:\n  - cilium-local: Local Cilium endpoint UUID, e.g. cilium-local:3389595\n  - cilium-global: Global Cilium endpoint UUID, e.g. cilium-global:cluster1:nodeX:452343\n  - container-id: Container runtime ID, e.g. container-id:22222\n  - container-name: Container name, e.g. container-name:foobar\n  - pod-name: pod name for this container if K8s is enabled, e.g. pod-name:default:foobar\n  - docker-net-endpoint: Docker libnetwork endpoint ID, e.g. docker-net-endpoint:4444\n",
+      "name": "id",
+      "in": "path",
+      "required": true
+    },
+    "identity-context": {
+      "description": "Context to provide policy evaluation on",
+      "name": "identity-context",
+      "in": "body",
+      "schema": {
+        "$ref": "#/definitions/IdentityContext"
+      }
+    },
+    "identity-id": {
+      "type": "string",
+      "description": "Cluster wide unique identifier of a security identity.\n",
+      "name": "id",
+      "in": "path",
+      "required": true
+    },
+    "ipam-family": {
+      "enum": [
+        "ipv4",
+        "ipv6"
+      ],
+      "type": "string",
+      "name": "family",
+      "in": "query"
+    },
+    "ipam-ip": {
+      "type": "string",
+      "description": "IP address",
+      "name": "ip",
+      "in": "path",
+      "required": true
+    },
+    "labels": {
+      "description": "List of labels\n",
+      "name": "labels",
+      "in": "body",
+      "required": true,
+      "schema": {
+        "$ref": "#/definitions/Labels"
+      }
+    },
+    "pod-name": {
+      "type": "string",
+      "description": "K8s pod name\n",
+      "name": "pod",
+      "in": "path",
+      "required": true
+    },
+    "policy-rules": {
+      "description": "Policy rules",
+      "name": "policy",
+      "in": "body",
+      "required": true,
+      "schema": {
+        "type": "string"
+      }
+    },
+    "service-address": {
+      "description": "Service address configuration",
+      "name": "address",
+      "in": "body",
+      "schema": {
+        "$ref": "#/definitions/FrontendAddress"
+      }
+    },
+    "service-config": {
+      "description": "Service configuration",
+      "name": "config",
+      "in": "body",
+      "required": true,
+      "schema": {
+        "$ref": "#/definitions/Service"
+      }
+    },
+    "service-id": {
+      "type": "integer",
+      "description": "ID of service",
+      "name": "id",
+      "in": "path",
+      "required": true
+    }
+  },
+  "x-schemes": [
+    "unix"
+  ]
+}`))
+	FlatSwaggerJSON = json.RawMessage([]byte(`{
+  "consumes": [
+    "application/json"
+  ],
+  "produces": [
+    "application/json"
+  ],
+  "swagger": "2.0",
+  "info": {
+    "description": "Cilium",
+    "title": "Cilium API",
+    "version": "v1beta"
+  },
+  "basePath": "/v1beta",
+  "paths": {
+    "/config": {
+      "get": {
+        "description": "Returns the configuration of the Cilium daemon.\n",
+        "tags": [
+          "daemon"
+        ],
+        "summary": "Get configuration of Cilium daemon",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "schema": {
+              "$ref": "#/definitions/DaemonConfigurationResponse"
+            }
+          }
+        }
+      },
+      "patch": {
+        "description": "Updates the daemon configuration by applying the provided\nConfigurationMap and regenerates \u0026 recompiles all required datapath\ncomponents.\n",
+        "tags": [
+          "daemon"
+        ],
+        "summary": "Modify daemon configuration",
+        "parameters": [
+          {
+            "name": "configuration",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/Configuration"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Bad configuration parameters",
+            "schema": {
+              "$ref": "#/definitions/Error"
+            }
+          },
+          "500": {
+            "description": "Recompilation failed",
+            "schema": {
+              "$ref": "#/definitions/Error"
+            },
+            "x-go-name": "Failure"
+          }
+        }
+      }
+    },
+    "/debuginfo": {
+      "get": {
+        "tags": [
+          "daemon"
+        ],
+        "summary": "Retrieve information about the agent and evironment for debugging",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "schema": {
+              "$ref": "#/definitions/DebugInfo"
+            }
+          },
+          "500": {
+            "description": "DebugInfo get failed",
+            "schema": {
+              "$ref": "#/definitions/Error"
+            },
+            "x-go-name": "Failure"
+          }
+        }
+      }
+    },
+    "/endpoint": {
+      "get": {
+        "description": "Retrieves a list of endpoints that have metadata matching the provided parameters, or all endpoints if no parameters provided.\n",
+        "tags": [
+          "endpoint"
+        ],
+        "summary": "Retrieves a list of endpoints that have metadata matching the provided parameters.",
+        "parameters": [
+          {
+            "description": "List of labels\n",
+            "name": "labels",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/Labels"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "schema": {
+              "$ref": "#/definitions/getEndpointOKBody"
+            }
+          },
+          "404": {
+            "description": "Endpoints with provided parameters not found"
+          }
+        }
+      }
+    },
+    "/endpoint/{id}": {
+      "get": {
+        "description": "Returns endpoint information\n",
+        "tags": [
+          "endpoint"
+        ],
+        "summary": "Get endpoint by endpoint ID",
+        "parameters": [
+          {
+            "type": "string",
+            "description": "String describing an endpoint with the format ` + "`" + `[prefix:]id` + "`" + `. If no prefix\nis specified, a prefix of ` + "`" + `cilium-local:` + "`" + ` is assumed. Not all endpoints\nwill be addressable by all endpoint ID prefixes with the exception of the\nlocal Cilium UUID which is assigned to all endpoints.\n\nSupported endpoint id prefixes:\n  - cilium-local: Local Cilium endpoint UUID, e.g. cilium-local:3389595\n  - cilium-global: Global Cilium endpoint UUID, e.g. cilium-global:cluster1:nodeX:452343\n  - container-id: Container runtime ID, e.g. container-id:22222\n  - container-name: Container name, e.g. container-name:foobar\n  - pod-name: pod name for this container if K8s is enabled, e.g. pod-name:default:foobar\n  - docker-net-endpoint: Docker libnetwork endpoint ID, e.g. docker-net-endpoint:4444\n",
+            "name": "id",
+            "in": "path",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "schema": {
+              "$ref": "#/definitions/Endpoint"
+            }
+          },
+          "400": {
+            "description": "Invalid endpoint ID format for specified type",
+            "schema": {
+              "$ref": "#/definitions/Error"
+            },
+            "x-go-name": "Invalid"
+          },
+          "404": {
+            "description": "Endpoint not found"
+          }
+        }
+      },
+      "put": {
+        "description": "Creates a new endpoint\n",
+        "tags": [
+          "endpoint"
+        ],
+        "summary": "Create endpoint",
+        "parameters": [
+          {
+            "type": "string",
+            "description": "String describing an endpoint with the format ` + "`" + `[prefix:]id` + "`" + `. If no prefix\nis specified, a prefix of ` + "`" + `cilium-local:` + "`" + ` is assumed. Not all endpoints\nwill be addressable by all endpoint ID prefixes with the exception of the\nlocal Cilium UUID which is assigned to all endpoints.\n\nSupported endpoint id prefixes:\n  - cilium-local: Local Cilium endpoint UUID, e.g. cilium-local:3389595\n  - cilium-global: Global Cilium endpoint UUID, e.g. cilium-global:cluster1:nodeX:452343\n  - container-id: Container runtime ID, e.g. container-id:22222\n  - container-name: Container name, e.g. container-name:foobar\n  - pod-name: pod name for this container if K8s is enabled, e.g. pod-name:default:foobar\n  - docker-net-endpoint: Docker libnetwork endpoint ID, e.g. docker-net-endpoint:4444\n",
+            "name": "id",
+            "in": "path",
+            "required": true
+          },
+          {
+            "name": "endpoint",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/EndpointChangeRequest"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Created"
+          },
+          "400": {
+            "description": "Invalid endpoint in request",
+            "schema": {
+              "$ref": "#/definitions/Error"
+            },
+            "x-go-name": "Invalid"
+          },
+          "409": {
+            "description": "Endpoint already exists",
+            "x-go-name": "Exists"
+          },
+          "500": {
+            "description": "Endpoint creation failed",
+            "schema": {
+              "$ref": "#/definitions/Error"
+            },
+            "x-go-name": "Failed"
+          }
+        }
+      },
+      "delete": {
+        "description": "Deletes the endpoint specified by the ID. Deletion is imminent and\natomic, if the deletion request is valid and the endpoint exists,\ndeletion will occur even if errors are encountered in the process. If\nerrors have been encountered, the code 202 will be returned, otherwise\n200 on success.\n\nAll resources associated with the endpoint will be freed and the\nworkload represented by the endpoint will be disconnected.It will no\nlonger be able to initiate or receive communications of any sort.\n",
+        "tags": [
+          "endpoint"
+        ],
+        "summary": "Delete endpoint",
+        "parameters": [
+          {
+            "type": "string",
+            "description": "String describing an endpoint with the format ` + "`" + `[prefix:]id` + "`" + `. If no prefix\nis specified, a prefix of ` + "`" + `cilium-local:` + "`" + ` is assumed. Not all endpoints\nwill be addressable by all endpoint ID prefixes with the exception of the\nlocal Cilium UUID which is assigned to all endpoints.\n\nSupported endpoint id prefixes:\n  - cilium-local: Local Cilium endpoint UUID, e.g. cilium-local:3389595\n  - cilium-global: Global Cilium endpoint UUID, e.g. cilium-global:cluster1:nodeX:452343\n  - container-id: Container runtime ID, e.g. container-id:22222\n  - container-name: Container name, e.g. container-name:foobar\n  - pod-name: pod name for this container if K8s is enabled, e.g. pod-name:default:foobar\n  - docker-net-endpoint: Docker libnetwork endpoint ID, e.g. docker-net-endpoint:4444\n",
+            "name": "id",
+            "in": "path",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "206": {
+            "description": "Deleted with a number of errors encountered",
+            "schema": {
+              "type": "integer"
+            },
+            "x-go-name": "Errors"
+          },
+          "400": {
+            "description": "Invalid endpoint ID format for specified type. Details in error\nmessage\n",
+            "schema": {
+              "$ref": "#/definitions/Error"
+            },
+            "x-go-name": "Invalid"
+          },
+          "404": {
+            "description": "Endpoint not found"
+          }
+        }
+      },
+      "patch": {
+        "description": "Applies the endpoint change request to an existing endpoint\n",
+        "tags": [
+          "endpoint"
+        ],
+        "summary": "Modify existing endpoint",
+        "parameters": [
+          {
+            "type": "string",
+            "description": "String describing an endpoint with the format ` + "`" + `[prefix:]id` + "`" + `. If no prefix\nis specified, a prefix of ` + "`" + `cilium-local:` + "`" + ` is assumed. Not all endpoints\nwill be addressable by all endpoint ID prefixes with the exception of the\nlocal Cilium UUID which is assigned to all endpoints.\n\nSupported endpoint id prefixes:\n  - cilium-local: Local Cilium endpoint UUID, e.g. cilium-local:3389595\n  - cilium-global: Global Cilium endpoint UUID, e.g. cilium-global:cluster1:nodeX:452343\n  - container-id: Container runtime ID, e.g. container-id:22222\n  - container-name: Container name, e.g. container-name:foobar\n  - pod-name: pod name for this container if K8s is enabled, e.g. pod-name:default:foobar\n  - docker-net-endpoint: Docker libnetwork endpoint ID, e.g. docker-net-endpoint:4444\n",
+            "name": "id",
+            "in": "path",
+            "required": true
+          },
+          {
+            "name": "endpoint",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/EndpointChangeRequest"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Invalid modify endpoint request",
+            "schema": {
+              "$ref": "#/definitions/Error"
+            },
+            "x-go-name": "Invalid"
+          },
+          "404": {
+            "description": "Endpoint does not exist"
+          },
+          "500": {
+            "description": "Endpoint update failed",
+            "schema": {
+              "$ref": "#/definitions/Error"
+            },
+            "x-go-name": "Failed"
+          }
+        }
+      }
+    },
+    "/endpoint/{id}/config": {
+      "get": {
+        "description": "Retrieves the configuration of the specified endpoint.\n",
+        "tags": [
+          "endpoint"
+        ],
+        "summary": "Retrieve endpoint configuration",
+        "parameters": [
+          {
+            "type": "string",
+            "description": "String describing an endpoint with the format ` + "`" + `[prefix:]id` + "`" + `. If no prefix\nis specified, a prefix of ` + "`" + `cilium-local:` + "`" + ` is assumed. Not all endpoints\nwill be addressable by all endpoint ID prefixes with the exception of the\nlocal Cilium UUID which is assigned to all endpoints.\n\nSupported endpoint id prefixes:\n  - cilium-local: Local Cilium endpoint UUID, e.g. cilium-local:3389595\n  - cilium-global: Global Cilium endpoint UUID, e.g. cilium-global:cluster1:nodeX:452343\n  - container-id: Container runtime ID, e.g. container-id:22222\n  - container-name: Container name, e.g. container-name:foobar\n  - pod-name: pod name for this container if K8s is enabled, e.g. pod-name:default:foobar\n  - docker-net-endpoint: Docker libnetwork endpoint ID, e.g. docker-net-endpoint:4444\n",
+            "name": "id",
+            "in": "path",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "schema": {
+              "$ref": "#/definitions/Configuration"
+            }
+          },
+          "404": {
+            "description": "Endpoint not found"
+          }
+        }
+      },
+      "patch": {
+        "description": "Update the configuration of an existing endpoint and regenerates \u0026\nrecompiles the corresponding programs automatically.\n",
+        "tags": [
+          "endpoint"
+        ],
+        "summary": "Modify mutable endpoint configuration",
+        "parameters": [
+          {
+            "type": "string",
+            "description": "String describing an endpoint with the format ` + "`" + `[prefix:]id` + "`" + `. If no prefix\nis specified, a prefix of ` + "`" + `cilium-local:` + "`" + ` is assumed. Not all endpoints\nwill be addressable by all endpoint ID prefixes with the exception of the\nlocal Cilium UUID which is assigned to all endpoints.\n\nSupported endpoint id prefixes:\n  - cilium-local: Local Cilium endpoint UUID, e.g. cilium-local:3389595\n  - cilium-global: Global Cilium endpoint UUID, e.g. cilium-global:cluster1:nodeX:452343\n  - container-id: Container runtime ID, e.g. container-id:22222\n  - container-name: Container name, e.g. container-name:foobar\n  - pod-name: pod name for this container if K8s is enabled, e.g. pod-name:default:foobar\n  - docker-net-endpoint: Docker libnetwork endpoint ID, e.g. docker-net-endpoint:4444\n",
+            "name": "id",
+            "in": "path",
+            "required": true
+          },
+          {
+            "name": "configuration",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/ConfigurationMap"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Invalid configuration request",
+            "x-go-name": "Invalid"
+          },
+          "404": {
+            "description": "Endpoint not found"
+          },
+          "500": {
+            "description": "Update failed. Details in message.",
+            "schema": {
+              "$ref": "#/definitions/Error"
+            },
+            "x-go-name": "Failed"
+          }
+        }
+      }
+    },
+    "/endpoint/{id}/healthz": {
+      "get": {
+        "tags": [
+          "endpoint"
+        ],
+        "summary": "Retrieves the status logs associated with this endpoint.",
+        "parameters": [
+          {
+            "type": "string",
+            "description": "String describing an endpoint with the format ` + "`" + `[prefix:]id` + "`" + `. If no prefix\nis specified, a prefix of ` + "`" + `cilium-local:` + "`" + ` is assumed. Not all endpoints\nwill be addressable by all endpoint ID prefixes with the exception of the\nlocal Cilium UUID which is assigned to all endpoints.\n\nSupported endpoint id prefixes:\n  - cilium-local: Local Cilium endpoint UUID, e.g. cilium-local:3389595\n  - cilium-global: Global Cilium endpoint UUID, e.g. cilium-global:cluster1:nodeX:452343\n  - container-id: Container runtime ID, e.g. container-id:22222\n  - container-name: Container name, e.g. container-name:foobar\n  - pod-name: pod name for this container if K8s is enabled, e.g. pod-name:default:foobar\n  - docker-net-endpoint: Docker libnetwork endpoint ID, e.g. docker-net-endpoint:4444\n",
+            "name": "id",
+            "in": "path",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "schema": {
+              "$ref": "#/definitions/EndpointHealth"
+            }
+          },
+          "400": {
+            "description": "Invalid identity provided",
+            "x-go-name": "Invalid"
+          },
+          "404": {
+            "description": "Endpoint not found"
+          }
+        }
+      }
+    },
+    "/endpoint/{id}/labels": {
+      "get": {
+        "tags": [
+          "endpoint"
+        ],
+        "summary": "Retrieves the list of labels associated with an endpoint.",
+        "parameters": [
+          {
+            "type": "string",
+            "description": "String describing an endpoint with the format ` + "`" + `[prefix:]id` + "`" + `. If no prefix\nis specified, a prefix of ` + "`" + `cilium-local:` + "`" + ` is assumed. Not all endpoints\nwill be addressable by all endpoint ID prefixes with the exception of the\nlocal Cilium UUID which is assigned to all endpoints.\n\nSupported endpoint id prefixes:\n  - cilium-local: Local Cilium endpoint UUID, e.g. cilium-local:3389595\n  - cilium-global: Global Cilium endpoint UUID, e.g. cilium-global:cluster1:nodeX:452343\n  - container-id: Container runtime ID, e.g. container-id:22222\n  - container-name: Container name, e.g. container-name:foobar\n  - pod-name: pod name for this container if K8s is enabled, e.g. pod-name:default:foobar\n  - docker-net-endpoint: Docker libnetwork endpoint ID, e.g. docker-net-endpoint:4444\n",
+            "name": "id",
+            "in": "path",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "schema": {
+              "$ref": "#/definitions/LabelConfiguration"
+            }
+          },
+          "404": {
+            "description": "Endpoint not found"
+          }
+        }
+      },
+      "put": {
+        "description": "Updates the list of labels associated with an endpoint by applying\na label modificator structure to the label configuration of an\nendpoint.\n\nThe label configuration mutation is only executed as a whole, i.e.\nif any of the labels to be deleted are not either on the list of\norchestration system labels, custom labels, or already disabled,\nthen the request will fail. Labels to be added which already exist\non either the orchestration list or custom list will be ignored.\n",
+        "tags": [
+          "endpoint"
+        ],
+        "summary": "Modify label configuration of endpoint",
+        "parameters": [
+          {
+            "type": "string",
+            "description": "String describing an endpoint with the format ` + "`" + `[prefix:]id` + "`" + `. If no prefix\nis specified, a prefix of ` + "`" + `cilium-local:` + "`" + ` is assumed. Not all endpoints\nwill be addressable by all endpoint ID prefixes with the exception of the\nlocal Cilium UUID which is assigned to all endpoints.\n\nSupported endpoint id prefixes:\n  - cilium-local: Local Cilium endpoint UUID, e.g. cilium-local:3389595\n  - cilium-global: Global Cilium endpoint UUID, e.g. cilium-global:cluster1:nodeX:452343\n  - container-id: Container runtime ID, e.g. container-id:22222\n  - container-name: Container name, e.g. container-name:foobar\n  - pod-name: pod name for this container if K8s is enabled, e.g. pod-name:default:foobar\n  - docker-net-endpoint: Docker libnetwork endpoint ID, e.g. docker-net-endpoint:4444\n",
+            "name": "id",
+            "in": "path",
+            "required": true
+          },
+          {
+            "name": "configuration",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/LabelConfigurationModifier"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "404": {
+            "description": "Endpoint not found"
+          },
+          "460": {
+            "description": "Label to be deleted not found",
+            "schema": {
+              "$ref": "#/definitions/Error"
+            },
+            "x-go-name": "LabelNotFound"
+          },
+          "500": {
+            "description": "Error while updating labels",
+            "schema": {
+              "$ref": "#/definitions/Error"
+            },
+            "x-go-name": "UpdateFailed"
+          }
+        }
+      }
+    },
+    "/endpoint/{id}/log": {
+      "get": {
+        "tags": [
+          "endpoint"
+        ],
+        "summary": "Retrieves the status logs associated with this endpoint.",
+        "parameters": [
+          {
+            "type": "string",
+            "description": "String describing an endpoint with the format ` + "`" + `[prefix:]id` + "`" + `. If no prefix\nis specified, a prefix of ` + "`" + `cilium-local:` + "`" + ` is assumed. Not all endpoints\nwill be addressable by all endpoint ID prefixes with the exception of the\nlocal Cilium UUID which is assigned to all endpoints.\n\nSupported endpoint id prefixes:\n  - cilium-local: Local Cilium endpoint UUID, e.g. cilium-local:3389595\n  - cilium-global: Global Cilium endpoint UUID, e.g. cilium-global:cluster1:nodeX:452343\n  - container-id: Container runtime ID, e.g. container-id:22222\n  - container-name: Container name, e.g. container-name:foobar\n  - pod-name: pod name for this container if K8s is enabled, e.g. pod-name:default:foobar\n  - docker-net-endpoint: Docker libnetwork endpoint ID, e.g. docker-net-endpoint:4444\n",
+            "name": "id",
+            "in": "path",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "schema": {
+              "$ref": "#/definitions/EndpointStatusLog"
+            }
+          },
+          "400": {
+            "description": "Invalid identity provided",
+            "x-go-name": "Invalid"
+          },
+          "404": {
+            "description": "Endpoint not found"
+          }
+        }
+      }
+    },
+    "/healthz": {
+      "get": {
+        "description": "Returns health and status information of the Cilium daemon and related\ncomponents such as the local container runtime, connected datastore,\nKubernetes integration.\n",
+        "tags": [
+          "daemon"
+        ],
+        "summary": "get health of Cilium daemon",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "schema": {
+              "$ref": "#/definitions/StatusResponse"
+            }
+          }
+        }
+      }
+    },
+    "/identity": {
+      "get": {
+        "description": "Retrieves a list of identities that have metadata matching the provided parameters, or all identities if no parameters are provided.\n",
+        "tags": [
+          "policy"
+        ],
+        "summary": "Retrieves a list of identities that have metadata matching the provided parameters.",
+        "parameters": [
+          {
+            "description": "List of labels\n",
+            "name": "labels",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/Labels"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "schema": {
+              "$ref": "#/definitions/getIdentityOKBody"
+            }
+          },
+          "404": {
+            "description": "Identities with provided parameters not found"
+          },
+          "520": {
+            "description": "Identity storage unreachable. Likely a network problem.",
+            "schema": {
+              "$ref": "#/definitions/Error"
+            },
+            "x-go-name": "Unreachable"
+          },
+          "521": {
+            "description": "Invalid identity format in storage",
+            "schema": {
+              "$ref": "#/definitions/Error"
+            },
+            "x-go-name": "InvalidStorageFormat"
+          }
+        }
+      }
+    },
+    "/identity/{id}": {
+      "get": {
+        "tags": [
+          "policy"
+        ],
+        "summary": "Retrieve identity",
+        "parameters": [
+          {
+            "type": "string",
+            "description": "Cluster wide unique identifier of a security identity.\n",
+            "name": "id",
+            "in": "path",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "schema": {
+              "$ref": "#/definitions/Identity"
+            }
+          },
+          "400": {
+            "description": "Invalid identity provided"
+          },
+          "404": {
+            "description": "Identity not found"
+          },
+          "520": {
+            "description": "Identity storage unreachable. Likely a network problem.",
+            "schema": {
+              "$ref": "#/definitions/Error"
+            },
+            "x-go-name": "Unreachable"
+          },
+          "521": {
+            "description": "Invalid identity format in storage",
+            "schema": {
+              "$ref": "#/definitions/Error"
+            },
+            "x-go-name": "InvalidStorageFormat"
+          }
+        }
+      }
+    },
+    "/ipam": {
+      "post": {
+        "tags": [
+          "ipam"
+        ],
+        "summary": "Allocate an IP address",
+        "parameters": [
+          {
+            "enum": [
+              "ipv4",
+              "ipv6"
+            ],
+            "type": "string",
+            "name": "family",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Success",
+            "schema": {
+              "$ref": "#/definitions/IPAM"
+            }
+          },
+          "502": {
+            "description": "Allocation failure",
+            "schema": {
+              "$ref": "#/definitions/Error"
+            },
+            "x-go-name": "Failure"
+          }
+        }
+      }
+    },
+    "/ipam/{ip}": {
+      "post": {
+        "tags": [
+          "ipam"
+        ],
+        "summary": "Allocate an IP address",
+        "parameters": [
+          {
+            "type": "string",
+            "description": "IP address",
+            "name": "ip",
+            "in": "path",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Invalid IP address",
+            "x-go-name": "Invalid"
+          },
+          "409": {
+            "description": "IP already allocated",
+            "x-go-name": "Exists"
+          },
+          "500": {
+            "description": "IP allocation failure. Details in message.",
+            "schema": {
+              "$ref": "#/definitions/Error"
+            },
+            "x-go-name": "Failure"
+          },
+          "501": {
+            "description": "Allocation for address family disabled",
+            "x-go-name": "Disabled"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "ipam"
+        ],
+        "summary": "Release an allocated IP address",
+        "parameters": [
+          {
+            "type": "string",
+            "description": "IP address",
+            "name": "ip",
+            "in": "path",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Invalid IP address",
+            "x-go-name": "Invalid"
+          },
+          "404": {
+            "description": "IP address not found"
+          },
+          "500": {
+            "description": "Address release failure",
+            "schema": {
+              "$ref": "#/definitions/Error"
+            },
+            "x-go-name": "Failure"
+          },
+          "501": {
+            "description": "Allocation for address family disabled",
+            "x-go-name": "Disabled"
+          }
+        }
+      }
+    },
+    "/policy": {
+      "get": {
+        "description": "Returns the entire policy tree with all children.\n",
+        "tags": [
+          "policy"
+        ],
+        "summary": "Retrieve entire policy tree",
+        "parameters": [
+          {
+            "name": "labels",
+            "in": "body",
+            "schema": {
+              "$ref": "#/definitions/Labels"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "schema": {
+              "$ref": "#/definitions/Policy"
+            }
+          },
+          "404": {
+            "description": "No policy rules found"
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "policy"
+        ],
+        "summary": "Create or update a policy (sub)tree",
+        "parameters": [
+          {
+            "description": "Policy rules",
+            "name": "policy",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "schema": {
+              "$ref": "#/definitions/Policy"
+            }
+          },
+          "400": {
+            "description": "Invalid policy",
+            "schema": {
+              "$ref": "#/definitions/Error"
+            },
+            "x-go-name": "InvalidPolicy"
+          },
+          "460": {
+            "description": "Invalid path",
+            "schema": {
+              "$ref": "#/definitions/Error"
+            },
+            "x-go-name": "InvalidPath"
+          },
+          "500": {
+            "description": "Policy import failed",
+            "schema": {
+              "$ref": "#/definitions/Error"
+            },
+            "x-go-name": "Failure"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "policy"
+        ],
+        "summary": "Delete a policy (sub)tree",
+        "parameters": [
+          {
+            "name": "labels",
+            "in": "body",
+            "schema": {
+              "$ref": "#/definitions/Labels"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "schema": {
+              "$ref": "#/definitions/Policy"
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "schema": {
+              "$ref": "#/definitions/Error"
+            },
+            "x-go-name": "Invalid"
+          },
+          "404": {
+            "description": "Policy not found"
+          },
+          "500": {
+            "description": "Error while deleting policy",
+            "schema": {
+              "$ref": "#/definitions/Error"
+            },
+            "x-go-name": "Failure"
+          }
+        }
+      }
+    },
+    "/policy/resolve": {
+      "get": {
+        "tags": [
+          "policy"
+        ],
+        "summary": "Resolve policy for an identity context",
+        "parameters": [
+          {
+            "description": "Context to provide policy evaluation on",
+            "name": "identity-context",
+            "in": "body",
+            "schema": {
+              "$ref": "#/definitions/IdentityContext"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "schema": {
+              "$ref": "#/definitions/PolicyTraceResult"
+            }
+          }
+        }
+      }
+    },
+    "/prefilter": {
+      "get": {
+        "tags": [
+          "prefilter"
+        ],
+        "summary": "Retrieve list of CIDRs",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "schema": {
+              "$ref": "#/definitions/CIDRList"
+            }
+          },
+          "500": {
+            "description": "CIDR list get failed",
+            "schema": {
+              "$ref": "#/definitions/Error"
+            },
+            "x-go-name": "Failure"
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "prefilter"
+        ],
+        "summary": "Update list of CIDRs",
+        "parameters": [
+          {
+            "description": "List of CIDRs for filter table",
+            "name": "cidr-list",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/CIDRList"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Updated"
+          },
+          "461": {
+            "description": "Invalid CIDR prefix",
+            "schema": {
+              "$ref": "#/definitions/Error"
+            },
+            "x-go-name": "InvalidCIDR"
+          },
+          "500": {
+            "description": "CIDR update failed",
+            "schema": {
+              "$ref": "#/definitions/Error"
+            },
+            "x-go-name": "Failure"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "prefilter"
+        ],
+        "summary": "Delete list of CIDRs",
+        "parameters": [
+          {
+            "description": "List of CIDRs for filter table",
+            "name": "cidr-list",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/CIDRList"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Deleted"
+          },
+          "461": {
+            "description": "Invalid CIDR prefix",
+            "schema": {
+              "$ref": "#/definitions/Error"
+            },
+            "x-go-name": "InvalidCIDR"
+          },
+          "500": {
+            "description": "CIDR deletion failed",
+            "schema": {
+              "$ref": "#/definitions/Error"
+            },
+            "x-go-name": "Failure"
+          }
+        }
+      }
+    },
+    "/service": {
+      "get": {
+        "tags": [
+          "service"
+        ],
+        "summary": "Retrieve list of all services",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "schema": {
+              "$ref": "#/definitions/getServiceOKBody"
+            }
+          }
+        }
+      }
+    },
+    "/service/{id}": {
+      "get": {
+        "tags": [
+          "service"
+        ],
+        "summary": "Retrieve configuration of a service",
+        "parameters": [
+          {
+            "type": "integer",
+            "description": "ID of service",
+            "name": "id",
+            "in": "path",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "schema": {
+              "$ref": "#/definitions/Service"
+            }
+          },
+          "404": {
+            "description": "Service not found"
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "service"
+        ],
+        "summary": "Create or update service",
+        "parameters": [
+          {
+            "type": "integer",
+            "description": "ID of service",
+            "name": "id",
+            "in": "path",
+            "required": true
+          },
+          {
+            "description": "Service configuration",
+            "name": "config",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/Service"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Updated"
+          },
+          "201": {
+            "description": "Created"
+          },
+          "460": {
+            "description": "Invalid frontend in service configuration",
+            "schema": {
+              "$ref": "#/definitions/Error"
+            },
+            "x-go-name": "InvalidFrontend"
+          },
+          "461": {
+            "description": "Invalid backend in service configuration",
+            "schema": {
+              "$ref": "#/definitions/Error"
+            },
+            "x-go-name": "InvalidBackend"
+          },
+          "500": {
+            "description": "Error while creating service",
+            "schema": {
+              "$ref": "#/definitions/Error"
+            },
+            "x-go-name": "Failure"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "service"
+        ],
+        "summary": "Delete a service",
+        "parameters": [
+          {
+            "type": "integer",
+            "description": "ID of service",
+            "name": "id",
+            "in": "path",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "404": {
+            "description": "Service not found"
+          },
+          "500": {
+            "description": "Service deletion failed",
+            "schema": {
+              "$ref": "#/definitions/Error"
+            },
+            "x-go-name": "Failure"
+          }
+        }
+      }
+    }
+  },
+  "definitions": {
+    "Address": {
+      "description": "IP address",
+      "type": "string"
+    },
+    "BackendAddress": {
+      "description": "Service backend address",
+      "type": "object",
+      "required": [
+        "ip"
+      ],
+      "properties": {
+        "ip": {
+          "description": "Layer 3 address",
+          "type": "string"
+        },
+        "port": {
+          "description": "Layer 4 port number",
+          "type": "integer",
+          "format": "uint16"
+        },
+        "weight": {
+          "description": "Weight for Round Robin",
+          "type": "integer",
+          "format": "uint16"
+        }
+      }
+    },
+    "CIDRList": {
+      "description": "List of CIDRs",
+      "type": "object",
+      "properties": {
+        "list": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "revision": {
+          "type": "integer"
+        }
+      }
+    },
+    "CIDRPolicy": {
+      "description": "CIDR endpoint policy",
+      "type": "object",
+      "properties": {
+        "egress": {
+          "description": "List of CIDR egress rules",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "ingress": {
+          "description": "List of CIDR ingress rules",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "ClusterStatus": {
+      "description": "Status of cluster",
+      "properties": {
+        "ciliumHealth": {
+          "description": "Status of local cilium-health daemon",
+          "$ref": "#/definitions/Status"
+        },
+        "nodes": {
+          "$ref": "#/definitions/clusterStatusNodes"
+        },
+        "self": {
+          "description": "Name of local node (if available)",
+          "type": "string"
+        }
+      }
+    },
+    "Configuration": {
+      "description": "General purpose structure to hold configuration of the daemon and\nendpoints. Split into a mutable and immutable section.\n",
+      "type": "object",
+      "properties": {
+        "immutable": {
+          "description": "Immutable configuration (read-only)",
+          "$ref": "#/definitions/ConfigurationMap"
+        },
+        "mutable": {
+          "description": "Changeable configuration",
+          "$ref": "#/definitions/ConfigurationMap"
+        },
+        "policy-enforcement": {
+          "type": "string"
+        }
+      }
+    },
+    "ConfigurationMap": {
+      "description": "Map of configuration key/value pairs.\n",
+      "type": "object",
+      "additionalProperties": {
+        "type": "string"
+      }
+    },
+    "DaemonConfigurationResponse": {
+      "description": "Response to a daemon configuration request. Contains the addressing\ninformation and configuration settings.\n",
+      "type": "object",
+      "properties": {
+        "addressing": {
+          "$ref": "#/definitions/NodeAddressing"
+        },
+        "configuration": {
+          "$ref": "#/definitions/Configuration"
+        },
+        "k8s-configuration": {
+          "type": "string"
+        },
+        "k8s-endpoint": {
+          "type": "string"
+        },
+        "nodeMonitor": {
+          "description": "Status of the node monitor",
+          "$ref": "#/definitions/MonitorStatus"
+        },
+        "policy-enforcement": {
+          "type": "string"
+        }
+      }
+    },
+    "DebugInfo": {
+      "description": "groups some debugging related information on the agent",
+      "type": "object",
+      "properties": {
+        "cilium-memory-map": {
+          "type": "string"
+        },
+        "cilium-nodemonitor-memory-map": {
+          "type": "string"
+        },
+        "cilium-status": {
+          "$ref": "#/definitions/StatusResponse"
+        },
+        "cilium-version": {
+          "type": "string"
+        },
+        "endpoint-list": {
+          "$ref": "#/definitions/debugInfoEndpointList"
+        },
+        "environment-variables": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "kernel-version": {
+          "type": "string"
+        },
+        "policy": {
+          "$ref": "#/definitions/Policy"
+        },
+        "service-list": {
+          "$ref": "#/definitions/debugInfoServiceList"
+        }
+      }
+    },
+    "Endpoint": {
+      "description": "Endpoint",
+      "type": "object",
+      "required": [
+        "state",
+        "policy-enabled"
+      ],
+      "properties": {
+        "addressing": {
+          "$ref": "#/definitions/EndpointAddressing"
+        },
+        "container-id": {
+          "description": "ID assigned by container runtime",
+          "type": "string"
+        },
+        "container-name": {
+          "description": "Name assigned to container",
+          "type": "string"
+        },
+        "docker-endpoint-id": {
+          "description": "Docker endpoint ID",
+          "type": "string"
+        },
+        "docker-network-id": {
+          "description": "Docker network ID",
+          "type": "string"
+        },
+        "health": {
+          "description": "Health of the endpoint",
+          "$ref": "#/definitions/EndpointHealth"
+        },
+        "host-mac": {
+          "description": "MAC address",
+          "type": "string"
+        },
+        "id": {
+          "description": "Local endpoint ID",
+          "type": "integer"
+        },
+        "identity": {
+          "description": "Security identity",
+          "$ref": "#/definitions/Identity"
+        },
+        "interface-index": {
+          "description": "Index of network device",
+          "type": "integer"
+        },
+        "interface-name": {
+          "description": "Name of network device",
+          "type": "string"
+        },
+        "labels": {
+          "description": "Labels describing the identity",
+          "$ref": "#/definitions/LabelConfiguration"
+        },
+        "mac": {
+          "description": "MAC address",
+          "type": "string"
+        },
+        "pod-name": {
+          "description": "K8s pod for this endpoint",
+          "type": "string"
+        },
+        "policy": {
+          "description": "Policy information of endpoint",
+          "$ref": "#/definitions/EndpointPolicy"
+        },
+        "policy-enabled": {
+          "description": "Whether policy enforcement is enabled (ingress, egress, both or none)",
+          "type": "string",
+          "enum": [
+            "none",
+            "ingress",
+            "egress",
+            "both"
+          ]
+        },
+        "policy-revision": {
+          "description": "The policy revision this endpoint is running on",
+          "type": "integer"
+        },
+        "state": {
+          "description": "Current state of endpoint",
+          "$ref": "#/definitions/EndpointState"
+        },
+        "status": {
+          "description": "Most recent status log. See endpoint/{id}/log for the complete log.",
+          "$ref": "#/definitions/EndpointStatusLog"
+        }
+      }
+    },
+    "EndpointAddressing": {
+      "description": "Addressing information of an endpoint",
+      "type": "object",
+      "properties": {
+        "ipv4": {
+          "description": "IPv4 address",
+          "type": "string"
+        },
+        "ipv6": {
+          "description": "IPv6 address",
+          "type": "string"
+        }
+      }
+    },
+    "EndpointChangeRequest": {
+      "description": "Structure which contains the mutable elements of an Endpoint.\n",
+      "type": "object",
+      "required": [
+        "state"
+      ],
+      "properties": {
+        "addressing": {
+          "$ref": "#/definitions/EndpointAddressing"
+        },
+        "container-id": {
+          "description": "ID assigned by container runtime",
+          "type": "string"
+        },
+        "container-name": {
+          "description": "Name assigned to container",
+          "type": "string"
+        },
+        "docker-endpoint-id": {
+          "description": "Docker endpoint ID",
+          "type": "string"
+        },
+        "docker-network-id": {
+          "description": "Docker network ID",
+          "type": "string"
+        },
+        "host-mac": {
+          "description": "MAC address",
+          "type": "string"
+        },
+        "id": {
+          "description": "Local endpoint ID",
+          "type": "integer"
+        },
+        "interface-index": {
+          "description": "Index of network device",
+          "type": "integer"
+        },
+        "interface-name": {
+          "description": "Name of network device",
+          "type": "string"
+        },
+        "labels": {
+          "description": "Labels describing the identity",
+          "$ref": "#/definitions/Labels"
+        },
+        "mac": {
+          "description": "MAC address",
+          "type": "string"
+        },
+        "policy-enabled": {
+          "description": "Whether policy enforcement is enabled or not",
+          "type": "boolean"
+        },
+        "state": {
+          "description": "Current state of endpoint",
+          "$ref": "#/definitions/EndpointState"
+        }
+      }
+    },
+    "EndpointHealth": {
+      "description": "Health of the endpoint",
+      "type": "object",
+      "properties": {
+        "bpf": {
+          "$ref": "#/definitions/EndpointHealthStatus"
+        },
+        "connected": {
+          "description": "Is this endpoint reachable",
+          "type": "boolean"
+        },
+        "overallHealth": {
+          "$ref": "#/definitions/EndpointHealthStatus"
+        },
+        "policy": {
+          "$ref": "#/definitions/EndpointHealthStatus"
+        }
+      }
+    },
+    "EndpointHealthStatus": {
+      "description": "A common set of statuses for endpoint health * ` + "`" + `OK` + "`" + ` = All components operational * ` + "`" + `Bootstrap` + "`" + ` = This component is being created * ` + "`" + `Pending` + "`" + ` = A change is being processed to be applied * ` + "`" + `Warning` + "`" + ` = This component is not applying up-to-date policies (but is still applying the previous version) * ` + "`" + `Failure` + "`" + ` = An error has occurred and no policy is being applied * ` + "`" + `Disabled` + "`" + ` = This endpoint is disabled and will not handle traffic\n",
+      "type": "string",
+      "enum": [
+        "OK",
+        "Bootstrap",
+        "Pending",
+        "Warning",
+        "Failure",
+        "Disabled"
+      ]
+    },
+    "EndpointPolicy": {
+      "description": "Policy information of an endpoint",
+      "type": "object",
+      "properties": {
+        "allowed-consumers": {
+          "description": "List of identities allowed to communicate to this endpoint\n",
+          "type": "array",
+          "items": {
+            "type": "integer"
+          }
+        },
+        "build": {
+          "description": "Build number of calculated policy in use",
+          "type": "integer"
+        },
+        "cidr-policy": {
+          "$ref": "#/definitions/CIDRPolicy"
+        },
+        "id": {
+          "description": "Own identity of endpoint",
+          "type": "integer"
+        },
+        "l4": {
+          "$ref": "#/definitions/L4Policy"
+        }
+      }
+    },
+    "EndpointState": {
+      "description": "State of endpoint",
+      "type": "string",
+      "enum": [
+        "creating",
+        "waiting-for-identity",
+        "not-ready",
+        "waiting-to-regenerate",
+        "regenerating",
+        "restoring",
+        "ready",
+        "disconnecting",
+        "disconnected"
+      ]
+    },
+    "EndpointStatusChange": {
+      "description": "Indication of a change of status",
+      "type": "object",
+      "properties": {
+        "code": {
+          "description": "Code indicate type of status change",
+          "type": "string",
+          "enum": [
+            "ok",
+            "failed"
+          ]
+        },
+        "message": {
+          "description": "Status message",
+          "type": "string"
+        },
+        "state": {
+          "$ref": "#/definitions/EndpointState"
+        },
+        "timestamp": {
+          "description": "Timestamp when status change occurred",
+          "type": "string"
+        }
+      }
+    },
+    "EndpointStatusLog": {
+      "description": "Status log of endpoint",
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/EndpointStatusChange"
+      }
+    },
+    "Error": {
+      "type": "string"
+    },
+    "FrontendAddress": {
+      "description": "Layer 4 address",
+      "type": "object",
+      "properties": {
+        "ip": {
+          "description": "Layer 3 address",
+          "type": "string"
+        },
+        "port": {
+          "description": "Layer 4 port number",
+          "type": "integer",
+          "format": "uint16"
+        },
+        "protocol": {
+          "description": "Layer 4 protocol",
+          "type": "string",
+          "enum": [
+            "tcp",
+            "udp",
+            "any"
+          ]
+        }
+      }
+    },
+    "IPAM": {
+      "description": "IPAM configuration of an endpoint",
+      "type": "object",
+      "required": [
+        "endpoint",
+        "host-addressing"
+      ],
+      "properties": {
+        "endpoint": {
+          "$ref": "#/definitions/EndpointAddressing"
+        },
+        "host-addressing": {
+          "$ref": "#/definitions/NodeAddressing"
+        }
+      }
+    },
+    "IPAMStatus": {
+      "description": "Status of IP address management",
+      "properties": {
+        "ipv4": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "ipv6": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "Identity": {
+      "description": "Security identity",
+      "type": "object",
+      "properties": {
+        "id": {
+          "description": "Unique identifier",
+          "type": "integer"
+        },
+        "labels": {
+          "description": "Labels describing the identity",
+          "$ref": "#/definitions/Labels"
+        },
+        "labelsSHA256": {
+          "description": "SHA256 of labels",
+          "type": "string"
+        }
+      }
+    },
+    "IdentityContext": {
+      "description": "Context describing a pair of source and destination identity",
+      "type": "object",
+      "properties": {
+        "dports": {
+          "$ref": "#/definitions/identityContextDports"
+        },
+        "from": {
+          "$ref": "#/definitions/Labels"
+        },
+        "to": {
+          "$ref": "#/definitions/Labels"
+        },
+        "verbose": {
+          "description": "Enable verbose tracing.\n",
+          "type": "boolean"
+        }
+      }
+    },
+    "K8sStatus": {
+      "description": "Status of Kubernetes integration",
+      "type": "object",
+      "properties": {
+        "k8s-api-versions": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "msg": {
+          "description": "Human readable status/error/warning message",
+          "type": "string"
+        },
+        "state": {
+          "description": "State the component is in",
+          "type": "string",
+          "enum": [
+            "Ok",
+            "Warning",
+            "Failure",
+            "Disabled"
+          ]
+        }
+      }
+    },
+    "L4Policy": {
+      "description": "L4 endpoint policy",
+      "type": "object",
+      "properties": {
+        "egress": {
+          "description": "List of L4 egress rules",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "ingress": {
+          "description": "List of L4 ingress rules",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "LabelConfiguration": {
+      "description": "Label configuration of an endpoint",
+      "type": "object",
+      "properties": {
+        "custom": {
+          "description": "Custom labels in addition to orchestration system labels.",
+          "$ref": "#/definitions/Labels"
+        },
+        "disabled": {
+          "description": "Labels derived from orchestration system which have been disabled.",
+          "$ref": "#/definitions/Labels"
+        },
+        "orchestration-identity": {
+          "description": "Labels derived from orchestration system that are used in computing a security identity",
+          "$ref": "#/definitions/Labels"
+        },
+        "orchestration-info": {
+          "description": "Labels derived from orchestration system that are not used in computing a security identity",
+          "$ref": "#/definitions/Labels"
+        }
+      }
+    },
+    "LabelConfigurationModifier": {
+      "description": "Structure describing label mutations to be performed on a\nLabelConfiguration object.\n",
+      "type": "object",
+      "properties": {
+        "add": {
+          "description": "List of labels to add and enable. If the label is an orchestration\nsystem label which has been disabled before, it will be removed from\nthe disabled list and readded to the orchestration list. Otherwise\nit will be added to the custom label list.\n",
+          "$ref": "#/definitions/Labels"
+        },
+        "delete": {
+          "description": "List of labels to delete. If the label is an orchestration system\nlabel, then it will be deleted from the orchestration list and\nadded to the disabled list. Otherwise it will be removed from the\ncustom list.\n",
+          "$ref": "#/definitions/Labels"
+        }
+      }
+    },
+    "Labels": {
+      "description": "Set of labels",
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "MonitorStatus": {
+      "description": "Status of the node monitor",
+      "properties": {
+        "cpus": {
+          "description": "Number of CPUs to listen on for events.",
+          "type": "integer"
+        },
+        "lost": {
+          "description": "Number of samples lost by perf.",
+          "type": "integer"
+        },
+        "npages": {
+          "description": "Number of pages used for the perf ring buffer.",
+          "type": "integer"
+        },
+        "pagesize": {
+          "description": "Pages size used for the perf ring buffer.",
+          "type": "integer"
+        },
+        "unknown": {
+          "description": "Number of unknown samples.",
+          "type": "integer"
+        }
+      }
+    },
+    "NodeAddressing": {
+      "description": "Addressing information of a node for all address families",
+      "type": "object",
+      "properties": {
+        "ipv4": {
+          "$ref": "#/definitions/NodeAddressingElement"
+        },
+        "ipv6": {
+          "$ref": "#/definitions/NodeAddressingElement"
+        }
+      }
+    },
+    "NodeAddressingElement": {
+      "description": "Addressing information",
+      "type": "object",
+      "properties": {
+        "address-type": {
+          "description": "Node address type, one of HostName, ExternalIP or InternalIP",
+          "type": "string"
+        },
+        "alloc-range": {
+          "description": "Address pool to be used for local endpoints",
+          "type": "string"
+        },
+        "enabled": {
+          "description": "True if address family is enabled",
+          "type": "boolean"
+        },
+        "ip": {
+          "description": "IP address of node",
+          "type": "string"
+        }
+      }
+    },
+    "NodeElement": {
+      "description": "Known node in the cluster",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "primary-address": {
+          "description": "Primary address used for intra-cluster communication",
+          "$ref": "#/definitions/NodeAddressing"
+        },
+        "secondary-addresses": {
+          "$ref": "#/definitions/nodeElementSecondaryAddresses"
+        }
+      }
+    },
+    "Policy": {
+      "description": "Policy definition",
+      "type": "object",
+      "properties": {
+        "policy": {
+          "description": "Policy definition as JSON.",
+          "type": "string"
+        },
+        "revision": {
+          "description": "Revision number of the policy. Incremented each time the policy is\nchanged in the agent's repository\n",
+          "type": "integer"
+        }
+      }
+    },
+    "PolicyTraceResult": {
+      "description": "Response to a policy resolution process",
+      "type": "object",
+      "properties": {
+        "log": {
+          "type": "string"
+        },
+        "verdict": {
+          "type": "string"
+        }
+      }
+    },
+    "Port": {
+      "description": "Layer 4 port / protocol pair",
+      "type": "object",
+      "properties": {
+        "port": {
+          "description": "Layer 4 port number",
+          "type": "integer",
+          "format": "uint16"
+        },
+        "protocol": {
+          "description": "Layer 4 protocol",
+          "type": "string",
+          "enum": [
+            "TCP",
+            "UDP",
+            "ANY"
+          ]
+        }
+      }
+    },
+    "Service": {
+      "description": "Collection of endpoints to be served",
+      "type": "object",
+      "required": [
+        "frontend-address"
+      ],
+      "properties": {
+        "backend-addresses": {
+          "$ref": "#/definitions/serviceBackendAddresses"
+        },
+        "flags": {
+          "$ref": "#/definitions/serviceFlags"
+        },
+        "frontend-address": {
+          "description": "Frontend address",
+          "$ref": "#/definitions/FrontendAddress"
+        },
+        "id": {
+          "description": "Unique identification",
+          "type": "integer"
+        }
+      }
+    },
+    "Status": {
+      "description": "Status of an individual component",
+      "type": "object",
+      "properties": {
+        "msg": {
+          "description": "Human readable status/error/warning message",
+          "type": "string"
+        },
+        "state": {
+          "description": "State the component is in",
+          "type": "string",
+          "enum": [
+            "Ok",
+            "Warning",
+            "Failure",
+            "Disabled"
+          ]
+        }
+      }
+    },
+    "StatusResponse": {
+      "description": "Health and status information of daemon",
+      "type": "object",
+      "properties": {
+        "cilium": {
+          "description": "Status of Cilium daemon",
+          "$ref": "#/definitions/Status"
+        },
+        "cluster": {
+          "description": "Status of cluster",
+          "$ref": "#/definitions/ClusterStatus"
+        },
+        "container-runtime": {
+          "description": "Status of local container runtime",
+          "$ref": "#/definitions/Status"
+        },
+        "ipam": {
+          "description": "Status of IP address management",
+          "$ref": "#/definitions/IPAMStatus"
+        },
+        "kubernetes": {
+          "description": "Status of Kubernetes integration",
+          "$ref": "#/definitions/K8sStatus"
+        },
+        "kvstore": {
+          "description": "Status of key/value datastore",
+          "$ref": "#/definitions/Status"
+        },
+        "nodeMonitor": {
+          "description": "Status of the node monitor",
+          "$ref": "#/definitions/MonitorStatus"
+        }
+      }
+    },
+    "clusterStatusNodes": {
+      "description": "List of known nodes",
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/NodeElement"
+      },
+      "x-go-gen-location": "models"
+    },
+    "debugInfoEndpointList": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/Endpoint"
+      },
+      "x-go-gen-location": "models"
+    },
+    "debugInfoServiceList": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/Service"
+      },
+      "x-go-gen-location": "models"
+    },
+    "getEndpointOKBody": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/Endpoint"
+      },
+      "x-go-gen-location": "operations"
+    },
+    "getIdentityOKBody": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/Identity"
+      },
+      "x-go-gen-location": "operations"
+    },
+    "getServiceOKBody": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/Service"
+      },
+      "x-go-gen-location": "operations"
+    },
+    "identityContextDports": {
+      "description": "List of Layer 4 port and protocol pairs which will be used in communication\nfrom the source identity to the destination identity.\n",
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/Port"
+      },
+      "x-go-gen-location": "models"
+    },
+    "nodeElementSecondaryAddresses": {
+      "description": "Alternative addresses assigned to the node",
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/NodeAddressingElement"
+      },
+      "x-go-gen-location": "models"
+    },
+    "serviceBackendAddresses": {
+      "description": "List of backend addresses",
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/BackendAddress"
+      },
+      "x-go-gen-location": "models"
+    },
+    "serviceFlags": {
+      "description": "Optional service configuration flags",
+      "type": "object",
+      "properties": {
+        "active-frontend": {
+          "description": "Frontend to backend translation activated",
+          "type": "boolean"
+        },
+        "direct-server-return": {
+          "description": "Perform direct server return",
+          "type": "boolean"
+        }
+      },
+      "x-go-gen-location": "models"
     }
   },
   "parameters": {

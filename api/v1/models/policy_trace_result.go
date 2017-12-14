@@ -14,7 +14,6 @@ import (
 
 // PolicyTraceResult Response to a policy resolution process
 // swagger:model PolicyTraceResult
-
 type PolicyTraceResult struct {
 
 	// log
@@ -23,10 +22,6 @@ type PolicyTraceResult struct {
 	// verdict
 	Verdict string `json:"verdict,omitempty"`
 }
-
-/* polymorph PolicyTraceResult log false */
-
-/* polymorph PolicyTraceResult verdict false */
 
 // Validate validates this policy trace result
 func (m *PolicyTraceResult) Validate(formats strfmt.Registry) error {

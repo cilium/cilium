@@ -127,12 +127,10 @@ func (o *GetPolicyResolveParams) WriteToRequest(r runtime.ClientRequest, reg str
 	}
 	var res []error
 
-	if o.IdentityContext == nil {
-		o.IdentityContext = new(models.IdentityContext)
-	}
-
-	if err := r.SetBodyParam(o.IdentityContext); err != nil {
-		return err
+	if o.IdentityContext != nil {
+		if err := r.SetBodyParam(o.IdentityContext); err != nil {
+			return err
+		}
 	}
 
 	if len(res) > 0 {

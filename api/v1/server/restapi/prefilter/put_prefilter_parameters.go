@@ -30,7 +30,7 @@ func NewPutPrefilterParams() PutPrefilterParams {
 type PutPrefilterParams struct {
 
 	// HTTP Request Object
-	HTTPRequest *http.Request
+	HTTPRequest *http.Request `json:"-"`
 
 	/*List of CIDRs for filter table
 	  Required: true

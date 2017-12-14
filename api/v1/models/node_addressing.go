@@ -14,7 +14,6 @@ import (
 
 // NodeAddressing Addressing information of a node for all address families
 // swagger:model NodeAddressing
-
 type NodeAddressing struct {
 
 	// ipv4
@@ -23,10 +22,6 @@ type NodeAddressing struct {
 	// ipv6
 	IPV6 *NodeAddressingElement `json:"ipv6,omitempty"`
 }
-
-/* polymorph NodeAddressing ipv4 false */
-
-/* polymorph NodeAddressing ipv6 false */
 
 // Validate validates this node addressing
 func (m *NodeAddressing) Validate(formats strfmt.Registry) error {

@@ -29,7 +29,7 @@ func NewGetPolicyParams() GetPolicyParams {
 type GetPolicyParams struct {
 
 	// HTTP Request Object
-	HTTPRequest *http.Request
+	HTTPRequest *http.Request `json:"-"`
 
 	/*
 	  In: body

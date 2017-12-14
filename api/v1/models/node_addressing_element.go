@@ -14,7 +14,6 @@ import (
 
 // NodeAddressingElement Addressing information
 // swagger:model NodeAddressingElement
-
 type NodeAddressingElement struct {
 
 	// Node address type, one of HostName, ExternalIP or InternalIP
@@ -29,14 +28,6 @@ type NodeAddressingElement struct {
 	// IP address of node
 	IP string `json:"ip,omitempty"`
 }
-
-/* polymorph NodeAddressingElement address-type false */
-
-/* polymorph NodeAddressingElement alloc-range false */
-
-/* polymorph NodeAddressingElement enabled false */
-
-/* polymorph NodeAddressingElement ip false */
 
 // Validate validates this node addressing element
 func (m *NodeAddressingElement) Validate(formats strfmt.Registry) error {

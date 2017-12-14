@@ -16,7 +16,6 @@ import (
 // endpoints. Split into a mutable and immutable section.
 //
 // swagger:model Configuration
-
 type Configuration struct {
 
 	// Immutable configuration (read-only)
@@ -28,12 +27,6 @@ type Configuration struct {
 	// policy enforcement
 	PolicyEnforcement string `json:"policy-enforcement,omitempty"`
 }
-
-/* polymorph Configuration immutable false */
-
-/* polymorph Configuration mutable false */
-
-/* polymorph Configuration policy-enforcement false */
 
 // Validate validates this configuration
 func (m *Configuration) Validate(formats strfmt.Registry) error {

@@ -124,12 +124,10 @@ func (o *PatchConfigParams) WriteToRequest(r runtime.ClientRequest, reg strfmt.R
 	}
 	var res []error
 
-	if o.Configuration == nil {
-		o.Configuration = new(models.Configuration)
-	}
-
-	if err := r.SetBodyParam(o.Configuration); err != nil {
-		return err
+	if o.Configuration != nil {
+		if err := r.SetBodyParam(o.Configuration); err != nil {
+			return err
+		}
 	}
 
 	if len(res) > 0 {

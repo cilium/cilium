@@ -14,7 +14,6 @@ import (
 
 // MonitorStatus Status of the node monitor
 // swagger:model MonitorStatus
-
 type MonitorStatus struct {
 
 	// Number of CPUs to listen on for events.
@@ -32,16 +31,6 @@ type MonitorStatus struct {
 	// Number of unknown samples.
 	Unknown int64 `json:"unknown,omitempty"`
 }
-
-/* polymorph MonitorStatus cpus false */
-
-/* polymorph MonitorStatus lost false */
-
-/* polymorph MonitorStatus npages false */
-
-/* polymorph MonitorStatus pagesize false */
-
-/* polymorph MonitorStatus unknown false */
 
 // Validate validates this monitor status
 func (m *MonitorStatus) Validate(formats strfmt.Registry) error {

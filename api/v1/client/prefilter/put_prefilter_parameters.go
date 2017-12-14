@@ -127,12 +127,10 @@ func (o *PutPrefilterParams) WriteToRequest(r runtime.ClientRequest, reg strfmt.
 	}
 	var res []error
 
-	if o.CidrList == nil {
-		o.CidrList = new(models.CIDRList)
-	}
-
-	if err := r.SetBodyParam(o.CidrList); err != nil {
-		return err
+	if o.CidrList != nil {
+		if err := r.SetBodyParam(o.CidrList); err != nil {
+			return err
+		}
 	}
 
 	if len(res) > 0 {

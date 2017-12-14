@@ -144,12 +144,10 @@ func (o *PutServiceIDParams) WriteToRequest(r runtime.ClientRequest, reg strfmt.
 	}
 	var res []error
 
-	if o.Config == nil {
-		o.Config = new(models.Service)
-	}
-
-	if err := r.SetBodyParam(o.Config); err != nil {
-		return err
+	if o.Config != nil {
+		if err := r.SetBodyParam(o.Config); err != nil {
+			return err
+		}
 	}
 
 	// path param id

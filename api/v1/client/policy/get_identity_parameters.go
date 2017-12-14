@@ -128,8 +128,10 @@ func (o *GetIdentityParams) WriteToRequest(r runtime.ClientRequest, reg strfmt.R
 	}
 	var res []error
 
-	if err := r.SetBodyParam(o.Labels); err != nil {
-		return err
+	if o.Labels != nil {
+		if err := r.SetBodyParam(o.Labels); err != nil {
+			return err
+		}
 	}
 
 	if len(res) > 0 {

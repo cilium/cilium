@@ -14,7 +14,6 @@ import (
 
 // LabelConfiguration Label configuration of an endpoint
 // swagger:model LabelConfiguration
-
 type LabelConfiguration struct {
 
 	// Custom labels in addition to orchestration system labels.
@@ -29,14 +28,6 @@ type LabelConfiguration struct {
 	// Labels derived from orchestration system that are not used in computing a security identity
 	OrchestrationInfo Labels `json:"orchestration-info"`
 }
-
-/* polymorph LabelConfiguration custom false */
-
-/* polymorph LabelConfiguration disabled false */
-
-/* polymorph LabelConfiguration orchestration-identity false */
-
-/* polymorph LabelConfiguration orchestration-info false */
 
 // Validate validates this label configuration
 func (m *LabelConfiguration) Validate(formats strfmt.Registry) error {

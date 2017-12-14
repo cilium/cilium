@@ -17,7 +17,6 @@ import (
 
 // Port Layer 4 port / protocol pair
 // swagger:model Port
-
 type Port struct {
 
 	// Layer 4 port number
@@ -26,10 +25,6 @@ type Port struct {
 	// Layer 4 protocol
 	Protocol string `json:"protocol,omitempty"`
 }
-
-/* polymorph Port port false */
-
-/* polymorph Port protocol false */
 
 // Validate validates this port
 func (m *Port) Validate(formats strfmt.Registry) error {

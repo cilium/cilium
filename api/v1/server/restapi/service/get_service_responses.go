@@ -25,7 +25,7 @@ type GetServiceOK struct {
 	/*
 	  In: Body
 	*/
-	Payload []*models.Service `json:"body,omitempty"`
+	Payload models.GetServiceOKBody `json:"body,omitempty"`
 }
 
 // NewGetServiceOK creates GetServiceOK with default headers values
@@ -34,13 +34,13 @@ func NewGetServiceOK() *GetServiceOK {
 }
 
 // WithPayload adds the payload to the get service o k response
-func (o *GetServiceOK) WithPayload(payload []*models.Service) *GetServiceOK {
+func (o *GetServiceOK) WithPayload(payload models.GetServiceOKBody) *GetServiceOK {
 	o.Payload = payload
 	return o
 }
 
 // SetPayload sets the payload to the get service o k response
-func (o *GetServiceOK) SetPayload(payload []*models.Service) {
+func (o *GetServiceOK) SetPayload(payload models.GetServiceOKBody) {
 	o.Payload = payload
 }
 
@@ -50,7 +50,7 @@ func (o *GetServiceOK) WriteResponse(rw http.ResponseWriter, producer runtime.Pr
 	rw.WriteHeader(200)
 	payload := o.Payload
 	if payload == nil {
-		payload = make([]*models.Service, 0, 50)
+		payload = make(models.GetServiceOKBody, 0, 50)
 	}
 
 	if err := producer.Produce(rw, payload); err != nil {

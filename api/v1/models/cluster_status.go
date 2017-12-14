@@ -6,8 +6,6 @@ package models
 // Editing this file might prove futile when you re-run the swagger generate command
 
 import (
-	"strconv"
-
 	strfmt "github.com/go-openapi/strfmt"
 
 	"github.com/go-openapi/errors"
@@ -16,35 +14,23 @@ import (
 
 // ClusterStatus Status of cluster
 // swagger:model ClusterStatus
-
 type ClusterStatus struct {
 
 	// Status of local cilium-health daemon
 	CiliumHealth *Status `json:"ciliumHealth,omitempty"`
 
-	// List of known nodes
-	Nodes []*NodeElement `json:"nodes"`
+	// nodes
+	Nodes ClusterStatusNodes `json:"nodes"`
 
 	// Name of local node (if available)
 	Self string `json:"self,omitempty"`
 }
-
-/* polymorph ClusterStatus ciliumHealth false */
-
-/* polymorph ClusterStatus nodes false */
-
-/* polymorph ClusterStatus self false */
 
 // Validate validates this cluster status
 func (m *ClusterStatus) Validate(formats strfmt.Registry) error {
 	var res []error
 
 	if err := m.validateCiliumHealth(formats); err != nil {
-		// prop
-		res = append(res, err)
-	}
-
-	if err := m.validateNodes(formats); err != nil {
 		// prop
 		res = append(res, err)
 	}
@@ -69,33 +55,6 @@ func (m *ClusterStatus) validateCiliumHealth(formats strfmt.Registry) error {
 			}
 			return err
 		}
-	}
-
-	return nil
-}
-
-func (m *ClusterStatus) validateNodes(formats strfmt.Registry) error {
-
-	if swag.IsZero(m.Nodes) { // not required
-		return nil
-	}
-
-	for i := 0; i < len(m.Nodes); i++ {
-
-		if swag.IsZero(m.Nodes[i]) { // not required
-			continue
-		}
-
-		if m.Nodes[i] != nil {
-
-			if err := m.Nodes[i].Validate(formats); err != nil {
-				if ve, ok := err.(*errors.Validation); ok {
-					return ve.ValidateName("nodes" + "." + strconv.Itoa(i))
-				}
-				return err
-			}
-		}
-
 	}
 
 	return nil

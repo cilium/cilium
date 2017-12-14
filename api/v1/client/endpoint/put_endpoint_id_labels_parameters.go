@@ -152,12 +152,10 @@ func (o *PutEndpointIDLabelsParams) WriteToRequest(r runtime.ClientRequest, reg 
 	}
 	var res []error
 
-	if o.Configuration == nil {
-		o.Configuration = new(models.LabelConfigurationModifier)
-	}
-
-	if err := r.SetBodyParam(o.Configuration); err != nil {
-		return err
+	if o.Configuration != nil {
+		if err := r.SetBodyParam(o.Configuration); err != nil {
+			return err
+		}
 	}
 
 	// path param id

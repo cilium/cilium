@@ -125,8 +125,10 @@ func (o *PutPolicyParams) WriteToRequest(r runtime.ClientRequest, reg strfmt.Reg
 	}
 	var res []error
 
-	if err := r.SetBodyParam(o.Policy); err != nil {
-		return err
+	if o.Policy != nil {
+		if err := r.SetBodyParam(o.Policy); err != nil {
+			return err
+		}
 	}
 
 	if len(res) > 0 {

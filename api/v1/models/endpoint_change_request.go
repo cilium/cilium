@@ -15,7 +15,6 @@ import (
 // EndpointChangeRequest Structure which contains the mutable elements of an Endpoint.
 //
 // swagger:model EndpointChangeRequest
-
 type EndpointChangeRequest struct {
 
 	// addressing
@@ -58,32 +57,6 @@ type EndpointChangeRequest struct {
 	// Required: true
 	State EndpointState `json:"state"`
 }
-
-/* polymorph EndpointChangeRequest addressing false */
-
-/* polymorph EndpointChangeRequest container-id false */
-
-/* polymorph EndpointChangeRequest container-name false */
-
-/* polymorph EndpointChangeRequest docker-endpoint-id false */
-
-/* polymorph EndpointChangeRequest docker-network-id false */
-
-/* polymorph EndpointChangeRequest host-mac false */
-
-/* polymorph EndpointChangeRequest id false */
-
-/* polymorph EndpointChangeRequest interface-index false */
-
-/* polymorph EndpointChangeRequest interface-name false */
-
-/* polymorph EndpointChangeRequest labels false */
-
-/* polymorph EndpointChangeRequest mac false */
-
-/* polymorph EndpointChangeRequest policy-enabled false */
-
-/* polymorph EndpointChangeRequest state false */
 
 // Validate validates this endpoint change request
 func (m *EndpointChangeRequest) Validate(formats strfmt.Registry) error {

@@ -16,7 +16,6 @@ import (
 
 // EndpointState State of endpoint
 // swagger:model EndpointState
-
 type EndpointState string
 
 const (
