@@ -1,0 +1,7 @@
+go:
+  ignore_file: api/v1/cilium-server.yml
+  ignore_file: api/v1/client/
+  ignore_file: api/v1/health/
+  ignore_file: api/v1/models/
+  ignore_file: api/v1/server/
+  ignore_file: api/v1/server.gotmpl      
