@@ -1493,7 +1493,6 @@ func (e *Endpoint) bumpPolicyRevision(revision uint64) {
 	e.Mutex.Lock()
 	if revision > e.policyRevision {
 		e.policyRevision = revision
-		e.updateLogger()
 	}
 	e.Mutex.Unlock()
 }
