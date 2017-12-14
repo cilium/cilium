@@ -4,6 +4,11 @@
 Installation Guide
 ******************
 
+.. note:: This is the detailed installation guide aimed at production
+          installations. If you are looking to get started quickly, the
+          :ref:`gs_minikube` or the :ref:`k8s_quick` guide may be better
+          options.
+
 This section describes how to install and run Cilium on Kubernetes. The
 deployment method we are using is called `DaemonSet` which is the easiest way to
 deploy Cilium in a Kubernetes environment. It will request Kubernetes to
