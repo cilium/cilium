@@ -4,6 +4,7 @@ set -e
 HOST=$(hostname)
 TOKEN="258062.5d84c017c9b2796c"
 CILIUM_CONFIG_DIR="/opt/cilium"
+PROVISIONSRC="/tmp/provision/"
 ETCD_VERSION="v3.1.0"
 SRC_FOLDER="/src/"
 SYSTEMD_SERVICES="$SRC_FOLDER/contrib/systemd/"
@@ -20,6 +21,8 @@ if [[ -f  "/etc/provision_finished" ]]; then
     /tmp/provision/compile.sh
     exit 0
 fi
+
+$PROVISIONSRC/dns.sh
 
 cat <<EOF > /etc/hosts
 127.0.0.1       localhost
@@ -71,7 +74,7 @@ if [[ "${HOST}" == "k8s1" ]]; then
     kubectl taint nodes --all node-role.kubernetes.io/master-
 
     sudo systemctl start etcd
-    /tmp/provision/compile.sh
+    $PROVISIONSRC/compile.sh
 else
     kubeadm join --token=$TOKEN 192.168.36.11:6443
     cp /etc/kubernetes/kubelet.conf ${CILIUM_CONFIG_DIR}/kubeconfig
