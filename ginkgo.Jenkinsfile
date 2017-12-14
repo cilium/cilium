@@ -39,6 +39,9 @@ pipeline {
                     "Runtime":{
                         sh 'cd ${TESTDIR}; ginkgo --focus="Runtime*" -v -noColor'
                     },
+                    "K8s-1.8":{
+                        sh 'cd ${TESTDIR}; K8S_VERSION=1.8 ginkgo --focus="K8s*" -v -noColor'
+                    },
                     "K8s-1.7":{
                         sh 'cd ${TESTDIR}; K8S_VERSION=1.7 ginkgo --focus="K8s*" -v -noColor'
                     },
@@ -56,6 +59,7 @@ pipeline {
                     sh 'cd test/; ./post_build_agent.sh || true'                    
                     sh 'cd test/; vagrant destroy -f'
                     sh 'cd test/; K8S_VERSION=1.6 vagrant destroy -f'
+                    sh 'cd test/; K8S_VERSION=1.8 vagrant destroy -f'
                 }
             }
         }

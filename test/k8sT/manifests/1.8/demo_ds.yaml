@@ -1,0 +1,52 @@
+---
+apiVersion: extensions/v1beta1
+kind: DaemonSet
+metadata:
+  name: testds
+  namespace: default
+spec:
+  template:
+    metadata:
+      labels:
+        zgroup: testDS
+    spec:
+      containers:
+      - name: web
+        image: cilium/demo-httpd
+        ports:
+        - containerPort: 80
+      tolerations:
+      - effect: NoSchedule
+        key: node-role.kubernetes.io/master
+      - effect: NoSchedule
+        key: node.cloudprovider.kubernetes.io/uninitialized
+        value: "true"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: testds-service
+spec:
+  ports:
+  - port: 80
+  selector:
+    zgroup: testDS
+
+---
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: testclient
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        id: testClient
+    spec:
+      containers:
+      - name: app-frontend
+        image: cilium/demo-client
+        command: [ "sleep" ]
+        args:
+          - "1000h"
