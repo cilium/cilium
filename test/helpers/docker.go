@@ -20,7 +20,7 @@ import (
 
 // ContainerExec executes cmd in the container with the provided name.
 func (s *SSHMeta) ContainerExec(name string, cmd string) *CmdRes {
-	return s.execCmd(fmt.Sprintf("docker exec -i %s %s", name, cmd))
+	return s.ExecWithSudo(fmt.Sprintf("docker exec -i %s %s", name, cmd))
 }
 
 // ContainerCreate is a wrapper for `docker run`. It runs an instance of the
@@ -29,19 +29,19 @@ func (s *SSHMeta) ContainerCreate(name, image, net, options string) *CmdRes {
 	cmd := fmt.Sprintf(
 		"docker run -d --name %s --net %s %s %s", name, net, options, image)
 	log.Debugf("spinning up container with command %q", cmd)
-	return s.execCmd(cmd)
+	return s.ExecWithSudo(cmd)
 }
 
 // ContainerRm is a wrapper around `docker rm -f`. It forcibly removes the
 // Docker container of the provided name.
 func (s *SSHMeta) ContainerRm(name string) *CmdRes {
-	return s.execCmd(fmt.Sprintf("docker rm -f %s", name))
+	return s.ExecWithSudo(fmt.Sprintf("docker rm -f %s", name))
 }
 
 // ContainerInspect runs `docker inspect` for the container with the provided
 // name.
 func (s *SSHMeta) ContainerInspect(name string) *CmdRes {
-	return s.execCmd(fmt.Sprintf("docker inspect %s", name))
+	return s.ExecWithSudo(fmt.Sprintf("docker inspect %s", name))
 }
 
 // ContainerInspectNet returns a map of Docker networking information fields and
@@ -85,23 +85,19 @@ func (s *SSHMeta) NetworkCreate(name string, subnet string) *CmdRes {
 	cmd := fmt.Sprintf(
 		"docker network create --ipv6 --subnet %s --driver cilium --ipam-driver cilium %s",
 		subnet, name)
-	return s.execCmd(cmd)
+	return s.ExecWithSudo(cmd)
 }
 
 // NetworkDelete deletes the Docker network of the provided name. It is a wrapper
 // around `docker network rm`.
 func (s *SSHMeta) NetworkDelete(name string) *CmdRes {
-	return s.execCmd(fmt.Sprintf("docker network rm  %s", name))
+	return s.ExecWithSudo(fmt.Sprintf("docker network rm  %s", name))
 }
 
 // NetworkGet returns all of the Docker network configuration for the provided
 // network. It is a wrapper around `docker network inspect`.
 func (s *SSHMeta) NetworkGet(name string) *CmdRes {
-	return s.execCmd(fmt.Sprintf("docker network inspect %s", name))
-}
-
-func (s *SSHMeta) execCmd(cmd string) *CmdRes {
-	return s.ExecWithSudo(cmd)
+	return s.ExecWithSudo(fmt.Sprintf("docker network inspect %s", name))
 }
 
 // SampleContainersActions creates or deletes various containers used for
