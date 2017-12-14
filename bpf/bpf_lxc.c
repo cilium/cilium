@@ -128,6 +128,7 @@ static inline int ipv6_l3_from_lxc(struct __sk_buff *skb,
 	void *data, *data_end;
 	union v6addr *daddr, orig_dip;
 	bool orig_was_proxy;
+	uint16_t dstID = WORLD_ID;
 
 	if (unlikely(!is_valid_lxc_src_mac(eth)))
 		return DROP_INVALID_SMAC;
@@ -333,6 +334,7 @@ skip_service_lookup:
 		 * FIXME GH-1392: Differentiate between local / remote prefixes
 		 */
 		policy_mark_skip(skb);
+		dstID = CLUSTER_ID;
 		goto pass_to_stack;
 	} else {
 #ifdef LXC_NAT46
@@ -363,7 +365,7 @@ to_host:
 			return ret;
 
 #ifndef POLICY_EGRESS
-		send_trace_notify(skb, TRACE_TO_HOST, SECLABEL, 0, 0, HOST_IFINDEX,
+		send_trace_notify(skb, TRACE_TO_HOST, SECLABEL, HOST_ID, 0, HOST_IFINDEX,
 				  forwarding_reason);
 		return redirect(HOST_IFINDEX, 0);
 #else
@@ -391,7 +393,7 @@ pass_to_stack:
 
 #ifndef POLICY_EGRESS
 	/* No policy, pass directly down to stack */
-	send_trace_notify(skb, TRACE_TO_STACK, SECLABEL, 0, 0, 0,
+	send_trace_notify(skb, TRACE_TO_STACK, SECLABEL, dstID, 0, 0,
 			  forwarding_reason);
 	return TC_ACT_OK;
 #else
@@ -453,6 +455,8 @@ static inline int handle_ipv4(struct __sk_buff *skb)
 	struct ct_state ct_state = {};
 	bool orig_was_proxy;
 	__be32 orig_dip;
+	uint16_t dstID = WORLD_ID;
+
 
 	if (data + sizeof(*ip4) + ETH_HLEN > data_end)
 		return DROP_INVALID;
@@ -651,6 +655,7 @@ skip_service_lookup:
 		 * FIXME GH-1392: Differentiate between local / remote prefixes
 		 */
 		policy_mark_skip(skb);
+		dstID = CLUSTER_ID;
 		goto pass_to_stack;
 	} else {
 #ifdef ALLOW_TO_WORLD
@@ -674,7 +679,7 @@ to_host:
 			return ret;
 
 #ifndef POLICY_EGRESS
-		send_trace_notify(skb, TRACE_TO_HOST, SECLABEL, 0, 0, HOST_IFINDEX,
+		send_trace_notify(skb, TRACE_TO_HOST, SECLABEL, HOST_ID, 0, HOST_IFINDEX,
 				  forwarding_reason);
 		return redirect(HOST_IFINDEX, 0);
 #else
@@ -704,7 +709,7 @@ pass_to_stack:
 
 #ifndef POLICY_EGRESS
 	/* No policy, pass directly down to stack */
-	send_trace_notify(skb, TRACE_TO_STACK, SECLABEL, 0, 0, 0,
+	send_trace_notify(skb, TRACE_TO_STACK, SECLABEL, dstID, 0, 0,
 			  forwarding_reason);
 	return TC_ACT_OK;
 #else
