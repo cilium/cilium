@@ -6,8 +6,6 @@ package models
 // Editing this file might prove futile when you re-run the swagger generate command
 
 import (
-	"strconv"
-
 	strfmt "github.com/go-openapi/strfmt"
 
 	"github.com/go-openapi/errors"
@@ -17,11 +15,10 @@ import (
 
 // Service Collection of endpoints to be served
 // swagger:model Service
-
 type Service struct {
 
-	// List of backend addresses
-	BackendAddresses []*BackendAddress `json:"backend-addresses"`
+	// backend addresses
+	BackendAddresses ServiceBackendAddresses `json:"backend-addresses"`
 
 	// flags
 	Flags *ServiceFlags `json:"flags,omitempty"`
@@ -34,22 +31,9 @@ type Service struct {
 	ID int64 `json:"id,omitempty"`
 }
 
-/* polymorph Service backend-addresses false */
-
-/* polymorph Service flags false */
-
-/* polymorph Service frontend-address false */
-
-/* polymorph Service id false */
-
 // Validate validates this service
 func (m *Service) Validate(formats strfmt.Registry) error {
 	var res []error
-
-	if err := m.validateBackendAddresses(formats); err != nil {
-		// prop
-		res = append(res, err)
-	}
 
 	if err := m.validateFlags(formats); err != nil {
 		// prop
@@ -64,33 +48,6 @@ func (m *Service) Validate(formats strfmt.Registry) error {
 	if len(res) > 0 {
 		return errors.CompositeValidationError(res...)
 	}
-	return nil
-}
-
-func (m *Service) validateBackendAddresses(formats strfmt.Registry) error {
-
-	if swag.IsZero(m.BackendAddresses) { // not required
-		return nil
-	}
-
-	for i := 0; i < len(m.BackendAddresses); i++ {
-
-		if swag.IsZero(m.BackendAddresses[i]) { // not required
-			continue
-		}
-
-		if m.BackendAddresses[i] != nil {
-
-			if err := m.BackendAddresses[i].Validate(formats); err != nil {
-				if ve, ok := err.(*errors.Validation); ok {
-					return ve.ValidateName("backend-addresses" + "." + strconv.Itoa(i))
-				}
-				return err
-			}
-		}
-
-	}
-
 	return nil
 }
 
@@ -143,50 +100,6 @@ func (m *Service) MarshalBinary() ([]byte, error) {
 // UnmarshalBinary interface implementation
 func (m *Service) UnmarshalBinary(b []byte) error {
 	var res Service
-	if err := swag.ReadJSON(b, &res); err != nil {
-		return err
-	}
-	*m = res
-	return nil
-}
-
-// ServiceFlags Optional service configuration flags
-// swagger:model ServiceFlags
-
-type ServiceFlags struct {
-
-	// Frontend to backend translation activated
-	ActiveFrontend bool `json:"active-frontend,omitempty"`
-
-	// Perform direct server return
-	DirectServerReturn bool `json:"direct-server-return,omitempty"`
-}
-
-/* polymorph ServiceFlags active-frontend false */
-
-/* polymorph ServiceFlags direct-server-return false */
-
-// Validate validates this service flags
-func (m *ServiceFlags) Validate(formats strfmt.Registry) error {
-	var res []error
-
-	if len(res) > 0 {
-		return errors.CompositeValidationError(res...)
-	}
-	return nil
-}
-
-// MarshalBinary interface implementation
-func (m *ServiceFlags) MarshalBinary() ([]byte, error) {
-	if m == nil {
-		return nil, nil
-	}
-	return swag.WriteJSON(m)
-}
-
-// UnmarshalBinary interface implementation
-func (m *ServiceFlags) UnmarshalBinary(b []byte) error {
-	var res ServiceFlags
 	if err := swag.ReadJSON(b, &res); err != nil {
 		return err
 	}

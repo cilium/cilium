@@ -14,7 +14,7 @@ consumes:
 paths:
   "/healthz":
     get:
-      summary: Get health of Cilium daemon
+      summary: get health of Cilium daemon
       description: |
         Returns health and status information of the Cilium daemon and related
         components such as the local container runtime, connected datastore,

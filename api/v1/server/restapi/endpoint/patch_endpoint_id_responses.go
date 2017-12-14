@@ -31,6 +31,8 @@ func NewPatchEndpointIDOK() *PatchEndpointIDOK {
 // WriteResponse to the client
 func (o *PatchEndpointIDOK) WriteResponse(rw http.ResponseWriter, producer runtime.Producer) {
 
+	rw.Header().Del(runtime.HeaderContentType) //Remove Content-Type on empty responses
+
 	rw.WriteHeader(200)
 }
 
@@ -93,6 +95,8 @@ func NewPatchEndpointIDNotFound() *PatchEndpointIDNotFound {
 
 // WriteResponse to the client
 func (o *PatchEndpointIDNotFound) WriteResponse(rw http.ResponseWriter, producer runtime.Producer) {
+
+	rw.Header().Del(runtime.HeaderContentType) //Remove Content-Type on empty responses
 
 	rw.WriteHeader(404)
 }

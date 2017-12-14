@@ -14,7 +14,6 @@ import (
 
 // Policy Policy definition
 // swagger:model Policy
-
 type Policy struct {
 
 	// Policy definition as JSON.
@@ -25,10 +24,6 @@ type Policy struct {
 	//
 	Revision int64 `json:"revision,omitempty"`
 }
-
-/* polymorph Policy policy false */
-
-/* polymorph Policy revision false */
 
 // Validate validates this policy
 func (m *Policy) Validate(formats strfmt.Registry) error {

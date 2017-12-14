@@ -28,7 +28,7 @@ func NewPutPolicyParams() PutPolicyParams {
 type PutPolicyParams struct {
 
 	// HTTP Request Object
-	HTTPRequest *http.Request
+	HTTPRequest *http.Request `json:"-"`
 
 	/*Policy rules
 	  Required: true

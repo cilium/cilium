@@ -17,7 +17,6 @@ import (
 
 // FrontendAddress Layer 4 address
 // swagger:model FrontendAddress
-
 type FrontendAddress struct {
 
 	// Layer 3 address
@@ -29,12 +28,6 @@ type FrontendAddress struct {
 	// Layer 4 protocol
 	Protocol string `json:"protocol,omitempty"`
 }
-
-/* polymorph FrontendAddress ip false */
-
-/* polymorph FrontendAddress port false */
-
-/* polymorph FrontendAddress protocol false */
 
 // Validate validates this frontend address
 func (m *FrontendAddress) Validate(formats strfmt.Registry) error {

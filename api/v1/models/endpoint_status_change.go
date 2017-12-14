@@ -17,7 +17,6 @@ import (
 
 // EndpointStatusChange Indication of a change of status
 // swagger:model EndpointStatusChange
-
 type EndpointStatusChange struct {
 
 	// Code indicate type of status change
@@ -32,14 +31,6 @@ type EndpointStatusChange struct {
 	// Timestamp when status change occurred
 	Timestamp string `json:"timestamp,omitempty"`
 }
-
-/* polymorph EndpointStatusChange code false */
-
-/* polymorph EndpointStatusChange message false */
-
-/* polymorph EndpointStatusChange state false */
-
-/* polymorph EndpointStatusChange timestamp false */
 
 // Validate validates this endpoint status change
 func (m *EndpointStatusChange) Validate(formats strfmt.Registry) error {

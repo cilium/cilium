@@ -14,7 +14,6 @@ import (
 
 // EndpointPolicy Policy information of an endpoint
 // swagger:model EndpointPolicy
-
 type EndpointPolicy struct {
 
 	// List of identities allowed to communicate to this endpoint
@@ -33,16 +32,6 @@ type EndpointPolicy struct {
 	// l4
 	L4 *L4Policy `json:"l4,omitempty"`
 }
-
-/* polymorph EndpointPolicy allowed-consumers false */
-
-/* polymorph EndpointPolicy build false */
-
-/* polymorph EndpointPolicy cidr-policy false */
-
-/* polymorph EndpointPolicy id false */
-
-/* polymorph EndpointPolicy l4 false */
 
 // Validate validates this endpoint policy
 func (m *EndpointPolicy) Validate(formats strfmt.Registry) error {

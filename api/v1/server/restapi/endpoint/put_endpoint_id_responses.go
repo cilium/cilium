@@ -31,6 +31,8 @@ func NewPutEndpointIDCreated() *PutEndpointIDCreated {
 // WriteResponse to the client
 func (o *PutEndpointIDCreated) WriteResponse(rw http.ResponseWriter, producer runtime.Producer) {
 
+	rw.Header().Del(runtime.HeaderContentType) //Remove Content-Type on empty responses
+
 	rw.WriteHeader(201)
 }
 
@@ -93,6 +95,8 @@ func NewPutEndpointIDExists() *PutEndpointIDExists {
 
 // WriteResponse to the client
 func (o *PutEndpointIDExists) WriteResponse(rw http.ResponseWriter, producer runtime.Producer) {
+
+	rw.Header().Del(runtime.HeaderContentType) //Remove Content-Type on empty responses
 
 	rw.WriteHeader(409)
 }

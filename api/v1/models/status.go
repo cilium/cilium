@@ -17,7 +17,6 @@ import (
 
 // Status Status of an individual component
 // swagger:model Status
-
 type Status struct {
 
 	// Human readable status/error/warning message
@@ -26,10 +25,6 @@ type Status struct {
 	// State the component is in
 	State string `json:"state,omitempty"`
 }
-
-/* polymorph Status msg false */
-
-/* polymorph Status state false */
 
 // Validate validates this status
 func (m *Status) Validate(formats strfmt.Registry) error {

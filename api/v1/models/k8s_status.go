@@ -17,7 +17,6 @@ import (
 
 // K8sStatus Status of Kubernetes integration
 // swagger:model K8sStatus
-
 type K8sStatus struct {
 
 	// k8s api versions
@@ -29,12 +28,6 @@ type K8sStatus struct {
 	// State the component is in
 	State string `json:"state,omitempty"`
 }
-
-/* polymorph K8sStatus k8s-api-versions false */
-
-/* polymorph K8sStatus msg false */
-
-/* polymorph K8sStatus state false */
 
 // Validate validates this k8s status
 func (m *K8sStatus) Validate(formats strfmt.Registry) error {

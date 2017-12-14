@@ -13,7 +13,6 @@ import (
 
 // Labels Set of labels
 // swagger:model Labels
-
 type Labels []string
 
 // Validate validates this labels

@@ -16,7 +16,6 @@ import (
 // information and configuration settings.
 //
 // swagger:model DaemonConfigurationResponse
-
 type DaemonConfigurationResponse struct {
 
 	// addressing
@@ -37,18 +36,6 @@ type DaemonConfigurationResponse struct {
 	// policy enforcement
 	PolicyEnforcement string `json:"policy-enforcement,omitempty"`
 }
-
-/* polymorph DaemonConfigurationResponse addressing false */
-
-/* polymorph DaemonConfigurationResponse configuration false */
-
-/* polymorph DaemonConfigurationResponse k8s-configuration false */
-
-/* polymorph DaemonConfigurationResponse k8s-endpoint false */
-
-/* polymorph DaemonConfigurationResponse nodeMonitor false */
-
-/* polymorph DaemonConfigurationResponse policy-enforcement false */
 
 // Validate validates this daemon configuration response
 func (m *DaemonConfigurationResponse) Validate(formats strfmt.Registry) error {

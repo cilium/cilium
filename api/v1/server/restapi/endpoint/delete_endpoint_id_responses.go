@@ -31,6 +31,8 @@ func NewDeleteEndpointIDOK() *DeleteEndpointIDOK {
 // WriteResponse to the client
 func (o *DeleteEndpointIDOK) WriteResponse(rw http.ResponseWriter, producer runtime.Producer) {
 
+	rw.Header().Del(runtime.HeaderContentType) //Remove Content-Type on empty responses
+
 	rw.WriteHeader(200)
 }
 
@@ -137,6 +139,8 @@ func NewDeleteEndpointIDNotFound() *DeleteEndpointIDNotFound {
 
 // WriteResponse to the client
 func (o *DeleteEndpointIDNotFound) WriteResponse(rw http.ResponseWriter, producer runtime.Producer) {
+
+	rw.Header().Del(runtime.HeaderContentType) //Remove Content-Type on empty responses
 
 	rw.WriteHeader(404)
 }

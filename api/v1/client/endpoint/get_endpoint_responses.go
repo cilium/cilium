@@ -54,7 +54,7 @@ func NewGetEndpointOK() *GetEndpointOK {
 Success
 */
 type GetEndpointOK struct {
-	Payload []*models.Endpoint
+	Payload models.GetEndpointOKBody
 }
 
 func (o *GetEndpointOK) Error() string {

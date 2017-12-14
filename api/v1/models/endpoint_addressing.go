@@ -14,7 +14,6 @@ import (
 
 // EndpointAddressing Addressing information of an endpoint
 // swagger:model EndpointAddressing
-
 type EndpointAddressing struct {
 
 	// IPv4 address
@@ -23,10 +22,6 @@ type EndpointAddressing struct {
 	// IPv6 address
 	IPV6 string `json:"ipv6,omitempty"`
 }
-
-/* polymorph EndpointAddressing ipv4 false */
-
-/* polymorph EndpointAddressing ipv6 false */
 
 // Validate validates this endpoint addressing
 func (m *EndpointAddressing) Validate(formats strfmt.Registry) error {

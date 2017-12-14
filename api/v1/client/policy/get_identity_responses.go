@@ -68,7 +68,7 @@ func NewGetIdentityOK() *GetIdentityOK {
 Success
 */
 type GetIdentityOK struct {
-	Payload []*models.Identity
+	Payload models.GetIdentityOKBody
 }
 
 func (o *GetIdentityOK) Error() string {

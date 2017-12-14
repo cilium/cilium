@@ -11,7 +11,6 @@ import (
 
 // Address IP address
 // swagger:model Address
-
 type Address string
 
 // Validate validates this address

@@ -31,6 +31,8 @@ func NewPutEndpointIDLabelsOK() *PutEndpointIDLabelsOK {
 // WriteResponse to the client
 func (o *PutEndpointIDLabelsOK) WriteResponse(rw http.ResponseWriter, producer runtime.Producer) {
 
+	rw.Header().Del(runtime.HeaderContentType) //Remove Content-Type on empty responses
+
 	rw.WriteHeader(200)
 }
 
@@ -51,6 +53,8 @@ func NewPutEndpointIDLabelsNotFound() *PutEndpointIDLabelsNotFound {
 
 // WriteResponse to the client
 func (o *PutEndpointIDLabelsNotFound) WriteResponse(rw http.ResponseWriter, producer runtime.Producer) {
+
+	rw.Header().Del(runtime.HeaderContentType) //Remove Content-Type on empty responses
 
 	rw.WriteHeader(404)
 }

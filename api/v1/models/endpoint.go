@@ -17,7 +17,6 @@ import (
 
 // Endpoint Endpoint
 // swagger:model Endpoint
-
 type Endpoint struct {
 
 	// addressing
@@ -79,44 +78,6 @@ type Endpoint struct {
 	// Most recent status log. See endpoint/{id}/log for the complete log.
 	Status EndpointStatusLog `json:"status"`
 }
-
-/* polymorph Endpoint addressing false */
-
-/* polymorph Endpoint container-id false */
-
-/* polymorph Endpoint container-name false */
-
-/* polymorph Endpoint docker-endpoint-id false */
-
-/* polymorph Endpoint docker-network-id false */
-
-/* polymorph Endpoint health false */
-
-/* polymorph Endpoint host-mac false */
-
-/* polymorph Endpoint id false */
-
-/* polymorph Endpoint identity false */
-
-/* polymorph Endpoint interface-index false */
-
-/* polymorph Endpoint interface-name false */
-
-/* polymorph Endpoint labels false */
-
-/* polymorph Endpoint mac false */
-
-/* polymorph Endpoint pod-name false */
-
-/* polymorph Endpoint policy false */
-
-/* polymorph Endpoint policy-enabled false */
-
-/* polymorph Endpoint policy-revision false */
-
-/* polymorph Endpoint state false */
-
-/* polymorph Endpoint status false */
 
 // Validate validates this endpoint
 func (m *Endpoint) Validate(formats strfmt.Registry) error {

@@ -16,7 +16,6 @@ import (
 // LabelConfiguration object.
 //
 // swagger:model LabelConfigurationModifier
-
 type LabelConfigurationModifier struct {
 
 	// List of labels to add and enable. If the label is an orchestration
@@ -33,10 +32,6 @@ type LabelConfigurationModifier struct {
 	//
 	Delete Labels `json:"delete"`
 }
-
-/* polymorph LabelConfigurationModifier add false */
-
-/* polymorph LabelConfigurationModifier delete false */
 
 // Validate validates this label configuration modifier
 func (m *LabelConfigurationModifier) Validate(formats strfmt.Registry) error {
