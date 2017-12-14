@@ -15,6 +15,7 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -42,12 +43,16 @@ var BugtoolRootCmd = &cobra.Command{
 	},
 }
 
-const disclaimer = `DISCLAIMER
+const (
+	disclaimer = `DISCLAIMER
 This tool has copied information about your environment.
 If you are going to register a issue on GitHub, please
 only provide files from the archive you have reviewed
 for sensitive information.
 `
+	// execTimeout is the timeout for any cmd execution
+	execTimeout = 5 * time.Second
+)
 
 var (
 	serve        bool
@@ -356,7 +361,12 @@ func copyCiliumInfo(ciliumDir string) {
 
 func execCommand(cmd string, args ...string) (string, error) {
 	fmt.Printf("exec: %s %s\n", cmd, args)
-	output, err := exec.Command(cmd, args...).CombinedOutput()
+	ctx, cancel := context.WithTimeout(context.Background(), execTimeout)
+	defer cancel()
+	output, err := exec.CommandContext(ctx, cmd, args...).CombinedOutput()
+	if ctx.Err() == context.DeadlineExceeded {
+		return "", fmt.Errorf("exec timeout")
+	}
 	return string(output), err
 }
 
