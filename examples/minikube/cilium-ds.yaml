@@ -141,7 +141,10 @@ spec:
             command:
             - cilium
             - status
-          initialDelaySeconds: 180
+          # The initial delay for the liveness probe is intentionally large to
+          # avoid an endless kill & restart cycle if in the event that the initial
+          # bootstrapping takes longer than expected.
+          initialDelaySeconds: 120
           failureThreshold: 10
           periodSeconds: 10
         readinessProbe:
@@ -149,8 +152,8 @@ spec:
             command:
             - cilium
             - status
-          initialDelaySeconds: 180
-          periodSeconds: 15
+          initialDelaySeconds: 5
+          periodSeconds: 5
         volumeMounts:
           - name: bpf-maps
             mountPath: /sys/fs/bpf
