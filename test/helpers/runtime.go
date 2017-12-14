@@ -15,15 +15,30 @@
 package helpers
 
 import (
+	"fmt"
+
+	"github.com/onsi/ginkgo"
 	"github.com/sirupsen/logrus"
 )
 
-//CreateNewRuntimeHelper returns Docker and Cilium helpers for running the
-//runtime tests on the provided VM target and using logger log .
+// CreateNewRuntimeHelper returns SSHMeta helper for running the runtime tests
+// on the provided VM target and using logger log. It marks the test as Fail if
+// cannot get the ssh meta information or cannot execute a `ls` on the virtual
+// machine.
 func CreateNewRuntimeHelper(target string, log *logrus.Entry) *SSHMeta {
 	node := GetVagrantSSHMeta(target)
-
 	if node == nil {
+		ginkgo.Fail(fmt.Sprintf("Cannot connect to target '%s'", target), 1)
+		return nil
+	}
+
+	// This `ls` command is a sanity check, sometimes the meta ssh info is not
+	// nil but new commands cannot be executed using SSH, tests failed and it
+	// was hard to debug.
+	res := node.Exec("ls /tmp/")
+	if !res.WasSuccessful() {
+		ginkgo.Fail(fmt.Sprintf(
+			"Cannot execute ls command on target '%s'", target), 1)
 		return nil
 	}
 	node.logger = log

@@ -22,10 +22,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/asaskevich/govalidator"
-	"github.com/sirupsen/logrus"
-
 	"github.com/cilium/cilium/api/v1/models"
+
+	"github.com/asaskevich/govalidator"
+	"github.com/onsi/ginkgo"
+	"github.com/sirupsen/logrus"
 )
 
 const (
@@ -49,9 +50,21 @@ type Kubectl struct {
 }
 
 // CreateKubectl initializes a Kubectl helper with the provided vmName and log
+// It marks the test as Fail if cannot get the ssh meta information or cannot
+// execute a `ls` on the virtual machine.
 func CreateKubectl(vmName string, log *logrus.Entry) *Kubectl {
 	node := GetVagrantSSHMeta(vmName)
 	if node == nil {
+		ginkgo.Fail(fmt.Sprintf("Cannot connect to vmName  '%s'", vmName), 1)
+		return nil
+	}
+	// This `ls` command is a sanity check, sometimes the meta ssh info is not
+	// nil but new commands cannot be executed using SSH, tests failed and it
+	// was hard to debug.
+	res := node.Exec("ls /tmp/")
+	if !res.WasSuccessful() {
+		ginkgo.Fail(fmt.Sprintf(
+			"Cannot execute ls command on vmName '%s'", vmName), 1)
 		return nil
 	}
 	node.logger = log
