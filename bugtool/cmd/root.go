@@ -70,7 +70,12 @@ func init() {
 func runTool() {
 	// Search for a Cilium pod and if one is found prefix all of the
 	// commands to use the pod(s).
-	k8sPods, _ = getCiliumPods(k8sNamespace, k8sLabel)
+	var err error
+	k8sPods, err = getCiliumPods(k8sNamespace, k8sLabel)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Unable to retrieve cilium logs from kubernetes, skipping... %s\n", err)
+	}
+
 	if len(k8sPods) == 0 {
 		common.RequireRootPrivilege("bugtool")
 	}
