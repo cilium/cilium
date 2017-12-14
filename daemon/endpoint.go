@@ -347,6 +347,10 @@ func (d *Daemon) deleteEndpoint(ep *endpoint.Endpoint) int {
 		}).Error("Error while deleting labels")
 	}
 
+	// Remove the endpoint before we clean up. This ensures it is no longer
+	// listed or queued for rebuilds.
+	endpointmanager.Remove(ep)
+
 	var errors int
 
 	// If dry mode is enabled, no changes to BPF maps are performed
@@ -388,7 +392,6 @@ func (d *Daemon) deleteEndpoint(ep *endpoint.Endpoint) int {
 		}
 	}
 
-	endpointmanager.Remove(ep)
 	if !d.conf.IPv4Disabled {
 		if err := ipam.ReleaseIP(ep.IPv4.IP()); err != nil {
 			scopedLog.WithError(err).WithField(logfields.IPAddr, ep.IPv4.IP()).Warn("Error while releasing IPv4")
@@ -404,8 +407,6 @@ func (d *Daemon) deleteEndpoint(ep *endpoint.Endpoint) int {
 	ep.LeaveLocked(d)
 	ep.Mutex.Unlock()
 	ep.BuildMutex.Unlock()
-
-	endpointmanager.Remove(ep)
 
 	return errors
 }

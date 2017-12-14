@@ -92,7 +92,6 @@ type Server struct {
 	// the list of statuses as most recently seen, and the last time a
 	// probe was conducted.
 	lock.RWMutex
-	nodes        nodeMap
 	connectivity []*healthModels.NodeStatus
 	lastProbe    time.Time
 	localStatus  *healthModels.SelfStatus
@@ -140,11 +139,10 @@ func (s *Server) getNodes() (nodeMap, error) {
 	return nodes, nil
 }
 
-func (s *Server) updateCluster(nodes nodeMap, connectivity []*healthModels.NodeStatus) {
+func (s *Server) updateCluster(connectivity []*healthModels.NodeStatus) {
 	s.Lock()
 	defer s.Unlock()
 
-	s.nodes = nodes
 	s.lastProbe = time.Now()
 	s.connectivity = connectivity
 }
@@ -154,7 +152,9 @@ func (s *Server) GetStatusResponse() *healthModels.HealthStatusResponse {
 	s.RLock()
 	defer s.RUnlock()
 	return &healthModels.HealthStatusResponse{
-		Local:     s.localStatus,
+		Local: &healthModels.SelfStatus{
+			Name: s.localStatus.Name,
+		},
 		Nodes:     s.connectivity,
 		Timestamp: s.lastProbe.Format(time.RFC3339),
 	}
@@ -175,7 +175,7 @@ func (s *Server) FetchStatusResponse() (*healthModels.HealthStatusResponse, erro
 		return nil, err
 	}
 	log.Debug("Run complete")
-	s.updateCluster(nodes, prober.getResults())
+	s.updateCluster(prober.getResults())
 
 	return s.GetStatusResponse(), nil
 }
@@ -185,39 +185,24 @@ func (s *Server) FetchStatusResponse() (*healthModels.HealthStatusResponse, erro
 // Blocks indefinitely, or returns any errors that occur hosting the Unix
 // socket API server.
 func (s *Server) runActiveServices() error {
-	var prober *prober
-
 	// Run it once at the start so we get some initial status
 	s.FetchStatusResponse()
 
-	s.waitgroup.Add(1)
-	go func() {
-		defer s.waitgroup.Done()
-
-		nodes, _ := s.getNodes()
-		prober = newProber(s, nodes)
-		prober.MaxRTT = s.ProbeInterval
-		prober.OnIdle = func() {
-			// Fetch results and update set of nodes to probe every
-			// ProbeInterval
-			s.updateCluster(prober.getNodes(), prober.getResults())
-			if nodes, err := s.getNodes(); err == nil {
-				prober.setNodes(nodes)
-			}
+	nodes, _ := s.getNodes()
+	prober := newProber(s, nodes)
+	prober.MaxRTT = s.ProbeInterval
+	prober.OnIdle = func() {
+		// Fetch results and update set of nodes to probe every
+		// ProbeInterval
+		s.updateCluster(prober.getResults())
+		if nodes, err := s.getNodes(); err == nil {
+			prober.setNodes(nodes)
 		}
-		prober.RunLoop()
-
-		if <-prober.Done() {
-			if err := prober.Err(); err != nil {
-				log.WithError(err).Debug("Received prober finish")
-			}
-		}
-	}()
+	}
+	prober.RunLoop()
 
 	err := s.Server.Serve()
-	if prober != nil {
-		prober.Stop()
-	}
+	prober.Stop()
 
 	return err
 }
@@ -305,7 +290,6 @@ func NewServer(config Config) (*Server, error) {
 		startTime:    time.Now(),
 		Config:       config,
 		tcpServers:   []*healthApi.Server{},
-		nodes:        make(nodeMap),
 		connectivity: []*healthModels.NodeStatus{},
 	}
 

@@ -37,8 +37,9 @@ type prober struct {
 
 	// 'stop' is closed upon a call to prober.Stop(). When the stopping is
 	// finished, then prober.Done() will be notified.
-	stop chan bool
-	done chan bool
+	stop         chan bool
+	proberExited chan bool
+	done         chan bool
 
 	// The lock protects multiple requests attempting to update the status
 	// at the same time - ie, serialize updates between the periodic prober
@@ -122,12 +123,6 @@ func (p *prober) getResults() []*models.NodeStatus {
 	return result
 }
 
-func (p *prober) getNodes() nodeMap {
-	p.RLock()
-	defer p.RUnlock()
-	return p.nodes
-}
-
 func isIPv4(ip string) bool {
 	netIP := net.ParseIP(ip)
 	return netIP != nil && !strings.Contains(ip, ":")
@@ -149,41 +144,56 @@ func getNodeAddresses(node *ciliumModels.NodeElement) map[*ciliumModels.NodeAddr
 	return addresses
 }
 
+// resolveIP attempts to sanitize 'node' and 'ip', and if successful, returns
+// the name of the node and the IP address specified in the addressing element.
+// If validation fails or this IP should not be pinged, 'ip' is returned as nil.
+func resolveIP(node *ciliumModels.NodeElement, addr *ciliumModels.NodeAddressingElement, proto string, primary bool) (string, *net.IPAddr) {
+	if skipAddress(addr) {
+		return "", nil
+	}
+
+	network := "ip6:icmp"
+	if isIPv4(addr.IP) {
+		network = "ip4:icmp"
+	}
+	scopedLog := log.WithFields(logrus.Fields{
+		logfields.NodeName: node.Name,
+		logfields.IPAddr:   addr.IP,
+		"primary":          primary,
+	})
+
+	ra, err := net.ResolveIPAddr(network, addr.IP)
+	if err != nil {
+		scopedLog.Debug("Skipping probe for node")
+		return "", nil
+	}
+
+	scopedLog.WithField("protocol", proto).Debug("Probing for connectivity to node")
+	return node.Name, ra
+}
+
 // setNodes sets the list of nodes for the prober, and updates the pinger to
 // start sending pings to all of the nodes.
+// setNodes will steal references to nodes referenced from 'nodes', so the
+// caller should not modify them after a call to setNodes.
 func (p *prober) setNodes(nodes nodeMap) {
 	p.Lock()
 	defer p.Unlock()
-	p.nodes = nodes
 
 	for _, n := range nodes {
 		for elem, primary := range getNodeAddresses(n) {
-			if skipAddress(elem) {
-				continue
-			}
-
-			network := "ip6:icmp"
-			if isIPv4(elem.IP) {
-				network = "ip4:icmp"
-			}
-			scopedLog := log.WithFields(logrus.Fields{
-				logfields.NodeName: n.Name,
-				logfields.IPAddr:   elem.IP,
-				"primary":          primary,
-			})
-
-			result := &models.ConnectivityStatus{}
-			ra, err := net.ResolveIPAddr(network, elem.IP)
-			if err == nil {
-				scopedLog.Debug("Probing for connectivity to node")
-				result.Status = "Connection timed out"
-				p.AddIPAddr(ra)
-			} else {
-				scopedLog.Debug("Skipping probe for node")
-				result.Status = "Failed to resolve IP"
-			}
+			_, addr := resolveIP(n, elem, "icmp", primary)
 
 			ip := ipString(elem.IP)
+			result := &models.ConnectivityStatus{}
+			if addr == nil {
+				result.Status = "Failed to resolve IP"
+			} else {
+				result.Status = "Connection timed out"
+				p.AddIPAddr(addr)
+				p.nodes[ip] = n
+			}
+
 			if p.results[ip] == nil {
 				p.results[ip] = &models.PathStatus{
 					IP: elem.IP,
@@ -228,45 +238,42 @@ func (p *prober) httpProbe(node string, ip string, port int) *models.Connectivit
 }
 
 func (p *prober) runHTTPProbe() {
+	nodes := make(map[string]*net.IPAddr)
 	p.RLock()
-	nodes := p.nodes
+	for _, node := range p.nodes {
+		for elem, primary := range getNodeAddresses(node) {
+			if name, addr := resolveIP(node, elem, "icmp", primary); addr != nil {
+				nodes[name] = addr
+			}
+		}
+	}
 	p.RUnlock()
 
-	for _, node := range nodes {
-		for elem := range getNodeAddresses(node) {
-			if skipAddress(elem) {
-				continue
-			}
-
-			status := &models.PathStatus{}
-			ports := map[int]**models.ConnectivityStatus{
-				defaults.HTTPPathPort: &status.HTTP,
-			}
-			for port, result := range ports {
-				*result = p.httpProbe(node.Name, elem.IP, port)
-				if status.HTTP.Status != "" {
-					log.WithFields(logrus.Fields{
-						logfields.NodeName: node.Name,
-						logfields.IPAddr:   elem.IP,
-						logfields.Port:     port,
-					}).Debugf("Failed to probe: %s", status.HTTP.Status)
-				}
-			}
-
-			p.Lock()
-			p.results[ipString(elem.IP)].HTTP = status.HTTP
-			p.Unlock()
+	for name, ip := range nodes {
+		status := &models.PathStatus{}
+		ports := map[int]**models.ConnectivityStatus{
+			defaults.HTTPPathPort: &status.HTTP,
 		}
+		for port, result := range ports {
+			*result = p.httpProbe(name, ip.String(), port)
+			if status.HTTP.Status != "" {
+				log.WithFields(logrus.Fields{
+					logfields.NodeName: name,
+					logfields.IPAddr:   ip.String(),
+					logfields.Port:     port,
+				}).Debugf("Failed to probe: %s", status.HTTP.Status)
+			}
+		}
+
+		p.Lock()
+		p.results[ipString(ip.String())].HTTP = status.HTTP
+		p.Unlock()
 	}
 }
 
 // Done returns a channel that is closed when RunLoop() is stopped by an error.
 // It must be called after the RunLoop() call.
 func (p *prober) Done() <-chan bool {
-	go func() {
-		res := <-p.Pinger.Done()
-		p.done <- res
-	}()
 	return p.done
 }
 
@@ -283,8 +290,8 @@ func (p *prober) Run() error {
 func (p *prober) Stop() {
 	p.Pinger.Stop()
 	close(p.stop)
-	<-p.Pinger.Done()
-	<-p.Done()
+	<-p.proberExited
+	close(p.done)
 }
 
 // RunLoop periodically sends probes out to all of the other cilium nodes to
@@ -309,7 +316,7 @@ func (p *prober) RunLoop() {
 			}
 		}
 		tick.Stop()
-		close(p.done)
+		close(p.proberExited)
 	}()
 }
 
@@ -317,12 +324,13 @@ func (p *prober) RunLoop() {
 // the prober to populate its 'results' map.
 func newProber(s *Server, nodes nodeMap) *prober {
 	prober := &prober{
-		Pinger:  fastping.NewPinger(),
-		server:  s,
-		done:    make(chan bool),
-		stop:    make(chan bool),
-		results: make(map[ipString]*models.PathStatus),
-		nodes:   nodes,
+		Pinger:       fastping.NewPinger(),
+		server:       s,
+		done:         make(chan bool),
+		proberExited: make(chan bool),
+		stop:         make(chan bool),
+		results:      make(map[ipString]*models.PathStatus),
+		nodes:        nodes,
 	}
 	prober.MaxRTT = s.ProbeDeadline
 

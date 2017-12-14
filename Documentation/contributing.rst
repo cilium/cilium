@@ -35,6 +35,10 @@ contribute to Cilium:
 +----------------------------------------------------------------------------------+-----------------------+------------------------------------------------------------+
 | `go-bindata <https://github.com/jteeuwen/go-bindata>`_                           | ``a0ff2567cfb``       | ``go get -u github.com/jteeuwen/go-bindata/...``           |
 +----------------------------------------------------------------------------------+-----------------------+------------------------------------------------------------+
++ `ginkgo <https://github.com/onsi/ginkgo>`_                                       | >= 1.4.0              | ``go get -u github.com/onsi/ginkgo``                       |
++----------------------------------------------------------------------------------+-----------------------+------------------------------------------------------------+
++ `gomega <https://github.com/onsi/gomega>`_                                       | >= 1.2.0              | ``go get -u github.com/onsi/gomega``                       |
++----------------------------------------------------------------------------------+-----------------------+------------------------------------------------------------+
 
 To run Cilium locally on VMs, you need:
 
@@ -236,8 +240,54 @@ Runtime Tests
 After the new version of Cilium is running, you should run the runtime tests:
 
 ::
-   
+
     $ sudo make runtime-tests
+
+Ginkgo runtime tests
+^^^^^^^^^^^^^^^^^^^^
+
+The tests under the ``test/`` directory are built and run using the Ginkgo
+framework. Over time, all runtime tests will migrate to this framework. If
+you're new to Ginkgo, consider reading through the
+`Ginkgo Quickstart <https://onsi.github.io/ginkgo/#getting-started-writing-your-first-test>`_
+guide to understand how to write tests.
+
+These test scripts will invoke ``vagrant`` to create virtual machine(s) to
+run the tests. The tests make heavy use of the Ginkgo ``focus`` concept to
+determine which VMs are necessary to run particular tests. All test names
+*must* begin with one of the following prefixes:
+
+* ``Runtime``: Test cilium in a runtime environment running on a single node.
+* ``K8s``: Create a small multi-node kubernetes environment for testing
+  features beyond a single host, and for testing kubernetes-specific features.
+
+Running all of the Ginkgo tests may take an hour or longer. To run all the
+ginkgo tests, invoke the make command as follows from the root of the cilium
+repository:
+
+::
+
+    $ sudo make -C test/
+
+The first time that this is invoked, the testsuite will pull the
+`testing VMs <https://app.vagrantup.com/cilium/boxes/ginkgo>`_ and provision
+Cilium into them. This may take several minutes, depending on your internet
+connection speed. Subsequent runs of the test will reuse the image.
+
+For more advanced workflows, for example running specific tests, go into the
+``test/` directory and interact with ginkgo directly:
+
+::
+
+    $ cd test/
+    $ ginkgo -- --help | grep -A 1 cilium
+      -cilium.holdEnvironment
+            On failure, hold the environment in its current state
+      -cilium.provision
+            Provision Vagrant boxes and Cilium before running test (default true)
+    $ ginkgo --focus "Policies*" -- -cilium.holdEnvironment
+
+For more information, consult the `Ginkgo documentation <https://onsi.github.io/ginkgo/>`_.
 
 Nightly Tests
 ~~~~~~~~~~~~~
