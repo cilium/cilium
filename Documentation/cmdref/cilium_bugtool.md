@@ -21,7 +21,7 @@ cilium bugtool
       --k8s-namespace string   Kubernetes namespace for Cilium pod (default "kube-system")
   -p, --port int               Port to use for the HTTP server, (default 4444) (default 4444)
       --serve                  Start HTTP server to serve static files
-  -t, --tmp string             Path to store extracted files (default "/tmp/")
+  -t, --tmp string             Path to store extracted files (default "/tmp")
 ```
 
 ### Options inherited from parent commands
