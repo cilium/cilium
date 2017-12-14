@@ -35,18 +35,27 @@ func createArchive(dbgDir string) (string, error) {
 	writer := tar.NewWriter(file)
 	defer writer.Close()
 
-	if _, err := os.Stat(dbgDir); os.IsNotExist(err) {
+	var baseDir string
+	if info, err := os.Stat(dbgDir); os.IsNotExist(err) {
 		fmt.Fprintf(os.Stderr, "Debug directory does not exist %s", err)
 		return "", err
+	} else if err == nil && info.IsDir() {
+		baseDir = filepath.Base(dbgDir)
 	}
 
 	return archivePath, filepath.Walk(dbgDir, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
 		header, err := tar.FileInfoHeader(info, info.Name())
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Failed to compress %s %s", info.Name(), err)
 			return err
 		}
-		header.Name = filepath.Join(dbgDir, strings.TrimPrefix(path, dbgDir))
+
+		if baseDir != "" {
+			header.Name = filepath.Join(baseDir, strings.TrimPrefix(path, dbgDir))
+		}
 
 		if err := writer.WriteHeader(header); err != nil {
 			fmt.Fprintf(os.Stderr, "Failed to write header %s", err)
