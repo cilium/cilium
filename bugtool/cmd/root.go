@@ -24,6 +24,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/daemon/defaults"
@@ -61,7 +62,7 @@ var (
 func init() {
 	BugtoolRootCmd.Flags().BoolVar(&serve, "serve", false, "Start HTTP server to serve static files")
 	BugtoolRootCmd.Flags().IntVarP(&port, "port", "p", 4444, "Port to use for the HTTP server, (default 4444)")
-	BugtoolRootCmd.Flags().StringVarP(&dumpPath, "tmp", "t", "/tmp/", "Path to store extracted files")
+	BugtoolRootCmd.Flags().StringVarP(&dumpPath, "tmp", "t", "/tmp", "Path to store extracted files")
 	BugtoolRootCmd.Flags().StringVarP(&host, "host", "H", "", "URI to server-side API")
 	BugtoolRootCmd.Flags().StringVarP(&k8sNamespace, "k8s-namespace", "", "kube-system", "Kubernetes namespace for Cilium pod")
 	BugtoolRootCmd.Flags().StringVarP(&k8sLabel, "k8s-label", "", "k8s-app=cilium", "Kubernetes label for Cilium pod")
@@ -82,7 +83,9 @@ func runTool() {
 
 	defer printDisclaimer()
 	// Prevent collision with other directories
-	dbgDir, err := ioutil.TempDir(dumpPath, "cilium-bugtool-")
+	nowStr := time.Now().Format("20060102-150405.999-0700-MST")
+	prefix := fmt.Sprintf("cilium-bugtool-%s-", nowStr)
+	dbgDir, err := ioutil.TempDir(dumpPath, prefix)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Failed to create debug directory %s\n", err)
 		os.Exit(1)
