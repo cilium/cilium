@@ -1142,7 +1142,7 @@ func (d *Daemon) removeStaleIDFromPolicyMap(id uint32) {
 
 func (d *Daemon) checkStaleMap(path string, filename string, id string) {
 	if tmp, err := strconv.ParseUint(id, 0, 16); err == nil {
-		if ep := endpointmanager.LookupCiliumID(uint16(tmp)); ep != nil {
+		if ep := endpointmanager.LookupCiliumID(uint16(tmp)); ep == nil {
 			d.removeStaleIDFromPolicyMap(uint32(tmp))
 			d.removeStaleMap(path)
 		}
