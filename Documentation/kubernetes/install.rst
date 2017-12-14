@@ -14,8 +14,6 @@ Should you encounter any issues during the installation, please refer to the
 :ref:`troubleshooting_k8s` section and / or seek help on `Slack channel`.  See
 the :ref:`k8scompatibility` section for kubernetes API version compatibility.
 
-.. _admin_mount_bpffs:
-
 Running Kubernetes with CRD Validation (Recommended)
 ====================================================
 
@@ -42,7 +40,7 @@ to Cilium ``v1.0.0-rc3``.
 To verify that the CNP resource definition contains the validation schema, run
 the following command:
 
-``kubectl get crd ciliumnetworkpolicies.cilium.io -o json`
+``kubectl get crd ciliumnetworkpolicies.cilium.io -o json``
 
 .. code:: bash
 
@@ -100,6 +98,8 @@ will return an error, e.g.:
 
 
 In this case, the policy has a port out of the 0-65535 range.
+
+.. _admin_mount_bpffs:
 
 Mounting the BPF FS (Optional)
 ==============================

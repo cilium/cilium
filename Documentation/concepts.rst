@@ -684,16 +684,16 @@ manage a large number of IP addresses.
 
 Traditionally security enforcement architectures have been based on IP address
 filters.  Let's walk through a simple example: If all pods with the label
-```role=frontend``` should be allowed to initiate connections to all pods with
-the label ```role=backend``` then each cluster node which runs at least one pod
-with the label ```role=backend``` must have a corresponding filter installed
-which allows all IP addresses of all ```role=frontend``` pods to initiate a
-connection to the IP addresses of all local ```role=backend``` pods. All other
+``role=frontend`` should be allowed to initiate connections to all pods with
+the label ``role=backend`` then each cluster node which runs at least one pod
+with the label ``role=backend`` must have a corresponding filter installed
+which allows all IP addresses of all ``role=frontend`` pods to initiate a
+connection to the IP addresses of all local ``role=backend`` pods. All other
 connection requests should be denied. This could look like this: If the
 destination address is *10.1.1.2* then allow the connection only if the source
 address is one of the following *[10.1.2.2,10.1.2.3,20.4.9.1]*.
 
-Every time a new pod with the label ```role=frontend``` or ``role=backend`` is
+Every time a new pod with the label ``role=frontend`` or ``role=backend`` is
 either started or stopped, the rules on every cluster node which run any such
 pods must be updated by either adding or removing the corresponding IP address
 from the list of allowed IP addresses. In large distributed applications, this
