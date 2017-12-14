@@ -28,11 +28,27 @@ create_policy() {
   fi
 }
 
+create_policy_labels() {
+  if [[ "${k8s_version}" != 1.6.* ]]; then
+    kubectl create -f "${headless_dir}/policy-label.yaml"
+  else
+    kubectl create -f "${headless_dir}/policy-label-v1.yaml"
+  fi
+}
+
 delete_policy() {
   if [[ "${k8s_version}" != 1.6.* ]]; then
     kubectl delete -f "${headless_dir}/policy.yaml"
   else
     kubectl delete -f "${headless_dir}/policy-v1.yaml"
+  fi
+}
+
+delete_policy_labels() {
+  if [[ "${k8s_version}" != 1.6.* ]]; then
+    kubectl delete -f "${headless_dir}/policy-label.yaml"
+  else
+    kubectl delete -f "${headless_dir}/policy-label-v1.yaml"
   fi
 }
 
@@ -104,6 +120,54 @@ wait_for_cilium_ep_gen k8s ${NAMESPACE} ${LOCAL_CILIUM_POD}
 #if [ "${expected_cidr}" != "${cidr}" ]; then
 #  abort "endpoint IP $expected_cidr isn't found in policy egress toCIDR rules"
 #fi
+
+x=1
+until kubectl exec -n kube-system ${LOCAL_CILIUM_POD} cilium endpoint get ${epID} | grep -q "${expected_cidr}"; do
+  if [ $x -eq 10 ]; then
+    endpoint=$(kubectl exec -n kube-system ${LOCAL_CILIUM_POD} cilium endpoint get ${epID})
+    log "endpoint get output: ${endpoint}"
+    abort "endpoint IP $expected_cidr isn't found in policy egress toCIDR rules"
+    break
+  fi
+  to_services_delay
+  x=$[x + 1]
+done
+
+delete_policy
+kubectl delete -f "${headless_dir}/endpoint.yaml"
+wait_for_cilium_ep_gen k8s ${NAMESPACE} ${LOCAL_CILIUM_POD}
+
+# same tests, for policy matching by labels instead of name/namespace
+expected_cidr=198.49.23.145/32
+log "creating policy for labeled service, then endpoint. checking if ip is in toCIDR rules of endpoint"
+
+create_policy_labels
+kubectl create -f "${headless_dir}/endpoint-labeled.yaml"
+wait_for_cilium_ep_gen k8s ${NAMESPACE} ${LOCAL_CILIUM_POD}
+
+epID=$(kubectl exec -n kube-system ${LOCAL_CILIUM_POD} cilium endpoint list | awk '$3=="Enabled" { print $1 }')
+log "endpoint ID: ${epID}"
+
+x=1
+until kubectl exec -n kube-system ${LOCAL_CILIUM_POD} cilium endpoint get ${epID} | grep -q "${expected_cidr}"; do
+  if [ $x -eq 10 ]; then
+    endpoint=$(kubectl exec -n kube-system ${LOCAL_CILIUM_POD} cilium endpoint get ${epID})
+    log "endpoint get output: ${endpoint}"
+    abort "endpoint IP $expected_cidr isn't found in policy egress toCIDR rules"
+    break
+  fi
+  to_services_delay
+  x=$[x + 1]
+done
+
+delete_policy_labels
+kubectl delete -f "${headless_dir}/endpoint-labeled.yaml"
+wait_for_cilium_ep_gen k8s ${NAMESPACE} ${LOCAL_CILIUM_POD}
+
+log "creating endpoint, then policy using labels, checking if ip is in toCIDR rules of endpoint"
+kubectl create -f "${headless_dir}/endpoint.yaml"
+create_policy_labels
+wait_for_cilium_ep_gen k8s ${NAMESPACE} ${LOCAL_CILIUM_POD}
 
 x=1
 until kubectl exec -n kube-system ${LOCAL_CILIUM_POD} cilium endpoint get ${epID} | grep -q "${expected_cidr}"; do

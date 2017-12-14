@@ -4,3 +4,12 @@ metadata:
   name: headless-service
 spec:
   clusterIP: None
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: headless-service-labeled
+  labels:
+    "app": "very-headless"
+spec:
+  clusterIP: None
