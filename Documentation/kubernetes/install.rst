@@ -19,28 +19,48 @@ Should you encounter any issues during the installation, please refer to the
 :ref:`troubleshooting_k8s` section and / or seek help on `Slack channel`.  See
 the :ref:`k8scompatibility` section for kubernetes API version compatibility.
 
+Kubernetes Requirements
+=======================
+
+Enable automatic node CIDR allocation (Recommended)
+---------------------------------------------------
+
+Kubernetes has the capability to automatically allocate and assign per node IP
+allocation CIDR. Cilium automatically uses this feature if enabled. This is the
+easiest method to handle IP allocation in a Kubernetes cluster. To enable this
+feature, simply add the following flag when starting
+``kube-controller-manager``:
+
+.. code:: bash
+
+        --allocate-node-cidrs
+
+This option is not required but highly recommended.
+
 Running Kubernetes with CRD Validation (Recommended)
-====================================================
+----------------------------------------------------
 
 Custom Resource Validation was introduced in Kubernetes since version ``1.8.0``.
 This is still considered an alpha feature in Kubernetes ``1.8.0`` and beta in
 Kubernetes ``1.9.0``.
 
 Since Cilium ``v1.0.0-rc3``, Cilium will create, or update in case it exists,
-the Cilium Network Policy (CNP) Resource Definition with the embedded validation
-schema. This allows the validation of CNP to be done on the kube-apiserver for
-the most common user errors.
+the Cilium Network Policy (CNP) Resource Definition with the embedded
+validation schema. This allows the validation of CiliumNetworkPolicy to be done
+on the kube-apiserver when the policy is imported with an ability to provide
+direct feedback when importing the resource.
 
-To enable this feature the flag ``--feature-gates=CustomResourceValidation=true``
-must be set when starting kube-apiserver. As for Cilium, it's already included
-by default since ``v1.0.0-rc3`` so no further actions are necessary.
+To enable this feature, the flag ``--feature-gates=CustomResourceValidation=true``
+must be set when starting kube-apiserver. Cilium itself will automatically make
+use of this feature and no additional flag is required.
 
-**Note**: In case there is an invalid CNP before updating to Cilium
-``v1.0.0-rc3``, which contains the validator, the kube-apiserver validator will
-prevent Cilium from updating that invalid CNP with Cilium node status. By
-checking Cilium logs for ``unable to update CNP, retrying...``, it is possible
-to determine which Cilium Network Policies are considered invalid after updating
-to Cilium ``v1.0.0-rc3``.
+.. note:: In case there is an invalid CNP before updating to Cilium
+          ``v1.0.0-rc3``, which contains the validator, the kube-apiserver
+          validator will prevent Cilium from updating that invalid CNP with
+          Cilium node status. By checking Cilium logs for ``unable to update
+          CNP, retrying...``, it is possible to determine which Cilium Network
+          Policies are considered invalid after updating to Cilium
+          ``v1.0.0-rc3``.
 
 To verify that the CNP resource definition contains the validation schema, run
 the following command:
