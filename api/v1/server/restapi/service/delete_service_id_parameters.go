@@ -29,7 +29,7 @@ func NewDeleteServiceIDParams() DeleteServiceIDParams {
 type DeleteServiceIDParams struct {
 
 	// HTTP Request Object
-	HTTPRequest *http.Request
+	HTTPRequest *http.Request `json:"-"`
 
 	/*ID of service
 	  Required: true

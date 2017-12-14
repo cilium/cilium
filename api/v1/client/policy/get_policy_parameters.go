@@ -124,8 +124,10 @@ func (o *GetPolicyParams) WriteToRequest(r runtime.ClientRequest, reg strfmt.Reg
 	}
 	var res []error
 
-	if err := r.SetBodyParam(o.Labels); err != nil {
-		return err
+	if o.Labels != nil {
+		if err := r.SetBodyParam(o.Labels); err != nil {
+			return err
+		}
 	}
 
 	if len(res) > 0 {

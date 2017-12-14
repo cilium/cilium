@@ -14,7 +14,6 @@ import (
 
 // StatusResponse Health and status information of daemon
 // swagger:model StatusResponse
-
 type StatusResponse struct {
 
 	// Status of Cilium daemon
@@ -38,20 +37,6 @@ type StatusResponse struct {
 	// Status of the node monitor
 	NodeMonitor *MonitorStatus `json:"nodeMonitor,omitempty"`
 }
-
-/* polymorph StatusResponse cilium false */
-
-/* polymorph StatusResponse cluster false */
-
-/* polymorph StatusResponse container-runtime false */
-
-/* polymorph StatusResponse ipam false */
-
-/* polymorph StatusResponse kubernetes false */
-
-/* polymorph StatusResponse kvstore false */
-
-/* polymorph StatusResponse nodeMonitor false */
 
 // Validate validates this status response
 func (m *StatusResponse) Validate(formats strfmt.Registry) error {

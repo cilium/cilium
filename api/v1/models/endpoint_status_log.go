@@ -16,7 +16,6 @@ import (
 
 // EndpointStatusLog Status log of endpoint
 // swagger:model EndpointStatusLog
-
 type EndpointStatusLog []*EndpointStatusChange
 
 // Validate validates this endpoint status log

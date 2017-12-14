@@ -152,12 +152,10 @@ func (o *PatchEndpointIDParams) WriteToRequest(r runtime.ClientRequest, reg strf
 	}
 	var res []error
 
-	if o.Endpoint == nil {
-		o.Endpoint = new(models.EndpointChangeRequest)
-	}
-
-	if err := r.SetBodyParam(o.Endpoint); err != nil {
-		return err
+	if o.Endpoint != nil {
+		if err := r.SetBodyParam(o.Endpoint); err != nil {
+			return err
+		}
 	}
 
 	// path param id

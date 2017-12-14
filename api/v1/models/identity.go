@@ -14,7 +14,6 @@ import (
 
 // Identity Security identity
 // swagger:model Identity
-
 type Identity struct {
 
 	// Unique identifier
@@ -26,12 +25,6 @@ type Identity struct {
 	// SHA256 of labels
 	LabelsSHA256 string `json:"labelsSHA256,omitempty"`
 }
-
-/* polymorph Identity id false */
-
-/* polymorph Identity labels false */
-
-/* polymorph Identity labelsSHA256 false */
 
 // Validate validates this identity
 func (m *Identity) Validate(formats strfmt.Registry) error {

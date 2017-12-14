@@ -28,7 +28,7 @@ func NewDeleteEndpointIDParams() DeleteEndpointIDParams {
 type DeleteEndpointIDParams struct {
 
 	// HTTP Request Object
-	HTTPRequest *http.Request
+	HTTPRequest *http.Request `json:"-"`
 
 	/*String describing an endpoint with the format `[prefix:]id`. If no prefix
 	is specified, a prefix of `cilium-local:` is assumed. Not all endpoints

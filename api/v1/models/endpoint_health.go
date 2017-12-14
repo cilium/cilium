@@ -14,7 +14,6 @@ import (
 
 // EndpointHealth Health of the endpoint
 // swagger:model EndpointHealth
-
 type EndpointHealth struct {
 
 	// bpf
@@ -29,14 +28,6 @@ type EndpointHealth struct {
 	// policy
 	Policy EndpointHealthStatus `json:"policy,omitempty"`
 }
-
-/* polymorph EndpointHealth bpf false */
-
-/* polymorph EndpointHealth connected false */
-
-/* polymorph EndpointHealth overallHealth false */
-
-/* polymorph EndpointHealth policy false */
 
 // Validate validates this endpoint health
 func (m *EndpointHealth) Validate(formats strfmt.Registry) error {

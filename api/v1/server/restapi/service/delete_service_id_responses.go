@@ -31,6 +31,8 @@ func NewDeleteServiceIDOK() *DeleteServiceIDOK {
 // WriteResponse to the client
 func (o *DeleteServiceIDOK) WriteResponse(rw http.ResponseWriter, producer runtime.Producer) {
 
+	rw.Header().Del(runtime.HeaderContentType) //Remove Content-Type on empty responses
+
 	rw.WriteHeader(200)
 }
 
@@ -51,6 +53,8 @@ func NewDeleteServiceIDNotFound() *DeleteServiceIDNotFound {
 
 // WriteResponse to the client
 func (o *DeleteServiceIDNotFound) WriteResponse(rw http.ResponseWriter, producer runtime.Producer) {
+
+	rw.Header().Del(runtime.HeaderContentType) //Remove Content-Type on empty responses
 
 	rw.WriteHeader(404)
 }

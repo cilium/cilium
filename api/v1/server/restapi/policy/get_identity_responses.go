@@ -25,7 +25,7 @@ type GetIdentityOK struct {
 	/*
 	  In: Body
 	*/
-	Payload []*models.Identity `json:"body,omitempty"`
+	Payload models.GetIdentityOKBody `json:"body,omitempty"`
 }
 
 // NewGetIdentityOK creates GetIdentityOK with default headers values
@@ -34,13 +34,13 @@ func NewGetIdentityOK() *GetIdentityOK {
 }
 
 // WithPayload adds the payload to the get identity o k response
-func (o *GetIdentityOK) WithPayload(payload []*models.Identity) *GetIdentityOK {
+func (o *GetIdentityOK) WithPayload(payload models.GetIdentityOKBody) *GetIdentityOK {
 	o.Payload = payload
 	return o
 }
 
 // SetPayload sets the payload to the get identity o k response
-func (o *GetIdentityOK) SetPayload(payload []*models.Identity) {
+func (o *GetIdentityOK) SetPayload(payload models.GetIdentityOKBody) {
 	o.Payload = payload
 }
 
@@ -50,7 +50,7 @@ func (o *GetIdentityOK) WriteResponse(rw http.ResponseWriter, producer runtime.P
 	rw.WriteHeader(200)
 	payload := o.Payload
 	if payload == nil {
-		payload = make([]*models.Identity, 0, 50)
+		payload = make(models.GetIdentityOKBody, 0, 50)
 	}
 
 	if err := producer.Produce(rw, payload); err != nil {
@@ -76,6 +76,8 @@ func NewGetIdentityNotFound() *GetIdentityNotFound {
 
 // WriteResponse to the client
 func (o *GetIdentityNotFound) WriteResponse(rw http.ResponseWriter, producer runtime.Producer) {
+
+	rw.Header().Del(runtime.HeaderContentType) //Remove Content-Type on empty responses
 
 	rw.WriteHeader(404)
 }

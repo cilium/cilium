@@ -33,7 +33,7 @@ func NewPutServiceIDParams() PutServiceIDParams {
 type PutServiceIDParams struct {
 
 	// HTTP Request Object
-	HTTPRequest *http.Request
+	HTTPRequest *http.Request `json:"-"`
 
 	/*Service configuration
 	  Required: true

@@ -14,7 +14,6 @@ import (
 
 // L4Policy L4 endpoint policy
 // swagger:model L4Policy
-
 type L4Policy struct {
 
 	// List of L4 egress rules
@@ -23,10 +22,6 @@ type L4Policy struct {
 	// List of L4 ingress rules
 	Ingress []string `json:"ingress"`
 }
-
-/* polymorph L4Policy egress false */
-
-/* polymorph L4Policy ingress false */
 
 // Validate validates this l4 policy
 func (m *L4Policy) Validate(formats strfmt.Registry) error {

@@ -25,7 +25,7 @@ type GetEndpointOK struct {
 	/*
 	  In: Body
 	*/
-	Payload []*models.Endpoint `json:"body,omitempty"`
+	Payload models.GetEndpointOKBody `json:"body,omitempty"`
 }
 
 // NewGetEndpointOK creates GetEndpointOK with default headers values
@@ -34,13 +34,13 @@ func NewGetEndpointOK() *GetEndpointOK {
 }
 
 // WithPayload adds the payload to the get endpoint o k response
-func (o *GetEndpointOK) WithPayload(payload []*models.Endpoint) *GetEndpointOK {
+func (o *GetEndpointOK) WithPayload(payload models.GetEndpointOKBody) *GetEndpointOK {
 	o.Payload = payload
 	return o
 }
 
 // SetPayload sets the payload to the get endpoint o k response
-func (o *GetEndpointOK) SetPayload(payload []*models.Endpoint) {
+func (o *GetEndpointOK) SetPayload(payload models.GetEndpointOKBody) {
 	o.Payload = payload
 }
 
@@ -50,7 +50,7 @@ func (o *GetEndpointOK) WriteResponse(rw http.ResponseWriter, producer runtime.P
 	rw.WriteHeader(200)
 	payload := o.Payload
 	if payload == nil {
-		payload = make([]*models.Endpoint, 0, 50)
+		payload = make(models.GetEndpointOKBody, 0, 50)
 	}
 
 	if err := producer.Produce(rw, payload); err != nil {
@@ -76,6 +76,8 @@ func NewGetEndpointNotFound() *GetEndpointNotFound {
 
 // WriteResponse to the client
 func (o *GetEndpointNotFound) WriteResponse(rw http.ResponseWriter, producer runtime.Producer) {
+
+	rw.Header().Del(runtime.HeaderContentType) //Remove Content-Type on empty responses
 
 	rw.WriteHeader(404)
 }

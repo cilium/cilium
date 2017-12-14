@@ -6,8 +6,6 @@ package models
 // Editing this file might prove futile when you re-run the swagger generate command
 
 import (
-	"strconv"
-
 	strfmt "github.com/go-openapi/strfmt"
 
 	"github.com/go-openapi/errors"
@@ -16,7 +14,6 @@ import (
 
 // DebugInfo groups some debugging related information on the agent
 // swagger:model DebugInfo
-
 type DebugInfo struct {
 
 	// cilium memory map
@@ -32,7 +29,7 @@ type DebugInfo struct {
 	CiliumVersion string `json:"cilium-version,omitempty"`
 
 	// endpoint list
-	EndpointList []*Endpoint `json:"endpoint-list"`
+	EndpointList DebugInfoEndpointList `json:"endpoint-list"`
 
 	// environment variables
 	EnvironmentVariables []string `json:"environment-variables"`
@@ -44,26 +41,8 @@ type DebugInfo struct {
 	Policy *Policy `json:"policy,omitempty"`
 
 	// service list
-	ServiceList []*Service `json:"service-list"`
+	ServiceList DebugInfoServiceList `json:"service-list"`
 }
-
-/* polymorph DebugInfo cilium-memory-map false */
-
-/* polymorph DebugInfo cilium-nodemonitor-memory-map false */
-
-/* polymorph DebugInfo cilium-status false */
-
-/* polymorph DebugInfo cilium-version false */
-
-/* polymorph DebugInfo endpoint-list false */
-
-/* polymorph DebugInfo environment-variables false */
-
-/* polymorph DebugInfo kernel-version false */
-
-/* polymorph DebugInfo policy false */
-
-/* polymorph DebugInfo service-list false */
 
 // Validate validates this debug info
 func (m *DebugInfo) Validate(formats strfmt.Registry) error {
@@ -74,22 +53,12 @@ func (m *DebugInfo) Validate(formats strfmt.Registry) error {
 		res = append(res, err)
 	}
 
-	if err := m.validateEndpointList(formats); err != nil {
-		// prop
-		res = append(res, err)
-	}
-
 	if err := m.validateEnvironmentVariables(formats); err != nil {
 		// prop
 		res = append(res, err)
 	}
 
 	if err := m.validatePolicy(formats); err != nil {
-		// prop
-		res = append(res, err)
-	}
-
-	if err := m.validateServiceList(formats); err != nil {
 		// prop
 		res = append(res, err)
 	}
@@ -119,33 +88,6 @@ func (m *DebugInfo) validateCiliumStatus(formats strfmt.Registry) error {
 	return nil
 }
 
-func (m *DebugInfo) validateEndpointList(formats strfmt.Registry) error {
-
-	if swag.IsZero(m.EndpointList) { // not required
-		return nil
-	}
-
-	for i := 0; i < len(m.EndpointList); i++ {
-
-		if swag.IsZero(m.EndpointList[i]) { // not required
-			continue
-		}
-
-		if m.EndpointList[i] != nil {
-
-			if err := m.EndpointList[i].Validate(formats); err != nil {
-				if ve, ok := err.(*errors.Validation); ok {
-					return ve.ValidateName("endpoint-list" + "." + strconv.Itoa(i))
-				}
-				return err
-			}
-		}
-
-	}
-
-	return nil
-}
-
 func (m *DebugInfo) validateEnvironmentVariables(formats strfmt.Registry) error {
 
 	if swag.IsZero(m.EnvironmentVariables) { // not required
@@ -169,33 +111,6 @@ func (m *DebugInfo) validatePolicy(formats strfmt.Registry) error {
 			}
 			return err
 		}
-	}
-
-	return nil
-}
-
-func (m *DebugInfo) validateServiceList(formats strfmt.Registry) error {
-
-	if swag.IsZero(m.ServiceList) { // not required
-		return nil
-	}
-
-	for i := 0; i < len(m.ServiceList); i++ {
-
-		if swag.IsZero(m.ServiceList[i]) { // not required
-			continue
-		}
-
-		if m.ServiceList[i] != nil {
-
-			if err := m.ServiceList[i].Validate(formats); err != nil {
-				if ve, ok := err.(*errors.Validation); ok {
-					return ve.ValidateName("service-list" + "." + strconv.Itoa(i))
-				}
-				return err
-			}
-		}
-
 	}
 
 	return nil

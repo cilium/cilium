@@ -47,7 +47,7 @@ func NewGetServiceOK() *GetServiceOK {
 Success
 */
 type GetServiceOK struct {
-	Payload []*models.Service
+	Payload models.GetServiceOKBody
 }
 
 func (o *GetServiceOK) Error() string {

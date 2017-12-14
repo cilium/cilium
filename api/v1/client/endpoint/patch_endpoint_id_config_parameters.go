@@ -152,10 +152,6 @@ func (o *PatchEndpointIDConfigParams) WriteToRequest(r runtime.ClientRequest, re
 	}
 	var res []error
 
-	if err := r.SetBodyParam(o.Configuration); err != nil {
-		return err
-	}
-
 	// path param id
 	if err := r.SetPathParam("id", o.ID); err != nil {
 		return err

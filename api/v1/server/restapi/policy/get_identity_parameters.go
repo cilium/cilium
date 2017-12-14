@@ -30,7 +30,7 @@ func NewGetIdentityParams() GetIdentityParams {
 type GetIdentityParams struct {
 
 	// HTTP Request Object
-	HTTPRequest *http.Request
+	HTTPRequest *http.Request `json:"-"`
 
 	/*List of labels
 
