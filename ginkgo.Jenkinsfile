@@ -28,6 +28,9 @@ pipeline {
             steps {
                 sh "cd ${TESTDIR}; make tests-ginkgo"
             }
+            post {
+                sh "cd ${TESTDIR}; make clean-ginkgo-tests || true"
+            }
         }
         stage('BDD-Test') {
             environment {
@@ -53,7 +56,7 @@ pipeline {
                     junit 'test/*.xml'
                     // Temporary workaround to test cleanup
                     // rm -rf ${GOPATH}/src/github.com/cilium/cilium
-                    sh 'cd test/; ./post_build_agent.sh || true'                    
+                    sh 'cd test/; ./post_build_agent.sh || true'
                     sh 'cd test/; vagrant destroy -f'
                     sh 'cd test/; K8S_VERSION=1.6 vagrant destroy -f'
                 }

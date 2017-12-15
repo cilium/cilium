@@ -29,6 +29,10 @@ tests-common-ginkgo: force
 	# Remove the networks
 	docker-compose -f test/docker-compose.yml -p $$JOB_BASE_NAME-$$BUILD_NUMBER down
 
+clean-ginkgo-tests:
+	docker-compose -f test/docker-compose.yml -p $$JOB_BASE_NAME-$$BUILD_NUMBER down
+	docker-compose -f test/docker-compose.yml -p $$JOB_BASE_NAME-$$BUILD_NUMBER rm
+
 tests-common: force
 	tests/00-fmt.sh
 	go vet $(GOFILES)
