@@ -148,18 +148,23 @@ func (ds *PolicyTestSuite) TestL4Policy(c *C) {
 	expected.Ingress["80/TCP"] = L4Filter{
 		Port: 80, Protocol: api.ProtoTCP, U8Proto: 6, FromEndpoints: nil,
 		L7Parser: "http", L7RulesPerEp: l7map, Ingress: true,
+		DerivedFromRules: labels.LabelArrayList{nil},
 	}
 	expected.Ingress["8080/TCP"] = L4Filter{
 		Port: 8080, Protocol: api.ProtoTCP, U8Proto: 6, FromEndpoints: nil,
 		L7Parser: "http", L7RulesPerEp: l7map, Ingress: true,
+		DerivedFromRules: labels.LabelArrayList{nil},
 	}
+
 	expected.Egress["3000/TCP"] = L4Filter{
 		Port: 3000, Protocol: api.ProtoTCP, U8Proto: 6, Ingress: false,
-		L7RulesPerEp: L7DataMap{},
+		L7RulesPerEp:     L7DataMap{},
+		DerivedFromRules: labels.LabelArrayList{nil},
 	}
 	expected.Egress["3000/UDP"] = L4Filter{
 		Port: 3000, Protocol: api.ProtoUDP, U8Proto: 17, Ingress: false,
-		L7RulesPerEp: L7DataMap{},
+		L7RulesPerEp:     L7DataMap{},
+		DerivedFromRules: labels.LabelArrayList{nil},
 	}
 
 	state := traceState{}
@@ -219,14 +224,17 @@ func (ds *PolicyTestSuite) TestL4Policy(c *C) {
 	expected.Ingress["80/TCP"] = L4Filter{
 		Port: 80, Protocol: api.ProtoTCP, U8Proto: 6, FromEndpoints: nil,
 		L7Parser: "http", L7RulesPerEp: l7map, Ingress: true,
+		DerivedFromRules: labels.LabelArrayList{nil, nil},
 	}
 	expected.Egress["3000/TCP"] = L4Filter{
 		Port: 3000, Protocol: api.ProtoTCP, U8Proto: 6, Ingress: false,
-		L7RulesPerEp: L7DataMap{},
+		L7RulesPerEp:     L7DataMap{},
+		DerivedFromRules: labels.LabelArrayList{nil},
 	}
 	expected.Egress["3000/UDP"] = L4Filter{
 		Port: 3000, Protocol: api.ProtoUDP, U8Proto: 17, Ingress: false,
-		L7RulesPerEp: L7DataMap{},
+		L7RulesPerEp:     L7DataMap{},
+		DerivedFromRules: labels.LabelArrayList{nil},
 	}
 
 	state = traceState{}
@@ -280,6 +288,7 @@ func (ds *PolicyTestSuite) TestMergeL4Policy(c *C) {
 	expected.Ingress["80/TCP"] = L4Filter{
 		Port: 80, Protocol: api.ProtoTCP, U8Proto: 6, FromEndpoints: mergedES,
 		L7Parser: "", L7RulesPerEp: L7DataMap{}, Ingress: true,
+		DerivedFromRules: labels.LabelArrayList{nil, nil},
 	}
 
 	state := traceState{}
@@ -350,6 +359,7 @@ func (ds *PolicyTestSuite) TestMergeL7Policy(c *C) {
 	expected.Ingress["80/TCP"] = L4Filter{
 		Port: 80, Protocol: api.ProtoTCP, U8Proto: 6, FromEndpoints: nil,
 		L7Parser: "http", L7RulesPerEp: l7map, Ingress: true,
+		DerivedFromRules: labels.LabelArrayList{nil, nil, nil},
 	}
 
 	state := traceState{}
@@ -418,6 +428,7 @@ func (ds *PolicyTestSuite) TestMergeL7Policy(c *C) {
 	expected.Ingress["80/TCP"] = L4Filter{
 		Port: 80, Protocol: api.ProtoTCP, U8Proto: 6, FromEndpoints: nil,
 		L7Parser: "kafka", L7RulesPerEp: l7map, Ingress: true,
+		DerivedFromRules: labels.LabelArrayList{nil, nil, nil},
 	}
 
 	state = traceState{}
@@ -495,6 +506,7 @@ func (ds *PolicyTestSuite) TestMergeL7Policy(c *C) {
 	expected.Ingress["80/TCP"] = L4Filter{
 		Port: 80, Protocol: api.ProtoTCP, U8Proto: 6, FromEndpoints: nil,
 		L7Parser: "kafka", L7RulesPerEp: l7map, Ingress: true,
+		DerivedFromRules: labels.LabelArrayList{nil, nil},
 	}
 
 	state = traceState{}
@@ -861,5 +873,123 @@ func (ds *PolicyTestSuite) TestL3RuleLabels(c *C) {
 			c.Assert(out, Not(IsNil), Commentf(test.description))
 			c.Assert(out.DerivedFromRules, comparator.DeepEquals, test.expectedEgressLabels[cidrKey], Commentf(test.description))
 		}
+	}
+}
+
+func (ds *PolicyTestSuite) TestL4RuleLabels(c *C) {
+	ruleLabels := map[string]labels.LabelArray{
+		"rule0": labels.ParseLabelArray("name=apiRule0"),
+		"rule1": labels.ParseLabelArray("name=apiRule1"),
+		"rule2": labels.ParseLabelArray("name=apiRule2"),
+	}
+
+	rules := map[string]api.Rule{
+		"rule0": {
+			EndpointSelector: api.NewESFromLabels(labels.ParseSelectLabel("bar")),
+			Labels:           ruleLabels["rule0"],
+			Ingress:          []api.IngressRule{},
+			Egress:           []api.EgressRule{},
+		},
+
+		"rule1": {
+			EndpointSelector: api.NewESFromLabels(labels.ParseSelectLabel("bar")),
+			Labels:           ruleLabels["rule1"],
+			Ingress: []api.IngressRule{
+				{
+					ToPorts: []api.PortRule{{
+						Ports: []api.PortProtocol{{Port: "1010", Protocol: api.ProtoTCP}},
+					}},
+				},
+			},
+			Egress: []api.EgressRule{
+				{
+					ToPorts: []api.PortRule{{
+						Ports: []api.PortProtocol{{Port: "1100", Protocol: api.ProtoTCP}},
+					}},
+				},
+			},
+		},
+		"rule2": {
+			EndpointSelector: api.NewESFromLabels(labels.ParseSelectLabel("bar")),
+			Labels:           ruleLabels["rule2"],
+			Ingress: []api.IngressRule{
+				{
+					ToPorts: []api.PortRule{{
+						Ports: []api.PortProtocol{{Port: "1020", Protocol: api.ProtoTCP}},
+					}},
+				},
+			},
+			Egress: []api.EgressRule{
+				{
+					ToPorts: []api.PortRule{{
+						Ports: []api.PortProtocol{{Port: "1200", Protocol: api.ProtoTCP}},
+					}},
+				},
+			},
+		},
+	}
+
+	testCases := []struct {
+		description           string                           // the description to print in asserts
+		rulesToApply          []string                         // the rules from the rules map to resolve, in order
+		expectedIngressLabels map[string]labels.LabelArrayList // the slice of LabelArray we should see, in order
+		expectedEgressLabels  map[string]labels.LabelArrayList // the slice of LabelArray we should see, in order
+
+	}{
+		{
+			description:           "Empty rule that matches. Should not apply labels",
+			rulesToApply:          []string{"rule0"},
+			expectedIngressLabels: map[string]labels.LabelArrayList{},
+			expectedEgressLabels:  map[string]labels.LabelArrayList{},
+		},
+		{
+			description:           "A rule that matches. Should apply labels",
+			rulesToApply:          []string{"rule1"},
+			expectedIngressLabels: map[string]labels.LabelArrayList{"1010/TCP": {ruleLabels["rule1"]}},
+			expectedEgressLabels:  map[string]labels.LabelArrayList{"1100/TCP": {ruleLabels["rule1"]}},
+		}, {
+			description:  "Multiple matching rules. Should apply labels from all that have rule entries",
+			rulesToApply: []string{"rule0", "rule1", "rule2"},
+			expectedIngressLabels: map[string]labels.LabelArrayList{
+				"1010/TCP": {ruleLabels["rule1"]},
+				"1020/TCP": {ruleLabels["rule2"]}},
+			expectedEgressLabels: map[string]labels.LabelArrayList{
+				"1100/TCP": {ruleLabels["rule1"]},
+				"1200/TCP": {ruleLabels["rule2"]}},
+		}}
+
+	// endpoint selector for all tests
+	toBar := &SearchContext{To: labels.ParseSelectLabelArray("bar")}
+
+	for _, test := range testCases {
+		finalPolicy := NewL4Policy()
+		for _, r := range test.rulesToApply {
+			apiRule := rules[r]
+			err := apiRule.Sanitize()
+			c.Assert(err, IsNil, Commentf("Cannot sanitize api.Rule: %+v", apiRule))
+
+			rule := &rule{Rule: apiRule}
+			err = rule.sanitize()
+			c.Assert(err, IsNil, Commentf("Cannot sanitize Rule: %+v", rule))
+
+			rule.resolveL4Policy(toBar, &traceState{}, finalPolicy)
+		}
+
+		c.Assert(len(finalPolicy.Ingress), Equals, len(test.expectedIngressLabels), Commentf(test.description))
+		for portProto := range test.expectedIngressLabels {
+			out, found := finalPolicy.Ingress[portProto]
+			c.Assert(found, Equals, true, Commentf(test.description))
+			c.Assert(out, NotNil, Commentf(test.description))
+			c.Assert(out.DerivedFromRules, comparator.DeepEquals, test.expectedIngressLabels[portProto], Commentf(test.description))
+		}
+
+		c.Assert(len(finalPolicy.Egress), Equals, len(test.expectedEgressLabels), Commentf(test.description))
+		for portProto := range test.expectedEgressLabels {
+			out, found := finalPolicy.Egress[portProto]
+			c.Assert(found, Equals, true, Commentf(test.description))
+			c.Assert(out, Not(IsNil), Commentf(test.description))
+			c.Assert(out.DerivedFromRules, comparator.DeepEquals, test.expectedEgressLabels[portProto], Commentf(test.description))
+		}
+
 	}
 }

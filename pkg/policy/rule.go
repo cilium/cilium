@@ -102,15 +102,15 @@ func (policy *L4Filter) addFromEndpoints(fromEndpoints []api.EndpointSelector) b
 }
 
 func mergeL4Port(ctx *SearchContext, fromEndpoints []api.EndpointSelector, r api.PortRule, p api.PortProtocol,
-	dir string, proto api.L4Proto, resMap L4PolicyMap) (int, error) {
+	dir string, proto api.L4Proto, ruleLabels labels.LabelArray, resMap L4PolicyMap) (int, error) {
 
 	key := p.Port + "/" + string(proto)
 	v, ok := resMap[key]
 	if !ok {
-		resMap[key] = CreateL4Filter(fromEndpoints, r, p, dir, proto)
+		resMap[key] = CreateL4Filter(fromEndpoints, r, p, dir, proto, ruleLabels)
 		return 1, nil
 	}
-	l4Filter := CreateL4Filter(fromEndpoints, r, p, dir, proto)
+	l4Filter := CreateL4Filter(fromEndpoints, r, p, dir, proto, ruleLabels)
 	if l4Filter.L7Parser != "" {
 		if v.L7Parser == "" {
 			v.L7Parser = l4Filter.L7Parser
@@ -168,12 +168,13 @@ func mergeL4Port(ctx *SearchContext, fromEndpoints []api.EndpointSelector, r api
 		}
 	}
 
+	v.DerivedFromRules = append(v.DerivedFromRules, ruleLabels)
 	resMap[key] = v
 	return 1, nil
 }
 
 func mergeL4(ctx *SearchContext, dir string, fromEndpoints []api.EndpointSelector, portRules []api.PortRule,
-	resMap L4PolicyMap) (int, error) {
+	ruleLabels labels.LabelArray, resMap L4PolicyMap) (int, error) {
 
 	if len(portRules) == 0 {
 		ctx.PolicyTrace("    No L4 rules\n")
@@ -218,19 +219,19 @@ func mergeL4(ctx *SearchContext, dir string, fromEndpoints []api.EndpointSelecto
 		for _, p := range r.Ports {
 			var cnt int
 			if p.Protocol != api.ProtoAny {
-				cnt, err = mergeL4Port(ctx, fromEndpoints, r, p, dir, p.Protocol, resMap)
+				cnt, err = mergeL4Port(ctx, fromEndpoints, r, p, dir, p.Protocol, ruleLabels, resMap)
 				if err != nil {
 					return found, err
 				}
 				found += cnt
 			} else {
-				cnt, err = mergeL4Port(ctx, fromEndpoints, r, p, dir, api.ProtoTCP, resMap)
+				cnt, err = mergeL4Port(ctx, fromEndpoints, r, p, dir, api.ProtoTCP, ruleLabels, resMap)
 				if err != nil {
 					return found, err
 				}
 				found += cnt
 
-				cnt, err = mergeL4Port(ctx, fromEndpoints, r, p, dir, api.ProtoUDP, resMap)
+				cnt, err = mergeL4Port(ctx, fromEndpoints, r, p, dir, api.ProtoUDP, ruleLabels, resMap)
 				if err != nil {
 					return found, err
 				}
@@ -264,12 +265,14 @@ func (r *rule) resolveL4Policy(ctx *SearchContext, state *traceState, result *L4
 		if len(r.Ingress) == 0 {
 			ctx.PolicyTrace("    No L4 rules\n")
 		}
-		for _, r := range r.Ingress {
-			cnt, err := mergeL4(ctx, "Ingress", r.FromEndpoints, r.ToPorts, result.Ingress)
+		for _, ingressRule := range r.Ingress {
+			cnt, err := mergeL4(ctx, "Ingress", ingressRule.FromEndpoints, ingressRule.ToPorts, r.Rule.Labels.DeepCopy(), result.Ingress)
 			if err != nil {
 				return nil, err
 			}
-			found += cnt
+			if cnt > 0 {
+				found += cnt
+			}
 		}
 	}
 
@@ -277,12 +280,14 @@ func (r *rule) resolveL4Policy(ctx *SearchContext, state *traceState, result *L4
 		if len(r.Egress) == 0 {
 			ctx.PolicyTrace("    No L4 rules\n")
 		}
-		for _, r := range r.Egress {
-			cnt, err := mergeL4(ctx, "Egress", nil, r.ToPorts, result.Egress)
+		for _, egressRule := range r.Egress {
+			cnt, err := mergeL4(ctx, "Egress", nil, egressRule.ToPorts, r.Rule.Labels.DeepCopy(), result.Egress)
 			if err != nil {
 				return nil, err
 			}
-			found += cnt
+			if cnt > 0 {
+				found += cnt
+			}
 		}
 	}
 
