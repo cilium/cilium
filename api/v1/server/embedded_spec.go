@@ -1562,14 +1562,14 @@ func init() {
           "description": "List of L4 egress rules",
           "type": "array",
           "items": {
-            "type": "string"
+            "$ref": "#/definitions/PolicyRule"
           }
         },
         "ingress": {
           "description": "List of L4 ingress rules",
           "type": "array",
           "items": {
-            "type": "string"
+            "$ref": "#/definitions/PolicyRule"
           }
         }
       }

@@ -6,6 +6,8 @@ package models
 // Editing this file might prove futile when you re-run the swagger generate command
 
 import (
+	"strconv"
+
 	strfmt "github.com/go-openapi/strfmt"
 
 	"github.com/go-openapi/errors"
@@ -18,10 +20,10 @@ import (
 type L4Policy struct {
 
 	// List of L4 egress rules
-	Egress []string `json:"egress"`
+	Egress []*PolicyRule `json:"egress"`
 
 	// List of L4 ingress rules
-	Ingress []string `json:"ingress"`
+	Ingress []*PolicyRule `json:"ingress"`
 }
 
 /* polymorph L4Policy egress false */
@@ -54,6 +56,24 @@ func (m *L4Policy) validateEgress(formats strfmt.Registry) error {
 		return nil
 	}
 
+	for i := 0; i < len(m.Egress); i++ {
+
+		if swag.IsZero(m.Egress[i]) { // not required
+			continue
+		}
+
+		if m.Egress[i] != nil {
+
+			if err := m.Egress[i].Validate(formats); err != nil {
+				if ve, ok := err.(*errors.Validation); ok {
+					return ve.ValidateName("egress" + "." + strconv.Itoa(i))
+				}
+				return err
+			}
+		}
+
+	}
+
 	return nil
 }
 
@@ -61,6 +81,24 @@ func (m *L4Policy) validateIngress(formats strfmt.Registry) error {
 
 	if swag.IsZero(m.Ingress) { // not required
 		return nil
+	}
+
+	for i := 0; i < len(m.Ingress); i++ {
+
+		if swag.IsZero(m.Ingress[i]) { // not required
+			continue
+		}
+
+		if m.Ingress[i] != nil {
+
+			if err := m.Ingress[i].Validate(formats); err != nil {
+				if ve, ok := err.(*errors.Validation); ok {
+					return ve.ValidateName("ingress" + "." + strconv.Itoa(i))
+				}
+				return err
+			}
+		}
+
 	}
 
 	return nil

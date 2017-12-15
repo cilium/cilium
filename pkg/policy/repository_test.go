@@ -324,7 +324,8 @@ func (ds *PolicyTestSuite) TestMinikubeGettingStarted(c *C) {
 				HTTP: []api.PortRuleHTTP{{Path: "/", Method: "GET"}},
 			},
 		},
-		Ingress: true,
+		Ingress:          true,
+		DerivedFromRules: []labels.LabelArray{nil, nil, nil},
 	}
 
 	c.Assert(len(l4policy.Ingress), Equals, 1)
@@ -333,6 +334,7 @@ func (ds *PolicyTestSuite) TestMinikubeGettingStarted(c *C) {
 	// L4 from app3 has no rules
 	expected = NewL4Policy()
 	l4policy, err = repo.ResolveL4Policy(fromApp3)
+	c.Assert(err, IsNil)
 	c.Assert(len(l4policy.Ingress), Equals, 0)
 	c.Assert(*l4policy, comparator.DeepEquals, *expected)
 }

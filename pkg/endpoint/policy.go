@@ -90,7 +90,7 @@ func (e *Endpoint) addRedirect(owner Owner, l4 *policy.L4Filter) (uint16, error)
 	return owner.UpdateProxyRedirect(e, l4)
 }
 
-func (e *Endpoint) cleanUnusedRedirects(owner Owner, oldMap policy.L4PolicyMap, newMap policy.L4PolicyMap) {
+func (e *Endpoint) cleanUnusedRedirects(owner Owner, oldMap, newMap policy.L4PolicyMap) {
 	for k, v := range oldMap {
 		if newMap != nil {
 			// Keep redirects which are also in the new policy
