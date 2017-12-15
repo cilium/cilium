@@ -104,9 +104,9 @@ func mergeL4Port(ctx *SearchContext, fromEndpoints []api.EndpointSelector, r api
 	dir string, proto api.L4Proto, resMap L4PolicyMap) (int, error) {
 
 	key := p.Port + "/" + string(proto)
-	v, ok := resMap[key]
+	v, ok := resMap.Filters[key]
 	if !ok {
-		resMap[key] = CreateL4Filter(fromEndpoints, r, p, dir, proto)
+		resMap.Filters[key] = CreateL4Filter(fromEndpoints, r, p, dir, proto)
 		return 1, nil
 	}
 	l4Filter := CreateL4Filter(fromEndpoints, r, p, dir, proto)
@@ -167,7 +167,7 @@ func mergeL4Port(ctx *SearchContext, fromEndpoints []api.EndpointSelector, r api
 		}
 	}
 
-	resMap[key] = v
+	resMap.Filters[key] = v
 	return 1, nil
 }
 

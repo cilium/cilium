@@ -64,10 +64,12 @@ func (s *PolicyTestSuite) TestIngressCoversDPorts(c *C) {
 	// Non-empty policy denies traffic without a port specified
 	policy = L4Policy{
 		Ingress: L4PolicyMap{
-			"8080/TCP": {
-				Port:     8080,
-				Protocol: api.ProtoTCP,
-				Ingress:  true,
+			Filters: map[string]L4Filter{
+				"8080/TCP": {
+					Port:     8080,
+					Protocol: api.ProtoTCP,
+					Ingress:  true,
+				},
 			},
 		},
 	}
@@ -83,10 +85,12 @@ func (s *PolicyTestSuite) TestEgressCoversDPorts(c *C) {
 	// Non-empty policy denies traffic without a port specified
 	policy = L4Policy{
 		Egress: L4PolicyMap{
-			"8080/TCP": {
-				Port:     8080,
-				Protocol: api.ProtoTCP,
-				Ingress:  false,
+			Filters: map[string]L4Filter{
+				"8080/TCP": {
+					Port:     8080,
+					Protocol: api.ProtoTCP,
+					Ingress:  false,
+				},
 			},
 		},
 	}
@@ -131,40 +135,44 @@ func (s *PolicyTestSuite) TestJSONMarshal(c *C) {
 
 	policy := L4Policy{
 		Egress: L4PolicyMap{
-			"8080/TCP": {
-				Port:     8080,
-				Protocol: api.ProtoTCP,
-				Ingress:  false,
+			Filters: map[string]L4Filter{
+				"8080/TCP": {
+					Port:     8080,
+					Protocol: api.ProtoTCP,
+					Ingress:  false,
+				},
 			},
 		},
 		Ingress: L4PolicyMap{
-			"80/TCP": {
-				Port: 80, Protocol: api.ProtoTCP,
-				FromEndpoints: []api.EndpointSelector{fooSelector},
-				L7Parser:      "http",
-				L7RulesPerEp: L7DataMap{
-					fooSelector: api.L7Rules{
-						HTTP: []api.PortRuleHTTP{{Path: "/", Method: "GET"}},
-					},
-				},
-				Ingress: true,
-			},
-			"8080/TCP": {
-				Port: 8080, Protocol: api.ProtoTCP,
-				FromEndpoints: []api.EndpointSelector{fooSelector},
-				L7Parser:      "http",
-				L7RulesPerEp: L7DataMap{
-					fooSelector: api.L7Rules{
-						HTTP: []api.PortRuleHTTP{
-							{Path: "/", Method: "GET"},
-							{Path: "/bar", Method: "GET"},
+			Filters: map[string]L4Filter{
+				"80/TCP": {
+					Port: 80, Protocol: api.ProtoTCP,
+					FromEndpoints: []api.EndpointSelector{fooSelector},
+					L7Parser:      "http",
+					L7RulesPerEp: L7DataMap{
+						fooSelector: api.L7Rules{
+							HTTP: []api.PortRuleHTTP{{Path: "/", Method: "GET"}},
 						},
 					},
-					wildcardSelector: api.L7Rules{
-						HTTP: []api.PortRuleHTTP{{Path: "/", Method: "GET"}},
-					},
+					Ingress: true,
 				},
-				Ingress: true,
+				"8080/TCP": {
+					Port: 8080, Protocol: api.ProtoTCP,
+					FromEndpoints: []api.EndpointSelector{fooSelector},
+					L7Parser:      "http",
+					L7RulesPerEp: L7DataMap{
+						fooSelector: api.L7Rules{
+							HTTP: []api.PortRuleHTTP{
+								{Path: "/", Method: "GET"},
+								{Path: "/bar", Method: "GET"},
+							},
+						},
+						wildcardSelector: api.L7Rules{
+							HTTP: []api.PortRuleHTTP{{Path: "/", Method: "GET"}},
+						},
+					},
+					Ingress: true,
+				},
 			},
 		},
 	}

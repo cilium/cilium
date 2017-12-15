@@ -315,7 +315,7 @@ func (ds *PolicyTestSuite) TestMinikubeGettingStarted(c *C) {
 	}
 
 	expected := NewL4Policy()
-	expected.Ingress["80/TCP"] = L4Filter{
+	expected.Ingress.Filters["80/TCP"] = L4Filter{
 		Port: 80, Protocol: api.ProtoTCP, U8Proto: 6,
 		FromEndpoints: selectorFromApp2DupList,
 		L7Parser:      "http",
@@ -327,13 +327,13 @@ func (ds *PolicyTestSuite) TestMinikubeGettingStarted(c *C) {
 		Ingress: true,
 	}
 
-	c.Assert(len(l4policy.Ingress), Equals, 1)
+	c.Assert(len(l4policy.Ingress.Filters), Equals, 1)
 	c.Assert(*l4policy, comparator.DeepEquals, *expected)
 
 	// L4 from app3 has no rules
 	expected = NewL4Policy()
 	l4policy, err = repo.ResolveL4Policy(fromApp3)
-	c.Assert(len(l4policy.Ingress), Equals, 0)
+	c.Assert(len(l4policy.Ingress.Filters), Equals, 0)
 	c.Assert(*l4policy, comparator.DeepEquals, *expected)
 }
 

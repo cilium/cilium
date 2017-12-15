@@ -52,7 +52,7 @@ func (e *Endpoint) writeL4Map(fw *bufio.Writer, owner Owner, m policy.L4PolicyMa
 	array := ""
 	index := 0
 
-	for k, l4 := range m {
+	for k, l4 := range m.Filters {
 		// Represents struct l4_allow in bpf/lib/l4.h
 		protoNum, err := u8proto.ParseProtocol(string(l4.Protocol))
 		if err != nil {
@@ -68,7 +68,7 @@ func (e *Endpoint) writeL4Map(fw *bufio.Writer, owner Owner, m policy.L4PolicyMa
 				return err
 			}
 			l4.L7RedirectPort = int(redirect)
-			m[k] = l4
+			m.Filters[k] = l4
 		}
 
 		redirect = byteorder.HostToNetwork(redirect).(uint16)
@@ -86,7 +86,7 @@ func (e *Endpoint) writeL4Map(fw *bufio.Writer, owner Owner, m policy.L4PolicyMa
 		fmt.Fprintf(fw, "#undef %s\n", config)
 	} else {
 		fmt.Fprintf(fw, "#define %s %s, (), 0\n", config, array)
-		fmt.Fprintf(fw, "#define NR_%s %d\n", config, len(m))
+		fmt.Fprintf(fw, "#define NR_%s %d\n", config, len(m.Filters))
 	}
 
 	return nil

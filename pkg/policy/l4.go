@@ -230,12 +230,14 @@ func (l4 L4Filter) matchesLabels(labels labels.LabelArray) bool {
 
 // L4PolicyMap is a list of L4 filters indexable by protocol/port
 // key format: "port/proto"
-type L4PolicyMap map[string]L4Filter
+type L4PolicyMap struct {
+	Filters map[string]L4Filter
+}
 
 // HasRedirect returns true if at least one L4 filter contains a port
 // redirection
-func (l4 L4PolicyMap) HasRedirect() bool {
-	for _, f := range l4 {
+func (l4 *L4PolicyMap) HasRedirect() bool {
+	for _, f := range l4.Filters {
 		if f.IsRedirect() {
 			return true
 		}
@@ -253,8 +255,8 @@ func (l4 L4PolicyMap) HasRedirect() bool {
 // * If a port is present in the `L4PolicyMap`, but it applies FromEndpoints
 //   constraints that require labels not present in `labels`.
 // Otherwise, returns api.Allowed.
-func (l4 L4PolicyMap) containsAllL3L4(labels labels.LabelArray, ports []*models.Port) api.Decision {
-	if len(l4) == 0 {
+func (l4 *L4PolicyMap) containsAllL3L4(labels labels.LabelArray, ports []*models.Port) api.Decision {
+	if len(l4.Filters) == 0 {
 		return api.Allowed
 	}
 
@@ -267,12 +269,12 @@ func (l4 L4PolicyMap) containsAllL3L4(labels labels.LabelArray, ports []*models.
 		switch lwrProtocol {
 		case "", models.PortProtocolANY:
 			tcpPort := fmt.Sprintf("%d/TCP", l4CtxIng.Port)
-			tcpFilter, tcpmatch := l4[tcpPort]
+			tcpFilter, tcpmatch := l4.Filters[tcpPort]
 			if tcpmatch {
 				tcpmatch = tcpFilter.matchesLabels(labels)
 			}
 			udpPort := fmt.Sprintf("%d/UDP", l4CtxIng.Port)
-			udpFilter, udpmatch := l4[udpPort]
+			udpFilter, udpmatch := l4.Filters[udpPort]
 			if udpmatch {
 				udpmatch = udpFilter.matchesLabels(labels)
 			}
@@ -281,7 +283,7 @@ func (l4 L4PolicyMap) containsAllL3L4(labels labels.LabelArray, ports []*models.
 			}
 		default:
 			port := fmt.Sprintf("%d/%s", l4CtxIng.Port, lwrProtocol)
-			filter, match := l4[port]
+			filter, match := l4.Filters[port]
 			if !match || !filter.matchesLabels(labels) {
 				return api.Denied
 			}
@@ -297,8 +299,8 @@ type L4Policy struct {
 
 func NewL4Policy() *L4Policy {
 	return &L4Policy{
-		Ingress: make(L4PolicyMap),
-		Egress:  make(L4PolicyMap),
+		Ingress: L4PolicyMap{Filters: make(map[string]L4Filter)},
+		Egress:  L4PolicyMap{Filters: make(map[string]L4Filter)},
 	}
 }
 
@@ -328,7 +330,7 @@ func (l4 *L4Policy) HasRedirect() bool {
 // RequiresConntrack returns true if if the L4 configuration requires
 // connection tracking to be enabled.
 func (l4 *L4Policy) RequiresConntrack() bool {
-	return l4 != nil && (len(l4.Ingress) > 0 || len(l4.Egress) > 0)
+	return l4 != nil && (len(l4.Ingress.Filters) > 0 || len(l4.Egress.Filters) > 0)
 }
 
 func (l4 *L4Policy) GetModel() *models.L4Policy {
@@ -337,12 +339,12 @@ func (l4 *L4Policy) GetModel() *models.L4Policy {
 	}
 
 	ingress := []string{}
-	for _, v := range l4.Ingress {
+	for _, v := range l4.Ingress.Filters {
 		ingress = append(ingress, v.MarshalIndent())
 	}
 
 	egress := []string{}
-	for _, v := range l4.Egress {
+	for _, v := range l4.Egress.Filters {
 		egress = append(egress, v.MarshalIndent())
 	}
 

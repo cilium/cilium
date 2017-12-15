@@ -87,11 +87,11 @@ func (e *Endpoint) addRedirect(owner Owner, l4 *policy.L4Filter) (uint16, error)
 	return owner.UpdateProxyRedirect(e, l4)
 }
 
-func (e *Endpoint) cleanUnusedRedirects(owner Owner, oldMap policy.L4PolicyMap, newMap policy.L4PolicyMap) {
-	for k, v := range oldMap {
+func (e *Endpoint) cleanUnusedRedirects(owner Owner, oldMap, newMap *policy.L4PolicyMap) {
+	for k, v := range oldMap.Filters {
 		if newMap != nil {
 			// Keep redirects which are also in the new policy
-			if _, ok := newMap[k]; ok {
+			if _, ok := newMap.Filters[k]; ok {
 				continue
 			}
 		}
@@ -238,7 +238,7 @@ func (e *Endpoint) applyL4PolicyLocked(owner Owner, labelsMap *LabelsMap,
 
 	if oldPolicy != nil {
 		var secIDs policy.RuleContexts
-		for _, filter := range oldPolicy.Ingress {
+		for _, filter := range oldPolicy.Ingress.Filters {
 			secIDs = e.removeOldFilter(owner, labelsMap, &filter)
 			setMapOperationResult(secIDsRm, secIDs)
 		}
@@ -252,7 +252,7 @@ func (e *Endpoint) applyL4PolicyLocked(owner Owner, labelsMap *LabelsMap,
 		errors, errs = 0, 0
 		secIDs       policy.RuleContexts
 	)
-	for _, filter := range newPolicy.Ingress {
+	for _, filter := range newPolicy.Ingress.Filters {
 		secIDs, errs = e.applyNewFilter(owner, labelsMap, &filter)
 		setMapOperationResult(secIDsAdded, secIDs)
 		errors += errs
@@ -346,8 +346,8 @@ func (e *Endpoint) regenerateConsumable(owner Owner, labelsMap *LabelsMap,
 		if !owner.DryModeEnabled() {
 			// Update Endpoint's L4Policy
 			if e.L4Policy != nil {
-				e.cleanUnusedRedirects(owner, e.L4Policy.Ingress, c.L4Policy.Ingress)
-				e.cleanUnusedRedirects(owner, e.L4Policy.Egress, c.L4Policy.Egress)
+				e.cleanUnusedRedirects(owner, &e.L4Policy.Ingress, &c.L4Policy.Ingress)
+				e.cleanUnusedRedirects(owner, &e.L4Policy.Egress, &c.L4Policy.Egress)
 			}
 			l4Rm, l4Add, err = e.applyL4PolicyLocked(owner, labelsMap, e.L4Policy, c.L4Policy)
 			if err != nil {

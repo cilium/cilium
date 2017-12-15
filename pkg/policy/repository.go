@@ -186,7 +186,7 @@ func (p *Repository) allowsL4Egress(searchCtx *SearchContext) api.Decision {
 		log.WithError(err).Warn("Evaluation error while resolving L4 egress policy")
 	}
 	verdict := api.Undecided
-	if err == nil && len(policy.Egress) > 0 {
+	if err == nil && len(policy.Egress.Filters) > 0 {
 		verdict = policy.EgressCoversDPorts(ctx.DPorts)
 	}
 
@@ -207,7 +207,7 @@ func (p *Repository) allowsL4Ingress(ctx *SearchContext) api.Decision {
 		log.WithError(err).Warn("Evaluation error while resolving L4 ingress policy")
 	}
 	verdict := api.Undecided
-	if err == nil && len(policy.Ingress) > 0 {
+	if err == nil && len(policy.Ingress.Filters) > 0 {
 		verdict = policy.IngressCoversContext(ctx)
 	}
 

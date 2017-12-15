@@ -107,15 +107,19 @@ func (s *K8sSuite) TestParseNetworkPolicyDeprecated(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(result, comparator.DeepEquals, &policy.L4Policy{
 		Ingress: policy.L4PolicyMap{
-			"80/TCP": policy.L4Filter{
-				Port: 80, Protocol: api.ProtoTCP, U8Proto: 6,
-				FromEndpoints:  []api.EndpointSelector{epSelector},
-				L7Parser:       "",
-				L7RedirectPort: 0, L7RulesPerEp: policy.L7DataMap{},
-				Ingress: true,
+			Filters: map[string]policy.L4Filter{
+				"80/TCP": {
+					Port: 80, Protocol: api.ProtoTCP, U8Proto: 6,
+					FromEndpoints:  []api.EndpointSelector{epSelector},
+					L7Parser:       "",
+					L7RedirectPort: 0, L7RulesPerEp: policy.L7DataMap{},
+					Ingress: true,
+				},
 			},
 		},
-		Egress: policy.L4PolicyMap{},
+		Egress: policy.L4PolicyMap{
+			Filters: map[string]policy.L4Filter{},
+		},
 	})
 
 	ctx.To = labels.LabelArray{

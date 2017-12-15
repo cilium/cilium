@@ -1253,8 +1253,8 @@ func (e *Endpoint) LeaveLocked(owner Owner) {
 		c.Mutex.RLock()
 		if e.L4Policy != nil {
 			// Passing a new map of nil will purge all redirects
-			e.cleanUnusedRedirects(owner, e.L4Policy.Ingress, nil)
-			e.cleanUnusedRedirects(owner, e.L4Policy.Egress, nil)
+			e.cleanUnusedRedirects(owner, &e.L4Policy.Ingress, nil)
+			e.cleanUnusedRedirects(owner, &e.L4Policy.Egress, nil)
 		}
 		c.Mutex.RUnlock()
 	}
