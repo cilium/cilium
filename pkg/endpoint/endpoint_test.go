@@ -176,6 +176,7 @@ func (s *EndpointSuite) TestEndpointState(c *C) {
 		Status: NewEndpointStatus(),
 	}
 	e.Mutex.Lock()
+	e.SetDefaultOpts(nil)
 	defer e.Mutex.Unlock()
 
 	e.state = StateCreating
