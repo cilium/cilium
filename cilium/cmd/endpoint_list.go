@@ -67,6 +67,10 @@ func listEndpoint(w *tabwriter.Writer, ep *models.Endpoint, id string, label str
 		isIngressPolicyEnabled = PolicyDisabled
 		isEgressPolicyEnabled = PolicyEnabled
 	}
+	isIngressPolicyEnabled = fmt.Sprintf("%s (%d rules)",
+		isIngressPolicyEnabled, len(ep.Policy.CidrPolicy.IngressSourceRuleLabels)+len(ep.Policy.L4.IngressSourceRuleLabels))
+	isEgressPolicyEnabled = fmt.Sprintf("%s (%d rules)",
+		isEgressPolicyEnabled, len(ep.Policy.CidrPolicy.EgressSourceRuleLabels)+len(ep.Policy.L4.EgressSourceRuleLabels))
 	fmt.Fprintf(w, "%d\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t\n",
 		ep.ID, isIngressPolicyEnabled, isEgressPolicyEnabled, id, label, ep.Addressing.IPV6, ep.Addressing.IPV4, ep.State)
 }
