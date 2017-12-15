@@ -32,6 +32,7 @@ var _ = Describe("NightlyK8sEpsMeasurement", func() {
 	var kubectl *helpers.Kubectl
 	var logger *logrus.Entry
 	var initialized bool
+	var ciliumPath string
 
 	initialize := func() {
 		if initialized == true {
