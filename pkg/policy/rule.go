@@ -101,7 +101,7 @@ func (policy *L4Filter) addFromEndpoints(fromEndpoints []api.EndpointSelector) b
 }
 
 func mergeL4Port(ctx *SearchContext, fromEndpoints []api.EndpointSelector, r api.PortRule, p api.PortProtocol,
-	dir string, proto api.L4Proto, resMap L4PolicyMap) (int, error) {
+	dir string, proto api.L4Proto, resMap *L4PolicyMap) (int, error) {
 
 	key := p.Port + "/" + string(proto)
 	v, ok := resMap.Filters[key]
@@ -172,7 +172,7 @@ func mergeL4Port(ctx *SearchContext, fromEndpoints []api.EndpointSelector, r api
 }
 
 func mergeL4(ctx *SearchContext, dir string, fromEndpoints []api.EndpointSelector, portRules []api.PortRule,
-	resMap L4PolicyMap) (int, error) {
+	resMap *L4PolicyMap) (int, error) {
 
 	if len(portRules) == 0 {
 		ctx.PolicyTrace("    No L4 rules\n")
@@ -263,12 +263,15 @@ func (r *rule) resolveL4Policy(ctx *SearchContext, state *traceState, result *L4
 		if len(r.Ingress) == 0 {
 			ctx.PolicyTrace("    No L4 rules\n")
 		}
-		for _, r := range r.Ingress {
-			cnt, err := mergeL4(ctx, "Ingress", r.FromEndpoints, r.ToPorts, result.Ingress)
+		for _, ingressRule := range r.Ingress {
+			cnt, err := mergeL4(ctx, "Ingress", ingressRule.FromEndpoints, ingressRule.ToPorts, &result.Ingress)
 			if err != nil {
 				return nil, err
 			}
-			found += cnt
+			if cnt > 0 {
+				found += cnt
+				result.Ingress.SourceRuleLabels = append(result.Ingress.SourceRuleLabels, r.Rule.Labels.DeepCopy())
+			}
 		}
 	}
 
@@ -276,12 +279,15 @@ func (r *rule) resolveL4Policy(ctx *SearchContext, state *traceState, result *L4
 		if len(r.Egress) == 0 {
 			ctx.PolicyTrace("    No L4 rules\n")
 		}
-		for _, r := range r.Egress {
-			cnt, err := mergeL4(ctx, "Egress", nil, r.ToPorts, result.Egress)
+		for _, egressRule := range r.Egress {
+			cnt, err := mergeL4(ctx, "Egress", nil, egressRule.ToPorts, &result.Egress)
 			if err != nil {
 				return nil, err
 			}
-			found += cnt
+			if cnt > 0 {
+				found += cnt
+				result.Egress.SourceRuleLabels = append(result.Egress.SourceRuleLabels, r.Rule.Labels.DeepCopy())
+			}
 		}
 	}
 

@@ -1585,11 +1585,31 @@ func init() {
             "type": "string"
           }
         },
+        "egress-source-rule-labels": {
+          "description": "Labels of egress L4 rules in effect on this endpoint",
+          "type": "array",
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
         "ingress": {
           "description": "List of L4 ingress rules",
           "type": "array",
           "items": {
             "type": "string"
+          }
+        },
+        "ingress-source-rule-labels": {
+          "description": "Lables of ingres L4 rules in effect on this endpoint",
+          "type": "array",
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
           }
         }
       }

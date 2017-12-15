@@ -116,9 +116,13 @@ func (s *K8sSuite) TestParseNetworkPolicyDeprecated(c *C) {
 					Ingress: true,
 				},
 			},
+			SourceRuleLabels: []labels.LabelArray{
+				labels.ParseLabelArray("unspec:io.cilium.k8s-policy-name", "unspec:io.cilium.k8s-policy-namespace=default"),
+			},
 		},
 		Egress: policy.L4PolicyMap{
-			Filters: map[string]policy.L4Filter{},
+			Filters:          map[string]policy.L4Filter{},
+			SourceRuleLabels: []labels.LabelArray{},
 		},
 	})
 

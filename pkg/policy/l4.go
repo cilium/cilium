@@ -231,7 +231,8 @@ func (l4 L4Filter) matchesLabels(labels labels.LabelArray) bool {
 // L4PolicyMap is a list of L4 filters indexable by protocol/port
 // key format: "port/proto"
 type L4PolicyMap struct {
-	Filters map[string]L4Filter
+	Filters          map[string]L4Filter
+	SourceRuleLabels []labels.LabelArray // The User rule labels that resulted in this Map. Can be empty
 }
 
 // HasRedirect returns true if at least one L4 filter contains a port
@@ -299,8 +300,14 @@ type L4Policy struct {
 
 func NewL4Policy() *L4Policy {
 	return &L4Policy{
-		Ingress: L4PolicyMap{Filters: make(map[string]L4Filter)},
-		Egress:  L4PolicyMap{Filters: make(map[string]L4Filter)},
+		Ingress: L4PolicyMap{
+			Filters:          make(map[string]L4Filter),
+			SourceRuleLabels: make([]labels.LabelArray, 0),
+		},
+		Egress: L4PolicyMap{
+			Filters:          make(map[string]L4Filter),
+			SourceRuleLabels: make([]labels.LabelArray, 0),
+		},
 	}
 }
 
@@ -342,14 +349,24 @@ func (l4 *L4Policy) GetModel() *models.L4Policy {
 	for _, v := range l4.Ingress.Filters {
 		ingress = append(ingress, v.MarshalIndent())
 	}
+	ingressLabels := make([][]string, 0, len(l4.Ingress.SourceRuleLabels))
+	for _, lbls := range l4.Ingress.SourceRuleLabels {
+		ingressLabels = append(ingressLabels, lbls.GetModel())
+	}
 
 	egress := []string{}
 	for _, v := range l4.Egress.Filters {
 		egress = append(egress, v.MarshalIndent())
 	}
+	egressLabels := make([][]string, 0, len(l4.Egress.SourceRuleLabels))
+	for _, lbls := range l4.Egress.SourceRuleLabels {
+		egressLabels = append(egressLabels, lbls.GetModel())
+	}
 
 	return &models.L4Policy{
-		Ingress: ingress,
-		Egress:  egress,
+		Ingress:                 ingress,
+		IngressSourceRuleLabels: ingressLabels,
+		Egress:                  egress,
+		EgressSourceRuleLabels:  egressLabels,
 	}
 }
