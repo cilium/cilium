@@ -972,12 +972,12 @@ definitions:
         description: List of L4 ingress rules
         type: array
         items:
-          type: string
+          "$ref": "#/definitions/PolicyRule"
       egress:
         description: List of L4 egress rules
         type: array
         items:
-          type: string
+          "$ref": "#/definitions/PolicyRule"
   CIDRPolicy:
     description: CIDR endpoint policy
     type: object

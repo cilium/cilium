@@ -101,6 +101,8 @@ type L4Filter struct {
 	L7RulesPerEp L7DataMap `json:"l7-rules,omitempty"`
 	// Ingress is true if filter applies at ingress
 	Ingress bool `json:"-"`
+	// The rule labels of this Filter
+	DerivedFromRules labels.LabelArrayList `json:"-"`
 }
 
 // GetRelevantRules returns the relevant rules based on the source and
@@ -155,7 +157,7 @@ func (dm L7DataMap) addRulesForEndpoints(rules api.L7Rules, fromEndpoints []api.
 // This L4Filter will only apply to endpoints covered by `fromEndpoints`.
 // `rule` allows a series of L7 rules to be associated with this L4Filter.
 func CreateL4Filter(fromEndpoints []api.EndpointSelector, rule api.PortRule, port api.PortProtocol,
-	direction string, protocol api.L4Proto) L4Filter {
+	direction string, protocol api.L4Proto, ruleLabels labels.LabelArray) L4Filter {
 
 	// already validated via PortRule.Validate()
 	p, _ := strconv.ParseUint(port.Port, 0, 16)
@@ -163,12 +165,13 @@ func CreateL4Filter(fromEndpoints []api.EndpointSelector, rule api.PortRule, por
 	u8p, _ := u8proto.ParseProtocol(string(protocol))
 
 	l4 := L4Filter{
-		Port:           int(p),
-		Protocol:       protocol,
-		U8Proto:        u8p,
-		L7RedirectPort: rule.RedirectPort,
-		L7RulesPerEp:   make(L7DataMap),
-		FromEndpoints:  fromEndpoints,
+		Port:             int(p),
+		Protocol:         protocol,
+		U8Proto:          u8p,
+		L7RedirectPort:   rule.RedirectPort,
+		L7RulesPerEp:     make(L7DataMap),
+		FromEndpoints:    fromEndpoints,
+		DerivedFromRules: labels.LabelArrayList{ruleLabels},
 	}
 
 	if strings.ToLower(direction) == "ingress" {
@@ -297,8 +300,8 @@ type L4Policy struct {
 
 func NewL4Policy() *L4Policy {
 	return &L4Policy{
-		Ingress: make(L4PolicyMap),
-		Egress:  make(L4PolicyMap),
+		Ingress: L4PolicyMap{},
+		Egress:  L4PolicyMap{},
 	}
 }
 
@@ -336,14 +339,20 @@ func (l4 *L4Policy) GetModel() *models.L4Policy {
 		return nil
 	}
 
-	ingress := []string{}
+	ingress := []*models.PolicyRule{}
 	for _, v := range l4.Ingress {
-		ingress = append(ingress, v.MarshalIndent())
+		ingress = append(ingress, &models.PolicyRule{
+			Rule:             v.MarshalIndent(),
+			DerivedFromRules: v.DerivedFromRules.GetModel(),
+		})
 	}
 
-	egress := []string{}
+	egress := []*models.PolicyRule{}
 	for _, v := range l4.Egress {
-		egress = append(egress, v.MarshalIndent())
+		egress = append(egress, &models.PolicyRule{
+			Rule:             v.MarshalIndent(),
+			DerivedFromRules: v.DerivedFromRules.GetModel(),
+		})
 	}
 
 	return &models.L4Policy{

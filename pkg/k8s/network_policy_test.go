@@ -119,12 +119,13 @@ func (s *K8sSuite) TestParseNetworkPolicy(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(result, comparator.DeepEquals, &policy.L4Policy{
 		Ingress: policy.L4PolicyMap{
-			"80/TCP": policy.L4Filter{
+			"80/TCP": {
 				Port: 80, Protocol: api.ProtoTCP, U8Proto: 6,
 				FromEndpoints:  []api.EndpointSelector{epSelector},
 				L7Parser:       "",
 				L7RedirectPort: 0, L7RulesPerEp: policy.L7DataMap{},
-				Ingress: true,
+				Ingress:          true,
+				DerivedFromRules: []labels.LabelArray{labels.ParseLabelArray("unspec:io.cilium.k8s-policy-name", "unspec:io.cilium.k8s-policy-namespace=default")},
 			},
 		},
 		Egress: policy.L4PolicyMap{},
