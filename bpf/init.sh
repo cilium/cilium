@@ -37,8 +37,8 @@ if [[ ! $(command -v cilium) ]]; then
 	exit 1
 fi
 
-# Enable JIT
-echo 1 > /proc/sys/net/core/bpf_jit_enable
+# Enable JIT if compiled into kernel
+echo 1 > /proc/sys/net/core/bpf_jit_enable || true
 
 # Disable rp_filter
 echo 0 > /proc/sys/net/ipv4/conf/all/rp_filter
