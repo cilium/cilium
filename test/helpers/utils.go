@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"html/template"
 	"io/ioutil"
+	"math/rand"
 	"os"
 	"strings"
 	"syscall"
@@ -62,6 +63,11 @@ func CountValues(key string, data []string) (int, int) {
 		}
 	}
 	return result, len(data)
+}
+
+// MakeUID returns a randomly generated string.
+func MakeUID() string {
+	return fmt.Sprintf("%08x", rand.Uint32())
 }
 
 // RenderTemplateToFile renders a text/template string into a target filename

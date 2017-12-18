@@ -22,6 +22,7 @@ import (
 	"os"
 
 	"github.com/sirupsen/logrus"
+	"golang.org/x/crypto/ssh"
 )
 
 // SSHMeta contains metadata to SSH into a remote location to run tests
@@ -77,7 +78,7 @@ func GetVagrantSSHMeta(vmName string) *SSHMeta {
 // Execute executes cmd on the provided node and stores the stdout / stderr of
 // the command in the provided buffers. Returns false if the command failed
 // during its execution.
-func (s *SSHMeta) Execute(cmd string, stdout io.Writer, stderr io.Writer) bool {
+func (s *SSHMeta) Execute(cmd string, stdout io.Writer, stderr io.Writer) error {
 	if stdout == nil {
 		stdout = os.Stdout
 	}
@@ -93,11 +94,7 @@ func (s *SSHMeta) Execute(cmd string, stdout io.Writer, stderr io.Writer) bool {
 		Stderr: stderr,
 	}
 	err := s.sshClient.RunCommand(command)
-	if err != nil {
-		log.WithError(err).Debugf("error while running command: %s", cmd)
-		return false
-	}
-	return true
+	return err
 }
 
 // ExecWithSudo returns the result of executing the provided cmd via SSH using
@@ -111,17 +108,24 @@ func (s *SSHMeta) ExecWithSudo(cmd string) *CmdRes {
 func (s *SSHMeta) Exec(cmd string) *CmdRes {
 	stdout := new(bytes.Buffer)
 	stderr := new(bytes.Buffer)
-
-	exit := s.Execute(cmd, stdout, stderr)
-
-	res := &CmdRes{
+	exit := true
+	err := s.Execute(cmd, stdout, stderr)
+	if err != nil {
+		exit = false
+	}
+	res := CmdRes{
 		cmd:    cmd,
 		stdout: stdout,
 		stderr: stderr,
 		exit:   exit,
 	}
+	// Set the exitCode if the error is an ExitError
+	if exiterr, ok := err.(*ssh.ExitError); ok {
+		res.exitcode = exiterr.Waitmsg.ExitStatus()
+	}
+
 	res.SendToLog()
-	return res
+	return &res
 }
 
 // GetCopy returns a copy of SSHMeta, useful for parallel requests
