@@ -5,23 +5,16 @@
 Vagrant.require_version ">= 1.8.3"
 
 $build_docker_image = <<SCRIPT
-certs_dir="/home/vagrant/go/src/github.com/cilium/cilium/tests/k8s/cluster/certs"
 cd /home/vagrant/go/src/github.com/cilium/cilium/
-docker run -d -p 5000:5000 --name registry -v ${certs_dir}:/certs \
-        -e REGISTRY_HTTP_TLS_CERTIFICATE=/certs/kubernetes.pem \
-        -e REGISTRY_HTTP_TLS_KEY=/certs/kubernetes-key.pem \
-        registry:2
+docker run -d -p 5000:5000 --name registry registry
 make docker-image-dev
 docker tag cilium:${DOCKER_IMAGE_TAG} localhost:5000/cilium:${DOCKER_IMAGE_TAG}
 docker push localhost:5000/cilium:${DOCKER_IMAGE_TAG}
 SCRIPT
 
 $load_docker_image = <<SCRIPT
-certs_dir="/home/vagrant/go/src/github.com/cilium/cilium/tests/k8s/cluster/certs"
-sudo mkdir -p /etc/docker/certs.d/192.168.36.11:5000
-sudo cp ${certs_dir}/ca.pem /etc/docker/certs.d/192.168.36.11:5000/ca.crt
-docker pull 192.168.36.11:5000/cilium:${DOCKER_IMAGE_TAG}
-docker tag 192.168.36.11:5000/cilium:${DOCKER_IMAGE_TAG} cilium:${DOCKER_IMAGE_TAG}
+docker pull 192.168.36.10:5000/cilium:${DOCKER_IMAGE_TAG}
+docker tag 192.168.36.10:5000/cilium:${DOCKER_IMAGE_TAG} cilium:${DOCKER_IMAGE_TAG}
 SCRIPT
 
 $k8s_install = <<SCRIPT
@@ -71,7 +64,6 @@ sudo iptables -t nat -A POSTROUTING -o enp0s8 ! -s 192.168.36.12 -j MASQUERADE
 SCRIPT
 
 Vagrant.configure(2) do |config|
-    config.vm.box = "bento/ubuntu-16.10"
 
     # http://foo-o-rama.com/vagrant--stdin-is-not-a-tty--fix.html
     config.vm.provision "fix-no-tty", type: "shell" do |s|
@@ -79,8 +71,36 @@ Vagrant.configure(2) do |config|
         s.inline = "sudo sed -i '/tty/!s/mesg n/tty -s \\&\\& mesg n/' /root/.profile"
     end
 
+    config.vm.define "k8s#{$build_id_name}-docker-registry" do |s|
+        s.vm.box = "cilium/docker-registry"
+        s.vm.box_version = "0.0.1"
+        s.vm.hostname = "docker-registry"
+        s.vm.provision "ssh_accept_env", type: "shell", privileged: true, inline: $install_sshd_env
+
+        s.vm.provider "virtualbox" do |vb|
+                # Do not inherit DNS server from host, use proxy
+                vb.customize ["modifyvm", :id, "--natdnshostresolver1", "on"]
+                vb.customize ["modifyvm", :id, "--natdnsproxy1", "on"]
+                vb.memory = 1024
+
+                config.vm.synced_folder ".", "/vagrant", disabled: true
+                config.vm.synced_folder '../../', '/home/vagrant/go/src/github.com/cilium/cilium', type: "rsync",
+                rsync__exclude: ["contrib/packaging/docker/stage", "src"], rsync__args: ["--verbose", "--archive", "--delete", "--force", "--delete-excluded", "-z", "--links", "--checksum"]
+        end        
+
+        s.vm.network "private_network", ip: "192.168.36.10", virtualbox__intnet: "cilium-k8s-multi-test-#{$build_id}"
+        s.vm.network "private_network", ip: "192.168.37.10", bridge: "enp0s9"
+
+        # Hack to ensure that Kubernetes picks up the node-ip of the private_network
+        # instead of the NATed vagrant IP
+        s.vm.provision :shell, inline: "sed 's/127\.0\.0\.1.*k8s.*/192\.168\.36\.10 docker-registry/' -i /etc/hosts"
+
+        s.vm.provision "build", type: "shell", env: {"DOCKER_IMAGE_TAG" => $docker_image_tag}, inline: $build_docker_image
+    end
+
     (1..2).each do |i|
         config.vm.define "k8s#{i}#{$build_id_name}" do |s|
+            s.vm.box = "bento/ubuntu-16.10"
             s.vm.hostname = "k8s-#{i}"
             s.vm.provision "k8s", type: "shell", env: {"k8s_version" => "1.6.6-00"}, inline: $k8s_install
             s.vm.provision "ssh_accept_env", type: "shell", privileged: true, inline: $install_sshd_env
@@ -106,7 +126,7 @@ Vagrant.configure(2) do |config|
             # first node is special and considered the master
             if "#{i}" == "1"
                 s.vm.provision "cilium-master-netconfig", type: "shell", run: "always", inline: $cilium_master
-                s.vm.provision "build", type: "shell", env: {"DOCKER_IMAGE_TAG" => $docker_image_tag}, inline: $build_docker_image
+                s.vm.provision "load-docker-image", type: "shell", env: {"DOCKER_IMAGE_TAG" => $docker_image_tag}, inline: $load_docker_image
             else
                 s.vm.provision "kube-proxy-workaround", type: "shell", run: "always", inline: $kube_proxy_workaround
                 s.vm.provision "cilium-slave-netconfig", type: "shell", run: "always", inline: $cilium_slave
