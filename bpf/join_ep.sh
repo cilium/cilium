@@ -22,6 +22,14 @@ EPDIR=$3
 IFNAME=$4
 DEBUG=$5
 
+function bpf_preprocess()
+{
+	SRC=$1
+
+	clang -E -O2 -target bpf -I$RUNDIR/globals -I$EPDIR		\
+		-I$LIB/include -c $LIB/$SRC -o $EPDIR/$SRC
+}
+
 function bpf_compile()
 {
 	IN=$1
@@ -43,6 +51,7 @@ if [[ "${DEBUG}" == "true" ]]; then
   echo "kernel version: " `uname -a`
   echo "clang version: " `clang --version`
   bpf_compile bpf_lxc.c bpf_lxc.asm asm
+  bpf_preprocess bpf_lxc.c
 fi
 
 bpf_compile bpf_lxc.c bpf_lxc.o obj
