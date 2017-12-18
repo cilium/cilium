@@ -41,14 +41,22 @@ sudo rm /var/lib/apt/lists/lock
 wget https://packages.cloud.google.com/apt/doc/apt-key.gpg
 apt-key add apt-key.gpg
 
+case $K8S_VERSION in
+    "1.6"|"1.7"|"1.8")
+        KUBERNETES_CNI_VERSION="0.5.1-00"
+        ;;
+    "1.9")
+        KUBERNETES_CNI_VERSION="0.6.0-00"
+        ;;
+esac
+
 apt-get update
 apt-get install --allow-downgrades -y \
     llvm \
-    kubernetes-cni \
+    kubernetes-cni="${KUBERNETES_CNI_VERSION}" \
     kubelet="${K8S_VERSION}*" \
     kubeadm="${K8S_VERSION}*" \
     kubectl="${K8S_VERSION}*"
-
 
 sudo mkdir -p ${CILIUM_CONFIG_DIR}
 
