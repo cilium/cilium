@@ -66,10 +66,7 @@ func (k RuleTranslator) TranslateEgress(r *api.EgressRule) error {
 
 func (k RuleTranslator) populateEgress(r *api.EgressRule) error {
 	for _, service := range r.ToServices {
-		es := api.EndpointSelector(service.K8sServiceSelector)
-		if service.K8sService == api.K8sServiceNamespace(k.Service) ||
-			es.Matches(labels.Set(k.ServiceLabels)) {
-
+		if k.serviceMatches(service) {
 			if err := generateToCidrFromEndpoint(r, k.Endpoint); err != nil {
 				return err
 			}
@@ -81,10 +78,7 @@ func (k RuleTranslator) populateEgress(r *api.EgressRule) error {
 
 func (k RuleTranslator) depopulateEgress(r *api.EgressRule) error {
 	for _, service := range r.ToServices {
-		es := api.EndpointSelector(service.K8sServiceSelector)
-		if service.K8sService == api.K8sServiceNamespace(k.Service) ||
-			es.Matches(labels.Set(k.ServiceLabels)) {
-
+		if k.serviceMatches(service) {
 			if err := deleteToCidrFromEndpoint(r, k.Endpoint); err != nil {
 				return err
 			}
@@ -92,6 +86,21 @@ func (k RuleTranslator) depopulateEgress(r *api.EgressRule) error {
 		}
 	}
 	return nil
+}
+
+func (k RuleTranslator) serviceMatches(service api.Service) bool {
+	if service.K8sServiceSelector != nil {
+		es := api.EndpointSelector(service.K8sServiceSelector.Selector)
+		return es.Matches(labels.Set(k.ServiceLabels)) &&
+			(service.K8sServiceSelector.Namespace == k.Service.Namespace || service.K8sServiceSelector.Namespace == "")
+	}
+
+	if service.K8sService != nil {
+		return service.K8sService.ServiceName == k.Service.ServiceName &&
+			(service.K8sService.Namespace == k.Service.Namespace || service.K8sService.Namespace == "")
+	}
+
+	return false
 }
 
 // generateToCidrFromEndpoint takes an egress rule and populates it with
