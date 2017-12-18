@@ -53,7 +53,6 @@ delete_policy_labels() {
 }
 
 cleanup (){
-  delete_policy || true
   kubectl delete -f "${headless_dir}/" || true
 }
 

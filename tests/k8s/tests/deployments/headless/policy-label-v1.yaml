@@ -10,5 +10,6 @@ spec:
   -
     toServices:
     - k8sServiceSelector:
-        matchLabels:
-          "app": "very-headless"
+        selector:
+          matchLabels:
+            "app": "very-headless"
