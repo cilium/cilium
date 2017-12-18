@@ -29,7 +29,9 @@ pipeline {
                 sh "cd ${TESTDIR}; make tests-ginkgo"
             }
             post {
-                sh "cd ${TESTDIR}; make clean-ginkgo-tests || true"
+                always {
+                    sh "cd ${TESTDIR}; make clean-ginkgo-tests || true"
+                }
             }
         }
         stage('BDD-Test') {
@@ -61,7 +63,6 @@ pipeline {
                     sh 'cd test/; K8S_VERSION=1.6 vagrant destroy -f'
                     sh 'cd test/; ./archive_test_results.sh || true'
                     archiveArtifacts artifacts: "test_results_${JOB_BASE_NAME}_${BUILD_NUMBER}.tar", allowEmptyArchive: true
-                    
                 }
             }
         }
