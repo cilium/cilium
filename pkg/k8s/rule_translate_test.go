@@ -50,12 +50,17 @@ func (s *K8sSuite) TestTranslatorDirect(c *C) {
 
 	rule1 := api.Rule{
 		EndpointSelector: api.NewESFromLabels(labels.ParseSelectLabel("bar")),
-		Egress: []api.EgressRule{{
-			ToServices: []api.Service{
-				{
-					K8sService: api.K8sServiceNamespace(serviceInfo),
+		Egress: []api.EgressRule{
+			{
+				ToServices: []api.Service{
+					{
+						K8sService: &api.K8sServiceNamespace{
+							ServiceName: serviceInfo.ServiceName,
+							Namespace:   serviceInfo.Namespace,
+						},
+					},
 				},
-			}},
+			},
 		},
 		Labels: tag1,
 	}
@@ -119,7 +124,10 @@ func (s *K8sSuite) TestTranslatorLabels(c *C) {
 		Egress: []api.EgressRule{{
 			ToServices: []api.Service{
 				{
-					K8sServiceSelector: selector,
+					K8sServiceSelector: &api.K8sServiceSelectorNamespace{
+						Selector:  selector,
+						Namespace: "",
+					},
 				},
 			}},
 		},
@@ -213,7 +221,10 @@ func (s *K8sSuite) TestPreprocessRules(c *C) {
 		Egress: []api.EgressRule{{
 			ToServices: []api.Service{
 				{
-					K8sService: api.K8sServiceNamespace(serviceInfo),
+					K8sService: &api.K8sServiceNamespace{
+						ServiceName: serviceInfo.ServiceName,
+						Namespace:   serviceInfo.Namespace,
+					},
 				},
 			}},
 		},

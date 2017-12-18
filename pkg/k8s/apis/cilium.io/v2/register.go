@@ -50,7 +50,7 @@ const (
 
 	// CustomResourceDefinitionSchemaVersion is semver-conformant version of CRD schema
 	// Used to determine if CRD needs to be updated in cluster
-	CustomResourceDefinitionSchemaVersion = "1.0"
+	CustomResourceDefinitionSchemaVersion = "1.1"
 
 	// CustomResourceDefinitionSchemaVersionKey is key to label which holds the CRD schema version
 	CustomResourceDefinitionSchemaVersionKey = "io.cilium.k8s.crd.schema.version"
@@ -865,11 +865,14 @@ var (
 		"ServiceSelector": {
 			Description: "ServiceSelector is a label selector for k8s services",
 			Required: []string{
-				"LabelSelector",
+				"selector",
 			},
 			Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
-				"LabelSelector": {
-					Ref: getStr("#/properties/LabelSelector"),
+				"selector": {
+					Ref: getStr("#/properties/EndpointSelector"),
+				},
+				"namespace": {
+					Type: "string",
 				},
 			},
 		},
