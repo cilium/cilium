@@ -343,6 +343,9 @@ func GetNodes() map[Identity]Node {
 // updateIPRoute updates the IP routing entry for the given node n via the
 // network interface that as ownAddr.
 func updateIPRoute(oldNode, n *Node, ownAddr net.IP) {
+	if n.IPv6AllocCIDR == nil {
+		return
+	}
 	nodeIPv6 := n.GetNodeIP(true)
 	scopedLog := log.WithField(logfields.V6Prefix, n.IPv6AllocCIDR)
 	scopedLog.WithField(logfields.IPAddr, nodeIPv6).Debug("iproute: Setting endpoint v6 route for prefix via IP")
