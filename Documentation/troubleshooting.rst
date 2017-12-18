@@ -160,7 +160,7 @@ If you want to capture the archive from a Kubernetes pod, then the process is a
           away before sharing it with us.
 
 Below is an approximate list of the kind of information in the archive. It is
- recommeded that you verify it before sharing.
+recommended that you verify it before sharing.
 
 * Cilium status
 * Cilium version
@@ -190,13 +190,14 @@ Below is an approximate list of the kind of information in the archive. It is
 Cluster-wide Debugging Tool
 ===========================
 The ``clusterdebug`` tool can help identify the most commonly encountered
- issues in Cilium deployments. The tool currently supports Kubernetes
- and Minikube clusters only.
+issues in Cilium deployments. The tool currently supports Kubernetes
+and Minikube clusters only.
 
 The tool performs various checks and provides hints to fix specific
 issues that it has identified.
 
 The following is a list of prerequisites:
+
 * Requires Python >= 2.7.*
 * Requires ``kubectl``.
 * ``kubectl`` should be pointing to your cluster before running the tool.
@@ -204,6 +205,7 @@ The following is a list of prerequisites:
 Command to run the cluster-wide debugging tool:
 
 ::
+
     python clusterdebug.zip
 
 Please check the README file for instructions to rebuild the zip file.
