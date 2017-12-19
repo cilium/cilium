@@ -385,6 +385,7 @@ func (t *TestSpec) CreateManifests() error {
 	t.DestPod = fmt.Sprintf("%s-%s", t.Prefix, helpers.MakeUID())
 
 	manifest := `
+---
 apiVersion: v1
 kind: Pod
 metadata:
@@ -680,4 +681,46 @@ func (t *TestSpec) ExecTest() error {
 		gomega.Expect(result).To(gomega.Equal(expectResult), testFailMessage(connType))
 	}
 	return nil
+}
+
+// TestSpecsGroup is a group of different TestSpec
+type TestSpecsGroup []*TestSpec
+
+// CreateAndApplyManifests creates all the pods manifests and applies those
+// manifest to the given kubernetes instance.
+func (tg TestSpecsGroup) CreateAndApplyManifests(kub *helpers.Kubectl) {
+	completeManifest := "/tmp/data.yaml"
+	manifests := []string{}
+	for _, test := range tg {
+		test.CreateManifests()
+		manifests = append(manifests, test.GetManifestsPath())
+	}
+	res := kub.Exec(fmt.Sprintf("cat %s > %s", strings.Join(manifests, " "), completeManifest))
+	res.ExpectSuccess()
+
+	res = kub.Exec(fmt.Sprintf("%s apply -f %s", helpers.KubectlCmd, completeManifest))
+	res.ExpectSuccess()
+}
+
+// CreateAndApplyCNP creates all Cilium Network Policies and it applies those
+// policies to the given kunernetes instance.
+func (tg TestSpecsGroup) CreateAndApplyCNP(kub *helpers.Kubectl) {
+	for _, test := range tg {
+		// TODO: Should be any better way to do this
+		test.Kub = kub
+		err := test.NetworkPolicyApply()
+		gomega.ExpectWithOffset(1, err).To(gomega.BeNil())
+	}
+}
+
+// ConnectivityTest runs the Connectivity test per each TestSpec defined into
+// the TestSpecsGroup
+func (tg TestSpecsGroup) ConnectivityTest() {
+	for _, test := range tg {
+		err := test.Destination.CreateApplyManifest(test)
+		gomega.ExpectWithOffset(1, err).To(gomega.BeNil(), "cannot apply destination for %s", test.Prefix)
+
+		err = test.ExecTest()
+		gomega.ExpectWithOffset(1, err).To(gomega.BeNil(), "cannot execute test for %s", test.Prefix)
+	}
 }

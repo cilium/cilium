@@ -120,3 +120,37 @@ func GeneratedTestSpec() []TestSpec {
 	}
 	return testSpecs
 }
+
+// GetBasicTestSpec returns a very simple TestSpec with a L4 and L7 policy that
+// allow traffic only to /private/
+func GetBasicTestSpec() TestSpec {
+	return TestSpec{
+		l3: PolicyTestKind{
+			name:  "No Policy",
+			kind:  ingress,
+			tests: ConnResultAllOK,
+			template: map[string]string{
+				"FromEndpoints": `[{}]`,
+			},
+		},
+		l4: PolicyTestKind{
+
+			name:  "Ingress Port 80 TCP",
+			kind:  ingress,
+			tests: ConnResultOnlyHTTP,
+			template: map[string]string{
+				"Ports": `[{"port": "80", "protocol": "TCP"}]`,
+			},
+		},
+		l7: PolicyTestKind{
+			name:  "Ingress policy /private/",
+			kind:  ingress,
+			tests: ConnResultOnlyHTTPPrivate,
+			template: map[string]string{
+				"Rules": `{"http": [{"method": "GET", "path": "/private"}]}`,
+				"Ports": `[{"port": "80", "protocol": "TCP"}]`,
+			},
+		},
+		Destination: DestinationsTypes[0],
+	}
+}

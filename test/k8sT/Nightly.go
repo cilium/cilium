@@ -25,6 +25,7 @@ import (
 	"time"
 
 	"github.com/cilium/cilium/test/helpers"
+	"github.com/cilium/cilium/test/helpers/policygen"
 
 	"github.com/Jeffail/gabs"
 	. "github.com/onsi/ginkgo"
@@ -165,6 +166,62 @@ var _ = Describe("NightlyEpsMeasurement", func() {
 				Expect(err).Should(BeNil())
 			}
 		}
+	})
+
+	Context("Nightly Policies", func() {
+		numPods := 20
+		bunchPods := 5
+		podsCreated := 0
+
+		AfterEach(func() {
+			if CurrentGinkgoTestDescription().Failed {
+				ciliumPod, _ := kubectl.GetCiliumPodOnNode(helpers.KubeSystemNamespace, "k8s1")
+				kubectl.CiliumReport("kube-system", ciliumPod, []string{
+					"cilium service list",
+					"cilium endpoint list",
+					"cilium policy get"})
+			}
+
+			kubectl.Exec(fmt.Sprintf(
+				"%s delete --all pods,svc,cnp -n%s", helpers.KubectlCmd, helpers.DefaultNamespace))
+		})
+
+		Measure(fmt.Sprintf("Applying policies to %d pods in bunch of %d", numPods, bunchPods), func(b Benchmarker) {
+			testDef := func() {
+				logger.Errorf("Create %d new pods, total created are %d", numPods, podsCreated)
+				testSpecGroup := policygen.TestSpecsGroup{}
+				for i := 0; i < bunchPods; i++ {
+					testSpec := policygen.GetBasicTestSpec()
+					testSpecGroup = append(testSpecGroup, &testSpec)
+				}
+
+				By("Creating endpoints")
+
+				endpoints := b.Time("Runtime", func() {
+					testSpecGroup.CreateAndApplyManifests(kubectl)
+				})
+				b.RecordValue("Endpoint Creation in seconds", endpoints.Seconds())
+
+				By("Apply Policies")
+
+				policy := b.Time("policy", func() {
+					testSpecGroup.CreateAndApplyCNP(kubectl)
+				})
+				b.RecordValue("Policy Creation in seconds", policy.Seconds())
+
+				By("Connectivity Test")
+				conn := b.Time("connTest", func() {
+					testSpecGroup.ConnectivityTest()
+				})
+
+				b.RecordValue("Connectivity test in seconds", conn.Seconds())
+			}
+
+			for podsCreated < numPods {
+				testDef()
+				podsCreated = podsCreated + bunchPods
+			}
+		}, 1)
 	})
 })
 
