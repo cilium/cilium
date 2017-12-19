@@ -7,7 +7,7 @@ pipeline {
     }
 
     options {
-        timeout(time: 120, unit: 'MINUTES')
+        timeout(time: 240, unit: 'MINUTES')
         timestamps()
     }
 
@@ -35,7 +35,7 @@ pipeline {
             post {
                 always {
                     junit 'test/*.xml'
-                    sh 'cd test/; ./post_build_agent.sh || true'                    
+                    sh 'cd test/; ./post_build_agent.sh || true'
                     sh 'cd test/; K8S_VERSION=1.7 vagrant destroy -f'
                 }
             }
