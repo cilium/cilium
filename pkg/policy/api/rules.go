@@ -14,9 +14,32 @@
 
 package api
 
+import "github.com/cilium/cilium/pkg/proxy/constant"
+
 // Rules is a collection of api.Rule.
 //
 // All rules must be evaluated in order to come to a conclusion. While
 // it is sufficient to have a single fromEndpoints rule match, none of
 // the fromRequires may be violated at the same time.
 type Rules []*Rule
+
+func (r Rules) L7Type() string {
+	// Since envoy can redirect anything that oxy can we check
+	// if any rule contains envoy which takes precedence over any
+	// rule that contains oxy.
+
+	var oxyProxy bool
+
+	for _, rule := range r {
+		switch rule.L7Type() {
+		case constant.ProxyKindEnvoy:
+			return constant.ProxyKindEnvoy
+		case constant.ProxyKindOxy:
+			oxyProxy = true
+		}
+	}
+	if oxyProxy {
+		return constant.ProxyKindOxy
+	}
+	return ""
+}

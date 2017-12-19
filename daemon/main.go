@@ -48,6 +48,7 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/pprof"
+	proxyConst "github.com/cilium/cilium/pkg/proxy/constant"
 	"github.com/cilium/cilium/pkg/version"
 	"github.com/cilium/cilium/pkg/workloads/containerd"
 
@@ -344,9 +345,6 @@ func init() {
 	flags.String("enable-policy", endpoint.DefaultEnforcement, "Enable policy enforcement")
 	flags.BoolVar(&enableTracing,
 		"enable-tracing", false, "Enable tracing while determining policy (debugging)")
-	flags.BoolVar(&useEnvoy,
-		"envoy-proxy", false, "Use Envoy for HTTP proxy")
-	viper.BindEnv("envoy-proxy", "CILIUM_USE_ENVOY")
 	flags.StringVar(&v4Prefix,
 		"ipv4-range", AutoCIDR, "Per-node IPv4 endpoint prefix, e.g. 10.16.0.0/16")
 	flags.StringVar(&v6Prefix,
@@ -371,6 +369,8 @@ func init() {
 		"label-prefix-file", "", "Valid label prefixes file path")
 	flags.StringSliceVar(&validLabels,
 		"labels", []string{}, "List of label prefixes used to determine identity of an endpoint")
+	flags.StringVar(&config.proxyKind,
+		"l7-proxy", proxyConst.ProxyKindOxy, "L7 proxy: "+proxyConst.ProxyKindOxy+" or "+proxyConst.ProxyKindEnvoy)
 	flags.StringVar(&config.LBInterface,
 		"lb", "", "Enables load balancer mode where load balancer bpf program is attached to the given interface")
 	flags.StringVar(&config.LibDir,
@@ -493,6 +493,11 @@ func initEnv(cmd *cobra.Command) {
 
 	if viper.GetBool("pprof") {
 		pprof.Enable()
+	}
+
+	if os.Getenv("CILIUM_USE_ENVOY") != "" {
+		log.Info("CILIUM_USE_ENVOY set, using envoy proxy")
+		config.proxyKind = proxyConst.ProxyKindEnvoy
 	}
 
 	if config.IPv4Disabled {

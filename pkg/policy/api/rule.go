@@ -18,6 +18,7 @@ import (
 	"regexp"
 
 	"github.com/cilium/cilium/pkg/labels"
+	"github.com/cilium/cilium/pkg/proxy/constant"
 )
 
 // Rule is a policy rule which must be applied to all endpoints which match the
@@ -62,6 +63,44 @@ type Rule struct {
 	//
 	// +optional
 	Description string `json:"description,omitempty"`
+}
+
+// L7Type returns the proxy that meets the minimal requirements to redirect the
+// traffic for this specific rule.
+func (r *Rule) L7Type() string {
+	// Since envoy can redirect anything that oxy can we check
+	// if any rule contains envoy which takes precedence over any
+	// rule that contains oxy.
+
+	var oxyProxy bool
+	for _, ing := range r.Ingress {
+		for _, port := range ing.ToPorts {
+			switch {
+			case port.Rules == nil:
+				continue
+			case len(port.Rules.Kafka) > 0:
+				return constant.ProxyKindEnvoy
+			case len(port.Rules.HTTP) > 0:
+				oxyProxy = true
+			}
+		}
+	}
+	for _, eg := range r.Egress {
+		for _, port := range eg.ToPorts {
+			switch {
+			case port.Rules == nil:
+				continue
+			case len(port.Rules.Kafka) > 0:
+				return constant.ProxyKindEnvoy
+			case len(port.Rules.HTTP) > 0:
+				oxyProxy = true
+			}
+		}
+	}
+	if oxyProxy {
+		return constant.ProxyKindOxy
+	}
+	return ""
 }
 
 // Entity specifies the class of receiver/sender endpoints that do not have individual identities.

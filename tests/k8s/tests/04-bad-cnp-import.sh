@@ -20,10 +20,12 @@ set -ex
 case ${k8s_version} in
 	1.6*)
     bad_policy_path="${dir}/deployments/bad-cnp/no-endpoint-selector-ciliumv1.yaml"
+    kafka_l7_policy_path="${dir}/deployments/bad-cnp/kafka-l7-policy-v1.yaml"
     log "k8s version is 1.6; using bad policy at ${bad_policy_path}"
 		;;
 	*)
     bad_policy_path="${dir}/deployments/bad-cnp/no-endpoint-selector-ciliumv2.yaml"
+    kafka_l7_policy_path="${dir}/deployments/bad-cnp/kafka-l7-policy-v2.yaml"
     log "k8s version is >=1.7; using bad policy at ${bad_policy_path}"
 		;;
 esac
@@ -51,5 +53,12 @@ k8s_apply_policy kube-system create "${bad_policy_path}"
 log "ensure cilium is still running"
 kubectl exec ${LOCAL_CILIUM_POD} -n ${NAMESPACE} -- cilium status
 if [ $? -ne 0 ]; then abort "agent died processing CNP without endpointSelector" ; fi
+
+if [ -z "${CILIUM_USE_ENVOY}" ]; then
+  log "importing CNP that only works on envoy"
+  k8s_apply_policy default create "${kafka_l7_policy_path}"
+  kubectl describe cnp l3-dependent-l7 | grep -q "not able to enforce this rule"
+  if [ $? -ne 0 ]; then abort "agent accepted a l3-dependent l7 policy that wasn't able to enforce" ; fi
+fi
 
 test_succeeded "${TEST_NAME}"

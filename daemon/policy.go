@@ -32,6 +32,7 @@ import (
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
+	"github.com/cilium/cilium/pkg/proxy/constant"
 
 	"github.com/go-openapi/runtime/middleware"
 	"github.com/op/go-logging"
@@ -244,6 +245,13 @@ func (d *Daemon) PolicyAdd(rules api.Rules, opts *AddOptions) (uint64, error) {
 	for _, r := range rules {
 		if err := r.Sanitize(); err != nil {
 			return 0, apierror.Error(PutPolicyFailureCode, err)
+		}
+	}
+	switch l7 := rules.L7Type(); l7 {
+	case constant.ProxyKindEnvoy:
+		if daemonl7Kind := d.l7Proxy.GetKind(); daemonl7Kind == constant.ProxyKindOxy {
+			return 0, fmt.Errorf("Selected proxy %q is not able to enforce this rule. "+
+				"Please start cilium with a capable l7 proxy (e.g. %q)", daemonl7Kind, constant.ProxyKindEnvoy)
 		}
 	}
 

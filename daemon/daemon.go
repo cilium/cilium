@@ -62,7 +62,6 @@ import (
 	"github.com/go-openapi/runtime/middleware"
 	"github.com/mattn/go-shellwords"
 	"github.com/sirupsen/logrus"
-	"github.com/spf13/viper"
 	"github.com/vishvananda/netlink"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -125,13 +124,7 @@ func (d *Daemon) UpdateProxyRedirect(e *endpoint.Endpoint, l4 *policy.L4Filter) 
 		return 0, fmt.Errorf("can't redirect, proxy disabled")
 	}
 
-	// proxyKind only has an effects on newly created redirects
-	proxyKind := proxy.ProxyKindOxy
-	if viper.GetBool("envoy-proxy") {
-		proxyKind = proxy.ProxyKindEnvoy
-	}
-
-	r, err := d.l7Proxy.CreateOrUpdateRedirect(l4, e.ProxyID(l4), e, proxyKind)
+	r, err := d.l7Proxy.CreateOrUpdateRedirect(l4, e.ProxyID(l4), e)
 	if err != nil {
 		return 0, err
 	}
@@ -1086,7 +1079,7 @@ func NewDaemon(c *Config) (*Daemon, error) {
 	}
 
 	// FIXME: Make configurable
-	d.l7Proxy = proxy.NewProxy(10000, 20000)
+	d.l7Proxy = proxy.NewProxy(c.proxyKind, 10000, 20000)
 
 	if c.RestoreState {
 		if err := d.SyncState(d.conf.StateDir, true); err != nil {
