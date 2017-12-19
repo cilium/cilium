@@ -219,10 +219,10 @@ Related Material
 Presentations
 -------------
 
-* DockerCon, April 18, 2017: `Cilium - Network and Application Security with BPF and XDP
-  <https://www.slideshare.net/ThomasGraf5/dockercon-2017-cilium-network-and-application-security-with-bpf-and-xdp>`_
-* CNCF/KubeCon Meetup, March 28, 2017: `Linux Native, HTTP Aware Network Security
-  <https://www.slideshare.net/ThomasGraf5/linux-native-http-aware-network-security>`_
+* DockerCon, Austin TX, Apr 2017 - Cilium - Network and Application Security with BPF and XDP: `Slides
+  <https://www.slideshare.net/ThomasGraf5/dockercon-2017-cilium-network-and-application-security-with-bpf-and-xdp>`_, `Video <https://www.youtube.com/watch?v=ilKlmTDdFgk>`_
+* CNCF/KubeCon Meetup, Berlin, Mar 2017 - Linux Native, HTTP Aware Network Security:
+  `Slides <https://www.slideshare.net/ThomasGraf5/linux-native-http-aware-network-security>`_, `Video <https://www.youtube.com/watch?v=Yf_INdTWIHI>`_
 * Docker Distributed Systems Summit, Berlin, Oct 2016:
   `Slides <http://www.slideshare.net/Docker/cilium-bpf-xdp-for-containers-66969823>`_, `Video <https://www.youtube.com/watch?v=TnJF7ht3ZYc&list=PLkA60AVN3hh8oPas3cq2VA9xB7WazcIgs&index=7>`_
 * NetDev1.2, Tokyo, Sep 2016 - cls_bpf/eBPF updates since netdev 1.1: `Slides <http://borkmann.ch/talks/2016_tcws.pdf>`_, `Video <https://youtu.be/gwzaKXWIelc?t=12m55s>`_
