@@ -16,6 +16,91 @@ the :ref:`k8scompatibility` section for kubernetes API version compatibility.
 
 .. _admin_mount_bpffs:
 
+Running Kubernetes with CRD Validation (Recommended)
+====================================================
+
+Custom Resource Validation was introduced in Kubernetes since version ``1.8.0``.
+This is still considered an alpha feature in Kubernetes ``1.8.0`` and beta in
+Kubernetes ``1.9.0``.
+
+Since Cilium ``v1.0.0-rc3``, Cilium will create, or update in case it exists,
+the Cilium Network Policy (CNP) Resource Definition with the embedded validation
+schema. This allows the validation of CNP to be done on the kube-apiserver for
+the most common user errors.
+
+To enable this feature the flag ``--feature-gates=CustomResourceValidation=true``
+must be set when starting kube-apiserver. As for Cilium, it's already included
+by default since ``v1.0.0-rc3`` so no further actions are necessary.
+
+**Note**: In case there is an invalid CNP before updating to Cilium
+``v1.0.0-rc3``, which contains the validator, the kube-apiserver validator will
+prevent Cilium from updating that invalid CNP with Cilium node status. By
+checking Cilium logs for ``unable to update CNP, retrying...``, it is possible
+to determine which Cilium Network Policies are considered invalid after updating
+to Cilium ``v1.0.0-rc3``.
+
+To verify that the CNP resource definition contains the validation schema, run
+the following command:
+
+``kubectl get crd ciliumnetworkpolicies.cilium.io -o json`
+
+.. code:: bash
+
+	kubectl get crd ciliumnetworkpolicies.cilium.io -o json | grep -A 12 openAPIV3Schema
+            "openAPIV3Schema": {
+                "oneOf": [
+                    {
+                        "required": [
+                            "spec"
+                        ]
+                    },
+                    {
+                        "required": [
+                            "specs"
+                        ]
+                    }
+                ],
+
+In case the user writes a policy that does not conform to the schema, Kubernetes
+will return an error, e.g.:
+
+.. code:: bash
+
+	cat <<EOF > ./bad-cnp.yaml
+	apiVersion: "cilium.io/v2"
+	kind: CiliumNetworkPolicy
+	description: "Policy to test multiple rules in a single file"
+	metadata:
+	  name: my-new-cilium-object
+	spec:
+	  endpointSelector:
+	    matchLabels:
+	      app: details
+	      track: stable
+	      version: v1
+	  ingress:
+	  - fromEndpoints:
+	    - matchLabels:
+	        app: reviews
+	        track: stable
+	        version: v1
+	    toPorts:
+	    - ports:
+	      - port: '65536'
+	        protocol: TCP
+	      rules:
+	        http:
+	        - method: GET
+	          path: "/health"
+	EOF
+
+	kubectl create -f ./bad-cnp.yaml
+	...
+	spec.ingress.toPorts.ports.port in body should match '^(6553[0-5]|655[0-2][0-9]|65[0-4][0-9]{2}|6[0-4][0-9]{3}|[1-5][0-9]{4}|[0-9]{1,4})$'
+
+
+In this case, the policy has a port out of the 0-65535 range.
+
 Mounting the BPF FS (Optional)
 ==============================
 
@@ -74,8 +159,8 @@ filesystems, the mount point path must be reflected in the unit filename.
         EOF
 
 
-CNI Configuation
-================
+CNI Configuration
+=================
 
 `CNI` - Container Network Interface is the plugin layer used by Kubernetes to
 delegate networking configuration. You can find additional information on the

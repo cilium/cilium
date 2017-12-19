@@ -499,6 +499,13 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir, reason string) (uint64, err
 			e.Mutex.Unlock()
 			return 0, err
 		}
+		// Clean up map contents
+		log.Debugf("Flushing old policies map")
+		err = e.PolicyMap.Flush()
+		if err != nil {
+			e.Mutex.Unlock()
+			return 0, err
+		}
 	}
 
 	// Only generate & populate policy map if a seclabel and consumer model is set up

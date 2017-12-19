@@ -39,6 +39,7 @@ const (
 
 // LabelPrefix is the cilium's representation of a container label.
 // +k8s:deepcopy-gen=false
+// +k8s:openapi-gen=false
 type LabelPrefix struct {
 	// Ignore if true will cause this prefix to be ignored insted of being accepted
 	Ignore bool   `json:"invert"`
@@ -139,6 +140,7 @@ func ParseLabelPrefixCfg(prefixes []string, file string) error {
 
 // labelPrefixCfg is the label prefix configuration to filter labels of started
 // containers.
+// +k8s:openapi-gen=false
 type labelPrefixCfg struct {
 	Version       int            `json:"version"`
 	LabelPrefixes []*LabelPrefix `json:"valid-prefixes"`

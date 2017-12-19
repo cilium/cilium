@@ -115,6 +115,9 @@ func (om OptionMap) DeepCopy() OptionMap {
 	return cpy
 }
 
+// BoolOptions member functions with external access do not require
+// locking by the caller, while functions with internal access presume
+// the caller to have taken care of any locking needed.
 type BoolOptions struct {
 	optsMU  lock.RWMutex   // Protects all variables from this structure below this line
 	Opts    OptionMap      `json:"map"`
@@ -169,11 +172,15 @@ func NewBoolOptions(lib *OptionLibrary) *BoolOptions {
 	}
 }
 
+func (bo *BoolOptions) isEnabled(key string) bool {
+	set, exists := bo.Opts[key]
+	return exists && set
+}
+
 func (bo *BoolOptions) IsEnabled(key string) bool {
 	bo.optsMU.RLock()
-	set, exists := bo.Opts[key]
-	bo.optsMU.RUnlock()
-	return exists && set
+	defer bo.optsMU.RUnlock()
+	return bo.isEnabled(key)
 }
 
 func (bo *BoolOptions) Set(key string, value bool) {
@@ -197,7 +204,9 @@ func (bo *BoolOptions) SetIfUnset(key string, value bool) {
 }
 
 func (bo *BoolOptions) InheritDefault(parent *BoolOptions, key string) {
-	bo.Set(key, parent.IsEnabled(key))
+	bo.optsMU.RLock()
+	bo.Opts[key] = parent.isEnabled(key)
+	bo.optsMU.RUnlock()
 }
 
 func ParseOption(arg string, lib *OptionLibrary) (string, bool, error) {
@@ -242,7 +251,7 @@ func (bo *BoolOptions) getFmtOpt(name string) string {
 		return ""
 	}
 
-	if bo.IsEnabled(name) {
+	if bo.isEnabled(name) {
 		return "#define " + bo.Library.Define(name)
 	}
 	return "#undef " + bo.Library.Define(name)

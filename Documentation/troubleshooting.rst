@@ -110,19 +110,19 @@ you can also redirect to a file like
 Single Node Bugtool
 ===================
 
-The ``cilium-bugtool`` captures potentially useful informations about your
+The ``cilium-bugtool`` captures potentially useful information about your
 environment for debugging. The tool is meant to be used for debugging a single
-Cilium agent node but in the Kubernetes case if you have multiple Cilium pods
-it can retrieve debugging information from all of them. The tool works by
-archiving a collection of command outputs and files from several places.  With
-no options it writes to the ``tmp`` directory.
+Cilium agent node. In the Kubernetes case, if you have multiple Cilium pods,
+the tool can retrieve debugging information from all of them. The tool works by
+archiving a collection of command output and files from several places. By
+default, it writes to the ``tmp`` directory.
 
 ::
 
   cilium-bugtool
 
 When running it with no option as shown above, it will try to copy various
-files and execute some commands. If ``kubectl`` is detected it will search for
+files and execute some commands. If ``kubectl`` is detected, it will search for
 Cilium pods. The default label being ``k8s-app=cilium``, but this and the
 namespace can be changed via ``k8s-namespace`` and ``k8s-label`` respectively.
 
@@ -133,8 +133,8 @@ If you'd prefer to browse the dump, there is a HTTP flag.
   cilium-bugtool --serve
 
 
-If you want to capture the archive from a Kubernetes pod, the the process is a
-little bit different
+If you want to capture the archive from a Kubernetes pod, then the process is a
+ bit different
 
 ::
 
@@ -156,11 +156,11 @@ little bit different
 
 .. Note::
 
-          Please check the dump files for sensitive informations and strip it
+          Please check the dump files for sensitive information and strip it
           away before sharing it with us.
 
-Below is a approximate list of what kind of information is in the archive, but
-you should still verify before sharing.
+Below is an approximate list of the kind of information in the archive. It is
+recommended that you verify it before sharing.
 
 * Cilium status
 * Cilium version
@@ -186,6 +186,30 @@ you should still verify before sharing.
 * ``cilium policy get``
 * ``cilium service list``
 * ...
+
+Cluster-wide Debugging Tool
+===========================
+The ``clusterdebug`` tool can help identify the most commonly encountered
+issues in Cilium deployments. The tool currently supports Kubernetes
+and Minikube clusters only.
+
+The tool performs various checks and provides hints to fix specific
+issues that it has identified.
+
+The following is a list of prerequisites:
+
+* Requires Python >= 2.7.*
+* Requires ``kubectl``.
+* ``kubectl`` should be pointing to your cluster before running the tool.
+
+Command to run the cluster-wide debugging tool:
+
+::
+
+    python clusterdebug.zip
+
+Please check the README file for instructions to rebuild the zip file.
+You can download the latest version of the clusterdebug.zip file here: //TODO.
 
 .. _Slack channel: https://cilium.herokuapp.com
 .. _NodeSelector: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/

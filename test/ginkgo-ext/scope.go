@@ -25,7 +25,7 @@ import (
 
 // GetScope returns the scope for the currently running test.
 func GetScope() string {
-	focusString := strings.ToLower(config.GinkgoConfig.FocusString)
+	focusString := strings.TrimSpace(strings.ToLower(config.GinkgoConfig.FocusString))
 	switch {
 	case strings.HasPrefix(focusString, "run"):
 		return helpers.Runtime

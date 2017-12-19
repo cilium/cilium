@@ -35,8 +35,6 @@ func (s *LockSuite) TestLock(c *C) {
 	lock1.Unlock()
 
 	lock1.RLock()
-	lock1.RLock()
-	lock1.RUnlock()
 	lock1.RUnlock()
 
 	var lock2 Mutex
@@ -50,8 +48,6 @@ func (s *LockSuite) TestDebugLock(c *C) {
 	lock1.Unlock()
 
 	lock1.RLock()
-	lock1.RLock()
-	lock1.RUnlock()
 	lock1.RUnlock()
 
 	var lock2 MutexDebug

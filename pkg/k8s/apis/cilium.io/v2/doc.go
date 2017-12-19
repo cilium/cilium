@@ -13,6 +13,7 @@
 // limitations under the License.
 
 // +k8s:deepcopy-gen=package,register
+// +k8s:openapi-gen=true
 
 // Package v2 is the v2 version of the API.
 // +groupName=cilium.io

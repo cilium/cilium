@@ -164,20 +164,24 @@ func (h *putEndpointID) Handle(params PutEndpointIDParams) middleware.Responder 
 		return apierror.Error(PutEndpointIDFailedCode, err)
 	}
 
-	// Regenerate immediately if ready
+	// Regenerate immediately if ready or waiting for identity
 	ep.Mutex.Lock()
-	ready := false
+	build := false
 	state := ep.GetStateLocked()
 	reason := "Create endpoint from API PUT"
-	if state == endpoint.StateReady || state == endpoint.StateWaitingForIdentity {
-		// Note that the endpoint state can initially also be "creating", and the
-		// initial build will not be done yet in that case. A following PATCH
-		// request will be needed to change the state and trigger bpf build.
+	// Note that the endpoint state can initially also be "creating", and the
+	// initial build will not be done yet in that case. A following PATCH
+	// request will be needed to change the state and trigger bpf build.
+	if state == endpoint.StateReady {
 		ep.SetStateLocked(endpoint.StateWaitingToRegenerate, reason)
-		ready = true
+		build = true
+	} else if state == endpoint.StateWaitingForIdentity {
+		// state not changed if it is "waiting-for-identity",
+		// but we still trigger the initial build.
+		build = true
 	}
 	ep.Mutex.Unlock()
-	if ready {
+	if build {
 		if err := ep.RegenerateWait(h.d, reason); err != nil {
 			ep.RemoveDirectory()
 			return apierror.Error(PatchEndpointIDFailedCode, err)

@@ -162,6 +162,31 @@ func (pm *PolicyMap) DumpToSlice() ([]PolicyEntryDump, error) {
 	return entries, nil
 }
 
+// Flush deletes all entries from the given policy map
+func (pm *PolicyMap) Flush() error {
+	var key, nextKey policyKey
+	for {
+		err := bpf.GetNextKey(
+			pm.Fd,
+			unsafe.Pointer(&key),
+			unsafe.Pointer(&nextKey),
+		)
+
+		// FIXME: Ignore delete errors?
+		bpf.DeleteElement(
+			pm.Fd,
+			unsafe.Pointer(&key),
+		)
+
+		if err != nil {
+			break
+		}
+
+		key = nextKey
+	}
+	return nil
+}
+
 // Close closes the FD of the given PolicyMap
 func (pm *PolicyMap) Close() error {
 	return bpf.ObjClose(pm.Fd)
