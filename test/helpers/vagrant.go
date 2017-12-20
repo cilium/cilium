@@ -32,13 +32,7 @@ func CreateVM(scope string) error {
 	for _, v := range Status(scope) {
 		switch v {
 		case "running":
-			// Always destroy if we are running in Jenkins. If not, just
-			// provision the VM.
-			if !IsRunningOnJenkins() {
-				createCMD = "vagrant provision %s"
-			} else {
-				DestroyVM(scope)
-			}
+			createCMD = "vagrant provision %s"
 		case "not_created":
 			createCMD = "vagrant up %s --provision"
 		default:

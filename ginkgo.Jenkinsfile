@@ -34,6 +34,22 @@ pipeline {
                 }
             }
         }
+        stage('Boot VMs'){
+            environment {
+                GOPATH="${WORKSPACE}"
+                TESTDIR="${WORKSPACE}/${PROJ_PATH}/test"
+            }
+            steps {
+                sh 'cd ${TESTDIR}; K8S_VERSION=1.7 vagrant up --no-provision'
+                sh 'cd ${TESTDIR}; K8S_VERSION=1.6 vagrant up --no-provision'
+            }
+            post {
+                failure {
+                    sh "cd ${TESTDIR}; K8S_VERSION=1.7 vagrant destroy -f"
+                    sh "cd ${TESTDIR}; K8S_VERSION=1.6 vagrant destroy -f"
+                }
+            }
+        }
         stage('BDD-Test') {
             environment {
                 GOPATH="${WORKSPACE}"
@@ -59,7 +75,7 @@ pipeline {
                     // Temporary workaround to test cleanup
                     // rm -rf ${GOPATH}/src/github.com/cilium/cilium
                     sh 'cd test/; ./post_build_agent.sh || true'
-                    sh 'cd test/; vagrant destroy -f'
+                    sh 'cd test/; K8S_VERSION=1.7 vagrant destroy -f'
                     sh 'cd test/; K8S_VERSION=1.6 vagrant destroy -f'
                     sh 'cd test/; ./archive_test_results.sh || true'
                     archiveArtifacts artifacts: "test_results_${JOB_BASE_NAME}_${BUILD_NUMBER}.tar", allowEmptyArchive: true
