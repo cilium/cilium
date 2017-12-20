@@ -106,6 +106,19 @@ func (kub *Kubectl) GetPods(namespace string, filter string) *CmdRes {
 	return kub.Exec(fmt.Sprintf("%s -n %s get pods %s -o json", KubectlCmd, namespace, filter))
 }
 
+// GetPodsNodes returns a map with pod name as a key and node name as value. It
+// only gets pods in the given namespace that match the provided filter. It
+// returns an error if pods cannot be retrieved correctly
+func (kub *Kubectl) GetPodsNodes(namespace string, filter string) (map[string]string, error) {
+	jsonFilter := `{range .items[*]}{@.metadata.name}{"="}{@.spec.nodeName}{"\n"}{end}`
+	res := kub.Exec(fmt.Sprintf("%s -n %s get pods %s -o jsonpath='%s'",
+		KubectlCmd, namespace, filter, jsonFilter))
+	if !res.WasSuccessful() {
+		return nil, fmt.Errorf("cannot retrieve pods: %s", res.CombineOutput())
+	}
+	return res.KVOutput(), nil
+}
+
 // GetPodNames returns the names of all of the pods that are labeled with label
 // in the specified namespace, along with an error if the pod names cannot be
 // retrieved.
@@ -249,10 +262,17 @@ func (kub *Kubectl) CiliumEndpointsList(pod string) *CmdRes {
 	return kub.CiliumExec(pod, "cilium endpoint list -o json")
 }
 
+// CiliumEndpointGet returns the output of `cilium endpoint get` for the
+// provided endpoint ID.
+func (kub *Kubectl) CiliumEndpointGet(pod string, id string) *CmdRes {
+	return kub.CiliumExec(pod, fmt.Sprintf(
+		"cilium endpoint get %s -o json", id))
+}
+
 // CiliumEndpointsIDs returns a mapping  of a pod name to it is corresponding
 // endpoint's security identity
 func (kub *Kubectl) CiliumEndpointsIDs(pod string) map[string]string {
-	filter := `{range [*]}{@.container-name}{"="}{@.id}{"\n"}{end}`
+	filter := `{range [*]}{@.pod-name}{"="}{@.id}{"\n"}{end}`
 	return kub.CiliumExec(pod, fmt.Sprintf(
 		"cilium endpoint list -o jsonpath='%s'", filter)).KVOutput()
 }

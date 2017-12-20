@@ -46,6 +46,7 @@ var _ = Describe("K8sServicesTest", func() {
 		kubectl.Apply(path)
 		_, err := kubectl.WaitforPods(helpers.KubeSystemNamespace, "-l k8s-app=cilium", 600)
 		Expect(err).Should(BeNil())
+
 		initialized = true
 	}
 
@@ -145,5 +146,106 @@ var _ = Describe("K8sServicesTest", func() {
 		url := fmt.Sprintf("http://%s",
 			net.JoinHostPort(data.Spec.ClusterIP, fmt.Sprintf("%d", data.Spec.Ports[0].Port)))
 		testHTTPRequest(url)
+	})
+
+	Context("Headless services", func() {
+
+		var endpointPath string
+		var expectedCIDR string = "198.49.23.144/32"
+		var podName string = "toservices"
+		var podPath string
+		var policyPath string
+		var servicePath string
+
+		BeforeEach(func() {
+			servicePath = fmt.Sprintf("%s/headless_service.yaml", kubectl.ManifestsPath())
+			res := kubectl.Apply(servicePath)
+			res.ExpectSuccess(res.GetDebugMessage())
+
+			endpointPath = fmt.Sprintf("%s/headless_endpoint.yaml", kubectl.ManifestsPath())
+			podPath = fmt.Sprintf("%s/headless_pod.yaml", kubectl.ManifestsPath())
+			policyPath = fmt.Sprintf("%s/headless_policy.yaml", kubectl.ManifestsPath())
+
+		})
+
+		AfterEach(func() {
+			res := kubectl.Delete(endpointPath)
+			res.ExpectSuccess()
+
+			res = kubectl.Delete(policyPath)
+			res.ExpectSuccess()
+
+			res = kubectl.Delete(servicePath)
+			res.ExpectSuccess()
+
+			res = kubectl.Delete(podPath)
+			res.ExpectSuccess()
+
+			waitFinish := func() bool {
+				data, err := kubectl.GetPodNames(helpers.DefaultNamespace, "zgroup=headless")
+				if err != nil {
+					return false
+				}
+				if len(data) == 0 {
+					return true
+				}
+				return false
+			}
+			err := helpers.WithTimeout(waitFinish, "cannot finish deleting containers",
+				&helpers.TimeoutConfig{Timeout: helpers.HelperTimeout})
+			Expect(err).To(BeNil())
+
+		})
+
+		validateEgress := func() {
+			kubectl.WaitforPods(helpers.DefaultNamespace, "", 300)
+
+			pods, err := kubectl.GetPodsNodes(helpers.DefaultNamespace, "")
+			Expect(err).To(BeNil())
+
+			node := pods[podName]
+			ciliumPod, err := kubectl.GetCiliumPodOnNode(helpers.KubeSystemNamespace, node)
+			Expect(err).Should(BeNil())
+
+			status := kubectl.CiliumEndpointWait(ciliumPod)
+			Expect(status).To(BeTrue())
+
+			endpointIDs := kubectl.CiliumEndpointsIDs(ciliumPod)
+			endpointID := endpointIDs[fmt.Sprintf("%s:%s", helpers.DefaultNamespace, podName)]
+			Expect(endpointID).NotTo(BeNil())
+
+			res := kubectl.CiliumEndpointGet(ciliumPod, endpointID)
+
+			data, err := res.Filter(`{[0].policy.cidr-policy.egress}`)
+			Expect(err).To(BeNil())
+			Expect(data.String()).To(ContainSubstring(expectedCIDR))
+		}
+
+		It("To Services first endpoint creation", func() {
+			res := kubectl.Apply(endpointPath)
+			res.ExpectSuccess()
+
+			res = kubectl.Apply(podPath)
+			res.ExpectSuccess()
+
+			res = kubectl.Apply(policyPath)
+			res.ExpectSuccess()
+
+			validateEgress()
+
+		})
+
+		It("To Services first policy", func() {
+			res := kubectl.Apply(podPath)
+			res.ExpectSuccess()
+
+			res = kubectl.Apply(policyPath)
+			res.ExpectSuccess()
+
+			res = kubectl.Apply(endpointPath)
+			res.ExpectSuccess()
+
+			validateEgress()
+		})
 	})
 })
