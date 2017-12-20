@@ -200,15 +200,19 @@ var _ = Describe("RuntimeMonitorTest", func() {
 	})
 
 	It("multiple monitors", func() {
-
 		res := vm.ExecCilium(fmt.Sprintf(
-			"config %s=true %s=true %s=true %s=default", MonitorDebug, MonitorDropNotification, MonitorTraceNotification, helpers.PolicyEnforcement))
+			"config %s=true %s=true %s=true %s=default",
+			MonitorDebug, MonitorDropNotification,
+			MonitorTraceNotification, helpers.PolicyEnforcement))
 		res.ExpectSuccess()
 
 		var monitorRes []*helpers.CmdRes
 
 		vm.ContainerCreate(helpers.Client, helpers.NetperfImage, helpers.CiliumDockerNetwork, "-l id.client")
 		vm.ContainerCreate(helpers.Server, helpers.NetperfImage, helpers.CiliumDockerNetwork, "-l id.server")
+
+		areEndpointsReady := vm.WaitEndpointsReady()
+		Expect(areEndpointsReady).Should(BeTrue())
 
 		defer vm.ContainerRm(helpers.Client)
 		defer vm.ContainerRm(helpers.Server)
