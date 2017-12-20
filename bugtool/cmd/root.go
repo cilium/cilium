@@ -27,7 +27,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/daemon/defaults"
 
 	"github.com/spf13/cobra"
@@ -55,6 +54,8 @@ for sensitive information.
 )
 
 var (
+	archive      bool
+	k8s          bool
 	serve        bool
 	port         int
 	dumpPath     string
@@ -65,7 +66,9 @@ var (
 )
 
 func init() {
+	BugtoolRootCmd.Flags().BoolVar(&archive, "archive", true, "Create archive when false skips deletion of the output directory")
 	BugtoolRootCmd.Flags().BoolVar(&serve, "serve", false, "Start HTTP server to serve static files")
+	BugtoolRootCmd.Flags().BoolVar(&k8s, "k8s-mode", false, "Require Kubernetes pods to be found or fail")
 	BugtoolRootCmd.Flags().IntVarP(&port, "port", "p", 4444, "Port to use for the HTTP server, (default 4444)")
 	BugtoolRootCmd.Flags().StringVarP(&dumpPath, "tmp", "t", "/tmp", "Path to store extracted files")
 	BugtoolRootCmd.Flags().StringVarP(&host, "host", "H", "", "URI to server-side API")
@@ -73,18 +76,32 @@ func init() {
 	BugtoolRootCmd.Flags().StringVarP(&k8sLabel, "k8s-label", "", "k8s-app=cilium", "Kubernetes label for Cilium pod")
 }
 
-func runTool() {
-	// Search for a Cilium pod and if one is found prefix all of the
-	// commands to use the pod(s).
+func setup() {
+	// By default try to pick either Kubernetes or non-k8s (host mode). If
+	// we find Cilium pod(s) then it's k8s-mode otherwise host mode.
+	// Passing extra flags can override the default.
 	var err error
 	k8sPods, err = getCiliumPods(k8sNamespace, k8sLabel)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Unable to retrieve cilium logs from kubernetes, skipping... %s\n", err)
+	switch {
+	case k8s:
+		// When the k8s flag is set, perform extra checks that we actually do have pods or fail.
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error: %s\nFailed to find pods, is kube-apiserver running?\n", err)
+			os.Exit(1)
+		}
+		if len(k8sPods) < 1 {
+			fmt.Fprintf(os.Stderr, "Found no pods, is kube-apiserver running?\n")
+			os.Exit(1)
+		}
+	case os.Getuid() != 0 && len(k8sPods) == 0:
+		// When the k8s flag is not set and the user is not root,
+		// debuginfo and BPF related commands can fail.
+		fmt.Printf("Warning, some of the BPF commands might fail when run as not root\n")
 	}
+}
 
-	if len(k8sPods) == 0 {
-		common.RequireRootPrivilege("bugtool")
-	}
+func runTool() {
+	setup()
 
 	defer printDisclaimer()
 	// Prevent collision with other directories
@@ -101,12 +118,16 @@ func runTool() {
 	copyCiliumInfo(createDir(dbgDir, "cilium"))
 	copyKernelConfig(createDir(dbgDir, "conf"))
 
-	archivePath, err := createArchive(dbgDir)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Failed to create archive %s\n", err)
-		os.Exit(1)
+	if archive {
+		archivePath, err := createArchive(dbgDir)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Failed to create archive %s\n", err)
+			os.Exit(1)
+		}
+		fmt.Printf("\nARCHIVE at %s\n", archivePath)
+	} else {
+		fmt.Printf("\nDIRECTORY at %s\n", dbgDir)
 	}
-	fmt.Printf("\nARCHIVE at %s\n", archivePath)
 
 	if serve {
 		// Use signal handler to cleanup after serving
@@ -120,6 +141,10 @@ func printDisclaimer() {
 }
 
 func cleanup(dbgDir string) {
+	if !archive {
+		// Perserve directory when archive is not created
+		return
+	}
 	if err := os.RemoveAll(dbgDir); err != nil {
 		fmt.Fprintf(os.Stderr, "Failed to cleanup temporary files %s\n", err)
 	}
