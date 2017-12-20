@@ -23,6 +23,7 @@ import (
 	"path/filepath"
 
 	"github.com/cilium/cilium/common/addressing"
+	"github.com/cilium/cilium/pkg/config"
 	e "github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
@@ -103,9 +104,8 @@ func (ds *DaemonSuite) generateEPs(baseDir string, epsWanted []*e.Endpoint, epsM
 
 	ds.d.compilationMutex = new(lock.RWMutex)
 
-	ds.OnGetStateDir = func() string {
-		return baseDir
-	}
+	config.AgentConfig().StateDir = baseDir
+
 	ds.OnQueueEndpointBuild = func(r *e.Request) {
 		go func(*e.Request) {
 			r.MyTurn <- true
@@ -115,20 +115,11 @@ func (ds *DaemonSuite) generateEPs(baseDir string, epsWanted []*e.Endpoint, epsM
 	ds.OnGetCachedMaxLabelID = func() (policy.NumericIdentity, error) {
 		return policy.NumericIdentity(259), nil
 	}
-	ds.OnTracingEnabled = func() bool {
-		return false
-	}
 	ds.OnGetPolicyRepository = func() *policy.Repository {
 		return policy.NewPolicyRepository()
 	}
-	ds.OnAlwaysAllowLocalhost = func() bool {
-		return false
-	}
 	ds.OnEnableEndpointPolicyEnforcement = func(e *e.Endpoint) (bool, bool) {
 		return true, true
-	}
-	ds.OnDryModeEnabled = func() bool {
-		return true
 	}
 
 	ds.OnGetCompilationLock = func() *lock.RWMutex {

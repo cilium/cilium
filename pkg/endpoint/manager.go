@@ -12,29 +12,26 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package endpointmanager
+package endpoint
 
 import (
 	"fmt"
 	"sync"
 
-	"github.com/cilium/cilium/pkg/endpoint"
+	"github.com/cilium/cilium/pkg/config"
 	"github.com/cilium/cilium/pkg/lock"
-	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/prometheus/client_golang/prometheus"
 )
 
 var (
-	log = logging.DefaultLogger
-
 	// mutex protects endpoints and endpointsAux
 	mutex lock.RWMutex
 
 	// endpoints is the global list of endpoints indexed by ID. mutex must
 	// be held to read and write.
-	endpoints    = map[uint16]*endpoint.Endpoint{}
-	endpointsAux = map[string]*endpoint.Endpoint{}
+	endpoints    = map[uint16]*Endpoint{}
+	endpointsAux = map[string]*Endpoint{}
 )
 
 func init() {
@@ -54,7 +51,7 @@ func init() {
 
 // Insert inserts the endpoint into the global maps.
 // Must be called with ep.Mutex.RLock held.
-func Insert(ep *endpoint.Endpoint) {
+func Insert(ep *Endpoint) {
 	mutex.Lock()
 	endpoints[ep.ID] = ep
 	updateReferences(ep)
@@ -62,39 +59,39 @@ func Insert(ep *endpoint.Endpoint) {
 }
 
 // Lookup looks up the endpoint by prefix id
-func Lookup(id string) (*endpoint.Endpoint, error) {
+func Lookup(id string) (*Endpoint, error) {
 	mutex.RLock()
 	defer mutex.RUnlock()
 
-	prefix, eid, err := endpoint.ParseID(id)
+	prefix, eid, err := ParseID(id)
 	if err != nil {
 		return nil, err
 	}
 
 	switch prefix {
-	case endpoint.CiliumLocalIdPrefix:
-		n, err := endpoint.ParseCiliumID(id)
+	case CiliumLocalIdPrefix:
+		n, err := ParseCiliumID(id)
 		if err != nil {
 			return nil, err
 		}
 		return lookupCiliumID(uint16(n)), nil
 
-	case endpoint.CiliumGlobalIdPrefix:
+	case CiliumGlobalIdPrefix:
 		return nil, fmt.Errorf("Unsupported id format for now")
 
-	case endpoint.ContainerIdPrefix:
+	case ContainerIdPrefix:
 		return lookupDockerID(eid), nil
 
-	case endpoint.DockerEndpointPrefix:
+	case DockerEndpointPrefix:
 		return lookupDockerEndpoint(eid), nil
 
-	case endpoint.ContainerNamePrefix:
+	case ContainerNamePrefix:
 		return lookupDockerContainerName(eid), nil
 
-	case endpoint.PodNamePrefix:
+	case PodNamePrefix:
 		return lookupPodNameLocked(eid), nil
 
-	case endpoint.IPv4Prefix:
+	case IPv4Prefix:
 		return lookupIPv4(eid), nil
 
 	default:
@@ -103,7 +100,7 @@ func Lookup(id string) (*endpoint.Endpoint, error) {
 }
 
 // LookupCiliumID looks up endpoint by endpoint ID
-func LookupCiliumID(id uint16) *endpoint.Endpoint {
+func LookupCiliumID(id uint16) *Endpoint {
 	mutex.RLock()
 	ep := lookupCiliumID(id)
 	mutex.RUnlock()
@@ -111,7 +108,7 @@ func LookupCiliumID(id uint16) *endpoint.Endpoint {
 }
 
 // LookupDockerID looks up endpoint by Docker ID
-func LookupDockerID(id string) *endpoint.Endpoint {
+func LookupDockerID(id string) *Endpoint {
 	mutex.RLock()
 	ep := lookupDockerID(id)
 	mutex.RUnlock()
@@ -119,7 +116,7 @@ func LookupDockerID(id string) *endpoint.Endpoint {
 }
 
 // LookupIPv4 looks up endpoint by IPv4 address
-func LookupIPv4(ipv4 string) *endpoint.Endpoint {
+func LookupIPv4(ipv4 string) *Endpoint {
 	mutex.RLock()
 	ep := lookupIPv4(ipv4)
 	mutex.RUnlock()
@@ -129,7 +126,7 @@ func LookupIPv4(ipv4 string) *endpoint.Endpoint {
 // UpdateReferences makes an endpoint available by all possible reference
 // fields as available for this endpoint (containerID, IPv4 address, ...)
 // Must be called with ep.Mutex.RLock held.
-func UpdateReferences(ep *endpoint.Endpoint) {
+func UpdateReferences(ep *Endpoint) {
 	mutex.Lock()
 	defer mutex.Unlock()
 	updateReferences(ep)
@@ -137,100 +134,100 @@ func UpdateReferences(ep *endpoint.Endpoint) {
 
 // Remove removes the endpoint from the global maps.
 // Must be called with ep.Mutex.RLock held.
-func Remove(ep *endpoint.Endpoint) {
+func Remove(ep *Endpoint) {
 	mutex.Lock()
 	defer mutex.Unlock()
 	delete(endpoints, ep.ID)
 
 	if ep.DockerID != "" {
-		delete(endpointsAux, endpoint.NewID(endpoint.ContainerIdPrefix, ep.DockerID))
+		delete(endpointsAux, NewID(ContainerIdPrefix, ep.DockerID))
 	}
 
 	if ep.DockerEndpointID != "" {
-		delete(endpointsAux, endpoint.NewID(endpoint.DockerEndpointPrefix, ep.DockerEndpointID))
+		delete(endpointsAux, NewID(DockerEndpointPrefix, ep.DockerEndpointID))
 	}
 
 	if ep.IPv4.String() != "" {
-		delete(endpointsAux, endpoint.NewID(endpoint.IPv4Prefix, ep.IPv4.String()))
+		delete(endpointsAux, NewID(IPv4Prefix, ep.IPv4.String()))
 	}
 
 	if ep.ContainerName != "" {
-		delete(endpointsAux, endpoint.NewID(endpoint.ContainerNamePrefix, ep.ContainerName))
+		delete(endpointsAux, NewID(ContainerNamePrefix, ep.ContainerName))
 	}
 
 	if ep.PodName != "" {
-		delete(endpointsAux, endpoint.NewID(endpoint.PodNamePrefix, ep.PodName))
+		delete(endpointsAux, NewID(PodNamePrefix, ep.PodName))
 	}
 }
 
 // lookupCiliumID looks up endpoint by endpoint ID
-func lookupCiliumID(id uint16) *endpoint.Endpoint {
+func lookupCiliumID(id uint16) *Endpoint {
 	if ep, ok := endpoints[id]; ok {
 		return ep
 	}
 	return nil
 }
 
-func lookupDockerEndpoint(id string) *endpoint.Endpoint {
-	if ep, ok := endpointsAux[endpoint.NewID(endpoint.DockerEndpointPrefix, id)]; ok {
+func lookupDockerEndpoint(id string) *Endpoint {
+	if ep, ok := endpointsAux[NewID(DockerEndpointPrefix, id)]; ok {
 		return ep
 	}
 	return nil
 }
 
-func lookupPodNameLocked(name string) *endpoint.Endpoint {
-	if ep, ok := endpointsAux[endpoint.NewID(endpoint.PodNamePrefix, name)]; ok {
+func lookupPodNameLocked(name string) *Endpoint {
+	if ep, ok := endpointsAux[NewID(PodNamePrefix, name)]; ok {
 		return ep
 	}
 	return nil
 }
 
-func lookupDockerContainerName(name string) *endpoint.Endpoint {
-	if ep, ok := endpointsAux[endpoint.NewID(endpoint.ContainerNamePrefix, name)]; ok {
+func lookupDockerContainerName(name string) *Endpoint {
+	if ep, ok := endpointsAux[NewID(ContainerNamePrefix, name)]; ok {
 		return ep
 	}
 	return nil
 }
 
-func lookupIPv4(ipv4 string) *endpoint.Endpoint {
-	if ep, ok := endpointsAux[endpoint.NewID(endpoint.IPv4Prefix, ipv4)]; ok {
+func lookupIPv4(ipv4 string) *Endpoint {
+	if ep, ok := endpointsAux[NewID(IPv4Prefix, ipv4)]; ok {
 		return ep
 	}
 	return nil
 }
 
-func lookupDockerID(id string) *endpoint.Endpoint {
-	if ep, ok := endpointsAux[endpoint.NewID(endpoint.ContainerIdPrefix, id)]; ok {
+func lookupDockerID(id string) *Endpoint {
+	if ep, ok := endpointsAux[NewID(ContainerIdPrefix, id)]; ok {
 		return ep
 	}
 	return nil
 }
 
-func linkContainerID(ep *endpoint.Endpoint) {
-	endpointsAux[endpoint.NewID(endpoint.ContainerIdPrefix, ep.DockerID)] = ep
+func linkContainerID(ep *Endpoint) {
+	endpointsAux[NewID(ContainerIdPrefix, ep.DockerID)] = ep
 }
 
 // UpdateReferences updates the mappings of various values to their corresponding
 // endpoints, such as DockerID, Docker Container Name, Pod Name, etc.
-func updateReferences(ep *endpoint.Endpoint) {
+func updateReferences(ep *Endpoint) {
 	if ep.DockerID != "" {
 		linkContainerID(ep)
 	}
 
 	if ep.DockerEndpointID != "" {
-		endpointsAux[endpoint.NewID(endpoint.DockerEndpointPrefix, ep.DockerEndpointID)] = ep
+		endpointsAux[NewID(DockerEndpointPrefix, ep.DockerEndpointID)] = ep
 	}
 
 	if ep.IPv4.String() != "" {
-		endpointsAux[endpoint.NewID(endpoint.IPv4Prefix, ep.IPv4.String())] = ep
+		endpointsAux[NewID(IPv4Prefix, ep.IPv4.String())] = ep
 	}
 
 	if ep.ContainerName != "" {
-		endpointsAux[endpoint.NewID(endpoint.ContainerNamePrefix, ep.ContainerName)] = ep
+		endpointsAux[NewID(ContainerNamePrefix, ep.ContainerName)] = ep
 	}
 
 	if ep.PodName != "" {
-		endpointsAux[endpoint.NewID(endpoint.PodNamePrefix, ep.PodName)] = ep
+		endpointsAux[NewID(PodNamePrefix, ep.PodName)] = ep
 	}
 }
 
@@ -239,32 +236,32 @@ func updateReferences(ep *endpoint.Endpoint) {
 // and cannot be modified.
 // Returns a waiting group that can be used to know when all the endpoints are
 // regenerated.
-func TriggerPolicyUpdates(owner endpoint.Owner) *sync.WaitGroup {
+func TriggerPolicyUpdates(owner Owner) *sync.WaitGroup {
 	var wg sync.WaitGroup
 
 	eps := GetEndpoints()
 	wg.Add(len(eps))
 
 	for _, ep := range eps {
-		go func(ep *endpoint.Endpoint, wg *sync.WaitGroup) {
+		go func(ep *Endpoint, wg *sync.WaitGroup) {
 			ep.Mutex.Lock()
 			policyChanges, ctCleaned, err := ep.TriggerPolicyUpdatesLocked(owner, nil)
 			regen := false
 			if err == nil && policyChanges {
 				// Regenerate only if state transition succeeds
-				regen = ep.SetStateLocked(endpoint.StateWaitingToRegenerate, "Triggering endpoint regeneration due to policy updates")
+				regen = ep.SetStateLocked(StateWaitingToRegenerate, "Triggering endpoint regeneration due to policy updates")
 			}
 			ep.Mutex.Unlock()
 
 			if err != nil {
 				log.WithError(err).Warn("Error while handling policy updates for endpoint")
-				ep.LogStatus(endpoint.Policy, endpoint.Failure, "Error while handling policy updates for endpoint: "+err.Error())
+				ep.LogStatus(Policy, Failure, "Error while handling policy updates for endpoint: "+err.Error())
 			} else {
 				// Wait for endpoint CT clean has complete before
 				// regenerating endpoint.
 				ctCleaned.Wait()
 				if !policyChanges {
-					ep.LogStatusOK(endpoint.Policy, "Endpoint policy update skipped because no changes were needed")
+					ep.LogStatusOK(Policy, "Endpoint policy update skipped because no changes were needed")
 				} else if regen {
 					// Regenerate logs status according to the build success/failure
 					<-ep.Regenerate(owner, "endpoint policy updated & changes were needed")
@@ -282,7 +279,7 @@ func HasGlobalCT() bool {
 	eps := GetEndpoints()
 	for _, e := range eps {
 		e.RLock()
-		globalCT := e.Consumable != nil && !e.Opts.IsEnabled(endpoint.OptionConntrackLocal)
+		globalCT := e.Consumable != nil && !e.Opts.IsEnabled(config.OptionConntrackLocal)
 		e.RUnlock()
 		if globalCT {
 			return true
@@ -292,9 +289,9 @@ func HasGlobalCT() bool {
 }
 
 // GetEndpoints returns a slice of all endpoints present in endpoint manager.
-func GetEndpoints() []*endpoint.Endpoint {
+func GetEndpoints() []*Endpoint {
 	mutex.RLock()
-	eps := make([]*endpoint.Endpoint, 0, len(endpoints))
+	eps := make([]*Endpoint, 0, len(endpoints))
 	for _, ep := range endpoints {
 		eps = append(eps, ep)
 	}

@@ -393,7 +393,7 @@ func (d *Daemon) RevNATDelete(id types.ServiceID) error {
 // Must be called with d.loadBalancer.BPFMapMU locked.
 func (d *Daemon) RevNATDeleteAll() error {
 
-	if !d.conf.IPv4Disabled {
+	if !agentConfig.IPv4Disabled {
 		if err := lbmap.RevNat4Map.DeleteAll(); err != nil {
 			return err
 		}
@@ -542,7 +542,7 @@ func (d *Daemon) SyncLBMap() error {
 		newRevNATMap[fe.ID] = fe.L3n4Addr
 	}
 
-	if !d.conf.IPv4Disabled {
+	if !agentConfig.IPv4Disabled {
 		// lbmap.RRSeq4Map is updated as part of Service4Map and does
 		// not need separate dump.
 		err := lbmap.Service4Map.Dump(lbmap.Service4DumpParser, parseSVCEntries)

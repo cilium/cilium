@@ -21,8 +21,8 @@ import (
 	"reflect"
 
 	"github.com/cilium/cilium/common"
+	"github.com/cilium/cilium/pkg/config"
 	"github.com/cilium/cilium/pkg/endpoint"
-	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/ipam"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -86,16 +86,16 @@ func (d *Daemon) SyncState(dir string, clean bool) error {
 				return
 			}
 
-			if d.conf.KeepConfig {
+			if agentConfig.KeepConfig {
 				ep.SetDefaultOpts(nil)
 			} else {
-				ep.SetDefaultOpts(d.conf.Opts)
-				alwaysEnforce := policy.GetPolicyEnabled() == endpoint.AlwaysEnforce
-				ep.Opts.Set(endpoint.OptionIngressPolicy, alwaysEnforce)
-				ep.Opts.Set(endpoint.OptionEgressPolicy, alwaysEnforce)
+				ep.SetDefaultOpts(agentConfig.Opts)
+				alwaysEnforce := policy.GetPolicyEnabled() == config.AlwaysEnforce
+				ep.Opts.Set(config.OptionIngressPolicy, alwaysEnforce)
+				ep.Opts.Set(config.OptionEgressPolicy, alwaysEnforce)
 			}
 
-			endpointmanager.Insert(ep)
+			endpoint.Insert(ep)
 			epRestored <- true
 
 			ep.LogStatusOKLocked(endpoint.Other, "Synchronizing endpoint labels with KVStore")
@@ -182,7 +182,7 @@ func (d *Daemon) allocateIPsLocked(ep *endpoint.Endpoint) error {
 		}
 	}(ep)
 
-	if !d.conf.IPv4Disabled {
+	if !agentConfig.IPv4Disabled {
 		if ep.IPv4 != nil {
 			if err = ipam.AllocateIP(ep.IPv4.IP()); err != nil {
 				return fmt.Errorf("unable to reallocate IPv4 address: %s", err)

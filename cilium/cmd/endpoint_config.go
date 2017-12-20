@@ -18,6 +18,7 @@ import (
 	"fmt"
 
 	"github.com/cilium/cilium/api/v1/models"
+	"github.com/cilium/cilium/pkg/config"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/option"
 
@@ -48,7 +49,7 @@ func init() {
 }
 
 func listEndpointOptions() {
-	for k, s := range endpoint.EndpointOptionLibrary {
+	for k, s := range config.EndpointOptionLibrary {
 		fmt.Printf("%-24s %s\n", k, s.Description)
 	}
 }
@@ -70,7 +71,7 @@ func configEndpoint(cmd *cobra.Command, args []string) {
 	epOpts := make(models.ConfigurationMap, len(opts))
 
 	for k := range opts {
-		name, value, err := option.ParseOption(opts[k], &endpoint.EndpointOptionLibrary)
+		name, value, err := option.ParseOption(opts[k], &config.EndpointOptionLibrary)
 		if err != nil {
 			Fatalf("Cannot parse option %s: %s", opts[k], err)
 		}

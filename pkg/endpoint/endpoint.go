@@ -30,6 +30,7 @@ import (
 	"github.com/cilium/cilium/common/addressing"
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/byteorder"
+	"github.com/cilium/cilium/pkg/config"
 	pkgLabels "github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -57,116 +58,8 @@ type PortMap struct {
 }
 
 const (
-	OptionAllowToHost         = "AllowToHost"
-	OptionAllowToWorld        = "AllowToWorld"
-	OptionConntrackAccounting = "ConntrackAccounting"
-	OptionConntrackLocal      = "ConntrackLocal"
-	OptionConntrack           = "Conntrack"
-	OptionDebug               = "Debug"
-	OptionDropNotify          = "DropNotification"
-	OptionTraceNotify         = "TraceNotification"
-	OptionNAT46               = "NAT46"
-	OptionIngressPolicy       = "IngressPolicy"
-	OptionEgressPolicy        = "EgressPolicy"
-	AlwaysEnforce             = "always"
-	NeverEnforce              = "never"
-	DefaultEnforcement        = "default"
-
 	maxLogs = 256
-)
 
-var (
-	OptionSpecAllowToHost = option.Option{
-		Define:      "ALLOW_TO_HOST",
-		Immutable:   true,
-		Description: "Allow all traffic to local host",
-	}
-
-	OptionSpecAllowToWorld = option.Option{
-		Define:      "ALLOW_TO_WORLD",
-		Immutable:   true,
-		Description: "Allow all traffic to outside world",
-	}
-
-	OptionSpecConntrackAccounting = option.Option{
-		Define:      "CONNTRACK_ACCOUNTING",
-		Description: "Enable per flow (conntrack) statistics",
-		Requires:    []string{OptionConntrack},
-	}
-
-	OptionSpecConntrackLocal = option.Option{
-		Define:      "CONNTRACK_LOCAL",
-		Description: "Use endpoint dedicated tracking table instead of global one",
-		Requires:    []string{OptionConntrack},
-	}
-
-	OptionSpecConntrack = option.Option{
-		Define:      "CONNTRACK",
-		Description: "Enable stateful connection tracking",
-	}
-
-	OptionSpecDebug = option.Option{
-		Define:      "DEBUG",
-		Description: "Enable debugging trace statements",
-	}
-
-	OptionSpecDropNotify = option.Option{
-		Define:      "DROP_NOTIFY",
-		Description: "Enable drop notifications",
-	}
-
-	OptionSpecTraceNotify = option.Option{
-		Define:      "TRACE_NOTIFY",
-		Description: "Enable trace notifications",
-	}
-
-	OptionSpecNAT46 = option.Option{
-		Define:      "ENABLE_NAT46",
-		Description: "Enable automatic NAT46 translation",
-		Requires:    []string{OptionConntrack},
-		Verify: func(key string, val bool) error {
-			if !IPv4Enabled {
-				return fmt.Errorf("NAT46 requires IPv4 to be enabled")
-			}
-			return nil
-		},
-	}
-
-	OptionIngressSpecPolicy = option.Option{
-		Define:      "POLICY_INGRESS",
-		Description: "Enable ingress policy enforcement",
-	}
-
-	OptionEgressSpecPolicy = option.Option{
-		Define:      "POLICY_EGRESS",
-		Description: "Enable egress policy enforcement",
-	}
-
-	EndpointMutableOptionLibrary = option.OptionLibrary{
-		OptionConntrackAccounting: &OptionSpecConntrackAccounting,
-		OptionConntrackLocal:      &OptionSpecConntrackLocal,
-		OptionConntrack:           &OptionSpecConntrack,
-		OptionDebug:               &OptionSpecDebug,
-		OptionDropNotify:          &OptionSpecDropNotify,
-		OptionTraceNotify:         &OptionSpecTraceNotify,
-		OptionNAT46:               &OptionSpecNAT46,
-		OptionIngressPolicy:       &OptionIngressSpecPolicy,
-		OptionEgressPolicy:        &OptionEgressSpecPolicy,
-	}
-
-	EndpointOptionLibrary = option.OptionLibrary{
-		OptionAllowToHost:  &OptionSpecAllowToHost,
-		OptionAllowToWorld: &OptionSpecAllowToWorld,
-	}
-)
-
-func init() {
-	for k, v := range EndpointMutableOptionLibrary {
-		EndpointOptionLibrary[k] = v
-	}
-}
-
-const (
 	// StateCreating is used to set the endpoint is being created.
 	StateCreating = string(models.EndpointStateCreating)
 
@@ -203,7 +96,7 @@ type LabelsMap map[policy.NumericIdentity]pkgLabels.LabelArray
 
 // Endpoint represents a container or similar which can be individually
 // addresses on L3 with its own IP addresses. This structured is managed by the
-// endpoint manager in pkg/endpointmanager.
+// endpoint manager.
 //
 // This structure is written as JSON to StateDir/{ID}/lxc_config.h to allow to
 // restore endpoints when the agent is being restarted. The restore operation
@@ -340,7 +233,7 @@ type Endpoint struct {
 func NewEndpointWithState(ID uint16, state string) *Endpoint {
 	return &Endpoint{
 		ID:     ID,
-		Opts:   option.NewBoolOptions(&EndpointOptionLibrary),
+		Opts:   option.NewBoolOptions(&config.EndpointOptionLibrary),
 		Status: NewEndpointStatus(),
 		state:  state,
 	}
@@ -420,8 +313,8 @@ func (e *Endpoint) GetModelRLocked() *models.Endpoint {
 		currentState = models.EndpointStateNotReady
 	}
 
-	policyIngressEnabled := e.Opts.IsEnabled(OptionIngressPolicy)
-	policyEgressEnabled := e.Opts.IsEnabled(OptionEgressPolicy)
+	policyIngressEnabled := e.Opts.IsEnabled(config.OptionIngressPolicy)
+	policyEgressEnabled := e.Opts.IsEnabled(config.OptionEgressPolicy)
 
 	if policyIngressEnabled && policyEgressEnabled {
 		policy = models.EndpointPolicyEnabledBoth
@@ -856,14 +749,14 @@ func (e *Endpoint) ForcePolicyCompute() {
 
 func (e *Endpoint) SetDefaultOpts(opts *option.BoolOptions) {
 	if e.Opts == nil {
-		e.Opts = option.NewBoolOptions(&EndpointOptionLibrary)
+		e.Opts = option.NewBoolOptions(&config.EndpointOptionLibrary)
 	}
 	if e.Opts.Library == nil {
-		e.Opts.Library = &EndpointOptionLibrary
+		e.Opts.Library = &config.EndpointOptionLibrary
 	}
 
 	if opts != nil {
-		for k := range EndpointMutableOptionLibrary {
+		for k := range config.EndpointMutableOptionLibrary {
 			e.Opts.Set(k, opts.IsEnabled(k))
 		}
 	}

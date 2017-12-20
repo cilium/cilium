@@ -24,6 +24,7 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/pkg/byteorder"
+	"github.com/cilium/cilium/pkg/config"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
@@ -46,7 +47,7 @@ func (e *Endpoint) checkEgressAccess(owner Owner, dstLabels labels.LabelArray, o
 		To:   dstLabels,
 	}
 
-	if owner.TracingEnabled() {
+	if config.PolicyTracingEnabled() {
 		ctx.Trace = policy.TRACE_ENABLED
 	}
 
@@ -68,7 +69,7 @@ func (e *Endpoint) checkEgressAccess(owner Owner, dstLabels labels.LabelArray, o
 // allowConsumer must be called with global endpoint.Mutex held
 func (e *Endpoint) allowConsumer(owner Owner, id policy.NumericIdentity) bool {
 	cache := policy.GetConsumableCache()
-	if !e.Opts.IsEnabled(OptionConntrack) {
+	if !e.Opts.IsEnabled(config.OptionConntrack) {
 		return e.Consumable.AllowConsumerAndReverseLocked(cache, id)
 	}
 	return e.Consumable.AllowConsumerLocked(cache, id)
@@ -302,7 +303,7 @@ func (e *Endpoint) resolveL4Policy(owner Owner, repo *policy.Repository, c *poli
 	ctx := policy.SearchContext{
 		To: c.LabelArray,
 	}
-	if owner.TracingEnabled() {
+	if config.PolicyTracingEnabled() {
 		ctx.Trace = policy.TRACE_ENABLED
 	}
 
@@ -339,7 +340,7 @@ func (e *Endpoint) regenerateConsumable(owner Owner, labelsMap *LabelsMap,
 	// 2. The set of applicable security identities has changed.
 	if e.L4Policy != c.L4Policy || e.LabelsMap != labelsMap {
 		// PolicyMap can't be created in dry mode.
-		if !owner.DryModeEnabled() {
+		if !config.DryModeEnabled() {
 			// Update Endpoint's L4Policy
 			if e.L4Policy != nil {
 				e.cleanUnusedRedirects(owner, e.L4Policy.Ingress, c.L4Policy.Ingress)
@@ -357,7 +358,7 @@ func (e *Endpoint) regenerateConsumable(owner Owner, labelsMap *LabelsMap,
 		changed = true
 	}
 
-	if owner.AlwaysAllowLocalhost() || c.L4Policy.HasRedirect() {
+	if config.AlwaysAllowLocalhost() || c.L4Policy.HasRedirect() {
 		if e.allowConsumer(owner, policy.ReservedIdentityHost) {
 			changed = true
 		}
@@ -366,7 +367,7 @@ func (e *Endpoint) regenerateConsumable(owner Owner, labelsMap *LabelsMap,
 	ctx := policy.SearchContext{
 		To: c.LabelArray,
 	}
-	if owner.TracingEnabled() {
+	if config.PolicyTracingEnabled() {
 		ctx.Trace = policy.TRACE_ENABLED
 	}
 
@@ -421,7 +422,7 @@ func (e *Endpoint) regenerateL3Policy(owner Owner, repo *policy.Repository, revi
 	ctx := policy.SearchContext{
 		To: c.LabelArray, // keep c.Mutex taken to protect this.
 	}
-	if owner.TracingEnabled() {
+	if config.PolicyTracingEnabled() {
 		ctx.Trace = policy.TRACE_ENABLED
 	}
 	newL3policy := repo.ResolveL3Policy(&ctx)
@@ -443,7 +444,7 @@ func (e *Endpoint) regenerateL3Policy(owner Owner, repo *policy.Repository, revi
 // IngressOrEgressIsEnforced returns true if either ingress or egress is in
 // enforcement mode
 func (e *Endpoint) IngressOrEgressIsEnforced() bool {
-	return e.Opts.IsEnabled(OptionIngressPolicy) || e.Opts.IsEnabled(OptionEgressPolicy)
+	return e.Opts.IsEnabled(config.OptionIngressPolicy) || e.Opts.IsEnabled(config.OptionEgressPolicy)
 }
 
 // regeneratePolicy regenerates endpoint's policy if needed and returns
@@ -482,7 +483,7 @@ func (e *Endpoint) regeneratePolicy(owner Owner, opts models.ConfigurationMap) (
 	// through. Some bpf/redirect updates are skipped in that case.
 	//
 	// This can be cleaned up once we shift all bpf updates to regenerateBPF().
-	if e.PolicyMap == nil && !owner.DryModeEnabled() {
+	if e.PolicyMap == nil && !config.DryModeEnabled() {
 		// First run always results in bpf generation
 		// L4 policy generation assumes e.PolicyMp to exist, but it is only created
 		// when bpf is generated for the first time. Until then we can't really compute
@@ -570,7 +571,7 @@ func (e *Endpoint) regeneratePolicy(owner Owner, opts models.ConfigurationMap) (
 	// depends on the conntrack options
 	if c.L4Policy != nil {
 		if c.L4Policy.RequiresConntrack() {
-			opts[OptionConntrack] = optionEnabled
+			opts[config.OptionConntrack] = optionEnabled
 		}
 	}
 
@@ -578,12 +579,12 @@ func (e *Endpoint) regeneratePolicy(owner Owner, opts models.ConfigurationMap) (
 
 	wasPolicyEnforced := e.IngressOrEgressIsEnforced()
 
-	opts[OptionIngressPolicy] = optionDisabled
-	opts[OptionEgressPolicy] = optionDisabled
+	opts[config.OptionIngressPolicy] = optionDisabled
+	opts[config.OptionEgressPolicy] = optionDisabled
 
 	if egress {
-		e.checkEgressAccess(owner, (*labelsMap)[policy.ReservedIdentityHost], opts, OptionAllowToHost)
-		e.checkEgressAccess(owner, (*labelsMap)[policy.ReservedIdentityWorld], opts, OptionAllowToWorld)
+		e.checkEgressAccess(owner, (*labelsMap)[policy.ReservedIdentityHost], opts, config.OptionAllowToHost)
+		e.checkEgressAccess(owner, (*labelsMap)[policy.ReservedIdentityWorld], opts, config.OptionAllowToWorld)
 	}
 
 	if !ingress && !egress {
@@ -591,14 +592,14 @@ func (e *Endpoint) regeneratePolicy(owner Owner, opts models.ConfigurationMap) (
 	} else {
 		if ingress && egress {
 			e.getLogger().Info("Policy Ingress and Egress enabled")
-			opts[OptionIngressPolicy] = optionEnabled
-			opts[OptionEgressPolicy] = optionEnabled
+			opts[config.OptionIngressPolicy] = optionEnabled
+			opts[config.OptionEgressPolicy] = optionEnabled
 		} else if ingress {
 			e.getLogger().Info("Policy Ingress enabled")
-			opts[OptionIngressPolicy] = optionEnabled
+			opts[config.OptionIngressPolicy] = optionEnabled
 		} else {
 			e.getLogger().Info("Policy Egress enabled")
-			opts[OptionEgressPolicy] = optionEnabled
+			opts[config.OptionEgressPolicy] = optionEnabled
 		}
 	}
 
@@ -668,7 +669,7 @@ func (e *Endpoint) regenerate(owner Owner, reason string) (retErr error) {
 	e.getLogger().Debug("Regenerating endpoint...")
 	e.Mutex.RUnlock()
 
-	origDir := filepath.Join(owner.GetStateDir(), e.StringID())
+	origDir := filepath.Join(config.GetStateDir(), e.StringID())
 
 	// This is the temporary directory to store the generated headers,
 	// the original existing directory is not overwritten until the
@@ -799,7 +800,7 @@ func (e *Endpoint) TriggerPolicyUpdatesLocked(owner Owner, opts models.Configura
 		return false, ctCleaned, fmt.Errorf("%s: %s", e.StringID(), err)
 	}
 
-	ctCleaned = e.updateCT(owner, flushEndpointCT, consumersAdd, consumersToRm)
+	ctCleaned = e.updateCT(flushEndpointCT, consumersAdd, consumersToRm)
 
 	e.getLogger().Debugf("TriggerPolicyUpdatesLocked: changed: %d", changed)
 

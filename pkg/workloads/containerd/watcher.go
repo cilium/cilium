@@ -26,7 +26,6 @@ import (
 
 	"github.com/cilium/cilium/common/addressing"
 	"github.com/cilium/cilium/pkg/endpoint"
-	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/ipam"
 	"github.com/cilium/cilium/pkg/k8s"
 	k8sconst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
@@ -254,13 +253,13 @@ func handleCreateContainer(id string, retry bool) {
 			scopedLog.WithField("retry", try).Warn("Container name not set in event from containerd")
 		}
 
-		ep := endpointmanager.LookupDockerID(id)
+		ep := endpoint.LookupDockerID(id)
 		if ep == nil {
 			// Container ID is not yet known; try and find endpoint via
 			// the IP address assigned.
 			ciliumID = getCiliumEndpointID(dockerContainer)
 			if ciliumID != 0 {
-				ep = endpointmanager.LookupCiliumID(ciliumID)
+				ep = endpoint.LookupCiliumID(ciliumID)
 			}
 		}
 
@@ -307,7 +306,7 @@ func handleCreateContainer(id string, retry bool) {
 
 		// Update map allowing to lookup endpoint by endpoint
 		// attributes with new attributes set on endpoint
-		endpointmanager.UpdateReferences(ep)
+		endpoint.UpdateReferences(ep)
 
 		err = workloads.Owner().EndpointLabelsUpdate(ep, identityLabels, informationLabels)
 		if err != nil {

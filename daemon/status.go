@@ -19,6 +19,7 @@ import (
 
 	"github.com/cilium/cilium/api/v1/models"
 	. "github.com/cilium/cilium/api/v1/server/restapi/daemon"
+	"github.com/cilium/cilium/pkg/config"
 	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/node"
@@ -78,15 +79,15 @@ func checkLocks(d *Daemon) {
 	// Try to acquire a couple of global locks to have the status API fail
 	// in case of a deadlock on these locks
 
-	d.conf.ConfigPatchMutex.Lock()
-	d.conf.ConfigPatchMutex.Unlock()
+	agentConfig.ConfigPatchMutex.Lock()
+	agentConfig.ConfigPatchMutex.Unlock()
 
 	d.GetCompilationLock().Lock()
 	d.GetCompilationLock().Unlock()
 }
 
 func (h *getHealthz) getNodeStatus() *models.ClusterStatus {
-	ipv4 := !h.daemon.conf.IPv4Disabled
+	ipv4 := !agentConfig.IPv4Disabled
 
 	local, _ := node.GetLocalNode()
 	clusterStatus := models.ClusterStatus{
@@ -141,7 +142,7 @@ func (h *getHealthz) getStatus(d *Daemon) models.StatusResponse {
 		sr.Cilium = &models.Status{State: models.StatusStateOk, Msg: "OK"}
 	}
 
-	if d.DebugEnabled() {
+	if config.DebugEnabled() {
 		sr.IPAM = d.DumpIPAM()
 	}
 

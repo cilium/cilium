@@ -23,8 +23,8 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	. "github.com/cilium/cilium/api/v1/server/restapi/endpoint"
 	"github.com/cilium/cilium/pkg/apierror"
+	"github.com/cilium/cilium/pkg/config"
 	"github.com/cilium/cilium/pkg/endpoint"
-	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/ipam"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -66,7 +66,7 @@ func getEndpointList(params GetEndpointParams) []*models.Endpoint {
 		convertedLabels = labels.NewLabelsFromModel(params.Labels)
 	}
 
-	eps := endpointmanager.GetEndpoints()
+	eps := endpoint.GetEndpoints()
 	epModelsCh := make(chan *models.Endpoint, len(eps))
 
 	epModelsWg.Add(len(eps))
@@ -108,7 +108,7 @@ func NewGetEndpointIDHandler(d *Daemon) GetEndpointIDHandler {
 func (h *getEndpointID) Handle(params GetEndpointIDParams) middleware.Responder {
 	log.WithField(logfields.EndpointID, params.ID).Debug("GET /endpoint/{id} request")
 
-	ep, err := endpointmanager.Lookup(params.ID)
+	ep, err := endpoint.Lookup(params.ID)
 
 	if err != nil {
 		return apierror.Error(GetEndpointIDInvalidCode, err)
@@ -147,12 +147,12 @@ func (h *putEndpointID) Handle(params PutEndpointIDParams) middleware.Responder 
 		return apierror.Error(PutEndpointIDInvalidCode, err)
 	}
 
-	ep.SetDefaultOpts(h.d.conf.Opts)
-	alwaysEnforce := policy.GetPolicyEnabled() == endpoint.AlwaysEnforce
-	ep.Opts.Set(endpoint.OptionIngressPolicy, alwaysEnforce)
-	ep.Opts.Set(endpoint.OptionEgressPolicy, alwaysEnforce)
+	ep.SetDefaultOpts(agentConfig.Opts)
+	alwaysEnforce := policy.GetPolicyEnabled() == config.AlwaysEnforce
+	ep.Opts.Set(config.OptionIngressPolicy, alwaysEnforce)
+	ep.Opts.Set(config.OptionEgressPolicy, alwaysEnforce)
 
-	oldEp, err2 := endpointmanager.Lookup(params.ID)
+	oldEp, err2 := endpoint.Lookup(params.ID)
 	if err2 != nil {
 		return apierror.Error(GetEndpointIDInvalidCode, err2)
 	} else if oldEp != nil {
@@ -189,7 +189,7 @@ func (h *putEndpointID) Handle(params PutEndpointIDParams) middleware.Responder 
 	}
 
 	ep.Mutex.RLock()
-	endpointmanager.Insert(ep)
+	endpoint.Insert(ep)
 	ep.Mutex.RUnlock()
 
 	add := labels.NewLabelsFromModel(params.Endpoint.Labels)
@@ -232,7 +232,7 @@ func (h *patchEndpointID) Handle(params PatchEndpointIDParams) middleware.Respon
 		return apierror.Error(PutEndpointIDInvalidCode, err2)
 	}
 
-	ep, err := endpointmanager.Lookup(params.ID)
+	ep, err := endpoint.Lookup(params.ID)
 	if err != nil {
 		return apierror.Error(GetEndpointIDInvalidCode, err)
 	}
@@ -354,12 +354,12 @@ func (d *Daemon) deleteEndpoint(ep *endpoint.Endpoint) int {
 
 	// Remove the endpoint before we clean up. This ensures it is no longer
 	// listed or queued for rebuilds.
-	endpointmanager.Remove(ep)
+	endpoint.Remove(ep)
 
 	var errors int
 
 	// If dry mode is enabled, no changes to BPF maps are performed
-	if !d.DryModeEnabled() {
+	if !config.DryModeEnabled() {
 		errors := lxcmap.DeleteElement(ep)
 
 		if ep.Consumable != nil {
@@ -397,7 +397,7 @@ func (d *Daemon) deleteEndpoint(ep *endpoint.Endpoint) int {
 		}
 	}
 
-	if !d.conf.IPv4Disabled {
+	if !agentConfig.IPv4Disabled {
 		if err := ipam.ReleaseIP(ep.IPv4.IP()); err != nil {
 			scopedLog.WithError(err).WithField(logfields.IPAddr, ep.IPv4.IP()).Warn("Error while releasing IPv4")
 			errors++
@@ -417,7 +417,7 @@ func (d *Daemon) deleteEndpoint(ep *endpoint.Endpoint) int {
 }
 
 func (d *Daemon) DeleteEndpoint(id string) (int, error) {
-	if ep, err := endpointmanager.Lookup(id); err != nil {
+	if ep, err := endpoint.Lookup(id); err != nil {
 		return 0, apierror.Error(DeleteEndpointIDInvalidCode, err)
 	} else if ep == nil {
 		return 0, apierror.New(DeleteEndpointIDNotFoundCode, "endpoint not found")
@@ -452,7 +452,7 @@ func (h *deleteEndpointID) Handle(params DeleteEndpointIDParams) middleware.Resp
 
 // EndpointUpdate updates the options of the given endpoint and regenerates the endpoint
 func (d *Daemon) EndpointUpdate(id string, opts models.ConfigurationMap) error {
-	ep, err := endpointmanager.Lookup(id)
+	ep, err := endpoint.Lookup(id)
 	if err != nil {
 		return apierror.Error(PatchEndpointIDInvalidCode, err)
 	}
@@ -467,7 +467,7 @@ func (d *Daemon) EndpointUpdate(id string, opts models.ConfigurationMap) error {
 			}
 		}
 		ep.Mutex.RLock()
-		endpointmanager.UpdateReferences(ep)
+		endpoint.UpdateReferences(ep)
 		ep.Mutex.RUnlock()
 	} else {
 		return apierror.New(PatchEndpointIDConfigNotFoundCode, "endpoint %s not found", id)
@@ -509,7 +509,7 @@ func NewGetEndpointIDConfigHandler(d *Daemon) GetEndpointIDConfigHandler {
 func (h *getEndpointIDConfig) Handle(params GetEndpointIDConfigParams) middleware.Responder {
 	log.WithField(logfields.Params, logfields.Repr(params)).Debug("GET /endpoint/{id}/config")
 
-	ep, err := endpointmanager.Lookup(params.ID)
+	ep, err := endpoint.Lookup(params.ID)
 	if err != nil {
 		return apierror.Error(GetEndpointIDInvalidCode, err)
 	} else if ep == nil {
@@ -530,7 +530,7 @@ func NewGetEndpointIDLabelsHandler(d *Daemon) GetEndpointIDLabelsHandler {
 func (h *getEndpointIDLabels) Handle(params GetEndpointIDLabelsParams) middleware.Responder {
 	log.WithField(logfields.Params, logfields.Repr(params)).Debug("GET /endpoint/{id}/labels")
 
-	ep, err := endpointmanager.Lookup(params.ID)
+	ep, err := endpoint.Lookup(params.ID)
 	if err != nil {
 		return apierror.Error(GetEndpointIDInvalidCode, err)
 	}
@@ -561,7 +561,7 @@ func NewGetEndpointIDLogHandler(d *Daemon) GetEndpointIDLogHandler {
 func (h *getEndpointIDLog) Handle(params GetEndpointIDLogParams) middleware.Responder {
 	log.WithField(logfields.EndpointID, params.ID).Debug("GET /endpoint/{id}/log request")
 
-	ep, err := endpointmanager.Lookup(params.ID)
+	ep, err := endpoint.Lookup(params.ID)
 
 	if err != nil {
 		return apierror.Error(GetEndpointIDLogInvalidCode, err)
@@ -583,7 +583,7 @@ func NewGetEndpointIDHealthzHandler(d *Daemon) GetEndpointIDHealthzHandler {
 func (h *getEndpointIDHealthz) Handle(params GetEndpointIDHealthzParams) middleware.Responder {
 	log.WithField(logfields.EndpointID, params.ID).Debug("GET /endpoint/{id}/log request")
 
-	ep, err := endpointmanager.Lookup(params.ID)
+	ep, err := endpoint.Lookup(params.ID)
 
 	if err != nil {
 		return apierror.Error(GetEndpointIDHealthzInvalidCode, err)
@@ -608,7 +608,7 @@ func (d *Daemon) UpdateSecLabels(id string, add, del labels.Labels) middleware.R
 		return nil
 	}
 
-	ep, err := endpointmanager.Lookup(id)
+	ep, err := endpoint.Lookup(id)
 	if err != nil {
 		return apierror.Error(GetEndpointIDInvalidCode, err)
 	}

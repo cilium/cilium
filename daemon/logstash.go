@@ -21,7 +21,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/cilium/cilium/pkg/endpointmanager"
+	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/policymap"
 	"github.com/cilium/cilium/pkg/policy"
@@ -69,7 +69,7 @@ func (d *Daemon) EnableLogstash(LogstashAddr string, refreshTime int) {
 			timeToProcess1 := time.Now()
 
 			allPes := map[uint16][]policymap.PolicyEntryDump{}
-			eps := endpointmanager.GetEndpoints()
+			eps := endpoint.GetEndpoints()
 			for _, ep := range eps {
 				ep.Mutex.RLock()
 				pes, err := ep.PolicyMap.DumpToSlice()
