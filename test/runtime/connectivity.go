@@ -170,8 +170,10 @@ var _ = Describe("RuntimeConntrackTest", func() {
 		logger = log.WithFields(logrus.Fields{"test": "RunConntrackTest"})
 		logger.Info("Starting")
 		vm = helpers.CreateNewRuntimeHelper(helpers.Runtime, logger)
+		vm.WaitUntilReady(100)
 		vm.NetworkCreate(helpers.CiliumDockerNetwork, "")
 		initialized = true
+
 	}
 
 	clientServerConnectivity := func() {
