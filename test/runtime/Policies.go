@@ -117,7 +117,7 @@ var _ = Describe("RuntimePolicyEnforcement", func() {
 		It("Handles missing required fields", func() {
 			By("Apply a policy with no endpointSelector without crashing")
 			_, err := vm.PolicyImport(vm.GetFullPath("no_endpointselector_policy.json"), helpers.HelperTimeout)
-			Expect(err).ShouldNot(BeNil())
+			Expect(err).Should(BeNil())
 		})
 
 		It("Default to Always without policy", func() {
