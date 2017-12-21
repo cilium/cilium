@@ -187,9 +187,9 @@ recommended that you verify it before sharing.
 * ``cilium service list``
 * ...
 
-Cluster-wide Debugging Tool
+Cluster Diagnosis Tool
 ===========================
-The ``clusterdebug`` tool can help identify the most commonly encountered
+The ``cluster-diagnosis`` tool can help identify the most commonly encountered
 issues in Cilium deployments. The tool currently supports Kubernetes
 and Minikube clusters only.
 
@@ -202,14 +202,15 @@ The following is a list of prerequisites:
 * Requires ``kubectl``.
 * ``kubectl`` should be pointing to your cluster before running the tool.
 
-Command to run the cluster-wide debugging tool:
+Command to run the cluster-diagnosis tool:
 
 ::
 
-    python clusterdebug.zip
+    python cluster-diagnosis.zip
 
 Please check the README file for instructions to rebuild the zip file.
-You can download the latest version of the clusterdebug.zip file here: //TODO.
+You can download the latest version of the cluster-diagnosis.zip file
+here: https://github.com/cilium/cluster-diagnosis/releases/latest.
 
 .. _Slack channel: https://cilium.herokuapp.com
 .. _NodeSelector: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/
