@@ -24,6 +24,7 @@ import (
 	"github.com/cilium/cilium/pkg/apisocket"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	gops "github.com/google/gops/agent"
 )
 
 var log = logging.DefaultLogger
@@ -32,6 +33,11 @@ const targetName = "cilium-node-monitor"
 
 func main() {
 	scopedLog := log.WithField(logfields.Path, defaults.MonitorSockPath)
+	// Open socket for using gops to get stacktraces of the agent.
+	if err := gops.Listen(gops.Options{}); err != nil {
+		scopedLog.WithError(err).Fatal("Unable to start gops")
+	}
+
 	common.RequireRootPrivilege(targetName)
 	os.Remove(defaults.MonitorSockPath)
 	server, err := net.Listen("unix", defaults.MonitorSockPath)
