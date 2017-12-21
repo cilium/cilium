@@ -303,6 +303,103 @@ var _ = Describe("RuntimeLB", func() {
 		status = vm.ContainerExec("client", testCmd)
 		status.ExpectSuccess("LB is not working after restart")
 	})
+
+	Context("Services Policies", func() {
+		BeforeEach(func() {
+			vm.PolicyDelAll()
+		})
+
+		AfterEach(func() {
+			vm.SampleContainersActions(helpers.Delete, helpers.CiliumDockerNetwork)
+			vm.PolicyDelAll()
+
+			status := vm.ExecCilium(fmt.Sprintf("config %s=false",
+				helpers.OptionConntrackLocal))
+			status.ExpectSuccess()
+		})
+
+		policiesTest := func() {
+
+			httpd1, err := vm.ContainerInspectNet(helpers.Httpd1)
+			Expect(err).Should(BeNil())
+
+			httpd2, err := vm.ContainerInspectNet(helpers.Httpd2)
+			Expect(err).Should(BeNil())
+
+			service1 := "2.2.2.100:80"
+			service2 := "2.2.2.101:80"
+			getHTTP := func(service, target string) string {
+				return helpers.CurlFail(fmt.Sprintf(
+					"http://%s/%s", service, target))
+			}
+
+			status := vm.ServiceAdd(100, service1, []string{
+				fmt.Sprintf("%s:80", httpd1["IPv4"])}, 1)
+			status.ExpectSuccess("L4 service cannot be created")
+
+			status = vm.ServiceAdd(101, service2, []string{
+				fmt.Sprintf("%s:80", httpd2["IPv4"])}, 1)
+			status.ExpectSuccess("L4 service cannot be created")
+
+			_, err = vm.PolicyImport(vm.GetFullPath(policiesL7JSON), helpers.HelperTimeout)
+			Expect(err).Should(BeNil())
+
+			By("Simple Ingress")
+			status = vm.ContainerExec(helpers.App1, getHTTP(service1, "public"))
+			status.ExpectSuccess()
+
+			status = vm.ContainerExec(helpers.App2, getHTTP(service1, "public"))
+			status.ExpectFail()
+
+			By("Simple Egress")
+
+			status = vm.ContainerExec(helpers.App2, getHTTP(service2, "public"))
+			status.ExpectSuccess()
+
+			By("Multiple Ingress")
+
+			vm.PolicyDelAll()
+			_, err = vm.PolicyImport(vm.GetFullPath(multL7PoliciesJSON), helpers.HelperTimeout)
+			Expect(err).Should(BeNil())
+
+			status = vm.ContainerExec(helpers.App1, getHTTP(service1, "public"))
+			status.ExpectSuccess()
+
+			status = vm.ContainerExec(helpers.App1, getHTTP(service1, "private"))
+			status.ExpectFail()
+
+			status = vm.ContainerExec(helpers.App2, getHTTP(service1, "public"))
+			status.ExpectFail()
+
+			By("Multiple Egress")
+
+			status = vm.ContainerExec(helpers.App2, getHTTP(service2, "public"))
+			status.ExpectSuccess()
+
+			status = vm.ContainerExec(helpers.App2, getHTTP(service2, "private"))
+			status.ExpectFail()
+		}
+
+		It("Contrack enabled", func() {
+			status := vm.ExecCilium(fmt.Sprintf("config %s=true",
+				helpers.OptionConntrackLocal))
+			status.ExpectSuccess()
+
+			vm.SampleContainersActions(helpers.Create, helpers.CiliumDockerNetwork)
+			vm.WaitEndpointsReady()
+			policiesTest()
+		})
+
+		It("Contrack disabled", func() {
+			status := vm.ExecCilium(fmt.Sprintf("config %s=false",
+				helpers.OptionConntrackLocal))
+			status.ExpectSuccess()
+
+			vm.SampleContainersActions(helpers.Create, helpers.CiliumDockerNetwork)
+			vm.WaitEndpointsReady()
+			policiesTest()
+		})
+	})
 })
 
 func createInterface(node *helpers.SSHMeta) error {
