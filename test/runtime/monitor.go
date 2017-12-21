@@ -87,6 +87,9 @@ var _ = Describe("RuntimeMonitorTest", func() {
 
 		res = vm.ExecContext(ctx, "cilium monitor -v")
 		vm.SampleContainersActions(helpers.Create, helpers.CiliumDockerNetwork)
+		areEndpointsReady := vm.WaitEndpointsReady()
+		Expect(areEndpointsReady).Should(BeTrue())
+
 		helpers.Sleep(5)
 		cancel()
 		endpoints, err := vm.GetEndpointsIds()
@@ -115,6 +118,9 @@ var _ = Describe("RuntimeMonitorTest", func() {
 			ctx, cancel := context.WithCancel(context.Background())
 			res := vm.ExecContext(ctx, fmt.Sprintf("cilium monitor --type %s -v", k))
 			vm.SampleContainersActions(helpers.Create, helpers.CiliumDockerNetwork)
+			areEndpointsReady := vm.WaitEndpointsReady()
+			Expect(areEndpointsReady).Should(BeTrue())
+
 			vm.ContainerExec(helpers.App1, helpers.Ping(helpers.Httpd1))
 			helpers.Sleep(5)
 			cancel()
@@ -130,6 +136,9 @@ var _ = Describe("RuntimeMonitorTest", func() {
 		res.ExpectSuccess()
 
 		vm.SampleContainersActions(helpers.Create, helpers.CiliumDockerNetwork)
+		areEndpointsReady := vm.WaitEndpointsReady()
+		Expect(areEndpointsReady).Should(BeTrue())
+
 		endpoints, err := vm.GetEndpointsIds()
 		Expect(err).Should(BeNil())
 
@@ -156,6 +165,9 @@ var _ = Describe("RuntimeMonitorTest", func() {
 		res.ExpectSuccess()
 
 		vm.SampleContainersActions(helpers.Create, helpers.CiliumDockerNetwork)
+		areEndpointsReady := vm.WaitEndpointsReady()
+		Expect(areEndpointsReady).Should(BeTrue())
+
 		endpoints, err := vm.GetEndpointsIds()
 		Expect(err).Should(BeNil())
 
@@ -182,6 +194,9 @@ var _ = Describe("RuntimeMonitorTest", func() {
 		res.ExpectSuccess()
 
 		vm.SampleContainersActions(helpers.Create, helpers.CiliumDockerNetwork)
+		areEndpointsReady := vm.WaitEndpointsReady()
+		Expect(areEndpointsReady).Should(BeTrue())
+
 		endpoints, err := vm.GetEndpointsIds()
 		Expect(err).Should(BeNil())
 
