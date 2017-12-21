@@ -41,12 +41,12 @@ export PKG_BUILD=1
 cd %{name}-%{commit0}/src/github.com/cilium/%{name}
 %make_install
 
-mkdir -p "%{buildroot}%{_usr}/lib/systemd/system"
+mkdir -p "%{buildroot}%{_prefix}/lib/systemd/system"
 mkdir -p "%{buildroot}%{_sysconfdir}/sysconfig"
 
-cp contrib/systemd/*.service "%{buildroot}%{_usr}/lib/systemd/system"
-cp contrib/systemd/*.mount "%{buildroot}%{_usr}/lib/systemd/system"
-chmod 644 %{buildroot}%{_usr}/lib/systemd/system/*
+cp contrib/systemd/*.service "%{buildroot}%{_prefix}/lib/systemd/system"
+cp contrib/systemd/*.mount "%{buildroot}%{_prefix}/lib/systemd/system"
+chmod 644 %{buildroot}%{_prefix}/lib/systemd/system/*
 
 cp contrib/systemd/cilium "%{buildroot}%{_sysconfdir}/sysconfig"
 chmod 644 "%{buildroot}%{_sysconfdir}/sysconfig/cilium"
