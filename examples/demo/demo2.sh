@@ -26,7 +26,7 @@ run "docker network create --ipv6 --subnet ::1/112 --driver cilium --ipam-driver
 
 desc "Policy enforcement is disabled by default, enable it."
 desc "Policy enforcement is also enabled as soon as you load a policy into the daemon."
-run "cilium config Policy=true"
+run "cilium config PolicyEnforcement=always"
 
 desc "Start a container with label $SERVER_LABEL"
 run "docker run -d --net cilium --name server -l $SERVER_LABEL tgraf/netperf"
