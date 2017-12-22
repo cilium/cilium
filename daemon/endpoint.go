@@ -337,11 +337,12 @@ func (d *Daemon) deleteEndpoint(ep *endpoint.Endpoint) int {
 
 	// In case multiple delete requests have been enqueued, have all of them
 	// except the first return here.
-	if !ep.SetStateLocked(endpoint.StateDisconnecting, "Deleting endpoint") {
+	if ep.GetStateLocked() == endpoint.StateDisconnecting {
 		ep.Mutex.Unlock()
 		ep.BuildMutex.Unlock()
 		return 0
 	}
+	ep.SetStateLocked(endpoint.StateDisconnecting, "Deleting endpoint")
 
 	sha256sum := ep.OpLabels.IdentityLabels().SHA256Sum()
 	if err := d.DeleteIdentityBySHA256(sha256sum, ep.StringID()); err != nil {
