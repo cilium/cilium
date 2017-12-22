@@ -106,10 +106,7 @@ func runDebugInfo(cmd *cobra.Command, args []string) {
 }
 
 func printList(w io.Writer, header string, args ...string) {
-	output, err := exec.Command("cilium", args...).CombinedOutput()
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error while reading '%s', %s\n", args, err)
-	}
+	output, _ := exec.Command("cilium", args...).CombinedOutput()
 	printMD(w, header, string(output))
 }
 
