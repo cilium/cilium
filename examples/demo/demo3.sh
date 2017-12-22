@@ -18,7 +18,7 @@ docker network create --ipv6 --subnet ::1/112 --driver cilium --ipam-driver cili
 cilium policy delete --all
 
 desc "Policy enforcement is disabled by default, enable it."
-run "cilium config Policy=true"
+run "cilium config PolicyEnforcement=always"
 
 desc "How to debug a connectivity issue?"
 desc "Start client and server containers"
