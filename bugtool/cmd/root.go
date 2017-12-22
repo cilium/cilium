@@ -415,6 +415,15 @@ func writeCmdToFile(cmdDir, prompt string) {
 			os.Remove(f.Name())
 			return
 		}
+	} else {
+		ctx, cancel := context.WithTimeout(context.Background(), execTimeout)
+		defer cancel()
+		if _, err := exec.CommandContext(ctx, "kubectl", "exec",
+			args[1], "-n", args[3], "--", "which",
+			args[5]).CombinedOutput(); err != nil || ctx.Err() == context.DeadlineExceeded {
+			os.Remove(f.Name())
+			return
+		}
 	}
 	// Write prompt as header and the output as body, and / or error but delete empty output.
 	output, err := execCommand(cmd, args...)
