@@ -218,6 +218,8 @@ func (t *Target) CreateApplyManifest(spec *TestSpec) error {
 
 	switch t.Kind {
 	case service:
+		// As default services are listen on port 80.
+		t.PortNumber = 80
 		service := `{
 		"apiVersion": "v1",
 		"kind": "Service",
@@ -226,7 +228,7 @@ func (t *Target) CreateApplyManifest(spec *TestSpec) error {
 		},
 		"spec": {
 			"ports": [
-				{ "port": 80 }
+				{ "port": {{ .target.PortNumber }} }
 			],
 			"selector": {
 				"id": "{{ .spec.DestPod }}"
@@ -331,11 +333,11 @@ func (t *TestSpec) RunTest(kub *helpers.Kubectl) {
 	gomega.Expect(err).To(gomega.BeNil(), "cannot apply pods manifest for %s", t.Prefix)
 	log.WithField("prefix", t.Prefix).Infof("Manifest '%s' is created correctly", manifest)
 
-	err = t.NetworkPolicyApply()
-	gomega.Expect(err).To(gomega.BeNil(), "cannot apply network policy for %s", t.Prefix)
-
 	err = t.Destination.CreateApplyManifest(t)
 	gomega.Expect(err).To(gomega.BeNil(), "cannot apply destination for %s", t.Prefix)
+
+	err = t.NetworkPolicyApply()
+	gomega.Expect(err).To(gomega.BeNil(), "cannot apply network policy for %s", t.Prefix)
 
 	err = t.ExecTest()
 	gomega.Expect(err).To(gomega.BeNil(), "cannot execute test for %s", t.Prefix)
