@@ -204,7 +204,11 @@ func getClangVersion(filePath string) (*go_version.Version, error) {
 	if len(verStrs) < 3 {
 		return nil, fmt.Errorf("unable to get clang version from %q", string(verOut))
 	}
-	return go_version.NewVersion(strings.Join(verStrs[:3], "."))
+	v := strings.Join(verStrs[:3], ".")
+	// Handle Ubuntu versioning by removing the dash and everything after.
+	// F. ex. `4.0.0-1ubuntu1~16 -> 4.0.0` and `3.8.0-2ubuntu4 -> 3.8.0`.
+	v = strings.Split(v, "-")[0]
+	return go_version.NewVersion(v)
 }
 
 func checkBPFLogs(logType string, fatal bool) {
