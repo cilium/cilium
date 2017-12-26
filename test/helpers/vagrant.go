@@ -15,12 +15,13 @@
 package helpers
 
 import (
-	"bufio"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"strings"
 
+	"github.com/onsi/ginkgo"
 	"github.com/sirupsen/logrus"
 )
 
@@ -52,19 +53,8 @@ func CreateVM(scope string) error {
 		return fmt.Errorf("error getting stderr: %s", err)
 	}
 
-	go func() {
-		in := bufio.NewScanner(stdout)
-		for in.Scan() {
-			log.Infof("stdout: %s", in.Text()) // write each line to your log
-		}
-	}()
-
-	go func() {
-		errIn := bufio.NewScanner(stderr)
-		for errIn.Scan() {
-			log.Infof("stderr: %s", errIn.Text())
-		}
-	}()
+	go io.Copy(ginkgo.GinkgoWriter, stderr)
+	go io.Copy(ginkgo.GinkgoWriter, stdout)
 
 	if err := cmd.Start(); err != nil {
 		log.WithFields(logrus.Fields{
