@@ -343,7 +343,13 @@ func (s *SSHMeta) PolicyDelAll() *CmdRes {
 
 // PolicyDel deletes the policy with the given ID from Cilium.
 func (s *SSHMeta) PolicyDel(id string) *CmdRes {
-	return s.ExecCilium(fmt.Sprintf("policy delete %s", id))
+	res := s.ExecCilium(fmt.Sprintf(
+		"policy delete %s | grep Revision: | awk '{print $2}'", id))
+	if !res.WasSuccessful() {
+		return res
+	}
+	policyID, _ := res.IntOutput()
+	return s.PolicyWait(policyID)
 }
 
 // PolicyGet runs `cilium policy get <id>`, where id is the name of a specific
@@ -396,6 +402,24 @@ func (s *SSHMeta) PolicyImport(path string, timeout time.Duration) (int, error) 
 	revision, err = s.PolicyGetRevision()
 	s.logger.Infof("PolicyImport: finished %q with revision '%d'", path, revision)
 	return revision, err
+}
+
+// PolicyRenderAndImport reveices an string with a policy, renders it in the
+// test root directory and import the policy to cilium. It returns the new
+// policy id.  Returns an error if the file cannot be created or can not import
+// the policy.
+func (s *SSHMeta) PolicyRenderAndImport(policy string) (int, error) {
+	filename := fmt.Sprintf("policy_%s.json", MakeUID())
+	s.logger.Debugf("PolicyRenderAndImport: render policy to '%s'", filename)
+	err := RenderTemplateToFile(filename, policy, os.ModePerm)
+	if err != nil {
+		s.logger.Errorf("PolicyRenderAndImport: cannot create policy file on '%s'", filename)
+		return 0, fmt.Errorf("cannot render the policy:  %s", err)
+	}
+	path := GetFilePath(filename)
+	s.logger.Debugf("PolicyRenderAndImport: import policy from '%s'", path)
+	defer os.Remove(filename)
+	return s.PolicyImport(path, HelperTimeout)
 }
 
 // PolicyWait executes `cilium policy wait`, which waits until all endpoints are
