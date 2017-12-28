@@ -1,0 +1,26 @@
+[{
+    "endpointSelector": {"matchLabels":{"id.server":""}},
+    "ingress": [{
+        "fromEndpoints": [
+           {"matchLabels":{"id.client":""}},
+           {"matchLabels":{"id.client-2":""}}
+        ],
+        "toPorts": [{
+            "ports": [{"port": "80", "protocol": "tcp"}]
+        }]
+    }],
+    "labels": ["id=server"]
+},{
+    "endpointSelector": {"matchLabels":{"id.server-2":""}},
+    "ingress": [{
+        "fromEndpoints": [
+           {"matchLabels":{"id.client":""}},
+           {"matchLabels":{"id.client-2":""}}
+        ],
+        "toPorts": [{
+            "ports": [{"port": "80", "protocol": "tcp"}]
+        }]
+    }],
+    "labels": ["id=server-2"]
+}]
+
