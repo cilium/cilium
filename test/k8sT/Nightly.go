@@ -15,16 +15,24 @@
 package k8sTest
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
+	"os"
 	"path"
 	"strings"
 	"time"
 
 	"github.com/cilium/cilium/test/helpers"
 
+	"github.com/Jeffail/gabs"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/sirupsen/logrus"
+)
+
+var (
+	configMap = "ConfigMap"
 )
 
 var _ = Describe("NightlyK8sEpsMeasurement", func() {
@@ -157,5 +165,113 @@ var _ = Describe("NightlyK8sEpsMeasurement", func() {
 				Expect(err).Should(BeNil())
 			}
 		}
+	})
+})
+
+var _ = Describe("NightlyK8sExamples", func() {
+
+	var kubectl *helpers.Kubectl
+	var logger *logrus.Entry
+	var initialized bool
+	var ciliumPath string
+	var demoPath string
+	var l3Policy string
+	var appService = "app1-service"
+
+	initialize := func() {
+		if initialized == true {
+			return
+		}
+		logger = log.WithFields(logrus.Fields{"testName": "NightlyK8sEpsMeasurement"})
+		logger.Info("Starting")
+
+		kubectl = helpers.CreateKubectl(helpers.K8s1VMName(), logger)
+		kubectl.Delete(ciliumPath)
+
+		demoPath = fmt.Sprintf("%s/demo.yaml", kubectl.ManifestsPath())
+		l3Policy = fmt.Sprintf("%s/l3_l4_policy.yaml", kubectl.ManifestsPath())
+		initialized = true
+	}
+
+	BeforeEach(func() {
+		initialize()
+	})
+
+	AfterEach(func() {
+		kubectl.Delete(demoPath)
+		kubectl.Delete(l3Policy)
+	})
+
+	// getAppPods return a map where the key is the Application name and the
+	// value is the pod name
+	getAppPods := func() map[string]string {
+		appPods := make(map[string]string)
+		apps := []string{helpers.App1, helpers.App2, helpers.App3}
+		for _, v := range apps {
+			res, err := kubectl.GetPodNames(helpers.DefaultNamespace, fmt.Sprintf("id=%s", v))
+			Expect(err).Should(BeNil())
+			appPods[v] = res[0]
+			logger.Infof("PolicyRulesTest: pod=%q assigned to %q", res[0], v)
+		}
+		return appPods
+	}
+
+	It("Check K8s Example is working correctly", func() {
+		var path = "../examples/kubernetes/cilium.yaml"
+		var result bytes.Buffer
+		newCiliumDSName := fmt.Sprintf("cilium_ds_%s.json", helpers.MakeUID())
+
+		objects, err := helpers.DecodeYAMLOrJSON(path)
+		Expect(err).To(BeNil())
+
+		for _, object := range objects {
+			data, err := json.Marshal(object)
+			Expect(err).To(BeNil())
+
+			jsonObj, err := gabs.ParseJSON(data)
+			Expect(err).To(BeNil())
+
+			value, _ := jsonObj.Path("kind").Data().(string)
+			if value == configMap {
+				jsonObj.SetP("---\nendpoints:\n- http://k8s1:9732\n", "data.etcd-config")
+				jsonObj.SetP("true", "data.debug")
+			}
+
+			result.WriteString(jsonObj.String())
+		}
+
+		fp, err := os.Create(newCiliumDSName)
+		defer fp.Close()
+		Expect(err).To(BeNil())
+
+		fmt.Fprint(fp, result.String())
+
+		kubectl.Apply(helpers.GetFilePath(newCiliumDSName))
+		defer kubectl.Delete(helpers.GetFilePath(newCiliumDSName))
+		status, err := kubectl.WaitforPods(helpers.KubeSystemNamespace, "-l k8s-app=cilium", 300)
+		Expect(status).Should(BeTrue())
+		Expect(err).Should(BeNil())
+
+		kubectl.Apply(demoPath)
+		_, err = kubectl.WaitforPods(helpers.DefaultNamespace, "-l zgroup=testapp", 300)
+		Expect(err).Should(BeNil())
+
+		_, err = kubectl.CiliumImportPolicy(helpers.KubeSystemNamespace, l3Policy, 300)
+		Expect(err).Should(BeNil())
+
+		appPods := getAppPods()
+
+		clusterIP, _, err := kubectl.GetServiceHostPort(helpers.DefaultNamespace, appService)
+		Expect(err).Should(BeNil())
+
+		_, err = kubectl.ExecPodCmd(
+			helpers.DefaultNamespace, appPods[helpers.App2],
+			helpers.CurlFail(fmt.Sprintf("http://%s/public", clusterIP)))
+		Expect(err).Should(BeNil())
+
+		_, err = kubectl.ExecPodCmd(
+			helpers.DefaultNamespace, appPods[helpers.App3],
+			helpers.CurlFail(fmt.Sprintf("http://%s/public", clusterIP)))
+		Expect(err).Should(HaveOccurred())
 	})
 })

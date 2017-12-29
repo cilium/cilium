@@ -18,6 +18,7 @@ import (
 	"bytes"
 	"fmt"
 	"html/template"
+	"io"
 	"io/ioutil"
 	"math/rand"
 	"os"
@@ -27,6 +28,7 @@ import (
 
 	"github.com/cilium/cilium/test/config"
 	"github.com/onsi/ginkgo"
+	"k8s.io/kubernetes/pkg/util/yaml"
 )
 
 // IsRunningOnJenkins detects if the currently running Ginkgo application is
@@ -179,4 +181,27 @@ func reportMap(path string, reportCmds map[string]string, node *SSHMeta) {
 			log.WithError(err).Errorf("cannot create test results for command '%s'", cmd)
 		}
 	}
+}
+
+// DecodeYAMLOrJSON reads a json or yaml file and exports all documents as an
+// array of interfaces. In case of an invalid path or invalid format it returns
+// an error.
+func DecodeYAMLOrJSON(path string) ([]interface{}, error) {
+	var result []interface{}
+	content, err := ioutil.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+	d := yaml.NewYAMLOrJSONDecoder(bytes.NewReader(content), 4096)
+	for {
+		var ext interface{}
+		if err := d.Decode(&ext); err != nil {
+			if err == io.EOF {
+				break
+			}
+			return nil, fmt.Errorf("cannot decode the content: %s", err)
+		}
+		result = append(result, ext)
+	}
+	return result, nil
 }
