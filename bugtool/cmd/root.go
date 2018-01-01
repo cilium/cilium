@@ -118,6 +118,9 @@ func runTool() {
 	copyCiliumInfo(createDir(dbgDir, "cilium"))
 	copyKernelConfig(createDir(dbgDir, "conf"))
 
+	// Please don't change the output below for the archive or directory.
+	// The order matters and is being used by scripts to copy the right
+	// file(s).
 	if archive {
 		archivePath, err := createArchive(dbgDir)
 		if err != nil {
