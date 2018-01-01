@@ -271,6 +271,7 @@ func copySystemInfo(cmdDir string) {
 		cmd := fmt.Sprintf("kubectl -n %s logs --previous -p %s", k8sNamespace, pod)
 		k8sCommands = append(k8sCommands, cmd)
 	}
+	k8sCommands = append(k8sCommands, "kubectl describe nodes")
 
 	runAll(k8sCommands, cmdDir)
 }
