@@ -236,11 +236,7 @@ func copySystemInfo(cmdDir string) {
 		"dig", "netstat", "pidstat", "arp", "top -b -n 1", "uptime",
 		"dmesg", "bpftool map show", "bpftool prog show",
 		// Versions
-		"docker version", "kubectl version",
-		// Kubernetes details
-		"kubectl -n kube-system get pods",
-		"kubectl get pods,svc --all-namespaces",
-		"kubectl get version",
+		"docker version",
 		// Docker and Kubernetes logs from systemd
 		"journalctl -u cilium*", "journalctl -u kubelet",
 	}
@@ -257,9 +253,6 @@ func copySystemInfo(cmdDir string) {
 	k8sCommands := []string{}
 	for _, pod := range k8sPods {
 		for _, cmd := range commands {
-			if strings.Contains(cmd, "kubectl") {
-				continue
-			}
 			// Add the host flag if set
 			if len(host) > 0 {
 				cmd = fmt.Sprintf("%s -H %s", cmd, host)
@@ -271,7 +264,12 @@ func copySystemInfo(cmdDir string) {
 		cmd := fmt.Sprintf("kubectl -n %s logs --previous -p %s", k8sNamespace, pod)
 		k8sCommands = append(k8sCommands, cmd)
 	}
-	k8sCommands = append(k8sCommands, "kubectl describe nodes")
+	k8sCommands = append(k8sCommands, "kubectl describe nodes",
+		"kubectl version",
+		"kubectl -n kube-system get pods",
+		"kubectl get pods,svc --all-namespaces",
+		"kubectl get version",
+	)
 
 	runAll(k8sCommands, cmdDir)
 }
@@ -416,7 +414,9 @@ func writeCmdToFile(cmdDir, prompt string) {
 			os.Remove(f.Name())
 			return
 		}
-	} else {
+	} else if len(args) > 5 {
+		// Boundary check is necessary to skip other non exec kubectl
+		// commands.
 		ctx, cancel := context.WithTimeout(context.Background(), execTimeout)
 		defer cancel()
 		if _, err := exec.CommandContext(ctx, "kubectl", "exec",
