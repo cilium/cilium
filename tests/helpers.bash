@@ -402,7 +402,7 @@ function wait_for_running_pod {
   pod=$1
   namespace=${2:-default}
   log "Waiting for ${pod} pod to be Running..."
-  wait_specified_time_test "test \"\$(kubectl get pods -n ${namespace} -o wide | grep ${pod} | grep -c Running)\" -eq \"1\"" "5"
+  wait_specified_time_test "test \"\$(kubectl get pods -n ${namespace} -o wide | grep ${pod} | grep -c Running)\" -eq \"1\"" "10"
 }
 
 function wait_for_no_pods {
@@ -738,7 +738,7 @@ function wait_for_service_endpoints_ready {
   local port="${3}"
 
   log "Waiting for ${name} service endpoints to be ready"
-  wait_specified_time_test "test \"\$(kubectl get endpoints -n ${namespace} ${name} | grep -c \":${port}\")\" -eq \"1\"" "5"
+  wait_specified_time_test "test \"\$(kubectl get endpoints -n ${namespace} ${name} | grep -c \":${port}\")\" -eq \"1\"" "10"
   log "Done waiting for ${name} service endpoints to be ready"
   kubectl get endpoints -n ${namespace} ${name}
 }
@@ -753,8 +753,8 @@ function wait_for_service_ready_cilium_pod {
 
   log "Waiting for Cilium pod ${pod} to have services ready with frontend port: ${fe_port} and backend port: ${be_port}"
 
-  wait_specified_time_test "test \"\$(kubectl -n ${namespace} exec ${pod} -- cilium service list | awk '{ print \$2 }' | grep -c \":${fe_port}\")\" -ge \"1\"" "5"
-  wait_specified_time_test "test \"\$(kubectl -n ${namespace} exec ${pod} -- cilium service list | awk '{ print \$5 }' | grep -c \":${be_port}\")\" -ge \"1\"" "5"
+  wait_specified_time_test "test \"\$(kubectl -n ${namespace} exec ${pod} -- cilium service list | awk '{ print \$2 }' | grep -c \":${fe_port}\")\" -ge \"1\"" "10"
+  wait_specified_time_test "test \"\$(kubectl -n ${namespace} exec ${pod} -- cilium service list | awk '{ print \$5 }' | grep -c \":${be_port}\")\" -ge \"1\"" "10"
 
   log "Done waiting for Cilium pod ${pod} to have services ready with frontend port: ${fe_port} and backend port: ${be_port}"
 
