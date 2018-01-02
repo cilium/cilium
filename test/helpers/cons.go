@@ -132,7 +132,7 @@ const (
 )
 
 var ciliumCLICommands = map[string]string{
-	"cilium endpoint list -o json":   "endpoint_list_txt",
+	"cilium endpoint list -o json":   "endpoint_list.txt",
 	"cilium service list -o json":    "service_list.txt",
 	"cilium config":                  "config.txt",
 	"sudo cilium bpf lb list":        "bpf_lb_list.txt",
@@ -145,7 +145,7 @@ var ciliumCLICommands = map[string]string{
 // ciliumKubCLICommands these commands are the same as `ciliumCLICommands` but
 // it'll run inside a container and it does not have sudo support
 var ciliumKubCLICommands = map[string]string{
-	"cilium endpoint list -o json": "endpoint_list_txt",
+	"cilium endpoint list -o json": "endpoint_list.txt",
 	"cilium service list -o json":  "service_list.txt",
 	"cilium config":                "config.txt",
 	"cilium bpf lb list":           "bpf_lb_list.txt",
