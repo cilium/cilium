@@ -45,7 +45,7 @@ else
 fi
 SCRIPT
 
-$envoyexport = ENV['CILIUM_USE_ENVOY'] ? "export CILIUM_USE_ENVOY=1\n" : ""
+$envoyexport = "export CILIUM_USE_ENVOY=1\n"
 $build = $envoyexport
 $install = $envoyexport
 $testsuite = $envoyexport
@@ -97,9 +97,6 @@ $job_name = ENV['JOB_BASE_NAME'] || "local"
 
 $build_number = ENV['BUILD_NUMBER'] || "0"
 $build_id = "#{$job_name}-#{$build_number}"
-if ENV['CILIUM_USE_ENVOY'] then
-    $build_id += "-envoy"
-end
 
 # Only create the build_id_name for Jenkins environment so that
 # we can run VMs locally without having any the `build_id` in the name.
@@ -202,8 +199,7 @@ Vagrant.configure(2) do |config|
                    privileged: true,
                    path: k8sinstall
            end
-           script = "#{ENV['CILIUM_TEMP']}/"
-           script += ENV['CILIUM_USE_ENVOY'] ? "cilium-master-envoy.sh" : "cilium-master.sh"
+           script = "#{ENV['CILIUM_TEMP']}/cilium-master.sh"
            cm.vm.provision "config-install", type: "shell", privileged: true, run: "always", path: script
            # In k8s mode cilium needs etcd in order to run which was started in
            # the first part of the script. The 2nd part will install the
