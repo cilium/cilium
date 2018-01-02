@@ -60,9 +60,9 @@ func (res *CmdRes) GetStdErr() string {
 
 // SendToLog writes to `TestLogWriter` the debug message for the running command
 func (res *CmdRes) SendToLog() {
-	fmt.Fprintf(&config.TestLogWriter, "cmd: %q exitCode: %q \n %s\n",
+	fmt.Fprintf(&config.TestLogWriter, "cmd: %q exitCode: %d \n %s\n",
 		res.cmd,
-		res.exit,
+		res.GetExitCode(),
 		res.CombineOutput())
 }
 
