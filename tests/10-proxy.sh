@@ -12,6 +12,7 @@ redirect_debug_logs ${LOGS_DIR}
 set -ex
 
 function cleanup {
+  monitor_stop
   cilium service delete --all 2> /dev/null || true
   cilium policy delete --all 2> /dev/null || true
   docker rm -f server1 server2 client 2> /dev/null || true
@@ -74,6 +75,7 @@ function proxy_init {
   wait_for_docker_ipv6_addr server2
   wait_for_docker_ipv6_addr client
 
+  monitor_start
   log "finished proxy_init"
 }
 
@@ -260,6 +262,7 @@ EOF
 
 function proxy_test {
   log "beginning proxy test"
+  monitor_clear
 
   log "trying to reach server IPv4 at http://$SERVER_IP4:80/public from client (expected: 200)"
   RETURN=$(docker exec -i client bash -c "curl -s --output /dev/stderr -w '%{http_code}' --connect-timeout 10 -XGET http://$SERVER_IP4:80/public")
