@@ -58,7 +58,7 @@ pipeline {
             steps {
                 parallel(
                     "Runtime":{
-                        sh 'cd ${TESTDIR}; ginkgo --focus="Runtime*" -v -noColor'
+                        sh 'cd ${TESTDIR}; ginkgo --seed=1514895093 --focus="Runtime*" -v -noColor'
                     },
                     "K8s-1.7":{
                         sh 'cd ${TESTDIR}; K8S_VERSION=1.7 ginkgo --focus=" K8s*" -v -noColor'
