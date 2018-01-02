@@ -40,7 +40,7 @@ var _ = Describe("K8sTunnelTest", func() {
 		logger.Info("Starting")
 
 		kubectl = helpers.CreateKubectl(helpers.K8s1VMName(), logger)
-		demoDSPath = fmt.Sprintf("%s/demo_ds.yaml", kubectl.ManifestsPath())
+		demoDSPath = kubectl.ManifestGet("demo_ds.yaml")
 		kubectl.Exec("kubectl -n kube-system delete ds cilium")
 		// Expect(res.Correct()).Should(BeTrue())
 
@@ -59,7 +59,7 @@ var _ = Describe("K8sTunnelTest", func() {
 	})
 
 	It("Check VXLAN mode", func() {
-		path := fmt.Sprintf("%s/cilium_ds.yaml", kubectl.ManifestsPath())
+		path := kubectl.ManifestGet("cilium_ds.yaml")
 		kubectl.Apply(path)
 		_, err := kubectl.WaitforPods(helpers.KubeSystemNamespace, "-l k8s-app=cilium", 5000)
 		Expect(err).Should(BeNil())
@@ -92,7 +92,7 @@ var _ = Describe("K8sTunnelTest", func() {
 	}, 600)
 
 	It("Check Geneve mode", func() {
-		path := fmt.Sprintf("%s/cilium_ds_geneve.yaml", kubectl.ManifestsPath())
+		path := kubectl.ManifestGet("cilium_ds_geneve.yaml")
 		kubectl.Apply(path)
 		_, err := kubectl.WaitforPods(helpers.KubeSystemNamespace, "-l k8s-app=cilium", 5000)
 		Expect(err).Should(BeNil())

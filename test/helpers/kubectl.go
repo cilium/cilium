@@ -38,6 +38,7 @@ const (
 	// pod CIDR in the node's annotations. From pkg/k8s
 	Annotationv6CIDRName = "io.cilium.network.ipv6-pod-cidr"
 	KubectlCmd           = "kubectl"
+	manifestsPath        = "k8sT/manifests/"
 )
 
 // GetCurrentK8SEnv returns the value of K8S_VERSION from the OS environment.
@@ -150,11 +151,16 @@ func (kub *Kubectl) Logs(namespace string, pod string) *CmdRes {
 		fmt.Sprintf("%s -n %s logs %s", KubectlCmd, namespace, pod))
 }
 
-// ManifestsPath returns the the full path of manifests (DaemonSets, YAML files,
-// etc.) for the Kubernetes version specified in the environment. This path
-// is the path specified in the VMs, not the host of the Vagrant VMs.
-func (kub *Kubectl) ManifestsPath() string {
-	return fmt.Sprintf("%s/k8sT/manifests/%s", BasePath, GetCurrentK8SEnv())
+// ManifestGet returns the full path of the given manifest corresponding to the
+// Kubernetes version being tested, if such a manifest exists, if not it
+// returns the global manifest file.
+func (kub *Kubectl) ManifestGet(manifestFilename string) string {
+	fullPath := fmt.Sprintf("%s/%s/%s", manifestsPath, GetCurrentK8SEnv(), manifestFilename)
+	_, err := os.Stat(fullPath)
+	if err == nil {
+		return fmt.Sprintf("%s/%s", BasePath, fullPath)
+	}
+	return fmt.Sprintf("%s/k8sT/manifests/%s", BasePath, manifestFilename)
 }
 
 // NodeCleanMetadata annotates each node in the Kubernetes cluster with the
