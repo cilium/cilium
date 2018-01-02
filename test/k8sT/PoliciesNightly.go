@@ -40,7 +40,7 @@ var _ = Describe("NightlyK8sPolicies", func() {
 		logger.Info("Starting")
 
 		kubectl = helpers.CreateKubectl(helpers.K8s1VMName(), logger)
-		ciliumPath := fmt.Sprintf("%s/cilium_ds.yaml", kubectl.ManifestsPath())
+		ciliumPath := kubectl.ManifestGet("cilium_ds.yaml")
 		kubectl.Apply(ciliumPath)
 		_, err := kubectl.WaitforPods(helpers.KubeSystemNamespace, "-l k8s-app=cilium", 600)
 		Expect(err).Should(BeNil())

@@ -45,11 +45,11 @@ var _ = Describe("K8sPolicyTest", func() {
 		podFilter = "k8s:zgroup=testapp"
 
 		//Manifest paths
-		demoPath = fmt.Sprintf("%s/demo.yaml", kubectl.ManifestsPath())
-		l3Policy = fmt.Sprintf("%s/l3_l4_policy.yaml", kubectl.ManifestsPath())
-		l7Policy = fmt.Sprintf("%s/l7_policy.yaml", kubectl.ManifestsPath())
+		demoPath = kubectl.ManifestGet("demo.yaml")
+		l3Policy = kubectl.ManifestGet("l3_l4_policy.yaml")
+		l7Policy = kubectl.ManifestGet("l7_policy.yaml")
 
-		path = fmt.Sprintf("%s/cilium_ds.yaml", kubectl.ManifestsPath())
+		path = kubectl.ManifestGet("cilium_ds.yaml")
 		kubectl.Apply(path)
 		status, err := kubectl.WaitforPods(helpers.KubeSystemNamespace, "-l k8s-app=cilium", 300)
 		Expect(status).Should(BeTrue())

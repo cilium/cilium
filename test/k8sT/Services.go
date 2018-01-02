@@ -42,7 +42,7 @@ var _ = Describe("K8sServicesTest", func() {
 		logger.Info("Starting")
 
 		kubectl = helpers.CreateKubectl(helpers.K8s1VMName(), logger)
-		path := fmt.Sprintf("%s/cilium_ds.yaml", kubectl.ManifestsPath())
+		path := kubectl.ManifestGet("cilium_ds.yaml")
 		kubectl.Apply(path)
 		_, err := kubectl.WaitforPods(helpers.KubeSystemNamespace, "-l k8s-app=cilium", 600)
 		Expect(err).Should(BeNil())
@@ -88,7 +88,7 @@ var _ = Describe("K8sServicesTest", func() {
 	}
 
 	It("Check Service", func() {
-		demoDSPath := fmt.Sprintf("%s/demo.yaml", kubectl.ManifestsPath())
+		demoDSPath := kubectl.ManifestGet("demo.yaml")
 		kubectl.Apply(demoDSPath)
 		defer kubectl.Delete(demoDSPath)
 
@@ -114,7 +114,7 @@ var _ = Describe("K8sServicesTest", func() {
 	}, 300)
 
 	It("Check Service with cross-node", func() {
-		demoDSPath := fmt.Sprintf("%s/demo_ds.yaml", kubectl.ManifestsPath())
+		demoDSPath := kubectl.ManifestGet("demo_ds.yaml")
 		kubectl.Apply(demoDSPath)
 		defer kubectl.Delete(demoDSPath)
 
@@ -133,7 +133,7 @@ var _ = Describe("K8sServicesTest", func() {
 	//TODO: Check service with IPV6
 
 	It("Check NodePort", func() {
-		demoDSPath := fmt.Sprintf("%s/demo_ds.yaml", kubectl.ManifestsPath())
+		demoDSPath := kubectl.ManifestGet("demo_ds.yaml")
 		kubectl.Apply(demoDSPath)
 		defer kubectl.Delete(demoDSPath)
 
