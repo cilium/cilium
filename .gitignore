@@ -46,6 +46,10 @@ outgoing
 
 man/
 
+# Bazel symlinks
 bazel-*
 
 test/tmp.yaml
+
+# Emacs backup files
+*~
