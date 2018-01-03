@@ -4,6 +4,7 @@ import (
 	"io"
 	"io/ioutil"
 	"net"
+	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -16,9 +17,63 @@ import (
 	"github.com/cilium/cilium/pkg/policy"
 
 	"github.com/golang/protobuf/proto"
+
+	"github.com/sirupsen/logrus"
 )
 
 var log = logging.DefaultLogger
+
+var (
+	// envoyLevelMap maps logrus.Level values to Envoy (spdlog) log levels.
+	envoyLevelMap = map[logrus.Level]string{
+		logrus.PanicLevel: "off",
+		logrus.FatalLevel: "critical",
+		logrus.ErrorLevel: "error",
+		logrus.WarnLevel:  "warning",
+		logrus.InfoLevel:  "info",
+		logrus.DebugLevel: "debug",
+		// spdlog "trace" not mapped
+	}
+)
+
+type admin struct {
+	adminURL string
+	level    string
+}
+
+func (a *admin) transact(query string) error {
+	resp, err := http.Get(a.adminURL + query)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return err
+	}
+	ret := strings.Replace(string(body), "\r", "", -1)
+	log.Debug("Envoy admin response to " + query + ": " + ret)
+	return nil
+}
+
+func (a *admin) changeLogLevel(level logrus.Level) error {
+	envoyLevel := envoyLevelMap[level]
+	if envoyLevel != a.level {
+		err := a.transact("logging?level=" + envoyLevel)
+		if err != nil {
+			log.WithError(err).Warn("Envoy: Failed setting log level: ", envoyLevel)
+		} else {
+			a.level = envoyLevel
+		}
+		return err
+	}
+	log.Debug("Envoy log level is already set as: " + envoyLevel)
+	return nil
+}
+
+func (a *admin) quit() error {
+	return a.transact("quitquitquit")
+}
 
 // Envoy manages a running Envoy proxy instance via the
 // ListenerDiscoveryService and RouteDiscoveryService gRPC APIs.
@@ -31,6 +86,7 @@ type Envoy struct {
 	lds               *LDSServer
 	rdsSock           string
 	rds               *RDSServer
+	admin             *admin
 }
 
 // Logger is used to feed access log entires from Envoy to cilium access log.
@@ -57,20 +113,23 @@ func createConfig(filePath string, adminAddress string) {
 	}
 }
 
-// StartEnvoy starts an Envoy proxy instance. If 'debug' is true, an
-// debug version of the Envoy binary is started with the log level
-// 'debug', otherwise a production version is started at the default
-// log level.
-func StartEnvoy(debug bool, adminPort int, stateDir, logDir string, baseID uint64) *Envoy {
+// StartEnvoy starts an Envoy proxy instance.
+func StartEnvoy(adminPort uint32, stateDir, logDir string, baseID uint64) *Envoy {
 	bootstrapPath := filepath.Join(stateDir, "bootstrap.pb")
 	configPath := filepath.Join(stateDir, "envoy-config.json")
 	logPath := filepath.Join(logDir, "cilium-envoy.log")
-	adminAddress := "127.0.0.1:" + strconv.Itoa(adminPort)
+	adminAddress := "127.0.0.1:" + strconv.FormatUint(uint64(adminPort), 10)
 	ldsPath := filepath.Join(stateDir, "lds.sock")
 	rdsPath := filepath.Join(stateDir, "rds.sock")
 	accessLogPath := filepath.Join(stateDir, "access_log.sock")
 
-	e := &Envoy{LogPath: logPath, AccessLogPath: accessLogPath, ldsSock: ldsPath, rdsSock: rdsPath}
+	e := &Envoy{
+		LogPath:       logPath,
+		AccessLogPath: accessLogPath,
+		ldsSock:       ldsPath,
+		rdsSock:       rdsPath,
+		admin:         &admin{adminURL: "http://" + adminAddress + "/"},
+	}
 
 	// Create static configuration
 	createBootstrap(bootstrapPath, "envoy1", "cluster1", "version1",
@@ -101,11 +160,9 @@ func StartEnvoy(debug bool, adminPort int, stateDir, logDir string, baseID uint6
 			}
 
 			name := "cilium-envoy"
-			logLevel := "info"
-			if debug {
-				// Try first with debug build
-				name = "cilium-envoy-debug"
-				logLevel = "debug"
+			logLevel := envoyLevelMap[log.Level]
+			if logLevel == "" {
+				logLevel = envoyLevelMap[logrus.InfoLevel]
 			}
 			e.cmd = exec.Command(name, "-l", logLevel, "-c", configPath, "-b", bootstrapPath, "--base-id", strconv.FormatUint(baseID, 10))
 			e.cmd.Stderr = logFile
@@ -113,12 +170,6 @@ func StartEnvoy(debug bool, adminPort int, stateDir, logDir string, baseID uint6
 
 			err = e.cmd.Start()
 			if err != nil {
-				if debug {
-					// try again without debug
-					log.WithError(err).Warn("Envoy: failed to start debug build of Envoy, trying again with the normal build.")
-					debug = false
-					continue
-				}
 				log.WithError(err).Warn("Envoy: failed to start.")
 				started <- false
 				return
@@ -136,8 +187,8 @@ func StartEnvoy(debug bool, adminPort int, stateDir, logDir string, baseID uint6
 				logFile.Close()
 				logFile = nil
 			}
-			// start again after a short wait. If Cilium exits this should be enough time to not
-			// start Envoy again in that case.
+			// start again after a short wait. If Cilium exits this should be enough
+			// time to not start Envoy again in that case.
 			log.WithError(err).Info("Envoy: Sleeping for 100ms before respawning.")
 			time.Sleep(100 * time.Millisecond)
 		}
@@ -236,10 +287,14 @@ func (e *Envoy) StopEnvoy() error {
 	log.Info("Envoy: Stopping process ", e.cmd.Process.Pid)
 	e.rds.stop()
 	e.lds.stop()
-	err := e.cmd.Process.Kill()
+	err := e.admin.quit()
 	if err != nil {
-		log.WithError(err).Fatal("Envoy: Stopping failed")
-		return err
+		log.WithError(err).Fatal("Envoy: Admin quit failed, killing process ", e.cmd.Process.Pid)
+		err := e.cmd.Process.Kill()
+		if err != nil {
+			log.WithError(err).Fatal("Envoy: Stopping failed")
+			return err
+		}
 	}
 	return nil
 }
@@ -257,4 +312,9 @@ func (e *Envoy) UpdateListener(name string, l7rules policy.L7DataMap) {
 // RemoveListener removes an existing Envoy Listener.
 func (e *Envoy) RemoveListener(name string) {
 	e.lds.removeListener(name)
+}
+
+// ChangeLogLevel changes Envoy log level to correspond to the logrus log level 'level'.
+func (e *Envoy) ChangeLogLevel(level logrus.Level) {
+	e.admin.changeLogLevel(level)
 }

@@ -60,7 +60,7 @@ var envoyOnce sync.Once
 func createEnvoyRedirect(l4 *policy.L4Filter, id string, source ProxySource, to uint16) (Redirect, error) {
 	envoyOnce.Do(func() {
 		// Start Envoy on first invocation
-		envoyProxy = envoy.StartEnvoy(true, 0, viper.GetString("state-dir"),
+		envoyProxy = envoy.StartEnvoy(9901, viper.GetString("state-dir"),
 			viper.GetString("state-dir"), 0)
 	})
 

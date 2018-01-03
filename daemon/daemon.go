@@ -1210,6 +1210,12 @@ func mapValidateWalker(path string) error {
 
 func changedOption(key string, value bool, data interface{}) {
 	d := data.(*Daemon)
+	if key == endpoint.OptionDebug {
+		// Set the debug toggle (this can be a no-op)
+		logging.ToggleDebugLogs(d.DebugEnabled())
+		// Reflect log level change to proxies
+		proxy.ChangeLogLevel(log.Level)
+	}
 	d.policy.BumpRevision() // force policy recalculation
 }
 
@@ -1278,9 +1284,6 @@ func (h *patchConfig) Handle(params PatchConfigParams) middleware.Responder {
 	log.WithField("count", changes).Debug("Applied changes to daemon's configuration")
 
 	if changes > 0 {
-		// Set the debug toggle (this can be a no-op)
-		logging.ToggleDebugLogs(d.DebugEnabled())
-
 		// Only recompile if configuration has changed.
 		log.Debug("daemon configuration has changed; recompiling base programs")
 		if err := d.compileBase(); err != nil {

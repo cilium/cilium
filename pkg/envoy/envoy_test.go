@@ -36,7 +36,7 @@ func (s *EnvoySuite) TestEnvoy(c *C) {
 	}
 
 	// launch debug variant of the Envoy proxy
-	Envoy := StartEnvoy(true, 9901, "", "", 42)
+	Envoy := StartEnvoy(9901, "", "", 42)
 	c.Assert(Envoy, NotNil)
 
 	sel := api.NewWildcardEndpointSelector()
