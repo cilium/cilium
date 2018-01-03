@@ -274,7 +274,7 @@ However, if we then again try to invoke SetAccessCode, it is denied:
     grpc._channel._Rendezvous: <_Rendezvous of RPC that terminated with (StatusCode.CANCELLED, Received http2 header with status: 403)>
 
 
-This is now, thanks to the Cilium network policy.  And notice that unlike a traditional 
+This is now blocked, thanks to the Cilium network policy.  And notice that unlike a traditional 
 firewall which would just drop packets in a way indistinguishable from a network failure, 
 because Cilium operates at the API-layer, it can explicitly reply with an HTTP 403 Unauthorized
 error, indicating that the request was intentionally denied for security reasons.  
