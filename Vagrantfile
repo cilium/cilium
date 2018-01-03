@@ -17,6 +17,9 @@ Disabling IPv4 is currently not allowed until k8s 1.9 is released
 END
 end
 
+# start.sh sets BAZEL_VERSION before calling us.
+BAZEL_VERSION = ENV['BAZEL_VERSION']
+
 $bootstrap = <<SCRIPT
 sudo service docker restart
 sudo apt-get -y update || true
@@ -31,6 +34,15 @@ chown -R vagrant:vagrant $GOPATH
 curl -SsL https://github.com/cilium/bpf-map/releases/download/v1.0/bpf-map -o bpf-map
 chmod +x bpf-map
 mv bpf-map /usr/bin
+if [[ $(command -v bazel) && "$(bazel version | grep 'label' | cut -d ' ' -f 3)" = #{BAZEL_VERSION} ]]; then
+  echo "Bazel #{BAZEL_VERSION} already installed, skipping fetch."
+else
+  wget -nv https://github.com/bazelbuild/bazel/releases/download/#{BAZEL_VERSION}/bazel-#{BAZEL_VERSION}-installer-linux-x86_64.sh
+  chmod +x bazel-#{BAZEL_VERSION}-installer-linux-x86_64.sh
+  sudo -E ./bazel-#{BAZEL_VERSION}-installer-linux-x86_64.sh
+  sudo -E mv /usr/local/bin/bazel /usr/bin
+  rm bazel-#{BAZEL_VERSION}-installer-linux-x86_64.sh
+fi
 SCRIPT
 
 $envoyexport = ENV['CILIUM_USE_ENVOY'] ? "export CILIUM_USE_ENVOY=1\n" : ""
