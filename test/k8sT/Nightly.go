@@ -35,7 +35,7 @@ var (
 	configMap = "ConfigMap"
 )
 
-var _ = Describe("NightlyK8sEpsMeasurement", func() {
+var _ = Describe("NightlyEpsMeasurement", func() {
 
 	var kubectl *helpers.Kubectl
 	var logger *logrus.Entry
@@ -168,7 +168,7 @@ var _ = Describe("NightlyK8sEpsMeasurement", func() {
 	})
 })
 
-var _ = Describe("NightlyK8sExamples", func() {
+var _ = Describe("NightlyExamples", func() {
 
 	var kubectl *helpers.Kubectl
 	var logger *logrus.Entry
