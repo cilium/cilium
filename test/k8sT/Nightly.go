@@ -66,8 +66,8 @@ var _ = Describe("NightlyEpsMeasurement", func() {
 
 	AfterEach(func() {
 		if CurrentGinkgoTestDescription().Failed {
-			ciliumPod, _ := kubectl.GetCiliumPodOnNode(helpers.KubeSystemNamespace, "k8s1")
-			kubectl.CiliumReport("kube-system", ciliumPod, []string{
+			ciliumPod, _ := kubectl.GetCiliumPodOnNode(helpers.KubeSystemNamespace, helpers.K8s1)
+			kubectl.CiliumReport(helpers.KubeSystemNamespace, ciliumPod, []string{
 				"cilium service list",
 				"cilium endpoint list"})
 		}
@@ -174,21 +174,13 @@ var _ = Describe("NightlyEpsMeasurement", func() {
 		podsCreated := 0
 
 		AfterEach(func() {
-			if CurrentGinkgoTestDescription().Failed {
-				ciliumPod, _ := kubectl.GetCiliumPodOnNode(helpers.KubeSystemNamespace, "k8s1")
-				kubectl.CiliumReport("kube-system", ciliumPod, []string{
-					"cilium service list",
-					"cilium endpoint list",
-					"cilium policy get"})
-			}
-
 			kubectl.Exec(fmt.Sprintf(
-				"%s delete --all pods,svc,cnp -n%s", helpers.KubectlCmd, helpers.DefaultNamespace))
+				"%s delete --all pods,svc,cnp -n %s", helpers.KubectlCmd, helpers.DefaultNamespace))
 		})
 
-		Measure(fmt.Sprintf("Applying policies to %d pods in bunch of %d", numPods, bunchPods), func(b Benchmarker) {
+		Measure(fmt.Sprintf("Applying policies to %d pods in a group of %d", numPods, bunchPods), func(b Benchmarker) {
 			testDef := func() {
-				logger.Errorf("Create %d new pods, total created are %d", numPods, podsCreated)
+				logger.Errorf("Creating %d new pods, total created are %d", numPods, podsCreated)
 				testSpecGroup := policygen.TestSpecsGroup{}
 				for i := 0; i < bunchPods; i++ {
 					testSpec := policygen.GetBasicTestSpec()

@@ -686,7 +686,7 @@ func (t *TestSpec) ExecTest() error {
 // TestSpecsGroup is a group of different TestSpec
 type TestSpecsGroup []*TestSpec
 
-// CreateAndApplyManifests creates all the pods manifests and applies those
+// CreateAndApplyManifests creates all of the pods manifests and applies those
 // manifest to the given kubernetes instance.
 func (tg TestSpecsGroup) CreateAndApplyManifests(kub *helpers.Kubectl) {
 	completeManifest := "/tmp/data.yaml"
@@ -703,7 +703,7 @@ func (tg TestSpecsGroup) CreateAndApplyManifests(kub *helpers.Kubectl) {
 }
 
 // CreateAndApplyCNP creates all Cilium Network Policies and it applies those
-// policies to the given kunernetes instance.
+// manifests to the given Kubernetes instance.
 func (tg TestSpecsGroup) CreateAndApplyCNP(kub *helpers.Kubectl) {
 	for _, test := range tg {
 		// TODO: Should be any better way to do this
