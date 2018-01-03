@@ -30,6 +30,7 @@ import (
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/proxy/accesslog"
 
+	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 )
 
@@ -434,4 +435,11 @@ func (p *Proxy) RemoveRedirect(id string) error {
 	delete(p.allocatedPorts, toPort)
 
 	return nil
+}
+
+// ChangeLogLevel changes proxy log level to correspond to the logrus log level 'level'.
+func ChangeLogLevel(level logrus.Level) {
+	if envoyProxy != nil {
+		envoyProxy.ChangeLogLevel(level)
+	}
 }

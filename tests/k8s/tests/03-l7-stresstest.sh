@@ -31,7 +31,16 @@ LOCAL_CILIUM_POD="$(kubectl get pods -n kube-system -o wide | grep $(hostname) |
 
 log "running test: $TEST_NAME"
 
+CILIUM_PODS=$(kubectl -n kube-system get pods -l k8s-app=cilium | grep cilium- | awk '{print $1}')
+
+for pod in $CILIUM_PODS; do
+    kubectl -n kube-system exec $pod -- cilium config Debug=false
+done
+
 function finish_test {
+  for pod in $CILIUM_PODS; do
+      kubectl -n kube-system exec $pod -- cilium config Debug=true
+  done
   log "running finish_test for $TEST_NAME"
   gather_files ${TEST_NAME} k8s-tests
   gather_k8s_logs "2" ${LOGS_DIR}

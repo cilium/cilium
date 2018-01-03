@@ -96,8 +96,8 @@ install-release: force
 
 install-debug: force
 	$(INSTALL) -m 0755 -d $(DESTDIR)$(BINDIR)
-	-rm $(DESTDIR)$(BINDIR)/cilium-envoy-debug
-	$(INSTALL) -m 0755 -T $(DEBUG_TARGET) $(DESTDIR)$(BINDIR)/cilium-envoy-debug
+	-rm $(DESTDIR)$(BINDIR)/cilium-envoy
+	$(INSTALL) -m 0755 -T $(DEBUG_TARGET) $(DESTDIR)$(BINDIR)/cilium-envoy
 
 clean: force
 	echo "Bazel clean skipped, try \"make distclean\" instead."
