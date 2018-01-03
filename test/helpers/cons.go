@@ -41,6 +41,8 @@ const (
 	Enabled  = "enabled"
 	Disabled = "disabled"
 	Total    = "total"
+	Public   = "public"
+	Private  = "private"
 
 	// PolicyEnforcement represents the PolicyEnforcement configuration option
 	// for the Cilium agent.
