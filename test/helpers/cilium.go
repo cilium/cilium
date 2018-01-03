@@ -606,6 +606,12 @@ func (s *SSHMeta) ServiceDel(id int) *CmdRes {
 	return s.ExecCilium(fmt.Sprintf("service delete '%d'", id))
 }
 
+// ServiceDelAll is a wrapper around `cilium service delete --all`. It returns the
+// result of the command.
+func (s *SSHMeta) ServiceDelAll() *CmdRes {
+	return s.ExecCilium("service delete --all")
+}
+
 // SetUpCilium sets up Cilium as a systemd service with a hardcoded set of options. It
 // returns an error if any of the operations needed to start Cilium fails.
 func (s *SSHMeta) SetUpCilium() error {

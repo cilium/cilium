@@ -42,6 +42,8 @@ var _ = Describe("RuntimeLB", func() {
 		res := vm.SetPolicyEnforcement(helpers.PolicyEnforcementDefault)
 		res.ExpectSuccess()
 		vm.NetworkCreate(helpers.CiliumDockerNetwork, "")
+
+		vm.PolicyDelAll().ExpectSuccess()
 		initialized = true
 	}
 
@@ -68,7 +70,7 @@ var _ = Describe("RuntimeLB", func() {
 
 	BeforeEach(func() {
 		initialize()
-		vm.ExecCilium("service delete --all")
+		vm.ServiceDelAll().ExpectSuccess()
 	}, 500)
 
 	AfterEach(func() {
@@ -305,13 +307,10 @@ var _ = Describe("RuntimeLB", func() {
 	})
 
 	Context("Services Policies", func() {
-		BeforeEach(func() {
-			vm.PolicyDelAll()
-		})
-
 		AfterEach(func() {
 			vm.SampleContainersActions(helpers.Delete, helpers.CiliumDockerNetwork)
-			vm.PolicyDelAll()
+			vm.PolicyDelAll().ExpectSuccess()
+			vm.ServiceDelAll().ExpectSuccess()
 
 			status := vm.ExecCilium(fmt.Sprintf("config %s=false",
 				helpers.OptionConntrackLocal))
@@ -319,7 +318,6 @@ var _ = Describe("RuntimeLB", func() {
 		})
 
 		policiesTest := func() {
-
 			httpd1, err := vm.ContainerInspectNet(helpers.Httpd1)
 			Expect(err).Should(BeNil())
 
@@ -327,34 +325,39 @@ var _ = Describe("RuntimeLB", func() {
 			Expect(err).Should(BeNil())
 
 			service1 := "2.2.2.100:80"
-			service2 := "2.2.2.101:80"
+			service2 := "[f00d::1:1]:80"
+
 			getHTTP := func(service, target string) string {
 				return helpers.CurlFail(fmt.Sprintf(
 					"http://%s/%s", service, target))
 			}
 
 			status := vm.ServiceAdd(100, service1, []string{
-				fmt.Sprintf("%s:80", httpd1["IPv4"])}, 1)
+				fmt.Sprintf("%s:80", httpd1[helpers.IPv4])}, 1)
 			status.ExpectSuccess("L4 service cannot be created")
 
 			status = vm.ServiceAdd(101, service2, []string{
-				fmt.Sprintf("%s:80", httpd2["IPv4"])}, 1)
+				fmt.Sprintf("[%s]:80", httpd2[helpers.IPv6])}, 1)
 			status.ExpectSuccess("L4 service cannot be created")
 
 			_, err = vm.PolicyImport(vm.GetFullPath(policiesL7JSON), helpers.HelperTimeout)
 			Expect(err).Should(BeNil())
 
 			By("Simple Ingress")
-			status = vm.ContainerExec(helpers.App1, getHTTP(service1, "public"))
+
+			status = vm.ContainerExec(helpers.App1, getHTTP(service1, helpers.Public))
 			status.ExpectSuccess()
 
-			status = vm.ContainerExec(helpers.App2, getHTTP(service1, "public"))
+			status = vm.ContainerExec(helpers.App2, getHTTP(service1, helpers.Public))
 			status.ExpectFail()
 
 			By("Simple Egress")
 
-			status = vm.ContainerExec(helpers.App2, getHTTP(service2, "public"))
+			status = vm.ContainerExec(helpers.App2, getHTTP(service2, helpers.Public))
 			status.ExpectSuccess()
+
+			status = vm.ContainerExec(helpers.App2, getHTTP(service2, helpers.Private))
+			status.ExpectFail()
 
 			By("Multiple Ingress")
 
@@ -362,41 +365,44 @@ var _ = Describe("RuntimeLB", func() {
 			_, err = vm.PolicyImport(vm.GetFullPath(multL7PoliciesJSON), helpers.HelperTimeout)
 			Expect(err).Should(BeNil())
 
-			status = vm.ContainerExec(helpers.App1, getHTTP(service1, "public"))
+			status = vm.ContainerExec(helpers.App1, getHTTP(service1, helpers.Public))
 			status.ExpectSuccess()
 
-			status = vm.ContainerExec(helpers.App1, getHTTP(service1, "private"))
+			status = vm.ContainerExec(helpers.App1, getHTTP(service1, helpers.Private))
 			status.ExpectFail()
 
-			status = vm.ContainerExec(helpers.App2, getHTTP(service1, "public"))
+			status = vm.ContainerExec(helpers.App2, getHTTP(service1, helpers.Public))
 			status.ExpectFail()
 
 			By("Multiple Egress")
 
-			status = vm.ContainerExec(helpers.App2, getHTTP(service2, "public"))
+			status = vm.ContainerExec(helpers.App2, getHTTP(service2, helpers.Public))
 			status.ExpectSuccess()
 
-			status = vm.ContainerExec(helpers.App2, getHTTP(service2, "private"))
+			status = vm.ContainerExec(helpers.App2, getHTTP(service2, helpers.Private))
 			status.ExpectFail()
 		}
 
-		It("Contrack enabled", func() {
+		It("Conntrack enabled", func() {
 			status := vm.ExecCilium(fmt.Sprintf("config %s=true",
 				helpers.OptionConntrackLocal))
 			status.ExpectSuccess()
 
 			vm.SampleContainersActions(helpers.Create, helpers.CiliumDockerNetwork)
-			vm.WaitEndpointsReady()
+			ready := vm.WaitEndpointsReady()
+			Expect(ready).To(BeTrue())
 			policiesTest()
 		})
 
-		It("Contrack disabled", func() {
+		It("Conntrack disabled", func() {
 			status := vm.ExecCilium(fmt.Sprintf("config %s=false",
 				helpers.OptionConntrackLocal))
 			status.ExpectSuccess()
 
 			vm.SampleContainersActions(helpers.Create, helpers.CiliumDockerNetwork)
-			vm.WaitEndpointsReady()
+			ready := vm.WaitEndpointsReady()
+			Expect(ready).To(BeTrue())
+
 			policiesTest()
 		})
 	})
