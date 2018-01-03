@@ -25,7 +25,7 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-var _ = Describe("NightlyK8sPolicies", func() {
+var _ = Describe("NightlyPolicies", func() {
 
 	var kubectl *helpers.Kubectl
 	var logger *logrus.Entry
