@@ -43,6 +43,7 @@ const (
 	Total    = "total"
 	Public   = "public"
 	Private  = "private"
+	Name     = "Name"
 
 	// PolicyEnforcement represents the PolicyEnforcement configuration option
 	// for the Cilium agent.

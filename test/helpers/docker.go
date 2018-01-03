@@ -61,7 +61,7 @@ func (s *SSHMeta) ContainerInspectNet(name string) (map[string]string, error) {
 	}
 	filter := fmt.Sprintf(`{ [0].NetworkSettings.Networks.%s }`, CiliumDockerNetwork)
 	result := map[string]string{
-		"Name": name,
+		Name: name,
 	}
 	data, err := res.FindResults(filter)
 	if err != nil {
