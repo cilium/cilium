@@ -40,7 +40,7 @@ const (
 	MonitorDebug = "Debug"
 )
 
-var _ = Describe("RuntimeMonitorTest", func() {
+var _ = Describe("RuntimeValidatedMonitorTest", func() {
 
 	var initialized bool
 	var logger *logrus.Entry
