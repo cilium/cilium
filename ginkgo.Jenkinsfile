@@ -10,7 +10,6 @@ pipeline {
         timeout(time: 120, unit: 'MINUTES')
         timestamps()
     }
-
     stages {
         stage('Checkout') {
             steps {
@@ -50,7 +49,12 @@ pipeline {
                 }
             }
         }
-        stage('BDD-Test') {
+        stage('BDD-Test-Master') {
+            when {
+                expression {
+                    return env.BRANCH_NAME == 'master';
+                }
+            }
             environment {
                 GOPATH="${WORKSPACE}"
                 TESTDIR="${WORKSPACE}/${PROJ_PATH}/test"
@@ -65,6 +69,43 @@ pipeline {
                     },
                     "K8s-1.6":{
                         sh 'cd ${TESTDIR}; K8S_VERSION=1.6 ginkgo --focus=" K8s*" -v -noColor'
+                    },
+                    failFast: true
+                )
+            }
+            post {
+                always {
+                    junit 'test/*.xml'
+                    // Temporary workaround to test cleanup
+                    // rm -rf ${GOPATH}/src/github.com/cilium/cilium
+                    sh 'cd test/; ./post_build_agent.sh || true'
+                    sh 'cd test/; K8S_VERSION=1.7 vagrant destroy -f'
+                    sh 'cd test/; K8S_VERSION=1.6 vagrant destroy -f'
+                    sh 'cd test/; ./archive_test_results.sh || true'
+                    archiveArtifacts artifacts: "test_results_${JOB_BASE_NAME}_${BUILD_NUMBER}.tar", allowEmptyArchive: true
+                }
+            }
+        }
+        stage('BDD-Test-PR') {
+            when {
+                expression {
+                    return env.BRANCH_NAME != 'master';
+                }
+            }
+            environment {
+                GOPATH="${WORKSPACE}"
+                TESTDIR="${WORKSPACE}/${PROJ_PATH}/test"
+            }
+            steps {
+                parallel(
+                    "Runtime":{
+                        sh 'cd ${TESTDIR}; ginkgo --focus="RuntimeValidated*" -v -noColor'
+                    },
+                    "K8s-1.7":{
+                        sh 'cd ${TESTDIR}; K8S_VERSION=1.7 ginkgo --focus=" K8sValidated*" -v -noColor'
+                    },
+                    "K8s-1.6":{
+                        sh 'cd ${TESTDIR}; K8S_VERSION=1.6 ginkgo --focus=" K8sValidated*" -v -noColor'
                     },
                     failFast: true
                 )
