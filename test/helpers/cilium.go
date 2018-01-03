@@ -404,10 +404,10 @@ func (s *SSHMeta) PolicyImport(path string, timeout time.Duration) (int, error) 
 	return revision, err
 }
 
-// PolicyRenderAndImport reveices an string with a policy, renders it in the
-// test root directory and import the policy to cilium. It returns the new
-// policy id.  Returns an error if the file cannot be created or can not import
-// the policy.
+// PolicyRenderAndImport receives an string with a policy, renders it in the
+// test root directory and imports the policy to cilium. It returns the new
+// policy id.  Returns an error if the file cannot be created or if the policy
+// cannot be imported
 func (s *SSHMeta) PolicyRenderAndImport(policy string) (int, error) {
 	filename := fmt.Sprintf("policy_%s.json", MakeUID())
 	s.logger.Debugf("PolicyRenderAndImport: render policy to '%s'", filename)

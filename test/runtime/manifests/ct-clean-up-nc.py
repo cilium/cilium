@@ -1,7 +1,7 @@
 import socket, sys
 
 if len(sys.argv) != 6:
-  print('Wrong number of arguments. Usage: ./21-ct-clean-up-nc.py <localport> <timeout> <remote-address> <remote-port> <HTTP path>')
+  print('Wrong number of arguments. Usage: ./ct-clean-up-nc.py <localport> <timeout> <remote-address> <remote-port> <HTTP path>')
 
 localport = int(sys.argv[1])
 timeout = int(sys.argv[2])
