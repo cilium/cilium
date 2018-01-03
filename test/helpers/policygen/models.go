@@ -276,6 +276,7 @@ func (t *Target) CreateApplyManifest(spec *TestSpec) error {
 			return err
 		}
 	case direct:
+		t.PortNumber = 80
 		return nil
 	}
 	res := spec.Kub.Apply(manifestPath)
