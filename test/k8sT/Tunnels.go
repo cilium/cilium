@@ -55,13 +55,20 @@ var _ = Describe("K8sTunnelTest", func() {
 	}, 600)
 
 	AfterEach(func() {
+		if CurrentGinkgoTestDescription().Failed {
+			ciliumPod, _ := kubectl.GetCiliumPodOnNode(helpers.KubeSystemNamespace, helpers.K8s1)
+			kubectl.CiliumReport(helpers.KubeSystemNamespace, ciliumPod, []string{
+				"cilium bpf tunnel list",
+				"cilium endpoint list"})
+		}
+
 		kubectl.Delete(demoDSPath)
 	})
 
 	It("Check VXLAN mode", func() {
 		path := kubectl.ManifestGet("cilium_ds.yaml")
 		kubectl.Apply(path)
-		_, err := kubectl.WaitforPods(helpers.KubeSystemNamespace, "-l k8s-app=cilium", 5000)
+		_, err := kubectl.WaitforPods(helpers.KubeSystemNamespace, "-l k8s-app=cilium", 500)
 		Expect(err).Should(BeNil())
 
 		ciliumPod, err := kubectl.GetCiliumPodOnNode(helpers.KubeSystemNamespace, helpers.K8s1)
@@ -94,7 +101,7 @@ var _ = Describe("K8sTunnelTest", func() {
 	It("Check Geneve mode", func() {
 		path := kubectl.ManifestGet("cilium_ds_geneve.yaml")
 		kubectl.Apply(path)
-		_, err := kubectl.WaitforPods(helpers.KubeSystemNamespace, "-l k8s-app=cilium", 5000)
+		_, err := kubectl.WaitforPods(helpers.KubeSystemNamespace, "-l k8s-app=cilium", 500)
 		Expect(err).Should(BeNil())
 
 		ciliumPod, err := kubectl.GetCiliumPodOnNode(helpers.KubeSystemNamespace, helpers.K8s1)
