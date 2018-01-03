@@ -62,7 +62,6 @@ var (
 	host         string
 	k8sNamespace string
 	k8sLabel     string
-	k8sPods      []string
 )
 
 func init() {
@@ -76,12 +75,11 @@ func init() {
 	BugtoolRootCmd.Flags().StringVarP(&k8sLabel, "k8s-label", "", "k8s-app=cilium", "Kubernetes label for Cilium pod")
 }
 
-func setup() {
+func getVerifyCiliumPods() []string {
 	// By default try to pick either Kubernetes or non-k8s (host mode). If
 	// we find Cilium pod(s) then it's k8s-mode otherwise host mode.
 	// Passing extra flags can override the default.
-	var err error
-	k8sPods, err = getCiliumPods(k8sNamespace, k8sLabel)
+	k8sPods, err := getCiliumPods(k8sNamespace, k8sLabel)
 	switch {
 	case k8s:
 		// When the k8s flag is set, perform extra checks that we actually do have pods or fail.
@@ -98,10 +96,12 @@ func setup() {
 		// debuginfo and BPF related commands can fail.
 		fmt.Printf("Warning, some of the BPF commands might fail when run as not root\n")
 	}
+
+	return k8sPods
 }
 
 func runTool() {
-	setup()
+	k8sPods := getVerifyCiliumPods()
 
 	defer printDisclaimer()
 	// Prevent collision with other directories
@@ -114,9 +114,9 @@ func runTool() {
 	}
 	defer cleanup(dbgDir)
 
-	copySystemInfo(createDir(dbgDir, "cmd"))
-	copyCiliumInfo(createDir(dbgDir, "cilium"))
-	copyKernelConfig(createDir(dbgDir, "conf"))
+	copySystemInfo(createDir(dbgDir, "cmd"), k8sPods)
+	copyCiliumInfo(createDir(dbgDir, "cilium"), k8sPods)
+	copyKernelConfig(createDir(dbgDir, "conf"), k8sPods)
 
 	// Please don't change the output below for the archive or directory.
 	// The order matters and is being used by scripts to copy the right
@@ -185,7 +185,7 @@ func createDir(dbgDir string, newDir string) string {
 	return confDir
 }
 
-func copyKernelConfig(confDir string) {
+func copyKernelConfig(confDir string, k8sPods []string) {
 	type Location struct {
 		Src string
 		Dst string
@@ -231,7 +231,7 @@ func copyKernelConfig(confDir string) {
 	}
 }
 
-func copySystemInfo(cmdDir string) {
+func copySystemInfo(cmdDir string, k8sPods []string) {
 	// Not expecting all of the commands to be available
 	commands := []string{
 		// Host and misc
@@ -248,7 +248,7 @@ func copySystemInfo(cmdDir string) {
 	commands = append(commands, "iptables-save", "iptables -S", "ip6tables -S", "iptables -L -v")
 
 	if len(k8sPods) == 0 {
-		runAll(commands, cmdDir)
+		runAll(commands, cmdDir, k8sPods)
 		return
 	}
 
@@ -274,14 +274,14 @@ func copySystemInfo(cmdDir string) {
 		"kubectl get version",
 	)
 
-	runAll(k8sCommands, cmdDir)
+	runAll(k8sCommands, cmdDir, k8sPods)
 }
 
 func podPrefix(pod, cmd string) string {
 	return fmt.Sprintf("kubectl exec %s -n %s -- %s", pod, k8sNamespace, cmd)
 }
 
-func runAll(commands []string, cmdDir string) {
+func runAll(commands []string, cmdDir string, k8sPods []string) {
 	numRoutinesAtOnce := len(commands) / 2
 	semaphore := make(chan bool, numRoutinesAtOnce)
 	for i := 0; i < numRoutinesAtOnce; i++ {
@@ -296,7 +296,7 @@ func runAll(commands []string, cmdDir string) {
 			// iptables commands hold locks so we can't have multiple runs. They
 			// have to be run one at a time to avoid 'Another app is currently
 			// holding the xtables lock...'
-			writeCmdToFile(cmdDir, cmd)
+			writeCmdToFile(cmdDir, cmd, k8sPods)
 			continue
 		}
 		// Tell the wait group it needs to track another goroutine
@@ -315,7 +315,7 @@ func runAll(commands []string, cmdDir string) {
 			// When we are done we return the thing we took from
 			// the semaphore, so another goroutine can get it
 			defer func() { semaphore <- true }()
-			writeCmdToFile(cmdDir, cmd)
+			writeCmdToFile(cmdDir, cmd, k8sPods)
 		}(cmd)
 	}
 	// Wait for all the spawned goroutines to finish up.
@@ -344,7 +344,7 @@ func catCommands() []string {
 	return commands
 }
 
-func copyCiliumInfo(ciliumDir string) {
+func copyCiliumInfo(ciliumDir string, k8sPods []string) {
 	sources := []string{
 		// Most of the output should come via debuginfo but also adding
 		// these ones for skimming purposes
@@ -364,11 +364,11 @@ func copyCiliumInfo(ciliumDir string) {
 			if len(host) > 0 {
 				cmd = fmt.Sprintf("%s -H %s", cmd, host)
 			}
-			writeCmdToFile(ciliumDir, cmd)
+			writeCmdToFile(ciliumDir, cmd, k8sPods)
 		}
 	} else { // Found k8s pods
 		for _, pod := range k8sPods {
-			dst := filepath.Join(ciliumDir, fmt.Sprintf("%s-%s", k8sPods, defaults.StateDir))
+			dst := filepath.Join(ciliumDir, fmt.Sprintf("%s-%s", pod, defaults.StateDir))
 			kubectlArg := fmt.Sprintf("%s/%s:%s", k8sNamespace, pod, stateDir)
 			// kubectl cp kube-system/cilium-xrzwr:/var/run/cilium/state cilium-xrzwr-state
 			if _, err := execCommand("kubectl", "cp", kubectlArg, dst); err != nil {
@@ -380,7 +380,7 @@ func copyCiliumInfo(ciliumDir string) {
 				if len(host) > 0 {
 					cmd = fmt.Sprintf("%s -H %s", cmd, host)
 				}
-				writeCmdToFile(ciliumDir, podPrefix(pod, cmd))
+				writeCmdToFile(ciliumDir, podPrefix(pod, cmd), k8sPods)
 			}
 		}
 	}
@@ -398,7 +398,7 @@ func execCommand(cmd string, args ...string) (string, error) {
 }
 
 // writeCmdToFile will execute command and write markdown output to a file
-func writeCmdToFile(cmdDir, prompt string) {
+func writeCmdToFile(cmdDir, prompt string, k8sPods []string) {
 	// Clean up the filename
 	name := strings.Replace(prompt, "/", " ", -1)
 	name = strings.Replace(name, " ", "-", -1)
