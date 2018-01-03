@@ -216,7 +216,7 @@ var _ = Describe("NightlyK8sExamples", func() {
 		return appPods
 	}
 
-	It("Check K8s Example is working correctly", func() {
+	It("Check Kubernetes Example is working correctly", func() {
 		var path = "../examples/kubernetes/cilium.yaml"
 		var result bytes.Buffer
 		newCiliumDSName := fmt.Sprintf("cilium_ds_%s.json", helpers.MakeUID())
