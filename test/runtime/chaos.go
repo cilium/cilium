@@ -15,6 +15,8 @@
 package RuntimeTest
 
 import (
+	"crypto/md5"
+
 	"github.com/cilium/cilium/test/helpers"
 
 	. "github.com/onsi/ginkgo"
@@ -65,10 +67,13 @@ var _ = Describe("RuntimeChaos", func() {
 	})
 
 	It("Endpoint recovery on restart", func() {
+		hasher := md5.New()
+
 		originalIps := vm.Exec(`
 		curl -s --unix-socket /var/run/cilium/cilium.sock \
 		http://localhost/v1beta/healthz/ | jq ".ipam.ipv4|length"`)
 
+		originalEndpointList := vm.Exec("cilium endpoint list")
 		res := vm.Exec("sudo systemctl restart cilium")
 		res.ExpectSuccess()
 
@@ -78,6 +83,11 @@ var _ = Describe("RuntimeChaos", func() {
 		curl -s --unix-socket /var/run/cilium/cilium.sock \
 		http://localhost/v1beta/healthz/ | jq ".ipam.ipv4|length"`)
 		Expect(originalIps.Output().String()).To(Equal(ips.Output().String()))
+
+		EndpointList := vm.Exec("cilium endpoint list")
+		Expect(EndpointList.Output().String()).To(Equal(originalEndpointList.Output().String()))
+		Expect(hasher.Sum(EndpointList.Output().Bytes())).To(
+			Equal(hasher.Sum(originalEndpointList.Output().Bytes())))
 
 	}, 300)
 
