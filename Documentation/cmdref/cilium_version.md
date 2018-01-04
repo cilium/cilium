@@ -13,6 +13,12 @@ Print version information
 cilium version
 ```
 
+### Options
+
+```
+  -o, --output string   json| jsonpath='{}'
+```
+
 ### Options inherited from parent commands
 
 ```

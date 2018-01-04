@@ -17,12 +17,8 @@ package version
 import (
 	"encoding/base64"
 	"encoding/json"
-	"runtime"
 	"strings"
 )
-
-// FIXME Write version on a JSON format. Currently a single string:
-// `Cilium 0.11.90 774ecd3 Wed, 19 Jul 2017 06:27:28 +0000 go version go1.8.3 linux/amd64`
 
 // CiliumVersion provides a minimal structure to the version string
 type CiliumVersion struct {
@@ -34,26 +30,34 @@ type CiliumVersion struct {
 	GoRuntimeVersion string
 	// Arch is the architecture where Cilium was compiled
 	Arch string
+	// AuthorDate is the git author time reference stored as string ISO 8601 formatted
+	AuthorDate string
 }
 
+// Version is set during build
 var Version string
 
-func versionFrom(versionString string) CiliumVersion {
-	cver := CiliumVersion{}
-	output := strings.Replace(versionString, "Cilium ", "", 1)
+// FromString converts a version string into struct
+func FromString(versionString string) CiliumVersion {
+	// string to parse: "0.13.90 a722bdb 2018-01-09T22:32:37+01:00 go version go1.9 linux/amd64"
+	fields := strings.Split(versionString, " ")
+	if len(fields) != 7 {
+		return CiliumVersion{}
+	}
 
-	fields := strings.Split(output, " ")
-	cver.Version = fields[0]
-	cver.Revision = fields[1]
-	cver.Arch = fields[len(fields)-1]
-	cver.GoRuntimeVersion = runtime.Version()
-
+	cver := CiliumVersion{
+		Version:          fields[0],
+		Revision:         fields[1],
+		AuthorDate:       fields[2],
+		GoRuntimeVersion: fields[5],
+		Arch:             fields[6],
+	}
 	return cver
 }
 
 // GetCiliumVersion returns a initialized CiliumVersion structure
 func GetCiliumVersion() CiliumVersion {
-	return versionFrom(Version)
+	return FromString(Version)
 }
 
 // Base64 returns the version in a base64 format.
