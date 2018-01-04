@@ -151,7 +151,7 @@ proxying may be redundant, as is the case in this demo.  In this case,
 the Istio sidecar can be modified to bypass the inbound proxy for all
 inbound traffic.  This can be done by modifying the container image
 used for the ``istio-init`` container:
-``cilium/istio_proxy_init:0.2.1`` instead of
+``cilium/istio_proxy_init:0.2.12`` instead of
 ``istio/proxy_init:0.2.12``.
 
 To package the Istio sidecar proxy and generate final YAML
