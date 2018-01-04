@@ -6,17 +6,14 @@ load(
     "envoy_cc_library",
     "envoy_cc_test",
     "envoy_proto_library",
-    "envoy_package",
 )
-
-envoy_package()
 
 envoy_cc_binary(
     name = "envoy",
     repository = "@envoy",
     deps = [
-        ":bpf_metadata_lib",
-        ":cilium_l7_lib",
+        ":cilium_bpf_metadata_lib",
+        ":cilium_l7policy_lib",
         "@envoy//source/exe:envoy_main_entry_lib",
     ],
 )
@@ -27,14 +24,14 @@ envoy_proto_library(
 )
 
 envoy_cc_library(
-    name = "cilium_l7_lib",
+    name = "cilium_l7policy_lib",
     srcs = [
         "accesslog.cc",
-        "cilium_l7.cc",
+        "cilium_l7policy.cc",
     ],
     hdrs = [
         "accesslog.h",
-        "cilium_l7.h",
+        "cilium_l7policy.h",
     ],
     repository = "@envoy",
     deps = [
@@ -44,15 +41,15 @@ envoy_cc_library(
 )
 
 envoy_cc_library(
-    name = "bpf_metadata_lib",
+    name = "cilium_bpf_metadata_lib",
     srcs = [
         "bpf.cc",
-        "bpf_metadata.cc",
+        "cilium_bpf_metadata.cc",
         "proxymap.cc",
     ],
     hdrs = [
         "bpf.h",
-        "bpf_metadata.h",
+        "cilium_bpf_metadata.h",
         "linux/bpf.h",
         "linux/bpf_common.h",
         "linux/type_mapper.h",
@@ -77,9 +74,9 @@ envoy_cc_test(
     data = ["cilium_proxy_test.json"],
     repository = "@envoy",
     deps = [
-        ":bpf_metadata_lib",
-        ":cilium_l7_lib",
-        "@envoy//test/integration:integration_lib",
+        ":cilium_bpf_metadata_lib",
+        ":cilium_l7policy_lib",
+        "@envoy//test/integration:http_integration_lib",
     ],
 )
 

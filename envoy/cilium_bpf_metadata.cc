@@ -1,4 +1,4 @@
-#include "bpf_metadata.h"
+#include "cilium_bpf_metadata.h"
 
 #include <string>
 
@@ -34,9 +34,7 @@ public:
     };
   }
 
-  std::string name() override { return "bpf_metadata"; }
-  // Deprecate?
-  ListenerFilterType type() override { return ListenerFilterType::Accept; }
+  std::string name() override { return "cilium.bpf_metadata"; }
 };
 
 /**
@@ -69,13 +67,14 @@ bool Instance::getBpfMetadata(Network::AcceptSocket &socket) {
 Network::FilterStatus Instance::onAccept(Network::ListenerFilterCallbacks &cb) {
   Network::AcceptSocket &socket = cb.socket();
   if (!getBpfMetadata(socket)) {
-    ENVOY_LOG(info, "bpf_metadata ({}): no bpf metadata for the connection.",
+    ENVOY_LOG(warn,
+              "cilium.bpf_metadata ({}): no bpf metadata for the connection.",
               config_->is_ingress_ ? "ingress" : "egress");
   } else {
-    ENVOY_LOG(
-        info,
-        "bpf_metadata ({}): GOT bpf metadata for new connection (mark: {:x})",
-        config_->is_ingress_ ? "ingress" : "egress", socket.socketMark());
+    ENVOY_LOG(debug,
+              "cilium.bpf_metadata ({}): GOT bpf metadata for new connection "
+              "(mark: {:x})",
+              config_->is_ingress_ ? "ingress" : "egress", socket.socketMark());
   }
   return Network::FilterStatus::Continue;
 }

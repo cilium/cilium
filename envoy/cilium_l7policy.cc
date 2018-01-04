@@ -1,4 +1,4 @@
-#include "cilium_l7.h"
+#include "cilium_l7policy.h"
 
 #include <string>
 
@@ -23,10 +23,7 @@ public:
       callbacks.addStreamFilter(std::make_shared<Cilium::AccessFilter>(config));
     };
   }
-  std::string name() override { return "cilium_l7"; }
-  Server::Configuration::HttpFilterType type() override {
-    return Server::Configuration::HttpFilterType::Both;
-  }
+  std::string name() override { return "cilium.l7policy"; }
 };
 
 /**
@@ -38,8 +35,7 @@ static Registry::RegisterFactory<
 
 Config::Config(const Json::Object &config, Stats::Scope &scope)
     : stats_{ALL_CILIUM_STATS(POOL_COUNTER_PREFIX(scope, "cilium"))},
-      listener_id_(config.getString("listener_id")),
-      access_log_(nullptr) {
+      listener_id_(config.getString("listener_id")), access_log_(nullptr) {
   std::string path = config.getString("access_log_path");
   if (path.length()) {
     access_log_ = AccessLog::Open(config.getString("access_log_path"));

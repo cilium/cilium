@@ -29,7 +29,7 @@ struct BpfStats {
 };
 
 /**
- * Global configuration for Bpf Metadata listener filter.  This
+ * Global configuration for Bpf Metadata listener filter. This
  * represents all global state shared among the working thread
  * instances of the filter.
  */
