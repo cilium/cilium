@@ -54,18 +54,18 @@ AccessLog::AccessLog(std::string path) : path_(path), fd_(-1), open_count_(1) {}
 
 AccessLog::~AccessLog() {}
 
-void AccessLog::Entry::InitFromRequest(std::string listener_id,
-                                       const Network::Connection *conn,
-                                       const Http::HeaderMap &headers,
-                                       const Http::AccessLog::RequestInfo &info,
-                                       const Router::RouteEntry *route) {
+void AccessLog::Entry::InitFromRequest(
+    std::string listener_id, const Network::Connection *conn,
+    const Http::HeaderMap &headers, const Envoy::AccessLog::RequestInfo &info,
+    const Router::RouteEntry *route) {
   auto time = info.startTime();
   entry.set_timestamp(std::chrono::duration_cast<std::chrono::nanoseconds>(
                           time.time_since_epoch())
                           .count());
 
   ::pb::cilium::Protocol proto;
-  switch (info.protocol()) {
+  switch (info.protocol().valid() ? info.protocol().value()
+                                  : Http::Protocol::Http11) {
   case Http::Protocol::Http10:
     proto = ::pb::cilium::Protocol::HTTP10;
     break;
@@ -98,7 +98,8 @@ void AccessLog::Entry::InitFromRequest(std::string listener_id,
 
   // request headers
   headers.iterate(
-      [](const Http::HeaderEntry &header, void *entry_) -> void {
+      [](const Http::HeaderEntry &header,
+         void *entry_) -> Http::HeaderMap::Iterate {
         const Http::HeaderString &key = header.key();
         const char *value = header.value().c_str();
         ::pb::cilium::HttpLogEntry *entry =
@@ -111,21 +112,23 @@ void AccessLog::Entry::InitFromRequest(std::string listener_id,
         } else if (key == ":authority") {
           entry->set_host(value);
         } else if (key == "x-forwarded-proto") {
-	  // Envoy sets the ":scheme" header later in the router filter according to
-	  // the upstream protocol (TLS vs. clear), but we want to get the downstream
-	  // scheme, which is provided in "x-forwarded-proto".
+          // Envoy sets the ":scheme" header later in the router filter
+          // according to the upstream protocol (TLS vs. clear), but we want to
+          // get the downstream scheme, which is provided in
+          // "x-forwarded-proto".
           entry->set_scheme(value);
         } else {
           ::pb::cilium::KeyValue *kv = entry->add_headers();
           kv->set_key(key.c_str());
           kv->set_value(value);
         }
+        return Http::HeaderMap::Iterate::Continue;
       },
       &entry);
 }
 
 void AccessLog::Entry::UpdateFromResponse(
-    const Http::HeaderMap &headers, const Http::AccessLog::RequestInfo &info) {
+    const Http::HeaderMap &headers, const Envoy::AccessLog::RequestInfo &info) {
   auto time = info.startTime() + info.duration();
   entry.set_timestamp(std::chrono::duration_cast<std::chrono::nanoseconds>(
                           time.time_since_epoch())
@@ -135,18 +138,13 @@ void AccessLog::Entry::UpdateFromResponse(
   if (rc.valid()) {
     entry.set_status(rc.value());
   } else {
-    // Find response code from response headers
-    headers.iterate(
-        [](const Http::HeaderEntry &header, void *entry_) -> void {
-          if (header.key() == ":status") {
-            uint64_t status;
-            if (StringUtil::atoul(header.value().c_str(), status, 10)) {
-              static_cast<::pb::cilium::HttpLogEntry *>(entry_)->set_status(
-                  status);
-            }
-          }
-        },
-        &entry);
+    const Http::HeaderEntry *status_entry = headers.Status();
+    if (status_entry) {
+      uint64_t status;
+      if (StringUtil::atoul(status_entry->value().c_str(), status, 10)) {
+        entry.set_status(status);
+      }
+    }
   }
 }
 

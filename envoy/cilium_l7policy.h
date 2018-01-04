@@ -29,7 +29,7 @@ struct FilterStats {
 };
 
 /**
- * Per listener configuration for Cilium HTTP filter.  This
+ * Per listener configuration for Cilium HTTP filter. This
  * is accessed by multiple working thread instances of the filter.
  */
 class Config : Logger::Loggable<Logger::Id::router> {
@@ -38,7 +38,7 @@ public:
   ~Config();
 
   void Log(AccessLog::Entry &, ::pb::cilium::EntryType);
-  
+
   FilterStats stats_;
   std::string listener_id_;
 

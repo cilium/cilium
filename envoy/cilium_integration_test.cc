@@ -8,10 +8,9 @@
 #include "common/network/address_impl.h"
 #include "common/network/utility.h"
 
-#include "test/integration/integration.h"
-#include "test/integration/utility.h"
+#include "test/integration/http_integration.h"
 
-#include "bpf_metadata.h"
+#include "cilium_bpf_metadata.h"
 
 namespace Envoy {
 
@@ -74,7 +73,6 @@ public:
   }
 
   std::string name() override { return "test_bpf_metadata"; }
-  ListenerFilterType type() override { return ListenerFilterType::Accept; }
 };
 
 /**
@@ -88,14 +86,16 @@ static Registry::RegisterFactory<TestBpfMetadataConfigFactory,
 } // namespace Server
 
 class CiliumIntegrationTest
-    : public BaseIntegrationTest,
+    : public HttpIntegrationTest,
       public testing::TestWithParam<Network::Address::IpVersion> {
 public:
-  CiliumIntegrationTest() : BaseIntegrationTest(GetParam()) {}
+  CiliumIntegrationTest()
+      : HttpIntegrationTest(Http::CodecClient::Type::HTTP1, GetParam()) {}
   /**
    * Initializer for an individual integration test.
    */
-  void SetUp() override {
+  void initialize() override {
+    BaseIntegrationTest::initialize();
     fake_upstreams_.emplace_back(
         new FakeUpstream(0, FakeHttpConnection::Type::HTTP1, version_));
     registerPort("upstream_0",
@@ -103,21 +103,13 @@ public:
     createTestServer("cilium_proxy_test.json", {"cilium"});
   }
 
-  /**
-   * Destructor for an individual integration test.
-   */
-  void TearDown() override {
-    fake_upstreams_.clear();
-    test_server_.reset();
-  }
-
   void Denied(Http::TestHeaderMapImpl headers) {
     IntegrationCodecClientPtr codec_client;
     IntegrationStreamDecoderPtr response(
         new IntegrationStreamDecoder(*dispatcher_));
 
-    codec_client = makeHttpConnection(lookupPort("cilium"),
-                                      Http::CodecClient::Type::HTTP1);
+    initialize();
+    codec_client = makeHttpConnection(lookupPort("cilium"));
     codec_client->makeHeaderOnlyRequest(headers, *response);
     response->waitForEndStream();
 
@@ -132,12 +124,12 @@ public:
         new IntegrationStreamDecoder(*dispatcher_));
     FakeStreamPtr request_stream;
 
-    codec_client = makeHttpConnection(lookupPort("cilium"),
-                                      Http::CodecClient::Type::HTTP1);
+    initialize();
+    codec_client = makeHttpConnection(lookupPort("cilium"));
     codec_client->makeHeaderOnlyRequest(headers, *response);
     fake_upstream_connection =
         fake_upstreams_[0]->waitForHttpConnection(*dispatcher_);
-    request_stream = fake_upstream_connection->waitForNewStream();
+    request_stream = fake_upstream_connection->waitForNewStream(*dispatcher_);
     request_stream->waitForEndStream(*dispatcher_);
     request_stream->encodeHeaders(Http::TestHeaderMapImpl{{":status", "200"}},
                                   true);

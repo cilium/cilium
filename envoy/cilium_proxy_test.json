@@ -3,13 +3,12 @@
   {
     "address": "tcp://{{ ip_loopback_address }}:0",
     "listener_filters": [
-      { "type": "accept", "name": "test_bpf_metadata", "config": {
+      { "name": "test_bpf_metadata", "config": {
           "original_dst_address": "{{ ip_loopback_address }}:{{ upstream_0 }}",
 	  "socket_mark": 42
       }}
     ],
     "filters": [{
-      "type": "read",
       "name": "http_connection_manager",
       "config": {
         "codec_type": "auto",
@@ -48,15 +47,13 @@
         ],
         "filters": [
           {
-            "type": "decoder",
-            "name": "cilium_l7",
+            "name": "cilium.l7policy",
             "config": {
 		"access_log_path": "",
 		"listener_id": "foo42"
 	    }
           },
           {
-            "type": "decoder",
             "name": "router",
             "config": {}
           }

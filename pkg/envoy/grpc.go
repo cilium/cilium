@@ -82,12 +82,12 @@ func createLDSServer(path, accessLogPath string) *LDSServer {
 		},
 		FilterChains: []*envoy_api.FilterChain{{
 			Filters: []*envoy_api.Filter{{
-				Name: "http_connection_manager",
+				Name: "envoy.http_connection_manager",
 				Config: &structpb.Struct{Fields: map[string]*structpb.Value{
 					"stat_prefix": {&structpb.Value_StringValue{StringValue: "proxy"}},
 					"http_filters": {&structpb.Value_ListValue{ListValue: &structpb.ListValue{Values: []*structpb.Value{
 						{&structpb.Value_StructValue{StructValue: &structpb.Struct{Fields: map[string]*structpb.Value{
-							"name": {&structpb.Value_StringValue{StringValue: "cilium_l7"}},
+							"name": {&structpb.Value_StringValue{StringValue: "cilium.l7policy"}},
 							"config": {&structpb.Value_StructValue{StructValue: &structpb.Struct{Fields: map[string]*structpb.Value{
 								"deprecated_v1": {&structpb.Value_BoolValue{BoolValue: true}},
 								"value": {&structpb.Value_StructValue{StructValue: &structpb.Struct{Fields: map[string]*structpb.Value{
@@ -99,7 +99,7 @@ func createLDSServer(path, accessLogPath string) *LDSServer {
 							}}}},
 						}}}},
 						{&structpb.Value_StructValue{StructValue: &structpb.Struct{Fields: map[string]*structpb.Value{
-							"name": {&structpb.Value_StringValue{StringValue: "router"}},
+							"name": {&structpb.Value_StringValue{StringValue: "envoy.router"}},
 							"config": {&structpb.Value_StructValue{StructValue: &structpb.Struct{Fields: map[string]*structpb.Value{
 								"deprecated_v1": {&structpb.Value_BoolValue{BoolValue: true}},
 							}}}},
@@ -124,7 +124,7 @@ func createLDSServer(path, accessLogPath string) *LDSServer {
 			}},
 		}},
 		ListenerFilterChain: []*envoy_api.Filter{{
-			Name: "bpf_metadata",
+			Name: "cilium.bpf_metadata",
 			Config: &structpb.Struct{Fields: map[string]*structpb.Value{
 				"deprecated_v1": {&structpb.Value_BoolValue{BoolValue: true}},
 				"value": {&structpb.Value_StructValue{StructValue: &structpb.Struct{Fields: map[string]*structpb.Value{
@@ -383,24 +383,25 @@ func (s *RDSServer) FetchRoutes(ctx context.Context, req *envoy_api.DiscoveryReq
 		VersionInfo: strconv.FormatUint(sendVersion, 10),
 		Resources:   resources,
 		Canary:      false,
+		TypeUrl:     req.TypeUrl,
 	}, nil
 }
 
-func (s *RDSServer) recv(rds envoy_api.RouteDiscoveryService_StreamRoutesServer) (uint64, []string, error) {
+func (s *RDSServer) recv(rds envoy_api.RouteDiscoveryService_StreamRoutesServer) (uint64, []string, string, error) {
 	req, err := rds.Recv()
 	if err == io.EOF {
-		return 0, nil, err
+		return 0, nil, "", err
 	}
 	if err != nil {
 		if !strings.Contains(err.Error(), "context canceled") {
 			log.WithError(err).Errorf("Envoy: Failed to receive RDS request")
 		}
-		return 0, nil, err
+		return 0, nil, "", err
 	}
 	log.Debug("Envoy: RDS Stream DiscoveryRequest ", req.String())
 	// Empty (or otherwise unparseable) string is treated as version zero.
 	version, _ := strconv.ParseUint(req.VersionInfo, 10, 64)
-	return version, req.ResourceNames, nil
+	return version, req.ResourceNames, req.TypeUrl, nil
 }
 
 // StreamRoutes implements the gRPC bidirectional streaming of RouteDiscoveryService
@@ -415,7 +416,7 @@ func (s *RDSServer) StreamRoutes(rds envoy_api.RouteDiscoveryService_StreamRoute
 
 	// Read requests for this stream
 	for {
-		version, names, err := s.recv(rds)
+		version, names, typeurl, err := s.recv(rds)
 		if err != nil {
 			if err == io.EOF {
 				// Client closed stream.
@@ -433,7 +434,7 @@ func (s *RDSServer) StreamRoutes(rds envoy_api.RouteDiscoveryService_StreamRoute
 			}
 
 			l.handleVersion(&ctx, version, func() error {
-				return s.pushRoutes(rds, l)
+				return s.pushRoutes(rds, typeurl, l)
 			})
 		}
 	}
@@ -442,7 +443,7 @@ func (s *RDSServer) StreamRoutes(rds envoy_api.RouteDiscoveryService_StreamRoute
 }
 
 // Called with streamcontrol mutex held.
-func (s *RDSServer) pushRoutes(rds envoy_api.RouteDiscoveryService_StreamRoutesServer, listener *Listener) error {
+func (s *RDSServer) pushRoutes(rds envoy_api.RouteDiscoveryService_StreamRoutesServer, typeurl string, listener *Listener) error {
 	resources := make([]*any.Any, 0, 1)
 	resources = s.appendRoutes(resources, listener)
 
@@ -450,6 +451,7 @@ func (s *RDSServer) pushRoutes(rds envoy_api.RouteDiscoveryService_StreamRoutesS
 		VersionInfo: strconv.FormatUint(listener.currentVersion, 10),
 		Resources:   resources,
 		Canary:      false,
+		TypeUrl:     typeurl,
 	}
 
 	err := rds.Send(dr)
@@ -496,24 +498,24 @@ func (s *LDSServer) FetchListeners(ctx context.Context, req *envoy_api.Discovery
 	// Empty (or otherwise unparseable) string is treated as version zero.
 	version, _ := strconv.ParseUint(req.VersionInfo, 10, 64)
 	s.updateVersion(version)
-	return s.buildListeners(), nil
+	return s.buildListeners(req.TypeUrl), nil
 }
 
-func (s *LDSServer) recv(lds envoy_api.ListenerDiscoveryService_StreamListenersServer) (uint64, error) {
+func (s *LDSServer) recv(lds envoy_api.ListenerDiscoveryService_StreamListenersServer) (uint64, string, error) {
 	req, err := lds.Recv()
 	if err == io.EOF {
-		return 0, err
+		return 0, "", err
 	}
 	if err != nil {
 		if !strings.Contains(err.Error(), "context canceled") {
 			log.WithError(err).Warningf("Envoy: Failed to receive LDS request")
 		}
-		return 0, err
+		return 0, "", err
 	}
 	log.Debug("Envoy: LDS Stream DiscoveryRequest: ", req.String())
 	// Empty (or otherwise unparseable) string is treated as version zero.
 	version, _ := strconv.ParseUint(req.VersionInfo, 10, 64)
-	return version, nil
+	return version, req.TypeUrl, nil
 }
 
 // StreamListeners implements the gRPC bidirectional streaming of ListenerDiscoveryService
@@ -524,7 +526,7 @@ func (s *LDSServer) StreamListeners(lds envoy_api.ListenerDiscoveryService_Strea
 
 	// Read requests for this stream
 	for {
-		version, err := s.recv(lds)
+		version, typeurl, err := s.recv(lds)
 		if err != nil {
 			if err == io.EOF {
 				// Client closed stream.
@@ -534,7 +536,7 @@ func (s *LDSServer) StreamListeners(lds envoy_api.ListenerDiscoveryService_Strea
 		}
 
 		s.handleVersion(&ctx, version, func() error {
-			return s.pushListeners(lds)
+			return s.pushListeners(lds, typeurl)
 		})
 	}
 	ctx.stop()
@@ -542,18 +544,18 @@ func (s *LDSServer) StreamListeners(lds envoy_api.ListenerDiscoveryService_Strea
 }
 
 // Called with streamcontrol mutex held.
-func (s *LDSServer) pushListeners(lds envoy_api.ListenerDiscoveryService_StreamListenersServer) error {
+func (s *LDSServer) pushListeners(lds envoy_api.ListenerDiscoveryService_StreamListenersServer, typeurl string) error {
 	s.listenersMutex.Lock()
 	defer s.listenersMutex.Unlock()
 
-	err := lds.Send(s.buildListeners())
+	err := lds.Send(s.buildListeners(typeurl))
 	if err != nil {
 		log.WithError(err).Warning("Envoy: LDS Send() failed")
 	}
 	return err
 }
 
-func (s *LDSServer) buildListeners() *envoy_api.DiscoveryResponse {
+func (s *LDSServer) buildListeners(typeurl string) *envoy_api.DiscoveryResponse {
 	resources := make([]*any.Any, 0, len(s.listeners))
 	for _, l := range s.listeners {
 		a, err := ptypes.MarshalAny(l.listenerConf)
@@ -568,10 +570,11 @@ func (s *LDSServer) buildListeners() *envoy_api.DiscoveryResponse {
 		VersionInfo: strconv.FormatUint(s.currentVersion, 10),
 		Resources:   resources,
 		Canary:      false,
+		TypeUrl:     typeurl,
 	}
 }
 
-func createBootstrap(filePath string, name, cluster, version string, ldsName, ldsSock, rdsName, rdsSock string, envoyClusterName string) {
+func createBootstrap(filePath string, name, cluster, version string, ldsName, ldsSock, rdsName, rdsSock string, envoyClusterName string, adminPort uint32) {
 	bs := &envoy_api.Bootstrap{
 		Node: &envoy_api.Node{Id: name, Cluster: cluster, Metadata: nil, Locality: nil, BuildVersion: version},
 		StaticResources: &envoy_api.Bootstrap_StaticResources{
@@ -622,6 +625,18 @@ func createBootstrap(filePath string, name, cluster, version string, ldsName, ld
 					ApiConfigSource: &envoy_api.ApiConfigSource{
 						ApiType:     envoy_api.ApiConfigSource_GRPC,
 						ClusterName: []string{ldsName},
+					},
+				},
+			},
+		},
+		Admin: &envoy_api.Admin{
+			AccessLogPath: "/dev/null",
+			Address: &envoy_api.Address{
+				Address: &envoy_api.Address_SocketAddress{
+					SocketAddress: &envoy_api.SocketAddress{
+						Protocol:      envoy_api.SocketAddress_TCP,
+						Address:       "127.0.0.1",
+						PortSpecifier: &envoy_api.SocketAddress_PortValue{PortValue: adminPort},
 					},
 				},
 			},
