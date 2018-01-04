@@ -38,11 +38,10 @@ func NewGetDebugInfoHandler(d *Daemon) restapi.GetDebuginfoHandler {
 }
 
 func (h *getDebugInfo) Handle(params restapi.GetDebuginfoParams) middleware.Responder {
-	cver := version.GetCiliumVersion()
 	dr := models.DebugInfo{}
 	d := h.daemon
 
-	dr.CiliumVersion = fmt.Sprintf("%s (%s) %s", cver.Version, cver.Revision, cver.Arch)
+	dr.CiliumVersion = version.Version
 	if kver, err := getKernelVersion(); err != nil {
 		dr.KernelVersion = fmt.Sprintf("Error: %s\n", err)
 	} else {

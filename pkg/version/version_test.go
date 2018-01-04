@@ -29,10 +29,69 @@ type VersionSuite struct {
 var _ = Suite(&VersionSuite{})
 
 func (vs *VersionSuite) TestStructIsSet(c *C) {
-	output := "Cilium 0.13.90 7330b8d Sun, 12 Nov 2017 13:34:43 +0900 go version go1.8.3 linux/amd64"
-	cver := versionFrom(output)
+	var versionDataList = []struct {
+		in  string
+		out CiliumVersion
+	}{
+		{
+			"0.11.90 774ecd3 2018-01-09T22:32:37+01:00 go version go1.8.3 linux/amd64",
+			CiliumVersion{
+				Version:          "0.11.90",
+				Revision:         "774ecd3",
+				GoRuntimeVersion: "go1.8.3",
+				Arch:             "linux/amd64",
+				AuthorDate:       "2018-01-09T22:32:37+01:00",
+			},
+		},
+		{
+			"0.11.90 774ecd3 2018-01-09T22:32:37+01:00 go version go1.9 someArch/i8726",
+			CiliumVersion{
+				Version:          "0.11.90",
+				Revision:         "774ecd3",
+				GoRuntimeVersion: "go1.9",
+				Arch:             "someArch/i8726",
+				AuthorDate:       "2018-01-09T22:32:37+01:00",
+			},
+		},
+		{
+			"278.121.290 774ecd3 2018-01-09T22:32:37+01:00 go version go2522.2520.25251 windows/amd64",
+			CiliumVersion{
+				Version:          "278.121.290",
+				Revision:         "774ecd3",
+				GoRuntimeVersion: "go2522.2520.25251",
+				Arch:             "windows/amd64",
+				AuthorDate:       "2018-01-09T22:32:37+01:00",
+			},
+		},
+		{
+			"0.13.90 7330b8d 2018-01-09T22:32:37+01:00 go version go1.8.3 linux/arm",
+			CiliumVersion{
+				Version:          "0.13.90",
+				Revision:         "7330b8d",
+				GoRuntimeVersion: "go1.8.3",
+				Arch:             "linux/arm",
+				AuthorDate:       "2018-01-09T22:32:37+01:00",
+			},
+		},
+		// Unformatted string should return empty struct
+		{
+			"0.13.90 7330b8d linux/arm",
+			CiliumVersion{
+				Version:          "",
+				Revision:         "",
+				GoRuntimeVersion: "",
+				Arch:             "",
+				AuthorDate:       "",
+			},
+		},
+	}
 
-	c.Assert(cver.Version, Equals, "0.13.90")
-	c.Assert(cver.Revision, Equals, "7330b8d")
-	c.Assert(cver.Arch, Equals, "linux/amd64")
+	for _, tt := range versionDataList {
+		cver := FromString(tt.in)
+		c.Assert(cver.Version, Equals, tt.out.Version)
+		c.Assert(cver.Revision, Equals, tt.out.Revision)
+		c.Assert(cver.GoRuntimeVersion, Equals, tt.out.GoRuntimeVersion)
+		c.Assert(cver.Arch, Equals, tt.out.Arch)
+		c.Assert(cver.AuthorDate, Equals, tt.out.AuthorDate)
+	}
 }

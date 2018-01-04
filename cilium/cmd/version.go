@@ -16,20 +16,68 @@ package cmd
 
 import (
 	"fmt"
+	"os"
 
 	"github.com/cilium/cilium/pkg/version"
 
 	"github.com/spf13/cobra"
 )
 
+const notResponding = "Not responding"
+
 var versionCmd = &cobra.Command{
 	Use:   "version",
 	Short: "Print version information",
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Printf("Cilium %s\n", version.Version)
+		getVersion(cmd, args)
 	},
 }
 
 func init() {
 	rootCmd.AddCommand(versionCmd)
+	AddMultipleOutput(versionCmd)
+}
+
+func getVersion(cmd *cobra.Command, args []string) {
+	// -o argument is set
+	if len(dumpOutput) > 0 {
+		data := struct {
+			Client version.CiliumVersion
+			Daemon version.CiliumVersion
+		}{
+			getClientVersionAsStruct(),
+			getDaemonVersionAsStruct(),
+		}
+		if err := OutputPrinter(data); err != nil {
+			os.Exit(1)
+		}
+		return
+	}
+	// default output
+	fmt.Printf("Client: %s\n", getClientVersionAsString())
+	fmt.Printf("Daemon: %s\n", getDaemonVersionAsString())
+}
+
+func getClientVersionAsString() string {
+	return version.Version
+}
+
+func getDaemonVersionAsString() string {
+	resp, err := client.Daemon.GetDebuginfo(nil)
+	if err != nil {
+		return notResponding
+	}
+	return resp.Payload.CiliumVersion
+}
+
+func getClientVersionAsStruct() version.CiliumVersion {
+	return version.GetCiliumVersion()
+}
+
+func getDaemonVersionAsStruct() version.CiliumVersion {
+	data := getDaemonVersionAsString()
+	if data == notResponding {
+		return version.CiliumVersion{}
+	}
+	return version.FromString(data)
 }
