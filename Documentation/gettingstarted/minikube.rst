@@ -47,10 +47,10 @@ Run the following command to check the progress of the deployment:
 
     $ kubectl get pods --namespace kube-system
     NAME                          READY     STATUS    RESTARTS   AGE
-    cilium-wjb9t                  0/1       Running   0          1m
-    kube-addon-manager-minikube   1/1       Running   0          1m
-    kube-dns-910330662-hmw9k      3/3       Running   0          1m
-    kubernetes-dashboard-nfg7m    1/1       Running   0          1m
+    cilium-1c2cz                  1/1       Running   0          21m
+    kube-addon-manager-minikube   1/1       Running   0          23m
+    kube-dns-910330662-jqdjk      3/3       Running   0          23m
+    kubernetes-dashboard-g8nzs    1/1       Running   0          23m
 
 
 Wait until the Cilium pod shows the ``STATUS`` as ``Running``, like above. In this tutorial, it's okay to 
@@ -83,8 +83,9 @@ It also include a app1-service, which load-balances traffic to all pods with lab
     $ kubectl create -f \ |SCM_WEB|\/examples/minikube/demo.yaml
     service "app1-service" created
     deployment "app1" created
-    deployment "app2" created
-    deployment "app3" created
+    pod "app2" created
+    pod "app3" created
+
 
 Kubernetes will deploy the pods and service  in the background.  Running
 ``kubectl get svc,pods`` will inform you about the progress of the operation.
@@ -94,15 +95,15 @@ point the pod is ready.
 ::
 
     $ kubectl get pods,svc
-    NAME                       READY     STATUS              RESTARTS   AGE
-    po/app1-3720119688-5lc9g   0/1       ContainerCreating   0          9s
-    po/app1-3720119688-n3gfh   0/1       ContainerCreating   0          9s
-    po/app2-1798985037-6q534   0/1       ContainerCreating   0          9s
-    po/app3-2097142386-pq1ff   1/1       Running             0          9s
+    NAME                       READY     STATUS    RESTARTS   AGE
+    po/app1-3720119688-1h7c5   1/1       Running   0          37s
+    po/app1-3720119688-jzqx2   1/1       Running   0          37s
+    po/app2                    1/1       Running   0          37s
+    po/app3                    1/1       Running   0          37s
 
     NAME               CLUSTER-IP   EXTERNAL-IP   PORT(S)   AGE
-    svc/app1-service   10.0.0.150   <none>        80/TCP    9s
-    svc/kubernetes     10.0.0.1     <none>        443/TCP   13m
+    svc/app1-service   10.0.0.199   <none>        80/TCP    37s
+    svc/kubernetes     10.0.0.1     <none>        443/TCP   27m
 
 Each pods will be represented in Cilium as `endpoint`. We can invoke the
 ``cilium`` tool inside the Cilium pod to list them:
@@ -111,19 +112,19 @@ Each pods will be represented in Cilium as `endpoint`. We can invoke the
 
     $ kubectl -n kube-system get pods -l k8s-app=cilium
     NAME           READY     STATUS    RESTARTS   AGE
-    cilium-wjb9t   1/1       Running   0          17m
+    cilium-1c2cz   1/1       Running   0          26m
 
-    $ kubectl -n kube-system exec cilium-wjb9t cilium endpoint list
-    ENDPOINT   POLICY        IDENTITY   LABELS (source:key[=value])               IPv6                   IPv4            STATUS
-               ENFORCEMENT
-    3365       Disabled      256        k8s:id=app1                               f00d::a00:20f:0:d25    10.15.191.0     ready
-                                        k8s:io.kubernetes.pod.namespace=default
-    25917      Disabled      258        k8s:id=app3                               f00d::a00:20f:0:653d   10.15.100.129   ready
-                                        k8s:io.kubernetes.pod.namespace=default
-    42910      Disabled      256        k8s:id=app1                               f00d::a00:20f:0:a79e   10.15.236.254   ready
-                                        k8s:io.kubernetes.pod.namespace=default
-    50133      Disabled      257        k8s:id=app2                               f00d::a00:20f:0:c3d5   10.15.59.20     ready
-                                        k8s:io.kubernetes.pod.namespace=default
+    $ kubectl -n kube-system exec cilium-1c2cz cilium endpoint list
+    ENDPOINT   POLICY (ingress)   POLICY (egress)   IDENTITY   LABELS (source:key[=value])               IPv6                 IPv4            STATUS   
+               ENFORCEMENT        ENFORCEMENT                                                                                                 
+    250        Disabled           Disabled          262        k8s:id=app2                               f00d::a0f:0:0:fa     10.15.132.130   ready   
+                                                               k8s:io.kubernetes.pod.namespace=default                                                
+    4698       Disabled           Disabled          264        k8s:id=app3                               f00d::a0f:0:0:125a   10.15.86.236    ready   
+                                                               k8s:io.kubernetes.pod.namespace=default                                                
+    28950      Disabled           Disabled          263        k8s:id=app1                               f00d::a0f:0:0:7116   10.15.51.177    ready   
+                                                               k8s:io.kubernetes.pod.namespace=default                                                
+    32138      Disabled           Disabled          263        k8s:id=app1                               f00d::a0f:0:0:7d8a   10.15.150.193   ready   
+                                                               k8s:io.kubernetes.pod.namespace=default 
 
 Policy enforcement is still disabled on all of these pods because no network
 policy has been imported yet which select any of the pods.
@@ -172,16 +173,17 @@ label ``id=app1`` now have policy enforcement enabled.
 
 ::
 
-    $ kubectl -n kube-system exec cilium-wjb9t cilium endpoint list
-    ENDPOINT   POLICY        IDENTITY   LABELS (source:key[=value])               IPv6                   IPv4            STATUS
-               ENFORCEMENT
-    3365       Enabled       256        k8s:id=app1                               f00d::a00:20f:0:d25    10.15.191.0     ready
-                                        k8s:io.kubernetes.pod.namespace=default
-    25917      Disabled      258        k8s:id=app3                               f00d::a00:20f:0:653d   10.15.100.129   ready
-                                        k8s:io.kubernetes.pod.namespace=default
-    42910      Enabled       256        k8s:id=app1                               f00d::a00:20f:0:a79e   10.15.236.254   ready
-                                        k8s:io.kubernetes.pod.namespace=default
-    50133      Disabled      257        k8s:id=app2                               f00d::a00:20f:0:c3d5   10.15.59.20     ready
+    $ kubectl -n kube-system exec cilium-1c2cz cilium endpoint list
+    ENDPOINT   POLICY (ingress)   POLICY (egress)   IDENTITY   LABELS (source:key[=value])               IPv6                 IPv4            STATUS
+               ENFORCEMENT        ENFORCEMENT
+    250        Disabled           Disabled          262        k8s:id=app2                               f00d::a0f:0:0:fa     10.15.132.130   ready
+                                                               k8s:io.kubernetes.pod.namespace=default
+    4698       Disabled           Disabled          264        k8s:id=app3                               f00d::a0f:0:0:125a   10.15.86.236    ready
+                                                               k8s:io.kubernetes.pod.namespace=default
+    28950      Enabled            Disabled          263        k8s:id=app1                               f00d::a0f:0:0:7116   10.15.51.177    ready
+                                                               k8s:io.kubernetes.pod.namespace=default
+    32138      Enabled            Disabled          263        k8s:id=app1                               f00d::a0f:0:0:7d8a   10.15.150.193   ready
+                                                               k8s:io.kubernetes.pod.namespace=default
 
 Step 4: Test L3/L4 Policy
 =========================
@@ -196,17 +198,14 @@ To test this out, we'll make an HTTP request to app1 from both *app2* and *app3*
 
 ::
 
-    $ APP2_POD=$(kubectl get pods -l id=app2 -o jsonpath='{.items[0].metadata.name}')
-    $ SVC_IP=$(kubectl get svc app1-service -o jsonpath='{.spec.clusterIP}')
-    $ kubectl exec $APP2_POD -- curl -s $SVC_IP
+    $ kubectl exec app2 -- curl -s app1-service.default.svc.cluster.local
     <html><body><h1>It works!</h1></body></html>
 
 This works, as expected.   Now the same request run from an *app3* pod will fail:
 
 ::
 
-    $ APP3_POD=$(kubectl get pods -l id=app3 -o jsonpath='{.items[0].metadata.name}')
-    $ kubectl exec $APP3_POD -- curl -s $SVC_IP
+    $ kubectl exec app3 -- curl -s app1-service.default.svc.cluster.local
 
 This request will hang, so press Control-C to kill the curl request, or wait for it
 to time out.
@@ -249,14 +248,14 @@ To see this, run:
 
 ::
 
-    $ kubectl exec $APP2_POD -- curl -s http://${SVC_IP}/public
+    $ kubectl exec app2 -- curl -s app1-service.default.svc.cluster.local/public
     { 'val': 'this is public' }
 
 and
 
 ::
 
-    $ kubectl exec $APP2_POD -- curl -s http://${SVC_IP}/private
+    $ kubectl exec app2 -- curl -s app1-service.default.svc.cluster.local/private
     { 'val': 'this is private' }
 
 **L7 Policy with Cilium and Kubernetes**
@@ -285,14 +284,14 @@ We can now re-run the same test as above, but we will see a different outcome:
 
 ::
 
-    $ kubectl exec $APP2_POD -- curl -s http://${SVC_IP}/public
+    $ kubectl exec app2 -- curl -s app1-service.default.svc.cluster.local/public
     { 'val': 'this is public' }
 
 and
 
 ::
 
-    $ kubectl exec $APP2_POD -- curl -s http://${SVC_IP}/private
+    $ kubectl exec app2 -- curl -s app1-service.default.svc.cluster.local/private
     Access denied
 
 As you can see, with Cilium L7 security policies, we are able to permit
@@ -315,47 +314,47 @@ You can observe the L7 policy via ``kubectl``:
     Annotations:    <none>
 
     $ kubectl describe ciliumnetworkpolicies rule1
-    Name:           rule1
-    Namespace:      default
-    Labels:         <none>
+    Name:	    rule1
+    Namespace:	    default
+    Labels:	    <none>
     Annotations:    <none>
     API Version:    cilium.io/v2
-    Kind:           CiliumNetworkPolicy
+    Kind:	    CiliumNetworkPolicy
     Metadata:
-      Cluster Name:
-      Creation Timestamp:   2017-10-05T22:03:07Z
-      Generation:           0
-      Resource Version:     1261
-      Self Link:            /apis/cilium.io/v2/namespaces/default/ciliumnetworkpolicies/rule1
-      UID:                  f81add19-aa18-11e7-a03b-080027d30ebc
+      Cluster Name:		
+      Creation Timestamp:   2017-12-05T01:57:10Z
+      Generation:	    0
+      Resource Version:	    3788
+      Self Link:	    /apis/cilium.io/v2/namespaces/default/ciliumnetworkpolicies/rule1
+      UID:		    9b05edfb-d95f-11e7-a72e-080027ea1305
     Spec:
       Endpoint Selector:
         Match Labels:
-          Any : Id: app1
+          Any : Id:	app1
       Ingress:
         From Endpoints:
           Match Labels:
-            Any : Id:       app2
+            Any : Id:	app2
         To Ports:
           Ports:
-            Port:           80
-            Protocol:       TCP
+            Port:	80
+            Protocol:	TCP
           Rules:
             Http:
-              Method:       GET
-              Path:         /public
+              Method:	GET
+              Path:	/public
     Status:
       Nodes:
         Minikube:
-          Last Updated:     2017-10-05T22:07:56.240195037Z
-          Ok:               true
-    Events:                 <none>
+          Last Updated:	2017-12-05T01:57:10.409172216Z
+          Ok:		true
+    Events:		<none>
 
 and ``cilium`` CLI:
 
 ::
 
-    $ kubectl exec cilium-wjb9t -n kube-system cilium policy get
+    $ kubectl exec cilium-1c2cz -n kube-system cilium policy get
     [
       {
         "endpointSelector": {
