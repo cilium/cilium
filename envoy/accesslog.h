@@ -4,7 +4,7 @@
 #include <mutex>
 #include <string>
 
-#include "envoy/http/access_log.h"
+#include "envoy/access_log/access_log.h"
 #include "envoy/http/header_map.h"
 #include "envoy/network/connection.h"
 #include "envoy/router/router.h"
@@ -26,10 +26,10 @@ public:
   public:
     void InitFromRequest(std::string listener_id, const Network::Connection *,
                          const Http::HeaderMap &,
-                         const Http::AccessLog::RequestInfo &,
+                         const Envoy::AccessLog::RequestInfo &,
                          const Router::RouteEntry *);
     void UpdateFromResponse(const Http::HeaderMap &,
-                            const Http::AccessLog::RequestInfo &);
+                            const Envoy::AccessLog::RequestInfo &);
 
     ::pb::cilium::HttpLogEntry entry{};
   };

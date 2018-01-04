@@ -1,6 +1,13 @@
-workspace(name = "envoy")
+workspace(name = "cilium")
 
-ENVOY_SHA = "06b9cda221a4be97752958d779c3e55bac49a6d1"
+#
+# We grep for the following line to generate SOURCE_VERSION file for non-git
+# distribution builds. This line must start with the string ENVOY_SHA followed by
+# an equals sign and a git SHA in double quotes.
+#
+# No other line in this file may have ENVOY_SHA followed by an equals sign!
+#
+ENVOY_SHA = "bc9069a8906cdcdb5f90df27b8b1df1a7f5f6f84"
 
 http_archive(
     name = "envoy",

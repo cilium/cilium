@@ -7,7 +7,7 @@
 
 #include "common/network/address_impl.h"
 
-#include "bpf_metadata.h"
+#include "cilium_bpf_metadata.h"
 
 namespace Envoy {
 namespace Cilium {
@@ -70,14 +70,16 @@ ProxyMap::ProxyMap(const std::string &bpf_root,
   std::string path6(bpf_root + "/tc/globals/cilium_proxy6");
 
   if (!proxy4map_.open(path4)) {
-    ENVOY_LOG(info, "bpf_metadata: Cannot open IPv4 proxy map at {}", path4);
+    ENVOY_LOG(warn, "cilium.bpf_metadata: Cannot open IPv4 proxy map at {}",
+              path4);
     parent_.stats_.bpf_open_error_.inc();
   }
   if (!proxy6map_.open(path6)) {
-    ENVOY_LOG(info, "bpf_metadata: Cannot open IPv6 proxy map at {}", path6);
+    ENVOY_LOG(warn, "cilium.bpf_metadata: Cannot open IPv6 proxy map at {}",
+              path6);
     parent_.stats_.bpf_open_error_.inc();
   }
-  ENVOY_LOG(info, "bpf_metadata: Created proxymap for {}",
+  ENVOY_LOG(debug, "cilium.bpf_metadata: Created proxymap for {}",
             parent_.is_ingress_ ? "ingress" : "egress");
 }
 
@@ -102,10 +104,11 @@ bool ProxyMap::getBpfMetadata(Network::AcceptSocket &socket) {
       key.sport = htons(rip->port());
       key.nexthdr = 6;
 
-      ENVOY_LOG(info,
-                "getBpfMetadata: Looking up key: {:x}, {:x}, {:x}, {:x}, {:x}",
-                ntohl(key.saddr), ntohs(key.dport), ntohs(key.sport),
-                key.nexthdr, key.pad);
+      ENVOY_LOG(
+          debug,
+          "cilium.bpf_metadata: Looking up key: {:x}, {:x}, {:x}, {:x}, {:x}",
+          ntohl(key.saddr), ntohs(key.dport), ntohs(key.sport), key.nexthdr,
+          key.pad);
 
       if (proxy4map_.lookup(&key, &value)) {
         struct sockaddr_in ip4 {};
@@ -118,7 +121,7 @@ bool ProxyMap::getBpfMetadata(Network::AcceptSocket &socket) {
         socket.setSocketMark(parent_.getMark(value.identity));
         return true;
       }
-      ENVOY_LOG(info, "getBpfMetadata: IPv4 bpf map lookup failed: {}",
+      ENVOY_LOG(info, "cilium.bpf_metadata: IPv4 bpf map lookup failed: {}",
                 strerror(errno));
     } else if (ip->version() == Network::Address::IpVersion::v6 &&
                rip->version() == Network::Address::IpVersion::v6) {
@@ -141,12 +144,13 @@ bool ProxyMap::getBpfMetadata(Network::AcceptSocket &socket) {
         socket.setSocketMark(parent_.getMark(value.identity));
         return true;
       }
-      ENVOY_LOG(info, "getBpfMetadata: IPv6 bpf map lookup failed: {}",
+      ENVOY_LOG(info, "cilium.bpf_metadata: IPv6 bpf map lookup failed: {}",
                 strerror(errno));
     } else {
-      ENVOY_LOG(info,
-                "getBpfMetadata: Address type mismatch: Source: {}, Dest: {}",
-                rip->addressAsString(), ip->addressAsString());
+      ENVOY_LOG(
+          info,
+          "cilium.bpf_metadata: Address type mismatch: Source: {}, Dest: {}",
+          rip->addressAsString(), ip->addressAsString());
     }
   }
   parent_.stats_.bpf_lookup_error_.inc();
