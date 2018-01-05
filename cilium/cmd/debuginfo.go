@@ -23,7 +23,6 @@ import (
 	"strings"
 	"text/tabwriter"
 
-	"github.com/cilium/cilium/common"
 	pkg "github.com/cilium/cilium/pkg/client"
 
 	"github.com/spf13/cobra"
@@ -43,8 +42,9 @@ func init() {
 }
 
 func runDebugInfo(cmd *cobra.Command, args []string) {
-	// Required for the BPF commands
-	common.RequireRootPrivilege("cilium debuginfo")
+	if os.Getuid() != 0 {
+		fmt.Fprint(os.Stderr, "Warning, some of the BPF commands might fail when run as not root\n")
+	}
 
 	resp, err := client.Daemon.GetDebuginfo(nil)
 	if err != nil {
