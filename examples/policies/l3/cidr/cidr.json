@@ -1,4 +1,5 @@
 [{
+    "labels": [{"key": "name", "value": "cidr-rule"}],
     "endpointSelector": {"matchLabels":{"app":"myService"}},
     "egress": [{
         "toCIDR": [

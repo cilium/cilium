@@ -1,4 +1,5 @@
 [{
+    "labels": [{"key": "name", "value": "l7-rule"}],
     "endpointSelector": {"matchLabels":{"id":"web-server"}},
     "ingress": [{
         "fromEndpoints": [

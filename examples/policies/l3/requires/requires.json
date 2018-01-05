@@ -1,4 +1,5 @@
 [{
+    "labels": [{"key": "name", "value": "requires-rule"}],
     "endpointSelector": {"matchLabels": {"env":"prod"}},
     "ingress": [{
         "fromRequires": [

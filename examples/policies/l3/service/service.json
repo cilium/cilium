@@ -1,4 +1,5 @@
 [{
+      "labels": [{"key": "name", "value": "service-rule"}],
       "endpointSelector": {
         "matchLabels": {
           "id": "app2"
