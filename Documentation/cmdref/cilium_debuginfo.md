@@ -16,7 +16,8 @@ cilium debuginfo
 ### Options
 
 ```
-  -f, --file string   Redirect output to file
+  -f, --file string        Redirect output to file
+      --html-file string   Convert default output to HTML file
 ```
 
 ### Options inherited from parent commands
