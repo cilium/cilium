@@ -76,7 +76,7 @@ func (ch *CiliumHealth) Run() {
 				State: models.StatusStateOk,
 			}
 			if _, err := ch.client.Restapi.GetHello(nil); err != nil {
-				status.Msg = err.Error()
+				status.Msg = ciliumPkg.Hint(err).Error()
 				status.State = models.StatusStateWarning
 			}
 			ch.setStatus(status)
