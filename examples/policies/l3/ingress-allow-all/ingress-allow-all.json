@@ -1,4 +1,5 @@
 [{
+    "labels": [{"key": "name", "value": "allow-all-to-victim"}],
     "endpointSelector": {"matchLabels": {"role":"victim"}},
     "ingress": [{
         "fromEndpoints": [

@@ -1,7 +1,7 @@
 apiVersion: "cilium.io/v2"
 kind: CiliumNetworkPolicy
 metadata:
-  name: "requires-rule"
+  name: "service-rule"
 spec:
   endpointSelector:
     matchLabels:

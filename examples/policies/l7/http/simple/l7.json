@@ -1,4 +1,5 @@
 [{
+  "labels": [{"key": "name", "value": "rule1"}],
   "endpointSelector": {"matchLabels": {"app": "service"}},
   "ingress": [{
     "fromEndpoints": [

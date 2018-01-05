@@ -1,4 +1,5 @@
 [{
+  "labels": [{"key": "name", "value": "fancyrule"}],
   "endpointSelector": {"matchLabels": {"app": "service"}},
   "ingress": [{
     "fromEndpoints": [
@@ -19,6 +20,7 @@
     }]
   }]
 },{
+  "labels": [{"key": "name", "value": "fancyrule"}],
   "endpointSelector": {"matchLabels": {"env": "prod"}},
   "egress":[{
     "toPorts": [{
