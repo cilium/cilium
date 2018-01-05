@@ -1,28 +1,9 @@
-diff --git a/examples/minikube/demo.yaml b/examples/minikube/demo.yaml
-index 2cef278..72bbbea 100644
---- a/examples/minikube/demo.yaml
-+++ b/examples/minikube/demo.yaml
-@@ -25,6 +25,8 @@ spec:
-         image: cilium/demo-httpd
-         ports:
-         - containerPort: 80
-+  nodeSelector:
-+    "kubernetes.io/hostname": k8s-1
- ---
- apiVersion: v1
- kind: Pod 
-@@ -39,6 +41,8 @@ spec:
-       command: [ "sleep" ]
-       args:
-         - "1000h"
-+  nodeSelector:
-+    "kubernetes.io/hostname": k8s-1
- ---
- apiVersion: v1 
- kind: Pod
-@@ -53,3 +57,5 @@ spec:
-       command: [ "sleep" ]
-       args:
-         - "1000h"
-+  nodeSelector:
-+    "kubernetes.io/hostname": k8s-1
+27a28,29
+>       nodeSelector:
+>         "kubernetes.io/hostname": k8s-1
+41a44,45
+>   nodeSelector:
+>     "kubernetes.io/hostname": k8s-1
+55a60,61
+>   nodeSelector:
+>     "kubernetes.io/hostname": k8s-1

@@ -27,20 +27,20 @@ spec:
         - containerPort: 80
 ---
 apiVersion: v1
-kind: Pod 
+kind: Pod
 metadata:
   name: app2
   labels:
     id: app2
 spec:
   containers:
-    - name: app-frontend
-      image: cilium/demo-client
-      command: [ "sleep" ]
-      args:
-        - "1000h"
+  - name: app-frontend
+    image: cilium/demo-client
+    command: [ "sleep" ]
+    args:
+      - "1000h"
 ---
-apiVersion: v1 
+apiVersion: v1
 kind: Pod
 metadata:
   name: app3
@@ -48,8 +48,8 @@ metadata:
     id: app3
 spec:
   containers:
-    - name: app-frontend
-      image: cilium/demo-client
-      command: [ "sleep" ]
-      args:
-        - "1000h"
+  - name: app-frontend
+    image: cilium/demo-client
+    command: [ "sleep" ]
+    args:
+      - "1000h"
