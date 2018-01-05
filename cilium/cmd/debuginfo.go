@@ -15,8 +15,10 @@
 package cmd
 
 import (
+	"bytes"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"os"
 	"os/exec"
 	"strconv"
@@ -25,6 +27,7 @@ import (
 
 	pkg "github.com/cilium/cilium/pkg/client"
 
+	"github.com/russross/blackfriday"
 	"github.com/spf13/cobra"
 )
 
@@ -34,11 +37,15 @@ var debuginfoCmd = &cobra.Command{
 	Run:   runDebugInfo,
 }
 
-var file string
+var (
+	file string
+	html string
+)
 
 func init() {
 	rootCmd.AddCommand(debuginfoCmd)
 	debuginfoCmd.Flags().StringVarP(&file, "file", "f", "", "Redirect output to file")
+	debuginfoCmd.Flags().StringVarP(&html, "html-file", "", "", "Convert default output to HTML file")
 }
 
 func runDebugInfo(cmd *cobra.Command, args []string) {
@@ -52,14 +59,8 @@ func runDebugInfo(cmd *cobra.Command, args []string) {
 		os.Exit(1)
 	}
 
-	w := tabwriter.NewWriter(os.Stdout, 5, 0, 3, ' ', 0)
-	if len(file) > 0 {
-		f, err := os.OpenFile(file, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0600)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "Could not create file %s", file)
-		}
-		w = tabwriter.NewWriter(f, 5, 0, 3, ' ', 0)
-	}
+	var buf bytes.Buffer
+	w := tabwriter.NewWriter(&buf, 5, 0, 3, ' ', 0)
 	p := resp.Payload
 	fmt.Fprintf(w, "# Cilium debug information\n")
 
@@ -103,6 +104,18 @@ func runDebugInfo(cmd *cobra.Command, args []string) {
 	if nm := p.CiliumNodemonitorMemoryMap; len(nm) > 0 {
 		printMD(w, "Cilium nodemonitor memory map", p.CiliumNodemonitorMemoryMap)
 	}
+
+	data := buf.Bytes()
+	switch {
+	case len(file) > 0: // Markdown file
+		writeMarkdown(data, file)
+		fmt.Printf("Markdown output at %s\n", file)
+	case len(html) > 0: // HTML file
+		writeHTML(data, html)
+		fmt.Printf("HTML output at %s\n", html)
+	default: // Write to standard output
+		fmt.Println(string(data))
+	}
 }
 
 func printList(w io.Writer, header string, args ...string) {
@@ -120,4 +133,21 @@ func printMD(w io.Writer, header string, body string) {
 
 func printTicks(w io.Writer) {
 	fmt.Fprint(w, "```\n")
+}
+
+func writeHTML(data []byte, path string) {
+	output := blackfriday.MarkdownCommon(data)
+	if err := ioutil.WriteFile(path, output, 0644); err != nil {
+		fmt.Fprintf(os.Stderr, "Error while writing HTML file %s", err)
+		return
+	}
+}
+
+func writeMarkdown(data []byte, path string) {
+	f, err := os.OpenFile(file, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0600)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Could not create file %s", file)
+	}
+	w := tabwriter.NewWriter(f, 5, 0, 3, ' ', 0)
+	w.Write(data)
 }
