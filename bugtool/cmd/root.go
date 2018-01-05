@@ -100,6 +100,28 @@ func getVerifyCiliumPods() []string {
 	return k8sPods
 }
 
+func removeIfEmpty(dir string) {
+	d, err := os.Open(dir)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Failed to open directory %s\n", err)
+		return
+	}
+	defer d.Close()
+
+	files, err := d.Readdir(-1)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Failed to read directory %s\n", err)
+		return
+	} else if len(files) == 0 {
+		if err := os.Remove(dir); err != nil {
+			fmt.Fprintf(os.Stderr, "Failed to delete directory %s\n", err)
+			return
+		}
+	}
+
+	fmt.Printf("Deleted empty directory %s\n", dir)
+}
+
 func runTool() {
 	k8sPods := getVerifyCiliumPods()
 
@@ -114,9 +136,17 @@ func runTool() {
 	}
 	defer cleanup(dbgDir)
 
-	copySystemInfo(createDir(dbgDir, "cmd"), k8sPods)
-	copyCiliumInfo(createDir(dbgDir, "cilium"), k8sPods)
-	copyKernelConfig(createDir(dbgDir, "conf"), k8sPods)
+	ciliumDir := createDir(dbgDir, "cilium")
+	confDir := createDir(dbgDir, "conf")
+	cmdDir := createDir(dbgDir, "cmd")
+
+	copyCiliumInfo(ciliumDir, k8sPods)
+	copyKernelConfig(confDir, k8sPods)
+	copySystemInfo(cmdDir, k8sPods)
+
+	removeIfEmpty(ciliumDir)
+	removeIfEmpty(confDir)
+	removeIfEmpty(cmdDir)
 
 	// Please don't change the output below for the archive or directory.
 	// The order matters and is being used by scripts to copy the right
