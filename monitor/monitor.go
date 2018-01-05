@@ -116,6 +116,10 @@ func (m *Monitor) send(pl payload.Payload) {
 		return
 	}
 
+	writeError := func(prefix string, err error) {
+		log.WithError(err).Warnf("Monitor removed due to write failure (%s)", prefix)
+	}
+
 	payloadBuf, err := pl.Encode()
 	if err != nil {
 		log.WithError(err).Fatal("payload encode")
@@ -131,16 +135,16 @@ func (m *Monitor) send(pl payload.Payload) {
 		next = e.Next()
 
 		if _, err := client.Write(metaBuf); err != nil {
-			log.WithError(err).Warn("metadata write failed; removing client")
 			client.Close()
 			listeners.Remove(e)
+			writeError("metadata", err)
 			continue
 		}
 
 		if _, err := client.Write(payloadBuf); err != nil {
-			log.WithError(err).Warn("payload write failed; removing client")
 			client.Close()
 			listeners.Remove(e)
+			writeError("payload", err)
 			continue
 		}
 	}
