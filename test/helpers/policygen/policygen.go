@@ -91,7 +91,7 @@ var policiesTestSuite = PolicyTestSuite{
 		{
 			name:  "Egress policy to /private/",
 			kind:  egress,
-			tests: ConnResultOnlyHTTPPrivate,
+			tests: ConnResultOnlyHTTPPrivateAndPing,
 			template: map[string]string{
 				"Rules": `{"http": [{"method": "GET", "path": "/private"}]}`,
 				"Ports": `[{"port": "{{ .Destination.PortNumber }}", "protocol": "TCP"}]`,

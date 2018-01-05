@@ -58,6 +58,13 @@ var (
 		UDP:         ResultTimeout,
 	}
 
+	ConnResultOnlyHTTPPrivateAndPing = ConnTestSpec{
+		HTTP:        ResultAuth,
+		HTTPPrivate: ResultOK,
+		Ping:        ResultOK,
+		UDP:         ResultTimeout,
+	}
+
 	DestinationsTypes = []Target{
 		{Kind: service},
 		{Kind: nodePort},
