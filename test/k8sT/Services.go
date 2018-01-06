@@ -311,7 +311,6 @@ var _ = Describe("K8sServicesTest", func() {
 		Expect(err).Should(BeNil())
 
 		By(fmt.Sprintf("Getting Cilium Pod on node %s", helpers.K8s2))
-		//ciliumPodK8s2, err := kubectl.GetCiliumPodOnNode(helpers.KubeSystemNamespace, helpers.K8s2)
 		_, err = kubectl.GetCiliumPodOnNode(helpers.KubeSystemNamespace, helpers.K8s2)
 
 		Expect(err).Should(BeNil())
@@ -390,6 +389,7 @@ var _ = Describe("K8sServicesTest", func() {
 
 		_, err = kubectl.CiliumPolicyAction(helpers.KubeSystemNamespace, policyPath, helpers.KubectlCreate, helpers.HelperTimeout)
 		Expect(err).Should(BeNil(), fmt.Sprintf("Error creating resource %s: %s", policyPath, err))
+
 		defer func() {
 
 			_, err := kubectl.CiliumPolicyAction(helpers.KubeSystemNamespace, policyPath, helpers.KubectlDelete, helpers.HelperTimeout)
