@@ -106,6 +106,12 @@ func (kub *Kubectl) GetPods(namespace string, filter string) *CmdRes {
 	return kub.Exec(fmt.Sprintf("%s -n %s get pods %s -o json", KubectlCmd, namespace, filter))
 }
 
+// GetEndpoints get all of the endpoints in the given namespace that match the
+// provided filter.
+func (kub *Kubectl) GetEndpoints(namespace string, filter string) *CmdRes {
+	return kub.Exec(fmt.Sprintf("%s -n %s get endpoints %s -o json", KubectlCmd, namespace, filter))
+}
+
 // GetPodNames returns the names of all of the pods that are labeled with label
 // in the specified namespace, along with an error if the pod names cannot be
 // retrieved.
@@ -223,11 +229,53 @@ func (kub *Kubectl) WaitforPods(namespace string, filter string, timeout time.Du
 	return true, nil
 }
 
+// WaitForServiceEndpoints waits up until timeout seconds have elapsed for all
+// endpoints in the specified namespace that match the provided JSONPath filter
+// to have their port equal to the provided port. Returns true if all pods achieve
+// the aforementioned desired state within timeout seconds. Returns false and
+// an error if the command failed or the timeout was exceeded.
+func (kub *Kubectl) WaitForServiceEndpoints(namespace string, filter string, service string, port string, timeout time.Duration) (bool, error) {
+	body := func() bool {
+		var jsonPath = fmt.Sprintf("{.items[?(@.metadata.name =='%s')].subsets[0].ports[0].port}", service)
+		data, err := kub.GetEndpoints(namespace, filter).Filter(jsonPath)
+
+		if err != nil {
+			kub.logger.Errorf("could not get service endpoints: %s", err)
+			return false
+		}
+		log.Infof("data: %s", data.String())
+
+		if data.String() == port {
+			return true
+		}
+
+		kub.logger.WithFields(logrus.Fields{
+			"namespace": namespace,
+			"filter":    filter,
+			"data":      data,
+		}).Info("WaitForServiceEndpoints: service endpoint not ready")
+		return false
+	}
+
+	err := WithTimeout(body, "could not get service endpoints", &TimeoutConfig{Timeout: timeout})
+	if err != nil {
+		return false, err
+	}
+	return true, nil
+}
+
 // Apply applies the Kubernetes manifest located at path filepath.
 func (kub *Kubectl) Apply(filePath string) *CmdRes {
 	kub.logger.Debugf("applying %s", filePath)
 	return kub.Exec(
 		fmt.Sprintf("%s apply -f  %s", KubectlCmd, filePath))
+}
+
+// Create creates the Kubernetes kanifest located at path filepath.
+func (kub *Kubectl) Create(filePath string) *CmdRes {
+	kub.logger.Debugf("creating %s", filePath)
+	return kub.Exec(
+		fmt.Sprintf("%s create -f  %s", KubectlCmd, filePath))
 }
 
 // Delete deletes the Kubernetes manifest at path filepath.
