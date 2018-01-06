@@ -297,6 +297,20 @@ func (kub *Kubectl) Create(filePath string) *CmdRes {
 		fmt.Sprintf("%s create -f  %s", KubectlCmd, filePath))
 }
 
+// CreateResource is a wrapper around `kubernetes create <resource>
+// <resourceName>.
+func (kub *Kubectl) CreateResource(resource, resourceName string) *CmdRes {
+	kub.logger.Debug(fmt.Sprintf("creating resource %s with name %s", resource, resourceName))
+	return kub.Exec(fmt.Sprintf("kubectl create %s %s", resource, resourceName))
+}
+
+// DeleteResource is a wrapper around `kubernetes delete <resource>
+// resourceName>.
+func (kub *Kubectl) DeleteResource(resource, resourceName string) *CmdRes {
+	kub.logger.Debug(fmt.Sprintf("deleting resource %s with name %s", resource, resourceName))
+	return kub.Exec(fmt.Sprintf("kubectl delete %s %s", resource, resourceName))
+}
+
 // Delete deletes the Kubernetes manifest at path filepath.
 func (kub *Kubectl) Delete(filePath string) *CmdRes {
 	kub.logger.Debugf("deleting %s", filePath)
