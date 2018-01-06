@@ -58,7 +58,8 @@ var _ = Describe("K8sServicesTest", func() {
 			ciliumPod, _ := kubectl.GetCiliumPodOnNode("kube-system", "k8s1")
 			kubectl.CiliumReport("kube-system", ciliumPod, []string{
 				"cilium service list",
-				"cilium endpoint list"})
+				"cilium endpoint list",
+				"cilium policy get"})
 		}
 	})
 
@@ -145,5 +146,163 @@ var _ = Describe("K8sServicesTest", func() {
 		url := fmt.Sprintf("http://%s",
 			net.JoinHostPort(data.Spec.ClusterIP, fmt.Sprintf("%d", data.Spec.Ports[0].Port)))
 		testHTTPRequest(url)
+	})
+
+	It("CNP Specs Test", func() {
+
+		// Various constants used in this test
+		wgetCommand := "%s exec -t %s wget -- --tries=2 --connect-timeout 10 %s"
+
+		version := "version"
+		v1 := "v1"
+		v2 := "v2"
+
+		productPage := "productpage"
+		reviews := "reviews"
+		ratings := "ratings"
+		details := "details"
+		app := "app"
+		bookinfo := "bookinfo"
+		health := "health"
+
+		apiPort := "9080"
+
+		podNameFilter := "{.items[*].metadata.name}"
+
+		// shouldConnect asserts that srcPod can connect to dst.
+		shouldConnect := func(srcPod, dst string) {
+			By(fmt.Sprintf("Checking that %s can connect to %s", srcPod, dst))
+			res := kubectl.Exec(fmt.Sprintf(wgetCommand, helpers.KubectlCmd, srcPod, dst))
+			res.ExpectSuccess()
+		}
+
+		// shouldNotConnect asserts that srcPod cannot connect to dst.
+		shouldNotConnect := func(srcPod, dst string) {
+			By(fmt.Sprintf("Checking that %s cannot connect to %s", srcPod, dst))
+			res := kubectl.Exec(fmt.Sprintf(wgetCommand, helpers.KubectlCmd, srcPod, dst))
+			res.ExpectFail()
+		}
+
+		// formatLabelArgument formats the provided key-value pairs as labels for use in
+		// querying Kubernetes.
+		formatLabelArgument := func(firstKey, firstValue string, nextLabels ...string) string {
+			baseString := fmt.Sprintf("-l %s=%s", firstKey, firstValue)
+			if nextLabels == nil {
+				return baseString
+			} else if len(nextLabels)%2 != 0 {
+				panic("must provide even number of arguments for label key-value pairings")
+			} else {
+				for i := 0; i < len(nextLabels); i += 2 {
+					baseString = fmt.Sprintf("%s,%s=%s", baseString, nextLabels[i], nextLabels[i+1])
+				}
+			}
+			return baseString
+		}
+
+		// formatAPI is a helper function which formats a URI to access.
+		formatAPI := func(service, port, resource string) string {
+			if resource != "" {
+				return fmt.Sprintf("%s:%s/%s", service, port, resource)
+			}
+
+			return fmt.Sprintf("%s:%s", service, port)
+		}
+
+		ciliumPodK8s1, err := kubectl.GetCiliumPodOnNode(helpers.KubeSystemNamespace, helpers.K8s1)
+		Expect(err).Should(BeNil())
+
+		ciliumPodK8s2, err := kubectl.GetCiliumPodOnNode(helpers.KubeSystemNamespace, helpers.K8s2)
+		Expect(err).Should(BeNil())
+
+		bookInfoPath := kubectl.ManifestGet(bookinfo)
+		res := kubectl.Create(bookInfoPath)
+		defer kubectl.Delete(bookInfoPath)
+		res.ExpectSuccess()
+
+		pods, err := kubectl.WaitforPods(helpers.DefaultNamespace, formatLabelArgument(version, v1), helpers.HelperTimeout)
+		Expect(pods).Should(BeTrue())
+		Expect(err).Should(BeNil())
+
+		pods, err = kubectl.WaitforPods(helpers.DefaultNamespace, formatLabelArgument(version, v2), helpers.HelperTimeout)
+		Expect(pods).Should(BeTrue())
+		Expect(err).Should(BeNil())
+
+		reviewsPodV1, err := kubectl.GetPods(helpers.DefaultNamespace, formatLabelArgument(app, reviews, version, v1)).Filter(podNameFilter)
+		Expect(err).Should(BeNil())
+
+		productpagePodV1, err := kubectl.GetPods(helpers.DefaultNamespace, formatLabelArgument(app, productPage, version, v1)).Filter(podNameFilter)
+		Expect(err).Should(BeNil())
+
+		areEndpointsReady := kubectl.CiliumEndpointWait(ciliumPodK8s1)
+		Expect(areEndpointsReady).Should(BeTrue())
+
+		pods, err = kubectl.WaitForServiceEndpoints(helpers.DefaultNamespace, "", details, apiPort, helpers.HelperTimeout)
+		Expect(pods).Should(BeTrue())
+		Expect(err).Should(BeNil())
+
+		pods, err = kubectl.WaitForServiceEndpoints(helpers.DefaultNamespace, "", ratings, apiPort, helpers.HelperTimeout)
+		Expect(pods).Should(BeTrue())
+		Expect(err).Should(BeNil())
+
+		pods, err = kubectl.WaitForServiceEndpoints(helpers.DefaultNamespace, "", reviews, apiPort, helpers.HelperTimeout)
+		Expect(pods).Should(BeTrue())
+		Expect(err).Should(BeNil())
+
+		pods, err = kubectl.WaitForServiceEndpoints(helpers.DefaultNamespace, "", productPage, apiPort, helpers.HelperTimeout)
+		Expect(pods).Should(BeTrue())
+		Expect(err).Should(BeNil())
+
+		By("Before policy import; all pods should be able to connect")
+		shouldConnect(reviewsPodV1.String(), formatAPI(ratings, apiPort, health))
+		shouldConnect(reviewsPodV1.String(), formatAPI(ratings, apiPort, ""))
+
+		shouldConnect(productpagePodV1.String(), formatAPI(details, apiPort, health))
+		shouldConnect(productpagePodV1.String(), formatAPI(details, apiPort, ""))
+		shouldConnect(productpagePodV1.String(), formatAPI(ratings, apiPort, health))
+		shouldConnect(productpagePodV1.String(), formatAPI(ratings, apiPort, ""))
+
+		var policyPath string
+		var policyCmd string
+
+		if helpers.GetCurrentK8SEnv() != "1.6" {
+			policyPath = fmt.Sprintf("%s/policies/cnp.yaml", bookInfoPath)
+			policyCmd = "cilium policy get io.cilium.k8s-policy-name=multi-rules"
+
+		} else {
+			policyPath = fmt.Sprintf("%s/policies/cnp-deprecated.yaml", bookInfoPath)
+			policyCmd = "cilium policy get io.cilium.k8s-policy-name=multi-rules-deprecated"
+		}
+		By("Importing policy")
+		res = kubectl.Create(policyPath)
+		defer func() {
+			By("Checking that all policies were deleted in Cilium")
+			output, err := kubectl.ExecPodCmd(helpers.KubeSystemNamespace, ciliumPodK8s1, policyCmd)
+			Expect(err).Should(Not(BeNil()), "policies should be deleted from Cilium: policies found: %s", output)
+		}()
+		defer kubectl.Delete(policyPath)
+
+		res.ExpectSuccess()
+
+		By("Waiting for endpoints on k8s1 to be in ready state")
+		areEndpointsReady = kubectl.CiliumEndpointWait(ciliumPodK8s1)
+		Expect(areEndpointsReady).Should(BeTrue())
+
+		By("Waiting for endpoints on k8s2 to be in ready state")
+		areEndpointsReady = kubectl.CiliumEndpointWait(ciliumPodK8s2)
+		Expect(areEndpointsReady).Should(BeTrue())
+
+		By("Checking that policies were correctly imported into Cilium")
+		_, err = kubectl.ExecPodCmd(helpers.KubeSystemNamespace, ciliumPodK8s1, policyCmd)
+		Expect(err).Should(BeNil())
+
+		By("After policy import")
+		shouldConnect(reviewsPodV1.String(), formatAPI(ratings, apiPort, health))
+		shouldNotConnect(reviewsPodV1.String(), formatAPI(ratings, apiPort, ""))
+
+		shouldConnect(productpagePodV1.String(), formatAPI(details, apiPort, health))
+		shouldConnect(productpagePodV1.String(), formatAPI(details, apiPort, ""))
+
+		shouldNotConnect(productpagePodV1.String(), formatAPI(ratings, apiPort, health))
+		shouldNotConnect(productpagePodV1.String(), formatAPI(ratings, apiPort, ""))
 	})
 })
