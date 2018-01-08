@@ -39,6 +39,8 @@ var _ = Describe("RuntimeLB", func() {
 		logger.Info("Starting")
 		vm = helpers.CreateNewRuntimeHelper(helpers.Runtime, logger)
 		vm.WaitUntilReady(100)
+		res := vm.SetPolicyEnforcement(helpers.PolicyEnforcementDefault)
+		res.ExpectSuccess()
 		vm.NetworkCreate(helpers.CiliumDockerNetwork, "")
 		initialized = true
 	}
