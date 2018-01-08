@@ -1,0 +1,94 @@
+#
+# Cilium runtime base image
+#
+FROM ubuntu:16.10 as runtime-base
+RUN apt-get update && \
+#
+# Prepackaged Cilium runtime dependencies
+#
+apt-get install -y --no-install-recommends libelf-dev libc6-dev-i386 iptables libgcc-5-dev bash-completion binutils && \
+apt-get purge --auto-remove && \
+apt-get clean
+
+#
+# Build Cilium runtime dependencies.
+#
+FROM runtime-base as runtime-build
+WORKDIR /tmp
+ADD clang-3.8.1.key ./
+RUN \
+#
+# Build dependencies
+#
+apt-get install -y --no-install-recommends make git curl ca-certificates xz-utils \
+# Additional iproute2 build dependencies
+  gcc git pkg-config bison flex && \
+#
+# clang-3.8.1
+#
+gpg --import clang-3.8.1.key && \
+curl -Ssl -o clang+llvm.tar.xz http://releases.llvm.org/3.8.1/clang+llvm-3.8.1-x86_64-linux-gnu-ubuntu-16.04.tar.xz && \
+curl -Ssl -o clang+llvm.tar.xz.sig http://releases.llvm.org/3.8.1/clang+llvm-3.8.1-x86_64-linux-gnu-ubuntu-16.04.tar.xz.sig && \
+gpg --verify clang+llvm.tar.xz.sig && \
+mkdir -p /usr/local && \
+tar -C /usr/local -xJf ./clang+llvm.tar.xz && \
+mv /usr/local/clang+llvm-3.8.1-x86_64-linux-gnu-ubuntu-16.04 /usr/local/clang+llvm && \
+rm clang+llvm.tar.xz && \
+rm -fr /usr/local/clang+llvm/include/llvm-c && \
+rm -fr /usr/local/clang+llvm/include/clang-c && \
+rm -fr /usr/local/clang+llvm/include/c++ && \
+rm -fr /usr/local/clang+llvm/share && \
+ls -d /usr/local/clang+llvm/lib/* | grep -vE clang$ | xargs rm -r && \
+ls -d /usr/local/clang+llvm/bin/* | grep -vE "clang$|clang-3.8$|llc$" | xargs rm -r && \
+strip /usr/local/clang+llvm/bin/* && \
+#
+# iproute2
+#
+git clone -b v4.10.0 git://git.kernel.org/pub/scm/linux/kernel/git/shemminger/iproute2.git && \
+cd iproute2 && \
+./configure && \
+make -j `getconf _NPROCESSORS_ONLN` && \
+strip tc/tc && \
+strip ip/ip && \
+cd .. && \
+#
+# bpf-map
+#
+curl -SsL https://github.com/cilium/bpf-map/releases/download/v1.0/bpf-map -o bpf-map && \
+chmod +x bpf-map && \
+strip bpf-map && \
+#
+# cni/loopback
+#
+curl -sS -L https://storage.googleapis.com/kubernetes-release/network-plugins/cni-0799f5732f2a11b329d9e3d51b9c8f2e3759f2ff.tar.gz -o cni.tar.gz && \
+tar -xvf cni.tar.gz bin/loopback && \
+strip -s bin/loopback && \
+#
+# Cleanup
+#
+apt-get purge --auto-remove -y gcc make bison flex git curl xz-utils ca-certificates && \
+apt-get clean
+
+#
+# Go-based tools we need at runtime
+#
+FROM golang:1.9 as runtime-gobuild
+WORKDIR /tmp
+RUN go get -u github.com/jteeuwen/go-bindata/... && \
+go get -u github.com/google/gops && \
+strip /go/bin/gops
+
+#
+# Stripped cilium runtime base image
+#
+FROM runtime-base
+LABEL maintainer="maintainer@cilium.io"
+WORKDIR /bin
+COPY --from=runtime-build /tmp/iproute2/tc/tc /tmp/iproute2/ip/ip ./
+COPY --from=runtime-build /tmp/bpf-map ./
+COPY --from=runtime-gobuild /go/bin/gops ./
+WORKDIR /usr/local/clang+llvm
+COPY --from=runtime-build /usr/local/clang+llvm ./
+ENV PATH="/usr/local/clang+llvm/bin:$PATH"
+WORKDIR /cni
+COPY --from=runtime-build /tmp/bin/loopback ./

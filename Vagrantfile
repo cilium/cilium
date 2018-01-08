@@ -153,9 +153,6 @@ Vagrant.configure(2) do |config|
             # iptables -I INPUT -p udp -s 192.168.34.0/24 --dport 2049 -j ACCEPT
             # iptables -I INPUT -p udp -s 192.168.34.0/24 --dport 20048 -j ACCEPT
         else
-            # Ignore contrib/packaging/docker/stage to prevent concurrent
-            # problems when using rsync on multiple VMs
-            #
             # run rsync with options:
             #  --links: preserve symlinks
             #  --checksum: skip based on checksum, not mod-time & size (avoid unnecessary bazel rebuilds)
@@ -165,7 +162,7 @@ Vagrant.configure(2) do |config|
             #  --archive: archive mode; equals -rlptgoD (no -H,-A,-X)
             #  -z: compress file data during the transfer
             config.vm.synced_folder '.', '/home/vagrant/go/src/github.com/cilium/cilium', type: "rsync",
-                rsync__exclude: ["contrib/packaging/docker/stage", "src"], rsync__args: ["--verbose", "--archive", "--delete", "--force", "--delete-excluded", "-z", "--links", "--checksum"]
+                rsync__exclude: ["src"], rsync__args: ["--verbose", "--archive", "--delete", "--force", "--delete-excluded", "-z", "--links", "--checksum"]
         end
     end
 

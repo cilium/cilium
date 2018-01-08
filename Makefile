@@ -1,12 +1,14 @@
 include Makefile.defs
 
 SUBDIRS = envoy plugins bpf cilium daemon monitor cilium-health bugtool
-GOFILES ?= $(shell go list ./... | grep -v /vendor/ | grep -v /contrib/ | grep -v /test | grep -v cilium/envoy | grep -v envoy.*api)
+GOFILES ?= $(shell go list ./... | grep -v /vendor/ | grep -v /contrib/ | grep -v /test | grep -v envoy.*api)
 GOLANGVERSION = $(shell go version 2>/dev/null | grep -Eo '(go[0-9].[0-9])')
-GOLANG_SRCFILES=$(shell for pkg in $GOFILES; do find $(pkg) -name *.go -print; done | grep -v /vendor/)
-BPF_SRCFILES=$(shell find bpf/ -name *.[ch] -print)
+GOLANG_SRCFILES=$(shell for pkg in $(subst github.com/cilium/cilium/,,$(GOFILES)); do find $$pkg -name *.go -print; done | grep -v /vendor/)
+BPF_SRCFILES=$(shell find bpf -name *.[ch] -print)
 
 GOTEST_OPTS = -test.v -check.v
+
+UTC_DATE=$(shell date -u "+%Y-%m-%d")
 
 all: precheck-gofmt build cmdref-check lock-check
 	@echo "Build finished."
@@ -110,30 +112,41 @@ tags: $(GOLANG_SRCFILES) $(BPF_SRCFILES)
 	cscope -R -b -q
 
 clean-container:
-	for i in $(SUBDIRS); do $(MAKE) -C $$i clean; done
-	for i in $(SUBDIRSLIB); do $(MAKE) -C $$i clean; done
+	-for i in $(SUBDIRS); do $(MAKE) -C $$i clean; done
+	-for i in $(SUBDIRSLIB); do $(MAKE) -C $$i clean; done
 
 clean: clean-container
 	-$(MAKE) -C ./contrib/packaging/deb clean
 	-$(MAKE) -C ./contrib/packaging/rpm clean
-	-$(MAKE) -C ./contrib/packaging/docker clean
 
 install:
 	$(INSTALL) -m 0755 -d $(DESTDIR)$(BINDIR)
 	for i in $(SUBDIRS); do $(MAKE) -C $$i install; done
 	for i in $(SUBDIRSLIB); do $(MAKE) -C $$i install; done
 
-dockerfiles:
-	$(MAKE) -C ./contrib/packaging/docker dockerfiles
+# Workaround for not having git in the build environment
+GIT_VERSION: .git
+	echo "$(GIT_VERSION)" >GIT_VERSION
 
-docker-image-prod:
-	$(MAKE) -C ./contrib/packaging/docker docker-image-prod
+envoy/SOURCE_VERSION:
+	make -C envoy SOURCE_VERSION
 
-docker-image-dependencies:
-	$(MAKE) -C ./contrib/packaging/docker docker-image-dependencies
+docker-image: clean GIT_VERSION envoy/SOURCE_VERSION
+	grep -v -E "(SOURCE|GIT)_VERSION" .gitignore >.dockerignore
+	echo ".*" >>.dockerignore # .git prunend out
+	echo "Documentation" >>.dockerignore # Not needed
+	docker build -t "cilium/cilium:$(DOCKER_IMAGE_TAG)" .
+	echo "Push like this when ready:\ndocker push cilium/cilium:$(DOCKER_IMAGE_TAG)"
 
-docker-image-dev:
-	$(MAKE) -C ./contrib/packaging/docker docker-image-dev
+docker-image-runtime:
+	cd contrib/packaging/docker && docker build -t "cilium/cilium-runtime:$(UTC_DATE)" -f Dockerfile.runtime .
+	echo "Update Dockerfile with the new tag and push like this when ready:\ndocker push cilium/cilium-runtime:$(UTC_DATE)"
+
+docker-image-builder: envoy/SOURCE_VERSION
+	cp contrib/packaging/docker/Dockerfile.builder envoy/.
+	cd envoy && docker build -t "cilium/cilium-builder:$(UTC_DATE)" -f Dockerfile.builder .
+	rm envoy/Dockerfile.builder
+	echo "Update Dockerfile with the new tag and push like this when ready:\ndocker push cilium/cilium-builder:$(UTC_DATE)"
 
 build-deb:
 	$(MAKE) -C ./contrib/packaging/deb
