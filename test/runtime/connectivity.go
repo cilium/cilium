@@ -24,6 +24,8 @@ var _ = Describe("RuntimeConnectivityTest", func() {
 		logger.Info("Starting")
 		vm = helpers.CreateNewRuntimeHelper(helpers.Runtime, logger)
 		vm.WaitUntilReady(100)
+		res := vm.SetPolicyEnforcement(helpers.PolicyEnforcementDefault)
+		res.ExpectSuccess()
 		vm.NetworkCreate(helpers.CiliumDockerNetwork, "")
 		initialized = true
 	}
@@ -171,6 +173,8 @@ var _ = Describe("RuntimeConntrackTest", func() {
 		logger.Info("Starting")
 		vm = helpers.CreateNewRuntimeHelper(helpers.Runtime, logger)
 		vm.WaitUntilReady(100)
+		res := vm.SetPolicyEnforcement(helpers.PolicyEnforcementDefault)
+		res.ExpectSuccess()
 		vm.NetworkCreate(helpers.CiliumDockerNetwork, "")
 		initialized = true
 
