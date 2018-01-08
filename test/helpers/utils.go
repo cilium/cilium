@@ -22,6 +22,7 @@ import (
 	"io/ioutil"
 	"math/rand"
 	"os"
+	"path/filepath"
 	"strings"
 	"syscall"
 	"time"
@@ -152,8 +153,14 @@ func Fail(description string, callerSkip ...int) {
 // If the directory cannot be created it'll return an error
 func ReportDirectory() (string, error) {
 	testDesc := ginkgo.CurrentGinkgoTestDescription()
-	testPath := fmt.Sprintf("%s%s/",
+	prefix := ""
+	if strings.HasPrefix(strings.ToLower(testDesc.FullTestText), K8s) {
+		prefix = fmt.Sprintf("%s-", strings.Replace(GetCurrentK8SEnv(), ".", "", -1))
+	}
+
+	testPath := filepath.Join(
 		TestResultsPath,
+		prefix,
 		strings.Replace(testDesc.FullTestText, " ", "", -1))
 	if _, err := os.Stat(testPath); err == nil {
 		return testPath, nil

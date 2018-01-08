@@ -622,9 +622,11 @@ func (kub *Kubectl) CiliumReportDump(namespace string, pod string) {
 // directory
 func (kub *Kubectl) GatherLogs() {
 	reportCmds := map[string]string{
-		"kubectl get pods --all-namespaces":     "pods.txt",
-		"kubectl get services --all-namespaces": "svc.txt",
-		"kubectl get ds --all-namespaces":       "ds.txt",
+		"kubectl get pods -o wide --all-namespaces":     "pods.txt",
+		"kubectl get services -o wide --all-namespaces": "svc.txt",
+		"kubectl get ds -o wide --all-namespaces":       "ds.txt",
+		"kubectl get cnp --all-namespaces":              "cnp.txt",
+		"kubectl describe pods --all-namespaces":        "pods_status.txt",
 	}
 
 	testPath, err := ReportDirectory()
