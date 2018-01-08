@@ -807,7 +807,7 @@ func (e *Endpoint) TriggerPolicyUpdatesLocked(owner Owner, opts models.Configura
 
 	ctCleaned = e.updateCT(owner, flushEndpointCT, consumersAdd, consumersToRm)
 
-	e.getLogger().Debugf("TriggerPolicyUpdatesLocked: changed: %d", changed)
+	e.getLogger().Debugf("TriggerPolicyUpdatesLocked: changed: %t", changed)
 
 	return changed, ctCleaned, nil
 }
