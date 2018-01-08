@@ -596,9 +596,10 @@ func (t *TestSpec) NetworkPolicyApply() error {
 		return fmt.Errorf("Network policy cannot be written prefix=%s: %s", t.Prefix, err)
 	}
 
-	_, err = t.Kub.CiliumImportPolicy(
+	_, err = t.Kub.CiliumPolicyAction(
 		helpers.KubeSystemNamespace,
 		fmt.Sprintf("%s/%s", helpers.BasePath, t.NetworkPolicyName()),
+		helpers.KubectlApply,
 		helpers.HelperTimeout)
 
 	if err != nil {

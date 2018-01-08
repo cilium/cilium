@@ -189,7 +189,7 @@ var _ = Describe("K8sPolicyTest", func() {
 		By("Testing L3/L4 rules")
 
 		eps := kubectl.CiliumEndpointPolicyVersion(ciliumPod)
-		_, err = kubectl.CiliumImportPolicy(helpers.KubeSystemNamespace, l3Policy, 300)
+		_, err = kubectl.CiliumPolicyAction(helpers.KubeSystemNamespace, l3Policy, helpers.KubectlApply, 300)
 		Expect(err).Should(BeNil())
 
 		err = waitUntilEndpointUpdates(ciliumPod, eps, 4)
@@ -246,7 +246,7 @@ var _ = Describe("K8sPolicyTest", func() {
 		//All Monkey testing in this section is on runtime
 
 		eps = kubectl.CiliumEndpointPolicyVersion(ciliumPod)
-		_, err = kubectl.CiliumImportPolicy(helpers.KubeSystemNamespace, l7Policy, 300)
+		_, err = kubectl.CiliumPolicyAction(helpers.KubeSystemNamespace, l7Policy, helpers.KubectlApply, 300)
 		Expect(err).Should(BeNil())
 		err = waitUntilEndpointUpdates(ciliumPod, eps, 4)
 		Expect(err).Should(BeNil())

@@ -131,6 +131,10 @@ const (
 	GeneratedHTMLManifest   = "html.yaml"
 	GeneratedServerManifest = "server.yaml"
 	GeneratedClientManifest = "client.yaml"
+
+	KubectlCreate = ResourceLifeCycleAction("create")
+	KubectlDelete = ResourceLifeCycleAction("delete")
+	KubectlApply  = ResourceLifeCycleAction("apply")
 )
 
 var ciliumCLICommands = map[string]string{
