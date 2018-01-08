@@ -81,9 +81,6 @@ $(ENVOY_BIN) envoy-release: force
 envoy-debug: force-non-root
 	$(BAZEL) $(BAZEL_OPTS) build $(BAZEL_BUILD_OPTS) -c dbg //:envoy
 
-SOURCE_VERSION: WORKSPACE
-	grep "ENVOY_SHA[ \t]*=" WORKSPACE | cut -d \" -f 2 >SOURCE_VERSION
-
 $(CHECK_FORMAT): force-non-root
 	$(BAZEL) $(BAZEL_OPTS) build $(BAZEL_BUILD_OPTS) //:check_format.py
 
