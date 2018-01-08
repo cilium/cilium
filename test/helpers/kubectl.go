@@ -276,6 +276,13 @@ func (kub *Kubectl) WaitForServiceEndpoints(namespace string, filter string, ser
 	return true, nil
 }
 
+// Action performs the specified ResourceLifeCycleAction on the Kubernetes
+// manifest located at path filepath.
+func (kub *Kubectl) Action(action ResourceLifeCycleAction, filePath string) *CmdRes {
+	kub.logger.Debugf("performing %q on %s", action, filePath)
+	return kub.Exec(fmt.Sprintf("%s %s -f %s", KubectlCmd, action, filePath))
+}
+
 // Apply applies the Kubernetes manifest located at path filepath.
 func (kub *Kubectl) Apply(filePath string) *CmdRes {
 	kub.logger.Debugf("applying %s", filePath)
@@ -466,15 +473,19 @@ func (kub *Kubectl) CiliumPolicyRevision(pod string) (int, error) {
 	return revi, nil
 }
 
-// CiliumImportPolicy imports the policy stored in path filepath and waits up
-// until timeout seconds for the policy to be applied in all Cilium endpoints.
-// Returns an error if the policy is not imported before the timeout is
+// ResourceLifeCycleAction represents an action performed upon objects in
+// Kubernetes.
+type ResourceLifeCycleAction string
+
+// CiliumPolicyAction performs the specified action in Kubernetes for the policy
+// stored in path filepath and waits up  until timeout seconds for the policy
+// to be applied in all Cilium endpoints. Returns an error if the policy is not
+// imported before the timeout is
 // exceeded.
-func (kub *Kubectl) CiliumImportPolicy(namespace string, filepath string, timeout time.Duration) (string, error) {
-	var revision int
+func (kub *Kubectl) CiliumPolicyAction(namespace, filepath string, action ResourceLifeCycleAction, timeout time.Duration) (string, error) {
 	revisions := map[string]int{}
 
-	kub.logger.Infof("Importing policy '%s'", filepath)
+	kub.logger.Infof("Performing %s action on resource '%s'", action, filepath)
 	pods, err := kub.GetCiliumPods(namespace)
 	if err != nil {
 		return "", err
@@ -486,12 +497,13 @@ func (kub *Kubectl) CiliumImportPolicy(namespace string, filepath string, timeou
 			return "", err
 		}
 		revisions[v] = revi
-		kub.logger.Infof("CiliumImportPolicy: pod %q has revision %v", v, revi)
+		//kub.logger.Infof("CiliumPolicyAction: pod %q has revision %v", v, revi)
+		fmt.Printf("CiliumPolicyAction: pod %q has revision %d\n", v, revi)
+
 	}
 
-	kub.logger.Infof("CiliumImportPolicy: path=%q with revision %q", filepath, revision)
-	if status := kub.Apply(filepath); !status.WasSuccessful() {
-		return "", fmt.Errorf("cannot apply policy %q", filepath)
+	if status := kub.Action(action, filepath); !status.WasSuccessful() {
+		return "", fmt.Errorf("cannot perform %q on resource %q", action, filepath)
 	}
 
 	body := func() bool {
@@ -501,11 +513,11 @@ func (kub *Kubectl) CiliumImportPolicy(namespace string, filepath string, timeou
 		for _, v := range pods {
 			revi, err := kub.CiliumPolicyRevision(v)
 			if err != nil {
-				kub.logger.Errorf("CiliumImportPolicy: error on get revision %s", err)
+				kub.logger.Errorf("CiliumPolicyAction: error on get revision %s", err)
 				return false
 			}
 			if revi <= revisions[v] {
-				kub.logger.Infof("CiliumImportPolicy: Invalid revision(%v) for pod '%s' was on '%v'", revi, v, revisions[v])
+				kub.logger.Infof("CiliumPolicyAction: Invalid revision(%v) for pod '%s' was on '%v'", revi, v, revisions[v])
 				valid = false
 			} else {
 				waitingRev[v] = revi
@@ -515,9 +527,9 @@ func (kub *Kubectl) CiliumImportPolicy(namespace string, filepath string, timeou
 		if valid == true {
 			// Wait until all the pods are synced
 			for pod, rev := range waitingRev {
-				kub.logger.Infof("CiliumImportPolicy: Wait for endpoints to sync on pod '%s'", pod)
+				kub.logger.Infof("CiliumPolicyAction: Wait for endpoints to sync on pod '%s'", pod)
 				kub.ExecPodCmd(namespace, pod, fmt.Sprintf("cilium policy wait %d", rev))
-				kub.logger.Infof("CiliumImportPolicy: reivision %d in pod '%s' is ready", rev, pod)
+				kub.logger.Infof("CiliumPolicyAction: revision %d in pod '%s' is ready", rev, pod)
 			}
 			return true
 		}
@@ -525,7 +537,7 @@ func (kub *Kubectl) CiliumImportPolicy(namespace string, filepath string, timeou
 	}
 	err = WithTimeout(
 		body,
-		"cannot import policy correctly; command timed out",
+		"cannot change state of resource correctly; command timed out",
 		&TimeoutConfig{Timeout: timeout})
 	if err != nil {
 		return "", err

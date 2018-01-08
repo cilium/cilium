@@ -256,7 +256,7 @@ var _ = Describe("NightlyExamples", func() {
 		_, err = kubectl.WaitforPods(helpers.DefaultNamespace, "-l zgroup=testapp", 300)
 		Expect(err).Should(BeNil())
 
-		_, err = kubectl.CiliumImportPolicy(helpers.KubeSystemNamespace, l3Policy, 300)
+		_, err = kubectl.CiliumPolicyAction(helpers.KubeSystemNamespace, l3Policy, helpers.KubectlApply, 300)
 		Expect(err).Should(BeNil())
 
 		appPods := getAppPods()

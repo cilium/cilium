@@ -311,7 +311,9 @@ var _ = Describe("K8sServicesTest", func() {
 		Expect(err).Should(BeNil())
 
 		By(fmt.Sprintf("Getting Cilium Pod on node %s", helpers.K8s2))
-		ciliumPodK8s2, err := kubectl.GetCiliumPodOnNode(helpers.KubeSystemNamespace, helpers.K8s2)
+		//ciliumPodK8s2, err := kubectl.GetCiliumPodOnNode(helpers.KubeSystemNamespace, helpers.K8s2)
+		_, err = kubectl.GetCiliumPodOnNode(helpers.KubeSystemNamespace, helpers.K8s2)
+
 		Expect(err).Should(BeNil())
 
 		for _, resource := range resourceYamls {
@@ -320,6 +322,8 @@ var _ = Describe("K8sServicesTest", func() {
 			res := kubectl.Create(resourcePath)
 			defer func(resource string) {
 				By(fmt.Sprintf("Deleting resource %s", resourcePath))
+				// Can just delete without having to wait for policy revision,
+				// as the policies themselves are already deleted by this point.
 				kubectl.Delete(resourcePath)
 			}(resource)
 			res.ExpectSuccess()
@@ -383,23 +387,18 @@ var _ = Describe("K8sServicesTest", func() {
 		policyCmd = "cilium policy get io.cilium.k8s-policy-name=multi-rules"
 
 		By("Importing policy")
-		res := kubectl.Create(policyPath)
+
+		_, err = kubectl.CiliumPolicyAction(helpers.KubeSystemNamespace, policyPath, helpers.KubectlCreate, helpers.HelperTimeout)
+		Expect(err).Should(BeNil(), fmt.Sprintf("Error creating resource %s: %s", policyPath, err))
 		defer func() {
+
+			_, err := kubectl.CiliumPolicyAction(helpers.KubeSystemNamespace, policyPath, helpers.KubectlDelete, helpers.HelperTimeout)
+			Expect(err).Should(BeNil(), fmt.Sprintf("Error deleting resource %s: %s", policyPath, err))
+
 			By("Checking that all policies were deleted in Cilium")
 			output, err := kubectl.ExecPodCmd(helpers.KubeSystemNamespace, ciliumPodK8s1, policyCmd)
 			Expect(err).Should(Not(BeNil()), "policies should be deleted from Cilium: policies found: %s", output)
 		}()
-		defer kubectl.Delete(policyPath)
-
-		res.ExpectSuccess()
-
-		By("Waiting for endpoints on k8s1 to be in ready state")
-		areEndpointsReady = kubectl.CiliumEndpointWait(ciliumPodK8s1)
-		Expect(areEndpointsReady).Should(BeTrue())
-
-		By("Waiting for endpoints on k8s2 to be in ready state")
-		areEndpointsReady = kubectl.CiliumEndpointWait(ciliumPodK8s2)
-		Expect(areEndpointsReady).Should(BeTrue())
 
 		By("Checking that policies were correctly imported into Cilium")
 		_, err = kubectl.ExecPodCmd(helpers.KubeSystemNamespace, ciliumPodK8s1, policyCmd)
