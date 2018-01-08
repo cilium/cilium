@@ -105,6 +105,9 @@ end
 # we can run VMs locally without having any the `build_id` in the name.
 if ENV['BUILD_NUMBER'] then
     $build_id_name = "-build-#{$build_id}"
+    $rsync_exclude = ".git"
+else
+    $rsync_exclude = "GIT_VERSION"
 end
 
 if ENV['K8S'] then
@@ -162,7 +165,7 @@ Vagrant.configure(2) do |config|
             #  --archive: archive mode; equals -rlptgoD (no -H,-A,-X)
             #  -z: compress file data during the transfer
             config.vm.synced_folder '.', '/home/vagrant/go/src/github.com/cilium/cilium', type: "rsync",
-                rsync__exclude: ["src"], rsync__args: ["--verbose", "--archive", "--delete", "--force", "--delete-excluded", "-z", "--links", "--checksum"]
+                rsync__exclude: [$rsync_exclude, "src"], rsync__args: ["--verbose", "--archive", "--delete", "--force", "--delete-excluded", "-z", "--links", "--checksum"]
         end
     end
 
