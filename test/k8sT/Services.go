@@ -158,14 +158,16 @@ var _ = Describe("K8sServicesTest", func() {
 		var servicePath string
 
 		BeforeEach(func() {
-			servicePath = fmt.Sprintf("%s/headless_service.yaml", kubectl.ManifestsPath())
+			servicePath = kubectl.ManifestGet("headless_service.yaml")
 			res := kubectl.Apply(servicePath)
 			res.ExpectSuccess(res.GetDebugMessage())
 
-			endpointPath = fmt.Sprintf("%s/headless_endpoint.yaml", kubectl.ManifestsPath())
-			podPath = fmt.Sprintf("%s/headless_pod.yaml", kubectl.ManifestsPath())
-			policyPath = fmt.Sprintf("%s/headless_policy.yaml", kubectl.ManifestsPath())
+			endpointPath = kubectl.ManifestGet("headless_endpoint.yaml")
+			podPath = kubectl.ManifestGet("headless_pod.yaml")
+			policyPath = kubectl.ManifestGet("headless_policy.yaml")
 
+			res = kubectl.Apply(podPath)
+			res.ExpectSuccess()
 		})
 
 		AfterEach(func() {
@@ -225,9 +227,6 @@ var _ = Describe("K8sServicesTest", func() {
 			res := kubectl.Apply(endpointPath)
 			res.ExpectSuccess()
 
-			res = kubectl.Apply(podPath)
-			res.ExpectSuccess()
-
 			res = kubectl.Apply(policyPath)
 			res.ExpectSuccess()
 
@@ -236,10 +235,7 @@ var _ = Describe("K8sServicesTest", func() {
 		})
 
 		It("To Services first policy", func() {
-			res := kubectl.Apply(podPath)
-			res.ExpectSuccess()
-
-			res = kubectl.Apply(policyPath)
+			res := kubectl.Apply(policyPath)
 			res.ExpectSuccess()
 
 			res = kubectl.Apply(endpointPath)
