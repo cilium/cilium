@@ -63,6 +63,7 @@ var _ = Describe("RuntimeConntrackTable", func() {
 		server3       = "server-3"
 		client2       = "client-2"
 		client        = "client"
+		netcatPort    = 1111
 	)
 
 	initialize := func() {
@@ -163,11 +164,11 @@ var _ = Describe("RuntimeConntrackTable", func() {
 				"http://%s/public", net.JoinHostPort(dest, "80"))))
 			ExpectWithOffset(1, res.WasSuccessful()).Should(assertFn(), "Failed to curl '%s'", res.GetCmd())
 		case netcatPrivate:
-			cmd := fmt.Sprintf(`bash -c "python ./nc.py 1111 5 %s 80 "/private" | head -n 1 | grep \"HTTP/1.*200 OK\""`, dest)
+			cmd := fmt.Sprintf(`bash -c "python ./nc.py %d 5 %s 80 "/private" | head -n 1 | grep \"HTTP/1.*200 OK\""`, netcatPort, dest)
 			res := vm.ContainerExec(src, cmd)
 			ExpectWithOffset(1, res.WasSuccessful()).Should(assertFn(), "Failed to httpRequest '%s'", res.GetCmd())
 		case netcatPublic:
-			cmd := fmt.Sprintf(`bash -c "python ./nc.py 1111 5 %s 80 "/public" | head -n 1 | grep \"HTTP/1.*200 OK\""`, dest)
+			cmd := fmt.Sprintf(`bash -c "python ./nc.py %d 5 %s 80 "/public" | head -n 1 | grep \"HTTP/1.*200 OK\""`, netcatPort, dest)
 			res := vm.ContainerExec(src, cmd)
 			ExpectWithOffset(1, res.WasSuccessful()).Should(assertFn(), "Failed to httpRequest '%s'", res.GetCmd())
 		default:
@@ -175,8 +176,45 @@ var _ = Describe("RuntimeConntrackTable", func() {
 		}
 	}
 
+	policyL4 := `
+	[{
+		"endpointSelector": {"matchLabels":{"id.server-3":""}},
+		"ingress": [{
+			"fromEndpoints": [{
+			   "matchLabels":{"id.client":""}
+			}],
+			"toPorts": [{
+				"ports": [{"port": "80", "protocol": "tcp"}]
+			}]
+		}],
+		"labels": ["id=server-3"]
+	}]
+	`
+
+	policyL7 := `
+	[{
+		"endpointSelector": {"matchLabels":{"id.server-3":""}},
+		"ingress": [{
+			"fromEndpoints": [{
+			   "matchLabels":{"id.client":""}
+			}],
+			"toPorts": [{
+				"ports": [{"port": "80", "protocol": "tcp"}],
+				"rules": {"http": [{
+					  "path": "/public",
+					  "method": "GET"
+				}]}
+			}]
+		}],
+		"labels": ["id=server-4"]
+	}]`
+
 	BeforeEach(func() {
 		once.Do(initialize)
+	})
+
+	AfterEach(func() {
+		vm.SetPolicyEnforcement(helpers.PolicyEnforcementDefault)
 	})
 
 	It("tests conntrack tables between client to server", func() {
@@ -269,20 +307,7 @@ var _ = Describe("RuntimeConntrackTable", func() {
 
 		By("Checking Policy L4")
 		Expect(err).To(BeNil())
-		policyL4 := `
-		[{
-			"endpointSelector": {"matchLabels":{"id.server-3":""}},
-			"ingress": [{
-				"fromEndpoints": [{
-				   "matchLabels":{"id.client":""}
-				}],
-				"toPorts": [{
-					"ports": [{"port": "80", "protocol": "tcp"}]
-				}]
-			}],
-			"labels": ["id=server-3"]
-		}]
-		`
+
 		_, err = vm.PolicyRenderAndImport(policyL4)
 		Expect(err).To(BeNil())
 
@@ -305,23 +330,6 @@ var _ = Describe("RuntimeConntrackTable", func() {
 		res.WasSuccessful()
 
 		By("Checking Policy L7")
-		policyL7 := `
-		[{
-			"endpointSelector": {"matchLabels":{"id.server-3":""}},
-			"ingress": [{
-				"fromEndpoints": [{
-				   "matchLabels":{"id.client":""}
-				}],
-				"toPorts": [{
-					"ports": [{"port": "80", "protocol": "tcp"}],
-					"rules": {"http": [{
-						  "path": "/public",
-						  "method": "GET"
-					}]}
-				}]
-			}],
-			"labels": ["id=server-3"]
-		}]`
 		_, err = vm.PolicyRenderAndImport(policyL7)
 		Expect(err).To(BeNil())
 
@@ -342,7 +350,7 @@ var _ = Describe("RuntimeConntrackTable", func() {
 		}
 
 		for k, v := range CTBefore {
-			Expect(v).To(Equal(6),
+			Expect(v).To(BeNumerically("<=", 6),
 				"CT map should have exactly 6 and not %d entries for %s", v, k)
 		}
 
@@ -392,60 +400,81 @@ var _ = Describe("RuntimeConntrackTable", func() {
 
 		testReach(client, meta[server3][helpers.IPv4], HTTPDummy, BeTrue)
 		testReach(client, meta[server3][helpers.IPv6], HTTPDummy, BeTrue)
+
 	})
 
-	It("Check the CT cleanup on policyEnforcement default", func() {
-		res := vm.SetPolicyEnforcement(helpers.PolicyEnforcementDefault)
-		res.ExpectSuccess()
+	It("Checks CT entries forcing SRC port", func() {
 
-		res = vm.PolicyDelAll()
-		res.ExpectSuccess()
-
+		vm.SetPolicyEnforcement(helpers.PolicyEnforcementAlways)
 		containers(helpers.Create)
 		defer containers(helpers.Delete)
-
-		_, err := vm.PolicyImport(vm.GetFullPath(ctL4Policy), 300)
-		Expect(err).To(BeNil())
+		vm.WaitEndpointsReady()
 
 		meta := containersMeta()
 		identities, err := vm.GetEndpointsIdentityIds()
 		Expect(err).To(BeNil())
 
+		By("Checking Policy L4")
+		_, err = vm.PolicyRenderAndImport(policyL4)
+		Expect(err).To(BeNil())
+
 		testCombinations := []connTest{
-			{meta[client], meta[server], helpers.IPv6, http},
-			{meta[client], meta[server], helpers.IPv4, http},
-			{meta[client2], meta[server], helpers.IPv6, http},
-			{meta[client2], meta[server], helpers.IPv4, http},
+			{meta[client], meta[server3], helpers.IPv6, netcatPrivate},
+			{meta[client], meta[server3], helpers.IPv4, netcatPrivate},
+			{meta[client], meta[server3], helpers.IPv6, netcatPublic},
+			{meta[client], meta[server3], helpers.IPv4, netcatPublic},
 		}
 
 		for _, testCase := range testCombinations {
 			testReach(testCase.src[helpers.Name], testCase.destination[testCase.kind], testCase.mode, BeTrue)
-
-			data, err := countCTEntriesof(
-				testCase.destination[testCase.kind],
-				testCase.src[testCase.kind],
-				identities[testCase.src[helpers.Name]])
-			Expect(err).To(BeNil())
-			Expect(data).To(BeNumerically("<=", 2))
 		}
-		beforeCT, err := vm.ExecCilium("bpf ct list global | wc -l").IntOutput()
-		Expect(err).To(BeNil())
 
-		res = vm.PolicyDel("id=server")
-		res.ExpectSuccess()
+		By("Checking Policy L7")
+		_, err = vm.PolicyRenderAndImport(policyL4)
+		Expect(err).To(BeNil())
 
 		for _, testCase := range testCombinations {
-			data, err := countCTEntriesof(
-				testCase.destination[testCase.kind],
-				testCase.src[testCase.kind],
-				identities[testCase.src[helpers.Name]])
-			Expect(err).To(BeNil())
-			Expect(data).To(Equal(0))
+			assertfn := BeTrue
+			if strings.Contains(strings.ToLower(testCase.mode), "private") {
+				assertfn = BeFalse
+			}
+			testReach(testCase.src[helpers.Name], testCase.destination[testCase.kind], testCase.mode, assertfn)
 		}
 
-		afterCT, err := vm.ExecCilium("bpf ct list global | wc -l").IntOutput()
+		res := vm.PolicyDel("id=server-4")
+		res.WasSuccessful()
+
+		for _, testCase := range testCombinations {
+			testReach(testCase.src[helpers.Name], testCase.destination[testCase.kind], testCase.mode, BeTrue)
+		}
+
+		vm.PolicyDelAll().ExpectSuccess()
+		Expect(vm.WaitEndpointsReady()).To(BeTrue())
+
+		for _, testCase := range testCombinations {
+			testReach(testCase.src[helpers.Name], testCase.destination[testCase.kind], testCase.mode, BeFalse)
+		}
+
+		res = vm.SetPolicyEnforcement(helpers.PolicyEnforcementDefault)
+		res.ExpectSuccess()
+
+		testCombinations = []connTest{
+			{meta[client], meta[server], helpers.IPv6, HTTPPublic},
+			{meta[client], meta[server], helpers.IPv6, HTTPPublic},
+			{meta[client], meta[server], helpers.IPv4, HTTPPrivate},
+			{meta[client], meta[server], helpers.IPv4, HTTPPrivate},
+			{meta[client], meta[server], helpers.IPv6, netcatPrivate},
+			{meta[client], meta[server], helpers.IPv4, netcatPrivate},
+			{meta[client], meta[server], helpers.IPv6, netcatPublic},
+			{meta[client], meta[server], helpers.IPv4, netcatPublic},
+		}
+
+		data, err := countCTEntriesof(meta[server][helpers.IPv6], meta[client][helpers.IPv6], identities[client])
 		Expect(err).To(BeNil())
-		CTDiff := beforeCT - afterCT
-		Expect(CTDiff).To(BeNumerically("<=", 8), "CT map should have exactly 8 entries less and not %d after deleting the policy", CTDiff)
+		Expect(data).To(BeNumerically("<=", 8), "CT map should have exactly 8 entries or less ")
+
+		data, err = countCTEntriesof(meta[server][helpers.IPv4], meta[client][helpers.IPv4], identities[client])
+		Expect(err).To(BeNil())
+		Expect(data).To(BeNumerically("<=", 8), "CT map should have exactly 8 entries or less ")
 	})
 })
