@@ -53,3 +53,10 @@ test/tmp.yaml
 
 # Emacs backup files
 *~
+
+# Automatically generated when needed
+.dockerignore
+
+# Temporary files that allow build containers/VMs work without git
+GIT_VERSION
+envoy/SOURCE_VERSION

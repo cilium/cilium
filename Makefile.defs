@@ -7,7 +7,13 @@ GO = go
 INSTALL = install
 
 VERSION = $(shell cat $(dir $(lastword $(MAKEFILE_LIST)))/VERSION)
-BUILD = $(VERSION) $(shell git show -s --format='format:%h %aD') $(shell go version)
+# Use git only if in a Git repo
+ifneq ($(wildcard $(dir $(lastword $(MAKEFILE_LIST)))/.git),)
+	GIT_VERSION = $(shell git show -s --format='format:%h %aD')
+else
+	GIT_VERSION = $(shell cat $(dir $(lastword $(MAKEFILE_LIST)))/GIT_VERSION)
+endif
+BUILD = $(VERSION) $(GIT_VERSION) $(shell go version)
 GOBUILD = -ldflags '-X "github.com/cilium/cilium/pkg/version.Version=$(BUILD)"'
 
 # Uncomment to enable race detection

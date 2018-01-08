@@ -19,9 +19,6 @@ ifeq ("$(PKG_BUILD)","")
 
 all: $(BPF)
 
-clean-tags:
-	-rm -f cscope.out cscope.in.out cscope.po.out tags
-
 tags: *.c $(LIB)
 	cscope -R -b -q
 	ctags -R .
@@ -58,6 +55,9 @@ all:
 endif
 
 install:
+
+clean-tags:
+	-rm -f cscope.out cscope.in.out cscope.po.out tags
 
 clean: clean-tags
 	rm -fr *.o
