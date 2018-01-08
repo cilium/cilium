@@ -129,8 +129,8 @@ install:
 GIT_VERSION: .git
 	echo "$(GIT_VERSION)" >GIT_VERSION
 
-envoy/SOURCE_VERSION:
-	make -C envoy SOURCE_VERSION
+envoy/SOURCE_VERSION: .git
+	git rev-parse HEAD >>envoy/SOURCE_VERSION
 
 docker-image: clean GIT_VERSION envoy/SOURCE_VERSION
 	grep -v -E "(SOURCE|GIT)_VERSION" .gitignore >.dockerignore
@@ -143,7 +143,7 @@ docker-image-runtime:
 	cd contrib/packaging/docker && docker build -t "cilium/cilium-runtime:$(UTC_DATE)" -f Dockerfile.runtime .
 	echo "Update Dockerfile with the new tag and push like this when ready:\ndocker push cilium/cilium-runtime:$(UTC_DATE)"
 
-docker-image-builder: envoy/SOURCE_VERSION
+docker-image-builder:
 	cp contrib/packaging/docker/Dockerfile.builder envoy/.
 	cd envoy && docker build -t "cilium/cilium-builder:$(UTC_DATE)" -f Dockerfile.builder .
 	rm envoy/Dockerfile.builder
