@@ -1,10 +1,11 @@
 include Makefile.defs
+include daemon/bpf.sha
 
 SUBDIRS = envoy plugins bpf cilium daemon monitor cilium-health bugtool
 GOFILES ?= $(shell go list ./... | grep -v /vendor/ | grep -v /contrib/ | grep -v /test | grep -v envoy.*api)
 GOLANGVERSION = $(shell go version 2>/dev/null | grep -Eo '(go[0-9].[0-9])')
 GOLANG_SRCFILES=$(shell for pkg in $(subst github.com/cilium/cilium/,,$(GOFILES)); do find $$pkg -name *.go -print; done | grep -v /vendor/)
-BPF_SRCFILES=$(shell find bpf -name *.[ch] -print)
+BPF_SRCFILES=$(subst ../,,$(BPF_FILES))
 
 GOTEST_OPTS = -test.v -check.v
 
