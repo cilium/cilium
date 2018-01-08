@@ -7,7 +7,7 @@ source "${dir}/../helpers.bash"
 # dir might have been overwritten by helpers.bash
 dir=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
 
-node0=$(get_k8s_vm_name k8s0)
+builder=$(get_k8s_vm_name builder)
 node1=$(get_k8s_vm_name k8s1)
 node2=$(get_k8s_vm_name k8s2)
 
@@ -97,7 +97,7 @@ function run_tests(){
 }
 
 # Docker registry not needed after provisioning.
-VAGRANT_DEFAULT_PROVIDER=virtualbox vagrant destroy -f ${node0}
+VAGRANT_DEFAULT_PROVIDER=virtualbox vagrant destroy -f ${builder}
 
 # Run tests in k8s 1.6.6 (which is installed by default in Vagrantfile)
 run_tests "1.6.6-00"
