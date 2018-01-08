@@ -38,5 +38,6 @@ RUN groupadd -f cilium && \
 echo ". /etc/profile.d/bash_completion.sh" >> /root/.bashrc && \
 cilium completion bash >> /root/.bashrc
 ENV INITSYSTEM="SYSTEMD"
+ENV CILIUM_USE_ENVOY=1
 
 CMD ["/usr/bin/cilium"]
