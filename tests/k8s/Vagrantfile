@@ -87,11 +87,11 @@ Vagrant.configure(2) do |config|
         s.inline = "sudo sed -i '/tty/!s/mesg n/tty -s \\&\\& mesg n/' /root/.profile"
     end
 
-    # Set up k8s0 as Docker registry, running newer version of Docker to support staged
+    # Set up 'builder' as Docker registry, running newer version of Docker to support staged
     # builds and not running k8s.  This VM will be idle after k8s[12] have pulled the
     # newly built cilium image.
-    config.vm.define "k8s0#{$build_id_name}" do |s|
-        s.vm.hostname = "k8s-0"
+    config.vm.define "builder#{$build_id_name}" do |s|
+        s.vm.hostname = "builder"
 
         s.vm.provider "virtualbox" do |vb|
             # Do not inherit DNS server from host, use proxy
