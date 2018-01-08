@@ -7,6 +7,7 @@ source "${dir}/../helpers.bash"
 # dir might have been overwritten by helpers.bash
 dir=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
 
+node0=$(get_k8s_vm_name k8s0)
 node1=$(get_k8s_vm_name k8s1)
 node2=$(get_k8s_vm_name k8s2)
 
@@ -94,6 +95,9 @@ function run_tests(){
     # Run ipv6 tests
     #vmssh ${node2} 'set -e; for test in /home/vagrant/go/src/github.com/cilium/cilium/tests/k8s/tests/ipv6/*.sh; do $test; done'
 }
+
+# Docker registry not needed after provisioning.
+VAGRANT_DEFAULT_PROVIDER=virtualbox vagrant destroy -f ${node0}
 
 # Run tests in k8s 1.6.6 (which is installed by default in Vagrantfile)
 run_tests "1.6.6-00"

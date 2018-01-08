@@ -19,7 +19,7 @@ spec:
     spec:
       serviceAccountName: cilium
       containers:
-      - image: cilium:local_build
+      - image: cilium/cilium:local_build
         imagePullPolicy: Never
         name: cilium-agent
         command: [ "cilium-agent" ]

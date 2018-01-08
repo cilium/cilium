@@ -67,6 +67,7 @@ cat > "${dir}/kubernetes-csr.json" <<EOF
 {
   "CN": "kubernetes",
   "hosts": [
+    "192.168.36.10",
     "${KUBERNETES_MASTER_IP4}",
     "${KUBERNETES_MASTER_IP6}",
     "${KUBERNETES_MASTER_SVC_IP4}",

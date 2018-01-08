@@ -5,6 +5,14 @@
 Vagrant.require_version ">= 1.8.3"
 
 $build_docker_image = <<SCRIPT
+curl -s https://download.docker.com/linux/ubuntu/gpg | sudo apt-key add -
+sudo bash -c "cat <<EOF > /etc/apt/sources.list.d/docker.list
+deb [arch=amd64] https://download.docker.com/linux/ubuntu xenial stable
+EOF
+"
+sudo apt-get -qq update && sudo apt-get -qq install -y apt-transport-https docker-ce
+sudo usermod -aG docker vagrant
+docker -v
 certs_dir="/home/vagrant/go/src/github.com/cilium/cilium/tests/k8s/cluster/certs"
 cd /home/vagrant/go/src/github.com/cilium/cilium/
 docker run -d -p 5000:5000 --name registry -v ${certs_dir}:/certs \
@@ -12,16 +20,16 @@ docker run -d -p 5000:5000 --name registry -v ${certs_dir}:/certs \
         -e REGISTRY_HTTP_TLS_KEY=/certs/kubernetes-key.pem \
         registry:2
 make docker-image
-docker tag cilium:${DOCKER_IMAGE_TAG} localhost:5000/cilium:${DOCKER_IMAGE_TAG}
+docker tag cilium/cilium:${DOCKER_IMAGE_TAG} localhost:5000/cilium:${DOCKER_IMAGE_TAG}
 docker push localhost:5000/cilium:${DOCKER_IMAGE_TAG}
 SCRIPT
 
 $load_docker_image = <<SCRIPT
 certs_dir="/home/vagrant/go/src/github.com/cilium/cilium/tests/k8s/cluster/certs"
-sudo mkdir -p /etc/docker/certs.d/192.168.36.11:5000
-sudo cp ${certs_dir}/ca.pem /etc/docker/certs.d/192.168.36.11:5000/ca.crt
-docker pull 192.168.36.11:5000/cilium:${DOCKER_IMAGE_TAG}
-docker tag 192.168.36.11:5000/cilium:${DOCKER_IMAGE_TAG} cilium:${DOCKER_IMAGE_TAG}
+sudo mkdir -p /etc/docker/certs.d/192.168.36.10:5000
+sudo cp ${certs_dir}/ca.pem /etc/docker/certs.d/192.168.36.10:5000/ca.crt
+docker pull 192.168.36.10:5000/cilium:${DOCKER_IMAGE_TAG}
+docker tag 192.168.36.10:5000/cilium:${DOCKER_IMAGE_TAG} cilium/cilium:${DOCKER_IMAGE_TAG}
 SCRIPT
 
 $k8s_install = <<SCRIPT
@@ -79,6 +87,28 @@ Vagrant.configure(2) do |config|
         s.inline = "sudo sed -i '/tty/!s/mesg n/tty -s \\&\\& mesg n/' /root/.profile"
     end
 
+    # Set up k8s0 as Docker registry, running newer version of Docker to support staged
+    # builds and not running k8s.  This VM will be idle after k8s[12] have pulled the
+    # newly built cilium image.
+    config.vm.define "k8s0#{$build_id_name}" do |s|
+        s.vm.hostname = "k8s-0"
+
+        s.vm.provider "virtualbox" do |vb|
+            # Do not inherit DNS server from host, use proxy
+            vb.customize ["modifyvm", :id, "--natdnshostresolver1", "on"]
+            vb.customize ["modifyvm", :id, "--natdnsproxy1", "on"]
+            vb.memory = 3072
+            vb.cpus = 4
+
+            config.vm.synced_folder '../../', '/home/vagrant/go/src/github.com/cilium/cilium'
+        end
+
+        s.vm.network "private_network", ip: "192.168.36.10", virtualbox__intnet: "cilium-k8s-multi-test-#{$build_id}"
+        s.vm.network "private_network", ip: "192.168.37.10", bridge: "enp0s9"
+
+        s.vm.provision "build", type: "shell", env: {"DOCKER_IMAGE_TAG" => $docker_image_tag}, inline: $build_docker_image
+    end
+
     (1..2).each do |i|
         config.vm.define "k8s#{i}#{$build_id_name}" do |s|
             s.vm.hostname = "k8s-#{i}"
@@ -90,7 +120,9 @@ Vagrant.configure(2) do |config|
                 vb.customize ["modifyvm", :id, "--natdnshostresolver1", "on"]
                 vb.customize ["modifyvm", :id, "--natdnsproxy1", "on"]
                 vb.memory = 3072
-                config.vm.synced_folder '../../', '/home/vagrant/go/src/github.com/cilium/cilium'
+                vb.cpus = 4
+
+                config.vm.synced_folder '../', '/home/vagrant/go/src/github.com/cilium/cilium/tests'
             end
 
             s.vm.network "private_network", ip: "192.168.36.1#{i}", virtualbox__intnet: "cilium-k8s-multi-test-#{$build_id}"
@@ -106,13 +138,11 @@ Vagrant.configure(2) do |config|
             # first node is special and considered the master
             if "#{i}" == "1"
                 s.vm.provision "cilium-master-netconfig", type: "shell", run: "always", inline: $cilium_master
-                s.vm.provision "build", type: "shell", env: {"DOCKER_IMAGE_TAG" => $docker_image_tag}, inline: $build_docker_image
             else
                 s.vm.provision "kube-proxy-workaround", type: "shell", run: "always", inline: $kube_proxy_workaround
                 s.vm.provision "cilium-slave-netconfig", type: "shell", run: "always", inline: $cilium_slave
-                s.vm.provision "load-docker-image", type: "shell", env: {"DOCKER_IMAGE_TAG" => $docker_image_tag}, inline: $load_docker_image
             end
+            s.vm.provision "load-docker-image", type: "shell", env: {"DOCKER_IMAGE_TAG" => $docker_image_tag}, inline: $load_docker_image
         end
     end
 end
-
