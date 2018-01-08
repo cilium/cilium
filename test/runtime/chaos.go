@@ -16,6 +16,7 @@ package RuntimeTest
 
 import (
 	"crypto/md5"
+	"fmt"
 
 	"github.com/cilium/cilium/test/helpers"
 
@@ -108,5 +109,14 @@ var _ = Describe("RuntimeChaos", func() {
 		links, err := vm.Exec("sudo ip link show | wc -l").IntOutput()
 		Expect(links).Should(Equal(originalLinks),
 			"Some network interfaces were accidentally removed!")
+	}, 300)
+
+	It("Checking for file-descriptor leak", func() {
+		threshold := 5000
+		fds, err := vm.Exec("sudo lsof -p `pidof cilium-node-monitor` -p `pidof cilium-agent` -p `pidof cilium-docker` 2>/dev/null | wc -l").IntOutput()
+		Expect(err).Should(BeNil())
+
+		Expect(fds).To(BeNumerically("<", threshold),
+			fmt.Sprintf("%d file descriptors open from Cilium processes", fds))
 	}, 300)
 })
