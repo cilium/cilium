@@ -37,7 +37,7 @@ cat <<EOF > /etc/apt/sources.list.d/kubernetes.list
 deb http://apt.kubernetes.io/ kubernetes-xenial main
 EOF
 
-sudo rm /var/lib/apt/lists/lock
+sudo rm /var/lib/apt/lists/lock || true
 wget https://packages.cloud.google.com/apt/doc/apt-key.gpg
 apt-key add apt-key.gpg
 
@@ -64,6 +64,9 @@ sudo cp "$SYSTEMD_SERVICES/$MOUNT_SYSTEMD" /etc/systemd/system/
 sudo systemctl enable $MOUNT_SYSTEMD
 sudo systemctl restart $MOUNT_SYSTEMD
 sudo rm -rfv /var/lib/kubelet
+
+# Allow iptables forwarding so kube-dns can function.
+sudo iptables --policy FORWARD ACCEPT
 
 #check hostname to know if is kubernetes or runtime test
 if [[ "${HOST}" == "k8s1" ]]; then
