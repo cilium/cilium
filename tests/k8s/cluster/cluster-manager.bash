@@ -321,7 +321,7 @@ function deploy_cilium(){
     else
         # We still need to make some small modifications to the original cilium
         sed -e "s+- http://127.0.0.1:2379+- https://${controller_ip_brackets}:2379+g;\
-                s+image: cilium/cilium:stable+image: cilium:${docker_image_tag}+g;\
+                s+image: cilium/cilium:stable+image: cilium/cilium:${docker_image_tag}+g;\
                 s+imagePullPolicy: Always+imagePullPolicy: Never+g;\
                 s+debug: \"false\"+debug: \"true\"+g;\
                 s+#ca-file: '+ca-file: '+g;\
