@@ -395,27 +395,27 @@ for i in server{1..5} client misc; do
 done
 
 CLIENT_IP=$(docker inspect --format '{{ .NetworkSettings.Networks.cilium.GlobalIPv6Address }}' client)
-CLIENT_ID=$(cilium endpoint list | grep $CLIENT_IP | awk '{ print $1}')
+CLIENT_ID=$(cilium endpoint list --jsonpath="${CILIUM_JSONPATH_FMT}" | grep $CLIENT_IP | awk '{ print $1}')
 
 SERVER1_IP=$(docker inspect --format '{{ .NetworkSettings.Networks.cilium.GlobalIPv6Address }}' server1)
-SERVER1_ID=$(cilium endpoint list | grep $SERVER1_IP | awk '{ print $1}')
-SERVER1_IP4=$(cilium endpoint list | grep $SERVER1_IP | awk '{ print $7}')
+SERVER1_ID=$(cilium endpoint list -o jsonpath="${CILIUM_JSONPATH_FMT}" | grep $SERVER1_IP | awk '{ print $1}')
+SERVER1_IP4=$(cilium endpoint list -o jsonpath="${CILIUM_JSONPATH_FMT}" | grep $SERVER1_IP | awk '{ print $4}')
 
 SERVER2_IP=$(docker inspect --format '{{ .NetworkSettings.Networks.cilium.GlobalIPv6Address }}' server2)
-SERVER2_ID=$(cilium endpoint list | grep $SERVER2_IP | awk '{ print $1}')
-SERVER2_IP4=$(cilium endpoint list | grep $SERVER2_IP | awk '{ print $7}')
+SERVER2_ID=$(cilium endpoint list -o jsonpath="${CILIUM_JSONPATH_FMT}" | grep $SERVER2_IP | awk '{ print $1}')
+SERVER2_IP4=$(cilium endpoint list --jsonpath="${CILIUM_JSONPATH_FMT}" | grep $SERVER2_IP | awk '{ print $4}')
 
 SERVER3_IP=$(docker inspect --format '{{ .NetworkSettings.Networks.cilium.GlobalIPv6Address }}' server3)
-SERVER3_ID=$(cilium endpoint list | grep $SERVER3_IP | awk '{ print $1}')
-SERVER3_IP4=$(cilium endpoint list | grep $SERVER3_IP | awk '{ print $7}')
+SERVER3_ID=$(cilium endpoint list -o jsonpath="${CILIUM_JSONPATH_FMT}" | grep $SERVER3_IP | awk '{ print $1}')
+SERVER3_IP4=$(cilium endpoint list -o jsonpath="${CILIUM_JSONPATH_FMT}" | grep $SERVER3_IP | awk '{ print $4}')
 
 SERVER4_IP=$(docker inspect --format '{{ .NetworkSettings.Networks.cilium.GlobalIPv6Address }}' server4)
-SERVER4_ID=$(cilium endpoint list | grep $SERVER4_IP | awk '{ print $1}')
-SERVER4_IP4=$(cilium endpoint list | grep $SERVER4_IP | awk '{ print $7}')
+SERVER4_ID=$(cilium endpoint list -o jsonpath="${CILIUM_JSONPATH_FMT}" | grep $SERVER4_IP | awk '{ print $1}')
+SERVER4_IP4=$(cilium endpoint list -o jsonpath="${CILIUM_JSONPATH_FMT}" | grep $SERVER4_IP | awk '{ print $4}')
 
 SERVER5_IP=$(docker inspect --format '{{ .NetworkSettings.Networks.cilium.GlobalIPv6Address }}' server5)
-SERVER5_ID=$(cilium endpoint list | grep $SERVER5_IP | awk '{ print $1}')
-SERVER5_IP4=$(cilium endpoint list | grep $SERVER5_IP | awk '{ print $7}')
+SERVER5_ID=$(cilium endpoint list -o jsonpath="${CILIUM_JSONPATH_FMT}" | grep $SERVER5_IP | awk '{ print $1}')
+SERVER5_IP4=$(cilium endpoint list -o jsonpath="${CILIUM_JSONPATH_FMT}" | grep $SERVER5_IP | awk '{ print $4}')
 
 log "getting ConntrackLocal setting for client"
 cilium endpoint config $CLIENT_ID  | grep ConntrackLocal

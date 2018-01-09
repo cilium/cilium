@@ -7,6 +7,11 @@ LAST_LOG_DATE=""
 TEST_NET=cilium
 GOPS="/home/vagrant/go/bin/gops"
 
+# Convenience variables
+# A stable jsonpath format string that avoids CLI format changes
+#   EPID	POLICY	LABELS	SECID	IPV4	IPV6	STATE
+CILIUM_JSONPATH_FMT='{range [*]}{@.id}{"\t"}{@.policy-enabled}{"\t"}{@.labels.orchestration-identity}{"\t"}{@.identity.id}{"\t"}{@.addressing.ipv4}{"\t"}{@.addressing.ipv6}{"\t"}{@.state}{"\n"}{end}'
+
 # Variables used during Jenkins builds.
 BUILD_NUM="${BUILD_NUMBER:-0}"
 JOB_BASE="${JOB_BASE_NAME:-local}"
@@ -188,7 +193,7 @@ function wait_for_endpoints {
   set +e
   check_num_params "$#" "1"
   local NUM_DESIRED="$1"
-  local CMD="cilium endpoint list | grep -v \"not-ready\" | grep ready -c || true"
+  local CMD="cilium endpoint list -o jsonpath=${CILIUM_JSONPATH_FMT}" | grep ready -c || true"
   local INFO_CMD="cilium endpoint list"
   local MAX_MINS="2"
   local ERROR_OUTPUT="Timeout while waiting for $NUM_DESIRED endpoints"
@@ -201,10 +206,10 @@ function wait_for_endpoints {
 function wait_for_endpoints_deletion {
   local save=$-
   set +e
-  local NUM_DESIRED="2" # When no endpoints are present there should be two lines only.
-  local CMD="cilium endpoint list | wc -l || true"
+  local NUM_DESIRED="0" # When no endpoints are present there should be no lines.
+  local CMD="cilium endpoint list -o jsonpath="${CILIUM_JSONPATH_FMT}" | wc -l || true"
   local INFO_CMD="cilium endpoint list"
-  local MAX_MINS="2"
+  local MAX_MINS="0"
   local ERROR_OUTPUT="Timeout while waiting for endpoint removal"
   log "waiting for up to ${MAX_MINS} mins for all endpoints to be removed"
   wait_for_desired_state "$NUM_DESIRED" "$CMD" "$INFO_CMD" "$MAX_MINS" "$ERROR_OUTPUT"

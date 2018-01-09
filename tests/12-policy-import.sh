@@ -18,8 +18,8 @@ ALLOWED="Final verdict: ALLOWED"
 function test_policy_trace_policy_disabled {
   # If policy enforcement is disabled, then `cilium policy trace` should return that traffic is allowed between all security identities.
   wait_for_endpoints 3
-  local FOO_ID=$(cilium endpoint list | grep id.foo | awk '{print $1}')
-  local BAR_ID=$(cilium endpoint list | grep id.bar | awk '{ print $1}')
+  local FOO_ID=$(cilium endpoint list -o jsonpath="${CILIUM_JSONPATH_FMT}" | grep id.foo | awk '{print $1}')
+  local BAR_ID=$(cilium endpoint list -o jsonpath="${CILIUM_JSONPATH_FMT}" | grep id.bar | awk '{ print $1}')
   log "verify verbose trace for expected output using endpoint IDs "
   local TRACE_OUTPUT=$(cilium policy trace --src-endpoint $FOO_ID --dst-endpoint $BAR_ID -v)
   log "Trace output: ${TRACE_OUTPUT}"
@@ -145,8 +145,8 @@ if [[ "$DIFF" != "" ]]; then
   abort "$DIFF"
 fi
 
-BAR_ID=$(cilium endpoint list | grep id.bar | awk '{ print $1}')
-FOO_SEC_ID=$(cilium endpoint list | grep id.foo | awk '{ print $4}')
+BAR_ID=$(cilium endpoint list -o jsonpath="${CILIUM_JSONPATH_FMT}" | grep id.bar | awk '{ print $1}')
+FOO_SEC_ID=$(cilium endpoint list -o jsonpath="${CILIUM_JSONPATH_FMT}" | grep id.foo | awk '{ print $4}')
 
 EXPECTED_CONSUMER="1\n$FOO_SEC_ID"
 
@@ -190,10 +190,10 @@ if [[ "$DIFF" != "" ]]; then
   abort "$DIFF"
 fi
 
-FOO_ID=$(cilium endpoint list | grep id.foo | awk '{print $1}')
-BAR_ID=$(cilium endpoint list | grep id.bar | awk '{ print $1}')
-FOO_SEC_ID=$(cilium endpoint list | grep id.foo | awk '{ print $4}')
-BAR_SEC_ID=$(cilium endpoint list | grep id.bar | awk '{print $4}')
+FOO_ID=$(cilium endpoint list -o jsonpath="${CILIUM_JSONPATH_FMT}" | grep id.foo | awk '{print $1}')
+BAR_ID=$(cilium endpoint list -o jsonpath="${CILIUM_JSONPATH_FMT}" | grep id.bar | awk '{ print $1}')
+FOO_SEC_ID=$(cilium endpoint list -o jsonpath="${CILIUM_JSONPATH_FMT}" | grep id.foo | awk '{ print $4}')
+BAR_SEC_ID=$(cilium endpoint list -o jsonpath="${CILIUM_JSONPATH_FMT}" | grep id.bar | awk '{print $4}')
 
 log "verify verbose trace for expected output using security identities"
 DIFF=$(diff -Nru <(echo "$ALLOWED") <(cilium policy trace --src-identity $FOO_SEC_ID --dst-identity $BAR_SEC_ID -v | grep "Final verdict:")) || true

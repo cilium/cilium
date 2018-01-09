@@ -45,10 +45,10 @@ log "done starting containers"
 
 CLIENT_IP=$(docker inspect --format '{{ .NetworkSettings.Networks.cilium.GlobalIPv6Address }}' client)
 CLIENT_IP4=$(docker inspect --format '{{ .NetworkSettings.Networks.cilium.IPAddress }}' client)
-CLIENT_ID=$(cilium endpoint list | grep $CLIENT_IP | awk '{ print $1}')
+CLIENT_ID=$(cilium endpoint list -o jsonpath="${CILIUM_JSONPATH_FMT}" | grep $CLIENT_IP | awk '{ print $1}')
 SERVER_IP=$(docker inspect --format '{{ .NetworkSettings.Networks.cilium.GlobalIPv6Address }}' server)
 SERVER_IP4=$(docker inspect --format '{{ .NetworkSettings.Networks.cilium.IPAddress }}' server)
-SERVER_ID=$(cilium endpoint list | grep $SERVER_IP | awk '{ print $1}')
+SERVER_ID=$(cilium endpoint list -o jsonpath="${CILIUM_JSONPATH_FMT}" | grep $SERVER_IP | awk '{ print $1}')
 
 log "CLIENT_IP=$CLIENT_IP"
 log "CLIENT_IP4=$CLIENT_IP4"
