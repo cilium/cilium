@@ -15,6 +15,8 @@ IP=$2
 K8S_VERSION=$3
 DIR=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
 
+source ${PROVISIONSRC}/helpers.bash
+
 if [[ -f  "/etc/provision_finished" ]]; then
     sudo dpkg -l | grep kubelet
     echo "provision is finished, recompiling"
@@ -38,7 +40,7 @@ deb http://apt.kubernetes.io/ kubernetes-xenial main
 EOF
 
 sudo rm /var/lib/apt/lists/lock || true
-wget https://packages.cloud.google.com/apt/doc/apt-key.gpg
+retry_function "wget https://packages.cloud.google.com/apt/doc/apt-key.gpg"
 apt-key add apt-key.gpg
 
 case $K8S_VERSION in
@@ -50,13 +52,13 @@ case $K8S_VERSION in
         ;;
 esac
 
-apt-get update
-apt-get install --allow-downgrades -y \
+retry_function "apt-get update"
+retry_function "apt-get install --allow-downgrades -y \
     llvm \
-    kubernetes-cni="${KUBERNETES_CNI_VERSION}" \
-    kubelet="${K8S_VERSION}*" \
-    kubeadm="${K8S_VERSION}*" \
-    kubectl="${K8S_VERSION}*"
+    kubernetes-cni=${KUBERNETES_CNI_VERSION} \
+    kubelet=${K8S_VERSION}* \
+    kubeadm=${K8S_VERSION}* \
+    kubectl=${K8S_VERSION}* "
 
 sudo mkdir -p ${CILIUM_CONFIG_DIR}
 
