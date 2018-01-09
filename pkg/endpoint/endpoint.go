@@ -959,7 +959,11 @@ func ParseEndpoint(strEp string) (*Endpoint, error) {
 		return nil, fmt.Errorf("failed to parse base64toendpoint: %s", err)
 	}
 
-	if ep.Status == nil {
+	// We need to check for nil in Status, CurrentStatuses and Log, since in
+	// some use cases, status will be not nil and Cilium will eventually
+	// error/panic if CurrentStatus or Log are not initialized correctly.
+	// Reference issue GH-2477
+	if ep.Status == nil || ep.Status.CurrentStatuses == nil || ep.Status.Log == nil {
 		ep.Status = NewEndpointStatus()
 	}
 
