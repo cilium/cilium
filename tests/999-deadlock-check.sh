@@ -13,7 +13,7 @@ set -ex
 
 log "Checking for deadlocks in cilium service log"
 if $(journalctl -au cilium | grep -qi -B 5 -A 5 deadlock); then
-	abort "Deadlock during test run detected, check the log above for context"
+	abort "Deadlock during test run detected, check Cilium logs for context"
 fi
 
 test_succeeded "${TEST_NAME}"
