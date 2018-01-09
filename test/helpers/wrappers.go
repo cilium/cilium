@@ -45,7 +45,8 @@ func Ping6(endpoint string) string {
 // CurlFail returns the string representing the curl command with `-s` and `--fail`
 // options enabled to curl the specified endpoint.
 func CurlFail(endpoint string) string {
-	return fmt.Sprintf("curl -s --fail --connect-timeout %d %s", CurlConnectTimeout, endpoint)
+	return fmt.Sprintf("curl -s --fail --connect-timeout %[1]d --max-time %[1]d %[2]s",
+		CurlConnectTimeout, endpoint)
 }
 
 // Netperf returns the string representing the netperf command to use when testing
