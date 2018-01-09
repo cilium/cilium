@@ -147,6 +147,15 @@ EOF
     sudo mkdir -p /root/.kube
     sudo mkdir -p /var/lib/cilium/
 
+    cat <<EOF > /etc/docker/daemon.json
+{
+  "insecure-registries" : ["192.168.36.10:5000"]
+}
+EOF
+    echo "restarting Docker"
+    sudo service docker restart
+    echo "done restarting Docker"
+
     if [[ "$(hostname)" -eq "k8s-1" ]]; then
         sudo kubeadm init --config ./kubeadm-master.conf
 
