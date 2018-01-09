@@ -63,7 +63,7 @@ var _ = Describe("RuntimeConntrackTable", func() {
 		server3       = "server-3"
 		client2       = "client-2"
 		client        = "client"
-		netcatPort    = 1111
+		netcatPort    = 11111
 	)
 
 	initialize := func() {
@@ -215,6 +215,8 @@ var _ = Describe("RuntimeConntrackTable", func() {
 
 	AfterEach(func() {
 		vm.SetPolicyEnforcement(helpers.PolicyEnforcementDefault)
+		vm.PolicyDelAll()
+		netcatPort = 11111
 	})
 
 	It("tests conntrack tables between client to server", func() {
@@ -304,10 +306,9 @@ var _ = Describe("RuntimeConntrackTable", func() {
 
 		meta := containersMeta()
 		identities, err := vm.GetEndpointsIdentityIds()
-
-		By("Checking Policy L4")
 		Expect(err).To(BeNil())
 
+		By("Checking Policy L4")
 		_, err = vm.PolicyRenderAndImport(policyL4)
 		Expect(err).To(BeNil())
 
@@ -333,7 +334,6 @@ var _ = Describe("RuntimeConntrackTable", func() {
 		_, err = vm.PolicyRenderAndImport(policyL7)
 		Expect(err).To(BeNil())
 
-		vm.ExecCilium("bpf ct flush global").WasSuccessful()
 		CTBefore := map[string]int{}
 		for _, testCase := range testCombinations {
 			assertfn := BeTrue
@@ -368,10 +368,10 @@ var _ = Describe("RuntimeConntrackTable", func() {
 		}
 
 		for k, v := range CTBefore {
-			Expect(v).To(Equal(6), "CT Tables are not reusing connections for %s", k)
+			Expect(v).To(BeNumerically("<=", 6), "CT Tables are not reusing connections for %s", k)
 		}
 
-		res = vm.PolicyDel("id=server-3")
+		res = vm.PolicyDel("id=server-4")
 		res.WasSuccessful()
 
 		By("Checking Policy L7 Dummy")
@@ -394,12 +394,13 @@ var _ = Describe("RuntimeConntrackTable", func() {
 		}]`
 		_, err = vm.PolicyRenderAndImport(policyL7Dummy)
 		Expect(err).To(BeNil())
-		for _, testCase := range testCombinations {
-			testReach(testCase.src[helpers.Name], testCase.destination[testCase.kind], testCase.mode, BeFalse)
-		}
 
 		testReach(client, meta[server3][helpers.IPv4], HTTPDummy, BeTrue)
 		testReach(client, meta[server3][helpers.IPv6], HTTPDummy, BeTrue)
+
+		for _, testCase := range testCombinations {
+			testReach(testCase.src[helpers.Name], testCase.destination[testCase.kind], testCase.mode, BeFalse)
+		}
 
 	})
 
@@ -430,7 +431,8 @@ var _ = Describe("RuntimeConntrackTable", func() {
 		}
 
 		By("Checking Policy L7")
-		_, err = vm.PolicyRenderAndImport(policyL4)
+
+		_, err = vm.PolicyRenderAndImport(policyL7)
 		Expect(err).To(BeNil())
 
 		for _, testCase := range testCombinations {
@@ -449,31 +451,46 @@ var _ = Describe("RuntimeConntrackTable", func() {
 		}
 
 		vm.PolicyDelAll().ExpectSuccess()
-		Expect(vm.WaitEndpointsReady()).To(BeTrue())
+		Expect(vm.WaitEndpointsReady()).To(BeTrue(), "Endpoints are not ready after timeout")
 
 		for _, testCase := range testCombinations {
 			testReach(testCase.src[helpers.Name], testCase.destination[testCase.kind], testCase.mode, BeFalse)
 		}
 
+		By("Set policyEnforcement default")
 		res = vm.SetPolicyEnforcement(helpers.PolicyEnforcementDefault)
 		res.ExpectSuccess()
 
+		areEndpointsReady := vm.WaitEndpointsReady()
+		Expect(areEndpointsReady).Should(BeTrue(), "Endpoints not ready after timeout")
+
 		testCombinations = []connTest{
-			{meta[client], meta[server], helpers.IPv6, HTTPPublic},
-			{meta[client], meta[server], helpers.IPv6, HTTPPublic},
-			{meta[client], meta[server], helpers.IPv4, HTTPPrivate},
-			{meta[client], meta[server], helpers.IPv4, HTTPPrivate},
-			{meta[client], meta[server], helpers.IPv6, netcatPrivate},
-			{meta[client], meta[server], helpers.IPv4, netcatPrivate},
-			{meta[client], meta[server], helpers.IPv6, netcatPublic},
-			{meta[client], meta[server], helpers.IPv4, netcatPublic},
+			{meta[client], meta[server3], helpers.IPv6, HTTPPublic},
+			{meta[client], meta[server3], helpers.IPv6, HTTPPublic},
+			{meta[client], meta[server3], helpers.IPv4, HTTPPrivate},
+			{meta[client], meta[server3], helpers.IPv4, HTTPPrivate},
+			{meta[client], meta[server3], helpers.IPv6, netcatPrivate},
+			{meta[client], meta[server3], helpers.IPv4, netcatPrivate},
+			{meta[client], meta[server3], helpers.IPv6, netcatPublic},
+			{meta[client], meta[server3], helpers.IPv4, netcatPublic},
 		}
 
-		data, err := countCTEntriesof(meta[server][helpers.IPv6], meta[client][helpers.IPv6], identities[client])
+		for _, testCase := range testCombinations {
+			testReach(testCase.src[helpers.Name], testCase.destination[testCase.kind], testCase.mode, BeTrue)
+		}
+
+		// Using a different netcat source port
+		netcatPort = 11112
+		testReach(client, meta[server3][helpers.IPv4], netcatPrivate, BeTrue)
+		testReach(client, meta[server3][helpers.IPv6], netcatPrivate, BeTrue)
+		netcatPort = 11111
+
+		By("Checking CT entries from server3-client")
+		data, err := countCTEntriesof(meta[server3][helpers.IPv6], meta[client][helpers.IPv6], identities[client])
 		Expect(err).To(BeNil())
 		Expect(data).To(BeNumerically("<=", 8), "CT map should have exactly 8 entries or less ")
 
-		data, err = countCTEntriesof(meta[server][helpers.IPv4], meta[client][helpers.IPv4], identities[client])
+		data, err = countCTEntriesof(meta[server3][helpers.IPv4], meta[client][helpers.IPv4], identities[client])
 		Expect(err).To(BeNil())
 		Expect(data).To(BeNumerically("<=", 8), "CT map should have exactly 8 entries or less ")
 	})
