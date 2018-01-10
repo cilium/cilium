@@ -612,31 +612,6 @@ func (s *SSHMeta) ServiceDelAll() *CmdRes {
 	return s.ExecCilium("service delete --all")
 }
 
-// SetUpCilium sets up Cilium as a systemd service with a hardcoded set of options. It
-// returns an error if any of the operations needed to start Cilium fails.
-func (s *SSHMeta) SetUpCilium() error {
-	template := `
-PATH=/usr/lib/llvm-3.8/bin:/usr/local/sbin:/usr/local/bin:/usr/bin:/usr/sbin:/sbin:/bin
-CILIUM_OPTS=--kvstore consul --kvstore-opt consul.address=127.0.0.1:8500 --debug
-INITSYSTEM=SYSTEMD`
-
-	err := RenderTemplateToFile("cilium", template, os.ModePerm)
-	if err != nil {
-		return err
-	}
-	defer os.Remove("cilium")
-
-	res := s.Exec("sudo cp /vagrant/cilium /etc/sysconfig/cilium")
-	if !res.WasSuccessful() {
-		return fmt.Errorf("%s", res.CombineOutput())
-	}
-	res = s.Exec("sudo systemctl restart cilium")
-	if !res.WasSuccessful() {
-		return fmt.Errorf("%s", res.CombineOutput())
-	}
-	return nil
-}
-
 // WaitUntilReady waits until the output of `cilium status` returns with code
 // zero. Returns an error if the output of `cilium status` returns a nonzero
 // return code after the specified timeout duration has elapsed.
