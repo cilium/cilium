@@ -16,7 +16,46 @@ We use GitHub issues to maintain a list of `Cilium Frequently Asked Questions
 (FAQ)`_. You can also check there to see if your question(s) is already
 addressed.
 
+Connectivity Issues
+===================
 
+Node to node traffic is being dropped
+-------------------------------------
+
+Symptom
+~~~~~~~
+
+Endpoint to endpoint communication on a single node succeeds but communication
+fails between endpoints across multiple nods.
+
+Troubleshooting steps:
+~~~~~~~~~~~~~~~~~~~~~~
+
+1. Run `cilium monitor` on the node of the source and destination endpoint.
+   Look for packet drops.
+
+When running in :ref:`arch_overlay` mode:
+
+2. Run `cilium bpf tunnel list` and verify that each Cilium node is aware of
+   the other nodes in the cluster.  If not, check the logfile for errors.
+
+3. If nodes are being populated correctly, run `tcpdump -n -i cilium_vxlan` on
+   each node to verify whether cross node traffic is being forwarded correctly
+   between nodes.
+   
+   If packets are being dropped,
+   
+   * verify that the node IP listed in `cilium bpf tunnel list` can reach each
+     other.
+   * verify that the firewall on each node allows UDP port 4789.
+
+When running in :ref:`arch_direct_routing` mode:
+
+2. Run `ip route` or check your cloud provider router and verify that you have
+   routes installed to route the endpoint prefix between all nodes.
+
+3. Verify that the firewall on each node permits to route the endpoint IPs.
+ 
 Monitoring Packet Drops
 =======================
 
