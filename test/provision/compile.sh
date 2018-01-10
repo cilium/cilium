@@ -25,8 +25,8 @@ then
         echo "No on master K8S node; no need to compile Cilium container"
     fi
 else
-    make
-    make install
+    CILIUM_USE_ENVOY=1 make
+    CILIUM_USE_ENVOY=1 make install
     mkdir -p /etc/sysconfig/
     cp -f contrib/systemd/cilium /etc/sysconfig/cilium
     for svc in $(ls -1 ./contrib/systemd/*.*); do
