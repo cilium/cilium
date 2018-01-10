@@ -378,8 +378,13 @@ func copyCiliumInfo(ciliumDir string, k8sPods []string) {
 	sources := []string{
 		// Most of the output should come via debuginfo but also adding
 		// these ones for skimming purposes
-		"cilium debuginfo", "cilium config", "cilium bpf tunnel list", "cilium bpf lb list",
-		"cilium bpf endpoint list", "cilium bpf ct list global",
+		"cilium debuginfo",
+		"cilium config",
+		"cilium bpf tunnel list",
+		"cilium bpf lb list",
+		"cilium bpf endpoint list",
+		"cilium bpf ct list global",
+		"cilium status",
 	}
 
 	stateDir := filepath.Join(defaults.RuntimePath, defaults.StateDir)
