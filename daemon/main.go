@@ -49,6 +49,7 @@ import (
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/pprof"
 	"github.com/cilium/cilium/pkg/version"
+	"github.com/cilium/cilium/pkg/workloads"
 	"github.com/cilium/cilium/pkg/workloads/containerd"
 
 	"github.com/facebookgo/pidfile"
@@ -81,6 +82,7 @@ var (
 	autoIPv6NodeRoutes    bool
 	bpfRoot               string
 	cmdRefDir             string
+	containerRuntimes     []string
 	disableConntrack      bool
 	dockerEndpoint        string
 	enableLogstash        bool
@@ -109,20 +111,22 @@ var (
 	validLabels           []string
 )
 
-var logOpts = make(map[string]string)
-var kvStoreOpts = make(map[string]string)
+var (
+	logOpts               = make(map[string]string)
+	kvStoreOpts           = make(map[string]string)
+	containerRuntimesOpts = make(map[string]string)
+	cfgFile               string
 
-var cfgFile string
-
-// RootCmd represents the base command when called without any subcommands
-var RootCmd = &cobra.Command{
-	Use:   "cilium-agent",
-	Short: "Run the cilium agent",
-	Run: func(cmd *cobra.Command, args []string) {
-		initEnv(cmd)
-		runDaemon()
-	},
-}
+	// RootCmd represents the base command when called without any subcommands
+	RootCmd = &cobra.Command{
+		Use:   "cilium-agent",
+		Short: "Run the cilium agent",
+		Run: func(cmd *cobra.Command, args []string) {
+			initEnv(cmd)
+			runDaemon()
+		},
+	}
+)
 
 func main() {
 
@@ -327,6 +331,10 @@ func init() {
 		"bpf-root", "", "Path to BPF filesystem")
 	flags.StringVar(&cfgFile,
 		"config", "", `Configuration file (default "$HOME/ciliumd.yaml")`)
+	flags.StringSliceVar(&containerRuntimes,
+		"container-runtime", []string{"auto"}, `Sets the container runtime(s) used by Cilium { docker | none | auto }"`)
+	flags.Var(option.NewNamedMapOptions("container-runtime-endpoints", &containerRuntimesOpts, nil),
+		"container-runtime-endpoint", `Container runtime(s) endpoint(s). (default: --container-runtime-endpoint=docker=`+workloads.GetRuntimeDefaultOpt(workloads.Docker).Endpoint+`)`)
 	flags.BoolP(
 		"debug", "D", false, "Enable debugging mode")
 	flags.StringVarP(&config.Device,
@@ -338,7 +346,7 @@ func init() {
 	flags.Bool("disable-k8s-services",
 		false, "Disable east-west K8s load balancing by cilium")
 	flags.StringVarP(&dockerEndpoint,
-		"docker", "e", "unix:///var/run/docker.sock", "Path to docker runtime socket")
+		"docker", "e", workloads.GetRuntimeDefaultOpt(workloads.Docker).Endpoint, "Path to docker runtime socket (DEPRECATED: use container-runtime-endpoint instead)")
 	flags.String("enable-policy", endpoint.DefaultEnforcement, "Enable policy enforcement")
 	flags.BoolVar(&enableTracing,
 		"enable-tracing", false, "Enable tracing while determining policy (debugging)")
@@ -637,6 +645,23 @@ func initEnv(cmd *cobra.Command) {
 	}
 
 	k8s.Configure(k8sAPIServer, k8sKubeConfigPath)
+
+	// workaround for to use the values of the deprecated dockerEndpoint
+	// variable if it is set with a different value than defaults.
+	defaultDockerEndpoint := workloads.GetRuntimeDefaultOpt(workloads.Docker).Endpoint
+	if defaultDockerEndpoint != dockerEndpoint {
+		containerRuntimesOpts[string(workloads.Docker)] = dockerEndpoint
+		log.Warn(`"docker" flag is deprecated.` +
+			`Please use "--container-runtime-endpoint=docker=` + defaultDockerEndpoint + `" instead`)
+	}
+
+	err = workloads.ParseConfig(containerRuntimes, containerRuntimesOpts)
+	if err != nil {
+		log.WithError(err).Fatal("Unable to initialize policy container runtimes")
+		return
+	}
+
+	log.Infof("Container runtimes being used: %s", workloads.GetRuntimesString())
 }
 
 func runDaemon() {

@@ -33,11 +33,6 @@ var (
 	dockerClient *client.Client
 )
 
-// Client returns the default containerd client
-func Client() *client.Client {
-	return dockerClient
-}
-
 // Init initializes the containerd package
 func Init(endpoint string) error {
 	defaultHeaders := map[string]string{"User-Agent": "cilium"}

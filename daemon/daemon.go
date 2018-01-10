@@ -934,8 +934,10 @@ func NewDaemon(c *Config) (*Daemon, error) {
 		return nil, fmt.Errorf("Configuration is nil")
 	}
 
-	if err := containerd.Init(dockerEndpoint); err != nil {
-		return nil, err
+	if opts := workloads.GetRuntimeOpt(workloads.Docker); opts != nil {
+		if err := containerd.Init(dockerEndpoint); err != nil {
+			return nil, err
+		}
 	}
 
 	lb := types.NewLoadBalancer()

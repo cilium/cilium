@@ -60,6 +60,10 @@ func shortContainerID(id string) string {
 // EnableEventListener watches for docker events. Performs the plumbing for the
 // containers started or dead.
 func EnableEventListener() error {
+	if dockerClient == nil {
+		return nil
+	}
+
 	since := time.Now()
 	ws := newWatcherState(eventQueueBufferSize)
 	ws.syncWithRuntime()
@@ -347,6 +351,10 @@ func retrieveDockerLabels(dockerID string) (*dTypes.ContainerJSON, labels.Labels
 // their IP address, then adds the containers to the list of ignored containers
 // and allocates the IPs they are using to prevent future collisions.
 func IgnoreRunningContainers() {
+	if dockerClient == nil {
+		return
+	}
+
 	conts, err := dockerClient.ContainerList(ctx.Background(), dTypes.ContainerListOptions{})
 	if err != nil {
 		return
