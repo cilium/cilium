@@ -80,33 +80,33 @@ var (
 	// autoIPv6NodeRoutes automatically adds L3 direct routing when using direct mode (-d)
 	autoIPv6NodeRoutes    bool
 	bpfRoot               string
+	cmdRefDir             string
 	disableConntrack      bool
-	enableTracing         bool
+	dockerEndpoint        string
 	enableLogstash        bool
-	kvStore               string
-	validLabels           []string
-	labelPrefixFile       string
-	logstashAddr          string
-	logstashProbeTimer    uint32
-	loggers               []string
-	nat46prefix           string
-	socketPath            string
-	tracePayloadLen       int
-	v4Prefix              string
-	v6Prefix              string
-	v4Address             string
-	v6Address             string
-	masquerade            bool
-	v4ClusterCidrMaskSize int
-	v4ServicePrefix       string
-	v6ServicePrefix       string
+	enableTracing         bool
 	k8sAPIServer          string
 	k8sKubeConfigPath     string
-	dockerEndpoint        string
-	singleClusterRoute    bool
-	useEnvoy              bool
+	kvStore               string
+	labelPrefixFile       string
+	loggers               []string
+	logstashAddr          string
+	logstashProbeTimer    uint32
+	masquerade            bool
+	nat46prefix           string
 	prometheusServeAddr   string
-	cmdRefDir             string
+	singleClusterRoute    bool
+	socketPath            string
+	tracePayloadLen       int
+	useEnvoy              bool
+	v4Address             string
+	v4ClusterCidrMaskSize int
+	v4Prefix              string
+	v4ServicePrefix       string
+	v6Address             string
+	v6Prefix              string
+	v6ServicePrefix       string
+	validLabels           []string
 )
 
 var logOpts = make(map[string]string)
@@ -327,16 +327,10 @@ func init() {
 		"bpf-root", "", "Path to BPF filesystem")
 	flags.StringVar(&cfgFile,
 		"config", "", `Configuration file (default "$HOME/ciliumd.yaml")`)
-	flags.IntVar(&v4ClusterCidrMaskSize,
-		"ipv4-cluster-cidr-mask-size", 8, "Mask size for the cluster wide CIDR")
 	flags.BoolP(
 		"debug", "D", false, "Enable debugging mode")
 	flags.StringVarP(&config.Device,
 		"device", "d", "undefined", "Device facing cluster/external network for direct L3 (non-overlay mode)")
-	flags.StringVarP(&config.DevicePreFilter,
-		"prefilter-device", "", "undefined", "Device facing external network for XDP prefiltering")
-	flags.StringVarP(&config.ModePreFilter,
-		"prefilter-mode", "", ModePreFilterNative, "Prefilter mode { "+ModePreFilterNative+" | "+ModePreFilterGeneric+" } (default: "+ModePreFilterNative+")")
 	flags.BoolVar(&disableConntrack,
 		"disable-conntrack", false, "Disable connection tracking")
 	flags.BoolVar(&config.IPv4Disabled,
@@ -351,6 +345,8 @@ func init() {
 	flags.BoolVar(&useEnvoy,
 		"envoy-proxy", false, "Use Envoy for HTTP proxy")
 	viper.BindEnv("envoy-proxy", "CILIUM_USE_ENVOY")
+	flags.IntVar(&v4ClusterCidrMaskSize,
+		"ipv4-cluster-cidr-mask-size", 8, "Mask size for the cluster wide CIDR")
 	flags.StringVar(&v4Prefix,
 		"ipv4-range", AutoCIDR, "Per-node IPv4 endpoint prefix, e.g. 10.16.0.0/16")
 	flags.StringVar(&v6Prefix,
@@ -413,6 +409,10 @@ func init() {
 		"version", false, "Print version information")
 	flags.Bool(
 		"pprof", false, "Enable serving the pprof debugging API")
+	flags.StringVarP(&config.DevicePreFilter,
+		"prefilter-device", "", "undefined", "Device facing external network for XDP prefiltering")
+	flags.StringVarP(&config.ModePreFilter,
+		"prefilter-mode", "", ModePreFilterNative, "Prefilter mode { "+ModePreFilterNative+" | "+ModePreFilterGeneric+" } (default: "+ModePreFilterNative+")")
 	// We expect only one of the possible variables to be filled. The evaluation order is:
 	// --prometheus-serve-addr, CILIUM_PROMETHEUS_SERVE_ADDR, then PROMETHEUS_SERVE_ADDR
 	// The second environment variable (without the CILIUM_ prefix) is here to
@@ -422,6 +422,7 @@ func init() {
 		"prometheus-serve-addr", "", "IP:Port on which to serve prometheus metrics (pass \":Port\" to bind on all interfaces, \"\" is off)")
 	viper.BindEnv("prometheus-serve-addr", "CILIUM_PROMETHEUS_SERVE_ADDR")
 	viper.BindEnv("prometheus-serve-addr-deprecated", "PROMETHEUS_SERVE_ADDR")
+
 	flags.StringVar(&cmdRefDir,
 		"cmdref", "", "Path to cmdref output directory")
 	flags.MarkHidden("cmdref")
