@@ -25,6 +25,10 @@ import (
 // IsRunning returns false if the provided endpoint cannot be associated with a
 // running workload. The runtime must be reachable to make this decision.
 func IsRunning(ep *endpoint.Endpoint) bool {
+	if dockerClient == nil {
+		return false
+	}
+
 	runtimeRunning := false
 
 	networkID := ep.GetDockerNetworkID()
@@ -71,6 +75,10 @@ func IsRunning(ep *endpoint.Endpoint) bool {
 
 // Status returns the status of the workload runtime
 func Status() *models.Status {
+	if dockerClient == nil {
+		return &models.Status{State: models.StatusStateDisabled}
+	}
+
 	if _, err := dockerClient.Info(ctx.Background()); err != nil {
 		return &models.Status{State: models.StatusStateFailure, Msg: err.Error()}
 	}

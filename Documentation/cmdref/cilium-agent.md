@@ -22,12 +22,14 @@ cilium-agent
       --auto-ipv6-node-routes             Automatically adds IPv6 L3 routes to reach other nodes for non-overlay mode (--device) (BETA)
       --bpf-root string                   Path to BPF filesystem
       --config string                     Configuration file (default "$HOME/ciliumd.yaml")
+      --container-runtime stringSlice     Sets the container runtime(s) used by Cilium { docker | none | auto }" (default [auto])
+      --container-runtime-endpoint map    Container runtime(s) endpoint(s). (default: --container-runtime-endpoint=docker=unix:///var/run/docker.sock) (default map[])
   -D, --debug                             Enable debugging mode
   -d, --device string                     Device facing cluster/external network for direct L3 (non-overlay mode) (default "undefined")
       --disable-conntrack                 Disable connection tracking
       --disable-ipv4                      Disable IPv4 mode
       --disable-k8s-services              Disable east-west K8s load balancing by cilium
-  -e, --docker string                     Path to docker runtime socket (default "unix:///var/run/docker.sock")
+  -e, --docker string                     Path to docker runtime socket (DEPRECATED: use container-runtime-endpoint instead) (default "unix:///var/run/docker.sock")
       --enable-policy string              Enable policy enforcement (default "default")
       --enable-tracing                    Enable tracing while determining policy (debugging)
       --envoy-proxy                       Use Envoy for HTTP proxy
