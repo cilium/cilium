@@ -17,6 +17,7 @@ package RuntimeTest
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 
 	"github.com/cilium/cilium/test/helpers"
 
@@ -566,6 +567,9 @@ var _ = Describe("RuntimePolicies", func() {
 		err = helpers.RenderTemplateToFile(ingressJSON, script, 0777)
 		Expect(err).Should(BeNil())
 
+		err = vm.SCPToVM(ingressJSON, filepath.Join(helpers.BasePath, ingressJSON))
+		Expect(err).Should(BeNil())
+
 		path := helpers.GetFilePath(ingressJSON)
 		_, err = vm.PolicyImport(path, helpers.HelperTimeout)
 		Expect(err).Should(BeNil())
@@ -597,6 +601,10 @@ var _ = Describe("RuntimePolicies", func() {
 		}]`, helpers.App1, httpd1[helpers.IPv4], httpd1[helpers.IPv6])
 		err = helpers.RenderTemplateToFile(egressJSON, script, 0777)
 		Expect(err).Should(BeNil())
+
+		err = vm.SCPToVM(egressJSON, filepath.Join(helpers.BasePath, egressJSON))
+		Expect(err).Should(BeNil())
+
 		path = helpers.GetFilePath(egressJSON)
 		defer os.Remove(egressJSON)
 		_, err = vm.PolicyImport(path, helpers.HelperTimeout)
@@ -693,6 +701,9 @@ var _ = Describe("RuntimePolicies", func() {
 			err := helpers.RenderTemplateToFile(invalidJSON, data, 0777)
 			Expect(err).Should(BeNil())
 
+			err = vm.SCPToVM(invalidJSON, filepath.Join(helpers.BasePath, invalidJSON))
+			Expect(err).Should(BeNil())
+
 			path := helpers.GetFilePath(invalidJSON)
 			_, err = vm.PolicyImport(path, helpers.HelperTimeout)
 			Expect(err).Should(HaveOccurred())
@@ -755,6 +766,11 @@ var _ = Describe("RuntimePolicies", func() {
 		err := helpers.RenderTemplateToFile(policyJSON, policy, 0777)
 		Expect(err).Should(BeNil())
 
+		By("scping file to vm")
+		err = vm.SCPToVM(policyJSON, filepath.Join(helpers.BasePath, policyJSON))
+		Expect(err).Should(BeNil())
+
+		By("getting file path")
 		path := helpers.GetFilePath(policyJSON)
 		_, err = vm.PolicyImport(path, helpers.HelperTimeout)
 		Expect(err).Should(BeNil())

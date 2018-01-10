@@ -21,6 +21,7 @@ import (
 	"io"
 	"os"
 
+	"github.com/onsi/ginkgo"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/crypto/ssh"
 )
@@ -40,6 +41,45 @@ func CreateSSHMeta(host string, port int, user string) *SSHMeta {
 	return &SSHMeta{
 		sshClient: GetSSHClient(host, port, user),
 	}
+}
+
+// SCPToVM uses scp to copy src to dst on s. Returns an error if the scp cannot
+// be completed successfully.
+func (s *SSHMeta) SCPToVM(src, dst string) error {
+	log.Infof("copying %s to host %s at path %s", src, s.String(), dst)
+	config, err := GetVagrantSSHMetadata(s.nodeName)
+	if err != nil {
+		return nil
+	}
+	nodes, err := ImportSSHconfig(config)
+	if err != nil {
+		log.WithError(err).Error("Error importing ssh config")
+		return nil
+	}
+	node := nodes[s.nodeName]
+	cmdString := node.GenerateSCPToCommand(src, dst)
+	cmd := getCmd(cmdString)
+
+	stdout, err := cmd.StdoutPipe()
+	if err != nil {
+		return fmt.Errorf("error getting stdout: %s", err)
+	}
+	stderr, err := cmd.StderrPipe()
+	if err != nil {
+		return fmt.Errorf("error getting stderr: %s", err)
+	}
+
+	go io.Copy(ginkgo.GinkgoWriter, stderr)
+	go io.Copy(ginkgo.GinkgoWriter, stdout)
+
+	if err := cmd.Start(); err != nil {
+		log.WithFields(logrus.Fields{
+			"command": cmdString,
+			"err":     err,
+		}).Fatalf("error running scp command")
+		return err
+	}
+	return nil
 }
 
 func (s *SSHMeta) String() string {

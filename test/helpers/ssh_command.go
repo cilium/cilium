@@ -64,6 +64,12 @@ type SSHConfig struct {
 // SSHConfigs maps the name of a host (VM) to its corresponding SSHConfiguration
 type SSHConfigs map[string]*SSHConfig
 
+// GenerateSCPToCommand returns the command to scp the file at scrPath to the
+// dstPath on the host whose metadata is contained within cfg.
+func (cfg *SSHConfig) GenerateSCPToCommand(srcPath, dstPath string) string {
+	return fmt.Sprintf("scp -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -r -P %d -i %s %s vagrant@127.0.0.1:%s", cfg.port, cfg.identityFile, srcPath, dstPath)
+}
+
 // GetSSHClient initializes an SSHClient based on the provided SSHConfig
 func (cfg *SSHConfig) GetSSHClient() *SSHClient {
 	sshConfig := &ssh.ClientConfig{
