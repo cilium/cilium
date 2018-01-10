@@ -195,7 +195,11 @@ func (e *Endpoint) applyNewFilter(owner Owner, labelsMap *LabelsMap,
 				IsRedirect:     filter.IsRedirect(),
 			}
 			if err := e.PolicyMap.AllowL4(srcID, port, proto); err != nil {
-				e.getLogger().WithError(err).Warn("Update of l4 policy map failed")
+				e.getLogger().WithFields(logrus.Fields{
+					logfields.PolicyID: srcID,
+					logfields.Port:     port,
+					logfields.Protocol: proto}).WithError(err).Warn(
+					"Update of l4 policy map failed")
 				errors++
 				fromEndpointsSrcIDs[ruleCtx] = false
 			} else {
@@ -345,7 +349,6 @@ func (e *Endpoint) regenerateConsumable(owner Owner, labelsMap *LabelsMap,
 				e.cleanUnusedRedirects(owner, e.L4Policy.Ingress, c.L4Policy.Ingress)
 				e.cleanUnusedRedirects(owner, e.L4Policy.Egress, c.L4Policy.Egress)
 			}
-
 			l4Rm, l4Add, err = e.applyL4PolicyLocked(owner, labelsMap, e.L4Policy, c.L4Policy)
 			if err != nil {
 				// This should not happen, and we can't fail at this stage anyway.
