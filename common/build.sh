@@ -11,4 +11,4 @@ go install ./... 2> /dev/null || true
 make clean
 
 # Compile with deadlock detection during runtime tests. See GH-1654.
-LOCKDEBUG=1 make
+CILIUM_USE_ENVOY=1 LOCKDEBUG=1 make
