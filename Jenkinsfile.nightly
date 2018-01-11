@@ -25,7 +25,7 @@ pipeline {
                 GOPATH="${WORKSPACE}"
                 TESTDIR="${WORKSPACE}/${PROJ_PATH}/test"
                 K8S_VERSION=1.7
-                k8S_NODES=4
+                K8S_NODES=4
             }
             steps {
                 parallel(

@@ -31,6 +31,10 @@ ff02::1 ip6-allnodes
 ff02::2 ip6-allrouters
 192.168.36.11 k8s1
 192.168.36.12 k8s2
+192.168.36.13 k8s3
+192.168.36.14 k8s4
+192.168.36.15 k8s5
+192.168.36.16 k8s6
 EOF
 
 cat <<EOF > /etc/apt/sources.list.d/kubernetes.list
