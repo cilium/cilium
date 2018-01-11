@@ -53,6 +53,7 @@ var _ = Describe("RuntimeKVStoreTest", func() {
 
 	BeforeEach(func() {
 		initialize()
+		By("Stopping cilium service")
 		vm.Exec("sudo systemctl stop cilium")
 	}, 150)
 
@@ -63,12 +64,14 @@ var _ = Describe("RuntimeKVStoreTest", func() {
 				"sudo cilium endpoint list")
 		}
 		containers(helpers.Delete)
+		By("Starting cilium service")
 		vm.Exec("sudo systemctl start cilium")
 	})
 
 	It("Consul KVStore", func() {
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
+		By("Starting Cilium using Consul as backing key-value store")
 		vm.ExecContext(
 			ctx,
 			"sudo cilium-agent --kvstore consul --kvstore-opt consul.address=127.0.0.1:8500 --debug")
@@ -87,12 +90,14 @@ var _ = Describe("RuntimeKVStoreTest", func() {
 	It("Etcd KVStore", func() {
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
+		By("Starting Cilium using etcd as backing key-value store")
 		vm.ExecContext(
 			ctx,
-			"sudo cilium-agent --kvstore etcd --kvstore-opt etcd.address=127.0.0.1:4001")
+			"sudo cilium-agent --kvstore etcd --kvstore-opt etcd.address=127.0.0.1:9732")
 		err := vm.WaitUntilReady(150)
 		Expect(err).Should(BeNil())
 
+		By("Restarting cilium-docker service")
 		vm.Exec("sudo systemctl restart cilium-docker")
 		helpers.Sleep(2)
 		containers(helpers.Create)

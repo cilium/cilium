@@ -27,7 +27,7 @@ var (
 const (
 	// BasePath is the path in the Vagrant VMs to which the test directory
 	// is mounted
-	BasePath = "/vagrant/"
+	BasePath = "/home/vagrant/go/src/github.com/cilium/cilium/test/"
 
 	// ManifestBase tells ginkgo suite where to look for manifests
 	K8sManifestBase = "k8sT/manifests"

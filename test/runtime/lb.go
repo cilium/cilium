@@ -17,6 +17,7 @@ package RuntimeTest
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 
 	"github.com/cilium/cilium/test/helpers"
 
@@ -450,6 +451,9 @@ tc filter add dev lbtest2 ingress bpf da obj tmp_lb.o sec from-netdev
 	if err != nil {
 		return err
 	}
+
+	err = node.SCPToVM(scriptName, filepath.Join(helpers.BasePath, scriptName))
+	Expect(err).Should(BeNil())
 
 	// filesystem is mounted at path /vagrant on VM
 	scriptPath := fmt.Sprintf("%s%s", helpers.BasePath, scriptName)

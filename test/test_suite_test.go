@@ -129,13 +129,8 @@ var _ = BeforeSuite(func() {
 			Fail(fmt.Sprintf("error starting VM %q: %s", helpers.Runtime, err))
 		}
 
-		vm := helpers.CreateNewRuntimeHelper(helpers.Runtime, log.WithFields(
+		_ = helpers.CreateNewRuntimeHelper(helpers.Runtime, log.WithFields(
 			logrus.Fields{"testName": "BeforeSuite"}))
-		err = vm.SetUpCilium()
-
-		if err != nil {
-			Fail(fmt.Sprintf("cilium was unable to be set up correctly: %s", err))
-		}
 
 	case helpers.K8s:
 		//FIXME: This should be:
