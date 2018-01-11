@@ -12,4 +12,7 @@ experiment, we highly recommend trying out the :ref:`gs_guide` instead.
    :maxdepth: 1
    :glob:
 
-   *
+   kubernetes
+   coreos
+   from_source
+   advanced_options
