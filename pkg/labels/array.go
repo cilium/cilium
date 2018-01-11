@@ -129,3 +129,30 @@ func (ls LabelArray) Get(key string) string {
 	}
 	return ""
 }
+
+// DeepCopy returns a deep copy of the labels.
+func (ls LabelArray) DeepCopy() LabelArray {
+	if ls == nil {
+		return nil
+	}
+
+	o := make(LabelArray, 0, len(ls))
+	for _, v := range ls {
+		o = append(o, v.DeepCopy())
+	}
+	return o
+}
+
+// GetModel returns the LabelArray as a string array with fully-qualified labels.
+// The output is parseable by ParseLabelArrayFromArray
+func (ls LabelArray) GetModel() []string {
+	res := []string{}
+	for _, v := range ls {
+		if v == nil {
+			res = append(res, "")
+		} else {
+			res = append(res, v.String())
+		}
+	}
+	return res
+}
