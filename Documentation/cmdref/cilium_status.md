@@ -13,6 +13,12 @@ Display status of daemon
 cilium status
 ```
 
+### Options
+
+```
+  -o, --output string   json| jsonpath='{}'
+```
+
 ### Options inherited from parent commands
 
 ```
