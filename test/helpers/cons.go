@@ -84,7 +84,6 @@ const (
 	Client = "client"
 	Server = "server"
 	Host   = "host"
-
 	// Container lifecycle actions.
 	Create = "create"
 	Delete = "delete"

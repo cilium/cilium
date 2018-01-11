@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"strconv"
 	"testing"
 	"time"
 
@@ -39,6 +40,7 @@ var (
 	DefaultSettings = map[string]string{
 		"K8S_VERSION": "1.7",
 	}
+	k8sNodesEnv = "K8S_NODES"
 )
 
 func init() {
@@ -155,6 +157,21 @@ var _ = BeforeSuite(func() {
 
 		if err != nil {
 			Fail(fmt.Sprintf("error starting VM %q: %s", helpers.K8s2VMName(), err))
+		}
+		// For Nightly test we need to have more than two kubernetes nodes. If
+		// the env variable K8S_NODES is present, more nodes will be created.
+		if nodes := os.Getenv(k8sNodesEnv); nodes != "" {
+			nodesInt, err := strconv.Atoi(nodes)
+			if err != nil {
+				Fail(fmt.Sprintf("%s value is not a number %q", k8sNodesEnv, nodes))
+			}
+			for i := 3; i <= nodesInt; i++ {
+				vmName := fmt.Sprintf("%s%d-%s", helpers.K8s, i, helpers.GetCurrentK8SEnv())
+				err = helpers.CreateVM(vmName)
+				if err != nil {
+					Fail(fmt.Sprintf("error starting VM %q: %s", vmName, err))
+				}
+			}
 		}
 	}
 	return

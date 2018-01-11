@@ -15,6 +15,7 @@ package policygen
 
 import (
 	"fmt"
+	"net/http"
 
 	"github.com/cilium/cilium/test/helpers"
 
@@ -25,7 +26,7 @@ import (
 // It needs a `helpers.Kubectl` instance to run the command in the pod. It
 // returns a ResultType struct.
 func HTTPAction(srcPod string, target string, kub *helpers.Kubectl) ResultType {
-	command := fmt.Sprintf("%s exec -n %s %s -- %s",
+	command := fmt.Sprintf("%s exec -n %s %s -- %s -w \"%%{http_code}\"",
 		helpers.KubectlCmd, helpers.DefaultNamespace,
 		srcPod, helpers.CurlFail(target))
 
@@ -39,6 +40,16 @@ func HTTPAction(srcPod string, target string, kub *helpers.Kubectl) ResultType {
 	case 28: //CURLE_OPERATION_TIMEDOUT (28)
 		return ResultTimeout
 	case 22: //CURLE_HTTP_RETURNED_ERROR
+		val, err := res.IntOutput()
+		if err != nil {
+			return ResultAuth
+		}
+		if val == http.StatusServiceUnavailable {
+			// This is for case  "L3:No Policy L4:Ingress Port 80 UDP L7:Egress
+			// policy to /private/" where the cilium egress proxy cannot connect
+			// to endpoint due timeout and return back a 503.
+			return ResultTimeout
+		}
 		return ResultAuth
 	default:
 		log.Infof("HTTPAction returned unexpected exit code %d", exitCode)

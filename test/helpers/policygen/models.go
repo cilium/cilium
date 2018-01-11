@@ -388,10 +388,10 @@ func (t *TestSpec) CreateManifests() error {
 apiVersion: v1
 kind: Pod
 metadata:
-  name: %[2]s
+  name: "%[2]s"
   labels:
-    id: %[2]s
-    zgroup: %[1]s
+    id: "%[2]s"
+    zgroup: "%[1]s"
 spec:
   containers:
   - name: app-frontend
@@ -403,10 +403,10 @@ spec:
 apiVersion: v1
 kind: Pod
 metadata:
-  name: %[3]s
+  name: "%[3]s"
   labels:
-    id: %[3]s
-    zgroup: %[1]s
+    id: "%[3]s"
+    zgroup: "%[1]s"
 spec:
   containers:
   - name: web
