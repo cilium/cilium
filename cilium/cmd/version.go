@@ -16,6 +16,7 @@ package cmd
 
 import (
 	"fmt"
+	"os"
 
 	"github.com/cilium/cilium/pkg/version"
 
@@ -26,10 +27,17 @@ var versionCmd = &cobra.Command{
 	Use:   "version",
 	Short: "Print version information",
 	Run: func(cmd *cobra.Command, args []string) {
+		if len(dumpOutput) > 0 {
+			if err := OutputPrinter(version.GetCiliumVersion()); err != nil {
+				os.Exit(1)
+			}
+			return
+		}
 		fmt.Printf("Cilium %s\n", version.Version)
 	},
 }
 
 func init() {
 	rootCmd.AddCommand(versionCmd)
+	AddMultipleOutput(versionCmd)
 }
