@@ -24,8 +24,8 @@ import (
 	. "github.com/cilium/cilium/api/v1/server/restapi/policy"
 	"github.com/cilium/cilium/pkg/apierror"
 	"github.com/cilium/cilium/pkg/bpf"
+	"github.com/cilium/cilium/pkg/config"
 	"github.com/cilium/cilium/pkg/endpoint"
-	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/policymap"
@@ -73,7 +73,7 @@ func (d *Daemon) TriggerPolicyUpdates(force bool) *sync.WaitGroup {
 	} else {
 		log.Debugf("Full policy recalculation triggered")
 	}
-	return endpointmanager.TriggerPolicyUpdates(d)
+	return endpoint.TriggerPolicyUpdates(d)
 }
 
 // UpdateEndpointPolicyEnforcement returns whether policy enforcement needs to be
@@ -84,9 +84,9 @@ func (d *Daemon) EnableEndpointPolicyEnforcement(e *endpoint.Endpoint) (ingress 
 	// First check if policy enforcement should be enabled at the daemon level.
 	// If policy enforcement is enabled for the daemon, then it has to be
 	// enabled for the endpoint.
-	if policy.GetPolicyEnabled() == endpoint.AlwaysEnforce {
+	if policy.GetPolicyEnabled() == config.AlwaysEnforce {
 		return true, true
-	} else if policy.GetPolicyEnabled() == endpoint.DefaultEnforcement {
+	} else if policy.GetPolicyEnabled() == config.DefaultEnforcement {
 		// Default mode means that if rules contain labels that match this endpoint,
 		// then enable policy enforcement for this endpoint.
 		// GH-1676: Could check e.Consumable instead? Would be much cheaper.
@@ -118,10 +118,10 @@ func (h *getPolicyResolve) Handle(params GetPolicyResolveParams) middleware.Resp
 	d.policy.Mutex.RLock()
 
 	// If policy enforcement isn't enabled, then traffic is allowed.
-	if policy.GetPolicyEnabled() == endpoint.NeverEnforce {
+	if policy.GetPolicyEnabled() == config.NeverEnforce {
 		policyEnforcementMsg = "Policy enforcement is disabled for the daemon."
 		isPolicyEnforcementEnabled = false
-	} else if policy.GetPolicyEnabled() == endpoint.DefaultEnforcement {
+	} else if policy.GetPolicyEnabled() == config.DefaultEnforcement {
 		// If there are no rules matching the set of from / to labels provided in
 		// the API request, that means that policy enforcement is not enabled
 		// for the endpoints corresponding to said sets of labels; thus, we allow

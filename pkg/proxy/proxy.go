@@ -22,7 +22,7 @@ import (
 	"time"
 
 	"github.com/cilium/cilium/common/addressing"
-	"github.com/cilium/cilium/pkg/endpointmanager"
+	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -242,7 +242,7 @@ func fillEndpointInfo(info *accesslog.EndpointInfo, ip net.IP) {
 		// if IP belongs to the cluster.
 		if node.GetIPv4ClusterRange().Contains(ip) {
 			c := addressing.DeriveCiliumIPv4(ip)
-			ep := endpointmanager.LookupIPv4(c.String())
+			ep := endpoint.LookupIPv4(c.String())
 			if ep != nil {
 				// Needs to be Lock as ep.GetLabelsSHA()
 				// might overwrite internal endpoint attributes
@@ -273,7 +273,7 @@ func fillEndpointInfo(info *accesslog.EndpointInfo, ip net.IP) {
 			id := c.EndpointID()
 			info.ID = uint64(id)
 
-			ep := endpointmanager.LookupCiliumID(id)
+			ep := endpoint.LookupCiliumID(id)
 			if ep != nil {
 				// Needs to be Lock as ep.GetLabelsSHA()
 				// might overwrite internal endpoint attributes

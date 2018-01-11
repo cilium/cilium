@@ -1,4 +1,4 @@
-// Copyright 2016-2017 Authors of Cilium
+// Copyright 2018 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package main
+package config
 
 import (
 	"net"
@@ -20,7 +20,6 @@ import (
 	"runtime"
 
 	"github.com/cilium/cilium/api/v1/models"
-	"github.com/cilium/cilium/daemon/options"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/option"
 )
@@ -46,8 +45,8 @@ const (
 	ModePreFilterGeneric = "generic"
 )
 
-// Config is the configuration used by Daemon.
-type Config struct {
+// AgentConfiguration contains all configuration with agent wide scope
+type AgentConfiguration struct {
 	BpfDir          string     // BPF template files directory
 	LibDir          string     // Cilium library files directory
 	RunDir          string     // Cilium runtime directory
@@ -71,10 +70,10 @@ type Config struct {
 	// values: { auto | always | policy }
 	AllowLocalhost string
 
-	// alwaysAllowLocalhost is set based on the value of AllowLocalhost and
+	// AlwaysAllowLocalhost is set based on the value of AllowLocalhost and
 	// is either set to true when localhost can always reach local
 	// endpoints or false when policy should be evaluated
-	alwaysAllowLocalhost bool
+	AlwaysAllowLocalhost bool
 
 	// StateDir is the directory where runtime state of endpoints is stored
 	StateDir string
@@ -89,13 +88,84 @@ type Config struct {
 	Monitor *models.MonitorStatus
 }
 
-func NewConfig() *Config {
-	return &Config{
-		Opts:    option.NewBoolOptions(&options.Library),
+func newAgentConfiguration() *AgentConfiguration {
+	return &AgentConfiguration{
+		Opts:    option.NewBoolOptions(&AgentOptions),
 		Monitor: &models.MonitorStatus{Cpus: int64(runtime.NumCPU()), Npages: 64, Pagesize: int64(os.Getpagesize()), Lost: 0, Unknown: 0},
 	}
 }
 
-func (c *Config) IsLBEnabled() bool {
-	return c.LBInterface != ""
+// IsLBEnabled returns true if the standalone load-balancer has been enabled
+func (a *AgentConfiguration) IsLBEnabled() bool {
+	return a.LBInterface != ""
+}
+
+// ParseAgentOption parses a string as agent option
+func ParseAgentOption(opt string) (string, bool, error) {
+	return option.ParseOption(opt, &AgentOptions)
+}
+
+var (
+	agentConfig = newAgentConfiguration()
+
+	// AgentOptions is the list of all available agent options
+	AgentOptions = option.OptionLibrary{
+		OptionPolicyTracing: &OptionSpecPolicyTracing,
+	}
+
+	agentMutableOptionLibrary = option.OptionLibrary{
+		OptionConntrackAccounting: &OptionSpecConntrackAccounting,
+		OptionConntrackLocal:      &OptionSpecConntrackLocal,
+		OptionConntrack:           &OptionSpecConntrack,
+		OptionDebug:               &OptionSpecDebug,
+		OptionDropNotify:          &OptionSpecDropNotify,
+		OptionTraceNotify:         &OptionSpecTraceNotify,
+		OptionNAT46:               &OptionSpecNAT46,
+	}
+)
+
+func init() {
+	for k, v := range agentMutableOptionLibrary {
+		AgentOptions[k] = v
+	}
+}
+
+// AgentConfig returns the global agent configuration
+func AgentConfig() *AgentConfiguration {
+	return agentConfig
+}
+
+// List of accessor functions for global mutable options
+
+// PolicyTracingEnabled returns true if policy tracing is enabled
+func PolicyTracingEnabled() bool {
+	return agentConfig.Opts.IsEnabled(OptionPolicyTracing)
+}
+
+// AlwaysAllowLocalhost returns true if the agent has the option set that
+// localhost can always reach local endpoints
+func AlwaysAllowLocalhost() bool {
+	return agentConfig.AlwaysAllowLocalhost
+}
+
+// DebugEnabled returns true if debug mode is enabled
+func DebugEnabled() bool {
+	return agentConfig.Opts.IsEnabled(OptionDebug)
+}
+
+// List of accessor functions for non-mutable options, hence no locking is required
+
+// GetStateDir returns the path to the directory where all state is stored
+func GetStateDir() string {
+	return agentConfig.StateDir
+}
+
+// GetBpfDir returns the path to the BPF template directory
+func GetBpfDir() string {
+	return agentConfig.BpfDir
+}
+
+// DryModeEnabled returns true if dry mode is enabled (mock kernel interactions)
+func DryModeEnabled() bool {
+	return agentConfig.DryMode
 }

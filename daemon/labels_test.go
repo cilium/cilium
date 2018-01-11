@@ -22,12 +22,10 @@ import (
 	"time"
 
 	"github.com/cilium/cilium/common"
-	"github.com/cilium/cilium/daemon/options"
 	"github.com/cilium/cilium/pkg/comparator"
-	"github.com/cilium/cilium/pkg/endpoint"
+	"github.com/cilium/cilium/pkg/config"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/labels"
-	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
 
 	. "gopkg.in/check.v1"
@@ -63,22 +61,20 @@ func (ds *DaemonSuite) SetUpTest(c *C) {
 	err = os.Mkdir(filepath.Join(tempRunDir, "globals"), 0777)
 	c.Assert(err, IsNil)
 
-	daemonConf := &Config{
-		DryMode: true,
-		Opts:    option.NewBoolOptions(&options.Library),
-	}
+	daemonConf := config.AgentConfig()
+	daemonConf.DryMode = true
 	daemonConf.RunDir = tempRunDir
 	daemonConf.StateDir = tempRunDir
 	// Get the default labels prefix filter
 	err = labels.ParseLabelPrefixCfg(nil, "")
 	c.Assert(err, IsNil)
-	daemonConf.Opts.Set(endpoint.OptionDropNotify, true)
-	daemonConf.Opts.Set(endpoint.OptionTraceNotify, true)
+	daemonConf.Opts.Set(config.OptionDropNotify, true)
+	daemonConf.Opts.Set(config.OptionTraceNotify, true)
 	daemonConf.Device = "undefined"
 
 	kvstore.SetupDummy()
 
-	d, err := NewDaemon(daemonConf)
+	d, err := NewDaemon()
 	c.Assert(err, IsNil)
 	ds.d = d
 	kvstore.Client().DeleteTree(common.OperationalPath)
@@ -89,7 +85,7 @@ func (ds *DaemonSuite) SetUpTest(c *C) {
 
 func (ds *DaemonSuite) TearDownTest(c *C) {
 	if ds.d != nil {
-		os.RemoveAll(ds.d.conf.RunDir)
+		os.RemoveAll(config.AgentConfig().RunDir)
 	}
 }
 

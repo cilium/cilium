@@ -30,7 +30,7 @@ type GeneveTlv struct {
 	optData  []byte
 }
 
-func ValidateOpt(geneveTlv GeneveTlv) bool {
+func validateOpt(geneveTlv GeneveTlv) bool {
 	sz := geneveTlv.optLen
 	if sz > 124 || sz%4 != 0 || int(sz) != len(geneveTlv.optData) {
 		return false
@@ -72,7 +72,7 @@ func ReadOpts(filePath string) (geneveOpts []GeneveTlv, rawData []byte, err erro
 		geneveOpts = append(geneveOpts, geneveTlv)
 		rawData = append(rawData, geneveTlv.optData...)
 
-		if ValidateOpt(geneveTlv) == false {
+		if validateOpt(geneveTlv) == false {
 			return nil, nil, fmt.Errorf("Geneve tlv %d validation failed %x %x %x", tlvCount, geneveTlv.optClass, geneveTlv.optType, geneveTlv.optLen)
 		}
 

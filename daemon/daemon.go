@@ -35,13 +35,12 @@ import (
 	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/common/types"
 	"github.com/cilium/cilium/daemon/defaults"
-	"github.com/cilium/cilium/daemon/options"
 	monitor "github.com/cilium/cilium/monitor/launch"
 	"github.com/cilium/cilium/pkg/apierror"
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/byteorder"
+	"github.com/cilium/cilium/pkg/config"
 	"github.com/cilium/cilium/pkg/endpoint"
-	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/ipam"
 	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/labels"
@@ -91,7 +90,6 @@ const (
 // monitoring when a LXC starts.
 type Daemon struct {
 	buildEndpointChan chan *endpoint.Request
-	conf              *Config
 	l7Proxy           *proxy.Proxy
 	loadBalancer      *types.LoadBalancer
 	loopbackIPv4      net.IP
@@ -219,42 +217,14 @@ func (d *Daemon) StartEndpointBuilders(nRoutines int) {
 	}
 }
 
-// GetStateDir returns the path to the state directory
-func (d *Daemon) GetStateDir() string {
-	return d.conf.StateDir
-}
-
-func (d *Daemon) GetBpfDir() string {
-	return d.conf.BpfDir
-}
-
 // GetPolicyRepository returns the policy repository of the daemon
 func (d *Daemon) GetPolicyRepository() *policy.Repository {
 	return d.policy
 }
 
-func (d *Daemon) TracingEnabled() bool {
-	return d.conf.Opts.IsEnabled(options.PolicyTracing)
-}
-
-func (d *Daemon) DryModeEnabled() bool {
-	return d.conf.DryMode
-}
-
-// AlwaysAllowLocalhost returns true if the daemon has the option set that
-// localhost can always reach local endpoints
-func (d *Daemon) AlwaysAllowLocalhost() bool {
-	return d.conf.alwaysAllowLocalhost
-}
-
 // PolicyEnforcement returns the type of policy enforcement for the daemon.
 func (d *Daemon) PolicyEnforcement() string {
 	return policy.GetPolicyEnabled()
-}
-
-// DebugEnabled returns if debug mode is enabled.
-func (d *Daemon) DebugEnabled() bool {
-	return d.conf.Opts.IsEnabled(endpoint.OptionDebug)
 }
 
 // AnnotateEndpoint adds a Kubernetes annotation with key annotationKey and value
@@ -313,24 +283,6 @@ func (d *Daemon) AnnotateEndpoint(e *endpoint.Endpoint, annotationKey, annotatio
 	}(e)
 }
 
-// CleanCTEntries cleans the connection tracking of the given endpoint
-// where the given endpoint IPs' and the idsToRm match the CT entry fields.
-// isCTLocal should bet set as true if the endpoint's CT table is either
-// local or not (if is not local then is assumed to be global).
-// Implementation of pkg/endpoint.Owner interface
-func (d *Daemon) CleanCTEntries(e *endpoint.Endpoint, isCTLocal bool, ips []net.IP, idsToRm policy.RuleContexts) {
-	endpointmanager.RmCTEntriesOf(!d.conf.IPv4Disabled, e, isCTLocal, ips, idsToRm)
-}
-
-// FlushCTEntries flushes the connection tracking of the given endpoint
-// where the given endpoint IPs' match the CT entry fields.
-// isCTLocal should bet set as true if the endpoint's CT table is either
-// local or not (if is not local then is assumed to be global).
-// Implementation of pkg/endpoint.Owner interface
-func (d *Daemon) FlushCTEntries(e *endpoint.Endpoint, isCTLocal bool, ips []net.IP, idsToKeep policy.RuleContexts) {
-	endpointmanager.FlushCTEntriesOf(!d.conf.IPv4Disabled, e, isCTLocal, ips, idsToKeep)
-}
-
 func (d *Daemon) writeNetdevHeader(dir string) error {
 
 	headerPath := filepath.Join(dir, common.NetdevHeaderFileName)
@@ -345,30 +297,30 @@ func (d *Daemon) writeNetdevHeader(dir string) error {
 	defer f.Close()
 
 	fw := bufio.NewWriter(f)
-	fw.WriteString(d.conf.Opts.GetFmtList())
-	fw.WriteString(d.fmtPolicyEnforcementIngress())
-	fw.WriteString(d.fmtPolicyEnforcementEgress())
+	fw.WriteString(agentConfig.Opts.GetFmtList())
+	fw.WriteString(fmtPolicyEnforcementIngress())
+	fw.WriteString(fmtPolicyEnforcementEgress())
 
 	return fw.Flush()
 }
 
 // returns #define for PolicyIngress based on the configuration of the daemon.
-func (d *Daemon) fmtPolicyEnforcementIngress() string {
-	if policy.GetPolicyEnabled() == endpoint.AlwaysEnforce {
-		return fmt.Sprintf("#define %s\n", endpoint.OptionIngressSpecPolicy.Define)
+func fmtPolicyEnforcementIngress() string {
+	if policy.GetPolicyEnabled() == config.AlwaysEnforce {
+		return fmt.Sprintf("#define %s\n", config.OptionIngressSpecPolicy.Define)
 	}
-	return fmt.Sprintf("#undef %s\n", endpoint.OptionIngressSpecPolicy.Define)
+	return fmt.Sprintf("#undef %s\n", config.OptionIngressSpecPolicy.Define)
 }
 
 // returns #define for PolicyEgress based on the configuration of the daemon.
-func (d *Daemon) fmtPolicyEnforcementEgress() string {
-	if policy.GetPolicyEnabled() == endpoint.AlwaysEnforce {
-		return fmt.Sprintf("#define %s\n", endpoint.OptionEgressSpecPolicy.Define)
+func fmtPolicyEnforcementEgress() string {
+	if policy.GetPolicyEnabled() == config.AlwaysEnforce {
+		return fmt.Sprintf("#define %s\n", config.OptionEgressSpecPolicy.Define)
 	}
-	return fmt.Sprintf("#undef %s\n", endpoint.OptionEgressSpecPolicy.Define)
+	return fmt.Sprintf("#undef %s\n", config.OptionEgressSpecPolicy.Define)
 }
 
-// Must be called with d.conf.EnablePolicyMU locked.
+// Must be called with agentConfig.EnablePolicyMU locked.
 func (d *Daemon) writePreFilterHeader(dir string) error {
 	headerPath := filepath.Join(dir, common.PreFilterHeaderFileName)
 	log.WithField(logfields.Path, headerPath).Debug("writing configuration")
@@ -380,23 +332,23 @@ func (d *Daemon) writePreFilterHeader(dir string) error {
 	defer f.Close()
 	fw := bufio.NewWriter(f)
 	fmt.Fprint(fw, "/*\n")
-	fmt.Fprintf(fw, " * XDP device: %s\n", d.conf.DevicePreFilter)
-	fmt.Fprintf(fw, " * XDP mode: %s\n", d.conf.ModePreFilter)
+	fmt.Fprintf(fw, " * XDP device: %s\n", agentConfig.DevicePreFilter)
+	fmt.Fprintf(fw, " * XDP mode: %s\n", agentConfig.ModePreFilter)
 	fmt.Fprint(fw, " */\n\n")
 	d.preFilter.WriteConfig(fw)
 	return fw.Flush()
 }
 
 func (d *Daemon) setHostAddresses() error {
-	l, err := netlink.LinkByName(d.conf.LBInterface)
+	l, err := netlink.LinkByName(agentConfig.LBInterface)
 	if err != nil {
-		return fmt.Errorf("unable to get network device %s: %s", d.conf.Device, err)
+		return fmt.Errorf("unable to get network device %s: %s", agentConfig.Device, err)
 	}
 
 	getAddr := func(netLinkFamily int) (net.IP, error) {
 		addrs, err := netlink.AddrList(l, netLinkFamily)
 		if err != nil {
-			return nil, fmt.Errorf("error while getting %s's addresses: %s", d.conf.Device, err)
+			return nil, fmt.Errorf("error while getting %s's addresses: %s", agentConfig.Device, err)
 		}
 		for _, possibleAddr := range addrs {
 			if netlink.Scope(possibleAddr.Scope) == netlink.SCOPE_UNIVERSE {
@@ -406,14 +358,14 @@ func (d *Daemon) setHostAddresses() error {
 		return nil, nil
 	}
 
-	if !d.conf.IPv4Disabled {
+	if !agentConfig.IPv4Disabled {
 		hostV4Addr, err := getAddr(netlink.FAMILY_V4)
 		if err != nil {
 			return err
 		}
 		if hostV4Addr != nil {
-			d.conf.HostV4Addr = hostV4Addr
-			log.Infof("Using IPv4 host address: %s", d.conf.HostV4Addr)
+			agentConfig.HostV4Addr = hostV4Addr
+			log.Infof("Using IPv4 host address: %s", agentConfig.HostV4Addr)
 		}
 	}
 	hostV6Addr, err := getAddr(netlink.FAMILY_V6)
@@ -421,8 +373,8 @@ func (d *Daemon) setHostAddresses() error {
 		return err
 	}
 	if hostV6Addr != nil {
-		d.conf.HostV6Addr = hostV6Addr
-		log.Infof("Using IPv6 host address: %s", d.conf.HostV6Addr)
+		agentConfig.HostV6Addr = hostV6Addr
+		log.Infof("Using IPv6 host address: %s", agentConfig.HostV6Addr)
 	}
 	return nil
 }
@@ -680,14 +632,14 @@ func (d *Daemon) compileBase() error {
 		return err
 	}
 
-	scopedLog := log.WithField(logfields.XDPDevice, d.conf.DevicePreFilter)
-	if d.conf.DevicePreFilter != "undefined" {
-		if err := policy.ProbePreFilter(d.conf.DevicePreFilter, d.conf.ModePreFilter); err != nil {
+	scopedLog := log.WithField(logfields.XDPDevice, agentConfig.DevicePreFilter)
+	if agentConfig.DevicePreFilter != "undefined" {
+		if err := policy.ProbePreFilter(agentConfig.DevicePreFilter, agentConfig.ModePreFilter); err != nil {
 			scopedLog.WithError(err).Warn("Turning off prefilter")
-			d.conf.DevicePreFilter = "undefined"
+			agentConfig.DevicePreFilter = "undefined"
 		}
 	}
-	if d.conf.DevicePreFilter != "undefined" {
+	if agentConfig.DevicePreFilter != "undefined" {
 		if d.preFilter, ret = policy.NewPreFilter(); ret != nil {
 			scopedLog.WithError(ret).Warn("Unable to init prefilter")
 			return ret
@@ -698,24 +650,24 @@ func (d *Daemon) compileBase() error {
 			return err
 		}
 
-		args[initArgDevicePreFilter] = d.conf.DevicePreFilter
-		args[initArgModePreFilter] = d.conf.ModePreFilter
+		args[initArgDevicePreFilter] = agentConfig.DevicePreFilter
+		args[initArgModePreFilter] = agentConfig.ModePreFilter
 	}
 
-	args[initArgLib] = d.conf.BpfDir
-	args[initArgRundir] = d.conf.StateDir
+	args[initArgLib] = agentConfig.BpfDir
+	args[initArgRundir] = agentConfig.StateDir
 	args[initArgIPv4NodeIP] = node.GetInternalIPv4().String()
 	args[initArgIPv6NodeIP] = node.GetIPv6().String()
 
-	if d.conf.Device != "undefined" {
-		_, err := netlink.LinkByName(d.conf.Device)
+	if agentConfig.Device != "undefined" {
+		_, err := netlink.LinkByName(agentConfig.Device)
 		if err != nil {
-			log.WithError(err).WithField("device", d.conf.Device).Warn("Link does not exist")
+			log.WithError(err).WithField("device", agentConfig.Device).Warn("Link does not exist")
 			return err
 		}
 
-		if d.conf.IsLBEnabled() {
-			if d.conf.Device != d.conf.LBInterface {
+		if agentConfig.IsLBEnabled() {
+			if agentConfig.Device != agentConfig.LBInterface {
 				//FIXME: allow different interfaces
 				return fmt.Errorf("Unable to have an interface for LB mode different than snooping interface")
 			}
@@ -728,19 +680,19 @@ func (d *Daemon) compileBase() error {
 		}
 
 		args[initArgMode] = mode
-		args[initArgDevice] = d.conf.Device
+		args[initArgDevice] = agentConfig.Device
 
-		args = append(args, d.conf.Device)
+		args = append(args, agentConfig.Device)
 	} else {
-		if d.conf.IsLBEnabled() {
+		if agentConfig.IsLBEnabled() {
 			//FIXME: allow LBMode in tunnel
 			return fmt.Errorf("Unable to run LB mode with tunnel mode")
 		}
 
-		args[initArgMode] = d.conf.Tunnel
+		args[initArgMode] = agentConfig.Tunnel
 	}
 
-	prog := filepath.Join(d.conf.BpfDir, "init.sh")
+	prog := filepath.Join(agentConfig.BpfDir, "init.sh")
 	ctx, cancel := context.WithTimeout(context.Background(), ExecTimeout)
 	defer cancel()
 	out, err := exec.CommandContext(ctx, prog, args...).CombinedOutput()
@@ -763,7 +715,7 @@ func (d *Daemon) compileBase() error {
 	ipam.ReserveLocalRoutes()
 	node.InstallHostRoutes()
 
-	if !d.conf.IPv4Disabled {
+	if !agentConfig.IPv4Disabled {
 		// Always remove masquerade rule and then re-add it if required
 		d.removeIptablesRules()
 		if err := d.installIptablesRules(); err != nil {
@@ -779,13 +731,13 @@ func (d *Daemon) compileBase() error {
 }
 
 func (d *Daemon) init() error {
-	globalsDir := filepath.Join(d.conf.StateDir, "globals")
+	globalsDir := filepath.Join(agentConfig.StateDir, "globals")
 	if err := os.MkdirAll(globalsDir, defaults.RuntimePathRights); err != nil {
 		log.WithError(err).WithField(logfields.Path, globalsDir).Fatal("Could not create runtime directory")
 	}
 
-	if err := os.Chdir(d.conf.StateDir); err != nil {
-		log.WithError(err).WithField(logfields.Path, d.conf.StateDir).Fatal("Could not change to runtime directory")
+	if err := os.Chdir(agentConfig.StateDir); err != nil {
+		log.WithError(err).WithField(logfields.Path, agentConfig.StateDir).Fatal("Could not change to runtime directory")
 	}
 
 	nodeConfigPath := "./globals/node_config.h"
@@ -806,7 +758,7 @@ func (d *Daemon) init() error {
 		" * Router-IPv6: %s\n",
 		hostIP.String(), routerIP.String())
 
-	if d.conf.IPv4Disabled {
+	if agentConfig.IPv4Disabled {
 		fw.WriteString(" */\n\n")
 	} else {
 		fmt.Fprintf(fw, ""+
@@ -818,7 +770,7 @@ func (d *Daemon) init() error {
 
 	fw.WriteString(common.FmtDefineComma("ROUTER_IP", routerIP))
 
-	if !d.conf.IPv4Disabled {
+	if !agentConfig.IPv4Disabled {
 		ipv4GW := node.GetInternalIPv4()
 		fmt.Fprintf(fw, "#define IPV4_GATEWAY %#x\n", byteorder.HostSliceToNetwork(ipv4GW, reflect.Uint32).(uint32))
 		fmt.Fprintf(fw, "#define IPV4_LOOPBACK %#x\n", byteorder.HostSliceToNetwork(d.loopbackIPv4, reflect.Uint32).(uint32))
@@ -835,7 +787,7 @@ func (d *Daemon) init() error {
 	fmt.Fprintf(fw, "#define IPV4_CLUSTER_RANGE %#x\n", byteorder.HostSliceToNetwork(ipv4ClusterRange.IP, reflect.Uint32).(uint32))
 	fmt.Fprintf(fw, "#define IPV4_CLUSTER_MASK %#x\n", byteorder.HostSliceToNetwork(ipv4ClusterRange.Mask, reflect.Uint32).(uint32))
 
-	if nat46Range := d.conf.NAT46Prefix; nat46Range != nil {
+	if nat46Range := agentConfig.NAT46Prefix; nat46Range != nil {
 		fw.WriteString(common.FmtDefineAddress("NAT46_PREFIX", nat46Range.IP))
 	}
 
@@ -853,7 +805,7 @@ func (d *Daemon) init() error {
 	fw.Flush()
 	f.Close()
 
-	if !d.DryModeEnabled() {
+	if !config.DryModeEnabled() {
 		// Validate existing map paths before attempting BPF compile.
 		if err = d.validateExistingMaps(); err != nil {
 			log.WithError(err).Error("Error while validating maps")
@@ -886,7 +838,7 @@ func (d *Daemon) init() error {
 		if _, err := lbmap.RRSeq6Map.OpenOrCreate(); err != nil {
 			return err
 		}
-		if !d.conf.IPv4Disabled {
+		if !agentConfig.IPv4Disabled {
 			if _, err := lbmap.Service4Map.OpenOrCreate(); err != nil {
 				return err
 			}
@@ -898,7 +850,7 @@ func (d *Daemon) init() error {
 			}
 		}
 		// Clean all lb entries
-		if !d.conf.RestoreState {
+		if !agentConfig.RestoreState {
 			log.Debug("cleaning up all BPF LB maps")
 
 			d.loadBalancer.BPFMapMU.Lock()
@@ -914,7 +866,7 @@ func (d *Daemon) init() error {
 				return err
 			}
 
-			if !d.conf.IPv4Disabled {
+			if !agentConfig.IPv4Disabled {
 				if err := lbmap.Service4Map.DeleteAll(); err != nil {
 					return err
 				}
@@ -929,11 +881,7 @@ func (d *Daemon) init() error {
 }
 
 // NewDaemon creates and returns a new Daemon with the parameters set in c.
-func NewDaemon(c *Config) (*Daemon, error) {
-	if c == nil {
-		return nil, fmt.Errorf("Configuration is nil")
-	}
-
+func NewDaemon() (*Daemon, error) {
 	if err := containerd.Init(dockerEndpoint); err != nil {
 		return nil, err
 	}
@@ -941,7 +889,6 @@ func NewDaemon(c *Config) (*Daemon, error) {
 	lb := types.NewLoadBalancer()
 
 	d := Daemon{
-		conf:         c,
 		loadBalancer: lb,
 		policy:       policy.NewPolicyRepository(),
 		uniqueID:     map[uint64]bool{},
@@ -975,9 +922,9 @@ func NewDaemon(c *Config) (*Daemon, error) {
 		// pods. Therefore unless the AllowLocalhost policy is set to a
 		// specific mode, always allow localhost to reach local
 		// endpoints.
-		if d.conf.AllowLocalhost == AllowLocalhostAuto {
+		if agentConfig.AllowLocalhost == config.AllowLocalhostAuto {
 			log.Info("k8s mode: Allowing localhost to reach local endpoints")
-			config.alwaysAllowLocalhost = true
+			agentConfig.AlwaysAllowLocalhost = true
 		}
 
 		if !singleClusterRoute {
@@ -992,7 +939,7 @@ func NewDaemon(c *Config) (*Daemon, error) {
 	//
 	// Then, we will calculate the IPv4 or IPv6 alloc prefix based on the IPv6
 	// or IPv4 alloc prefix, respectively, retrieved by k8s node annotations.
-	if config.Device == "undefined" {
+	if agentConfig.Device == "undefined" {
 		node.InitDefaultPrefix("")
 	}
 
@@ -1047,7 +994,7 @@ func NewDaemon(c *Config) (*Daemon, error) {
 		}
 	}
 
-	// Set up ipam conf after init() because we might be running d.conf.KVStoreIPv4Registration
+	// Set up ipam conf after init() because we might be running agentConfig.KVStoreIPv4Registration
 	if err = ipam.Init(); err != nil {
 		log.WithError(err).Fatal("IPAM init failed")
 	}
@@ -1072,7 +1019,7 @@ func NewDaemon(c *Config) (*Daemon, error) {
 	ni, n := node.GetLocalNode()
 	node.UpdateNode(ni, n, node.TunnelRoute, nil)
 
-	if !d.conf.IPv4Disabled {
+	if !agentConfig.IPv4Disabled {
 		// Allocate IPv4 service loopback IP
 		loopbackIPv4, _, err := ipam.AllocateNext("ipv4")
 		if err != nil {
@@ -1089,8 +1036,8 @@ func NewDaemon(c *Config) (*Daemon, error) {
 	// FIXME: Make configurable
 	d.l7Proxy = proxy.NewProxy(10000, 20000)
 
-	if c.RestoreState {
-		if err := d.SyncState(d.conf.StateDir, true); err != nil {
+	if agentConfig.RestoreState {
+		if err := d.SyncState(agentConfig.StateDir, true); err != nil {
 			log.WithError(err).Warn("Error while recovering endpoints")
 		}
 		if err := d.SyncLBMap(); err != nil {
@@ -1144,7 +1091,7 @@ func (d *Daemon) removeStaleIDFromPolicyMap(id uint32) {
 
 func (d *Daemon) checkStaleMap(path string, filename string, id string) {
 	if tmp, err := strconv.ParseUint(id, 0, 16); err == nil {
-		if ep := endpointmanager.LookupCiliumID(uint16(tmp)); ep == nil {
+		if ep := endpoint.LookupCiliumID(uint16(tmp)); ep == nil {
 			d.removeStaleIDFromPolicyMap(uint32(tmp))
 			d.removeStaleMap(path)
 		}
@@ -1152,7 +1099,7 @@ func (d *Daemon) checkStaleMap(path string, filename string, id string) {
 }
 
 func (d *Daemon) checkStaleGlobalMap(path string, filename string) {
-	globalCTinUse := endpointmanager.HasGlobalCT()
+	globalCTinUse := endpoint.HasGlobalCT()
 
 	if !globalCTinUse &&
 		(filename == ctmap.MapName6Global ||
@@ -1210,9 +1157,9 @@ func mapValidateWalker(path string) error {
 
 func changedOption(key string, value bool, data interface{}) {
 	d := data.(*Daemon)
-	if key == endpoint.OptionDebug {
+	if key == config.OptionDebug {
 		// Set the debug toggle (this can be a no-op)
-		logging.ToggleDebugLogs(d.DebugEnabled())
+		logging.ToggleDebugLogs(config.DebugEnabled())
 		// Reflect log level change to proxies
 		proxy.ChangeLogLevel(log.Level)
 	}
@@ -1233,8 +1180,8 @@ func (h *patchConfig) Handle(params PatchConfigParams) middleware.Responder {
 	d := h.daemon
 
 	// Serialize configuration updates to the daemon.
-	d.conf.ConfigPatchMutex.Lock()
-	defer d.conf.ConfigPatchMutex.Unlock()
+	agentConfig.ConfigPatchMutex.Lock()
+	defer agentConfig.ConfigPatchMutex.Unlock()
 
 	if numPagesEntry, ok := params.Configuration.Mutable["MonitorNumPages"]; ok {
 		nmArgs := d.nodeMonitor.GetArgs()
@@ -1247,7 +1194,7 @@ func (h *patchConfig) Handle(params PatchConfigParams) middleware.Responder {
 		}
 		delete(params.Configuration.Mutable, "MonitorNumPages")
 	}
-	if err := d.conf.Opts.Validate(params.Configuration.Mutable); err != nil {
+	if err := agentConfig.Opts.Validate(params.Configuration.Mutable); err != nil {
 		return apierror.Error(PatchConfigBadRequestCode, err)
 	}
 
@@ -1260,7 +1207,7 @@ func (h *patchConfig) Handle(params PatchConfigParams) middleware.Responder {
 	if enforcement != "" {
 		log.Debug("configuration request to change PolicyEnforcement for daemon")
 		switch enforcement {
-		case endpoint.NeverEnforce, endpoint.DefaultEnforcement, endpoint.AlwaysEnforce:
+		case config.NeverEnforce, config.DefaultEnforcement, config.AlwaysEnforce:
 
 			// Update policy enforcement configuration if needed.
 			oldEnforcementValue := policy.GetPolicyEnabled()
@@ -1280,7 +1227,7 @@ func (h *patchConfig) Handle(params PatchConfigParams) middleware.Responder {
 		log.Debug("finished configuring PolicyEnforcement for daemon")
 	}
 
-	changes += d.conf.Opts.Apply(params.Configuration.Mutable, changedOption, d)
+	changes += agentConfig.Opts.Apply(params.Configuration.Mutable, changedOption, d)
 
 	log.WithField("count", changes).Debug("Applied changes to daemon's configuration")
 
@@ -1298,7 +1245,7 @@ func (h *patchConfig) Handle(params PatchConfigParams) middleware.Responder {
 }
 
 func (d *Daemon) getNodeAddressing() *models.NodeAddressing {
-	return node.GetNodeAddressing(!d.conf.IPv4Disabled)
+	return node.GetNodeAddressing(!agentConfig.IPv4Disabled)
 }
 
 type getConfig struct {
@@ -1316,7 +1263,7 @@ func (h *getConfig) Handle(params GetConfigParams) middleware.Responder {
 
 	cfg := &models.DaemonConfigurationResponse{
 		Addressing:        d.getNodeAddressing(),
-		Configuration:     d.conf.Opts.GetModel(),
+		Configuration:     agentConfig.Opts.GetModel(),
 		K8sConfiguration:  k8s.GetKubeconfigPath(),
 		K8sEndpoint:       k8s.GetAPIServer(),
 		PolicyEnforcement: policy.GetPolicyEnabled(),

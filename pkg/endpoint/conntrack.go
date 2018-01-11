@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package endpointmanager
+package endpoint
 
 import (
 	"fmt"
@@ -21,7 +21,7 @@ import (
 	"time"
 
 	"github.com/cilium/cilium/pkg/bpf"
-	"github.com/cilium/cilium/pkg/endpoint"
+	"github.com/cilium/cilium/pkg/config"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
 	"github.com/cilium/cilium/pkg/policy"
@@ -38,7 +38,7 @@ const (
 // the CT map is set to local. If `isIPv6` is set specifies that is the IPv6
 // map. `filter` represents the filter type to be used while looping all CT
 // entries.
-func RunGC(e *endpoint.Endpoint, isLocal, isIPv6 bool, filter *ctmap.GCFilter) {
+func RunGC(e *Endpoint, isLocal, isIPv6 bool, filter *ctmap.GCFilter) {
 	var file string
 	var mapType string
 	// TODO: We need to optimize this a bit in future, so we traverse
@@ -64,7 +64,7 @@ func RunGC(e *endpoint.Endpoint, isLocal, isIPv6 bool, filter *ctmap.GCFilter) {
 	m, err := bpf.OpenMap(file)
 	if err != nil {
 		log.WithError(err).WithField(logfields.Path, file).Warn("Unable to open map")
-		e.LogStatus(endpoint.BPF, endpoint.Warning, fmt.Sprintf("Unable to open CT map %s: %s", file, err))
+		e.LogStatus(BPF, Warning, fmt.Sprintf("Unable to open CT map %s: %s", file, err))
 		return
 	}
 	defer m.Close()
@@ -81,7 +81,10 @@ func RunGC(e *endpoint.Endpoint, isLocal, isIPv6 bool, filter *ctmap.GCFilter) {
 }
 
 // EnableConntrackGC enables the connection tracking garbage collection.
-func EnableConntrackGC(ipv4, ipv6 bool) {
+func EnableConntrackGC() {
+	ipv4 := !config.AgentConfig().IPv4Disabled
+	ipv6 := true
+
 	go func() {
 		seenGlobal := false
 		sleepTime := time.Duration(GcInterval) * time.Second
@@ -104,7 +107,7 @@ func EnableConntrackGC(ipv4, ipv6 bool) {
 				// right now. We still need to traverse
 				// other EPs since some may not be part
 				// of the global CT, but have a local one.
-				isLocal := e.Opts.IsEnabled(endpoint.OptionConntrackLocal)
+				isLocal := e.Opts.IsEnabled(config.OptionConntrackLocal)
 				if isLocal == false {
 					if seenGlobal == true {
 						e.Mutex.RUnlock()
@@ -129,13 +132,15 @@ func EnableConntrackGC(ipv4, ipv6 bool) {
 	}()
 }
 
-// RmCTEntriesOf cleans the connection tracking table of the given endpoint `e`.
-// It removes all CT entries that of the CT table local or global, defined by isLocal,
-// that contains:
+// removeConntrackEntries cleans the connection tracking table of the given
+// endpoint `e`. It removes all CT entries that of the CT table local or
+// global, defined by isLocal, that contains:
 //  - all the IP addresses given in the ips slice AND
 //  - any of the given ids in the ids map, maps to true and matches the
 //    src_sec_id in the CT table.
-func RmCTEntriesOf(ipv4Enabled bool, e *endpoint.Endpoint, isLocal bool, ips []net.IP, ids policy.RuleContexts) {
+func (e *Endpoint) removeConntrackEntries(ips []net.IP, ids policy.RuleContexts) {
+	ipv4Enabled := !config.AgentConfig().IPv4Disabled
+	isLocal := e.Opts.IsEnabled(config.OptionConntrackLocal)
 
 	gcFilter := ctmap.NewGCFilterBy(ctmap.GCFilterByID)
 	gcFilter.IDsToRm = ids
@@ -150,12 +155,14 @@ func RmCTEntriesOf(ipv4Enabled bool, e *endpoint.Endpoint, isLocal bool, ips []n
 	}
 }
 
-// FlushCTEntriesOf cleans the connection tracking table of the given endpoint `e`.
-// It removes all CT entries that of the CT table local or global, defined by isLocal,
-// that contains:
+// flushConntrackEntries cleans the connection tracking table of the given
+// endpoint `e`.  It removes all CT entries that of the CT table local or
+// global, defined by isLocal, that contains:
 //  - all the IP addresses given in the ips slice AND
 //  - does not belong to the list of ids to keep
-func FlushCTEntriesOf(ipv4Enabled bool, e *endpoint.Endpoint, isLocal bool, ips []net.IP, idsToKeep policy.RuleContexts) {
+func (e *Endpoint) flushConntrackEntries(ips []net.IP, idsToKeep policy.RuleContexts) {
+	ipv4Enabled := !config.AgentConfig().IPv4Disabled
+	isLocal := e.Opts.IsEnabled(config.OptionConntrackLocal)
 
 	gcFilter := ctmap.NewGCFilterBy(ctmap.GCFilterByIDsToKeep)
 	gcFilter.IDsToKeep = idsToKeep

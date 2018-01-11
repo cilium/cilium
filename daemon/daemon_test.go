@@ -34,25 +34,18 @@ type DaemonSuite struct {
 	d *Daemon
 
 	// Owners interface mock
-	OnTracingEnabled                  func() bool
-	OnDryModeEnabled                  func() bool
 	OnEnableEndpointPolicyEnforcement func(e *e.Endpoint) (bool, bool)
 	OnPolicyEnforcement               func() string
-	OnAlwaysAllowLocalhost            func() bool
 	OnGetCachedLabelList              func(id policy.NumericIdentity) (labels.LabelArray, error)
 	OnGetPolicyRepository             func() *policy.Repository
 	OnGetCachedMaxLabelID             func() (policy.NumericIdentity, error)
 	OnUpdateProxyRedirect             func(e *e.Endpoint, l4 *policy.L4Filter) (uint16, error)
 	OnRemoveProxyRedirect             func(e *e.Endpoint, l4 *policy.L4Filter) error
-	OnGetStateDir                     func() string
-	OnGetBpfDir                       func() string
 	OnQueueEndpointBuild              func(r *e.Request)
 	OnRemoveFromEndpointQueue         func(epID uint64)
-	OnDebugEnabled                    func() bool
 	OnAnnotateEndpoint                func(e *e.Endpoint, annotationKey, annotationValue string)
 	OnGetCompilationLock              func() *lock.RWMutex
 	OnCleanCTEntries                  func(e *e.Endpoint, isCTLocal bool, ips []net.IP, idsToRm policy.RuleContexts)
-	OnFlushCTEntries                  func(e *e.Endpoint, isCTLocal bool, ips []net.IP, idsToKeep policy.RuleContexts)
 }
 
 var _ = Suite(&DaemonSuite{})
@@ -60,20 +53,6 @@ var _ = Suite(&DaemonSuite{})
 func (ds *DaemonSuite) TestMiniumWorkerThreadsIsSet(c *C) {
 	c.Assert(numWorkerThreads() >= 4, Equals, true)
 	c.Assert(numWorkerThreads() >= runtime.NumCPU(), Equals, true)
-}
-
-func (ds *DaemonSuite) TracingEnabled() bool {
-	if ds.OnTracingEnabled != nil {
-		return ds.OnTracingEnabled()
-	}
-	panic("TracingEnabled should not have been called")
-}
-
-func (ds *DaemonSuite) DryModeEnabled() bool {
-	if ds.OnDryModeEnabled != nil {
-		return ds.OnDryModeEnabled()
-	}
-	panic("DryModeEnabled should not have been called")
 }
 
 func (ds *DaemonSuite) AnnotateEndpoint(e *e.Endpoint, annotationKey, annotationValue string) {
@@ -96,13 +75,6 @@ func (ds *DaemonSuite) PolicyEnforcement() string {
 		return ds.OnPolicyEnforcement()
 	}
 	panic("PolicyEnforcement should not have been called")
-}
-
-func (ds *DaemonSuite) AlwaysAllowLocalhost() bool {
-	if ds.OnAlwaysAllowLocalhost != nil {
-		return ds.OnAlwaysAllowLocalhost()
-	}
-	panic("AlwaysAllowLocalhost should not have been called")
 }
 
 func (ds *DaemonSuite) GetCachedLabelList(id policy.NumericIdentity) (labels.LabelArray, error) {
@@ -140,20 +112,6 @@ func (ds *DaemonSuite) RemoveProxyRedirect(e *e.Endpoint, l4 *policy.L4Filter) e
 	panic("RemoveProxyRedirect should not have been called")
 }
 
-func (ds *DaemonSuite) GetStateDir() string {
-	if ds.OnGetStateDir != nil {
-		return ds.OnGetStateDir()
-	}
-	panic("GetStateDir should not have been called")
-}
-
-func (ds *DaemonSuite) GetBpfDir() string {
-	if ds.OnGetBpfDir != nil {
-		return ds.OnGetBpfDir()
-	}
-	panic("GetBpfDir should not have been called")
-}
-
 func (ds *DaemonSuite) QueueEndpointBuild(r *e.Request) {
 	if ds.OnQueueEndpointBuild != nil {
 		ds.OnQueueEndpointBuild(r)
@@ -170,13 +128,6 @@ func (ds *DaemonSuite) RemoveFromEndpointQueue(epID uint64) {
 	panic("RemoveFromEndpointQueue should not have been called")
 }
 
-func (ds *DaemonSuite) DebugEnabled() bool {
-	if ds.OnDebugEnabled != nil {
-		return ds.OnDebugEnabled()
-	}
-	panic("DebugEnabled should not have been called")
-}
-
 func (ds *DaemonSuite) GetCompilationLock() *lock.RWMutex {
 	if ds.OnGetCompilationLock != nil {
 		return ds.OnGetCompilationLock()
@@ -190,12 +141,4 @@ func (ds *DaemonSuite) CleanCTEntries(e *e.Endpoint, isCTLocal bool, ips []net.I
 		return
 	}
 	panic("CleanCTEntries should not have been called")
-}
-
-func (ds *DaemonSuite) FlushCTEntries(e *e.Endpoint, isCTLocal bool, ips []net.IP, idsToKeep policy.RuleContexts) {
-	if ds.OnFlushCTEntries != nil {
-		ds.OnFlushCTEntries(e, isCTLocal, ips, idsToKeep)
-		return
-	}
-	panic("FlushCTEntries should not have been called")
 }

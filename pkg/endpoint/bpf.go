@@ -32,6 +32,7 @@ import (
 
 	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/pkg/byteorder"
+	"github.com/cilium/cilium/pkg/config"
 	"github.com/cilium/cilium/pkg/geneve"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/cidrmap"
@@ -183,8 +184,8 @@ func (e *Endpoint) writeHeaderfile(prefix string, owner Owner) error {
 	// all packets, but only if policy enforcement
 	// is enabled for the endpoint / daemon.
 	if !e.PolicyCalculated &&
-		(e.Opts.IsEnabled(OptionIngressPolicy) || e.Opts.IsEnabled(OptionEgressPolicy)) &&
-		owner.PolicyEnforcement() != NeverEnforce {
+		(e.Opts.IsEnabled(config.OptionIngressPolicy) || e.Opts.IsEnabled(config.OptionEgressPolicy)) &&
+		owner.PolicyEnforcement() != config.NeverEnforce {
 		fw.WriteString("#define DROP_ALL\n")
 	}
 
@@ -195,11 +196,13 @@ func (e *Endpoint) writeHeaderfile(prefix string, owner Owner) error {
 	}
 	fw.WriteString(common.FmtDefineAddress("NODE_MAC", e.NodeMAC))
 
-	geneveOpts, err := writeGeneve(prefix, e)
-	if err != nil {
-		return err
+	if config.AgentConfig().Tunnel == config.TunnelModeGeneve {
+		geneveOpts, err := writeGeneve(prefix, e)
+		if err != nil {
+			return err
+		}
+		fw.WriteString(common.FmtDefineArray("GENEVE_OPTS", geneveOpts))
 	}
-	fw.WriteString(common.FmtDefineArray("GENEVE_OPTS", geneveOpts))
 
 	fmt.Fprintf(fw, "#define LXC_ID %#x\n", e.ID)
 	fmt.Fprintf(fw, "#define LXC_ID_NB %#x\n", byteorder.HostToNetwork(e.ID))
@@ -228,7 +231,7 @@ func (e *Endpoint) writeHeaderfile(prefix string, owner Owner) error {
 		}
 	}
 	fmt.Fprintf(fw, "#define CALLS_MAP %s\n", path.Base(e.CallsMapPathLocked()))
-	if e.Opts.IsEnabled(OptionConntrackLocal) {
+	if e.Opts.IsEnabled(config.OptionConntrackLocal) {
 		fmt.Fprintf(fw, "#define CT_MAP_SIZE %s\n", strconv.Itoa(ctmap.MapNumEntriesLocal))
 		fmt.Fprintf(fw, "#define CT_MAP6 %s\n", ctmap.MapName6+strconv.Itoa(int(e.ID)))
 		fmt.Fprintf(fw, "#define CT_MAP4 %s\n", ctmap.MapName4+strconv.Itoa(int(e.ID)))
@@ -382,23 +385,22 @@ func (ep *epInfoCache) GetBPFValue() (*lxcmap.EndpointInfo, error) {
 
 // updateCT update the CT by flushing it completely for the given endpoint or by removing the entries that have
 // the list of consumers to remove.
-func (e *Endpoint) updateCT(owner Owner, flushEndpointCT bool, consumersAdd, consumersToRm policy.RuleContexts) *sync.WaitGroup {
+func (e *Endpoint) updateCT(flushEndpointCT bool, consumersAdd, consumersToRm policy.RuleContexts) *sync.WaitGroup {
 	wg := &sync.WaitGroup{}
 
-	isLocal := e.Opts.IsEnabled(OptionConntrackLocal)
 	ip4 := e.IPv4.IP()
 	ip6 := e.IPv6.IP()
 
 	if flushEndpointCT {
 		wg.Add(1)
 		go func(wg *sync.WaitGroup) {
-			owner.FlushCTEntries(e, isLocal, []net.IP{ip4, ip6}, consumersAdd)
+			e.flushConntrackEntries([]net.IP{ip4, ip6}, consumersAdd)
 			wg.Done()
 		}(wg)
 	} else if len(consumersToRm) != 0 {
 		wg.Add(1)
 		go func(wg *sync.WaitGroup) {
-			owner.CleanCTEntries(e, isLocal, []net.IP{ip4, ip6}, consumersToRm)
+			e.removeConntrackEntries([]net.IP{ip4, ip6}, consumersToRm)
 			wg.Done()
 		}(wg)
 	}
@@ -436,7 +438,7 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir, reason string) (uint64, err
 	}
 
 	// If dry mode is enabled, no further changes to BPF maps are performed
-	if owner.DryModeEnabled() {
+	if config.DryModeEnabled() {
 		// Regenerate policy and apply any options resulting in the
 		// policy change.
 		// Note that e.PolicyMap is not initialized!
@@ -526,7 +528,7 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir, reason string) (uint64, err
 				e.PolicyMap.String(), err)
 			return 0, err
 		}
-		wg := e.updateCT(owner, flushEndpointCT, consumersAdd, consumersToRm)
+		wg := e.updateCT(flushEndpointCT, consumersAdd, consumersToRm)
 		defer wg.Wait()
 	}
 
@@ -570,9 +572,9 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir, reason string) (uint64, err
 	}
 	e.Mutex.Unlock()
 
-	libdir := owner.GetBpfDir()
-	rundir := owner.GetStateDir()
-	debug := strconv.FormatBool(owner.DebugEnabled())
+	libdir := config.GetBpfDir()
+	rundir := config.GetStateDir()
+	debug := strconv.FormatBool(config.DebugEnabled())
 
 	err = e.runInit(libdir, rundir, epdir, epInfoCache.ifName, debug)
 	if err == nil {

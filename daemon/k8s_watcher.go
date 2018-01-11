@@ -888,7 +888,7 @@ func (d *Daemon) addK8sEndpointV1(ep *v1.Endpoints) {
 
 	d.syncLB(&svcns, nil, nil)
 
-	if d.conf.IsLBEnabled() {
+	if agentConfig.IsLBEnabled() {
 		if err := d.syncExternalLB(&svcns, nil, nil); err != nil {
 			scopedLog.WithError(err).Error("Unable to add endpoints on ingress service")
 			return
@@ -950,7 +950,7 @@ func (d *Daemon) deleteK8sEndpointV1(ep *v1.Endpoints) {
 	}
 
 	d.syncLB(nil, nil, &svcns)
-	if d.conf.IsLBEnabled() {
+	if agentConfig.IsLBEnabled() {
 		if err := d.syncExternalLB(nil, nil, &svcns); err != nil {
 			scopedLog.WithError(err).Error("Unable to remove endpoints on ingress service")
 			return
@@ -1000,7 +1000,7 @@ func (d *Daemon) delK8sSVCs(svc types.K8sServiceNamespace, svcInfo *types.K8sSer
 		return nil
 	}
 	isSvcIPv4 := svcInfo.FEIP.To4() != nil
-	if err := areIPsConsistent(!d.conf.IPv4Disabled, isSvcIPv4, svc, se); err != nil {
+	if err := areIPsConsistent(!agentConfig.IPv4Disabled, isSvcIPv4, svc, se); err != nil {
 		return err
 	}
 
@@ -1059,7 +1059,7 @@ func (d *Daemon) addK8sSVCs(svc types.K8sServiceNamespace, svcInfo *types.K8sSer
 	})
 
 	isSvcIPv4 := svcInfo.FEIP.To4() != nil
-	if err := areIPsConsistent(!d.conf.IPv4Disabled, isSvcIPv4, svc, se); err != nil {
+	if err := areIPsConsistent(!agentConfig.IPv4Disabled, isSvcIPv4, svc, se); err != nil {
 		return err
 	}
 
@@ -1189,7 +1189,7 @@ func (d *Daemon) syncLB(newSN, modSN, delSN *types.K8sServiceNamespace) {
 }
 
 func (d *Daemon) addIngressV1beta1(ingress *v1beta1.Ingress) {
-	if !d.conf.IsLBEnabled() {
+	if !agentConfig.IsLBEnabled() {
 		// Add operations don't matter to non-LB nodes.
 		return
 	}
@@ -1217,10 +1217,10 @@ func (d *Daemon) addIngressV1beta1(ingress *v1beta1.Ingress) {
 	}
 
 	var host net.IP
-	if d.conf.IPv4Disabled {
-		host = d.conf.HostV6Addr
+	if agentConfig.IPv4Disabled {
+		host = agentConfig.HostV6Addr
 	} else {
-		host = d.conf.HostV4Addr
+		host = agentConfig.HostV4Addr
 	}
 	ingressSvcInfo := types.NewK8sServiceInfo(host, false)
 	ingressSvcInfo.Ports[types.FEPortName(ingress.Spec.Backend.ServicePort.StrVal)] = fePort
@@ -1278,7 +1278,7 @@ func (d *Daemon) updateIngressV1beta1(oldIngress, newIngress *v1beta1.Ingress) {
 
 	// Add RevNAT to the BPF Map for non-LB nodes when a LB node update the
 	// ingress status with its address.
-	if !d.conf.IsLBEnabled() {
+	if !agentConfig.IsLBEnabled() {
 		port := newIngress.Spec.Backend.ServicePort.IntValue()
 		for _, loadbalancer := range newIngress.Status.LoadBalancer.Ingress {
 			ingressIP := net.ParseIP(loadbalancer.IP)
@@ -1338,7 +1338,7 @@ func (d *Daemon) deleteIngressV1beta1(ingress *v1beta1.Ingress) {
 	}
 
 	// Remove RevNAT from the BPF Map for non-LB nodes.
-	if !d.conf.IsLBEnabled() {
+	if !agentConfig.IsLBEnabled() {
 		port := ingress.Spec.Backend.ServicePort.IntValue()
 		for _, loadbalancer := range ingress.Status.LoadBalancer.Ingress {
 			ingressIP := net.ParseIP(loadbalancer.IP)
@@ -1654,7 +1654,7 @@ func (d *Daemon) addK8sNodeV1(k8sNode *v1.Node) {
 	// Add IPv6 routing only in non encap. With encap we do it with bpf tunnel
 	// FIXME create a function to know on which mode is the daemon running on
 	var ownAddr net.IP
-	if autoIPv6NodeRoutes && d.conf.Device != "undefined" {
+	if autoIPv6NodeRoutes && agentConfig.Device != "undefined" {
 		// ignore own node
 		if n.Name != node.GetName() {
 			ownAddr = node.GetIPv6()
@@ -1686,7 +1686,7 @@ func (d *Daemon) updateK8sNodeV1(_, k8sNode *v1.Node) {
 	routeTypes := node.TunnelRoute
 	// Always re-add the routing tables as they might be accidentally removed
 	var ownAddr net.IP
-	if autoIPv6NodeRoutes && d.conf.Device != "undefined" {
+	if autoIPv6NodeRoutes && agentConfig.Device != "undefined" {
 		// ignore own node
 		if newNode.Name != node.GetName() {
 			ownAddr = node.GetIPv6()

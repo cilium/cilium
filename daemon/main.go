@@ -33,11 +33,10 @@ import (
 	health "github.com/cilium/cilium/cilium-health/launch"
 	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/daemon/defaults"
-	"github.com/cilium/cilium/daemon/options"
 	monitor "github.com/cilium/cilium/monitor/launch"
 	"github.com/cilium/cilium/pkg/bpf"
+	"github.com/cilium/cilium/pkg/config"
 	"github.com/cilium/cilium/pkg/endpoint"
-	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/labels"
@@ -71,7 +70,7 @@ var (
 )
 
 var (
-	config = NewConfig()
+	agentConfig = config.AgentConfig()
 
 	log = logging.DefaultLogger
 
@@ -213,7 +212,7 @@ func getClangVersion(filePath string) (*go_version.Version, error) {
 
 func checkBPFLogs(logType string, fatal bool) {
 	bpfLogFile := logType + ".log"
-	bpfLogPath := filepath.Join(config.StateDir, bpfLogFile)
+	bpfLogPath := filepath.Join(agentConfig.StateDir, bpfLogFile)
 
 	if _, err := os.Stat(bpfLogPath); os.IsNotExist(err) {
 		log.Infof("%s check: OK!", logType)
@@ -293,15 +292,15 @@ func checkMinRequirements() {
 		log.Info("linking environment: OK!")
 	}
 
-	globalsDir := filepath.Join(config.StateDir, "globals")
+	globalsDir := filepath.Join(agentConfig.StateDir, "globals")
 	if err := os.MkdirAll(globalsDir, defaults.StateDirRights); err != nil {
 		log.WithError(err).WithField(logfields.Path, globalsDir).Fatal("Could not create runtime directory")
 	}
-	if err := os.Chdir(config.LibDir); err != nil {
-		log.WithError(err).WithField(logfields.Path, config.LibDir).Fatal("Could not change to runtime directory")
+	if err := os.Chdir(agentConfig.LibDir); err != nil {
+		log.WithError(err).WithField(logfields.Path, agentConfig.LibDir).Fatal("Could not change to runtime directory")
 	}
-	probeScript := filepath.Join(config.BpfDir, "run_probes.sh")
-	if err := exec.Command(probeScript, config.BpfDir, config.StateDir).Run(); err != nil {
+	probeScript := filepath.Join(agentConfig.BpfDir, "run_probes.sh")
+	if err := exec.Command(probeScript, agentConfig.BpfDir, agentConfig.StateDir).Run(); err != nil {
 		log.WithError(err).Fatal("BPF Verifier: NOT OK. Unable to run checker for bpf_features")
 	}
 	if _, err := os.Stat(filepath.Join(globalsDir, "bpf_features.h")); os.IsNotExist(err) {
@@ -319,8 +318,8 @@ func init() {
 		"access-log", "", "Path to access log of supported L7 requests observed")
 	flags.StringSlice(
 		"agent-labels", []string{}, "Additional labels to identify this agent")
-	flags.StringVar(&config.AllowLocalhost,
-		"allow-localhost", AllowLocalhostAuto, "Policy when to allow local stack to reach local endpoints { auto | always | policy } ")
+	flags.StringVar(&agentConfig.AllowLocalhost,
+		"allow-localhost", config.AllowLocalhostAuto, "Policy when to allow local stack to reach local endpoints { auto | always | policy } ")
 	flags.Bool(
 		"auto-ipv6-node-routes", false, "Automatically adds IPv6 L3 routes to reach other nodes for non-overlay mode (--device) (BETA)")
 	flags.StringVar(&bpfRoot,
@@ -331,21 +330,21 @@ func init() {
 		"ipv4-cluster-cidr-mask-size", 8, "Mask size for the cluster wide CIDR")
 	flags.BoolP(
 		"debug", "D", false, "Enable debugging mode")
-	flags.StringVarP(&config.Device,
+	flags.StringVarP(&agentConfig.Device,
 		"device", "d", "undefined", "Device facing cluster/external network for direct L3 (non-overlay mode)")
-	flags.StringVarP(&config.DevicePreFilter,
+	flags.StringVarP(&agentConfig.DevicePreFilter,
 		"prefilter-device", "", "undefined", "Device facing external network for XDP prefiltering")
-	flags.StringVarP(&config.ModePreFilter,
-		"prefilter-mode", "", ModePreFilterNative, "Prefilter mode { "+ModePreFilterNative+" | "+ModePreFilterGeneric+" } (default: "+ModePreFilterNative+")")
+	flags.StringVarP(&agentConfig.ModePreFilter,
+		"prefilter-mode", "", config.ModePreFilterNative, "Prefilter mode { "+config.ModePreFilterNative+" | "+config.ModePreFilterGeneric+" } (default: "+config.ModePreFilterNative+")")
 	flags.BoolVar(&disableConntrack,
 		"disable-conntrack", false, "Disable connection tracking")
-	flags.BoolVar(&config.IPv4Disabled,
+	flags.BoolVar(&agentConfig.IPv4Disabled,
 		"disable-ipv4", false, "Disable IPv4 mode")
 	flags.Bool("disable-k8s-services",
 		false, "Disable east-west K8s load balancing by cilium")
 	flags.StringVarP(&dockerEndpoint,
 		"docker", "e", "unix:///var/run/docker.sock", "Path to docker runtime socket")
-	flags.String("enable-policy", endpoint.DefaultEnforcement, "Enable policy enforcement")
+	flags.String("enable-policy", config.DefaultEnforcement, "Enable policy enforcement")
 	flags.BoolVar(&enableTracing,
 		"enable-tracing", false, "Enable tracing while determining policy (debugging)")
 	flags.BoolVar(&useEnvoy,
@@ -363,9 +362,9 @@ func init() {
 		"k8s-api-server", "", "Kubernetes api address server (for https use --k8s-kubeconfig-path instead)")
 	flags.StringVar(&k8sKubeConfigPath,
 		"k8s-kubeconfig-path", "", "Absolute path of the kubernetes kubeconfig file")
-	flags.BoolVar(&config.KeepConfig,
+	flags.BoolVar(&agentConfig.KeepConfig,
 		"keep-config", false, "When restoring state, keeps containers' configuration in place")
-	flags.BoolVar(&config.KeepTemplates,
+	flags.BoolVar(&agentConfig.KeepTemplates,
 		"keep-bpf-templates", false, "Do not restore BPF template files from binary")
 	flags.StringVar(&kvStore,
 		"kvstore", "", "Key-value store type")
@@ -375,9 +374,9 @@ func init() {
 		"label-prefix-file", "", "Valid label prefixes file path")
 	flags.StringSliceVar(&validLabels,
 		"labels", []string{}, "List of label prefixes used to determine identity of an endpoint")
-	flags.StringVar(&config.LBInterface,
+	flags.StringVar(&agentConfig.LBInterface,
 		"lb", "", "Enables load balancer mode where load balancer bpf program is attached to the given interface")
-	flags.StringVar(&config.LibDir,
+	flags.StringVar(&agentConfig.LibDir,
 		"lib-dir", defaults.LibraryPath, "Directory path to store runtime build environment")
 	flags.StringSliceVar(&loggers,
 		"log-driver", []string{}, "Logging endpoints to use for example syslog, fluentd")
@@ -397,16 +396,16 @@ func init() {
 		"ipv6-node", "auto", "IPv6 address of node")
 	flags.StringVar(&v4Address,
 		"ipv4-node", "auto", "IPv4 address of node")
-	flags.BoolVar(&config.RestoreState,
+	flags.BoolVar(&agentConfig.RestoreState,
 		"restore", true, "Restores state, if possible, from previous daemon")
 	flags.BoolVar(&singleClusterRoute, "single-cluster-route", false,
 		"Use a single cluster route instead of per node routes")
 	flags.StringVar(&socketPath,
 		"socket-path", defaults.SockPath, "Sets daemon's socket path to listen for connections")
-	flags.StringVar(&config.RunDir,
+	flags.StringVar(&agentConfig.RunDir,
 		"state-dir", defaults.RuntimePath, "Directory path to store runtime state")
-	flags.StringVarP(&config.Tunnel,
-		"tunnel", "t", "vxlan", `Tunnel mode "vxlan" or "geneve"`)
+	flags.StringVarP(&agentConfig.Tunnel,
+		"tunnel", "t", config.TunnelModeVxlan, "Tunnel mode \""+config.TunnelModeVxlan+"\" or \""+config.TunnelModeGeneve+"\"")
 	flags.IntVar(&tracePayloadLen,
 		"trace-payloadlen", 128, "Length of payload to capture when tracing")
 	flags.Bool(
@@ -499,62 +498,62 @@ func initEnv(cmd *cobra.Command) {
 		pprof.Enable()
 	}
 
-	if config.IPv4Disabled {
+	if agentConfig.IPv4Disabled {
 		endpoint.IPv4Enabled = false
 		node.EnableIPv4 = false
 	}
 
 	scopedLog := log.WithFields(logrus.Fields{
-		logfields.Path + ".RunDir": config.RunDir,
-		logfields.Path + ".LibDir": config.LibDir,
+		logfields.Path + ".RunDir": agentConfig.RunDir,
+		logfields.Path + ".LibDir": agentConfig.LibDir,
 	})
 
-	config.BpfDir = filepath.Join(config.LibDir, defaults.BpfDir)
+	agentConfig.BpfDir = filepath.Join(agentConfig.LibDir, defaults.BpfDir)
 	scopedLog = scopedLog.WithField(logfields.Path+".BPFDir", defaults.BpfDir)
-	if err := os.MkdirAll(config.RunDir, defaults.RuntimePathRights); err != nil {
+	if err := os.MkdirAll(agentConfig.RunDir, defaults.RuntimePathRights); err != nil {
 		scopedLog.WithError(err).Fatal("Could not create runtime directory")
 	}
 
-	config.StateDir = filepath.Join(config.RunDir, defaults.StateDir)
-	scopedLog = scopedLog.WithField(logfields.Path+".StateDir", config.StateDir)
-	if err := os.MkdirAll(config.StateDir, defaults.StateDirRights); err != nil {
+	agentConfig.StateDir = filepath.Join(agentConfig.RunDir, defaults.StateDir)
+	scopedLog = scopedLog.WithField(logfields.Path+".StateDir", agentConfig.StateDir)
+	if err := os.MkdirAll(agentConfig.StateDir, defaults.StateDirRights); err != nil {
 		scopedLog.WithError(err).Fatal("Could not create state directory")
 	}
 
-	if err := os.MkdirAll(config.LibDir, defaults.RuntimePathRights); err != nil {
+	if err := os.MkdirAll(agentConfig.LibDir, defaults.RuntimePathRights); err != nil {
 		scopedLog.WithError(err).Fatal("Could not create library directory")
 	}
-	if !config.KeepTemplates {
-		if err := RestoreAssets(config.LibDir, defaults.BpfDir); err != nil {
+	if !agentConfig.KeepTemplates {
+		if err := RestoreAssets(agentConfig.LibDir, defaults.BpfDir); err != nil {
 			scopedLog.WithError(err).Fatal("Unable to restore agent assets")
 		}
 		// Restore permissions of executable files
-		if err := RestoreExecPermissions(config.LibDir, `.*\.sh`); err != nil {
+		if err := RestoreExecPermissions(agentConfig.LibDir, `.*\.sh`); err != nil {
 			scopedLog.WithError(err).Fatal("Unable to restore agent assets")
 		}
 	}
 	checkMinRequirements()
 
-	config.AllowLocalhost = strings.ToLower(config.AllowLocalhost)
-	switch config.AllowLocalhost {
-	case AllowLocalhostAlways:
-		config.alwaysAllowLocalhost = true
-	case AllowLocalhostAuto, AllowLocalhostPolicy:
-		config.alwaysAllowLocalhost = false
+	agentConfig.AllowLocalhost = strings.ToLower(agentConfig.AllowLocalhost)
+	switch agentConfig.AllowLocalhost {
+	case config.AllowLocalhostAlways:
+		agentConfig.AlwaysAllowLocalhost = true
+	case config.AllowLocalhostAuto, config.AllowLocalhostPolicy:
+		agentConfig.AlwaysAllowLocalhost = false
 	default:
 		log.Fatalf("Invalid setting for --allow-localhost, must be { %s, %s, %s }",
-			AllowLocalhostAuto, AllowLocalhostAlways, AllowLocalhostPolicy)
+			config.AllowLocalhostAuto, config.AllowLocalhostAlways, config.AllowLocalhostPolicy)
 	}
 
-	config.ModePreFilter = strings.ToLower(config.ModePreFilter)
-	switch config.ModePreFilter {
-	case ModePreFilterNative:
-		config.ModePreFilter = "xdpdrv"
-	case ModePreFilterGeneric:
-		config.ModePreFilter = "xdpgeneric"
+	agentConfig.ModePreFilter = strings.ToLower(agentConfig.ModePreFilter)
+	switch agentConfig.ModePreFilter {
+	case config.ModePreFilterNative:
+		agentConfig.ModePreFilter = "xdpdrv"
+	case config.ModePreFilterGeneric:
+		agentConfig.ModePreFilter = "xdpgeneric"
 	default:
 		log.Fatalf("Invalid setting for --prefilter-mode, must be { %s, %s }",
-			ModePreFilterNative, ModePreFilterGeneric)
+			config.ModePreFilterNative, config.ModePreFilterGeneric)
 	}
 
 	logging.SetupLogging(loggers, logOpts, "cilium-agent", viper.GetBool("debug"))
@@ -581,16 +580,16 @@ func initEnv(cmd *cobra.Command) {
 	bpf.MountFS()
 
 	logging.DefaultLogLevel = defaults.DefaultLogLevel
-	config.Opts.Set(endpoint.OptionDebug, viper.GetBool("debug"))
+	agentConfig.Opts.Set(config.OptionDebug, viper.GetBool("debug"))
 
 	autoIPv6NodeRoutes = viper.GetBool("auto-ipv6-node-routes")
 
-	config.Opts.Set(endpoint.OptionDropNotify, true)
-	config.Opts.Set(endpoint.OptionTraceNotify, true)
-	config.Opts.Set(options.PolicyTracing, enableTracing)
-	config.Opts.Set(endpoint.OptionConntrack, !disableConntrack)
-	config.Opts.Set(endpoint.OptionConntrackAccounting, !disableConntrack)
-	config.Opts.Set(endpoint.OptionConntrackLocal, false)
+	agentConfig.Opts.Set(config.OptionDropNotify, true)
+	agentConfig.Opts.Set(config.OptionTraceNotify, true)
+	agentConfig.Opts.Set(config.OptionPolicyTracing, enableTracing)
+	agentConfig.Opts.Set(config.OptionConntrack, !disableConntrack)
+	agentConfig.Opts.Set(config.OptionConntrackAccounting, !disableConntrack)
+	agentConfig.Opts.Set(config.OptionConntrackLocal, false)
 
 	policy.SetPolicyEnabled(strings.ToLower(viper.GetString("enable-policy")))
 
@@ -607,12 +606,12 @@ func initEnv(cmd *cobra.Command) {
 		log.WithError(err).WithField(logfields.V6Prefix, nat46prefix).Fatal("Invalid NAT46 prefix")
 	}
 
-	config.NAT46Prefix = r
+	agentConfig.NAT46Prefix = r
 
 	// If device has been specified, use it to derive better default
 	// allocation prefixes
-	if config.Device != "undefined" {
-		node.InitDefaultPrefix(config.Device)
+	if agentConfig.Device != "undefined" {
+		node.InitDefaultPrefix(agentConfig.Device)
 	}
 
 	if v6Address != "auto" {
@@ -639,7 +638,7 @@ func initEnv(cmd *cobra.Command) {
 }
 
 func runDaemon() {
-	d, err := NewDaemon(config)
+	d, err := NewDaemon()
 	if err != nil {
 		log.WithError(err).Fatal("Error while creating daemon")
 		return
@@ -649,7 +648,7 @@ func runDaemon() {
 		log.WithError(err).Fatal("Unable to initialize policy")
 	}
 
-	endpointmanager.EnableConntrackGC(!d.conf.IPv4Disabled, true)
+	endpoint.EnableConntrackGC()
 
 	if enableLogstash {
 		go d.EnableLogstash(logstashAddr, int(logstashProbeTimer))
