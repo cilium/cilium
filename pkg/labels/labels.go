@@ -362,13 +362,13 @@ func Map2Labels(m map[string]string, source string) Labels {
 
 // DeepCopy returns a deep copy of the labels.
 func (l Labels) DeepCopy() Labels {
+	if l == nil {
+		return nil
+	}
+
 	o := make(Labels, len(l))
 	for k, v := range l {
-		if v == nil {
-			o[k] = nil
-		} else {
-			o[k] = v.DeepCopy()
-		}
+		o[k] = v.DeepCopy()
 	}
 	return o
 }
