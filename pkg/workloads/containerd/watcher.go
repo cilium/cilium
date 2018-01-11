@@ -1,4 +1,4 @@
-// Copyright 2016-2017 Authors of Cilium
+// Copyright 2016-2018 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -47,8 +47,6 @@ import (
 
 const (
 	syncRateDocker = 30 * time.Second
-
-	maxRetries = 3
 
 	eventQueueBufferSize = 100
 )
@@ -229,19 +227,18 @@ func getFilteredLabels(allLabels map[string]string) (identityLabels, information
 }
 
 func handleCreateContainer(id string, retry bool) {
-	maxTries := 5
 	scopedLog := log.WithFields(logrus.Fields{
 		logfields.ContainerID: shortContainerID(id),
-		fieldMaxRetry:         maxTries,
+		fieldMaxRetry:         workloads.EndpointCorrelationMaxRetries,
 	})
 
-	for try := 1; try <= maxTries; try++ {
+	for try := 1; try <= workloads.EndpointCorrelationMaxRetries; try++ {
 		var ciliumID uint16
 
 		if try > 1 {
 			if retry {
 				scopedLog.WithField("retry", try).Debug("Waiting for endpoint representing container to appear")
-				time.Sleep(time.Duration(try) * time.Second)
+				time.Sleep(workloads.EndpointCorrelationSleepTime(try))
 			} else {
 				break
 			}
