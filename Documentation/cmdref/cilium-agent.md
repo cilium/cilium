@@ -30,7 +30,6 @@ cilium-agent
   -e, --docker string                     Path to docker runtime socket (default "unix:///var/run/docker.sock")
       --enable-policy string              Enable policy enforcement (default "default")
       --enable-tracing                    Enable tracing while determining policy (debugging)
-      --envoy-proxy                       Use Envoy for HTTP proxy
       --ipv4-cluster-cidr-mask-size int   Mask size for the cluster wide CIDR (default 8)
       --ipv4-node string                  IPv4 address of node (default "auto")
       --ipv4-range string                 Per-node IPv4 endpoint prefix, e.g. 10.16.0.0/16 (default "auto")
@@ -44,6 +43,7 @@ cilium-agent
       --keep-config                       When restoring state, keeps containers' configuration in place
       --kvstore string                    Key-value store type
       --kvstore-opt map                   Key-value store options (default map[])
+      --l7-proxy string                   L7 proxy: oxy or envoy (default "oxy")
       --label-prefix-file string          Valid label prefixes file path
       --labels stringSlice                List of label prefixes used to determine identity of an endpoint
       --lb string                         Enables load balancer mode where load balancer bpf program is attached to the given interface
