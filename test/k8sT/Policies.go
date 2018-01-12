@@ -339,7 +339,7 @@ var _ = Describe("K8sPolicyTestAcrossNamespaces", func() {
 		}
 
 		testConnectivity := func(frontendPod, backendIP string) {
-			By("Testing connectivity")
+			By(fmt.Sprintf("Testing connectivity from %s to %s", frontendPod, backendIP))
 			By("netstat output")
 
 			res := kubectl.Exec("netstat -ltn")
@@ -384,7 +384,6 @@ var _ = Describe("K8sPolicyTestAcrossNamespaces", func() {
 		resources := []string{"1-frontend.json", "2-backend-server.json", "3-backend.json"}
 		for _, resource := range resources {
 			resourcePath := kubectl.ManifestGet(resource)
-			fmt.Println("resourcePath: %s", resourcePath)
 			res = kubectl.Create(resourcePath)
 			defer kubectl.Delete(resourcePath)
 			res.ExpectSuccess()
@@ -394,25 +393,13 @@ var _ = Describe("K8sPolicyTestAcrossNamespaces", func() {
 		areEndpointsReady := kubectl.CiliumEndpointWait(ciliumPodK8s2)
 		Expect(areEndpointsReady).Should(BeTrue())
 
-		By("Getting information about pods in qa namespace")
-		res = kubectl.Exec("kubectl get pods -n qa -o wide")
-		log.Infof("%s", res.GetStdOut())
-
-		By("Getting information about pods in development namespace")
-		res = kubectl.Exec("kubectl get pods -n development -o wide")
-		log.Infof("%s", res.GetStdOut())
-
-		By("Getting information about backend service in development namespace")
-		res = kubectl.Exec("kubectl describe svc -n development backend")
-		log.Infof("%s", res.GetStdOut())
+		pods, err := kubectl.WaitForServiceEndpoints(developmentNs, "", "backend", "80", helpers.HelperTimeout)
+		Expect(err).Should(BeNil())
+		Expect(pods).Should(BeTrue())
 
 		By("Getting K8s services")
 		res = kubectl.Exec("kubectl get svc --all-namespaces")
 		log.Infof("%s", res.GetStdOut())
-
-		pods, err := kubectl.WaitForServiceEndpoints(developmentNs, "", "backend", "80", helpers.HelperTimeout)
-		Expect(pods).Should(BeTrue())
-		Expect(err).Should(BeNil())
 
 		By("Getting information about pods in qa namespace")
 		res = kubectl.Exec("kubectl get pods -n qa -o wide")
@@ -439,7 +426,7 @@ var _ = Describe("K8sPolicyTestAcrossNamespaces", func() {
 		backendSvcIP, err := kubectl.Exec("kubectl get svc -n development -o json").Filter("{.items[*].spec.clusterIP}")
 		Expect(err).Should(BeNil())
 
-		By(fmt.Sprintf("Backend Service IP: %s", backendSvcIP.String))
+		By(fmt.Sprintf("Backend Service IP: %s", backendSvcIP.String()))
 
 		By("Running tests WITHOUT Policy / Proxy loaded")
 
@@ -448,10 +435,8 @@ var _ = Describe("K8sPolicyTestAcrossNamespaces", func() {
 
 		Expect(returnCode).Should(Equal("200"), "Unable to connect between %s and %s:80/", frontendPod, backendSvcIP)
 
-		l7StressTest := func() {
-			By("L7 Stresstest")
+		basicConnectivity := func() {
 			By("Loading Policies into Cilium")
-
 			policyPath := kubectl.ManifestGet("cnp-l7-stresstest.yaml")
 			policyCmd := "cilium policy get io.cilium.k8s-policy-name=l7-stresstest"
 
@@ -465,20 +450,23 @@ var _ = Describe("K8sPolicyTestAcrossNamespaces", func() {
 				By("Checking that all policies were deleted in Cilium")
 				output, err := kubectl.ExecPodCmd(helpers.KubeSystemNamespace, ciliumPodK8s1, policyCmd)
 				Expect(err).Should(Not(BeNil()), "policies should be deleted from Cilium: policies found: %s", output)
+
+				By("Checking that all policies were deleted in Cilium")
+				output, err = kubectl.ExecPodCmd(helpers.KubeSystemNamespace, ciliumPodK8s2, policyCmd)
+				Expect(err).Should(Not(BeNil()), "policies should be deleted from Cilium: policies found: %s", output)
 			}()
 
 			output, err := kubectl.ExecPodCmd(helpers.KubeSystemNamespace, ciliumPodK8s1, "cilium policy get")
 			Expect(err).Should(BeNil(), fmt.Sprintf("output of \"cilium policy get\": %s", output))
 
 			By("Running tests WITH Policy / Proxy loaded")
-
 			testConnectivity(frontendPod.String(), backendSvcIP.String())
 		}
 
-		l7StressTest()
+		basicConnectivity()
 
 		crossNamespaceTest := func() {
-			By("Testing policy enforcement from any namespace")
+			By("Testing Cilium NetworkPolicy enforcement from any namespace")
 
 			policyPath := kubectl.ManifestGet("cnp-any-namespace.yaml")
 			policyCmd := "cilium policy get io.cilium.k8s-policy-name=l7-stresstest"
@@ -492,6 +480,10 @@ var _ = Describe("K8sPolicyTestAcrossNamespaces", func() {
 
 				By("Checking that all policies were deleted in Cilium")
 				output, err := kubectl.ExecPodCmd(helpers.KubeSystemNamespace, ciliumPodK8s1, policyCmd)
+				Expect(err).Should(Not(BeNil()), "policies should be deleted from Cilium: policies found: %s", output)
+
+				By("Checking that all policies were deleted in Cilium")
+				output, err = kubectl.ExecPodCmd(helpers.KubeSystemNamespace, ciliumPodK8s2, policyCmd)
 				Expect(err).Should(Not(BeNil()), "policies should be deleted from Cilium: policies found: %s", output)
 			}()
 
