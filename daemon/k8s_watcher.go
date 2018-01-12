@@ -1058,9 +1058,12 @@ func (d *Daemon) addK8sSVCs(svc types.K8sServiceNamespace, svcInfo *types.K8sSer
 		logfields.K8sNamespace: svc.Namespace,
 	})
 
-	isSvcIPv4 := svcInfo.FEIP.To4() != nil
-	if err := areIPsConsistent(!d.conf.IPv4Disabled, isSvcIPv4, svc, se); err != nil {
-		return err
+	// Frontend IPs must be of the same type as backend IPs. Headless services, however, are consistent because they have no frontend IP.
+	if !svcInfo.IsHeadless {
+		isSvcIPv4 := svcInfo.FEIP.To4() != nil
+		if err := areIPsConsistent(!d.conf.IPv4Disabled, isSvcIPv4, svc, se); err != nil {
+			return err
+		}
 	}
 
 	uniqPorts := getUniqPorts(svcInfo.Ports)
