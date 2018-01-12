@@ -322,6 +322,12 @@ var _ = Describe("K8sPolicyTestAcrossNamespaces", func() {
 		developmentNs := "development"
 		podNameFilter := "{.items[*].metadata.name}"
 
+		checkCiliumPoliciesDeleted := func(ciliumPod, policyCmd string) {
+			By(fmt.Sprintf("Checking that all policies were deleted in Cilium pod %s", ciliumPod))
+			output, err := kubectl.ExecPodCmd(helpers.KubeSystemNamespace, ciliumPod, policyCmd)
+			Expect(err).Should(Not(BeNil()), "policies should be deleted from Cilium: policies found: %s", output)
+		}
+
 		// formatLabelArgument formats the provided key-value pairs as labels for use in
 		// querying Kubernetes.
 		formatLabelArgument := func(firstKey, firstValue string, nextLabels ...string) string {
@@ -336,6 +342,20 @@ var _ = Describe("K8sPolicyTestAcrossNamespaces", func() {
 				}
 			}
 			return baseString
+		}
+
+		logInfo := func(cmd string) {
+			res := kubectl.Exec(cmd)
+			log.Infof("%s", res.GetStdOut())
+		}
+
+		policyDeleteAndCheck := func(ciliumPods []string, policyPath, policyCmd string) {
+			_, err := kubectl.CiliumPolicyAction(helpers.KubeSystemNamespace, policyPath, helpers.KubectlDelete, helpers.HelperTimeout)
+			Expect(err).Should(BeNil(), fmt.Sprintf("Error deleting resource %s: %s", policyPath, err))
+
+			for _, pod := range ciliumPods {
+				checkCiliumPoliciesDeleted(pod, policyCmd)
+			}
 		}
 
 		testConnectivity := func(frontendPod, backendIP string) {
@@ -398,20 +418,16 @@ var _ = Describe("K8sPolicyTestAcrossNamespaces", func() {
 		Expect(pods).Should(BeTrue())
 
 		By("Getting K8s services")
-		res = kubectl.Exec("kubectl get svc --all-namespaces")
-		log.Infof("%s", res.GetStdOut())
+		logInfo("kubectl get svc --all-namespaces")
 
 		By("Getting information about pods in qa namespace")
-		res = kubectl.Exec("kubectl get pods -n qa -o wide")
-		log.Infof("%s", res.GetStdOut())
+		logInfo("kubectl get pods -n qa -o wide")
 
 		By("Getting information about pods in development namespace")
-		res = kubectl.Exec("kubectl get pods -n development -o wide")
-		log.Infof("%s", res.GetStdOut())
+		logInfo("kubectl get pods -n development -o wide")
 
 		By("Getting information about backend service in development namespace")
-		res = kubectl.Exec("kubectl describe svc -n development backend")
-		log.Infof("%s", res.GetStdOut())
+		logInfo("kubectl describe svc -n development backend")
 
 		frontendPod, err := kubectl.GetPods(qaNs, formatLabelArgument("id", "client")).Filter(podNameFilter)
 		Expect(err).Should(BeNil())
@@ -443,18 +459,7 @@ var _ = Describe("K8sPolicyTestAcrossNamespaces", func() {
 			_, err = kubectl.CiliumPolicyAction(helpers.KubeSystemNamespace, policyPath, helpers.KubectlCreate, helpers.HelperTimeout)
 			Expect(err).Should(BeNil(), fmt.Sprintf("Error creating resource %s: %s", policyPath, err))
 
-			defer func() {
-				_, err := kubectl.CiliumPolicyAction(helpers.KubeSystemNamespace, policyPath, helpers.KubectlDelete, helpers.HelperTimeout)
-				Expect(err).Should(BeNil(), fmt.Sprintf("Error deleting resource %s: %s", policyPath, err))
-
-				By("Checking that all policies were deleted in Cilium")
-				output, err := kubectl.ExecPodCmd(helpers.KubeSystemNamespace, ciliumPodK8s1, policyCmd)
-				Expect(err).Should(Not(BeNil()), "policies should be deleted from Cilium: policies found: %s", output)
-
-				By("Checking that all policies were deleted in Cilium")
-				output, err = kubectl.ExecPodCmd(helpers.KubeSystemNamespace, ciliumPodK8s2, policyCmd)
-				Expect(err).Should(Not(BeNil()), "policies should be deleted from Cilium: policies found: %s", output)
-			}()
+			defer policyDeleteAndCheck(ciliumPods, policyPath, policyCmd)
 
 			output, err := kubectl.ExecPodCmd(helpers.KubeSystemNamespace, ciliumPodK8s1, "cilium policy get")
 			Expect(err).Should(BeNil(), fmt.Sprintf("output of \"cilium policy get\": %s", output))
@@ -474,18 +479,7 @@ var _ = Describe("K8sPolicyTestAcrossNamespaces", func() {
 			_, err = kubectl.CiliumPolicyAction(helpers.KubeSystemNamespace, policyPath, helpers.KubectlCreate, helpers.HelperTimeout)
 			Expect(err).Should(BeNil(), fmt.Sprintf("Error creating resource %s: %s", policyPath, err))
 
-			defer func() {
-				_, err := kubectl.CiliumPolicyAction(helpers.KubeSystemNamespace, policyPath, helpers.KubectlDelete, helpers.HelperTimeout)
-				Expect(err).Should(BeNil(), fmt.Sprintf("Error deleting resource %s: %s", policyPath, err))
-
-				By("Checking that all policies were deleted in Cilium")
-				output, err := kubectl.ExecPodCmd(helpers.KubeSystemNamespace, ciliumPodK8s1, policyCmd)
-				Expect(err).Should(Not(BeNil()), "policies should be deleted from Cilium: policies found: %s", output)
-
-				By("Checking that all policies were deleted in Cilium")
-				output, err = kubectl.ExecPodCmd(helpers.KubeSystemNamespace, ciliumPodK8s2, policyCmd)
-				Expect(err).Should(Not(BeNil()), "policies should be deleted from Cilium: policies found: %s", output)
-			}()
+			defer policyDeleteAndCheck(ciliumPods, policyPath, policyCmd)
 
 			output, err := kubectl.ExecPodCmd(helpers.KubeSystemNamespace, ciliumPodK8s1, "cilium policy get")
 			Expect(err).Should(BeNil(), fmt.Sprintf("output of \"cilium policy get\": %s", output))
