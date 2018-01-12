@@ -19,6 +19,7 @@
 import os
 # import sys
 import re
+import subprocess
 # sys.path.insert(0, os.path.abspath('.'))
 
 
@@ -64,11 +65,7 @@ author = u'Cilium Authors'
 release = open("../VERSION", "r").read().strip()
 
 # Asume the current branch is master but check with VERSION file.
-branch = "master"
-if not release.endswith(".90"):
-    semver = release.split(".")
-    branch = "v{}.{}".format(semver[0], semver[1])
-
+branch = subprocess.check_output("git rev-parse --abbrev-ref HEAD", shell=True)
 githubusercontent = 'https://raw.githubusercontent.com/cilium/cilium/'
 scm_web = githubusercontent + branch
 
