@@ -85,11 +85,7 @@ func (kub *Kubectl) ExecPodCmd(namespace string, pod string, cmd string) (string
 	err := kub.Execute(command, stdout, stderr)
 	if err != nil {
 		// TODO: Return CmdRes here
-		// Return the string is not fired on the assertion :\ Need to check
-		kub.logger.WithError(err).WithField("pod", pod).Errorf(
-			"ExecPodCmd command failed '%s'|| %s'",
-			cmd, stdout.String(), stderr.String())
-		return "", fmt.Errorf("ExecPodCmd: command '%s' failed '%s'", command, stdout.String())
+		return "", fmt.Errorf("ExecPodCmd: command '%s' failed '%s' || '%s'", command, stdout.String(), stderr.String())
 	}
 	return stdout.String(), nil
 }
