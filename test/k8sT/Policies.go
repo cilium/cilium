@@ -16,6 +16,7 @@ package k8sTest
 
 import (
 	"fmt"
+	"sync"
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/test/helpers"
@@ -285,16 +286,12 @@ var _ = Describe("K8sPolicyTest", func() {
 
 var _ = Describe("K8sPolicyTestAcrossNamespaces", func() {
 
-	var initialized bool
 	var kubectl *helpers.Kubectl
 	var logger *logrus.Entry
+	var once sync.Once
 	var path string
 
 	initialize := func() {
-		if initialized == true {
-			return
-		}
-
 		logger = log.WithFields(logrus.Fields{"testName": "K8sPolicyTestAcrossNamespaces"})
 		logger.Info("Starting")
 		kubectl = helpers.CreateKubectl(helpers.K8s1VMName(), logger)
@@ -304,11 +301,10 @@ var _ = Describe("K8sPolicyTestAcrossNamespaces", func() {
 		status, err := kubectl.WaitforPods(helpers.KubeSystemNamespace, "-l k8s-app=cilium", 300)
 		Expect(status).Should(BeTrue())
 		Expect(err).Should(BeNil())
-		initialized = true
 	}
 
 	BeforeEach(func() {
-		initialize()
+		once.Do(initialize)
 	})
 
 	AfterEach(func() {
@@ -342,7 +338,7 @@ var _ = Describe("K8sPolicyTestAcrossNamespaces", func() {
 			return baseString
 		}
 
-		testConnectivity := func(backendIP, frontendPod string) {
+		testConnectivity := func(frontendPod, backendIP string) {
 			By("Testing connectivity")
 			By("netstat output")
 
@@ -481,7 +477,7 @@ var _ = Describe("K8sPolicyTestAcrossNamespaces", func() {
 
 			By("Running tests WITH Policy / Proxy loaded")
 
-			testConnectivity(backendSvcIP.String(), frontendPod.String())
+			testConnectivity(frontendPod.String(), backendSvcIP.String())
 		}
 
 		l7StressTest()
@@ -509,7 +505,7 @@ var _ = Describe("K8sPolicyTestAcrossNamespaces", func() {
 
 			By("Running tests WITH Policy / Proxy loaded")
 
-			testConnectivity(backendSvcIP.String(), frontendPod.String())
+			testConnectivity(frontendPod.String(), backendSvcIP.String())
 
 		}
 
