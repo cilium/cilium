@@ -676,6 +676,38 @@ Criteria for the inclusion into stable release branches are:
 - Security relevant fixes
 - Major bugfixes relevant to the correct operation of Cilium
 
+
+Steps to release
+~~~~~~~~~~~~~~~~
+
+1. Create a new automated build for ``cilium/cilium`` container image tag with
+   the full Cilium version on hub.docker.com. Point the automated build to the
+   development branch of the to be released version. This will ensure that the
+   to be released version always has a corresponding container image tag
+   assigned.
+2. Update the AUTHORS file by running ``make update-authors``
+3. Update the ``cilium_version`` and ``cilium_tag`` variables in
+   ``examples/getting-started/Vagrantfile``
+4. Review all merged PRs and add ``release-note/*`` labels as necessary.
+   A useful query here is ``is:pr is:merged merged:>=2017-12-16``
+5. Generate the release notes by running.
+   ``git checkout master``, ``cd contrib/release/``,
+   ``GITHUB_TOKEN=xxxx ./relnotes --markdown-file=~/NEWS.rst v1.0.0-rc2..``
+6. Manually merge the generated file ``~/NEWS.rst`` into ``NEWS.rst`` in the
+   Cilum repository and add the title section with the corresponding release
+   date.
+7. Create a pull request with all changes above, get it merged into the
+   development branch of the to be released version.
+8. If the release is a new minor version which will receive backports, then
+   create a git branch with the name ``vX.Y``. Push this branch to GitHub and
+   protect the branch so it can't be pushed to directly to.
+9. Tag the release with the full version string ``vX.Y.Z`` and push the tag
+   to the git repository.
+10. Build all binaries and push them to S3 using ``contrib/release/uploadrev``.
+    See the ``README`` in the ``contrib/release`` directory for more information.
+11. Create a GitHub release and include the release notes as well as links to
+    the binaries.
+
 Developer's Certificate of Origin
 ---------------------------------
 
