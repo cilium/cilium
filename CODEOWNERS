@@ -55,6 +55,7 @@ examples/kubernetes-ingress/ @cilium/kubernetes
 examples/mesos/Vagrantfile @cilium/vagrant
 examples/minikube/ @cilium/kubernetes
 ginkgo.Jenkinsfile @cilium/ci
+ginkgo-all.Jenkinsfile @cilium/ci
 Jenkinsfile @cilium/ci
 Jenkinsfile.nightly @cilium/ci
 monitor/ @cilium/monitor
