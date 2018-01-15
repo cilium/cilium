@@ -64,7 +64,6 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 	"github.com/vishvananda/netlink"
-	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 const (
@@ -255,62 +254,6 @@ func (d *Daemon) PolicyEnforcement() string {
 // DebugEnabled returns if debug mode is enabled.
 func (d *Daemon) DebugEnabled() bool {
 	return d.conf.Opts.IsEnabled(endpoint.OptionDebug)
-}
-
-// AnnotateEndpoint adds a Kubernetes annotation with key annotationKey and value
-// annotationValue if Kubernetes is being utilized in tandem with Cilium.
-func (d *Daemon) AnnotateEndpoint(e *endpoint.Endpoint, annotationKey, annotationValue string) {
-
-	if !k8s.IsEnabled() {
-		return // Don't error out if k8s is not enabled; treat as a no-op.
-	}
-
-	go func(e *endpoint.Endpoint) {
-		// TODO: Retry forever?
-		n := 0
-		for {
-			// Endpoint's PodName is in the format namespace:pod-name
-			split := strings.Split(e.PodName, ":")
-			if len(split) < 2 {
-				log.WithFields(logrus.Fields{
-					logfields.EndpointID:            e.ID,
-					logfields.K8sPodName:            e.PodName,
-					logfields.K8sIdentityAnnotation: common.CiliumIdentityAnnotation,
-				}).Error("k8s: unable to update pod with annotation: namespace and pod name should be delimited by :")
-				return
-			}
-
-			scopedLog := log.WithFields(logrus.Fields{
-				logfields.EndpointID:            e.ID,
-				logfields.K8sNamespace:          split[0],
-				logfields.K8sPodName:            split[1],
-				logfields.K8sIdentityAnnotation: common.CiliumIdentityAnnotation,
-			})
-
-			pod, err := k8s.Client().CoreV1().Pods(split[0]).Get(split[1], meta_v1.GetOptions{})
-			if err != nil {
-				scopedLog.WithError(err).Error("error getting pod for endpoint")
-				return
-			}
-
-			if pod.Annotations == nil {
-				pod.Annotations = make(map[string]string)
-			}
-			pod.Annotations[annotationKey] = annotationValue
-			pod, err = k8s.Client().CoreV1().Pods(split[0]).Update(pod)
-			if err == nil {
-				scopedLog.Debug("added annotation to endpoint / pods")
-				break
-			}
-
-			scopedLog.Warn("k8s: unable to update  endpoint / pod  with annotation, retrying...")
-
-			if n < 30 {
-				n++
-			}
-			time.Sleep(time.Duration(n) * time.Second)
-		}
-	}(e)
 }
 
 // CleanCTEntries cleans the connection tracking of the given endpoint

@@ -300,9 +300,8 @@ func handleCreateContainer(id string, retry bool) {
 		// implement this
 		if k8s.IsEnabled() {
 			if dockerContainer.Config != nil {
-				podNamespace := k8sDockerLbls.GetPodNamespace(dockerContainer.Config.Labels)
-				podName := k8sDockerLbls.GetPodName(dockerContainer.Config.Labels)
-				ep.SetPodName(fmt.Sprintf("%s:%s", podNamespace, podName))
+				ep.SetK8sNamespace(k8sDockerLbls.GetPodNamespace(dockerContainer.Config.Labels))
+				ep.SetK8sPodName(k8sDockerLbls.GetPodName(dockerContainer.Config.Labels))
 			}
 		}
 

@@ -49,7 +49,6 @@ type DaemonSuite struct {
 	OnQueueEndpointBuild              func(r *e.Request)
 	OnRemoveFromEndpointQueue         func(epID uint64)
 	OnDebugEnabled                    func() bool
-	OnAnnotateEndpoint                func(e *e.Endpoint, annotationKey, annotationValue string)
 	OnGetCompilationLock              func() *lock.RWMutex
 	OnCleanCTEntries                  func(e *e.Endpoint, isCTLocal bool, ips []net.IP, idsToRm policy.RuleContexts)
 	OnFlushCTEntries                  func(e *e.Endpoint, isCTLocal bool, ips []net.IP, idsToKeep policy.RuleContexts)
@@ -74,14 +73,6 @@ func (ds *DaemonSuite) DryModeEnabled() bool {
 		return ds.OnDryModeEnabled()
 	}
 	panic("DryModeEnabled should not have been called")
-}
-
-func (ds *DaemonSuite) AnnotateEndpoint(e *e.Endpoint, annotationKey, annotationValue string) {
-	if ds.OnAnnotateEndpoint != nil {
-		ds.OnAnnotateEndpoint(e, annotationKey, annotationValue)
-	}
-	panic("OnAnnotateEndpoint should not have been called")
-
 }
 
 func (ds *DaemonSuite) EnableEndpointPolicyEnforcement(e *e.Endpoint) (bool, bool) {

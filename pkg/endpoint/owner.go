@@ -71,9 +71,6 @@ type Owner interface {
 	// Returns true if debugging has been enabled
 	DebugEnabled() bool
 
-	// Annotates endpoint e with an annotation with key annotationKey, and value annotationValue.
-	AnnotateEndpoint(e *Endpoint, annotationKey, annotationValue string)
-
 	// GetCompilationLock returns the mutex responsible for synchronizing compilation
 	// of BPF programs.
 	GetCompilationLock() *lock.RWMutex
