@@ -158,8 +158,8 @@ func Remove(ep *endpoint.Endpoint) {
 		delete(endpointsAux, endpoint.NewID(endpoint.ContainerNamePrefix, ep.ContainerName))
 	}
 
-	if ep.PodName != "" {
-		delete(endpointsAux, endpoint.NewID(endpoint.PodNamePrefix, ep.PodName))
+	if podName := ep.GetK8sNamespaceAndPodNameLocked(); podName != "" {
+		delete(endpointsAux, endpoint.NewID(endpoint.PodNamePrefix, podName))
 	}
 }
 
@@ -229,8 +229,8 @@ func updateReferences(ep *endpoint.Endpoint) {
 		endpointsAux[endpoint.NewID(endpoint.ContainerNamePrefix, ep.ContainerName)] = ep
 	}
 
-	if ep.PodName != "" {
-		endpointsAux[endpoint.NewID(endpoint.PodNamePrefix, ep.PodName)] = ep
+	if podName := ep.GetK8sNamespaceAndPodNameLocked(); podName != "" {
+		endpointsAux[endpoint.NewID(endpoint.PodNamePrefix, podName)] = ep
 	}
 }
 
