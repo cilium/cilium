@@ -458,6 +458,30 @@ requirements have been met:
   Certificate of Origin" for more details.
 
 
+Triggering Pull-Request Builds With Jenkins
+-------------------------------------------
+
+To ensure that build resources are used judiciously, builds on Jenkins
+are manually triggered via comments on each pull-request that contain
+"trigger-phrases". Only members of the Cilium GitHub organization are
+allowed to trigger these jobs. Refer to the table below for information
+regarding which phrase triggers which build, which build is required for
+a pull-request to be merged, etc. Each linked job contains a description
+illustrating which subset of tests the job runs.
+
++-------------------------------------------------------------------------------------+-----------------+--------------------+
+| Jenkins Job                                                                         | Trigger Phrase  | Required To Merge? |
++=====================================================================================+=================+====================+
+| `Cilium-Bash-Tests <https://jenkins.cilium.io/job/Cilium-Bash-Tests/>`_             | test-me-please  | Yes                |
++-------------------------------------------------------------------------------------+-----------------+--------------------+
+| `Cilium-Ginkgo-Tests <https://jenkins.cilium.io/job/Cilium-Ginkgo-Tests/>`_         | test-me-please  | Yes                |
++-------------------------------------------------------------------------------------+-----------------+--------------------+
+| `Cilium-Ginkgo-Tests-All <https://jenkins.cilium.io/job/Cilium-Ginkgo-Tests-All/>`_ | test-all-ginkgo | No                 |
++-------------------------------------------------------------------------------------+-----------------+--------------------+
+| `Cilium-Nightly-Tests-PR <https://jenkins.cilium.io/job/Cilium-Nightly-Tests-PR/>`_ | test-nightly    | No                 |
++-------------------------------------------------------------------------------------+-----------------+--------------------+
+
+
 CI / Testing environment
 ------------------------
 
