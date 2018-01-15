@@ -136,6 +136,9 @@ const (
 	// Route is a L2 or L3 Linux route
 	Route = "route"
 
+	// RetryUUID is an UUID identical for all retries of a set
+	RetryUUID = "retryUUID"
+
 	// K8s specific
 
 	// K8sNodeID is the k8s ID of a K8sNode

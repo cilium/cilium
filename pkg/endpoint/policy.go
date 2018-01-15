@@ -20,10 +20,13 @@ import (
 	"path/filepath"
 	"reflect"
 	"sync"
+	"time"
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/pkg/byteorder"
+	"github.com/cilium/cilium/pkg/controller"
+	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
@@ -809,6 +812,29 @@ func (e *Endpoint) TriggerPolicyUpdatesLocked(owner Owner, opts models.Configura
 	return changed, ctCleaned, nil
 }
 
+func (e *Endpoint) runIdentityToK8sPodSync() {
+	e.controllers.UpdateController("sync-identity-to-k8s-pod",
+		controller.ControllerParams{
+			DoFunc: func() error {
+				id := ""
+
+				e.Mutex.RLock()
+				if e.SecLabel != nil {
+					id = e.SecLabel.ID.String()
+				}
+				e.Mutex.RUnlock()
+
+				if id != "" && e.GetK8sNamespace() != "" && e.GetK8sPodName() != "" {
+					return k8s.AnnotatePod(e, common.CiliumIdentityAnnotation, id)
+				}
+
+				return nil
+			},
+			RunInterval: time.Duration(1) * time.Minute,
+		},
+	)
+}
+
 // SetIdentity resets endpoint's policy identity to 'id'.
 // Caller triggers policy regeneration if needed.
 // Called with e.Mutex Locked
@@ -841,8 +867,8 @@ func (e *Endpoint) SetIdentity(owner Owner, id *policy.Identity) {
 		e.SetStateLocked(StateReady, "Set identity for this endpoint")
 	}
 
-	// Annotate pod that this endpoint represents with its security identity
-	go owner.AnnotateEndpoint(e, common.CiliumIdentityAnnotation, e.SecLabel.ID.String())
+	e.runIdentityToK8sPodSync()
+
 	e.Consumable.Mutex.RLock()
 	e.getLogger().WithFields(logrus.Fields{
 		logfields.Identity: id,
