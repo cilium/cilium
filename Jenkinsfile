@@ -5,7 +5,6 @@ pipeline {
     options {
         timeout(time: 120, unit: 'MINUTES')
         timestamps()
-        disableConcurrentBuilds()
     }
     stages {
         stage('Boot VMs') {
