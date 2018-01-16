@@ -1,4 +1,4 @@
-// Copyright 2017 Authors of Cilium
+// Copyright 2017-2018 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -76,18 +76,22 @@ var (
 	k8sNamespace string
 	k8sLabel     string
 	execTimeout  time.Duration
+	configPath   string
+	dryRunMode   bool
 )
 
 func init() {
 	BugtoolRootCmd.Flags().BoolVar(&archive, "archive", true, "Create archive when false skips deletion of the output directory")
 	BugtoolRootCmd.Flags().BoolVar(&serve, "serve", false, "Start HTTP server to serve static files")
 	BugtoolRootCmd.Flags().BoolVar(&k8s, "k8s-mode", false, "Require Kubernetes pods to be found or fail")
+	BugtoolRootCmd.Flags().BoolVar(&dryRunMode, "dry-run", false, "Create configuration file of all commands that would have been executed")
 	BugtoolRootCmd.Flags().IntVarP(&port, "port", "p", 4444, "Port to use for the HTTP server, (default 4444)")
 	BugtoolRootCmd.Flags().StringVarP(&dumpPath, "tmp", "t", "/tmp", "Path to store extracted files")
 	BugtoolRootCmd.Flags().StringVarP(&host, "host", "H", "", "URI to server-side API")
 	BugtoolRootCmd.Flags().StringVarP(&k8sNamespace, "k8s-namespace", "", "kube-system", "Kubernetes namespace for Cilium pod")
 	BugtoolRootCmd.Flags().StringVarP(&k8sLabel, "k8s-label", "", "k8s-app=cilium", "Kubernetes label for Cilium pod")
-	BugtoolRootCmd.Flags().DurationVarP(&execTimeout, "exec-timeout", "", 5*time.Second, "The default timeout for any cmd execution in seconds")
+	BugtoolRootCmd.Flags().DurationVarP(&execTimeout, "exec-timeout", "", 30*time.Second, "The default timeout for any cmd execution in seconds")
+	BugtoolRootCmd.Flags().StringVarP(&configPath, "config", "", "./.cilium-bugtool.config", "Configuration to decide what should be run")
 }
 
 func getVerifyCiliumPods() []string {
@@ -103,7 +107,7 @@ func getVerifyCiliumPods() []string {
 			os.Exit(1)
 		}
 		if len(k8sPods) < 1 {
-			fmt.Fprintf(os.Stderr, "Found no pods, is kube-apiserver running?\n")
+			fmt.Fprint(os.Stderr, "Found no pods, is kube-apiserver running?\n")
 			os.Exit(1)
 		}
 	case os.Getuid() != 0 && len(k8sPods) == 0:
@@ -138,9 +142,6 @@ func removeIfEmpty(dir string) {
 }
 
 func runTool() {
-	k8sPods := getVerifyCiliumPods()
-
-	defer printDisclaimer()
 	// Prevent collision with other directories
 	nowStr := time.Now().Format("20060102-150405.999-0700-MST")
 	prefix := fmt.Sprintf("cilium-bugtool-%s-", nowStr)
@@ -150,18 +151,33 @@ func runTool() {
 		os.Exit(1)
 	}
 	defer cleanup(dbgDir)
-
-	ciliumDir := createDir(dbgDir, "cilium")
-	confDir := createDir(dbgDir, "conf")
 	cmdDir := createDir(dbgDir, "cmd")
+	confDir := createDir(dbgDir, "conf")
 
-	copyCiliumInfo(ciliumDir, k8sPods)
-	copyKernelConfig(confDir, k8sPods)
-	copySystemInfo(cmdDir, k8sPods)
+	k8sPods := getVerifyCiliumPods()
 
-	removeIfEmpty(ciliumDir)
-	removeIfEmpty(confDir)
+	var commands []string
+	if dryRunMode {
+		dryRun(configPath, k8sPods, confDir, cmdDir)
+		fmt.Printf("Configuration file at %s\n", configPath)
+		return
+	}
+
+	// Check if there is a user supplied configuration
+	if config, _ := loadConfigFile(configPath); config != nil {
+		// All of of the commands run are from the configuration file
+		commands = config.Commands
+	}
+	if len(commands) == 0 {
+		// Found no configuration file or empty so fall back to default commands.
+		commands = defaultCommands(confDir, cmdDir, k8sPods)
+	}
+	defer printDisclaimer()
+
+	runAll(commands, cmdDir, k8sPods)
+
 	removeIfEmpty(cmdDir)
+	removeIfEmpty(confDir)
 
 	// Please don't change the output below for the archive or directory.
 	// The order matters and is being used by scripts to copy the right
@@ -184,13 +200,23 @@ func runTool() {
 	}
 }
 
+// dryRun creates the configuration file to show the user what would have been run.
+// The same file can be used to modify what will be run by the bugtool.
+func dryRun(configPath string, k8sPods []string, confDir, cmdDir string) {
+	_, err := setupDefaultConfig(configPath, k8sPods, confDir, cmdDir)
+	if err != nil {
+		fmt.Printf("Error: %s", err)
+		os.Exit(1)
+	}
+}
+
 func printDisclaimer() {
 	fmt.Print(disclaimer)
 }
 
 func cleanup(dbgDir string) {
 	if !archive {
-		// Perserve directory when archive is not created
+		// Preserve directory when archive is not created
 		return
 	}
 	if err := os.RemoveAll(dbgDir); err != nil {
@@ -230,104 +256,21 @@ func createDir(dbgDir string, newDir string) string {
 	return confDir
 }
 
-func copyKernelConfig(confDir string, k8sPods []string) {
-	type Location struct {
-		Src string
-		Dst string
-	}
-
-	locations := []Location{
-		{"/proc/config", fmt.Sprintf("%s/kernel-config", confDir)},
-		{"/proc/config.gz", fmt.Sprintf("%s/kernel-config.gz", confDir)},
-	}
-
-	if len(k8sPods) == 0 {
-		kernel, _ := execCommand("uname", "-r")
-		kernel = strings.TrimSpace(kernel)
-		l := Location{fmt.Sprintf("/boot/config-%s", kernel),
-			fmt.Sprintf("%s/kernel-config-%s", confDir, kernel)}
-		locations = append(locations, l)
-
-		for _, location := range locations {
-			if _, err := os.Stat(location.Src); os.IsNotExist(err) {
-				continue
-			}
-			if err := copyFile(location.Src, location.Dst); err != nil {
-				fmt.Fprintf(os.Stderr, "Could not copy kernel config %s\n", err)
-			}
-		}
-	} else {
-		for _, pod := range k8sPods {
-			prompt := podPrefix(pod, "uname -r")
-			cmd, args := split(prompt)
-			kernel, _ := execCommand(cmd, args...)
-			kernel = strings.TrimSpace(kernel)
-			l := Location{fmt.Sprintf("/boot/config-%s", kernel),
-				fmt.Sprintf("%s/kernel-config-%s", confDir, kernel)}
-			locations = append(locations, l)
-
-			for _, location := range locations {
-				kubectlArg := fmt.Sprintf("%s/%s:%s", k8sNamespace, pod, location.Src)
-				if _, err := execCommand("kubectl", "cp", kubectlArg, location.Dst); err != nil {
-					fmt.Fprintf(os.Stderr, "Could not copy kernel config %s\n", err)
-				}
-			}
-		}
-	}
-}
-
-func copySystemInfo(cmdDir string, k8sPods []string) {
-	// Not expecting all of the commands to be available
-	commands := []string{
-		// Host and misc
-		"ps", "hostname", "ip a", "ip r", "ip link", "uname -a",
-		"dig", "netstat", "pidstat", "arp", "top -b -n 1", "uptime",
-		"dmesg", "bpftool map show", "bpftool prog show",
-		// Versions
-		"docker version",
-		// Docker and Kubernetes logs from systemd
-		"journalctl -u cilium*", "journalctl -u kubelet",
-	}
-	commands = append(commands, catCommands()...)
-	commands = append(commands, ethoolCommands()...)
-	commands = append(commands, "iptables-save", "iptables -S", "ip6tables -S", "iptables -L -v")
-
-	if len(k8sPods) == 0 {
-		runAll(commands, cmdDir, k8sPods)
-		return
-	}
-
-	// Prepare to run all the commands inside of the pod(s)
-	k8sCommands := []string{}
-	for _, pod := range k8sPods {
-		for _, cmd := range commands {
-			// Add the host flag if set
-			if len(host) > 0 {
-				cmd = fmt.Sprintf("%s -H %s", cmd, host)
-			}
-			k8sCommands = append(k8sCommands, podPrefix(pod, cmd))
-		}
-
-		// Check for previous logs of the pod
-		cmd := fmt.Sprintf("kubectl -n %s logs --previous -p %s", k8sNamespace, pod)
-		k8sCommands = append(k8sCommands, cmd)
-	}
-	k8sCommands = append(k8sCommands, "kubectl describe nodes",
-		"kubectl version",
-		"kubectl -n kube-system get pods",
-		"kubectl get pods,svc --all-namespaces",
-		"kubectl get version",
-	)
-
-	runAll(k8sCommands, cmdDir, k8sPods)
-}
-
 func podPrefix(pod, cmd string) string {
 	return fmt.Sprintf("kubectl exec %s -n %s -- %s", pod, k8sNamespace, cmd)
 }
 
 func runAll(commands []string, cmdDir string, k8sPods []string) {
-	numRoutinesAtOnce := len(commands) / 2
+	var numRoutinesAtOnce int
+	// Perform sanity check to prevent division by zero
+	if l := len(commands); l > 1 {
+		numRoutinesAtOnce = l / 2
+	} else if l == 1 {
+		numRoutinesAtOnce = l
+	} else {
+		// No commands
+		return
+	}
 	semaphore := make(chan bool, numRoutinesAtOnce)
 	for i := 0; i < numRoutinesAtOnce; i++ {
 		// This will not block because the channel is buffered and we
@@ -365,75 +308,6 @@ func runAll(commands []string, cmdDir string, k8sPods []string) {
 	}
 	// Wait for all the spawned goroutines to finish up.
 	wg.Wait()
-}
-
-func catCommands() []string {
-	// Only print the files that do exist to reduce number of errors in
-	// archive
-	commands := []string{}
-	files := []string{
-		// Look for some configuration
-		"/proc/sys/net/core/bpf_jit_enable", "/proc/kallsyms",
-		"/etc/resolv.conf",
-		// Look for more logs
-		"/var/log/upstart/docker.log", "/var/log/docker.log",
-		"/var/log/daemon.log", "/var/log/messages",
-	}
-
-	for _, f := range files {
-		if _, err := os.Stat(f); os.IsNotExist(err) {
-			continue
-		}
-		commands = append(commands, fmt.Sprintf("cat %s", f))
-	}
-	return commands
-}
-
-func copyCiliumInfo(ciliumDir string, k8sPods []string) {
-	sources := []string{
-		// Most of the output should come via debuginfo but also adding
-		// these ones for skimming purposes
-		"cilium debuginfo",
-		"cilium config",
-		"cilium bpf tunnel list",
-		"cilium bpf lb list",
-		"cilium bpf endpoint list",
-		"cilium bpf ct list global",
-		"cilium status",
-	}
-
-	stateDir := filepath.Join(defaults.RuntimePath, defaults.StateDir)
-	if len(k8sPods) == 0 { // Assuming this is a non k8s deployment
-		dst := filepath.Join(ciliumDir, defaults.StateDir)
-		if err := copyDir(stateDir, dst); err != nil {
-			fmt.Fprintf(os.Stderr, "Could not copy state directory %s\n", err)
-		}
-
-		for _, cmd := range sources {
-			// Add the host flag if set
-			if len(host) > 0 {
-				cmd = fmt.Sprintf("%s -H %s", cmd, host)
-			}
-			writeCmdToFile(ciliumDir, cmd, k8sPods)
-		}
-	} else { // Found k8s pods
-		for _, pod := range k8sPods {
-			dst := filepath.Join(ciliumDir, fmt.Sprintf("%s-%s", pod, defaults.StateDir))
-			kubectlArg := fmt.Sprintf("%s/%s:%s", k8sNamespace, pod, stateDir)
-			// kubectl cp kube-system/cilium-xrzwr:/var/run/cilium/state cilium-xrzwr-state
-			if _, err := execCommand("kubectl", "cp", kubectlArg, dst); err != nil {
-				fmt.Fprintf(os.Stderr, "Could not copy state directory %s\n", err)
-			}
-
-			for _, cmd := range sources {
-				// Add the host flag if set
-				if len(host) > 0 {
-					cmd = fmt.Sprintf("%s -H %s", cmd, host)
-				}
-				writeCmdToFile(ciliumDir, podPrefix(pod, cmd), k8sPods)
-			}
-		}
-	}
 }
 
 func execCommand(cmd string, args ...string) (string, error) {
@@ -497,7 +371,7 @@ func writeCmdToFile(cmdDir, prompt string, k8sPods []string) {
 	}
 }
 
-// split takes a commmand prompt and returns the command and arguments seperately
+// split takes a command prompt and returns the command and arguments separately
 func split(prompt string) (string, []string) {
 	// Split the command and arguments
 	split := strings.Split(prompt, " ")
