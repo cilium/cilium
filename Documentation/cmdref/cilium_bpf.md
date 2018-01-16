@@ -23,5 +23,6 @@ Direct access to local BPF maps
 * [cilium bpf endpoint](cilium_bpf_endpoint.html)	 - Local endpoint map
 * [cilium bpf lb](cilium_bpf_lb.html)	 - Load-balancing configuration
 * [cilium bpf policy](cilium_bpf_policy.html)	 - Manage policy related BPF maps
+* [cilium bpf proxy](cilium_bpf_proxy.html)	 - Proxy configuration
 * [cilium bpf tunnel](cilium_bpf_tunnel.html)	 - Tunnel endpoint map
 
