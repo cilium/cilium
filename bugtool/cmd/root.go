@@ -64,8 +64,6 @@ If you are going to register a issue on GitHub, please
 only provide files from the archive you have reviewed
 for sensitive information.
 `
-	// execTimeout is the timeout for any cmd execution
-	execTimeout = 5 * time.Second
 )
 
 var (
@@ -77,6 +75,7 @@ var (
 	host         string
 	k8sNamespace string
 	k8sLabel     string
+	execTimeout  time.Duration
 )
 
 func init() {
@@ -88,6 +87,7 @@ func init() {
 	BugtoolRootCmd.Flags().StringVarP(&host, "host", "H", "", "URI to server-side API")
 	BugtoolRootCmd.Flags().StringVarP(&k8sNamespace, "k8s-namespace", "", "kube-system", "Kubernetes namespace for Cilium pod")
 	BugtoolRootCmd.Flags().StringVarP(&k8sLabel, "k8s-label", "", "k8s-app=cilium", "Kubernetes label for Cilium pod")
+	BugtoolRootCmd.Flags().DurationVarP(&execTimeout, "exec-timeout", "", 5*time.Second, "The default timeout for any cmd execution in seconds")
 }
 
 func getVerifyCiliumPods() []string {
