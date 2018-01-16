@@ -37,6 +37,21 @@ var BugtoolRootCmd = &cobra.Command{
 	Use:   "bugtool",
 	Short: "Cilium agent debugging tool",
 	Long:  "cilium-bugtool - capture system and node information for debugging a Cilium node",
+	Example: `	# Create archive with files
+	$ cilium-bugtool
+	[...]
+
+	# Serving files over HTTP
+	$ cilium-bugtool --serve
+	[...]
+
+	# Retrieve archive from a Cilium Kubernetes pod
+	$ kubectl get pods --namespace kube-system
+	NAME                          READY     STATUS    RESTARTS   AGE
+	cilium-kg8lv                  1/1       Running   0          13m
+	[...]
+	$ kubectl -n kube-system exec cilium-kg8lv cilium-bugtool
+	$ kubectl cp kube-system/cilium-kg8lv:/tmp/cilium-bugtool-243785589.tar /tmp/cilium-bugtool-243785589.tar`,
 	Run: func(cmd *cobra.Command, args []string) {
 		runTool()
 	},
