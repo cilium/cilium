@@ -16,6 +16,7 @@ package RuntimeTest
 
 import (
 	"context"
+	"sync"
 
 	"github.com/cilium/cilium/test/helpers"
 
@@ -26,19 +27,15 @@ import (
 
 var _ = Describe("RuntimeKVStoreTest", func() {
 
-	var initialized bool
+	var once sync.Once
 	var logger *logrus.Entry
 	var vm *helpers.SSHMeta
 
 	initialize := func() {
-		if initialized == true {
-			return
-		}
 		logger = log.WithFields(logrus.Fields{"testName": "RuntimeKVStoreTest"})
 		logger.Info("Starting")
 		vm = helpers.CreateNewRuntimeHelper(helpers.Runtime, logger)
 		logger.Info("done creating Cilium and Docker helpers")
-		initialized = true
 	}
 	containers := func(option string) {
 		switch option {
@@ -52,7 +49,7 @@ var _ = Describe("RuntimeKVStoreTest", func() {
 	}
 
 	BeforeEach(func() {
-		initialize()
+		once.Do(initialize)
 		vm.Exec("sudo systemctl stop cilium")
 	}, 150)
 

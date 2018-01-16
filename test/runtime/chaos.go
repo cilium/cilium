@@ -17,6 +17,7 @@ package RuntimeTest
 import (
 	"crypto/md5"
 	"fmt"
+	"sync"
 
 	"github.com/cilium/cilium/test/helpers"
 
@@ -27,18 +28,14 @@ import (
 
 var _ = Describe("RuntimeChaos", func() {
 
-	var initialized bool
 	var vm *helpers.SSHMeta
+	var once sync.Once
 
 	initialize := func() {
-		if initialized == true {
-			return
-		}
 		logger := log.WithFields(logrus.Fields{"testName": "RuntimeChaos"})
 		logger.Info("Starting")
 		vm = helpers.CreateNewRuntimeHelper(helpers.Runtime, logger)
 		vm.NetworkCreate(helpers.CiliumDockerNetwork, "")
-		initialized = true
 	}
 
 	waitForCilium := func() {
@@ -51,7 +48,7 @@ var _ = Describe("RuntimeChaos", func() {
 	}
 
 	BeforeEach(func() {
-		initialize()
+		once.Do(initialize)
 		vm.ContainerCreate(helpers.Client, helpers.NetperfImage, helpers.CiliumDockerNetwork, "-l id.client")
 		vm.ContainerCreate(helpers.Server, helpers.NetperfImage, helpers.CiliumDockerNetwork, "-l id.server")
 

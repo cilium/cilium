@@ -16,6 +16,7 @@ package k8sTest
 
 import (
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/cilium/cilium/test/helpers"
@@ -29,13 +30,10 @@ var _ = Describe("K8sTunnelTest", func() {
 
 	var kubectl *helpers.Kubectl
 	var demoDSPath string
-	var initialized bool
+	var once sync.Once
 	var logger *logrus.Entry
 
 	initialize := func() {
-		if initialized == true {
-			return
-		}
 		logger = log.WithFields(logrus.Fields{"testName": "K8sTunnelTest"})
 		logger.Info("Starting")
 
@@ -45,11 +43,10 @@ var _ = Describe("K8sTunnelTest", func() {
 		// Expect(res.Correct()).Should(BeTrue())
 
 		waitToDeleteCilium(kubectl, logger)
-		initialized = true
 	}
 
 	BeforeEach(func() {
-		initialize()
+		once.Do(initialize)
 		kubectl.NodeCleanMetadata()
 		kubectl.Apply(demoDSPath)
 	}, 600)

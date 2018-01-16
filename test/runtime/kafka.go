@@ -17,6 +17,7 @@ package RuntimeTest
 import (
 	"context"
 	"fmt"
+	"sync"
 
 	"github.com/cilium/cilium/test/helpers"
 
@@ -27,7 +28,7 @@ import (
 
 var _ = Describe("RuntimeKafka", func() {
 
-	var initialized bool
+	var once sync.Once
 	var logger *logrus.Entry
 	var vm *helpers.SSHMeta
 
@@ -36,9 +37,6 @@ var _ = Describe("RuntimeKafka", func() {
 	var MaxMessages int = 5
 
 	initialize := func() {
-		if initialized == true {
-			return
-		}
 		logger = log.WithFields(logrus.Fields{"testName": "RuntimeKafka"})
 		logger.Info("Starting")
 		vm = helpers.CreateNewRuntimeHelper(helpers.Runtime, logger)
@@ -46,7 +44,6 @@ var _ = Describe("RuntimeKafka", func() {
 		res := vm.SetPolicyEnforcement(helpers.PolicyEnforcementDefault)
 		res.ExpectSuccess()
 		vm.NetworkCreate(helpers.CiliumDockerNetwork, "")
-		initialized = true
 	}
 
 	containers := func(mode string) {
@@ -98,7 +95,7 @@ var _ = Describe("RuntimeKafka", func() {
 	}
 
 	BeforeEach(func() {
-		initialize()
+		once.Do(initialize)
 		containers("create")
 		epsReady := vm.WaitEndpointsReady()
 		Expect(epsReady).Should(BeTrue())

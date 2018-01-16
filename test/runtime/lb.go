@@ -17,6 +17,7 @@ package RuntimeTest
 import (
 	"fmt"
 	"os"
+	"sync"
 
 	"github.com/cilium/cilium/test/helpers"
 
@@ -27,14 +28,11 @@ import (
 
 var _ = Describe("RuntimeLB", func() {
 
-	var initialized bool
+	var once sync.Once
 	var logger *logrus.Entry
 	var vm *helpers.SSHMeta
 
 	initialize := func() {
-		if initialized == true {
-			return
-		}
 		logger = log.WithFields(logrus.Fields{"test": "RuntimeLB"})
 		logger.Info("Starting")
 		vm = helpers.CreateNewRuntimeHelper(helpers.Runtime, logger)
@@ -44,7 +42,6 @@ var _ = Describe("RuntimeLB", func() {
 		vm.NetworkCreate(helpers.CiliumDockerNetwork, "")
 
 		vm.PolicyDelAll().ExpectSuccess()
-		initialized = true
 	}
 
 	// TODO: rename this function; its name is not clear.
@@ -69,7 +66,7 @@ var _ = Describe("RuntimeLB", func() {
 	}
 
 	BeforeEach(func() {
-		initialize()
+		once.Do(initialize)
 		vm.ServiceDelAll().ExpectSuccess()
 	}, 500)
 
