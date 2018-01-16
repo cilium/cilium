@@ -257,36 +257,49 @@ func (p *prober) httpProbe(node string, ip string, port int) *models.Connectivit
 }
 
 func (p *prober) runHTTPProbe() {
-	nodes := make(map[string]*net.IPAddr)
+	nodes := make(map[string][]*net.IPAddr)
+
+	// p.nodes is mapped from all known IPs -> nodes in N:M configuration,
+	// so multiple IPs could refer to the same node. To ensure we only
+	// ping each node once, deduplicate nodes into map of nodeName -> []IP.
+	// When probing below, we won't hold the lock on 'p.nodes' so take
+	// a copy of all of the IPs we need to reference.
 	p.RLock()
 	for _, node := range p.nodes {
+		if nodes[node.Name] != nil {
+			// Already handled this node.
+			continue
+		}
+		nodes[node.Name] = []*net.IPAddr{}
 		for elem, primary := range getNodeAddresses(node) {
-			if name, addr := resolveIP(node, elem, "icmp", primary); addr != nil {
-				nodes[name] = addr
+			if _, addr := resolveIP(node, elem, "http", primary); addr != nil {
+				nodes[node.Name] = append(nodes[node.Name], addr)
 			}
 		}
 	}
 	p.RUnlock()
 
-	for name, ip := range nodes {
-		status := &models.PathStatus{}
-		ports := map[int]**models.ConnectivityStatus{
-			defaults.HTTPPathPort: &status.HTTP,
-		}
-		for port, result := range ports {
-			*result = p.httpProbe(name, ip.String(), port)
-			if status.HTTP.Status != "" {
-				log.WithFields(logrus.Fields{
-					logfields.NodeName: name,
-					logfields.IPAddr:   ip.String(),
-					logfields.Port:     port,
-				}).Debugf("Failed to probe: %s", status.HTTP.Status)
+	for name, ips := range nodes {
+		for _, ip := range ips {
+			status := &models.PathStatus{}
+			ports := map[int]**models.ConnectivityStatus{
+				defaults.HTTPPathPort: &status.HTTP,
 			}
-		}
+			for port, result := range ports {
+				*result = p.httpProbe(name, ip.String(), port)
+				if status.HTTP.Status != "" {
+					log.WithFields(logrus.Fields{
+						logfields.NodeName: name,
+						logfields.IPAddr:   ip.String(),
+						logfields.Port:     port,
+					}).Debugf("Failed to probe: %s", status.HTTP.Status)
+				}
+			}
 
-		p.Lock()
-		p.results[ipString(ip.String())].HTTP = status.HTTP
-		p.Unlock()
+			p.Lock()
+			p.results[ipString(ip.String())].HTTP = status.HTTP
+			p.Unlock()
+		}
 	}
 }
 
