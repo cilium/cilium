@@ -299,7 +299,11 @@ func writeGeneve(prefix string, e *Endpoint) ([]byte, error) {
 	// Write container options values for each available option in
 	// bpf/lib/geneve.h
 	// GENEVE_CLASS_EXPERIMENTAL, GENEVE_TYPE_SECLABEL
-	err := geneve.WriteOpts(filepath.Join(prefix, "geneve_opts.cfg"), "0xffff", "0x1", "4", fmt.Sprintf("%08x", e.GetIdentity()))
+
+	// The int() cast here is required as otherwise Sprintf does the
+	// convertion incorrectly. Looks like a golang bug.
+	identityHex := fmt.Sprintf("%08x", int(e.GetIdentity()))
+	err := geneve.WriteOpts(filepath.Join(prefix, "geneve_opts.cfg"), "0xffff", "0x1", "4", identityHex)
 	if err != nil {
 		return nil, fmt.Errorf("Could not write geneve options %s", err)
 	}
