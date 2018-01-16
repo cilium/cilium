@@ -75,10 +75,10 @@ trap cleanup_cilium EXIT
 
 CLIENT_IP=$(kubectl exec ${client_pod} -- ip -6 a s | grep global | tr -s ' ' | cut -d' ' -f 3 | sed 's:/.*::')
 CLIENT_IP4=$(kubectl exec ${client_pod} -- ip -4 a s | grep global | tr -s ' ' | cut -d' ' -f 3 | sed 's:/.*::')
-CLIENT_ID=$(kubectl exec ${client_cilium} -- cilium endpoint list | grep $CLIENT_LABEL | awk '{ print $1}')
+CLIENT_ID=$(kubectl exec ${client_cilium} -- cilium endpoint list -o jsonpath="${CILIUM_JSONPATH_FMT}" | grep $CLIENT_LABEL | awk '{ print $1}')
 SERVER_IP=$(kubectl exec ${server_pod} -- ip -6 a s | grep global | tr -s ' ' | cut -d' ' -f 3 | sed 's:/.*::')
 SERVER_IP4=$(kubectl exec ${server_pod} -- ip -4 a s | grep global | tr -s ' ' | cut -d' ' -f 3 | sed 's:/.*::')
-SERVER_ID=$(kubectl exec ${server_cilium} -- cilium endpoint list | grep $SERVER_LABEL | awk '{ print $1}')
+SERVER_ID=$(kubectl exec ${server_cilium} -- cilium endpoint list -o jsonpath="${CILIUM_JSONPATH_FMT}" | grep $SERVER_LABEL | awk '{ print $1}')
 
 HOST_IP=$(echo $SERVER_IP | sed -e 's/:[0-9a-f]\{4\}$/:ffff/')
 SERVER_DEV=$(kubectl exec ${server_cilium} -- cilium endpoint get $SERVER_ID | grep interface-name | awk '{print $2}' | sed 's/"//g' | sed 's/,$//')

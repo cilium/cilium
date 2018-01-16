@@ -45,7 +45,7 @@ cilium endpoint list
 
 docker inspect --format '{{ .NetworkSettings.Networks.cilium.GlobalIPv6Address }}' server
 SERVER_IP=$(docker inspect --format '{{ .NetworkSettings.Networks.cilium.GlobalIPv6Address }}' server)
-SERVER_ID=$(cilium endpoint list | grep ${SERVER_LABEL} | awk '{ print $1}')
+SERVER_ID=$(cilium endpoint list -o jsonpath="${CILIUM_JSONPATH_FMT}" | grep ${SERVER_LABEL} | awk '{ print $1}')
 
 log "pinging server at IP ${SERVER_IP}"
 ping6 -c 1 ${SERVER_IP} || true
@@ -53,7 +53,7 @@ ping6 -c 1 ${SERVER_IP} || true
 docker run -d --net cilium --name client -l ${CLIENT_LABEL} tgraf/netperf
 
 CLIENT_IP=$(docker inspect --format '{{ .NetworkSettings.Networks.cilium.GlobalIPv6Address }}' client)
-CLIENT_ID=$(cilium endpoint list | grep ${CLIENT_LABEL} | awk '{ print $1}')
+CLIENT_ID=$(cilium endpoint list -o jsonpath="${CILIUM_JSONPATH_FMT}" | grep ${CLIENT_LABEL} | awk '{ print $1}')
 
 log "output of \"cilium endpoint list\""
 cilium endpoint list

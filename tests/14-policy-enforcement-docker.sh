@@ -17,11 +17,11 @@ NUM_ENDPOINTS="3"
 NAMESPACE="kube-system"
 GOPATH="/home/vagrant/go"
 
-INGRESS_ENABLED_CMD="cilium endpoint list | awk '{print $2}' | grep 'Enabled' -c"
-INGRESS_DISABLED_CMD="cilium endpoint list | awk '{print $2}' | grep 'Disabled' -c"
+INGRESS_ENABLED_CMD="cilium endpoint list -o jsonpath='${CILIUM_JSONPATH_FMT}' | awk '{ print $2}' | grep -E '(ingress|both)' -c"
+INGRESS_DISABLED_CMD="cilium endpoint list -o jsonpath='${CILIUM_JSONPATH_FMT}' | awk '{ print $2}' | grep -E '(none|egress)' -c"
 
-EGRESS_ENABLED_CMD="cilium endpoint list | awk '{print $3}' | grep 'Enabled' -c"
-EGRESS_DISABLED_CMD="cilium endpoint list | awk '{print $3}' | grep 'Disabled' -c"
+EGRESS_ENABLED_CMD="cilium endpoint list -o jsonpath='${CILIUM_JSONPATH_FMT}' | awk '{ print $2}' | grep -E '(egress|both)' -c"
+EGRESS_DISABLED_CMD="cilium endpoint list -o jsonpath='${CILIUM_JSONPATH_FMT}' | awk '{ print $2}' | grep -E '(none|ingress)' -c"
 
 function cleanup {
   log "beginning cleanup for ${TEST_NAME}"

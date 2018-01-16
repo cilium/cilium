@@ -51,7 +51,7 @@ function test_identity_list {
   start_containers
   wait_for_endpoints 3
   cilium endpoint list
-  local ID=$(cilium endpoint list | grep id.foo | awk '{print $4}')
+  local ID=$(cilium endpoint list -o jsonpath="${CILIUM_JSONPATH_FMT}" | grep id.foo | awk '{print $4}')
 
   # Get expected response and replace all newline chars with a single space.
   local response=$(cilium identity list "container:id.foo" | sed ':a;N;$!ba;s/\n/ /g')

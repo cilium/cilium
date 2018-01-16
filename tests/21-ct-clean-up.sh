@@ -41,7 +41,7 @@ function start_containers {
 }
 
 function get_container_metadata {
-  CLIENT_SEC_ID=$(cilium endpoint list | grep id.client-2 | awk '{ print $4}')
+  CLIENT_SEC_ID=$(cilium endpoint list -o jsonpath="${CILIUM_JSONPATH_FMT}" | grep id.client-2 | awk '{ print $4}')
   log "CLIENT_SEC_ID: $CLIENT_SEC_ID"
   CLIENT_IP=$(docker inspect --format '{{ .NetworkSettings.Networks.cilium.GlobalIPv6Address }}' client)
   log "CLIENT_IP: $CLIENT_IP"
@@ -51,33 +51,33 @@ function get_container_metadata {
   log "CLIENT_2_IP: $CLIENT_2_IP"
   CLIENT_2_IP4=$(docker inspect --format '{{ .NetworkSettings.Networks.cilium.IPAddress }}' client-2)
   log "CLIENT_2_IP4: $CLIENT_2_IP4"
-  CLIENT_ID=$(cilium endpoint list | grep "${CLIENT_IP4}" | awk '{ print $1}')
+  CLIENT_ID=$(cilium endpoint list -o jsonpath="${CILIUM_JSONPATH_FMT}" | grep "${CLIENT_IP4}" | awk '{ print $1}')
   log "CLIENT_ID: $CLIENT_ID"
-  CLIENT_2_ID=$(cilium endpoint list | grep "${CLIENT_2_IP4}" | awk '{ print $1}')
+  CLIENT_2_ID=$(cilium endpoint list -o jsonpath="${CILIUM_JSONPATH_FMT}" | grep "${CLIENT_2_IP4}" | awk '{ print $1}')
   log "CLIENT_2_ID: $CLIENT_2_ID"
   SERVER_IP=$(docker inspect --format '{{ .NetworkSettings.Networks.cilium.GlobalIPv6Address }}' server)
   log "SERVER_IP: $SERVER_IP"
   SERVER_IP4=$(docker inspect --format '{{ .NetworkSettings.Networks.cilium.IPAddress }}' server)
   log "SERVER_IP4: $SERVER_IP4"
-  SERVER_ID=$(cilium endpoint list | grep -E 'id.server($|\s)' | awk '{ print $1}')
+  SERVER_ID=$(cilium endpoint list -o jsonpath="${CILIUM_JSONPATH_FMT}" | grep -E 'id.server($|\s)' | awk '{ print $1}')
   log "SERVER_ID: $SERVER_ID"
   SERVER_2_IP=$(docker inspect --format '{{ .NetworkSettings.Networks.cilium.GlobalIPv6Address }}' server-2)
   log "SERVER_2_IP: $SERVER_2_IP"
   SERVER_2_IP4=$(docker inspect --format '{{ .NetworkSettings.Networks.cilium.IPAddress }}' server-2)
   log "SERVER_2_IP4: $SERVER_2_IP4"
-  SERVER_2_ID=$(cilium endpoint list | grep id.server-2 | awk '{ print $1}')
+  SERVER_2_ID=$(cilium endpoint list -o jsonpath="${CILIUM_JSONPATH_FMT}" | grep id.server-2 | awk '{ print $1}')
   log "SERVER_2_ID: $SERVER_2_ID"
   SERVER_3_IP=$(docker inspect --format '{{ .NetworkSettings.Networks.cilium.GlobalIPv6Address }}' httpd-server)
   log "SERVER_3_IP: $SERVER_3_IP"
   SERVER_3_IP4=$(docker inspect --format '{{ .NetworkSettings.Networks.cilium.IPAddress }}' httpd-server)
   log "SERVER_3_IP4: $SERVER_3_IP4"
-  SERVER_3_ID=$(cilium endpoint list | grep id.server-3 | awk '{ print $1}')
+  SERVER_3_ID=$(cilium endpoint list -o jsonpath="${CILIUM_JSONPATH_FMT}" | grep id.server-3 | awk '{ print $1}')
   log "SERVER_3_ID: $SERVER_3_ID"
   SERVER_4_IP=$(docker inspect --format '{{ .NetworkSettings.Networks.cilium.GlobalIPv6Address }}' netcat)
   log "SERVER_3_IP: $SERVER_4_IP"
   SERVER_4_IP4=$(docker inspect --format '{{ .NetworkSettings.Networks.cilium.IPAddress }}' netcat)
   log "SERVER_4_IP4: $SERVER_4_IP4"
-  SERVER_4_ID=$(cilium endpoint list | grep id.server-4 | awk '{ print $1}')
+  SERVER_4_ID=$(cilium endpoint list -o jsonpath="${CILIUM_JSONPATH_FMT}" | grep id.server-4 | awk '{ print $1}')
   log "SERVER_4_ID: $SERVER_4_ID"
 }
 
