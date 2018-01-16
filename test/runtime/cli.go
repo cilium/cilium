@@ -16,6 +16,7 @@ package RuntimeTest
 
 import (
 	"fmt"
+	"sync"
 
 	"github.com/cilium/cilium/test/helpers"
 
@@ -26,14 +27,12 @@ import (
 
 var _ = Describe("RuntimeCLI", func() {
 
-	var initialized bool
 	var logger *logrus.Entry
 	var vm *helpers.SSHMeta
 
+	var once sync.Once
+
 	initialize := func() {
-		if initialized == true {
-			return
-		}
 		logger = log.WithFields(logrus.Fields{"testName": "RuntimeCLI"})
 		logger.Info("Starting")
 		vm = helpers.CreateNewRuntimeHelper(helpers.Runtime, logger)
@@ -45,12 +44,10 @@ var _ = Describe("RuntimeCLI", func() {
 
 		areEndpointsReady := vm.WaitEndpointsReady()
 		Expect(areEndpointsReady).Should(BeTrue())
-
-		initialized = true
 	}
 
 	BeforeEach(func() {
-		initialize()
+		once.Do(initialize)
 	})
 
 	AfterEach(func() {

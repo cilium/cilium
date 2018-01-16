@@ -16,6 +16,7 @@ package k8sTest
 
 import (
 	"fmt"
+	"sync"
 
 	"github.com/cilium/cilium/test/helpers"
 	"github.com/cilium/cilium/test/helpers/policygen"
@@ -29,13 +30,9 @@ var _ = Describe("NightlyPolicies", func() {
 
 	var kubectl *helpers.Kubectl
 	var logger *logrus.Entry
-	var initialized bool
+	var once sync.Once
 
 	initialize := func() {
-		if initialized == true {
-			return
-		}
-
 		logger = log.WithFields(logrus.Fields{"testName": "NightlyK8sPolicies"})
 		logger.Info("Starting")
 
@@ -44,11 +41,10 @@ var _ = Describe("NightlyPolicies", func() {
 		kubectl.Apply(ciliumPath)
 		_, err := kubectl.WaitforPods(helpers.KubeSystemNamespace, "-l k8s-app=cilium", 600)
 		Expect(err).Should(BeNil())
-		initialized = true
 	}
 
 	BeforeEach(func() {
-		initialize()
+		once.Do(initialize)
 	})
 
 	AfterEach(func() {

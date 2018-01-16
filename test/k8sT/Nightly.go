@@ -21,6 +21,7 @@ import (
 	"os"
 	"path"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/cilium/cilium/test/helpers"
@@ -39,13 +40,10 @@ var _ = Describe("NightlyEpsMeasurement", func() {
 
 	var kubectl *helpers.Kubectl
 	var logger *logrus.Entry
-	var initialized bool
+	var once sync.Once
 	var ciliumPath string
 
 	initialize := func() {
-		if initialized == true {
-			return
-		}
 		logger = log.WithFields(logrus.Fields{"testName": "NightlyK8sEpsMeasurement"})
 		logger.Info("Starting")
 
@@ -56,11 +54,10 @@ var _ = Describe("NightlyEpsMeasurement", func() {
 
 		_, err := kubectl.WaitforPods(helpers.KubeSystemNamespace, "-l k8s-app=cilium", 600)
 		Expect(err).Should(BeNil())
-		initialized = true
 	}
 
 	BeforeEach(func() {
-		initialize()
+		once.Do(initialize)
 	})
 
 	AfterEach(func() {
@@ -172,16 +169,13 @@ var _ = Describe("NightlyExamples", func() {
 
 	var kubectl *helpers.Kubectl
 	var logger *logrus.Entry
-	var initialized bool
+	var once sync.Once
 	var ciliumPath string
 	var demoPath string
 	var l3Policy string
 	var appService = "app1-service"
 
 	initialize := func() {
-		if initialized == true {
-			return
-		}
 		logger = log.WithFields(logrus.Fields{"testName": "NightlyK8sEpsMeasurement"})
 		logger.Info("Starting")
 
@@ -190,11 +184,10 @@ var _ = Describe("NightlyExamples", func() {
 
 		demoPath = fmt.Sprintf("%s/demo.yaml", kubectl.ManifestsPath())
 		l3Policy = fmt.Sprintf("%s/l3_l4_policy.yaml", kubectl.ManifestsPath())
-		initialized = true
 	}
 
 	BeforeEach(func() {
-		initialize()
+		once.Do(initialize)
 	})
 
 	AfterEach(func() {

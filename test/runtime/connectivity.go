@@ -2,6 +2,7 @@ package RuntimeTest
 
 import (
 	"fmt"
+	"sync"
 
 	"github.com/cilium/cilium/test/helpers"
 
@@ -12,14 +13,11 @@ import (
 
 var _ = Describe("RuntimeConnectivityTest", func() {
 
-	var initialized bool
+	var once sync.Once
 	var logger *logrus.Entry
 	var vm *helpers.SSHMeta
 
 	initialize := func() {
-		if initialized == true {
-			return
-		}
 		logger = log.WithFields(logrus.Fields{"test": "RuntimeConnectivityTest"})
 		logger.Info("Starting")
 		vm = helpers.CreateNewRuntimeHelper(helpers.Runtime, logger)
@@ -27,11 +25,10 @@ var _ = Describe("RuntimeConnectivityTest", func() {
 		res := vm.SetPolicyEnforcement(helpers.PolicyEnforcementDefault)
 		res.ExpectSuccess()
 		vm.NetworkCreate(helpers.CiliumDockerNetwork, "")
-		initialized = true
 	}
 
 	BeforeEach(func() {
-		initialize()
+		once.Do(initialize)
 		vm.ContainerCreate(helpers.Client, helpers.NetperfImage, helpers.CiliumDockerNetwork, "-l id.client")
 		vm.ContainerCreate(helpers.Server, helpers.NetperfImage, helpers.CiliumDockerNetwork, "-l id.server")
 		vm.PolicyDelAll()
@@ -160,15 +157,11 @@ var _ = Describe("RuntimeConnectivityTest", func() {
 })
 
 var _ = Describe("RuntimeConntrackTest", func() {
-
-	var initialized bool
 	var logger *logrus.Entry
 	var vm *helpers.SSHMeta
+	var once sync.Once
 
 	initialize := func() {
-		if initialized == true {
-			return
-		}
 		logger = log.WithFields(logrus.Fields{"test": "RunConntrackTest"})
 		logger.Info("Starting")
 		vm = helpers.CreateNewRuntimeHelper(helpers.Runtime, logger)
@@ -176,8 +169,6 @@ var _ = Describe("RuntimeConntrackTest", func() {
 		res := vm.SetPolicyEnforcement(helpers.PolicyEnforcementDefault)
 		res.ExpectSuccess()
 		vm.NetworkCreate(helpers.CiliumDockerNetwork, "")
-		initialized = true
-
 	}
 
 	clientServerConnectivity := func() {
@@ -251,7 +242,7 @@ var _ = Describe("RuntimeConntrackTest", func() {
 	}
 
 	BeforeEach(func() {
-		initialize()
+		once.Do(initialize)
 		// TODO: provide map[string]string instead of one string representing KV pair.
 		vm.ContainerCreate(helpers.Client, helpers.NetperfImage, helpers.CiliumDockerNetwork, "-l id.client")
 		vm.ContainerCreate(helpers.Server, helpers.NetperfImage, helpers.CiliumDockerNetwork, "-l id.server")

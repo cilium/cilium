@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 	"math/rand"
+	"sync"
 
 	"github.com/cilium/cilium/test/helpers"
 
@@ -42,14 +43,11 @@ const (
 
 var _ = Describe("RuntimeValidatedMonitorTest", func() {
 
-	var initialized bool
+	var once sync.Once
 	var logger *logrus.Entry
 	var vm *helpers.SSHMeta
 
 	initialize := func() {
-		if initialized == true {
-			return
-		}
 		logger = log.WithFields(logrus.Fields{"testName": "RuntimeMonitorTest"})
 		logger.Info("Starting")
 		vm = helpers.CreateNewRuntimeHelper(helpers.Runtime, logger)
@@ -61,12 +59,10 @@ var _ = Describe("RuntimeValidatedMonitorTest", func() {
 
 		areEndpointsReady := vm.WaitEndpointsReady()
 		Expect(areEndpointsReady).Should(BeTrue())
-
-		initialized = true
 	}
 
 	BeforeEach(func() {
-		initialize()
+		once.Do(initialize)
 	})
 
 	AfterEach(func() {

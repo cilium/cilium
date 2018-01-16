@@ -17,6 +17,7 @@ package RuntimeTest
 import (
 	"fmt"
 	"os"
+	"sync"
 
 	"github.com/cilium/cilium/test/helpers"
 
@@ -48,14 +49,11 @@ const (
 
 var _ = Describe("RuntimePolicyEnforcement", func() {
 
-	var initialized bool
+	var once sync.Once
 	var logger *logrus.Entry
 	var vm *helpers.SSHMeta
 
 	initialize := func() {
-		if initialized == true {
-			return
-		}
 		logger = log.WithFields(logrus.Fields{"testName": "RuntimePolicyEnforcement"})
 		logger.Info("Starting")
 		vm = helpers.CreateNewRuntimeHelper(helpers.Runtime, logger)
@@ -67,12 +65,10 @@ var _ = Describe("RuntimePolicyEnforcement", func() {
 
 		areEndpointsReady := vm.WaitEndpointsReady()
 		Expect(areEndpointsReady).Should(BeTrue())
-
-		initialized = true
 	}
 
 	BeforeEach(func() {
-		initialize()
+		once.Do(initialize)
 		vm.PolicyDelAll()
 		vm.ContainerCreate("app", "cilium/demo-httpd", helpers.CiliumDockerNetwork, "-l id.app")
 		vm.WaitEndpointsReady()
@@ -89,7 +85,7 @@ var _ = Describe("RuntimePolicyEnforcement", func() {
 	Context("Policy Enforcement Default", func() {
 
 		BeforeEach(func() {
-			initialize()
+			once.Do(initialize)
 			res := vm.SetPolicyEnforcement(helpers.PolicyEnforcementDefault)
 			res.ExpectSuccess()
 
@@ -234,7 +230,7 @@ var _ = Describe("RuntimePolicyEnforcement", func() {
 	Context("Policy Enforcement Always", func() {
 		//The test Always to Default is already tested in from default-always
 		BeforeEach(func() {
-			initialize()
+			once.Do(initialize)
 
 			res := vm.SetPolicyEnforcement(helpers.PolicyEnforcementAlways)
 			res.ExpectSuccess()
@@ -327,7 +323,7 @@ var _ = Describe("RuntimePolicyEnforcement", func() {
 	Context("Policy Enforcement Never", func() {
 		//The test Always to Default is already tested in from default-always
 		BeforeEach(func() {
-			initialize()
+			once.Do(initialize)
 
 			res := vm.SetPolicyEnforcement(helpers.PolicyEnforcementNever)
 			res.ExpectSuccess()
@@ -420,14 +416,11 @@ var _ = Describe("RuntimePolicyEnforcement", func() {
 
 var _ = Describe("RuntimePolicies", func() {
 
-	var initialized bool
+	var once sync.Once
 	var logger *logrus.Entry
 	var vm *helpers.SSHMeta
 
 	initialize := func() {
-		if initialized == true {
-			return
-		}
 		logger = log.WithFields(logrus.Fields{"test": "RunPolicies"})
 		logger.Info("Starting")
 		vm = helpers.CreateNewRuntimeHelper(helpers.Runtime, logger)
@@ -439,13 +432,10 @@ var _ = Describe("RuntimePolicies", func() {
 
 		areEndpointsReady := vm.WaitEndpointsReady()
 		Expect(areEndpointsReady).Should(BeTrue())
-
-		initialized = true
-
 	}
 
 	BeforeEach(func() {
-		initialize()
+		once.Do(initialize)
 		vm.PolicyDelAll()
 		vm.SampleContainersActions(helpers.Create, helpers.CiliumDockerNetwork)
 		vm.WaitEndpointsReady()

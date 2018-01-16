@@ -28,7 +28,7 @@ import (
 var _ = Describe("K8sPolicyTest", func() {
 
 	var demoPath string
-	var initialized bool
+	var once sync.Once
 	var kubectl *helpers.Kubectl
 	var l3Policy, l7Policy string
 	var logger *logrus.Entry
@@ -36,10 +36,6 @@ var _ = Describe("K8sPolicyTest", func() {
 	var podFilter string
 
 	initialize := func() {
-		if initialized == true {
-			return
-		}
-
 		logger = log.WithFields(logrus.Fields{"testName": "K8sPolicyTest"})
 		logger.Info("Starting")
 		kubectl = helpers.CreateKubectl(helpers.K8s1VMName(), logger)
@@ -55,11 +51,10 @@ var _ = Describe("K8sPolicyTest", func() {
 		status, err := kubectl.WaitforPods(helpers.KubeSystemNamespace, "-l k8s-app=cilium", 300)
 		Expect(status).Should(BeTrue())
 		Expect(err).Should(BeNil())
-		initialized = true
 	}
 
 	BeforeEach(func() {
-		initialize()
+		once.Do(initialize)
 		kubectl.Apply(demoPath)
 		_, err := kubectl.WaitforPods(helpers.DefaultNamespace, "-l zgroup=testapp", 300)
 		Expect(err).Should(BeNil())

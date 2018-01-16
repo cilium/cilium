@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"net"
 	"strings"
+	"sync"
 
 	"github.com/asaskevich/govalidator"
 	"github.com/cilium/cilium/test/helpers"
@@ -32,12 +33,10 @@ var _ = Describe("K8sServicesTest", func() {
 
 	var kubectl *helpers.Kubectl
 	var logger *logrus.Entry
-	var initialized bool
+	var once sync.Once
 	var serviceName string = "app1-service"
+
 	initialize := func() {
-		if initialized == true {
-			return
-		}
 		logger = log.WithFields(logrus.Fields{"testName": "K8sServiceTest"})
 		logger.Info("Starting")
 
@@ -46,12 +45,10 @@ var _ = Describe("K8sServicesTest", func() {
 		kubectl.Apply(path)
 		_, err := kubectl.WaitforPods(helpers.KubeSystemNamespace, "-l k8s-app=cilium", 600)
 		Expect(err).Should(BeNil())
-
-		initialized = true
 	}
 
 	BeforeEach(func() {
-		initialize()
+		once.Do(initialize)
 	})
 
 	AfterEach(func() {
