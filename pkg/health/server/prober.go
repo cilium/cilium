@@ -349,7 +349,7 @@ func newProber(s *Server, nodes nodeMap) *prober {
 		proberExited: make(chan bool),
 		stop:         make(chan bool),
 		results:      make(map[ipString]*models.PathStatus),
-		nodes:        nodes,
+		nodes:        make(nodeMap),
 	}
 	prober.MaxRTT = s.ProbeDeadline
 
