@@ -21,6 +21,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/cilium/cilium/pkg/flowdebug"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/policy"
@@ -28,6 +29,7 @@ import (
 	"github.com/cilium/cilium/pkg/proxy/accesslog"
 
 	"github.com/braintree/manners"
+	"github.com/sirupsen/logrus"
 	"github.com/vulcand/oxy/forward"
 	"github.com/vulcand/route"
 )
@@ -215,11 +217,11 @@ func createOxyRedirect(l4 *policy.L4Filter, id string, source ProxySource, to ui
 				return
 			}
 			ar := rule.(string)
-			log.WithField(logfields.Object,
-				logfields.Repr(ar)).Debug("Allowing request based on rule")
+			flowdebug.Log(log.WithField(logfields.Object, logfields.Repr(ar)),
+				"Allowing request based on rule")
 			info = fmt.Sprintf("rule: %+v", ar)
 		} else {
-			log.Debug("Allowing request as there are no rules")
+			flowdebug.Log(log.WithFields(logrus.Fields{}), "Allowing request as there are no rules")
 		}
 		redir.mutex.Unlock()
 

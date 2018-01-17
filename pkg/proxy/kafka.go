@@ -20,6 +20,7 @@ import (
 	"io"
 	"time"
 
+	"github.com/cilium/cilium/pkg/flowdebug"
 	"github.com/cilium/cilium/pkg/kafka"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -146,19 +147,21 @@ func (k *kafkaRedirect) canAccess(req *kafka.RequestMessage, numIdentity policy.
 	rules := k.rules.GetRelevantRules(identity)
 
 	if rules.Kafka == nil {
-		log.WithField(logfields.Request, req.String()).Debug("No Kafka rules loaded, rejecting")
+		flowdebug.Log(log.WithField(logfields.Request, req.String()),
+			"No Kafka rules loaded, rejecting")
 		return false
 	}
 
 	b, err := json.Marshal(rules.Kafka)
 	if err != nil {
-		log.WithError(err).WithField(logfields.Request, req.String()).Debug("Error marshalling kafka rules to apply")
+		flowdebug.Log(log.WithError(err).WithField(logfields.Request, req.String()),
+			"Error marshalling kafka rules to apply")
 		return false
 	} else {
-		log.WithFields(logrus.Fields{
+		flowdebug.Log(log.WithFields(logrus.Fields{
 			logfields.Request: req.String(),
 			"rule":            string(b),
-		}).Debug("Applying rule")
+		}), "Applying rule")
 	}
 
 	return req.MatchesRule(rules.Kafka)
@@ -220,14 +223,14 @@ func (l *kafkaLogRecord) log(typ accesslog.FlowType, verdict accesslog.FlowVerdi
 	l.Info = info
 	l.Timestamp = time.Now().UTC().Format(time.RFC3339Nano)
 
-	log.WithFields(logrus.Fields{
+	flowdebug.Log(log.WithFields(logrus.Fields{
 		accesslog.FieldType:               l.Type,
 		accesslog.FieldVerdict:            l.Verdict,
 		accesslog.FieldCode:               l.Kafka.ErrorCode,
 		accesslog.FieldKafkaAPIKey:        l.Kafka.APIKey,
 		accesslog.FieldKafkaAPIVersion:    l.Kafka.APIVersion,
 		accesslog.FieldKafkaCorrelationID: l.Kafka.CorrelationID,
-	}).Debug("Logging Kafka L7 flow record")
+	}), "Logging Kafka L7 flow record")
 
 	//
 	// Log multiple entries for multiple Kafka topics in a single
@@ -243,7 +246,7 @@ func (l *kafkaLogRecord) log(typ accesslog.FlowType, verdict accesslog.FlowVerdi
 
 func (k *kafkaRedirect) handleRequest(pair *connectionPair, req *kafka.RequestMessage) {
 	scopedLog := log.WithField(fieldID, pair.String())
-	scopedLog.WithField(logfields.Request, req.String()).Debug("Handling Kafka request")
+	flowdebug.Log(scopedLog.WithField(logfields.Request, req.String()), "Handling Kafka request")
 
 	record := k.newKafkaLogRecord(req)
 
@@ -269,7 +272,7 @@ func (k *kafkaRedirect) handleRequest(pair *connectionPair, req *kafka.RequestMe
 	record.fillInfo(k, addr.String(), dstIPPort, srcIdentity)
 
 	if !k.canAccess(req, policy.NumericIdentity(srcIdentity)) {
-		scopedLog.Debug("Kafka request is denied by policy")
+		flowdebug.Log(scopedLog, "Kafka request is denied by policy")
 
 		record.log(accesslog.TypeRequest, accesslog.VerdictDenied,
 			kafka.ErrTopicAuthorizationFailed, fmt.Sprint("Kafka request is denied by policy"))
@@ -292,10 +295,10 @@ func (k *kafkaRedirect) handleRequest(pair *connectionPair, req *kafka.RequestMe
 			marker = GetMagicMark(k.ingress) | int(srcIdentity)
 		}
 
-		scopedLog.WithFields(logrus.Fields{
+		flowdebug.Log(scopedLog.WithFields(logrus.Fields{
 			"marker":      marker,
 			"destination": dstIPPort,
-		}).Debug("Dialing original destination")
+		}), "Dialing original destination")
 
 		txConn, err := ciliumDialer(marker, addr.Network(), dstIPPort)
 		if err != nil {
@@ -311,7 +314,7 @@ func (k *kafkaRedirect) handleRequest(pair *connectionPair, req *kafka.RequestMe
 		go k.handleResponseConnection(pair, record)
 	}
 
-	scopedLog.Debug("Forwarding Kafka request")
+	flowdebug.Log(scopedLog, "Forwarding Kafka request")
 	// log valid request
 	record.log(accesslog.TypeRequest, accesslog.VerdictForwarded, kafka.ErrNone, "")
 
@@ -379,20 +382,20 @@ func handleResponse(pair *connectionPair, c *proxyConnection,
 }
 
 func (k *kafkaRedirect) handleRequestConnection(pair *connectionPair) {
-	log.WithFields(logrus.Fields{
+	flowdebug.Log(log.WithFields(logrus.Fields{
 		"from": pair.rx,
 		"to":   pair.tx,
-	}).Debug("Proxying request Kafka connection")
+	}), "Proxying request Kafka connection")
 
 	handleRequest(pair, pair.rx, nil, k.handleRequest)
 }
 
 func (k *kafkaRedirect) handleResponseConnection(pair *connectionPair,
 	record *kafkaLogRecord) {
-	log.WithFields(logrus.Fields{
+	flowdebug.Log(log.WithFields(logrus.Fields{
 		"from": pair.tx,
 		"to":   pair.rx,
-	}).Debug("Proxying response Kafka connection")
+	}), "Proxying response Kafka connection")
 
 	handleResponse(pair, pair.tx, record, func(pair *connectionPair,
 		rsp *kafka.ResponseMessage) {

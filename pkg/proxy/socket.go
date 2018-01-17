@@ -24,6 +24,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/cilium/cilium/pkg/flowdebug"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 
 	"github.com/sirupsen/logrus"
@@ -235,11 +236,11 @@ func (c *proxyConnection) Enqueue(msg []byte) {
 	})
 
 	if c.queueStopped() {
-		scopedLog.Debug("Dropping message, queue is stopped")
+		flowdebug.Log(scopedLog, "Dropping message, queue is stopped")
 		return
 	}
 
-	scopedLog.Debugf("Enqueueing %s message", c.direction())
+	flowdebug.Log(scopedLog, fmt.Sprintf("Enqueueing %s message", c.direction()))
 
 	c.queue <- msg
 }
@@ -254,7 +255,7 @@ func (c *proxyConnection) Close() {
 }
 
 func (c *proxyConnection) realClose() {
-	log.WithField(fieldConn, c).Debug("Closing socket")
+	flowdebug.Log(log.WithField(fieldConn, c), "Closing socket")
 
 	close(c.queue)
 
@@ -338,7 +339,7 @@ func lookupNewDest(remoteAddr string, dport uint16) (uint32, string, error) {
 			return 0, "", fmt.Errorf("Unable to find IPv4 proxy entry for %s: %s", key, err)
 		}
 
-		log.WithField(logfields.Object, logfields.Repr(val)).Debug("Found IPv4 proxy entry")
+		flowdebug.Log(log.WithField(logfields.Object, logfields.Repr(val)), "Found IPv4 proxy entry")
 		return val.SourceIdentity, val.HostPort(), nil
 	}
 
@@ -355,7 +356,7 @@ func lookupNewDest(remoteAddr string, dport uint16) (uint32, string, error) {
 		return 0, "", fmt.Errorf("Unable to find IPv6 proxy entry for %s: %s", key, err)
 	}
 
-	log.WithField(logfields.Object, logfields.Repr(val)).Debug("Found IPv6 proxy entry")
+	flowdebug.Log(log.WithField(logfields.Object, logfields.Repr(val)), "Found IPv6 proxy entry")
 	return val.SourceIdentity, val.HostPort(), nil
 }
 
@@ -377,7 +378,7 @@ func setFdMark(fd, mark int) {
 		fieldFd:     fd,
 		fieldMarker: mark,
 	})
-	scopedLog.Debug("Setting packet marker of socket")
+	flowdebug.Log(scopedLog, "Setting packet marker of socket")
 
 	err := syscall.SetsockoptInt(fd, syscall.SOL_SOCKET, syscall.SO_MARK, mark)
 	if err != nil {

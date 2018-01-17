@@ -34,7 +34,10 @@ import (
 	"github.com/spf13/viper"
 )
 
-var log = logging.DefaultLogger
+var (
+	log          = logging.DefaultLogger
+	perFlowDebug = false
+)
 
 // Magic markers are attached to each packet. The upper 16 bits are used to
 // identify packets which have gone through the proxy and to determine whether

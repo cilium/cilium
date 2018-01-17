@@ -19,6 +19,7 @@ import (
 	"net/url"
 	"time"
 
+	"github.com/cilium/cilium/pkg/flowdebug"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/proxy/accesslog"
 
@@ -66,7 +67,7 @@ func (l *HTTPLogRecord) logStamped(typ accesslog.FlowType, verdict accesslog.Flo
 	l.HTTP.Code = code
 	l.Info = info
 
-	log.WithFields(logrus.Fields{
+	flowdebug.Log(log.WithFields(logrus.Fields{
 		accesslog.FieldType:     l.Type,
 		accesslog.FieldVerdict:  l.Verdict,
 		accesslog.FieldCode:     l.HTTP.Code,
@@ -74,7 +75,7 @@ func (l *HTTPLogRecord) logStamped(typ accesslog.FlowType, verdict accesslog.Flo
 		accesslog.FieldURL:      l.HTTP.URL,
 		accesslog.FieldProtocol: l.HTTP.Protocol,
 		accesslog.FieldHeader:   l.HTTP.Headers,
-	}).Debug("Logging HTTP L7 flow record")
+	}), "Logging HTTP L7 flow record")
 
 	l.Log()
 }
