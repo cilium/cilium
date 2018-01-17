@@ -215,10 +215,10 @@ func setupSyslog(logOpts map[string]string, tag string, debug bool) {
 // setupFormatter sets up the text formatting for logs output by logrus.
 func setupFormatter() logrus.Formatter {
 	fileFormat := new(logrus.TextFormatter)
-	fileFormat.DisableTimestamp = true
 	fileFormat.DisableColors = true
 	switch os.Getenv("INITSYSTEM") {
 	case "SYSTEMD":
+		fileFormat.DisableTimestamp = true
 		fileFormat.FullTimestamp = true
 	default:
 		fileFormat.TimestampFormat = time.RFC3339
