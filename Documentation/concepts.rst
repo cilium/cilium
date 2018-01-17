@@ -615,7 +615,7 @@ default route which is installed on the node of the cluster.
 As the IP addresses used for the **cluster prefix** are typically allocated
 from RFC1918 private address blocks and are not publicly routable. Cilium will
 automatically masquerade the source IP address of all traffic that is leaving
-the cluster. This behaviour can be disabled by running ``cililum-agent`` with
+the cluster. This behaviour can be disabled by running ``cilium-agent`` with
 the option ``--masquerade=false``.
 
 Public Endpoint Exposure

@@ -41,7 +41,7 @@ type GetEndpointIDLogParams struct {
 	  - container-id: Container runtime ID, e.g. container-id:22222
 	  - container-name: Container name, e.g. container-name:foobar
 	  - pod-name: pod name for this container if K8s is enabled, e.g. pod-name:default:foobar
-	  - docker-net-endpoint: Docker libnetwork endpoint ID, e.g. docker-net-endpoint:4444
+	  - docker-endpoint: Docker libnetwork endpoint ID, e.g. docker-endpoint:4444
 
 	  Required: true
 	  In: path
