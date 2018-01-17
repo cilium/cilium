@@ -146,14 +146,14 @@ func (k *kafkaRedirect) canAccess(req *kafka.RequestMessage, numIdentity policy.
 	rules := k.rules.GetRelevantRules(identity)
 
 	if rules.Kafka == nil {
-		log.WithField(logfields.Request, req.String()).Debug("Allowing, no Kafka rules loaded")
-
-		return true
+		log.WithField(logfields.Request, req.String()).Debug("No Kafka rules loaded, rejecting")
+		return false
 	}
 
 	b, err := json.Marshal(rules.Kafka)
 	if err != nil {
 		log.WithError(err).WithField(logfields.Request, req.String()).Debug("Error marshalling kafka rules to apply")
+		return false
 	} else {
 		log.WithFields(logrus.Fields{
 			logfields.Request: req.String(),
