@@ -268,7 +268,8 @@ func (h *patchEndpointID) Handle(params PatchEndpointIDParams) middleware.Respon
 		ep.NodeMAC = newEp.NodeMAC
 		changed = true
 	}
-
+	
+	// TODO - ianvernon: key-value store interaction
 	if epTemplate.Addressing != nil {
 		if ip := epTemplate.Addressing.IPV6; ip != "" && bytes.Compare(ep.IPv6, newEp.IPv6) != 0 {
 			ep.IPv6 = newEp.IPv6
