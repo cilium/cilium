@@ -41,13 +41,33 @@ a PR to specify the release note text.
 
 ## uploadrev
 
-The `uploadrev` script takes a git revision as the only argument and uploads it
-to releases.cilium.io. For the script to work AWS credentials are required.
-Please see the [AWS CLI documentation][2] for configuration. 
+The `uploadrev` script takes a git revision as the only argument and uploads
+all relevant files to releases.cilium.io. For the script to work AWS
+credentials are required.  Please see the [AWS CLI documentation][2] for
+configuration.
 
 The below commands should work when run from a Cilium tree. Note that the
 script will stash away any uncommitted staged changes and attempts to checkout
-the revision. The files uploaded to the AWS bucket are in `_build/<revision>`.
+the revision. The files uploaded to the AWS bucket are in \_build/<revision>.
+
+This includes the source code in zip and tar.gz format, binaries for Cilium
+CLI, agent, health, bugtool, monitor and seperate sha256 files. Using
+`v1.0.0-rc2` the following files would be uploaded:
+
+	cilium-agent-x86_64
+	cilium-agent-x86_64.sha256sum
+	cilium-bugtool-x86_64
+	cilium-bugtool-x86_64.sha256sum
+	cilium-health-x86_64
+	cilium-health-x86_64.sha256sum
+	cilium-node-monitor-x86_64
+	cilium-node-monitor-x86_64.sha256sum
+	cilium-x86_64
+	cilium-x86_64.sha256sum
+	v1.0.0-rc2.tar.gz
+	v1.0.0-rc2.tar.gz.sha256sum
+	v1.0.0-rc2.zip
+	v1.0.0-rc2.zip.sha256sum
 
 If no arguments are supplied the usage is printed
 
