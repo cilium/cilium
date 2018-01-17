@@ -22,7 +22,7 @@ then
         echo "Executing: $KUBECTL delete pods -n $KUBE_SYSTEM_NAMESPACE -l $CILIUM_DS_TAG"
         $KUBECTL delete pods -n $KUBE_SYSTEM_NAMESPACE -l $CILIUM_DS_TAG
     else
-        echo "No on master K8S node; no need to compile Cilium container"
+        echo "Not on master K8S node; no need to compile Cilium container"
     fi
 else
     make
