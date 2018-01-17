@@ -156,6 +156,7 @@ var _ = Describe("K8sValidatedServicesTest", func() {
 		var podName string = "toservices"
 		var podPath string
 		var policyPath string
+		var policyLabeledPath string
 		var servicePath string
 
 		BeforeEach(func() {
@@ -166,6 +167,7 @@ var _ = Describe("K8sValidatedServicesTest", func() {
 			endpointPath = kubectl.ManifestGet("headless_endpoint.yaml")
 			podPath = kubectl.ManifestGet("headless_pod.yaml")
 			policyPath = kubectl.ManifestGet("headless_policy.yaml")
+			policyLabeledPath = kubectl.ManifestGet("headless_policy_labeled.yaml")
 
 			res = kubectl.Apply(podPath)
 			res.ExpectSuccess()
@@ -173,9 +175,6 @@ var _ = Describe("K8sValidatedServicesTest", func() {
 
 		AfterEach(func() {
 			res := kubectl.Delete(endpointPath)
-			res.ExpectSuccess()
-
-			res = kubectl.Delete(policyPath)
 			res.ExpectSuccess()
 
 			res = kubectl.Delete(servicePath)
@@ -224,20 +223,48 @@ var _ = Describe("K8sValidatedServicesTest", func() {
 			Expect(data.String()).To(ContainSubstring(expectedCIDR))
 		}
 
+		deletePath := func(path string) {
+			res := kubectl.Delete(path)
+			res.ExpectSuccess()
+		}
+
 		It("To Services first endpoint creation", func() {
 			res := kubectl.Apply(endpointPath)
 			res.ExpectSuccess()
 
 			res = kubectl.Apply(policyPath)
 			res.ExpectSuccess()
+			defer deletePath(policyPath)
 
 			validateEgress()
-
 		})
 
 		It("To Services first policy", func() {
 			res := kubectl.Apply(policyPath)
 			res.ExpectSuccess()
+			defer deletePath(policyPath)
+
+			res = kubectl.Apply(endpointPath)
+			res.ExpectSuccess()
+
+			validateEgress()
+		})
+
+		It("To Services first endpoint creation match service by labels", func() {
+			res := kubectl.Apply(endpointPath)
+			res.ExpectSuccess()
+
+			res = kubectl.Apply(policyLabeledPath)
+			res.ExpectSuccess()
+			defer deletePath(policyLabeledPath)
+
+			validateEgress()
+		})
+
+		It("To Services first policy, match service by labels", func() {
+			res := kubectl.Apply(policyLabeledPath)
+			res.ExpectSuccess()
+			defer deletePath(policyLabeledPath)
 
 			res = kubectl.Apply(endpointPath)
 			res.ExpectSuccess()
