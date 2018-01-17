@@ -33,7 +33,7 @@ func (s *CiliumV2RegisterSuite) getTestUpToDateDefinition() *apiextensionsv1beta
 			},
 		},
 		Spec: apiextensionsv1beta1.CustomResourceDefinitionSpec{
-			Validation: &crv,
+			Validation: &cnpCRV,
 		},
 	}
 }

@@ -14,4 +14,6 @@
 
 package v2
 
+type CiliumEndpointExpansion interface{}
+
 type CiliumNetworkPolicyExpansion interface{}
