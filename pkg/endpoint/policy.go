@@ -593,17 +593,17 @@ func (e *Endpoint) regeneratePolicy(owner Owner, opts models.ConfigurationMap) (
 	}
 
 	if !ingress && !egress {
-		e.getLogger().Info("Policy Ingress and Egress disabled")
+		e.getLogger().Debug("Policy Ingress and Egress disabled")
 	} else {
 		if ingress && egress {
-			e.getLogger().Info("Policy Ingress and Egress enabled")
+			e.getLogger().Debug("Policy Ingress and Egress enabled")
 			opts[OptionIngressPolicy] = optionEnabled
 			opts[OptionEgressPolicy] = optionEnabled
 		} else if ingress {
-			e.getLogger().Info("Policy Ingress enabled")
+			e.getLogger().Debug("Policy Ingress enabled")
 			opts[OptionIngressPolicy] = optionEnabled
 		} else {
-			e.getLogger().Info("Policy Egress enabled")
+			e.getLogger().Debug("Policy Egress enabled")
 			opts[OptionEgressPolicy] = optionEnabled
 		}
 	}
