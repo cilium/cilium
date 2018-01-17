@@ -25,6 +25,7 @@ cilium-agent
       --container-runtime stringSlice     Sets the container runtime(s) used by Cilium { docker | none | auto }" (default [auto])
       --container-runtime-endpoint map    Container runtime(s) endpoint(s). (default: --container-runtime-endpoint=docker=unix:///var/run/docker.sock) (default map[])
   -D, --debug                             Enable debugging mode
+      --debug-verbose stringSlice         List of enabled verbose debug groups
   -d, --device string                     Device facing cluster/external network for direct L3 (non-overlay mode) (default "undefined")
       --disable-conntrack                 Disable connection tracking
       --disable-ipv4                      Disable IPv4 mode
