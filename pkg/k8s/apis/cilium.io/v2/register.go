@@ -33,15 +33,6 @@ import (
 )
 
 const (
-	// CustomResourceDefinitionSingularName is the singular name of custom resource definition
-	CustomResourceDefinitionSingularName = "ciliumnetworkpolicy"
-
-	// CustomResourceDefinitionPluralName is the plural name of custom resource definition
-	CustomResourceDefinitionPluralName = "ciliumnetworkpolicies"
-
-	// CustomResourceDefinitionKind is the Kind name of custom resource definition
-	CustomResourceDefinitionKind = "CiliumNetworkPolicy"
-
 	// CustomResourceDefinitionGroup is the name of the third party resource group
 	CustomResourceDefinitionGroup = k8sconst.GroupName
 
@@ -50,7 +41,7 @@ const (
 
 	// CustomResourceDefinitionSchemaVersion is semver-conformant version of CRD schema
 	// Used to determine if CRD needs to be updated in cluster
-	CustomResourceDefinitionSchemaVersion = "1.4"
+	CustomResourceDefinitionSchemaVersion = "1.5"
 
 	// CustomResourceDefinitionSchemaVersionKey is key to label which holds the CRD schema version
 	CustomResourceDefinitionSchemaVersionKey = "io.cilium.k8s.crd.schema.version"
@@ -104,19 +95,48 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 	scheme.AddKnownTypes(SchemeGroupVersion,
 		&CiliumNetworkPolicy{},
 		&CiliumNetworkPolicyList{},
+		&CiliumEndpoint{},
 	)
 	metav1.AddToGroupVersion(scheme, SchemeGroupVersion)
 	return nil
 }
 
-// CreateCustomResourceDefinitions creates the CRD object in the kubernetes
+// CreateCustomResourceDefinitions creates our CRD objects in the kubernetes
 // cluster
 func CreateCustomResourceDefinitions(clientset apiextensionsclient.Interface) error {
-	cnpCRDName := CustomResourceDefinitionPluralName + "." + SchemeGroupVersion.Group
+	if err := createCNPCRD(clientset); err != nil {
+		return err
+	}
+
+	if err := createCEPCRD(clientset); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// createCNPCRD creates and updates the CiliumNetworkPolicies CRD. It should be called
+// on agent startup but is idempotent and safe to call again.
+func createCNPCRD(clientset apiextensionsclient.Interface) error {
+	var (
+		// CustomResourceDefinitionSingularName is the singular name of custom resource definition
+		CustomResourceDefinitionSingularName = "ciliumnetworkpolicy"
+
+		// CustomResourceDefinitionPluralName is the plural name of custom resource definition
+		CustomResourceDefinitionPluralName = "ciliumnetworkpolicies"
+
+		// CustomResourceDefinitionShortNames are the abbreviated names to refer to this CRD's instances
+		CustomResourceDefinitionShortNames = []string{"cnp", "ciliumnp"}
+
+		// CustomResourceDefinitionKind is the Kind name of custom resource definition
+		CustomResourceDefinitionKind = "CiliumNetworkPolicy"
+
+		CRDName = CustomResourceDefinitionPluralName + "." + SchemeGroupVersion.Group
+	)
 
 	res := &apiextensionsv1beta1.CustomResourceDefinition{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: cnpCRDName,
+			Name: CRDName,
 			Labels: map[string]string{
 				CustomResourceDefinitionSchemaVersionKey: CustomResourceDefinitionSchemaVersion,
 			},
@@ -127,15 +147,55 @@ func CreateCustomResourceDefinitions(clientset apiextensionsclient.Interface) er
 			Names: apiextensionsv1beta1.CustomResourceDefinitionNames{
 				Plural:     CustomResourceDefinitionPluralName,
 				Singular:   CustomResourceDefinitionSingularName,
-				ShortNames: []string{"cnp", "ciliumnp"},
+				ShortNames: CustomResourceDefinitionShortNames,
 				Kind:       CustomResourceDefinitionKind,
 			},
 			Scope:      apiextensionsv1beta1.NamespaceScoped,
-			Validation: &crv,
+			Validation: &cnpCRV,
 		},
 	}
 
 	return createUpdateCRD(clientset, "CiliumNetworkPolicy/v2", res)
+}
+
+// createCEPCRD creates and updates the CiliumEndpoint CRD. It should be called
+// on agent startup but is idempotent and safe to call again.
+func createCEPCRD(clientset apiextensionsclient.Interface) error {
+	var (
+		// CustomResourceDefinitionSingularName is the singular name of custom resource definition
+		CustomResourceDefinitionSingularName = "ciliumendpoint"
+
+		// CustomResourceDefinitionPluralName is the plural name of custom resource definition
+		CustomResourceDefinitionPluralName = "ciliumendpoints"
+
+		// CustomResourceDefinitionShortNames are the abbreviated names to refer to this CRD's instances
+		CustomResourceDefinitionShortNames = []string{"cep", "ciliumep"}
+
+		// CustomResourceDefinitionKind is the Kind name of custom resource definition
+		CustomResourceDefinitionKind = "CiliumEndpoint"
+
+		CRDName = CustomResourceDefinitionPluralName + "." + SchemeGroupVersion.Group
+	)
+
+	res := &apiextensionsv1beta1.CustomResourceDefinition{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: CRDName,
+		},
+		Spec: apiextensionsv1beta1.CustomResourceDefinitionSpec{
+			Group:   SchemeGroupVersion.Group,
+			Version: SchemeGroupVersion.Version,
+			Names: apiextensionsv1beta1.CustomResourceDefinitionNames{
+				Plural:     CustomResourceDefinitionPluralName,
+				Singular:   CustomResourceDefinitionSingularName,
+				ShortNames: CustomResourceDefinitionShortNames,
+				Kind:       CustomResourceDefinitionKind,
+			},
+			Scope:      apiextensionsv1beta1.NamespaceScoped,
+			Validation: &cepCRV,
+		},
+	}
+
+	return createUpdateCRD(clientset, "v2.CiliumEndpoint", res)
 }
 
 // createUpdateCRD ensures the CRD object is installed into the k8s cluster. It
@@ -254,7 +314,14 @@ func getInt64(i int64) *int64 {
 }
 
 var (
-	crv = apiextensionsv1beta1.CustomResourceValidation{
+	// cepCRV is a minimal validation for CEP objects. Since only the agent is
+	// creating them, it is better to be permissive and have some data, if buggy,
+	// than to have no data in k8s.
+	cepCRV = apiextensionsv1beta1.CustomResourceValidation{
+		OpenAPIV3Schema: &apiextensionsv1beta1.JSONSchemaProps{},
+	}
+
+	cnpCRV = apiextensionsv1beta1.CustomResourceValidation{
 		OpenAPIV3Schema: &apiextensionsv1beta1.JSONSchemaProps{
 			Properties: properties,
 		},

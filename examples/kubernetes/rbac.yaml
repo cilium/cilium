@@ -58,5 +58,6 @@ rules:
   - cilium.io
   resources:
   - ciliumnetworkpolicies
+  - ciliumendpoints
   verbs:
   - "*"

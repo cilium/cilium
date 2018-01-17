@@ -23,12 +23,17 @@ import (
 
 type CiliumV2Interface interface {
 	RESTClient() rest.Interface
+	CiliumEndpointsGetter
 	CiliumNetworkPoliciesGetter
 }
 
 // CiliumV2Client is used to interact with features provided by the cilium.io group.
 type CiliumV2Client struct {
 	restClient rest.Interface
+}
+
+func (c *CiliumV2Client) CiliumEndpoints(namespace string) CiliumEndpointInterface {
+	return newCiliumEndpoints(c, namespace)
 }
 
 func (c *CiliumV2Client) CiliumNetworkPolicies(namespace string) CiliumNetworkPolicyInterface {
