@@ -577,8 +577,29 @@ function gather_files {
 function dump_cli_output {
   check_num_params "$#" "1"
   local DIR=$1
-  check_num_params "$#" "1"
-  cilium-bugtool --archive=false -t ${DIR}
+  cilium endpoint list > ${DIR}/endpoint_list.txt
+  local EPS=$(cilium endpoint list | tail -n+3 | grep '^[0-9]' | awk '{print $1}')
+  for ep in ${EPS} ; do
+    cilium endpoint get ${ep} > ${DIR}/endpoint_get_${ep}.txt
+    cilium bpf policy list ${ep} > ${DIR}/bpf_policy_list_${ep}.txt
+  done
+  cilium service list > ${DIR}/service_list.txt
+  local SVCS=$(cilium service list | tail -n+2 | awk '{print $1}')
+  for svc in ${SVCS} ; do
+    cilium service get ${svc} > ${DIR}/service_get_${svc}.txt
+  done
+  local IDS=$(cilium endpoint list | tail -n+3 | awk '{print $4}' | grep -o '[0-9]*')
+  for id in ${IDS} ; do
+    cilium identity get ${id} > ${DIR}/identity_get_${id}.txt
+  done
+  cilium config > ${DIR}/config.txt
+  cilium bpf lb list > ${DIR}/bpf_lb_list.txt
+  cilium bpf ct list global > ${DIR}/bpf_ct_list_global.txt
+  cilium bpf tunnel list > ${DIR}/bpf_tunnel_list.txt
+  cilium policy get > ${DIR}/policy_get.txt
+  cilium status > ${DIR}/status.txt
+  cilium debuginfo -f ${DIR}/debuginfo.txt
+  cilium-bugtool -t ${DIR}
 }
 
 function dump_cli_output_k8s {
@@ -586,8 +607,30 @@ function dump_cli_output_k8s {
   local DIR=$1
   local NAMESPACE=$2
   local POD=$3
-  local DEBUGTOOL_DIRECTORY=`kubectl exec -n ${NAMESPACE} ${POD} -- cilium-bugtool --archive=false | grep DIRECTORY | awk '{ print $3}'`
-  kubectl cp ${NAMESPACE}/${POD}:${DEBUGTOOL_DIRECTORY} ${DIR}/${POD}-bugtool
+  kubectl exec -n ${NAMESPACE} ${POD} -- cilium endpoint list > ${DIR}/${POD}_endpoint_list.txt
+  local EPS=$(kubectl exec -n ${NAMESPACE} ${POD} -- cilium endpoint list | tail -n+3 | grep '^[0-9]' | awk '{print $1}')
+  for ep in ${EPS} ; do
+    kubectl exec -n ${NAMESPACE} ${POD} -- cilium endpoint get ${ep} > ${DIR}/${POD}_endpoint_get_${ep}.txt
+    kubectl exec -n ${NAMESPACE} ${POD} -- cilium bpf policy list ${ep} > ${DIR}/${POD}_bpf_policy_list_${ep}.txt
+  done
+  kubectl exec -n ${NAMESPACE} ${POD} -- cilium service list > ${DIR}/${POD}_service_list.txt
+  local SVCS=$(kubectl exec -n ${NAMESPACE} ${POD} -- cilium service list | tail -n+2 | awk '{print $1}')
+  for svc in ${SVCS} ; do
+    kubectl exec -n ${NAMESPACE} ${POD} -- cilium service get ${svc} > ${DIR}/${POD}_service_get_${svc}.txt
+  done
+  local IDS=$(kubectl exec -n ${NAMESPACE} ${POD} -- cilium endpoint list | tail -n+3 | awk '{print $4}' | grep -o '[0-9]*')
+  for id in ${IDS} ; do
+    kubectl exec -n ${NAMESPACE} ${POD} -- cilium identity get ${id} > ${DIR}/${POD}_identity_get_${id}.txt
+  done
+  kubectl exec -n ${NAMESPACE} ${POD} -- cilium config > ${DIR}/${POD}_config.txt
+  kubectl exec -n ${NAMESPACE} ${POD} -- cilium bpf lb list > ${DIR}/${POD}_bpf_lb_list.txt
+  kubectl exec -n ${NAMESPACE} ${POD} -- cilium bpf ct list global > ${DIR}/${POD}_bpf_ct_list_global.txt
+  kubectl exec -n ${NAMESPACE} ${POD} -- cilium bpf tunnel list > ${DIR}/${POD}_bpf_tunnel_list.txt
+  kubectl exec -n ${NAMESPACE} ${POD} -- cilium policy get > ${DIR}/${POD}_policy_get.txt
+  kubectl exec -n ${NAMESPACE} ${POD} -- cilium status > ${DIR}/${POD}_status.txt
+  kubectl exec -n ${NAMESPACE} ${POD} -- cilium debuginfo > ${DIR}/${POD}_debuginfo.txt
+  local DEBUGTOOL_ARCHIVE=`kubectl exec -n ${NAMESPACE} ${POD} -- cilium-bugtool | grep ARCHIVE | awk '{ print $3}'`
+  kubectl cp ${NAMESPACE}/${POD}:${DEBUGTOOL_ARCHIVE} ${DIR}/${POD}_bugtool.tar
 }
 
 function dump_gops_output {
