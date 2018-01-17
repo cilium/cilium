@@ -47,7 +47,7 @@ const (
 var (
 	// DefaultLogger is the base logrus logger. It is different from the logrus
 	// default to avoid external dependencies from writing out unexpectedly
-	DefaultLogger = InitializeDefaultLogger()
+	DefaultLogger = logrus.New()
 
 	// DefaultLogLevel is the alternative we provide to Debug
 	DefaultLogLevel = logrus.InfoLevel
@@ -104,16 +104,12 @@ func setFireLevels(level logrus.Level) []logrus.Level {
 	}
 }
 
-// InitializeDefaultLogger returns a logrus Logger with a custom text formatter.
-func InitializeDefaultLogger() *logrus.Logger {
-	logger := logrus.New()
-	logger.Formatter = setupFormatter()
-	return logger
-}
-
 // SetupLogging sets up each logging service provided in loggers and configures
 // each logger with the provided logOpts.
 func SetupLogging(loggers []string, logOpts map[string]string, tag string, debug bool) error {
+	// FIXME: Disabled for now
+	//setupFormatter()
+
 	// Set default logger to output to stdout if no loggers are provided.
 	if len(loggers) == 0 {
 		// TODO: switch to a per-logger version when we upgrade to logrus >1.0.3
@@ -160,7 +156,6 @@ func SetupLogging(loggers []string, logOpts map[string]string, tag string, debug
 			return fmt.Errorf("provided log driver %q is not a supported log driver", logger)
 		}
 	}
-
 	return nil
 }
 
@@ -213,7 +208,7 @@ func setupSyslog(logOpts map[string]string, tag string, debug bool) {
 }
 
 // setupFormatter sets up the text formatting for logs output by logrus.
-func setupFormatter() logrus.Formatter {
+func setupFormatter() {
 	fileFormat := new(logrus.TextFormatter)
 	fileFormat.DisableColors = true
 	switch os.Getenv("INITSYSTEM") {
@@ -223,9 +218,8 @@ func setupFormatter() logrus.Formatter {
 	default:
 		fileFormat.TimestampFormat = time.RFC3339
 	}
-
 	// TODO: switch to a per-logger version when we upgrade to logrus >1.0.3
-	return fileFormat
+	logrus.SetFormatter(fileFormat)
 }
 
 // setupFluentD sets up and configures FluentD with the provided options in
