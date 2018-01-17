@@ -59,7 +59,7 @@ func (e *Endpoint) updateLogger() {
 	// If this endpoint is set to debug ensure it will print debug by giving it
 	// an independent logger
 	if e.Opts.IsEnabled("Debug") {
-		baseLogger = logging.InitializeDefaultLogger()
+		baseLogger = logrus.New()
 		baseLogger.SetLevel(logrus.DebugLevel)
 	}
 
