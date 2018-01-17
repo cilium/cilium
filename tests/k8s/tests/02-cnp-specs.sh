@@ -29,11 +29,18 @@ dir=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
 
 source "${dir}/../cluster/env.bash"
 
+
+
+
 TEST_NAME=$(get_filename_without_extension $0)
 LOGS_DIR="${dir}/cilium-files/${TEST_NAME}/logs"
 redirect_debug_logs ${LOGS_DIR}
 
 set -ex
+
+log "${TEST_NAME} has been deprecated and replaced by test/k8sT/Services.go:CNP Specs Test"
+exit 0
+
 
 bookinfo_dir="${dir}/deployments/bookinfo"
 

@@ -279,7 +279,7 @@ var _ = Describe("K8sPolicyTest", func() {
 	}, 500)
 })
 
-var _ = Describe("K8sPolicyTestAcrossNamespaces", func() {
+var _ = Describe("K8sValidatedPolicyTestAcrossNamespaces", func() {
 
 	var kubectl *helpers.Kubectl
 	var logger *logrus.Entry
