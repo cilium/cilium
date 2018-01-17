@@ -17,6 +17,7 @@ package accesslog
 import (
 	"encoding/json"
 
+	"github.com/cilium/cilium/pkg/flowdebug"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -116,8 +117,8 @@ func (l *LogRecord) Log() {
 	defer logMutex.Unlock()
 
 	if logger == nil {
-		log.WithField(FieldFilePath, logPath).
-			Debug("Skipping writing to access log (logger nil)")
+		flowdebug.Log(log.WithField(FieldFilePath, logPath),
+			"Skipping writing to access log (logger nil)")
 		return
 	}
 

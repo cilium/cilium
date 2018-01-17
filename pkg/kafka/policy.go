@@ -15,6 +15,7 @@
 package kafka
 
 import (
+	"github.com/cilium/cilium/pkg/flowdebug"
 	"github.com/cilium/cilium/pkg/policy/api"
 
 	"github.com/optiopay/kafka/proto"
@@ -182,10 +183,10 @@ func (req *RequestMessage) ruleMatches(rule api.PortRuleKafka) bool {
 		return false
 	}
 
-	log.WithFields(logrus.Fields{
+	flowdebug.Log(log.WithFields(logrus.Fields{
 		fieldRequest: req.String(),
 		fieldRule:    rule,
-	}).Debug("Matching Kafka rule")
+	}), "Matching Kafka rule")
 
 	apiKey, isWildcard := rule.GetAPIKey()
 	if !isWildcard && apiKey != req.kind {
@@ -204,10 +205,10 @@ func (req *RequestMessage) ruleMatches(rule api.PortRuleKafka) bool {
 	}
 
 	if req.request == nil {
-		log.WithFields(logrus.Fields{
+		flowdebug.Log(log.WithFields(logrus.Fields{
 			fieldRequest: req.String(),
 			fieldRule:    rule,
-		}).Debug("Unparseable kafka message, denying...")
+		}), "Unparseable kafka message, denying...")
 		return false
 	}
 
