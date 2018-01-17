@@ -26,6 +26,10 @@ redirect_debug_logs ${LOGS_DIR}
 
 set -ex
 
+log "${TEST_NAME} has been deprecated and replaced by test/k8sT/Services.go:Policies Across Namespaces"
+exit 0
+
+
 NAMESPACE="kube-system"
 LOCAL_CILIUM_POD="$(kubectl get pods -n kube-system -o wide | grep $(hostname) | awk '{ print $1 }' | grep cilium)"
 

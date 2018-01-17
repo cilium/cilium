@@ -29,7 +29,7 @@ import (
 	"k8s.io/api/core/v1"
 )
 
-var _ = Describe("K8sServicesTest", func() {
+var _ = Describe("K8sValidatedServicesTest", func() {
 
 	var kubectl *helpers.Kubectl
 	var logger *logrus.Entry
