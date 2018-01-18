@@ -215,7 +215,15 @@ func dumpParser(key []byte, value []byte) (bpf.MapKey, bpf.MapValue, error) {
 	return k, v, nil
 }
 
+func dumpCallback(key bpf.MapKey, value bpf.MapValue) {
+	k, v := key.(EndpointKey), value.(EndpointInfo)
+	fmt.Printf("%-32s %s\n", k.String(), v.String())
+}
+
 // DumpMap prints the content of the local endpoint map to stdout
 func DumpMap(callback bpf.DumpCallback) error {
+	if callback == nil {
+		return mapInstance.Dump(dumpParser, dumpCallback)
+	}
 	return mapInstance.Dump(dumpParser, callback)
 }
