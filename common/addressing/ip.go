@@ -32,6 +32,7 @@ type CiliumIP interface {
 	IP() net.IP
 	String() string
 	IsIPv6() bool
+	GetFamilyString() string
 }
 
 type CiliumIPv6 []byte
@@ -278,4 +279,14 @@ func (ip CiliumIPv4) NodeIP() net.IP {
 	nodeIP[3] = 1
 
 	return nodeIP
+}
+
+// GetFamilyString returns the address family of ip as a string.
+func (ip CiliumIPv4) GetFamilyString() string {
+	return "IPv4"
+}
+
+// GetFamilyString returns the address family of ip as a string.
+func (ip CiliumIPv6) GetFamilyString() string {
+	return "IPv6"
 }

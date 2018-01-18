@@ -679,3 +679,9 @@ func (h *putEndpointIDLabels) Handle(params PutEndpointIDLabelsParams) middlewar
 	}
 	return NewPutEndpointIDLabelsOK()
 }
+
+// OnIPIdentityCacheChange is called whenever there is a change of state in the
+// IPCache (pkg/ipcache). Currently does nothing as of now.
+func (d *Daemon) OnIPIdentityCacheChange() {
+
+}
