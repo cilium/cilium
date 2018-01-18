@@ -39,6 +39,7 @@ const (
 	Annotationv6CIDRName = "io.cilium.network.ipv6-pod-cidr"
 	KubectlCmd           = "kubectl"
 	manifestsPath        = "k8sT/manifests/"
+	kubeDNSLabel         = "k8s-app=kube-dns"
 )
 
 // GetCurrentK8SEnv returns the value of K8S_VERSION from the OS environment.
@@ -312,6 +313,21 @@ func (kub *Kubectl) Delete(filePath string) *CmdRes {
 	kub.logger.Debugf("deleting %s", filePath)
 	return kub.Exec(
 		fmt.Sprintf("%s delete -f  %s", KubectlCmd, filePath))
+}
+
+// WaitKubeDNS waits until the kubeDNS pods are ready. In case of exceeding the
+// default timeout it returns an error.
+func (kub *Kubectl) WaitKubeDNS() error {
+	body := func() bool {
+		status, err := kub.WaitforPods(KubeSystemNamespace, fmt.Sprintf("-l %s", kubeDNSLabel), 300)
+		if status {
+			return true
+		}
+		kub.logger.WithError(err).Debug("KubeDNS is not ready yet")
+		return false
+	}
+	err := WithTimeout(body, "KubeDNS pods are not ready", &TimeoutConfig{Timeout: HelperTimeout})
+	return err
 }
 
 // GetCiliumPods returns a list of all Cilium pods in the specified namespace,
