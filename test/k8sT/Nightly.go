@@ -54,6 +54,9 @@ var _ = Describe("NightlyEpsMeasurement", func() {
 
 		_, err := kubectl.WaitforPods(helpers.KubeSystemNamespace, "-l k8s-app=cilium", 600)
 		Expect(err).Should(BeNil())
+
+		err = kubectl.WaitKubeDNS()
+		Expect(err).Should(BeNil())
 	}
 
 	BeforeEach(func() {
@@ -184,6 +187,7 @@ var _ = Describe("NightlyExamples", func() {
 
 		demoPath = fmt.Sprintf("%s/demo.yaml", kubectl.ManifestsPath())
 		l3Policy = fmt.Sprintf("%s/l3_l4_policy.yaml", kubectl.ManifestsPath())
+
 	}
 
 	BeforeEach(func() {
