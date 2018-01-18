@@ -179,6 +179,19 @@ EOF
 }
 
 function install_kubeadm_dependencies(){
+    # This hack may be removed when the box images are based on Ubuntu 17.10+.
+    curl -O -s http://old-releases.ubuntu.com/ubuntu/pool/universe/s/socat/socat_1.7.3.1-2_amd64.deb
+    dpkg -i ./socat_1.7.3.1-2_amd64.deb
+    sudo bash -c "cat <<EOF > /etc/apt/sources.list
+deb http://old-releases.ubuntu.com/ubuntu/ yakkety main restricted
+deb http://old-releases.ubuntu.com/ubuntu/ yakkety-updates main restricted
+deb http://old-releases.ubuntu.com/ubuntu/ yakkety universe
+deb http://old-releases.ubuntu.com/ubuntu/ yakkety-updates universe
+deb http://old-releases.ubuntu.com/ubuntu/ yakkety multiverse
+deb http://old-releases.ubuntu.com/ubuntu/ yakkety-updates multiverse
+deb http://old-releases.ubuntu.com/ubuntu/ yakkety-backports main restricted universe multiverse
+EOF
+"
     sudo touch /etc/apt/sources.list.d/kubernetes.list
     curl -s https://packages.cloud.google.com/apt/doc/apt-key.gpg  | sudo apt-key add -
     sudo bash -c "cat <<EOF > /etc/apt/sources.list.d/kubernetes.list
