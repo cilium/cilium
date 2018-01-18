@@ -21,6 +21,17 @@ end
 BAZEL_VERSION = ENV['BAZEL_VERSION']
 
 $bootstrap = <<SCRIPT
+# This may be removed when the box images are based on Ubuntu 17.10+.
+sudo bash -c "cat <<EOF > /etc/apt/sources.list
+deb http://old-releases.ubuntu.com/ubuntu/ yakkety main restricted
+deb http://old-releases.ubuntu.com/ubuntu/ yakkety-updates main restricted
+deb http://old-releases.ubuntu.com/ubuntu/ yakkety universe
+deb http://old-releases.ubuntu.com/ubuntu/ yakkety-updates universe
+deb http://old-releases.ubuntu.com/ubuntu/ yakkety multiverse
+deb http://old-releases.ubuntu.com/ubuntu/ yakkety-updates multiverse
+deb http://old-releases.ubuntu.com/ubuntu/ yakkety-backports main restricted universe multiverse
+EOF
+"
 sudo service docker restart
 sudo apt-get -y update || true
 sudo apt-get -y install socat curl jq realpath pv tmux python-sphinx python-pip yamllint
