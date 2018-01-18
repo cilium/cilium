@@ -15,23 +15,31 @@
 package endpoint
 
 import (
+	"encoding/json"
 	"fmt"
 	"net"
 	"os"
+	"path"
 	"path/filepath"
 	"reflect"
+	"strconv"
+	"strings"
 	"sync"
 	"time"
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/common"
+	"github.com/cilium/cilium/common/addressing"
 	"github.com/cilium/cilium/pkg/controller"
 	identityPkg "github.com/cilium/cilium/pkg/identity"
+	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/k8s"
+	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/monitor"
+	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
 
@@ -923,6 +931,74 @@ func (e *Endpoint) runIdentityToK8sPodSync() {
 	)
 }
 
+// FormatGlobalEndpointID returns the global ID of endpoint in the format
+// / <global ID Prefix>:<cluster name>:<node name>:<endpoint ID> as a string.
+func (e *Endpoint) FormatGlobalEndpointID() string {
+	nodeIdentity, _ := node.GetLocalNode()
+	metadata := []string{CiliumGlobalIdPrefix, ipcache.AddressSpace, nodeIdentity.Name, strconv.Itoa(int(e.ID))}
+	return strings.Join(metadata, ":")
+}
+
+// This synchronizes the key-value store with a mapping of the endpoint's IP
+// with the numerical ID representing its security identity.
+func (e *Endpoint) runIPIdentitySync(endpointIP addressing.CiliumIP) {
+
+	if endpointIP == nil {
+		return
+	}
+
+	addressFamily := endpointIP.GetFamilyString()
+	ipKey := path.Join(ipcache.IPIdentitiesPath, ipcache.AddressSpace, endpointIP.String())
+
+	e.controllers.UpdateController(fmt.Sprintf("sync-%s-identity-mapping (%d)", addressFamily, e.ID),
+		controller.ControllerParams{
+			DoFunc: func() error {
+
+				e.Mutex.RLock()
+
+				if e.state == StateDisconnected || e.state == StateDisconnecting {
+					log.WithFields(logrus.Fields{logfields.EndpointState: e.state}).
+						Debugf("not synchronizing endpoint IP with kvstore due to endpoint state")
+					e.Mutex.RUnlock()
+					return nil
+				}
+
+				if e.SecurityIdentity == nil {
+					e.Mutex.RUnlock()
+					return nil
+				}
+				//identityValue := e.SecurityIdentity.ID.StringID()
+				ipIDPair := identityPkg.IPIdentityPair{
+					IP:       endpointIP.IP(),
+					ID:       e.SecurityIdentity.ID,
+					Metadata: e.FormatGlobalEndpointID(),
+				}
+
+				// Release lock as we do not want to have long-lasting key-value
+				// store operations resulting in lock being held for a long time.
+				e.Mutex.RUnlock()
+
+				marshaledIPIDPair, err := json.Marshal(ipIDPair)
+				if err != nil {
+					return err
+				}
+
+				if err := kvstore.Update(ipKey, marshaledIPIDPair, true); err != nil {
+					return fmt.Errorf("unable to add endpoint IP '%s' to identity '%s': %s", ipKey, marshaledIPIDPair, err)
+				}
+				return nil
+			},
+			StopFunc: func() error {
+				if err := kvstore.Delete(ipKey); err != nil {
+					return fmt.Errorf("unable to delete endpoint IP '%s': %s", ipKey, err)
+				}
+				return nil
+			},
+			RunInterval: 5 * time.Minute,
+		},
+	)
+}
+
 // SetIdentity resets endpoint's policy identity to 'id'.
 // Caller triggers policy regeneration if needed.
 // Called with e.Mutex Locked
@@ -956,6 +1032,11 @@ func (e *Endpoint) SetIdentity(owner Owner, identity *identityPkg.Identity) {
 	}
 
 	e.runIdentityToK8sPodSync()
+
+	// Whenever the identity is updated, propagate change to key-value store
+	// of IP to identity mapping.
+	e.runIPIdentitySync(e.IPv4)
+	e.runIPIdentitySync(e.IPv6)
 
 	e.Consumable.Mutex.RLock()
 	e.getLogger().WithFields(logrus.Fields{

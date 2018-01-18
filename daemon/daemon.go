@@ -44,6 +44,7 @@ import (
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/ipam"
+	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
@@ -1050,6 +1051,9 @@ func NewDaemon(c *Config) (*Daemon, error) {
 	// This needs to be done after the node addressing has been configured
 	// as the node address is required as sufix
 	identity.InitIdentityAllocator(&d)
+
+	// Start watcher for endpoint IP --> identity mappings in key-value store.
+	ipcache.InitIPIdentityWatcher(&d)
 
 	if !d.conf.IPv4Disabled {
 		// Allocate IPv4 service loopback IP

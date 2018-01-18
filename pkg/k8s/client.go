@@ -39,6 +39,10 @@ import (
 var (
 	// ErrNilNode is returned when the Kubernetes API server has returned a nil node
 	ErrNilNode = goerrors.New("API server returned nil node")
+
+	// client is the object through which interactions with Kubernetes are
+	// performed.
+	client kubernetes.Interface
 )
 
 // CreateConfig creates a rest.Config for a given endpoint using a kubeconfig file.
@@ -208,10 +212,6 @@ func AnnotateNode(c kubernetes.Interface, nodeName string, v4CIDR, v6CIDR *net.I
 
 	return nil
 }
-
-var (
-	client kubernetes.Interface
-)
 
 // Client returns the default Kubernetes client
 func Client() kubernetes.Interface {
