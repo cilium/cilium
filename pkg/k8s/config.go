@@ -23,6 +23,8 @@ import (
 var (
 	// config is the configuration of Kubernetes related settings
 	config configuration
+
+	clusterContext string
 )
 
 type configuration struct {
@@ -55,6 +57,9 @@ func Configure(apiServer, kubeconfigPath string) {
 		!strings.HasPrefix(apiServer, "http") {
 		config.APIServer = "http://" + apiServer
 	}
+
+	// TODO: set cluster-context here.
+	//kubectl config current-context
 }
 
 // IsEnabled checks if Cilium is being used in tandem with Kubernetes.
