@@ -34,9 +34,10 @@ EOF
 "
 sudo service docker restart
 sudo apt-get -y update || true
-sudo apt-get -y install socat curl jq realpath pv tmux python-sphinx python-pip yamllint
+sudo apt-get -y install socat curl jq realpath pv tmux python-sphinx python-pip
 sudo pip install --upgrade pip
 sudo pip install sphinx sphinxcontrib-httpdomain sphinxcontrib-openapi
+sudo pip install yamllint
 echo 'cd ~/go/src/github.com/cilium/cilium' >> /home/vagrant/.bashrc
 export GOPATH=/home/vagrant/go
 sudo -E /usr/local/go/bin/go get github.com/jteeuwen/go-bindata/...
