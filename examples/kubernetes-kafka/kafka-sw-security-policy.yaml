@@ -23,6 +23,9 @@ specs:
             topic: "deathstar-plans"
           - apiKey: "produce"
             topic: "empire-announce"
+    - fromEndpoints:
+      - matchLabels:
+          app: kafka
   - endpointSelector:
       matchLabels:
         app: kafka
