@@ -42,7 +42,10 @@ type L3PolicyMap struct {
 // to the map.
 func (m *L3PolicyMap) Insert(cidrs []string) int {
 
-	ipNets := []*net.IPNet{}
+	ipNets := make([]*net.IPNet, 0, len(cidrs)+len(m.Map))
+	v6Mask := net.CIDRMask(128, 128)
+	v4Mask := net.CIDRMask(32, 32)
+
 	// Convert all provided CIDRs into net.IPNet
 	for _, cidr := range cidrs {
 		_, ipnet, err := net.ParseCIDR(cidr)
@@ -53,13 +56,13 @@ func (m *L3PolicyMap) Insert(cidrs []string) int {
 			// after the mask are all zeroes.
 			ip4 := ip.To4()
 			if ip4 == nil {
-				mask = net.CIDRMask(128, 128)
+				mask = v6Mask
 			} else { // IPv4
 				ip = ip4
 				mask = ip.DefaultMask() // IP address class based mask (/8, /16, or /24)
 				if !ip.Equal(ip.Mask(mask)) {
 					// IPv4 with non-zeroes after the subnetwork, use full mask.
-					mask = net.CIDRMask(32, 32)
+					mask = v4Mask
 				}
 			}
 			ipnet = &net.IPNet{IP: ip, Mask: mask}
@@ -76,28 +79,27 @@ func (m *L3PolicyMap) Insert(cidrs []string) int {
 	count := 0
 	coalescedV4, coalescedV6 := ip.CoalesceCIDRs(ipNets)
 
+	// Create a new map which will replace the old one.
+	newMap := make(map[string]net.IPNet, len(coalescedV4)+len(coalescedV6))
+	m.IPv4Count = len(coalescedV4)
+	m.IPv6Count = len(coalescedV6)
+
 	for _, ipnet := range coalescedV4 {
 
 		ones, _ := ipnet.Mask.Size()
 
 		key := ipnet.IP.String() + "/" + strconv.Itoa(ones)
-		if _, found := m.Map[key]; !found {
-			m.Map[key] = *ipnet
-			m.IPv4Count++
-			count++
-		}
+		newMap[key] = *ipnet
 	}
 
 	for _, ipnet := range coalescedV6 {
 		ones, _ := ipnet.Mask.Size()
 
 		key := ipnet.IP.String() + "/" + strconv.Itoa(ones)
-		if _, found := m.Map[key]; !found {
-			m.Map[key] = *ipnet
-			m.IPv6Count++
-			count++
-		}
+		newMap[key] = *ipnet
 	}
+
+	m.Map = newMap
 
 	return count
 }

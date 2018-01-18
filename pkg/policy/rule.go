@@ -293,8 +293,6 @@ func (r *rule) resolveL4Policy(ctx *SearchContext, state *traceState, result *L4
 }
 
 func mergeL3(ctx *SearchContext, dir string, ipRules []api.CIDR, resMap *L3PolicyMap) int {
-	found := 0
-
 	strCIDRs := []string{}
 
 	for _, r := range ipRules {
@@ -302,9 +300,7 @@ func mergeL3(ctx *SearchContext, dir string, ipRules []api.CIDR, resMap *L3Polic
 	}
 	ctx.PolicyTrace("  Allows %s IPs %s\n", dir, ipRules)
 
-	found += resMap.Insert(strCIDRs)
-
-	return found
+	return resMap.Insert(strCIDRs)
 }
 
 func computeResultantCIDRSet(cidrs []api.CIDRRule) []api.CIDR {
@@ -372,8 +368,12 @@ func (r *rule) resolveL3Policy(ctx *SearchContext, state *traceState, result *L3
 	if !ctx.EgressL4Only {
 		allIngressCIDRs := []api.CIDR{}
 		for _, r := range r.Ingress {
+			// Create list of CIDRs containing all CIDRs which we allow ingress from.
+			// It contains the resultant list of CIDRs from which traffic is allowed
+			// after excluding cidrs in FromCIDRSet for each rule.
 			allIngressCIDRs = append(allIngressCIDRs, append(r.FromCIDR, computeResultantCIDRSet(r.FromCIDRSet)...)...)
 		}
+
 		found += mergeL3(ctx, "Ingress", allIngressCIDRs, &result.Ingress)
 	}
 
