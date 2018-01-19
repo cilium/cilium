@@ -26,18 +26,6 @@ fi
 
 $PROVISIONSRC/dns.sh
 
-cat <<EOF > /etc/apt/sources.list
-deb http://old-releases.ubuntu.com/ubuntu/ zesty main restricted
-deb http://old-releases.ubuntu.com/ubuntu/ zesty-updates main restricted
-deb http://old-releases.ubuntu.com/ubuntu/ zesty universe
-deb http://old-releases.ubuntu.com/ubuntu/ zesty-updates universe
-deb http://old-releases.ubuntu.com/ubuntu/ zesty multiverse
-deb http://old-releases.ubuntu.com/ubuntu/ zesty-updates multiverse
-deb http://old-releases.ubuntu.com/ubuntu/ zesty-backports main restricted universe multiverse
-deb [arch=amd64] https://download.docker.com/linux/ubuntu zesty stable
-EOF
-
-
 cat <<EOF > /etc/hosts
 127.0.0.1       localhost
 ::1     localhost ip6-localhost ip6-loopback
