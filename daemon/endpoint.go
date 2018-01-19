@@ -618,6 +618,11 @@ func (d *Daemon) UpdateSecLabels(id string, add, del labels.Labels) (int, error)
 	if len(addLabels) == 0 && len(delLabels) == 0 {
 		return PutEndpointIDLabelsOKCode, nil
 	}
+	if lbls := addLabels.FindReserved(); lbls != nil {
+		return PutEndpointIDLabelsUpdateFailedCode, fmt.Errorf("Not allowed to add reserved labels: %s", lbls)
+	} else if lbls := delLabels.FindReserved(); lbls != nil {
+		return PutEndpointIDLabelsUpdateFailedCode, fmt.Errorf("Not allowed to delete reserved labels: %s", lbls)
+	}
 
 	ep, err := endpointmanager.Lookup(id)
 	if err != nil {
