@@ -23,9 +23,9 @@ import (
 	"github.com/cilium/cilium/pkg/policy"
 )
 
-// EnableKVStoreWatcher watches for kvstore changes in the common.LastFreeIDKeyPath key.
+// EnableLabelsKVStoreWatcher watches for kvstore changes in the common.LastFreeIDKeyPath key.
 // Triggers policy updates every time the value of that key is changed.
-func (d *Daemon) EnableKVStoreWatcher(maxSeconds time.Duration) {
+func (d *Daemon) EnableLabelsKVStoreWatcher(maxSeconds time.Duration) {
 	if maxID, err := GetMaxLabelID(); err == nil {
 		d.setCachedMaxLabelID(maxID)
 	}

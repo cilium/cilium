@@ -43,10 +43,10 @@ import (
 
 var (
 	// ErrNilNode is returned when the Kubernetes API server has returned a nil node
-	ErrNilNode      = goerrors.New("API server returned nil node")
-	client         kubernetes.Interface
+	ErrNilNode         = goerrors.New("API server returned nil node")
+	client             kubernetes.Interface
 	defaultClusterName = "k8sdefault"
-	k8sClusterName = defaultClusterName
+	k8sClusterName     = defaultClusterName
 )
 
 // GetClusterName returns the cluster name which client is connected to.
@@ -74,7 +74,7 @@ func setClusterName() {
 		k8sClusterName = defaultContext
 	} else {
 		k8sClusterName = cfg.CurrentContext
-
+		log.Debugf("setting k8sClusterName to %s", k8sClusterName)
 	}
 }
 
@@ -240,7 +240,6 @@ func createDefaultClient() error {
 
 	return nil
 }
-
 
 // UpdateCNPStatusV1 updates the status into the given CNP. This function retries
 // to do successful update into the kube-apiserver until it reaches the given

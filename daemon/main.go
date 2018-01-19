@@ -711,7 +711,7 @@ func runDaemon() {
 		log.WithError(err).Fatal("Error while enabling containerd event watcher")
 	}
 
-	d.EnableKVStoreWatcher(30 * time.Second)
+	d.EnableLabelsKVStoreWatcher(30 * time.Second)
 
 	if err := d.EnableK8sWatcher(5 * time.Minute); err != nil {
 		log.WithError(err).Warn("Error while enabling k8s watcher")

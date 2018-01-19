@@ -32,6 +32,7 @@ func Init() error {
 		return fmt.Errorf("unable to create k8s client: %s", err)
 	}
 
+	log.Debug("setting cluster name")
 	setClusterName()
 
 	if nodeName := os.Getenv(EnvNodeNameSpec); nodeName != "" {
