@@ -1,4 +1,4 @@
-// Copyright 2016-2017 Authors of Cilium
+// Copyright 2016-2018 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -454,6 +454,23 @@ func (l Labels) ToSlice() []*Label {
 // LabelArray returns the labels as label array
 func (l Labels) LabelArray() LabelArray {
 	return l.ToSlice()
+}
+
+// FindReserved locates all labels with reserved source in the labels and
+// returns a copy of them. If there are no reserved labels, returns nil.
+func (l Labels) FindReserved() Labels {
+	lbls := Labels{}
+
+	for k, lbl := range l {
+		if lbl.Source == LabelSourceReserved {
+			lbls[k] = lbl.DeepCopy()
+		}
+	}
+
+	if len(lbls) > 0 {
+		return lbls
+	}
+	return nil
 }
 
 // parseSource returns the parsed source of the given str. It also returns the next piece
