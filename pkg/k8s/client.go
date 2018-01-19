@@ -43,22 +43,23 @@ import (
 
 var (
 	// ErrNilNode is returned when the Kubernetes API server has returned a nil node
-	ErrNilNode = goerrors.New("API server returned nil node")
-	client kubernetes.Interface
-	clusterName = "cilium-default"
+	ErrNilNode      = goerrors.New("API server returned nil node")
+	client         kubernetes.Interface
+	defaultClusterName = "k8sdefault"
+	k8sClusterName = defaultClusterName
 )
 
 // GetClusterName returns the cluster name which client is connected to.
 func GetClusterName() string {
-	return clusterName
+	return k8sClusterName
 }
 
 func setClusterName() {
 	kubeCfgPath := GetKubeconfigPath()
-	defaultContext := "cilium-default"
+	defaultContext := defaultClusterName
 	if kubeCfgPath == "" {
 		log.Warnf("no kubeconfig provided; setting cluster name to %s", defaultContext)
-		clusterName = defaultContext
+		k8sClusterName = defaultContext
 	}
 
 	// This is the only clean way to get the name of the current context
@@ -70,9 +71,9 @@ func setClusterName() {
 
 	if err != nil || cfg.CurrentContext == "" {
 		log.Warnf("unable to get starting config from Kubernetes; setting cluster name to %s", defaultContext)
-		clusterName = defaultContext
+		k8sClusterName = defaultContext
 	} else {
-		clusterName = cfg.CurrentContext
+		k8sClusterName = cfg.CurrentContext
 
 	}
 }
