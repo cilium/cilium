@@ -1024,6 +1024,7 @@ func NewDaemon(c *Config) (*Daemon, error) {
 			return nil, fmt.Errorf("Unable to reserve IPv4 loopback address: %s", err)
 		}
 		d.loopbackIPv4 = loopbackIPv4
+		log.Infof("Loopback IPv4: %s", d.loopbackIPv4.String())
 	}
 
 	if err = d.init(); err != nil {
