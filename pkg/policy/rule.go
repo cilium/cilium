@@ -356,6 +356,7 @@ func cidrsToIPNets(cidrs []api.CIDR) (v4Nets, v6Nets []*net.IPNet) {
 }
 
 func (r *rule) resolveL3Policy(ctx *SearchContext, state *traceState, result *L3Policy) *L3Policy {
+	
 	if !r.EndpointSelector.Matches(ctx.To) {
 		state.unSelectRule(ctx, r)
 		return nil

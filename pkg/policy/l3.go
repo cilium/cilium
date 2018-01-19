@@ -90,6 +90,7 @@ func (m *L3PolicyMap) Insert(cidrs []string) int {
 
 		key := ipnet.IP.String() + "/" + strconv.Itoa(ones)
 		newMap[key] = *ipnet
+		count++
 	}
 
 	for _, ipnet := range coalescedV6 {
@@ -97,6 +98,7 @@ func (m *L3PolicyMap) Insert(cidrs []string) int {
 
 		key := ipnet.IP.String() + "/" + strconv.Itoa(ones)
 		newMap[key] = *ipnet
+		count++
 	}
 
 	m.Map = newMap
