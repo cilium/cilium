@@ -143,8 +143,11 @@ func (d *Daemon) createEndpoint(epTemplate *models.EndpointChangeRequest, id str
 	} else if oldEp != nil {
 		return PutEndpointIDExistsCode, fmt.Errorf("Endpoint ID %s exists", id)
 	}
+	if err = endpoint.APICanModify(ep); err != nil {
+		return PutEndpointIDInvalidCode, err
+	}
 
-	if err := endpointmanager.AddEndpoint(h.d, ep, "Create endpoint from API PUT"); err != nil {
+	if err := endpointmanager.AddEndpoint(d, ep, "Create endpoint from API PUT"); err != nil {
 		log.WithError(err).Warn("Aborting endpoint join")
 		return PutEndpointIDFailedCode, err
 	}
@@ -215,6 +218,9 @@ func (h *patchEndpointID) Handle(params PatchEndpointIDParams) middleware.Respon
 	}
 	if ep == nil {
 		return NewPatchEndpointIDNotFound()
+	}
+	if err = endpoint.APICanModify(ep); err != nil {
+		return apierror.Error(PatchEndpointIDInvalidCode, err)
 	}
 
 	// FIXME: Support changing these?
@@ -398,6 +404,8 @@ func (d *Daemon) DeleteEndpoint(id string) (int, error) {
 		return 0, apierror.Error(DeleteEndpointIDInvalidCode, err)
 	} else if ep == nil {
 		return 0, apierror.New(DeleteEndpointIDNotFoundCode, "endpoint not found")
+	} else if err = endpoint.APICanModify(ep); err != nil {
+		return 0, apierror.Error(DeleteEndpointIDInvalidCode, err)
 	} else {
 		return d.deleteEndpoint(ep), nil
 	}
@@ -431,6 +439,9 @@ func (h *deleteEndpointID) Handle(params DeleteEndpointIDParams) middleware.Resp
 func (d *Daemon) EndpointUpdate(id string, opts models.ConfigurationMap) error {
 	ep, err := endpointmanager.Lookup(id)
 	if err != nil {
+		return apierror.Error(PatchEndpointIDInvalidCode, err)
+	}
+	if err = endpoint.APICanModify(ep); err != nil {
 		return apierror.Error(PatchEndpointIDInvalidCode, err)
 	}
 
@@ -571,41 +582,24 @@ func (h *getEndpointIDHealthz) Handle(params GetEndpointIDHealthzParams) middlew
 	}
 }
 
-// UpdateSecLabels add and deletes the given labels on given endpoint ID.
-// The received `add` and `del` labels will be filtered with the valid label
-// prefixes.
-// The `add` labels take precedence over `del` labels, this means if the same
-// label is set on both `add` and `del`, that specific label will exist in the
-// endpoint's labels.
-// Returns an HTTP response code and an error msg (or nil on success).
-func (d *Daemon) UpdateSecLabels(id string, add, del labels.Labels) (int, error) {
-	addLabels, _ := labels.FilterLabels(add)
-	delLabels, _ := labels.FilterLabels(del)
+func checkLabels(add, del labels.Labels) (addLabels, delLabels labels.Labels, ok bool) {
+	addLabels, _ = labels.FilterLabels(add)
+	delLabels, _ = labels.FilterLabels(del)
 
 	if len(addLabels) == 0 && len(delLabels) == 0 {
-		return PutEndpointIDLabelsOKCode, nil
+		return nil, nil, false
 	}
-	if lbls := addLabels.FindReserved(); lbls != nil {
-		return PutEndpointIDLabelsUpdateFailedCode, fmt.Errorf("Not allowed to add reserved labels: %s", lbls)
-	} else if lbls := delLabels.FindReserved(); lbls != nil {
-		return PutEndpointIDLabelsUpdateFailedCode, fmt.Errorf("Not allowed to delete reserved labels: %s", lbls)
-	}
+	return addLabels, delLabels, true
+}
 
-	ep, err := endpointmanager.Lookup(id)
-	if err != nil {
-		return PutEndpointIDLabelsUpdateFailedCode, err
-	}
-	if ep == nil {
-		return PutEndpointIDLabelsNotFoundCode, fmt.Errorf("No endpoint with ID %s found", ep.StringID())
-	}
-
+func (d *Daemon) updateSecLabels(ep *endpoint.Endpoint, add, del labels.Labels) (int, error) {
 	// This is safe only if no other goroutine may change the labels in parallel
 	ep.Mutex.RLock()
 	oldLabels := ep.OpLabels.DeepCopy()
 	ep.Mutex.RUnlock()
 
-	if len(delLabels) > 0 {
-		for k := range delLabels {
+	if len(del) > 0 {
+		for k := range del {
 			// The change request is accepted if the label is on
 			// any of the lists. If the label is already disabled,
 			// we will simply ignore that change.
@@ -619,8 +613,8 @@ func (d *Daemon) UpdateSecLabels(id string, add, del labels.Labels) (int, error)
 		}
 	}
 
-	if len(delLabels) > 0 {
-		for k, v := range delLabels {
+	if len(del) > 0 {
+		for k, v := range del {
 			if oldLabels.OrchestrationIdentity[k] != nil {
 				delete(oldLabels.OrchestrationIdentity, k)
 				oldLabels.Disabled[k] = v
@@ -632,8 +626,8 @@ func (d *Daemon) UpdateSecLabels(id string, add, del labels.Labels) (int, error)
 		}
 	}
 
-	if len(addLabels) > 0 {
-		for k, v := range addLabels {
+	if len(add) > 0 {
+		for k, v := range add {
 			if oldLabels.Disabled[k] != nil {
 				delete(oldLabels.Disabled, k)
 				oldLabels.OrchestrationIdentity[k] = v
@@ -676,6 +670,57 @@ func (d *Daemon) UpdateSecLabels(id string, add, del labels.Labels) (int, error)
 	return PutEndpointIDLabelsOKCode, nil
 }
 
+// UpdateSecLabels add and deletes the given labels on given endpoint ID.
+// The received `add` and `del` labels will be filtered with the valid label
+// prefixes.
+// The `add` labels take precedence over `del` labels, this means if the same
+// label is set on both `add` and `del`, that specific label will exist in the
+// endpoint's labels.
+// Returns an HTTP response code and an error msg (or nil on success).
+func (d *Daemon) UpdateSecLabels(id string, add, del labels.Labels) (int, error) {
+	addLabels, delLabels, ok := checkLabels(add, del)
+	if !ok {
+		return 0, nil
+	}
+
+	ep, err := endpointmanager.Lookup(id)
+	if err != nil {
+		return GetEndpointIDInvalidCode, err
+	}
+	if ep == nil {
+		return PutEndpointIDLabelsNotFoundCode, fmt.Errorf("Endpoint ID %s not found", id)
+	}
+
+	return d.updateSecLabels(ep, addLabels, delLabels)
+}
+
+// updateSecLabelsFromAPI is the same as UpdateSecLabels(), but also performs
+// checks for whether the endpoint may be modified by an API call.
+func (d *Daemon) updateSecLabelsFromAPI(id string, add, del labels.Labels) (int, error) {
+	addLabels, delLabels, ok := checkLabels(add, del)
+	if !ok {
+		return 0, nil
+	}
+	if lbls := addLabels.FindReserved(); lbls != nil {
+		return PutEndpointIDLabelsUpdateFailedCode, fmt.Errorf("Not allowed to add reserved labels: %s", lbls)
+	} else if lbls := delLabels.FindReserved(); lbls != nil {
+		return PutEndpointIDLabelsUpdateFailedCode, fmt.Errorf("Not allowed to delete reserved labels: %s", lbls)
+	}
+
+	ep, err := endpointmanager.Lookup(id)
+	if err != nil {
+		return GetEndpointIDInvalidCode, err
+	}
+	if ep == nil {
+		return PutEndpointIDLabelsNotFoundCode, fmt.Errorf("Endpoint ID %s not found", id)
+	}
+	if err = endpoint.APICanModify(ep); err != nil {
+		return PutEndpointIDInvalidCode, err
+	}
+
+	return d.updateSecLabels(ep, addLabels, delLabels)
+}
+
 type putEndpointIDLabels struct {
 	daemon *Daemon
 }
@@ -692,9 +737,9 @@ func (h *putEndpointIDLabels) Handle(params PutEndpointIDLabelsParams) middlewar
 	add := labels.NewLabelsFromModel(mod.Add)
 	del := labels.NewLabelsFromModel(mod.Delete)
 
-	code, err := d.UpdateSecLabels(params.ID, add, del)
-	if err != nil {
-		return apierror.Error(code, err)
+	code, errMsg := d.updateSecLabelsFromAPI(params.ID, add, del)
+	if errMsg != nil {
+		return apierror.Error(code, errMsg)
 	}
 	return NewPutEndpointIDLabelsOK()
 }

@@ -1535,3 +1535,12 @@ func (e *Endpoint) bumpPolicyRevision(revision uint64) {
 	}
 	e.Mutex.Unlock()
 }
+
+// APICanModify determines whether API requests from a user are allowed to
+// modify this endpoint.
+func APICanModify(e *Endpoint) error {
+	if lbls := e.OpLabels.OrchestrationIdentity.FindReserved(); lbls != nil {
+		return fmt.Errorf("Endpoint cannot be modified by API call")
+	}
+	return nil
+}
