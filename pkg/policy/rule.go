@@ -293,16 +293,14 @@ func (r *rule) resolveL4Policy(ctx *SearchContext, state *traceState, result *L4
 }
 
 func mergeL3(ctx *SearchContext, dir string, ipRules []api.CIDR, resMap *L3PolicyMap) int {
-	found := 0
+	strCIDRs := []string{}
 
 	for _, r := range ipRules {
-		strCIDR := string(r)
-		ctx.PolicyTrace("  Allows %s IP %s\n", dir, strCIDR)
-
-		found += resMap.Insert(strCIDR)
+		strCIDRs = append(strCIDRs, string(r))
 	}
+	ctx.PolicyTrace("  Allows %s IPs %s\n", dir, ipRules)
 
-	return found
+	return resMap.Insert(strCIDRs)
 }
 
 func computeResultantCIDRSet(cidrs []api.CIDRRule) []api.CIDR {
@@ -329,7 +327,36 @@ func computeResultantCIDRSet(cidrs []api.CIDRRule) []api.CIDR {
 	return allResultantAllowedCIDRs
 }
 
+func cidrsToIPNets(cidrs []api.CIDR) (v4Nets, v6Nets []*net.IPNet) {
+	v4Nets = []*net.IPNet{}
+	v6Nets = []*net.IPNet{}
+	for _, v := range cidrs {
+		_, netToParse, err := net.ParseCIDR(string(v))
+		// ParseCIDR will result in an error if CIDR is an IP without
+		// a mask, which is valid in Cilium.
+		if err != nil {
+			ip := net.ParseIP(string(v))
+			// ip cannot be nil as it has already been validated. Check if IP
+			// is of v4 or v6 to determine mask size.
+			var mask net.IPMask
+			if ip.To4() == nil {
+				mask = net.CIDRMask(128, 128)
+			} else {
+				mask = net.CIDRMask(32, 32)
+			}
+			netToParse = &net.IPNet{IP: ip, Mask: mask}
+		}
+		if netToParse.IP.To4() != nil {
+			v4Nets = append(v4Nets, netToParse)
+		} else {
+			v6Nets = append(v6Nets, netToParse)
+		}
+	}
+	return
+}
+
 func (r *rule) resolveL3Policy(ctx *SearchContext, state *traceState, result *L3Policy) *L3Policy {
+	
 	if !r.EndpointSelector.Matches(ctx.To) {
 		state.unSelectRule(ctx, r)
 		return nil
@@ -338,23 +365,26 @@ func (r *rule) resolveL3Policy(ctx *SearchContext, state *traceState, result *L3
 	state.selectRule(ctx, r)
 	found := 0
 
-	for _, r := range r.Ingress {
-		// TODO (ianvernon): GH-1658
-		var allCIDRs []api.CIDR
-		allCIDRs = append(allCIDRs, r.FromCIDR...)
+	// L3 Ingress
+	if !ctx.EgressL4Only {
+		allIngressCIDRs := []api.CIDR{}
+		for _, r := range r.Ingress {
+			// Create list of CIDRs containing all CIDRs which we allow ingress from.
+			// It contains the resultant list of CIDRs from which traffic is allowed
+			// after excluding cidrs in FromCIDRSet for each rule.
+			allIngressCIDRs = append(allIngressCIDRs, append(r.FromCIDR, computeResultantCIDRSet(r.FromCIDRSet)...)...)
+		}
 
-		allCIDRs = append(allCIDRs, computeResultantCIDRSet(r.FromCIDRSet)...)
-
-		found += mergeL3(ctx, "Ingress", allCIDRs, &result.Ingress)
+		found += mergeL3(ctx, "Ingress", allIngressCIDRs, &result.Ingress)
 	}
-	for _, r := range r.Egress {
-		// TODO(ianvernon): GH-1658
-		var allCIDRs []api.CIDR
-		allCIDRs = append(allCIDRs, r.ToCIDR...)
 
-		allCIDRs = append(allCIDRs, computeResultantCIDRSet(r.ToCIDRSet)...)
-
-		found += mergeL3(ctx, "Egress", allCIDRs, &result.Egress)
+	// L3 Egress
+	if !ctx.IngressL4Only {
+		allEgressCIDRs := []api.CIDR{}
+		for _, r := range r.Egress {
+			allEgressCIDRs = append(allEgressCIDRs, append(r.ToCIDR, computeResultantCIDRSet(r.ToCIDRSet)...)...)
+		}
+		found += mergeL3(ctx, "Egress", allEgressCIDRs, &result.Egress)
 	}
 
 	if found > 0 {

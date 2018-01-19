@@ -418,7 +418,7 @@ func (e *Endpoint) regenerateConsumable(owner Owner, labelsMap *LabelsMap,
 	return changed, l4Add, rulesToDelete
 }
 
-// Must be called with global repo.Mutrex, e.Mutex, and c.Mutex held
+// Must be called with global repo.Mutex, e.Mutex, and c.Mutex held
 func (e *Endpoint) regenerateL3Policy(owner Owner, repo *policy.Repository, revision uint64, c *policy.Consumable) (bool, error) {
 
 	ctx := policy.SearchContext{

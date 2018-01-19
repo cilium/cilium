@@ -22,6 +22,7 @@ import (
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/byteorder"
+	"github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/maps/cidrmap"
 	"github.com/cilium/cilium/pkg/policy/api"
 )
@@ -37,43 +38,72 @@ type L3PolicyMap struct {
 	IPv4Count int                  // Count of IPv4 prefixes in 'Map'
 }
 
-// Insert places 'cidr' in to map 'm'. Returns `1` if `cidr` is added
-// to the map, `0` otherwise
-func (m *L3PolicyMap) Insert(cidr string) int {
-	_, ipnet, err := net.ParseCIDR(cidr)
-	if err != nil {
-		var mask net.IPMask
-		ip := net.ParseIP(cidr)
-		// Use default CIDR mask for the address if the bits in the address
-		// after the mask are all zeroes.
-		ip4 := ip.To4()
-		if ip4 == nil {
-			mask = net.CIDRMask(128, 128)
-		} else { // IPv4
-			ip = ip4
-			mask = ip.DefaultMask() // IP address class based mask (/8, /16, or /24)
-			if !ip.Equal(ip.Mask(mask)) {
-				// IPv4 with non-zeroes after the subnetwork, use full mask.
-				mask = net.CIDRMask(32, 32)
+// Insert places 'cidrs' in to map 'm'. Returns the number of new CIDRs added
+// to the map.
+func (m *L3PolicyMap) Insert(cidrs []string) int {
+
+	ipNets := make([]*net.IPNet, 0, len(cidrs)+len(m.Map))
+	v6Mask := net.CIDRMask(128, 128)
+	v4Mask := net.CIDRMask(32, 32)
+
+	// Convert all provided CIDRs into net.IPNet
+	for _, cidr := range cidrs {
+		_, ipnet, err := net.ParseCIDR(cidr)
+		if err != nil {
+			var mask net.IPMask
+			ip := net.ParseIP(cidr)
+			// Use default CIDR mask for the address if the bits in the address
+			// after the mask are all zeroes.
+			ip4 := ip.To4()
+			if ip4 == nil {
+				mask = v6Mask
+			} else { // IPv4
+				ip = ip4
+				mask = ip.DefaultMask() // IP address class based mask (/8, /16, or /24)
+				if !ip.Equal(ip.Mask(mask)) {
+					// IPv4 with non-zeroes after the subnetwork, use full mask.
+					mask = v4Mask
+				}
 			}
+			ipnet = &net.IPNet{IP: ip, Mask: mask}
 		}
-		ipnet = &net.IPNet{IP: ip, Mask: mask}
+		ipNets = append(ipNets, ipnet)
 	}
 
-	ones, _ := ipnet.Mask.Size()
-
-	key := ipnet.IP.String() + "/" + strconv.Itoa(ones)
-	if _, found := m.Map[key]; !found {
-		m.Map[key] = *ipnet
-		if ipnet.IP.To4() == nil {
-			m.IPv6Count++
-		} else {
-			m.IPv4Count++
-		}
-		return 1
+	// Grab all ipNets from existing map and coalesce them.
+	for _, v := range m.Map {
+		vv := v
+		ipNets = append(ipNets, &vv)
 	}
 
-	return 0
+	count := 0
+	coalescedV4, coalescedV6 := ip.CoalesceCIDRs(ipNets)
+
+	// Create a new map which will replace the old one.
+	newMap := make(map[string]net.IPNet, len(coalescedV4)+len(coalescedV6))
+	m.IPv4Count = len(coalescedV4)
+	m.IPv6Count = len(coalescedV6)
+
+	for _, ipnet := range coalescedV4 {
+
+		ones, _ := ipnet.Mask.Size()
+
+		key := ipnet.IP.String() + "/" + strconv.Itoa(ones)
+		newMap[key] = *ipnet
+		count++
+	}
+
+	for _, ipnet := range coalescedV6 {
+		ones, _ := ipnet.Mask.Size()
+
+		key := ipnet.IP.String() + "/" + strconv.Itoa(ones)
+		newMap[key] = *ipnet
+		count++
+	}
+
+	m.Map = newMap
+
+	return count
 }
 
 // ToBPFData converts map 'm' into string slices 's6' and 's4',
