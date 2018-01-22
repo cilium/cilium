@@ -52,7 +52,7 @@ func (e *Endpoint) writeL4Map(fw *bufio.Writer, owner Owner, m policy.L4PolicyMa
 	array := ""
 	index := 0
 
-	for k, l4 := range m {
+	for _, l4 := range m {
 		// Represents struct l4_allow in bpf/lib/l4.h
 		protoNum, err := u8proto.ParseProtocol(string(l4.Protocol))
 		if err != nil {
@@ -62,15 +62,6 @@ func (e *Endpoint) writeL4Map(fw *bufio.Writer, owner Owner, m policy.L4PolicyMa
 		dport := byteorder.HostToNetwork(uint16(l4.Port))
 
 		redirect := uint16(l4.L7RedirectPort)
-		if l4.IsRedirect() && redirect == 0 {
-			redirect, err = e.addRedirect(owner, &l4)
-			if err != nil {
-				return err
-			}
-			l4.L7RedirectPort = int(redirect)
-			m[k] = l4
-		}
-
 		redirect = byteorder.HostToNetwork(redirect).(uint16)
 		entry := fmt.Sprintf("%d,%d,%d,%d", index, dport, redirect, protoNum)
 		if array != "" {
@@ -405,6 +396,25 @@ func (e *Endpoint) updateCT(owner Owner, flushEndpointCT bool, consumersAdd, con
 	return wg
 }
 
+// allocateRedirects must be called while holding the endpoint and consumable
+// locks for writing. On success, returns nil; otherwise, returns an error
+// indicating the problem that occurred while adding an l7 redirect for the
+// specified policy.
+func (e *Endpoint) allocateRedirects(owner Owner, m policy.L4PolicyMap) error {
+	for k, l4 := range m {
+		redirect := uint16(l4.L7RedirectPort)
+		if l4.IsRedirect() && redirect == 0 {
+			redirect, err := e.addRedirect(owner, &l4)
+			if err != nil {
+				return err
+			}
+			l4.L7RedirectPort = int(redirect)
+			m[k] = l4
+		}
+	}
+	return nil
+}
+
 // regenerateBPF rewrites all headers and updates all BPF maps to reflect the
 // specified endpoint.
 // Must be called with endpoint.Mutex not held and endpoint.BuildMutex held.
@@ -428,6 +438,26 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir, reason string) (uint64, err
 		e.getLogger().WithField(logfields.EndpointState, e.state).Debug("Skipping build due to invalid state")
 		e.Mutex.Unlock()
 		return 0, fmt.Errorf("Skipping build due to invalid state: %s", e.state)
+	}
+
+	// If there is a Consumable, walk the L4Policy for ports that require
+	// an L7 redirect and add them to the endpoint; update the L4PolicyMap
+	// with the redirects.
+	if e.Consumable != nil {
+		e.Consumable.Mutex.Lock()
+		if e.Consumable.L4Policy != nil {
+			if err = e.allocateRedirects(owner, e.Consumable.L4Policy.Ingress); err != nil {
+				e.Consumable.Mutex.Unlock()
+				e.Mutex.Unlock()
+				return 0, fmt.Errorf("Unable to allocate ingress redirects: %s", err)
+			}
+			if err = e.allocateRedirects(owner, e.Consumable.L4Policy.Egress); err != nil {
+				e.Consumable.Mutex.Unlock()
+				e.Mutex.Unlock()
+				return 0, fmt.Errorf("Unable to allocate egress redirects: %s", err)
+			}
+		}
+		e.Consumable.Mutex.Unlock()
 	}
 
 	if err = e.writeHeaderfile(epdir, owner); err != nil {
