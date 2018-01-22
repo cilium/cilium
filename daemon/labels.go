@@ -206,6 +206,7 @@ func (d *Daemon) updateEndpointIdentity(epID, oldLabelsHash string, opLabels *la
 				logfields.EndpointID: epID,
 			}).WithError(err).Warn("Unable to delete old identity of endpoint")
 		}
+
 	}
 
 	log.WithFields(logrus.Fields{
@@ -408,6 +409,18 @@ func (d *Daemon) DeleteIdentityBySHA256(sha256Sum string, epid string) error {
 	}).Debug("Decremented label ref-count")
 
 	return kvstore.Client().SetValue(lblPath, dbSecCtxLbls)
+}
+
+// TODO (ianvernon) documentation - is this the correct implementation?
+func (d *Daemon) DeleteEndpointIPIdentityMapping(epIPv4, epIPv6 []byte) error {
+	epIPPath := path.Join(common.EndpointIPKeyPath, d.conf.AddressSpace, fmt.Sprintf("%v", (net.IP)(epIPv4).String()))
+	lockKey, err := kvstore.LockPath(epIPPath)
+	if err != nil {
+		return err
+	}
+	defer lockKey.Unlock()
+
+	return kvstore.Delete(epIPPath)
 }
 
 // GetMaxLabelID returns the maximum possible free UUID stored in consul.
