@@ -1,0 +1,122 @@
+#!/bin/bash
+# Upload a Cilium revision to releases.cilium.io. This will be used to host
+# releases on a seperate location.
+#
+# TODO: update sphinx Documentation with process when bucket is setup. See
+# GH-1303 (Provide stable URL for stable release tarballs)[0].
+# [0]: https://github.com/cilium/cilium/issues/1303
+
+set -e
+
+function usage() {
+  echo "Usage: $BASH_SOURCE <revision>"
+  echo "Example: $BASH_SOURCE v1.0.0-rc2"
+  echo "Environment:"
+  grep -F \$\{ $BASH_SOURCE
+}
+
+if [ "$#" -lt 1 ]; then
+  usage
+  exit 1
+fi
+
+REV=$1
+
+function perror() {
+  echo `tput setaf 1`$@`tput sgr0`
+}
+
+function configure_env() {
+  if ! git rev-parse $REV >/dev/null 2>&1; then
+    perror "Could not find a git ref $REV, trying v$REV..."
+    REV=v$REV
+    if ! git rev-parse $REV >/dev/null 2>&1; then
+      perror "Could not find a git rev $REV, bailing..."
+      exit 1
+    fi
+  fi
+
+  if ! which aws; then
+    perror "Please install or make sure aws is in your PATH"
+    perror "See the user guide for more info "
+    perror "https://docs.aws.amazon.com/cli/latest/userguide/installing.html"
+    exit 1
+  fi
+  ARCH=${ARCH:-"`uname -m`"}
+  DOMAIN=${DOMAIN:-"releases.cilium.io"}
+  REMOTE_DIR=${REMOTE_DIR:-"$REV"}
+  PREPEND=${PREPEND:-"cilium-$REV/"}
+  ZIP_FILE=${ZIP_FILE:-"$REV.zip"}
+  TARBALL=${TARBALL:-"$REV.tar.gz"}
+  DIR=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
+  TARGET_DIR=${TARGET_DIR:-"$DIR/../../_build/`basename $REMOTE_DIR`"}
+  CILIUM_SOURCE=${CILIUM_SOURCE:-"$DIR/../../"}
+  SKIP_UPLOAD=${SKIP_UPLOAD:-0}
+}
+
+function pristine_env() {
+  # Get pristine environment before continuing
+  git -C $CILIUM_SOURCE stash
+  git -C $CILIUM_SOURCE checkout $REV
+}
+
+function create_dir() {
+  if test -d $TARGET_DIR; then
+    rm -rf $TARGET_DIR
+  fi
+  mkdir -pv $TARGET_DIR
+}
+
+function copy_source() {
+  git archive --prefix=$PREPEND -o $TARGET_DIR/$ZIP_FILE $REV
+  git archive --format=tar.gz -o $TARGET_DIR/$TARBALL --prefix=$PREPEND $REV
+}
+
+function copy_binaries() {
+# Copy the binaries
+cp $CILIUM_SOURCE/cilium/cilium $TARGET_DIR/cilium-$ARCH
+cp $CILIUM_SOURCE/daemon/cilium-agent $TARGET_DIR/cilium-agent-$ARCH
+# Since these binaries are newer don't assume their presence in all revisions
+cp $CILIUM_SOURCE/bugtool/cilium-bugtool $TARGET_DIR/cilium-bugtool-$ARCH || true
+cp $CILIUM_SOURCE/monitor/cilium-node-monitor $TARGET_DIR/cilium-node-monitor-$ARCH || true
+cp $CILIUM_SOURCE/cilium-health/cilium-health $TARGET_DIR/cilium-health-$ARCH || true
+
+# Generate  SHA256 digest
+cd $TARGET_DIR
+for f in *; do
+  sha256sum $f > $f.sha256sum
+done
+}
+
+function build_cilium() {
+  # For older Cilium releases where the Go version mattered, update bindata
+  cd $CILIUM_SOURCE/daemon/ && make go-bindata && cd -
+  make -s -C $CILIUM_SOURCE clean
+  make -s -C $CILIUM_SOURCE
+}
+
+function upload_all() {
+  if [ $SKIP_UPLOAD == 1 ]; then
+    echo "Skipping upload"
+    return
+  fi
+  # Upload all files
+  aws s3 cp --recursive $TARGET_DIR s3://$DOMAIN/$REMOTE_DIR
+}
+
+function print_done() {
+  echo "`tput setaf 2`DONE`tput sgr0` local files are in $TARGET_DIR."
+}
+
+function main() {
+  configure_env
+  pristine_env
+  create_dir
+  copy_source
+  build_cilium
+  copy_binaries
+  upload_all
+  print_done
+}
+
+main

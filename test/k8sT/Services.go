@@ -29,7 +29,7 @@ import (
 	"k8s.io/api/core/v1"
 )
 
-var _ = Describe("K8sServicesTest", func() {
+var _ = Describe("K8sValidatedServicesTest", func() {
 
 	var kubectl *helpers.Kubectl
 	var logger *logrus.Entry
@@ -44,6 +44,9 @@ var _ = Describe("K8sServicesTest", func() {
 		path := kubectl.ManifestGet("cilium_ds.yaml")
 		kubectl.Apply(path)
 		_, err := kubectl.WaitforPods(helpers.KubeSystemNamespace, "-l k8s-app=cilium", 600)
+		Expect(err).Should(BeNil())
+
+		err = kubectl.WaitKubeDNS()
 		Expect(err).Should(BeNil())
 	}
 

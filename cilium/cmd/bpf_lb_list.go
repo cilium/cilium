@@ -17,13 +17,19 @@ package cmd
 import (
 	"fmt"
 	"os"
-	"strings"
+	"text/tabwriter"
 
 	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/maps/lbmap"
 
 	"github.com/spf13/cobra"
+)
+
+const (
+	idTitle             = "ID"
+	serviceAddressTitle = "SERVICE ADDRESS"
+	backendAddressTitle = "BACKEND ADDRESS"
 )
 
 var listRevNAT bool
@@ -35,12 +41,14 @@ var bpfLBListCmd = &cobra.Command{
 	Short: "List load-balancing configuration",
 	Run: func(cmd *cobra.Command, args []string) {
 		common.RequireRootPrivilege("cilium bpf lb list")
-		title := fmt.Sprintf("%-20s %-s", "Service Address", "Backend Address")
+
+		var firstTitle string
 		if listRevNAT {
-			title = fmt.Sprintf("%-6s %-s", "ID", "Service Address")
+			firstTitle = idTitle
 			lbmap.RevNat4Map.Dump(lbmap.RevNat4DumpParser, dumpRevNAT)
 			lbmap.RevNat6Map.Dump(lbmap.RevNat6DumpParser, dumpRevNAT)
 		} else {
+			firstTitle = serviceAddressTitle
 			lbmap.Service4Map.Dump(lbmap.Service4DumpParser, dumpService)
 			lbmap.Service6Map.Dump(lbmap.Service6DumpParser, dumpService)
 		}
@@ -52,19 +60,21 @@ var bpfLBListCmd = &cobra.Command{
 			return
 		}
 
-		fmt.Println(title)
-		fmt.Println(strings.Repeat("-", len(title)))
+		w := tabwriter.NewWriter(os.Stdout, 5, 0, 3, ' ', 0)
+
+		fmt.Fprintf(w, "%s\t%s\t\n", firstTitle, backendAddressTitle)
 
 		for key, backends := range serviceList {
 			for k, v := range backends {
 				if k == 0 {
-					fmt.Printf("%-20s %-s\n", key, v)
+					fmt.Fprintf(w, "%s\t%s\t\n", key, v)
 				} else {
-					fmt.Printf("%-20s %-s\n", "", v)
+					fmt.Fprintf(w, "%s\t%s\t\n", "", v)
 				}
 			}
 		}
-		return
+
+		w.Flush()
 	},
 }
 

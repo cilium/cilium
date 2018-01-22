@@ -51,6 +51,8 @@ var _ = Describe("K8sPolicyTest", func() {
 		status, err := kubectl.WaitforPods(helpers.KubeSystemNamespace, "-l k8s-app=cilium", 300)
 		Expect(status).Should(BeTrue())
 		Expect(err).Should(BeNil())
+		err = kubectl.WaitKubeDNS()
+		Expect(err).Should(BeNil())
 	}
 
 	BeforeEach(func() {
@@ -279,7 +281,7 @@ var _ = Describe("K8sPolicyTest", func() {
 	}, 500)
 })
 
-var _ = Describe("K8sPolicyTestAcrossNamespaces", func() {
+var _ = Describe("K8sValidatedPolicyTestAcrossNamespaces", func() {
 
 	var kubectl *helpers.Kubectl
 	var logger *logrus.Entry
@@ -295,6 +297,9 @@ var _ = Describe("K8sPolicyTestAcrossNamespaces", func() {
 		kubectl.Apply(path)
 		status, err := kubectl.WaitforPods(helpers.KubeSystemNamespace, "-l k8s-app=cilium", 300)
 		Expect(status).Should(BeTrue())
+		Expect(err).Should(BeNil())
+
+		err = kubectl.WaitKubeDNS()
 		Expect(err).Should(BeNil())
 	}
 

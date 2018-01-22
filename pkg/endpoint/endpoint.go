@@ -1,4 +1,4 @@
-// Copyright 2016-2017 Authors of Cilium
+// Copyright 2016-2018 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -350,6 +350,10 @@ func NewEndpointWithState(ID uint16, state string) *Endpoint {
 func NewEndpointFromChangeModel(base *models.EndpointChangeRequest, l pkgLabels.Labels) (*Endpoint, error) {
 	if base == nil {
 		return nil, nil
+	}
+
+	if lbls := l.FindReserved(); lbls != nil {
+		return nil, fmt.Errorf("Not allowed to create endpoint with reserved labels %s", lbls)
 	}
 
 	ep := &Endpoint{

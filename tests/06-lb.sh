@@ -134,7 +134,7 @@ function run_benchmark_tests {
 function test_svc_restore_functionality {
   log "checking restore functionality for services"
   local SVCS_BEFORE_RESTART=$(cilium service list | tail -n+2 | sort)
-  local BPF_LB_LIST_BEFORE_RESTART=$(cilium bpf lb list | tail -n+3 | sort)
+  local BPF_LB_LIST_BEFORE_RESTART=$(cilium bpf lb list | tail -n+2 | sort)
 
   log "restarting Cilium"
   service cilium restart
@@ -142,7 +142,7 @@ function test_svc_restore_functionality {
 
   log "checking services and BPF maps after restarting Cilium"
   local SVCS_AFTER_RESTART=$(cilium service list | tail -n+2 | sort)
-  local BPF_LB_LIST_AFTER_RESTART=$(cilium bpf lb list | tail -n+3 | sort)
+  local BPF_LB_LIST_AFTER_RESTART=$(cilium bpf lb list | tail -n+2 | sort)
 
   if [[ "$SVCS_BEFORE_RESTART" != "$SVCS_AFTER_RESTART" ]]; then
     log "Services before restart: $SVCS_BEFORE_RESTART"

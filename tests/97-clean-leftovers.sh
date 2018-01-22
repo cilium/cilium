@@ -11,6 +11,9 @@ redirect_debug_logs ${LOGS_DIR}
 
 set -ex
 
+log "${TEST_NAME} has been deprecated and replaced by test/runtime/chaos.go:removing leftover Cilium interfaces"
+exit 0
+
 NETPERF_IMAGE="tgraf/netperf"
 
 create_cilium_docker_network

@@ -5,6 +5,17 @@
 Vagrant.require_version ">= 1.8.3"
 
 $build_docker_image = <<SCRIPT
+# This may be removed when the box images are based on Ubuntu 17.10+.
+sudo bash -c "cat <<EOF > /etc/apt/sources.list
+deb http://old-releases.ubuntu.com/ubuntu/ yakkety main restricted
+deb http://old-releases.ubuntu.com/ubuntu/ yakkety-updates main restricted
+deb http://old-releases.ubuntu.com/ubuntu/ yakkety universe
+deb http://old-releases.ubuntu.com/ubuntu/ yakkety-updates universe
+deb http://old-releases.ubuntu.com/ubuntu/ yakkety multiverse
+deb http://old-releases.ubuntu.com/ubuntu/ yakkety-updates multiverse
+deb http://old-releases.ubuntu.com/ubuntu/ yakkety-backports main restricted universe multiverse
+EOF
+"
 curl -s https://download.docker.com/linux/ubuntu/gpg | sudo apt-key add -
 sudo bash -c "cat <<EOF > /etc/apt/sources.list.d/docker.list
 deb [arch=amd64] https://download.docker.com/linux/ubuntu xenial stable

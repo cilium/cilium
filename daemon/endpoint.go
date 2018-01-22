@@ -1,4 +1,4 @@
-// Copyright 2016-2017 Authors of Cilium
+// Copyright 2016-2018 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -127,41 +127,31 @@ func NewPutEndpointIDHandler(d *Daemon) PutEndpointIDHandler {
 	return &putEndpointID{d: d}
 }
 
-func (h *putEndpointID) Handle(params PutEndpointIDParams) middleware.Responder {
-	log.WithField(logfields.Params, logfields.Repr(params)).Debug("PUT /endpoint/{id} request")
-
-	epTemplate := params.Endpoint
-	if n, err := endpoint.ParseCiliumID(params.ID); err != nil {
-		return apierror.Error(PutEndpointIDInvalidCode, err)
-	} else if n != epTemplate.ID {
-		return apierror.New(PutEndpointIDInvalidCode,
-			"ID parameter does not match ID in endpoint parameter")
-	} else if epTemplate.ID == 0 {
-		return apierror.New(PutEndpointIDInvalidCode,
-			"endpoint ID cannot be 0")
-	}
-
-	addLabels := labels.ParseStringLabels(params.Endpoint.Labels)
+// createEndpoint attempts to create the endpoint corresponding to the change
+// request that was specified. Returns an HTTP code response code and an
+// error msg (or nil on success).
+func (d *Daemon) createEndpoint(epTemplate *models.EndpointChangeRequest, id string, lbls []string) (int, error) {
+	addLabels := labels.ParseStringLabels(lbls)
 	ep, err := endpoint.NewEndpointFromChangeModel(epTemplate, addLabels)
 	if err != nil {
-		return apierror.Error(PutEndpointIDInvalidCode, err)
+		return PutEndpointIDInvalidCode, err
 	}
 
-	ep.SetDefaultOpts(h.d.conf.Opts)
+	ep.SetDefaultOpts(d.conf.Opts)
 	alwaysEnforce := policy.GetPolicyEnabled() == endpoint.AlwaysEnforce
 	ep.Opts.Set(endpoint.OptionIngressPolicy, alwaysEnforce)
 	ep.Opts.Set(endpoint.OptionEgressPolicy, alwaysEnforce)
 
-	oldEp, err2 := endpointmanager.Lookup(params.ID)
+	oldEp, err2 := endpointmanager.Lookup(id)
 	if err2 != nil {
-		return apierror.Error(GetEndpointIDInvalidCode, err2)
+		return PutEndpointIDInvalidCode, err2
 	} else if oldEp != nil {
-		return NewPutEndpointIDExists()
+		return PutEndpointIDExistsCode, fmt.Errorf("Endpoint ID %s exists", id)
 	}
 
 	if err := ep.CreateDirectory(); err != nil {
 		log.WithError(err).Warn("Aborting endpoint join")
-		return apierror.Error(PutEndpointIDFailedCode, err)
+		return PutEndpointIDFailedCode, err
 	}
 
 	// Regenerate immediately if ready or waiting for identity
@@ -182,9 +172,9 @@ func (h *putEndpointID) Handle(params PutEndpointIDParams) middleware.Responder 
 	}
 	ep.Mutex.Unlock()
 	if build {
-		if err := ep.RegenerateWait(h.d, reason); err != nil {
+		if err := ep.RegenerateWait(d, reason); err != nil {
 			ep.RemoveDirectory()
-			return apierror.Error(PatchEndpointIDFailedCode, err)
+			return PutEndpointIDFailedCode, err
 		}
 	}
 
@@ -192,23 +182,43 @@ func (h *putEndpointID) Handle(params PutEndpointIDParams) middleware.Responder 
 	endpointmanager.Insert(ep)
 	ep.Mutex.RUnlock()
 
-	add := labels.NewLabelsFromModel(params.Endpoint.Labels)
+	add := labels.NewLabelsFromModel(lbls)
 
 	if len(add) > 0 {
-		errLabelsAdd := h.d.UpdateSecLabels(params.ID, add, labels.Labels{})
+		code, errLabelsAdd := d.UpdateSecLabels(id, add, labels.Labels{})
 		if errLabelsAdd != nil {
 			// XXX: Why should the endpoint remain in this case?
 			log.WithFields(logrus.Fields{
-				logfields.EndpointID:              params.ID,
+				logfields.EndpointID:              id,
 				logfields.IdentityLabels:          logfields.Repr(add),
 				logfields.IdentityLabels + ".bad": errLabelsAdd,
 			}).Error("Could not add labels while creating an ep due to bad labels")
-			return errLabelsAdd
+			return code, errLabelsAdd
 		}
 	}
 
-	ret := NewPutEndpointIDCreated()
-	return ret
+	return PutEndpointIDCreatedCode, nil
+}
+
+func (h *putEndpointID) Handle(params PutEndpointIDParams) middleware.Responder {
+	log.WithField(logfields.Params, logfields.Repr(params)).Debug("PUT /endpoint/{id} request")
+
+	epTemplate := params.Endpoint
+	if n, err := endpoint.ParseCiliumID(params.ID); err != nil {
+		return apierror.Error(PutEndpointIDInvalidCode, err)
+	} else if n != epTemplate.ID {
+		return apierror.New(PutEndpointIDInvalidCode,
+			"ID parameter does not match ID in endpoint parameter")
+	} else if epTemplate.ID == 0 {
+		return apierror.New(PutEndpointIDInvalidCode,
+			"endpoint ID cannot be 0")
+	}
+
+	code, err := h.d.createEndpoint(epTemplate, params.ID, params.Endpoint.Labels)
+	if err != nil {
+		apierror.Error(code, err)
+	}
+	return NewPutEndpointIDCreated()
 }
 
 type patchEndpointID struct {
@@ -600,20 +610,26 @@ func (h *getEndpointIDHealthz) Handle(params GetEndpointIDHealthzParams) middlew
 // The `add` labels take precedence over `del` labels, this means if the same
 // label is set on both `add` and `del`, that specific label will exist in the
 // endpoint's labels.
-func (d *Daemon) UpdateSecLabels(id string, add, del labels.Labels) middleware.Responder {
+// Returns an HTTP response code and an error msg (or nil on success).
+func (d *Daemon) UpdateSecLabels(id string, add, del labels.Labels) (int, error) {
 	addLabels, _ := labels.FilterLabels(add)
 	delLabels, _ := labels.FilterLabels(del)
 
 	if len(addLabels) == 0 && len(delLabels) == 0 {
-		return nil
+		return PutEndpointIDLabelsOKCode, nil
+	}
+	if lbls := addLabels.FindReserved(); lbls != nil {
+		return PutEndpointIDLabelsUpdateFailedCode, fmt.Errorf("Not allowed to add reserved labels: %s", lbls)
+	} else if lbls := delLabels.FindReserved(); lbls != nil {
+		return PutEndpointIDLabelsUpdateFailedCode, fmt.Errorf("Not allowed to delete reserved labels: %s", lbls)
 	}
 
 	ep, err := endpointmanager.Lookup(id)
 	if err != nil {
-		return apierror.Error(GetEndpointIDInvalidCode, err)
+		return PutEndpointIDLabelsUpdateFailedCode, err
 	}
 	if ep == nil {
-		return NewPutEndpointIDLabelsNotFound()
+		return PutEndpointIDLabelsNotFoundCode, fmt.Errorf("No endpoint with ID %s found", ep.StringID())
 	}
 
 	// This is safe only if no other goroutine may change the labels in parallel
@@ -632,8 +648,7 @@ func (d *Daemon) UpdateSecLabels(id string, add, del labels.Labels) middleware.R
 				break
 			}
 
-			return apierror.New(PutEndpointIDLabelsLabelNotFoundCode,
-				"label %s not found", k)
+			return PutEndpointIDLabelsLabelNotFoundCode, fmt.Errorf("label %s not found", k)
 		}
 	}
 
@@ -663,7 +678,7 @@ func (d *Daemon) UpdateSecLabels(id string, add, del labels.Labels) middleware.R
 
 	identity, newHash, err2 := d.updateEndpointIdentity(ep.StringID(), ep.LabelsHash, oldLabels)
 	if err2 != nil {
-		return apierror.Error(PutEndpointIDLabelsUpdateFailedCode, err2)
+		return PutEndpointIDLabelsUpdateFailedCode, err2
 	}
 
 	ep.Mutex.Lock()
@@ -675,7 +690,7 @@ func (d *Daemon) UpdateSecLabels(id string, add, del labels.Labels) middleware.R
 				logfields.Identity:   identity.ID,
 			}).WithError(err).Warn("Unable to release temporary identity")
 		}
-		return NewPutEndpointIDLabelsNotFound()
+		return PutEndpointIDLabelsNotFoundCode, fmt.Errorf("No endpoint with ID %s found", ep.StringID())
 	}
 
 	ep.LabelsHash = newHash
@@ -691,7 +706,7 @@ func (d *Daemon) UpdateSecLabels(id string, add, del labels.Labels) middleware.R
 		ep.Regenerate(d, "updated security labels")
 	}
 
-	return nil
+	return PutEndpointIDLabelsOKCode, nil
 }
 
 type putEndpointIDLabels struct {
@@ -710,11 +725,10 @@ func (h *putEndpointIDLabels) Handle(params PutEndpointIDLabelsParams) middlewar
 	add := labels.NewLabelsFromModel(mod.Add)
 	del := labels.NewLabelsFromModel(mod.Delete)
 
-	err := d.UpdateSecLabels(params.ID, add, del)
+	code, err := d.UpdateSecLabels(params.ID, add, del)
 	if err != nil {
-		return err
+		return apierror.Error(code, err)
 	}
-
 	return NewPutEndpointIDLabelsOK()
 }
 

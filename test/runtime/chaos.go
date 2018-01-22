@@ -26,13 +26,13 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-var _ = Describe("RuntimeChaos", func() {
+var _ = Describe("RuntimeValidatedChaos", func() {
 
 	var vm *helpers.SSHMeta
 	var once sync.Once
 
 	initialize := func() {
-		logger := log.WithFields(logrus.Fields{"testName": "RuntimeChaos"})
+		logger := log.WithFields(logrus.Fields{"testName": "RuntimeValidatedChaos"})
 		logger.Info("Starting")
 		vm = helpers.CreateNewRuntimeHelper(helpers.Runtime, logger)
 		vm.NetworkCreate(helpers.CiliumDockerNetwork, "")

@@ -39,6 +39,10 @@ contribute to Cilium:
 +----------------------------------------------------------------------------------+-----------------------+------------------------------------------------------------+
 + `gomega <https://github.com/onsi/gomega>`_                                       | >= 1.2.0              | ``go get -u github.com/onsi/gomega``                       |
 +----------------------------------------------------------------------------------+-----------------------+------------------------------------------------------------+
++ `Docker <https://docs.docker.com/engine/installation/>`_                         | OS-Dependent          | N/A (OS-specific)                                          |
++----------------------------------------------------------------------------------+-----------------------+------------------------------------------------------------+
++ `Docker-Compose <https://docs.docker.com/compose/install/>`_                     | OS-Dependent          | N/A (OS-specific)                                          |
++----------------------------------------------------------------------------------+-----------------------+------------------------------------------------------------+
 
 To run Cilium locally on VMs, you need:
 
@@ -166,8 +170,8 @@ If for some reason, running of the provisioning script fails, you should bring t
     $ vagrant halt
 
 
-Development Cycle
------------------
+Development Cycle (Bash Script Framework)
+-----------------------------------------
 
 The Vagrantfile in the Cilium repo root (hereon just ``Vagrantfile``),
 always provisions Cilium build and install when the VM is started.
@@ -243,23 +247,38 @@ After the new version of Cilium is running, you should run the runtime tests:
 
     $ sudo make runtime-tests
 
-Ginkgo runtime tests
-^^^^^^^^^^^^^^^^^^^^
+Development Cycle (Ginkgo Framework)
+------------------------------------
 
-The tests under the ``test/`` directory are built and run using the Ginkgo
-framework. Over time, all runtime tests will migrate to this framework. If
-you're new to Ginkgo, consider reading through the
-`Ginkgo Quickstart <https://onsi.github.io/ginkgo/#getting-started-writing-your-first-test>`_
-guide to understand how to write tests.
+Introduction 
+~~~~~~~~~~~~
+
+There is ongoing progress to move over to a more robust testing framework than
+a collection of Bash scripts for testing Cilium. `Ginkgo <https://onsi.github.io/ginkgo>`_
+has been chosen as this testing framework
+The tests in the `test` directory are built on top of Ginkgo. Ginkgo provides
+a rich framework for developing tests alongside the benefits of Golang
+(compilation-time checks, types, etc.). To get accustomsed to the basics of
+Ginkgo, we recommend reading the
+`Ginkgo Getting-Started Guide <https://onsi.github.io/ginkgo/#getting-started-writing-your-first-test>`_ ,
+as well as running `example tests <https://github.com/onsi/composition-ginkgo-example>`_
+to get a feel for the Ginkgo workflow.
 
 These test scripts will invoke ``vagrant`` to create virtual machine(s) to
-run the tests. The tests make heavy use of the Ginkgo ``focus`` concept to
+run the tests. The tests make heavy use of the Ginkgo `focus <https://onsi.github.io/ginkgo/#focused-specs>`_ concept to
 determine which VMs are necessary to run particular tests. All test names
 *must* begin with one of the following prefixes:
 
 * ``Runtime``: Test cilium in a runtime environment running on a single node.
 * ``K8s``: Create a small multi-node kubernetes environment for testing
   features beyond a single host, and for testing kubernetes-specific features.
+* ``Nightly``: sets up a multinode Kubernetes cluster to run scale, performance, and chaos testing for Cilium.
+
+Running Tests
+~~~~~~~~~~~~~
+
+Running All Tests
+^^^^^^^^^^^^^^^^^
 
 Running all of the Ginkgo tests may take an hour or longer. To run all the
 ginkgo tests, invoke the make command as follows from the root of the cilium
@@ -274,8 +293,112 @@ The first time that this is invoked, the testsuite will pull the
 Cilium into them. This may take several minutes, depending on your internet
 connection speed. Subsequent runs of the test will reuse the image.
 
-For more advanced workflows, for example running specific tests, go into the
-``test/` directory and interact with ginkgo directly:
+Running Runtime Tests
+^^^^^^^^^^^^^^^^^^^^^
+
+To run all of the runtime tests, execute the following command from the `test` directory:
+
+::
+
+    ginkgo --focus="Runtime*" -v -noColor
+
+Ginkgo searches for all tests in all subdirectories that are "named" beginning
+with the string "Runtime" and contain any characters after it. For instance,
+here is an example showing what tests will be ran using Ginkgo's dryRun option:
+
+::
+
+    $ ginkgo --focus="Runtime*" -v -noColor -dryRun
+    Running Suite: runtime
+    ======================
+    Random Seed: 1516125117
+    Will run 42 of 164 specs
+    ................
+    RuntimePolicyEnforcement Policy Enforcement Always
+      Always to Never with policy
+      /Users/ianvernon/go/src/github.com/cilium/cilium/test/runtime/Policies.go:258
+    •
+    ------------------------------
+    RuntimePolicyEnforcement Policy Enforcement Always
+      Always to Never without policy
+      /Users/ianvernon/go/src/github.com/cilium/cilium/test/runtime/Policies.go:293
+    •
+    ------------------------------
+    RuntimePolicyEnforcement Policy Enforcement Never
+      Container creation
+      /Users/ianvernon/go/src/github.com/cilium/cilium/test/runtime/Policies.go:332
+    •
+    ------------------------------
+    RuntimePolicyEnforcement Policy Enforcement Never
+      Never to default with policy
+      /Users/ianvernon/go/src/github.com/cilium/cilium/test/runtime/Policies.go:349
+    .................
+    Ran 42 of 164 Specs in 0.002 seconds
+    SUCCESS! -- 0 Passed | 0 Failed | 0 Pending | 122 Skipped PASS
+    
+    Ginkgo ran 1 suite in 1.830262168s
+    Test Suite Passed
+
+The output has been truncated. For more information about this functionality,
+consult the aforementioned Ginkgo documentation.
+
+Running Kubernetes Tests
+^^^^^^^^^^^^^^^^^^^^^^^^
+
+To run all of the Kubernetes tests, run the following command from the `test` directory:
+
+::
+
+    ginkgo --focus="K8s*" -v -noColor
+
+
+Similar to the Runtime test suite, Ginkgo searches for all tests in all
+subdirectories that are "named" beginning with the string "K8s" and
+contain any characters after it. 
+
+The Kubernetes tests support the following Kubernetes versions:
+
+* 1.6
+* 1.7
+
+By default, the Vagrant VMs are provisioned with Kubernetes 1.7. To run with any other
+supported version of Kubernetes, run the test suite with the following format:
+
+::
+
+    K8S_VERSION=<version> ginkgo --focus="K8s*" -v -noColor
+
+Running Nightly Tests
+^^^^^^^^^^^^^^^^^^^^^
+
+To run all of the Nightly tests, run the following command from the `test` directory:
+
+::
+
+    ginkgo --focus="Nightly*" -v -noColor
+
+Similar to the other test suites, Ginkgo searches for all tests in all
+subdirectories that are "named" beginning with the string "Nightly" and
+contain any characters after it.
+
+Nightly Testing Jenkins Setup
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Nightly tests run once per day in the `Cilium-Nightly-Tests Job <https://jenkins.cilium.io/job/Cilium-Nightly-Tests/>`_.
+The configuration for this job is stored in ``Jenkinsfile.nightly``.
+
+To see the results of these tests, you can view the JUnit Report for an individual job:
+
+1. Click on the build number you wish to get test results from on the left hand side of the `Cilium-Nightly-Tests Job <https://jenkins.cilium.io/job/Cilium-Nightly-Tests/>`_.
+2. Click on 'Test Results' on the left side of the page to view the results from the build.
+   This will give you a report of which tests passed and failed. You can click on each test
+   to view its corresponding output created from Ginkgo.
+
+Available CLI Options
+^^^^^^^^^^^^^^^^^^^^^
+
+For more advanced workflows, check the list of available custom options for the Cilium
+framework in the ``test/`` directory and interact with ginkgo directly:
 
 ::
 
@@ -287,61 +410,70 @@ For more advanced workflows, for example running specific tests, go into the
             Provision Vagrant boxes and Cilium before running test (default true)
     $ ginkgo --focus "Policies*" -- -cilium.holdEnvironment
 
-For more information, consult the `Ginkgo documentation <https://onsi.github.io/ginkgo/>`_.
+For more information about other built-in options to Ginkgo, consult the
+`Ginkgo documentation <https://onsi.github.io/ginkgo/>`_.
 
-Nightly Tests
-~~~~~~~~~~~~~
+Running Specific Tests Within a Test Suite
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-`Ginkgo <https://onsi.github.io/ginkgo/>`_ is used for tests that run at a nightly cadence on Jenkins.
+If you want to run one specified test, there are a few options:
 
-Jenkins Setup
-^^^^^^^^^^^^^
-
-Nightly tests run once per day in the `Cilium-Nightly-Tests Job <https://jenkins.cilium.io/job/Cilium-Nightly-Tests/>`_. 
-The configuration for this job is stored in ``Jenkinsfile.nightly``.
-
-To see the results of these tests, you can view the JUnit Report for an individual job:
-
-1. Click on the build number you wish to get test results from on the left hand side of the `Cilium-Nightly-Tests Job <https://jenkins.cilium.io/job/Cilium-Nightly-Tests/>`_. 
-2. Click on 'Test Results' on the left side of the page to view the results from the build.
-   This will give you a report of which tests passed and failed. You can click on each test
-   to view its corresponding output created from Ginkgo. 
-
-Running Nightly Tests Locally
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-To understand more about how Cilium testing works with Ginkgo and to get your environment setup, refer to ``test/readme.md``.
-
-To run the nightly tests locally, run the following command:
+* By modifying code: add the prefix "FIt" on the test you want to run; this marks the test as focused. Ginkgo will skip other tests and will only run the "focused" test. For more information, consult the `Focused Specs <https://onsi.github.io/ginkgo/#focused-specs>`_ documentation from Ginkgo.
 
 ::
 
-    $ cd ${TESTDIR}; ginkgo --focus="Nightly*" -v -noColor
+    It("Example test", func(){
+        Expect(true).Should(BeTrue())
+    })
+    
+    FIt("Example focussed test", func(){
+        Expect(true).Should(BeTrue())
+    })
 
-The above statement will pick up all tests that are prefixed with "Nightly", e.g.:
+
+* From the command line: specify a more granular focus if you want to focus on, say, L7 tests:
+
+::
+    
+    ginkgo --focus "Run*" --focus "L7 "
+
+
+This will focus on tests prefixed with "Run*", and within that focus, run any
+test that starts with "L7".
+
+Test Reports
+~~~~~~~~~~~~
+
+The Cilium Ginkgo framework formulates JUnit reports for each test. The
+following files currently are generated depending upon the test suite that is ran:
+
+* runtime.xml
+* K8s.xml
+
+Best Practices for Writing Tests
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+* Provide informative output to console during a test using the `By construct <https://onsi.github.io/ginkgo/#documenting-complex-its-by>`_. This helps with debugging and gives those who did not write the test a good idea of what is going on. The lower the barrier of entry is for understanding tests, the better our tests will be!
+* Leave the testing environment in the same state that it was in when the test started by deleting resources, resetting configuration, etc.
+* Gather logs in the case that a test fails. If a test fails while running on Jenkins, a postmortem needs to be done to analyze why. So, dumping logs to a location where Jenkins can pick them up is of the highest imperative. Use the following code in an `AfterEach <https://onsi.github.io/ginkgo/#extracting-common-setup-beforeeach>`_ for all tests:
 
 ::
 
-    var _ = Describe("NightlyK8sEpsMeasurement", func() {
+    if CurrentGinkgoTestDescription().Failed {
+        vm.ReportFailed()
+    }
 
-For more information about how to write tests with Ginkgo, we recommend checking the `Ginkgo Documentation <https://onsi.github.io/ginkgo/>`_.
-We have many examples of tests in the Cilium repository. For instance, you can take a look at is ``test/k8sT/Nightly.go``.
 
-Guidelines for Writing Nightly Tests
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-We require and recommend the following when writing tests:
-
-* Your tests should always clean up after themselves (i.e., removing containers / pods, deleting imported policies, and restarting Cilium if configuration changes have been made to the Cilium daemon throughout the tests).
-* You should always add informative logs using Ginkgo's `By <https://onsi.github.io/ginkgo/#documenting-complex-its-by>`_ to describe what is going on during your test. This will make debugging easier for those who have not interacted deeply with the tests if they hit an error.
 
 Further Assistance
-^^^^^^^^^^^^^^^^^^
+~~~~~~~~~~~~~~~~~~
 
-Have a question about how the tests work or want to chat more about improving the testing infrastructure for Cilium? Hop on over to the `testing <https://cilium.slack.com/messages/C7PE7V806>`_ channel on Slack. 
+Have a question about how the tests work or want to chat more about improving the
+testing infrastructure for Cilium? Hop on over to the
+`testing <https://cilium.slack.com/messages/C7PE7V806>`_ channel on Slack. 
 
 Building Documentation
-~~~~~~~~~~~~~~~~~~~~~~
+----------------------
 
 The documentation has several dependencies which can be installed using pip:
 
@@ -543,6 +675,38 @@ Criteria for the inclusion into stable release branches are:
 
 - Security relevant fixes
 - Major bugfixes relevant to the correct operation of Cilium
+
+
+Steps to release
+~~~~~~~~~~~~~~~~
+
+1. Create a new automated build for ``cilium/cilium`` container image tag with
+   the full Cilium version on hub.docker.com. Point the automated build to the
+   development branch of the to be released version. This will ensure that the
+   to be released version always has a corresponding container image tag
+   assigned.
+2. Update the AUTHORS file by running ``make update-authors``
+3. Update the ``cilium_version`` and ``cilium_tag`` variables in
+   ``examples/getting-started/Vagrantfile``
+4. Review all merged PRs and add ``release-note/*`` labels as necessary.
+   A useful query here is ``is:pr is:merged merged:>=2017-12-16``
+5. Generate the release notes by running.
+   ``git checkout master``, ``cd contrib/release/``,
+   ``GITHUB_TOKEN=xxxx ./relnotes --markdown-file=~/NEWS.rst v1.0.0-rc2..``
+6. Manually merge the generated file ``~/NEWS.rst`` into ``NEWS.rst`` in the
+   Cilum repository and add the title section with the corresponding release
+   date.
+7. Create a pull request with all changes above, get it merged into the
+   development branch of the to be released version.
+8. If the release is a new minor version which will receive backports, then
+   create a git branch with the name ``vX.Y``. Push this branch to GitHub and
+   protect the branch so it can't be pushed to directly to.
+9. Tag the release with the full version string ``vX.Y.Z`` and push the tag
+   to the git repository.
+10. Build all binaries and push them to S3 using ``contrib/release/uploadrev``.
+    See the ``README`` in the ``contrib/release`` directory for more information.
+11. Create a GitHub release and include the release notes as well as links to
+    the binaries.
 
 Developer's Certificate of Origin
 ---------------------------------

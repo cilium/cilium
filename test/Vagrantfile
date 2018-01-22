@@ -8,7 +8,7 @@ $K8S_NODES = (ENV['K8S_NODES'] || "2").to_i
 
 
 $SERVER_BOX= "cilium/ginkgo"
-$SERVER_VERSION= "0.0.2"
+$SERVER_VERSION="0.0.4"
 
 ENV["VAGRANT_DEFAULT_PROVIDER"] = "virtualbox"
 Vagrant.configure("2") do |config|
@@ -22,7 +22,7 @@ Vagrant.configure("2") do |config|
         end
 
         server.vm.box =  "#{$SERVER_BOX}"
-        server.vm.box_version = "#{$SERVER_VERSION}"
+        server.vm.box_version = $SERVER_VERSION
         server.vm.hostname = "runtime"
         server.vm.synced_folder "../", "/src/"
 
@@ -46,7 +46,7 @@ Vagrant.configure("2") do |config|
             end
 
             server.vm.box =  "#{$SERVER_BOX}"
-            server.vm.box_version = "#{$SERVER_VERSION}"
+            server.vm.box_version = $SERVER_VERSION
             server.vm.hostname = "k8s#{i}"
             server.vm.network "private_network",
                 ip: "192.168.36.1#{i}",

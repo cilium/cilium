@@ -58,7 +58,6 @@ esac
 
 retry_function "apt-get update"
 retry_function "apt-get install --allow-downgrades -y \
-    llvm \
     kubernetes-cni=${KUBERNETES_CNI_VERSION} \
     kubelet=${K8S_VERSION}* \
     kubeadm=${K8S_VERSION}* \

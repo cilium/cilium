@@ -36,6 +36,9 @@ specs:
           - apiKey: "heartbeat"
     - fromEndpoints:
       - matchLabels:
+          app: kafka
+    - fromEndpoints:
+      - matchLabels:
           "k8s:app": authaudit-logger
       toPorts:
       - ports:

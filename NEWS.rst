@@ -2,6 +2,60 @@
 NEWS
 ******
 
+Version 1.0-rc3
+===============
+
+:date: 2018-01-18
+:commit: nil
+
+Changes
+-------
+
+* Multi stage Docker builds to use prebuilt Envoy dependencies. (2452_, @jrajahalme)
+* clusterdebug tool to help identify the most commonly encountered (2348_, @ashwinp)
+* Document how pull-request builds work with Cilium's Jenkins setup (2521_, @ianvernon)
+* cli: Add "cilium bpf proxy list" command (2504_, @mrostecki)
+* Document multi node connectivity troubleshooting (2499_, @tgraf)
+* Added option to allow running cilium-agent on a node with no container runtime (2490_, @aanm)
+* cli: Add JSON formatting in "cilium config" (2489_, @mrostecki)
+* Update version cmd output to json (2453_, @stevenceuppens)
+* Envoy: Reflect cilium log level to Envoy. (2436_, @jrajahalme)
+* Fix Ginkgo Kafka tests to initialize config for policy enforcement to default (2432_, @manalibhutiyani)
+* Use version 2.7 of developer box, which contains commonly-used Docker images for tests pre-packaged (2404_, @ianvernon)
+* monitor: add gops (2393_, @scanf)
+* Tl/fix rpm package build (2386_, @tonylambiris)
+* Reduce the readinessProbe delay to mark the pod as ready earlier (2377_, @tgraf)
+* Correctly report destination identity in datapath traces for packets to host, world, and cluster (2359_, @manalibhutiyani)
+* Allow for empty endpoint selector. This enables defining policy which applies to all endpoints. (2358_, @tgraf)
+* docs: Cluster-wide debugging tool documentation (2356_, @ashwinp)
+* Add CRD validation for CNP in kubernetes (2304_, @aanm)
+* Use DNS names in getting started guides (2254_, @techcet)
+* use cilium/connectivity-container in nightly tests (2247_, @ianvernon)
+* fail all stages in build if any stage fails in Jenkins (2246_, @ianvernon)
+* Enabled policy enforcement on cilium network policy from any namespace (2235_, @aanm)
+
+Bugfixes
+--------
+
+* agent: Increase timeout when executing commands (2512_, @tgraf)
+* Fix too small timeout causing containers not to show up as endpoints under heavy system load (2508_, @tgraf)
+* Correct a bug that rejected IPv4 backend headless services from k8s (2502_, @raybejjani)
+* Endpoint: Fix panic when trying to delete on restore. (2478_, @eloycoto)
+* Fix an issue where cilium would crash if two endpoint disconnect endpoints for the same endpoint occurred in quick succession. (2396_, @joestringer)
+* cni: Create destination directory if it does not exist (2382_, @tgraf)
+* Allow for empty endpoint selector. This enables defining policy which applies to all endpoints. (2358_, @tgraf)
+* Fix nil pointer when v6 CIDR was not set by kubernetes. (2355_, @aanm)
+* Fix for allowing Cilium to run with BPF interpreter instead of JIT when JIT is compiled out. (2350_, @borkmann)
+* Fix bug which was causing incorrect policy enforcement after restarting cilium (2340_, @aanm)
+* Fix nil pointer access when unable to reach the KVStore (2325_, @aanm)
+* Fix stuck "restoring" state while restoring the endpoints 2167 (2324_, @aanm_)
+* Enable multiple policies with the same name but on different namespaces to be enforced 1938 (2313_, @aanm_)
+* Fix logging setup for submodules (2299_, @aanm)
+* Fix `cilium bpf policy list` to print l4 ports (2271_, @joestringer)
+* Kafka: producing messages denied by policy crashes Cilium agent (2265_, @manalibhutiyani)
+* Fix bug when endpoint does not get out of WaitingForIdentity state (2237_, @tgraf)
+* Enforcing policy after loading policy when endpoints where in "default" policy enforcement mode. (2219_, @aanm)
+
 Version 1.0-rc2
 ===============
 
@@ -11,77 +65,74 @@ Version 1.0-rc2
 Major Changes
 -------------
 
-* Tech preview of Envoy as Cilium HTTP proxy, adding HTTP2 and gRPC support. (#1580, @jrajahalme)
-* Introduce "cilium-health", a new tool for investigating cluster connectivity issues. (#2052, @joestringer)
-* cilium-agent collects and serves prometheus metrics (#2127, @raybejjani)
-* bugtool and debuginfo (#2044, @scanf)
-* Add nightly test infrastructure (#2212, @ianvernon)
-* Separate ingress and egress default deny modes with better control (#2156, @manalibhutiyani)
-* k8s: add support for IPBlock and Egress Rules with IPBlock (#2096, @ianvernon)
-* Kafka: Support access logging for Kafka requests/responses (#1870, @manalibhutiyani)
-* Added cilium endpoint log command that returns the endpoint's status log (#2060, @raybejjani)
-    * Change endpoint status log in cilium endpoint get to show only the most recent log
+* Tech preview of Envoy as Cilium HTTP proxy, adding HTTP2 and gRPC support. (1580_, @jrajahalme)
+* Introduce "cilium-health", a new tool for investigating cluster connectivity issues. (2052_, @joestringer)
+* cilium-agent collects and serves prometheus metrics (2127_, @raybejjani)
+* bugtool and debuginfo (2044_, @scanf)
+* Add nightly test infrastructure (2212_, @ianvernon)
+* Separate ingress and egress default deny modes with better control (2156_, @manalibhutiyani)
+* k8s: add support for IPBlock and Egress Rules with IPBlock (2096_, @ianvernon)
+* Kafka: Support access logging for Kafka requests/responses (1870_, @manalibhutiyani)
+* Added cilium endpoint log command that returns the endpoint's status log (2060_, @raybejjani)
 * Routes connecting the host to the Cilium IP space is now implemented as
   individual route for each node in the cluster. This allows to assign IPs
   which are part of the cluster CIDR to endpoints outside of the cluster
-  as long as the IPs are never used as node CIDRs. (#1888, @tgraf)
-* Standardized structured logging (#1801, #1828, #1836, #1826, #1833, #1834, #1827, #1829, #1832, #1835, @raybejjani)
+  as long as the IPs are never used as node CIDRs. (1888_, @tgraf)
+* Standardized structured logging (1801_, 1828_, 1836_, 1826_, 1833_, 1834_, 1827_, 1829_, 1832_, 1835_, @raybejjani_)
 
 Bugfixes Changes
 ----------------
 
-* Fix L4Filter JSON marshalling (#1871, @joestringer)
-* Fix swapped src dst IPs on Conntrack related messages on the monitor's output (#2228, @aanm)
-* Fix output of cilium endpoint list for endpoints using multiple labels. (#2225, @aanm)
-* bpf: fix verifier error in dameon debug mode with newer LLVM versions (#2181, @borkmann)
-* pkg/kvstore: fixed race in internal mutex map (#2179, @aanm)
-* Proxy ingress policy fix for LLVM 4.0 and greater. Resolves return code 500 'Internal Error' seen with some policies and traffic patterns. (#2162, @jrfastab)
-* Printing patch clang and kernel patch versions when starting cilium. (#2137, @aanm)
-* Clean up Connection Tracking entries when a new policy no longer allows it. #1667, #1823 (#2136, @aanm)
-* k8s: fix data race in d.loadBalancer.K8sEndpoints (#2129, @aanm)
-* Add internal queue for k8s watcher updates #1966 (#2123, @aanm)
-* k8s: fix missing deep copy when updating status (#2115, @aanm)
-* Accept traffic to Cilium in FORWARD chain (#2112, @tgraf)
-    * Also clear the masquerade bit in the FORWARD chain to skip the masquerade rule installed by kube-proxy
-* Fix SNAT issue in combination with kube-proxy, when masquerade rule installed by kube-proxy takes precedence over rule installed by Cilium. (#2108, @tgraf)
-* Fixed infinite loop when importing CNP to kubernetes with an empty kafka version (#2090, @aanm)
-* Mark cilium pod as CriticalPod in the DaemonSet (#2024, @manalibhutiyani)
-* proxy: Provide identities { host | world | cluster } in SourceEndpoint (#2022, @manalibhutiyani)
-* In kubernetes mode, fixed bug that was allowing cilium to start up even if the kubernetes api-server was not reachable #1973 (#2014, @aanm)
-* Support policy with EndpointSelector missing (#1987, @raybejjani)
-* Implemented deep copy functionality when receiving events from kubernetes watcher #1885 (#1986, @aanm)
-* pkg/labels: Filter out pod-template-generation label (#1979, @michi-covalent)
-* bpf: Double timeout on building BPF programs (#1949, @raybejjani)
-* policy: add PolicyTrace msg to AllowsRLocked() when L4 policies not evaluated (#1939, @gnahckire)
-* Handle Kafka responses correctly (#1924, @manalibhutiyani)
-* bpf: Avoid excessive proxymap updates (#2210, @joestringer)
-* cilium-agent correctly restarts listening for CiliumNetworkPolicy changes when it sees decoding errors (#1899, @raybejjani)
+* Fix L4Filter JSON marshalling (1871_, @joestringer)
+* Fix swapped src dst IPs on Conntrack related messages on the monitor's output (2228_, @aanm)
+* Fix output of cilium endpoint list for endpoints using multiple labels. (2225_, @aanm)
+* bpf: fix verifier error in dameon debug mode with newer LLVM versions (2181_, @borkmann)
+* pkg/kvstore: fixed race in internal mutex map (2179_, @aanm)
+* Proxy ingress policy fix for LLVM 4.0 and greater. Resolves return code 500 'Internal Error' seen with some policies and traffic patterns. (2162_, @jrfastab)
+* Printing patch clang and kernel patch versions when starting cilium. (2137_, @aanm)
+* Clean up Connection Tracking entries when a new policy no longer allows it. 1667, 1823 (#2136_, @aanm_)
+* k8s: fix data race in d.loadBalancer.K8sEndpoints (2129_, @aanm)
+* Add internal queue for k8s watcher updates 1966 (2123_, @aanm_)
+* k8s: fix missing deep copy when updating status (2115_, @aanm)
+* Accept traffic to Cilium in FORWARD chain (2112_, @tgraf)
+* Fix SNAT issue in combination with kube-proxy, when masquerade rule installed by kube-proxy takes precedence over rule installed by Cilium. (2108_, @tgraf)
+* Fixed infinite loop when importing CNP to kubernetes with an empty kafka version (2090_, @aanm)
+* Mark cilium pod as CriticalPod in the DaemonSet (2024_, @manalibhutiyani)
+* proxy: Provide identities { host | world | cluster } in SourceEndpoint (2022_, @manalibhutiyani)
+* In kubernetes mode, fixed bug that was allowing cilium to start up even if the kubernetes api-server was not reachable 1973 (2014_, @aanm_)
+* Support policy with EndpointSelector missing (1987_, @raybejjani)
+* Implemented deep copy functionality when receiving events from kubernetes watcher 1885 (1986_, @aanm_)
+* pkg/labels: Filter out pod-template-generation label (1979_, @michi-covalent)
+* bpf: Double timeout on building BPF programs (1949_, @raybejjani)
+* policy: add PolicyTrace msg to AllowsRLocked() when L4 policies not evaluated (1939_, @gnahckire)
+* Handle Kafka responses correctly (1924_, @manalibhutiyani)
+* bpf: Avoid excessive proxymap updates (2210_, @joestringer)
+* cilium-agent correctly restarts listening for CiliumNetworkPolicy changes when it sees decoding errors (1899_, @raybejjani)
 
 Other Changes
 -------------
 
-* Automatically generate command reference of agent (#2223, @tgraf)
-* Access log rotation support with backup compression and automatic deletion support. (#1995, @manalibhutiyani)
-* kubernetes examples support prometheus metrics scraping (along with sample prometheus configuration) (#2192, @raybejjani)
-* Start serving the cilium API almost immediately while restoring endpoints on the background. (#2116, @aanm)
-* Added cilium endpoint healthz command that returns a summary of the endpoint's health (#2099, @raybejjani)
-* Documentation: add a CLI reference section (#2079, @scanf)
-* Documentation: add support for tabs via plugin (#2078, @scanf)
-* Feature Request: Add option to disable loadbalancing  (#2048, @manalibhutiyani)
-* monitor: reduce overhead (#2037, @scanf)
-* Use auto-generated client to communicate with kube-apiserver (#2007, @aanm)
-* Documented kubernetes API Group usage in docs (#1989, @raybejjani)
-    * cilium status returns which kubernetes API Groups are supported/used by the agent
-* doc: Add Kafka policy documentation (#1970, @tgraf)
-* Add Pull request and issue template (#1951, @tgraf)
-* Update Vagrant images to ubuntu 17.04 for the getting started guides (#1917, @aanm)
-* Add CONTRIBUTING.md (#1898, @tgraf)
-* Introduction of release notes gathering script in use by the Kubernetes project (#1893, @tgraf)
-* node: Install individual per node routes (#1888, @tgraf)
-* Add CLI for dumping BPF endpoint map (lxcmap) (#1854, @joestringer)
-* add command for resetting agent state (#1678, @scanf)
-* Improved CI testing infrastructure and fixed several test flakes (#1848, #1865)
-* Foundation of new Ginkgo build-driven-development framework for CI (#1733)
+* Automatically generate command reference of agent (2223_, @tgraf)
+* Access log rotation support with backup compression and automatic deletion support. (1995_, @manalibhutiyani)
+* kubernetes examples support prometheus metrics scraping (along with sample prometheus configuration) (2192_, @raybejjani)
+* Start serving the cilium API almost immediately while restoring endpoints on the background. (2116_, @aanm)
+* Added cilium endpoint healthz command that returns a summary of the endpoint's health (2099_, @raybejjani)
+* Documentation: add a CLI reference section (2079_, @scanf)
+* Documentation: add support for tabs via plugin (2078_, @scanf)
+* Feature Request: Add option to disable loadbalancing  (2048_, @manalibhutiyani)
+* monitor: reduce overhead (2037_, @scanf)
+* Use auto-generated client to communicate with kube-apiserver (2007_, @aanm)
+* Documented kubernetes API Group usage in docs (1989_, @raybejjani)
+* doc: Add Kafka policy documentation (1970_, @tgraf)
+* Add Pull request and issue template (1951_, @tgraf)
+* Update Vagrant images to ubuntu 17.04 for the getting started guides (1917_, @aanm)
+* Add CONTRIBUTING.md (1898_, @tgraf)
+* Introduction of release notes gathering script in use by the Kubernetes project (1893_, @tgraf)
+* node: Install individual per node routes (1888_, @tgraf)
+* Add CLI for dumping BPF endpoint map (lxcmap) (1854_, @joestringer)
+* add command for resetting agent state (1678_, @scanf)
+* Improved CI testing infrastructure and fixed several test flakes (1848_, 1865_)
+* Foundation of new Ginkgo build-driven-development framework for CI (1733_)
 
 Version 0.12
 ============
@@ -854,3 +905,100 @@ Fixes
 .. _1829: https://github.com/cilium/cilium/pull/1829
 .. _1832: https://github.com/cilium/cilium/pull/1832
 .. _1835: https://github.com/cilium/cilium/pull/1835
+.. _2452: https://github.com/cilium/cilium/pull/2452
+.. _2348: https://github.com/cilium/cilium/pull/2348
+.. _2521: https://github.com/cilium/cilium/pull/2521
+.. _2504: https://github.com/cilium/cilium/pull/2504
+.. _2499: https://github.com/cilium/cilium/pull/2499
+.. _2490: https://github.com/cilium/cilium/pull/2490
+.. _2489: https://github.com/cilium/cilium/pull/2489
+.. _2453: https://github.com/cilium/cilium/pull/2453
+.. _2436: https://github.com/cilium/cilium/pull/2436
+.. _2432: https://github.com/cilium/cilium/pull/2432
+.. _2404: https://github.com/cilium/cilium/pull/2404
+.. _2393: https://github.com/cilium/cilium/pull/2393
+.. _2386: https://github.com/cilium/cilium/pull/2386
+.. _2377: https://github.com/cilium/cilium/pull/2377
+.. _2359: https://github.com/cilium/cilium/pull/2359
+.. _2358: https://github.com/cilium/cilium/pull/2358
+.. _2356: https://github.com/cilium/cilium/pull/2356
+.. _2304: https://github.com/cilium/cilium/pull/2304
+.. _2254: https://github.com/cilium/cilium/pull/2254
+.. _2247: https://github.com/cilium/cilium/pull/2247
+.. _2246: https://github.com/cilium/cilium/pull/2246
+.. _2235: https://github.com/cilium/cilium/pull/2235
+.. _2512: https://github.com/cilium/cilium/pull/2512
+.. _2508: https://github.com/cilium/cilium/pull/2508
+.. _2502: https://github.com/cilium/cilium/pull/2502
+.. _2478: https://github.com/cilium/cilium/pull/2478
+.. _2396: https://github.com/cilium/cilium/pull/2396
+.. _2382: https://github.com/cilium/cilium/pull/2382
+.. _2358: https://github.com/cilium/cilium/pull/2358
+.. _2355: https://github.com/cilium/cilium/pull/2355
+.. _2350: https://github.com/cilium/cilium/pull/2350
+.. _2340: https://github.com/cilium/cilium/pull/2340
+.. _2325: https://github.com/cilium/cilium/pull/2325
+.. _2324: https://github.com/cilium/cilium/pull/2324
+.. _2313: https://github.com/cilium/cilium/pull/2313
+.. _2299: https://github.com/cilium/cilium/pull/2299
+.. _2271: https://github.com/cilium/cilium/pull/2271
+.. _2265: https://github.com/cilium/cilium/pull/2265
+.. _2237: https://github.com/cilium/cilium/pull/2237
+.. _2219: https://github.com/cilium/cilium/pull/2219
+.. _1580: https://github.com/cilium/cilium/pull/1580
+.. _2052: https://github.com/cilium/cilium/pull/2052
+.. _2127: https://github.com/cilium/cilium/pull/2127
+.. _2044: https://github.com/cilium/cilium/pull/2044
+.. _2212: https://github.com/cilium/cilium/pull/2212
+.. _2156: https://github.com/cilium/cilium/pull/2156
+.. _2096: https://github.com/cilium/cilium/pull/2096
+.. _1870: https://github.com/cilium/cilium/pull/1870
+.. _2060: https://github.com/cilium/cilium/pull/2060
+.. _1888: https://github.com/cilium/cilium/pull/1888
+.. _1835: https://github.com/cilium/cilium/pull/1835
+.. _1871: https://github.com/cilium/cilium/pull/1871
+.. _2228: https://github.com/cilium/cilium/pull/2228
+.. _2225: https://github.com/cilium/cilium/pull/2225
+.. _2181: https://github.com/cilium/cilium/pull/2181
+.. _2179: https://github.com/cilium/cilium/pull/2179
+.. _2162: https://github.com/cilium/cilium/pull/2162
+.. _2137: https://github.com/cilium/cilium/pull/2137
+.. _2136: https://github.com/cilium/cilium/pull/2136
+.. _2129: https://github.com/cilium/cilium/pull/2129
+.. _2123: https://github.com/cilium/cilium/pull/2123
+.. _2115: https://github.com/cilium/cilium/pull/2115
+.. _2112: https://github.com/cilium/cilium/pull/2112
+.. _2108: https://github.com/cilium/cilium/pull/2108
+.. _2090: https://github.com/cilium/cilium/pull/2090
+.. _2024: https://github.com/cilium/cilium/pull/2024
+.. _2022: https://github.com/cilium/cilium/pull/2022
+.. _2014: https://github.com/cilium/cilium/pull/2014
+.. _1987: https://github.com/cilium/cilium/pull/1987
+.. _1986: https://github.com/cilium/cilium/pull/1986
+.. _1979: https://github.com/cilium/cilium/pull/1979
+.. _1949: https://github.com/cilium/cilium/pull/1949
+.. _1939: https://github.com/cilium/cilium/pull/1939
+.. _1924: https://github.com/cilium/cilium/pull/1924
+.. _2210: https://github.com/cilium/cilium/pull/2210
+.. _1899: https://github.com/cilium/cilium/pull/1899
+.. _2223: https://github.com/cilium/cilium/pull/2223
+.. _1995: https://github.com/cilium/cilium/pull/1995
+.. _2192: https://github.com/cilium/cilium/pull/2192
+.. _2116: https://github.com/cilium/cilium/pull/2116
+.. _2099: https://github.com/cilium/cilium/pull/2099
+.. _2079: https://github.com/cilium/cilium/pull/2079
+.. _2078: https://github.com/cilium/cilium/pull/2078
+.. _2048: https://github.com/cilium/cilium/pull/2048
+.. _2037: https://github.com/cilium/cilium/pull/2037
+.. _2007: https://github.com/cilium/cilium/pull/2007
+.. _1989: https://github.com/cilium/cilium/pull/1989
+.. _1970: https://github.com/cilium/cilium/pull/1970
+.. _1951: https://github.com/cilium/cilium/pull/1951
+.. _1917: https://github.com/cilium/cilium/pull/1917
+.. _1898: https://github.com/cilium/cilium/pull/1898
+.. _1893: https://github.com/cilium/cilium/pull/1893
+.. _1888: https://github.com/cilium/cilium/pull/1888
+.. _1854: https://github.com/cilium/cilium/pull/1854
+.. _1678: https://github.com/cilium/cilium/pull/1678
+.. _1865: https://github.com/cilium/cilium/pull/1865
+.. _1733: https://github.com/cilium/cilium/pull/1733
