@@ -52,19 +52,25 @@ func init() {
 		os.Exit(-1)
 	}
 
+	for k, v := range DefaultSettings {
+		getOrSetEnvVar(k, v)
+	}
+
+	config.CiliumTestConfig.ParseFlags()
+
+	os.RemoveAll(helpers.TestResultsPath)
+}
+
+func configLogsOutput() {
 	log.SetLevel(logrus.DebugLevel)
 	log.Out = &config.TestLogWriter
 	logrus.SetFormatter(&config.Formatter)
 	log.Formatter = &config.Formatter
 	log.Hooks.Add(&config.LogHook{})
-
-	for k, v := range DefaultSettings {
-		getOrSetEnvVar(k, v)
-	}
-	config.CiliumTestConfig.ParseFlags()
 }
 
 func TestTest(t *testing.T) {
+	configLogsOutput()
 	if config.CiliumTestConfig.HoldEnvironment {
 		RegisterFailHandler(helpers.Fail)
 	} else {
