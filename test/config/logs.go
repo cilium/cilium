@@ -6,6 +6,7 @@ import (
 	"os"
 
 	"github.com/onsi/ginkgo"
+	"github.com/onsi/ginkgo/config"
 	"github.com/sirupsen/logrus"
 )
 
@@ -33,6 +34,10 @@ type LogHook struct{}
 
 // Levels defined levels to send logs to FireAction
 func (h *LogHook) Levels() []logrus.Level {
+	if config.DefaultReporterConfig.Verbose {
+		return logrus.AllLevels
+	}
+
 	return []logrus.Level{
 		logrus.WarnLevel,
 		logrus.ErrorLevel,
