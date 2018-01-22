@@ -59,12 +59,12 @@ Finally, in order to build the documentation, you should have Sphinx installed:
 ::
 
     $ sudo pip install sphinx
-  
+
 You should start with the `gs_guide`, which walks you through the set-up, such
 as installing Vagrant, getting the Cilium sources, and going through some
 Cilium basics.
 
-  
+
 Vagrant Setup
 ~~~~~~~~~~~~~
 
@@ -189,13 +189,13 @@ changes, or the tree is automatically in sync via NFS or guest
 additions folder sharing, you can issue a build as follows:
 
 ::
-   
+
     $ make
 
 A successful build should be followed by running the unit tests:
 
 ::
-   
+
     $ make tests
 
 Install
@@ -220,7 +220,7 @@ You can verify the service and cilium-agent status by the following
 commands, respectively:
 
 ::
-   
+
     $ service cilium status
     $ cilium status
 
@@ -250,7 +250,7 @@ After the new version of Cilium is running, you should run the runtime tests:
 Development Cycle (Ginkgo Framework)
 ------------------------------------
 
-Introduction 
+Introduction
 ~~~~~~~~~~~~
 
 There is ongoing progress to move over to a more robust testing framework than
@@ -300,7 +300,7 @@ To run all of the runtime tests, execute the following command from the `test` d
 
 ::
 
-    ginkgo --focus="Runtime*" -v -noColor
+    ginkgo --focus="Runtime*" -noColor
 
 Ginkgo searches for all tests in all subdirectories that are "named" beginning
 with the string "Runtime" and contain any characters after it. For instance,
@@ -308,7 +308,7 @@ here is an example showing what tests will be ran using Ginkgo's dryRun option:
 
 ::
 
-    $ ginkgo --focus="Runtime*" -v -noColor -dryRun
+    $ ginkgo --focus="Runtime*" -noColor -dryRun
     Running Suite: runtime
     ======================
     Random Seed: 1516125117
@@ -335,7 +335,7 @@ here is an example showing what tests will be ran using Ginkgo's dryRun option:
     .................
     Ran 42 of 164 Specs in 0.002 seconds
     SUCCESS! -- 0 Passed | 0 Failed | 0 Pending | 122 Skipped PASS
-    
+
     Ginkgo ran 1 suite in 1.830262168s
     Test Suite Passed
 
@@ -349,12 +349,12 @@ To run all of the Kubernetes tests, run the following command from the `test` di
 
 ::
 
-    ginkgo --focus="K8s*" -v -noColor
+    ginkgo --focus="K8s*" -noColor
 
 
 Similar to the Runtime test suite, Ginkgo searches for all tests in all
 subdirectories that are "named" beginning with the string "K8s" and
-contain any characters after it. 
+contain any characters after it.
 
 The Kubernetes tests support the following Kubernetes versions:
 
@@ -366,7 +366,7 @@ supported version of Kubernetes, run the test suite with the following format:
 
 ::
 
-    K8S_VERSION=<version> ginkgo --focus="K8s*" -v -noColor
+    K8S_VERSION=<version> ginkgo --focus="K8s*" -noColor
 
 Running Nightly Tests
 ^^^^^^^^^^^^^^^^^^^^^
@@ -375,7 +375,7 @@ To run all of the Nightly tests, run the following command from the `test` direc
 
 ::
 
-    ginkgo --focus="Nightly*" -v -noColor
+    ginkgo --focus="Nightly*"  -noColor
 
 Similar to the other test suites, Ginkgo searches for all tests in all
 subdirectories that are "named" beginning with the string "Nightly" and
@@ -425,7 +425,7 @@ If you want to run one specified test, there are a few options:
     It("Example test", func(){
         Expect(true).Should(BeTrue())
     })
-    
+
     FIt("Example focussed test", func(){
         Expect(true).Should(BeTrue())
     })
@@ -434,7 +434,7 @@ If you want to run one specified test, there are a few options:
 * From the command line: specify a more granular focus if you want to focus on, say, L7 tests:
 
 ::
-    
+
     ginkgo --focus "Run*" --focus "L7 "
 
 
@@ -463,6 +463,35 @@ Best Practices for Writing Tests
         vm.ReportFailed()
     }
 
+Debugging:
+~~~~~~~~~~~
+
+Ginkgo provides to us different ways of debugging. In case that you want to see
+all the logs messages in the console you can run the test in verbose mode using
+the option `-v`:
+
+::
+
+	ginkgo --focus "Runtime*" -v
+
+In case that the verbose mode is not enough, you can retrieve all run commands
+and their output in the report directory (`./test/test-results`). Each test
+creates a new folder, which contains a file called log where all information is
+saved, in case of a failing test an exhaustive data will be added.
+
+::
+
+	$ head test/test_results/RuntimeKafkaKafkaPolicyIngress/logs
+	level=info msg=Starting testName=RuntimeKafka
+	level=info msg="Vagrant: running command \"vagrant ssh-config runtime\""
+	cmd: "sudo cilium status" exitCode: 0
+	 KVStore:            Ok         Consul: 172.17.0.3:8300
+	ContainerRuntime:   Ok
+	Kubernetes:         Disabled
+	Kubernetes APIs:    [""]
+	Cilium:             Ok   OK
+	NodeMonitor:        Disabled
+	Allocated IPv4 addresses:
 
 
 Further Assistance
@@ -470,7 +499,7 @@ Further Assistance
 
 Have a question about how the tests work or want to chat more about improving the
 testing infrastructure for Cilium? Hop on over to the
-`testing <https://cilium.slack.com/messages/C7PE7V806>`_ channel on Slack. 
+`testing <https://cilium.slack.com/messages/C7PE7V806>`_ channel on Slack.
 
 Building Documentation
 ----------------------
