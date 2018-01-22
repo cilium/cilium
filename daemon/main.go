@@ -673,14 +673,11 @@ func runDaemon() {
 		return
 	}
 
-	if err := d.PolicyInit(); err != nil {
-		log.WithError(err).Fatal("Unable to initialize policy")
-	}
-
+	policy.Init()
 	endpointmanager.EnableConntrackGC(!d.conf.IPv4Disabled, true)
 
 	if enableLogstash {
-		go d.EnableLogstash(logstashAddr, int(logstashProbeTimer))
+		go EnableLogstash(logstashAddr, int(logstashProbeTimer))
 	}
 
 	d.nodeMonitor = &monitor.NodeMonitor{}
@@ -692,8 +689,6 @@ func runDaemon() {
 	if err := containerd.EnableEventListener(); err != nil {
 		log.WithError(err).Fatal("Error while enabling containerd event watcher")
 	}
-
-	d.EnableKVStoreWatcher(30 * time.Second)
 
 	if err := d.EnableK8sWatcher(5 * time.Minute); err != nil {
 		log.WithError(err).Warn("Error while enabling k8s watcher")
@@ -750,8 +745,8 @@ func runDaemon() {
 	api.EndpointGetEndpointIDHealthzHandler = NewGetEndpointIDHealthzHandler(d)
 
 	// /identity/
-	api.PolicyGetIdentityHandler = NewGetIdentityHandler(d)
-	api.PolicyGetIdentityIDHandler = NewGetIdentityIDHandler(d)
+	api.PolicyGetIdentityHandler = newGetIdentityHandler(d)
+	api.PolicyGetIdentityIDHandler = newGetIdentityIDHandler(d)
 
 	// /policy/
 	api.PolicyGetPolicyHandler = newGetPolicyHandler(d)

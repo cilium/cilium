@@ -1,4 +1,4 @@
-// Copyright 2016-2017 Authors of Cilium
+// Copyright 2016-2018 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -28,7 +28,8 @@ var (
 	Debug string
 )
 
-func trace(format string, err error, fields logrus.Fields, a ...interface{}) {
+// Trace is used to trace kvstore debug messages
+func Trace(format string, err error, fields logrus.Fields, a ...interface{}) {
 	if strings.ToLower(Debug) == "true" {
 		log.WithError(err).WithFields(fields).Debugf(format)
 	}

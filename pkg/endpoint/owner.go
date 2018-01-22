@@ -17,7 +17,6 @@ package endpoint
 import (
 	"net"
 
-	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/policy"
 )
@@ -41,14 +40,8 @@ type Owner interface {
 	// reach local endpoints
 	AlwaysAllowLocalhost() bool
 
-	// Must resolve label id to an identity
-	GetCachedLabelList(ID policy.NumericIdentity) (labels.LabelArray, error)
-
 	// Must return the policy repository
 	GetPolicyRepository() *policy.Repository
-
-	// Return the next available global identity
-	GetCachedMaxLabelID() (policy.NumericIdentity, error)
 
 	// UpdateProxyRedirect must update the redirect configuration of an endpoint in the proxy
 	UpdateProxyRedirect(e *Endpoint, l4 *policy.L4Filter) (uint16, error)
@@ -70,6 +63,9 @@ type Owner interface {
 
 	// Returns true if debugging has been enabled
 	DebugEnabled() bool
+
+	// TunnelMode
+	GetTunnelMode() string
 
 	// GetCompilationLock returns the mutex responsible for synchronizing compilation
 	// of BPF programs.

@@ -15,7 +15,13 @@
 package policy
 
 import (
+	"fmt"
+
+	"github.com/cilium/cilium/pkg/bpf"
+	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/maps/policymap"
 )
 
 var (
@@ -67,7 +73,7 @@ func (c *ConsumableCache) Remove(elem *Consumable) {
 	c.cacheMU.Unlock()
 }
 
-func (c *ConsumableCache) AddReserved(elem *Consumable) {
+func (c *ConsumableCache) addReserved(elem *Consumable) {
 	c.cacheMU.Lock()
 	c.reserved = append(c.reserved, elem)
 	c.cacheMU.Unlock()
@@ -99,4 +105,44 @@ func (c *ConsumableCache) GetConsumables() map[NumericIdentity][]NumericIdentity
 	}
 	c.cacheMU.RUnlock()
 	return consumables
+}
+
+// ResolveIdentityLabels resolves a numeric identity to the identity's labels
+// or nil
+func ResolveIdentityLabels(id NumericIdentity) labels.LabelArray {
+	// Check if we have the source security context in our local
+	// consumable cache
+	if c := consumableCache.Lookup(id); c != nil {
+		return c.LabelArray
+	}
+
+	if identity := LookupIdentityByID(id); identity != nil {
+		return identity.Labels.ToSlice()
+	}
+
+	return nil
+}
+
+// Init must be called to initialize the
+func Init() {
+	for key, val := range ReservedIdentities {
+		log.WithField(logfields.Identity, key).Debug("creating policy for identity")
+
+		policyMapPath := bpf.MapPath(fmt.Sprintf("%sreserved_%d", policymap.MapName, int(val)))
+
+		policyMap, _, err := policymap.OpenMap(policyMapPath)
+		if err != nil {
+			log.WithError(err).Fatalf("Could not create policy BPF map for reserved identity '%s'", policyMapPath)
+		}
+
+		identity := NewIdentity(val, labels.Labels{
+			key: labels.NewLabel(val.String(), "", labels.LabelSourceReserved),
+		})
+		c := GetConsumableCache().GetOrCreate(val, identity)
+		if c == nil {
+			log.WithField(logfields.Identity, identity).Fatal("Unable to initialize consumable")
+		}
+		GetConsumableCache().addReserved(c)
+		c.AddMap(policyMap)
+	}
 }

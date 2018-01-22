@@ -309,13 +309,7 @@ func handleCreateContainer(id string, retry bool) {
 		// attributes with new attributes set on endpoint
 		endpointmanager.UpdateReferences(ep)
 
-		err = workloads.Owner().EndpointLabelsUpdate(ep, identityLabels, informationLabels)
-		if err != nil {
-			scopedLog.WithError(err).WithFields(logrus.Fields{
-				logfields.EndpointID:  ep.StringID(),
-				logfields.ContainerID: shortContainerID(id),
-			}).Warn("Cannot update Endpoint labels while handling container creation")
-		}
+		ep.UpdateLabels(workloads.Owner(), identityLabels, informationLabels)
 		return
 	}
 

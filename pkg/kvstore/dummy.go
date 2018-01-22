@@ -14,22 +14,16 @@
 
 package kvstore
 
-import (
-	"testing"
+// SetupDummy sets up kvstore for tests
+func SetupDummy(dummyBackend string) {
+	module := getBackend(dummyBackend)
+	if module == nil {
+		log.Panicf("Unknown dummy kvstore backend %s", dummyBackend)
+	}
 
-	. "gopkg.in/check.v1"
-)
+	module.setConfigDummy()
 
-func Test(t *testing.T) {
-	TestingT(t)
-}
-
-// independentSuite tests are tests which can run without creating a backend
-type independentSuite struct{}
-
-var _ = Suite(&independentSuite{})
-
-func (s *independentSuite) TestGetLockPath(c *C) {
-	const path = "foo/path"
-	c.Assert(getLockPath(path), Equals, path+".lock")
+	if err := initClient(module); err != nil {
+		log.WithError(err).Panic("Unable to initialize kvstore client")
+	}
 }

@@ -112,9 +112,6 @@ func (ds *DaemonSuite) generateEPs(baseDir string, epsWanted []*e.Endpoint, epsM
 			<-r.Done
 		}(r)
 	}
-	ds.OnGetCachedMaxLabelID = func() (policy.NumericIdentity, error) {
-		return policy.NumericIdentity(259), nil
-	}
 	ds.OnTracingEnabled = func() bool {
 		return false
 	}
@@ -133,13 +130,6 @@ func (ds *DaemonSuite) generateEPs(baseDir string, epsWanted []*e.Endpoint, epsM
 
 	ds.OnGetCompilationLock = func() *lock.RWMutex {
 		return ds.d.compilationMutex
-	}
-
-	ds.OnGetCachedLabelList = func(id policy.NumericIdentity) (labels.LabelArray, error) {
-		if c := policy.GetConsumableCache().Lookup(id); c != nil {
-			return c.LabelArray, nil
-		}
-		return nil, nil
 	}
 
 	// Since all owner's funcs are implemented we can regenerate every endpoint.
@@ -182,15 +172,10 @@ func (ds *DaemonSuite) TestSyncLabels(c *C) {
 
 	// Let's make sure we delete all labels from the kv store first
 	ep2 := epsWanted[1]
-	ep2id := ep2.StringID()
-	ep2SecLabelID := ep2.SecLabel.ID
-	hash := ep2.SecLabel.Labels.SHA256Sum()
-	ds.d.DeleteIdentityBySHA256(hash, ep2id)
+	ep2.SecLabel.Release()
 
 	err = ds.d.syncLabels(ep2)
 	c.Assert(err, IsNil)
-	// The SecLabel ID should not have been changed
-	c.Assert(ep2SecLabelID, Equals, ep2.SecLabel.ID)
 
 	// let's change the ep2 sec label ID and see if sync labels properly sets
 	// it with the one from kv store
@@ -198,7 +183,4 @@ func (ds *DaemonSuite) TestSyncLabels(c *C) {
 
 	err = ds.d.syncLabels(ep2)
 	c.Assert(err, IsNil)
-	// The SecLabel ID should have been changed with the one stored in the
-	// kv store
-	c.Assert(ep2SecLabelID, Equals, ep2.SecLabel.ID)
 }

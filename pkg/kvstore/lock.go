@@ -1,4 +1,4 @@
-// Copyright 2016-2017 Authors of Cilium
+// Copyright 2016-2018 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -60,7 +60,11 @@ func (l *localLock) decRefCount() int {
 	return l.refCount
 }
 
-// LockPath locks the specified path and returns the Lock
+// LockPath locks the specified path. The key for the lock is not the path
+// provided itself but the path with a suffix of ".lock" appended. The lock
+// returned also contains a patch specific local Mutex which will be held.
+//
+// It is required to call Unlock() on the returned Lock to unlock
 func LockPath(path string) (l *Lock, err error) {
 	lockPathsMU.Lock()
 	ll, ok := lockPaths[path]
@@ -81,24 +85,27 @@ func LockPath(path string) (l *Lock, err error) {
 		}
 	}()
 
-	trace("Creating lock", nil, logrus.Fields{fieldKey: path})
-
 	// Take the local lock as both etcd and consul protect per client
 	ll.Lock()
 
 	lock, err := Client().LockPath(path)
 	if err != nil {
 		ll.Unlock()
+		Trace("Failed to lock", err, logrus.Fields{fieldKey: path})
 		err = fmt.Errorf("Error while locking path %s: %s", path, err)
 		return nil, err
 	}
 
-	trace("Successful lock", err, logrus.Fields{fieldKey: path})
+	Trace("Successful lock", err, logrus.Fields{fieldKey: path})
 	return &Lock{kvLock: lock, path: path}, err
 }
 
 // Unlock unlocks a lock
 func (l *Lock) Unlock() error {
+	if l == nil {
+		return nil
+	}
+
 	// Unlock kvstore mutex first
 	err := l.kvLock.Unlock()
 
@@ -114,7 +121,7 @@ func (l *Lock) Unlock() error {
 		ll.Unlock()
 	}
 	if err == nil {
-		trace("Unlocked", nil, logrus.Fields{fieldKey: l.path})
+		Trace("Unlocked", nil, logrus.Fields{fieldKey: l.path})
 	}
 	return err
 }

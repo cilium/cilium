@@ -38,6 +38,9 @@ const (
 	// IdentityLabels are the labels relevant for the security identity
 	IdentityLabels = "identityLabels"
 
+	// InfoLabels are the labels relevant for the security identity
+	InfoLabels = "infoLabels"
+
 	// Labels are any label, they may not be relevant to the security identity.
 	Labels = "labels"
 
@@ -176,4 +179,7 @@ const (
 
 	// K8sAPIVersion is the version of the k8s API an object has
 	K8sAPIVersion = "k8sApiVersion"
+
+	// Attempt is the attempt number if an operation is attempted multiple times
+	Attempt = "attempt"
 )
