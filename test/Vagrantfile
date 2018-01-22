@@ -5,7 +5,7 @@ $BUILD_NUMBER = ENV['BUILD_NUMBER'] || "0"
 $JOB_NAME = ENV['JOB_BASE_NAME'] || "LOCAL"
 $K8S_VERSION = ENV['K8S_VERSION'] || "1.7"
 $K8S_NODES = (ENV['K8S_NODES'] || "2").to_i
-
+$CILIUM_USE_ENVOY = (ENV['CILIUM_USE_ENVOY'] || "0")
 
 $SERVER_BOX= "cilium/ginkgo"
 $SERVER_VERSION="0.0.4"
@@ -32,6 +32,7 @@ Vagrant.configure("2") do |config|
         server.vm.provision "file", source: "provision", destination: "/tmp/provision"
         server.vm.provision "shell" do |sh|
             sh.path = "./provision/runtime_install.sh"
+            sh.env = {"CILIUM_USE_ENVOY" => "#{$CILIUM_USE_ENVOY}"}
         end
     end
 
