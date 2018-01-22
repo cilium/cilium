@@ -263,6 +263,7 @@ func (d *Daemon) syncLabels(ep *endpoint.Endpoint) error {
 
 	if labels == nil {
 		l, _, err := d.CreateOrUpdateIdentity(ep.SecLabel.Labels, ep.StringID())
+		// TODO (ianvernon) should the logic for updating the endpoint IP / labels mapping be in this CreateOrUpdateIdentity function?
 		if err != nil {
 			return fmt.Errorf("Unable to put labels %+v: %s\n", ep.SecLabel.Labels, err)
 		}

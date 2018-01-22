@@ -33,6 +33,7 @@ import (
 
 	"github.com/go-openapi/runtime/middleware"
 	"github.com/sirupsen/logrus"
+	"net"
 )
 
 func updateSecLabelIDRef(id policy.Identity) error {
@@ -51,6 +52,9 @@ func gasNewSecLabelID(id *policy.Identity) error {
 }
 
 func (d *Daemon) CreateOrUpdateIdentity(lbls labels.Labels, epid string) (*policy.Identity, bool, error) {
+	//TODO (ianvernon): update endpoint IP --> security ID mapping here.
+	// TODO (ianvernon) this will trigger an update for the endpoint IP / labels mapping as well. Since an update of the labels necessitates updating of this mapping, should I just put that function in here as well?
+
 	clusterEndpointID := node.GetExternalIPv4().String() + ":" + epid
 
 	log.WithFields(logrus.Fields{
@@ -129,7 +133,56 @@ func (d *Daemon) CreateOrUpdateIdentity(lbls labels.Labels, epid string) (*polic
 		return nil, false, err
 	}
 
+	// When labels are updated, we should update the endpoint IP --> labels mapping
+
 	return identity, isNew, nil
+}
+
+func (d *Daemon) CreateOrUpdateEndpointIPIdentityMapping(epIPv4, epIPv6 []byte, numericIdentity policy.NumericIdentity) error {
+	log.Debugf("CreateOrUpdateEndpointIPIdentityMapping: ips: %v, %v. identity: %d", epIPv4, epIPv6, numericIdentity)
+	//TODO (ianvernon): update endpoint IP --> security ID mapping here.
+	// TODO (ianvernon) this will trigger an update for the endpoint IP / labels mapping as well. Since an update of the labels necessitates updating of this mapping, should I just put that function in here as well?
+
+	log.WithFields(logrus.Fields{logfields.PolicyID: numericIdentity,
+		"epIPv4": epIPv4,
+		"eIPv6":  epIPv6}).Debug("Associating endpoint IP with numeric identity")
+
+	// TODO (ianvernon) how to handle both IPv4 and IPv6 addresses?
+
+	log.Debugf("(net.IP)(epIPv4).String(): %s", (net.IP)(epIPv4).String())
+	// Generate path for key-value store.
+	path := path.Join(common.EndpointIPKeyPath, d.conf.AddressSpace, fmt.Sprintf("%v", (net.IP)(epIPv4).String()))
+
+	// Lock path.
+	lockKey, err := kvstore.LockPath(path)
+	if err != nil {
+		return err
+	}
+
+	defer lockKey.Unlock()
+
+	rmsg, err := kvstore.Client().GetValue(path)
+	if err != nil {
+		return err
+	}
+
+	hasChanged := false
+
+	if rmsg == nil {
+		hasChanged = true
+	} else {
+		// TODO unmarshal and check if numeric identity in key-value store has changed.
+		hasChanged = true
+	}
+
+	if hasChanged {
+		log.Debugf("security identity has changed; updating key-value store accordingly")
+		if err := kvstore.Client().SetValue(path, numericIdentity); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 func (d *Daemon) updateEndpointIdentity(epID, oldLabelsHash string, opLabels *labels.OpLabels) (*policy.Identity, string, error) {

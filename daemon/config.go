@@ -59,7 +59,7 @@ type Config struct {
 	HostV6Addr      net.IP     // Host v6 address of the snooping device
 	IPv4Disabled    bool       // Disable IPv4 allocation
 	LBInterface     string     // Set with name of the interface to loadbalance packets from
-	AddressSpace     string     // Name of address space for endpoints managed by this daemon are a part of. Dependent upon which system cilium is launched in tadem with (Kubernetes, Mesos, Docker, etc.).
+	AddressSpace    string     // Name of address space for endpoints managed by this daemon are a part of. Dependent upon which system cilium is launched in tadem with (Kubernetes, Mesos, Docker, etc.).
 
 	Tunnel string // Tunnel mode
 
