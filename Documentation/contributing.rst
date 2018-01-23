@@ -723,7 +723,7 @@ Steps to release
    ``git checkout master``, ``cd contrib/release/``,
    ``GITHUB_TOKEN=xxxx ./relnotes --markdown-file=~/NEWS.rst v1.0.0-rc2..``
 6. Manually merge the generated file ``~/NEWS.rst`` into ``NEWS.rst`` in the
-   Cilum repository and add the title section with the corresponding release
+   Cilium repository and add the title section with the corresponding release
    date.
 7. Create a pull request with all changes above, get it merged into the
    development branch of the to be released version.
