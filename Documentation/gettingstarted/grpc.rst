@@ -20,44 +20,11 @@ cluster node.   This Cilium pod will run in the ``kube-system`` namespace along 
 all other system relevant daemons and services.  The Cilium pod will run both the Cilium
 agent and the Cilium CNI plugin.
 
-Since gRPC runs over HTTP2, Cilium must be run with the Envoy proxy to properly forward
-and filter gRPC requests.   This is not yet the default, we will download and edit
-the standard cilium daemonset YAML. 
-
-Download Cilium, for example, using wget: 
+To deploy the Cilium daemonset run the following ``kubectl`` command:
 
 .. parsed-literal::
 
-    $ wget |SCM_WEB|\/examples/kubernetes/cilium.yaml
-
-Then make the following changes using a text editor.  
-
-First, change the Cilium container image field from ``cilium/cilium:stable`` to 
-``cilium/cilium:envoy``
-
-Second, add the ``--envoy-proxy`` flag to the args passed to the cilium-agent to indicate that 
-Cilium should use envoy as the HTTP proxy, rather than the default golang based HTTP proxy.  
-This capability is currently in tech preview.   
-
-.. parsed-literal::
-
-    args:
-          - "--debug=$(CILIUM_DEBUG)"
-          - "-t"
-          - "vxlan"
-          - "--kvstore"
-          - "etcd"
-          - "--kvstore-opt"
-          - "etcd.config=/var/lib/etcd-config/etcd.config"
-          - "--disable-ipv4=$(DISABLE_IPV4)"
-          - "--envoy-proxy"
-
-
-Then deploy the Cilium daemonset using the edited YAML: 
-
-.. parsed-literal::
-
-    $ kubectl create -f cilium.yaml
+    $ kubectl create -f \ |SCM_WEB|\/examples/kubernetes/cilium.yaml
     clusterrole "cilium" created
     serviceaccount "cilium" created
     clusterrolebinding "cilium" created
