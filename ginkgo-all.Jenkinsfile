@@ -53,7 +53,6 @@ pipeline {
             environment {
                 GOPATH="${WORKSPACE}"
                 TESTDIR="${WORKSPACE}/${PROJ_PATH}/test"
-                CILIUM_USE_ENVOY="1"
             }
             steps {
                 parallel(
