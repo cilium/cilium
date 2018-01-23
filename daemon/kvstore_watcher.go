@@ -18,6 +18,7 @@ import (
 	"time"
 
 	"encoding/json"
+	"fmt"
 	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -82,23 +83,32 @@ func (d *Daemon) EnableEndpointIdentityKVStoreWatcher(maxSeconds time.Duration) 
 				_ = json.Unmarshal(event.Value, &id)
 
 				for k, v := range d.ipIdentityCache {
-					log.Debugf("cache entry: %v ---> %v", k, v)
+					log.Debugf("cache before: %v ---> %v", k, v)
 				}
-				numSlashes := strings.Count("/", event.Key)
-				if numSlashes != 4 {
+				numSlashes := strings.Count(fmt.Sprintf("%s", event.Key), "/")
+
+				log.Debugf("num slashes for %s: %d", event.Key, numSlashes)
+				// TODO (ianvernon) get rid of me
+				if numSlashes != 5 {
 					log.Debugf("not adding lock entry: key = %s", event.Key)
-					d.ipIdentityCache[event.Key] = id
-					d.TriggerPolicyUpdates(true)
+					continue
 				}
 
 				switch event.Typ {
 				case kvstore.EventTypeCreate:
 					log.Debugf("event type create for key %s", event.Key)
+					d.ipIdentityCache[event.Key] = id
 				case kvstore.EventTypeModify:
 					log.Debugf("event type modify for key %s", event.Key)
+					d.ipIdentityCache[event.Key] = id
 				case kvstore.EventTypeDelete:
 					log.Debugf("event type delete for key %s", event.Key)
+					delete(d.ipIdentityCache, event.Key)
 				}
+				for k, v := range d.ipIdentityCache {
+					log.Debugf("cache after: %v ---> %v", k, v)
+				}
+				d.TriggerPolicyUpdates(true)
 			}
 		}
 	}()
