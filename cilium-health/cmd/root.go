@@ -74,7 +74,7 @@ func init() {
 	flags.BoolP("debug", "D", false, "Enable debug messages")
 	flags.BoolP("daemon", "d", false, "Run as a daemon")
 	flags.BoolP("passive", "p", false, "Only respond to HTTP health checks")
-	flags.StringP("host", "H", "", "URI to cilum-health server API")
+	flags.StringP("host", "H", "", "URI to cilium-health server API")
 	flags.StringP("cilium", "c", "", "URI to Cilium server API")
 	flags.IntP("interval", "i", 60, "Interval (in seconds) for periodic connectivity probes")
 	flags.BoolP("json", "j", false, "Format as JSON")
