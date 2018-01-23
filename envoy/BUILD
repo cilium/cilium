@@ -8,6 +8,11 @@ load(
     "envoy_proto_library",
 )
 
+load(
+    "@envoy_api//bazel:api_build_system.bzl",
+    "api_proto_library",
+)
+
 envoy_cc_binary(
     name = "envoy",
     repository = "@envoy",
@@ -21,6 +26,28 @@ envoy_cc_binary(
 envoy_proto_library(
     name = "accesslog_proto",
     srcs = ["accesslog.proto"],
+)
+
+# TODO: Replace has_services=1 with a new api_go_grpc_library target after rebasing to use data-plane-api's master.
+api_proto_library(
+    name = "npds",
+    srcs = ["api/npds.proto"],
+    has_services = 1,
+    deps = [
+        "@envoy_api//api:address",
+        "@envoy_api//api:discovery",
+        "@envoy_api//api:rds",
+    ],
+)
+
+# TODO: Replace has_services=1 with a new api_go_grpc_library target after rebasing to use data-plane-api's master.
+api_proto_library(
+    name = "nphds",
+    srcs = ["api/nphds.proto"],
+    has_services = 1,
+    deps = [
+        "@envoy_api//api:discovery",
+    ],
 )
 
 envoy_cc_library(
