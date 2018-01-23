@@ -15,19 +15,15 @@
 package cmd
 
 import (
-	"encoding/json"
 	"fmt"
-	"os"
-
-	identityApi "github.com/cilium/cilium/api/v1/client/policy"
-	pkg "github.com/cilium/cilium/pkg/client"
-	"github.com/cilium/cilium/pkg/policy"
+	endpointapi "github.com/cilium/cilium/api/v1/client/endpoint"
 	"github.com/spf13/cobra"
+	"os"
 )
 
 // identityListCmd represents the identity_list command
 var cacheListCmd = &cobra.Command{
-	Use:   "list",
+	Use:   "cache",
 	Short: "List contents of endpoint IP cache",
 	Run: func(cmd *cobra.Command, args []string) {
 		listEndpointIPIdentityMapping(args)
@@ -35,12 +31,36 @@ var cacheListCmd = &cobra.Command{
 }
 
 func init() {
-	rootCmd.AddCommand(identityListCmd)
-	AddMultipleOutput(identityListCmd)
+	rootCmd.AddCommand(cacheListCmd)
+	AddMultipleOutput(cacheListCmd)
 }
 
 func listEndpointIPIdentityMapping(args []string) {
+
+	params := endpointapi.NewGetEndpointIpsParams()
+
+	mapping, err := client.Endpoint.GetEndpointIps(params)
+	if err != nil {
+		Fatalf("Cannot get endpoint IP identity mapping. err: %s\n", err.Error())
+	}
+
+	result := mapping.Payload
+	for _, v := range result {
+		fmt.Printf("%s --> %d\n", v.IP, v.ID)
+	}
+	if err := OutputPrinter(result); err != nil {
+		os.Exit(1)
+	}
+	return
 	/*result := make(map[string]interface{})
+
+	if reservedIDs {
+		reservedMap := make(map[string]string)
+		for k, v := range policy.ReservedIdentities {
+			reservedMap[fmt.Sprintf("%d", v)] = k
+		}
+		result["reservedIDs"] = reservedMap
+	}
 
 	var params *identityApi.GetIdentityParams
 	if len(args) != 0 {

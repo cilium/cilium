@@ -55,6 +55,7 @@ func (h *getEndpoint) Handle(params GetEndpointParams) middleware.Responder {
 }
 
 func getEndpointList(params GetEndpointParams) []*models.Endpoint {
+	log.Debugf("getEndpointList")
 	var (
 		epModelsWg, epsAppendWg sync.WaitGroup
 		convertedLabels         labels.Labels
@@ -95,6 +96,30 @@ func getEndpointList(params GetEndpointParams) []*models.Endpoint {
 	epsAppendWg.Wait()
 
 	return resEPs
+}
+
+type getEndpointIpIdentity struct {
+	d *Daemon
+}
+
+func NewGetEndpointIpsIdentityHandler(d *Daemon) GetEndpointIpsHandler {
+	return &getEndpointIpIdentity{d: d}
+}
+
+func (h *getEndpointIpIdentity) Handle(params GetEndpointIpsParams) middleware.Responder {
+	log.Debug("GET /endpointips request")
+	model := []*models.EndpointIPIdentityMapping{}
+	for k, v := range h.d.ipIdentityCache {
+		log.Debug("cache entry k --> v: %s --> %d", k, v)
+		newModel := &models.EndpointIPIdentityMapping{IP: k, ID: int64(v)}
+		model = append(model, newModel)
+	}
+
+	for _, v := range model {
+		log.Debugf("model: k --> v: %s --> %d", v.IP, v.ID)
+	}
+
+	return NewGetEndpointIpsOK().WithPayload(model)
 }
 
 type getEndpointID struct {
