@@ -3,9 +3,7 @@ FROM ubuntu:16.04
 ENV DOCS_DIR=/srv/Documentation
 ENV API_DIR=/srv/api
 
-WORKDIR $DOCS_DIR
-ADD Documentation $DOCS_DIR
-ADD api $API_DIR
+ADD Documentation/requirements.txt $DOCS_DIR/requirements.txt
 
 RUN apt-get update && \
       apt-get install -y git make python-sphinx python-pip \
@@ -15,3 +13,7 @@ RUN apt-get update && \
       pip install --upgrade pip && \
       pip install -r $DOCS_DIR/requirements.txt && \
       rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
+
+WORKDIR $DOCS_DIR
+ADD api $API_DIR
+ADD Documentation $DOCS_DIR
