@@ -137,7 +137,7 @@ var _ = BeforeSuite(func() {
 			Fail(fmt.Sprintf("error starting VM %q: %s", helpers.Runtime, err))
 		}
 
-		vm := helpers.CreateNewRuntimeHelper(helpers.Runtime, log.WithFields(
+		vm := helpers.InitRuntimeHelper(helpers.Runtime, log.WithFields(
 			logrus.Fields{"testName": "BeforeSuite"}))
 		err = vm.SetUpCilium()
 

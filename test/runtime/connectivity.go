@@ -21,10 +21,6 @@ var _ = Describe("RuntimeConnectivityTest", func() {
 		logger = log.WithFields(logrus.Fields{"test": "RuntimeConnectivityTest"})
 		logger.Info("Starting")
 		vm = helpers.CreateNewRuntimeHelper(helpers.Runtime, logger)
-		vm.WaitUntilReady(100)
-		res := vm.SetPolicyEnforcement(helpers.PolicyEnforcementDefault)
-		res.ExpectSuccess()
-		vm.NetworkCreate(helpers.CiliumDockerNetwork, "")
 	}
 
 	BeforeEach(func() {
@@ -165,10 +161,6 @@ var _ = Describe("RuntimeConntrackTest", func() {
 		logger = log.WithFields(logrus.Fields{"test": "RunConntrackTest"})
 		logger.Info("Starting")
 		vm = helpers.CreateNewRuntimeHelper(helpers.Runtime, logger)
-		vm.WaitUntilReady(100)
-		res := vm.SetPolicyEnforcement(helpers.PolicyEnforcementDefault)
-		res.ExpectSuccess()
-		vm.NetworkCreate(helpers.CiliumDockerNetwork, "")
 	}
 
 	clientServerConnectivity := func() {

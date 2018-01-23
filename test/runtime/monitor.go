@@ -51,18 +51,15 @@ var _ = Describe("RuntimeValidatedMonitorTest", func() {
 		logger = log.WithFields(logrus.Fields{"testName": "RuntimeMonitorTest"})
 		logger.Info("Starting")
 		vm = helpers.CreateNewRuntimeHelper(helpers.Runtime, logger)
-		vm.WaitUntilReady(100)
-		vm.NetworkCreate(helpers.CiliumDockerNetwork, "")
-
-		res := vm.SetPolicyEnforcement(helpers.PolicyEnforcementDefault)
-		res.ExpectSuccess()
-
 		areEndpointsReady := vm.WaitEndpointsReady()
 		Expect(areEndpointsReady).Should(BeTrue())
 	}
 
 	BeforeEach(func() {
 		once.Do(initialize)
+		res := vm.SetPolicyEnforcement(helpers.PolicyEnforcementDefault)
+		res.ExpectSuccess()
+
 	})
 
 	AfterEach(func() {

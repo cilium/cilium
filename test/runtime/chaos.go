@@ -35,7 +35,6 @@ var _ = Describe("RuntimeValidatedChaos", func() {
 		logger := log.WithFields(logrus.Fields{"testName": "RuntimeValidatedChaos"})
 		logger.Info("Starting")
 		vm = helpers.CreateNewRuntimeHelper(helpers.Runtime, logger)
-		vm.NetworkCreate(helpers.CiliumDockerNetwork, "")
 	}
 
 	waitForCilium := func() {
