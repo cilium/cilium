@@ -23,7 +23,7 @@ tags: *.c $(LIB)
 	cscope -R -b -q
 	ctags -R .
 
-%.o: %.c
+%.o: %.c $(LIB)
 	${CLANG} ${CLANG_FLAGS} -c $< -o - | ${LLC} ${LLC_FLAGS} -o $@
 
 check:
@@ -36,7 +36,7 @@ LB_OPTIONS = \
 	-DLB_L4 \
 	-DLB_L3 -DLB_L4
 
-bpf_lb.o:
+bpf_lb.o: bpf_lb.c $(LIB)
 	$(foreach OPTS,$(LB_OPTIONS), \
 		${CLANG} ${OPTS} ${CLANG_FLAGS} -c bpf_lb.c -o - | ${LLC} ${LLC_FLAGS} -o /dev/null;)
 
@@ -44,7 +44,7 @@ LXC_OPTIONS = \
 	 -DUNKNOWN \
 	 -DDROP_ALL
 
-bpf_lxc.o:
+bpf_lxc.o: bpf_lxc.c $(LIB)
 	$(foreach OPTS,$(LXC_OPTIONS), \
 		${CLANG} ${OPTS} ${CLANG_FLAGS} -c bpf_lxc.c -o - | ${LLC} ${LLC_FLAGS} -o /dev/null;)
 
