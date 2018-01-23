@@ -184,6 +184,8 @@ func (e *EtcdClient) LockPath(path string) (kvLocker, error) {
 		return nil, err
 	}
 
+	log.Debugf("etcdClient LockPath: %+v", mu)
+
 	return &EtcdLocker{mutex: mu}, nil
 }
 
@@ -469,6 +471,8 @@ func (e *EtcdClient) Watch(w *Watcher, list bool) {
 				}
 
 				lastRev = r.Header.Revision
+				log.Debugf("r.Header: %s", r.Header.String())
+				log.Debugf("lastrev: %d", lastRev)
 
 				if err := r.Err(); err != nil {
 					log.WithFields(logrus.Fields{
@@ -479,6 +483,15 @@ func (e *EtcdClient) Watch(w *Watcher, list bool) {
 				}
 
 				for _, ev := range r.Events {
+					log.Debugf("range over events: %+v", ev)
+					if ev.Kv != nil {
+						log.Debugf("ev.Type: %v, ev.Kv.Key: %s, ev.Kv.ModRevision: %d, ev.Kv.CreateRevision: %d", ev.Type, ev.Kv.Key, ev.Kv.ModRevision, ev.Kv.CreateRevision)
+						log.Debugf("ev.Kv.String(): %s", ev.Kv.String())
+					}
+					if ev.PrevKv != nil {
+						log.Debugf("ev.Type: %v, ev.Kv.PrevKey: %s", ev.Type, ev.PrevKv.Key)
+					}
+					log.Debugf("ev.Lease: %d", ev.Kv.Lease)
 					event := KeyValueEvent{
 						Key:   string(ev.Kv.Key),
 						Value: ev.Kv.Value,
@@ -502,6 +515,7 @@ func (e *EtcdClient) Watch(w *Watcher, list bool) {
 // every time the key path is changed.
 // FIXME This function is highly tightened to the maxFreeID, change name accordingly
 func (e *EtcdClient) GetWatcher(key string, timeSleep time.Duration) <-chan []policy.NumericIdentity {
+	log.Debugf("setting watcher for %s", key)
 	ch := make(chan []policy.NumericIdentity, 100)
 	go func(ch chan []policy.NumericIdentity) {
 		curSeconds := time.Second
@@ -521,6 +535,9 @@ func (e *EtcdClient) GetWatcher(key string, timeSleep time.Duration) <-chan []po
 			freeID := uint32(0)
 			maxFreeID := uint32(0)
 			for _, event := range w.Events {
+				if event.Kv != nil {
+					log.Debugf("GetWatcher: key --> %s", event.Kv.Key)
+				}
 				if event.Type != mvccpb.PUT || event.Kv == nil {
 					continue
 				}

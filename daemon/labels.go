@@ -152,6 +152,7 @@ func (d *Daemon) CreateOrUpdateEndpointIPIdentityMapping(epIPv4, epIPv6 []byte, 
 	log.Debugf("(net.IP)(epIPv4).String(): %s", (net.IP)(epIPv4).String())
 	// Generate path for key-value store.
 	path := path.Join(common.EndpointIPKeyPath, d.conf.AddressSpace, fmt.Sprintf("%v", (net.IP)(epIPv4).String()))
+	log.Debugf("path for adding to kvstore: %s", path)
 
 	// Lock path.
 	lockKey, err := kvstore.LockPath(path)
@@ -414,6 +415,7 @@ func (d *Daemon) DeleteIdentityBySHA256(sha256Sum string, epid string) error {
 // TODO (ianvernon) documentation - is this the correct implementation?
 func (d *Daemon) DeleteEndpointIPIdentityMapping(epIPv4, epIPv6 []byte) error {
 	epIPPath := path.Join(common.EndpointIPKeyPath, d.conf.AddressSpace, fmt.Sprintf("%v", (net.IP)(epIPv4).String()))
+	log.Debugf("deleting epIPPath: %s", epIPPath)
 	lockKey, err := kvstore.LockPath(epIPPath)
 	if err != nil {
 		return err

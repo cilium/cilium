@@ -17,10 +17,12 @@ package main
 import (
 	"time"
 
+	"encoding/json"
 	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/policy"
+	"strings"
 )
 
 // EnableLabelsKVStoreWatcher watches for kvstore changes in the common.LastFreeIDKeyPath key.
@@ -66,4 +68,38 @@ func (d *Daemon) setCachedMaxLabelID(id policy.NumericIdentity) {
 	d.maxCachedLabelIDMU.Lock()
 	d.maxCachedLabelID = id
 	d.maxCachedLabelIDMU.Unlock()
+}
+
+func (d *Daemon) EnableEndpointIdentityKVStoreWatcher(maxSeconds time.Duration) {
+	log.Debugf("initializing endpoint identity kvstore watcher")
+	watcher := kvstore.ListAndWatch("endpointIPWatcher", common.EndpointIPKeyPath, 10)
+	go func() {
+		for {
+			select {
+			case event := <-watcher.Events:
+				var id policy.NumericIdentity
+				log.Debugf("new event received on watcher events channel for watcher %s", watcher.String())
+				_ = json.Unmarshal(event.Value, &id)
+
+				for k, v := range d.ipIdentityCache {
+					log.Debugf("cache entry: %v ---> %v", k, v)
+				}
+				numSlashes := strings.Count("/", event.Key)
+				if numSlashes != 4 {
+					log.Debugf("not adding lock entry: key = %s", event.Key)
+					d.ipIdentityCache[event.Key] = id
+					d.TriggerPolicyUpdates(true)
+				}
+
+				switch event.Typ {
+				case kvstore.EventTypeCreate:
+					log.Debugf("event type create for key %s", event.Key)
+				case kvstore.EventTypeModify:
+					log.Debugf("event type modify for key %s", event.Key)
+				case kvstore.EventTypeDelete:
+					log.Debugf("event type delete for key %s", event.Key)
+				}
+			}
+		}
+	}()
 }
