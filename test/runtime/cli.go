@@ -36,12 +36,6 @@ var _ = Describe("RuntimeCLI", func() {
 		logger = log.WithFields(logrus.Fields{"testName": "RuntimeCLI"})
 		logger.Info("Starting")
 		vm = helpers.CreateNewRuntimeHelper(helpers.Runtime, logger)
-		vm.WaitUntilReady(100)
-		vm.NetworkCreate(helpers.CiliumDockerNetwork, "")
-
-		res := vm.SetPolicyEnforcement(helpers.PolicyEnforcementDefault)
-		res.ExpectSuccess()
-
 		areEndpointsReady := vm.WaitEndpointsReady()
 		Expect(areEndpointsReady).Should(BeTrue())
 	}
