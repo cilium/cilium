@@ -37,6 +37,7 @@ clean-ginkgo-tests:
 
 tests-common: force
 	go vet $(GOFILES)
+	make -C test/ build
 
 tests-envoy:
 	@ $(MAKE) -C envoy tests
