@@ -227,6 +227,19 @@ func (s *SSHMeta) GetEndpoints() *CmdRes {
 	return s.ExecCilium("endpoint list -o json")
 }
 
+// GetEndpointsIDMap returns a mapping of an endpoint ID to Docker container
+// name, and an error if the list of endpoints cannot be retrieved via the
+// Cilium CLI.
+func (s *SSHMeta) GetEndpointsIDMap() (map[string]string, error) {
+	filter := `{range [*]}{@.id}{"="}{@.container-name}{"\n"}{end}`
+	cmd := fmt.Sprintf("endpoint list -o jsonpath='%s'", filter)
+	endpoints := s.ExecCilium(cmd)
+	if !endpoints.WasSuccessful() {
+		return nil, fmt.Errorf("%q failed: %s", cmd, endpoints.CombineOutput())
+	}
+	return endpoints.KVOutput(), nil
+}
+
 // GetEndpointsIds returns a mapping of a Docker container name to to its
 // corresponding endpoint ID, and an error if the list of endpoints cannot be
 // retrieved via the Cilium CLI.
