@@ -16,6 +16,8 @@ It is generated from these files:
 	api/cds.proto
 	api/health_check.proto
 	api/protocol.proto
+	api/npds.proto
+	api/nphds.proto
 
 It has these top-level messages:
 	WeightedCluster
@@ -84,6 +86,13 @@ It has these top-level messages:
 	Http1ProtocolOptions
 	Http2ProtocolOptions
 	GrpcProtocolOptions
+	NetworkPolicy
+	DirectionNetworkPolicy
+	PortNetworkPolicy
+	PortNetworkPolicyRule
+	HttpNetworkPolicyRules
+	HttpNetworkPolicyRule
+	NetworkPolicyHosts
 */
 package api
 

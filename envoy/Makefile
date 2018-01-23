@@ -29,29 +29,48 @@ BUILDIFIER ?= buildifier
 STRIP ?= strip
 
 PROTOC ?= bazel-out/host/bin/external/com_google_protobuf/protoc
-PROTO_DEPS= bazel-envoy/external/com_google_protobuf/src -I bazel-envoy/external/googleapis -I bazel-envoy/external/com_lyft_protoc_gen_validate
-PROTO_PATH = bazel-envoy/external/envoy_api
+ENVOY_API_PROTO_PATH = bazel-envoy/external/envoy_api
+CILIUM_PROTO_PATH = .
+PROTO_DEPS = \
+	-I bazel-envoy/external/com_google_protobuf/src \
+	-I bazel-envoy/external/googleapis \
+	-I bazel-envoy/external/com_lyft_protoc_gen_validate
 GO_OUT = ../pkg/envoy
 
-API_PROTOS := api/rds.proto api/lds.proto api/address.proto api/auth.proto api/base.proto api/discovery.proto api/sds.proto api/bootstrap.proto api/cds.proto api/health_check.proto api/protocol.proto
+ENVOY_API_PROTOS := \
+	api/rds.proto \
+	api/lds.proto \
+	api/address.proto \
+	api/auth.proto \
+	api/base.proto \
+	api/discovery.proto \
+	api/sds.proto \
+	api/bootstrap.proto \
+	api/cds.proto \
+	api/health_check.proto \
+	api/protocol.proto
 
-API_GOS = $(API_PROTOS:.proto=.pb.go)
-API_SOURCES := $(addprefix $(PROTO_PATH)/,$(API_PROTOS))
-API_TARGETS := $(addprefix $(GO_OUT)/,$(API_GOS))
+ENVOY_API_GOS = $(ENVOY_API_PROTOS:.proto=.pb.go)
+ENVOY_API_SOURCES := $(addprefix $(ENVOY_API_PROTO_PATH)/,$(ENVOY_API_PROTOS))
+ENVOY_API_TARGETS := $(addprefix $(GO_OUT)/,$(ENVOY_API_GOS))
+
+CILIUM_API_PROTOS := api/*.proto
+CILIUM_API_GOS = $(CILIUM_API_PROTOS:.proto=.pb.go)
+CILIUM_API_SOURCES := $(addprefix $(CILIUM_PROTO_PATH)/,$(CILIUM_API_PROTOS))
+CILIUM_API_TARGETS := $(addprefix $(GO_OUT)/,$(CILIUM_API_GOS))
 
 FILTER_PROTOS := api/filter/network/http_connection_manager.proto
 FILTER_GOS = $(FILTER_PROTOS:.proto=.pb.go)
-FILTER_SOURCES := $(addprefix $(PROTO_PATH)/,$(FILTER_PROTOS))
+FILTER_SOURCES := $(addprefix $(ENVOY_API_PROTO_PATH)/,$(FILTER_PROTOS))
 FILTER_TARGETS := $(addprefix $(GO_OUT)/,$(FILTER_GOS))
 
-CILIUM_PROTO_PATH = .
 
 CILIUM_PROTOS := *.proto
 CILIUM_GOS = $(CILIUM_PROTOS:.proto=.pb.go)
 CILIUM_SOURCES := $(addprefix $(CILIUM_PROTO_PATH)/,$(CILIUM_PROTOS))
 CILIUM_TARGETS := $(addprefix $(GO_OUT)/,$(CILIUM_GOS))
 
-GO_TARGETS= $(API_TARGETS) $(CILIUM_TARGETS) $(FILTER_TARGETS)
+GO_TARGETS= $(ENVOY_API_TARGETS) $(CILIUM_TARGETS) $(CILIUM_API_TARGETS) $(FILTER_TARGETS)
 
 # Dockerfile builds require special options
 ifdef PKG_BUILD
@@ -80,16 +99,16 @@ envoy-debug: force-non-root
 $(CHECK_FORMAT): force-non-root
 	$(BAZEL) $(BAZEL_OPTS) build $(BAZEL_BUILD_OPTS) //:check_format.py
 
-$(API_TARGETS): $(API_SOURCES)
-	$(PROTOC) --proto_path=$(PROTO_PATH) -I $(PROTO_DEPS) --go_out=plugins=grpc:$(GO_OUT) $(API_SOURCES)
+$(ENVOY_API_TARGETS) $(CILIUM_API_TARGETS): $(ENVOY_API_SOURCES) $(CILIUM_API_SOURCES)
+	$(PROTOC) -I $(ENVOY_API_PROTO_PATH) -I $(CILIUM_PROTO_PATH) $(PROTO_DEPS) --go_out=plugins=grpc:$(GO_OUT) $(ENVOY_API_SOURCES) $(CILIUM_API_SOURCES)
 
 $(CILIUM_TARGETS): $(CILIUM_SOURCES)
-	$(PROTOC) --proto_path=$(CILIUM_PROTO_PATH) -I $(PROTO_DEPS) --go_out=plugins=grpc:$(GO_OUT) $(CILIUM_SOURCES)
+	$(PROTOC) -I $(CILIUM_PROTO_PATH) $(PROTO_DEPS) --go_out=plugins=grpc:$(GO_OUT) $(CILIUM_SOURCES)
 
-$(API_SOURCES): $(PROTO_PATH)
+$(ENVOY_API_SOURCES): $(ENVOY_API_PROTO_PATH)
 
 $(FILTER_TARGETS): $(FILTER_SOURCES)
-	$(PROTOC) --proto_path=$(PROTO_PATH) -I $(PROTO_DEPS) --go_out=plugins=grpc:$(GO_OUT) $(FILTER_SOURCES)
+	$(PROTOC) --proto_path=$(ENVOY_API_PROTO_PATH) $(PROTO_DEPS) --go_out=plugins=grpc:$(GO_OUT) $(FILTER_SOURCES)
 
 install: force-root
 	$(INSTALL) -m 0755 -d $(DESTDIR)$(BINDIR)

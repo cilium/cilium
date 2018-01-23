@@ -26,7 +26,7 @@ func (ctx *StreamControlCtx) stop() {
 // servers should derive from this and add API-specific functionality
 // of their own.
 // A 'sync.Cond' is used to signal the stream server goroutine that the current version
-// of the resoure should be streamed. Envoy stream requests embed a version field that
+// of the resource should be streamed. Envoy stream requests embed a version field that
 // is interpreted as a NACK if it repeats the same version as the previous request, and as
 // an ACK when it contains the version field from the latest response we sent over.
 // 64-bit version numbers are assumed to never wrap around.
@@ -141,7 +141,7 @@ func backoffTime(count uint) time.Duration {
 // 'version' is the version number of the last successfully received configuration from Envoy,
 // 'handler()' is called to send the current version if it is later than 'version'.
 // If back off if the current version has already received negative acknowledgements from Envoy
-// Starts a handler gorouting on demand tracked by 'ctx'.
+// Starts a handler goroutine on demand tracked by 'ctx'.
 func (ctrl *StreamControl) handleVersion(ctx *StreamControlCtx, version uint64, handler func() error) {
 	ctrl.cond.L.Lock()
 	if ctrl.updateVersionLocked(version) {
