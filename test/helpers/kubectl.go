@@ -200,6 +200,16 @@ func (kub *Kubectl) NodeCleanMetadata() error {
 	return nil
 }
 
+// NamespaceCreate it creates a new kubernetes namespace with the given name
+func (kub *Kubectl) NamespaceCreate(name string) *CmdRes {
+	return kub.Exec(fmt.Sprintf("%s create namespace %s", KubectlCmd, name))
+}
+
+// NamespaceDelete it deletes a given kubernetes namespace
+func (kub *Kubectl) NamespaceDelete(name string) *CmdRes {
+	return kub.Exec(fmt.Sprintf("%s delete namespace %s", KubectlCmd, name))
+}
+
 // WaitforPods waits up until timeout seconds have elapsed for all pods in the
 // specified namespace that match the provided JSONPath filter to have their
 // containterStatuses equal to "ready". Returns true if all pods achieve
@@ -274,7 +284,7 @@ func (kub *Kubectl) WaitForServiceEndpoints(namespace string, filter string, ser
 }
 
 // Action performs the specified ResourceLifeCycleAction on the Kubernetes
-// manifest located at path filepath.
+// manifest located at path filepath in the given namespace
 func (kub *Kubectl) Action(action ResourceLifeCycleAction, filePath string) *CmdRes {
 	kub.logger.Debugf("performing '%v' on '%v'", action, filePath)
 	return kub.Exec(fmt.Sprintf("%s %s -f %s", KubectlCmd, action, filePath))
@@ -523,9 +533,7 @@ func (kub *Kubectl) CiliumPolicyAction(namespace, filepath string, action Resour
 			return "", err
 		}
 		revisions[v] = revi
-		//kub.logger.Infof("CiliumPolicyAction: pod %q has revision %v", v, revi)
-		fmt.Printf("CiliumPolicyAction: pod %q has revision %d\n", v, revi)
-
+		kub.logger.Infof("CiliumPolicyAction: pod '%s' has revision '%v'", v, revi)
 	}
 
 	if status := kub.Action(action, filepath); !status.WasSuccessful() {

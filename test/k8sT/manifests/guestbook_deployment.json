@@ -1,0 +1,160 @@
+{
+    "kind":"ReplicationController",
+    "apiVersion":"v1",
+    "metadata":{
+        "name":"redis-master",
+        "labels":{
+            "k8s-app.guestbook":"redis",
+            "role":"master"
+        }
+    },
+    "spec":{
+        "replicas":1,
+        "selector":{
+            "k8s-app.guestbook":"redis",
+            "role":"master"
+        },
+        "template":{
+            "metadata":{
+                "labels":{
+                    "k8s-app.guestbook":"redis",
+                    "role":"master",
+                    "zgroup": "guestbook"
+                }
+            },
+            "spec":{
+                "containers":[{
+                    "name":"redis-master",
+                    "image":"redis",
+                    "ports":[{
+                        "name":"redis-server",
+                        "containerPort":6379
+                    }]
+                }],
+                "nodeSelector": {
+                    "kubernetes.io/hostname": "k8s1"
+                }
+            }
+        }
+    }
+}
+{
+    "kind":"Service",
+    "apiVersion":"v1",
+    "metadata":{
+        "name":"redis-master",
+        "labels":{
+            "k8s-app.guestbook":"redis",
+            "role":"master",
+            "zgroup": "guestbook"
+        }
+    },
+    "spec":{
+        "ports": [{
+            "port":6379,
+            "targetPort":"redis-server"
+        }],
+        "selector":{
+            "k8s-app.guestbook":"redis",
+            "role":"master"
+        }
+    }
+}
+{
+    "kind":"ReplicationController",
+    "apiVersion":"v1",
+    "metadata":{
+        "name":"redis-slave",
+        "labels":{
+            "k8s-app.guestbook":"redis",
+            "role":"slave"
+        }
+    },
+    "spec":{
+        "replicas":1,
+        "selector":{
+            "k8s-app.guestbook":"redis",
+            "role":"slave"
+        },
+        "template":{
+            "metadata":{
+                "labels":{
+                    "k8s-app.guestbook":"redis",
+                    "role":"slave",
+                    "zgroup": "guestbook"
+                }
+            },
+            "spec":{
+                "containers":[{
+                    "name":"redis-slave",
+                    "image":"gcr.io/google_samples/gb-redisslave:v1",
+                    "ports":[{
+                        "name":"redis-server",
+                        "containerPort":6379
+                    }]
+                }],
+                "nodeSelector": {
+                    "kubernetes.io/hostname": "k8s1"
+                }
+            }
+        }
+    }
+}
+{
+    "kind":"Service",
+    "apiVersion":"v1",
+    "metadata":{
+        "name":"redis-slave",
+        "labels":{
+            "k8s-app.guestbook":"redis",
+            "role":"slave"
+        }
+    },
+    "spec":{
+        "ports": [{
+            "port":6379,
+            "targetPort":"redis-server"
+        }],
+        "selector":{
+            "k8s-app.guestbook":"redis",
+            "role":"slave"
+        }
+    }
+}
+{
+    "kind":"ReplicationController",
+    "apiVersion":"v1",
+    "metadata":{
+        "name":"guestbook",
+        "labels":{
+            "k8s-app.guestbook":"web"
+        }
+    },
+    "spec":{
+        "replicas":1,
+        "selector":{
+            "k8s-app.guestbook":"web"
+        },
+        "template":{
+            "metadata":{
+                "labels":{
+                    "k8s-app.guestbook":"web",
+                    "zgroup": "guestbook"
+                }
+            },
+            "spec":{
+                "containers":[{
+                    "name":"guestbook",
+                    "image":"kubernetes/guestbook:v2",
+                    "ports":[{
+                        "name":"http-server",
+                        "containerPort":3000
+                    }]
+                }],
+                "nodeSelector": {
+                    "kubernetes.io/hostname": "k8s2"
+                }
+            }
+        }
+    }
+}

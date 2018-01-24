@@ -57,9 +57,6 @@ var _ = Describe("K8sPolicyTest", func() {
 
 	BeforeEach(func() {
 		once.Do(initialize)
-		kubectl.Apply(demoPath)
-		_, err := kubectl.WaitforPods(helpers.DefaultNamespace, "-l zgroup=testapp", 300)
-		Expect(err).Should(BeNil())
 	})
 
 	AfterEach(func() {
@@ -69,11 +66,6 @@ var _ = Describe("K8sPolicyTest", func() {
 				"cilium bpf tunnel list",
 				"cilium endpoint list"})
 		}
-
-		kubectl.Delete(demoPath)
-		// TO make sure that are not in place
-		kubectl.Delete(l3Policy)
-		kubectl.Delete(l7Policy)
 	})
 
 	waitUntilEndpointUpdates := func(pod string, eps map[string]int64, min int) error {
@@ -88,197 +80,421 @@ var _ = Describe("K8sPolicyTest", func() {
 			}
 			return updated >= min
 		}
-		err := helpers.WithTimeout(body, "No new version applied", &helpers.TimeoutConfig{Timeout: 100})
+		err := helpers.WithTimeout(body, "No new version applied",
+			&helpers.TimeoutConfig{Timeout: 100})
 		return err
 	}
 
-	getAppPods := func() map[string]string {
-		appPods := make(map[string]string)
-		apps := []string{helpers.App1, helpers.App2, helpers.App3}
-		for _, v := range apps {
-			res, err := kubectl.GetPodNames(helpers.DefaultNamespace, fmt.Sprintf("id=%s", v))
+	Context("Basic Test", func() {
+
+		BeforeEach(func() {
+			kubectl.Apply(demoPath)
+			_, err := kubectl.WaitforPods(helpers.DefaultNamespace, "-l zgroup=testapp", 300)
 			Expect(err).Should(BeNil())
-			appPods[v] = res[0]
-			logger.Infof("PolicyRulesTest: pod=%q assigned to %q", res[0], v)
+		})
+
+		AfterEach(func() {
+			kubectl.Delete(demoPath)
+			// TO make sure that are not in place
+			kubectl.Delete(l3Policy)
+			kubectl.Delete(l7Policy)
+		})
+
+		getAppPods := func(namespace string) map[string]string {
+			appPods := make(map[string]string)
+			apps := []string{helpers.App1, helpers.App2, helpers.App3}
+			for _, v := range apps {
+				res, err := kubectl.GetPodNames(namespace, fmt.Sprintf("id=%s", v))
+				Expect(err).Should(BeNil())
+				appPods[v] = res[0]
+				logger.Infof("PolicyRulesTest: pod=%q assigned to %q", res[0], v)
+			}
+			return appPods
 		}
-		return appPods
-	}
 
-	It("PolicyEnforcement Changes", func() {
-		//This is a small test that check that everything is working in k8s. Full monkey testing
-		// is in runtime/Policies
-		ciliumPod, err := kubectl.GetCiliumPodOnNode(helpers.KubeSystemNamespace, helpers.K8s1)
-		Expect(err).Should(BeNil())
+		It("PolicyEnforcement Changes", func() {
+			// This is a small test that check that basic policyEnforcement
+			// changes are working in k8s. All the policy enforcements
+			// changes/combinations are tested on runtime/Policies
+			ciliumPod, err := kubectl.GetCiliumPodOnNode(helpers.KubeSystemNamespace, helpers.K8s1)
+			Expect(err).Should(BeNil())
 
-		status := kubectl.CiliumExec(ciliumPod, fmt.Sprintf("cilium config %s=%s", helpers.PolicyEnforcement, helpers.PolicyEnforcementDefault))
-		status.ExpectSuccess()
-		helpers.Sleep(5)
-		kubectl.CiliumEndpointWait(ciliumPod)
+			status := kubectl.CiliumExec(
+				ciliumPod, fmt.Sprintf("cilium config %s=%s",
+					helpers.PolicyEnforcement, helpers.PolicyEnforcementDefault))
+			status.ExpectSuccess()
+			helpers.Sleep(5)
+			kubectl.CiliumEndpointWait(ciliumPod)
 
-		epsStatus := helpers.WithTimeout(func() bool {
+			epsStatus := helpers.WithTimeout(func() bool {
+				endpoints, err := kubectl.CiliumEndpointsListByLabel(ciliumPod, podFilter)
+				if err != nil {
+					return false
+				}
+				return endpoints.AreReady()
+			}, "Could not get endpoints", &helpers.TimeoutConfig{Timeout: 100})
+			Expect(epsStatus).Should(BeNil())
+
 			endpoints, err := kubectl.CiliumEndpointsListByLabel(ciliumPod, podFilter)
-			if err != nil {
-				return false
-			}
-			return endpoints.AreReady()
-		}, "Could not get endpoints", &helpers.TimeoutConfig{Timeout: 100})
-		Expect(epsStatus).Should(BeNil())
+			Expect(err).Should(BeNil())
+			Expect(endpoints.AreReady()).Should(BeTrue())
+			policyStatus := endpoints.GetPolicyStatus()
+			// default mode with no policy, all endpoints must be in allow all
+			Expect(policyStatus[models.EndpointPolicyEnabledNone]).Should(Equal(4))
+			Expect(policyStatus[models.EndpointPolicyEnabledIngress]).Should(Equal(0))
+			Expect(policyStatus[models.EndpointPolicyEnabledEgress]).Should(Equal(0))
+			Expect(policyStatus[models.EndpointPolicyEnabledBoth]).Should(Equal(0))
 
-		endpoints, err := kubectl.CiliumEndpointsListByLabel(ciliumPod, podFilter)
-		Expect(err).Should(BeNil())
-		Expect(endpoints.AreReady()).Should(BeTrue())
-		policyStatus := endpoints.GetPolicyStatus()
-		// default mode with no policy, all endpoints must be in allow all
-		Expect(policyStatus[models.EndpointPolicyEnabledNone]).Should(Equal(4))
-		Expect(policyStatus[models.EndpointPolicyEnabledIngress]).Should(Equal(0))
-		Expect(policyStatus[models.EndpointPolicyEnabledEgress]).Should(Equal(0))
-		Expect(policyStatus[models.EndpointPolicyEnabledBoth]).Should(Equal(0))
+			By("Set PolicyEnforcement to always")
 
-		By("Set PolicyEnforcement to always")
+			status = kubectl.CiliumExec(
+				ciliumPod, fmt.Sprintf("cilium config %s=%s",
+					helpers.PolicyEnforcement, helpers.PolicyEnforcementAlways))
+			status.ExpectSuccess()
 
-		status = kubectl.CiliumExec(ciliumPod, fmt.Sprintf("cilium config %s=%s", helpers.PolicyEnforcement, helpers.PolicyEnforcementAlways))
-		status.ExpectSuccess()
+			kubectl.CiliumEndpointWait(ciliumPod)
 
-		kubectl.CiliumEndpointWait(ciliumPod)
+			endpoints, err = kubectl.CiliumEndpointsListByLabel(ciliumPod, podFilter)
+			Expect(err).Should(BeNil())
+			Expect(endpoints.AreReady()).Should(BeTrue())
+			policyStatus = endpoints.GetPolicyStatus()
+			// Always-on mode with no policy, all endpoints must be in default deny
+			Expect(policyStatus[models.EndpointPolicyEnabledNone]).Should(Equal(0))
+			Expect(policyStatus[models.EndpointPolicyEnabledIngress]).Should(Equal(0))
+			Expect(policyStatus[models.EndpointPolicyEnabledEgress]).Should(Equal(0))
+			Expect(policyStatus[models.EndpointPolicyEnabledBoth]).Should(Equal(4))
 
-		endpoints, err = kubectl.CiliumEndpointsListByLabel(ciliumPod, podFilter)
-		Expect(err).Should(BeNil())
-		Expect(endpoints.AreReady()).Should(BeTrue())
-		policyStatus = endpoints.GetPolicyStatus()
-		// Always-on mode with no policy, all endpoints must be in default deny
-		Expect(policyStatus[models.EndpointPolicyEnabledNone]).Should(Equal(0))
-		Expect(policyStatus[models.EndpointPolicyEnabledIngress]).Should(Equal(0))
-		Expect(policyStatus[models.EndpointPolicyEnabledEgress]).Should(Equal(0))
-		Expect(policyStatus[models.EndpointPolicyEnabledBoth]).Should(Equal(4))
+			By("Return PolicyEnforcement to default")
 
-		By("Return PolicyEnforcement to default")
+			status = kubectl.CiliumExec(
+				ciliumPod, fmt.Sprintf("cilium config %s=%s",
+					helpers.PolicyEnforcement, helpers.PolicyEnforcementDefault))
+			status.ExpectSuccess()
 
-		status = kubectl.CiliumExec(ciliumPod, fmt.Sprintf("cilium config %s=%s", helpers.PolicyEnforcement, helpers.PolicyEnforcementDefault))
-		status.ExpectSuccess()
+			kubectl.CiliumEndpointWait(ciliumPod)
 
-		kubectl.CiliumEndpointWait(ciliumPod)
+			endpoints, err = kubectl.CiliumEndpointsListByLabel(ciliumPod, podFilter)
+			Expect(err).Should(BeNil())
+			Expect(endpoints.AreReady()).Should(BeTrue())
+			policyStatus = endpoints.GetPolicyStatus()
+			// Default mode with no policy, all endpoints must still be in default allow
+			Expect(policyStatus[models.EndpointPolicyEnabledNone]).Should(Equal(4))
+			Expect(policyStatus[models.EndpointPolicyEnabledIngress]).Should(Equal(0))
+			Expect(policyStatus[models.EndpointPolicyEnabledEgress]).Should(Equal(0))
+			Expect(policyStatus[models.EndpointPolicyEnabledBoth]).Should(Equal(0))
+		}, 500)
 
-		endpoints, err = kubectl.CiliumEndpointsListByLabel(ciliumPod, podFilter)
-		Expect(err).Should(BeNil())
-		Expect(endpoints.AreReady()).Should(BeTrue())
-		policyStatus = endpoints.GetPolicyStatus()
-		// Default mode with no policy, all endpoints must still be in default allow
-		Expect(policyStatus[models.EndpointPolicyEnabledNone]).Should(Equal(4))
-		Expect(policyStatus[models.EndpointPolicyEnabledIngress]).Should(Equal(0))
-		Expect(policyStatus[models.EndpointPolicyEnabledEgress]).Should(Equal(0))
-		Expect(policyStatus[models.EndpointPolicyEnabledBoth]).Should(Equal(0))
-	}, 500)
+		It("Policies", func() {
+			appPods := getAppPods(helpers.DefaultNamespace)
+			service := "app1-service"
+			clusterIP, _, err := kubectl.GetServiceHostPort(helpers.DefaultNamespace, service)
+			logger.Infof("PolicyRulesTest: cluster service ip '%s'", clusterIP)
+			Expect(err).Should(BeNil(), "Cannot get service %q", service)
 
-	It("Policies", func() {
-		appPods := getAppPods()
-		clusterIP, err := kubectl.Get(helpers.DefaultNamespace, "svc").Filter(
-			"{.items[?(@.metadata.name == \"app1-service\")].spec.clusterIP}")
-		logger.Infof("PolicyRulesTest: cluster service ip '%s'", clusterIP)
-		Expect(err).Should(BeNil())
+			ciliumPod, err := kubectl.GetCiliumPodOnNode(helpers.KubeSystemNamespace, helpers.K8s1)
+			Expect(err).Should(BeNil())
 
-		ciliumPod, err := kubectl.GetCiliumPodOnNode(helpers.KubeSystemNamespace, helpers.K8s1)
-		Expect(err).Should(BeNil())
+			status := kubectl.CiliumExec(
+				ciliumPod, fmt.Sprintf("cilium config %s=%s",
+					helpers.PolicyEnforcement, helpers.PolicyEnforcementDefault))
+			status.ExpectSuccess()
 
-		status := kubectl.CiliumExec(ciliumPod, fmt.Sprintf("cilium config %s=%s", helpers.PolicyEnforcement, helpers.PolicyEnforcementDefault))
-		status.ExpectSuccess()
+			kubectl.CiliumEndpointWait(ciliumPod)
 
-		kubectl.CiliumEndpointWait(ciliumPod)
+			By("Testing L3/L4 rules")
 
-		By("Testing L3/L4 rules")
+			eps := kubectl.CiliumEndpointPolicyVersion(ciliumPod)
+			_, err = kubectl.CiliumPolicyAction(
+				helpers.KubeSystemNamespace, l3Policy, helpers.KubectlApply, 300)
+			Expect(err).Should(BeNil())
 
-		eps := kubectl.CiliumEndpointPolicyVersion(ciliumPod)
-		_, err = kubectl.CiliumPolicyAction(helpers.KubeSystemNamespace, l3Policy, helpers.KubectlApply, 300)
-		Expect(err).Should(BeNil())
+			err = waitUntilEndpointUpdates(ciliumPod, eps, 4)
+			Expect(err).Should(BeNil())
+			epsStatus := helpers.WithTimeout(func() bool {
+				endpoints, err := kubectl.CiliumEndpointsListByLabel(ciliumPod, podFilter)
+				if err != nil {
+					return false
+				}
+				return endpoints.AreReady()
+			}, "could not get endpoints", &helpers.TimeoutConfig{Timeout: 100})
 
-		err = waitUntilEndpointUpdates(ciliumPod, eps, 4)
-		Expect(err).Should(BeNil())
-		epsStatus := helpers.WithTimeout(func() bool {
+			Expect(epsStatus).Should(BeNil())
+			appPods = getAppPods(helpers.DefaultNamespace)
+
 			endpoints, err := kubectl.CiliumEndpointsListByLabel(ciliumPod, podFilter)
-			if err != nil {
-				return false
+			policyStatus := endpoints.GetPolicyStatus()
+			// only the two app1 replicas should be in default-deny at ingress
+			Expect(policyStatus[models.EndpointPolicyEnabledNone]).Should(Equal(2))
+			Expect(policyStatus[models.EndpointPolicyEnabledIngress]).Should(Equal(2))
+			Expect(policyStatus[models.EndpointPolicyEnabledEgress]).Should(Equal(0))
+			Expect(policyStatus[models.EndpointPolicyEnabledBoth]).Should(Equal(0))
+
+			trace := kubectl.CiliumExec(ciliumPod, fmt.Sprintf(
+				"cilium policy trace --src-k8s-pod default:%s --dst-k8s-pod default:%s --dport 80",
+				appPods[helpers.App2], appPods[helpers.App1]))
+			trace.ExpectSuccess(trace.CombineOutput().String())
+			Expect(trace.Output().String()).Should(ContainSubstring("Final verdict: ALLOWED"))
+
+			trace = kubectl.CiliumExec(ciliumPod, fmt.Sprintf(
+				"cilium policy trace --src-k8s-pod default:%s --dst-k8s-pod default:%s",
+				appPods[helpers.App3], appPods[helpers.App1]))
+			trace.ExpectSuccess(trace.CombineOutput().String())
+			Expect(trace.Output().String()).Should(ContainSubstring("Final verdict: DENIED"))
+
+			_, err = kubectl.ExecPodCmd(
+				helpers.DefaultNamespace, appPods[helpers.App2],
+				fmt.Sprintf("curl http://%s/public", clusterIP))
+			Expect(err).Should(BeNil())
+
+			_, err = kubectl.ExecPodCmd(
+				helpers.DefaultNamespace, appPods[helpers.App3],
+				helpers.CurlFail(fmt.Sprintf("http://%s/public", clusterIP)))
+			Expect(err).Should(HaveOccurred())
+
+			eps = kubectl.CiliumEndpointPolicyVersion(ciliumPod)
+			status = kubectl.Delete(l3Policy)
+			status.ExpectSuccess()
+			kubectl.CiliumEndpointWait(ciliumPod)
+
+			//Only 1 endpoint is affected by L7 rule
+			err = waitUntilEndpointUpdates(ciliumPod, eps, 4)
+			Expect(err).Should(BeNil())
+
+			By("Testing L7 Policy")
+			//All Monkey testing in this section is on runtime
+
+			eps = kubectl.CiliumEndpointPolicyVersion(ciliumPod)
+			_, err = kubectl.CiliumPolicyAction(
+				helpers.KubeSystemNamespace, l7Policy, helpers.KubectlApply, 300)
+			Expect(err).Should(BeNil())
+			err = waitUntilEndpointUpdates(ciliumPod, eps, 4)
+			Expect(err).Should(BeNil())
+
+			appPods = getAppPods(helpers.DefaultNamespace)
+
+			_, err = kubectl.ExecPodCmd(
+				helpers.DefaultNamespace, appPods[helpers.App2],
+				fmt.Sprintf("curl http://%s/public", clusterIP))
+			Expect(err).Should(BeNil())
+
+			msg, err := kubectl.ExecPodCmd(
+				helpers.DefaultNamespace, appPods[helpers.App2],
+				fmt.Sprintf("curl --fail -s http://%s/private", clusterIP))
+			Expect(err).Should(HaveOccurred(), msg)
+
+			_, err = kubectl.ExecPodCmd(
+				helpers.DefaultNamespace, appPods[helpers.App3],
+				fmt.Sprintf("curl --fail -s http://%s/public", clusterIP))
+			Expect(err).Should(HaveOccurred())
+
+			msg, err = kubectl.ExecPodCmd(
+				helpers.DefaultNamespace, appPods[helpers.App3],
+				fmt.Sprintf("curl --fail -s http://%s/private", clusterIP))
+			Expect(err).Should(HaveOccurred(), msg)
+
+			eps = kubectl.CiliumEndpointPolicyVersion(ciliumPod)
+			status = kubectl.Delete(l7Policy)
+			status.ExpectSuccess()
+
+			//Only 1 endpoint is affected by L7 rule
+			err = waitUntilEndpointUpdates(ciliumPod, eps, 4)
+			Expect(err).Should(BeNil())
+
+			_, err = kubectl.ExecPodCmd(
+				helpers.DefaultNamespace, appPods[helpers.App3],
+				fmt.Sprintf("curl --fail -s http://%s/public", clusterIP))
+			Expect(err).Should(BeNil())
+		}, 500)
+
+		It("Same Policy in the different namespaces", func() {
+			namespace := "second"
+			policy := fmt.Sprintf("%s -n %s", l3Policy, namespace)
+			demoManifest := fmt.Sprintf("%s -n %s", demoPath, namespace)
+			kubectl.NamespaceCreate(namespace)
+			kubectl.Apply(demoManifest)
+			defer func() {
+				kubectl.Delete(demoManifest)
+				kubectl.Delete(policy)
+				kubectl.NamespaceDelete(namespace)
+
+			}()
+
+			pods, err := kubectl.WaitforPods(
+				namespace,
+				"-l zgroup=testapp", 300)
+			Expect(pods).To(BeTrue(), "testapp pods are not ready after timeout")
+			Expect(err).To(BeNil(), "testapp pods are not ready after timeout")
+
+			ciliumPod, err := kubectl.GetCiliumPodOnNode(helpers.KubeSystemNamespace, helpers.K8s1)
+			Expect(err).Should(BeNil())
+
+			By("Applying Policy in namespace")
+			eps := kubectl.CiliumEndpointPolicyVersion(ciliumPod)
+			_, err = kubectl.CiliumPolicyAction(
+				helpers.KubeSystemNamespace, policy, helpers.KubectlApply, 300)
+			Expect(err).Should(BeNil(), "L3 Policy cannot be applied in %q namespace", namespace)
+
+			err = waitUntilEndpointUpdates(ciliumPod, eps, 4)
+			Expect(err).Should(BeNil())
+
+			By("Applying Policy in default namespace")
+			eps = kubectl.CiliumEndpointPolicyVersion(ciliumPod)
+			_, err = kubectl.CiliumPolicyAction(
+				helpers.KubeSystemNamespace, l3Policy, helpers.KubectlApply, 300)
+			Expect(err).Should(BeNil(), "L3 Policy cannot be applied in %q namespace", helpers.DefaultNamespace)
+			err = waitUntilEndpointUpdates(ciliumPod, eps, 4)
+			Expect(err).Should(BeNil(), "Endpoints timeout on namespaces %q", helpers.DefaultNamespace)
+
+			By(fmt.Sprintf("Testing %s namespace", namespace))
+			clusterIP, _, err := kubectl.GetServiceHostPort(namespace, "app1-service")
+			Expect(err).To(BeNil(), "Cannot get service on %q namespace", namespace)
+			appPods := getAppPods(namespace)
+			_, err = kubectl.ExecPodCmd(
+				namespace, appPods[helpers.App2],
+				fmt.Sprintf("curl http://%s/public", clusterIP))
+			Expect(err).Should(BeNil())
+
+			_, err = kubectl.ExecPodCmd(
+				namespace, appPods[helpers.App3],
+				helpers.CurlFail(fmt.Sprintf("http://%s/public", clusterIP)))
+			Expect(err).Should(HaveOccurred())
+
+			By("Testing default namespace")
+			clusterIP, _, err = kubectl.GetServiceHostPort(helpers.DefaultNamespace, "app1-service")
+			Expect(err).To(BeNil(), "Cannot get service on default namespace")
+
+			appPods = getAppPods(helpers.DefaultNamespace)
+			_, err = kubectl.ExecPodCmd(
+				helpers.DefaultNamespace, appPods[helpers.App2],
+				fmt.Sprintf("curl http://%s/public", clusterIP))
+			Expect(err).Should(BeNil())
+
+			_, err = kubectl.ExecPodCmd(
+				helpers.DefaultNamespace, appPods[helpers.App3],
+				helpers.CurlFail(fmt.Sprintf("http://%s/public", clusterIP)))
+			Expect(err).Should(HaveOccurred())
+		})
+	})
+
+	Context("GuestBook Examples", func() {
+		var (
+			deployment                = "guestbook_deployment.json"
+			groupLabel                = "zgroup=guestbook"
+			redisPolicy               = "guestbook-policy-redis.json"
+			redisPolicyName           = "guestbook-redis"
+			redisPolicyDeprecated     = "guestbook-policy-redis-deprecated.json"
+			redisPolicyDeprecatedName = "guestbook-redis-deprecated"
+			webPolicy                 = "guestbook-policy-web.yaml"
+			webPolicyName             = "guestbook-web"
+		)
+
+		var ciliumPod, ciliumPod2 string
+		var err error
+
+		BeforeEach(func() {
+			kubectl.Apply(kubectl.ManifestGet(deployment))
+
+			ciliumPod, err = kubectl.GetCiliumPodOnNode(helpers.KubeSystemNamespace, helpers.K8s1)
+			Expect(err).Should(BeNil())
+
+			ciliumPod2, err = kubectl.GetCiliumPodOnNode(helpers.KubeSystemNamespace, helpers.K8s2)
+			Expect(err).Should(BeNil())
+		})
+
+		AfterEach(func() {
+			kubectl.Delete(kubectl.ManifestGet(deployment))
+			kubectl.Delete(kubectl.ManifestGet(webPolicy))
+			kubectl.Delete(kubectl.ManifestGet(redisPolicy))
+			kubectl.Delete(kubectl.ManifestGet(redisPolicyDeprecated))
+		})
+
+		waitforPods := func() {
+			pods, err := kubectl.WaitforPods(
+				helpers.DefaultNamespace,
+				fmt.Sprintf("-l %s", groupLabel), 300)
+			ExpectWithOffset(1, pods).Should(BeTrue())
+			ExpectWithOffset(1, err).Should(BeNil())
+		}
+
+		testConnectivitytoRedis := func() {
+			webPods, err := kubectl.GetPodsNodes(helpers.DefaultNamespace, "-l k8s-app.guestbook=web")
+			Expect(err).To(BeNil(), "Cannot get web pods")
+
+			for pod := range webPods {
+				command := `nc redis-master 6379 <<EOF
+							PING
+							EOF`
+				_, err := kubectl.ExecPodCmd(helpers.DefaultNamespace, pod, command)
+				ExpectWithOffset(1, err).To(BeNil(), "Web pod %q cannot connect to redis", pod)
 			}
-			return endpoints.AreReady()
-		}, "could not get endpoints", &helpers.TimeoutConfig{Timeout: 100})
+		}
+		It("checks policy example", func() {
+			waitforPods()
 
-		Expect(epsStatus).Should(BeNil())
-		appPods = getAppPods()
+			By("Apply policy to web")
+			eps := kubectl.CiliumEndpointPolicyVersion(ciliumPod)
+			_, err := kubectl.CiliumPolicyAction(
+				helpers.KubeSystemNamespace, kubectl.ManifestGet(webPolicy),
+				helpers.KubectlApply, 300)
+			Expect(err).Should(BeNil(), "Cannot apply web-policy err: %q", err)
 
-		endpoints, err := kubectl.CiliumEndpointsListByLabel(ciliumPod, podFilter)
-		policyStatus := endpoints.GetPolicyStatus()
-		// only the two app1 replicas should be in default-deny at ingress
-		Expect(policyStatus[models.EndpointPolicyEnabledNone]).Should(Equal(2))
-		Expect(policyStatus[models.EndpointPolicyEnabledIngress]).Should(Equal(2))
-		Expect(policyStatus[models.EndpointPolicyEnabledEgress]).Should(Equal(0))
-		Expect(policyStatus[models.EndpointPolicyEnabledBoth]).Should(Equal(0))
+			err = waitUntilEndpointUpdates(ciliumPod, eps, 3)
+			Expect(err).To(BeNil(), "Pods are not ready after timeout")
 
-		trace := kubectl.CiliumExec(ciliumPod, fmt.Sprintf(
-			"cilium policy trace --src-k8s-pod default:%s --dst-k8s-pod default:%s --dport 80",
-			appPods[helpers.App2], appPods[helpers.App1]))
-		trace.ExpectSuccess(trace.CombineOutput().String())
-		Expect(trace.Output().String()).Should(ContainSubstring("Final verdict: ALLOWED"))
+			policyCheck := fmt.Sprintf("cilium policy get %s=%s %s=%s",
+				helpers.KubectlPolicyNameLabel, webPolicyName,
+				helpers.KubectlPolicyNameSpaceLabel, helpers.DefaultNamespace)
+			kubectl.CiliumExec(ciliumPod, policyCheck).ExpectSuccess(
+				"Policy %q is not in cilium", webPolicyName)
+			kubectl.CiliumExec(ciliumPod2, policyCheck).ExpectSuccess(
+				"Policy %q is not in cilium", webPolicyName)
 
-		trace = kubectl.CiliumExec(ciliumPod, fmt.Sprintf(
-			"cilium policy trace --src-k8s-pod default:%s --dst-k8s-pod default:%s",
-			appPods[helpers.App3], appPods[helpers.App1]))
-		trace.ExpectSuccess(trace.CombineOutput().String())
-		Expect(trace.Output().String()).Should(ContainSubstring("Final verdict: DENIED"))
+			By("Apply policy to Redis")
+			eps = kubectl.CiliumEndpointPolicyVersion(ciliumPod)
+			_, err = kubectl.CiliumPolicyAction(
+				helpers.KubeSystemNamespace, kubectl.ManifestGet(redisPolicy),
+				helpers.KubectlApply, 300)
+			Expect(err).Should(BeNil(), "Cannot apply redis policy err:%q", err)
 
-		_, err = kubectl.ExecPodCmd(
-			helpers.DefaultNamespace, appPods[helpers.App2], fmt.Sprintf("curl http://%s/public", clusterIP))
-		Expect(err).Should(BeNil())
+			err = waitUntilEndpointUpdates(ciliumPod, eps, 1)
+			Expect(err).To(BeNil(), "Pods are not ready after timeout")
 
-		_, err = kubectl.ExecPodCmd(
-			helpers.DefaultNamespace, appPods[helpers.App3], fmt.Sprintf("curl --fail -s http://%s/public", clusterIP))
-		Expect(err).Should(HaveOccurred())
+			policyCheck = fmt.Sprintf("cilium policy get %s=%s %s=%s",
+				helpers.KubectlPolicyNameLabel, redisPolicyName,
+				helpers.KubectlPolicyNameSpaceLabel, helpers.DefaultNamespace)
 
-		eps = kubectl.CiliumEndpointPolicyVersion(ciliumPod)
-		status = kubectl.Delete(l3Policy)
-		status.ExpectSuccess()
-		kubectl.CiliumEndpointWait(ciliumPod)
+			kubectl.CiliumExec(ciliumPod, policyCheck).ExpectSuccess(
+				"Policy %q is not in cilium", redisPolicyName)
+			kubectl.CiliumExec(ciliumPod2, policyCheck).ExpectSuccess(
+				"Policy %q is not in cilium", redisPolicyName)
 
-		//Only 1 endpoint is affected by L7 rule
-		err = waitUntilEndpointUpdates(ciliumPod, eps, 4)
-		Expect(err).Should(BeNil())
+			testConnectivitytoRedis()
 
-		By("Testing L7 Policy")
-		//All Monkey testing in this section is on runtime
+			kubectl.Delete(kubectl.ManifestGet(redisPolicy)).ExpectSuccess(
+				"Cannot delete the redis policy")
 
-		eps = kubectl.CiliumEndpointPolicyVersion(ciliumPod)
-		_, err = kubectl.CiliumPolicyAction(helpers.KubeSystemNamespace, l7Policy, helpers.KubectlApply, 300)
-		Expect(err).Should(BeNil())
-		err = waitUntilEndpointUpdates(ciliumPod, eps, 4)
-		Expect(err).Should(BeNil())
+			By("Apply deprecated policy to Redis")
 
-		appPods = getAppPods()
+			eps = kubectl.CiliumEndpointPolicyVersion(ciliumPod)
+			_, err = kubectl.CiliumPolicyAction(
+				helpers.KubeSystemNamespace, kubectl.ManifestGet(redisPolicyDeprecated),
+				helpers.KubectlApply, 300)
+			Expect(err).Should(BeNil(), "Cannot apply redis deprecated policy err: %q", err)
 
-		_, err = kubectl.ExecPodCmd(
-			helpers.DefaultNamespace, appPods[helpers.App2], fmt.Sprintf("curl http://%s/public", clusterIP))
-		Expect(err).Should(BeNil())
+			err = waitUntilEndpointUpdates(ciliumPod, eps, 1)
+			Expect(err).To(BeNil(), "Pods are not ready after timeout")
 
-		msg, err := kubectl.ExecPodCmd(
-			helpers.DefaultNamespace, appPods[helpers.App2], fmt.Sprintf("curl --fail -s http://%s/private", clusterIP))
-		Expect(err).Should(HaveOccurred(), msg)
+			policyCheck = fmt.Sprintf("cilium policy get %s=%s %s=%s",
+				helpers.KubectlPolicyNameLabel, redisPolicyDeprecatedName,
+				helpers.KubectlPolicyNameSpaceLabel, helpers.DefaultNamespace)
+			kubectl.CiliumExec(ciliumPod, policyCheck).ExpectSuccess(
+				"Policy %q is not in cilium", redisPolicyName)
+			kubectl.CiliumExec(ciliumPod2, policyCheck).ExpectSuccess(
+				"Policy %q is not in cilium", redisPolicyName)
 
-		_, err = kubectl.ExecPodCmd(
-			helpers.DefaultNamespace, appPods[helpers.App3], fmt.Sprintf("curl --fail -s http://%s/public", clusterIP))
-		Expect(err).Should(HaveOccurred())
-
-		msg, err = kubectl.ExecPodCmd(
-			helpers.DefaultNamespace, appPods[helpers.App3], fmt.Sprintf("curl --fail -s http://%s/private", clusterIP))
-		Expect(err).Should(HaveOccurred(), msg)
-
-		eps = kubectl.CiliumEndpointPolicyVersion(ciliumPod)
-		status = kubectl.Delete(l7Policy)
-		status.ExpectSuccess()
-
-		//Only 1 endpoint is affected by L7 rule
-		err = waitUntilEndpointUpdates(ciliumPod, eps, 4)
-		Expect(err).Should(BeNil())
-
-		_, err = kubectl.ExecPodCmd(
-			helpers.DefaultNamespace, appPods[helpers.App3], fmt.Sprintf("curl --fail -s http://%s/public", clusterIP))
-		Expect(err).Should(BeNil())
-	}, 500)
+			testConnectivitytoRedis()
+		})
+	})
 })
 
 var _ = Describe("K8sValidatedPolicyTestAcrossNamespaces", func() {
