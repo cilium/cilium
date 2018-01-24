@@ -181,6 +181,7 @@ var _ = Describe("RuntimeConnectivityTest", func() {
 		AfterEach(func() {
 			vm.ContainerRm(cniServer)
 			vm.ContainerRm(cniClient)
+			vm.Exec("docker rm -f $(docker ps | grep busybox:latest | awk '{print $1}')")
 		})
 
 		runCNIContainer := func(name string, label string) {
@@ -261,11 +262,10 @@ var _ = Describe("RuntimeConnectivityTest", func() {
 			serverIPv4 := vm.ContainerExec(
 				cniServer,
 				`ip -4 a show dev eth0 scope global | grep inet | sed -e 's%.*inet \(.*\)\/.*%\1%'`)
-
 			vm.ContainerExec(cniClient, helpers.Ping6(serverIPv6.SingleOut())).ExpectSuccess(
-				"cannot ping6 from client to server %q", serverIPv6)
+				"cannot ping6 from client to server %q", serverIPv6.SingleOut())
 			vm.ContainerExec(cniClient, helpers.Ping(serverIPv4.SingleOut())).ExpectSuccess(
-				"cannot ping from client to server %q", serverIPv4)
+				"cannot ping from client to server %q", serverIPv4.SingleOut())
 		})
 	})
 })
