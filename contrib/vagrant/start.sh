@@ -357,7 +357,6 @@ else
     echo "K8S_NODE_NAME=\$(hostname)" >> /etc/sysconfig/cilium
     echo 'CILIUM_OPTS="${ubuntu_1604_cilium_lb} ${ubuntu_1604_interface} ${cilium_options}"' >> /etc/sysconfig/cilium
     echo 'PATH=/usr/local/clang/bin:/usr/local/sbin:/usr/local/bin:/usr/bin:/usr/sbin:/sbin:/bin' >> /etc/sysconfig/cilium
-    echo 'CILIUM_USE_ENVOY=1' >> /etc/sysconfig/cilium
     chmod 644 /etc/sysconfig/cilium
 fi
 

@@ -16,7 +16,7 @@ ADD . ./
 # Please do not add any dependency updates before the 'make install' here,
 # as that will mess with caching for incremental builds!
 #
-RUN make PKG_BUILD=1 CILIUM_USE_ENVOY=1 DESTDIR=/tmp/install clean-container build install
+RUN make PKG_BUILD=1 DESTDIR=/tmp/install clean-container build install
 
 #
 # Cilium runtime install.
@@ -38,6 +38,5 @@ RUN groupadd -f cilium && \
 echo ". /etc/profile.d/bash_completion.sh" >> /root/.bashrc && \
 cilium completion bash >> /root/.bashrc
 ENV INITSYSTEM="SYSTEMD"
-ENV CILIUM_USE_ENVOY=1
 
 CMD ["/usr/bin/cilium"]
