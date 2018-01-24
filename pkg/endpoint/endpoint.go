@@ -288,10 +288,10 @@ type Endpoint struct {
 	// reference to all policy related BPF
 	PolicyMap *policymap.PolicyMap `json:"-"`
 
-	// L3Policy is the CIDR based policy configuration of the endpoint
-	L3Policy *policy.L3Policy `json:"-"`
+	// CIDRPolicy is the CIDR based policy configuration of the endpoint
+	L3Policy *policy.CIDRPolicy `json:"-"`
 
-	// L3Maps is the datapath representation of L3Policy
+	// L3Maps is the datapath representation of CIDRPolicy
 	L3Maps L3Maps `json:"-"`
 
 	// Opts are configurable boolean options

@@ -27,27 +27,27 @@ import (
 	"github.com/cilium/cilium/pkg/policy/api"
 )
 
-// L3PolicyMapRule holds a L3 prefix and the rule labels that allow it.
-type L3PolicyMapRule struct {
+// CIDRPolicyMapRule holds a L3 (CIDR) prefix and the rule labels that allow it.
+type CIDRPolicyMapRule struct {
 	Prefix           net.IPNet
 	DerivedFromRules labels.LabelArrayList
 }
 
-// L3PolicyMap is a list of CIDR filters indexable by address/prefixlen
+// CIDRPolicyMap is a list of CIDR filters indexable by address/prefixlen
 // key format: "address/prefixlen", e.g., "10.1.1.0/24"
 // Each prefix struct also includes the rule labels that allowed it.
 //
-// L3PolicyMap does no locking internally, so the user is responsible for synchronizing
+// CIDRPolicyMap does no locking internally, so the user is responsible for synchronizing
 // between multiple threads when applicable.
-type L3PolicyMap struct {
-	Map       map[string]*L3PolicyMapRule // Allowed L3 prefixes
-	IPv6Count int                         // Count of IPv6 prefixes in 'Map'
-	IPv4Count int                         // Count of IPv4 prefixes in 'Map'
+type CIDRPolicyMap struct {
+	Map       map[string]*CIDRPolicyMapRule // Allowed L3 (CIDR) prefixes
+	IPv6Count int                           // Count of IPv6 prefixes in 'Map'
+	IPv4Count int                           // Count of IPv4 prefixes in 'Map'
 }
 
-// Insert places 'cidr' in to map 'm'. Returns `1` if `cidr` is added
-// to the map, `0` otherwise
-func (m *L3PolicyMap) Insert(cidr string, ruleLabels labels.LabelArray) int {
+// Insert places 'cidr' and its corresponding rule labels into map 'm'. Returns
+// `1` if `cidr` is added to the map, `0` otherwise.
+func (m *CIDRPolicyMap) Insert(cidr string, ruleLabels labels.LabelArray) int {
 	_, ipnet, err := net.ParseCIDR(cidr)
 	if err != nil {
 		var mask net.IPMask
@@ -72,7 +72,7 @@ func (m *L3PolicyMap) Insert(cidr string, ruleLabels labels.LabelArray) int {
 
 	key := ipnet.IP.String() + "/" + strconv.Itoa(ones)
 	if _, found := m.Map[key]; !found {
-		m.Map[key] = &L3PolicyMapRule{Prefix: *ipnet, DerivedFromRules: labels.LabelArrayList{ruleLabels}}
+		m.Map[key] = &CIDRPolicyMapRule{Prefix: *ipnet, DerivedFromRules: labels.LabelArrayList{ruleLabels}}
 		if ipnet.IP.To4() == nil {
 			m.IPv6Count++
 		} else {
@@ -86,9 +86,9 @@ func (m *L3PolicyMap) Insert(cidr string, ruleLabels labels.LabelArray) int {
 	return 0
 }
 
-// ToBPFData converts map 'm' into string slices 's6' and 's4',
+// ToBPFData converts map 'm' into string slices 's6' (IPv6) and 's4' (IPv4),
 // formatted for insertion into bpf program.
-func (m *L3PolicyMap) ToBPFData() (s6, s4 []string) {
+func (m *CIDRPolicyMap) ToBPFData() (s6, s4 []string) {
 	for _, v := range m.Map {
 		ipnet := v.Prefix
 		ip4 := ipnet.IP.To4()
@@ -106,10 +106,11 @@ func (m *L3PolicyMap) ToBPFData() (s6, s4 []string) {
 	return
 }
 
-// PopulateBPF inserts the entries in map 'm' in to 'cidrmap'.
-func (m *L3PolicyMap) PopulateBPF(cidrmap *cidrmap.CIDRMap) error {
-	for _, l3PolicyRule := range m.Map {
-		value := l3PolicyRule.Prefix
+// PopulateBPF inserts the entries in m into cidrmap. Returns an error
+// if the insertion of an entry of cidrmap into m fails.
+func (m *CIDRPolicyMap) PopulateBPF(cidrmap *cidrmap.CIDRMap) error {
+	for _, cidrPolicyRule := range m.Map {
+		value := cidrPolicyRule.Prefix
 		if value.IP.To4() == nil {
 			if cidrmap.AddrSize != 16 {
 				continue
@@ -127,32 +128,32 @@ func (m *L3PolicyMap) PopulateBPF(cidrmap *cidrmap.CIDRMap) error {
 	return nil
 }
 
-// L3Policy contains L3 policy maps for ingress and egress.
-type L3Policy struct {
-	Ingress L3PolicyMap
-	Egress  L3PolicyMap
+// CIDRPolicy contains L3 (CIDR) policy maps for ingress and egress.
+type CIDRPolicy struct {
+	Ingress CIDRPolicyMap
+	Egress  CIDRPolicyMap
 }
 
-// NewL3Policy creates a new L3Policy.
-func NewL3Policy() *L3Policy {
-	return &L3Policy{
-		Ingress: L3PolicyMap{
-			Map: make(map[string]*L3PolicyMapRule),
+// NewCIDRPolicy creates a new CIDRPolicy.
+func NewCIDRPolicy() *CIDRPolicy {
+	return &CIDRPolicy{
+		Ingress: CIDRPolicyMap{
+			Map: make(map[string]*CIDRPolicyMapRule),
 		},
-		Egress: L3PolicyMap{
-			Map: make(map[string]*L3PolicyMapRule),
+		Egress: CIDRPolicyMap{
+			Map: make(map[string]*CIDRPolicyMapRule),
 		},
 	}
 }
 
-// GetModel returns the API model representation of the L3Policy.
-func (l3 *L3Policy) GetModel() *models.CIDRPolicy {
-	if l3 == nil {
+// GetModel returns the API model representation of the CIDRPolicy.
+func (cp *CIDRPolicy) GetModel() *models.CIDRPolicy {
+	if cp == nil {
 		return nil
 	}
 
 	ingress := []*models.PolicyRule{}
-	for _, v := range l3.Ingress.Map {
+	for _, v := range cp.Ingress.Map {
 		ingress = append(ingress, &models.PolicyRule{
 			Rule:             v.Prefix.String(),
 			DerivedFromRules: v.DerivedFromRules.GetModel(),
@@ -160,7 +161,7 @@ func (l3 *L3Policy) GetModel() *models.CIDRPolicy {
 	}
 
 	egress := []*models.PolicyRule{}
-	for _, v := range l3.Egress.Map {
+	for _, v := range cp.Egress.Map {
 		egress = append(egress, &models.PolicyRule{
 			Rule:             v.Prefix.String(),
 			DerivedFromRules: v.DerivedFromRules.GetModel(),
@@ -173,16 +174,16 @@ func (l3 *L3Policy) GetModel() *models.CIDRPolicy {
 	}
 }
 
-// Validate returns error if the L3 policy might lead to code generation failure
-func (l3 *L3Policy) Validate() error {
-	if l3 == nil {
+// Validate returns error if the CIDR policy might lead to code generation failure
+func (cp *CIDRPolicy) Validate() error {
+	if cp == nil {
 		return nil
 	}
-	if l := len(l3.Egress.Map); l > api.MaxCIDREntries {
-		return fmt.Errorf("too many egress L3 entries %d/%d", l, api.MaxCIDREntries)
+	if l := len(cp.Egress.Map); l > api.MaxCIDREntries {
+		return fmt.Errorf("too many egress CIDR entries %d/%d", l, api.MaxCIDREntries)
 	}
-	if l := len(l3.Ingress.Map); l > api.MaxCIDREntries {
-		return fmt.Errorf("too many ingress L3 entries %d/%d", l, api.MaxCIDREntries)
+	if l := len(cp.Ingress.Map); l > api.MaxCIDREntries {
+		return fmt.Errorf("too many ingress CIDR entries %d/%d", l, api.MaxCIDREntries)
 	}
 	return nil
 }

@@ -431,7 +431,7 @@ func (e *Endpoint) regenerateL3Policy(owner Owner, repo *policy.Repository, revi
 	if owner.TracingEnabled() {
 		ctx.Trace = policy.TRACE_ENABLED
 	}
-	newL3policy := repo.ResolveL3Policy(&ctx)
+	newL3policy := repo.ResolveCIDRPolicy(&ctx)
 	// Perform the validation on the new policy
 	err := newL3policy.Validate()
 	valid := err == nil
