@@ -143,7 +143,7 @@ func (s *SSHMeta) WaitEndpointRegenerated(id string) bool {
 }
 
 // WaitEndpointsReady waits up until MaxRetries times for all endpoints to
-// not be in any regenerating or waiting-to-generate state. Returns true if
+// not be in any regenerating or waiting-for-identity state. Returns true if
 // all endpoints regenerate before MaxRetries are exceeded, false otherwise.
 func (s *SSHMeta) WaitEndpointsReady() bool {
 	logger := s.logger.WithFields(logrus.Fields{"functionName": "WaitEndpointsReady"})
@@ -154,6 +154,7 @@ func (s *SSHMeta) WaitEndpointsReady() bool {
 	// filter for endpoints (start with an endpoint id) and count not-ready endpoints
 	cmdString := "cilium endpoint list | egrep '^[0-9]+' | grep -v ready -c"
 	infoCmd := "cilium endpoint list"
+	s.Exec(infoCmd) //Executing this command to save all endpoints output in the logs
 	res := s.Exec(cmdString)
 	logger.Infof("string output of cmd: %s", res.stdout.String())
 	numEndpointsRegenerating, err := strconv.Atoi(strings.TrimSuffix(res.stdout.String(), "\n"))
@@ -185,7 +186,6 @@ func (s *SSHMeta) WaitEndpointsReady() bool {
 		}
 		counter++
 	}
-
 	return true
 }
 
