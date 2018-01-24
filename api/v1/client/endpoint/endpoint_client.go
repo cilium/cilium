@@ -247,6 +247,37 @@ func (a *Client) GetEndpointIDLog(params *GetEndpointIDLogParams) (*GetEndpointI
 }
 
 /*
+GetEndpointIps retrieves a list of all endpoint ips in the cluster and their corresponding security identities
+
+Retrieves a list of all endpoint IPs in the cluster and their corresponding security identities.
+
+*/
+func (a *Client) GetEndpointIps(params *GetEndpointIpsParams) (*GetEndpointIpsOK, error) {
+	// TODO: Validate the params before sending
+	if params == nil {
+		params = NewGetEndpointIpsParams()
+	}
+
+	result, err := a.transport.Submit(&runtime.ClientOperation{
+		ID:                 "GetEndpointIps",
+		Method:             "GET",
+		PathPattern:        "/endpointIPs",
+		ProducesMediaTypes: []string{"application/json"},
+		ConsumesMediaTypes: []string{"application/json"},
+		Schemes:            []string{"http"},
+		Params:             params,
+		Reader:             &GetEndpointIpsReader{formats: a.formats},
+		Context:            params.Context,
+		Client:             params.HTTPClient,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return result.(*GetEndpointIpsOK), nil
+
+}
+
+/*
 PatchEndpointID modifies existing endpoint
 
 Applies the endpoint change request to an existing endpoint
