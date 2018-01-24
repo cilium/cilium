@@ -135,6 +135,9 @@ const (
 	KubectlCreate = ResourceLifeCycleAction("create")
 	KubectlDelete = ResourceLifeCycleAction("delete")
 	KubectlApply  = ResourceLifeCycleAction("apply")
+
+	KubectlPolicyNameLabel      = "io.cilium.k8s-policy-name"
+	KubectlPolicyNameSpaceLabel = "io.cilium.k8s-policy-namespace"
 )
 
 var ciliumCLICommands = map[string]string{
