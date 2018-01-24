@@ -1011,7 +1011,7 @@ func NewDaemon(c *Config) (*Daemon, error) {
 	log.Infof("IPv6 node prefix: %s", node.GetIPv6NodeRange())
 	log.Infof("IPv6 allocation prefix: %s", node.GetIPv6AllocRange())
 	log.Infof("IPv4 allocation prefix: %s", node.GetIPv4AllocRange())
-	log.Debugf("IPv6 router address: %s", node.GetIPv6Router())
+	log.Infof("IPv6 router address: %s", node.GetIPv6Router())
 
 	// Populate list of nodes with local node entry
 	ni, n := node.GetLocalNode()
