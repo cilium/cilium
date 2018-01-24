@@ -55,7 +55,7 @@ rm bazel-0.8.1-installer-linux-x86_64.sh && \
 #
 # Build only Envoy dependencies
 #
-make PKG_BUILD=1 CILIUM_USE_ENVOY=1 -f Makefile.deps
+make PKG_BUILD=1 -f Makefile.deps
 #
 # Absolutely nothing after making envoy deps!
 #

@@ -542,55 +542,54 @@ EOF
 
 sudo cilium bpf ct list global
 
-if [ -n "${CILIUM_USE_ENVOY}" ]; then
-  test_reachability "client" "$SERVER_3_IP4" "/public"
-  test_reachability "client" "[$SERVER_3_IP]" "/public"
-  test_reachability_nc "client" 11111 "$SERVER_3_IP4" "/public"
-  test_reachability_nc "client" 11111 "$SERVER_3_IP" "/public"
-  test_reachability_nc "client" 11112 "$SERVER_3_IP4" "/public"
-  test_reachability_nc "client" 11112 "$SERVER_3_IP" "/public"
-  # FIXME if we don't set +e, the return code from test_unreachability makes the
-  # test to fail GH #1919
-  set +e
-  test_unreachability_nc "client" 11111 "$SERVER_3_IP4" "/private"
-  test_unreachability_nc "client" 11111 "$SERVER_3_IP" "/private"
-  set -e
-  monitor_clear
+test_reachability "client" "$SERVER_3_IP4" "/public"
+test_reachability "client" "[$SERVER_3_IP]" "/public"
+test_reachability_nc "client" 11111 "$SERVER_3_IP4" "/public"
+test_reachability_nc "client" 11111 "$SERVER_3_IP" "/public"
+test_reachability_nc "client" 11112 "$SERVER_3_IP4" "/public"
+test_reachability_nc "client" 11112 "$SERVER_3_IP" "/public"
+# FIXME if we don't set +e, the return code from test_unreachability makes the
+# test to fail GH #1919
+set +e
+test_unreachability_nc "client" 11111 "$SERVER_3_IP4" "/private"
+test_unreachability_nc "client" 11111 "$SERVER_3_IP" "/private"
+set -e
+monitor_clear
 
-  log "deleting all policies in cilium"
-  policy_delete_and_wait --all
-  # Clean all ct entries
-  cilium bpf ct flush global
+log "deleting all policies in cilium"
+policy_delete_and_wait --all
+# Clean all ct entries
+cilium bpf ct flush global
 
-  wait_for_endpoints 6
+wait_for_endpoints 6
 
-  log "Testing if the CT deletes all entries except the ones specified in the policy"
+log "Testing if the CT deletes all entries except the ones specified in the policy"
 
-  # FIXME use a http server that allows to specify multiple ports
-  start_server_netcat 0.0.0.0 80
-  test_reachability_port "client" "$SERVER_4_IP4" 80 "/dummy"
-  start_server_netcat [::] 80
-  test_reachability_port "client" "[$SERVER_4_IP]" 80 "/dummy"
-  start_server_netcat 0.0.0.0 81
-  test_reachability_port "client" "$SERVER_4_IP4" 81 "/dummy"
-  start_server_netcat [::] 82
-  test_reachability_port "client" "[$SERVER_4_IP]" 82 "/dummy"
-  start_server_netcat 0.0.0.0 83
-  test_reachability_port "client" "$SERVER_4_IP4" 83 "/dummy"
-  start_server_netcat [::] 84
-  test_reachability_port "client" "[$SERVER_4_IP]" 84 "/dummy"
-  start_server_netcat 0.0.0.0 85
-  test_reachability_port "client" "$SERVER_4_IP4" 85 "/dummy"
-  start_server_netcat [::] 86
-  test_reachability_port "client" "[$SERVER_4_IP]" 86 "/dummy"
+# FIXME use a http server that allows to specify multiple ports
+start_server_netcat 0.0.0.0 80
+test_reachability_port "client" "$SERVER_4_IP4" 80 "/dummy"
+start_server_netcat [::] 80
+test_reachability_port "client" "[$SERVER_4_IP]" 80 "/dummy"
+start_server_netcat 0.0.0.0 81
+test_reachability_port "client" "$SERVER_4_IP4" 81 "/dummy"
+start_server_netcat [::] 82
+test_reachability_port "client" "[$SERVER_4_IP]" 82 "/dummy"
+start_server_netcat 0.0.0.0 83
+test_reachability_port "client" "$SERVER_4_IP4" 83 "/dummy"
+start_server_netcat [::] 84
+test_reachability_port "client" "[$SERVER_4_IP]" 84 "/dummy"
+start_server_netcat 0.0.0.0 85
+test_reachability_port "client" "$SERVER_4_IP4" 85 "/dummy"
+start_server_netcat [::] 86
+test_reachability_port "client" "[$SERVER_4_IP]" 86 "/dummy"
 
-  bef_client_server_4_ct_entries=$(count_ct_entries_of "\[${SERVER_4_IP4}\]" "\[${CLIENT_IP}\]" "${CLIENT_SEC_ID}")
-  bef_client4_server_4_ct_entries=$(count_ct_entries_of "${SERVER_4_IP4}" "${CLIENT_IP4}" "${CLIENT_SEC_ID}")
+bef_client_server_4_ct_entries=$(count_ct_entries_of "\[${SERVER_4_IP4}\]" "\[${CLIENT_IP}\]" "${CLIENT_SEC_ID}")
+bef_client4_server_4_ct_entries=$(count_ct_entries_of "${SERVER_4_IP4}" "${CLIENT_IP4}" "${CLIENT_SEC_ID}")
 
-  check_ct_entries_of_le "${bef_client_server_4_ct_entries}" 8 "${SERVER_4_IP}" "${CLIENT_IP}"
-  check_ct_entries_of_le "${bef_client4_server_4_ct_entries}" 8 "${SERVER_4_IP4}" "${CLIENT_IP4}"
+check_ct_entries_of_le "${bef_client_server_4_ct_entries}" 8 "${SERVER_4_IP}" "${CLIENT_IP}"
+check_ct_entries_of_le "${bef_client4_server_4_ct_entries}" 8 "${SERVER_4_IP4}" "${CLIENT_IP4}"
 
-  cat <<EOF | policy_import_and_wait -
+cat <<EOF | policy_import_and_wait -
 [{
     "endpointSelector": {"matchLabels":{"id.server-4":""}},
     "ingress": [{
@@ -616,17 +615,14 @@ if [ -n "${CILIUM_USE_ENVOY}" ]; then
 }]
 EOF
 
-  sudo cilium bpf ct list global
+sudo cilium bpf ct list global
 
-  log "checking if only port 81 and port 82 are open the ct table since they are specified on a imported rule and are not going through the proxy"
+log "checking if only port 81 and port 82 are open the ct table since they are specified on a imported rule and are not going through the proxy"
 
-  bef_client_server_4_ct_entries=$(count_ct_entries_of "\[${SERVER_4_IP4}\]" "\[${CLIENT_IP}\]" "${CLIENT_SEC_ID}")
-  bef_client4_server_4_ct_entries=$(count_ct_entries_of "${SERVER_4_IP4}" "${CLIENT_IP4}" "${CLIENT_SEC_ID}")
+bef_client_server_4_ct_entries=$(count_ct_entries_of "\[${SERVER_4_IP4}\]" "\[${CLIENT_IP}\]" "${CLIENT_SEC_ID}")
+bef_client4_server_4_ct_entries=$(count_ct_entries_of "${SERVER_4_IP4}" "${CLIENT_IP4}" "${CLIENT_SEC_ID}")
 
-  check_ct_entries_of_le "${bef_client_server_4_ct_entries}" 2 "${SERVER_4_IP}" "${CLIENT_IP}"
-  check_ct_entries_of_le "${bef_client4_server_4_ct_entries}" 2 "${SERVER_4_IP4}" "${CLIENT_IP4}"
-else
-  log "Not using envoy proxy: skipping rest of CT tests due to oxy bug GH 2240"
-fi
+check_ct_entries_of_le "${bef_client_server_4_ct_entries}" 2 "${SERVER_4_IP}" "${CLIENT_IP}"
+check_ct_entries_of_le "${bef_client4_server_4_ct_entries}" 2 "${SERVER_4_IP4}" "${CLIENT_IP4}"
 
 test_succeeded "${TEST_NAME}"
