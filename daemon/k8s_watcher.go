@@ -1556,6 +1556,8 @@ func (d *Daemon) addCiliumNetworkPolicyV2(ciliumV2Store cache.Store, cnp *cilium
 
 	scopedLog.Debug("Adding CiliumNetworkPolicy")
 
+	// TODO (ianvernon) - why do we sanitize all rules here if they are already
+	// sanitized in PolicyAdd?
 	rules, err := cnp.Parse()
 	if err == nil && len(rules) > 0 {
 		d.loadBalancer.K8sMU.Lock()
@@ -1563,6 +1565,7 @@ func (d *Daemon) addCiliumNetworkPolicyV2(ciliumV2Store cache.Store, cnp *cilium
 		d.loadBalancer.K8sMU.Unlock()
 		if err == nil {
 			_, err = d.PolicyAdd(rules, &AddOptions{Replace: true})
+			// TODO (ianvernon) - why do we ignore this error? shouldn't we alert the user?
 		}
 	}
 

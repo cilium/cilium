@@ -138,7 +138,7 @@ func (h *getPolicyResolve) Handle(params GetPolicyResolveParams) middleware.Resp
 
 	d.policy.Mutex.RUnlock()
 
-	// Return allowed verdict if policy enforcement isn't enabled between the two sets of labels.
+	// Return allowed ingressVerdict if policy enforcement isn't enabled between the two sets of labels.
 	if !isPolicyEnforcementEnabled {
 		buffer := new(bytes.Buffer)
 		ctx := params.IdentityContext
@@ -153,7 +153,7 @@ func (h *getPolicyResolve) Handle(params GetPolicyResolveParams) middleware.Resp
 			searchCtx.Trace = policy.TRACE_VERBOSE
 		}
 		verdict := api.Allowed.String()
-		searchCtx.PolicyTrace("Label verdict: %s\n", verdict)
+		searchCtx.PolicyTrace("Label ingressVerdict: %s\n", verdict)
 		msg := fmt.Sprintf("%s\n  %s\n%s", searchCtx.String(), policyEnforcementMsg, buffer.String())
 		return NewGetPolicyResolveOK().WithPayload(&models.PolicyTraceResult{
 			Log:     msg,
@@ -179,12 +179,12 @@ func (h *getPolicyResolve) Handle(params GetPolicyResolveParams) middleware.Resp
 
 	d.policy.Mutex.RLock()
 
-	verdict := d.policy.AllowsRLocked(&searchCtx)
+	ingressVerdict := d.policy.AllowsRLocked(&searchCtx)
 
 	d.policy.Mutex.RUnlock()
 
 	result := models.PolicyTraceResult{
-		Verdict: verdict.String(),
+		Verdict: ingressVerdict.String(),
 		Log:     buffer.String(),
 	}
 
@@ -203,9 +203,10 @@ func (d *Daemon) policyAdd(rules api.Rules, opts *AddOptions) (uint64, error) {
 
 	oldRules := api.Rules{}
 
+	// Replace old rules if specified.
 	if opts != nil && opts.Replace {
-		// Make copy of rules matching labels of new rules while
-		// deleting them.
+		// Make copy of rules matching labels of new rules while deleting them
+		// in case adding new rules fails so we can restore the old ones.
 		for _, r := range rules {
 			tmp := d.policy.SearchRLocked(r.Labels)
 			if len(tmp) > 0 {
@@ -215,15 +216,16 @@ func (d *Daemon) policyAdd(rules api.Rules, opts *AddOptions) (uint64, error) {
 		}
 	}
 
+	// Add rules to the repository.
 	rev, err := d.policy.AddListLocked(rules)
 	if err != nil {
 		metrics.PolicyImportErrors.Inc()
-		// Restore old rules
+		// Restore old rules.
 		if len(oldRules) > 0 {
 			if rev, err2 := d.policy.AddListLocked(oldRules); err2 != nil {
 				log.WithError(err2).Error("Error while restoring old rules after adding of new rules failed")
 				log.Error("--- INCONSISTENT STATE OF POLICY ---")
-				return rev, err
+				return rev, err2
 			}
 		}
 
@@ -234,10 +236,11 @@ func (d *Daemon) policyAdd(rules api.Rules, opts *AddOptions) (uint64, error) {
 }
 
 // PolicyAdd adds a slice of rules to the policy repository owned by the
-// daemon.  Policy enforcement is automatically enabled if currently disabled if
+// daemon. Policy enforcement is automatically enabled if currently disabled if
 // k8s is not enabled. Otherwise, if k8s is enabled, policy is enabled on the
 // pods which are selected. Eventual changes in policy rules are propagated to
-// all locally managed endpoints.
+// all locally managed endpoints. Returns the revision number of the policy
+// repository if successful or an error if the policy could not be added.
 func (d *Daemon) PolicyAdd(rules api.Rules, opts *AddOptions) (uint64, error) {
 	log.WithField(logfields.CiliumNetworkPolicy, logfields.Repr(rules)).Debug("Policy Add Request")
 
@@ -253,6 +256,8 @@ func (d *Daemon) PolicyAdd(rules api.Rules, opts *AddOptions) (uint64, error) {
 	}
 
 	log.Info("New policy imported, regenerating...")
+
+	// TODO (ianvernon) why do we not use the wait group here?
 	d.TriggerPolicyUpdates(false)
 
 	return rev, nil

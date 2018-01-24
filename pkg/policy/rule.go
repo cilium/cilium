@@ -376,17 +376,10 @@ func (r *rule) resolveL3Policy(ctx *SearchContext, state *traceState, result *L3
 	return nil
 }
 
-func (r *rule) canReach(ctx *SearchContext, state *traceState) api.Decision {
-	entitiesDecision := r.canReachEntities(ctx, state)
-
-	if !r.EndpointSelector.Matches(ctx.To) {
-		if entitiesDecision == api.Undecided {
-			state.unSelectRule(ctx, r)
-		} else {
-			state.selectRule(ctx, r)
-		}
-		return entitiesDecision
-	}
+// canReachIngress returns the decision as to whether the set of labels specified
+// in ctx.From match with the label selectors specified in the ingress rules
+// contained within r.
+func (r *rule) canReachIngress(ctx *SearchContext, state *traceState) api.Decision {
 
 	state.selectRule(ctx, r)
 	for _, r := range r.Ingress {
@@ -401,8 +394,8 @@ func (r *rule) canReach(ctx *SearchContext, state *traceState) api.Decision {
 		}
 	}
 
-	// separate loop is needed as failure to meet FromRequires always takes
-	// precedence over FromEndpoints
+	// Separate loop is needed as failure to meet FromRequires always takes
+	// precedence over FromEndpoints.
 	for _, r := range r.Ingress {
 		for _, sel := range r.FromEndpoints {
 			ctx.PolicyTrace("    Allows from labels %+v", sel)
@@ -413,6 +406,8 @@ func (r *rule) canReach(ctx *SearchContext, state *traceState) api.Decision {
 					state.matchedRules++
 					return api.Allowed
 				}
+				// Cannot decide purely based off of L3 because there are L4
+				// restrictions.
 				ctx.PolicyTrace("        Rule restricts traffic to specific L4 destinations; deferring policy decision to L4 policy stage\n")
 			} else {
 				ctx.PolicyTrace("      Labels %v not found\n", ctx.From)
@@ -420,6 +415,8 @@ func (r *rule) canReach(ctx *SearchContext, state *traceState) api.Decision {
 		}
 	}
 
+	// Process entities last because we let rules themselves take precedence
+	// over whether we can get traffic from external entities.
 	for _, entitySelector := range r.fromEntities {
 		if entitySelector.Matches(ctx.From) {
 			ctx.PolicyTrace("+     Found all required labels to match entity %s\n", entitySelector.String())
@@ -429,10 +426,82 @@ func (r *rule) canReach(ctx *SearchContext, state *traceState) api.Decision {
 
 	}
 
+	return api.Undecided
+}
+
+// canReachEgress returns the decision as to whether the set of labels specified
+// in ctx.To match with the label selectors specified in the egress rules
+// contained within r.
+func (r *rule) canReachEgress(ctx *SearchContext, state *traceState) api.Decision {
+	entitiesDecision := r.canReachToEntities(ctx, state)
+
+	// Handles case where the EndpointSelector for this rule does not match
+	// the set of egress labels, but the entity cannot be covered by
+	// rule.EndpointSelector in ToEndpoints because there are no ToEndpoints
+	// rules.
+	if !r.EndpointSelector.Matches(ctx.To) {
+		if entitiesDecision == api.Undecided {
+			state.unSelectRule(ctx, r)
+		} else {
+			state.selectRule(ctx, r)
+		}
+		log.Debugf("canReachEgress: returning entities decision %v", entitiesDecision)
+		return entitiesDecision
+	}
+
+	state.selectRule(ctx, r)
+
+	for _, r := range r.Egress {
+		log.Debugf("going through egress rules to requires")
+		for _, sel := range r.ToRequires {
+			ctx.PolicyTrace("    Requires from labels %+v", sel)
+			if !sel.Matches(ctx.To) {
+				ctx.PolicyTrace("-     Labels %v not found\n", ctx.To)
+				state.constrainedRules++
+				return api.Denied
+			}
+		}
+		ctx.PolicyTrace("+     Found all required labels\n")
+	}
+
+	// Separate loop is needed as failure to meet ToRequires always takes
+	// precedence over ToEndpoints.
+	for _, r := range r.Egress {
+		log.Debugf("going through egress rules to endpoints")
+		for _, sel := range r.ToEndpoints {
+			ctx.PolicyTrace("    Allows to labels %+v", sel)
+			if sel.Matches(ctx.To) {
+				log.WithFields(logrus.Fields{
+					"ctx":   ctx,
+					"state": state,
+					"rule":  r,
+				}).Debugf("EGRESS LABEL SELECTOR MATCHES")
+				ctx.PolicyTrace("      Found all required labels")
+				if len(r.ToPorts) == 0 {
+					ctx.PolicyTrace("+       No L4 restrictions\n")
+					state.matchedRules++
+					return api.Allowed
+				}
+				ctx.PolicyTrace("        Rule restricts traffic from specific L4 destinations; deferring policy decision to L4 policy stage\n")
+			} else {
+				ctx.PolicyTrace("      Labels %v not found\n", ctx.To)
+			}
+		}
+	}
+
 	return entitiesDecision
 }
 
-func (r *rule) canReachEntities(ctx *SearchContext, state *traceState) api.Decision {
+// canReachToEntities returns the decision of whether any of the entities in the
+// rule are allowed to communicate with the entities defined in ctx.To. If no
+// entities match those in ctx.To, an undecided verdict is returned.
+func (r *rule) canReachToEntities(ctx *SearchContext, state *traceState) api.Decision {
+	log.WithFields(logrus.Fields{
+		"ctx":   ctx,
+		"state": state,
+		"rule":  r,
+	}).Debugf("canReachToEntities")
+
 	for _, entitySelector := range r.toEntities {
 		if entitySelector.Matches(ctx.To) {
 			ctx.PolicyTrace("+     Found all required labels to match entity %s\n", entitySelector.String())

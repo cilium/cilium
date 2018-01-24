@@ -113,13 +113,14 @@ func ParseNetworkPolicy(np *networkingv1.NetworkPolicy) (api.Rules, error) {
 		egress := api.EgressRule{}
 		if eRule.To != nil && len(eRule.To) > 0 {
 			for _, rule := range eRule.To {
-				if rule.NamespaceSelector != nil || rule.PodSelector != nil {
-					// TODO: GH-2095
-					log.Warning("Cilium does not support PodSelector or NamespaceSelector for K8s Egress rules")
+				endpointSelector, err := parseNetworkPolicyPeer(namespace, &rule)
+				if err != nil {
+					return nil, err
 				}
 				if rule.IPBlock != nil {
 					egress.ToCIDRSet = append(egress.ToCIDRSet, ipBlockToCIDRRule(rule.IPBlock))
 				}
+				egress.ToEndpoints = append(egress.ToEndpoints, *endpointSelector)
 			}
 		}
 		egresses = append(egresses, egress)

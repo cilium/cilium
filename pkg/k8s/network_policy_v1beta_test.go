@@ -124,7 +124,8 @@ func (s *K8sSuite) TestParseNetworkPolicyDeprecated(c *C) {
 	}
 
 	// ctx.To needs to have all labels from the policy in order to be accepted
-	c.Assert(repo.CanReachRLocked(&ctx), Not(Equals), api.Allowed)
+	ingressVerdict, _ := repo.CanReachRLocked(&ctx)
+	c.Assert(ingressVerdict, Not(Equals), api.Allowed)
 
 	ctx = policy.SearchContext{
 		From: labels.LabelArray{
@@ -137,7 +138,8 @@ func (s *K8sSuite) TestParseNetworkPolicyDeprecated(c *C) {
 		Trace: policy.TRACE_VERBOSE,
 	}
 	// ctx.From also needs to have all labels from the policy in order to be accepted
-	c.Assert(repo.CanReachRLocked(&ctx), Not(Equals), api.Allowed)
+	ingressVerdict, _ = repo.CanReachRLocked(&ctx)
+	c.Assert(ingressVerdict, Not(Equals), api.Allowed)
 }
 
 func (s *K8sSuite) TestParseNetworkPolicyUnknownProtoDeprecated(c *C) {
@@ -196,7 +198,8 @@ func (s *K8sSuite) TestParseNetworkPolicyEmptyFromDeprecated(c *C) {
 
 	repo := policy.NewPolicyRepository()
 	repo.AddList(rules)
-	c.Assert(repo.CanReachRLocked(&ctx), Equals, api.Allowed)
+	ingressVerdict, _ := repo.CanReachRLocked(&ctx)
+	c.Assert(ingressVerdict, Equals, api.Allowed)
 
 	// Empty From rules, all sources should be allowed
 	netPolicy2 := &v1beta1.NetworkPolicy{
@@ -220,7 +223,8 @@ func (s *K8sSuite) TestParseNetworkPolicyEmptyFromDeprecated(c *C) {
 	c.Assert(len(rules), Equals, 1)
 	repo = policy.NewPolicyRepository()
 	repo.AddList(rules)
-	c.Assert(repo.CanReachRLocked(&ctx), Equals, api.Allowed)
+	ingressVerdict, _ = repo.CanReachRLocked(&ctx)
+	c.Assert(ingressVerdict, Equals, api.Allowed)
 }
 
 func (s *K8sSuite) TestParseNetworkPolicyDenyAllDeprecated(c *C) {
