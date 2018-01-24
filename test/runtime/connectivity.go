@@ -36,6 +36,9 @@ var _ = Describe("RuntimeConnectivityTest", func() {
 	}
 
 	AfterEach(func() {
+		if CurrentGinkgoTestDescription().Failed {
+			vm.ReportFailed()
+		}
 		vm.PolicyDelAll().ExpectSuccess("Policies cannot be deleted")
 		return
 	})
@@ -255,17 +258,19 @@ var _ = Describe("RuntimeConnectivityTest", func() {
 			areEndpointsReady := vm.WaitEndpointsReady()
 			Expect(areEndpointsReady).Should(BeTrue())
 
+			serverIPv4 := vm.ContainerExec(
+				cniServer,
+				`ip -4 a show dev eth0 scope global | grep inet | sed -e 's%.*inet \(.*\)\/.*%\1%'`)
+
 			serverIPv6 := vm.ContainerExec(
 				cniServer,
 				`ip -6 a show dev eth0 scope global | grep inet6 | sed -e 's%.*inet6 \(.*\)\/.*%\1%'`)
 
-			serverIPv4 := vm.ContainerExec(
-				cniServer,
-				`ip -4 a show dev eth0 scope global | grep inet | sed -e 's%.*inet \(.*\)\/.*%\1%'`)
-			vm.ContainerExec(cniClient, helpers.Ping6(serverIPv6.SingleOut())).ExpectSuccess(
-				"cannot ping6 from client to server %q", serverIPv6.SingleOut())
 			vm.ContainerExec(cniClient, helpers.Ping(serverIPv4.SingleOut())).ExpectSuccess(
 				"cannot ping from client to server %q", serverIPv4.SingleOut())
+
+			vm.ContainerExec(cniClient, helpers.Ping6(serverIPv6.SingleOut())).ExpectSuccess(
+				"cannot ping6 from client to server %q", serverIPv6.SingleOut())
 		})
 	})
 })
