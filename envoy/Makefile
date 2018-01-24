@@ -12,11 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-ifndef CILIUM_USE_ENVOY
-all .DEFAULT:
-	echo "Envoy build skipped, define CILIUM_USE_ENVOY to build Envoy for Cilium."
-else
-
 include ../Makefile.defs
 
 ENVOY_BIN = ./bazel-bin/envoy
@@ -157,6 +152,4 @@ endif
 force-non-root:
 ifeq ($(USER),root)
 	$(error This target cannot be run as root!)
-endif
-
 endif

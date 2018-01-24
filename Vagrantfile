@@ -57,17 +57,12 @@ else
 fi
 SCRIPT
 
-$envoyexport = "export CILIUM_USE_ENVOY=1\n"
-$build = $envoyexport
-$install = $envoyexport
-$testsuite = $envoyexport
-
-$build += <<SCRIPT
+$build = <<SCRIPT
 ~/go/src/github.com/cilium/cilium/common/build.sh
 rm -fr ~/go/bin/cilium*
 SCRIPT
 
-$install += <<SCRIPT
+$install = <<SCRIPT
 sudo -E make -C /home/vagrant/go/src/github.com/cilium/cilium/ install
 
 if [ -n "$(grep DISTRIB_RELEASE=14.04 /etc/lsb-release)" ]; then
@@ -89,7 +84,7 @@ fi
 sudo usermod -a -G cilium vagrant
 SCRIPT
 
-$testsuite += <<SCRIPT
+$testsuite = <<SCRIPT
 make -C ~/go/src/github.com/cilium/cilium/ tests || exit 1
 sudo -E env PATH="${PATH}" make -C ~/go/src/github.com/cilium/cilium/ runtime-tests
 SCRIPT
