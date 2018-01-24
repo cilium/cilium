@@ -199,12 +199,12 @@ var _ = Describe("RuntimeConnectivityTest", func() {
 			res = vm.Exec(fmt.Sprintf(
 				"sudo -E PATH=$PATH:/opt/cni/bin -E CNI_PATH=%[1]s/bin %[1]s/cni/scripts/exec-plugins.sh add %s %s",
 				tmpDir.SingleOut(), containerID, netnspath))
-			res.ExpectSuccess()
+			res.ExpectSuccess("CNI exec-plugins did not work correctly '%s'", res.CombineOutput().String())
 
 			res = vm.ContainerCreate(
 				name, helpers.NetperfImage,
 				fmt.Sprintf("container:%s", containerID), fmt.Sprintf("-l %s", label))
-			res.ExpectSuccess()
+			res.ExpectSuccess("Container %s cannot be created", name)
 		}
 
 		It("Basic connectivity test", func() {
