@@ -62,7 +62,7 @@ func (i *IngressRule) sanitize() error {
 	}
 
 	if l := len(i.FromCIDR); l > MaxCIDREntries {
-		return fmt.Errorf("too many ingress L3 entries %d/%d", l, MaxCIDREntries)
+		return fmt.Errorf("too many ingress CIDR entries %d/%d", l, MaxCIDREntries)
 	}
 
 	for n := range i.FromCIDR {
@@ -91,7 +91,7 @@ func (e *EgressRule) sanitize() error {
 		}
 	}
 	if l := len(e.ToCIDR); l > MaxCIDREntries {
-		return fmt.Errorf("too many egress L3 entries %d/%d", l, MaxCIDREntries)
+		return fmt.Errorf("too many egress CIDR entries %d/%d", l, MaxCIDREntries)
 	}
 	for i := range e.ToCIDR {
 		if err := e.ToCIDR[i].sanitize(); err != nil {

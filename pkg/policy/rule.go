@@ -298,7 +298,8 @@ func (r *rule) resolveL4Policy(ctx *SearchContext, state *traceState, result *L4
 	return nil, nil
 }
 
-func mergeL3(ctx *SearchContext, dir string, ipRules []api.CIDR, ruleLabels labels.LabelArray, resMap *L3PolicyMap) int {
+// mergeL3 checks
+func mergeL3(ctx *SearchContext, dir string, ipRules []api.CIDR, ruleLabels labels.LabelArray, resMap *CIDRPolicyMap) int {
 	found := 0
 
 	for _, r := range ipRules {
@@ -335,7 +336,12 @@ func computeResultantCIDRSet(cidrs []api.CIDRRule) []api.CIDR {
 	return allResultantAllowedCIDRs
 }
 
-func (r *rule) resolveL3Policy(ctx *SearchContext, state *traceState, result *L3Policy) *L3Policy {
+// resolveCIDRPolicy inserts the CIDRs from the specified rule into result if
+// the rule corresponds to the current SearchContext. It returns the resultant
+// CIDRPolicy containing the added ingress and egress CIDRs. If no CIDRs are
+// added to result, a nil CIDRPolicy is returned.
+func (r *rule) resolveCIDRPolicy(ctx *SearchContext, state *traceState, result *CIDRPolicy) *CIDRPolicy {
+	// Don't select rule if it doesn't apply to the given context.
 	if !r.EndpointSelector.Matches(ctx.To) {
 		state.unSelectRule(ctx, r)
 		return nil
