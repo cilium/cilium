@@ -168,14 +168,17 @@ func (s *SSHMeta) ExecContext(ctx context.Context, cmd string) *CmdRes {
 		Stderr: stderr,
 	}
 
-	go func() {
-		s.sshClient.RunCommandContext(ctx, command)
-	}()
-
-	return &CmdRes{
+	res := CmdRes{
 		cmd:    cmd,
 		stdout: stdout,
 		stderr: stderr,
 		exit:   false,
 	}
+
+	go func() {
+		s.sshClient.RunCommandContext(ctx, command)
+		res.SendToLog()
+	}()
+
+	return &res
 }
