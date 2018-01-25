@@ -375,8 +375,7 @@ type L7Rules struct {
 type PortRuleHTTP struct {
 	// Path is an extended POSIX regex matched against the path of a
 	// request. Currently it can contain characters disallowed from the
-	// conventional "path" part of a URL as defined by RFC 3986. Paths must
-	// begin with a '/'.
+	// conventional "path" part of a URL as defined by RFC 3986.
 	//
 	// If omitted or empty, all paths are all allowed.
 	//
