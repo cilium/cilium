@@ -44,6 +44,10 @@ const (
 
 	// MaxTime specifies the last possible time for GCFilter.Time
 	MaxTime = math.MaxUint32
+
+	noAction = iota
+	modifyEntry
+	deleteEntry
 )
 
 type CtType int
@@ -92,9 +96,11 @@ type CtEntryDump struct {
 const (
 	// GCFilterByTime filters CT entries by time
 	GCFilterByTime = 1 << iota
-	// GCFilterByID filters CT entries by IP and IDsToRm
-	GCFilterByID
-	// GCFilterByIDsToKeep filters CT entries by IP and for all IDs that are not in the IDsToKeep
+	// GCFilterByIDToMod modifies all CT entries with the new proxyport number
+	// if they are matched by the filter.
+	GCFilterByIDToMod
+	// GCFilterByIDsToKeep removes all CT entries that do not match by the
+	// filter.
 	GCFilterByIDsToKeep
 )
 
@@ -105,26 +111,26 @@ type GCFilterFlags uint
 type GCFilter struct {
 	Time      uint32
 	IP        net.IP
-	IDsToRm   policy.RuleContexts
-	IDsToKeep policy.RuleContexts
-	fType     GCFilterFlags
+	IDsToMod  policy.SecurityIDContexts
+	IDsToKeep policy.SecurityIDContexts
+	Type      GCFilterFlags
 }
 
 // NewGCFilterBy creates a new GCFilter with the given flags.
 func NewGCFilterBy(f GCFilterFlags) *GCFilter {
 	return &GCFilter{
-		fType:     f,
-		IDsToRm:   policy.RuleContexts{},
-		IDsToKeep: policy.RuleContexts{},
+		Type:      f,
+		IDsToMod:  policy.NewSecurityIDContexts(),
+		IDsToKeep: policy.NewSecurityIDContexts(),
 	}
 }
 
 // TypeString returns the filter type in human readable way.
 func (f *GCFilter) TypeString() string {
-	switch f.fType {
+	switch f.Type {
 	case GCFilterByTime:
 		return "timeout"
-	case GCFilterByID:
+	case GCFilterByIDToMod:
 		return "security ID"
 	case GCFilterByIDsToKeep:
 		return "security ID to keep"
@@ -220,9 +226,8 @@ func dumpToSlice(m *bpf.Map, mapType string) ([]CtEntryDump, error) {
 // filter.
 func doGC6(m *bpf.Map, filter *GCFilter) int {
 	var (
-		deleted         int
+		action, deleted int
 		nextKey, tmpKey CtKey6Global
-		del             bool
 	)
 
 	err := m.GetNextKey(&tmpKey, &nextKey)
@@ -230,15 +235,14 @@ func doGC6(m *bpf.Map, filter *GCFilter) int {
 		return 0
 	}
 
-	// If the filter is by ID and the IDsToRm is empty then skip GC.
-	if filter.fType&GCFilterByID != 0 {
-		if len(filter.IDsToRm) == 0 {
+	// If the filter is by ID and the IDsToMod is empty then skip GC.
+	if filter.Type&GCFilterByIDToMod != 0 {
+		if len(filter.IDsToMod) == 0 {
 			return 0
 		}
 	}
 
 	for {
-		del = false
 		nextKeyValid := m.GetNextKey(&nextKey, &tmpKey)
 		entryMap, err := m.Lookup(&nextKey)
 		if err != nil {
@@ -248,58 +252,21 @@ func doGC6(m *bpf.Map, filter *GCFilter) int {
 
 		entry := entryMap.(*CtEntry)
 
-		// FIXME create a single function for doGC4 and doGC6
+		// In CT entries, the source address of the conntrack entry (`saddr`) is
+		// the destination of the packet received, therefore it's the packet's
+		// destination IP
+		action = filter.doFiltering(nextKey.saddr.IP(), nextKey.sport, uint8(nextKey.nexthdr), nextKey.flags, entry)
 
-		if filter.fType&GCFilterByTime != 0 &&
-			entry.lifetime < filter.Time {
-
-			del = true
-		}
-
-		if filter.fType&GCFilterByIDsToKeep != 0 &&
-			// In CT's entries, saddr is the packet's receiver,
-			// which means, is the destination container IP.
-			nextKey.saddr.IP().Equal(filter.IP) {
-
-			ruleCtx := policy.RuleContext{
-				SecID:          policy.NumericIdentity(entry.src_sec_id),
-				Port:           nextKey.sport,
-				Proto:          uint8(nextKey.nexthdr),
-				L7RedirectPort: entry.proxy_port,
-				IsRedirect:     entry.proxy_port != 0,
+		switch action {
+		case modifyEntry:
+			err = m.Update(&nextKey, entry)
+			if err != nil {
+				log.WithError(err).Errorf("Unable to change proxyport field for CT entry %s", nextKey.String())
 			}
-
-			// Check if the src_sec_id of that entry is not allowed
-			// to talk with the destination container IP.
-			if _, ok := filter.IDsToKeep[ruleCtx]; !ok {
-				del = true
-			}
-		}
-
-		if filter.fType&GCFilterByID != 0 &&
-			// In CT's entries, saddr is the packet's receiver,
-			// which means, is the destination container IP.
-			nextKey.saddr.IP().Equal(filter.IP) {
-
-			ruleCtx := policy.RuleContext{
-				SecID:          policy.NumericIdentity(entry.src_sec_id),
-				Port:           nextKey.sport,
-				Proto:          uint8(nextKey.nexthdr),
-				L7RedirectPort: entry.proxy_port,
-				IsRedirect:     entry.proxy_port != 0,
-			}
-
-			// Check if the src_sec_id of that entry is not allowed
-			// to talk with the destination container IP.
-			if _, ok := filter.IDsToRm[ruleCtx]; ok {
-				del = true
-			}
-		}
-
-		if del {
+		case deleteEntry:
 			err := m.Delete(&nextKey)
 			if err != nil {
-				log.WithError(err).Debug("error during Delete")
+				log.WithError(err).Errorf("Unable to delete CT entry %s", nextKey.String())
 			} else {
 				deleted++
 			}
@@ -317,9 +284,8 @@ func doGC6(m *bpf.Map, filter *GCFilter) int {
 // filter.
 func doGC4(m *bpf.Map, filter *GCFilter) int {
 	var (
-		deleted         int
+		action, deleted int
 		nextKey, tmpKey CtKey4Global
-		del             bool
 	)
 
 	err := m.GetNextKey(&tmpKey, &nextKey)
@@ -327,15 +293,14 @@ func doGC4(m *bpf.Map, filter *GCFilter) int {
 		return 0
 	}
 
-	// If the filter is by ID and the IDsToRm is empty then skip GC.
-	if filter.fType&GCFilterByID != 0 {
-		if len(filter.IDsToRm) == 0 {
+	// If the filter is by ID and the IDsToMod is empty then skip GC.
+	if filter.Type&GCFilterByIDToMod != 0 {
+		if len(filter.IDsToMod) == 0 {
 			return 0
 		}
 	}
 
 	for true {
-		del = false
 		nextKeyValid := m.GetNextKey(&nextKey, &tmpKey)
 		entryMap, err := m.Lookup(&nextKey)
 		if err != nil {
@@ -345,58 +310,21 @@ func doGC4(m *bpf.Map, filter *GCFilter) int {
 
 		entry := entryMap.(*CtEntry)
 
-		// FIXME create a single function for doGC4 and doGC6
+		// In CT entries, the source address of the conntrack entry (`saddr`) is
+		// the destination of the packet received, therefore it's the packet's
+		// destination IP
+		action = filter.doFiltering(nextKey.saddr.IP(), nextKey.sport, uint8(nextKey.nexthdr), nextKey.flags, entry)
 
-		if filter.fType&GCFilterByTime != 0 &&
-			entry.lifetime < filter.Time {
-
-			del = true
-		}
-
-		if filter.fType&GCFilterByIDsToKeep != 0 &&
-			// In CT's entries, saddr is the packet's receiver,
-			// which means, is the destination container IP.
-			nextKey.saddr.IP().Equal(filter.IP) {
-
-			ruleCtx := policy.RuleContext{
-				SecID:          policy.NumericIdentity(entry.src_sec_id),
-				Port:           nextKey.sport,
-				Proto:          uint8(nextKey.nexthdr),
-				L7RedirectPort: entry.proxy_port,
-				IsRedirect:     entry.proxy_port != 0,
+		switch action {
+		case modifyEntry:
+			err = m.Update(&nextKey, entry)
+			if err != nil {
+				log.WithError(err).Errorf("Unable to change proxyport field for CT entry %s", nextKey.String())
 			}
-
-			// Check if the src_sec_id of that entry is not allowed
-			// to talk with the destination container IP.
-			if _, ok := filter.IDsToKeep[ruleCtx]; !ok {
-				del = true
-			}
-		}
-
-		if filter.fType&GCFilterByID != 0 &&
-			// In CT's entries, saddr is the packet's receiver,
-			// which means, is the destination container IP.
-			nextKey.saddr.IP().Equal(filter.IP) {
-
-			ruleCtx := policy.RuleContext{
-				SecID:          policy.NumericIdentity(entry.src_sec_id),
-				Port:           nextKey.sport,
-				Proto:          uint8(nextKey.nexthdr),
-				L7RedirectPort: entry.proxy_port,
-				IsRedirect:     entry.proxy_port != 0,
-			}
-
-			// Check if the src_sec_id of that entry is not allowed
-			// to talk with the destination container IP.
-			if _, ok := filter.IDsToRm[ruleCtx]; ok {
-				del = true
-			}
-		}
-
-		if del {
+		case deleteEntry:
 			err := m.Delete(&nextKey)
 			if err != nil {
-				log.WithError(err).Debug("error during Delete")
+				log.WithError(err).Errorf("Unable to delete CT entry %s", nextKey.String())
 			} else {
 				deleted++
 			}
@@ -410,10 +338,111 @@ func doGC4(m *bpf.Map, filter *GCFilter) int {
 	return deleted
 }
 
+func (f *GCFilter) doFiltering(dstIP net.IP, dstPort uint16, nextHdr, flags uint8, entry *CtEntry) (action int) {
+	action = noAction
+
+	// Delete all entries with a lifetime smaller than f timestamp.
+	if f.Type&GCFilterByTime != 0 &&
+		entry.lifetime < f.Time {
+
+		action = deleteEntry
+	}
+
+	// used by FlushCTEntriesOf
+	// Delete all entries of the given dstIP that are not filtered
+	if f.Type&GCFilterByIDsToKeep != 0 &&
+		dstIP.Equal(f.IP) &&
+		// only delete TUPLE_F_IN connections since the clean up is made
+		// for ingress policies
+		flags&TUPLE_F_IN != 0 {
+
+		// Check if the src_sec_id of that entry is still allowed
+		// to talk with the destination IP.
+		if filterRuleCtx, ok := f.IDsToKeep[policy.NumericIdentity(entry.src_sec_id)]; !ok {
+			action = deleteEntry
+		} else {
+			l4RuleCtx := policy.L4RuleContext{
+				Port:  dstPort,
+				Proto: nextHdr,
+			}
+
+			if filterRuleCtx.IsL3Only() {
+				// If the rule is L3-only then check if it's allowed by
+				// L4-only rules.
+				if l4OnlyRules, ok := f.IDsToKeep[policy.InvalidIdentity]; ok {
+					wasAdded, ok := l4OnlyRules[l4RuleCtx]
+					if !ok || !wasAdded.L4Installed {
+						action = deleteEntry
+					}
+				}
+			} else {
+				// If the rule is not L3-only then check if it's allowed by
+				// L3-L4 rules.
+				if l7Rule, ok := filterRuleCtx[l4RuleCtx]; ok {
+					if l7Rule.L4Installed && entry.proxy_port != l7Rule.RedirectPort {
+						action = modifyEntry
+						entry.proxy_port = l7Rule.RedirectPort
+					}
+				} else {
+					// No rule allows this port then it should be removed.
+					action = deleteEntry
+				}
+			}
+		}
+	}
+
+	// used by ModifyEntriesOf
+	if f.Type&GCFilterByIDToMod != 0 &&
+		dstIP.Equal(f.IP) &&
+		// only modify TUPLE_F_IN connections since the modification is made
+		// for ingress policies
+		flags&TUPLE_F_IN != 0 {
+
+		// Check if the src_sec_id of that entry needs to be modified
+		// by the given filter.
+		if filterRuleCtx, ok := f.IDsToMod[policy.NumericIdentity(entry.src_sec_id)]; ok {
+			ruleCtx := policy.L4RuleContext{
+				Port:  dstPort,
+				Proto: nextHdr,
+			}
+
+			if filterRuleCtx.IsL3Only() {
+				// If the rule is L3-only then check if it's allowed by
+				// L4-only rules.
+				if l4OnlyRules, ok := f.IDsToMod[policy.InvalidIdentity]; ok {
+					if l7RuleCtx, ok := l4OnlyRules[ruleCtx]; ok {
+						if l7RuleCtx.L4Installed &&
+							l7RuleCtx.IsRedirect() &&
+							entry.proxy_port != 0 {
+
+							entry.proxy_port = 0
+							action = modifyEntry
+						}
+					}
+				}
+			} else {
+				// If the rule is not L3-only then check if it's allowed by
+				// L3-L4 rules.
+				if l7RuleCtx, ok := filterRuleCtx[ruleCtx]; ok {
+					if l7RuleCtx.L4Installed &&
+						l7RuleCtx.IsRedirect() &&
+						entry.proxy_port != 0 {
+
+						entry.proxy_port = 0
+						action = modifyEntry
+					}
+				}
+			}
+		}
+	}
+
+	return
+}
+
 // GC runs garbage collection for map m with name mapName with the given filter.
 // It returns how many items were deleted from m.
 func GC(m *bpf.Map, mapName string, filter *GCFilter) int {
-	if filter.fType&GCFilterByTime != 0 {
+	if filter.Type&GCFilterByTime != 0 {
 		// If LRUHashtable, no need to garbage collect as LRUHashtable cleans itself up.
 		if m.MapInfo.MapType == bpf.MapTypeLRUHash {
 			return 0

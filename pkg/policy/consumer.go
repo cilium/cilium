@@ -64,7 +64,9 @@ type Consumable struct {
 	ReverseRules map[NumericIdentity]*Consumer `json:"-"`
 	// L4Policy contains the policy of this consumable
 	L4Policy *L4Policy `json:"l4-policy"`
-	cache    *ConsumableCache
+	// L3L4Policy contains the L3, L4 and L7 ingress policy of this consumable
+	L3L4Policy *SecurityIDContexts `json:"l3-l4-policy"`
+	cache      *ConsumableCache
 }
 
 // NewConsumable creates a new consumable
