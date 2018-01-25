@@ -50,7 +50,7 @@ const (
 
 	// CustomResourceDefinitionSchemaVersion is semver-conformant version of CRD schema
 	// Used to determine if CRD needs to be updated in cluster
-	CustomResourceDefinitionSchemaVersion = "1.1"
+	CustomResourceDefinitionSchemaVersion = "1.2"
 
 	// CustomResourceDefinitionSchemaVersionKey is key to label which holds the CRD schema version
 	CustomResourceDefinitionSchemaVersionKey = "io.cilium.k8s.crd.schema.version"
@@ -708,40 +708,13 @@ var (
 						"a request, e.g. \"GET\", \"POST\", \"PUT\", \"PATCH\", \"DELETE\", ...\n\n" +
 						"If omitted or empty, all methods are allowed.",
 					Type: "string",
-					Enum: []apiextensionsv1beta1.JSON{
-						{
-							Raw: []byte(`"GET"`),
-						},
-						{
-							Raw: []byte(`"HEAD"`),
-						},
-						{
-							Raw: []byte(`"POST"`),
-						},
-						{
-							Raw: []byte(`"PUT"`),
-						},
-						{
-							Raw: []byte(`"DELETE"`),
-						},
-						{
-							Raw: []byte(`"CONNECT"`),
-						},
-						{
-							Raw: []byte(`"OPTIONS"`),
-						},
-						{
-							Raw: []byte(`"PATCH"`),
-						},
-					},
 				},
 				"path": {
 					Description: "Path is an extended POSIX regex matched against the path of a " +
 						"request. Currently it can contain characters disallowed from the " +
-						"conventional \"path\" part of a URL as defined by RFC 3986. Paths must " +
-						"begin with a '/'.\n\nIf omitted or empty, all paths are all allowed.",
-					Type:    "string",
-					Pattern: `^\/.*`,
+						"conventional \"path\" part of a URL as defined by RFC 3986.\n\n" +
+						"If omitted or empty, all paths are all allowed.",
+					Type: "string",
 				},
 			},
 		},
