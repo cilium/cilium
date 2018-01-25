@@ -105,7 +105,7 @@ var (
 	singleClusterRoute    bool
 	socketPath            string
 	tracePayloadLen       int
-	useEnvoy              bool
+	useEnvoy              bool // deprecated, value is ignored
 	v4Address             string
 	v4ClusterCidrMaskSize int
 	v4Prefix              string
@@ -337,8 +337,8 @@ func init() {
 	flags.BoolVar(&enableTracing,
 		"enable-tracing", false, "Enable tracing while determining policy (debugging)")
 	flags.BoolVar(&useEnvoy,
-		"envoy-proxy", false, "Use Envoy for HTTP proxy")
-	viper.BindEnv("envoy-proxy", "CILIUM_USE_ENVOY")
+		"envoy-proxy", true, "This flag is deprecated and will be removed in the next release")
+	flags.MarkHidden("envoy-proxy")
 	flags.IntVar(&v4ClusterCidrMaskSize,
 		"ipv4-cluster-cidr-mask-size", 8, "Mask size for the cluster wide CIDR")
 	flags.StringVar(&v4Prefix,

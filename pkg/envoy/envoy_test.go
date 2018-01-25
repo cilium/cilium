@@ -31,8 +31,8 @@ func (t *testRedirect) Log(pblog *HttpLogEntry) {
 func (s *EnvoySuite) TestEnvoy(c *C) {
 	log.SetLevel(logrus.DebugLevel)
 
-	if os.Getenv("CILIUM_USE_ENVOY") == "" {
-		c.Skip("skipping test; CILIUM_USE_ENVOY not set")
+	if os.Getenv("CILIUM_ENABLE_ENVOY_UNIT_TEST") == "" {
+		c.Skip("skipping envoy unit test; CILIUM_ENABLE_ENVOY_UNIT_TEST not set")
 	}
 
 	// launch debug variant of the Envoy proxy
