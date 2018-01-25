@@ -119,7 +119,6 @@ func discard(r io.Reader, n int32) {
 	}
 }
 
-
 // ReadReq returns request kind ID and byte representation of the whole message
 // in wire protocol format.
 func ReadReq(r io.Reader) (requestKind int16, b []byte, err error) {
@@ -129,7 +128,7 @@ func ReadReq(r io.Reader) (requestKind int16, b []byte, err error) {
 		return 0, nil, err
 	}
 
-	if msgSize <=0 {
+	if msgSize <= 0 {
 		return 0, nil, io.ErrUnexpectedEOF
 	}
 
@@ -143,7 +142,7 @@ func ReadReq(r io.Reader) (requestKind int16, b []byte, err error) {
 	if err != nil {
 		if msgSize > 2 {
 			// We have already read the requestKind
-			discard(r, msgSize - 2)
+			discard(r, msgSize-2)
 		}
 		return 0, nil, err
 	}
@@ -177,7 +176,7 @@ func ReadResp(r io.Reader) (correlationID int32, b []byte, err error) {
 		return 0, nil, err
 	}
 
-	if msgSize <=0 {
+	if msgSize <= 0 {
 		return 0, nil, io.ErrUnexpectedEOF
 	}
 
@@ -189,9 +188,9 @@ func ReadResp(r io.Reader) (correlationID int32, b []byte, err error) {
 	// size of the message + size of the message itself
 	b, err = allocParseBuf(int(msgSize + 4))
 	if err != nil {
-		if msgSize > 2 {
+		if msgSize > 4 {
 			// We have already read the correlationID
-			discard(r, msgSize - 4)
+			discard(r, msgSize-4)
 		}
 		return 0, nil, err
 	}
