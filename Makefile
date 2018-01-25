@@ -171,6 +171,26 @@ generate-health-api:
 	swagger generate client -t api/v1 -f api/v1/health/openapi.yaml \
 	    -a restapi -t api/v1/health/
 
+generate-k8s-api:
+	cd "$(GOPATH)/src/k8s.io/code-generator" && \
+	./generate-groups.sh all \
+	    github.com/cilium/cilium/pkg/k8s/client \
+	    github.com/cilium/cilium/pkg/k8s/apis \
+	    "cilium.io:v1,v2" \
+	    --go-header-file "$(PWD)/hack/custom-boilerplate.go.txt"
+	cd "$(GOPATH)/src/k8s.io/code-generator" && \
+	./generate-groups.sh deepcopy \
+	    github.com/cilium/cilium/pkg/k8s/client \
+	    github.com/cilium/cilium/pkg \
+	    "policy:api" \
+	    --go-header-file "$(PWD)/hack/custom-boilerplate.go.txt"
+	cd "$(GOPATH)/src/k8s.io/code-generator" && \
+	./generate-groups.sh deepcopy \
+	    github.com/cilium/cilium/pkg/k8s/client \
+	    github.com/cilium/cilium \
+	    "pkg:labels" \
+	    --go-header-file "$(PWD)/hack/custom-boilerplate.go.txt"
+
 vps:
 	VBoxManage list runningvms
 
