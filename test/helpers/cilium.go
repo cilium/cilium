@@ -151,7 +151,8 @@ func (s *SSHMeta) WaitEndpointsReady() bool {
 	numDesired := 0
 	counter := 0
 
-	cmdString := "cilium endpoint list | grep -c regenerat"
+	// filter for endpoints (start with an endpoint id) and count not-ready endpoints
+	cmdString := "cilium endpoint list | egrep '^[0-9]+' | grep -v ready -c"
 	infoCmd := "cilium endpoint list"
 	res := s.Exec(cmdString)
 	logger.Infof("string output of cmd: %s", res.stdout.String())
