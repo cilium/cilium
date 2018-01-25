@@ -155,7 +155,7 @@ var _ = Describe("RuntimeValidatedMonitorTest", func() {
 	It("cilium monitor check --to", func() {
 
 		res := vm.ExecCilium(fmt.Sprintf(
-			"config %s=true %s=true %s=true %s=always", MonitorDebug, MonitorDropNotification, MonitorTraceNotification, helpers.PolicyEnforcement))
+			"config %s=true %s=true %s=true", MonitorDebug, MonitorDropNotification, MonitorTraceNotification))
 		res.ExpectSuccess()
 
 		vm.SampleContainersActions(helpers.Create, helpers.CiliumDockerNetwork)
@@ -165,18 +165,17 @@ var _ = Describe("RuntimeValidatedMonitorTest", func() {
 		endpoints, err := vm.GetEndpointsIds()
 		Expect(err).Should(BeNil())
 
-		vm.WaitEndpointsReady()
 		ctx, cancel := context.WithCancel(context.Background())
 		res = vm.ExecContext(ctx, fmt.Sprintf(
-			"cilium monitor --type drop -v --to %s", endpoints[helpers.Httpd1]))
+			"cilium monitor -v --to %s", endpoints[helpers.Httpd1]))
 
 		vm.ContainerExec(helpers.App1, helpers.Ping(helpers.Httpd1))
 		vm.ContainerExec(helpers.App2, helpers.Ping(helpers.Httpd1))
 		helpers.Sleep(5)
 		cancel()
 
-		Expect(res.CountLines()).Should(BeNumerically(">", 3))
-		filter := fmt.Sprintf("FROM %s DROP:", endpoints[helpers.Httpd1])
+		Expect(res.CountLines()).Should(BeNumerically(">=", 3))
+		filter := fmt.Sprintf("to endpoint %s", endpoints[helpers.Httpd1])
 		Expect(res.Output().String()).Should(ContainSubstring(filter))
 
 	})
@@ -184,7 +183,7 @@ var _ = Describe("RuntimeValidatedMonitorTest", func() {
 	It("cilium monitor check --related-to", func() {
 
 		res := vm.ExecCilium(fmt.Sprintf(
-			"config %s=true %s=true %s=true %s=always", MonitorDebug, MonitorDropNotification, MonitorTraceNotification, helpers.PolicyEnforcement))
+			"config %s=true %s=true %s=true", MonitorDebug, MonitorDropNotification, MonitorTraceNotification))
 		res.ExpectSuccess()
 
 		vm.SampleContainersActions(helpers.Create, helpers.CiliumDockerNetwork)
@@ -196,7 +195,7 @@ var _ = Describe("RuntimeValidatedMonitorTest", func() {
 
 		ctx, cancel := context.WithCancel(context.Background())
 		res = vm.ExecContext(ctx, fmt.Sprintf(
-			"cilium monitor -v --type drop --related-to %s", endpoints[helpers.Httpd1]))
+			"cilium monitor -v --related-to %s", endpoints[helpers.Httpd1]))
 
 		vm.WaitEndpointsReady()
 		vm.ContainerExec(helpers.App1, helpers.CurlFail("http://httpd1/public"))
@@ -204,7 +203,7 @@ var _ = Describe("RuntimeValidatedMonitorTest", func() {
 		helpers.Sleep(2)
 		cancel()
 		Expect(res.CountLines()).Should(BeNumerically(">=", 3))
-		filter := fmt.Sprintf("FROM %s DROP:", endpoints[helpers.Httpd1])
+		filter := fmt.Sprintf("FROM %s DEBUG:", endpoints[helpers.Httpd1])
 		Expect(res.Output().String()).Should(ContainSubstring(filter))
 	})
 
