@@ -1,6 +1,6 @@
 #!/bin/bash
 
-set -ex
+set -e
 
 DOCS_DIR=./Documentation
 OLD_DIR=${DOCS_DIR}/cmdref
