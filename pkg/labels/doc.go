@@ -16,5 +16,5 @@
 // +k8s:openapi-gen=true
 
 // Package api defines the API of the Cilium network policy interface
-// +groupName=labels
+// +groupName=pkg
 package labels

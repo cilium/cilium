@@ -510,7 +510,7 @@ func initEnv(cmd *cobra.Command) {
 	}
 	// Make sure Envoy version matches ours
 	if !strings.HasPrefix(envoyVersionArray[2], version.GetCiliumVersion().Revision) {
-		log.Fatal("Envoy version mismatch, aborting.")
+		log.Warn("Envoy version mismatch, aborting.")
 	}
 
 	if viper.GetBool("pprof") {

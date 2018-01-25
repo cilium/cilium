@@ -76,17 +76,18 @@ type Owner interface {
 	// of BPF programs.
 	GetCompilationLock() *lock.RWMutex
 
-	// CleanCTEntries cleans the connection tracking of the given endpoint
-	// where the given endpoint IPs' and the idsToRm match the CT entry fields.
+	// ResetProxyPort modifies the entries in the Connection Tracking table for
+	// the given endpoint where the given endpoint IPs and the idsToMod match
+	// the CT entry fields.
 	// isCTLocal should be set as true if the endpoint's CT table is either
-	// local or not (if is not local then is assumed to be global).
-	CleanCTEntries(e *Endpoint, isCTLocal bool, ips []net.IP, idsToRm policy.RuleContexts)
+	// local or not (if is not local then it is assumed to be global).
+	ResetProxyPort(e *Endpoint, isCTLocal bool, ips []net.IP, idsToMod policy.SecurityIDContexts)
 
-	// FlushCTEntries flushes the connection tracking of the given endpoint
-	// where the given endpoint IPs' and the idsToKeep don't match any of the CT entry fields.
+	// FlushCTEntries flushes all entries in the Connection Tracking table for
+	// where the given endpoint IPs except the entries that match the idsToKeep
 	// isCTLocal should be set as true if the endpoint's CT table is either
-	// local or not (if is not local then is assumed to be global).
-	FlushCTEntries(e *Endpoint, isCTLocal bool, ips []net.IP, idsToKeep policy.RuleContexts)
+	// local or not (if is not local then it is assumed to be global).
+	FlushCTEntries(e *Endpoint, isCTLocal bool, ips []net.IP, idsToKeep policy.SecurityIDContexts)
 
 	// UpdateSecLabels add and deletes the given labels on given endpoint ID.
 	// The received `add` and `del` labels will be filtered with the valid label

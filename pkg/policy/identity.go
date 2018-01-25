@@ -1,4 +1,4 @@
-// Copyright 2016-2017 Authors of Cilium
+// Copyright 2016-2018 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -19,7 +19,9 @@ import (
 	"time"
 
 	"github.com/cilium/cilium/api/v1/models"
+	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/labels"
+	"github.com/cilium/cilium/pkg/u8proto"
 )
 
 const (
@@ -63,21 +65,85 @@ func (id NumericIdentity) Uint32() uint32 {
 	return uint32(id)
 }
 
-type RuleContexts map[RuleContext]bool
+// SecurityIDContexts maps a security identity to a L4RuleContexts
+type SecurityIDContexts map[NumericIdentity]L4RuleContexts
 
-// RuleContext represents a L3-dependent L4 rule
+// DeepCopy returns a deep copy of SecurityIDContexts
+func (sc SecurityIDContexts) DeepCopy() SecurityIDContexts {
+	cpy := make(SecurityIDContexts)
+	for k, v := range sc {
+		cpy[k] = v.DeepCopy()
+	}
+	return cpy
+}
+
+// SecurityIDContexts returns a new L4RuleContexts created.
+func NewSecurityIDContexts() SecurityIDContexts {
+	return SecurityIDContexts(make(map[NumericIdentity]L4RuleContexts))
+}
+
+// L4RuleContexts maps a rule context to a L7RuleContext.
+type L4RuleContexts map[L4RuleContext]L7RuleContext
+
+// NewL4RuleContexts returns a new L4RuleContexts.
+func NewL4RuleContexts() L4RuleContexts {
+	return L4RuleContexts(make(map[L4RuleContext]L7RuleContext))
+}
+
+// DeepCopy returns a deep copy of L4RuleContexts
+func (rc L4RuleContexts) DeepCopy() L4RuleContexts {
+	cpy := make(L4RuleContexts)
+	for k, v := range rc {
+		cpy[k] = v
+	}
+	return cpy
+}
+
+// IsL3Only returns false if the given L4RuleContexts contains any entry. If it
+// does not contain any entry it is considered an L3 only rule.
+func (rc L4RuleContexts) IsL3Only() bool {
+	return rc != nil && len(rc) == 0
+}
+
+// L4RuleContext represents a L4 rule
 // Don't use pointers here since this structure is used as key on maps.
-type RuleContext struct {
-	// SecID is the security ID for the numeric identity
-	SecID NumericIdentity
+type L4RuleContext struct {
 	// Port is the destination port in the policy in network byte order
 	Port uint16
 	// Proto is the protocol ID used
 	Proto uint8
-	// L7RedirectPort is the L7 redirect port in the policy in network byte order
-	L7RedirectPort uint16
-	// IsRedirect is set in case the rule is a redirect
-	IsRedirect bool
+}
+
+// L7RuleContext represents a L7 rule
+type L7RuleContext struct {
+	// RedirectPort is the L7 redirect port in the policy in network byte order
+	RedirectPort uint16
+	// L4Installed specifies if the L4 rule is installed in the L4 BPF map
+	L4Installed bool
+}
+
+// IsRedirect checks if the L7RuleContext is a redirect to the proxy.
+func (rc L7RuleContext) IsRedirect() bool {
+	return rc.RedirectPort != 0
+}
+
+// PortProto returns the port proto tuple in a human readable format. i.e.
+// with its port in host byte order.
+func (rc L4RuleContext) PortProto() string {
+	proto := u8proto.U8proto(rc.Proto).String()
+	port := strconv.Itoa(int(byteorder.NetworkToHost(uint16(rc.Port)).(uint16)))
+	return port + "/" + proto
+}
+
+// ParseL4Filter parses a L4Filter and returns a L4RuleContext and a
+// L7RuleContext with L4Installed set as false.
+func ParseL4Filter(filter L4Filter) (L4RuleContext, L7RuleContext) {
+	return L4RuleContext{
+			Port:  byteorder.HostToNetwork(uint16(filter.Port)).(uint16),
+			Proto: uint8(filter.U8Proto),
+		}, L7RuleContext{
+			RedirectPort: byteorder.HostToNetwork(uint16(filter.L7RedirectPort)).(uint16),
+		}
 }
 
 // Identity is the representation of the security context for a particular set of
