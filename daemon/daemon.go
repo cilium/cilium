@@ -1004,7 +1004,7 @@ func NewDaemon(c *Config) (*Daemon, error) {
 	log.Infof("IPv6 node prefix: %s", node.GetIPv6NodeRange())
 	log.Infof("IPv6 allocation prefix: %s", node.GetIPv6AllocRange())
 	log.Infof("IPv4 allocation prefix: %s", node.GetIPv4AllocRange())
-	log.Debugf("IPv6 router address: %s", node.GetIPv6Router())
+	log.Infof("IPv6 router address: %s", node.GetIPv6Router())
 
 	// Populate list of nodes with local node entry
 	ni, n := node.GetLocalNode()
@@ -1017,6 +1017,7 @@ func NewDaemon(c *Config) (*Daemon, error) {
 			return nil, fmt.Errorf("Unable to reserve IPv4 loopback address: %s", err)
 		}
 		d.loopbackIPv4 = loopbackIPv4
+		log.Infof("Loopback IPv4: %s", d.loopbackIPv4.String())
 	}
 
 	if err = d.init(); err != nil {

@@ -375,7 +375,7 @@ type PortRuleHTTP struct {
 	// If omitted or empty, all paths are all allowed.
 	//
 	// +optional
-	Path string `json:"path,omitempty" protobuf:"bytes,1,opt,name=path"`
+	Path string `json:"path,omitempty"`
 
 	// Method is an extended POSIX regex matched against the method of a
 	// request, e.g. "GET", "POST", "PUT", "PATCH", "DELETE", ...
@@ -383,7 +383,7 @@ type PortRuleHTTP struct {
 	// If omitted or empty, all methods are allowed.
 	//
 	// +optional
-	Method string `json:"method,omitempty" protobuf:"bytes,1,opt,name=method"`
+	Method string `json:"method,omitempty"`
 
 	// Host is an extended POSIX regex matched against the host header of a
 	// request, e.g. "foo.com"
@@ -391,7 +391,7 @@ type PortRuleHTTP struct {
 	// If omitted or empty, the value of the host header is ignored.
 	//
 	// +optional
-	Host string `json:"host,omitempty" protobuf:"bytes,1,opt,name=method"`
+	Host string `json:"host,omitempty"`
 
 	// Headers is a list of HTTP headers which must be present in the
 	// request. If omitted or empty, requests are allowed regardless of

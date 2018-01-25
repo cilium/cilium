@@ -24,7 +24,6 @@ tests: tests-common tests-consul tests-envoy
 tests-ginkgo: tests-common-ginkgo
 
 tests-common-ginkgo: force
-	tests/00-fmt.sh
 	go vet $(GOFILES)
 	# Make the bindata to run the unittest
 	make -C daemon go-bindata
@@ -37,8 +36,8 @@ clean-ginkgo-tests:
 	docker-compose -f test/docker-compose.yml -p $$JOB_BASE_NAME-$$BUILD_NUMBER rm
 
 tests-common: force
-	tests/00-fmt.sh
 	go vet $(GOFILES)
+	make -C test/ build
 
 tests-envoy:
 	@ $(MAKE) -C envoy tests
@@ -199,7 +198,7 @@ gofmt:
 	for pkg in $(GOFILES); do go fmt $$pkg; done
 
 precheck-gofmt:
-	tests/00-fmt.sh
+	contrib/scripts/check-fmt.sh
 
 pprof-help:
 	@echo "Available pprof targets:"
