@@ -319,7 +319,7 @@ func (s *RDSServer) translatePolicyRule(h api.PortRuleHTTP) *envoy_api.Route {
 		if ruleRef != "" {
 			ruleRef += " && "
 		}
-		ruleRef += `HostRegexp("` + h.Method + `")`
+		ruleRef += `HostRegexp("` + h.Host + `")`
 	}
 	for _, hdr := range h.Headers {
 		strs := strings.SplitN(hdr, " ", 2)
