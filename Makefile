@@ -272,7 +272,7 @@ install-manpages:
 	mandb
 
 cmdref-check:
-	tests/00-check-cmdref.sh
+	contrib/scripts/check-cmdref.sh
 
 lock-check:
 	contrib/scripts/lock-check.sh
