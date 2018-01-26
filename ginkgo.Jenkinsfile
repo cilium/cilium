@@ -1,6 +1,6 @@
 pipeline {
     agent {
-        label 'terraformNode'
+        label 'test-eloy'
     }
     environment {
         PROJ_PATH = "src/github.com/cilium/cilium"

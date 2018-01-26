@@ -1,6 +1,6 @@
 pipeline {
     agent {
-        label 'terraformNode'
+        label 'test-eloy'
     }
     options {
         timeout(time: 120, unit: 'MINUTES')
