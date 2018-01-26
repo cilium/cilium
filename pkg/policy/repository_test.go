@@ -123,7 +123,7 @@ func (ds *PolicyTestSuite) TestCanReach(c *C) {
 	repo.Mutex.RLock()
 	// no rules loaded: CanReach => undecided
 
-	ingressDecision, _ := repo.CanReachRLocked(fooToBar)
+	ingressDecision, _ := repo.CanReachRLocked(fooToBar, fooToBar)
 	c.Assert(ingressDecision, Equals, api.Undecided)
 	// no rules loaded: Allows() => denied
 	c.Assert(repo.AllowsRLocked(fooToBar), Equals, api.Denied)
@@ -224,18 +224,18 @@ func (ds *PolicyTestSuite) TestMinikubeGettingStarted(c *C) {
 
 	repo.Mutex.RLock()
 	// no rules loaded: CanReach => undecided
-	ingressVerdict, _ := repo.CanReachRLocked(fromApp2)
+	ingressVerdict, _ := repo.CanReachRLocked(fromApp2, fromApp2)
 	c.Assert(ingressVerdict, Equals, api.Undecided)
 
-	ingressVerdict, _ = repo.CanReachRLocked(fromApp3)
+	ingressVerdict, _ = repo.CanReachRLocked(fromApp3, fromApp3)
 	c.Assert(ingressVerdict, Equals, api.Undecided)
 
 	// no rules loaded: Allows() => denied
 
-	ingressVerdict, _ = repo.AllowsLabelAccess(fromApp2)
+	ingressVerdict, _ = repo.AllowsLabelAccess(fromApp2, fromApp2)
 	c.Assert(ingressVerdict, Equals, api.Denied)
 
-	ingressVerdict, _ = repo.AllowsLabelAccess(fromApp3)
+	ingressVerdict, _ = repo.AllowsLabelAccess(fromApp3, fromApp3)
 	c.Assert(ingressVerdict, Equals, api.Denied)
 	repo.Mutex.RUnlock()
 
