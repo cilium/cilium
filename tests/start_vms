@@ -6,7 +6,7 @@ set -e
 cd ${WORKSPACE}
 
 echo "Destroying runtime test VM if it's already running"
-vagrant destroy -f || exit 0
+vagrant destroy -f || echo "No servers to destroy"
 
 echo "Starting runtime test VM"
 NO_PROVISION=1 ./contrib/vagrant/start.sh
