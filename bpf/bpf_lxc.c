@@ -256,13 +256,9 @@ skip_service_lookup:
 		return redirect(HOST_IFINDEX, 0);
 	}
 
-	data = (void *)(long)skb->data;
-	data_end = (void *)(long)skb->data_end;
-
-	if (data + sizeof(struct ipv6hdr) + ETH_HLEN > data_end)
+	if (!revalidate_data(skb, &data, &data_end, &ip6))
 		return DROP_INVALID;
 
-	ip6 = data + ETH_HLEN;
 	daddr = (union v6addr *)&ip6->daddr;
 
 	/* Lookup IPv6 address, this will return a match if:
@@ -397,13 +393,11 @@ pass_to_stack:
 static inline int handle_ipv6(struct __sk_buff *skb)
 {
 	struct ipv6_ct_tuple tuple = {};
-	void *data = (void *) (long) skb->data;
-	void *data_end = (void *) (long) skb->data_end;
-	struct ipv6hdr *ip6 = data + ETH_HLEN;
-	struct ethhdr *eth = data;
+	void *data, *data_end;
+	struct ipv6hdr *ip6;
 	int ret;
 
-	if (data + sizeof(struct ipv6hdr) + ETH_HLEN > data_end)
+	if (!revalidate_data(skb, &data, &data_end, &ip6))
 		return DROP_INVALID;
 
 	/* Handle special ICMPv6 messages. This includes echo requests to the
@@ -422,7 +416,7 @@ static inline int handle_ipv6(struct __sk_buff *skb)
 
 	/* Perform L3 action on the frame */
 	tuple.nexthdr = ip6->nexthdr;
-	return ipv6_l3_from_lxc(skb, &tuple, ETH_HLEN, eth, ip6);
+	return ipv6_l3_from_lxc(skb, &tuple, ETH_HLEN, data, ip6);
 }
 
 #ifdef LXC_IPV4
@@ -431,10 +425,9 @@ static inline int handle_ipv4_from_lxc(struct __sk_buff *skb)
 {
 	struct ipv4_ct_tuple tuple = {};
 	union macaddr router_mac = NODE_MAC;
-	void *data = (void *) (long) skb->data;
-	void *data_end = (void *) (long) skb->data_end;
-	struct iphdr *ip4 = data + ETH_HLEN;
-	struct ethhdr *eth = data;
+	void *data, *data_end;
+	struct iphdr *ip4;
+	struct ethhdr *eth;
 	int ret, l3_off = ETH_HLEN, l4_off, forwarding_reason;
 	struct csum_offset csum_off = {};
 	struct endpoint_info *ep;
@@ -446,12 +439,12 @@ static inline int handle_ipv4_from_lxc(struct __sk_buff *skb)
 	__be32 orig_dip;
 	uint16_t dstID = WORLD_ID;
 
-
-	if (data + sizeof(*ip4) + ETH_HLEN > data_end)
+	if (!revalidate_data(skb, &data, &data_end, &ip4))
 		return DROP_INVALID;
 
 	tuple.nexthdr = ip4->protocol;
 
+	eth = data;
 	if (unlikely(!is_valid_lxc_src_mac(eth)))
 		return DROP_INVALID_SMAC;
 	else if (unlikely(!is_valid_gw_dst_mac(eth)))
@@ -554,10 +547,7 @@ skip_service_lookup:
 			return ret;
 
 		/* After L4 write in port mapping: revalidate for direct packet access */
-		data = (void *) (long) skb->data;
-		data_end = (void *) (long) skb->data_end;
-		ip4 = data + ETH_HLEN;
-		if (data + sizeof(*ip4) + ETH_HLEN > data_end)
+		if (!revalidate_data(skb, &data, &data_end, &ip4))
 			return DROP_INVALID;
 
 		cilium_dbg(skb, DBG_TO_HOST, skb->cb[CB_POLICY], 0);
@@ -571,13 +561,9 @@ skip_service_lookup:
 	}
 
 	/* After L4 write in port mapping: revalidate for direct packet access */
-	data = (void *) (long) skb->data;
-	data_end = (void *) (long) skb->data_end;
-
-	if (data + sizeof(*ip4) + ETH_HLEN > data_end)
+	if (!revalidate_data(skb, &data, &data_end, &ip4))
 		return DROP_INVALID;
 
-	ip4 = data + ETH_HLEN;
 	orig_dip = ip4->daddr;
 
 	/* Lookup IPv4 address, this will return a match if:
@@ -779,9 +765,8 @@ static inline int __inline__ ipv6_policy(struct __sk_buff *skb, int ifindex, __u
 					 int *forwarding_reason)
 {
 	struct ipv6_ct_tuple tuple = {};
-	void *data = (void *) (long) skb->data;
-	void *data_end = (void *) (long) skb->data_end;
-	struct ipv6hdr *ip6 = data + ETH_HLEN;
+	void *data, *data_end;
+	struct ipv6hdr *ip6;
 	struct csum_offset csum_off = {};
 	int ret, l4_off, verdict;
 	struct ct_state ct_state = {};
@@ -789,7 +774,7 @@ static inline int __inline__ ipv6_policy(struct __sk_buff *skb, int ifindex, __u
 	bool skip_proxy;
 	union v6addr orig_dip = {};
 
-	if (data + sizeof(struct ipv6hdr) + ETH_HLEN > data_end)
+	if (!revalidate_data(skb, &data, &data_end, &ip6))
 		return DROP_INVALID;
 
 	policy_clear_mark(skb);
@@ -893,9 +878,8 @@ static inline int __inline__ ipv4_policy(struct __sk_buff *skb, int ifindex, __u
 					 int *forwarding_reason)
 {
 	struct ipv4_ct_tuple tuple = {};
-	void *data = (void *) (long) skb->data;
-	void *data_end = (void *) (long) skb->data_end;
-	struct iphdr *ip4 = data + ETH_HLEN;
+	void *data, *data_end;
+	struct iphdr *ip4;
 	struct csum_offset csum_off = {};
 	int ret, verdict, l4_off;
 	struct ct_state ct_state = {};
@@ -903,7 +887,7 @@ static inline int __inline__ ipv4_policy(struct __sk_buff *skb, int ifindex, __u
 	bool skip_proxy;
 	__be32 orig_dip;
 
-	if (data + sizeof(*ip4) + ETH_HLEN > data_end)
+	if (!revalidate_data(skb, &data, &data_end, &ip4))
 		return DROP_INVALID;
 
 	policy_clear_mark(skb);
@@ -1055,12 +1039,11 @@ __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_NAT64) int tail_ipv6_to_ipv4(struct
 __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_NAT46) int tail_ipv4_to_ipv6(struct __sk_buff *skb)
 {
 	union v6addr dp = {};
-	void *data = (void *) (long) skb->data;
-	void *data_end = (void *) (long) skb->data_end;
-	struct iphdr *ip4 = data + ETH_HLEN;
+	void *data, *data_end;
+	struct iphdr *ip4;
 	int ret;
 
-	if (data + sizeof(*ip4) + ETH_HLEN > data_end)
+	if (!revalidate_data(skb, &data, &data_end, &ip4))
 		return DROP_INVALID;
 
 	BPF_V6(dp, LXC_IP);

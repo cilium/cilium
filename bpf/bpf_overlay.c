@@ -36,14 +36,13 @@
 
 static inline int handle_ipv6(struct __sk_buff *skb)
 {
-	void *data_end = (void *) (long) skb->data_end;
-	void *data = (void *) (long) skb->data;
-	struct ipv6hdr *ip6 = data + ETH_HLEN;
+	void *data_end, *data;
+	struct ipv6hdr *ip6;
 	struct bpf_tunnel_key key = {};
 	struct endpoint_info *ep;
 	int l4_off, l3_off = ETH_HLEN;
 
-	if (data + sizeof(*ip6) + l3_off > data_end)
+	if (!revalidate_data(skb, &data, &data_end, &ip6))
 		return DROP_INVALID;
 
 	if (unlikely(skb_get_tunnel_key(skb, &key, sizeof(key), 0) < 0))
@@ -105,14 +104,13 @@ to_host:
 
 static inline int handle_ipv4(struct __sk_buff *skb)
 {
-	void *data_end = (void *) (long) skb->data_end;
-	void *data = (void *) (long) skb->data;
-	struct iphdr *ip4 = data + ETH_HLEN;
+	void *data_end, *data;
+	struct iphdr *ip4;
 	struct endpoint_info *ep;
 	struct bpf_tunnel_key key = {};
 	int l4_off;
 
-	if (data + sizeof(*ip4) + ETH_HLEN > data_end)
+	if (!revalidate_data(skb, &data, &data_end, &ip4))
 		return DROP_INVALID;
 
 	if (unlikely(skb_get_tunnel_key(skb, &key, sizeof(key), 0) < 0))
