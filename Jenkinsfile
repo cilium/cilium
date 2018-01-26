@@ -1,6 +1,6 @@
 pipeline {
     agent {
-        label 'vagrant'
+        label 'terraformNode'
     }
     options {
         timeout(time: 120, unit: 'MINUTES')
@@ -17,7 +17,7 @@ pipeline {
                 MEMORY = '4096'
                 RUN_TEST_SUITE = '1'
             }
-            steps { 
+            steps {
                 parallel(
                     "Print Environment": { sh 'env' },
                     "Runtime Tests": {
