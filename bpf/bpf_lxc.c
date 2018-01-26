@@ -438,7 +438,7 @@ static inline int handle_ipv6(struct __sk_buff *skb)
 
 #ifdef LXC_IPV4
 
-static inline int handle_ipv4(struct __sk_buff *skb)
+static inline int handle_ipv4_from_lxc(struct __sk_buff *skb)
 {
 	struct ipv4_ct_tuple tuple = {};
 	union macaddr router_mac = NODE_MAC;
@@ -723,7 +723,7 @@ pass_to_stack:
 
 __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV4) int tail_handle_ipv4(struct __sk_buff *skb)
 {
-	int ret = handle_ipv4(skb);
+	int ret = handle_ipv4_from_lxc(skb);
 
 	if (IS_ERR(ret))
 		return send_drop_notify(skb, SECLABEL, 0, 0, 0, ret, TC_ACT_SHOT);
@@ -1014,6 +1014,13 @@ static inline int __inline__ ipv4_policy(struct __sk_buff *skb, int ifindex, __u
 }
 #endif
 
+/* Handle policy decisions as the packet makes its way towards the endpoint.
+ * Previously, the packet may have come from another local endpoint, another
+ * endpoint in the cluster, or from the big blue room (as identified by the
+ * contents of skb->cb[CB_SRC_LABEL]). Determine whether the traffic may be
+ * passed into the endpoint or if it needs further inspection by a userspace
+ * proxy.
+ */
 __section_tail(CILIUM_MAP_POLICY, LXC_ID) int handle_policy(struct __sk_buff *skb)
 {
 	int ret, ifindex = skb->cb[CB_IFINDEX];
