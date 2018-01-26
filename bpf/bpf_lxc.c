@@ -137,18 +137,6 @@ static inline int ipv6_l3_from_lxc(struct __sk_buff *skb,
 	else if (unlikely(!is_valid_lxc_src_ip(ip6)))
 		return DROP_INVALID_SIP;
 
-	/* The tuple is created in reverse order initially to find a
-	 * potential reverse flow. This is required because the RELATED
-	 * or REPLY state takes precedence over ESTABLISHED due to
-	 * policy requirements.
-	 *
-	 * Depending on direction, either source or destination address
-	 * is assumed to be the address of the container. Therefore,
-	 * the source address for incoming respectively the destination
-	 * address for outgoing packets is stored in a single field in
-	 * the tuple. The TUPLE_F_OUT and TUPLE_F_IN flags indicate which
-	 * address the field currently represents.
-	 */
 	ipv6_addr_copy(&tuple->daddr, (union v6addr *) &ip6->daddr);
 	ipv6_addr_copy(&tuple->saddr, (union v6addr *) &ip6->saddr);
 
@@ -470,18 +458,6 @@ static inline int handle_ipv4_from_lxc(struct __sk_buff *skb)
 	else if (unlikely(!is_valid_lxc_src_ipv4(ip4)))
 		return DROP_INVALID_SIP;
 
-	/* The tuple is created in reverse order initially to find a
-	 * potential reverse flow. This is required because the RELATED
-	 * or REPLY state takes precedence over ESTABLISHED due to
-	 * policy requirements.
-	 *
-	 * Depending on direction, either source or destination address
-	 * is assumed to be the address of the container. Therefore,
-	 * the source address for incoming respectively the destination
-	 * address for outgoing packets is stored in a single field in
-	 * the tuple. The TUPLE_F_OUT and TUPLE_F_IN flags indicate which
-	 * address the field currently represents.
-	 */
 	orig_was_proxy = ip4->saddr == IPV4_GATEWAY;
 	tuple.daddr = ip4->daddr;
 	tuple.saddr = ip4->saddr;
