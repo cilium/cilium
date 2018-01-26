@@ -117,7 +117,7 @@ static inline int ipv6_l3_from_lxc(struct __sk_buff *skb,
 				   struct ethhdr *eth, struct ipv6hdr *ip6)
 {
 	union macaddr router_mac = NODE_MAC;
-	union v6addr host_ip = {}, router_ip = {};
+	union v6addr router_ip = {};
 	int ret, l4_off, forwarding_reason;
 	struct csum_offset csum_off = {};
 	struct endpoint_info *ep;
@@ -140,7 +140,6 @@ static inline int ipv6_l3_from_lxc(struct __sk_buff *skb,
 	ipv6_addr_copy(&tuple->daddr, (union v6addr *) &ip6->daddr);
 	ipv6_addr_copy(&tuple->saddr, (union v6addr *) &ip6->saddr);
 
-	BPF_V6(host_ip, HOST_IP);
 	orig_was_proxy = ipv6_addrcmp((union v6addr *) &ip6->saddr, &host_ip) == 0;
 
 	l4_off = l3_off + ipv6_hdrlen(skb, l3_off, &tuple->nexthdr);
@@ -236,6 +235,9 @@ skip_service_lookup:
 
 	if (ct_state.proxy_port) {
 		union macaddr host_mac = HOST_IFINDEX_MAC;
+		union v6addr host_ip = {};
+
+		BPF_V6(host_ip, HOST_IP);
 
 		ret = ipv6_redirect_to_host_port(skb, &csum_off, l4_off,
 						 ct_state.proxy_port, tuple->dport,
@@ -262,8 +264,6 @@ skip_service_lookup:
 
 	ip6 = data + ETH_HLEN;
 	daddr = (union v6addr *)&ip6->daddr;
-
-	BPF_V6(router_ip, ROUTER_IP);
 
 	/* Lookup IPv6 address, this will return a match if:
 	 *  - The destination IP address belongs to a local endpoint managed by
@@ -313,6 +313,7 @@ skip_service_lookup:
 #endif
 
 	/* Check if destination is within our cluster prefix */
+	BPF_V6(router_ip, ROUTER_IP);
 	if (ipv6_match_prefix_64(daddr, &router_ip)) {
 		/* Packet is going to peer inside the cluster prefix. This can
 		 * happen if encapsulation has been disabled and all remote
