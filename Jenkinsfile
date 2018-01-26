@@ -23,6 +23,8 @@ pipeline {
                 parallel(
                     "Print Environment": { sh 'env' },
                     "Runtime Tests": {
+                         sh 'ls'
+                         sh 'vagrant status'
                          sh 'PROVISION=1 ./contrib/vagrant/start.sh'
                      },
                     "K8s multi node Tests": {
