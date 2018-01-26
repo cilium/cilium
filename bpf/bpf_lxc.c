@@ -127,7 +127,6 @@ static inline int ipv6_l3_from_lxc(struct __sk_buff *skb,
 	struct ct_state ct_state = {};
 	void *data, *data_end;
 	union v6addr *daddr, orig_dip;
-	bool orig_was_proxy;
 	uint16_t dstID = WORLD_ID;
 
 	if (unlikely(!is_valid_lxc_src_mac(eth)))
@@ -139,8 +138,6 @@ static inline int ipv6_l3_from_lxc(struct __sk_buff *skb,
 
 	ipv6_addr_copy(&tuple->daddr, (union v6addr *) &ip6->daddr);
 	ipv6_addr_copy(&tuple->saddr, (union v6addr *) &ip6->saddr);
-
-	orig_was_proxy = ipv6_addrcmp((union v6addr *) &ip6->saddr, &host_ip) == 0;
 
 	l4_off = l3_off + ipv6_hdrlen(skb, l3_off, &tuple->nexthdr);
 
@@ -204,7 +201,7 @@ skip_service_lookup:
 		 */
 		ct_state_new.src_sec_id = SECLABEL;
 		ret = ct_create6(&CT_MAP6, tuple, skb, CT_EGRESS, &ct_state_new,
-				 orig_was_proxy);
+				 false);
 		if (IS_ERR(ret))
 			return ret;
 		ct_state.proxy_port = ct_state_new.proxy_port;
@@ -435,7 +432,6 @@ static inline int handle_ipv4_from_lxc(struct __sk_buff *skb)
 	struct lb4_key key = {};
 	struct ct_state ct_state_new = {};
 	struct ct_state ct_state = {};
-	bool orig_was_proxy;
 	__be32 orig_dip;
 	uint16_t dstID = WORLD_ID;
 
@@ -452,7 +448,6 @@ static inline int handle_ipv4_from_lxc(struct __sk_buff *skb)
 	else if (unlikely(!is_valid_lxc_src_ipv4(ip4)))
 		return DROP_INVALID_SIP;
 
-	orig_was_proxy = ip4->saddr == IPV4_GATEWAY;
 	tuple.daddr = ip4->daddr;
 	tuple.saddr = ip4->saddr;
 
@@ -511,7 +506,7 @@ skip_service_lookup:
 		 */
 		ct_state_new.src_sec_id = SECLABEL;
 		ret = ct_create4(&CT_MAP4, &tuple, skb, CT_EGRESS, &ct_state_new,
-				 orig_was_proxy);
+				 false);
 		if (IS_ERR(ret))
 			return ret;
 
