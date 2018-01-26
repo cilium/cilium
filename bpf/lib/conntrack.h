@@ -31,13 +31,6 @@
 #define CT_DEFAULT_LIFETIME	360
 #define CT_CLOSE_TIMEOUT	10
 
-enum {
-	CT_NEW,
-	CT_ESTABLISHED,
-	CT_REPLY,
-	CT_RELATED,
-};
-
 #ifdef CONNTRACK
 
 #define TUPLE_F_OUT		0	/* Outgoing flow */

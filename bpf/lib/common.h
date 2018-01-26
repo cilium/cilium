@@ -299,6 +299,13 @@ enum {
 #define CT_EGRESS 0
 #define CT_INGRESS 1
 
+enum {
+	CT_NEW,
+	CT_ESTABLISHED,
+	CT_REPLY,
+	CT_RELATED,
+};
+
 struct ipv6_ct_tuple {
 	union v6addr	daddr;
 	union v6addr	saddr;

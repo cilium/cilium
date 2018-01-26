@@ -29,6 +29,7 @@
 #include "lib/ipv6.h"
 #include "lib/eth.h"
 #include "lib/dbg.h"
+#include "lib/trace.h"
 #include "lib/l3.h"
 #include "lib/geneve.h"
 #include "lib/drop.h"
@@ -170,7 +171,7 @@ int from_overlay(struct __sk_buff *skb)
 
 	bpf_clear_cb(skb);
 
-	cilium_dbg_capture(skb, DBG_CAPTURE_FROM_OVERLAY, skb->ingress_ifindex);
+	send_trace_notify(skb, TRACE_FROM_OVERLAY, 0, 0, 0, skb->ingress_ifindex, 0);
 
 	switch (skb->protocol) {
 	case bpf_htons(ETH_P_IPV6):

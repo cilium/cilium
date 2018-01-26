@@ -64,6 +64,8 @@ static inline int __encap_and_redirect(struct __sk_buff *skb, struct endpoint_ke
 #endif /* VALIDATE_GENEVE_TX */
 #endif /* GENEVE_OPTS */
 
+	send_trace_notify(skb, TRACE_TO_OVERLAY, seclabel, 0, 0, ENCAP_IFINDEX, 0);
+
 	return redirect(ENCAP_IFINDEX, 0);
 }
 

@@ -346,9 +346,11 @@ to_host:
 		if (ret != TC_ACT_OK)
 			return ret;
 
-#ifndef POLICY_EGRESS
 		send_trace_notify(skb, TRACE_TO_HOST, SECLABEL, HOST_ID, 0, HOST_IFINDEX,
 				  forwarding_reason);
+
+#ifndef POLICY_EGRESS
+		cilium_dbg_capture(skb, DBG_CAPTURE_DELIVERY, HOST_IFINDEX);
 		return redirect(HOST_IFINDEX, 0);
 #else
 		skb->cb[CB_SRC_LABEL] = SECLABEL;
@@ -373,10 +375,12 @@ pass_to_stack:
 	if (ipv6_store_flowlabel(skb, l3_off, SECLABEL_NB) < 0)
 		return DROP_WRITE_ERROR;
 
-#ifndef POLICY_EGRESS
-	/* No policy, pass directly down to stack */
 	send_trace_notify(skb, TRACE_TO_STACK, SECLABEL, dstID, 0, 0,
 			  forwarding_reason);
+
+#ifndef POLICY_EGRESS
+	/* No policy, pass directly down to stack */
+	cilium_dbg_capture(skb, DBG_CAPTURE_DELIVERY, 0);
 	return TC_ACT_OK;
 #else
 	skb->cb[CB_SRC_LABEL] = SECLABEL;
@@ -636,9 +640,11 @@ to_host:
 		if (ret != TC_ACT_OK)
 			return ret;
 
-#ifndef POLICY_EGRESS
 		send_trace_notify(skb, TRACE_TO_HOST, SECLABEL, HOST_ID, 0, HOST_IFINDEX,
 				  forwarding_reason);
+
+#ifndef POLICY_EGRESS
+		cilium_dbg_capture(skb, DBG_CAPTURE_DELIVERY, HOST_IFINDEX);
 		return redirect(HOST_IFINDEX, 0);
 #else
 		skb->cb[CB_SRC_LABEL] = SECLABEL;
@@ -665,10 +671,12 @@ pass_to_stack:
 	 * network.
 	 */
 
-#ifndef POLICY_EGRESS
-	/* No policy, pass directly down to stack */
 	send_trace_notify(skb, TRACE_TO_STACK, SECLABEL, dstID, 0, 0,
 			  forwarding_reason);
+
+#ifndef POLICY_EGRESS
+	/* No policy, pass directly down to stack */
+	cilium_dbg_capture(skb, DBG_CAPTURE_DELIVERY, 0);
 	return TC_ACT_OK;
 #else
 	skb->cb[CB_SRC_LABEL] = SECLABEL;
@@ -708,7 +716,7 @@ int handle_ingress(struct __sk_buff *skb)
 
 	bpf_clear_cb(skb);
 
-	cilium_dbg_capture2(skb, DBG_CAPTURE_FROM_LXC, skb->ingress_ifindex, SECLABEL);
+	send_trace_notify(skb, TRACE_FROM_LXC, SECLABEL, 0, 0, 0, 0);
 
 #ifdef DROP_ALL
 	if (skb->protocol == bpf_htons(ETH_P_ARP)) {

@@ -40,6 +40,7 @@
 #include "lib/icmp6.h"
 #include "lib/eth.h"
 #include "lib/dbg.h"
+#include "lib/trace.h"
 #include "lib/l3.h"
 #include "lib/l4.h"
 #include "lib/policy.h"
@@ -159,7 +160,7 @@ static inline int rewrite_dmac_to_host(struct __sk_buff *skb)
 }
 #endif
 
-static inline int handle_ipv6(struct __sk_buff *skb)
+static inline int handle_ipv6(struct __sk_buff *skb, __u32 proxy_identity)
 {
 	union v6addr node_ip = { };
 	void *data, *data_end;
@@ -191,7 +192,8 @@ static inline int handle_ipv6(struct __sk_buff *skb)
 	if (1) {
 		int ret;
 
-		handle_identity_from_proxy(skb, &flowlabel);
+		if (proxy_identity)
+			flowlabel = proxy_identity;
 
 		ret = reverse_proxy6(skb, l4_off, ip6, ip6->nexthdr);
 		/* DIRECT PACKET READ INVALID */
@@ -324,7 +326,7 @@ reverse_proxy(struct __sk_buff *skb, int l4_off, struct iphdr *ip4,
 }
 #endif
 
-static inline int handle_ipv4(struct __sk_buff *skb)
+static inline int handle_ipv4(struct __sk_buff *skb, __u32 proxy_identity)
 {
 	struct ipv4_ct_tuple tuple = {};
 	struct endpoint_info *ep;
@@ -344,7 +346,8 @@ static inline int handle_ipv4(struct __sk_buff *skb)
 	if (1) {
 		int ret;
 
-		handle_identity_from_proxy(skb, &secctx);
+		if (proxy_identity)
+			secctx = proxy_identity;
 
 		ret = reverse_proxy(skb, l4_off, ip4, &tuple);
 		/* DIRECT PACKET READ INVALID */
@@ -393,9 +396,12 @@ static inline int handle_ipv4(struct __sk_buff *skb)
 	return TC_ACT_OK;
 }
 
+#define CB_SRC_IDENTITY 0
+
 __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV4) int tail_handle_ipv4(struct __sk_buff *skb)
 {
-	int ret = handle_ipv4(skb);
+	__u32 proxy_identity = skb->cb[CB_SRC_IDENTITY];
+	int ret = handle_ipv4(skb, proxy_identity);
 
 	if (IS_ERR(ret))
 		return send_drop_notify_error(skb, ret, TC_ACT_SHOT);
@@ -408,16 +414,33 @@ __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV4) int tail_handle_ipv4(struct _
 __section("from-netdev")
 int from_netdev(struct __sk_buff *skb)
 {
+	__u32 proxy_identity = 0;
 	int ret;
 
 	bpf_clear_cb(skb);
 
-	cilium_dbg_capture(skb, DBG_CAPTURE_FROM_NETDEV, skb->ingress_ifindex);
+#ifdef FROM_HOST
+	if (1) {
+		int report_identity, trace = TRACE_FROM_HOST;
+
+		handle_identity_from_proxy(skb, &proxy_identity);
+		if (proxy_identity) {
+			trace = TRACE_FROM_PROXY;
+			report_identity = proxy_identity;
+		} else {
+			report_identity = HOST_ID;
+		}
+
+		send_trace_notify(skb, trace, report_identity, 0, 0, skb->ingress_ifindex, 0);
+	}
+#else
+	send_trace_notify(skb, TRACE_FROM_STACK, 0, 0, 0, skb->ingress_ifindex, 0);
+#endif
 
 	switch (skb->protocol) {
 	case bpf_htons(ETH_P_IPV6):
 		/* This is considered the fast path, no tail call */
-		ret = handle_ipv6(skb);
+		ret = handle_ipv6(skb, proxy_identity);
 
 		/* We should only be seeing an error here for packets which have
 		 * been targetting an endpoint managed by us. */
@@ -427,6 +450,7 @@ int from_netdev(struct __sk_buff *skb)
 
 #ifdef ENABLE_IPV4
 	case bpf_htons(ETH_P_IP):
+		skb->cb[CB_SRC_IDENTITY] = proxy_identity;
 		ep_tail_call(skb, CILIUM_CALL_IPV4);
 		/* We are not returning an error here to always allow traffic to
 		 * the stack in case maps have become unavailable.

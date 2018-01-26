@@ -33,9 +33,9 @@ const (
 // must be in sync with <bpf/lib/dbg.h>
 const (
 	DbgCaptureUnspec = iota
-	DbgCaptureFromLxc
-	DbgCaptureFromNetdev
-	DbgCaptureFromOverlay
+	DbgCaptureReserved1
+	DbgCaptureReserved2
+	DbgCaptureReserved3
 	DbgCaptureDelivery
 	DbgCaptureFromLb
 	DbgCaptureAfterV46
@@ -372,25 +372,6 @@ var (
 // DumpInfo prints a summary of the capture messages.
 func (n *DebugCapture) DumpInfo(data []byte) {
 	switch n.SubType {
-	case DbgCaptureFromLxc:
-		ifindexMap[int(n.Arg1)] = endpointInfo{
-			name:     fmt.Sprintf("endpoint %d", n.Source),
-			identity: int(n.Arg2),
-		}
-		fmt.Printf("<- endpoint %d, identity %d", n.Source, n.Arg2)
-
-	case DbgCaptureFromNetdev:
-		ifindexMap[int(n.Arg1)] = endpointInfo{
-			name: fmt.Sprintf("netdev %d", n.Arg1),
-		}
-		fmt.Printf("<- netdev %d", n.Arg1)
-
-	case DbgCaptureFromOverlay:
-		ifindexMap[int(n.Arg1)] = endpointInfo{
-			name: fmt.Sprintf("overlay %d", n.Arg1),
-		}
-		fmt.Printf("<- overlay %d", n.Arg1)
-
 	case DbgCaptureDelivery:
 		// Try to map ifindex to string
 		if indexInfo, ok := ifindexMap[int(n.Arg1)]; ok {
@@ -428,12 +409,6 @@ func (n *DebugCapture) DumpInfo(data []byte) {
 func (n *DebugCapture) DumpVerbose(dissect bool, data []byte, prefix string) {
 	fmt.Printf("%s MARK %#x FROM %d DEBUG: %d bytes, ", prefix, n.Hash, n.Source, n.Len)
 	switch n.SubType {
-	case DbgCaptureFromLxc:
-		fmt.Printf("Incoming packet from container ifindex %d\n", n.Arg1)
-	case DbgCaptureFromNetdev:
-		fmt.Printf("Incoming packet from netdev ifindex %d\n", n.Arg1)
-	case DbgCaptureFromOverlay:
-		fmt.Printf("Incoming packet from overlay ifindex %d\n", n.Arg1)
 	case DbgCaptureDelivery:
 		fmt.Printf("Delivery to ifindex %d\n", n.Arg1)
 	case DbgCaptureFromLb:
