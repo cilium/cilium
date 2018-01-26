@@ -62,10 +62,21 @@ func EnableEventListener() error {
 		return nil
 	}
 
-	since := time.Now()
 	ws := newWatcherState(eventQueueBufferSize)
-	ws.syncWithRuntime()
+	// start a go routine which periodically synchronizes containers
+	// managed by the local container runtime and checks if any of them
+	// need to be managed by Cilium. This is a fall back mechanism in case
+	// an event notification has been lost.
+	// Note: We do the sync before the first sleep
+	go func(state *watcherState) {
+		for {
+			state.reapEmpty()
+			state.syncWithRuntime()
+			time.Sleep(syncRateDocker)
+		}
+	}(ws)
 
+	since := time.Now()
 	eo := dTypes.EventsOptions{Since: strconv.FormatInt(since.Unix(), 10)}
 	r, err := dockerClient.Events(ctx.Background(), eo)
 	if err != nil {
@@ -73,19 +84,6 @@ func EnableEventListener() error {
 	}
 
 	go listenForDockerEvents(ws, r)
-
-	// start a go routine which periodically synchronizes containers
-	// managed by the local container runtime and checks if any of them
-	// need to be managed by Cilium. This is a fall back mechanism in case
-	// an event notification has been lost.
-	go func(state *watcherState) {
-		for {
-			time.Sleep(syncRateDocker)
-
-			state.reapEmpty()
-			state.syncWithRuntime()
-		}
-	}(ws)
 
 	log.Debug("Started to listen for containerd events")
 	return nil
