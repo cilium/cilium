@@ -9,6 +9,8 @@ pipeline {
     stages {
         stage('Boot VMs') {
             steps {
+                sh 'ls .'
+                sh 'vagrant status'
                 sh './tests/start_vms'
             }
         }
