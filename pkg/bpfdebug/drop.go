@@ -83,8 +83,8 @@ func dropReason(reason uint8) string {
 
 // DumpInfo prints a summary of the drop messages.
 func (n *DropNotify) DumpInfo(data []byte) {
-	fmt.Printf("xx drop (%s), to endpoint %d, identity %d->%d: %s\n",
-		dropReason(n.SubType), n.DstID, n.SrcLabel, n.DstLabel,
+	fmt.Printf("xx drop (%s) flow %#x to endpoint %d, identity %d->%d: %s\n",
+		dropReason(n.SubType), n.Hash, n.DstID, n.SrcLabel, n.DstLabel,
 		GetConnectionSummary(data[DropNotifyLen:]))
 }
 

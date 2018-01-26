@@ -46,13 +46,25 @@ const (
 	TraceToProxy
 	TraceToHost
 	TraceToStack
+	TraceToOverlay
+	TraceFromLxc
+	TraceFromProxy
+	TraceFromHost
+	TraceFromStack
+	TraceFromOverlay
 )
 
 var traceObsPoints = map[uint8]string{
-	TraceToLxc:   "To endpoint",
-	TraceToProxy: "To proxy",
-	TraceToHost:  "To host",
-	TraceToStack: "To stack",
+	TraceToLxc:       "to-endpoint",
+	TraceToProxy:     "to-proxy",
+	TraceToHost:      "to-host",
+	TraceToStack:     "to-stack",
+	TraceToOverlay:   "to-overlay",
+	TraceFromLxc:     "from-endpoint",
+	TraceFromProxy:   "from-proxy",
+	TraceFromHost:    "from-host",
+	TraceFromStack:   "from-stack",
+	TraceFromOverlay: "from-overlay",
 }
 
 func obsPoint(obsPoint uint8) string {
@@ -71,30 +83,61 @@ const (
 )
 
 var traceReasons = map[uint8]string{
-	TraceReasonPolicy:        "Policy",
-	TraceReasonCtEstablished: "Established connection",
-	TraceReasonCtReply:       "Reply connection",
-	TraceReasonCtRelated:     "Related connection",
+	TraceReasonPolicy:        "new",
+	TraceReasonCtEstablished: "established",
+	TraceReasonCtReply:       "reply",
+	TraceReasonCtRelated:     "related",
 }
 
-func forwardReason(reason uint8) string {
+func connState(reason uint8) string {
 	if str, ok := traceReasons[reason]; ok {
 		return str
 	}
 	return fmt.Sprintf("%d", reason)
 }
 
+func (n *TraceNotify) traceSummary() string {
+	switch n.ObsPoint {
+	case TraceToLxc:
+		return fmt.Sprintf("-> endpoint %d", n.DstID)
+	case TraceToProxy:
+		return "-> proxy"
+	case TraceToHost:
+		return "-> host from"
+	case TraceToStack:
+		return "-> stack"
+	case TraceToOverlay:
+		return "-> overlay"
+	case TraceFromLxc:
+		return fmt.Sprintf("<- endpoint %d", n.Source)
+	case TraceFromProxy:
+		return "<- proxy"
+	case TraceFromHost:
+		return "<- host"
+	case TraceFromStack:
+		return "<- stack"
+	case TraceFromOverlay:
+		return "<- overlay"
+	default:
+		return "unknown trace"
+	}
+}
+
 // DumpInfo prints a summary of the trace messages.
 func (n *TraceNotify) DumpInfo(data []byte) {
-	fmt.Printf("-> forward (%s), at %s, to endpoint %d, identity %d->%d: %s\n",
-		forwardReason(n.Reason), obsPoint(n.ObsPoint), n.DstID, n.SrcLabel, n.DstLabel,
-		GetConnectionSummary(data[TraceNotifyLen:]))
+	fmt.Printf("%s flow %#x identity %d->%d state %s: %s\n",
+		n.traceSummary(), n.Hash, n.SrcLabel, n.DstLabel,
+		connState(n.Reason), GetConnectionSummary(data[TraceNotifyLen:]))
 }
 
 // DumpVerbose prints the trace notification in human readable form
 func (n *TraceNotify) DumpVerbose(dissect bool, data []byte, prefix string) {
-	fmt.Printf("%s MARK %#x FROM %d FORWARD: %d bytes, at %s, reason %s, to ifindex %d",
-		prefix, n.Hash, n.Source, n.OrigLen, obsPoint(n.ObsPoint), forwardReason(n.Reason), n.Ifindex)
+	fmt.Printf("%s MARK %#x FROM %d %s: %d bytes, state %s",
+		prefix, n.Hash, n.Source, obsPoint(n.ObsPoint), n.OrigLen, connState(n.Reason))
+
+	if n.Ifindex != 0 {
+		fmt.Printf(", ifindex %d", n.Ifindex)
+	}
 
 	if n.SrcLabel != 0 || n.DstLabel != 0 {
 		fmt.Printf(", identity %d->%d", n.SrcLabel, n.DstLabel)

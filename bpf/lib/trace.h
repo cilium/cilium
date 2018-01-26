@@ -27,7 +27,6 @@
 #ifndef __LIB_TRACE__
 #define __LIB_TRACE__
 
-#include "conntrack.h"
 #include "dbg.h"
 #include "events.h"
 #include "common.h"
@@ -39,6 +38,12 @@ enum {
 	TRACE_TO_PROXY,
 	TRACE_TO_HOST,
 	TRACE_TO_STACK,
+	TRACE_TO_OVERLAY,
+	TRACE_FROM_LXC,
+	TRACE_FROM_PROXY,
+	TRACE_FROM_HOST,
+	TRACE_FROM_STACK,
+	TRACE_FROM_OVERLAY,
 };
 
 /* Reasons for forwarding a packet. */
@@ -66,7 +71,7 @@ struct trace_notify {
 /**
  * send_trace_notify
  * @skb:	socket buffer
- * @obs_point:	observation point (TRACE_TO_*)
+ * @obs_point:	observation point (TRACE_*)
  * @src:	source identity
  * @dst:	destination identity
  * @dst_id:	designated destination endpoint ID
