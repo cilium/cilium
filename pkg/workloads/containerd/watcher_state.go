@@ -15,7 +15,9 @@
 package containerd
 
 import (
+	ctx "context"
 	"sync"
+	"time"
 
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -23,7 +25,6 @@ import (
 	dTypes "github.com/docker/engine-api/types"
 	dTypesEvents "github.com/docker/engine-api/types/events"
 	"github.com/sirupsen/logrus"
-	ctx "golang.org/x/net/context"
 )
 
 // watcherState holds global close flag, per-container queues for events and
@@ -94,7 +95,10 @@ func (ws *watcherState) reapEmpty() {
 func (ws *watcherState) syncWithRuntime() {
 	var wg sync.WaitGroup
 
-	cList, err := dockerClient.ContainerList(ctx.Background(), dTypes.ContainerListOptions{All: false})
+	timeoutCtx, cancel := ctx.WithTimeout(ctx.Background(), 10*time.Second)
+	defer cancel()
+
+	cList, err := dockerClient.ContainerList(timeoutCtx, dTypes.ContainerListOptions{All: false})
 	if err != nil {
 		log.WithError(err).Error("Failed to retrieve the container list")
 		return
