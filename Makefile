@@ -4,7 +4,8 @@ include daemon/bpf.sha
 SUBDIRS = envoy plugins bpf cilium daemon monitor cilium-health bugtool
 GOFILES ?= $(shell go list ./... | grep -v /vendor/ | grep -v /contrib/ | grep -v /test | grep -v envoy.*api)
 GOLANGVERSION = $(shell go version 2>/dev/null | grep -Eo '(go[0-9].[0-9])')
-GOLANG_SRCFILES=$(shell for pkg in $(subst github.com/cilium/cilium/,,$(GOFILES)); do find $$pkg -name *.go -print; done | grep -v /vendor/)
+GOLANG_SRCFILES=$(shell for pkg in $(subst github.com/cilium/cilium/,,$(GOFILES)); do find $$pkg -name *.go -print; done | grep -v vendor)
+BPF_FILES ?= $(shell git ls-files ../bpf/ | tr "\n" ' ')
 BPF_SRCFILES=$(subst ../,,$(BPF_FILES))
 
 GOTEST_OPTS = -test.v -check.v
@@ -102,13 +103,11 @@ tests-consul:
 	docker rm -f "cilium-consul-test-container"
 
 clean-tags:
-	-$(MAKE) -C bpf/ clean-tags
 	-rm -f cscope.out cscope.in.out cscope.po.out cscope.files tags
 
 tags: $(GOLANG_SRCFILES) $(BPF_SRCFILES)
-	@$(MAKE) -C bpf/ tags
-	gotags -R . > tags
-	@ echo $(GOLANG_SRCFILES) | sed 's/ /\n/g' > cscope.files
+	ctags $(GOLANG_SRCFILES) $(BPF_SRCFILES)
+	@ echo $(GOLANG_SRCFILES) $(BPF_SRCFILES) | sed 's/ /\n/g' | sort > cscope.files
 	cscope -R -b -q
 
 clean-container:
