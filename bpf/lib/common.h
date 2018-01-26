@@ -20,6 +20,7 @@
 
 #include <bpf_features.h>
 #include <bpf/api.h>
+#include <linux/if_ether.h>
 #include <linux/ipv6.h>
 #include <linux/in.h>
 #include <stdint.h>
@@ -62,6 +63,28 @@ union v6addr {
         };
         __u8 addr[16];
 };
+
+static inline bool __revalidate_data(struct __sk_buff *skb, void **data_,
+				     void **data_end_, void **l3,
+				     size_t l3_len)
+{
+	void *data = (void *) (long) skb->data;
+	void *data_end = (void *) (long) skb->data_end;
+
+	if (data + ETH_HLEN + l3_len > data_end)
+		return false;
+
+	*data_ = data;
+	*data_end_ = data_end;
+	*l3 = data + ETH_HLEN;
+	return true;
+}
+
+/* revalidate_data() initializes the provided pointers from the skb.
+ * Returns true if 'skb' is long enough for an IP header of the provided type,
+ * false otherwise. */
+#define revalidate_data(skb, data, data_end, ip)	\
+	__revalidate_data(skb, data, data_end, (void **)ip, sizeof(**ip))
 
 /* Macros for working with L3 cilium defined IPV6 addresses */
 #define BPF_V6(dst, ...)	BPF_V6_16(dst, __VA_ARGS__)

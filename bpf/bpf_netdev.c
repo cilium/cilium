@@ -170,11 +170,7 @@ static inline int handle_ipv6(struct __sk_buff *skb)
 	__u8 nexthdr;
 	__u32 flowlabel;
 
-	data = (void *) (long) skb->data;
-	data_end = (void *) (long) skb->data_end;
-	ip6 = data + ETH_HLEN;
-
-	if (data + l3_off + sizeof(*ip6) > data_end)
+	if (!revalidate_data(skb, &data, &data_end, &ip6))
 		return DROP_INVALID;
 
 	nexthdr = ip6->nexthdr;
@@ -210,11 +206,7 @@ static inline int handle_ipv6(struct __sk_buff *skb)
 			return ret;
 	}
 
-	data = (void *) (long) skb->data;
-	data_end = (void *) (long) skb->data_end;
-	ip6 = data + ETH_HLEN;
-
-	if (data + sizeof(*ip6) + ETH_HLEN > data_end)
+	if (!revalidate_data(skb, &data, &data_end, &ip6))
 		return DROP_INVALID;
 #endif
 
@@ -341,11 +333,7 @@ static inline int handle_ipv4(struct __sk_buff *skb)
 	int l4_off;
 	__u32 secctx;
 
-	data = (void *) (long) skb->data;
-	data_end = (void *) (long) skb->data_end;
-	ip4 = data + ETH_HLEN;
-
-	if (data + sizeof(*ip4) + ETH_HLEN > data_end)
+	if (!revalidate_data(skb, &data, &data_end, &ip4))
 		return DROP_INVALID;
 
 	l4_off = ETH_HLEN + ipv4_hdrlen(ip4);
@@ -371,11 +359,7 @@ static inline int handle_ipv4(struct __sk_buff *skb)
 			return ret;
 	}
 
-	data = (void *) (long) skb->data;
-	data_end = (void *) (long) skb->data_end;
-	ip4 = data + ETH_HLEN;
-
-	if (data + sizeof(*ip4) + ETH_HLEN > data_end)
+	if (!revalidate_data(skb, &data, &data_end, &ip4))
 		return DROP_INVALID;
 #endif
 
