@@ -98,18 +98,52 @@ func boolToInt8(val bool) int8 {
 	return res
 }
 
+// discard tries to discard bytes
+// from the io.Reader in chunks of maxDiscardSize(4096) bytes
+// to avoid allocating huge amount of memory in
+// one go.
+func discard(r io.Reader, n int32) {
+	remBytes := n
+	var delBytes int32
+
+	delBytes = 0
+	for remBytes > 0 {
+		if remBytes > maxDiscardSize {
+			delBytes = maxDiscardSize
+			remBytes = remBytes - maxDiscardSize
+		} else {
+			delBytes = remBytes
+			remBytes = 0
+		}
+		io.CopyN(ioutil.Discard, r, int64(delBytes))
+	}
+}
+
 // ReadReq returns request kind ID and byte representation of the whole message
 // in wire protocol format.
 func ReadReq(r io.Reader) (requestKind int16, b []byte, err error) {
 	dec := NewDecoder(r)
 	msgSize := dec.DecodeInt32()
+	if err := dec.Err(); err != nil {
+		return 0, nil, err
+	}
+
+	if msgSize <= 0 {
+		return 0, nil, io.ErrUnexpectedEOF
+	}
+
 	requestKind = dec.DecodeInt16()
 	if err := dec.Err(); err != nil {
+		discard(r, msgSize)
 		return 0, nil, err
 	}
 	// size of the message + size of the message itself
 	b, err = allocParseBuf(int(msgSize + 4))
 	if err != nil {
+		if msgSize > 2 {
+			// We have already read the requestKind
+			discard(r, msgSize-2)
+		}
 		return 0, nil, err
 	}
 
@@ -138,13 +172,26 @@ func ReadReq(r io.Reader) (requestKind int16, b []byte, err error) {
 func ReadResp(r io.Reader) (correlationID int32, b []byte, err error) {
 	dec := NewDecoder(r)
 	msgSize := dec.DecodeInt32()
+	if err := dec.Err(); err != nil {
+		return 0, nil, err
+	}
+
+	if msgSize <= 0 {
+		return 0, nil, io.ErrUnexpectedEOF
+	}
+
 	correlationID = dec.DecodeInt32()
 	if err := dec.Err(); err != nil {
+		discard(r, msgSize)
 		return 0, nil, err
 	}
 	// size of the message + size of the message itself
 	b, err = allocParseBuf(int(msgSize + 4))
 	if err != nil {
+		if msgSize > 4 {
+			// We have already read the correlationID
+			discard(r, msgSize-4)
+		}
 		return 0, nil, err
 	}
 

@@ -62,9 +62,7 @@ import (
 	"github.com/go-openapi/runtime/middleware"
 	"github.com/mattn/go-shellwords"
 	"github.com/sirupsen/logrus"
-	"github.com/spf13/viper"
 	"github.com/vishvananda/netlink"
-	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 const (
@@ -125,13 +123,7 @@ func (d *Daemon) UpdateProxyRedirect(e *endpoint.Endpoint, l4 *policy.L4Filter) 
 		return 0, fmt.Errorf("can't redirect, proxy disabled")
 	}
 
-	// proxyKind only has an effects on newly created redirects
-	proxyKind := proxy.ProxyKindOxy
-	if viper.GetBool("envoy-proxy") {
-		proxyKind = proxy.ProxyKindEnvoy
-	}
-
-	r, err := d.l7Proxy.CreateOrUpdateRedirect(l4, e.ProxyID(l4), e, proxyKind)
+	r, err := d.l7Proxy.CreateOrUpdateRedirect(l4, e.ProxyID(l4), e)
 	if err != nil {
 		return 0, err
 	}
@@ -255,62 +247,6 @@ func (d *Daemon) PolicyEnforcement() string {
 // DebugEnabled returns if debug mode is enabled.
 func (d *Daemon) DebugEnabled() bool {
 	return d.conf.Opts.IsEnabled(endpoint.OptionDebug)
-}
-
-// AnnotateEndpoint adds a Kubernetes annotation with key annotationKey and value
-// annotationValue if Kubernetes is being utilized in tandem with Cilium.
-func (d *Daemon) AnnotateEndpoint(e *endpoint.Endpoint, annotationKey, annotationValue string) {
-
-	if !k8s.IsEnabled() {
-		return // Don't error out if k8s is not enabled; treat as a no-op.
-	}
-
-	go func(e *endpoint.Endpoint) {
-		// TODO: Retry forever?
-		n := 0
-		for {
-			// Endpoint's PodName is in the format namespace:pod-name
-			split := strings.Split(e.PodName, ":")
-			if len(split) < 2 {
-				log.WithFields(logrus.Fields{
-					logfields.EndpointID:            e.ID,
-					logfields.K8sPodName:            e.PodName,
-					logfields.K8sIdentityAnnotation: common.CiliumIdentityAnnotation,
-				}).Error("k8s: unable to update pod with annotation: namespace and pod name should be delimited by :")
-				return
-			}
-
-			scopedLog := log.WithFields(logrus.Fields{
-				logfields.EndpointID:            e.ID,
-				logfields.K8sNamespace:          split[0],
-				logfields.K8sPodName:            split[1],
-				logfields.K8sIdentityAnnotation: common.CiliumIdentityAnnotation,
-			})
-
-			pod, err := k8s.Client().CoreV1().Pods(split[0]).Get(split[1], meta_v1.GetOptions{})
-			if err != nil {
-				scopedLog.WithError(err).Error("error getting pod for endpoint")
-				return
-			}
-
-			if pod.Annotations == nil {
-				pod.Annotations = make(map[string]string)
-			}
-			pod.Annotations[annotationKey] = annotationValue
-			pod, err = k8s.Client().CoreV1().Pods(split[0]).Update(pod)
-			if err == nil {
-				scopedLog.Debug("added annotation to endpoint / pods")
-				break
-			}
-
-			scopedLog.Warn("k8s: unable to update  endpoint / pod  with annotation, retrying...")
-
-			if n < 30 {
-				n++
-			}
-			time.Sleep(time.Duration(n) * time.Second)
-		}
-	}(e)
 }
 
 // CleanCTEntries cleans the connection tracking of the given endpoint
@@ -1042,8 +978,9 @@ func NewDaemon(c *Config) (*Daemon, error) {
 	}
 
 	if k8s.IsEnabled() {
-		err := k8s.AnnotateNodeCIDR(k8s.Client(), node.GetName(),
-			node.GetIPv4AllocRange(), node.GetIPv6NodeRange())
+		err := k8s.AnnotateNode(k8s.Client(), node.GetName(),
+			node.GetIPv4AllocRange(), node.GetIPv6NodeRange(),
+			nil, nil)
 		if err != nil {
 			log.WithError(err).Warning("Cannot annotate k8s node with CIDR range")
 		}
@@ -1057,7 +994,6 @@ func NewDaemon(c *Config) (*Daemon, error) {
 	if err := node.ValidatePostInit(); err != nil {
 		log.WithError(err).Fatal("postinit failed")
 	}
-
 	// REVIEW should these be changed? they seem intended for humans
 	log.Infof("Local node-name: %s", node.GetName())
 	log.Infof("Node-IPv6: %s", node.GetIPv6())
@@ -1068,7 +1004,7 @@ func NewDaemon(c *Config) (*Daemon, error) {
 	log.Infof("IPv6 node prefix: %s", node.GetIPv6NodeRange())
 	log.Infof("IPv6 allocation prefix: %s", node.GetIPv6AllocRange())
 	log.Infof("IPv4 allocation prefix: %s", node.GetIPv4AllocRange())
-	log.Debugf("IPv6 router address: %s", node.GetIPv6Router())
+	log.Infof("IPv6 router address: %s", node.GetIPv6Router())
 
 	// Populate list of nodes with local node entry
 	ni, n := node.GetLocalNode()
@@ -1081,6 +1017,7 @@ func NewDaemon(c *Config) (*Daemon, error) {
 			return nil, fmt.Errorf("Unable to reserve IPv4 loopback address: %s", err)
 		}
 		d.loopbackIPv4 = loopbackIPv4
+		log.Infof("Loopback IPv4: %s", d.loopbackIPv4.String())
 	}
 
 	if err = d.init(); err != nil {
@@ -1106,6 +1043,16 @@ func NewDaemon(c *Config) (*Daemon, error) {
 	}
 
 	d.collectStaleMapGarbage()
+
+	// Allocate health endpoint IPs after restoring state
+	health4, health6, err := ipam.AllocateNext("")
+	if err != nil {
+		log.WithError(err).Fatal("Error while allocating cilium-health IP")
+	}
+	node.SetIPv4HealthIP(health4)
+	node.SetIPv6HealthIP(health6)
+	log.Debugf("IPv4 health endpoint address: %s", node.GetIPv4HealthIP())
+	log.Debugf("IPv6 health endpoint address: %s", node.GetIPv6HealthIP())
 
 	return &d, nil
 }

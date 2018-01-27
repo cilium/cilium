@@ -171,14 +171,16 @@ type K8sServiceInfo struct {
 	FEIP       net.IP
 	IsHeadless bool
 	Ports      map[FEPortName]*FEPort
+	Labels     map[string]string
 }
 
 // NewK8sServiceInfo creates a new K8sServiceInfo with the Ports map initialized.
-func NewK8sServiceInfo(ip net.IP, headless bool) *K8sServiceInfo {
+func NewK8sServiceInfo(ip net.IP, headless bool, labels map[string]string) *K8sServiceInfo {
 	return &K8sServiceInfo{
 		FEIP:       ip,
 		IsHeadless: headless,
 		Ports:      map[FEPortName]*FEPort{},
+		Labels:     labels,
 	}
 }
 

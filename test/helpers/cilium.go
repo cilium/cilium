@@ -143,7 +143,7 @@ func (s *SSHMeta) WaitEndpointRegenerated(id string) bool {
 }
 
 // WaitEndpointsReady waits up until MaxRetries times for all endpoints to
-// not be in any regenerating or waiting-to-generate state. Returns true if
+// not be in any regenerating or waiting-for-identity state. Returns true if
 // all endpoints regenerate before MaxRetries are exceeded, false otherwise.
 func (s *SSHMeta) WaitEndpointsReady() bool {
 	logger := s.logger.WithFields(logrus.Fields{"functionName": "WaitEndpointsReady"})
@@ -151,8 +151,10 @@ func (s *SSHMeta) WaitEndpointsReady() bool {
 	numDesired := 0
 	counter := 0
 
-	cmdString := "cilium endpoint list | grep -c regenerat"
+	// filter for endpoints (start with an endpoint id) and count not-ready endpoints
+	cmdString := "cilium endpoint list | egrep '^[0-9]+' | grep -v ready -c"
 	infoCmd := "cilium endpoint list"
+	s.Exec(infoCmd) //Executing this command to save all endpoints output in the logs
 	res := s.Exec(cmdString)
 	logger.Infof("string output of cmd: %s", res.stdout.String())
 	numEndpointsRegenerating, err := strconv.Atoi(strings.TrimSuffix(res.stdout.String(), "\n"))
@@ -184,7 +186,6 @@ func (s *SSHMeta) WaitEndpointsReady() bool {
 		}
 		counter++
 	}
-
 	return true
 }
 
@@ -227,12 +228,25 @@ func (s *SSHMeta) GetEndpoints() *CmdRes {
 	return s.ExecCilium("endpoint list -o json")
 }
 
+// GetEndpointsIDMap returns a mapping of an endpoint ID to Docker container
+// name, and an error if the list of endpoints cannot be retrieved via the
+// Cilium CLI.
+func (s *SSHMeta) GetEndpointsIDMap() (map[string]string, error) {
+	filter := `{range [*]}{@.id}{"="}{@.container-name}{"\n"}{end}`
+	cmd := fmt.Sprintf("endpoint list -o jsonpath='%s'", filter)
+	endpoints := s.ExecCilium(cmd)
+	if !endpoints.WasSuccessful() {
+		return nil, fmt.Errorf("%q failed: %s", cmd, endpoints.CombineOutput())
+	}
+	return endpoints.KVOutput(), nil
+}
+
 // GetEndpointsIds returns a mapping of a Docker container name to to its
 // corresponding endpoint ID, and an error if the list of endpoints cannot be
 // retrieved via the Cilium CLI.
 func (s *SSHMeta) GetEndpointsIds() (map[string]string, error) {
-	// cilium endpoint list -o jsonpath='{range [*]}{@.container-name}{"="}{@.id}{"\n"}{end}'
-	filter := `{range [*]}{@.container-name}{"="}{@.id}{"\n"}{end}`
+	// cilium endpoint list -o jsonpath='{range [?(@.labels.orchestration-identity[0]!='reserved:health')]}{@.container-name}{"="}{@.id}{"\n"}{end}'
+	filter := `{range [?(@.labels.orchestration-identity[0]!="reserved:health")]}{@.container-name}{"="}{@.id}{"\n"}{end}`
 	cmd := fmt.Sprintf("endpoint list -o jsonpath='%s'", filter)
 	endpoints := s.ExecCilium(cmd)
 	if !endpoints.WasSuccessful() {
@@ -259,7 +273,8 @@ func (s *SSHMeta) GetEndpointsNames() ([]string, error) {
 	if data.WasSuccessful() == false {
 		return nil, fmt.Errorf("`cilium endpoint get` was not successful")
 	}
-	result, err := data.Filter("{ [*].container-name }")
+
+	result, err := data.Filter("{ [?(@.labels.orchestration-identity[0]!='reserved:health')].container-name }")
 	if err != nil {
 		return nil, err
 	}
@@ -290,7 +305,7 @@ func (s *SSHMeta) PolicyEndpointsSummary() (map[string]int, error) {
 		Total:    0,
 	}
 
-	endpoints, err := s.GetEndpoints().Filter("{ [*].policy-enabled }")
+	endpoints, err := s.GetEndpoints().Filter("{ [?(@.labels.orchestration-identity[0]!='reserved:health')].policy-enabled }")
 	if err != nil {
 		return result, fmt.Errorf("cannot get endpoints")
 	}
@@ -328,7 +343,13 @@ func (s *SSHMeta) PolicyDelAll() *CmdRes {
 
 // PolicyDel deletes the policy with the given ID from Cilium.
 func (s *SSHMeta) PolicyDel(id string) *CmdRes {
-	return s.ExecCilium(fmt.Sprintf("policy delete %s", id))
+	res := s.ExecCilium(fmt.Sprintf(
+		"policy delete %s | grep Revision: | awk '{print $2}'", id))
+	if !res.WasSuccessful() {
+		return res
+	}
+	policyID, _ := res.IntOutput()
+	return s.PolicyWait(policyID)
 }
 
 // PolicyGet runs `cilium policy get <id>`, where id is the name of a specific
@@ -381,6 +402,24 @@ func (s *SSHMeta) PolicyImport(path string, timeout time.Duration) (int, error) 
 	revision, err = s.PolicyGetRevision()
 	s.logger.Infof("PolicyImport: finished %q with revision '%d'", path, revision)
 	return revision, err
+}
+
+// PolicyRenderAndImport receives an string with a policy, renders it in the
+// test root directory and imports the policy to cilium. It returns the new
+// policy id.  Returns an error if the file cannot be created or if the policy
+// cannot be imported
+func (s *SSHMeta) PolicyRenderAndImport(policy string) (int, error) {
+	filename := fmt.Sprintf("policy_%s.json", MakeUID())
+	s.logger.Debugf("PolicyRenderAndImport: render policy to '%s'", filename)
+	err := RenderTemplateToFile(filename, policy, os.ModePerm)
+	if err != nil {
+		s.logger.Errorf("PolicyRenderAndImport: cannot create policy file on '%s'", filename)
+		return 0, fmt.Errorf("cannot render the policy:  %s", err)
+	}
+	path := GetFilePath(filename)
+	s.logger.Debugf("PolicyRenderAndImport: import policy from '%s'", path)
+	defer os.Remove(filename)
+	return s.PolicyImport(path, HelperTimeout)
 }
 
 // PolicyWait executes `cilium policy wait`, which waits until all endpoints are

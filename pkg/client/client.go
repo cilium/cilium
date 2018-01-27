@@ -105,14 +105,16 @@ func Hint(err error) error {
 	return fmt.Errorf("%s", e)
 }
 
-func formatNodeAddress(w io.Writer, elem *models.NodeAddressingElement, primary bool, prefix string) bool {
-	if elem.Enabled || !primary {
-		if primary {
-			fmt.Fprintf(w, "%sPrimary Address:\t%s\n", prefix, elem.IP)
+func formatNodeAddress(w io.Writer, elem *models.NodeAddressingElement, title, prefix string) bool {
+	if elem.Enabled || title == "" {
+		if title != "" {
+			fmt.Fprintf(w, "%s%s Address:\t%s\n", prefix, title, elem.IP)
 		} else {
 			fmt.Fprintf(w, "%s%s:\n", prefix, elem.IP)
 		}
-		fmt.Fprintf(w, "%s Type:\t%s\n", prefix, elem.AddressType)
+		if elem.AddressType != "" {
+			fmt.Fprintf(w, "%s Type:\t%s\n", prefix, elem.AddressType)
+		}
 		if elem.AllocRange != "" {
 			fmt.Fprintf(w, "%sAllocRange:\t%s\n", prefix, elem.AllocRange)
 		}
@@ -134,7 +136,9 @@ func FormatStatusResponse(w io.Writer, sr *models.StatusResponse) {
 	}
 	if sr.Kubernetes != nil {
 		fmt.Fprintf(w, "Kubernetes:\t%s\t%s\n", sr.Kubernetes.State, sr.Kubernetes.Msg)
-		fmt.Fprintf(w, "Kubernetes APIs:\t[\"%s\"]\n", strings.Join(sr.Kubernetes.K8sAPIVersions, "\", \""))
+		if sr.Kubernetes.State != models.K8sStatusStateDisabled {
+			fmt.Fprintf(w, "Kubernetes APIs:\t[\"%s\"]\n", strings.Join(sr.Kubernetes.K8sAPIVersions, "\", \""))
+		}
 	}
 	if sr.Cilium != nil {
 		fmt.Fprintf(w, "Cilium:\t%s\t%s\n", sr.Cilium.State, sr.Cilium.Msg)
@@ -175,19 +179,23 @@ func FormatStatusResponse(w io.Writer, sr *models.StatusResponse) {
 				localStr = " (localhost)"
 			}
 			fmt.Fprintf(w, " %s%s:\n", node.Name, localStr)
-			formatNodeAddress(w, node.PrimaryAddress.IPV4, true, "  ")
-			formatNodeAddress(w, node.PrimaryAddress.IPV6, true, "  ")
+			formatNodeAddress(w, node.PrimaryAddress.IPV4, "Primary", "  ")
+			formatNodeAddress(w, node.PrimaryAddress.IPV6, "Primary", "  ")
 
 			buf := new(bytes.Buffer)
 			secondary := false
 			fmt.Fprintf(buf, "  Secondary Addresses:\n")
 			for _, elem := range node.SecondaryAddresses {
-				if formatNodeAddress(buf, elem, false, "   ") {
+				if formatNodeAddress(buf, elem, "", "   ") {
 					secondary = true
 				}
 			}
 			if secondary {
 				fmt.Fprintf(w, "%s", buf.String())
+			}
+			if node.HealthEndpointAddress != nil {
+				formatNodeAddress(w, node.HealthEndpointAddress.IPV4, "Health Endpoint", "  ")
+				formatNodeAddress(w, node.HealthEndpointAddress.IPV6, "Health Endpoint", "  ")
 			}
 		}
 	}

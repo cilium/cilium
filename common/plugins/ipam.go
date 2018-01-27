@@ -39,6 +39,20 @@ type Route struct {
 	Nexthop *net.IP
 }
 
+// ToIPCommand converts the route into a full "ip route ..." command
+func (r *Route) ToIPCommand(dev string) []string {
+	res := []string{"ip"}
+	if r.Prefix.IP.To4() == nil {
+		res = append(res, "-6")
+	}
+	res = append(res, "route", "add", r.Prefix.String())
+	if r.Nexthop != nil {
+		res = append(res, "via", r.Nexthop.String())
+	}
+	res = append(res, "dev", dev)
+	return res
+}
+
 // ByMask is used to sort an array of routes by mask, narrow first.
 type ByMask []Route
 

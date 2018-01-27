@@ -22,9 +22,11 @@ import (
 	"time"
 
 	"github.com/cilium/cilium/pkg/envoy"
+	"github.com/cilium/cilium/pkg/flowdebug"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/proxy/accesslog"
 
+	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 )
 
@@ -98,7 +100,8 @@ func (r *EnvoyRedirect) Close() {
 
 // Log does access logging for Envoy
 func (r *EnvoyRedirect) Log(pblog *envoy.HttpLogEntry) {
-	log.Infof("%s: Access log message: %s", pblog.CiliumResourceName, pblog.String())
+	flowdebug.Log(log.WithFields(logrus.Fields{}),
+		fmt.Sprintf("%s: Access log message: %s", pblog.CiliumResourceName, pblog.String()))
 
 	headers := make(http.Header)
 	for _, header := range pblog.Headers {

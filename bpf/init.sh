@@ -306,7 +306,7 @@ fi
 
 if [ "$MODE" = "direct" ]; then
 	if [ -z "$NATIVE_DEV" ]; then
-		echo "No device specified for direct mode, ignoring..."
+		echo "No device specified for $MODE mode, ignoring..."
 	else
 		sysctl -w net.ipv6.conf.all.forwarding=1
 
@@ -319,7 +319,7 @@ if [ "$MODE" = "direct" ]; then
 	fi
 elif [ "$MODE" = "lb" ]; then
 	if [ -z "$NATIVE_DEV" ]; then
-		echo "No device specified for direct mode, ignoring..."
+		echo "No device specified for $MODE mode, ignoring..."
 	else
 		sysctl -w net.ipv6.conf.all.forwarding=1
 

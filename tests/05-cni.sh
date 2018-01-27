@@ -13,6 +13,9 @@ redirect_debug_logs ${LOGS_DIR}
 
 set -ex
 
+log "${TEST_NAME} has been deprecated and replaced by /test/runtime/connectivity.go:With CNI"
+exit 0
+
 server_id=""
 client_id=""
 

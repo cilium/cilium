@@ -34,7 +34,10 @@ import (
 	"github.com/spf13/viper"
 )
 
-var log = logging.DefaultLogger
+var (
+	log          = logging.DefaultLogger
+	perFlowDebug = false
+)
 
 // Magic markers are attached to each packet. The upper 16 bits are used to
 // identify packets which have gone through the proxy and to determine whether
@@ -51,13 +54,6 @@ const (
 	fieldSocket          = "socket"
 	fieldFd              = "fd"
 	fieldProxyRedirectID = "id"
-	fieldProxyKind       = "kind"
-)
-
-// Supported proxy types
-const (
-	ProxyKindOxy   = "oxy"
-	ProxyKindEnvoy = "envoy"
 )
 
 // Redirect is the generic proxy redirect interface that each proxy redirect
@@ -336,7 +332,7 @@ func fillEgressDestinationInfo(info *accesslog.EndpointInfo, ipstr string) {
 // proxy configuration. This will allocate a proxy port as required and launch
 // a proxy instance. If the redirect is already in place, only the rules will be
 // updated.
-func (p *Proxy) CreateOrUpdateRedirect(l4 *policy.L4Filter, id string, source ProxySource, kind string) (Redirect, error) {
+func (p *Proxy) CreateOrUpdateRedirect(l4 *policy.L4Filter, id string, source ProxySource) (Redirect, error) {
 	gcOnce.Do(func() {
 		if lf := viper.GetString("access-log"); lf != "" {
 			if err := accesslog.OpenLogfile(lf); err != nil {
@@ -376,8 +372,6 @@ func (p *Proxy) CreateOrUpdateRedirect(l4 *policy.L4Filter, id string, source Pr
 		return r, nil
 	}
 
-	scopedLog = scopedLog.WithField(fieldProxyKind, kind)
-
 	to, err := p.allocatePort()
 	if err != nil {
 		return nil, err
@@ -393,14 +387,7 @@ func (p *Proxy) CreateOrUpdateRedirect(l4 *policy.L4Filter, id string, source Pr
 			source:     source,
 			listenPort: to})
 	case policy.ParserTypeHTTP:
-		switch kind {
-		case ProxyKindOxy:
-			redir, err = createOxyRedirect(l4, id, source, to)
-		case ProxyKindEnvoy:
-			redir, err = createEnvoyRedirect(l4, id, source, to)
-		default:
-			return nil, fmt.Errorf("Unknown proxy kind: %s", kind)
-		}
+		redir, err = createEnvoyRedirect(l4, id, source, to)
 	default:
 		return nil, fmt.Errorf("Unsupported L7 parser type: %s", l4.L7Parser)
 	}

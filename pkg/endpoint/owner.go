@@ -71,9 +71,6 @@ type Owner interface {
 	// Returns true if debugging has been enabled
 	DebugEnabled() bool
 
-	// Annotates endpoint e with an annotation with key annotationKey, and value annotationValue.
-	AnnotateEndpoint(e *Endpoint, annotationKey, annotationValue string)
-
 	// GetCompilationLock returns the mutex responsible for synchronizing compilation
 	// of BPF programs.
 	GetCompilationLock() *lock.RWMutex
@@ -89,6 +86,15 @@ type Owner interface {
 	// isCTLocal should be set as true if the endpoint's CT table is either
 	// local or not (if is not local then is assumed to be global).
 	FlushCTEntries(e *Endpoint, isCTLocal bool, ips []net.IP, idsToKeep policy.RuleContexts)
+
+	// UpdateSecLabels add and deletes the given labels on given endpoint ID.
+	// The received `add` and `del` labels will be filtered with the valid label
+	// prefixes.
+	// The `add` labels take precedence over `del` labels, this means if the same
+	// label is set on both `add` and `del`, that specific label will exist in the
+	// endpoint's labels.
+	// On success, returns 0, nil. Otherwise, returns an API error code and error msg.
+	UpdateSecLabels(id string, add, del labels.Labels) (int, error)
 }
 
 // Request is used to create the endpoint's request and send it to the endpoints

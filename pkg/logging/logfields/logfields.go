@@ -56,6 +56,12 @@ const (
 	// IPAddr is an IPV4 or IPv6 address
 	IPAddr = "ipAddr"
 
+	// V4HealthIP is an address used to contact the cilium-health endpoint
+	V4HealthIP = "v4healthIP.IPv4"
+
+	// V6HealthIP is an address used to contact the cilium-health endpoint
+	V6HealthIP = "v6healthIP.IPv6"
+
 	// L3n4Addr is a L3 (IP) + L4 (port and protocol) address object.
 	L3n4Addr = "l3n4Addr"
 
@@ -135,6 +141,9 @@ const (
 
 	// Route is a L2 or L3 Linux route
 	Route = "route"
+
+	// RetryUUID is an UUID identical for all retries of a set
+	RetryUUID = "retryUUID"
 
 	// K8s specific
 

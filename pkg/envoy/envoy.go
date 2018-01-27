@@ -124,7 +124,10 @@ func StartEnvoy(adminPort uint32, stateDir, logDir string, baseID uint64) *Envoy
 	e.rds.run()
 	e.lds.run(e.rds)
 
-	started := make(chan bool)
+	// make it a buffered channel so we can not only
+	// read the written value but also skip it in
+	// case no one reader reads it.
+	started := make(chan bool, 1)
 	go func() {
 		var logFile *os.File
 		var err error
@@ -150,11 +153,19 @@ func StartEnvoy(adminPort uint32, stateDir, logDir string, baseID uint64) *Envoy
 			err = e.cmd.Start()
 			if err != nil {
 				log.WithError(err).Warn("Envoy: failed to start.")
-				started <- false
+				select {
+				case started <- false:
+				default:
+				}
 				return
 			}
-			log.WithError(err).Warn("Envoy: Started.")
-			started <- true
+			log.Debugf("Envoy: Started.")
+			select {
+			case started <- true:
+			default:
+			}
+
+			log.Info("Envoy: Process started at pid ", e.cmd.Process.Pid)
 
 			// We do not return after a successful start, but watch the Envoy process
 			// and restart it if it crashes.
@@ -174,7 +185,6 @@ func StartEnvoy(adminPort uint32, stateDir, logDir string, baseID uint64) *Envoy
 	}()
 
 	if <-started {
-		log.Info("Envoy: Process started at pid ", e.cmd.Process.Pid)
 		return e
 	}
 

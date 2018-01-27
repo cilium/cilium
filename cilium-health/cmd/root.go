@@ -27,6 +27,7 @@ import (
 	serverPkg "github.com/cilium/cilium/pkg/health/server"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/pidfile"
 
 	gops "github.com/google/gops/agent"
 	"github.com/sirupsen/logrus"
@@ -74,7 +75,8 @@ func init() {
 	flags.BoolP("debug", "D", false, "Enable debug messages")
 	flags.BoolP("daemon", "d", false, "Run as a daemon")
 	flags.BoolP("passive", "p", false, "Only respond to HTTP health checks")
-	flags.StringP("host", "H", "", "URI to cilum-health server API")
+	flags.StringP("pidfile", "", "", "Write the PID to the specified file")
+	flags.StringP("host", "H", "", "URI to cilium-health server API")
 	flags.StringP("cilium", "c", "", "URI to Cilium server API")
 	flags.IntP("interval", "i", 60, "Interval (in seconds) for periodic connectivity probes")
 	flags.BoolP("json", "j", false, "Format as JSON")
@@ -132,7 +134,14 @@ func initConfig() {
 
 func runServer() {
 	common.RequireRootPrivilege(targetName)
-	os.Remove(defaults.SockPath)
+
+	// Write the pidfile (if specified)
+	if path := viper.GetString("pidfile"); path != "" {
+		if err := pidfile.Write(path); err != nil {
+			fmt.Printf("Failed to write pidfile %s: %s\n", path, err.Error())
+			os.Exit(-1)
+		}
+	}
 
 	// Open socket for using gops to get stacktraces of the daemon.
 	if err := gops.Listen(gops.Options{}); err != nil {

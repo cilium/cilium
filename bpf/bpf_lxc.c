@@ -117,7 +117,7 @@ static inline int ipv6_l3_from_lxc(struct __sk_buff *skb,
 				   struct ethhdr *eth, struct ipv6hdr *ip6)
 {
 	union macaddr router_mac = NODE_MAC;
-	union v6addr host_ip = {}, router_ip = {};
+	union v6addr router_ip = {};
 	int ret, l4_off, forwarding_reason;
 	struct csum_offset csum_off = {};
 	struct endpoint_info *ep;
@@ -127,7 +127,6 @@ static inline int ipv6_l3_from_lxc(struct __sk_buff *skb,
 	struct ct_state ct_state = {};
 	void *data, *data_end;
 	union v6addr *daddr, orig_dip;
-	bool orig_was_proxy;
 	uint16_t dstID = WORLD_ID;
 
 	if (unlikely(!is_valid_lxc_src_mac(eth)))
@@ -137,23 +136,8 @@ static inline int ipv6_l3_from_lxc(struct __sk_buff *skb,
 	else if (unlikely(!is_valid_lxc_src_ip(ip6)))
 		return DROP_INVALID_SIP;
 
-	/* The tuple is created in reverse order initially to find a
-	 * potential reverse flow. This is required because the RELATED
-	 * or REPLY state takes precedence over ESTABLISHED due to
-	 * policy requirements.
-	 *
-	 * Depending on direction, either source or destination address
-	 * is assumed to be the address of the container. Therefore,
-	 * the source address for incoming respectively the destination
-	 * address for outgoing packets is stored in a single field in
-	 * the tuple. The TUPLE_F_OUT and TUPLE_F_IN flags indicate which
-	 * address the field currently represents.
-	 */
 	ipv6_addr_copy(&tuple->daddr, (union v6addr *) &ip6->daddr);
 	ipv6_addr_copy(&tuple->saddr, (union v6addr *) &ip6->saddr);
-
-	BPF_V6(host_ip, HOST_IP);
-	orig_was_proxy = ipv6_addrcmp((union v6addr *) &ip6->saddr, &host_ip) == 0;
 
 	l4_off = l3_off + ipv6_hdrlen(skb, l3_off, &tuple->nexthdr);
 
@@ -217,7 +201,7 @@ skip_service_lookup:
 		 */
 		ct_state_new.src_sec_id = SECLABEL;
 		ret = ct_create6(&CT_MAP6, tuple, skb, CT_EGRESS, &ct_state_new,
-				 orig_was_proxy);
+				 false);
 		if (IS_ERR(ret))
 			return ret;
 		ct_state.proxy_port = ct_state_new.proxy_port;
@@ -248,6 +232,9 @@ skip_service_lookup:
 
 	if (ct_state.proxy_port) {
 		union macaddr host_mac = HOST_IFINDEX_MAC;
+		union v6addr host_ip = {};
+
+		BPF_V6(host_ip, HOST_IP);
 
 		ret = ipv6_redirect_to_host_port(skb, &csum_off, l4_off,
 						 ct_state.proxy_port, tuple->dport,
@@ -266,16 +253,10 @@ skip_service_lookup:
 		return redirect(HOST_IFINDEX, 0);
 	}
 
-	data = (void *)(long)skb->data;
-	data_end = (void *)(long)skb->data_end;
-
-	if (data + sizeof(struct ipv6hdr) + ETH_HLEN > data_end)
+	if (!revalidate_data(skb, &data, &data_end, &ip6))
 		return DROP_INVALID;
 
-	ip6 = data + ETH_HLEN;
 	daddr = (union v6addr *)&ip6->daddr;
-
-	BPF_V6(router_ip, ROUTER_IP);
 
 	/* Lookup IPv6 address, this will return a match if:
 	 *  - The destination IP address belongs to a local endpoint managed by
@@ -325,6 +306,7 @@ skip_service_lookup:
 #endif
 
 	/* Check if destination is within our cluster prefix */
+	BPF_V6(router_ip, ROUTER_IP);
 	if (ipv6_match_prefix_64(daddr, &router_ip)) {
 		/* Packet is going to peer inside the cluster prefix. This can
 		 * happen if encapsulation has been disabled and all remote
@@ -408,13 +390,11 @@ pass_to_stack:
 static inline int handle_ipv6(struct __sk_buff *skb)
 {
 	struct ipv6_ct_tuple tuple = {};
-	void *data = (void *) (long) skb->data;
-	void *data_end = (void *) (long) skb->data_end;
-	struct ipv6hdr *ip6 = data + ETH_HLEN;
-	struct ethhdr *eth = data;
+	void *data, *data_end;
+	struct ipv6hdr *ip6;
 	int ret;
 
-	if (data + sizeof(struct ipv6hdr) + ETH_HLEN > data_end)
+	if (!revalidate_data(skb, &data, &data_end, &ip6))
 		return DROP_INVALID;
 
 	/* Handle special ICMPv6 messages. This includes echo requests to the
@@ -433,19 +413,18 @@ static inline int handle_ipv6(struct __sk_buff *skb)
 
 	/* Perform L3 action on the frame */
 	tuple.nexthdr = ip6->nexthdr;
-	return ipv6_l3_from_lxc(skb, &tuple, ETH_HLEN, eth, ip6);
+	return ipv6_l3_from_lxc(skb, &tuple, ETH_HLEN, data, ip6);
 }
 
 #ifdef LXC_IPV4
 
-static inline int handle_ipv4(struct __sk_buff *skb)
+static inline int handle_ipv4_from_lxc(struct __sk_buff *skb)
 {
 	struct ipv4_ct_tuple tuple = {};
 	union macaddr router_mac = NODE_MAC;
-	void *data = (void *) (long) skb->data;
-	void *data_end = (void *) (long) skb->data_end;
-	struct iphdr *ip4 = data + ETH_HLEN;
-	struct ethhdr *eth = data;
+	void *data, *data_end;
+	struct iphdr *ip4;
+	struct ethhdr *eth;
 	int ret, l3_off = ETH_HLEN, l4_off, forwarding_reason;
 	struct csum_offset csum_off = {};
 	struct endpoint_info *ep;
@@ -453,16 +432,15 @@ static inline int handle_ipv4(struct __sk_buff *skb)
 	struct lb4_key key = {};
 	struct ct_state ct_state_new = {};
 	struct ct_state ct_state = {};
-	bool orig_was_proxy;
 	__be32 orig_dip;
 	uint16_t dstID = WORLD_ID;
 
-
-	if (data + sizeof(*ip4) + ETH_HLEN > data_end)
+	if (!revalidate_data(skb, &data, &data_end, &ip4))
 		return DROP_INVALID;
 
 	tuple.nexthdr = ip4->protocol;
 
+	eth = data;
 	if (unlikely(!is_valid_lxc_src_mac(eth)))
 		return DROP_INVALID_SMAC;
 	else if (unlikely(!is_valid_gw_dst_mac(eth)))
@@ -470,19 +448,6 @@ static inline int handle_ipv4(struct __sk_buff *skb)
 	else if (unlikely(!is_valid_lxc_src_ipv4(ip4)))
 		return DROP_INVALID_SIP;
 
-	/* The tuple is created in reverse order initially to find a
-	 * potential reverse flow. This is required because the RELATED
-	 * or REPLY state takes precedence over ESTABLISHED due to
-	 * policy requirements.
-	 *
-	 * Depending on direction, either source or destination address
-	 * is assumed to be the address of the container. Therefore,
-	 * the source address for incoming respectively the destination
-	 * address for outgoing packets is stored in a single field in
-	 * the tuple. The TUPLE_F_OUT and TUPLE_F_IN flags indicate which
-	 * address the field currently represents.
-	 */
-	orig_was_proxy = ip4->saddr == IPV4_GATEWAY;
 	tuple.daddr = ip4->daddr;
 	tuple.saddr = ip4->saddr;
 
@@ -541,7 +506,7 @@ skip_service_lookup:
 		 */
 		ct_state_new.src_sec_id = SECLABEL;
 		ret = ct_create4(&CT_MAP4, &tuple, skb, CT_EGRESS, &ct_state_new,
-				 orig_was_proxy);
+				 false);
 		if (IS_ERR(ret))
 			return ret;
 
@@ -577,10 +542,7 @@ skip_service_lookup:
 			return ret;
 
 		/* After L4 write in port mapping: revalidate for direct packet access */
-		data = (void *) (long) skb->data;
-		data_end = (void *) (long) skb->data_end;
-		ip4 = data + ETH_HLEN;
-		if (data + sizeof(*ip4) + ETH_HLEN > data_end)
+		if (!revalidate_data(skb, &data, &data_end, &ip4))
 			return DROP_INVALID;
 
 		cilium_dbg(skb, DBG_TO_HOST, skb->cb[CB_POLICY], 0);
@@ -594,13 +556,9 @@ skip_service_lookup:
 	}
 
 	/* After L4 write in port mapping: revalidate for direct packet access */
-	data = (void *) (long) skb->data;
-	data_end = (void *) (long) skb->data_end;
-
-	if (data + sizeof(*ip4) + ETH_HLEN > data_end)
+	if (!revalidate_data(skb, &data, &data_end, &ip4))
 		return DROP_INVALID;
 
-	ip4 = data + ETH_HLEN;
 	orig_dip = ip4->daddr;
 
 	/* Lookup IPv4 address, this will return a match if:
@@ -723,7 +681,7 @@ pass_to_stack:
 
 __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV4) int tail_handle_ipv4(struct __sk_buff *skb)
 {
-	int ret = handle_ipv4(skb);
+	int ret = handle_ipv4_from_lxc(skb);
 
 	if (IS_ERR(ret))
 		return send_drop_notify(skb, SECLABEL, 0, 0, 0, ret, TC_ACT_SHOT);
@@ -802,9 +760,8 @@ static inline int __inline__ ipv6_policy(struct __sk_buff *skb, int ifindex, __u
 					 int *forwarding_reason)
 {
 	struct ipv6_ct_tuple tuple = {};
-	void *data = (void *) (long) skb->data;
-	void *data_end = (void *) (long) skb->data_end;
-	struct ipv6hdr *ip6 = data + ETH_HLEN;
+	void *data, *data_end;
+	struct ipv6hdr *ip6;
 	struct csum_offset csum_off = {};
 	int ret, l4_off, verdict;
 	struct ct_state ct_state = {};
@@ -812,7 +769,7 @@ static inline int __inline__ ipv6_policy(struct __sk_buff *skb, int ifindex, __u
 	bool skip_proxy;
 	union v6addr orig_dip = {};
 
-	if (data + sizeof(struct ipv6hdr) + ETH_HLEN > data_end)
+	if (!revalidate_data(skb, &data, &data_end, &ip6))
 		return DROP_INVALID;
 
 	policy_clear_mark(skb);
@@ -916,9 +873,8 @@ static inline int __inline__ ipv4_policy(struct __sk_buff *skb, int ifindex, __u
 					 int *forwarding_reason)
 {
 	struct ipv4_ct_tuple tuple = {};
-	void *data = (void *) (long) skb->data;
-	void *data_end = (void *) (long) skb->data_end;
-	struct iphdr *ip4 = data + ETH_HLEN;
+	void *data, *data_end;
+	struct iphdr *ip4;
 	struct csum_offset csum_off = {};
 	int ret, verdict, l4_off;
 	struct ct_state ct_state = {};
@@ -926,7 +882,7 @@ static inline int __inline__ ipv4_policy(struct __sk_buff *skb, int ifindex, __u
 	bool skip_proxy;
 	__be32 orig_dip;
 
-	if (data + sizeof(*ip4) + ETH_HLEN > data_end)
+	if (!revalidate_data(skb, &data, &data_end, &ip4))
 		return DROP_INVALID;
 
 	policy_clear_mark(skb);
@@ -1014,6 +970,13 @@ static inline int __inline__ ipv4_policy(struct __sk_buff *skb, int ifindex, __u
 }
 #endif
 
+/* Handle policy decisions as the packet makes its way towards the endpoint.
+ * Previously, the packet may have come from another local endpoint, another
+ * endpoint in the cluster, or from the big blue room (as identified by the
+ * contents of skb->cb[CB_SRC_LABEL]). Determine whether the traffic may be
+ * passed into the endpoint or if it needs further inspection by a userspace
+ * proxy.
+ */
 __section_tail(CILIUM_MAP_POLICY, LXC_ID) int handle_policy(struct __sk_buff *skb)
 {
 	int ret, ifindex = skb->cb[CB_IFINDEX];
@@ -1071,12 +1034,11 @@ __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_NAT64) int tail_ipv6_to_ipv4(struct
 __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_NAT46) int tail_ipv4_to_ipv6(struct __sk_buff *skb)
 {
 	union v6addr dp = {};
-	void *data = (void *) (long) skb->data;
-	void *data_end = (void *) (long) skb->data_end;
-	struct iphdr *ip4 = data + ETH_HLEN;
+	void *data, *data_end;
+	struct iphdr *ip4;
 	int ret;
 
-	if (data + sizeof(*ip4) + ETH_HLEN > data_end)
+	if (!revalidate_data(skb, &data, &data_end, &ip4))
 		return DROP_INVALID;
 
 	BPF_V6(dp, LXC_IP);

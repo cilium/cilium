@@ -57,25 +57,23 @@
 #ifndef LB_DISABLE_IPV6
 static inline int handle_ipv6(struct __sk_buff *skb)
 {
-	void *data = (void *) (long) skb->data;
-	void *data_end = (void *) (long) skb->data_end;
+	void *data, *data_end;
 	struct lb6_key key = {};
 	struct lb6_service *svc;
-	struct ipv6hdr *ip6 = data + ETH_HLEN;
-	union v6addr *dst = (union v6addr *) &ip6->daddr;
+	struct ipv6hdr *ip6;
 	struct csum_offset csum_off = {};
 	int l3_off, l4_off, ret;
 	union v6addr new_dst;
 	__u8 nexthdr;
 	__u16 slave;
 
-	if (data + ETH_HLEN + sizeof(*ip6) > data_end)
+	if (!revalidate_data(skb, &data, &data_end, &ip6))
 		return DROP_INVALID;
 
 	cilium_dbg_capture(skb, DBG_CAPTURE_FROM_LB, skb->ingress_ifindex);
 
 	nexthdr = ip6->nexthdr;
-	ipv6_addr_copy(&key.address, dst);
+	ipv6_addr_copy(&key.address, (union v6addr *) &ip6->daddr);
 	l3_off = ETH_HLEN;
 	l4_off = ETH_HLEN + ipv6_hdrlen(skb, ETH_HLEN, &nexthdr);
 	csum_l4_offset_and_flags(nexthdr, &csum_off);
@@ -116,18 +114,18 @@ static inline int handle_ipv6(struct __sk_buff *skb)
 #ifndef LB_DISABLE_IPV4
 static inline int handle_ipv4(struct __sk_buff *skb)
 {
-	void *data = (void *) (long) skb->data;
-	void *data_end = (void *) (long) skb->data_end;
+	void *data;
+	void *data_end;
 	struct lb4_key key = {};
 	struct lb4_service *svc;
-	struct iphdr *ip = data + ETH_HLEN;
+	struct iphdr *ip;
 	struct csum_offset csum_off = {};
 	int l3_off, l4_off, ret;
 	__be32 new_dst;
 	__u8 nexthdr;
 	__u16 slave;
 
-	if (data + ETH_HLEN + sizeof(*ip) > data_end)
+	if (!revalidate_data(skb, &data, &data_end, &ip))
 		return DROP_INVALID;
 
 	cilium_dbg_capture(skb, DBG_CAPTURE_FROM_LB, skb->ingress_ifindex);

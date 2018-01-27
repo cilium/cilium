@@ -64,13 +64,22 @@ func SetupVeth(id string, mtu int, ep *models.EndpointChangeRequest) (*netlink.V
 	lxcIfName := Endpoint2IfName(id)
 	tmpIfName := Endpoint2TempIfName(id)
 
+	veth, link, err := SetupVethWithNames(lxcIfName, tmpIfName, mtu, ep)
+	return veth, link, tmpIfName, err
+}
+
+// SetupVethWithNames sets up the net interface, the temporary interface and fills up some endpoint
+// fields such as LXCMAC, NodeMac, IfIndex and IfName. Returns a pointer for the created
+// veth, a pointer for the temporary link, the name of the temporary link and error if
+// something fails.
+func SetupVethWithNames(lxcIfName, tmpIfName string, mtu int, ep *models.EndpointChangeRequest) (*netlink.Veth, *netlink.Link, error) {
 	veth := &netlink.Veth{
 		LinkAttrs: netlink.LinkAttrs{Name: lxcIfName},
 		PeerName:  tmpIfName,
 	}
 
 	if err := netlink.LinkAdd(veth); err != nil {
-		return nil, nil, "", fmt.Errorf("unable to create veth pair: %s", err)
+		return nil, nil, fmt.Errorf("unable to create veth pair: %s", err)
 	}
 	var err error
 	defer func() {
@@ -89,30 +98,30 @@ func SetupVeth(id string, mtu int, ep *models.EndpointChangeRequest) (*netlink.V
 	args := []string{"-w", "net.ipv4.conf." + lxcIfName + ".rp_filter=0"}
 	_, err = exec.Command("sysctl", args...).CombinedOutput()
 	if err != nil {
-		return nil, nil, "", fmt.Errorf("unable to disable rp_filter on %s: %s",
+		return nil, nil, fmt.Errorf("unable to disable rp_filter on %s: %s",
 			lxcIfName, err)
 	}
 
 	peer, err := netlink.LinkByName(tmpIfName)
 	if err != nil {
-		return nil, nil, "", fmt.Errorf("unable to lookup veth peer just created: %s", err)
+		return nil, nil, fmt.Errorf("unable to lookup veth peer just created: %s", err)
 	}
 
 	if err = netlink.LinkSetMTU(peer, mtu); err != nil {
-		return nil, nil, "", fmt.Errorf("unable to set MTU to %q: %s", tmpIfName, err)
+		return nil, nil, fmt.Errorf("unable to set MTU to %q: %s", tmpIfName, err)
 	}
 
 	hostVeth, err := netlink.LinkByName(lxcIfName)
 	if err != nil {
-		return nil, nil, "", fmt.Errorf("unable to lookup veth just created: %s", err)
+		return nil, nil, fmt.Errorf("unable to lookup veth just created: %s", err)
 	}
 
 	if err = netlink.LinkSetMTU(hostVeth, mtu); err != nil {
-		return nil, nil, "", fmt.Errorf("unable to set MTU to %q: %s", lxcIfName, err)
+		return nil, nil, fmt.Errorf("unable to set MTU to %q: %s", lxcIfName, err)
 	}
 
 	if err = netlink.LinkSetUp(veth); err != nil {
-		return nil, nil, "", fmt.Errorf("unable to bring up veth pair: %s", err)
+		return nil, nil, fmt.Errorf("unable to bring up veth pair: %s", err)
 	}
 
 	ep.Mac = peer.Attrs().HardwareAddr.String()
@@ -120,5 +129,5 @@ func SetupVeth(id string, mtu int, ep *models.EndpointChangeRequest) (*netlink.V
 	ep.InterfaceIndex = int64(hostVeth.Attrs().Index)
 	ep.InterfaceName = lxcIfName
 
-	return veth, &peer, tmpIfName, nil
+	return veth, &peer, nil
 }

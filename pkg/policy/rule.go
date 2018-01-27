@@ -19,6 +19,7 @@ import (
 	"net"
 
 	"github.com/cilium/cilium/pkg/ip"
+	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/policy/api"
 
@@ -101,15 +102,15 @@ func (policy *L4Filter) addFromEndpoints(fromEndpoints []api.EndpointSelector) b
 }
 
 func mergeL4Port(ctx *SearchContext, fromEndpoints []api.EndpointSelector, r api.PortRule, p api.PortProtocol,
-	dir string, proto api.L4Proto, resMap L4PolicyMap) (int, error) {
+	dir string, proto api.L4Proto, ruleLabels labels.LabelArray, resMap L4PolicyMap) (int, error) {
 
 	key := p.Port + "/" + string(proto)
 	v, ok := resMap[key]
 	if !ok {
-		resMap[key] = CreateL4Filter(fromEndpoints, r, p, dir, proto)
+		resMap[key] = CreateL4Filter(fromEndpoints, r, p, dir, proto, ruleLabels)
 		return 1, nil
 	}
-	l4Filter := CreateL4Filter(fromEndpoints, r, p, dir, proto)
+	l4Filter := CreateL4Filter(fromEndpoints, r, p, dir, proto, ruleLabels)
 	if l4Filter.L7Parser != "" {
 		if v.L7Parser == "" {
 			v.L7Parser = l4Filter.L7Parser
@@ -167,12 +168,13 @@ func mergeL4Port(ctx *SearchContext, fromEndpoints []api.EndpointSelector, r api
 		}
 	}
 
+	v.DerivedFromRules = append(v.DerivedFromRules, ruleLabels)
 	resMap[key] = v
 	return 1, nil
 }
 
 func mergeL4(ctx *SearchContext, dir string, fromEndpoints []api.EndpointSelector, portRules []api.PortRule,
-	resMap L4PolicyMap) (int, error) {
+	ruleLabels labels.LabelArray, resMap L4PolicyMap) (int, error) {
 
 	if len(portRules) == 0 {
 		ctx.PolicyTrace("    No L4 rules\n")
@@ -217,19 +219,19 @@ func mergeL4(ctx *SearchContext, dir string, fromEndpoints []api.EndpointSelecto
 		for _, p := range r.Ports {
 			var cnt int
 			if p.Protocol != api.ProtoAny {
-				cnt, err = mergeL4Port(ctx, fromEndpoints, r, p, dir, p.Protocol, resMap)
+				cnt, err = mergeL4Port(ctx, fromEndpoints, r, p, dir, p.Protocol, ruleLabels, resMap)
 				if err != nil {
 					return found, err
 				}
 				found += cnt
 			} else {
-				cnt, err = mergeL4Port(ctx, fromEndpoints, r, p, dir, api.ProtoTCP, resMap)
+				cnt, err = mergeL4Port(ctx, fromEndpoints, r, p, dir, api.ProtoTCP, ruleLabels, resMap)
 				if err != nil {
 					return found, err
 				}
 				found += cnt
 
-				cnt, err = mergeL4Port(ctx, fromEndpoints, r, p, dir, api.ProtoUDP, resMap)
+				cnt, err = mergeL4Port(ctx, fromEndpoints, r, p, dir, api.ProtoUDP, ruleLabels, resMap)
 				if err != nil {
 					return found, err
 				}
@@ -263,12 +265,14 @@ func (r *rule) resolveL4Policy(ctx *SearchContext, state *traceState, result *L4
 		if len(r.Ingress) == 0 {
 			ctx.PolicyTrace("    No L4 rules\n")
 		}
-		for _, r := range r.Ingress {
-			cnt, err := mergeL4(ctx, "Ingress", r.FromEndpoints, r.ToPorts, result.Ingress)
+		for _, ingressRule := range r.Ingress {
+			cnt, err := mergeL4(ctx, "Ingress", ingressRule.FromEndpoints, ingressRule.ToPorts, r.Rule.Labels.DeepCopy(), result.Ingress)
 			if err != nil {
 				return nil, err
 			}
-			found += cnt
+			if cnt > 0 {
+				found += cnt
+			}
 		}
 	}
 
@@ -276,12 +280,14 @@ func (r *rule) resolveL4Policy(ctx *SearchContext, state *traceState, result *L4
 		if len(r.Egress) == 0 {
 			ctx.PolicyTrace("    No L4 rules\n")
 		}
-		for _, r := range r.Egress {
-			cnt, err := mergeL4(ctx, "Egress", nil, r.ToPorts, result.Egress)
+		for _, egressRule := range r.Egress {
+			cnt, err := mergeL4(ctx, "Egress", nil, egressRule.ToPorts, r.Rule.Labels.DeepCopy(), result.Egress)
 			if err != nil {
 				return nil, err
 			}
-			found += cnt
+			if cnt > 0 {
+				found += cnt
+			}
 		}
 	}
 
@@ -292,14 +298,14 @@ func (r *rule) resolveL4Policy(ctx *SearchContext, state *traceState, result *L4
 	return nil, nil
 }
 
-func mergeL3(ctx *SearchContext, dir string, ipRules []api.CIDR, resMap *L3PolicyMap) int {
+func mergeL3(ctx *SearchContext, dir string, ipRules []api.CIDR, ruleLabels labels.LabelArray, resMap *L3PolicyMap) int {
 	found := 0
 
 	for _, r := range ipRules {
 		strCIDR := string(r)
 		ctx.PolicyTrace("  Allows %s IP %s\n", dir, strCIDR)
 
-		found += resMap.Insert(strCIDR)
+		found += resMap.Insert(strCIDR, ruleLabels)
 	}
 
 	return found
@@ -338,23 +344,28 @@ func (r *rule) resolveL3Policy(ctx *SearchContext, state *traceState, result *L3
 	state.selectRule(ctx, r)
 	found := 0
 
-	for _, r := range r.Ingress {
+	for _, ingressRule := range r.Ingress {
 		// TODO (ianvernon): GH-1658
 		var allCIDRs []api.CIDR
-		allCIDRs = append(allCIDRs, r.FromCIDR...)
+		allCIDRs = append(allCIDRs, ingressRule.FromCIDR...)
 
-		allCIDRs = append(allCIDRs, computeResultantCIDRSet(r.FromCIDRSet)...)
+		allCIDRs = append(allCIDRs, computeResultantCIDRSet(ingressRule.FromCIDRSet)...)
 
-		found += mergeL3(ctx, "Ingress", allCIDRs, &result.Ingress)
+		if cnt := mergeL3(ctx, "Ingress", allCIDRs, r.Labels, &result.Ingress); cnt > 0 {
+			found += cnt
+		}
 	}
-	for _, r := range r.Egress {
+
+	for _, egressRule := range r.Egress {
 		// TODO(ianvernon): GH-1658
 		var allCIDRs []api.CIDR
-		allCIDRs = append(allCIDRs, r.ToCIDR...)
+		allCIDRs = append(allCIDRs, egressRule.ToCIDR...)
 
-		allCIDRs = append(allCIDRs, computeResultantCIDRSet(r.ToCIDRSet)...)
+		allCIDRs = append(allCIDRs, computeResultantCIDRSet(egressRule.ToCIDRSet)...)
 
-		found += mergeL3(ctx, "Egress", allCIDRs, &result.Egress)
+		if cnt := mergeL3(ctx, "Egress", allCIDRs, r.Labels, &result.Egress); cnt > 0 {
+			found += cnt
+		}
 	}
 
 	if found > 0 {

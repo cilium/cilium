@@ -5,12 +5,15 @@ NEWS
 Version 1.0-rc3
 ===============
 
-:date: 2018-01-18
+:date: 2018-01-27
 :commit: nil
 
 Changes
 -------
 
+* Remove oxyproxy and make Envoy the default proxy (2625_, @jrajahalme)
+* New controller pattern for async operations that can fail (2597_, @tgraf)
+* Add cilium-health endpoints for datapath connectivity probing (2315_, @joestringer)
 * Multi stage Docker builds to use prebuilt Envoy dependencies. (2452_, @jrajahalme)
 * clusterdebug tool to help identify the most commonly encountered (2348_, @ashwinp)
 * Document how pull-request builds work with Cilium's Jenkins setup (2521_, @ianvernon)
@@ -33,10 +36,21 @@ Changes
 * use cilium/connectivity-container in nightly tests (2247_, @ianvernon)
 * fail all stages in build if any stage fails in Jenkins (2246_, @ianvernon)
 * Enabled policy enforcement on cilium network policy from any namespace (2235_, @aanm)
+* Removed validation for HTTP path and method in Cilium k8s CRD (2640_, @aanm)
+* proxy: Make per flow/request debugging conditional (2617_, @tgraf)
+* cilium endpoint get reports which policy rule labels are in effect for an endpoint (2390_, @raybejjani)
 
 Bugfixes
 --------
 
+* envoy: fix rule regex matching by host (2649_, @aanm)
+* Kafka: Correctly check msgSize in ReadResp before discarding. (2637_, @manalibhutiyani)
+* Fix envoy deadlock after first crash (2633_, @aanm)
+* kafka: Reject requests on empty rule set (2619_, @tgraf)
+* CNP CRD schema versioning (2614_, @nebril)
+* Fix race while updating L7 proxy redirect in L4PolicyMap (2607_, @joestringer)
+* Don't allow API users to modify reserved labels for endpoints. (2595_, @joestringer)
+* Vendor Kafka Optiopay to handle large fetch responses. (2592_, @manalibhutiyani)
 * agent: Increase timeout when executing commands (2512_, @tgraf)
 * Fix too small timeout causing containers not to show up as endpoints under heavy system load (2508_, @tgraf)
 * Correct a bug that rejected IPv4 backend headless services from k8s (2502_, @raybejjani)
@@ -1002,3 +1016,17 @@ Fixes
 .. _1678: https://github.com/cilium/cilium/pull/1678
 .. _1865: https://github.com/cilium/cilium/pull/1865
 .. _1733: https://github.com/cilium/cilium/pull/1733
+.. _2649: https://github.com/cilium/cilium/pull/2649
+.. _2637: https://github.com/cilium/cilium/pull/2637
+.. _2633: https://github.com/cilium/cilium/pull/2633
+.. _2619: https://github.com/cilium/cilium/pull/2619
+.. _2614: https://github.com/cilium/cilium/pull/2614
+.. _2607: https://github.com/cilium/cilium/pull/2607
+.. _2595: https://github.com/cilium/cilium/pull/2595
+.. _2592: https://github.com/cilium/cilium/pull/2592
+.. _2640: https://github.com/cilium/cilium/pull/2640
+.. _2617: https://github.com/cilium/cilium/pull/2617
+.. _2390: https://github.com/cilium/cilium/pull/2390
+.. _2625: https://github.com/cilium/cilium/pull/2625
+.. _2597: https://github.com/cilium/cilium/pull/2597
+.. _2315: https://github.com/cilium/cilium/pull/2315

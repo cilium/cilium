@@ -1,4 +1,4 @@
-// Copyright 2016-2017 Authors of Cilium
+// Copyright 2016-2018 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -30,6 +30,7 @@ import (
 	"github.com/cilium/cilium/common/addressing"
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/byteorder"
+	"github.com/cilium/cilium/pkg/controller"
 	pkgLabels "github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -308,9 +309,8 @@ type Endpoint struct {
 	// bypass policy while it is still being resolved.
 	PolicyCalculated bool `json:"-"`
 
-	// PodName is the name of the Kubernetes pod if the endpoint is managed
-	// by Kubernetes
-	PodName string
+	k8sPodName   string
+	k8sNamespace string
 
 	// policyRevision is the policy revision this endpoint is currently on
 	policyRevision uint64
@@ -334,6 +334,10 @@ type Endpoint struct {
 	// logger is a logrus object with fields set to report an endpoints information.
 	// You must hold Endpoint.Mutex to read or write it (but not to log with it).
 	logger *logrus.Entry
+
+	// controllers is the list of async controllers syncing the endpoint to
+	// other resources
+	controllers controller.Manager
 }
 
 // NewEndpointWithState creates a new endpoint useful for testing purposes
@@ -456,7 +460,7 @@ func (e *Endpoint) GetModelRLocked() *models.Endpoint {
 		},
 		Mac:            e.LXCMAC.String(),
 		HostMac:        e.NodeMAC.String(),
-		PodName:        e.PodName,
+		PodName:        e.GetK8sNamespaceAndPodNameLocked(),
 		State:          currentState, // TODO: Validate
 		Status:         statusLog,
 		Health:         e.getHealthModel(),
@@ -1266,8 +1270,8 @@ func (e *Endpoint) LeaveLocked(owner Owner) {
 	}
 
 	e.L3Maps.Close()
-
 	e.removeDirectory()
+	e.controllers.RemoveAll()
 
 	e.SetStateLocked(StateDisconnected, "Endpoint removed")
 }
@@ -1310,10 +1314,41 @@ func (e *Endpoint) SetContainerName(name string) {
 	e.Mutex.Unlock()
 }
 
-// SetPodName modifies the endpoint's pod name
-func (e *Endpoint) SetPodName(name string) {
+// GetK8sNamespace returns the name of the pod if the endpoint represents a
+// Kubernetes pod
+func (e *Endpoint) GetK8sNamespace() string {
+	e.Mutex.RLock()
+	defer e.Mutex.RUnlock()
+
+	return e.k8sNamespace
+}
+
+// SetK8sNamespace modifies the endpoint's pod name
+func (e *Endpoint) SetK8sNamespace(name string) {
 	e.Mutex.Lock()
-	e.PodName = name
+	e.k8sNamespace = name
+	e.Mutex.Unlock()
+}
+
+// GetK8sPodName returns the name of the pod if the endpoint represents a
+// Kubernetes pod
+func (e *Endpoint) GetK8sPodName() string {
+	e.Mutex.RLock()
+	defer e.Mutex.RUnlock()
+
+	return e.k8sPodName
+}
+
+// GetK8sNamespaceAndPodNameLocked returns the namespace and pod name.  This
+// function requires e.Mutex to be held.
+func (e *Endpoint) GetK8sNamespaceAndPodNameLocked() string {
+	return e.k8sNamespace + ":" + e.k8sPodName
+}
+
+// SetK8sPodName modifies the endpoint's pod name
+func (e *Endpoint) SetK8sPodName(name string) {
+	e.Mutex.Lock()
+	e.k8sPodName = name
 	e.Mutex.Unlock()
 }
 
@@ -1499,4 +1534,13 @@ func (e *Endpoint) bumpPolicyRevision(revision uint64) {
 		e.policyRevision = revision
 	}
 	e.Mutex.Unlock()
+}
+
+// APICanModify determines whether API requests from a user are allowed to
+// modify this endpoint.
+func APICanModify(e *Endpoint) error {
+	if lbls := e.OpLabels.OrchestrationIdentity.FindReserved(); lbls != nil {
+		return fmt.Errorf("Endpoint cannot be modified by API call")
+	}
+	return nil
 }

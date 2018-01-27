@@ -85,6 +85,16 @@ func getPrimaryIP(node *ciliumModels.NodeElement) string {
 	return node.PrimaryAddress.IPV6.IP
 }
 
+func getHealthIP(node *ciliumModels.NodeElement) string {
+	if node.HealthEndpointAddress == nil {
+		return ""
+	}
+	if node.HealthEndpointAddress.IPV4.Enabled {
+		return node.HealthEndpointAddress.IPV4.IP
+	}
+	return node.HealthEndpointAddress.IPV6.IP
+}
+
 // getResults gathers a copy of all of the results for nodes currently in the
 // cluster.
 func (p *prober) getResults() []*models.NodeStatus {
@@ -98,12 +108,15 @@ func (p *prober) getResults() []*models.NodeStatus {
 			continue
 		}
 		primaryIP := getPrimaryIP(node)
+		healthIP := getHealthIP(node)
 		status := &models.NodeStatus{
 			Name: node.Name,
 			Host: &models.HostStatus{
 				PrimaryAddress: p.copyResultRLocked(primaryIP),
 			},
-			// TODO: Endpoint: &models.PathStatus{},
+		}
+		if healthIP != "" {
+			status.Endpoint = p.copyResultRLocked(healthIP)
 		}
 		secondaryResults := []*models.PathStatus{}
 		for _, addr := range node.SecondaryAddresses {
@@ -134,9 +147,14 @@ func skipAddress(elem *ciliumModels.NodeAddressingElement) bool {
 
 // getAddresses returns a map of the node's addresses -> "primary" bool
 func getNodeAddresses(node *ciliumModels.NodeElement) map[*ciliumModels.NodeAddressingElement]bool {
-	addresses := map[*ciliumModels.NodeAddressingElement]bool{
-		node.PrimaryAddress.IPV4: node.PrimaryAddress.IPV4.Enabled,
-		node.PrimaryAddress.IPV6: node.PrimaryAddress.IPV6.Enabled,
+	addresses := map[*ciliumModels.NodeAddressingElement]bool{}
+	if node.PrimaryAddress != nil {
+		addresses[node.PrimaryAddress.IPV4] = node.PrimaryAddress.IPV4.Enabled
+		addresses[node.PrimaryAddress.IPV6] = node.PrimaryAddress.IPV6.Enabled
+	}
+	if node.HealthEndpointAddress != nil {
+		addresses[node.HealthEndpointAddress.IPV4] = false
+		addresses[node.HealthEndpointAddress.IPV6] = false
 	}
 	for _, elem := range node.SecondaryAddresses {
 		addresses[elem] = false
@@ -239,36 +257,49 @@ func (p *prober) httpProbe(node string, ip string, port int) *models.Connectivit
 }
 
 func (p *prober) runHTTPProbe() {
-	nodes := make(map[string]*net.IPAddr)
+	nodes := make(map[string][]*net.IPAddr)
+
+	// p.nodes is mapped from all known IPs -> nodes in N:M configuration,
+	// so multiple IPs could refer to the same node. To ensure we only
+	// ping each node once, deduplicate nodes into map of nodeName -> []IP.
+	// When probing below, we won't hold the lock on 'p.nodes' so take
+	// a copy of all of the IPs we need to reference.
 	p.RLock()
 	for _, node := range p.nodes {
+		if nodes[node.Name] != nil {
+			// Already handled this node.
+			continue
+		}
+		nodes[node.Name] = []*net.IPAddr{}
 		for elem, primary := range getNodeAddresses(node) {
-			if name, addr := resolveIP(node, elem, "icmp", primary); addr != nil {
-				nodes[name] = addr
+			if _, addr := resolveIP(node, elem, "http", primary); addr != nil {
+				nodes[node.Name] = append(nodes[node.Name], addr)
 			}
 		}
 	}
 	p.RUnlock()
 
-	for name, ip := range nodes {
-		status := &models.PathStatus{}
-		ports := map[int]**models.ConnectivityStatus{
-			defaults.HTTPPathPort: &status.HTTP,
-		}
-		for port, result := range ports {
-			*result = p.httpProbe(name, ip.String(), port)
-			if status.HTTP.Status != "" {
-				log.WithFields(logrus.Fields{
-					logfields.NodeName: name,
-					logfields.IPAddr:   ip.String(),
-					logfields.Port:     port,
-				}).Debugf("Failed to probe: %s", status.HTTP.Status)
+	for name, ips := range nodes {
+		for _, ip := range ips {
+			status := &models.PathStatus{}
+			ports := map[int]**models.ConnectivityStatus{
+				defaults.HTTPPathPort: &status.HTTP,
 			}
-		}
+			for port, result := range ports {
+				*result = p.httpProbe(name, ip.String(), port)
+				if status.HTTP.Status != "" {
+					log.WithFields(logrus.Fields{
+						logfields.NodeName: name,
+						logfields.IPAddr:   ip.String(),
+						logfields.Port:     port,
+					}).Debugf("Failed to probe: %s", status.HTTP.Status)
+				}
+			}
 
-		p.Lock()
-		p.results[ipString(ip.String())].HTTP = status.HTTP
-		p.Unlock()
+			p.Lock()
+			p.results[ipString(ip.String())].HTTP = status.HTTP
+			p.Unlock()
+		}
 	}
 }
 
@@ -331,7 +362,7 @@ func newProber(s *Server, nodes nodeMap) *prober {
 		proberExited: make(chan bool),
 		stop:         make(chan bool),
 		results:      make(map[ipString]*models.PathStatus),
-		nodes:        nodes,
+		nodes:        make(nodeMap),
 	}
 	prober.MaxRTT = s.ProbeDeadline
 

@@ -28,6 +28,8 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/wait"
+
+	"github.com/hashicorp/go-version"
 )
 
 const (
@@ -45,6 +47,13 @@ const (
 
 	// CustomResourceDefinitionVersion is the current version of the resource
 	CustomResourceDefinitionVersion = "v2"
+
+	// CustomResourceDefinitionSchemaVersion is semver-conformant version of CRD schema
+	// Used to determine if CRD needs to be updated in cluster
+	CustomResourceDefinitionSchemaVersion = "1.2"
+
+	// CustomResourceDefinitionSchemaVersionKey is key to label which holds the CRD schema version
+	CustomResourceDefinitionSchemaVersionKey = "io.cilium.k8s.crd.schema.version"
 )
 
 // SchemeGroupVersion is group version used to register these objects
@@ -76,9 +85,14 @@ var (
 	//   kclientset, _ := kubernetes.NewForConfig(c)
 	//   aggregatorclientsetscheme.AddToScheme(clientsetscheme.Scheme)
 	AddToScheme = localSchemeBuilder.AddToScheme
+
+	comparableCRDSchemaVersion *version.Version
 )
 
 func init() {
+	comparableCRDSchemaVersion = version.Must(
+		version.NewVersion(CustomResourceDefinitionSchemaVersion))
+
 	// We only register manually written functions here. The registration of the
 	// generated functions takes place in the generated files. The separation
 	// makes the code compile even when the generated files are missing.
@@ -103,6 +117,9 @@ func CreateCustomResourceDefinitions(clientset apiextensionsclient.Interface) er
 	res := &apiextensionsv1beta1.CustomResourceDefinition{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: cnpCRDName,
+			Labels: map[string]string{
+				CustomResourceDefinitionSchemaVersionKey: CustomResourceDefinitionSchemaVersion,
+			},
 		},
 		Spec: apiextensionsv1beta1.CustomResourceDefinitionSpec{
 			Group:   SchemeGroupVersion.Group,
@@ -123,9 +140,8 @@ func CreateCustomResourceDefinitions(clientset apiextensionsclient.Interface) er
 	if err != nil && !errors.IsAlreadyExists(err) {
 		return err
 	}
-	// If the CRD already exists in the cluster but without any validation then
-	// we need to create it.
-	if errors.IsAlreadyExists(err) && clusterCRD.Spec.Validation == nil {
+
+	if needsUpdate(clusterCRD, err) {
 		// Update the CRD with the validation schema.
 		err = wait.Poll(500*time.Millisecond, 60*time.Second, func() (bool, error) {
 			clusterCRD, err = clientset.ApiextensionsV1beta1().
@@ -183,6 +199,29 @@ func CreateCustomResourceDefinitions(clientset apiextensionsclient.Interface) er
 	log.Info("done creating v2.CiliumNetworkPolicy CustomResourceDefinition")
 
 	return nil
+}
+
+func needsUpdate(
+	clusterCRD *apiextensionsv1beta1.CustomResourceDefinition,
+	createError error) bool {
+
+	if errors.IsAlreadyExists(createError) {
+		if clusterCRD.Spec.Validation == nil {
+			// no validation detected
+			return true
+		}
+		v, ok := clusterCRD.Labels[CustomResourceDefinitionSchemaVersionKey]
+		if !ok {
+			// no schema version detected
+			return true
+		}
+		clusterVersion, err := version.NewVersion(v)
+		if err != nil || clusterVersion.LessThan(comparableCRDSchemaVersion) {
+			// version in cluster is either unparsable or smaller than current version
+			return true
+		}
+	}
+	return false
 }
 
 func getStr(str string) *string {
@@ -669,40 +708,13 @@ var (
 						"a request, e.g. \"GET\", \"POST\", \"PUT\", \"PATCH\", \"DELETE\", ...\n\n" +
 						"If omitted or empty, all methods are allowed.",
 					Type: "string",
-					Enum: []apiextensionsv1beta1.JSON{
-						{
-							Raw: []byte(`"GET"`),
-						},
-						{
-							Raw: []byte(`"HEAD"`),
-						},
-						{
-							Raw: []byte(`"POST"`),
-						},
-						{
-							Raw: []byte(`"PUT"`),
-						},
-						{
-							Raw: []byte(`"DELETE"`),
-						},
-						{
-							Raw: []byte(`"CONNECT"`),
-						},
-						{
-							Raw: []byte(`"OPTIONS"`),
-						},
-						{
-							Raw: []byte(`"PATCH"`),
-						},
-					},
 				},
 				"path": {
 					Description: "Path is an extended POSIX regex matched against the path of a " +
 						"request. Currently it can contain characters disallowed from the " +
-						"conventional \"path\" part of a URL as defined by RFC 3986. Paths must " +
-						"begin with a '/'.\n\nIf omitted or empty, all paths are all allowed.",
-					Type:    "string",
-					Pattern: `^\/.*`,
+						"conventional \"path\" part of a URL as defined by RFC 3986.\n\n" +
+						"If omitted or empty, all paths are all allowed.",
+					Type: "string",
 				},
 			},
 		},
@@ -826,11 +838,14 @@ var (
 		"ServiceSelector": {
 			Description: "ServiceSelector is a label selector for k8s services",
 			Required: []string{
-				"LabelSelector",
+				"selector",
 			},
 			Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
-				"LabelSelector": {
-					Ref: getStr("#/properties/LabelSelector"),
+				"selector": {
+					Ref: getStr("#/properties/EndpointSelector"),
+				},
+				"namespace": {
+					Type: "string",
 				},
 			},
 		},

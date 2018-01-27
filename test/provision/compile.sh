@@ -8,8 +8,9 @@ KUBECTL="/usr/bin/kubectl"
 export GOPATH="/go/"
 
 mkdir -p $GOPATH/src/github.com/cilium/
+chmod 777 $GOPATH/ -R
 rm -rf $GOPATH/src/github.com/cilium/cilium
-cp -rf /src $GOPATH/src/github.com/cilium/cilium
+sudo -u vagrant cp -rf /src $GOPATH/src/github.com/cilium/cilium
 
 cd $GOPATH/src/github.com/cilium/cilium
 
@@ -25,7 +26,7 @@ then
         echo "Not on master K8S node; no need to compile Cilium container"
     fi
 else
-    make
+    sudo -u vagrant -H -E make PKG_BUILD=1
     make install
     mkdir -p /etc/sysconfig/
     cp -f contrib/systemd/cilium /etc/sysconfig/cilium

@@ -21,11 +21,14 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-// CreateNewRuntimeHelper returns SSHMeta helper for running the runtime tests
-// on the provided VM target and using logger log. It marks the test as Fail if
-// cannot get the ssh meta information or cannot execute a `ls` on the virtual
-// machine.
-func CreateNewRuntimeHelper(target string, log *logrus.Entry) *SSHMeta {
+// InitRuntimeHelper returns SSHMeta helper for running the runtime tests
+// on the provided VM target and using logger 'log'. It marks the test as Fail
+// if it cannot get the ssh meta information or cannot execute a `ls` on the
+// virtual machine.
+//
+// This function does not set up cilium, so it should only be run by the
+// test_suite; test writers should use CreateNewRuntimeHelper() instead.
+func InitRuntimeHelper(target string, log *logrus.Entry) *SSHMeta {
 	node := GetVagrantSSHMeta(target)
 	if node == nil {
 		ginkgo.Fail(fmt.Sprintf("Cannot connect to target '%s'", target), 1)
@@ -41,6 +44,26 @@ func CreateNewRuntimeHelper(target string, log *logrus.Entry) *SSHMeta {
 			"Cannot execute ls command on target '%s'", target), 1)
 		return nil
 	}
+
 	node.logger = log
+	return node
+}
+
+// CreateNewRuntimeHelper returns SSHMeta helper for running the runtime tests
+// on the provided VM target and using logger log. It marks the test as Fail if
+// the framework is unable to gain SSH access to the VM and run commands.
+func CreateNewRuntimeHelper(target string, log *logrus.Entry) *SSHMeta {
+	node := InitRuntimeHelper(target, log)
+	node.WaitUntilReady(100)
+	node.NetworkCreate(CiliumDockerNetwork, "")
+
+	res := node.SetPolicyEnforcement(PolicyEnforcementDefault)
+	if !res.WasSuccessful() {
+		ginkgo.Fail(fmt.Sprintf(
+			"Cannot set default policy enforcement on target '%s'",
+			target), 1)
+		return nil
+	}
+
 	return node
 }

@@ -37,7 +37,7 @@ docker run -dt --net=$TEST_NET --name server2 -l id.server2 $NETPERF_IMAGE
 
 wait_for_cilium_ep_gen
 
-before_restart=$(cilium endpoint list)
+before_restart=$(cilium endpoint list | grep -v reserved)
 before_restart_md5=$(echo "${before_restart}" | md5sum)
 
 sudo service cilium restart
@@ -46,7 +46,7 @@ wait_for_cilium_status
 
 wait_for_cilium_ep_gen
 
-after_restart=$(cilium endpoint list)
+after_restart=$(cilium endpoint list | grep -v reserved)
 after_restart_md5=$(echo "${after_restart}" | md5sum)
 
 if [[ "${before_restart_md5}" != "${after_restart_md5}" ]]; then

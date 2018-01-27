@@ -15,11 +15,13 @@
 package launch
 
 import (
+	"os"
 	"time"
 
 	"github.com/cilium/cilium/api/v1/models"
 	ciliumPkg "github.com/cilium/cilium/pkg/client"
 	healthPkg "github.com/cilium/cilium/pkg/health/client"
+	"github.com/cilium/cilium/pkg/health/defaults"
 	"github.com/cilium/cilium/pkg/launcher"
 	"github.com/cilium/cilium/pkg/logging"
 )
@@ -60,6 +62,7 @@ func (ch *CiliumHealth) Run() {
 	for {
 		var err error
 
+		os.Remove(defaults.SockPath)
 		ch.Launcher.Run()
 		ch.client, err = healthPkg.NewDefaultClient()
 		if err != nil {
@@ -73,7 +76,7 @@ func (ch *CiliumHealth) Run() {
 				State: models.StatusStateOk,
 			}
 			if _, err := ch.client.Restapi.GetHello(nil); err != nil {
-				status.Msg = err.Error()
+				status.Msg = ciliumPkg.Hint(err).Error()
 				status.State = models.StatusStateWarning
 			}
 			ch.setStatus(status)

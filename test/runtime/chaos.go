@@ -35,7 +35,6 @@ var _ = Describe("RuntimeValidatedChaos", func() {
 		logger := log.WithFields(logrus.Fields{"testName": "RuntimeValidatedChaos"})
 		logger.Info("Starting")
 		vm = helpers.CreateNewRuntimeHelper(helpers.Runtime, logger)
-		vm.NetworkCreate(helpers.CiliumDockerNetwork, "")
 	}
 
 	waitForCilium := func() {
@@ -71,7 +70,8 @@ var _ = Describe("RuntimeValidatedChaos", func() {
 		curl -s --unix-socket /var/run/cilium/cilium.sock \
 		http://localhost/v1beta/healthz/ | jq ".ipam.ipv4|length"`)
 
-		originalEndpointList := vm.Exec("cilium endpoint list")
+		endpointListCmd := "cilium endpoint list | grep -v reserved"
+		originalEndpointList := vm.Exec(endpointListCmd)
 		res := vm.Exec("sudo systemctl restart cilium")
 		res.ExpectSuccess()
 
@@ -82,7 +82,9 @@ var _ = Describe("RuntimeValidatedChaos", func() {
 		http://localhost/v1beta/healthz/ | jq ".ipam.ipv4|length"`)
 		Expect(originalIps.Output().String()).To(Equal(ips.Output().String()))
 
-		EndpointList := vm.Exec("cilium endpoint list")
+		EndpointList := vm.Exec(endpointListCmd)
+		By(fmt.Sprintf("original: %s", originalEndpointList.Output().String()))
+		By(fmt.Sprintf("new: %s", EndpointList.Output().String()))
 		Expect(EndpointList.Output().String()).To(Equal(originalEndpointList.Output().String()))
 		Expect(hasher.Sum(EndpointList.Output().Bytes())).To(
 			Equal(hasher.Sum(originalEndpointList.Output().Bytes())))

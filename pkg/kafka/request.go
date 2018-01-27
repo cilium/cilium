@@ -21,6 +21,8 @@ import (
 	"fmt"
 	"io"
 
+	"github.com/cilium/cilium/pkg/flowdebug"
+
 	"github.com/optiopay/kafka/proto"
 	"github.com/sirupsen/logrus"
 )
@@ -204,9 +206,9 @@ func ReadRequest(reader io.Reader) (*RequestMessage, error) {
 	}
 
 	if err != nil {
-		log.WithFields(logrus.Fields{
+		flowdebug.Log(log.WithFields(logrus.Fields{
 			fieldRequest: req.String(),
-		}).WithError(err).Debug("Ignoring Kafka message due to parse error")
+		}).WithError(err), "Ignoring Kafka message due to parse error")
 		return nil, err
 	}
 	return req, nil

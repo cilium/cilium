@@ -183,16 +183,22 @@ type ServiceSelector EndpointSelector
 
 // Service wraps around selectors for services
 type Service struct {
-	// K8sServiceSelector selects services by k8s labels. Not supported yet
-	K8sServiceSelector ServiceSelector `json:"k8sServiceSelector,omitempty"`
+	// K8sServiceSelector selects services by k8s labels and namespace
+	K8sServiceSelector *K8sServiceSelectorNamespace `json:"k8sServiceSelector,omitempty"`
 	// K8sService selects service by name and namespace pair
-	K8sService K8sServiceNamespace `json:"k8sService,omitempty"`
+	K8sService *K8sServiceNamespace `json:"k8sService,omitempty"`
 }
 
 // K8sServiceNamespace is an abstraction for the k8s service + namespace types.
 type K8sServiceNamespace struct {
 	ServiceName string `json:"serviceName,omitempty"`
 	Namespace   string `json:"namespace,omitempty"`
+}
+
+// K8sServiceSelectorNamespace wraps service selector with namespace
+type K8sServiceSelectorNamespace struct {
+	Selector  ServiceSelector `json:"selector"`
+	Namespace string          `json:"namespace,omitempty"`
 }
 
 // EgressRule contains all rule types which can be applied at egress, i.e.
@@ -369,13 +375,12 @@ type L7Rules struct {
 type PortRuleHTTP struct {
 	// Path is an extended POSIX regex matched against the path of a
 	// request. Currently it can contain characters disallowed from the
-	// conventional "path" part of a URL as defined by RFC 3986. Paths must
-	// begin with a '/'.
+	// conventional "path" part of a URL as defined by RFC 3986.
 	//
 	// If omitted or empty, all paths are all allowed.
 	//
 	// +optional
-	Path string `json:"path,omitempty" protobuf:"bytes,1,opt,name=path"`
+	Path string `json:"path,omitempty"`
 
 	// Method is an extended POSIX regex matched against the method of a
 	// request, e.g. "GET", "POST", "PUT", "PATCH", "DELETE", ...
@@ -383,7 +388,7 @@ type PortRuleHTTP struct {
 	// If omitted or empty, all methods are allowed.
 	//
 	// +optional
-	Method string `json:"method,omitempty" protobuf:"bytes,1,opt,name=method"`
+	Method string `json:"method,omitempty"`
 
 	// Host is an extended POSIX regex matched against the host header of a
 	// request, e.g. "foo.com"
@@ -391,7 +396,7 @@ type PortRuleHTTP struct {
 	// If omitted or empty, the value of the host header is ignored.
 	//
 	// +optional
-	Host string `json:"host,omitempty" protobuf:"bytes,1,opt,name=method"`
+	Host string `json:"host,omitempty"`
 
 	// Headers is a list of HTTP headers which must be present in the
 	// request. If omitted or empty, requests are allowed regardless of

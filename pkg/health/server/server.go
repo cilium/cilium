@@ -135,6 +135,14 @@ func (s *Server) getNodes() (nodeMap, error) {
 		for _, addr := range n.SecondaryAddresses {
 			nodes[ipString(addr.IP)] = n
 		}
+		if n.HealthEndpointAddress != nil {
+			if n.HealthEndpointAddress.IPV4 != nil {
+				nodes[ipString(n.HealthEndpointAddress.IPV4.IP)] = n
+			}
+			if n.HealthEndpointAddress.IPV6 != nil {
+				nodes[ipString(n.HealthEndpointAddress.IPV6.IP)] = n
+			}
+		}
 	}
 	return nodes, nil
 }

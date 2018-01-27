@@ -543,7 +543,7 @@ func (kub *Kubectl) CiliumPolicyAction(namespace, filepath string, action Resour
 				return false
 			}
 			if revi <= revisions[v] {
-				kub.logger.Infof("CiliumPolicyAction: Invalid revision(%v) for pod '%s' was on '%v'", revi, v, revisions[v])
+				kub.logger.Infof("CiliumPolicyAction: pod '%s' still on old revision '%v', need '%v'", v, revi, revisions[v])
 				valid = false
 			} else {
 				waitingRev[v] = revi

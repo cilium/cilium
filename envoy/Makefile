@@ -12,11 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-ifndef CILIUM_USE_ENVOY
-all .DEFAULT:
-	echo "Envoy build skipped, define CILIUM_USE_ENVOY to build Envoy for Cilium."
-else
-
 include ../Makefile.defs
 
 ENVOY_BIN = ./bazel-bin/envoy
@@ -25,6 +20,7 @@ CHECK_FORMAT ?= ./bazel-bin/check_format.py.runfiles/envoy/tools/check_format.py
 
 BAZEL ?= bazel
 BAZEL_OPTS ?= --batch
+BAZEL_TEST_OPTS ?= 
 BAZEL_CACHE ?= ~/.cache/bazel
 BAZEL_ARCHIVE ?= ~/bazel-cache.tar.bz2
 CLANG ?= clang
@@ -136,12 +132,12 @@ fix: $(CHECK_FORMAT) force-non-root
 
 # Run tests using the fastbuild by default.
 tests: force-non-root
-	$(BAZEL) $(BAZEL_OPTS) test -c fastbuild //:envoy_binary_test
-	$(BAZEL) $(BAZEL_OPTS) test -c fastbuild //:cilium_integration_test
+	$(BAZEL) $(BAZEL_OPTS) test -c fastbuild $(BAZEL_TEST_OPTS) //:envoy_binary_test
+	$(BAZEL) $(BAZEL_OPTS) test -c fastbuild $(BAZEL_TEST_OPTS) //:cilium_integration_test
 
 debug-tests: force-non-root
-	$(BAZEL) $(BAZEL_OPTS) test -c debug //:envoy_binary_test
-	$(BAZEL) $(BAZEL_OPTS) test -c debug //:cilium_integration_test
+	$(BAZEL) $(BAZEL_OPTS) test -c debug $(BAZEL_TEST_OPTS) //:envoy_binary_test
+	$(BAZEL) $(BAZEL_OPTS) test -c debug $(BAZEL_TEST_OPTS) //:cilium_integration_test
 
 .PHONY: force force-root force-non-root
 force :;
@@ -156,6 +152,4 @@ endif
 force-non-root:
 ifeq ($(USER),root)
 	$(error This target cannot be run as root!)
-endif
-
 endif

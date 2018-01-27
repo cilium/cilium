@@ -185,9 +185,8 @@ var _ = Describe("NightlyExamples", func() {
 		kubectl = helpers.CreateKubectl(helpers.K8s1VMName(), logger)
 		kubectl.Delete(ciliumPath)
 
-		demoPath = fmt.Sprintf("%s/demo.yaml", kubectl.ManifestsPath())
-		l3Policy = fmt.Sprintf("%s/l3_l4_policy.yaml", kubectl.ManifestsPath())
-
+		demoPath = kubectl.ManifestGet("demo.yaml")
+		l3Policy = kubectl.ManifestGet("l3_l4_policy.yaml")
 	}
 
 	BeforeEach(func() {
@@ -243,13 +242,13 @@ var _ = Describe("NightlyExamples", func() {
 
 		fmt.Fprint(fp, result.String())
 
-		kubectl.Apply(helpers.GetFilePath(newCiliumDSName))
+		kubectl.Apply(helpers.GetFilePath(newCiliumDSName)).ExpectSuccess()
 		defer kubectl.Delete(helpers.GetFilePath(newCiliumDSName))
 		status, err := kubectl.WaitforPods(helpers.KubeSystemNamespace, "-l k8s-app=cilium", 300)
 		Expect(status).Should(BeTrue())
 		Expect(err).Should(BeNil())
 
-		kubectl.Apply(demoPath)
+		kubectl.Apply(demoPath).ExpectSuccess()
 		_, err = kubectl.WaitforPods(helpers.DefaultNamespace, "-l zgroup=testapp", 300)
 		Expect(err).Should(BeNil())
 

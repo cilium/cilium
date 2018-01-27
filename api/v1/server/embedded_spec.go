@@ -1034,14 +1034,14 @@ func init() {
           "description": "List of CIDR egress rules",
           "type": "array",
           "items": {
-            "type": "string"
+            "$ref": "#/definitions/PolicyRule"
           }
         },
         "ingress": {
           "description": "List of CIDR ingress rules",
           "type": "array",
           "items": {
-            "type": "string"
+            "$ref": "#/definitions/PolicyRule"
           }
         }
       }
@@ -1562,14 +1562,14 @@ func init() {
           "description": "List of L4 egress rules",
           "type": "array",
           "items": {
-            "type": "string"
+            "$ref": "#/definitions/PolicyRule"
           }
         },
         "ingress": {
           "description": "List of L4 ingress rules",
           "type": "array",
           "items": {
-            "type": "string"
+            "$ref": "#/definitions/PolicyRule"
           }
         }
       }
@@ -1679,6 +1679,10 @@ func init() {
     "NodeElement": {
       "description": "Known node in the cluster",
       "properties": {
+        "health-endpoint-address": {
+          "description": "Addresses used for probing cluster connectivity",
+          "$ref": "#/definitions/NodeAddressing"
+        },
         "name": {
           "type": "string"
         },
@@ -1706,6 +1710,25 @@ func init() {
         "revision": {
           "description": "Revision number of the policy. Incremented each time the policy is\nchanged in the agent's repository\n",
           "type": "integer"
+        }
+      }
+    },
+    "PolicyRule": {
+      "description": "A policy rule including the rule labels it derives from",
+      "properties": {
+        "derived-from-rules": {
+          "description": "The policy rule labels identifying the policy rules this rule derives from",
+          "type": "array",
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "rule": {
+          "description": "The policy rule as json",
+          "type": "string"
         }
       }
     },

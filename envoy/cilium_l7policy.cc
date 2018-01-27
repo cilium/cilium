@@ -77,8 +77,10 @@ Http::FilterHeadersStatus AccessFilter::decodeHeaders(Http::HeaderMap &headers,
     Http::HeaderMapPtr response_headers{new Http::HeaderMapImpl{
         {Http::Headers::get().Status,
          std::to_string(enumToInt(Http::Code::Forbidden))}}};
-    callbacks_->encodeHeaders(std::move(response_headers), true);
+    Buffer::OwnedImpl response_data{"Access denied\r\n"};
 
+    callbacks_->encodeHeaders(std::move(response_headers), false);
+    callbacks_->encodeData(response_data, true);
     return Http::FilterHeadersStatus::StopIteration;
   }
 
