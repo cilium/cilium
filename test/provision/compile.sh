@@ -20,6 +20,9 @@ then
         make docker-image
         docker tag cilium/cilium k8s1:5000/cilium/cilium-dev
         docker push k8s1:5000/cilium/cilium-dev
+        whoami
+        $KUBECTL get pods --all-namespaces
+        netstat -putan | grep 6443
         echo "Executing: $KUBECTL delete pods -n $KUBE_SYSTEM_NAMESPACE -l $CILIUM_DS_TAG"
         $KUBECTL delete pods -n $KUBE_SYSTEM_NAMESPACE -l $CILIUM_DS_TAG
     else
