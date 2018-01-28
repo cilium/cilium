@@ -19,7 +19,7 @@ import (
 	"fmt"
 	"net"
 
-	lockAPI "github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/lock"
 
 	"github.com/google/gopacket"
 	"github.com/google/gopacket/layers"
@@ -37,8 +37,8 @@ var (
 	parser = gopacket.NewDecodingLayerParser(
 		layers.LayerTypeEthernet,
 		&eth, &ip4, &ip6, &icmp4, &icmp6, &tcp, &udp)
-	decoded = []gopacket.LayerType{}
-	lock    lockAPI.Mutex
+	decoded     = []gopacket.LayerType{}
+	dissectLock lock.Mutex
 )
 
 func getTCPInfo() string {
@@ -75,8 +75,8 @@ func getTCPInfo() string {
 // - sIP:sPort -> dIP:dPort, e.g. 1.1.1.1:2000 -> 2.2.2.2:80
 // - sIP -> dIP icmpCode, 1.1.1.1 -> 2.2.2.2 echo-request
 func GetConnectionSummary(data []byte) string {
-	lock.Lock()
-	defer lock.Unlock()
+	dissectLock.Lock()
+	defer dissectLock.Unlock()
 
 	parser.DecodeLayers(data, &decoded)
 
@@ -135,8 +135,8 @@ func GetConnectionSummary(data []byte) string {
 // otherwise the data is printed as HEX output
 func Dissect(dissect bool, data []byte) {
 	if dissect {
-		lock.Lock()
-		defer lock.Unlock()
+		dissectLock.Lock()
+		defer dissectLock.Unlock()
 
 		parser.DecodeLayers(data, &decoded)
 
