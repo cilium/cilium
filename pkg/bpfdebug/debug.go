@@ -239,7 +239,7 @@ func (n *DebugMsg) Dump(data []byte, prefix string) {
 	case DbgEncap:
 		fmt.Printf("Encapsulating to node %d (%#x) from seclabel %d\n", n.Arg1, n.Arg1, n.Arg2)
 	case DbgLxcFound:
-		fmt.Printf("Local container found ifindex %d seclabel %d\n", n.Arg1, byteorder.NetworkToHost(uint16(n.Arg2)))
+		fmt.Printf("Local container found ifindex %s seclabel %d\n", ifname(int(n.Arg1)), byteorder.NetworkToHost(uint16(n.Arg2)))
 	case DbgPolicyDenied:
 		fmt.Printf("Policy evaluation would deny packet from %d to %d\n", n.Arg1, n.Arg2)
 	case DbgCtLookup:
@@ -365,29 +365,14 @@ type endpointInfo struct {
 	identity int
 }
 
-var (
-	ifindexMap = map[int]endpointInfo{}
-)
-
 // DumpInfo prints a summary of the capture messages.
 func (n *DebugCapture) DumpInfo(data []byte) {
 	switch n.SubType {
 	case DbgCaptureDelivery:
-		// Try to map ifindex to string
-		if indexInfo, ok := ifindexMap[int(n.Arg1)]; ok {
-			fmt.Printf("-> %s", indexInfo.name)
-			if indexInfo.identity != 0 {
-				fmt.Printf(", identity %d", indexInfo.identity)
-			}
-		} else {
-			fmt.Printf("-> ifindex %d", n.Arg1)
-		}
+		fmt.Printf("-> %s", ifname(int(n.Arg1)))
 
 	case DbgCaptureFromLb:
-		ifindexMap[int(n.Arg1)] = endpointInfo{
-			name: fmt.Sprintf("load-balancer %d", n.Arg1),
-		}
-		fmt.Printf("<- load-balancer %d", n.Arg1)
+		fmt.Printf("<- load-balancer %s", ifname(int(n.Arg1)))
 
 	case DbgCaptureAfterV46:
 		fmt.Printf("== v4->v6 %d", n.Arg1)

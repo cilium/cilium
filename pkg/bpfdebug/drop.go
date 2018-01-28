@@ -90,8 +90,8 @@ func (n *DropNotify) DumpInfo(data []byte) {
 
 // DumpVerbose prints the drop notification in human readable form
 func (n *DropNotify) DumpVerbose(dissect bool, data []byte, prefix string) {
-	fmt.Printf("%s MARK %#x FROM %d DROP: %d bytes, reason %s, to ifindex %d",
-		prefix, n.Hash, n.Source, n.OrigLen, dropReason(n.SubType), n.Ifindex)
+	fmt.Printf("%s MARK %#x FROM %d DROP: %d bytes, reason %s, to ifindex %s",
+		prefix, n.Hash, n.Source, n.OrigLen, dropReason(n.SubType), ifname(int(n.Ifindex)))
 
 	if n.SrcLabel != 0 || n.DstLabel != 0 {
 		fmt.Printf(", identity %d->%d", n.SrcLabel, n.DstLabel)

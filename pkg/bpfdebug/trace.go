@@ -125,9 +125,9 @@ func (n *TraceNotify) traceSummary() string {
 
 // DumpInfo prints a summary of the trace messages.
 func (n *TraceNotify) DumpInfo(data []byte) {
-	fmt.Printf("%s flow %#x identity %d->%d state %s: %s\n",
+	fmt.Printf("%s flow %#x identity %d->%d state %s ifindex %s: %s\n",
 		n.traceSummary(), n.Hash, n.SrcLabel, n.DstLabel,
-		connState(n.Reason), GetConnectionSummary(data[TraceNotifyLen:]))
+		connState(n.Reason), ifname(int(n.Ifindex)), GetConnectionSummary(data[TraceNotifyLen:]))
 }
 
 // DumpVerbose prints the trace notification in human readable form
@@ -136,7 +136,7 @@ func (n *TraceNotify) DumpVerbose(dissect bool, data []byte, prefix string) {
 		prefix, n.Hash, n.Source, obsPoint(n.ObsPoint), n.OrigLen, connState(n.Reason))
 
 	if n.Ifindex != 0 {
-		fmt.Printf(", ifindex %d", n.Ifindex)
+		fmt.Printf(", interface %s", ifname(int(n.Ifindex)))
 	}
 
 	if n.SrcLabel != 0 || n.DstLabel != 0 {
