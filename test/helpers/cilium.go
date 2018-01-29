@@ -19,7 +19,6 @@ import (
 	"io/ioutil"
 	"net"
 	"os"
-	"strconv"
 	"strings"
 	"time"
 
@@ -142,49 +141,40 @@ func (s *SSHMeta) WaitEndpointRegenerated(id string) bool {
 	return true
 }
 
-// WaitEndpointsReady waits up until MaxRetries times for all endpoints to
-// not be in any regenerating or waiting-for-identity state. Returns true if
-// all endpoints regenerate before MaxRetries are exceeded, false otherwise.
+// WaitEndpointsReady waits up until timeout reached for all endpoints to not be
+// in any regenerating or waiting-for-identity state. Returns true if all
+// endpoints regenerate before HelperTimeout is exceeded, false otherwise.
 func (s *SSHMeta) WaitEndpointsReady() bool {
 	logger := s.logger.WithFields(logrus.Fields{"functionName": "WaitEndpointsReady"})
+	desiredState := string(models.EndpointStateReady)
+	body := func() bool {
+		filter := `{range [*]}{@.container-name}{"="}{@.state}{"\n"}{end}`
+		cmd := fmt.Sprintf(`cilium endpoint list -o jsonpath='%s'`, filter)
 
-	numDesired := 0
-	counter := 0
+		res := s.Exec(cmd)
+		values := res.KVOutput()
+		total := len(values)
 
-	// filter for endpoints (start with an endpoint id) and count not-ready endpoints
-	cmdString := "cilium endpoint list | egrep '^[0-9]+' | grep -v ready -c"
-	infoCmd := "cilium endpoint list"
-	s.Exec(infoCmd) //Executing this command to save all endpoints output in the logs
-	res := s.Exec(cmdString)
-	logger.Infof("string output of cmd: %s", res.stdout.String())
-	numEndpointsRegenerating, err := strconv.Atoi(strings.TrimSuffix(res.stdout.String(), "\n"))
+		result := map[string]int{}
+		for _, status := range values {
+			result[status]++
+		}
 
-	// If the command error'd out for whatever reason, do not want numEndpointsRegenerating
-	// to be set to zero. Handle this error and set to -1 so that the loop below
-	// continues to execute up until MaxRetries are exceeded.
-	if err != nil {
-		numEndpointsRegenerating = -1
+		if result[desiredState] == total {
+			return true
+		}
+
+		logger.WithField("status", result).Infof(
+			"Only '%d' containers are in a '%s' state of a total of '%d' containers.",
+			result[desiredState], desiredState, total)
+		return false
 	}
-	for numDesired != numEndpointsRegenerating {
 
-		logger.WithFields(logrus.Fields{
-			"regenerating": numEndpointsRegenerating,
-		}).Info("endpoints are still regenerating")
-
-		if counter > MaxRetries {
-			logger.Infof("%d retries have been exceeded for waiting for endpoint regeneration", MaxRetries)
-			return false
-		}
-
-		res := s.Exec(infoCmd)
-		logger.Infof("still within retry limit for waiting for endpoints to be in \"ready\" state; sleeping and checking again")
-		Sleep(1)
-		res = s.Exec(cmdString)
-		numEndpointsRegenerating, err = strconv.Atoi(strings.TrimSuffix(res.stdout.String(), "\n"))
-		if err != nil {
-			numEndpointsRegenerating = -1
-		}
-		counter++
+	err := WithTimeout(body, "Endpoints are not ready after timeout", &TimeoutConfig{Timeout: HelperTimeout})
+	if err != nil {
+		logger.WithError(err).Warn("Endpoints are not ready after timeout")
+		s.Exec("cilium endpoint list") // This function is only for debugging into log.
+		return false
 	}
 	return true
 }
