@@ -36,6 +36,7 @@ func GetPolicyLabelsv1(np *networkingv1.NetworkPolicy) labels.LabelArray {
 	return k8sconst.GetPolicyLabels(ns, policyName)
 }
 
+// TODO (ianvernon): This function never returns anything but a nil error, so what's the point of returning one?
 func parseNetworkPolicyPeer(namespace string, peer *networkingv1.NetworkPolicyPeer) (*api.EndpointSelector, error) {
 	var labelSelector *metav1.LabelSelector
 
@@ -65,6 +66,9 @@ func parseNetworkPolicyPeer(namespace string, peer *networkingv1.NetworkPolicyPe
 			lsr.Key = policy.JoinPath(PodNamespaceMetaLabels, lsr.Key)
 			peer.NamespaceSelector.MatchExpressions[i] = lsr
 		}
+	} else {
+		// Neither PodSelector nor LabelSelector set.
+		return nil, nil
 	}
 
 	selector := api.NewESFromK8sLabelSelector(labels.LabelSourceK8sKeyPrefix, labelSelector)
@@ -82,14 +86,23 @@ func ParseNetworkPolicy(np *networkingv1.NetworkPolicy) (api.Rules, error) {
 		ingress := api.IngressRule{}
 		if iRule.From != nil && len(iRule.From) > 0 {
 			for _, rule := range iRule.From {
+				// Parse label-based parts of rule.
 				endpointSelector, err := parseNetworkPolicyPeer(namespace, &rule)
+
 				if err != nil {
 					return nil, err
 				}
+
+				// Case where no label-based selectors were in rule.
+				if endpointSelector != nil {
+					ingress.FromEndpoints = append(ingress.FromEndpoints, *endpointSelector)
+				}
+
+				// Parse CIDR-based parts of rule.
 				if rule.IPBlock != nil {
 					ingress.FromCIDRSet = append(ingress.FromCIDRSet, ipBlockToCIDRRule(rule.IPBlock))
 				}
-				ingress.FromEndpoints = append(ingress.FromEndpoints, *endpointSelector)
+
 			}
 		}
 
@@ -114,13 +127,20 @@ func ParseNetworkPolicy(np *networkingv1.NetworkPolicy) (api.Rules, error) {
 		if eRule.To != nil && len(eRule.To) > 0 {
 			for _, rule := range eRule.To {
 				endpointSelector, err := parseNetworkPolicyPeer(namespace, &rule)
+
 				if err != nil {
 					return nil, err
 				}
+
+				// Case where no label-based selectors were in rule.
+				// TODO (ianvernon) add unit test with policy with no label-selectors in rule.
+				if endpointSelector != nil {
+					egress.ToEndpoints = append(egress.ToEndpoints, *endpointSelector)
+				}
+
 				if rule.IPBlock != nil {
 					egress.ToCIDRSet = append(egress.ToCIDRSet, ipBlockToCIDRRule(rule.IPBlock))
 				}
-				egress.ToEndpoints = append(egress.ToEndpoints, *endpointSelector)
 			}
 		}
 		egresses = append(egresses, egress)
