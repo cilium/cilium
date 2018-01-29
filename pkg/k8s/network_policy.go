@@ -36,8 +36,7 @@ func GetPolicyLabelsv1(np *networkingv1.NetworkPolicy) labels.LabelArray {
 	return k8sconst.GetPolicyLabels(ns, policyName)
 }
 
-// TODO (ianvernon): This function never returns anything but a nil error, so what's the point of returning one?
-func parseNetworkPolicyPeer(namespace string, peer *networkingv1.NetworkPolicyPeer) (*api.EndpointSelector, error) {
+func parseNetworkPolicyPeer(namespace string, peer *networkingv1.NetworkPolicyPeer) *api.EndpointSelector {
 	var labelSelector *metav1.LabelSelector
 
 	// Only one or the other can be set, not both
@@ -68,11 +67,11 @@ func parseNetworkPolicyPeer(namespace string, peer *networkingv1.NetworkPolicyPe
 		}
 	} else {
 		// Neither PodSelector nor LabelSelector set.
-		return nil, nil
+		return nil
 	}
 
 	selector := api.NewESFromK8sLabelSelector(labels.LabelSourceK8sKeyPrefix, labelSelector)
-	return &selector, nil
+	return &selector
 }
 
 // ParseNetworkPolicy parses a k8s NetworkPolicy and returns a list of
@@ -87,11 +86,7 @@ func ParseNetworkPolicy(np *networkingv1.NetworkPolicy) (api.Rules, error) {
 		if iRule.From != nil && len(iRule.From) > 0 {
 			for _, rule := range iRule.From {
 				// Parse label-based parts of rule.
-				endpointSelector, err := parseNetworkPolicyPeer(namespace, &rule)
-
-				if err != nil {
-					return nil, err
-				}
+				endpointSelector := parseNetworkPolicyPeer(namespace, &rule)
 
 				// Case where no label-based selectors were in rule.
 				if endpointSelector != nil {
@@ -126,11 +121,7 @@ func ParseNetworkPolicy(np *networkingv1.NetworkPolicy) (api.Rules, error) {
 		egress := api.EgressRule{}
 		if eRule.To != nil && len(eRule.To) > 0 {
 			for _, rule := range eRule.To {
-				endpointSelector, err := parseNetworkPolicyPeer(namespace, &rule)
-
-				if err != nil {
-					return nil, err
-				}
+				endpointSelector := parseNetworkPolicyPeer(namespace, &rule)
 
 				// Case where no label-based selectors were in rule.
 				// TODO (ianvernon) add unit test with policy with no label-selectors in rule.
