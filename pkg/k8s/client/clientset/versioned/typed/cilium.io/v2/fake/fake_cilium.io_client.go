@@ -12,5 +12,25 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// This package has the automatically generated clientset.
-package versioned
+package fake
+
+import (
+	v2 "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/cilium.io/v2"
+	rest "k8s.io/client-go/rest"
+	testing "k8s.io/client-go/testing"
+)
+
+type FakeCiliumV2 struct {
+	*testing.Fake
+}
+
+func (c *FakeCiliumV2) CiliumNetworkPolicies(namespace string) v2.CiliumNetworkPolicyInterface {
+	return &FakeCiliumNetworkPolicies{c, namespace}
+}
+
+// RESTClient returns a RESTClient that is used to communicate
+// with API server by this client implementation.
+func (c *FakeCiliumV2) RESTClient() rest.Interface {
+	var ret *rest.RESTClient
+	return ret
+}

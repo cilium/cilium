@@ -1,4 +1,4 @@
-// Copyright 2017 Authors of Cilium
+// Copyright 2017-2018 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -50,11 +50,11 @@ func (f *genericInformer) Lister() cache.GenericLister {
 // TODO extend this to unknown resources with a client pool
 func (f *sharedInformerFactory) ForResource(resource schema.GroupVersionResource) (GenericInformer, error) {
 	switch resource {
-	// Group=Cilium, Version=V1
+	// Group=cilium.io, Version=v1
 	case v1.SchemeGroupVersion.WithResource("ciliumnetworkpolicies"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Cilium().V1().CiliumNetworkPolicies().Informer()}, nil
 
-		// Group=Cilium, Version=V2
+		// Group=cilium.io, Version=v2
 	case v2.SchemeGroupVersion.WithResource("ciliumnetworkpolicies"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Cilium().V2().CiliumNetworkPolicies().Informer()}, nil
 
