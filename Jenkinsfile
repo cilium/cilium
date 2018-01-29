@@ -1,6 +1,6 @@
 pipeline {
     agent {
-        label 'vagrant'
+        label 'test-eloy'
     }
     options {
         timeout(time: 120, unit: 'MINUTES')
@@ -9,6 +9,8 @@ pipeline {
     stages {
         stage('Boot VMs') {
             steps {
+                sh 'ls .'
+                sh 'vagrant status'
                 sh './tests/start_vms'
             }
         }
@@ -17,10 +19,12 @@ pipeline {
                 MEMORY = '4096'
                 RUN_TEST_SUITE = '1'
             }
-            steps { 
+            steps {
                 parallel(
                     "Print Environment": { sh 'env' },
                     "Runtime Tests": {
+                         sh 'ls'
+                         sh 'vagrant status'
                          sh 'PROVISION=1 ./contrib/vagrant/start.sh'
                      },
                     "K8s multi node Tests": {
