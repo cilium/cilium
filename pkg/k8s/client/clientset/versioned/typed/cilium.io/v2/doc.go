@@ -12,5 +12,5 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// This package has the automatically generated clientset.
-package versioned
+// This package has the automatically generated typed clients.
+package v2

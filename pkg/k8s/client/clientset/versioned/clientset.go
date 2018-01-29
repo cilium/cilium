@@ -1,4 +1,4 @@
-// Copyright 2017 Authors of Cilium
+// Copyright 2017-2018 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,8 +15,8 @@
 package versioned
 
 import (
-	ciliumv1 "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/cilium/v1"
-	ciliumv2 "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/cilium/v2"
+	ciliumv1 "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/cilium.io/v1"
+	ciliumv2 "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/cilium.io/v2"
 	glog "github.com/golang/glog"
 	discovery "k8s.io/client-go/discovery"
 	rest "k8s.io/client-go/rest"
