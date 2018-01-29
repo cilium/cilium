@@ -423,35 +423,6 @@ func (e *Endpoint) regenerateConsumable(owner Owner, labelsMap *LabelsMap,
 		}
 	}
 
-	/*egressCtx := policy.SearchContext{
-		From: c.LabelArray,
-	}
-
-	for identity, labels := range *labelsMap {
-		egressCtx.To = labels
-		//TODO (ianvernon) where do I even begin to plumb this stuff?
-		//ctx.To = labels
-		e.getLogger().WithFields(logrus.Fields{
-			logfields.PolicyID: identity,
-			"egressCtx":        egressCtx,
-		}).Debug("Evaluating context for source PolicyID")
-
-		ingressCtx := policy.SearchContext{}
-		_, egressAccess := repo.AllowsLabelAccess(&ingressCtx, &egressCtx)
-
-		log.WithFields(logrus.Fields{
-			logfields.PolicyID:   identity,
-			logfields.EndpointID: e.ID,
-			"labels":             labels,
-		}).Debugf("egress verdict: %v", egressAccess)
-
-		if egressAccess == api.Allowed {
-			e.getLogger().WithFields(logrus.Fields{
-				logfields.PolicyID: identity,
-				"ctx":              ctx}).Debug("egress allowed")
-		}
-	}*/
-
 	rulesToDelete := policy.RuleContexts{}
 	for ruleCtx, rm := range l4Rm {
 		// Only remove the CT entries of the rules that were successfully
