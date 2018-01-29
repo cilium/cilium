@@ -128,7 +128,7 @@ GIT_VERSION: .git
 	echo "$(GIT_VERSION)" >GIT_VERSION
 
 envoy/SOURCE_VERSION: .git
-	git rev-parse HEAD >>envoy/SOURCE_VERSION
+	git rev-parse HEAD >envoy/SOURCE_VERSION
 
 docker-image: clean GIT_VERSION envoy/SOURCE_VERSION
 	grep -v -E "(SOURCE|GIT)_VERSION" .gitignore >.dockerignore
