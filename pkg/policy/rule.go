@@ -381,6 +381,15 @@ func (r *rule) resolveL3Policy(ctx *SearchContext, state *traceState, result *L3
 // contained within r.
 func (r *rule) canReachIngress(ctx *SearchContext, state *traceState) api.Decision {
 
+	entitiesDecision := r.canReachToEntities(ctx, state)
+	if !r.EndpointSelector.Matches(ctx.To) {
+		if entitiesDecision == api.Undecided {
+			state.unSelectRule(ctx, r)
+		} else {
+			state.selectRule(ctx, r)
+		}
+		return entitiesDecision
+	}
 	state.selectRule(ctx, r)
 	for _, r := range r.Ingress {
 		for _, sel := range r.FromRequires {
@@ -426,7 +435,7 @@ func (r *rule) canReachIngress(ctx *SearchContext, state *traceState) api.Decisi
 
 	}
 
-	return api.Undecided
+	return entitiesDecision
 }
 
 // canReachEgress returns the decision as to whether the set of labels specified
