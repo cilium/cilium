@@ -18,6 +18,7 @@ import (
 	"container/list"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net"
 	"syscall"
 	"time"
@@ -40,8 +41,34 @@ var (
 type Monitor struct {
 }
 
+// agentPipeReader reads agent events from the agentPipe and distributes to all listeners
+func (m *Monitor) agentPipeReader(agentPipe io.Reader, stop chan struct{}) {
+	meta, p := payload.Meta{}, payload.Payload{}
+
+	for {
+		select {
+		default:
+			err := payload.ReadMetaPayload(agentPipe, &meta, &p)
+			if err == io.EOF || err == io.ErrUnexpectedEOF {
+				log.Panic("Agent pipe closed, shutting down")
+			} else if err != nil {
+				log.WithError(err).Panic("Unable to read from agent pipe")
+			}
+
+			m.send(p)
+
+		case <-stop:
+			return
+		}
+	}
+}
+
 // Run starts monitoring.
-func (m *Monitor) Run(npages int) {
+func (m *Monitor) Run(npages int, agentPipe io.Reader) {
+	stopAgentPipeReader := make(chan struct{})
+	go m.agentPipeReader(agentPipe, stopAgentPipeReader)
+	defer close(stopAgentPipeReader)
+
 	c := bpf.DefaultPerfEventConfig()
 	c.NumPages = npages
 

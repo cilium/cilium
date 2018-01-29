@@ -28,6 +28,7 @@ import (
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/mac"
 	"github.com/cilium/cilium/pkg/maps/policymap"
+	"github.com/cilium/cilium/pkg/monitor"
 	"github.com/cilium/cilium/pkg/policy"
 
 	. "gopkg.in/check.v1"
@@ -140,6 +141,10 @@ func (ds *DaemonSuite) generateEPs(baseDir string, epsWanted []*e.Endpoint, epsM
 			return c.LabelArray, nil
 		}
 		return nil, nil
+	}
+
+	ds.OnSendNotification = func(typ monitor.AgentNotification, text string) error {
+		return nil
 	}
 
 	// Since all owner's funcs are implemented we can regenerate every endpoint.

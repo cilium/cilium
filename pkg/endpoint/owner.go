@@ -19,6 +19,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/monitor"
 	"github.com/cilium/cilium/pkg/policy"
 )
 
@@ -95,6 +96,9 @@ type Owner interface {
 	// endpoint's labels.
 	// On success, returns 0, nil. Otherwise, returns an API error code and error msg.
 	UpdateSecLabels(id string, add, del labels.Labels) (int, error)
+
+	// SendNotification is called to emit an agent notification
+	SendNotification(typ monitor.AgentNotification, text string) error
 }
 
 // Request is used to create the endpoint's request and send it to the endpoints

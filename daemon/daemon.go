@@ -18,6 +18,7 @@ import (
 	"bufio"
 	"bytes"
 	"context"
+	"encoding/gob"
 	"fmt"
 	"net"
 	"os"
@@ -36,7 +37,8 @@ import (
 	"github.com/cilium/cilium/common/types"
 	"github.com/cilium/cilium/daemon/defaults"
 	"github.com/cilium/cilium/daemon/options"
-	monitor "github.com/cilium/cilium/monitor/launch"
+	monitorLaunch "github.com/cilium/cilium/monitor/launch"
+	"github.com/cilium/cilium/monitor/payload"
 	"github.com/cilium/cilium/pkg/apierror"
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/byteorder"
@@ -53,9 +55,11 @@ import (
 	"github.com/cilium/cilium/pkg/maps/lxcmap"
 	"github.com/cilium/cilium/pkg/maps/policymap"
 	"github.com/cilium/cilium/pkg/maps/tunnel"
+	"github.com/cilium/cilium/pkg/monitor"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/proxy"
+	"github.com/cilium/cilium/pkg/proxy/accesslog"
 	"github.com/cilium/cilium/pkg/workloads"
 	"github.com/cilium/cilium/pkg/workloads/containerd"
 
@@ -102,7 +106,7 @@ type Daemon struct {
 	uniqueIDMU lock.Mutex
 	uniqueID   map[uint64]bool
 
-	nodeMonitor  *monitor.NodeMonitor
+	nodeMonitor  monitorLaunch.NodeMonitor
 	ciliumHealth *health.CiliumHealth
 
 	// k8sAPIs is a set of k8s API in use. They are setup in EnableK8sWatcher,
@@ -123,7 +127,7 @@ func (d *Daemon) UpdateProxyRedirect(e *endpoint.Endpoint, l4 *policy.L4Filter) 
 		return 0, fmt.Errorf("can't redirect, proxy disabled")
 	}
 
-	r, err := d.l7Proxy.CreateOrUpdateRedirect(l4, e.ProxyID(l4), e)
+	r, err := d.l7Proxy.CreateOrUpdateRedirect(l4, e.ProxyID(l4), e, d)
 	if err != nil {
 		return 0, err
 	}
@@ -1344,4 +1348,68 @@ func (d *Daemon) GetServiceList() []*models.Service {
 		list = append(list, v.GetModel())
 	}
 	return list
+}
+
+func (d *Daemon) SendNotification(typ monitor.AgentNotification, text string) error {
+	var (
+		buf   bytes.Buffer
+		event = monitor.AgentNotify{Type: typ, Text: text}
+	)
+
+	if err := gob.NewEncoder(&buf).Encode(event); err != nil {
+		return fmt.Errorf("Unable to gob encode: %s", err)
+	}
+
+	err := d.sendEvent(append([]byte{byte(monitor.MessageTypeAgent)}, buf.Bytes()...))
+	if err != nil {
+		log.WithError(err).Debug("Failed to send agent notification")
+	}
+
+	return err
+}
+
+// NewProxyLogRecord is invoked by the proxy accesslog on each new access log entry
+func (d *Daemon) NewProxyLogRecord(l *accesslog.LogRecord) error {
+	var buf bytes.Buffer
+	if err := gob.NewEncoder(&buf).Encode(l); err != nil {
+		return fmt.Errorf("Unable to gob encode: %s", err)
+	}
+
+	return d.sendEvent(append([]byte{byte(monitor.MessageTypeAccessLog)}, buf.Bytes()...))
+}
+
+func (d *Daemon) sendEvent(data []byte) error {
+	d.nodeMonitor.PipeLock.Lock()
+	defer d.nodeMonitor.PipeLock.Unlock()
+
+	if d.nodeMonitor.Pipe == nil {
+		return fmt.Errorf("monitor pipe not opened")
+	}
+
+	p := payload.Payload{Data: data, CPU: 0, Lost: 0, Type: payload.EventSample}
+
+	payloadBuf, err := p.Encode()
+	if err != nil {
+		return fmt.Errorf("Unable to encode payload: %s", err)
+	}
+
+	meta := &payload.Meta{Size: uint32(len(payloadBuf))}
+	metaBuf, err := meta.MarshalBinary()
+	if err != nil {
+		return fmt.Errorf("Unable to encode metadata: %s", err)
+	}
+
+	if _, err := d.nodeMonitor.Pipe.Write(metaBuf); err != nil {
+		d.nodeMonitor.Pipe.Close()
+		d.nodeMonitor.Pipe = nil
+		return fmt.Errorf("Unable to write metadata: %s", err)
+	}
+
+	if _, err := d.nodeMonitor.Pipe.Write(payloadBuf); err != nil {
+		d.nodeMonitor.Pipe.Close()
+		d.nodeMonitor.Pipe = nil
+		return fmt.Errorf("Unable to write payload: %s", err)
+	}
+
+	return nil
 }

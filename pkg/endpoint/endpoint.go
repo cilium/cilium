@@ -1544,3 +1544,15 @@ func APICanModify(e *Endpoint) error {
 	}
 	return nil
 }
+
+func (e *Endpoint) getIDandLabels() string {
+	e.Mutex.RLock()
+	defer e.Mutex.RUnlock()
+
+	labels := ""
+	if e.SecLabel != nil {
+		labels = e.SecLabel.Labels.String()
+	}
+
+	return fmt.Sprintf("%d (%s)", e.ID, labels)
+}

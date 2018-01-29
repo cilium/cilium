@@ -22,7 +22,9 @@ import (
 	e "github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/monitor"
 	"github.com/cilium/cilium/pkg/policy"
+	"github.com/cilium/cilium/pkg/proxy/accesslog"
 
 	. "gopkg.in/check.v1"
 )
@@ -52,6 +54,8 @@ type DaemonSuite struct {
 	OnGetCompilationLock              func() *lock.RWMutex
 	OnCleanCTEntries                  func(e *e.Endpoint, isCTLocal bool, ips []net.IP, idsToRm policy.RuleContexts)
 	OnFlushCTEntries                  func(e *e.Endpoint, isCTLocal bool, ips []net.IP, idsToKeep policy.RuleContexts)
+	OnSendNotification                func(typ monitor.AgentNotification, text string) error
+	OnNewProxyLogRecord               func(l *accesslog.LogRecord) error
 }
 
 var _ = Suite(&DaemonSuite{})
@@ -189,4 +193,18 @@ func (ds *DaemonSuite) FlushCTEntries(e *e.Endpoint, isCTLocal bool, ips []net.I
 		return
 	}
 	panic("FlushCTEntries should not have been called")
+}
+
+func (ds *DaemonSuite) SendNotification(typ monitor.AgentNotification, text string) error {
+	if ds.OnSendNotification != nil {
+		return ds.OnSendNotification(typ, text)
+	}
+	panic("SendNotification should not have been called")
+}
+
+func (ds *DaemonSuite) NewProxyLogRecord(l *accesslog.LogRecord) error {
+	if ds.OnNewProxyLogRecord != nil {
+		return ds.OnNewProxyLogRecord(l)
+	}
+	panic("NewProxyLogRecord should not have been called")
 }

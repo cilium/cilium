@@ -145,9 +145,7 @@ func (h *getHealthz) getStatus(d *Daemon) models.StatusResponse {
 		sr.IPAM = d.DumpIPAM()
 	}
 
-	if nm := d.nodeMonitor; nm != nil {
-		sr.NodeMonitor = d.nodeMonitor.State()
-	}
+	sr.NodeMonitor = d.nodeMonitor.State()
 
 	sr.Cluster = h.getNodeStatus()
 	sr.Cluster.CiliumHealth = d.ciliumHealth.GetStatus()

@@ -12,22 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package bpfdebug
+package monitor
 
 import (
 	"fmt"
 	"net"
 
 	"github.com/cilium/cilium/pkg/byteorder"
-)
-
-// Must be synchronized with <bpf/lib/common.h>
-const (
-	MessageTypeUnspec = iota
-	MessageTypeDrop
-	MessageTypeDebug
-	MessageTypeCapture
-	MessageTypeTrace
 )
 
 // must be in sync with <bpf/lib/dbg.h>

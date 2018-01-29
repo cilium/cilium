@@ -32,7 +32,6 @@ import (
 	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/daemon/defaults"
 	"github.com/cilium/cilium/daemon/options"
-	monitor "github.com/cilium/cilium/monitor/launch"
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/endpointmanager"
@@ -44,6 +43,7 @@ import (
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
+	"github.com/cilium/cilium/pkg/monitor"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/pidfile"
@@ -691,8 +691,7 @@ func runDaemon() {
 		go d.EnableLogstash(logstashAddr, int(logstashProbeTimer))
 	}
 
-	d.nodeMonitor = &monitor.NodeMonitor{}
-	go d.nodeMonitor.Run()
+	go d.nodeMonitor.Run(path.Join(defaults.RuntimePath, defaults.EventsPipe))
 
 	// Launch cilium-health in the same namespace as cilium.
 	d.ciliumHealth = &health.CiliumHealth{}
@@ -802,6 +801,8 @@ func runDaemon() {
 	defer server.Shutdown()
 
 	server.ConfigureAPI()
+
+	d.SendNotification(monitor.AgentNotifyStart, time.Now().String())
 
 	if err := server.Serve(); err != nil {
 		log.WithError(err).Fatal("Error returned from non-returning Serve() call")
