@@ -94,6 +94,15 @@ type Logger interface {
 	Log(entry *HttpLogEntry)
 }
 
+// GetEnvoyVersion returns the envoy binary version string
+func GetEnvoyVersion() string {
+	out, err := exec.Command("cilium-envoy", "--version").Output()
+	if err != nil {
+		log.WithError(err).Fatal(`Envoy binary "cilium-envoy" cannot be executed`)
+	}
+	return strings.TrimSpace(string(out))
+}
+
 // StartEnvoy starts an Envoy proxy instance.
 func StartEnvoy(adminPort uint32, stateDir, logDir string, baseID uint64) *Envoy {
 	bootstrapPath := filepath.Join(stateDir, "bootstrap.pb")

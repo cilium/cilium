@@ -56,11 +56,11 @@ GO_TARGETS= $(API_TARGETS) $(CILIUM_TARGETS) $(FILTER_TARGETS)
 # Dockerfile builds require special options
 ifdef PKG_BUILD
 BAZEL_BUILD_OPTS = --spawn_strategy=standalone --genrule_strategy=standalone
-all: release
+all: clean-bins release
 else
 BAZEL_BUILD_OPTS =
 
-all: envoy $(GO_TARGETS)
+all: clean-bins envoy $(GO_TARGETS)
 endif
 
 debug: envoy-debug $(GO_TARGETS)
@@ -112,8 +112,7 @@ bazel-restore: $(BAZEL_ARCHIVE)
 	-mkdir $(dir $(BAZEL_CACHE))
 	cd $(dir $(BAZEL_CACHE)) && sudo tar xjf $(BAZEL_ARCHIVE) --warning=no-timestamp
 
-# Only remove the binaries, as relinking them takes minimal time, as this allows
-# the bazel cache size to be a little smaller.
+# Remove the binaries to get fresh version SHA
 clean-bins: force
 	-rm -f $(ENVOY_BINS)
 
