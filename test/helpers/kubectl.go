@@ -200,12 +200,12 @@ func (kub *Kubectl) NodeCleanMetadata() error {
 	return nil
 }
 
-// NamespaceCreate it creates a new kubernetes namespace with the given name
+// NamespaceCreate creates a new Kubernetes namespace with the given name
 func (kub *Kubectl) NamespaceCreate(name string) *CmdRes {
 	return kub.Exec(fmt.Sprintf("%s create namespace %s", KubectlCmd, name))
 }
 
-// NamespaceDelete it deletes a given kubernetes namespace
+// NamespaceDelete deletes a given Kubernetes namespace
 func (kub *Kubectl) NamespaceDelete(name string) *CmdRes {
 	return kub.Exec(fmt.Sprintf("%s delete namespace %s", KubectlCmd, name))
 }
