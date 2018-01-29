@@ -12,7 +12,7 @@ GOTEST_OPTS = -test.v -check.v
 
 UTC_DATE=$(shell date -u "+%Y-%m-%d")
 
-all: precheck-gofmt build cmdref-check lock-check
+all: precheck-gofmt build postcheck
 	@echo "Build finished."
 
 build: $(SUBDIRS)
@@ -271,10 +271,8 @@ install-manpages:
 	cp man/* /usr/local/share/man/man1/
 	mandb
 
-cmdref-check:
+postcheck: build
 	contrib/scripts/check-cmdref.sh
-
-lock-check:
 	contrib/scripts/lock-check.sh
 
 .PHONY: force
