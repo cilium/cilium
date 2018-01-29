@@ -147,10 +147,10 @@ Services based
 --------------
 
 Services running in your cluster can be whitelisted in Egress rules. Currently
-only headless Kubernetes services defined by their name and namespace are
-supported. More documentation on `HeadlessServices`.  Future versions of Cilium
-will support specifying non Kubernetes services and services which are backed
-by pods.
+headless Kubernetes services defined by their name and namespace or label selector
+are supported. More documentation on `HeadlessServices`.
+Future versions of Cilium will support specifying non Kubernetes services and services
+which are backed by pods.
 
 This example shows how to allow all endpoints with the label ``id=app2``
 to talk to all endpoints of kubernetes service ``myservice`` in kubernetes
@@ -170,6 +170,24 @@ for this policy to take effect.
 .. only:: epub or latex
 
         .. literalinclude:: ../../examples/policies/l3/service/service.json
+
+This example shows how to allow all endpoints with the label ``id=app2``
+to talk to all endpoints of all kubernetes headless services which
+have ``head:none`` set as the label.
+
+.. only:: html
+
+   .. tabs::
+     .. group-tab:: k8s YAML
+
+        .. literalinclude:: ../../examples/policies/l3/service/service-labels.yaml
+     .. group-tab:: JSON
+
+        .. literalinclude:: ../../examples/policies/l3/service/service-labels.json
+
+.. only:: epub or latex
+
+        .. literalinclude:: ../../examples/policies/l3/service/service-labels.json
 
 
 .. _Entities based:
