@@ -17,6 +17,7 @@ package cmd
 import (
 	"bytes"
 	"encoding/binary"
+	"encoding/gob"
 	"fmt"
 	"io"
 	"net"
@@ -27,8 +28,8 @@ import (
 
 	"github.com/cilium/cilium/daemon/defaults"
 	"github.com/cilium/cilium/monitor/payload"
-	"github.com/cilium/cilium/pkg/bpfdebug"
 	"github.com/cilium/cilium/pkg/byteorder"
+	"github.com/cilium/cilium/pkg/monitor"
 
 	"github.com/spf13/cobra"
 )
@@ -90,13 +91,13 @@ func init() {
 
 var (
 	hex          = false
-	eventTypeIdx = bpfdebug.MessageTypeUnspec // for integer comparison
+	eventTypeIdx = monitor.MessageTypeUnspec // for integer comparison
 	eventType    = ""
 	eventTypes   = map[string]int{
-		"drop":    bpfdebug.MessageTypeDrop,
-		"debug":   bpfdebug.MessageTypeDebug,
-		"capture": bpfdebug.MessageTypeCapture,
-		"trace":   bpfdebug.MessageTypeTrace,
+		"drop":    monitor.MessageTypeDrop,
+		"debug":   monitor.MessageTypeDebug,
+		"capture": monitor.MessageTypeCapture,
+		"trace":   monitor.MessageTypeTrace,
 	}
 	fromSource     = uint16(0)
 	toDst          = uint16(0)
@@ -122,7 +123,7 @@ func lostEvent(lost uint64, cpu int) {
 // related to, which can match on both.  If either one of them is less than or
 // equal to zero, then it is assumed user did not use them.
 func match(messageType int, src uint16, dst uint16) bool {
-	if eventTypeIdx != bpfdebug.MessageTypeUnspec && messageType != eventTypeIdx {
+	if eventTypeIdx != monitor.MessageTypeUnspec && messageType != eventTypeIdx {
 		return false
 	} else if fromSource > 0 && fromSource != src {
 		return false
@@ -137,12 +138,12 @@ func match(messageType int, src uint16, dst uint16) bool {
 
 // dropEvents prints out all the received drop notifications.
 func dropEvents(prefix string, data []byte) {
-	dn := bpfdebug.DropNotify{}
+	dn := monitor.DropNotify{}
 
 	if err := binary.Read(bytes.NewReader(data), byteorder.Native, &dn); err != nil {
 		fmt.Printf("Error while parsing drop notification message: %s\n", err)
 	}
-	if match(bpfdebug.MessageTypeDrop, dn.Source, uint16(dn.DstID)) {
+	if match(monitor.MessageTypeDrop, dn.Source, uint16(dn.DstID)) {
 		if verbosity == INFO {
 			dn.DumpInfo(data)
 		} else {
@@ -154,12 +155,12 @@ func dropEvents(prefix string, data []byte) {
 
 // traceEvents prints out all the received trace notifications.
 func traceEvents(prefix string, data []byte) {
-	tn := bpfdebug.TraceNotify{}
+	tn := monitor.TraceNotify{}
 
 	if err := binary.Read(bytes.NewReader(data), byteorder.Native, &tn); err != nil {
 		fmt.Printf("Error while parsing trace notification message: %s\n", err)
 	}
-	if match(bpfdebug.MessageTypeTrace, tn.Source, tn.DstID) {
+	if match(monitor.MessageTypeTrace, tn.Source, tn.DstID) {
 		if verbosity == INFO {
 			tn.DumpInfo(data)
 		} else {
@@ -171,12 +172,12 @@ func traceEvents(prefix string, data []byte) {
 
 // debugEvents prints out all the debug messages.
 func debugEvents(prefix string, data []byte) {
-	dm := bpfdebug.DebugMsg{}
+	dm := monitor.DebugMsg{}
 
 	if err := binary.Read(bytes.NewReader(data), byteorder.Native, &dm); err != nil {
 		fmt.Printf("Error while parsing debug message: %s\n", err)
 	}
-	if match(bpfdebug.MessageTypeDebug, dm.Source, 0) {
+	if match(monitor.MessageTypeDebug, dm.Source, 0) {
 		if verbosity == INFO {
 			dm.DumpInfo(data)
 		} else {
@@ -187,12 +188,12 @@ func debugEvents(prefix string, data []byte) {
 
 // captureEvents prints out all the capture messages.
 func captureEvents(prefix string, data []byte) {
-	dc := bpfdebug.DebugCapture{}
+	dc := monitor.DebugCapture{}
 
 	if err := binary.Read(bytes.NewReader(data), byteorder.Native, &dc); err != nil {
 		fmt.Printf("Error while parsing debug capture message: %s\n", err)
 	}
-	if match(bpfdebug.MessageTypeCapture, dc.Source, 0) {
+	if match(monitor.MessageTypeCapture, dc.Source, 0) {
 		if verbosity == INFO {
 			dc.DumpInfo(data)
 		} else {
@@ -202,20 +203,50 @@ func captureEvents(prefix string, data []byte) {
 	}
 }
 
+// logRecordEvents prints out LogRecord events
+func logRecordEvents(prefix string, data []byte) {
+	buf := bytes.NewBuffer(data[1:])
+	dec := gob.NewDecoder(buf)
+
+	lr := monitor.LogRecordNotify{}
+	if err := dec.Decode(&lr); err != nil {
+		fmt.Printf("Error while decoding LogRecord notification message: %s\n", err)
+	}
+
+	lr.DumpInfo()
+}
+
+// agentEvents prints out agent events
+func agentEvents(prefix string, data []byte) {
+	buf := bytes.NewBuffer(data[1:])
+	dec := gob.NewDecoder(buf)
+
+	an := monitor.AgentNotify{}
+	if err := dec.Decode(&an); err != nil {
+		fmt.Printf("Error while decoding agent notification message: %s\n", err)
+	}
+
+	an.DumpInfo()
+}
+
 // receiveEvent forwards all the per CPU events to the appropriate type function.
 func receiveEvent(data []byte, cpu int) {
 	prefix := fmt.Sprintf("CPU %02d:", cpu)
 	messageType := data[0]
 
 	switch messageType {
-	case bpfdebug.MessageTypeDrop:
+	case monitor.MessageTypeDrop:
 		dropEvents(prefix, data)
-	case bpfdebug.MessageTypeDebug:
+	case monitor.MessageTypeDebug:
 		debugEvents(prefix, data)
-	case bpfdebug.MessageTypeCapture:
+	case monitor.MessageTypeCapture:
 		captureEvents(prefix, data)
-	case bpfdebug.MessageTypeTrace:
+	case monitor.MessageTypeTrace:
 		traceEvents(prefix, data)
+	case monitor.MessageTypeAccessLog:
+		logRecordEvents(prefix, data)
+	case monitor.MessageTypeAgent:
+		agentEvents(prefix, data)
 	default:
 		fmt.Printf("%s Unknown event: %+v\n", prefix, data)
 	}

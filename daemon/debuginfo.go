@@ -59,7 +59,7 @@ func (h *getDebugInfo) Handle(params restapi.GetDebuginfoParams) middleware.Resp
 
 	dr.CiliumMemoryMap = memoryMap(os.Getpid())
 
-	if d.nodeMonitor != nil && d.nodeMonitor.State() != nil {
+	if d.nodeMonitor.State() != nil {
 		dr.CiliumNodemonitorMemoryMap = memoryMap(d.nodeMonitor.GetPid())
 	}
 

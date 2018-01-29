@@ -11,6 +11,9 @@ redirect_debug_logs ${LOGS_DIR}
 
 set -ex
 
+echo "Test has beend disabled"
+exit 0
+
 logs_clear
 
 log "starting test ${TEST_NAME}"

@@ -17,6 +17,7 @@ package main
 import (
 	"net"
 	"os"
+	"path"
 
 	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/daemon/defaults"
@@ -60,6 +61,13 @@ func main() {
 }
 
 func runNodeMonitor() {
+	eventSockPath := path.Join(defaults.RuntimePath, defaults.EventsPipe)
+	pipe, err := os.OpenFile(eventSockPath, os.O_RDONLY, 0600)
+	if err != nil {
+		log.WithError(err).Fatalf("Unable to open named pipe %s for reading", eventSockPath)
+	}
+	defer pipe.Close()
+
 	scopedLog := log.WithField(logfields.Path, defaults.MonitorSockPath)
 	// Open socket for using gops to get stacktraces of the agent.
 	if err := gops.Listen(gops.Options{}); err != nil {
@@ -84,5 +92,5 @@ func runNodeMonitor() {
 	m := Monitor{}
 	go m.handleConnection(server)
 
-	m.Run(npages)
+	m.Run(npages, pipe)
 }

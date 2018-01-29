@@ -332,10 +332,11 @@ func fillEgressDestinationInfo(info *accesslog.EndpointInfo, ipstr string) {
 // proxy configuration. This will allocate a proxy port as required and launch
 // a proxy instance. If the redirect is already in place, only the rules will be
 // updated.
-func (p *Proxy) CreateOrUpdateRedirect(l4 *policy.L4Filter, id string, source ProxySource) (Redirect, error) {
+func (p *Proxy) CreateOrUpdateRedirect(l4 *policy.L4Filter, id string, source ProxySource,
+	notifier accesslog.LogRecordNotifier) (Redirect, error) {
 	gcOnce.Do(func() {
 		if lf := viper.GetString("access-log"); lf != "" {
-			if err := accesslog.OpenLogfile(lf); err != nil {
+			if err := accesslog.OpenLogfile(lf, notifier); err != nil {
 				log.WithError(err).WithField(accesslog.FieldFilePath, lf).
 					Warn("Cannot open L7 access log")
 			}

@@ -31,6 +31,7 @@ var (
 
 	logMutex lock.Mutex
 	logger   *lumberjack.Logger
+	notifier LogRecordNotifier
 	logPath  string
 	metadata []string
 )
@@ -70,10 +71,18 @@ func openLogfileLocked(lf string) error {
 	return nil
 }
 
+// LogRecordNotifier is the interface to implement LogRecord notifications
+type LogRecordNotifier interface {
+	// NewProxyLogRecord is called for each new log record
+	NewProxyLogRecord(l *LogRecord) error
+}
+
 // OpenLogfile opens a file for logging
-func OpenLogfile(lf string) error {
+func OpenLogfile(lf string, n LogRecordNotifier) error {
 	logMutex.Lock()
 	defer logMutex.Unlock()
+
+	notifier = n
 
 	return openLogfileLocked(lf)
 }
@@ -130,4 +139,6 @@ func (l *LogRecord) Log() {
 	} else {
 		logString(string(b), true)
 	}
+
+	notifier.NewProxyLogRecord(l)
 }

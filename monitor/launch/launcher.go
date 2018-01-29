@@ -17,10 +17,17 @@ package launch
 import (
 	"bufio"
 	"encoding/json"
+	"os"
+	"syscall"
+	"time"
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/launcher"
+	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/logging"
 )
+
+var log = logging.DefaultLogger
 
 const targetName = "cilium-node-monitor"
 
@@ -29,6 +36,9 @@ type NodeMonitor struct {
 	launcher.Launcher
 
 	state *models.MonitorStatus
+
+	PipeLock lock.Mutex
+	Pipe     *os.File
 }
 
 // GetPid returns the node monitor's pid.
@@ -37,9 +47,25 @@ func (m *NodeMonitor) GetPid() int {
 }
 
 // Run starts the node monitor.
-func (nm *NodeMonitor) Run() {
+func (nm *NodeMonitor) Run(sockPath string) {
 	nm.SetTarget(targetName)
 	for {
+		os.Remove(sockPath)
+		if err := syscall.Mkfifo(sockPath, 0600); err != nil {
+			log.WithError(err).Fatalf("Unable to create named pipe %s", sockPath)
+			time.Sleep(time.Duration(5) * time.Second)
+		}
+
+		pipe, err := os.OpenFile(sockPath, os.O_RDWR, 0600)
+		if err != nil {
+			log.WithError(err).Fatal("Unable to open named pipe for writing")
+			time.Sleep(time.Duration(5) * time.Second)
+		}
+
+		nm.Mutex.Lock()
+		nm.Pipe = pipe
+		nm.Mutex.Unlock()
+
 		nm.Launcher.Run()
 
 		r := bufio.NewReader(nm.GetStdout())
@@ -51,6 +77,8 @@ func (nm *NodeMonitor) Run() {
 			}
 			nm.setState(tmp)
 		}
+
+		pipe.Close()
 	}
 }
 

@@ -51,4 +51,7 @@ const (
 	// DefaultLogLevel is the alternative we provide to Debug
 	// We set this in pkg/logging.
 	DefaultLogLevel = logrus.InfoLevel
+
+	// EventsPipe is the name of the named pipe for agent <=> monitor events
+	EventsPipe = "events.sock"
 )
