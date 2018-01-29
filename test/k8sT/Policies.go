@@ -113,9 +113,9 @@ var _ = Describe("K8sPolicyTest", func() {
 		}
 
 		It("PolicyEnforcement Changes", func() {
-			// This is a small test that check that basic policyEnforcement
-			// changes are working in k8s. All the policy enforcements
-			// changes/combinations are tested on runtime/Policies
+			// This is a small test that checks that basic policy enforcement
+			// changes are working in k8s. All the policy enforcement
+			// changes/combinations are tested in runtime/Policies.go
 			ciliumPod, err := kubectl.GetCiliumPodOnNode(helpers.KubeSystemNamespace, helpers.K8s1)
 			Expect(err).Should(BeNil())
 
@@ -313,9 +313,9 @@ var _ = Describe("K8sPolicyTest", func() {
 			kubectl.NamespaceCreate(namespace)
 			kubectl.Apply(demoManifest)
 			defer func() {
-				kubectl.Delete(demoManifest)
-				kubectl.Delete(policy)
-				kubectl.NamespaceDelete(namespace)
+				kubectl.Delete(demoManifest).ExpectSuccess()
+				kubectl.Delete(policy).ExpectSuccess()
+				kubectl.NamespaceDelete(namespace).ExpectSuccess()
 
 			}()
 
@@ -402,10 +402,16 @@ var _ = Describe("K8sPolicyTest", func() {
 		})
 
 		AfterEach(func() {
-			kubectl.Delete(kubectl.ManifestGet(deployment))
-			kubectl.Delete(kubectl.ManifestGet(webPolicy))
+			kubectl.Delete(kubectl.ManifestGet(deployment)).ExpectSuccess(
+				"Guestbook deployment cannot be deleted")
+			kubectl.Delete(kubectl.ManifestGet(webPolicy)).ExpectSuccess(
+				"Web policy cannot be deleted")
+			kubectl.Delete(kubectl.ManifestGet(redisPolicyDeprecated)).ExpectSuccess(
+				"Redis deprecated policy cannot be deleted")
+
+			// This policy shouldn't be there, but test can fail before delete
+			// the policy and we want to make sure that it's deleted
 			kubectl.Delete(kubectl.ManifestGet(redisPolicy))
-			kubectl.Delete(kubectl.ManifestGet(redisPolicyDeprecated))
 		})
 
 		waitforPods := func() {
@@ -436,7 +442,7 @@ var _ = Describe("K8sPolicyTest", func() {
 			_, err := kubectl.CiliumPolicyAction(
 				helpers.KubeSystemNamespace, kubectl.ManifestGet(webPolicy),
 				helpers.KubectlApply, 300)
-			Expect(err).Should(BeNil(), "Cannot apply web-policy err: %q", err)
+			Expect(err).Should(BeNil(), "Cannot apply web-policy")
 
 			err = waitUntilEndpointUpdates(ciliumPod, eps, 3)
 			Expect(err).To(BeNil(), "Pods are not ready after timeout")
@@ -454,7 +460,8 @@ var _ = Describe("K8sPolicyTest", func() {
 			_, err = kubectl.CiliumPolicyAction(
 				helpers.KubeSystemNamespace, kubectl.ManifestGet(redisPolicy),
 				helpers.KubectlApply, 300)
-			Expect(err).Should(BeNil(), "Cannot apply redis policy err:%q", err)
+
+			Expect(err).Should(BeNil(), "Cannot apply redis policy")
 
 			err = waitUntilEndpointUpdates(ciliumPod, eps, 1)
 			Expect(err).To(BeNil(), "Pods are not ready after timeout")
@@ -609,12 +616,17 @@ var _ = Describe("K8sValidatedPolicyTestAcrossNamespaces", func() {
 
 		By("Creating Kubernetes namespace qa")
 		res := kubectl.CreateResource(namespace, qaNs)
-		defer kubectl.DeleteResource(namespace, qaNs)
+		defer func() {
+			kubectl.NamespaceDelete(qaNs).ExpectSuccess()
+		}()
 		res.ExpectSuccess()
 
 		By("Creating Kubernetes namespace development")
-		res = kubectl.CreateResource(namespace, developmentNs)
-		defer kubectl.DeleteResource(namespace, developmentNs)
+
+		res = kubectl.NamespaceCreate(developmentNs)
+		defer func() {
+			kubectl.NamespaceDelete(developmentNs).ExpectSuccess()
+		}()
 		res.ExpectSuccess()
 
 		resources := []string{"1-frontend.json", "2-backend-server.json", "3-backend.json"}
