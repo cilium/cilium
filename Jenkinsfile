@@ -17,7 +17,7 @@ pipeline {
                 MEMORY = '4096'
                 RUN_TEST_SUITE = '1'
             }
-            steps { 
+            steps {
                 parallel(
                     "Print Environment": { sh 'env' },
                     "Runtime Tests": {
@@ -40,8 +40,8 @@ pipeline {
             archiveArtifacts artifacts: "cilium-files-k8s-${JOB_BASE_NAME}-${BUILD_NUMBER}.tar.gz", allowEmptyArchive: true
             sh 'rm -rf ${WORKSPACE}/cilium-files*${JOB_BASE_NAME}-${BUILD_NUMBER}* ${WORKSPACE}/tests/cilium-files ${WORKSPACE}/tests/k8s/tests/cilium-files'
             sh 'ls'
-            sh 'vagrant destroy -f'
-            sh 'cd ./tests/k8s && vagrant destroy -f'
+            sh 'vagrant destroy -f || true'
+            sh 'cd ./tests/k8s && vagrant destroy -f || true'
         }
     }
 }
