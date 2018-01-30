@@ -66,7 +66,7 @@ func parseNetworkPolicyPeer(namespace string, peer *networkingv1.NetworkPolicyPe
 			peer.NamespaceSelector.MatchExpressions[i] = lsr
 		}
 	} else {
-		// Neither PodSelector nor LabelSelector set.
+		// Neither PodSelector nor NamespaceSelector set.
 		return nil
 	}
 
