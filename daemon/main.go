@@ -615,7 +615,12 @@ func initEnv(cmd *cobra.Command) {
 	policy.SetPolicyEnabled(strings.ToLower(viper.GetString("enable-policy")))
 
 	if err := kvstore.Setup(kvStore, kvStoreOpts); err != nil {
-		log.WithError(err).Fatal("Unable to setup kvstore")
+		addrkey := fmt.Sprintf("%s.address", kvStore)
+		addr := kvStoreOpts[addrkey]
+		log.WithError(err).WithFields(logrus.Fields{
+			"kvstore": kvStore,
+			"address": addr,
+		}).Fatal("Unable to setup kvstore")
 	}
 
 	if err := labels.ParseLabelPrefixCfg(validLabels, labelPrefixFile); err != nil {
