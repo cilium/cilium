@@ -22,6 +22,7 @@ import (
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/policy/api"
+	"fmt"
 )
 
 // Repository is a list of policy rules which in combination form the security
@@ -179,6 +180,7 @@ func (p *Repository) AllowsEgressLabelAccess(egressCtx *SearchContext) api.Decis
 // TODO: Coalesce l7 rules?
 func (p *Repository) ResolveL4Policy(ctx *SearchContext) (*L4Policy, error) {
 	result := NewL4Policy()
+	fmt.Printf("ResolveL4Policy\n")
 
 	ctx.PolicyTrace("\n")
 	if ctx.EgressL4Only {
@@ -234,6 +236,8 @@ func (p *Repository) allowsL4Egress(searchCtx *SearchContext) api.Decision {
 	if err != nil {
 		log.WithError(err).Warn("Evaluation error while resolving L4 egress policy")
 	}
+
+	// TODO (ianvernon) L3-depdendent L4 egress
 	verdict := api.Undecided
 	if err == nil && len(policy.Egress) > 0 {
 		verdict = policy.EgressCoversDPorts(ctx.DPorts)
@@ -304,7 +308,7 @@ func (p *Repository) AllowsIngressRLocked(ingressCtx *SearchContext) api.Decisio
 func (p *Repository) AllowsEgressRLocked(egressCtx *SearchContext) api.Decision {
 	egressCtx.PolicyTrace("Tracing %s\n", egressCtx.String())
 	egressDecision := p.CanReachEgressRLocked(egressCtx)
-	egressCtx.PolicyTrace("Ingress label verdict: %s", egressDecision.String())
+	egressCtx.PolicyTrace("Egress label verdict: %s", egressDecision.String())
 
 	if egressDecision == api.Allowed {
 		egressCtx.PolicyTrace("L4 egress policies skipped")

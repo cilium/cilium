@@ -456,8 +456,8 @@ func (r *rule) canReachEgress(ctx *SearchContext, state *traceState) api.Decisio
 				state.constrainedRules++
 				return api.Denied
 			}
+			ctx.PolicyTrace("+     Found all required labels\n")
 		}
-		ctx.PolicyTrace("+     Found all required labels\n")
 	}
 
 	// Separate loop is needed as failure to meet ToRequires always takes
