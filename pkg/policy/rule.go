@@ -494,11 +494,6 @@ func (r *rule) canReachEgress(ctx *SearchContext, state *traceState) api.Decisio
 // rule are allowed to communicate with the entities defined in ctx.To. If no
 // entities match those in ctx.To, an undecided verdict is returned.
 func (r *rule) canReachToEntities(ctx *SearchContext, state *traceState) api.Decision {
-	log.WithFields(logrus.Fields{
-		"ctx":   ctx,
-		"state": state,
-		"rule":  r,
-	}).Debugf("canReachToEntities")
 
 	for _, entitySelector := range r.toEntities {
 		if entitySelector.Matches(ctx.To) {
