@@ -179,6 +179,79 @@ If for some reason, running of the provisioning script fails, you should bring t
     $ vagrant halt
 
 
+Unit Testing
+------------
+
+Cilium uses the standard `go test <https://golang.org/pkg/testing/>` framework
+in combination with `gocheck <http://labix.org/gocheck>` for richer testing
+functionality.
+
+Running all tests
+~~~~~~~~~~~~~~~~~
+
+To run unit tests over the entire repository, run the following command in the
+project root directory:
+
+::
+
+    $ make tests
+
+Testing individual packages
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+It is possible to test individual packages by invoking ``go test`` directly.
+Before doing so, ensure that the kvstore dependency is met for testing. You can
+start a local etcd and consul instance by running:
+
+::
+
+     $ make start-kvstores
+
+
+You can then ``cd`` into the package subject to testing and invoke go test:
+
+::
+
+    $ cd pkg/kvstore
+    $ go test
+
+
+If you need more verbose output, you can pass in the ``-check.v`` and
+``-check.vv`` arguments:
+
+::
+
+    $ cd pkg/kvstore
+    $ go test -check.v -check.vv
+
+Running individual tests
+~~~~~~~~~~~~~~~~~~~~~~~~
+
+Due to the use of gocheck, the standard ``go test -run`` will not work,
+instead, the ``-check.f`` argument has to be specified:
+
+::
+
+    $ go test -check.f TestParallelAllocation
+
+Automatically run unit tests on code changes
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The script ``contrib/shell/test.sh`` contains some helpful bash functions to
+improve the feedback cycle between writing tests and seeing their results. If
+you're writing unit tests in a particular package, the ``watchtest`` function
+will watch for changes in a directory and run the unit tests for that package
+any time the files change. For example, if writing unit tests in `pkg/policy`,
+run this in a terminal next to your editor:
+
+.. code:: bash
+
+    $ . contrib/shell/test.sh
+    $ watchtest pkg/policy
+
+This shell script depends on the ``inotify-tools`` package on Linux.
+
+
 Development Cycle (Bash Script Framework)
 -----------------------------------------
 
