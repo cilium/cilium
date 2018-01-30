@@ -78,7 +78,8 @@ func (a *admin) quit() error {
 // Envoy manages a running Envoy proxy instance via the
 // ListenerDiscoveryService and RouteDiscoveryService gRPC APIs.
 type Envoy struct {
-	cmd               *exec.Cmd
+	stopCh            chan struct{}
+	errCh             chan error
 	LogPath           string
 	AccessLogPath     string
 	accessLogListener *net.UnixListener
@@ -113,6 +114,8 @@ func StartEnvoy(adminPort uint32, stateDir, logDir string, baseID uint64) *Envoy
 	accessLogPath := filepath.Join(stateDir, "access_log.sock")
 
 	e := &Envoy{
+		stopCh:        make(chan struct{}),
+		errCh:         make(chan error, 1),
 		LogPath:       logPath,
 		AccessLogPath: accessLogPath,
 		ldsSock:       ldsPath,
@@ -155,12 +158,12 @@ func StartEnvoy(adminPort uint32, stateDir, logDir string, baseID uint64) *Envoy
 			if logLevel == "" {
 				logLevel = envoyLevelMap[logrus.InfoLevel]
 			}
-			e.cmd = exec.Command(name, "-l", logLevel, "-c", bootstrapPath, "--base-id", strconv.FormatUint(baseID, 10))
-			e.cmd.Stderr = logFile
-			e.cmd.Stdout = logFile
 
-			err = e.cmd.Start()
-			if err != nil {
+			cmd := exec.Command(name, "-l", logLevel, "-c", bootstrapPath, "--base-id", strconv.FormatUint(baseID, 10))
+			cmd.Stderr = logFile
+			cmd.Stdout = logFile
+
+			if err := cmd.Start(); err != nil {
 				log.WithError(err).Warn("Envoy: failed to start.")
 				select {
 				case started <- false:
@@ -174,14 +177,23 @@ func StartEnvoy(adminPort uint32, stateDir, logDir string, baseID uint64) *Envoy
 			default:
 			}
 
-			log.Info("Envoy: Process started at pid ", e.cmd.Process.Pid)
+			log.Info("Envoy: Process started at pid ", cmd.Process.Pid)
 
 			// We do not return after a successful start, but watch the Envoy process
 			// and restart it if it crashes.
-			err = e.cmd.Wait()
-			if err != nil {
-				log.WithError(err).Warn("Envoy: Execution failed.")
-			}
+			// Waiting for the process execution is done in the goroutime.
+			// The purpose of the "crash channel" is to inform the loop about their
+			// Envoy process crash - after closing that channel by the goroutime,
+			// the loop continues, the channel is recreated and the new process
+			// is watched again.
+			crashCh := make(chan struct{})
+			go func() {
+				if err := cmd.Wait(); err != nil {
+					log.WithError(err).Warn("Envoy: Execution failed: ", err)
+				}
+				close(crashCh)
+			}()
+
 			if logFile != nil {
 				logFile.Close()
 				logFile = nil
@@ -190,6 +202,31 @@ func StartEnvoy(adminPort uint32, stateDir, logDir string, baseID uint64) *Envoy
 			// time to not start Envoy again in that case.
 			log.WithError(err).Info("Envoy: Sleeping for 100ms before respawning.")
 			time.Sleep(100 * time.Millisecond)
+
+			select {
+			case <-crashCh:
+				// Start Envoy again
+				continue
+			case <-e.stopCh:
+				// Close the access log server
+				if e.accessLogListener != nil {
+					e.accessLogListener.Close()
+					e.accessLogListener = nil
+				}
+				log.Info("Envoy: Stopping process ", cmd.Process.Pid)
+				e.rds.stop()
+				e.lds.stop()
+				if err := e.admin.quit(); err != nil {
+					log.WithError(err).Fatal("Envoy: Admin quit failed, killing process ", cmd.Process.Pid)
+
+					if err := cmd.Process.Kill(); err != nil {
+						log.WithError(err).Fatal("Envoy: Stopping failed")
+						e.errCh <- err
+					}
+				}
+				close(e.errCh)
+				return
+			}
 		}
 	}()
 
@@ -277,22 +314,10 @@ func (e *Envoy) accessLogger(conn *net.UnixConn) {
 // StopEnvoy kills the Envoy process started with StartEnvoy. The gRPC API streams are terminated
 // first.
 func (e *Envoy) StopEnvoy() error {
-	// Close the access log server
-	if e.accessLogListener != nil {
-		e.accessLogListener.Close()
-		e.accessLogListener = nil
-	}
-	log.Info("Envoy: Stopping process ", e.cmd.Process.Pid)
-	e.rds.stop()
-	e.lds.stop()
-	err := e.admin.quit()
-	if err != nil {
-		log.WithError(err).Fatal("Envoy: Admin quit failed, killing process ", e.cmd.Process.Pid)
-		err := e.cmd.Process.Kill()
-		if err != nil {
-			log.WithError(err).Fatal("Envoy: Stopping failed")
-			return err
-		}
+	close(e.stopCh)
+	err, ok := <-e.errCh
+	if ok {
+		return err
 	}
 	return nil
 }
