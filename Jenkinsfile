@@ -1,6 +1,6 @@
 pipeline {
     agent {
-        label 'vagrant'
+        label 'tfNode'
     }
     options {
         timeout(time: 120, unit: 'MINUTES')

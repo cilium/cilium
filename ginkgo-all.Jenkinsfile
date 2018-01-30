@@ -1,6 +1,6 @@
 pipeline {
     agent {
-        label 'ginkgo'
+        label 'tfNode'
     }
     environment {
         PROJ_PATH = "src/github.com/cilium/cilium"
