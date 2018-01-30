@@ -42,6 +42,15 @@ Policy management
 
 	cilium policy delete --all
 
+Connectivity
+============
+
+::
+
+	# Check cluster connectivity
+
+	cilium-health status
+
 Monitoring
 ==========
 
