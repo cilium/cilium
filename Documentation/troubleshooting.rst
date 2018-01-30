@@ -31,15 +31,22 @@ fails between endpoints across multiple nods.
 Troubleshooting steps:
 ~~~~~~~~~~~~~~~~~~~~~~
 
-1. Run `cilium monitor` on the node of the source and destination endpoint.
+1. Run `cilium-health status` on the node of the source and destination
+   endpoint. It should describe the connectivity from that node to other
+   nodes in the cluster, and to a simulated endpoint on each other node.
+   Identify points in the cluster that cannot talk to each other. If the
+   command does not describe the status of the other node, there may be an
+   issue with the KV-Store.
+
+2. Run `cilium monitor` on the node of the source and destination endpoint.
    Look for packet drops.
 
 When running in :ref:`arch_overlay` mode:
 
-2. Run `cilium bpf tunnel list` and verify that each Cilium node is aware of
+3. Run `cilium bpf tunnel list` and verify that each Cilium node is aware of
    the other nodes in the cluster.  If not, check the logfile for errors.
 
-3. If nodes are being populated correctly, run `tcpdump -n -i cilium_vxlan` on
+4. If nodes are being populated correctly, run `tcpdump -n -i cilium_vxlan` on
    each node to verify whether cross node traffic is being forwarded correctly
    between nodes.
    
@@ -51,11 +58,40 @@ When running in :ref:`arch_overlay` mode:
 
 When running in :ref:`arch_direct_routing` mode:
 
-2. Run `ip route` or check your cloud provider router and verify that you have
+3. Run `ip route` or check your cloud provider router and verify that you have
    routes installed to route the endpoint prefix between all nodes.
 
-3. Verify that the firewall on each node permits to route the endpoint IPs.
- 
+4. Verify that the firewall on each node permits to route the endpoint IPs.
+
+Cluster connectivity check
+==========================
+
+By default when Cilium is run, it launches instances of ``cilium-health`` in
+the background to determine overall connectivity status of the cluster. This
+tool periodically runs bidirectional traffic across multiple paths through the
+cluster and through each node using different protocols to determine the health
+status of each path and protocol. At any point in time, cilium-health may be
+queried for the connectivity status of the last probe.
+
+.. code:: bash
+
+    $ cilium-health status
+    Probe time:   2018-01-30T00:13:55Z
+    Nodes:
+      cilium-master:
+        Host connectivity to 172.0.54.195:
+          ICMP:          OK, RTT=714.515µs
+          HTTP via L3:   OK, RTT=967.612µs
+        Endpoint connectivity to 172.200.152.27:
+          ICMP:          OK, RTT=962.767µs
+          HTTP via L3:   OK, RTT=1.378938ms
+      ...
+
+For each node, the connectivity will be displayed for each protocol and path,
+both to the node itself and to an endpoint on that node. The latency specified
+is a snapshot at the last time a probe was run, which is typically once per
+minute.
+
 Monitoring Packet Drops
 =======================
 
