@@ -44,10 +44,25 @@ var (
 		Ping:        ResultTimeout,
 		UDP:         ResultTimeout,
 	}
+
+	ConnResultAllTimeoutExceptPing = ConnTestSpec{
+		HTTP:        ResultTimeout,
+		HTTPPrivate: ResultTimeout,
+		Ping:        ResultOK,
+		UDP:         ResultTimeout,
+	}
+
 	ConnResultOnlyHTTP = ConnTestSpec{
 		HTTP:        ResultOK,
 		HTTPPrivate: ResultOK,
 		Ping:        ResultTimeout,
+		UDP:         ResultTimeout,
+	}
+
+	ConnResultOnlyHTTPAndPing = ConnTestSpec{
+		HTTP:        ResultOK,
+		HTTPPrivate: ResultOK,
+		Ping:        ResultOK,
 		UDP:         ResultTimeout,
 	}
 

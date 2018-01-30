@@ -56,6 +56,14 @@ var policiesTestSuite = PolicyTestSuite{
 			},
 		},
 		{
+			name:  "Egress Port 80 No protocol",
+			kind:  egress,
+			tests: ConnResultOnlyHTTPAndPing,
+			template: map[string]string{
+				"Ports": `[{"port": "80"}]`,
+			},
+		},
+		{
 			name:  "Ingress Port 80 TCP",
 			kind:  ingress,
 			tests: ConnResultOnlyHTTP,
@@ -67,6 +75,22 @@ var policiesTestSuite = PolicyTestSuite{
 			name:  "Ingress Port 80 UDP",
 			kind:  ingress,
 			tests: ConnResultAllTimeout,
+			template: map[string]string{
+				"Ports": `[{"port": "80", "protocol": "UDP"}]`,
+			},
+		},
+		{
+			name:  "Egress Port 80 TCP",
+			kind:  egress,
+			tests: ConnResultOnlyHTTPAndPing,
+			template: map[string]string{
+				"Ports": `[{"port": "80", "protocol": "TCP"}]`,
+			},
+		},
+		{
+			name:  "Egress Port 80 UDP",
+			kind:  egress,
+			tests: ConnResultAllTimeoutExceptPing,
 			template: map[string]string{
 				"Ports": `[{"port": "80", "protocol": "UDP"}]`,
 			},
@@ -94,7 +118,7 @@ var policiesTestSuite = PolicyTestSuite{
 			tests: ConnResultOnlyHTTPPrivateAndPing,
 			template: map[string]string{
 				"Rules": `{"http": [{"method": "GET", "path": "/private"}]}`,
-				"Ports": `[{"port": "{{ .Destination.PortNumber }}", "protocol": "TCP"}]`,
+				"Ports": `[{"port": "80", "protocol": "TCP"}]`,
 			},
 		},
 	},
