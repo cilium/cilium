@@ -107,6 +107,7 @@ func NewGetPolicyResolveHandler(d *Daemon) GetPolicyResolveHandler {
 	return &getPolicyResolve{daemon: d}
 }
 
+// Server-side implementation of `cilium policy trace`.
 func (h *getPolicyResolve) Handle(params GetPolicyResolveParams) middleware.Responder {
 	log.WithField(logfields.Params, logfields.Repr(params)).Debug("GET /policy/resolve request")
 
@@ -166,7 +167,7 @@ func (h *getPolicyResolve) Handle(params GetPolicyResolveParams) middleware.Resp
 	// the daemon.
 	buffer := new(bytes.Buffer)
 	ctx := params.IdentityContext
-	searchCtx := policy.SearchContext{
+	ingressSearchCtx := policy.SearchContext{
 		Trace:   policy.TRACE_ENABLED,
 		Logging: logging.NewLogBackend(buffer, "", 0),
 		From:    labels.NewSelectLabelArrayFromModel(ctx.From),
@@ -174,12 +175,20 @@ func (h *getPolicyResolve) Handle(params GetPolicyResolveParams) middleware.Resp
 		DPorts:  ctx.Dports,
 	}
 	if ctx.Verbose {
-		searchCtx.Trace = policy.TRACE_VERBOSE
+		ingressSearchCtx.Trace = policy.TRACE_VERBOSE
+	}
+
+	egressSearchCtx := policy.SearchContext{
+		Trace:   policy.TRACE_ENABLED,
+		Logging: logging.NewLogBackend(buffer, "", 0),
+		From:    labels.NewSelectLabelArrayFromModel(ctx.From),
+		To:      labels.NewSelectLabelArrayFromModel(ctx.To),
+		DPorts:  ctx.Dports,
 	}
 
 	d.policy.Mutex.RLock()
 
-	ingressVerdict := d.policy.AllowsRLocked(&searchCtx)
+	ingressVerdict, _ := d.policy.AllowsRLocked(&ingressSearchCtx, &egressSearchCtx)
 
 	d.policy.Mutex.RUnlock()
 
