@@ -188,12 +188,13 @@ func (h *getPolicyResolve) Handle(params GetPolicyResolveParams) middleware.Resp
 
 	d.policy.Mutex.RLock()
 
-	ingressVerdict, _ := d.policy.AllowsRLocked(&ingressSearchCtx, &egressSearchCtx)
+	ingressVerdict := d.policy.AllowsIngressRLocked(&ingressSearchCtx)
+	egressVerdict := d.policy.AllowsEgressRLocked(&egressSearchCtx)
 
 	d.policy.Mutex.RUnlock()
 
 	result := models.PolicyTraceResult{
-		Verdict: ingressVerdict.String(),
+		Verdict: fmt.Sprintf("%s\n%s\n", ingressVerdict.String(), egressVerdict.String()),
 		Log:     buffer.String(),
 	}
 
