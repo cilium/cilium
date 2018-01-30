@@ -9,4 +9,5 @@ Command Reference
 
       cilium-agent
       cli_index
+      cilium-health
       kvstore

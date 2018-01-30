@@ -10,6 +10,7 @@ BUILDDIR      = _build
 CMDREFDIR     = cmdref
 CILIUMDIR     = ../cilium
 AGENTDIR      = ../daemon
+HEALTHDIR     = ../cilium-health
 
 # Put it first so that "make" without argument is like "make help".
 help:
@@ -42,6 +43,7 @@ cmdref:
 	-rm -rvf $(CMDREFDIR)/cilium*
 	${CILIUMDIR}/cilium cmdref -d $(CMDREFDIR)
 	${AGENTDIR}/cilium-agent --cmdref $(CMDREFDIR)
+	${HEALTHDIR}/cilium-health --cmdref $(CMDREFDIR)
 
 .PHONY: help Makefile check-requirements cmdref
 

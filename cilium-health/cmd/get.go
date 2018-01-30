@@ -29,7 +29,7 @@ import (
 var healthGetCmd = &cobra.Command{
 	Use:     "get",
 	Aliases: []string{"inspect, show"},
-	Short:   "Display local cilium-health status",
+	Short:   "Display local cilium agent status",
 	Run: func(cmd *cobra.Command, args []string) {
 		result, err := client.Restapi.GetHealthz(nil)
 		if err != nil {
