@@ -149,7 +149,30 @@ const (
 	// RetryUUID is an UUID identical for all retries of a set
 	RetryUUID = "retryUUID"
 
-	// K8s specific
+	// Envoy xDS-protocol-specific
+
+	// XDSStreamID is the ID of an xDS request stream.
+	XDSStreamID = "xdsStreamID"
+
+	// XDSVersionInfo is the version info of an xDS resource.
+	XDSVersionInfo = "xdsVersionInfo"
+
+	// XDSTypeURL is the URL that identifies an xDS resource type.
+	XDSTypeURL = "xdsTypeURL"
+
+	// XDSNonce is a nonce sent in xDS requests and responses.
+	XDSNonce = "xdsNonce"
+
+	// XDSCanary is a boolean indicating whether a response is a dry run.
+	XDSCanary = "xdsCanary"
+
+	// XDSResourceName is the name of an xDS resource.
+	XDSResourceName = "xdsResourceName"
+
+	// XDSClientNode is the ID of an XDS client, e.g. an Envoy node.
+	XDSClientNode = "xdsClientNode"
+
+	// K8s-specific
 
 	// K8sNodeID is the k8s ID of a K8sNode
 	K8sNodeID = "k8sNodeID"
