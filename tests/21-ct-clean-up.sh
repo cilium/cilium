@@ -11,6 +11,9 @@ redirect_debug_logs ${LOGS_DIR}
 
 set -ex
 
+log "${TEST_NAME} has been deprecated and replaced by test/runtime/ct.go"
+exit 0
+
 function cleanup {
   docker rm -f server server-2 httpd-server netcat client client-2 2> /dev/null || true
   monitor_stop
@@ -41,7 +44,7 @@ function start_containers {
 }
 
 function get_container_metadata {
-  CLIENT_SEC_ID=$(cilium endpoint list | grep id.client-2 | awk '{ print $4}')
+  CLIENT_SEC_ID=$(cilium endpoint list | grep id.client | awk 'NR==1{ print $4}')
   log "CLIENT_SEC_ID: $CLIENT_SEC_ID"
   CLIENT_IP=$(docker inspect --format '{{ .NetworkSettings.Networks.cilium.GlobalIPv6Address }}' client)
   log "CLIENT_IP: $CLIENT_IP"
@@ -79,6 +82,59 @@ function get_container_metadata {
   log "SERVER_4_IP4: $SERVER_4_IP4"
   SERVER_4_ID=$(cilium endpoint list | grep id.server-4 | awk '{ print $1}')
   log "SERVER_4_ID: $SERVER_4_ID"
+}
+
+function test_reachability_l3_v4(){
+  local TIMEOUT="5"
+
+  local container="${1}"
+  local dst_ip="${2}"
+  local http_path="${3}"
+  log "trying to docker exec -i ${container} bash -c \"ping -c 4 ${dst_ip}\" from client container (should work)"
+  ret="$(docker exec -i "${container}" bash -c "ping -c 4 ${dst_ip}")"
+  if [[ ${ret} != *" 4 packets received"* ]]; then
+    abort "Error: Could not reach ping ${dst_ip} from ${container}"
+  fi
+}
+
+function test_reachability_l3_v6(){
+  local TIMEOUT="5"
+
+  local container="${1}"
+  local dst_ip="${2}"
+  local http_path="${3}"
+  log "trying to docker exec -i ${container} bash -c \"ping6 -c 4 ${dst_ip}\" from client container (should work)"
+  ret="$(docker exec -i "${container}" bash -c "ping6 -c 4 ${dst_ip}")"
+  if [[ ${ret} != *" 4 packets received"* ]]; then
+    abort "Error: Could not reach ping ${dst_ip} from ${container}"
+  fi
+}
+
+
+function test_unreachability_l3_v4(){
+  local TIMEOUT="5"
+
+  local container="${1}"
+  local dst_ip="${2}"
+  local http_path="${3}"
+  log "trying to docker exec -i ${container} bash -c \"ping -c 4 ${dst_ip}\" from client container (shouldn't work)"
+  ret="$(docker exec -i "${container}" bash -c "ping -W 2 -w 2 -c 2 ${dst_ip}")"
+  if [[ ${ret} != *" 0 packets received"* ]]; then
+    abort "Error: Could not reach ping ${dst_ip} from ${container}"
+  fi
+}
+
+function test_unreachability_l3_v6(){
+  local TIMEOUT="5"
+
+  local container="${1}"
+  local dst_ip="${2}"
+  local http_path="${3}"
+  log "trying to docker exec -i ${container} bash -c \"ping6 -c 4 ${dst_ip}\" from client container (shouldn't work)"
+  ret="$(docker exec -i "${container}" bash -c "ping6 -w 2 -c 2 ${dst_ip}")"
+  if [[ ${ret} != *" 0 packets received"* ]]; then
+    abort "Error: Could not reach ping ${dst_ip} from ${container}"
+  fi
 }
 
 function test_reachability(){
@@ -128,7 +184,7 @@ function test_reachability_port(){
   local dst_ip="${2}"
   local dst_port="${3}"
   local http_path="${4}"
-  log "trying to curl http://${dst_ip}:${dst_port}${http_path} from client container (shouldn't work)"
+  log "trying to curl http://${dst_ip}:${dst_port}${http_path} from client container (should work)"
   ret="$(docker exec -d ${container} bash -c "curl -s -o /dev/null -w \"%{http_code}\" --connect-timeout $DROP_TIMEOUT -XGET http://${dst_ip}:${dst_port}${http_path}")"
   if [[ ${ret} -ne 0 ]]; then
     abort "Error: unable to run docker exec -d "${container}" bash -c \"curl -s -o /dev/null -w \"%{http_code}\" --connect-timeout $DROP_TIMEOUT -XGET http://${dst_ip}:${dst_port}${http_path}\""
@@ -154,7 +210,7 @@ function count_ct_entries_of(){
   local from_ip="${1}"
   local to_ip="${2}"
   local src_sec_id="${3}"
-  cilium bpf ct list global | grep "${from_ip}:80 -> ${to_ip}:" | grep "sec_id=${src_sec_id}" | wc -l
+  cilium bpf ct list global | grep "IN ${from_ip}:" | grep " -> ${to_ip}:" | grep "sec_id=${src_sec_id}" | wc -l
 }
 
 function check_ct_entries_of(){
@@ -182,7 +238,92 @@ function check_ct_entries_of_le(){
 function start_server_netcat(){
   ip="${1}"
   port="$2"
-  docker exec -d netcat nc -l "${ip}:${port}"
+  docker exec -d netcat sh -c "echo -n \"HTTP/1.1 200 OK\nContent-Length: 0\n\r\r\" | nc -l -s ${ip} -p ${port}"
+}
+
+function test_l3_only(){
+    log "endpoint list output:"
+    cilium endpoint list
+
+    cilium policy delete --all
+
+    cat <<EOF | policy_import_and_wait -
+    [{
+        "endpointSelector": {"matchLabels":{"id.server":""}},
+        "ingress": [{
+            "fromEndpoints": [{
+               "matchLabels":{"id.client":""}
+            }]
+        }],
+        "labels": ["id=server"]
+    },{
+        "endpointSelector": {"matchLabels":{"id.server-2":""}},
+        "ingress": [{
+            "fromEndpoints": [{
+               "matchLabels":{"id.client":""}
+            }]
+        }],
+        "labels": ["id=server-2"]
+    }]
+EOF
+
+    wait_for_endpoints 6
+
+
+    log "beginning connectivity between client, client-2 and servers"
+    monitor_clear
+
+    test_reachability "client" "[$SERVER_IP]"
+    test_reachability "client-2" "[$SERVER_IP]"
+    monitor_clear
+
+    test_reachability "client" "$SERVER_IP4"
+    test_reachability "client-2" "$SERVER_IP4"
+    monitor_clear
+
+    test_reachability "client" "[$SERVER_2_IP]"
+    test_reachability "client-2" "[$SERVER_2_IP]"
+    monitor_clear
+
+    test_reachability "client" "$SERVER_2_IP4"
+    test_reachability "client-2" "$SERVER_2_IP4"
+    monitor_clear
+
+    entriesBefore=$(cilium bpf ct list global | wc -l)
+    cilium bpf ct list global
+
+    bef_client_server_2_ct_entries=$(count_ct_entries_of "\[${SERVER_2_IP}\]" "\[${CLIENT_IP}\]" "${CLIENT_SEC_ID}")
+    bef_client4_server_2_ct_entries=$(count_ct_entries_of "${SERVER_2_IP4}" "${CLIENT_IP4}" "${CLIENT_SEC_ID}")
+    bef_client_2_server_2_ct_entries=$(count_ct_entries_of "\[${SERVER_2_IP}\]" "\[${CLIENT_2_IP}\]" "${CLIENT_SEC_ID}")
+    bef_client4_2_server_2_ct_entries=$(count_ct_entries_of "${SERVER_2_IP4}" "${CLIENT_2_IP4}" "${CLIENT_SEC_ID}")
+
+    check_ct_entries_of_le "${bef_client_server_2_ct_entries}" 2 "${SERVER_2_IP}" "${CLIENT_IP}"
+    check_ct_entries_of_le "${bef_client4_server_2_ct_entries}" 2 "${SERVER_2_IP4}" "${CLIENT_IP4}"
+    check_ct_entries_of_le "${bef_client_2_server_2_ct_entries}" 2 "${SERVER_2_IP}" "${CLIENT_2_IP}"
+    check_ct_entries_of_le "${bef_client4_2_server_2_ct_entries}" 2 "${SERVER_2_IP4}" "${CLIENT_2_IP4}"
+
+    policy_delete_and_wait id=server-2
+
+    wait_for_endpoints 6
+    cilium bpf ct list global
+
+    aft_client_server_2_ct_entries=$(count_ct_entries_of "\[${SERVER_2_IP}\]" "\[${CLIENT_IP}\]" "${CLIENT_SEC_ID}")
+    aft_client4_server_2_ct_entries=$(count_ct_entries_of "${SERVER_2_IP4}" "${CLIENT_IP4}" "${CLIENT_SEC_ID}")
+    aft_client_2_server_2_ct_entries=$(count_ct_entries_of "\[${SERVER_2_IP}\]" "\[${CLIENT_2_IP}\]" "${CLIENT_SEC_ID}")
+    aft_client4_2_server_2_ct_entries=$(count_ct_entries_of "${SERVER_2_IP4}" "${CLIENT_2_IP4}" "${CLIENT_SEC_ID}")
+
+    check_ct_entries_of "${aft_client_server_2_ct_entries}" 0 "${SERVER_2_IP}" "${CLIENT_IP}"
+    check_ct_entries_of "${aft_client4_server_2_ct_entries}" 0 "${SERVER_2_IP4}" "${CLIENT_IP4}"
+    check_ct_entries_of "${aft_client_2_server_2_ct_entries}" 0 "${SERVER_2_IP}" "${CLIENT_2_IP}"
+    check_ct_entries_of "${aft_client4_2_server_2_ct_entries}" 0 "${SERVER_2_IP4}" "${CLIENT_2_IP4}"
+
+    entriesAfter=$(cilium bpf ct list global | wc -l)
+
+    # 16 because the number of connections made, 8 TCP IN, plus 8 ICMP IN
+    if [ "$(( entriesBefore - entriesAfter ))" -gt "8" ]; then
+        abort "CT map should have exactly 8 entries less and not $(( entriesBefore - entriesAfter )) after deleting the policy"
+    fi
+
 }
 
 trap finish_test EXIT
@@ -198,6 +339,13 @@ create_cilium_docker_network
 
 start_containers
 get_container_metadata
+
+cilium policy delete --all
+cilium bpf ct flush global
+
+test_l3_only
+
+cilium bpf ct flush global
 
 log "endpoint list output:"
 cilium endpoint list
@@ -251,6 +399,7 @@ test_reachability "client" "$SERVER_2_IP4"
 test_reachability "client-2" "$SERVER_2_IP4"
 monitor_clear
 
+cilium bpf ct list global
 entriesBefore=$(cilium bpf ct list global | wc -l)
 
 bef_client_server_2_ct_entries=$(count_ct_entries_of "\[${SERVER_2_IP}\]" "\[${CLIENT_IP}\]" "${CLIENT_SEC_ID}")
@@ -267,6 +416,7 @@ policy_delete_and_wait id=server-2
 
 wait_for_endpoints 6
 
+cilium bpf ct list global
 aft_client_server_2_ct_entries=$(count_ct_entries_of "\[${SERVER_2_IP}\]" "\[${CLIENT_IP}\]" "${CLIENT_SEC_ID}")
 aft_client4_server_2_ct_entries=$(count_ct_entries_of "${SERVER_2_IP4}" "${CLIENT_IP4}" "${CLIENT_SEC_ID}")
 aft_client_2_server_2_ct_entries=$(count_ct_entries_of "\[${SERVER_2_IP}\]" "\[${CLIENT_2_IP}\]" "${CLIENT_SEC_ID}")
@@ -330,7 +480,7 @@ test_reachability "client" "[$SERVER_3_IP]" "/private"
 monitor_clear
 
 policy_delete_and_wait id=server-3
-# Install L7 rule after testing L4
+log "Install L7 rule after testing L4"
 
 cat <<EOF | policy_import_and_wait -
 [{
@@ -362,7 +512,7 @@ set -e
 monitor_clear
 
 policy_delete_and_wait id=server-3
-# Install other L7 rule after testing L7. The previous rule shouldn't work!
+log "Install other L7 rule after testing L7. The previous rule shouldn't work!"
 
 cat <<EOF | policy_import_and_wait -
 [{
@@ -460,7 +610,7 @@ monitor_clear
 policy_delete_and_wait id=server-4
 # After deleting the L7 rule, we will test the L4 connectivity with the same
 # source port. We should be able to connect to "/private"
-log "Removing the L4 only policy to confirm L4 only policy enforcement withouth the proxy"
+log "Removing the L4-L7 policy to confirm L4 only policy enforcement withouth the proxy"
 
 test_reachability_nc "client" 11111 "$SERVER_3_IP4" "/private"
 test_reachability_nc "client" 11111 "$SERVER_3_IP" "/private"
@@ -516,6 +666,8 @@ bef_client4_server_3_ct_entries=$(count_ct_entries_of "${SERVER_3_IP4}" "${CLIEN
 check_ct_entries_of_le "${bef_client_server_3_ct_entries}" 8 "${SERVER_3_IP}" "${CLIENT_IP}"
 check_ct_entries_of_le "${bef_client4_server_3_ct_entries}" 8 "${SERVER_3_IP4}" "${CLIENT_IP4}"
 
+sudo cilium bpf ct list global
+
 # Install L7 rule after testing L4 to test if the connection is going
 # to the proxy. Since we will use the same source port, after switching
 # to L7 the connection should fail when trying to reach /private
@@ -560,6 +712,17 @@ log "deleting all policies in cilium"
 policy_delete_and_wait --all
 # Clean all ct entries
 cilium bpf ct flush global
+cat <<EOF | policy_import_and_wait -
+[{
+  "endpointSelector": {"matchLabels":{"id.server-4":""}},
+  "ingress": [{
+      "fromEndpoints": [{
+         "matchLabels":{"id.client":""}
+      }]
+  }],
+  "labels": ["id=server-4"]
+}]
+EOF
 
 wait_for_endpoints 6
 
@@ -589,40 +752,42 @@ bef_client4_server_4_ct_entries=$(count_ct_entries_of "${SERVER_4_IP4}" "${CLIEN
 check_ct_entries_of_le "${bef_client_server_4_ct_entries}" 8 "${SERVER_4_IP}" "${CLIENT_IP}"
 check_ct_entries_of_le "${bef_client4_server_4_ct_entries}" 8 "${SERVER_4_IP4}" "${CLIENT_IP4}"
 
+sudo cilium bpf ct list global
+
 cat <<EOF | policy_import_and_wait -
 [{
-    "endpointSelector": {"matchLabels":{"id.server-4":""}},
-    "ingress": [{
-        "fromEndpoints": [{
-           "matchLabels":{"id.client":""}
-        }],
-        "toPorts": [{
-            "ports": [{"port": "80", "protocol": "tcp"}],
-            "rules": {"http": [{
-                  "path": "/public",
-                  "method": "GET"
-            }]}
-        }]
-    },{
-        "fromEndpoints": [{
-           "matchLabels":{"id.client":""}
-        }],
-        "toPorts": [{
-            "ports": [{"port": "81", "protocol": "tcp"},{"port": "82", "protocol": "tcp"}]
-        }]
+"endpointSelector": {"matchLabels":{"id.server-4":""}},
+"ingress": [{
+    "fromEndpoints": [{
+       "matchLabels":{"id.client":""}
     }],
-    "labels": ["id=server-4"]
+    "toPorts": [{
+        "ports": [{"port": "80", "protocol": "tcp"}],
+        "rules": {"http": [{
+              "path": "/public",
+              "method": "GET"
+        }]}
+    }]
+},{
+    "fromEndpoints": [{
+       "matchLabels":{"id.client":""}
+    }],
+    "toPorts": [{
+        "ports": [{"port": "81", "protocol": "tcp"},{"port": "82", "protocol": "tcp"}]
+    }]
+}],
+"labels": ["id=server-4"]
 }]
 EOF
 
 sudo cilium bpf ct list global
 
-log "checking if only port 81 and port 82 are open the ct table since they are specified on a imported rule and are not going through the proxy"
+log "checking if only port 81 and port 82 are open the ct table since they are specified on an imported rule and are not going through the proxy"
 
 bef_client_server_4_ct_entries=$(count_ct_entries_of "\[${SERVER_4_IP4}\]" "\[${CLIENT_IP}\]" "${CLIENT_SEC_ID}")
 bef_client4_server_4_ct_entries=$(count_ct_entries_of "${SERVER_4_IP4}" "${CLIENT_IP4}" "${CLIENT_SEC_ID}")
 
-check_ct_entries_of_le "${bef_client_server_4_ct_entries}" 2 "${SERVER_4_IP}" "${CLIENT_IP}"
-check_ct_entries_of_le "${bef_client4_server_4_ct_entries}" 2 "${SERVER_4_IP4}" "${CLIENT_IP4}"
+check_ct_entries_of_le "${bef_client_server_4_ct_entries}" 3 "${SERVER_4_IP}" "${CLIENT_IP}"
+check_ct_entries_of_le "${bef_client4_server_4_ct_entries}" 3  "${SERVER_4_IP4}" "${CLIENT_IP4}"
 
 test_succeeded "${TEST_NAME}"

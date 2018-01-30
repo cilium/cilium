@@ -29,16 +29,19 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-var (
+const (
 	serverImage = "httpd"
 	ctCleanUpNC = "ct-clean-up-nc.py"
-	ctL4Policy  = "CT-l4-policy.json"
-	netcat      = "netcat"
+
+	// Change to "<=" if the pkg/endpointmanager/conntrack.go:GcInterval is 10
+	// Change to "==" if it is set to a large number
+	comparator = "<="
 )
 
 type connTest struct {
 	src         map[string]string
 	destination map[string]string
+	dstPort     string
 	kind        string
 	mode        string
 }
@@ -47,17 +50,20 @@ func (c connTest) String() string {
 	return fmt.Sprintf("%s-%s-%s", c.src[helpers.Name], c.destination[helpers.Name], c.kind)
 }
 
-var _ = Describe("RuntimeConntrackTable", func() {
+var _ = Describe("RuntimeValidatedConntrackTable", func() {
 
-	var logger *logrus.Entry
-	var vm *helpers.SSHMeta
-	var once sync.Once
 	var (
+		logger *logrus.Entry
+		vm     *helpers.SSHMeta
+		once   sync.Once
+
 		HTTPPrivate   = "private"
 		HTTPPublic    = "public"
 		HTTPDummy     = "dummy"
 		netcatPrivate = "ncPrivate"
 		netcatPublic  = "ncPublic"
+		netcatDummy   = "ncDummy"
+		netcat        = "netcat"
 		server        = "server"
 		server2       = "server-2"
 		server3       = "server-3"
@@ -66,47 +72,30 @@ var _ = Describe("RuntimeConntrackTable", func() {
 		netcatPort    = 11111
 	)
 
-	initialize := func() {
-		logger = log.WithFields(logrus.Fields{"testName": "RuntimeConntrack"})
-		logger.Info("Starting")
-		vm = helpers.CreateNewRuntimeHelper(helpers.Runtime, logger)
-		err := vm.WaitUntilReady(100)
-		Expect(err).To(BeNil())
-		vm.NetworkCreate(helpers.CiliumDockerNetwork, "")
-
-		res := vm.SetPolicyEnforcement(helpers.PolicyEnforcementDefault)
-		res.ExpectSuccess()
-
-		res = vm.PolicyDelAll()
-		res.ExpectSuccess()
-
-	}
-
-	containersNames := []string{server, server2, server3, client, client2, "netcat"}
+	containersNames := []string{server, server2, server3, client, client2, netcat}
 
 	containers := func(mode string) {
 		images := map[string]string{
 			server:  serverImage,
 			server2: serverImage,
 			server3: helpers.HttpdImage,
-			client2: helpers.NetperfImage,
 		}
 
 		switch mode {
 		case helpers.Create:
 			for k, v := range images {
 				res := vm.ContainerCreate(k, v, helpers.CiliumDockerNetwork, fmt.Sprintf("-l id.%s", k))
-				res.ExpectSuccess()
+				res.ExpectSuccess(fmt.Sprintf("Creating container %q. Error: %s", k, res.CombineOutput().String()))
 			}
-			cmd := fmt.Sprintf(
-				"docker run -dt --name netcat --net %s -l id.server-4 busybox sleep 30000s",
-				helpers.CiliumDockerNetwork)
-			vm.Exec(cmd).ExpectSuccess()
+			cmdStr := "docker run -dt --name netcat --net %s -l id.server-4 busybox:1.28.0 sleep 30000s"
+			vm.Exec(fmt.Sprintf(cmdStr, helpers.CiliumDockerNetwork)).ExpectSuccess()
 
-			cmd = fmt.Sprintf(
-				"docker run -dt -v %s:/nc.py --net=%s --name client -l id.client python:2.7.14",
-				vm.GetFullPath(ctCleanUpNC), helpers.CiliumDockerNetwork)
-			vm.Exec(cmd).ExpectSuccess()
+			cmdStr = "docker run -dt -v %s:/nc.py --net=%s --name client -l id.client python:2.7.14"
+			res := vm.Exec(fmt.Sprintf(cmdStr, vm.GetFullPath(ctCleanUpNC), helpers.CiliumDockerNetwork))
+			res.ExpectSuccess(fmt.Sprintf("Creating container %q. Error: %s", client, res.CombineOutput().String()))
+
+			res = vm.ContainerCreate(client2, helpers.NetperfImage, helpers.CiliumDockerNetwork, "-l id.client")
+			res.ExpectSuccess(fmt.Sprintf("Creating container %q. Error: %s", client2, res.CombineOutput().String()))
 
 		case helpers.Delete:
 			for _, x := range containersNames {
@@ -115,7 +104,36 @@ var _ = Describe("RuntimeConntrackTable", func() {
 		}
 	}
 
-	// containersMeta retuns a map where the key is the container name and the
+	initialize := func() {
+		logger = log.WithFields(logrus.Fields{"testName": "RuntimeConntrack"})
+		logger.Info("Starting")
+		vm = helpers.CreateNewRuntimeHelper(helpers.Runtime, logger)
+		err := vm.WaitUntilReady(100)
+		Expect(err).To(BeNil())
+		vm.NetworkCreate(helpers.CiliumDockerNetwork, "")
+	}
+
+	BeforeEach(func() {
+		once.Do(initialize)
+
+		res := vm.SetPolicyEnforcement(helpers.PolicyEnforcementAlways)
+		res.ExpectSuccess("Setting policy enforcement as always")
+
+		res = vm.PolicyDelAll()
+		res.ExpectSuccess("Deleting all policies")
+
+		containers(helpers.Create)
+	})
+
+	AfterEach(func() {
+		vm.PolicyDelAll()
+		netcatPort = 11111
+		containers(helpers.Delete)
+		res := vm.SetPolicyEnforcement(helpers.PolicyEnforcementDefault)
+		res.ExpectSuccess("Setting policyEnforcement to default")
+	})
+
+	// containersMeta returns a map where the key is the container name and the
 	// value is the result of `ContainerInspectNet` (All the net information
 	// related with the container)
 	containersMeta := func() map[string]map[string]string {
@@ -128,254 +146,319 @@ var _ = Describe("RuntimeConntrackTable", func() {
 		return result
 	}
 
-	countCTEntriesof := func(from, to, identityID string) (int, error) {
+	countCTINEntriesOf := func(dst, dstPort, from, identityID string) (int, error) {
 		// It counts the number of connection
-		if govalidator.IsIPv6(to) {
-			to = fmt.Sprintf(`[%s`, to)
+		if govalidator.IsIPv6(from) {
+			from = fmt.Sprintf(`[%s`, from)
 		}
 
-		cmd := fmt.Sprintf(`bpf ct list global | grep -F "%s -> %s" | grep "sec_id=%s" | wc -l`,
-			net.JoinHostPort(from, "80"), to, identityID)
+		cmd := fmt.Sprintf(`bpf ct list global | grep -F "IN %s" | grep -F " -> %s" | grep "sec_id=%s" | wc -l`,
+			net.JoinHostPort(dst, dstPort), from, identityID)
 		return vm.ExecCilium(cmd).IntOutput()
 	}
 
-	testReach := func(src, dest, mode string, assertFn func() types.GomegaMatcher) {
+	testReach := func(src, dest, destPort, mode string, assertFn func() types.GomegaMatcher) {
 		switch mode {
 		case http:
-			res := vm.ContainerExec(src, helpers.CurlFail(fmt.Sprintf(
-				"http://%s/", net.JoinHostPort(dest, "80"))))
-			ExpectWithOffset(1, res.WasSuccessful()).Should(assertFn(), "Failed to curl '%s'", res.GetCmd())
+			cmd := fmt.Sprintf("http://%s/", net.JoinHostPort(dest, destPort))
+			res := vm.ContainerExec(src, helpers.CurlFail(cmd))
+			ExpectWithOffset(1, res.WasSuccessful()).Should(assertFn(),
+				"Failed to curl '%s': %s (%d)", res.GetCmd(), res.CombineOutput().String(), res.GetExitCode())
+
 		case HTTPDummy:
-			cmd := fmt.Sprintf(
-				"curl -s --fail -o /dev/null -w %%{http_code} --connect-timeout 5 http://%s/dummy",
-				net.JoinHostPort(dest, "80"))
+			cmd := fmt.Sprintf("curl -s --fail -o /dev/null -w %%{http_code} --connect-timeout 5 http://%s/dummy", net.JoinHostPort(dest, destPort))
 			res := vm.ContainerExec(src, cmd)
 			valid := false
 			if res.SingleOut() == "404" {
 				valid = true
 			}
-			ExpectWithOffset(1, valid).Should(assertFn(), "Failed to curl '%s'", res.GetCmd())
+			ExpectWithOffset(1, valid).Should(assertFn(),
+				"Failed to curl '%s' from %s to %s: %s", res.GetCmd(), src, dest, res.CombineOutput().String())
+
 		case HTTPPrivate:
-			res := vm.ContainerExec(src, helpers.CurlFail(fmt.Sprintf(
-				"http://%s/private", net.JoinHostPort(dest, "80"))))
-			ExpectWithOffset(1, res.WasSuccessful()).Should(assertFn(), "Failed to curl '%s'", res.GetCmd())
+			cmd := fmt.Sprintf("http://%s/private", net.JoinHostPort(dest, destPort))
+			res := vm.ContainerExec(src, helpers.CurlFail(cmd))
+			ExpectWithOffset(1, res.WasSuccessful()).Should(assertFn(),
+				"Failed to curl '%s' from %s to %s: %s", res.GetCmd(), src, dest, res.CombineOutput().String())
+
 		case HTTPPublic:
-			res := vm.ContainerExec(src, helpers.CurlFail(fmt.Sprintf(
-				"http://%s/public", net.JoinHostPort(dest, "80"))))
-			ExpectWithOffset(1, res.WasSuccessful()).Should(assertFn(), "Failed to curl '%s'", res.GetCmd())
+			cmd := fmt.Sprintf("http://%s/public", net.JoinHostPort(dest, destPort))
+			res := vm.ContainerExec(src, helpers.CurlFail(cmd))
+			ExpectWithOffset(1, res.WasSuccessful()).Should(assertFn(),
+				"Failed to curl '%s' from %s to %s: %s", res.GetCmd(), src, dest, res.CombineOutput().String())
+
 		case netcatPrivate:
-			cmd := fmt.Sprintf(`bash -c "python ./nc.py %d 5 %s 80 "/private" | head -n 1 | grep \"HTTP/1.*200 OK\""`, netcatPort, dest)
+			cmd := fmt.Sprintf(`bash -c "python ./nc.py %d 5 %s %s \"/private\" | head -n 1 | grep \"HTTP/1.*200 OK\""`, netcatPort, dest, destPort)
 			res := vm.ContainerExec(src, cmd)
-			ExpectWithOffset(1, res.WasSuccessful()).Should(assertFn(), "Failed to httpRequest '%s'", res.GetCmd())
+			ExpectWithOffset(1, res.WasSuccessful()).Should(assertFn(),
+				"Failed to httpRequest '%s' from %s to %s: %s", res.GetCmd(), src, dest, res.CombineOutput().String())
+
 		case netcatPublic:
-			cmd := fmt.Sprintf(`bash -c "python ./nc.py %d 5 %s 80 "/public" | head -n 1 | grep \"HTTP/1.*200 OK\""`, netcatPort, dest)
+			cmd := fmt.Sprintf(`bash -c "python ./nc.py %d 5 %s %s \"/public\" | head -n 1 | grep \"HTTP/1.*200 OK\""`, netcatPort, dest, destPort)
 			res := vm.ContainerExec(src, cmd)
-			ExpectWithOffset(1, res.WasSuccessful()).Should(assertFn(), "Failed to httpRequest '%s'", res.GetCmd())
+			ExpectWithOffset(1, res.WasSuccessful()).Should(assertFn(),
+				"Failed to httpRequest '%s' from %s to %s: %s", res.GetCmd(), src, dest, res.CombineOutput().String())
+
+		case netcatDummy:
+			cmd := fmt.Sprintf(`bash -c "python ./nc.py %d 5 %s %s \"/dummy\" | head -n 1 | grep \"HTTP/1.*200 OK\""`, netcatPort, dest, destPort)
+			res := vm.ContainerExec(src, cmd)
+			ExpectWithOffset(1, res.WasSuccessful()).Should(assertFn(),
+				"Failed to httpRequest '%s' from %s to %s: %s", res.GetCmd(), src, dest, res.CombineOutput().String())
+
 		default:
 			Expect(true).To(BeFalse(), "Mode %s is not defined", mode)
 		}
 	}
 
-	policyL4 := `
-	[{
-		"endpointSelector": {"matchLabels":{"id.server-3":""}},
-		"ingress": [{
-			"fromEndpoints": [{
-			   "matchLabels":{"id.client":""}
-			}],
-			"toPorts": [{
-				"ports": [{"port": "80", "protocol": "tcp"}]
-			}]
-		}],
-		"labels": ["id=server-3"]
-	}]
+	It("testing conntrack entries clean up with L3-only policy", func() {
+		By("Installing L3-only policy")
+
+		policy := `[{
+	        "endpointSelector": {"matchLabels":{"id.server":""}},
+	        "ingress": [{
+	            "fromEndpoints": [{
+	               "matchLabels":{"id.client":""}
+	            }]
+	        }],
+	        "labels": ["l3-only-policy-server"]
+	    },{
+	        "endpointSelector": {"matchLabels":{"id.server-2":""}},
+	        "ingress": [{
+	            "fromEndpoints": [{
+	               "matchLabels":{"id.client":""}
+	            }]
+	        }],
+	        "labels": ["l3-only-policy-server-2"]
+	    }]
 	`
 
-	policyL7 := `
-	[{
-		"endpointSelector": {"matchLabels":{"id.server-3":""}},
-		"ingress": [{
-			"fromEndpoints": [{
-			   "matchLabels":{"id.client":""}
-			}],
-			"toPorts": [{
-				"ports": [{"port": "80", "protocol": "tcp"}],
-				"rules": {"http": [{
-					  "path": "/public",
-					  "method": "GET"
-				}]}
-			}]
-		}],
-		"labels": ["id=server-4"]
-	}]`
-
-	BeforeEach(func() {
-		once.Do(initialize)
-	})
-
-	AfterEach(func() {
-		vm.SetPolicyEnforcement(helpers.PolicyEnforcementDefault)
-		vm.PolicyDelAll()
-		netcatPort = 11111
-	})
-
-	It("tests conntrack tables between client to server", func() {
-		vm.SetPolicyEnforcement(helpers.PolicyEnforcementAlways)
-		containers(helpers.Create)
-		defer containers(helpers.Delete)
-		vm.WaitEndpointsReady()
+		_, err := vm.PolicyRenderAndImport(policy)
+		Expect(err).To(BeNil(), "Installing L3-only policy")
 
 		meta := containersMeta()
-		identities, err := vm.GetEndpointsIdentityIds()
-		Expect(err).To(BeNil())
-
-		_, err = vm.PolicyImport(vm.GetFullPath(ctL4Policy), 300)
-		Expect(err).To(BeNil())
-
 		testCombinations := []connTest{
-			{meta[client], meta[server], helpers.IPv6, http},
-			{meta[client], meta[server], helpers.IPv4, http},
-			{meta[client2], meta[server], helpers.IPv6, http},
-			{meta[client2], meta[server], helpers.IPv4, http},
-			{meta[client], meta[server2], helpers.IPv6, http},
-			{meta[client], meta[server2], helpers.IPv4, http},
-			{meta[client2], meta[server2], helpers.IPv6, http},
-			{meta[client2], meta[server2], helpers.IPv4, http},
+			{meta[client], meta[server], "80", helpers.IPv6, http},
+			{meta[client], meta[server], "80", helpers.IPv4, http},
+			{meta[client2], meta[server], "80", helpers.IPv6, http},
+			{meta[client2], meta[server], "80", helpers.IPv4, http},
+			{meta[client], meta[server2], "80", helpers.IPv6, http},
+			{meta[client], meta[server2], "80", helpers.IPv4, http},
+			{meta[client2], meta[server2], "80", helpers.IPv6, http},
+			{meta[client2], meta[server2], "80", helpers.IPv4, http},
 		}
+
+		By("Testing if client and client-2 can talk with server and server-2")
+		for _, testCase := range testCombinations {
+			testReach(testCase.src[helpers.Name], testCase.destination[testCase.kind], testCase.dstPort, testCase.mode, BeTrue)
+		}
+
+		epIdentities, err := vm.GetEndpointsIdentityIds()
+		Expect(err).To(BeNil(), "Getting endpoint identities")
+
+		By("Counting number of CT Entries")
 
 		for _, testCase := range testCombinations {
-			testReach(testCase.src[helpers.Name], testCase.destination[testCase.kind], testCase.mode, BeTrue)
+			dstIP := testCase.destination[testCase.kind]
+			dstPort := testCase.dstPort
+			srcIP := testCase.src[testCase.kind]
+			srcSecID := epIdentities[testCase.src[helpers.Name]]
+
+			data, err := countCTINEntriesOf(dstIP, dstPort, srcIP, srcSecID)
+			Expect(err).To(BeNil(), "Trying to count CT entries of %s and %s", dstIP, srcIP)
+
+			des := fmt.Sprintf("Checking CT entries between %s and %s", dstIP, srcIP)
+			Expect(data).To(BeNumerically(comparator, 1), des)
 		}
 
-		beforeCT, err := vm.ExecCilium("bpf ct list global | wc -l").IntOutput()
-		Expect(err).To(BeNil())
-
-		beforeCTResults := map[string]int{}
-		for _, testCase := range testCombinations {
-			key := testCase.String()
-			data, err := countCTEntriesof(
-				testCase.destination[testCase.kind],
-				testCase.src[testCase.kind],
-				identities[testCase.src[helpers.Name]])
-			Expect(err).To(BeNil())
-			Expect(data).To(BeNumerically("<=", 2))
-			beforeCTResults[key] = data
-		}
-
-		res := vm.PolicyDel("id=server-2")
-		res.ExpectSuccess()
+		res := vm.PolicyDel("l3-only-policy-server-2")
+		res.ExpectSuccess("Deleting policy `l3-only-policy-server-2`")
 
 		areEndpointsReady := vm.WaitEndpointsReady()
-		Expect(areEndpointsReady).Should(BeTrue())
+		Expect(areEndpointsReady).Should(BeTrue(), "Endpoints are not in ready state after deleting policy `l3-only-policy-server-2`")
 
+		By("Checking if all server-2 CT IN entries are gone after deleting policy `l3-only-policy-server-2`")
 		for _, testCase := range testCombinations {
-			//Checking that server-2 Conntrack connections are reset to 0 correctly
-			if testCase.destination[helpers.Name] != server2 {
-				continue
+			dstIP := testCase.destination[testCase.kind]
+			dstPort := testCase.dstPort
+			srcIP := testCase.src[testCase.kind]
+			srcSecID := epIdentities[testCase.src[helpers.Name]]
+
+			data, err := countCTINEntriesOf(dstIP, dstPort, srcIP, srcSecID)
+			Expect(err).To(BeNil(), "Trying to count CT entries of %s and %s", dstIP, srcIP)
+
+			wantCTEntries := 0
+			if dstIP != meta[server2][testCase.kind] {
+				wantCTEntries = 1
 			}
-			data, err := countCTEntriesof(
-				testCase.destination[testCase.kind],
-				testCase.src[testCase.kind],
-				identities[testCase.src[helpers.Name]])
-			logger.WithField("Container", testCase.String()).Infof("it has '%d' connections open", data)
-			Expect(err).To(BeNil())
-			Expect(data).To(Equal(0))
+
+			des := fmt.Sprintf("Checking CT entries between %s and %s", dstIP, srcIP)
+			Expect(data).To(BeNumerically(comparator, wantCTEntries), des)
 		}
 
-		afterCT, err := vm.ExecCilium("bpf ct list global | wc -l").IntOutput()
-		Expect(err).To(BeNil())
-		CTDiff := beforeCT - afterCT
-		Expect(CTDiff).To(BeNumerically("<=", 8),
-			"CT map should have exactly 8 entries less and not %d after deleting the policy", CTDiff)
-
+		By("Checking if server is reachable and server-2 is unreachable")
 		for _, testCase := range testCombinations {
 			//Test policies are still applied correctly
 			assertfn := BeTrue
 			if testCase.destination[helpers.Name] == server2 {
 				assertfn = BeFalse
 			}
-			testReach(testCase.src[helpers.Name], testCase.destination[testCase.kind], testCase.mode, assertfn)
+			testReach(testCase.src[helpers.Name], testCase.destination[testCase.kind], testCase.dstPort, testCase.mode, assertfn)
 		}
 	})
 
-	It("test the L7 CT cleanup", func() {
-		vm.SetPolicyEnforcement(helpers.PolicyEnforcementAlways)
-		containers(helpers.Create)
-		defer containers(helpers.Delete)
-		vm.WaitEndpointsReady()
+	It("testing conntrack entries clean up with L3-L4 policy", func() {
+
+		By("Installing L3-L4 policy")
+
+		policy := `
+		[{
+		    "endpointSelector": {"matchLabels":{"id.server":""}},
+		    "ingress": [{
+		        "fromEndpoints": [
+		           {"matchLabels":{"id.client":""}}
+		        ],
+		        "toPorts": [{
+		            "ports": [{"port": "80", "protocol": "tcp"}]
+		        }]
+		    }],
+		    "labels": ["l3-l4-policy-server"]
+		},{
+		    "endpointSelector": {"matchLabels":{"id.server-2":""}},
+		    "ingress": [{
+		        "fromEndpoints": [
+		           {"matchLabels":{"id.client":""}}
+		        ],
+		        "toPorts": [{
+		            "ports": [{"port": "80", "protocol": "tcp"}]
+		        }]
+		    }],
+		    "labels": ["l3-l4-policy-server-2"]
+		}]
+	`
+
+		_, err := vm.PolicyRenderAndImport(policy)
+		Expect(err).To(BeNil(), "Installing L3-L4 policy")
 
 		meta := containersMeta()
-		identities, err := vm.GetEndpointsIdentityIds()
-		Expect(err).To(BeNil())
 
-		By("Checking Policy L4")
-		_, err = vm.PolicyRenderAndImport(policyL4)
+		testCombinations := []connTest{
+			{meta[client], meta[server], "80", helpers.IPv6, http},
+			{meta[client], meta[server], "80", helpers.IPv4, http},
+			{meta[client2], meta[server], "80", helpers.IPv6, http},
+			{meta[client2], meta[server], "80", helpers.IPv4, http},
+			{meta[client], meta[server2], "80", helpers.IPv6, http},
+			{meta[client], meta[server2], "80", helpers.IPv4, http},
+			{meta[client2], meta[server2], "80", helpers.IPv6, http},
+			{meta[client2], meta[server2], "80", helpers.IPv4, http},
+		}
+
+		By("Testing if client and client-2 can talk with server and server-2")
+		for _, testCase := range testCombinations {
+			testReach(testCase.src[helpers.Name], testCase.destination[testCase.kind], testCase.dstPort, testCase.mode, BeTrue)
+		}
+
+		epIdentities, err := vm.GetEndpointsIdentityIds()
+		Expect(err).To(BeNil(), "Getting endpoint identities")
+
+		By("Counting the number of CT Entries")
+
+		for _, testCase := range testCombinations {
+			dstIP := testCase.destination[testCase.kind]
+			dstPort := testCase.dstPort
+			srcIP := testCase.src[testCase.kind]
+			srcSecID := epIdentities[testCase.src[helpers.Name]]
+
+			data, err := countCTINEntriesOf(dstIP, dstPort, srcIP, srcSecID)
+			Expect(err).To(BeNil(), "Trying to count CT entries of %s and %s", dstIP, srcIP)
+
+			des := fmt.Sprintf("Checking CT entries between %s and %s", dstIP, srcIP)
+			Expect(data).To(BeNumerically(comparator, 1), des)
+		}
+
+		By("Deleting policy `l3-l4-policy-server-2`")
+		res := vm.PolicyDel("l3-l4-policy-server-2")
+		res.ExpectSuccess("Deleting policy `l3-l4-policy-server-2`")
+
+		areEndpointsReady := vm.WaitEndpointsReady()
+		Expect(areEndpointsReady).Should(BeTrue(), "Endpoints are not in ready state after deleting policy `l3-l4-policy-server-2`")
+
+		By("Checking if all server-2 CT IN entries are gone after deleting policy `l3-l4-policy-server-2`")
+		for _, testCase := range testCombinations {
+			dstIP := testCase.destination[testCase.kind]
+			dstPort := testCase.dstPort
+			srcIP := testCase.src[testCase.kind]
+			srcSecID := epIdentities[testCase.src[helpers.Name]]
+
+			data, err := countCTINEntriesOf(dstIP, dstPort, srcIP, srcSecID)
+			Expect(err).To(BeNil(), "Trying to count CT entries of %s and %s", dstIP, srcIP)
+
+			wantCTEntries := 0
+			// Since we removed all policies related with server-2
+			// then all other endpoints should have at least one entry
+			if dstIP != meta[server2][testCase.kind] {
+				wantCTEntries = 1
+			}
+
+			des := fmt.Sprintf("Checking CT entries between %s and %s", dstIP, srcIP)
+			Expect(data).To(BeNumerically(comparator, wantCTEntries), des)
+		}
+
+		By("Checking if server is reachable and server-2 is unreachable")
+		for _, testCase := range testCombinations {
+			//Test policies are still applied correctly
+			assertfn := BeTrue
+			if testCase.destination[helpers.Name] == server2 {
+				assertfn = BeFalse
+			}
+			testReach(testCase.src[helpers.Name], testCase.destination[testCase.kind], testCase.dstPort, testCase.mode, assertfn)
+		}
+	})
+
+	It("testing conntrack entries clean up with L7 policy after a L3-L4 connectivity", func() {
+
+		meta := containersMeta()
+
+		By("Installing L3-L4 policy")
+
+		policy := `
+		[{
+			"endpointSelector": {"matchLabels":{"id.server-3":""}},
+			"ingress": [{
+				"fromEndpoints": [{
+				   "matchLabels":{"id.client":""}
+				}],
+				"toPorts": [{
+					"ports": [{"port": "80", "protocol": "tcp"}]
+				}]
+			}],
+			"labels": ["l3-l4-policy-server-3"]
+		}]
+		`
+		_, err := vm.PolicyRenderAndImport(policy)
 		Expect(err).To(BeNil())
 
 		testCombinations := []connTest{
-			{meta[client], meta[server3], helpers.IPv6, HTTPPrivate},
-			{meta[client], meta[server3], helpers.IPv4, HTTPPrivate},
-			{meta[client], meta[server3], helpers.IPv6, HTTPPublic},
-			{meta[client], meta[server3], helpers.IPv4, HTTPPublic},
-			{meta[client], meta[server3], helpers.IPv6, netcatPrivate},
-			{meta[client], meta[server3], helpers.IPv4, netcatPrivate},
-			{meta[client], meta[server3], helpers.IPv6, netcatPublic},
-			{meta[client], meta[server3], helpers.IPv4, netcatPublic},
+			{meta[client], meta[server3], "80", helpers.IPv6, HTTPPrivate},
+			{meta[client], meta[server3], "80", helpers.IPv4, HTTPPrivate},
+			{meta[client], meta[server3], "80", helpers.IPv6, HTTPPublic},
+			{meta[client], meta[server3], "80", helpers.IPv4, HTTPPublic},
+			{meta[client], meta[server3], "80", helpers.IPv6, netcatPrivate},
+			{meta[client], meta[server3], "80", helpers.IPv4, netcatPrivate},
+			{meta[client], meta[server3], "80", helpers.IPv6, netcatPublic},
+			{meta[client], meta[server3], "80", helpers.IPv4, netcatPublic},
 		}
 
+		By("Testing connectivity between client and server 3")
 		for _, testCase := range testCombinations {
-			testReach(testCase.src[helpers.Name], testCase.destination[testCase.kind], testCase.mode, BeTrue)
+			testReach(testCase.src[helpers.Name], testCase.destination[testCase.kind], testCase.dstPort, testCase.mode, BeTrue)
 		}
 
-		res := vm.PolicyDel("id=server-3")
+		res := vm.PolicyDel("l3-l4-policy-server-3")
 		res.WasSuccessful()
 
-		By("Checking Policy L7")
-		_, err = vm.PolicyRenderAndImport(policyL7)
-		Expect(err).To(BeNil())
+		By("Installing L3-L4-L7 policy")
 
-		CTBefore := map[string]int{}
-		for _, testCase := range testCombinations {
-			assertfn := BeTrue
-			if strings.Contains(strings.ToLower(testCase.mode), "private") {
-				assertfn = BeFalse
-			}
-			testReach(testCase.src[helpers.Name], testCase.destination[testCase.kind], testCase.mode, assertfn)
-			data, err := countCTEntriesof(
-				testCase.destination[testCase.kind],
-				testCase.src[testCase.kind],
-				identities[testCase.src[helpers.Name]])
-			Expect(err).To(BeNil())
-			CTBefore[testCase.String()] = data
-		}
-
-		for k, v := range CTBefore {
-			Expect(v).To(BeNumerically("<=", 6),
-				"CT map should have exactly 6 and not %d entries for %s", v, k)
-		}
-
-		testReach(client, meta[server3][helpers.IPv4], netcatPublic, BeTrue)
-		testReach(client, meta[server3][helpers.IPv6], netcatPublic, BeTrue)
-
-		CTBefore = map[string]int{}
-		for _, testCase := range testCombinations {
-			data, err := countCTEntriesof(
-				testCase.destination[testCase.kind],
-				testCase.src[testCase.kind],
-				identities[testCase.src[helpers.Name]])
-			Expect(err).To(BeNil())
-			CTBefore[testCase.String()] = data
-		}
-
-		for k, v := range CTBefore {
-			Expect(v).To(BeNumerically("<=", 6), "CT Tables are not reusing connections for %s", k)
-		}
-
-		res = vm.PolicyDel("id=server-4")
-		res.WasSuccessful()
-
-		By("Checking Policy L7 Dummy")
-		policyL7Dummy := `
+		policy2 := `
 		[{
 			"endpointSelector": {"matchLabels":{"id.server-3":""}},
 			"ingress": [{
@@ -385,113 +468,348 @@ var _ = Describe("RuntimeConntrackTable", func() {
 				"toPorts": [{
 					"ports": [{"port": "80", "protocol": "tcp"}],
 					"rules": {"http": [{
-						  "path": "/dummy",
+						  "path": "/public",
 						  "method": "GET"
 					}]}
 				}]
 			}],
-			"labels": ["id=server-3"]
+			"labels": ["l3-l4-policy-server-3"]
 		}]`
-		_, err = vm.PolicyRenderAndImport(policyL7Dummy)
-		Expect(err).To(BeNil())
 
-		testReach(client, meta[server3][helpers.IPv4], HTTPDummy, BeTrue)
-		testReach(client, meta[server3][helpers.IPv6], HTTPDummy, BeTrue)
+		_, err = vm.PolicyRenderAndImport(policy2)
+		Expect(err).To(BeNil(), "Installing an L3-L4-L7 policy")
 
-		for _, testCase := range testCombinations {
-			testReach(testCase.src[helpers.Name], testCase.destination[testCase.kind], testCase.mode, BeFalse)
-		}
-
-	})
-
-	It("Checks CT entries forcing SRC port", func() {
-
-		vm.SetPolicyEnforcement(helpers.PolicyEnforcementAlways)
-		containers(helpers.Create)
-		defer containers(helpers.Delete)
-		vm.WaitEndpointsReady()
-
-		meta := containersMeta()
-		identities, err := vm.GetEndpointsIdentityIds()
-		Expect(err).To(BeNil())
-
-		By("Checking Policy L4")
-		_, err = vm.PolicyRenderAndImport(policyL4)
-		Expect(err).To(BeNil())
-
-		testCombinations := []connTest{
-			{meta[client], meta[server3], helpers.IPv6, netcatPrivate},
-			{meta[client], meta[server3], helpers.IPv4, netcatPrivate},
-			{meta[client], meta[server3], helpers.IPv6, netcatPublic},
-			{meta[client], meta[server3], helpers.IPv4, netcatPublic},
-		}
-
-		for _, testCase := range testCombinations {
-			testReach(testCase.src[helpers.Name], testCase.destination[testCase.kind], testCase.mode, BeTrue)
-		}
-
-		By("Checking Policy L7")
-
-		_, err = vm.PolicyRenderAndImport(policyL7)
-		Expect(err).To(BeNil())
-
+		By("Testing connectivity between client and server 3 only on /public")
 		for _, testCase := range testCombinations {
 			assertfn := BeTrue
 			if strings.Contains(strings.ToLower(testCase.mode), "private") {
 				assertfn = BeFalse
 			}
-			testReach(testCase.src[helpers.Name], testCase.destination[testCase.kind], testCase.mode, assertfn)
+			testReach(testCase.src[helpers.Name], testCase.destination[testCase.kind], testCase.dstPort, testCase.mode, assertfn)
 		}
 
-		res := vm.PolicyDel("id=server-4")
+		By("Removing policy `l3-l4-policy-server-3`")
+		res = vm.PolicyDel("l3-l4-policy-server-3")
 		res.WasSuccessful()
 
+		By("Installing other L7 rule after testing L7. The previous rule shouldn't work!")
+
+		policyL7Dummy := `
+			[{
+				"endpointSelector": {"matchLabels":{"id.server-3":""}},
+				"ingress": [{
+					"fromEndpoints": [{
+					   "matchLabels":{"id.client":""}
+					}],
+					"toPorts": [{
+						"ports": [{"port": "80", "protocol": "tcp"}],
+						"rules": {"http": [{
+							  "path": "/dummy",
+							  "method": "GET"
+						}]}
+					}]
+				}],
+				"labels": ["l3-l4-l7-policy-server-3"]
+			}]`
+
+		_, err = vm.PolicyRenderAndImport(policyL7Dummy)
+		Expect(err).To(BeNil())
+
+		By("Testing connectivity to HTTP endpoint /dummy")
+		testReach(client, meta[server3][helpers.IPv4], "80", HTTPDummy, BeTrue)
+		testReach(client, meta[server3][helpers.IPv6], "80", HTTPDummy, BeTrue)
+
+		By("Testing non-connectivity on remaining HTTP endpoints")
 		for _, testCase := range testCombinations {
-			testReach(testCase.src[helpers.Name], testCase.destination[testCase.kind], testCase.mode, BeTrue)
+			testReach(testCase.src[helpers.Name], testCase.destination[testCase.kind], "80", testCase.mode, BeFalse)
 		}
 
-		vm.PolicyDelAll().ExpectSuccess()
-		Expect(vm.WaitEndpointsReady()).To(BeTrue(), "Endpoints are not ready after timeout")
+	})
 
-		for _, testCase := range testCombinations {
-			testReach(testCase.src[helpers.Name], testCase.destination[testCase.kind], testCase.mode, BeFalse)
+	It("Testing proxy redirect after installing L3-L4-L7 policy over an existing L3-L4 policy", func() {
+		meta := containersMeta()
+
+		By("Installing L3-L4 policy")
+		policy := `
+		[{
+			"endpointSelector": {"matchLabels":{"id.server-3":""}},
+			"ingress": [{
+				"fromEndpoints": [{
+				   "matchLabels":{"id.client":""}
+				}],
+				"toPorts": [{
+					"ports": [{"port": "80", "protocol": "tcp"}]
+				}]
+			}],
+			"labels": ["l3-l4-policy-server-3"]
+		}]
+		`
+		_, err := vm.PolicyRenderAndImport(policy)
+		Expect(err).To(BeNil(), "Installing an L3-L4 policy")
+
+		testCombinations := []connTest{
+			{meta[client], meta[server3], "80", helpers.IPv6, netcatPrivate},
+			{meta[client], meta[server3], "80", helpers.IPv4, netcatPrivate},
+			{meta[client], meta[server3], "80", helpers.IPv6, netcatPublic},
+			{meta[client], meta[server3], "80", helpers.IPv4, netcatPublic},
 		}
 
-		By("Set policyEnforcement default")
-		res = vm.SetPolicyEnforcement(helpers.PolicyEnforcementDefault)
-		res.ExpectSuccess()
+		for _, testCase := range testCombinations {
+			testReach(testCase.src[helpers.Name], testCase.destination[testCase.kind], testCase.dstPort, testCase.mode, BeTrue)
+		}
+
+		By("Installing L3-L4-L7 policy")
+
+		policyL7 := `
+		[{
+			"endpointSelector": {"matchLabels":{"id.server-3":""}},
+			"ingress": [{
+				"fromEndpoints": [{
+				   "matchLabels":{"id.client":""}
+				}],
+				"toPorts": [{
+					"ports": [{"port": "80", "protocol": "tcp"}],
+					"rules": {"http": [{
+						  "path": "/public",
+						  "method": "GET"
+					}]}
+				}]
+			}],
+			"labels": ["l3-l4-l7-policy-server-3"]
+		}]`
+
+		_, err = vm.PolicyRenderAndImport(policyL7)
+		Expect(err).To(BeNil(), "Installing an L3-L4-L7 policy")
+
+		By("Testing connectivity to /public and non-connectivity to /private")
+		for _, testCase := range testCombinations {
+			assertfn := BeTrue
+			if strings.Contains(strings.ToLower(testCase.mode), "private") {
+				assertfn = BeFalse
+			}
+			testReach(testCase.src[helpers.Name], testCase.destination[testCase.kind], testCase.dstPort, testCase.mode, assertfn)
+		}
+
+		By("Removing policy with labels `l3-l4-l7-policy-server-3`")
+		res := vm.PolicyDel("l3-l4-l7-policy-server-3")
+		res.ExpectSuccess("Deleting policy `l3-l4-l7-policy-server-3`: %s", res.CombineOutput())
+
+		By("Testing connectivity to confirm policy enforcement without going through the proxy")
+		for _, testCase := range testCombinations {
+			testReach(testCase.src[helpers.Name], testCase.destination[testCase.kind], testCase.dstPort, testCase.mode, BeTrue)
+		}
+
+		vm.PolicyDelAll().ExpectSuccess("Deleting all policies")
+		Expect(vm.WaitEndpointsReady()).To(BeTrue(), "Endpoints are not ready after deleting all policies")
+
+		By("Testing non-connectivity between all endpoints")
+		for _, testCase := range testCombinations {
+			testReach(testCase.src[helpers.Name], testCase.destination[testCase.kind], testCase.dstPort, testCase.mode, BeFalse)
+		}
+
+	})
+
+	It("Testing L3-L4-L7 policy while the L3-L4 connection was previously made to confirm L3-L4-L7 policy enforcement over the proxy with the same source port", func() {
+		By("Setting policyEnforcement default")
+		res := vm.SetPolicyEnforcement(helpers.PolicyEnforcementDefault)
+		res.ExpectSuccess("Setting policy enforcement as default")
+
+		// #FIXME remove these 6 lines once GH-2496 is fixed
+		epIDs, err := vm.GetEndpointsIds()
+		Expect(err).To(BeNil(), "Getting endpoints identity IDs")
+		for _, v := range epIDs {
+			vm.ExecCilium(fmt.Sprintf("endpoint config %s IngressPolicy=false", v)).ExpectSuccess("Setting %s endpoint's IngressPolicy as false", v)
+			vm.ExecCilium(fmt.Sprintf("endpoint config %s EgressPolicy=false", v)).ExpectSuccess("Setting %s endpoint's EgressPolicy as false", v)
+		}
 
 		areEndpointsReady := vm.WaitEndpointsReady()
 		Expect(areEndpointsReady).Should(BeTrue(), "Endpoints not ready after timeout")
 
-		testCombinations = []connTest{
-			{meta[client], meta[server3], helpers.IPv6, HTTPPublic},
-			{meta[client], meta[server3], helpers.IPv6, HTTPPublic},
-			{meta[client], meta[server3], helpers.IPv4, HTTPPrivate},
-			{meta[client], meta[server3], helpers.IPv4, HTTPPrivate},
-			{meta[client], meta[server3], helpers.IPv6, netcatPrivate},
-			{meta[client], meta[server3], helpers.IPv4, netcatPrivate},
-			{meta[client], meta[server3], helpers.IPv6, netcatPublic},
-			{meta[client], meta[server3], helpers.IPv4, netcatPublic},
+		meta := containersMeta()
+
+		testCombinations := []connTest{
+			{meta[client], meta[server3], "80", helpers.IPv6, HTTPPublic},
+			{meta[client], meta[server3], "80", helpers.IPv6, HTTPPublic},
+			{meta[client], meta[server3], "80", helpers.IPv4, HTTPPrivate},
+			{meta[client], meta[server3], "80", helpers.IPv4, HTTPPrivate},
+			{meta[client], meta[server3], "80", helpers.IPv6, netcatPrivate},
+			{meta[client], meta[server3], "80", helpers.IPv4, netcatPrivate},
+			{meta[client], meta[server3], "80", helpers.IPv6, netcatPublic},
+			{meta[client], meta[server3], "80", helpers.IPv4, netcatPublic},
 		}
 
+		By("Testing connectivity between client and server-3 on all HTTP endpoints")
 		for _, testCase := range testCombinations {
-			testReach(testCase.src[helpers.Name], testCase.destination[testCase.kind], testCase.mode, BeTrue)
+			testReach(testCase.src[helpers.Name], testCase.destination[testCase.kind], testCase.dstPort, testCase.mode, BeTrue)
 		}
 
 		// Using a different netcat source port
 		netcatPort = 11112
-		testReach(client, meta[server3][helpers.IPv4], netcatPrivate, BeTrue)
-		testReach(client, meta[server3][helpers.IPv6], netcatPrivate, BeTrue)
+		testReach(client, meta[server3][helpers.IPv4], "80", netcatPrivate, BeTrue)
+		testReach(client, meta[server3][helpers.IPv6], "80", netcatPrivate, BeTrue)
 		netcatPort = 11111
 
-		By("Checking CT entries from server3-client")
-		data, err := countCTEntriesof(meta[server3][helpers.IPv6], meta[client][helpers.IPv6], identities[client])
-		Expect(err).To(BeNil())
-		Expect(data).To(BeNumerically("<=", 8), "CT map should have exactly 8 entries or less ")
+		epIdentities, err := vm.GetEndpointsIdentityIds()
+		Expect(err).To(BeNil(), "Getting endpoint identities")
 
-		data, err = countCTEntriesof(meta[server3][helpers.IPv4], meta[client][helpers.IPv4], identities[client])
+		By("Checking if CT entries from server-3 to client is the number of connections made")
+		data, err := countCTINEntriesOf(meta[server3][helpers.IPv6], "80", meta[client][helpers.IPv6], epIdentities[client])
 		Expect(err).To(BeNil())
-		Expect(data).To(BeNumerically("<=", 8), "CT map should have exactly 8 entries or less ")
+		Expect(data).To(BeNumerically(comparator, 4), "CT map should have exactly 4 entries or less between server-3 and client")
+
+		data, err = countCTINEntriesOf(meta[server3][helpers.IPv4], "80", meta[client][helpers.IPv4], epIdentities[client])
+		Expect(err).To(BeNil())
+		Expect(data).To(BeNumerically(comparator, 4), "CT map should have exactly 4 entries or less between server-3 and client")
+
+		policyL7 := `[{
+	    "endpointSelector": {"matchLabels":{"id.server-3":""}},
+	    "ingress": [{
+	        "fromEndpoints": [{
+	           "matchLabels":{"id.client":""}
+	        }],
+	        "toPorts": [{
+	            "ports": [{"port": "80", "protocol": "tcp"}],
+	            "rules": {"http": [{
+	                  "path": "/public",
+	                  "method": "GET"
+	            }]}
+	        }]
+	    }],
+	    "labels": ["l3-l4-l7-policy-server-3"]
+	}]`
+
+		By("Installing L3-L4-L7 policy")
+		_, err = vm.PolicyRenderAndImport(policyL7)
+		Expect(err).To(BeNil(), "Installing an L3-L4 policy")
+
+		By("Testing connectivity between client and server-3 on all HTTP endpoints")
+		for _, testCase := range testCombinations {
+			assertfn := BeTrue
+			if strings.Contains(strings.ToLower(testCase.mode), "private") {
+				assertfn = BeFalse
+			}
+			testReach(testCase.src[helpers.Name], testCase.destination[testCase.kind], testCase.dstPort, testCase.mode, assertfn)
+		}
+		netcatPort = 11112
+		testReach(client, meta[server3][helpers.IPv4], "80", netcatPrivate, BeFalse)
+		testReach(client, meta[server3][helpers.IPv6], "80", netcatPrivate, BeFalse)
+		netcatPort = 11111
+
 	})
+
+	It("Testing L7 proxy redirection after a L3 connection is made with the exact 5 tuple", func() {
+		vm.SetPolicyEnforcement(helpers.PolicyEnforcementDefault)
+		vm.WaitEndpointsReady()
+		epIdentities, err := vm.GetEndpointsIdentityIds()
+		Expect(err).To(BeNil(), "Getting endpoints identity IDs")
+
+		res := vm.PolicyDelAll()
+		res.ExpectSuccess("Deleting all policies")
+
+		policy := `
+		[{
+		    "endpointSelector": {"matchLabels":{"id.server-4":""}},
+		    "ingress": [{
+		      "fromEndpoints": [{
+		        "matchLabels":{"id.client":""}
+		      }]
+		    }],
+		    "labels": ["l3-policy-server-4"]
+		}]
+        `
+
+		By("Installing L3-only policy")
+		_, err = vm.PolicyRenderAndImport(policy)
+		Expect(err).To(BeNil(), "Installing an L3-only policy")
+
+		areEndpointsReady := vm.WaitEndpointsReady()
+		Expect(areEndpointsReady).Should(BeTrue(), "Endpoints not ready after timeout")
+
+		meta := containersMeta()
+
+		testCombinations := []connTest{
+			{meta[client], meta[netcat], "80", helpers.IPv4, netcatDummy},
+			{meta[client], meta[netcat], "80", helpers.IPv6, netcatDummy},
+			{meta[client], meta[netcat], "81", helpers.IPv4, netcatDummy},
+			{meta[client], meta[netcat], "82", helpers.IPv6, netcatDummy},
+			{meta[client], meta[netcat], "83", helpers.IPv4, netcatDummy},
+			{meta[client], meta[netcat], "84", helpers.IPv6, netcatDummy},
+			{meta[client], meta[netcat], "85", helpers.IPv4, netcatDummy},
+			{meta[client], meta[netcat], "86", helpers.IPv6, netcatDummy},
+		}
+
+		By("Testing connectivity to any HTTP endpoint")
+		for _, testCase := range testCombinations {
+			ip := ""
+			switch testCase.kind {
+			case helpers.IPv4:
+				ip = "0.0.0.0"
+			case helpers.IPv6:
+				ip = "[::]"
+			}
+
+			ncCmd := fmt.Sprintf(`docker exec -d netcat sh -c "echo -n \"HTTP/1.1 200 OK\nContent-Length: 0\n\r\r\" | nc -l -s %s -p %s"`, ip, testCase.dstPort)
+			des := fmt.Sprintf("Unable to start listening for requests on container netcat on port %s", net.JoinHostPort(ip, testCase.dstPort))
+			vm.Exec(ncCmd).ExpectSuccess(des)
+
+			testReach(testCase.src[helpers.Name], testCase.destination[testCase.kind], testCase.dstPort, testCase.mode, BeTrue)
+		}
+
+		countNCwithClientCTEntries := func(kind string, nEntries int, dstPort string) {
+			data, err := countCTINEntriesOf(meta[netcat][kind], dstPort, meta[client][kind], epIdentities[client])
+			ExpectWithOffset(1, err).To(BeNil(),
+				"Trying to count CT entries of %s:%s and %s",
+				meta[netcat][kind], dstPort, meta[client][kind])
+
+			ExpectWithOffset(1, data).To(BeNumerically(comparator, nEntries),
+				"Checking CT entries between %s:%s and %s",
+				meta[netcat][kind], dstPort, meta[client][kind])
+		}
+
+		By("Counting if the number of CT entries are the exact number of different ports used in the connectivity tests")
+
+		countNCwithClientCTEntries(helpers.IPv4, 5, "")
+		countNCwithClientCTEntries(helpers.IPv6, 5, "")
+
+		policyP3 := `[{
+    "endpointSelector": {"matchLabels":{"id.server-4":""}},
+    "ingress": [{
+        "fromEndpoints": [{
+           "matchLabels":{"id.client":""}
+        }],
+        "toPorts": [{
+            "ports": [{"port": "80", "protocol": "tcp"}],
+            "rules": {"http": [{
+                  "path": "/public",
+                  "method": "GET"
+            }]}
+        }]
+    },{
+        "fromEndpoints": [{
+           "matchLabels":{"id.client":""}
+        }],
+        "toPorts": [{
+            "ports": [{"port": "81", "protocol": "tcp"},{"port": "82", "protocol": "tcp"}]
+        }]
+    }],
+    "labels": ["l3-l4-l7-policy-server-4"]
+}]`
+
+		By("Installing L3-L4-L7-only policy")
+		_, err = vm.PolicyRenderAndImport(policyP3)
+		Expect(err).To(BeNil(), "Installing an L3-only policy")
+
+		By("Checking if only port 80, 81 and port 82 are open in the CT table since they are specified on an imported rule")
+
+		countNCwithClientCTEntries(helpers.IPv4, 1, "80")
+		countNCwithClientCTEntries(helpers.IPv6, 1, "80")
+		countNCwithClientCTEntries(helpers.IPv4, 1, "81")
+		countNCwithClientCTEntries(helpers.IPv6, 1, "82")
+		countNCwithClientCTEntries(helpers.IPv4, 0, "83")
+		countNCwithClientCTEntries(helpers.IPv6, 0, "84")
+		countNCwithClientCTEntries(helpers.IPv4, 0, "85")
+		countNCwithClientCTEntries(helpers.IPv6, 0, "86")
+
+	})
+
 })
