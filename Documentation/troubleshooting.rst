@@ -26,7 +26,7 @@ Symptom
 ~~~~~~~
 
 Endpoint to endpoint communication on a single node succeeds but communication
-fails between endpoints across multiple nods.
+fails between endpoints across multiple nodes.
 
 Troubleshooting steps:
 ~~~~~~~~~~~~~~~~~~~~~~
