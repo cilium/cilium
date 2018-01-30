@@ -246,7 +246,6 @@ Command to run the cluster-diagnosis tool:
 
     python cluster-diagnosis.zip
 
-Please check the README file for instructions to rebuild the zip file.
 You can download the latest version of the cluster-diagnosis.zip file
 here: https://github.com/cilium/cluster-diagnosis/releases/latest.
 
