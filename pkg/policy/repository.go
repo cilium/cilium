@@ -108,9 +108,9 @@ egressLoop:
 			egressDecision = api.Denied
 			break egressLoop
 
-			// The rule allowed the connection but a later rule may impose
-			// additional constraints, so we store the decision but allow
-			// it to be overwritten by an additional requirement
+		// The rule allowed the connection but a later rule may impose
+		// additional constraints, so we store the decision but allow
+		// it to be overwritten by an additional requirement
 		case api.Allowed:
 			egressDecision = api.Allowed
 		}
