@@ -53,11 +53,8 @@ func formatPathStatus(w io.Writer, name string, cp *models.PathStatus, indent st
 	indent = fmt.Sprintf("%s  ", indent)
 
 	statuses := map[string]*models.ConnectivityStatus{
-		"ICMP":                      cp.Icmp,
-		"HTTP via L3":               cp.HTTP,
-		"HTTP via L7":               cp.HTTPViaL7,
-		"HTTP via Service Redirect": cp.HTTPViaService,
-		"HTTP via Service with L7":  cp.HTTPViaServiceL7,
+		"ICMP":        cp.Icmp,
+		"HTTP via L3": cp.HTTP,
 	}
 	for name, status := range statuses {
 		if status != nil {

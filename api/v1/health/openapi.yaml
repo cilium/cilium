@@ -156,16 +156,6 @@ definitions:
       http:
         description: Connectivity status without policy applied
         "$ref": "#/definitions/ConnectivityStatus"
-      http-via-l7:
-        description: Connectivity status with L7 policy applied
-        "$ref": "#/definitions/ConnectivityStatus"
-      http-via-service:
-        description: Connectivity status through a service redirect
-        "$ref": "#/definitions/ConnectivityStatus"
-      http-via-service-l7:
-        description: |
-            Connectivity status through a service redirect with L7 policy
-        "$ref": "#/definitions/ConnectivityStatus"
   ConnectivityStatus:
     description: Connectivity status of a path
     type: object

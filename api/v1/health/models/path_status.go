@@ -22,16 +22,6 @@ type PathStatus struct {
 	// Connectivity status without policy applied
 	HTTP *ConnectivityStatus `json:"http,omitempty"`
 
-	// Connectivity status with L7 policy applied
-	HTTPViaL7 *ConnectivityStatus `json:"http-via-l7,omitempty"`
-
-	// Connectivity status through a service redirect
-	HTTPViaService *ConnectivityStatus `json:"http-via-service,omitempty"`
-
-	// Connectivity status through a service redirect with L7 policy
-	//
-	HTTPViaServiceL7 *ConnectivityStatus `json:"http-via-service-l7,omitempty"`
-
 	// Basic ping connectivity status to node IP
 	Icmp *ConnectivityStatus `json:"icmp,omitempty"`
 
@@ -40,12 +30,6 @@ type PathStatus struct {
 }
 
 /* polymorph PathStatus http false */
-
-/* polymorph PathStatus http-via-l7 false */
-
-/* polymorph PathStatus http-via-service false */
-
-/* polymorph PathStatus http-via-service-l7 false */
 
 /* polymorph PathStatus icmp false */
 
@@ -56,21 +40,6 @@ func (m *PathStatus) Validate(formats strfmt.Registry) error {
 	var res []error
 
 	if err := m.validateHTTP(formats); err != nil {
-		// prop
-		res = append(res, err)
-	}
-
-	if err := m.validateHTTPViaL7(formats); err != nil {
-		// prop
-		res = append(res, err)
-	}
-
-	if err := m.validateHTTPViaService(formats); err != nil {
-		// prop
-		res = append(res, err)
-	}
-
-	if err := m.validateHTTPViaServiceL7(formats); err != nil {
 		// prop
 		res = append(res, err)
 	}
@@ -97,63 +66,6 @@ func (m *PathStatus) validateHTTP(formats strfmt.Registry) error {
 		if err := m.HTTP.Validate(formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("http")
-			}
-			return err
-		}
-	}
-
-	return nil
-}
-
-func (m *PathStatus) validateHTTPViaL7(formats strfmt.Registry) error {
-
-	if swag.IsZero(m.HTTPViaL7) { // not required
-		return nil
-	}
-
-	if m.HTTPViaL7 != nil {
-
-		if err := m.HTTPViaL7.Validate(formats); err != nil {
-			if ve, ok := err.(*errors.Validation); ok {
-				return ve.ValidateName("http-via-l7")
-			}
-			return err
-		}
-	}
-
-	return nil
-}
-
-func (m *PathStatus) validateHTTPViaService(formats strfmt.Registry) error {
-
-	if swag.IsZero(m.HTTPViaService) { // not required
-		return nil
-	}
-
-	if m.HTTPViaService != nil {
-
-		if err := m.HTTPViaService.Validate(formats); err != nil {
-			if ve, ok := err.(*errors.Validation); ok {
-				return ve.ValidateName("http-via-service")
-			}
-			return err
-		}
-	}
-
-	return nil
-}
-
-func (m *PathStatus) validateHTTPViaServiceL7(formats strfmt.Registry) error {
-
-	if swag.IsZero(m.HTTPViaServiceL7) { // not required
-		return nil
-	}
-
-	if m.HTTPViaServiceL7 != nil {
-
-		if err := m.HTTPViaServiceL7.Validate(formats); err != nil {
-			if ve, ok := err.(*errors.Validation); ok {
-				return ve.ValidateName("http-via-service-l7")
 			}
 			return err
 		}
