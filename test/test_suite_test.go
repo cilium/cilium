@@ -38,7 +38,7 @@ import (
 var (
 	log             = logging.DefaultLogger
 	DefaultSettings = map[string]string{
-		"K8S_VERSION": "1.7",
+		"K8S_VERSION": "1.8",
 	}
 	k8sNodesEnv = "K8S_NODES"
 )

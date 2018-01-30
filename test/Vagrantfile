@@ -3,7 +3,7 @@
 
 $BUILD_NUMBER = ENV['BUILD_NUMBER'] || "0"
 $JOB_NAME = ENV['JOB_BASE_NAME'] || "LOCAL"
-$K8S_VERSION = ENV['K8S_VERSION'] || "1.7"
+$K8S_VERSION = ENV['K8S_VERSION'] || "1.8"
 $K8S_NODES = (ENV['K8S_NODES'] || "2").to_i
 
 $SERVER_BOX= "cilium/ginkgo"

@@ -47,6 +47,10 @@ sudo rm /var/lib/apt/lists/lock || true
 retry_function "wget https://packages.cloud.google.com/apt/doc/apt-key.gpg"
 apt-key add apt-key.gpg
 
+# Swap is disabled  by recomendation of kubernetes
+# https://serverfault.com/questions/881517/why-disable-swap-on-kubernetes
+sudo swapoff -a
+
 case $K8S_VERSION in
     "1.6"|"1.7"|"1.8")
         KUBERNETES_CNI_VERSION="0.5.1-00"
@@ -76,7 +80,8 @@ sudo iptables --policy FORWARD ACCEPT
 #check hostname to know if is kubernetes or runtime test
 if [[ "${HOST}" == "k8s1" ]]; then
     # FIXME: IP needs to be dynamic
-    kubeadm init --token=$TOKEN --apiserver-advertise-address="192.168.36.11" --pod-network-cidr=10.10.0.0/16
+    sudo kubeadm init --token=$TOKEN --apiserver-advertise-address="192.168.36.11" \
+        --pod-network-cidr=10.10.0.0/16
 
     mkdir -p /root/.kube
     sudo cp -i /etc/kubernetes/admin.conf /root/.kube/config
@@ -93,7 +98,6 @@ if [[ "${HOST}" == "k8s1" ]]; then
     $PROVISIONSRC/compile.sh
 else
     kubeadm join --token=$TOKEN 192.168.36.11:6443
-    cp /etc/kubernetes/kubelet.conf ${CILIUM_CONFIG_DIR}/kubeconfig
     sudo systemctl stop etcd
     docker pull k8s1:5000/cilium/cilium-dev:latest
     # We need this workaround since kube-proxy is not aware of multiple network
