@@ -213,18 +213,6 @@ func init() {
           "description": "Connectivity status without policy applied",
           "$ref": "#/definitions/ConnectivityStatus"
         },
-        "http-via-l7": {
-          "description": "Connectivity status with L7 policy applied",
-          "$ref": "#/definitions/ConnectivityStatus"
-        },
-        "http-via-service": {
-          "description": "Connectivity status through a service redirect",
-          "$ref": "#/definitions/ConnectivityStatus"
-        },
-        "http-via-service-l7": {
-          "description": "Connectivity status through a service redirect with L7 policy\n",
-          "$ref": "#/definitions/ConnectivityStatus"
-        },
         "icmp": {
           "description": "Basic ping connectivity status to node IP",
           "$ref": "#/definitions/ConnectivityStatus"

@@ -64,11 +64,8 @@ func (p *prober) copyResultRLocked(ip string) *models.PathStatus {
 		IP: ip,
 	}
 	paths := map[**models.ConnectivityStatus]*models.ConnectivityStatus{
-		&result.Icmp:             status.Icmp,
-		&result.HTTP:             status.HTTP,
-		&result.HTTPViaL7:        status.HTTPViaL7,
-		&result.HTTPViaService:   status.HTTPViaService,
-		&result.HTTPViaServiceL7: status.HTTPViaServiceL7,
+		&result.Icmp: status.Icmp,
+		&result.HTTP: status.HTTP,
 	}
 	for res, value := range paths {
 		if value != nil {
