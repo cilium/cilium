@@ -161,7 +161,7 @@ func (p *Repository) AllowsEgressLabelAccess(egressCtx *SearchContext) api.Decis
 	if len(p.rules) == 0 {
 		egressCtx.PolicyTrace("  No rules found\n")
 	} else {
-		egressDecision = p.CanReachIngressRLocked(egressCtx)
+		egressDecision = p.CanReachEgressRLocked(egressCtx)
 	}
 
 	egressCtx.PolicyTrace("Egress label verdict: %s", egressDecision.String())
@@ -303,7 +303,7 @@ func (p *Repository) AllowsIngressRLocked(ingressCtx *SearchContext) api.Decisio
 // TODO (ianvernon) update docs
 func (p *Repository) AllowsEgressRLocked(egressCtx *SearchContext) api.Decision {
 	egressCtx.PolicyTrace("Tracing %s\n", egressCtx.String())
-	_, egressDecision := p.CanReachIngressRLocked(egressCtx, egressCtx)
+	egressDecision := p.CanReachEgressRLocked(egressCtx)
 	egressCtx.PolicyTrace("Ingress label verdict: %s", egressDecision.String())
 
 	if egressDecision == api.Allowed {
