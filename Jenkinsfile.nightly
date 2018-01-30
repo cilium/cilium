@@ -7,7 +7,7 @@ pipeline {
     }
 
     options {
-        timeout(time: 240, unit: 'MINUTES')
+        timeout(time: 360, unit: 'MINUTES')
         timestamps()
     }
 
@@ -44,5 +44,31 @@ pipeline {
                 }
             }
         }
+
+        stage('Kubernetes tests') {
+            environment {
+                GOPATH="${WORKSPACE}"
+                TESTDIR="${WORKSPACE}/${PROJ_PATH}/test"
+            }
+            steps {
+                parallel(
+                    "K8s-1.7":{
+                        sh 'cd ${TESTDIR}; K8S_VERSION=1.7 ginkgo --focus=" K8s*" -noColor'
+                    }
+                )
+            }
+            post {
+                always {
+                    junit 'test/*.xml'
+                    // Temporary workaround to test cleanup
+                    // rm -rf ${GOPATH}/src/github.com/cilium/cilium
+                    sh 'cd test/; ./post_build_agent.sh || true'
+                    sh 'cd test/; K8S_VERSION=1.7 vagrant destroy -f || true'
+                    sh 'cd test/; ./archive_test_results.sh || true'
+                    archiveArtifacts artifacts: "test_results_${JOB_BASE_NAME}_${BUILD_NUMBER}.tar", allowEmptyArchive: true
+                }
+            }
+        }
+
     }
 }
