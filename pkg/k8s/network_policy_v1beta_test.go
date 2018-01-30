@@ -124,7 +124,7 @@ func (s *K8sSuite) TestParseNetworkPolicyDeprecated(c *C) {
 	}
 
 	// ctx.To needs to have all labels from the policy in order to be accepted
-	ingressVerdict, _ := repo.CanReachIngressRLocked(&ctx, &ctx)
+	ingressVerdict := repo.CanReachIngressRLocked(&ctx)
 	c.Assert(ingressVerdict, Not(Equals), api.Allowed)
 
 	ctx = policy.SearchContext{
@@ -138,7 +138,7 @@ func (s *K8sSuite) TestParseNetworkPolicyDeprecated(c *C) {
 		Trace: policy.TRACE_VERBOSE,
 	}
 	// ctx.From also needs to have all labels from the policy in order to be accepted
-	ingressVerdict, _ = repo.CanReachIngressRLocked(&ctx, &ctx)
+	ingressVerdict = repo.CanReachIngressRLocked(&ctx)
 	c.Assert(ingressVerdict, Not(Equals), api.Allowed)
 }
 
@@ -198,7 +198,7 @@ func (s *K8sSuite) TestParseNetworkPolicyEmptyFromDeprecated(c *C) {
 
 	repo := policy.NewPolicyRepository()
 	repo.AddList(rules)
-	ingressVerdict, _ := repo.CanReachIngressRLocked(&ctx, &ctx)
+	ingressVerdict := repo.CanReachIngressRLocked(&ctx)
 	c.Assert(ingressVerdict, Equals, api.Allowed)
 
 	// Empty From rules, all sources should be allowed
@@ -223,7 +223,7 @@ func (s *K8sSuite) TestParseNetworkPolicyEmptyFromDeprecated(c *C) {
 	c.Assert(len(rules), Equals, 1)
 	repo = policy.NewPolicyRepository()
 	repo.AddList(rules)
-	ingressVerdict, _ = repo.CanReachIngressRLocked(&ctx, &ctx)
+	ingressVerdict = repo.CanReachIngressRLocked(&ctx)
 	c.Assert(ingressVerdict, Equals, api.Allowed)
 }
 
