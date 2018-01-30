@@ -616,7 +616,6 @@ func (h *getEndpointIDHealthz) Handle(params GetEndpointIDHealthzParams) middlew
 	}
 }
 
-
 // checkLabels adds and deletes the given labels on the given endpoint ID.
 // The received `add` and `del` labels will be filtered with the valid label
 // prefixes.

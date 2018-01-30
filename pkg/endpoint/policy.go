@@ -414,7 +414,6 @@ func (e *Endpoint) regenerateConsumable(owner Owner, labelsMap *LabelsMap,
 			"labels":             labels,
 		}).Debugf("egress verdict: %v", egressAccess)
 
-
 		// TODO (ianvernon) plumb egress verdict into endpoint structure
 		if egressAccess == api.Allowed {
 			e.getLogger().WithFields(logrus.Fields{

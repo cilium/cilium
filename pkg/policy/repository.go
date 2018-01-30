@@ -17,12 +17,12 @@ package policy
 import (
 	"encoding/json"
 
+	"fmt"
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/policy/api"
-	"fmt"
 )
 
 // Repository is a list of policy rules which in combination form the security
