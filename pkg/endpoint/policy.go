@@ -59,11 +59,7 @@ func (e *Endpoint) checkEgressAccess(owner Owner, dstLabels labels.LabelArray, o
 		logfields.Labels + ".to":   ctx.To,
 	})
 
-	ingressCtx := policy.SearchContext{
-		From: e.Consumable.LabelArray,
-		To:   dstLabels,
-	}
-	_, egressVerdict := owner.GetPolicyRepository().AllowsIngressLabelAccess(&ingressCtx, &ctx)
+	egressVerdict := owner.GetPolicyRepository().AllowsEgressLabelAccess(&ctx)
 	switch egressVerdict {
 	case api.Allowed:
 		opts[opt] = optionEnabled
@@ -403,12 +399,14 @@ func (e *Endpoint) regenerateConsumable(owner Owner, labelsMap *LabelsMap,
 			"egress_context":   egressCtx,
 		}).Debug("Evaluating egress context for source PolicyID")
 
-		ingressAccess, egressAccess := repo.AllowsIngressLabelAccess(&ingressCtx, &egressCtx)
+		ingressAccess := repo.AllowsIngressLabelAccess(&ingressCtx)
 		if ingressAccess == api.Allowed {
 			if e.allowConsumer(owner, identity) {
 				changed = true
 			}
 		}
+
+		egressAccess := repo.AllowsEgressLabelAccess(&egressCtx)
 
 		log.WithFields(logrus.Fields{
 			logfields.PolicyID:   identity,

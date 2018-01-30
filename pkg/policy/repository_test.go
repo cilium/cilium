@@ -123,7 +123,7 @@ func (ds *PolicyTestSuite) TestCanReach(c *C) {
 	repo.Mutex.RLock()
 	// no rules loaded: CanReach => undecided
 
-	ingressDecision, _ := repo.CanReachIngressRLocked(fooToBar, fooToBar)
+	ingressDecision := repo.CanReachIngressRLocked(fooToBar)
 	c.Assert(ingressDecision, Equals, api.Undecided)
 	// no rules loaded: Allows() => denied
 	c.Assert(repo.AllowsIngressRLocked(fooToBar), Equals, api.Denied)
@@ -224,18 +224,18 @@ func (ds *PolicyTestSuite) TestMinikubeGettingStarted(c *C) {
 
 	repo.Mutex.RLock()
 	// no rules loaded: CanReach => undecided
-	ingressVerdict, _ := repo.CanReachIngressRLocked(fromApp2, fromApp2)
+	ingressVerdict := repo.CanReachIngressRLocked(fromApp2)
 	c.Assert(ingressVerdict, Equals, api.Undecided)
 
-	ingressVerdict, _ = repo.CanReachIngressRLocked(fromApp3, fromApp3)
+	ingressVerdict = repo.CanReachIngressRLocked(fromApp3)
 	c.Assert(ingressVerdict, Equals, api.Undecided)
 
 	// no rules loaded: Allows() => denied
 
-	ingressVerdict, _ = repo.AllowsIngressLabelAccess(fromApp2, fromApp2)
+	ingressVerdict = repo.AllowsIngressLabelAccess(fromApp2)
 	c.Assert(ingressVerdict, Equals, api.Denied)
 
-	ingressVerdict, _ = repo.AllowsIngressLabelAccess(fromApp3, fromApp3)
+	ingressVerdict = repo.AllowsIngressLabelAccess(fromApp3)
 	c.Assert(ingressVerdict, Equals, api.Denied)
 	repo.Mutex.RUnlock()
 
@@ -420,8 +420,8 @@ func (ds *PolicyTestSuite) TestPolicyTrace(c *C) {
 +       No L4 restrictions
 1/1 rules selected
 Found allow rule
-Label verdict: allowed
-L4 ingress & egress policies skipped
+Ingress label verdict: allowed
+L4 ingress policies skipped
 `
 	ctx := buildSearchCtx("foo", "bar", 0)
 	repo.checkTrace(c, ctx, expectedOut, api.Allowed)
@@ -435,20 +435,13 @@ L4 ingress & egress policies skipped
 	expectedOut = `
 0/1 rules selected
 Found no allow rule
-Label verdict: undecided
+Ingress label verdict: undecided
 `
 	repo.checkTrace(c, ctx, expectedOut, api.Denied)
 
 	// bar=>foo:80 is Denied, also checks L4 policy
 	ctx = buildSearchCtx("bar", "foo", 80)
 	expectedOut += `
-Resolving egress port policy for [any:bar]
-* Rule {"matchLabels":{"any:bar":""}}: selected
-    No L4 rules
-1/1 rules selected
-Found no allow rule
-L4 egress verdict: undecided
-
 Resolving ingress port policy for [any:foo]
 0/1 rules selected
 Found no allow rule
@@ -477,12 +470,7 @@ L4 ingress verdict: undecided
         Rule restricts traffic to specific L4 destinations; deferring policy decision to L4 policy stage
 2/2 rules selected
 Found no allow rule
-Label verdict: undecided
-
-Resolving egress port policy for [any:baz]
-0/2 rules selected
-Found no allow rule
-L4 egress verdict: undecided
+Ingress label verdict: undecided
 
 Resolving ingress port policy for [any:bar]
 * Rule {"matchLabels":{"any:bar":""}}: selected
@@ -511,16 +499,7 @@ L4 ingress verdict: allowed
       Labels [any:bar] not found
 2/2 rules selected
 Found no allow rule
-Label verdict: undecided
-
-Resolving egress port policy for [any:bar]
-* Rule {"matchLabels":{"any:bar":""}}: selected
-    No L4 rules
-* Rule {"matchLabels":{"any:bar":""}}: selected
-    No L4 rules
-2/2 rules selected
-Found no allow rule
-L4 egress verdict: undecided
+Ingress label verdict: undecided
 
 Resolving ingress port policy for [any:bar]
 * Rule {"matchLabels":{"any:bar":""}}: selected
@@ -565,7 +544,7 @@ L4 ingress verdict: undecided
 -     Labels [any:foo] not found
 3/3 rules selected
 Found unsatisfied FromRequires constraint
-Label verdict: denied
+Ingress label verdict: denied
 `
 	repo.checkTrace(c, ctx, expectedOut, api.Denied)
 
@@ -588,7 +567,7 @@ Label verdict: denied
 +     Found all required labels
 3/3 rules selected
 Found no allow rule
-Label verdict: undecided
+Ingress label verdict: undecided
 `
 	repo.checkTrace(c, ctx, expectedOut, api.Denied)
 
