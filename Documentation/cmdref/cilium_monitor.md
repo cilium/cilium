@@ -20,12 +20,12 @@ cilium monitor
 ### Options
 
 ```
-      --from uint16         Filter by source endpoint id
-      --hex                 Do not dissect, print payload in HEX
-      --related-to uint16   Filter by either source or destination endpoint id
-      --to uint16           Filter by destination endpoint id
-  -t, --type string         Filter by event types [capture debug drop trace]
-  -v, --verbose             Enable verbose output
+      --from uint16           Filter by source endpoint id
+      --hex                   Do not dissect, print payload in HEX
+      --related-to []uint16   Filter by either source or destination endpoint id
+      --to uint16             Filter by destination endpoint id
+  -t, --type string           Filter by event types [capture debug drop trace]
+  -v, --verbose               Enable verbose output
 ```
 
 ### Options inherited from parent commands
