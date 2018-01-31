@@ -12,6 +12,9 @@ with words you expected to see here.
 .. glossary::
    :sorted:
 
+   Endpoint
+     :ref:`endpoint`
+
    Policy
      A Cilium policy consists of a list of rules. The security policy can be
      specified in The Kubernetes NetworkPolicy format or The Cilium policy
