@@ -155,7 +155,7 @@ func (d *Daemon) createEndpoint(epTemplate *models.EndpointChangeRequest, id str
 	add := labels.NewLabelsFromModel(lbls)
 
 	if len(add) > 0 {
-		code, errLabelsAdd := d.UpdateSecLabels(id, add, labels.Labels{})
+		code, errLabelsAdd := d.updateEndpointLabels(id, add, labels.Labels{})
 		if errLabelsAdd != nil {
 			// XXX: Why should the endpoint remain in this case?
 			log.WithFields(logrus.Fields{
@@ -327,14 +327,6 @@ func (d *Daemon) deleteEndpoint(ep *endpoint.Endpoint) int {
 	}
 	ep.SetStateLocked(endpoint.StateDisconnecting, "Deleting endpoint")
 
-	sha256sum := ep.OpLabels.IdentityLabels().SHA256Sum()
-	if err := d.DeleteIdentityBySHA256(sha256sum, ep.StringID()); err != nil {
-		log.WithError(err).WithFields(logrus.Fields{
-			logfields.SHA:            sha256sum,
-			logfields.IdentityLabels: ep.OpLabels.IdentityLabels(),
-		}).Error("Error while deleting labels")
-	}
-
 	// Remove the endpoint before we clean up. This ensures it is no longer
 	// listed or queued for rebuilds.
 	endpointmanager.Remove(ep)
@@ -392,7 +384,7 @@ func (d *Daemon) deleteEndpoint(ep *endpoint.Endpoint) int {
 		errors++
 	}
 
-	ep.LeaveLocked(d)
+	errors += ep.LeaveLocked(d)
 	ep.Mutex.Unlock()
 	ep.BuildMutex.Unlock()
 
@@ -592,92 +584,14 @@ func checkLabels(add, del labels.Labels) (addLabels, delLabels labels.Labels, ok
 	return addLabels, delLabels, true
 }
 
-func (d *Daemon) updateSecLabels(ep *endpoint.Endpoint, add, del labels.Labels) (int, error) {
-	// This is safe only if no other goroutine may change the labels in parallel
-	ep.Mutex.RLock()
-	oldLabels := ep.OpLabels.DeepCopy()
-	ep.Mutex.RUnlock()
-
-	if len(del) > 0 {
-		for k := range del {
-			// The change request is accepted if the label is on
-			// any of the lists. If the label is already disabled,
-			// we will simply ignore that change.
-			if oldLabels.OrchestrationIdentity[k] != nil ||
-				oldLabels.Custom[k] != nil ||
-				oldLabels.Disabled[k] != nil {
-				break
-			}
-
-			return PutEndpointIDLabelsLabelNotFoundCode, fmt.Errorf("label %s not found", k)
-		}
-	}
-
-	if len(del) > 0 {
-		for k, v := range del {
-			if oldLabels.OrchestrationIdentity[k] != nil {
-				delete(oldLabels.OrchestrationIdentity, k)
-				oldLabels.Disabled[k] = v
-			}
-
-			if oldLabels.Custom[k] != nil {
-				delete(oldLabels.Custom, k)
-			}
-		}
-	}
-
-	if len(add) > 0 {
-		for k, v := range add {
-			if oldLabels.Disabled[k] != nil {
-				delete(oldLabels.Disabled, k)
-				oldLabels.OrchestrationIdentity[k] = v
-			} else if oldLabels.OrchestrationIdentity[k] == nil {
-				oldLabels.Custom[k] = v
-			}
-		}
-	}
-
-	identity, newHash, err2 := d.updateEndpointIdentity(ep.StringID(), ep.LabelsHash, oldLabels)
-	if err2 != nil {
-		return PutEndpointIDLabelsUpdateFailedCode, err2
-	}
-
-	ep.Mutex.Lock()
-	if ep.GetStateLocked() == endpoint.StateDisconnected {
-		ep.Mutex.Unlock()
-		if err := d.DeleteIdentity(identity.ID, ep.StringID()); err != nil {
-			log.WithFields(logrus.Fields{
-				logfields.EndpointID: ep.StringID(),
-				logfields.Identity:   identity.ID,
-			}).WithError(err).Warn("Unable to release temporary identity")
-		}
-		return PutEndpointIDLabelsNotFoundCode, fmt.Errorf("No endpoint with ID %s found", ep.StringID())
-	}
-
-	ep.LabelsHash = newHash
-	ep.OpLabels = *oldLabels
-	ep.SetIdentity(d, identity)
-	ready := ep.SetStateLocked(endpoint.StateWaitingToRegenerate, "Triggering regeneration due to updated security labels")
-	if ready {
-		ep.ForcePolicyCompute()
-	}
-	ep.Mutex.Unlock()
-
-	if ready {
-		ep.Regenerate(d, "updated security labels")
-	}
-
-	return PutEndpointIDLabelsOKCode, nil
-}
-
-// UpdateSecLabels add and deletes the given labels on given endpoint ID.
+// updateEndpointLabels add and deletes the given labels on given endpoint ID.
 // The received `add` and `del` labels will be filtered with the valid label
 // prefixes.
 // The `add` labels take precedence over `del` labels, this means if the same
 // label is set on both `add` and `del`, that specific label will exist in the
 // endpoint's labels.
 // Returns an HTTP response code and an error msg (or nil on success).
-func (d *Daemon) UpdateSecLabels(id string, add, del labels.Labels) (int, error) {
+func (d *Daemon) updateEndpointLabels(id string, add, del labels.Labels) (int, error) {
 	addLabels, delLabels, ok := checkLabels(add, del)
 	if !ok {
 		return 0, nil
@@ -691,12 +605,16 @@ func (d *Daemon) UpdateSecLabels(id string, add, del labels.Labels) (int, error)
 		return PutEndpointIDLabelsNotFoundCode, fmt.Errorf("Endpoint ID %s not found", id)
 	}
 
-	return d.updateSecLabels(ep, addLabels, delLabels)
+	if err := ep.ModifyIdentityLabels(d, addLabels, delLabels); err != nil {
+		return PutEndpointIDLabelsNotFoundCode, err
+	}
+
+	return PutEndpointIDLabelsOKCode, nil
 }
 
-// updateSecLabelsFromAPI is the same as UpdateSecLabels(), but also performs
-// checks for whether the endpoint may be modified by an API call.
-func (d *Daemon) updateSecLabelsFromAPI(id string, add, del labels.Labels) (int, error) {
+// updateEndpointLabelsFromAPI is the same as updateEndpointLabels(), but also
+// performs checks for whether the endpoint may be modified by an API call.
+func (d *Daemon) updateEndpointLabelsFromAPI(id string, add, del labels.Labels) (int, error) {
 	addLabels, delLabels, ok := checkLabels(add, del)
 	if !ok {
 		return 0, nil
@@ -718,7 +636,11 @@ func (d *Daemon) updateSecLabelsFromAPI(id string, add, del labels.Labels) (int,
 		return PutEndpointIDInvalidCode, err
 	}
 
-	return d.updateSecLabels(ep, addLabels, delLabels)
+	if err := ep.ModifyIdentityLabels(d, addLabels, delLabels); err != nil {
+		return PutEndpointIDLabelsNotFoundCode, err
+	}
+
+	return PutEndpointIDLabelsOKCode, nil
 }
 
 type putEndpointIDLabels struct {
@@ -737,68 +659,9 @@ func (h *putEndpointIDLabels) Handle(params PutEndpointIDLabelsParams) middlewar
 	add := labels.NewLabelsFromModel(mod.Add)
 	del := labels.NewLabelsFromModel(mod.Delete)
 
-	code, errMsg := d.updateSecLabelsFromAPI(params.ID, add, del)
-	if errMsg != nil {
-		return apierror.Error(code, errMsg)
+	code, err := d.updateEndpointLabelsFromAPI(params.ID, add, del)
+	if err != nil {
+		return apierror.Error(code, err)
 	}
 	return NewPutEndpointIDLabelsOK()
-}
-
-// EndpointLabelsUpdate is called periodically to sync the labels of an
-// endpoint. Calls to this function do not necessarily mean that the labels
-// actually changed. The container runtime layer will periodically synchronize
-// labels
-// The responsibility of this function is to:
-//  - resolve the identity and update the endpoint
-//  - trigger endpoint regeneration if required
-//  - trigger policy regeneration if required
-func (d *Daemon) EndpointLabelsUpdate(ep *endpoint.Endpoint, identityLabels, infoLabels labels.Labels) error {
-	log.WithFields(logrus.Fields{
-		logfields.ContainerID:    ep.GetShortContainerID(),
-		logfields.EndpointID:     ep.StringID(),
-		logfields.IdentityLabels: identityLabels.String(),
-		"infoLabels":             infoLabels.String(),
-	}).Debug("Updating labels of endpoint")
-
-	ep.UpdateOrchInformationLabels(infoLabels)
-	ep.UpdateOrchIdentityLabels(identityLabels)
-
-	// It's mandatory to update the endpoint identity in the KVStore.  This
-	// way we keep the RefCount refreshed and the SecurityLabelID will not
-	// be considered unused.
-	identity, newHash, err := d.updateEndpointIdentity(ep.StringID(), ep.LabelsHash, &ep.OpLabels)
-	if err != nil {
-		return fmt.Errorf("Unable to update identity of endpoint")
-	}
-
-	// Set identity labels and identity associating while holding endpoint
-	// lock never have a disconnect between labels and identity.
-	ep.Mutex.Lock()
-
-	// Endpoint might have transitioned to disconnected state. If
-	// disconnected, do not associate the identity with the endpoint and
-	// release it again
-	if ep.GetStateLocked() == endpoint.StateDisconnected {
-		ep.Mutex.Unlock()
-		if err := d.DeleteIdentity(identity.ID, ep.StringID()); err != nil {
-			log.WithFields(logrus.Fields{
-				logfields.EndpointID: ep.StringID(),
-				logfields.Identity:   identity.ID,
-			}).WithError(err).Warn("Unable to release temporary identity")
-		}
-
-		return fmt.Errorf("Endpoint is disconnected, aborting label update handler")
-	}
-
-	ep.LabelsHash = newHash
-	oldIdentity := ep.GetIdentity()
-	ep.SetIdentity(d, identity)
-	ep.Mutex.Unlock()
-
-	// Skip building endpoint if identity is invalid or unchanged
-	if identity.ID != oldIdentity {
-		// Triggers policy updates on all endpoints
-		d.TriggerPolicyUpdates(true)
-	}
-	return nil
 }
