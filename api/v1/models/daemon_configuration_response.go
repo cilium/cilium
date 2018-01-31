@@ -31,6 +31,9 @@ type DaemonConfigurationResponse struct {
 	// k8s endpoint
 	K8sEndpoint string `json:"k8s-endpoint,omitempty"`
 
+	// kvstore configuration
+	KvstoreConfiguration *KVstoreConfiguration `json:"kvstoreConfiguration,omitempty"`
+
 	// Status of the node monitor
 	NodeMonitor *MonitorStatus `json:"nodeMonitor,omitempty"`
 
@@ -46,6 +49,8 @@ type DaemonConfigurationResponse struct {
 
 /* polymorph DaemonConfigurationResponse k8s-endpoint false */
 
+/* polymorph DaemonConfigurationResponse kvstoreConfiguration false */
+
 /* polymorph DaemonConfigurationResponse nodeMonitor false */
 
 /* polymorph DaemonConfigurationResponse policy-enforcement false */
@@ -60,6 +65,11 @@ func (m *DaemonConfigurationResponse) Validate(formats strfmt.Registry) error {
 	}
 
 	if err := m.validateConfiguration(formats); err != nil {
+		// prop
+		res = append(res, err)
+	}
+
+	if err := m.validateKvstoreConfiguration(formats); err != nil {
 		// prop
 		res = append(res, err)
 	}
@@ -105,6 +115,25 @@ func (m *DaemonConfigurationResponse) validateConfiguration(formats strfmt.Regis
 		if err := m.Configuration.Validate(formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("configuration")
+			}
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (m *DaemonConfigurationResponse) validateKvstoreConfiguration(formats strfmt.Registry) error {
+
+	if swag.IsZero(m.KvstoreConfiguration) { // not required
+		return nil
+	}
+
+	if m.KvstoreConfiguration != nil {
+
+		if err := m.KvstoreConfiguration.Validate(formats); err != nil {
+			if ve, ok := err.(*errors.Validation); ok {
+				return ve.ValidateName("kvstoreConfiguration")
 			}
 			return err
 		}
