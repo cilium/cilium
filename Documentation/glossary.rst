@@ -10,6 +10,7 @@ on `Slack <https://cilium.herokuapp.com>`_. Feel free to extend this document
 with words you expected to see here.
 
 .. glossary::
+   :sorted:
 
    Policy
      A Cilium policy consists of a list of rules. The security policy can be
