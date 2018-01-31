@@ -24,6 +24,8 @@ import (
 	"os"
 	"os/signal"
 	"sort"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/cilium/cilium/daemon/defaults"
@@ -32,6 +34,7 @@ import (
 	"github.com/cilium/cilium/pkg/monitor"
 
 	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 )
 
 const (
@@ -51,6 +54,41 @@ programs attached to endpoints and devices. This includes:
 	Run: func(cmd *cobra.Command, args []string) {
 		runMonitor()
 	},
+}
+
+type uint16Flags []uint16
+
+var _ pflag.Value = &uint16Flags{}
+
+func (i *uint16Flags) String() string {
+	pieces := make([]string, 0, len(*i))
+	for _, v := range *i {
+		pieces = append(pieces, strconv.Itoa(int(v)))
+	}
+	return strings.Join(pieces, ", ")
+}
+
+func (i *uint16Flags) Set(value string) error {
+	v, err := strconv.Atoi(value)
+	if err != nil {
+		return err
+	}
+	*i = append(*i, uint16(v))
+	return nil
+}
+
+func (i *uint16Flags) Type() string {
+	return "[]uint16"
+}
+
+func (i *uint16Flags) has(value uint16) bool {
+	for _, v := range *i {
+		if v == value {
+			return true
+		}
+	}
+
+	return false
 }
 
 // Verbosity levels for formatting output.
@@ -85,7 +123,7 @@ func init() {
 	monitorCmd.Flags().StringVarP(&eventType, "type", "t", "", fmt.Sprintf("Filter by event types %v", listEventTypes()))
 	monitorCmd.Flags().Uint16Var(&fromSource, "from", 0, "Filter by source endpoint id")
 	monitorCmd.Flags().Uint16Var(&toDst, "to", 0, "Filter by destination endpoint id")
-	monitorCmd.Flags().Uint16Var(&related, "related-to", 0, "Filter by either source or destination endpoint id")
+	monitorCmd.Flags().Var(&related, "related-to", "Filter by either source or destination endpoint id")
 	monitorCmd.Flags().BoolVarP(&verboseMonitor, "verbose", "v", false, "Enable verbose output")
 }
 
@@ -101,7 +139,7 @@ var (
 	}
 	fromSource     = uint16(0)
 	toDst          = uint16(0)
-	related        = uint16(0)
+	related        = uint16Flags{}
 	verboseMonitor = false
 	verbosity      = INFO
 )
@@ -129,7 +167,7 @@ func match(messageType int, src uint16, dst uint16) bool {
 		return false
 	} else if toDst > 0 && toDst != dst {
 		return false
-	} else if related > 0 && related != src && related != dst {
+	} else if len(related) > 0 && !related.has(src) && !related.has(dst) {
 		return false
 	}
 
