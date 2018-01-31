@@ -1090,6 +1090,80 @@ func init() {
         "type": "string"
       }
     },
+    "ControllerStatus": {
+      "description": "Status of a controller",
+      "type": "object",
+      "properties": {
+        "configuration": {
+          "description": "Configuration of controller",
+          "type": "object",
+          "properties": {
+            "error-retry": {
+              "description": "Retry on error",
+              "type": "boolean"
+            },
+            "error-retry-base": {
+              "description": "Base error retry back-off time",
+              "type": "string",
+              "format": "duration"
+            },
+            "interval": {
+              "description": "Regular synchronization interval",
+              "type": "string",
+              "format": "duration"
+            }
+          }
+        },
+        "name": {
+          "description": "Name of controller",
+          "type": "string"
+        },
+        "status": {
+          "description": "Current status of controller",
+          "type": "object",
+          "properties": {
+            "consecutive-failure-count": {
+              "description": "Number of consecutive errors since last success",
+              "type": "integer"
+            },
+            "failure-count": {
+              "description": "Total number of failed runs",
+              "type": "integer"
+            },
+            "last-failure-msg": {
+              "description": "Error message of last failed run",
+              "type": "string"
+            },
+            "last-failure-timestamp": {
+              "description": "Timestamp of last error",
+              "type": "string",
+              "format": "date-time"
+            },
+            "last-success-timestamp": {
+              "description": "Timestsamp of last success",
+              "type": "string",
+              "format": "date-time"
+            },
+            "success-count": {
+              "description": "Total number of successful runs",
+              "type": "integer"
+            }
+          }
+        },
+        "uuid": {
+          "description": "UUID of controller",
+          "type": "string",
+          "format": "uuid"
+        }
+      }
+    },
+    "ControllerStatuses": {
+      "description": "Collection of controller statuses",
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/ControllerStatus"
+      }
+    },
     "DaemonConfigurationResponse": {
       "description": "Response to a daemon configuration request. Contains the addressing\ninformation and configuration settings.\n",
       "type": "object",
@@ -1175,6 +1249,10 @@ func init() {
         "container-name": {
           "description": "Name assigned to container",
           "type": "string"
+        },
+        "controllers": {
+          "description": "Status of all endpoint controllers",
+          "$ref": "#/definitions/ControllerStatuses"
         },
         "docker-endpoint-id": {
           "description": "Docker endpoint ID",

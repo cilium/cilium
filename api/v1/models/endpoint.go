@@ -29,6 +29,9 @@ type Endpoint struct {
 	// Name assigned to container
 	ContainerName string `json:"container-name,omitempty"`
 
+	// Status of all endpoint controllers
+	Controllers ControllerStatuses `json:"controllers"`
+
 	// Docker endpoint ID
 	DockerEndpointID string `json:"docker-endpoint-id,omitempty"`
 
@@ -85,6 +88,8 @@ type Endpoint struct {
 /* polymorph Endpoint container-id false */
 
 /* polymorph Endpoint container-name false */
+
+/* polymorph Endpoint controllers false */
 
 /* polymorph Endpoint docker-endpoint-id false */
 
