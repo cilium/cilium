@@ -1106,6 +1106,9 @@ func init() {
         "k8s-endpoint": {
           "type": "string"
         },
+        "kvstoreConfiguration": {
+          "$ref": "#/definitions/KVstoreConfiguration"
+        },
         "nodeMonitor": {
           "description": "Status of the node monitor",
           "$ref": "#/definitions/MonitorStatus"
@@ -1554,6 +1557,22 @@ func init() {
         }
       }
     },
+    "KVstoreConfiguration": {
+      "description": "Configuration used for the kvstore",
+      "properties": {
+        "options": {
+          "description": "Configuration options",
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "type": {
+          "description": "Type of kvstore",
+          "type": "string"
+        }
+      }
+    },
     "L4Policy": {
       "description": "L4 endpoint policy",
       "type": "object",
@@ -1680,7 +1699,7 @@ func init() {
       "description": "Known node in the cluster",
       "properties": {
         "health-endpoint-address": {
-          "description": "Addresses used for probing cluster connectivity",
+          "description": "Address used for probing cluster connectivity",
           "$ref": "#/definitions/NodeAddressing"
         },
         "name": {
