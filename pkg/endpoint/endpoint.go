@@ -473,6 +473,7 @@ func (e *Endpoint) GetModelRLocked() *models.Endpoint {
 			IPV4: e.IPv4.String(),
 			IPV6: e.IPv6.String(),
 		},
+		Controllers: e.controllers.GetStatusModel(),
 	}
 }
 
