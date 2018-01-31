@@ -18,9 +18,11 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/uuid"
 
+	"github.com/go-openapi/strfmt"
 	"github.com/sirupsen/logrus"
 )
 
@@ -84,15 +86,17 @@ type ControllerParams struct {
 //   in a way that will delay destruction throughout the controller run or to
 //   check for the destruction throughout the run.
 type Controller struct {
-	name           string
-	params         ControllerParams
-	successCount   int
-	failureCount   int
-	lastError      error
-	lastErrorStamp time.Time
-	uuid           string
-	stop           chan struct{}
-	mutex          lock.RWMutex
+	mutex             lock.RWMutex
+	name              string
+	params            ControllerParams
+	successCount      int
+	lastSuccessStamp  time.Time
+	failureCount      int
+	consecutiveErrors int
+	lastError         error
+	lastErrorStamp    time.Time
+	uuid              string
+	stop              chan struct{}
 }
 
 // GetSuccessCount returns the number of successful controller runs
@@ -150,6 +154,7 @@ func (c *Controller) runController() {
 			c.lastError = err
 			c.lastErrorStamp = time.Now()
 			c.failureCount++
+			c.consecutiveErrors++
 			c.mutex.Unlock()
 
 			if !c.params.NoErrorRetry {
@@ -163,7 +168,10 @@ func (c *Controller) runController() {
 			}
 		} else {
 			c.mutex.Lock()
+			c.lastError = nil
+			c.lastSuccessStamp = time.Now()
 			c.successCount++
+			c.consecutiveErrors = 0
 			c.mutex.Unlock()
 
 			// reset error retries after successful attempt
@@ -199,6 +207,36 @@ func (c *Controller) getLogger() *logrus.Entry {
 		fieldControllerName: c.name,
 		fieldUUID:           c.uuid,
 	})
+}
+
+// GetStatusModel returns a models.ControllerStatus representing the
+// controller's configuration & status
+func (c *Controller) GetStatusModel() *models.ControllerStatus {
+	c.mutex.RLock()
+	defer c.mutex.RUnlock()
+
+	status := &models.ControllerStatus{
+		Name: c.name,
+		UUID: strfmt.UUID(c.uuid),
+		Configuration: &models.ControllerStatusConfiguration{
+			ErrorRetry:     !c.params.NoErrorRetry,
+			ErrorRetryBase: strfmt.Duration(c.params.ErrorRetryBaseDuration),
+			Interval:       strfmt.Duration(c.params.RunInterval),
+		},
+		Status: &models.ControllerStatusStatus{
+			SuccessCount:            int64(c.successCount),
+			LastSuccessTimestamp:    strfmt.DateTime(c.lastSuccessStamp),
+			FailureCount:            int64(c.failureCount),
+			LastFailureTimestamp:    strfmt.DateTime(c.lastErrorStamp),
+			ConsecutiveFailureCount: int64(c.consecutiveErrors),
+		},
+	}
+
+	if c.lastError != nil {
+		status.Status.LastFailureMsg = c.lastError.Error()
+	}
+
+	return status
 }
 
 type controllerMap map[string]*Controller
@@ -281,4 +319,16 @@ func (m *Manager) RemoveAll() {
 	for _, ctrl := range m.controllers {
 		m.removeController(ctrl)
 	}
+}
+
+// GetStatusModel returns the status of all controllers as models.ControllerStatuses
+func (m *Manager) GetStatusModel() models.ControllerStatuses {
+	m.mutex.RLock()
+	statuses := models.ControllerStatuses{}
+	for _, c := range m.controllers {
+		statuses = append(statuses, c.GetStatusModel())
+	}
+	m.mutex.RUnlock()
+
+	return statuses
 }

@@ -83,9 +83,6 @@ func (b *ControllerSuite) TestRunController(c *C) {
 
 	c.Assert(ctrl.GetSuccessCount(), Not(Equals), 0)
 	c.Assert(ctrl.GetFailureCount(), Equals, 2)
-
-	// last error is still stored
-	c.Assert(ctrl.GetLastError(), ErrorMatches, "temporary error")
-
+	c.Assert(ctrl.GetLastError(), IsNil)
 	c.Assert(mngr.RemoveController("test"), IsNil)
 }
