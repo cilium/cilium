@@ -1218,6 +1218,17 @@ definitions:
       unknown:
         description: Number of unknown samples.
         type: integer
+  KVstoreConfiguration:
+    description: Configuration used for the kvstore
+    properties:
+      type:
+        description: Type of kvstore
+        type: string
+      options:
+        description: Configuration options
+        type: object
+        additionalProperties:
+          type: string
   DaemonConfigurationResponse:
     description: |
       Response to a daemon configuration request. Contains the addressing
@@ -1237,6 +1248,8 @@ definitions:
       nodeMonitor:
         description: Status of the node monitor
         "$ref": "#/definitions/MonitorStatus"
+      kvstoreConfiguration:
+        "$ref": "#/definitions/KVstoreConfiguration"
   Configuration:
     description: |
       General purpose structure to hold configuration of the daemon and

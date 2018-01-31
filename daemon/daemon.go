@@ -1280,6 +1280,10 @@ func (h *getConfig) Handle(params GetConfigParams) middleware.Responder {
 		K8sEndpoint:       k8s.GetAPIServer(),
 		PolicyEnforcement: policy.GetPolicyEnabled(),
 		NodeMonitor:       d.nodeMonitor.State(),
+		KvstoreConfiguration: &models.KVstoreConfiguration{
+			Type:    kvStore,
+			Options: kvStoreOpts,
+		},
 	}
 
 	return NewGetConfigOK().WithPayload(cfg)
