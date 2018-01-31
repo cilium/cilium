@@ -1,4 +1,4 @@
-// Copyright 2016-2017 Authors of Cilium
+// Copyright 2016-2018 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,62 +14,41 @@
 
 package kvstore
 
-import "fmt"
+import (
+	"github.com/cilium/cilium/pkg/controller"
+	"github.com/cilium/cilium/pkg/lock"
+)
 
 var (
-	clientInstance KVClient
+	// defaultClient is the default client initialized by initClient
+	defaultClient BackendOperations
 
 	// leaseInstance is the backend specific lease object. The lease is
 	// created by initClient()
 	leaseInstance interface{}
+	leaseMutex    lock.RWMutex
+
+	kvstoreControllers = controller.NewManager()
 )
 
-func initClient() error {
-	switch backend {
-	case Consul:
-		if consulConfig == nil {
-			return fmt.Errorf("mising consul server address, please specify, e.g. --kvstore-opt consul.address=127.0.0.1:8500")
-		}
-
-		c, err := newConsulClient(consulConfig)
-		if err != nil {
-			return err
-		}
-
-		log.Info("Using consul as key-value store")
-		clientInstance = c
-
-	case Etcd:
-		if etcdCfgPath == "" && etcdConfig == nil {
-			return fmt.Errorf("missing etcd endpoints; please specify , e.g. --kvstore-opt etcd.address=127.0.0.1:2379")
-		}
-
-		c, err := newEtcdClient(etcdConfig, etcdCfgPath)
-		if err != nil {
-			return err
-		}
-
-		log.Info("Using etcd as key-value store")
-		clientInstance = c
-
-	default:
-		panic("BUG: kvstore backend not specified")
-	}
-
-	l, err := CreateLease(LeaseTTL)
+func initClient(module backendModule) error {
+	c, err := module.newClient()
 	if err != nil {
-		clientInstance = nil
-		return fmt.Errorf("Unable to create lease: %s", err)
+		return err
 	}
-	leaseInstance = l
 
-	// Start go subroutine which will renew kvstore leases
-	startKeepalive()
+	defaultClient = c
+
+	deleteLegacyPrefixes()
+	if err := renewDefaultLease(); err != nil {
+		defaultClient = nil
+		return err
+	}
 
 	return nil
 }
 
 // Client returns the global kvstore client or nil if the client is not configured yet
-func Client() KVClient {
-	return clientInstance
+func Client() BackendOperations {
+	return defaultClient
 }

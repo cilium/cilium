@@ -184,8 +184,7 @@ func LaunchAsEndpoint(owner endpoint.Owner, hostAddressing *models.NodeAddressin
 	}
 
 	// Give the endpoint a security identity
-	_, errLabelsAdd := owner.UpdateSecLabels(info.ContainerID, lbl, labels.Labels{})
-	if errLabelsAdd != nil {
+	if errLabelsAdd := ep.ModifyIdentityLabels(owner, lbl, labels.Labels{}); errLabelsAdd != nil {
 		log.WithError(errLabelsAdd).Fatal("Failed to set labels on cilium-health endpoint")
 	}
 
