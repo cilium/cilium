@@ -35,8 +35,10 @@ func (s *EnvoySuite) TestEnvoy(c *C) {
 		c.Skip("skipping envoy unit test; CILIUM_ENABLE_ENVOY_UNIT_TEST not set")
 	}
 
+	stateLogDir := c.MkDir()
+
 	// launch debug variant of the Envoy proxy
-	Envoy := StartEnvoy(9901, "", "", 42)
+	Envoy := StartEnvoy(9901, stateLogDir, stateLogDir, 42)
 	c.Assert(Envoy, NotNil)
 
 	sel := api.NewWildcardEndpointSelector()
@@ -74,7 +76,7 @@ func (s *EnvoySuite) TestEnvoy(c *C) {
 
 	time.Sleep(100 * time.Millisecond)
 
-	// Remove listerner3
+	// Remove listener3
 	Envoy.RemoveListener("listener3")
 
 	time.Sleep(100 * time.Millisecond)
@@ -87,7 +89,7 @@ func (s *EnvoySuite) TestEnvoy(c *C) {
 
 	time.Sleep(100 * time.Millisecond)
 
-	// Remove listerner3 again
+	// Remove listener3 again
 	Envoy.RemoveListener("listener3")
 
 	time.Sleep(100 * time.Millisecond)
