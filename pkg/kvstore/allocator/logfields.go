@@ -1,4 +1,4 @@
-// Copyright 2016-2018 Authors of Cilium
+// Copyright 2016-2017 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,24 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package kvstore
+package allocator
 
-import (
-	"testing"
-
-	. "gopkg.in/check.v1"
+const (
+	fieldID     = "id"
+	fieldKey    = "key"
+	fieldPrefix = "prefix"
+	fieldValue  = "value"
+	fieldRefCnt = "refcnt"
 )
-
-func Test(t *testing.T) {
-	TestingT(t)
-}
-
-// independentSuite tests are tests which can run without creating a backend
-type independentSuite struct{}
-
-var _ = Suite(&independentSuite{})
-
-func (s *independentSuite) TestGetLockPath(c *C) {
-	const path = "foo/path"
-	c.Assert(getLockPath(path), Equals, path+".lock")
-}

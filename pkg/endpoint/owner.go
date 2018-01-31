@@ -17,7 +17,6 @@ package endpoint
 import (
 	"net"
 
-	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/monitor"
 	"github.com/cilium/cilium/pkg/policy"
@@ -42,14 +41,8 @@ type Owner interface {
 	// reach local endpoints
 	AlwaysAllowLocalhost() bool
 
-	// Must resolve label id to an identity
-	GetCachedLabelList(ID policy.NumericIdentity) (labels.LabelArray, error)
-
 	// Must return the policy repository
 	GetPolicyRepository() *policy.Repository
-
-	// Return the next available global identity
-	GetCachedMaxLabelID() (policy.NumericIdentity, error)
 
 	// UpdateProxyRedirect must update the redirect configuration of an endpoint in the proxy
 	UpdateProxyRedirect(e *Endpoint, l4 *policy.L4Filter) (uint16, error)
@@ -72,6 +65,9 @@ type Owner interface {
 	// Returns true if debugging has been enabled
 	DebugEnabled() bool
 
+	// TunnelMode
+	GetTunnelMode() string
+
 	// GetCompilationLock returns the mutex responsible for synchronizing compilation
 	// of BPF programs.
 	GetCompilationLock() *lock.RWMutex
@@ -88,15 +84,6 @@ type Owner interface {
 	// isCTLocal should be set as true if the endpoint's CT table is either
 	// local or not (if is not local then it is assumed to be global).
 	FlushCTEntries(e *Endpoint, isCTLocal bool, ips []net.IP, idsToKeep policy.SecurityIDContexts)
-
-	// UpdateSecLabels add and deletes the given labels on given endpoint ID.
-	// The received `add` and `del` labels will be filtered with the valid label
-	// prefixes.
-	// The `add` labels take precedence over `del` labels, this means if the same
-	// label is set on both `add` and `del`, that specific label will exist in the
-	// endpoint's labels.
-	// On success, returns 0, nil. Otherwise, returns an API error code and error msg.
-	UpdateSecLabels(id string, add, del labels.Labels) (int, error)
 
 	// SendNotification is called to emit an agent notification
 	SendNotification(typ monitor.AgentNotification, text string) error

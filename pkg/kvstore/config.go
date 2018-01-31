@@ -1,4 +1,4 @@
-// Copyright 2016-2017 Authors of Cilium
+// Copyright 2016-2018 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -16,129 +16,91 @@ package kvstore
 
 import (
 	"fmt"
-	"strings"
 	"sync"
-
-	"github.com/cilium/cilium/pkg/lock"
-
-	etcdAPI "github.com/coreos/etcd/clientv3"
-	consulAPI "github.com/hashicorp/consul/api"
-)
-
-// Supported key-value store types.
-const (
-	Consul = "consul"
-	Etcd   = "etcd"
 )
 
 var (
-	// this variable is set via Makefile for test purposes and allows to tie a
-	// binary to a particular backend
-	backend       = ""
-	consulAddress = "127.0.0.1:8501"
-
-	consulConfig *consulAPI.Config // Consul configuration
-	etcdConfig   *etcdAPI.Config   // Etcd Configuration
-	etcdCfgPath  string            // Etcd Configuration path
+	// selectedModule is the name of the selected backend module
+	selectedModule string
 )
 
-// validateOpts iterates through all of the keys in kvStoreOpts, and errors out
-// if the key in kvStoreOpts is not a supported key in supportedOpts.
-func validateOpts(kvStore string, kvStoreOpts map[string]string, supportedOpts map[string]bool) error {
-	for k := range kvStoreOpts {
-		if !supportedOpts[k] {
-			return fmt.Errorf("provided configuration value %q is not supported as a key-value store option for kvstore %s", k, kvStore)
+// setOpts validates the specified options against the selected backend and
+// then modifies the configuration
+func setOpts(opts map[string]string, supportedOpts backendOptions) error {
+	errors := 0
+
+	for key, val := range opts {
+		opt, ok := supportedOpts[key]
+		if !ok {
+			errors++
+			log.Errorf("unknown kvstore configuration key %q", key)
+			continue
 		}
+
+		if opt.validate != nil {
+			if err := opt.validate(val); err != nil {
+				log.Errorf("invalid value for key %s: %s", key, err)
+				errors++
+			}
+		}
+
 	}
+
+	// if errors have occurred, print the supported configuration keys to
+	// the log
+	if errors > 0 {
+		log.Error("Supported configuration keys:")
+		for key, val := range supportedOpts {
+			log.Errorf("  %-12s %s", key, val.description)
+		}
+
+		return fmt.Errorf("invalid kvstore configuration, see log for details")
+	}
+
+	// modify the configuration atomically after verification
+	for key, val := range opts {
+		supportedOpts[key].value = val
+	}
+
 	return nil
 }
 
-// SetupDummy sets up kvstore for tests
-func SetupDummy() {
-	switch backend {
-	case Consul:
-		consulConfig = consulAPI.DefaultConfig()
-		consulConfig.Address = consulAddress
+func getOpts(opts backendOptions) map[string]string {
+	result := map[string]string{}
 
-	case Etcd:
-		etcdConfig = &etcdAPI.Config{}
-		etcdConfig.Endpoints = []string{"http://127.0.0.1:4002"}
-
-	default:
-		log.WithField("backend", backend).Panic("Unknown kvstore backend")
+	for key, opt := range opts {
+		result[key] = opt.value
 	}
 
-	if err := initClient(); err != nil {
-		log.WithError(err).Panic("Unable to initialize kvstore client")
-	}
+	return result
 }
 
 var (
-	setupLock lock.Mutex
 	setupOnce sync.Once
 )
 
-// Setup sets up the key-value store specified in kvStore and configures
-// it with the options provided in kvStoreOpts.
+func setup(selectedBackend string, opts map[string]string) error {
+	module := getBackend(selectedBackend)
+	if module == nil {
+		return fmt.Errorf("unknown key-value store type %q. See cilium.link/err-kvstore for details", selectedBackend)
+	}
+
+	if err := module.setConfig(opts); err != nil {
+		return err
+	}
+
+	selectedModule = module.getName()
+
+	return initClient(module)
+}
+
+// Setup sets up the key-value store specified in kvStore and configures it
+// with the options provided in opts
 func Setup(selectedBackend string, opts map[string]string) error {
 	var err error
 
-	// Ensure that multiple calls to Setup() block and the kvstore is
-	// always configured after a successful call to Setup()
-	setupLock.Lock()
-	defer setupLock.Unlock()
-
 	setupOnce.Do(func() {
-		backend = selectedBackend
-
-		switch backend {
-		case Etcd:
-			err = validateOpts(backend, opts, EtcdOpts)
-			if err != nil {
-				return
-			}
-			addr, ok := opts[eAddr]
-			config, ok2 := opts[eCfg]
-			if ok || ok2 {
-				etcdConfig = &etcdAPI.Config{}
-				etcdCfgPath = config
-				etcdConfig.Endpoints = []string{addr}
-			} else {
-				err = fmt.Errorf("invalid configuration for etcd provided; please specify an etcd configuration path with --kvstore-opt %s=<path> or an etcd agent address with --kvstore-opt %s=<address>", eCfg, eAddr)
-				return
-			}
-
-		case Consul:
-			err = validateOpts(backend, opts, ConsulOpts)
-			if err != nil {
-				return
-			}
-			consulAddr, ok := opts[cAddr]
-			if ok {
-				consulDefaultAPI := consulAPI.DefaultConfig()
-				consulSplitAddr := strings.Split(consulAddr, "://")
-				if len(consulSplitAddr) == 2 {
-					consulAddr = consulSplitAddr[1]
-				} else if len(consulSplitAddr) == 1 {
-					consulAddr = consulSplitAddr[0]
-				}
-				consulDefaultAPI.Address = consulAddr
-				consulConfig = consulDefaultAPI
-			} else {
-				err = fmt.Errorf("invalid configuration for consul provided; please specify the address to a consul instance with --kvstore-opt %s=<consul address> option", cAddr)
-				return
-			}
-
-		case "":
-			err = fmt.Errorf("kvstore not configured. Please specify --kvstore. See http://cilium.link/err-kvstore for details")
-			return
-
-		default:
-			err = fmt.Errorf("unsupported key-value store %q provided; check http://cilium.link/err-kvstore for more information about how to properly configure key-value store", backend)
-			return
-		}
-
-		err = initClient()
+		err = setup(selectedBackend, opts)
 	})
 
 	return err

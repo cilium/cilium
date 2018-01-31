@@ -56,7 +56,7 @@ func (s *LabelsSuite) TestSHA256Sum(c *C) {
 func (s *LabelsSuite) TestSortMap(c *C) {
 	lblsString := strings.Join(lblsArray, ";")
 	lblsString += ";"
-	sortedMap := lbls.sortedList()
+	sortedMap := lbls.SortedList()
 	c.Assert(sortedMap, comparator.DeepEquals, []byte(lblsString))
 }
 
