@@ -1180,6 +1180,9 @@ func init() {
         "k8s-endpoint": {
           "type": "string"
         },
+        "kvstoreConfiguration": {
+          "$ref": "#/definitions/KVstoreConfiguration"
+        },
         "nodeMonitor": {
           "description": "Status of the node monitor",
           "$ref": "#/definitions/MonitorStatus"
@@ -1629,6 +1632,22 @@ func init() {
             "Failure",
             "Disabled"
           ]
+        }
+      }
+    },
+    "KVstoreConfiguration": {
+      "description": "Configuration used for the kvstore",
+      "properties": {
+        "options": {
+          "description": "Configuration options",
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "type": {
+          "description": "Type of kvstore",
+          "type": "string"
         }
       }
     },
