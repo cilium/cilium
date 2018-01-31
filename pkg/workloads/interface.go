@@ -16,18 +16,14 @@ package workloads
 
 import (
 	"github.com/cilium/cilium/pkg/endpoint"
-	"github.com/cilium/cilium/pkg/labels"
 )
 
 // WorkloadOwner is the interface that the owner of workloads must implement.
 type WorkloadOwner interface {
+	endpoint.Owner
+
 	// DeleteEndpoint is called when the underlying workload has died
 	DeleteEndpoint(id string) (int, error)
-
-	// EndpointLabelsUpdate is called whenever the labels of an endpoint
-	// should be updated. This function must update the identity of the
-	// endpoint and trigger policy & program regeneration as required.
-	EndpointLabelsUpdate(ep *endpoint.Endpoint, identityLabels, infoLabels labels.Labels) error
 }
 
 var (

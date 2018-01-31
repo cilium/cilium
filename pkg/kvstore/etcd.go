@@ -1,4 +1,4 @@
-// Copyright 2016-2017 Authors of Cilium
+// Copyright 2016-2018 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -24,51 +24,134 @@ import (
 
 	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/common/types"
+	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-	"github.com/cilium/cilium/pkg/policy"
 
 	client "github.com/coreos/etcd/clientv3"
 	"github.com/coreos/etcd/clientv3/concurrency"
 	clientyaml "github.com/coreos/etcd/clientv3/yaml"
-	"github.com/coreos/etcd/mvcc/mvccpb"
 	"github.com/hashicorp/go-version"
 	"github.com/sirupsen/logrus"
 	ctx "golang.org/x/net/context"
 )
 
 const (
-	// eAddr is the string representing the key mapping to the value of the
-	// address for Etcd.
-	eAddr = "etcd.address"
-	// eCfg is the string representing the key mapping to the path of the
-	// configuration for Etcd.
-	eCfg = "etcd.config"
+	etcdName = "etcd"
+
+	addrOption = "etcd.address"
+	cfgOption  = "etcd.config"
 )
 
-var (
-	minEVersion, _ = version.NewConstraint(">= 3.1.0")
-)
-
-// EtcdOpts is the set of supported options for Etcd configuration.
-var EtcdOpts = map[string]bool{
-	eAddr: true,
-	eCfg:  true,
+type etcdModule struct {
+	opts   backendOptions
+	config *client.Config
 }
 
-type EtcdClient struct {
-	cli         *client.Client
-	sessionMU   lock.RWMutex
+var (
+	minRequiredVersion, _ = version.NewConstraint(">= 3.1.0")
+
+	// etcdDummyAddress can be overwritten from test invokers using ldflags
+	etcdDummyAddress = "http://127.0.0.1:4002"
+
+	etcdInstance = &etcdModule{
+		opts: backendOptions{
+			addrOption: &backendOption{
+				description: "Addresses of etcd cluster",
+			},
+			cfgOption: &backendOption{
+				description: "Path to etcd configuration file",
+			},
+		},
+	}
+)
+
+func (e *etcdModule) getName() string {
+	return etcdName
+}
+
+func (e *etcdModule) setConfigDummy() {
+	e.config = &client.Config{}
+	e.config.Endpoints = []string{etcdDummyAddress}
+}
+
+func (e *etcdModule) setConfig(opts map[string]string) error {
+	return setOpts(opts, e.opts)
+}
+
+func (e *etcdModule) getConfig() map[string]string {
+	return getOpts(e.opts)
+}
+
+func (e *etcdModule) newClient() (BackendOperations, error) {
+	endpointsOpt, endpointsSet := e.opts[addrOption]
+	configPathOpt, configSet := e.opts[cfgOption]
+	configPath := ""
+
+	if e.config == nil {
+		if !endpointsSet && !configSet {
+			return nil, fmt.Errorf("invalid etcd configuration, %s or %s must be specified", cfgOption, addrOption)
+		}
+
+		e.config = &client.Config{}
+
+		if endpointsSet {
+			e.config.Endpoints = []string{endpointsOpt.value}
+		}
+
+		if configSet {
+			configPath = configPathOpt.value
+		}
+	}
+
+	return newEtcdClient(e.config, configPath)
+}
+
+func init() {
+	// register etcd module for use
+	registerBackend(etcdName, etcdInstance)
+}
+
+type etcdClient struct {
+	// protects all members of etcdClient from concurrent access
+	lock.RWMutex
+
+	client      *client.Client
 	session     *concurrency.Session
 	lockPathsMU lock.Mutex
 	lockPaths   map[string]*lock.Mutex
 }
 
-type EtcdLocker struct {
+type etcdMutex struct {
 	mutex *concurrency.Mutex
 }
 
-func newEtcdClient(config *client.Config, cfgPath string) (KVClient, error) {
+func (e *etcdMutex) Unlock() error {
+	return e.mutex.Unlock(ctx.Background())
+}
+
+func (e *etcdClient) renewSession() error {
+	for {
+		<-e.session.Done()
+
+		newSession, err := concurrency.NewSession(e.client)
+		if err != nil {
+			return fmt.Errorf("Unable to renew etcd session: %s", err)
+		}
+
+		e.Lock()
+		e.session = newSession
+		e.Unlock()
+
+		log.WithField(fieldSession, newSession).Debug("Renewing etcd session")
+
+		if err := e.checkMinVersion(10 * time.Second); err != nil {
+			return fmt.Errorf("Invalid etcd version: %s", err)
+		}
+	}
+}
+
+func newEtcdClient(config *client.Config, cfgPath string) (BackendOperations, error) {
 	var (
 		c   *client.Client
 		err error
@@ -90,46 +173,37 @@ func newEtcdClient(config *client.Config, cfgPath string) (KVClient, error) {
 	if err != nil {
 		return nil, err
 	}
-	log.Info("Waiting for etcd client to be ready...")
+	log.Info("Waiting for etcd client to be ready")
 	s, err := concurrency.NewSession(c)
 	if err != nil {
 		return nil, fmt.Errorf("Unable to contact etcd: %s", err)
 	}
-	ec := &EtcdClient{
-		cli:       c,
+	ec := &etcdClient{
+		client:    c,
 		session:   s,
 		lockPaths: map[string]*lock.Mutex{},
 	}
-	if err := ec.CheckMinVersion(15 * time.Second); err != nil {
+	if err := ec.checkMinVersion(15 * time.Second); err != nil {
 		log.WithError(err).Fatal("Error checking etcd min version")
 	}
-	// Clean-up old services path
-	ec.DeleteTree(common.ServicePathV1)
-	go func() {
-		for {
-			<-ec.session.Done()
-			newSession, err := concurrency.NewSession(c)
-			if err != nil {
-				log.WithError(err).Warn("Error while renewing etcd session")
-				time.Sleep(3 * time.Second)
-			} else {
-				ec.sessionMU.Lock()
-				ec.session = newSession
-				ec.sessionMU.Unlock()
-				log.WithField(fieldSession, newSession).Debug("Renewing session")
-				if err := ec.CheckMinVersion(10 * time.Second); err != nil {
-					log.WithError(err).Fatal("Error checking etcd min version")
-				}
-			}
-		}
-	}()
+
+	kvstoreControllers.UpdateController("kvstore-etcd-session-renew",
+		controller.ControllerParams{
+			DoFunc: func() error {
+				ec.renewSession()
+				return nil
+			},
+			RunInterval: time.Duration(0),
+		},
+	)
+
 	return ec, nil
 }
 
-func getEPVersion(cli client.Maintenance, etcdEP string, timeout time.Duration) (*version.Version, error) {
+func getEPVersion(c client.Maintenance, etcdEP string, timeout time.Duration) (*version.Version, error) {
 	ctxTimeout, cancel := ctx.WithTimeout(ctx.Background(), timeout)
 	defer cancel()
-	sr, err := cli.Status(ctxTimeout, etcdEP)
+	sr, err := c.Status(ctxTimeout, etcdEP)
 	if err != nil {
 		return nil, err
 	}
@@ -140,59 +214,58 @@ func getEPVersion(cli client.Maintenance, etcdEP string, timeout time.Duration) 
 	return v, nil
 }
 
-// CheckMinVersion checks the minimal version running on etcd cluster. If the
+// checkMinVersion checks the minimal version running on etcd cluster. If the
 // minimal version running doesn't meet cilium minimal requirements, returns
 // an error.
-func (e *EtcdClient) CheckMinVersion(timeout time.Duration) error {
-	eps := e.cli.Endpoints()
+func (e *etcdClient) checkMinVersion(timeout time.Duration) error {
+	eps := e.client.Endpoints()
 	var errors bool
 	for _, ep := range eps {
-		v, err := getEPVersion(e.cli.Maintenance, ep, timeout)
+		v, err := getEPVersion(e.client.Maintenance, ep, timeout)
 		if err != nil {
 			log.WithError(err).Debug("Unable to check etcd min version")
 			log.WithError(err).WithField(fieldEtcdEndpoint, ep).Warn("Checking version of etcd endpoint")
 			errors = true
 			continue
 		}
-		if !minEVersion.Check(v) {
+		if !minRequiredVersion.Check(v) {
 			// FIXME: after we rework the refetching IDs for a connection lost
 			// remove this Errorf and replace it with a warning
 			return fmt.Errorf("Minimal etcd version not met in %q,"+
-				" required: %s, found: %s", ep, minEVersion.String(), v.String())
+				" required: %s, found: %s", ep, minRequiredVersion.String(), v.String())
 		}
+
 		log.WithFields(logrus.Fields{
 			fieldEtcdEndpoint: ep,
 			"version":         v,
-		}).Info("Version of etcd endpoint OK")
+		}).Debug("Version of etcd endpoint OK")
 	}
+
 	if len(eps) == 0 {
 		log.Warn("Minimal etcd version unknown: No etcd endpoints available")
 	} else if errors {
-		log.WithField("version.min", minEVersion).Warn("Unable to check etcd's cluster version." +
+		log.WithField("version.min", minRequiredVersion).Warn("Unable to check etcd's cluster version." +
 			" Please make sure the minimal etcd version is running on all endpoints")
 	}
 	return nil
 }
 
-func (e *EtcdClient) LockPath(path string) (kvLocker, error) {
-	e.sessionMU.RLock()
+func (e *etcdClient) LockPath(path string) (kvLocker, error) {
+	e.RLock()
 	mu := concurrency.NewMutex(e.session, path)
-	e.sessionMU.RUnlock()
+	e.RUnlock()
 
 	err := mu.Lock(ctx.Background())
 	if err != nil {
 		return nil, err
 	}
 
-	return &EtcdLocker{mutex: mu}, nil
+	return &etcdMutex{mutex: mu}, nil
 }
 
-func (e *EtcdLocker) Unlock() error {
-	return e.mutex.Unlock(ctx.Background())
-}
-
-func (e *EtcdClient) GetValue(k string) (json.RawMessage, error) {
-	gresp, err := e.cli.Get(ctx.Background(), k)
+// FIXME: Obsolete, remove
+func (e *etcdClient) GetValue(k string) (json.RawMessage, error) {
+	gresp, err := e.client.Get(ctx.Background(), k)
 	if err != nil {
 		return nil, err
 	}
@@ -202,16 +275,18 @@ func (e *EtcdClient) GetValue(k string) (json.RawMessage, error) {
 	return json.RawMessage(gresp.Kvs[0].Value), nil
 }
 
-func (e *EtcdClient) SetValue(k string, v interface{}) error {
+// FIXME: Obsolete, remove
+func (e *etcdClient) SetValue(k string, v interface{}) error {
 	vByte, err := json.Marshal(v)
 	if err != nil {
 		return err
 	}
-	_, err = e.cli.Put(ctx.Background(), k, string(vByte))
+	_, err = e.client.Put(ctx.Background(), k, string(vByte))
 	return err
 }
 
-func (e *EtcdClient) InitializeFreeID(path string, firstID uint32) error {
+// FIXME: Obsolete, remove
+func (e *etcdClient) InitializeFreeID(path string, firstID uint32) error {
 	kvLocker, err := LockPath(path)
 	if err != nil {
 		return err
@@ -235,7 +310,8 @@ func (e *EtcdClient) InitializeFreeID(path string, firstID uint32) error {
 	return nil
 }
 
-func (e *EtcdClient) GetMaxID(key string, firstID uint32) (uint32, error) {
+// FIXME: Obsolete, remove
+func (e *etcdClient) GetMaxID(key string, firstID uint32) (uint32, error) {
 	var (
 		attempts = 3
 		value    json.RawMessage
@@ -264,7 +340,8 @@ func (e *EtcdClient) GetMaxID(key string, firstID uint32) (uint32, error) {
 	}
 }
 
-func (e *EtcdClient) SetMaxID(key string, firstID, maxID uint32) error {
+// FIXME: Obsolete, remove
+func (e *etcdClient) SetMaxID(key string, firstID, maxID uint32) error {
 	value, err := e.GetValue(key)
 	if err != nil {
 		return err
@@ -288,77 +365,17 @@ func (e *EtcdClient) SetMaxID(key string, firstID, maxID uint32) error {
 	return e.SetValue(key, maxID)
 }
 
-func (e *EtcdClient) setMaxLabelID(maxID uint32) error {
-	return e.SetMaxID(common.LastFreeLabelIDKeyPath, policy.MinimalNumericIdentity.Uint32(), maxID)
-}
-
-// GASNewSecLabelID gets the next available LabelID and sets it in id. After
-// assigning the LabelID to id it sets the LabelID + 1 in
-// common.LastFreeLabelIDKeyPath path.
-func (e *EtcdClient) GASNewSecLabelID(basePath string, baseID uint32, pI *policy.Identity) error {
-	setID2Label := func(new_id uint32) error {
-		pI.ID = policy.NumericIdentity(new_id)
-		keyPath := path.Join(basePath, pI.ID.StringID())
-		if err := e.SetValue(keyPath, pI); err != nil {
-			return err
-		}
-		return e.setMaxLabelID(new_id + 1)
-	}
-
-	acquireFreeID := func(firstID uint32, incID *uint32) (bool, error) {
-		keyPath := path.Join(basePath, strconv.FormatUint(uint64(*incID), 10))
-
-		locker, err := LockPath(getLockPath(keyPath))
-		if err != nil {
-			return false, err
-		}
-		defer locker.Unlock()
-
-		value, err := e.GetValue(keyPath)
-		if err != nil {
-			return false, err
-		}
-		if value == nil {
-			return false, setID2Label(*incID)
-		}
-		var consulLabels policy.Identity
-		if err := json.Unmarshal(value, &consulLabels); err != nil {
-			return false, err
-		}
-		if consulLabels.RefCount() == 0 {
-			log.WithField(logfields.Identity, *incID).Info("Recycling ID")
-			return false, setID2Label(*incID)
-		}
-
-		*incID++
-		if *incID > common.MaxSetOfLabels {
-			*incID = policy.MinimalNumericIdentity.Uint32()
-		}
-		if firstID == *incID {
-			return false, fmt.Errorf("reached maximum set of labels available.")
-		}
-		return true, nil
-	}
-
-	beginning := baseID
-	for {
-		retry, err := acquireFreeID(beginning, &baseID)
-		if err != nil {
-			return err
-		} else if !retry {
-			return nil
-		}
-	}
-}
-
-func (e *EtcdClient) setMaxL3n4AddrID(maxID uint32) error {
+// FIXME: Obsolete, remove
+func (e *etcdClient) setMaxL3n4AddrID(maxID uint32) error {
 	return e.SetMaxID(common.LastFreeServiceIDKeyPath, common.FirstFreeServiceID, maxID)
 }
 
 // GASNewL3n4AddrID gets the next available ServiceID and sets it in lAddrID. After
 // assigning the ServiceID to lAddrID it sets the ServiceID + 1 in
 // common.LastFreeServiceIDKeyPath path.
-func (e *EtcdClient) GASNewL3n4AddrID(basePath string, baseID uint32, lAddrID *types.L3n4AddrID) error {
+//
+// FIXME: Obsolete, remove
+func (e *etcdClient) GASNewL3n4AddrID(basePath string, baseID uint32, lAddrID *types.L3n4AddrID) error {
 	setIDtoL3n4Addr := func(id uint32) error {
 		lAddrID.ID = types.ServiceID(id)
 		keyPath := path.Join(basePath, strconv.FormatUint(uint64(lAddrID.ID), 10))
@@ -371,7 +388,7 @@ func (e *EtcdClient) GASNewL3n4AddrID(basePath string, baseID uint32, lAddrID *t
 	acquireFreeID := func(firstID uint32, incID *uint32) (bool, error) {
 		keyPath := path.Join(basePath, strconv.FormatUint(uint64(*incID), 10))
 
-		locker, err := LockPath(getLockPath(keyPath))
+		locker, err := e.LockPath(getLockPath(keyPath))
 		if err != nil {
 			return false, err
 		}
@@ -415,31 +432,40 @@ func (e *EtcdClient) GASNewL3n4AddrID(basePath string, baseID uint32, lAddrID *t
 	}
 }
 
-func (e *EtcdClient) DeleteTree(path string) error {
-	_, err := e.cli.Delete(ctx.Background(), path, client.WithPrefix())
+func (e *etcdClient) DeletePrefix(path string) error {
+	_, err := e.client.Delete(ctx.Background(), path, client.WithPrefix())
 	return err
 }
 
 // Watch starts watching for changes in a prefix
-func (e *EtcdClient) Watch(w *Watcher, list bool) {
+func (e *etcdClient) Watch(w *Watcher) {
 	lastRev := int64(0)
 
 	for {
-		res, err := e.cli.Get(ctx.Background(), w.prefix, client.WithPrefix(),
+		res, err := e.client.Get(ctx.Background(), w.prefix, client.WithPrefix(),
 			client.WithRev(lastRev), client.WithSerializable())
 		if err != nil {
 			log.WithFields(logrus.Fields{
 				fieldRev:     lastRev,
 				fieldPrefix:  w.prefix,
 				fieldWatcher: w,
-			}).WithError(err).Warn("Unable to list keys before watching")
+			}).WithError(err).Warn("Unable to list keys before starting watcher")
 			continue
 		}
 
 		lastRev := res.Header.Revision
 
+		log.WithFields(logrus.Fields{
+			fieldRev:     lastRev,
+			fieldWatcher: w,
+		}).Debugf("List response from etcd len=%d: %+v", res.Count, res)
+
 		if res.Count > 0 {
 			for _, key := range res.Kvs {
+				log.WithFields(logrus.Fields{
+					fieldRev:     lastRev,
+					fieldWatcher: w,
+				}).Debugf("Emiting list result as %v event for %s=%v", EventTypeCreate, key.Key, key.Value)
 				w.Events <- KeyValueEvent{
 					Key:   string(key.Key),
 					Value: key.Value,
@@ -453,14 +479,21 @@ func (e *EtcdClient) Watch(w *Watcher, list bool) {
 			continue
 		}
 
+		w.Events <- KeyValueEvent{Typ: EventTypeListDone}
+
 	recreateWatcher:
 		lastRev++
 
-		etcdWatch := e.cli.Watch(ctx.Background(), w.prefix,
+		log.WithFields(logrus.Fields{
+			fieldRev:     lastRev,
+			fieldWatcher: w,
+		}).Debugf("Starting to watch %s", w.prefix)
+		etcdWatch := e.client.Watch(ctx.Background(), w.prefix,
 			client.WithPrefix(), client.WithRev(lastRev))
 		for {
 			select {
 			case <-w.stopWatch:
+				close(w.Events)
 				return
 
 			case r, ok := <-etcdWatch:
@@ -474,9 +507,14 @@ func (e *EtcdClient) Watch(w *Watcher, list bool) {
 					log.WithFields(logrus.Fields{
 						fieldRev:     lastRev,
 						fieldWatcher: w,
-					}).WithError(err).Warn("etcd watcher received error")
+					}).WithError(err).Warningf("etcd watcher received error")
 					continue
 				}
+
+				log.WithFields(logrus.Fields{
+					fieldRev:     lastRev,
+					fieldWatcher: w,
+				}).Debugf("Received event from etcd: %+v", r)
 
 				for _, ev := range r.Events {
 					event := KeyValueEvent{
@@ -491,6 +529,11 @@ func (e *EtcdClient) Watch(w *Watcher, list bool) {
 						event.Typ = EventTypeCreate
 					}
 
+					log.WithFields(logrus.Fields{
+						fieldRev:     lastRev,
+						fieldWatcher: w,
+					}).Debugf("Emiting %v event for %s=%v", event.Typ, event.Key, event.Value)
+
 					w.Events <- event
 				}
 			}
@@ -498,52 +541,11 @@ func (e *EtcdClient) Watch(w *Watcher, list bool) {
 	}
 }
 
-// GetWatcher watches for kvstore changes in the given key. Triggers the returned channel
-// every time the key path is changed.
-// FIXME This function is highly tightened to the maxFreeID, change name accordingly
-func (e *EtcdClient) GetWatcher(key string, timeSleep time.Duration) <-chan []policy.NumericIdentity {
-	ch := make(chan []policy.NumericIdentity, 100)
-	go func(ch chan []policy.NumericIdentity) {
-		curSeconds := time.Second
-		lastRevision := int64(0)
-		for {
-			w := <-e.cli.Watch(ctx.Background(), key, client.WithRev(lastRevision))
-			if w.Err() != nil {
-				log.WithField(fieldKey, key).Warn("Unable to watch key, retrying...")
-				time.Sleep(curSeconds)
-				if curSeconds < timeSleep {
-					curSeconds += time.Second
-				}
-				continue
-			}
-			curSeconds = time.Second
-			lastRevision = w.CompactRevision
-			freeID := uint32(0)
-			maxFreeID := uint32(0)
-			for _, event := range w.Events {
-				if event.Type != mvccpb.PUT || event.Kv == nil {
-					continue
-				}
-				if err := json.Unmarshal(event.Kv.Value, &freeID); err != nil {
-					continue
-				}
-				if freeID > maxFreeID {
-					maxFreeID = freeID
-				}
-			}
-			if maxFreeID != 0 {
-				ch <- []policy.NumericIdentity{policy.NumericIdentity(maxFreeID)}
-			}
-		}
-	}(ch)
-	return ch
-}
-
-func (e *EtcdClient) Status() (string, error) {
-	eps := e.cli.Endpoints()
+func (e *etcdClient) Status() (string, error) {
+	eps := e.client.Endpoints()
 	var err1 error
 	for i, ep := range eps {
-		if sr, err := e.cli.Status(ctx.Background(), ep); err != nil {
+		if sr, err := e.client.Status(ctx.Background(), ep); err != nil {
 			err1 = err
 		} else if sr.Header.MemberId == sr.Leader {
 			eps[i] = fmt.Sprintf("%s - (Leader) %s", ep, sr.Version)
@@ -555,8 +557,8 @@ func (e *EtcdClient) Status() (string, error) {
 }
 
 // Get returns value of key
-func (e *EtcdClient) Get(key string) ([]byte, error) {
-	getR, err := e.cli.Get(ctx.Background(), key)
+func (e *etcdClient) Get(key string) ([]byte, error) {
+	getR, err := e.client.Get(ctx.Background(), key)
 	if err != nil {
 		return nil, err
 	}
@@ -568,8 +570,8 @@ func (e *EtcdClient) Get(key string) ([]byte, error) {
 }
 
 // GetPrefix returns the first key which matches the prefix
-func (e *EtcdClient) GetPrefix(prefix string) ([]byte, error) {
-	getR, err := e.cli.Get(ctx.Background(), prefix, client.WithPrefix())
+func (e *etcdClient) GetPrefix(prefix string) ([]byte, error) {
+	getR, err := e.client.Get(ctx.Background(), prefix, client.WithPrefix())
 	if err != nil {
 		return nil, err
 	}
@@ -581,14 +583,14 @@ func (e *EtcdClient) GetPrefix(prefix string) ([]byte, error) {
 }
 
 // Set sets value of key
-func (e *EtcdClient) Set(key string, value []byte) error {
-	_, err := e.cli.Put(ctx.Background(), key, string(value))
+func (e *etcdClient) Set(key string, value []byte) error {
+	_, err := e.client.Put(ctx.Background(), key, string(value))
 	return err
 }
 
 // Delete deletes a key
-func (e *EtcdClient) Delete(key string) error {
-	_, err := e.cli.Delete(ctx.Background(), key)
+func (e *etcdClient) Delete(key string) error {
+	_, err := e.client.Delete(ctx.Background(), key)
 	return err
 }
 
@@ -606,15 +608,30 @@ func createOpPut(key string, value []byte, lease bool) (*client.Op, error) {
 	return &op, nil
 }
 
+// Update creates or updates a key
+func (e *etcdClient) Update(key string, value []byte, lease bool) error {
+	if lease {
+		r, ok := leaseInstance.(*client.LeaseGrantResponse)
+		if !ok {
+			return fmt.Errorf("argument not a LeaseID")
+		}
+		_, err := e.client.Put(ctx.Background(), key, string(value), client.WithLease(r.ID))
+		return err
+	}
+
+	_, err := e.client.Put(ctx.Background(), key, string(value))
+	return err
+}
+
 // CreateOnly creates a key with the value and will fail if the key already exists
-func (e *EtcdClient) CreateOnly(key string, value []byte, lease bool) error {
+func (e *etcdClient) CreateOnly(key string, value []byte, lease bool) error {
 	req, err := createOpPut(key, value, lease)
 	if err != nil {
 		return err
 	}
 
 	cond := client.Compare(client.Version(key), "=", 0)
-	txnresp, err := e.cli.Txn(ctx.TODO()).If(cond).Then(*req).Commit()
+	txnresp, err := e.client.Txn(ctx.TODO()).If(cond).Then(*req).Commit()
 	if err != nil {
 		return err
 	}
@@ -626,9 +643,48 @@ func (e *EtcdClient) CreateOnly(key string, value []byte, lease bool) error {
 	return nil
 }
 
+// CreateIfExists creates a key with the value only if key condKey exists
+func (e *etcdClient) CreateIfExists(condKey, key string, value []byte, lease bool) error {
+	req, err := createOpPut(key, value, lease)
+	if err != nil {
+		return err
+	}
+
+	cond := client.Compare(client.Version(condKey), "!=", 0)
+	txnresp, err := e.client.Txn(ctx.TODO()).If(cond).Then(*req).Commit()
+	if err != nil {
+		return err
+	}
+
+	if txnresp.Succeeded == false {
+		return fmt.Errorf("create was unsuccessful")
+	}
+
+	return nil
+}
+
+// FIXME: When we rebase to etcd 3.3
+//
+// DeleteOnZeroCount deletes the key if no matching keys for prefix exist
+//func (e *etcdClient) DeleteOnZeroCount(key, prefix string) error {
+//	txnresp, err := e.client.Txn(ctx.TODO()).
+//		If(client.Compare(client.Version(prefix).WithPrefix(), "=", 0)).
+//		Then(client.OpDelete(key)).
+//		Commit()
+//	if err != nil {
+//		return err
+//	}
+//
+//	if txnresp.Succeeded == false {
+//		return fmt.Errorf("delete was unsuccessful")
+//	}
+//
+//	return nil
+//}
+
 // ListPrefix returns a map of matching keys
-func (e *EtcdClient) ListPrefix(prefix string) (KeyValuePairs, error) {
-	getR, err := e.cli.Get(ctx.Background(), prefix, client.WithPrefix())
+func (e *etcdClient) ListPrefix(prefix string) (KeyValuePairs, error) {
+	getR, err := e.client.Get(ctx.Background(), prefix, client.WithPrefix())
 	if err != nil {
 		return nil, err
 	}
@@ -643,33 +699,48 @@ func (e *EtcdClient) ListPrefix(prefix string) (KeyValuePairs, error) {
 }
 
 // CreateLease creates a new lease with the given ttl
-func (e *EtcdClient) CreateLease(ttl time.Duration) (interface{}, error) {
-	return e.cli.Grant(ctx.TODO(), int64(ttl.Seconds()))
+func (e *etcdClient) CreateLease(ttl time.Duration) (interface{}, error) {
+	return e.client.Grant(ctx.TODO(), int64(ttl.Seconds()))
 }
 
 // KeepAlive keeps a lease created with CreateLease alive
-func (e *EtcdClient) KeepAlive(lease interface{}) error {
+func (e *etcdClient) KeepAlive(lease interface{}) error {
 	r, ok := lease.(*client.LeaseGrantResponse)
 	if !ok {
 		return fmt.Errorf("argument not a LeaseID")
 	}
 
-	_, err := e.cli.KeepAliveOnce(ctx.TODO(), r.ID)
+	_, err := e.client.KeepAliveOnce(ctx.TODO(), r.ID)
 	return err
 }
 
 // DeleteLease deletes a lease
-func (e *EtcdClient) DeleteLease(lease interface{}) error {
+func (e *etcdClient) DeleteLease(lease interface{}) error {
 	r, ok := lease.(*client.LeaseGrantResponse)
 	if !ok {
 		return fmt.Errorf("argument not a LeaseID")
 	}
 
-	_, err := e.cli.Revoke(ctx.TODO(), r.ID)
+	_, err := e.client.Revoke(ctx.TODO(), r.ID)
 	return err
 }
 
-// Close closes the kvstore client
-func (e *EtcdClient) Close() {
-	e.cli.Close()
+func (e *etcdClient) closeClient() {
+	e.client.Close()
+}
+
+// GetCapabilities returns the capabilities of the backend
+//
+func (e *etcdClient) GetCapabilities() Capabilities {
+	return Capabilities(CapabilityCreateIfExists)
+}
+
+// Encode encodes a binary slice into a character set that the backend supports
+func (e *etcdClient) Encode(in []byte) string {
+	return string(in)
+}
+
+// Decode decodes a key previously encoded back into the original binary slice
+func (e *etcdClient) Decode(in string) ([]byte, error) {
+	return []byte(in), nil
 }
