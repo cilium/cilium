@@ -43,8 +43,16 @@ function install_using_apt {
         "$@"
 }
 
+function install_using_zypper {
+    zypper -n --gpg-auto-import-key in --no-recommends -f "$@"
+}
+
 function install_k8s_using_packages {
-    install_using_apt "$@"
+    if grep Ubuntu /etc/lsb-release; then
+        install_using_apt "$@"
+    else
+        install_using_zypper "$@"
+    fi
 }
 
 function install_k8s_using_binary {

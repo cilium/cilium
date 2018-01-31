@@ -87,7 +87,11 @@ if [ -n "${K8S}" ]; then
 fi
 
 # Use of IPv6 'documentation block' to provide example
-ip -6 a a ${vm_ipv6}/16 dev enp0s8
+if grep Ubuntu /etc/lsb-release; then
+    ip -6 a a ${vm_ipv6}/16 dev enp0s8
+else
+    ip -6 a a ${vm_ipv6}/16 dev eth1
+fi
 
 echo '${master_ipv6} ${VM_BASENAME}1' >> /etc/hosts
 sysctl -w net.ipv6.conf.all.forwarding=1
@@ -108,8 +112,13 @@ function write_master_route(){
     if [ -z "${K8S}" ]; then
         cat <<EOF >> "${filename}"
 # Master route
-ip r a 10.${master_ipv4_suffix}.0.1/32 dev enp0s8
-ip r a 10.${master_ipv4_suffix}.0.0/16 via 10.${master_ipv4_suffix}.0.1
+if grep Ubuntu /etc/lsb-release; then
+    ip r a 10.${master_ipv4_suffix}.0.1/32 dev enp0s8
+    ip r a 10.${master_ipv4_suffix}.0.0/16 via 10.${master_ipv4_suffix}.0.1
+else
+    ip r a 10.${master_ipv4_suffix}.0.1/32 dev eth1
+    ip r a 10.${master_ipv4_suffix}.0.0/16 via 10.${master_ipv4_suffix}.0.1
+fi
 EOF
     fi
 
@@ -142,7 +151,11 @@ EOF
         if [ -z "${K8S}" ]; then
             cat <<EOF >> "${filename}"
 ip r a 10.${i}.0.0/16 via 10.${i}.0.1
-ip r a 10.${i}.0.1/32 dev enp0s8
+if grep Ubuntu /etc/lsb-release; then
+    ip r a 10.${i}.0.1/32 dev enp0s8
+else
+    ip r a 10.${i}.0.1/32 dev eth1
+f
 EOF
         fi
 
@@ -167,7 +180,6 @@ function write_k8s_header(){
 set -e
 
 # K8s installation
-sudo apt-get -y install curl
 mkdir -p "${k8s_dir}"
 cd "${k8s_dir}"
 
@@ -309,7 +321,7 @@ function write_cilium_cfg() {
 
 cat <<EOF >> "$filename"
 sleep 2s
-sed -i '9s+.*+ExecStart=/usr/bin/cilium-agent --debug \$CILIUM_OPTS+' /lib/systemd/system/cilium.service
+sed -i '9s+.*+ExecStart=/usr/bin/cilium-agent --debug \$CILIUM_OPTS+' /etc/systemd/system/cilium.service
 echo "K8S_NODE_NAME=\$(hostname)" >> /etc/sysconfig/cilium
 echo 'CILIUM_OPTS="${ubuntu_1604_cilium_lb} ${ubuntu_1604_interface} ${cilium_options}"' >> /etc/sysconfig/cilium
 echo 'PATH=/usr/local/clang/bin:/usr/local/sbin:/usr/local/bin:/usr/bin:/usr/sbin:/sbin:/bin' >> /etc/sysconfig/cilium

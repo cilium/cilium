@@ -36,6 +36,6 @@ else
         systemctl enable $service || echo "service $service failed"
         systemctl restart $service || echo "service $service failed to restart"
     done
-    echo "running \"sudo adduser vagrant cilium\" "
-    sudo adduser vagrant cilium
+    echo "running \"sudo usermod -a -G cilium vagrant\" "
+    sudo usermod -a -G cilium vagrant
 fi
