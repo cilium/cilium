@@ -135,6 +135,9 @@ kubectl exec ${CILIUM_POD_1} -n ${NAMESPACE} -- cilium policy get
 log "Policy in ${CILIUM_POD_2}"
 kubectl exec ${CILIUM_POD_2} -n ${NAMESPACE} -- cilium policy get
 
+# HACK: Workaround until Envoy config change is sync
+sleep 15
+
 log "performing HTTP GET on ${SVC_IP}/public from app2"
 RETURN=$(kubectl exec $APP2_POD -- curl -s --output /dev/stderr -w '%{http_code}' http://${SVC_IP}/public || true)
 if [[ "${RETURN//$'\n'}" != "200" ]]; then
