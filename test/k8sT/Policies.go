@@ -112,18 +112,18 @@ var _ = Describe("K8sPolicyTest", func() {
 			return appPods
 		}
 
-		It("PolicyEnforcement Changes", func() {
+		It("tests PolicyEnforcement updates", func() {
 			// This is a small test that checks that basic policy enforcement
 			// changes are working in k8s. All the policy enforcement
 			// changes/combinations are tested in runtime/Policies.go
 			ciliumPod, err := kubectl.GetCiliumPodOnNode(helpers.KubeSystemNamespace, helpers.K8s1)
-			Expect(err).Should(BeNil())
+			Expect(err).Should(BeNil(), "cannot get cilium pod on node %s", helpers.K8s1)
 
 			status := kubectl.CiliumExec(
 				ciliumPod, fmt.Sprintf("cilium config %s=%s",
 					helpers.PolicyEnforcement, helpers.PolicyEnforcementDefault))
-			status.ExpectSuccess()
-			helpers.Sleep(5)
+			status.ExpectSuccess("cannot change %s to %s",
+				helpers.PolicyEnforcement, helpers.PolicyEnforcementDefault)
 			kubectl.CiliumEndpointWait(ciliumPod)
 
 			epsStatus := helpers.WithTimeout(func() bool {
@@ -184,7 +184,7 @@ var _ = Describe("K8sPolicyTest", func() {
 			Expect(policyStatus[models.EndpointPolicyEnabledBoth]).Should(Equal(0))
 		}, 500)
 
-		It("Policies", func() {
+		It("checks all kind of kubernetes policies", func() {
 			appPods := getAppPods(helpers.DefaultNamespace)
 			service := "app1-service"
 			clusterIP, _, err := kubectl.GetServiceHostPort(helpers.DefaultNamespace, service)
