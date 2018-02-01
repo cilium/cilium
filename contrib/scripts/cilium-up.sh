@@ -23,7 +23,7 @@ sleep 3s
 docker run -d \
    --name "cilium-consul" \
    -p 8501:8500 \
-   -e 'CONSUL_LOCAL_CONFIG={"skip_leave_on_interrupt": true}' \
+   -e 'CONSUL_LOCAL_CONFIG={"skip_leave_on_interrupt": true, "disable_update_check": true}' \
    consul:0.8.3 \
    agent -client=0.0.0.0 -server -bootstrap-expect 1
 
