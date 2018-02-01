@@ -22,9 +22,6 @@
 #include "dbg.h"
 #include "geneve.h"
 
-/* validating options on tx is optional */
-#undef VALIDATE_GENEVE_TX
-
 #ifdef ENCAP_IFINDEX
 
 static inline int __encap_and_redirect(struct __sk_buff *skb, struct endpoint_key *k,
@@ -53,15 +50,6 @@ static inline int __encap_and_redirect(struct __sk_buff *skb, struct endpoint_ke
 	ret = skb_set_tunnel_opt(skb, buf, sz);
 	if (unlikely(ret < 0))
 		return DROP_WRITE_ERROR;
-#ifdef VALIDATE_GENEVE_TX
-	if (1) {
-		struct geneveopt_val geneveopt_val = {};
-
-		ret = parse_geneve_options(&geneveopt_val, buf);
-		if (IS_ERR(ret))
-			return ret;
-	}
-#endif /* VALIDATE_GENEVE_TX */
 #endif /* GENEVE_OPTS */
 
 	send_trace_notify(skb, TRACE_TO_OVERLAY, seclabel, 0, 0, ENCAP_IFINDEX, 0);

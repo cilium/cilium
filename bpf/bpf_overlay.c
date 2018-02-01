@@ -63,6 +63,9 @@ static inline int handle_ipv6(struct __sk_buff *skb)
 		ret = parse_geneve_options(&geneveopt_val, buf);
 		if (IS_ERR(ret))
 			return ret;
+
+		/* seclabel already in host endianess */
+		key.tunnel_id = geneveopt_val.seclabel;
 	}
 #endif
 
@@ -118,6 +121,24 @@ static inline int handle_ipv4(struct __sk_buff *skb)
 		return DROP_NO_TUNNEL_KEY;
 
 	l4_off = ETH_HLEN + ipv4_hdrlen(ip4);
+
+#ifdef ENCAP_GENEVE
+	if (1) {
+		uint8_t buf[MAX_GENEVE_OPT_LEN] = {};
+		struct geneveopt_val geneveopt_val = {};
+		int ret;
+
+		if (unlikely(skb_get_tunnel_opt(skb, buf, sizeof(buf)) < 0))
+			return DROP_NO_TUNNEL_OPT;
+
+		ret = parse_geneve_options(&geneveopt_val, buf);
+		if (IS_ERR(ret))
+			return ret;
+
+		/* seclabel already in host endianess */
+		key.tunnel_id = geneveopt_val.seclabel;
+	}
+#endif
 
 	/* Lookup IPv4 address in list of local endpoints */
 	if ((ep = lookup_ip4_endpoint(ip4)) != NULL) {
