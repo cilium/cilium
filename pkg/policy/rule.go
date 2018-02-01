@@ -27,7 +27,7 @@ import (
 )
 
 type rule struct {
-	api.Rule
+	*api.Rule
 
 	fromEntities []api.EndpointSelector
 	toEntities   []api.EndpointSelector
@@ -44,9 +44,14 @@ func (r *rule) sanitize() error {
 		return fmt.Errorf("nil rule")
 	}
 
+	log.Debugf("sanitize: r before Sanitize: %v", r)
+	log.Debugf("sanitize: r.Rule before Sanitize: %v", r.Rule)
 	if err := r.Rule.Sanitize(); err != nil {
 		return err
 	}
+
+	log.Debugf("sanitize: r after Sanitize: %v", r)
+	log.Debugf("sanitize: r.Rule after Sanitize: %v", r.Rule)
 
 	// resetting entity selector slices
 	r.fromEntities = []api.EndpointSelector{}
@@ -54,6 +59,7 @@ func (r *rule) sanitize() error {
 	entities := []api.Entity{}
 
 	ingressEntityCounter := 0
+	egressEntityCounter := 0
 	for _, rule := range r.Ingress {
 		entities = append(entities, rule.FromEntities...)
 		ingressEntityCounter += len(rule.FromEntities)
@@ -61,8 +67,10 @@ func (r *rule) sanitize() error {
 
 	for _, rule := range r.Egress {
 		entities = append(entities, rule.ToEntities...)
+		egressEntityCounter += len(rule.ToEntities)
 	}
 
+	// TODO (ianvernon) what is this logic???
 	for j, entity := range entities {
 		selector, ok := api.EntitySelectorMapping[entity]
 		if !ok {
@@ -75,6 +83,8 @@ func (r *rule) sanitize() error {
 			r.toEntities = append(r.toEntities, selector)
 		}
 	}
+
+	log.Debugf("sanitize: at end of function: %v", r)
 
 	return nil
 }

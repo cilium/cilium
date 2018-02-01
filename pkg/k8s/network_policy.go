@@ -77,6 +77,7 @@ func parseNetworkPolicyPeer(namespace string, peer *networkingv1.NetworkPolicyPe
 // ParseNetworkPolicy parses a k8s NetworkPolicy and returns a list of
 // Cilium policy rules that can be added
 func ParseNetworkPolicy(np *networkingv1.NetworkPolicy) (api.Rules, error) {
+	log.Debugf("ParseNetworkPolicy: parsing NetworkPolicy %s", np)
 	ingresses := []api.IngressRule{}
 	egresses := []api.EgressRule{}
 
@@ -118,6 +119,7 @@ func ParseNetworkPolicy(np *networkingv1.NetworkPolicy) (api.Rules, error) {
 	}
 
 	for _, eRule := range np.Spec.Egress {
+		log.Debugf("ParseNetworkPolicy: eRule: %s", eRule)
 		egress := api.EgressRule{}
 		if eRule.To != nil && len(eRule.To) > 0 {
 			for _, rule := range eRule.To {
@@ -135,6 +137,7 @@ func ParseNetworkPolicy(np *networkingv1.NetworkPolicy) (api.Rules, error) {
 			}
 		}
 		egresses = append(egresses, egress)
+		log.Debugf("ParseNetworkPolicy: egresses: %s", egresses)
 	}
 
 	if np.Spec.PodSelector.MatchLabels == nil {
@@ -152,6 +155,8 @@ func ParseNetworkPolicy(np *networkingv1.NetworkPolicy) (api.Rules, error) {
 	if err := rule.Sanitize(); err != nil {
 		return nil, err
 	}
+
+	log.Debugf("ParseNetworkPolicy: final rule: %s", rule)
 
 	return api.Rules{rule}, nil
 }

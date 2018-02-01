@@ -190,12 +190,14 @@ func (h *getPolicyResolve) Handle(params GetPolicyResolveParams) middleware.Resp
 
 	ingressVerdict := d.policy.AllowsIngressRLocked(&ingressSearchCtx)
 	egressVerdict := d.policy.AllowsEgressRLocked(&egressSearchCtx)
+	log.Debugf("egressVerdict: %s", egressVerdict)
 
 	d.policy.Mutex.RUnlock()
 
 	result := models.PolicyTraceResult{
 		Verdict: fmt.Sprintf("%s\n%s\n", ingressVerdict.String(), egressVerdict.String()),
-		Log:     buffer.String(),
+		//Verdict: fmt.Sprintf("%s\n", ingressVerdict.String()),
+		Log: buffer.String(),
 	}
 
 	return NewGetPolicyResolveOK().WithPayload(&result)
@@ -208,6 +210,9 @@ type AddOptions struct {
 }
 
 func (d *Daemon) policyAdd(rules api.Rules, opts *AddOptions) (uint64, error) {
+	for _, v := range rules {
+		log.Debugf("policyAdd before: rule: %v", v)
+	}
 	d.policy.Mutex.Lock()
 	defer d.policy.Mutex.Unlock()
 
@@ -215,11 +220,14 @@ func (d *Daemon) policyAdd(rules api.Rules, opts *AddOptions) (uint64, error) {
 
 	// Replace old rules if specified.
 	if opts != nil && opts.Replace {
+		log.Debugf("policyAdd: replacing old rules")
 		// Make copy of rules matching labels of new rules while deleting them
 		// in case adding new rules fails so we can restore the old ones.
 		for _, r := range rules {
 			tmp := d.policy.SearchRLocked(r.Labels)
+			log.Debugf("policyAdd: tmp: %v", tmp)
 			if len(tmp) > 0 {
+				log.Debugf("policyAdd: len(tmp) > 0; deleting labels locked")
 				d.policy.DeleteByLabelsLocked(r.Labels)
 				oldRules = append(oldRules, tmp...)
 			}
@@ -227,7 +235,9 @@ func (d *Daemon) policyAdd(rules api.Rules, opts *AddOptions) (uint64, error) {
 	}
 
 	// Add rules to the repository.
+	log.Debugf("policyAdd: adding rules to repository")
 	rev, err := d.policy.AddListLocked(rules)
+	log.Debugf("policyAdd: done adding rules to repository")
 	if err != nil {
 		metrics.PolicyImportErrors.Inc()
 		// Restore old rules.
@@ -242,6 +252,11 @@ func (d *Daemon) policyAdd(rules api.Rules, opts *AddOptions) (uint64, error) {
 		return rev, err
 	}
 
+	rulez := d.policy.GetRules()
+	for _, r := range rulez {
+		log.Debugf("policyAdd after: rule: %v", r)
+	}
+
 	return rev, nil
 }
 
@@ -254,7 +269,9 @@ func (d *Daemon) policyAdd(rules api.Rules, opts *AddOptions) (uint64, error) {
 func (d *Daemon) PolicyAdd(rules api.Rules, opts *AddOptions) (uint64, error) {
 	log.WithField(logfields.CiliumNetworkPolicy, logfields.Repr(rules)).Debug("Policy Add Request")
 
+	log.Debugf("PolicyAdd: len(rules): %d", len(rules))
 	for _, r := range rules {
+		log.Debugf("PolicyAdd: rule %v", r)
 		if err := r.Sanitize(); err != nil {
 			return 0, apierror.Error(PutPolicyFailureCode, err)
 		}
@@ -335,6 +352,7 @@ func (h *putPolicy) Handle(params PutPolicyParams) middleware.Responder {
 		return NewPutPolicyInvalidPolicy()
 	}
 
+	log.Debugf("Handle: PolicyAdd")
 	rev, err := d.PolicyAdd(rules, nil)
 	if err != nil {
 		return apierror.Error(PutPolicyFailureCode, err)
@@ -362,6 +380,9 @@ func (h *getPolicy) Handle(params GetPolicyParams) middleware.Responder {
 
 	lbls := labels.ParseSelectLabelArrayFromArray(params.Labels)
 	ruleList := d.policy.SearchRLocked(lbls)
+	for _, v := range ruleList {
+		log.Debugf("getPolicy.Handle list ruleList: %s", v)
+	}
 
 	// Error if labels have been specified but no entries found, otherwise,
 	// return empty list

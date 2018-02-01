@@ -37,6 +37,10 @@ type Repository struct {
 	revision uint64
 }
 
+func (p *Repository) GetRules() []*rule {
+	return p.rules
+}
+
 // NewPolicyRepository allocates a new policy repository
 func NewPolicyRepository() *Repository {
 	return &Repository{}
@@ -332,7 +336,7 @@ func (p *Repository) SearchRLocked(labels labels.LabelArray) api.Rules {
 
 	for _, r := range p.rules {
 		if r.Labels.Contains(labels) {
-			result = append(result, &r.Rule)
+			result = append(result, r.Rule)
 		}
 	}
 
@@ -344,7 +348,7 @@ func (p *Repository) Add(r api.Rule) (uint64, error) {
 	p.Mutex.Lock()
 	defer p.Mutex.Unlock()
 
-	realRule := &rule{Rule: r}
+	realRule := &rule{Rule: &r}
 	if err := realRule.sanitize(); err != nil {
 		return p.revision, err
 	}
@@ -361,14 +365,27 @@ func (p *Repository) Add(r api.Rule) (uint64, error) {
 // repository mutex already locked. Returns the revision number of the policy
 // repository and an error if rules could not be added to the policy repository.
 func (p *Repository) AddListLocked(rules api.Rules) (uint64, error) {
+	for _, v := range rules {
+		log.Debugf("AddListLocked: before sanitization rule: %v", v)
+	}
 	// Validate entire rule list first and only append array if all rules are
 	// valid.
 	newList := make([]*rule, len(rules))
-	for i := range rules {
-		newList[i] = &rule{Rule: *rules[i]}
+	for i, j := range rules {
+		newList[i] = &rule{Rule: j}
+		log.Debugf("AddListLocked: j: %v", j)
+		log.Debugf("AddListLocked: rules[i]: %v", rules[i])
+		log.Debugf("AddListLocked: newList[i] before sanitize: %v", newList[i])
+		log.Debugf("AddListLocked: newList[i].Rule before sanitize: %v", newList[i].Rule)
 		if err := newList[i].sanitize(); err != nil {
 			return p.revision, err
 		}
+		log.Debugf("AddListLocked: newList[i] after sanitize: %v", newList[i])
+		log.Debugf("AddListLocked: newList[i].Rule after sanitize: %v", newList[i].Rule)
+	}
+
+	for _, v := range newList {
+		log.Debugf("AddListLocked: newList: %v", v)
 	}
 
 	p.rules = append(p.rules, newList...)
@@ -436,7 +453,7 @@ func (p *Repository) GetJSON() string {
 
 	result := api.Rules{}
 	for _, r := range p.rules {
-		result = append(result, &r.Rule)
+		result = append(result, r.Rule)
 	}
 
 	return JSONMarshalRules(result)
@@ -498,7 +515,7 @@ func (p *Repository) TranslateRules(translator Translator) error {
 	defer p.Mutex.Unlock()
 
 	for ruleIndex := range p.rules {
-		if err := translator.Translate(&p.rules[ruleIndex].Rule); err != nil {
+		if err := translator.Translate(p.rules[ruleIndex].Rule); err != nil {
 			return err
 		}
 	}
