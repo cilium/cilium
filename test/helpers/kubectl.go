@@ -509,6 +509,16 @@ func (kub *Kubectl) CiliumPolicyRevision(pod string) (int, error) {
 	return revi, nil
 }
 
+// CiliumIsPolicyLoaded returns true if the policy is loaded in the given
+// cilium Pod. it returns false in case that the policy is not in place
+func (kub *Kubectl) CiliumIsPolicyLoaded(pod string, policyCmd string) bool {
+	_, err := kub.ExecPodCmd(KubeSystemNamespace, pod, fmt.Sprintf("cilium policy get %s", policyCmd))
+	if err == nil {
+		return true
+	}
+	return false
+}
+
 // ResourceLifeCycleAction represents an action performed upon objects in
 // Kubernetes.
 type ResourceLifeCycleAction string
