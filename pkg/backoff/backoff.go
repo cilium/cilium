@@ -28,10 +28,22 @@ var log = logging.DefaultLogger
 
 // Exponential implements an exponential backoff
 type Exponential struct {
-	Min    time.Duration
-	Max    time.Duration
+	// Min is the minimal backoff time, if unspecified, 1 second will be
+	// used
+	Min time.Duration
+
+	// Max is the maximum backoff time, if unspecified, no maximum time is
+	// applied
+	Max time.Duration
+
+	// Factor is the factor the backoff time grows exponentially, if
+	// unspecified, a factor of 2.0 will be used
 	Factor float64
-	Name   string
+
+	// Name is a free form string describing the operation subject to the
+	// backoff, if unspecified, a UUID is generated. This string is used
+	// for logging purposes.
+	Name string
 
 	attempt int
 }
