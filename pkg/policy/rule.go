@@ -298,8 +298,9 @@ func (r *rule) resolveL4Policy(ctx *SearchContext, state *traceState, result *L4
 	return nil, nil
 }
 
-// mergeL3 checks
-func mergeL3(ctx *SearchContext, dir string, ipRules []api.CIDR, ruleLabels labels.LabelArray, resMap *CIDRPolicyMap) int {
+// mergeCIDR inserts all of the CIDRs in ipRules to resMap. Returns the number
+// of CIDRs added to resMap.
+func mergeCIDR(ctx *SearchContext, dir string, ipRules []api.CIDR, ruleLabels labels.LabelArray, resMap *CIDRPolicyMap) int {
 	found := 0
 
 	for _, r := range ipRules {
@@ -357,7 +358,7 @@ func (r *rule) resolveCIDRPolicy(ctx *SearchContext, state *traceState, result *
 
 		allCIDRs = append(allCIDRs, computeResultantCIDRSet(ingressRule.FromCIDRSet)...)
 
-		if cnt := mergeL3(ctx, "Ingress", allCIDRs, r.Labels, &result.Ingress); cnt > 0 {
+		if cnt := mergeCIDR(ctx, "Ingress", allCIDRs, r.Labels, &result.Ingress); cnt > 0 {
 			found += cnt
 		}
 	}
@@ -369,7 +370,7 @@ func (r *rule) resolveCIDRPolicy(ctx *SearchContext, state *traceState, result *
 
 		allCIDRs = append(allCIDRs, computeResultantCIDRSet(egressRule.ToCIDRSet)...)
 
-		if cnt := mergeL3(ctx, "Egress", allCIDRs, r.Labels, &result.Egress); cnt > 0 {
+		if cnt := mergeCIDR(ctx, "Egress", allCIDRs, r.Labels, &result.Egress); cnt > 0 {
 			found += cnt
 		}
 	}
