@@ -44,7 +44,7 @@ func IsRunningOnJenkins() bool {
 	for _, varName := range env {
 		if val := os.Getenv(varName); val == "" {
 			result = false
-			log.Infof("build is not running on Jenkins; environment variable %q is not set", varName)
+			log.Infof("build is not running on Jenkins; environment variable '%v' is not set", varName)
 		}
 	}
 	return result

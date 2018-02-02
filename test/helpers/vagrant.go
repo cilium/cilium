@@ -96,7 +96,7 @@ func DestroyVM(scope string) error {
 }
 
 func getCmd(vmCommand string) *exec.Cmd {
-	log.Infof("Vagrant: running command %q", vmCommand)
+	log.Infof("Vagrant: running command '%v'", vmCommand)
 	cmd := exec.Command(getPath("bash"), "-c", vmCommand)
 	cmd.Dir = getDir()
 	return cmd

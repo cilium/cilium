@@ -390,7 +390,7 @@ func (s *SSHMeta) PolicyImport(path string, timeout time.Duration) (int, error) 
 		return -1, err
 	}
 	revision, err = s.PolicyGetRevision()
-	s.logger.Infof("PolicyImport: finished %q with revision '%d'", path, revision)
+	s.logger.Infof("PolicyImport: finished '%v' with revision '%d'", path, revision)
 	return revision, err
 }
 
