@@ -15,6 +15,7 @@
 package k8s
 
 import (
+	"github.com/cilium/cilium/pkg/annotation"
 	. "gopkg.in/check.v1"
 	"k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -26,8 +27,8 @@ func (s *K8sSuite) TestParseNode(c *C) {
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "node1",
 			Annotations: map[string]string{
-				Annotationv4CIDRName: "10.254.0.0/16",
-				Annotationv6CIDRName: "f00d:aaaa:bbbb:cccc:dddd:eeee::/112",
+				annotation.V4CIDRName: "10.254.0.0/16",
+				annotation.V6CIDRName: "f00d:aaaa:bbbb:cccc:dddd:eeee::/112",
 			},
 		},
 		Spec: v1.NodeSpec{
@@ -47,7 +48,7 @@ func (s *K8sSuite) TestParseNode(c *C) {
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "node2",
 			Annotations: map[string]string{
-				Annotationv4CIDRName: "10.254.0.0/16",
+				annotation.V4CIDRName: "10.254.0.0/16",
 			},
 		},
 		Spec: v1.NodeSpec{
@@ -66,7 +67,7 @@ func (s *K8sSuite) TestParseNode(c *C) {
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "node2",
 			Annotations: map[string]string{
-				Annotationv4CIDRName: "10.254.0.0/16",
+				annotation.V4CIDRName: "10.254.0.0/16",
 			},
 		},
 		Spec: v1.NodeSpec{

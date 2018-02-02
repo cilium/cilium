@@ -22,6 +22,7 @@ import (
 	"time"
 
 	"github.com/cilium/cilium/api/v1/models"
+	"github.com/cilium/cilium/pkg/annotation"
 	k8sconst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	cilium_v1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v1"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
@@ -116,17 +117,17 @@ func updateNodeAnnotation(c kubernetes.Interface, node *v1.Node, v4CIDR, v6CIDR 
 	}
 
 	if v4CIDR != nil {
-		node.Annotations[Annotationv4CIDRName] = v4CIDR.String()
+		node.Annotations[annotation.V4CIDRName] = v4CIDR.String()
 	}
 	if v6CIDR != nil {
-		node.Annotations[Annotationv6CIDRName] = v6CIDR.String()
+		node.Annotations[annotation.V6CIDRName] = v6CIDR.String()
 	}
 
 	if v4HealthIP != nil {
-		node.Annotations[Annotationv4HealthName] = v4HealthIP.String()
+		node.Annotations[annotation.V4HealthName] = v4HealthIP.String()
 	}
 	if v6HealthIP != nil {
-		node.Annotations[Annotationv6HealthName] = v6HealthIP.String()
+		node.Annotations[annotation.V6HealthName] = v6HealthIP.String()
 	}
 
 	node, err := c.CoreV1().Nodes().Update(node)

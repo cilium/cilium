@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/cilium/cilium/pkg/annotation"
 	"github.com/cilium/cilium/pkg/comparator"
 	"github.com/cilium/cilium/pkg/node"
 
@@ -33,7 +34,7 @@ func (s *K8sSuite) TestUseNodeCIDR(c *C) {
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "node1",
 			Annotations: map[string]string{
-				Annotationv4CIDRName: "10.254.0.0/16",
+				annotation.V4CIDRName: "10.254.0.0/16",
 			},
 		},
 		Spec: v1.NodeSpec{
@@ -58,8 +59,8 @@ func (s *K8sSuite) TestUseNodeCIDR(c *C) {
 						OnUpdate: func(n *v1.Node) (*v1.Node, error) {
 							updateChan <- true
 							n1copy := v1.Node(node1)
-							n1copy.Annotations[Annotationv4CIDRName] = "10.2.0.0/16"
-							n1copy.Annotations[Annotationv6CIDRName] = "beef:beef:beef:beef:aaaa:aaaa:1111:0/96"
+							n1copy.Annotations[annotation.V4CIDRName] = "10.2.0.0/16"
+							n1copy.Annotations[annotation.V6CIDRName] = "beef:beef:beef:beef:aaaa:aaaa:1111:0/96"
 							c.Assert(n, comparator.DeepEquals, &n1copy)
 							return &n1copy, nil
 						},
@@ -96,7 +97,7 @@ func (s *K8sSuite) TestUseNodeCIDR(c *C) {
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "node2",
 			Annotations: map[string]string{
-				Annotationv4CIDRName: "10.254.0.0/16",
+				annotation.V4CIDRName: "10.254.0.0/16",
 			},
 		},
 		Spec: v1.NodeSpec{
@@ -124,8 +125,8 @@ func (s *K8sSuite) TestUseNodeCIDR(c *C) {
 							}
 							updateChan <- true
 							n1copy := v1.Node(node2)
-							n1copy.Annotations[Annotationv4CIDRName] = "10.2.0.0/16"
-							n1copy.Annotations[Annotationv6CIDRName] = "aaaa:aaaa:aaaa:aaaa:beef:beef::/96"
+							n1copy.Annotations[annotation.V4CIDRName] = "10.2.0.0/16"
+							n1copy.Annotations[annotation.V6CIDRName] = "aaaa:aaaa:aaaa:aaaa:beef:beef::/96"
 							c.Assert(n, comparator.DeepEquals, &n1copy)
 							return &n1copy, nil
 						},

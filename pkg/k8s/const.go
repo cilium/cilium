@@ -27,25 +27,6 @@ const (
 	// updating k8s resources
 	maxUpdateRetries = 30
 
-	// AnnotationName is an optional annotation to the NetworkPolicy
-	// resource which specifies the name of the policy node to which all
-	// rules should be applied to.
-	AnnotationName = "io.cilium.name"
-
-	// Annotationv4CIDRName is the annotation name used to store the IPv4
-	// pod CIDR in the node's annotations.
-	Annotationv4CIDRName = "io.cilium.network.ipv4-pod-cidr"
-	// Annotationv6CIDRName is the annotation name used to store the IPv6
-	// pod CIDR in the node's annotations.
-	Annotationv6CIDRName = "io.cilium.network.ipv6-pod-cidr"
-
-	// Annotationv4HealthName is the annotation name used to store the IPv4
-	// address of the cilium-health endpoint in the node's annotations.
-	Annotationv4HealthName = "io.cilium.network.ipv4-health-ip"
-	// Annotationv6HealthName is the annotation name used to store the IPv6
-	// address of the cilium-health endpoint in the node's annotations.
-	Annotationv6HealthName = "io.cilium.network.ipv6-health-ip"
-
 	// EnvNodeNameSpec is the environment label used by Kubernetes to
 	// specify the node's name.
 	EnvNodeNameSpec = "K8S_NODE_NAME"

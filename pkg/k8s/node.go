@@ -17,6 +17,7 @@ package k8s
 import (
 	"net"
 
+	"github.com/cilium/cilium/pkg/annotation"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/node"
 
@@ -76,7 +77,7 @@ func ParseNode(k8sNode *v1.Node) *node.Node {
 	// the CIDR assigned by k8s controller manager
 	// In case it's invalid or empty then we fall back to our annotations.
 	if node.IPv4AllocCIDR == nil {
-		if ipv4CIDR, ok := k8sNode.Annotations[Annotationv4CIDRName]; !ok {
+		if ipv4CIDR, ok := k8sNode.Annotations[annotation.V4CIDRName]; !ok {
 			scopedLog.Debug("Empty IPv4 CIDR annotation in node")
 		} else {
 			_, cidr, err := net.ParseCIDR(ipv4CIDR)
@@ -89,7 +90,7 @@ func ParseNode(k8sNode *v1.Node) *node.Node {
 	}
 
 	if node.IPv6AllocCIDR == nil {
-		if ipv6CIDR, ok := k8sNode.Annotations[Annotationv6CIDRName]; !ok {
+		if ipv6CIDR, ok := k8sNode.Annotations[annotation.V6CIDRName]; !ok {
 			scopedLog.Debug("Empty IPv6 CIDR annotation in node")
 		} else {
 			_, cidr, err := net.ParseCIDR(ipv6CIDR)
@@ -102,7 +103,7 @@ func ParseNode(k8sNode *v1.Node) *node.Node {
 	}
 
 	if node.IPv4HealthIP == nil {
-		if healthIP, ok := k8sNode.Annotations[Annotationv4HealthName]; !ok {
+		if healthIP, ok := k8sNode.Annotations[annotation.V4HealthName]; !ok {
 			scopedLog.Debug("Empty IPv4 health endpoint annotation in node")
 		} else if ip := net.ParseIP(healthIP); ip == nil {
 			scopedLog.WithField(logfields.V4HealthIP, healthIP).Error("BUG, invalid IPv4 health endpoint annotation in node")
@@ -112,7 +113,7 @@ func ParseNode(k8sNode *v1.Node) *node.Node {
 	}
 
 	if node.IPv6HealthIP == nil {
-		if healthIP, ok := k8sNode.Annotations[Annotationv6HealthName]; !ok {
+		if healthIP, ok := k8sNode.Annotations[annotation.V6HealthName]; !ok {
 			scopedLog.Debug("Empty IPv6 health endpoint annotation in node")
 		} else if ip := net.ParseIP(healthIP); ip == nil {
 			scopedLog.WithField(logfields.V6HealthIP, healthIP).Error("BUG, invalid IPv6 health endpoint annotation in node")
