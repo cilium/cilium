@@ -135,7 +135,7 @@ func (kub *Kubectl) GetPodNames(namespace string, label string) ([]string, error
 
 	if err != nil {
 		return nil, fmt.Errorf(
-			"could not find pods in namespace %q with label %q: %s", namespace, label, err)
+			"could not find pods in namespace '%v' with label '%v': %s", namespace, label, err)
 	}
 
 	out := strings.Trim(stdout.String(), "\n")
@@ -276,7 +276,7 @@ func (kub *Kubectl) WaitForServiceEndpoints(namespace string, filter string, ser
 // Action performs the specified ResourceLifeCycleAction on the Kubernetes
 // manifest located at path filepath.
 func (kub *Kubectl) Action(action ResourceLifeCycleAction, filePath string) *CmdRes {
-	kub.logger.Debugf("performing %q on %s", action, filePath)
+	kub.logger.Debugf("performing '%v' on '%v'", action, filePath)
 	return kub.Exec(fmt.Sprintf("%s %s -f %s", KubectlCmd, action, filePath))
 }
 
@@ -468,10 +468,10 @@ func (kub *Kubectl) CiliumNodesWait() (bool, error) {
 		result := data.KVOutput()
 		for k, v := range result {
 			if v == "" {
-				kub.logger.Infof("Kubernetes node %q does not have Cilium metadata", k)
+				kub.logger.Infof("Kubernetes node '%v' does not have Cilium metadata", k)
 				return false
 			}
-			kub.logger.Infof("Kubernetes node %q IPv4 address: %q", k, v)
+			kub.logger.Infof("Kubernetes node '%v' IPv4 address: '%v'", k, v)
 		}
 		return true
 	}

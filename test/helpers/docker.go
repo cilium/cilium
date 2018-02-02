@@ -28,7 +28,7 @@ func (s *SSHMeta) ContainerExec(name string, cmd string) *CmdRes {
 func (s *SSHMeta) ContainerCreate(name, image, net, options string) *CmdRes {
 	cmd := fmt.Sprintf(
 		"docker run -d --name %s --net %s %s %s", name, net, options, image)
-	log.Debugf("spinning up container with command %q", cmd)
+	log.Debugf("spinning up container with command '%v'", cmd)
 	return s.ExecWithSudo(cmd)
 }
 
