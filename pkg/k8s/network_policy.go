@@ -15,6 +15,7 @@
 package k8s
 
 import (
+	"github.com/cilium/cilium/pkg/annotation"
 	k8sconst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -27,7 +28,7 @@ import (
 
 // GetPolicyLabelsv1 extracts the name of policy name
 func GetPolicyLabelsv1(np *networkingv1.NetworkPolicy) labels.LabelArray {
-	policyName := np.Annotations[AnnotationName]
+	policyName := np.Annotations[annotation.Name]
 	if policyName == "" {
 		policyName = np.Name
 	}

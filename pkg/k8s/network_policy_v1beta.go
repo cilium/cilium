@@ -17,6 +17,7 @@ package k8s
 // FIXME Remove this file in k8s 1.8
 
 import (
+	"github.com/cilium/cilium/pkg/annotation"
 	k8sconst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/policy"
@@ -28,7 +29,7 @@ import (
 // GetPolicyLabelsv1beta1 returns the label selector for the given network
 // policy.
 func GetPolicyLabelsv1beta1(np *v1beta1.NetworkPolicy) labels.LabelArray {
-	policyName := np.Annotations[AnnotationName]
+	policyName := np.Annotations[annotation.Name]
 	if policyName == "" {
 		policyName = np.Name
 	}

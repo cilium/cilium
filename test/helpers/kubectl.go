@@ -23,6 +23,7 @@ import (
 	"time"
 
 	"github.com/cilium/cilium/api/v1/models"
+	"github.com/cilium/cilium/pkg/annotation"
 
 	"github.com/asaskevich/govalidator"
 	"github.com/onsi/ginkgo"
@@ -31,15 +32,9 @@ import (
 )
 
 const (
-	// Annotationv4CIDRName is the annotation name used to store the IPv4
-	// pod CIDR in the node's annotations. From pkg/k8s
-	Annotationv4CIDRName = "io.cilium.network.ipv4-pod-cidr"
-	// Annotationv6CIDRName is the annotation name used to store the IPv6
-	// pod CIDR in the node's annotations. From pkg/k8s
-	Annotationv6CIDRName = "io.cilium.network.ipv6-pod-cidr"
-	KubectlCmd           = "kubectl"
-	manifestsPath        = "k8sT/manifests/"
-	kubeDNSLabel         = "k8s-app=kube-dns"
+	KubectlCmd    = "kubectl"
+	manifestsPath = "k8sT/manifests/"
+	kubeDNSLabel  = "k8s-app=kube-dns"
 )
 
 // GetCurrentK8SEnv returns the value of K8S_VERSION from the OS environment.
@@ -180,12 +175,12 @@ func (kub *Kubectl) ManifestGet(manifestFilename string) string {
 }
 
 // NodeCleanMetadata annotates each node in the Kubernetes cluster with the
-// Annotationv4CIDRName and Annotationv6CIDRName annotations. It returns an
+// annotation.V4CIDRName and annotation.V6CIDRName annotations. It returns an
 // error if the nodes cannot be retrieved via the Kubernetes API.
 func (kub *Kubectl) NodeCleanMetadata() error {
 	metadata := []string{
-		Annotationv4CIDRName,
-		Annotationv6CIDRName,
+		annotation.V4CIDRName,
+		annotation.V6CIDRName,
 	}
 
 	data := kub.Exec(fmt.Sprintf("%s get nodes -o jsonpath='{.items[*].metadata.name}'", KubectlCmd))
