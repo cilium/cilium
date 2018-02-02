@@ -407,6 +407,23 @@ var _ = Describe("K8sPolicyTest", func() {
 				helpers.KubectlPolicyNameSpaceLabel, helpers.DefaultNamespace)
 		}
 
+		waitUntilDelete := func() {
+			By("Waiting until pods are deleted")
+			body := func() bool {
+				pods, err := kubectl.GetPodNames(helpers.DefaultNamespace, groupLabel)
+				status := len(pods)
+				if status == 0 {
+					return true
+				}
+				logger.WithError(err).Infof("Pods are not deleted, pods running '%d'", status)
+				return false
+			}
+
+			err := helpers.WithTimeout(body, "Pods were not able to be deleted",
+				&helpers.TimeoutConfig{Timeout: helpers.HelperTimeout})
+			Expect(err).To(BeNil(), "Pods didn't terminate correctly")
+		}
+
 		AfterEach(func() {
 
 			kubectl.Delete(kubectl.ManifestGet(webPolicy)).ExpectSuccess(
@@ -424,6 +441,7 @@ var _ = Describe("K8sPolicyTest", func() {
 				BeFalse(), "WebPolicy is not deleted")
 			Expect(kubectl.CiliumIsPolicyLoaded(ciliumPod, getPolicyCmd(redisPolicyName))).To(
 				BeFalse(), "RedisPolicyName is not deleted")
+			waitUntilDelete()
 		})
 
 		waitforPods := func() {
