@@ -26,6 +26,12 @@ then
         echo "Not on master K8S node; no need to compile Cilium container"
     fi
 else
+
+    # symlink all go bins to /usr/bin so envoy can use them without
+    # changing envoy's PATH to include $GOPATH/bin
+    # Clean this once we move to the next ginkgo VM image
+    sudo -E ln -s ${GOPATH}/bin/* /usr/local/bin
+
     sudo -u vagrant -H -E make PKG_BUILD=1
     make install
     mkdir -p /etc/sysconfig/
