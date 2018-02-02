@@ -38,12 +38,45 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/clientcmd"
+	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 )
 
 var (
 	// ErrNilNode is returned when the Kubernetes API server has returned a nil node
-	ErrNilNode = goerrors.New("API server returned nil node")
+	ErrNilNode         = goerrors.New("API server returned nil node")
+	client             kubernetes.Interface
+	defaultClusterName = "k8sdefault"
+	k8sClusterName     = defaultClusterName
 )
+
+// GetClusterName returns the cluster name which client is connected to.
+func GetClusterName() string {
+	return k8sClusterName
+}
+
+func setClusterName() {
+	kubeCfgPath := GetKubeconfigPath()
+	defaultContext := defaultClusterName
+	if kubeCfgPath == "" {
+		log.Warnf("no kubeconfig provided; setting cluster name to %s", defaultContext)
+		k8sClusterName = defaultContext
+	}
+
+	// This is the only clean way to get the name of the current context
+	// (Kubernetes cluster) via client-go.
+	cliCfg := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(
+		&clientcmd.ClientConfigLoadingRules{ExplicitPath: kubeCfgPath},
+		&clientcmd.ConfigOverrides{ClusterInfo: clientcmdapi.Cluster{Server: ""}})
+	cfg, err := cliCfg.ConfigAccess().GetStartingConfig()
+
+	if err != nil || cfg.CurrentContext == "" {
+		log.Warnf("unable to get starting config from Kubernetes; setting cluster name to %s", defaultContext)
+		k8sClusterName = defaultContext
+	} else {
+		k8sClusterName = cfg.CurrentContext
+		log.Debugf("setting k8sClusterName to %s", k8sClusterName)
+	}
+}
 
 // CreateConfig creates a rest.Config for a given endpoint using a kubeconfig file.
 func createConfig(endpoint, kubeCfgPath string) (*rest.Config, error) {
@@ -54,7 +87,8 @@ func createConfig(endpoint, kubeCfgPath string) (*rest.Config, error) {
 	}
 
 	if kubeCfgPath != "" {
-		return clientcmd.BuildConfigFromFlags("", kubeCfgPath)
+		cli, err := clientcmd.BuildConfigFromFlags("", kubeCfgPath)
+		return cli, err
 	}
 
 	config := &rest.Config{Host: endpoint}
@@ -184,10 +218,6 @@ func AnnotateNode(c kubernetes.Interface, nodeName string, v4CIDR, v6CIDR *net.I
 	return nil
 }
 
-var (
-	client kubernetes.Interface
-)
-
 // Client returns the default Kubernetes client
 func Client() kubernetes.Interface {
 	return client
@@ -205,6 +235,8 @@ func createDefaultClient() error {
 	}
 
 	client = k8sClient
+
+	//restConfig.
 
 	return nil
 }

@@ -81,6 +81,9 @@ func NewCiliumAPI(spec *loads.Document) *CiliumAPI {
 		EndpointGetEndpointIDLogHandler: endpoint.GetEndpointIDLogHandlerFunc(func(params endpoint.GetEndpointIDLogParams) middleware.Responder {
 			return middleware.NotImplemented("operation EndpointGetEndpointIDLog has not yet been implemented")
 		}),
+		EndpointGetEndpointIpsHandler: endpoint.GetEndpointIpsHandlerFunc(func(params endpoint.GetEndpointIpsParams) middleware.Responder {
+			return middleware.NotImplemented("operation EndpointGetEndpointIps has not yet been implemented")
+		}),
 		DaemonGetHealthzHandler: daemon.GetHealthzHandlerFunc(func(params daemon.GetHealthzParams) middleware.Responder {
 			return middleware.NotImplemented("operation DaemonGetHealthz has not yet been implemented")
 		}),
@@ -190,6 +193,8 @@ type CiliumAPI struct {
 	EndpointGetEndpointIDLabelsHandler endpoint.GetEndpointIDLabelsHandler
 	// EndpointGetEndpointIDLogHandler sets the operation handler for the get endpoint ID log operation
 	EndpointGetEndpointIDLogHandler endpoint.GetEndpointIDLogHandler
+	// EndpointGetEndpointIpsHandler sets the operation handler for the get endpoint ips operation
+	EndpointGetEndpointIpsHandler endpoint.GetEndpointIpsHandler
 	// DaemonGetHealthzHandler sets the operation handler for the get healthz operation
 	DaemonGetHealthzHandler daemon.GetHealthzHandler
 	// PolicyGetIdentityHandler sets the operation handler for the get identity operation
@@ -339,6 +344,10 @@ func (o *CiliumAPI) Validate() error {
 
 	if o.EndpointGetEndpointIDLogHandler == nil {
 		unregistered = append(unregistered, "endpoint.GetEndpointIDLogHandler")
+	}
+
+	if o.EndpointGetEndpointIpsHandler == nil {
+		unregistered = append(unregistered, "endpoint.GetEndpointIpsHandler")
 	}
 
 	if o.DaemonGetHealthzHandler == nil {
@@ -567,6 +576,11 @@ func (o *CiliumAPI) initHandlerCache() {
 		o.handlers["GET"] = make(map[string]http.Handler)
 	}
 	o.handlers["GET"]["/endpoint/{id}/log"] = endpoint.NewGetEndpointIDLog(o.context, o.EndpointGetEndpointIDLogHandler)
+
+	if o.handlers["GET"] == nil {
+		o.handlers["GET"] = make(map[string]http.Handler)
+	}
+	o.handlers["GET"]["/endpointIPs"] = endpoint.NewGetEndpointIps(o.context, o.EndpointGetEndpointIpsHandler)
 
 	if o.handlers["GET"] == nil {
 		o.handlers["GET"] = make(map[string]http.Handler)

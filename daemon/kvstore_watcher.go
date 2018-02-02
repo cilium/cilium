@@ -17,15 +17,18 @@ package main
 import (
 	"time"
 
+	"encoding/json"
+	"fmt"
 	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/policy"
+	"strings"
 )
 
-// EnableKVStoreWatcher watches for kvstore changes in the common.LastFreeIDKeyPath key.
+// EnableLabelsKVStoreWatcher watches for kvstore changes in the common.LastFreeIDKeyPath key.
 // Triggers policy updates every time the value of that key is changed.
-func (d *Daemon) EnableKVStoreWatcher(maxSeconds time.Duration) {
+func (d *Daemon) EnableLabelsKVStoreWatcher(maxSeconds time.Duration) {
 	if maxID, err := GetMaxLabelID(); err == nil {
 		d.setCachedMaxLabelID(maxID)
 	}
@@ -66,4 +69,47 @@ func (d *Daemon) setCachedMaxLabelID(id policy.NumericIdentity) {
 	d.maxCachedLabelIDMU.Lock()
 	d.maxCachedLabelID = id
 	d.maxCachedLabelIDMU.Unlock()
+}
+
+func (d *Daemon) EnableEndpointIdentityKVStoreWatcher(maxSeconds time.Duration) {
+	log.Debugf("initializing endpoint identity kvstore watcher")
+	watcher := kvstore.ListAndWatch("endpointIPWatcher", common.EndpointIPKeyPath, 10)
+	go func() {
+		for {
+			select {
+			case event := <-watcher.Events:
+				var id policy.NumericIdentity
+				log.Debugf("new event received on watcher events channel for watcher %s", watcher.String())
+				_ = json.Unmarshal(event.Value, &id)
+
+				for k, v := range d.ipIdentityCache {
+					log.Debugf("cache before: %v ---> %v", k, v)
+				}
+				numSlashes := strings.Count(fmt.Sprintf("%s", event.Key), "/")
+
+				log.Debugf("num slashes for %s: %d", event.Key, numSlashes)
+				// TODO (ianvernon) get rid of me
+				if numSlashes != 5 {
+					log.Debugf("not adding lock entry: key = %s", event.Key)
+					continue
+				}
+
+				switch event.Typ {
+				case kvstore.EventTypeCreate:
+					log.Debugf("event type create for key %s", event.Key)
+					d.ipIdentityCache[event.Key] = id
+				case kvstore.EventTypeModify:
+					log.Debugf("event type modify for key %s", event.Key)
+					d.ipIdentityCache[event.Key] = id
+				case kvstore.EventTypeDelete:
+					log.Debugf("event type delete for key %s", event.Key)
+					delete(d.ipIdentityCache, event.Key)
+				}
+				for k, v := range d.ipIdentityCache {
+					log.Debugf("cache after: %v ---> %v", k, v)
+				}
+				d.TriggerPolicyUpdates(true)
+			}
+		}
+	}()
 }

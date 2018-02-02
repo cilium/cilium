@@ -114,7 +114,7 @@ func (r *CiliumNetworkPolicy) SpecEquals(o *CiliumNetworkPolicy) bool {
 }
 
 // Parse parses a CiliumNetworkPolicy and returns a list of cilium policy
-// rules.
+// rules, or an error if the provided CiliumNetworkPolicy is invalid.
 func (r *CiliumNetworkPolicy) Parse() (api.Rules, error) {
 	if r.ObjectMeta.Name == "" {
 		return nil, fmt.Errorf("CiliumNetworkPolicy must have name")

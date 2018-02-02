@@ -42,7 +42,87 @@ type K8sSuite struct{}
 
 var _ = Suite(&K8sSuite{})
 
-func (s *K8sSuite) TestParseNetworkPolicy(c *C) {
+func (s *K8sSuite) TestParseNetworkPolicyNoSelectors(c *C) {
+
+	// Ingress with neither pod nor namespace selector set.
+	ex1 := []byte(`{
+  "kind": "NetworkPolicy",
+  "apiVersion": "extensions/networkingv1",
+  "metadata": {
+    "name": "ingress-cidr-test",
+    "namespace": "myns"
+  },
+  "spec": {
+    "podSelector": {
+      "matchLabels": {
+        "role": "backend"
+      }
+    },
+    "ingress": [
+      {
+        "from": [
+          {
+            "ipBlock": {
+              "cidr": "10.0.0.0/8",
+	          "except": [
+	            "10.96.0.0/12"
+	          ]
+            }
+          }
+        ]
+      }
+    ]
+  }
+}`)
+	np := networkingv1.NetworkPolicy{}
+	err := json.Unmarshal(ex1, &np)
+	c.Assert(err, IsNil)
+
+	rules, err := ParseNetworkPolicy(&np)
+	c.Assert(err, IsNil)
+	c.Assert(rules, NotNil)
+
+	// Egress with neither pod nor namespace selector set.
+	ex2 := []byte(`{
+  "kind": "NetworkPolicy",
+  "apiVersion": "extensions/networkingv1",
+  "metadata": {
+    "name": "ingress-cidr-test",
+    "namespace": "myns"
+  },
+  "spec": {
+    "podSelector": {
+      "matchLabels": {
+        "role": "backend"
+      }
+    },
+    "egress": [
+      {
+        "to": [
+          {
+            "ipBlock": {
+              "cidr": "10.0.0.0/8",
+	          "except": [
+	            "10.96.0.0/12"
+	          ]
+            }
+          }
+        ]
+      }
+    ]
+  }
+}`)
+
+	np = networkingv1.NetworkPolicy{}
+	err = json.Unmarshal(ex2, &np)
+	c.Assert(err, IsNil)
+
+	rules, err = ParseNetworkPolicy(&np)
+	c.Assert(err, IsNil)
+	c.Assert(rules, NotNil)
+}
+
+func (s *K8sSuite) TestParseNetworkPolicyIngress(c *C) {
 	netPolicy := &networkingv1.NetworkPolicy{
 		Spec: networkingv1.NetworkPolicySpec{
 			PodSelector: metav1.LabelSelector{
@@ -101,7 +181,7 @@ func (s *K8sSuite) TestParseNetworkPolicy(c *C) {
 
 	repo := policy.NewPolicyRepository()
 	repo.AddList(rules)
-	c.Assert(repo.AllowsRLocked(&ctx), Equals, api.Denied)
+	c.Assert(repo.AllowsIngressRLocked(&ctx), Equals, api.Denied)
 
 	matchLabels := make(map[string]string)
 	for _, v := range fromEndpoints {
@@ -136,7 +216,8 @@ func (s *K8sSuite) TestParseNetworkPolicy(c *C) {
 	}
 
 	// ctx.To needs to have all labels from the policy in order to be accepted
-	c.Assert(repo.CanReachRLocked(&ctx), Not(Equals), api.Allowed)
+	ingressVerdict := repo.CanReachIngressRLocked(&ctx)
+	c.Assert(ingressVerdict, Not(Equals), api.Allowed)
 
 	ctx = policy.SearchContext{
 		From: labels.LabelArray{
@@ -149,7 +230,116 @@ func (s *K8sSuite) TestParseNetworkPolicy(c *C) {
 		Trace: policy.TRACE_VERBOSE,
 	}
 	// ctx.From also needs to have all labels from the policy in order to be accepted
-	c.Assert(repo.CanReachRLocked(&ctx), Not(Equals), api.Allowed)
+	ingressVerdict = repo.CanReachIngressRLocked(&ctx)
+	c.Assert(ingressVerdict, Not(Equals), api.Allowed)
+}
+
+func (s *K8sSuite) TestParseNetworkPolicyEgress(c *C) {
+
+	// L3 (label-based) only egress.
+	netPolicy := &networkingv1.NetworkPolicy{
+		Spec: networkingv1.NetworkPolicySpec{
+			PodSelector: metav1.LabelSelector{
+				MatchLabels: map[string]string{
+					"foo1": "bar1",
+					"foo2": "bar2",
+				},
+			},
+			Egress: []networkingv1.NetworkPolicyEgressRule{
+				{
+					To: []networkingv1.NetworkPolicyPeer{
+						{
+							PodSelector: &metav1.LabelSelector{
+								MatchLabels: map[string]string{
+									"foo3": "bar3",
+									"foo4": "bar4",
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	//rules, err := ParseNetworkPolicy(netPolicy)
+	rules, err := ParseNetworkPolicy(netPolicy)
+	c.Assert(err, IsNil)
+	c.Assert(len(rules), Equals, 1)
+
+	fromEndpoints := labels.LabelArray{
+		labels.NewLabel(k8sconst.PodNamespaceLabel, v1.NamespaceDefault, labels.LabelSourceK8s),
+		labels.NewLabel("foo1", "bar1", labels.LabelSourceK8s),
+		labels.NewLabel("foo2", "bar2", labels.LabelSourceK8s),
+	}
+
+	ctx := policy.SearchContext{
+		From: fromEndpoints,
+		To: labels.LabelArray{
+			labels.NewLabel(k8sconst.PodNamespaceLabel, v1.NamespaceDefault, labels.LabelSourceK8s),
+			labels.NewLabel("foo3", "bar3", labels.LabelSourceK8s),
+			labels.NewLabel("foo4", "bar4", labels.LabelSourceK8s),
+		},
+		Trace: policy.TRACE_VERBOSE,
+	}
+
+	repo := policy.NewPolicyRepository()
+	repo.AddList(rules)
+	c.Assert(repo.AllowsEgressRLocked(&ctx), Equals, api.Allowed)
+
+	// TODO (ianvernon) egress L4
+	/*
+		matchLabels := make(map[string]string)
+		for _, v := range fromEndpoints {
+			matchLabels[fmt.Sprintf("%s.%s", v.Source, v.Key)] = v.Value
+		}
+		lblSelector := metav1.LabelSelector{
+			MatchLabels: matchLabels,
+		}
+		epSelector := api.EndpointSelector{
+			LabelSelector: &lblSelector,
+		}
+
+		result, err := repo.ResolveL4Policy(&ctx)
+		c.Assert(result, Not(IsNil))
+		c.Assert(err, IsNil)
+		c.Assert(result, comparator.DeepEquals, &policy.L4Policy{
+			Egress: policy.L4PolicyMap{
+				"80/TCP": {
+					Port: 80, Protocol: api.ProtoTCP, U8Proto: 6,
+					FromEndpoints:  []api.EndpointSelector{epSelector},
+					L7Parser:       "",
+					L7RedirectPort: 0, L7RulesPerEp: policy.L7DataMap{},
+					Ingress:          true,
+					DerivedFromRules: []labels.LabelArray{labels.ParseLabelArray("unspec:io.cilium.k8s-policy-name", "unspec:io.cilium.k8s-policy-namespace=default")},
+				},
+			},
+			Ingress: policy.L4PolicyMap{},
+		})
+
+		ctx.To = labels.LabelArray{
+			labels.NewLabel("foo2", "bar2", labels.LabelSourceK8s),
+		}
+
+		// ctx.To needs to have all labels from the policy in order to be accepted
+		ingressVerdict := repo.CanReachIngressRLocked(&ctx)
+		c.Assert(ingressVerdict, Not(Equals), api.Allowed)
+	*/
+	ctx = policy.SearchContext{
+		From: labels.LabelArray{
+			labels.NewLabel("foo1", "bar1", labels.LabelSourceK8s),
+			labels.NewLabel("foo2", "bar2", labels.LabelSourceK8s),
+		},
+		To: labels.LabelArray{
+			labels.NewLabel(k8sconst.PodNamespaceLabel, v1.NamespaceDefault, labels.LabelSourceK8s),
+			labels.NewLabel("foo4", "bar4", labels.LabelSourceK8s),
+		},
+		Trace: policy.TRACE_VERBOSE,
+	}
+
+	// ctx.To also needs to have all labels from the policy in order to be accepted
+	egressVerdict := repo.CanReachEgressRLocked(&ctx)
+	c.Assert(egressVerdict, Not(Equals), api.Allowed)
 }
 
 func (s *K8sSuite) TestParseNetworkPolicyUnknownProto(c *C) {
@@ -208,7 +398,8 @@ func (s *K8sSuite) TestParseNetworkPolicyEmptyFrom(c *C) {
 
 	repo := policy.NewPolicyRepository()
 	repo.AddList(rules)
-	c.Assert(repo.CanReachRLocked(&ctx), Equals, api.Allowed)
+	ingressVerdict := repo.CanReachIngressRLocked(&ctx)
+	c.Assert(ingressVerdict, Equals, api.Allowed)
 
 	// Empty From rules, all sources should be allowed
 	netPolicy2 := &networkingv1.NetworkPolicy{
@@ -232,7 +423,8 @@ func (s *K8sSuite) TestParseNetworkPolicyEmptyFrom(c *C) {
 	c.Assert(len(rules), Equals, 1)
 	repo = policy.NewPolicyRepository()
 	repo.AddList(rules)
-	c.Assert(repo.CanReachRLocked(&ctx), Equals, api.Allowed)
+	ingressVerdict = repo.CanReachIngressRLocked(&ctx)
+	c.Assert(ingressVerdict, Equals, api.Allowed)
 }
 
 func (s *K8sSuite) TestParseNetworkPolicyDenyAll(c *C) {
@@ -263,7 +455,7 @@ func (s *K8sSuite) TestParseNetworkPolicyDenyAll(c *C) {
 
 	repo := policy.NewPolicyRepository()
 	repo.AddList(rules)
-	c.Assert(repo.AllowsRLocked(&ctx), Equals, api.Denied)
+	c.Assert(repo.AllowsIngressRLocked(&ctx), Equals, api.Denied)
 }
 
 func (s *K8sSuite) TestParseNetworkPolicyNoIngress(c *C) {
@@ -385,7 +577,7 @@ func (s *K8sSuite) TestNetworkPolicyExamples(c *C) {
 		Trace: policy.TRACE_VERBOSE,
 	}
 	// Doesn't share the same namespace
-	c.Assert(repo.AllowsRLocked(&ctx), Equals, api.Denied)
+	c.Assert(repo.AllowsIngressRLocked(&ctx), Equals, api.Denied)
 
 	ctx = policy.SearchContext{
 		From: labels.LabelArray{
@@ -398,7 +590,7 @@ func (s *K8sSuite) TestNetworkPolicyExamples(c *C) {
 		Trace: policy.TRACE_VERBOSE,
 	}
 	// Doesn't share the same namespace
-	c.Assert(repo.AllowsRLocked(&ctx), Equals, api.Denied)
+	c.Assert(repo.AllowsIngressRLocked(&ctx), Equals, api.Denied)
 
 	ctx = policy.SearchContext{
 		From: labels.LabelArray{
@@ -419,7 +611,7 @@ func (s *K8sSuite) TestNetworkPolicyExamples(c *C) {
 	}
 	// Should be ACCEPT sense the traffic needs to come from `frontend` AND
 	// port 6379 and belong to the same namespace `myns`.
-	c.Assert(repo.AllowsRLocked(&ctx), Equals, api.Allowed)
+	c.Assert(repo.AllowsIngressRLocked(&ctx), Equals, api.Allowed)
 
 	// Example 2a: Allow TCP 443 from any source in Bob's namespaces.
 	ex2 := []byte(`{
@@ -522,7 +714,7 @@ func (s *K8sSuite) TestNetworkPolicyExamples(c *C) {
 
 	// Should be DENY sense the traffic needs to come from
 	// namespace `user=bob` AND port 443.
-	c.Assert(repo.AllowsRLocked(&ctx), Equals, api.Denied)
+	c.Assert(repo.AllowsIngressRLocked(&ctx), Equals, api.Denied)
 
 	l4Policy, err := repo.ResolveL4Policy(&ctx)
 	c.Assert(l4Policy, Not(IsNil))
@@ -549,7 +741,7 @@ func (s *K8sSuite) TestNetworkPolicyExamples(c *C) {
 	}
 	// Should be ACCEPT sense the traffic comes from Bob's namespaces
 	// (even if it's a different namespace than `default`) AND port 443.
-	c.Assert(repo.AllowsRLocked(&ctx), Equals, api.Allowed)
+	c.Assert(repo.AllowsIngressRLocked(&ctx), Equals, api.Allowed)
 
 	// Example 3: Allow all traffic to all pods in this namespace.
 	ex3 := []byte(`{
@@ -589,7 +781,7 @@ func (s *K8sSuite) TestNetworkPolicyExamples(c *C) {
 		Trace: policy.TRACE_VERBOSE,
 	}
 	// Should be ACCEPT since it's going to `default` namespace
-	c.Assert(repo.AllowsRLocked(&ctx), Equals, api.Allowed)
+	c.Assert(repo.AllowsIngressRLocked(&ctx), Equals, api.Allowed)
 
 	ctx = policy.SearchContext{
 		From: labels.LabelArray{
@@ -603,7 +795,7 @@ func (s *K8sSuite) TestNetworkPolicyExamples(c *C) {
 		Trace: policy.TRACE_VERBOSE,
 	}
 	// Should be ACCEPT since it's coming from `default` and going to `default` ns
-	c.Assert(repo.AllowsRLocked(&ctx), Equals, api.Allowed)
+	c.Assert(repo.AllowsIngressRLocked(&ctx), Equals, api.Allowed)
 
 	ctx = policy.SearchContext{
 		From: labels.LabelArray{
@@ -623,7 +815,7 @@ func (s *K8sSuite) TestNetworkPolicyExamples(c *C) {
 		Trace: policy.TRACE_VERBOSE,
 	}
 	// Should be ACCEPT since it's coming from `default` and going to `default` namespace.
-	c.Assert(repo.AllowsRLocked(&ctx), Equals, api.Allowed)
+	c.Assert(repo.AllowsIngressRLocked(&ctx), Equals, api.Allowed)
 
 	// Example 4a: Example 4 is similar to example 2 but we will add both network
 	// policies to see if the rules are additive for the same podSelector.
@@ -744,7 +936,7 @@ func (s *K8sSuite) TestNetworkPolicyExamples(c *C) {
 		Trace: policy.TRACE_VERBOSE,
 	}
 	// Should be ACCEPT sense traffic comes from Bob's namespaces AND port 8080 as specified in `ex4`.
-	c.Assert(repo.AllowsRLocked(&ctx), Equals, api.Allowed)
+	c.Assert(repo.AllowsIngressRLocked(&ctx), Equals, api.Allowed)
 
 	ctx = policy.SearchContext{
 		From: labels.LabelArray{
@@ -764,7 +956,7 @@ func (s *K8sSuite) TestNetworkPolicyExamples(c *C) {
 		Trace: policy.TRACE_VERBOSE,
 	}
 	// Should be ACCEPT sense traffic comes from Bob's namespaces AND port 443 as specified in `ex2`.
-	c.Assert(repo.AllowsRLocked(&ctx), Equals, api.Allowed)
+	c.Assert(repo.AllowsIngressRLocked(&ctx), Equals, api.Allowed)
 
 	ctx = policy.SearchContext{
 		From: labels.LabelArray{
@@ -784,7 +976,7 @@ func (s *K8sSuite) TestNetworkPolicyExamples(c *C) {
 		Trace: policy.TRACE_VERBOSE,
 	}
 	// Should be ACCEPT despite coming from Alice's namespaces since it's port 8080 as specified in `ex4`.
-	c.Assert(repo.AllowsRLocked(&ctx), Equals, api.Allowed)
+	c.Assert(repo.AllowsIngressRLocked(&ctx), Equals, api.Allowed)
 
 	// Example 5: Some policies with match expressions.
 	ex5 := []byte(`{
@@ -900,7 +1092,7 @@ func (s *K8sSuite) TestNetworkPolicyExamples(c *C) {
 		Trace: policy.TRACE_VERBOSE,
 	}
 	// Should be ACCEPT since the SearchContext is being covered by the rules.
-	c.Assert(repo.AllowsRLocked(&ctx), Equals, api.Allowed)
+	c.Assert(repo.AllowsIngressRLocked(&ctx), Equals, api.Allowed)
 
 	ctx.To = labels.LabelArray{
 		// Namespace needs to be in `expressions` since the policy is being enforced for that namespace.
@@ -911,7 +1103,7 @@ func (s *K8sSuite) TestNetworkPolicyExamples(c *C) {
 		labels.NewLabel("tier", "cache", labels.LabelSourceK8s),
 	}
 	// Should be DENY since the namespace doesn't belong to the policy.
-	c.Assert(repo.AllowsRLocked(&ctx), Equals, api.Denied)
+	c.Assert(repo.AllowsIngressRLocked(&ctx), Equals, api.Denied)
 
 	ctx = policy.SearchContext{
 		From: labels.LabelArray{
@@ -934,7 +1126,7 @@ func (s *K8sSuite) TestNetworkPolicyExamples(c *C) {
 		Trace: policy.TRACE_VERBOSE,
 	}
 	// Should be DENY since the environment is from dev.
-	c.Assert(repo.AllowsRLocked(&ctx), Equals, api.Denied)
+	c.Assert(repo.AllowsIngressRLocked(&ctx), Equals, api.Denied)
 
 	ctx = policy.SearchContext{
 		From: labels.LabelArray{
@@ -955,7 +1147,7 @@ func (s *K8sSuite) TestNetworkPolicyExamples(c *C) {
 		Trace: policy.TRACE_VERBOSE,
 	}
 	// Should be ACCEPT since the environment is from dev.
-	c.Assert(repo.AllowsRLocked(&ctx), Equals, api.Allowed)
+	c.Assert(repo.AllowsIngressRLocked(&ctx), Equals, api.Allowed)
 }
 
 func (s *K8sSuite) TestCIDRPolicyExamples(c *C) {

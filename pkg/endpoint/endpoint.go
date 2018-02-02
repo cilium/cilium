@@ -267,7 +267,8 @@ type Endpoint struct {
 	// LabelsHash is a SHA256 hash over the SecLabel labels
 	LabelsHash string
 
-	// LabelsMap is the Set of all security labels used in the last policy computation
+	// LabelsMap is the mapping of all security identities to their labels used
+	// in the last policy computation for this endpoint.
 	LabelsMap *LabelsMap
 
 	// PortMap is port mapping configuration of the endpoint
@@ -390,6 +391,7 @@ func NewEndpointFromChangeModel(base *models.EndpointChangeRequest, l pkgLabels.
 		ep.NodeMAC = m
 	}
 
+	// TODO: ianvernon - key-value store interaction
 	if base.Addressing != nil {
 		if ip := base.Addressing.IPV6; ip != "" {
 			ip6, err := addressing.NewCiliumIPv6(ip)

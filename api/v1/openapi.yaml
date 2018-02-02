@@ -313,6 +313,32 @@ paths:
           x-go-name: Invalid
         '404':
           description: Endpoint not found
+  "/endpointIPs":
+    get:
+      summary: Retrieves a list of all endpoint IPs in the cluster and their corresponding security identities.
+      description: |
+        Retrieves a list of all endpoint IPs in the cluster and their corresponding security identities.
+      tags:
+      - endpoint
+      responses:
+        '200':
+          description: Success
+          schema:
+            type: array
+            items:
+              "$ref": "#/definitions/EndpointIPIdentityMapping"
+        '404':
+          description: No identities found
+        '520':
+          description: Endpoint IP and identity mapping store not available. Likely a network problem.
+          x-go-name: Unreachable
+          schema:
+            "$ref": "#/definitions/Error"
+        '521':
+          description: Invalid format of endpoint IP and identity mapping in storage
+          x-go-name: InvalidStorageFormat
+          schema:
+            "$ref": "#/definitions/Error"
   "/identity":
     get:
       summary: Retrieves a list of identities that have metadata matching the provided parameters.
@@ -1068,6 +1094,16 @@ definitions:
       labelsSHA256:
         description: SHA256 of labels
         type: string
+  EndpointIPIdentityMapping:
+    description: mapping of endpoint IP to security identity
+    type: object
+    properties:
+      ip:
+        description: endpoint ip
+        type: string
+      id:
+        description: security identity
+        type: integer
   Labels:
     description: Set of labels
     type: array

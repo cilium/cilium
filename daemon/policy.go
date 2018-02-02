@@ -107,6 +107,7 @@ func NewGetPolicyResolveHandler(d *Daemon) GetPolicyResolveHandler {
 	return &getPolicyResolve{daemon: d}
 }
 
+// Server-side implementation of `cilium policy trace`.
 func (h *getPolicyResolve) Handle(params GetPolicyResolveParams) middleware.Responder {
 	log.WithField(logfields.Params, logfields.Repr(params)).Debug("GET /policy/resolve request")
 
@@ -138,7 +139,7 @@ func (h *getPolicyResolve) Handle(params GetPolicyResolveParams) middleware.Resp
 
 	d.policy.Mutex.RUnlock()
 
-	// Return allowed verdict if policy enforcement isn't enabled between the two sets of labels.
+	// Return allowed ingressVerdict if policy enforcement isn't enabled between the two sets of labels.
 	if !isPolicyEnforcementEnabled {
 		buffer := new(bytes.Buffer)
 		ctx := params.IdentityContext
@@ -153,7 +154,7 @@ func (h *getPolicyResolve) Handle(params GetPolicyResolveParams) middleware.Resp
 			searchCtx.Trace = policy.TRACE_VERBOSE
 		}
 		verdict := api.Allowed.String()
-		searchCtx.PolicyTrace("Label verdict: %s\n", verdict)
+		searchCtx.PolicyTrace("Label ingressVerdict: %s\n", verdict)
 		msg := fmt.Sprintf("%s\n  %s\n%s", searchCtx.String(), policyEnforcementMsg, buffer.String())
 		return NewGetPolicyResolveOK().WithPayload(&models.PolicyTraceResult{
 			Log:     msg,
@@ -166,7 +167,7 @@ func (h *getPolicyResolve) Handle(params GetPolicyResolveParams) middleware.Resp
 	// the daemon.
 	buffer := new(bytes.Buffer)
 	ctx := params.IdentityContext
-	searchCtx := policy.SearchContext{
+	ingressSearchCtx := policy.SearchContext{
 		Trace:   policy.TRACE_ENABLED,
 		Logging: logging.NewLogBackend(buffer, "", 0),
 		From:    labels.NewSelectLabelArrayFromModel(ctx.From),
@@ -174,18 +175,29 @@ func (h *getPolicyResolve) Handle(params GetPolicyResolveParams) middleware.Resp
 		DPorts:  ctx.Dports,
 	}
 	if ctx.Verbose {
-		searchCtx.Trace = policy.TRACE_VERBOSE
+		ingressSearchCtx.Trace = policy.TRACE_VERBOSE
+	}
+
+	egressSearchCtx := policy.SearchContext{
+		Trace:   policy.TRACE_ENABLED,
+		Logging: logging.NewLogBackend(buffer, "", 0),
+		From:    labels.NewSelectLabelArrayFromModel(ctx.From),
+		To:      labels.NewSelectLabelArrayFromModel(ctx.To),
+		DPorts:  ctx.Dports,
 	}
 
 	d.policy.Mutex.RLock()
 
-	verdict := d.policy.AllowsRLocked(&searchCtx)
+	ingressVerdict := d.policy.AllowsIngressRLocked(&ingressSearchCtx)
+	egressVerdict := d.policy.AllowsEgressRLocked(&egressSearchCtx)
+	log.Debugf("egressVerdict: %s", egressVerdict)
 
 	d.policy.Mutex.RUnlock()
 
 	result := models.PolicyTraceResult{
-		Verdict: verdict.String(),
-		Log:     buffer.String(),
+		Verdict: fmt.Sprintf("%s\n%s\n", ingressVerdict.String(), egressVerdict.String()),
+		//Verdict: fmt.Sprintf("%s\n", ingressVerdict.String()),
+		Log: buffer.String(),
 	}
 
 	return NewGetPolicyResolveOK().WithPayload(&result)
@@ -198,50 +210,68 @@ type AddOptions struct {
 }
 
 func (d *Daemon) policyAdd(rules api.Rules, opts *AddOptions) (uint64, error) {
+	for _, v := range rules {
+		log.Debugf("policyAdd before: rule: %v", v)
+	}
 	d.policy.Mutex.Lock()
 	defer d.policy.Mutex.Unlock()
 
 	oldRules := api.Rules{}
 
+	// Replace old rules if specified.
 	if opts != nil && opts.Replace {
-		// Make copy of rules matching labels of new rules while
-		// deleting them.
+		log.Debugf("policyAdd: replacing old rules")
+		// Make copy of rules matching labels of new rules while deleting them
+		// in case adding new rules fails so we can restore the old ones.
 		for _, r := range rules {
 			tmp := d.policy.SearchRLocked(r.Labels)
+			log.Debugf("policyAdd: tmp: %v", tmp)
 			if len(tmp) > 0 {
+				log.Debugf("policyAdd: len(tmp) > 0; deleting labels locked")
 				d.policy.DeleteByLabelsLocked(r.Labels)
 				oldRules = append(oldRules, tmp...)
 			}
 		}
 	}
 
+	// Add rules to the repository.
+	log.Debugf("policyAdd: adding rules to repository")
 	rev, err := d.policy.AddListLocked(rules)
+	log.Debugf("policyAdd: done adding rules to repository")
 	if err != nil {
 		metrics.PolicyImportErrors.Inc()
-		// Restore old rules
+		// Restore old rules.
 		if len(oldRules) > 0 {
 			if rev, err2 := d.policy.AddListLocked(oldRules); err2 != nil {
 				log.WithError(err2).Error("Error while restoring old rules after adding of new rules failed")
 				log.Error("--- INCONSISTENT STATE OF POLICY ---")
-				return rev, err
+				return rev, err2
 			}
 		}
 
 		return rev, err
 	}
 
+	rulez := d.policy.GetRules()
+	for _, r := range rulez {
+		log.Debugf("policyAdd after: rule: %v", r)
+	}
+
 	return rev, nil
 }
 
 // PolicyAdd adds a slice of rules to the policy repository owned by the
-// daemon.  Policy enforcement is automatically enabled if currently disabled if
+// daemon. Policy enforcement is automatically enabled if currently disabled if
 // k8s is not enabled. Otherwise, if k8s is enabled, policy is enabled on the
 // pods which are selected. Eventual changes in policy rules are propagated to
-// all locally managed endpoints.
+// all locally managed endpoints. Returns the revision number of the policy
+// repository if successful or an error if the policy could not be added.
 func (d *Daemon) PolicyAdd(rules api.Rules, opts *AddOptions) (uint64, error) {
 	log.WithField(logfields.CiliumNetworkPolicy, logfields.Repr(rules)).Debug("Policy Add Request")
 
+	log.Debugf("PolicyAdd: len(rules): %d", len(rules))
 	for _, r := range rules {
+		log.Debugf("PolicyAdd: rule %v", r)
 		if err := r.Sanitize(); err != nil {
 			return 0, apierror.Error(PutPolicyFailureCode, err)
 		}
@@ -253,6 +283,8 @@ func (d *Daemon) PolicyAdd(rules api.Rules, opts *AddOptions) (uint64, error) {
 	}
 
 	log.Info("New policy imported, regenerating...")
+
+	// TODO (ianvernon) why do we not use the wait group here?
 	d.TriggerPolicyUpdates(false)
 
 	return rev, nil
@@ -320,6 +352,7 @@ func (h *putPolicy) Handle(params PutPolicyParams) middleware.Responder {
 		return NewPutPolicyInvalidPolicy()
 	}
 
+	log.Debugf("Handle: PolicyAdd")
 	rev, err := d.PolicyAdd(rules, nil)
 	if err != nil {
 		return apierror.Error(PutPolicyFailureCode, err)
@@ -347,6 +380,9 @@ func (h *getPolicy) Handle(params GetPolicyParams) middleware.Responder {
 
 	lbls := labels.ParseSelectLabelArrayFromArray(params.Labels)
 	ruleList := d.policy.SearchRLocked(lbls)
+	for _, v := range ruleList {
+		log.Debugf("getPolicy.Handle list ruleList: %s", v)
+	}
 
 	// Error if labels have been specified but no entries found, otherwise,
 	// return empty list

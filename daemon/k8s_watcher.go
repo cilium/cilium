@@ -261,6 +261,7 @@ func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 				metrics.SetTSValue(metrics.EventTSK8s, time.Now())
 				if k8sNP := copyObjToV1beta1NetworkPolicy(obj); k8sNP != nil {
 					serKNPs.Enqueue(func() error {
+						log.Debugf("policyCOntrollerDeprecated func: addK8sNetworkPolicyV1beta1")
 						d.addK8sNetworkPolicyV1beta1(k8sNP)
 						return nil
 					}, serializer.NoRetry)
@@ -670,6 +671,7 @@ func (d *Daemon) addK8sNetworkPolicyV1(k8sNP *networkingv1.NetworkPolicy) {
 	scopedLog = scopedLog.WithField(logfields.K8sNetworkPolicyName, k8sNP.ObjectMeta.Name)
 
 	opts := AddOptions{Replace: true}
+	log.Debugf("addK8sNetworkPolicyV1: PolicyAdd")
 	if _, err := d.PolicyAdd(rules, &opts); err != nil {
 		scopedLog.WithError(err).WithFields(logrus.Fields{
 			logfields.CiliumNetworkPolicy: logfields.Repr(rules),
@@ -689,6 +691,8 @@ func (d *Daemon) updateK8sNetworkPolicyV1(oldk8sNP, newk8sNP *networkingv1.Netwo
 		logfields.K8sNamespace + ".new":         newk8sNP.ObjectMeta.Namespace,
 	}).Debug("Received policy update")
 
+	log.Debugf("updateK8sNetworkPolicyV1: old: %v", oldk8sNP)
+	log.Debugf("updateK8sNetworkPolicyV1: new: %v", newk8sNP)
 	d.addK8sNetworkPolicyV1(newk8sNP)
 }
 
@@ -721,6 +725,7 @@ func (d *Daemon) addK8sNetworkPolicyV1beta1(k8sNP *v1beta1.NetworkPolicy) {
 	scopedLog = scopedLog.WithField(logfields.K8sNetworkPolicyName, k8sNP.ObjectMeta.Name)
 
 	opts := AddOptions{Replace: true}
+	log.Debugf("addK8sNetworkPolicyV1beta1: PolicyAdd")
 	if _, err := d.PolicyAdd(rules, &opts); err != nil {
 		scopedLog.WithField(logfields.Object, logfields.Repr(rules)).Error("Error while parsing k8s NetworkPolicy")
 		return
@@ -740,6 +745,7 @@ func (d *Daemon) updateK8sNetworkPolicyV1beta1(oldk8sNP, newk8sNP *v1beta1.Netwo
 		logfields.K8sNamespace + ".new":         newk8sNP.ObjectMeta.Namespace,
 	}).Debug("Received policy update")
 
+	log.Debugf("updateK8sNetworkPolicyV1beta1: addK8sNetworkPolicyV1beta1")
 	d.addK8sNetworkPolicyV1beta1(newk8sNP)
 }
 
@@ -1458,6 +1464,7 @@ func (d *Daemon) addCiliumNetworkPolicyV1(ciliumV1Store cache.Store, cnp *cilium
 		err = k8s.PreprocessRules(rules, d.loadBalancer.K8sEndpoints, d.loadBalancer.K8sServices)
 		d.loadBalancer.K8sMU.Unlock()
 		if err == nil {
+			log.Debugf("addCiliumNetworkPolicyV1: PolicyAdd")
 			_, err = d.PolicyAdd(rules, &AddOptions{Replace: true})
 		}
 	}
@@ -1556,13 +1563,17 @@ func (d *Daemon) addCiliumNetworkPolicyV2(ciliumV2Store cache.Store, cnp *cilium
 
 	scopedLog.Debug("Adding CiliumNetworkPolicy")
 
+	// TODO (ianvernon) - why do we sanitize all rules here if they are already
+	// sanitized in PolicyAdd?
 	rules, err := cnp.Parse()
 	if err == nil && len(rules) > 0 {
 		d.loadBalancer.K8sMU.Lock()
 		err = k8s.PreprocessRules(rules, d.loadBalancer.K8sEndpoints, d.loadBalancer.K8sServices)
 		d.loadBalancer.K8sMU.Unlock()
 		if err == nil {
+			log.Debugf("addCiliumNetworkPolicyV2: PolicyAdd")
 			_, err = d.PolicyAdd(rules, &AddOptions{Replace: true})
+			// TODO (ianvernon) - why do we ignore this error? shouldn't we alert the user?
 		}
 	}
 

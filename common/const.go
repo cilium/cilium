@@ -20,6 +20,8 @@ const (
 	// OperationalPath is the base path to store the operational details in the kvstore.
 	OperationalPath = "cilium-net/operational"
 
+	// EndpointIPKeyPath TODO
+	EndpointIPKeyPath = OperationalPath + "/Endpoints/IPs"
 	// LastFreeLabelIDKeyPath is the path where the Last free UUID is stored in the kvstore.
 	LastFreeLabelIDKeyPath = OperationalPath + "/Labels/LastUUID"
 	// LabelsKeyPath is the base path where labels are stored in the kvstore.

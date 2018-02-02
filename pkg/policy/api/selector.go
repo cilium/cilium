@@ -152,8 +152,10 @@ func NewESFromLabels(lbls ...*labels.Label) EndpointSelector {
 
 // NewESFromK8sLabelSelector returns a new endpoint selector from the label
 // where it the given srcPrefix will be encoded in the label's keys.
+// TODO (ianvernon) should we check for nil ls ?
 func NewESFromK8sLabelSelector(srcPrefix string, ls *metav1.LabelSelector) EndpointSelector {
 	newLs := &metav1.LabelSelector{}
+
 	if ls.MatchLabels != nil {
 		newLabels := map[string]string{}
 		for k, v := range ls.MatchLabels {

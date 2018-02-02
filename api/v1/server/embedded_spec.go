@@ -458,6 +458,43 @@ func init() {
         }
       }
     },
+    "/endpointIPs": {
+      "get": {
+        "description": "Retrieves a list of all endpoint IPs in the cluster and their corresponding security identities.\n",
+        "tags": [
+          "endpoint"
+        ],
+        "summary": "Retrieves a list of all endpoint IPs in the cluster and their corresponding security identities.",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "schema": {
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/EndpointIPIdentityMapping"
+              }
+            }
+          },
+          "404": {
+            "description": "No identities found"
+          },
+          "520": {
+            "description": "Endpoint IP and identity mapping store not available. Likely a network problem.",
+            "schema": {
+              "$ref": "#/definitions/Error"
+            },
+            "x-go-name": "Unreachable"
+          },
+          "521": {
+            "description": "Invalid format of endpoint IP and identity mapping in storage",
+            "schema": {
+              "$ref": "#/definitions/Error"
+            },
+            "x-go-name": "InvalidStorageFormat"
+          }
+        }
+      }
+    },
     "/healthz": {
       "get": {
         "description": "Returns health and status information of the Cilium daemon and related\ncomponents such as the local container runtime, connected datastore,\nKubernetes integration.\n",
@@ -1352,6 +1389,20 @@ func init() {
         "Failure",
         "Disabled"
       ]
+    },
+    "EndpointIPIdentityMapping": {
+      "description": "mapping of endpoint IP to security identity",
+      "type": "object",
+      "properties": {
+        "id": {
+          "description": "security identity",
+          "type": "integer"
+        },
+        "ip": {
+          "description": "endpoint ip",
+          "type": "string"
+        }
+      }
     },
     "EndpointPolicy": {
       "description": "Policy information of an endpoint",

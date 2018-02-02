@@ -59,7 +59,8 @@ func (e *Endpoint) checkEgressAccess(owner Owner, dstLabels labels.LabelArray, o
 		logfields.Labels + ".to":   ctx.To,
 	})
 
-	switch owner.GetPolicyRepository().AllowsLabelAccess(&ctx) {
+	egressVerdict := owner.GetPolicyRepository().AllowsEgressLabelAccess(&ctx)
+	switch egressVerdict {
 	case api.Allowed:
 		opts[opt] = optionEnabled
 		scopedLog.Debug("checkEgressAccess: Enabled")
@@ -370,24 +371,54 @@ func (e *Endpoint) regenerateConsumable(owner Owner, labelsMap *LabelsMap,
 		}
 	}
 
-	ctx := policy.SearchContext{
+	ingressCtx := policy.SearchContext{
 		To: c.LabelArray,
 	}
+
+	egressCtx := policy.SearchContext{
+		From: c.LabelArray,
+	}
 	if owner.TracingEnabled() {
-		ctx.Trace = policy.TRACE_ENABLED
+		ingressCtx.Trace = policy.TRACE_ENABLED
+		egressCtx.Trace = policy.TRACE_ENABLED
 	}
 
-	for srcID, srcLabels := range *labelsMap {
-		ctx.From = srcLabels
-		e.getLogger().WithFields(logrus.Fields{
-			logfields.PolicyID: srcID,
-			"ctx":              ctx,
-		}).Debug("Evaluating context for source PolicyID")
+	// Only L3 (label-based) policy apply.
+	// Complexity increases linearly by the number of identities in the map.
+	for identity, labels := range *labelsMap {
+		ingressCtx.From = labels
+		egressCtx.To = labels
 
-		if repo.AllowsLabelAccess(&ctx) == api.Allowed {
-			if e.allowConsumer(owner, srcID) {
+		e.getLogger().WithFields(logrus.Fields{
+			logfields.PolicyID: identity,
+			"ingress_context":  ingressCtx,
+		}).Debug("Evaluating ingress context for source PolicyID")
+
+		e.getLogger().WithFields(logrus.Fields{
+			logfields.PolicyID: identity,
+			"egress_context":   egressCtx,
+		}).Debug("Evaluating egress context for source PolicyID")
+
+		ingressAccess := repo.AllowsIngressLabelAccess(&ingressCtx)
+		if ingressAccess == api.Allowed {
+			if e.allowConsumer(owner, identity) {
 				changed = true
 			}
+		}
+
+		egressAccess := repo.AllowsEgressLabelAccess(&egressCtx)
+
+		log.WithFields(logrus.Fields{
+			logfields.PolicyID:   identity,
+			logfields.EndpointID: e.ID,
+			"labels":             labels,
+		}).Debugf("egress verdict: %v", egressAccess)
+
+		// TODO (ianvernon) plumb egress verdict into endpoint structure
+		if egressAccess == api.Allowed {
+			e.getLogger().WithFields(logrus.Fields{
+				logfields.PolicyID: identity,
+				"ctx":              ingressCtx}).Debug("egress allowed")
 		}
 	}
 
@@ -422,7 +453,9 @@ func (e *Endpoint) regenerateConsumable(owner Owner, labelsMap *LabelsMap,
 	return changed, l4Add, rulesToDelete
 }
 
-// Must be called with global repo.Mutrex, e.Mutex, and c.Mutex held
+// regenerateL3Policy regenerates the L3 (CIDR) policy for the given endpoint.
+// Must be called with global repo.Mutrex, e.Mutex, and c.Mutex held. Returns
+// whether the endpoint's L3 Policy was changed.
 func (e *Endpoint) regenerateL3Policy(owner Owner, repo *policy.Repository, revision uint64, c *policy.Consumable) (bool, error) {
 
 	ctx := policy.SearchContext{
@@ -434,9 +467,12 @@ func (e *Endpoint) regenerateL3Policy(owner Owner, repo *policy.Repository, revi
 	newL3policy := repo.ResolveL3Policy(&ctx)
 	// Perform the validation on the new policy
 	err := newL3policy.Validate()
-	valid := err == nil
 
-	if valid {
+	// Since L3 policy could not be validated, there has been no change to the L3
+	// policy.
+	policyChanged := err == nil
+
+	if policyChanged {
 		if reflect.DeepEqual(e.L3Policy, newL3policy) {
 			e.getLogger().Debug("No change in CIDR policy")
 			return false, nil
@@ -444,7 +480,7 @@ func (e *Endpoint) regenerateL3Policy(owner Owner, repo *policy.Repository, revi
 		e.L3Policy = newL3policy
 	}
 
-	return valid, err
+	return policyChanged, err
 }
 
 // IngressOrEgressIsEnforced returns true if either ingress or egress is in
@@ -491,7 +527,7 @@ func (e *Endpoint) regeneratePolicy(owner Owner, opts models.ConfigurationMap) (
 	// This can be cleaned up once we shift all bpf updates to regenerateBPF().
 	if e.PolicyMap == nil && !owner.DryModeEnabled() {
 		// First run always results in bpf generation
-		// L4 policy generation assumes e.PolicyMp to exist, but it is only created
+		// L4 policy generation assumes e.PolicyMap to exist, but it is only created
 		// when bpf is generated for the first time. Until then we can't really compute
 		// the policy. Bpf generation calls us again after PolicyMap is created.
 		// In dry mode we are called with a nil PolicyMap.
@@ -506,9 +542,9 @@ func (e *Endpoint) regeneratePolicy(owner Owner, opts models.ConfigurationMap) (
 
 	e.getLogger().Debug("Starting regenerate...")
 
-	// Collect label arrays before policy computation, as this can fail.
-	// GH-1128 should allow optimizing this away, but currently we can't
-	// reliably know if the KV-store has changed or not, so we must scan
+	// Collect mapping of identity to labels before policy computation, as this
+	// can fail. GH-1128 should allow optimizing this away, but currently we
+	// can't reliably know if the KV-store has changed or not, so we must scan
 	// through it each time.
 	labelsMap, err := getLabelsMap(owner)
 	if err != nil {
@@ -554,13 +590,13 @@ func (e *Endpoint) regeneratePolicy(owner Owner, opts models.ConfigurationMap) (
 
 	// Skip L4 policy recomputation for this consumable if already valid.
 	// Rest of the policy computation still needs to be done for each endpoint
-	// separately even thought the consumable may be shared between them.
+	// separately even though the consumable may be shared between them.
 	if c.Iteration != revision {
 		err = e.resolveL4Policy(owner, repo, c)
 		if err != nil {
 			return false, false, nil, nil, err
 		}
-		// Result is valid until cache iteration advances
+		// Result is valid until cache iteration advances.
 		c.Iteration = revision
 	} else {
 		e.getLogger().WithField(logfields.Identity, c.ID).Debug("Reusing cached L4 policy")
@@ -581,6 +617,8 @@ func (e *Endpoint) regeneratePolicy(owner Owner, opts models.ConfigurationMap) (
 		}
 	}
 
+	// Check whether we need to enable policy enforcement for the endpoint for
+	// ingress and egress and populate options map accordingly.
 	ingress, egress := owner.EnableEndpointPolicyEnforcement(e)
 
 	wasPolicyEnforced := e.IngressOrEgressIsEnforced()

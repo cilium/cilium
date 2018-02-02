@@ -79,7 +79,7 @@ type Watcher struct {
 	stopWait sync.WaitGroup
 }
 
-// String returns the name of the wather
+// String returns the name of the watcher
 func (w *Watcher) String() string {
 	return w.name
 }

@@ -85,6 +85,10 @@ func (e *EgressRule) sanitize() error {
 		return fmt.Errorf("Combining ToPorts and ToCIDR is not supported yet")
 	}
 
+	if len(e.ToCIDR) > 0 && len(e.ToEndpoints) > 0 {
+		return fmt.Errorf("Combining ToCIDR and ToEndpoints is not supported yet")
+	}
+
 	for i := range e.ToPorts {
 		if err := e.ToPorts[i].sanitize(); err != nil {
 			return err

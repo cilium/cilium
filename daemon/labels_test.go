@@ -84,7 +84,7 @@ func (ds *DaemonSuite) SetUpTest(c *C) {
 	kvstore.Client().DeleteTree(common.OperationalPath)
 	// Needs to be less than 1 second otherwise GetCachedMaxLabelID might
 	// not work properly
-	d.EnableKVStoreWatcher(time.Nanosecond)
+	d.EnableLabelsKVStoreWatcher(time.Nanosecond)
 }
 
 func (ds *DaemonSuite) TearDownTest(c *C) {

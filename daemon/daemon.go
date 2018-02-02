@@ -103,6 +103,8 @@ type Daemon struct {
 	maxCachedLabelIDMU lock.RWMutex
 	maxCachedLabelID   policy.NumericIdentity
 
+	ipIdentityCache map[string]policy.NumericIdentity
+
 	uniqueIDMU lock.Mutex
 	uniqueID   map[uint64]bool
 
@@ -883,10 +885,11 @@ func NewDaemon(c *Config) (*Daemon, error) {
 	lb := types.NewLoadBalancer()
 
 	d := Daemon{
-		conf:         c,
-		loadBalancer: lb,
-		policy:       policy.NewPolicyRepository(),
-		uniqueID:     map[uint64]bool{},
+		conf:            c,
+		loadBalancer:    lb,
+		policy:          policy.NewPolicyRepository(),
+		uniqueID:        map[uint64]bool{},
+		ipIdentityCache: map[string]policy.NumericIdentity{},
 
 		// FIXME
 		// The channel size has to be set to the maximum number of
@@ -913,6 +916,8 @@ func NewDaemon(c *Config) (*Daemon, error) {
 			log.WithError(err).Fatal("Unable to initialize Kubernetes subsystem")
 		}
 
+		d.conf.AddressSpace = k8s.GetClusterName()
+
 		// Kubernetes demands that the localhost can always reach local
 		// pods. Therefore unless the AllowLocalhost policy is set to a
 		// specific mode, always allow localhost to reach local
@@ -925,7 +930,11 @@ func NewDaemon(c *Config) (*Daemon, error) {
 		if !singleClusterRoute {
 			node.EnablePerNodeRoutes()
 		}
+	} else {
+		// TODO (ianvernon) - ip address space for other runtimes - i.e., with Docker, Mesos?
+		d.conf.AddressSpace = "default"
 	}
+
 	// If the device has been specified, the IPv4AllocPrefix and the
 	// IPv6AllocPrefix were already allocated before the k8s.Init().
 	//
