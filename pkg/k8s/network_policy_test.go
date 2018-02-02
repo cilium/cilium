@@ -152,6 +152,48 @@ func (s *K8sSuite) TestParseNetworkPolicy(c *C) {
 	c.Assert(repo.CanReachRLocked(&ctx), Not(Equals), api.Allowed)
 }
 
+func (s *K8sSuite) TestParseNetworkPolicyNoSelectors(c *C) {
+
+	// Ingress with neither pod nor namespace selector set.
+	ex1 := []byte(`{
+"kind": "NetworkPolicy",
+"apiVersion": "extensions/networkingv1",
+"metadata": {
+  "name": "ingress-cidr-test",
+  "namespace": "myns"
+},
+"spec": {
+  "podSelector": {
+    "matchLabels": {
+      "role": "backend"
+    }
+  },
+  "ingress": [
+    {
+      "from": [
+        {
+          "ipBlock": {
+            "cidr": "10.0.0.0/8",
+	          "except": [
+	            "10.96.0.0/12"
+	          ]
+          }
+        }
+      ]
+    }
+  ]
+}
+}`)
+
+	np := networkingv1.NetworkPolicy{}
+	err := json.Unmarshal(ex1, &np)
+	c.Assert(err, IsNil)
+
+	rules, err := ParseNetworkPolicy(&np)
+	c.Assert(err, IsNil)
+	c.Assert(rules, NotNil)
+}
+
 func (s *K8sSuite) TestParseNetworkPolicyUnknownProto(c *C) {
 	netPolicy := &networkingv1.NetworkPolicy{
 		Spec: networkingv1.NetworkPolicySpec{
