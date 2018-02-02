@@ -27,6 +27,8 @@ CLANG ?= clang
 CLANG_FORMAT ?= clang-format
 BUILDIFIER ?= buildifier
 STRIP ?= strip
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/snap/bin
+export PATH
 
 PROTOC ?= bazel-out/host/bin/external/com_google_protobuf/protoc
 ENVOY_API_PROTO_PATH = bazel-envoy/external/envoy_api
