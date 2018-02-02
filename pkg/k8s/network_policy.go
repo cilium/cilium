@@ -17,6 +17,7 @@ package k8s
 import (
 	k8sconst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	"github.com/cilium/cilium/pkg/labels"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
 
@@ -88,9 +89,11 @@ func ParseNetworkPolicy(np *networkingv1.NetworkPolicy) (api.Rules, error) {
 			for _, rule := range iRule.From {
 				endpointSelector := parseNetworkPolicyPeer(namespace, &rule)
 
-				// Case where no label-based selectors were in rule.
 				if endpointSelector != nil {
 					ingress.FromEndpoints = append(ingress.FromEndpoints, *endpointSelector)
+				} else {
+					// No label-based selectors were in NetworkPolicyPeer.
+					log.WithField(logfields.K8sNetworkPolicyName, np.Name).Debug("NetworkPolicyPeer does not have PodSelector or NamespaceSelector")
 				}
 
 				// Parse CIDR-based parts of rule.
