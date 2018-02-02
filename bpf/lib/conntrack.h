@@ -41,7 +41,6 @@ enum {
 	ACTION_UNSPEC,
 	ACTION_CREATE,
 	ACTION_CLOSE,
-	ACTION_DELETE,
 };
 
 static inline void __inline__ __ct_update_timeout(struct ct_entry *entry,
@@ -121,10 +120,6 @@ static inline int __inline__ __ct_lookup(void *map, struct __sk_buff *skb,
 			if (ct_entry_alive(entry))
 				break;
 			__ct_update_timeout(entry, CT_CLOSE_TIMEOUT);
-			break;
-		case ACTION_DELETE:
-			if ((ret = map_delete_elem(map, tuple)) < 0)
-				cilium_dbg(skb, DBG_ERROR_RET, BPF_FUNC_map_delete_elem, ret);
 			break;
 		}
 
@@ -230,16 +225,10 @@ static inline int __inline__ ct_lookup6(void *map, struct ipv6_ct_tuple *tuple,
 			if (skb_load_bytes(skb, l4_off + 12, &flags, 2) < 0)
 				return DROP_CT_INVALID_HDR;
 
-			if (unlikely(flags.syn && !flags.ack))
+			if (unlikely(flags.rst || flags.fin))
+				action = ACTION_CLOSE;
+			else
 				action = ACTION_CREATE;
-			else {
-				if (unlikely(flags.rst))
-					action = ACTION_DELETE;
-				else if (unlikely(flags.fin))
-					action = ACTION_CLOSE;
-
-				/* FIXME: Drop packets here with missing ACK flag? */
-			}
 		}
 
 		/* load sport + dport into tuple */
@@ -385,16 +374,10 @@ static inline int __inline__ ct_lookup4(void *map, struct ipv4_ct_tuple *tuple,
 			if (skb_load_bytes(skb, off + 12, &flags, 2) < 0)
 				return DROP_CT_INVALID_HDR;
 
-			if (unlikely(flags.syn && !flags.ack))
+			if (unlikely(flags.rst || flags.fin))
+				action = ACTION_CLOSE;
+			else
 				action = ACTION_CREATE;
-			else {
-				if (unlikely(flags.rst))
-					action = ACTION_DELETE;
-				else if (unlikely(flags.fin))
-					action = ACTION_CLOSE;
-
-				/* FIXME: Drop packets here with missing ACK flag? */
-			}
 		}
 
 		/* load sport + dport into tuple */
