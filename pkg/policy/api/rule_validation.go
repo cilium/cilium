@@ -81,8 +81,20 @@ func (i *IngressRule) sanitize() error {
 }
 
 func (e *EgressRule) sanitize() error {
+
+	// TODO: GH-XXXX (support combining of label-based L3 and CIDR-based L3)
+	if len(e.ToCIDR) > 0 && len(e.ToEndpoints) > 0 {
+		return fmt.Errorf("Combining ToCIDR and ToEndpoints is not supported yet")
+	}
+
+	// TODO: GH-XXXX (support combining of CIDR-based L3 and L4)
 	if len(e.ToCIDR) > 0 && len(e.ToPorts) > 0 {
 		return fmt.Errorf("Combining ToPorts and ToCIDR is not supported yet")
+	}
+
+	// TODO: GH-XXXX (support egress combining of label-based L3 and L4)
+	if len(e.ToEndpoints) > 0 && len(e.ToPorts) > 0 {
+		return fmt.Errorf("Combining ToPorts and ToEndpoints is not supported yet")
 	}
 
 	for i := range e.ToPorts {

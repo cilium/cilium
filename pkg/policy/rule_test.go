@@ -637,6 +637,82 @@ func (ds *PolicyTestSuite) TestL3Policy(c *C) {
 	c.Assert(err, Not(IsNil))
 }
 
+// Tests the restrictions of combining certain label-based L3 and L4 policies.
+// This ensures that the user is informed of policy combinations that are not
+// implemented in the datapath.
+func (ds *PolicyTestSuite) TestEgressRuleRestrictions(c *C) {
+
+	fooSelector := []api.EndpointSelector{
+		api.NewESFromLabels(labels.ParseSelectLabel("foo")),
+	}
+
+	// Cannot combine ToEndpoints and ToCIDR
+	apiRule1 := api.Rule{
+		EndpointSelector: api.NewESFromLabels(labels.ParseSelectLabel("bar")),
+		Egress: []api.EgressRule{
+			{
+				ToCIDR: []api.CIDR{
+					"10.1.0.0/16",
+					"2001:dbf::/64",
+				},
+				ToEndpoints: fooSelector,
+			},
+		},
+	}
+
+	err := apiRule1.Sanitize()
+	c.Assert(err, Not(IsNil))
+
+	// Cannot combine ToEndpoints and ToPorts
+	apiRule1 = api.Rule{
+		EndpointSelector: api.NewESFromLabels(labels.ParseSelectLabel("bar")),
+		Egress: []api.EgressRule{
+			{
+				ToEndpoints: fooSelector,
+				ToPorts: []api.PortRule{{
+					Ports: []api.PortProtocol{
+						{Port: "80", Protocol: api.ProtoTCP},
+					},
+					Rules: &api.L7Rules{
+						Kafka: []api.PortRuleKafka{
+							{Topic: "foo"},
+						},
+					},
+				}},
+			},
+		},
+	}
+
+	err = apiRule1.Sanitize()
+	c.Assert(err, Not(IsNil))
+
+	// Cannot combine ToCIDR and ToPorts
+	apiRule1 = api.Rule{
+		EndpointSelector: api.NewESFromLabels(labels.ParseSelectLabel("bar")),
+		Egress: []api.EgressRule{
+			{
+				ToCIDR: []api.CIDR{
+					"10.1.0.0/16",
+					"2001:dbf::/64",
+				},
+				ToPorts: []api.PortRule{{
+					Ports: []api.PortProtocol{
+						{Port: "80", Protocol: api.ProtoTCP},
+					},
+					Rules: &api.L7Rules{
+						Kafka: []api.PortRuleKafka{
+							{Topic: "foo"},
+						},
+					},
+				}},
+			},
+		},
+	}
+
+	err = apiRule1.Sanitize()
+	c.Assert(err, Not(IsNil))
+}
+
 func (ds *PolicyTestSuite) TestRuleCanReachFromEntity(c *C) {
 	fromWorld := &SearchContext{
 		From: labels.ParseSelectLabelArray("reserved:world"),
