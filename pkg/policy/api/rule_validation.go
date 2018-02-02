@@ -108,16 +108,18 @@ func (i *IngressRule) sanitize() error {
 
 func (e *EgressRule) sanitize() error {
 	l3Members := map[string]int{
-		"ToCIDR":     len(e.ToCIDR),
-		"ToCIDRSet":  len(e.ToCIDRSet),
-		"ToEntities": len(e.ToEntities),
-		"ToServices": len(e.ToServices),
+		"ToCIDR":      len(e.ToCIDR),
+		"ToCIDRSet":   len(e.ToCIDRSet),
+		"ToEndpoints": len(e.ToEndpoints),
+		"ToEntities":  len(e.ToEntities),
+		"ToServices":  len(e.ToServices),
 	}
 	l3DependentL4Support := map[interface{}]bool{
-		"ToCIDR":     false,
-		"ToCIDRSet":  false,
-		"ToEntities": false,
-		"ToServices": false,
+		"ToCIDR":      false,
+		"ToCIDRSet":   false,
+		"ToEndpoints": false,
+		"ToEntities":  false,
+		"ToServices":  false,
 	}
 	for m1 := range l3Members {
 		for m2 := range l3Members {
