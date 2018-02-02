@@ -238,7 +238,7 @@ type IdentityAllocatorOwner interface {
 func InitIdentityAllocator(owner IdentityAllocatorOwner) {
 	setupOnce.Do(func() {
 		minID := allocator.ID(MinimalNumericIdentity)
-		maxID := allocator.ID(^uint16(0))
+		maxID := allocator.ID(4095)
 		a, err := allocator.NewAllocator(IdentitiesPath, globalIdentity{},
 			allocator.WithMax(maxID), allocator.WithMin(minID),
 			allocator.WithSuffix(owner.GetNodeSuffix()))
