@@ -15,6 +15,8 @@
 package k8s
 
 import (
+	"fmt"
+
 	"github.com/cilium/cilium/pkg/annotation"
 	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	k8sUtils "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/utils"
@@ -93,7 +95,12 @@ func ParseNetworkPolicy(np *networkingv1.NetworkPolicy) (api.Rules, error) {
 	ingresses := []api.IngressRule{}
 	egresses := []api.EgressRule{}
 
+	if np == nil {
+		return nil, fmt.Errorf("cannot parse NetworkPolicy because it is nil")
+	}
+
 	namespace := k8sUtils.ExtractNamespace(&np.ObjectMeta)
+
 	for _, iRule := range np.Spec.Ingress {
 		ingress := api.IngressRule{}
 		if iRule.From != nil && len(iRule.From) > 0 {
@@ -135,8 +142,13 @@ func ParseNetworkPolicy(np *networkingv1.NetworkPolicy) (api.Rules, error) {
 		if eRule.To != nil && len(eRule.To) > 0 {
 			for _, rule := range eRule.To {
 				if rule.NamespaceSelector != nil || rule.PodSelector != nil {
-					// TODO: GH-2095
-					log.Warning("Cilium does not support PodSelector or NamespaceSelector for K8s Egress rules")
+					endpointSelector := parseNetworkPolicyPeer(namespace, &rule)
+
+					if endpointSelector != nil {
+						egress.ToEndpoints = append(egress.ToEndpoints, *endpointSelector)
+					} else {
+						log.WithField(logfields.K8sNetworkPolicyName, np.Name).Debug("NetworkPolicyPeer does not have PodSelector or NamespaceSelector")
+					}
 				}
 				if rule.IPBlock != nil {
 					egress.ToCIDRSet = append(egress.ToCIDRSet, ipBlockToCIDRRule(rule.IPBlock))
