@@ -152,7 +152,7 @@ func (h *getPolicyResolve) Handle(params GetPolicyResolveParams) middleware.Resp
 
 	d.policy.Mutex.RLock()
 
-	verdict := d.policy.AllowsRLocked(&searchCtx)
+	verdict := d.policy.AllowsIngressRLocked(&searchCtx)
 
 	d.policy.Mutex.RUnlock()
 
