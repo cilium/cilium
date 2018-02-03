@@ -69,17 +69,17 @@ func (state *traceState) trace(p *Repository, ctx *SearchContext) {
 	}
 }
 
-// CanReachRLocked evaluates the policy repository for the provided search
-// context and returns the verdict or api.Undecided if no rule matches. The
-// policy repository mutex must be held.
-func (p *Repository) CanReachRLocked(ctx *SearchContext) api.Decision {
+// CanReachIngressRLocked evaluates the policy repository for the provided search
+// context and returns the verdict or api.Undecided if no rule matches for
+// ingress. The policy repository mutex must be held.
+func (p *Repository) CanReachIngressRLocked(ctx *SearchContext) api.Decision {
 	decision := api.Undecided
 	state := traceState{}
 
 loop:
 	for i, r := range p.rules {
 		state.ruleID = i
-		switch r.canReach(ctx, &state) {
+		switch r.canReachIngress(ctx, &state) {
 		// The rule contained a constraint which was not met, this
 		// connection is not allowed
 		case api.Denied:
@@ -99,18 +99,18 @@ loop:
 	return decision
 }
 
-// AllowsLabelAccess evaluates the policy repository for the provided search
-// context and returns the verdict. If no matching policy allows for the
-// connection, the request will be denied. The policy repository mutex must be
-// held.
-func (p *Repository) AllowsLabelAccess(ctx *SearchContext) api.Decision {
+// AllowsIngressLabelAccess evaluates the policy repository for the provided search
+// context and returns the verdict for ingress policy. If no matching policy
+// allows for the  connection, the request will be denied. The policy repository
+// mutex must be held.
+func (p *Repository) AllowsIngressLabelAccess(ctx *SearchContext) api.Decision {
 	ctx.PolicyTrace("Tracing %s\n", ctx.String())
 	decision := api.Denied
 
 	if len(p.rules) == 0 {
 		ctx.PolicyTrace("  No rules found\n")
 	} else {
-		if p.CanReachRLocked(ctx) == api.Allowed {
+		if p.CanReachIngressRLocked(ctx) == api.Allowed {
 			decision = api.Allowed
 		}
 	}
@@ -220,13 +220,13 @@ func (p *Repository) allowsL4Ingress(ctx *SearchContext) api.Decision {
 	return verdict
 }
 
-// AllowsRLocked evaluates the policy repository for the provided search
-// context and returns the verdict. If no matching policy allows for the
-// connection, the request will be denied. The policy repository mutex must be
-// held.
-func (p *Repository) AllowsRLocked(ctx *SearchContext) api.Decision {
+// AllowsIngressRLocked evaluates the policy repository for the provided search
+// context and returns the verdict for ingress. If no matching policy allows for
+// the  connection, the request will be denied. The policy repository mutex must
+// be held.
+func (p *Repository) AllowsIngressRLocked(ctx *SearchContext) api.Decision {
 	ctx.PolicyTrace("Tracing %s\n", ctx.String())
-	decision := p.CanReachRLocked(ctx)
+	decision := p.CanReachIngressRLocked(ctx)
 	ctx.PolicyTrace("Label verdict: %s", decision.String())
 	if decision == api.Allowed {
 		ctx.PolicyTrace("L4 ingress & egress policies skipped")

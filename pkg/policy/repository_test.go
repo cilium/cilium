@@ -122,9 +122,9 @@ func (ds *PolicyTestSuite) TestCanReach(c *C) {
 
 	repo.Mutex.RLock()
 	// no rules loaded: CanReach => undecided
-	c.Assert(repo.CanReachRLocked(fooToBar), Equals, api.Undecided)
+	c.Assert(repo.CanReachIngressRLocked(fooToBar), Equals, api.Undecided)
 	// no rules loaded: Allows() => denied
-	c.Assert(repo.AllowsRLocked(fooToBar), Equals, api.Denied)
+	c.Assert(repo.AllowsIngressRLocked(fooToBar), Equals, api.Denied)
 	repo.Mutex.RUnlock()
 
 	tag1 := labels.LabelArray{labels.ParseLabel("tag1")}
@@ -173,34 +173,34 @@ func (ds *PolicyTestSuite) TestCanReach(c *C) {
 	c.Assert(err, IsNil)
 
 	// foo=>bar is OK
-	c.Assert(repo.AllowsRLocked(fooToBar), Equals, api.Allowed)
+	c.Assert(repo.AllowsIngressRLocked(fooToBar), Equals, api.Allowed)
 
 	// foo=>bar2 is OK
-	c.Assert(repo.AllowsRLocked(&SearchContext{
+	c.Assert(repo.AllowsIngressRLocked(&SearchContext{
 		From: labels.ParseSelectLabelArray("foo"),
 		To:   labels.ParseSelectLabelArray("bar2"),
 	}), Equals, api.Allowed)
 
 	// foo=>bar inside groupA is OK
-	c.Assert(repo.AllowsRLocked(&SearchContext{
+	c.Assert(repo.AllowsIngressRLocked(&SearchContext{
 		From: labels.ParseSelectLabelArray("foo", "groupA"),
 		To:   labels.ParseSelectLabelArray("bar", "groupA"),
 	}), Equals, api.Allowed)
 
 	// groupB can't talk to groupA => Denied
-	c.Assert(repo.AllowsRLocked(&SearchContext{
+	c.Assert(repo.AllowsIngressRLocked(&SearchContext{
 		From: labels.ParseSelectLabelArray("foo", "groupB"),
 		To:   labels.ParseSelectLabelArray("bar", "groupA"),
 	}), Equals, api.Denied)
 
 	// no restriction on groupB, unused label => OK
-	c.Assert(repo.AllowsRLocked(&SearchContext{
+	c.Assert(repo.AllowsIngressRLocked(&SearchContext{
 		From: labels.ParseSelectLabelArray("foo", "groupB"),
 		To:   labels.ParseSelectLabelArray("bar", "groupB"),
 	}), Equals, api.Allowed)
 
 	// foo=>bar3, no rule => Denied
-	c.Assert(repo.AllowsRLocked(&SearchContext{
+	c.Assert(repo.AllowsIngressRLocked(&SearchContext{
 		From: labels.ParseSelectLabelArray("foo"),
 		To:   labels.ParseSelectLabelArray("bar3"),
 	}), Equals, api.Denied)
@@ -222,12 +222,12 @@ func (ds *PolicyTestSuite) TestMinikubeGettingStarted(c *C) {
 
 	repo.Mutex.RLock()
 	// no rules loaded: CanReach => undecided
-	c.Assert(repo.CanReachRLocked(fromApp2), Equals, api.Undecided)
-	c.Assert(repo.CanReachRLocked(fromApp3), Equals, api.Undecided)
+	c.Assert(repo.CanReachIngressRLocked(fromApp2), Equals, api.Undecided)
+	c.Assert(repo.CanReachIngressRLocked(fromApp3), Equals, api.Undecided)
 
 	// no rules loaded: Allows() => denied
-	c.Assert(repo.AllowsLabelAccess(fromApp2), Equals, api.Denied)
-	c.Assert(repo.AllowsLabelAccess(fromApp3), Equals, api.Denied)
+	c.Assert(repo.AllowsIngressLabelAccess(fromApp2), Equals, api.Denied)
+	c.Assert(repo.AllowsIngressLabelAccess(fromApp3), Equals, api.Denied)
 	repo.Mutex.RUnlock()
 
 	selectorFromApp2 := []api.EndpointSelector{
@@ -384,7 +384,7 @@ func (repo *Repository) checkTrace(c *C, ctx *SearchContext, trace string,
 	ctx.Logging = logging.NewLogBackend(buffer, "", 0)
 
 	repo.Mutex.RLock()
-	verdict := repo.AllowsRLocked(ctx)
+	verdict := repo.AllowsIngressRLocked(ctx)
 	repo.Mutex.RUnlock()
 	c.Assert(verdict, Equals, expectedVerdict)
 
@@ -586,7 +586,7 @@ Label verdict: undecided
 	// Should still be allowed with the new FromRequires constraint
 	ctx = buildSearchCtx("baz", "bar", 80)
 	repo.Mutex.RLock()
-	verdict := repo.AllowsRLocked(ctx)
+	verdict := repo.AllowsIngressRLocked(ctx)
 	repo.Mutex.RUnlock()
 	c.Assert(verdict, Equals, api.Allowed)
 }
