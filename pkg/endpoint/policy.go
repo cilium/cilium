@@ -59,7 +59,7 @@ func (e *Endpoint) checkEgressAccess(owner Owner, dstLabels labels.LabelArray, o
 		logfields.Labels + ".to":   ctx.To,
 	})
 
-	switch owner.GetPolicyRepository().AllowsLabelAccess(&ctx) {
+	switch owner.GetPolicyRepository().AllowsIngressLabelAccess(&ctx) {
 	case api.Allowed:
 		opts[opt] = optionEnabled
 		scopedLog.Debug("checkEgressAccess: Enabled")
@@ -459,7 +459,7 @@ func (e *Endpoint) regenerateConsumable(owner Owner, labelsMap *LabelsMap,
 			"ctx":              ctx,
 		}).Debug("Evaluating context for source PolicyID")
 
-		if repo.AllowsLabelAccess(&ctx) == api.Allowed {
+		if repo.AllowsIngressLabelAccess(&ctx) == api.Allowed {
 			if e.allowConsumer(owner, srcID) {
 				changed = true
 			}

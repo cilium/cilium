@@ -51,11 +51,11 @@ func (ds *PolicyTestSuite) TestRuleCanReach(c *C) {
 	}
 
 	state := traceState{}
-	c.Assert(rule1.canReach(fooFoo2ToBar, &state), Equals, api.Allowed)
+	c.Assert(rule1.canReachIngress(fooFoo2ToBar, &state), Equals, api.Allowed)
 	c.Assert(state.selectedRules, Equals, 1)
 	c.Assert(state.matchedRules, Equals, 1)
 	state = traceState{}
-	c.Assert(rule1.canReach(fooToBar, &traceState{}), Equals, api.Undecided)
+	c.Assert(rule1.canReachIngress(fooToBar, &traceState{}), Equals, api.Undecided)
 	c.Assert(state.selectedRules, Equals, 0)
 	c.Assert(state.matchedRules, Equals, 0)
 
@@ -88,17 +88,17 @@ func (ds *PolicyTestSuite) TestRuleCanReach(c *C) {
 	}
 
 	state = traceState{}
-	c.Assert(rule2.canReach(fooToBar, &state), Equals, api.Denied)
+	c.Assert(rule2.canReachIngress(fooToBar, &state), Equals, api.Denied)
 	c.Assert(state.selectedRules, Equals, 1)
 	c.Assert(state.matchedRules, Equals, 0)
 
 	state = traceState{}
-	c.Assert(rule2.canReach(bazToBar, &state), Equals, api.Undecided)
+	c.Assert(rule2.canReachIngress(bazToBar, &state), Equals, api.Undecided)
 	c.Assert(state.selectedRules, Equals, 1)
 	c.Assert(state.matchedRules, Equals, 0)
 
 	state = traceState{}
-	c.Assert(rule2.canReach(fooBazToBar, &state), Equals, api.Allowed)
+	c.Assert(rule2.canReachIngress(fooBazToBar, &state), Equals, api.Allowed)
 	c.Assert(state.selectedRules, Equals, 1)
 	c.Assert(state.matchedRules, Equals, 1)
 }
@@ -738,11 +738,11 @@ func (ds *PolicyTestSuite) TestRuleCanReachFromEntity(c *C) {
 	c.Assert(rule1.sanitize(), IsNil)
 
 	state := traceState{}
-	c.Assert(rule1.canReach(fromWorld, &state), Equals, api.Allowed)
+	c.Assert(rule1.canReachIngress(fromWorld, &state), Equals, api.Allowed)
 	c.Assert(state.selectedRules, Equals, 1)
 	c.Assert(state.matchedRules, Equals, 1)
 	state = traceState{}
-	c.Assert(rule1.canReach(notFromWorld, &traceState{}), Equals, api.Undecided)
+	c.Assert(rule1.canReachIngress(notFromWorld, &traceState{}), Equals, api.Undecided)
 	c.Assert(state.selectedRules, Equals, 0)
 	c.Assert(state.matchedRules, Equals, 0)
 }
@@ -772,11 +772,11 @@ func (ds *PolicyTestSuite) TestRuleCanReachEntity(c *C) {
 	c.Assert(rule1.sanitize(), IsNil)
 
 	state := traceState{}
-	c.Assert(rule1.canReach(toWorld, &state), Equals, api.Allowed)
+	c.Assert(rule1.canReachIngress(toWorld, &state), Equals, api.Allowed)
 	c.Assert(state.selectedRules, Equals, 1)
 	c.Assert(state.matchedRules, Equals, 1)
 	state = traceState{}
-	c.Assert(rule1.canReach(notToWorld, &traceState{}), Equals, api.Undecided)
+	c.Assert(rule1.canReachIngress(notToWorld, &traceState{}), Equals, api.Undecided)
 	c.Assert(state.selectedRules, Equals, 0)
 	c.Assert(state.matchedRules, Equals, 0)
 }
