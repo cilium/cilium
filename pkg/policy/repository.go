@@ -253,6 +253,79 @@ func (p *Repository) AllowsIngressRLocked(ctx *SearchContext) api.Decision {
 	return decision
 }
 
+// AllowsEgressRLocked evaluates the policy repository for the provided search
+// context and returns the verdict. If no matching policy allows for the
+// connection, the request will be denied. The policy repository mutex must be
+// held.
+func (p *Repository) AllowsEgressRLocked(egressCtx *SearchContext) api.Decision {
+	egressCtx.PolicyTrace("Tracing %s\n", egressCtx.String())
+	egressDecision := p.CanReachEgressRLocked(egressCtx)
+	egressCtx.PolicyTrace("Egress label verdict: %s", egressDecision.String())
+
+	if egressDecision == api.Allowed {
+		egressCtx.PolicyTrace("L4 egress policies skipped")
+		return egressDecision
+	}
+	if len(egressCtx.DPorts) != 0 {
+		egressDecision = p.allowsL4Egress(egressCtx)
+	}
+
+	if egressDecision != api.Allowed {
+		egressDecision = api.Denied
+	}
+
+	return egressDecision
+}
+
+// AllowsEgressLabelAccess evaluates the policy repository for the provided search
+// context and returns the verdict for egress. If no matching
+// policy allows for the connection, the request will be denied.
+// The policy repository mutex must be held.
+func (p *Repository) AllowsEgressLabelAccess(egressCtx *SearchContext) api.Decision {
+	egressCtx.PolicyTrace("Tracing %s\n", egressCtx.String())
+	egressDecision := api.Denied
+	if len(p.rules) == 0 {
+		egressCtx.PolicyTrace("  No rules found\n")
+	} else {
+		egressDecision = p.CanReachEgressRLocked(egressCtx)
+	}
+
+	egressCtx.PolicyTrace("Egress label verdict: %s", egressDecision.String())
+
+	return egressDecision
+}
+
+// CanReachEgressRLocked evaluates the policy repository for the provided search
+// context and returns the verdict or api.Undecided if no rule matches for egress
+// policy.
+// The policy repository mutex must be held.
+func (p *Repository) CanReachEgressRLocked(egressCtx *SearchContext) api.Decision {
+	egressDecision := api.Undecided
+	egressState := traceState{}
+
+egressLoop:
+	for i, r := range p.rules {
+		egressState.ruleID = i
+		switch r.canReachEgress(egressCtx, &egressState) {
+		// The rule contained a constraint which was not met, this
+		// connection is not allowed
+		case api.Denied:
+			egressDecision = api.Denied
+			break egressLoop
+
+			// The rule allowed the connection but a later rule may impose
+			// additional constraints, so we store the decision but allow
+			// it to be overwritten by an additional requirement
+		case api.Allowed:
+			egressDecision = api.Allowed
+		}
+	}
+
+	egressState.trace(p, egressCtx)
+
+	return egressDecision
+}
+
 // SearchRLocked searches the policy repository for rules which match the
 // specified labels and will return an array of all rules which matched.
 func (p *Repository) SearchRLocked(labels labels.LabelArray) api.Rules {

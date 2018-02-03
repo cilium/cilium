@@ -382,16 +382,14 @@ func (r *rule) resolveCIDRPolicy(ctx *SearchContext, state *traceState, result *
 	return nil
 }
 
+// canReachIngress returns the decision as to whether the set of labels specified
+// in ctx.From match with the label selectors specified in the ingress rules
+// contained within r.
 func (r *rule) canReachIngress(ctx *SearchContext, state *traceState) api.Decision {
-	entitiesDecision := r.canReachEntities(ctx, state)
 
 	if !r.EndpointSelector.Matches(ctx.To) {
-		if entitiesDecision == api.Undecided {
-			state.unSelectRule(ctx, r)
-		} else {
-			state.selectRule(ctx, r)
-		}
-		return entitiesDecision
+		state.unSelectRule(ctx, r)
+		return api.Undecided
 	}
 
 	state.selectRule(ctx, r)
@@ -435,7 +433,61 @@ func (r *rule) canReachIngress(ctx *SearchContext, state *traceState) api.Decisi
 
 	}
 
-	return entitiesDecision
+	return api.Undecided
+}
+
+// canReachEgress returns the decision as to whether the set of labels specified
+// in ctx.To match with the label selectors specified in the egress rules
+// contained within r.
+func (r *rule) canReachEgress(ctx *SearchContext, state *traceState) api.Decision {
+
+	if !r.EndpointSelector.Matches(ctx.From) {
+		state.unSelectRule(ctx, r)
+		return api.Undecided
+	}
+
+	state.selectRule(ctx, r)
+
+	for _, r := range r.Egress {
+		for _, sel := range r.ToRequires {
+			ctx.PolicyTrace("    Requires from labels %+v", sel)
+			if !sel.Matches(ctx.To) {
+				ctx.PolicyTrace("-     Labels %v not found\n", ctx.To)
+				state.constrainedRules++
+				return api.Denied
+			}
+			ctx.PolicyTrace("+     Found all required labels\n")
+		}
+	}
+
+	// Separate loop is needed as failure to meet ToRequires always takes
+	// precedence over ToEndpoints.
+	for _, r := range r.Egress {
+		for _, sel := range r.ToEndpoints {
+			ctx.PolicyTrace("    Allows to labels %+v", sel)
+			if sel.Matches(ctx.To) {
+				ctx.PolicyTrace("      Found all required labels")
+				if len(r.ToPorts) == 0 {
+					ctx.PolicyTrace("+       No L4 restrictions\n")
+					state.matchedRules++
+					return api.Allowed
+				}
+				ctx.PolicyTrace("        Rule restricts traffic from specific L4 destinations; deferring policy decision to L4 policy stage\n")
+			} else {
+				ctx.PolicyTrace("      Labels %v not found\n", ctx.To)
+			}
+		}
+	}
+
+	for _, entitySelector := range r.toEntities {
+		if entitySelector.Matches(ctx.To) {
+			ctx.PolicyTrace("+     Found all required labels to match entity %s\n", entitySelector.String())
+			state.matchedRules++
+			return api.Allowed
+		}
+	}
+
+	return api.Undecided
 }
 
 func (r *rule) canReachEntities(ctx *SearchContext, state *traceState) api.Decision {
