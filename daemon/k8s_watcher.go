@@ -632,6 +632,10 @@ func (d *Daemon) updateK8sNetworkPolicyV1(oldk8sNP, newk8sNP *networkingv1.Netwo
 func (d *Daemon) deleteK8sNetworkPolicyV1(k8sNP *networkingv1.NetworkPolicy) {
 	labels := k8s.GetPolicyLabelsv1(k8sNP)
 
+	if labels == nil {
+		log.Fatalf("provided v1 NetworkPolicy is nil, so cannot delete it")
+	}
+
 	scopedLog := log.WithFields(logrus.Fields{
 		logfields.K8sNetworkPolicyName: k8sNP.ObjectMeta.Name,
 		logfields.K8sNamespace:         k8sNP.ObjectMeta.Namespace,

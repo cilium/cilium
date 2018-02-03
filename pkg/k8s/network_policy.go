@@ -29,9 +29,19 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// GetPolicyLabelsv1 extracts the name of policy name
+// GetPolicyLabelsv1 extracts the name of np. It uses the name  from the Cilium
+// annotation if present. If the policy's annotations do not contain
+// the Cilium annotation, the policy's name field is used instead.
 func GetPolicyLabelsv1(np *networkingv1.NetworkPolicy) labels.LabelArray {
+
+	// TODO: add unit test (GH-3080).
+	if np == nil {
+		log.Warningf("unable to extract policy labels because provided NetworkPolicy is nil")
+		return nil
+	}
+
 	policyName := np.Annotations[annotation.Name]
+
 	if policyName == "" {
 		policyName = np.Name
 	}
@@ -42,6 +52,12 @@ func GetPolicyLabelsv1(np *networkingv1.NetworkPolicy) labels.LabelArray {
 }
 
 func parseNetworkPolicyPeer(namespace string, peer *networkingv1.NetworkPolicyPeer) *api.EndpointSelector {
+
+	// TODO add unit test (GH-3080).
+	if peer == nil {
+		return nil
+	}
+
 	var labelSelector *metav1.LabelSelector
 
 	// Only one or the other can be set, not both
@@ -92,12 +108,13 @@ func hasV1PolicyType(pTypes []networkingv1.PolicyType, typ networkingv1.PolicyTy
 // Cilium policy rules that can be added, along with an error if there was an
 // error sanitizing the rules.
 func ParseNetworkPolicy(np *networkingv1.NetworkPolicy) (api.Rules, error) {
-	ingresses := []api.IngressRule{}
-	egresses := []api.EgressRule{}
 
 	if np == nil {
 		return nil, fmt.Errorf("cannot parse NetworkPolicy because it is nil")
 	}
+
+	ingresses := []api.IngressRule{}
+	egresses := []api.EgressRule{}
 
 	namespace := k8sUtils.ExtractNamespace(&np.ObjectMeta)
 
@@ -200,6 +217,8 @@ func ParseNetworkPolicy(np *networkingv1.NetworkPolicy) (api.Rules, error) {
 }
 
 func ipBlockToCIDRRule(block *networkingv1.IPBlock) api.CIDRRule {
+
+	// TODO: add unit test (GH-3080).
 	cidrRule := api.CIDRRule{}
 	cidrRule.Cidr = api.CIDR(block.CIDR)
 	for _, v := range block.Except {
@@ -208,8 +227,7 @@ func ipBlockToCIDRRule(block *networkingv1.IPBlock) api.CIDRRule {
 	return cidrRule
 }
 
-// Converts list of K8s NetworkPolicyPorts to Cilium PortRules.
-// Assumes that provided list of NetworkPolicyPorts is not nil.
+// parsePorts converts list of K8s NetworkPolicyPorts to Cilium PortRules.
 func parsePorts(ports []networkingv1.NetworkPolicyPort) []api.PortRule {
 	portRules := []api.PortRule{}
 	for _, port := range ports {
