@@ -231,6 +231,75 @@ func (s *K8sSuite) TestParseNetworkPolicyNoSelectors(c *C) {
 	c.Assert(rules, comparator.DeepEquals, expectedRules)
 }
 
+func (s *K8sSuite) TestParseNetworkPolicyEgress(c *C) {
+
+	// L3 (label-based) only egress.
+	netPolicy := &networkingv1.NetworkPolicy{
+		Spec: networkingv1.NetworkPolicySpec{
+			PodSelector: metav1.LabelSelector{
+				MatchLabels: map[string]string{
+					"foo1": "bar1",
+					"foo2": "bar2",
+				},
+			},
+			Egress: []networkingv1.NetworkPolicyEgressRule{
+				{
+					To: []networkingv1.NetworkPolicyPeer{
+						{
+							PodSelector: &metav1.LabelSelector{
+								MatchLabels: map[string]string{
+									"foo3": "bar3",
+									"foo4": "bar4",
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	rules, err := ParseNetworkPolicy(netPolicy)
+	c.Assert(err, IsNil)
+	c.Assert(len(rules), Equals, 1)
+
+	fromEndpoints := labels.LabelArray{
+		labels.NewLabel(k8sconst.PodNamespaceLabel, v1.NamespaceDefault, labels.LabelSourceK8s),
+		labels.NewLabel("foo1", "bar1", labels.LabelSourceK8s),
+		labels.NewLabel("foo2", "bar2", labels.LabelSourceK8s),
+	}
+
+	ctx := policy.SearchContext{
+		From: fromEndpoints,
+		To: labels.LabelArray{
+			labels.NewLabel(k8sconst.PodNamespaceLabel, v1.NamespaceDefault, labels.LabelSourceK8s),
+			labels.NewLabel("foo3", "bar3", labels.LabelSourceK8s),
+			labels.NewLabel("foo4", "bar4", labels.LabelSourceK8s),
+		},
+		Trace: policy.TRACE_VERBOSE,
+	}
+
+	repo := policy.NewPolicyRepository()
+	repo.AddList(rules)
+	c.Assert(repo.AllowsEgressRLocked(&ctx), Equals, api.Allowed)
+
+	ctx = policy.SearchContext{
+		From: labels.LabelArray{
+			labels.NewLabel("foo1", "bar1", labels.LabelSourceK8s),
+			labels.NewLabel("foo2", "bar2", labels.LabelSourceK8s),
+		},
+		To: labels.LabelArray{
+			labels.NewLabel(k8sconst.PodNamespaceLabel, v1.NamespaceDefault, labels.LabelSourceK8s),
+			labels.NewLabel("foo4", "bar4", labels.LabelSourceK8s),
+		},
+		Trace: policy.TRACE_VERBOSE,
+	}
+
+	// ctx.To also needs to have all labels from the policy in order to be accepted
+	egressVerdict := repo.CanReachEgressRLocked(&ctx)
+	c.Assert(egressVerdict, Not(Equals), api.Allowed)
+}
+
 func (s *K8sSuite) TestParseNetworkPolicyUnknownProto(c *C) {
 	netPolicy := &networkingv1.NetworkPolicy{
 		Spec: networkingv1.NetworkPolicySpec{
