@@ -382,7 +382,7 @@ func (r *rule) resolveCIDRPolicy(ctx *SearchContext, state *traceState, result *
 	return nil
 }
 
-func (r *rule) canReach(ctx *SearchContext, state *traceState) api.Decision {
+func (r *rule) canReachIngress(ctx *SearchContext, state *traceState) api.Decision {
 	entitiesDecision := r.canReachEntities(ctx, state)
 
 	if !r.EndpointSelector.Matches(ctx.To) {
