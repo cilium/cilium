@@ -49,6 +49,12 @@ type ControllerParams struct {
 	NoErrorRetry bool
 }
 
+// undefinedDoFunc is used when no DoFunc is set. controller.DoFunc is set to this
+// when the controller is incorrectly initialised.
+func undefinedDoFunc(name string) error {
+	return fmt.Errorf("controller %s DoFunc is nil", name)
+}
+
 // Controller is a simple pattern that allows to perform the following
 // tasks:
 //   - Run an operation in the background and retry until it succeeds
@@ -133,18 +139,17 @@ func (c *Controller) GetLastErrorTimestamp() time.Time {
 func (c *Controller) runController() {
 	errorRetries := 1
 
+	// ensure the callbacks are valid
+	if c.params.DoFunc == nil {
+		c.params.DoFunc = func() error { return undefinedDoFunc(c.name) }
+	}
 	for {
 		var (
 			err      error
 			interval = c.params.RunInterval
 		)
 
-		if c.params.DoFunc != nil {
-			err = c.params.DoFunc()
-		} else {
-			err = fmt.Errorf("DoFunc is nil")
-		}
-
+		err = c.params.DoFunc()
 		if err != nil {
 			c.getLogger().WithField(fieldConsecutiveErrors, errorRetries).
 				WithError(err).Debug("Controller run failed")
