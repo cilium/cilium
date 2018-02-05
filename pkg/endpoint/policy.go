@@ -91,7 +91,12 @@ func (e *Endpoint) addRedirect(owner Owner, l4 *policy.L4Filter) (uint16, error)
 	return owner.UpdateProxyRedirect(e, l4)
 }
 
-func (e *Endpoint) cleanUnusedRedirects(owner Owner, oldMap, newMap policy.L4PolicyMap) {
+// Called with endpoint lock Write locked!
+func (e *Endpoint) collectUnusedRedirects(oldMap, newMap policy.L4PolicyMap) {
+	if e.proxiesToRemove == nil {
+		e.proxiesToRemove = make(map[string]bool)
+	}
+
 	for k, v := range oldMap {
 		if newMap != nil {
 			// Keep redirects which are also in the new policy
@@ -101,11 +106,18 @@ func (e *Endpoint) cleanUnusedRedirects(owner Owner, oldMap, newMap policy.L4Pol
 		}
 
 		if v.IsRedirect() {
-			if err := owner.RemoveProxyRedirect(e, &v); err != nil {
-				e.getLogger().WithError(err).WithField("redirect", v).Warn("Error while removing proxy redirect")
-			}
-
+			e.proxiesToRemove[e.ProxyID(&v)] = true
 		}
+	}
+}
+
+// Called with endpoint lock Write locked!
+func (e *Endpoint) removeCollectedRedirects(owner Owner) {
+	for id := range e.proxiesToRemove {
+		if err := owner.RemoveProxyRedirect(e, id); err != nil {
+			e.getLogger().WithError(err).WithField(logfields.L4PolicyID, id).Warn("Error while removing proxy redirect")
+		}
+		delete(e.proxiesToRemove, id)
 	}
 }
 
@@ -348,10 +360,10 @@ func (e *Endpoint) regenerateConsumable(owner Owner, labelsMap *LabelsMap,
 	if e.L4Policy != c.L4Policy || e.LabelsMap != labelsMap {
 		// PolicyMap can't be created in dry mode.
 		if !owner.DryModeEnabled() {
-			// Update Endpoint's L4Policy
+			// Collect unused redirects.
 			if e.L4Policy != nil {
-				e.cleanUnusedRedirects(owner, e.L4Policy.Ingress, c.L4Policy.Ingress)
-				e.cleanUnusedRedirects(owner, e.L4Policy.Egress, c.L4Policy.Egress)
+				e.collectUnusedRedirects(e.L4Policy.Ingress, c.L4Policy.Ingress)
+				e.collectUnusedRedirects(e.L4Policy.Egress, c.L4Policy.Egress)
 			}
 			l4Rm, l4Add, err = e.applyL4PolicyLocked(owner, labelsMap, e.L4Policy, c.L4Policy)
 			if err != nil {
@@ -669,11 +681,16 @@ func (e *Endpoint) regenerate(owner Owner, reason string) (retErr error) {
 	}()
 
 	e.BuildMutex.Lock()
-	defer e.BuildMutex.Unlock()
+	e.ProxyCompletions = &Completions{}
+	defer func() {
+		e.ProxyCompletions = nil
+		e.BuildMutex.Unlock()
+	}()
 
-	e.Mutex.RLock()
+	e.Mutex.Lock()
 	e.getLogger().Debug("Regenerating endpoint...")
-	e.Mutex.RUnlock()
+	e.removeCollectedRedirects(owner)
+	e.Mutex.Unlock()
 
 	origDir := filepath.Join(owner.GetStateDir(), e.StringID())
 
@@ -698,6 +715,10 @@ func (e *Endpoint) regenerate(owner Owner, reason string) (retErr error) {
 	}()
 
 	revision, err := e.regenerateBPF(owner, tmpDir, reason)
+	if err == nil {
+		// Wait for all asynchronous proxy updates to be finished.
+		err = e.WaitForProxyCompletions()
+	}
 	if err != nil {
 		os.RemoveAll(tmpDir)
 		return err

@@ -59,7 +59,7 @@ var envoyOnce sync.Once
 
 // createEnvoyRedirect creates a redirect with corresponding proxy
 // configuration. This will launch a proxy instance.
-func createEnvoyRedirect(l4 *policy.L4Filter, id string, source ProxySource, to uint16) (Redirect, error) {
+func createEnvoyRedirect(l4 *policy.L4Filter, id string, source ProxySource, to uint16, completions policy.CompletionContainer) (Redirect, error) {
 	envoyOnce.Do(func() {
 		// Start Envoy on first invocation
 		envoyProxy = envoy.StartEnvoy(9901, viper.GetString("state-dir"),
@@ -74,7 +74,7 @@ func createEnvoyRedirect(l4 *policy.L4Filter, id string, source ProxySource, to 
 			source:  source,
 		}
 
-		envoyProxy.AddListener(id, to, l4.L7RulesPerEp, l4.Ingress, redir)
+		envoyProxy.AddListener(id, to, l4.L7RulesPerEp, l4.Ingress, redir, completions)
 
 		return redir, nil
 	}
@@ -83,18 +83,18 @@ func createEnvoyRedirect(l4 *policy.L4Filter, id string, source ProxySource, to 
 }
 
 // UpdateRules replaces old l7 rules of a redirect with new ones.
-func (r *EnvoyRedirect) UpdateRules(l4 *policy.L4Filter) error {
+func (r *EnvoyRedirect) UpdateRules(l4 *policy.L4Filter, completions policy.CompletionContainer) error {
 	if envoyProxy != nil {
-		envoyProxy.UpdateListener(r.id, l4.L7RulesPerEp)
+		envoyProxy.UpdateListener(r.id, l4.L7RulesPerEp, completions)
 		return nil
 	}
 	return fmt.Errorf("%s: Envoy proxy process failed to start, can not update redirect ", r.id)
 }
 
 // Close the redirect.
-func (r *EnvoyRedirect) Close() {
+func (r *EnvoyRedirect) Close(completions policy.CompletionContainer) {
 	if envoyProxy != nil {
-		envoyProxy.RemoveListener(r.id)
+		envoyProxy.RemoveListener(r.id, completions)
 	}
 }
 
