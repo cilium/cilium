@@ -187,6 +187,11 @@ func AddHostEntry(ip net.IP) error {
 	return mapInstance.Update(key, ep)
 }
 
+// DeleteEntry deletes a single map entry
+func DeleteEntry(ip net.IP) error {
+	return mapInstance.Delete(NewEndpointKey(ip))
+}
+
 // DeleteElement deletes the endpoint using all keys which represent the
 // endpoint. It returns the number of errors encountered during deletion.
 func DeleteElement(f EndpointFrontend) int {

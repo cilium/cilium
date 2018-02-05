@@ -50,6 +50,11 @@ cleanup
 monitor_start
 logs_clear
 
+# If the pseudo host IPs have not been removed since the last run but Cilium
+# was restarted, the IPs may have been picked up as valid host IPs. Remove
+# them from the list so they are not regarded as localhost entries.
+cilium bpf endpoint delete ${IPV4_HOST} || true
+cilium bpf endpoint delete ${IPV6_HOST} || true
 log "checking cilium status"
 cilium status
 
