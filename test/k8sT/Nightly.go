@@ -20,10 +20,10 @@ import (
 	"fmt"
 	"os"
 	"path"
-	"strings"
 	"sync"
 	"time"
 
+	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/test/helpers"
 	"github.com/cilium/cilium/test/helpers/policygen"
 
@@ -34,7 +34,8 @@ import (
 )
 
 var (
-	configMap = "ConfigMap"
+	configMap       = "ConfigMap"
+	endpointTimeout = (60 * time.Second)
 )
 
 var _ = Describe("NightlyEpsMeasurement", func() {
@@ -79,6 +80,8 @@ var _ = Describe("NightlyEpsMeasurement", func() {
 	var lastServer int
 
 	Measure(fmt.Sprintf("%d endpoint creation", endpointCount), func(b Benchmarker) {
+		endpointsTimeout := endpointTimeout * time.Duration(endpointCount)
+		desiredState := string(models.EndpointStateReady)
 		var err error
 		_, lastServer, err = helpers.GenerateManifestForEndpoints(endpointCount, manifestPath)
 		Expect(err).Should(BeNil())
@@ -87,35 +90,33 @@ var _ = Describe("NightlyEpsMeasurement", func() {
 		res.ExpectSuccess(res.GetDebugMessage())
 
 		waitForPodsTime := b.Time("Wait for pods", func() {
-			pods, err := kubectl.WaitforPods(helpers.DefaultNamespace, "-l zgroup=testapp", 300)
+			pods, err := kubectl.WaitforPods(helpers.DefaultNamespace, "-l zgroup=testapp", endpointsTimeout)
+			Expect(err).Should(BeNil(),
+				"Cannot retrieve %d pods in %d seconds", endpointCount, endpointsTimeout)
 			Expect(pods).Should(BeTrue())
-			Expect(err).Should(BeNil())
 		})
+
 		log.WithFields(logrus.Fields{"pod creation time": waitForPodsTime}).Info("")
 
-		ciliumPod, err := kubectl.GetCiliumPodOnNode(helpers.KubeSystemNamespace, helpers.K8s1)
-		Expect(err).Should(BeNil())
-
-		ciliumPod2, err := kubectl.GetCiliumPodOnNode(helpers.KubeSystemNamespace, helpers.K8s2)
-		Expect(err).Should(BeNil())
-
-		pods := []string{ciliumPod, ciliumPod2}
+		ciliumPods, err := kubectl.GetCiliumPods(helpers.KubeSystemNamespace)
+		Expect(err).To(BeNil(), "Cannot retrieve cilium pods")
 
 		runtime := b.Time("Endpoint creation", func() {
-
 			Eventually(func() bool {
 				count := 0
-				for _, pod := range pods {
-					output := kubectl.CiliumExec(pod, "cilium endpoint list").Output().String()
-					count += strings.Count(output, "ready")
+				for _, pod := range ciliumPods {
+					status := kubectl.CiliumEndpointsStatus(pod)
+					result := map[string]int{}
+					for _, state := range status {
+						result[state]++
+					}
+					count += result[desiredState]
+					log.WithField("status", result).Debugf("Cilium %s endpoint status are:", pod)
 				}
-
 				return count >= endpointCount
-
-			}, 300*time.Second, 3*time.Second).Should(BeTrue())
+			}, endpointsTimeout, 3*time.Second).Should(BeTrue())
 		})
 		log.WithFields(logrus.Fields{"endpoint creation time": runtime}).Info("")
-
 	}, 1)
 
 	It("Should be able to connect from client pods to services while cilium pod is being restarted", func() {
@@ -193,7 +194,6 @@ var _ = Describe("NightlyEpsMeasurement", func() {
 					testSpecGroup.CreateAndApplyManifests(kubectl)
 				})
 				b.RecordValue("Endpoint Creation in seconds", endpoints.Seconds())
-
 				By("Apply Policies")
 
 				policy := b.Time("policy", func() {
