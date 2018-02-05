@@ -84,7 +84,7 @@ var _ = Describe("RuntimeValidatedMonitorTest", func() {
 		areEndpointsReady := vm.WaitEndpointsReady()
 		Expect(areEndpointsReady).Should(BeTrue())
 
-		helpers.Sleep(5)
+		helpers.Sleep(10)
 		cancel()
 		endpoints, err := vm.GetEndpointsIds()
 		Expect(err).Should(BeNil())
@@ -116,7 +116,7 @@ var _ = Describe("RuntimeValidatedMonitorTest", func() {
 			Expect(areEndpointsReady).Should(BeTrue())
 
 			vm.ContainerExec(helpers.App1, helpers.Ping(helpers.Httpd1))
-			helpers.Sleep(5)
+			helpers.Sleep(10)
 			cancel()
 
 			Expect(res.CountLines()).Should(BeNumerically(">", 3))
@@ -140,7 +140,7 @@ var _ = Describe("RuntimeValidatedMonitorTest", func() {
 		res = vm.ExecContext(ctx, fmt.Sprintf(
 			"cilium monitor --type debug --from %s -v", endpoints[helpers.App1]))
 		vm.ContainerExec(helpers.App1, helpers.Ping(helpers.Httpd1))
-		helpers.Sleep(5)
+		helpers.Sleep(10)
 		cancel()
 
 		Expect(res.CountLines()).Should(BeNumerically(">", 3))
@@ -171,7 +171,7 @@ var _ = Describe("RuntimeValidatedMonitorTest", func() {
 
 		vm.ContainerExec(helpers.App1, helpers.Ping(helpers.Httpd1))
 		vm.ContainerExec(helpers.App2, helpers.Ping(helpers.Httpd1))
-		helpers.Sleep(5)
+		helpers.Sleep(10)
 		cancel()
 
 		Expect(res.CountLines()).Should(BeNumerically(">=", 3))
@@ -200,7 +200,7 @@ var _ = Describe("RuntimeValidatedMonitorTest", func() {
 		vm.WaitEndpointsReady()
 		vm.ContainerExec(helpers.App1, helpers.CurlFail("http://httpd1/public"))
 
-		helpers.Sleep(2)
+		helpers.Sleep(10)
 		cancel()
 		Expect(res.CountLines()).Should(BeNumerically(">=", 3))
 		filter := fmt.Sprintf("FROM %s DEBUG:", endpoints[helpers.Httpd1])
@@ -272,7 +272,7 @@ var _ = Describe("RuntimeValidatedMonitorTest", func() {
 		endpoints, err := vm.GetEndpointsIDMap()
 		Expect(err).Should(BeNil())
 
-		helpers.Sleep(2)
+		helpers.Sleep(10)
 		cancel()
 
 		// Expected full example output:
