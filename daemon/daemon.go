@@ -100,9 +100,6 @@ type Daemon struct {
 	policy            *policy.Repository
 	preFilter         *policy.PreFilter
 
-	maxCachedLabelIDMU lock.RWMutex
-	maxCachedLabelID   policy.NumericIdentity
-
 	uniqueIDMU lock.Mutex
 	uniqueID   map[uint64]bool
 
@@ -213,6 +210,11 @@ func (d *Daemon) StartEndpointBuilders(nRoutines int) {
 			}
 		}()
 	}
+}
+
+// GetTunnelMode returns the path to the state directory
+func (d *Daemon) GetTunnelMode() string {
+	return d.conf.Tunnel
 }
 
 // GetStateDir returns the path to the state directory
@@ -1014,6 +1016,10 @@ func NewDaemon(c *Config) (*Daemon, error) {
 	ni, n := node.GetLocalNode()
 	node.UpdateNode(ni, n, node.TunnelRoute, nil)
 
+	// This needs to be done after the node addressing has been configured
+	// as the node address is required as sufix
+	policy.InitIdentityAllocator(&d)
+
 	if !d.conf.IPv4Disabled {
 		// Allocate IPv4 service loopback IP
 		loopbackIPv4, _, err := ipam.AllocateNext("ipv4")
@@ -1274,6 +1280,10 @@ func (h *getConfig) Handle(params GetConfigParams) middleware.Responder {
 		K8sEndpoint:       k8s.GetAPIServer(),
 		PolicyEnforcement: policy.GetPolicyEnabled(),
 		NodeMonitor:       d.nodeMonitor.State(),
+		KvstoreConfiguration: &models.KVstoreConfiguration{
+			Type:    kvStore,
+			Options: kvStoreOpts,
+		},
 	}
 
 	return NewGetConfigOK().WithPayload(cfg)
@@ -1412,4 +1422,15 @@ func (d *Daemon) sendEvent(data []byte) error {
 	}
 
 	return nil
+}
+
+// GetNodeSuffix returns the suffix to be appended to kvstore keys of this
+// agent
+func (d *Daemon) GetNodeSuffix() string {
+	if ip := node.GetExternalIPv4(); ip != nil {
+		return ip.String()
+	}
+
+	log.Fatal("Node IP not available yet")
+	return "<nil>"
 }

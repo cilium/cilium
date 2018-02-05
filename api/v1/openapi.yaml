@@ -820,6 +820,9 @@ definitions:
       policy-revision:
         description: The policy revision this endpoint is running on
         type: integer
+      controllers:
+        description: Status of all endpoint controllers
+        "$ref": "#/definitions/ControllerStatuses"
   EndpointChangeRequest:
     description: |
       Structure which contains the mutable elements of an Endpoint.
@@ -1212,6 +1215,17 @@ definitions:
       unknown:
         description: Number of unknown samples.
         type: integer
+  KVstoreConfiguration:
+    description: Configuration used for the kvstore
+    properties:
+      type:
+        description: Type of kvstore
+        type: string
+      options:
+        description: Configuration options
+        type: object
+        additionalProperties:
+          type: string
   DaemonConfigurationResponse:
     description: |
       Response to a daemon configuration request. Contains the addressing
@@ -1231,6 +1245,8 @@ definitions:
       nodeMonitor:
         description: Status of the node monitor
         "$ref": "#/definitions/MonitorStatus"
+      kvstoreConfiguration:
+        "$ref": "#/definitions/KVstoreConfiguration"
   Configuration:
     description: |
       General purpose structure to hold configuration of the daemon and
@@ -1407,6 +1423,60 @@ definitions:
           direct-server-return:
             description: Perform direct server return
             type: boolean
+  ControllerStatuses:
+    description: Collection of controller statuses
+    type: array
+    items:
+      "$ref": "#/definitions/ControllerStatus"
+  ControllerStatus:
+    description: Status of a controller
+    type: object
+    properties:
+      name:
+        description: Name of controller
+        type: string
+      uuid:
+        description: UUID of controller
+        type: string
+        format: uuid
+      configuration:
+        description: Configuration of controller
+        type: object
+        properties:
+          interval:
+            description: Regular synchronization interval
+            type: string
+            format: duration
+          error-retry-base:
+            description: Base error retry back-off time
+            type: string
+            format: duration
+          error-retry:
+            description: Retry on error
+            type: boolean
+      status:
+        description: Current status of controller
+        type: object
+        properties:
+          success-count:
+            description: Total number of successful runs
+            type: integer
+          last-success-timestamp:
+            description: Timestsamp of last success
+            type: string
+            format: date-time
+          failure-count:
+            description: Total number of failed runs
+            type: integer
+          last-failure-timestamp:
+            description: Timestamp of last error
+            type: string
+            format: date-time
+          consecutive-failure-count:
+            description: Number of consecutive errors since last success
+            type: integer
+          last-failure-msg:
+            description: Error message of last failed run
+            type: string
   Error:
     type: string
-

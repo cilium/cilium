@@ -109,7 +109,7 @@ func (e *Endpoint) cleanUnusedRedirects(owner Owner, oldMap, newMap policy.L4Pol
 	}
 }
 
-func getSecurityIdentities(labelsMap *LabelsMap, selector *api.EndpointSelector) []policy.NumericIdentity {
+func getSecurityIdentities(labelsMap *policy.IdentityCache, selector *api.EndpointSelector) []policy.NumericIdentity {
 	identities := []policy.NumericIdentity{}
 	for idx, labels := range *labelsMap {
 		if selector.Matches(labels) {
@@ -129,7 +129,7 @@ func getSecurityIdentities(labelsMap *LabelsMap, selector *api.EndpointSelector)
 // it maps to whether they were removed successfully (true or false)
 // It also returns the number of errors that occurred while when removing the
 // policy.
-func (e *Endpoint) removeOldFilter(owner Owner, labelsMap *LabelsMap,
+func (e *Endpoint) removeOldFilter(owner Owner, labelsMap *policy.IdentityCache,
 	filter *policy.L4Filter) policy.RuleContexts {
 
 	fromEndpointsSrcIDs := policy.RuleContexts{}
@@ -176,8 +176,7 @@ func (e *Endpoint) removeOldFilter(owner Owner, labelsMap *LabelsMap,
 // it maps to whether they were added successfully (true or false).
 // It also returns the number of errors that occurred while when applying the
 // policy.
-func (e *Endpoint) applyNewFilter(owner Owner, labelsMap *LabelsMap,
-	filter *policy.L4Filter) (policy.RuleContexts, int) {
+func (e *Endpoint) applyNewFilter(owner Owner, labelsMap *policy.IdentityCache, filter *policy.L4Filter) (policy.RuleContexts, int) {
 
 	fromEndpointsSrcIDs := policy.RuleContexts{}
 	port := uint16(filter.Port)
@@ -234,12 +233,10 @@ func setMapOperationResult(secIDs, newSecIDs policy.RuleContexts) {
 // and a map that represents all L3-dependent L4 rules that were attemped to be
 // added;
 // it maps to whether they were removed successfully (true or false)
-func (e *Endpoint) applyL4PolicyLocked(owner Owner, labelsMap *LabelsMap,
-	oldPolicy, newPolicy *policy.L4Policy) (secIDsRm, secIDsAdded policy.RuleContexts, err error) {
+func (e *Endpoint) applyL4PolicyLocked(owner Owner, labelsMap *policy.IdentityCache, oldPolicy, newPolicy *policy.L4Policy) (secIDsRm, secIDsAdded policy.RuleContexts, err error) {
 
 	secIDsRm = policy.RuleContexts{}
 	secIDsAdded = policy.RuleContexts{}
-
 	if oldPolicy != nil {
 		var secIDs policy.RuleContexts
 		for _, filter := range oldPolicy.Ingress {
@@ -268,36 +265,15 @@ func (e *Endpoint) applyL4PolicyLocked(owner Owner, labelsMap *LabelsMap,
 	return secIDsRm, secIDsAdded, nil
 }
 
-func getLabelsMap(owner Owner) (*LabelsMap, error) {
-	maxID, err := owner.GetCachedMaxLabelID()
-	if err != nil {
-		return nil, err
-	}
-
-	labelsMap := LabelsMap{}
+func getLabelsMap() (*policy.IdentityCache, error) {
+	labelsMap := policy.GetIdentityCache()
 
 	reservedIDs := policy.GetConsumableCache().GetReservedIDs()
 	var idx policy.NumericIdentity
 	for _, idx = range reservedIDs {
-		lbls, err := owner.GetCachedLabelList(idx)
-		if err != nil {
-			return nil, err
-		}
-		// Skip currently unused IDs
+		lbls := policy.ResolveIdentityLabels(idx)
 		if lbls == nil || len(lbls) == 0 {
-			continue
-		}
-		labelsMap[idx] = lbls
-	}
-
-	for idx = policy.MinimalNumericIdentity; idx < maxID; idx++ {
-		lbls, err := owner.GetCachedLabelList(idx)
-		if err != nil {
-			return nil, err
-		}
-		// Skip currently unused IDs
-		if lbls == nil || len(lbls) == 0 {
-			continue
+			return nil, fmt.Errorf("unable to resolve reserved identity")
 		}
 		labelsMap[idx] = lbls
 	}
@@ -328,7 +304,7 @@ func (e *Endpoint) resolveL4Policy(owner Owner, repo *policy.Repository, c *poli
 }
 
 // Must be called with global endpoint.Mutex held
-func (e *Endpoint) regenerateConsumable(owner Owner, labelsMap *LabelsMap,
+func (e *Endpoint) regenerateConsumable(owner Owner, labelsMap *policy.IdentityCache,
 	repo *policy.Repository, c *policy.Consumable) (bool, policy.RuleContexts, policy.RuleContexts) {
 
 	var (
@@ -510,7 +486,7 @@ func (e *Endpoint) regeneratePolicy(owner Owner, opts models.ConfigurationMap) (
 	// GH-1128 should allow optimizing this away, but currently we can't
 	// reliably know if the KV-store has changed or not, so we must scan
 	// through it each time.
-	labelsMap, err := getLabelsMap(owner)
+	labelsMap, err := getLabelsMap()
 	if err != nil {
 		e.getLogger().WithError(err).Debug("Received error while evaluating policy")
 		return false, false, nil, nil, err
@@ -863,7 +839,6 @@ func (e *Endpoint) SetIdentity(owner Owner, id *policy.Identity) {
 		cache.Remove(e.Consumable)
 	}
 	e.SecLabel = id
-	e.LabelsHash = e.SecLabel.Labels.SHA256Sum()
 	e.Consumable = cache.GetOrCreate(id.ID, id)
 
 	// Sets endpoint state to ready if was waiting for identity

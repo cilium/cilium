@@ -18,7 +18,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"path/filepath"
-	"reflect"
 
 	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/pkg/endpoint"
@@ -251,37 +250,23 @@ func (d *Daemon) syncLabels(ep *endpoint.Endpoint) error {
 	}
 
 	// Filter the restored labels with the new daemon's filter
-	idtyLbls, _ := labels.FilterLabels(ep.SecLabel.Labels)
+	l, _ := labels.FilterLabels(ep.SecLabel.Labels)
+	ep.SecLabel.Labels = l
 
-	ep.SecLabel.Labels = idtyLbls
-
-	sha256sum := ep.SecLabel.Labels.SHA256Sum()
-	labels, err := LookupIdentityBySHA256(sha256sum)
+	identity, _, err := policy.AllocateIdentity(ep.SecLabel.Labels)
 	if err != nil {
-		return fmt.Errorf("Unable to get labels of sha256sum:%s: %+v\n", sha256sum, err)
+		return err
 	}
 
-	if labels == nil {
-		l, _, err := d.CreateOrUpdateIdentity(ep.SecLabel.Labels, ep.StringID())
-		if err != nil {
-			return fmt.Errorf("Unable to put labels %+v: %s\n", ep.SecLabel.Labels, err)
-		}
-		labels = l
-	}
-
-	if !reflect.DeepEqual(labels.Labels, ep.SecLabel.Labels) {
-		return fmt.Errorf("The set of labels should be the same for " +
-			"the endpoint being restored and the labels stored")
-	}
-
-	if labels.ID != ep.SecLabel.ID {
+	if identity.ID != ep.SecLabel.ID {
 		log.WithFields(logrus.Fields{
 			logfields.EndpointID:              ep.ID,
 			logfields.IdentityLabels + ".old": ep.SecLabel.ID,
-			logfields.IdentityLabels + ".new": labels.ID,
+			logfields.IdentityLabels + ".new": identity.ID,
 		}).Info("Security label ID for endpoint is different that the one stored, updating")
 	}
-	ep.SetIdentity(d, labels)
+
+	ep.SetIdentity(d, identity)
 
 	return nil
 }

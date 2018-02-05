@@ -20,11 +20,8 @@ build: $(SUBDIRS)
 $(SUBDIRS): force
 	@ $(MAKE) -C $@ all
 
-tests: tests-common tests-consul tests-envoy
-
-tests-ginkgo: tests-common-ginkgo
-
-tests-common-ginkgo: force
+# invoked from ginkgo Jenkinsfile
+tests-ginkgo: force
 	go vet $(GOFILES)
 	# Make the bindata to run the unittest
 	make -C daemon go-bindata
@@ -36,14 +33,25 @@ clean-ginkgo-tests:
 	docker-compose -f test/docker-compose.yml -p $$JOB_BASE_NAME-$$BUILD_NUMBER down
 	docker-compose -f test/docker-compose.yml -p $$JOB_BASE_NAME-$$BUILD_NUMBER rm
 
-tests-common: force
-	go vet $(GOFILES)
-	make -C test/ build
+TEST_LDFLAGS=-ldflags "-X github.com/cilium/cilium/pkg/kvstore.consulDummyAddress=consul:8500 -X github.com/cilium/cilium/pkg/kvstore.etcdDummyAddress=etcd:4002"
+
+# invoked from ginkgo compose file after starting kvstore backends
+tests-ginkgo-real:
+	echo "mode: count" > coverage-all.out
+	echo "mode: count" > coverage.out
+	$(foreach pkg,$(GOFILES),\
+	go test $(TEST_LDFLAGS) \
+            -timeout 60s -coverprofile=coverage.out -covermode=count $(pkg) $(GOTEST_OPTS) || exit 1;\
+            tail -n +2 coverage.out >> coverage-all.out;)
+	go tool cover -html=coverage-all.out -o=coverage-all.html
+	rm coverage-all.out
+	rm coverage.out
+	@rmdir ./daemon/1 ./daemon/1_backup 2> /dev/null || true
 
 tests-envoy:
 	@ $(MAKE) -C envoy tests
 
-tests-etcd:
+start-kvstores:
 	@docker rm -f "cilium-etcd-test-container" 2> /dev/null || true
 	-docker run -d \
 	    --name "cilium-etcd-test-container" \
@@ -54,34 +62,6 @@ tests-etcd:
         -listen-client-urls http://0.0.0.0:4001 \
         -initial-cluster-token etcd-cluster-1 \
         -initial-cluster-state new
-	echo "mode: count" > coverage-all.out
-	echo "mode: count" > coverage.out
-	$(foreach pkg,$(GOFILES),\
-	go test \
-            -ldflags "-X "github.com/cilium/cilium/pkg/kvstore".backend=etcd" \
-            -timeout 30s -coverprofile=coverage.out -covermode=count $(pkg) $(GOTEST_OPTS) || exit 1;\
-            tail -n +2 coverage.out >> coverage-all.out;)
-	go tool cover -html=coverage-all.out -o=coverage-all.html
-	rm coverage-all.out
-	rm coverage.out
-	@rmdir ./daemon/1 ./daemon/1_backup 2> /dev/null || true
-	docker rm -f "cilium-etcd-test-container"
-
-tests-consul-ginkgo:
-	echo "mode: count" > coverage-all.out
-	echo "mode: count" > coverage.out
-	$(foreach pkg,$(GOFILES),\
-	go test \
-            -ldflags "-X github.com/cilium/cilium/pkg/kvstore.backend=consul -X github.com/cilium/cilium/pkg/kvstore.consulAddress=consul:8500" \
-            -timeout 30s -coverprofile=coverage.out -covermode=count $(pkg) $(GOTEST_OPTS) || exit 1;\
-            tail -n +2 coverage.out >> coverage-all.out;)
-	go tool cover -html=coverage-all.out -o=coverage-all.html
-	rm coverage-all.out
-	rm coverage.out
-	@rmdir ./daemon/1 ./daemon/1_backup 2> /dev/null || true
-
-
-tests-consul:
 	@docker rm -f "cilium-consul-test-container" 2> /dev/null || true
 	-docker run -d \
            --name "cilium-consul-test-container" \
@@ -89,17 +69,20 @@ tests-consul:
            -e 'CONSUL_LOCAL_CONFIG={"skip_leave_on_interrupt": true, "disable_update_check": true}' \
            consul:0.8.3 \
            agent -client=0.0.0.0 -server -bootstrap-expect 1
+
+tests: start-kvstores tests-envoy
+	go vet $(GOFILES)
 	echo "mode: count" > coverage-all.out
 	echo "mode: count" > coverage.out
 	$(foreach pkg,$(GOFILES),\
 	go test \
-            -ldflags "-X "github.com/cilium/cilium/pkg/kvstore".backend=consul" \
-            -timeout 30s -coverprofile=coverage.out -covermode=count $(pkg) $(GOTEST_OPTS) || exit 1;\
+            -timeout 60s -coverprofile=coverage.out -covermode=count $(pkg) $(GOTEST_OPTS) || exit 1;\
             tail -n +2 coverage.out >> coverage-all.out;)
 	go tool cover -html=coverage-all.out -o=coverage-all.html
 	rm coverage-all.out
 	rm coverage.out
 	@rmdir ./daemon/1 ./daemon/1_backup 2> /dev/null || true
+	docker rm -f "cilium-etcd-test-container"
 	docker rm -f "cilium-consul-test-container"
 
 clean-tags:
