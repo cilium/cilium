@@ -25,14 +25,25 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-// ControllerFunc is the function that the controller runs
+// ControllerFunc is a function that the controller runs. This type is used for
+// DoFunc and StopFunc.
 type ControllerFunc func() error
 
 // ControllerParams contains all parameters of a controller
 type ControllerParams struct {
 	// DoFunc is the function that will be run until it succeeds and/or
-	// using the interval RunInterval if not 0
+	// using the interval RunInterval if not 0.
+	// An unset DoFunc is an error and will be logged as one.
 	DoFunc ControllerFunc
+
+	// StopFunc is called when the controller stops. It is intended to run any
+	// clean-up tasks for the controller (e.g. deallocate/release resources)
+	// It is guaranteed that DoFunc is called at least once before StopFunc is
+	// called.
+	// An unset StopFunc is not an error (and will be a no-op)
+	// Note: Since this occurs on controller exit, error counts and tracking may
+	// not be checked after StopFunc is run.
+	StopFunc ControllerFunc
 
 	// If set to any other value than 0, will cause DoFunc to be run in the
 	// specified interval. The interval starts from when the DoFunc has
@@ -53,6 +64,13 @@ type ControllerParams struct {
 // when the controller is incorrectly initialised.
 func undefinedDoFunc(name string) error {
 	return fmt.Errorf("controller %s DoFunc is nil", name)
+}
+
+// NoopFunc is a no-op placeholder for DoFunc & StopFunc.
+// It is automatically used when StopFunc is undefined, and can be used as a
+// DoFunc stub when the controller should only run StopFunc.
+func NoopFunc() error {
+	return nil
 }
 
 // Controller is a simple pattern that allows to perform the following
@@ -143,6 +161,10 @@ func (c *Controller) runController() {
 	if c.params.DoFunc == nil {
 		c.params.DoFunc = func() error { return undefinedDoFunc(c.name) }
 	}
+	if c.params.StopFunc == nil {
+		c.params.StopFunc = NoopFunc
+	}
+
 	for {
 		var (
 			err      error
@@ -153,13 +175,7 @@ func (c *Controller) runController() {
 		if err != nil {
 			c.getLogger().WithField(fieldConsecutiveErrors, errorRetries).
 				WithError(err).Debug("Controller run failed")
-
-			c.mutex.Lock()
-			c.lastError = err
-			c.lastErrorStamp = time.Now()
-			c.failureCount++
-			c.consecutiveErrors++
-			c.mutex.Unlock()
+			c.recordError(err)
 
 			if !c.params.NoErrorRetry {
 				if c.params.ErrorRetryBaseDuration != time.Duration(0) {
@@ -171,12 +187,7 @@ func (c *Controller) runController() {
 				errorRetries++
 			}
 		} else {
-			c.mutex.Lock()
-			c.lastError = nil
-			c.lastSuccessStamp = time.Now()
-			c.successCount++
-			c.consecutiveErrors = 0
-			c.mutex.Unlock()
+			c.recordSuccess()
 
 			// reset error retries after successful attempt
 			errorRetries = 1
@@ -199,6 +210,12 @@ func (c *Controller) runController() {
 
 shutdown:
 	c.getLogger().Debug("Shutting down controller")
+
+	if err := c.params.StopFunc(); err != nil {
+		c.recordError(err)
+		c.getLogger().WithField(fieldConsecutiveErrors, errorRetries).
+			WithError(err).Warn("Error on Controller stop")
+	}
 }
 
 func (c *Controller) stopController() {
@@ -241,4 +258,26 @@ func (c *Controller) GetStatusModel() *models.ControllerStatus {
 	}
 
 	return status
+}
+
+// recordError updates all statistic collection variables on error
+// It locks c.mutex
+func (c *Controller) recordError(err error) {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+	c.lastError = err
+	c.lastErrorStamp = time.Now()
+	c.failureCount++
+	c.consecutiveErrors++
+}
+
+// recordSuccess updates all statistic collection variables on success
+// It locks c.mutex
+func (c *Controller) recordSuccess() {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+	c.lastError = nil
+	c.lastSuccessStamp = time.Now()
+	c.successCount++
+	c.consecutiveErrors = 0
 }

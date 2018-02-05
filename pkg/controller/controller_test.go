@@ -38,6 +38,28 @@ func (b *ControllerSuite) TestUpdateRemoveController(c *C) {
 	c.Assert(mngr.RemoveController("not-exist"), Not(IsNil))
 }
 
+func (b *ControllerSuite) TestStopFunc(c *C) {
+	stopFuncRan := false
+	waitChan := make(chan bool)
+
+	mngr := Manager{}
+	mngr.UpdateController("test", ControllerParams{
+		RunInterval: time.Second,
+		DoFunc:      NoopFunc,
+		StopFunc: func() error {
+			stopFuncRan = true
+			close(waitChan)
+			return nil
+		},
+	})
+	c.Assert(mngr.RemoveController("test"), IsNil)
+	select {
+	case <-waitChan:
+	case <-time.After(2 * time.Second):
+	}
+	c.Assert(stopFuncRan, Equals, true)
+}
+
 func (b *ControllerSuite) TestRemoveAll(c *C) {
 	mngr := NewManager()
 	// create
