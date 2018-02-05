@@ -274,6 +274,9 @@ type EgressRule struct {
 // Example: 192.0.2.1/32
 type CIDR string
 
+// CIDRMatchAll is a []CIDR that matches everything
+var CIDRMatchAll = []CIDR{CIDR("0.0.0.0/0"), CIDR("::/0")}
+
 // L4Proto is a layer 4 protocol name
 type L4Proto string
 

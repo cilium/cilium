@@ -61,7 +61,6 @@ type PortMap struct {
 
 const (
 	OptionAllowToHost         = "AllowToHost"
-	OptionAllowToWorld        = "AllowToWorld"
 	OptionConntrackAccounting = "ConntrackAccounting"
 	OptionConntrackLocal      = "ConntrackLocal"
 	OptionConntrack           = "Conntrack"
@@ -83,12 +82,6 @@ var (
 		Define:      "ALLOW_TO_HOST",
 		Immutable:   true,
 		Description: "Allow all traffic to local host",
-	}
-
-	OptionSpecAllowToWorld = option.Option{
-		Define:      "ALLOW_TO_WORLD",
-		Immutable:   true,
-		Description: "Allow all traffic to outside world",
 	}
 
 	OptionSpecConntrackAccounting = option.Option{
@@ -158,8 +151,7 @@ var (
 	}
 
 	EndpointOptionLibrary = option.OptionLibrary{
-		OptionAllowToHost:  &OptionSpecAllowToHost,
-		OptionAllowToWorld: &OptionSpecAllowToWorld,
+		OptionAllowToHost: &OptionSpecAllowToHost,
 	}
 )
 
