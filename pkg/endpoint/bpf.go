@@ -464,11 +464,6 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir, reason string) (uint64, err
 		e.Consumable.Mutex.Unlock()
 	}
 
-	if err = e.writeHeaderfile(epdir, owner); err != nil {
-		e.Mutex.Unlock()
-		return 0, fmt.Errorf("Unable to write header file: %s", err)
-	}
-
 	// If dry mode is enabled, no further changes to BPF maps are performed
 	if owner.DryModeEnabled() {
 		// Regenerate policy and apply any options resulting in the
@@ -477,6 +472,11 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir, reason string) (uint64, err
 		if _, _, _, _, err = e.regeneratePolicy(owner, nil); err != nil {
 			e.Mutex.Unlock()
 			return 0, fmt.Errorf("Unable to regenerate policy: %s", err)
+		}
+
+		if err = e.writeHeaderfile(epdir, owner); err != nil {
+			e.Mutex.Unlock()
+			return 0, fmt.Errorf("Unable to write header file: %s", err)
 		}
 		e.Mutex.Unlock()
 
@@ -562,6 +562,11 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir, reason string) (uint64, err
 		}
 		wg := e.updateCT(owner, flushEndpointCT, consumersAdd, consumersToRm)
 		defer wg.Wait()
+	}
+
+	if err = e.writeHeaderfile(epdir, owner); err != nil {
+		e.Mutex.Unlock()
+		return 0, fmt.Errorf("Unable to write header file: %s", err)
 	}
 
 	epInfoCache := e.createEpInfoCache()
