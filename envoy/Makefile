@@ -54,7 +54,7 @@ ENVOY_API_GOS = $(ENVOY_API_PROTOS:.proto=.pb.go)
 ENVOY_API_SOURCES := $(addprefix $(ENVOY_API_PROTO_PATH)/,$(ENVOY_API_PROTOS))
 ENVOY_API_TARGETS := $(addprefix $(GO_OUT)/,$(ENVOY_API_GOS))
 
-CILIUM_API_PROTOS := api/*.proto
+CILIUM_API_PROTOS := api/npds.proto api/nphds.proto
 CILIUM_API_GOS = $(CILIUM_API_PROTOS:.proto=.pb.go)
 CILIUM_API_SOURCES := $(addprefix $(CILIUM_PROTO_PATH)/,$(CILIUM_API_PROTOS))
 CILIUM_API_TARGETS := $(addprefix $(GO_OUT)/,$(CILIUM_API_GOS))
