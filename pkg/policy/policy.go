@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/labels"
@@ -25,6 +26,18 @@ import (
 
 	"github.com/op/go-logging"
 )
+
+// Completion is an interface for an individual asynchronous success/failure
+// notification.
+type Completion interface {
+	Completed(bool)
+}
+
+// CompletionContainer is an interface for pooling asynchronous success/failure
+// notifications.
+type CompletionContainer interface {
+	AddCompletion() (Completion, time.Duration)
+}
 
 type Tracing int
 

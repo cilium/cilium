@@ -18,6 +18,7 @@ import (
 	"github.com/cilium/cilium/pkg/annotation"
 	k8sconst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	"github.com/cilium/cilium/pkg/labels"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
 
@@ -37,7 +38,7 @@ func GetPolicyLabelsv1(np *networkingv1.NetworkPolicy) labels.LabelArray {
 	return k8sconst.GetPolicyLabels(ns, policyName)
 }
 
-func parseNetworkPolicyPeer(namespace string, peer *networkingv1.NetworkPolicyPeer) (*api.EndpointSelector, error) {
+func parseNetworkPolicyPeer(namespace string, peer *networkingv1.NetworkPolicyPeer) *api.EndpointSelector {
 	var labelSelector *metav1.LabelSelector
 
 	// Only one or the other can be set, not both
@@ -66,14 +67,18 @@ func parseNetworkPolicyPeer(namespace string, peer *networkingv1.NetworkPolicyPe
 			lsr.Key = policy.JoinPath(PodNamespaceMetaLabels, lsr.Key)
 			peer.NamespaceSelector.MatchExpressions[i] = lsr
 		}
+	} else {
+		// Neither PodSelector nor NamespaceSelector set.
+		return nil
 	}
 
 	selector := api.NewESFromK8sLabelSelector(labels.LabelSourceK8sKeyPrefix, labelSelector)
-	return &selector, nil
+	return &selector
 }
 
-// ParseNetworkPolicy parses a k8s NetworkPolicy and returns a list of
-// Cilium policy rules that can be added
+// ParseNetworkPolicy parses a k8s NetworkPolicy. Returns a list of
+// Cilium policy rules that can be added, along with an error if there was an
+// error sanitizing the rules.
 func ParseNetworkPolicy(np *networkingv1.NetworkPolicy) (api.Rules, error) {
 	ingresses := []api.IngressRule{}
 	egresses := []api.EgressRule{}
@@ -83,14 +88,19 @@ func ParseNetworkPolicy(np *networkingv1.NetworkPolicy) (api.Rules, error) {
 		ingress := api.IngressRule{}
 		if iRule.From != nil && len(iRule.From) > 0 {
 			for _, rule := range iRule.From {
-				endpointSelector, err := parseNetworkPolicyPeer(namespace, &rule)
-				if err != nil {
-					return nil, err
+				endpointSelector := parseNetworkPolicyPeer(namespace, &rule)
+
+				if endpointSelector != nil {
+					ingress.FromEndpoints = append(ingress.FromEndpoints, *endpointSelector)
+				} else {
+					// No label-based selectors were in NetworkPolicyPeer.
+					log.WithField(logfields.K8sNetworkPolicyName, np.Name).Debug("NetworkPolicyPeer does not have PodSelector or NamespaceSelector")
 				}
+
+				// Parse CIDR-based parts of rule.
 				if rule.IPBlock != nil {
 					ingress.FromCIDRSet = append(ingress.FromCIDRSet, ipBlockToCIDRRule(rule.IPBlock))
 				}
-				ingress.FromEndpoints = append(ingress.FromEndpoints, *endpointSelector)
 			}
 		}
 

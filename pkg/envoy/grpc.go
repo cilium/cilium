@@ -147,7 +147,7 @@ func createLDSServer(path, accessLogPath string) *LDSServer {
 	return ldsServer
 }
 
-func (s *LDSServer) addListener(name string, port uint16, l7rules policy.L7DataMap, isIngress bool, logger Logger) {
+func (s *LDSServer) addListener(name string, port uint16, l7rules policy.L7DataMap, isIngress bool, logger Logger, completions policy.CompletionContainer) {
 	s.listenersMutex.Lock()
 	log.Debug("Envoy: addListener ", name)
 
@@ -166,6 +166,8 @@ func (s *LDSServer) addListener(name string, port uint16, l7rules policy.L7DataM
 		StreamControl: makeStreamControl(resourceName),
 	}
 
+	listener.addCompletion(completions, "addListener "+name)
+
 	// Fill in the listener-specific parts
 	listener.listenerConf.Name = name
 	listener.listenerConf.Address.GetSocketAddress().PortSpecifier = &envoy_api.SocketAddress_PortValue{PortValue: uint32(port)}
@@ -180,7 +182,7 @@ func (s *LDSServer) addListener(name string, port uint16, l7rules policy.L7DataM
 	s.bumpVersion()
 }
 
-func (s *LDSServer) updateListener(name string, l7rules policy.L7DataMap) {
+func (s *LDSServer) updateListener(name string, l7rules policy.L7DataMap, completions policy.CompletionContainer) {
 	s.listenersMutex.Lock()
 	defer s.listenersMutex.Unlock()
 	log.Debug("Envoy: updateListener ", name)
@@ -192,10 +194,13 @@ func (s *LDSServer) updateListener(name string, l7rules policy.L7DataMap) {
 	// The set of listeners did not change, so it suffices to
 	// bump the version of the listener, which will trigger only an
 	// RDS update to synchonize the new policy.
-	l.bumpVersionFunc(func() { l.l7rules = l7rules })
+	l.bumpVersionFunc(func() {
+		l.l7rules = l7rules
+		l.addCompletion(completions, "updateListener "+name)
+	})
 }
 
-func (s *LDSServer) removeListener(name string) {
+func (s *LDSServer) removeListener(name string, completions policy.CompletionContainer) {
 	s.listenersMutex.Lock()
 	log.Debug("Envoy: removeListener ", name)
 	l := s.listeners[name]
@@ -206,6 +211,7 @@ func (s *LDSServer) removeListener(name string) {
 	l.stopHandling()
 	delete(s.listeners, name)
 	delete(s.envoyResources, l.name)
+	s.addCompletion(completions, "removeListener "+name)
 	s.listenersMutex.Unlock()
 	s.bumpVersion()
 }

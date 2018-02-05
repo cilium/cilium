@@ -152,6 +152,85 @@ func (s *K8sSuite) TestParseNetworkPolicy(c *C) {
 	c.Assert(repo.CanReachRLocked(&ctx), Not(Equals), api.Allowed)
 }
 
+func (s *K8sSuite) TestParseNetworkPolicyNoSelectors(c *C) {
+
+	// Ingress with neither pod nor namespace selector set.
+	ex1 := []byte(`{
+"kind": "NetworkPolicy",
+"apiVersion": "extensions/networkingv1",
+"metadata": {
+  "name": "ingress-cidr-test",
+  "namespace": "myns"
+},
+"spec": {
+  "podSelector": {
+    "matchLabels": {
+      "role": "backend"
+    }
+  },
+  "ingress": [
+    {
+      "from": [
+        {
+          "ipBlock": {
+            "cidr": "10.0.0.0/8",
+	          "except": [
+	            "10.96.0.0/12"
+	          ]
+          }
+        }
+      ]
+    }
+  ]
+}
+}`)
+
+	fromEndpoints := labels.LabelArray{
+		labels.NewLabel(k8sconst.PodNamespaceLabel, "myns", labels.LabelSourceK8s),
+		labels.NewLabel("role", "backend", labels.LabelSourceK8s),
+	}
+
+	matchLabels := make(map[string]string)
+	for _, v := range fromEndpoints {
+		matchLabels[fmt.Sprintf("%s.%s", v.Source, v.Key)] = v.Value
+	}
+	lblSelector := metav1.LabelSelector{
+		MatchLabels: matchLabels,
+	}
+	epSelector := api.EndpointSelector{
+		LabelSelector: &lblSelector,
+	}
+
+	np := networkingv1.NetworkPolicy{}
+	err := json.Unmarshal(ex1, &np)
+	c.Assert(err, IsNil)
+
+	expectedRules := api.Rules{
+		&api.Rule{
+			EndpointSelector: epSelector,
+			Ingress: []api.IngressRule{
+				{
+					FromCIDRSet: []api.CIDRRule{
+						{
+							Cidr: api.CIDR("10.0.0.0/8"),
+							ExceptCIDRs: []api.CIDR{
+								"10.96.0.0/12",
+							},
+						},
+					},
+				},
+			},
+			Egress: []api.EgressRule{},
+			Labels: labels.ParseLabelArray("unspec:io.cilium.k8s-policy-name=ingress-cidr-test", "unspec:io.cilium.k8s-policy-namespace=myns"),
+		},
+	}
+
+	rules, err := ParseNetworkPolicy(&np)
+	c.Assert(err, IsNil)
+	c.Assert(rules, NotNil)
+	c.Assert(rules, comparator.DeepEquals, expectedRules)
+}
+
 func (s *K8sSuite) TestParseNetworkPolicyUnknownProto(c *C) {
 	netPolicy := &networkingv1.NetworkPolicy{
 		Spec: networkingv1.NetworkPolicySpec{

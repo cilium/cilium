@@ -45,7 +45,7 @@ type DaemonSuite struct {
 	OnGetPolicyRepository             func() *policy.Repository
 	OnGetCachedMaxLabelID             func() (policy.NumericIdentity, error)
 	OnUpdateProxyRedirect             func(e *e.Endpoint, l4 *policy.L4Filter) (uint16, error)
-	OnRemoveProxyRedirect             func(e *e.Endpoint, l4 *policy.L4Filter) error
+	OnRemoveProxyRedirect             func(e *e.Endpoint, id string) error
 	OnGetStateDir                     func() string
 	OnGetBpfDir                       func() string
 	OnQueueEndpointBuild              func(r *e.Request)
@@ -128,9 +128,9 @@ func (ds *DaemonSuite) UpdateProxyRedirect(e *e.Endpoint, l4 *policy.L4Filter) (
 	panic("UpdateProxyRedirect should not have been called")
 }
 
-func (ds *DaemonSuite) RemoveProxyRedirect(e *e.Endpoint, l4 *policy.L4Filter) error {
+func (ds *DaemonSuite) RemoveProxyRedirect(e *e.Endpoint, id string) error {
 	if ds.OnRemoveProxyRedirect != nil {
-		return ds.OnRemoveProxyRedirect(e, l4)
+		return ds.OnRemoveProxyRedirect(e, id)
 	}
 	panic("RemoveProxyRedirect should not have been called")
 }

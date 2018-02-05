@@ -60,9 +60,9 @@ const (
 // type must export
 type Redirect interface {
 	ToPort() uint16
-	UpdateRules(l4 *policy.L4Filter) error
+	UpdateRules(l4 *policy.L4Filter, completions policy.CompletionContainer) error
 	getSource() ProxySource
-	Close()
+	Close(completions policy.CompletionContainer)
 	IsIngress() bool
 }
 
@@ -333,7 +333,7 @@ func fillEgressDestinationInfo(info *accesslog.EndpointInfo, ipstr string) {
 // a proxy instance. If the redirect is already in place, only the rules will be
 // updated.
 func (p *Proxy) CreateOrUpdateRedirect(l4 *policy.L4Filter, id string, source ProxySource,
-	notifier accesslog.LogRecordNotifier) (Redirect, error) {
+	notifier accesslog.LogRecordNotifier, completions policy.CompletionContainer) (Redirect, error) {
 	gcOnce.Do(func() {
 		if lf := viper.GetString("access-log"); lf != "" {
 			if err := accesslog.OpenLogfile(lf, notifier); err != nil {
@@ -363,7 +363,7 @@ func (p *Proxy) CreateOrUpdateRedirect(l4 *policy.L4Filter, id string, source Pr
 	scopedLog := log.WithField(fieldProxyRedirectID, id)
 
 	if r, ok := p.redirects[id]; ok {
-		err := r.UpdateRules(l4)
+		err := r.UpdateRules(l4, completions)
 		if err != nil {
 			scopedLog.WithError(err).Error("Unable to update ", l4.L7Parser, " proxy")
 			return nil, err
@@ -388,7 +388,7 @@ func (p *Proxy) CreateOrUpdateRedirect(l4 *policy.L4Filter, id string, source Pr
 			source:     source,
 			listenPort: to})
 	case policy.ParserTypeHTTP:
-		redir, err = createEnvoyRedirect(l4, id, source, to)
+		redir, err = createEnvoyRedirect(l4, id, source, to, completions)
 	default:
 		return nil, fmt.Errorf("Unsupported L7 parser type: %s", l4.L7Parser)
 	}
@@ -406,7 +406,7 @@ func (p *Proxy) CreateOrUpdateRedirect(l4 *policy.L4Filter, id string, source Pr
 }
 
 // RemoveRedirect removes an existing redirect.
-func (p *Proxy) RemoveRedirect(id string) error {
+func (p *Proxy) RemoveRedirect(id string, completions policy.CompletionContainer) error {
 	p.mutex.Lock()
 	defer p.mutex.Unlock()
 	r, ok := p.redirects[id]
@@ -417,7 +417,7 @@ func (p *Proxy) RemoveRedirect(id string) error {
 	log.WithField(fieldProxyRedirectID, id).
 		Debug("removing proxy redirect")
 	toPort := r.ToPort()
-	r.Close()
+	r.Close(completions)
 
 	delete(p.redirects, id)
 	delete(p.allocatedPorts, toPort)

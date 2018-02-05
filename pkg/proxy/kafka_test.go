@@ -208,7 +208,7 @@ func (k *proxyTestSuite) TestKafkaRedirect(c *C) {
 		noMarker: true,
 	})
 	c.Assert(err, IsNil)
-	defer redir.Close()
+	defer redir.Close(nil)
 
 	log.WithFields(logrus.Fields{
 		"address": proxyAddress,
