@@ -298,18 +298,18 @@ func (e *Envoy) StopEnvoy() error {
 }
 
 // AddListener adds a listener to a running Envoy proxy.
-func (e *Envoy) AddListener(name string, port uint16, l7rules policy.L7DataMap, isIngress bool, logger Logger) {
-	e.lds.addListener(name, port, l7rules, isIngress, logger)
+func (e *Envoy) AddListener(name string, port uint16, l7rules policy.L7DataMap, isIngress bool, logger Logger, completions policy.CompletionContainer) {
+	e.lds.addListener(name, port, l7rules, isIngress, logger, completions)
 }
 
 // UpdateListener changes to the L7 rules of an existing Envoy Listener.
-func (e *Envoy) UpdateListener(name string, l7rules policy.L7DataMap) {
-	e.lds.updateListener(name, l7rules)
+func (e *Envoy) UpdateListener(name string, l7rules policy.L7DataMap, completions policy.CompletionContainer) {
+	e.lds.updateListener(name, l7rules, completions)
 }
 
 // RemoveListener removes an existing Envoy Listener.
-func (e *Envoy) RemoveListener(name string) {
-	e.lds.removeListener(name)
+func (e *Envoy) RemoveListener(name string, completions policy.CompletionContainer) {
+	e.lds.removeListener(name, completions)
 }
 
 // ChangeLogLevel changes Envoy log level to correspond to the logrus log level 'level'.

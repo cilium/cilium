@@ -55,7 +55,7 @@ type Owner interface {
 	UpdateProxyRedirect(e *Endpoint, l4 *policy.L4Filter) (uint16, error)
 
 	// RemoveProxyRedirect must remove the redirect installed by UpdateProxyRedirect
-	RemoveProxyRedirect(e *Endpoint, l4 *policy.L4Filter) error
+	RemoveProxyRedirect(e *Endpoint, id string) error
 
 	// GetStateDir must return path to the state directory
 	GetStateDir() string

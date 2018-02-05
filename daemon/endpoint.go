@@ -314,6 +314,7 @@ func (d *Daemon) deleteEndpoint(ep *endpoint.Endpoint) int {
 
 	// Wait for existing builds to complete and prevent further builds
 	ep.BuildMutex.Lock()
+	ep.ProxyCompletions = &endpoint.Completions{}
 
 	// Lock out any other writers to the endpoint
 	ep.Mutex.Lock()
@@ -394,6 +395,12 @@ func (d *Daemon) deleteEndpoint(ep *endpoint.Endpoint) int {
 
 	ep.LeaveLocked(d)
 	ep.Mutex.Unlock()
+
+	err := ep.WaitForProxyCompletions()
+	if err != nil {
+		scopedLog.WithError(err).Warn("Error removing proxy redirects.")
+	}
+	ep.ProxyCompletions = nil
 	ep.BuildMutex.Unlock()
 
 	return errors

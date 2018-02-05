@@ -24,6 +24,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/cilium/cilium/api/v1/models"
@@ -338,6 +339,58 @@ type Endpoint struct {
 	// controllers is the list of async controllers syncing the endpoint to
 	// other resources
 	controllers controller.Manager
+
+	// proxy redirects to remove later during the build
+	proxiesToRemove map[string]bool
+
+	// Pending completions, protected by the BuildMutex!
+	ProxyCompletions *Completions
+}
+
+// Completions maintains the state needed to register and wait for asynchronous completions.
+type Completions struct {
+	wg     sync.WaitGroup
+	lock   lock.Mutex
+	errors int
+	done   bool
+}
+
+// Completed is called when an asynchronous event is completed.
+// May be called from any goroutine without holding any locks
+func (c *Completions) Completed(success bool) {
+	log.Debug("completions.Completed: ", success)
+	// 'done' is used to catch late callbacks (after Wait()), non-locked access on purpose.
+	if c.done {
+		log.Fatal("Completed called after Wait!")
+	}
+	if !success {
+		c.lock.Lock()
+		c.errors++
+		c.lock.Unlock()
+	}
+	c.wg.Done()
+}
+
+// AddCompletion increases the count of 'Completed()' callbacks we need by 1.
+// Called with BuildMutex held
+func (e *Endpoint) AddCompletion() (policy.Completion, time.Duration) {
+	e.ProxyCompletions.wg.Add(1)
+	return e.ProxyCompletions, time.Duration(10) * time.Second
+}
+
+// WaitForProxyCompletions blocks until all proxy changes have been completed.
+// Called with BuildMutex held
+func (e *Endpoint) WaitForProxyCompletions() error {
+	start := time.Now()
+	log.Debug("Waiting for proxy updates to complete...")
+	e.ProxyCompletions.wg.Wait()
+	// Wait is done, no parallel access any more
+	e.ProxyCompletions.done = true
+	if e.ProxyCompletions.errors > 0 {
+		return fmt.Errorf("%d proxy state changes failed", e.ProxyCompletions.errors)
+	}
+	log.Debug("Wait time for proxy updates: ", time.Since(start))
+	return nil
 }
 
 // NewEndpointWithState creates a new endpoint useful for testing purposes
@@ -1250,15 +1303,16 @@ func (e *Endpoint) UpdateOrchIdentityLabels(l pkgLabels.Labels) bool {
 }
 
 // LeaveLocked removes the endpoint's directory from the system. Must be called
-// with Endpoint's mutex locked.
+// with Endpoint's mutex AND BuildMutex locked.
 func (e *Endpoint) LeaveLocked(owner Owner) {
 	owner.RemoveFromEndpointQueue(uint64(e.ID))
 	if c := e.Consumable; c != nil {
 		c.Mutex.RLock()
 		if e.L4Policy != nil {
 			// Passing a new map of nil will purge all redirects
-			e.cleanUnusedRedirects(owner, e.L4Policy.Ingress, nil)
-			e.cleanUnusedRedirects(owner, e.L4Policy.Egress, nil)
+			e.collectUnusedRedirects(e.L4Policy.Ingress, nil)
+			e.collectUnusedRedirects(e.L4Policy.Egress, nil)
+			e.removeCollectedRedirects(owner)
 		}
 		c.Mutex.RUnlock()
 	}

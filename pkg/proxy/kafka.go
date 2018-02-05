@@ -86,7 +86,7 @@ func createKafkaRedirect(conf kafkaConfiguration) (Redirect, error) {
 		redir.conf.lookupNewDest = lookupNewDest
 	}
 
-	if err := redir.UpdateRules(conf.policy); err != nil {
+	if err := redir.UpdateRules(conf.policy, nil); err != nil {
 		return nil, err
 	}
 
@@ -407,7 +407,7 @@ func (k *kafkaRedirect) handleResponseConnection(pair *connectionPair,
 }
 
 // UpdateRules replaces old l7 rules of a redirect with new ones.
-func (k *kafkaRedirect) UpdateRules(l4 *policy.L4Filter) error {
+func (k *kafkaRedirect) UpdateRules(l4 *policy.L4Filter, completions policy.CompletionContainer) error {
 	if l4.L7Parser != policy.ParserTypeKafka {
 		return fmt.Errorf("invalid type %q, must be of type ParserTypeKafka", l4.L7Parser)
 	}
@@ -423,7 +423,7 @@ func (k *kafkaRedirect) UpdateRules(l4 *policy.L4Filter) error {
 }
 
 // Close the redirect.
-func (k *kafkaRedirect) Close() {
+func (k *kafkaRedirect) Close(policy.CompletionContainer) {
 	k.socket.Close()
 }
 
