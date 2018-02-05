@@ -39,13 +39,16 @@ var (
 	perFlowDebug = false
 )
 
-// Magic markers are attached to each packet. The upper 16 bits are used to
+// Magic markers are attached to each packet. The lower 16 bits are used to
 // identify packets which have gone through the proxy and to determine whether
-// the packet is coming from a proxy at ingress or egress. The lower 16 bits
-// can be used to carry the security identity.
+// the packet is coming from a proxy at ingress or egress. The marking is
+// compatible with Kubernetes's use of the packet mark.  The upper 16 bits can
+// be used to carry the security identity.
 const (
-	magicMarkIngress int = 0xFEFA << 16
-	magicMarkEgress  int = 0xFEFB << 16
+	magicMarkIngress int = 0x0FEA
+	magicMarkEgress  int = 0x0FEB
+	magicMarkK8sMasq int = 0x4000
+	magicMarkK8sDrop int = 0x8000
 )
 
 // field names used while logging
@@ -69,12 +72,20 @@ type Redirect interface {
 // GetMagicMark returns the magic marker with which each packet must be marked.
 // The mark is different depending on whether the proxy is injected at ingress
 // or egress.
-func GetMagicMark(isIngress bool) int {
+func GetMagicMark(isIngress bool, identity int) int {
+	mark := 0
+
 	if isIngress {
-		return magicMarkIngress
+		mark = magicMarkIngress
+	} else {
+		mark = magicMarkEgress
 	}
 
-	return magicMarkEgress
+	if identity != 0 {
+		mark |= identity << 16
+	}
+
+	return mark
 }
 
 // ProxySource returns information about the endpoint being proxied.

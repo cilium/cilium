@@ -92,13 +92,14 @@ func createKafkaRedirect(conf kafkaConfiguration) (Redirect, error) {
 
 	marker := 0
 	if !conf.noMarker {
-		marker = GetMagicMark(redir.ingress)
-
+		markIdentity := int(0)
 		// As ingress proxy, all replies to incoming requests must have the
 		// identity of the endpoint we are proxying for
 		if redir.ingress {
-			marker |= int(conf.source.GetIdentity())
+			markIdentity = int(conf.source.GetIdentity())
 		}
+
+		marker = GetMagicMark(redir.ingress, markIdentity)
 	}
 
 	// Listen needs to be in the synchronous part of this function to ensure that
@@ -292,7 +293,7 @@ func (k *kafkaRedirect) handleRequest(pair *connectionPair, req *kafka.RequestMe
 	if pair.tx.Closed() {
 		marker := 0
 		if !k.conf.noMarker {
-			marker = GetMagicMark(k.ingress) | int(srcIdentity)
+			marker = GetMagicMark(k.ingress, int(srcIdentity))
 		}
 
 		flowdebug.Log(scopedLog.WithFields(logrus.Fields{
