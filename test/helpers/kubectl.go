@@ -362,6 +362,14 @@ func (kub *Kubectl) CiliumEndpointsIDs(pod string) map[string]string {
 		"cilium endpoint list -o jsonpath='%s'", filter)).KVOutput()
 }
 
+// CiliumEndpointsStatus returns a mapping  of a pod name to it is corresponding
+// endpoint's status
+func (kub *Kubectl) CiliumEndpointsStatus(pod string) map[string]string {
+	filter := `{range [*]}{@.pod-name}{"="}{@.state}{"\n"}{end}`
+	return kub.CiliumExec(pod, fmt.Sprintf(
+		"cilium endpoint list -o jsonpath='%s'", filter)).KVOutput()
+}
+
 // CiliumEndpointsIdentityIDs returns a mapping with of a pod name to it is
 // corresponding endpoint's security identity
 func (kub *Kubectl) CiliumEndpointsIdentityIDs(pod string) map[string]string {
@@ -732,7 +740,7 @@ func (epMap *EndpointMap) GetPolicyStatus() map[string]int {
 // AreReady returns true if all Cilium endpoints are in 'ready' state
 func (epMap *EndpointMap) AreReady() bool {
 	for _, ep := range *epMap {
-		if ep.State != "ready" {
+		if ep.State != models.EndpointStateReady {
 			return false
 		}
 	}
