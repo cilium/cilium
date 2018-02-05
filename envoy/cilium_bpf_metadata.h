@@ -39,7 +39,7 @@ public:
 
   uint32_t getMark(uint32_t identity) {
     // Magic marker values must match with Cilium.
-    return ((is_ingress_) ? 0xFEFA : 0xFEFB) << 16 | identity;
+    return ((is_ingress_) ? 0xFEA : 0xFEB) | (identity << 16);
   }
 
 private:

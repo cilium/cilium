@@ -256,10 +256,10 @@ enum {
  * The lower 16 bits may contain the security identity of the original source
  * endpoint.
  */
-#define MARK_MAGIC_PROXY_MASK		(0xFFFF << 16)
-#define MARK_MAGIC_PROXY_INGRESS	(0xFEFA << 16)
-#define MARK_MAGIC_PROXY_EGRESS		(0xFEFB << 16)
-#define MARK_IDENTITY_MASK		0xFFFF
+#define MARK_MAGIC_PROXY_MASK		0xFFF
+#define MARK_MAGIC_PROXY_INGRESS	0xFEA
+#define MARK_MAGIC_PROXY_EGRESS		0xFEB
+#define MARK_IDENTITY_MASK		(0xFFFF << 16)
 
 #define SOURCE_INGRESS_PROXY 1
 #define SOURCE_EGRESS_PROXY 2
@@ -269,7 +269,7 @@ enum {
  */
 static inline int __inline__ get_identity_via_proxy(struct __sk_buff *skb)
 {
-	return skb->mark & MARK_IDENTITY_MASK;
+	return skb->mark >> 16;
 }
 
 /*
