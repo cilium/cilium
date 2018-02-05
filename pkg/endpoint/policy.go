@@ -424,24 +424,54 @@ func (e *Endpoint) regenerateConsumable(owner Owner, labelsMap *policy.IdentityC
 		}
 	}
 
-	ctx := policy.SearchContext{
+	ingressCtx := policy.SearchContext{
 		To: c.LabelArray,
 	}
-	if owner.TracingEnabled() {
-		ctx.Trace = policy.TRACE_ENABLED
+	egressCtx := policy.SearchContext{
+		From: c.LabelArray,
 	}
 
-	for srcID, srcLabels := range *labelsMap {
-		ctx.From = srcLabels
-		e.getLogger().WithFields(logrus.Fields{
-			logfields.PolicyID: srcID,
-			"ctx":              ctx,
-		}).Debug("Evaluating context for source PolicyID")
+	if owner.TracingEnabled() {
+		ingressCtx.Trace = policy.TRACE_ENABLED
+		egressCtx.Trace = policy.TRACE_ENABLED
+	}
 
-		if repo.AllowsIngressLabelAccess(&ctx) == api.Allowed {
-			if e.allowConsumer(owner, srcID) {
+	// Only L3 (label-based) policy apply.
+	// Complexity increases linearly by the number of identities in the map.
+	for identity, labels := range *labelsMap {
+		ingressCtx.From = labels
+		egressCtx.To = labels
+
+		e.getLogger().WithFields(logrus.Fields{
+			logfields.PolicyID: identity,
+			"ingress_context":  ingressCtx,
+		}).Debug("Evaluating ingress context for source PolicyID")
+
+		e.getLogger().WithFields(logrus.Fields{
+			logfields.PolicyID: identity,
+			"egress_context":   egressCtx,
+		}).Debug("Evaluating egress context for source PolicyID")
+
+		ingressAccess := repo.AllowsIngressLabelAccess(&ingressCtx)
+		if ingressAccess == api.Allowed {
+			if e.allowConsumer(owner, identity) {
 				changed = true
 			}
+		}
+
+		egressAccess := repo.AllowsEgressLabelAccess(&egressCtx)
+
+		log.WithFields(logrus.Fields{
+			logfields.PolicyID:   identity,
+			logfields.EndpointID: e.ID,
+			"labels":             labels,
+		}).Debugf("egress verdict: %v", egressAccess)
+
+		// TODO (ianvernon) plumb egress verdict into endpoint structure
+		if egressAccess == api.Allowed {
+			e.getLogger().WithFields(logrus.Fields{
+				logfields.PolicyID: identity,
+				"ctx":              ingressCtx}).Debug("egress allowed")
 		}
 	}
 
