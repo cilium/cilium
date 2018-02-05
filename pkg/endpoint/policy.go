@@ -655,7 +655,6 @@ func (e *Endpoint) regeneratePolicy(owner Owner, opts models.ConfigurationMap) (
 
 	if egress {
 		e.checkEgressAccess(owner, (*labelsMap)[policy.ReservedIdentityHost], opts, OptionAllowToHost)
-		e.checkEgressAccess(owner, (*labelsMap)[policy.ReservedIdentityWorld], opts, OptionAllowToWorld)
 	}
 
 	if !ingress && !egress {

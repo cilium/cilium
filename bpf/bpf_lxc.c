@@ -326,13 +326,10 @@ skip_service_lookup:
                 }
 #endif
 
-#ifdef ALLOW_TO_WORLD
-		policy_mark_skip(skb);
-#else
 		/* Skip policy on matching egress prefixes. */
 		if (likely(lpm6_egress_lookup(daddr)))
 			policy_mark_skip(skb);
-#endif
+
 		goto pass_to_stack;
 	}
 
@@ -620,13 +617,10 @@ skip_service_lookup:
 		dstID = CLUSTER_ID;
 		goto pass_to_stack;
 	} else {
-#ifdef ALLOW_TO_WORLD
-		policy_mark_skip(skb);
-#else
 		/* Skip policy on matching egress prefixes. */
 		if (likely(lpm4_egress_lookup(orig_dip)))
 			policy_mark_skip(skb);
-#endif
+
 		goto pass_to_stack;
 	}
 

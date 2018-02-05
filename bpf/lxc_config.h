@@ -49,6 +49,5 @@
 #define POLICY_INGRESS
 #define POLICY_EGRESS
 #define ENABLE_IPv4
-#define ALLOW_TO_WORLD
 #define ALLOW_TO_HOST
 #define HAVE_L4_POLICY

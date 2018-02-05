@@ -97,8 +97,6 @@ const (
 	// TODO: these should be converted into types for use in configuration
 	// functions instead of using basic strings.
 
-	OptionAllowToHost         = "AllowToHost"
-	OptionAllowToWorld        = "AllowToWorld"
 	OptionConntrackAccounting = "ConntrackAccounting"
 	OptionConntrackLocal      = "ConntrackLocal"
 	OptionConntrack           = "Conntrack"
