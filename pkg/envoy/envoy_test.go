@@ -38,7 +38,7 @@ func (s *EnvoySuite) TestEnvoy(c *C) {
 	stateLogDir := c.MkDir()
 
 	// launch debug variant of the Envoy proxy
-	Envoy := StartEnvoy(9901, stateLogDir, stateLogDir, 42)
+	Envoy := StartEnvoy(9942, stateLogDir, stateLogDir, 42)
 	c.Assert(Envoy, NotNil)
 
 	sel := api.NewWildcardEndpointSelector()
