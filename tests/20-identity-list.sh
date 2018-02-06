@@ -56,14 +56,10 @@ function test_identity_list {
   # Get expected response and replace all newline chars with a single space.
   local response=$(cilium identity list "container:id.foo" | sed ':a;N;$!ba;s/\n/ /g')
 
-  echo "Endpoint security ID is: $ID"
+  echo "Check if endpoint security ID $ID is in response $response"
 
-  local expected_response='Identities in use by endpoints: (Note: If labels have been provided as parameters, only matching identities will be displayed) [   {     "id": '$ID',     "labels": [       "container:id.foo"     ]   } ]'
-
-  echo "Response is $response"
-
-  if [[ "${expected_response}" != "${response}" ]]; then
-    abort "Expected: ${expected_response}; Got: ${response}"
+  if ! grep $ID <(echo "${response}"); then
+    abort "Expected $ID to be found in $response"
   fi
 }
 
@@ -80,7 +76,7 @@ function test_identity_list_reserved {
 }
 
 cilium identity list
-cilium identity list "container:id.foo"
+cilium endpoint list
 
 create_cilium_docker_network
 
