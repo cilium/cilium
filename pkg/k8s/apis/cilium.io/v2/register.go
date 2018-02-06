@@ -135,7 +135,7 @@ func CreateCustomResourceDefinitions(clientset apiextensionsclient.Interface) er
 		},
 	}
 
-	log.Info("Creating v2.CiliumNetworkPolicy CustomResourceDefinition...")
+	log.Debug("Creating CiliumNetworkPolicy/v2 CustomResourceDefinition...")
 	clusterCRD, err := clientset.ApiextensionsV1beta1().CustomResourceDefinitions().Create(res)
 	if err != nil && !errors.IsAlreadyExists(err) {
 		return err
@@ -152,7 +152,7 @@ func CreateCustomResourceDefinitions(clientset apiextensionsclient.Interface) er
 			} else if clusterCRD.Spec.Validation == nil ||
 				!reflect.DeepEqual(clusterCRD.Spec.Validation.OpenAPIV3Schema, crv.OpenAPIV3Schema) {
 				clusterCRD.Spec.Validation = res.Spec.Validation
-				log.Info("CRD validation is different, updating it...")
+				log.Debug("CRD validation is different, updating it...")
 				_, err = clientset.ApiextensionsV1beta1().CustomResourceDefinitions().Update(clusterCRD)
 				if err == nil {
 					return true, nil
@@ -196,7 +196,7 @@ func CreateCustomResourceDefinitions(clientset apiextensionsclient.Interface) er
 		return err
 	}
 
-	log.Info("done creating v2.CiliumNetworkPolicy CustomResourceDefinition")
+	log.Info("Installed CustomResourceDefinition CiliumNetworkPolicy/v2")
 
 	return nil
 }

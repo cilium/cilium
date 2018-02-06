@@ -107,7 +107,7 @@ func CreateThirdPartyResourcesDefinitions(cli kubernetes.Interface) error {
 		return err
 	}
 
-	log.Info("Creating v1.CiliumNetworkPolicy ThirdPartyResource")
+	log.Debug("Creating CiliumNetworkPolicy/v1 ThirdPartyResource")
 	// wait for TPR being established
 	err = wait.Poll(500*time.Millisecond, 60*time.Second, func() (bool, error) {
 		_, err := cli.ExtensionsV1beta1().ThirdPartyResources().Get(cnpTPRName, metav1.GetOptions{})
@@ -125,6 +125,8 @@ func CreateThirdPartyResourcesDefinitions(cli kubernetes.Interface) error {
 		}
 		return err
 	}
+
+	log.Info("Installed ThirdPartyResource CiliumNetworkPolicy/v1")
 
 	return nil
 }
