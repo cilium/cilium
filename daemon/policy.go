@@ -252,7 +252,8 @@ func (d *Daemon) PolicyAdd(rules api.Rules, opts *AddOptions) (uint64, error) {
 		return 0, apierror.Error(PutPolicyFailureCode, err)
 	}
 
-	log.Info("New policy imported, regenerating...")
+	log.WithField(logfields.PolicyRevision, rev).Info("Policy imported via API, recalculating...")
+
 	d.TriggerPolicyUpdates(false)
 
 	return rev, nil

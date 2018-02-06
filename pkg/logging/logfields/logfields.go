@@ -44,6 +44,10 @@ const (
 	// Identity is the identifier of a security identity
 	Identity = "identity"
 
+	// PolicyRevision is the revision of the policy in the repository or of
+	// the object in question
+	PolicyRevision = "policyRevision"
+
 	// PolicyID is the identifier of a L3, L4 or L7 Policy. Ideally the .NumericIdentity
 	PolicyID = "policyID"
 
