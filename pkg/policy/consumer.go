@@ -58,8 +58,7 @@ type Consumable struct {
 	// Map from bpf map fd to the policymap, the go representation of an endpoint's bpf policy map.
 	Maps map[int]*policymap.PolicyMap `json:"-"`
 	// Consumers contains the list of consumers where the key is the Consumers ID
-	// FIXME change key to NumericIdentity?
-	Consumers map[string]*Consumer `json:"consumers"`
+	Consumers map[NumericIdentity]*Consumer `json:"consumers"`
 	// ReverseRules contains the consumers that are allowed to receive a reply from this Consumable
 	ReverseRules map[NumericIdentity]*Consumer `json:"-"`
 	// L4Policy contains the policy of this consumable
@@ -76,7 +75,7 @@ func NewConsumable(id NumericIdentity, lbls *Identity, cache *ConsumableCache) *
 		Iteration:    0,
 		Labels:       lbls,
 		Maps:         map[int]*policymap.PolicyMap{},
-		Consumers:    map[string]*Consumer{},
+		Consumers:    map[NumericIdentity]*Consumer{},
 		ReverseRules: map[NumericIdentity]*Consumer{},
 		cache:        cache,
 	}
@@ -182,7 +181,7 @@ func (c *Consumable) RemoveMap(m *policymap.PolicyMap) {
 }
 
 func (c *Consumable) getConsumer(id NumericIdentity) *Consumer {
-	val, _ := c.Consumers[id.StringID()]
+	val, _ := c.Consumers[id]
 	return val
 }
 
@@ -205,7 +204,7 @@ func (c *Consumable) addToMaps(id NumericIdentity) {
 }
 
 func (c *Consumable) wasLastRule(id NumericIdentity) bool {
-	return c.ReverseRules[id] == nil && c.Consumers[id.StringID()] == nil
+	return c.ReverseRules[id] == nil && c.Consumers[id] == nil
 }
 
 func (c *Consumable) removeFromMaps(id NumericIdentity) {
@@ -233,7 +232,7 @@ func (c *Consumable) AllowConsumerLocked(cache *ConsumableCache, id NumericIdent
 			"consumable":       logfields.Repr(c),
 		}).Debug("New consumer Identity for consumable")
 		c.addToMaps(id)
-		c.Consumers[id.StringID()] = NewConsumer(id)
+		c.Consumers[id] = NewConsumer(id)
 		return true
 	}
 	consumer.DeletionMark = false
@@ -272,9 +271,9 @@ func (c *Consumable) AllowConsumerAndReverseLocked(cache *ConsumableCache, id Nu
 // BanConsumerLocked removes the given consumer from the Consumable's consumers
 // map. Must be called with the Consumable mutex locked.
 func (c *Consumable) BanConsumerLocked(id NumericIdentity) {
-	if consumer, ok := c.Consumers[id.StringID()]; ok {
+	if consumer, ok := c.Consumers[id]; ok {
 		log.WithField("consumer", logfields.Repr(consumer)).Debug("Removing consumer")
-		delete(c.Consumers, id.StringID())
+		delete(c.Consumers, id)
 
 		if c.wasLastRule(id) {
 			c.removeFromMaps(id)
