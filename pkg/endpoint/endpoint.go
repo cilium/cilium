@@ -17,13 +17,16 @@ package endpoint
 import (
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
+	"reflect"
 	"runtime"
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/cilium/cilium/api/v1/models"
@@ -33,6 +36,10 @@ import (
 	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/controller"
 	identityPkg "github.com/cilium/cilium/pkg/identity"
+	"github.com/cilium/cilium/pkg/k8s"
+	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	clientset "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned"
+	cilium_client_v2 "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/labels"
 	pkgLabels "github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
@@ -42,8 +49,13 @@ import (
 	"github.com/cilium/cilium/pkg/maps/ctmap"
 	"github.com/cilium/cilium/pkg/maps/lxcmap"
 	"github.com/cilium/cilium/pkg/maps/policymap"
+	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
+	go_version "github.com/hashicorp/go-version"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/rest"
 
 	"context"
 	"github.com/sirupsen/logrus"
@@ -162,12 +174,52 @@ var (
 	EndpointOptionLibrary = option.OptionLibrary{
 		OptionAllowToHost: &OptionSpecAllowToHost,
 	}
+
+	// ciliumEPControllerLimit is the range of k8s versions with which we are
+	// willing to run the EndpointCRD controllers
+	ciliumEPControllerLimit, _ = go_version.NewConstraint("> 1.6")
+
+	// ciliumEndpointSyncControllerK8sClient is a k8s client shared by the
+	// RunK8sCiliumEndpointSync and RunK8sCiliumEndpointSyncGC. They obtain the
+	// controller via getCiliumClient and the sync.Once is used to avoid race.
+	ciliumEndpointSyncControllerOnce      sync.Once
+	ciliumEndpointSyncControllerK8sClient clientset.Interface
 )
 
 func init() {
 	for k, v := range EndpointMutableOptionLibrary {
 		EndpointOptionLibrary[k] = v
 	}
+}
+
+// getCiliumClient builds and returns a k8s auto-generated client for cilium
+// objects
+func getCiliumClient() (ciliumClient cilium_client_v2.CiliumV2Interface, err error) {
+	// This allows us to reuse the k8s client
+	ciliumEndpointSyncControllerOnce.Do(func() {
+		var (
+			restConfig *rest.Config
+			k8sClient  *clientset.Clientset
+		)
+
+		restConfig, err = k8s.CreateConfig()
+		if err != nil {
+			return
+		}
+
+		k8sClient, err = clientset.NewForConfig(restConfig)
+		if err != nil {
+			return
+		}
+
+		ciliumEndpointSyncControllerK8sClient = k8sClient
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	return ciliumEndpointSyncControllerK8sClient.CiliumV2(), nil
 }
 
 const (
@@ -200,6 +252,10 @@ const (
 	CallsMapName = "cilium_calls_"
 	// PolicyGlobalMapName specifies the global tail call map for EP handle_policy() lookup.
 	PolicyGlobalMapName = "cilium_policy"
+
+	// ReservedEPNamespace is the namespace to use for reserved endpoints that
+	// don't have a namespace (e.g. health)
+	ReservedEPNamespace = "kube-system"
 )
 
 // Endpoint represents a container or similar which can be individually
@@ -371,6 +427,116 @@ func (e *Endpoint) WaitForProxyCompletions() error {
 	}
 	e.getLogger().Debug("Wait time for proxy updates: ", time.Since(start))
 	return nil
+}
+
+// RunK8sCiliumEndpointSync starts a controller that syncronizes the endpoint
+// to the corresponding k8s CiliumEndpoint CRD
+// CiliumEndpoint objects follow a nodename-cep-endpointID scheme
+func (e *Endpoint) RunK8sCiliumEndpointSync() {
+	var (
+		endpointID     = e.ID
+		controllerName = fmt.Sprintf("sync-to-k8s-ciliumendpoint (%v)", endpointID)
+		epName         = fmt.Sprintf("%v-cep-%v", node.GetName(), endpointID)
+		scopedLog      = e.getLogger().WithField("controller", controllerName)
+	)
+
+	if !k8s.IsEnabled() {
+		scopedLog.Debug("Not starting controller because k8s is disabled")
+		return
+	}
+	sv, err := k8s.GetServerVersion()
+	if err != nil {
+		scopedLog.WithError(err).Error("unable to retrieve kubernetes serverversion")
+		return
+	}
+	if !ciliumEPControllerLimit.Check(sv) {
+		scopedLog.WithFields(logrus.Fields{
+			"expected": sv,
+			"found":    ciliumEPControllerLimit,
+		}).Warn("cannot run with this k8s version")
+		return
+	}
+
+	ciliumClient, err := getCiliumClient()
+	if err != nil {
+		scopedLog.WithError(err).Error("Not starting controller because unable to get cilium k8s client")
+		return
+	}
+
+	var lastMdl *models.Endpoint
+
+	// NOTE: The controller functions do NOT hold the endpoint locks
+	e.controllers.UpdateController(controllerName,
+		controller.ControllerParams{
+			RunInterval: 10 * time.Second,
+			DoFunc: func() (err error) {
+				namespace := e.GetK8sNamespace()
+				if namespace == "" {
+					scopedLog.Debug("Skipping CiliumEndpoint update because it has no k8s namespace")
+					return nil
+				}
+
+				mdl := e.GetModel()
+				if reflect.DeepEqual(mdl, lastMdl) {
+					scopedLog.Debug("Skipping CiliumEndpoint update because it has not changed")
+					return nil
+				}
+				defer func() {
+					if err == nil {
+						lastMdl = mdl
+					}
+				}()
+
+				cep, err := ciliumClient.CiliumEndpoints(namespace).Get(epName, meta_v1.GetOptions{})
+				switch {
+				// A real error
+				case err != nil && !k8serrors.IsNotFound(err):
+					scopedLog.WithError(err).Error("Cannot get CEP for update")
+					return err
+
+				// do an update
+				case err == nil:
+					// Update the copy of the cep
+					(*cilium_v2.CiliumEndpointDetail)(mdl).DeepCopyInto(&cep.Status)
+					if cep.Status.ID == 0 {
+						err = errors.New("Failed to deepcopy CiliumEndpoint object")
+						scopedLog.WithError(err).Error("Cannot deepcopy CEP.status")
+						return err
+					}
+
+					if _, err = ciliumClient.CiliumEndpoints(namespace).Update(cep); err != nil {
+						scopedLog.WithError(err).Error("Cannot update CEP")
+						return err
+					}
+
+					return nil
+				}
+
+				// The CEP was not found, this is the first creation of the endpoint
+				cep = &cilium_v2.CiliumEndpoint{
+					ObjectMeta: meta_v1.ObjectMeta{
+						Name: epName,
+					},
+					Status: cilium_v2.CiliumEndpointDetail(*mdl),
+				}
+
+				_, err = ciliumClient.CiliumEndpoints(namespace).Create(cep)
+				if err != nil {
+					scopedLog.WithError(err).Error("Cannot create CEP")
+					return err
+				}
+
+				return nil
+			},
+			StopFunc: func() error {
+				namespace := e.GetK8sNamespace()
+				if err := ciliumClient.CiliumEndpoints(namespace).Delete(epName, &meta_v1.DeleteOptions{}); err != nil {
+					scopedLog.WithError(err).Error("Unable to delete CEP")
+					return err
+				}
+				return nil
+			},
+		})
 }
 
 // NewEndpointWithState creates a new endpoint useful for testing purposes
