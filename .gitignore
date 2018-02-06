@@ -51,6 +51,9 @@ man/
 bazel-*
 
 test/tmp.yaml
+test/*_service_manifest.json
+test/*_manifest.yaml
+test/*_policy.json
 
 # Emacs backup files
 *~
