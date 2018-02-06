@@ -20,6 +20,7 @@ import (
 	"io"
 	"time"
 
+	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/flowdebug"
 	"github.com/cilium/cilium/pkg/kafka"
 	"github.com/cilium/cilium/pkg/lock"
@@ -408,7 +409,7 @@ func (k *kafkaRedirect) handleResponseConnection(pair *connectionPair,
 }
 
 // UpdateRules replaces old l7 rules of a redirect with new ones.
-func (k *kafkaRedirect) UpdateRules(l4 *policy.L4Filter, completions policy.CompletionContainer) error {
+func (k *kafkaRedirect) UpdateRules(l4 *policy.L4Filter, wg *completion.WaitGroup) error {
 	if l4.L7Parser != policy.ParserTypeKafka {
 		return fmt.Errorf("invalid type %q, must be of type ParserTypeKafka", l4.L7Parser)
 	}
@@ -424,7 +425,7 @@ func (k *kafkaRedirect) UpdateRules(l4 *policy.L4Filter, completions policy.Comp
 }
 
 // Close the redirect.
-func (k *kafkaRedirect) Close(policy.CompletionContainer) {
+func (k *kafkaRedirect) Close(wg *completion.WaitGroup) {
 	k.socket.Close()
 }
 

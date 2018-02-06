@@ -16,13 +16,16 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"os"
 	"sync"
+	"time"
 
 	"github.com/cilium/cilium/api/v1/models"
 	. "github.com/cilium/cilium/api/v1/server/restapi/endpoint"
 	"github.com/cilium/cilium/pkg/apierror"
+	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/ipam"
@@ -314,7 +317,9 @@ func (d *Daemon) deleteEndpoint(ep *endpoint.Endpoint) int {
 
 	// Wait for existing builds to complete and prevent further builds
 	ep.BuildMutex.Lock()
-	ep.ProxyCompletions = &endpoint.Completions{}
+	completionCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	ep.ProxyWaitGroup = completion.NewWaitGroup(completionCtx)
 
 	// Lock out any other writers to the endpoint
 	ep.Mutex.Lock()
@@ -392,7 +397,7 @@ func (d *Daemon) deleteEndpoint(ep *endpoint.Endpoint) int {
 	if err != nil {
 		scopedLog.WithError(err).Warn("Error removing proxy redirects.")
 	}
-	ep.ProxyCompletions = nil
+	ep.ProxyWaitGroup = nil
 	ep.BuildMutex.Unlock()
 
 	return errors

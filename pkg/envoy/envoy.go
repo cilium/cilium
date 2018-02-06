@@ -13,11 +13,11 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/policy"
 
 	"github.com/golang/protobuf/proto"
-
 	"github.com/sirupsen/logrus"
 )
 
@@ -298,18 +298,18 @@ func (e *Envoy) StopEnvoy() error {
 }
 
 // AddListener adds a listener to a running Envoy proxy.
-func (e *Envoy) AddListener(name string, port uint16, l7rules policy.L7DataMap, isIngress bool, logger Logger, completions policy.CompletionContainer) {
-	e.lds.addListener(name, port, l7rules, isIngress, logger, completions)
+func (e *Envoy) AddListener(name string, port uint16, l7rules policy.L7DataMap, isIngress bool, logger Logger, wg *completion.WaitGroup) {
+	e.lds.addListener(name, port, l7rules, isIngress, logger, wg)
 }
 
 // UpdateListener changes to the L7 rules of an existing Envoy Listener.
-func (e *Envoy) UpdateListener(name string, l7rules policy.L7DataMap, completions policy.CompletionContainer) {
-	e.lds.updateListener(name, l7rules, completions)
+func (e *Envoy) UpdateListener(name string, l7rules policy.L7DataMap, wg *completion.WaitGroup) {
+	e.lds.updateListener(name, l7rules, wg)
 }
 
 // RemoveListener removes an existing Envoy Listener.
-func (e *Envoy) RemoveListener(name string, completions policy.CompletionContainer) {
-	e.lds.removeListener(name, completions)
+func (e *Envoy) RemoveListener(name string, wg *completion.WaitGroup) {
+	e.lds.removeListener(name, wg)
 }
 
 // ChangeLogLevel changes Envoy log level to correspond to the logrus log level 'level'.
