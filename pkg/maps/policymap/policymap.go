@@ -21,10 +21,17 @@ import (
 
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/byteorder"
+	"github.com/cilium/cilium/pkg/comparator"
+	"github.com/cilium/cilium/pkg/logging"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
 const (
 	MapName = "cilium_policy_"
+)
+
+var (
+	log = logging.DefaultLogger.WithField(logfields.LogSubsys, "policy-map")
 )
 
 type PolicyMap struct {
@@ -204,6 +211,9 @@ func Validate(path string) (bool, error) {
 	if err != nil {
 		return true, err
 	}
+
+	logging.MultiLine(log.Debug, comparator.Compare(existing, dummy))
+
 	if existing != nil && !existing.DeepEquals(dummy) {
 		return false, nil
 	}
