@@ -1137,6 +1137,9 @@ definitions:
       cluster:
         description: Status of cluster
         "$ref": "#/definitions/ClusterStatus"
+      controllers:
+        description: Status of all endpoint controllers
+        "$ref": "#/definitions/ControllerStatuses"
 
   Status:
     description: Status of an individual component

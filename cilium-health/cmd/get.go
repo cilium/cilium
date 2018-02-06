@@ -45,7 +45,7 @@ var healthGetCmd = &cobra.Command{
 			load := sr.SystemLoad
 			fmt.Fprintf(w, "Node load:\t%s %s %s\n",
 				load.Last1min, load.Last5min, load.Last15min)
-			ciliumClient.FormatStatusResponse(w, sr.Cilium)
+			ciliumClient.FormatStatusResponse(w, sr.Cilium, false)
 			w.Flush()
 		}
 	},

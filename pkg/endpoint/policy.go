@@ -838,7 +838,7 @@ func (e *Endpoint) TriggerPolicyUpdatesLocked(owner Owner, opts models.Configura
 }
 
 func (e *Endpoint) runIdentityToK8sPodSync() {
-	e.controllers.UpdateController("sync-identity-to-k8s-pod",
+	e.controllers.UpdateController(fmt.Sprintf("sync-identity-to-k8s-pod (%d)", e.ID),
 		controller.ControllerParams{
 			DoFunc: func() error {
 				id := ""

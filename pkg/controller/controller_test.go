@@ -32,14 +32,14 @@ type ControllerSuite struct{}
 var _ = Suite(&ControllerSuite{})
 
 func (b *ControllerSuite) TestUpdateRemoveController(c *C) {
-	mngr := Manager{}
+	mngr := NewManager()
 	mngr.UpdateController("test", ControllerParams{})
 	c.Assert(mngr.RemoveController("test"), IsNil)
 	c.Assert(mngr.RemoveController("not-exist"), Not(IsNil))
 }
 
 func (b *ControllerSuite) TestRemoveAll(c *C) {
-	mngr := Manager{}
+	mngr := NewManager()
 	// create
 	mngr.UpdateController("test1", ControllerParams{})
 	mngr.UpdateController("test2", ControllerParams{})
@@ -56,7 +56,7 @@ type testObj struct {
 }
 
 func (b *ControllerSuite) TestRunController(c *C) {
-	mngr := Manager{}
+	mngr := NewManager()
 	o := &testObj{}
 
 	ctrl := mngr.UpdateController("test", ControllerParams{
@@ -80,6 +80,8 @@ func (b *ControllerSuite) TestRunController(c *C) {
 
 		time.Sleep(time.Duration(100) * time.Millisecond)
 	}
+
+	c.Assert(GetGlobalStatus(), Not(IsNil))
 
 	c.Assert(ctrl.GetSuccessCount(), Not(Equals), 0)
 	c.Assert(ctrl.GetFailureCount(), Equals, 2)

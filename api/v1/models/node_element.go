@@ -19,7 +19,7 @@ import (
 
 type NodeElement struct {
 
-	// Addresses used for probing cluster connectivity
+	// Address used for probing cluster connectivity
 	HealthEndpointAddress *NodeAddressing `json:"health-endpoint-address,omitempty"`
 
 	// name

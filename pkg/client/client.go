@@ -23,6 +23,8 @@ import (
 	"net/url"
 	"os"
 	"strings"
+	"text/tabwriter"
+	"time"
 
 	clientapi "github.com/cilium/cilium/api/v1/client"
 	"github.com/cilium/cilium/api/v1/models"
@@ -125,8 +127,23 @@ func formatNodeAddress(w io.Writer, elem *models.NodeAddressingElement, title, p
 	return false
 }
 
-// FormatStatusResponse writes a StatusResponse as a string to the writer
-func FormatStatusResponse(w io.Writer, sr *models.StatusResponse) {
+func timeSince(since time.Time) string {
+	out := "never"
+	if !since.IsZero() {
+		// Poor man's implementtion of time.Truncate(). Can be refined
+		// when we rebase to go 1.9
+		t := time.Since(since)
+		t -= t % time.Second
+		out = t.String() + " ago"
+	}
+
+	return out
+}
+
+// FormatStatusResponse writes a StatusResponse as a string to the writer. When
+// allControllers is true, the status of all controllers is listed regardless
+// of whether the respective controller is currently failing or not
+func FormatStatusResponse(w io.Writer, sr *models.StatusResponse, allControllers bool) {
 	if sr.Kvstore != nil {
 		fmt.Fprintf(w, "KVStore:\t%s\t%s\n", sr.Kvstore.State, sr.Kvstore.Msg)
 	}
@@ -198,5 +215,42 @@ func FormatStatusResponse(w io.Writer, sr *models.StatusResponse) {
 				formatNodeAddress(w, node.HealthEndpointAddress.IPV6, "Health Endpoint", "  ")
 			}
 		}
+	}
+
+	if sr.Controllers != nil {
+		nFailing, out := 0, []string{"  Name\tLast success\tLast error\tCount\tMessage\n"}
+		for _, ctrl := range sr.Controllers {
+			status := ctrl.Status
+			if status == nil {
+				continue
+			}
+
+			if status.ConsecutiveFailureCount > 0 {
+				nFailing++
+			} else if !allControllers {
+				continue
+			}
+
+			failSince := timeSince(time.Time(status.LastFailureTimestamp))
+			successSince := timeSince(time.Time(status.LastSuccessTimestamp))
+
+			err := "no error"
+			if status.LastFailureMsg != "" {
+				err = status.LastFailureMsg
+			}
+
+			out = append(out, fmt.Sprintf("  %s\t%s\t%s\t%d\t%s\t\n",
+				ctrl.Name, successSince, failSince, status.ConsecutiveFailureCount, err))
+		}
+
+		fmt.Fprintf(w, "Controller Status (%d/%d failing)\n", nFailing, len(sr.Controllers))
+		if len(out) > 1 {
+			tab := tabwriter.NewWriter(w, 0, 0, 3, ' ', 0)
+			for _, s := range out {
+				fmt.Fprint(tab, s)
+			}
+			tab.Flush()
+		}
+
 	}
 }
