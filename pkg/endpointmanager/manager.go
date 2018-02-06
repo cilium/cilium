@@ -307,6 +307,8 @@ func GetEndpoints() []*endpoint.Endpoint {
 
 // AddEndpoint takes the prepared endpoint object and starts managing it.
 func AddEndpoint(owner endpoint.Owner, ep *endpoint.Endpoint, reason string) error {
+	ep.RunK8sCiliumEndpointSync() // start the k8s update controller
+
 	alwaysEnforce := policy.GetPolicyEnabled() == endpoint.AlwaysEnforce
 	ep.Opts.Set(endpoint.OptionIngressPolicy, alwaysEnforce)
 	ep.Opts.Set(endpoint.OptionEgressPolicy, alwaysEnforce)

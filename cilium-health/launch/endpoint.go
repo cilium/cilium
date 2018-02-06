@@ -177,6 +177,8 @@ func LaunchAsEndpoint(owner endpoint.Owner, hostAddressing *models.NodeAddressin
 		log.WithError(err).Fatal("Error while creating cilium-health endpoint")
 	}
 	ep.SetDefaultOpts(opts)
+	// This is used by the k8s sync-to-k8s-ciliumendpoint controller.
+	ep.SetK8sNamespace(endpoint.ReservedEPNamespace)
 
 	// Add the endpoint
 	if err := endpointmanager.AddEndpoint(owner, ep, "Create cilium-health endpoint"); err != nil {
