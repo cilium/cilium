@@ -111,7 +111,10 @@ var _ = Describe("NightlyEpsMeasurement", func() {
 						result[state]++
 					}
 					count += result[desiredState]
-					log.WithField("status", result).Debugf("Cilium %s endpoint status are:", pod)
+					logger.WithFields(logrus.Fields{
+						"status": result,
+						"pod":    pod,
+					}).Info("Cilium endpoint status")
 				}
 				return count >= endpointCount
 			}, endpointsTimeout, 3*time.Second).Should(BeTrue())
