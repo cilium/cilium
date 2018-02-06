@@ -321,7 +321,7 @@ func handleCreateContainer(id string, retry bool) {
 
 	startIgnoringContainer(id)
 
-	scopedLog.Info("No endpoint appeared representing the container. Likely managed by other plugin")
+	scopedLog.Info("No request received to manage networking for container")
 }
 
 // retrieveDockerLabels returns the metadata for the container with ID dockerID,
