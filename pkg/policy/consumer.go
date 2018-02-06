@@ -43,7 +43,8 @@ func NewConsumer(id NumericIdentity) *Consumer {
 
 // Consumable is the entity that is being consumed by a Consumer. It holds all
 // of the policies relevant to this security identity, including label-based
-// policies which act on Consumers, and L4Policy.
+// policies which act on Consumers, and L4Policy. A Consumable is shared amongst
+// all endpoints on the same node which possess the same security identity.
 type Consumable struct {
 	// ID of the consumable (same as security ID)
 	ID NumericIdentity `json:"id"`
@@ -223,7 +224,8 @@ func (c *Consumable) removeFromMaps(id NumericIdentity) {
 
 // AllowConsumerLocked adds the given consumer ID to the Consumable's
 // consumers map. Must be called with Consumable mutex Locked.
-// returns true if changed, false if not
+// Returns true if the consumer was not present in this Consumable's consumer map,
+// and thus had to be added, false if it is already added.
 func (c *Consumable) AllowConsumerLocked(cache *ConsumableCache, id NumericIdentity) bool {
 	consumer := c.getConsumer(id)
 	if consumer == nil {
