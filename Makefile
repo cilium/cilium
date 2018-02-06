@@ -30,11 +30,11 @@ tests-common-ginkgo: force
 	make -C daemon go-bindata
 	docker-compose -f test/docker-compose.yml -p $$JOB_BASE_NAME-$$BUILD_NUMBER run --rm test
 	# Remove the networks
-	docker-compose -f test/docker-compose.yml -p $$JOB_BASE_NAME-$$BUILD_NUMBER down
+	docker-compose --verbose -f test/docker-compose.yml -p $$JOB_BASE_NAME-$$BUILD_NUMBER down
 
 clean-ginkgo-tests:
-	docker-compose -f test/docker-compose.yml -p $$JOB_BASE_NAME-$$BUILD_NUMBER down
-	docker-compose -f test/docker-compose.yml -p $$JOB_BASE_NAME-$$BUILD_NUMBER rm
+	docker-compose --verbose -f test/docker-compose.yml -p $$JOB_BASE_NAME-$$BUILD_NUMBER down
+	docker-compose --verbose -f test/docker-compose.yml -p $$JOB_BASE_NAME-$$BUILD_NUMBER rm
 
 tests-common: force
 	go vet $(GOFILES)
