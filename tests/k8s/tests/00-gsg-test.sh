@@ -17,6 +17,9 @@ redirect_debug_logs ${LOGS_DIR}
 
 set -ex
 
+log "${TEST_NAME} has been deprecated and replaced by test/k8sT/Policies.go:checks all kind of kubernetes policies"
+exit 0
+
 NAMESPACE="kube-system"
 GOPATH="/home/vagrant/go"
 DENIED="Final verdict: DENIED"
