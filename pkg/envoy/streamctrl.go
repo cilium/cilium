@@ -5,8 +5,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/lock"
-	"github.com/cilium/cilium/pkg/policy"
 )
 
 // StreamControlCtx holds the state of a gRPC stream server instance we need to know about.
@@ -26,8 +26,7 @@ func (ctx *StreamControlCtx) stop() {
 type versionCompletion struct {
 	version    uint64
 	msg        string
-	expiration time.Time
-	completion policy.Completion // Ack/Nack callback interface
+	completion *completion.Completion // Ack callback interface
 }
 
 // StreamControl implements a generic Envoy streamed gRPC API. API
@@ -50,34 +49,32 @@ type StreamControl struct {
 }
 
 // Called with ctrl.cond.L.Lock() held
-func (ctrl *StreamControl) addCompletion(completions policy.CompletionContainer, msg string) {
-	if completions == nil {
+func (ctrl *StreamControl) addCompletion(wg *completion.WaitGroup, msg string) {
+	if wg == nil {
 		return
 	}
 
-	comp, timeout := completions.AddCompletion()
+	comp := wg.AddCompletion()
 
 	// Note that we do not start a timer for the timeout, but rely on NACKs to be followed by
 	// retries that allows for checking for timeouts at some times in future. This should
 	// also work accross Envoy restarts.
 	if comp != nil {
-		log.Debug("Envoy: AddCompletion: ", msg)
+		log.Debugf("Envoy: AddCompletion: %s", msg)
 		ctrl.completions = append(ctrl.completions,
-			versionCompletion{ctrl.currentVersion, msg, time.Now().Add(timeout), comp})
+			versionCompletion{ctrl.currentVersion, msg, comp})
 	}
 }
 
 // Called with ctrl.cond.L.Lock() held
 func (ctrl *StreamControl) handleCompletions(version uint64, success bool) {
-	now := time.Now()
-
 	var retained []versionCompletion // No allocation so we can shrink
 	for _, comp := range ctrl.completions {
 		result := success
 
 		if version >= comp.version {
 			// Ack or Nack for this version OR later received
-		} else if now.After(comp.expiration) {
+		} else if comp.completion.Context().Err() != nil {
 			// Timed out, return failure.
 			result = false
 		} else {
@@ -89,9 +86,11 @@ func (ctrl *StreamControl) handleCompletions(version uint64, success bool) {
 		if result {
 			res = "ACK"
 		}
-		log.Debug("Envoy: ", ctrl.name, " ", comp.msg, " ", res, ", time left: ", comp.expiration.Sub(now))
+		log.Debug("Envoy: ", ctrl.name, " ", comp.msg, " ", res)
 
-		comp.completion.Completed(result)
+		if result {
+			comp.completion.Complete()
+		}
 	}
 	ctrl.completions = retained
 }

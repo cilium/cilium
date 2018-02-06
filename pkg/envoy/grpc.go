@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/cilium/cilium/pkg/completion"
 	envoy_api "github.com/cilium/cilium/pkg/envoy/api"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/policy"
@@ -147,7 +148,7 @@ func createLDSServer(path, accessLogPath string) *LDSServer {
 	return ldsServer
 }
 
-func (s *LDSServer) addListener(name string, port uint16, l7rules policy.L7DataMap, isIngress bool, logger Logger, completions policy.CompletionContainer) {
+func (s *LDSServer) addListener(name string, port uint16, l7rules policy.L7DataMap, isIngress bool, logger Logger, wg *completion.WaitGroup) {
 	s.listenersMutex.Lock()
 	log.Debug("Envoy: addListener ", name)
 
@@ -167,7 +168,7 @@ func (s *LDSServer) addListener(name string, port uint16, l7rules policy.L7DataM
 	}
 
 	// RDS server 'listener' lock not held, but no-one else has access to it yet.
-	listener.addCompletion(completions, "addListener "+name)
+	listener.addCompletion(wg, "addListener "+name)
 
 	// Fill in the listener-specific parts
 	listener.listenerConf.Name = name
@@ -183,7 +184,7 @@ func (s *LDSServer) addListener(name string, port uint16, l7rules policy.L7DataM
 	s.bumpVersion()
 }
 
-func (s *LDSServer) updateListener(name string, l7rules policy.L7DataMap, completions policy.CompletionContainer) {
+func (s *LDSServer) updateListener(name string, l7rules policy.L7DataMap, wg *completion.WaitGroup) {
 	s.listenersMutex.Lock()
 	defer s.listenersMutex.Unlock()
 	log.Debug("Envoy: updateListener ", name)
@@ -197,11 +198,11 @@ func (s *LDSServer) updateListener(name string, l7rules policy.L7DataMap, comple
 	// RDS update to synchonize the new policy.
 	l.bumpVersionFunc(func() { // func called while RDS server 'l' lock held
 		l.l7rules = l7rules
-		l.addCompletion(completions, "updateListener "+name)
+		l.addCompletion(wg, "updateListener "+name)
 	})
 }
 
-func (s *LDSServer) removeListener(name string, completions policy.CompletionContainer) {
+func (s *LDSServer) removeListener(name string, wg *completion.WaitGroup) {
 	s.listenersMutex.Lock()
 	log.Debug("Envoy: removeListener ", name)
 	l := s.listeners[name]
@@ -214,7 +215,7 @@ func (s *LDSServer) removeListener(name string, completions policy.CompletionCon
 	delete(s.envoyResources, l.name)
 	s.listenersMutex.Unlock()
 	s.bumpVersionFunc(func() { // func called while LDS server 's' lock held
-		s.addCompletion(completions, "removeListener "+name)
+		s.addCompletion(wg, "removeListener "+name)
 	})
 }
 

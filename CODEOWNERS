@@ -64,6 +64,7 @@ monitor/payload @cilium/api
 pkg/apierror/ @cilium/api
 pkg/apisocket/ @cilium/api
 pkg/bpf/ @cilium/bpf
+pkg/completion/ @cilium/proxy
 pkg/endpoint/ @cilium/endpoint
 pkg/envoy/ @cilium/proxy
 pkg/health/ @cilium/health

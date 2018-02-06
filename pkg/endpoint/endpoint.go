@@ -17,6 +17,7 @@ package endpoint
 import (
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -24,13 +25,13 @@ import (
 	"sort"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/common/addressing"
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/byteorder"
+	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/labels"
 	pkgLabels "github.com/cilium/cilium/pkg/labels"
@@ -337,53 +338,21 @@ type Endpoint struct {
 	// proxy redirects to remove later during the build
 	proxiesToRemove map[string]bool
 
-	// Pending completions, protected by the BuildMutex!
-	ProxyCompletions *Completions
-}
-
-// Completions maintains the state needed to register and wait for asynchronous completions.
-type Completions struct {
-	wg     sync.WaitGroup
-	lock   lock.Mutex
-	errors int
-	done   bool
-}
-
-// Completed is called when an asynchronous event is completed.
-// May be called from any goroutine without holding any locks
-func (c *Completions) Completed(success bool) {
-	log.Debug("completions.Completed: ", success)
-	// 'done' is used to catch late callbacks (after Wait()), non-locked access on purpose.
-	if c.done {
-		log.Fatal("Completed called after Wait!")
-	}
-	if !success {
-		c.lock.Lock()
-		c.errors++
-		c.lock.Unlock()
-	}
-	c.wg.Done()
-}
-
-// AddCompletion increases the count of 'Completed()' callbacks we need by 1.
-// Called with BuildMutex held
-func (e *Endpoint) AddCompletion() (policy.Completion, time.Duration) {
-	e.ProxyCompletions.wg.Add(1)
-	return e.ProxyCompletions, time.Duration(10) * time.Second
+	// ProxyWaitGroup waits for pending proxy changes to complete.
+	// You must hold Endpoint.BuildMutex to read or write it.
+	ProxyWaitGroup *completion.WaitGroup `json:"-"`
 }
 
 // WaitForProxyCompletions blocks until all proxy changes have been completed.
-// Called with BuildMutex held
+// Called with BuildMutex held.
 func (e *Endpoint) WaitForProxyCompletions() error {
 	start := time.Now()
-	log.Debug("Waiting for proxy updates to complete...")
-	e.ProxyCompletions.wg.Wait()
-	// Wait is done, no parallel access any more
-	e.ProxyCompletions.done = true
-	if e.ProxyCompletions.errors > 0 {
-		return fmt.Errorf("%d proxy state changes failed", e.ProxyCompletions.errors)
+	e.getLogger().Debug("Waiting for proxy updates to complete...")
+	err := e.ProxyWaitGroup.Wait()
+	if err != nil {
+		return errors.New("proxy state changes failed")
 	}
-	log.Debug("Wait time for proxy updates: ", time.Since(start))
+	e.getLogger().Debug("Wait time for proxy updates: ", time.Since(start))
 	return nil
 }
 

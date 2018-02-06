@@ -124,7 +124,7 @@ func (d *Daemon) UpdateProxyRedirect(e *endpoint.Endpoint, l4 *policy.L4Filter) 
 		return 0, fmt.Errorf("can't redirect, proxy disabled")
 	}
 
-	r, err := d.l7Proxy.CreateOrUpdateRedirect(l4, e.ProxyID(l4), e, d, e)
+	r, err := d.l7Proxy.CreateOrUpdateRedirect(l4, e.ProxyID(l4), e, d, e.ProxyWaitGroup)
 	if err != nil {
 		return 0, err
 	}
@@ -143,7 +143,7 @@ func (d *Daemon) RemoveProxyRedirect(e *endpoint.Endpoint, id string) error {
 		logfields.EndpointID: e.ID,
 		logfields.L4PolicyID: id,
 	}).Debug("Removing redirect to endpoint")
-	return d.l7Proxy.RemoveRedirect(id, e)
+	return d.l7Proxy.RemoveRedirect(id, e.ProxyWaitGroup)
 }
 
 // QueueEndpointBuild puts the given request in the endpoints queue for

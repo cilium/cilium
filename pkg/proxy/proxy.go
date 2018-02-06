@@ -23,6 +23,7 @@ import (
 	"time"
 
 	"github.com/cilium/cilium/common/addressing"
+	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
@@ -70,9 +71,9 @@ const (
 // type must export
 type Redirect interface {
 	ToPort() uint16
-	UpdateRules(l4 *policy.L4Filter, completions policy.CompletionContainer) error
+	UpdateRules(l4 *policy.L4Filter, wg *completion.WaitGroup) error
 	getSource() ProxySource
-	Close(completions policy.CompletionContainer)
+	Close(wg *completion.WaitGroup)
 	IsIngress() bool
 }
 
@@ -342,7 +343,7 @@ func fillEgressDestinationInfo(info *accesslog.EndpointInfo, ipstr string) {
 // a proxy instance. If the redirect is already in place, only the rules will be
 // updated.
 func (p *Proxy) CreateOrUpdateRedirect(l4 *policy.L4Filter, id string, source ProxySource,
-	notifier accesslog.LogRecordNotifier, completions policy.CompletionContainer) (Redirect, error) {
+	notifier accesslog.LogRecordNotifier, wg *completion.WaitGroup) (Redirect, error) {
 	gcOnce.Do(func() {
 		if lf := viper.GetString("access-log"); lf != "" {
 			if err := accesslog.OpenLogfile(lf, notifier); err != nil {
@@ -372,7 +373,7 @@ func (p *Proxy) CreateOrUpdateRedirect(l4 *policy.L4Filter, id string, source Pr
 	scopedLog := log.WithField(fieldProxyRedirectID, id)
 
 	if r, ok := p.redirects[id]; ok {
-		err := r.UpdateRules(l4, completions)
+		err := r.UpdateRules(l4, wg)
 		if err != nil {
 			scopedLog.WithError(err).Error("Unable to update ", l4.L7Parser, " proxy")
 			return nil, err
@@ -400,10 +401,10 @@ retryCreatePort:
 				listenPort: to})
 
 		case policy.ParserTypeHTTP:
-			redir, err = createEnvoyRedirect(l4, id, source, to, completions)
+			redir, err = createEnvoyRedirect(l4, id, source, to, wg)
 
 		default:
-			return nil, fmt.Errorf("Unsupported L7 parser type: %s", l4.L7Parser)
+			return nil, fmt.Errorf("unsupported L7 parser type: %s", l4.L7Parser)
 		}
 
 		switch {
@@ -431,7 +432,7 @@ retryCreatePort:
 }
 
 // RemoveRedirect removes an existing redirect.
-func (p *Proxy) RemoveRedirect(id string, completions policy.CompletionContainer) error {
+func (p *Proxy) RemoveRedirect(id string, wg *completion.WaitGroup) error {
 	p.mutex.Lock()
 	defer p.mutex.Unlock()
 	r, ok := p.redirects[id]
@@ -442,7 +443,7 @@ func (p *Proxy) RemoveRedirect(id string, completions policy.CompletionContainer
 	log.WithField(fieldProxyRedirectID, id).
 		Debug("removing proxy redirect")
 	toPort := r.ToPort()
-	r.Close(completions)
+	r.Close(wg)
 
 	delete(p.redirects, id)
 

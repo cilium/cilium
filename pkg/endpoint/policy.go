@@ -15,6 +15,7 @@
 package endpoint
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"os"
@@ -25,6 +26,7 @@ import (
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/common"
+	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/labels"
@@ -729,9 +731,11 @@ func (e *Endpoint) regenerate(owner Owner, reason string) (retErr error) {
 	}()
 
 	e.BuildMutex.Lock()
-	e.ProxyCompletions = &Completions{}
+	completionCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	e.ProxyWaitGroup = completion.NewWaitGroup(completionCtx)
 	defer func() {
-		e.ProxyCompletions = nil
+		cancel()
+		e.ProxyWaitGroup = nil
 		e.BuildMutex.Unlock()
 	}()
 
