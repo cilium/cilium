@@ -1424,7 +1424,24 @@ func (e *Endpoint) GetContainerID() string {
 
 // GetShortContainerID returns the endpoint's shortened container ID
 func (e *Endpoint) GetShortContainerID() string {
-	return e.GetContainerID()[:10]
+	e.Mutex.RLock()
+	id := e.getShortContainerID()
+	e.Mutex.RUnlock()
+	return id
+}
+
+func (e *Endpoint) getShortContainerID() string {
+	if e == nil {
+		return ""
+	}
+
+	caplen := 10
+	if len(e.DockerID) <= caplen {
+		return e.DockerID
+	}
+
+	return e.DockerID[:caplen]
+
 }
 
 // SetDockerEndpointID modifies the endpoint's Docker Endpoint ID
