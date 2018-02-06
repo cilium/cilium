@@ -3,14 +3,16 @@ services:
   consul:
     image: "consul:0.8.3"
     hostname: "consul"
-    privileged: true
-    # ports:
-    #   - "8500:8500"
     environment:
       - 'CONSUL_LOCAL_CONFIG={"skip_leave_on_interrupt": true, "disable_update_check": true}'
+  etcd:
+    image: "quay.io/coreos/etcd:v3.1.0"
+    hostname: "etcd"
+    command: "etcd -name etcd0 -advertise-client-urls http://0.0.0.0:4002 -listen-client-urls http://0.0.0.0:4002 -initial-cluster-token etcd-cluster-1 -initial-cluster-state new"
   test:
     depends_on:
       - consul
+      - etcd
     image: "eloycoto/cilium_dependencies"
     command: "bash -c 'cd /tmp/cilium-net-build/src/github.com/cilium/cilium/; make tests-consul-ginkgo'"
     privileged: true
