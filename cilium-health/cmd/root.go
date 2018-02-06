@@ -168,8 +168,6 @@ func runServer() {
 		}
 		if err := apisocket.SetDefaultPermissions(defaults.SockPath); err != nil {
 			scopedLog.WithError(err).Fatal("Cannot set default permissions on socket")
-		} else {
-			scopedLog.Info("Successfully set default permissions on socket")
 		}
 	}()
 

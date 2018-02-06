@@ -81,7 +81,6 @@ validate_args()
 		exit 1
 	fi
 	if ip netns | grep "${NETNS}"; then
-		echo "Namespace ${NETNS} already exists; deleting" >&2
 		ip netns del ${NETNS}
 	fi
 	if invalid_dev "${HOSTDEV}" || invalid_dev "${NETNSDEV}"; then

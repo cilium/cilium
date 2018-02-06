@@ -91,9 +91,9 @@ func configureHealthRouting(netns, dev string, addressing *models.NodeAddressing
 	cmd := strings.Join(routeCmds, " && ")
 	args = append(args, cmd)
 
-	log.Infof("Running \"%s %+v\"", prog, args)
+	log.Debugf("Running \"%s %+v\"", prog, args)
 	out, err := exec.Command(prog, args...).CombinedOutput()
-	if err == nil {
+	if err == nil && len(out) > 0 {
 		log.Warn(out)
 	}
 
