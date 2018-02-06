@@ -1,4 +1,4 @@
-// Copyright 2016-2017 Authors of Cilium
+// Copyright 2016-2018 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -16,6 +16,7 @@ package kvstore
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/cilium/cilium/pkg/lock"
 
@@ -23,8 +24,11 @@ import (
 )
 
 var (
-	lockPathsMU lock.RWMutex
-	lockPaths   = map[string]*localLock{}
+	kvstoreLocks = pathLocks{lockPaths: map[string]int{}}
+)
+
+const (
+	lockTimeout = time.Duration(2) * time.Minute
 )
 
 type kvLocker interface {
@@ -36,85 +40,82 @@ func getLockPath(path string) string {
 	return path + ".lock"
 }
 
+type pathLocks struct {
+	mutex     lock.RWMutex
+	lockPaths map[string]int
+}
+
+func (pl *pathLocks) lock(path string) {
+	started := time.Now()
+
+	for {
+		pl.mutex.Lock()
+
+		refcnt := pl.lockPaths[path]
+		if refcnt == 0 {
+			pl.lockPaths[path] = 1
+			pl.mutex.Unlock()
+			return
+		}
+
+		if time.Since(started) > lockTimeout {
+			log.WithField("path", path).Warningf("WARNING: Timeout (%s) while waiting for lock, ignoring lock")
+			pl.lockPaths[path] = 1
+			pl.mutex.Unlock()
+			return
+		}
+
+		pl.mutex.Unlock()
+
+		// Sleep for a short while to retry
+		time.Sleep(time.Duration(10) * time.Millisecond)
+	}
+}
+
+func (pl *pathLocks) unlock(path string) {
+	pl.mutex.Lock()
+	pl.lockPaths[path] = 0
+	pl.mutex.Unlock()
+}
+
 // Lock is a lock return by LockPath
 type Lock struct {
 	path   string
 	kvLock kvLocker
 }
 
-type localLock struct {
-	refCount int
-	lock.Mutex
-}
-
-// incRefCount increments the reference count of this localLock
-// must be called with lockPathsMU mutex held.
-func (l *localLock) incRefCount() {
-	l.refCount++
-}
-
-// decRefCount decrements the reference count of this localLock
-// must be called with lockPathsMU mutex held.
-func (l *localLock) decRefCount() int {
-	l.refCount--
-	return l.refCount
-}
-
-// LockPath locks the specified path and returns the Lock
+// LockPath locks the specified path. The key for the lock is not the path
+// provided itself but the path with a suffix of ".lock" appended. The lock
+// returned also contains a patch specific local Mutex which will be held.
+//
+// It is required to call Unlock() on the returned Lock to unlock
 func LockPath(path string) (l *Lock, err error) {
-	lockPathsMU.Lock()
-	ll, ok := lockPaths[path]
-	if !ok {
-		ll = &localLock{}
-		lockPaths[path] = ll
-	}
-	ll.incRefCount()
-	lockPathsMU.Unlock()
-
-	defer func() {
-		if err != nil {
-			lockPathsMU.Lock()
-			if ll.decRefCount() == 0 {
-				delete(lockPaths, path)
-			}
-			lockPathsMU.Unlock()
-		}
-	}()
-
-	trace("Creating lock", nil, logrus.Fields{fieldKey: path})
-
-	// Take the local lock as both etcd and consul protect per client
-	ll.Lock()
+	kvstoreLocks.lock(path)
 
 	lock, err := Client().LockPath(path)
 	if err != nil {
-		ll.Unlock()
+		kvstoreLocks.unlock(path)
+		Trace("Failed to lock", err, logrus.Fields{fieldKey: path})
 		err = fmt.Errorf("Error while locking path %s: %s", path, err)
 		return nil, err
 	}
 
-	trace("Successful lock", err, logrus.Fields{fieldKey: path})
+	Trace("Successful lock", err, logrus.Fields{fieldKey: path})
 	return &Lock{kvLock: lock, path: path}, err
 }
 
 // Unlock unlocks a lock
 func (l *Lock) Unlock() error {
+	if l == nil {
+		return nil
+	}
+
 	// Unlock kvstore mutex first
 	err := l.kvLock.Unlock()
 
-	lockPathsMU.Lock()
-	ll, ok := lockPaths[l.path]
-	if ok && ll.decRefCount() == 0 {
-		delete(lockPaths, l.path)
-	}
-	lockPathsMU.Unlock()
+	// unlock local lock even if kvstore cannot be unlocked
+	kvstoreLocks.unlock(l.path)
+	Trace("Unlocked", nil, logrus.Fields{fieldKey: l.path})
 
-	// Unlock local lock
-	if ok {
-		ll.Unlock()
-	}
-	if err == nil {
-		trace("Unlocked", nil, logrus.Fields{fieldKey: l.path})
-	}
 	return err
 }

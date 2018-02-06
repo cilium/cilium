@@ -1,4 +1,4 @@
-// Copyright 2016-2017 Authors of Cilium
+// Copyright 2016-2018 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -38,26 +38,13 @@ var (
 // CreateLease creates a new lease with the given ttl
 func CreateLease(ttl time.Duration) (interface{}, error) {
 	lease, err := Client().CreateLease(ttl)
-	trace("CreateLease", err, logrus.Fields{fieldTTL: ttl, fieldLease: lease})
+	Trace("CreateLease", err, logrus.Fields{fieldTTL: ttl, fieldLease: lease})
 	return lease, err
 }
 
 // KeepAlive keeps a lease created with CreateLease alive
 func KeepAlive(lease interface{}) error {
 	err := Client().KeepAlive(lease)
-	trace("KeepAlive", err, logrus.Fields{fieldLease: lease})
+	Trace("KeepAlive", err, logrus.Fields{fieldLease: lease})
 	return err
-}
-
-func startKeepalive() {
-	go func() {
-		sleepTime := KeepAliveInterval
-		for {
-			if err := KeepAlive(leaseInstance); err != nil {
-				log.WithError(err).Warn("Unable to keep lease alive")
-				sleepTime = RetryInterval
-			}
-			time.Sleep(sleepTime)
-		}
-	}()
 }

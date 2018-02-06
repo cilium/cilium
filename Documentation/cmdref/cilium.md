@@ -26,6 +26,7 @@ CLI for interacting with the local Cilium Agent
 * [cilium debuginfo](cilium_debuginfo.html)	 - Request available debugging information from agent
 * [cilium endpoint](cilium_endpoint.html)	 - Manage endpoints
 * [cilium identity](cilium_identity.html)	 - Manage security identities
+* [cilium kvstore](cilium_kvstore.html)	 - Direct access to the kvstore
 * [cilium monitor](cilium_monitor.html)	 - Monitoring
 * [cilium policy](cilium_policy.html)	 - Manage security policies
 * [cilium prefilter](cilium_prefilter.html)	 - Manage XDP CIDR filters

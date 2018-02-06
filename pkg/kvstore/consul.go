@@ -1,4 +1,4 @@
-// Copyright 2016-2017 Authors of Cilium
+// Copyright 2016-2018 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,46 +15,111 @@
 package kvstore
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"path"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/common/types"
+	"github.com/cilium/cilium/pkg/backoff"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-	"github.com/cilium/cilium/pkg/policy"
 
 	consulAPI "github.com/hashicorp/consul/api"
 	"github.com/sirupsen/logrus"
 )
 
 const (
-	// cAddr is the string representing the key mapping to the value of the
-	// address for Consul.
-	cAddr = "consul.address"
+	consulName = "consul"
 
-	// MaxLockRetries is the number of retries attempted when acquiring a lock
-	MaxLockRetries = 10
+	// optAddress is the string representing the key mapping to the value of the
+	// address for Consul.
+	optAddress = "consul.address"
+
+	// maxLockRetries is the number of retries attempted when acquiring a lock
+	maxLockRetries = 10
 )
 
-// ConsulOpts is the set of supported options for Consul configuration.
-var ConsulOpts = map[string]bool{
-	cAddr: true,
+type consulModule struct {
+	opts   backendOptions
+	config *consulAPI.Config
+}
+
+var (
+	//consulDummyAddress can be overwritten from test invokers using ldflags
+	consulDummyAddress = "127.0.0.1:8501"
+
+	module = &consulModule{
+		opts: backendOptions{
+			optAddress: &backendOption{
+				description: "Addresses of consul cluster",
+			},
+		},
+	}
+)
+
+func init() {
+	// register consul module for use
+	registerBackend(consulName, module)
+}
+
+func (c *consulModule) getName() string {
+	return consulName
+}
+
+func (c *consulModule) setConfigDummy() {
+	c.config = consulAPI.DefaultConfig()
+	c.config.Address = consulDummyAddress
+}
+
+func (c *consulModule) setConfig(opts map[string]string) error {
+	return setOpts(opts, c.opts)
+}
+
+func (c *consulModule) getConfig() map[string]string {
+	return getOpts(c.opts)
+}
+
+func (c *consulModule) newClient() (BackendOperations, error) {
+	if c.config == nil {
+		consulAddr, ok := c.opts[optAddress]
+		if !ok {
+			return nil, fmt.Errorf("invalid consul configuration, please specify %s option", optAddress)
+		}
+
+		addr := consulAddr.value
+		consulSplitAddr := strings.Split(addr, "://")
+		if len(consulSplitAddr) == 2 {
+			addr = consulSplitAddr[1]
+		} else if len(consulSplitAddr) == 1 {
+			addr = consulSplitAddr[0]
+		}
+
+		c.config = consulAPI.DefaultConfig()
+		c.config.Address = addr
+	}
+
+	client, err := newConsulClient(c.config)
+	if err != nil {
+		return nil, err
+	}
+
+	return client, nil
 }
 
 var (
 	maxRetries = 30
-	retrySleep = 2 * time.Second
 )
 
-type ConsulClient struct {
+type consulClient struct {
 	*consulAPI.Client
 }
 
-func newConsulClient(config *consulAPI.Config) (KVClient, error) {
+func newConsulClient(config *consulAPI.Config) (BackendOperations, error) {
 	var (
 		c   *consulAPI.Client
 		err error
@@ -68,6 +133,9 @@ func newConsulClient(config *consulAPI.Config) (KVClient, error) {
 		return nil, err
 	}
 
+	boff := backoff.Exponential{Min: time.Duration(100) * time.Millisecond}
+	log.Info("Waiting for consul to elect a leader")
+
 	for i := 0; i < maxRetries; i++ {
 		var leader string
 		leader, err = c.Status().Leader()
@@ -77,56 +145,43 @@ func newConsulClient(config *consulAPI.Config) (KVClient, error) {
 				// happy path
 				break
 			} else {
-				err = errors.New("no leader returned")
+				err = errors.New("timeout while waiting for leader to be elected")
 			}
 		}
 
-		log.Info("Waiting for consul client to be ready...")
-		time.Sleep(retrySleep)
+		boff.Wait()
 	}
 
 	if err != nil {
 		log.WithError(err).Fatal("Unable to contact consul server")
 	}
-	cc := &ConsulClient{c}
-	// Clean-up old services path
-	cc.DeleteTree(common.ServicePathV1)
 
-	log.Info("Consul client ready")
-	return cc, nil
+	return &consulClient{c}, nil
 }
 
-func (c *ConsulClient) LockPath(path string) (kvLocker, error) {
-	retries := 0
-
-	opts := &consulAPI.LockOptions{
-		Key: getLockPath(path),
-	}
-	lockKey, err := c.LockOpts(opts)
+func (c *consulClient) LockPath(path string) (kvLocker, error) {
+	lockKey, err := c.LockOpts(&consulAPI.LockOptions{Key: getLockPath(path)})
 	if err != nil {
 		return nil, err
 	}
 
-retry:
-	retries++
-	if retries > MaxLockRetries {
-		return nil, fmt.Errorf("maximum retries (%d) reached", MaxLockRetries)
+	for retries := 0; retries < maxLockRetries; retries++ {
+		ch, err := lockKey.Lock(nil)
+		switch {
+		case err != nil:
+			return nil, err
+		case ch == nil && err == nil:
+			Trace("Acquiring lock timed out, retrying", nil, logrus.Fields{fieldKey: path, logfields.Attempt: retries})
+		default:
+			return lockKey, err
+		}
 	}
 
-	ch, err := lockKey.Lock(nil)
-	if ch == nil && err == nil {
-		trace("Acquiring lock timed out", nil, logrus.Fields{fieldKey: path})
-		goto retry
-	}
-
-	if err != nil {
-		return nil, err
-	}
-
-	return lockKey, nil
+	return nil, fmt.Errorf("maximum retries (%d) reached", maxLockRetries)
 }
 
-func (c *ConsulClient) InitializeFreeID(path string, firstID uint32) error {
+// FIXME: Obsolete, remove
+func (c *consulClient) InitializeFreeID(path string, firstID uint32) error {
 	freeIDByte, err := json.Marshal(firstID)
 	if err != nil {
 		return err
@@ -165,7 +220,8 @@ func (c *ConsulClient) InitializeFreeID(path string, firstID uint32) error {
 	return nil
 }
 
-func (c *ConsulClient) SetValue(k string, v interface{}) error {
+// FIXME: Obsolete, remove
+func (c *consulClient) SetValue(k string, v interface{}) error {
 	var err error
 	lblKey := &consulAPI.KVPair{Key: k}
 	lblKey.Value, err = json.Marshal(v)
@@ -176,7 +232,8 @@ func (c *ConsulClient) SetValue(k string, v interface{}) error {
 	return err
 }
 
-func (c *ConsulClient) GetValue(k string) (json.RawMessage, error) {
+// FIXME: Obsolete, remove
+func (c *consulClient) GetValue(k string) (json.RawMessage, error) {
 	pair, _, err := c.KV().Get(k, nil)
 	if err != nil {
 		return nil, err
@@ -188,7 +245,9 @@ func (c *ConsulClient) GetValue(k string) (json.RawMessage, error) {
 }
 
 // GetMaxID returns the maximum possible free UUID stored in consul.
-func (c *ConsulClient) GetMaxID(key string, firstID uint32) (uint32, error) {
+//
+// FIXME: Obsolete, remove
+func (c *consulClient) GetMaxID(key string, firstID uint32) (uint32, error) {
 	k, _, err := c.KV().Get(key, nil)
 	if err != nil {
 		return 0, err
@@ -216,7 +275,8 @@ func (c *ConsulClient) GetMaxID(key string, firstID uint32) (uint32, error) {
 	return freeID, nil
 }
 
-func (c *ConsulClient) SetMaxID(key string, firstID, maxID uint32) error {
+// FIXME: Obsolete, remove
+func (c *consulClient) SetMaxID(key string, firstID, maxID uint32) error {
 	k, _, err := c.KV().Get(key, nil)
 	if err != nil {
 		return err
@@ -242,79 +302,13 @@ func (c *ConsulClient) SetMaxID(key string, firstID, maxID uint32) error {
 	return err
 }
 
-func (c *ConsulClient) setMaxLabelID(maxID uint32) error {
-	return c.SetMaxID(common.LastFreeLabelIDKeyPath, uint32(policy.MinimalNumericIdentity), maxID)
-}
-
-func (c *ConsulClient) GASNewSecLabelID(basePath string, baseID uint32, pI *policy.Identity) error {
-	setID2Label := func(new_id uint32) error {
-		pI.ID = policy.NumericIdentity(new_id)
-		keyPath := path.Join(basePath, pI.ID.StringID())
-		if err := c.SetValue(keyPath, pI); err != nil {
-			return err
-		}
-		return c.setMaxLabelID(new_id + 1)
-	}
-
-	session, _, err := c.Session().CreateNoChecks(nil, nil)
-	if err != nil {
-		return err
-	}
-
-	acquireFreeID := func(firstID uint32, incID *uint32) (bool, error) {
-		keyPath := path.Join(basePath, strconv.FormatUint(uint64(*incID), 10))
-
-		lockPair := &consulAPI.KVPair{Key: getLockPath(keyPath), Session: session}
-		acq, _, err := c.KV().Acquire(lockPair, nil)
-		if err != nil {
-			return false, err
-		}
-		defer c.KV().Release(lockPair, nil)
-
-		if acq {
-			value, err := c.GetValue(keyPath)
-			if err != nil {
-				return false, err
-			}
-			if value == nil {
-				return false, setID2Label(*incID)
-			}
-			var consulLabels policy.Identity
-			if err := json.Unmarshal(value, &consulLabels); err != nil {
-				return false, err
-			}
-			if consulLabels.RefCount() == 0 {
-				log.WithField(logfields.Identity, *incID).Info("Recycling ID")
-				return false, setID2Label(*incID)
-			}
-		}
-
-		*incID++
-		if *incID > common.MaxSetOfLabels {
-			*incID = policy.MinimalNumericIdentity.Uint32()
-		}
-		if firstID == *incID {
-			return false, fmt.Errorf("reached maximum set of labels available")
-		}
-		return true, nil
-	}
-
-	beginning := baseID
-	for {
-		retry, err := acquireFreeID(beginning, &baseID)
-		if err != nil {
-			return err
-		} else if !retry {
-			return nil
-		}
-	}
-}
-
-func (c *ConsulClient) setMaxL3n4AddrID(maxID uint32) error {
+// FIXME: Obsolete, remove
+func (c *consulClient) setMaxL3n4AddrID(maxID uint32) error {
 	return c.SetMaxID(common.LastFreeServiceIDKeyPath, common.FirstFreeServiceID, maxID)
 }
 
-func (c *ConsulClient) GASNewL3n4AddrID(basePath string, baseID uint32, lAddrID *types.L3n4AddrID) error {
+// FIXME: Obsolete, remove
+func (c *consulClient) GASNewL3n4AddrID(basePath string, baseID uint32, lAddrID *types.L3n4AddrID) error {
 	setIDtoL3n4Addr := func(id uint32) error {
 		lAddrID.ID = types.ServiceID(id)
 		keyPath := path.Join(basePath, strconv.FormatUint(uint64(lAddrID.ID), 10))
@@ -380,15 +374,12 @@ func (c *ConsulClient) GASNewL3n4AddrID(basePath string, baseID uint32, lAddrID 
 }
 
 // Watch starts watching for changes in a prefix
-func (c *ConsulClient) Watch(w *Watcher, list bool) {
+func (c *consulClient) Watch(w *Watcher) {
 	// Last known state of all KVPairs matching the prefix
 	localState := map[string]consulAPI.KVPair{}
 	nextIndex := uint64(0)
 
-	// block Get() calls for 5 seconds maximum
-	qo := consulAPI.QueryOptions{
-		WaitTime: 5 * time.Second,
-	}
+	qo := consulAPI.QueryOptions{}
 
 	for {
 		// Initialize sleep time to a millisecond as we don't
@@ -398,27 +389,16 @@ func (c *ConsulClient) Watch(w *Watcher, list bool) {
 		qo.WaitIndex = nextIndex
 		pairs, q, err := c.KV().List(w.prefix, &qo)
 		if err != nil {
-			// in case of error, sleep for 15 seconds before retrying
-			sleepTime = 15 * time.Second
-			log.WithFields(logrus.Fields{
-				fieldWatcher:      w,
-				fieldListAndWatch: list,
-			}).WithError(err).Debug("Consul watcher failed, will retry")
+			sleepTime = 5 * time.Second
+			Trace("List of Watch failed", err, logrus.Fields{fieldPrefix: w.prefix, fieldWatcher: w.name})
 		}
 
 		if q != nil {
 			nextIndex = q.LastIndex
 		}
 
-		// WaitIndex == 0 means that this was the first ever
-		// List() and there is no change, trigger a follow-up
-		// List() with updated WaitIndex immediately
-		if qo.WaitIndex == 0 && !list {
-			continue
-		}
-
 		// timeout while watching for changes, re-schedule
-		if q == nil || q.LastIndex == qo.WaitIndex {
+		if qo.WaitIndex != 0 && (q == nil || q.LastIndex == qo.WaitIndex) {
 			continue
 		}
 
@@ -434,7 +414,7 @@ func (c *ConsulClient) Watch(w *Watcher, list bool) {
 						Value: newPair.Value,
 					}
 				} else {
-					log.Warnf("consul: Previously unknown key %s received with CreateIndex(%d) != ModifyIndex(%d); ignoring update",
+					log.Warning("consul: Previously unknown key %s received with CreateIndex(%d) != ModifyIndex(%d)",
 						newPair.Key, newPair.CreateIndex, newPair.ModifyIndex)
 				}
 			} else if oldPair.ModifyIndex != newPair.ModifyIndex {
@@ -462,75 +442,44 @@ func (c *ConsulClient) Watch(w *Watcher, list bool) {
 
 		}
 
+		// Initial list operation has been completed, signal this
+		if qo.WaitIndex == 0 {
+			w.Events <- KeyValueEvent{Typ: EventTypeListDone}
+		}
+
 		select {
 		case <-time.After(sleepTime):
 		case <-w.stopWatch:
+			close(w.Events)
 			return
 		}
 	}
 }
 
-// GetWatcher watches for kvstore changes in the given key. Triggers the returned channel
-// every time the key path is changed.
-// FIXME This function is highly tightened to the maxFreeID, change name accordingly
-func (c *ConsulClient) GetWatcher(key string, timeSleep time.Duration) <-chan []policy.NumericIdentity {
-	ch := make(chan []policy.NumericIdentity, 100)
-	go func(ch chan []policy.NumericIdentity) {
-		curSeconds := time.Second
-		var (
-			k   *consulAPI.KVPair
-			q   *consulAPI.QueryMeta
-			qo  consulAPI.QueryOptions
-			err error
-		)
-		for {
-			k, q, err = c.KV().Get(key, &qo)
-			if err != nil {
-				log.WithError(err).Error("Unable to retrieve last free Index")
-			}
-			if k == nil || q == nil {
-				log.Warn("Unable to retrieve last free Index, please start some containers with labels")
-				time.Sleep(curSeconds)
-				if curSeconds < timeSleep {
-					curSeconds += time.Second
-				}
-				continue
-			}
-			curSeconds = time.Second
-			qo.WaitIndex = q.LastIndex
-			maxFreeID := uint32(0)
-			if err := json.Unmarshal(k.Value, &maxFreeID); err == nil {
-				ch <- []policy.NumericIdentity{policy.NumericIdentity(maxFreeID)}
-			}
-		}
-	}(ch)
-	return ch
-}
-
-func (c *ConsulClient) Status() (string, error) {
+func (c *consulClient) Status() (string, error) {
 	leader, err := c.Client.Status().Leader()
 	return "Consul: " + leader, err
 }
 
-func (c *ConsulClient) DeleteTree(path string) error {
+func (c *consulClient) DeletePrefix(path string) error {
 	_, err := c.Client.KV().DeleteTree(path, nil)
 	return err
 }
 
 // Set sets value of key
-func (c *ConsulClient) Set(key string, value []byte) error {
+func (c *consulClient) Set(key string, value []byte) error {
 	_, err := c.KV().Put(&consulAPI.KVPair{Key: key, Value: value}, nil)
 	return err
 }
 
 // Delete deletes a key
-func (c *ConsulClient) Delete(key string) error {
+func (c *consulClient) Delete(key string) error {
 	_, err := c.KV().Delete(key, nil)
 	return err
 }
 
 // Get returns value of key
-func (c *ConsulClient) Get(key string) ([]byte, error) {
+func (c *consulClient) Get(key string) ([]byte, error) {
 	pair, _, err := c.KV().Get(key, nil)
 	if err != nil {
 		return nil, err
@@ -542,7 +491,7 @@ func (c *ConsulClient) Get(key string) ([]byte, error) {
 }
 
 // GetPrefix returns the first key which matches the prefix
-func (c *ConsulClient) GetPrefix(prefix string) ([]byte, error) {
+func (c *consulClient) GetPrefix(prefix string) ([]byte, error) {
 	pairs, _, err := c.KV().List(prefix, nil)
 	if err != nil {
 		return nil, err
@@ -555,8 +504,25 @@ func (c *ConsulClient) GetPrefix(prefix string) ([]byte, error) {
 	return pairs[0].Value, nil
 }
 
+// Update creates or updates a key with the value
+func (c *consulClient) Update(key string, value []byte, lease bool) error {
+	k := &consulAPI.KVPair{Key: key, Value: value}
+
+	if lease {
+		id, ok := leaseInstance.(string)
+		if !ok {
+			return fmt.Errorf("argument not a LeaseID")
+		}
+
+		k.Session = id
+	}
+
+	_, err := c.KV().Put(k, nil)
+	return err
+}
+
 // CreateOnly creates a key with the value and will fail if the key already exists
-func (c *ConsulClient) CreateOnly(key string, value []byte, lease bool) error {
+func (c *consulClient) CreateOnly(key string, value []byte, lease bool) error {
 	k := &consulAPI.KVPair{
 		Key:         key,
 		Value:       value,
@@ -583,8 +549,38 @@ func (c *ConsulClient) CreateOnly(key string, value []byte, lease bool) error {
 	return nil
 }
 
+// CreateIfExists creates a key with the value only if key condKey exists
+func (c *consulClient) CreateIfExists(condKey, key string, value []byte, lease bool) error {
+	// Consul does not support transactions which would allow to check for
+	// the presence of a conditional key if the key is not the key being
+	// manipulated
+	//
+	// Lock the conditional key to serialize all CreateIfExists() calls
+	l, err := LockPath(condKey)
+	if err != nil {
+		return fmt.Errorf("unable to lock condKey for CreateIfExists: %s", err)
+	}
+
+	defer l.Unlock()
+
+	// Create the key if it does not exist
+	if err := c.CreateOnly(key, value, lease); err != nil {
+		return err
+	}
+
+	// Consul does not support transactions which would allow to check for
+	// the presence of another key
+	masterKey, err := c.Get(condKey)
+	if err != nil || masterKey == nil {
+		c.Delete(key)
+		return fmt.Errorf("conditional key not present")
+	}
+
+	return nil
+}
+
 // ListPrefix returns a map of matching keys
-func (c *ConsulClient) ListPrefix(prefix string) (KeyValuePairs, error) {
+func (c *consulClient) ListPrefix(prefix string) (KeyValuePairs, error) {
 	pairs, _, err := c.KV().List(prefix, nil)
 	if err != nil {
 		return nil, err
@@ -599,7 +595,7 @@ func (c *ConsulClient) ListPrefix(prefix string) (KeyValuePairs, error) {
 }
 
 // CreateLease creates a new lease with the given ttl
-func (c *ConsulClient) CreateLease(ttl time.Duration) (interface{}, error) {
+func (c *consulClient) CreateLease(ttl time.Duration) (interface{}, error) {
 	entry := &consulAPI.SessionEntry{
 		TTL:      fmt.Sprintf("%ds", int(ttl.Seconds())),
 		Behavior: consulAPI.SessionBehaviorDelete,
@@ -610,7 +606,7 @@ func (c *ConsulClient) CreateLease(ttl time.Duration) (interface{}, error) {
 }
 
 // KeepAlive keeps a lease created with CreateLease alive
-func (c *ConsulClient) KeepAlive(lease interface{}) error {
+func (c *consulClient) KeepAlive(lease interface{}) error {
 	id, ok := lease.(string)
 	if !ok {
 		return fmt.Errorf("argument not a LeaseID")
@@ -621,7 +617,7 @@ func (c *ConsulClient) KeepAlive(lease interface{}) error {
 }
 
 // DeleteLease deletes a lease
-func (c *ConsulClient) DeleteLease(lease interface{}) error {
+func (c *consulClient) DeleteLease(lease interface{}) error {
 	id, ok := lease.(string)
 	if !ok {
 		return fmt.Errorf("argument not a LeaseID")
@@ -631,6 +627,20 @@ func (c *ConsulClient) DeleteLease(lease interface{}) error {
 	return err
 }
 
-// Close closes the kvstore client
-func (c *ConsulClient) Close() {
+func (c *consulClient) closeClient() {
+}
+
+// GetCapabilities returns the capabilities of the backend
+func (c *consulClient) GetCapabilities() Capabilities {
+	return Capabilities(0)
+}
+
+// Encode encodes a binary slice into a character set that the backend supports
+func (c *consulClient) Encode(in []byte) string {
+	return base64.URLEncoding.EncodeToString([]byte(in))
+}
+
+// Decode decodes a key previously encoded back into the original binary slice
+func (c *consulClient) Decode(in string) ([]byte, error) {
+	return base64.URLEncoding.DecodeString(in)
 }
