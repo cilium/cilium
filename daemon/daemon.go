@@ -997,16 +997,17 @@ func NewDaemon(c *Config) (*Daemon, error) {
 		log.WithError(err).Fatal("postinit failed")
 	}
 	// REVIEW should these be changed? they seem intended for humans
-	log.Infof("Local node-name: %s", node.GetName())
-	log.Infof("Node-IPv6: %s", node.GetIPv6())
-	log.Infof("External-Node IPv4: %s", node.GetExternalIPv4())
-	log.Infof("Internal-Node IPv4: %s", node.GetInternalIPv4())
-	log.Infof("Cluster IPv6 prefix: %s", node.GetIPv6ClusterRange())
-	log.Infof("Cluster IPv4 prefix: %s", node.GetIPv4ClusterRange())
-	log.Infof("IPv6 node prefix: %s", node.GetIPv6NodeRange())
-	log.Infof("IPv6 allocation prefix: %s", node.GetIPv6AllocRange())
-	log.Infof("IPv4 allocation prefix: %s", node.GetIPv4AllocRange())
-	log.Infof("IPv6 router address: %s", node.GetIPv6Router())
+	log.Info("Addressing information:")
+	log.Infof("  Local node-name: %s", node.GetName())
+	log.Infof("  Node-IPv6: %s", node.GetIPv6())
+	log.Infof("  External-Node IPv4: %s", node.GetExternalIPv4())
+	log.Infof("  Internal-Node IPv4: %s", node.GetInternalIPv4())
+	log.Infof("  Cluster IPv6 prefix: %s", node.GetIPv6ClusterRange())
+	log.Infof("  Cluster IPv4 prefix: %s", node.GetIPv4ClusterRange())
+	log.Infof("  IPv6 node prefix: %s", node.GetIPv6NodeRange())
+	log.Infof("  IPv6 allocation prefix: %s", node.GetIPv6AllocRange())
+	log.Infof("  IPv4 allocation prefix: %s", node.GetIPv4AllocRange())
+	log.Infof("  IPv6 router address: %s", node.GetIPv6Router())
 
 	// Populate list of nodes with local node entry
 	ni, n := node.GetLocalNode()
