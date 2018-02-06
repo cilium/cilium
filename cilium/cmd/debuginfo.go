@@ -69,7 +69,7 @@ func runDebugInfo(cmd *cobra.Command, args []string) {
 
 	printMD(w, "Cilium status", "")
 	printTicks(w)
-	pkg.FormatStatusResponse(w, p.CiliumStatus)
+	pkg.FormatStatusResponse(w, p.CiliumStatus, true)
 	printTicks(w)
 
 	printMD(w, "Cilium environment keys", strings.Join(p.EnvironmentVariables, "\n"))

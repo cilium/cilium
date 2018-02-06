@@ -33,9 +33,11 @@ var statusCmd = &cobra.Command{
 		statusDaemon()
 	},
 }
+var allControllers bool
 
 func init() {
 	rootCmd.AddCommand(statusCmd)
+	statusCmd.Flags().BoolVar(&allControllers, "all-controllers", false, "Show all controllers, not just failing")
 	AddMultipleOutput(statusCmd)
 }
 
@@ -51,7 +53,7 @@ func statusDaemon() {
 	} else {
 		sr := resp.Payload
 		w := tabwriter.NewWriter(os.Stdout, 2, 0, 3, ' ', 0)
-		pkg.FormatStatusResponse(w, sr)
+		pkg.FormatStatusResponse(w, sr, allControllers)
 		w.Flush()
 
 		if sr.Cilium != nil && sr.Cilium.State != models.StatusStateOk {

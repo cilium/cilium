@@ -16,7 +16,8 @@ cilium status
 ### Options
 
 ```
-  -o, --output string   json| jsonpath='{}'
+      --all-controllers   Show all controllers, not just failing
+  -o, --output string     json| jsonpath='{}'
 ```
 
 ### Options inherited from parent commands

@@ -22,12 +22,29 @@ import (
 	"github.com/cilium/cilium/pkg/uuid"
 )
 
+var (
+	// globalStatus is the global status of all controllers
+	globalStatus = NewManager()
+)
+
 type controllerMap map[string]*Controller
 
 // Manager is a list of controllers
 type Manager struct {
 	controllers controllerMap
 	mutex       lock.RWMutex
+}
+
+// NewManager allocates a new manager
+func NewManager() *Manager {
+	return &Manager{
+		controllers: controllerMap{},
+	}
+}
+
+// GetGlobalStatus returns the status of all controllers
+func GetGlobalStatus() models.ControllerStatuses {
+	return globalStatus.GetStatusModel()
 }
 
 // UpdateController installs or updates a controller in the manager. A
@@ -44,18 +61,25 @@ func (m *Manager) UpdateController(name string, params ControllerParams) *Contro
 		m.controllers = controllerMap{}
 	}
 
-	if oldCtrl, ok := m.controllers[name]; ok {
-		oldCtrl.stopController()
+	ctrl, ok := m.controllers[name]
+	if ok {
+		ctrl.stopController()
+		ctrl.params = params
+	} else {
+		ctrl = &Controller{
+			name:   name,
+			params: params,
+			uuid:   uuid.NewUUID().String(),
+		}
+
+		m.controllers[ctrl.name] = ctrl
+
+		globalStatus.mutex.Lock()
+		globalStatus.controllers[ctrl.uuid] = ctrl
+		globalStatus.mutex.Unlock()
 	}
 
-	ctrl := &Controller{
-		name:   name,
-		params: params,
-		stop:   make(chan struct{}, 0),
-		uuid:   uuid.NewUUID().String(),
-	}
-
-	m.controllers[ctrl.name] = ctrl
+	ctrl.stop = make(chan struct{}, 0)
 	go ctrl.runController()
 
 	ctrl.getLogger().Debug("Updated controller")
@@ -66,6 +90,10 @@ func (m *Manager) UpdateController(name string, params ControllerParams) *Contro
 func (m *Manager) removeController(ctrl *Controller) {
 	ctrl.stopController()
 	delete(m.controllers, ctrl.name)
+
+	globalStatus.mutex.Lock()
+	delete(globalStatus.controllers, ctrl.uuid)
+	globalStatus.mutex.Unlock()
 
 	ctrl.getLogger().Debug("Removed update controller")
 }

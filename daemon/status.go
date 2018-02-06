@@ -19,6 +19,7 @@ import (
 
 	"github.com/cilium/cilium/api/v1/models"
 	. "github.com/cilium/cilium/api/v1/server/restapi/daemon"
+	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/node"
@@ -108,7 +109,9 @@ func (h *getHealthz) Handle(params GetHealthzParams) middleware.Responder {
 }
 
 func (h *getHealthz) getStatus(d *Daemon) models.StatusResponse {
-	sr := models.StatusResponse{}
+	sr := models.StatusResponse{
+		Controllers: controller.GetGlobalStatus(),
+	}
 
 	checkLocks(d)
 

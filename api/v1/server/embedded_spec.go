@@ -1140,7 +1140,7 @@ func init() {
               "format": "date-time"
             },
             "last-success-timestamp": {
-              "description": "Timestsamp of last success",
+              "description": "Timestamp of last success",
               "type": "string",
               "format": "date-time"
             },
@@ -1758,7 +1758,7 @@ func init() {
       "description": "Known node in the cluster",
       "properties": {
         "health-endpoint-address": {
-          "description": "Addresses used for probing cluster connectivity",
+          "description": "Address used for probing cluster connectivity",
           "$ref": "#/definitions/NodeAddressing"
         },
         "name": {
@@ -1915,6 +1915,10 @@ func init() {
         "container-runtime": {
           "description": "Status of local container runtime",
           "$ref": "#/definitions/Status"
+        },
+        "controllers": {
+          "description": "Status of all endpoint controllers",
+          "$ref": "#/definitions/ControllerStatuses"
         },
         "ipam": {
           "description": "Status of IP address management",

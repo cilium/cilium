@@ -180,7 +180,7 @@ type ControllerStatusStatus struct {
 	// Timestamp of last error
 	LastFailureTimestamp strfmt.DateTime `json:"last-failure-timestamp,omitempty"`
 
-	// Timestsamp of last success
+	// Timestamp of last success
 	LastSuccessTimestamp strfmt.DateTime `json:"last-success-timestamp,omitempty"`
 
 	// Total number of successful runs

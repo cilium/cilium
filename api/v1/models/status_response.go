@@ -26,6 +26,9 @@ type StatusResponse struct {
 	// Status of local container runtime
 	ContainerRuntime *Status `json:"container-runtime,omitempty"`
 
+	// Status of all endpoint controllers
+	Controllers ControllerStatuses `json:"controllers"`
+
 	// Status of IP address management
 	IPAM *IPAMStatus `json:"ipam,omitempty"`
 
@@ -44,6 +47,8 @@ type StatusResponse struct {
 /* polymorph StatusResponse cluster false */
 
 /* polymorph StatusResponse container-runtime false */
+
+/* polymorph StatusResponse controllers false */
 
 /* polymorph StatusResponse ipam false */
 
