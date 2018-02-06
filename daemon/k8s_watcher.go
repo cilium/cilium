@@ -696,7 +696,7 @@ func (d *Daemon) deleteK8sNetworkPolicyV1(k8sNP *networkingv1.NetworkPolicy) {
 // FIXME remove when we drop support to k8s Network Policy extensions/v1beta1
 func (d *Daemon) addK8sNetworkPolicyV1beta1(k8sNP *v1beta1.NetworkPolicy) {
 	scopedLog := log.WithField(logfields.K8sAPIVersion, k8sNP.TypeMeta.APIVersion)
-	rules, err := k8s.ParseNetworkPolicyDeprecated(k8sNP)
+	rules, err := k8s.ParseNetworkPolicyV1beta1(k8sNP)
 	if err != nil {
 		scopedLog.WithError(err).WithField(logfields.Object, logfields.Repr(k8sNP)).Error("Error while parsing k8s NetworkPolicy")
 		return

@@ -68,7 +68,7 @@ func (s *K8sSuite) TestParseNetworkPolicyDeprecated(c *C) {
 		},
 	}
 
-	rules, err := ParseNetworkPolicyDeprecated(netPolicy)
+	rules, err := ParseNetworkPolicyV1beta1(netPolicy)
 	c.Assert(err, IsNil)
 	c.Assert(len(rules), Equals, 1)
 
@@ -158,7 +158,7 @@ func (s *K8sSuite) TestParseNetworkPolicyUnknownProtoDeprecated(c *C) {
 		},
 	}
 
-	rules, err := ParseNetworkPolicyDeprecated(netPolicy)
+	rules, err := ParseNetworkPolicyV1beta1(netPolicy)
 	c.Assert(err, Not(IsNil))
 	c.Assert(len(rules), Equals, 0)
 }
@@ -178,7 +178,7 @@ func (s *K8sSuite) TestParseNetworkPolicyEmptyFromDeprecated(c *C) {
 		},
 	}
 
-	rules, err := ParseNetworkPolicyDeprecated(netPolicy1)
+	rules, err := ParseNetworkPolicyV1beta1(netPolicy1)
 	c.Assert(err, IsNil)
 	c.Assert(len(rules), Equals, 1)
 
@@ -215,7 +215,7 @@ func (s *K8sSuite) TestParseNetworkPolicyEmptyFromDeprecated(c *C) {
 		},
 	}
 
-	rules, err = ParseNetworkPolicyDeprecated(netPolicy2)
+	rules, err = ParseNetworkPolicyV1beta1(netPolicy2)
 	c.Assert(err, IsNil)
 	c.Assert(len(rules), Equals, 1)
 	repo = policy.NewPolicyRepository()
@@ -233,7 +233,7 @@ func (s *K8sSuite) TestParseNetworkPolicyDenyAllDeprecated(c *C) {
 		},
 	}
 
-	rules, err := ParseNetworkPolicyDeprecated(netPolicy1)
+	rules, err := ParseNetworkPolicyV1beta1(netPolicy1)
 	c.Assert(err, IsNil)
 	c.Assert(len(rules), Equals, 1)
 
@@ -266,7 +266,7 @@ func (s *K8sSuite) TestParseNetworkPolicyNoIngressDeprecated(c *C) {
 		},
 	}
 
-	rules, err := ParseNetworkPolicyDeprecated(netPolicy)
+	rules, err := ParseNetworkPolicyV1beta1(netPolicy)
 	c.Assert(err, IsNil)
 	c.Assert(len(rules), Equals, 1)
 }
@@ -312,7 +312,7 @@ func (s *K8sSuite) TestNetworkPolicyExamplesDeprecated(c *C) {
 	err := json.Unmarshal(ex1, &np)
 	c.Assert(err, IsNil)
 
-	rules, err := ParseNetworkPolicyDeprecated(&np)
+	rules, err := ParseNetworkPolicyV1beta1(&np)
 	c.Assert(err, IsNil)
 	c.Assert(len(rules), Equals, 1)
 
@@ -404,7 +404,7 @@ func (s *K8sSuite) TestNetworkPolicyExamplesDeprecated(c *C) {
 	err = json.Unmarshal(ex2, &np)
 	c.Assert(err, IsNil)
 
-	rules, err = ParseNetworkPolicyDeprecated(&np)
+	rules, err = ParseNetworkPolicyV1beta1(&np)
 	c.Assert(err, IsNil)
 	c.Assert(len(rules), Equals, 1)
 
@@ -472,7 +472,7 @@ func (s *K8sSuite) TestNetworkPolicyExamplesDeprecated(c *C) {
 	err = json.Unmarshal(ex3, &np)
 	c.Assert(err, IsNil)
 
-	rules, err = ParseNetworkPolicyDeprecated(&np)
+	rules, err = ParseNetworkPolicyV1beta1(&np)
 	c.Assert(err, IsNil)
 	c.Assert(len(rules), Equals, 1)
 
@@ -567,7 +567,7 @@ func (s *K8sSuite) TestNetworkPolicyExamplesDeprecated(c *C) {
 	err = json.Unmarshal(ex4, &np)
 	c.Assert(err, IsNil)
 
-	rules, err = ParseNetworkPolicyDeprecated(&np)
+	rules, err = ParseNetworkPolicyV1beta1(&np)
 	c.Assert(err, IsNil)
 	c.Assert(len(rules), Equals, 1)
 
@@ -579,7 +579,7 @@ func (s *K8sSuite) TestNetworkPolicyExamplesDeprecated(c *C) {
 	err = json.Unmarshal(ex2, &np)
 	c.Assert(err, IsNil)
 
-	rules, err = ParseNetworkPolicyDeprecated(&np)
+	rules, err = ParseNetworkPolicyV1beta1(&np)
 	// add example 2
 	repo.AddList(rules)
 
@@ -695,7 +695,7 @@ func (s *K8sSuite) TestNetworkPolicyExamplesDeprecated(c *C) {
 	err = json.Unmarshal(ex5, &np)
 	c.Assert(err, IsNil)
 
-	rules, err = ParseNetworkPolicyDeprecated(&np)
+	rules, err = ParseNetworkPolicyV1beta1(&np)
 	c.Assert(err, IsNil)
 	c.Assert(len(rules), Equals, 1)
 	repo.AddList(rules)
