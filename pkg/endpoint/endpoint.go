@@ -283,13 +283,13 @@ type Endpoint struct {
 	// L4Policy is the L4Policy in effect for the
 	// endpoint. Normally, it is the same as the Consumable's
 	// L4Policy, but this is needed during policy recalculation to
-	// be able to clean up PolicyMap after the endpoint's consumable has already
+	// be able to clean up IngressPolicyMap after the endpoint's consumable has already
 	// been updated.
 	L4Policy *policy.L4Policy `json:"-"`
 
-	// PolicyMap is the policy related state of the datapath including
-	// reference to all policy related BPF
-	PolicyMap *policymap.PolicyMap `json:"-"`
+	// IngressPolicyMap is the ingress policy related state of the datapath
+	// including reference to all policy related BPF.
+	IngressPolicyMap *policymap.PolicyMap `json:"-"`
 
 	// CIDRPolicy is the CIDR based policy configuration of the endpoint. This
 	// is not contained within the Consumable for this endpoint because the
@@ -629,15 +629,15 @@ func (e *Endpoint) GetPolicyModel() *models.EndpointPolicy {
 	e.Consumable.Mutex.RLock()
 	defer e.Consumable.Mutex.RUnlock()
 
-	consumers := []int64{}
-	for _, v := range e.Consumable.Consumers {
-		consumers = append(consumers, int64(v.ID))
+	ingressConsumers := []int64{}
+	for _, v := range e.Consumable.IngressConsumers {
+		ingressConsumers = append(ingressConsumers, int64(v.ID))
 	}
 
 	return &models.EndpointPolicy{
 		ID:               int64(e.Consumable.ID),
 		Build:            int64(e.Consumable.Iteration),
-		AllowedConsumers: consumers,
+		AllowedConsumers: ingressConsumers,
 		CidrPolicy:       e.L3Policy.GetModel(),
 		L4:               e.Consumable.L4Policy.GetModel(),
 	}
@@ -1097,6 +1097,7 @@ func mapPath(mapname string, id int) string {
 }
 
 // PolicyMapPathLocked returns the path to policy map of endpoint.
+// TODO (egress)
 func (e *Endpoint) PolicyMapPathLocked() string {
 	return mapPath(policymap.MapName, int(e.ID))
 }
@@ -1326,8 +1327,8 @@ func (e *Endpoint) LeaveLocked(owner Owner) int {
 		c.Mutex.RUnlock()
 	}
 
-	if e.PolicyMap != nil {
-		if err := e.PolicyMap.Close(); err != nil {
+	if e.IngressPolicyMap != nil {
+		if err := e.IngressPolicyMap.Close(); err != nil {
 			e.getLogger().WithError(err).WithField(logfields.Path, e.PolicyMapPathLocked()).Warn("Unable to close policy map")
 			errors++
 		}

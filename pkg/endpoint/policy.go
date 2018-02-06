@@ -69,13 +69,22 @@ func (e *Endpoint) checkEgressAccess(owner Owner, dstLabels labels.LabelArray, o
 	}
 }
 
-// allowConsumer must be called with global endpoint.Mutex held
-func (e *Endpoint) allowConsumer(owner Owner, id policy.NumericIdentity) bool {
+// allowIngressConsumer must be called with global endpoint.Mutex held
+func (e *Endpoint) allowIngressConsumer(owner Owner, id policy.NumericIdentity) bool {
 	cache := policy.GetConsumableCache()
 	if !e.Opts.IsEnabled(OptionConntrack) {
-		return e.Consumable.AllowConsumerAndReverseLocked(cache, id)
+		return e.Consumable.AllowIngressConsumerAndReverseLocked(cache, id)
 	}
-	return e.Consumable.AllowConsumerLocked(cache, id)
+	return e.Consumable.AllowIngressConsumerLocked(cache, id)
+}
+
+// allowEgressConsumer must be called with global endpoint.Mutex held
+func (e *Endpoint) allowEgressConsumer(owner Owner, id policy.NumericIdentity) bool {
+	cache := policy.GetConsumableCache()
+	if !e.Opts.IsEnabled(OptionConntrack) {
+		return e.Consumable.AllowEgressConsumerAndReverseLocked(cache, id)
+	}
+	return e.Consumable.AllowEgressConsumerLocked(cache, id)
 }
 
 // ProxyID returns a unique string to identify a proxy mapping
@@ -153,7 +162,7 @@ func (e *Endpoint) removeOldFilter(owner Owner, labelsMap *policy.IdentityCache,
 			if _, ok := fromEndpointsSrcIDs[id]; !ok {
 				fromEndpointsSrcIDs[id] = policy.NewL4RuleContexts()
 			}
-			if err := e.PolicyMap.DeleteL4(srcID, port, proto); err != nil {
+			if err := e.IngressPolicyMap.DeleteL4(srcID, port, proto); err != nil {
 				// This happens when the policy would add
 				// multiple copies of the same L4 policy. Only
 				// one of them is actually added, but we'll
@@ -196,7 +205,7 @@ func (e *Endpoint) applyNewFilter(owner Owner, labelsMap *policy.IdentityCache,
 	for _, sel := range filter.FromEndpoints {
 		for _, id := range getSecurityIdentities(labelsMap, &sel) {
 			srcID := id.Uint32()
-			if e.PolicyMap.L4Exists(srcID, port, proto) {
+			if e.IngressPolicyMap.L4Exists(srcID, port, proto) {
 				e.getLogger().WithField("l4Filter", filter).Debug("L4 filter exists")
 				continue
 			}
@@ -204,7 +213,7 @@ func (e *Endpoint) applyNewFilter(owner Owner, labelsMap *policy.IdentityCache,
 			if _, ok := fromEndpointsSrcIDs[id]; !ok {
 				fromEndpointsSrcIDs[id] = policy.NewL4RuleContexts()
 			}
-			if err := e.PolicyMap.AllowL4(srcID, port, proto); err != nil {
+			if err := e.IngressPolicyMap.AllowL4(srcID, port, proto); err != nil {
 				e.getLogger().WithFields(logrus.Fields{
 					logfields.PolicyID: srcID,
 					logfields.Port:     port,
@@ -242,7 +251,7 @@ func setMapOperationResult(secIDs, newSecIDs policy.SecurityIDContexts) {
 }
 
 // Looks for mismatches between 'oldPolicy' and 'newPolicy', and fixes up
-// this Endpoint's BPF PolicyMap to reflect the new L3+L4 combined policy.
+// this Endpoint's BPF IngressPolicyMap to reflect the new L3+L4 combined policy.
 // Returns a map that represents all L3-dependent L4 rules that were attempted
 // to be added;
 // and a map that represents all L3-dependent L4 rules that were attempted
@@ -333,8 +342,8 @@ func (e *Endpoint) regenerateConsumable(owner Owner, labelsMap *policy.IdentityC
 	)
 
 	// Mark all entries unused by denying them
-	for k := range c.Consumers {
-		c.Consumers[k].DeletionMark = true
+	for k := range c.IngressConsumers {
+		c.IngressConsumers[k].DeletionMark = true
 	}
 
 	rulesAdd = policy.NewSecurityIDContexts()
@@ -352,7 +361,7 @@ func (e *Endpoint) regenerateConsumable(owner Owner, labelsMap *policy.IdentityC
 	} else {
 		changed = true
 
-		// PolicyMap can't be created in dry mode.
+		// IngressPolicyMap can't be created in dry mode.
 		if !owner.DryModeEnabled() {
 			// Collect unused redirects.
 			if e.L4Policy != nil {
@@ -419,7 +428,8 @@ func (e *Endpoint) regenerateConsumable(owner Owner, labelsMap *policy.IdentityC
 	}
 
 	if owner.AlwaysAllowLocalhost() || c.L4Policy.HasRedirect() {
-		if e.allowConsumer(owner, policy.ReservedIdentityHost) {
+		// TODO (ianvernon) how does this affect egress?
+		if e.allowIngressConsumer(owner, policy.ReservedIdentityHost) {
 			changed = true
 		}
 	}
@@ -454,7 +464,7 @@ func (e *Endpoint) regenerateConsumable(owner Owner, labelsMap *policy.IdentityC
 
 		ingressAccess := repo.AllowsIngressLabelAccess(&ingressCtx)
 		if ingressAccess == api.Allowed {
-			if e.allowConsumer(owner, identity) {
+			if e.allowIngressConsumer(owner, identity) {
 				changed = true
 			}
 		}
@@ -472,14 +482,17 @@ func (e *Endpoint) regenerateConsumable(owner Owner, labelsMap *policy.IdentityC
 			e.getLogger().WithFields(logrus.Fields{
 				logfields.PolicyID: identity,
 				"ctx":              ingressCtx}).Debug("egress allowed")
+			if e.allowEgressConsumer(owner, identity) {
+				changed = true
+			}
 		}
 	}
 
 	// Garbage collect all unused entries
-	for _, val := range c.Consumers {
+	for _, val := range c.IngressConsumers {
 		if val.DeletionMark {
 			val.DeletionMark = false
-			c.BanConsumerLocked(val.ID)
+			c.BanIngressConsumerLocked(val.ID)
 			changed = true
 			// Since we have removed a consumer, the L3 rule should be
 			// also be marked as removed. But only if it was not previously
@@ -502,17 +515,45 @@ func (e *Endpoint) regenerateConsumable(owner Owner, labelsMap *policy.IdentityC
 		}
 	}
 
+	for _, val := range c.EgressConsumers {
+		if val.DeletionMark {
+			val.DeletionMark = false
+			c.BanEgressConsumerLocked(val.ID)
+			changed = true
+			// TODO (ianvernon) conntrack stuff D=
+			// Since we have removed a consumer, the L3 rule should be
+			// also be marked as removed. But only if it was not previously
+			// created by a L3-L4 rule.
+			/*if _, ok := rulesRm[val.ID]; !ok {
+				rulesRm[val.ID] = policy.NewL4RuleContexts()
+			}
+			// If the L3 rule was removed then we also need to remove it from
+			// the rulesAdded.
+			if _, ok := rulesAdd[val.ID]; ok {
+				delete(rulesAdd, val.ID)
+			}*/
+		} /*else {
+			// Since we have (re)added a consumer, the L3 rule should be
+			// also be marked as added. But only if it was not previously
+			// created by a L3-L4 rule.
+			if _, ok := rulesAdd[val.ID]; !ok {
+				rulesAdd[val.ID] = policy.NewL4RuleContexts()
+			}
+		}*/
+	}
+
 	if rulesAdd != nil {
 		rulesAddCpy := rulesAdd.DeepCopy() // Store the L3-L4 policy
 		c.L3L4Policy = &rulesAddCpy
 	}
 
 	e.getLogger().WithFields(logrus.Fields{
-		logfields.Identity: c.ID,
-		"consumers":        logfields.Repr(c.Consumers),
-		"rulesAdd":         rulesAdd,
-		"l4Rm":             l4Rm,
-		"rulesRm":          rulesRm,
+		logfields.Identity:  c.ID,
+		"ingress-consumers": logfields.Repr(c.IngressConsumers),
+		"egress-consumers":  logfields.Repr(c.EgressConsumers),
+		"rulesAdd":          rulesAdd,
+		"l4Rm":              l4Rm,
+		"rulesRm":           rulesRm,
 	}).Debug("New consumable with consumers")
 	return changed, rulesAdd, rulesRm
 }
@@ -586,12 +627,12 @@ func (e *Endpoint) regeneratePolicy(owner Owner, opts models.ConfigurationMap) (
 	// through. Some bpf/redirect updates are skipped in that case.
 	//
 	// This can be cleaned up once we shift all bpf updates to regenerateBPF().
-	if e.PolicyMap == nil && !owner.DryModeEnabled() {
+	if e.IngressPolicyMap == nil && !owner.DryModeEnabled() {
 		// First run always results in bpf generation
 		// L4 policy generation assumes e.PolicyMp to exist, but it is only created
 		// when bpf is generated for the first time. Until then we can't really compute
-		// the policy. Bpf generation calls us again after PolicyMap is created.
-		// In dry mode we are called with a nil PolicyMap.
+		// the policy. Bpf generation calls us again after IngressPolicyMap is created.
+		// In dry mode we are called with a nil IngressPolicyMap.
 
 		// We still need to apply any options if given.
 		if opts != nil {

@@ -84,7 +84,7 @@ func (pm *PolicyMap) AllowConsumer(id uint32) error {
 	return bpf.UpdateElement(pm.Fd, unsafe.Pointer(&key), unsafe.Pointer(&entry), 0)
 }
 
-// AllowL4 pushes an entry into the PolicyMap to allow source identity `id`
+// AllowL4 pushes an entry into the IngressPolicyMap to allow source identity `id`
 // send traffic with destination port `dport` over protocol `proto`.
 func (pm *PolicyMap) AllowL4(id uint32, dport uint16, proto uint8) error {
 	key := policyKey{Identity: id, DestPort: byteorder.HostToNetwork(dport).(uint16), Nexthdr: proto}
@@ -98,7 +98,7 @@ func (pm *PolicyMap) ConsumerExists(id uint32) bool {
 	return bpf.LookupElement(pm.Fd, unsafe.Pointer(&key), unsafe.Pointer(&entry)) == nil
 }
 
-// L4Exists determines whether PolicyMap currently contains an entry that
+// L4Exists determines whether IngressPolicyMap currently contains an entry that
 // allows source identity `id` send traffic with destination port `dport` over
 // protocol `proto`.
 func (pm *PolicyMap) L4Exists(id uint32, dport uint16, proto uint8) bool {
@@ -112,7 +112,7 @@ func (pm *PolicyMap) DeleteConsumer(id uint32) error {
 	return bpf.DeleteElement(pm.Fd, unsafe.Pointer(&key))
 }
 
-// DeleteL4 removes an entry from the PolicyMap for source identity `id`
+// DeleteL4 removes an entry from the IngressPolicyMap for source identity `id`
 // sending traffic with destination port `dport` over protocol `proto`.
 func (pm *PolicyMap) DeleteL4(id uint32, dport uint16, proto uint8) error {
 	key := policyKey{Identity: id, DestPort: byteorder.HostToNetwork(dport).(uint16), Nexthdr: proto}
@@ -194,7 +194,7 @@ func (pm *PolicyMap) Flush() error {
 	return nil
 }
 
-// Close closes the FD of the given PolicyMap
+// Close closes the FD of the given IngressPolicyMap
 func (pm *PolicyMap) Close() error {
 	return bpf.ObjClose(pm.Fd)
 }

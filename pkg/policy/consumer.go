@@ -19,7 +19,6 @@ import (
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/policymap"
-	"github.com/cilium/cilium/pkg/policy/api"
 
 	"github.com/sirupsen/logrus"
 )
@@ -55,10 +54,12 @@ type Consumable struct {
 	LabelArray labels.LabelArray `json:"-"`
 	// Iteration policy of the Consumable
 	Iteration uint64 `json:"-"`
-	// Map from bpf map fd to the policymap, the go representation of an endpoint's bpf policy map.
-	Maps map[int]*policymap.PolicyMap `json:"-"`
-	// Consumers contains the list of consumers where the key is the Consumer's ID
-	Consumers map[NumericIdentity]*Consumer `json:"consumers"`
+	// Maps from bpf map file-descriptor to the IngressPolicyMap, the go representation
+	// of an endpoint's bpf policy map.
+	IngressMaps map[int]*policymap.PolicyMap `json:"-"`
+	// IngressConsumers contains the list of allowed consumers for this Consumable.
+	// Index be NumericIdentity (security identity) of each Consumer.
+	IngressConsumers map[NumericIdentity]*Consumer `json:"ingress-consumers"`
 	// ReverseRules contains the consumers that are allowed to receive a reply from this Consumable
 	ReverseRules map[NumericIdentity]*Consumer `json:"-"`
 	// L4Policy contains the policy of this consumable
@@ -66,18 +67,27 @@ type Consumable struct {
 	// L3L4Policy contains the L3, L4 and L7 ingress policy of this consumable
 	L3L4Policy *SecurityIDContexts `json:"l3-l4-policy"`
 	cache      *ConsumableCache
+
+	// TODO (ianvernon) Added for egress...
+	// TODO (ianvernon)
+	EgressMaps map[int]*policymap.PolicyMap `json:"-"`
+
+	// TODO (ianvernon)
+	EgressConsumers map[NumericIdentity]*Consumer `json:"egress-consumers"`
 }
 
 // NewConsumable creates a new consumable
 func NewConsumable(id NumericIdentity, lbls *Identity, cache *ConsumableCache) *Consumable {
 	consumable := &Consumable{
-		ID:           id,
-		Iteration:    0,
-		Labels:       lbls,
-		Maps:         map[int]*policymap.PolicyMap{},
-		Consumers:    map[NumericIdentity]*Consumer{},
-		ReverseRules: map[NumericIdentity]*Consumer{},
-		cache:        cache,
+		ID:               id,
+		Iteration:        0,
+		Labels:           lbls,
+		IngressMaps:      map[int]*policymap.PolicyMap{},
+		IngressConsumers: map[NumericIdentity]*Consumer{},
+		ReverseRules:     map[NumericIdentity]*Consumer{},
+		cache:            cache,
+		EgressMaps:       map[int]*policymap.PolicyMap{},
+		EgressConsumers:  map[NumericIdentity]*Consumer{},
 	}
 	if lbls != nil {
 		consumable.LabelArray = lbls.Labels.ToSlice()
@@ -98,29 +108,58 @@ func (c *Consumable) ResolveIdentityFromCache(id NumericIdentity) *Identity {
 	return nil
 }
 
-func (c *Consumable) AddMap(m *policymap.PolicyMap) {
+// TODO (ianvernon) egress
+func (c *Consumable) AddIngressMap(m *policymap.PolicyMap) {
 	c.Mutex.Lock()
 	defer c.Mutex.Unlock()
-	if c.Maps == nil {
-		c.Maps = make(map[int]*policymap.PolicyMap)
+	if c.IngressMaps == nil {
+		c.IngressMaps = make(map[int]*policymap.PolicyMap)
 	}
 
 	// Check if map is already associated with this consumable
-	if _, ok := c.Maps[m.Fd]; ok {
+	if _, ok := c.IngressMaps[m.Fd]; ok {
 		return
 	}
 
 	log.WithFields(logrus.Fields{
 		"policymap":  m,
 		"consumable": c,
-	}).Debug("Adding policy map to consumable")
-	c.Maps[m.Fd] = m
+	}).Debug("Adding ingress policy map to consumable")
+	c.IngressMaps[m.Fd] = m
 
 	// Populate the new map with the already established consumers of
 	// this consumable
-	for _, c := range c.Consumers {
+	for _, c := range c.IngressConsumers {
 		if err := m.AllowConsumer(c.ID.Uint32()); err != nil {
 			log.WithError(err).Warn("Update of policy map failed")
+		}
+	}
+}
+
+// TODO (ianvernon) documentation
+func (c *Consumable) AddEgressMap(m *policymap.PolicyMap) {
+	c.Mutex.Lock()
+	defer c.Mutex.Unlock()
+	if c.EgressMaps == nil {
+		c.EgressMaps = make(map[int]*policymap.PolicyMap)
+	}
+
+	// Check if map is already associated with this consumable
+	if _, ok := c.EgressMaps[m.Fd]; ok {
+		return
+	}
+
+	log.WithFields(logrus.Fields{
+		"policymap":  m,
+		"consumable": c,
+	}).Debug("Adding egress policy map to consumable")
+	c.EgressMaps[m.Fd] = m
+
+	// Populate the new map with the already established consumers of
+	// this consumable
+	for _, c := range c.EgressConsumers {
+		if err := m.AllowConsumer(c.ID.Uint32()); err != nil {
+			log.WithError(err).Warn("Update of egress policy map failed")
 		}
 	}
 }
@@ -136,57 +175,106 @@ func (c *Consumable) deleteReverseRule(consumable NumericIdentity, consumer Nume
 		// policy rule here that we can delete.
 		if _, ok := reverse.ReverseRules[consumer]; ok {
 			delete(reverse.ReverseRules, consumer)
-			if reverse.wasLastRule(consumer) {
-				reverse.removeFromMaps(consumer)
+			if reverse.wasLastIngressRule(consumer) {
+				reverse.removeFromIngressMaps(consumer)
 			}
 		}
 	}
 }
 
-func (c *Consumable) delete() {
-	for _, consumer := range c.Consumers {
+func (c *Consumable) deleteIngress() {
+	for _, consumer := range c.IngressConsumers {
 		// FIXME: This explicit removal could be removed eventually to
 		// speed things up as the policy map should get deleted anyway
-		if c.wasLastRule(consumer.ID) {
-			c.removeFromMaps(consumer.ID)
+		if c.wasLastIngressRule(consumer.ID) {
+			c.removeFromIngressMaps(consumer.ID)
 		}
 
+		// TODO (ianvernon) look into this
 		c.deleteReverseRule(consumer.ID, c.ID)
 	}
 
+	// TODO (ianvernon) revisit this
 	if c.cache != nil {
 		c.cache.Remove(c)
 	}
 }
 
-func (c *Consumable) RemoveMap(m *policymap.PolicyMap) {
+func (c *Consumable) deleteEgress() {
+	for _, consumer := range c.EgressConsumers {
+		// FIXME: This explicit removal could be removed eventually to
+		// speed things up as the policy map should get deleted anyway
+		if c.wasLastEgressRule(consumer.ID) {
+			c.removeFromEgressMaps(consumer.ID)
+		}
+
+		// TODO (ianvernon) look into this
+		c.deleteReverseRule(consumer.ID, c.ID)
+	}
+
+	// TODO (ianvernon) revisit this
+	if c.cache != nil {
+		c.cache.Remove(c)
+	}
+}
+
+func (c *Consumable) RemoveIngressMap(m *policymap.PolicyMap) {
 	if m != nil {
 		c.Mutex.Lock()
-		delete(c.Maps, m.Fd)
+		delete(c.IngressMaps, m.Fd)
 		log.WithFields(logrus.Fields{
 			"policymap":  m,
 			"consumable": c,
-			"count":      len(c.Maps),
-		}).Debug("Removing map from consumable")
+			"count":      len(c.IngressMaps),
+		}).Debug("Removing ingress map from consumable")
 
 		// If the last map of the consumable is gone the consumable is no longer
 		// needed and should be removed from the cache and all cross references
 		// must be undone.
-		if len(c.Maps) == 0 {
-			c.delete()
+		if len(c.IngressMaps) == 0 && len(c.EgressMaps) == 0 {
+			c.deleteIngress()
 		}
+
 		c.Mutex.Unlock()
 	}
 
 }
 
-func (c *Consumable) getConsumer(id NumericIdentity) *Consumer {
-	val, _ := c.Consumers[id]
+func (c *Consumable) RemoveEgressMap(m *policymap.PolicyMap) {
+	if m != nil {
+		c.Mutex.Lock()
+		delete(c.IngressMaps, m.Fd)
+		log.WithFields(logrus.Fields{
+			"policymap":  m,
+			"consumable": c,
+			"count":      len(c.IngressMaps),
+		}).Debug("Removing ingress map from consumable")
+
+		// If the last map of the consumable is gone the consumable is no longer
+		// needed and should be removed from the cache and all cross references
+		// must be undone.
+		if len(c.EgressMaps) == 0 {
+			c.deleteEgress()
+		}
+
+		// TODO if len of Egress and Ingress Maps 0, then delete from cache.
+		c.Mutex.Unlock()
+	}
+
+}
+
+func (c *Consumable) getIngressConsumer(id NumericIdentity) *Consumer {
+	val, _ := c.IngressConsumers[id]
 	return val
 }
 
-func (c *Consumable) addToMaps(id NumericIdentity) {
-	for _, m := range c.Maps {
+func (c *Consumable) getEgressConsumer(id NumericIdentity) *Consumer {
+	val, _ := c.EgressConsumers[id]
+	return val
+}
+
+func (c *Consumable) addToIngressMaps(id NumericIdentity) {
+	for _, m := range c.IngressMaps {
 		if m.ConsumerExists(id.Uint32()) {
 			continue
 		}
@@ -203,12 +291,34 @@ func (c *Consumable) addToMaps(id NumericIdentity) {
 	}
 }
 
-func (c *Consumable) wasLastRule(id NumericIdentity) bool {
-	return c.ReverseRules[id] == nil && c.Consumers[id] == nil
+func (c *Consumable) addToEgressMaps(id NumericIdentity) {
+	for _, m := range c.EgressMaps {
+		if m.ConsumerExists(id.Uint32()) {
+			continue
+		}
+
+		scopedLog := log.WithFields(logrus.Fields{
+			"policymap":        m,
+			logfields.Identity: id,
+		})
+
+		scopedLog.Debug("Updating policy BPF map: allowing Identity")
+		if err := m.AllowConsumer(id.Uint32()); err != nil {
+			scopedLog.WithError(err).Warn("Update of policy map failed")
+		}
+	}
 }
 
-func (c *Consumable) removeFromMaps(id NumericIdentity) {
-	for _, m := range c.Maps {
+func (c *Consumable) wasLastIngressRule(id NumericIdentity) bool {
+	return c.ReverseRules[id] == nil && c.IngressConsumers[id] == nil
+}
+
+func (c *Consumable) wasLastEgressRule(id NumericIdentity) bool {
+	return c.ReverseRules[id] == nil && c.EgressConsumers[id] == nil
+}
+
+func (c *Consumable) removeFromIngressMaps(id NumericIdentity) {
+	for _, m := range c.IngressMaps {
 		scopedLog := log.WithFields(logrus.Fields{
 			"policymap":        m,
 			logfields.Identity: id,
@@ -221,35 +331,68 @@ func (c *Consumable) removeFromMaps(id NumericIdentity) {
 	}
 }
 
-// AllowConsumerLocked adds the given consumer ID to the Consumable's
+func (c *Consumable) removeFromEgressMaps(id NumericIdentity) {
+	for _, m := range c.EgressMaps {
+		scopedLog := log.WithFields(logrus.Fields{
+			"policymap":        m,
+			logfields.Identity: id,
+		})
+
+		scopedLog.Debug("Updating policy BPF map: denying Identity")
+		if err := m.DeleteConsumer(id.Uint32()); err != nil {
+			scopedLog.WithError(err).Warn("Update of policy map failed")
+		}
+	}
+}
+
+// AllowIngressConsumerLocked adds the given consumer ID to the Consumable's
 // consumers map. Must be called with Consumable mutex Locked.
 // Returns true if the consumer was not present in this Consumable's consumer map,
 // and thus had to be added, false if it is already added.
-func (c *Consumable) AllowConsumerLocked(cache *ConsumableCache, id NumericIdentity) bool {
-	consumer := c.getConsumer(id)
+func (c *Consumable) AllowIngressConsumerLocked(cache *ConsumableCache, id NumericIdentity) bool {
+	consumer := c.getIngressConsumer(id)
 	if consumer == nil {
 		log.WithFields(logrus.Fields{
 			logfields.Identity: id,
 			"consumable":       logfields.Repr(c),
 		}).Debug("New consumer Identity for consumable")
-		c.addToMaps(id)
-		c.Consumers[id] = NewConsumer(id)
+		c.addToIngressMaps(id)
+		c.IngressConsumers[id] = NewConsumer(id)
 		return true
 	}
 	consumer.DeletionMark = false
 	return false // not changed.
 }
 
-// AllowConsumerAndReverseLocked adds the given consumer ID to the Consumable's
+// AllowEgressConsumerLocked adds the given consumer ID to the Consumable's
+// consumers map. Must be called with Consumable mutex Locked.
+// Returns true if the consumer was not present in this Consumable's consumer map,
+// and thus had to be added, false if it is already added.
+func (c *Consumable) AllowEgressConsumerLocked(cache *ConsumableCache, id NumericIdentity) bool {
+	consumer := c.getEgressConsumer(id)
+	if consumer == nil {
+		log.WithFields(logrus.Fields{
+			logfields.Identity: id,
+			"consumable":       logfields.Repr(c),
+		}).Debug("New consumer Identity for consumable")
+		c.addToEgressMaps(id)
+		c.EgressConsumers[id] = NewConsumer(id)
+		return true
+	}
+	consumer.DeletionMark = false
+	return false // not changed.
+}
+
+// AllowIngressConsumerAndReverseLocked adds the given consumer ID to the Consumable's
 // consumers map and the given consumable to the given consumer's consumers map.
 // Must be called with Consumable mutex Locked.
 // returns true if changed, false if not
-func (c *Consumable) AllowConsumerAndReverseLocked(cache *ConsumableCache, id NumericIdentity) bool {
+func (c *Consumable) AllowIngressConsumerAndReverseLocked(cache *ConsumableCache, id NumericIdentity) bool {
 	log.WithFields(logrus.Fields{
 		logfields.Identity + ".from": id,
 		logfields.Identity + ".to":   c.ID,
 	}).Debug("Allowing direction")
-	changed := c.AllowConsumerLocked(cache, id)
+	changed := c.AllowIngressConsumerLocked(cache, id)
 
 	if reverse := cache.Lookup(id); reverse != nil {
 		log.WithFields(logrus.Fields{
@@ -257,7 +400,7 @@ func (c *Consumable) AllowConsumerAndReverseLocked(cache *ConsumableCache, id Nu
 			logfields.Identity + ".to":   id,
 		}).Debug("Allowing reverse direction")
 		if _, ok := reverse.ReverseRules[c.ID]; !ok {
-			reverse.addToMaps(c.ID)
+			reverse.addToIngressMaps(c.ID)
 			reverse.ReverseRules[c.ID] = NewConsumer(c.ID)
 			return true
 		}
@@ -269,15 +412,45 @@ func (c *Consumable) AllowConsumerAndReverseLocked(cache *ConsumableCache, id Nu
 	return changed
 }
 
-// BanConsumerLocked removes the given consumer from the Consumable's consumers
-// map. Must be called with the Consumable mutex locked.
-func (c *Consumable) BanConsumerLocked(id NumericIdentity) {
-	if consumer, ok := c.Consumers[id]; ok {
-		log.WithField("consumer", logfields.Repr(consumer)).Debug("Removing consumer")
-		delete(c.Consumers, id)
+// AllowEgressConsumerAndReverseLocked adds the given consumer ID to the Consumable's
+// consumers map and the given consumable to the given consumer's consumers map.
+// Must be called with Consumable mutex Locked.
+// returns true if changed, false if not
+func (c *Consumable) AllowEgressConsumerAndReverseLocked(cache *ConsumableCache, id NumericIdentity) bool {
+	log.WithFields(logrus.Fields{
+		logfields.Identity + ".from": id,
+		logfields.Identity + ".to":   c.ID,
+	}).Debug("Allowing direction")
+	changed := c.AllowEgressConsumerLocked(cache, id)
 
-		if c.wasLastRule(id) {
-			c.removeFromMaps(id)
+	if reverse := cache.Lookup(id); reverse != nil {
+		log.WithFields(logrus.Fields{
+			logfields.Identity + ".from": c.ID,
+			logfields.Identity + ".to":   id,
+		}).Debug("Allowing reverse direction")
+		if _, ok := reverse.ReverseRules[c.ID]; !ok {
+			reverse.addToEgressMaps(c.ID)
+			// TODO (ianvernon)
+			reverse.ReverseRules[c.ID] = NewConsumer(c.ID)
+			return true
+		}
+	}
+	log.WithFields(logrus.Fields{
+		logfields.Identity + ".from": c.ID,
+		logfields.Identity + ".to":   id,
+	}).Warn("Allowed a consumer which can't be found in the reverse direction")
+	return changed
+}
+
+// BanIngressConsumerLocked removes the given consumer from the Consumable's consumers
+// map. Must be called with the Consumable mutex locked.
+func (c *Consumable) BanIngressConsumerLocked(id NumericIdentity) {
+	if consumer, ok := c.IngressConsumers[id]; ok {
+		log.WithField("consumer", logfields.Repr(consumer)).Debug("Removing consumer")
+		delete(c.IngressConsumers, id)
+
+		if c.wasLastIngressRule(id) {
+			c.removeFromIngressMaps(id)
 		}
 
 		if consumer.Reverse != nil {
@@ -286,9 +459,27 @@ func (c *Consumable) BanConsumerLocked(id NumericIdentity) {
 	}
 }
 
+// BanIngressConsumerLocked removes the given consumer from the Consumable's consumers
+// map. Must be called with the Consumable mutex locked.
+func (c *Consumable) BanEgressConsumerLocked(id NumericIdentity) {
+	if consumer, ok := c.EgressConsumers[id]; ok {
+		log.WithField("consumer", logfields.Repr(consumer)).Debug("Removing consumer")
+		delete(c.EgressConsumers, id)
+
+		if c.wasLastEgressRule(id) {
+			c.removeFromEgressMaps(id)
+		}
+
+		if consumer.Reverse != nil {
+			c.deleteReverseRule(id, c.ID)
+		}
+	}
+}
+
+// TODO (ianvernon) - something fishy is going on man
 func (c *Consumable) Allows(id NumericIdentity) bool {
 	c.Mutex.RLock()
-	consumer := c.getConsumer(id)
+	consumer := c.getIngressConsumer(id)
 	c.Mutex.RUnlock()
 	return consumer != nil
 }

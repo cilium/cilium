@@ -84,9 +84,9 @@ func endpointCreator(id uint16, secID policy.NumericIdentity) *e.Endpoint {
 				"foo" + strID: labels.NewLabel("foo"+strID, "", ""),
 			},
 		},
-		Maps:         map[int]*policymap.PolicyMap{},
-		Consumers:    map[policy.NumericIdentity]*policy.Consumer{},
-		ReverseRules: map[policy.NumericIdentity]*policy.Consumer{},
+		IngressMaps:      map[int]*policymap.PolicyMap{},
+		IngressConsumers: map[policy.NumericIdentity]*policy.Consumer{},
+		ReverseRules:     map[policy.NumericIdentity]*policy.Consumer{},
 	}
 	return ep
 }

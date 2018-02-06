@@ -339,7 +339,7 @@ func (d *Daemon) deleteEndpoint(ep *endpoint.Endpoint) int {
 		errors := lxcmap.DeleteElement(ep)
 
 		if ep.Consumable != nil {
-			ep.Consumable.RemoveMap(ep.PolicyMap)
+			ep.Consumable.RemoveIngressMap(ep.IngressPolicyMap)
 		}
 
 		// Remove policy BPF map

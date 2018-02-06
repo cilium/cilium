@@ -475,7 +475,7 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir, reason string) (uint64, err
 	if owner.DryModeEnabled() {
 		// Regenerate policy and apply any options resulting in the
 		// policy change.
-		// Note that e.PolicyMap is not initialized!
+		// Note that e.IngressPolicyMap is not initialized!
 		if _, _, _, err = e.regeneratePolicy(owner, nil); err != nil {
 			e.Mutex.Unlock()
 			return 0, fmt.Errorf("Unable to regenerate policy: %s", err)
@@ -511,11 +511,11 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir, reason string) (uint64, err
 				// Remove policy map file only if it was created
 				// in this update cycle
 				if c != nil {
-					c.RemoveMap(e.PolicyMap)
+					c.RemoveIngressMap(e.IngressPolicyMap)
 				}
 
 				os.RemoveAll(e.PolicyMapPathLocked())
-				e.PolicyMap = nil
+				e.IngressPolicyMap = nil
 			}
 			if createdIPv6IngressMap {
 				e.L3Maps.DestroyBpfMap(IPv6Ingress, e.IPv6IngressMapPathLocked())
@@ -533,16 +533,16 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir, reason string) (uint64, err
 		}
 	}()
 
-	// Create the policymap on the first pass
-	if e.PolicyMap == nil {
-		e.PolicyMap, createdPolicyMap, err = policymap.OpenMap(e.PolicyMapPathLocked())
+	// Create policy maps on the first pass
+	if e.IngressPolicyMap == nil {
+		e.IngressPolicyMap, createdPolicyMap, err = policymap.OpenMap(e.PolicyMapPathLocked())
 		if err != nil {
 			e.Mutex.Unlock()
 			return 0, err
 		}
 		// Clean up map contents
 		log.Debugf("Flushing old policies map")
-		err = e.PolicyMap.Flush()
+		err = e.IngressPolicyMap.Flush()
 		if err != nil {
 			e.Mutex.Unlock()
 			return 0, err
@@ -555,15 +555,15 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir, reason string) (uint64, err
 	)
 	// Only generate & populate policy map if a seclabel and consumer model is set up
 	if c != nil {
-		c.AddMap(e.PolicyMap)
+		c.AddIngressMap(e.IngressPolicyMap)
 
 		// Regenerate policy and apply any options resulting in the
 		// policy change.
-		// This also populates e.PolicyMap
+		// This also populates e.IngressPolicyMap
 		policyChanged, modifiedRules, deletedRules, err = e.regeneratePolicy(owner, nil)
 		if err != nil {
 			e.Mutex.Unlock()
-			return 0, fmt.Errorf("Unable to regenerate policy for '%s': %s", e.PolicyMap.String(), err)
+			return 0, fmt.Errorf("Unable to regenerate policy for '%s': %s", e.IngressPolicyMap.String(), err)
 		}
 		// policyChanged can still be true and, at the same time,
 		// the modifiedRules be nil. If this happens it means
