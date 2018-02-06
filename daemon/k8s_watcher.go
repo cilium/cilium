@@ -20,12 +20,10 @@ import (
 	"os"
 	"reflect"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/cilium/cilium/common/types"
 	"github.com/cilium/cilium/pkg/k8s"
-	cilium_api "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	cilium_v1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v1"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	clientset "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned"
@@ -36,13 +34,13 @@ import (
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/serializer"
 
+	go_version "github.com/hashicorp/go-version"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 	"k8s.io/api/core/v1"
 	"k8s.io/api/extensions/v1beta1"
 	networkingv1 "k8s.io/api/networking/v1"
 	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
-	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -70,10 +68,15 @@ var (
 	k8sErrMsgMU lock.Mutex
 	k8sErrMsg   = map[string]time.Time{}
 
-	k8sErrOnceV1API      sync.Once
-	stopPolicyController = make(chan struct{})
+	stopNetworkingV1PolicyController = make(chan struct{})
 
 	ciliumNPClient clientset.Interface
+
+	networkPolicyV1beta1VerConstr, _ = go_version.NewConstraint("< 1.7.0")
+	networkPolicyV1VerConstr, _      = go_version.NewConstraint(">= 1.7.0")
+
+	ciliumv1VerConstr, _ = go_version.NewConstraint("< 1.7.0")
+	ciliumv2VerConstr, _ = go_version.NewConstraint(">= 1.7.0")
 )
 
 // k8sAPIGroupsUsed is a lockable map to hold which k8s API Groups we have
@@ -154,22 +157,6 @@ func k8sErrorHandler(e error) {
 			log.WithError(e).Error("k8sError")
 		}
 
-	// This occurs when running against k8s version that do not support
-	// networking.k8s.io/v1 NetworkPolicy specs, k8s <= 1.6. In newer k8s
-	// versions both APIVersion: networking.k8s.io/v1 and extensions/v1beta1
-	// NetworkPolicy are supported and we do not see an error.
-	case strings.Contains(errstr, "Failed to list *v1.NetworkPolicy: the server could not find the requested resource"):
-		log.WithError(e).Error("Cannot list v1 API NetworkPolicy resources")
-		k8sErrOnceV1API.Do(func() {
-			// Stop the v1 API policy controller, which is causing these error
-			// messages to occur. This happens when we are talking to a k8s <1.7
-			// installation
-			log.Warn("k8s <1.7 detected. Some newer k8s API Groups are not available." +
-				"For k8s API version compatibilty see http://cilium.readthedocs.io/en/latest/k8scompatibility")
-			// This disables the matching watcher set up in EnableK8sWatcher below.
-			close(stopPolicyController)
-		})
-
 	// k8s does not allow us to watch both ThirdPartyResource and
 	// CustomResourceDefinition. This would occur when a user mixes these within
 	// the k8s cluster, and might occur when upgrading from versions of cilium
@@ -217,12 +204,13 @@ func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 		return fmt.Errorf("Unable to create rest configuration for k8s CRD: %s", err)
 	}
 
-	ciliumCLIVersion := cilium_api.V1
-	err = cilium_v2.CreateCustomResourceDefinitions(apiextensionsclientset)
+	sv, err := k8s.GetServerVersion()
+	if err != nil {
+		return fmt.Errorf("unable to retrieve kubernetes serverversion: %s", err)
+	}
+
 	switch {
-	case errors.IsNotFound(err):
-		// If CRD was not found it means we are running in k8s <1.7
-		// then we should set up TPR instead
+	case ciliumv1VerConstr.Check(sv):
 		log.Debug("Detected k8s <1.7, using TPR instead of CRD")
 		err := cilium_v1.CreateThirdPartyResourcesDefinitions(k8s.Client())
 		if err != nil {
@@ -231,13 +219,13 @@ func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 		d.k8sAPIGroups.addAPI(k8sAPIGroupTPR)
 		d.k8sAPIGroups.addAPI(k8sAPIGroupCiliumV1)
 
-	case err != nil:
-		return fmt.Errorf("Unable to create custom resource definition: %s", err)
-
-	default:
-		ciliumCLIVersion = cilium_api.V2
+	case ciliumv2VerConstr.Check(sv):
 		d.k8sAPIGroups.addAPI(k8sAPIGroupCRD)
 		d.k8sAPIGroups.addAPI(k8sAPIGroupCiliumV2)
+		err = cilium_v2.CreateCustomResourceDefinitions(apiextensionsclientset)
+		if err != nil {
+			return fmt.Errorf("Unable to create custom resource definition: %s", err)
+		}
 	}
 
 	ciliumNPClient, err = clientset.NewForConfig(restConfig)
@@ -251,93 +239,89 @@ func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 	serCNPs := serializer.NewFunctionQueue(20)
 	serNodes := serializer.NewFunctionQueue(20)
 
-	_, policyControllerDeprecated := cache.NewInformer(
-		cache.NewListWatchFromClient(k8s.Client().ExtensionsV1beta1().RESTClient(),
-			"networkpolicies", v1.NamespaceAll, fields.Everything()),
-		&v1beta1.NetworkPolicy{},
-		reSyncPeriod,
-		cache.ResourceEventHandlerFuncs{
-			AddFunc: func(obj interface{}) {
-				metrics.SetTSValue(metrics.EventTSK8s, time.Now())
-				if k8sNP := copyObjToV1beta1NetworkPolicy(obj); k8sNP != nil {
-					serKNPs.Enqueue(func() error {
-						d.addK8sNetworkPolicyV1beta1(k8sNP)
-						return nil
-					}, serializer.NoRetry)
-				}
-			},
-			UpdateFunc: func(oldObj, newObj interface{}) {
-				metrics.SetTSValue(metrics.EventTSK8s, time.Now())
-				if oldK8sNP := copyObjToV1beta1NetworkPolicy(oldObj); oldK8sNP != nil {
-					if newK8sNP := copyObjToV1beta1NetworkPolicy(newObj); newK8sNP != nil {
+	switch {
+	case networkPolicyV1beta1VerConstr.Check(sv):
+		_, policyControllerDeprecated := cache.NewInformer(
+			cache.NewListWatchFromClient(k8s.Client().ExtensionsV1beta1().RESTClient(),
+				"networkpolicies", v1.NamespaceAll, fields.Everything()),
+			&v1beta1.NetworkPolicy{},
+			reSyncPeriod,
+			cache.ResourceEventHandlerFuncs{
+				AddFunc: func(obj interface{}) {
+					metrics.SetTSValue(metrics.EventTSK8s, time.Now())
+					if k8sNP := copyObjToV1beta1NetworkPolicy(obj); k8sNP != nil {
 						serKNPs.Enqueue(func() error {
-							d.updateK8sNetworkPolicyV1beta1(oldK8sNP, newK8sNP)
+							d.addK8sNetworkPolicyV1beta1(k8sNP)
 							return nil
 						}, serializer.NoRetry)
 					}
-				}
+				},
+				UpdateFunc: func(oldObj, newObj interface{}) {
+					metrics.SetTSValue(metrics.EventTSK8s, time.Now())
+					if oldK8sNP := copyObjToV1beta1NetworkPolicy(oldObj); oldK8sNP != nil {
+						if newK8sNP := copyObjToV1beta1NetworkPolicy(newObj); newK8sNP != nil {
+							serKNPs.Enqueue(func() error {
+								d.updateK8sNetworkPolicyV1beta1(oldK8sNP, newK8sNP)
+								return nil
+							}, serializer.NoRetry)
+						}
+					}
+				},
+				DeleteFunc: func(obj interface{}) {
+					metrics.SetTSValue(metrics.EventTSK8s, time.Now())
+					if k8sNP := copyObjToV1beta1NetworkPolicy(obj); k8sNP != nil {
+						serKNPs.Enqueue(func() error {
+							d.deleteK8sNetworkPolicyV1beta1(k8sNP)
+							return nil
+						}, serializer.NoRetry)
+					}
+				},
 			},
-			DeleteFunc: func(obj interface{}) {
-				metrics.SetTSValue(metrics.EventTSK8s, time.Now())
-				if k8sNP := copyObjToV1beta1NetworkPolicy(obj); k8sNP != nil {
-					serKNPs.Enqueue(func() error {
-						d.deleteK8sNetworkPolicyV1beta1(k8sNP)
-						return nil
-					}, serializer.NoRetry)
-				}
-			},
-		},
-	)
-	go policyControllerDeprecated.Run(wait.NeverStop)
-	d.k8sAPIGroups.addAPI(k8sAPIGroupNetworkingV1Beta1)
+		)
+		go policyControllerDeprecated.Run(wait.NeverStop)
+		d.k8sAPIGroups.addAPI(k8sAPIGroupNetworkingV1Beta1)
 
-	_, policyController := cache.NewInformer(
-		cache.NewListWatchFromClient(k8s.Client().NetworkingV1().RESTClient(),
-			"networkpolicies", v1.NamespaceAll, fields.Everything()),
-		&networkingv1.NetworkPolicy{},
-		reSyncPeriod,
-		cache.ResourceEventHandlerFuncs{
-			AddFunc: func(obj interface{}) {
-				metrics.SetTSValue(metrics.EventTSK8s, time.Now())
-				if k8sNP := copyObjToV1NetworkPolicy(obj); k8sNP != nil {
-					serKNPs.Enqueue(func() error {
-						d.addK8sNetworkPolicyV1(k8sNP)
-						return nil
-					}, serializer.NoRetry)
-				}
-			},
-			UpdateFunc: func(oldObj, newObj interface{}) {
-				metrics.SetTSValue(metrics.EventTSK8s, time.Now())
-				if oldK8sNP := copyObjToV1NetworkPolicy(oldObj); oldK8sNP != nil {
-					if newK8sNP := copyObjToV1NetworkPolicy(newObj); newK8sNP != nil {
+	case networkPolicyV1VerConstr.Check(sv):
+		_, policyController := cache.NewInformer(
+			cache.NewListWatchFromClient(k8s.Client().NetworkingV1().RESTClient(),
+				"networkpolicies", v1.NamespaceAll, fields.Everything()),
+			&networkingv1.NetworkPolicy{},
+			reSyncPeriod,
+			cache.ResourceEventHandlerFuncs{
+				AddFunc: func(obj interface{}) {
+					metrics.SetTSValue(metrics.EventTSK8s, time.Now())
+					if k8sNP := copyObjToV1NetworkPolicy(obj); k8sNP != nil {
 						serKNPs.Enqueue(func() error {
-							d.updateK8sNetworkPolicyV1(oldK8sNP, newK8sNP)
+							d.addK8sNetworkPolicyV1(k8sNP)
 							return nil
 						}, serializer.NoRetry)
 					}
-				}
+				},
+				UpdateFunc: func(oldObj, newObj interface{}) {
+					metrics.SetTSValue(metrics.EventTSK8s, time.Now())
+					if oldK8sNP := copyObjToV1NetworkPolicy(oldObj); oldK8sNP != nil {
+						if newK8sNP := copyObjToV1NetworkPolicy(newObj); newK8sNP != nil {
+							serKNPs.Enqueue(func() error {
+								d.updateK8sNetworkPolicyV1(oldK8sNP, newK8sNP)
+								return nil
+							}, serializer.NoRetry)
+						}
+					}
+				},
+				DeleteFunc: func(obj interface{}) {
+					metrics.SetTSValue(metrics.EventTSK8s, time.Now())
+					if k8sNP := copyObjToV1NetworkPolicy(obj); k8sNP != nil {
+						serKNPs.Enqueue(func() error {
+							d.deleteK8sNetworkPolicyV1(k8sNP)
+							return nil
+						}, serializer.NoRetry)
+					}
+				},
 			},
-			DeleteFunc: func(obj interface{}) {
-				metrics.SetTSValue(metrics.EventTSK8s, time.Now())
-				if k8sNP := copyObjToV1NetworkPolicy(obj); k8sNP != nil {
-					serKNPs.Enqueue(func() error {
-						d.deleteK8sNetworkPolicyV1(k8sNP)
-						return nil
-					}, serializer.NoRetry)
-				}
-			},
-		},
-	)
-	go policyController.Run(stopPolicyController)
-	d.k8sAPIGroups.addAPI(k8sAPIGroupNetworkingV1Core)
-	// This is here because we turn this off in k8sErrorHandler but it does not
-	// have a *Daemon pointer.
-	// Note: We put stopPolicyController in the closure in case the global is
-	// ever changed.
-	go func(stop chan struct{}) {
-		<-stop
-		d.k8sAPIGroups.removeAPI(k8sAPIGroupNetworkingV1Core)
-	}(stopPolicyController)
+		)
+		go policyController.Run(wait.NeverStop)
+		d.k8sAPIGroups.addAPI(k8sAPIGroupNetworkingV1Core)
+	}
 
 	_, svcController := cache.NewInformer(
 		cache.NewListWatchFromClient(k8s.Client().CoreV1().RESTClient(),
@@ -461,8 +445,8 @@ func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 
 	si := informer.NewSharedInformerFactory(ciliumNPClient, reSyncPeriod)
 
-	switch ciliumCLIVersion {
-	case cilium_api.V1:
+	switch {
+	case ciliumv1VerConstr.Check(sv):
 		ciliumV1Controller := si.Cilium().V1().CiliumNetworkPolicies().Informer()
 		cnpStore := ciliumV1Controller.GetStore()
 		ciliumV1Controller.AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -497,7 +481,7 @@ func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 			},
 		})
 
-	default:
+	case ciliumv2VerConstr.Check(sv):
 		ciliumV2Controller := si.Cilium().V2().CiliumNetworkPolicies().Informer()
 		cnpStore := ciliumV2Controller.GetStore()
 		ciliumV2Controller.AddEventHandler(cache.ResourceEventHandlerFuncs{
