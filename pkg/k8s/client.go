@@ -30,6 +30,7 @@ import (
 	cilium_client_v2 "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 
+	go_version "github.com/hashicorp/go-version"
 	"github.com/sirupsen/logrus"
 	"k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -103,6 +104,15 @@ func CreateClient(config *rest.Config) (*kubernetes.Clientset, error) {
 		log.WithField(logfields.IPAddr, config.Host).Info("Connected to k8s api-server")
 	}
 	return cs, err
+}
+
+// GetServerVersion returns the kubernetes api-server version.
+func GetServerVersion() (*go_version.Version, error) {
+	sv, err := Client().Discovery().ServerVersion()
+	if err != nil {
+		return nil, err
+	}
+	return go_version.NewVersion(fmt.Sprintf("%s.%s", sv.Major, sv.Minor))
 }
 
 // isConnReady returns the err for the controller-manager status
