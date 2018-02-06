@@ -1149,7 +1149,8 @@ func mapValidateWalker(path string) error {
 			case err != nil:
 				return err
 			case !valid:
-				log.WithField(logfields.Path, filename).Info("Removing mismatched map")
+				log.WithField(logfields.Path, filename).Info("Outdated non-persistent BPF map found, removing...")
+
 				if err := os.Remove(path); err != nil {
 					return err
 				}
