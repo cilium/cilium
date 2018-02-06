@@ -42,19 +42,28 @@ func (checker *diffChecker) Check(params []interface{}, names []string) (result 
 		return true, ""
 	}
 
-	string0 := pretty.Sprintf("%# v", params[0])
-	string1 := pretty.Sprintf("%# v", params[1])
+	return false, compare(params[0], params[1], names[1], names[0])
+}
+
+// Compare compares two interfaces and emits a unified diff as string
+func Compare(a, b interface{}) string {
+	return compare(a, b, "b", "a")
+}
+
+func compare(a, b interface{}, nameA, nameB string) string {
+	string0 := pretty.Sprintf("%# v", a)
+	string1 := pretty.Sprintf("%# v", b)
 	diff := difflib.UnifiedDiff{
 		A:        difflib.SplitLines(string1),
 		B:        difflib.SplitLines(string0),
-		FromFile: names[1],
-		ToFile:   names[0],
+		FromFile: nameA,
+		ToFile:   nameB,
 		Context:  32,
 	}
 
 	out, err := difflib.GetUnifiedDiffString(diff)
 	if err != nil {
-		return false, err.Error()
+		return err.Error()
 	}
-	return false, "Unified diff:\n" + out
+	return "Unified diff:\n" + out
 }
