@@ -137,7 +137,10 @@ func CreateCustomResourceDefinitions(clientset apiextensionsclient.Interface) er
 
 	log.Debug("Creating CiliumNetworkPolicy/v2 CustomResourceDefinition...")
 	clusterCRD, err := clientset.ApiextensionsV1beta1().CustomResourceDefinitions().Create(res)
-	if err != nil && !errors.IsAlreadyExists(err) {
+	if errors.IsAlreadyExists(err) {
+		clusterCRD, err = clientset.ApiextensionsV1beta1().CustomResourceDefinitions().Get(cnpCRDName, metav1.GetOptions{})
+	}
+	if err != nil {
 		return err
 	}
 
