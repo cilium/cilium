@@ -25,7 +25,7 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-var _ = Describe("K8sPolicyTest", func() {
+var _ = Describe("K8sValidatedPolicyTest", func() {
 
 	var demoPath string
 	var once sync.Once
