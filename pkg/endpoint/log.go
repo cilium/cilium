@@ -35,6 +35,8 @@ func (e *Endpoint) getLogger() *logrus.Entry {
 // create a custom Debug logger for this endpoint when the option on it is set.
 // Note: You must hold Endpoint.Mutex
 func (e *Endpoint) updateLogger() {
+	containerID := e.getShortContainerID()
+
 	// We need to update if
 	// - e.logger is nil (this happens on the first ever call to updateLogger via
 	//   getLogger above). This clause has to come first to guard the others.
@@ -44,8 +46,8 @@ func (e *Endpoint) updateLogger() {
 	//   or vice versa.
 	shouldUpdate := e.logger == nil ||
 		e.logger.Data[logfields.EndpointID] != e.ID ||
-		e.logger.Data[logfields.ContainerID] != e.DockerID ||
-		e.logger.Data["policyRevision"] != e.policyRevision ||
+		e.logger.Data[logfields.ContainerID] != containerID ||
+		e.logger.Data[logfields.PolicyRevision] != e.policyRevision ||
 		e.Opts.IsEnabled("Debug") != (e.logger.Level == logrus.DebugLevel)
 
 	// do nothing if we do not need an update
@@ -67,8 +69,8 @@ func (e *Endpoint) updateLogger() {
 	// Note: endpoint.Mutex protects the reference but not the logger objects. We
 	// cannot update the old object directly as that could be racey.
 	e.logger = baseLogger.WithFields(logrus.Fields{
-		logfields.EndpointID:  e.ID,
-		logfields.ContainerID: e.DockerID,
-		"policyRevision":      e.policyRevision,
+		logfields.EndpointID:     e.ID,
+		logfields.ContainerID:    containerID,
+		logfields.PolicyRevision: e.policyRevision,
 	})
 }

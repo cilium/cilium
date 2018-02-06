@@ -714,7 +714,7 @@ func (e *Endpoint) regeneratePolicy(owner Owner, opts models.ConfigurationMap) (
 	if e.forcePolicyCompute {
 		optsChanged = true           // Options were changed by the caller.
 		e.forcePolicyCompute = false // Policies just computed
-		e.getLogger().Info("Forced rebuild")
+		e.getLogger().Debug("Forced policy recalculation")
 	}
 
 	e.nextPolicyRevision = revision
@@ -822,7 +822,7 @@ func (e *Endpoint) regenerate(owner Owner, reason string) (retErr error) {
 	// compiled for
 	e.bumpPolicyRevision(revision)
 
-	e.getLogger().Info("Regenerated program of endpoint")
+	e.getLogger().Info("Endpoint policy recalculated")
 
 	return nil
 }
