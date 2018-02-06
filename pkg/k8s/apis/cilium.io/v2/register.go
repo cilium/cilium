@@ -15,6 +15,7 @@
 package v2
 
 import (
+	goerrors "errors"
 	"fmt"
 	"reflect"
 	"time"
@@ -135,44 +136,62 @@ func CreateCustomResourceDefinitions(clientset apiextensionsclient.Interface) er
 		},
 	}
 
-	log.Debug("Creating CiliumNetworkPolicy/v2 CustomResourceDefinition...")
-	clusterCRD, err := clientset.ApiextensionsV1beta1().CustomResourceDefinitions().Create(res)
-	if errors.IsAlreadyExists(err) {
-		clusterCRD, err = clientset.ApiextensionsV1beta1().CustomResourceDefinitions().Get(cnpCRDName, metav1.GetOptions{})
+	return createUpdateCRD(clientset, "CiliumNetworkPolicy/v2", res)
+}
+
+// createUpdateCRD ensures the CRD object is installed into the k8s cluster. It
+// will create or update the CRD and it's validation when needed
+func createUpdateCRD(clientset apiextensionsclient.Interface, CRDName string, crd *apiextensionsv1beta1.CustomResourceDefinition) error {
+	scopedLog := log.WithField("name", CRDName)
+
+	clusterCRD, err := clientset.ApiextensionsV1beta1().CustomResourceDefinitions().Get(crd.ObjectMeta.Name, metav1.GetOptions{})
+	if errors.IsNotFound(err) {
+		scopedLog.Info("Creating CRD (CustomResourceDefinition)...")
+		clusterCRD, err = clientset.ApiextensionsV1beta1().CustomResourceDefinitions().Create(crd)
 	}
-	if err != nil {
+	switch {
+	// This occurs when multiple agents race to create the CRD. Since another has
+	// created it, it will also update it, hence the non-error return.
+	case err != nil && errors.IsAlreadyExists(err):
+		return nil
+
+	case err != nil:
 		return err
 	}
 
+	scopedLog.Info("Updating CRD (CustomResourceDefinition)...")
 	if needsUpdate(clusterCRD, err) {
 		// Update the CRD with the validation schema.
 		err = wait.Poll(500*time.Millisecond, 60*time.Second, func() (bool, error) {
 			clusterCRD, err = clientset.ApiextensionsV1beta1().
-				CustomResourceDefinitions().Get(cnpCRDName, metav1.GetOptions{})
+				CustomResourceDefinitions().Get(crd.ObjectMeta.Name, metav1.GetOptions{})
 
 			if err != nil {
 				return false, err
-			} else if clusterCRD.Spec.Validation == nil ||
+			}
+
+			if clusterCRD.Spec.Validation == nil ||
 				!reflect.DeepEqual(clusterCRD.Spec.Validation.OpenAPIV3Schema, crv.OpenAPIV3Schema) {
-				clusterCRD.Spec.Validation = res.Spec.Validation
-				log.Debug("CRD validation is different, updating it...")
+				clusterCRD.Spec.Validation = crd.Spec.Validation
+				scopedLog.Debug("CRD validation is different, updating it...")
 				_, err = clientset.ApiextensionsV1beta1().CustomResourceDefinitions().Update(clusterCRD)
 				if err == nil {
 					return true, nil
 				}
-				log.WithError(err).Debugf("Unable to update CRD validation")
+				scopedLog.WithError(err).Debug("Unable to update CRD validation")
 				return false, nil
 			}
+
 			return true, nil
 		})
 		if err != nil {
-			log.WithError(err).Errorf("Unable to update v2.CiliumNetworkPolicy")
+			scopedLog.WithError(err).Error("Unable to update CRD")
 		}
 	}
 
-	// wait for CRD being established
+	// wait for the CRD to be established
 	err = wait.Poll(500*time.Millisecond, 60*time.Second, func() (bool, error) {
-		crd, err := clientset.ApiextensionsV1beta1().CustomResourceDefinitions().Get(cnpCRDName, metav1.GetOptions{})
+		crd, err := clientset.ApiextensionsV1beta1().CustomResourceDefinitions().Get(crd.ObjectMeta.Name, metav1.GetOptions{})
 		if err != nil {
 			return false, err
 		}
@@ -184,7 +203,7 @@ func CreateCustomResourceDefinitions(clientset apiextensionsclient.Interface) er
 				}
 			case apiextensionsv1beta1.NamesAccepted:
 				if cond.Status == apiextensionsv1beta1.ConditionFalse {
-					log.Errorf("Name conflict: %s", cond.Reason)
+					scopedLog.WithError(goerrors.New(cond.Reason)).Error("Name conflict for CRD")
 					return false, err
 				}
 			}
@@ -192,14 +211,14 @@ func CreateCustomResourceDefinitions(clientset apiextensionsclient.Interface) er
 		return false, err
 	})
 	if err != nil {
-		deleteErr := clientset.ApiextensionsV1beta1().CustomResourceDefinitions().Delete(cnpCRDName, nil)
+		deleteErr := clientset.ApiextensionsV1beta1().CustomResourceDefinitions().Delete(crd.ObjectMeta.Name, nil)
 		if deleteErr != nil {
-			return fmt.Errorf("unable to delete k8s CRD %s. Deleting CRD due: %s", deleteErr, err)
+			return fmt.Errorf("unable to delete k8s %s CRD %s. Deleting CRD due: %s", CRDName, deleteErr, err)
 		}
 		return err
 	}
 
-	log.Info("Installed CustomResourceDefinition CiliumNetworkPolicy/v2")
+	scopedLog.Info("Installed CRD (CustomResourceDefinition)")
 
 	return nil
 }
