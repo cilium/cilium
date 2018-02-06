@@ -118,6 +118,7 @@ clean-container:
 clean: clean-container
 	-$(MAKE) -C ./contrib/packaging/deb clean
 	-$(MAKE) -C ./contrib/packaging/rpm clean
+	-rm GIT_VERSION
 
 install:
 	$(INSTALL) -m 0755 -d $(DESTDIR)$(BINDIR)
