@@ -37,7 +37,7 @@ import (
 // container in running state are deleted.
 func (d *Daemon) SyncState(dir string, clean bool) error {
 
-	log.Info("Restoring old cilium endpoints...")
+	log.Info("Restoring endpoints from former life...")
 
 	dirFiles, err := ioutil.ReadDir(dir)
 	if err != nil {
@@ -66,7 +66,7 @@ func (d *Daemon) SyncState(dir string, clean bool) error {
 		go func(ep *endpoint.Endpoint, epRestored, epRegenerated chan<- bool) {
 			scopedLog := log.WithField(logfields.EndpointID, ep.ID)
 			if clean && !containerd.IsRunning(ep) {
-				scopedLog.Info("No workload could be associated with endpoint, removing endpoint")
+				scopedLog.Info("No workload could be associated with endpoint being restored, ignoring")
 				d.deleteEndpoint(ep)
 				epRegenerated <- false
 				epRestored <- false
@@ -120,7 +120,7 @@ func (d *Daemon) SyncState(dir string, clean bool) error {
 			}
 
 			ep.Mutex.RLock()
-			scopedLog.WithField(logfields.IPAddr, []string{ep.IPv4.String(), ep.IPv6.String()}).Info("Restored endpoint with IPs")
+			scopedLog.WithField(logfields.IPAddr, []string{ep.IPv4.String(), ep.IPv6.String()}).Info("Restored endpoint")
 			ep.Mutex.RUnlock()
 			epRegenerated <- true
 		}(ep, epRestored, epRegenerated)
@@ -142,9 +142,9 @@ func (d *Daemon) SyncState(dir string, clean bool) error {
 		close(epRegenerated)
 
 		log.WithFields(logrus.Fields{
-			"count.regenerated": regenerated,
-			"count.total":       total,
-		}).Info("Finish regenerating all restored endpoints")
+			"regenerated": regenerated,
+			"total":       total,
+		}).Info("Finished regenerating restored endpoints")
 	}()
 
 	if nEndpoints > 0 {
@@ -162,7 +162,7 @@ func (d *Daemon) SyncState(dir string, clean bool) error {
 		log.WithFields(logrus.Fields{
 			"count.restored": nEPsRestored,
 			"count.total":    nEndpoints,
-		}).Info("Finish restoring endpoints")
+		}).Info("Endpoints restored, endpoints will continue to regenerate in background")
 	}
 
 	return nil
