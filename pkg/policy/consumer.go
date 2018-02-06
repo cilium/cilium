@@ -57,7 +57,7 @@ type Consumable struct {
 	Iteration uint64 `json:"-"`
 	// Map from bpf map fd to the policymap, the go representation of an endpoint's bpf policy map.
 	Maps map[int]*policymap.PolicyMap `json:"-"`
-	// Consumers contains the list of consumers where the key is the Consumers ID
+	// Consumers contains the list of consumers where the key is the Consumer's ID
 	Consumers map[NumericIdentity]*Consumer `json:"consumers"`
 	// ReverseRules contains the consumers that are allowed to receive a reply from this Consumable
 	ReverseRules map[NumericIdentity]*Consumer `json:"-"`
