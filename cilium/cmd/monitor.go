@@ -121,8 +121,8 @@ func init() {
 	rootCmd.AddCommand(monitorCmd)
 	monitorCmd.Flags().BoolVar(&hex, "hex", false, "Do not dissect, print payload in HEX")
 	monitorCmd.Flags().StringVarP(&eventType, "type", "t", "", fmt.Sprintf("Filter by event types %v", listEventTypes()))
-	monitorCmd.Flags().Uint16Var(&fromSource, "from", 0, "Filter by source endpoint id")
-	monitorCmd.Flags().Uint16Var(&toDst, "to", 0, "Filter by destination endpoint id")
+	monitorCmd.Flags().Var(&fromSource, "from", "Filter by source endpoint id")
+	monitorCmd.Flags().Var(&toDst, "to", "Filter by destination endpoint id")
 	monitorCmd.Flags().Var(&related, "related-to", "Filter by either source or destination endpoint id")
 	monitorCmd.Flags().BoolVarP(&verboseMonitor, "verbose", "v", false, "Enable verbose output")
 }
@@ -137,8 +137,8 @@ var (
 		"capture": monitor.MessageTypeCapture,
 		"trace":   monitor.MessageTypeTrace,
 	}
-	fromSource     = uint16(0)
-	toDst          = uint16(0)
+	fromSource     = uint16Flags{}
+	toDst          = uint16Flags{}
 	related        = uint16Flags{}
 	verboseMonitor = false
 	verbosity      = INFO
@@ -163,9 +163,9 @@ func lostEvent(lost uint64, cpu int) {
 func match(messageType int, src uint16, dst uint16) bool {
 	if eventTypeIdx != monitor.MessageTypeUnspec && messageType != eventTypeIdx {
 		return false
-	} else if fromSource > 0 && fromSource != src {
+	} else if len(fromSource) > 0 && !fromSource.has(src) {
 		return false
-	} else if toDst > 0 && toDst != dst {
+	} else if len(toDst) > 0 && !toDst.has(dst) {
 		return false
 	} else if len(related) > 0 && !related.has(src) && !related.has(dst) {
 		return false
