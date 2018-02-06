@@ -29,7 +29,6 @@ const (
 func (s *PolicyTestSuite) TestNewConsumer(c *C) {
 	consumer := NewConsumer(CONSUMER_ID1)
 	c.Assert(consumer.ID, Equals, CONSUMER_ID1)
-	c.Assert(consumer.Decision, Equals, api.Allowed)
 }
 
 func (s *PolicyTestSuite) TestGetConsumer(c *C) {
