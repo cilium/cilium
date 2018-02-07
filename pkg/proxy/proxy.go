@@ -16,6 +16,7 @@ package proxy
 
 import (
 	"fmt"
+	"math/rand"
 	"net"
 	"strconv"
 	"sync"
@@ -119,9 +120,6 @@ type Proxy struct {
 	// ports out of the rangeMin-rangeMax range.
 	rangeMax uint16
 
-	// nextPort is the next available proxy port to use
-	nextPort uint16
-
 	// allocatedPorts is a map of all allocated proxy ports pointing
 	// to the redirect rules attached to that port
 	allocatedPorts map[uint16]Redirect
@@ -137,30 +135,26 @@ func NewProxy(minPort uint16, maxPort uint16) *Proxy {
 	return &Proxy{
 		rangeMin:       minPort,
 		rangeMax:       maxPort,
-		nextPort:       minPort,
 		redirects:      make(map[string]Redirect),
 		allocatedPorts: make(map[uint16]Redirect),
 	}
 }
 
-func (p *Proxy) allocatePort() (uint16, error) {
-	port := p.nextPort
+var (
+	portRandomizer = rand.New(rand.NewSource(time.Now().UnixNano()))
+)
 
-	for {
-		resPort := port
-		port++
-		if port >= p.rangeMax {
-			port = p.rangeMin
-		}
+func (p *Proxy) allocatePort() (uint16, error) {
+	for _, r := range portRandomizer.Perm(int(p.rangeMax - p.rangeMin + 1)) {
+		resPort := uint16(r) + p.rangeMin
 
 		if _, ok := p.allocatedPorts[resPort]; !ok {
 			return resPort, nil
 		}
 
-		if port == p.nextPort {
-			return 0, fmt.Errorf("no available proxy ports")
-		}
 	}
+
+	return 0, fmt.Errorf("no available proxy ports")
 }
 
 var gcOnce sync.Once
