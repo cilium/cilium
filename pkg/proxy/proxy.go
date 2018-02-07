@@ -224,11 +224,9 @@ func fillInfo(r Redirect, l *accesslog.LogRecord, srcIPPort, dstIPPort string, s
 func fillIdentity(info *accesslog.EndpointInfo, id policy.NumericIdentity) {
 	info.Identity = uint64(id)
 
-	if c := policy.GetConsumableCache().Lookup(id); c != nil {
-		if c.Labels != nil {
-			info.Labels = c.Labels.Labels.GetModel()
-			info.LabelsSHA256 = c.Labels.GetLabelsSHA256()
-		}
+	if identity := policy.LookupIdentityByID(id); identity != nil {
+		info.Labels = identity.Labels.GetModel()
+		info.LabelsSHA256 = identity.GetLabelsSHA256()
 	}
 }
 
