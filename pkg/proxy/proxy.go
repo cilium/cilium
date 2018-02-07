@@ -57,6 +57,9 @@ const (
 	fieldSocket          = "socket"
 	fieldFd              = "fd"
 	fieldProxyRedirectID = "id"
+
+	// portReleaseDelay is the delay until a port is being released
+	portReleaseDelay = time.Duration(5) * time.Minute
 )
 
 // Redirect is the generic proxy redirect interface that each proxy redirect
@@ -429,7 +432,19 @@ func (p *Proxy) RemoveRedirect(id string, completions policy.CompletionContainer
 	r.Close(completions)
 
 	delete(p.redirects, id)
-	delete(p.allocatedPorts, toPort)
+
+	// delay the release and reuse of the port number so it is guaranteed
+	// to be safe to listen on the port again
+	go func() {
+		time.Sleep(portReleaseDelay)
+
+		p.mutex.Lock()
+		delete(p.allocatedPorts, toPort)
+		p.mutex.Unlock()
+
+		log.WithField(fieldProxyRedirectID, id).
+			Debugf("Delayed release of proxy port %d", toPort)
+	}()
 
 	return nil
 }
