@@ -53,9 +53,8 @@ func HTTPAction(srcPod string, target string, kub *helpers.Kubectl) ResultType {
 		return ResultAuth
 	default:
 		log.Infof("HTTPAction returned unexpected exit code %d", exitCode)
-		return ResultOK
 	}
-	return ResultType{}
+	return ResultOK
 }
 
 // HTTPActionPrivate runs a HTTPAction to /private/ using destTargetDetails
