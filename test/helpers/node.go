@@ -64,7 +64,7 @@ func GetVagrantSSHMeta(vmName string) *SSHMeta {
 	log.Debugf("done importing ssh config")
 	node := nodes[vmName]
 	if node == nil {
-		log.Error("Node %s not found in ssh config", vmName)
+		log.Errorf("Node %s not found in ssh config", vmName)
 		return nil
 	}
 

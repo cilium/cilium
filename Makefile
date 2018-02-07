@@ -2,7 +2,8 @@ include Makefile.defs
 include daemon/bpf.sha
 
 SUBDIRS = envoy plugins bpf cilium daemon monitor cilium-health bugtool
-GOFILES ?= $(shell go list ./... | grep -v /vendor/ | grep -v /contrib/ | grep -v /test | grep -v envoy.*api)
+GOFILES ?= $(shell go list ./... | grep -v /vendor/ | grep -v /contrib/ | grep -v envoy.*api)
+TESTPKGS =  $(shell go list ./... | grep -v /vendor/ | grep -v /contrib/ | grep -v envoy.*api | grep -v test)
 GOLANGVERSION = $(shell go version 2>/dev/null | grep -Eo '(go[0-9].[0-9])')
 GOLANG_SRCFILES=$(shell for pkg in $(subst github.com/cilium/cilium/,,$(GOFILES)); do find $$pkg -name *.go -print; done | grep -v vendor)
 BPF_FILES ?= $(shell git ls-files ../bpf/ | tr "\n" ' ')
@@ -56,7 +57,7 @@ tests-etcd:
         -initial-cluster-state new
 	echo "mode: count" > coverage-all.out
 	echo "mode: count" > coverage.out
-	$(foreach pkg,$(GOFILES),\
+	$(foreach pkg,$(TESTPKGS),\
 	go test \
             -ldflags "-X "github.com/cilium/cilium/pkg/kvstore".backend=etcd" \
             -timeout 30s -coverprofile=coverage.out -covermode=count $(pkg) $(GOTEST_OPTS) || exit 1;\
@@ -70,7 +71,7 @@ tests-etcd:
 tests-consul-ginkgo:
 	echo "mode: count" > coverage-all.out
 	echo "mode: count" > coverage.out
-	$(foreach pkg,$(GOFILES),\
+	$(foreach pkg,$(TESTPKGS),\
 	go test \
             -ldflags "-X github.com/cilium/cilium/pkg/kvstore.backend=consul -X github.com/cilium/cilium/pkg/kvstore.consulAddress=consul:8500" \
             -timeout 30s -coverprofile=coverage.out -covermode=count $(pkg) $(GOTEST_OPTS) || exit 1;\
@@ -91,7 +92,7 @@ tests-consul:
            agent -client=0.0.0.0 -server -bootstrap-expect 1
 	echo "mode: count" > coverage-all.out
 	echo "mode: count" > coverage.out
-	$(foreach pkg,$(GOFILES),\
+	$(foreach pkg,$(TESTPKGS),\
 	go test \
             -ldflags "-X "github.com/cilium/cilium/pkg/kvstore".backend=consul" \
             -timeout 30s -coverprofile=coverage.out -covermode=count $(pkg) $(GOTEST_OPTS) || exit 1;\
@@ -117,6 +118,7 @@ clean-container:
 clean: clean-container
 	-$(MAKE) -C ./contrib/packaging/deb clean
 	-$(MAKE) -C ./contrib/packaging/rpm clean
+	-rm GIT_VERSION
 
 install:
 	$(INSTALL) -m 0755 -d $(DESTDIR)$(BINDIR)
