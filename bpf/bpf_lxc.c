@@ -417,6 +417,16 @@ static inline int handle_ipv6(struct __sk_buff *skb)
 	return ipv6_l3_from_lxc(skb, &tuple, ETH_HLEN, data, ip6);
 }
 
+__section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV6) int tail_handle_ipv6(struct __sk_buff *skb)
+{
+	int ret = handle_ipv6(skb);
+
+	if (IS_ERR(ret))
+		return send_drop_notify(skb, SECLABEL, 0, 0, 0, ret, TC_ACT_SHOT);
+
+	return ret;
+}
+
 #ifdef LXC_IPV4
 
 static inline int handle_ipv4_from_lxc(struct __sk_buff *skb)
@@ -722,8 +732,8 @@ int handle_ingress(struct __sk_buff *skb)
 #endif
 	switch (skb->protocol) {
 	case bpf_htons(ETH_P_IPV6):
-		/* This is considered the fast path, no tail call */
-		ret = handle_ipv6(skb);
+		ep_tail_call(skb, CILIUM_CALL_IPV6);
+		ret = DROP_MISSED_TAIL_CALL;
 		break;
 
 	case bpf_htons(ETH_P_IP):
