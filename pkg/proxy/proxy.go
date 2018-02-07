@@ -61,6 +61,9 @@ const (
 
 	// portReleaseDelay is the delay until a port is being released
 	portReleaseDelay = time.Duration(5) * time.Minute
+
+	// redirectCreationAttempts is the number of attempts to create a redirect
+	redirectCreationAttempts = 5
 )
 
 // Redirect is the generic proxy redirect interface that each proxy redirect
@@ -381,6 +384,9 @@ func (p *Proxy) CreateOrUpdateRedirect(l4 *policy.L4Filter, id string, source Pr
 		return r, nil
 	}
 
+	nRetry := 0
+
+retry:
 	to, err := p.allocatePort()
 	if err != nil {
 		return nil, err
@@ -395,15 +401,25 @@ func (p *Proxy) CreateOrUpdateRedirect(l4 *policy.L4Filter, id string, source Pr
 			id:         id,
 			source:     source,
 			listenPort: to})
+
 	case policy.ParserTypeHTTP:
 		redir, err = createEnvoyRedirect(l4, id, source, to, completions)
+
 	default:
 		return nil, fmt.Errorf("Unsupported L7 parser type: %s", l4.L7Parser)
 	}
+
 	if err != nil {
-		scopedLog.WithError(err).Error("Unable to create ", l4.L7Parser, " proxy")
-		return nil, err
+		if nRetry >= redirectCreationAttempts {
+			scopedLog.WithError(err).Error("Unable to create ", l4.L7Parser, " proxy")
+			return nil, err
+		}
+
+		scopedLog.WithError(err).Warning("Unable to create ", l4.L7Parser, " proxy, will retry")
+		nRetry++
+		goto retry
 	}
+
 	scopedLog.WithField(logfields.Object, logfields.Repr(redir)).
 		Debug("Created new ", l4.L7Parser, " proxy instance")
 
