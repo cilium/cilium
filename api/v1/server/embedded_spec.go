@@ -1438,13 +1438,6 @@ func init() {
       "description": "Policy information of an endpoint",
       "type": "object",
       "properties": {
-        "allowed-consumers": {
-          "description": "List of identities allowed to communicate to this endpoint\n",
-          "type": "array",
-          "items": {
-            "type": "integer"
-          }
-        },
         "build": {
           "description": "Build number of calculated policy in use",
           "type": "integer"
@@ -1452,9 +1445,23 @@ func init() {
         "cidr-policy": {
           "$ref": "#/definitions/CIDRPolicy"
         },
+        "egress-consumers": {
+          "description": "List of identities to which this endpoint is allowed to communicate on egress\n",
+          "type": "array",
+          "items": {
+            "type": "integer"
+          }
+        },
         "id": {
           "description": "Own identity of endpoint",
           "type": "integer"
+        },
+        "ingress-consumers": {
+          "description": "List of identities allowed to communicate with this endpoint on ingress\n",
+          "type": "array",
+          "items": {
+            "type": "integer"
+          }
         },
         "l4": {
           "$ref": "#/definitions/L4Policy"

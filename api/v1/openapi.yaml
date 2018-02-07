@@ -944,9 +944,15 @@ definitions:
       build:
         description: Build number of calculated policy in use
         type: integer
-      allowed-consumers:
+      ingress-consumers:
         description: |
-          List of identities allowed to communicate to this endpoint
+          List of identities allowed to communicate with this endpoint on ingress
+        type: array
+        items:
+          type: integer
+      egress-consumers:
+        description: |
+          List of identities to which this endpoint is allowed to communicate on egress
         type: array
         items:
           type: integer

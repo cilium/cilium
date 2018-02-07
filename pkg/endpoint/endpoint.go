@@ -631,13 +631,20 @@ func (e *Endpoint) GetPolicyModel() *models.EndpointPolicy {
 
 	ingressConsumers := []int64{}
 	for _, v := range e.Consumable.IngressConsumers {
+		log.Debugf("GetPolicyModel: appending ingress consumer %d", v.ID)
 		ingressConsumers = append(ingressConsumers, int64(v.ID))
+	}
+
+	egressConsumers := []int64{}
+	for _, v := range e.Consumable.EgressConsumers {
+		egressConsumers = append(egressConsumers, int64(v.ID))
 	}
 
 	return &models.EndpointPolicy{
 		ID:               int64(e.Consumable.ID),
 		Build:            int64(e.Consumable.Iteration),
-		AllowedConsumers: ingressConsumers,
+		IngressConsumers: ingressConsumers,
+		EgressConsumers:  egressConsumers,
 		CidrPolicy:       e.L3Policy.GetModel(),
 		L4:               e.Consumable.L4Policy.GetModel(),
 	}

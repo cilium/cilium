@@ -17,30 +17,36 @@ import (
 
 type EndpointPolicy struct {
 
-	// List of identities allowed to communicate to this endpoint
-	//
-	AllowedConsumers []int64 `json:"allowed-consumers"`
-
 	// Build number of calculated policy in use
 	Build int64 `json:"build,omitempty"`
 
 	// cidr policy
 	CidrPolicy *CIDRPolicy `json:"cidr-policy,omitempty"`
 
+	// List of identities to which this endpoint is allowed to communicate on egress
+	//
+	EgressConsumers []int64 `json:"egress-consumers"`
+
 	// Own identity of endpoint
 	ID int64 `json:"id,omitempty"`
+
+	// List of identities allowed to communicate with this endpoint on ingress
+	//
+	IngressConsumers []int64 `json:"ingress-consumers"`
 
 	// l4
 	L4 *L4Policy `json:"l4,omitempty"`
 }
 
-/* polymorph EndpointPolicy allowed-consumers false */
-
 /* polymorph EndpointPolicy build false */
 
 /* polymorph EndpointPolicy cidr-policy false */
 
+/* polymorph EndpointPolicy egress-consumers false */
+
 /* polymorph EndpointPolicy id false */
+
+/* polymorph EndpointPolicy ingress-consumers false */
 
 /* polymorph EndpointPolicy l4 false */
 
@@ -48,12 +54,17 @@ type EndpointPolicy struct {
 func (m *EndpointPolicy) Validate(formats strfmt.Registry) error {
 	var res []error
 
-	if err := m.validateAllowedConsumers(formats); err != nil {
+	if err := m.validateCidrPolicy(formats); err != nil {
 		// prop
 		res = append(res, err)
 	}
 
-	if err := m.validateCidrPolicy(formats); err != nil {
+	if err := m.validateEgressConsumers(formats); err != nil {
+		// prop
+		res = append(res, err)
+	}
+
+	if err := m.validateIngressConsumers(formats); err != nil {
 		// prop
 		res = append(res, err)
 	}
@@ -66,15 +77,6 @@ func (m *EndpointPolicy) Validate(formats strfmt.Registry) error {
 	if len(res) > 0 {
 		return errors.CompositeValidationError(res...)
 	}
-	return nil
-}
-
-func (m *EndpointPolicy) validateAllowedConsumers(formats strfmt.Registry) error {
-
-	if swag.IsZero(m.AllowedConsumers) { // not required
-		return nil
-	}
-
 	return nil
 }
 
@@ -92,6 +94,24 @@ func (m *EndpointPolicy) validateCidrPolicy(formats strfmt.Registry) error {
 			}
 			return err
 		}
+	}
+
+	return nil
+}
+
+func (m *EndpointPolicy) validateEgressConsumers(formats strfmt.Registry) error {
+
+	if swag.IsZero(m.EgressConsumers) { // not required
+		return nil
+	}
+
+	return nil
+}
+
+func (m *EndpointPolicy) validateIngressConsumers(formats strfmt.Registry) error {
+
+	if swag.IsZero(m.IngressConsumers) { // not required
+		return nil
 	}
 
 	return nil

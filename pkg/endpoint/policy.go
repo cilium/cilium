@@ -71,6 +71,7 @@ func (e *Endpoint) checkEgressAccess(owner Owner, dstLabels labels.LabelArray, o
 
 // allowIngressConsumer must be called with global endpoint.Mutex held
 func (e *Endpoint) allowIngressConsumer(owner Owner, id policy.NumericIdentity) bool {
+	log.Debugf("allowIngressConsumer: for endpoint %d, identity %d", e.ID, id)
 	cache := policy.GetConsumableCache()
 	if !e.Opts.IsEnabled(OptionConntrack) {
 		return e.Consumable.AllowIngressConsumerAndReverseLocked(cache, id)
@@ -462,7 +463,17 @@ func (e *Endpoint) regenerateConsumable(owner Owner, labelsMap *policy.IdentityC
 			"egress_context":   egressCtx,
 		}).Debug("Evaluating egress context for source PolicyID")
 
+
+
+
 		ingressAccess := repo.AllowsIngressLabelAccess(&ingressCtx)
+
+		log.WithFields(logrus.Fields{
+			logfields.PolicyID:   identity,
+			logfields.EndpointID: e.ID,
+			"labels":             labels,
+		}).Debugf("ingress verdict: %v", ingressAccess)
+
 		if ingressAccess == api.Allowed {
 			if e.allowIngressConsumer(owner, identity) {
 				changed = true
