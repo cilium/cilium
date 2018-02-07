@@ -36,7 +36,7 @@ apt-get install -y --no-install-recommends apt-utils curl git ca-certificates &&
 curl -Sslk -o /tmp/go.linux-amd64.tar.gz https://storage.googleapis.com/golang/go1.9.linux-amd64.tar.gz && \
 tar -C /usr/local -xzf /tmp/go.linux-amd64.tar.gz && \
 rm /tmp/go.linux-amd64.tar.gz && \
-go get -u github.com/jteeuwen/go-bindata/... && \
+go get -u github.com/cilium/go-bindata/... && \
 go get -u github.com/golang/protobuf/protoc-gen-go && \
 #
 # Install build requirements

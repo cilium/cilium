@@ -19,7 +19,7 @@ RUN apt-get update && \
 ENV GOPATH /go
 ENV PATH $GOPATH/bin:/usr/local/go/bin:$PATH
 
-RUN go get -u github.com/jteeuwen/go-bindata/...
+RUN go get -u github.com/cilium/go-bindata/...
 
 RUN mkdir -p "$GOPATH/src" "$GOPATH/bin" && chmod -R 777 "$GOPATH"
 WORKDIR $GOPATH

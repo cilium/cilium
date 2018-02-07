@@ -14,7 +14,7 @@ Install go-bindata:
 
 .. code:: bash
 
-   $ go get -u github.com/jteeuwen/go-bindata/...
+   $ go get -u github.com/cilium/go-bindata/...
 
 Add $GOPATH/bin to your $PATH:
 

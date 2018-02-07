@@ -74,7 +74,7 @@ apt-get clean
 #
 FROM golang:1.9 as runtime-gobuild
 WORKDIR /tmp
-RUN go get -u github.com/jteeuwen/go-bindata/... && \
+RUN go get -u github.com/cilium/go-bindata/... && \
 go get -u github.com/google/gops && \
 strip /go/bin/gops
 
