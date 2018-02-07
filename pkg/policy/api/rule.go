@@ -143,10 +143,13 @@ type IngressRule struct {
 	ToPorts []PortRule `json:"toPorts,omitempty"`
 
 	// FromCIDR is a list of IP blocks which the endpoint subject to the
-	// rule is allowed to receive connections from. This will match on
-	// the source IP address of incoming connections. Adding  a prefix into
-	// FromCIDR or into FromCIDRSet with no ExcludeCIDRs is  equivalent.
-	// Overlaps are allowed between FromCIDR and FromCIDRSet.
+	// rule is allowed to receive connections from. Only connections which
+	// do *not* originate from the cluster or from the local host are subject
+	// to CIDR rules. In order to allow in-cluster connectivity, use the
+	// FromEndpoints field.  This will match on the source IP address of
+	// incoming connections. Adding  a prefix into FromCIDR or into
+	// FromCIDRSet with no ExcludeCIDRs is  equivalent.  Overlaps are
+	// allowed between FromCIDR and FromCIDRSet.
 	//
 	// Example:
 	// Any endpoint with the label "app=my-legacy-pet" is allowed to receive
@@ -225,10 +228,12 @@ type EgressRule struct {
 	ToPorts []PortRule `json:"toPorts,omitempty"`
 
 	// ToCIDR is a list of IP blocks which the endpoint subject to the rule
-	// is allowed to initiate connections. This will match on the
-	// destination IP address of outgoing connections. Adding a prefix into
-	// ToCIDR or into ToCIDRSet with no ExcludeCIDRs is equivalent. Overlaps
-	// are allowed between ToCIDR and ToCIDRSet.
+	// is allowed to initiate connections. Only connections destined for
+	// outside of the cluster and not targetting the host will be subject
+	// to CIDR rules.  This will match on the destination IP address of
+	// outgoing connections. Adding a prefix into ToCIDR or into ToCIDRSet
+	// with no ExcludeCIDRs is equivalent. Overlaps are allowed between
+	// ToCIDR and ToCIDRSet.
 	//
 	// Example:
 	// Any endpoint with the label "app=database-proxy" is allowed to
