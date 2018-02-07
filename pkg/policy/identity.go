@@ -346,6 +346,10 @@ func AllocateIdentity(lbls labels.Labels) (*Identity, bool, error) {
 // This function will first search through the local cache and fall back to
 // querying the kvstore.
 func LookupIdentity(lbls labels.Labels) *Identity {
+	if identityAllocator == nil {
+		return nil
+	}
+
 	id, err := identityAllocator.Get(globalIdentity{lbls})
 	if err != nil {
 		return nil
@@ -361,6 +365,10 @@ func LookupIdentity(lbls labels.Labels) *Identity {
 // LookupIdentityByID returns the identity by ID. This function will first
 // search through the local cache and fall back to querying the kvstore.
 func LookupIdentityByID(id NumericIdentity) *Identity {
+	if identityAllocator == nil {
+		return nil
+	}
+
 	allocatorKey, err := identityAllocator.GetByID(allocator.ID(id))
 	if err != nil {
 		return nil
