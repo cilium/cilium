@@ -114,6 +114,9 @@ const (
 	OptionDisabled            = "Disabled"
 	OptionEnabled             = "Enabled"
 
+	StateTerminating = "Terminating"
+	StateRunning     = "Running"
+
 	PingCount          = 5
 	CurlConnectTimeout = 5
 

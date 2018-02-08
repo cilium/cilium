@@ -67,6 +67,8 @@ var _ = Describe("K8sValidatedServicesTest", func() {
 				"cilium endpoint list",
 				"cilium policy get"})
 		}
+		err := kubectl.WaitCleanAllTerminatingPods()
+		Expect(err).To(BeNil(), "Terminating containers are not deleted after timeout")
 	})
 
 	testHTTPRequest := func(url string) {

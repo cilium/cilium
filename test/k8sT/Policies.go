@@ -66,6 +66,8 @@ var _ = Describe("K8sValidatedPolicyTest", func() {
 				"cilium bpf tunnel list",
 				"cilium endpoint list"})
 		}
+		err := kubectl.WaitCleanAllTerminatingPods()
+		Expect(err).To(BeNil(), "Terminating containers are not deleted after timeout")
 	})
 
 	waitUntilEndpointUpdates := func(pod string, eps map[string]int64, min int) error {
@@ -565,7 +567,10 @@ var _ = Describe("K8sValidatedPolicyTestAcrossNamespaces", func() {
 				"cilium bpf tunnel list",
 				"cilium endpoint list"})
 		}
+		err := kubectl.WaitCleanAllTerminatingPods()
+		Expect(err).To(BeNil(), "Terminating containers are not deleted after timeout")
 	})
+
 	It("Policies Across Namespaces", func() {
 
 		namespace := "namespace"

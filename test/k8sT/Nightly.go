@@ -72,6 +72,8 @@ var _ = Describe("NightlyEpsMeasurement", func() {
 				"cilium service list",
 				"cilium endpoint list"})
 		}
+		err := kubectl.WaitCleanAllTerminatingPods()
+		Expect(err).To(BeNil(), "Terminating containers are not deleted after timeout")
 	})
 
 	endpointCount := 20
@@ -248,6 +250,9 @@ var _ = Describe("NightlyExamples", func() {
 	AfterEach(func() {
 		kubectl.Delete(demoPath)
 		kubectl.Delete(l3Policy)
+
+		err := kubectl.WaitCleanAllTerminatingPods()
+		Expect(err).To(BeNil(), "Terminating containers are not deleted after timeout")
 	})
 
 	// getAppPods return a map where the key is the Application name and the

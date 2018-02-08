@@ -335,6 +335,32 @@ func (kub *Kubectl) WaitKubeDNS() error {
 	return err
 }
 
+// WaitCleanAllTerminatingPods waits until all nodes that are in `Terminating`
+// state are deleted correctly in the platform. In case of excedding the
+// default timeout it returns an error
+func (kub *Kubectl) WaitCleanAllTerminatingPods() error {
+	body := func() bool {
+		res := kub.Exec(fmt.Sprintf(
+			"%s get pods --all-namespaces -o jsonpath='{.items[*].status.phase}'",
+			KubectlCmd))
+		if !res.WasSuccessful() {
+			return false
+		}
+		podsTerminating := strings.Count(res.Output().String(), StateTerminating)
+		kub.logger.WithField("Terminating pods", podsTerminating).Info("List of pods terminating")
+		if podsTerminating > 0 {
+			return false
+		}
+		return true
+	}
+
+	err := WithTimeout(
+		body,
+		"Pods are still not deleted after a timeout",
+		&TimeoutConfig{Timeout: HelperTimeout})
+	return err
+}
+
 // GetCiliumPods returns a list of all Cilium pods in the specified namespace,
 // and an error if the Cilium pods were not able to be retrieved.
 func (kub *Kubectl) GetCiliumPods(namespace string) ([]string, error) {
