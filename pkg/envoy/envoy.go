@@ -123,8 +123,12 @@ func StartEnvoy(adminPort uint32, stateDir, logDir string, baseID uint64) *Envoy
 		admin:         &admin{adminURL: "http://" + adminAddress + "/"},
 	}
 
+	// Use the same structure as Istio's pilot-agent for the node ID:
+	// nodeType~ipAddress~proxyId~domain
+	nodeId := "host~127.0.0.1~no-id~localdomain"
+
 	// Create static configuration
-	createBootstrap(bootstrapPath, "envoy1", "cluster1", "version1",
+	createBootstrap(bootstrapPath, nodeId, "cluster1", "version1",
 		"ldsCluster", ldsPath, "rdsCluster", rdsPath, "cluster1", adminPort)
 
 	e.startAccesslogServer(accessLogPath)
