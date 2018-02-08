@@ -60,6 +60,8 @@ var _ = Describe("K8sTunnelTest", func() {
 		}
 
 		kubectl.Delete(demoDSPath)
+		err := kubectl.WaitCleanAllTerminatingPods()
+		Expect(err).To(BeNil(), "Terminating containers are not deleted after timeout")
 	})
 
 	It("Check VXLAN mode", func() {
