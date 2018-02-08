@@ -191,10 +191,6 @@ func mergeL4(ctx *SearchContext, dir string, fromEndpoints []api.EndpointSelecto
 			ctx.PolicyTrace("    Allows %s port %v\n", dir, r.Ports)
 		}
 
-		if r.RedirectPort != 0 {
-			ctx.PolicyTrace("      Redirect-To: %d\n", r.RedirectPort)
-		}
-
 		if r.Rules != nil {
 			for _, l7 := range r.Rules.HTTP {
 				ctx.PolicyTrace("        %+v\n", l7)

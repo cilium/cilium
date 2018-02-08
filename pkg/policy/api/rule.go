@@ -311,13 +311,6 @@ type PortRule struct {
 	// +optional
 	Ports []PortProtocol `json:"ports,omitempty"`
 
-	// RedirectPort is the L4 port which, if set, all traffic matching the
-	// Ports is being redirected to. Whatever listener behind that port
-	// becomes responsible to enforce the port rules and is also
-	// responsible to reinject all traffic back and ensure it reaches its
-	// original destination.
-	RedirectPort int `json:"redirectPort,omitempty"`
-
 	// Rules is a list of additional port level rules which must be met in
 	// order for the PortRule to allow the traffic. If omitted or empty,
 	// no layer 7 rules are enforced.
