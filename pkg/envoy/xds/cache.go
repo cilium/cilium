@@ -74,11 +74,11 @@ func NewCache() *Cache {
 // increases the cache's version number atomically if the cache is actually
 // changed.
 // The version after updating the set is returned.
-func (c *Cache) tx(typeURL string, upsertedResources map[string]proto.Message, deletedNames []string) (version uint64, updated bool) {
+func (c *Cache) tx(typeURL string, upsertedResources map[string]proto.Message, deletedNames []string, force bool) (version uint64, updated bool) {
 	c.locker.Lock()
 	defer c.locker.Unlock()
 
-	cacheIsUpdated := false
+	cacheIsUpdated := force
 	newVersion := c.version + 1
 
 	cacheLog := log.WithFields(logrus.Fields{
@@ -105,7 +105,7 @@ func (c *Cache) tx(typeURL string, upsertedResources map[string]proto.Message, d
 		// responses in GetResources.
 		// Calling proto.Message.String is not very cheap, but we assume that
 		// the reduced churn between the clients and the server is worth it.
-		if !found || oldV.resource.String() != value.String() {
+		if force || !found || oldV.resource.String() != value.String() {
 			if found {
 				cacheLog.WithField(logfields.XDSResourceName, name).Debug("updating resource in cache")
 			} else {
@@ -120,7 +120,7 @@ func (c *Cache) tx(typeURL string, upsertedResources map[string]proto.Message, d
 	for _, name := range deletedNames {
 		k.resourceName = name
 		_, found := c.resources[k]
-		if found {
+		if force || found {
 			cacheLog.WithField(logfields.XDSResourceName, name).
 				Debug("deleting resource from cache")
 			cacheIsUpdated = true
@@ -139,12 +139,12 @@ func (c *Cache) tx(typeURL string, upsertedResources map[string]proto.Message, d
 	return c.version, cacheIsUpdated
 }
 
-func (c *Cache) Upsert(typeURL string, resourceName string, resource proto.Message) (version uint64, updated bool) {
-	return c.tx(typeURL, map[string]proto.Message{resourceName: resource}, nil)
+func (c *Cache) Upsert(typeURL string, resourceName string, resource proto.Message, force bool) (version uint64, updated bool) {
+	return c.tx(typeURL, map[string]proto.Message{resourceName: resource}, nil, force)
 }
 
-func (c *Cache) Delete(typeURL string, resourceName string) (version uint64, updated bool) {
-	return c.tx(typeURL, nil, []string{resourceName})
+func (c *Cache) Delete(typeURL string, resourceName string, force bool) (version uint64, updated bool) {
+	return c.tx(typeURL, nil, []string{resourceName}, force)
 }
 
 func (c *Cache) GetResources(ctx context.Context, typeURL string, lastVersion *uint64,
