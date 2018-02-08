@@ -32,9 +32,6 @@ type Consumer struct {
 	// ID is the security identity of this consumer.
 	ID NumericIdentity
 
-	// TODO (ianvernon) - is this even used? Seems like it's never actually set to anything.
-	Reverse *Consumer
-
 	// DeletionMark specifies whether this Consumer should be kept as part of a
 	// Consumable after the Consumable's policy. If marked as true, this
 	// Consumer has been determined to not be allowed to communicate with this consumer's
@@ -477,9 +474,10 @@ func (c *Consumable) BanIngressConsumerLocked(id NumericIdentity) {
 			c.removeFromIngressMaps(id)
 		}
 
-		if consumer.Reverse != nil {
-			c.deleteReverseRule(id, c.ID)
-		}
+		// TODO (ianvernon): see if commenting this out causes test failures
+		//if consumer.Reverse != nil {
+		//	c.deleteReverseRule(id, c.ID)
+		//}
 	}
 }
 
@@ -494,9 +492,10 @@ func (c *Consumable) BanEgressConsumerLocked(id NumericIdentity) {
 			c.removeFromEgressMaps(id)
 		}
 
-		if consumer.Reverse != nil {
-			c.deleteReverseRule(id, c.ID)
-		}
+		// TODO (ianvernon) see if commenting this out causes test failures
+		//if consumer.Reverse != nil {
+		//	c.deleteReverseRule(id, c.ID)
+		//}
 	}
 }
 
