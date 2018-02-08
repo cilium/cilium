@@ -624,11 +624,11 @@ func (e *Endpoint) GetPolicyModel() *models.EndpointPolicy {
 	}
 
 	return &models.EndpointPolicy{
-		ID:               int64(e.Consumable.ID),
-		Build:            int64(e.Consumable.Iteration),
-		AllowedConsumers: ingressIdentities,
-		CidrPolicy:       e.L3Policy.GetModel(),
-		L4:               e.Consumable.L4Policy.GetModel(),
+		ID:    int64(e.Consumable.ID),
+		Build: int64(e.Consumable.Iteration),
+		AllowedIngressSecurityIdentities: ingressIdentities,
+		CidrPolicy:                       e.L3Policy.GetModel(),
+		L4:                               e.Consumable.L4Policy.GetModel(),
 	}
 }
 
