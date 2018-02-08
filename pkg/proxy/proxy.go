@@ -382,47 +382,50 @@ func (p *Proxy) CreateOrUpdateRedirect(l4 *policy.L4Filter, id string, source Pr
 		return r, nil
 	}
 
-	nRetry := 0
-
-retry:
-	to, err := p.allocatePort()
-	if err != nil {
-		return nil, err
-	}
-
 	var redir Redirect
 
-	switch l4.L7Parser {
-	case policy.ParserTypeKafka:
-		redir, err = createKafkaRedirect(kafkaConfiguration{
-			policy:     l4,
-			id:         id,
-			source:     source,
-			listenPort: to})
-
-	case policy.ParserTypeHTTP:
-		redir, err = createEnvoyRedirect(l4, id, source, to, completions)
-
-	default:
-		return nil, fmt.Errorf("Unsupported L7 parser type: %s", l4.L7Parser)
-	}
-
-	if err != nil {
-		if nRetry >= redirectCreationAttempts {
-			scopedLog.WithError(err).Error("Unable to create ", l4.L7Parser, " proxy")
+retryCreatePort:
+	for nRetry := 0; ; nRetry++ {
+		to, err := p.allocatePort()
+		if err != nil {
 			return nil, err
 		}
 
-		scopedLog.WithError(err).Warning("Unable to create ", l4.L7Parser, " proxy, will retry")
-		nRetry++
-		goto retry
+		switch l4.L7Parser {
+		case policy.ParserTypeKafka:
+			redir, err = createKafkaRedirect(kafkaConfiguration{
+				policy:     l4,
+				id:         id,
+				source:     source,
+				listenPort: to})
+
+		case policy.ParserTypeHTTP:
+			redir, err = createEnvoyRedirect(l4, id, source, to, completions)
+
+		default:
+			return nil, fmt.Errorf("Unsupported L7 parser type: %s", l4.L7Parser)
+		}
+
+		switch {
+		case err == nil:
+			scopedLog.WithField(logfields.Object, logfields.Repr(redir)).
+				Debug("Created new ", l4.L7Parser, " proxy instance")
+
+			p.allocatedPorts[to] = redir
+			p.redirects[id] = redir
+
+			break retryCreatePort
+
+		// an error occurred, and we have no more retries
+		case nRetry >= redirectCreationAttempts:
+			scopedLog.WithError(err).Error("Unable to create ", l4.L7Parser, " proxy")
+			return nil, err
+
+		// an error ocurred and we can retry
+		default:
+			scopedLog.WithError(err).Warning("Unable to create ", l4.L7Parser, " proxy, will retry")
+		}
 	}
-
-	scopedLog.WithField(logfields.Object, logfields.Repr(redir)).
-		Debug("Created new ", l4.L7Parser, " proxy instance")
-
-	p.allocatedPorts[to] = redir
-	p.redirects[id] = redir
 
 	return redir, nil
 }
