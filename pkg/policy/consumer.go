@@ -67,15 +67,14 @@ type Consumable struct {
 	// Maps from bpf map file-descriptor to the IngressPolicyMap, the go representation
 	// of an endpoint's bpf policy map, of specific endpoint.
 	IngressMaps map[int]*policymap.PolicyMap `json:"-"`
-	// IngressIdentities contains the list of allowed consumers for this Consumable.
-	// In other words, it is a list of security identities from which ingress traffic
+	// IngressIdentities is a list of security identities from which ingress traffic
 	// is allowed for this Consumable / NumericIdentity. The identities in this map
 	// are used to populate the ingress policy BPF maps.
 	// Indexed by NumericIdentity (security identity) of each Consumer.
 	IngressIdentities map[NumericIdentity]*Consumer `json:"ingress-identities"`
 	// ReverseRules contains the consumers that are allowed to receive a reply from this Consumable
 	ReverseRules map[NumericIdentity]*Consumer `json:"-"`
-	// L4Policy contains the policy of this consumable
+	// L4Policy contains the L4-only policy of this consumable
 	L4Policy *L4Policy `json:"l4-policy"`
 	// L3L4Policy contains the L3, L4 and L7 ingress policy of this consumable
 	L3L4Policy *SecurityIDContexts `json:"l3-l4-policy"`
