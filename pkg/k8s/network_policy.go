@@ -76,6 +76,15 @@ func parseNetworkPolicyPeer(namespace string, peer *networkingv1.NetworkPolicyPe
 	return &selector
 }
 
+func hasV1PolicyType(pTypes []networkingv1.PolicyType, typ networkingv1.PolicyType) bool {
+	for _, pType := range pTypes {
+		if pType == typ {
+			return true
+		}
+	}
+	return false
+}
+
 // ParseNetworkPolicy parses a k8s NetworkPolicy. Returns a list of
 // Cilium policy rules that can be added, along with an error if there was an
 // error sanitizing the rules.
@@ -134,6 +143,22 @@ func ParseNetworkPolicy(np *networkingv1.NetworkPolicy) (api.Rules, error) {
 			}
 		}
 		egresses = append(egresses, egress)
+	}
+
+	// Convert the k8s default-deny model to the Cilium default-deny model
+	// spec:
+	//   policyTypes:
+	//   - ingress
+	if len(ingresses) == 0 && hasV1PolicyType(np.Spec.PolicyTypes, networkingv1.PolicyTypeIngress) {
+		ingresses = []api.IngressRule{{}}
+	}
+
+	// Convert the k8s default-deny model to the Cilium default-deny model
+	// spec:
+	//   policyTypes:
+	//   - egress
+	if len(egresses) == 0 && hasV1PolicyType(np.Spec.PolicyTypes, networkingv1.PolicyTypeEgress) {
+		egresses = []api.EgressRule{{}}
 	}
 
 	if np.Spec.PodSelector.MatchLabels == nil {

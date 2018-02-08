@@ -20,6 +20,7 @@ import (
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/test/helpers"
+	"github.com/go-openapi/swag"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/sirupsen/logrus"
@@ -30,7 +31,7 @@ var _ = Describe("K8sValidatedPolicyTest", func() {
 	var demoPath string
 	var once sync.Once
 	var kubectl *helpers.Kubectl
-	var l3Policy, l7Policy string
+	var l3Policy, l7Policy, denyIngress, denyEgress string
 	var logger *logrus.Entry
 	var path string
 	var podFilter string
@@ -44,6 +45,8 @@ var _ = Describe("K8sValidatedPolicyTest", func() {
 		//Manifest paths
 		demoPath = kubectl.ManifestGet("demo.yaml")
 		l3Policy = kubectl.ManifestGet("l3_l4_policy.yaml")
+		denyIngress = kubectl.ManifestGet("knp-default-deny-ingress.yaml")
+		denyEgress = kubectl.ManifestGet("knp-default-deny-egress.yaml")
 		l7Policy = kubectl.ManifestGet("l7_policy.yaml")
 
 		path = kubectl.ManifestGet("cilium_ds.yaml")
@@ -375,6 +378,98 @@ var _ = Describe("K8sValidatedPolicyTest", func() {
 				helpers.DefaultNamespace, appPods[helpers.App3],
 				helpers.CurlFail(fmt.Sprintf("http://%s/public", clusterIP)))
 			Expect(err).Should(HaveOccurred())
+		})
+
+		It("Denies traffic with k8s default-deny policy", func() {
+			if helpers.GetCurrentK8SEnv() == "1.6" {
+				Skip("K8s 1.6 doesn't offer a default deny in its policy")
+			}
+
+			namespace := helpers.DefaultNamespace
+
+			kubectl.Apply(demoPath).ExpectSuccess("Creating demo app")
+
+			ciliumPod, err := kubectl.GetCiliumPodOnNode(helpers.KubeSystemNamespace, helpers.K8s1)
+			Expect(err).Should(BeNil())
+
+			pods, err := kubectl.WaitforPods(
+				namespace,
+				"-l zgroup=testapp", 300)
+			Expect(pods).To(BeTrue(), "testapp pods are not ready after timeout")
+			Expect(err).To(BeNil(), "testapp pods are not ready after timeout")
+
+			By("Testing connectivity without any policy loaded")
+			clusterIP, _, err := kubectl.GetServiceHostPort(namespace, "app1-service")
+			Expect(err).To(BeNil(), "Cannot get service on %q namespace", namespace)
+			appPods := getAppPods(namespace)
+			_, err = kubectl.ExecPodCmd(
+				namespace, appPods[helpers.App2],
+				fmt.Sprintf("curl http://%s/public", clusterIP))
+			Expect(err).Should(BeNil())
+
+			_, err = kubectl.ExecPodCmd(
+				namespace, appPods[helpers.App3],
+				fmt.Sprintf("curl http://%s/public", clusterIP))
+			Expect(err).Should(BeNil())
+
+			By("Installing ingress default-deny")
+
+			eps := kubectl.CiliumEndpointPolicyVersion(ciliumPod)
+
+			_, err = kubectl.CiliumPolicyAction(
+				helpers.KubeSystemNamespace, denyIngress, helpers.KubectlApply, 300)
+			Expect(err).Should(BeNil(), "L3 deny-ingress Policy cannot be applied in %q namespace", namespace)
+			defer func() {
+				kubectl.Delete(denyIngress).ExpectSuccess()
+			}()
+
+			err = waitUntilEndpointUpdates(ciliumPod, eps, 4)
+			Expect(err).To(BeNil(), "Waiting for endpoint updates on %s", ciliumPod)
+
+			By("Testing connectivity with ingress default-deny policy loaded")
+
+			_, err = kubectl.ExecPodCmd(
+				namespace, appPods[helpers.App2],
+				helpers.CurlFail(fmt.Sprintf("http://%s/public", clusterIP)))
+			Expect(err).Should(HaveOccurred(), "Ingress connectivity should be denied by policy")
+
+			_, err = kubectl.ExecPodCmd(
+				namespace, appPods[helpers.App3],
+				helpers.CurlFail(fmt.Sprintf("http://%s/public", clusterIP)))
+			Expect(err).Should(HaveOccurred(), "Ingress connectivity should be denied by policy")
+
+			By("Installing egress default-deny")
+
+			eps = kubectl.CiliumEndpointPolicyVersion(ciliumPod)
+
+			_, err = kubectl.CiliumPolicyAction(
+				helpers.KubeSystemNamespace, denyEgress, helpers.KubectlApply, 300)
+			Expect(err).Should(BeNil(), "L3 deny-egress Policy cannot be applied in %q namespace", namespace)
+			defer func() {
+				kubectl.Delete(denyEgress).ExpectSuccess()
+			}()
+
+			err = waitUntilEndpointUpdates(ciliumPod, eps, 4)
+			Expect(err).To(BeNil(), "Waiting for endpoint updates on %s", ciliumPod)
+
+			By("Testing if egress policy enforcement is enabled on the endpoint")
+
+			var epList []models.Endpoint
+			err = kubectl.CiliumEndpointsList(ciliumPod).Unmarshal(&epList)
+			Expect(err).To(BeNil(), "Getting a list of endpoints from %s", ciliumPod)
+
+			epsWithEgress := 0
+			for _, ep := range epList {
+				for _, lbls := range ep.Labels.OrchestrationIdentity {
+					if lbls == "k8s:io.kubernetes.pod.namespace="+namespace {
+						switch swag.StringValue(ep.PolicyEnabled) {
+						case models.EndpointPolicyEnabledBoth, models.EndpointPolicyEnabledEgress:
+							epsWithEgress++
+						}
+					}
+				}
+			}
+			Expect(epsWithEgress).To(Equal(4), "All endpoints should have egress policy enabled")
 		})
 	})
 
