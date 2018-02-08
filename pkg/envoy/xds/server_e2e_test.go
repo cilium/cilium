@@ -262,6 +262,7 @@ func (s *ServerSuite) TestAck(c *C) {
 
 	ctx, cancel := context.WithTimeout(context.Background(), TestTimeout)
 	defer cancel()
+	wg := completion.NewWaitGroup(ctx)
 
 	cache := NewCache()
 	mutator := NewAckingResourceMutatorWrapper(cache, IstioNodeToIP)
@@ -312,7 +313,7 @@ func (s *ServerSuite) TestAck(c *C) {
 
 	// Create version 1 with resource 0.
 	time.Sleep(CacheUpdateDelay)
-	comp1 := completion.NewCompletion(ctx)
+	comp1 := wg.AddCompletion()
 	defer comp1.Complete()
 	mutator.Upsert(typeURL, resources[0].Name, resources[0], []string{node0}, comp1)
 	c.Assert(comp1, Not(IsCompleted))
@@ -325,7 +326,7 @@ func (s *ServerSuite) TestAck(c *C) {
 
 	// Create version 2 with resources 0 and 1.
 	// This time, update the cache before sending the request.
-	comp2 := completion.NewCompletion(ctx)
+	comp2 := wg.AddCompletion()
 	defer comp2.Complete()
 	mutator.Upsert(typeURL, resources[1].Name, resources[1], []string{node0}, comp2)
 	c.Assert(comp2, Not(IsCompleted))

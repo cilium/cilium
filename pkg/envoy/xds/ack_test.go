@@ -72,12 +72,13 @@ func (s *AckSuite) TestUpsertSingleNode(c *C) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	typeURL := "type.googleapis.com/envoy.api.v2.DummyConfiguration"
+	wg := completion.NewWaitGroup(ctx)
 
 	cache := NewCache()
 	acker := NewAckingResourceMutatorWrapper(cache, IstioNodeToIP)
 
 	// Create version 1 with resource 0.
-	comp := completion.NewCompletion(ctx)
+	comp := wg.AddCompletion()
 	defer comp.Complete()
 
 	acker.Upsert(typeURL, resources[0].Name, resources[0], []string{node0}, comp)
@@ -104,12 +105,13 @@ func (s *AckSuite) TestUpsertMultipleNodes(c *C) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	typeURL := "type.googleapis.com/envoy.api.v2.DummyConfiguration"
+	wg := completion.NewWaitGroup(ctx)
 
 	cache := NewCache()
 	acker := NewAckingResourceMutatorWrapper(cache, IstioNodeToIP)
 
 	// Create version 1 with resource 0.
-	comp := completion.NewCompletion(ctx)
+	comp := wg.AddCompletion()
 	defer comp.Complete()
 
 	acker.Upsert(typeURL, resources[0].Name, resources[0], []string{node0, node1}, comp)
@@ -133,12 +135,13 @@ func (s *AckSuite) TestUpsertMoreRecentVersion(c *C) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	typeURL := "type.googleapis.com/envoy.api.v2.DummyConfiguration"
+	wg := completion.NewWaitGroup(ctx)
 
 	cache := NewCache()
 	acker := NewAckingResourceMutatorWrapper(cache, IstioNodeToIP)
 
 	// Create version 1 with resource 0.
-	comp := completion.NewCompletion(ctx)
+	comp := wg.AddCompletion()
 	defer comp.Complete()
 
 	acker.Upsert(typeURL, resources[0].Name, resources[0], []string{node0}, comp)
@@ -157,12 +160,13 @@ func (s *AckSuite) TestDeleteSingleNode(c *C) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	typeURL := "type.googleapis.com/envoy.api.v2.DummyConfiguration"
+	wg := completion.NewWaitGroup(ctx)
 
 	cache := NewCache()
 	acker := NewAckingResourceMutatorWrapper(cache, IstioNodeToIP)
 
 	// Create version 1 with resource 0.
-	comp := completion.NewCompletion(ctx)
+	comp := wg.AddCompletion()
 	defer comp.Complete()
 
 	acker.Upsert(typeURL, resources[0].Name, resources[0], []string{node0}, comp)
@@ -173,7 +177,7 @@ func (s *AckSuite) TestDeleteSingleNode(c *C) {
 	c.Assert(comp, IsCompleted)
 
 	// Create version 2 with no resources.
-	comp = completion.NewCompletion(ctx)
+	comp = wg.AddCompletion()
 	defer comp.Complete()
 
 	acker.Delete(typeURL, resources[0].Name, []string{node0}, comp)
@@ -193,12 +197,13 @@ func (s *AckSuite) TestDeleteMultipleNodes(c *C) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	typeURL := "type.googleapis.com/envoy.api.v2.DummyConfiguration"
+	wg := completion.NewWaitGroup(ctx)
 
 	cache := NewCache()
 	acker := NewAckingResourceMutatorWrapper(cache, IstioNodeToIP)
 
 	// Create version 1 with resource 0.
-	comp := completion.NewCompletion(ctx)
+	comp := wg.AddCompletion()
 	defer comp.Complete()
 
 	acker.Upsert(typeURL, resources[0].Name, resources[0], []string{node0}, comp)
@@ -209,7 +214,7 @@ func (s *AckSuite) TestDeleteMultipleNodes(c *C) {
 	c.Assert(comp, IsCompleted)
 
 	// Create version 2 with no resources.
-	comp = completion.NewCompletion(ctx)
+	comp = wg.AddCompletion()
 	defer comp.Complete()
 
 	acker.Delete(typeURL, resources[0].Name, []string{node0, node1}, comp)
