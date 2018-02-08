@@ -85,7 +85,7 @@ func endpointCreator(id uint16, secID policy.NumericIdentity) *e.Endpoint {
 			},
 		},
 		IngressMaps:       map[int]*policymap.PolicyMap{},
-		IngressIdentities: map[policy.NumericIdentity]*policy.Consumer{},
+		IngressIdentities: map[policy.NumericIdentity]bool{},
 		ReverseRules:      map[policy.NumericIdentity]*policy.Consumer{},
 	}
 	return ep

@@ -39,10 +39,6 @@ type Consumer struct {
 	DeletionMark bool
 }
 
-func (c *Consumer) StringID() string {
-	return c.ID.String()
-}
-
 func NewConsumer(id NumericIdentity) *Consumer {
 	return &Consumer{ID: id}
 }
@@ -69,7 +65,7 @@ type Consumable struct {
 	// is allowed for this Consumable / NumericIdentity. The identities in this map
 	// are used to populate the ingress policy BPF maps.
 	// Indexed by NumericIdentity (security identity) of each Consumer.
-	IngressIdentities map[NumericIdentity]*Consumer `json:"ingress-identities"`
+	IngressIdentities map[NumericIdentity]bool `json:"ingress-identities"`
 	// ReverseRules contains the consumers that are allowed to receive a reply from this Consumable
 	ReverseRules map[NumericIdentity]*Consumer `json:"-"`
 	// L4Policy contains the L4-only policy of this consumable
@@ -103,7 +99,7 @@ func NewConsumable(id NumericIdentity, lbls *Identity, cache *ConsumableCache) *
 		Iteration:         0,
 		Labels:            lbls,
 		IngressMaps:       map[int]*policymap.PolicyMap{},
-		IngressIdentities: map[NumericIdentity]*Consumer{},
+		IngressIdentities: map[NumericIdentity]bool{},
 		ReverseRules:      map[NumericIdentity]*Consumer{},
 		cache:             cache,
 		EgressMaps:        map[int]*policymap.PolicyMap{},
@@ -150,8 +146,8 @@ func (c *Consumable) AddIngressMap(m *policymap.PolicyMap) {
 
 	// Populate the new map with the already established consumers of
 	// this consumable
-	for _, c := range c.IngressIdentities {
-		if err := m.AllowConsumer(c.ID.Uint32()); err != nil {
+	for ingressIdentity := range c.IngressIdentities {
+		if err := m.AllowConsumer(ingressIdentity.Uint32()); err != nil {
 			log.WithError(err).Warn("Update of policy map failed")
 		}
 	}
@@ -204,15 +200,15 @@ func (c *Consumable) deleteReverseRule(consumable NumericIdentity, consumer Nume
 }
 
 func (c *Consumable) deleteIngress() {
-	for _, consumer := range c.IngressIdentities {
+	for ingressID := range c.IngressIdentities {
 		// FIXME: This explicit removal could be removed eventually to
 		// speed things up as the policy map should get deleted anyway
-		if c.wasLastIngressRule(consumer.ID) {
-			c.removeFromIngressMaps(consumer.ID)
+		if c.wasLastIngressRule(ingressID) {
+			c.removeFromIngressMaps(ingressID)
 		}
 
 		// TODO (ianvernon) look into this
-		c.deleteReverseRule(consumer.ID, c.ID)
+		c.deleteReverseRule(ingressID, c.ID)
 	}
 
 	// TODO (ianvernon) revisit this
@@ -284,11 +280,6 @@ func (c *Consumable) RemoveEgressMap(m *policymap.PolicyMap) {
 
 }
 
-func (c *Consumable) getIngressConsumer(id NumericIdentity) *Consumer {
-	val, _ := c.IngressIdentities[id]
-	return val
-}
-
 func (c *Consumable) getEgressConsumer(id NumericIdentity) *Consumer {
 	val, _ := c.EgressIdentities[id]
 	return val
@@ -331,7 +322,9 @@ func (c *Consumable) addToEgressMaps(id NumericIdentity) {
 }
 
 func (c *Consumable) wasLastIngressRule(id NumericIdentity) bool {
-	return c.ReverseRules[id] == nil && c.IngressIdentities[id] == nil
+	_, existsInIngressIdentitiesMap := c.IngressIdentities[id]
+	_, existsInReverseRulesMap := c.IngressIdentities[id]
+	return existsInReverseRulesMap && existsInIngressIdentitiesMap
 }
 
 func (c *Consumable) wasLastEgressRule(id NumericIdentity) bool {
@@ -371,17 +364,16 @@ func (c *Consumable) removeFromEgressMaps(id NumericIdentity) {
 // Returns true if the consumer was not present in this Consumable's consumer map,
 // and thus had to be added, false if it is already added.
 func (c *Consumable) AllowIngressConsumerLocked(cache *ConsumableCache, id NumericIdentity) bool {
-	consumer := c.getIngressConsumer(id)
-	if consumer == nil {
+	_, ok := c.IngressIdentities[id]
+	if !ok {
 		log.WithFields(logrus.Fields{
 			logfields.Identity: id,
 			"consumable":       logfields.Repr(c),
 		}).Debug("New consumer Identity for consumable")
 		c.addToIngressMaps(id)
-		c.IngressIdentities[id] = NewConsumer(id)
+		c.IngressIdentities[id] = true
 		return true
 	}
-	consumer.DeletionMark = false
 	return false // not changed.
 }
 
@@ -466,8 +458,9 @@ func (c *Consumable) AllowEgressConsumerAndReverseLocked(cache *ConsumableCache,
 // BanIngressConsumerLocked removes the given consumer from the Consumable's consumers
 // map. Must be called with the Consumable mutex locked.
 func (c *Consumable) BanIngressConsumerLocked(id NumericIdentity) {
-	if consumer, ok := c.IngressIdentities[id]; ok {
-		log.WithField("consumer", logfields.Repr(consumer)).Debug("Removing consumer")
+	if _, ok := c.IngressIdentities[id]; ok {
+		// TODO (ianvernon) add log field for consumer ID
+		log.WithField(logfields.Identity, id).Debug("Removing ingress identity")
 		delete(c.IngressIdentities, id)
 
 		if c.wasLastIngressRule(id) {
@@ -502,7 +495,7 @@ func (c *Consumable) BanEgressConsumerLocked(id NumericIdentity) {
 // TODO (ianvernon) - something fishy is going on man
 func (c *Consumable) Allows(id NumericIdentity) bool {
 	c.Mutex.RLock()
-	consumer := c.getIngressConsumer(id)
+	_, ok := c.IngressIdentities[id]
 	c.Mutex.RUnlock()
-	return consumer != nil
+	return ok
 }

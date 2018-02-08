@@ -24,11 +24,6 @@ const (
 	CONSUMER_ID3 = NumericIdentity(30)
 )
 
-func (s *PolicyTestSuite) TestNewConsumer(c *C) {
-	consumer := NewConsumer(CONSUMER_ID1)
-	c.Assert(consumer.ID, Equals, CONSUMER_ID1)
-}
-
 func (s *PolicyTestSuite) TestGetConsumer(c *C) {
 	cache := newConsumableCache()
 
@@ -41,6 +36,8 @@ func (s *PolicyTestSuite) TestGetConsumer(c *C) {
 	c.Assert(c1, Not(Equals), c3)
 }
 
+
+// TODO (ianvernon) this might not be needed.
 func (s *PolicyTestSuite) TestConsumer(c *C) {
 	cache := newConsumableCache()
 
@@ -50,26 +47,16 @@ func (s *PolicyTestSuite) TestConsumer(c *C) {
 
 	c1.AllowIngressConsumerLocked(cache, CONSUMER_ID2)
 	c.Assert(c1.Allows(CONSUMER_ID2), Equals, true)
-	consumer1 := c1.getIngressConsumer(CONSUMER_ID2)
-	c.Assert(consumer1.ID, Equals, CONSUMER_ID2)
 
 	c1.AllowIngressConsumerLocked(cache, CONSUMER_ID2)
 	c.Assert(c1.Allows(CONSUMER_ID2), Equals, true)
-	consumer2 := c1.getIngressConsumer(CONSUMER_ID2)
-	c.Assert(consumer2.ID, Equals, CONSUMER_ID2)
 
 	c1.AllowIngressConsumerLocked(cache, CONSUMER_ID3)
 	c.Assert(c1.Allows(CONSUMER_ID3), Equals, true)
-	consumer3 := c1.getIngressConsumer(CONSUMER_ID3)
-	c.Assert(consumer3.ID, Equals, CONSUMER_ID3)
 
 	c1.BanIngressConsumerLocked(CONSUMER_ID2)
 	c.Assert(c1.Allows(CONSUMER_ID2), Equals, false)
-	consumer2 = c1.getIngressConsumer(CONSUMER_ID2)
-	c.Assert(consumer2, IsNil)
 
 	c1.BanIngressConsumerLocked(CONSUMER_ID3)
 	c.Assert(c1.Allows(CONSUMER_ID3), Equals, false)
-	consumer3 = c1.getIngressConsumer(CONSUMER_ID3)
-	c.Assert(consumer3, IsNil)
 }

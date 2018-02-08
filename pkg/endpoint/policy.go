@@ -344,7 +344,7 @@ func (e *Endpoint) regenerateConsumable(owner Owner, labelsMap *policy.IdentityC
 
 	// Mark all entries unused by denying them
 	for k := range c.IngressIdentities {
-		c.IngressIdentities[k].DeletionMark = true
+		c.IngressIdentities[k] = false
 	}
 
 	for k := range c.EgressIdentities {
@@ -501,28 +501,27 @@ func (e *Endpoint) regenerateConsumable(owner Owner, labelsMap *policy.IdentityC
 	}
 
 	// Garbage collect all unused entries
-	for _, val := range c.IngressIdentities {
-		if val.DeletionMark {
-			val.DeletionMark = false
-			c.BanIngressConsumerLocked(val.ID)
+	for ingressIdentity, keepIdentity := range c.IngressIdentities {
+		if !keepIdentity {
+			c.BanIngressConsumerLocked(ingressIdentity)
 			changed = true
 			// Since we have removed a consumer, the L3 rule should be
 			// also be marked as removed. But only if it was not previously
 			// created by a L3-L4 rule.
-			if _, ok := rulesRm[val.ID]; !ok {
-				rulesRm[val.ID] = policy.NewL4RuleContexts()
+			if _, ok := rulesRm[ingressIdentity]; !ok {
+				rulesRm[ingressIdentity] = policy.NewL4RuleContexts()
 			}
 			// If the L3 rule was removed then we also need to remove it from
 			// the rulesAdded.
-			if _, ok := rulesAdd[val.ID]; ok {
-				delete(rulesAdd, val.ID)
+			if _, ok := rulesAdd[ingressIdentity]; ok {
+				delete(rulesAdd, ingressIdentity)
 			}
 		} else {
 			// Since we have (re)added a consumer, the L3 rule should be
 			// also be marked as added. But only if it was not previously
 			// created by a L3-L4 rule.
-			if _, ok := rulesAdd[val.ID]; !ok {
-				rulesAdd[val.ID] = policy.NewL4RuleContexts()
+			if _, ok := rulesAdd[ingressIdentity]; !ok {
+				rulesAdd[ingressIdentity] = policy.NewL4RuleContexts()
 			}
 		}
 	}

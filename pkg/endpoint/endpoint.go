@@ -635,9 +635,9 @@ func (e *Endpoint) GetPolicyModel() *models.EndpointPolicy {
 	defer e.Consumable.Mutex.RUnlock()
 
 	ingressConsumers := []int64{}
-	for _, v := range e.Consumable.IngressIdentities {
-		log.Debugf("GetPolicyModel: appending ingress consumer %d", v.ID)
-		ingressConsumers = append(ingressConsumers, int64(v.ID))
+	for ingressIdentity := range e.Consumable.IngressIdentities {
+		log.Debugf("GetPolicyModel: appending ingress consumer %d", ingressIdentity)
+		ingressConsumers = append(ingressConsumers, int64(ingressIdentity))
 	}
 
 	egressConsumers := []int64{}
