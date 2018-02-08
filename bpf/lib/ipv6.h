@@ -29,7 +29,7 @@
 #define IPV6_TCLASS_SHIFT       20
 
 /* Number of extension headers that can be skipped */
-#define IPV6_MAX_HEADERS 10
+#define IPV6_MAX_HEADERS 4
 
 #define NEXTHDR_HOP             0       /* Hop-by-hop option header. */
 #define NEXTHDR_TCP             6       /* TCP segment. */
