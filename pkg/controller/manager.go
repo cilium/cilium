@@ -61,25 +61,23 @@ func (m *Manager) UpdateController(name string, params ControllerParams) *Contro
 		m.controllers = controllerMap{}
 	}
 
-	ctrl, ok := m.controllers[name]
-	if ok {
-		ctrl.stopController()
-		ctrl.params = params
-	} else {
-		ctrl = &Controller{
-			name:   name,
-			params: params,
-			uuid:   uuid.NewUUID().String(),
-		}
-
-		m.controllers[ctrl.name] = ctrl
-
-		globalStatus.mutex.Lock()
-		globalStatus.controllers[ctrl.uuid] = ctrl
-		globalStatus.mutex.Unlock()
+	if oldCtrl, ok := m.controllers[name]; ok {
+		oldCtrl.stopController()
 	}
 
-	ctrl.stop = make(chan struct{}, 0)
+	ctrl := &Controller{
+		name:   name,
+		params: params,
+		uuid:   uuid.NewUUID().String(),
+		stop:   make(chan struct{}, 0),
+	}
+
+	m.controllers[ctrl.name] = ctrl
+
+	globalStatus.mutex.Lock()
+	globalStatus.controllers[ctrl.uuid] = ctrl
+	globalStatus.mutex.Unlock()
+
 	go ctrl.runController()
 
 	ctrl.getLogger().Debug("Updated controller")
