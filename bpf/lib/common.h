@@ -432,4 +432,15 @@ struct proxy6_tbl_value {
 	__u32 lifetime;
 } __attribute__((packed));
 
+/**
+ * relax_verifier is a dummy helper call to introduce a pruning checkpoing to
+ * help relax the verifier to avoid reaching complexity limits on older
+ * kernels.
+ */
+static inline void relax_verifier(void)
+{
+	int foo = 0;
+	csum_diff(0, 0, &foo, 1, 0);
+}
+
 #endif
