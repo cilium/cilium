@@ -7,3 +7,4 @@ spec:
     matchLabels:
       role: restricted
   egress:
+  - {}
