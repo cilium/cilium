@@ -168,7 +168,7 @@ func CreateL4Filter(fromEndpoints []api.EndpointSelector, rule api.PortRule, por
 		Port:             int(p),
 		Protocol:         protocol,
 		U8Proto:          u8p,
-		L7RedirectPort:   rule.RedirectPort,
+		L7RedirectPort:   0,
 		L7RulesPerEp:     make(L7DataMap),
 		FromEndpoints:    fromEndpoints,
 		DerivedFromRules: labels.LabelArrayList{ruleLabels},
