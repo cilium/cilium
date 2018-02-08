@@ -24,6 +24,7 @@ function cleanup() {
   log "cleanup: `cilium cleanup -f`"
   log "starting cilium with systemctl"
   systemctl start cilium
+  wait_for_cilium_status
 }
 
 trap cleanup EXIT
