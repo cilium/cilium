@@ -60,31 +60,51 @@ type Server struct {
 	// watcher.
 	watchers map[string]*ResourceWatcher
 
+	// ackObservers maps each supported type URL to its corresponding observer
+	// of ACKs received from Envoy nodes.
+	ackObservers map[string]ResourceVersionAckObserver
+
 	// lastStreamID is the identifier of the last processed stream.
 	// It is incremented atomically when starting the handling of a new stream.
 	lastStreamID uint64
 }
 
+// ResourceTypeConfiguration is the configuration of the XDS server for a
+// resource type.
+type ResourceTypeConfiguration struct {
+	// Source contains the resources of this type.
+	Source ObservableResourceSource
+
+	// AckObserver is called back whenever a node acknowledges having applied a
+	// version of the resources of this type.
+	AckObserver ResourceVersionAckObserver
+}
+
 // NewServer creates an xDS gRPC stream handler using the given resource
-// sources. sources maps each supported type URL to its corresponding resource
-// source.
-func NewServer(sources map[string]ObservableResourceSource, resourceAccessTimeout time.Duration) *Server {
-	watchers := make(map[string]*ResourceWatcher, len(sources))
-	for typeURL, source := range sources {
-		w := NewResourceWatcher(typeURL, source, resourceAccessTimeout)
-		source.AddResourceVersionObserver(w)
+// sources.
+// types maps each supported resource type URL to its corresponding resource
+// source and ACK observer.
+func NewServer(resourceTypes map[string]*ResourceTypeConfiguration,
+	resourceAccessTimeout time.Duration) *Server {
+	watchers := make(map[string]*ResourceWatcher, len(resourceTypes))
+	ackObservers := make(map[string]ResourceVersionAckObserver, len(resourceTypes))
+	for typeURL, resType := range resourceTypes {
+		w := NewResourceWatcher(typeURL, resType.Source, resourceAccessTimeout)
+		resType.Source.AddResourceVersionObserver(w)
 		watchers[typeURL] = w
+
+		ackObservers[typeURL] = resType.AckObserver
 	}
 
 	// TODO: Unregister the watchers when stopping the server.
 
-	return &Server{watchers: watchers}
+	return &Server{watchers: watchers, ackObservers: ackObservers}
 }
 
 func getXDSRequestFields(req *api.DiscoveryRequest) logrus.Fields {
 	return logrus.Fields{
 		logfields.XDSVersionInfo: req.GetVersionInfo(),
-		logfields.XDSClientNode:  req.GetNode().GetId(),
+		logfields.XDSClientNode:  req.GetNode(),
 		logfields.XDSTypeURL:     req.GetTypeUrl(),
 		logfields.XDSNonce:       req.GetResponseNonce(),
 	}
@@ -278,11 +298,12 @@ func (s *Server) processRequestStream(ctx context.Context, streamLog *logrus.Ent
 					// start a new watch.
 					requestLog.Debug("canceling pending watch")
 					state.pendingWatchCancel()
-				} else {
+				} else if versionInfo != nil {
 					// If no pending watch exists, then this request is an ACK
 					// for the last response for this resource type.
-
-					// TODO: Notify ACK with req.* and state.resourceNames.
+					// Notify every observer of the ACK.
+					requestLog.Debug("notifying observers of ACK")
+					s.ackObservers[typeURL].HandleResourceVersionAck(*versionInfo, req.GetNode(), state.resourceNames, typeURL)
 				}
 
 				respCh := make(chan *VersionedResources, 1)
