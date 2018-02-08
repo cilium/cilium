@@ -7,7 +7,7 @@ pipeline {
     }
 
     options {
-        timeout(time: 90, unit: 'MINUTES')
+        timeout(time: 120, unit: 'MINUTES')
         timestamps()
     }
     stages {
@@ -59,6 +59,9 @@ pipeline {
                 GOPATH="${WORKSPACE}"
                 TESTDIR="${WORKSPACE}/${PROJ_PATH}/test"
             }
+            options {
+                timeout(time: 60, unit: 'MINUTES')
+            }
             steps {
                 parallel(
                     "Runtime":{
@@ -95,6 +98,9 @@ pipeline {
             environment {
                 GOPATH="${WORKSPACE}"
                 TESTDIR="${WORKSPACE}/${PROJ_PATH}/test"
+            }
+            options {
+                timeout(time: 60, unit: 'MINUTES')
             }
             steps {
                 parallel(
