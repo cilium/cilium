@@ -3,7 +3,7 @@ pipeline {
         label 'vagrant'
     }
     options {
-        timeout(time: 120, unit: 'MINUTES')
+        timeout(time: 140, unit: 'MINUTES')
         timestamps()
     }
     stages {
@@ -16,6 +16,9 @@ pipeline {
             environment {
                 MEMORY = '4096'
                 RUN_TEST_SUITE = '1'
+            }
+            options {
+                timeout(time: 120, unit: 'MINUTES')
             }
             steps {
                 parallel(
