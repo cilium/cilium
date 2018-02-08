@@ -392,9 +392,10 @@ func runProg(prog string, args []string, quiet bool) error {
 }
 
 const (
-	ciliumPostNatChain = "CILIUM_POST"
-	ciliumForwardChain = "CILIUM_FORWARD"
-	feederDescription  = "cilium-feeder:"
+	ciliumPostNatChain    = "CILIUM_POST"
+	ciliumPostMangleChain = "CILIUM_POST_mangle"
+	ciliumForwardChain    = "CILIUM_FORWARD"
+	feederDescription     = "cilium-feeder:"
 )
 
 type customChain struct {
@@ -497,6 +498,12 @@ var ciliumChains = []customChain{
 		feederArgs: []string{""},
 	},
 	{
+		name:       ciliumPostMangleChain,
+		table:      "mangle",
+		hook:       "POSTROUTING",
+		feederArgs: []string{""},
+	},
+	{
 		name:       ciliumForwardChain,
 		table:      "filter",
 		hook:       "FORWARD",
@@ -527,7 +534,8 @@ func (d *Daemon) installIptablesRules() error {
 	// installs a dedicated rule which does the source PAT to the right
 	// source IP.
 	if err := runProg("iptables", []string{
-		"-A", ciliumForwardChain,
+		"-t", "mangle",
+		"-A", ciliumPostMangleChain,
 		"-o", "cilium_host",
 		"-m", "comment", "--comment", "cilium: clear masq bit for pkts to cilium_host",
 		"-j", "MARK", "--set-xmark", "0x0000/0x4000"}, false); err != nil {
