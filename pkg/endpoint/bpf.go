@@ -473,19 +473,18 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir, reason string) (uint64, err
 
 	// If dry mode is enabled, no further changes to BPF maps are performed
 	if owner.DryModeEnabled() {
+		defer e.Mutex.Unlock()
+
 		// Regenerate policy and apply any options resulting in the
 		// policy change.
 		// Note that policy maps (e.IngressPolicyMap, e.EgressPolicymap) are not initialized!
 		if _, _, _, err = e.regeneratePolicy(owner, nil); err != nil {
-			e.Mutex.Unlock()
 			return 0, fmt.Errorf("Unable to regenerate policy: %s", err)
 		}
 
 		if err = e.writeHeaderfile(epdir, owner); err != nil {
-			e.Mutex.Unlock()
 			return 0, fmt.Errorf("Unable to write header file: %s", err)
 		}
-		e.Mutex.Unlock()
 
 		log.WithField(logfields.EndpointID, e.ID).Debug("Skipping bpf updates due to dry mode")
 		return e.nextPolicyRevision, nil
@@ -584,7 +583,8 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir, reason string) (uint64, err
 		modifiedRules, deletedRules policy.SecurityIDContexts
 		policyChanged               bool
 	)
-	// Only generate & populate policy map if a security identity / consumer model is set up
+	// Only generate & populate policy map if a security identity / consumer
+	// is set up.
 	if c != nil {
 		c.AddIngressMap(e.IngressPolicyMap)
 		c.AddEgressMap(e.EgressPolicyMap)
@@ -598,8 +598,8 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir, reason string) (uint64, err
 			return 0, fmt.Errorf("Unable to regenerate policy for '%s' and '%s': %s", e.IngressPolicyMap.String(), e.EgressPolicyMap.String(), err)
 		}
 
-		// Evaluate generated policy to see if changes to conntrack need to be
-		// made.
+		// Evaluate generated policy to see if changes to connection tracking
+		// need to be made.
 		//
 		// policyChanged can still be true and, at the same time,
 		// the modifiedRules be nil. If this happens it means
@@ -647,12 +647,15 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir, reason string) (uint64, err
 		}
 	}
 
+	// Generate header file specific to this endpoint for use in compiling
+	// BPF programs for this endpoint.
 	if err = e.writeHeaderfile(epdir, owner); err != nil {
 		e.Mutex.Unlock()
 		return 0, fmt.Errorf("Unable to write header file: %s", err)
 	}
 
 	// Cache endpoint information
+	// TODO (ianvernon): why do we need to do this?
 	epInfoCache := e.createEpInfoCache()
 	if epInfoCache == nil {
 		e.Mutex.Unlock()
@@ -660,7 +663,8 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir, reason string) (uint64, err
 		return 0, err
 	}
 
-	// Evaluate whether there were changes to the CIDR-based policy.
+	// Populate maps used for CIDR-based policy. If the maps would be empty,
+	// just delete the maps.
 	if e.L3Policy != nil {
 		if e.L3Policy.Ingress.IPv6Count > 0 &&
 			e.L3Maps.ResetBpfMap(IPv6Ingress, e.IPv6IngressMapPathLocked()) == nil {
@@ -706,6 +710,7 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir, reason string) (uint64, err
 	rundir := owner.GetStateDir()
 	debug := strconv.FormatBool(owner.DebugEnabled())
 
+	// Compile and install BPF programs for this endpoint
 	err = e.runInit(libdir, rundir, epdir, epInfoCache.ifName, debug)
 	// CT entry clean up should always happen
 	// even if the bpf program build has failed
@@ -717,7 +722,7 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir, reason string) (uint64, err
 		return epInfoCache.revision, err
 	}
 
-	// The last operation hooks the endpoint into the endpoint table and exposes it
+	// Hook the endpoint into the endpoint table and expose it.
 	err = lxcmap.WriteEndpoint(epInfoCache)
 	if err != nil {
 		log.WithField(logfields.EndpointID, e.ID).WithError(err).Error("Exposing new bpf failed!")
