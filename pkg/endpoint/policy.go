@@ -343,12 +343,12 @@ func (e *Endpoint) regenerateConsumable(owner Owner, labelsMap *policy.IdentityC
 	)
 
 	// Mark all entries unused by denying them
-	for k := range c.IngressConsumers {
-		c.IngressConsumers[k].DeletionMark = true
+	for k := range c.IngressIdentities {
+		c.IngressIdentities[k].DeletionMark = true
 	}
 
-	for k := range c.EgressConsumers {
-		c.EgressConsumers[k].DeletionMark = true
+	for k := range c.EgressIdentities {
+		c.EgressIdentities[k].DeletionMark = true
 	}
 
 	rulesAdd = policy.NewSecurityIDContexts()
@@ -501,7 +501,7 @@ func (e *Endpoint) regenerateConsumable(owner Owner, labelsMap *policy.IdentityC
 	}
 
 	// Garbage collect all unused entries
-	for _, val := range c.IngressConsumers {
+	for _, val := range c.IngressIdentities {
 		if val.DeletionMark {
 			val.DeletionMark = false
 			c.BanIngressConsumerLocked(val.ID)
@@ -527,7 +527,7 @@ func (e *Endpoint) regenerateConsumable(owner Owner, labelsMap *policy.IdentityC
 		}
 	}
 
-	for _, val := range c.EgressConsumers {
+	for _, val := range c.EgressIdentities {
 		if val.DeletionMark {
 			val.DeletionMark = false
 			c.BanEgressConsumerLocked(val.ID)
@@ -564,8 +564,8 @@ func (e *Endpoint) regenerateConsumable(owner Owner, labelsMap *policy.IdentityC
 
 	e.getLogger().WithFields(logrus.Fields{
 		logfields.Identity:  c.ID,
-		"ingress-consumers": logfields.Repr(c.IngressConsumers),
-		"egress-consumers":  logfields.Repr(c.EgressConsumers),
+		"ingress-consumers": logfields.Repr(c.IngressIdentities),
+		"egress-consumers":  logfields.Repr(c.EgressIdentities),
 		"rulesAdd":          rulesAdd,
 		"l4Rm":              l4Rm,
 		"rulesRm":           rulesRm,

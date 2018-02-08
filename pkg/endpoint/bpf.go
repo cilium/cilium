@@ -475,7 +475,7 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir, reason string) (uint64, err
 	if owner.DryModeEnabled() {
 		// Regenerate policy and apply any options resulting in the
 		// policy change.
-		// Note that e.IngressPolicyMap is not initialized!
+		// Note that policy maps (e.IngressPolicyMap, e.EgressPolicymap) are not initialized!
 		if _, _, _, err = e.regeneratePolicy(owner, nil); err != nil {
 			e.Mutex.Unlock()
 			return 0, fmt.Errorf("Unable to regenerate policy: %s", err)
@@ -505,6 +505,8 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir, reason string) (uint64, err
 	// to keep a local reference to the current consumable.
 	c := e.Consumable
 
+	// If errors occurred when regenerating BPF programs, delete all maps in
+	// BPF file system and representations within endpoint.
 	defer func() {
 		if err != nil {
 			e.Mutex.Lock()
@@ -544,14 +546,15 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir, reason string) (uint64, err
 		}
 	}()
 
-	// Create policy maps on the first pass
+	// Create ingress and egress policy maps which represent security-identity-based
+	// policy on the first pass.
 	if e.IngressPolicyMap == nil {
 		e.IngressPolicyMap, createdIngressPolicyMap, err = policymap.OpenMap(e.IngressPolicyMapPathLocked())
 		if err != nil {
 			e.Mutex.Unlock()
 			return 0, err
 		}
-		// Clean up map contents
+		// Clean up map contents.
 		log.Debugf("Flushing old policies map")
 		err = e.IngressPolicyMap.Flush()
 		if err != nil {
@@ -581,26 +584,30 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir, reason string) (uint64, err
 		modifiedRules, deletedRules policy.SecurityIDContexts
 		policyChanged               bool
 	)
-	// Only generate & populate policy map if a seclabel and consumer model is set up
+	// Only generate & populate policy map if a security identity / consumer model is set up
 	if c != nil {
 		c.AddIngressMap(e.IngressPolicyMap)
 		c.AddEgressMap(e.EgressPolicyMap)
 
 		// Regenerate policy and apply any options resulting in the
 		// policy change.
-		// This also populates e.IngressPolicyMap (TODO (ianvernon) - and e.EgressPolicyMap??)
+		// This also populates the endpoint's policy maps (e.IngressPolicyMap, e.EgressPolicyMap)
 		policyChanged, modifiedRules, deletedRules, err = e.regeneratePolicy(owner, nil)
 		if err != nil {
 			e.Mutex.Unlock()
 			return 0, fmt.Errorf("Unable to regenerate policy for '%s' and '%s': %s", e.IngressPolicyMap.String(), e.EgressPolicyMap.String(), err)
 		}
+
+		// Evaluate generated policy to see if changes to conntrack need to be
+		// made.
+		//
 		// policyChanged can still be true and, at the same time,
 		// the modifiedRules be nil. If this happens it means
 		// the L7 was changed so we need to update the
 		// L3L4Policy map with the new proxyport.
 		//
 		// modifiedRules contains if new L4 ports were added/modified and/or
-		// L3 rules were changed
+		// L3 rules were changed.
 		if policyChanged &&
 			modifiedRules == nil &&
 			c.L4Policy != nil &&
@@ -645,6 +652,7 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir, reason string) (uint64, err
 		return 0, fmt.Errorf("Unable to write header file: %s", err)
 	}
 
+	// Cache endpoint information
 	epInfoCache := e.createEpInfoCache()
 	if epInfoCache == nil {
 		e.Mutex.Unlock()
@@ -652,6 +660,7 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir, reason string) (uint64, err
 		return 0, err
 	}
 
+	// Evaluate whether there were changes to the CIDR-based policy.
 	if e.L3Policy != nil {
 		if e.L3Policy.Ingress.IPv6Count > 0 &&
 			e.L3Maps.ResetBpfMap(IPv6Ingress, e.IPv6IngressMapPathLocked()) == nil {

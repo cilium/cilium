@@ -288,7 +288,8 @@ type Endpoint struct {
 	L4Policy *policy.L4Policy `json:"-"`
 
 	// IngressPolicyMap is the ingress policy related state of the datapath
-	// including reference to all policy related BPF.
+	// including reference to all policy related BPF. This map is updated
+	// based off of the security identity policy stored in Consumable's Ingress map
 	IngressPolicyMap *policymap.PolicyMap `json:"-"`
 
 	// EgressPolicyMap is the egress policy related state of the datapath
@@ -634,13 +635,13 @@ func (e *Endpoint) GetPolicyModel() *models.EndpointPolicy {
 	defer e.Consumable.Mutex.RUnlock()
 
 	ingressConsumers := []int64{}
-	for _, v := range e.Consumable.IngressConsumers {
+	for _, v := range e.Consumable.IngressIdentities {
 		log.Debugf("GetPolicyModel: appending ingress consumer %d", v.ID)
 		ingressConsumers = append(ingressConsumers, int64(v.ID))
 	}
 
 	egressConsumers := []int64{}
-	for _, v := range e.Consumable.EgressConsumers {
+	for _, v := range e.Consumable.EgressIdentities {
 		egressConsumers = append(egressConsumers, int64(v.ID))
 	}
 
