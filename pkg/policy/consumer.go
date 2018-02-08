@@ -23,16 +23,17 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-// Consumer identifies a source security identity. Its lifetime is defined by the
-// policy calculation and generation of a Consumable. Consumers are added to
-// various structures within a Consumable to refer to whether the Consumable is
-// allowed to communicate with said Consumer.
+// Consumer identifies a security identity which is allowed communication with
+// a Consumable. Its lifetime is defined by the policy calculation and
+// generation of a Consumable. Consumers are added to various structures within
+// a Consumable. The addition of a Consumer to these structures within a Consumable
+// specifies whether the Consumable is allowed to communicate with said Consumer.
 type Consumer struct {
-	// ID represents the security identity of this consumer.
-	ID           NumericIdentity
+	// ID is the security identity of this consumer.
+	ID NumericIdentity
 
 	// TODO (ianvernon) - is this even used? Seems like it's never actually set to anything.
-	Reverse      *Consumer
+	Reverse *Consumer
 
 	// DeletionMark specifies whether this Consumer should be kept as part of a
 	// Consumable after the Consumable's policy. If marked as true, this
