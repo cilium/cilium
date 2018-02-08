@@ -50,6 +50,7 @@ var bpfPolicyListCmd = &cobra.Command{
 func init() {
 	bpfPolicyCmd.AddCommand(bpfPolicyListCmd)
 	bpfPolicyListCmd.Flags().BoolVarP(&printIDs, "numeric", "n", false, "Do not resolve IDs")
+	// TODO (ianvernon) - add flags for ingress, egress policy?
 }
 
 func listMap(cmd *cobra.Command, args []string) {
@@ -62,28 +63,33 @@ func listMap(cmd *cobra.Command, args []string) {
 	} else {
 		Fatalf("Need ID or label\n")
 	}
+	mapSuffixes := [][]string{{"INGRESS POLICY MAP", "ingress_"}, {"EGRESS POLICY MAP", "egress_"}}
+	for _, v := range mapSuffixes {
+		fmt.Println(v[0])
+		fmt.Println("")
+		file := bpf.MapPath(policymap.MapName + v[1] + lbl)
+		fd, err := bpf.ObjGet(file)
+		if err != nil {
+			Fatalf("%s\n", err)
+		}
+		defer bpf.ObjClose(fd)
 
-	file := bpf.MapPath(policymap.MapName + lbl)
-	fd, err := bpf.ObjGet(file)
-	if err != nil {
-		Fatalf("%s\n", err)
-	}
-	defer bpf.ObjClose(fd)
+		m := policymap.PolicyMap{Fd: fd}
+		statsMap, err := m.DumpToSlice()
+		if err != nil {
+			Fatalf("Error while opening bpf Map: %s\n", err)
+		}
 
-	m := policymap.PolicyMap{Fd: fd}
-	statsMap, err := m.DumpToSlice()
-	if err != nil {
-		Fatalf("Error while opening bpf Map: %s\n", err)
-	}
-
-	if handleJSON(statsMap) {
-		return
-	}
-	w := tabwriter.NewWriter(os.Stdout, 5, 0, 3, ' ', 0)
-	formatMap(w, statsMap)
-	w.Flush()
-	if len(statsMap) == 0 {
-		fmt.Printf("Policy stats empty. Perhaps the policy enforcement is disabled?\n")
+		if handleJSON(statsMap) {
+			return
+		}
+		w := tabwriter.NewWriter(os.Stdout, 5, 0, 3, ' ', 0)
+		formatMap(w, statsMap)
+		w.Flush()
+		if len(statsMap) == 0 {
+			fmt.Printf("Policy stats empty. Perhaps policy enforcement for the type of traffic corresponding to this map is disabled?\n")
+		}
+		fmt.Println()
 	}
 }
 
