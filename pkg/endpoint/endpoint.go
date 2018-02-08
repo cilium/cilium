@@ -291,6 +291,10 @@ type Endpoint struct {
 	// including reference to all policy related BPF.
 	IngressPolicyMap *policymap.PolicyMap `json:"-"`
 
+	// EgressPolicyMap is the egress policy related state of the datapath
+	// including reference to all policy related BPF.
+	EgressPolicyMap *policymap.PolicyMap `json:"-"`
+
 	// CIDRPolicy is the CIDR based policy configuration of the endpoint. This
 	// is not contained within the Consumable for this endpoint because the
 	// Consumable contains identity-based policy information.
@@ -1103,10 +1107,15 @@ func mapPath(mapname string, id int) string {
 	return bpf.MapPath(mapname + strconv.Itoa(id))
 }
 
-// PolicyMapPathLocked returns the path to policy map of endpoint.
+// IngressPolicyMapPathLocked returns the path to the ingress policy map of endpoint.
+func (e *Endpoint) IngressPolicyMapPathLocked() string {
+	return mapPath(policymap.MapName+"ingress_", int(e.ID))
+}
+
+// EgressPolicyMapPathLocked returns the path to the egress policy map of endpoint.
 // TODO (egress)
-func (e *Endpoint) PolicyMapPathLocked() string {
-	return mapPath(policymap.MapName, int(e.ID))
+func (e *Endpoint) EgressPolicyMapPathLocked() string {
+	return mapPath(policymap.MapName+"egress_", int(e.ID))
 }
 
 // IPv6IngressMapPathLocked returns the path to policy map of endpoint.
@@ -1336,7 +1345,14 @@ func (e *Endpoint) LeaveLocked(owner Owner) int {
 
 	if e.IngressPolicyMap != nil {
 		if err := e.IngressPolicyMap.Close(); err != nil {
-			e.getLogger().WithError(err).WithField(logfields.Path, e.PolicyMapPathLocked()).Warn("Unable to close policy map")
+			e.getLogger().WithError(err).WithField(logfields.Path, e.IngressPolicyMapPathLocked()).Warn("Unable to close policy map")
+			errors++
+		}
+	}
+
+	if e.EgressPolicyMap != nil {
+		if err := e.EgressPolicyMap.Close(); err != nil {
+			e.getLogger().WithError(err).WithField(logfields.Path, e.EgressPolicyMapPathLocked()).Warn("Unable to close policy map")
 			errors++
 		}
 	}

@@ -340,11 +340,12 @@ func (d *Daemon) deleteEndpoint(ep *endpoint.Endpoint) int {
 
 		if ep.Consumable != nil {
 			ep.Consumable.RemoveIngressMap(ep.IngressPolicyMap)
+			ep.Consumable.RemoveEgressMap(ep.EgressPolicyMap)
 		}
 
 		// Remove policy BPF map
-		if err := os.RemoveAll(ep.PolicyMapPathLocked()); err != nil {
-			scopedLog.WithError(err).WithField(logfields.Path, ep.PolicyMapPathLocked()).Warn("Unable to remove policy map file")
+		if err := os.RemoveAll(ep.IngressPolicyMapPathLocked()); err != nil {
+			scopedLog.WithError(err).WithField(logfields.Path, ep.IngressPolicyMapPathLocked()).Warn("Unable to remove policy map file")
 			errors++
 		}
 

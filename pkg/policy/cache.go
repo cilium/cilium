@@ -127,6 +127,7 @@ func Init() {
 			log.WithField(logfields.Identity, identity).Fatal("Unable to initialize consumable")
 		}
 		GetConsumableCache().addReserved(c)
-		c.AddMap(policyMap)
+		// TODO (ianvernon) - different map for egress???
+		c.AddIngressMap(policyMap)
 	}
 }

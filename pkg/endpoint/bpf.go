@@ -150,7 +150,7 @@ func (e *Endpoint) writeHeaderfile(prefix string, owner Owner) error {
 		" * NodeMAC: %s\n"+
 		" */\n\n",
 		e.LXCMAC, e.IPv6.String(), e.IPv4.String(),
-		e.GetIdentity(), path.Base(e.PolicyMapPathLocked()),
+		e.GetIdentity(), path.Base(e.IngressPolicyMapPathLocked()),
 		path.Base(e.IPv6IngressMapPathLocked()),
 		path.Base(e.IPv6EgressMapPathLocked()),
 		path.Base(e.IPv4IngressMapPathLocked()),
@@ -202,7 +202,7 @@ func (e *Endpoint) writeHeaderfile(prefix string, owner Owner) error {
 		fmt.Fprintf(fw, "#define SECLABEL %s\n", invalid.StringID())
 		fmt.Fprintf(fw, "#define SECLABEL_NB %#x\n", byteorder.HostToNetwork(invalid.Uint32()))
 	}
-	fmt.Fprintf(fw, "#define POLICY_MAP %s\n", path.Base(e.PolicyMapPathLocked()))
+	fmt.Fprintf(fw, "#define POLICY_MAP %s\n", path.Base(e.IngressPolicyMapPathLocked()))
 	if e.L3Policy != nil {
 		fmt.Fprintf(fw, "#define LPM_MAP_VALUE_SIZE %s\n", strconv.Itoa(cidrmap.LPM_MAP_VALUE_SIZE))
 		if e.L3Policy.Ingress.IPv6Count > 0 {
@@ -493,7 +493,8 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir, reason string) (uint64, err
 
 	// Anything below this point must be reverted upon failure as we are
 	// changing live BPF maps
-	createdPolicyMap := false
+	createdIngressPolicyMap := false
+	createdEgressPolicyMap := false
 	createdIPv6IngressMap := false
 	createdIPv6EgressMap := false
 	createdIPv4IngressMap := false
@@ -507,15 +508,25 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir, reason string) (uint64, err
 	defer func() {
 		if err != nil {
 			e.Mutex.Lock()
-			if createdPolicyMap {
+			if createdIngressPolicyMap {
 				// Remove policy map file only if it was created
 				// in this update cycle
 				if c != nil {
 					c.RemoveIngressMap(e.IngressPolicyMap)
 				}
 
-				os.RemoveAll(e.PolicyMapPathLocked())
+				os.RemoveAll(e.IngressPolicyMapPathLocked())
 				e.IngressPolicyMap = nil
+			}
+
+			// TODO (ianvernon) - refactor?
+			if createdEgressPolicyMap {
+				if c != nil {
+					c.RemoveEgressMap(e.EgressPolicyMap)
+				}
+
+				os.RemoveAll(e.EgressPolicyMapPathLocked())
+				e.EgressPolicyMap = nil
 			}
 			if createdIPv6IngressMap {
 				e.L3Maps.DestroyBpfMap(IPv6Ingress, e.IPv6IngressMapPathLocked())
@@ -535,7 +546,7 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir, reason string) (uint64, err
 
 	// Create policy maps on the first pass
 	if e.IngressPolicyMap == nil {
-		e.IngressPolicyMap, createdPolicyMap, err = policymap.OpenMap(e.PolicyMapPathLocked())
+		e.IngressPolicyMap, createdIngressPolicyMap, err = policymap.OpenMap(e.IngressPolicyMapPathLocked())
 		if err != nil {
 			e.Mutex.Unlock()
 			return 0, err
@@ -549,6 +560,23 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir, reason string) (uint64, err
 		}
 	}
 
+	if e.EgressPolicyMap == nil {
+		e.EgressPolicyMap, createdEgressPolicyMap, err = policymap.OpenMap(e.EgressPolicyMapPathLocked())
+		if err != nil {
+			e.Mutex.Unlock()
+			return 0, err
+		}
+
+		// Clean up map contents
+		// TODO (ianvernon) - use endpoint logger?
+		log.Debugf("Flushing old egress policy map")
+		err = e.EgressPolicyMap.Flush()
+		if err != nil {
+			e.Mutex.Unlock()
+			return 0, err
+		}
+	}
+
 	var (
 		modifiedRules, deletedRules policy.SecurityIDContexts
 		policyChanged               bool
@@ -556,14 +584,15 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir, reason string) (uint64, err
 	// Only generate & populate policy map if a seclabel and consumer model is set up
 	if c != nil {
 		c.AddIngressMap(e.IngressPolicyMap)
+		c.AddEgressMap(e.EgressPolicyMap)
 
 		// Regenerate policy and apply any options resulting in the
 		// policy change.
-		// This also populates e.IngressPolicyMap
+		// This also populates e.IngressPolicyMap (TODO (ianvernon) - and e.EgressPolicyMap??)
 		policyChanged, modifiedRules, deletedRules, err = e.regeneratePolicy(owner, nil)
 		if err != nil {
 			e.Mutex.Unlock()
-			return 0, fmt.Errorf("Unable to regenerate policy for '%s': %s", e.IngressPolicyMap.String(), err)
+			return 0, fmt.Errorf("Unable to regenerate policy for '%s' and '%s': %s", e.IngressPolicyMap.String(), e.EgressPolicyMap.String(), err)
 		}
 		// policyChanged can still be true and, at the same time,
 		// the modifiedRules be nil. If this happens it means

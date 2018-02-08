@@ -23,11 +23,21 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-// Consumer is the entity that consumes a Consumable. It identifies a source
-// security identity and an allow/deny decision for traffic from that identity.
+// Consumer identifies a source security identity. Its lifetime is defined by the
+// policy calculation and generation of a Consumable. Consumers are added to
+// various structures within a Consumable to refer to whether the Consumable is
+// allowed to communicate with said Consumer.
 type Consumer struct {
+	// ID represents the security identity of this consumer.
 	ID           NumericIdentity
+
+	// TODO (ianvernon) - is this even used? Seems like it's never actually set to anything.
 	Reverse      *Consumer
+
+	// DeletionMark specifies whether this Consumer should be kept as part of a
+	// Consumable after the Consumable's policy. If marked as true, this
+	// Consumer has been determined to not be allowed to communicate with this consumer's
+	// Consumable.
 	DeletionMark bool
 }
 
@@ -48,7 +58,7 @@ type Consumable struct {
 	ID NumericIdentity `json:"id"`
 	// Mutex protects all variables from this structure below this line
 	Mutex lock.RWMutex
-	// Labels are the Identity of this consumable
+	// Labels are the Identity of this consumable.
 	Labels *Identity `json:"labels"`
 	// LabelArray contains the same labels from identity in a form of a list, used for faster lookup
 	LabelArray labels.LabelArray `json:"-"`
@@ -58,8 +68,11 @@ type Consumable struct {
 	// of an endpoint's bpf policy map.
 	IngressMaps map[int]*policymap.PolicyMap `json:"-"`
 	// IngressConsumers contains the list of allowed consumers for this Consumable.
-	// Index be NumericIdentity (security identity) of each Consumer.
-	IngressConsumers map[NumericIdentity]*Consumer `json:"ingress-consumers"`
+	// In other words, it is a list of security identities from which ingress traffic
+	// is allowed for this Consumable / NumericIdentity. The identities in this map
+	// are used to populate the ingress policy BPF maps.
+	// Indexed by NumericIdentity (security identity) of each Consumer.
+	IngressConsumers map[NumericIdentity]*Consumer `json:"ingress-identities"`
 	// ReverseRules contains the consumers that are allowed to receive a reply from this Consumable
 	ReverseRules map[NumericIdentity]*Consumer `json:"-"`
 	// L4Policy contains the policy of this consumable
@@ -73,7 +86,17 @@ type Consumable struct {
 	EgressMaps map[int]*policymap.PolicyMap `json:"-"`
 
 	// TODO (ianvernon)
-	EgressConsumers map[NumericIdentity]*Consumer `json:"egress-consumers"`
+	EgressConsumers map[NumericIdentity]*Consumer `json:"egress-identities"`
+}
+
+func (c *Consumable) LogContents() {
+	for _, v := range c.IngressMaps {
+		log.Debugf("Consumable %d has ingress map: %s", c.ID, v.String())
+	}
+
+	for _, v := range c.EgressMaps {
+		log.Debugf("Consumable %d has egress map %s", c.ID, v.String())
+	}
 }
 
 // NewConsumable creates a new consumable
@@ -430,7 +453,7 @@ func (c *Consumable) AllowEgressConsumerAndReverseLocked(cache *ConsumableCache,
 		}).Debug("Allowing reverse direction")
 		if _, ok := reverse.ReverseRules[c.ID]; !ok {
 			reverse.addToEgressMaps(c.ID)
-			// TODO (ianvernon)
+			// TODO (ianvernon) - how does this map play into egress policy?
 			reverse.ReverseRules[c.ID] = NewConsumer(c.ID)
 			return true
 		}
