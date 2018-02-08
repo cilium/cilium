@@ -558,19 +558,18 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir, reason string) (uint64, err
 
 	// If dry mode is enabled, no further changes to BPF maps are performed
 	if owner.DryModeEnabled() {
+		defer e.Mutex.Unlock()
+
 		// Regenerate policy and apply any options resulting in the
 		// policy change.
 		// Note that e.PolicyMap is not initialized!
 		if _, _, _, err = e.regeneratePolicy(owner, nil); err != nil {
-			e.Mutex.Unlock()
 			return 0, fmt.Errorf("Unable to regenerate policy: %s", err)
 		}
 
 		if err = e.writeHeaderfile(epdir, owner); err != nil {
-			e.Mutex.Unlock()
 			return 0, fmt.Errorf("Unable to write header file: %s", err)
 		}
-		e.Mutex.Unlock()
 
 		log.WithField(logfields.EndpointID, e.ID).Debug("Skipping bpf updates due to dry mode")
 		return e.nextPolicyRevision, nil
@@ -651,6 +650,10 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir, reason string) (uint64, err
 			e.Mutex.Unlock()
 			return 0, fmt.Errorf("Unable to regenerate policy for '%s': %s", e.PolicyMap.String(), err)
 		}
+
+		// Evaluate generated policy to see if changes to connection tracking
+		// need to be made.
+		//
 		// policyChanged can still be true and, at the same time,
 		// the modifiedRules be nil. If this happens it means
 		// the L7 was changed so we need to update the
@@ -698,11 +701,15 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir, reason string) (uint64, err
 		c.Mutex.RUnlock()
 	}
 
+	// Generate header file specific to this endpoint for use in compiling
+	// BPF programs for this endpoint.
 	if err = e.writeHeaderfile(epdir, owner); err != nil {
 		e.Mutex.Unlock()
 		return 0, fmt.Errorf("Unable to write header file: %s", err)
 	}
 
+	// Cache endpoint information
+	// TODO (ianvernon): why do we need to do this?
 	epInfoCache := e.createEpInfoCache()
 	if epInfoCache == nil {
 		e.Mutex.Unlock()
@@ -710,6 +717,8 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir, reason string) (uint64, err
 		return 0, err
 	}
 
+	// Populate maps used for CIDR-based policy. If the maps would be empty,
+	// just delete the maps.
 	if e.L3Policy != nil {
 		if len(e.L3Policy.Ingress.IPv6PrefixCount) > 0 &&
 			e.L3Maps.ResetBpfMap(IPv6Ingress, e.IPv6IngressMapPathLocked()) == nil {
@@ -763,6 +772,7 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir, reason string) (uint64, err
 		return 0, fmt.Errorf("Error while configuring proxy redirects: %s", err)
 	}
 
+	// Compile and install BPF programs for this endpoint
 	err = e.runInit(libdir, rundir, epdir, epInfoCache.ifName, debug)
 	// CT entry clean up should always happen
 	// even if the bpf program build has failed
