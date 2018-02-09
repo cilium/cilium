@@ -166,6 +166,7 @@ func (s *LDSServer) addListener(name string, port uint16, l7rules policy.L7DataM
 		StreamControl: makeStreamControl(resourceName),
 	}
 
+	// RDS server 'listener' lock not held, but no-one else has access to it yet.
 	listener.addCompletion(completions, "addListener "+name)
 
 	// Fill in the listener-specific parts
@@ -194,7 +195,7 @@ func (s *LDSServer) updateListener(name string, l7rules policy.L7DataMap, comple
 	// The set of listeners did not change, so it suffices to
 	// bump the version of the listener, which will trigger only an
 	// RDS update to synchonize the new policy.
-	l.bumpVersionFunc(func() {
+	l.bumpVersionFunc(func() { // func called while RDS server 'l' lock held
 		l.l7rules = l7rules
 		l.addCompletion(completions, "updateListener "+name)
 	})
@@ -211,9 +212,10 @@ func (s *LDSServer) removeListener(name string, completions policy.CompletionCon
 	l.stopHandling()
 	delete(s.listeners, name)
 	delete(s.envoyResources, l.name)
-	s.addCompletion(completions, "removeListener "+name)
 	s.listenersMutex.Unlock()
-	s.bumpVersion()
+	s.bumpVersionFunc(func() { // func called while LDS server 's' lock held
+		s.addCompletion(completions, "removeListener "+name)
+	})
 }
 
 // Find the listener given the Envoy Resource name
