@@ -14,6 +14,9 @@ redirect_debug_logs ${LOGS_DIR}
 
 set -ex
 
+log "${TEST_NAME} has been deprecated. Restore functionality is taken care of by test/runtime/chaos.go"
+exit 0
+
 manangement_dir="${dir}/../cluster"
 
 # To run the restore functionality, we need to remove cilium ds and re-add it
