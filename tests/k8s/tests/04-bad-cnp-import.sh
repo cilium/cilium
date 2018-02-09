@@ -17,6 +17,10 @@ redirect_debug_logs ${LOGS_DIR}
 
 set -ex
 
+log "${TEST_NAME} has been deprecated and replaced by test/runtime/Policies.go:Handles missing required fields"
+exit 0
+
+
 case ${k8s_version} in
 	1.6*)
     bad_policy_path="${dir}/deployments/bad-cnp/no-endpoint-selector-ciliumv1.yaml"
