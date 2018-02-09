@@ -572,6 +572,7 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir, reason string) (uint64, err
 		//
 		// modifiedRules contains if new L4 ports were added/modified and/or
 		// L3 rules were changed
+		c.Mutex.RLock()
 		if policyChanged &&
 			modifiedRules == nil &&
 			c.L4Policy != nil &&
@@ -609,6 +610,7 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir, reason string) (uint64, err
 
 			modifiedRules = c.L3L4Policy.DeepCopy()
 		}
+		c.Mutex.RUnlock()
 	}
 
 	if err = e.writeHeaderfile(epdir, owner); err != nil {
