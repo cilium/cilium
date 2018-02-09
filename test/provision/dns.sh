@@ -3,6 +3,9 @@
 # This script update the dns servers to use google ones.
 set -e
 
+sudo systemctl disable systemd-resolved.service
+sudo service systemd-resolved stop
+
 echo "updating /etc/resolv.conf"
 
 cat <<EOF > /etc/resolv.conf
