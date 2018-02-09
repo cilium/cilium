@@ -335,9 +335,9 @@ func (e *Endpoint) regenerateConsumable(owner Owner, labelsMap *policy.IdentityC
 	)
 
 	// Mark all entries unused by denying them
-	for k := range c.Consumers {
+	for k := range c.IngressIdentities {
 		// Mark as false indicates denying
-		c.Consumers[k] = false
+		c.IngressIdentities[k] = false
 	}
 
 	rulesAdd = policy.NewSecurityIDContexts()
@@ -449,7 +449,7 @@ func (e *Endpoint) regenerateConsumable(owner Owner, labelsMap *policy.IdentityC
 	}
 
 	// Garbage collect all unused entries
-	for val, ok := range c.Consumers {
+	for val, ok := range c.IngressIdentities {
 		if !ok {
 			c.BanConsumerLocked(val)
 			changed = true
@@ -481,7 +481,7 @@ func (e *Endpoint) regenerateConsumable(owner Owner, labelsMap *policy.IdentityC
 
 	e.getLogger().WithFields(logrus.Fields{
 		logfields.Identity: c.ID,
-		"consumers":        logfields.Repr(c.Consumers),
+		"consumers":        logfields.Repr(c.IngressIdentities),
 		"rulesAdd":         rulesAdd,
 		"l4Rm":             l4Rm,
 		"rulesRm":          rulesRm,

@@ -25,7 +25,7 @@ import (
 
 // Consumable is the entity that is being consumed by a Consumer. It holds all
 // of the policies relevant to this security identity, including label-based
-// policies which act on Consumers, and L4Policy.
+// policies which act on IngressIdentities, and L4Policy.
 type Consumable struct {
 	// ID of the consumable (same as security ID)
 	ID NumericIdentity `json:"id"`
@@ -39,9 +39,13 @@ type Consumable struct {
 	Iteration uint64 `json:"-"`
 	// Map from bpf map fd to the policymap, the go representation of an endpoint's bpf policy map.
 	Maps map[int]*policymap.PolicyMap `json:"-"`
-	// Consumers contains the list of consumers where the key is the Consumers ID
-	Consumers map[NumericIdentity]bool `json:"consumers"`
-	// ReverseRules contains the consumers that are allowed to receive a reply from this Consumable
+	// IngressIdentities contains the set of identities from which ingress traffic
+	// is allowed. The value represents whether the element is valid after policy
+	// recalculation.
+	IngressIdentities map[NumericIdentity]bool `json:"consumers"`
+	// ReverseRules contains the set of identities that are allowed to receive a
+	// reply from this Consumable. The value represents whether the element is
+	// valid after policy recalculation.
 	ReverseRules map[NumericIdentity]bool `json:"-"`
 	// L4Policy contains the policy of this consumable
 	L4Policy *L4Policy `json:"l4-policy"`
@@ -53,13 +57,13 @@ type Consumable struct {
 // NewConsumable creates a new consumable
 func NewConsumable(id NumericIdentity, lbls *Identity, cache *ConsumableCache) *Consumable {
 	consumable := &Consumable{
-		ID:           id,
-		Iteration:    0,
-		Labels:       lbls,
-		Maps:         map[int]*policymap.PolicyMap{},
-		Consumers:    map[NumericIdentity]bool{},
-		ReverseRules: map[NumericIdentity]bool{},
-		cache:        cache,
+		ID:                id,
+		Iteration:         0,
+		Labels:            lbls,
+		Maps:              map[int]*policymap.PolicyMap{},
+		IngressIdentities: map[NumericIdentity]bool{},
+		ReverseRules:      map[NumericIdentity]bool{},
+		cache:             cache,
 	}
 	if lbls != nil {
 		consumable.LabelArray = lbls.Labels.ToSlice()
@@ -100,7 +104,7 @@ func (c *Consumable) AddMap(m *policymap.PolicyMap) {
 
 	// Populate the new map with the already established consumers of
 	// this consumable
-	for c := range c.Consumers {
+	for c := range c.IngressIdentities {
 		if err := m.AllowIdentity(c.Uint32()); err != nil {
 			log.WithError(err).Warn("Update of policy map failed")
 		}
@@ -126,7 +130,7 @@ func (c *Consumable) deleteReverseRule(consumable NumericIdentity, consumer Nume
 }
 
 func (c *Consumable) delete() {
-	for consumer := range c.Consumers {
+	for consumer := range c.IngressIdentities {
 		// FIXME: This explicit removal could be removed eventually to
 		// speed things up as the policy map should get deleted anyway
 		if c.wasLastRule(consumer) {
@@ -163,7 +167,7 @@ func (c *Consumable) RemoveMap(m *policymap.PolicyMap) {
 }
 
 func (c *Consumable) getConsumer(id NumericIdentity) bool {
-	val, _ := c.Consumers[id]
+	val, _ := c.IngressIdentities[id]
 	return val
 }
 
@@ -186,7 +190,7 @@ func (c *Consumable) addToMaps(id NumericIdentity) {
 }
 
 func (c *Consumable) wasLastRule(id NumericIdentity) bool {
-	return c.ReverseRules[id] == false && c.Consumers[id] == false
+	return c.ReverseRules[id] == false && c.IngressIdentities[id] == false
 }
 
 func (c *Consumable) removeFromMaps(id NumericIdentity) {
@@ -214,7 +218,7 @@ func (c *Consumable) AllowConsumerLocked(cache *ConsumableCache, id NumericIdent
 			"consumable":       logfields.Repr(c),
 		}).Debug("New consumer Identity for consumable")
 		c.addToMaps(id)
-		c.Consumers[id] = true
+		c.IngressIdentities[id] = true
 		return true
 	}
 
@@ -253,9 +257,9 @@ func (c *Consumable) AllowConsumerAndReverseLocked(cache *ConsumableCache, id Nu
 // BanConsumerLocked removes the given consumer from the Consumable's consumers
 // map. Must be called with the Consumable mutex locked.
 func (c *Consumable) BanConsumerLocked(id NumericIdentity) {
-	if consumer, ok := c.Consumers[id]; ok {
+	if consumer, ok := c.IngressIdentities[id]; ok {
 		log.WithField("consumer", logfields.Repr(consumer)).Debug("Removing consumer")
-		delete(c.Consumers, id)
+		delete(c.IngressIdentities, id)
 
 		if c.wasLastRule(id) {
 			c.removeFromMaps(id)
