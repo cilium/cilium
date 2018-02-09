@@ -41,7 +41,7 @@ type Consumable struct {
 	// IngressIdentities is the set of security identities from which ingress
 	// traffic is allowed. The value corresponds to whether the corresponding
 	// key (security identity) should be garbage collected upon policy calculation.
-	IngressIdentities map[NumericIdentity]bool `json:"ingress-identities"`
+	IngressIdentities map[NumericIdentity]bool `json:"allowed-ingress-security-identities"`
 	// ReverseRules contains the security identities that are allowed to receive
 	// a reply from this Consumable.
 	ReverseRules map[NumericIdentity]bool `json:"-"`
