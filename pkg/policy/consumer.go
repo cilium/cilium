@@ -28,7 +28,6 @@ import (
 // security identity and an allow/deny decision for traffic from that identity.
 type Consumer struct {
 	ID           NumericIdentity
-	Reverse      *Consumer
 	DeletionMark bool
 }
 
@@ -276,10 +275,6 @@ func (c *Consumable) BanConsumerLocked(id NumericIdentity) {
 
 		if c.wasLastRule(id) {
 			c.removeFromMaps(id)
-		}
-
-		if consumer.Reverse != nil {
-			c.deleteReverseRule(id, c.ID)
 		}
 	}
 }
