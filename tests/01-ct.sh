@@ -11,6 +11,10 @@ redirect_debug_logs ${LOGS_DIR}
 
 set -ex
 
+log "${TEST_NAME} has been deprecated and replaced by test/runtime/connectivity.go"
+exit 0
+
+
 function cleanup {
   docker rm -f server client httpd1 httpd2 curl curl2 2> /dev/null || true
   monitor_stop
