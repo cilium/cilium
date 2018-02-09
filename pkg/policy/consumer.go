@@ -31,14 +31,6 @@ type Consumer struct {
 	DeletionMark bool
 }
 
-func (c *Consumer) StringID() string {
-	return c.ID.String()
-}
-
-func NewConsumer(id NumericIdentity) *Consumer {
-	return &Consumer{ID: id}
-}
-
 // Consumable is the entity that is being consumed by a Consumer. It holds all
 // of the policies relevant to this security identity, including label-based
 // policies which act on Consumers, and L4Policy.
@@ -230,7 +222,7 @@ func (c *Consumable) AllowConsumerLocked(cache *ConsumableCache, id NumericIdent
 			"consumable":       logfields.Repr(c),
 		}).Debug("New consumer Identity for consumable")
 		c.addToMaps(id)
-		c.Consumers[id] = NewConsumer(id)
+		c.Consumers[id] = &Consumer{ID: id}
 		return true
 	}
 	consumer.DeletionMark = false
@@ -255,7 +247,7 @@ func (c *Consumable) AllowConsumerAndReverseLocked(cache *ConsumableCache, id Nu
 		}).Debug("Allowing reverse direction")
 		if _, ok := reverse.ReverseRules[c.ID]; !ok {
 			reverse.addToMaps(c.ID)
-			reverse.ReverseRules[c.ID] = NewConsumer(c.ID)
+			reverse.ReverseRules[c.ID] = &Consumer{ID: id}
 			return true
 		}
 	}
