@@ -24,6 +24,9 @@ redirect_debug_logs ${LOGS_DIR}
 
 set -ex
 
+log "${TEST_NAME} has been deprecated and replaced by test/runtime/lb.go"
+exit 0
+
 #cilium config ConntrackLocal=true
 
 NETPERF_IMAGE="tgraf/netperf"
