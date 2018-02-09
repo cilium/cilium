@@ -11,6 +11,9 @@ redirect_debug_logs ${LOGS_DIR}
 
 set -ex
 
+log "${TEST_NAME} has been deprecated and replaced by test/runtime/Policies.go:RuntimeValidatedPolicyEnforcement"
+exit 0
+
 TEST_NET="cilium-net"
 NUM_ENDPOINTS="3"
 
