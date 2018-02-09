@@ -129,7 +129,15 @@ static inline int lb6_select_slave(struct __sk_buff *skb,
 	__u32 hash = lb_enforce_rehash(skb);
 	int slave = 0;
 
-#ifdef HAVE_MAP_VAL_ADJ
+/* Disabled for now since on older kernels dynamic map access
+ * will cause a significant complexity increase for the entire
+ * program due to pruning having less opportunities matching
+ * register state in the verifier. For later kernels this is
+ * less of a problem, so we can enabled to in future based on
+ * changing the HAVE_MAP_VAL_ADJ probe. Thus just do the slave
+ * selection based on hash instead of hash w/ weights.
+ */
+#if 0 /* HAVE_MAP_VAL_ADJ */
 	if (weight) {
 		struct lb_sequence *seq;
 
@@ -155,7 +163,15 @@ static inline int lb4_select_slave(struct __sk_buff *skb,
 	__u32 hash = lb_enforce_rehash(skb);
 	int slave = 0;
 
-#ifdef HAVE_MAP_VAL_ADJ
+/* Disabled for now since on older kernels dynamic map access
+ * will cause a significant complexity increase for the entire
+ * program due to pruning having less opportunities matching
+ * register state in the verifier. For later kernels this is
+ * less of a problem, so we can enabled to in future based on
+ * changing the HAVE_MAP_VAL_ADJ probe. Thus just do the slave
+ * selection based on hash instead of hash w/ weights.
+ */
+#if 0 /* HAVE_MAP_VAL_ADJ */
 	if (weight) {
 		struct lb_sequence *seq;
 
