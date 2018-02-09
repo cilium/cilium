@@ -23,13 +23,6 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-// Consumer is the entity that consumes a Consumable. It identifies a source
-// security identity and an allow/deny decision for traffic from that identity.
-type Consumer struct {
-	ID           NumericIdentity
-	DeletionMark bool
-}
-
 // Consumable is the entity that is being consumed by a Consumer. It holds all
 // of the policies relevant to this security identity, including label-based
 // policies which act on Consumers, and L4Policy.
