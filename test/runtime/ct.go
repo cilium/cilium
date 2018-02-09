@@ -126,6 +126,11 @@ var _ = Describe("RuntimeValidatedConntrackTable", func() {
 	})
 
 	AfterEach(func() {
+		if CurrentGinkgoTestDescription().Failed {
+			vm.ReportFailed(
+				"sudo cilium bpf ct list global",
+				"sudo cilium endpoint list")
+		}
 		vm.PolicyDelAll()
 		netcatPort = 11111
 		containers(helpers.Delete)
