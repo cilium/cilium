@@ -10,11 +10,3 @@ vagrant destroy -f || echo "Nothing to destroy"
 
 echo "Starting runtime test VM"
 NO_PROVISION=1 ./contrib/vagrant/start.sh
-
-cd tests/k8s
-
-echo "Destorying K8s VMs if they are already running"
-vagrant destroy -f || echo "Nothing to destroy"
-
-echo "Starting K8s VMs"
-VAGRANT_DEFAULT_PROVIDER=virtualbox vagrant up --provider=virtualbox --no-provision
