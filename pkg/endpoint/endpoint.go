@@ -268,8 +268,7 @@ type Endpoint struct {
 	// PortMap is port mapping configuration of the endpoint
 	PortMap []PortMap // Port mapping used for this endpoint.
 
-	// Consumable is the list of allowed consumers of this endpoint. This
-	// is populated based on the policy.
+	// Consumable represents the security-identity-based policy for this endpoint.
 	Consumable *policy.Consumable `json:"-"`
 
 	// L4Policy is the L4Policy in effect for the
@@ -587,15 +586,15 @@ func (e *Endpoint) GetPolicyModel() *models.EndpointPolicy {
 	e.Consumable.Mutex.RLock()
 	defer e.Consumable.Mutex.RUnlock()
 
-	consumers := []int64{}
-	for v := range e.Consumable.IngressIdentities {
-		consumers = append(consumers, int64(v))
+	ingressIdentities := []int64{}
+	for ingressIdentity := range e.Consumable.IngressIdentities {
+		ingressIdentities = append(ingressIdentities, int64(ingressIdentity))
 	}
 
 	return &models.EndpointPolicy{
 		ID:               int64(e.Consumable.ID),
 		Build:            int64(e.Consumable.Iteration),
-		AllowedConsumers: consumers,
+		AllowedConsumers: ingressIdentities,
 		CidrPolicy:       e.L3Policy.GetModel(),
 		L4:               e.Consumable.L4Policy.GetModel(),
 	}

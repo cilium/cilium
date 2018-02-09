@@ -48,8 +48,8 @@ var (
 	IdentitiesPath = path.Join(kvstore.BaseKeyPrefix, "state", "identities", "v1")
 )
 
-// NumericIdentity represents an identity of an entity to which consumer policy
-// can be applied to.
+// NumericIdentity is the numeric representation of a security identity / a
+// security policy.
 type NumericIdentity uint32
 
 func ParseNumericIdentity(id string) (NumericIdentity, error) {

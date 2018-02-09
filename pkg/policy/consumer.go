@@ -23,9 +23,8 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-// Consumable is the entity that is being consumed by a Consumer. It holds all
-// of the policies relevant to this security identity, including label-based
-// policies which act on IngressIdentities, and L4Policy.
+// Consumable holds all of the policies relevant to this security identity,
+// including label-based policies, L4Policy, and L7 policy.
 type Consumable struct {
 	// ID of the consumable (same as security ID)
 	ID NumericIdentity `json:"id"`
@@ -39,12 +38,12 @@ type Consumable struct {
 	Iteration uint64 `json:"-"`
 	// Map from bpf map fd to the policymap, the go representation of an endpoint's bpf policy map.
 	Maps map[int]*policymap.PolicyMap `json:"-"`
-	// IngressIdentities contains the set of identities from which ingress traffic
-	// is allowed. The value represents whether the element is valid after policy
-	// recalculation.
+	// IngressIdentities is the set of security identities from which ingress
+	// traffic is allowed. The value corresponds to whether the corresponding
+	// key (security identity) should be garbage collected upon policy calculation.
 	IngressIdentities map[NumericIdentity]bool `json:"consumers"`
-	// ReverseRules contains the set of identities that are allowed to receive a
-	// reply from this Consumable. The value represents whether the element is
+	// ReverseRules contains the security identities that are allowed to receive
+	// a reply from this Consumable. The value represents whether the element is
 	// valid after policy recalculation.
 	ReverseRules map[NumericIdentity]bool `json:"-"`
 	// L4Policy contains the policy of this consumable
@@ -102,42 +101,42 @@ func (c *Consumable) AddMap(m *policymap.PolicyMap) {
 	}).Debug("Adding policy map to consumable")
 	c.Maps[m.Fd] = m
 
-	// Populate the new map with the already established consumers of
-	// this consumable
-	for c := range c.IngressIdentities {
-		if err := m.AllowIdentity(c.Uint32()); err != nil {
+	// Populate the new map with the already established allowed identities from
+	// which ingress traffic is allowed.
+	for ingressIdentity := range c.IngressIdentities {
+		if err := m.AllowIdentity(ingressIdentity.Uint32()); err != nil {
 			log.WithError(err).Warn("Update of policy map failed")
 		}
 	}
 }
 
-func (c *Consumable) deleteReverseRule(consumable NumericIdentity, consumer NumericIdentity) {
+func (c *Consumable) deleteReverseRule(reverseConsumable NumericIdentity, identityToRemove NumericIdentity) {
 	if c.cache == nil {
-		log.WithField("consumer", consumer).Error("Consumable without cache association")
+		log.WithField("identityToRemove", identityToRemove).Error("Consumable without cache association")
 		return
 	}
 
-	if reverse := c.cache.Lookup(consumable); reverse != nil {
+	if reverse := c.cache.Lookup(reverseConsumable); reverse != nil {
 		// In case Conntrack is disabled, we'll find a reverse
 		// policy rule here that we can delete.
-		if _, ok := reverse.ReverseRules[consumer]; ok {
-			delete(reverse.ReverseRules, consumer)
-			if reverse.wasLastRule(consumer) {
-				reverse.removeFromMaps(consumer)
+		if _, ok := reverse.ReverseRules[identityToRemove]; ok {
+			delete(reverse.ReverseRules, identityToRemove)
+			if reverse.wasLastRule(identityToRemove) {
+				reverse.removeFromMaps(identityToRemove)
 			}
 		}
 	}
 }
 
 func (c *Consumable) delete() {
-	for consumer := range c.IngressIdentities {
+	for ingressIdentity := range c.IngressIdentities {
 		// FIXME: This explicit removal could be removed eventually to
 		// speed things up as the policy map should get deleted anyway
-		if c.wasLastRule(consumer) {
-			c.removeFromMaps(consumer)
+		if c.wasLastRule(ingressIdentity) {
+			c.removeFromMaps(ingressIdentity)
 		}
 
-		c.deleteReverseRule(consumer, c.ID)
+		c.deleteReverseRule(ingressIdentity, c.ID)
 	}
 
 	if c.cache != nil {
@@ -166,7 +165,7 @@ func (c *Consumable) RemoveMap(m *policymap.PolicyMap) {
 
 }
 
-func (c *Consumable) getConsumer(id NumericIdentity) bool {
+func (c *Consumable) isIdentityAllowed(id NumericIdentity) bool {
 	val, _ := c.IngressIdentities[id]
 	return val
 }
@@ -207,16 +206,17 @@ func (c *Consumable) removeFromMaps(id NumericIdentity) {
 	}
 }
 
-// AllowConsumerLocked adds the given consumer ID to the Consumable's
-// consumers map. Must be called with Consumable mutex Locked.
-// returns true if changed, false if not
-func (c *Consumable) AllowConsumerLocked(cache *ConsumableCache, id NumericIdentity) bool {
-	consumer := c.getConsumer(id)
-	if consumer == false {
+// AllowIngressIdentityLocked adds the given security identity to the Consumable's
+// IngressIdentities map. Must be called with Consumable mutex Locked.
+// Returns true if the identity was not present in this Consumable's
+// IngressIdentities map, and thus had to be added, false if it is already added.
+func (c *Consumable) AllowIngressIdentityLocked(cache *ConsumableCache, id NumericIdentity) bool {
+	isIdentityAllowed := c.isIdentityAllowed(id)
+	if isIdentityAllowed == false {
 		log.WithFields(logrus.Fields{
 			logfields.Identity: id,
 			"consumable":       logfields.Repr(c),
-		}).Debug("New consumer Identity for consumable")
+		}).Debug("New ingress security identity for consumable")
 		c.addToMaps(id)
 		c.IngressIdentities[id] = true
 		return true
@@ -225,16 +225,18 @@ func (c *Consumable) AllowConsumerLocked(cache *ConsumableCache, id NumericIdent
 	return false // not changed.
 }
 
-// AllowConsumerAndReverseLocked adds the given consumer ID to the Consumable's
-// consumers map and the given consumable to the given consumer's consumers map.
+// AllowIngressIdentityAndReverseLocked adds the given security identity to the
+// Consumable's IngressIdentities map and BPF policy map, as well as this
+// Consumable's security identity to the Consumable representing id's Ingress
+// Identities map and its BPF policy map.
 // Must be called with Consumable mutex Locked.
-// returns true if changed, false if not
-func (c *Consumable) AllowConsumerAndReverseLocked(cache *ConsumableCache, id NumericIdentity) bool {
+// Returns true if changed, false if not.
+func (c *Consumable) AllowIngressIdentityAndReverseLocked(cache *ConsumableCache, id NumericIdentity) bool {
 	log.WithFields(logrus.Fields{
 		logfields.Identity + ".from": id,
 		logfields.Identity + ".to":   c.ID,
 	}).Debug("Allowing direction")
-	changed := c.AllowConsumerLocked(cache, id)
+	changed := c.AllowIngressIdentityLocked(cache, id)
 
 	if reverse := cache.Lookup(id); reverse != nil {
 		log.WithFields(logrus.Fields{
@@ -250,15 +252,16 @@ func (c *Consumable) AllowConsumerAndReverseLocked(cache *ConsumableCache, id Nu
 	log.WithFields(logrus.Fields{
 		logfields.Identity + ".from": c.ID,
 		logfields.Identity + ".to":   id,
-	}).Warn("Allowed a consumer which can't be found in the reverse direction")
+	}).Warn("Allowed an ingress security identity which can't be found in the reverse direction")
 	return changed
 }
 
-// BanConsumerLocked removes the given consumer from the Consumable's consumers
-// map. Must be called with the Consumable mutex locked.
-func (c *Consumable) BanConsumerLocked(id NumericIdentity) {
-	if consumer, ok := c.IngressIdentities[id]; ok {
-		log.WithField("consumer", logfields.Repr(consumer)).Debug("Removing consumer")
+// RemoveIngressIdentityLocked removes the given security identity from Consumable's
+// IngressIdentities map.
+// Must be called with the Consumable mutex locked.
+func (c *Consumable) RemoveIngressIdentityLocked(id NumericIdentity) {
+	if _, ok := c.IngressIdentities[id]; ok {
+		log.WithField(logfields.Identity, id).Debug("Removing ingress identity")
 		delete(c.IngressIdentities, id)
 
 		if c.wasLastRule(id) {
@@ -269,7 +272,7 @@ func (c *Consumable) BanConsumerLocked(id NumericIdentity) {
 
 func (c *Consumable) Allows(id NumericIdentity) bool {
 	c.Mutex.RLock()
-	consumer := c.getConsumer(id)
+	identityAllowed := c.isIdentityAllowed(id)
 	c.Mutex.RUnlock()
-	return consumer != false
+	return identityAllowed != false
 }
