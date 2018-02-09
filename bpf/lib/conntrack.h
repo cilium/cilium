@@ -111,8 +111,6 @@ static inline int __inline__ __ct_lookup(void *map, struct __sk_buff *skb,
 			}
 			break;
 		case ACTION_CLOSE:
-			relax_verifier();
-
 			/* RST or similar, immediately delete ct entry */
 			if (dir == CT_INGRESS)
 				entry->rx_closing = 1;
