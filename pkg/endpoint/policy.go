@@ -336,7 +336,8 @@ func (e *Endpoint) regenerateConsumable(owner Owner, labelsMap *policy.IdentityC
 
 	// Mark all entries unused by denying them
 	for k := range c.Consumers {
-		c.Consumers[k].DeletionMark = true
+		// Mark as false indicates denying
+		c.Consumers[k] = false
 	}
 
 	rulesAdd = policy.NewSecurityIDContexts()
@@ -448,28 +449,27 @@ func (e *Endpoint) regenerateConsumable(owner Owner, labelsMap *policy.IdentityC
 	}
 
 	// Garbage collect all unused entries
-	for _, val := range c.Consumers {
-		if val.DeletionMark {
-			val.DeletionMark = false
-			c.BanConsumerLocked(val.ID)
+	for val, ok := range c.Consumers {
+		if !ok {
+			c.BanConsumerLocked(val)
 			changed = true
 			// Since we have removed a consumer, the L3 rule should be
 			// also be marked as removed. But only if it was not previously
 			// created by a L3-L4 rule.
-			if _, ok := rulesRm[val.ID]; !ok {
-				rulesRm[val.ID] = policy.NewL4RuleContexts()
+			if _, ok := rulesRm[val]; !ok {
+				rulesRm[val] = policy.NewL4RuleContexts()
 			}
 			// If the L3 rule was removed then we also need to remove it from
 			// the rulesAdded.
-			if _, ok := rulesAdd[val.ID]; ok {
-				delete(rulesAdd, val.ID)
+			if _, ok := rulesAdd[val]; ok {
+				delete(rulesAdd, val)
 			}
 		} else {
 			// Since we have (re)added a consumer, the L3 rule should be
 			// also be marked as added. But only if it was not previously
 			// created by a L3-L4 rule.
-			if _, ok := rulesAdd[val.ID]; !ok {
-				rulesAdd[val.ID] = policy.NewL4RuleContexts()
+			if _, ok := rulesAdd[val]; !ok {
+				rulesAdd[val] = policy.NewL4RuleContexts()
 			}
 		}
 	}

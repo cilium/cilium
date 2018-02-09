@@ -16,8 +16,6 @@ package policy
 
 import (
 	. "gopkg.in/check.v1"
-
-	"github.com/cilium/cilium/pkg/policy/api"
 )
 
 const (
@@ -25,11 +23,6 @@ const (
 	CONSUMER_ID2 = NumericIdentity(20)
 	CONSUMER_ID3 = NumericIdentity(30)
 )
-
-func (s *PolicyTestSuite) TestNewConsumer(c *C) {
-	consumer := &Consumer{ID: CONSUMER_ID1}
-	c.Assert(consumer.ID, Equals, CONSUMER_ID1)
-}
 
 func (s *PolicyTestSuite) TestGetConsumer(c *C) {
 	cache := newConsumableCache()
@@ -53,25 +46,25 @@ func (s *PolicyTestSuite) TestConsumer(c *C) {
 	c1.AllowConsumerLocked(cache, CONSUMER_ID2)
 	c.Assert(c1.Allows(CONSUMER_ID2), Equals, true)
 	consumer1 := c1.getConsumer(CONSUMER_ID2)
-	c.Assert(consumer1.ID, Equals, CONSUMER_ID2)
+	c.Assert(consumer1, Equals, true)
 
 	c1.AllowConsumerLocked(cache, CONSUMER_ID2)
 	c.Assert(c1.Allows(CONSUMER_ID2), Equals, true)
 	consumer2 := c1.getConsumer(CONSUMER_ID2)
-	c.Assert(consumer2.ID, Equals, CONSUMER_ID2)
+	c.Assert(consumer2, Equals, true)
 
 	c1.AllowConsumerLocked(cache, CONSUMER_ID3)
 	c.Assert(c1.Allows(CONSUMER_ID3), Equals, true)
 	consumer3 := c1.getConsumer(CONSUMER_ID3)
-	c.Assert(consumer3.ID, Equals, CONSUMER_ID3)
+	c.Assert(consumer3, Equals, true)
 
 	c1.BanConsumerLocked(CONSUMER_ID2)
 	c.Assert(c1.Allows(CONSUMER_ID2), Equals, false)
 	consumer2 = c1.getConsumer(CONSUMER_ID2)
-	c.Assert(consumer2, IsNil)
+	c.Assert(consumer2, Equals, false)
 
 	c1.BanConsumerLocked(CONSUMER_ID3)
 	c.Assert(c1.Allows(CONSUMER_ID3), Equals, false)
 	consumer3 = c1.getConsumer(CONSUMER_ID3)
-	c.Assert(consumer3, IsNil)
+	c.Assert(consumer3, Equals, false)
 }

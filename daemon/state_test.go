@@ -85,7 +85,7 @@ func endpointCreator(id uint16, secID policy.NumericIdentity) *e.Endpoint {
 			},
 		},
 		Maps:         map[int]*policymap.PolicyMap{},
-		Consumers:    map[policy.NumericIdentity]*policy.Consumer{},
+		Consumers:    map[policy.NumericIdentity]bool{},
 		ReverseRules: map[policy.NumericIdentity]*policy.Consumer{},
 	}
 	return ep
