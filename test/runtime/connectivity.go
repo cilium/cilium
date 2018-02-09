@@ -13,7 +13,7 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-var _ = Describe("RuntimeConnectivityTest", func() {
+var _ = Describe("RuntimeValidatedConnectivityTest", func() {
 
 	var once sync.Once
 	var logger *logrus.Entry
@@ -43,7 +43,7 @@ var _ = Describe("RuntimeConnectivityTest", func() {
 		return
 	})
 
-	Context("Basic Connectivy test", func() {
+	Context("Basic Connectivity test", func() {
 
 		BeforeEach(func() {
 			vm.ContainerCreate(helpers.Client, helpers.NetperfImage, helpers.CiliumDockerNetwork, "-l id.client")
@@ -275,7 +275,7 @@ var _ = Describe("RuntimeConnectivityTest", func() {
 	})
 })
 
-var _ = Describe("RuntimeConntrackTest", func() {
+var _ = Describe("RuntimeValidatedConntrackTest", func() {
 	var logger *logrus.Entry
 	var vm *helpers.SSHMeta
 	var once sync.Once
