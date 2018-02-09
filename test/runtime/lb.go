@@ -26,7 +26,7 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-var _ = Describe("RuntimeLB", func() {
+var _ = Describe("RuntimeValidatedLB", func() {
 
 	var once sync.Once
 	var logger *logrus.Entry
