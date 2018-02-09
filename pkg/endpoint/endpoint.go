@@ -995,7 +995,7 @@ func (e *Endpoint) RemoveFromGlobalPolicyMap() error {
 	if err == nil {
 		// We need to remove ourselves from global map, so that
 		// resources (prog/map reference counts) can be released.
-		gpm.DeleteConsumer(uint32(e.ID))
+		gpm.DeleteIdentity(uint32(e.ID))
 		gpm.Close()
 	}
 
