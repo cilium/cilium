@@ -588,8 +588,8 @@ func (e *Endpoint) GetPolicyModel() *models.EndpointPolicy {
 	defer e.Consumable.Mutex.RUnlock()
 
 	consumers := []int64{}
-	for _, v := range e.Consumable.Consumers {
-		consumers = append(consumers, int64(v.ID))
+	for v := range e.Consumable.Consumers {
+		consumers = append(consumers, int64(v))
 	}
 
 	return &models.EndpointPolicy{

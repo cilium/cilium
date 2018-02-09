@@ -19,7 +19,6 @@ import (
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/policymap"
-	"github.com/cilium/cilium/pkg/policy/api"
 
 	"github.com/sirupsen/logrus"
 )
@@ -48,7 +47,7 @@ type Consumable struct {
 	// Map from bpf map fd to the policymap, the go representation of an endpoint's bpf policy map.
 	Maps map[int]*policymap.PolicyMap `json:"-"`
 	// Consumers contains the list of consumers where the key is the Consumers ID
-	Consumers map[NumericIdentity]*Consumer `json:"consumers"`
+	Consumers map[NumericIdentity]bool `json:"consumers"`
 	// ReverseRules contains the consumers that are allowed to receive a reply from this Consumable
 	ReverseRules map[NumericIdentity]*Consumer `json:"-"`
 	// L4Policy contains the policy of this consumable
@@ -65,7 +64,7 @@ func NewConsumable(id NumericIdentity, lbls *Identity, cache *ConsumableCache) *
 		Iteration:    0,
 		Labels:       lbls,
 		Maps:         map[int]*policymap.PolicyMap{},
-		Consumers:    map[NumericIdentity]*Consumer{},
+		Consumers:    map[NumericIdentity]bool{},
 		ReverseRules: map[NumericIdentity]*Consumer{},
 		cache:        cache,
 	}
@@ -108,8 +107,8 @@ func (c *Consumable) AddMap(m *policymap.PolicyMap) {
 
 	// Populate the new map with the already established consumers of
 	// this consumable
-	for _, c := range c.Consumers {
-		if err := m.AllowConsumer(c.ID.Uint32()); err != nil {
+	for c := range c.Consumers {
+		if err := m.AllowConsumer(c.Uint32()); err != nil {
 			log.WithError(err).Warn("Update of policy map failed")
 		}
 	}
@@ -134,14 +133,14 @@ func (c *Consumable) deleteReverseRule(consumable NumericIdentity, consumer Nume
 }
 
 func (c *Consumable) delete() {
-	for _, consumer := range c.Consumers {
+	for consumer := range c.Consumers {
 		// FIXME: This explicit removal could be removed eventually to
 		// speed things up as the policy map should get deleted anyway
-		if c.wasLastRule(consumer.ID) {
-			c.removeFromMaps(consumer.ID)
+		if c.wasLastRule(consumer) {
+			c.removeFromMaps(consumer)
 		}
 
-		c.deleteReverseRule(consumer.ID, c.ID)
+		c.deleteReverseRule(consumer, c.ID)
 	}
 
 	if c.cache != nil {
@@ -170,7 +169,7 @@ func (c *Consumable) RemoveMap(m *policymap.PolicyMap) {
 
 }
 
-func (c *Consumable) getConsumer(id NumericIdentity) *Consumer {
+func (c *Consumable) getConsumer(id NumericIdentity) bool {
 	val, _ := c.Consumers[id]
 	return val
 }
@@ -194,7 +193,7 @@ func (c *Consumable) addToMaps(id NumericIdentity) {
 }
 
 func (c *Consumable) wasLastRule(id NumericIdentity) bool {
-	return c.ReverseRules[id] == nil && c.Consumers[id] == nil
+	return c.ReverseRules[id] == nil && c.Consumers[id] == false
 }
 
 func (c *Consumable) removeFromMaps(id NumericIdentity) {
@@ -216,16 +215,16 @@ func (c *Consumable) removeFromMaps(id NumericIdentity) {
 // returns true if changed, false if not
 func (c *Consumable) AllowConsumerLocked(cache *ConsumableCache, id NumericIdentity) bool {
 	consumer := c.getConsumer(id)
-	if consumer == nil {
+	if consumer == false {
 		log.WithFields(logrus.Fields{
 			logfields.Identity: id,
 			"consumable":       logfields.Repr(c),
 		}).Debug("New consumer Identity for consumable")
 		c.addToMaps(id)
-		c.Consumers[id] = &Consumer{ID: id}
+		c.Consumers[id] = true
 		return true
 	}
-	consumer.DeletionMark = false
+
 	return false // not changed.
 }
 
@@ -275,5 +274,5 @@ func (c *Consumable) Allows(id NumericIdentity) bool {
 	c.Mutex.RLock()
 	consumer := c.getConsumer(id)
 	c.Mutex.RUnlock()
-	return consumer != nil
+	return consumer != false
 }
