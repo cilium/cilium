@@ -268,8 +268,7 @@ type Endpoint struct {
 	// PortMap is port mapping configuration of the endpoint
 	PortMap []PortMap // Port mapping used for this endpoint.
 
-	// Consumable is the list of allowed consumers of this endpoint. This
-	// is populated based on the policy.
+	// Consumable represents the security-identity-based policy for this endpoint.
 	Consumable *policy.Consumable `json:"-"`
 
 	// L4Policy is the L4Policy in effect for the
@@ -619,17 +618,17 @@ func (e *Endpoint) GetPolicyModel() *models.EndpointPolicy {
 	e.Consumable.Mutex.RLock()
 	defer e.Consumable.Mutex.RUnlock()
 
-	consumers := []int64{}
-	for _, v := range e.Consumable.Consumers {
-		consumers = append(consumers, int64(v.ID))
+	ingressIdentities := []int64{}
+	for ingressIdentity := range e.Consumable.IngressIdentities {
+		ingressIdentities = append(ingressIdentities, int64(ingressIdentity))
 	}
 
 	return &models.EndpointPolicy{
-		ID:               int64(e.Consumable.ID),
-		Build:            int64(e.Consumable.Iteration),
-		AllowedConsumers: consumers,
-		CidrPolicy:       e.L3Policy.GetModel(),
-		L4:               e.Consumable.L4Policy.GetModel(),
+		ID:    int64(e.Consumable.ID),
+		Build: int64(e.Consumable.Iteration),
+		AllowedIngressSecurityIdentities: ingressIdentities,
+		CidrPolicy:                       e.L3Policy.GetModel(),
+		L4:                               e.Consumable.L4Policy.GetModel(),
 	}
 }
 
@@ -1027,7 +1026,7 @@ func (e *Endpoint) RemoveFromGlobalPolicyMap() error {
 	if err == nil {
 		// We need to remove ourselves from global map, so that
 		// resources (prog/map reference counts) can be released.
-		gpm.DeleteConsumer(uint32(e.ID))
+		gpm.DeleteIdentity(uint32(e.ID))
 		gpm.Close()
 	}
 
