@@ -49,6 +49,7 @@ type StreamControl struct {
 	completions             []versionCompletion
 }
 
+// Called with ctrl.cond.L.Lock() held
 func (ctrl *StreamControl) addCompletion(completions policy.CompletionContainer, msg string) {
 	if completions == nil {
 		return
