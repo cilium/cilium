@@ -27,7 +27,7 @@ const (
 )
 
 func (s *PolicyTestSuite) TestNewConsumer(c *C) {
-	consumer := NewConsumer(CONSUMER_ID1)
+	consumer := &Consumer{ID: CONSUMER_ID1}
 	c.Assert(consumer.ID, Equals, CONSUMER_ID1)
 }
 
