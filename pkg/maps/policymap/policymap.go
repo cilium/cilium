@@ -78,7 +78,9 @@ func (key *policyKey) String() string {
 	return fmt.Sprintf("%d", key.Identity)
 }
 
-func (pm *PolicyMap) AllowConsumer(id uint32) error {
+// AllowIdentity adds an entry into the PolicyMap with key id. Returns an error
+// if the addition did not complete successfully.
+func (pm *PolicyMap) AllowIdentity(id uint32) error {
 	key := policyKey{Identity: id}
 	entry := PolicyEntry{Action: 1}
 	return bpf.UpdateElement(pm.Fd, unsafe.Pointer(&key), unsafe.Pointer(&entry), 0)
@@ -92,7 +94,8 @@ func (pm *PolicyMap) AllowL4(id uint32, dport uint16, proto uint8) error {
 	return bpf.UpdateElement(pm.Fd, unsafe.Pointer(&key), unsafe.Pointer(&entry), 0)
 }
 
-func (pm *PolicyMap) ConsumerExists(id uint32) bool {
+// IdentityExists returns whether there is an entry in the PolicyMap with key id.
+func (pm *PolicyMap) IdentityExists(id uint32) bool {
 	key := policyKey{Identity: id}
 	var entry PolicyEntry
 	return bpf.LookupElement(pm.Fd, unsafe.Pointer(&key), unsafe.Pointer(&entry)) == nil
@@ -107,7 +110,9 @@ func (pm *PolicyMap) L4Exists(id uint32, dport uint16, proto uint8) bool {
 	return bpf.LookupElement(pm.Fd, unsafe.Pointer(&key), unsafe.Pointer(&entry)) == nil
 }
 
-func (pm *PolicyMap) DeleteConsumer(id uint32) error {
+// DeleteIdentity deletes id from the PolicyMap. Returns an error if the deletion
+// did not succeed.
+func (pm *PolicyMap) DeleteIdentity(id uint32) error {
 	key := policyKey{Identity: id}
 	return bpf.DeleteElement(pm.Fd, unsafe.Pointer(&key))
 }

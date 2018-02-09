@@ -1102,7 +1102,7 @@ func (d *Daemon) removeStaleMap(path string) {
 func (d *Daemon) removeStaleIDFromPolicyMap(id uint32) {
 	gpm, err := policymap.OpenGlobalMap(bpf.MapPath(endpoint.PolicyGlobalMapName))
 	if err == nil {
-		gpm.DeleteConsumer(id)
+		gpm.DeleteIdentity(id)
 		gpm.Close()
 	}
 }

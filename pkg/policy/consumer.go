@@ -101,7 +101,7 @@ func (c *Consumable) AddMap(m *policymap.PolicyMap) {
 	// Populate the new map with the already established consumers of
 	// this consumable
 	for c := range c.Consumers {
-		if err := m.AllowConsumer(c.Uint32()); err != nil {
+		if err := m.AllowIdentity(c.Uint32()); err != nil {
 			log.WithError(err).Warn("Update of policy map failed")
 		}
 	}
@@ -169,7 +169,7 @@ func (c *Consumable) getConsumer(id NumericIdentity) bool {
 
 func (c *Consumable) addToMaps(id NumericIdentity) {
 	for _, m := range c.Maps {
-		if m.ConsumerExists(id.Uint32()) {
+		if m.IdentityExists(id.Uint32()) {
 			continue
 		}
 
@@ -179,7 +179,7 @@ func (c *Consumable) addToMaps(id NumericIdentity) {
 		})
 
 		scopedLog.Debug("Updating policy BPF map: allowing Identity")
-		if err := m.AllowConsumer(id.Uint32()); err != nil {
+		if err := m.AllowIdentity(id.Uint32()); err != nil {
 			scopedLog.WithError(err).Warn("Update of policy map failed")
 		}
 	}
@@ -197,7 +197,7 @@ func (c *Consumable) removeFromMaps(id NumericIdentity) {
 		})
 
 		scopedLog.Debug("Updating policy BPF map: denying Identity")
-		if err := m.DeleteConsumer(id.Uint32()); err != nil {
+		if err := m.DeleteIdentity(id.Uint32()); err != nil {
 			scopedLog.WithError(err).Warn("Update of policy map failed")
 		}
 	}
