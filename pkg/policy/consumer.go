@@ -49,7 +49,7 @@ type Consumable struct {
 	// Consumers contains the list of consumers where the key is the Consumers ID
 	Consumers map[NumericIdentity]bool `json:"consumers"`
 	// ReverseRules contains the consumers that are allowed to receive a reply from this Consumable
-	ReverseRules map[NumericIdentity]*Consumer `json:"-"`
+	ReverseRules map[NumericIdentity]bool `json:"-"`
 	// L4Policy contains the policy of this consumable
 	L4Policy *L4Policy `json:"l4-policy"`
 	// L3L4Policy contains the L3, L4 and L7 ingress policy of this consumable
@@ -65,7 +65,7 @@ func NewConsumable(id NumericIdentity, lbls *Identity, cache *ConsumableCache) *
 		Labels:       lbls,
 		Maps:         map[int]*policymap.PolicyMap{},
 		Consumers:    map[NumericIdentity]bool{},
-		ReverseRules: map[NumericIdentity]*Consumer{},
+		ReverseRules: map[NumericIdentity]bool{},
 		cache:        cache,
 	}
 	if lbls != nil {
@@ -193,7 +193,7 @@ func (c *Consumable) addToMaps(id NumericIdentity) {
 }
 
 func (c *Consumable) wasLastRule(id NumericIdentity) bool {
-	return c.ReverseRules[id] == nil && c.Consumers[id] == false
+	return c.ReverseRules[id] == false && c.Consumers[id] == false
 }
 
 func (c *Consumable) removeFromMaps(id NumericIdentity) {
@@ -246,7 +246,7 @@ func (c *Consumable) AllowConsumerAndReverseLocked(cache *ConsumableCache, id Nu
 		}).Debug("Allowing reverse direction")
 		if _, ok := reverse.ReverseRules[c.ID]; !ok {
 			reverse.addToMaps(c.ID)
-			reverse.ReverseRules[c.ID] = &Consumer{ID: id}
+			reverse.ReverseRules[c.ID] = true
 			return true
 		}
 	}
