@@ -47,7 +47,7 @@ const (
 	policiesL3JSON     = "Policies-l3-policy.json"
 )
 
-var _ = Describe("RuntimePolicyEnforcement", func() {
+var _ = Describe("RuntimeValidatedPolicyEnforcement", func() {
 
 	var once sync.Once
 	var logger *logrus.Entry
