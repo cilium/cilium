@@ -18,6 +18,9 @@ set -ex
 
 log "running test: $TEST_NAME"
 
+log "${TEST_NAME} has been deprecated and replaced by test/k8sT/Services.go:Headless services"
+exit 0
+
 headless_dir="${dir}/deployments/headless"
 
 create_policy() {
