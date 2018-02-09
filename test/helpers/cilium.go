@@ -276,7 +276,7 @@ func (s *SSHMeta) GetEndpointsNames() ([]string, error) {
 // containing policies, DaemonSets, etc.) are stored for the runtime tests.
 // TODO: this can just be a constant; there's no need to have a function.
 func (s *SSHMeta) ManifestsPath() string {
-	return fmt.Sprintf("%s/runtime/manifests/", BasePath)
+	return fmt.Sprintf("%s/runtime/manifests/", GetBasePath())
 }
 
 // GetFullPath returns the path of file name prepended with the absolute path
@@ -517,8 +517,8 @@ func (s *SSHMeta) GatherLogs() {
 	reportMap(testPath, ciliumLogCommands, s)
 
 	ciliumBPFStateCommands := []string{
-		fmt.Sprintf("sudo cp -r %s %s/%s/lib", RunDir, BasePath, testPath),
-		fmt.Sprintf("sudo cp -r %s %s/%s/run", LibDir, BasePath, testPath),
+		fmt.Sprintf("sudo cp -r %s %s/%s/lib", RunDir, GetBasePath(), testPath),
+		fmt.Sprintf("sudo cp -r %s %s/%s/run", LibDir, GetBasePath(), testPath),
 	}
 
 	for _, cmd := range ciliumBPFStateCommands {

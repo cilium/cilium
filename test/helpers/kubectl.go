@@ -169,9 +169,9 @@ func (kub *Kubectl) ManifestGet(manifestFilename string) string {
 	fullPath := fmt.Sprintf("%s/%s/%s", manifestsPath, GetCurrentK8SEnv(), manifestFilename)
 	_, err := os.Stat(fullPath)
 	if err == nil {
-		return fmt.Sprintf("%s/%s", BasePath, fullPath)
+		return fmt.Sprintf("%s/%s", GetBasePath(), fullPath)
 	}
-	return fmt.Sprintf("%s/k8sT/manifests/%s", BasePath, manifestFilename)
+	return fmt.Sprintf("%s/k8sT/manifests/%s", GetBasePath(), manifestFilename)
 }
 
 // NodeCleanMetadata annotates each node in the Kubernetes cluster with the

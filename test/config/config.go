@@ -20,6 +20,7 @@ import "flag"
 type CiliumTestConfigType struct {
 	Reprovision     bool
 	HoldEnvironment bool
+	UseVagrant      bool
 }
 
 // CiliumTestConfig holds the global configuration of commandline flags
@@ -32,4 +33,6 @@ func (c *CiliumTestConfigType) ParseFlags() {
 		"Provision Vagrant boxes and Cilium before running test")
 	flag.BoolVar(&c.HoldEnvironment, "cilium.holdEnvironment", false,
 		"On failure, hold the environment in its current state")
+	flag.BoolVar(&c.UseVagrant, "cilium.useVagrant", true,
+		"Run tests using Vagrant")
 }

@@ -17,6 +17,7 @@ package helpers
 import (
 	"fmt"
 
+	"github.com/cilium/cilium/test/config"
 	"github.com/onsi/ginkgo"
 	"github.com/sirupsen/logrus"
 )
@@ -29,7 +30,14 @@ import (
 // This function does not set up cilium, so it should only be run by the
 // test_suite; test writers should use CreateNewRuntimeHelper() instead.
 func InitRuntimeHelper(target string, log *logrus.Entry) *SSHMeta {
-	node := GetVagrantSSHMeta(target)
+	var node *SSHMeta
+
+	if config.CiliumTestConfig.UseVagrant {
+		node = GetVagrantSSHMeta(target)
+	} else {
+		node = GetLoSSHMeta()
+	}
+
 	if node == nil {
 		ginkgo.Fail(fmt.Sprintf("Cannot connect to target '%s'", target), 1)
 		return nil
