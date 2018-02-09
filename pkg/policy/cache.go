@@ -36,8 +36,7 @@ type ConsumableCache struct {
 }
 
 // GetConsumableCache returns the consumable cache. The cache is a list of all
-// identities which are in use by local endpoints, either as consumable or
-// consumer.
+// identities which are in use by local endpoints.
 func GetConsumableCache() *ConsumableCache {
 	return consumableCache
 }

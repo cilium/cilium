@@ -391,15 +391,16 @@ func updateCT(owner Owner, e *Endpoint, epIPs []net.IP,
 	if isPolicyEnforced {
 		wg.Add(1)
 		go func(wg *sync.WaitGroup) {
-			// consumers added, so we need to flush all CT entries except the idsToKeep
+			// New security identities added, so we need to flush all CT entries
+			// except the idsToKeep.
 			owner.FlushCTEntries(e, isLocal, epIPs, idsToKeep)
 			wg.Done()
 		}(wg)
 	} else {
 		wg.Add(1)
 		go func(wg *sync.WaitGroup) {
-			// consumers removed, so we need to modify all CT entries with ids To Mod
-			// because there's on policy being enforced
+			// Security identities removed, so we need to modify all CT entries
+			// with idsToMod because there's no policy being enforced.
 			owner.ResetProxyPort(e, isLocal, epIPs, idsToMod)
 			wg.Done()
 		}(wg)
@@ -553,7 +554,8 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir, reason string) (uint64, err
 		modifiedRules, deletedRules policy.SecurityIDContexts
 		policyChanged               bool
 	)
-	// Only generate & populate policy map if a seclabel and consumer model is set up
+	// Only generate & populate policy map if a security identity is set up for
+	// this endpoint.
 	if c != nil {
 		c.AddMap(e.PolicyMap)
 

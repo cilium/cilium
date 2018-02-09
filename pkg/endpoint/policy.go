@@ -71,13 +71,13 @@ func (e *Endpoint) checkEgressAccess(owner Owner, dstLabels labels.LabelArray, o
 	}
 }
 
-// allowConsumer must be called with global endpoint.Mutex held
-func (e *Endpoint) allowConsumer(owner Owner, id policy.NumericIdentity) bool {
+// allowIngressIdentity must be called with global endpoint.Mutex held
+func (e *Endpoint) allowIngressIdentity(owner Owner, id policy.NumericIdentity) bool {
 	cache := policy.GetConsumableCache()
 	if !e.Opts.IsEnabled(OptionConntrack) {
-		return e.Consumable.AllowConsumerAndReverseLocked(cache, id)
+		return e.Consumable.AllowIngressIdentityAndReverseLocked(cache, id)
 	}
-	return e.Consumable.AllowConsumerLocked(cache, id)
+	return e.Consumable.AllowIngressIdentityLocked(cache, id)
 }
 
 // ProxyID returns a unique string to identify a proxy mapping
@@ -335,9 +335,9 @@ func (e *Endpoint) regenerateConsumable(owner Owner, labelsMap *policy.IdentityC
 	)
 
 	// Mark all entries unused by denying them
-	for k := range c.IngressIdentities {
+	for ingressIdentity := range c.IngressIdentities {
 		// Mark as false indicates denying
-		c.IngressIdentities[k] = false
+		c.IngressIdentities[ingressIdentity] = false
 	}
 
 	rulesAdd = policy.NewSecurityIDContexts()
@@ -422,7 +422,7 @@ func (e *Endpoint) regenerateConsumable(owner Owner, labelsMap *policy.IdentityC
 	}
 
 	if owner.AlwaysAllowLocalhost() || c.L4Policy.HasRedirect() {
-		if e.allowConsumer(owner, policy.ReservedIdentityHost) {
+		if e.allowIngressIdentity(owner, policy.ReservedIdentityHost) {
 			changed = true
 		}
 	}
@@ -442,34 +442,34 @@ func (e *Endpoint) regenerateConsumable(owner Owner, labelsMap *policy.IdentityC
 		}).Debug("Evaluating context for source PolicyID")
 
 		if repo.AllowsLabelAccess(&ctx) == api.Allowed {
-			if e.allowConsumer(owner, srcID) {
+			if e.allowIngressIdentity(owner, srcID) {
 				changed = true
 			}
 		}
 	}
 
 	// Garbage collect all unused entries
-	for val, ok := range c.IngressIdentities {
-		if !ok {
-			c.BanConsumerLocked(val)
+	for ingressIdentity, keepIdentity := range c.IngressIdentities {
+		if !keepIdentity {
+			c.RemoveIngressIdentityLocked(ingressIdentity)
 			changed = true
-			// Since we have removed a consumer, the L3 rule should be
-			// also be marked as removed. But only if it was not previously
-			// created by a L3-L4 rule.
-			if _, ok := rulesRm[val]; !ok {
-				rulesRm[val] = policy.NewL4RuleContexts()
+			// Since we have removed an allowed ingress security identity, the
+			// L3 rule should be also be marked as removed, but only if it was
+			// not previously created by a L3-L4 rule.
+			if _, ok := rulesRm[ingressIdentity]; !ok {
+				rulesRm[ingressIdentity] = policy.NewL4RuleContexts()
 			}
 			// If the L3 rule was removed then we also need to remove it from
 			// the rulesAdded.
-			if _, ok := rulesAdd[val]; ok {
-				delete(rulesAdd, val)
+			if _, ok := rulesAdd[ingressIdentity]; ok {
+				delete(rulesAdd, ingressIdentity)
 			}
 		} else {
-			// Since we have (re)added a consumer, the L3 rule should be
-			// also be marked as added. But only if it was not previously
-			// created by a L3-L4 rule.
-			if _, ok := rulesAdd[val]; !ok {
-				rulesAdd[val] = policy.NewL4RuleContexts()
+			// Since we have (re)added an ingress security identity, the L3 rule
+			// should be also be marked as added. But only if it was not previously
+			// created by an L3-L4 rule.
+			if _, ok := rulesAdd[ingressIdentity]; !ok {
+				rulesAdd[ingressIdentity] = policy.NewL4RuleContexts()
 			}
 		}
 	}
@@ -480,12 +480,12 @@ func (e *Endpoint) regenerateConsumable(owner Owner, labelsMap *policy.IdentityC
 	}
 
 	e.getLogger().WithFields(logrus.Fields{
-		logfields.Identity: c.ID,
-		"consumers":        logfields.Repr(c.IngressIdentities),
-		"rulesAdd":         rulesAdd,
-		"l4Rm":             l4Rm,
-		"rulesRm":          rulesRm,
-	}).Debug("New consumable with consumers")
+		logfields.Identity:          c.ID,
+		"ingressSecurityIdentities": logfields.Repr(c.IngressIdentities),
+		"rulesAdd":                  rulesAdd,
+		"l4Rm":                      l4Rm,
+		"rulesRm":                   rulesRm,
+	}).Debug("New consumable with ingress security identities")
 	return changed, rulesAdd, rulesRm
 }
 
