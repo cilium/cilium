@@ -1438,7 +1438,7 @@ func init() {
       "description": "Policy information of an endpoint",
       "type": "object",
       "properties": {
-        "allowed-consumers": {
+        "allowed-ingress-identities": {
           "description": "List of identities allowed to communicate to this endpoint\n",
           "type": "array",
           "items": {
