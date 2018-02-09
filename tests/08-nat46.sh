@@ -11,6 +11,9 @@ redirect_debug_logs ${LOGS_DIR}
 
 set -ex
 
+log "${TEST_NAME} has been deprecated and replaced by test/runtime/connectivity.go:Test NAT46 connectivity between containers"
+exit 0
+
 function cleanup {
   log "beginning cleanup for ${TEST_NAME}"
   cilium policy delete --all 2> /dev/null || true
