@@ -11,6 +11,9 @@ redirect_debug_logs ${LOGS_DIR}
 
 set -uex
 
+log "${TEST_NAME} has been deprecated and replaced by test/runtime/monitor.go"
+exit 0
+
 TEST_NET="cilium"
 MON_1_OUTPUT=$(mktemp)
 MON_2_OUTPUT=$(mktemp)

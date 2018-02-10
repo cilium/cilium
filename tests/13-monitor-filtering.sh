@@ -11,7 +11,7 @@ redirect_debug_logs ${LOGS_DIR}
 
 set -ex
 
-echo "Test has beend disabled"
+log "${TEST_NAME} has been deprecated and replaced by test/runtime/monitor.go"
 exit 0
 
 logs_clear
