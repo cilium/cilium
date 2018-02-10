@@ -11,6 +11,9 @@ redirect_debug_logs ${LOGS_DIR}
 
 set -ex
 
+log "${TEST_NAME} has been deprecated and replaced by /test/runtime/Policies.go: Check Endpoint PolicyMap Generation"
+exit 0
+
 function cleanup {
   log "beginning cleanup for $0"
   log "removing containerA and containerB"
