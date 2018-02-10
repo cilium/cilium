@@ -11,6 +11,9 @@ redirect_debug_logs ${LOGS_DIR}
 
 set -ex
 
+log "${TEST_NAME} has been deprecated and replaced by test/runtime/kafka.go"
+exit 0
+
 function cleanup {
   cilium policy delete --all 2> /dev/null || true
   docker rm -f kafka zook client 2> /dev/null || true
