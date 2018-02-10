@@ -11,6 +11,9 @@ redirect_debug_logs ${LOGS_DIR}
 
 set -ex
 
+log "${TEST_NAME} has been deprecated and replaced by test/runtime/chaos.go: Checking for file-descriptor leak"
+exit 0 
+
 threshold=5000
 
 fd_open=$(sudo lsof -p `pidof cilium-node-monitor` -p `pidof cilium-agent` -p `pidof cilium-docker` 2>/dev/null | wc -l)
