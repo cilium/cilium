@@ -141,6 +141,34 @@ func (s *SSHMeta) WaitEndpointRegenerated(id string) bool {
 	return true
 }
 
+// WaitEndpointsDeleted waits up until timeout reached for all endpoints to be
+// deleted. Returns true if all endpoints have been deleted before HelperTimeout
+// is exceeded, false otherwise.
+func (s *SSHMeta) WaitEndpointsDeleted() bool {
+	logger := s.logger.WithFields(logrus.Fields{"functionName": "WaitEndpointsDeleted"})
+	// cilium-health endpoint is always running.
+	desiredState := "1"
+	body := func() bool {
+		cmd := fmt.Sprintf(`cilium endpoint list -o json | jq '. | length'`)
+		res := s.Exec(cmd)
+		numEndpointsRunning := strings.TrimSpace(res.GetStdOut())
+		if numEndpointsRunning == desiredState {
+			return true
+		}
+
+		logger.Infof("%s endpoints are still running, want %s", numEndpointsRunning, desiredState)
+		return false
+	}
+	err := WithTimeout(body, "Endpoints are not deleted after timeout", &TimeoutConfig{Timeout: HelperTimeout})
+	if err != nil {
+		logger.WithError(err).Warn("Endpoints are not deleted after timeout")
+		s.Exec("cilium endpoint list") // This function is only for debugging.
+		return false
+	}
+	return true
+
+}
+
 // WaitEndpointsReady waits up until timeout reached for all endpoints to not be
 // in any regenerating or waiting-for-identity state. Returns true if all
 // endpoints regenerate before HelperTimeout is exceeded, false otherwise.
