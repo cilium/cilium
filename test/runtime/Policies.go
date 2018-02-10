@@ -408,7 +408,7 @@ var _ = Describe("RuntimeValidatedPolicyEnforcement", func() {
 	})
 })
 
-var _ = Describe("RuntimePolicies", func() {
+var _ = Describe("RuntimeValidatedPolicies", func() {
 
 	var once sync.Once
 	var logger *logrus.Entry
