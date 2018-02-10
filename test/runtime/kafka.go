@@ -26,7 +26,7 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-var _ = Describe("RuntimeKafka", func() {
+var _ = Describe("RuntimeValidatedKafka", func() {
 
 	var once sync.Once
 	var logger *logrus.Entry
