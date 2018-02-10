@@ -11,6 +11,10 @@ redirect_debug_logs ${LOGS_DIR}
 
 set -ex
 
+log "${TEST_NAME} has been deprecated and replaced by /test/runtime/Policies.go:L3/L4 Checks, L7 Checks"
+exit 0
+
+
 DEMO_CONTAINER="cilium/demo-client"
 HTTPD_CONTAINER_NAME="service1-instance1"
 ID_SERVICE1="id.service1"
