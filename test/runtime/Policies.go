@@ -679,19 +679,19 @@ var _ = Describe("RuntimeValidatedPolicies", func() {
 		}
 		By("Invalid Json")
 
-		script := fmt.Sprintf(`
+		invalidJSON := fmt.Sprintf(`
 		[{
 			"endpointSelector": {
 				"matchLabels":{"id.httpd1":""}
 			},`)
-		testInvalidPolicy(script)
+		testInvalidPolicy(invalidJSON)
 
 		By("Test maximum tcp ports")
 		var ports string
 		for i := 0; i < 50; i++ {
 			ports += fmt.Sprintf(`{"port": "%d", "protocol": "tcp"}`, i)
 		}
-		script = fmt.Sprintf(`[{
+		tooManyTCPPorts := fmt.Sprintf(`[{
 		"endpointSelector": {
 			"matchLabels": {
 				"foo": ""
@@ -714,7 +714,7 @@ var _ = Describe("RuntimeValidatedPolicies", func() {
 			}]
 		}]
 		}]`, ports)
-		testInvalidPolicy(script)
+		testInvalidPolicy(tooManyTCPPorts)
 	})
 
 	It("Policy cmd", func() {
