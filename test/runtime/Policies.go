@@ -677,7 +677,7 @@ var _ = Describe("RuntimeValidatedPolicyImportTests", func() {
 	var vm *helpers.SSHMeta
 
 	initialize := func() {
-		logger = log.WithFields(logrus.Fields{"test": "RunPolicies"})
+		logger = log.WithFields(logrus.Fields{"test": "RuntimeValidatedPoliciesImportTests"})
 		logger.Info("Starting")
 		vm = helpers.CreateNewRuntimeHelper(helpers.Runtime, logger)
 		areEndpointsReady := vm.WaitEndpointsReady()
@@ -756,7 +756,7 @@ var _ = Describe("RuntimeValidatedPolicyImportTests", func() {
 		res.ExpectSuccess()
 
 		areEndpointsReady := vm.WaitEndpointsReady()
-		Expect(areEndpointsReady).Should(BeTrue())
+		Expect(areEndpointsReady).Should(BeTrue(), "Endpoints are not ready")
 
 		cidrPolicyJSON := "cidr_policy.json"
 		maxCIDRNum := 40
@@ -816,7 +816,7 @@ var _ = Describe("RuntimeValidatedPolicyImportTests", func() {
 					[ %s ]
 				}
 			]
-		}]`, cidrs)
+			}]`, cidrs)
 
 			return cidrPolicy
 
