@@ -11,6 +11,9 @@ redirect_debug_logs ${LOGS_DIR}
 
 set -ex
 
+log "${TEST_NAME} has been deprecated and replaced by /test/runtime/kvstore.go: Check RuntimeKVStoreTest"
+exit 0
+
 # If you want to run this alone, remember to setup PATH for clang and friends.
 export PATH=$PATH:/usr/local/go/bin:/usr/local/clang/bin:/home/vagrant/go/bin:/home/vagrant/bin
 
