@@ -16,6 +16,8 @@ package RuntimeTest
 
 import (
 	"fmt"
+	"strconv"
+	"strings"
 	"sync"
 
 	"github.com/cilium/cilium/test/helpers"
@@ -50,7 +52,7 @@ var _ = Describe("RuntimeValidatedCLI", func() {
 		}
 	})
 
-	Context("identity get testing", func() {
+	Context("Identity CLI testing", func() {
 		It("Test labelsSHA256", func() {
 			fooID := "id.foo"
 			namesLabels := [][]string{{"foo", fooID}, {"bar", "id.bar"}, {"baz", "id.baz"}}
@@ -72,6 +74,42 @@ var _ = Describe("RuntimeValidatedCLI", func() {
 			Expect(err).Should(BeNil(), "error getting SHA from identity")
 			fooSha := "7c5b1431262baa7f060728b6252abf6a42d9b39f38328d896b37755b1c578477"
 			Expect(out.String()).Should(Equal(fooSha))
+		})
+
+		It("test identity list", func() {
+			By("Testing 'cilium identity list' for an endpoint's identity")
+			fooID := "id.foo"
+			namesLabels := [][]string{{"foo", fooID}, {"bar", "id.bar"}, {"baz", "id.baz"}}
+
+			for _, set := range namesLabels {
+				res := vm.ContainerCreate(set[0], helpers.NetperfImage, helpers.CiliumDockerNetwork, fmt.Sprintf("-l %s", set[1]))
+				defer vm.ContainerRm(set[0])
+				res.ExpectSuccess("Unable to create container: %s", res.CombineOutput())
+			}
+
+			epModel := vm.EndpointGet(fmt.Sprintf("-l container:%s", fooID))
+			Expect(epModel).ShouldNot(BeNil(), "no endpoint model returned")
+			identity := strconv.FormatInt(epModel.Identity.ID, 10)
+
+			res := vm.ExecCilium(fmt.Sprintf("identity list container:%s", fooID))
+			res.ExpectSuccess(fmt.Sprintf("Unable to get identity list output for label container:%s", fooID))
+
+			resSingleOut := res.SingleOut()
+
+			containsIdentity := strings.Contains(resSingleOut, identity)
+			Expect(containsIdentity).To(BeTrue(), "identity %s from 'cilium endpoint get' for endpoint %s not in 'cilium identity list' output", identity, resSingleOut)
+
+			By("Testing 'cilium identity list' for reserved identities")
+			res = vm.Exec(`cilium identity list --reserved`)
+			resSingleOut = res.SingleOut()
+
+			reservedIdentities := []string{"health 4", "cluster 3", "host 1", "world 2"}
+
+			for _, id := range reservedIdentities {
+				By(fmt.Sprintf("checking that reserved identity '%s' is in 'cilium identity list --reserved' output", id))
+				containsReservedIdentity := strings.Contains(resSingleOut, id)
+				Expect(containsReservedIdentity).To(BeTrue(), "reserved identity '%s' not in 'cilium identity list' output", id)
+			}
 		})
 	})
 
