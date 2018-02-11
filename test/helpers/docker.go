@@ -35,7 +35,9 @@ func (s *SSHMeta) ContainerCreate(name, image, net, options string) *CmdRes {
 // ContainerRm is a wrapper around `docker rm -f`. It forcibly removes the
 // Docker container of the provided name.
 func (s *SSHMeta) ContainerRm(name string) *CmdRes {
-	return s.ExecWithSudo(fmt.Sprintf("docker rm -f %s", name))
+	cmd := fmt.Sprintf("docker rm -f %s", name)
+	log.Debugf("removing container with command '%v", cmd)
+	return s.ExecWithSudo(cmd)
 }
 
 // ContainerInspect runs `docker inspect` for the container with the provided
