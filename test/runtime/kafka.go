@@ -106,7 +106,7 @@ var _ = Describe("RuntimeValidatedKafka", func() {
 	})
 
 	It("Kafka Policy Ingress", func() {
-		_, err := vm.PolicyImport(vm.GetFullPath("Policies-kafka.json"), 300)
+		_, err := vm.PolicyImportAndWait(vm.GetFullPath("Policies-kafka.json"), 300)
 		Expect(err).Should(BeNil())
 
 		endPoints, err := vm.PolicyEndpointsSummary()

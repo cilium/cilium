@@ -99,7 +99,7 @@ var _ = Describe("RuntimeValidatedPolicyEnforcement", func() {
 			})
 
 			By("Apply a new sample policy")
-			_, err := vm.PolicyImport(vm.GetFullPath(sampleJSON), helpers.HelperTimeout)
+			_, err := vm.PolicyImportAndWait(vm.GetFullPath(sampleJSON), helpers.HelperTimeout)
 			Expect(err).Should(BeNil())
 
 			endPoints, err := vm.PolicyEndpointsSummary()
@@ -109,7 +109,7 @@ var _ = Describe("RuntimeValidatedPolicyEnforcement", func() {
 
 		It("Handles missing required fields", func() {
 			By("Apply a policy with no endpointSelector without crashing")
-			_, err := vm.PolicyImport(vm.GetFullPath("no_endpointselector_policy.json"), helpers.HelperTimeout)
+			_, err := vm.PolicyImportAndWait(vm.GetFullPath("no_endpointselector_policy.json"), helpers.HelperTimeout)
 			Expect(err).Should(BeNil())
 		})
 
@@ -144,7 +144,7 @@ var _ = Describe("RuntimeValidatedPolicyEnforcement", func() {
 		})
 
 		It("Default to Always with policy", func() {
-			_, err := vm.PolicyImport(vm.GetFullPath(sampleJSON), helpers.HelperTimeout)
+			_, err := vm.PolicyImportAndWait(vm.GetFullPath(sampleJSON), helpers.HelperTimeout)
 			Expect(err).Should(BeNil())
 
 			endPoints, err := vm.PolicyEndpointsSummary()
@@ -195,7 +195,7 @@ var _ = Describe("RuntimeValidatedPolicyEnforcement", func() {
 
 		It("Default to Never with policy", func() {
 
-			_, err := vm.PolicyImport(vm.GetFullPath(sampleJSON), helpers.HelperTimeout)
+			_, err := vm.PolicyImportAndWait(vm.GetFullPath(sampleJSON), helpers.HelperTimeout)
 			Expect(err).Should(BeNil())
 
 			endPoints, err := vm.PolicyEndpointsSummary()
@@ -258,7 +258,7 @@ var _ = Describe("RuntimeValidatedPolicyEnforcement", func() {
 			Expect(endPoints[helpers.Enabled]).To(Equal(1))
 			Expect(endPoints[helpers.Disabled]).To(Equal(0))
 
-			_, err = vm.PolicyImport(vm.GetFullPath(sampleJSON), helpers.HelperTimeout)
+			_, err = vm.PolicyImportAndWait(vm.GetFullPath(sampleJSON), helpers.HelperTimeout)
 			Expect(err).Should(BeNil())
 
 			endPoints, err = vm.PolicyEndpointsSummary()
@@ -349,7 +349,7 @@ var _ = Describe("RuntimeValidatedPolicyEnforcement", func() {
 			Expect(endPoints[helpers.Enabled]).To(Equal(0))
 			Expect(endPoints[helpers.Disabled]).To(Equal(1))
 
-			_, err = vm.PolicyImport(vm.GetFullPath(sampleJSON), helpers.HelperTimeout)
+			_, err = vm.PolicyImportAndWait(vm.GetFullPath(sampleJSON), helpers.HelperTimeout)
 			Expect(err).Should(BeNil())
 
 			endPoints, err = vm.PolicyEndpointsSummary()
@@ -498,7 +498,7 @@ var _ = Describe("RuntimeValidatedPolicies", func() {
 	}
 
 	It("L3/L4 Checks", func() {
-		_, err := vm.PolicyImport(vm.GetFullPath(policiesL3JSON), helpers.HelperTimeout)
+		_, err := vm.PolicyImportAndWait(vm.GetFullPath(policiesL3JSON), helpers.HelperTimeout)
 		Expect(err).Should(BeNil())
 
 		//APP1 can connect to all Httpd1
@@ -549,7 +549,7 @@ var _ = Describe("RuntimeValidatedPolicies", func() {
 		Expect(err).Should(BeNil())
 
 		path := helpers.GetFilePath(ingressJSON)
-		_, err = vm.PolicyImport(path, helpers.HelperTimeout)
+		_, err = vm.PolicyImportAndWait(path, helpers.HelperTimeout)
 		Expect(err).Should(BeNil())
 		defer os.Remove(ingressJSON)
 
@@ -581,7 +581,7 @@ var _ = Describe("RuntimeValidatedPolicies", func() {
 		Expect(err).Should(BeNil())
 		path = helpers.GetFilePath(egressJSON)
 		defer os.Remove(egressJSON)
-		_, err = vm.PolicyImport(path, helpers.HelperTimeout)
+		_, err = vm.PolicyImportAndWait(path, helpers.HelperTimeout)
 		Expect(err).Should(BeNil())
 
 		connectivityTest(httpRequestsPublic, helpers.App1, helpers.Httpd1, BeTrue)
@@ -589,7 +589,7 @@ var _ = Describe("RuntimeValidatedPolicies", func() {
 	})
 
 	It("L4Policy Checks", func() {
-		_, err := vm.PolicyImport(vm.GetFullPath("Policies-l4-policy.json"), helpers.HelperTimeout)
+		_, err := vm.PolicyImportAndWait(vm.GetFullPath("Policies-l4-policy.json"), helpers.HelperTimeout)
 		Expect(err).Should(BeNil())
 
 		for _, app := range []string{helpers.App1, helpers.App2} {
@@ -613,7 +613,7 @@ var _ = Describe("RuntimeValidatedPolicies", func() {
 
 	It("L7 Checks", func() {
 
-		_, err := vm.PolicyImport(vm.GetFullPath(policiesL7JSON), helpers.HelperTimeout)
+		_, err := vm.PolicyImportAndWait(vm.GetFullPath(policiesL7JSON), helpers.HelperTimeout)
 		Expect(err).Should(BeNil())
 
 		By("Simple Ingress")
@@ -643,7 +643,7 @@ var _ = Describe("RuntimeValidatedPolicies", func() {
 		By("Multiple Ingress")
 
 		vm.PolicyDelAll()
-		_, err = vm.PolicyImport(vm.GetFullPath(multL7PoliciesJSON), helpers.HelperTimeout)
+		_, err = vm.PolicyImportAndWait(vm.GetFullPath(multL7PoliciesJSON), helpers.HelperTimeout)
 		Expect(err).Should(BeNil())
 
 		//APP1 can connnect to public, but no to private
@@ -702,7 +702,7 @@ var _ = Describe("RuntimeValidatedPolicyImportTests", func() {
 			Expect(err).Should(BeNil())
 
 			path := helpers.GetFilePath(invalidJSON)
-			_, err = vm.PolicyImport(path, helpers.HelperTimeout)
+			_, err = vm.PolicyImportAndWait(path, helpers.HelperTimeout)
 			Expect(err).Should(HaveOccurred())
 			defer os.Remove(invalidJSON)
 		}
@@ -745,7 +745,6 @@ var _ = Describe("RuntimeValidatedPolicyImportTests", func() {
 		}]`, ports)
 		testInvalidPolicy(tooManyTCPPorts)
 	})
-
 	It("Policy cmd", func() {
 		By("Policy Labels")
 
@@ -764,7 +763,7 @@ var _ = Describe("RuntimeValidatedPolicyImportTests", func() {
 		Expect(err).Should(BeNil())
 
 		path := helpers.GetFilePath(policyJSON)
-		_, err = vm.PolicyImport(path, helpers.HelperTimeout)
+		_, err = vm.PolicyImportAndWait(path, helpers.HelperTimeout)
 		Expect(err).Should(BeNil())
 		defer os.Remove(policyJSON)
 		for _, v := range []string{"key1", "key2", "key3"} {
