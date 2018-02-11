@@ -11,6 +11,9 @@ redirect_debug_logs ${LOGS_DIR}
 
 set -ex # Required for the linter
 
+log "${TEST_NAME} has been deprecated and replaced by test/runtime/Policies.go:Test CIDR Limit"
+exit 0
+
 function cleanup() {
   gather_files 20-cidr-limit ${TEST_SUITE}
   log "removing container id.server2"
