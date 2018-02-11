@@ -19,7 +19,7 @@ import (
 	"fmt"
 	"net"
 	"os"
-	"os/exec"
+	"path/filepath"
 	"runtime"
 	"sort"
 	"strings"
@@ -411,11 +411,11 @@ func cmdAdd(args *skel.CmdArgs) error {
 	var macAddrStr string
 	// FIXME: use nsenter
 	if err = netNs.Do(func(_ ns.NetNS) error {
-		out, err := exec.Command("sysctl", "-w", "net.ipv6.conf.all.disable_ipv6=0").CombinedOutput()
+		allInterfacesPath := filepath.Join("/proc", "sys", "net", "ipv6", "conf", "all", "disable_ipv6")
+		err = plugins.WriteSysConfig(allInterfacesPath, "0\n")
 		if err != nil {
-			log.WithError(err).Warn("Error while enabling IPv6 on all interfaces")
+			log.WithError(err).Warn("unable to disable ipv6 on all interfaces")
 		}
-		log.WithField("output", out).Debug("Enabling IPv6 command output")
 		macAddrStr, err = configureIface(ipam, args.IfName, &state)
 		return err
 	}); err != nil {
