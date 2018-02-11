@@ -25,7 +25,7 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-var _ = Describe("RuntimeCLI", func() {
+var _ = Describe("RuntimeValidatedCLI", func() {
 
 	var logger *logrus.Entry
 	var vm *helpers.SSHMeta
@@ -50,7 +50,7 @@ var _ = Describe("RuntimeCLI", func() {
 		}
 	})
 
-	Context("Identity testing", func() {
+	Context("identity get testing", func() {
 		It("Test labelsSHA256", func() {
 			fooID := "id.foo"
 			namesLabels := [][]string{{"foo", fooID}, {"bar", "id.bar"}, {"baz", "id.baz"}}
