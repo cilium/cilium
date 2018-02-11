@@ -51,12 +51,14 @@ apt-key add apt-key.gpg
 # https://serverfault.com/questions/881517/why-disable-swap-on-kubernetes
 sudo swapoff -a
 
+KUBEADM_SLAVE_OPTIONS=""
 case $K8S_VERSION in
     "1.6"|"1.7"|"1.8")
         KUBERNETES_CNI_VERSION="0.5.1-00"
         ;;
     "1.9")
         KUBERNETES_CNI_VERSION="0.6.0-00"
+        KUBEADM_SLAVE_OPTIONS="--discovery-token-unsafe-skip-ca-verification"
         ;;
 esac
 
@@ -101,7 +103,7 @@ if [[ "${HOST}" == "k8s1" ]]; then
 
     $PROVISIONSRC/compile.sh
 else
-    kubeadm join --token=$TOKEN 192.168.36.11:6443
+    kubeadm join --token=$TOKEN 192.168.36.11:6443 ${KUBEADM_SLAVE_OPTIONS}
     sudo systemctl stop etcd
     docker pull k8s1:5000/cilium/cilium-dev:latest
     # We need this workaround since kube-proxy is not aware of multiple network
