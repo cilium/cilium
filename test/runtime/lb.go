@@ -332,7 +332,7 @@ var _ = Describe("RuntimeValidatedLB", func() {
 				fmt.Sprintf("[%s]:80", httpd2[helpers.IPv6])}, 1)
 			status.ExpectSuccess("L4 service cannot be created")
 
-			_, err = vm.PolicyImport(vm.GetFullPath(policiesL7JSON), helpers.HelperTimeout)
+			_, err = vm.PolicyImportAndWait(vm.GetFullPath(policiesL7JSON), helpers.HelperTimeout)
 			Expect(err).Should(BeNil())
 
 			By("Simple Ingress")
@@ -354,7 +354,7 @@ var _ = Describe("RuntimeValidatedLB", func() {
 			By("Multiple Ingress")
 
 			vm.PolicyDelAll()
-			_, err = vm.PolicyImport(vm.GetFullPath(multL7PoliciesJSON), helpers.HelperTimeout)
+			_, err = vm.PolicyImportAndWait(vm.GetFullPath(multL7PoliciesJSON), helpers.HelperTimeout)
 			Expect(err).Should(BeNil())
 
 			status = vm.ContainerExec(helpers.App1, getHTTP(service1, helpers.Public))

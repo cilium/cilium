@@ -391,14 +391,14 @@ func (s *SSHMeta) PolicyGetRevision() (int, error) {
 	return rev.IntOutput()
 }
 
-// PolicyImport imports a new policy into Cilium and waits until the policy
+// PolicyImportAndWait imports a new policy into Cilium and waits until the policy
 // revision number increments.
-func (s *SSHMeta) PolicyImport(path string, timeout time.Duration) (int, error) {
+func (s *SSHMeta) PolicyImportAndWait(path string, timeout time.Duration) (int, error) {
 	revision, err := s.PolicyGetRevision()
 	if err != nil {
 		return -1, fmt.Errorf("cannot get policy revision: %s", err)
 	}
-	s.logger.Infof("PolicyImport: %s and current policy revision is '%d'", path, revision)
+	s.logger.Infof("PolicyImportAndWait: %s and current policy revision is '%d'", path, revision)
 	res := s.ExecCilium(fmt.Sprintf("policy import %s", path))
 	if res.WasSuccessful() == false {
 		s.logger.Errorf("could not import policy: %s", res.CombineOutput())
@@ -410,7 +410,7 @@ func (s *SSHMeta) PolicyImport(path string, timeout time.Duration) (int, error) 
 			s.PolicyWait(currentRev)
 			return true
 		}
-		s.logger.Infof("PolicyImport: current revision %d same as %d", currentRev, revision)
+		s.logger.Infof("PolicyImportAndWait: current revision %d same as %d", currentRev, revision)
 		return false
 	}
 	err = WithTimeout(body, "could not import policy revision", &TimeoutConfig{Timeout: timeout})
@@ -418,8 +418,18 @@ func (s *SSHMeta) PolicyImport(path string, timeout time.Duration) (int, error) 
 		return -1, err
 	}
 	revision, err = s.PolicyGetRevision()
-	s.logger.Infof("PolicyImport: finished '%v' with revision '%d'", path, revision)
+	s.logger.Infof("PolicyImportAndWait: finished '%v' with revision '%d'", path, revision)
 	return revision, err
+}
+
+// PolicyImport imports a new policy into Cilium.
+func (s *SSHMeta) PolicyImport(path string) error {
+	res := s.ExecCilium(fmt.Sprintf("policy import %s", path))
+	if !res.WasSuccessful() {
+		s.logger.Errorf("could not import policy: %s", res.CombineOutput())
+		return fmt.Errorf("could not import policy %s", path)
+	}
+	return nil
 }
 
 // PolicyRenderAndImport receives an string with a policy, renders it in the
@@ -437,7 +447,7 @@ func (s *SSHMeta) PolicyRenderAndImport(policy string) (int, error) {
 	path := GetFilePath(filename)
 	s.logger.Debugf("PolicyRenderAndImport: import policy from '%s'", path)
 	defer os.Remove(filename)
-	return s.PolicyImport(path, HelperTimeout)
+	return s.PolicyImportAndWait(path, HelperTimeout)
 }
 
 // PolicyWait executes `cilium policy wait`, which waits until all endpoints are

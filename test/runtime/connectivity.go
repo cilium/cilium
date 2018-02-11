@@ -97,7 +97,7 @@ var _ = Describe("RuntimeValidatedConnectivityTest", func() {
 		}, 300)
 
 		It("Test connectivity between containers with policy imported", func() {
-			policyID, err := vm.PolicyImport(
+			policyID, err := vm.PolicyImportAndWait(
 				fmt.Sprintf("%s/test.policy", vm.ManifestsPath()), 150)
 			Expect(err).Should(BeNil())
 			logger.Debug("New policy created with id '%d'", policyID)
@@ -248,7 +248,7 @@ var _ = Describe("RuntimeValidatedConnectivityTest", func() {
 				}]`
 			err = helpers.RenderTemplateToFile(policyFileName, policy, os.ModePerm)
 			Expect(err).Should(BeNil())
-			_, err = vm.PolicyImport(helpers.GetFilePath(policyFileName), helpers.HelperTimeout)
+			_, err = vm.PolicyImportAndWait(helpers.GetFilePath(policyFileName), helpers.HelperTimeout)
 
 			By("Adding containers")
 
