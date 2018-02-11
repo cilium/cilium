@@ -16,7 +16,8 @@ package plugins
 
 import (
 	"fmt"
-	"os/exec"
+	"os"
+	"path/filepath"
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/logging"
@@ -68,6 +69,25 @@ func SetupVeth(id string, mtu int, ep *models.EndpointChangeRequest) (*netlink.V
 	return veth, link, tmpIfName, err
 }
 
+// WriteSysConfig tries to emulate a sysctl call by writing directly to the
+// given fileName the given value.
+func WriteSysConfig(fileName, value string) error {
+	f, err := os.OpenFile(fileName, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0666)
+	if err != nil {
+		return fmt.Errorf("unable to open configuration file: %s", err)
+	}
+	_, err = f.WriteString(value)
+	if err != nil {
+		f.Close()
+		return fmt.Errorf("unable to write value: %s", err)
+	}
+	err = f.Close()
+	if err != nil {
+		return fmt.Errorf("unable to close configuration file: %s", err)
+	}
+	return nil
+}
+
 // SetupVethWithNames sets up the net interface, the temporary interface and fills up some endpoint
 // fields such as LXCMAC, NodeMac, IfIndex and IfName. Returns a pointer for the created
 // veth, a pointer for the temporary link, the name of the temporary link and error if
@@ -95,11 +115,10 @@ func SetupVethWithNames(lxcIfName, tmpIfName string, mtu int, ep *models.Endpoin
 	// Disable reverse path filter on the host side veth peer to allow
 	// container addresses to be used as source address when the linux
 	// stack performs routing.
-	args := []string{"-w", "net.ipv4.conf." + lxcIfName + ".rp_filter=0"}
-	_, err = exec.Command("sysctl", args...).CombinedOutput()
+	rpFilterPath := filepath.Join("/proc", "sys", "net", "ipv4", "conf", lxcIfName, "rp_filter")
+	err = WriteSysConfig(rpFilterPath, "0\n")
 	if err != nil {
-		return nil, nil, fmt.Errorf("unable to disable rp_filter on %s: %s",
-			lxcIfName, err)
+		return nil, nil, fmt.Errorf("unable to disable %s: %s", rpFilterPath, err)
 	}
 
 	peer, err := netlink.LinkByName(tmpIfName)
