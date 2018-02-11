@@ -49,7 +49,7 @@ echo 1 > /proc/sys/kernel/unprivileged_bpf_disabled || true
 # Docker <17.05 has an issue which causes IPv6 to be disabled in the initns for all
 # interface (https://github.com/docker/libnetwork/issues/1720)
 # Enable IPv6 for now
-sysctl -w net.ipv6.conf.all.disable_ipv6=0
+echo 0 > /proc/sys/net/ipv6/conf/all/disable_ipv6
 
 # This directory was created by the daemon and contains the per container header file
 DIR="$PWD/globals"
@@ -74,11 +74,11 @@ function setup_veth()
 	local -r NAME=$1
 
 	ip link set $NAME up
-	sysctl -w net.ipv4.conf.${NAME}.forwarding=1
-	sysctl -w net.ipv6.conf.${NAME}.forwarding=1
-	sysctl -w net.ipv4.conf.${NAME}.rp_filter=0
-	sysctl -w net.ipv4.conf.${NAME}.accept_local=1
-	sysctl -w net.ipv4.conf.${NAME}.send_redirects=0
+	echo 1 > /proc/sys/net/ipv4/conf/${NAME}/forwarding
+	echo 1 > /proc/sys/net/ipv6/conf/${NAME}/forwarding
+	echo 0 > /proc/sys/net/ipv4/conf/${NAME}/rp_filter
+	echo 1 > /proc/sys/net/ipv4/conf/${NAME}/accept_local
+	echo 0 > /proc/sys/net/ipv4/conf/${NAME}/send_redirects
 }
 
 function setup_veth_pair()
@@ -308,7 +308,7 @@ if [ "$MODE" = "direct" ]; then
 	if [ -z "$NATIVE_DEV" ]; then
 		echo "No device specified for $MODE mode, ignoring..."
 	else
-		sysctl -w net.ipv6.conf.all.forwarding=1
+		echo 1 > /proc/sys/net/ipv6/conf/all/forwarding
 
 		ID=$(cilium identity get $WORLD_ID 2> /dev/null)
 		CALLS_MAP=cilium_calls_netdev_${ID}
@@ -321,7 +321,7 @@ elif [ "$MODE" = "lb" ]; then
 	if [ -z "$NATIVE_DEV" ]; then
 		echo "No device specified for $MODE mode, ignoring..."
 	else
-		sysctl -w net.ipv6.conf.all.forwarding=1
+		echo 1 > /proc/sys/net/ipv6/conf/all/forwarding
 
 		CALLS_MAP="cilium_calls_lb_${ID}"
 		OPTS="-DLB_L3 -DLB_L4"
