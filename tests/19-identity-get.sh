@@ -13,6 +13,9 @@ redirect_debug_logs ${LOGS_DIR}
 
 set -ex
 
+log "${TEST_NAME} has been deprecated and replaced by test/runtime/cli.go: identity get testing"
+exit 0
+
 function start_containers {
   docker run -dt --net=$TEST_NET --name foo -l id.foo tgraf/netperf
   docker run -dt --net=$TEST_NET --name bar -l id.bar tgraf/netperf
