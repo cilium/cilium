@@ -16,6 +16,8 @@ package RuntimeTest
 
 import (
 	"fmt"
+	"math/rand"
+	"net"
 	"os"
 	"strings"
 	"sync"
@@ -425,6 +427,7 @@ var _ = Describe("RuntimeValidatedPolicies", func() {
 
 	BeforeEach(func() {
 		once.Do(initialize)
+		vm.SampleContainersActions(helpers.Delete, helpers.CiliumDockerNetwork)
 		vm.PolicyDelAll()
 		vm.SampleContainersActions(helpers.Create, helpers.CiliumDockerNetwork)
 		vm.WaitEndpointsReady()
@@ -529,18 +532,18 @@ var _ = Describe("RuntimeValidatedPolicies", func() {
 		Expect(err).Should(BeNil())
 
 		script := fmt.Sprintf(`
-		[{
-			"endpointSelector": {
-				"matchLabels":{"id.httpd1":""}
-			},
-			"ingress": [
-				{"fromEndpoints": [
-					{ "matchLabels": {"id.app1": ""}}
-				]},
-				{"fromCIDR":
-					[ "%s/32", "%s" ]}
-			]
-		}]`, app1[helpers.IPv4], app1[helpers.IPv6])
+			[{
+				"endpointSelector": {
+					"matchLabels":{"id.httpd1":""}
+				},
+				"ingress": [
+					{"fromEndpoints": [
+						{ "matchLabels": {"id.app1": ""}}
+					]},
+					{"fromCIDR":
+						[ "%s/32", "%s" ]}
+				]
+			}]`, app1[helpers.IPv4], app1[helpers.IPv6])
 
 		err = helpers.RenderTemplateToFile(ingressJSON, script, 0777)
 		Expect(err).Should(BeNil())
@@ -559,21 +562,21 @@ var _ = Describe("RuntimeValidatedPolicies", func() {
 		Expect(err).Should(BeNil())
 
 		script = fmt.Sprintf(`
-		[{
-			"endpointSelector": {
-				"matchLabels":{"id.httpd1":""}
+			[{
+				"endpointSelector": {
+					"matchLabels":{"id.httpd1":""}
+				},
+				"ingress": [{
+					"fromEndpoints": [{"matchLabels":{"id.app1":""}}]
+				}]
 			},
-			"ingress": [{
-				"fromEndpoints": [{"matchLabels":{"id.app1":""}}]
-			}]
-		},
-		{
-			 "endpointSelector":
-				{"matchLabels":{"id.%s":""}},
-			 "egress": [{
-				"toCIDR": [ "%s/32", "%s" ]
-			 }]
-		}]`, helpers.App1, httpd1[helpers.IPv4], httpd1[helpers.IPv6])
+			{
+				 "endpointSelector":
+					{"matchLabels":{"id.%s":""}},
+				 "egress": [{
+					"toCIDR": [ "%s/32", "%s" ]
+				 }]
+			}]`, helpers.App1, httpd1[helpers.IPv4], httpd1[helpers.IPv6])
 		err = helpers.RenderTemplateToFile(egressJSON, script, 0777)
 		Expect(err).Should(BeNil())
 		path = helpers.GetFilePath(egressJSON)
@@ -664,6 +667,32 @@ var _ = Describe("RuntimeValidatedPolicies", func() {
 
 		connectivityTest(allRequests, helpers.App1, helpers.Httpd1, BeTrue)
 		connectivityTest(allRequests, helpers.App2, helpers.Httpd1, BeTrue)
+	})
+
+})
+
+var _ = Describe("RuntimeValidatedPolicyImportTests", func() {
+	var once sync.Once
+	var logger *logrus.Entry
+	var vm *helpers.SSHMeta
+
+	initialize := func() {
+		logger = log.WithFields(logrus.Fields{"test": "RunPolicies"})
+		logger.Info("Starting")
+		vm = helpers.CreateNewRuntimeHelper(helpers.Runtime, logger)
+		areEndpointsReady := vm.WaitEndpointsReady()
+		Expect(areEndpointsReady).Should(BeTrue())
+	}
+
+	BeforeEach(func() {
+		once.Do(initialize)
+		vm.PolicyDelAll()
+	})
+
+	AfterEach(func() {
+		if CurrentGinkgoTestDescription().Failed {
+			vm.ReportFailed()
+		}
 	})
 
 	It("Invalid Policies", func() {
@@ -763,7 +792,6 @@ var _ = Describe("RuntimeValidatedPolicies", func() {
 
 		res = vm.PolicyDelAll()
 		res.ExpectSuccess()
-
 	})
 
 	It("Check Endpoint PolicyMap Generation", func() {
