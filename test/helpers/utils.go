@@ -189,7 +189,7 @@ func InstallExampleCilium(kubectl *Kubectl) {
 
 	fmt.Fprint(fp, result.String())
 
-	kubectl.Apply(GetFilePath(newCiliumDSName)).ExpectSuccess(
+	kubectl.Apply(kubectl.GetFilePath(newCiliumDSName)).ExpectSuccess(
 		"cannot apply cilium example daemonset")
 
 	status, err := kubectl.WaitforPods(

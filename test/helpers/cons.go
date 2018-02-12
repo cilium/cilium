@@ -193,11 +193,6 @@ var ciliumKubCLICommands = map[string]string{
 	"cilium kvstore get cilium --recursive": "kvstore_get.txt",
 }
 
-//GetFilePath returns the absolute path of the provided filename
-func GetFilePath(filename string) string {
-	return fmt.Sprintf("%s/%s", BasePath, filename)
-}
-
 // K8s1VMName is the name of the Kubernetes master node when running K8s tests.
 func K8s1VMName() string {
 	return fmt.Sprintf("%s-%s", K8s1, GetCurrentK8SEnv())

@@ -796,3 +796,8 @@ func (s *SSHMeta) RestartCilium() error {
 	}
 	return nil
 }
+
+//GetFilePath returns the absolute path of the provided filename
+func (s *SSHMeta) GetFilePath(filename string) string {
+	return filepath.Join(s.ciliumRootPath, "test", filename)
+}

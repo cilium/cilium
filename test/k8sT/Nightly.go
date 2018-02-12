@@ -43,7 +43,6 @@ var _ = Describe("NightlyEpsMeasurement", func() {
 	var kubectl *helpers.Kubectl
 	var logger *logrus.Entry
 	var once sync.Once
-	var ciliumPath string
 
 	endpointCount := 45
 	endpointsTimeout := endpointTimeout * time.Duration(endpointCount)
@@ -443,8 +442,8 @@ var _ = Describe("NightlyExamples", func() {
 
 		It("GRPC example", func() {
 
-			AppManifest := helpers.GetFilePath(GRPCManifest)
-			PolicyManifest := helpers.GetFilePath(GRPCPolicy)
+			AppManifest := kubectl.GetFilePath(GRPCManifest)
+			PolicyManifest := kubectl.GetFilePath(GRPCPolicy)
 			clientPod := "terminal-87"
 
 			defer func() {
