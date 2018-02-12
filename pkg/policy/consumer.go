@@ -184,7 +184,11 @@ func (c *Consumable) addToMaps(id NumericIdentity) {
 }
 
 func (c *Consumable) wasLastRule(id NumericIdentity) bool {
-	return c.ReverseRules[id] == false && c.IngressIdentities[id] == false
+	// A rule is the 'last rule' for an identity if it does not exist as a key
+	// in any of the maps for this Consumable.
+	_, existsReverse := c.ReverseRules[id]
+	_, existsIngressIdentity := c.IngressIdentities[id]
+	return !existsReverse && !existsIngressIdentity
 }
 
 func (c *Consumable) removeFromMaps(id NumericIdentity) {
