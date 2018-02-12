@@ -37,9 +37,7 @@ var _ = Describe(testName, func() {
 		logger.Info("Starting")
 
 		kubectl = helpers.CreateKubectl(helpers.K8s1VMName(), logger)
-		path := kubectl.ManifestGet("cilium_ds.yaml")
-		kubectl.Apply(path)
-		_, err := kubectl.WaitforPods(helpers.KubeSystemNamespace, "-l k8s-app=cilium", 600)
+		err := kubectl.DeployCiliumDS(helpers.DefaultK8sTCiliumOpts())
 		Expect(err).Should(BeNil())
 	}
 
@@ -63,19 +61,6 @@ var _ = Describe(testName, func() {
 		Expect(err).To(BeNil(), "Terminating containers are not deleted after timeout")
 	})
 
-	getCilium := func(node string) (pod, ip string) {
-		pod, err := kubectl.GetCiliumPodOnNode(helpers.KubeSystemNamespace, node)
-		Expect(err).Should(BeNil())
-
-		res, err := kubectl.Get(
-			helpers.KubeSystemNamespace,
-			fmt.Sprintf("pod %s", pod)).Filter("{.status.podIP}")
-		Expect(err).Should(BeNil())
-		ip = res.String()
-
-		return pod, ip
-	}
-
 	checkIP := func(pod, ip string) {
 		jsonpath := fmt.Sprintf("{.cluster.nodes[*].primary-address.*}")
 		ciliumCmd := fmt.Sprintf("cilium status -o jsonpath='%s'", jsonpath)
@@ -85,8 +70,10 @@ var _ = Describe(testName, func() {
 	}
 
 	It("checks cilium-health status between nodes", func() {
-		cilium1, cilium1IP := getCilium(helpers.K8s1)
-		cilium2, cilium2IP := getCilium(helpers.K8s2)
+		cilium1, cilium1IP, err := kubectl.GetCilium(helpers.K8s1)
+		Expect(err).To(BeNil(), "Unable to get cilium pod from node %s", helpers.K8s1)
+		cilium2, cilium2IP, err := kubectl.GetCilium(helpers.K8s2)
+		Expect(err).To(BeNil(), "Unable to get cilium pod from node %s", helpers.K8s1)
 
 		By(fmt.Sprintf("checking that cilium API exposes health instances"))
 		checkIP(cilium1, cilium1IP)

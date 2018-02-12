@@ -62,6 +62,7 @@ func (s *SSHMeta) String() string {
 func GetVagrantSSHMeta(vmName string) *SSHMeta {
 	config, err := GetVagrantSSHMetadata(vmName)
 	if err != nil {
+		log.WithError(err).WithField("output", string(config)).Error("Error importing ssh config")
 		return nil
 	}
 

@@ -73,11 +73,16 @@ func CreateVM(scope string) error {
 // for the provided Vagrant of name vmName. Returns an error if
 // `vagrant ssh-config` fails to execute.
 func GetVagrantSSHMetadata(vmName string) ([]byte, error) {
-	cmd := getCmd(fmt.Sprintf("vagrant ssh-config %s", vmName))
+	cmd := getCmd(fmt.Sprintf("vagrant global-status | grep %s | awk 'NR==1{ print $1 }'", vmName))
 	if config.CiliumTestConfig.SSHConfig != "" {
 		cmd = getCmd(config.CiliumTestConfig.SSHConfig)
 	}
 	result, err := cmd.Output()
+	if err != nil {
+		return nil, err
+	}
+	cmd = getCmd(fmt.Sprintf("vagrant ssh-config %s", string(result)))
+	result, err = cmd.Output()
 	if err != nil {
 		return nil, err
 	}
@@ -99,6 +104,7 @@ func DestroyVM(scope string) error {
 func getCmd(vmCommand string) *exec.Cmd {
 	log.Infof("Vagrant: running command '%v'", vmCommand)
 	cmd := exec.Command(getPath("bash"), "-c", vmCommand)
+	cmd.Env = os.Environ()
 	cmd.Dir = getDir()
 	return cmd
 }

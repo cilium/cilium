@@ -30,6 +30,7 @@ import (
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/annotation"
+	"github.com/cilium/cilium/test/config"
 
 	"github.com/asaskevich/govalidator"
 	"github.com/onsi/ginkgo"
@@ -380,7 +381,8 @@ func (kub *Kubectl) WaitforPods(namespace string, filter string, timeout time.Du
 func (kub *Kubectl) WaitForServiceEndpoints(namespace string, filter string, service string, port string, timeout time.Duration) (bool, error) {
 	body := func() bool {
 		var jsonPath = fmt.Sprintf("{.items[?(@.metadata.name =='%s')].subsets[0].ports[0].port}", service)
-		data, err := kub.GetEndpoints(namespace, filter).Filter(jsonPath)
+		cmd := kub.GetEndpoints(namespace, filter)
+		data, err := cmd.Filter(jsonPath)
 
 		if err != nil {
 			kub.logger.WithError(err)
@@ -538,6 +540,11 @@ func (kub *Kubectl) WaitCleanAllTerminatingPods() error {
 // GetCiliumPods returns a list of all Cilium pods in the specified namespace,
 // and an error if the Cilium pods were not able to be retrieved.
 func (kub *Kubectl) GetCiliumPods(namespace string) ([]string, error) {
+	if config.CiliumTestConfig.Developer {
+		// in developer mode we use the
+		// the node's name as the podID
+		return []string{K8s1VMName(), K8s2VMName()}, nil
+	}
 	return kub.GetPodNames(namespace, "k8s-app=cilium")
 }
 
@@ -660,6 +667,16 @@ func (kub *Kubectl) CiliumEndpointPolicyVersion(pod string) map[string]int64 {
 
 // CiliumExec runs cmd in the specified Cilium pod.
 func (kub *Kubectl) CiliumExec(pod string, cmd string) *CmdRes {
+	if config.CiliumTestConfig.Developer {
+		// in developer mode we use the
+		// the node's name as the podID
+		nodeName := pod
+		s := InitRuntimeHelper(nodeName, kub.logger)
+		if strings.HasPrefix(cmd, "cilium bpf") {
+			return s.ExecWithSudo(cmd)
+		}
+		return s.Exec(cmd)
+	}
 	cmd = fmt.Sprintf("%s exec -n kube-system %s -- %s", KubectlCmd, pod, cmd)
 	return kub.Exec(cmd)
 }
@@ -972,6 +989,11 @@ func (kub *Kubectl) GatherLogs() {
 // GetCiliumPodOnNode returns the name of the Cilium pod that is running on / in
 //the specified node / namespace.
 func (kub *Kubectl) GetCiliumPodOnNode(namespace string, node string) (string, error) {
+	if config.CiliumTestConfig.Developer {
+		// in developer mode we return
+		// the node's name as the podID
+		return node, nil
+	}
 	filter := fmt.Sprintf(
 		"-o jsonpath='{.items[?(@.spec.nodeName == \"%s\")].metadata.name}'", node)
 
@@ -982,6 +1004,77 @@ func (kub *Kubectl) GetCiliumPodOnNode(namespace string, node string) (string, e
 	}
 
 	return res.Output().String(), nil
+}
+
+func (kub *Kubectl) DeployCiliumDS(ciliumOpts CiliumOpts) error {
+	if config.CiliumTestConfig.Developer {
+		s := InitRuntimeHelper(K8s1VMName(), kub.logger)
+		err := s.SetUpCiliumK8s(ciliumOpts)
+		if err != nil {
+			return err
+		}
+		s = InitRuntimeHelper(K8s2VMName(), kub.logger)
+		return s.SetUpCiliumK8s(ciliumOpts)
+	}
+
+	path := kub.ManifestGet(ciliumOpts.ManifestName)
+
+	kub.Apply(path)
+	_, err := kub.WaitforPods(KubeSystemNamespace, "-l k8s-app=cilium", 600)
+	return err
+}
+
+func (kub *Kubectl) WaitToDeleteCilium(logger *logrus.Entry) {
+	status := 1
+	for status > 0 {
+		pods, err := kub.GetCiliumPods(KubeSystemNamespace)
+		status := len(pods)
+		logger.Infof("Cilium pods terminating '%d' err='%v' pods='%v'", status, err, pods)
+		if status == 0 {
+			return
+		}
+		time.Sleep(1 * time.Second)
+	}
+}
+
+func (kub *Kubectl) DeleteCiliumDS(ciliumOpts CiliumOpts) error {
+	if config.CiliumTestConfig.Developer {
+		return nil
+	}
+	var path string
+	if ciliumOpts.TunnelType == "geneve" {
+		path = kub.ManifestGet("cilium_ds_geneve.yaml")
+	} else {
+		path = kub.ManifestGet("cilium_ds.yaml")
+	}
+	kub.Delete(path)
+	kub.WaitToDeleteCilium(kub.logger)
+	return nil
+}
+
+func (kub *Kubectl) GetCilium(node string) (pod, ip string, err error) {
+	if config.CiliumTestConfig.Developer {
+		switch node {
+		case K8s1:
+			return node, "192.168.33.11", nil
+		case K8s2:
+			return node, "192.168.33.12", nil
+		}
+	}
+	pod, err = kub.GetCiliumPodOnNode(KubeSystemNamespace, node)
+	if err != nil {
+		return "", "", err
+	}
+
+	res, err := kub.Get(
+		KubeSystemNamespace,
+		fmt.Sprintf("pod %s", pod)).Filter("{.status.podIP}")
+	if err != nil {
+		return "", "", err
+	}
+	ip = res.String()
+
+	return pod, ip, nil
 }
 
 // podHasExited returns true if the pod has finished up running.
