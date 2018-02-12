@@ -317,7 +317,7 @@ func (d *Daemon) deleteEndpoint(ep *endpoint.Endpoint) int {
 
 	// Wait for existing builds to complete and prevent further builds
 	ep.BuildMutex.Lock()
-	completionCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	completionCtx, cancel := context.WithTimeout(context.Background(), 1*time.Minute)
 	defer cancel()
 	ep.ProxyWaitGroup = completion.NewWaitGroup(completionCtx)
 

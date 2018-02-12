@@ -731,7 +731,7 @@ func (e *Endpoint) regenerate(owner Owner, reason string) (retErr error) {
 	}()
 
 	e.BuildMutex.Lock()
-	completionCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	completionCtx, cancel := context.WithTimeout(context.Background(), 1*time.Minute)
 	e.ProxyWaitGroup = completion.NewWaitGroup(completionCtx)
 	defer func() {
 		cancel()
