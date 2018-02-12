@@ -503,7 +503,7 @@ tc filter add dev lbtest2 ingress bpf da obj tmp_lb.o sec from-netdev
 	By("Creating LB device to handle service requests")
 	scriptName := "create_veth_interface"
 	log.Infof("generating veth script: %s", scriptName)
-	err := helpers.RenderTemplateToFile(scriptName, script, os.ModePerm)
+	err := helpers.RenderTemplateToFile(scriptName, script, nil, os.ModePerm)
 	if err != nil {
 		return err
 	}

@@ -229,7 +229,7 @@ var _ = Describe("RuntimeValidatedConnectivityTest", func() {
 				"type": "cilium-cni",
 				"mtu": 1450}`
 
-			err := helpers.RenderTemplateToFile(filename, cniConf, os.ModePerm)
+			err := helpers.RenderTemplateToFile(filename, cniConf, nil, os.ModePerm)
 			Expect(err).To(BeNil())
 
 			cmd := vm.Exec(fmt.Sprintf("cat %s > %s/%s",
@@ -256,7 +256,7 @@ var _ = Describe("RuntimeValidatedConnectivityTest", func() {
 					]
 					}]
 				}]`
-			err = helpers.RenderTemplateToFile(policyFileName, policy, os.ModePerm)
+			err = helpers.RenderTemplateToFile(policyFileName, policy, nil, os.ModePerm)
 			Expect(err).Should(BeNil())
 			_, err = vm.PolicyImportAndWait(vm.GetFilePath(policyFileName), helpers.HelperTimeout)
 

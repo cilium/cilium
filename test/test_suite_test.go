@@ -156,7 +156,7 @@ var _ = BeforeAll(func() {
 
 		vm := helpers.InitRuntimeHelper(helpers.RuntimeVM, log.WithFields(
 			logrus.Fields{"testName": "BeforeSuite"}))
-		err = vm.SetUpCilium()
+		err = vm.SetUpCilium(helpers.DefaultRuntimeCiliumOpts())
 
 		if err != nil {
 			// AfterFailed function is not defined in this scope, fired the
