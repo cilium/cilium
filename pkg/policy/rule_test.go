@@ -51,11 +51,11 @@ func (ds *PolicyTestSuite) TestRuleCanReach(c *C) {
 	}
 
 	state := traceState{}
-	c.Assert(rule1.canReach(fooFoo2ToBar, &state), Equals, api.Allowed)
+	c.Assert(rule1.canReachIngress(fooFoo2ToBar, &state), Equals, api.Allowed)
 	c.Assert(state.selectedRules, Equals, 1)
 	c.Assert(state.matchedRules, Equals, 1)
 	state = traceState{}
-	c.Assert(rule1.canReach(fooToBar, &traceState{}), Equals, api.Undecided)
+	c.Assert(rule1.canReachIngress(fooToBar, &traceState{}), Equals, api.Undecided)
 	c.Assert(state.selectedRules, Equals, 0)
 	c.Assert(state.matchedRules, Equals, 0)
 
@@ -88,17 +88,17 @@ func (ds *PolicyTestSuite) TestRuleCanReach(c *C) {
 	}
 
 	state = traceState{}
-	c.Assert(rule2.canReach(fooToBar, &state), Equals, api.Denied)
+	c.Assert(rule2.canReachIngress(fooToBar, &state), Equals, api.Denied)
 	c.Assert(state.selectedRules, Equals, 1)
 	c.Assert(state.matchedRules, Equals, 0)
 
 	state = traceState{}
-	c.Assert(rule2.canReach(bazToBar, &state), Equals, api.Undecided)
+	c.Assert(rule2.canReachIngress(bazToBar, &state), Equals, api.Undecided)
 	c.Assert(state.selectedRules, Equals, 1)
 	c.Assert(state.matchedRules, Equals, 0)
 
 	state = traceState{}
-	c.Assert(rule2.canReach(fooBazToBar, &state), Equals, api.Allowed)
+	c.Assert(rule2.canReachIngress(fooBazToBar, &state), Equals, api.Allowed)
 	c.Assert(state.selectedRules, Equals, 1)
 	c.Assert(state.matchedRules, Equals, 1)
 }
@@ -637,6 +637,82 @@ func (ds *PolicyTestSuite) TestL3Policy(c *C) {
 	c.Assert(err, Not(IsNil))
 }
 
+// Tests the restrictions of combining certain label-based L3 and L4 policies.
+// This ensures that the user is informed of policy combinations that are not
+// implemented in the datapath.
+func (ds *PolicyTestSuite) TestEgressRuleRestrictions(c *C) {
+
+	fooSelector := []api.EndpointSelector{
+		api.NewESFromLabels(labels.ParseSelectLabel("foo")),
+	}
+
+	// Cannot combine ToEndpoints and ToCIDR
+	apiRule1 := api.Rule{
+		EndpointSelector: api.NewESFromLabels(labels.ParseSelectLabel("bar")),
+		Egress: []api.EgressRule{
+			{
+				ToCIDR: []api.CIDR{
+					"10.1.0.0/16",
+					"2001:dbf::/64",
+				},
+				ToEndpoints: fooSelector,
+			},
+		},
+	}
+
+	err := apiRule1.Sanitize()
+	c.Assert(err, Not(IsNil))
+
+	// Cannot combine ToEndpoints and ToPorts
+	apiRule1 = api.Rule{
+		EndpointSelector: api.NewESFromLabels(labels.ParseSelectLabel("bar")),
+		Egress: []api.EgressRule{
+			{
+				ToEndpoints: fooSelector,
+				ToPorts: []api.PortRule{{
+					Ports: []api.PortProtocol{
+						{Port: "80", Protocol: api.ProtoTCP},
+					},
+					Rules: &api.L7Rules{
+						Kafka: []api.PortRuleKafka{
+							{Topic: "foo"},
+						},
+					},
+				}},
+			},
+		},
+	}
+
+	err = apiRule1.Sanitize()
+	c.Assert(err, Not(IsNil))
+
+	// Cannot combine ToCIDR and ToPorts
+	apiRule1 = api.Rule{
+		EndpointSelector: api.NewESFromLabels(labels.ParseSelectLabel("bar")),
+		Egress: []api.EgressRule{
+			{
+				ToCIDR: []api.CIDR{
+					"10.1.0.0/16",
+					"2001:dbf::/64",
+				},
+				ToPorts: []api.PortRule{{
+					Ports: []api.PortProtocol{
+						{Port: "80", Protocol: api.ProtoTCP},
+					},
+					Rules: &api.L7Rules{
+						Kafka: []api.PortRuleKafka{
+							{Topic: "foo"},
+						},
+					},
+				}},
+			},
+		},
+	}
+
+	err = apiRule1.Sanitize()
+	c.Assert(err, Not(IsNil))
+}
+
 func (ds *PolicyTestSuite) TestRuleCanReachFromEntity(c *C) {
 	fromWorld := &SearchContext{
 		From: labels.ParseSelectLabelArray("reserved:world"),
@@ -662,11 +738,11 @@ func (ds *PolicyTestSuite) TestRuleCanReachFromEntity(c *C) {
 	c.Assert(rule1.sanitize(), IsNil)
 
 	state := traceState{}
-	c.Assert(rule1.canReach(fromWorld, &state), Equals, api.Allowed)
+	c.Assert(rule1.canReachIngress(fromWorld, &state), Equals, api.Allowed)
 	c.Assert(state.selectedRules, Equals, 1)
 	c.Assert(state.matchedRules, Equals, 1)
 	state = traceState{}
-	c.Assert(rule1.canReach(notFromWorld, &traceState{}), Equals, api.Undecided)
+	c.Assert(rule1.canReachIngress(notFromWorld, &traceState{}), Equals, api.Undecided)
 	c.Assert(state.selectedRules, Equals, 0)
 	c.Assert(state.matchedRules, Equals, 0)
 }
@@ -696,11 +772,11 @@ func (ds *PolicyTestSuite) TestRuleCanReachEntity(c *C) {
 	c.Assert(rule1.sanitize(), IsNil)
 
 	state := traceState{}
-	c.Assert(rule1.canReach(toWorld, &state), Equals, api.Allowed)
+	c.Assert(rule1.canReachEgress(toWorld, &state), Equals, api.Allowed)
 	c.Assert(state.selectedRules, Equals, 1)
 	c.Assert(state.matchedRules, Equals, 1)
 	state = traceState{}
-	c.Assert(rule1.canReach(notToWorld, &traceState{}), Equals, api.Undecided)
+	c.Assert(rule1.canReachEgress(notToWorld, &traceState{}), Equals, api.Undecided)
 	c.Assert(state.selectedRules, Equals, 0)
 	c.Assert(state.matchedRules, Equals, 0)
 }

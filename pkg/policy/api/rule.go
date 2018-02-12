@@ -216,6 +216,29 @@ type K8sServiceSelectorNamespace struct {
 //   if if multiple members of the structure are specified, then all members
 //   must match in order for the rule to take effect.
 type EgressRule struct {
+	// ToEndpoints is a list of endpoints identified by an  EndpointSelector to
+	// which the endpoint subject to the rule are allowed to communicate.
+	//
+	// Example:
+	// Any endpoint with the label "role=backend" can communicate with any
+	// endpoint carrying the label "role=frontend".
+	//
+	// +optional
+	ToEndpoints []EndpointSelector `json:"toEndpoints,omitempty"`
+
+	// ToRequires is a list of additional constraints which must be met
+	// in order for the selected endpoints to be able to connect to other
+	// endpoints. These additional constraints do no by itself grant access
+	// privileges and must always be accompanied with at least one matching
+	// ToEndpoints.
+	//
+	// Example:
+	// Any Endpoint with the label "team=A" requires consuming endpoint
+	// to also carry the label "team=A".
+	//
+	// +optional
+	ToRequires []EndpointSelector `json:"toRequires,omitempty"`
+
 	// ToPorts is a list of destination ports identified by port number and
 	// protocol which the endpoint subject to the rule is allowed to
 	// connect to.
