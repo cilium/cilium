@@ -487,7 +487,7 @@ tc filter add dev lbtest2 ingress bpf da obj tmp_lb.o sec from-netdev
 	}
 
 	// filesystem is mounted at path /vagrant on VM
-	scriptPath := fmt.Sprintf("%s%s", helpers.BasePath, scriptName)
+	scriptPath := fmt.Sprintf("%s/%s", helpers.BasePath, scriptName)
 
 	ipAddrCmd := "sudo ip addr add fd02:1:1:1:1:1:1:1 dev cilium_host"
 	res := node.Exec(ipAddrCmd)
