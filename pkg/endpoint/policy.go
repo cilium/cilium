@@ -15,7 +15,6 @@
 package endpoint
 
 import (
-	"context"
 	"fmt"
 	"net"
 	"os"
@@ -26,7 +25,6 @@ import (
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/common"
-	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/labels"
@@ -731,18 +729,11 @@ func (e *Endpoint) regenerate(owner Owner, reason string) (retErr error) {
 	}()
 
 	e.BuildMutex.Lock()
-	completionCtx, cancel := context.WithTimeout(context.Background(), 1*time.Minute)
-	e.ProxyWaitGroup = completion.NewWaitGroup(completionCtx)
-	defer func() {
-		cancel()
-		e.ProxyWaitGroup = nil
-		e.BuildMutex.Unlock()
-	}()
+	defer e.BuildMutex.Unlock()
 
-	e.Mutex.Lock()
+	e.Mutex.RLock()
 	e.getLogger().Debug("Regenerating endpoint...")
-	e.removeCollectedRedirects(owner)
-	e.Mutex.Unlock()
+	e.Mutex.RUnlock()
 
 	origDir := filepath.Join(owner.GetStateDir(), e.StringID())
 
@@ -767,10 +758,6 @@ func (e *Endpoint) regenerate(owner Owner, reason string) (retErr error) {
 	}()
 
 	revision, err := e.regenerateBPF(owner, tmpDir, reason)
-	if err == nil {
-		// Wait for all asynchronous proxy updates to be finished.
-		err = e.WaitForProxyCompletions()
-	}
 	if err != nil {
 		os.RemoveAll(tmpDir)
 		return err
