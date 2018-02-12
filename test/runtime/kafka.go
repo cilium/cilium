@@ -44,7 +44,7 @@ var _ = Describe("RuntimeValidatedKafka", func() {
 	initialize := func() {
 		logger = log.WithFields(logrus.Fields{"testName": "RuntimeKafka"})
 		logger.Info("Starting")
-		vm = helpers.CreateNewRuntimeHelper(helpers.Runtime, logger)
+		vm = helpers.CreateNewRuntimeHelper(helpers.RuntimeVM, logger)
 	}
 
 	containers := func(mode string) {

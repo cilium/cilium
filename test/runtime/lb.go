@@ -33,7 +33,7 @@ var _ = Describe("RuntimeValidatedLB", func() {
 	BeforeAll(func() {
 		logger = log.WithFields(logrus.Fields{"test": "RuntimeLB"})
 		logger.Info("Starting")
-		vm = helpers.CreateNewRuntimeHelper(helpers.Runtime, logger)
+		vm = helpers.CreateNewRuntimeHelper(helpers.RuntimeVM, logger)
 		vm.PolicyDelAll().ExpectSuccess()
 	})
 

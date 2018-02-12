@@ -34,7 +34,7 @@ var _ = Describe("RuntimeValidatedChaos", func() {
 	initialize := func() {
 		logger := log.WithFields(logrus.Fields{"testName": "RuntimeValidatedChaos"})
 		logger.Info("Starting")
-		vm = helpers.CreateNewRuntimeHelper(helpers.Runtime, logger)
+		vm = helpers.CreateNewRuntimeHelper(helpers.RuntimeVM, logger)
 	}
 
 	BeforeEach(func() {

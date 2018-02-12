@@ -26,6 +26,13 @@ var (
 	// HelperTimeout is a predefined timeout value for commands.
 	HelperTimeout time.Duration = 300 // WithTimeout helper translates it to seconds
 
+	// Runtime VM name
+	RuntimeVM = "runtime"
+
+	// K8s VM names
+	K8s1 = "k8s1"
+	K8s2 = "k8s2"
+
 	// BasePath is the path in the Vagrant VMs to which the test directory
 	// is mounted
 	BasePath = "/home/vagrant/go/src/github.com/cilium/cilium/test"
@@ -40,10 +47,10 @@ const (
 	K8sManifestBase = "k8sT/manifests"
 
 	// VM / Test suite constants.
+
+	//Scopes
 	K8s     = "k8s"
-	K8s1    = "k8s1"
 	K8s1Ip  = "192.168.36.11"
-	K8s2    = "k8s2"
 	K8s2Ip  = "192.168.36.12"
 	Runtime = "runtime"
 
@@ -193,10 +200,10 @@ func GetFilePath(filename string) string {
 
 // K8s1VMName is the name of the Kubernetes master node when running K8s tests.
 func K8s1VMName() string {
-	return fmt.Sprintf("k8s1-%s", GetCurrentK8SEnv())
+	return fmt.Sprintf("%s-%s", K8s1, GetCurrentK8SEnv())
 }
 
 // K8s2VMName is the name of the Kubernetes worker node when running K8s tests.
 func K8s2VMName() string {
-	return fmt.Sprintf("k8s2-%s", GetCurrentK8SEnv())
+	return fmt.Sprintf("%s-%s", K8s2, GetCurrentK8SEnv())
 }

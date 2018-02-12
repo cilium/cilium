@@ -24,7 +24,7 @@ var _ = Describe("RuntimeValidatedConnectivityTest", func() {
 	initialize := func() {
 		logger = log.WithFields(logrus.Fields{"test": "RuntimeConnectivityTest"})
 		logger.Info("Starting")
-		vm = helpers.CreateNewRuntimeHelper(helpers.Runtime, logger)
+		vm = helpers.CreateNewRuntimeHelper(helpers.RuntimeVM, logger)
 	}
 
 	BeforeEach(func() {
@@ -304,7 +304,7 @@ var _ = Describe("RuntimeValidatedConntrackTest", func() {
 	initialize := func() {
 		logger = log.WithFields(logrus.Fields{"test": "RunConntrackTest"})
 		logger.Info("Starting")
-		vm = helpers.CreateNewRuntimeHelper(helpers.Runtime, logger)
+		vm = helpers.CreateNewRuntimeHelper(helpers.RuntimeVM, logger)
 
 		res := vm.SetPolicyEnforcement(helpers.PolicyEnforcementAlways)
 		res.ExpectSuccess(fmt.Sprintf("Unable to set PolicyEnforcement to %s", helpers.PolicyEnforcementAlways))
