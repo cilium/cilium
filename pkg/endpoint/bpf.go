@@ -562,7 +562,7 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir, reason string) (uint64, err
 
 		// Regenerate policy and apply any options resulting in the
 		// policy change.
-		// Note that e.PolicyMap is not initialized!
+		// Note that PolicyMap is not initialized!
 		if _, _, _, err = e.regeneratePolicy(owner, nil); err != nil {
 			return 0, fmt.Errorf("Unable to regenerate policy: %s", err)
 		}
@@ -595,12 +595,13 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir, reason string) (uint64, err
 				// Remove policy map file only if it was created
 				// in this update cycle
 				if c != nil {
-					c.RemoveMap(e.PolicyMap)
+					c.RemovePolicyMap(e.PolicyMap)
 				}
 
 				os.RemoveAll(e.PolicyMapPathLocked())
 				e.PolicyMap = nil
 			}
+
 			if createdIPv6IngressMap {
 				e.L3Maps.DestroyBpfMap(IPv6Ingress, e.IPv6IngressMapPathLocked())
 			}
@@ -644,11 +645,11 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir, reason string) (uint64, err
 
 		// Regenerate policy and apply any options resulting in the
 		// policy change.
-		// This also populates e.PolicyMap
+		// This also populates e.PolicyMap.
 		policyChanged, modifiedRules, deletedRules, err = e.regeneratePolicy(owner, nil)
 		if err != nil {
 			e.Mutex.Unlock()
-			return 0, fmt.Errorf("Unable to regenerate policy for '%s': %s", e.PolicyMap.String(), err)
+			return 0, fmt.Errorf("unable to regenerate policy for '%s': %s", e.PolicyMap.String(), err)
 		}
 
 		// Evaluate generated policy to see if changes to connection tracking

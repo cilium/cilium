@@ -43,6 +43,7 @@ func init() {
 	bpfPolicyCmd.AddCommand(bpfPolicyAddCmd)
 }
 
+// TODO - update with support for updating egress policy as well. See GH-3114.
 func updatePolicyKey(cmd *cobra.Command, args []string, add bool) {
 	if len(args) < 2 {
 		Usagef(cmd, "<endpoint id> and <identity> required")
@@ -93,12 +94,12 @@ func updatePolicyKey(cmd *cobra.Command, args []string, add bool) {
 		u8p := u8proto.U8proto(proto)
 		entry := fmt.Sprintf("%d %d/%s", label, port, u8p.String())
 		if add == true {
-			if err := policyMap.AllowL4(label, port, proto); err != nil {
+			if err := policyMap.AllowL4(label, port, proto, policymap.Ingress); err != nil {
 				fmt.Printf("Cannot add policy key '%s': %s\n", entry, err)
 				ok = false
 			}
 		} else {
-			if err := policyMap.DeleteL4(label, port, proto); err != nil {
+			if err := policyMap.DeleteL4(label, port, proto, policymap.Ingress); err != nil {
 				fmt.Printf("Cannot delete policy key '%s': %s\n", entry, err)
 				ok = false
 			}
