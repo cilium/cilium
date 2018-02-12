@@ -27,7 +27,7 @@ var (
 	HelperTimeout time.Duration = 300 // WithTimeout helper translates it to seconds
 
 	// Runtime VM name
-	RuntimeVM = "runtime"
+	RuntimeVM = "runtime1"
 
 	// K8s VM names
 	K8s1 = "k8s1"
