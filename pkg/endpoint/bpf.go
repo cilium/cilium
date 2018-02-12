@@ -32,6 +32,7 @@ import (
 
 	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/pkg/byteorder"
+	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/geneve"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/cidrmap"
@@ -440,6 +441,15 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir, reason string) (uint64, err
 
 	e.Mutex.Lock()
 
+	completionCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	e.ProxyWaitGroup = completion.NewWaitGroup(completionCtx)
+	defer func() {
+		cancel()
+		e.ProxyWaitGroup = nil
+	}()
+
+	e.removeCollectedRedirects(owner)
+
 	// If endpoint was marked as disconnected then
 	// it won't be regenerated.
 	// When building the initial drop policy in waiting-for-identity state
@@ -671,6 +681,14 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir, reason string) (uint64, err
 	libdir := owner.GetBpfDir()
 	rundir := owner.GetStateDir()
 	debug := strconv.FormatBool(owner.DebugEnabled())
+
+	// To avoid traffic loss, wait for the proxy to be ready to accept traffic
+	// on redirect ports, before we generate the policy that will redirect
+	// traffic to those ports.
+	err = e.WaitForProxyCompletions()
+	if err != nil {
+		return 0, fmt.Errorf("Error while configuring proxy redirects: %s", err)
+	}
 
 	err = e.runInit(libdir, rundir, epdir, epInfoCache.ifName, debug)
 	// CT entry clean up should always happen
