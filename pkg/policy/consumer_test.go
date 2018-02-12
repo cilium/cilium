@@ -45,26 +45,26 @@ func (s *PolicyTestSuite) TestIdentityAllowed(c *C) {
 
 	c1.AllowIngressIdentityLocked(cache, ID2)
 	c.Assert(c1.Allows(ID2), Equals, true)
-	id2Allowed := c1.isIdentityAllowed(ID2)
+	id2Allowed, _ := c1.IngressIdentities[ID2]
 	c.Assert(id2Allowed, Equals, true)
 
 	c1.AllowIngressIdentityLocked(cache, ID2)
 	c.Assert(c1.Allows(ID2), Equals, true)
-	id2Allowed = c1.isIdentityAllowed(ID2)
+	id2Allowed, _ = c1.IngressIdentities[ID2]
 	c.Assert(id2Allowed, Equals, true)
 
 	c1.AllowIngressIdentityLocked(cache, ID3)
 	c.Assert(c1.Allows(ID3), Equals, true)
-	id3Allowed := c1.isIdentityAllowed(ID3)
+	id3Allowed, _ := c1.IngressIdentities[ID3]
 	c.Assert(id3Allowed, Equals, true)
 
 	c1.RemoveIngressIdentityLocked(ID2)
 	c.Assert(c1.Allows(ID2), Equals, false)
-	id2Allowed = c1.isIdentityAllowed(ID2)
+	id2Allowed, _ = c1.IngressIdentities[ID2]
 	c.Assert(id2Allowed, Equals, false)
 
 	c1.RemoveIngressIdentityLocked(ID3)
 	c.Assert(c1.Allows(ID3), Equals, false)
-	id3Allowed = c1.isIdentityAllowed(ID3)
+	id3Allowed, _ = c1.IngressIdentities[ID3]
 	c.Assert(id3Allowed, Equals, false)
 }

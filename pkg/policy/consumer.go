@@ -165,11 +165,6 @@ func (c *Consumable) RemoveMap(m *policymap.PolicyMap) {
 
 }
 
-func (c *Consumable) isIdentityAllowed(id NumericIdentity) bool {
-	val, _ := c.IngressIdentities[id]
-	return val
-}
-
 func (c *Consumable) addToMaps(id NumericIdentity) {
 	for _, m := range c.Maps {
 		if m.IdentityExists(id.Uint32()) {
@@ -211,8 +206,8 @@ func (c *Consumable) removeFromMaps(id NumericIdentity) {
 // Returns true if the identity was not present in this Consumable's
 // IngressIdentities map, and thus had to be added, false if it is already added.
 func (c *Consumable) AllowIngressIdentityLocked(cache *ConsumableCache, id NumericIdentity) bool {
-	isIdentityAllowed := c.isIdentityAllowed(id)
-	if isIdentityAllowed == false {
+	_, exists := c.IngressIdentities[id]
+	if !exists {
 		log.WithFields(logrus.Fields{
 			logfields.Identity: id,
 			"consumable":       logfields.Repr(c),
@@ -221,6 +216,8 @@ func (c *Consumable) AllowIngressIdentityLocked(cache *ConsumableCache, id Numer
 		c.IngressIdentities[id] = true
 		return true
 	}
+
+	c.IngressIdentities[id] = true
 
 	return false // not changed.
 }
@@ -272,7 +269,7 @@ func (c *Consumable) RemoveIngressIdentityLocked(id NumericIdentity) {
 
 func (c *Consumable) Allows(id NumericIdentity) bool {
 	c.Mutex.RLock()
-	identityAllowed := c.isIdentityAllowed(id)
+	isIdentityAllowed, _ := c.IngressIdentities[id]
 	c.Mutex.RUnlock()
-	return identityAllowed != false
+	return isIdentityAllowed
 }
