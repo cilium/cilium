@@ -649,6 +649,7 @@ func (e *Endpoint) regeneratePolicy(owner Owner, opts models.ConfigurationMap) (
 		e.getLogger().WithField(logfields.Identity, c.ID).Debug("Reusing cached L4 policy")
 	}
 
+	// Calculate L3 (CIDR) policy.
 	var policyChanged bool
 	if policyChanged, err = e.regenerateL3Policy(owner, repo, revision, c); err != nil {
 		return false, nil, nil, err
@@ -759,8 +760,9 @@ func (e *Endpoint) regeneratePolicy(owner Owner, opts models.ConfigurationMap) (
 		"policyRevision.next": e.nextPolicyRevision,
 	}).Debug("Done regenerating")
 
-	// Return true if need to regenerate BPF
-	return optsChanged || policyChanged || e.nextPolicyRevision > e.policyRevision, consumersAdd, consumersRm, nil
+	needToRegenerateBPF := optsChanged || policyChanged || e.nextPolicyRevision > e.policyRevision
+
+	return needToRegenerateBPF, consumersAdd, consumersRm, nil
 }
 
 // Called with e.Mutex UNlocked

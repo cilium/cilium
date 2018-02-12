@@ -428,9 +428,9 @@ type Endpoint struct {
 	Consumable *policy.Consumable `json:"-"`
 
 	// L4Policy is the L4Policy in effect for the
-	// endpoint. Normally it is the same as the Consumable's
-	// L4Policy, but this is needed during policy recalculation to
-	// be able to clean up PolicyMap after consumable has already
+	// endpoint. Outside of policy recalculation, it is the same as the
+	// Consumable's L4Policy, but this is needed during policy recalculation to
+	// be able to clean up PolicyMap after the endpoint's consumable has already
 	// been updated.
 	L4Policy *policy.L4Policy `json:"-"`
 
@@ -438,7 +438,9 @@ type Endpoint struct {
 	// reference to all policy related BPF
 	PolicyMap *policymap.PolicyMap `json:"-"`
 
-	// CIDRPolicy is the CIDR based policy configuration of the endpoint
+	// CIDRPolicy is the CIDR based policy configuration of the endpoint. This
+	// is not contained within the Consumable for this endpoint because the
+	// Consumable only contains identity-based policy information.
 	L3Policy *policy.CIDRPolicy `json:"-"`
 
 	// L3Maps is the datapath representation of CIDRPolicy
