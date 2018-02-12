@@ -25,7 +25,9 @@ import (
 )
 
 // Consumable holds all of the policies relevant to this security identity,
-// including label-based policies, L4Policy, and L7 policy.
+// including label-based policies, L4Policy, and L7 policy. A Consumable is
+// shared amongst all endpoints on the same node which possess the same security
+// identity.
 type Consumable struct {
 	// ID of the consumable (same as security ID)
 	ID identity.NumericIdentity `json:"id"`
