@@ -1117,7 +1117,7 @@ func (e *Endpoint) Allows(id identityPkg.NumericIdentity) bool {
 	e.Mutex.RLock()
 	defer e.Mutex.RUnlock()
 	if e.Consumable != nil {
-		return e.Consumable.Allows(id)
+		return e.Consumable.AllowsIngress(id)
 	}
 	return false
 }
@@ -1272,7 +1272,8 @@ func (e *Endpoint) RemoveFromGlobalPolicyMap() error {
 	if err == nil {
 		// We need to remove ourselves from global map, so that
 		// resources (prog/map reference counts) can be released.
-		gpm.DeleteIdentity(uint32(e.ID))
+		gpm.DeleteIdentity(uint32(e.ID), policymap.Ingress)
+		gpm.DeleteIdentity(uint32(e.ID), policymap.Egress)
 		gpm.Close()
 	}
 
@@ -1331,7 +1332,7 @@ func mapPath(mapname string, id int) string {
 	return bpf.MapPath(mapname + strconv.Itoa(id))
 }
 
-// PolicyMapPathLocked returns the path to policy map of endpoint.
+// PolicyMapPathLocked returns the path to the policy map of endpoint.
 func (e *Endpoint) PolicyMapPathLocked() string {
 	return mapPath(policymap.MapName, int(e.ID))
 }

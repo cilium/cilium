@@ -215,4 +215,8 @@ const (
 
 	// Attempt is the attempt number if an operation is attempted multiple times
 	Attempt = "attempt"
+
+	// TrafficDirection represents the directionality of traffic with respect
+	// to an endpoint.
+	TrafficDirection = "trafficDirection"
 )

@@ -42,31 +42,31 @@ func (s *PolicyTestSuite) TestIdentityAllowed(c *C) {
 	cache := newConsumableCache()
 
 	c1 := cache.GetOrCreate(ID1, nil)
-	c.Assert(c1.Allows(ID2), Equals, false)
-	c.Assert(c1.Allows(ID3), Equals, false)
+	c.Assert(c1.AllowsIngress(ID2), Equals, false)
+	c.Assert(c1.AllowsIngress(ID3), Equals, false)
 
 	c1.AllowIngressIdentityLocked(cache, ID2)
-	c.Assert(c1.Allows(ID2), Equals, true)
+	c.Assert(c1.AllowsIngress(ID2), Equals, true)
 	id2Allowed, _ := c1.IngressIdentities[ID2]
 	c.Assert(id2Allowed, Equals, true)
 
 	c1.AllowIngressIdentityLocked(cache, ID2)
-	c.Assert(c1.Allows(ID2), Equals, true)
+	c.Assert(c1.AllowsIngress(ID2), Equals, true)
 	id2Allowed, _ = c1.IngressIdentities[ID2]
 	c.Assert(id2Allowed, Equals, true)
 
 	c1.AllowIngressIdentityLocked(cache, ID3)
-	c.Assert(c1.Allows(ID3), Equals, true)
+	c.Assert(c1.AllowsIngress(ID3), Equals, true)
 	id3Allowed, _ := c1.IngressIdentities[ID3]
 	c.Assert(id3Allowed, Equals, true)
 
 	c1.RemoveIngressIdentityLocked(ID2)
-	c.Assert(c1.Allows(ID2), Equals, false)
+	c.Assert(c1.AllowsIngress(ID2), Equals, false)
 	id2Allowed, _ = c1.IngressIdentities[ID2]
 	c.Assert(id2Allowed, Equals, false)
 
 	c1.RemoveIngressIdentityLocked(ID3)
-	c.Assert(c1.Allows(ID3), Equals, false)
+	c.Assert(c1.AllowsIngress(ID3), Equals, false)
 	id3Allowed, _ = c1.IngressIdentities[ID3]
 	c.Assert(id3Allowed, Equals, false)
 }
