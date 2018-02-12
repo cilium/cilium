@@ -4,15 +4,14 @@ set -e
 CILIUM_DS_TAG="k8s-app=cilium"
 KUBE_SYSTEM_NAMESPACE="kube-system"
 KUBECTL="/usr/bin/kubectl"
+PROVISIONSRC="/tmp/provision"
+GOPATH="/home/vagrant/go"
 
-export GOPATH="/go/"
+DIR=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
 
-mkdir -p $GOPATH/src/github.com/cilium/
-chmod 777 $GOPATH/ -R
-rm -rf $GOPATH/src/github.com/cilium/cilium
-sudo -u vagrant cp -rf /src $GOPATH/src/github.com/cilium/cilium
+source "${PROVISIONSRC}/helpers.bash"
 
-cd $GOPATH/src/github.com/cilium/cilium
+cd ${GOPATH}/src/github.com/cilium/cilium
 
 if echo $(hostname) | grep "k8s" -q;
 then

@@ -5,9 +5,8 @@ HOST=$(hostname)
 TOKEN="258062.5d84c017c9b2796c"
 CILIUM_CONFIG_DIR="/opt/cilium"
 PROVISIONSRC="/tmp/provision/"
-ETCD_VERSION="v3.1.0"
-SRC_FOLDER="/src/"
-SYSTEMD_SERVICES="$SRC_FOLDER/contrib/systemd/"
+SRC_FOLDER="/home/vagrant/go/src/github.com/cilium/cilium"
+SYSTEMD_SERVICES="$SRC_FOLDER/contrib/systemd"
 MOUNT_SYSTEMD="sys-fs-bpf.mount"
 
 NODE=$1
