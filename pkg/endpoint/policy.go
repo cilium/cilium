@@ -87,40 +87,6 @@ func (e *Endpoint) ProxyID(l4 *policy.L4Filter) string {
 	return fmt.Sprintf("%d:%s:%s:%d", e.ID, direction, l4.Protocol, l4.Port)
 }
 
-func (e *Endpoint) addRedirect(owner Owner, l4 *policy.L4Filter) (uint16, error) {
-	return owner.UpdateProxyRedirect(e, l4)
-}
-
-// Called with endpoint lock Write locked!
-func (e *Endpoint) collectUnusedRedirects(oldMap, newMap policy.L4PolicyMap) {
-	if e.proxiesToRemove == nil {
-		e.proxiesToRemove = make(map[string]bool)
-	}
-
-	for k, v := range oldMap {
-		if newMap != nil {
-			// Keep redirects which are also in the new policy
-			if _, ok := newMap[k]; ok {
-				continue
-			}
-		}
-
-		if v.IsRedirect() {
-			e.proxiesToRemove[e.ProxyID(&v)] = true
-		}
-	}
-}
-
-// Called with endpoint lock Write locked!
-func (e *Endpoint) removeCollectedRedirects(owner Owner) {
-	for id := range e.proxiesToRemove {
-		if err := owner.RemoveProxyRedirect(e, id); err != nil {
-			e.getLogger().WithError(err).WithField(logfields.L4PolicyID, id).Warn("Error while removing proxy redirect")
-		}
-		delete(e.proxiesToRemove, id)
-	}
-}
-
 func getSecurityIdentities(labelsMap *policy.IdentityCache, selector *api.EndpointSelector) []policy.NumericIdentity {
 	identities := []policy.NumericIdentity{}
 	for idx, labels := range *labelsMap {
@@ -356,10 +322,6 @@ func (e *Endpoint) regenerateConsumable(owner Owner, labelsMap *policy.IdentityC
 		// PolicyMap can't be created in dry mode.
 		if !owner.DryModeEnabled() {
 			// Collect unused redirects.
-			if e.L4Policy != nil {
-				e.collectUnusedRedirects(e.L4Policy.Ingress, c.L4Policy.Ingress)
-				e.collectUnusedRedirects(e.L4Policy.Egress, c.L4Policy.Egress)
-			}
 			rulesAdd, l4Rm, err = e.applyL4PolicyLocked(owner, labelsMap, e.L4Policy, c.L4Policy)
 			if err != nil {
 				// This should not happen, and we can't fail at this stage anyway.
