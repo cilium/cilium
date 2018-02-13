@@ -91,7 +91,7 @@ void AccessLog::Entry::InitFromRequest(
   }
 
   if (conn) {
-    entry.set_source_security_id(conn->socketMark() & 0xffff);
+    entry.set_source_security_id(conn->socketMark() >> 16);
     entry.set_source_address(conn->remoteAddress().asString());
     entry.set_destination_address(conn->localAddress().asString());
   }
