@@ -42,10 +42,6 @@ type Consumable struct {
 	// traffic is allowed. The value corresponds to whether the corresponding
 	// key (security identity) should be garbage collected upon policy calculation.
 	IngressIdentities map[NumericIdentity]bool `json:"ingress-identities"`
-	// ReverseRules contains the security identities that are allowed to receive
-	// a reply from this Consumable. The value represents whether the element is
-	// valid after policy recalculation.
-	ReverseRules map[NumericIdentity]bool `json:"-"`
 	// L4Policy contains the policy of this consumable
 	L4Policy *L4Policy `json:"l4-policy"`
 	// L3L4Policy contains the L3, L4 and L7 ingress policy of this consumable
@@ -61,7 +57,6 @@ func NewConsumable(id NumericIdentity, lbls *Identity, cache *ConsumableCache) *
 		Labels:            lbls,
 		Maps:              map[int]*policymap.PolicyMap{},
 		IngressIdentities: map[NumericIdentity]bool{},
-		ReverseRules:      map[NumericIdentity]bool{},
 		cache:             cache,
 	}
 	if lbls != nil {
@@ -98,24 +93,6 @@ func (c *Consumable) AddMap(m *policymap.PolicyMap) {
 	}
 }
 
-func (c *Consumable) deleteReverseRule(reverseConsumable NumericIdentity, identityToRemove NumericIdentity) {
-	if c.cache == nil {
-		log.WithField("identityToRemove", identityToRemove).Error("Consumable without cache association")
-		return
-	}
-
-	if reverse := c.cache.Lookup(reverseConsumable); reverse != nil {
-		// In case Conntrack is disabled, we'll find a reverse
-		// policy rule here that we can delete.
-		if _, ok := reverse.ReverseRules[identityToRemove]; ok {
-			delete(reverse.ReverseRules, identityToRemove)
-			if reverse.wasLastRule(identityToRemove) {
-				reverse.removeFromMaps(identityToRemove)
-			}
-		}
-	}
-}
-
 func (c *Consumable) delete() {
 	for ingressIdentity := range c.IngressIdentities {
 		// FIXME: This explicit removal could be removed eventually to
@@ -123,8 +100,6 @@ func (c *Consumable) delete() {
 		if c.wasLastRule(ingressIdentity) {
 			c.removeFromMaps(ingressIdentity)
 		}
-
-		c.deleteReverseRule(ingressIdentity, c.ID)
 	}
 
 	if c.cache != nil {
@@ -174,9 +149,8 @@ func (c *Consumable) addToMaps(id NumericIdentity) {
 // A rule is the 'last rule' for an identity if it does not exist as a key
 // in any of the maps for this Consumable.
 func (c *Consumable) wasLastRule(id NumericIdentity) bool {
-	_, existsReverse := c.ReverseRules[id]
 	_, existsIngressIdentity := c.IngressIdentities[id]
-	return !existsReverse && !existsIngressIdentity
+	return !existsIngressIdentity
 }
 
 func (c *Consumable) removeFromMaps(id NumericIdentity) {
@@ -214,37 +188,6 @@ func (c *Consumable) AllowIngressIdentityLocked(cache *ConsumableCache, id Numer
 	return false // not changed.
 }
 
-// AllowIngressIdentityAndReverseLocked adds the given security identity to the
-// Consumable's IngressIdentities map and BPF policy map, as well as this
-// Consumable's security identity to the Consumable representing id's Ingress
-// Identities map and its BPF policy map.
-// Must be called with Consumable mutex Locked.
-// Returns true if changed, false if not.
-func (c *Consumable) AllowIngressIdentityAndReverseLocked(cache *ConsumableCache, id NumericIdentity) bool {
-	log.WithFields(logrus.Fields{
-		logfields.Identity + ".from": id,
-		logfields.Identity + ".to":   c.ID,
-	}).Debug("Allowing direction")
-	changed := c.AllowIngressIdentityLocked(cache, id)
-
-	if reverse := cache.Lookup(id); reverse != nil {
-		log.WithFields(logrus.Fields{
-			logfields.Identity + ".from": c.ID,
-			logfields.Identity + ".to":   id,
-		}).Debug("Allowing reverse direction")
-		if _, ok := reverse.ReverseRules[c.ID]; !ok {
-			reverse.addToMaps(c.ID)
-			reverse.ReverseRules[c.ID] = true
-			return true
-		}
-	}
-	log.WithFields(logrus.Fields{
-		logfields.Identity + ".from": c.ID,
-		logfields.Identity + ".to":   id,
-	}).Warn("Allowed a security identity on ingress, but could not resolve the identity for the reverse direction")
-	return changed
-}
-
 // RemoveIngressIdentityLocked removes the given security identity from Consumable's
 // IngressIdentities map.
 // Must be called with the Consumable mutex locked.
@@ -256,8 +199,6 @@ func (c *Consumable) RemoveIngressIdentityLocked(id NumericIdentity) {
 		if c.wasLastRule(id) {
 			c.removeFromMaps(id)
 		}
-
-		// TODO - call deleteReverseRule as well? GH-2795
 	}
 }
 

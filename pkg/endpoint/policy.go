@@ -71,11 +71,7 @@ func (e *Endpoint) checkEgressAccess(owner Owner, dstLabels labels.LabelArray, o
 
 // allowIngressIdentity must be called with global endpoint.Mutex held
 func (e *Endpoint) allowIngressIdentity(owner Owner, id policy.NumericIdentity) bool {
-	cache := policy.GetConsumableCache()
-	if !e.Opts.IsEnabled(OptionConntrack) {
-		return e.Consumable.AllowIngressIdentityAndReverseLocked(cache, id)
-	}
-	return e.Consumable.AllowIngressIdentityLocked(cache, id)
+	return e.Consumable.AllowIngressIdentityLocked(policy.GetConsumableCache(), id)
 }
 
 // ProxyID returns a unique string to identify a proxy mapping
