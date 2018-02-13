@@ -26,6 +26,7 @@ import (
 	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/daemon/options"
 	e "github.com/cilium/cilium/pkg/endpoint"
+	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
@@ -51,7 +52,7 @@ type DaemonSuite struct {
 	OnEnableEndpointPolicyEnforcement func(e *e.Endpoint) (bool, bool)
 	OnPolicyEnforcement               func() string
 	OnAlwaysAllowLocalhost            func() bool
-	OnGetCachedLabelList              func(id policy.NumericIdentity) (labels.LabelArray, error)
+	OnGetCachedLabelList              func(id identity.NumericIdentity) (labels.LabelArray, error)
 	OnGetPolicyRepository             func() *policy.Repository
 	OnUpdateProxyRedirect             func(e *e.Endpoint, l4 *policy.L4Filter) (uint16, error)
 	OnRemoveProxyRedirect             func(e *e.Endpoint, id string) error
@@ -99,7 +100,7 @@ func (ds *DaemonSuite) SetUpTest(c *C) {
 	kvstore.DeletePrefix(common.OperationalPath)
 	kvstore.DeletePrefix(kvstore.BaseKeyPrefix)
 
-	policy.InitIdentityAllocator(d)
+	identity.InitIdentityAllocator(d)
 }
 
 func (ds *DaemonSuite) TearDownTest(c *C) {
@@ -183,7 +184,7 @@ func (ds *DaemonSuite) AlwaysAllowLocalhost() bool {
 	panic("AlwaysAllowLocalhost should not have been called")
 }
 
-func (ds *DaemonSuite) GetCachedLabelList(id policy.NumericIdentity) (labels.LabelArray, error) {
+func (ds *DaemonSuite) GetCachedLabelList(id identity.NumericIdentity) (labels.LabelArray, error) {
 	if ds.OnGetCachedLabelList != nil {
 		return ds.OnGetCachedLabelList(id)
 	}

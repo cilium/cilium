@@ -22,8 +22,8 @@ import (
 	identityApi "github.com/cilium/cilium/api/v1/client/policy"
 	pkg "github.com/cilium/cilium/pkg/client"
 	"github.com/cilium/cilium/pkg/command"
+	"github.com/cilium/cilium/pkg/identity"
 
-	"github.com/cilium/cilium/pkg/policy"
 	"github.com/spf13/cobra"
 )
 
@@ -49,7 +49,7 @@ func listIdentities(args []string) {
 
 	if reservedIDs {
 		reservedMap := make(map[string]string)
-		for k, v := range policy.ReservedIdentities {
+		for k, v := range identity.ReservedIdentities {
 			reservedMap[fmt.Sprintf("%d", v)] = k
 		}
 		result["reservedIDs"] = reservedMap

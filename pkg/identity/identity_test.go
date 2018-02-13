@@ -12,10 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package policy
+package identity
 
 import (
 	"sync"
+	"testing"
 
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/labels"
@@ -23,7 +24,16 @@ import (
 	. "gopkg.in/check.v1"
 )
 
-func (s *PolicyTestSuite) TestReservedID(c *C) {
+// Hook up gocheck into the "go test" runner.
+func Test(t *testing.T) {
+	TestingT(t)
+}
+
+type IdentityTestSuite struct{}
+
+var _ = Suite(&IdentityTestSuite{})
+
+func (s *IdentityTestSuite) TestReservedID(c *C) {
 	i1 := GetReservedID("host")
 	c.Assert(i1, Equals, NumericIdentity(1))
 	c.Assert(i1.String(), Equals, "host")
@@ -41,7 +51,7 @@ func (s *PolicyTestSuite) TestReservedID(c *C) {
 	c.Assert(unknown.String(), Equals, "700")
 }
 
-func (s *PolicyTestSuite) TestIsReservedIdentity(c *C) {
+func (s *IdentityTestSuite) TestIsReservedIdentity(c *C) {
 
 	c.Assert(ReservedIdentityCluster.IsReservedIdentity(), Equals, true)
 	c.Assert(ReservedIdentityHealth.IsReservedIdentity(), Equals, true)

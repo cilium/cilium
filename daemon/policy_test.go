@@ -20,9 +20,9 @@ import (
 
 	"github.com/cilium/cilium/common/addressing"
 	"github.com/cilium/cilium/pkg/endpoint"
+	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/mac"
-	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
 
 	. "gopkg.in/check.v1"
@@ -81,23 +81,23 @@ func (ds *DaemonSuite) TestUpdateConsumerMap(c *C) {
 	c.Assert(err3, Equals, nil)
 
 	qaBarLbls := labels.Labels{lblBar.Key: lblBar, lblQA.Key: lblQA}
-	qaBarSecLblsCtx, _, err := policy.AllocateIdentity(qaBarLbls)
+	qaBarSecLblsCtx, _, err := identity.AllocateIdentity(qaBarLbls)
 	c.Assert(err, Equals, nil)
 
 	prodBarLbls := labels.Labels{lblBar.Key: lblBar, lblProd.Key: lblProd}
-	prodBarSecLblsCtx, _, err := policy.AllocateIdentity(prodBarLbls)
+	prodBarSecLblsCtx, _, err := identity.AllocateIdentity(prodBarLbls)
 	c.Assert(err, Equals, nil)
 
 	qaFooLbls := labels.Labels{lblFoo.Key: lblFoo, lblQA.Key: lblQA}
-	qaFooSecLblsCtx, _, err := policy.AllocateIdentity(qaFooLbls)
+	qaFooSecLblsCtx, _, err := identity.AllocateIdentity(qaFooLbls)
 	c.Assert(err, Equals, nil)
 
 	prodFooLbls := labels.Labels{lblFoo.Key: lblFoo, lblProd.Key: lblProd}
-	prodFooSecLblsCtx, _, err := policy.AllocateIdentity(prodFooLbls)
+	prodFooSecLblsCtx, _, err := identity.AllocateIdentity(prodFooLbls)
 	c.Assert(err, Equals, nil)
 
 	prodFooJoeLbls := labels.Labels{lblFoo.Key: lblFoo, lblProd.Key: lblProd, lblJoe.Key: lblJoe}
-	prodFooJoeSecLblsCtx, _, err := policy.AllocateIdentity(prodFooJoeLbls)
+	prodFooJoeSecLblsCtx, _, err := identity.AllocateIdentity(prodFooJoeLbls)
 	c.Assert(err, Equals, nil)
 
 	e := endpoint.NewEndpointWithState(1, endpoint.StateWaitingForIdentity)

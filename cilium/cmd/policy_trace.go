@@ -25,8 +25,8 @@ import (
 	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/pkg/command"
 	"github.com/cilium/cilium/pkg/endpoint"
+	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/k8s"
-	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/trace"
 
 	"github.com/spf13/cobra"
@@ -96,12 +96,12 @@ If multiple sources and / or destinations are provided, each source is tested wh
 
 		// Parse security identities.
 		if srcIdentity != defaultSecurityID {
-			srcSlice = appendIdentityLabelsToSlice(srcSlice, policy.NumericIdentity(srcIdentity).StringID())
+			srcSlice = appendIdentityLabelsToSlice(srcSlice, identity.NumericIdentity(srcIdentity).StringID())
 			srcSlices = append(srcSlices, srcSlice)
 		}
 
 		if dstIdentity != defaultSecurityID {
-			dstSlice = appendIdentityLabelsToSlice(dstSlice, policy.NumericIdentity(dstIdentity).StringID())
+			dstSlice = appendIdentityLabelsToSlice(dstSlice, identity.NumericIdentity(dstIdentity).StringID())
 			dstSlices = append(dstSlices, dstSlice)
 		}
 

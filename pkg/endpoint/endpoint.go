@@ -32,6 +32,7 @@ import (
 	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/controller"
+	identityPkg "github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/labels"
 	pkgLabels "github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
@@ -260,13 +261,13 @@ type Endpoint struct {
 
 	// SecurityIdentity is the security identity of this endpoint. This is computed from
 	// the endpoint's labels.
-	SecurityIdentity *policy.Identity `json:"SecLabel"`
+	SecurityIdentity *identityPkg.Identity `json:"SecLabel"`
 
 	// LabelsHash is a SHA256 hash over the SecurityIdentity labels
 	LabelsHash string
 
 	// LabelsMap is the Set of all security labels used in the last policy computation
-	LabelsMap *policy.IdentityCache
+	LabelsMap *identityPkg.IdentityCache
 
 	// PortMap is port mapping configuration of the endpoint
 	PortMap []PortMap // Port mapping used for this endpoint.
@@ -823,19 +824,19 @@ func (e *Endpoint) StringID() string {
 	return strconv.Itoa(int(e.ID))
 }
 
-func (e *Endpoint) GetIdentity() policy.NumericIdentity {
+func (e *Endpoint) GetIdentity() identityPkg.NumericIdentity {
 	if e.SecurityIdentity != nil {
 		return e.SecurityIdentity.ID
 	}
 
-	return policy.InvalidIdentity
+	return identityPkg.InvalidIdentity
 }
 
 func (e *Endpoint) directoryPath() string {
 	return filepath.Join(".", fmt.Sprintf("%d", e.ID))
 }
 
-func (e *Endpoint) Allows(id policy.NumericIdentity) bool {
+func (e *Endpoint) Allows(id identityPkg.NumericIdentity) bool {
 	e.Mutex.RLock()
 	defer e.Mutex.RUnlock()
 	if e.Consumable != nil {
@@ -1745,7 +1746,7 @@ func (e *Endpoint) identityLabelsChanged(owner Owner, myChangeRev int) error {
 	e.Mutex.RUnlock()
 	elog.Debug("Resolving identity for labels")
 
-	identity, _, err := policy.AllocateIdentity(newLabels)
+	identity, _, err := identityPkg.AllocateIdentity(newLabels)
 	if err != nil {
 		err = fmt.Errorf("unable to resolve identity: %s", err)
 		e.LogStatus(Other, Warning, fmt.Sprintf("%s (will retry)", err.Error()))

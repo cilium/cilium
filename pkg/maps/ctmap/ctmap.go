@@ -23,6 +23,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/byteorder"
+	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/policy"
 )
@@ -358,7 +359,7 @@ func (f *GCFilter) doFiltering(dstIP net.IP, dstPort uint16, nextHdr, flags uint
 
 		// Check if the src_sec_id of that entry is still allowed
 		// to talk with the destination IP.
-		if filterRuleCtx, ok := f.IDsToKeep[policy.NumericIdentity(entry.src_sec_id)]; !ok {
+		if filterRuleCtx, ok := f.IDsToKeep[identity.NumericIdentity(entry.src_sec_id)]; !ok {
 			action = deleteEntry
 		} else {
 			l4RuleCtx := policy.L4RuleContext{
@@ -369,7 +370,7 @@ func (f *GCFilter) doFiltering(dstIP net.IP, dstPort uint16, nextHdr, flags uint
 			if filterRuleCtx.IsL3Only() {
 				// If the rule is L3-only then check if it's allowed by
 				// L4-only rules.
-				if l4OnlyRules, ok := f.IDsToKeep[policy.InvalidIdentity]; ok {
+				if l4OnlyRules, ok := f.IDsToKeep[identity.InvalidIdentity]; ok {
 					wasAdded, ok := l4OnlyRules[l4RuleCtx]
 					if !ok || !wasAdded.L4Installed {
 						action = deleteEntry
@@ -400,7 +401,7 @@ func (f *GCFilter) doFiltering(dstIP net.IP, dstPort uint16, nextHdr, flags uint
 
 		// Check if the src_sec_id of that entry needs to be modified
 		// by the given filter.
-		if filterRuleCtx, ok := f.IDsToMod[policy.NumericIdentity(entry.src_sec_id)]; ok {
+		if filterRuleCtx, ok := f.IDsToMod[identity.NumericIdentity(entry.src_sec_id)]; ok {
 			ruleCtx := policy.L4RuleContext{
 				Port:  dstPort,
 				Proto: nextHdr,
@@ -409,7 +410,7 @@ func (f *GCFilter) doFiltering(dstIP net.IP, dstPort uint16, nextHdr, flags uint
 			if filterRuleCtx.IsL3Only() {
 				// If the rule is L3-only then check if it's allowed by
 				// L4-only rules.
-				if l4OnlyRules, ok := f.IDsToMod[policy.InvalidIdentity]; ok {
+				if l4OnlyRules, ok := f.IDsToMod[identity.InvalidIdentity]; ok {
 					if l7RuleCtx, ok := l4OnlyRules[ruleCtx]; ok {
 						if l7RuleCtx.L4Installed &&
 							l7RuleCtx.IsRedirect() &&

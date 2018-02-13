@@ -19,6 +19,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
@@ -44,7 +45,7 @@ var (
 		ipv4:     "10.0.0.1",
 		ipv6:     "f00d::1",
 		labels:   []string{"id.foo", "id.bar"},
-		identity: policy.NumericIdentity(256),
+		identity: identity.NumericIdentity(256),
 	}
 )
 

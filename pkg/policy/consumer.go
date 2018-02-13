@@ -15,6 +15,7 @@
 package policy
 
 import (
+	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -27,11 +28,11 @@ import (
 // including label-based policies, L4Policy, and L7 policy.
 type Consumable struct {
 	// ID of the consumable (same as security ID)
-	ID NumericIdentity `json:"id"`
+	ID identity.NumericIdentity `json:"id"`
 	// Mutex protects all variables from this structure below this line
 	Mutex lock.RWMutex
 	// Labels are the SecurityIdentity of this consumable
-	Labels *Identity `json:"labels"`
+	Labels *identity.Identity `json:"labels"`
 	// LabelArray contains the same labels from identity in a form of a list, used for faster lookup
 	LabelArray labels.LabelArray `json:"-"`
 	// Iteration policy of the Consumable
@@ -41,7 +42,7 @@ type Consumable struct {
 	// IngressIdentities is the set of security identities from which ingress
 	// traffic is allowed. The value corresponds to whether the corresponding
 	// key (security identity) should be garbage collected upon policy calculation.
-	IngressIdentities map[NumericIdentity]bool `json:"ingress-identities"`
+	IngressIdentities map[identity.NumericIdentity]bool `json:"ingress-identities"`
 	// L4Policy contains the policy of this consumable
 	L4Policy *L4Policy `json:"l4-policy"`
 	// L3L4Policy contains the L3, L4 and L7 ingress policy of this consumable
@@ -50,13 +51,13 @@ type Consumable struct {
 }
 
 // NewConsumable creates a new consumable
-func NewConsumable(id NumericIdentity, lbls *Identity, cache *ConsumableCache) *Consumable {
+func NewConsumable(id identity.NumericIdentity, lbls *identity.Identity, cache *ConsumableCache) *Consumable {
 	consumable := &Consumable{
 		ID:                id,
 		Iteration:         0,
 		Labels:            lbls,
 		Maps:              map[int]*policymap.PolicyMap{},
-		IngressIdentities: map[NumericIdentity]bool{},
+		IngressIdentities: map[identity.NumericIdentity]bool{},
 		cache:             cache,
 	}
 	if lbls != nil {
@@ -128,7 +129,7 @@ func (c *Consumable) RemoveMap(m *policymap.PolicyMap) {
 
 }
 
-func (c *Consumable) addToMaps(id NumericIdentity) {
+func (c *Consumable) addToMaps(id identity.NumericIdentity) {
 	for _, m := range c.Maps {
 		if m.IdentityExists(id.Uint32()) {
 			continue
@@ -148,12 +149,12 @@ func (c *Consumable) addToMaps(id NumericIdentity) {
 
 // A rule is the 'last rule' for an identity if it does not exist as a key
 // in any of the maps for this Consumable.
-func (c *Consumable) wasLastRule(id NumericIdentity) bool {
+func (c *Consumable) wasLastRule(id identity.NumericIdentity) bool {
 	_, existsIngressIdentity := c.IngressIdentities[id]
 	return !existsIngressIdentity
 }
 
-func (c *Consumable) removeFromMaps(id NumericIdentity) {
+func (c *Consumable) removeFromMaps(id identity.NumericIdentity) {
 	for _, m := range c.Maps {
 		scopedLog := log.WithFields(logrus.Fields{
 			"policymap":        m,
@@ -171,7 +172,7 @@ func (c *Consumable) removeFromMaps(id NumericIdentity) {
 // IngressIdentities map. Must be called with Consumable mutex Locked.
 // Returns true if the identity was not present in this Consumable's
 // IngressIdentities map, and thus had to be added, false if it is already added.
-func (c *Consumable) AllowIngressIdentityLocked(cache *ConsumableCache, id NumericIdentity) bool {
+func (c *Consumable) AllowIngressIdentityLocked(cache *ConsumableCache, id identity.NumericIdentity) bool {
 	_, exists := c.IngressIdentities[id]
 	if !exists {
 		log.WithFields(logrus.Fields{
@@ -212,7 +213,7 @@ func (c *Consumable) AllowIngressIdentityLocked(cache *ConsumableCache, id Numer
 // RemoveIngressIdentityLocked removes the given security identity from Consumable's
 // IngressIdentities map.
 // Must be called with the Consumable mutex locked.
-func (c *Consumable) RemoveIngressIdentityLocked(id NumericIdentity) {
+func (c *Consumable) RemoveIngressIdentityLocked(id identity.NumericIdentity) {
 	if _, ok := c.IngressIdentities[id]; ok {
 		log.WithField(logfields.Identity, id).Debug("Removing identity from ingress map")
 		delete(c.IngressIdentities, id)
@@ -243,7 +244,7 @@ func (c *Consumable) RemoveIngressIdentityLocked(id NumericIdentity) {
 	}
 }
 
-func (c *Consumable) Allows(id NumericIdentity) bool {
+func (c *Consumable) Allows(id identity.NumericIdentity) bool {
 	c.Mutex.RLock()
 	isIdentityAllowed, _ := c.IngressIdentities[id]
 	c.Mutex.RUnlock()

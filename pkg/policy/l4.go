@@ -23,6 +23,7 @@ import (
 	"strings"
 
 	"github.com/cilium/cilium/api/v1/models"
+	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/u8proto"
@@ -105,7 +106,7 @@ type L4Filter struct {
 
 // GetRelevantRules returns the relevant rules based on the source and
 // destination addressing/identity information.
-func (dm L7DataMap) GetRelevantRules(identity *Identity) api.L7Rules {
+func (dm L7DataMap) GetRelevantRules(identity *identity.Identity) api.L7Rules {
 	rules := api.L7Rules{}
 	matched := 0
 

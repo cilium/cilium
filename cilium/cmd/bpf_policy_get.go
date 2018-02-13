@@ -26,8 +26,8 @@ import (
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/command"
+	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/maps/policymap"
-	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/u8proto"
 
@@ -57,7 +57,7 @@ func listMap(cmd *cobra.Command, args []string) {
 	lbl := args[0]
 
 	if lbl != "" {
-		if id := policy.GetReservedID(lbl); id != policy.IdentityUnknown {
+		if id := identity.GetReservedID(lbl); id != identity.IdentityUnknown {
 			lbl = "reserved_" + strconv.FormatUint(uint64(id), 10)
 		}
 	} else {
@@ -101,15 +101,15 @@ func formatMap(w io.Writer, statsMap []policymap.PolicyEntryDump) {
 		packetsTitle   = "PACKETS"
 	)
 
-	labelsID := map[policy.NumericIdentity]*policy.Identity{}
+	labelsID := map[identity.NumericIdentity]*identity.Identity{}
 	for _, stat := range statsMap {
 		if !printIDs {
-			id := policy.NumericIdentity(stat.Key.Identity)
+			id := identity.NumericIdentity(stat.Key.Identity)
 			if lbls, err := client.IdentityGet(id.StringID()); err != nil {
 				fmt.Fprintf(os.Stderr, "Was impossible to retrieve label ID %d: %s\n",
 					id, err)
 			} else {
-				labelsID[id] = policy.NewIdentityFromModel(lbls)
+				labelsID[id] = identity.NewIdentityFromModel(lbls)
 			}
 		}
 
@@ -121,7 +121,7 @@ func formatMap(w io.Writer, statsMap []policymap.PolicyEntryDump) {
 		fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t\n", labelsDesTitle, portTitle, actionTitle, bytesTitle, packetsTitle)
 	}
 	for _, stat := range statsMap {
-		id := policy.NumericIdentity(stat.Key.Identity)
+		id := identity.NumericIdentity(stat.Key.Identity)
 		port := models.PortProtocolANY
 		if stat.Key.DestPort != 0 {
 			dport := byteorder.NetworkToHost(stat.Key.DestPort).(uint16)

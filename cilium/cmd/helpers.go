@@ -23,7 +23,7 @@ import (
 	"strconv"
 
 	"github.com/cilium/cilium/pkg/endpoint"
-	"github.com/cilium/cilium/pkg/policy"
+	"github.com/cilium/cilium/pkg/identity"
 
 	"github.com/spf13/cobra"
 )
@@ -50,7 +50,7 @@ func requireEndpointID(cmd *cobra.Command, args []string) {
 		Usagef(cmd, "Missing endpoint id argument")
 	}
 
-	if id := policy.ReservedIdentities[args[0]]; id == policy.IdentityUnknown {
+	if id := identity.ReservedIdentities[args[0]]; id == identity.IdentityUnknown {
 		_, _, err := endpoint.ValidateID(args[0])
 
 		if err != nil {

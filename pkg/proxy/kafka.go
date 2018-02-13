@@ -21,6 +21,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/flowdebug"
+	identityPkg "github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/kafka"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -128,11 +129,11 @@ func createKafkaRedirect(conf kafkaConfiguration) (Redirect, error) {
 	return redir, nil
 }
 
-func (k *kafkaRedirect) canAccess(req *kafka.RequestMessage, numIdentity policy.NumericIdentity) bool {
-	var identity *policy.Identity
+func (k *kafkaRedirect) canAccess(req *kafka.RequestMessage, numIdentity identityPkg.NumericIdentity) bool {
+	var identity *identityPkg.Identity
 
 	if numIdentity != 0 {
-		identity = policy.LookupIdentityByID(numIdentity)
+		identity = identityPkg.LookupIdentityByID(numIdentity)
 		if identity == nil {
 			log.WithFields(logrus.Fields{
 				logfields.Request:  req.String(),
@@ -254,7 +255,7 @@ func (k *kafkaRedirect) handleRequest(pair *connectionPair, req *kafka.RequestMe
 
 	record.fillInfo(k, addr.String(), dstIPPort, srcIdentity)
 
-	if !k.canAccess(req, policy.NumericIdentity(srcIdentity)) {
+	if !k.canAccess(req, identityPkg.NumericIdentity(srcIdentity)) {
 		flowdebug.Log(scopedLog, "Kafka request is denied by policy")
 
 		record.log(accesslog.TypeRequest, accesslog.VerdictDenied,

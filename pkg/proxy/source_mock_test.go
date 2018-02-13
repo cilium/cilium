@@ -15,9 +15,9 @@
 package proxy
 
 import (
+	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
-	"github.com/cilium/cilium/pkg/policy"
 )
 
 type proxySourceMocker struct {
@@ -26,17 +26,17 @@ type proxySourceMocker struct {
 	ipv4     string
 	ipv6     string
 	labels   []string
-	identity policy.NumericIdentity
+	identity identity.NumericIdentity
 }
 
 func (m *proxySourceMocker) RLock()   { m.RWMutex.RLock() }
 func (m *proxySourceMocker) RUnlock() { m.RWMutex.RUnlock() }
 
-func (m *proxySourceMocker) GetID() uint64                       { return m.id }
-func (m *proxySourceMocker) GetIPv4Address() string              { return m.ipv4 }
-func (m *proxySourceMocker) GetIPv6Address() string              { return m.ipv6 }
-func (m *proxySourceMocker) GetLabels() []string                 { return m.labels }
-func (m *proxySourceMocker) GetIdentity() policy.NumericIdentity { return m.identity }
+func (m *proxySourceMocker) GetID() uint64                         { return m.id }
+func (m *proxySourceMocker) GetIPv4Address() string                { return m.ipv4 }
+func (m *proxySourceMocker) GetIPv6Address() string                { return m.ipv6 }
+func (m *proxySourceMocker) GetLabels() []string                   { return m.labels }
+func (m *proxySourceMocker) GetIdentity() identity.NumericIdentity { return m.identity }
 
 func (m *proxySourceMocker) GetLabelsSHA() string {
 	return labels.NewLabelsFromModel(m.labels).SHA256Sum()

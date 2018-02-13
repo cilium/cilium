@@ -18,6 +18,7 @@ import (
 	"fmt"
 
 	"github.com/cilium/cilium/pkg/bpf"
+	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -30,7 +31,7 @@ var (
 
 type ConsumableCache struct {
 	cacheMU lock.RWMutex // Protects the `cache` map
-	cache   map[NumericIdentity]*Consumable
+	cache   map[identity.NumericIdentity]*Consumable
 	// List of consumables representing the reserved identities
 	reserved []*Consumable
 }
@@ -43,12 +44,12 @@ func GetConsumableCache() *ConsumableCache {
 
 func newConsumableCache() *ConsumableCache {
 	return &ConsumableCache{
-		cache:    map[NumericIdentity]*Consumable{},
+		cache:    map[identity.NumericIdentity]*Consumable{},
 		reserved: make([]*Consumable, 0),
 	}
 }
 
-func (c *ConsumableCache) GetOrCreate(id NumericIdentity, lbls *Identity) *Consumable {
+func (c *ConsumableCache) GetOrCreate(id identity.NumericIdentity, lbls *identity.Identity) *Consumable {
 	c.cacheMU.Lock()
 	defer c.cacheMU.Unlock()
 	if cons, ok := c.cache[id]; ok {
@@ -59,7 +60,7 @@ func (c *ConsumableCache) GetOrCreate(id NumericIdentity, lbls *Identity) *Consu
 	return c.cache[id]
 }
 
-func (c *ConsumableCache) Lookup(id NumericIdentity) *Consumable {
+func (c *ConsumableCache) Lookup(id identity.NumericIdentity) *Consumable {
 	c.cacheMU.RLock()
 	v, _ := c.cache[id]
 	c.cacheMU.RUnlock()
@@ -80,8 +81,8 @@ func (c *ConsumableCache) addReserved(elem *Consumable) {
 
 // GetReservedIDs returns a slice of NumericIdentity present in the
 // ConsumableCache.
-func (c *ConsumableCache) GetReservedIDs() []NumericIdentity {
-	identities := []NumericIdentity{}
+func (c *ConsumableCache) GetReservedIDs() []identity.NumericIdentity {
+	identities := []identity.NumericIdentity{}
 	c.cacheMU.RLock()
 	for _, id := range c.reserved {
 		identities = append(identities, id.ID)
@@ -92,14 +93,14 @@ func (c *ConsumableCache) GetReservedIDs() []NumericIdentity {
 
 // ResolveIdentityLabels resolves a numeric identity to the identity's labels
 // or nil
-func ResolveIdentityLabels(id NumericIdentity) labels.LabelArray {
+func ResolveIdentityLabels(id identity.NumericIdentity) labels.LabelArray {
 	// Check if we have the source security context in our local
 	// consumable cache
 	if c := consumableCache.Lookup(id); c != nil {
 		return c.LabelArray
 	}
 
-	if identity := LookupIdentityByID(id); identity != nil {
+	if identity := identity.LookupIdentityByID(id); identity != nil {
 		return identity.Labels.ToSlice()
 	}
 
@@ -111,7 +112,7 @@ func ResolveIdentityLabels(id NumericIdentity) labels.LabelArray {
 // endpoints, and thus must be created explicitly, as opposed to during policy
 // calculation, which is done for a specific endpoint when it is regenerated.
 func Init() {
-	for key, val := range ReservedIdentities {
+	for key, val := range identity.ReservedIdentities {
 		log.WithField(logfields.Identity, key).Debug("creating policy for identity")
 
 		policyMapPath := bpf.MapPath(fmt.Sprintf("%sreserved_%d", policymap.MapName, int(val)))
@@ -121,7 +122,7 @@ func Init() {
 			log.WithError(err).Fatalf("Could not create policy BPF map for reserved identity '%s'", policyMapPath)
 		}
 
-		identity := NewIdentity(val, labels.Labels{
+		identity := identity.NewIdentity(val, labels.Labels{
 			key: labels.NewLabel(val.String(), "", labels.LabelSourceReserved),
 		})
 		c := GetConsumableCache().GetOrCreate(val, identity)
