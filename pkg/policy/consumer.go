@@ -268,6 +268,8 @@ func (c *Consumable) RemoveIngressIdentityLocked(id NumericIdentity) {
 		if c.wasLastRule(id) {
 			c.removeFromMaps(id)
 		}
+
+		// TODO - call deleteReverseRule as well? GH-2795
 	}
 }
 
