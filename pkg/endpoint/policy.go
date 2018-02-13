@@ -615,7 +615,7 @@ func (e *Endpoint) regeneratePolicy(owner Owner, opts models.ConfigurationMap) (
 	c.Mutex.Lock()
 	defer c.Mutex.Unlock()
 
-	// Containers without a security label are not accessible
+	// Containers without a security identity are not accessible
 	if c.ID == 0 {
 		e.getLogger().Warn("Endpoint lacks identity, skipping policy calculation")
 		return false, nil, nil, nil
@@ -901,8 +901,8 @@ func (e *Endpoint) runIdentityToK8sPodSync() {
 				id := ""
 
 				e.Mutex.RLock()
-				if e.SecLabel != nil {
-					id = e.SecLabel.ID.String()
+				if e.SecurityIdentity != nil {
+					id = e.SecurityIdentity.ID.String()
 				}
 				e.Mutex.RUnlock()
 
@@ -924,10 +924,10 @@ func (e *Endpoint) SetIdentity(owner Owner, id *policy.Identity) {
 	cache := policy.GetConsumableCache()
 
 	if e.Consumable != nil {
-		if e.SecLabel != nil && id.ID == e.Consumable.ID {
+		if e.SecurityIdentity != nil && id.ID == e.Consumable.ID {
 			// Even if the numeric identity is the same, the order in which the
 			// labels are represented may change.
-			e.SecLabel = id
+			e.SecurityIdentity = id
 			e.Consumable.Mutex.Lock()
 			e.Consumable.Labels = id
 			e.Consumable.LabelArray = id.Labels.ToSlice()
@@ -940,7 +940,7 @@ func (e *Endpoint) SetIdentity(owner Owner, id *policy.Identity) {
 		// counting via the cache?
 		cache.Remove(e.Consumable)
 	}
-	e.SecLabel = id
+	e.SecurityIdentity = id
 	e.Consumable = cache.GetOrCreate(id.ID, id)
 
 	// Sets endpoint state to ready if was waiting for identity
