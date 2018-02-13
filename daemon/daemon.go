@@ -44,6 +44,7 @@ import (
 	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/endpointmanager"
+	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/ipam"
 	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/labels"
@@ -787,9 +788,9 @@ func (d *Daemon) init() error {
 	}
 
 	fw.WriteString(common.FmtDefineComma("HOST_IP", hostIP))
-	fmt.Fprintf(fw, "#define HOST_ID %d\n", policy.GetReservedID(labels.IDNameHost))
-	fmt.Fprintf(fw, "#define WORLD_ID %d\n", policy.GetReservedID(labels.IDNameWorld))
-	fmt.Fprintf(fw, "#define CLUSTER_ID %d\n", policy.GetReservedID(labels.IDNameCluster))
+	fmt.Fprintf(fw, "#define HOST_ID %d\n", identity.GetReservedID(labels.IDNameHost))
+	fmt.Fprintf(fw, "#define WORLD_ID %d\n", identity.GetReservedID(labels.IDNameWorld))
+	fmt.Fprintf(fw, "#define CLUSTER_ID %d\n", identity.GetReservedID(labels.IDNameCluster))
 	fmt.Fprintf(fw, "#define LB_RR_MAX_SEQ %d\n", lbmap.MaxSeq)
 
 	fmt.Fprintf(fw, "#define TUNNEL_ENDPOINT_MAP_SIZE %d\n", tunnel.MaxEntries)
@@ -938,6 +939,7 @@ func NewDaemon(c *Config) (*Daemon, error) {
 			node.EnablePerNodeRoutes()
 		}
 	}
+
 	// If the device has been specified, the IPv4AllocPrefix and the
 	// IPv6AllocPrefix were already allocated before the k8s.Init().
 	//
@@ -1029,7 +1031,7 @@ func NewDaemon(c *Config) (*Daemon, error) {
 
 	// This needs to be done after the node addressing has been configured
 	// as the node address is required as sufix
-	policy.InitIdentityAllocator(&d)
+	identity.InitIdentityAllocator(&d)
 
 	if !d.conf.IPv4Disabled {
 		// Allocate IPv4 service loopback IP

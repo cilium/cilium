@@ -25,6 +25,7 @@ import (
 	"github.com/cilium/cilium/common/addressing"
 	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/endpointmanager"
+	identityPkg "github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -105,7 +106,7 @@ type ProxySource interface {
 	Unlock()
 	GetLabels() []string
 	GetLabelsSHA() string
-	GetIdentity() policy.NumericIdentity
+	GetIdentity() identityPkg.NumericIdentity
 	GetIPv4Address() string
 	GetIPv6Address() string
 }
@@ -225,10 +226,10 @@ func fillInfo(r Redirect, l *accesslog.LogRecord, srcIPPort, dstIPPort string, s
 //  - info.Identity
 //  - info.Labels
 //  - info.LabelsSHA256
-func fillIdentity(info *accesslog.EndpointInfo, id policy.NumericIdentity) {
+func fillIdentity(info *accesslog.EndpointInfo, id identityPkg.NumericIdentity) {
 	info.Identity = uint64(id)
 
-	if identity := policy.LookupIdentityByID(id); identity != nil {
+	if identity := identityPkg.LookupIdentityByID(id); identity != nil {
 		info.Labels = identity.Labels.GetModel()
 		info.LabelsSHA256 = identity.GetLabelsSHA256()
 	}
@@ -243,7 +244,7 @@ func fillEndpointInfo(info *accesslog.EndpointInfo, ip net.IP) {
 		// first we try to resolve and check if the IP is
 		// same as Host
 		if node.IsHostIPv4(ip) {
-			fillIdentity(info, policy.ReservedIdentityHost)
+			fillIdentity(info, identityPkg.ReservedIdentityHost)
 			return
 		}
 
@@ -262,18 +263,18 @@ func fillEndpointInfo(info *accesslog.EndpointInfo, ip net.IP) {
 				info.Identity = uint64(ep.GetIdentity())
 				ep.Unlock()
 			} else {
-				fillIdentity(info, policy.ReservedIdentityCluster)
+				fillIdentity(info, identityPkg.ReservedIdentityCluster)
 			}
 		} else {
 			// If we are unable to resolve the HostIP as well
 			// as the cluster IP we mark this as a 'world' identity.
-			fillIdentity(info, policy.ReservedIdentityWorld)
+			fillIdentity(info, identityPkg.ReservedIdentityWorld)
 		}
 	} else {
 		info.IPv6 = ip.String()
 
 		if node.IsHostIPv6(ip) {
-			fillIdentity(info, policy.ReservedIdentityHost)
+			fillIdentity(info, identityPkg.ReservedIdentityHost)
 			return
 		}
 
@@ -292,10 +293,10 @@ func fillEndpointInfo(info *accesslog.EndpointInfo, ip net.IP) {
 				info.Identity = uint64(ep.GetIdentity())
 				ep.Unlock()
 			} else {
-				fillIdentity(info, policy.ReservedIdentityCluster)
+				fillIdentity(info, identityPkg.ReservedIdentityCluster)
 			}
 		} else {
-			fillIdentity(info, policy.ReservedIdentityWorld)
+			fillIdentity(info, identityPkg.ReservedIdentityWorld)
 		}
 	}
 }
@@ -317,7 +318,7 @@ func fillIngressSourceInfo(info *accesslog.EndpointInfo, ip *net.IP, srcIdentity
 				info.IPv6 = ip.String()
 			}
 		}
-		fillIdentity(info, policy.NumericIdentity(srcIdentity))
+		fillIdentity(info, identityPkg.NumericIdentity(srcIdentity))
 	} else {
 		// source security identity 0 is possible when somebody else other than
 		// the BPF datapath attempts to

@@ -26,6 +26,7 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/pkg/controller"
+	identityPkg "github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -70,7 +71,7 @@ func (e *Endpoint) checkEgressAccess(owner Owner, dstLabels labels.LabelArray, o
 }
 
 // allowIngressIdentity must be called with global endpoint.Mutex held
-func (e *Endpoint) allowIngressIdentity(owner Owner, id policy.NumericIdentity) bool {
+func (e *Endpoint) allowIngressIdentity(owner Owner, id identityPkg.NumericIdentity) bool {
 	return e.Consumable.AllowIngressIdentityLocked(policy.GetConsumableCache(), id)
 }
 
@@ -83,8 +84,8 @@ func (e *Endpoint) ProxyID(l4 *policy.L4Filter) string {
 	return fmt.Sprintf("%d:%s:%s:%d", e.ID, direction, l4.Protocol, l4.Port)
 }
 
-func getSecurityIdentities(labelsMap *policy.IdentityCache, selector *api.EndpointSelector) []policy.NumericIdentity {
-	identities := []policy.NumericIdentity{}
+func getSecurityIdentities(labelsMap *identityPkg.IdentityCache, selector *api.EndpointSelector) []identityPkg.NumericIdentity {
+	identities := []identityPkg.NumericIdentity{}
 	for idx, labels := range *labelsMap {
 		if selector.Matches(labels) {
 			log.WithFields(logrus.Fields{
@@ -101,7 +102,7 @@ func getSecurityIdentities(labelsMap *policy.IdentityCache, selector *api.Endpoi
 // removeOldFilter removes the old l4 filter from the endpoint.
 // Returns a map that represents all policies that were attempted to be removed;
 // it maps to whether they were removed successfully (true or false)
-func (e *Endpoint) removeOldFilter(owner Owner, labelsMap *policy.IdentityCache,
+func (e *Endpoint) removeOldFilter(owner Owner, labelsMap *identityPkg.IdentityCache,
 	filter *policy.L4Filter) policy.SecurityIDContexts {
 
 	fromEndpointsSrcIDs := policy.NewSecurityIDContexts()
@@ -147,7 +148,7 @@ func (e *Endpoint) removeOldFilter(owner Owner, labelsMap *policy.IdentityCache,
 // It also returns the number of errors that occurred while when applying the
 // policy.
 // Applies for L3 dependent L4 not for L4-only.
-func (e *Endpoint) applyNewFilter(owner Owner, labelsMap *policy.IdentityCache,
+func (e *Endpoint) applyNewFilter(owner Owner, labelsMap *identityPkg.IdentityCache,
 	filter *policy.L4Filter) (policy.SecurityIDContexts, int) {
 
 	fromEndpointsSrcIDs := policy.NewSecurityIDContexts()
@@ -210,7 +211,7 @@ func setMapOperationResult(secIDs, newSecIDs policy.SecurityIDContexts) {
 // and a map that represents all L3-dependent L4 rules that were attempted
 // to be removed;
 // it maps to whether they were removed successfully (true or false)
-func (e *Endpoint) applyL4PolicyLocked(owner Owner, labelsMap *policy.IdentityCache,
+func (e *Endpoint) applyL4PolicyLocked(owner Owner, labelsMap *identityPkg.IdentityCache,
 	oldPolicy, newPolicy *policy.L4Policy) (secIDsAdd, secIDsRm policy.SecurityIDContexts, err error) {
 
 	secIDsAdd = policy.NewSecurityIDContexts()
@@ -244,11 +245,11 @@ func (e *Endpoint) applyL4PolicyLocked(owner Owner, labelsMap *policy.IdentityCa
 	return secIDsAdd, secIDsRm, nil
 }
 
-func getLabelsMap() (*policy.IdentityCache, error) {
-	labelsMap := policy.GetIdentityCache()
+func getLabelsMap() (*identityPkg.IdentityCache, error) {
+	labelsMap := identityPkg.GetIdentityCache()
 
 	reservedIDs := policy.GetConsumableCache().GetReservedIDs()
-	var idx policy.NumericIdentity
+	var idx identityPkg.NumericIdentity
 	for _, idx = range reservedIDs {
 		lbls := policy.ResolveIdentityLabels(idx)
 		if lbls == nil || len(lbls) == 0 {
@@ -287,7 +288,7 @@ func (e *Endpoint) resolveL4Policy(owner Owner, repo *policy.Repository, c *poli
 // and a map matching which rules were successfully added/modified;
 // and a map matching which rules were successfully removed.
 // Must be called with Consumable mutex held.
-func (e *Endpoint) regenerateConsumable(owner Owner, labelsMap *policy.IdentityCache,
+func (e *Endpoint) regenerateConsumable(owner Owner, labelsMap *identityPkg.IdentityCache,
 	repo *policy.Repository, c *policy.Consumable) (changed bool, rulesAdd policy.SecurityIDContexts, rulesRm policy.SecurityIDContexts) {
 
 	var (
@@ -341,11 +342,11 @@ func (e *Endpoint) regenerateConsumable(owner Owner, labelsMap *policy.IdentityC
 					}
 				}
 				if !found {
-					if _, ok := rulesAdd[policy.InvalidIdentity]; !ok {
-						rulesAdd[policy.InvalidIdentity] = policy.NewL4RuleContexts()
+					if _, ok := rulesAdd[identityPkg.InvalidIdentity]; !ok {
+						rulesAdd[identityPkg.InvalidIdentity] = policy.NewL4RuleContexts()
 					}
 					l7RuleCtx.L4Installed = true
-					rulesAdd[policy.InvalidIdentity][l4RuleCtx] = l7RuleCtx
+					rulesAdd[identityPkg.InvalidIdentity][l4RuleCtx] = l7RuleCtx
 				}
 			}
 		}
@@ -379,7 +380,7 @@ func (e *Endpoint) regenerateConsumable(owner Owner, labelsMap *policy.IdentityC
 	}
 
 	if owner.AlwaysAllowLocalhost() || c.L4Policy.HasRedirect() {
-		if e.allowIngressIdentity(owner, policy.ReservedIdentityHost) {
+		if e.allowIngressIdentity(owner, identityPkg.ReservedIdentityHost) {
 			changed = true
 		}
 	}
@@ -613,7 +614,7 @@ func (e *Endpoint) regeneratePolicy(owner Owner, opts models.ConfigurationMap) (
 	opts[OptionEgressPolicy] = optionDisabled
 
 	if egress {
-		e.checkEgressAccess(owner, (*labelsMap)[policy.ReservedIdentityHost], opts, OptionAllowToHost)
+		e.checkEgressAccess(owner, (*labelsMap)[identityPkg.ReservedIdentityHost], opts, OptionAllowToHost)
 	}
 
 	if !ingress && !egress {
@@ -858,7 +859,7 @@ func (e *Endpoint) runIdentityToK8sPodSync() {
 
 				return nil
 			},
-			RunInterval: time.Duration(1) * time.Minute,
+			RunInterval: 1 * time.Minute,
 		},
 	)
 }
@@ -866,17 +867,17 @@ func (e *Endpoint) runIdentityToK8sPodSync() {
 // SetIdentity resets endpoint's policy identity to 'id'.
 // Caller triggers policy regeneration if needed.
 // Called with e.Mutex Locked
-func (e *Endpoint) SetIdentity(owner Owner, id *policy.Identity) {
+func (e *Endpoint) SetIdentity(owner Owner, identity *identityPkg.Identity) {
 	cache := policy.GetConsumableCache()
 
 	if e.Consumable != nil {
-		if e.SecurityIdentity != nil && id.ID == e.Consumable.ID {
+		if e.SecurityIdentity != nil && identity.ID == e.Consumable.ID {
 			// Even if the numeric identity is the same, the order in which the
 			// labels are represented may change.
-			e.SecurityIdentity = id
+			e.SecurityIdentity = identity
 			e.Consumable.Mutex.Lock()
-			e.Consumable.Labels = id
-			e.Consumable.LabelArray = id.Labels.ToSlice()
+			e.Consumable.Labels = identity
+			e.Consumable.LabelArray = identity.Labels.ToSlice()
 			e.Consumable.Mutex.Unlock()
 			return
 		}
@@ -886,8 +887,9 @@ func (e *Endpoint) SetIdentity(owner Owner, id *policy.Identity) {
 		// counting via the cache?
 		cache.Remove(e.Consumable)
 	}
-	e.SecurityIdentity = id
-	e.Consumable = cache.GetOrCreate(id.ID, id)
+
+	e.SecurityIdentity = identity
+	e.Consumable = cache.GetOrCreate(identity.ID, identity)
 
 	// Sets endpoint state to ready if was waiting for identity
 	if e.GetStateLocked() == StateWaitingForIdentity {
@@ -898,7 +900,7 @@ func (e *Endpoint) SetIdentity(owner Owner, id *policy.Identity) {
 
 	e.Consumable.Mutex.RLock()
 	e.getLogger().WithFields(logrus.Fields{
-		logfields.Identity: id,
+		logfields.Identity: identity,
 		"consumable":       e.Consumable,
 	}).Debug("Set identity and consumable of EP")
 	e.Consumable.Mutex.RUnlock()

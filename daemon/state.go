@@ -22,6 +22,7 @@ import (
 	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/endpointmanager"
+	identityPkg "github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/ipam"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -253,7 +254,7 @@ func (d *Daemon) syncLabels(ep *endpoint.Endpoint) error {
 	l, _ := labels.FilterLabels(ep.SecurityIdentity.Labels)
 	ep.SecurityIdentity.Labels = l
 
-	identity, _, err := policy.AllocateIdentity(ep.SecurityIdentity.Labels)
+	identity, _, err := identityPkg.AllocateIdentity(ep.SecurityIdentity.Labels)
 	if err != nil {
 		return err
 	}

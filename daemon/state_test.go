@@ -24,6 +24,7 @@ import (
 
 	"github.com/cilium/cilium/common/addressing"
 	e "github.com/cilium/cilium/pkg/endpoint"
+	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/mac"
@@ -36,10 +37,10 @@ import (
 
 func createEndpoints() ([]*e.Endpoint, map[uint16]*e.Endpoint) {
 	epsWanted := []*e.Endpoint{
-		endpointCreator(256, policy.NumericIdentity(256)),
-		endpointCreator(257, policy.NumericIdentity(256)),
-		endpointCreator(258, policy.NumericIdentity(256)),
-		endpointCreator(259, policy.NumericIdentity(256)),
+		endpointCreator(256, identity.NumericIdentity(256)),
+		endpointCreator(257, identity.NumericIdentity(256)),
+		endpointCreator(258, identity.NumericIdentity(256)),
+		endpointCreator(259, identity.NumericIdentity(256)),
 	}
 	epsMap := map[uint16]*e.Endpoint{
 		epsWanted[0].ID: epsWanted[0],
@@ -54,7 +55,7 @@ func getStrID(id uint16) string {
 	return fmt.Sprintf("%05d", id)
 }
 
-func endpointCreator(id uint16, secID policy.NumericIdentity) *e.Endpoint {
+func endpointCreator(id uint16, secID identity.NumericIdentity) *e.Endpoint {
 	strID := getStrID(id)
 	b := make([]byte, 2)
 	binary.LittleEndian.PutUint16(b, id)
@@ -69,7 +70,7 @@ func endpointCreator(id uint16, secID policy.NumericIdentity) *e.Endpoint {
 	ep.IPv6 = addressing.DeriveCiliumIPv6(net.IP{0xbe, 0xef, 0xbe, 0xef, 0xbe, 0xef, 0xbe, 0xef, 0xaa, 0xaa, 0xaa, 0xaa, 0x00, 0x00, b[0], b[1]})
 	ep.IfIndex = 1
 	ep.NodeMAC = mac.MAC([]byte{0x02, 0xff, 0xf2, 0x12, 0x0, 0x0})
-	ep.SecurityIdentity = &policy.Identity{
+	ep.SecurityIdentity = &identity.Identity{
 		ID: secID,
 		Labels: labels.Labels{
 			"foo" + strID: labels.NewLabel("foo"+strID, "", ""),
@@ -78,14 +79,14 @@ func endpointCreator(id uint16, secID policy.NumericIdentity) *e.Endpoint {
 	ep.Consumable = &policy.Consumable{
 		ID:        secID,
 		Iteration: 0,
-		Labels: &policy.Identity{
+		Labels: &identity.Identity{
 			ID: secID,
 			Labels: labels.Labels{
 				"foo" + strID: labels.NewLabel("foo"+strID, "", ""),
 			},
 		},
 		Maps:              map[int]*policymap.PolicyMap{},
-		IngressIdentities: map[policy.NumericIdentity]bool{},
+		IngressIdentities: map[identity.NumericIdentity]bool{},
 	}
 	return ep
 }
@@ -183,7 +184,7 @@ func (ds *DaemonSuite) TestSyncLabels(c *C) {
 
 	// let's change the ep2 security identity and see if sync labels properly sets
 	// it with the one from kv store
-	ep2.SecurityIdentity.ID = policy.NumericIdentity(1)
+	ep2.SecurityIdentity.ID = identity.NumericIdentity(1)
 
 	err = ds.d.syncLabels(ep2)
 	c.Assert(err, IsNil)

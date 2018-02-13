@@ -22,6 +22,7 @@ import (
 	"time"
 
 	"github.com/cilium/cilium/pkg/endpointmanager"
+	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/policymap"
 	"github.com/cilium/cilium/pkg/policy"
@@ -100,7 +101,7 @@ func EnableLogstash(LogstashAddr string, refreshTime int) {
 	}
 }
 
-func getInlineLabelStr(id policy.NumericIdentity) string {
+func getInlineLabelStr(id identity.NumericIdentity) string {
 	l := policy.ResolveIdentityLabels(id)
 	if l == nil {
 		return ""
@@ -121,7 +122,7 @@ func processStats(allPes map[uint16][]policymap.PolicyEntryDump) []LogstashStat 
 		for _, stat := range v {
 			lss = append(lss, LogstashStat{
 				FromID:  stat.Key.Identity,
-				From:    getInlineLabelStr(policy.NumericIdentity(stat.Key.Identity)),
+				From:    getInlineLabelStr(identity.NumericIdentity(stat.Key.Identity)),
 				ToID:    strconv.FormatUint(uint64(k), 10),
 				Bytes:   stat.Bytes,
 				Packets: stat.Packets,

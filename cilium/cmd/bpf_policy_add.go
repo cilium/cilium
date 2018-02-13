@@ -21,8 +21,8 @@ import (
 
 	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/pkg/bpf"
+	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/maps/policymap"
-	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/u8proto"
 
 	"github.com/spf13/cobra"
@@ -49,7 +49,7 @@ func updatePolicyKey(cmd *cobra.Command, args []string, add bool) {
 	}
 
 	lbl := args[0]
-	if id := policy.GetReservedID(lbl); id != policy.IdentityUnknown {
+	if id := identity.GetReservedID(lbl); id != identity.IdentityUnknown {
 		lbl = "reserved_" + strconv.FormatUint(uint64(id), 10)
 	}
 

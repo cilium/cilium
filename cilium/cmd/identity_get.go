@@ -19,7 +19,7 @@ import (
 	"fmt"
 
 	identityApi "github.com/cilium/cilium/api/v1/client/policy"
-	"github.com/cilium/cilium/pkg/policy"
+	"github.com/cilium/cilium/pkg/identity"
 
 	"github.com/spf13/cobra"
 )
@@ -33,7 +33,7 @@ var identityGetCmd = &cobra.Command{
 			Usagef(cmd, "Invalid identity ID")
 		}
 
-		if id := policy.GetReservedID(args[0]); id != policy.IdentityUnknown {
+		if id := identity.GetReservedID(args[0]); id != identity.IdentityUnknown {
 			//DO NOT modify the output format. This is being used by script(s).
 			fmt.Printf("%d\n", id)
 		} else {
