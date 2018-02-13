@@ -334,8 +334,11 @@ type Endpoint struct {
 	// other resources
 	controllers controller.Manager
 
-	// proxy redirects to remove later during the build
-	proxiesToRemove map[string]bool
+	// realizedRedirects is the set of IDs of proxy redirects that have
+	// been successfully added into proxies for this endpoint.
+	// Every value must be true.
+	// You must hold Endpoint.BuildMutex to read or write it.
+	realizedRedirects map[string]bool
 
 	// ProxyWaitGroup waits for pending proxy changes to complete.
 	// You must hold Endpoint.BuildMutex to read or write it.
@@ -1277,9 +1280,7 @@ func (e *Endpoint) LeaveLocked(owner Owner) int {
 		c.Mutex.RLock()
 		if e.L4Policy != nil {
 			// Passing a new map of nil will purge all redirects
-			e.collectUnusedRedirects(e.L4Policy.Ingress, nil)
-			e.collectUnusedRedirects(e.L4Policy.Egress, nil)
-			e.removeCollectedRedirects(owner)
+			e.removeOldRedirects(owner, nil)
 		}
 		c.Mutex.RUnlock()
 	}
