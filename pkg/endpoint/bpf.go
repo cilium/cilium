@@ -408,23 +408,64 @@ func updateCT(owner Owner, e *Endpoint, epIPs []net.IP,
 	return wg
 }
 
-// allocateRedirects must be called while holding the endpoint and consumable
+// addNewRedirectsFromMap must be called while holding the endpoint and consumable
 // locks for writing. On success, returns nil; otherwise, returns an error
 // indicating the problem that occurred while adding an l7 redirect for the
 // specified policy.
-func (e *Endpoint) allocateRedirects(owner Owner, m policy.L4PolicyMap) error {
+// Must be called with endpoint.BuildMutex held.
+func (e *Endpoint) addNewRedirectsFromMap(owner Owner, m policy.L4PolicyMap, desiredRedirects map[string]bool) error {
 	for k, l4 := range m {
 		redirect := uint16(l4.L7RedirectPort)
 		if l4.IsRedirect() && redirect == 0 {
-			redirect, err := e.addRedirect(owner, &l4)
+			redirect, err := owner.UpdateProxyRedirect(e, &l4)
 			if err != nil {
 				return err
 			}
 			l4.L7RedirectPort = int(redirect)
 			m[k] = l4
+
+			proxyID := e.ProxyID(&l4)
+			if e.realizedRedirects == nil {
+				e.realizedRedirects = make(map[string]bool)
+			}
+			e.realizedRedirects[proxyID] = true
+			desiredRedirects[proxyID] = true
 		}
 	}
 	return nil
+}
+
+// addNewRedirects must be called while holding the endpoint and consumable
+// locks for writing. On success, returns nil; otherwise, returns an error
+// indicating the problem that occurred while adding an l7 redirect for the
+// specified policy.
+// The returned map contains the exact set of IDs of proxy redirects that is
+// required to implement the given L4 policy.
+// Must be called with endpoint.BuildMutex held.
+func (e *Endpoint) addNewRedirects(owner Owner, m *policy.L4Policy) (desiredRedirects map[string]bool, err error) {
+	desiredRedirects = make(map[string]bool)
+	if err = e.addNewRedirectsFromMap(owner, m.Ingress, desiredRedirects); err != nil {
+		return desiredRedirects, fmt.Errorf("Unable to allocate ingress redirects: %s", err)
+	}
+	if err = e.addNewRedirectsFromMap(owner, m.Egress, desiredRedirects); err != nil {
+		return desiredRedirects, fmt.Errorf("Unable to allocate egress redirects: %s", err)
+	}
+	return desiredRedirects, nil
+}
+
+// Must be called with endpoint.BuildMutex held.
+func (e *Endpoint) removeOldRedirects(owner Owner, desiredRedirects map[string]bool) {
+	for id := range e.realizedRedirects {
+		// Remove only the redirects that are not required.
+		if desiredRedirects[id] {
+			continue
+		}
+		if err := owner.RemoveProxyRedirect(e, id); err != nil {
+			e.getLogger().WithError(err).WithField(logfields.L4PolicyID, id).Warn("Error while removing proxy redirect")
+		} else {
+			delete(e.realizedRedirects, id)
+		}
+	}
 }
 
 // regenerateBPF rewrites all headers and updates all BPF maps to reflect the
@@ -440,15 +481,6 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir, reason string) (uint64, err
 
 	e.Mutex.Lock()
 
-	completionCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	e.ProxyWaitGroup = completion.NewWaitGroup(completionCtx)
-	defer func() {
-		cancel()
-		e.ProxyWaitGroup = nil
-	}()
-
-	e.removeCollectedRedirects(owner)
-
 	// If endpoint was marked as disconnected then
 	// it won't be regenerated.
 	// When building the initial drop policy in waiting-for-identity state
@@ -461,21 +493,28 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir, reason string) (uint64, err
 		return 0, fmt.Errorf("Skipping build due to invalid state: %s", e.state)
 	}
 
+	completionCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	e.ProxyWaitGroup = completion.NewWaitGroup(completionCtx)
+	defer func() {
+		cancel()
+		e.ProxyWaitGroup = nil
+	}()
+
+	// The set of IDs of proxy redirects that are required to implement the
+	// policy.
+	var desiredRedirects map[string]bool
+
 	// If there is a Consumable, walk the L4Policy for ports that require
 	// an L7 redirect and add them to the endpoint; update the L4PolicyMap
 	// with the redirects.
 	if e.Consumable != nil {
 		e.Consumable.Mutex.Lock()
 		if e.Consumable.L4Policy != nil {
-			if err = e.allocateRedirects(owner, e.Consumable.L4Policy.Ingress); err != nil {
+			desiredRedirects, err = e.addNewRedirects(owner, e.Consumable.L4Policy)
+			if err != nil {
 				e.Consumable.Mutex.Unlock()
 				e.Mutex.Unlock()
-				return 0, fmt.Errorf("Unable to allocate ingress redirects: %s", err)
-			}
-			if err = e.allocateRedirects(owner, e.Consumable.L4Policy.Egress); err != nil {
-				e.Consumable.Mutex.Unlock()
-				e.Mutex.Unlock()
-				return 0, fmt.Errorf("Unable to allocate egress redirects: %s", err)
+				return 0, err
 			}
 		}
 		e.Consumable.Mutex.Unlock()
@@ -681,7 +720,7 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir, reason string) (uint64, err
 	debug := strconv.FormatBool(owner.DebugEnabled())
 
 	// To avoid traffic loss, wait for the proxy to be ready to accept traffic
-	// on redirect ports, before we generate the policy that will redirect
+	// on new redirect ports, before we generate the policy that will redirect
 	// traffic to those ports.
 	err = e.WaitForProxyCompletions()
 	if err != nil {
@@ -697,6 +736,18 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir, reason string) (uint64, err
 	}
 	if err != nil {
 		return epInfoCache.revision, err
+	}
+
+	// To avoid traffic loss, wait for the policy to be pushed into BPF before
+	// deleting obsolete redirects, to make sure no packets are redirected to
+	// those ports.
+	completionCtx, cancel = context.WithTimeout(context.Background(), 10*time.Second)
+	e.ProxyWaitGroup = completion.NewWaitGroup(completionCtx)
+	defer cancel()
+	e.removeOldRedirects(owner, desiredRedirects)
+	err = e.WaitForProxyCompletions()
+	if err != nil {
+		return 0, fmt.Errorf("Error while deleting obsolete proxy redirects: %s", err)
 	}
 
 	// The last operation hooks the endpoint into the endpoint table and exposes it
