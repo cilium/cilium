@@ -215,7 +215,7 @@ func (c *Consumable) AllowIngressIdentityLocked(cache *ConsumableCache, id Numer
 		log.WithFields(logrus.Fields{
 			logfields.Identity: id,
 			"consumable":       logfields.Repr(c),
-		}).Debug("New ingress security identity for consumable")
+		}).Debug("Allowing security identity on ingress for consumable")
 		c.addToMaps(id)
 		c.IngressIdentities[id] = true
 		return true
@@ -253,7 +253,7 @@ func (c *Consumable) AllowIngressIdentityAndReverseLocked(cache *ConsumableCache
 	log.WithFields(logrus.Fields{
 		logfields.Identity + ".from": c.ID,
 		logfields.Identity + ".to":   id,
-	}).Warn("Allowed an ingress security identity which can't be found in the reverse direction")
+	}).Warn("Allowed a security identity on ingress, but could not resolve the identity for the reverse direction")
 	return changed
 }
 
@@ -262,7 +262,7 @@ func (c *Consumable) AllowIngressIdentityAndReverseLocked(cache *ConsumableCache
 // Must be called with the Consumable mutex locked.
 func (c *Consumable) RemoveIngressIdentityLocked(id NumericIdentity) {
 	if _, ok := c.IngressIdentities[id]; ok {
-		log.WithField(logfields.Identity, id).Debug("Removing ingress identity")
+		log.WithField(logfields.Identity, id).Debug("Removing identity from ingress map")
 		delete(c.IngressIdentities, id)
 
 		if c.wasLastRule(id) {

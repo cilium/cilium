@@ -453,7 +453,7 @@ func (e *Endpoint) regenerateConsumable(owner Owner, labelsMap *policy.IdentityC
 		if !keepIdentity {
 			c.RemoveIngressIdentityLocked(ingressIdentity)
 			changed = true
-			// Since we have removed an allowed ingress security identity, the
+			// Since we have removed an allowed security identity for ingress, the
 			// L3 rule should be also be marked as removed, but only if it was
 			// not previously created by a L3-L4 rule.
 			if _, ok := rulesRm[ingressIdentity]; !ok {
@@ -465,7 +465,7 @@ func (e *Endpoint) regenerateConsumable(owner Owner, labelsMap *policy.IdentityC
 				delete(rulesAdd, ingressIdentity)
 			}
 		} else {
-			// Since we have (re)added an ingress security identity, the L3 rule
+			// Since we have (re)added a security identity upon ingress, the L3 rule
 			// should be also be marked as added. But only if it was not previously
 			// created by an L3-L4 rule.
 			if _, ok := rulesAdd[ingressIdentity]; !ok {
@@ -485,7 +485,7 @@ func (e *Endpoint) regenerateConsumable(owner Owner, labelsMap *policy.IdentityC
 		"rulesAdd":                  rulesAdd,
 		"l4Rm":                      l4Rm,
 		"rulesRm":                   rulesRm,
-	}).Debug("New consumable with ingress security identities")
+	}).Debug("consumable regenerated")
 	return changed, rulesAdd, rulesRm
 }
 
