@@ -49,7 +49,7 @@ type Consumable struct {
 	ID NumericIdentity `json:"id"`
 	// Mutex protects all variables from this structure below this line
 	Mutex lock.RWMutex
-	// Labels are the Identity of this consumable
+	// Labels are the SecurityIdentity of this consumable
 	Labels *Identity `json:"labels"`
 	// LabelArray contains the same labels from identity in a form of a list, used for faster lookup
 	LabelArray labels.LabelArray `json:"-"`

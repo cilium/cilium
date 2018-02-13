@@ -69,7 +69,7 @@ func endpointCreator(id uint16, secID policy.NumericIdentity) *e.Endpoint {
 	ep.IPv6 = addressing.DeriveCiliumIPv6(net.IP{0xbe, 0xef, 0xbe, 0xef, 0xbe, 0xef, 0xbe, 0xef, 0xaa, 0xaa, 0xaa, 0xaa, 0x00, 0x00, b[0], b[1]})
 	ep.IfIndex = 1
 	ep.NodeMAC = mac.MAC([]byte{0x02, 0xff, 0xf2, 0x12, 0x0, 0x0})
-	ep.SecLabel = &policy.Identity{
+	ep.SecurityIdentity = &policy.Identity{
 		ID: secID,
 		Labels: labels.Labels{
 			"foo" + strID: labels.NewLabel("foo"+strID, "", ""),
@@ -169,7 +169,7 @@ func (ds *DaemonSuite) TestSyncLabels(c *C) {
 	epsWanted, _ := createEndpoints()
 
 	ep1 := epsWanted[0]
-	ep1.SecLabel = nil
+	ep1.SecurityIdentity = nil
 	err := ds.d.syncLabels(ep1)
 	// Endpoint doesn't have a security label, syncLabels should not sync
 	// anything.
@@ -177,14 +177,14 @@ func (ds *DaemonSuite) TestSyncLabels(c *C) {
 
 	// Let's make sure we delete all labels from the kv store first
 	ep2 := epsWanted[1]
-	ep2.SecLabel.Release()
+	ep2.SecurityIdentity.Release()
 
 	err = ds.d.syncLabels(ep2)
 	c.Assert(err, IsNil)
 
-	// let's change the ep2 sec label ID and see if sync labels properly sets
+	// let's change the ep2 security identity and see if sync labels properly sets
 	// it with the one from kv store
-	ep2.SecLabel.ID = policy.NumericIdentity(1)
+	ep2.SecurityIdentity.ID = policy.NumericIdentity(1)
 
 	err = ds.d.syncLabels(ep2)
 	c.Assert(err, IsNil)

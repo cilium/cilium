@@ -159,11 +159,11 @@ func (e *Endpoint) writeHeaderfile(prefix string, owner Owner) error {
 
 	fw.WriteString("/*\n")
 	fw.WriteString(" * Labels:\n")
-	if e.SecLabel != nil {
-		if len(e.SecLabel.Labels) == 0 {
+	if e.SecurityIdentity != nil {
+		if len(e.SecurityIdentity.Labels) == 0 {
 			fmt.Fprintf(fw, " * - %s\n", "(no labels)")
 		} else {
-			for _, v := range e.SecLabel.Labels {
+			for _, v := range e.SecurityIdentity.Labels {
 				fmt.Fprintf(fw, " * - %s\n", v)
 			}
 		}
@@ -194,9 +194,9 @@ func (e *Endpoint) writeHeaderfile(prefix string, owner Owner) error {
 
 	fmt.Fprintf(fw, "#define LXC_ID %#x\n", e.ID)
 	fmt.Fprintf(fw, "#define LXC_ID_NB %#x\n", byteorder.HostToNetwork(e.ID))
-	if e.SecLabel != nil {
-		fmt.Fprintf(fw, "#define SECLABEL %s\n", e.SecLabel.ID.StringID())
-		fmt.Fprintf(fw, "#define SECLABEL_NB %#x\n", byteorder.HostToNetwork(e.SecLabel.ID.Uint32()))
+	if e.SecurityIdentity != nil {
+		fmt.Fprintf(fw, "#define SECLABEL %s\n", e.SecurityIdentity.ID.StringID())
+		fmt.Fprintf(fw, "#define SECLABEL_NB %#x\n", byteorder.HostToNetwork(e.SecurityIdentity.ID.Uint32()))
 	} else {
 		invalid := policy.InvalidIdentity
 		fmt.Fprintf(fw, "#define SECLABEL %s\n", invalid.StringID())

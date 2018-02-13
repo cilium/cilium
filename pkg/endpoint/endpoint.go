@@ -254,12 +254,11 @@ type Endpoint struct {
 	// NodeMAC is the MAC of the node (agent). The MAC is different for every endpoint.
 	NodeMAC mac.MAC
 
-	// SecLabel is (L3) the identity of this endpoint
-	//
-	// FIXME: Rename this field to Identity
-	SecLabel *policy.Identity // Security Label  set to this endpoint.
+	// SecurityIdentity is the security identity of this endpoint. This is computed from
+	// the endpoint's labels.
+	SecurityIdentity *policy.Identity
 
-	// LabelsHash is a SHA256 hash over the SecLabel labels
+	// LabelsHash is a SHA256 hash over the SecurityIdentity labels
 	LabelsHash string
 
 	// LabelsMap is the Set of all security labels used in the last policy computation
@@ -464,7 +463,7 @@ func (e *Endpoint) GetModelRLocked() *models.Endpoint {
 		ContainerName:    e.ContainerName,
 		DockerEndpointID: e.DockerEndpointID,
 		DockerNetworkID:  e.DockerNetworkID,
-		Identity:         e.SecLabel.GetModel(),
+		Identity:         e.SecurityIdentity.GetModel(),
 		InterfaceIndex:   int64(e.IfIndex),
 		InterfaceName:    e.IfName,
 		Labels: &models.LabelConfiguration{
@@ -628,20 +627,20 @@ func (e *Endpoint) Unlock() {
 
 // GetLabels returns the labels as slice
 func (e *Endpoint) GetLabels() []string {
-	if e.SecLabel == nil {
+	if e.SecurityIdentity == nil {
 		return []string{}
 	}
 
-	return e.SecLabel.Labels.GetModel()
+	return e.SecurityIdentity.Labels.GetModel()
 }
 
 // GetLabelsSHA returns the SHA of labels
 func (e *Endpoint) GetLabelsSHA() string {
-	if e.SecLabel == nil {
+	if e.SecurityIdentity == nil {
 		return ""
 	}
 
-	return e.SecLabel.GetLabelsSHA256()
+	return e.SecurityIdentity.GetLabelsSHA256()
 }
 
 // GetIPv4Address returns the IPv4 address of the endpoint
@@ -818,8 +817,8 @@ func (e *Endpoint) StringID() string {
 }
 
 func (e *Endpoint) GetIdentity() policy.NumericIdentity {
-	if e.SecLabel != nil {
-		return e.SecLabel.ID
+	if e.SecurityIdentity != nil {
+		return e.SecurityIdentity.ID
 	}
 
 	return policy.InvalidIdentity
@@ -1030,7 +1029,7 @@ func (e *Endpoint) GetBPFValue() (*lxcmap.EndpointInfo, error) {
 
 	info := &lxcmap.EndpointInfo{
 		IfIndex: uint32(e.IfIndex),
-		// Store security label in network byte order so it can be
+		// Store security identity in network byte order so it can be
 		// written into the packet without an additional byte order
 		// conversion.
 		SecLabelID: byteorder.HostToNetwork(uint16(e.GetIdentity())).(uint16),
@@ -1291,14 +1290,14 @@ func (e *Endpoint) LeaveLocked(owner Owner) int {
 		}
 	}
 
-	if e.SecLabel != nil {
-		if err := e.SecLabel.Release(); err != nil {
-			log.WithError(err).WithField(logfields.Identity, e.SecLabel.ID).
+	if e.SecurityIdentity != nil {
+		if err := e.SecurityIdentity.Release(); err != nil {
+			log.WithError(err).WithField(logfields.Identity, e.SecurityIdentity.ID).
 				Error("Unable to release identity of endpoint")
 			errors++
 		}
 
-		e.SecLabel = nil
+		e.SecurityIdentity = nil
 	}
 
 	e.L3Maps.Close()
@@ -1601,8 +1600,8 @@ func (e *Endpoint) getIDandLabels() string {
 	defer e.Mutex.RUnlock()
 
 	labels := ""
-	if e.SecLabel != nil {
-		labels = e.SecLabel.Labels.String()
+	if e.SecurityIdentity != nil {
+		labels = e.SecurityIdentity.Labels.String()
 	}
 
 	return fmt.Sprintf("%d (%s)", e.ID, labels)
@@ -1738,7 +1737,7 @@ func (e *Endpoint) identityLabelsChanged(owner Owner, myChangeRev int) error {
 		return nil
 	}
 
-	if e.SecLabel != nil && string(e.SecLabel.Labels.SortedList()) != string(newLabels.SortedList()) {
+	if e.SecurityIdentity != nil && string(e.SecurityIdentity.Labels.SortedList()) != string(newLabels.SortedList()) {
 		e.Mutex.RUnlock()
 		elog.Debug("Endpoint labels unchanged, skipping resolution of identity")
 		return nil
@@ -1772,8 +1771,8 @@ func (e *Endpoint) identityLabelsChanged(owner Owner, myChangeRev int) error {
 
 	// If endpoint has an old identity, defer release of it to the end of
 	// the function after the endpoint structured has been unlocked again
-	if e.SecLabel != nil {
-		oldIdentity := e.SecLabel
+	if e.SecurityIdentity != nil {
+		oldIdentity := e.SecurityIdentity
 		defer func() {
 			if err := oldIdentity.Release(); err != nil {
 				elog.WithFields(logrus.Fields{logfields.Identity: oldIdentity.ID}).
