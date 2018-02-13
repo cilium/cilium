@@ -1,0 +1,152 @@
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: kafka-broker
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: kafka
+        zgroup: kafkaTestApp
+    spec:
+      containers:
+      - name: kafka
+        image: wurstmeister/kafka
+        ports:
+        - containerPort: 9092
+        env:
+        - name: KAFKA_ADVERTISED_HOST_NAME
+          value: kafka-service
+        - name: KAFKA_ZOOKEEPER_CONNECT
+          value: zook:2181
+        - name: KAFKA_BROKER_ID
+          value: "1"
+        - name: KAFKA_CREATE_TOPICS
+          value: "empire-announce:1:1,deathstar-plans:1:1"
+      nodeSelector:
+        "kubernetes.io/hostname": k8s1
+---
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: zookeeper
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: zook
+        zgroup: kafkaTestApp
+    spec:
+      containers:
+      - name: zookeeper
+        image: digitalwonderland/zookeeper
+        ports:
+        - containerPort: 2181
+      nodeSelector:
+        "kubernetes.io/hostname": k8s1
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: zook
+  labels:
+    app: zook
+spec:
+  ports:
+  - port: 2181
+    name: zookeeper-port
+    targetPort: 2181
+    protocol: TCP
+  selector:
+    app: zook
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: kafka-service
+  labels:
+    app: kafka
+spec:
+  ports:
+  - port: 9092
+    name: kafka-port
+    targetPort: 9092
+    protocol: TCP
+  selector:
+    app: kafka
+---
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: empire-hq
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: empire-hq
+        zgroup: kafkaTestApp
+    spec:
+      containers:
+      - name: empire-hq
+        image: cilium/kafkaclient
+      nodeSelector:
+        "kubernetes.io/hostname": k8s1
+---
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: empire-outpost-8888
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: empire-outpost
+        outpostid: "8888"
+        zgroup: kafkaTestApp
+    spec:
+      containers:
+      - name: empire-outpost-8888
+        image: cilium/kafkaclient
+      nodeSelector:
+        "kubernetes.io/hostname": k8s1
+---
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: empire-outpost-9999
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: empire-outpost
+        outpostid: "9999"
+        zgroup: kafkaTestApp
+    spec:
+      containers:
+      - name: empire-outpost-9999
+        image: cilium/kafkaclient
+      nodeSelector:
+        "kubernetes.io/hostname": k8s1
+---
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: empire-backup
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: empire-backup
+        zgroup: kafkaTestApp
+    spec:
+      containers:
+      - name: empire-backup
+        image: cilium/kafkaclient
+      nodeSelector:
+        "kubernetes.io/hostname": k8s1

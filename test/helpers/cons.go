@@ -1,4 +1,4 @@
-// Copyright 2017 Authors of Cilium
+// Copyright 2018 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -76,16 +76,20 @@ const (
 	HttpdImage = "cilium/demo-httpd"
 
 	// Names of commonly used containers in tests.
-
-	Httpd1 = "httpd1"
-	Httpd2 = "httpd2"
-	Httpd3 = "httpd3"
-	App1   = "app1"
-	App2   = "app2"
-	App3   = "app3"
-	Client = "client"
-	Server = "server"
-	Host   = "host"
+	Httpd1    = "httpd1"
+	Httpd2    = "httpd2"
+	Httpd3    = "httpd3"
+	App1      = "app1"
+	App2      = "app2"
+	App3      = "app3"
+	Client    = "client"
+	Server    = "server"
+	Host      = "host"
+	KafkaApp  = "kafka"
+	Zookeeper = "zook"
+	Backup    = "empire-backup"
+	EmpireHq  = "empire-hq"
+	Outpost   = "empire-outpost"
 	// Container lifecycle actions.
 	Create = "create"
 	Delete = "delete"
