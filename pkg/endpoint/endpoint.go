@@ -17,7 +17,6 @@ package endpoint
 import (
 	"encoding/base64"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -350,7 +349,7 @@ func (e *Endpoint) WaitForProxyCompletions() error {
 	e.getLogger().Debug("Waiting for proxy updates to complete...")
 	err := e.ProxyWaitGroup.Wait()
 	if err != nil {
-		return errors.New("proxy state changes failed")
+		return fmt.Errorf("proxy state changes failed: %s", err)
 	}
 	e.getLogger().Debug("Wait time for proxy updates: ", time.Since(start))
 	return nil
