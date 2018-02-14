@@ -438,6 +438,11 @@ var _ = Describe("K8sValidatedPolicyTest", func() {
 				helpers.CurlFail(fmt.Sprintf("http://%s/public", clusterIP)))
 			Expect(err).Should(HaveOccurred(), "Ingress connectivity should be denied by policy")
 
+			if helpers.GetCurrentK8SEnv() == "1.7" {
+				log.Info("K8s 1.7 doesn't offer a default deny for egress")
+				return
+			}
+
 			By("Installing egress default-deny")
 
 			eps = kubectl.CiliumEndpointPolicyVersion(ciliumPod)
