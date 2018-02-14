@@ -69,7 +69,7 @@ func endpointCreator(id uint16, secID policy.NumericIdentity) *e.Endpoint {
 	ep.IPv6 = addressing.DeriveCiliumIPv6(net.IP{0xbe, 0xef, 0xbe, 0xef, 0xbe, 0xef, 0xbe, 0xef, 0xaa, 0xaa, 0xaa, 0xaa, 0x00, 0x00, b[0], b[1]})
 	ep.IfIndex = 1
 	ep.NodeMAC = mac.MAC([]byte{0x02, 0xff, 0xf2, 0x12, 0x0, 0x0})
-	ep.SecLabel = &policy.Identity{
+	ep.SecLabel = &policy.SecurityIdentity{
 		ID: secID,
 		Labels: labels.Labels{
 			"foo" + strID: labels.NewLabel("foo"+strID, "", ""),
@@ -78,7 +78,7 @@ func endpointCreator(id uint16, secID policy.NumericIdentity) *e.Endpoint {
 	ep.Consumable = &policy.Consumable{
 		ID:        secID,
 		Iteration: 0,
-		Labels: &policy.Identity{
+		Labels: &policy.SecurityIdentity{
 			ID: secID,
 			Labels: labels.Labels{
 				"foo" + strID: labels.NewLabel("foo"+strID, "", ""),

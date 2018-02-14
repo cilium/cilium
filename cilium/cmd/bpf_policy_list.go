@@ -97,7 +97,7 @@ func formatMap(w io.Writer, statsMap []policymap.PolicyEntryDump) {
 		packetsTitle   = "PACKETS"
 	)
 
-	labelsID := map[policy.NumericIdentity]*policy.Identity{}
+	labelsID := map[policy.NumericIdentity]*policy.SecurityIdentity{}
 	for _, stat := range statsMap {
 		if !printIDs {
 			id := policy.NumericIdentity(stat.Key.Identity)

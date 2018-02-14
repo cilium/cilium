@@ -920,7 +920,7 @@ func (e *Endpoint) runIdentityToK8sPodSync() {
 // SetIdentity resets endpoint's policy identity to 'id'.
 // Caller triggers policy regeneration if needed.
 // Called with e.Mutex Locked
-func (e *Endpoint) SetIdentity(owner Owner, id *policy.Identity) {
+func (e *Endpoint) SetIdentity(owner Owner, id *policy.SecurityIdentity) {
 	cache := policy.GetConsumableCache()
 
 	if e.Consumable != nil {

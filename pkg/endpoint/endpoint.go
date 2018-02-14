@@ -257,7 +257,7 @@ type Endpoint struct {
 	// SecLabel is (L3) the identity of this endpoint
 	//
 	// FIXME: Rename this field to Identity
-	SecLabel *policy.Identity // Security Label  set to this endpoint.
+	SecLabel *policy.SecurityIdentity // Security Label  set to this endpoint.
 
 	// LabelsHash is a SHA256 hash over the SecLabel labels
 	LabelsHash string
@@ -826,7 +826,7 @@ func (e *Endpoint) GetIdentity() policy.NumericIdentity {
 }
 
 // ResolveIdentity fetches Consumable from consumable cache, using security identity as key.
-func (e *Endpoint) ResolveIdentity(srcIdentity policy.NumericIdentity) *policy.Identity {
+func (e *Endpoint) ResolveIdentity(srcIdentity policy.NumericIdentity) *policy.SecurityIdentity {
 	e.Mutex.RLock()
 	defer e.Mutex.RUnlock()
 	return e.Consumable.ResolveIdentityFromCache(srcIdentity)

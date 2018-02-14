@@ -50,7 +50,7 @@ type Consumable struct {
 	// Mutex protects all variables from this structure below this line
 	Mutex lock.RWMutex
 	// Labels are the Identity of this consumable
-	Labels *Identity `json:"labels"`
+	Labels *SecurityIdentity `json:"labels"`
 	// LabelArray contains the same labels from identity in a form of a list, used for faster lookup
 	LabelArray labels.LabelArray `json:"-"`
 	// Iteration policy of the Consumable
@@ -70,7 +70,7 @@ type Consumable struct {
 }
 
 // NewConsumable creates a new consumable
-func NewConsumable(id NumericIdentity, lbls *Identity, cache *ConsumableCache) *Consumable {
+func NewConsumable(id NumericIdentity, lbls *SecurityIdentity, cache *ConsumableCache) *Consumable {
 	consumable := &Consumable{
 		ID:           id,
 		Iteration:    0,
@@ -89,7 +89,7 @@ func NewConsumable(id NumericIdentity, lbls *Identity, cache *ConsumableCache) *
 
 // ResolveIdentityFromCache fetches Consumable from ConsumableCache using
 // security identity as key, and returns labels for that identity.
-func (c *Consumable) ResolveIdentityFromCache(id NumericIdentity) *Identity {
+func (c *Consumable) ResolveIdentityFromCache(id NumericIdentity) *SecurityIdentity {
 	c.Mutex.RLock()
 	defer c.Mutex.RUnlock()
 	cc := c.cache.Lookup(id)

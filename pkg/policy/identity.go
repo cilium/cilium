@@ -158,23 +158,23 @@ func ParseL4Filter(filter L4Filter) (L4RuleContext, L7RuleContext) {
 		}
 }
 
-// Identity is the representation of the security context for a particular set of
-// labels.
-type Identity struct {
-	// Identity's ID.
+// SecurityIdentity represents all metadata related to the set of labels which
+// are used to enforce L3 connectivity between endpoints.
+type SecurityIdentity struct {
+	// ID is the numerical identifier which represents this identity.
 	ID NumericIdentity `json:"id"`
-	// Set of labels that belong to this Identity.
+	// Labels is the set of security-relevant labels for this SecurityIdentity.
 	Labels labels.Labels `json:"labels"`
-	// SHA256 of labels.
+	// LabelsSHA256 is the SHA256 of Labels.
 	LabelsSHA256 string `json:"labelsSHA256"`
 }
 
-func NewIdentityFromModel(base *models.Identity) *Identity {
+func NewIdentityFromModel(base *models.Identity) *SecurityIdentity {
 	if base == nil {
 		return nil
 	}
 
-	id := &Identity{
+	id := &SecurityIdentity{
 		ID:     NumericIdentity(base.ID),
 		Labels: make(labels.Labels),
 	}
@@ -188,7 +188,7 @@ func NewIdentityFromModel(base *models.Identity) *Identity {
 
 // GetLabelsSHA256 returns the SHA256 of the labels associated with the
 // identity. The SHA is calculated if not already cached.
-func (id *Identity) GetLabelsSHA256() string {
+func (id *SecurityIdentity) GetLabelsSHA256() string {
 	if id.LabelsSHA256 == "" {
 		id.LabelsSHA256 = id.Labels.SHA256Sum()
 	}
@@ -197,11 +197,11 @@ func (id *Identity) GetLabelsSHA256() string {
 }
 
 // StringID returns the identity identifier as string
-func (id *Identity) StringID() string {
+func (id *SecurityIdentity) StringID() string {
 	return id.ID.StringID()
 }
 
-func (id *Identity) GetModel() *models.Identity {
+func (id *SecurityIdentity) GetModel() *models.Identity {
 	if id == nil {
 		return nil
 	}
@@ -220,8 +220,8 @@ func (id *Identity) GetModel() *models.Identity {
 }
 
 // NewIdentity creates a new identity
-func NewIdentity(id NumericIdentity, lbls labels.Labels) *Identity {
-	return &Identity{ID: id, Labels: lbls}
+func NewIdentity(id NumericIdentity, lbls labels.Labels) *SecurityIdentity {
+	return &SecurityIdentity{ID: id, Labels: lbls}
 }
 
 const (
@@ -323,7 +323,7 @@ func InitIdentityAllocator(owner IdentityAllocatorOwner) {
 // an identity for the specified set of labels already exist, the identity is
 // re-used and reference counting is performed, otherwise a new identity is
 // allocated via the kvstore.
-func AllocateIdentity(lbls labels.Labels) (*Identity, bool, error) {
+func AllocateIdentity(lbls labels.Labels) (*SecurityIdentity, bool, error) {
 	log.WithFields(logrus.Fields{
 		logfields.IdentityLabels: lbls.String(),
 	}).Debug("Resolving identity")
@@ -345,7 +345,7 @@ func AllocateIdentity(lbls labels.Labels) (*Identity, bool, error) {
 // LookupIdentity looks up the identity by its labels but does not create it.
 // This function will first search through the local cache and fall back to
 // querying the kvstore.
-func LookupIdentity(lbls labels.Labels) *Identity {
+func LookupIdentity(lbls labels.Labels) *SecurityIdentity {
 	if identityAllocator == nil {
 		return nil
 	}
@@ -364,7 +364,7 @@ func LookupIdentity(lbls labels.Labels) *Identity {
 
 // LookupIdentityByID returns the identity by ID. This function will first
 // search through the local cache and fall back to querying the kvstore.
-func LookupIdentityByID(id NumericIdentity) *Identity {
+func LookupIdentityByID(id NumericIdentity) *SecurityIdentity {
 	if identityAllocator == nil {
 		return nil
 	}
@@ -383,7 +383,7 @@ func LookupIdentityByID(id NumericIdentity) *Identity {
 
 // Release is the reverse operation of AllocateIdentity() and releases the
 // identity again. This function may result in kvstore operations.
-func (id *Identity) Release() error {
+func (id *SecurityIdentity) Release() error {
 	return identityAllocator.Release(globalIdentity{id.Labels})
 }
 

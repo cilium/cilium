@@ -107,7 +107,7 @@ type L4Filter struct {
 
 // GetRelevantRules returns the relevant rules based on the source and
 // destination addressing/identity information.
-func (dm L7DataMap) GetRelevantRules(identity *Identity) api.L7Rules {
+func (dm L7DataMap) GetRelevantRules(identity *SecurityIdentity) api.L7Rules {
 	rules := api.L7Rules{}
 	matched := 0
 

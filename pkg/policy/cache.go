@@ -49,7 +49,7 @@ func newConsumableCache() *ConsumableCache {
 	}
 }
 
-func (c *ConsumableCache) GetOrCreate(id NumericIdentity, lbls *Identity) *Consumable {
+func (c *ConsumableCache) GetOrCreate(id NumericIdentity, lbls *SecurityIdentity) *Consumable {
 	c.cacheMU.Lock()
 	defer c.cacheMU.Unlock()
 	if cons, ok := c.cache[id]; ok {

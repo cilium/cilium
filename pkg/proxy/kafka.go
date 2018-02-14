@@ -134,7 +134,7 @@ func createKafkaRedirect(conf kafkaConfiguration) (Redirect, error) {
 }
 
 func (k *kafkaRedirect) canAccess(req *kafka.RequestMessage, numIdentity policy.NumericIdentity) bool {
-	var identity *policy.Identity
+	var identity *policy.SecurityIdentity
 
 	if numIdentity != 0 {
 		identity = k.conf.source.ResolveIdentity(numIdentity)
