@@ -700,6 +700,7 @@ func (kub *Kubectl) GatherLogs() {
 		"kubectl get ds -o wide --all-namespaces":       "ds.txt",
 		"kubectl get cnp --all-namespaces":              "cnp.txt",
 		"kubectl describe pods --all-namespaces":        "pods_status.txt",
+		"kubectl -n kube-system logs -l k8s-app=cilium": "cilium_logs.txt",
 	}
 
 	testPath, err := ReportDirectory()
