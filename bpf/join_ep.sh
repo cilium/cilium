@@ -21,6 +21,7 @@ RUNDIR=$2
 EPDIR=$3
 IFNAME=$4
 DEBUG=$5
+EPID=$6
 
 function bpf_preprocess()
 {
@@ -55,6 +56,10 @@ if [[ "${DEBUG}" == "true" ]]; then
 fi
 
 bpf_compile bpf_lxc.c bpf_lxc.o obj
+
+# Unlink the old calls map so we can upgrade it
+CALLS_MAP=cilium_calls_$EPID
+rm "/sys/fs/bpf/tc/globals/$CALLS_MAP" 2> /dev/null || true
 
 tc qdisc replace dev $IFNAME clsact || true
 tc filter replace dev $IFNAME ingress prio 1 handle 1 bpf da obj $EPDIR/bpf_lxc.o sec from-container
