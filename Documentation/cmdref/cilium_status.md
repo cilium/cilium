@@ -16,8 +16,11 @@ cilium status
 ### Options
 
 ```
+      --all-addresses     Show all allocated addresses, not just count
       --all-controllers   Show all controllers, not just failing
+      --all-nodes         Show all nodes, not just localhost
   -o, --output string     json| jsonpath='{}'
+      --verbose           Equivalent to --all-addresses --all-controllers --all-nodes
 ```
 
 ### Options inherited from parent commands

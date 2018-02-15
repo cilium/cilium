@@ -30,6 +30,7 @@ var (
 	cfgFile string
 	client  *clientPkg.Client
 	log     = logrus.New()
+	verbose = false
 )
 
 // rootCmd represents the base command when called without any subcommands
