@@ -309,7 +309,7 @@ func writeGeneve(prefix string, e *Endpoint) ([]byte, error) {
 }
 
 func (e *Endpoint) runInit(libdir, rundir, epdir, ifName, debug string) error {
-	args := []string{libdir, rundir, epdir, ifName, debug}
+	args := []string{libdir, rundir, epdir, ifName, debug, e.StringID()}
 	prog := filepath.Join(libdir, "join_ep.sh")
 
 	e.Mutex.RLock()
