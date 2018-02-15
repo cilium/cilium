@@ -21,6 +21,7 @@ import (
 	"github.com/cilium/cilium/test/helpers"
 	"github.com/cilium/cilium/test/helpers/policygen"
 
+	. "github.com/onsi/gomega"
 	"github.com/sirupsen/logrus"
 )
 
@@ -38,6 +39,9 @@ var _ = Describe("NightlyPolicies", func() {
 		kubectl.Apply(ciliumPath)
 		ExpectCiliumReady(kubectl)
 		ExpectKubeDNSReady(kubectl)
+
+		err := kubectl.HeapsterDeploy()
+		Expect(err).To(BeNil(), "cannot deploy heapster")
 	})
 
 	AfterFailed(func() {
@@ -58,9 +62,11 @@ var _ = Describe("NightlyPolicies", func() {
 		// Delete all pods created
 		kubectl.Exec(fmt.Sprintf(
 			"%s delete --all pods,svc,cnp -n %s", helpers.KubectlCmd, helpers.DefaultNamespace))
-
+		_ = kubectl.HeapsterDelete()
 		ExpectAllPodsTerminated(kubectl)
+
 	})
+
 	Context("PolicyEnforcement default", func() {
 		createTests := func() {
 			testSpecs := policygen.GeneratedTestSpec()

@@ -52,6 +52,15 @@ const (
 	KubectlCmd    = "kubectl"
 	manifestsPath = "k8sT/manifests/"
 	kubeDNSLabel  = "k8s-app=kube-dns"
+	heapsterLabel = "k8s-app=heapster"
+	ciliumLabel   = "k8s-app=cilium"
+)
+
+var (
+	heapsterYamls = []string{
+		"https://raw.githubusercontent.com/kubernetes/heapster/master/deploy/kube-config/rbac/heapster-rbac.yaml",
+		"https://raw.githubusercontent.com/kubernetes/heapster/master/deploy/kube-config/standalone/heapster-controller.yaml",
+	}
 )
 
 // GetCurrentK8SEnv returns the value of K8S_VERSION from the OS environment.
@@ -572,6 +581,47 @@ func (kub *Kubectl) Delete(filePath string) *CmdRes {
 		fmt.Sprintf("%s delete -f  %s", KubectlCmd, filePath))
 }
 
+// HeapsterDeploy deploys a Heapster monitoring pods in the given kubernetes cluster
+func (kub *Kubectl) HeapsterDeploy() error {
+
+	for _, manifest := range heapsterYamls {
+		res := kub.Apply(manifest)
+		if !res.WasSuccessful() {
+			return fmt.Errorf("cannot install Heapster %s: %s", manifest, res.CombineOutput())
+		}
+	}
+
+	body := func() bool {
+		err := kub.WaitforPods(
+			KubeSystemNamespace, fmt.Sprintf("-l %s", heapsterLabel),
+			300)
+		if err != nil {
+			return true
+		}
+		kub.logger.WithError(err).Debug("Kube Heapster is not ready yet")
+		return false
+	}
+
+	err := WithTimeout(
+		body,
+		"Kube Heapster pods are not ready after timeout",
+		&TimeoutConfig{Timeout: HelperTimeout})
+	return err
+}
+
+// HeapsterDelete deletes all heapster manifest and wait until all pods are
+// successfully deleted
+func (kub *Kubectl) HeapsterDelete() error {
+	for _, manifest := range heapsterYamls {
+		res := kub.Delete(manifest)
+		if !res.WasSuccessful() {
+			return fmt.Errorf("cannot install Heapster %s: %s", manifest, res.CombineOutput())
+		}
+	}
+
+	return kub.WaitCleanAllTerminatingPods()
+}
+
 // WaitKubeDNS waits until the kubeDNS pods are ready. In case of exceeding the
 // default timeout it returns an error.
 func (kub *Kubectl) WaitKubeDNS() error {
@@ -717,7 +767,7 @@ func (kub *Kubectl) ApplyNetworkPolicyUsingAPI(namespace string, networkPolicy *
 // GetCiliumPods returns a list of all Cilium pods in the specified namespace,
 // and an error if the Cilium pods were not able to be retrieved.
 func (kub *Kubectl) GetCiliumPods(namespace string) ([]string, error) {
-	return kub.GetPodNames(namespace, "k8s-app=cilium")
+	return kub.GetPodNames(namespace, ciliumLabel)
 }
 
 // CiliumEndpointsList returns the result of `cilium endpoint list` from the
@@ -1011,6 +1061,44 @@ func (kub *Kubectl) CiliumPolicyAction(namespace, filepath string, action Resour
 	return "", nil
 }
 
+// CiliumReportMemory runs kubectl top function and returns a map with the
+// total, avg, max and min memory used by cilium pods. In case that heapster is
+// not installed it returns a error.
+func (kub *Kubectl) CiliumReportMemory() (map[string]int, error) {
+	result := map[string]int{
+		Total: 0,
+		Avg:   0,
+		Max:   0,
+		Min:   0,
+	}
+
+	cmd := fmt.Sprintf(`%s -n %s top pod -l %s | grep "^cilium" | awk '{print $1"="($3+0)}'`,
+		KubectlCmd, KubeSystemNamespace, ciliumLabel)
+	res := kub.Exec(cmd)
+
+	if !res.WasSuccessful() {
+		return nil, fmt.Errorf("cannot get pods memory: %s", res.CombineOutput())
+	}
+	podsMemory := res.KVOutput()
+	for _, memory := range podsMemory {
+		val, err := strconv.Atoi(memory)
+		if err != nil {
+			return nil, fmt.Errorf("cannot convert memory to int: %s", err)
+		}
+
+		result[Total] += val
+		if val > result[Max] {
+			result[Max] = val
+		}
+
+		if val < result[Min] {
+			result[Min] = val
+		}
+	}
+	result[Avg] = result[Total] / len(podsMemory)
+	return result, nil
+}
+
 // CiliumReport report the cilium pod to the log and appends the logs for the
 // given commands.
 func (kub *Kubectl) CiliumReport(namespace string, commands ...string) {
@@ -1223,7 +1311,7 @@ func (kub *Kubectl) GetCiliumPodOnNode(namespace string, node string) (string, e
 		"-o jsonpath='{.items[?(@.spec.nodeName == \"%s\")].metadata.name}'", node)
 
 	res := kub.Exec(fmt.Sprintf(
-		"%s -n %s get pods -l k8s-app=cilium %s", KubectlCmd, namespace, filter))
+		"%s -n %s get pods -l %s %s", KubectlCmd, namespace, filter, ciliumLabel))
 	if !res.WasSuccessful() {
 		return "", fmt.Errorf("Cilium pod not found on node '%s'", node)
 	}
