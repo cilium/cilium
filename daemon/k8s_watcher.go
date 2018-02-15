@@ -26,6 +26,7 @@ import (
 
 	"github.com/cilium/cilium/common/types"
 	"github.com/cilium/cilium/pkg/controller"
+	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/k8s"
 	k8sUtils "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/utils"
@@ -564,6 +565,8 @@ func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 	)
 	go nodesController.Run(wait.NeverStop)
 	d.k8sAPIGroups.addAPI(k8sAPIGroupNodeV1Core)
+
+	endpoint.RunK8sCiliumEndpointSyncGC()
 
 	return nil
 }
