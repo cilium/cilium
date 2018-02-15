@@ -94,7 +94,7 @@ source $(dirname $(readlink -ne $BASH_SOURCE))/lib/common.sh
 source $TOOL_LIB_PATH/gitlib.sh
 
 # Validate command-line
-common::argc_validate 1
+common::argc_validate 2
 
 ###############################################################################
 # FUNCTIONS
@@ -277,28 +277,22 @@ generate_notes () {
   : ${LAST_RELEASE[$CURRENT_BRANCH]:=${LAST_RELEASE[master]}}
 
   # Default
-  range="${POSITIONAL_ARGV[0]:-"${LAST_RELEASE[$CURRENT_BRANCH]}..$branch_head"}"
+  release_tag="${POSITIONAL_ARGV[0]}"
+  range="${POSITIONAL_ARGV[1]}"
 
-  if [[ "${POSITIONAL_ARGV[0]}" =~ ([v0-9.]*-*(alpha|beta|rc)*\.*[0-9]*)\.\.([v0-9.]*-*(alpha|beta|rc)*\.*[0-9]*)$ ]]; then
+  [[ "$range" =~ (.*)\.\.(.*) ]] &&
     start_tag=${BASH_REMATCH[1]}
-    release_tag=${BASH_REMATCH[3]}
-  else
-    start_tag="${LAST_RELEASE[$CURRENT_BRANCH]}"
-    release_tag=${POSITIONAL_ARGV[0]}
-  fi
-  # Describe/tag $branch_head if no release_tag set
-  : ${release_tag:=$(git describe $branch_head)}
 
   if [[ -z "$start_tag" ]]; then
     common::exit 1 "Unable to set beginning of range automatically." \
                    "Specify on the command-line. Exiting..."
   fi
 
-  range="$start_tag..$release_tag"
+  #range="$start_tag..$release_tag"
   logecho "Release tag range: $range"
 
   # If range is unterminated, finish it with $branch_head
-  [[ $range =~ \.\.$ ]] && range+=$branch_head
+  #[[ $range =~ \.\.$ ]] && range+=$branch_head
 
   # Validate range
   if ! git rev-parse $range &>/dev/null; then
@@ -309,7 +303,7 @@ generate_notes () {
 
   logecho
 
-  logecho "Scanning for merged PRs requiring release notes on the $CURRENT_BRANCH branch..."
+  logecho "Scanning for all merged PRs in the repository requiring release notes on the $CURRENT_BRANCH branch..."
   major_prs=($(get_prs "release-note/major"))
   echo "Major PRs: ${#major_prs[@]}"
 
@@ -318,7 +312,6 @@ generate_notes () {
 
   bug_prs=($(get_prs "release-note/bug"))
   echo "Bugfix PRs: ${#bug_prs[@]}"
-
 
   logecho
   logecho "Generating release notes..."
@@ -409,19 +402,5 @@ common::check_packages jq pandoc
 gitlib::last_releases
 
 generate_notes || common::exit 1
-
-#logecho
-#if ((FLAGS_quiet)); then
-#  logecho -n "Notes written to $RELEASE_NOTES_MD"
-#  if [[ -f $RELEASE_NOTES_HTML ]]; then
-#    logecho " and $RELEASE_NOTES_HTML"
-#  else
-#    logecho
-#  fi
-#else
-#  logecho -r "$HR"
-#  cat $RELEASE_NOTES_MD
-#  logecho -r "$HR"
-#fi
 
 common::timestamp end

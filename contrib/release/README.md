@@ -33,7 +33,9 @@ a PR to specify the release note text.
 
 2. Run the script to generate the NEWS.rst file:
 
-   `GITHUB_TOKEN=xxx `./relnotes --markdown-file=NEWS.rst v0.11..v0.12`
+   `Usage: relnotes [OPTIONS] RELEASE-TAG RANGE`
+
+   `GITHUB_TOKEN=xxx ./relnotes --markdown-file=NEWS.rst v1.0.0-rc4 v1.0.0-rc3..`
 
    In case the generated `NEWS.rst` file is not as expected, you can run
    `relnotes` with the `--verbose` flag to see individual decision taken for
