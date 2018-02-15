@@ -197,10 +197,14 @@ const (
 // addresses on L3 with its own IP addresses. This structured is managed by the
 // endpoint manager in pkg/endpointmanager.
 //
+//
+// WARNING - STABLE API
 // This structure is written as JSON to StateDir/{ID}/lxc_config.h to allow to
 // restore endpoints when the agent is being restarted. The restore operation
 // will read the file and re-create all endpoints with all fields which are not
-// marked as private to JSON marshal.
+// marked as private to JSON marshal. Do NOT modify this structure in ways which
+// is not JSON forward compatible.
+//
 type Endpoint struct {
 	// ID of the endpoint, unique in the scope of the node
 	ID uint16
@@ -256,7 +260,7 @@ type Endpoint struct {
 
 	// SecurityIdentity is the security identity of this endpoint. This is computed from
 	// the endpoint's labels.
-	SecurityIdentity *policy.Identity
+	SecurityIdentity *policy.Identity `json:"SecLabel"`
 
 	// LabelsHash is a SHA256 hash over the SecurityIdentity labels
 	LabelsHash string
