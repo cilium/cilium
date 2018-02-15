@@ -280,88 +280,160 @@ var _ = Describe("RuntimeValidatedConntrackTest", func() {
 	var vm *helpers.SSHMeta
 	var once sync.Once
 
+	var curl1ContainerName = "curl"
+	var curl2ContainerName = "curl2"
+
 	initialize := func() {
 		logger = log.WithFields(logrus.Fields{"test": "RunConntrackTest"})
 		logger.Info("Starting")
 		vm = helpers.CreateNewRuntimeHelper(helpers.Runtime, logger)
+
+		res := vm.SetPolicyEnforcement(helpers.PolicyEnforcementAlways)
+		res.ExpectSuccess(fmt.Sprintf("Unable to set PolicyEnforcement to %s", helpers.PolicyEnforcementAlways))
 	}
 
-	clientServerConnectivity := func() {
-		cliIP, err := vm.ContainerInspectNet(helpers.Client)
+	clientServerConnectivity := func(bidirectional bool) {
+
+		By("Getting IPs of each spawned container")
+		clientDockerNetworking, err := vm.ContainerInspectNet(helpers.Client)
 		Expect(err).Should(BeNil(), fmt.Sprintf("could not get metadata for container %q", helpers.Client))
-		By(fmt.Sprintf("cliIP: %s", cliIP))
+		By(fmt.Sprintf("client container Docker networking: %s", clientDockerNetworking))
 
-		srvIP, err := vm.ContainerInspectNet(helpers.Server)
+		serverDockerNetworking, err := vm.ContainerInspectNet(helpers.Server)
 		Expect(err).Should(BeNil(), fmt.Sprintf("could not get metadata for container %q", helpers.Server))
-		By(fmt.Sprintf("srvIP: %s", srvIP))
+		By(fmt.Sprintf("server container Docker networking: %s", serverDockerNetworking))
 
-		By(fmt.Sprintf("%s pinging %s IPv6", helpers.Client, helpers.Server))
-		res := vm.ContainerExec(helpers.Client, helpers.Ping6(srvIP[helpers.IPv6]))
+		httpdDockerNetworking, err := vm.ContainerInspectNet(helpers.Httpd1)
+		Expect(err).Should(BeNil(), fmt.Sprintf("could not get metadata for container %q", helpers.Httpd1))
+		By(fmt.Sprintf("httpd1 container Docker networking: %s", httpdDockerNetworking))
+
+		httpd2DockerNetworking, err := vm.ContainerInspectNet(helpers.Httpd2)
+		Expect(err).Should(BeNil(), fmt.Sprintf("could not get metadata for container %q", helpers.Httpd2))
+		By(fmt.Sprintf("httpd2 container Docker networking: %s", httpd2DockerNetworking))
+
+		curl1DockerNetworking, err := vm.ContainerInspectNet(curl1ContainerName)
+		Expect(err).Should(BeNil(), fmt.Sprintf("could not get metadata for container %q", curl1ContainerName))
+		By(fmt.Sprintf("curl1 container Docker networking: %s", curl1DockerNetworking))
+
+		curl2DockerNetworking, err := vm.ContainerInspectNet(curl2ContainerName)
+		Expect(err).Should(BeNil(), fmt.Sprintf("could not get metadata for container %q", curl2ContainerName))
+		By(fmt.Sprintf("httpd1 container Docker networking: %s", curl2DockerNetworking))
+
+		// TODO - would be cool if we found a way to collapse this into a function with parameters; lots of boilerplate here.
+		By(fmt.Sprintf("container %s curl on port 80 %s IPv6 (should work)", curl1ContainerName, helpers.Httpd1))
+		res := vm.ContainerExec(curl1ContainerName, helpers.CurlFail(fmt.Sprintf("[%s]:80", httpdDockerNetworking[helpers.IPv6])))
+		Expect(res.WasSuccessful()).Should(BeTrue(),
+			fmt.Sprintf("container %s could not reach %s on port 80", curl1ContainerName, helpers.Httpd1))
+
+		By(fmt.Sprintf("container %s curl on port 80 %s IPv4 (should work)", curl1ContainerName, helpers.Httpd1))
+		res = vm.ContainerExec(curl1ContainerName, helpers.CurlFail(fmt.Sprintf("%s:80", httpdDockerNetworking[helpers.IPv4])))
+		Expect(res.WasSuccessful()).Should(BeTrue(),
+			fmt.Sprintf("container %s could not reach %s on port 80", curl1ContainerName, helpers.Httpd1))
+
+		By(fmt.Sprintf("container %s curl on port 80 %s IPv6 (should NOT work)", curl2ContainerName, helpers.Httpd1))
+		res = vm.ContainerExec(curl2ContainerName, helpers.CurlFail(fmt.Sprintf("[%s]:80", httpdDockerNetworking[helpers.IPv6])))
+		Expect(res.WasSuccessful()).Should(BeFalse(),
+			fmt.Sprintf("container %s unexpectedly reached %s on port 80", curl2ContainerName, helpers.Httpd1))
+
+		By(fmt.Sprintf("container %s curl on port 80 %s IPv4 (should NOT work)", curl2ContainerName, helpers.Httpd1))
+		res = vm.ContainerExec(curl2ContainerName, helpers.CurlFail(fmt.Sprintf("%s:80", httpdDockerNetworking[helpers.IPv4])))
+		Expect(res.WasSuccessful()).Should(BeFalse(),
+			fmt.Sprintf("container %s unexpectedly reached %s on port 80", curl2ContainerName, helpers.Httpd1))
+
+		By(fmt.Sprintf("container %s curl on port 80 %s IPv6 (should work)", curl1ContainerName, helpers.Httpd2))
+		res = vm.ContainerExec(curl1ContainerName, helpers.CurlFail(fmt.Sprintf("[%s]:80", httpd2DockerNetworking[helpers.IPv6])))
+		Expect(res.WasSuccessful()).Should(BeFalse(),
+			fmt.Sprintf("container %s unexpectedly reached %s on port 80", curl1ContainerName, helpers.Httpd2))
+
+		By(fmt.Sprintf("container %s curl on port 80 %s IPv6 (should work)", curl1ContainerName, helpers.Httpd2))
+		res = vm.ContainerExec(curl1ContainerName, helpers.CurlFail(fmt.Sprintf("[%s]:80", httpd2DockerNetworking[helpers.IPv4])))
+		Expect(res.WasSuccessful()).Should(BeFalse(),
+			fmt.Sprintf("container %s unexpectedly reached %s on port 80", curl1ContainerName, helpers.Httpd2))
+
+		By(fmt.Sprintf("container %s pinging %s IPv6 (should work)", helpers.Client, helpers.Server))
+		res = vm.ContainerExec(helpers.Client, helpers.Ping6(serverDockerNetworking[helpers.IPv6]))
 		Expect(res.WasSuccessful()).Should(BeTrue(), fmt.Sprintf(
-			fmt.Sprintf("%s cannot ping to %s %s", helpers.Client, helpers.Server, srvIP[helpers.IPv6])))
+			fmt.Sprintf("container %s cannot ping to %s %s", helpers.Client, helpers.Server, serverDockerNetworking[helpers.IPv6])))
 
-		By(fmt.Sprintf("%s pinging %s IPv4", helpers.Client, helpers.Server))
-		res = vm.ContainerExec(helpers.Client, helpers.Ping(srvIP[helpers.IPv4]))
+		By(fmt.Sprintf("container %s pinging %s IPv4 (should work)", helpers.Client, helpers.Server))
+		res = vm.ContainerExec(helpers.Client, helpers.Ping(serverDockerNetworking[helpers.IPv4]))
 		Expect(res.WasSuccessful()).Should(BeTrue(), fmt.Sprintf(
-			"%s cannot ping server %s", helpers.Client, srvIP[helpers.IPv4]))
+			"%s cannot ping server %s", helpers.Client, serverDockerNetworking[helpers.IPv4]))
 
-		// TODO: remove this hardcoding ; it is not clean. Have command wrappers that take maps of strings.
-		By(fmt.Sprintf("%s netcat to port 777 IPv6", helpers.Client))
-		res = vm.ContainerExec(helpers.Client, fmt.Sprintf("nc -w 4 %s 777", srvIP[helpers.IPv6]))
-		Expect(res.WasSuccessful()).Should(BeFalse(), fmt.Sprintf(
-			"%s can connect to %s:777. Should fail", helpers.Client, srvIP[helpers.IPv6]))
-
-		// TODO: remove this hardcoding ; it is not clean. Have command wrappers that take maps of strings.
-		By(fmt.Sprintf("%s netcat to port 777 IPv4", helpers.Client))
-		res = vm.ContainerExec(helpers.Client, fmt.Sprintf("nc -w 4 %s 777", srvIP[helpers.IPv4]))
-		Expect(res.WasSuccessful()).Should(BeFalse(), fmt.Sprintf(
-			"%s can connect to %s:777; should fail", helpers.Client, srvIP[helpers.IPv4]))
-
-		By(fmt.Sprintf("%s netperf to %s IPv6", helpers.Client, helpers.Server))
-		res = vm.ContainerExec(helpers.Client, helpers.Netperf(srvIP[helpers.IPv6], helpers.TCP_RR))
-		Expect(res.WasSuccessful()).Should(BeTrue(), fmt.Sprintf(
-			"%s cannot netperf to %s %s", helpers.Client, helpers.Server, srvIP[helpers.IPv6]))
-
-		By(fmt.Sprintf("%s netperf to %s IPv4", helpers.Client, helpers.Server))
-		res = vm.ContainerExec(helpers.Client, helpers.Netperf(srvIP[helpers.IPv4], helpers.TCP_RR))
-		Expect(res.WasSuccessful()).Should(BeTrue(), fmt.Sprintf(
-			"%s cannot netperf to %s %s", helpers.Client, helpers.Server, srvIP[helpers.IPv4]))
-
-		By(fmt.Sprintf("%s UDP netperf to %s IPv6", helpers.Client, helpers.Server))
-		res = vm.ContainerExec(helpers.Client, helpers.Netperf(srvIP[helpers.IPv6], helpers.UDP_RR))
-		Expect(res.WasSuccessful()).Should(BeTrue(), fmt.Sprintf(
-			"%s cannot netperf to %s %s", helpers.Client, helpers.Server, srvIP[helpers.IPv6]))
-
-		By(fmt.Sprintf("%s UDP netperf to %s IPv4", helpers.Client, helpers.Server))
-		res = vm.ContainerExec(helpers.Client, helpers.Netperf(srvIP[helpers.IPv4], helpers.UDP_RR))
-		Expect(res.WasSuccessful()).Should(BeTrue(), fmt.Sprintf(
-			"%s cannot netperf to %s %s", helpers.Client, helpers.Server, srvIP[helpers.IPv4]))
-
-		By(fmt.Sprintf("ping from %s to %s IPv6", helpers.Host, helpers.Server))
-		res = vm.Exec(helpers.Ping6(srvIP[helpers.IPv6]))
+		By(fmt.Sprintf("container %s pinging %s IPv6 (should work)", helpers.Host, helpers.Server))
+		res = vm.Exec(helpers.Ping6(serverDockerNetworking[helpers.IPv6]))
 		Expect(res.WasSuccessful()).Should(BeTrue(), fmt.Sprintf("%s cannot ping %s", helpers.Host, helpers.Server))
 
-		By(fmt.Sprintf("ping from %s to %s IPv4", helpers.Host, helpers.Server))
-		res = vm.Exec(helpers.Ping(srvIP[helpers.IPv4]))
+		By(fmt.Sprintf("container %s pinging %s IPv4 (should work)", helpers.Host, helpers.Server))
+		res = vm.Exec(helpers.Ping(serverDockerNetworking[helpers.IPv4]))
 		Expect(res.WasSuccessful()).Should(BeTrue(), fmt.Sprintf("%s cannot ping %s", helpers.Host, helpers.Server))
 
-		By(fmt.Sprintf("ping from %s to %s IPv6", helpers.Server, helpers.Client))
-		res = vm.ContainerExec(helpers.Server, helpers.Ping6(cliIP[helpers.IPv6]))
-		Expect(res.WasSuccessful()).Should(BeTrue(), fmt.Sprintf(
-			"%s cannot ping to %s %s", helpers.Server, helpers.Client, cliIP[helpers.IPv6]))
+		if bidirectional {
 
-		By(fmt.Sprintf("ping from %s to %s IPv4", helpers.Server, helpers.Client))
-		res = vm.ContainerExec(helpers.Server, helpers.Ping(cliIP[helpers.IPv4]))
+			By("Testing bidirectional connectivity from client to server")
+
+			By(fmt.Sprintf("container %s pinging %s IPv6 (should NOT work)", helpers.Server, helpers.Client))
+			res = vm.ContainerExec(helpers.Server, helpers.Ping6(clientDockerNetworking[helpers.IPv6]))
+			Expect(res.WasSuccessful()).Should(BeFalse(), fmt.Sprintf(
+				"container %s unexpectedly was able to ping to %s %s", helpers.Server, helpers.Client, clientDockerNetworking[helpers.IPv6]))
+
+			By(fmt.Sprintf("container %s pinging %s IPv4 (should NOT work)", helpers.Server, helpers.Client))
+			res = vm.ContainerExec(helpers.Server, helpers.Ping(clientDockerNetworking[helpers.IPv4]))
+			Expect(res.WasSuccessful()).Should(BeFalse(), fmt.Sprintf(
+				"%s was unexpectedly able to ping to %s %s", helpers.Server, helpers.Client, clientDockerNetworking[helpers.IPv4]))
+
+		}
+
+		// TODO: remove this hardcoding ; it is not clean. Have command wrappers that take maps of strings.
+		By(fmt.Sprintf("container %s netcat to port 777 IPv6 (should NOT work)", helpers.Client))
+		res = vm.ContainerExec(helpers.Client, fmt.Sprintf("nc -w 4 %s 777", serverDockerNetworking[helpers.IPv6]))
+		Expect(res.WasSuccessful()).Should(BeFalse(), fmt.Sprintf(
+			"container %s can connect to %s:777. should fail", helpers.Client, serverDockerNetworking[helpers.IPv6]))
+
+		// TODO: remove this hardcoding ; it is not clean. Have command wrappers that take maps of strings.
+		By(fmt.Sprintf("%s netcat to port 777 IPv4 (should NOT work)", helpers.Client))
+		res = vm.ContainerExec(helpers.Client, fmt.Sprintf("nc -w 4 %s 777", serverDockerNetworking[helpers.IPv4]))
+		Expect(res.WasSuccessful()).Should(BeFalse(), fmt.Sprintf(
+			"container %s can connect to %s:777; should fail", helpers.Client, serverDockerNetworking[helpers.IPv4]))
+
+		By(fmt.Sprintf("%s netperf to %s IPv6 (should work)", helpers.Client, helpers.Server))
+		res = vm.ContainerExec(helpers.Client, helpers.Netperf(serverDockerNetworking[helpers.IPv6], helpers.TCP_RR))
 		Expect(res.WasSuccessful()).Should(BeTrue(), fmt.Sprintf(
-			"%s cannot ping to %s %s", helpers.Server, helpers.Client, cliIP[helpers.IPv4]))
+			"container %s cannot netperf to %s %s", helpers.Client, helpers.Server, serverDockerNetworking[helpers.IPv6]))
+
+		By(fmt.Sprintf("container %s netperf to %s IPv4 (should work)", helpers.Client, helpers.Server))
+		res = vm.ContainerExec(helpers.Client, helpers.Netperf(serverDockerNetworking[helpers.IPv4], helpers.TCP_RR))
+		Expect(res.WasSuccessful()).Should(BeTrue(), fmt.Sprintf(
+			"container %s cannot netperf to %s %s", helpers.Client, helpers.Server, serverDockerNetworking[helpers.IPv4]))
+
+		By(fmt.Sprintf("container %s UDP netperf to %s IPv6 (should work)", helpers.Client, helpers.Server))
+		res = vm.ContainerExec(helpers.Client, helpers.Netperf(serverDockerNetworking[helpers.IPv6], helpers.UDP_RR))
+		Expect(res.WasSuccessful()).Should(BeTrue(), fmt.Sprintf(
+			"container %s cannot netperf to %s %s", helpers.Client, helpers.Server, serverDockerNetworking[helpers.IPv6]))
+
+		By(fmt.Sprintf("container %s UDP netperf to %s IPv4 (should work)", helpers.Client, helpers.Server))
+		res = vm.ContainerExec(helpers.Client, helpers.Netperf(serverDockerNetworking[helpers.IPv4], helpers.UDP_RR))
+		Expect(res.WasSuccessful()).Should(BeTrue(), fmt.Sprintf(
+			"container %s cannot netperf to %s %s", helpers.Client, helpers.Server, serverDockerNetworking[helpers.IPv4]))
+
 	}
 
 	BeforeEach(func() {
 		once.Do(initialize)
+
 		// TODO: provide map[string]string instead of one string representing KV pair.
 		vm.ContainerCreate(helpers.Client, helpers.NetperfImage, helpers.CiliumDockerNetwork, "-l id.client")
 		vm.ContainerCreate(helpers.Server, helpers.NetperfImage, helpers.CiliumDockerNetwork, "-l id.server")
+		vm.ContainerCreate(helpers.Httpd1, helpers.HttpdImage, helpers.CiliumDockerNetwork, "-l id.httpd")
+		vm.ContainerCreate(helpers.Httpd2, helpers.HttpdImage, helpers.CiliumDockerNetwork, "-l id.httpd_deny")
+		vm.ContainerCreate(curl1ContainerName, helpers.NetperfImage, helpers.CiliumDockerNetwork, "-l id.curl")
+		vm.ContainerCreate(curl2ContainerName, helpers.NetperfImage, helpers.CiliumDockerNetwork, "-l id.curl2")
+
 		vm.PolicyDelAll()
+
+		_, err := vm.PolicyImportAndWait(vm.GetFullPath("ct-test-policy.json"), helpers.HelperTimeout)
+		Expect(err).Should(BeNil())
+
 	})
 
 	AfterEach(func() {
@@ -369,12 +441,31 @@ var _ = Describe("RuntimeValidatedConntrackTest", func() {
 			vm.ReportFailed()
 		}
 
-		vm.ContainerRm(helpers.Server)
-		vm.ContainerRm(helpers.Client)
+		containersToRm := []string{helpers.Client, helpers.Server, helpers.Httpd1, helpers.Httpd2, curl1ContainerName, curl2ContainerName}
+		for _, containerToRm := range containersToRm {
+			vm.ContainerRm(containerToRm)
+		}
 	})
-	It("Conntrack disabled", func() {
+
+	It("Conntrack-related configuration options for endpoints", func() {
+
+		By("ConntrackLocal configuration option disabled for each endpoint")
 		endpoints, err := vm.GetEndpointsIds()
-		Expect(err).Should(BeNil(), "could not get endpoints IDs")
+		Expect(err).Should(BeNil(), "could not get endpoint IDs")
+
+		conntrackOptionModes := []string{helpers.OptionDisabled, helpers.OptionEnabled}
+		for _, conntrackOptionMode := range conntrackOptionModes {
+			By(fmt.Sprintf("Testing ConntrackLocal endpoint configuration option: %s", conntrackOptionMode))
+			status := vm.EndpointSetConfig(endpoints[helpers.Server], helpers.OptionConntrackLocal, conntrackOptionMode)
+			Expect(status).Should(BeTrue(), fmt.Sprintf("could not set %s=%s on endpoint %q", helpers.OptionConntrackLocal, helpers.OptionDisabled, helpers.Server))
+
+			status = vm.EndpointSetConfig(endpoints[helpers.Client], helpers.OptionConntrackLocal, conntrackOptionMode)
+			Expect(status).Should(BeTrue(), fmt.Sprintf("could not set %s=%s on endpoint %q", helpers.OptionConntrackLocal, helpers.OptionDisabled, helpers.Client))
+
+			clientServerConnectivity(true)
+		}
+
+		By("Testing Conntrack endpoint configuration option disabled")
 
 		status := vm.EndpointSetConfig(endpoints[helpers.Server], helpers.OptionConntrack, helpers.OptionDisabled)
 		Expect(status).Should(BeTrue(), fmt.Sprintf("could not set %s=%s on endpoint %q", helpers.OptionConntrack, helpers.OptionDisabled, helpers.Server))
@@ -382,33 +473,7 @@ var _ = Describe("RuntimeValidatedConntrackTest", func() {
 		status = vm.EndpointSetConfig(endpoints[helpers.Client], helpers.OptionConntrack, helpers.OptionDisabled)
 		Expect(status).Should(BeTrue(), fmt.Sprintf("could not set %s=%s on endpoint %q", helpers.OptionConntrack, helpers.OptionDisabled, helpers.Client))
 
-		clientServerConnectivity()
-	})
-
-	It("ConntrackLocal disabled", func() {
-		endpoints, err := vm.GetEndpointsIds()
-		Expect(err).Should(BeNil(), "could not get endpoint IDs")
-
-		status := vm.EndpointSetConfig(endpoints[helpers.Server], helpers.OptionConntrackLocal, helpers.OptionDisabled)
-		Expect(status).Should(BeTrue(), fmt.Sprintf("could not set %s=%s on endpoint %q", helpers.OptionConntrackLocal, helpers.OptionDisabled, helpers.Server))
-
-		status = vm.EndpointSetConfig(endpoints[helpers.Client], helpers.OptionConntrackLocal, helpers.OptionDisabled)
-		Expect(status).Should(BeTrue(), fmt.Sprintf("could not set %s=%s on endpoint %q", helpers.OptionConntrackLocal, helpers.OptionDisabled, helpers.Client))
-
-		clientServerConnectivity()
-	})
-
-	It("ConntrackLocal Enabled", func() {
-		endpoints, err := vm.GetEndpointsIds()
-		Expect(err).Should(BeNil(), "could not get endpoint IDs")
-
-		status := vm.EndpointSetConfig(endpoints[helpers.Server], helpers.OptionConntrackLocal, helpers.OptionEnabled)
-		Expect(status).Should(BeTrue(), fmt.Sprintf("could not set %s=%s on endpoint %q", helpers.OptionConntrackLocal, helpers.OptionEnabled, helpers.Server))
-
-		status = vm.EndpointSetConfig(endpoints[helpers.Client], helpers.OptionConntrackLocal, helpers.OptionEnabled)
-		Expect(status).Should(BeTrue(), fmt.Sprintf("could not set %s=%s on endpoint %q", helpers.OptionConntrackLocal, helpers.OptionEnabled, helpers.Client))
-
-		clientServerConnectivity()
+		clientServerConnectivity(false)
 	})
 
 })
