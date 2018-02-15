@@ -71,18 +71,6 @@ func NewConsumable(id NumericIdentity, lbls *Identity, cache *ConsumableCache) *
 	return consumable
 }
 
-// ResolveIdentityFromCache fetches Consumable from ConsumableCache using
-// security identity as key, and returns labels for that identity.
-func (c *Consumable) ResolveIdentityFromCache(id NumericIdentity) *Identity {
-	c.Mutex.RLock()
-	defer c.Mutex.RUnlock()
-	cc := c.cache.Lookup(id)
-	if cc != nil {
-		return cc.Labels
-	}
-	return nil
-}
-
 func (c *Consumable) AddMap(m *policymap.PolicyMap) {
 	c.Mutex.Lock()
 	defer c.Mutex.Unlock()

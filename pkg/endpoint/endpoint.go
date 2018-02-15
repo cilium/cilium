@@ -830,13 +830,6 @@ func (e *Endpoint) GetIdentity() policy.NumericIdentity {
 	return policy.InvalidIdentity
 }
 
-// ResolveIdentity fetches Consumable from consumable cache, using security identity as key.
-func (e *Endpoint) ResolveIdentity(srcIdentity policy.NumericIdentity) *policy.Identity {
-	e.Mutex.RLock()
-	defer e.Mutex.RUnlock()
-	return e.Consumable.ResolveIdentityFromCache(srcIdentity)
-}
-
 func (e *Endpoint) directoryPath() string {
 	return filepath.Join(".", fmt.Sprintf("%d", e.ID))
 }
