@@ -29,6 +29,7 @@ import (
 	clientapi "github.com/cilium/cilium/api/v1/client"
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/daemon/defaults"
+	"github.com/cilium/cilium/pkg/ip"
 
 	runtime_client "github.com/go-openapi/runtime/client"
 	"github.com/go-openapi/strfmt"
@@ -225,19 +226,38 @@ func FormatStatusResponse(w io.Writer, sr *models.StatusResponse, allAddresses, 
 		fmt.Fprintf(w, "NodeMonitor:\tDisabled\n")
 	}
 
-	if sr.Cluster != nil && sr.Cluster.CiliumHealth != nil {
-		ch := sr.Cluster.CiliumHealth
-		fmt.Fprintf(w, "Cilium health daemon:\t%s\t%s\n", ch.State, ch.Msg)
+	var localNode *models.NodeElement
+	if sr.Cluster != nil {
+		if sr.Cluster.CiliumHealth != nil {
+			ch := sr.Cluster.CiliumHealth
+			fmt.Fprintf(w, "Cilium health daemon:\t%s\t%s\n", ch.State, ch.Msg)
+		}
+		for _, node := range sr.Cluster.Nodes {
+			if node.Name == sr.Cluster.Self {
+				localNode = node
+			} else {
+				continue
+			}
+		}
 	}
 
 	if sr.IPAM != nil {
-		fmt.Fprintf(w, "Allocated IPv4 addresses:\t%d\n", len(sr.IPAM.IPV4))
+		var v4CIDR, v6CIDR string
+		if localNode != nil {
+			if nIPs := ip.CountIPsInCIDR(localNode.PrimaryAddress.IPV4.AllocRange); nIPs > 0 {
+				v4CIDR = fmt.Sprintf("/%d", nIPs)
+			}
+			if nIPs := ip.CountIPsInCIDR(localNode.PrimaryAddress.IPV6.AllocRange); nIPs > 0 {
+				v6CIDR = fmt.Sprintf("/%d", nIPs)
+			}
+		}
+		fmt.Fprintf(w, "IPv4 address pool:\t%d%s allocated\n", len(sr.IPAM.IPV4), v4CIDR)
 		if allAddresses {
 			for _, ipv4 := range sr.IPAM.IPV4 {
 				fmt.Fprintf(w, "  %s\n", ipv4)
 			}
 		}
-		fmt.Fprintf(w, "Allocated IPv6 addresses:\t%d\n", len(sr.IPAM.IPV6))
+		fmt.Fprintf(w, "IPv6 address pool:\t%d%s allocated\n", len(sr.IPAM.IPV6), v6CIDR)
 		if allAddresses {
 			for _, ipv6 := range sr.IPAM.IPV6 {
 				fmt.Fprintf(w, "  %s\n", ipv6)
