@@ -182,10 +182,8 @@ vps:
 	VBoxManage list runningvms
 
 reload:
-	cd daemon && make go-bindata
-	make
 	sudo systemctl stop cilium cilium-docker
-	sudo make install
+	sudo $(MAKE) install
 	sudo systemctl start cilium cilium-docker
 	sleep 6
 	cilium status
