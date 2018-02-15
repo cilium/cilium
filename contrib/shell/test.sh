@@ -27,8 +27,8 @@ function watchdo
     local FILE=$1
     shift
 
-    if [ ! -z "$GOFILES" ]; then
-        echo -e "${yellow}Using GOFILES=\"$GOFILES\" for run.${reset}"
+    if [ ! -z "$TESTPKGS" ]; then
+        echo -e "${yellow}Using TESTPKGS=\"$TESTPKGS\" for run.${reset}"
     fi
     echo -e "${yellow}Running \"$@\" on changes to \"$FILE\" ...${reset}"
     while inotifywait -q -r -e move $FILE; do
@@ -44,7 +44,7 @@ function watchdo
 function watchtest_
 {
 
-    watchdo "." "make --quiet build tests-consul"
+    watchdo "." "make --quiet build unit-tests"
 }
 
 # Watch a file or directory for changes and trigger tests when it is modified.
@@ -59,7 +59,7 @@ function watchtest
         echo "Cannot find 'inotifywait'. Please install inotify-tools."
         exit 1
     elif [ $# -eq 1 ]; then
-        GOFILES="github.com/cilium/cilium/$1" watchtest_
+        TESTPKGS="github.com/cilium/cilium/$1" watchtest_
     else
         watchtest_
     fi
