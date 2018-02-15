@@ -31,6 +31,7 @@ import (
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/annotation"
+
 	cnpv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/test/config"
 	"github.com/cilium/cilium/test/ginkgo-ext"
@@ -67,8 +68,8 @@ const (
 
 var (
 	heapsterYamls = []string{
-		"https://raw.githubusercontent.com/kubernetes/heapster/master/deploy/kube-config/rbac/heapster-rbac.yaml",
-		"https://raw.githubusercontent.com/kubernetes/heapster/master/deploy/kube-config/standalone/heapster-controller.yaml",
+		"https://raw.githubusercontent.com/kubernetes/heapster/v1.5.1/deploy/kube-config/rbac/heapster-rbac.yaml",
+		"https://raw.githubusercontent.com/kubernetes/heapster/v1.5.1/deploy/kube-config/standalone/heapster-controller.yaml",
 	}
 )
 
@@ -614,7 +615,7 @@ func (kub *Kubectl) Delete(filePath string) *CmdRes {
 		fmt.Sprintf("%s delete -f  %s", KubectlCmd, filePath))
 }
 
-// HeapsterDeploy deploys a Heapster monitoring pods in the given kubernetes cluster
+// HeapsterDeploy deploys Heapster monitoring pods in the given Kubernetes cluster
 func (kub *Kubectl) HeapsterDeploy() error {
 
 	for _, manifest := range heapsterYamls {
@@ -642,7 +643,7 @@ func (kub *Kubectl) HeapsterDeploy() error {
 	return err
 }
 
-// HeapsterDelete deletes all heapster manifest and wait until all pods are
+// HeapsterDelete deletes all Heapster manifests and waits until all pods are
 // successfully deleted
 func (kub *Kubectl) HeapsterDelete() error {
 	for _, manifest := range heapsterYamls {
@@ -1066,9 +1067,62 @@ func (kub *Kubectl) CiliumPolicyAction(namespace, filepath string, action Resour
 	return "", nil
 }
 
-// CiliumReportMemory runs kubectl top function and returns a map with the
-// total, avg, max and min memory used by cilium pods. In case that heapster is
-// not installed it returns a error.
+// CiliumExportInfo runs a subroutine in the background, that exports Cilium's
+// memory usage and the given commands to the Prometheus server. The function
+// also receives a context to stop the function when needed and a prefix to
+// store to send the data to the database. This function gathers the info every
+// 5 seconds.
+func (kub *Kubectl) CiliumExportInfo(ctx context.Context, prefix string, cmds map[string]string) {
+	tickerSleep := 5 * time.Second
+
+	getKey := func(metric string) string {
+		return fmt.Sprintf("%s_%s", prefix, metric)
+	}
+
+	ExecReport := func() config.PrometheusMetrics {
+		result := config.PrometheusMetrics{}
+		memory, err := kub.CiliumReportMemory()
+		if err != nil {
+			kub.logger.WithError(err).Warn("cannot get memory report")
+		}
+
+		// Memory report first
+		for k, v := range memory {
+			result[getKey(k)] = fmt.Sprintf("%d", v)
+		}
+
+		for k, v := range cmds {
+			res := kub.Exec(v)
+			if !res.WasSuccessful() {
+				kub.logger.WithError(fmt.Errorf("%s", res.CombineOutput())).Warnf(
+					"cannot export metric '%s' with cmd '%s'", k, v)
+			}
+			result[getKey(k)] = res.SingleOut()
+		}
+		return result
+	}
+
+	ticker := time.NewTicker(tickerSleep)
+	go func() {
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ticker.C:
+				data := ExecReport()
+				err := config.PushInfo(&data)
+				if err != nil {
+					kub.logger.WithError(err).Warn("cannot push info to Prometheus")
+				}
+			case <-ctx.Done():
+				return
+			}
+		}
+	}()
+}
+
+// CiliumReportMemory runs `kubectl top` to gather Cilium Pod memory
+// statistics. It returns a map with the total, avg, max and min memory used by
+// cilium pods. In case that heapster is not installed it returns a error.
 func (kub *Kubectl) CiliumReportMemory() (map[string]int, error) {
 	result := map[string]int{
 		Total: 0,
@@ -1082,13 +1136,13 @@ func (kub *Kubectl) CiliumReportMemory() (map[string]int, error) {
 	res := kub.Exec(cmd)
 
 	if !res.WasSuccessful() {
-		return nil, fmt.Errorf("cannot get pods memory: %s", res.CombineOutput())
+		return nil, fmt.Errorf("cannot gather memory statistics for pods: %s", res.CombineOutput())
 	}
 	podsMemory := res.KVOutput()
 	for _, memory := range podsMemory {
 		val, err := strconv.Atoi(memory)
 		if err != nil {
-			return nil, fmt.Errorf("cannot convert memory to int: %s", err)
+			return nil, fmt.Errorf("cannot convert value to int: %s", err)
 		}
 
 		result[Total] += val
@@ -1096,11 +1150,13 @@ func (kub *Kubectl) CiliumReportMemory() (map[string]int, error) {
 			result[Max] = val
 		}
 
-		if val < result[Min] {
+		if val < result[Min] || (val > 0 && result[Min] == 0) {
 			result[Min] = val
 		}
 	}
-	result[Avg] = result[Total] / len(podsMemory)
+	if len(podsMemory) > 0 {
+		result[Avg] = result[Total] / len(podsMemory)
+	}
 	return result, nil
 }
 

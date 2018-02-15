@@ -59,8 +59,18 @@ func init() {
 		getOrSetEnvVar(k, v)
 	}
 
+	// Only export data to Prometheus in case that is ran on Jenkins
+	if helpers.IsRunningOnJenkins() {
+		config.PrometheusEnabled = true
+		config.GatewayURL = "https://metrics.cilium.io/"
+		config.SetGatewayURL(
+			"https://metrics.cilium.io/",
+			os.Getenv("METRICS_USR"),
+			os.Getenv("METRICS_PSW"))
+		config.PrometheusJob = os.Getenv("BUILD_ID")
+		config.PrometheusGroups["JenkisJobName"] = os.Getenv("JOB_NAME")
+	}
 	config.CiliumTestConfig.ParseFlags()
-
 	os.RemoveAll(helpers.TestResultsPath)
 }
 

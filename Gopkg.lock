@@ -705,7 +705,8 @@
   name = "github.com/prometheus/client_golang"
   packages = [
     "prometheus",
-    "prometheus/promhttp"
+    "prometheus/promhttp",
+    "prometheus/push"
   ]
   revision = "v0.9.0-pre1"
 
