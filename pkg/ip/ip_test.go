@@ -31,6 +31,22 @@ func Test(t *testing.T) {
 	TestingT(t)
 }
 
+func (s *IPTestSuite) TestCountIPs(c *C) {
+	tests := map[string]int{
+		"192.168.0.1/32": 1,
+		"192.168.0.1/31": 1,
+		"192.168.0.1/30": 3,
+		"192.168.0.1/24": 255,
+		"192.168.0.1/16": 65535,
+		"::1/128":        1,
+		"::1/120":        255,
+	}
+	for cidr, nIPs := range tests {
+		count := CountIPsInCIDR(cidr)
+		c.Assert(count, Equals, nIPs)
+	}
+}
+
 func (s *IPTestSuite) TestFirstIP(c *C) {
 	// Test IPv4.
 	desiredIPv4_1 := net.IP{0xa, 0, 0, 0}
