@@ -101,7 +101,12 @@ func (k *kafkaTestSuite) TestProduceRequest(c *C) {
 		request: req,
 	}
 
+	// empty rules should match nothing
 	c.Assert(reqMsg.MatchesRule([]api.PortRuleKafka{}), Equals, false)
+
+	// wildcard rule matches everything
+	c.Assert(reqMsg.MatchesRule([]api.PortRuleKafka{{}}), Equals, true)
+
 	c.Assert(reqMsg.MatchesRule([]api.PortRuleKafka{
 		{Topic: "foo"},
 	}), Equals, true)
