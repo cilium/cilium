@@ -34,15 +34,27 @@ var statusCmd = &cobra.Command{
 		statusDaemon()
 	},
 }
-var allControllers bool
+var (
+	allAddresses   bool
+	allControllers bool
+	allNodes       bool
+)
 
 func init() {
 	rootCmd.AddCommand(statusCmd)
+	statusCmd.Flags().BoolVar(&allAddresses, "all-addresses", false, "Show all allocated addresses, not just count")
 	statusCmd.Flags().BoolVar(&allControllers, "all-controllers", false, "Show all controllers, not just failing")
+	statusCmd.Flags().BoolVar(&allNodes, "all-nodes", false, "Show all nodes, not just localhost")
+	statusCmd.Flags().BoolVar(&verbose, "verbose", false, "Equivalent to --all-addresses --all-controllers --all-nodes")
 	command.AddJSONOutput(statusCmd)
 }
 
 func statusDaemon() {
+	if verbose {
+		allAddresses = true
+		allControllers = true
+		allNodes = true
+	}
 	if resp, err := client.Daemon.GetHealthz(nil); err != nil {
 		fmt.Fprintf(os.Stderr, "%s\n", pkg.Hint(err))
 		os.Exit(1)
@@ -54,7 +66,7 @@ func statusDaemon() {
 	} else {
 		sr := resp.Payload
 		w := tabwriter.NewWriter(os.Stdout, 2, 0, 3, ' ', 0)
-		pkg.FormatStatusResponse(w, sr, allControllers)
+		pkg.FormatStatusResponse(w, sr, allAddresses, allControllers, allNodes)
 		w.Flush()
 
 		if sr.Cilium != nil && sr.Cilium.State != models.StatusStateOk {

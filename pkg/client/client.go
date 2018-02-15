@@ -140,10 +140,13 @@ func timeSince(since time.Time) string {
 	return out
 }
 
-// FormatStatusResponse writes a StatusResponse as a string to the writer. When
-// allControllers is true, the status of all controllers is listed regardless
-// of whether the respective controller is currently failing or not
-func FormatStatusResponse(w io.Writer, sr *models.StatusResponse, allControllers bool) {
+// FormatStatusResponse writes a StatusResponse as a string to the writer.
+//
+// The parameters 'allAddresses', 'allControllers', 'allNodes', respectively,
+// cause all details about that aspect of the status to be printed to the
+// terminal. For each of these, if they are false then only a summary will be
+// printed, with perhaps some detail if there are errors.
+func FormatStatusResponse(w io.Writer, sr *models.StatusResponse, allAddresses, allControllers, allNodes bool) {
 	if sr.Kvstore != nil {
 		fmt.Fprintf(w, "KVStore:\t%s\t%s\n", sr.Kvstore.State, sr.Kvstore.Msg)
 	}
@@ -177,23 +180,28 @@ func FormatStatusResponse(w io.Writer, sr *models.StatusResponse, allControllers
 	}
 
 	if sr.IPAM != nil {
-		fmt.Fprintf(w, "Allocated IPv4 addresses:\n")
-		for _, ipv4 := range sr.IPAM.IPV4 {
-			fmt.Fprintf(w, " %s\n", ipv4)
-
+		fmt.Fprintf(w, "Allocated IPv4 addresses:\t%d\n", len(sr.IPAM.IPV4))
+		if allAddresses {
+			for _, ipv4 := range sr.IPAM.IPV4 {
+				fmt.Fprintf(w, "  %s\n", ipv4)
+			}
 		}
-		fmt.Fprintf(w, "Allocated IPv6 addresses:\n")
-		for _, ipv6 := range sr.IPAM.IPV6 {
-			fmt.Fprintf(w, " %s\n", ipv6)
+		fmt.Fprintf(w, "Allocated IPv6 addresses:\t%d\n", len(sr.IPAM.IPV6))
+		if allAddresses {
+			for _, ipv6 := range sr.IPAM.IPV6 {
+				fmt.Fprintf(w, "  %s\n", ipv6)
+			}
 		}
 	}
 
 	if sr.Cluster != nil {
-		fmt.Fprintf(w, "Known cluster nodes:\n")
+		fmt.Fprintf(w, "Known cluster nodes:\t%d\n", len(sr.Cluster.Nodes))
 		for _, node := range sr.Cluster.Nodes {
 			localStr := ""
 			if node.Name == sr.Cluster.Self {
 				localStr = " (localhost)"
+			} else if !allNodes {
+				continue
 			}
 			fmt.Fprintf(w, " %s%s:\n", node.Name, localStr)
 			formatNodeAddress(w, node.PrimaryAddress.IPV4, "Primary", "  ")
