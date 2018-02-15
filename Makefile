@@ -71,7 +71,10 @@ start-kvstores:
            consul:0.8.3 \
            agent -client=0.0.0.0 -server -bootstrap-expect 1
 
-tests: start-kvstores tests-envoy
+tests: force
+	$(MAKE) unit-tests tests-envoy
+
+unit-tests: start-kvstores
 	go vet $(GOFILES)
 	echo "mode: count" > coverage-all.out
 	echo "mode: count" > coverage.out
