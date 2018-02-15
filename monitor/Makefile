@@ -15,7 +15,7 @@
 include ../Makefile.defs
 
 TARGET=cilium-node-monitor
-SOURCES := $(shell find ../monitor ../common ../pkg ../api . -name '*.go')
+SOURCES := $(shell find ../monitor ../common ../pkg ../api . \( -name '*.go' ! -name '*_test.go' \))
 $(TARGET): $(SOURCES)
 	$(GO) build -i $(GOBUILD) -o $(TARGET)
 
