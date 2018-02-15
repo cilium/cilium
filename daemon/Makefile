@@ -40,11 +40,11 @@ install:
 endif
 
 .PHONY: check-bindata
-check-bindata: go-bindata
+check-bindata: bindata.go
 	../contrib/scripts/bindata.sh $(GO_BINDATA_SHA1SUM)
 
 apply-bindata: go-bindata
 	../contrib/scripts/bindata.sh apply
 
-go-bindata:
+bindata.go go-bindata: $(BPF_FILES)
 	$(GO_BINDATA) -o ./bindata.go $(BPF_FILES)
