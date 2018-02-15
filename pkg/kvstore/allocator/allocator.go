@@ -353,11 +353,15 @@ func (a *Allocator) keyToID(key string, deleteInvalid bool) ID {
 }
 
 var (
-	idRandomizer = rand.New(rand.NewSource(time.Now().UnixNano()))
+	idRandomizer      = rand.New(rand.NewSource(time.Now().UnixNano()))
+	idRandomizerMutex lock.Mutex
 )
 
 // Naive ID allocation mechanism.
 func (a *Allocator) selectAvailableID() (ID, string) {
+	idRandomizerMutex.Lock()
+	defer idRandomizerMutex.Unlock()
+
 	a.mutex.RLock()
 	defer a.mutex.RUnlock()
 
