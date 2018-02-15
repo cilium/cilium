@@ -1,7 +1,7 @@
 include ../Makefile.defs
 
 TARGET=cilium-health
-SOURCES := $(shell find ../api/v1/health ../pkg/health cmd . -name '*.go')
+SOURCES := $(shell find ../api/v1/health ../pkg/health cmd . \( -name '*.go' ! -name '*_test.go' \))
 $(TARGET): $(SOURCES)
 	$(GO) build -i $(GOBUILD) -o $(TARGET)
 
