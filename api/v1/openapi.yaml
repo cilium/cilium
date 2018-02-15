@@ -944,7 +944,7 @@ definitions:
       build:
         description: Build number of calculated policy in use
         type: integer
-      allowed-consumers:
+      allowed-ingress-identities:
         description: |
           List of identities allowed to communicate to this endpoint
         type: array

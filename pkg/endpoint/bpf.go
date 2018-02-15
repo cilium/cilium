@@ -160,11 +160,11 @@ func (e *Endpoint) writeHeaderfile(prefix string, owner Owner) error {
 
 	fw.WriteString("/*\n")
 	fw.WriteString(" * Labels:\n")
-	if e.SecLabel != nil {
-		if len(e.SecLabel.Labels) == 0 {
+	if e.SecurityIdentity != nil {
+		if len(e.SecurityIdentity.Labels) == 0 {
 			fmt.Fprintf(fw, " * - %s\n", "(no labels)")
 		} else {
-			for _, v := range e.SecLabel.Labels {
+			for _, v := range e.SecurityIdentity.Labels {
 				fmt.Fprintf(fw, " * - %s\n", v)
 			}
 		}
@@ -195,9 +195,9 @@ func (e *Endpoint) writeHeaderfile(prefix string, owner Owner) error {
 
 	fmt.Fprintf(fw, "#define LXC_ID %#x\n", e.ID)
 	fmt.Fprintf(fw, "#define LXC_ID_NB %#x\n", byteorder.HostToNetwork(e.ID))
-	if e.SecLabel != nil {
-		fmt.Fprintf(fw, "#define SECLABEL %s\n", e.SecLabel.ID.StringID())
-		fmt.Fprintf(fw, "#define SECLABEL_NB %#x\n", byteorder.HostToNetwork(e.SecLabel.ID.Uint32()))
+	if e.SecurityIdentity != nil {
+		fmt.Fprintf(fw, "#define SECLABEL %s\n", e.SecurityIdentity.ID.StringID())
+		fmt.Fprintf(fw, "#define SECLABEL_NB %#x\n", byteorder.HostToNetwork(e.SecurityIdentity.ID.Uint32()))
 	} else {
 		invalid := policy.InvalidIdentity
 		fmt.Fprintf(fw, "#define SECLABEL %s\n", invalid.StringID())
@@ -309,7 +309,7 @@ func writeGeneve(prefix string, e *Endpoint) ([]byte, error) {
 }
 
 func (e *Endpoint) runInit(libdir, rundir, epdir, ifName, debug string) error {
-	args := []string{libdir, rundir, epdir, ifName, debug}
+	args := []string{libdir, rundir, epdir, ifName, debug, e.StringID()}
 	prog := filepath.Join(libdir, "join_ep.sh")
 
 	e.Mutex.RLock()
@@ -392,15 +392,16 @@ func updateCT(owner Owner, e *Endpoint, epIPs []net.IP,
 	if isPolicyEnforced {
 		wg.Add(1)
 		go func(wg *sync.WaitGroup) {
-			// consumers added, so we need to flush all CT entries except the idsToKeep
+			// New security identities added, so we need to flush all CT entries
+			// except the idsToKeep.
 			owner.FlushCTEntries(e, isLocal, epIPs, idsToKeep)
 			wg.Done()
 		}(wg)
 	} else {
 		wg.Add(1)
 		go func(wg *sync.WaitGroup) {
-			// consumers removed, so we need to modify all CT entries with ids To Mod
-			// because there's on policy being enforced
+			// Security identities removed, so we need to modify all CT entries
+			// with idsToMod because there's no policy being enforced.
 			owner.ResetProxyPort(e, isLocal, epIPs, idsToMod)
 			wg.Done()
 		}(wg)
@@ -602,7 +603,8 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir, reason string) (uint64, err
 		modifiedRules, deletedRules policy.SecurityIDContexts
 		policyChanged               bool
 	)
-	// Only generate & populate policy map if a seclabel and consumer model is set up
+	// Only generate & populate policy map if a security identity is set up for
+	// this endpoint.
 	if c != nil {
 		c.AddMap(e.PolicyMap)
 

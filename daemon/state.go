@@ -245,23 +245,23 @@ func readEPsFromDirNames(basePath string, eptsDirNames []string) []*endpoint.End
 // syncLabels syncs the labels from the labels' database for the given endpoint.
 // To be used with endpoint.Mutex locked.
 func (d *Daemon) syncLabels(ep *endpoint.Endpoint) error {
-	if ep.SecLabel == nil {
+	if ep.SecurityIdentity == nil {
 		return fmt.Errorf("Endpoint doesn't have a security label.")
 	}
 
 	// Filter the restored labels with the new daemon's filter
-	l, _ := labels.FilterLabels(ep.SecLabel.Labels)
-	ep.SecLabel.Labels = l
+	l, _ := labels.FilterLabels(ep.SecurityIdentity.Labels)
+	ep.SecurityIdentity.Labels = l
 
-	identity, _, err := policy.AllocateIdentity(ep.SecLabel.Labels)
+	identity, _, err := policy.AllocateIdentity(ep.SecurityIdentity.Labels)
 	if err != nil {
 		return err
 	}
 
-	if identity.ID != ep.SecLabel.ID {
+	if identity.ID != ep.SecurityIdentity.ID {
 		log.WithFields(logrus.Fields{
 			logfields.EndpointID:              ep.ID,
-			logfields.IdentityLabels + ".old": ep.SecLabel.ID,
+			logfields.IdentityLabels + ".old": ep.SecurityIdentity.ID,
 			logfields.IdentityLabels + ".new": identity.ID,
 		}).Info("Security label ID for endpoint is different that the one stored, updating")
 	}

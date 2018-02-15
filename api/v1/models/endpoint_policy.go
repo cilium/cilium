@@ -19,7 +19,7 @@ type EndpointPolicy struct {
 
 	// List of identities allowed to communicate to this endpoint
 	//
-	AllowedConsumers []int64 `json:"allowed-consumers"`
+	AllowedIngressIdentities []int64 `json:"allowed-ingress-identities"`
 
 	// Build number of calculated policy in use
 	Build int64 `json:"build,omitempty"`
@@ -34,7 +34,7 @@ type EndpointPolicy struct {
 	L4 *L4Policy `json:"l4,omitempty"`
 }
 
-/* polymorph EndpointPolicy allowed-consumers false */
+/* polymorph EndpointPolicy allowed-ingress-identities false */
 
 /* polymorph EndpointPolicy build false */
 
@@ -48,7 +48,7 @@ type EndpointPolicy struct {
 func (m *EndpointPolicy) Validate(formats strfmt.Registry) error {
 	var res []error
 
-	if err := m.validateAllowedConsumers(formats); err != nil {
+	if err := m.validateAllowedIngressIdentities(formats); err != nil {
 		// prop
 		res = append(res, err)
 	}
@@ -69,9 +69,9 @@ func (m *EndpointPolicy) Validate(formats strfmt.Registry) error {
 	return nil
 }
 
-func (m *EndpointPolicy) validateAllowedConsumers(formats strfmt.Registry) error {
+func (m *EndpointPolicy) validateAllowedIngressIdentities(formats strfmt.Registry) error {
 
-	if swag.IsZero(m.AllowedConsumers) { // not required
+	if swag.IsZero(m.AllowedIngressIdentities) { // not required
 		return nil
 	}
 

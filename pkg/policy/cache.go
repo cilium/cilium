@@ -36,8 +36,7 @@ type ConsumableCache struct {
 }
 
 // GetConsumableCache returns the consumable cache. The cache is a list of all
-// identities which are in use by local endpoints, either as consumable or
-// consumer.
+// identities which are in use by local endpoints.
 func GetConsumableCache() *ConsumableCache {
 	return consumableCache
 }
@@ -89,22 +88,6 @@ func (c *ConsumableCache) GetReservedIDs() []NumericIdentity {
 	}
 	c.cacheMU.RUnlock()
 	return identities
-}
-
-// GetConsumables returns a map of consumables numeric identity mapped to
-// consumers numeric identities.
-func (c *ConsumableCache) GetConsumables() map[NumericIdentity][]NumericIdentity {
-	consumables := map[NumericIdentity][]NumericIdentity{}
-	c.cacheMU.RLock()
-	for _, consumable := range c.cache {
-		consumers := []NumericIdentity{}
-		for _, consumer := range consumable.Consumers {
-			consumers = append(consumers, consumer.ID)
-		}
-		consumables[consumable.ID] = consumers
-	}
-	c.cacheMU.RUnlock()
-	return consumables
 }
 
 // ResolveIdentityLabels resolves a numeric identity to the identity's labels

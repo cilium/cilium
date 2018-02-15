@@ -69,13 +69,13 @@ func (e *Endpoint) checkEgressAccess(owner Owner, dstLabels labels.LabelArray, o
 	}
 }
 
-// allowConsumer must be called with global endpoint.Mutex held
-func (e *Endpoint) allowConsumer(owner Owner, id policy.NumericIdentity) bool {
+// allowIngressIdentity must be called with global endpoint.Mutex held
+func (e *Endpoint) allowIngressIdentity(owner Owner, id policy.NumericIdentity) bool {
 	cache := policy.GetConsumableCache()
 	if !e.Opts.IsEnabled(OptionConntrack) {
-		return e.Consumable.AllowConsumerAndReverseLocked(cache, id)
+		return e.Consumable.AllowIngressIdentityAndReverseLocked(cache, id)
 	}
-	return e.Consumable.AllowConsumerLocked(cache, id)
+	return e.Consumable.AllowIngressIdentityLocked(cache, id)
 }
 
 // ProxyID returns a unique string to identify a proxy mapping
@@ -299,8 +299,9 @@ func (e *Endpoint) regenerateConsumable(owner Owner, labelsMap *policy.IdentityC
 	)
 
 	// Mark all entries unused by denying them
-	for k := range c.Consumers {
-		c.Consumers[k].DeletionMark = true
+	for ingressIdentity := range c.IngressIdentities {
+		// Mark as false indicates denying
+		c.IngressIdentities[ingressIdentity] = false
 	}
 
 	rulesAdd = policy.NewSecurityIDContexts()
@@ -381,7 +382,7 @@ func (e *Endpoint) regenerateConsumable(owner Owner, labelsMap *policy.IdentityC
 	}
 
 	if owner.AlwaysAllowLocalhost() || c.L4Policy.HasRedirect() {
-		if e.allowConsumer(owner, policy.ReservedIdentityHost) {
+		if e.allowIngressIdentity(owner, policy.ReservedIdentityHost) {
 			changed = true
 		}
 	}
@@ -401,35 +402,34 @@ func (e *Endpoint) regenerateConsumable(owner Owner, labelsMap *policy.IdentityC
 		}).Debug("Evaluating context for source PolicyID")
 
 		if repo.AllowsLabelAccess(&ctx) == api.Allowed {
-			if e.allowConsumer(owner, srcID) {
+			if e.allowIngressIdentity(owner, srcID) {
 				changed = true
 			}
 		}
 	}
 
 	// Garbage collect all unused entries
-	for _, val := range c.Consumers {
-		if val.DeletionMark {
-			val.DeletionMark = false
-			c.BanConsumerLocked(val.ID)
+	for ingressIdentity, keepIdentity := range c.IngressIdentities {
+		if !keepIdentity {
+			c.RemoveIngressIdentityLocked(ingressIdentity)
 			changed = true
-			// Since we have removed a consumer, the L3 rule should be
-			// also be marked as removed. But only if it was not previously
-			// created by a L3-L4 rule.
-			if _, ok := rulesRm[val.ID]; !ok {
-				rulesRm[val.ID] = policy.NewL4RuleContexts()
+			// Since we have removed an allowed security identity for ingress, the
+			// L3 rule should be also be marked as removed, but only if it was
+			// not previously created by a L3-L4 rule.
+			if _, ok := rulesRm[ingressIdentity]; !ok {
+				rulesRm[ingressIdentity] = policy.NewL4RuleContexts()
 			}
 			// If the L3 rule was removed then we also need to remove it from
 			// the rulesAdded.
-			if _, ok := rulesAdd[val.ID]; ok {
-				delete(rulesAdd, val.ID)
+			if _, ok := rulesAdd[ingressIdentity]; ok {
+				delete(rulesAdd, ingressIdentity)
 			}
 		} else {
-			// Since we have (re)added a consumer, the L3 rule should be
-			// also be marked as added. But only if it was not previously
-			// created by a L3-L4 rule.
-			if _, ok := rulesAdd[val.ID]; !ok {
-				rulesAdd[val.ID] = policy.NewL4RuleContexts()
+			// Since we have (re)added a security identity upon ingress, the L3 rule
+			// should be also be marked as added. But only if it was not previously
+			// created by an L3-L4 rule.
+			if _, ok := rulesAdd[ingressIdentity]; !ok {
+				rulesAdd[ingressIdentity] = policy.NewL4RuleContexts()
 			}
 		}
 	}
@@ -440,12 +440,12 @@ func (e *Endpoint) regenerateConsumable(owner Owner, labelsMap *policy.IdentityC
 	}
 
 	e.getLogger().WithFields(logrus.Fields{
-		logfields.Identity: c.ID,
-		"consumers":        logfields.Repr(c.Consumers),
-		"rulesAdd":         rulesAdd,
-		"l4Rm":             l4Rm,
-		"rulesRm":          rulesRm,
-	}).Debug("New consumable with consumers")
+		logfields.Identity:          c.ID,
+		"ingressSecurityIdentities": logfields.Repr(c.IngressIdentities),
+		"rulesAdd":                  rulesAdd,
+		"l4Rm":                      l4Rm,
+		"rulesRm":                   rulesRm,
+	}).Debug("consumable regenerated")
 	return changed, rulesAdd, rulesRm
 }
 
@@ -575,7 +575,7 @@ func (e *Endpoint) regeneratePolicy(owner Owner, opts models.ConfigurationMap) (
 	c.Mutex.Lock()
 	defer c.Mutex.Unlock()
 
-	// Containers without a security label are not accessible
+	// Containers without a security identity are not accessible
 	if c.ID == 0 {
 		e.getLogger().Warn("Endpoint lacks identity, skipping policy calculation")
 		return false, nil, nil, nil
@@ -850,8 +850,8 @@ func (e *Endpoint) runIdentityToK8sPodSync() {
 				id := ""
 
 				e.Mutex.RLock()
-				if e.SecLabel != nil {
-					id = e.SecLabel.ID.String()
+				if e.SecurityIdentity != nil {
+					id = e.SecurityIdentity.ID.String()
 				}
 				e.Mutex.RUnlock()
 
@@ -873,10 +873,10 @@ func (e *Endpoint) SetIdentity(owner Owner, id *policy.Identity) {
 	cache := policy.GetConsumableCache()
 
 	if e.Consumable != nil {
-		if e.SecLabel != nil && id.ID == e.Consumable.ID {
+		if e.SecurityIdentity != nil && id.ID == e.Consumable.ID {
 			// Even if the numeric identity is the same, the order in which the
 			// labels are represented may change.
-			e.SecLabel = id
+			e.SecurityIdentity = id
 			e.Consumable.Mutex.Lock()
 			e.Consumable.Labels = id
 			e.Consumable.LabelArray = id.Labels.ToSlice()
@@ -889,7 +889,7 @@ func (e *Endpoint) SetIdentity(owner Owner, id *policy.Identity) {
 		// counting via the cache?
 		cache.Remove(e.Consumable)
 	}
-	e.SecLabel = id
+	e.SecurityIdentity = id
 	e.Consumable = cache.GetOrCreate(id.ID, id)
 
 	// Sets endpoint state to ready if was waiting for identity
