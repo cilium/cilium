@@ -5,6 +5,7 @@ set -e
 DOCS_DIR=./Documentation
 OLD_DIR=${DOCS_DIR}/cmdref
 TMP_DIR=`mktemp -d`
+trap 'rm -rf $TMP_DIR' EXIT INT TERM
 
 make CMDREFDIR=${TMP_DIR} -C ${DOCS_DIR} cmdref
 
