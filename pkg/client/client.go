@@ -243,7 +243,8 @@ func FormatStatusResponse(w io.Writer, sr *models.StatusResponse, allControllers
 				ctrl.Name, successSince, failSince, status.ConsecutiveFailureCount, err))
 		}
 
-		fmt.Fprintf(w, "Controller Status (%d/%d failing)\n", nFailing, len(sr.Controllers))
+		nOK := len(sr.Controllers) - nFailing
+		fmt.Fprintf(w, "Controller Status:\t%d/%d healthy\n", nOK, len(sr.Controllers))
 		if len(out) > 1 {
 			tab := tabwriter.NewWriter(w, 0, 0, 3, ' ', 0)
 			for _, s := range out {
