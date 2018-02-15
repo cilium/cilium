@@ -811,6 +811,11 @@ func (d *Daemon) init() error {
 			return err
 		}
 
+		// Clean all endpoint entries
+		if err := lxcmap.DeleteAll(); err != nil {
+			return err
+		}
+
 		localIPs := []net.IP{
 			node.GetInternalIPv4(),
 			node.GetExternalIPv4(),
