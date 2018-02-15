@@ -2,6 +2,44 @@
 NEWS
 ******
 
+Version 1.0-rc4
+===============
+
+:date: 2018-02-15
+:commit: 95a2c8aeae18c2c62e1f969e02dff15913cdf267
+
+Major Changes
+-------------
+
+* api: Introduce & expose endpoint controller statuses (2720_, @tgraf)
+* More scalable kvstore interaction layer (2708_, @tgraf)
+* Add agent notifications & access log records to monitor (2667_, @tgraf)
+* Remove oxyproxy and make Envoy the default proxy (2625_, @jrajahalme)
+* New controller pattern for async operations that can fail (2597_, @tgraf)
+* Add cilium-health endpoints for datapath connectivity probing (2315_, @joestringer)
+
+Bugfixes Changes
+----------------
+
+* Avoid concurrent access of rand.Rand (2823_, @tgraf)
+* kafka: Use policy identity cache to lookup identity for L3 dependant rules (2813_, @manalibhutiyani)
+* envoy: Set source identity correctly in access log. (2807_, @jrajahalme)
+* replaced sysctl invocation with echo redirects (2789_, @aanm)
+* Set up the k8s watchers based on the kube-apiserver version 2731 (#2735_, @aanm)
+* bpf: Use upper 16 bits of mark for identity (2719_, @tgraf)
+* bpf: Generate BPF header in order after generating policy (2718_, @tgraf)
+* Kubernetes NetworkPolicyPeer allows for PodSelector and NamespaceSelector fields to be optional. (2699_, @ianvernon)
+    * Gracefully handle when these objects are nil when we are parsing NetworkPolicy.
+* Enforce policy update immediately on ongoing connections 2569 #2408 (#2684_, @aanm)
+* envoy: fix rule regex matching by host (2649_, @aanm)
+* Kafka: Correctly check msgSize in ReadResp before discarding. (2637_, @manalibhutiyani)
+* Fix envoy deadlock after first crash (2633_, @aanm)
+* kafka: Reject requests on empty rule set (2619_, @tgraf)
+* CNP CRD schema versioning (2614_, @nebril)
+* Fix race while updating L7 proxy redirect in L4PolicyMap (2607_, @joestringer)
+* Don't allow API users to modify reserved labels for endpoints. (2595_, @joestringer)
+
+
 Version 1.0-rc3
 ===============
 
@@ -1002,3 +1040,25 @@ Fixes
 .. _1678: https://github.com/cilium/cilium/pull/1678
 .. _1865: https://github.com/cilium/cilium/pull/1865
 .. _1733: https://github.com/cilium/cilium/pull/1733
+.. _2720: https://github.com/cilium/cilium/pull/2720
+.. _2708: https://github.com/cilium/cilium/pull/2708
+.. _2667: https://github.com/cilium/cilium/pull/2667
+.. _2625: https://github.com/cilium/cilium/pull/2625
+.. _2597: https://github.com/cilium/cilium/pull/2597
+.. _2315: https://github.com/cilium/cilium/pull/2315
+.. _2823: https://github.com/cilium/cilium/pull/2823
+.. _2813: https://github.com/cilium/cilium/pull/2813
+.. _2807: https://github.com/cilium/cilium/pull/2807
+.. _2789: https://github.com/cilium/cilium/pull/2789
+.. _2735: https://github.com/cilium/cilium/pull/2735
+.. _2719: https://github.com/cilium/cilium/pull/2719
+.. _2718: https://github.com/cilium/cilium/pull/2718
+.. _2699: https://github.com/cilium/cilium/pull/2699
+.. _2684: https://github.com/cilium/cilium/pull/2684
+.. _2649: https://github.com/cilium/cilium/pull/2649
+.. _2637: https://github.com/cilium/cilium/pull/2637
+.. _2633: https://github.com/cilium/cilium/pull/2633
+.. _2619: https://github.com/cilium/cilium/pull/2619
+.. _2614: https://github.com/cilium/cilium/pull/2614
+.. _2607: https://github.com/cilium/cilium/pull/2607
+.. _2595: https://github.com/cilium/cilium/pull/2595
