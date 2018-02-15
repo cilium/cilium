@@ -19,7 +19,6 @@ ENVOY_BINS = $(ENVOY_BIN) ./bazel-bin/cilium_integration_test
 CHECK_FORMAT ?= ./bazel-bin/check_format.py.runfiles/envoy/tools/check_format.py
 
 BAZEL ?= bazel
-BAZEL_OPTS ?= --batch
 BAZEL_TEST_OPTS ?= 
 BAZEL_CACHE ?= ~/.cache/bazel
 BAZEL_ARCHIVE ?= ~/bazel-cache.tar.bz2
@@ -74,9 +73,11 @@ GO_TARGETS= $(ENVOY_API_TARGETS) $(CILIUM_TARGETS) $(CILIUM_API_TARGETS) $(FILTE
 
 # Dockerfile builds require special options
 ifdef PKG_BUILD
+BAZEL_OPTS ?= --batch
 BAZEL_BUILD_OPTS = --spawn_strategy=standalone --genrule_strategy=standalone
 all: clean-bins release
 else
+BAZEL_OPTS ?=
 BAZEL_BUILD_OPTS =
 
 all: clean-bins envoy $(GO_TARGETS)
