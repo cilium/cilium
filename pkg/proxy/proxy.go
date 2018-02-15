@@ -145,10 +145,14 @@ func NewProxy(minPort uint16, maxPort uint16) *Proxy {
 }
 
 var (
-	portRandomizer = rand.New(rand.NewSource(time.Now().UnixNano()))
+	portRandomizer      = rand.New(rand.NewSource(time.Now().UnixNano()))
+	portRandomizerMutex lock.Mutex
 )
 
 func (p *Proxy) allocatePort() (uint16, error) {
+	portRandomizerMutex.Lock()
+	defer portRandomizerMutex.Unlock()
+
 	for _, r := range portRandomizer.Perm(int(p.rangeMax - p.rangeMin + 1)) {
 		resPort := uint16(r) + p.rangeMin
 
