@@ -34,7 +34,7 @@ BAZEL_BUILD_OPTS = --spawn_strategy=standalone --genrule_strategy=standalone
 all: clean-bins release
 else
 BAZEL_OPTS ?=
-BAZEL_BUILD_OPTS =
+BAZEL_BUILD_OPTS = --experimental_strict_action_env
 
 all: clean-bins envoy api
 endif
