@@ -137,7 +137,7 @@ func (k *kafkaRedirect) canAccess(req *kafka.RequestMessage, numIdentity policy.
 	var identity *policy.Identity
 
 	if numIdentity != 0 {
-		identity = k.conf.source.ResolveIdentity(numIdentity)
+		identity = policy.LookupIdentityByID(numIdentity)
 		if identity == nil {
 			log.WithFields(logrus.Fields{
 				logfields.Request:  req.String(),

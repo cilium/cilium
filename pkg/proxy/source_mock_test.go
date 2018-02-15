@@ -41,7 +41,3 @@ func (m *proxySourceMocker) GetIdentity() policy.NumericIdentity { return m.iden
 func (m *proxySourceMocker) GetLabelsSHA() string {
 	return labels.NewLabelsFromModel(m.labels).SHA256Sum()
 }
-
-func (m *proxySourceMocker) ResolveIdentity(policy.NumericIdentity) *policy.Identity {
-	return policy.NewIdentity(m.identity, labels.NewLabelsFromModel(m.labels))
-}

@@ -106,7 +106,6 @@ type ProxySource interface {
 	GetLabels() []string
 	GetLabelsSHA() string
 	GetIdentity() policy.NumericIdentity
-	ResolveIdentity(policy.NumericIdentity) *policy.Identity
 	GetIPv4Address() string
 	GetIPv6Address() string
 }
