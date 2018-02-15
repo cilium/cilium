@@ -24,6 +24,7 @@ import (
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/logging"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 
 	"github.com/sirupsen/logrus"
 )
@@ -398,10 +399,14 @@ func (s *SSHMeta) PolicyImportAndWait(path string, timeout time.Duration) (int, 
 	if err != nil {
 		return -1, fmt.Errorf("cannot get policy revision: %s", err)
 	}
-	s.logger.Infof("PolicyImportAndWait: %s and current policy revision is '%d'", path, revision)
+	s.logger.WithFields(logrus.Fields{
+		logfields.Path:           path,
+		logfields.PolicyRevision: revision}).Infof("before importing policy")
 	res := s.ExecCilium(fmt.Sprintf("policy import %s", path))
 	if res.WasSuccessful() == false {
-		s.logger.Errorf("could not import policy: %s", res.CombineOutput())
+		s.logger.WithFields(logrus.Fields{
+			logfields.Path: path,
+		}).Errorf("could not import policy: %s", res.CombineOutput())
 		return -1, fmt.Errorf("could not import policy %s", path)
 	}
 	body := func() bool {
@@ -410,15 +415,21 @@ func (s *SSHMeta) PolicyImportAndWait(path string, timeout time.Duration) (int, 
 			s.PolicyWait(currentRev)
 			return true
 		}
-		s.logger.Infof("PolicyImportAndWait: current revision %d same as %d", currentRev, revision)
+		s.logger.WithFields(logrus.Fields{
+			logfields.PolicyRevision:    currentRev,
+			"policyRevisionAfterImport": revision,
+		}).Infof("policy revisions are the same")
 		return false
 	}
-	err = WithTimeout(body, "could not import policy revision", &TimeoutConfig{Timeout: timeout})
+	err = WithTimeout(body, "could not import policy", &TimeoutConfig{Timeout: timeout})
 	if err != nil {
 		return -1, err
 	}
 	revision, err = s.PolicyGetRevision()
-	s.logger.Infof("PolicyImportAndWait: finished '%v' with revision '%d'", path, revision)
+	s.logger.WithFields(logrus.Fields{
+		logfields.Path:           path,
+		logfields.PolicyRevision: revision,
+	}).Infof("policy import finished and revision increased")
 	return revision, err
 }
 
