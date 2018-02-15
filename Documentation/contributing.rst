@@ -705,17 +705,19 @@ regarding which phrase triggers which build, which build is required for
 a pull-request to be merged, etc. Each linked job contains a description
 illustrating which subset of tests the job runs.
 
++-------------------------------------------------------------------------------------------------------+-----------------+--------------------+
+| Jenkins Job                                                                                           | Trigger Phrase  | Required To Merge? |
++=======================================================================================================+=================+====================+
+| `Cilium-Master-Bash-Tests-All <https://jenkins.cilium.io/job/Cilium-PR-Bash-Tests-All/>`_             | test-me-please  | Yes                |
 +-------------------------------------------------------------------------------------+-----------------+--------------------+
-| Jenkins Job                                                                         | Trigger Phrase  | Required To Merge? |
-+=====================================================================================+=================+====================+
-| `Cilium-Bash-Tests <https://jenkins.cilium.io/job/Cilium-Bash-Tests/>`_             | test-me-please  | Yes                |
+| `Cilium-PR-Ginkgo-Tests-Validated <https://jenkins.cilium.io/job/Cilium-PR-Ginkgo-Tests-Validated/>`_ | test-me-please  | Yes                |
 +-------------------------------------------------------------------------------------+-----------------+--------------------+
-| `Cilium-Ginkgo-Tests <https://jenkins.cilium.io/job/Cilium-Ginkgo-Tests/>`_         | test-me-please  | Yes                |
-+-------------------------------------------------------------------------------------+-----------------+--------------------+
-| `Cilium-Ginkgo-Tests-All <https://jenkins.cilium.io/job/Cilium-Ginkgo-Tests-All/>`_ | test-all-ginkgo | No                 |
-+-------------------------------------------------------------------------------------+-----------------+--------------------+
-| `Cilium-Nightly-Tests-PR <https://jenkins.cilium.io/job/Cilium-Nightly-Tests-PR/>`_ | test-nightly    | No                 |
-+-------------------------------------------------------------------------------------+-----------------+--------------------+
+| `Cilium-PR-Ginkgo-Tests-All <https://jenkins.cilium.io/job/Cilium-PR-Ginkgo-Tests-All/>`_             | test-all-ginkgo | No                 |
++-------------------------------------------------------------------------------------------------------+-----------------+--------------------+
+| `Cilium-Pr-Ginkgo-Test-k8s <https://jenkins.cilium.io/job/Cilium-PR-Ginkgo-Tests-K8s/c>`_             | test-missed-k8s | No                 |
++-------------------------------------------------------------------------------------------------------+-----------------+--------------------+
+| `Cilium-Nightly-Tests-PR <https://jenkins.cilium.io/job/Cilium-PR-Nightly-Tests-All/>`_               | test-nightly    | No                 |
++-------------------------------------------------------------------------------------------------------+-----------------+--------------------+
 
 
 CI / Testing environment
