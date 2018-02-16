@@ -43,12 +43,19 @@ func listFilters(cmd *cobra.Command, args []string) {
 	if err != nil {
 		Fatalf("Cannot get CIDR list: %s", err)
 	}
-	w := tabwriter.NewWriter(os.Stdout, 5, 0, 3, ' ', 0)
-	str = fmt.Sprintf("Revision: %d", cl.Revision)
-	fmt.Fprintln(w, str)
-	for _, pfx := range cl.List {
-		str = fmt.Sprintf("%s", pfx)
+
+	if command.OutputJSON() {
+		if err := command.PrintOutput(cl); err != nil {
+			os.Exit(1)
+		}
+	} else {
+		w := tabwriter.NewWriter(os.Stdout, 5, 0, 3, ' ', 0)
+		str = fmt.Sprintf("Revision: %d", cl.Revision)
 		fmt.Fprintln(w, str)
+		for _, pfx := range cl.List {
+			str = fmt.Sprintf("%s", pfx)
+			fmt.Fprintln(w, str)
+		}
+		w.Flush()
 	}
-	w.Flush()
 }
