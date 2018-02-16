@@ -1245,6 +1245,10 @@ func init() {
         "addressing": {
           "$ref": "#/definitions/EndpointAddressing"
         },
+        "configuration": {
+          "description": "configuration options for this endpoint",
+          "$ref": "#/definitions/Configuration"
+        },
         "container-id": {
           "description": "ID assigned by container runtime",
           "type": "string"

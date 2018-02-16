@@ -762,6 +762,9 @@ definitions:
       id:
         description: Local endpoint ID
         type: integer
+      configuration:
+        description: configuration options for this endpoint
+        "$ref": "#/definitions/Configuration"
       container-id:
         description: ID assigned by container runtime
         type: string
