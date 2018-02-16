@@ -644,8 +644,8 @@ func (kub *Kubectl) CiliumReport(namespace string, pod string, commands []string
 // TestResultsPath
 func (kub *Kubectl) CiliumReportDump(namespace string, pod string) {
 	reportEndpointCommands := map[string]string{
-		"cilium endpoint get %s":    "endpoint_get_%s.txt",
-		"cilium bpf policy list %s": "bpf_policy_list_%s.txt",
+		"cilium endpoint get %s":   "endpoint_get_%s.txt",
+		"cilium bpf policy get %s": "bpf_policy_get_%s.txt",
 	}
 
 	testPath, err := ReportDirectory()

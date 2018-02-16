@@ -64,8 +64,8 @@ cilium endpoint list
 log "pinging server at IP ${SERVER_IP} from client"
 docker exec -ti client ping6 -c 1 ${SERVER_IP} || true
 
-log "output of \"sudo cilium bpf policy list ${SERVER_ID}\""
-sudo cilium bpf policy list ${SERVER_ID}
+log "output of \"sudo cilium bpf policy get ${SERVER_ID}\""
+sudo cilium bpf policy get ${SERVER_ID}
 
 log "pinging client  at IP ${CLIENT_IP} from server"
 docker exec -ti server ping6 -c 1 ${CLIENT_IP} || true
