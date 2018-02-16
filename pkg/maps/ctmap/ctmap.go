@@ -57,9 +57,6 @@ type CtType int
 type CtKey interface {
 	bpf.MapKey
 
-	// Returns human readable string representation
-	String() string
-
 	// ToNetwork converts fields to network byte order.
 	ToNetwork() CtKey
 
@@ -87,6 +84,20 @@ type CtEntry struct {
 
 // GetValuePtr returns the unsafe.Pointer for s.
 func (c *CtEntry) GetValuePtr() unsafe.Pointer { return unsafe.Pointer(c) }
+
+// String returns the readable format
+func (c *CtEntry) String() string {
+	return fmt.Sprintf("expires=%d rx_packets=%d rx_bytes=%d tx_packets=%d tx_bytes=%d flags=%x revnat=%d proxyport=%d src_sec_id=%d\n",
+		c.lifetime,
+		c.rx_packets,
+		c.rx_bytes,
+		c.tx_packets,
+		c.tx_bytes,
+		c.flags,
+		byteorder.NetworkToHost(c.revnat),
+		byteorder.NetworkToHost(c.proxy_port),
+		c.src_sec_id)
+}
 
 // CtEntryDump represents the key and value contained in the conntrack map.
 type CtEntryDump struct {

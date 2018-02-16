@@ -15,8 +15,6 @@
 package lbmap
 
 import (
-	"bytes"
-	"encoding/binary"
 	"fmt"
 	"net"
 	"unsafe"
@@ -31,17 +29,50 @@ var (
 		bpf.MapTypeHash,
 		int(unsafe.Sizeof(Service4Key{})),
 		int(unsafe.Sizeof(Service4Value{})),
-		maxEntries, 0)
+		maxEntries,
+		0,
+		func(key []byte, value []byte) (bpf.MapKey, bpf.MapValue, error) {
+			svcKey, svcVal := Service4Key{}, Service4Value{}
+
+			if err := bpf.ConvertKeyValue(key, value, &svcKey, &svcVal); err != nil {
+				return nil, nil, err
+			}
+
+			return svcKey.ToNetwork(), svcVal.ToNetwork(), nil
+		})
 	RevNat4Map = bpf.NewMap("cilium_lb4_reverse_nat",
 		bpf.MapTypeHash,
 		int(unsafe.Sizeof(RevNat4Key{})),
 		int(unsafe.Sizeof(RevNat4Value{})),
-		maxEntries, 0)
+		maxEntries,
+		0,
+		func(key []byte, value []byte) (bpf.MapKey, bpf.MapValue, error) {
+			var ukey uint16
+			var revNat RevNat4Value
+
+			if err := bpf.ConvertKeyValue(key, value, &ukey, &revNat); err != nil {
+				return nil, nil, err
+			}
+
+			revKey := NewRevNat4Key(ukey)
+
+			return revKey.ToNetwork(), revNat.ToNetwork(), nil
+		})
 	RRSeq4Map = bpf.NewMap("cilium_lb4_rr_seq",
 		bpf.MapTypeHash,
 		int(unsafe.Sizeof(Service4Key{})),
 		int(unsafe.Sizeof(RRSeqValue{})),
-		maxFrontEnds, 0)
+		maxFrontEnds,
+		0,
+		func(key []byte, value []byte) (bpf.MapKey, bpf.MapValue, error) {
+			svcKey, svcVal := Service4Key{}, RRSeqValue{}
+
+			if err := bpf.ConvertKeyValue(key, value, &svcKey, &svcVal); err != nil {
+				return nil, nil, err
+			}
+
+			return svcKey.ToNetwork(), &svcVal, nil
+		})
 )
 
 // Service4Key must match 'struct lb4_key' in "bpf/lib/common.h".
@@ -166,40 +197,6 @@ func (s *Service4Value) String() string {
 	return fmt.Sprintf("%s:%d (%d)", s.Address, s.Port, s.RevNat)
 }
 
-func Service4DumpParser(key []byte, value []byte) (bpf.MapKey, bpf.MapValue, error) {
-	keyBuf := bytes.NewBuffer(key)
-	valueBuf := bytes.NewBuffer(value)
-	svcKey := Service4Key{}
-	svcVal := Service4Value{}
-
-	if err := binary.Read(keyBuf, byteorder.Native, &svcKey); err != nil {
-		return nil, nil, fmt.Errorf("Unable to convert key: %s", err)
-	}
-
-	if err := binary.Read(valueBuf, byteorder.Native, &svcVal); err != nil {
-		return nil, nil, fmt.Errorf("Unable to convert key: %s", err)
-	}
-
-	return svcKey.ToNetwork(), svcVal.ToNetwork(), nil
-}
-
-func Service4RRSeqDumpParser(key []byte, value []byte) (bpf.MapKey, bpf.MapValue, error) {
-	keyBuf := bytes.NewBuffer(key)
-	valueBuf := bytes.NewBuffer(value)
-	svcKey := Service4Key{}
-	svcVal := RRSeqValue{}
-
-	if err := binary.Read(keyBuf, byteorder.Native, &svcKey); err != nil {
-		return nil, nil, fmt.Errorf("Unable to convert key: %s", err)
-	}
-
-	if err := binary.Read(valueBuf, byteorder.Native, &svcVal); err != nil {
-		return nil, nil, fmt.Errorf("Unable to convert value: %s", err)
-	}
-
-	return svcKey.ToNetwork(), &svcVal, nil
-}
-
 type RevNat4Key struct {
 	Key uint16
 }
@@ -248,23 +245,4 @@ func NewRevNat4Value(ip net.IP, port uint16) *RevNat4Value {
 	copy(revNat.Address[:], ip.To4())
 
 	return &revNat
-}
-
-func RevNat4DumpParser(key []byte, value []byte) (bpf.MapKey, bpf.MapValue, error) {
-	var revNat RevNat4Value
-	var ukey uint16
-
-	keyBuf := bytes.NewBuffer(key)
-	valueBuf := bytes.NewBuffer(value)
-
-	if err := binary.Read(keyBuf, byteorder.Native, &ukey); err != nil {
-		return nil, nil, fmt.Errorf("Unable to convert key: %s", err)
-	}
-	revKey := NewRevNat4Key(ukey)
-
-	if err := binary.Read(valueBuf, byteorder.Native, &revNat); err != nil {
-		return nil, nil, fmt.Errorf("Unable to convert value: %s", err)
-	}
-
-	return revKey.ToNetwork(), revNat.ToNetwork(), nil
 }

@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package proxy
+package proxymap
 
 import (
 	"bytes"
@@ -59,7 +59,24 @@ var (
 		bpf.MapTypeHash,
 		int(unsafe.Sizeof(Proxy6Key{})),
 		int(unsafe.Sizeof(Proxy6Value{})),
-		8192, 0).WithNonPersistent()
+		8192,
+		0,
+		func(key []byte, value []byte) (bpf.MapKey, bpf.MapValue, error) {
+			keyBuf := bytes.NewBuffer(key)
+			valueBuf := bytes.NewBuffer(value)
+			k := Proxy6Key{}
+			v := Proxy6Value{}
+
+			if err := binary.Read(keyBuf, byteorder.Native, &k); err != nil {
+				return nil, nil, fmt.Errorf("Unable to convert key: %s", err)
+			}
+
+			if err := binary.Read(valueBuf, byteorder.Native, &v); err != nil {
+				return nil, nil, fmt.Errorf("Unable to convert key: %s", err)
+			}
+
+			return k.ToNetwork(), v.ToNetwork(), nil
+		}).WithNonPersistent()
 )
 
 func init() {
@@ -110,31 +127,6 @@ func LookupEgress6(key *Proxy6Key) (*Proxy6Value, error) {
 	proxyVal := val.(*Proxy6Value)
 
 	return proxyVal.ToNetwork(), nil
-}
-
-func proxy6DumpParser(key []byte, value []byte) (bpf.MapKey, bpf.MapValue, error) {
-	keyBuf := bytes.NewBuffer(key)
-	valueBuf := bytes.NewBuffer(value)
-	k := Proxy6Key{}
-	v := Proxy6Value{}
-
-	if err := binary.Read(keyBuf, byteorder.Native, &k); err != nil {
-		return nil, nil, fmt.Errorf("Unable to convert key: %s", err)
-	}
-
-	if err := binary.Read(valueBuf, byteorder.Native, &v); err != nil {
-		return nil, nil, fmt.Errorf("Unable to convert key: %s", err)
-	}
-
-	return k.ToNetwork(), v.ToNetwork(), nil
-}
-
-func Dump6(cb bpf.DumpCallback) error {
-	if err := proxy6Map.Open(); err != nil {
-		return err
-	}
-
-	return proxy6Map.Dump(proxy6DumpParser, cb)
 }
 
 func GC6() int {
