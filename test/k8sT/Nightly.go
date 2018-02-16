@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"os"
 	"path"
+	"strings"
 	"sync"
 	"time"
 
@@ -45,6 +46,13 @@ var _ = Describe("NightlyEpsMeasurement", func() {
 	var once sync.Once
 	var ciliumPath string
 
+	endpointCount := 45
+	endpointsTimeout := endpointTimeout * time.Duration(endpointCount)
+	manifestPath := "tmp.yaml"
+	vagrantManifestPath := path.Join(helpers.BasePath, manifestPath)
+	var lastServer int
+	var err error
+
 	initialize := func() {
 		logger = log.WithFields(logrus.Fields{"testName": "NightlyK8sEpsMeasurement"})
 		logger.Info("Starting")
@@ -59,6 +67,14 @@ var _ = Describe("NightlyEpsMeasurement", func() {
 
 		err = kubectl.WaitKubeDNS()
 		Expect(err).Should(BeNil())
+
+		// Sometimes PolicyGen has a lot of pods running around without delete
+		// it. Using this we are sure that we delete before this test start
+		kubectl.Exec(fmt.Sprintf(
+			"%s delete --all pods,svc,cnp -n %s", helpers.KubectlCmd, helpers.DefaultNamespace))
+
+		err = kubectl.WaitCleanAllTerminatingPods()
+		Expect(err).To(BeNil(), "Terminating containers are not deleted after timeout")
 	}
 
 	BeforeEach(func() {
@@ -74,25 +90,40 @@ var _ = Describe("NightlyEpsMeasurement", func() {
 		}
 		err := kubectl.WaitCleanAllTerminatingPods()
 		Expect(err).To(BeNil(), "Terminating containers are not deleted after timeout")
+
+		kubectl.Delete(vagrantManifestPath)
+		kubectl.WaitCleanAllTerminatingPods()
 	})
 
-	endpointCount := 20
-	manifestPath := "tmp.yaml"
-	vagrantManifestPath := path.Join(helpers.BasePath, manifestPath)
-	var lastServer int
-
-	Measure(fmt.Sprintf("%d endpoint creation", endpointCount), func(b Benchmarker) {
-		endpointsTimeout := endpointTimeout * time.Duration(endpointCount)
-		desiredState := string(models.EndpointStateReady)
-		var err error
+	deployEndpoints := func() {
 		_, lastServer, err = helpers.GenerateManifestForEndpoints(endpointCount, manifestPath)
-		Expect(err).Should(BeNil())
-
+		ExpectWithOffset(1, err).Should(BeNil(), "Manifest cannot be created correctly")
 		res := kubectl.Apply(vagrantManifestPath)
-		res.ExpectSuccess(res.GetDebugMessage())
+		res.ExpectSuccess("cannot apply eps manifest :%s", res.GetDebugMessage())
+	}
 
+	getServices := func() map[string]string {
+		// getServices returns a map of services, where service name is the key
+		// and the ClusterIP is the value.
+		services, err := kubectl.Get(helpers.DefaultNamespace, fmt.Sprintf("services -l zgroup=testapp")).Filter(
+			`{range .items[*]}{.metadata.name}{"="}{.spec.clusterIP}{"\n"}{end}`)
+		ExpectWithOffset(1, err).To(BeNil(), "cannot retrieve testapp services")
+		result := make(map[string]string)
+		for _, line := range strings.Split(services.String(), "\n") {
+			vals := strings.Split(line, "=")
+			if len(vals) == 2 {
+				result[vals[0]] = vals[1]
+			}
+		}
+		return result
+	}
+
+	Measure("The endpoint creation", func(b Benchmarker) {
+		desiredState := string(models.EndpointStateReady)
+
+		deployEndpoints()
 		waitForPodsTime := b.Time("Wait for pods", func() {
-			pods, err := kubectl.WaitforPods(helpers.DefaultNamespace, "-l zgroup=testapp", endpointsTimeout)
+			pods, err := kubectl.WaitforPods(helpers.DefaultNamespace, "-l zgroup=testapp", endpointTimeout)
 			Expect(err).Should(BeNil(),
 				"Cannot retrieve %d pods in %d seconds", endpointCount, endpointsTimeout)
 			Expect(pods).Should(BeTrue())
@@ -122,57 +153,29 @@ var _ = Describe("NightlyEpsMeasurement", func() {
 			}, endpointsTimeout, 3*time.Second).Should(BeTrue())
 		})
 		log.WithFields(logrus.Fields{"endpoint creation time": runtime}).Info("")
-	}, 1)
 
-	It("Should be able to connect from client pods to services while cilium pod is being restarted", func() {
-		defer kubectl.Delete(vagrantManifestPath)
+		services := getServices()
+		Expect(len(services)).To(BeNumerically(">", 0), "Was not able to get services")
 
-		connectivityTestsFinished := make(chan struct{})
+		pods, err := kubectl.GetPodNames(helpers.DefaultNamespace, "zgroup=testapp")
+		Expect(err).To(BeNil(), "cannot retrieve pods names")
 
-		// Run connectivity tests
-		go func() {
-			concurrency := 5
-			sem := make(chan struct{}, concurrency)
-
-			for serverIndex := 0; serverIndex <= lastServer; serverIndex++ {
-				for clientIndex := lastServer + 1; clientIndex < endpointCount; clientIndex++ {
-					sem <- struct{}{}
-					go func(to, from int) {
-						defer func() { <-sem }()
-						defer GinkgoRecover()
-
-						result := kubectl.TestConnectivityPodService(fmt.Sprintf("app%d", from), fmt.Sprintf("app%d-service", to))
-						result.ExpectSuccess(result.GetDebugMessage())
-
-					}(serverIndex, clientIndex)
+		By("Testing if http requests to multiple endpoints do not timeout")
+		for i := 0; i < 5; i++ {
+			for _, pod := range pods {
+				for service, ip := range services {
+					b.Time("Curl to service", func() {
+						_, err := kubectl.ExecPodCmd(
+							helpers.DefaultNamespace, pod,
+							helpers.CurlFail(fmt.Sprintf("http://%s:80/", ip)))
+						Expect(err).To(BeNil(), "Cannot curl from %s to service %s on  ip %s", pod, service, ip)
+					})
 				}
-			}
-			// fill the channel to make sure there are no goroutines left
-			for i := 0; i < cap(sem); i++ {
-				sem <- struct{}{}
-			}
-			log.Info("Connectivity checks finished")
-			connectivityTestsFinished <- struct{}{}
-		}()
 
-		// Randomly redeploy cilium agent
-	Redeploy:
-		for {
-			select {
-			case <-connectivityTestsFinished:
-				break Redeploy
-			default:
-				res := kubectl.Delete(ciliumPath)
-				res.ExpectSuccess(res.GetDebugMessage())
-
-				res = kubectl.Apply(ciliumPath)
-				res.ExpectSuccess(res.GetDebugMessage())
-
-				_, err := kubectl.WaitforPods(helpers.KubeSystemNamespace, "-l k8s-app=cilium", 600)
-				Expect(err).Should(BeNil())
 			}
 		}
-	})
+
+	}, 1)
 
 	Context("Nightly Policies", func() {
 		numPods := 20
