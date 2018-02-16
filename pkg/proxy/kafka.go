@@ -114,16 +114,17 @@ func createKafkaRedirect(conf kafkaConfiguration) (Redirect, error) {
 
 	go func() {
 		for {
-			pair, err := socket.Accept(false)
+			pair, err := socket.Accept(true)
 			select {
 			case <-socket.closing:
 				// Don't report errors while the socket is being closed
 				return
 			default:
-				if err != nil {
-					log.WithField(logfields.Port, redir.conf.listenPort).WithError(err).Error("Unable to accept connection on port")
-					continue
-				}
+			}
+
+			if err != nil {
+				log.WithField(logfields.Port, redir.conf.listenPort).WithError(err).Error("Unable to accept connection on port")
+				continue
 			}
 
 			go redir.handleRequestConnection(pair)
@@ -329,6 +330,7 @@ type kafkaRespMessageHander func(pair *connectionPair, req *kafka.ResponseMessag
 
 func handleRequests(done <-chan struct{}, pair *connectionPair, c *proxyConnection,
 	record *kafkaLogRecord, handler kafkaReqMessageHander) {
+	defer c.Close()
 	scopedLog := log.WithField(fieldID, pair.String())
 	consecutiveErrors := 0
 	for {
@@ -338,14 +340,13 @@ func handleRequests(done <-chan struct{}, pair *connectionPair, c *proxyConnecti
 		// port redirect has been removed.
 		select {
 		case <-done:
-			scopedLog.Debug("Redirect removed, stop handling Kafka requests")
+			scopedLog.Debug("Redirect removed, closing Kafka request connection")
 			return
 		default:
 		}
 
 		if err != nil {
 			if err == io.EOF || err == io.ErrUnexpectedEOF {
-				c.Close()
 				return
 			}
 
@@ -357,7 +358,6 @@ func handleRequests(done <-chan struct{}, pair *connectionPair, c *proxyConnecti
 			consecutiveErrors++
 			if consecutiveErrors > consecutiveErrorsBarrier {
 				scopedLog.WithError(err).Error("too many errors parsing Kafka requests, closing connection")
-				c.Close()
 				return
 			}
 
@@ -372,6 +372,7 @@ func handleRequests(done <-chan struct{}, pair *connectionPair, c *proxyConnecti
 
 func handleResponses(done <-chan struct{}, pair *connectionPair, c *proxyConnection,
 	record *kafkaLogRecord, handler kafkaRespMessageHander) {
+	defer c.Close()
 	scopedLog := log.WithField(fieldID, pair.String())
 	for {
 		rsp, err := kafka.ReadResponse(c.conn)
@@ -380,14 +381,13 @@ func handleResponses(done <-chan struct{}, pair *connectionPair, c *proxyConnect
 		// port redirect has been removed.
 		select {
 		case <-done:
-			scopedLog.Debug("Redirect removed, stop handling Kafka responses")
+			scopedLog.Debug("Redirect removed, closing Kafka response connection")
 			return
 		default:
 		}
 
 		if err != nil {
 			if err == io.EOF || err == io.ErrUnexpectedEOF {
-				c.Close()
 				return
 			}
 
