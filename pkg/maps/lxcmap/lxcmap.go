@@ -224,3 +224,8 @@ func dumpParser(key []byte, value []byte) (bpf.MapKey, bpf.MapValue, error) {
 func DumpMap(callback bpf.DumpCallback) error {
 	return mapInstance.Dump(dumpParser, callback)
 }
+
+// DeleteAll deletes the content of the local endpoint map
+func DeleteAll() error {
+	return mapInstance.DeleteAll()
+}
