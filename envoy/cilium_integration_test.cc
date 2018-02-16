@@ -127,10 +127,8 @@ static_resources:
           http_filters:
           - name: cilium.l7policy
             config:
-              deprecated_v1: true
-              value:
-                access_log_path: ""
-                listener_id: foo42
+              access_log_path: ""
+              listener_id: foo42
           - name: envoy.router
           route_config:
             name: policy_enabled

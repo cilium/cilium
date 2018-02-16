@@ -18,6 +18,11 @@ api_proto_library(
     srcs = ["cilium/cilium_bpf_metadata.proto"],
 )
 
+api_proto_library(
+    name = "cilium_l7policy",
+    srcs = ["cilium/cilium_l7policy.proto"],
+)
+
 envoy_cc_binary(
     name = "envoy",
     repository = "@envoy",
@@ -68,6 +73,7 @@ envoy_cc_library(
     repository = "@envoy",
     deps = [
         ":accesslog_proto",
+	":cilium_l7policy_cc",
         "@envoy//source/exe:envoy_common_lib",
     ],
 )
