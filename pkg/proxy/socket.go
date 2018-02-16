@@ -26,6 +26,7 @@ import (
 	"github.com/cilium/cilium/pkg/flowdebug"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/maps/proxymap"
 
 	"github.com/sirupsen/logrus"
 )
@@ -448,7 +449,7 @@ func lookupNewDest(remoteAddr string, dport uint16) (uint32, string, error) {
 	}
 
 	if pIP.To4() != nil {
-		key := &Proxy4Key{
+		key := &proxymap.Proxy4Key{
 			SPort:   uint16(sport),
 			DPort:   dport,
 			Nexthdr: 6,
@@ -456,7 +457,7 @@ func lookupNewDest(remoteAddr string, dport uint16) (uint32, string, error) {
 
 		copy(key.SAddr[:], pIP.To4())
 
-		val, err := LookupEgress4(key)
+		val, err := proxymap.LookupEgress4(key)
 		if err != nil {
 			return 0, "", fmt.Errorf("unable to find IPv4 proxy entry for %s: %s", key, err)
 		}
@@ -465,7 +466,7 @@ func lookupNewDest(remoteAddr string, dport uint16) (uint32, string, error) {
 		return val.SourceIdentity, val.HostPort(), nil
 	}
 
-	key := &Proxy6Key{
+	key := &proxymap.Proxy6Key{
 		SPort:   uint16(sport),
 		DPort:   dport,
 		Nexthdr: 6,
@@ -473,7 +474,7 @@ func lookupNewDest(remoteAddr string, dport uint16) (uint32, string, error) {
 
 	copy(key.SAddr[:], pIP.To16())
 
-	val, err := LookupEgress6(key)
+	val, err := proxymap.LookupEgress6(key)
 	if err != nil {
 		return 0, "", fmt.Errorf("unable to find IPv6 proxy entry for %s: %s", key, err)
 	}
