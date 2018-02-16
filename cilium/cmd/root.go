@@ -54,9 +54,6 @@ func init() {
 	flags.StringVar(&cfgFile, "config", "", "config file (default is $HOME/.cilium.yaml)")
 	flags.BoolP("debug", "D", false, "Enable debug messages")
 	flags.StringP("host", "H", "", "URI to server-side API")
-	flags.BoolP("json", "j", false, "Format as JSON")
-	// TODO GH #2083 Hide until all commands support JSON output
-	flags.MarkHidden("json")
 	viper.BindPFlags(flags)
 	rootCmd.AddCommand(newCmdCompletion(os.Stdout))
 }
