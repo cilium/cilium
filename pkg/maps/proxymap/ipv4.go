@@ -15,8 +15,6 @@
 package proxymap
 
 import (
-	"bytes"
-	"encoding/binary"
 	"fmt"
 	"net"
 	"strconv"
@@ -55,6 +53,7 @@ func (v *Proxy4Value) HostPort() string {
 }
 
 var (
+	// Proxy4Map represents the BPF map for IPv4 proxy
 	Proxy4Map = bpf.NewMap("cilium_proxy4",
 		bpf.MapTypeHash,
 		int(unsafe.Sizeof(Proxy4Key{})),
@@ -62,17 +61,10 @@ var (
 		8192,
 		0,
 		func(key []byte, value []byte) (bpf.MapKey, bpf.MapValue, error) {
-			keyBuf := bytes.NewBuffer(key)
-			valueBuf := bytes.NewBuffer(value)
-			k := Proxy4Key{}
-			v := Proxy4Value{}
+			k, v := Proxy4Key{}, Proxy4Value{}
 
-			if err := binary.Read(keyBuf, byteorder.Native, &k); err != nil {
-				return nil, nil, fmt.Errorf("Unable to convert key: %s", err)
-			}
-
-			if err := binary.Read(valueBuf, byteorder.Native, &v); err != nil {
-				return nil, nil, fmt.Errorf("Unable to convert key: %s", err)
+			if err := bpf.ConvertKeyValue(key, value, &k, &v); err != nil {
+				return nil, nil, err
 			}
 
 			return k.ToNetwork(), v.ToNetwork(), nil
