@@ -23,7 +23,8 @@ cilium policy import <path>
 ### Options
 
 ```
-      --print   Print policy after import
+  -o, --output string   json| jsonpath='{}'
+      --print           Print policy after import
 ```
 
 ### Options inherited from parent commands

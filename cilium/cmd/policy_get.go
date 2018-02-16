@@ -16,6 +16,9 @@ package cmd
 
 import (
 	"fmt"
+	"os"
+
+	"github.com/cilium/cilium/pkg/command"
 
 	"github.com/spf13/cobra"
 )
@@ -27,6 +30,10 @@ var policyGetCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		if resp, err := client.PolicyGet(args); err != nil {
 			Fatalf("Cannot get policy: %s\n", err)
+		} else if command.OutputJSON() {
+			if err := command.PrintOutput(resp); err != nil {
+				os.Exit(1)
+			}
 		} else if resp != nil {
 			fmt.Printf("%s\nRevision: %d\n", resp.Policy, resp.Revision)
 		}
@@ -35,4 +42,5 @@ var policyGetCmd = &cobra.Command{
 
 func init() {
 	policyCmd.AddCommand(policyGetCmd)
+	command.AddJSONOutput(policyGetCmd)
 }

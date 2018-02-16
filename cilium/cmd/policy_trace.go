@@ -16,12 +16,14 @@ package cmd
 
 import (
 	"fmt"
+	"os"
 	"strconv"
 	"strings"
 
 	. "github.com/cilium/cilium/api/v1/client/policy"
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/common"
+	"github.com/cilium/cilium/pkg/command"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/policy"
@@ -167,6 +169,10 @@ If multiple sources and / or destinations are provided, each source is tested wh
 				params := NewGetPolicyResolveParams().WithIdentityContext(&search)
 				if scr, err := client.Policy.GetPolicyResolve(params); err != nil {
 					Fatalf("Error while retrieving policy assessment result: %s\n", err)
+				} else if command.OutputJSON() {
+					if err := command.PrintOutput(scr); err != nil {
+						os.Exit(1)
+					}
 				} else if scr != nil && scr.Payload != nil {
 					fmt.Println("----------------------------------------------------------------")
 					fmt.Printf("%s\n", scr.Payload.Log)
@@ -191,6 +197,7 @@ func init() {
 	policyTraceCmd.Flags().StringVarP(&dstK8sPod, "dst-k8s-pod", "", "", "Destination k8s pod ([namespace:]podname)")
 	policyTraceCmd.Flags().StringVarP(&srcK8sYaml, "src-k8s-yaml", "", "", "Path to YAML file for source")
 	policyTraceCmd.Flags().StringVarP(&dstK8sYaml, "dst-k8s-yaml", "", "", "Path to YAML file for destination")
+	command.AddJSONOutput(policyTraceCmd)
 }
 
 func appendIdentityLabelsToSlice(labelSlice []string, secID string) []string {

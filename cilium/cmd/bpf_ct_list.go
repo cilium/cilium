@@ -20,6 +20,7 @@ import (
 
 	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/pkg/bpf"
+	"github.com/cilium/cilium/pkg/command"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
 
 	"github.com/spf13/cobra"
@@ -44,6 +45,7 @@ var bpfCtListCmd = &cobra.Command{
 
 func init() {
 	bpfCtCmd.AddCommand(bpfCtListCmd)
+	command.AddJSONOutput(bpfCtListCmd)
 }
 
 func dumpCtProto(mapType, eID string) {
@@ -58,9 +60,15 @@ func dumpCtProto(mapType, eID string) {
 		}
 	}
 	defer m.Close()
-	out, err := ctmap.ToString(m, mapType)
-	if err != nil {
-		Fatalf("Error while dumping BPF Map: %s", err)
+	if command.OutputJSON() {
+		if err := command.PrintOutput(m); err != nil {
+			os.Exit(1)
+		}
+	} else {
+		out, err := ctmap.ToString(m, mapType)
+		if err != nil {
+			Fatalf("Error while dumping BPF Map: %s", err)
+		}
+		fmt.Println(out)
 	}
-	fmt.Println(out)
 }

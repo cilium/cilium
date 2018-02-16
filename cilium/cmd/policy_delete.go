@@ -16,6 +16,9 @@ package cmd
 
 import (
 	"fmt"
+	"os"
+
+	"github.com/cilium/cilium/pkg/command"
 
 	"github.com/spf13/cobra"
 )
@@ -33,6 +36,10 @@ var policyDeleteCmd = &cobra.Command{
 
 		if resp, err := client.PolicyDelete(args); err != nil {
 			Fatalf("Cannot delete policy: %s\n", err)
+		} else if command.OutputJSON() {
+			if err := command.PrintOutput(resp); err != nil {
+				os.Exit(1)
+			}
 		} else {
 			fmt.Printf("Revision: %d\n", resp.Revision)
 		}
@@ -43,4 +50,5 @@ var policyDeleteCmd = &cobra.Command{
 func init() {
 	policyCmd.AddCommand(policyDeleteCmd)
 	policyDeleteCmd.Flags().BoolVarP(&confirmDeleteAll, "all", "", false, "Delete all policies")
+	command.AddJSONOutput(policyDeleteCmd)
 }

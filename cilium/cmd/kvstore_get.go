@@ -16,7 +16,9 @@ package cmd
 
 import (
 	"fmt"
+	"os"
 
+	"github.com/cilium/cilium/pkg/command"
 	"github.com/cilium/cilium/pkg/kvstore"
 
 	"github.com/spf13/cobra"
@@ -40,6 +42,12 @@ var kvstoreGetCmd = &cobra.Command{
 			if err != nil {
 				Fatalf("Unable to list keys: %s", err)
 			}
+			if command.OutputJSON() {
+				if err := command.PrintOutput(pairs); err != nil {
+					os.Exit(1)
+				}
+				return
+			}
 			for k, v := range pairs {
 				fmt.Printf("%s => %s\n", k, string(v))
 			}
@@ -48,7 +56,12 @@ var kvstoreGetCmd = &cobra.Command{
 			if err != nil {
 				Fatalf("Unable to retrieve key: %s", err)
 			}
-
+			if command.OutputJSON() {
+				if err := command.PrintOutput(val); err != nil {
+					os.Exit(1)
+				}
+				return
+			}
 			fmt.Printf("%s => %s\n", key, string(val))
 		}
 	},
@@ -57,4 +70,5 @@ var kvstoreGetCmd = &cobra.Command{
 func init() {
 	kvstoreCmd.AddCommand(kvstoreGetCmd)
 	kvstoreGetCmd.Flags().BoolVar(&recursive, "recursive", false, "Recursive lookup")
+	command.AddJSONOutput(kvstoreGetCmd)
 }

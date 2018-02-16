@@ -26,6 +26,7 @@ cilium policy trace ( -s <label context> | --src-identity <security identity> | 
       --dst-identity int      Destination identity (default -1)
       --dst-k8s-pod string    Destination k8s pod ([namespace:]podname)
       --dst-k8s-yaml string   Path to YAML file for destination
+  -o, --output string         json| jsonpath='{}'
   -s, --src stringSlice       Source label context
       --src-endpoint string   Source endpoint
       --src-identity int      Source identity (default -1)

@@ -22,7 +22,8 @@ cilium kvstore get --recursive foo
 ### Options
 
 ```
-      --recursive   Recursive lookup
+  -o, --output string   json| jsonpath='{}'
+      --recursive       Recursive lookup
 ```
 
 ### Options inherited from parent commands
