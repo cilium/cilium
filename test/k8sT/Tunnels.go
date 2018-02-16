@@ -26,7 +26,7 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-var _ = Describe("K8sTunnelTest", func() {
+var _ = Describe("K8sValidatedTunnelTest", func() {
 
 	var kubectl *helpers.Kubectl
 	var demoDSPath string
