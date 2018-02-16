@@ -16,12 +16,15 @@ package bpf
 
 import (
 	"bufio"
+	"bytes"
+	"encoding/binary"
 	"fmt"
 	"os"
 	"path"
 	"sync"
 	"unsafe"
 
+	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 
@@ -84,6 +87,8 @@ func (t MapType) String() string {
 }
 
 type MapKey interface {
+	fmt.Stringer
+
 	// Returns pointer to start of key
 	GetKeyPtr() unsafe.Pointer
 
@@ -92,6 +97,8 @@ type MapKey interface {
 }
 
 type MapValue interface {
+	fmt.Stringer
+
 	// Returns pointer to start of value
 	GetValuePtr() unsafe.Pointer
 }
@@ -116,9 +123,13 @@ type Map struct {
 	// NonPersistent is true if the map does not contain persistent data
 	// and should be removed on startup.
 	NonPersistent bool
+
+	// DumpParser is a function for parsing keys and values from BPF maps
+	dumpParser DumpParser
 }
 
-func NewMap(name string, mapType MapType, keySize int, valueSize int, maxEntries int, flags uint32) *Map {
+// NewMap creates a new Map instance - object representing a BPF map
+func NewMap(name string, mapType MapType, keySize int, valueSize int, maxEntries int, flags uint32, dumpParser DumpParser) *Map {
 	m := &Map{
 		MapInfo: MapInfo{
 			MapType:       mapType,
@@ -128,7 +139,8 @@ func NewMap(name string, mapType MapType, keySize int, valueSize int, maxEntries
 			Flags:         flags,
 			OwnerProgType: ProgTypeUnspec,
 		},
-		name: path.Base(name),
+		name:       path.Base(name),
+		dumpParser: dumpParser,
 	}
 	m.setPathIfUnset()
 	return m
@@ -378,7 +390,10 @@ type DumpParser func(key []byte, value []byte) (MapKey, MapValue, error)
 type DumpCallback func(key MapKey, value MapValue)
 type MapValidator func(path string) (bool, error)
 
-func (m *Map) Dump(parser DumpParser, cb DumpCallback) error {
+// DumpWithCallback iterates over the Map and calls the given callback
+// function on each iteration. That callback function is receiving the
+// actual key and value.
+func (m *Map) DumpWithCallback(cb DumpCallback) error {
 	m.lock.RLock()
 	defer m.lock.RUnlock()
 
@@ -411,7 +426,7 @@ func (m *Map) Dump(parser DumpParser, cb DumpCallback) error {
 			return err
 		}
 
-		k, v, err := parser(nextKey, value)
+		k, v, err := m.dumpParser(nextKey, value)
 		if err != nil {
 			return err
 		}
@@ -422,6 +437,20 @@ func (m *Map) Dump(parser DumpParser, cb DumpCallback) error {
 
 		copy(key, nextKey)
 	}
+	return nil
+}
+
+// Dump returns the map (type map[string][]string) which contains all
+// data stored in BPF map.
+func (m *Map) Dump(hash map[string][]string) error {
+	callback := func(key MapKey, value MapValue) {
+		hash[key.String()] = append(hash[key.String()], value.String())
+	}
+
+	if err := m.DumpWithCallback(callback); err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -537,4 +566,20 @@ func (m *Map) GetNextKey(key MapKey, nextKey MapKey) error {
 	}
 
 	return GetNextKey(m.fd, key.GetKeyPtr(), nextKey.GetKeyPtr())
+}
+
+// ConvertKeyValue converts key and value from bytes to given Golang struct pointers.
+func ConvertKeyValue(bKey []byte, bValue []byte, key interface{}, value interface{}) error {
+	keyBuf := bytes.NewBuffer(bKey)
+	valueBuf := bytes.NewBuffer(bValue)
+
+	if err := binary.Read(keyBuf, byteorder.Native, key); err != nil {
+		return fmt.Errorf("Unable to convert key: %s", err)
+	}
+
+	if err := binary.Read(valueBuf, byteorder.Native, value); err != nil {
+		return fmt.Errorf("Unable to convert value: %s", err)
+	}
+
+	return nil
 }
