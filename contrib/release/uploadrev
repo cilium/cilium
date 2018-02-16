@@ -105,6 +105,17 @@ function upload_all() {
 }
 
 function print_done() {
+  echo "--- markdown snippet for NEWS.rst  ---"
+  echo "Release binaries"
+  echo "----------------"
+  echo ""
+
+  cd $TARGET_DIR
+  for s in *.sha256sum; do
+    f=$(echo "$s" | sed s/\.sha256sum//)	
+    echo "* [$f](http://$DOMAIN/$REMOTE_DIR/$f) ([$(cat $s | cut -c1-20)](http://$DOMAIN/$REMOTE_DIR/$s))"
+  done
+  echo "--- end ---"
   echo "`tput setaf 2`DONE`tput sgr0` local files are in $TARGET_DIR."
 }
 
