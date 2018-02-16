@@ -21,6 +21,7 @@ import (
 
 	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/pkg/bpf"
+	"github.com/cilium/cilium/pkg/command"
 	"github.com/cilium/cilium/pkg/maps/lxcmap"
 
 	"github.com/spf13/cobra"
@@ -41,8 +42,8 @@ var bpfEndpointListCmd = &cobra.Command{
 
 		lxcmap.DumpMap(dumpEndpoint)
 
-		if len(dumpOutput) > 0 {
-			if err := OutputPrinter(bpfEndpointList); err != nil {
+		if command.OutputJSON() {
+			if err := command.PrintOutput(bpfEndpointList); err != nil {
 				os.Exit(1)
 			}
 			return
@@ -67,5 +68,5 @@ func dumpEndpoint(key bpf.MapKey, value bpf.MapValue) {
 
 func init() {
 	bpfEndpointCmd.AddCommand(bpfEndpointListCmd)
-	AddMultipleOutput(bpfEndpointListCmd)
+	command.AddJSONOutput(bpfEndpointListCmd)
 }

@@ -21,6 +21,7 @@ import (
 
 	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/pkg/bpf"
+	"github.com/cilium/cilium/pkg/command"
 	"github.com/cilium/cilium/pkg/proxy"
 
 	"github.com/spf13/cobra"
@@ -42,8 +43,8 @@ var bpfProxyListCmd = &cobra.Command{
 		proxy.Dump(dumpProxy4)
 		proxy.Dump6(dumpProxy6)
 
-		if len(dumpOutput) > 0 {
-			if err := OutputPrinter(proxyList); err != nil {
+		if command.OutputJSON() {
+			if err := command.PrintOutput(proxyList); err != nil {
 				os.Exit(1)
 			}
 			return
@@ -62,7 +63,7 @@ var bpfProxyListCmd = &cobra.Command{
 
 func init() {
 	bpfProxyCmd.AddCommand(bpfProxyListCmd)
-	AddMultipleOutput(bpfProxyListCmd)
+	command.AddJSONOutput(bpfProxyListCmd)
 }
 
 func dumpProxy4(key bpf.MapKey, value bpf.MapValue) {

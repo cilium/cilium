@@ -20,6 +20,7 @@ import (
 	"strconv"
 
 	"github.com/cilium/cilium/common/types"
+	"github.com/cilium/cilium/pkg/command"
 
 	"github.com/spf13/cobra"
 )
@@ -50,8 +51,8 @@ var serviceGetCmd = &cobra.Command{
 			}
 		}
 
-		if len(dumpOutput) > 0 {
-			if err := OutputPrinter(svc); err != nil {
+		if command.OutputJSON() {
+			if err := command.PrintOutput(svc); err != nil {
 				os.Exit(1)
 			}
 			return
@@ -71,5 +72,5 @@ var serviceGetCmd = &cobra.Command{
 
 func init() {
 	serviceCmd.AddCommand(serviceGetCmd)
-	AddMultipleOutput(serviceGetCmd)
+	command.AddJSONOutput(serviceGetCmd)
 }

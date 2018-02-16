@@ -22,6 +22,8 @@ import (
 
 	endpointApi "github.com/cilium/cilium/api/v1/client/endpoint"
 	"github.com/cilium/cilium/api/v1/models"
+	"github.com/cilium/cilium/pkg/command"
+
 	"github.com/spf13/cobra"
 )
 
@@ -57,8 +59,8 @@ var endpointGetCmd = &cobra.Command{
 			endpointInst = append(endpointInst, result)
 		}
 
-		if len(dumpOutput) > 0 {
-			if err := OutputPrinter(endpointInst); err != nil {
+		if command.OutputJSON() {
+			if err := command.PrintOutput(endpointInst); err != nil {
 				os.Exit(1)
 			}
 			return
@@ -83,5 +85,5 @@ var endpointGetCmd = &cobra.Command{
 func init() {
 	endpointCmd.AddCommand(endpointGetCmd)
 	endpointGetCmd.Flags().StringSliceVarP(&lbls, "labels", "l", []string{}, "list of labels")
-	AddMultipleOutput(endpointGetCmd)
+	command.AddJSONOutput(endpointGetCmd)
 }

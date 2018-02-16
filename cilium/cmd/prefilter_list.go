@@ -19,6 +19,8 @@ import (
 	"os"
 	"text/tabwriter"
 
+	"github.com/cilium/cilium/pkg/command"
+
 	"github.com/spf13/cobra"
 )
 
@@ -32,7 +34,7 @@ var preFilterListCmd = &cobra.Command{
 
 func init() {
 	preFilterCmd.AddCommand(preFilterListCmd)
-	AddMultipleOutput(preFilterListCmd)
+	command.AddJSONOutput(preFilterListCmd)
 }
 
 func listFilters(cmd *cobra.Command, args []string) {
