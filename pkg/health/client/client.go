@@ -216,3 +216,24 @@ func FormatHealthStatusResponse(w io.Writer, sr *models.HealthStatusResponse, pr
 		fmt.Fprintf(w, "  ...")
 	}
 }
+
+// GetAndFormatHealthStatus fetches the health status from the cilium-health
+// daemon via the default channel and formats its output as a string to the
+// writer.
+//
+// 'succinct', 'verbose' and 'maxLines' are handled the same as in
+// FormatHealthStatusResponse().
+func GetAndFormatHealthStatus(w io.Writer, succinct, verbose bool, maxLines int) {
+	client, err := NewClient("")
+	if err != nil {
+		fmt.Fprintf(w, "Cluster health:\t\t\tClient error: %s\n", err)
+		return
+	}
+	hr, err := client.Connectivity.GetStatus(nil)
+	if err != nil {
+		// The regular `cilium status` output will print the reason why.
+		fmt.Fprintf(w, "Cluster health:\t\t\tWarning\tcilium-health daemon unreachable\n")
+		return
+	}
+	FormatHealthStatusResponse(w, hr.Payload, verbose, succinct, verbose, maxLines)
+}
