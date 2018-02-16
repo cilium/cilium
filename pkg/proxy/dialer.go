@@ -15,7 +15,6 @@
 package proxy
 
 import (
-	"context"
 	"fmt"
 	"net"
 	"os"
@@ -67,14 +66,4 @@ func ciliumDialer(identity int, network, address string) (net.Conn, error) {
 	}
 
 	return c, nil
-}
-
-func ciliumDialerWithContext(ctx context.Context, network, address string) (net.Conn, error) {
-	identity := 0
-
-	if id, ok := identityFromContext(ctx); ok {
-		identity = id
-	}
-
-	return ciliumDialer(identity, network, address)
 }
