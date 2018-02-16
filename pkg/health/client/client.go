@@ -106,9 +106,13 @@ func Hint(err error) error {
 	return fmt.Errorf("%s", e)
 }
 
+func connectivityStatusHealthy(cs *models.ConnectivityStatus) bool {
+	return cs != nil && cs.Status == ""
+}
+
 func formatConnectivityStatus(w io.Writer, cs *models.ConnectivityStatus, path, indent string) {
 	status := cs.Status
-	if status == "" {
+	if connectivityStatusHealthy(cs) {
 		latency := time.Duration(cs.Latency)
 		status = fmt.Sprintf("OK, RTT=%s", latency)
 	}
@@ -136,23 +140,79 @@ func formatPathStatus(w io.Writer, name string, cp *models.PathStatus, indent st
 	}
 }
 
+func pathIsHealthy(cp *models.PathStatus) bool {
+	if cp == nil {
+		return false
+	}
+
+	statuses := []*models.ConnectivityStatus{
+		cp.Icmp,
+		cp.HTTP,
+	}
+	for _, status := range statuses {
+		if !connectivityStatusHealthy(status) {
+			return false
+		}
+	}
+	return true
+}
+
+func nodeIsHealthy(node *models.NodeStatus) bool {
+	return pathIsHealthy(node.Host.PrimaryAddress) &&
+		(node.Endpoint == nil || pathIsHealthy(node.Endpoint))
+}
+
 // FormatHealthStatusResponse writes a HealthStatusResponse as a string to the
 // writer.
-func FormatHealthStatusResponse(w io.Writer, sr *models.HealthStatusResponse, verbose bool) {
-	fmt.Fprintf(w, "Probe time:\t%s\n", sr.Timestamp)
-	fmt.Fprintf(w, "Nodes:\n")
+//
+// 'printAll', if true, causes all nodes to be printed regardless of status
+// 'succinct', if true, causes node health to be output as one line per node
+// 'verbose', if true, overrides 'succinct' and prints all information
+// 'maxLines', if nonzero, determines the maximum number of lines to print
+func FormatHealthStatusResponse(w io.Writer, sr *models.HealthStatusResponse, printAll, succinct, verbose bool, maxLines int) {
+	var healthy int
 	for _, node := range sr.Nodes {
+		if nodeIsHealthy(node) {
+			healthy++
+		}
+	}
+	if succinct {
+		fmt.Fprintf(w, "Cluster health:\t%d/%d reachable\t(%s)\n",
+			healthy, len(sr.Nodes), sr.Timestamp)
+	} else {
+		fmt.Fprintf(w, "Probe time:\t%s\n", sr.Timestamp)
+		fmt.Fprintf(w, "Nodes:\n")
+	}
+	for n, node := range sr.Nodes {
+		if maxLines > 0 && n > maxLines {
+			break
+		}
 		localStr := ""
 		if sr.Local != nil && node.Name == sr.Local.Name {
 			localStr = " (localhost)"
 		}
-		fmt.Fprintf(w, "  %s%s:\n", node.Name, localStr)
-		formatPathStatus(w, "Host", node.Host.PrimaryAddress, "    ", verbose)
-		if verbose && len(node.Host.SecondaryAddresses) > 0 {
-			for _, addr := range node.Host.SecondaryAddresses {
-				formatPathStatus(w, "Secondary", addr, "      ", verbose)
+		if succinct {
+			if printAll || healthy < len(sr.Nodes) {
+				fmt.Fprintf(w, "  Name\tIP\tReachable\tEndpoints reachable\n")
 			}
+			if printAll || !nodeIsHealthy(node) {
+				fmt.Fprintf(w, "  %s\t%s\t%t\t%t\n", node.Name,
+					node.Host.PrimaryAddress.IP,
+					pathIsHealthy(node.Host.PrimaryAddress),
+					pathIsHealthy(node.Endpoint))
+			}
+		} else {
+			fmt.Fprintf(w, "  %s%s:\n", node.Name, localStr)
+			formatPathStatus(w, "Host", node.Host.PrimaryAddress, "    ", verbose)
+			if verbose && len(node.Host.SecondaryAddresses) > 0 {
+				for _, addr := range node.Host.SecondaryAddresses {
+					formatPathStatus(w, "Secondary", addr, "      ", verbose)
+				}
+			}
+			formatPathStatus(w, "Endpoint", node.Endpoint, "    ", verbose)
 		}
-		formatPathStatus(w, "Endpoint", node.Endpoint, "    ", verbose)
+	}
+	if maxLines > 0 && len(sr.Nodes)-healthy > maxLines {
+		fmt.Fprintf(w, "  ...")
 	}
 }
