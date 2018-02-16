@@ -1,4 +1,5 @@
 #include "cilium_l7policy.h"
+#include "cilium/cilium_l7policy.pb.validate.h"
 
 #include <string>
 
@@ -23,6 +24,22 @@ public:
       callbacks.addStreamFilter(std::make_shared<Cilium::AccessFilter>(config));
     };
   }
+
+  Server::Configuration::HttpFilterFactoryCb
+  createFilterFactoryFromProto(const Protobuf::Message& proto_config, const std::string&,
+                               Server::Configuration::FactoryContext &context) override {
+    Cilium::ConfigSharedPtr config(new Cilium::Config(MessageUtil::downcastAndValidate<const ::cilium::L7Policy&>(proto_config),
+						      context.scope()));
+    return [config](
+               Http::FilterChainFactoryCallbacks &callbacks) mutable -> void {
+      callbacks.addStreamFilter(std::make_shared<Cilium::AccessFilter>(config));
+    };
+  }
+
+  ProtobufTypes::MessagePtr createEmptyConfigProto() override {
+    return std::make_unique<::cilium::L7Policy>();
+  }
+
   std::string name() override { return "cilium.l7policy"; }
 };
 
@@ -33,17 +50,23 @@ static Registry::RegisterFactory<
     ConfigFactory, Server::Configuration::NamedHttpFilterConfigFactory>
     register_;
 
-Config::Config(const Json::Object &config, Stats::Scope &scope)
+Config::Config(const std::string& access_log_path, const std::string& listener_id,
+               Stats::Scope &scope)
     : stats_{ALL_CILIUM_STATS(POOL_COUNTER_PREFIX(scope, "cilium"))},
-      listener_id_(config.getString("listener_id")), access_log_(nullptr) {
-  std::string path = config.getString("access_log_path");
-  if (path.length()) {
-    access_log_ = AccessLog::Open(config.getString("access_log_path"));
+      listener_id_(listener_id), access_log_(nullptr) {
+  if (access_log_path.length()) {
+    access_log_ = AccessLog::Open(access_log_path);
     if (!access_log_) {
-      ENVOY_LOG(warn, "Cilium filter can not open access log socket {}", path);
+      ENVOY_LOG(warn, "Cilium filter can not open access log socket {}", access_log_path);
     }
   }
 }
+
+Config::Config(const Json::Object &config, Stats::Scope &scope)
+    : Config(config.getString("listener_id"), config.getString("access_log_path"), scope) {}
+
+Config::Config(const ::cilium::L7Policy &config, Stats::Scope &scope)
+    : Config(config.listener_id(), config.access_log_path(), scope) {}
 
 Config::~Config() {
   if (access_log_) {

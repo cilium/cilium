@@ -7,6 +7,7 @@ Package cilium is a generated protocol buffer package.
 It is generated from these files:
 	cilium/accesslog.proto
 	cilium/cilium_bpf_metadata.proto
+	cilium/cilium_l7policy.proto
 	cilium/npds.proto
 	cilium/nphds.proto
 
@@ -14,6 +15,7 @@ It has these top-level messages:
 	KeyValue
 	HttpLogEntry
 	BpfMetadata
+	L7Policy
 	NetworkPolicy
 	DirectionNetworkPolicy
 	PortNetworkPolicy

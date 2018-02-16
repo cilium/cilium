@@ -44,7 +44,7 @@ type NetworkPolicy struct {
 func (m *NetworkPolicy) Reset()                    { *m = NetworkPolicy{} }
 func (m *NetworkPolicy) String() string            { return proto.CompactTextString(m) }
 func (*NetworkPolicy) ProtoMessage()               {}
-func (*NetworkPolicy) Descriptor() ([]byte, []int) { return fileDescriptor2, []int{0} }
+func (*NetworkPolicy) Descriptor() ([]byte, []int) { return fileDescriptor3, []int{0} }
 
 func (m *NetworkPolicy) GetName() string {
 	if m != nil {
@@ -85,7 +85,7 @@ type DirectionNetworkPolicy struct {
 func (m *DirectionNetworkPolicy) Reset()                    { *m = DirectionNetworkPolicy{} }
 func (m *DirectionNetworkPolicy) String() string            { return proto.CompactTextString(m) }
 func (*DirectionNetworkPolicy) ProtoMessage()               {}
-func (*DirectionNetworkPolicy) Descriptor() ([]byte, []int) { return fileDescriptor2, []int{1} }
+func (*DirectionNetworkPolicy) Descriptor() ([]byte, []int) { return fileDescriptor3, []int{1} }
 
 func (m *DirectionNetworkPolicy) GetPerPortPolicies() []*PortNetworkPolicy {
 	if m != nil {
@@ -111,7 +111,7 @@ type PortNetworkPolicy struct {
 func (m *PortNetworkPolicy) Reset()                    { *m = PortNetworkPolicy{} }
 func (m *PortNetworkPolicy) String() string            { return proto.CompactTextString(m) }
 func (*PortNetworkPolicy) ProtoMessage()               {}
-func (*PortNetworkPolicy) Descriptor() ([]byte, []int) { return fileDescriptor2, []int{2} }
+func (*PortNetworkPolicy) Descriptor() ([]byte, []int) { return fileDescriptor3, []int{2} }
 
 func (m *PortNetworkPolicy) GetPort() uint32 {
 	if m != nil {
@@ -149,7 +149,7 @@ type PortNetworkPolicyRule struct {
 func (m *PortNetworkPolicyRule) Reset()                    { *m = PortNetworkPolicyRule{} }
 func (m *PortNetworkPolicyRule) String() string            { return proto.CompactTextString(m) }
 func (*PortNetworkPolicyRule) ProtoMessage()               {}
-func (*PortNetworkPolicyRule) Descriptor() ([]byte, []int) { return fileDescriptor2, []int{3} }
+func (*PortNetworkPolicyRule) Descriptor() ([]byte, []int) { return fileDescriptor3, []int{3} }
 
 type isPortNetworkPolicyRule_L7Rules interface {
 	isPortNetworkPolicyRule_L7Rules()
@@ -248,7 +248,7 @@ type HttpNetworkPolicyRules struct {
 func (m *HttpNetworkPolicyRules) Reset()                    { *m = HttpNetworkPolicyRules{} }
 func (m *HttpNetworkPolicyRules) String() string            { return proto.CompactTextString(m) }
 func (*HttpNetworkPolicyRules) ProtoMessage()               {}
-func (*HttpNetworkPolicyRules) Descriptor() ([]byte, []int) { return fileDescriptor2, []int{4} }
+func (*HttpNetworkPolicyRules) Descriptor() ([]byte, []int) { return fileDescriptor3, []int{4} }
 
 func (m *HttpNetworkPolicyRules) GetHttpRules() []*HttpNetworkPolicyRule {
 	if m != nil {
@@ -278,7 +278,7 @@ type HttpNetworkPolicyRule struct {
 func (m *HttpNetworkPolicyRule) Reset()                    { *m = HttpNetworkPolicyRule{} }
 func (m *HttpNetworkPolicyRule) String() string            { return proto.CompactTextString(m) }
 func (*HttpNetworkPolicyRule) ProtoMessage()               {}
-func (*HttpNetworkPolicyRule) Descriptor() ([]byte, []int) { return fileDescriptor2, []int{5} }
+func (*HttpNetworkPolicyRule) Descriptor() ([]byte, []int) { return fileDescriptor3, []int{5} }
 
 func (m *HttpNetworkPolicyRule) GetHeaders() []*envoy_api_v2_route.HeaderMatcher {
 	if m != nil {
@@ -434,9 +434,9 @@ var _NetworkPolicyDiscoveryService_serviceDesc = grpc.ServiceDesc{
 	Metadata: "cilium/npds.proto",
 }
 
-func init() { proto.RegisterFile("cilium/npds.proto", fileDescriptor2) }
+func init() { proto.RegisterFile("cilium/npds.proto", fileDescriptor3) }
 
-var fileDescriptor2 = []byte{
+var fileDescriptor3 = []byte{
 	// 597 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xac, 0x94, 0xcf, 0x6e, 0xd3, 0x40,
 	0x10, 0xc6, 0xbb, 0x89, 0x9b, 0xa6, 0x53, 0xda, 0xaa, 0x2b, 0x5a, 0x4c, 0x45, 0xd3, 0x60, 0x2e,

@@ -104,6 +104,9 @@ func (m *AckingResourceMutatorWrapper) Upsert(typeURL string, resourceName strin
 
 	if completion.Context().Err() != nil {
 		// The context was canceled before we even started.
+		log.WithFields(logrus.Fields{
+			logfields.XDSTypeURL: typeURL,
+		}).Warnf("context cancelled: %s", completion.Context().Err())
 		return
 	}
 
@@ -130,6 +133,9 @@ func (m *AckingResourceMutatorWrapper) Delete(typeURL string, resourceName strin
 
 	if completion.Context().Err() != nil {
 		// The context was canceled before we even started.
+		log.WithFields(logrus.Fields{
+			logfields.XDSTypeURL: typeURL,
+		}).Warnf("context cancelled: %s", completion.Context().Err())
 		return
 	}
 

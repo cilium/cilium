@@ -34,7 +34,7 @@ type NetworkPolicyHosts struct {
 func (m *NetworkPolicyHosts) Reset()                    { *m = NetworkPolicyHosts{} }
 func (m *NetworkPolicyHosts) String() string            { return proto.CompactTextString(m) }
 func (*NetworkPolicyHosts) ProtoMessage()               {}
-func (*NetworkPolicyHosts) Descriptor() ([]byte, []int) { return fileDescriptor3, []int{0} }
+func (*NetworkPolicyHosts) Descriptor() ([]byte, []int) { return fileDescriptor4, []int{0} }
 
 func (m *NetworkPolicyHosts) GetPolicy() uint64 {
 	if m != nil {
@@ -192,9 +192,9 @@ var _NetworkPolicyHostsDiscoveryService_serviceDesc = grpc.ServiceDesc{
 	Metadata: "cilium/nphds.proto",
 }
 
-func init() { proto.RegisterFile("cilium/nphds.proto", fileDescriptor3) }
+func init() { proto.RegisterFile("cilium/nphds.proto", fileDescriptor4) }
 
-var fileDescriptor3 = []byte{
+var fileDescriptor4 = []byte{
 	// 319 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xb4, 0x51, 0x31, 0x4f, 0xf3, 0x30,
 	0x14, 0xfc, 0x9c, 0xf6, 0x8b, 0xa8, 0x25, 0x18, 0x3c, 0xd0, 0x28, 0xaa, 0xa0, 0xca, 0x42, 0x85,

@@ -56,7 +56,7 @@ namespace Filter {
 namespace BpfMetadata {
 
 Config::Config(const ::cilium::BpfMetadata &config, Stats::Scope &scope)
-    : bpf_root_(config.bpf_root()),
+    : bpf_root_(config.bpf_root().length() ? config.bpf_root() : "/sys/fs/bpf"),
       stats_{ALL_BPF_METADATA_STATS(POOL_COUNTER(scope))},
       is_ingress_(config.is_ingress()),
       identity_(config.identity()), maps_(bpf_root_, *this) {}

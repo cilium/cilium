@@ -113,10 +113,7 @@ func createXDSServer(path, accessLogPath string) *XDSServer {
 						{&structpb.Value_StructValue{StructValue: &structpb.Struct{Fields: map[string]*structpb.Value{
 							"name": {&structpb.Value_StringValue{StringValue: "cilium.l7policy"}},
 							"config": {&structpb.Value_StructValue{StructValue: &structpb.Struct{Fields: map[string]*structpb.Value{
-								"deprecated_v1": {&structpb.Value_BoolValue{BoolValue: true}},
-								"value": {&structpb.Value_StructValue{StructValue: &structpb.Struct{Fields: map[string]*structpb.Value{
-									"access_log_path": {&structpb.Value_StringValue{StringValue: accessLogPath}},
-								}}}},
+								"access_log_path": {&structpb.Value_StringValue{StringValue: accessLogPath}},
 							}}}},
 						}}}},
 						{&structpb.Value_StructValue{StructValue: &structpb.Struct{Fields: map[string]*structpb.Value{
@@ -181,7 +178,8 @@ func (s *XDSServer) addListener(name string, port uint16, l7rules policy.L7DataM
 	if isIngress {
 		listenerConf.ListenerFilters[0].Config.Fields["is_ingress"].GetKind().(*structpb.Value_BoolValue).BoolValue = true
 	}
-	listenerConf.FilterChains[0].Filters[0].Config.Fields["http_filters"].GetListValue().Values[0].GetStructValue().Fields["config"].GetStructValue().Fields["value"].GetStructValue().Fields["listener_id"] = &structpb.Value{Kind: &structpb.Value_StringValue{StringValue: name}}
+
+	listenerConf.FilterChains[0].Filters[0].Config.Fields["http_filters"].GetListValue().Values[0].GetStructValue().Fields["config"].GetStructValue().Fields["listener_id"] = &structpb.Value{Kind: &structpb.Value_StringValue{StringValue: name}}
 
 	s.listenerMutator.Upsert(ListenerTypeURL, name, listenerConf, []string{"127.0.0.1"}, wg.AddCompletion())
 }
