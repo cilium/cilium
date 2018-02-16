@@ -545,24 +545,20 @@ func (d *Daemon) SyncLBMap() error {
 	if !d.conf.IPv4Disabled {
 		// lbmap.RRSeq4Map is updated as part of Service4Map and does
 		// not need separate dump.
-		err := lbmap.Service4Map.Dump(lbmap.Service4DumpParser, parseSVCEntries)
-		if err != nil {
+		if err := lbmap.Service4Map.DumpWithCallback(parseSVCEntries); err != nil {
 			log.WithError(err).Warn("error dumping Service4Map")
 		}
-		err = lbmap.RevNat4Map.Dump(lbmap.RevNat4DumpParser, parseRevNATEntries)
-		if err != nil {
+		if err := lbmap.RevNat4Map.DumpWithCallback(parseRevNATEntries); err != nil {
 			log.WithError(err).Warn("error dumping RevNat4Map")
 		}
 	}
 
 	// lbmap.RRSeq6Map is updated as part of Service6Map and does not need
 	// separate dump.
-	err := lbmap.Service6Map.Dump(lbmap.Service6DumpParser, parseSVCEntries)
-	if err != nil {
+	if err := lbmap.Service6Map.DumpWithCallback(parseSVCEntries); err != nil {
 		log.WithError(err).Warn("error dumping Service6Map")
 	}
-	lbmap.RevNat6Map.Dump(lbmap.RevNat6DumpParser, parseRevNATEntries)
-	if err != nil {
+	if err := lbmap.RevNat6Map.DumpWithCallback(parseRevNATEntries); err != nil {
 		log.WithError(err).Warn("error dumping RevNat6Map")
 	}
 
