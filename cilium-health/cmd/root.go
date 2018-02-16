@@ -81,9 +81,6 @@ func init() {
 	flags.StringP("host", "H", "", "URI to cilium-health server API")
 	flags.StringP("cilium", "c", "", "URI to Cilium server API")
 	flags.IntP("interval", "i", 60, "Interval (in seconds) for periodic connectivity probes")
-	flags.BoolP("json", "j", false, "Format as JSON")
-	// TODO GH #2083 Hide until all commands support JSON output
-	flags.MarkHidden("json")
 	viper.BindPFlags(flags)
 
 	flags.StringVar(&cmdRefDir, "cmdref", "", "Path to cmdref output directory")

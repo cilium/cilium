@@ -15,7 +15,6 @@
 package cmd
 
 import (
-	"encoding/json"
 	"fmt"
 	"io"
 	"os"
@@ -23,9 +22,9 @@ import (
 	"time"
 
 	"github.com/cilium/cilium/api/v1/health/models"
+	"github.com/cilium/cilium/pkg/command"
 
 	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
 )
 
 var (
@@ -85,12 +84,10 @@ var statusGetCmd = &cobra.Command{
 			sr = result.Payload
 		}
 
-		if msg, err := json.MarshalIndent(sr, "", "  "); err != nil {
-			Fatalf("Cannot marshal response %s", err.Error())
-		} else if viper.GetBool("json") {
-			w := tabwriter.NewWriter(os.Stdout, 2, 0, 3, ' ', 0)
-			fmt.Fprintf(w, "%s\n", msg)
-			w.Flush()
+		if command.OutputJSON() {
+			if err := command.PrintOutput(sr); err != nil {
+				os.Exit(1)
+			}
 		} else {
 			w := tabwriter.NewWriter(os.Stdout, 2, 0, 3, ' ', 0)
 			fmt.Fprintf(w, "Probe time:\t%s\n", sr.Timestamp)
@@ -120,4 +117,5 @@ func init() {
 		"Synchronously probe connectivity status")
 	statusGetCmd.Flags().BoolVarP(&verbose, "verbose", "", false,
 		"Print the result verbosely")
+	command.AddJSONOutput(statusGetCmd)
 }

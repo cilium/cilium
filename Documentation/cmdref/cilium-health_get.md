@@ -13,6 +13,12 @@ Display local cilium agent status
 cilium-health get
 ```
 
+### Options
+
+```
+  -o, --output string   json| jsonpath='{}'
+```
+
 ### Options inherited from parent commands
 
 ```

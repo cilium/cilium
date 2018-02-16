@@ -15,12 +15,12 @@
 package cmd
 
 import (
-	"encoding/json"
 	"fmt"
 	"os"
 	"text/tabwriter"
 
 	ciliumClient "github.com/cilium/cilium/pkg/client"
+	"github.com/cilium/cilium/pkg/command"
 
 	"github.com/spf13/cobra"
 )
@@ -37,8 +37,10 @@ var healthGetCmd = &cobra.Command{
 		}
 		sr := result.Payload
 
-		if _, err := json.MarshalIndent(sr, "", "  "); err != nil {
-			Fatalf("Cannot marshal response %s", err.Error())
+		if command.OutputJSON() {
+			if err := command.PrintOutput(sr); err != nil {
+				os.Exit(1)
+			}
 		} else {
 			w := tabwriter.NewWriter(os.Stdout, 2, 0, 3, ' ', 0)
 			fmt.Fprintf(w, "Daemon uptime:\t%s\n", sr.Uptime)
@@ -53,4 +55,5 @@ var healthGetCmd = &cobra.Command{
 
 func init() {
 	rootCmd.AddCommand(healthGetCmd)
+	command.AddJSONOutput(healthGetCmd)
 }
