@@ -111,6 +111,19 @@ func (kub *Kubectl) GetPodsNodes(namespace string, filter string) (map[string]st
 	return res.KVOutput(), nil
 }
 
+// GetPodsIPs returns a map with pod name as a key and pod IP name as value. It
+// only gets pods in the given namespace that match the provided filter. It
+// returns an error if pods cannot be retrieved correctly
+func (kub *Kubectl) GetPodsIPs(namespace string, filter string) (map[string]string, error) {
+	jsonFilter := `{range .items[*]}{@.metadata.name}{"="}{@.status.podIP}{"\n"}{end}`
+	res := kub.Exec(fmt.Sprintf("%s -n %s get pods -l %s -o jsonpath='%s'",
+		KubectlCmd, namespace, filter, jsonFilter))
+	if !res.WasSuccessful() {
+		return nil, fmt.Errorf("cannot retrieve pods: %s", res.CombineOutput())
+	}
+	return res.KVOutput(), nil
+}
+
 // GetEndpoints gets all of the endpoints in the given namespace that match the
 // provided filter.
 func (kub *Kubectl) GetEndpoints(namespace string, filter string) *CmdRes {
@@ -357,7 +370,7 @@ func (kub *Kubectl) WaitCleanAllTerminatingPods() error {
 	err := WithTimeout(
 		body,
 		"Pods are still not deleted after a timeout",
-		&TimeoutConfig{Timeout: HelperTimeout})
+		&TimeoutConfig{Timeout: HelperTimeout * time.Second})
 	return err
 }
 
@@ -725,18 +738,6 @@ func (kub *Kubectl) GetCiliumPodOnNode(namespace string, node string) (string, e
 	}
 
 	return res.Output().String(), nil
-}
-
-// TestConnectivityPodService runs HTTP connectivity test from pod to ClusterIP service
-func (kub *Kubectl) TestConnectivityPodService(from, to string) *CmdRes {
-	kub.logger.WithFields(logrus.Fields{
-		"from": from,
-		"to":   to,
-	}).Info("Testing connectivity")
-
-	cmd := fmt.Sprintf("kubectl get services %s --template \"{{.spec.clusterIP}}\" | xargs -I{} kubectl exec %s -- curl --retry-delay 1 --max-time 10 --retry 10 --fail -s {}/index.html", to, from)
-
-	return kub.GetCopy().Exec(cmd)
 }
 
 // EndpointMap maps an endpoint's container name to its Cilium API endpoint model.

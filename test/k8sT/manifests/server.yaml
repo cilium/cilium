@@ -2,6 +2,8 @@ apiVersion: v1
 kind: Service
 metadata:
   name: app{{.Index}}-service
+  labels:
+    zgroup: testapp
 spec:
   ports:
   - port: 80

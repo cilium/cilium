@@ -68,7 +68,7 @@ func GenerateManifestForEndpoints(endpointCount int, manifestPath string) (strin
 	}
 	lastServer := i
 
-	for i++; i < endpointCount; i++ {
+	for ; i < endpointCount; i++ {
 		buf.WriteString(separator)
 
 		vals := ManifestValues{i}
