@@ -25,7 +25,7 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-var _ = Describe("RuntimeKVStoreTest", func() {
+var _ = Describe("RuntimeValidatedKVStoreTest", func() {
 
 	var once sync.Once
 	var logger *logrus.Entry
