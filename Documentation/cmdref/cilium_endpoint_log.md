@@ -10,7 +10,7 @@ View endpoint status log
 View endpoint status log
 
 ```
-cilium endpoint log <endpoint id> [<json>=(enable|disable) ...]
+cilium endpoint log <endpoint id>
 ```
 
 ### Examples
@@ -22,7 +22,7 @@ cilium endpoint log 5421
 ### Options
 
 ```
-      --json   Print raw json from server
+  -o, --output string   json| jsonpath='{}'
 ```
 
 ### Options inherited from parent commands
