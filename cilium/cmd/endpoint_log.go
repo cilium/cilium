@@ -15,20 +15,18 @@
 package cmd
 
 import (
-	"bytes"
-	"encoding/json"
 	"fmt"
 	"os"
 	"text/tabwriter"
 
+	"github.com/cilium/cilium/pkg/command"
+
 	"github.com/spf13/cobra"
 )
 
-var printJSONGetEndpointLog bool
-
 // endpointLogCmd represents the endpoint_log command
 var endpointLogCmd = &cobra.Command{
-	Use:     "log <endpoint id> [<json>=(enable|disable) ...]",
+	Use:     "log <endpoint id>",
 	Short:   "View endpoint status log",
 	Example: "cilium endpoint log 5421",
 	Run: func(cmd *cobra.Command, args []string) {
@@ -39,7 +37,7 @@ var endpointLogCmd = &cobra.Command{
 
 func init() {
 	endpointCmd.AddCommand(endpointLogCmd)
-	endpointLogCmd.Flags().BoolVarP(&printJSONGetEndpointLog, "json", "", false, "Print raw json from server")
+	command.AddJSONOutput(endpointLogCmd)
 }
 
 func getEndpointLog(cmd *cobra.Command, args []string) {
@@ -50,18 +48,11 @@ func getEndpointLog(cmd *cobra.Command, args []string) {
 		Fatalf("Cannot get endpoint log %s: %s\n", eID, err)
 	}
 
-	switch {
-	case printJSONGetEndpointLog:
-		result := bytes.Buffer{}
-		enc := json.NewEncoder(&result)
-		enc.SetEscapeHTML(false)
-		enc.SetIndent("", "  ")
-		if err := enc.Encode(epLog); err != nil {
-			Fatalf("Cannot marshal endpoint log %s", err.Error())
-		} else {
-			fmt.Println(string(result.Bytes()))
+	if command.OutputJSON() {
+		if err := command.PrintOutput(epLog); err != nil {
+			os.Exit(1)
 		}
-	default:
+	} else {
 		w := tabwriter.NewWriter(os.Stdout, 2, 0, 3, ' ', 0)
 		fmt.Fprintf(w, "%s\t%s\t%s\t%v\n", "Timestamp", "Status", "State", "Message")
 		for _, entry := range epLog {

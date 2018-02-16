@@ -10,7 +10,7 @@ View endpoint health
 View endpoint health
 
 ```
-cilium endpoint health <endpoint id> [<json>=(enable|disable) ...]
+cilium endpoint health <endpoint id>
 ```
 
 ### Examples
@@ -22,7 +22,7 @@ cilium endpoint health 5421
 ### Options
 
 ```
-      --json   Print raw json from server
+  -o, --output string   json| jsonpath='{}'
 ```
 
 ### Options inherited from parent commands

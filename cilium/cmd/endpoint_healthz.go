@@ -15,20 +15,18 @@
 package cmd
 
 import (
-	"bytes"
-	"encoding/json"
 	"fmt"
 	"os"
 	"text/tabwriter"
 
+	"github.com/cilium/cilium/pkg/command"
+
 	"github.com/spf13/cobra"
 )
 
-var printJSONGetEndpointHealth bool
-
 // endpointHealthCmd represents the endpoint_healthz command
 var endpointHealthCmd = &cobra.Command{
-	Use:     "health <endpoint id> [<json>=(enable|disable) ...]",
+	Use:     "health <endpoint id>",
 	Short:   "View endpoint health",
 	Example: "cilium endpoint health 5421",
 	Run: func(cmd *cobra.Command, args []string) {
@@ -39,7 +37,7 @@ var endpointHealthCmd = &cobra.Command{
 
 func init() {
 	endpointCmd.AddCommand(endpointHealthCmd)
-	endpointHealthCmd.Flags().BoolVarP(&printJSONGetEndpointHealth, "json", "", false, "Print raw json from server")
+	command.AddJSONOutput(endpointHealthCmd)
 }
 
 func getEndpointHealth(cmd *cobra.Command, args []string) {
@@ -50,18 +48,11 @@ func getEndpointHealth(cmd *cobra.Command, args []string) {
 		Fatalf("Cannot get endpoint healthz %s: %s\n", eID, err)
 	}
 
-	switch {
-	case printJSONGetEndpointHealth:
-		result := bytes.Buffer{}
-		enc := json.NewEncoder(&result)
-		enc.SetEscapeHTML(false)
-		enc.SetIndent("", "  ")
-		if err := enc.Encode(epHealth); err != nil {
-			Fatalf("Cannot marshal endpoint healthz: %s", err)
-		} else {
-			fmt.Println(string(result.Bytes()))
+	if command.OutputJSON() {
+		if err := command.PrintOutput(epHealth); err != nil {
+			os.Exit(1)
 		}
-	default:
+	} else {
 		w := tabwriter.NewWriter(os.Stdout, 2, 0, 3, ' ', 0)
 		fmt.Fprintf(w, "Overall Health:\t%s\n", epHealth.OverallHealth)
 		fmt.Fprintf(w, "BPF Health:\t%s\n", epHealth.Bpf)
