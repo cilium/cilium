@@ -25,7 +25,7 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-var testName = "K8sHealthTest"
+var testName = "K8sValidatedHealthTest"
 
 var _ = Describe(testName, func() {
 
