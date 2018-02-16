@@ -264,7 +264,7 @@ func (k *kafkaRedirect) handleRequest(pair *connectionPair, req *kafka.RequestMe
 	// and destination port
 	srcIdentity, dstIPPort, err := k.conf.lookupNewDest(addr.String(), k.conf.listenPort)
 	if err != nil {
-		log.WithField("source",
+		scopedLog.WithField("source",
 			addr.String()).WithError(err).Error("Unable lookup original destination")
 		record.log(accesslog.TypeRequest, accesslog.VerdictError, kafka.ErrInvalidMessage,
 			fmt.Sprintf("Unable lookup original destination: %s", err))
@@ -327,11 +327,22 @@ func (k *kafkaRedirect) handleRequest(pair *connectionPair, req *kafka.RequestMe
 type kafkaReqMessageHander func(pair *connectionPair, req *kafka.RequestMessage)
 type kafkaRespMessageHander func(pair *connectionPair, req *kafka.ResponseMessage)
 
-func handleRequest(pair *connectionPair, c *proxyConnection,
+func handleRequests(done <-chan struct{}, pair *connectionPair, c *proxyConnection,
 	record *kafkaLogRecord, handler kafkaReqMessageHander) {
+	scopedLog := log.WithField(fieldID, pair.String())
 	consecutiveErrors := 0
 	for {
 		req, err := kafka.ReadRequest(c.conn)
+
+		// Ignore any error if the listen socket has been closed, i.e. the
+		// port redirect has been removed.
+		select {
+		case <-done:
+			scopedLog.Debug("Redirect removed, stop handling Kafka requests")
+			return
+		default:
+		}
+
 		if err != nil {
 			if err == io.EOF || err == io.ErrUnexpectedEOF {
 				c.Close()
@@ -345,12 +356,12 @@ func handleRequest(pair *connectionPair, c *proxyConnection,
 
 			consecutiveErrors++
 			if consecutiveErrors > consecutiveErrorsBarrier {
-				log.WithError(err).Error("Too many errors parsing, closing connection")
+				scopedLog.WithError(err).Error("too many errors parsing Kafka requests, closing connection")
 				c.Close()
 				return
 			}
 
-			log.WithError(err).Error("Unable to parse Kafka request")
+			scopedLog.WithError(err).Error("Unable to parse Kafka request")
 			continue
 		} else {
 			consecutiveErrors = 0
@@ -359,10 +370,21 @@ func handleRequest(pair *connectionPair, c *proxyConnection,
 	}
 }
 
-func handleResponse(pair *connectionPair, c *proxyConnection,
+func handleResponses(done <-chan struct{}, pair *connectionPair, c *proxyConnection,
 	record *kafkaLogRecord, handler kafkaRespMessageHander) {
+	scopedLog := log.WithField(fieldID, pair.String())
 	for {
 		rsp, err := kafka.ReadResponse(c.conn)
+
+		// Ignore any error if the listen socket has been closed, i.e. the
+		// port redirect has been removed.
+		select {
+		case <-done:
+			scopedLog.Debug("Redirect removed, stop handling Kafka responses")
+			return
+		default:
+		}
+
 		if err != nil {
 			if err == io.EOF || err == io.ErrUnexpectedEOF {
 				c.Close()
@@ -375,7 +397,7 @@ func handleResponse(pair *connectionPair, c *proxyConnection,
 					fmt.Sprintf("Unable to parse Kafka response: %s", err))
 			}
 
-			log.WithError(err).Error("Unable to parse Kafka response")
+			scopedLog.WithError(err).Error("Unable to parse Kafka response")
 			continue
 		} else {
 			handler(pair, rsp)
@@ -389,7 +411,7 @@ func (k *kafkaRedirect) handleRequestConnection(pair *connectionPair) {
 		"to":   pair.tx,
 	}), "Proxying request Kafka connection")
 
-	handleRequest(pair, pair.rx, nil, k.handleRequest)
+	handleRequests(k.socket.closing, pair, pair.rx, nil, k.handleRequest)
 }
 
 func (k *kafkaRedirect) handleResponseConnection(pair *connectionPair,
@@ -399,7 +421,7 @@ func (k *kafkaRedirect) handleResponseConnection(pair *connectionPair,
 		"to":   pair.rx,
 	}), "Proxying response Kafka connection")
 
-	handleResponse(pair, pair.tx, record, func(pair *connectionPair,
+	handleResponses(k.socket.closing, pair, pair.tx, record, func(pair *connectionPair,
 		rsp *kafka.ResponseMessage) {
 		pair.rx.Enqueue(rsp.GetRaw())
 	})
