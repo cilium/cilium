@@ -140,6 +140,57 @@ func timeSince(since time.Time) string {
 	return out
 }
 
+func stateUnhealthy(state string) bool {
+	return state == models.StatusStateWarning ||
+		state == models.StatusStateFailure
+}
+
+func statusUnhealthy(s *models.Status) bool {
+	if s != nil {
+		return stateUnhealthy(s.State)
+	}
+	return false
+}
+
+// FormatStatusResponseBrief writes a one-line status to the writer. If
+// everything ok, this is "ok", otherwise a message of the form "error in ..."
+func FormatStatusResponseBrief(w io.Writer, sr *models.StatusResponse) {
+	msg := ""
+
+	switch {
+	case statusUnhealthy(sr.Cilium):
+		msg = fmt.Sprintf("cilium: %s", sr.Cilium.Msg)
+	case statusUnhealthy(sr.ContainerRuntime):
+		msg = fmt.Sprintf("container runtime: %s", sr.ContainerRuntime.Msg)
+	case statusUnhealthy(sr.Kvstore):
+		msg = fmt.Sprintf("kvstore: %s", sr.Kvstore.Msg)
+	case sr.Kubernetes != nil && stateUnhealthy(sr.Kubernetes.State):
+		msg = fmt.Sprintf("kubernetes: %s", sr.Kubernetes.Msg)
+	case sr.Cluster != nil && statusUnhealthy(sr.Cluster.CiliumHealth):
+		msg = fmt.Sprintf("cilium-health: %s", sr.Cluster.CiliumHealth.Msg)
+	}
+
+	// Only bother looking at controller failures if everything else is ok
+	if msg == "" {
+		for _, ctrl := range sr.Controllers {
+			if ctrl.Status == nil {
+				continue
+			}
+			if ctrl.Status.LastFailureMsg != "" {
+				msg = fmt.Sprintf("controller %s: %s",
+					ctrl.Name, ctrl.Status.LastFailureMsg)
+				break
+			}
+		}
+	}
+
+	if msg == "" {
+		fmt.Fprintf(w, "OK\n")
+	} else {
+		fmt.Fprintf(w, "error in %s\n", msg)
+	}
+}
+
 // FormatStatusResponse writes a StatusResponse as a string to the writer.
 //
 // The parameters 'allAddresses', 'allControllers', 'allNodes', respectively,
