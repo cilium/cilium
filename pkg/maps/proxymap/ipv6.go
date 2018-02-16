@@ -15,8 +15,6 @@
 package proxymap
 
 import (
-	"bytes"
-	"encoding/binary"
 	"fmt"
 	"net"
 	"strconv"
@@ -55,24 +53,18 @@ func (v *Proxy6Value) HostPort() string {
 }
 
 var (
-	proxy6Map = bpf.NewMap("cilium_proxy6",
+	// Proxy6Map represents the BPF map for IPv6 proxy
+	Proxy6Map = bpf.NewMap("cilium_proxy6",
 		bpf.MapTypeHash,
 		int(unsafe.Sizeof(Proxy6Key{})),
 		int(unsafe.Sizeof(Proxy6Value{})),
 		8192,
 		0,
 		func(key []byte, value []byte) (bpf.MapKey, bpf.MapValue, error) {
-			keyBuf := bytes.NewBuffer(key)
-			valueBuf := bytes.NewBuffer(value)
-			k := Proxy6Key{}
-			v := Proxy6Value{}
+			k, v := Proxy6Key{}, Proxy6Value{}
 
-			if err := binary.Read(keyBuf, byteorder.Native, &k); err != nil {
-				return nil, nil, fmt.Errorf("Unable to convert key: %s", err)
-			}
-
-			if err := binary.Read(valueBuf, byteorder.Native, &v); err != nil {
-				return nil, nil, fmt.Errorf("Unable to convert key: %s", err)
+			if err := bpf.ConvertKeyValue(key, value, &k, &v); err != nil {
+				return nil, nil, err
 			}
 
 			return k.ToNetwork(), v.ToNetwork(), nil
@@ -80,7 +72,7 @@ var (
 )
 
 func init() {
-	bpf.OpenAfterMount(proxy6Map)
+	bpf.OpenAfterMount(Proxy6Map)
 }
 
 func (k Proxy6Key) NewValue() bpf.MapValue {
@@ -119,7 +111,7 @@ func (v *Proxy6Value) String() string {
 }
 
 func LookupEgress6(key *Proxy6Key) (*Proxy6Value, error) {
-	val, err := proxy6Map.Lookup(key.ToNetwork())
+	val, err := Proxy6Map.Lookup(key.ToNetwork())
 	if err != nil {
 		return nil, err
 	}
@@ -134,7 +126,7 @@ func GC6() int {
 	tsec := t / 1000000000
 	deleted := 0
 
-	if err := proxy6Map.Open(); err != nil {
+	if err := Proxy6Map.Open(); err != nil {
 		return 0
 	}
 
