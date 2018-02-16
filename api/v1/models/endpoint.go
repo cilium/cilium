@@ -23,6 +23,9 @@ type Endpoint struct {
 	// addressing
 	Addressing *EndpointAddressing `json:"addressing,omitempty"`
 
+	// configuration options for this endpoint
+	Configuration *Configuration `json:"configuration,omitempty"`
+
 	// ID assigned by container runtime
 	ContainerID string `json:"container-id,omitempty"`
 
@@ -85,6 +88,8 @@ type Endpoint struct {
 
 /* polymorph Endpoint addressing false */
 
+/* polymorph Endpoint configuration false */
+
 /* polymorph Endpoint container-id false */
 
 /* polymorph Endpoint container-name false */
@@ -128,6 +133,11 @@ func (m *Endpoint) Validate(formats strfmt.Registry) error {
 	var res []error
 
 	if err := m.validateAddressing(formats); err != nil {
+		// prop
+		res = append(res, err)
+	}
+
+	if err := m.validateConfiguration(formats); err != nil {
 		// prop
 		res = append(res, err)
 	}
@@ -179,6 +189,25 @@ func (m *Endpoint) validateAddressing(formats strfmt.Registry) error {
 		if err := m.Addressing.Validate(formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("addressing")
+			}
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (m *Endpoint) validateConfiguration(formats strfmt.Registry) error {
+
+	if swag.IsZero(m.Configuration) { // not required
+		return nil
+	}
+
+	if m.Configuration != nil {
+
+		if err := m.Configuration.Validate(formats); err != nil {
+			if ve, ok := err.(*errors.Validation); ok {
+				return ve.ValidateName("configuration")
 			}
 			return err
 		}
