@@ -465,6 +465,7 @@ func (e *Endpoint) GetModelRLocked() *models.Endpoint {
 
 	return &models.Endpoint{
 		ID:               int64(e.ID),
+		Configuration:    e.Opts.GetModel(),
 		ContainerID:      e.DockerID,
 		ContainerName:    e.ContainerName,
 		DockerEndpointID: e.DockerEndpointID,
