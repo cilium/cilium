@@ -114,7 +114,7 @@ func createKafkaRedirect(conf kafkaConfiguration) (Redirect, error) {
 
 	go func() {
 		for {
-			pair, err := socket.Accept()
+			pair, err := socket.Accept(false)
 			select {
 			case <-socket.closing:
 				// Don't report errors while the socket is being closed
@@ -252,7 +252,7 @@ func (k *kafkaRedirect) handleRequest(pair *connectionPair, req *kafka.RequestMe
 
 	record := k.newKafkaLogRecord(req)
 
-	addr := pair.rx.conn.RemoteAddr()
+	addr := pair.Rx.conn.RemoteAddr()
 	if addr == nil {
 		info := fmt.Sprint("RemoteAddr() is nil")
 		scopedLog.Warn(info)
@@ -287,11 +287,11 @@ func (k *kafkaRedirect) handleRequest(pair *connectionPair, req *kafka.RequestMe
 			return
 		}
 
-		pair.rx.Enqueue(resp.GetRaw())
+		pair.Rx.Enqueue(resp.GetRaw())
 		return
 	}
 
-	if pair.tx.Closed() {
+	if pair.Tx.Closed() {
 		marker := 0
 		if !k.conf.noMarker {
 			marker = GetMagicMark(k.ingress, int(srcIdentity))
@@ -311,7 +311,7 @@ func (k *kafkaRedirect) handleRequest(pair *connectionPair, req *kafka.RequestMe
 			return
 		}
 
-		pair.tx.SetConnection(txConn)
+		pair.Tx.SetConnection(txConn)
 
 		go k.handleResponseConnection(pair, record)
 	}
@@ -321,7 +321,7 @@ func (k *kafkaRedirect) handleRequest(pair *connectionPair, req *kafka.RequestMe
 	record.log(accesslog.TypeRequest, accesslog.VerdictForwarded, kafka.ErrNone, "")
 
 	// Write the entire raw request onto the outgoing connection
-	pair.tx.Enqueue(req.GetRaw())
+	pair.Tx.Enqueue(req.GetRaw())
 }
 
 type kafkaReqMessageHander func(pair *connectionPair, req *kafka.RequestMessage)
@@ -407,23 +407,23 @@ func handleResponses(done <-chan struct{}, pair *connectionPair, c *proxyConnect
 
 func (k *kafkaRedirect) handleRequestConnection(pair *connectionPair) {
 	flowdebug.Log(log.WithFields(logrus.Fields{
-		"from": pair.rx,
-		"to":   pair.tx,
+		"from": pair.Rx,
+		"to":   pair.Tx,
 	}), "Proxying request Kafka connection")
 
-	handleRequests(k.socket.closing, pair, pair.rx, nil, k.handleRequest)
+	handleRequests(k.socket.closing, pair, pair.Rx, nil, k.handleRequest)
 }
 
 func (k *kafkaRedirect) handleResponseConnection(pair *connectionPair,
 	record *kafkaLogRecord) {
 	flowdebug.Log(log.WithFields(logrus.Fields{
-		"from": pair.tx,
-		"to":   pair.rx,
+		"from": pair.Tx,
+		"to":   pair.Rx,
 	}), "Proxying response Kafka connection")
 
-	handleResponses(k.socket.closing, pair, pair.tx, record, func(pair *connectionPair,
+	handleResponses(k.socket.closing, pair, pair.Tx, record, func(pair *connectionPair,
 		rsp *kafka.ResponseMessage) {
-		pair.rx.Enqueue(rsp.GetRaw())
+		pair.Rx.Enqueue(rsp.GetRaw())
 	})
 
 	// log valid response

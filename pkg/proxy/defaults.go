@@ -26,5 +26,5 @@ const (
 	// proxyConnectionCloseTimeout is the time to wait before closing both
 	// connections of a proxied connection after one side has initiated the
 	// closing and the other side is not being closed.
-	proxyConnectionCloseTimeout = time.Minute * 2
+	proxyConnectionCloseTimeout = 1 * time.Minute
 )
