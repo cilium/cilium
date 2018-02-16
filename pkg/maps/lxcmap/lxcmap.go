@@ -15,8 +15,6 @@
 package lxcmap
 
 import (
-	"bytes"
-	"encoding/binary"
 	"fmt"
 	"net"
 	"strings"
@@ -41,15 +39,27 @@ const (
 )
 
 var (
-	mapInstance = bpf.NewMap(MapName,
+	// LXCMap represents the BPF map for endpoints
+	LXCMap = bpf.NewMap(MapName,
 		bpf.MapTypeHash,
 		int(unsafe.Sizeof(EndpointKey{})),
 		int(unsafe.Sizeof(EndpointInfo{})),
-		MaxKeys, 0)
+		MaxKeys,
+		0,
+		func(key []byte, value []byte) (bpf.MapKey, bpf.MapValue, error) {
+			k, v := EndpointKey{}, EndpointInfo{}
+
+			if err := bpf.ConvertKeyValue(key, value, &k, &v); err != nil {
+				return nil, nil, err
+			}
+
+			return k, v, nil
+		},
+	)
 )
 
 func init() {
-	bpf.OpenAfterMount(mapInstance)
+	bpf.OpenAfterMount(LXCMap)
 }
 
 // MAC is the __u64 representation of a MAC address.
@@ -172,7 +182,7 @@ func WriteEndpoint(f EndpointFrontend) error {
 
 	// FIXME: Revert on failure
 	for _, k := range f.GetBPFKeys() {
-		if err := mapInstance.Update(k, *info); err != nil {
+		if err := LXCMap.Update(k, *info); err != nil {
 			return err
 		}
 	}
@@ -184,12 +194,12 @@ func WriteEndpoint(f EndpointFrontend) error {
 func AddHostEntry(ip net.IP) error {
 	key := NewEndpointKey(ip)
 	ep := EndpointInfo{Flags: EndpointFlagHost}
-	return mapInstance.Update(key, ep)
+	return LXCMap.Update(key, ep)
 }
 
 // DeleteEntry deletes a single map entry
 func DeleteEntry(ip net.IP) error {
-	return mapInstance.Delete(NewEndpointKey(ip))
+	return LXCMap.Delete(NewEndpointKey(ip))
 }
 
 // DeleteElement deletes the endpoint using all keys which represent the
@@ -197,35 +207,11 @@ func DeleteEntry(ip net.IP) error {
 func DeleteElement(f EndpointFrontend) int {
 	errors := 0
 	for _, k := range f.GetBPFKeys() {
-		if err := mapInstance.Delete(k); err != nil {
+		if err := LXCMap.Delete(k); err != nil {
 			log.WithError(err).WithField(logfields.BPFMapKey, k).Warn("Unable to delete endpoint in BPF map")
 			errors++
 		}
 	}
 
 	return errors
-}
-
-func dumpParser(key []byte, value []byte) (bpf.MapKey, bpf.MapValue, error) {
-	k, v := EndpointKey{}, EndpointInfo{}
-
-	if err := binary.Read(bytes.NewBuffer(key), byteorder.Native, &k); err != nil {
-		return nil, nil, fmt.Errorf("Unable to convert key: %s", err)
-	}
-
-	if err := binary.Read(bytes.NewBuffer(value), byteorder.Native, &v); err != nil {
-		return nil, nil, fmt.Errorf("Unable to convert value: %s", err)
-	}
-
-	return k, v, nil
-}
-
-// DumpMap prints the content of the local endpoint map to stdout
-func DumpMap(callback bpf.DumpCallback) error {
-	return mapInstance.Dump(dumpParser, callback)
-}
-
-// DeleteAll deletes the content of the local endpoint map
-func DeleteAll() error {
-	return mapInstance.DeleteAll()
 }

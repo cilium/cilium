@@ -210,7 +210,7 @@ func (pm *PolicyMap) Close() error {
 func Validate(path string) (bool, error) {
 	dummy := bpf.NewMap(path, bpf.BPF_MAP_TYPE_HASH,
 		int(unsafe.Sizeof(policyKey{})),
-		int(unsafe.Sizeof(PolicyEntry{})), MAX_KEYS, 0)
+		int(unsafe.Sizeof(PolicyEntry{})), MAX_KEYS, 0, nil)
 
 	existing, err := bpf.OpenMap(path)
 	if err != nil {

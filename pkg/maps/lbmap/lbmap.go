@@ -41,9 +41,6 @@ const (
 type ServiceKey interface {
 	bpf.MapKey
 
-	// Returns human readable string representation
-	String() string
-
 	// Returns true if the key is of type IPv6
 	IsIPv6() bool
 
@@ -75,9 +72,6 @@ type ServiceKey interface {
 // ServiceValue is the interface describing protocol independent value for services map.
 type ServiceValue interface {
 	bpf.MapValue
-
-	// Returns human readable string representation
-	String() string
 
 	// Returns a RevNatKey matching a ServiceValue
 	RevNatKey() RevNatKey
@@ -119,6 +113,10 @@ type RRSeqValue struct {
 }
 
 func (s RRSeqValue) GetValuePtr() unsafe.Pointer { return unsafe.Pointer(&s) }
+
+func (s RRSeqValue) String() string {
+	return fmt.Sprintf("count=%d idx=%v", s.Count, s.Idx)
+}
 
 func UpdateService(key ServiceKey, value ServiceValue) error {
 	log.WithFields(logrus.Fields{
@@ -195,9 +193,6 @@ type RevNatKey interface {
 
 	// Returns the key value
 	GetKey() uint16
-
-	// Return human readable string
-	String() string
 }
 
 type RevNatValue interface {
@@ -205,9 +200,6 @@ type RevNatValue interface {
 
 	// ToNetwork converts fields to network byte order.
 	ToNetwork() RevNatValue
-
-	// Return human readable string
-	String() string
 }
 
 func UpdateRevNat(key RevNatKey, value RevNatValue) error {

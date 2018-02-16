@@ -15,8 +15,6 @@
 package lbmap
 
 import (
-	"bytes"
-	"encoding/binary"
 	"fmt"
 	"net"
 	"unsafe"
@@ -27,21 +25,57 @@ import (
 )
 
 var (
+	// Service6Map represents the BPF map for services in IPv6 load balancer
 	Service6Map = bpf.NewMap("cilium_lb6_services",
 		bpf.MapTypeHash,
 		int(unsafe.Sizeof(Service6Key{})),
 		int(unsafe.Sizeof(Service6Value{})),
-		maxEntries, 0)
+		maxEntries,
+		0,
+		func(key []byte, value []byte) (bpf.MapKey, bpf.MapValue, error) {
+			svcKey, svcVal := Service6Key{}, Service6Value{}
+
+			if err := bpf.ConvertKeyValue(key, value, &svcKey, &svcVal); err != nil {
+				return nil, nil, err
+			}
+
+			return svcKey.ToNetwork(), svcVal.ToNetwork(), nil
+		})
+	// RevNat6Map represents the BPF map for reverse NAT in IPv6 load balancer
 	RevNat6Map = bpf.NewMap("cilium_lb6_reverse_nat",
 		bpf.MapTypeHash,
 		int(unsafe.Sizeof(RevNat6Key{})),
 		int(unsafe.Sizeof(RevNat6Value{})),
-		maxEntries, 0)
+		maxEntries,
+		0,
+		func(key []byte, value []byte) (bpf.MapKey, bpf.MapValue, error) {
+			var ukey uint16
+			var revNat RevNat6Value
+
+			if err := bpf.ConvertKeyValue(key, value, &ukey, &revNat); err != nil {
+				return nil, nil, err
+			}
+
+			revKey := NewRevNat6Key(ukey)
+
+			return revKey.ToNetwork(), revNat.ToNetwork(), nil
+		})
+	// RRSeq6Map represents the BPF map for wrr sequences in IPv6 load balancer
 	RRSeq6Map = bpf.NewMap("cilium_lb6_rr_seq",
 		bpf.MapTypeHash,
 		int(unsafe.Sizeof(Service6Key{})),
 		int(unsafe.Sizeof(RRSeqValue{})),
-		maxFrontEnds, 0)
+		maxFrontEnds,
+		0,
+		func(key []byte, value []byte) (bpf.MapKey, bpf.MapValue, error) {
+			svcKey, svcVal := Service6Key{}, RRSeqValue{}
+
+			if err := bpf.ConvertKeyValue(key, value, &svcKey, &svcVal); err != nil {
+				return nil, nil, err
+			}
+
+			return svcKey.ToNetwork(), svcVal, nil
+		})
 )
 
 // Service6Key must match 'struct lb6_key' in "bpf/lib/common.h".
@@ -159,40 +193,6 @@ func (s *Service6Value) String() string {
 	return fmt.Sprintf("[%s]:%d (%d)", s.Address, s.Port, s.RevNat)
 }
 
-func Service6DumpParser(key []byte, value []byte) (bpf.MapKey, bpf.MapValue, error) {
-	keyBuf := bytes.NewBuffer(key)
-	valueBuf := bytes.NewBuffer(value)
-	svcKey := Service6Key{}
-	svcVal := Service6Value{}
-
-	if err := binary.Read(keyBuf, byteorder.Native, &svcKey); err != nil {
-		return nil, nil, fmt.Errorf("Unable to convert key: %s", err)
-	}
-
-	if err := binary.Read(valueBuf, byteorder.Native, &svcVal); err != nil {
-		return nil, nil, fmt.Errorf("Unable to convert value: %s", err)
-	}
-
-	return svcKey.ToNetwork(), svcVal.ToNetwork(), nil
-}
-
-func Service6RRSeqDumpParser(key []byte, value []byte) (bpf.MapKey, bpf.MapValue, error) {
-	keyBuf := bytes.NewBuffer(key)
-	valueBuf := bytes.NewBuffer(value)
-	svcKey := Service6Key{}
-	svcVal := RRSeqValue{}
-
-	if err := binary.Read(keyBuf, byteorder.Native, &svcKey); err != nil {
-		return nil, nil, fmt.Errorf("Unable to convert key: %s", err)
-	}
-
-	if err := binary.Read(valueBuf, byteorder.Native, &svcVal); err != nil {
-		return nil, nil, fmt.Errorf("Unable to convert key: %s", err)
-	}
-
-	return svcKey.ToNetwork(), svcVal, nil
-}
-
 type RevNat6Key struct {
 	Key uint16
 }
@@ -238,23 +238,4 @@ func (v *RevNat6Value) ToNetwork() RevNatValue {
 	n := *v
 	n.Port = byteorder.HostToNetwork(n.Port).(uint16)
 	return &n
-}
-
-func RevNat6DumpParser(key []byte, value []byte) (bpf.MapKey, bpf.MapValue, error) {
-	var revNat RevNat6Value
-	var ukey uint16
-
-	keyBuf := bytes.NewBuffer(key)
-	valueBuf := bytes.NewBuffer(value)
-
-	if err := binary.Read(keyBuf, byteorder.Native, &ukey); err != nil {
-		return nil, nil, fmt.Errorf("Unable to convert key: %s", err)
-	}
-	revKey := NewRevNat6Key(ukey)
-
-	if err := binary.Read(valueBuf, byteorder.Native, &revNat); err != nil {
-		return nil, nil, fmt.Errorf("Unable to convert value: %s", err)
-	}
-
-	return revKey.ToNetwork(), revNat.ToNetwork(), nil
 }

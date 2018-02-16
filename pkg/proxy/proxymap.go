@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package proxy
+package proxymap
 
 import (
 	"bytes"
@@ -55,15 +55,32 @@ func (v *Proxy4Value) HostPort() string {
 }
 
 var (
-	proxy4Map = bpf.NewMap("cilium_proxy4",
+	Proxy4Map = bpf.NewMap("cilium_proxy4",
 		bpf.MapTypeHash,
 		int(unsafe.Sizeof(Proxy4Key{})),
 		int(unsafe.Sizeof(Proxy4Value{})),
-		8192, 0).WithNonPersistent()
+		8192,
+		0,
+		func(key []byte, value []byte) (bpf.MapKey, bpf.MapValue, error) {
+			keyBuf := bytes.NewBuffer(key)
+			valueBuf := bytes.NewBuffer(value)
+			k := Proxy4Key{}
+			v := Proxy4Value{}
+
+			if err := binary.Read(keyBuf, byteorder.Native, &k); err != nil {
+				return nil, nil, fmt.Errorf("Unable to convert key: %s", err)
+			}
+
+			if err := binary.Read(valueBuf, byteorder.Native, &v); err != nil {
+				return nil, nil, fmt.Errorf("Unable to convert key: %s", err)
+			}
+
+			return k.ToNetwork(), v.ToNetwork(), nil
+		}).WithNonPersistent()
 )
 
 func init() {
-	bpf.OpenAfterMount(proxy4Map)
+	bpf.OpenAfterMount(Proxy4Map)
 }
 
 func (k Proxy4Key) NewValue() bpf.MapValue {
@@ -102,7 +119,7 @@ func (v *Proxy4Value) String() string {
 }
 
 func LookupEgress4(key *Proxy4Key) (*Proxy4Value, error) {
-	val, err := proxy4Map.Lookup(key.ToNetwork())
+	val, err := Proxy4Map.Lookup(key.ToNetwork())
 	if err != nil {
 		return nil, err
 	}
@@ -112,46 +129,21 @@ func LookupEgress4(key *Proxy4Key) (*Proxy4Value, error) {
 	return proxyVal.ToNetwork(), nil
 }
 
-func proxy4DumpParser(key []byte, value []byte) (bpf.MapKey, bpf.MapValue, error) {
-	keyBuf := bytes.NewBuffer(key)
-	valueBuf := bytes.NewBuffer(value)
-	k := Proxy4Key{}
-	v := Proxy4Value{}
-
-	if err := binary.Read(keyBuf, byteorder.Native, &k); err != nil {
-		return nil, nil, fmt.Errorf("Unable to convert key: %s", err)
-	}
-
-	if err := binary.Read(valueBuf, byteorder.Native, &v); err != nil {
-		return nil, nil, fmt.Errorf("Unable to convert key: %s", err)
-	}
-
-	return k.ToNetwork(), v.ToNetwork(), nil
-}
-
-func Dump(cb bpf.DumpCallback) error {
-	if err := proxy4Map.Open(); err != nil {
-		return err
-	}
-
-	return proxy4Map.Dump(proxy4DumpParser, cb)
-}
-
 func doGc(key unsafe.Pointer, nextKey unsafe.Pointer, deleted *int, time uint32) bool {
 	var entry Proxy4Value
 
-	err := bpf.GetNextKey(proxy4Map.GetFd(), key, nextKey)
+	err := bpf.GetNextKey(Proxy4Map.GetFd(), key, nextKey)
 	if err != nil {
 		return false
 	}
 
-	err = bpf.LookupElement(proxy4Map.GetFd(), nextKey, unsafe.Pointer(&entry))
+	err = bpf.LookupElement(Proxy4Map.GetFd(), nextKey, unsafe.Pointer(&entry))
 	if err != nil {
 		return false
 	}
 
 	if entry.Lifetime < time {
-		bpf.DeleteElement(proxy4Map.GetFd(), nextKey)
+		bpf.DeleteElement(Proxy4Map.GetFd(), nextKey)
 		(*deleted)++
 	}
 
@@ -163,7 +155,7 @@ func GC() int {
 	tsec := t / 1000000000
 	deleted := 0
 
-	if err := proxy4Map.Open(); err != nil {
+	if err := Proxy4Map.Open(); err != nil {
 		return 0
 	}
 

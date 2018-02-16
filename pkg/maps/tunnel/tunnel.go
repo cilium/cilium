@@ -15,14 +15,10 @@
 package tunnel
 
 import (
-	"bytes"
-	"encoding/binary"
-	"fmt"
 	"net"
 	"unsafe"
 
 	"github.com/cilium/cilium/pkg/bpf"
-	"github.com/cilium/cilium/pkg/byteorder"
 )
 
 const (
@@ -33,16 +29,27 @@ const (
 )
 
 var (
-	mapInstance = bpf.NewMap(mapName,
+	// TunnelMap represents the BPF map for tunnels
+	TunnelMap = bpf.NewMap(mapName,
 		bpf.MapTypeHash,
 		int(unsafe.Sizeof(tunnelEndpoint{})),
 		int(unsafe.Sizeof(tunnelEndpoint{})),
-		MaxEntries, 0)
+		MaxEntries,
+		0,
+		func(key []byte, value []byte) (bpf.MapKey, bpf.MapValue, error) {
+			k, v := tunnelEndpoint{}, tunnelEndpoint{}
+
+			if err := bpf.ConvertKeyValue(key, value, &k, &v); err != nil {
+				return nil, nil, err
+			}
+
+			return k, v, nil
+		})
 )
 
 func init() {
-	mapInstance.NonPersistent = true
-	bpf.OpenAfterMount(mapInstance)
+	TunnelMap.NonPersistent = true
+	bpf.OpenAfterMount(TunnelMap)
 }
 
 type tunnelEndpoint struct {
@@ -60,37 +67,10 @@ func (v tunnelEndpoint) NewValue() bpf.MapValue { return &tunnelEndpoint{} }
 // SetTunnelEndpoint adds/replaces a prefix => tunnel-endpoint mapping
 func SetTunnelEndpoint(prefix net.IP, endpoint net.IP) error {
 	key, val := newTunnelEndpoint(prefix), newTunnelEndpoint(endpoint)
-	return mapInstance.Update(key, val)
+	return TunnelMap.Update(key, val)
 }
 
 // DeleteTunnelEndpoint removes a prefix => tunnel-endpoint mapping
 func DeleteTunnelEndpoint(prefix net.IP) error {
-	return mapInstance.Delete(newTunnelEndpoint(prefix))
-}
-
-func dumpParser(key []byte, value []byte) (bpf.MapKey, bpf.MapValue, error) {
-	k, v := tunnelEndpoint{}, tunnelEndpoint{}
-
-	if err := binary.Read(bytes.NewBuffer(key), byteorder.Native, &k); err != nil {
-		return nil, nil, fmt.Errorf("Unable to convert key: %s", err)
-	}
-
-	if err := binary.Read(bytes.NewBuffer(value), byteorder.Native, &v); err != nil {
-		return nil, nil, fmt.Errorf("Unable to convert value: %s", err)
-	}
-
-	return k, v, nil
-}
-
-func dumpCallback(key bpf.MapKey, value bpf.MapValue) {
-	k, v := key.(tunnelEndpoint), value.(tunnelEndpoint)
-	fmt.Printf("%-20s %s\n", k, v)
-}
-
-// DumpMap prints the content of the tunnel endpoint map to stdout
-func DumpMap(callback bpf.DumpCallback) error {
-	if callback == nil {
-		return mapInstance.Dump(dumpParser, dumpCallback)
-	}
-	return mapInstance.Dump(dumpParser, callback)
+	return TunnelMap.Delete(newTunnelEndpoint(prefix))
 }
