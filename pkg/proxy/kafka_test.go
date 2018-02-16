@@ -260,7 +260,10 @@ func (k *proxyTestSuite) TestKafkaRedirect(c *C) {
 	_, err = producer.Produce("disallowedTopic", 0, messages...)
 	c.Assert(err, Equals, proto.ErrTopicAuthorizationFailed)
 
-	log.Debug("Testing done, closing socket")
+	log.Debug("Testing done, closing listen socket")
+	redir.Close(nil)
 
-	broker.Close()
+	// In order to see in the logs that the connections get closed after the
+	// 1-minute timeout, uncomment this line:
+	// time.Sleep(2 * Minute)
 }
