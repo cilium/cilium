@@ -26,7 +26,6 @@ import (
 	"github.com/cilium/cilium/pkg/policy"
 
 	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
 	"k8s.io/client-go/util/jsonpath"
 )
 
@@ -143,21 +142,6 @@ func dumpJSON(data interface{}, jsonPath string) error {
 	}
 	fmt.Println(buf.String())
 	return nil
-}
-
-// handleJSON checks if the "--json" flag was specified, and formats the object
-// provided to the console (or fails if this cannot be done).
-//
-// Returns true if the output has been printed, false otherwise.
-func handleJSON(data interface{}) bool {
-	if viper.GetBool("json") {
-		if err := dumpJSON(data, ""); err != nil {
-			os.Exit(1)
-		} else {
-			return true
-		}
-	}
-	return false
 }
 
 // Search 'result' for strings with escaped JSON inside, and expand the JSON.

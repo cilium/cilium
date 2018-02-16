@@ -49,6 +49,7 @@ var bpfPolicyListCmd = &cobra.Command{
 func init() {
 	bpfPolicyCmd.AddCommand(bpfPolicyListCmd)
 	bpfPolicyListCmd.Flags().BoolVarP(&printIDs, "numeric", "n", false, "Do not resolve IDs")
+	AddMultipleOutput(bpfPolicyListCmd)
 }
 
 func listMap(cmd *cobra.Command, args []string) {
@@ -75,14 +76,17 @@ func listMap(cmd *cobra.Command, args []string) {
 		Fatalf("Error while opening bpf Map: %s\n", err)
 	}
 
-	if handleJSON(statsMap) {
-		return
-	}
-	w := tabwriter.NewWriter(os.Stdout, 5, 0, 3, ' ', 0)
-	formatMap(w, statsMap)
-	w.Flush()
-	if len(statsMap) == 0 {
-		fmt.Printf("Policy stats empty. Perhaps the policy enforcement is disabled?\n")
+	if len(dumpOutput) > 0 {
+		if err := OutputPrinter(statsMap); err != nil {
+			os.Exit(1)
+		}
+	} else {
+		w := tabwriter.NewWriter(os.Stdout, 5, 0, 3, ' ', 0)
+		formatMap(w, statsMap)
+		w.Flush()
+		if len(statsMap) == 0 {
+			fmt.Printf("Policy stats empty. Perhaps the policy enforcement is disabled?\n")
+		}
 	}
 }
 

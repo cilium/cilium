@@ -16,7 +16,8 @@ cilium bpf policy get
 ### Options
 
 ```
-  -n, --numeric   Do not resolve IDs
+  -n, --numeric         Do not resolve IDs
+  -o, --output string   json| jsonpath='{}'
 ```
 
 ### Options inherited from parent commands
