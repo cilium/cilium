@@ -16,13 +16,16 @@ package client
 
 import (
 	"fmt"
+	"io"
 	"net"
 	"net/http"
 	"net/url"
 	"os"
 	"strings"
+	"time"
 
 	clientapi "github.com/cilium/cilium/api/v1/health/client"
+	"github.com/cilium/cilium/api/v1/health/models"
 	"github.com/cilium/cilium/pkg/health/defaults"
 
 	runtime_client "github.com/go-openapi/runtime/client"
@@ -101,4 +104,55 @@ func Hint(err error) error {
 		return fmt.Errorf("%s\nIs the agent running?", e)
 	}
 	return fmt.Errorf("%s", e)
+}
+
+func formatConnectivityStatus(w io.Writer, cs *models.ConnectivityStatus, path, indent string) {
+	status := cs.Status
+	if status == "" {
+		latency := time.Duration(cs.Latency)
+		status = fmt.Sprintf("OK, RTT=%s", latency)
+	}
+	fmt.Fprintf(w, "%s%s:\t%s\n", indent, path, status)
+}
+
+func formatPathStatus(w io.Writer, name string, cp *models.PathStatus, indent string, verbose bool) {
+	if cp == nil {
+		if verbose {
+			fmt.Fprintf(w, "%s%s connectivity:\tnil\n", indent, name)
+		}
+		return
+	}
+	fmt.Fprintf(w, "%s%s connectivity to %s:\n", indent, name, cp.IP)
+	indent = fmt.Sprintf("%s  ", indent)
+
+	statuses := map[string]*models.ConnectivityStatus{
+		"ICMP":        cp.Icmp,
+		"HTTP via L3": cp.HTTP,
+	}
+	for name, status := range statuses {
+		if status != nil {
+			formatConnectivityStatus(w, status, name, indent)
+		}
+	}
+}
+
+// FormatHealthStatusResponse writes a HealthStatusResponse as a string to the
+// writer.
+func FormatHealthStatusResponse(w io.Writer, sr *models.HealthStatusResponse, verbose bool) {
+	fmt.Fprintf(w, "Probe time:\t%s\n", sr.Timestamp)
+	fmt.Fprintf(w, "Nodes:\n")
+	for _, node := range sr.Nodes {
+		localStr := ""
+		if sr.Local != nil && node.Name == sr.Local.Name {
+			localStr = " (localhost)"
+		}
+		fmt.Fprintf(w, "  %s%s:\n", node.Name, localStr)
+		formatPathStatus(w, "Host", node.Host.PrimaryAddress, "    ", verbose)
+		if verbose && len(node.Host.SecondaryAddresses) > 0 {
+			for _, addr := range node.Host.SecondaryAddresses {
+				formatPathStatus(w, "Secondary", addr, "      ", verbose)
+			}
+		}
+		formatPathStatus(w, "Endpoint", node.Endpoint, "    ", verbose)
+	}
 }
