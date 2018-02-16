@@ -134,6 +134,14 @@ func (s *proxySocket) Accept(cascadeClose bool) (*connectionPair, error) {
 		return nil, err
 	}
 
+	// Enable keepalive on all accepted connections to force data on the
+	// TCP connection in regular intervals to ensure that the datapath
+	// never expires state associated with this connection.
+	if err = setKeepAlive(c); err != nil {
+		c.Close()
+		return nil, err
+	}
+
 	var afterClose func(*connectionPair)
 	if cascadeClose {
 		afterClose = s.connectionPairClosed
