@@ -15,37 +15,39 @@
 package cmd
 
 import (
-	"fmt"
 	"os"
 
 	"github.com/cilium/cilium/common"
-	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/command"
 	"github.com/cilium/cilium/pkg/maps/tunnel"
 
 	"github.com/spf13/cobra"
 )
 
-var bpfTunnelList = make(map[string]string)
+const (
+	tunnelTitle = "TUNNEL"
+)
 
 var bpfTunnelListCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List tunnel endpoint entries",
 	Run: func(cmd *cobra.Command, args []string) {
 		common.RequireRootPrivilege("cilium bpf tunnel list")
+
+		tunnelList := make(map[string][]string)
+		if err := tunnel.TunnelMap.Dump(tunnelList); err != nil {
+			os.Exit(1)
+		}
+
 		if command.OutputJSON() {
-			tunnel.DumpMap(dumpToJSON)
-			if err := command.PrintOutput(bpfTunnelList); err != nil {
+			if err := command.PrintOutput(tunnelList); err != nil {
 				os.Exit(1)
 			}
 			return
 		}
-		tunnel.DumpMap(nil)
-	},
-}
 
-func dumpToJSON(key bpf.MapKey, value bpf.MapValue) {
-	bpfTunnelList[fmt.Sprintf("%s", key)] = fmt.Sprintf("%s", value)
+		TablePrinter(tunnelTitle, destinationTitle, tunnelList)
+	},
 }
 
 func init() {
