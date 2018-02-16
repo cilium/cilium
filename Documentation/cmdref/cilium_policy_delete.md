@@ -16,7 +16,8 @@ cilium policy delete [<labels>]
 ### Options
 
 ```
-      --all   Delete all policies
+      --all             Delete all policies
+  -o, --output string   json| jsonpath='{}'
 ```
 
 ### Options inherited from parent commands

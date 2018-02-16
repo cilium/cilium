@@ -13,6 +13,12 @@ List connection tracking entries
 cilium bpf ct list
 ```
 
+### Options
+
+```
+  -o, --output string   json| jsonpath='{}'
+```
+
 ### Options inherited from parent commands
 
 ```

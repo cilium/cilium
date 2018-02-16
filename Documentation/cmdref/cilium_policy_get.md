@@ -13,6 +13,12 @@ Display policy node information
 cilium policy get [<labels>]
 ```
 
+### Options
+
+```
+  -o, --output string   json| jsonpath='{}'
+```
+
 ### Options inherited from parent commands
 
 ```
