@@ -221,7 +221,7 @@ var _ = AfterEach(func() {
 	err = ioutil.WriteFile(
 		filePath,
 		config.TestLogWriter.Bytes(),
-		os.ModePerm)
+		helpers.LogPerm)
 	if err != nil {
 		log.WithError(err).Errorf("cannot create log file '%s'", filePath)
 		return

@@ -510,7 +510,7 @@ func (s *SSHMeta) ReportDump() {
 			err = ioutil.WriteFile(
 				fmt.Sprintf("%s/%s", testPath, fmt.Sprintf(logfile, ep)),
 				res.CombineOutput().Bytes(),
-				os.ModePerm)
+				LogPerm)
 
 			if err != nil {
 				s.logger.WithError(err).Errorf("cannot create test results for '%s'", command)
@@ -527,7 +527,7 @@ func (s *SSHMeta) ReportDump() {
 		err = ioutil.WriteFile(
 			fmt.Sprintf("%s/%s", testPath, fmt.Sprintf("identity_%s.txt", ep)),
 			res.CombineOutput().Bytes(),
-			os.ModePerm)
+			LogPerm)
 		if err != nil {
 			s.logger.WithError(err).Errorf("cannot create test results for identity get")
 		}
