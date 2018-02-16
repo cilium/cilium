@@ -1,4 +1,4 @@
-# Copyright 2017 Authors of Cilium
+# Copyright 2018 Authors of Cilium
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -64,3 +64,5 @@ $(GO_TARGETS): $(PROTO_SOURCES) Makefile.api
 		echo Compiling protos in $$path; \
 		$(PROTOC) -I $(ENVOY_API_PROTO_PATH) -I $(CILIUM_PROTO_PATH) $(PROTO_DEPS) --go_out=plugins=grpc$(GO_MAPPINGS):$(GO_OUT) $${path}*.proto; \
 	done
+
+.PHONY: all

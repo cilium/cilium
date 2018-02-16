@@ -43,8 +43,8 @@ debug: envoy-debug api
 
 release: envoy-release api
 
-api: Makefile.api
-	make -f Makefile.api all
+api: force-non-root Makefile.api
+	$(MAKE) -f Makefile.api all
 
 envoy: force-non-root
 	$(BAZEL) $(BAZEL_OPTS) build $(BAZEL_BUILD_OPTS) //:envoy

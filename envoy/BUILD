@@ -73,7 +73,7 @@ envoy_cc_library(
     repository = "@envoy",
     deps = [
         ":accesslog_proto",
-	":cilium_l7policy_cc",
+        ":cilium_l7policy_cc",
         "@envoy//source/exe:envoy_common_lib",
     ],
 )
@@ -103,7 +103,7 @@ envoy_cc_library(
         "@envoy//source/common/common:assert_lib",
         "@envoy//source/common/common:logger_lib",
         "@envoy//source/common/network:address_lib",
-	":cilium_bpf_metadata_cc",
+        ":cilium_bpf_metadata_cc",
     ],
 )
 
