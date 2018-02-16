@@ -190,7 +190,7 @@ func (t *Target) GetManifestName(spec *TestSpec) string {
 // GetManifestPath returns the manifest path for the target using the spec
 // parameter
 func (t *Target) GetManifestPath(spec *TestSpec) string {
-	return fmt.Sprintf("%s/%s", helpers.BasePath, t.GetManifestName(spec))
+	return fmt.Sprintf("%s/%s", helpers.GetBasePath(), t.GetManifestName(spec))
 }
 
 // CreateApplyManifest creates the manifest for the type of the target and
@@ -350,7 +350,7 @@ func (t *TestSpec) RunTest(kub *helpers.Kubectl) {
 func (t *TestSpec) Destroy(delay time.Duration) error {
 	manifestToDestroy := []string{
 		t.GetManifestsPath(),
-		fmt.Sprintf("%s/%s", helpers.BasePath, t.NetworkPolicyName()),
+		fmt.Sprintf("%s/%s", helpers.GetBasePath(), t.NetworkPolicyName()),
 		fmt.Sprintf("%s", t.Destination.GetManifestPath(t)),
 	}
 
@@ -373,7 +373,7 @@ func (t *TestSpec) GetManifestName() string {
 
 // GetManifestsPath returns the `TestSpec` manifest path
 func (t *TestSpec) GetManifestsPath() string {
-	return fmt.Sprintf("%s/%s", helpers.BasePath, t.GetManifestName())
+	return fmt.Sprintf("%s/%s", helpers.GetBasePath(), t.GetManifestName())
 }
 
 // CreateManifests creates a new pod manifest. It sets a random prefix for the
@@ -599,7 +599,7 @@ func (t *TestSpec) NetworkPolicyApply() error {
 
 	_, err = t.Kub.CiliumPolicyAction(
 		helpers.KubeSystemNamespace,
-		fmt.Sprintf("%s/%s", helpers.BasePath, t.NetworkPolicyName()),
+		fmt.Sprintf("%s/%s", helpers.GetBasePath(), t.NetworkPolicyName()),
 		helpers.KubectlApply,
 		helpers.HelperTimeout)
 

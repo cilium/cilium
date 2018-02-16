@@ -47,6 +47,14 @@ func (s *SSHMeta) String() string {
 
 }
 
+func GetLoSSHMeta() *SSHMeta {
+	return &SSHMeta{
+		sshClient: GetSSHClient("127.0.0.1", 22, "john"),
+		rawConfig: []byte(""),
+		nodeName:  "lo",
+	}
+}
+
 // GetVagrantSSHMeta returns a SSHMeta initialized based on the provided
 // SSH-config target.
 func GetVagrantSSHMeta(vmName string) *SSHMeta {

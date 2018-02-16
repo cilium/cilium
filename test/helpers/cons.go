@@ -16,7 +16,10 @@ package helpers
 
 import (
 	"fmt"
+	"os"
 	"time"
+
+	"github.com/cilium/cilium/test/config"
 )
 
 var (
@@ -25,10 +28,6 @@ var (
 )
 
 const (
-	// BasePath is the path in the Vagrant VMs to which the test directory
-	// is mounted
-	BasePath = "/src/test/"
-
 	// ManifestBase tells ginkgo suite where to look for manifests
 	K8sManifestBase = "k8sT/manifests"
 
@@ -165,9 +164,22 @@ var ciliumKubCLICommands = map[string]string{
 	"cilium status --all-controllers": "status.txt",
 }
 
+// BasePath is the path to which the test directory is mounted
+func GetBasePath() string {
+	var BasePath string
+
+	if config.CiliumTestConfig.UseVagrant {
+		BasePath = "/src/test/"
+	} else {
+		BasePath = os.Getenv("GOPATH") + "/src/github.com/cilium/cilium/test/"
+	}
+
+	return BasePath
+}
+
 //GetFilePath returns the absolute path of the provided filename
 func GetFilePath(filename string) string {
-	return fmt.Sprintf("%s%s", BasePath, filename)
+	return fmt.Sprintf("%s%s", GetBasePath(), filename)
 }
 
 // K8s1VMName is the name of the Kubernetes master node when running K8s tests.

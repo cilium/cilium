@@ -78,7 +78,7 @@ var _ = Describe("NightlyEpsMeasurement", func() {
 
 	endpointCount := 20
 	manifestPath := "tmp.yaml"
-	vagrantManifestPath := path.Join(helpers.BasePath, manifestPath)
+	vagrantManifestPath := path.Join(helpers.GetBasePath(), manifestPath)
 	var lastServer int
 
 	Measure(fmt.Sprintf("%d endpoint creation", endpointCount), func(b Benchmarker) {
