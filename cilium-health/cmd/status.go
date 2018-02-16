@@ -26,8 +26,9 @@ import (
 )
 
 var (
-	probe   bool
-	verbose bool
+	probe    bool
+	succinct bool
+	verbose  bool
 )
 
 // statusGetCmd represents the status command
@@ -58,7 +59,7 @@ var statusGetCmd = &cobra.Command{
 			}
 		} else {
 			w := tabwriter.NewWriter(os.Stdout, 2, 0, 3, ' ', 0)
-			clientPkg.FormatHealthStatusResponse(w, sr, verbose)
+			clientPkg.FormatHealthStatusResponse(w, sr, true, succinct, verbose, 0)
 			w.Flush()
 		}
 	},
@@ -68,7 +69,9 @@ func init() {
 	rootCmd.AddCommand(statusGetCmd)
 	statusGetCmd.Flags().BoolVarP(&probe, "probe", "", false,
 		"Synchronously probe connectivity status")
+	statusGetCmd.Flags().BoolVarP(&succinct, "succinct", "", false,
+		"Print the result succinctly (one node per line)")
 	statusGetCmd.Flags().BoolVarP(&verbose, "verbose", "", false,
-		"Print the result verbosely")
+		"Print more information in results")
 	command.AddJSONOutput(statusGetCmd)
 }

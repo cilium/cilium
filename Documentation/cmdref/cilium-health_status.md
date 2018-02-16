@@ -18,7 +18,8 @@ cilium-health status
 ```
   -o, --output string   json| jsonpath='{}'
       --probe           Synchronously probe connectivity status
-      --verbose         Print the result verbosely
+      --succinct        Print the result succinctly (one node per line)
+      --verbose         Print more information in results
 ```
 
 ### Options inherited from parent commands
