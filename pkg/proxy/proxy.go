@@ -29,6 +29,7 @@ import (
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/maps/proxymap"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/proxy/accesslog"
@@ -365,7 +366,7 @@ func (p *Proxy) CreateOrUpdateRedirect(l4 *policy.L4Filter, id string, source Pr
 		go func() {
 			for {
 				time.Sleep(time.Duration(10) * time.Second)
-				if deleted := GC(); deleted > 0 {
+				if deleted := proxymap.GC(); deleted > 0 {
 					log.WithField("count", deleted).
 						Debug("Evicted entries from proxy table")
 				}
