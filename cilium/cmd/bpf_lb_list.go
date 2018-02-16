@@ -15,12 +15,9 @@
 package cmd
 
 import (
-	"fmt"
 	"os"
-	"text/tabwriter"
 
 	"github.com/cilium/cilium/common"
-	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/command"
 	"github.com/cilium/cilium/pkg/maps/lbmap"
 
@@ -34,7 +31,6 @@ const (
 )
 
 var listRevNAT bool
-var serviceList = map[string][]string{}
 
 // bpfCtListCmd represents the bpf_ct_list command
 var bpfLBListCmd = &cobra.Command{
@@ -44,14 +40,23 @@ var bpfLBListCmd = &cobra.Command{
 		common.RequireRootPrivilege("cilium bpf lb list")
 
 		var firstTitle string
+		serviceList := make(map[string][]string)
 		if listRevNAT {
 			firstTitle = idTitle
-			lbmap.RevNat4Map.Dump(lbmap.RevNat4DumpParser, dumpRevNAT)
-			lbmap.RevNat6Map.Dump(lbmap.RevNat6DumpParser, dumpRevNAT)
+			if err := lbmap.RevNat4Map.Dump(serviceList); err != nil {
+				os.Exit(1)
+			}
+			if err := lbmap.RevNat6Map.Dump(serviceList); err != nil {
+				os.Exit(1)
+			}
 		} else {
 			firstTitle = serviceAddressTitle
-			lbmap.Service4Map.Dump(lbmap.Service4DumpParser, dumpService)
-			lbmap.Service6Map.Dump(lbmap.Service6DumpParser, dumpService)
+			if err := lbmap.Service4Map.Dump(serviceList); err != nil {
+				os.Exit(1)
+			}
+			if err := lbmap.Service6Map.Dump(serviceList); err != nil {
+				os.Exit(1)
+			}
 		}
 
 		if command.OutputJSON() {
@@ -61,21 +66,7 @@ var bpfLBListCmd = &cobra.Command{
 			return
 		}
 
-		w := tabwriter.NewWriter(os.Stdout, 5, 0, 3, ' ', 0)
-
-		fmt.Fprintf(w, "%s\t%s\t\n", firstTitle, backendAddressTitle)
-
-		for key, backends := range serviceList {
-			for k, v := range backends {
-				if k == 0 {
-					fmt.Fprintf(w, "%s\t%s\t\n", key, v)
-				} else {
-					fmt.Fprintf(w, "%s\t%s\t\n", "", v)
-				}
-			}
-		}
-
-		w.Flush()
+		TablePrinter(firstTitle, backendAddressTitle, serviceList)
 	},
 }
 
@@ -83,18 +74,4 @@ func init() {
 	bpfLBCmd.AddCommand(bpfLBListCmd)
 	bpfLBListCmd.Flags().BoolVarP(&listRevNAT, "revnat", "", false, "List reverse NAT entries")
 	command.AddJSONOutput(bpfLBListCmd)
-}
-
-func dumpService(key bpf.MapKey, value bpf.MapValue) {
-	svcKey := key.(lbmap.ServiceKey)
-	svcValue := value.(lbmap.ServiceValue)
-	if svcKey.GetBackend() != 0 {
-		serviceList[svcKey.String()] = append(serviceList[svcKey.String()], svcValue.String())
-	}
-}
-
-func dumpRevNAT(key bpf.MapKey, value bpf.MapValue) {
-	revNatK := key.(lbmap.RevNatKey)
-	revNatV := value.(lbmap.RevNatValue)
-	serviceList[revNatK.String()] = append(serviceList[revNatK.String()], revNatV.String())
 }

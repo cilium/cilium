@@ -15,12 +15,9 @@
 package cmd
 
 import (
-	"fmt"
 	"os"
-	"text/tabwriter"
 
 	"github.com/cilium/cilium/common"
-	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/command"
 	"github.com/cilium/cilium/pkg/maps/lxcmap"
 
@@ -32,15 +29,16 @@ const (
 	localEndpointInfoTitle = "LOCAL ENDPOINT INFO"
 )
 
-var bpfEndpointList = make(map[string]string)
-
 var bpfEndpointListCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List local endpoint entries",
 	Run: func(cmd *cobra.Command, args []string) {
 		common.RequireRootPrivilege("cilium bpf endpoint list")
 
-		lxcmap.DumpMap(dumpEndpoint)
+		bpfEndpointList := make(map[string][]string)
+		if err := lxcmap.LXCMap.Dump(bpfEndpointList); err != nil {
+			os.Exit(1)
+		}
 
 		if command.OutputJSON() {
 			if err := command.PrintOutput(bpfEndpointList); err != nil {
@@ -49,21 +47,8 @@ var bpfEndpointListCmd = &cobra.Command{
 			return
 		}
 
-		w := tabwriter.NewWriter(os.Stdout, 5, 0, 3, ' ', 0)
-
-		fmt.Fprintf(w, "%s\t%s\t\n", ipAddressTitle, localEndpointInfoTitle)
-
-		for k, v := range bpfEndpointList {
-			fmt.Fprintf(w, "%s\t%s\t\n", k, v)
-		}
-
-		w.Flush()
+		TablePrinter(ipAddressTitle, localEndpointInfoTitle, bpfEndpointList)
 	},
-}
-
-func dumpEndpoint(key bpf.MapKey, value bpf.MapValue) {
-	endpointKey, endpointValue := key.(lxcmap.EndpointKey), value.(lxcmap.EndpointInfo)
-	bpfEndpointList[endpointKey.String()] = endpointValue.String()
 }
 
 func init() {
