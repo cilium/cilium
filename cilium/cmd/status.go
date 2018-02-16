@@ -38,6 +38,7 @@ var (
 	allAddresses   bool
 	allControllers bool
 	allNodes       bool
+	brief          bool
 )
 
 func init() {
@@ -45,6 +46,7 @@ func init() {
 	statusCmd.Flags().BoolVar(&allAddresses, "all-addresses", false, "Show all allocated addresses, not just count")
 	statusCmd.Flags().BoolVar(&allControllers, "all-controllers", false, "Show all controllers, not just failing")
 	statusCmd.Flags().BoolVar(&allNodes, "all-nodes", false, "Show all nodes, not just localhost")
+	statusCmd.Flags().BoolVar(&brief, "brief", false, "Only print a one-line status message")
 	statusCmd.Flags().BoolVar(&verbose, "verbose", false, "Equivalent to --all-addresses --all-controllers --all-nodes")
 	command.AddJSONOutput(statusCmd)
 }
@@ -62,7 +64,8 @@ func statusDaemon() {
 		if err := command.PrintOutput(resp.Payload); err != nil {
 			os.Exit(1)
 		}
-		return
+	} else if brief {
+		pkg.FormatStatusResponseBrief(os.Stdout, resp.Payload)
 	} else {
 		sr := resp.Payload
 		w := tabwriter.NewWriter(os.Stdout, 2, 0, 3, ' ', 0)
