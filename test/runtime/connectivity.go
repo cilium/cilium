@@ -293,6 +293,7 @@ var _ = Describe("RuntimeValidatedConntrackTest", func() {
 	}
 
 	clientServerConnectivity := func(bidirectional bool) {
+		By("============= Starting Connectivity Test ============= ")
 
 		By("Getting IPs of each spawned container")
 		clientDockerNetworking, err := vm.ContainerInspectNet(helpers.Client)
@@ -416,6 +417,20 @@ var _ = Describe("RuntimeValidatedConntrackTest", func() {
 		Expect(res.WasSuccessful()).Should(BeTrue(), fmt.Sprintf(
 			"container %s cannot netperf to %s %s", helpers.Client, helpers.Server, serverDockerNetworking[helpers.IPv4]))
 
+		By("============= Finished Connectivity Test ============= ")
+	}
+
+	// helper function which sets the configuration option configurationOptionName
+	// for endpoint endpointID to desiredConfigurationOptionValue.
+	applyAndVerifyConfigApplied := func(endpointID, configurationOptionName, desiredConfigurationOptionValue string) {
+		By(fmt.Sprintf("Setting %s Option for Endpoint %s to %s", configurationOptionName, endpointID, desiredConfigurationOptionValue))
+		status := vm.EndpointSetConfig(endpointID, configurationOptionName, desiredConfigurationOptionValue)
+		Expect(status).Should(BeTrue(), fmt.Sprintf("could not set %s=%s on endpoint %q", desiredConfigurationOptionValue, desiredConfigurationOptionValue, endpointID))
+
+		By(fmt.Sprintf("Checking that %s Option for Endpoint %s was set to %s", configurationOptionName, endpointID, desiredConfigurationOptionValue))
+		retrievedConfigurationValue, err := vm.GetEndpointMutableConfigurationOption(endpointID, configurationOptionName)
+		Expect(err).To(BeNil())
+		Expect(retrievedConfigurationValue).To(Equal(desiredConfigurationOptionValue))
 	}
 
 	BeforeEach(func() {
@@ -448,30 +463,39 @@ var _ = Describe("RuntimeValidatedConntrackTest", func() {
 	})
 
 	It("Conntrack-related configuration options for endpoints", func() {
-
-		By("ConntrackLocal configuration option disabled for each endpoint")
+		By("Getting Endpoint IDs")
 		endpoints, err := vm.GetEndpointsIds()
 		Expect(err).Should(BeNil(), "could not get endpoint IDs")
 
-		conntrackOptionModes := []string{helpers.OptionDisabled, helpers.OptionEnabled}
-		for _, conntrackOptionMode := range conntrackOptionModes {
-			By(fmt.Sprintf("Testing ConntrackLocal endpoint configuration option: %s", conntrackOptionMode))
-			status := vm.EndpointSetConfig(endpoints[helpers.Server], helpers.OptionConntrackLocal, conntrackOptionMode)
-			Expect(status).Should(BeTrue(), fmt.Sprintf("could not set %s=%s on endpoint %q", helpers.OptionConntrackLocal, helpers.OptionDisabled, helpers.Server))
+		// Check that endpoint IDs exist in map.
+		for _, endpointName := range []string{helpers.Server, helpers.Client} {
+			_, exists := endpoints[endpointName]
+			Expect(exists).To(BeTrue(), "unable to retrieve endpoint ID for endpoint %s", endpointName)
+			By(fmt.Sprintf("Endpoint ID for %s = %s", endpointName, endpoints[endpointName]))
 
-			status = vm.EndpointSetConfig(endpoints[helpers.Client], helpers.OptionConntrackLocal, conntrackOptionMode)
-			Expect(status).Should(BeTrue(), fmt.Sprintf("could not set %s=%s on endpoint %q", helpers.OptionConntrackLocal, helpers.OptionDisabled, helpers.Client))
+		}
+
+		endpointsToConfigure := []string{endpoints[helpers.Server], endpoints[helpers.Client]}
+
+		// Iterate through possible values to configure ConntrackLocal option,
+		// apply to both endpoints, verify the option configuration change matches
+		// what was performed, and then run connectivity test with endpoints.
+		conntrackLocalOptionModes := []string{helpers.OptionDisabled, helpers.OptionEnabled}
+		for _, conntrackLocalOptionMode := range conntrackLocalOptionModes {
+			By(fmt.Sprintf("Testing ConntrackLocal endpoint configuration option: %s", conntrackLocalOptionMode))
+
+			for _, endpointToConfigure := range endpointsToConfigure {
+				applyAndVerifyConfigApplied(endpointToConfigure, helpers.OptionConntrackLocal, conntrackLocalOptionMode)
+			}
 
 			clientServerConnectivity(true)
 		}
 
 		By("Testing Conntrack endpoint configuration option disabled")
 
-		status := vm.EndpointSetConfig(endpoints[helpers.Server], helpers.OptionConntrack, helpers.OptionDisabled)
-		Expect(status).Should(BeTrue(), fmt.Sprintf("could not set %s=%s on endpoint %q", helpers.OptionConntrack, helpers.OptionDisabled, helpers.Server))
-
-		status = vm.EndpointSetConfig(endpoints[helpers.Client], helpers.OptionConntrack, helpers.OptionDisabled)
-		Expect(status).Should(BeTrue(), fmt.Sprintf("could not set %s=%s on endpoint %q", helpers.OptionConntrack, helpers.OptionDisabled, helpers.Client))
+		for _, endpointToConfigure := range endpointsToConfigure {
+			applyAndVerifyConfigApplied(endpointToConfigure, helpers.OptionConntrack, helpers.OptionDisabled)
+		}
 
 		clientServerConnectivity(false)
 	})
