@@ -183,7 +183,7 @@ func reportMap(path string, reportCmds map[string]string, node *SSHMeta) {
 		err := ioutil.WriteFile(
 			fmt.Sprintf("%s/%s", path, logfile),
 			res.CombineOutput().Bytes(),
-			os.ModePerm)
+			LogPerm)
 		if err != nil {
 			log.WithError(err).Errorf("cannot create test results for command '%s'", cmd)
 		}

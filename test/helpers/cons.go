@@ -16,6 +16,7 @@ package helpers
 
 import (
 	"fmt"
+	"os"
 	"time"
 )
 
@@ -92,6 +93,10 @@ const (
 	// IP Address families.
 	IPv4 = "IPv4"
 	IPv6 = "IPv6"
+
+	// LogPerm is the permission for files that are created by this framework
+	// that contain logs, outputs of Cilium CLI commands, etc.
+	LogPerm = os.FileMode(0666)
 
 	// Configuration options for endpoints. Copied from endpoint/endpoint.go
 	// TODO: these should be converted into types for use in configuration

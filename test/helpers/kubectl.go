@@ -669,7 +669,7 @@ func (kub *Kubectl) CiliumReportDump(namespace string, pod string) {
 			err = ioutil.WriteFile(
 				fmt.Sprintf("%s/%s", testPath, fmt.Sprintf(logfile, ep)),
 				res.CombineOutput().Bytes(),
-				os.ModePerm)
+				LogPerm)
 			if err != nil {
 				kub.logger.WithError(err).Errorf(
 					"cannot create test results for command '%s'", command)
@@ -684,7 +684,7 @@ func (kub *Kubectl) CiliumReportDump(namespace string, pod string) {
 		err = ioutil.WriteFile(
 			fmt.Sprintf("%s/%s", testPath, fmt.Sprintf("identity_%s.txt", id)),
 			res.CombineOutput().Bytes(),
-			os.ModePerm)
+			LogPerm)
 		if err != nil {
 			kub.logger.WithError(err).Errorf("cannot create test results for command '%s'", cmd)
 		}
