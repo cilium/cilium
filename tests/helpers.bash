@@ -581,7 +581,7 @@ function dump_cli_output {
   local EPS=$(cilium endpoint list | tail -n+3 | grep '^[0-9]' | awk '{print $1}')
   for ep in ${EPS} ; do
     cilium endpoint get ${ep} > ${DIR}/endpoint_get_${ep}.txt
-    cilium bpf policy list ${ep} > ${DIR}/bpf_policy_list_${ep}.txt
+    cilium bpf policy get ${ep} > ${DIR}/bpf_policy_list_${ep}.txt
   done
   cilium service list > ${DIR}/service_list.txt
   local SVCS=$(cilium service list | tail -n+2 | awk '{print $1}')
@@ -611,7 +611,7 @@ function dump_cli_output_k8s {
   local EPS=$(kubectl exec -n ${NAMESPACE} ${POD} -- cilium endpoint list | tail -n+3 | grep '^[0-9]' | awk '{print $1}')
   for ep in ${EPS} ; do
     kubectl exec -n ${NAMESPACE} ${POD} -- cilium endpoint get ${ep} > ${DIR}/${POD}_endpoint_get_${ep}.txt
-    kubectl exec -n ${NAMESPACE} ${POD} -- cilium bpf policy list ${ep} > ${DIR}/${POD}_bpf_policy_list_${ep}.txt
+    kubectl exec -n ${NAMESPACE} ${POD} -- cilium bpf policy get ${ep} > ${DIR}/${POD}_bpf_policy_list_${ep}.txt
   done
   kubectl exec -n ${NAMESPACE} ${POD} -- cilium service list > ${DIR}/${POD}_service_list.txt
   local SVCS=$(kubectl exec -n ${NAMESPACE} ${POD} -- cilium service list | tail -n+2 | awk '{print $1}')

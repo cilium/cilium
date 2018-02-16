@@ -485,8 +485,8 @@ func (s *SSHMeta) ReportFailed(commands ...string) {
 func (s *SSHMeta) ReportDump() {
 
 	reportEndpointsCommands := map[string]string{
-		"cilium endpoint get %s":         "endpoint_%s.txt",
-		"sudo cilium bpf policy list %s": "bpf_policy_list_%s.txt",
+		"cilium endpoint get %s":        "endpoint_%s.txt",
+		"sudo cilium bpf policy get %s": "bpf_policy_get_%s.txt",
 	}
 
 	testPath, err := ReportDirectory()

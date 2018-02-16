@@ -37,12 +37,11 @@ var printIDs bool
 
 // bpfPolicyListCmd represents the bpf_policy_list command
 var bpfPolicyListCmd = &cobra.Command{
-	Use:     "list",
-	Aliases: []string{"get"},
-	Short:   "List contents of a policy BPF map",
-	PreRun:  requireEndpointID,
+	Use:    "get",
+	Short:  "List contents of a policy BPF map",
+	PreRun: requireEndpointID,
 	Run: func(cmd *cobra.Command, args []string) {
-		common.RequireRootPrivilege("cilium bpf policy list")
+		common.RequireRootPrivilege("cilium bpf policy get")
 		listMap(cmd, args)
 	},
 }

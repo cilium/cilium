@@ -65,7 +65,7 @@ run "docker exec -ti client ping6 -c 4 $SERVER_IP"
 
 desc "Show policy table of server container"
 desc "The table maintains a packets/bytes counter for each allowed consumer"
-run "sudo cilium bpf policy list $SERVER_ID"
+run "sudo cilium bpf policy get $SERVER_ID"
 
 desc "Policies are directional and stateful, allowing client->server does not"
 desc "automatically allow the reverse direction server->client. Only reply"
