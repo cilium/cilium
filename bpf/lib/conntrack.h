@@ -28,7 +28,7 @@
 #include "l4.h"
 #include "nat46.h"
 
-#define CT_DEFAULT_LIFETIME	360
+#define CT_DEFAULT_LIFETIME	43200
 #define CT_CLOSE_TIMEOUT	10
 
 #ifdef CONNTRACK
