@@ -21,6 +21,7 @@ import (
 
 	"github.com/cilium/cilium/api/v1/models"
 	pkg "github.com/cilium/cilium/pkg/client"
+	"github.com/cilium/cilium/pkg/command"
 
 	"github.com/spf13/cobra"
 )
@@ -38,15 +39,15 @@ var allControllers bool
 func init() {
 	rootCmd.AddCommand(statusCmd)
 	statusCmd.Flags().BoolVar(&allControllers, "all-controllers", false, "Show all controllers, not just failing")
-	AddMultipleOutput(statusCmd)
+	command.AddJSONOutput(statusCmd)
 }
 
 func statusDaemon() {
 	if resp, err := client.Daemon.GetHealthz(nil); err != nil {
 		fmt.Fprintf(os.Stderr, "%s\n", pkg.Hint(err))
 		os.Exit(1)
-	} else if len(dumpOutput) > 0 {
-		if err := OutputPrinter(resp.Payload); err != nil {
+	} else if command.OutputJSON() {
+		if err := command.PrintOutput(resp.Payload); err != nil {
 			os.Exit(1)
 		}
 		return

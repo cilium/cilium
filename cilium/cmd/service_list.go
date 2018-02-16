@@ -22,6 +22,7 @@ import (
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/common/types"
+	"github.com/cilium/cilium/pkg/command"
 
 	"github.com/spf13/cobra"
 )
@@ -37,7 +38,7 @@ var serviceListCmd = &cobra.Command{
 
 func init() {
 	serviceCmd.AddCommand(serviceListCmd)
-	AddMultipleOutput(serviceListCmd)
+	command.AddJSONOutput(serviceListCmd)
 }
 
 func listServices(cmd *cobra.Command, args []string) {
@@ -94,8 +95,8 @@ func printServiceList(w *tabwriter.Writer, list []*models.Service) {
 		return svcs[i].ID <= svcs[j].ID
 	})
 
-	if len(dumpOutput) > 0 {
-		if err := OutputPrinter(svcs); err != nil {
+	if command.OutputJSON() {
+		if err := command.PrintOutput(svcs); err != nil {
 			os.Exit(1)
 		}
 		return

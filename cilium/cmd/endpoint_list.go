@@ -21,6 +21,7 @@ import (
 	"text/tabwriter"
 
 	"github.com/cilium/cilium/api/v1/models"
+	"github.com/cilium/cilium/pkg/command"
 	"github.com/cilium/cilium/pkg/endpoint"
 
 	"github.com/go-openapi/swag"
@@ -47,7 +48,7 @@ var endpointListCmd = &cobra.Command{
 func init() {
 	endpointCmd.AddCommand(endpointListCmd)
 	endpointListCmd.Flags().BoolVar(&noHeaders, "no-headers", false, "Do not print headers")
-	AddMultipleOutput(endpointListCmd)
+	command.AddJSONOutput(endpointListCmd)
 }
 
 func listEndpoint(w *tabwriter.Writer, ep *models.Endpoint, id string, label string) {
@@ -101,8 +102,8 @@ func printEndpointList(w *tabwriter.Writer, eps []*models.Endpoint) {
 		fmt.Fprintf(w, "\t%s\t%s\t\t\t\t\t\n", enforcementTitle, enforcementTitle)
 	}
 
-	if len(dumpOutput) > 0 {
-		if err := OutputPrinter(eps); err != nil {
+	if command.OutputJSON() {
+		if err := command.PrintOutput(eps); err != nil {
 			os.Exit(1)
 		}
 		return

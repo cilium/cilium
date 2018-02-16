@@ -24,6 +24,7 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/daemon/options"
+	"github.com/cilium/cilium/pkg/command"
 	"github.com/cilium/cilium/pkg/option"
 
 	"github.com/spf13/cobra"
@@ -51,7 +52,7 @@ func init() {
 	rootCmd.AddCommand(configCmd)
 	configCmd.Flags().BoolVarP(&listOptions, "list-options", "", false, "List available options")
 	configCmd.Flags().IntVarP(&numPages, "num-pages", "n", 0, "Number of pages for perf ring buffer. New values have to be > 0")
-	AddMultipleOutput(configCmd)
+	command.AddJSONOutput(configCmd)
 }
 
 func dumpConfig(Opts map[string]string) {
@@ -85,8 +86,8 @@ func configDaemon(cmd *cobra.Command, opts []string) {
 			dOpts["MonitorNumPages"] = strconv.Itoa(numPages)
 		}
 	} else if len(opts) == 0 {
-		if len(dumpOutput) > 0 {
-			if err := OutputPrinter(resp.Configuration); err != nil {
+		if command.OutputJSON() {
+			if err := command.PrintOutput(resp.Configuration); err != nil {
 				os.Exit(1)
 			}
 			return

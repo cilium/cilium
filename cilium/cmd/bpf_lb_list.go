@@ -21,6 +21,7 @@ import (
 
 	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/pkg/bpf"
+	"github.com/cilium/cilium/pkg/command"
 	"github.com/cilium/cilium/pkg/maps/lbmap"
 
 	"github.com/spf13/cobra"
@@ -53,8 +54,8 @@ var bpfLBListCmd = &cobra.Command{
 			lbmap.Service6Map.Dump(lbmap.Service6DumpParser, dumpService)
 		}
 
-		if len(dumpOutput) > 0 {
-			if err := OutputPrinter(serviceList); err != nil {
+		if command.OutputJSON() {
+			if err := command.PrintOutput(serviceList); err != nil {
 				os.Exit(1)
 			}
 			return
@@ -81,7 +82,7 @@ var bpfLBListCmd = &cobra.Command{
 func init() {
 	bpfLBCmd.AddCommand(bpfLBListCmd)
 	bpfLBListCmd.Flags().BoolVarP(&listRevNAT, "revnat", "", false, "List reverse NAT entries")
-	AddMultipleOutput(bpfLBListCmd)
+	command.AddJSONOutput(bpfLBListCmd)
 }
 
 func dumpService(key bpf.MapKey, value bpf.MapValue) {

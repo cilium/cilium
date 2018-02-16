@@ -25,6 +25,7 @@ import (
 	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/byteorder"
+	"github.com/cilium/cilium/pkg/command"
 	"github.com/cilium/cilium/pkg/maps/policymap"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
@@ -49,7 +50,7 @@ var bpfPolicyListCmd = &cobra.Command{
 func init() {
 	bpfPolicyCmd.AddCommand(bpfPolicyListCmd)
 	bpfPolicyListCmd.Flags().BoolVarP(&printIDs, "numeric", "n", false, "Do not resolve IDs")
-	AddMultipleOutput(bpfPolicyListCmd)
+	command.AddJSONOutput(bpfPolicyListCmd)
 }
 
 func listMap(cmd *cobra.Command, args []string) {
@@ -76,8 +77,8 @@ func listMap(cmd *cobra.Command, args []string) {
 		Fatalf("Error while opening bpf Map: %s\n", err)
 	}
 
-	if len(dumpOutput) > 0 {
-		if err := OutputPrinter(statsMap); err != nil {
+	if command.OutputJSON() {
+		if err := command.PrintOutput(statsMap); err != nil {
 			os.Exit(1)
 		}
 	} else {

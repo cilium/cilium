@@ -20,6 +20,7 @@ import (
 
 	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/pkg/bpf"
+	"github.com/cilium/cilium/pkg/command"
 	"github.com/cilium/cilium/pkg/maps/tunnel"
 
 	"github.com/spf13/cobra"
@@ -32,9 +33,9 @@ var bpfTunnelListCmd = &cobra.Command{
 	Short: "List tunnel endpoint entries",
 	Run: func(cmd *cobra.Command, args []string) {
 		common.RequireRootPrivilege("cilium bpf tunnel list")
-		if len(dumpOutput) > 0 {
+		if command.OutputJSON() {
 			tunnel.DumpMap(dumpToJSON)
-			if err := OutputPrinter(bpfTunnelList); err != nil {
+			if err := command.PrintOutput(bpfTunnelList); err != nil {
 				os.Exit(1)
 			}
 			return
@@ -49,5 +50,5 @@ func dumpToJSON(key bpf.MapKey, value bpf.MapValue) {
 
 func init() {
 	bpfTunnelCmd.AddCommand(bpfTunnelListCmd)
-	AddMultipleOutput(bpfTunnelListCmd)
+	command.AddJSONOutput(bpfTunnelListCmd)
 }

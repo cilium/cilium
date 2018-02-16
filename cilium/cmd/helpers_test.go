@@ -13,29 +13,6 @@ type CMDHelpersSuite struct{}
 
 var _ = Suite(&CMDHelpersSuite{})
 
-func (s *CMDHelpersSuite) TestDumpJSON(c *C) {
-	type sampleData struct {
-		ID   int
-		Name string
-	}
-
-	tt := sampleData{
-		ID:   1,
-		Name: "test",
-	}
-
-	err := dumpJSON(tt, "")
-	c.Assert(err, IsNil)
-
-	err = dumpJSON(tt, "{.Id}")
-	c.Assert(err, IsNil)
-
-	err = dumpJSON(tt, "{{.Id}}")
-	if err == nil {
-		c.Fatalf("Dumpjson jsonpath no error with invalid path '%s'", err)
-	}
-}
-
 func (s *CMDHelpersSuite) TestExpandNestedJSON(c *C) {
 	buf := bytes.NewBufferString("not json at all")
 	_, err := expandNestedJSON(*buf)

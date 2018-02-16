@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/cilium/cilium/pkg/command"
 	"github.com/cilium/cilium/pkg/version"
 
 	"github.com/spf13/cobra"
@@ -35,12 +36,12 @@ var versionCmd = &cobra.Command{
 
 func init() {
 	rootCmd.AddCommand(versionCmd)
-	AddMultipleOutput(versionCmd)
+	command.AddJSONOutput(versionCmd)
 }
 
 func getVersion(cmd *cobra.Command, args []string) {
 	// -o argument is set
-	if len(dumpOutput) > 0 {
+	if command.OutputJSON() {
 		data := struct {
 			Client version.CiliumVersion
 			Daemon version.CiliumVersion
@@ -48,7 +49,7 @@ func getVersion(cmd *cobra.Command, args []string) {
 			getClientVersionAsStruct(),
 			getDaemonVersionAsStruct(),
 		}
-		if err := OutputPrinter(data); err != nil {
+		if err := command.PrintOutput(data); err != nil {
 			os.Exit(1)
 		}
 		return

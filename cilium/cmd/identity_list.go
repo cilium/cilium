@@ -21,6 +21,8 @@ import (
 
 	identityApi "github.com/cilium/cilium/api/v1/client/policy"
 	pkg "github.com/cilium/cilium/pkg/client"
+	"github.com/cilium/cilium/pkg/command"
+
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/spf13/cobra"
 )
@@ -39,7 +41,7 @@ func init() {
 	identityCmd.AddCommand(identityListCmd)
 	identityListCmd.Flags().BoolVarP(&reservedIDs, "reserved", "", false,
 		"List all reserved identities")
-	AddMultipleOutput(identityListCmd)
+	command.AddJSONOutput(identityListCmd)
 }
 
 func listIdentities(args []string) {
@@ -68,8 +70,8 @@ func listIdentities(args []string) {
 	}
 	result["identities"] = identities.Payload
 
-	if len(dumpOutput) > 0 {
-		if err := OutputPrinter(result); err != nil {
+	if command.OutputJSON() {
+		if err := command.PrintOutput(result); err != nil {
 			os.Exit(1)
 		}
 		return
