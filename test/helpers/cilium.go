@@ -80,6 +80,30 @@ func (s *SSHMeta) EndpointGet(id string) *models.Endpoint {
 	return nil
 }
 
+// GetEndpointMutableConfigurationOption returns the value of the mutable
+// configuration option optionName for the endpoint with ID endpointID, or an
+// error if optionName's corresponding value cannot be retrieved for the
+// endpoint.
+func (s *SSHMeta) GetEndpointMutableConfigurationOption(endpointID, optionName string) (configurationOptionValue string, err error) {
+	endpointModel := s.EndpointGet(endpointID)
+	if endpointModel == nil {
+		return "", fmt.Errorf("endpoint model for endpoint %s is nil", endpointID)
+	}
+
+	endpointConfiguration := endpointModel.Configuration
+	if endpointConfiguration == nil {
+		return "", fmt.Errorf("nil configuration of endpoint %s", endpointID)
+	}
+
+	// Endpoint currently only has mutable options.
+	configurationOptionValue, configOptionExists := endpointModel.Configuration.Mutable[optionName]
+	if !configOptionExists {
+		return "", fmt.Errorf("provided configuration option %s does not exist in endpoint %s configuration", optionName, endpointID)
+	}
+
+	return configurationOptionValue, nil
+}
+
 // EndpointStatusLog returns the status log API model for the specified endpoint.
 // Returns nil if no endpoint corresponds to the provided ID.
 func (s *SSHMeta) EndpointStatusLog(id string) *models.EndpointStatusLog {
