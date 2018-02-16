@@ -21,6 +21,7 @@ import (
 	"os"
 	"regexp"
 	"strconv"
+	"text/tabwriter"
 
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/identity"
@@ -87,6 +88,26 @@ func requireServiceID(cmd *cobra.Command, args []string) {
 	if args[0] == "" {
 		Usagef(cmd, "Empty service id argument")
 	}
+}
+
+// TablePrinter prints the map[string][]string, which is an usual representation
+// of dumped BPF map, using tabwriter.
+func TablePrinter(firstTitle, secondTitle string, data map[string][]string) {
+	w := tabwriter.NewWriter(os.Stdout, 5, 0, 3, ' ', 0)
+
+	fmt.Fprintf(w, "%s\t%s\t\n", firstTitle, secondTitle)
+
+	for key, value := range data {
+		for k, v := range value {
+			if k == 0 {
+				fmt.Fprintf(w, "%s\t%s\t\n", key, v)
+			} else {
+				fmt.Fprintf(w, "%s\t%s\t\n", "", v)
+			}
+		}
+	}
+
+	w.Flush()
 }
 
 // Search 'result' for strings with escaped JSON inside, and expand the JSON.
