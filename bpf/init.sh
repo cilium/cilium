@@ -224,6 +224,10 @@ function bpf_load()
 HOST_DEV1="cilium_host"
 HOST_DEV2="cilium_net"
 
+# Reset all BPF proxy redirections
+rm "/sys/fs/bpf/tc/globals/cilium_proxy4" 2> /dev/null || true
+rm "/sys/fs/bpf/tc/globals/cilium_proxy6" 2> /dev/null || true
+
 $LIB/run_probes.sh $LIB $RUNDIR
 
 setup_veth_pair $HOST_DEV1 $HOST_DEV2
