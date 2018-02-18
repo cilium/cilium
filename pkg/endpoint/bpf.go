@@ -416,12 +416,12 @@ func updateCT(owner Owner, e *Endpoint, epIPs []net.IP,
 // Must be called with endpoint.BuildMutex held.
 func (e *Endpoint) addNewRedirectsFromMap(owner Owner, m policy.L4PolicyMap, desiredRedirects map[string]bool) error {
 	for k, l4 := range m {
-		redirect := uint16(l4.L7RedirectPort)
-		if l4.IsRedirect() && redirect == 0 {
+		if l4.IsRedirect() {
 			redirect, err := owner.UpdateProxyRedirect(e, &l4)
 			if err != nil {
 				return err
 			}
+
 			l4.L7RedirectPort = int(redirect)
 			m[k] = l4
 
