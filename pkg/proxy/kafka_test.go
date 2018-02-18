@@ -265,5 +265,5 @@ func (k *proxyTestSuite) TestKafkaRedirect(c *C) {
 
 	// In order to see in the logs that the connections get closed after the
 	// 1-minute timeout, uncomment this line:
-	// time.Sleep(2 * Minute)
+	// time.Sleep(2 * time.Minute)
 }
