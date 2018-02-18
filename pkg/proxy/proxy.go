@@ -348,8 +348,10 @@ func fillEgressDestinationInfo(info *accesslog.EndpointInfo, ipstr string) {
 func (p *Proxy) CreateOrUpdateRedirect(l4 *policy.L4Filter, id string, source ProxySource,
 	notifier accesslog.LogRecordNotifier, wg *completion.WaitGroup) (Redirect, error) {
 	gcOnce.Do(func() {
+		accesslog.SetNotifier(notifier)
+
 		if lf := viper.GetString("access-log"); lf != "" {
-			if err := accesslog.OpenLogfile(lf, notifier); err != nil {
+			if err := accesslog.OpenLogfile(lf); err != nil {
 				log.WithError(err).WithField(accesslog.FieldFilePath, lf).
 					Warn("Cannot open L7 access log")
 			}
