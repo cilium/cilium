@@ -78,13 +78,18 @@ type LogRecordNotifier interface {
 }
 
 // OpenLogfile opens a file for logging
-func OpenLogfile(lf string, n LogRecordNotifier) error {
+func OpenLogfile(lf string) error {
 	logMutex.Lock()
 	defer logMutex.Unlock()
 
-	notifier = n
-
 	return openLogfileLocked(lf)
+}
+
+// SetNotifier sets the notifier to call for all L7 records
+func SetNotifier(n LogRecordNotifier) {
+	logMutex.Lock()
+	notifier = n
+	logMutex.Unlock()
 }
 
 // Called with lock held.
@@ -125,13 +130,17 @@ func (l *LogRecord) Log() {
 	logMutex.Lock()
 	defer logMutex.Unlock()
 
+	l.Metadata = metadata
+
+	if notifier != nil {
+		notifier.NewProxyLogRecord(l)
+	}
+
 	if logger == nil {
 		flowdebug.Log(log.WithField(FieldFilePath, logPath),
 			"Skipping writing to access log (logger nil)")
 		return
 	}
-
-	l.Metadata = metadata
 
 	b, err := json.Marshal(*l)
 	if err != nil {
@@ -139,6 +148,4 @@ func (l *LogRecord) Log() {
 	} else {
 		logString(string(b), true)
 	}
-
-	notifier.NewProxyLogRecord(l)
 }
