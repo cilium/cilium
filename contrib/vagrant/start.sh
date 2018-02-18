@@ -36,8 +36,9 @@ export 'CILIUM_IPV6_NODE_CIDR'=${CILIUM_IPV6_NODE_CIDR:-"FD02::"}
 export 'VM_MEMORY'=${MEMORY:-3072}
 # Number of CPUs
 export 'VM_CPUS'=${CPUS:-2}
-# K8STAG tag is only set if K8S option is active
-export 'K8STAG'=${K8S+"-k8s"}
+# VM_BASENAME tag is only set if K8S option is active
+export 'VM_BASENAME'="runtime"
+export 'VM_BASENAME'=${K8S+"k8s"}
 # Set VAGRANT_DEFAULT_PROVIDER to virtualbox
 export 'VAGRANT_DEFAULT_PROVIDER'=${VAGRANT_DEFAULT_PROVIDER:-"virtualbox"}
 # Sets the default cilium TUNNEL_MODE to "vxlan"
@@ -86,13 +87,9 @@ if [ -n "${K8S}" ]; then
 fi
 
 # Use of IPv6 'documentation block' to provide example
-if [ -n "\$(grep DISTRIB_RELEASE=14.04 /etc/lsb-release)" ]; then
-    ip -6 a a ${vm_ipv6}/16 dev eth1
-else
-    ip -6 a a ${vm_ipv6}/16 dev enp0s8
-fi
+ip -6 a a ${vm_ipv6}/16 dev enp0s8
 
-echo '${master_ipv6} cilium${K8STAG}-master' >> /etc/hosts
+echo '${master_ipv6} ${VM_BASENAME}1' >> /etc/hosts
 sysctl -w net.ipv6.conf.all.forwarding=1
 EOF
 }
@@ -111,18 +108,13 @@ function write_master_route(){
     if [ -z "${K8S}" ]; then
         cat <<EOF >> "${filename}"
 # Master route
-if [ -n "\$(grep DISTRIB_RELEASE=14.04 /etc/lsb-release)" ]; then
-    ip r a 10.${master_ipv4_suffix}.0.1/32 dev eth1
-    ip r a 10.${master_ipv4_suffix}.0.0/16 via 10.${master_ipv4_suffix}.0.1
-else
-    ip r a 10.${master_ipv4_suffix}.0.1/32 dev enp0s8
-    ip r a 10.${master_ipv4_suffix}.0.0/16 via 10.${master_ipv4_suffix}.0.1
-fi
+ip r a 10.${master_ipv4_suffix}.0.1/32 dev enp0s8
+ip r a 10.${master_ipv4_suffix}.0.0/16 via 10.${master_ipv4_suffix}.0.1
 EOF
     fi
 
     cat <<EOF >> "${filename}"
-echo "${worker_ipv6} cilium${K8STAG}-node-${node_index}" >> /etc/hosts
+echo "${worker_ipv6} k8s${node_index}" >> /etc/hosts
 
 EOF
 }
@@ -149,18 +141,13 @@ EOF
         worker_internal_ipv6=${IPV6_INTERNAL_CIDR}$(printf "%02X" "${i}")
         if [ -z "${K8S}" ]; then
             cat <<EOF >> "${filename}"
-if [ -n "\$(grep DISTRIB_RELEASE=14.04 /etc/lsb-release)" ]; then
-    ip r a 10.${i}.0.1/32 dev eth1
-else
-    ip r a 10.${i}.0.1/32 dev enp0s8
-fi
-
 ip r a 10.${i}.0.0/16 via 10.${i}.0.1
+ip r a 10.${i}.0.1/32 dev enp0s8
 EOF
         fi
 
         cat <<EOF >> "${filename}"
-echo "${worker_internal_ipv6} cilium${K8STAG}-node-${index}" >> /etc/hosts
+echo "${worker_internal_ipv6} k8s${index}" >> /etc/hosts
 EOF
     done
 
@@ -183,29 +170,6 @@ set -e
 sudo apt-get -y install curl
 mkdir -p "${k8s_dir}"
 cd "${k8s_dir}"
-
-EOF
-}
-
-# write_install_nsenter writes the dependencies and installation for nsenter in
-# ${1}.
-function write_install_nsenter(){
-    filename="${1}"
-    cat <<EOF >> "${filename}"
-
-if [ -n "\${INSTALL}" ]; then
-    #Install nsenter
-    sudo apt-get -y install bison libncurses5-dev libslang2-dev gettext \
-    zlib1g-dev libselinux1-dev debhelper lsb-release pkg-config \
-    po-debconf autoconf automake autopoint libtool
-    wget -nv https://www.kernel.org/pub/linux/utils/util-linux/v2.30/util-linux-2.30.1.tar.gz
-    tar -xvzf util-linux-2.30.1.tar.gz
-    cd util-linux-2.30.1
-    ./autogen.sh
-    ./configure --without-python --disable-all-programs --enable-nsenter
-    make nsenter
-    sudo cp nsenter /usr/bin
-fi
 
 EOF
 }
@@ -255,9 +219,9 @@ export ETCD_CLEAN="${ETCD_CLEAN}"
 # allocating its own podCIDR without using the kubernetes allocated podCIDR.
 sudo service cilium stop
 EOF
-    write_install_nsenter "${filename}"
     cat <<EOF >> "${filename}"
-if [[ "\$(hostname)" -eq "cilium${K8STAG}-master" ]]; then
+if [[ "\$(hostname)" == "${VM_BASENAME}1" ]]; then
+    echo "\$(hostname)"
     "\${k8s_path}/00-create-certs.sh"
     "\${k8s_path}/01-install-etcd.sh"
     "\${k8s_path}/02-install-kubernetes-master.sh"
@@ -279,7 +243,7 @@ export K8S_NODE_CIDR_MASK_SIZE="${k8s_node_cidr_mask_size}"
 export K8S_SERVICE_CLUSTER_IP_RANGE="${k8s_service_cluster_ip_range}"
 export K8S_CLUSTER_API_SERVER_IP="${k8s_cluster_api_server_ip}"
 export K8S_CLUSTER_DNS_IP="${k8s_cluster_dns_ip}"
-export K8STAG="${K8STAG}"
+export K8STAG="${VM_BASENAME}"
 export NWORKERS="${NWORKERS}"
 # Only do installation if RELOAD is not set
 if [ -z "${RELOAD}" ]; then
@@ -289,7 +253,7 @@ export ETCD_CLEAN="${ETCD_CLEAN}"
 
 cd "${k8s_dir}"
 "\${k8s_path}/05-install-cilium.sh"
-if [[ "\$(hostname)" -eq "cilium${K8STAG}-master" ]]; then
+if [[ "\$(hostname)" == "${VM_BASENAME}1" ]]; then
     "\${k8s_path}/06-install-kubedns.sh"
 else
     "\${k8s_path}/04-install-kubectl.sh"
@@ -331,14 +295,10 @@ function write_cilium_cfg() {
         # interface only for master node.
         # FIXME GH-1054
 #        if [ $((node_index)) -eq 1 ]; then
-#            ubuntu_1404_interface="-d eth2"
 #            ubuntu_1604_interface="-d enp0s9"
-#            ubuntu_1404_cilium_lb="--lb eth2"
 #            ubuntu_1604_cilium_lb="--lb enp0s9"
 #        else
-            ubuntu_1404_interface="-d eth2"
             ubuntu_1604_interface="-d enp0s9"
-            ubuntu_1404_cilium_lb=""
             ubuntu_1604_cilium_lb=""
 #        fi
     else
@@ -349,16 +309,11 @@ function write_cilium_cfg() {
 
 cat <<EOF >> "$filename"
 sleep 2s
-if [ -n "\$(grep DISTRIB_RELEASE=14.04 /etc/lsb-release)" ]; then
-    sed -i '/exec/d' /etc/init/cilium.conf
-    echo 'exec cilium-agent --debug ${ubuntu_1404_cilium_lb} ${ubuntu_1404_interface} ${cilium_options}' >> /etc/init/cilium.conf
-else
-    sed -i '9s+.*+ExecStart=/usr/bin/cilium-agent --debug \$CILIUM_OPTS+' /lib/systemd/system/cilium.service
-    echo "K8S_NODE_NAME=\$(hostname)" >> /etc/sysconfig/cilium
-    echo 'CILIUM_OPTS="${ubuntu_1604_cilium_lb} ${ubuntu_1604_interface} ${cilium_options}"' >> /etc/sysconfig/cilium
-    echo 'PATH=/usr/local/clang/bin:/usr/local/sbin:/usr/local/bin:/usr/bin:/usr/sbin:/sbin:/bin' >> /etc/sysconfig/cilium
-    chmod 644 /etc/sysconfig/cilium
-fi
+sed -i '9s+.*+ExecStart=/usr/bin/cilium-agent --debug \$CILIUM_OPTS+' /lib/systemd/system/cilium.service
+echo "K8S_NODE_NAME=\$(hostname)" >> /etc/sysconfig/cilium
+echo 'CILIUM_OPTS="${ubuntu_1604_cilium_lb} ${ubuntu_1604_interface} ${cilium_options}"' >> /etc/sysconfig/cilium
+echo 'PATH=/usr/local/clang/bin:/usr/local/sbin:/usr/local/bin:/usr/bin:/usr/sbin:/sbin:/bin' >> /etc/sysconfig/cilium
+chmod 644 /etc/sysconfig/cilium
 
 # Wait for the node to have a podCIDR so that cilium can use the podCIDR
 # allocated by k8s
@@ -400,7 +355,7 @@ EOF
 function create_master(){
     split_ipv4 ipv4_array "${MASTER_IPV4}"
     get_cilium_node_addr master_cilium_ipv6 "${MASTER_IPV4}"
-    output_file="${dir}/cilium-master.sh"
+    output_file="${dir}/node-1.sh"
     write_netcfg_header "${MASTER_IPV6}" "${MASTER_IPV6}" "${output_file}"
 
     if [ -n "${NWORKERS}" ]; then
@@ -417,7 +372,7 @@ function create_workers(){
     base_workers_ip=$(printf "%d.%d.%d." "${ipv4_array[0]}" "${ipv4_array[1]}" "${ipv4_array[2]}")
     if [ -n "${NWORKERS}" ]; then
         for i in `seq 2 $(( NWORKERS + 1 ))`; do
-            output_file="${dir}/node-start-${i}.sh"
+            output_file="${dir}/node-${i}.sh"
             worker_ip_suffix=$(( ipv4_array[3] + i - 1 ))
             worker_ipv6=${IPV6_INTERNAL_CIDR}$(printf '%02X' ${worker_ip_suffix})
             worker_host_ipv6=${IPV6_PUBLIC_CIDR}$(printf '%02X' ${worker_ip_suffix})
@@ -457,13 +412,6 @@ function set_vagrant_env(){
     split_ipv4 ipv4_array_nfs "${MASTER_IPV4_NFS}"
     export 'IPV4_BASE_ADDR_NFS'="$(printf "%d.%d.%d." "${ipv4_array_nfs[0]}" "${ipv4_array_nfs[1]}" "${ipv4_array_nfs[2]}")"
     export 'FIRST_IP_SUFFIX_NFS'="${ipv4_array[3]}"
-    if [[ -n "${NFS}" ]]; then
-        echo "# NFS enabled. don't forget to enable this ports on your host"
-        echo "# before starting the VMs in order to have nfs working"
-        echo "# iptables -I INPUT -p udp -s ${IPV4_BASE_ADDR_NFS}0/24 --dport 111 -j ACCEPT"
-        echo "# iptables -I INPUT -p udp -s ${IPV4_BASE_ADDR_NFS}0/24 --dport 2049 -j ACCEPT"
-        echo "# iptables -I INPUT -p udp -s ${IPV4_BASE_ADDR_NFS}0/24 --dport 20048 -j ACCEPT"
-    fi
 
     temp=$(printf " %s" "${ipv6_public_workers_addrs[@]}")
     export 'IPV6_PUBLIC_WORKERS_ADDRS'="${temp:1}"
