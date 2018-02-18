@@ -104,6 +104,16 @@ func listenSocket(address string, mark int) (*proxySocket, error) {
 	return socket, nil
 }
 
+func setLinger(c net.Conn, linger time.Duration) error {
+	if tcp, ok := c.(*net.TCPConn); ok {
+		if err := tcp.SetLinger(int(linger.Seconds())); err != nil {
+			return fmt.Errorf("unable to set SO_LINGER socket option: %s", err)
+		}
+	}
+
+	return nil
+}
+
 // Accept calls Accept() on the listen socket of the proxy.
 // If not nil, afterClose is called after the connection pair has been closed.
 // If cascadeClose is true, the returned connectionPair will immediately be
@@ -111,6 +121,16 @@ func listenSocket(address string, mark int) (*proxySocket, error) {
 func (s *proxySocket) Accept(cascadeClose bool) (*connectionPair, error) {
 	c, err := s.listener.Accept()
 	if err != nil {
+		return nil, err
+	}
+
+	// Set the SO_LINGER socket option so that a request connection is
+	// guaranteed to be closed within the proxyConnectionCloseTimeout.
+	// If the linger timeout expires, the connection is closed with a RST,
+	// which is useful to signal to the client that the termination is
+	// abnormal.
+	if err = setLinger(c, proxyConnectionCloseTimeout); err != nil {
+		c.Close()
 		return nil, err
 	}
 
