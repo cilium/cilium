@@ -120,7 +120,7 @@ func listEventTypes() []string {
 func init() {
 	rootCmd.AddCommand(monitorCmd)
 	monitorCmd.Flags().BoolVar(&hex, "hex", false, "Do not dissect, print payload in HEX")
-	monitorCmd.Flags().StringVarP(&eventType, "type", "t", "", fmt.Sprintf("Filter by event types %v", listEventTypes()))
+	monitorCmd.Flags().StringSliceVarP(&selectedEventTypes, "type", "t", []string{}, fmt.Sprintf("Filter by event types %v", listEventTypes()))
 	monitorCmd.Flags().Var(&fromSource, "from", "Filter by source endpoint id")
 	monitorCmd.Flags().Var(&toDst, "to", "Filter by destination endpoint id")
 	monitorCmd.Flags().Var(&related, "related-to", "Filter by either source or destination endpoint id")
@@ -128,10 +128,10 @@ func init() {
 }
 
 var (
-	hex          = false
-	eventTypeIdx = monitor.MessageTypeUnspec // for integer comparison
-	eventType    = ""
-	eventTypes   = map[string]int{
+	hex                = false
+	eventTypeIDs       = []int{}
+	selectedEventTypes = []string{}
+	eventTypes         = map[string]int{
 		"drop":    monitor.MessageTypeDrop,
 		"debug":   monitor.MessageTypeDebug,
 		"capture": monitor.MessageTypeCapture,
@@ -161,7 +161,7 @@ func lostEvent(lost uint64, cpu int) {
 // related to, which can match on both.  If either one of them is less than or
 // equal to zero, then it is assumed user did not use them.
 func match(messageType int, src uint16, dst uint16) bool {
-	if eventTypeIdx != monitor.MessageTypeUnspec && messageType != eventTypeIdx {
+	if len(eventTypeIDs) > 0 && !search(messageType, eventTypeIDs) {
 		return false
 	} else if len(fromSource) > 0 && !fromSource.has(src) {
 		return false
@@ -172,6 +172,15 @@ func match(messageType int, src uint16, dst uint16) bool {
 	}
 
 	return true
+}
+
+func search(needle int, haystack []int) bool {
+	for _, v := range haystack {
+		if v == needle {
+			return true
+		}
+	}
+	return false
 }
 
 // dropEvents prints out all the received drop notifications.
@@ -294,15 +303,16 @@ func receiveEvent(data []byte, cpu int) {
 // wrote something close that did not match for example 'srop' instead of
 // 'drop'.
 func validateEventTypeFilter() {
-	i, err := eventTypes[eventType]
-	if !err {
-		err := "Unknown type (%s). Please use one of the following ones %v\n"
-		fmt.Printf(err, eventType, listEventTypes())
-		os.Exit(1)
+	for _, t := range selectedEventTypes {
+		i, err := eventTypes[t]
+		if !err {
+			err := "Unknown type (%s). Please use one of the following ones %v\n"
+			fmt.Printf(err, t, listEventTypes())
+			os.Exit(1)
+		}
+		eventTypeIDs = append(eventTypeIDs, i)
 	}
-	eventTypeIdx = i
 }
-
 func setupSigHandler() {
 	signalChan := make(chan os.Signal, 1)
 	signal.Notify(signalChan, os.Interrupt)
@@ -333,7 +343,7 @@ start:
 
 	defer conn.Close()
 
-	if eventType != "" {
+	if len(selectedEventTypes) > 0 {
 		validateEventTypeFilter()
 	}
 
