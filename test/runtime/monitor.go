@@ -123,6 +123,28 @@ var _ = Describe("RuntimeValidatedMonitorTest", func() {
 			Expect(res.Output().String()).Should(ContainSubstring(v))
 			vm.SampleContainersActions(helpers.Delete, helpers.CiliumDockerNetwork)
 		}
+
+		By("all types together")
+		command := "cilium monitor -v"
+		for k := range eventTypes {
+			command = command + " --type " + k
+		}
+
+		ctx, cancel := context.WithCancel(context.Background())
+		res = vm.ExecContext(ctx, command)
+		vm.SampleContainersActions(helpers.Create, helpers.CiliumDockerNetwork)
+		areEndpointsReady := vm.WaitEndpointsReady()
+		Expect(areEndpointsReady).Should(BeTrue())
+
+		vm.ContainerExec(helpers.App1, helpers.Ping(helpers.Httpd1))
+		helpers.Sleep(10)
+		cancel()
+
+		Expect(res.CountLines()).Should(BeNumerically(">", 3))
+		output := res.Output().String()
+		for _, v := range eventTypes {
+			Expect(output).Should(ContainSubstring(v))
+		}
 	})
 
 	It("cilium monitor check --from", func() {
