@@ -1,0 +1,28 @@
+[{
+    "endpointSelector": {"matchLabels":{"id.client":""}},
+    "ingress": [{
+        "fromEndpoints": [
+            {"matchLabels":{"id.server":""}}
+	]
+    }],
+    "labels": ["id=from-server-to-client"]
+},
+{
+    "endpointSelector": {"matchLabels":{"id.client":""}},
+    "ingress": [{
+        "fromEndpoints": [
+            {"matchLabels":{"reserved:host":""}}
+        ]
+    }],
+    "labels": ["id=from-host-to-client"]
+},
+{
+    "endpointSelector": {"matchLabels":{"id.server":""}},
+    "ingress": [{
+        "fromEndpoints": [
+            {"matchLabels":{"reserved:host":""}}
+        ]
+    }],
+    "labels": ["id=from-host-to-server"]
+}
+]
