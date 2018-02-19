@@ -76,19 +76,19 @@ func CreateKubectl(vmName string, log *logrus.Entry) *Kubectl {
 // The kafka producer and consumer scripts do not return error if command
 // leads to TopicAuthorizationException or any other error. Hence the
 // function needs to also take into account the stderr messages returned.
-func (kub *Kubectl) ExecKafkaPodCmd(namespace string, pod string, arg string) (string, error) {
+func (kub *Kubectl) ExecKafkaPodCmd(namespace string, pod string, arg string) error {
 	command := fmt.Sprintf("%s exec -n %s %s sh -- %s", KubectlCmd, namespace, pod, arg)
 	stdout := new(bytes.Buffer)
 	stderr := new(bytes.Buffer)
 	err := kub.Execute(command, stdout, stderr)
 	if err != nil {
-		return "", fmt.Errorf("ExecKafkaPodCmd: command '%s' failed '%s' || '%s'", command, stdout.String(), stderr.String())
+		return fmt.Errorf("ExecKafkaPodCmd: command '%s' failed '%s' || '%s'", command, stdout.String(), stderr.String())
 	}
 
 	if strings.Contains(stderr.String(), "ERROR") {
-		return "", fmt.Errorf("ExecKafkaPodCmd: command '%s' failed '%s' || '%s'", command, stdout.String(), stderr.String())
+		return fmt.Errorf("ExecKafkaPodCmd: command '%s' failed '%s' || '%s'", command, stdout.String(), stderr.String())
 	}
-	return stdout.String(), nil
+	return  nil
 }
 
 // ExecPodCmd executes command cmd in the specified pod residing in the specified

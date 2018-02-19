@@ -25,7 +25,7 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-var _ = Describe("K8sKafkaPolicyTest", func() {
+var _ = Describe("K8sValidatedKafkaPolicyTest", func() {
 
 	var demoPath string
 	var once sync.Once
@@ -34,18 +34,36 @@ var _ = Describe("K8sKafkaPolicyTest", func() {
 	var logger *logrus.Entry
 	var path string
 	var podFilter string
+	var apps []string
+	var prodHqAnnounce string
+	var conOutpostAnnoune string
+	var prodHqDeathStar string
+	var conOutDeathStar string
+	var prodBackAnnounce string
+	var prodOutAnnounce string
+
 
 	initialize := func() {
-		logger = log.WithFields(logrus.Fields{"testName": "K8sKafkaPolicyTest"})
+		logger = log.WithFields(logrus.Fields{"testName": "K8sValidatedKafkaPolicyTest"})
 		logger.Info("Starting")
 		kubectl = helpers.CreateKubectl(helpers.K8s1VMName(), logger)
 		podFilter = "k8s:zgroup=kafkaTestApp"
 
-		helpers.Sleep(5)
-
 		//Manifest paths
 		demoPath = kubectl.ManifestGet("kafka-sw-app.yaml")
 		l7Policy = kubectl.ManifestGet("kafka-sw-security-policy.yaml")
+
+		// Kafka GSG app pods
+		apps = []string{helpers.KafkaApp, helpers.Zookeeper, helpers.Backup, helpers.EmpireHq, helpers.Outpost}
+
+		// Kafka produce / consume exec commands
+		prodHqAnnounce = "-c \"echo “Happy 40th Birthday to General Tagge” | ./kafka-produce.sh --topic empire-announce\""
+		conOutpostAnnoune = "-c \"./kafka-consume.sh --topic empire-announce --from-beginning --max-messages 1\""
+		prodHqDeathStar = "-c \"echo “deathstar reactor design v3” | ./kafka-produce.sh --topic deathstar-plans\""
+		conOutDeathStar = "-c \"./kafka-consume.sh --topic deathstar-plans --from-beginning --max-messages 1\""
+		prodBackAnnounce = "-c \"echo “Happy 40th Birthday to General Tagge” | ./kafka-produce.sh --topic empire-announce\""
+		prodOutAnnounce = "-c \"echo “Vader Booed at Empire Karaoke Party” | ./kafka-produce.sh --topic empire-announce\""
+
 
 		path = kubectl.ManifestGet("cilium_ds.yaml")
 		kubectl.Apply(path)
@@ -69,56 +87,29 @@ var _ = Describe("K8sKafkaPolicyTest", func() {
 			kubectl.CiliumReport(helpers.KubeSystemNamespace, ciliumPod, []string{
 				"cilium bpf tunnel list",
 				"cilium endpoint list",
-				"cilium service list"})
+				"cilium service list",
+				"cilium policy get"})
 		}
 
+		By("Deleting demo path")
 		kubectl.Delete(demoPath)
+		err := kubectl.WaitCleanAllTerminatingPods()
+		Expect(err).To(BeNil(), "Terminating containers are not deleted after timeout")
 
 	})
-
-	waitUntilEndpointUpdates := func(pod string, eps map[string]int64, min int) error {
-		body := func() bool {
-			updated := 0
-			newEps := kubectl.CiliumEndpointPolicyVersion(pod)
-			for k, v := range newEps {
-				if eps[k] < v {
-					logger.Infof("Endpoint %s had version %d now %d updated : %d", k, eps[k], v, updated)
-					updated++
-				}
-			}
-			return updated >= min
-		}
-		err := helpers.WithTimeout(body, "No new version applied", &helpers.TimeoutConfig{Timeout: 100})
-		return err
-	}
-
-	getAppPods := func() map[string]string {
-		appPods := make(map[string]string)
-		apps := []string{helpers.KafkaApp, helpers.Zookeeper, helpers.Backup, helpers.EmpireHq, helpers.Outpost}
-		for _, v := range apps {
-			fmt.Printf("getting pod name of app: %s\n", v)
-			res, err := kubectl.GetPodNames(helpers.DefaultNamespace, fmt.Sprintf("app=%s", v))
-			Expect(err).Should(BeNil())
-			Expect(res).Should(Not(BeNil()))
-			fmt.Printf("res output: %q\n", res)
-			appPods[v] = res[0]
-			logger.Infof("KafkaPolicyRulesTest: pod=%q assigned to %q", res[0], v)
-		}
-		return appPods
-	}
 
 	It("KafkaPolicies", func() {
 		clusterIP, err := kubectl.Get(helpers.DefaultNamespace, "svc").Filter(
 			"{.items[?(@.metadata.name == \"kafka-service\")].spec.clusterIP}")
-		logger.Infof("PolicyRulesTest: cluster service ip '%s'", clusterIP)
+		logger.Infof("KafkaPolicyRulesTest: cluster service ip '%s'", clusterIP)
 		Expect(err).Should(BeNil())
 
+		By("Getting Cilium Pods")
 		ciliumPod, err := kubectl.GetCiliumPodOnNode(helpers.KubeSystemNamespace, helpers.K8s1)
 		Expect(err).Should(BeNil())
 
 		status := kubectl.CiliumExec(ciliumPod, fmt.Sprintf("cilium config %s=%s", helpers.PolicyEnforcement, helpers.PolicyEnforcementDefault))
 		status.ExpectSuccess()
-		helpers.Sleep(5)
 
 		kubectl.CiliumEndpointWait(ciliumPod)
 
@@ -136,31 +127,31 @@ var _ = Describe("K8sKafkaPolicyTest", func() {
 
 		Expect(endpoints.AreReady()).Should(BeTrue())
 
-		appPods := getAppPods()
-		By("Testing basic kafka setup")
+		appPods := helpers.GetAppPods(apps, helpers.DefaultNamespace, kubectl)
+		By("Testing basic Kafka Produce and Consume")
 
-		_, err = kubectl.ExecKafkaPodCmd(
-			helpers.DefaultNamespace, appPods[helpers.EmpireHq], fmt.Sprintf("-c \"echo “Happy 40th Birthday to General Tagge” | ./kafka-produce.sh --topic empire-announce\""))
+		err = kubectl.ExecKafkaPodCmd(
+			helpers.DefaultNamespace, appPods[helpers.EmpireHq], fmt.Sprintf(prodHqAnnounce))
 		Expect(err).Should(BeNil())
 
-		_, err = kubectl.ExecKafkaPodCmd(
-			helpers.DefaultNamespace, appPods[helpers.Outpost], fmt.Sprintf("-c \"./kafka-consume.sh --topic empire-announce --from-beginning --max-messages 1\""))
+		err = kubectl.ExecKafkaPodCmd(
+			helpers.DefaultNamespace, appPods[helpers.Outpost], fmt.Sprintf(conOutpostAnnoune))
 		Expect(err).Should(BeNil())
 
-		_, err = kubectl.ExecKafkaPodCmd(
-			helpers.DefaultNamespace, appPods[helpers.EmpireHq], fmt.Sprintf("-c \"echo “deathstar reactor design v3” | ./kafka-produce.sh --topic deathstar-plans\""))
+		err = kubectl.ExecKafkaPodCmd(
+			helpers.DefaultNamespace, appPods[helpers.EmpireHq], fmt.Sprintf(prodHqDeathStar))
 		Expect(err).Should(BeNil())
 
-		_, err = kubectl.ExecKafkaPodCmd(
-			helpers.DefaultNamespace, appPods[helpers.Outpost], fmt.Sprintf("-c \"./kafka-consume.sh --topic deathstar-plans --from-beginning --max-messages 1\""))
+		err = kubectl.ExecKafkaPodCmd(
+			helpers.DefaultNamespace, appPods[helpers.Outpost], fmt.Sprintf(conOutDeathStar))
 		Expect(err).Should(BeNil())
 
-		_, err = kubectl.ExecKafkaPodCmd(
-			helpers.DefaultNamespace, appPods[helpers.Backup], fmt.Sprintf("-c \"echo “Happy 40th Birthday to General Tagge” | ./kafka-produce.sh --topic empire-announce\""))
+		err = kubectl.ExecKafkaPodCmd(
+			helpers.DefaultNamespace, appPods[helpers.Backup], fmt.Sprintf(prodBackAnnounce))
 		Expect(err).Should(BeNil())
 
-		_, err = kubectl.ExecKafkaPodCmd(
-			helpers.DefaultNamespace, appPods[helpers.Outpost], fmt.Sprintf("-c \"echo “Vader Booed at Empire Karaoke Party” | ./kafka-produce.sh --topic empire-announce\""))
+		err = kubectl.ExecKafkaPodCmd(
+			helpers.DefaultNamespace, appPods[helpers.Outpost], fmt.Sprintf(prodOutAnnounce))
 		Expect(err).Should(BeNil())
 
 		By("Apply L7 kafka policy")
@@ -168,7 +159,8 @@ var _ = Describe("K8sKafkaPolicyTest", func() {
 		_, err = kubectl.CiliumPolicyAction(helpers.KubeSystemNamespace, l7Policy, helpers.KubectlApply, 300)
 		Expect(err).Should(BeNil())
 
-		err = waitUntilEndpointUpdates(ciliumPod, eps, 6)
+		By("Waiting for endpoint updates with L7 policy")
+		err = helpers.WaitUntilEndpointUpdates(ciliumPod, eps, 6, kubectl)
 		Expect(err).Should(BeNil())
 		epsStatus = helpers.WithTimeout(func() bool {
 			endpoints, err := kubectl.CiliumEndpointsListByLabel(ciliumPod, podFilter)
@@ -179,6 +171,7 @@ var _ = Describe("K8sKafkaPolicyTest", func() {
 		}, "could not get endpoints", &helpers.TimeoutConfig{Timeout: 100})
 
 		Expect(epsStatus).Should(BeNil())
+
 		endpoints, err = kubectl.CiliumEndpointsListByLabel(ciliumPod, podFilter)
 		policyStatus := endpoints.GetPolicyStatus()
 
@@ -216,41 +209,42 @@ var _ = Describe("K8sKafkaPolicyTest", func() {
 		Expect(trace.Output().String()).Should(ContainSubstring("Final verdict: DENIED"))
 
 		By("Testing Kafka L7 policy enforcement status")
-		_, err = kubectl.ExecKafkaPodCmd(
-			helpers.DefaultNamespace, appPods[helpers.EmpireHq], fmt.Sprintf("-c \"echo “Happy 40th Birthday to General Tagge” | ./kafka-produce.sh --topic empire-announce\""))
+		err = kubectl.ExecKafkaPodCmd(
+			helpers.DefaultNamespace, appPods[helpers.EmpireHq], fmt.Sprintf(prodHqAnnounce))
 		Expect(err).Should(BeNil())
 
-		_, err = kubectl.ExecKafkaPodCmd(
-			helpers.DefaultNamespace, appPods[helpers.Outpost], fmt.Sprintf("-c \"./kafka-consume.sh --topic empire-announce --from-beginning --max-messages 1\""))
+		err = kubectl.ExecKafkaPodCmd(
+			helpers.DefaultNamespace, appPods[helpers.Outpost], fmt.Sprintf(conOutpostAnnoune))
 		Expect(err).Should(BeNil())
 
-		_, err = kubectl.ExecKafkaPodCmd(
-			helpers.DefaultNamespace, appPods[helpers.EmpireHq], fmt.Sprintf("-c \"echo “deathstar reactor design v3” | ./kafka-produce.sh --topic deathstar-plans\""))
+		err = kubectl.ExecKafkaPodCmd(
+			helpers.DefaultNamespace, appPods[helpers.EmpireHq], fmt.Sprintf(prodHqDeathStar))
 		Expect(err).Should(BeNil())
 
-		_, err = kubectl.ExecKafkaPodCmd(
-			helpers.DefaultNamespace, appPods[helpers.Outpost], fmt.Sprintf("-c \"./kafka-consume.sh --topic empire-announce --from-beginning --max-messages 1\""))
+		err = kubectl.ExecKafkaPodCmd(
+			helpers.DefaultNamespace, appPods[helpers.Outpost], fmt.Sprintf(conOutpostAnnoune))
 		Expect(err).Should(BeNil())
 
-		_, err = kubectl.ExecKafkaPodCmd(
-			helpers.DefaultNamespace, appPods[helpers.Backup], fmt.Sprintf("-c \"echo “Happy 40th Birthday to General Tagge” | ./kafka-produce.sh --topic empire-announce\""))
+		err = kubectl.ExecKafkaPodCmd(
+			helpers.DefaultNamespace, appPods[helpers.Backup], fmt.Sprintf(prodBackAnnounce))
 		Expect(err).Should(HaveOccurred())
 
-		_, err = kubectl.ExecKafkaPodCmd(
-			helpers.DefaultNamespace, appPods[helpers.Outpost], fmt.Sprintf("-c \"./kafka-consume.sh --topic deathstar-plans --from-beginning --max-messages 1\""))
+		err = kubectl.ExecKafkaPodCmd(
+			helpers.DefaultNamespace, appPods[helpers.Outpost], fmt.Sprintf(conOutDeathStar))
 		Expect(err).Should(HaveOccurred())
 
-		_, err = kubectl.ExecKafkaPodCmd(
-			helpers.DefaultNamespace, appPods[helpers.Outpost], fmt.Sprintf("-c \"echo “Vader Booed at Empire Karaoke Party” | ./kafka-produce.sh --topic empire-announce\""))
+		err = kubectl.ExecKafkaPodCmd(
+			helpers.DefaultNamespace, appPods[helpers.Outpost], fmt.Sprintf(prodOutAnnounce))
 		Expect(err).Should(HaveOccurred())
 
 		eps = kubectl.CiliumEndpointPolicyVersion(ciliumPod)
+		By("Deleting L7 policy")
 		status = kubectl.Delete(l7Policy)
 		status.ExpectSuccess()
 		kubectl.CiliumEndpointWait(ciliumPod)
 
 		//Only 1 endpoint is affected by L7 rule
-		err = waitUntilEndpointUpdates(ciliumPod, eps, 6)
+		err = helpers.WaitUntilEndpointUpdates(ciliumPod, eps, 6, kubectl)
 		Expect(err).Should(BeNil())
 
 	}, 500)
