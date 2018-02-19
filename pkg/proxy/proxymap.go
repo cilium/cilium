@@ -174,3 +174,26 @@ func GC() int {
 
 	return deleted
 }
+
+func cleanupIPv4Redirects(proxyPort uint16) {
+	if err := proxy4Map.Open(); err != nil {
+		return
+	}
+
+	dportNetworkOrder := byteorder.HostToNetwork(proxyPort).(uint16)
+
+	var key, nextKey Proxy4Key
+	for {
+		err := bpf.GetNextKey(proxy4Map.GetFd(), unsafe.Pointer(&key), unsafe.Pointer(&nextKey))
+		if err != nil {
+			return
+		}
+
+		if nextKey.DPort == dportNetworkOrder && nextKey.Nexthdr == uint8(6) {
+			log.Debugf("Cleaning up IPv4 proxymap, removing entry: %+v", nextKey)
+			bpf.DeleteElement(proxy4Map.GetFd(), unsafe.Pointer(&nextKey))
+		}
+
+		key = nextKey
+	}
+}
