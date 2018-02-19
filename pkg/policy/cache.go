@@ -106,7 +106,10 @@ func ResolveIdentityLabels(id NumericIdentity) labels.LabelArray {
 	return nil
 }
 
-// Init must be called to initialize the
+// Init must be called to initialize the Consumables that represent the reserved
+// identities. This is because the reserved identities do not correspond to
+// endpoints, and thus must be created explicitly, as opposed to during policy
+// calculation, which is done for a specific endpoint when it is regenerated.
 func Init() {
 	for key, val := range ReservedIdentities {
 		log.WithField(logfields.Identity, key).Debug("creating policy for identity")
