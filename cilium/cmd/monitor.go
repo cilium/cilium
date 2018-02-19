@@ -136,6 +136,8 @@ var (
 		"debug":   monitor.MessageTypeDebug,
 		"capture": monitor.MessageTypeCapture,
 		"trace":   monitor.MessageTypeTrace,
+		"l7":      monitor.MessageTypeAccessLog,
+		"agent":   monitor.MessageTypeAgent,
 	}
 	fromSource     = uint16Flags{}
 	toDst          = uint16Flags{}
@@ -251,7 +253,9 @@ func logRecordEvents(prefix string, data []byte) {
 		fmt.Printf("Error while decoding LogRecord notification message: %s\n", err)
 	}
 
-	lr.DumpInfo()
+	if match(monitor.MessageTypeAccessLog, uint16(lr.SourceEndpoint.ID), uint16(lr.DestinationEndpoint.ID)) {
+		lr.DumpInfo()
+	}
 }
 
 // agentEvents prints out agent events
@@ -264,7 +268,9 @@ func agentEvents(prefix string, data []byte) {
 		fmt.Printf("Error while decoding agent notification message: %s\n", err)
 	}
 
-	an.DumpInfo()
+	if match(monitor.MessageTypeAgent, 0, 0) {
+		an.DumpInfo()
+	}
 }
 
 // receiveEvent forwards all the per CPU events to the appropriate type function.
