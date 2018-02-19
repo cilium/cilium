@@ -41,6 +41,16 @@ func (s *PolicyTestSuite) TestReservedID(c *C) {
 	c.Assert(unknown.String(), Equals, "700")
 }
 
+func (s *PolicyTestSuite) TestIsReservedIdentity(c *C) {
+
+	c.Assert(ReservedIdentityCluster.IsReservedIdentity(), Equals, true)
+	c.Assert(ReservedIdentityHealth.IsReservedIdentity(), Equals, true)
+	c.Assert(ReservedIdentityHost.IsReservedIdentity(), Equals, true)
+	c.Assert(ReservedIdentityWorld.IsReservedIdentity(), Equals, true)
+
+	c.Assert(NumericIdentity(123456).IsReservedIdentity(), Equals, false)
+}
+
 type IdentityAllocatorSuite struct{}
 
 type IdentityAllocatorEtcdSuite struct {
