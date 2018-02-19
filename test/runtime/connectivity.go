@@ -320,9 +320,13 @@ var _ = Describe("RuntimeValidatedConntrackTest", func() {
 		Expect(err).Should(BeNil(), fmt.Sprintf("could not get metadata for container %q", curl2ContainerName))
 		By(fmt.Sprintf("httpd1 container Docker networking: %s", curl2DockerNetworking))
 
+		By("Showing policies imported to Cilium")
+		res := vm.PolicyGetAll()
+		fmt.Printf("%s\n", res.CombineOutput())
+
 		// TODO - would be cool if we found a way to collapse this into a function with parameters; lots of boilerplate here.
 		By(fmt.Sprintf("container %s curl on port 80 %s IPv6 (should work)", curl1ContainerName, helpers.Httpd1))
-		res := vm.ContainerExec(curl1ContainerName, helpers.CurlFail(fmt.Sprintf("[%s]:80", httpdDockerNetworking[helpers.IPv6])))
+		res = vm.ContainerExec(curl1ContainerName, helpers.CurlFail(fmt.Sprintf("[%s]:80", httpdDockerNetworking[helpers.IPv6])))
 		Expect(res.WasSuccessful()).Should(BeTrue(),
 			fmt.Sprintf("container %s could not reach %s on port 80", curl1ContainerName, helpers.Httpd1))
 
@@ -361,11 +365,11 @@ var _ = Describe("RuntimeValidatedConntrackTest", func() {
 		Expect(res.WasSuccessful()).Should(BeTrue(), fmt.Sprintf(
 			"%s cannot ping server %s", helpers.Client, serverDockerNetworking[helpers.IPv4]))
 
-		By(fmt.Sprintf("container %s pinging %s IPv6 (should work)", helpers.Host, helpers.Server))
+		By(fmt.Sprintf("%s pinging %s IPv6 (should work)", helpers.Host, helpers.Server))
 		res = vm.Exec(helpers.Ping6(serverDockerNetworking[helpers.IPv6]))
 		Expect(res.WasSuccessful()).Should(BeTrue(), fmt.Sprintf("%s cannot ping %s", helpers.Host, helpers.Server))
 
-		By(fmt.Sprintf("container %s pinging %s IPv4 (should work)", helpers.Host, helpers.Server))
+		By(fmt.Sprintf("%s pinging %s IPv4 (should work)", helpers.Host, helpers.Server))
 		res = vm.Exec(helpers.Ping(serverDockerNetworking[helpers.IPv4]))
 		Expect(res.WasSuccessful()).Should(BeTrue(), fmt.Sprintf("%s cannot ping %s", helpers.Host, helpers.Server))
 
@@ -460,6 +464,8 @@ var _ = Describe("RuntimeValidatedConntrackTest", func() {
 		for _, containerToRm := range containersToRm {
 			vm.ContainerRm(containerToRm)
 		}
+
+		vm.PolicyDel("--all")
 	})
 
 	It("Conntrack-related configuration options for endpoints", func() {
@@ -496,6 +502,10 @@ var _ = Describe("RuntimeValidatedConntrackTest", func() {
 		for _, endpointToConfigure := range endpointsToConfigure {
 			applyAndVerifyConfigApplied(endpointToConfigure, helpers.OptionConntrack, helpers.OptionDisabled)
 		}
+
+		// Need to add policy that allows communication in both directions.
+		_, err = vm.PolicyImportAndWait(vm.GetFullPath("ct-test-policy-conntrack-local-disabled.json"), helpers.HelperTimeout)
+		Expect(err).Should(BeNil())
 
 		clientServerConnectivity(false)
 	})
