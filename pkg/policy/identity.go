@@ -147,17 +147,6 @@ func (rc L4RuleContext) PortProto() string {
 	return port + "/" + proto
 }
 
-// ParseL4Filter parses a L4Filter and returns a L4RuleContext and a
-// L7RuleContext with L4Installed set as false.
-func ParseL4Filter(filter L4Filter) (L4RuleContext, L7RuleContext) {
-	return L4RuleContext{
-			Port:  byteorder.HostToNetwork(uint16(filter.Port)).(uint16),
-			Proto: uint8(filter.U8Proto),
-		}, L7RuleContext{
-			RedirectPort: byteorder.HostToNetwork(uint16(filter.L7RedirectPort)).(uint16),
-		}
-}
-
 // Identity is the representation of the security context for a particular set of
 // labels.
 type Identity struct {

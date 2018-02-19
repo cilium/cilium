@@ -49,6 +49,30 @@ const (
 	ExecTimeout = 300 * time.Second
 )
 
+// lookupRedirectPortBE returns the redirect L4 proxy port for the given L4
+// filter, in big-endian (network) byte order. Returns 0 if not found or the
+// filter doesn't require a redirect.
+// Must be called with Endpoint.Mutex held.
+func (e *Endpoint) lookupRedirectPortBE(l4Filter *policy.L4Filter) uint16 {
+	if !l4Filter.IsRedirect() {
+		return 0
+	}
+	proxyID := e.ProxyID(l4Filter)
+	return byteorder.HostToNetwork(e.realizedRedirects[proxyID]).(uint16)
+}
+
+// ParseL4Filter parses a L4Filter and returns a L4RuleContext and a
+// L7RuleContext with L4Installed set to false.
+// Must be called with Endpoint.Mutex held.
+func (e *Endpoint) ParseL4Filter(l4Filter *policy.L4Filter) (policy.L4RuleContext, policy.L7RuleContext) {
+	return policy.L4RuleContext{
+			Port:  byteorder.HostToNetwork(uint16(l4Filter.Port)).(uint16),
+			Proto: uint8(l4Filter.U8Proto),
+		}, policy.L7RuleContext{
+			RedirectPort: e.lookupRedirectPortBE(l4Filter),
+		}
+}
+
 func (e *Endpoint) writeL4Map(fw *bufio.Writer, owner Owner, m policy.L4PolicyMap, config string) error {
 	array := ""
 	index := 0
@@ -62,8 +86,7 @@ func (e *Endpoint) writeL4Map(fw *bufio.Writer, owner Owner, m policy.L4PolicyMa
 
 		dport := byteorder.HostToNetwork(uint16(l4.Port))
 
-		redirect := uint16(l4.L7RedirectPort)
-		redirect = byteorder.HostToNetwork(redirect).(uint16)
+		redirect := e.lookupRedirectPortBE(&l4)
 		entry := fmt.Sprintf("%d,%d,%d,%d", index, dport, redirect, protoNum)
 		if array != "" {
 			array = array + "," + entry
@@ -413,23 +436,20 @@ func updateCT(owner Owner, e *Endpoint, epIPs []net.IP,
 // locks for writing. On success, returns nil; otherwise, returns an error
 // indicating the problem that occurred while adding an l7 redirect for the
 // specified policy.
-// Must be called with endpoint.BuildMutex held.
+// Must be called with endpoint.Mutex held.
 func (e *Endpoint) addNewRedirectsFromMap(owner Owner, m policy.L4PolicyMap, desiredRedirects map[string]bool) error {
-	for k, l4 := range m {
+	for _, l4 := range m {
 		if l4.IsRedirect() {
 			redirect, err := owner.UpdateProxyRedirect(e, &l4)
 			if err != nil {
 				return err
 			}
 
-			l4.L7RedirectPort = int(redirect)
-			m[k] = l4
-
 			proxyID := e.ProxyID(&l4)
 			if e.realizedRedirects == nil {
-				e.realizedRedirects = make(map[string]bool)
+				e.realizedRedirects = make(map[string]uint16)
 			}
-			e.realizedRedirects[proxyID] = true
+			e.realizedRedirects[proxyID] = redirect
 			desiredRedirects[proxyID] = true
 		}
 	}
@@ -442,7 +462,7 @@ func (e *Endpoint) addNewRedirectsFromMap(owner Owner, m policy.L4PolicyMap, des
 // specified policy.
 // The returned map contains the exact set of IDs of proxy redirects that is
 // required to implement the given L4 policy.
-// Must be called with endpoint.BuildMutex held.
+// Must be called with endpoint.Mutex held.
 func (e *Endpoint) addNewRedirects(owner Owner, m *policy.L4Policy) (desiredRedirects map[string]bool, err error) {
 	desiredRedirects = make(map[string]bool)
 	if err = e.addNewRedirectsFromMap(owner, m.Ingress, desiredRedirects); err != nil {
@@ -454,7 +474,7 @@ func (e *Endpoint) addNewRedirects(owner Owner, m *policy.L4Policy) (desiredRedi
 	return desiredRedirects, nil
 }
 
-// Must be called with endpoint.BuildMutex held.
+// Must be called with endpoint.Mutex held.
 func (e *Endpoint) removeOldRedirects(owner Owner, desiredRedirects map[string]bool) {
 	for id := range e.realizedRedirects {
 		// Remove only the redirects that are not required.
@@ -642,8 +662,7 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir, reason string) (uint64, err
 					l4Filter, ok := c.L4Policy.Ingress[pp]
 
 					if ok {
-						_, l7Host := policy.ParseL4Filter(l4Filter)
-						l7RuleContexts.RedirectPort = l7Host.RedirectPort
+						l7RuleContexts.RedirectPort = e.lookupRedirectPortBE(&l4Filter)
 						if _, ok := newSecIDCtxs[identity]; !ok {
 							newSecIDCtxs[identity] = policy.NewL4RuleContexts()
 						}
@@ -746,7 +765,9 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir, reason string) (uint64, err
 	completionCtx, cancel = context.WithTimeout(context.Background(), 10*time.Second)
 	e.ProxyWaitGroup = completion.NewWaitGroup(completionCtx)
 	defer cancel()
+	e.Mutex.Lock()
 	e.removeOldRedirects(owner, desiredRedirects)
+	e.Mutex.Unlock()
 	err = e.WaitForProxyCompletions()
 	if err != nil {
 		return 0, fmt.Errorf("Error while deleting obsolete proxy redirects: %s", err)

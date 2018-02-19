@@ -95,8 +95,6 @@ type L4Filter struct {
 	FromEndpoints []api.EndpointSelector `json:"-"`
 	// L7Parser specifies the L7 protocol parser (optional)
 	L7Parser L7ParserType `json:"-"`
-	// L7RedirectPort is the L7 proxy port to redirect to (optional)
-	L7RedirectPort int `json:"l7-redirect-port,omitempty"`
 	// L7RulesPerEp is a list of L7 rules per endpoint passed to the L7 proxy (optional)
 	L7RulesPerEp L7DataMap `json:"l7-rules,omitempty"`
 	// Ingress is true if filter applies at ingress
@@ -168,7 +166,6 @@ func CreateL4Filter(fromEndpoints []api.EndpointSelector, rule api.PortRule, por
 		Port:             int(p),
 		Protocol:         protocol,
 		U8Proto:          u8p,
-		L7RedirectPort:   0,
 		L7RulesPerEp:     make(L7DataMap),
 		FromEndpoints:    fromEndpoints,
 		DerivedFromRules: labels.LabelArrayList{ruleLabels},
