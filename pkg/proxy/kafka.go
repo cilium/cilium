@@ -289,6 +289,10 @@ func (k *kafkaRedirect) handleRequest(pair *connectionPair, req *kafka.RequestMe
 				"origNetwork": addr.Network(),
 				"origDest":    dstIPPort,
 			}).Error("Unable to dial original destination")
+
+			record.log(accesslog.TypeRequest, accesslog.VerdictError,
+				kafka.ErrNetwork, fmt.Sprintf("Unable to dial original destination: %s", err))
+
 			return
 		}
 
