@@ -29,6 +29,7 @@ import (
 
 	"github.com/cilium/cilium/test/config"
 	"github.com/onsi/ginkgo"
+	. "github.com/onsi/gomega"
 	"k8s.io/kubernetes/pkg/util/yaml"
 )
 
@@ -122,6 +123,35 @@ func WithTimeout(body func() bool, msg string, config *TimeoutConfig) error {
 			return fmt.Errorf("Timeout reached: %s", msg)
 		}
 	}
+}
+
+func GetAppPods(apps []string, namespace string, kubectl *Kubectl) map[string]string {
+	appPods := make(map[string]string)
+	for _, v := range apps {
+		res, err := kubectl.GetPodNames(namespace, fmt.Sprintf("app=%s", v))
+		Expect(err).Should(BeNil())
+		Expect(res).Should(Not(BeNil()))
+		appPods[v] = res[0]
+		log.Infof("GetAppPods: pod=%q assigned to %q", res[0], v)
+	}
+	return appPods
+}
+
+
+func WaitUntilEndpointUpdates(pod string, eps map[string]int64, min int, kubectl *Kubectl) error {
+	body := func() bool {
+		updated := 0
+		newEps := kubectl.CiliumEndpointPolicyVersion(pod)
+		for k, v := range newEps {
+			if eps[k] < v {
+				log.Infof("Endpoint %s had version %d now %d updated : %d", k, eps[k], v, updated)
+				updated++
+			}
+		}
+		return updated >= min
+	}
+	err := WithTimeout(body, "No new version applied", &TimeoutConfig{Timeout: 100})
+	return err
 }
 
 // Fail is a Ginkgo failure handler which raises a SIGSTOP for the test process

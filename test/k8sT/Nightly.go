@@ -1,4 +1,4 @@
-// Copyright 2017 Authors of Cilium
+// Copyright 2017-2018 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -234,6 +234,7 @@ var _ = Describe("NightlyExamples", func() {
 	var demoPath string
 	var l3Policy string
 	var appService = "app1-service"
+	var apps []string
 
 	initialize := func() {
 		logger = log.WithFields(logrus.Fields{"testName": "NightlyK8sEpsMeasurement"})
@@ -241,6 +242,8 @@ var _ = Describe("NightlyExamples", func() {
 
 		kubectl = helpers.CreateKubectl(helpers.K8s1VMName(), logger)
 		kubectl.Delete(ciliumPath)
+
+		apps = []string{helpers.App1, helpers.App2, helpers.App3}
 
 		demoPath = kubectl.ManifestGet("demo.yaml")
 		l3Policy = kubectl.ManifestGet("l3_l4_policy.yaml")
@@ -257,20 +260,6 @@ var _ = Describe("NightlyExamples", func() {
 		err := kubectl.WaitCleanAllTerminatingPods()
 		Expect(err).To(BeNil(), "Terminating containers are not deleted after timeout")
 	})
-
-	// getAppPods return a map where the key is the Application name and the
-	// value is the pod name
-	getAppPods := func() map[string]string {
-		appPods := make(map[string]string)
-		apps := []string{helpers.App1, helpers.App2, helpers.App3}
-		for _, v := range apps {
-			res, err := kubectl.GetPodNames(helpers.DefaultNamespace, fmt.Sprintf("id=%s", v))
-			Expect(err).Should(BeNil())
-			appPods[v] = res[0]
-			logger.Infof("PolicyRulesTest: pod=%q assigned to %q", res[0], v)
-		}
-		return appPods
-	}
 
 	It("Check Kubernetes Example is working correctly", func() {
 		var path = "../examples/kubernetes/cilium.yaml"
@@ -315,7 +304,7 @@ var _ = Describe("NightlyExamples", func() {
 		_, err = kubectl.CiliumPolicyAction(helpers.KubeSystemNamespace, l3Policy, helpers.KubectlApply, 300)
 		Expect(err).Should(BeNil())
 
-		appPods := getAppPods()
+		appPods := helpers.GetAppPods(apps, helpers.DefaultNamespace, kubectl)
 
 		clusterIP, _, err := kubectl.GetServiceHostPort(helpers.DefaultNamespace, appService)
 		Expect(err).Should(BeNil())
