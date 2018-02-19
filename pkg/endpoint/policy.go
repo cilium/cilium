@@ -286,6 +286,7 @@ func (e *Endpoint) resolveL4Policy(owner Owner, repo *policy.Repository, c *poli
 // Returns a boolean to signalize if the policy was changed;
 // and a map matching which rules were successfully added/modified;
 // and a map matching which rules were successfully removed.
+// Must be called with Consumable mutex held.
 func (e *Endpoint) regenerateConsumable(owner Owner, labelsMap *policy.IdentityCache,
 	repo *policy.Repository, c *policy.Consumable) (changed bool, rulesAdd policy.SecurityIDContexts, rulesRm policy.SecurityIDContexts) {
 
