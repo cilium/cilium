@@ -179,13 +179,32 @@ func (c *Consumable) AllowIngressIdentityLocked(cache *ConsumableCache, id Numer
 			"consumable":       logfields.Repr(c),
 		}).Debug("Allowing security identity on ingress for consumable")
 		c.addToMaps(id)
-		c.IngressIdentities[id] = true
-		return true
+
+		// If id corresponds to a reserved identity, Consumable corresponding to
+		// that security identity needs to be updated explicitly, as reserved
+		// identities do not have a corresponding endpoint for which policy
+		// recalculation (when Consumables are updated) is done.
+		if id.IsReservedIdentity() {
+			reservedConsumable := cache.Lookup(id)
+			if reservedConsumable != nil {
+				// Avoid deadlock ; is this necessary? Being cautious.
+				if id != c.ID {
+					reservedConsumable.Mutex.Lock()
+					reservedConsumable.AllowIngressIdentityLocked(cache, c.ID)
+					reservedConsumable.Mutex.Unlock()
+				} else {
+					reservedConsumable.AllowIngressIdentityLocked(cache, c.ID)
+				}
+			} else {
+				log.WithField(logfields.Identity, id).Warningf("unable to allow ingress from identity %d", c.ID)
+			}
+
+		}
 	}
 
 	c.IngressIdentities[id] = true
 
-	return false // not changed.
+	return !exists // not changed, was already in map.
 }
 
 // RemoveIngressIdentityLocked removes the given security identity from Consumable's
@@ -196,6 +215,24 @@ func (c *Consumable) RemoveIngressIdentityLocked(id NumericIdentity) {
 		log.WithField(logfields.Identity, id).Debug("Removing identity from ingress map")
 		delete(c.IngressIdentities, id)
 
+		// Consumables corresponding to reserved identities need to be updated
+		// explicitly because they are not updated or regenerated.
+		if id.IsReservedIdentity() {
+			reservedConsumable := c.cache.Lookup(id)
+			if reservedConsumable != nil {
+				// Avoid deadlock!
+				if id != c.ID {
+					reservedConsumable.Mutex.Lock()
+					reservedConsumable.RemoveIngressIdentityLocked(c.ID)
+					reservedConsumable.Mutex.Unlock()
+				} else {
+					reservedConsumable.RemoveIngressIdentityLocked(c.ID)
+				}
+			} else {
+				log.WithField(logfields.Identity, id).Warningf("unable to disallow ingress from identity %d", c.ID)
+			}
+
+		}
 		if c.wasLastRule(id) {
 			c.removeFromMaps(id)
 		}
