@@ -23,7 +23,6 @@ import (
 	"net"
 	"os"
 	"os/signal"
-	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -106,21 +105,10 @@ const (
 	VERBOSE
 )
 
-func listEventTypes() []string {
-	types := make([]string, len(eventTypes))
-	i := 0
-	for k := range eventTypes {
-		types[i] = k
-		i++
-	}
-	sort.Strings(types)
-	return types
-}
-
 func init() {
 	rootCmd.AddCommand(monitorCmd)
 	monitorCmd.Flags().BoolVar(&hex, "hex", false, "Do not dissect, print payload in HEX")
-	monitorCmd.Flags().StringVarP(&eventType, "type", "t", "", fmt.Sprintf("Filter by event types %v", listEventTypes()))
+	monitorCmd.Flags().VarP(&eventTypes, "type", "t", fmt.Sprintf("Filter by event types %v", monitor.GetAllTypes()))
 	monitorCmd.Flags().Var(&fromSource, "from", "Filter by source endpoint id")
 	monitorCmd.Flags().Var(&toDst, "to", "Filter by destination endpoint id")
 	monitorCmd.Flags().Var(&related, "related-to", "Filter by either source or destination endpoint id")
@@ -128,17 +116,8 @@ func init() {
 }
 
 var (
-	hex          = false
-	eventTypeIdx = monitor.MessageTypeUnspec // for integer comparison
-	eventType    = ""
-	eventTypes   = map[string]int{
-		"drop":    monitor.MessageTypeDrop,
-		"debug":   monitor.MessageTypeDebug,
-		"capture": monitor.MessageTypeCapture,
-		"trace":   monitor.MessageTypeTrace,
-		"l7":      monitor.MessageTypeAccessLog,
-		"agent":   monitor.MessageTypeAgent,
-	}
+	hex            = false
+	eventTypes     = monitor.MessageTypeFilter{}
 	fromSource     = uint16Flags{}
 	toDst          = uint16Flags{}
 	related        = uint16Flags{}
@@ -163,7 +142,7 @@ func lostEvent(lost uint64, cpu int) {
 // related to, which can match on both.  If either one of them is less than or
 // equal to zero, then it is assumed user did not use them.
 func match(messageType int, src uint16, dst uint16) bool {
-	if eventTypeIdx != monitor.MessageTypeUnspec && messageType != eventTypeIdx {
+	if len(eventTypes) > 0 && !eventTypes.Contains(messageType) {
 		return false
 	} else if len(fromSource) > 0 && !fromSource.has(src) {
 		return false
@@ -296,19 +275,6 @@ func receiveEvent(data []byte, cpu int) {
 	}
 }
 
-// validateEventTypeFilter does some input validation to give the user feedback if they
-// wrote something close that did not match for example 'srop' instead of
-// 'drop'.
-func validateEventTypeFilter() {
-	i, err := eventTypes[eventType]
-	if !err {
-		err := "Unknown type (%s). Please use one of the following ones %v\n"
-		fmt.Printf(err, eventType, listEventTypes())
-		os.Exit(1)
-	}
-	eventTypeIdx = i
-}
-
 func setupSigHandler() {
 	signalChan := make(chan os.Signal, 1)
 	signal.Notify(signalChan, os.Interrupt)
@@ -338,10 +304,6 @@ start:
 	}
 
 	defer conn.Close()
-
-	if eventType != "" {
-		validateEventTypeFilter()
-	}
 
 	var meta payload.Meta
 	var pl payload.Payload
