@@ -813,7 +813,7 @@ func (d *Daemon) init() error {
 		}
 
 		// Clean all endpoint entries
-		if err := lxcmap.DeleteAll(); err != nil {
+		if err := lxcmap.LXCMap.DeleteAll(); err != nil {
 			return err
 		}
 
