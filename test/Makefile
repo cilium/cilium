@@ -2,6 +2,10 @@ provision = true
 # If you set provision to false the test will run without compile the code
 # again.
 
+TEST_ARTIFACTS = ./tmp.yaml ./*_service_manifest.json ./*_manifest.yaml
+TEST_ARTIFACTS += ./*_policy.json ./k8s-*.xml ./runtime.xml ./test_results
+TEST_ARTIFACTS += ./test.test
+
 all: build
 
 build:
@@ -21,3 +25,6 @@ k8s:
 
 k8s16:
 	K8S_VERSION=1.6 ginkgo --focus " K8s*" -v -- --cilium.provision=$(provision)
+
+clean:
+	-rm -rf $(TEST_ARTIFACTS)
