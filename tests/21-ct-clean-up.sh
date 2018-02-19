@@ -37,7 +37,7 @@ function start_containers {
   docker run -dt --net=$TEST_NET --name server-2 -l id.server-2 httpd
   docker run -dt --net=$TEST_NET --name httpd-server -l id.server-3 cilium/demo-httpd
   docker run -dt --net=$TEST_NET --name netcat -l id.server-4 busybox sleep 30000s
-  docker run -dt -v $dir/21-ct-clean-up-nc.py:/nc.py --net=$TEST_NET --name client -l id.client python:2.7.14
+  docker run -dt -v $dir/21-ct-clean-up-nc.py:/nc.py --net=$TEST_NET --name client -l id.client python:2.7.14-slim-stretch
   docker run -dt --net=$TEST_NET --name client-2 -l id.client tgraf/netperf
   wait_for_endpoints 6
   echo "containers started and ready"

@@ -90,7 +90,7 @@ var _ = Describe("RuntimeValidatedConntrackTable", func() {
 			cmdStr := "docker run -dt --name netcat --net %s -l id.server-4 busybox:1.28.0 sleep 30000s"
 			vm.Exec(fmt.Sprintf(cmdStr, helpers.CiliumDockerNetwork)).ExpectSuccess()
 
-			cmdStr = "docker run -dt -v %s:/nc.py --net=%s --name client -l id.client python:2.7.14"
+			cmdStr = "docker run -dt -v %s:/nc.py --net=%s --name client -l id.client python:2.7.14-slim-stretch"
 			res := vm.Exec(fmt.Sprintf(cmdStr, vm.GetFullPath(ctCleanUpNC), helpers.CiliumDockerNetwork))
 			res.ExpectSuccess(fmt.Sprintf("Creating container %q. Error: %s", client, res.CombineOutput().String()))
 
