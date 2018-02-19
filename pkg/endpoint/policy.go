@@ -115,7 +115,7 @@ func (e *Endpoint) removeOldFilter(owner Owner, labelsMap *policy.IdentityCache,
 	for _, sel := range filter.FromEndpoints {
 		for _, id := range getSecurityIdentities(labelsMap, &sel) {
 			srcID := id.Uint32()
-			l4RuleCtx, l7RuleCtx := policy.ParseL4Filter(*filter)
+			l4RuleCtx, l7RuleCtx := e.ParseL4Filter(filter)
 			if _, ok := fromEndpointsSrcIDs[id]; !ok {
 				fromEndpointsSrcIDs[id] = policy.NewL4RuleContexts()
 			}
@@ -166,7 +166,7 @@ func (e *Endpoint) applyNewFilter(owner Owner, labelsMap *policy.IdentityCache,
 				e.getLogger().WithField("l4Filter", filter).Debug("L4 filter exists")
 				continue
 			}
-			l4RuleCtx, l7RuleCtx := policy.ParseL4Filter(*filter)
+			l4RuleCtx, l7RuleCtx := e.ParseL4Filter(filter)
 			if _, ok := fromEndpointsSrcIDs[id]; !ok {
 				fromEndpointsSrcIDs[id] = policy.NewL4RuleContexts()
 			}
@@ -337,7 +337,7 @@ func (e *Endpoint) regenerateConsumable(owner Owner, labelsMap *policy.IdentityC
 		if c != nil && c.L4Policy != nil && c.L4Policy.Ingress != nil {
 			for _, l4Filter := range c.L4Policy.Ingress {
 				found := false
-				l4RuleCtx, l7RuleCtx := policy.ParseL4Filter(l4Filter)
+				l4RuleCtx, l7RuleCtx := e.ParseL4Filter(&l4Filter)
 				for _, l4RuleContexts := range rulesAdd {
 					if _, found = l4RuleContexts[l4RuleCtx]; found {
 						break

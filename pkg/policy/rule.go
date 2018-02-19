@@ -120,15 +120,6 @@ func mergeL4Port(ctx *SearchContext, fromEndpoints []api.EndpointSelector, r api
 		}
 	}
 
-	if l4Filter.L7RedirectPort != 0 {
-		if v.L7RedirectPort == 0 {
-			v.L7RedirectPort = l4Filter.L7RedirectPort
-		} else if l4Filter.L7RedirectPort != v.L7RedirectPort {
-			ctx.PolicyTrace("   Merge conflict: mismatching redirect ports %d/%d\n", l4Filter.L7RedirectPort, v.L7RedirectPort)
-			return 0, fmt.Errorf("Cannot merge conflicting redirect ports (%d/%d)", l4Filter.L7RedirectPort, v.L7RedirectPort)
-		}
-	}
-
 	if v.addFromEndpoints(fromEndpoints) && r.NumRules() == 0 {
 		// skip this policy as it is already covered and it does not contain L7 rules
 		return 1, nil

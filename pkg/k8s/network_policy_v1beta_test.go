@@ -109,9 +109,9 @@ func (s *K8sSuite) TestParseNetworkPolicyDeprecated(c *C) {
 		Ingress: policy.L4PolicyMap{
 			"80/TCP": {
 				Port: 80, Protocol: api.ProtoTCP, U8Proto: 6,
-				FromEndpoints:  []api.EndpointSelector{epSelector},
-				L7Parser:       "",
-				L7RedirectPort: 0, L7RulesPerEp: policy.L7DataMap{},
+				FromEndpoints:    []api.EndpointSelector{epSelector},
+				L7Parser:         "",
+				L7RulesPerEp:     policy.L7DataMap{},
 				Ingress:          true,
 				DerivedFromRules: []labels.LabelArray{labels.ParseLabelArray("unspec:io.cilium.k8s-policy-name", "unspec:io.cilium.k8s-policy-namespace=default")},
 			},

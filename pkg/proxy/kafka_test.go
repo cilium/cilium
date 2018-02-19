@@ -187,10 +187,9 @@ func (k *proxyTestSuite) TestKafkaRedirect(c *C) {
 
 	redir, err := createKafkaRedirect(kafkaConfiguration{
 		policy: &policy.L4Filter{
-			Port:           serverPort,
-			Protocol:       api.ProtoTCP,
-			L7Parser:       policy.ParserTypeKafka,
-			L7RedirectPort: proxyPort,
+			Port:     serverPort,
+			Protocol: api.ProtoTCP,
+			L7Parser: policy.ParserTypeKafka,
 			L7RulesPerEp: policy.L7DataMap{
 				policy.WildcardEndpointSelector: api.L7Rules{
 					Kafka: []api.PortRuleKafka{kafkaRule1, kafkaRule2},
