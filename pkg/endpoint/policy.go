@@ -717,8 +717,16 @@ func (e *Endpoint) regenerate(owner Owner, reason string) (retErr error) {
 	}()
 
 	revision, err := e.regenerateBPF(owner, tmpDir, reason)
+
+	// If generation fails, keep the directory around. If it ever succeeds
+	// again, clean up this copy.
+	failDir := tmpDir + "_fail"
+	os.RemoveAll(failDir) // Most likely will not exist; ignore failure.
 	if err != nil {
-		os.RemoveAll(tmpDir)
+		e.getLogger().WithFields(logrus.Fields{
+			logfields.Path: failDir,
+		}).Warn("Generating BPF for endpoint failed, keeping stale directory.")
+		os.Rename(tmpDir, failDir)
 		return err
 	}
 
