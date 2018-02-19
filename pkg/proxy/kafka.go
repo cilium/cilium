@@ -17,7 +17,6 @@ package proxy
 import (
 	"encoding/json"
 	"fmt"
-	"io"
 	"time"
 
 	"github.com/cilium/cilium/pkg/completion"
@@ -36,10 +35,6 @@ import (
 
 const (
 	fieldID = "id"
-
-	// consecutiveErrorsBarrier is the maximum number of consecutive
-	// parsing errors before the connection gets closed
-	consecutiveErrorsBarrier = 32
 )
 
 // kafkaRedirect implements the Redirect interface for an l7 proxy
@@ -332,7 +327,6 @@ func handleRequests(done <-chan struct{}, pair *connectionPair, c *proxyConnecti
 	record *kafkaLogRecord, handler kafkaReqMessageHander) {
 	defer c.Close()
 	scopedLog := log.WithField(fieldID, pair.String())
-	consecutiveErrors := 0
 	for {
 		req, err := kafka.ReadRequest(c.conn)
 
@@ -340,33 +334,21 @@ func handleRequests(done <-chan struct{}, pair *connectionPair, c *proxyConnecti
 		// port redirect has been removed.
 		select {
 		case <-done:
-			scopedLog.Debug("Redirect removed, closing Kafka request connection")
+			scopedLog.Debug("Redirect removed; closing Kafka request connection")
 			return
 		default:
 		}
 
 		if err != nil {
-			if err == io.EOF || err == io.ErrUnexpectedEOF {
-				return
-			}
-
 			if record != nil {
 				record.log(accesslog.TypeRequest, accesslog.VerdictError,
 					kafka.ErrInvalidMessage, fmt.Sprintf("Unable to parse Kafka request: %s", err))
 			}
-
-			consecutiveErrors++
-			if consecutiveErrors > consecutiveErrorsBarrier {
-				scopedLog.WithError(err).Error("too many errors parsing Kafka requests, closing connection")
-				return
-			}
-
-			scopedLog.WithError(err).Error("Unable to parse Kafka request")
-			continue
-		} else {
-			consecutiveErrors = 0
-			handler(pair, req)
+			scopedLog.WithError(err).Error("Unable to parse Kafka request; closing Kafka request connection")
+			return
 		}
+
+		handler(pair, req)
 	}
 }
 
@@ -381,27 +363,22 @@ func handleResponses(done <-chan struct{}, pair *connectionPair, c *proxyConnect
 		// port redirect has been removed.
 		select {
 		case <-done:
-			scopedLog.Debug("Redirect removed, closing Kafka response connection")
+			scopedLog.Debug("Redirect removed; closing Kafka response connection")
 			return
 		default:
 		}
 
 		if err != nil {
-			if err == io.EOF || err == io.ErrUnexpectedEOF {
-				return
-			}
-
 			if record != nil {
 				record.log(accesslog.TypeResponse, accesslog.VerdictError,
 					kafka.ErrInvalidMessage,
 					fmt.Sprintf("Unable to parse Kafka response: %s", err))
 			}
-
-			scopedLog.WithError(err).Error("Unable to parse Kafka response")
-			continue
-		} else {
-			handler(pair, rsp)
+			scopedLog.WithError(err).Error("Unable to parse Kafka response; closing Kafka response connection")
+			return
 		}
+
+		handler(pair, rsp)
 	}
 }
 
