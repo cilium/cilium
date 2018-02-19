@@ -26,7 +26,6 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/policy"
-	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/proxy/accesslog"
 
 	"github.com/optiopay/kafka/proto"
@@ -169,35 +168,16 @@ func (k *kafkaRedirect) getSource() ProxySource {
 	return k.conf.source
 }
 
-func apiKeyToString(apiKey int16) string {
-	if key, ok := api.KafkaReverseAPIKeyMap[apiKey]; ok {
-		return key
-	}
-	return fmt.Sprintf("%d", apiKey)
-}
-
 // kafkaLogRecord wraps an accesslog.LogRecord so that we can define methods with a receiver
 type kafkaLogRecord struct {
 	accesslog.LogRecord
-
 	req *kafka.RequestMessage
 }
 
-func (k *kafkaRedirect) newKafkaLogRecord(req *kafka.RequestMessage) *kafkaLogRecord {
-	record := &kafkaLogRecord{
-		req: req,
-		LogRecord: accesslog.LogRecord{
-			Kafka: &accesslog.LogRecordKafka{
-				APIVersion:    req.GetVersion(),
-				APIKey:        apiKeyToString(req.GetAPIKey()),
-				CorrelationID: req.GetCorrelationID(),
-			},
-			NodeAddressInfo: accesslog.NodeAddressInfo{
-				IPv4: node.GetExternalIPv4().String(),
-				IPv6: node.GetIPv6().String(),
-			},
-			TransportProtocol: 6, // TCP's IANA-assigned protocol number
-		},
+func (k *kafkaRedirect) newKafkaLogRecord(req *kafka.RequestMessage) kafkaLogRecord {
+	record := kafkaLogRecord{
+		LogRecord: req.GetLogRecord(),
+		req:       req,
 	}
 
 	if k.IsIngress() {
@@ -220,6 +200,11 @@ func (l *kafkaLogRecord) log(typ accesslog.FlowType, verdict accesslog.FlowVerdi
 	l.Kafka.ErrorCode = code
 	l.Info = info
 	l.Timestamp = time.Now().UTC().Format(time.RFC3339Nano)
+
+	l.LogRecord.NodeAddressInfo = accesslog.NodeAddressInfo{
+		IPv4: node.GetExternalIPv4().String(),
+		IPv6: node.GetIPv6().String(),
+	}
 
 	flowdebug.Log(log.WithFields(logrus.Fields{
 		accesslog.FieldType:               l.Type,
@@ -309,6 +294,8 @@ func (k *kafkaRedirect) handleRequest(pair *connectionPair, req *kafka.RequestMe
 
 		pair.Tx.SetConnection(txConn)
 
+		// Start go routine to handle responses and pass in a copy of
+		// the request record as template for all responses
 		go k.handleResponseConnection(pair, record)
 	}
 
@@ -352,8 +339,7 @@ func handleRequests(done <-chan struct{}, pair *connectionPair, c *proxyConnecti
 	}
 }
 
-func handleResponses(done <-chan struct{}, pair *connectionPair, c *proxyConnection,
-	record *kafkaLogRecord, handler kafkaRespMessageHander) {
+func handleResponses(done <-chan struct{}, pair *connectionPair, c *proxyConnection, record kafkaLogRecord, handler kafkaRespMessageHander) {
 	defer c.Close()
 	scopedLog := log.WithField(fieldID, pair.String())
 	for {
@@ -369,14 +355,14 @@ func handleResponses(done <-chan struct{}, pair *connectionPair, c *proxyConnect
 		}
 
 		if err != nil {
-			if record != nil {
-				record.log(accesslog.TypeResponse, accesslog.VerdictError,
-					kafka.ErrInvalidMessage,
-					fmt.Sprintf("Unable to parse Kafka response: %s", err))
-			}
+			record.log(accesslog.TypeResponse, accesslog.VerdictError,
+				kafka.ErrInvalidMessage,
+				fmt.Sprintf("Unable to parse Kafka response: %s", err))
 			scopedLog.WithError(err).Error("Unable to parse Kafka response; closing Kafka response connection")
 			return
 		}
+
+		record.log(accesslog.TypeResponse, accesslog.VerdictForwarded, kafka.ErrNone, "")
 
 		handler(pair, rsp)
 	}
@@ -391,20 +377,16 @@ func (k *kafkaRedirect) handleRequestConnection(pair *connectionPair) {
 	handleRequests(k.socket.closing, pair, pair.Rx, nil, k.handleRequest)
 }
 
-func (k *kafkaRedirect) handleResponseConnection(pair *connectionPair,
-	record *kafkaLogRecord) {
+func (k *kafkaRedirect) handleResponseConnection(pair *connectionPair, record kafkaLogRecord) {
 	flowdebug.Log(log.WithFields(logrus.Fields{
 		"from": pair.Tx,
 		"to":   pair.Rx,
 	}), "Proxying response Kafka connection")
 
-	handleResponses(k.socket.closing, pair, pair.Tx, record, func(pair *connectionPair,
-		rsp *kafka.ResponseMessage) {
-		pair.Rx.Enqueue(rsp.GetRaw())
-	})
-
-	// log valid response
-	record.log(accesslog.TypeResponse, accesslog.VerdictForwarded, kafka.ErrNone, "")
+	handleResponses(k.socket.closing, pair, pair.Tx, record,
+		func(pair *connectionPair, rsp *kafka.ResponseMessage) {
+			pair.Rx.Enqueue(rsp.GetRaw())
+		})
 }
 
 // UpdateRules replaces old l7 rules of a redirect with new ones.
