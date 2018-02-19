@@ -50,8 +50,8 @@ func (l *LogRecordNotify) l7Proto() string {
 
 // DumpInfo dumps an access log notification
 func (l *LogRecordNotify) DumpInfo() {
-	fmt.Printf("%s %s from %d (%s) to %d (%s), identity %d->%d, verdict %s",
-		l.direction(), l.l7Proto(), l.SourceEndpoint.ID, l.SourceEndpoint.Labels,
+	fmt.Printf("%s %s %s from %d (%s) to %d (%s), identity %d->%d, verdict %s",
+		l.direction(), l.Type, l.l7Proto(), l.SourceEndpoint.ID, l.SourceEndpoint.Labels,
 		l.DestinationEndpoint.ID, l.DestinationEndpoint.Labels,
 		l.SourceEndpoint.Identity, l.DestinationEndpoint.Identity,
 		l.Verdict)
