@@ -72,70 +72,62 @@ var _ = Describe("RuntimeValidatedLB", func() {
 		deleteContainers()
 	}, 500)
 
-	It("Service Simple tests", func() {
+	It("validates basic service management functionality", func() {
+		By("Creating a valid IPv6 service with id 1")
 
-		By("Creating a valid service")
 		result := vm.ServiceAdd(1, "[::]:80", []string{"[::1]:90", "[::2]:91"}, 2)
-
-		result.ExpectSuccess("Service can't be added in cilium")
-
+		result.ExpectSuccess("unexpected failure to add service")
 		result = vm.ServiceGet(1)
-		result.ExpectSuccess("Service cannot be retrieved correctly")
-
+		result.ExpectSuccess("unexpected failure to retrieve service")
 		frontendAddress, err := vm.ServiceGetFrontendAddress(1)
 		Expect(err).Should(BeNil())
-		Expect(frontendAddress).Should(ContainSubstring("[::]:80"),
-			"No service backends added correctly %q", result.Output())
+		Expect(frontendAddress).To(ContainSubstring("[::]:80"),
+			"failed to retrieve frontend address: %q", result.Output())
 
-		helpers.Sleep(5)
 		//TODO: This need to be with Wait,Timeout
-		//Checking that bpf lb list is working correctly
+		helpers.Sleep(5)
+
+		By("Checking that BPF maps are updated based on service configuration")
+
 		result = vm.ExecCilium("bpf lb list")
+		result.ExpectSuccess("bpf lb map cannot be retrieved correctly")
+		Expect(result.Output()).To(ContainSubstring("[::1]:90"), fmt.Sprintf(
+			"service backends not added to BPF map: %q", result.Output()))
 
-		result.ExpectSuccess("service cannot be retrieved correctly")
+		By("Adding services that should not be allowed")
 
-		Expect(result.Output()).Should(ContainSubstring("[::1]:90"), fmt.Sprintf(
-			"No service backends added correctly %q", result.Output()))
-
-		By("Service ID 0")
 		result = vm.ServiceAdd(0, "[::]:10000", []string{"[::1]:90", "[::2]:91"}, 2)
-		result.ExpectFail("Service with id 0 can be added in cilium")
-
-		By("Service ID -1")
+		result.ExpectFail("unexpected success adding service with id 0")
 		result = vm.ServiceAdd(-1, "[::]:10000", []string{"[::1]:90", "[::2]:91"}, 2)
-		result.ExpectFail("Service with id -1 can be added in cilium")
-
-		By("Duplicating serviceID")
+		result.ExpectFail("unexpected success adding service with id -1")
 		result = vm.ServiceAdd(1, "[::]:10000", []string{"[::1]:90", "[::2]:91"}, 2)
-		result.ExpectFail("Service with duplicated id can be added in cilium")
+		result.ExpectFail("unexpected success adding service with duplicate id 1")
 
-		By("Duplicating service FE address")
+		By("Adding duplicate service FE address (IPv6)")
+
 		//Trying to create a new service with id 10, that conflicts with the FE addr on id=1
 		result = vm.ServiceAdd(10, "[::]:80", []string{"[::1]:90", "[::2]:91"}, 2)
-		result.ExpectFail("Service with duplicated FE can be added in cilium")
-
+		result.ExpectFail("unexpected success adding service with duplicate frontend address (id 10)")
 		result = vm.ServiceGet(10)
-		result.ExpectFail("service was added; addition of said service should have failed")
+		result.ExpectFail("unexpected success fetching service with id 10, service should not be present")
 
-		//Deleting service ID=1
+		By("Deleting IPv6 service")
 		result = vm.ServiceDel(1)
-		result.ExpectSuccess("Service cannot be deleted")
+		result.ExpectSuccess("unexpected failure deleting service with id 1")
 
-		By("IPv4 testing")
+		By("Creating a valid IPv4 service with id 1")
+
 		result = vm.ServiceAdd(1, "127.0.0.1:80", []string{"127.0.0.1:90", "127.0.0.1:91"}, 2)
-
-		Expect(result.WasSuccessful()).Should(BeTrue(),
-			"Service cannot be added in cilium")
-
+		result.ExpectSuccess("unexpected failure adding valid service")
 		result = vm.ServiceGet(1)
-		result.ExpectSuccess("Service cannot be retrieved correctly")
+		result.ExpectSuccess("unexpected failure to retrieve service")
 
-		By("Duplicating service FE address IPv4")
+		By("Adding duplicate service FE address (IPv4)")
+
 		result = vm.ServiceAdd(20, "127.0.0.1:80", []string{"127.0.0.1:90", "127.0.0.1:91"}, 2)
-		result.ExpectFail("Service can be added in cilium with duplicated FE")
-
+		result.ExpectFail("unexpected success adding service with duplicate frontend address (id 20)")
 		result = vm.ServiceGet(20)
-		result.ExpectFail("Service was added and it shouldn't")
+		result.ExpectFail("unexpected success fetching service with id 20, service should not be present")
 	}, 500)
 
 	It("Service L3 tests", func() {
