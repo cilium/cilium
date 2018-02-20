@@ -24,7 +24,6 @@ import (
 	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/envoy"
 	"github.com/cilium/cilium/pkg/flowdebug"
-	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/proxy/accesslog"
 
 	"github.com/sirupsen/logrus"
@@ -34,33 +33,16 @@ import (
 // the global Envoy instance
 var envoyProxy *envoy.Envoy
 
-// EnvoyRedirect implements the Redirect interface for a l7 proxy
-type EnvoyRedirect struct {
-	id      string
-	toPort  uint16
-	ingress bool
-	source  ProxySource
-}
-
-// ToPort returns the redirect port of an EnvoyRedirect
-func (r *EnvoyRedirect) ToPort() uint16 {
-	return r.toPort
-}
-
-// IsIngress returns true if the redirect is for ingress, and false for egress.
-func (r *EnvoyRedirect) IsIngress() bool {
-	return r.ingress
-}
-
-func (r *EnvoyRedirect) getSource() ProxySource {
-	return r.source
+// envoyRedirect implements the Redirect interface for a l7 proxy
+type envoyRedirect struct {
+	redirect *Redirect
 }
 
 var envoyOnce sync.Once
 
 // createEnvoyRedirect creates a redirect with corresponding proxy
 // configuration. This will launch a proxy instance.
-func createEnvoyRedirect(l4 *policy.L4Filter, id string, source ProxySource, to uint16, wg *completion.WaitGroup) (Redirect, error) {
+func createEnvoyRedirect(r *Redirect, wg *completion.WaitGroup) (RedirectImplementation, error) {
 	envoyOnce.Do(func() {
 		// Start Envoy on first invocation
 		envoyProxy = envoy.StartEnvoy(9901, viper.GetString("state-dir"),
@@ -68,39 +50,34 @@ func createEnvoyRedirect(l4 *policy.L4Filter, id string, source ProxySource, to 
 	})
 
 	if envoyProxy != nil {
-		redir := &EnvoyRedirect{
-			id:      id,
-			toPort:  to,
-			ingress: l4.Ingress,
-			source:  source,
-		}
+		redir := &envoyRedirect{redirect: r}
 
-		envoyProxy.AddListener(id, to, l4.L7RulesPerEp, l4.Ingress, redir, wg)
+		envoyProxy.AddListener(r.id, r.ProxyPort, r.rules, r.ingress, redir, wg)
 
 		return redir, nil
 	}
 
-	return nil, fmt.Errorf("%s: Envoy proxy process failed to start, can not add redirect ", id)
+	return nil, fmt.Errorf("%s: Envoy proxy process failed to start, can not add redirect ", r.id)
 }
 
 // UpdateRules replaces old l7 rules of a redirect with new ones.
-func (r *EnvoyRedirect) UpdateRules(l4 *policy.L4Filter, wg *completion.WaitGroup) error {
+func (r *envoyRedirect) UpdateRules(wg *completion.WaitGroup) error {
 	if envoyProxy != nil {
-		envoyProxy.UpdateListener(r.id, l4.L7RulesPerEp, wg)
+		envoyProxy.UpdateListener(r.redirect.id, r.redirect.rules, wg)
 		return nil
 	}
-	return fmt.Errorf("%s: Envoy proxy process failed to start, can not update redirect ", r.id)
+	return fmt.Errorf("%s: Envoy proxy process failed to start, can not update redirect ", r.redirect.id)
 }
 
 // Close the redirect.
-func (r *EnvoyRedirect) Close(wg *completion.WaitGroup) {
+func (r *envoyRedirect) Close(wg *completion.WaitGroup) {
 	if envoyProxy != nil {
-		envoyProxy.RemoveListener(r.id, wg)
+		envoyProxy.RemoveListener(r.redirect.id, wg)
 	}
 }
 
 // Log does access logging for Envoy
-func (r *EnvoyRedirect) Log(pblog *envoy.HttpLogEntry) {
+func (r *envoyRedirect) Log(pblog *envoy.HttpLogEntry) {
 	flowdebug.Log(log.WithFields(logrus.Fields{}),
 		fmt.Sprintf("%s: Access log message: %s", pblog.CiliumResourceName, pblog.String()))
 
@@ -125,9 +102,9 @@ func (r *EnvoyRedirect) Log(pblog *envoy.HttpLogEntry) {
 		proto = "HTTP/2"
 	}
 
-	record := newHTTPLogRecord(r, pblog.Method, &URL, proto, headers)
+	record := newHTTPLogRecord(r.redirect, pblog.Method, &URL, proto, headers)
 
-	record.fillInfo(r, pblog.SourceAddress, pblog.DestinationAddress, pblog.SourceSecurityId)
+	record.fillInfo(r.redirect, pblog.SourceAddress, pblog.DestinationAddress, pblog.SourceSecurityId)
 
 	var flowType accesslog.FlowType
 	var verdict accesslog.FlowVerdict

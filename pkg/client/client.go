@@ -171,13 +171,18 @@ func FormatStatusResponseBrief(w io.Writer, sr *models.StatusResponse) {
 	}
 }
 
+func formatMessageForwardStatistics(w io.Writer, direction string, s *models.MessageForwardingStatistics) {
+	fmt.Fprintf(w, "    %s %d received, %d forwarded, %d denied, %d error\n",
+		direction, s.Received, s.Forwarded, s.Denied, s.Error)
+}
+
 // FormatStatusResponse writes a StatusResponse as a string to the writer.
 //
 // The parameters 'allAddresses', 'allControllers', 'allNodes', respectively,
 // cause all details about that aspect of the status to be printed to the
 // terminal. For each of these, if they are false then only a summary will be
 // printed, with perhaps some detail if there are errors.
-func FormatStatusResponse(w io.Writer, sr *models.StatusResponse, allAddresses, allControllers, allNodes bool) {
+func FormatStatusResponse(w io.Writer, sr *models.StatusResponse, allAddresses, allControllers, allNodes, allRedirects bool) {
 	if sr.Kvstore != nil {
 		fmt.Fprintf(w, "KVStore:\t%s\t%s\n", sr.Kvstore.State, sr.Kvstore.Msg)
 	}
@@ -280,5 +285,27 @@ func FormatStatusResponse(w io.Writer, sr *models.StatusResponse, allAddresses, 
 			tab.Flush()
 		}
 
+	}
+
+	if sr.Proxy != nil {
+		fmt.Fprintf(w, "Proxy Status:\tOK, ip %s, %d redirects, port-range %s\n",
+			sr.Proxy.IP, len(sr.Proxy.Redirects), sr.Proxy.PortRange)
+
+		if allRedirects {
+			for _, r := range sr.Proxy.Redirects {
+				fmt.Fprintf(w, "  Redirect %s, endpoint %d %s, %s %d->%d (created %s, last-updated %s)\n",
+					r.Protocol, r.EndpointID, r.EndpointLabels,
+					r.Location, r.Port, r.AllocatedProxyPort,
+					timeSince(time.Time(r.Created)),
+					timeSince(time.Time(r.LastUpdated)))
+				for _, rule := range r.Rules {
+					fmt.Fprintf(w, "    - %s\n", rule)
+				}
+				formatMessageForwardStatistics(w, "->", r.Statistics.Requests)
+				formatMessageForwardStatistics(w, "<-", r.Statistics.Responses)
+			}
+		}
+	} else {
+		fmt.Fprintf(w, "Proxy Status:\tNo L7 rules loaded\n")
 	}
 }

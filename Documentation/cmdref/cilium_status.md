@@ -20,6 +20,7 @@ cilium status
       --all-controllers   Show all controllers, not just failing
       --all-health        Show all health status, not just failing
       --all-nodes         Show all nodes, not just localhost
+      --all-redirects     Show all redirects
       --brief             Only print a one-line status message
   -o, --output string     json| jsonpath='{}'
       --verbose           Equivalent to --all-addresses --all-controllers --all-nodes --all-health

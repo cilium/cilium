@@ -186,21 +186,17 @@ func (k *proxyTestSuite) TestKafkaRedirect(c *C) {
 	kafkaRule2 := api.PortRuleKafka{APIKey: "produce", APIVersion: "0", Topic: "allowedTopic"}
 	c.Assert(kafkaRule2.Sanitize(), IsNil)
 
-	redir, err := createKafkaRedirect(kafkaConfiguration{
-		policy: &policy.L4Filter{
-			Port:     serverPort,
-			Protocol: api.ProtoTCP,
-			L7Parser: policy.ParserTypeKafka,
-			L7RulesPerEp: policy.L7DataMap{
-				policy.WildcardEndpointSelector: api.L7Rules{
-					Kafka: []api.PortRuleKafka{kafkaRule1, kafkaRule2},
-				},
-			},
-			Ingress: true,
+	r := newRedirect(uint16(serverPort), sourceMocker, "foo")
+	r.ProxyPort = uint16(proxyPort)
+	r.ingress = true
+
+	r.rules = policy.L7DataMap{
+		policy.WildcardEndpointSelector: api.L7Rules{
+			Kafka: []api.PortRuleKafka{kafkaRule1, kafkaRule2},
 		},
-		id:         "foo",
-		source:     sourceMocker,
-		listenPort: uint16(proxyPort),
+	}
+
+	redir, err := createKafkaRedirect(r, kafkaConfiguration{
 		lookupNewDest: func(remoteAddr string, dport uint16) (uint32, string, error) {
 			return uint32(200), server.Address(), nil
 		},

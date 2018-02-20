@@ -29,9 +29,10 @@ import (
 // HTTPLogRecord wraps an accesslog.LogRecord so that we can define methods with a receiver
 type HTTPLogRecord struct {
 	accesslog.LogRecord
+	redirect *Redirect
 }
 
-func newHTTPLogRecord(r Redirect, method string, url *url.URL, proto string, headers http.Header) *HTTPLogRecord {
+func newHTTPLogRecord(r *Redirect, method string, url *url.URL, proto string, headers http.Header) *HTTPLogRecord {
 	record := &HTTPLogRecord{
 		LogRecord: accesslog.LogRecord{
 			HTTP: &accesslog.LogRecordHTTP{
@@ -46,9 +47,10 @@ func newHTTPLogRecord(r Redirect, method string, url *url.URL, proto string, hea
 			},
 			TransportProtocol: 6, // TCP's IANA-assigned protocol number
 		},
+		redirect: r,
 	}
 
-	if r.IsIngress() {
+	if r.ingress {
 		record.ObservationPoint = accesslog.Ingress
 	} else {
 		record.ObservationPoint = accesslog.Egress
@@ -57,7 +59,7 @@ func newHTTPLogRecord(r Redirect, method string, url *url.URL, proto string, hea
 	return record
 }
 
-func (l *HTTPLogRecord) fillInfo(r Redirect, srcIPPort, dstIPPort string, srcIdentity uint32) {
+func (l *HTTPLogRecord) fillInfo(r *Redirect, srcIPPort, dstIPPort string, srcIdentity uint32) {
 	fillInfo(r, &l.LogRecord, srcIPPort, dstIPPort, srcIdentity)
 }
 
@@ -76,6 +78,8 @@ func (l *HTTPLogRecord) logStamped(typ accesslog.FlowType, verdict accesslog.Flo
 		accesslog.FieldProtocol: l.HTTP.Protocol,
 		accesslog.FieldHeader:   l.HTTP.Headers,
 	}), "Logging HTTP L7 flow record")
+
+	l.redirect.updateAccounting(l.Type, l.Verdict)
 
 	l.Log()
 }
