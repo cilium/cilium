@@ -1143,6 +1143,9 @@ definitions:
       controllers:
         description: Status of all endpoint controllers
         "$ref": "#/definitions/ControllerStatuses"
+      proxy:
+        description: Status of proxy
+        "$ref": "#/definitions/ProxyStatus"
 
   Status:
     description: Status of an individual component
@@ -1429,6 +1432,86 @@ definitions:
           direct-server-return:
             description: Perform direct server return
             type: boolean
+  ProxyStatus:
+    description: Status of proxy
+    type: object
+    properties:
+      portRange:
+        description: Port range used for proxying
+        type: string
+      ip:
+        description: IP address that the proxy listens on
+        type: string
+      redirects:
+        description: List of all configured redirects
+        type: array
+        items:
+          "$ref": "#/definitions/ProxyRedirectStatus"
+  ProxyRedirectStatus:
+    description: Status of a proxy redirect
+    type: object
+    properties:
+      protocol:
+        description: Name of the L7 protocol
+        type: string
+      endpointID:
+        description: ID of the endpoint the redirect is installed for
+        type: integer
+      endpointLabels:
+        description: Labels of the endpoint the redirect is installed for
+        "$ref": "#/definitions/Labels"
+      port:
+        description: The port subject to the redirect
+        type: integer
+      location:
+        description: The location of where the redirect is installed
+        type: string
+        enum:
+        - ingress
+        - egress
+      allocatedProxyPort:
+        description: The port the proxy is listening on
+        type: integer
+      created:
+        description: Timestamp of when redirected was created
+        type: string
+        format: date-time
+      last-updated:
+        description: Timestamp of when redirected was last updated
+        type: string
+        format: date-time
+      rules:
+        description: List of rules configured
+        type: array
+        items:
+          type: string
+      statistics:
+        description: Statistics of this redirected
+        "$ref": "#/definitions/ProxyRedirectStatistics"
+  ProxyRedirectStatistics:
+    description: Statistics of a proxy redirect
+    type: object
+    properties:
+      requests:
+        "$ref": "#/definitions/MessageForwardingStatistics"
+      responses:
+        "$ref": "#/definitions/MessageForwardingStatistics"
+  MessageForwardingStatistics:
+    description: Statistics of a message forwarding entity
+    type: object
+    properties:
+      received:
+        description: Number of messages received
+        type: integer
+      denied:
+        description: Number of messages denied
+        type: integer
+      error:
+        description: Number of errors while parsing messages
+        type: integer
+      forwarded:
+        description: Number of messages forwarded
+        type: integer
   ControllerStatuses:
     description: Collection of controller statuses
     type: array
