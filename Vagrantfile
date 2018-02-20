@@ -21,17 +21,31 @@ end
 BAZEL_VERSION = ENV['BAZEL_VERSION']
 
 $bootstrap = <<SCRIPT
-# This may be removed when the box images are based on Ubuntu 17.10+.
-sudo bash -c "cat <<EOF > /etc/apt/sources.list
-deb http://old-releases.ubuntu.com/ubuntu/ yakkety main restricted
-deb http://old-releases.ubuntu.com/ubuntu/ yakkety-updates main restricted
-deb http://old-releases.ubuntu.com/ubuntu/ yakkety universe
-deb http://old-releases.ubuntu.com/ubuntu/ yakkety-updates universe
-deb http://old-releases.ubuntu.com/ubuntu/ yakkety multiverse
-deb http://old-releases.ubuntu.com/ubuntu/ yakkety-updates multiverse
-deb http://old-releases.ubuntu.com/ubuntu/ yakkety-backports main restricted universe multiverse
-EOF
-"
+sudo adduser vagrant docker
+echo "----------------------------------------------------------------"
+echo "----------------------------------------------------------------"
+echo "----------------------------------------------------------------"
+echo "----------------------------------------------------------------"
+echo "----------------------------------------------------------------"
+echo "----------------------------------------------------------------"
+echo "----------------------------------------------------------------"
+echo "----------------------------------------------------------------"
+echo "----------------------------------------------------------------"
+echo "----------------------------------------------------------------"
+echo "----------------------------------------------------------------"
+echo "----------------------------------------------------------------"
+echo "----------------------------------------------------------------"
+echo "----------------------------------------------------------------"
+echo "----------------------------------------------------------------"
+echo "----------------------------------------------------------------"
+echo "----------------------------------------------------------------"
+echo "----------------------------------------------------------------"
+echo "----------------------------------------------------------------"
+echo "----------------------------------------------------------------"
+echo "----------------------------------------------------------------"
+echo "----------------------------------------------------------------"
+echo "----------------------------------------------------------------"
+echo "----------------------------------------------------------------"
 sudo service docker restart
 sudo apt-get -y update || true
 sudo apt-get -y install socat curl jq realpath pv tmux python-sphinx python-pip
@@ -134,21 +148,13 @@ Vagrant.configure(2) do |config|
     config.vm.provision "build", type: "shell", run: "always", privileged: false, inline: $build
     config.vm.provision "install", type: "shell", run: "always", privileged: false, inline: $install
 
-    config.vm.provider :libvirt do |libvirt|
-        config.vm.box = "cilium/ubuntu-16.10"
-        config.vm.box_version = "2.0"
-        libvirt.memory = ENV['VM_MEMORY'].to_i
-        libvirt.cpus = ENV['VM_CPUS'].to_i
-        config.vm.synced_folder ".", "/home/vagrant/go/src/github.com/cilium/cilium", disabled: false
-    end
-
     config.vm.provider "virtualbox" do |vb|
         # Do not inherit DNS server from host, use proxy
         vb.customize ["modifyvm", :id, "--natdnshostresolver1", "on"]
         vb.customize ["modifyvm", :id, "--natdnsproxy1", "on"]
 
-        config.vm.box = "cilium/ubuntu-16.10"
-	config.vm.box_version = "2.7"
+        config.vm.box = "cilium/ginkgo"
+        config.vm.box_version = "0.0.4"
         vb.memory = ENV['VM_MEMORY'].to_i
         vb.cpus = ENV['VM_CPUS'].to_i
 
