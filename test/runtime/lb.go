@@ -39,24 +39,22 @@ var _ = Describe("RuntimeValidatedLB", func() {
 		vm.PolicyDelAll().ExpectSuccess()
 	}
 
-	// TODO: rename this function; its name is not clear.
-	containers := func(mode string) {
-		images := map[string]string{
-			helpers.Httpd1: helpers.HttpdImage,
-			helpers.Httpd2: helpers.HttpdImage,
-			helpers.Httpd3: helpers.HttpdImage,
-			helpers.Client: helpers.NetperfImage,
-		}
+	images := map[string]string{
+		helpers.Httpd1: helpers.HttpdImage,
+		helpers.Httpd2: helpers.HttpdImage,
+		helpers.Httpd3: helpers.HttpdImage,
+		helpers.Client: helpers.NetperfImage,
+	}
+	createContainers := func() {
+		By("Creating containers for traffic test")
 
-		switch mode {
-		case helpers.Create:
-			for k, v := range images {
-				vm.ContainerCreate(k, v, helpers.CiliumDockerNetwork, fmt.Sprintf("-l id.%s", k))
-			}
-		case helpers.Delete:
-			for k := range images {
-				vm.ContainerRm(k)
-			}
+		for k, v := range images {
+			vm.ContainerCreate(k, v, helpers.CiliumDockerNetwork, fmt.Sprintf("-l id.%s", k))
+		}
+	}
+	deleteContainers := func() {
+		for k := range images {
+			vm.ContainerRm(k)
 		}
 	}
 
@@ -71,7 +69,7 @@ var _ = Describe("RuntimeValidatedLB", func() {
 				"sudo cilium service list",
 				"sudo cilium endpoint list")
 		}
-		containers(helpers.Delete)
+		deleteContainers()
 	}, 500)
 
 	It("Service Simple tests", func() {
@@ -147,7 +145,7 @@ var _ = Describe("RuntimeValidatedLB", func() {
 		}
 		Expect(err).Should(BeNil())
 
-		containers(helpers.Create)
+		createContainers()
 
 		httpd1, err := vm.ContainerInspectNet(helpers.Httpd1)
 		Expect(err).Should(BeNil())
@@ -196,7 +194,7 @@ var _ = Describe("RuntimeValidatedLB", func() {
 		}
 		Expect(err).Should(BeNil())
 
-		containers(helpers.Create)
+		createContainers()
 
 		vm.WaitEndpointsReady()
 
@@ -243,7 +241,7 @@ var _ = Describe("RuntimeValidatedLB", func() {
 		testCmd := fmt.Sprintf(
 			"curl -s --fail --connect-timeout 4 http://%s/public", service)
 
-		containers("create")
+		createContainers()
 		epStatus := vm.WaitEndpointsReady()
 		Expect(epStatus).Should(BeTrue())
 
