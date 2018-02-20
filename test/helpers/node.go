@@ -106,6 +106,8 @@ func (s *SSHMeta) ExecWithSudo(cmd string) *CmdRes {
 
 // Exec returns the results of executing the provided cmd via SSH.
 func (s *SSHMeta) Exec(cmd string) *CmdRes {
+	log.Debugf("running command: %s", cmd)
+
 	stdout := new(bytes.Buffer)
 	stderr := new(bytes.Buffer)
 	exit := true
