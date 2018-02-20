@@ -16,7 +16,7 @@ package xds
 
 import (
 	"github.com/cilium/cilium/pkg/completion"
-	"github.com/cilium/cilium/pkg/envoy/api"
+	envoy_api_v2_core "github.com/cilium/cilium/pkg/envoy/envoy/api/v2/core"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 
@@ -31,7 +31,7 @@ type ResourceVersionAckObserver interface {
 	// HandleResourceVersionAck notifies that the node with the given Node ID
 	// has acknowledged having applied the resources.
 	// Calls to this function must not block.
-	HandleResourceVersionAck(version uint64, node *api.Node, resourceNames []string, typeURL string)
+	HandleResourceVersionAck(version uint64, node *envoy_api_v2_core.Node, resourceNames []string, typeURL string)
 }
 
 // AckingResourceMutator is a variant of ResourceMutator which calls back a
@@ -153,7 +153,7 @@ func (m *AckingResourceMutatorWrapper) Delete(typeURL string, resourceName strin
 	m.pendingCompletions = append(m.pendingCompletions, comp)
 }
 
-func (m *AckingResourceMutatorWrapper) HandleResourceVersionAck(version uint64, node *api.Node, resourceNames []string, typeURL string) {
+func (m *AckingResourceMutatorWrapper) HandleResourceVersionAck(version uint64, node *envoy_api_v2_core.Node, resourceNames []string, typeURL string) {
 	ackLog := log.WithFields(logrus.Fields{
 		logfields.XDSVersionInfo: version,
 		logfields.XDSClientNode:  node,

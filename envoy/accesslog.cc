@@ -56,25 +56,25 @@ AccessLog::~AccessLog() {}
 
 void AccessLog::Entry::InitFromRequest(
     std::string listener_id, const Network::Connection *conn,
-    const Http::HeaderMap &headers, const Envoy::AccessLog::RequestInfo &info,
+    const Http::HeaderMap &headers, const RequestInfo::RequestInfo &info,
     const Router::RouteEntry *route) {
   auto time = info.startTime();
   entry.set_timestamp(std::chrono::duration_cast<std::chrono::nanoseconds>(
                           time.time_since_epoch())
                           .count());
 
-  ::pb::cilium::Protocol proto;
+  ::cilium::Protocol proto;
   switch (info.protocol().valid() ? info.protocol().value()
                                   : Http::Protocol::Http11) {
   case Http::Protocol::Http10:
-    proto = ::pb::cilium::Protocol::HTTP10;
+    proto = ::cilium::Protocol::HTTP10;
     break;
   case Http::Protocol::Http11:
   default: // Just to make compiler happy
-    proto = ::pb::cilium::Protocol::HTTP11;
+    proto = ::cilium::Protocol::HTTP11;
     break;
   case Http::Protocol::Http2:
-    proto = ::pb::cilium::Protocol::HTTP2;
+    proto = ::cilium::Protocol::HTTP2;
     break;
   }
   entry.set_http_protocol(proto);
@@ -91,9 +91,11 @@ void AccessLog::Entry::InitFromRequest(
   }
 
   if (conn) {
-    entry.set_source_security_id(conn->socketMark() >> 16);
-    entry.set_source_address(conn->remoteAddress().asString());
-    entry.set_destination_address(conn->localAddress().asString());
+    if (conn->socketOptions() != nullptr) {
+      entry.set_source_security_id(conn->socketOptions()->hashKey() >> 16);
+    }
+    entry.set_source_address(conn->remoteAddress()->asString());
+    entry.set_destination_address(conn->localAddress()->asString());
   }
 
   // request headers
@@ -102,8 +104,8 @@ void AccessLog::Entry::InitFromRequest(
          void *entry_) -> Http::HeaderMap::Iterate {
         const Http::HeaderString &key = header.key();
         const char *value = header.value().c_str();
-        ::pb::cilium::HttpLogEntry *entry =
-            static_cast<::pb::cilium::HttpLogEntry *>(entry_);
+        ::cilium::HttpLogEntry *entry =
+            static_cast<::cilium::HttpLogEntry *>(entry_);
 
         if (key == ":path") {
           entry->set_path(value);
@@ -118,7 +120,7 @@ void AccessLog::Entry::InitFromRequest(
           // "x-forwarded-proto".
           entry->set_scheme(value);
         } else {
-          ::pb::cilium::KeyValue *kv = entry->add_headers();
+          ::cilium::KeyValue *kv = entry->add_headers();
           kv->set_key(key.c_str());
           kv->set_value(value);
         }
@@ -128,7 +130,7 @@ void AccessLog::Entry::InitFromRequest(
 }
 
 void AccessLog::Entry::UpdateFromResponse(
-    const Http::HeaderMap &headers, const Envoy::AccessLog::RequestInfo &info) {
+    const Http::HeaderMap &headers, const RequestInfo::RequestInfo &info) {
   auto time = info.startTime() + info.duration();
   entry.set_timestamp(std::chrono::duration_cast<std::chrono::nanoseconds>(
                           time.time_since_epoch())
@@ -149,8 +151,8 @@ void AccessLog::Entry::UpdateFromResponse(
 }
 
 void AccessLog::Log(AccessLog::Entry &entry_,
-                    ::pb::cilium::EntryType entry_type) {
-  ::pb::cilium::HttpLogEntry &entry = entry_.entry;
+                    ::cilium::EntryType entry_type) {
+  ::cilium::HttpLogEntry &entry = entry_.entry;
 
   entry.set_entry_type(entry_type);
 

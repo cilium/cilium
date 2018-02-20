@@ -37,7 +37,7 @@ public:
   Config(const Json::Object& config, Stats::Scope& scope);
   ~Config();
 
-  void Log(AccessLog::Entry &, ::pb::cilium::EntryType);
+  void Log(AccessLog::Entry &, ::cilium::EntryType);
 
   FilterStats stats_;
   std::string listener_id_;
@@ -71,6 +71,9 @@ public:
   }
 
   // Http::StreamEncoderFilter
+  Http::FilterHeadersStatus encode100ContinueHeaders(Http::HeaderMap&) override {
+    return Http::FilterHeadersStatus::Continue;
+  }
   Http::FilterHeadersStatus encodeHeaders(Http::HeaderMap& headers, bool end_stream) override;
   Http::FilterDataStatus encodeData(Buffer::Instance&, bool) override {
     return Http::FilterDataStatus::Continue;

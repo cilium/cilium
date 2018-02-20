@@ -20,7 +20,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/cilium/cilium/pkg/envoy/api"
+	envoy_api_v2_core "github.com/cilium/cilium/pkg/envoy/envoy/api/v2/core"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 
 	"github.com/cilium/cilium/pkg/lock"
@@ -97,7 +97,7 @@ func (w *ResourceWatcher) HandleNewResourceVersion(typeURL string, version uint6
 // lastVersion is the last version successfully applied by the
 // client; nil if this is the first request for resources.
 // This method call must always close the out channel.
-func (w *ResourceWatcher) WatchResources(ctx context.Context, typeURL string, lastVersion *uint64, node *api.Node,
+func (w *ResourceWatcher) WatchResources(ctx context.Context, typeURL string, lastVersion *uint64, node *envoy_api_v2_core.Node,
 	resourceNames []string, out chan<- *VersionedResources) {
 	defer close(out)
 

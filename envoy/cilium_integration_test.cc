@@ -11,35 +11,36 @@
 #include "test/integration/http_integration.h"
 
 #include "cilium_bpf_metadata.h"
+#include "cilium/cilium_bpf_metadata.pb.validate.h"
 
 namespace Envoy {
 
+Network::Address::InstanceConstSharedPtr original_dst_address;
+  
 namespace Filter {
 namespace BpfMetadata {
 
 class TestConfig : public Config {
 public:
-  TestConfig(const Json::Object &config, Stats::Scope &scope)
-      : Config(config, scope) {
-    original_dst_address_ = Network::Utility::parseInternetAddressAndPort(
-        config.getString("original_dst_address"));
-    socket_mark_ = config.getInteger("socket_mark", 0);
-  }
+  TestConfig(const ::cilium::BpfMetadata& config, Stats::Scope& scope)
+    : Config(config, scope),
+      socket_mark_(std::make_shared<Cilium::SocketMarkOption>(42)) {}
 
-  Network::Address::InstanceConstSharedPtr original_dst_address_;
-  uint32_t socket_mark_;
+  Network::Socket::OptionsSharedPtr socket_mark_;
 };
 
 typedef std::shared_ptr<TestConfig> TestConfigSharedPtr;
 
 class TestInstance : public Instance {
 public:
-  TestInstance(TestConfigSharedPtr json)
-      : Instance(json), test_config_(json.get()) {}
+  TestInstance(TestConfigSharedPtr config)
+    : Instance(config), test_config_(config.get()) {}
 
-  bool getBpfMetadata(Network::AcceptSocket &socket) override {
-    socket.resetLocalAddress(test_config_->original_dst_address_);
-    socket.setSocketMark(test_config_->socket_mark_);
+  bool getBpfMetadata(Network::ConnectionSocket &socket) override {
+    // fake setting the local address. It remains the same as required by the test infra, but it will be marked as restored
+    // as required by the original_dst cluster.
+    socket.setLocalAddress(original_dst_address, true);
+    socket.setOptions(test_config_->socket_mark_);
     return true;
   }
 
@@ -60,16 +61,20 @@ class TestBpfMetadataConfigFactory : public NamedListenerFilterConfigFactory {
 public:
   // NamedListenerFilterConfigFactory
   ListenerFilterFactoryCb
-  createFilterFactory(const Json::Object &json,
+  createFilterFactoryFromProto(const Protobuf::Message& proto_config,
                       ListenerFactoryContext &context) override {
     Filter::BpfMetadata::TestConfigSharedPtr config(
-        new Filter::BpfMetadata::TestConfig(json, context.scope()));
+        new Filter::BpfMetadata::TestConfig(MessageUtil::downcastAndValidate<const ::cilium::BpfMetadata&>(proto_config), context.scope()));
 
     return [config](
                Network::ListenerFilterManager &filter_manager) mutable -> void {
       filter_manager.addAcceptFilter(
-          std::make_shared<Filter::BpfMetadata::TestInstance>(config));
+          std::make_unique<Filter::BpfMetadata::TestInstance>(config));
     };
+  }
+
+  ProtobufTypes::MessagePtr createEmptyConfigProto() override {
+    return std::make_unique<::cilium::BpfMetadata>();
   }
 
   std::string name() override { return "test_bpf_metadata"; }
@@ -85,60 +90,116 @@ static Registry::RegisterFactory<TestBpfMetadataConfigFactory,
 } // namespace Configuration
 } // namespace Server
 
+const std::string cilium_proxy_config = R"EOF(
+admin:
+  access_log_path: /dev/null
+  address:
+    socket_address:
+      address: 127.0.0.1
+      port_value: 0
+static_resources:
+  clusters:
+    name: cluster1
+    type: ORIGINAL_DST
+    lb_policy: ORIGINAL_DST_LB
+    connect_timeout:
+      seconds: 1
+    hosts:
+      socket_address:
+        address: 127.0.0.1
+        port_value: 0
+  listeners:
+    name: http
+    address:
+      socket_address:
+        address: 127.0.0.1
+        port_value: 0
+    listener_filters:
+      name: test_bpf_metadata
+      config:
+        bpf_root: /
+    filter_chains:
+      filters:
+        name: envoy.http_connection_manager
+        config:
+          stat_prefix: config_test
+          codec_type: auto
+          http_filters:
+          - name: cilium.l7policy
+            config:
+              deprecated_v1: true
+              value:
+                access_log_path: ""
+                listener_id: foo42
+          - name: envoy.router
+          route_config:
+            name: policy_enabled
+            virtual_hosts:
+              name: integration
+              domains: "*"
+              routes:
+              - route:
+                  cluster: cluster1
+                match:
+                  prefix: "/allowed"
+              - route:
+                  cluster: cluster1
+                match:
+                  prefix: "/"
+                  headers: [ { name: ':path', value: '.*public$', regex: true } ]
+              - route:
+                  cluster: cluster1
+                match:
+                  prefix: "/"
+                  headers: [ { name: ':authority', value: 'allowedHOST', regex: false } ]
+              - route:
+                  cluster: cluster1
+                match:
+                  prefix: "/"
+                  headers: [ { name: ':authority', value: '.*REGEX.*', regex: true } ]
+              - route:
+                  cluster: cluster1
+                match:
+                  prefix: "/"
+                  headers: [ { name: ':method', value: 'PUT', regex: false }, { name: ':path', value: '/public/opinions', regex: false } ]
+)EOF";
+
 class CiliumIntegrationTest
     : public HttpIntegrationTest,
       public testing::TestWithParam<Network::Address::IpVersion> {
 public:
   CiliumIntegrationTest()
-      : HttpIntegrationTest(Http::CodecClient::Type::HTTP1, GetParam()) {}
+    : HttpIntegrationTest(Http::CodecClient::Type::HTTP1, GetParam(), cilium_proxy_config) {
+    // Undo legacy compat rename done by HttpIntegrationTest constructor.
+    // config_helper_.renameListener("cilium");
+    for (const Logger::Logger& logger : Logger::Registry::loggers()) {
+      logger.setLevel(static_cast<spdlog::level::level_enum>(0));
+    }
+  }
   /**
    * Initializer for an individual integration test.
    */
   void initialize() override {
     BaseIntegrationTest::initialize();
-    fake_upstreams_.emplace_back(
-        new FakeUpstream(0, FakeHttpConnection::Type::HTTP1, version_));
-    registerPort("upstream_0",
-                 fake_upstreams_.back()->localAddress()->ip()->port());
-    createTestServer("cilium_proxy_test.json", {"cilium"});
+    // Pass the fake upstream address to the cilium bpf filter that will set it as an "original destiantion address".
+    original_dst_address = fake_upstreams_.front()->localAddress();
   }
 
   void Denied(Http::TestHeaderMapImpl headers) {
-    IntegrationCodecClientPtr codec_client;
-    IntegrationStreamDecoderPtr response(
-        new IntegrationStreamDecoder(*dispatcher_));
-
     initialize();
-    codec_client = makeHttpConnection(lookupPort("cilium"));
-    codec_client->makeHeaderOnlyRequest(headers, *response);
-    response->waitForEndStream();
+    codec_client_ = makeHttpConnection(lookupPort("http"));
+    codec_client_->makeHeaderOnlyRequest(headers, *response_);
+    response_->waitForEndStream();
 
-    EXPECT_STREQ("403", response->headers().Status()->value().c_str());
-    codec_client->close();
+    EXPECT_STREQ("403", response_->headers().Status()->value().c_str());
   }
 
   void Accepted(Http::TestHeaderMapImpl headers) {
-    IntegrationCodecClientPtr codec_client;
-    FakeHttpConnectionPtr fake_upstream_connection;
-    IntegrationStreamDecoderPtr response(
-        new IntegrationStreamDecoder(*dispatcher_));
-    FakeStreamPtr request_stream;
-
     initialize();
-    codec_client = makeHttpConnection(lookupPort("cilium"));
-    codec_client->makeHeaderOnlyRequest(headers, *response);
-    fake_upstream_connection =
-        fake_upstreams_[0]->waitForHttpConnection(*dispatcher_);
-    request_stream = fake_upstream_connection->waitForNewStream(*dispatcher_);
-    request_stream->waitForEndStream(*dispatcher_);
-    request_stream->encodeHeaders(Http::TestHeaderMapImpl{{":status", "200"}},
-                                  true);
-    response->waitForEndStream();
+    codec_client_ = makeHttpConnection(lookupPort("http"));
+    sendRequestAndWaitForResponse(headers, 0, default_response_headers_, 0);
 
-    EXPECT_STREQ("200", response->headers().Status()->value().c_str());
-    codec_client->close();
-    fake_upstream_connection->close();
-    fake_upstream_connection->waitForDisconnect();
+    EXPECT_STREQ("200", response_->headers().Status()->value().c_str());
   }
 };
 

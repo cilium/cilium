@@ -51,7 +51,7 @@ Config::~Config() {
   }
 }
 
-void Config::Log(AccessLog::Entry &entry, ::pb::cilium::EntryType type) {
+void Config::Log(AccessLog::Entry &entry, ::cilium::EntryType type) {
   if (access_log_) {
     access_log_->Log(entry, type);
   }
@@ -84,15 +84,15 @@ Http::FilterHeadersStatus AccessFilter::decodeHeaders(Http::HeaderMap &headers,
     return Http::FilterHeadersStatus::StopIteration;
   }
 
-  config_->Log(log_entry_, ::pb::cilium::EntryType::Request);
+  config_->Log(log_entry_, ::cilium::EntryType::Request);
   return Http::FilterHeadersStatus::Continue;
 }
 
 Http::FilterHeadersStatus AccessFilter::encodeHeaders(Http::HeaderMap &headers,
                                                       bool) {
   log_entry_.UpdateFromResponse(headers, callbacks_->requestInfo());
-  config_->Log(log_entry_, denied_ ? ::pb::cilium::EntryType::Denied
-                                   : ::pb::cilium::EntryType::Response);
+  config_->Log(log_entry_, denied_ ? ::cilium::EntryType::Denied
+                                   : ::cilium::EntryType::Response);
   return Http::FilterHeadersStatus::Continue;
 }
 

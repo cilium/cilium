@@ -13,6 +13,11 @@ load(
     "api_proto_library",
 )
 
+api_proto_library(
+    name = "cilium_bpf_metadata",
+    srcs = ["cilium/cilium_bpf_metadata.proto"],
+)
+
 envoy_cc_binary(
     name = "envoy",
     repository = "@envoy",
@@ -25,28 +30,28 @@ envoy_cc_binary(
 
 envoy_proto_library(
     name = "accesslog_proto",
-    srcs = ["accesslog.proto"],
+    srcs = ["cilium/accesslog.proto"],
 )
 
 # TODO: Replace has_services=1 with a new api_go_grpc_library target after rebasing to use data-plane-api's master.
 api_proto_library(
     name = "npds",
-    srcs = ["api/npds.proto"],
+    srcs = ["cilium/npds.proto"],
     has_services = 1,
     deps = [
-        "@envoy_api//api:address",
-        "@envoy_api//api:discovery",
-        "@envoy_api//api:rds",
+        "@envoy_api//envoy/api/v2:discovery",
+        "@envoy_api//envoy/api/v2/core:address",
+        "@envoy_api//envoy/api/v2/route",
     ],
 )
 
 # TODO: Replace has_services=1 with a new api_go_grpc_library target after rebasing to use data-plane-api's master.
 api_proto_library(
     name = "nphds",
-    srcs = ["api/nphds.proto"],
+    srcs = ["cilium/nphds.proto"],
     has_services = 1,
     deps = [
-        "@envoy_api//api:discovery",
+        "@envoy_api//envoy/api/v2:discovery",
     ],
 )
 
@@ -92,6 +97,7 @@ envoy_cc_library(
         "@envoy//source/common/common:assert_lib",
         "@envoy//source/common/common:logger_lib",
         "@envoy//source/common/network:address_lib",
+	":cilium_bpf_metadata_cc",
     ],
 )
 

@@ -1,4 +1,5 @@
 #include "cilium_bpf_metadata.h"
+#include "cilium/cilium_bpf_metadata.pb.validate.h"
 
 #include <string>
 
@@ -19,19 +20,23 @@ namespace Configuration {
 class BpfMetadataConfigFactory : public NamedListenerFilterConfigFactory {
 public:
   // NamedListenerFilterConfigFactory
-  ListenerFilterFactoryCb
-  createFilterFactory(const Json::Object &json,
-                      ListenerFactoryContext &context) override {
+  Configuration::ListenerFilterFactoryCb
+  createFilterFactoryFromProto(const Protobuf::Message& proto_config,
+			       Configuration::ListenerFactoryContext& context) override {
     Filter::BpfMetadata::ConfigSharedPtr config(
-        new Filter::BpfMetadata::Config(json, context.scope()));
-    // Set the socket mark for the listen socket.
-    context.setListenSocketMark(config->getMark(config->identity_));
+	new Filter::BpfMetadata::Config(MessageUtil::downcastAndValidate<const ::cilium::BpfMetadata&>(proto_config),
+					context.scope()));
+    // Set the socket mark option for the listen socket.
+    // TODO: Share
+    context.setListenSocketOptions(std::make_shared<Cilium::SocketMarkOption>(config->getMark(config->identity_)));
 
-    return [config](
-               Network::ListenerFilterManager &filter_manager) mutable -> void {
-      filter_manager.addAcceptFilter(
-          std::make_shared<Filter::BpfMetadata::Instance>(config));
+    return [config](Network::ListenerFilterManager &filter_manager) mutable -> void {
+      filter_manager.addAcceptFilter(std::make_unique<Filter::BpfMetadata::Instance>(config));
     };
+  }
+
+  ProtobufTypes::MessagePtr createEmptyConfigProto() override {
+    return std::make_unique<::cilium::BpfMetadata>();
   }
 
   std::string name() override { return "cilium.bpf_metadata"; }
@@ -50,22 +55,18 @@ static Registry::RegisterFactory<BpfMetadataConfigFactory,
 namespace Filter {
 namespace BpfMetadata {
 
-std::string Config::get_bpf_root(const Json::Object &config) {
-  return config.getString("bpf_root", "/sys/fs/bpf");
-}
-
-Config::Config(const Json::Object &config, Stats::Scope &scope)
-    : bpf_root_(config.getString("bpf_root", "/sys/fs/bpf")),
+Config::Config(const ::cilium::BpfMetadata &config, Stats::Scope &scope)
+    : bpf_root_(config.bpf_root()),
       stats_{ALL_BPF_METADATA_STATS(POOL_COUNTER(scope))},
-      is_ingress_(config.getBoolean("is_ingress", false)),
-      identity_(config.getInteger("identity", 0)), maps_(bpf_root_, *this) {}
+      is_ingress_(config.is_ingress()),
+      identity_(config.identity()), maps_(bpf_root_, *this) {}
 
-bool Instance::getBpfMetadata(Network::AcceptSocket &socket) {
+bool Instance::getBpfMetadata(Network::ConnectionSocket &socket) {
   return config_->maps_.getBpfMetadata(socket);
 }
 
 Network::FilterStatus Instance::onAccept(Network::ListenerFilterCallbacks &cb) {
-  Network::AcceptSocket &socket = cb.socket();
+  Network::ConnectionSocket &socket = cb.socket();
   if (!getBpfMetadata(socket)) {
     ENVOY_LOG(warn,
               "cilium.bpf_metadata ({}): no bpf metadata for the connection.",
@@ -74,7 +75,7 @@ Network::FilterStatus Instance::onAccept(Network::ListenerFilterCallbacks &cb) {
     ENVOY_LOG(debug,
               "cilium.bpf_metadata ({}): GOT bpf metadata for new connection "
               "(mark: {:x})",
-              config_->is_ingress_ ? "ingress" : "egress", socket.socketMark());
+              config_->is_ingress_ ? "ingress" : "egress", socket.options()->hashKey());
   }
   return Network::FilterStatus::Continue;
 }

@@ -4,14 +4,14 @@
 #include <mutex>
 #include <string>
 
-#include "envoy/access_log/access_log.h"
 #include "envoy/http/header_map.h"
 #include "envoy/network/connection.h"
+#include "envoy/request_info/request_info.h"
 #include "envoy/router/router.h"
 
 #include "common/common/logger.h"
 
-#include "accesslog.pb.h"
+#include "cilium/accesslog.pb.h"
 
 namespace Envoy {
 namespace Cilium {
@@ -25,15 +25,13 @@ public:
   class Entry {
   public:
     void InitFromRequest(std::string listener_id, const Network::Connection *,
-                         const Http::HeaderMap &,
-                         const Envoy::AccessLog::RequestInfo &,
+                         const Http::HeaderMap &, const RequestInfo::RequestInfo &,
                          const Router::RouteEntry *);
-    void UpdateFromResponse(const Http::HeaderMap &,
-                            const Envoy::AccessLog::RequestInfo &);
+    void UpdateFromResponse(const Http::HeaderMap &, const RequestInfo::RequestInfo &);
 
-    ::pb::cilium::HttpLogEntry entry{};
+    ::cilium::HttpLogEntry entry{};
   };
-  void Log(Entry &entry, ::pb::cilium::EntryType);
+  void Log(Entry &entry, ::cilium::EntryType);
 
   ~AccessLog();
 

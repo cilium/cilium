@@ -21,7 +21,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/cilium/cilium/pkg/envoy/api"
+	envoy_api_v2 "github.com/cilium/cilium/pkg/envoy/envoy/api/v2"
+	envoy_service_discovery_v2 "github.com/cilium/cilium/pkg/envoy/envoy/service/discovery/v2"
 	"github.com/cilium/cilium/pkg/envoy/xds"
 
 	net_context "golang.org/x/net/context"
@@ -54,9 +55,9 @@ func StartXDSGRPCServer(listener net.Listener, ldsConfig, rdsConfig *xds.Resourc
 	}, resourceAccessTimeout)
 	dsServer := (*xdsGRPCServer)(xdsServer)
 
-	api.RegisterAggregatedDiscoveryServiceServer(grpcServer, dsServer)
-	api.RegisterListenerDiscoveryServiceServer(grpcServer, dsServer)
-	api.RegisterRouteDiscoveryServiceServer(grpcServer, dsServer)
+	envoy_service_discovery_v2.RegisterAggregatedDiscoveryServiceServer(grpcServer, dsServer)
+	envoy_api_v2.RegisterListenerDiscoveryServiceServer(grpcServer, dsServer)
+	envoy_api_v2.RegisterRouteDiscoveryServiceServer(grpcServer, dsServer)
 
 	reflection.Register(grpcServer)
 
@@ -74,25 +75,25 @@ func StartXDSGRPCServer(listener net.Listener, ldsConfig, rdsConfig *xds.Resourc
 // resource types supported by Cilium.
 type xdsGRPCServer xds.Server
 
-func (s *xdsGRPCServer) StreamAggregatedResources(stream api.AggregatedDiscoveryService_StreamAggregatedResourcesServer) error {
+func (s *xdsGRPCServer) StreamAggregatedResources(stream envoy_service_discovery_v2.AggregatedDiscoveryService_StreamAggregatedResourcesServer) error {
 	return (*xds.Server)(s).HandleRequestStream(stream.Context(), stream, xds.AnyTypeURL)
 }
 
-func (s *xdsGRPCServer) StreamListeners(stream api.ListenerDiscoveryService_StreamListenersServer) error {
+func (s *xdsGRPCServer) StreamListeners(stream envoy_api_v2.ListenerDiscoveryService_StreamListenersServer) error {
 	return (*xds.Server)(s).HandleRequestStream(stream.Context(), stream, ListenerTypeURL)
 }
 
-func (s *xdsGRPCServer) FetchListeners(ctx net_context.Context, req *api.DiscoveryRequest) (*api.DiscoveryResponse, error) {
+func (s *xdsGRPCServer) FetchListeners(ctx net_context.Context, req *envoy_api_v2.DiscoveryRequest) (*envoy_api_v2.DiscoveryResponse, error) {
 	// The Fetch methods are only called via the REST API, which is not
 	// implemented in Cilium. Only the Stream methods are called over gRPC.
 	return nil, ErrNotImplemented
 }
 
-func (s *xdsGRPCServer) StreamRoutes(stream api.RouteDiscoveryService_StreamRoutesServer) error {
+func (s *xdsGRPCServer) StreamRoutes(stream envoy_api_v2.RouteDiscoveryService_StreamRoutesServer) error {
 	return (*xds.Server)(s).HandleRequestStream(stream.Context(), stream, RouteConfigurationTypeURL)
 }
 
-func (s *xdsGRPCServer) FetchRoutes(ctx net_context.Context, req *api.DiscoveryRequest) (*api.DiscoveryResponse, error) {
+func (s *xdsGRPCServer) FetchRoutes(ctx net_context.Context, req *envoy_api_v2.DiscoveryRequest) (*envoy_api_v2.DiscoveryResponse, error) {
 	// The Fetch methods are only called via the REST API, which is not
 	// implemented in Cilium. Only the Stream methods are called over gRPC.
 	return nil, ErrNotImplemented
