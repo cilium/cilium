@@ -42,7 +42,6 @@ var _ = Describe("RuntimeValidatedLB", func() {
 	images := map[string]string{
 		helpers.Httpd1: helpers.HttpdImage,
 		helpers.Httpd2: helpers.HttpdImage,
-		helpers.Httpd3: helpers.HttpdImage,
 		helpers.Client: helpers.NetperfImage,
 	}
 	createContainers := func() {
