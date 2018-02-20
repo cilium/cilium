@@ -149,17 +149,23 @@ func ParseNetworkPolicyV1beta1(np *v1beta1.NetworkPolicy) (api.Rules, error) {
 	}
 
 	// Convert the k8s default-deny model to the Cilium default-deny model
-	// spec:
-	//   policyTypes:
-	//   - ingress
-	if len(ingresses) == 0 && hasV1beta1PolicyType(np.Spec.PolicyTypes, v1beta1.PolicyTypeIngress) {
+	//spec:
+	//  podSelector: {}
+	//  policyTypes:
+	//	  - Ingress
+	// Since k8s 1.7 doesn't contain any PolicyTypes, we default deny
+	// if podSelector is empty and the policyTypes is not egress
+	if len(ingresses) == 0 &&
+		(hasV1beta1PolicyType(np.Spec.PolicyTypes, v1beta1.PolicyTypeIngress) ||
+			!hasV1beta1PolicyType(np.Spec.PolicyTypes, v1beta1.PolicyTypeEgress)) {
 		ingresses = []api.IngressRule{{}}
 	}
 
 	// Convert the k8s default-deny model to the Cilium default-deny model
-	// spec:
-	//   policyTypes:
-	//   - egress
+	//spec:
+	//  podSelector: {}
+	//  policyTypes:
+	//	  - Egress
 	if len(egresses) == 0 && hasV1beta1PolicyType(np.Spec.PolicyTypes, v1beta1.PolicyTypeEgress) {
 		egresses = []api.EgressRule{{}}
 	}
