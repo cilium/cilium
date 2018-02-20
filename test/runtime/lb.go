@@ -130,57 +130,61 @@ var _ = Describe("RuntimeValidatedLB", func() {
 		result.ExpectFail("unexpected success fetching service with id 20, service should not be present")
 	}, 500)
 
-	It("Service L3 tests", func() {
-		err := createInterface(vm)
+	It("validates that services work for L3 (IP) loadbalancing", func() {
+		err := createLBDevice(vm)
 		if err != nil {
 			log.Errorf("error creating interface: %s", err)
 		}
 		Expect(err).Should(BeNil())
 
 		createContainers()
-
 		httpd1, err := vm.ContainerInspectNet(helpers.Httpd1)
 		Expect(err).Should(BeNil())
-
 		httpd2, err := vm.ContainerInspectNet(helpers.Httpd2)
 		Expect(err).Should(BeNil())
 
-		//Create all the services
+		By(fmt.Sprintf("Creating services"))
 
-		vm.ServiceAdd(1, "2.2.2.2:0", []string{
-			fmt.Sprintf("%s:0", httpd1[helpers.IPv4]),
-			fmt.Sprintf("%s:0", httpd2[helpers.IPv4])})
+		services := map[string][]string{
+			"2.2.2.2:0": {
+				fmt.Sprintf("%s:0", httpd1[helpers.IPv4]),
+				fmt.Sprintf("%s:0", httpd2[helpers.IPv4]),
+			},
+			"[f00d::1:1]:0": {
+				fmt.Sprintf("[%s]:0", httpd1[helpers.IPv6]),
+				fmt.Sprintf("[%s]:0", httpd2[helpers.IPv6]),
+			},
+			"3.3.3.3:0": {
+				fmt.Sprintf("%s:0", "10.0.2.15"),
+			},
+			"[f00d::1:2]:0": {
+				fmt.Sprintf("[%s]:0", "fd02:1:1:1:1:1:1:1"),
+			},
+		}
+		svc := 1
+		for fe, be := range services {
+			status := vm.ServiceAdd(svc, fe, be)
+			status.ExpectSuccess(fmt.Sprintf("failed to create service %s=>%v", fe, be))
+			svc++
+		}
 
-		vm.ServiceAdd(2, "[f00d::1:1]:0", []string{
-			fmt.Sprintf("[%s]:0", httpd1[helpers.IPv6]),
-			fmt.Sprintf("[%s]:0", httpd2[helpers.IPv6])})
-
-		vm.ServiceAdd(11, "3.3.3.3:0", []string{
-			fmt.Sprintf("%s:0", "10.0.2.15")})
-
-		vm.ServiceAdd(22, "[f00d::1:2]:0", []string{
-			fmt.Sprintf("[%s]:0", "fd02:1:1:1:1:1:1:1")})
-
-		By("Cilium L3 service with Ipv4")
+		By("Pinging container => bpf_lb => container")
 
 		status := vm.ContainerExec(helpers.Client, helpers.Ping("2.2.2.2"))
-		status.ExpectSuccess("L3 Proxy is not working IPv4")
-
-		By("Cilium L3 service with Ipv6")
+		status.ExpectSuccess("failed to ping service IP 2.2.2.2")
 		status = vm.ContainerExec(helpers.Client, helpers.Ping6("f00d::1:1"))
-		status.ExpectSuccess("L3 Proxy is not working IPv6")
+		status.ExpectSuccess("failed to ping service IP f00d::1:1")
 
-		By("Cilium L3 service with Ipv4 Reverse")
+		By("Pinging container => bpf_lb => host")
+
 		status = vm.ContainerExec(helpers.Client, helpers.Ping("3.3.3.3"))
-		status.ExpectSuccess("L3 Proxy is not working IPv6")
-
-		By("Cilium L3 service with Ipv6 Reverse")
+		status.ExpectSuccess("failed to ping service IP 3.3.3.3")
 		status = vm.ContainerExec(helpers.Client, helpers.Ping("f00d::1:2"))
-		status.ExpectSuccess("L3 Proxy is not working IPv6")
+		status.ExpectSuccess("failed to ping service IP f00d::1:2")
 	}, 500)
 
 	It("Service L4 tests", func() {
-		err := createInterface(vm)
+		err := createLBDevice(vm)
 		if err != nil {
 			log.Errorf("error creating interface: %s", err)
 		}
@@ -384,7 +388,25 @@ var _ = Describe("RuntimeValidatedLB", func() {
 	})
 })
 
-func createInterface(node *helpers.SSHMeta) error {
+// createLBDevice instantiates a device with the bpf_lb program to handle
+// loadbalancing as though it were attached to a physical device on the system.
+// This is implemented through a veth pair with two ends, lbtest1 and lbtest2.
+// bpf_lb is attached to ingress at lbtest2, so when traffic is sent through
+// lbtest1 it is forwarded through the veth pair into lbtest2 where the BPF
+// program executes the services functionality.
+//
+// The following traffic is routed to lbtest1 (so it goes to the LB BPF prog):
+// * 3.3.3.3/32
+// * 2.2.2.2/32
+// * f00d:1:1/128
+// * fbfb::10:10/128
+//
+// Additionally, the following IPs are associated with the cilium_host device,
+// so they may be used as backends for services and they will receive a
+// response from the host:
+// * 10.0.2.15 (inherited from virtualbox VM configuration)
+// * fd02:1:1:1:1:1:1:1 (explicitly configured below)
+func createLBDevice(node *helpers.SSHMeta) error {
 	script := `#!/bin/bash
 function mac2array() {
     echo "{0x${1//:/,0x}}"
@@ -420,6 +442,7 @@ tc qdisc del dev lbtest2 clsact 2> /dev/null || true
 tc qdisc add dev lbtest2 clsact
 tc filter add dev lbtest2 ingress bpf da obj tmp_lb.o sec from-netdev
 `
+	By("Creating LB device to handle service requests")
 	scriptName := "create_veth_interface"
 	log.Infof("generating veth script: %s", scriptName)
 	err := helpers.RenderTemplateToFile(scriptName, script, os.ModePerm)
