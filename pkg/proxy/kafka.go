@@ -277,9 +277,9 @@ func (k *kafkaRedirect) handleRequest(pair *connectionPair, req *kafka.RequestMe
 
 		resp, err := req.CreateResponse(proto.ErrTopicAuthorizationFailed)
 		if err != nil {
-			scopedLog.WithError(err).Error("Unable to create response message")
 			record.log(accesslog.TypeRequest, accesslog.VerdictError,
-				kafka.ErrInvalidMessage, fmt.Sprintf("Unable to create response message: %s", err))
+				kafka.ErrInvalidMessage, fmt.Sprintf("Unable to create response: %s", err))
+			scopedLog.WithError(err).Error("Unable to create Kafka response")
 			return
 		}
 

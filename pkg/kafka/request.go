@@ -24,7 +24,6 @@ import (
 	"github.com/cilium/cilium/pkg/flowdebug"
 
 	"github.com/optiopay/kafka/proto"
-	"github.com/sirupsen/logrus"
 )
 
 // RequestMessage represents a Kafka request message
@@ -142,12 +141,6 @@ func offsetFetchTopics(req *proto.OffsetFetchReq) []string {
 // message. The response will have the specified error code set in all topics
 // and embedded partitions.
 func (req *RequestMessage) CreateResponse(err error) (*ResponseMessage, error) {
-	if req == nil || req.request == nil {
-		return nil, fmt.Errorf("request is nil")
-	}
-
-	// FIXME: Send response versions based on request
-
 	switch val := req.request.(type) {
 	case *proto.ProduceReq:
 		return createProduceResponse(val, err)
@@ -163,9 +156,14 @@ func (req *RequestMessage) CreateResponse(err error) (*ResponseMessage, error) {
 		return createOffsetCommitResponse(val, err)
 	case *proto.OffsetFetchReq:
 		return createOffsetFetchResponse(val, err)
+	case nil:
+		return nil, fmt.Errorf("unsupported request API key %d", req.kind)
+	default:
+		// The switch cases above must correspond exactly to the switch cases
+		// in ReadRequest.
+		log.Panic(fmt.Sprintf("Kafka API key not handled: %d", req.kind))
 	}
-
-	return nil, fmt.Errorf("unknown request type %d", req.kind)
+	return nil, nil
 }
 
 // ReadRequest will read a Kafka request from an io.Reader and return the
@@ -203,12 +201,13 @@ func ReadRequest(reader io.Reader) (*RequestMessage, error) {
 		req.request, err = proto.ReadOffsetCommitReq(buf)
 	case proto.OffsetFetchReqKind:
 		req.request, err = proto.ReadOffsetFetchReq(buf)
+	default:
+		log.WithField(fieldRequest, req.String()).Debugf("Unknown Kafka request API key: %d", req.kind)
 	}
 
 	if err != nil {
-		flowdebug.Log(log.WithFields(logrus.Fields{
-			fieldRequest: req.String(),
-		}).WithError(err), "Ignoring Kafka message due to parse error")
+		flowdebug.Log(log.WithField(fieldRequest, req.String()).WithError(err),
+			"Ignoring Kafka message due to parse error")
 		return nil, err
 	}
 	return req, nil
