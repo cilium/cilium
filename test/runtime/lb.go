@@ -70,6 +70,7 @@ var _ = Describe("RuntimeValidatedLB", func() {
 				"sudo cilium service list",
 				"sudo cilium endpoint list")
 		}
+		cleanupLBDevice(vm)
 		deleteContainers()
 	}, 500)
 
@@ -492,4 +493,14 @@ tc filter add dev lbtest2 ingress bpf da obj tmp_lb.o sec from-netdev
 	log.Infof("removing file %q", scriptName)
 	err = os.Remove(scriptName)
 	return err
+}
+
+func cleanupLBDevice(node *helpers.SSHMeta) {
+	ipAddrCmd := "sudo ip addr del fd02:1:1:1:1:1:1:1/128 dev cilium_host"
+	res := node.Exec(ipAddrCmd)
+	log.Infof("output of %q: %s", ipAddrCmd, res.CombineOutput())
+
+	ipLinkCmd := "sudo ip link del dev lbtest1"
+	res = node.Exec(ipLinkCmd)
+	log.Infof("output of %q: %s", ipLinkCmd, res.CombineOutput())
 }
