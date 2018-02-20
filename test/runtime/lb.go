@@ -51,6 +51,8 @@ var _ = Describe("RuntimeValidatedLB", func() {
 		for k, v := range images {
 			vm.ContainerCreate(k, v, helpers.CiliumDockerNetwork, fmt.Sprintf("-l id.%s", k))
 		}
+		epStatus := vm.WaitEndpointsReady()
+		Expect(epStatus).Should(BeTrue())
 	}
 	deleteContainers := func() {
 		for k := range images {
@@ -192,8 +194,6 @@ var _ = Describe("RuntimeValidatedLB", func() {
 
 		createContainers()
 
-		vm.WaitEndpointsReady()
-
 		httpd1, err := vm.ContainerInspectNet(helpers.Httpd1)
 		Expect(err).Should(BeNil())
 
@@ -238,12 +238,8 @@ var _ = Describe("RuntimeValidatedLB", func() {
 			"curl -s --fail --connect-timeout 4 http://%s/public", service)
 
 		createContainers()
-		epStatus := vm.WaitEndpointsReady()
-		Expect(epStatus).Should(BeTrue())
-
 		httpd1, err := vm.ContainerInspectNet("httpd1")
 		Expect(err).Should(BeNil())
-
 		httpd2, err := vm.ContainerInspectNet("httpd2")
 		Expect(err).Should(BeNil())
 
