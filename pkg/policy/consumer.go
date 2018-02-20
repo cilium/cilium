@@ -187,7 +187,9 @@ func (c *Consumable) AllowIngressIdentityLocked(cache *ConsumableCache, id Numer
 		if id.IsReservedIdentity() {
 			reservedConsumable := cache.Lookup(id)
 			if reservedConsumable != nil {
-				// Avoid deadlock ; is this necessary? Being cautious.
+				// If we are accessing the same Consumable (allowing traffic
+				// to itself), we don't need to take its mutex because it was
+				// already taken before calling this function.
 				if id != c.ID {
 					reservedConsumable.Mutex.Lock()
 					reservedConsumable.AllowIngressIdentityLocked(cache, c.ID)
@@ -220,7 +222,9 @@ func (c *Consumable) RemoveIngressIdentityLocked(id NumericIdentity) {
 		if id.IsReservedIdentity() {
 			reservedConsumable := c.cache.Lookup(id)
 			if reservedConsumable != nil {
-				// Avoid deadlock!
+				// If we are accessing the same Consumable (allowing traffic
+				// to itself), we don't need to take its mutex because it was
+				// already taken before calling this function.
 				if id != c.ID {
 					reservedConsumable.Mutex.Lock()
 					reservedConsumable.RemoveIngressIdentityLocked(c.ID)
