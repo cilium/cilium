@@ -232,7 +232,7 @@ var _ = Describe("NightlyExamples", func() {
 	var once sync.Once
 	var ciliumPath string
 	var demoPath string
-	var l3Policy string
+	var l3Policy, l7Policy string
 	var appService = "app1-service"
 	var apps []string
 
@@ -247,6 +247,7 @@ var _ = Describe("NightlyExamples", func() {
 
 		demoPath = kubectl.ManifestGet("demo.yaml")
 		l3Policy = kubectl.ManifestGet("l3_l4_policy.yaml")
+		l7Policy = kubectl.ManifestGet("l7_policy.yaml")
 	}
 
 	BeforeEach(func() {
@@ -254,69 +255,178 @@ var _ = Describe("NightlyExamples", func() {
 	})
 
 	AfterEach(func() {
+		if CurrentGinkgoTestDescription().Failed {
+			ciliumPod, _ := kubectl.GetCiliumPodOnNode(helpers.KubeSystemNamespace, helpers.K8s1)
+			kubectl.CiliumReport(helpers.KubeSystemNamespace, ciliumPod, []string{
+				"cilium service list",
+				"cilium endpoint list"})
+		}
+
 		kubectl.Delete(demoPath)
 		kubectl.Delete(l3Policy)
+		kubectl.Delete(l7Policy)
 
 		err := kubectl.WaitCleanAllTerminatingPods()
 		Expect(err).To(BeNil(), "Terminating containers are not deleted after timeout")
 	})
 
-	It("Check Kubernetes Example is working correctly", func() {
-		var path = "../examples/kubernetes/cilium.yaml"
-		var result bytes.Buffer
-		newCiliumDSName := fmt.Sprintf("cilium_ds_%s.json", helpers.MakeUID())
+	Context("Cilium DS from example", func() {
+		InstallExampleCilium := func() {
+			var path = "../examples/kubernetes/cilium.yaml"
+			var result bytes.Buffer
+			newCiliumDSName := fmt.Sprintf("cilium_ds_%s.json", helpers.MakeUID())
 
-		objects, err := helpers.DecodeYAMLOrJSON(path)
-		Expect(err).To(BeNil())
-
-		for _, object := range objects {
-			data, err := json.Marshal(object)
+			objects, err := helpers.DecodeYAMLOrJSON(path)
 			Expect(err).To(BeNil())
 
-			jsonObj, err := gabs.ParseJSON(data)
-			Expect(err).To(BeNil())
+			for _, object := range objects {
+				data, err := json.Marshal(object)
+				Expect(err).To(BeNil())
 
-			value, _ := jsonObj.Path("kind").Data().(string)
-			if value == configMap {
-				jsonObj.SetP("---\nendpoints:\n- http://k8s1:9732\n", "data.etcd-config")
-				jsonObj.SetP("true", "data.debug")
+				jsonObj, err := gabs.ParseJSON(data)
+				Expect(err).To(BeNil())
+
+				value, _ := jsonObj.Path("kind").Data().(string)
+				if value == configMap {
+					jsonObj.SetP("---\nendpoints:\n- http://k8s1:9732\n", "data.etcd-config")
+					jsonObj.SetP("true", "data.debug")
+				}
+
+				result.WriteString(jsonObj.String())
 			}
 
-			result.WriteString(jsonObj.String())
+			fp, err := os.Create(newCiliumDSName)
+			defer fp.Close()
+			Expect(err).To(BeNil())
+
+			fmt.Fprint(fp, result.String())
+
+			kubectl.Apply(helpers.GetFilePath(newCiliumDSName)).ExpectSuccess(
+				"cannot apply cilium example daemonset")
+
+			status, err := kubectl.WaitforPods(
+				helpers.KubeSystemNamespace, "-l k8s-app=cilium", 300)
+			Expect(status).Should(BeTrue(), "Cilium is not ready after timeout")
+			Expect(err).Should(BeNil(), "Cilium is not ready after timeout")
 		}
 
-		fp, err := os.Create(newCiliumDSName)
-		defer fp.Close()
-		Expect(err).To(BeNil())
+		waitEndpointReady := func() {
+			ciliumPods, err := kubectl.GetCiliumPods(helpers.KubeSystemNamespace)
+			Expect(err).To(BeNil(), "cannot retrieve cilium pods")
+			for _, pod := range ciliumPods {
+				ExpectWithOffset(1, kubectl.CiliumEndpointWait(pod)).To(BeTrue(),
+					"Pods are not ready in pod %v", pod)
+			}
+		}
 
-		fmt.Fprint(fp, result.String())
+		AfterEach(func() {
+			kubectl.Exec(fmt.Sprintf(
+				"%s -n %s delete ds cilium",
+				helpers.KubectlCmd, helpers.KubeSystemNamespace)).ExpectSuccess(
+				"Cilium DS cannot be deleted")
+		})
 
-		kubectl.Apply(helpers.GetFilePath(newCiliumDSName)).ExpectSuccess()
-		defer kubectl.Delete(helpers.GetFilePath(newCiliumDSName))
-		status, err := kubectl.WaitforPods(helpers.KubeSystemNamespace, "-l k8s-app=cilium", 300)
-		Expect(status).Should(BeTrue())
-		Expect(err).Should(BeNil())
+		BeforeEach(func() {
+			kubectl.Exec("sudo docker rmi cilium/cilium")
+			InstallExampleCilium()
+		})
 
-		kubectl.Apply(demoPath).ExpectSuccess()
-		_, err = kubectl.WaitforPods(helpers.DefaultNamespace, "-l zgroup=testapp", 300)
-		Expect(err).Should(BeNil())
+		It("Check Kubernetes Example is working correctly", func() {
+			kubectl.Apply(demoPath).ExpectSuccess()
+			_, err := kubectl.WaitforPods(helpers.DefaultNamespace, "-l zgroup=testapp", 300)
+			Expect(err).Should(BeNil())
 
-		_, err = kubectl.CiliumPolicyAction(helpers.KubeSystemNamespace, l3Policy, helpers.KubectlApply, 300)
-		Expect(err).Should(BeNil())
+			_, err = kubectl.CiliumPolicyAction(
+				helpers.KubeSystemNamespace, l3Policy, helpers.KubectlApply, 300)
+			Expect(err).Should(BeNil())
 
-		appPods := helpers.GetAppPods(apps, helpers.DefaultNamespace, kubectl, "id")
+			appPods := helpers.GetAppPods(apps, helpers.DefaultNamespace, kubectl, "id")
 
-		clusterIP, _, err := kubectl.GetServiceHostPort(helpers.DefaultNamespace, appService)
-		Expect(err).Should(BeNil())
+			clusterIP, _, err := kubectl.GetServiceHostPort(helpers.DefaultNamespace, appService)
+			Expect(err).Should(BeNil())
 
-		_, err = kubectl.ExecPodCmd(
-			helpers.DefaultNamespace, appPods[helpers.App2],
-			helpers.CurlFail(fmt.Sprintf("http://%s/public", clusterIP)))
-		Expect(err).Should(BeNil())
+			_, err = kubectl.ExecPodCmd(
+				helpers.DefaultNamespace, appPods[helpers.App2],
+				helpers.CurlFail(fmt.Sprintf("http://%s/public", clusterIP)))
+			Expect(err).Should(BeNil())
 
-		_, err = kubectl.ExecPodCmd(
-			helpers.DefaultNamespace, appPods[helpers.App3],
-			helpers.CurlFail(fmt.Sprintf("http://%s/public", clusterIP)))
-		Expect(err).Should(HaveOccurred())
+			_, err = kubectl.ExecPodCmd(
+				helpers.DefaultNamespace, appPods[helpers.App3],
+				helpers.CurlFail(fmt.Sprintf("http://%s/public", clusterIP)))
+			Expect(err).Should(HaveOccurred())
+		})
+
+		It("Updating Cilium stable to master", func() {
+			By("Creating some endpoints and L7 policy")
+			kubectl.Apply(demoPath).ExpectSuccess()
+			_, err := kubectl.WaitforPods(helpers.DefaultNamespace, "-l zgroup=testapp", 300)
+			Expect(err).Should(BeNil())
+
+			kubectl.Exec(fmt.Sprintf("%s scale deployment %s --replicas=10",
+				helpers.KubectlCmd, helpers.App1)).ExpectSuccess("Cilium DS cannot be deleted")
+
+			_, err = kubectl.CiliumPolicyAction(
+				helpers.KubeSystemNamespace, l7Policy, helpers.KubectlApply, 300)
+			Expect(err).Should(BeNil(), "cannot import l7 policy")
+
+			waitEndpointReady()
+
+			appPods := getAppPods()
+			_, err = kubectl.ExecPodCmd(
+				helpers.DefaultNamespace, appPods[helpers.App2],
+				helpers.CurlFail(fmt.Sprintf("http://app1-service/public")))
+			Expect(err).To(BeNil(), "Cannot curl service")
+
+			By("Updating cilium to master image")
+
+			localImage := "k8s1:5000/cilium/cilium-dev"
+			resource := "daemonset/cilium"
+
+			kubectl.Exec(fmt.Sprintf("%s -n %s set image %s cilium-agent=%s",
+				helpers.KubectlCmd, helpers.KubeSystemNamespace,
+				resource, localImage)).ExpectSuccess(
+				"Cannot update image")
+
+			kubectl.Exec(fmt.Sprintf("%s rollout status %s -n %s",
+				helpers.KubectlCmd, resource,
+				helpers.KubeSystemNamespace)).ExpectSuccess("Cannot rollout the change")
+
+			waitForUpdateImage := func() bool {
+				pods, err := kubectl.GetCiliumPods(helpers.KubeSystemNamespace)
+				if err != nil {
+					return false
+				}
+
+				filter := `{.items[*].status.containerStatuses[0].image}`
+				data, err := kubectl.GetPods(
+					helpers.KubeSystemNamespace, "-l k8s-app=cilium").Filter(filter)
+				if err != nil {
+					return false
+				}
+				number := strings.Count(data.String(), localImage)
+				if number == len(pods) {
+					return true
+				}
+				logger.Infof("Only '%v' of '%v' cilium pods updated to the new image",
+					number, len(pods))
+				return false
+			}
+
+			err = helpers.WithTimeout(
+				waitForUpdateImage,
+				"Cilium Pods are not updating correctly",
+				&helpers.TimeoutConfig{Timeout: 300})
+			Expect(err).To(BeNil(), "Pods are not updating")
+
+			status, err := kubectl.WaitforPods(
+				helpers.KubeSystemNamespace, "-l k8s-app=cilium", 300)
+			Expect(status).Should(BeTrue())
+			Expect(err).Should(BeNil())
+
+			_, err = kubectl.ExecPodCmd(
+				helpers.DefaultNamespace, appPods[helpers.App2],
+				helpers.CurlFail(fmt.Sprintf("http://app1-service/public")))
+			Expect(err).To(BeNil(), "Cannot curl service after update")
+		})
 	})
 })
