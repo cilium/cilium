@@ -185,7 +185,7 @@ var _ = Describe("RuntimeValidatedLB", func() {
 		status.ExpectSuccess("failed to ping service IP f00d::1:2")
 	}, 500)
 
-	It("Service L4 tests", func() {
+	It("validates that services work for L4 (IP+Port) loadbalancing", func() {
 		err := createLBDevice(vm)
 		if err != nil {
 			log.Errorf("error creating interface: %s", err)
@@ -193,35 +193,37 @@ var _ = Describe("RuntimeValidatedLB", func() {
 		Expect(err).Should(BeNil())
 
 		createContainers()
-
 		httpd1, err := vm.ContainerInspectNet(helpers.Httpd1)
 		Expect(err).Should(BeNil())
-
 		httpd2, err := vm.ContainerInspectNet(helpers.Httpd2)
 		Expect(err).Should(BeNil())
 
-		By("Valid IPV4 nat")
-		status := vm.ServiceAdd(1, "2.2.2.2:80", []string{
-			fmt.Sprintf("%s:80", httpd1[helpers.IPv4]),
-			fmt.Sprintf("%s:80", httpd2[helpers.IPv4])})
-		status.ExpectSuccess("L4 service cannot be created")
+		By(fmt.Sprintf("Creating services"))
 
-		status = vm.ContainerExec(
-			helpers.Client,
-			helpers.CurlFail("http://2.2.2.2:80/public"))
-		status.ExpectSuccess("L4 Proxy is not working IPv4")
+		services := map[string][]string{
+			"2.2.2.2:80": {
+				fmt.Sprintf("%s:80", httpd1[helpers.IPv4]),
+				fmt.Sprintf("%s:80", httpd2[helpers.IPv4]),
+			},
+			"[f00d::1:1]:80": {
+				fmt.Sprintf("[%s]:80", httpd1[helpers.IPv6]),
+				fmt.Sprintf("[%s]:80", httpd2[helpers.IPv6]),
+			},
+		}
+		svc := 1
+		for fe, be := range services {
+			status := vm.ServiceAdd(svc, fe, be)
+			status.ExpectSuccess("failed to create service %s=>%v, fe, be")
+			svc++
+		}
 
-		By("Valid IPV6 nat")
-		status = vm.ServiceAdd(2, "[f00d::1:1]:80", []string{
+		By("Making HTTP requests from container => bpf_lb => container")
 
-			fmt.Sprintf("[%s]:80", httpd1[helpers.IPv6]),
-			fmt.Sprintf("[%s]:80", httpd2[helpers.IPv6])})
-		status.ExpectSuccess("L4 service cannot be created")
-
-		status = vm.ContainerExec(
-			helpers.Client,
-			helpers.CurlFail("http://2.2.2.2:80/public"))
-		status.ExpectSuccess("L4 Proxy is not working IPv6")
+		for ip := range services {
+			url := fmt.Sprintf("http://%s/public", ip)
+			status := vm.ContainerExec(helpers.Client, helpers.CurlFail(url))
+			status.ExpectSuccess(fmt.Sprintf("failed to fetch via URL %s", url))
+		}
 
 		By("L3 redirect to L4")
 		status = vm.ServiceAdd(3, "2.2.2.2:0", []string{
