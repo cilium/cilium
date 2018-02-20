@@ -130,7 +130,7 @@ func (d *Daemon) UpdateProxyRedirect(e *endpoint.Endpoint, l4 *policy.L4Filter) 
 		return 0, err
 	}
 
-	return r.ToPort(), nil
+	return r.ProxyPort, nil
 }
 
 // RemoveProxyRedirect removes a previously installed proxy redirect for an
