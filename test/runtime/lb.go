@@ -269,14 +269,8 @@ var _ = Describe("RuntimeValidatedLB", func() {
 		oldBpfLB, err := vm.BpfLBList()
 		Expect(err).Should(BeNil())
 
-		res := vm.Exec("sudo systemctl restart cilium")
-		res.ExpectSuccess()
-
-		err = vm.WaitUntilReady(100)
+		err = vm.RestartCilium()
 		Expect(err).Should(BeNil())
-
-		epStatus = vm.WaitEndpointsReady()
-		Expect(epStatus).Should(BeTrue())
 
 		svcIds, err := vm.ServiceGetIds()
 		Expect(err).Should(BeNil())

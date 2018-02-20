@@ -26,6 +26,7 @@ import (
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 
+	"github.com/onsi/ginkgo"
 	"github.com/sirupsen/logrus"
 )
 
@@ -752,4 +753,22 @@ func (s *SSHMeta) WaitUntilReady(timeout time.Duration) error {
 	}
 	err := WithTimeout(body, "Cilium is not ready", &TimeoutConfig{Timeout: timeout})
 	return err
+}
+
+// RestartCilium reloads cilium on this host, then waits for it to become
+// ready again.
+func (s *SSHMeta) RestartCilium() error {
+	ginkgo.By("Restarting Cilium")
+
+	res := s.ExecWithSudo("systemctl restart cilium")
+	if !res.WasSuccessful() {
+		return fmt.Errorf("%s", res.CombineOutput())
+	}
+	if err := s.WaitUntilReady(100); err != nil {
+		return err
+	}
+	if !s.WaitEndpointsReady() {
+		return fmt.Errorf("Endpoints are not ready after timeout")
+	}
+	return nil
 }
