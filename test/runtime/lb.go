@@ -356,8 +356,7 @@ var _ = Describe("RuntimeValidatedLB", func() {
 
 			status = vm.ContainerExec(helpers.App1, getHTTP(service1, helpers.Public))
 			status.ExpectSuccess()
-
-			status = vm.ContainerExec(helpers.App2, getHTTP(service1, helpers.Public))
+			status = vm.ContainerExec(helpers.App3, getHTTP(service1, helpers.Public))
 			status.ExpectFail()
 
 			By("Simple Egress")
@@ -379,8 +378,7 @@ var _ = Describe("RuntimeValidatedLB", func() {
 
 			status = vm.ContainerExec(helpers.App1, getHTTP(service1, helpers.Private))
 			status.ExpectFail()
-
-			status = vm.ContainerExec(helpers.App2, getHTTP(service1, helpers.Public))
+			status = vm.ContainerExec(helpers.App3, getHTTP(service1, helpers.Public))
 			status.ExpectFail()
 
 			By("Multiple Egress")
