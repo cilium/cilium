@@ -40,6 +40,9 @@ type StatusResponse struct {
 
 	// Status of the node monitor
 	NodeMonitor *MonitorStatus `json:"nodeMonitor,omitempty"`
+
+	// Status of proxy
+	Proxy *ProxyStatus `json:"proxy,omitempty"`
 }
 
 /* polymorph StatusResponse cilium false */
@@ -57,6 +60,8 @@ type StatusResponse struct {
 /* polymorph StatusResponse kvstore false */
 
 /* polymorph StatusResponse nodeMonitor false */
+
+/* polymorph StatusResponse proxy false */
 
 // Validate validates this status response
 func (m *StatusResponse) Validate(formats strfmt.Registry) error {
@@ -93,6 +98,11 @@ func (m *StatusResponse) Validate(formats strfmt.Registry) error {
 	}
 
 	if err := m.validateNodeMonitor(formats); err != nil {
+		// prop
+		res = append(res, err)
+	}
+
+	if err := m.validateProxy(formats); err != nil {
 		// prop
 		res = append(res, err)
 	}
@@ -228,6 +238,25 @@ func (m *StatusResponse) validateNodeMonitor(formats strfmt.Registry) error {
 		if err := m.NodeMonitor.Validate(formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("nodeMonitor")
+			}
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (m *StatusResponse) validateProxy(formats strfmt.Registry) error {
+
+	if swag.IsZero(m.Proxy) { // not required
+		return nil
+	}
+
+	if m.Proxy != nil {
+
+		if err := m.Proxy.Validate(formats); err != nil {
+			if ve, ok := err.(*errors.Validation); ok {
+				return ve.ValidateName("proxy")
 			}
 			return err
 		}

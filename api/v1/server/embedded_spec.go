@@ -1718,6 +1718,28 @@ func init() {
         "type": "string"
       }
     },
+    "MessageForwardingStatistics": {
+      "description": "Statistics of a message forwarding entity",
+      "type": "object",
+      "properties": {
+        "denied": {
+          "description": "Number of messages denied",
+          "type": "integer"
+        },
+        "error": {
+          "description": "Number of errors while parsing messages",
+          "type": "integer"
+        },
+        "forwarded": {
+          "description": "Number of messages forwarded",
+          "type": "integer"
+        },
+        "received": {
+          "description": "Number of messages received",
+          "type": "integer"
+        }
+      }
+    },
     "MonitorStatus": {
       "description": "Status of the node monitor",
       "properties": {
@@ -1865,6 +1887,94 @@ func init() {
         }
       }
     },
+    "ProxyRedirectStatistics": {
+      "description": "Statistics of a proxy redirect",
+      "type": "object",
+      "properties": {
+        "requests": {
+          "$ref": "#/definitions/MessageForwardingStatistics"
+        },
+        "responses": {
+          "$ref": "#/definitions/MessageForwardingStatistics"
+        }
+      }
+    },
+    "ProxyRedirectStatus": {
+      "description": "Status of a proxy redirect",
+      "type": "object",
+      "properties": {
+        "allocatedProxyPort": {
+          "description": "The port the proxy is listening on",
+          "type": "integer"
+        },
+        "created": {
+          "description": "Timestamp of when redirected was created",
+          "type": "string",
+          "format": "date-time"
+        },
+        "endpointID": {
+          "description": "ID of the endpoint the redirect is installed for",
+          "type": "integer"
+        },
+        "endpointLabels": {
+          "description": "Labels of the endpoint the redirect is installed for",
+          "$ref": "#/definitions/Labels"
+        },
+        "last-updated": {
+          "description": "Timestamp of when redirected was last updated",
+          "type": "string",
+          "format": "date-time"
+        },
+        "location": {
+          "description": "The location of where the redirect is installed",
+          "type": "string",
+          "enum": [
+            "ingress",
+            "egress"
+          ]
+        },
+        "port": {
+          "description": "The port subject to the redirect",
+          "type": "integer"
+        },
+        "protocol": {
+          "description": "Name of the L7 protocol",
+          "type": "string"
+        },
+        "rules": {
+          "description": "List of rules configured",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "statistics": {
+          "description": "Statistics of this redirected",
+          "$ref": "#/definitions/ProxyRedirectStatistics"
+        }
+      }
+    },
+    "ProxyStatus": {
+      "description": "Status of proxy",
+      "type": "object",
+      "properties": {
+        "ip": {
+          "description": "IP address that the proxy listens on",
+          "type": "string"
+        },
+        "portRange": {
+          "description": "Port range used for proxying",
+          "type": "string"
+        },
+        "redirects": {
+          "description": "List of all configured redirects",
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/ProxyRedirectStatus"
+          }
+        }
+      }
+    },
     "Service": {
       "description": "Collection of endpoints to be served",
       "type": "object",
@@ -1958,6 +2068,10 @@ func init() {
         "nodeMonitor": {
           "description": "Status of the node monitor",
           "$ref": "#/definitions/MonitorStatus"
+        },
+        "proxy": {
+          "description": "Status of proxy",
+          "$ref": "#/definitions/ProxyStatus"
         }
       }
     }
