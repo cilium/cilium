@@ -85,11 +85,6 @@ const (
 	Client    = "client"
 	Server    = "server"
 	Host      = "host"
-	KafkaApp  = "kafka"
-	Zookeeper = "zook"
-	Backup    = "empire-backup"
-	EmpireHq  = "empire-hq"
-	Outpost   = "empire-outpost"
 	// Container lifecycle actions.
 	Create = "create"
 	Delete = "delete"

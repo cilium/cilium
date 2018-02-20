@@ -1,4 +1,4 @@
-// Copyright 2017 Authors of Cilium
+// Copyright 2017-2018 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -125,6 +125,7 @@ func WithTimeout(body func() bool, msg string, config *TimeoutConfig) error {
 	}
 }
 
+// GetAppPods fetches app pod names for a namespace.
 func GetAppPods(apps []string, namespace string, kubectl *Kubectl) map[string]string {
 	appPods := make(map[string]string)
 	for _, v := range apps {
@@ -137,7 +138,8 @@ func GetAppPods(apps []string, namespace string, kubectl *Kubectl) map[string]st
 	return appPods
 }
 
-
+// WaitUntilEndpointUpdates checks the policy version and then iterates through
+// all endpoints waiting for the endpoints to have updated policies.
 func WaitUntilEndpointUpdates(pod string, eps map[string]int64, min int, kubectl *Kubectl) error {
 	body := func() bool {
 		updated := 0
