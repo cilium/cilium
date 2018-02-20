@@ -13,7 +13,7 @@ A new Linux kernel technology called BPF is at the foundation of Cilium. It
 supports dynamic insertion of BPF bytecode into the Linux kernel at various
 integration points such as: network IO, application sockets, and tracepoints to
 implement security, networking and visibility logic. BPF is highly efficient
-and flexible. To learn more about BPF, read more in our our extensive
+and flexible. To learn more about BPF, read more in our extensive
 `BPF and XDP Reference Guide`_.
 
 .. image:: https://cdn.rawgit.com/cilium/cilium/master/Documentation/images/cilium-arch.png
