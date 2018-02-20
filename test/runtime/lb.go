@@ -228,11 +228,10 @@ var _ = Describe("RuntimeValidatedLB", func() {
 		}
 	}, 500)
 
-	It("Service recovery on restart", func() {
+	It("validates service recovery on restart", func() {
 		service := "2.2.2.2:80"
 		svcID := 1
-		testCmd := fmt.Sprintf(
-			"curl -s --fail --connect-timeout 4 http://%s/public", service)
+		testCmd := helpers.CurlFail(fmt.Sprintf("http://%s/public", service))
 
 		createContainers()
 		httpd1, err := vm.ContainerInspectNet("httpd1")
@@ -243,13 +242,16 @@ var _ = Describe("RuntimeValidatedLB", func() {
 		status := vm.ServiceAdd(svcID, service, []string{
 			fmt.Sprintf("%s:80", httpd1["IPv4"]),
 			fmt.Sprintf("%s:80", httpd2["IPv4"])})
-		status.ExpectSuccess("L4 service can't be created")
+		status.ExpectSuccess("failed to create service %s=>{httpd1,httpd2}", service)
 
-		status = vm.ContainerExec("client", testCmd)
-		status.ExpectSuccess("L4 Proxy is not working IPv4")
+		By("Making HTTP request via the service before restart")
 
+		status = vm.ContainerExec(helpers.Client, testCmd)
+		status.ExpectSuccess("Failed to fetch URL via service")
 		oldSvc := vm.ServiceList()
 		oldSvc.ExpectSuccess("Cannot retrieve service list")
+
+		By("Fetching service state before restart")
 
 		oldSvcIds, err := vm.ServiceGetIds()
 		Expect(err).Should(BeNil())
@@ -259,24 +261,29 @@ var _ = Describe("RuntimeValidatedLB", func() {
 		err = vm.RestartCilium()
 		Expect(err).Should(BeNil())
 
+		By("Checking that the service was restored correctly")
+
 		svcIds, err := vm.ServiceGetIds()
 		Expect(err).Should(BeNil())
-		Expect(len(svcIds)).Should(Equal(len(oldSvcIds)), "Service recovery does not match")
-
+		Expect(len(svcIds)).Should(Equal(len(oldSvcIds)),
+			fmt.Sprintf("Service ids %s do not match old service ids %s", svcIds, oldSvcIds))
 		newSvc := vm.ServiceList()
 		newSvc.ExpectSuccess("Cannot retrieve service list after restart")
 		newSvc.ExpectEqual(oldSvc.Output().String(), "Service list does not match")
 
+		By("Checking that BPF LB maps match the service")
+
 		newBpfLB, err := vm.BpfLBList()
 		Expect(err).Should(BeNil(), "Cannot retrieve bpf lb list after restart")
 		Expect(oldBpfLB).Should(Equal(newBpfLB))
-
 		svcSync, err := vm.ServiceIsSynced(svcID)
 		Expect(err).Should(BeNil(), "Service is not sync with BPF LB")
 		Expect(svcSync).Should(BeTrue())
 
+		By("Making HTTP request via the service after restart")
+
 		status = vm.ContainerExec("client", testCmd)
-		status.ExpectSuccess("LB is not working after restart")
+		status.ExpectSuccess("Failed to fetch URL via service")
 	})
 
 	Context("Services Policies", func() {
