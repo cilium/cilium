@@ -75,7 +75,7 @@ var _ = Describe("RuntimeValidatedLB", func() {
 	It("validates basic service management functionality", func() {
 		By("Creating a valid IPv6 service with id 1")
 
-		result := vm.ServiceAdd(1, "[::]:80", []string{"[::1]:90", "[::2]:91"}, 2)
+		result := vm.ServiceAdd(1, "[::]:80", []string{"[::1]:90", "[::2]:91"})
 		result.ExpectSuccess("unexpected failure to add service")
 		result = vm.ServiceGet(1)
 		result.ExpectSuccess("unexpected failure to retrieve service")
@@ -96,17 +96,17 @@ var _ = Describe("RuntimeValidatedLB", func() {
 
 		By("Adding services that should not be allowed")
 
-		result = vm.ServiceAdd(0, "[::]:10000", []string{"[::1]:90", "[::2]:91"}, 2)
+		result = vm.ServiceAdd(0, "[::]:10000", []string{"[::1]:90", "[::2]:91"})
 		result.ExpectFail("unexpected success adding service with id 0")
-		result = vm.ServiceAdd(-1, "[::]:10000", []string{"[::1]:90", "[::2]:91"}, 2)
+		result = vm.ServiceAdd(-1, "[::]:10000", []string{"[::1]:90", "[::2]:91"})
 		result.ExpectFail("unexpected success adding service with id -1")
-		result = vm.ServiceAdd(1, "[::]:10000", []string{"[::1]:90", "[::2]:91"}, 2)
+		result = vm.ServiceAdd(1, "[::]:10000", []string{"[::1]:90", "[::2]:91"})
 		result.ExpectFail("unexpected success adding service with duplicate id 1")
 
 		By("Adding duplicate service FE address (IPv6)")
 
 		//Trying to create a new service with id 10, that conflicts with the FE addr on id=1
-		result = vm.ServiceAdd(10, "[::]:80", []string{"[::1]:90", "[::2]:91"}, 2)
+		result = vm.ServiceAdd(10, "[::]:80", []string{"[::1]:90", "[::2]:91"})
 		result.ExpectFail("unexpected success adding service with duplicate frontend address (id 10)")
 		result = vm.ServiceGet(10)
 		result.ExpectFail("unexpected success fetching service with id 10, service should not be present")
@@ -117,14 +117,14 @@ var _ = Describe("RuntimeValidatedLB", func() {
 
 		By("Creating a valid IPv4 service with id 1")
 
-		result = vm.ServiceAdd(1, "127.0.0.1:80", []string{"127.0.0.1:90", "127.0.0.1:91"}, 2)
+		result = vm.ServiceAdd(1, "127.0.0.1:80", []string{"127.0.0.1:90", "127.0.0.1:91"})
 		result.ExpectSuccess("unexpected failure adding valid service")
 		result = vm.ServiceGet(1)
 		result.ExpectSuccess("unexpected failure to retrieve service")
 
 		By("Adding duplicate service FE address (IPv4)")
 
-		result = vm.ServiceAdd(20, "127.0.0.1:80", []string{"127.0.0.1:90", "127.0.0.1:91"}, 2)
+		result = vm.ServiceAdd(20, "127.0.0.1:80", []string{"127.0.0.1:90", "127.0.0.1:91"})
 		result.ExpectFail("unexpected success adding service with duplicate frontend address (id 20)")
 		result = vm.ServiceGet(20)
 		result.ExpectFail("unexpected success fetching service with id 20, service should not be present")
@@ -149,17 +149,17 @@ var _ = Describe("RuntimeValidatedLB", func() {
 
 		vm.ServiceAdd(1, "2.2.2.2:0", []string{
 			fmt.Sprintf("%s:0", httpd1[helpers.IPv4]),
-			fmt.Sprintf("%s:0", httpd2[helpers.IPv4])}, 2)
+			fmt.Sprintf("%s:0", httpd2[helpers.IPv4])})
 
 		vm.ServiceAdd(2, "[f00d::1:1]:0", []string{
 			fmt.Sprintf("[%s]:0", httpd1[helpers.IPv6]),
-			fmt.Sprintf("[%s]:0", httpd2[helpers.IPv6])}, 100)
+			fmt.Sprintf("[%s]:0", httpd2[helpers.IPv6])})
 
 		vm.ServiceAdd(11, "3.3.3.3:0", []string{
-			fmt.Sprintf("%s:0", "10.0.2.15")}, 100)
+			fmt.Sprintf("%s:0", "10.0.2.15")})
 
 		vm.ServiceAdd(22, "[f00d::1:2]:0", []string{
-			fmt.Sprintf("[%s]:0", "fd02:1:1:1:1:1:1:1")}, 100)
+			fmt.Sprintf("[%s]:0", "fd02:1:1:1:1:1:1:1")})
 
 		By("Cilium L3 service with Ipv4")
 
@@ -199,7 +199,7 @@ var _ = Describe("RuntimeValidatedLB", func() {
 		By("Valid IPV4 nat")
 		status := vm.ServiceAdd(1, "2.2.2.2:80", []string{
 			fmt.Sprintf("%s:80", httpd1[helpers.IPv4]),
-			fmt.Sprintf("%s:80", httpd2[helpers.IPv4])}, 2)
+			fmt.Sprintf("%s:80", httpd2[helpers.IPv4])})
 		status.ExpectSuccess("L4 service cannot be created")
 
 		status = vm.ContainerExec(
@@ -211,7 +211,7 @@ var _ = Describe("RuntimeValidatedLB", func() {
 		status = vm.ServiceAdd(2, "[f00d::1:1]:80", []string{
 
 			fmt.Sprintf("[%s]:80", httpd1[helpers.IPv6]),
-			fmt.Sprintf("[%s]:80", httpd2[helpers.IPv6])}, 2)
+			fmt.Sprintf("[%s]:80", httpd2[helpers.IPv6])})
 		status.ExpectSuccess("L4 service cannot be created")
 
 		status = vm.ContainerExec(
@@ -223,7 +223,7 @@ var _ = Describe("RuntimeValidatedLB", func() {
 		status = vm.ServiceAdd(3, "2.2.2.2:0", []string{
 
 			fmt.Sprintf("%s:80", httpd1[helpers.IPv4]),
-			fmt.Sprintf("%s:80", httpd2[helpers.IPv4])}, 2)
+			fmt.Sprintf("%s:80", httpd2[helpers.IPv4])})
 		status.ExpectFail("Service created with invalid data")
 	}, 500)
 
@@ -245,7 +245,7 @@ var _ = Describe("RuntimeValidatedLB", func() {
 
 		status := vm.ServiceAdd(svcID, service, []string{
 			fmt.Sprintf("%s:80", httpd1["IPv4"]),
-			fmt.Sprintf("%s:80", httpd2["IPv4"])}, 2)
+			fmt.Sprintf("%s:80", httpd2["IPv4"])})
 		status.ExpectSuccess("L4 service can't be created")
 
 		status = vm.ContainerExec("client", testCmd)
@@ -309,11 +309,11 @@ var _ = Describe("RuntimeValidatedLB", func() {
 			}
 
 			status := vm.ServiceAdd(100, service1, []string{
-				fmt.Sprintf("%s:80", httpd1[helpers.IPv4])}, 1)
+				fmt.Sprintf("%s:80", httpd1[helpers.IPv4])})
 			status.ExpectSuccess("L4 service cannot be created")
 
 			status = vm.ServiceAdd(101, service2, []string{
-				fmt.Sprintf("[%s]:80", httpd2[helpers.IPv6])}, 1)
+				fmt.Sprintf("[%s]:80", httpd2[helpers.IPv6])})
 			status.ExpectSuccess("L4 service cannot be created")
 
 			_, err = vm.PolicyImportAndWait(vm.GetFullPath(policiesL7JSON), helpers.HelperTimeout)
