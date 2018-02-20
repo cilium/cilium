@@ -45,6 +45,7 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
 
+	"context"
 	"github.com/sirupsen/logrus"
 )
 
@@ -313,6 +314,9 @@ type Endpoint struct {
 	// policyRevision is the policy revision this endpoint is currently on
 	// to modify this field please use endpoint.setPolicyRevision instead
 	policyRevision uint64
+	// policyRevisionSignals contains a map of PolicyRevision signals that
+	// should be triggered once the policyRevision reaches the wanted wantedRev.
+	policyRevisionSignals map[policySignal]bool
 
 	// nextPolicyRevision is the policy revision that the endpoint has
 	// updated to and that will become effective with the next regenerate
@@ -1307,6 +1311,7 @@ func (e *Endpoint) LeaveLocked(owner Owner) int {
 	e.L3Maps.Close()
 	e.removeDirectory()
 	e.controllers.RemoveAll()
+	e.cleanPolicySignals()
 
 	e.SetStateLocked(StateDisconnected, "Endpoint removed")
 
@@ -1812,7 +1817,61 @@ func (e *Endpoint) identityLabelsChanged(owner Owner, myChangeRev int) error {
 	return nil
 }
 
-// setPolicyRevision sets the policy revision with the given revision.
+// setPolicyRevision sets the policy wantedRev with the given revision.
 func (e *Endpoint) setPolicyRevision(rev uint64) {
 	e.policyRevision = rev
+	for ps := range e.policyRevisionSignals {
+		select {
+		case <-ps.ctx.Done():
+			close(ps.ch)
+			delete(e.policyRevisionSignals, ps)
+		default:
+			if rev >= ps.wantedRev {
+				close(ps.ch)
+				delete(e.policyRevisionSignals, ps)
+			}
+		}
+	}
+}
+
+// cleanPolicySignals closes and removes all policy revision signals.
+func (e *Endpoint) cleanPolicySignals() {
+	for w := range e.policyRevisionSignals {
+		close(w.ch)
+	}
+	e.policyRevisionSignals = map[policySignal]bool{}
+}
+
+// policySignal is used to mark when a wanted policy wantedRev is reached
+type policySignal struct {
+	// wantedRev specifies which policy revision the signal wants.
+	wantedRev uint64
+	// ch is the channel that signalizes once the policy revision wanted is reached.
+	ch chan struct{}
+	// ctx is the context for the policy signal request.
+	ctx context.Context
+}
+
+// WaitForPolicyRevision returns a channel that is closed when one or more of
+// the following conditions have met:
+//  - the endpoint is disconnected state
+//  - the endpoint's policy revision reaches the wanted revision
+func (e *Endpoint) WaitForPolicyRevision(ctx context.Context, rev uint64) <-chan struct{} {
+	e.Mutex.Lock()
+	defer e.Mutex.Unlock()
+	ch := make(chan struct{})
+	if e.policyRevision >= rev || e.state == StateDisconnected {
+		close(ch)
+		return ch
+	}
+	ps := policySignal{
+		wantedRev: rev,
+		ctx:       ctx,
+		ch:        ch,
+	}
+	if e.policyRevisionSignals == nil {
+		e.policyRevisionSignals = map[policySignal]bool{}
+	}
+	e.policyRevisionSignals[ps] = true
+	return ch
 }

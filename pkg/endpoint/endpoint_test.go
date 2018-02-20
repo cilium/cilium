@@ -16,6 +16,7 @@ package endpoint
 
 import (
 	"bytes"
+	"context"
 	"testing"
 	"time"
 
@@ -289,4 +290,76 @@ func (s *EndpointSuite) TestEndpointState(c *C) {
 	// parallel disconnect fails
 	c.Assert(e.SetStateLocked(StateDisconnecting, "test"), Equals, false)
 	c.Assert(e.SetStateLocked(StateDisconnected, "test"), Equals, true)
+}
+
+func (s *EndpointSuite) TestWaitForPolicyRevision(c *C) {
+	e := &Endpoint{policyRevision: 0}
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(1*time.Second))
+
+	<-e.WaitForPolicyRevision(ctx, 0)
+	// shouldn't get a timeout when waiting for policy revision already reached
+	c.Assert(ctx.Err(), IsNil)
+
+	cancel()
+
+	e.policyRevision = 1
+
+	ctx, cancel = context.WithTimeout(context.Background(), time.Duration(1*time.Second))
+
+	<-e.WaitForPolicyRevision(ctx, 0)
+	// shouldn't get a timeout when waiting for policy revision already reached
+	c.Assert(ctx.Err(), IsNil)
+
+	cancel()
+
+	e.policyRevision = 1
+
+	ctx, cancel = context.WithCancel(context.Background())
+
+	ch := e.WaitForPolicyRevision(ctx, 2)
+	cancel()
+	// context was prematurely closed on purpose the error should be nil
+	c.Assert(ctx.Err(), Equals, context.Canceled)
+
+	e.setPolicyRevision(3)
+
+	select {
+	case <-ch:
+	default:
+		c.Fatalf("channel should have been closed since the wanted policy revision was reached")
+	}
+
+	// Number of policy revision signals should be 0
+	c.Assert(len(e.policyRevisionSignals), Equals, 0)
+
+	e.state = StateDisconnected
+
+	ctx, cancel = context.WithCancel(context.Background())
+	ch = e.WaitForPolicyRevision(ctx, 99)
+	cancel()
+	select {
+	case <-ch:
+	default:
+		c.Fatalf("channel should have been closed since the endpoint is in disconnected state")
+	}
+
+	// Number of policy revision signals should be 0
+	c.Assert(len(e.policyRevisionSignals), Equals, 0)
+
+	e.state = StateCreating
+	ctx, cancel = context.WithCancel(context.Background())
+	ch = e.WaitForPolicyRevision(ctx, 99)
+
+	e.cleanPolicySignals()
+
+	select {
+	case <-ch:
+	default:
+		c.Fatalf("channel should have been closed since all policy signals were closed")
+	}
+	cancel()
+
+	// Number of policy revision signals should be 0
+	c.Assert(len(e.policyRevisionSignals), Equals, 0)
 }
