@@ -93,7 +93,9 @@ func NewServer(resourceTypes map[string]*ResourceTypeConfiguration,
 		resType.Source.AddResourceVersionObserver(w)
 		watchers[typeURL] = w
 
-		ackObservers[typeURL] = resType.AckObserver
+		if resType.AckObserver != nil {
+			ackObservers[typeURL] = resType.AckObserver
+		}
 	}
 
 	// TODO: Unregister the watchers when stopping the server.
@@ -302,8 +304,11 @@ func (s *Server) processRequestStream(ctx context.Context, streamLog *logrus.Ent
 					// If no pending watch exists, then this request is an ACK
 					// for the last response for this resource type.
 					// Notify every observer of the ACK.
-					requestLog.Debug("notifying observers of ACK")
-					s.ackObservers[typeURL].HandleResourceVersionAck(*versionInfo, req.GetNode(), state.resourceNames, typeURL)
+					ackObserver := s.ackObservers[typeURL]
+					if ackObserver != nil {
+						requestLog.Debug("notifying observers of ACK")
+						ackObserver.HandleResourceVersionAck(*versionInfo, req.GetNode(), state.resourceNames, typeURL)
+					}
 				}
 
 				respCh := make(chan *VersionedResources, 1)
