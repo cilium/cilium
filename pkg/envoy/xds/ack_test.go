@@ -19,7 +19,7 @@ import (
 	"time"
 
 	"github.com/cilium/cilium/pkg/completion"
-	"github.com/cilium/cilium/pkg/envoy/api"
+	envoy_api_v2_core "github.com/cilium/cilium/pkg/envoy/envoy/api/v2/core"
 
 	. "gopkg.in/check.v1"
 )
@@ -34,7 +34,7 @@ const (
 	node2 = "10.0.0.2"
 )
 
-var nodes = map[string]*api.Node{
+var nodes = map[string]*envoy_api_v2_core.Node{
 	node0: {Id: "sidecar~10.0.0.0~node0~bar"},
 	node1: {Id: "sidecar~10.0.0.1~node1~bar"},
 	node2: {Id: "sidecar~10.0.0.2~node2~bar"},

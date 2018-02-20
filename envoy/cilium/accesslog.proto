@@ -1,0 +1,57 @@
+syntax = "proto3";
+
+package cilium;
+option go_package = "cilium";
+
+message KeyValue {
+  string key = 1;
+  string value = 2;
+}
+
+enum Protocol {
+  HTTP10 = 0;
+  HTTP11 = 1;
+  HTTP2 = 2;
+}
+
+enum EntryType {
+  Request = 0;
+  Response = 1;
+  Denied = 2;
+}
+
+message HttpLogEntry {
+  // The time that Cilium filter captured this log entry,
+  // in, nanoseconds since 1/1/1970.
+  uint64 timestamp = 1;
+
+  Protocol http_protocol = 2;
+
+  EntryType entry_type = 3;
+
+  // Cilium Redirect resource name
+  string cilium_resource_name = 4;
+
+  // Cilium rule reference
+  string cilium_rule_ref = 5;
+  
+  // Cilium security ID of the source
+  uint32 source_security_id = 6;
+
+  // These fields record the original source and destination addresses,
+  // stored in ipv4:port or [ipv6]:port format.
+  string source_address = 7;
+  string destination_address = 8;
+
+  // Request info that is also retained for the response
+  string scheme = 9;      // Envoy "x-forwarded-proto", e.g., "http", "https"
+  string host = 10;       // Envoy ":authority" header
+  string path = 11;       // Envoy ":path" header
+  string method = 12;     // Envoy ":method" header
+
+  // Response info
+  uint32 status = 13;     // Envoy ":status" header, zero for request
+  
+  // Request headers not included above
+  repeated KeyValue headers = 14;
+}

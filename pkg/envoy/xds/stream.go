@@ -19,24 +19,24 @@ import (
 	"io"
 	"time"
 
-	"github.com/cilium/cilium/pkg/envoy/api"
+	envoy_api_v2 "github.com/cilium/cilium/pkg/envoy/envoy/api/v2"
 )
 
 // Stream is the subset of the gRPC bi-directional stream types which is used
 // by Server.
 type Stream interface {
 	// Send sends a xDS response back to the client.
-	Send(*api.DiscoveryResponse) error
+	Send(*envoy_api_v2.DiscoveryResponse) error
 
 	// Recv receives a xDS request from the client.
-	Recv() (*api.DiscoveryRequest, error)
+	Recv() (*envoy_api_v2.DiscoveryRequest, error)
 }
 
 // MockStream is a mock implementation of Stream used for testing.
 type MockStream struct {
 	ctx         context.Context
-	recv        chan *api.DiscoveryRequest
-	sent        chan *api.DiscoveryResponse
+	recv        chan *envoy_api_v2.DiscoveryRequest
+	sent        chan *envoy_api_v2.DiscoveryResponse
 	recvTimeout time.Duration
 	sentTimeout time.Duration
 }
@@ -45,14 +45,14 @@ type MockStream struct {
 func NewMockStream(ctx context.Context, recvSize, sentSize int, recvTimeout, sentTimeout time.Duration) *MockStream {
 	return &MockStream{
 		ctx:         ctx,
-		recv:        make(chan *api.DiscoveryRequest, recvSize),
-		sent:        make(chan *api.DiscoveryResponse, sentSize),
+		recv:        make(chan *envoy_api_v2.DiscoveryRequest, recvSize),
+		sent:        make(chan *envoy_api_v2.DiscoveryResponse, sentSize),
 		recvTimeout: recvTimeout,
 		sentTimeout: sentTimeout,
 	}
 }
 
-func (s *MockStream) Send(resp *api.DiscoveryResponse) error {
+func (s *MockStream) Send(resp *envoy_api_v2.DiscoveryResponse) error {
 	subCtx, cancel := context.WithTimeout(s.ctx, s.sentTimeout)
 
 	select {
@@ -68,7 +68,7 @@ func (s *MockStream) Send(resp *api.DiscoveryResponse) error {
 	}
 }
 
-func (s *MockStream) Recv() (*api.DiscoveryRequest, error) {
+func (s *MockStream) Recv() (*envoy_api_v2.DiscoveryRequest, error) {
 	subCtx, cancel := context.WithTimeout(s.ctx, s.recvTimeout)
 
 	select {
@@ -85,7 +85,7 @@ func (s *MockStream) Recv() (*api.DiscoveryRequest, error) {
 }
 
 // SendRequest queues a request to be received by calling Recv.
-func (s *MockStream) SendRequest(req *api.DiscoveryRequest) error {
+func (s *MockStream) SendRequest(req *envoy_api_v2.DiscoveryRequest) error {
 	subCtx, cancel := context.WithTimeout(s.ctx, s.recvTimeout)
 
 	select {
@@ -102,7 +102,7 @@ func (s *MockStream) SendRequest(req *api.DiscoveryRequest) error {
 }
 
 // RecvResponse receives a response that was queued by calling Send.
-func (s *MockStream) RecvResponse() (*api.DiscoveryResponse, error) {
+func (s *MockStream) RecvResponse() (*envoy_api_v2.DiscoveryResponse, error) {
 	subCtx, cancel := context.WithTimeout(s.ctx, s.sentTimeout)
 
 	select {

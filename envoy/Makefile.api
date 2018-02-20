@@ -1,0 +1,66 @@
+# Copyright 2017 Authors of Cilium
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# Depends on Envoy dependencies, Envoy must be built first
+
+PROTOC ?= bazel-out/host/bin/external/com_google_protobuf/protoc
+ENVOY_API_PROTO_PATH = bazel-envoy/external/envoy_api
+CILIUM_PROTO_PATH = .
+PROTO_DEPS = \
+	-I bazel-envoy/external/com_google_protobuf/src \
+	-I bazel-envoy/external/googleapis \
+	-I bazel-envoy/external/com_lyft_protoc_gen_validate \
+	-I bazel-envoy/external/com_github_gogo_protobuf
+
+GO_OUT = ../pkg/envoy
+
+# Skip draft Envoy APIs that do not compile.
+ENVOY_RAW_PROTOS := $(strip $(shell find -H $(ENVOY_API_PROTO_PATH)/envoy \( -name *.proto -and -not -path *service/trace/v2* -and -not -path *service/metrics/v2* \) -print))
+ENVOY_API_PROTOS := $(subst $(ENVOY_API_PROTO_PATH)/,,$(ENVOY_RAW_PROTOS))
+
+PROTO_SOURCES := $(addprefix $(ENVOY_API_PROTO_PATH)/,$(ENVOY_API_PROTOS))
+GO_TARGETS := $(addprefix $(GO_OUT)/,$(ENVOY_API_PROTOS:.proto=.pb.go))
+# Produce a raw list of package mappings
+RAW_GO_MAPPINGS := $(foreach proto,$(ENVOY_API_PROTOS),$(proto)=github.com/cilium/cilium/pkg/envoy/$(dir $(proto)))
+
+CILIUM_API_PROTOS := \
+	cilium/accesslog.proto \
+	cilium/cilium_bpf_metadata.proto \
+	cilium/npds.proto \
+	cilium/nphds.proto
+
+PROTO_SOURCES += $(CILIUM_API_PROTOS)
+GO_TARGETS += $(addprefix $(GO_OUT)/,$(CILIUM_API_PROTOS:.proto=.pb.go))
+RAW_GO_MAPPINGS += $(foreach proto,$(CILIUM_API_PROTOS),$(proto)=github.com/cilium/cilium/pkg/envoy/$(dir $(proto)))
+
+# Add mappings to vendored dependencies
+RAW_GO_MAPPINGS += gogoproto/gogo.proto=github.com/gogo/protobuf/gogoproto/
+RAW_GO_MAPPINGS += google/rpc/status.proto=google.golang.org/genproto/googleapis/rpc/status/
+
+# Add mapping separators and remove the trailing slash
+# but first create "/ " and ",M"
+file_sep := /
+file_sep +=
+map_sep := ,M
+GO_MAPPINGS := $(patsubst %/,%,$(map_sep)$(subst $(file_sep),$(map_sep),$(RAW_GO_MAPPINGS)))
+
+PROTO_DIRS := $(sort $(dir $(PROTO_SOURCES)))
+
+all: $(ENVOY_API_PROTO_PATH) $(GO_TARGETS)
+
+$(GO_TARGETS): $(PROTO_SOURCES) Makefile.api
+	for path in $(PROTO_DIRS) ; do \
+		echo Compiling protos in $$path; \
+		$(PROTOC) -I $(ENVOY_API_PROTO_PATH) -I $(CILIUM_PROTO_PATH) $(PROTO_DEPS) --go_out=plugins=grpc$(GO_MAPPINGS):$(GO_OUT) $${path}*.proto; \
+	done

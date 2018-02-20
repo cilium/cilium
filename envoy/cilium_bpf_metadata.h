@@ -6,6 +6,7 @@
 
 #include "common/common/logger.h"
 
+#include "cilium/cilium_bpf_metadata.pb.h"
 #include "proxymap.h"
 
 namespace Envoy {
@@ -35,7 +36,7 @@ struct BpfStats {
  */
 class Config : Logger::Loggable<Logger::Id::config> {
 public:
-  Config(const Json::Object &config, Stats::Scope &scope);
+  Config(const ::cilium::BpfMetadata &config, Stats::Scope &scope);
 
   uint32_t getMark(uint32_t identity) {
     // Magic marker values must match with Cilium.
@@ -43,8 +44,6 @@ public:
   }
 
 private:
-  static std::string get_bpf_root(const Json::Object &config);
-
   std::string bpf_root_;
 
 public:
@@ -67,7 +66,7 @@ public:
   // Network::ListenerFilter
   Network::FilterStatus onAccept(Network::ListenerFilterCallbacks &cb) override;
 
-  virtual bool getBpfMetadata(Network::AcceptSocket &socket);
+  virtual bool getBpfMetadata(Network::ConnectionSocket &socket);
 
 private:
   ConfigSharedPtr config_;

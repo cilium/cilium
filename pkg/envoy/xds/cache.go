@@ -18,7 +18,7 @@ import (
 	"context"
 	"sort"
 
-	"github.com/cilium/cilium/pkg/envoy/api"
+	envoy_api_v2_core "github.com/cilium/cilium/pkg/envoy/envoy/api/v2/core"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 
 	"github.com/golang/protobuf/proto"
@@ -148,7 +148,7 @@ func (c *Cache) Delete(typeURL string, resourceName string, force bool) (version
 }
 
 func (c *Cache) GetResources(ctx context.Context, typeURL string, lastVersion *uint64,
-	node *api.Node, resourceNames []string) (*VersionedResources, error) {
+	node *envoy_api_v2_core.Node, resourceNames []string) (*VersionedResources, error) {
 	c.locker.RLock()
 	defer c.locker.RUnlock()
 

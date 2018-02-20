@@ -20,11 +20,11 @@ import (
 	"net"
 	"strings"
 
-	"github.com/cilium/cilium/pkg/envoy/api"
+	envoy_api_v2_core "github.com/cilium/cilium/pkg/envoy/envoy/api/v2/core"
 )
 
 // NodeToIDFunc extracts a string identifier from an Envoy Node identifier.
-type NodeToIDFunc func(node *api.Node) (string, error)
+type NodeToIDFunc func(node *envoy_api_v2_core.Node) (string, error)
 
 // IstioNodeToIP extract the IP address from an Envoy node identifier
 // configured by Istio's pilot-agent.
@@ -40,7 +40,7 @@ type NodeToIDFunc func(node *api.Node) (string, error)
 // For instance:
 //
 //    "sidecar~10.1.1.0~v0.default~default.svc.cluster.local"
-func IstioNodeToIP(node *api.Node) (string, error) {
+func IstioNodeToIP(node *envoy_api_v2_core.Node) (string, error) {
 	if node == nil {
 		return "", errors.New("node is nil")
 	}

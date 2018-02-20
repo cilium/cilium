@@ -83,7 +83,7 @@ ProxyMap::ProxyMap(const std::string &bpf_root,
             parent_.is_ingress_ ? "ingress" : "egress");
 }
 
-bool ProxyMap::getBpfMetadata(Network::AcceptSocket &socket) {
+bool ProxyMap::getBpfMetadata(Network::ConnectionSocket &socket) {
   Network::Address::InstanceConstSharedPtr local_address =
       socket.localAddress();
   Network::Address::InstanceConstSharedPtr remote_address =
@@ -117,8 +117,10 @@ bool ProxyMap::getBpfMetadata(Network::AcceptSocket &socket) {
         ip4.sin_port = value.orig_dport;        // already in network byte order
         Network::Address::InstanceConstSharedPtr orig_local_address =
             std::make_shared<Network::Address::Ipv4Instance>(&ip4);
-        socket.resetLocalAddress(orig_local_address);
-        socket.setSocketMark(parent_.getMark(value.identity));
+	if (*orig_local_address != *socket.localAddress()) {
+	  socket.setLocalAddress(orig_local_address, true);
+	}
+        socket.setOptions(std::make_shared<SocketMarkOption>(parent_.getMark(value.identity)));
         return true;
       }
       ENVOY_LOG(info, "cilium.bpf_metadata: IPv4 bpf map lookup failed: {}",
@@ -128,7 +130,8 @@ bool ProxyMap::getBpfMetadata(Network::AcceptSocket &socket) {
       struct proxy6_tbl_key key {};
       struct proxy6_tbl_value value {};
 
-      memcpy(&key.saddr, &rip->ipv6()->address()[0], 16);
+      absl::uint128 saddr = rip->ipv6()->address();
+      memcpy(&key.saddr, &saddr, 16);
       key.dport = htons(ip->port());
       key.sport = htons(rip->port());
       key.nexthdr = 6;
@@ -140,8 +143,10 @@ bool ProxyMap::getBpfMetadata(Network::AcceptSocket &socket) {
         ip6.sin6_port = value.orig_dport; // already in network byte order
         Network::Address::InstanceConstSharedPtr orig_local_address =
             std::make_shared<Network::Address::Ipv6Instance>(ip6);
-        socket.resetLocalAddress(orig_local_address);
-        socket.setSocketMark(parent_.getMark(value.identity));
+	if (*orig_local_address != *socket.localAddress()) {
+	  socket.setLocalAddress(orig_local_address, true);
+	}
+        socket.setOptions(std::make_shared<SocketMarkOption>(parent_.getMark(value.identity)));
         return true;
       }
       ENVOY_LOG(info, "cilium.bpf_metadata: IPv6 bpf map lookup failed: {}",

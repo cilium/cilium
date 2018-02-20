@@ -1,0 +1,38 @@
+syntax = "proto3";
+
+package cilium;
+option go_package = "cilium";
+
+import "envoy/api/v2/discovery.proto";
+
+import "google/api/annotations.proto";
+
+import "validate/validate.proto";
+
+// [#protodoc-title: Network policy host management and NPIDDS]
+
+// Each resource name is a network policy identifier in decimal, e.g. `123`.
+service NetworkPolicyHostsDiscoveryService {
+  rpc StreamNetworkPolicyHosts(stream envoy.api.v2.DiscoveryRequest)
+      returns (stream envoy.api.v2.DiscoveryResponse) {
+  }
+
+  rpc FetchNetworkPolicyHosts(envoy.api.v2.DiscoveryRequest) returns (envoy.api.v2.DiscoveryResponse) {
+    option (google.api.http) = {
+      post: "/v2/discovery:network_policy_hosts"
+      body: "*"
+    };
+  }
+}
+
+// The mapping of a network policy identifier to the IP addresses of all the
+// hosts on which the network policy is enforced.
+// A host may be associated only with one network policy.
+message NetworkPolicyHosts {
+  // The unique identifier of the network policy enforced on the hosts.
+  uint64 policy = 1;
+
+  // The set of IP addresses of the hosts on which the network policy is enforced.
+  // Optional. May be empty.
+  repeated string host_addresses = 2 [(validate.rules).repeated.unique = true, (validate.rules).repeated.items.string.min_bytes = 1];
+}

@@ -17,7 +17,7 @@ package xds
 import (
 	"context"
 
-	"github.com/cilium/cilium/pkg/envoy/api"
+	envoy_api_v2_core "github.com/cilium/cilium/pkg/envoy/envoy/api/v2/core"
 	"github.com/cilium/cilium/pkg/lock"
 
 	"github.com/golang/protobuf/proto"
@@ -34,7 +34,7 @@ type ResourceSource interface {
 	// If resourceNames is empty, all resources are returned.
 	// Should not be blocking.
 	GetResources(ctx context.Context, typeURL string, lastVersion *uint64,
-		node *api.Node, resourceNames []string) (*VersionedResources, error)
+		node *envoy_api_v2_core.Node, resourceNames []string) (*VersionedResources, error)
 }
 
 // VersionedResources is a set of protobuf-encoded resources along with their

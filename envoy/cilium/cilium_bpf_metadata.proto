@@ -1,0 +1,12 @@
+syntax = "proto3";
+
+package cilium;
+option go_package = "cilium";
+
+import "validate/validate.proto";
+
+message BpfMetadata {
+  string bpf_root = 1 [(validate.rules).string.min_bytes = 1];
+  bool is_ingress = 2;
+  uint32 identity = 3;
+}
