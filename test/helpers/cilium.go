@@ -421,6 +421,8 @@ func (s *SSHMeta) PolicyGetRevision() (int, error) {
 // PolicyImportAndWait imports a new policy into Cilium and waits until the policy
 // revision number increments.
 func (s *SSHMeta) PolicyImportAndWait(path string, timeout time.Duration) (int, error) {
+	ginkgo.By(fmt.Sprintf("Setting up policy: %s", path))
+
 	revision, err := s.PolicyGetRevision()
 	if err != nil {
 		return -1, fmt.Errorf("cannot get policy revision: %s", err)
