@@ -668,7 +668,7 @@ func (e *Endpoint) regeneratePolicy(owner Owner, opts models.ConfigurationMap) (
 	// already running the latest revision, otherwise we have to wait for
 	// the regeneration of the endpoint to complete.
 	if !policyChanged && !optsChanged {
-		e.policyRevision = revision
+		e.setPolicyRevision(revision)
 	}
 
 	e.getLogger().WithFields(logrus.Fields{
