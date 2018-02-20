@@ -37,15 +37,6 @@ var _ = Describe("RuntimeValidatedChaos", func() {
 		vm = helpers.CreateNewRuntimeHelper(helpers.Runtime, logger)
 	}
 
-	waitForCilium := func() {
-		err := vm.WaitUntilReady(100)
-		Expect(err).Should(BeNil())
-
-		status := vm.WaitEndpointsReady()
-		Expect(status).Should(BeTrue())
-
-	}
-
 	BeforeEach(func() {
 		once.Do(initialize)
 		vm.ContainerCreate(helpers.Client, helpers.NetperfImage, helpers.CiliumDockerNetwork, "-l id.client")
@@ -72,10 +63,9 @@ var _ = Describe("RuntimeValidatedChaos", func() {
 
 		endpointListCmd := "cilium endpoint list | grep -v reserved"
 		originalEndpointList := vm.Exec(endpointListCmd)
-		res := vm.Exec("sudo systemctl restart cilium")
-		res.ExpectSuccess()
 
-		waitForCilium()
+		err := vm.RestartCilium()
+		Expect(err).Should(BeNil())
 
 		ips := vm.Exec(`
 		curl -s --unix-socket /var/run/cilium/cilium.sock \
@@ -97,10 +87,8 @@ var _ = Describe("RuntimeValidatedChaos", func() {
 
 		_ = vm.Exec("sudo ip link add lxc12345 type veth peer name tmp54321")
 
-		res := vm.Exec("sudo systemctl restart cilium")
-		res.ExpectSuccess()
-
-		waitForCilium()
+		err = vm.RestartCilium()
+		Expect(err).Should(BeNil())
 
 		status := vm.Exec("sudo ip link show lxc12345")
 		status.ExpectFail("leftover interface were not properly cleaned up")
