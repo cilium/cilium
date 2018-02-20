@@ -19,7 +19,7 @@ ENVOY_BINS = $(ENVOY_BIN) ./bazel-bin/cilium_integration_test
 CHECK_FORMAT ?= ./bazel-bin/check_format.py.runfiles/envoy/tools/check_format.py
 
 BAZEL ?= bazel
-BAZEL_TEST_OPTS ?= 
+BAZEL_TEST_OPTS ?= --jobs=1
 BAZEL_CACHE ?= ~/.cache/bazel
 BAZEL_ARCHIVE ?= ~/bazel-cache.tar.bz2
 CLANG ?= clang
