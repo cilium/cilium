@@ -59,12 +59,15 @@ type XDSServer struct {
 	// loggers maps a listener resource name to its Logger.
 	loggers map[string]Logger
 
-	// listenerMutator publishes udpates to listeners to Envoy proxies.
+	// listenerMutator publishes listener updates to Envoy proxies.
 	listenerMutator xds.AckingResourceMutator
 
-	// listenerMutator publishes udpates to route configurations to Envoy
+	// listenerMutator publishes route configuration updates to Envoy
 	// proxies.
 	routeMutator xds.AckingResourceMutator
+
+	// networkPolicyCache publishes network policy updates to proxies.
+	networkPolicyCache *xds.Cache
 
 	// stopServer stops the xDS gRPC server.
 	stopServer context.CancelFunc
@@ -77,21 +80,32 @@ func createXDSServer(path, accessLogPath string) *XDSServer {
 		log.WithError(err).Fatal("Envoy: Failed to listen at ", path)
 	}
 
-	listenerCache := xds.NewCache()
-	listenerMutator := xds.NewAckingResourceMutatorWrapper(listenerCache, xds.IstioNodeToIP)
+	ldsCache := xds.NewCache()
+	ldsMutator := xds.NewAckingResourceMutatorWrapper(ldsCache, xds.IstioNodeToIP)
 	ldsConfig := &xds.ResourceTypeConfiguration{
-		Source:      listenerCache,
-		AckObserver: listenerMutator,
+		Source:      ldsCache,
+		AckObserver: ldsMutator,
 	}
 
-	routeCache := xds.NewCache()
-	routeMutator := xds.NewAckingResourceMutatorWrapper(routeCache, xds.IstioNodeToIP)
+	npdsCache := xds.NewCache()
+	npdsConfig := &xds.ResourceTypeConfiguration{
+		Source:      npdsCache,
+		AckObserver: nil, // We don't wait for ACKs for those resources.
+	}
+
+	nphdsConfig := &xds.ResourceTypeConfiguration{
+		Source:      NetworkPolicyHostsCache,
+		AckObserver: nil, // We don't wait for ACKs for those resources.
+	}
+
+	rdsCache := xds.NewCache()
+	rdsMutator := xds.NewAckingResourceMutatorWrapper(rdsCache, xds.IstioNodeToIP)
 	rdsConfig := &xds.ResourceTypeConfiguration{
-		Source:      routeCache,
-		AckObserver: routeMutator,
+		Source:      rdsCache,
+		AckObserver: rdsMutator,
 	}
 
-	stopServer := StartXDSGRPCServer(socketListener, ldsConfig, rdsConfig, 5*time.Second)
+	stopServer := StartXDSGRPCServer(socketListener, ldsConfig, npdsConfig, nphdsConfig, rdsConfig, 5*time.Second)
 
 	listenerProto := &envoy_api_v2.Listener{
 		Address: &envoy_api_v2_core.Address{
@@ -144,12 +158,13 @@ func createXDSServer(path, accessLogPath string) *XDSServer {
 	}
 
 	return &XDSServer{
-		socketPath:      path,
-		listenerProto:   listenerProto,
-		loggers:         make(map[string]Logger),
-		listenerMutator: listenerMutator,
-		routeMutator:    routeMutator,
-		stopServer:      stopServer,
+		socketPath:         path,
+		listenerProto:      listenerProto,
+		loggers:            make(map[string]Logger),
+		listenerMutator:    ldsMutator,
+		routeMutator:       rdsMutator,
+		networkPolicyCache: npdsCache,
+		stopServer:         stopServer,
 	}
 }
 
