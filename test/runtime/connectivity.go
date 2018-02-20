@@ -464,8 +464,10 @@ var _ = Describe("RuntimeValidatedConntrackTest", func() {
 		for _, containerToRm := range containersToRm {
 			vm.ContainerRm(containerToRm)
 		}
+		vm.PolicyDelAll().ExpectSuccess("Policies cannot be deleted")
 
-		vm.PolicyDel("--all")
+		res := vm.SetPolicyEnforcement(helpers.PolicyEnforcementDefault)
+		res.ExpectSuccess("Cannot set policy enforcemet to default")
 	})
 
 	It("Conntrack-related configuration options for endpoints", func() {
