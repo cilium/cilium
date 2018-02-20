@@ -172,9 +172,17 @@ var _ = Describe("RuntimeValidatedLB", func() {
 			svc++
 		}
 
+		By("Pinging host => bpf_lb => container")
+
+		status := vm.Exec(helpers.Ping("2.2.2.2"))
+		status.ExpectSuccess("failed to ping service IP from host")
+		// FIXME GH-2889: createLBDevice() doesn't configure host IPv6
+		//status = vm.Exec(helpers.Ping6("f00d::1:1"))
+		//status.ExpectSuccess("failed to ping service IP from host")
+
 		By("Pinging container => bpf_lb => container")
 
-		status := vm.ContainerExec(helpers.Client, helpers.Ping("2.2.2.2"))
+		status = vm.ContainerExec(helpers.Client, helpers.Ping("2.2.2.2"))
 		status.ExpectSuccess("failed to ping service IP 2.2.2.2")
 		status = vm.ContainerExec(helpers.Client, helpers.Ping6("f00d::1:1"))
 		status.ExpectSuccess("failed to ping service IP f00d::1:1")
@@ -185,6 +193,27 @@ var _ = Describe("RuntimeValidatedLB", func() {
 		status.ExpectSuccess("failed to ping service IP 3.3.3.3")
 		status = vm.ContainerExec(helpers.Client, helpers.Ping("f00d::1:2"))
 		status.ExpectSuccess("failed to ping service IP f00d::1:2")
+
+		By("Configuring services to point to own IP via service")
+
+		vm.ServiceDelAll().ExpectSuccess()
+		loopbackServices := map[string]string{
+			"2.2.2.2:0":     fmt.Sprintf("%s:0", httpd1[helpers.IPv4]),
+			"[f00d::1:1]:0": fmt.Sprintf("[%s]:0", httpd1[helpers.IPv6]),
+		}
+		svc = 1
+		for fe, be := range loopbackServices {
+			status := vm.ServiceAdd(svc, fe, []string{be})
+			status.ExpectSuccess(fmt.Sprintf("failed to create service %s=>%v", fe, be))
+			svc++
+		}
+
+		By("Pinging from server1 to its own service IP")
+
+		status = vm.ContainerExec(helpers.Httpd1, helpers.Ping("2.2.2.2"))
+		status.ExpectSuccess("failed to ping service IP 2.2.2.2")
+		status = vm.ContainerExec(helpers.Httpd1, helpers.Ping6("f00d::1:1"))
+		status.ExpectSuccess("failed to ping service IP f00d::1:1")
 	}, 500)
 
 	It("validates that services work for L4 (IP+Port) loadbalancing", func() {
