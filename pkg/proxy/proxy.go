@@ -27,6 +27,8 @@ import (
 	"github.com/cilium/cilium/common/addressing"
 	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/endpointmanager"
+	"github.com/cilium/cilium/pkg/envoy"
+	"github.com/cilium/cilium/pkg/identity"
 	identityPkg "github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
@@ -556,6 +558,19 @@ func (p *Proxy) RemoveRedirect(id string, wg *completion.WaitGroup) error {
 	}()
 
 	return nil
+}
+
+// UpdateNetworkPolicy adds or updates a network policy in the set
+// published to L7 proxies.
+func (p *Proxy) UpdateNetworkPolicy(id identity.NumericIdentity, policy *policy.L4Policy,
+	allowedIngressIdentities, allowedEgressIdentities identityPkg.IdentityCache) {
+	envoy.UpdateNetworkPolicy(id, policy, allowedIngressIdentities, allowedEgressIdentities)
+}
+
+// RemoveNetworkPolicy removes a network policy from the set published to
+// L7 proxies.
+func (p *Proxy) RemoveNetworkPolicy(id identity.NumericIdentity) {
+	envoy.RemoveNetworkPolicy(id)
 }
 
 // ChangeLogLevel changes proxy log level to correspond to the logrus log level 'level'.

@@ -19,20 +19,24 @@ import (
 	"io/ioutil"
 	"net"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/cilium/cilium/pkg/completion"
+	"github.com/cilium/cilium/pkg/envoy/cilium"
 	envoy_api_v2 "github.com/cilium/cilium/pkg/envoy/envoy/api/v2"
 	envoy_api_v2_core "github.com/cilium/cilium/pkg/envoy/envoy/api/v2/core"
 	envoy_api_v2_listener "github.com/cilium/cilium/pkg/envoy/envoy/api/v2/listener"
 	envoy_api_v2_route "github.com/cilium/cilium/pkg/envoy/envoy/api/v2/route"
 	envoy_config_bootstrap_v2 "github.com/cilium/cilium/pkg/envoy/envoy/config/bootstrap/v2"
 	"github.com/cilium/cilium/pkg/envoy/xds"
+	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
 
+	"github.com/gogo/protobuf/sortkeys"
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes/duration"
 	"github.com/golang/protobuf/ptypes/struct"
@@ -66,9 +70,6 @@ type XDSServer struct {
 	// proxies.
 	routeMutator xds.AckingResourceMutator
 
-	// networkPolicyCache publishes network policy updates to proxies.
-	networkPolicyCache *xds.Cache
-
 	// stopServer stops the xDS gRPC server.
 	stopServer context.CancelFunc
 }
@@ -87,9 +88,8 @@ func createXDSServer(path, accessLogPath string) *XDSServer {
 		AckObserver: ldsMutator,
 	}
 
-	npdsCache := xds.NewCache()
 	npdsConfig := &xds.ResourceTypeConfiguration{
-		Source:      npdsCache,
+		Source:      NetworkPolicyCache,
 		AckObserver: nil, // We don't wait for ACKs for those resources.
 	}
 
@@ -158,13 +158,12 @@ func createXDSServer(path, accessLogPath string) *XDSServer {
 	}
 
 	return &XDSServer{
-		socketPath:         path,
-		listenerProto:      listenerProto,
-		loggers:            make(map[string]Logger),
-		listenerMutator:    ldsMutator,
-		routeMutator:       rdsMutator,
-		networkPolicyCache: npdsCache,
-		stopServer:         stopServer,
+		socketPath:      path,
+		listenerProto:   listenerProto,
+		loggers:         make(map[string]Logger),
+		listenerMutator: ldsMutator,
+		routeMutator:    rdsMutator,
+		stopServer:      stopServer,
 	}
 }
 
@@ -245,7 +244,7 @@ func (s *XDSServer) stop() {
 	os.Remove(s.socketPath)
 }
 
-func translatePolicyRule(h api.PortRuleHTTP) *envoy_api_v2_route.Route {
+func getHTTPRule(h *api.PortRuleHTTP) (headers []*envoy_api_v2_route.HeaderMatcher, ruleRef string) {
 	// Count the number of header matches we need
 	cnt := len(h.Headers)
 	if h.Path != "" {
@@ -258,9 +257,8 @@ func translatePolicyRule(h api.PortRuleHTTP) *envoy_api_v2_route.Route {
 		cnt++
 	}
 
-	var ruleRef string
 	isRegex := wrappers.BoolValue{Value: true}
-	headers := make([]*envoy_api_v2_route.HeaderMatcher, 0, cnt)
+	headers = make([]*envoy_api_v2_route.HeaderMatcher, 0, cnt)
 	if h.Path != "" {
 		headers = append(headers, &envoy_api_v2_route.HeaderMatcher{Name: ":path", Value: h.Path, Regex: &isRegex})
 		ruleRef = `PathRegexp("` + h.Path + `")`
@@ -299,6 +297,12 @@ func translatePolicyRule(h api.PortRuleHTTP) *envoy_api_v2_route.Route {
 		}
 		ruleRef += `")`
 	}
+	SortHeaderMatchers(headers)
+	return
+}
+
+func getRoute(h *api.PortRuleHTTP) *envoy_api_v2_route.Route {
+	headers, ruleRef := getHTTPRule(h)
 
 	// Envoy v2 API has a Path Regex, but it has not been
 	// implemented yet, so we must always match the root of the
@@ -326,7 +330,7 @@ func getRouteConfiguration(name string, l7rules policy.L7DataMap) *envoy_api_v2.
 		// (the key of the l7rules map) to a filter in Envoy
 		// listener and not simply append the rules together.
 		for _, h := range ep.HTTP {
-			routes = append(routes, translatePolicyRule(h))
+			routes = append(routes, getRoute(&h))
 		}
 	}
 	return &envoy_api_v2.RouteConfiguration{
@@ -400,4 +404,109 @@ func createBootstrap(filePath string, name, cluster, version string, xdsSock, en
 	if err != nil {
 		log.WithError(err).Fatal("Envoy: Error writing Envoy bootstrap file")
 	}
+}
+
+func getPortNetworkPolicyRule(sel api.EndpointSelector, l7Parser policy.L7ParserType, l7Rules api.L7Rules,
+	allowedIdentities identity.IdentityCache) *cilium.PortNetworkPolicyRule {
+	var remotePolicies []uint64
+	for id, labels := range allowedIdentities {
+		if sel.Matches(labels) {
+			remotePolicies = append(remotePolicies, uint64(id))
+		}
+	}
+	sortkeys.Uint64s(remotePolicies)
+
+	r := &cilium.PortNetworkPolicyRule{
+		RemotePolicies: remotePolicies,
+	}
+
+	switch l7Parser {
+	case policy.ParserTypeHTTP:
+		httpRules := make([]*cilium.HttpNetworkPolicyRule, 0, len(l7Rules.HTTP))
+		for _, l7 := range l7Rules.HTTP {
+			headers, _ := getHTTPRule(&l7)
+			httpRules = append(httpRules, &cilium.HttpNetworkPolicyRule{Headers: headers})
+		}
+		SortHTTPNetworkPolicyRules(httpRules)
+		r.L7Rules = &cilium.PortNetworkPolicyRule_HttpRules{
+			HttpRules: &cilium.HttpNetworkPolicyRules{
+				HttpRules: httpRules,
+			},
+		}
+	default:
+		// No L7 parser means nothing for an L7 proxy to do. Ignore the rule.
+		return nil
+	}
+	// TODO: Support Kafka.
+
+	return r
+}
+
+func getDirectionNetworkPolicy(l4Policy policy.L4PolicyMap, allowedIdentities identity.IdentityCache) *cilium.DirectionNetworkPolicy {
+	p := &cilium.DirectionNetworkPolicy{
+		PerPortPolicies: make([]*cilium.PortNetworkPolicy, 0, len(l4Policy)),
+	}
+
+	for _, l4 := range l4Policy {
+		var protocol envoy_api_v2_core.SocketAddress_Protocol
+		switch l4.Protocol {
+		case api.ProtoTCP:
+			protocol = envoy_api_v2_core.SocketAddress_TCP
+		case api.ProtoUDP:
+			protocol = envoy_api_v2_core.SocketAddress_UDP
+		}
+
+		pnp := &cilium.PortNetworkPolicy{
+			Port:     uint32(l4.Port),
+			Protocol: protocol,
+			Rules:    make([]*cilium.PortNetworkPolicyRule, 0, len(l4.L7RulesPerEp)),
+		}
+
+		for sel, l7 := range l4.L7RulesPerEp {
+			rule := getPortNetworkPolicyRule(sel, l4.L7Parser, l7, allowedIdentities)
+			if rule != nil {
+				pnp.Rules = append(pnp.Rules, rule)
+			}
+		}
+		SortPortNetworkPolicyRules(pnp.Rules)
+
+		p.PerPortPolicies = append(p.PerPortPolicies, pnp)
+	}
+
+	SortPortNetworkPolicies(p.PerPortPolicies)
+
+	return p
+}
+
+// getNetworkPolicy converts a network policy into a cilium.NetworkPolicy.
+func getNetworkPolicy(id identity.NumericIdentity, policy *policy.L4Policy, allowedIngressIdentities, allowedEgressIdentities identity.IdentityCache) *cilium.NetworkPolicy {
+	p := &cilium.NetworkPolicy{
+		Policy: uint64(id),
+	}
+
+	ingress := getDirectionNetworkPolicy(policy.Ingress, allowedIngressIdentities)
+	if len(ingress.PerPortPolicies) > 0 {
+		p.Ingress = ingress
+	}
+
+	egress := getDirectionNetworkPolicy(policy.Egress, allowedEgressIdentities)
+	if len(egress.PerPortPolicies) > 0 {
+		p.Egress = egress
+	}
+
+	return p
+}
+
+// UpdateNetworkPolicy adds or updates a network policy in the set published
+// to L7 proxies.
+func UpdateNetworkPolicy(id identity.NumericIdentity, policy *policy.L4Policy, allowedIngressIdentities, allowedEgressIdentities identity.IdentityCache) {
+	name := strconv.FormatUint(uint64(id), 10)
+	NetworkPolicyCache.Upsert(NetworkPolicyTypeURL, name, getNetworkPolicy(id, policy, allowedIngressIdentities, allowedEgressIdentities), false)
+}
+
+// RemoveNetworkPolicy removes a network policy from the set published to L7
+// proxies.
+func RemoveNetworkPolicy(id identity.NumericIdentity) {
+	name := strconv.FormatUint(uint64(id), 10)
+	NetworkPolicyCache.Delete(NetworkPolicyTypeURL, name, false)
 }
