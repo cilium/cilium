@@ -15,6 +15,7 @@
 package endpointmanager
 
 import (
+	"context"
 	"fmt"
 	"sync"
 
@@ -341,5 +342,20 @@ func AddEndpoint(owner endpoint.Owner, ep *endpoint.Endpoint, reason string) err
 	Insert(ep)
 	ep.Mutex.RUnlock()
 
+	return nil
+}
+
+// WaitForEndpointsAtPolicyRev waits for all endpoints which existed at the time
+// this function is called to be at a given policy revision.
+// New endpoints appearing while waiting are ignored.
+func WaitForEndpointsAtPolicyRev(ctx context.Context, rev uint64) error {
+	eps := GetEndpoints()
+	for i := range eps {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-eps[i].WaitForPolicyRevision(ctx, rev):
+		}
+	}
 	return nil
 }
