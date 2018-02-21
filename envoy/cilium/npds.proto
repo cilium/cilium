@@ -13,7 +13,7 @@ import "validate/validate.proto";
 
 // [#protodoc-title: Network policy management and NPDS]
 
-// Each resource name is a network policy filter identifier.
+// Each resource name is a network policy identifier.
 service NetworkPolicyDiscoveryService {
   rpc StreamNetworkPolicies(stream envoy.api.v2.DiscoveryRequest)
       returns (stream envoy.api.v2.DiscoveryResponse) {
@@ -27,26 +27,20 @@ service NetworkPolicyDiscoveryService {
   }
 }
 
-// A subset of a network policy that is enforced by a filter on the network
-// flows to/from associated hosts.
+// A network policy that is enforced by a filter on the network flows to/from
+// associated hosts.
 message NetworkPolicy {
-  // The unique identifier of a network policy filter.
-  // This uniquely identifies the subset of the network policy that is enforced
-  // by the filter.
+  // The unique identifier of the network policy.
   // Required.
-  string name = 1;
-
-  // The unique identifier of the network policy this subset is part of.
-  // Required.
-  uint64 policy = 2;
+  uint64 policy = 1;
 
   // The part of the policy to be enforced at ingress by the filter.
   // Optional.
-  DirectionNetworkPolicy ingress = 3;
+  DirectionNetworkPolicy ingress = 2;
 
   // The part of the policy to be enforced at egress by the filter.
   // Optional.
-  DirectionNetworkPolicy egress = 4;
+  DirectionNetworkPolicy egress = 3;
 }
 
 // A network policy to be enforced on flows either to or from hosts.
