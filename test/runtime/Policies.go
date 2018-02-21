@@ -28,6 +28,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/types"
 	"github.com/sirupsen/logrus"
+	"sort"
 )
 
 const (
@@ -950,5 +951,126 @@ var _ = Describe("RuntimeValidatedPolicyImportTests", func() {
 		By("Checking that all policy maps for endpoints have been deleted")
 		Expect(strings.TrimSpace(policyMapsInVM.GetStdOut())).To(Equal(expected), "Only %s PolicyMap should be present", expected)
 
+	})
+
+	It("checks policy trace output", func() {
+
+		httpd2Label := "id.httpd2"
+		httpd1Label := "id.httpd1"
+		allowedVerdict := "Final verdict: ALLOWED"
+
+		By("Checking policy trace by labels")
+
+		By(fmt.Sprintf("Importing policy that allows ingress to %s from the host and %s", httpd1Label, httpd2Label))
+
+		allowHttpd1IngressHostHttpd2 := fmt.Sprintf(`
+			[{
+    			"endpointSelector": {"matchLabels":{"id.httpd1":""}},
+    			"ingress": [{
+        			"fromEndpoints": [
+            			{"matchLabels":{"reserved:host":""}},
+            			{"matchLabels":{"id.httpd2":""}}
+					]
+    			}]
+			}]`)
+
+		_, err := vm.PolicyRenderAndImport(allowHttpd1IngressHostHttpd2)
+		Expect(err).Should(BeNil(), "Error importing policy: %s", err)
+
+		By(fmt.Sprintf("Verifying that trace says that %s can reach %s", httpd2Label, httpd1Label))
+
+		res := vm.Exec(fmt.Sprintf(`cilium policy trace -s %s -d %s`, httpd2Label, httpd1Label))
+		Expect(res.Output().String()).Should(ContainSubstring(allowedVerdict), "Policy trace did not contain %s", allowedVerdict)
+
+		endpointIDS, err := vm.GetEndpointsIds()
+		Expect(err).To(BeNil(), "Unable to get IDs of endpoints")
+
+		httpd2EndpointID, exists := endpointIDS[helpers.Httpd2]
+		Expect(exists).To(BeTrue(), "Expected endpoint ID to exist for %s", helpers.Httpd2)
+
+		httpd1EndpointID, exists := endpointIDS[helpers.Httpd1]
+		Expect(exists).To(BeTrue(), "Expected endpoint ID to exist for %s", helpers.Httpd1)
+
+		By("Getting models of endpoints to access policy-related metadata")
+		httpd2EndpointModel := vm.EndpointGet(httpd2EndpointID)
+		Expect(httpd2EndpointModel).To(Not(BeNil()), "Expected non-nil model for endpoint %s", helpers.Httpd2)
+		Expect(httpd2EndpointModel.Identity).To(Not(BeNil()), "Expected non-nil identity for endpoint %s", helpers.Httpd2)
+
+		httpd1EndpointModel := vm.EndpointGet(httpd1EndpointID)
+		Expect(httpd1EndpointModel).To(Not(BeNil()), "Expected non-nil model for endpoint %s", helpers.Httpd1)
+		Expect(httpd1EndpointModel.Identity).To(Not(BeNil()), "Expected non-nil identity for endpoint %s", helpers.Httpd1)
+		Expect(httpd1EndpointModel.Policy).To(Not(BeNil()), "Expected non-nil policy for endpoint %s", helpers.Httpd1)
+
+		httpd1SecurityIdentity := httpd1EndpointModel.Identity.ID
+		httpd2SecurityIdentity := httpd2EndpointModel.Identity.ID
+
+		// TODO - remove hardcoding of host identity.
+		By(fmt.Sprintf("Verifying allowed identities for ingress traffic to %s", helpers.Httpd1))
+		expectedIngressIdentitiesHttpd1 := []int64{1, httpd2SecurityIdentity}
+
+		actualIngressIdentitiesHttpd1 := httpd1EndpointModel.Policy.AllowedIngressIdentities
+
+		// Sort to ensure that equality check of slice doesn't fail due to ordering being different.
+		sort.Slice(actualIngressIdentitiesHttpd1, func(i, j int) bool { return actualIngressIdentitiesHttpd1[i] < actualIngressIdentitiesHttpd1[j] })
+
+		Expect(expectedIngressIdentitiesHttpd1).Should(Equal(actualIngressIdentitiesHttpd1), "Expected allowed identities %v, but instead got %v", expectedIngressIdentitiesHttpd1, actualIngressIdentitiesHttpd1)
+
+		By("Deleting all policies and adding a new policy to ensure that endpoint policy is updated accordingly")
+		res = vm.PolicyDelAll()
+		res.ExpectSuccess("Unable to delete all policies")
+
+		allowHttpd1IngressHttpd2 := fmt.Sprintf(`
+			[{
+    			"endpointSelector": {"matchLabels":{"id.httpd1":""}},
+    			"ingress": [{
+        			"fromEndpoints": [
+            			{"matchLabels":{"id.httpd2":""}}
+					]
+    			}]
+			}]`)
+
+		_, err = vm.PolicyRenderAndImport(allowHttpd1IngressHttpd2)
+		Expect(err).Should(BeNil(), "Error importing policy: %s", err)
+
+		By("Verifying verbose trace for expected output using security identities")
+		res = vm.Exec(fmt.Sprintf(`cilium policy trace --src-identity %d --dst-identity %d`, httpd2SecurityIdentity, httpd1SecurityIdentity))
+		Expect(res.Output().String()).Should(ContainSubstring(allowedVerdict), "Policy trace did not contain %s", allowedVerdict)
+
+		By("Verifying verbose trace for expected output using endpoint IDs")
+		res = vm.Exec(fmt.Sprintf(`cilium policy trace --src-endpoint %s --dst-endpoint %s`, httpd2EndpointID, httpd1EndpointID))
+		Expect(res.Output().String()).Should(ContainSubstring(allowedVerdict), "Policy trace did not contain %s", allowedVerdict)
+
+		// Have to get models of endpoints again because policy has been updated.
+
+		By("Getting models of endpoints to access policy-related metadata")
+		httpd2EndpointModel = vm.EndpointGet(httpd2EndpointID)
+		Expect(httpd2EndpointModel).To(Not(BeNil()), "Expected non-nil model for endpoint %s", helpers.Httpd2)
+		Expect(httpd2EndpointModel.Identity).To(Not(BeNil()), "Expected non-nil identity for endpoint %s", helpers.Httpd2)
+
+		httpd1EndpointModel = vm.EndpointGet(httpd1EndpointID)
+		Expect(httpd1EndpointModel).To(Not(BeNil()), "Expected non-nil model for endpoint %s", helpers.Httpd1)
+		Expect(httpd1EndpointModel.Identity).To(Not(BeNil()), "Expected non-nil identity for endpoint %s", helpers.Httpd1)
+		Expect(httpd1EndpointModel.Policy).To(Not(BeNil()), "Expected non-nil policy for endpoint %s", helpers.Httpd1)
+
+		httpd1SecurityIdentity = httpd1EndpointModel.Identity.ID
+		httpd2SecurityIdentity = httpd2EndpointModel.Identity.ID
+
+		By(fmt.Sprintf("Verifying allowed identities for ingress traffic to %s", helpers.Httpd1))
+		expectedIngressIdentitiesHttpd1 = []int64{httpd2SecurityIdentity}
+		actualIngressIdentitiesHttpd1 = httpd1EndpointModel.Policy.AllowedIngressIdentities
+		Expect(expectedIngressIdentitiesHttpd1).Should(Equal(actualIngressIdentitiesHttpd1), "Expected allowed identities %v, but instead got %v", expectedIngressIdentitiesHttpd1, actualIngressIdentitiesHttpd1)
+
+		res = vm.PolicyDelAll()
+		res.ExpectSuccess("Unable to delete all policies")
+
+		res = vm.SetPolicyEnforcement(helpers.PolicyEnforcementDefault)
+		res.ExpectSuccess("Unable to change PolicyEnforcement configuration")
+
+		areEndpointsReady := vm.WaitEndpointsReady()
+		Expect(areEndpointsReady).Should(BeTrue())
+
+		By("Checking that policy trace returns allowed verdict without any policies imported")
+		res = vm.Exec(fmt.Sprintf(`cilium policy trace --src-endpoint %s --dst-endpoint %s`, httpd2EndpointID, httpd1EndpointID))
+		Expect(res.Output().String()).Should(ContainSubstring(allowedVerdict), "Policy trace did not contain %s", allowedVerdict)
 	})
 })
