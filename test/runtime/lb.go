@@ -295,7 +295,7 @@ var _ = Describe("RuntimeValidatedLB", func() {
 		svcIds, err := vm.ServiceGetIds()
 		Expect(err).Should(BeNil())
 		Expect(len(svcIds)).Should(Equal(len(oldSvcIds)),
-			fmt.Sprintf("Service ids %s do not match old service ids %s", svcIds, oldSvcIds))
+			"Service ids %s do not match old service ids %s", svcIds, oldSvcIds)
 		newSvc := vm.ServiceList()
 		newSvc.ExpectSuccess("Cannot retrieve service list after restart")
 		newSvc.ExpectEqual(oldSvc.Output().String(), "Service list does not match")
