@@ -213,13 +213,14 @@ func (s *SSHMeta) WaitEndpointsReady() bool {
 			result[status]++
 		}
 
+		logger.WithField("status", result).Infof(
+			"'%d' containers are in a '%s' state of a total of '%d' containers.",
+			result[desiredState], desiredState, total)
+
 		if result[desiredState] == total {
 			return true
 		}
 
-		logger.WithField("status", result).Infof(
-			"Only '%d' containers are in a '%s' state of a total of '%d' containers.",
-			result[desiredState], desiredState, total)
 		return false
 	}
 
