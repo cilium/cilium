@@ -467,7 +467,7 @@ var _ = Describe("RuntimeValidatedConntrackTest", func() {
 		vm.PolicyDelAll().ExpectSuccess("Policies cannot be deleted")
 
 		res := vm.SetPolicyEnforcement(helpers.PolicyEnforcementDefault)
-		res.ExpectSuccess("Cannot set policy enforcemet to default")
+		res.ExpectSuccess("Cannot set policy enforcement to default mode")
 	})
 
 	It("Conntrack-related configuration options for endpoints", func() {
