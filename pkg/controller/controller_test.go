@@ -19,6 +19,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cilium/cilium/pkg/uuid"
 	. "gopkg.in/check.v1"
 )
 
@@ -33,9 +34,19 @@ var _ = Suite(&ControllerSuite{})
 
 func (b *ControllerSuite) TestUpdateRemoveController(c *C) {
 	mngr := NewManager()
-	mngr.UpdateController("test", ControllerParams{})
-	c.Assert(mngr.RemoveController("test"), IsNil)
-	c.Assert(mngr.RemoveController("not-exist"), Not(IsNil))
+	ctrl := mngr.UpdateController("test", ControllerParams{})
+	c.Assert(mngr.RemoveController(ctrl), IsNil)
+
+	fakeCtrl := &Controller{
+		name: "not-exist",
+		params: ControllerParams{
+			DoFunc:      NoopFunc,
+			StopFunc:    NoopFunc,
+			RunInterval: time.Minute},
+		uuid: uuid.NewUUID().String(),
+		stop: make(chan struct{}, 0),
+	}
+	c.Assert(mngr.RemoveController(fakeCtrl), Not(IsNil))
 }
 
 func (b *ControllerSuite) TestStopFunc(c *C) {
@@ -43,7 +54,7 @@ func (b *ControllerSuite) TestStopFunc(c *C) {
 	waitChan := make(chan bool)
 
 	mngr := Manager{}
-	mngr.UpdateController("test", ControllerParams{
+	ctrl := mngr.UpdateController("test", ControllerParams{
 		RunInterval: time.Second,
 		DoFunc:      NoopFunc,
 		StopFunc: func() error {
@@ -52,7 +63,7 @@ func (b *ControllerSuite) TestStopFunc(c *C) {
 			return nil
 		},
 	})
-	c.Assert(mngr.RemoveController("test"), IsNil)
+	c.Assert(mngr.RemoveController(ctrl), IsNil)
 	select {
 	case <-waitChan:
 	case <-time.After(2 * time.Second):
@@ -108,5 +119,5 @@ func (b *ControllerSuite) TestRunController(c *C) {
 	c.Assert(ctrl.GetSuccessCount(), Not(Equals), 0)
 	c.Assert(ctrl.GetFailureCount(), Equals, 2)
 	c.Assert(ctrl.GetLastError(), IsNil)
-	c.Assert(mngr.RemoveController("test"), IsNil)
+	c.Assert(mngr.RemoveController(ctrl), IsNil)
 }
