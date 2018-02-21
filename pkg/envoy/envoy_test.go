@@ -56,14 +56,17 @@ func (s *EnvoySuite) TestEnvoy(c *C) {
 	}
 
 	stateLogDir := c.MkDir()
+	log.Debugf("state log directory: %s", stateLogDir)
 
 	// launch debug variant of the Envoy proxy
 	Envoy := StartEnvoy(9942, stateLogDir, stateLogDir, 42)
 	c.Assert(Envoy, NotNil)
+	log.Debug("started Envoy")
 
 	sel := api.NewWildcardEndpointSelector()
 
 	// TODO: Test for success once we get feedback from Envoy.
+	log.Debug("adding listener1")
 	Envoy.AddListener("listener1", 8081, policy.L7DataMap{
 		sel: api.L7Rules{HTTP: []api.PortRuleHTTP{
 			{Path: "foo"},
@@ -71,10 +74,14 @@ func (s *EnvoySuite) TestEnvoy(c *C) {
 			{Host: "cilium"},
 			{Headers: []string{"via"}}}}},
 		true, &testRedirect{name: "listener1"}, s.waitGroup)
+
+	log.Debug("adding listener2")
 	Envoy.AddListener("listener2", 8082, policy.L7DataMap{
 		sel: api.L7Rules{HTTP: []api.PortRuleHTTP{
 			{Headers: []string{"via", "x-foo: bar"}}}}},
 		true, &testRedirect{name: "listener2"}, s.waitGroup)
+
+	log.Debug("adding listener3")
 	Envoy.AddListener("listener3", 8083, policy.L7DataMap{
 		sel: api.L7Rules{HTTP: []api.PortRuleHTTP{
 			{Method: "GET", Path: ".*public"}}}},
@@ -82,34 +89,42 @@ func (s *EnvoySuite) TestEnvoy(c *C) {
 
 	err := s.waitForProxyCompletion()
 	c.Assert(err, IsNil)
+	log.Debug("completed adding listener1, listener2, listener3")
 	s.waitGroup = completion.NewWaitGroup(ctx)
 
 	// Update listener2
+	log.Debug("updating listener 2")
 	Envoy.UpdateListener("listener2", policy.L7DataMap{
 		sel: api.L7Rules{HTTP: []api.PortRuleHTTP{
 			{Headers: []string{"via: home", "x-foo: bar"}}}}}, s.waitGroup)
 
 	err = s.waitForProxyCompletion()
 	c.Assert(err, IsNil)
+	log.Debug("completed updating listener 2")
 	s.waitGroup = completion.NewWaitGroup(ctx)
 
 	// Update listener1
+	log.Debug("updating listener 1")
 	Envoy.UpdateListener("listener1", policy.L7DataMap{
 		sel: api.L7Rules{HTTP: []api.PortRuleHTTP{
 			{Headers: []string{"via"}}}}}, s.waitGroup)
 
 	err = s.waitForProxyCompletion()
 	c.Assert(err, IsNil)
+	log.Debug("completed updating listener 1")
 	s.waitGroup = completion.NewWaitGroup(ctx)
 
 	// Remove listener3
+	log.Debug("removing listener 3")
 	Envoy.RemoveListener("listener3", s.waitGroup)
 
 	err = s.waitForProxyCompletion()
 	c.Assert(err, IsNil)
+	log.Debug("completed removing listener 3")
 	s.waitGroup = completion.NewWaitGroup(ctx)
 
 	// Add listener3 again
+	log.Debug("adding listener 3")
 	Envoy.AddListener("listener3", 8083, policy.L7DataMap{
 		sel: api.L7Rules{HTTP: []api.PortRuleHTTP{
 			{Method: "GET", Path: ".*public"}}}},
@@ -117,13 +132,15 @@ func (s *EnvoySuite) TestEnvoy(c *C) {
 
 	err = s.waitForProxyCompletion()
 	c.Assert(err, IsNil)
+	log.Debug("completed adding listener 3")
 	s.waitGroup = completion.NewWaitGroup(ctx)
 
 	// Remove listener3 again, and wait for timeout after stopping Envoy.
+	log.Debug("removing listener 3")
 	Envoy.RemoveListener("listener3", s.waitGroup)
 	err = Envoy.StopEnvoy()
 	c.Assert(err, IsNil)
 	err = s.waitForProxyCompletion()
 	c.Assert(err, NotNil)
-	log.Debug("Proxy updates failed: ", err)
+	log.Debugf("failed to remove listener 3: %s", err)
 }
