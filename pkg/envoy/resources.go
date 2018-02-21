@@ -31,6 +31,11 @@ const (
 )
 
 var (
+	// NetworkPolicyCache is the global cache of resources of type
+	// NetworkPolicy. Resources in this cache must have the
+	// NetworkPolicyTypeURL type URL.
+	NetworkPolicyCache = xds.NewCache()
+
 	// NetworkPolicyHostsCache is the global cache of resources of type
 	// NetworkPolicyHosts. Resources in this cache must have the
 	// NetworkPolicyHostsTypeURL type URL.
