@@ -49,6 +49,11 @@ func ExtractNamespace(np *metav1.ObjectMeta) string {
 	return np.Namespace
 }
 
+// GetObjNamespaceName returns the object's namespace and name.
+func GetObjNamespaceName(obj *metav1.ObjectMeta) string {
+	return ExtractNamespace(obj) + "/" + obj.GetName()
+}
+
 // GetPolicyLabels returns a LabelArray for the given namespace and name.
 func GetPolicyLabels(ns, name string) labels.LabelArray {
 	return labels.ParseLabelArray(
