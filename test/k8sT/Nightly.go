@@ -304,7 +304,7 @@ var _ = Describe("NightlyExamples", func() {
 		_, err = kubectl.CiliumPolicyAction(helpers.KubeSystemNamespace, l3Policy, helpers.KubectlApply, 300)
 		Expect(err).Should(BeNil())
 
-		appPods := helpers.GetAppPods(apps, helpers.DefaultNamespace, kubectl)
+		appPods := helpers.GetAppPods(apps, helpers.DefaultNamespace, kubectl, "id")
 
 		clusterIP, _, err := kubectl.GetServiceHostPort(helpers.DefaultNamespace, appService)
 		Expect(err).Should(BeNil())
