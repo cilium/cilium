@@ -687,12 +687,21 @@ var _ = Describe("RuntimeValidatedPolicyImportTests", func() {
 	BeforeEach(func() {
 		once.Do(initialize)
 		vm.PolicyDelAll()
+
+		vm.SampleContainersActions(helpers.Create, helpers.CiliumDockerNetwork)
+		areEndpointsReady := vm.WaitEndpointsReady()
+		Expect(areEndpointsReady).Should(BeTrue(), "Timed out waiting for endpoints to be ready")
+
 	})
 
 	AfterEach(func() {
 		if CurrentGinkgoTestDescription().Failed {
 			vm.ReportFailed()
 		}
+
+		vm.SampleContainersActions(helpers.Delete, helpers.CiliumDockerNetwork)
+		allEndpointsDeleted := vm.WaitEndpointsDeleted()
+		Expect(allEndpointsDeleted).Should(BeTrue(), "Not all endpoints were able to be deleted")
 	})
 
 	It("Invalid Policies", func() {
