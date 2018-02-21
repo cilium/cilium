@@ -23,11 +23,6 @@ import (
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/annotation"
-	k8sconst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
-	cilium_v1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v1"
-	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
-	cilium_client_v1 "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/cilium.io/v1"
-	cilium_client_v2 "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 
 	go_version "github.com/hashicorp/go-version"
@@ -38,7 +33,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
-	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/clientcmd"
 )
 
@@ -228,156 +222,4 @@ func createDefaultClient() error {
 	client = k8sClient
 
 	return nil
-}
-
-// UpdateCNPStatusV1 updates the status into the given CNP. This function retries
-// to do successful update into the kube-apiserver until it reaches the given
-// timeout.
-func UpdateCNPStatusV1(ciliumNPClientV1 cilium_client_v1.CiliumV1Interface,
-	ciliumRulesStore cache.Store, timeout time.Duration, nodeName string,
-	rule *cilium_v1.CiliumNetworkPolicy, cnpns cilium_v1.CiliumNetworkPolicyNodeStatus) {
-
-	rule.SetPolicyStatus(nodeName, cnpns)
-
-	ns := k8sconst.ExtractNamespace(&rule.ObjectMeta)
-
-	_, err := ciliumNPClientV1.CiliumNetworkPolicies(ns).Update(rule)
-	if err == nil {
-		// If the Update went successful no need to retry again
-		return
-	}
-
-	name := rule.ObjectMeta.Name
-
-	scopedLog := log.WithFields(logrus.Fields{
-		logfields.K8sNamespace:            ns,
-		logfields.CiliumNetworkPolicyName: name,
-	})
-	scopedLog.WithError(err).Warn("unable to update CNP, retrying...")
-
-	t := time.NewTimer(timeout)
-	defer t.Stop()
-	loopTimer := time.NewTimer(time.Second)
-	defer loopTimer.Stop()
-	for n := 1; ; n++ {
-		serverRuleStore, exists, err := ciliumRulesStore.Get(rule)
-		if !exists {
-			return
-		}
-		if err != nil {
-			scopedLog.WithError(err).Warn("Unable to find v1.CiliumNetworkPolicy in local cache")
-			return
-		}
-		serverRule, ok := serverRuleStore.(*cilium_v1.CiliumNetworkPolicy)
-		if !ok {
-			scopedLog.WithError(err).WithFields(logrus.Fields{
-				logfields.CiliumNetworkPolicy: logfields.Repr(serverRuleStore),
-			}).Warn("Received object of unknown type from API server, expecting v1.CiliumNetworkPolicy")
-			return
-		}
-		serverRuleCpy := serverRule.DeepCopy()
-		_, err = serverRuleCpy.Parse()
-		if err != nil {
-			log.WithError(err).WithField(logfields.Object, logfields.Repr(serverRuleCpy)).
-				Warn("Error parsing new CiliumNetworkPolicy rule")
-			return
-		}
-		if serverRuleCpy.ObjectMeta.UID != rule.ObjectMeta.UID &&
-			serverRuleCpy.SpecEquals(rule) {
-			// Although the policy was found this means it was deleted,
-			// and re-added with the same name.
-			scopedLog.Debug("rule changed while updating node status, stopping retry")
-			return
-		}
-		serverRuleCpy.SetPolicyStatus(nodeName, cnpns)
-		_, err = ciliumNPClientV1.CiliumNetworkPolicies(ns).Update(serverRuleCpy)
-		if err == nil {
-			scopedLog.WithField("status", serverRuleCpy.Status).Debug("successfully updated with status")
-			return
-		}
-		loopTimer.Reset(time.Duration(n) * time.Second)
-		select {
-		case <-t.C:
-			scopedLog.WithError(err).Error("unable to update CNP with status due timeout")
-			return
-		case <-loopTimer.C:
-		}
-		scopedLog.WithError(err).Warn("unable to update CNP with status, retrying...")
-	}
-}
-
-// UpdateCNPStatusV2 updates the status into the given CNP. This function retries
-// to do successful update into the kube-apiserver until it reaches the given
-// timeout.
-func UpdateCNPStatusV2(ciliumNPClientV2 cilium_client_v2.CiliumV2Interface,
-	ciliumRulesStore cache.Store, timeout time.Duration, nodeName string,
-	rule *cilium_v2.CiliumNetworkPolicy, cnpns cilium_v2.CiliumNetworkPolicyNodeStatus) {
-
-	rule.SetPolicyStatus(nodeName, cnpns)
-
-	ns := k8sconst.ExtractNamespace(&rule.ObjectMeta)
-
-	_, err := ciliumNPClientV2.CiliumNetworkPolicies(ns).Update(rule)
-	if err == nil {
-		// If the Update went successful no need to retry again
-		return
-	}
-
-	name := rule.ObjectMeta.Name
-
-	scopedLog := log.WithFields(logrus.Fields{
-		logfields.K8sNamespace:            ns,
-		logfields.CiliumNetworkPolicyName: name,
-	})
-	scopedLog.WithError(err).Warn("unable to update CNP, retrying...")
-
-	t := time.NewTimer(timeout)
-	defer t.Stop()
-	loopTimer := time.NewTimer(time.Second)
-	defer loopTimer.Stop()
-	for n := 1; ; n++ {
-		serverRuleStore, exists, err := ciliumRulesStore.Get(rule)
-		if !exists {
-			return
-		}
-		if err != nil {
-			scopedLog.WithError(err).Warn("Unable to find v1.CiliumNetworkPolicy in local cache")
-			return
-		}
-		serverRule, ok := serverRuleStore.(*cilium_v2.CiliumNetworkPolicy)
-		if !ok {
-			scopedLog.WithError(err).WithFields(logrus.Fields{
-				logfields.CiliumNetworkPolicy: logfields.Repr(serverRuleStore),
-			}).Warn("Received object of unknown type from API server, expecting v1.CiliumNetworkPolicy")
-			return
-		}
-		serverRuleCpy := serverRule.DeepCopy()
-		_, err = serverRuleCpy.Parse()
-		if err != nil {
-			log.WithError(err).WithField(logfields.Object, logfields.Repr(serverRuleCpy)).
-				Warn("Error parsing new CiliumNetworkPolicy rule")
-			return
-		}
-		if serverRuleCpy.ObjectMeta.UID != rule.ObjectMeta.UID &&
-			serverRuleCpy.SpecEquals(rule) {
-			// Although the policy was found this means it was deleted,
-			// and re-added with the same name.
-			scopedLog.Debug("rule changed while updating node status, stopping retry")
-			return
-		}
-		serverRuleCpy.SetPolicyStatus(nodeName, cnpns)
-		_, err = ciliumNPClientV2.CiliumNetworkPolicies(ns).Update(serverRuleCpy)
-		if err == nil {
-			scopedLog.WithField("status", serverRuleCpy.Status).Debug("successfully updated with status")
-			return
-		}
-		loopTimer.Reset(time.Duration(n) * time.Second)
-		select {
-		case <-t.C:
-			scopedLog.WithError(err).Error("unable to update CNP with status due timeout")
-			return
-		case <-loopTimer.C:
-		}
-		scopedLog.WithError(err).Warn("unable to update CNP with status, retrying...")
-	}
 }
