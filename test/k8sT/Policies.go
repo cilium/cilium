@@ -35,7 +35,7 @@ var _ = Describe("K8sValidatedPolicyTest", func() {
 	var logger *logrus.Entry
 	var path string
 	var podFilter string
-	var  apps []string
+	var apps []string
 
 	initialize := func() {
 		logger = log.WithFields(logrus.Fields{"testName": "K8sPolicyTest"})
@@ -165,7 +165,7 @@ var _ = Describe("K8sValidatedPolicyTest", func() {
 		}, 500)
 
 		It("checks all kind of kubernetes policies", func() {
-			appPods := helpers.GetAppPods(apps, helpers.DefaultNamespace, kubectl)
+			appPods := helpers.GetAppPods(apps, helpers.DefaultNamespace, kubectl, "id")
 			service := "app1-service"
 			clusterIP, _, err := kubectl.GetServiceHostPort(helpers.DefaultNamespace, service)
 			logger.Infof("PolicyRulesTest: cluster service ip '%s'", clusterIP)
@@ -199,7 +199,7 @@ var _ = Describe("K8sValidatedPolicyTest", func() {
 			}, "could not get endpoints", &helpers.TimeoutConfig{Timeout: 100})
 
 			Expect(epsStatus).Should(BeNil())
-			appPods = helpers.GetAppPods(apps, helpers.DefaultNamespace, kubectl)
+			appPods = helpers.GetAppPods(apps, helpers.DefaultNamespace, kubectl, "id")
 
 			endpoints, err := kubectl.CiliumEndpointsListByLabel(ciliumPod, podFilter)
 			policyStatus := endpoints.GetPolicyStatus()
@@ -250,7 +250,7 @@ var _ = Describe("K8sValidatedPolicyTest", func() {
 			err = helpers.WaitUntilEndpointUpdates(ciliumPod, eps, 4, kubectl)
 			Expect(err).Should(BeNil())
 
-			appPods = helpers.GetAppPods(apps, helpers.DefaultNamespace, kubectl)
+			appPods = helpers.GetAppPods(apps, helpers.DefaultNamespace, kubectl, "id")
 
 			_, err = kubectl.ExecPodCmd(
 				helpers.DefaultNamespace, appPods[helpers.App2],
@@ -328,7 +328,7 @@ var _ = Describe("K8sValidatedPolicyTest", func() {
 			By(fmt.Sprintf("Testing %s namespace", namespace))
 			clusterIP, _, err := kubectl.GetServiceHostPort(namespace, "app1-service")
 			Expect(err).To(BeNil(), "Cannot get service on %q namespace", namespace)
-			appPods := helpers.GetAppPods(apps, namespace, kubectl)
+			appPods := helpers.GetAppPods(apps, namespace, kubectl, "id")
 			_, err = kubectl.ExecPodCmd(
 				namespace, appPods[helpers.App2],
 				fmt.Sprintf("curl http://%s/public", clusterIP))
@@ -343,7 +343,7 @@ var _ = Describe("K8sValidatedPolicyTest", func() {
 			clusterIP, _, err = kubectl.GetServiceHostPort(helpers.DefaultNamespace, "app1-service")
 			Expect(err).To(BeNil(), "Cannot get service on default namespace")
 
-			appPods = helpers.GetAppPods(apps, helpers.DefaultNamespace, kubectl)
+			appPods = helpers.GetAppPods(apps, helpers.DefaultNamespace, kubectl, "id")
 			_, err = kubectl.ExecPodCmd(
 				helpers.DefaultNamespace, appPods[helpers.App2],
 				fmt.Sprintf("curl http://%s/public", clusterIP))
@@ -376,7 +376,7 @@ var _ = Describe("K8sValidatedPolicyTest", func() {
 			By("Testing connectivity without any policy loaded")
 			clusterIP, _, err := kubectl.GetServiceHostPort(namespace, "app1-service")
 			Expect(err).To(BeNil(), "Cannot get service on %q namespace", namespace)
-			appPods := helpers.GetAppPods(apps, namespace, kubectl)
+			appPods := helpers.GetAppPods(apps, namespace, kubectl, "id")
 			_, err = kubectl.ExecPodCmd(
 				namespace, appPods[helpers.App2],
 				fmt.Sprintf("curl http://%s/public", clusterIP))

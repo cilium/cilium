@@ -45,11 +45,11 @@ var _ = Describe("K8sValidatedKafkaPolicyTest", func() {
 	var prodOutAnnounce string
 
 	// Kafka app pod names
-	var kafkaApp  string
+	var kafkaApp string
 	var zookApp string
-	var backupApp    string
-	var empireHqApp  string
-	var outpostApp  string
+	var backupApp string
+	var empireHqApp string
+	var outpostApp string
 
 	initialize := func() {
 		logger = log.WithFields(logrus.Fields{"testName": "K8sValidatedKafkaPolicyTest"})
@@ -57,11 +57,11 @@ var _ = Describe("K8sValidatedKafkaPolicyTest", func() {
 		kubectl = helpers.CreateKubectl(helpers.K8s1VMName(), logger)
 		podFilter = "k8s:zgroup=kafkaTestApp"
 
-		kafkaApp  = "kafka"
+		kafkaApp = "kafka"
 		zookApp = "zook"
-		backupApp    = "empire-backup"
-		empireHqApp  = "empire-hq"
-		outpostApp   = "empire-outpost"
+		backupApp = "empire-backup"
+		empireHqApp = "empire-hq"
+		outpostApp = "empire-outpost"
 
 		//Manifest paths
 		demoPath = kubectl.ManifestGet("kafka-sw-app.yaml")
@@ -77,7 +77,6 @@ var _ = Describe("K8sValidatedKafkaPolicyTest", func() {
 		conOutDeathStar = "-c \"./kafka-consume.sh --topic deathstar-plans --from-beginning --max-messages 1\""
 		prodBackAnnounce = "-c \"echo “Happy 40th Birthday to General Tagge” | ./kafka-produce.sh --topic empire-announce\""
 		prodOutAnnounce = "-c \"echo “Vader Booed at Empire Karaoke Party” | ./kafka-produce.sh --topic empire-announce\""
-
 
 		path = kubectl.ManifestGet("cilium_ds.yaml")
 		kubectl.Apply(path)
@@ -141,7 +140,7 @@ var _ = Describe("K8sValidatedKafkaPolicyTest", func() {
 
 		Expect(endpoints.AreReady()).Should(BeTrue())
 
-		appPods := helpers.GetAppPods(apps, helpers.DefaultNamespace, kubectl)
+		appPods := helpers.GetAppPods(apps, helpers.DefaultNamespace, kubectl, "app")
 		By("Testing basic Kafka Produce and Consume")
 
 		// We need to produce first, since consumer script waits for

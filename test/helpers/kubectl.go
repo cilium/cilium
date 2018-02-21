@@ -88,7 +88,7 @@ func (kub *Kubectl) ExecKafkaPodCmd(namespace string, pod string, arg string) er
 	if strings.Contains(stderr.String(), "ERROR") {
 		return fmt.Errorf("ExecKafkaPodCmd: command '%s' failed '%s' || '%s'", command, stdout.String(), stderr.String())
 	}
-	return  nil
+	return nil
 }
 
 // ExecPodCmd executes command cmd in the specified pod residing in the specified

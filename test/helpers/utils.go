@@ -126,10 +126,12 @@ func WithTimeout(body func() bool, msg string, config *TimeoutConfig) error {
 }
 
 // GetAppPods fetches app pod names for a namespace.
-func GetAppPods(apps []string, namespace string, kubectl *Kubectl) map[string]string {
+// For Http based tests, we identify pods with format id=<pod_name>, while
+// for Kafka based tests, we identify pods with the format app=<pod_name>.
+func GetAppPods(apps []string, namespace string, kubectl *Kubectl, appFmt string) map[string]string {
 	appPods := make(map[string]string)
 	for _, v := range apps {
-		res, err := kubectl.GetPodNames(namespace, fmt.Sprintf("app=%s", v))
+		res, err := kubectl.GetPodNames(namespace, fmt.Sprintf("%s=%s", appFmt, v))
 		Expect(err).Should(BeNil())
 		Expect(res).Should(Not(BeNil()))
 		appPods[v] = res[0]
