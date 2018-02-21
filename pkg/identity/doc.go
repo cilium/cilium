@@ -12,9 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// +k8s:deepcopy-gen=package
-// +k8s:openapi-gen=true
-
 // Package identity contains code for managing security identities in Cilium.
 // +groupName=pkg
 package identity
