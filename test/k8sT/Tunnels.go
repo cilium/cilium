@@ -88,7 +88,7 @@ var _ = Describe("K8sValidatedTunnelTest", func() {
 		}
 
 		status.ExpectSuccess()
-		Expect(status.IntOutput()).Should(Equal(4))
+		Expect(status.IntOutput()).Should(Equal(5))
 
 		By("Checking that BPF tunnels are working correctly")
 		tunnStatus := isNodeNetworkingWorking(kubectl, "zgroup=testDS")
@@ -122,7 +122,7 @@ var _ = Describe("K8sValidatedTunnelTest", func() {
 			}
 			kubectl.CiliumReport(helpers.KubeSystemNamespace, ciliumPod, cmds)
 		}
-		Expect(status.IntOutput()).Should(Equal(4))
+		Expect(status.IntOutput()).Should(Equal(5))
 
 		By("Checking that BPF tunnels are working correctly")
 		tunnStatus := isNodeNetworkingWorking(kubectl, "zgroup=testDS")
