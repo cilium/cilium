@@ -457,6 +457,12 @@ func (p *Proxy) RemoveRedirect(id string, wg *completion.WaitGroup) error {
 	go func() {
 		time.Sleep(portReleaseDelay)
 
+		// The cleanup of the proxymap is delayed a bit to ensure that
+		// the datapath has implemented the redirect change and we
+		// cleanup the map before we release the port and allow reuse
+		cleanupIPv4Redirects(toPort)
+		cleanupIPv6Redirects(toPort)
+
 		p.mutex.Lock()
 		delete(p.allocatedPorts, toPort)
 		p.mutex.Unlock()
