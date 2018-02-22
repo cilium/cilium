@@ -21,7 +21,7 @@ if [[ $GO_BINDATA_SHA1SUM == "" ]]; then
   exit 1
 fi
 
-if echo "$GO_BINDATA_SHA1SUM bindata.go" | sha1sum -c; then
+if echo "$GO_BINDATA_SHA1SUM bindata.go" | sha1sum -c --quiet; then
   exit 0
 fi
 

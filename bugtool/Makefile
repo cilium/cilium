@@ -17,13 +17,14 @@ include ../Makefile.defs
 TARGET=cilium-bugtool
 SOURCES := $(shell find ../common . -name '*.go')
 $(TARGET): $(SOURCES)
+	@$(ECHO_GO)
 	$(GO) build -i $(GOBUILD) -o $(TARGET)
 
 all: $(TARGET)
 
 clean:
-	-rm .cilium-bugtool.config
-	rm -f $(TARGET)
+	@$(ECHO_CLEAN) $(notdir $(shell pwd))
+	-$(QUIET)rm -f .cilium-bugtool.config $(TARGET)
 	$(GO) clean
 
 install:

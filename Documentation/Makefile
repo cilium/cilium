@@ -1,9 +1,10 @@
 # Minimal makefile for Sphinx documentation
 #
+include ../Makefile.quiet
 
 # You can set these variables from the command line.
 SPHINXOPTS    =
-SPHINXBUILD   = sphinx-build
+SPHINXBUILD   = $(QUIET) sphinx-build
 SPHINXPROJ    = Cilium
 SOURCEDIR     = .
 BUILDDIR      = _build
@@ -21,6 +22,7 @@ PIP_REQUIREMENTS = $(shell cat requirements.txt | sed -e 's/==.*//g' -e 's/\n/ /
 
 check-requirements:
 	@set -e;								\
+	$(ECHO_CHECK) documentation dependencies...;				\
 	PYPKGS=$$(pip freeze);							\
 	for pkg in ${PIP_REQUIREMENTS}; do					\
 		echo $${PYPKGS} | grep -q $${pkg}				\
@@ -30,16 +32,21 @@ check-requirements:
 	done
 
 cmdref:
-	# We don't know what changed so recreate the directory
-	-rm -rvf $(CMDREFDIR)/cilium*
-	${CILIUMDIR}/cilium cmdref -d $(CMDREFDIR)
-	${BUGTOOLDIR}/cilium-bugtool cmdref -d $(CMDREFDIR)
-	${AGENTDIR}/cilium-agent --cmdref $(CMDREFDIR)
-	${HEALTHDIR}/cilium-health --cmdref $(CMDREFDIR)
+	$(QUIET) # We don't know what changed so recreate the directory
+	$(QUIET) -rm -rvf $(CMDREFDIR)/cilium*
+	@$(ECHO_GEN)cmdref/cilium
+	$(QUIET) ${CILIUMDIR}/cilium cmdref -d $(CMDREFDIR)
+	@$(ECHO_GEN)cmdref/cilium-bugtool
+	$(QUIET) ${BUGTOOLDIR}/cilium-bugtool cmdref -d $(CMDREFDIR)
+	@$(ECHO_GEN)cmdref/cilium-agent
+	$(QUIET) ${AGENTDIR}/cilium-agent --cmdref $(CMDREFDIR)
+	@$(ECHO_GEN)cmdref/cilium-health
+	$(QUIET) ${HEALTHDIR}/cilium-health --cmdref $(CMDREFDIR)
 
-.PHONY: help Makefile check-requirements cmdref
+.PHONY: help Makefile ../Makefile.quiet check-requirements cmdref
 
 # Catch-all target: route all unknown targets to Sphinx using the new
 # "make mode" option.  $(O) is meant as a shortcut for $(SPHINXOPTS).
 %: Makefile check-requirements
-	@$(SPHINXBUILD) -M $@ "$(SOURCEDIR)" "$(BUILDDIR)" $(SPHINXOPTS) $(O)
+	@$(ECHO_GEN)_build/$@
+	$(SPHINXBUILD) -M $@ "$(SOURCEDIR)" "$(BUILDDIR)" $(SPHINXOPTS) $(O)

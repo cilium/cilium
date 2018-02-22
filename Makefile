@@ -43,7 +43,7 @@ tests-ginkgo-real:
 	go test $(TEST_LDFLAGS) \
             -timeout 360s -coverprofile=coverage.out -covermode=count $(pkg) $(GOTEST_OPTS) || exit 1;\
             tail -n +2 coverage.out >> coverage-all.out;)
-	go tool cover -html=coverage-all.out -o=coverage-all.html
+	$(GO) tool cover -html=coverage-all.out -o=coverage-all.html
 	rm coverage-all.out
 	rm coverage.out
 	@rmdir ./daemon/1 ./daemon/1_backup 2> /dev/null || true
@@ -74,21 +74,22 @@ tests: force
 	$(MAKE) unit-tests tests-envoy
 
 unit-tests: start-kvstores
-	echo "mode: count" > coverage-all.out
-	echo "mode: count" > coverage.out
+	$(QUIET) echo "mode: count" > coverage-all.out
+	$(QUIET) echo "mode: count" > coverage.out
 	$(foreach pkg,$(TESTPKGS),\
-	go test \
+	$(QUIET) go test \
             -timeout 360s -coverprofile=coverage.out -covermode=count $(pkg) $(GOTEST_OPTS) || exit 1;\
             tail -n +2 coverage.out >> coverage-all.out;)
-	go tool cover -html=coverage-all.out -o=coverage-all.html
-	rm coverage-all.out
-	rm coverage.out
+	$(GO) tool cover -html=coverage-all.out -o=coverage-all.html
+	$(QUIET) rm coverage-all.out
+	$(QUIET) rm coverage.out
 	@rmdir ./daemon/1 ./daemon/1_backup 2> /dev/null || true
-	docker rm -f "cilium-etcd-test-container"
-	docker rm -f "cilium-consul-test-container"
+	$(QUIET) docker rm -f "cilium-etcd-test-container"
+	$(QUIET) docker rm -f "cilium-consul-test-container"
 
 clean-tags:
-	-rm -f cscope.out cscope.in.out cscope.po.out cscope.files tags
+	@$(ECHO_CLEAN) tags
+	@-rm -f cscope.out cscope.in.out cscope.po.out cscope.files tags
 
 tags: $(GOLANG_SRCFILES) $(BPF_SRCFILES)
 	ctags $(GOLANG_SRCFILES) $(BPF_SRCFILES)
@@ -202,9 +203,12 @@ gofmt:
 	for pkg in $(GOFILES); do go fmt $$pkg; done
 
 precheck:
-	contrib/scripts/check-fmt.sh
-	contrib/scripts/check-log-newlines.sh
-	@go vet $(GOFILES)
+	@$(ECHO_CHECK) contrib/scripts/check-fmt.sh
+	$(QUIET) contrib/scripts/check-fmt.sh
+	@$(ECHO_CHECK) contrib/scripts/check-log-newlines.sh
+	$(QUIET) contrib/scripts/check-log-newlines.sh
+	@$(ECHO_CHECK) vetting all GOFILES...
+	$(QUIET)go vet $(GOFILES)
 
 pprof-help:
 	@echo "Available pprof targets:"
@@ -215,20 +219,20 @@ pprof-help:
 	@echo "  pprof-mutex"
 
 pprof-heap:
-	go tool pprof http://localhost:6060/debug/pprof/heap
+	$(GO) tool pprof http://localhost:6060/debug/pprof/heap
 
 pprof-profile:
-	go tool pprof http://localhost:6060/debug/pprof/profile
+	$(GO) tool pprof http://localhost:6060/debug/pprof/profile
 
 
 pprof-block:
-	go tool pprof http://localhost:6060/debug/pprof/block
+	$(GO) tool pprof http://localhost:6060/debug/pprof/block
 
 pprof-trace-5s:
 	curl http://localhost:6060/debug/pprof/trace?seconds=5
 
 pprof-mutex:
-	go tool pprof http://localhost:6060/debug/pprof/mutex
+	$(GO) tool pprof http://localhost:6060/debug/pprof/mutex
 
 update-authors:
 	@echo "Updating AUTHORS file..."
@@ -259,9 +263,11 @@ install-manpages:
 	mandb
 
 postcheck: build
-	MAKE=$(MAKE) contrib/scripts/check-cmdref.sh
-	contrib/scripts/lock-check.sh
-	-$(MAKE) -C Documentation/ dummy SPHINXOPTS="-q" 2>&1 | grep -v "tabs assets"
+	@$(ECHO_CHECK) contrib/scripts/check-cmdref.sh
+	$(QUIET) MAKE=$(MAKE) contrib/scripts/check-cmdref.sh
+	@$(ECHO_CHECK) contrib/scripts/lock-check.sh
+	$(QUIET) contrib/scripts/lock-check.sh
+	-$(QUIET) $(MAKE) -C Documentation/ dummy SPHINXOPTS="-q" 2>&1 | grep -v "tabs assets"
 
 .PHONY: force
 force :;

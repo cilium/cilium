@@ -20,12 +20,14 @@ ifeq ("$(PKG_BUILD)","")
 all: $(BPF)
 
 %.o: %.c $(LIB)
-	${CLANG} ${CLANG_FLAGS} -c $< -o $(patsubst %.o,%.ll,$@)
-	${LLC} ${LLC_FLAGS} -o $@ $(patsubst %.o,%.ll,$@)
+	@$(ECHO_CC)
+	$(QUIET) ${CLANG} ${CLANG_FLAGS} -c $< -o $(patsubst %.o,%.ll,$@)
+	$(QUIET) ${LLC} ${LLC_FLAGS} -o $@ $(patsubst %.o,%.ll,$@)
 
 check:
-	sparse -Wsparse-all ${FLAGS} *.c
-	clang ${CLANG_FLAGS} --analyze *.c
+	@$(ECHO_CHECK) bpf/*.c
+	$(QUIET) sparse -Wsparse-all ${FLAGS} *.c
+	$(QUIET) $(CLANG) ${CLANG_FLAGS} --analyze *.c
 
 LB_OPTIONS = \
 	-DSKIP_DEBUG \
@@ -34,12 +36,14 @@ LB_OPTIONS = \
 	-DLB_L3 -DLB_L4
 
 bpf_lb.o: bpf_lb.c $(LIB)
-	set -e; \
+	$(QUIET) set -e; \
 	$(foreach OPTS,$(LB_OPTIONS), \
+		$(ECHO_CC) " [$(OPTS)]"; \
 		${CLANG} ${OPTS} ${CLANG_FLAGS} -c $< -o $(patsubst %.o,%.ll,$@); \
 		${LLC} ${LLC_FLAGS} -o /dev/null $(patsubst %.o,%.ll,$@); )
-	${CLANG} ${CLANG_FLAGS} -c $< -o $(patsubst %.o,%.ll,$@)
-	${LLC} ${LLC_FLAGS} -o $@ $(patsubst %.o,%.ll,$@)
+	@$(ECHO_CC)
+	$(QUIET) ${CLANG} ${CLANG_FLAGS} -c $< -o $(patsubst %.o,%.ll,$@)
+	$(QUIET) ${LLC} ${LLC_FLAGS} -o $@ $(patsubst %.o,%.ll,$@)
 
 LXC_OPTIONS = \
 	 -DSKIP_DEBUG \
@@ -49,12 +53,14 @@ LXC_OPTIONS = \
 	# FIXME: GH-2906: Test with both HAVE_LPM_MAP_TYPE and SKIP_CIDR_PREFIXES
 
 bpf_lxc.o: bpf_lxc.c $(LIB)
-	set -e; \
+	$(QUIET) set -e; \
 	$(foreach OPTS,$(LXC_OPTIONS), \
+		$(ECHO_CC) " [$(OPTS)]"; \
 		${CLANG} ${OPTS} ${CLANG_FLAGS} -c $< -o $(patsubst %.o,%.ll,$@); \
 		${LLC} ${LLC_FLAGS} -o /dev/null $(patsubst %.o,%.ll,$@); )
-	${CLANG} ${CLANG_FLAGS} -c $< -o $(patsubst %.o,%.ll,$@)
-	${LLC} ${LLC_FLAGS} -o $@ $(patsubst %.o,%.ll,$@)
+	@$(ECHO_CC)
+	$(QUIET) ${CLANG} ${CLANG_FLAGS} -c $< -o $(patsubst %.o,%.ll,$@)
+	$(QUIET) ${LLC} ${LLC_FLAGS} -o $@ $(patsubst %.o,%.ll,$@)
 
 else
 
@@ -65,4 +71,5 @@ endif
 install:
 
 clean:
-	rm -fr *.o
+	@$(ECHO_CLEAN) $(notdir $(shell pwd))
+	$(QUIET)rm -fr *.o

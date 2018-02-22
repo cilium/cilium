@@ -10,9 +10,10 @@ include ../Makefile.defs
 TARGET=cilium-agent
 SOURCES := $(shell find ../api ../common ../daemon ../pkg ../monitor . \( -name '*.go'  ! -name '*_test.go' \))
 $(TARGET): $(SOURCES) check-bindata
+	@$(ECHO_GO)
 	$(GO) build -i $(GOBUILD) -o $(TARGET)
 
-GO_BINDATA := go-bindata -prefix ../ -mode 0640 -modtime 1450269211 \
+GO_BINDATA := $(QUIET) go-bindata -prefix ../ -mode 0640 -modtime 1450269211 \
 	-ignore Makefile -ignore bpf_features.h -ignore lxc_config.h \
 	-ignore netdev_config.h -ignore node_config.h -ignore filter_config.h \
 	-ignore '.+\.o$$' -ignore '.+\.orig$$' -ignore '.+~$$' \
@@ -21,7 +22,8 @@ GO_BINDATA := go-bindata -prefix ../ -mode 0640 -modtime 1450269211 \
 all: $(TARGET)
 
 clean:
-	rm -f $(TARGET)
+	@$(ECHO_CLEAN) $(notdir $(shell pwd))
+	$(QUIET)rm -f $(TARGET)
 	$(GO) clean
 
 ifeq ("$(PKG_BUILD)","")
@@ -41,10 +43,13 @@ endif
 
 .PHONY: check-bindata
 check-bindata: bindata.go
-	../contrib/scripts/bindata.sh $(GO_BINDATA_SHA1SUM)
+	@$(ECHO_CHECK) contrib/scripts/bindata.sh
+	$(QUIET) ../contrib/scripts/bindata.sh $(GO_BINDATA_SHA1SUM)
 
 apply-bindata: go-bindata
-	../contrib/scripts/bindata.sh apply
+	@$(ECHO_GEN)bpf.sha
+	$(QUIET) ../contrib/scripts/bindata.sh apply
 
 bindata.go go-bindata: $(BPF_FILES)
+	@$(ECHO_GEN) $@
 	$(GO_BINDATA) -o ./bindata.go $(BPF_FILES)

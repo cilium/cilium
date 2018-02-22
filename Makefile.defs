@@ -1,17 +1,20 @@
+ROOT_DIR := $(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))
+include $(ROOT_DIR)/Makefile.quiet
+
 PREFIX?=/usr
 BINDIR?=$(PREFIX)/bin
 RUNDIR?=/var/run
 CONFDIR?=/etc
 
-GO = go
-INSTALL = install
+GO = $(QUIET)go
+INSTALL = $(QUIET)install
 
 VERSION = $(shell cat $(dir $(lastword $(MAKEFILE_LIST)))/VERSION)
 # Use git only if in a Git repo
 ifneq ($(wildcard $(dir $(lastword $(MAKEFILE_LIST)))/.git),)
 	GIT_VERSION = $(shell git show -s --format='format:%h %aI')
 else
-	GIT_VERSION = $(shell cat $(dir $(lastword $(MAKEFILE_LIST)))/GIT_VERSION)
+	GIT_VERSION = $(shell cat $(ROOT_DIR)/GIT_VERSION)
 endif
 BUILD = $(VERSION) $(GIT_VERSION) $(shell go version)
 GOBUILD = -ldflags '-X "github.com/cilium/cilium/pkg/version.Version=$(BUILD)"'
