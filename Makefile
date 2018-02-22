@@ -25,7 +25,7 @@ $(SUBDIRS): force
 tests-ginkgo: force
 	go vet $(GOFILES)
 	# Make the bindata to run the unittest
-	make -C daemon go-bindata
+	$(MAKE) -C daemon go-bindata
 	docker-compose -f test/docker-compose.yml -p $$JOB_BASE_NAME-$$BUILD_NUMBER run --rm test
 	# Remove the networks
 	docker-compose -f test/docker-compose.yml -p $$JOB_BASE_NAME-$$BUILD_NUMBER down
@@ -260,7 +260,7 @@ install-manpages:
 	mandb
 
 postcheck: build
-	contrib/scripts/check-cmdref.sh
+	MAKE=$(MAKE) contrib/scripts/check-cmdref.sh
 	contrib/scripts/lock-check.sh
 	-$(MAKE) -C Documentation/ dummy SPHINXOPTS="-q" 2>&1 | grep -v "tabs assets"
 
