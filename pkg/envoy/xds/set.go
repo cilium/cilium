@@ -61,7 +61,7 @@ type VersionedResources struct {
 // The version is monotonically increased for any change to the set.
 type ResourceMutator interface {
 	// Upsert inserts or updates a resource from this set by name.
-	// If force is true and/or the set is actually modified (resource is
+	// If force is true and/or the set is actually modified (the resource is
 	// actually inserted or updated), the set's version number is incremented
 	// atomically and the returned updated value is true.
 	// Otherwise, the version number is not modified and the returned updated
@@ -70,13 +70,22 @@ type ResourceMutator interface {
 	Upsert(typeURL string, resourceName string, resource proto.Message, force bool) (version uint64, updated bool)
 
 	// Delete deletes a resource from this set by name.
-	// If force is true and/or the set is actually modified (resource is
+	// If force is true and/or the set is actually modified (the resource is
 	// actually deleted), the set's version number is incremented
 	// atomically and the returned updated value is true.
 	// Otherwise, the version number is not modified and the returned updated
 	// value is false.
 	// The returned version value is the set's version after update.
 	Delete(typeURL string, resourceName string, force bool) (version uint64, updated bool)
+
+	// Clear deletes all the resources of the given type from this set.
+	// If force is true and/or the set is actually modified (at least one
+	// resource is actually deleted), the set's version number is incremented
+	// atomically and the returned updated value is true.
+	// Otherwise, the version number is not modified and the returned updated
+	// value is false.
+	// The returned version value is the set's version after update.
+	Clear(typeURL string, force bool) (version uint64, updated bool)
 }
 
 // ResourceSet provides read-write access to a versioned set of resources.
