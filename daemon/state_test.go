@@ -137,6 +137,11 @@ func (ds *DaemonSuite) generateEPs(baseDir string, epsWanted []*e.Endpoint, epsM
 		return nil
 	}
 
+	ds.OnUpdateNetworkPolicy = func(id identity.NumericIdentity, policy *policy.L4Policy,
+		labelsMap identity.IdentityCache, allowedIngressIdentities, allowedEgressIdentities map[identity.NumericIdentity]bool) error {
+		return nil
+	}
+
 	// Since all owner's funcs are implemented we can regenerate every endpoint.
 	epsNames := []string{}
 	for _, ep := range epsWanted {
