@@ -340,9 +340,11 @@ var _ = Describe("RuntimeValidatedLB", func() {
 
 			service1 := fmt.Sprintf("2.2.2.100:%d", svcPort)
 			service2 := fmt.Sprintf("[f00d::1:1]:%d", svcPort)
+			service3 := fmt.Sprintf("2.2.2.101:%d", svcPort)
 			services := map[string]string{
 				service1: fmt.Sprintf("%s:80", httpd1[helpers.IPv4]),
 				service2: fmt.Sprintf("[%s]:80", httpd2[helpers.IPv6]),
+				service3: fmt.Sprintf("%s:80", httpd2[helpers.IPv4]),
 			}
 			svc := 100
 			for fe, be := range services {
@@ -372,6 +374,8 @@ var _ = Describe("RuntimeValidatedLB", func() {
 			status.ExpectSuccess()
 			status = vm.ContainerExec(helpers.App2, getHTTP(service2, helpers.Private))
 			status.ExpectFail()
+			status = vm.ContainerExec(helpers.App2, getHTTP(service3, helpers.Public))
+			status.ExpectSuccess()
 
 			By("Making HTTP requests to service with multiple ingress policies")
 
@@ -392,6 +396,8 @@ var _ = Describe("RuntimeValidatedLB", func() {
 			status.ExpectSuccess()
 			status = vm.ContainerExec(helpers.App2, getHTTP(service2, helpers.Private))
 			status.ExpectFail()
+			status = vm.ContainerExec(helpers.App2, getHTTP(service3, helpers.Public))
+			status.ExpectSuccess()
 		}
 
 		It("tests with conntrack enabled", func() {
