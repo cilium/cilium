@@ -90,6 +90,7 @@ var (
 	bpfRoot               string
 	cmdRefDir             string
 	containerRuntimes     []string
+	debugVerboseFlags     []string
 	disableConntrack      bool
 	dockerEndpoint        string
 	enableLogstash        bool
@@ -324,7 +325,7 @@ func init() {
 		"container-runtime-endpoint", `Container runtime(s) endpoint(s). (default: --container-runtime-endpoint=docker=`+workloads.GetRuntimeDefaultOpt(workloads.Docker).Endpoint+`)`)
 	flags.BoolP(
 		"debug", "D", false, "Enable debugging mode")
-	flags.StringSlice(argDebugVerbose, []string{}, "List of enabled verbose debug groups")
+	flags.StringSliceVar(&debugVerboseFlags, argDebugVerbose, []string{}, "List of enabled verbose debug groups")
 	flags.StringVarP(&config.Device,
 		"device", "d", "undefined", "Device facing cluster/external network for direct L3 (non-overlay mode)")
 	flags.BoolVar(&disableConntrack,
@@ -476,9 +477,10 @@ func initEnv(cmd *cobra.Command) {
 	// Logging should always be bootstrapped first. Do not add any code above this!
 	logging.SetupLogging(loggers, logOpts, "cilium-agent", viper.GetBool("debug"))
 
-	for _, grp := range viper.GetStringSlice(argDebugVerbose) {
+	for _, grp := range debugVerboseFlags {
 		switch grp {
 		case argDebugVerboseFlow:
+			log.Debugf("Enabling flow debug")
 			flowdebug.Enable()
 		case argDebugVerboseKvstore:
 			kvstore.EnableTracing()
