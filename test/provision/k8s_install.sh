@@ -12,9 +12,10 @@ MOUNT_SYSTEMD="sys-fs-bpf.mount"
 NODE=$1
 IP=$2
 K8S_VERSION=$3
-DIR=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
 
 source ${PROVISIONSRC}/helpers.bash
+
+# TODO: Check if the k8s version is the same
 
 if [[ -f  "/etc/provision_finished" ]]; then
     sudo dpkg -l | grep kubelet
@@ -51,6 +52,8 @@ apt-key add apt-key.gpg
 sudo swapoff -a
 
 KUBEADM_SLAVE_OPTIONS=""
+KUBEADM_OPTIONS=""
+
 case $K8S_VERSION in
     "1.6"|"1.7"|"1.8")
         KUBERNETES_CNI_VERSION="0.5.1-00"
@@ -59,14 +62,36 @@ case $K8S_VERSION in
         KUBERNETES_CNI_VERSION="0.6.0-00"
         KUBEADM_SLAVE_OPTIONS="--discovery-token-unsafe-skip-ca-verification"
         ;;
+
+    "1.10")
+        KUBERNETES_CNI_VERSION="v0.6.0"
+        KUBEADM_OPTIONS="--kubernetes-version=1.10.0-beta.0"
+        KUBEADM_SLAVE_OPTIONS="--discovery-token-unsafe-skip-ca-verification"
+        ;;
+
+    "1.11")
+        KUBERNETES_CNI_VERSION="v0.6.0"
+        KUBEADM_OPTIONS="--kubernetes-version=v1.11.0-alpha.0"
+        KUBEADM_SLAVE_OPTIONS="--discovery-token-unsafe-skip-ca-verification"
+        ;;
 esac
 
-retry_function "apt-get update"
-retry_function "apt-get install --allow-downgrades -y \
-    kubernetes-cni=${KUBERNETES_CNI_VERSION} \
-    kubelet=${K8S_VERSION}* \
-    kubeadm=${K8S_VERSION}* \
-    kubectl=${K8S_VERSION}* "
+#Install kubernetes
+case $K8S_VERSION in
+    "1.6"|"1.7"|"1.8"|"1.9")
+        install_k8s_using_packages \
+            kubernetes-cni=${KUBERNETES_CNI_VERSION} \
+            kubelet=${K8S_VERSION}* \
+            kubeadm=${K8S_VERSION}* \
+            kubectl=${K8S_VERSION}*
+        ;;
+    "1.10")
+        install_k8s_using_binary "v1.10.0-beta.0" "${KUBERNETES_CNI_VERSION}"
+        ;;
+    "1.11")
+        install_k8s_using_binary "v1.11.0-alpha.0" "${KUBERNETES_CNI_VERSION}"
+        ;;
+esac
 
 sudo mkdir -p ${CILIUM_CONFIG_DIR}
 
@@ -80,9 +105,10 @@ sudo iptables --policy FORWARD ACCEPT
 
 #check hostname to know if is kubernetes or runtime test
 if [[ "${HOST}" == "k8s1" ]]; then
-    # FIXME: IP needs to be dynamic
-    sudo kubeadm init --token=$TOKEN --apiserver-advertise-address="192.168.36.11" \
-        --pod-network-cidr=10.10.0.0/16
+    sudo kubeadm init --token=$TOKEN \
+        --apiserver-advertise-address="192.168.36.11" \
+        --pod-network-cidr=10.10.0.0/16 \
+        ${KUBEADM_OPTIONS}
 
     mkdir -p /root/.kube
     sudo cp -i /etc/kubernetes/admin.conf /root/.kube/config
@@ -102,7 +128,8 @@ if [[ "${HOST}" == "k8s1" ]]; then
 
     $PROVISIONSRC/compile.sh
 else
-    kubeadm join --token=$TOKEN 192.168.36.11:6443 ${KUBEADM_SLAVE_OPTIONS}
+    kubeadm join --token=$TOKEN 192.168.36.11:6443 \
+        ${KUBEADM_SLAVE_OPTIONS}
     sudo systemctl stop etcd
     docker pull k8s1:5000/cilium/cilium-dev:latest
     # We need this workaround since kube-proxy is not aware of multiple network

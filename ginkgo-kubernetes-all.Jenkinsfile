@@ -56,12 +56,41 @@ pipeline {
                 }
             }
         }
+        stage('Non-release-k8s-versions') {
+            environment {
+                GOPATH="${WORKSPACE}"
+                TESTDIR="${WORKSPACE}/${PROJ_PATH}/test"
+            }
+            options {
+                timeout(time: 60, unit: 'MINUTES')
+            }
+            steps {
+                parallel(
+                    "K8s-1.10":{
+                        sh 'cd ${TESTDIR}; K8S_VERSION=1.10 ginkgo --focus=" K8s*" -v -noColor'
+                    },
+                    "K8s-1.11":{
+                        sh 'cd ${TESTDIR}; K8S_VERSION=1.11 ginkgo --focus=" K8s*" -v -noColor'
+                    },
+                )
+            }
+            post {
+                always {
+                    junit 'test/*.xml'
+                    sh 'cd test/; ./post_build_agent.sh || true'
+                    sh 'cd test/; ./archive_test_results.sh || true'
+                    archiveArtifacts artifacts: "test_results_${JOB_BASE_NAME}_${BUILD_NUMBER}.tar", allowEmptyArchive: true
+                }
+            }
+        }
     }
     post {
         always {
             cleanWs()
             sh "cd ${TESTDIR}; K8S_VERSION=1.7 vagrant destroy -f || true"
             sh "cd ${TESTDIR}; K8S_VERSION=1.9 vagrant destroy -f || true"
+            sh "cd ${TESTDIR}; K8S_VERSION=1.10 vagrant destroy -f || true"
+            sh "cd ${TESTDIR}; K8S_VERSION=1.11 vagrant destroy -f || true"
         }
     }
 }
