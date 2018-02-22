@@ -286,3 +286,116 @@ func (ds *DaemonSuite) TestReplacePolicy(c *C) {
 	c.Assert(len(ds.d.policy.SearchRLocked(lbls)), Equals, 2)
 	ds.d.policy.Mutex.RUnlock()
 }
+
+func (ds *DaemonSuite) TestRemovePolicy(c *C) {
+	lblProd := labels.ParseLabel("Prod")
+	lblQA := labels.ParseLabel("QA")
+	lblFoo := labels.ParseLabel("foo")
+	lblBar := labels.ParseLabel("bar")
+	lblJoe := labels.ParseLabel("user=joe")
+	lblPete := labels.ParseLabel("user=pete")
+
+	rules := api.Rules{
+		{
+			EndpointSelector: api.NewESFromLabels(lblBar),
+			Ingress: []api.IngressRule{
+				{
+					FromEndpoints: []api.EndpointSelector{
+						api.NewESFromLabels(lblJoe),
+						api.NewESFromLabels(lblPete),
+						api.NewESFromLabels(lblFoo),
+					},
+				},
+				{
+					FromEndpoints: []api.EndpointSelector{
+						api.NewESFromLabels(lblFoo),
+					},
+					ToPorts: []api.PortRule{
+						{
+							Ports: []api.PortProtocol{
+								{Port: "80", Protocol: api.ProtoTCP},
+							},
+							Rules: &api.L7Rules{
+								HTTP: []api.PortRuleHTTP{
+									{
+										Path:   "/bar",
+										Method: "GET",
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			EndpointSelector: api.NewESFromLabels(lblQA),
+			Ingress: []api.IngressRule{
+				{
+					FromRequires: []api.EndpointSelector{
+						api.NewESFromLabels(lblQA),
+					},
+				},
+			},
+		},
+		{
+			EndpointSelector: api.NewESFromLabels(lblProd),
+			Ingress: []api.IngressRule{
+				{
+					FromRequires: []api.EndpointSelector{
+						api.NewESFromLabels(lblProd),
+					},
+				},
+			},
+		},
+	}
+
+	ds.clearXDSNeworkPolicies()
+
+	_, err3 := ds.d.PolicyAdd(rules, nil)
+	c.Assert(err3, Equals, nil)
+
+	qaBarLbls := labels.Labels{lblBar.Key: lblBar, lblQA.Key: lblQA}
+	qaBarSecLblsCtx, _, err := identity.AllocateIdentity(qaBarLbls)
+	c.Assert(err, Equals, nil)
+
+	// Create the endpoint and generate its policy.
+	e := endpoint.NewEndpointWithState(1, endpoint.StateWaitingForIdentity)
+	e.IfName = "dummy1"
+	e.IPv6 = IPv6Addr
+	e.IPv4 = IPv4Addr
+	e.LXCMAC = HardAddr
+	e.NodeMAC = HardAddr
+	err2 := os.Mkdir("1", 755)
+	c.Assert(err2, IsNil)
+	defer func() {
+		os.RemoveAll("1/geneve_opts.cfg")
+		os.RemoveAll("1/lxc_config.h")
+		time.Sleep(1 * time.Second)
+		os.RemoveAll("1")
+		os.RemoveAll("1_backup")
+	}()
+	e.SetIdentity(ds.d, qaBarSecLblsCtx)
+	e.Mutex.Lock()
+	ready := e.SetStateLocked(endpoint.StateWaitingToRegenerate, "test")
+	e.Mutex.Unlock()
+	c.Assert(ready, Equals, true)
+	buildSuccess := <-e.Regenerate(ds.d, "test")
+	c.Assert(buildSuccess, Equals, true)
+
+	// Check that the policy has been updated in the xDS cache for the L7
+	// proxies.
+	networkPolicies := ds.getXDSNetworkPolicies(c, nil)
+	c.Assert(networkPolicies, HasLen, 1)
+	qaBarNetworkPolicy := networkPolicies[qaBarSecLblsCtx.ID]
+	c.Assert(qaBarNetworkPolicy, Not(IsNil))
+
+	// Delete the endpoint.
+	e.Mutex.Lock()
+	e.LeaveLocked(ds.d)
+	e.Mutex.Unlock()
+
+	// Check that the policy has been removed from the xDS cache.
+	networkPolicies = ds.getXDSNetworkPolicies(c, nil)
+	c.Assert(networkPolicies, HasLen, 0)
+}

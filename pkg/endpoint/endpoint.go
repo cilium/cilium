@@ -1290,10 +1290,14 @@ func (e *Endpoint) LeaveLocked(owner Owner) int {
 	}
 
 	if e.SecurityIdentity != nil {
-		if err := e.SecurityIdentity.Release(); err != nil {
+		lastUse, err := e.SecurityIdentity.Release()
+		if err != nil {
 			log.WithError(err).WithField(logfields.Identity, e.SecurityIdentity.ID).
 				Error("Unable to release identity of endpoint")
 			errors++
+		}
+		if lastUse {
+			owner.RemoveNetworkPolicy(e.SecurityIdentity.ID)
 		}
 
 		e.SecurityIdentity = nil
@@ -1759,10 +1763,14 @@ func (e *Endpoint) identityLabelsChanged(owner Owner, myChangeRev int) error {
 	if e.identityResolutionIsObsolete(myChangeRev) {
 		e.Mutex.Unlock()
 
-		if err := identity.Release(); err != nil {
+		lastUse, err := identity.Release()
+		if err != nil {
 			// non fatal error as keys will expire after lease expires but log it
 			elog.WithFields(logrus.Fields{logfields.Identity: identity.ID}).
 				WithError(err).Warn("Unable to release newly allocated identity again")
+		}
+		if lastUse {
+			owner.RemoveNetworkPolicy(e.SecurityIdentity.ID)
 		}
 
 		return nil
@@ -1773,9 +1781,13 @@ func (e *Endpoint) identityLabelsChanged(owner Owner, myChangeRev int) error {
 	if e.SecurityIdentity != nil {
 		oldIdentity := e.SecurityIdentity
 		defer func() {
-			if err := oldIdentity.Release(); err != nil {
+			lastUse, err := oldIdentity.Release()
+			if err != nil {
 				elog.WithFields(logrus.Fields{logfields.Identity: oldIdentity.ID}).
 					WithError(err).Warn("BUG: Unable to release old endpoint identity")
+			}
+			if lastUse {
+				owner.RemoveNetworkPolicy(e.SecurityIdentity.ID)
 			}
 		}()
 	}
