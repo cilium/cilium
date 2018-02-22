@@ -150,7 +150,8 @@ func LookupIdentityByID(id NumericIdentity) *Identity {
 
 // Release is the reverse operation of AllocateIdentity() and releases the
 // identity again. This function may result in kvstore operations.
-func (id *Identity) Release() error {
+// After the last user has released the ID, the returned lastUse value is true.
+func (id *Identity) Release() (lastUse bool, err error) {
 	return identityAllocator.Release(globalIdentity{id.Labels})
 }
 

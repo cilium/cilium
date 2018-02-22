@@ -57,6 +57,7 @@ type DaemonSuite struct {
 	OnUpdateProxyRedirect             func(e *e.Endpoint, l4 *policy.L4Filter) (uint16, error)
 	OnRemoveProxyRedirect             func(e *e.Endpoint, id string) error
 	OnUpdateNetworkPolicy             func(id identity.NumericIdentity, policy *policy.L4Policy, labelsMap identity.IdentityCache, allowedIngressIdentities, allowedEgressIdentities map[identity.NumericIdentity]bool) error
+	OnRemoveNetworkPolicy             func(id identity.NumericIdentity)
 	OnGetStateDir                     func() string
 	OnGetBpfDir                       func() string
 	OnGetTunnelMode                   func() string
@@ -113,6 +114,7 @@ func (ds *DaemonSuite) SetUpTest(c *C) {
 	ds.OnUpdateProxyRedirect = nil
 	ds.OnRemoveProxyRedirect = nil
 	ds.OnUpdateNetworkPolicy = nil
+	ds.OnRemoveNetworkPolicy = nil
 	ds.OnGetStateDir = nil
 	ds.OnGetBpfDir = nil
 	ds.OnGetTunnelMode = nil
@@ -239,6 +241,13 @@ func (ds *DaemonSuite) UpdateNetworkPolicy(id identity.NumericIdentity, policy *
 	labelsMap identity.IdentityCache, allowedIngressIdentities, allowedEgressIdentities map[identity.NumericIdentity]bool) error {
 	if ds.OnUpdateNetworkPolicy != nil {
 		return ds.OnUpdateNetworkPolicy(id, policy, labelsMap, allowedIngressIdentities, allowedEgressIdentities)
+	}
+	panic("UpdateNetworkPolicy should not have been called")
+}
+
+func (ds *DaemonSuite) RemoveNetworkPolicy(id identity.NumericIdentity) {
+	if ds.OnRemoveNetworkPolicy != nil {
+		ds.OnRemoveNetworkPolicy(id)
 	}
 	panic("UpdateNetworkPolicy should not have been called")
 }

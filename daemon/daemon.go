@@ -166,6 +166,15 @@ func (d *Daemon) UpdateNetworkPolicy(id identity.NumericIdentity, policy *policy
 	return nil
 }
 
+// RemoveNetworkPolicy removes a network policy from the set published to
+// L7 proxies.
+func (d *Daemon) RemoveNetworkPolicy(id identity.NumericIdentity) {
+	if d.l7Proxy == nil {
+		return
+	}
+	d.l7Proxy.RemoveNetworkPolicy(id)
+}
+
 // QueueEndpointBuild puts the given request in the endpoints queue for
 // processing. The given request will receive 'true' in the MyTurn channel
 // whenever it's its turn or false if the request was denied/canceled.
