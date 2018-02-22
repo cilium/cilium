@@ -326,7 +326,7 @@ var _ = Describe("RuntimeValidatedLB", func() {
 			status.ExpectSuccess()
 		})
 
-		testServicesWithPolicies := func() {
+		testServicesWithPolicies := func(svcPort int) {
 			vm.SampleContainersActions(helpers.Create, helpers.CiliumDockerNetwork)
 			ready := vm.WaitEndpointsReady()
 			Expect(ready).To(BeTrue())
@@ -338,8 +338,8 @@ var _ = Describe("RuntimeValidatedLB", func() {
 
 			By("Configuring services")
 
-			service1 := "2.2.2.100:80"
-			service2 := "[f00d::1:1]:80"
+			service1 := fmt.Sprintf("2.2.2.100:%d", svcPort)
+			service2 := fmt.Sprintf("[f00d::1:1]:%d", svcPort)
 			services := map[string]string{
 				service1: fmt.Sprintf("%s:80", httpd1[helpers.IPv4]),
 				service2: fmt.Sprintf("[%s]:80", httpd2[helpers.IPv6]),
@@ -398,14 +398,14 @@ var _ = Describe("RuntimeValidatedLB", func() {
 			status := vm.ExecCilium(fmt.Sprintf("config %s=true",
 				helpers.OptionConntrackLocal))
 			status.ExpectSuccess()
-			testServicesWithPolicies()
+			testServicesWithPolicies(80)
 		})
 
 		It("tests with conntrack disabled", func() {
 			status := vm.ExecCilium(fmt.Sprintf("config %s=false",
 				helpers.OptionConntrackLocal))
 			status.ExpectSuccess()
-			testServicesWithPolicies()
+			testServicesWithPolicies(80)
 		})
 	})
 })
