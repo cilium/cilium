@@ -413,6 +413,14 @@ var _ = Describe("RuntimeValidatedLB", func() {
 			status.ExpectSuccess()
 			testServicesWithPolicies(80)
 		})
+
+		/* Policy is written against egress to port 80, so when an
+		 * app makes requests on port 1234, the service translation
+		 * should occur before applying the egress policy.
+		 */
+		It("tests with service performing L4 port mapping", func() {
+			testServicesWithPolicies(1234)
+		})
 	})
 })
 
