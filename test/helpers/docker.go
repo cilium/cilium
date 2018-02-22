@@ -57,6 +57,7 @@ func (s *SSHMeta) ContainerInspectNet(name string) (map[string]string, error) {
 		"GlobalIPv6Address": IPv6,
 		"IPAddress":         IPv4,
 		"NetworkID":         "NetworkID",
+		"IPv6Gateway":       "IPv6Gateway",
 	}
 
 	if !res.WasSuccessful() {
