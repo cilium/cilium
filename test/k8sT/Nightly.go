@@ -37,6 +37,7 @@ import (
 var (
 	configMap       = "ConfigMap"
 	endpointTimeout = (60 * time.Second)
+	timeout         = time.Duration(300)
 )
 
 var _ = Describe("NightlyEpsMeasurement", func() {
@@ -270,8 +271,12 @@ var _ = Describe("NightlyExamples", func() {
 		Expect(err).To(BeNil(), "Terminating containers are not deleted after timeout")
 	})
 
-	Context("Cilium DS from example", func() {
+	Context("Cilium DaemonSet from example", func() {
+
+		// InstallExampleCilium uses Cilium Kubernetes example from the repo,
+		// changes the etcd parameter and installs the stable tag from docker-hub
 		InstallExampleCilium := func() {
+
 			var path = "../examples/kubernetes/cilium.yaml"
 			var result bytes.Buffer
 			newCiliumDSName := fmt.Sprintf("cilium_ds_%s.json", helpers.MakeUID())
@@ -305,7 +310,7 @@ var _ = Describe("NightlyExamples", func() {
 				"cannot apply cilium example daemonset")
 
 			status, err := kubectl.WaitforPods(
-				helpers.KubeSystemNamespace, "-l k8s-app=cilium", 300)
+				helpers.KubeSystemNamespace, "-l k8s-app=cilium", timeout)
 			Expect(status).Should(BeTrue(), "Cilium is not ready after timeout")
 			Expect(err).Should(BeNil(), "Cilium is not ready after timeout")
 		}
@@ -315,7 +320,7 @@ var _ = Describe("NightlyExamples", func() {
 			Expect(err).To(BeNil(), "cannot retrieve cilium pods")
 			for _, pod := range ciliumPods {
 				ExpectWithOffset(1, kubectl.CiliumEndpointWait(pod)).To(BeTrue(),
-					"Pods are not ready in pod %v", pod)
+					"Pod %v is not ready", pod)
 			}
 		}
 
@@ -333,11 +338,11 @@ var _ = Describe("NightlyExamples", func() {
 
 		It("Check Kubernetes Example is working correctly", func() {
 			kubectl.Apply(demoPath).ExpectSuccess()
-			_, err := kubectl.WaitforPods(helpers.DefaultNamespace, "-l zgroup=testapp", 300)
+			_, err := kubectl.WaitforPods(helpers.DefaultNamespace, "-l zgroup=testapp", timeout)
 			Expect(err).Should(BeNil())
 
 			_, err = kubectl.CiliumPolicyAction(
-				helpers.KubeSystemNamespace, l3Policy, helpers.KubectlApply, 300)
+				helpers.KubeSystemNamespace, l3Policy, helpers.KubectlApply, timeout)
 			Expect(err).Should(BeNil())
 
 			appPods := helpers.GetAppPods(apps, helpers.DefaultNamespace, kubectl, "id")
@@ -359,19 +364,21 @@ var _ = Describe("NightlyExamples", func() {
 		It("Updating Cilium stable to master", func() {
 			By("Creating some endpoints and L7 policy")
 			kubectl.Apply(demoPath).ExpectSuccess()
-			_, err := kubectl.WaitforPods(helpers.DefaultNamespace, "-l zgroup=testapp", 300)
+			_, err := kubectl.WaitforPods(helpers.DefaultNamespace, "-l zgroup=testapp", timeout)
 			Expect(err).Should(BeNil())
 
 			kubectl.Exec(fmt.Sprintf("%s scale deployment %s --replicas=10",
-				helpers.KubectlCmd, helpers.App1)).ExpectSuccess("Cilium DS cannot be deleted")
+				helpers.KubectlCmd, helpers.App1)).ExpectSuccess(
+				"Cannot scale %v deployment", helpers.App1)
 
 			_, err = kubectl.CiliumPolicyAction(
-				helpers.KubeSystemNamespace, l7Policy, helpers.KubectlApply, 300)
-			Expect(err).Should(BeNil(), "cannot import l7 policy")
+				helpers.KubeSystemNamespace, l7Policy, helpers.KubectlApply, timeout)
+			Expect(err).Should(BeNil(), "cannot import l7 policy: %v", l7Policy)
 
 			waitEndpointReady()
 
-			appPods := getAppPods()
+			appPods := helpers.GetAppPods(apps, helpers.DefaultNamespace, kubectl, "id")
+
 			_, err = kubectl.ExecPodCmd(
 				helpers.DefaultNamespace, appPods[helpers.App2],
 				helpers.CurlFail(fmt.Sprintf("http://app1-service/public")))
@@ -415,13 +422,13 @@ var _ = Describe("NightlyExamples", func() {
 			err = helpers.WithTimeout(
 				waitForUpdateImage,
 				"Cilium Pods are not updating correctly",
-				&helpers.TimeoutConfig{Timeout: 300})
+				&helpers.TimeoutConfig{Timeout: timeout})
 			Expect(err).To(BeNil(), "Pods are not updating")
 
 			status, err := kubectl.WaitforPods(
-				helpers.KubeSystemNamespace, "-l k8s-app=cilium", 300)
-			Expect(status).Should(BeTrue())
-			Expect(err).Should(BeNil())
+				helpers.KubeSystemNamespace, "-l k8s-app=cilium", timeout)
+			Expect(status).Should(BeTrue(), "Cilium is not ready after timeout")
+			Expect(err).Should(BeNil(), "Cilium is not ready after timeout")
 
 			_, err = kubectl.ExecPodCmd(
 				helpers.DefaultNamespace, appPods[helpers.App2],
