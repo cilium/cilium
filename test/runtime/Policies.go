@@ -1,4 +1,4 @@
-// Copyright 2017 Authors of Cilium
+// Copyright 2017-2018 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -438,6 +438,8 @@ var _ = Describe("RuntimeValidatedPolicies", func() {
 		if CurrentGinkgoTestDescription().Failed {
 			vm.ReportFailed()
 		}
+
+		vm.PolicyDelAll().ExpectSuccess("Unable to delete all policies")
 		vm.SampleContainersActions(helpers.Delete, helpers.CiliumDockerNetwork)
 	})
 
@@ -670,6 +672,232 @@ var _ = Describe("RuntimeValidatedPolicies", func() {
 		connectivityTest(allRequests, helpers.App2, helpers.Httpd1, BeTrue)
 	})
 
+	It("Checks CIDR Policy", func() {
+
+		ipv4Host := "192.168.254.254"
+		ipv4OtherHost := "192.168.254.111"
+		ipv4OtherNet := "99.11.0.0/16"
+		ipv6Host := "fdff::ff"
+		httpd2Label := "id.httpd2"
+		httpd1Label := "id.httpd1"
+
+		log.Infof("IPV4 Address Host: %s", ipv4Host)
+		log.Infof("IPV4 Address Other Host: %s", ipv4OtherHost)
+		log.Infof("IPV4 Other Net: %s", ipv4OtherNet)
+		log.Infof("IPV6 Host: %s", ipv6Host)
+
+		// If the pseudo host IPs have not been removed since the last run but
+		// Cilium was restarted, the IPs may have been picked up as valid host
+		// IPs. Remove them from the list so they are not regarded as localhost
+		// entries.
+		// Don't care about success or failure as the BPF endpoint may not even be
+		// present; this is best-effort.
+		_ = vm.ExecCilium(fmt.Sprintf("bpf endpoint delete %s", ipv4Host))
+		_ = vm.ExecCilium(fmt.Sprintf("bpf endpoint delete %s", ipv6Host))
+
+		httpd1DockerNetworking, err := vm.ContainerInspectNet(helpers.Httpd1)
+		Expect(err).Should(BeNil(), fmt.Sprintf(
+			"could not get container %s Docker networking", helpers.Httpd1))
+
+		ipv6Prefix := fmt.Sprintf("%s/112", httpd1DockerNetworking["IPv6Gateway"])
+		ipv4Address := httpd1DockerNetworking[helpers.IPv4]
+
+		// Get prefix of node-local endpoints.
+		By("Getting IPv4 and IPv6 prefixes of node-local endpoints")
+		getIpv4Prefix := vm.Exec(fmt.Sprintf(`expr %s : '\([0-9]*\.[0-9]*\.\)'`, ipv4Address)).SingleOut()
+		ipv4Prefix := fmt.Sprintf("%s0.0/16", getIpv4Prefix)
+		getIpv4PrefixExcept := vm.Exec(fmt.Sprintf(`expr %s : '\([0-9]*\.[0-9]*\.\)'`, ipv4Address)).SingleOut()
+		ipv4PrefixExcept := fmt.Sprintf(`%s0.0/18`, getIpv4PrefixExcept)
+
+		By(fmt.Sprintf("IPV6 Prefix: %s", ipv6Prefix))
+		By(fmt.Sprintf("IPV4 Address Endpoint: %s", ipv4Address))
+		By(fmt.Sprintf("IPV4 Prefix: %s", ipv4Prefix))
+		By(fmt.Sprintf("IPV4 Prefix Except: %s", ipv4PrefixExcept))
+
+		By("Setting PolicyEnforcement to always enforce (default-deny)")
+		res := vm.SetPolicyEnforcement(helpers.PolicyEnforcementAlways)
+		res.ExpectSuccess("Unable to set PolicyEnforcement to %s", helpers.PolicyEnforcementAlways)
+
+		areEndpointsReady := vm.WaitEndpointsReady()
+		Expect(areEndpointsReady).To(BeTrue())
+
+		// Delete the pseudo-host IPs that we added to localhost after test
+		// finishes. Don't care about success; this is best-effort.
+		cleanup := func() {
+			_ = vm.Exec(fmt.Sprintf("sudo ip addr del dev lo %s/32", ipv4Host))
+			_ = vm.Exec(fmt.Sprintf("sudo ip addr del dev lo %s/128", ipv6Host))
+		}
+
+		defer cleanup()
+
+		By("Adding Pseudo-Host IPs to localhost")
+		res = vm.Exec(fmt.Sprintf("sudo ip addr add dev lo %s/32", ipv4Host))
+		res.ExpectSuccess("Unable to add %s to pseudo-host IP to localhost", ipv4Host)
+		res = vm.Exec(fmt.Sprintf("sudo ip addr add dev lo %s/128", ipv6Host))
+		res.ExpectSuccess("Unable to add %s to pseudo-host IP to localhost", ipv6Host)
+
+		By("Pinging host IPv4 from httpd2 (should NOT work due to default-deny PolicyEnforcement mode)")
+
+		res = vm.ContainerExec(helpers.Httpd2, helpers.Ping(ipv4Host))
+		res.ExpectFail("Unexpected success pinging host (%s) from %s: %s", ipv4Host, helpers.Httpd2, res.CombineOutput().String())
+
+		By(fmt.Sprintf("Importing L3 CIDR Policy for IPv4 Egress Allowing Egress to %s, %s from %s", ipv4OtherHost, ipv4OtherHost, httpd2Label))
+		script := fmt.Sprintf(`
+		[{
+			"endpointSelector": {"matchLabels":{"%s":""}},
+			"egress": 
+			[{
+				"toCIDR": [
+					"%s/24",
+					"%s/20"
+				]
+			}]
+		}]`, httpd2Label, ipv4OtherHost, ipv4OtherHost)
+		_, err = vm.PolicyRenderAndImport(script)
+		Expect(err).To(BeNil(), "Unable to import policy: %s", err)
+
+		By(fmt.Sprintf("Pinging host IPv4 (%s) from %s (should work) because it is contained within CIDR %s", ipv4Host, helpers.Httpd2, ipv4OtherHost))
+		res = vm.ContainerExec(helpers.Httpd2, helpers.Ping(ipv4Host))
+		res.ExpectSuccess("Unexpected failure pinging host (%s) from %s: %s", ipv4Host, helpers.Httpd2, res.CombineOutput().String())
+
+		vm.PolicyDelAll().ExpectSuccess("Unable to delete all policies")
+
+		By("Pinging host IPv6 from httpd2 (should NOT work because we did not specify IPv6 CIDR of host as part of previously imported policy)")
+		res = vm.ContainerExec(helpers.Httpd2, helpers.Ping6(ipv6Host))
+		res.ExpectFail("Unexpected success pinging host (%s) from %s", ipv6Host, helpers.Httpd2)
+
+		By("Importing L3 CIDR Policy for IPv6 Egress")
+		script = fmt.Sprintf(`
+		[{
+		    "endpointSelector": {"matchLabels":{"%s":""}},
+		    "egress": [{
+				"toCIDR": [
+			    	"%s"
+				]
+		    }]
+		}]`, httpd2Label, ipv6Host)
+		_, err = vm.PolicyRenderAndImport(script)
+		Expect(err).To(BeNil(), "Unable to import policy: %s", err)
+
+		By(fmt.Sprintf("Pinging host IPv6 from httpd2 (should work because policy allows IPv6 CIDR %s)", ipv6Host))
+		res = vm.ContainerExec(helpers.Httpd2, helpers.Ping6(ipv6Host))
+		res.ExpectSuccess("Unexpected failure pinging host (%s) from %s: %s", ipv6Host, helpers.Httpd2, res.CombineOutput().String())
+
+		vm.PolicyDelAll().ExpectSuccess("Unable to delete all policies")
+
+		// This test case checks that ping works even without explicit CIDR policies
+		// imported.
+		By("Importing L3 Label-Based Policy Allowing traffic from httpd2 to httpd1")
+		script = fmt.Sprintf(`
+		[{
+		   "endpointSelector": {"matchLabels":{"%s":""}},
+		   "ingress": [{
+			   "fromEndpoints": [
+					{"matchLabels":{"%s":""}}
+		   		]
+		   }]
+	   	}]`, httpd1Label, httpd2Label)
+		_, err = vm.PolicyRenderAndImport(script)
+		Expect(err).To(BeNil(), "Unable to import policy: %s", err)
+
+		By("Pinging httpd1 IPV4 from httpd2 (should work because we allowed traffic to httpd1 labels from httpd2 labels)")
+		res = vm.ContainerExec(helpers.Httpd2, helpers.Ping(httpd1DockerNetworking[helpers.IPv4]))
+		res.ExpectSuccess("Unexpected failure pinging %s (%s) from %s: %s", helpers.Httpd1, httpd1DockerNetworking[helpers.IPv4], helpers.Httpd2, res.CombineOutput().String())
+
+		By("Pinging httpd1 IPv6 from httpd2 (should work because we allowed traffic to httpd1 labels from httpd2 labels)")
+		res = vm.ContainerExec(helpers.Httpd2, helpers.Ping6(httpd1DockerNetworking[helpers.IPv6]))
+		res.ExpectSuccess("Unexpected failure pinging %s (%s) from %s: %s", helpers.Httpd1, httpd1DockerNetworking[helpers.IPv6], helpers.Httpd2, res.CombineOutput().String())
+
+		By("Pinging httpd1 IPv4 from app3 (should NOT work because app3 hasn't been whitelisted to communicate with httpd1)")
+		res = vm.ContainerExec(helpers.App3, helpers.Ping(helpers.Httpd1))
+		res.ExpectFail("Unexpected success pinging %s IPv4 from %s: %s", helpers.Httpd1, helpers.App3, res.CombineOutput().String())
+
+		By("Pinging httpd1 IPv6 from app3 (should NOT work because app3 hasn't been whitelisted to communicate with httpd1)")
+		res = vm.ContainerExec(helpers.App3, helpers.Ping6(helpers.Httpd1))
+		res.ExpectFail("Unexpected success pinging %s IPv6 from %s: %s", helpers.Httpd1, helpers.App3, res.CombineOutput().String())
+
+		vm.PolicyDelAll().ExpectSuccess("Unable to delete all policies")
+
+		// Checking combined policy allowing traffic from IPv4 and IPv6 CIDR ranges.
+		By(fmt.Sprintf("Importing Policy Allowing Ingress From %s --> %s And From CIDRs %s, %s", helpers.Httpd2, helpers.Httpd1, ipv4Prefix, ipv6Prefix))
+		script = fmt.Sprintf(`
+		[{
+		   "endpointSelector": {"matchLabels":{"%s":""}},
+			   "ingress": [{
+				   "fromEndpoints": 
+					[
+						{"matchLabels":{"%s":""}}
+			   		]}, 
+					{
+		   "fromCIDR": [
+			   "%s",
+			   "%s"
+		   ]
+		   }]
+	   	}]`, httpd1Label, httpd2Label, ipv4Prefix, ipv6Prefix)
+		_, err = vm.PolicyRenderAndImport(script)
+		Expect(err).To(BeNil(), "Unable to import policy: %s", err)
+
+		By(fmt.Sprintf("Pinging httpd1 IPv4 from app3 (should work because we allow ingress from CIDR %s which app3 is included)", ipv4Prefix))
+		res = vm.ContainerExec(helpers.App3, helpers.Ping(helpers.Httpd1))
+		res.ExpectSuccess("Unexpected failure pinging %s IPv4 from %s: %s", helpers.Httpd1, helpers.App3, res.CombineOutput().String())
+
+		By(fmt.Sprintf("Pinging httpd1 IPv6 from app3 (should work because we allow ingress from CIDR %s which app3 is included)", ipv6Prefix))
+		res = vm.ContainerExec(helpers.App3, helpers.Ping6(helpers.Httpd1))
+		res.ExpectSuccess("Unexpected failure pinging %s IPv6 from %s: %s", helpers.Httpd1, helpers.App3, res.CombineOutput().String())
+
+		vm.PolicyDelAll().ExpectSuccess("Unable to delete all policies")
+
+		// Make sure that combined label-based and CIDR-based policy works.
+		By(fmt.Sprintf("Importing Policy Allowing Ingress From %s --> %s And From CIDRs %s", helpers.Httpd2, helpers.Httpd1, ipv4OtherNet))
+		script = fmt.Sprintf(`
+		[{
+		   "endpointSelector": {"matchLabels":{"%s":""}},
+		   "ingress": [{
+			   "fromEndpoints": [
+			   {"matchLabels":{"%s":""}}
+		   ]
+		   }, {
+		   "fromCIDR": [
+			   "%s"
+		   ]
+		   }]
+	   }]`, httpd1Label, httpd2Label, ipv4OtherNet)
+		_, err = vm.PolicyRenderAndImport(script)
+		Expect(err).To(BeNil(), "Unable to import policy: %s", err)
+
+		By(fmt.Sprintf("Pinging httpd1 IPv4 from app3 (should NOT work beacuse we only allow traffic from %s to %s)", httpd2Label, httpd1Label))
+		res = vm.ContainerExec(helpers.App3, helpers.Ping(helpers.Httpd1))
+		res.ExpectFail("Unexpected success pinging %s IPv4 from %s: %s", helpers.Httpd1, helpers.App3, res.CombineOutput().String())
+
+		By(fmt.Sprintf("Pinging httpd1 IPv6 from app3 (should NOT work because we only allow traffic from %s to %s)", httpd2Label, httpd1Label))
+		res = vm.ContainerExec(helpers.App3, helpers.Ping6(helpers.Httpd1))
+		res.ExpectFail("Unexpected success pinging %s IPv6 from %s: %s", helpers.Httpd1, helpers.App3, res.CombineOutput().String())
+
+		vm.PolicyDelAll().ExpectSuccess("Unable to delete all policies")
+
+		By("Testing CIDR Exceptions in Cilium Policy")
+		By(fmt.Sprintf("Importing Policy Allowing Ingress From %s --> %s And From CIDRs %s Except %s", helpers.Httpd2, helpers.Httpd1, ipv4Prefix, ipv4PrefixExcept))
+		script = fmt.Sprintf(`
+		[{
+			"endpointSelector": {"matchLabels":{"%s":""}},
+			"ingress": [{
+				"fromEndpoints": [
+					{"matchLabels":{"%s":""}}
+				],
+				"fromCIDRSet": [ {
+					"cidr": "%s",
+					"except": [
+						"%s"
+					]
+				}
+				]
+			}]
+		}]`, httpd1Label, httpd2Label, ipv4Prefix, ipv4PrefixExcept)
+		_, err = vm.PolicyRenderAndImport(script)
+		Expect(err).To(BeNil(), "Unable to import policy: %s", err)
+
+	})
 })
 
 var _ = Describe("RuntimeValidatedPolicyImportTests", func() {
