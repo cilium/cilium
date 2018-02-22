@@ -23,3 +23,5 @@
 #define DEBUG
 #define ENABLE_IPV4
 #define HANDLE_NS
+#define FROM_HOST
+#define ENCAP_IFINDEX 1
