@@ -403,6 +403,16 @@ struct ct_state {
  * periodically. */
 #define PROXY_DEFAULT_LIFETIME 86400
 
+/* The proxy key is written from the perspective of the source of the
+ * connection, so the "destination" port reperesents the local host port which
+ * the proxy is listening on, while the "source" address/port represents the
+ * non-proxy side of the connection. This applies for both ingress and egress
+ * proxies.
+ *
+ * The value provides the original destination's address/port which was
+ * replaced in the initiating connection's packet when the packet was
+ * redirected to the proxy.
+ */
 struct proxy4_tbl_key {
 	__be32 saddr;
 	__be16 dport; /* dport must be in front of sport, loaded with 4 bytes read */
