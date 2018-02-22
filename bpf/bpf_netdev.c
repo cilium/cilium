@@ -262,19 +262,18 @@ static inline __u32 derive_ipv4_sec_ctx(struct __sk_buff *skb, struct iphdr *ip4
 
 #ifdef FROM_HOST
 static inline int __inline__
-reverse_proxy(struct __sk_buff *skb, int l4_off, struct iphdr *ip4,
-	      struct ipv4_ct_tuple *tuple)
+reverse_proxy(struct __sk_buff *skb, int l4_off, struct iphdr *ip4, __u8 nh)
 {
 	struct proxy4_tbl_value *val;
 	struct proxy4_tbl_key key = {
 		.saddr = ip4->daddr,
-		.nexthdr = tuple->nexthdr,
+		.nexthdr = nh,
 	};
 	__be32 new_saddr, old_saddr = ip4->saddr;
 	__be16 new_sport, old_sport;
 	struct csum_offset csum = {};
 
-	switch (tuple->nexthdr) {
+	switch (nh) {
 	case IPPROTO_TCP:
 	case IPPROTO_UDP:
 		/* load sport + dport in reverse order, sport=dport, dport=sport */
@@ -286,7 +285,7 @@ reverse_proxy(struct __sk_buff *skb, int l4_off, struct iphdr *ip4,
 		return 0;
 	}
 
-	csum_l4_offset_and_flags(tuple->nexthdr, &csum);
+	csum_l4_offset_and_flags(nh, &csum);
 
 	cilium_dbg3(skb, DBG_REV_PROXY_LOOKUP, key.sport << 16 | key.dport,
 		      key.saddr, key.nexthdr);
@@ -349,7 +348,7 @@ static inline int handle_ipv4(struct __sk_buff *skb, __u32 proxy_identity)
 		if (proxy_identity)
 			secctx = proxy_identity;
 
-		ret = reverse_proxy(skb, l4_off, ip4, &tuple);
+		ret = reverse_proxy(skb, l4_off, ip4, tuple.nexthdr);
 		/* DIRECT PACKET READ INVALID */
 		if (IS_ERR(ret))
 			return ret;
