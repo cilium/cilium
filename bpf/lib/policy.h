@@ -64,6 +64,19 @@ __policy_can_access(void *map, struct __sk_buff *skb, __u32 src_identity,
 		return TC_ACT_OK;
 	}
 
+#ifdef HAVE_L4_POLICY
+	key.sec_label = 0;
+	key.dport = dport;
+	key.protocol = proto;
+	policy = map_lookup_elem(map, &key);
+	if (likely(policy)) {
+		/* FIXME: Use per cpu counters */
+		__sync_fetch_and_add(&policy->packets, 1);
+		__sync_fetch_and_add(&policy->bytes, skb->len);
+		return TC_ACT_OK;
+	}
+#endif /* HAVE_L4_POLICY */
+
 	if (skb->cb[CB_POLICY])
 		goto allow;
 
