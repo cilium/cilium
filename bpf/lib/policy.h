@@ -24,7 +24,7 @@
 #if defined POLICY_INGRESS || defined REQUIRES_CAN_ACCESS
 
 static inline int
-__policy_can_access(void *map, struct __sk_buff *skb, __u32 src_label,
+__policy_can_access(void *map, struct __sk_buff *skb, __u32 src_identity,
 		    __u16 dport, __u8 proto, size_t cidr_addr_size,
 		    void *cidr_addr)
 {
@@ -34,7 +34,7 @@ __policy_can_access(void *map, struct __sk_buff *skb, __u32 src_label,
 	struct policy_entry *policy;
 
 	struct policy_key key = {
-		.sec_label = src_label,
+		.sec_label = src_identity,
 		.dport = dport,
 		.protocol = proto,
 		.pad = 0,
@@ -43,7 +43,7 @@ __policy_can_access(void *map, struct __sk_buff *skb, __u32 src_label,
 #ifdef HAVE_L4_POLICY
 	policy = map_lookup_elem(map, &key);
 	if (likely(policy)) {
-		cilium_dbg3(skb, DBG_L4_CREATE, src_label, SECLABEL,
+		cilium_dbg3(skb, DBG_L4_CREATE, src_identity, SECLABEL,
 			    dport << 16 | proto);
 
 		/* FIXME: Use per cpu counters */
@@ -73,15 +73,28 @@ allow:
 #endif /* DROP_ALL */
 }
 
+/**
+ * Determine whether the policy allows this traffic on ingress.
+ * @arg skb		Packet to allow or deny
+ * @arg src_identity	Source security identity for this packet
+ * @arg dport		Destination port of this packet
+ * @arg proto		L3 Protocol of this packet
+ * @arg cidr_addr_size	Size of the destination CIDR of this packet
+ * @arg cidr_addr	Destination CIDR of this packet
+ *
+ * Returns:
+ *   - TC_ACT_OK if the policy allows this traffic based on labels/L3/L4
+ *   - Negative error code if the packet should be dropped
+ */
 static inline int
-policy_can_access_ingress(struct __sk_buff *skb, __u32 src_label,
+policy_can_access_ingress(struct __sk_buff *skb, __u32 src_identity,
 			  __u16 dport, __u8 proto, size_t cidr_addr_size,
 			  void *cidr_addr)
 {
 #ifdef DROP_ALL
 	return DROP_POLICY;
 #else
-	if (__policy_can_access(&POLICY_MAP, skb, src_label, dport, proto,
+	if (__policy_can_access(&POLICY_MAP, skb, src_identity, dport, proto,
 				cidr_addr_size, cidr_addr) == TC_ACT_OK)
 		goto allow;
 
@@ -91,7 +104,8 @@ policy_can_access_ingress(struct __sk_buff *skb, __u32 src_label,
 	if (cidr_addr_size == sizeof(__be32) && lpm4_ingress_lookup(*(__be32 *)cidr_addr))
 		goto allow;
 
-	cilium_dbg(skb, DBG_POLICY_DENIED, src_label, SECLABEL);
+	cilium_dbg(skb, DBG_POLICY_DENIED, src_identity, SECLABEL);
+
 #ifndef IGNORE_DROP
 	return DROP_POLICY;
 #endif
