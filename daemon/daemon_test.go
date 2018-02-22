@@ -56,6 +56,7 @@ type DaemonSuite struct {
 	OnGetPolicyRepository             func() *policy.Repository
 	OnUpdateProxyRedirect             func(e *e.Endpoint, l4 *policy.L4Filter) (uint16, error)
 	OnRemoveProxyRedirect             func(e *e.Endpoint, id string) error
+	OnUpdateNetworkPolicy             func(id identity.NumericIdentity, policy *policy.L4Policy, labelsMap identity.IdentityCache, allowedIngressIdentities, allowedEgressIdentities map[identity.NumericIdentity]bool) error
 	OnGetStateDir                     func() string
 	OnGetBpfDir                       func() string
 	OnGetTunnelMode                   func() string
@@ -101,6 +102,28 @@ func (ds *DaemonSuite) SetUpTest(c *C) {
 	kvstore.DeletePrefix(kvstore.BaseKeyPrefix)
 
 	identity.InitIdentityAllocator(d)
+
+	ds.OnTracingEnabled = nil
+	ds.OnDryModeEnabled = nil
+	ds.OnEnableEndpointPolicyEnforcement = nil
+	ds.OnPolicyEnforcement = nil
+	ds.OnAlwaysAllowLocalhost = nil
+	ds.OnGetCachedLabelList = nil
+	ds.OnGetPolicyRepository = nil
+	ds.OnUpdateProxyRedirect = nil
+	ds.OnRemoveProxyRedirect = nil
+	ds.OnUpdateNetworkPolicy = nil
+	ds.OnGetStateDir = nil
+	ds.OnGetBpfDir = nil
+	ds.OnGetTunnelMode = nil
+	ds.OnQueueEndpointBuild = nil
+	ds.OnRemoveFromEndpointQueue = nil
+	ds.OnDebugEnabled = nil
+	ds.OnGetCompilationLock = nil
+	ds.OnResetProxyPort = nil
+	ds.OnFlushCTEntries = nil
+	ds.OnSendNotification = nil
+	ds.OnNewProxyLogRecord = nil
 }
 
 func (ds *DaemonSuite) TearDownTest(c *C) {
@@ -210,6 +233,14 @@ func (ds *DaemonSuite) RemoveProxyRedirect(e *e.Endpoint, id string) error {
 		return ds.OnRemoveProxyRedirect(e, id)
 	}
 	panic("RemoveProxyRedirect should not have been called")
+}
+
+func (ds *DaemonSuite) UpdateNetworkPolicy(id identity.NumericIdentity, policy *policy.L4Policy,
+	labelsMap identity.IdentityCache, allowedIngressIdentities, allowedEgressIdentities map[identity.NumericIdentity]bool) error {
+	if ds.OnUpdateNetworkPolicy != nil {
+		return ds.OnUpdateNetworkPolicy(id, policy, labelsMap, allowedIngressIdentities, allowedEgressIdentities)
+	}
+	panic("UpdateNetworkPolicy should not have been called")
 }
 
 func (ds *DaemonSuite) GetStateDir() string {

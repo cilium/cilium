@@ -640,6 +640,13 @@ func (e *Endpoint) regeneratePolicy(owner Owner, opts models.ConfigurationMap) (
 		policyChanged = true
 	}
 
+	// Publish the updated policy to L7 proxies.
+	// TODO: Pass the allowed egress identities.
+	err = owner.UpdateNetworkPolicy(c.ID, c.L4Policy, *labelsMap, c.IngressIdentities, nil)
+	if err != nil {
+		return false, nil, nil, err
+	}
+
 	// If we are in this function, then policy has been calculated.
 	if !e.PolicyCalculated {
 		e.getLogger().Debug("setting PolicyCalculated to true for endpoint")
