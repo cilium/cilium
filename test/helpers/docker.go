@@ -16,11 +16,17 @@ package helpers
 
 import (
 	"fmt"
+	"strings"
 )
 
-// ContainerExec executes cmd in the container with the provided name.
-func (s *SSHMeta) ContainerExec(name string, cmd string) *CmdRes {
-	dockerCmd := fmt.Sprintf("docker exec -i %s %s", name, cmd)
+// ContainerExec executes cmd in the container with the provided name along with
+// any other additional arguments needed.
+func (s *SSHMeta) ContainerExec(name string, cmd string, optionalArgs ...string) *CmdRes {
+	optionalArgsCoalesced := ""
+	if len(optionalArgs) > 0 {
+		optionalArgsCoalesced = strings.Join(optionalArgs, " ")
+	}
+	dockerCmd := fmt.Sprintf("docker exec -i %s %s %s", optionalArgsCoalesced, name, cmd)
 	return s.Exec(dockerCmd)
 }
 
