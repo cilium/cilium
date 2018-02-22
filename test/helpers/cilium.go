@@ -499,6 +499,7 @@ func (s *SSHMeta) PolicyWait(revisionNum int) *CmdRes {
 // purposes.
 func (s *SSHMeta) ReportFailed(commands ...string) {
 	wr := s.logger.Logger.Out
+	fmt.Fprint(wr, "===================== TEST FAILED =====================\n")
 	fmt.Fprint(wr, "StackTrace Begin\n")
 
 	//FIXME: Ginkgo PR383 add here --since option
@@ -517,6 +518,7 @@ func (s *SSHMeta) ReportFailed(commands ...string) {
 	fmt.Fprint(wr, "StackTrace Ends\n")
 	s.ReportDump()
 	s.GatherLogs()
+	fmt.Fprint(wr, "===================== EXITING REPORT GENERATION =====================\n")
 }
 
 // ReportDump runs a variety of commands and writes the results to
