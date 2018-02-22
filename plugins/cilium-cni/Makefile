@@ -5,12 +5,14 @@ all: cilium-cni
 TARGET=cilium-cni
 
 clean:
+	@$(ECHO_CLEAN) $(notdir $(shell pwd))
 	$(GO) clean
-	rm -f $(TARGET)
+	-$(QUIET)rm -f $(TARGET)
 
 SOURCES := $(shell find ../../api/v1/models ../../common ../../pkg/client ../../pkg/endpoint . -name '*.go')
 
 $(TARGET): $(SOURCES)
+	@$(ECHO_GO)
 	$(GO) build -i $(GOBUILD) -o $(TARGET) ./cilium-cni.go
 
 install:

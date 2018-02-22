@@ -18,7 +18,7 @@ ENVOY_BIN = ./bazel-bin/envoy
 ENVOY_BINS = $(ENVOY_BIN) ./bazel-bin/cilium_integration_test
 CHECK_FORMAT ?= ./bazel-bin/check_format.py.runfiles/envoy/tools/check_format.py
 
-BAZEL ?= bazel
+BAZEL ?= $(QUIET) bazel
 BAZEL_TEST_OPTS ?= --jobs=1
 BAZEL_CACHE ?= ~/.cache/bazel
 BAZEL_ARCHIVE ?= ~/bazel-cache.tar.bz2
@@ -47,6 +47,7 @@ api: force-non-root Makefile.api
 	$(MAKE) -f Makefile.api all
 
 envoy: force-non-root
+	@$(ECHO_BAZEL)
 	$(BAZEL) $(BAZEL_OPTS) build $(BAZEL_BUILD_OPTS) //:envoy
 
 # Allow root build for release
@@ -82,10 +83,12 @@ bazel-restore: $(BAZEL_ARCHIVE)
 
 # Remove the binaries to get fresh version SHA
 clean-bins: force
-	-rm -f $(ENVOY_BINS)
+	@$(ECHO_CLEAN) $(notdir $(shell pwd))
+	-$(QUIET) rm -f $(ENVOY_BINS)
 
 clean: force
-	echo "Bazel clean skipped, try \"make veryclean\" instead."
+	@$(ECHO_CLEAN) $(notdir $(shell pwd))
+	@echo "Bazel clean skipped, try 'make veryclean' instead."
 
 veryclean: force
 	-sudo $(BAZEL) $(BAZEL_OPTS) clean

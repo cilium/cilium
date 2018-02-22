@@ -3,12 +3,14 @@ include ../Makefile.defs
 TARGET=cilium-health
 SOURCES := $(shell find ../api/v1/health ../pkg/health cmd . \( -name '*.go' ! -name '*_test.go' \))
 $(TARGET): $(SOURCES)
+	@$(ECHO_GO)
 	$(GO) build -i $(GOBUILD) -o $(TARGET)
 
 all: $(TARGET)
 
 clean:
-	rm -f $(TARGET)
+	@$(ECHO_CLEAN) $(notdir $(shell pwd))
+	-$(QUIET)rm -f $(TARGET)
 	$(GO) clean
 
 install:
