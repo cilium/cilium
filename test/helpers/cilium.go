@@ -267,9 +267,9 @@ func (s *SSHMeta) EndpointSetConfig(id, option, value string) bool {
 	return s.WaitEndpointRegenerated(id)
 }
 
-// GetEndpoints returns the CmdRes resulting from executing
+// ListEndpoints returns the CmdRes resulting from executing
 // `cilium endpoint list -o json`.
-func (s *SSHMeta) GetEndpoints() *CmdRes {
+func (s *SSHMeta) ListEndpoints() *CmdRes {
 	return s.ExecCilium("endpoint list -o json")
 }
 
@@ -314,7 +314,7 @@ func (s *SSHMeta) GetEndpointsIdentityIds() (map[string]string, error) {
 
 // GetEndpointsNames returns the container-name field of each Cilium endpoint.
 func (s *SSHMeta) GetEndpointsNames() ([]string, error) {
-	data := s.GetEndpoints()
+	data := s.ListEndpoints()
 	if data.WasSuccessful() == false {
 		return nil, fmt.Errorf("`cilium endpoint get` was not successful")
 	}
@@ -350,7 +350,7 @@ func (s *SSHMeta) PolicyEndpointsSummary() (map[string]int, error) {
 		Total:    0,
 	}
 
-	endpoints, err := s.GetEndpoints().Filter("{ [?(@.labels.orchestration-identity[0]!='reserved:health')].policy-enabled }")
+	endpoints, err := s.ListEndpoints().Filter("{ [?(@.labels.orchestration-identity[0]!='reserved:health')].policy-enabled }")
 	if err != nil {
 		return result, fmt.Errorf("cannot get endpoints")
 	}
