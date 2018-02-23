@@ -537,10 +537,6 @@ create_k8s_config
 
 cd "${dir}/../.."
 
-# Store git version in a file so that .git does not need to be synced to the VM.
-# These will be ignored if we have .git in the build environment.
-make GIT_VERSION envoy/SOURCE_VERSION
-
 if [ -n "${RELOAD}" ]; then
     vagrant reload
 elif [ -n "${NO_PROVISION}" ]; then
