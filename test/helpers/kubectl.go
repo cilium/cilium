@@ -523,9 +523,9 @@ func (kub *Kubectl) CiliumExec(pod string, cmd string) *CmdRes {
 	return kub.Exec(cmd)
 }
 
-// CiliumNodesWait waits up until the specified timeout has elapsed
-// until all nodes in the Kubernetes cluster are annotated  with Cilium
-// annotations. When a node is annotated with said annotations,  it indicates
+// CiliumNodesWait waits until all nodes in the Kubernetes cluster are annotated
+// with Cilium annotations. Its runtime is bounded by a maximum of `HelperTimeout`.
+// When a node is annotated with said annotations, it indicates
 // that the tunnels in the nodes are set up and that cross-node traffic can be
 // tested. Returns an error if the timeout is exceeded for waiting for the nodes
 // to be annotated.
