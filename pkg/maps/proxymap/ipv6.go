@@ -107,7 +107,8 @@ func (v *Proxy6Value) ToNetwork() *Proxy6Value {
 }
 
 func (v *Proxy6Value) String() string {
-	return fmt.Sprintf("%s:%d", v.OrigDAddr.IP().String(), v.OrigDPort)
+	return fmt.Sprintf("%s:%d identity %d lifetime %d",
+		v.OrigDAddr.IP().String(), v.OrigDPort, v.SourceIdentity, v.Lifetime)
 }
 
 func LookupEgress6(key *Proxy6Key) (*Proxy6Value, error) {
