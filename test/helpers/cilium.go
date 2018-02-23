@@ -350,9 +350,15 @@ func (s *SSHMeta) PolicyEndpointsSummary() (map[string]int, error) {
 		Total:    0,
 	}
 
-	endpoints, err := s.ListEndpoints().Filter("{ [?(@.labels.orchestration-identity[0]!='reserved:health')].policy-enabled }")
+	res := s.ListEndpoints()
+	if !res.WasSuccessful() {
+		return nil, fmt.Errorf("was not able to list endpoints: %s", res.CombineOutput().String())
+	}
+
+	endpoints, err := res.Filter("{ [?(@.labels.orchestration-identity[0]!='reserved:health')].policy-enabled }")
+
 	if err != nil {
-		return result, fmt.Errorf("cannot get endpoints")
+		return result, fmt.Errorf(`cannot filter for "policy-enabled" from output of "cilium endpoint list"`)
 	}
 	status := strings.Split(endpoints.String(), " ")
 	for _, kind := range status {
