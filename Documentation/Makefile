@@ -16,27 +16,20 @@ HEALTHDIR     = ../cilium-health
 help:
 	@$(SPHINXBUILD) -M help "$(SOURCEDIR)" "$(BUILDDIR)" $(SPHINXOPTS) $(O)
 
+PIP_REQUIREMENTS = \
+	sphinx \
+	sphinxcontrib-httpdomain \
+	sphinxcontrib-openapi \
+	sphinx-rtd-theme \
+	sphinx-tabs \
+	recommonmark
+
 check-requirements:
-	@pip list --format=json | grep sphinxcontrib-httpdomain > /dev/null || \
-	 (echo "sphinxcontrib-httpdomain not installed."; \
-	  echo "Run pip install sphinxcontrib-httpdomain";  \
-	  exit 1)
-	@pip list --format=json | grep sphinxcontrib-openapi > /dev/null || \
-	 (echo "sphinxcontrib-openapi not installed."; \
-	  echo "Run: pip install sphinxcontrib-openapi"; \
-	  exit 1)
-	@pip list --format=json | grep sphinx-rtd-theme> /dev/null || \
-	 (echo "sphinx-rtd-theme not installed."; \
-	  echo "Run pip install sphinx-rtd-theme";  \
-	  exit 1)
-	@pip list --format=json | grep sphinx-tabs> /dev/null || \
-	 (echo "sphinx-tabs not installed."; \
-	  echo "Run pip install sphinx-tabs";  \
-	  exit 1)
-	@pip list --format=json | grep recommonmark> /dev/null || \
-	 (echo "recommonmark not installed."; \
-	  echo "Run pip install recommonmark";  \
-	  exit 1)
+	@$(foreach PKG,$(PIP_REQUIREMENTS), \
+		pip list --format=json | grep ${PKG} > /dev/null || \
+		(echo "${PKG} not installed, run 'pip install ${PKG}'";  \
+			exit 1); \
+	)
 
 cmdref:
 	# We don't know what changed so recreate the directory
