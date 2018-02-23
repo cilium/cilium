@@ -656,8 +656,8 @@ parameters:
   endpoint-id:
     name: id
     description: |
-      String describing an endpoint with the format `[prefix:]id`. If no prefix
-      is specified, a prefix of `cilium-local:` is assumed. Not all endpoints
+      String describing an endpoint with the format ``[prefix:]id``. If no prefix
+      is specified, a prefix of ``cilium-local:`` is assumed. Not all endpoints
       will be addressable by all endpoint ID prefixes with the exception of the
       local Cilium UUID which is assigned to all endpoints.
 
@@ -900,12 +900,12 @@ definitions:
   EndpointHealthStatus:
     description: >
       A common set of statuses for endpoint health
-      * `OK` = All components operational
-      * `Bootstrap` = This component is being created
-      * `Pending` = A change is being processed to be applied
-      * `Warning` = This component is not applying up-to-date policies (but is still applying the previous version)
-      * `Failure` = An error has occurred and no policy is being applied
-      * `Disabled` = This endpoint is disabled and will not handle traffic
+      * ``OK`` = All components operational
+      * ``Bootstrap`` = This component is being created
+      * ``Pending`` = A change is being processed to be applied
+      * ``Warning`` = This component is not applying up-to-date policies (but is still applying the previous version)
+      * ``Failure`` = An error has occurred and no policy is being applied
+      * ``Disabled`` = This endpoint is disabled and will not handle traffic
     type: string
     enum:
       - OK

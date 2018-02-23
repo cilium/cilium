@@ -182,8 +182,8 @@ If for some reason, running of the provisioning script fails, you should bring t
 Unit Testing
 ------------
 
-Cilium uses the standard `go test <https://golang.org/pkg/testing/>` framework
-in combination with `gocheck <http://labix.org/gocheck>` for richer testing
+Cilium uses the standard `go test <https://golang.org/pkg/testing/>`__ framework
+in combination with `gocheck <http://labix.org/gocheck>`__ for richer testing
 functionality.
 
 Running all tests
@@ -241,7 +241,7 @@ The script ``contrib/shell/test.sh`` contains some helpful bash functions to
 improve the feedback cycle between writing tests and seeing their results. If
 you're writing unit tests in a particular package, the ``watchtest`` function
 will watch for changes in a directory and run the unit tests for that package
-any time the files change. For example, if writing unit tests in `pkg/policy`,
+any time the files change. For example, if writing unit tests in ``pkg/policy``,
 run this in a terminal next to your editor:
 
 .. code:: bash
@@ -338,7 +338,7 @@ Introduction
 There is ongoing progress to move over to a more robust testing framework than
 a collection of Bash scripts for testing Cilium. `Ginkgo <https://onsi.github.io/ginkgo>`_
 has been chosen as this testing framework
-The tests in the `test` directory are built on top of Ginkgo. Ginkgo provides
+The tests in the ``test`` directory are built on top of Ginkgo. Ginkgo provides
 a rich framework for developing tests alongside the benefits of Golang
 (compilation-time checks, types, etc.). To get accustomsed to the basics of
 Ginkgo, we recommend reading the
@@ -378,7 +378,7 @@ connection speed. Subsequent runs of the test will reuse the image.
 Running Runtime Tests
 ^^^^^^^^^^^^^^^^^^^^^
 
-To run all of the runtime tests, execute the following command from the `test` directory:
+To run all of the runtime tests, execute the following command from the ``test`` directory:
 
 ::
 
@@ -427,7 +427,7 @@ consult the aforementioned Ginkgo documentation.
 Running Kubernetes Tests
 ^^^^^^^^^^^^^^^^^^^^^^^^
 
-To run all of the Kubernetes tests, run the following command from the `test` directory:
+To run all of the Kubernetes tests, run the following command from the ``test`` directory:
 
 ::
 
@@ -453,7 +453,7 @@ supported version of Kubernetes, run the test suite with the following format:
 Running Nightly Tests
 ^^^^^^^^^^^^^^^^^^^^^
 
-To run all of the Nightly tests, run the following command from the `test` directory:
+To run all of the Nightly tests, run the following command from the ``test`` directory:
 
 ::
 
@@ -508,7 +508,7 @@ If you want to run one specified test, there are a few options:
         Expect(true).Should(BeTrue())
     })
 
-    FIt("Example focussed test", func(){
+    FIt("Example focused test", func(){
         Expect(true).Should(BeTrue())
     })
 
@@ -550,14 +550,14 @@ Debugging:
 
 Ginkgo provides to us different ways of debugging. In case that you want to see
 all the logs messages in the console you can run the test in verbose mode using
-the option `-v`:
+the option ``-v``:
 
 ::
 
 	ginkgo --focus "Runtime*" -v
 
 In case that the verbose mode is not enough, you can retrieve all run commands
-and their output in the report directory (`./test/test-results`). Each test
+and their output in the report directory (``./test/test-results``). Each test
 creates a new folder, which contains a file called log where all information is
 saved, in case of a failing test an exhaustive data will be added.
 

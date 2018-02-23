@@ -9,3 +9,4 @@ cilium
 
       cilium
       cilium_*
+      cilium-health_*

@@ -14,7 +14,7 @@ endpoint with the label ``id.http`` on port 80:
 
 .. note::
 
-    If the `--dport` option is not specified, then L4 policy will not be
+    If the ``--dport`` option is not specified, then L4 policy will not be
     consulted in this policy trace command.
 
     Currently, there is no support for tracing L7 policies via this tool.

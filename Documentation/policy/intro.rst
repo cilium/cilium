@@ -12,9 +12,9 @@ default
   any specified value for policy enforcement configuration. The following rule
   applies:
 
-  * If any rule selects an `endpoint` and the rule has an ingress
+  * If any rule selects an :ref:`endpoint` and the rule has an ingress
     section, the endpoint goes into default deny at ingress
-  * If any rule selects an `endpoint` and the rule has an egress section, the
+  * If any rule selects an :ref:`endpoint` and the rule has an egress section, the
     endpoint goes into default deny at egress.
 
   This means that endpoints will start out without any restrictions, as soon as
@@ -97,7 +97,7 @@ egress are omitted, the rule has no effect.
 
 endpointSelector
   Selects the endpoints to which the policy rules contained must be applied to.
-  All endpoints which match the labels specified in the ``endpointSelector``
+  All endpoints which match the labels specified in the `endpointSelector`
   will have the policy rules applied to. See the `LabelSelector` section for
   additional details.
 
