@@ -23,7 +23,10 @@ import (
 	"github.com/cilium/cilium/common/types"
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/byteorder"
+	"github.com/cilium/cilium/pkg/logging"
 )
+
+var log = logging.DefaultLogger
 
 type Proxy4Key struct {
 	SAddr   types.IPv4
@@ -157,4 +160,28 @@ func GC() int {
 	}
 
 	return deleted
+}
+
+// CleanupIPv4Redirects removes all redirects to a specific proxy port
+func CleanupIPv4Redirects(proxyPort uint16) {
+	if err := Proxy4Map.Open(); err != nil {
+		return
+	}
+
+	dportNetworkOrder := byteorder.HostToNetwork(proxyPort).(uint16)
+
+	var key, nextKey Proxy4Key
+	for {
+		err := bpf.GetNextKey(Proxy4Map.GetFd(), unsafe.Pointer(&key), unsafe.Pointer(&nextKey))
+		if err != nil {
+			return
+		}
+
+		if nextKey.DPort == dportNetworkOrder && nextKey.Nexthdr == uint8(6) {
+			log.Debugf("Cleaning up IPv4 proxymap, removing entry: %+v", nextKey)
+			bpf.DeleteElement(Proxy4Map.GetFd(), unsafe.Pointer(&nextKey))
+		}
+
+		key = nextKey
+	}
 }

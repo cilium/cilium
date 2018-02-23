@@ -137,3 +137,27 @@ func GC6() int {
 
 	return deleted
 }
+
+// CleanupIPv6Redirects removes all redirects to a specific proxy port
+func CleanupIPv6Redirects(proxyPort uint16) {
+	if err := Proxy6Map.Open(); err != nil {
+		return
+	}
+
+	dportNetworkOrder := byteorder.HostToNetwork(proxyPort).(uint16)
+
+	var key, nextKey Proxy6Key
+	for {
+		err := bpf.GetNextKey(Proxy6Map.GetFd(), unsafe.Pointer(&key), unsafe.Pointer(&nextKey))
+		if err != nil {
+			return
+		}
+
+		if nextKey.DPort == dportNetworkOrder && nextKey.Nexthdr == uint8(6) {
+			log.Debugf("Cleaning up IPv6 proxymap, removing entry: %+v", nextKey)
+			bpf.DeleteElement(Proxy6Map.GetFd(), unsafe.Pointer(&nextKey))
+		}
+
+		key = nextKey
+	}
+}
