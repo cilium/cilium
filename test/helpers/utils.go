@@ -140,6 +140,33 @@ func GetAppPods(apps []string, namespace string, kubectl *Kubectl, appFmt string
 	return appPods
 }
 
+// WaitCiliumEndpointReady gets cilium pod for a ginkgo node (k8s1/k8s2)
+// and waits for all the endpoints of that node to ve ready.
+func WaitCiliumEndpointReady(podFilter string, kubectl *Kubectl, k8sNode string) (string, EndpointMap) {
+	ciliumPod, err := kubectl.GetCiliumPodOnNode(KubeSystemNamespace, k8sNode)
+	Expect(err).Should(BeNil())
+
+	status := kubectl.CiliumExec(ciliumPod, fmt.Sprintf("cilium config %s=%s", PolicyEnforcement, PolicyEnforcementDefault))
+	status.ExpectSuccess()
+
+	kubectl.CiliumEndpointWait(ciliumPod)
+
+	epsStatus := WithTimeout(func() bool {
+		endpoints, err := kubectl.CiliumEndpointsListByLabel(ciliumPod, podFilter)
+		if err != nil {
+			return false
+		}
+		return endpoints.AreReady()
+	}, "Could not get endpoints", &TimeoutConfig{Timeout: 100})
+	Expect(epsStatus).Should(BeNil())
+
+	endpoints, err := kubectl.CiliumEndpointsListByLabel(ciliumPod, podFilter)
+	Expect(err).Should(BeNil())
+
+	Expect(endpoints.AreReady()).Should(BeTrue())
+	return ciliumPod, endpoints
+}
+
 // WaitUntilEndpointUpdates checks the policy version and then iterates through
 // all endpoints waiting for the endpoints to have updated policies.
 func WaitUntilEndpointUpdates(pod string, eps map[string]int64, min int, kubectl *Kubectl) error {

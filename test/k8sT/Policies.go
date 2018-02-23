@@ -93,31 +93,8 @@ var _ = Describe("K8sValidatedPolicyTest", func() {
 		})
 
 		It("tests PolicyEnforcement updates", func() {
-			// This is a small test that checks that basic policy enforcement
-			// changes are working in k8s. All the policy enforcement
-			// changes/combinations are tested in runtime/Policies.go
-			ciliumPod, err := kubectl.GetCiliumPodOnNode(helpers.KubeSystemNamespace, helpers.K8s1)
-			Expect(err).Should(BeNil(), "cannot get cilium pod on node %s", helpers.K8s1)
-
-			status := kubectl.CiliumExec(
-				ciliumPod, fmt.Sprintf("cilium config %s=%s",
-					helpers.PolicyEnforcement, helpers.PolicyEnforcementDefault))
-			status.ExpectSuccess("cannot change %s to %s",
-				helpers.PolicyEnforcement, helpers.PolicyEnforcementDefault)
-			kubectl.CiliumEndpointWait(ciliumPod)
-
-			epsStatus := helpers.WithTimeout(func() bool {
-				endpoints, err := kubectl.CiliumEndpointsListByLabel(ciliumPod, podFilter)
-				if err != nil {
-					return false
-				}
-				return endpoints.AreReady()
-			}, "Could not get endpoints", &helpers.TimeoutConfig{Timeout: 100})
-			Expect(epsStatus).Should(BeNil())
-
-			endpoints, err := kubectl.CiliumEndpointsListByLabel(ciliumPod, podFilter)
-			Expect(err).Should(BeNil())
-			Expect(endpoints.AreReady()).Should(BeTrue())
+			By("Waiting for cilium pod and endpoints on K8s1 to be ready")
+			ciliumPod, endpoints := helpers.WaitCiliumEndpointReady(podFilter, kubectl, helpers.K8s1)
 			policyStatus := endpoints.GetPolicyStatus()
 			// default mode with no policy, all endpoints must be in allow all
 			Expect(policyStatus[models.EndpointPolicyEnabledNone]).Should(Equal(4))
@@ -127,14 +104,14 @@ var _ = Describe("K8sValidatedPolicyTest", func() {
 
 			By("Set PolicyEnforcement to always")
 
-			status = kubectl.CiliumExec(
+			status := kubectl.CiliumExec(
 				ciliumPod, fmt.Sprintf("cilium config %s=%s",
 					helpers.PolicyEnforcement, helpers.PolicyEnforcementAlways))
 			status.ExpectSuccess()
 
 			kubectl.CiliumEndpointWait(ciliumPod)
 
-			endpoints, err = kubectl.CiliumEndpointsListByLabel(ciliumPod, podFilter)
+			endpoints, err := kubectl.CiliumEndpointsListByLabel(ciliumPod, podFilter)
 			Expect(err).Should(BeNil())
 			Expect(endpoints.AreReady()).Should(BeTrue())
 			policyStatus = endpoints.GetPolicyStatus()
