@@ -19,6 +19,6 @@ Manage security identities
 
 ### SEE ALSO
 * [cilium](cilium.html)	 - CLI
-* [cilium identity get](cilium_identity_get.html)	 - Retrieve the identity of the specified label
-* [cilium identity list](cilium_identity_list.html)	 - List all identities
+* [cilium identity get](cilium_identity_get.html)	 - Retrieve information about an identity
+* [cilium identity list](cilium_identity_list.html)	 - List identities
 

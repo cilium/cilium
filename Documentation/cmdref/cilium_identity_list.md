@@ -2,22 +2,21 @@
 
 ## cilium identity list
 
-List all identities
+List identities
 
 ### Synopsis
 
 
-List all identities
+List identities
 
 ```
-cilium identity list
+cilium identity list [LABELS]
 ```
 
 ### Options
 
 ```
   -o, --output string   json| jsonpath='{}'
-      --reserved        List all reserved identities
 ```
 
 ### Options inherited from parent commands

@@ -2,15 +2,22 @@
 
 ## cilium identity get
 
-Retrieve the identity of the specified label
+Retrieve information about an identity
 
 ### Synopsis
 
 
-Retrieve the identity of the specified label
+Retrieve information about an identity
 
 ```
 cilium identity get
+```
+
+### Options
+
+```
+      --label stringSlice   Label to lookup
+  -o, --output string       json| jsonpath='{}'
 ```
 
 ### Options inherited from parent commands
