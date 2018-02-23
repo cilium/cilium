@@ -12,6 +12,13 @@ endpoints. The following example shows how to use ``cilium policy trace`` to
 simulate a policy decision from an endpoint with the label ``id.curl`` to an
 endpoint with the label ``id.http`` on port 80:
 
+.. note::
+
+    If the `--dport` option is not specified, then L4 policy will not be
+    consulted in this policy trace command.
+
+    Currently, there is no support for tracing L7 policies via this tool.
+
 .. code:: bash
 
     $ cilium policy trace -s id.curl -d id.httpd --dport 80
