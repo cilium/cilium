@@ -90,9 +90,7 @@ static inline int is_valid_gw_dst_mac(struct ethhdr *eth)
 #ifdef LXC_IPV4
 static inline void __inline__ proxy4_update_timeout(struct proxy4_tbl_value *value)
 {
-#ifdef NEEDS_TIMEOUT
 	value->lifetime = bpf_ktime_get_sec() + PROXY_DEFAULT_LIFETIME;
-#endif
 }
 
 static inline int __inline__
@@ -144,9 +142,7 @@ ipv4_redirect_to_host_port(struct __sk_buff *skb, struct csum_offset *csum,
 #endif /* LXC_IPV4 */
 static inline void __inline__ proxy6_update_timeout(struct proxy6_tbl_value *value)
 {
-#ifdef NEEDS_TIMEOUT
 	value->lifetime = bpf_ktime_get_sec() + PROXY_DEFAULT_LIFETIME;
-#endif
 }
 
 static inline int __inline__
