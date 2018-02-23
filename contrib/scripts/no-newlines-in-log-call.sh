@@ -2,7 +2,7 @@
 
 set -e
 
-if grep --include \*.go -r 'log\.' ../ | grep -v vendor \
+if grep --include \*.go -r 'log\.' ../../ | grep -v vendor \
   | grep -v envoy \
   | grep -v contrib \
   | grep -v logging.go \
