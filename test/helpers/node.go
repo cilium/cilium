@@ -116,10 +116,10 @@ func (s *SSHMeta) Exec(cmd string) *CmdRes {
 		exit = false
 	}
 	res := CmdRes{
-		cmd:    cmd,
-		stdout: stdout,
-		stderr: stderr,
-		exit:   exit,
+		cmd:     cmd,
+		stdout:  stdout,
+		stderr:  stderr,
+		success: exit,
 	}
 	// Set the exitCode if the error is an ExitError
 	if exiterr, ok := err.(*ssh.ExitError); ok {
@@ -171,10 +171,10 @@ func (s *SSHMeta) ExecContext(ctx context.Context, cmd string) *CmdRes {
 	}
 
 	res := CmdRes{
-		cmd:    cmd,
-		stdout: stdout,
-		stderr: stderr,
-		exit:   false,
+		cmd:     cmd,
+		stdout:  stdout,
+		stderr:  stderr,
+		success: false,
 	}
 
 	go func() {
