@@ -35,7 +35,6 @@ pipeline {
         }
         stage('Boot VMs'){
             environment {
-                GOPATH="${WORKSPACE}"
                 TESTDIR="${WORKSPACE}/${PROJ_PATH}/test"
             }
             steps {

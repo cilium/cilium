@@ -60,12 +60,24 @@ pipeline {
             post {
                 always {
                     junit 'test/*.xml'
-                    // Temporary workaround to test cleanup
-                    // rm -rf ${GOPATH}/src/github.com/cilium/cilium
                     sh 'cd test/; ./post_build_agent.sh || true'
                     sh 'cd test/; K8S_VERSION=1.7 vagrant destroy -f || true'
                     sh 'cd test/; ./archive_test_results.sh || true'
                     archiveArtifacts artifacts: "test_results_${JOB_BASE_NAME}_${BUILD_NUMBER}.tar", allowEmptyArchive: true
+                }
+            }
+        }
+        stage('Envoy Tests') {
+            environment {
+                TESTDIR="${WORKSPACE}/${PROJ_PATH}/test"
+            }
+            steps {
+                 sh 'cd ${TESTDIR}; vagrant up runtime --no-provision'
+                 sh 'cd ${TESTDIR}; ./run-envoy-unit-tests.sh'
+            }
+            post {
+                always {
+                    sh "cd ${TESTDIR}; vagrant destroy -f || true"
                 }
             }
         }
