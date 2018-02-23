@@ -398,7 +398,10 @@ struct ct_state {
 	__u32 src_sec_id;
 };
 
-#define PROXY_DEFAULT_LIFETIME	360
+/* Lifetime of a proxy redirection entry is an entire day. All proxies should
+ * be using TCP keepalive to force some traffic over the connection
+ * periodically. */
+#define PROXY_DEFAULT_LIFETIME 86400
 
 struct proxy4_tbl_key {
 	__be32 saddr;
