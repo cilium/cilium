@@ -244,7 +244,7 @@ var _ = Describe("RuntimeValidatedLB", func() {
 		svc := 1
 		for fe, be := range services {
 			status := vm.ServiceAdd(svc, fe, be)
-			status.ExpectSuccess("failed to create service %s=>%v, fe, be")
+			status.ExpectSuccess("failed to create service %s=>%v", fe, be)
 			svc++
 		}
 
