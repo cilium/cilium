@@ -379,7 +379,7 @@ func (s *SSHMeta) PolicyEndpointsSummary() (map[string]int, error) {
 func (s *SSHMeta) SetPolicyEnforcement(status string) *CmdRes {
 	// We check before setting PolicyEnforcement; if we do not, EndpointWait
 	// will fail due to the status of the endpoints not changing.
-	log.Infof("setting PolicyEnforcement=%s", status)
+	log.Infof("setting %s=%s", PolicyEnforcement, status)
 	res := s.ExecCilium(fmt.Sprintf("config | grep %s | awk '{print $2}'", PolicyEnforcement))
 	if res.SingleOut() == status {
 		return res
