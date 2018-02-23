@@ -27,7 +27,6 @@ check:
 	clang ${CLANG_FLAGS} --analyze *.c
 
 LB_OPTIONS = \
-	-DUNKNOWN \
 	-DLB_L3 \
 	-DLB_L4 \
 	-DLB_L3 -DLB_L4
@@ -35,14 +34,15 @@ LB_OPTIONS = \
 bpf_lb.o: bpf_lb.c $(LIB)
 	$(foreach OPTS,$(LB_OPTIONS), \
 		${CLANG} ${OPTS} ${CLANG_FLAGS} -c bpf_lb.c -o - | ${LLC} ${LLC_FLAGS} -o /dev/null;)
+	${CLANG} ${CLANG_FLAGS} -c $< -o - | ${LLC} ${LLC_FLAGS} -o $@
 
 LXC_OPTIONS = \
-	 -DUNKNOWN \
 	 -DDROP_ALL
 
 bpf_lxc.o: bpf_lxc.c $(LIB)
 	$(foreach OPTS,$(LXC_OPTIONS), \
 		${CLANG} ${OPTS} ${CLANG_FLAGS} -c bpf_lxc.c -o - | ${LLC} ${LLC_FLAGS} -o /dev/null;)
+	${CLANG} ${CLANG_FLAGS} -c $< -o - | ${LLC} ${LLC_FLAGS} -o $@
 
 else
 
