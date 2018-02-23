@@ -260,6 +260,7 @@ install-manpages:
 postcheck: build
 	contrib/scripts/check-cmdref.sh
 	contrib/scripts/lock-check.sh
+	-$(MAKE) -C Documentation/ dummy SPHINXOPTS="-q" 2>&1 | grep -v "tabs assets"
 
 .PHONY: force
 force :;
