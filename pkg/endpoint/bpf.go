@@ -439,6 +439,10 @@ func updateCT(owner Owner, e *Endpoint, epIPs []net.IP,
 // specified policy.
 // Must be called with endpoint.Mutex held.
 func (e *Endpoint) addNewRedirectsFromMap(owner Owner, m policy.L4PolicyMap, desiredRedirects map[string]bool) error {
+	if owner.DryModeEnabled() {
+		return nil
+	}
+
 	for _, l4 := range m {
 		if l4.IsRedirect() {
 			redirect, err := owner.UpdateProxyRedirect(e, &l4)
@@ -477,6 +481,10 @@ func (e *Endpoint) addNewRedirects(owner Owner, m *policy.L4Policy) (desiredRedi
 
 // Must be called with endpoint.Mutex held.
 func (e *Endpoint) removeOldRedirects(owner Owner, desiredRedirects map[string]bool) {
+	if owner.DryModeEnabled() {
+		return
+	}
+
 	for id := range e.realizedRedirects {
 		// Remove only the redirects that are not required.
 		if desiredRedirects[id] {
