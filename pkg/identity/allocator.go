@@ -18,7 +18,6 @@ import (
 	"path"
 	"sync"
 
-	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/kvstore/allocator"
 	"github.com/cilium/cilium/pkg/labels"
@@ -109,92 +108,9 @@ func AllocateIdentity(lbls labels.Labels) (*Identity, bool, error) {
 	return NewIdentity(NumericIdentity(id), lbls), isNew, nil
 }
 
-// LookupIdentity looks up the identity by its labels but does not create it.
-// This function will first search through the local cache and fall back to
-// querying the kvstore.
-func LookupIdentity(lbls labels.Labels) *Identity {
-	if identityAllocator == nil {
-		return nil
-	}
-
-	id, err := identityAllocator.Get(globalIdentity{lbls})
-	if err != nil {
-		return nil
-	}
-
-	if id == allocator.NoID {
-		return nil
-	}
-
-	return NewIdentity(NumericIdentity(id), lbls)
-}
-
-// LookupIdentityByID returns the identity by ID. This function will first
-// search through the local cache and fall back to querying the kvstore.
-func LookupIdentityByID(id NumericIdentity) *Identity {
-	if identityAllocator == nil {
-		return nil
-	}
-
-	allocatorKey, err := identityAllocator.GetByID(allocator.ID(id))
-	if err != nil {
-		return nil
-	}
-
-	if gi, ok := allocatorKey.(globalIdentity); ok {
-		return NewIdentity(id, gi.Labels)
-	}
-
-	return nil
-}
-
 // Release is the reverse operation of AllocateIdentity() and releases the
 // identity again. This function may result in kvstore operations.
 // After the last user has released the ID, the returned lastUse value is true.
 func (id *Identity) Release() (lastUse bool, err error) {
 	return identityAllocator.Release(globalIdentity{id.Labels})
-}
-
-// IdentityCache is a cache of identity to labels mapping
-type IdentityCache map[NumericIdentity]labels.LabelArray
-
-// GetIdentityCache returns a cache of all known identities
-func GetIdentityCache() IdentityCache {
-	cache := IdentityCache{}
-
-	identityAllocator.ForeachCache(func(id allocator.ID, val allocator.AllocatorKey) {
-		gi := val.(globalIdentity)
-		cache[NumericIdentity(id)] = gi.LabelArray()
-	})
-
-	return cache
-}
-
-// GetIdentities returns all known identities
-func GetIdentities() []*models.Identity {
-	identities := []*models.Identity{}
-
-	identityAllocator.ForeachCache(func(id allocator.ID, val allocator.AllocatorKey) {
-		if gi, ok := val.(globalIdentity); ok {
-			identity := NewIdentity(NumericIdentity(id), gi.Labels)
-			identities = append(identities, identity.GetModel())
-		}
-
-	})
-
-	return identities
-}
-
-func identityWatcher(owner IdentityAllocatorOwner) {
-	for {
-		event := <-identityAllocator.Events
-
-		switch event.Typ {
-		case kvstore.EventTypeCreate, kvstore.EventTypeDelete:
-			owner.TriggerPolicyUpdates(true)
-
-		case kvstore.EventTypeModify:
-			// Ignore modify events
-		}
-	}
 }

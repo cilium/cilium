@@ -24,8 +24,8 @@ NATIVE_DEV=$6
 XDP_DEV=$7
 XDP_MODE=$8
 
-HOST_ID="host"
-WORLD_ID="world"
+ID_HOST=1
+ID_WORLD=2
 
 PROXY_RT_TABLE=2005
 
@@ -297,9 +297,8 @@ if [ "$MODE" = "vxlan" -o "$MODE" = "geneve" ]; then
 	sed -i '/^#.*ENCAP_IFINDEX.*$/d' $RUNDIR/globals/node_config.h
 	echo "#define ENCAP_IFINDEX $ENCAP_IDX" >> $RUNDIR/globals/node_config.h
 
-	ID=$(cilium identity get $WORLD_ID 2> /dev/null)
-	CALLS_MAP="cilium_calls_overlay_${ID}"
-	OPTS="-DSECLABEL=${ID} -DPOLICY_MAP=cilium_policy_reserved_${ID}"
+	CALLS_MAP="cilium_calls_overlay_${ID_WORLD}"
+	OPTS="-DSECLABEL=${ID_WORLD} -DPOLICY_MAP=cilium_policy_reserved_${ID_WORLD}"
 	bpf_load $ENCAP_DEV "$OPTS" "ingress" bpf_overlay.c bpf_overlay.o from-overlay ${CALLS_MAP}
 	echo "$ENCAP_DEV" > $RUNDIR/encap.state
 else
@@ -318,9 +317,8 @@ if [ "$MODE" = "direct" ]; then
 	else
 		echo 1 > /proc/sys/net/ipv6/conf/all/forwarding
 
-		ID=$(cilium identity get $WORLD_ID 2> /dev/null)
-		CALLS_MAP=cilium_calls_netdev_${ID}
-		OPTS="-DSECLABEL=${ID} -DPOLICY_MAP=cilium_policy_reserved_${ID}"
+		CALLS_MAP=cilium_calls_netdev_${ID_WORLD}
+		OPTS="-DSECLABEL=${ID_WORLD} -DPOLICY_MAP=cilium_policy_reserved_${ID_WORLD}"
 		bpf_load $NATIVE_DEV "$OPTS" "ingress" bpf_netdev.c bpf_netdev.o from-netdev $CALLS_MAP
 
 		echo "$NATIVE_DEV" > $RUNDIR/device.state
@@ -331,7 +329,7 @@ elif [ "$MODE" = "lb" ]; then
 	else
 		echo 1 > /proc/sys/net/ipv6/conf/all/forwarding
 
-		CALLS_MAP="cilium_calls_lb_${ID}"
+		CALLS_MAP="cilium_calls_lb"
 		OPTS="-DLB_L3 -DLB_L4"
 		bpf_load $NATIVE_DEV "$OPTS" "ingress" bpf_lb.c bpf_lb.o from-netdev $CALLS_MAP
 
@@ -348,9 +346,8 @@ else
 fi
 
 # bpf_host.o requires to see an updated node_config.h which includes ENCAP_IFINDEX
-ID=$(cilium identity get $HOST_ID 2> /dev/null)
-CALLS_MAP="cilium_calls_netdev_ns_${ID}"
-OPTS="-DFROM_HOST -DFIXED_SRC_SECCTX=${ID} -DSECLABEL=${ID} -DPOLICY_MAP=cilium_policy_reserved_${ID}"
+CALLS_MAP="cilium_calls_netdev_ns_${ID_HOST}"
+OPTS="-DFROM_HOST -DFIXED_SRC_SECCTX=${ID_HOST} -DSECLABEL=${ID_HOST} -DPOLICY_MAP=cilium_policy_reserved_${ID_HOST}"
 bpf_load $HOST_DEV1 "$OPTS" "egress" bpf_netdev.c bpf_host.o from-netdev $CALLS_MAP
 
 if [ -n "$XDP_DEV" ]; then
