@@ -34,7 +34,7 @@ type CmdRes struct {
 	params   []string      // Parameters to provide to command
 	stdout   *bytes.Buffer // Stdout from running cmd
 	stderr   *bytes.Buffer // Stderr from running cmd
-	exit     bool          // Whether command successfully executed
+	success  bool          // Whether command successfully executed
 	exitcode int           // The exit code of cmd
 }
 
@@ -68,7 +68,7 @@ func (res *CmdRes) SendToLog() {
 
 // WasSuccessful returns true if cmd completed successfully.
 func (res *CmdRes) WasSuccessful() bool {
-	return res.exit
+	return res.success
 }
 
 // ExpectFail asserts whether res failed to execute. It accepts an optional
