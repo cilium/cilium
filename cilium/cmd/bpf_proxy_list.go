@@ -24,8 +24,8 @@ import (
 )
 
 const (
-	proxyTitle       = "PROXY"
-	destinationTitle = "DESTINATION"
+	proxyTitle       = "KEY"
+	destinationTitle = "VALUE"
 )
 
 // bpfProxyListCmd represents the bpf_proxy_list command
