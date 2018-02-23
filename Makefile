@@ -13,7 +13,7 @@ GOTEST_OPTS = -test.v -check.v
 
 UTC_DATE=$(shell date -u "+%Y-%m-%d")
 
-all: precheck-gofmt build postcheck
+all: precheck build postcheck
 	@echo "Build finished."
 
 build: $(SUBDIRS)
@@ -202,8 +202,9 @@ release:
 gofmt:
 	for pkg in $(GOFILES); do go fmt $$pkg; done
 
-precheck-gofmt:
+precheck:
 	contrib/scripts/check-fmt.sh
+	contrib/scripts/no-newlines-in-log-call.sh
 
 pprof-help:
 	@echo "Available pprof targets:"
