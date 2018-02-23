@@ -333,7 +333,8 @@ Layer 4 policy can be specified in addition to layer 3 policies or independently
 It restricts the ability of an endpoint to emit and/or receive packets on a
 particular port using a particular protocol. If no layer 4 policy is specified
 for an endpoint, the endpoint is allowed to send and receive on all layer 4
-ports and protocols.
+ports and protocols. Layer 4 policies apply to ports after service port mapping
+has been applied.
 
 Layer 4 policy can be specified at both ingress and egress using the
 ``toPorts`` field:
