@@ -329,7 +329,7 @@ Layer 4 Examples
 Limit ingress/egress ports
 --------------------------
 
-Layer 4 policy can be specified in addition to layer 3 policies or indecently.
+Layer 4 policy can be specified in addition to layer 3 policies or independently.
 It restricts the ability of an endpoint to emit and/or receive packets on a
 particular port using a particular protocol. If no layer 4 policy is specified
 for an endpoint, the endpoint is allowed to send and receive on all layer 4
