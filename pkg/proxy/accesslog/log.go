@@ -46,6 +46,7 @@ const (
 	FieldProtocol = "protocol"
 	FieldHeader   = "header"
 	FieldFilePath = logfields.Path
+	FieldMessage  = "message"
 )
 
 // fields used for structured logging of Kafka messages

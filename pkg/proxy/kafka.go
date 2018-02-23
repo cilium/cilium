@@ -191,6 +191,7 @@ func (l *kafkaLogRecord) log(typ accesslog.FlowType, verdict accesslog.FlowVerdi
 		accesslog.FieldKafkaAPIKey:        l.Kafka.APIKey,
 		accesslog.FieldKafkaAPIVersion:    l.Kafka.APIVersion,
 		accesslog.FieldKafkaCorrelationID: l.Kafka.CorrelationID,
+		accesslog.FieldMessage:            l.Info,
 	}), "Logging Kafka L7 flow record")
 
 	l.redirect.updateAccounting(l.Type, l.Verdict)
