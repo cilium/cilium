@@ -29,6 +29,16 @@ import (
 // DoFunc and StopFunc.
 type ControllerFunc func() error
 
+// ExitReason is a returnable type from DoFunc that causes the
+// controller to exit. This reason is recorded in the controller's status. The
+// controller is not removed from any manager.
+// Construct one with ExitReason{errors.New("a reason")}
+type ExitReason struct {
+	// This is constucted in this odd way because the type assertion in
+	// runController didn't work otherwise.
+	error
+}
+
 // ControllerParams contains all parameters of a controller
 type ControllerParams struct {
 	// DoFunc is the function that will be run until it succeeds and/or
@@ -173,18 +183,27 @@ func (c *Controller) runController() {
 
 		err = c.params.DoFunc()
 		if err != nil {
-			c.getLogger().WithField(fieldConsecutiveErrors, errorRetries).
-				WithError(err).Debug("Controller run failed")
-			c.recordError(err)
+			switch err := err.(type) {
+			case ExitReason:
+				// This is actually not an error case, but it causes an exit
+				c.recordSuccess()
+				c.lastError = err // This will be shown in the controller status
+				goto shutdown
 
-			if !c.params.NoErrorRetry {
-				if c.params.ErrorRetryBaseDuration != time.Duration(0) {
-					interval = time.Duration(errorRetries) * c.params.ErrorRetryBaseDuration
-				} else {
-					interval = time.Duration(errorRetries) * time.Second
+			default:
+				c.getLogger().WithField(fieldConsecutiveErrors, errorRetries).
+					WithError(err).Debug("Controller run failed")
+				c.recordError(err)
+
+				if !c.params.NoErrorRetry {
+					if c.params.ErrorRetryBaseDuration != time.Duration(0) {
+						interval = time.Duration(errorRetries) * c.params.ErrorRetryBaseDuration
+					} else {
+						interval = time.Duration(errorRetries) * time.Second
+					}
+
+					errorRetries++
 				}
-
-				errorRetries++
 			}
 		} else {
 			c.recordSuccess()
