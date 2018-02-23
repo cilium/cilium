@@ -49,6 +49,14 @@ func CurlFail(endpoint string) string {
 		CurlConnectTimeout, endpoint)
 }
 
+// CurlWithHTTPCode retunrs the string representation of the curl command which
+// only outputs the HTTP code returned by its execution against the specified
+// endpoint.
+func CurlWithHTTPCode(endpoint string) string {
+	return fmt.Sprintf(`curl -s --output /dev/stderr -w '%%{http_code}' --connect-timeout %d XGET %s`,
+		CurlConnectTimeout, endpoint)
+}
+
 // Netperf returns the string representing the netperf command to use when testing
 // connectivity between endpoints.
 func Netperf(endpoint string, perfTest PerfTest) string {
