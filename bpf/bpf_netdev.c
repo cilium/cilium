@@ -468,14 +468,6 @@ int from_netdev(struct __sk_buff *skb)
 	return ret;
 }
 
-struct bpf_elf_map __section_maps POLICY_MAP = {
-	.type		= BPF_MAP_TYPE_HASH,
-	.size_key	= sizeof(__u32),
-	.size_value	= sizeof(struct policy_entry),
-	.pinning	= PIN_GLOBAL_NS,
-	.max_elem	= 1024,
-};
-
 __section_tail(CILIUM_MAP_RES_POLICY, SECLABEL) int handle_policy(struct __sk_buff *skb)
 {
 	__u32 src_label = skb->cb[CB_SRC_LABEL];
