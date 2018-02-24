@@ -67,3 +67,5 @@ test/*_policy.json
 # Temporary files that allow build containers/VMs work without git
 GIT_VERSION
 envoy/SOURCE_VERSION
+
+test/bpf/_results
