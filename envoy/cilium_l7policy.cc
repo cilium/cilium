@@ -50,7 +50,7 @@ static Registry::RegisterFactory<
     ConfigFactory, Server::Configuration::NamedHttpFilterConfigFactory>
     register_;
 
-Config::Config(const std::string& access_log_path, const std::string& listener_id,
+Config::Config(const std::string& listener_id, const std::string& access_log_path,
                Stats::Scope &scope)
     : stats_{ALL_CILIUM_STATS(POOL_COUNTER_PREFIX(scope, "cilium"))},
       listener_id_(listener_id), access_log_(nullptr) {
