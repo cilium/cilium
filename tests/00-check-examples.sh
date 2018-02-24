@@ -11,6 +11,10 @@ redirect_debug_logs ${LOGS_DIR}
 
 set -ex
 
+log "${TEST_NAME} has been deprecated and replaced by test/runtime/Policies.go: Validates Example Policies"
+
+exit 0
+
 code=0
 
 function check_coverage() {

@@ -19,6 +19,7 @@ import (
 	"math/rand"
 	"net"
 	"os"
+	"sort"
 	"strings"
 	"sync"
 
@@ -28,7 +29,6 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/types"
 	"github.com/sirupsen/logrus"
-	"sort"
 )
 
 const (
