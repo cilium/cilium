@@ -21,7 +21,6 @@ set -u
 LIB=$1
 RUNDIR=$2
 
-#DEV="cilium-probe"
 PROBE_DIR=$(mktemp -d)
 FEATURE_FILE="$RUNDIR/globals/bpf_features.h"
 INFO_FILE="$RUNDIR/bpf_features.log"
@@ -31,8 +30,6 @@ function cleanup {
 	if [ ! -z "$PROBE_DIR" ]; then
 		rm -rf "$PROBE_DIR"
 	fi
-
-	#ip link del $DEV 2> /dev/null
 }
 
 trap cleanup EXIT
@@ -86,9 +83,6 @@ function probe_kernel_config()
     fi
 }
 
-
-#ip link del $DEV 2> /dev/null
-#ip link add $DEV type dummy || exit 1
 
 # High level probes that require to invoke tc.
 function probe_run_tc()
