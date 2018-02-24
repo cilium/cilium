@@ -760,14 +760,6 @@ int handle_ingress(struct __sk_buff *skb)
 		return ret;
 }
 
-struct bpf_elf_map __section_maps POLICY_MAP = {
-	.type		= BPF_MAP_TYPE_HASH,
-	.size_key	= sizeof(struct policy_key),
-	.size_value	= sizeof(struct policy_entry),
-	.pinning	= PIN_GLOBAL_NS,
-	.max_elem	= 1024,
-};
-
 static inline int __inline__ ipv6_policy(struct __sk_buff *skb, int ifindex, __u32 src_label,
 					 int *forwarding_reason)
 {

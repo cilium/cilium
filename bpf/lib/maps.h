@@ -52,6 +52,17 @@ struct bpf_elf_map __section_maps cilium_reserved_policy = {
 	.max_elem	= RESERVED_POLICY_SIZE,
 };
 
+/* Per-endpoint policy enforcement map */
+#ifdef POLICY_MAP
+struct bpf_elf_map __section_maps POLICY_MAP = {
+	.type		= BPF_MAP_TYPE_HASH,
+	.size_key	= sizeof(struct policy_key),
+	.size_value	= sizeof(struct policy_entry),
+	.pinning	= PIN_GLOBAL_NS,
+	.max_elem	= 1024,
+};
+#endif
+
 struct bpf_elf_map __section_maps cilium_proxy4 = {
 	.type		= BPF_MAP_TYPE_HASH,
 	.size_key	= sizeof(struct proxy4_tbl_key),
