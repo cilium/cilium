@@ -141,8 +141,8 @@ func GetAppPods(apps []string, namespace string, kubectl *Kubectl, appFmt string
 }
 
 // WaitCiliumEndpointReady gets cilium pod for a ginkgo node (k8s1/k8s2)
-// and waits for all the endpoints of that node to ve ready.
-func WaitCiliumEndpointReady(podFilter string, kubectl *Kubectl, k8sNode string) (string, EndpointMap) {
+// and waits for all the endpoints of that node to be ready.
+func (kubectl *Kubectl) WaitCiliumEndpointReady(podFilter string, k8sNode string) (string, EndpointMap) {
 	ciliumPod, err := kubectl.GetCiliumPodOnNode(KubeSystemNamespace, k8sNode)
 	Expect(err).Should(BeNil())
 

@@ -94,7 +94,7 @@ var _ = Describe("K8sValidatedPolicyTest", func() {
 
 		It("tests PolicyEnforcement updates", func() {
 			By("Waiting for cilium pod and endpoints on K8s1 to be ready")
-			ciliumPod, endpoints := helpers.WaitCiliumEndpointReady(podFilter, kubectl, helpers.K8s1)
+			ciliumPod, endpoints := kubectl.WaitCiliumEndpointReady(podFilter, helpers.K8s1)
 			policyStatus := endpoints.GetPolicyStatus()
 			// default mode with no policy, all endpoints must be in allow all
 			Expect(policyStatus[models.EndpointPolicyEnabledNone]).Should(Equal(4))

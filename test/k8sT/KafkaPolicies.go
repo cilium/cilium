@@ -119,10 +119,10 @@ var _ = Describe("K8sValidatedKafkaPolicyTest", func() {
 
 		By("Waiting for all Cilium Pods and endpoints to be ready ")
 		By("Waiting for node K8s1")
-		ciliumPod1, _ := helpers.WaitCiliumEndpointReady(podFilter, kubectl, helpers.K8s1)
+		ciliumPod1, _ := kubectl.WaitCiliumEndpointReady(podFilter, helpers.K8s1)
 
 		By("Waiting for node K8s2")
-		helpers.WaitCiliumEndpointReady(podFilter, kubectl, helpers.K8s2)
+		kubectl.WaitCiliumEndpointReady(podFilter, helpers.K8s2)
 
 		appPods := helpers.GetAppPods(apps, helpers.DefaultNamespace, kubectl, "app")
 		By("Testing basic Kafka Produce and Consume")
