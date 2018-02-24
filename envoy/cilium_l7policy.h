@@ -35,7 +35,7 @@ struct FilterStats {
  */
 class Config : Logger::Loggable<Logger::Id::router> {
 public:
-  Config(const std::string& access_log_path, const std::string& listener_id, Stats::Scope &scope);
+  Config(const std::string& listener_id, const std::string& access_log_path, Stats::Scope &scope);
   Config(const Json::Object &config, Stats::Scope &scope);
   Config(const ::cilium::L7Policy &config, Stats::Scope& scope);
   ~Config();
