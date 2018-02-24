@@ -23,8 +23,10 @@
 
 #if defined POLICY_INGRESS || defined REQUIRES_CAN_ACCESS
 
-static inline int policy_can_access(void *map, struct __sk_buff *skb, __u32 src_label,
-				    __u16 dport, __u8 proto, size_t cidr_addr_size, void *cidr_addr)
+static inline int
+__policy_can_access(void *map, struct __sk_buff *skb, __u32 src_label,
+		    __u16 dport, __u8 proto, size_t cidr_addr_size,
+		    void *cidr_addr)
 {
 #ifdef DROP_ALL
 	return DROP_POLICY;
@@ -62,17 +64,34 @@ static inline int policy_can_access(void *map, struct __sk_buff *skb, __u32 src_
 		return TC_ACT_OK;
 	}
 
+	if (skb->cb[CB_POLICY])
+		goto allow;
+
+	return DROP_POLICY;
+allow:
+	return TC_ACT_OK;
+#endif /* DROP_ALL */
+}
+
+static inline int
+policy_can_access_ingress(struct __sk_buff *skb, __u32 src_label,
+			  __u16 dport, __u8 proto, size_t cidr_addr_size,
+			  void *cidr_addr)
+{
+#ifdef DROP_ALL
+	return DROP_POLICY;
+#else
+	if (__policy_can_access(&POLICY_MAP, skb, src_label, dport, proto,
+				cidr_addr_size, cidr_addr) == TC_ACT_OK)
+		goto allow;
+
 	// cidr_addr_size is a compile time constant so this should all be inlined neatly.
 	if (cidr_addr_size == sizeof(union v6addr) && lpm6_ingress_lookup(cidr_addr))
 		goto allow;
 	if (cidr_addr_size == sizeof(__be32) && lpm4_ingress_lookup(*(__be32 *)cidr_addr))
 		goto allow;
 
-	if (skb->cb[CB_POLICY])
-		goto allow;
-
 	cilium_dbg(skb, DBG_POLICY_DENIED, src_label, SECLABEL);
-
 #ifndef IGNORE_DROP
 	return DROP_POLICY;
 #endif
@@ -84,9 +103,10 @@ allow:
 
 #else /* POLICY_INGRESS || REQUIRES_CAN_ACCESS */
 
-static inline int policy_can_access(void *map, struct __sk_buff *skb, __u32 src_label,
-				    __u16 dport, __u8 proto, size_t cidr_addr_size,
-				    void *cidr_addr)
+static inline int
+policy_can_access_ingress(struct __sk_buff *skb, __u32 src_label,
+			  __u16 dport, __u8 proto, size_t cidr_addr_size,
+			  void *cidr_addr)
 {
 	return TC_ACT_OK;
 }
