@@ -26,6 +26,14 @@ data:
   debug: "false"
   disable-ipv4: "false"
 ---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: cilium-metrics-config
+  namespace: kube-system
+data:
+  prometheus-serve-addr: ":9090"
+---
 # The etcd secrets can be populated in kubernetes.
 # For more information see: https://kubernetes.io/docs/concepts/configuration/secret
 apiVersion: v1
