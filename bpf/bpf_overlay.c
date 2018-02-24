@@ -204,7 +204,7 @@ __section_tail(CILIUM_MAP_RES_POLICY, SECLABEL) int handle_policy(struct __sk_bu
 	__u32 src_label = skb->cb[CB_SRC_LABEL];
 	int ifindex = skb->cb[CB_IFINDEX];
 
-	if (policy_can_access(&POLICY_MAP, skb, src_label, 0, 0, 0, NULL) != TC_ACT_OK) {
+	if (policy_can_access_ingress(skb, src_label, 0, 0, 0, NULL) != TC_ACT_OK) {
 		return send_drop_notify(skb, src_label, SECLABEL, 0,
 					ifindex, DROP_POLICY, TC_ACT_SHOT);
 	} else {

@@ -825,9 +825,9 @@ static inline int __inline__ ipv6_policy(struct __sk_buff *skb, int ifindex, __u
 			return ret2;
 	}
 
-	verdict = policy_can_access(&POLICY_MAP, skb, src_label, tuple.dport,
-				    tuple.nexthdr, sizeof(tuple.saddr),
-				    &tuple.saddr);
+	verdict = policy_can_access_ingress(skb, src_label, tuple.dport,
+					    tuple.nexthdr, sizeof(tuple.saddr),
+					    &tuple.saddr);
 
 	/* Reply packets and related packets are allowed, all others must be
 	 * permitted by policy */
@@ -926,9 +926,9 @@ static inline int __inline__ ipv4_policy(struct __sk_buff *skb, int ifindex, __u
 			return ret2;
 	}
 
-	verdict = policy_can_access(&POLICY_MAP, skb, src_label, tuple.dport,
-				    tuple.nexthdr, sizeof(tuple.saddr),
-				    &tuple.saddr);
+	verdict = policy_can_access_ingress(skb, src_label, tuple.dport,
+					    tuple.nexthdr, sizeof(tuple.saddr),
+					    &tuple.saddr);
 
 	/* Reply packets and related packets are allowed, all others must be
 	 * permitted by policy */
