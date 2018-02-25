@@ -221,6 +221,14 @@ function bpf_load()
 	tc filter add dev $DEV $WHERE prio 1 handle 1 bpf da obj $OUT sec $SEC
 }
 
+function encap_fail()
+{
+	(>&2 echo "ERROR: Setup of encapsulation device $ENCAP_DEV has failed. Is another program using a $MODE device?")
+	(>&2 echo "Configured $MODE devices on the system:")
+	(>&2 ip link show type $MODE)
+	exit 1
+}
+
 HOST_DEV1="cilium_host"
 HOST_DEV2="cilium_net"
 
@@ -281,9 +289,9 @@ fi
 if [ "$MODE" = "vxlan" -o "$MODE" = "geneve" ]; then
 	ENCAP_DEV="cilium_${MODE}"
 	ip link show $ENCAP_DEV || {
-		ip link add $ENCAP_DEV type $MODE external
+		ip link add $ENCAP_DEV type $MODE external || encap_fail
 	}
-	ip link set $ENCAP_DEV up
+	ip link set $ENCAP_DEV up || encap_fail
 
 	ENCAP_IDX=$(cat /sys/class/net/${ENCAP_DEV}/ifindex)
 	sed -i '/^#.*ENCAP_IFINDEX.*$/d' $RUNDIR/globals/node_config.h
