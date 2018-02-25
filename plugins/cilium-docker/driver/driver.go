@@ -27,6 +27,7 @@ import (
 	"github.com/cilium/cilium/common/plugins"
 	"github.com/cilium/cilium/pkg/client"
 	endpointPkg "github.com/cilium/cilium/pkg/endpoint"
+	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 
@@ -50,6 +51,7 @@ type Driver interface {
 }
 
 type driver struct {
+	mutex       lock.RWMutex
 	client      *client.Client
 	conf        models.DaemonConfigurationResponse
 	routes      []api.StaticRoute
@@ -107,34 +109,46 @@ func NewDriver(url string) (Driver, error) {
 		scopedLog.WithError(err).Fatal("Insufficient addressing")
 	}
 
-	d.routes = []api.StaticRoute{}
-	if d.conf.Addressing.IPV6 != nil {
-		if routes, err := plugins.IPv6Routes(d.conf.Addressing); err != nil {
-			scopedLog.WithError(err).Fatal("Unable to generate IPv6 routes")
-		} else {
-			for _, r := range routes {
-				d.routes = append(d.routes, newLibnetworkRoute(r))
-			}
-		}
+	d.updateRoutes(nil)
 
-		d.gatewayIPv6 = plugins.IPv6Gateway(d.conf.Addressing)
-	}
-
-	if d.conf.Addressing.IPV4 != nil {
-		if routes, err := plugins.IPv4Routes(d.conf.Addressing); err != nil {
-			scopedLog.WithError(err).Fatal("Unable to generate IPv4 routes")
-		} else {
-			for _, r := range routes {
-				d.routes = append(d.routes, newLibnetworkRoute(r))
-			}
-		}
-
-		d.gatewayIPv4 = plugins.IPv6Gateway(d.conf.Addressing)
-	}
-
-	scopedLog.Info("Cilium Docker plugin ready")
+	log.Infof("Cilium Docker plugin ready")
 
 	return d, nil
+}
+
+func (driver *driver) updateRoutes(addressing *models.NodeAddressing) {
+	driver.mutex.Lock()
+	defer driver.mutex.Unlock()
+
+	if addressing != nil {
+		driver.conf.Addressing = addressing
+	}
+
+	driver.routes = []api.StaticRoute{}
+
+	if driver.conf.Addressing.IPV6 != nil {
+		if routes, err := plugins.IPv6Routes(driver.conf.Addressing); err != nil {
+			log.Fatalf("Unable to generate IPv6 routes: %s", err)
+		} else {
+			for _, r := range routes {
+				driver.routes = append(driver.routes, newLibnetworkRoute(r))
+			}
+		}
+
+		driver.gatewayIPv6 = plugins.IPv6Gateway(driver.conf.Addressing)
+	}
+
+	if driver.conf.Addressing.IPV4 != nil {
+		if routes, err := plugins.IPv4Routes(driver.conf.Addressing); err != nil {
+			log.Fatalf("Unable to generate IPv4 routes: %s", err)
+		} else {
+			for _, r := range routes {
+				driver.routes = append(driver.routes, newLibnetworkRoute(r))
+			}
+		}
+
+		driver.gatewayIPv4 = plugins.IPv6Gateway(driver.conf.Addressing)
+	}
 }
 
 // Listen listens for docker requests on a particular set of endpoints on the given
@@ -386,6 +400,10 @@ func (driver *driver) joinEndpoint(w http.ResponseWriter, r *http.Request) {
 		j   api.JoinRequest
 		err error
 	)
+
+	driver.mutex.RLock()
+	defer driver.mutex.RUnlock()
+
 	if err := json.NewDecoder(r.Body).Decode(&j); err != nil {
 		sendError(w, "Could not decode JSON encode payload", http.StatusBadRequest)
 		return
