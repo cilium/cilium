@@ -99,12 +99,12 @@ fix: $(CHECK_FORMAT) force-non-root
 
 # Run tests using the fastbuild by default.
 tests: force-non-root
-	$(BAZEL) $(BAZEL_OPTS) test -c fastbuild $(BAZEL_TEST_OPTS) //:envoy_binary_test
-	$(BAZEL) $(BAZEL_OPTS) test -c fastbuild $(BAZEL_TEST_OPTS) //:cilium_integration_test
+	$(BAZEL) $(BAZEL_OPTS) test $(BAZEL_BUILD_OPTS) -c fastbuild $(BAZEL_TEST_OPTS) //:envoy_binary_test
+	$(BAZEL) $(BAZEL_OPTS) test $(BAZEL_BUILD_OPTS) -c fastbuild $(BAZEL_TEST_OPTS) //:cilium_integration_test
 
 debug-tests: force-non-root
-	$(BAZEL) $(BAZEL_OPTS) test -c debug $(BAZEL_TEST_OPTS) //:envoy_binary_test
-	$(BAZEL) $(BAZEL_OPTS) test -c debug $(BAZEL_TEST_OPTS) //:cilium_integration_test
+	$(BAZEL) $(BAZEL_OPTS) test $(BAZEL_BUILD_OPTS) -c debug $(BAZEL_TEST_OPTS) //:envoy_binary_test
+	$(BAZEL) $(BAZEL_OPTS) test $(BAZEL_BUILD_OPTS) -c debug $(BAZEL_TEST_OPTS) //:cilium_integration_test
 
 .PHONY: force force-root force-non-root
 force :;
