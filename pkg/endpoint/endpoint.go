@@ -476,7 +476,7 @@ func (e *Endpoint) GetModelRLocked() *models.Endpoint {
 		statusLog = statusLog[:1]
 	}
 
-	return &models.Endpoint{
+	mdl := &models.Endpoint{
 		ID:               int64(e.ID),
 		Configuration:    e.Opts.GetModel(),
 		ContainerID:      e.DockerID,
@@ -507,6 +507,15 @@ func (e *Endpoint) GetModelRLocked() *models.Endpoint {
 		},
 		Controllers: e.controllers.GetStatusModel(),
 	}
+
+	// Sort these slices since they come out in random orders. This allows
+	// reflect.DeepEqual to succeed.
+	sort.StringSlice(mdl.Labels.Custom).Sort()
+	sort.StringSlice(mdl.Labels.Disabled).Sort()
+	sort.StringSlice(mdl.Labels.OrchestrationIdentity).Sort()
+	sort.StringSlice(mdl.Labels.OrchestrationInfo).Sort()
+	sort.Slice(mdl.Controllers, func(i, j int) bool { return mdl.Controllers[i].Name < mdl.Controllers[j].Name })
+	return mdl
 }
 
 // GetHealthModel returns the endpoint's health object.
