@@ -1,9 +1,0 @@
-27a28,29
->       nodeSelector:
->         "kubernetes.io/hostname": k8s-1
-41a44,45
->   nodeSelector:
->     "kubernetes.io/hostname": k8s-1
-55a60,61
->   nodeSelector:
->     "kubernetes.io/hostname": k8s-1

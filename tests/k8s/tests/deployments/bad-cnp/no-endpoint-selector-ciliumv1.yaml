@@ -1,7 +1,0 @@
----
-apiVersion: "cilium.io/v1"
-kind: CiliumNetworkPolicy
-metadata:
-  name: "no-endpoint-selector"
-spec:
-  endpointSelector:

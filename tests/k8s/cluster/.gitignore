@@ -1,6 +1,0 @@
-bootstrap.kubeconfig
-cilium.kubeconfig
-env.bash
-kubeadm-master.conf
-kubelet.conf
-cilium-config.yaml
