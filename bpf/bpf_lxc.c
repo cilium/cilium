@@ -118,7 +118,7 @@ static inline int ipv6_l3_from_lxc(struct __sk_buff *skb,
 {
 	union macaddr router_mac = NODE_MAC;
 	union v6addr router_ip = {};
-	int ret, l4_off, forwarding_reason;
+	int ret, verdict, l4_off, forwarding_reason;
 	struct csum_offset csum_off = {};
 	struct endpoint_info *ep;
 	struct lb6_service *svc;
@@ -192,6 +192,20 @@ skip_service_lookup:
 
 	forwarding_reason = ret;
 
+	if (!revalidate_data(skb, &data, &data_end, &ip6))
+		return DROP_INVALID;
+	daddr = (union v6addr *)&ip6->daddr;
+
+	/* If the packet is in the establishing direction and it's destined
+	 * within the cluster, it must match policy or be dropped. If it's
+	 * bound for the host/outside, a subsequent CIDR check will be done
+	 * below. */
+	verdict = policy_can_egress6(skb, tuple);
+	BPF_V6(router_ip, ROUTER_IP);
+	if (ret != CT_REPLY && ret != CT_RELATED && verdict < 0 &&
+	    ipv6_match_prefix_64(daddr, &router_ip))
+		return verdict;
+
 	switch (ret) {
 	case CT_NEW:
 		/* New connection implies that rev_nat_index remains untouched
@@ -199,12 +213,8 @@ skip_service_lookup:
 		 * Create a CT entry which allows to track replies and to
 		 * reverse NAT.
 		 */
-		ret = l4_policy_lookup6(skb, tuple, CT_EGRESS, false);
-		if (IS_ERR(ret))
-			return ret;
-		ct_state_new.proxy_port = ret;
+		ct_state_new.proxy_port = verdict;
 		ct_state_new.src_sec_id = SECLABEL;
-
 		ret = ct_create6(&CT_MAP6, tuple, skb, CT_EGRESS, &ct_state_new);
 		if (IS_ERR(ret))
 			return ret;
@@ -310,7 +320,6 @@ skip_service_lookup:
 #endif
 
 	/* Check if destination is within our cluster prefix */
-	BPF_V6(router_ip, ROUTER_IP);
 	if (ipv6_match_prefix_64(daddr, &router_ip)) {
 		/* Packet is going to peer inside the cluster prefix. This can
 		 * happen if encapsulation has been disabled and all remote
@@ -440,7 +449,7 @@ static inline int handle_ipv4_from_lxc(struct __sk_buff *skb)
 	void *data, *data_end;
 	struct iphdr *ip4;
 	struct ethhdr *eth;
-	int ret, l3_off = ETH_HLEN, l4_off, forwarding_reason;
+	int ret, verdict, l3_off = ETH_HLEN, l4_off, forwarding_reason;
 	struct csum_offset csum_off = {};
 	struct endpoint_info *ep;
 	struct lb4_service *svc;
@@ -512,6 +521,15 @@ skip_service_lookup:
 
 	forwarding_reason = ret;
 
+	/* If the packet is in the establishing direction and it's destined
+	 * within the cluster, it must match policy or be dropped. If it's
+	 * bound for the host/outside, a subsequent CIDR check will be done
+	 * below. */
+	verdict = policy_can_egress4(skb, &tuple);
+	if (ret != CT_REPLY && ret != CT_RELATED && verdict < 0 &&
+	    (orig_dip & IPV4_CLUSTER_MASK) == IPV4_CLUSTER_RANGE)
+		return verdict;
+
 	switch (ret) {
 	case CT_NEW:
 		/* New connection implies that rev_nat_index remains untouched
@@ -519,12 +537,8 @@ skip_service_lookup:
 		 * Create a CT entry which allows to track replies and to
 		 * reverse NAT.
 		 */
-		ret = l4_policy_lookup4(skb, &tuple, CT_EGRESS, false);
-		if (IS_ERR(ret))
-			return ret;
-		ct_state_new.proxy_port = ret;
+		ct_state_new.proxy_port = verdict;
 		ct_state_new.src_sec_id = SECLABEL;
-
 		ret = ct_create4(&CT_MAP4, &tuple, skb, CT_EGRESS, &ct_state_new);
 		if (IS_ERR(ret))
 			return ret;

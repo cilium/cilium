@@ -95,6 +95,12 @@ enum {
 				 * arg2: dst sec-id
 				 * arg3: (dport << 16) | protocol
 				 */
+	DBG_IP_ID_MAP_FAILED4,	/* arg1: daddr
+				 * arg2: unused
+				 * arg3: unused */
+	DBG_IP_ID_MAP_FAILED6,	/* arg1: daddr (last 4 bytes)
+				 * arg2: unused
+				 * arg3: unused */
 };
 
 /* Capture types */

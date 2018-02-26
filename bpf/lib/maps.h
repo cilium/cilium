@@ -310,6 +310,17 @@ static __always_inline int lpm4_egress_lookup(__be32 addr)
 #define lpm4_egress_lookup(ADDR) 0
 #endif
 
+#if defined POLICY_EGRESS && defined LXC_ID
+/* Global IP -> Identity map for applying egress label-based policy */
+struct bpf_elf_map __section_maps cilium_remote_lxc = {
+	.type		= BPF_MAP_TYPE_HASH,
+	.size_key	= sizeof(struct endpoint_key),
+	.size_value	= sizeof(struct remote_endpoint_info),
+	.pinning	= PIN_GLOBAL_NS,
+	.max_elem	= ENDPOINTS_MAP_SIZE, /* XXX: Consider resizing? */
+};
+#endif
+
 #ifndef SKIP_CALLS_MAP
 static __always_inline void ep_tail_call(struct __sk_buff *skb, uint32_t index)
 {

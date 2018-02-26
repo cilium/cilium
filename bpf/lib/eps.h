@@ -45,4 +45,28 @@ lookup_ip4_endpoint(struct iphdr *ip4)
 	return map_lookup_elem(&cilium_lxc, &key);
 }
 
+#if defined POLICY_EGRESS && defined LXC_ID
+static __always_inline struct remote_endpoint_info *
+lookup_ip6_remote_endpoint(union v6addr *ip6)
+{
+	struct endpoint_key key = {};
+
+	key.ip6 = *ip6;
+	key.family = ENDPOINT_KEY_IPV6;
+
+	return map_lookup_elem(&cilium_remote_lxc, &key);
+}
+
+static __always_inline struct remote_endpoint_info *
+lookup_ip4_remote_endpoint(__be32 ip4)
+{
+	struct endpoint_key key = {};
+
+	key.ip4 = ip4;
+	key.family = ENDPOINT_KEY_IPV4;
+
+	return map_lookup_elem(&cilium_remote_lxc, &key);
+}
+#endif /* POLICY_EGRESS */
+
 #endif /* __LIB_EPS_H_ */
