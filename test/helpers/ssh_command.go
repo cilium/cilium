@@ -52,6 +52,11 @@ type SSHClient struct {
 	// subprocesses, TCP port/streamlocal forwarding and tunneled dialing.
 }
 
+// GetHostPort returns the host port representation of the ssh client
+func (cli *SSHClient) GetHostPort() string {
+	return net.JoinHostPort(cli.Host, strconv.Itoa(cli.Port))
+}
+
 // SSHConfig contains metadata for an SSH session.
 type SSHConfig struct {
 	target       string
