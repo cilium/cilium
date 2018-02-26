@@ -862,7 +862,7 @@ var _ = Describe("RuntimeValidatedPolicies", func() {
 			   "%s"
 		   ]
 		   }]
-	   }]`, httpd1Label, httpd2Label, ipv4OtherNet)
+		}]`, httpd1Label, httpd2Label, ipv4OtherNet)
 		_, err = vm.PolicyRenderAndImport(script)
 		Expect(err).To(BeNil(), "Unable to import policy: %s", err)
 
