@@ -112,8 +112,10 @@ func (ias *IdentityAllocatorSuite) TestAllocator(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(id1a.ID, Equals, id1b.ID)
 
-	c.Assert(id1a.Release(), IsNil)
-	c.Assert(id1b.Release(), IsNil)
+	_, err = id1a.Release()
+	c.Assert(err, IsNil)
+	_, err = id1b.Release()
+	c.Assert(err, IsNil)
 
 	id1b, isNew, err = AllocateIdentity(lbls1)
 	c.Assert(id1b, Not(IsNil))
@@ -140,7 +142,10 @@ func (ias *IdentityAllocatorSuite) TestAllocator(c *C) {
 	c.Assert(id1a.ID, Not(Equals), id3.ID)
 	c.Assert(id2.ID, Not(Equals), id3.ID)
 
-	c.Assert(id1b.Release(), IsNil)
-	c.Assert(id2.Release(), IsNil)
-	c.Assert(id3.Release(), IsNil)
+	_, err = id1b.Release()
+	c.Assert(err, IsNil)
+	_, err = id2.Release()
+	c.Assert(err, IsNil)
+	_, err = id3.Release()
+	c.Assert(err, IsNil)
 }

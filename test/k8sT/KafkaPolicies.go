@@ -117,28 +117,12 @@ var _ = Describe("K8sValidatedKafkaPolicyTest", func() {
 		logger.Infof("KafkaPolicyRulesTest: cluster service ip '%s'", clusterIP)
 		Expect(err).Should(BeNil())
 
-		By("Getting Cilium Pods")
-		ciliumPod, err := kubectl.GetCiliumPodOnNode(helpers.KubeSystemNamespace, helpers.K8s1)
-		Expect(err).Should(BeNil())
+		By("Waiting for all Cilium Pods and endpoints to be ready ")
+		By("Waiting for node K8s1")
+		ciliumPod1, _ := kubectl.WaitCiliumEndpointReady(podFilter, helpers.K8s1)
 
-		status := kubectl.CiliumExec(ciliumPod, fmt.Sprintf("cilium config %s=%s", helpers.PolicyEnforcement, helpers.PolicyEnforcementDefault))
-		status.ExpectSuccess()
-
-		kubectl.CiliumEndpointWait(ciliumPod)
-
-		epsStatus := helpers.WithTimeout(func() bool {
-			endpoints, err := kubectl.CiliumEndpointsListByLabel(ciliumPod, podFilter)
-			if err != nil {
-				return false
-			}
-			return endpoints.AreReady()
-		}, "Could not get endpoints", &helpers.TimeoutConfig{Timeout: 100})
-		Expect(epsStatus).Should(BeNil())
-
-		endpoints, err := kubectl.CiliumEndpointsListByLabel(ciliumPod, podFilter)
-		Expect(err).Should(BeNil())
-
-		Expect(endpoints.AreReady()).Should(BeTrue())
+		By("Waiting for node K8s2")
+		kubectl.WaitCiliumEndpointReady(podFilter, helpers.K8s2)
 
 		appPods := helpers.GetAppPods(apps, helpers.DefaultNamespace, kubectl, "app")
 		By("Testing basic Kafka Produce and Consume")
@@ -170,54 +154,61 @@ var _ = Describe("K8sValidatedKafkaPolicyTest", func() {
 		Expect(err).Should(BeNil())
 
 		By("Apply L7 kafka policy")
-		eps := kubectl.CiliumEndpointPolicyVersion(ciliumPod)
+		eps1 := kubectl.CiliumEndpointPolicyVersion(ciliumPod1)
 		_, err = kubectl.CiliumPolicyAction(helpers.KubeSystemNamespace, l7Policy, helpers.KubectlApply, 300)
 		Expect(err).Should(BeNil())
 
 		By("Waiting for endpoint updates with L7 policy")
-		err = helpers.WaitUntilEndpointUpdates(ciliumPod, eps, 6, kubectl)
+		err = helpers.WaitUntilEndpointUpdates(ciliumPod1, eps1, 3, kubectl)
 		Expect(err).Should(BeNil())
-		epsStatus = helpers.WithTimeout(func() bool {
-			endpoints, err := kubectl.CiliumEndpointsListByLabel(ciliumPod, podFilter)
+		epsStatus1 := helpers.WithTimeout(func() bool {
+			endpoints1, err := kubectl.CiliumEndpointsListByLabel(ciliumPod1, podFilter)
 			if err != nil {
 				return false
 			}
-			return endpoints.AreReady()
+			return endpoints1.AreReady()
 		}, "could not get endpoints", &helpers.TimeoutConfig{Timeout: 100})
 
-		Expect(epsStatus).Should(BeNil())
+		Expect(epsStatus1).Should(BeNil())
 
-		endpoints, err = kubectl.CiliumEndpointsListByLabel(ciliumPod, podFilter)
-		policyStatus := endpoints.GetPolicyStatus()
+		endpoints1, err := kubectl.CiliumEndpointsListByLabel(ciliumPod1, podFilter)
+		policyStatus1 := endpoints1.GetPolicyStatus()
 
-		By("Testing Kafka endpoint policy enforcement status")
-		Expect(policyStatus[models.EndpointPolicyEnabledNone]).Should(Equal(5))
+		/*
+			Kafka multinode setup:
+
+			K8s1:
+				1. empire-backup
+				2. empire-hq
+				3. kafka-broker : ingress policy only
+
+			K8s2:
+			   1. zook
+			   2. empire-outpost-8888
+			   3. empire-outpost-9999
+		*/
+		By("Testing Kafka endpoint policy enforcement status on K8s1")
+		Expect(policyStatus1[models.EndpointPolicyEnabledNone]).Should(Equal(2))
 		// Only the kafka broker app should have ingress policy enabled.
-		Expect(policyStatus[models.EndpointPolicyEnabledIngress]).Should(Equal(1))
-		Expect(policyStatus[models.EndpointPolicyEnabledEgress]).Should(Equal(0))
-		Expect(policyStatus[models.EndpointPolicyEnabledBoth]).Should(Equal(0))
+		Expect(policyStatus1[models.EndpointPolicyEnabledIngress]).Should(Equal(1))
+		Expect(policyStatus1[models.EndpointPolicyEnabledEgress]).Should(Equal(0))
+		Expect(policyStatus1[models.EndpointPolicyEnabledBoth]).Should(Equal(0))
 
-		By("Testing endpoint policy trace status")
+		By("Testing endpoint policy trace status on kafka-broker node")
 
-		trace := kubectl.CiliumExec(ciliumPod, fmt.Sprintf(
-			"cilium policy trace --src-k8s-pod default:%s --dst-k8s-pod default:%s --dport 9092",
-			appPods[outpostApp], appPods[kafkaApp]))
-		trace.ExpectSuccess(trace.CombineOutput().String())
-		Expect(trace.Output().String()).Should(ContainSubstring("Final verdict: ALLOWED"))
-
-		trace = kubectl.CiliumExec(ciliumPod, fmt.Sprintf(
-			"cilium policy trace --src-k8s-pod default:%s --dst-k8s-pod default:%s --dport 9092",
-			appPods[backupApp], appPods[kafkaApp]))
-		trace.ExpectSuccess(trace.CombineOutput().String())
-		Expect(trace.Output().String()).Should(ContainSubstring("Final verdict: ALLOWED"))
-
-		trace = kubectl.CiliumExec(ciliumPod, fmt.Sprintf(
+		trace := kubectl.CiliumExec(ciliumPod1, fmt.Sprintf(
 			"cilium policy trace --src-k8s-pod default:%s --dst-k8s-pod default:%s --dport 9092",
 			appPods[empireHqApp], appPods[kafkaApp]))
 		trace.ExpectSuccess(trace.CombineOutput().String())
 		Expect(trace.Output().String()).Should(ContainSubstring("Final verdict: ALLOWED"))
 
-		trace = kubectl.CiliumExec(ciliumPod, fmt.Sprintf(
+		trace = kubectl.CiliumExec(ciliumPod1, fmt.Sprintf(
+			"cilium policy trace --src-k8s-pod default:%s --dst-k8s-pod default:%s --dport 9092",
+			appPods[backupApp], appPods[kafkaApp]))
+		trace.ExpectSuccess(trace.CombineOutput().String())
+		Expect(trace.Output().String()).Should(ContainSubstring("Final verdict: ALLOWED"))
+
+		trace = kubectl.CiliumExec(ciliumPod1, fmt.Sprintf(
 			"cilium policy trace --src-k8s-pod default:%s --dst-k8s-pod default:%s --dport 80",
 			appPods[empireHqApp], appPods[kafkaApp]))
 		trace.ExpectSuccess(trace.CombineOutput().String())
@@ -252,14 +243,14 @@ var _ = Describe("K8sValidatedKafkaPolicyTest", func() {
 			helpers.DefaultNamespace, appPods[outpostApp], fmt.Sprintf(prodOutAnnounce))
 		Expect(err).Should(HaveOccurred())
 
-		eps = kubectl.CiliumEndpointPolicyVersion(ciliumPod)
+		eps1 = kubectl.CiliumEndpointPolicyVersion(ciliumPod1)
 		By("Deleting L7 policy")
-		status = kubectl.Delete(l7Policy)
+		status := kubectl.Delete(l7Policy)
 		status.ExpectSuccess()
-		kubectl.CiliumEndpointWait(ciliumPod)
+		kubectl.CiliumEndpointWait(ciliumPod1)
 
-		//Only 1 endpoint is affected by L7 rule
-		err = helpers.WaitUntilEndpointUpdates(ciliumPod, eps, 6, kubectl)
+		//Only 1 endpoint on node1 is affected by L7 rule
+		err = helpers.WaitUntilEndpointUpdates(ciliumPod1, eps1, 3, kubectl)
 		Expect(err).Should(BeNil())
 
 	}, 500)

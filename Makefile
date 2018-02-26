@@ -104,7 +104,7 @@ clean-container:
 clean: clean-container
 	-$(MAKE) -C ./contrib/packaging/deb clean
 	-$(MAKE) -C ./contrib/packaging/rpm clean
-	-rm GIT_VERSION
+	-rm -f GIT_VERSION
 
 install:
 	$(INSTALL) -m 0755 -d $(DESTDIR)$(BINDIR)
@@ -244,8 +244,8 @@ docs-container:
 
 render-docs: docs-container
 	-docker rm -f docs-cilium >/dev/null
-	docker run -ti -v $$(pwd):/srv/ cilium/docs-builder /bin/bash -c 'make html' && \
-	docker run -dit --name docs-cilium -p 8080:80 -v $$(pwd)/Documentation/_build/html/:/usr/local/apache2/htdocs/ httpd:2.4
+	docker run -ti -u $$(id -u):$$(id -g $(USER)) -v $$(pwd):/srv/ cilium/docs-builder /bin/bash -c '$(MAKE) html' && \
+	docker run -dit --name docs-cilium -p 8080:80 -u $$(id -u):$$(id -g $(USER)) -v $$(pwd)/Documentation/_build/html/:/usr/local/apache2/htdocs/ httpd:2.4
 	@echo "$$(tput setaf 2)Running at http://localhost:8080$$(tput sgr0)"
 
 manpages:
@@ -260,6 +260,7 @@ install-manpages:
 postcheck: build
 	contrib/scripts/check-cmdref.sh
 	contrib/scripts/lock-check.sh
+	-$(MAKE) -C Documentation/ dummy SPHINXOPTS="-q" 2>&1 | grep -v "tabs assets"
 
 .PHONY: force
 force :;

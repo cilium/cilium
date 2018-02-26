@@ -15,6 +15,7 @@
 package controller
 
 import (
+	"errors"
 	"fmt"
 	"testing"
 	"time"
@@ -56,7 +57,35 @@ func (b *ControllerSuite) TestStopFunc(c *C) {
 	select {
 	case <-waitChan:
 	case <-time.After(2 * time.Second):
+		c.Error("StopFunc did not run")
 	}
+	c.Assert(stopFuncRan, Equals, true)
+}
+
+func (b *ControllerSuite) TestSelfExit(c *C) {
+	stopFuncRan := false
+	iterations := 0
+	waitChan := make(chan bool)
+
+	mngr := Manager{}
+	mngr.UpdateController("test", ControllerParams{
+		RunInterval: 100 * time.Millisecond,
+		DoFunc: func() error {
+			iterations++
+			return ExitReason{errors.New("test exit")}
+		},
+		StopFunc: func() error {
+			stopFuncRan = true
+			close(waitChan)
+			return nil
+		},
+	})
+	select {
+	case <-waitChan:
+	case <-time.After(time.Second):
+		c.Error("Controller did not exit")
+	}
+	c.Assert(iterations, Equals, 1)
 	c.Assert(stopFuncRan, Equals, true)
 }
 

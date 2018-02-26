@@ -147,6 +147,40 @@ func (c *Cache) Delete(typeURL string, resourceName string, force bool) (version
 	return c.tx(typeURL, nil, []string{resourceName}, force)
 }
 
+func (c *Cache) Clear(typeURL string, force bool) (version uint64, updated bool) {
+	c.locker.Lock()
+	defer c.locker.Unlock()
+
+	cacheIsUpdated := force
+	newVersion := c.version + 1
+
+	cacheLog := log.WithFields(logrus.Fields{
+		logfields.XDSTypeURL:     typeURL,
+		logfields.XDSVersionInfo: newVersion,
+	})
+
+	cacheLog.Debug("preparing new cache transaction: deleting all entries")
+
+	for k := range c.resources {
+		if k.typeURL == typeURL {
+			cacheLog.WithField(logfields.XDSResourceName, k.resourceName).
+				Debug("deleting resource from cache")
+			cacheIsUpdated = true
+			delete(c.resources, k)
+		}
+	}
+
+	if cacheIsUpdated {
+		cacheLog.Debug("committing cache transaction and notifying of new version")
+		c.version = newVersion
+		c.NotifyNewResourceVersionRLocked(typeURL, c.version)
+	} else {
+		cacheLog.Debug("cache unmodified by transaction; aborting")
+	}
+
+	return c.version, cacheIsUpdated
+}
+
 func (c *Cache) GetResources(ctx context.Context, typeURL string, lastVersion *uint64,
 	node *envoy_api_v2_core.Node, resourceNames []string) (*VersionedResources, error) {
 	c.locker.RLock()

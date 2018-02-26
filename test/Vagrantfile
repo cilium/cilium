@@ -6,8 +6,8 @@ $JOB_NAME = ENV['JOB_BASE_NAME'] || "LOCAL"
 $K8S_VERSION = ENV['K8S_VERSION'] || "1.8"
 $K8S_NODES = (ENV['K8S_NODES'] || "2").to_i
 
-$SERVER_BOX= "cilium/ginkgo"
-$SERVER_VERSION="0.0.4"
+$SERVER_BOX= "cilium/ubuntu"
+$SERVER_VERSION="32"
 
 ENV["VAGRANT_DEFAULT_PROVIDER"] = "virtualbox"
 Vagrant.configure("2") do |config|
@@ -23,7 +23,7 @@ Vagrant.configure("2") do |config|
         server.vm.box =  "#{$SERVER_BOX}"
         server.vm.box_version = $SERVER_VERSION
         server.vm.hostname = "runtime"
-        server.vm.synced_folder "../", "/src/"
+        server.vm.synced_folder "../", "/home/vagrant/go/src/github.com/cilium/cilium"
 
         # Provision section
         server.vm.provision :shell,
@@ -52,7 +52,7 @@ Vagrant.configure("2") do |config|
                 ip: "192.168.36.1#{i}",
                 virtualbox__intnet: "cilium-k8s#{$BUILD_NUMBER}-#{$JOB_NAME}-#{$K8S_VERSION}"
 
-            server.vm.synced_folder "../", "/src/"
+            server.vm.synced_folder "../", "/home/vagrant/go/src/github.com/cilium/cilium"
             # Provision section
             server.vm.provision :shell,
                 :inline => "sed -i 's/^mesg n$/tty -s \\&\\& mesg n/g' /root/.profile"

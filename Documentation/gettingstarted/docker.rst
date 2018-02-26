@@ -124,7 +124,7 @@ Docker network managed by Cilium:
 
 
 This has launched a container running an HTTP server which Cilium is now
-managing as an `endpoint`. A Cilium endpoint is one or more application
+managing as an :ref:`endpoint`. A Cilium endpoint is one or more application
 containers which can be addressed by an individual IP address.
 
 

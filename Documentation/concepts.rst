@@ -214,7 +214,7 @@ selector.
 Label Source
 ------------
 
-A label can be derived from various sources. For example, an `endpoint` will
+A label can be derived from various sources. For example, an `endpoint`_ will
 derive the labels associated to the container by the local container runtime as
 well as the labels associated with the pod as provided by Kubernetes. As these
 two label namespaces are not aware of each other, this may result in
@@ -339,10 +339,10 @@ What is an Identity?
 --------------------
 
 The identity of an endpoint is derived based on the `labels` associated with
-the pod or container which are derived to the `endpoint`. When a pod or
-container is started, Cilium will create an `endpoint` based on the event
+the pod or container which are derived to the `endpoint`_. When a pod or
+container is started, Cilium will create an `endpoint`_ based on the event
 received by the container runtime to represent the pod or container on the
-network. As a next step, Cilium will resolve the identity of the `endpoint`
+network. As a next step, Cilium will resolve the identity of the `endpoint`_
 created. Whenever the `labels` of the pod or container change, the identity is
 reconfirmed and automatically modified as required.
 

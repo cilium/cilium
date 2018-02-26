@@ -111,8 +111,8 @@ func (lk *localKeys) use(key string) ID {
 }
 
 // release releases the refcnt of a key. When the last reference was released,
-// the key is deleted
-func (lk *localKeys) release(key string) (bool, error) {
+// the key is deleted and the returned lastUse value is true.
+func (lk *localKeys) release(key string) (lastUse bool, err error) {
 	lk.Lock()
 	defer lk.Unlock()
 	if k, ok := lk.keys[key]; ok {
