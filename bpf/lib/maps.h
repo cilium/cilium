@@ -122,7 +122,7 @@ struct bpf_lpm_trie_key4 {
 
 static __always_inline int lpm4_map_lookup(struct bpf_elf_map *map, __be32 addr)
 {
-	struct bpf_lpm_trie_key6 key = { { 32 }, addr };
+	struct bpf_lpm_trie_key4 key = { { 32 }, addr };
 	return map_lookup_elem(map, &key) != NULL;
 }
 
