@@ -28,7 +28,7 @@ import (
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/k8s"
-	cilium_io "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
+	k8sUtils "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/utils"
 	cilium_v1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v1"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	clientset "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned"
@@ -1526,7 +1526,7 @@ func (d *Daemon) addCiliumNetworkPolicyV1(ciliumV1Store cache.Store, cnp *cilium
 
 				nodeName := node.GetName()
 				serverRuleCpy.SetPolicyStatus(nodeName, cnpns)
-				ns := cilium_io.ExtractNamespace(&serverRuleCpy.ObjectMeta)
+				ns := k8sUtils.ExtractNamespace(&serverRuleCpy.ObjectMeta)
 
 				_, err2 = ciliumNPClient.CiliumV1().CiliumNetworkPolicies(ns).Update(serverRuleCpy)
 				if err2 == nil {
@@ -1694,7 +1694,7 @@ func (d *Daemon) addCiliumNetworkPolicyV2(ciliumV2Store cache.Store, cnp *cilium
 
 				nodeName := node.GetName()
 				serverRuleCpy.SetPolicyStatus(nodeName, cnpns)
-				ns := cilium_io.ExtractNamespace(&serverRuleCpy.ObjectMeta)
+				ns := k8sUtils.ExtractNamespace(&serverRuleCpy.ObjectMeta)
 
 				_, err2 = ciliumNPClient.CiliumV2().CiliumNetworkPolicies(ns).Update(serverRuleCpy)
 				if err2 == nil {

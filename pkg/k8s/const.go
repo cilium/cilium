@@ -30,7 +30,4 @@ const (
 	// EnvNodeNameSpec is the environment label used by Kubernetes to
 	// specify the node's name.
 	EnvNodeNameSpec = "K8S_NODE_NAME"
-	// PodNamespaceMetaLabels is the label used to store the labels of the
-	// kubernetes namespace's labels.
-	PodNamespaceMetaLabels = "ns-labels"
 )

@@ -424,7 +424,7 @@ var _ = Describe("K8sValidatedServicesTest", func() {
 		var policyCmd string
 
 		policyPath = kubectl.ManifestGet("cnp-specs.yaml")
-		policyCmd = "cilium policy get io.cilium.k8s-policy-name=multi-rules"
+		policyCmd = "cilium policy get io.cilium.k8s.policy.name=multi-rules"
 
 		By("Importing policy")
 

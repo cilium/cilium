@@ -12,11 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package ciliumio
+package utils
 
 import (
 	"fmt"
 
+	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -32,7 +33,7 @@ const (
 	subsysK8s = "k8s"
 	// podPrefixLbl is the value the prefix used in the label selector to
 	// represent pods on the default namespace.
-	podPrefixLbl = labels.LabelSourceK8sKeyPrefix + PodNamespaceLabel
+	podPrefixLbl = labels.LabelSourceK8sKeyPrefix + k8sConst.PodNamespaceLabel
 )
 
 var (
@@ -57,8 +58,8 @@ func GetObjNamespaceName(obj *metav1.ObjectMeta) string {
 // GetPolicyLabels returns a LabelArray for the given namespace and name.
 func GetPolicyLabels(ns, name string) labels.LabelArray {
 	return labels.ParseLabelArray(
-		fmt.Sprintf("%s=%s", PolicyLabelName, name),
-		fmt.Sprintf("%s=%s", PolicyLabelNamespace, ns),
+		fmt.Sprintf("%s=%s", k8sConst.PolicyLabelName, name),
+		fmt.Sprintf("%s=%s", k8sConst.PolicyLabelNamespace, ns),
 	)
 }
 

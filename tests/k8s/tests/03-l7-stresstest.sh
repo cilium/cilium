@@ -144,13 +144,13 @@ if [[ "${k8s_version}" != 1.6.* ]]; then
     log "k8s version is 1.7; adding policies"
     k8s_apply_policy kube-system create "${l7_stresstest_dir}/policies/cnp.yaml"
     log "checking that policies were added in Cilium"
-    docker exec -i ${cilium_id} cilium policy get io.cilium.k8s-policy-name=l7-stresstest 1>/dev/null
+    docker exec -i ${cilium_id} cilium policy get io.cilium.k8s.policy.name=l7-stresstest 1>/dev/null
     if [ $? -ne 0 ]; then abort "l7-stresstest policy not in cilium" ; fi
 else
     log "k8s version is 1.6; adding policies"
     k8s_apply_policy kube-system create "${l7_stresstest_dir}/policies/cnp-deprecated.yaml"
     log "checking that policies were added in Cilium"
-    docker exec -i ${cilium_id} cilium policy get io.cilium.k8s-policy-name=l7-stresstest-deprecated 1>/dev/null
+    docker exec -i ${cilium_id} cilium policy get io.cilium.k8s.policy.name=l7-stresstest-deprecated 1>/dev/null
     if [ $? -ne 0 ]; then abort "l7-stresstest-deprecated policy not in cilium" ; fi
 fi
 
@@ -175,11 +175,11 @@ k8s_apply_policy $NAMESPACE delete "${l7_stresstest_dir}/policies"
 # TPR in k8s < 1.7.0
 if [[ "${k8s_version}" != 1.6.* ]]; then
     log "k8s version is 1.7; checking that policies were deleted in Cilium"
-    docker exec -i ${cilium_id} cilium policy get io.cilium.k8s-policy-name=l7-stresstest 2>/dev/null
+    docker exec -i ${cilium_id} cilium policy get io.cilium.k8s.policy.name=l7-stresstest 2>/dev/null
     if [ $? -eq 0 ]; then abort "l7-stresstest policy found in cilium; policy should have been deleted" ; fi
 else
     log "k8s version is 1.6; checking that policies were deleted in Ciliumd"
-    docker exec -i ${cilium_id} cilium policy get io.cilium.k8s-policy-name=l7-stresstest-deprecated 2>/dev/null
+    docker exec -i ${cilium_id} cilium policy get io.cilium.k8s.policy.name=l7-stresstest-deprecated 2>/dev/null
     if [ $? -eq 0 ]; then abort "l7-stresstest-deprecated policy found in cilium; policy should have been deleted" ; fi
 fi
 
@@ -192,13 +192,13 @@ if [[ "${k8s_version}" != 1.6.* ]]; then
     log "k8s version is 1.7; adding policies"
     k8s_apply_policy kube-system create "${l7_stresstest_dir}/policies/cnp-any-namespace.yaml"
     log "checking that policies were added in Cilium"
-    docker exec -i ${cilium_id} cilium policy get io.cilium.k8s-policy-name=l7-stresstest 1>/dev/null
+    docker exec -i ${cilium_id} cilium policy get io.cilium.k8s.policy.name=l7-stresstest 1>/dev/null
     if [ $? -ne 0 ]; then abort "l7-stresstest policy not in cilium" ; fi
 else
     log "k8s version is 1.6; adding policies"
     k8s_apply_policy kube-system create "${l7_stresstest_dir}/policies/cnp-any-namespace-deprecated.yaml"
     log "checking that policies were added in Cilium"
-    docker exec -i ${cilium_id} cilium policy get io.cilium.k8s-policy-name=l7-stresstest-deprecated 1>/dev/null
+    docker exec -i ${cilium_id} cilium policy get io.cilium.k8s.policy.name=l7-stresstest-deprecated 1>/dev/null
     if [ $? -ne 0 ]; then abort "l7-stresstest-deprecated policy not in cilium" ; fi
 fi
 
@@ -228,10 +228,10 @@ kubectl delete namespace qa development
 # TPR in k8s < 1.7.0
 if [[ "${k8s_version}" != 1.6.* ]]; then
     log "k8s version is 1.7; checking that policies were deleted in Cilium"
-    docker exec -i ${cilium_id} cilium policy get io.cilium.k8s-policy-name=l7-stresstest 2>/dev/null
+    docker exec -i ${cilium_id} cilium policy get io.cilium.k8s.policy.name=l7-stresstest 2>/dev/null
     if [ $? -eq 0 ]; then abort "l7-stresstest policy found in cilium; policy should have been deleted" ; fi
 else
     log "k8s version is 1.6; checking that policies were deleted in Ciliumd"
-    docker exec -i ${cilium_id} cilium policy get io.cilium.k8s-policy-name=l7-stresstest-deprecated 2>/dev/null
+    docker exec -i ${cilium_id} cilium policy get io.cilium.k8s.policy.name=l7-stresstest-deprecated 2>/dev/null
     if [ $? -eq 0 ]; then abort "l7-stresstest-deprecated policy found in cilium; policy should have been deleted" ; fi
 fi

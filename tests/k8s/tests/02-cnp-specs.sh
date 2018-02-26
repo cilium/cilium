@@ -135,7 +135,7 @@ if [[ "${k8s_version}" != 1.6.* ]]; then
     if [ $? -ne 0 ]; then abort "policies were not inserted in kubernetes" ; fi
 
     log "checking that multi-rules policy was added in Cilium"
-    docker exec -i ${cilium_id} cilium policy get io.cilium.k8s-policy-name=multi-rules 1>/dev/null
+    docker exec -i ${cilium_id} cilium policy get io.cilium.k8s.policy.name=multi-rules 1>/dev/null
 
     if [ $? -ne 0 ]; then abort "multi-rules policy not in cilium" ; fi
 else
@@ -145,7 +145,7 @@ else
     if [ $? -ne 0 ]; then abort "policies were not inserted in kubernetes" ; fi
 
     log "checking that multi-rules-deprecated policy was added in Cilium"
-    docker exec -i ${cilium_id} cilium policy get io.cilium.k8s-policy-name=multi-rules-deprecated 1>/dev/null
+    docker exec -i ${cilium_id} cilium policy get io.cilium.k8s.policy.name=multi-rules-deprecated 1>/dev/null
 
     if [ $? -ne 0 ]; then abort "multi-rules-deprecated policy not in cilium" ; fi
 fi
@@ -180,6 +180,6 @@ log "deleting all policies in ${bookinfo_dir}/policies"
 k8s_apply_policy $NAMESPACE delete "${bookinfo_dir}/policies"
 
 log "checking that all policies were deleted in Cilium"
-docker exec -i ${cilium_id} cilium policy get io.cilium.k8s-policy-name=multi-rules 2>/dev/null
+docker exec -i ${cilium_id} cilium policy get io.cilium.k8s.policy.name=multi-rules 2>/dev/null
 
 if [ $? -eq 0 ]; then abort "multi-rules policy found in cilium; policy should have been deleted" ; fi

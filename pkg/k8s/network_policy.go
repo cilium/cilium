@@ -16,7 +16,8 @@ package k8s
 
 import (
 	"github.com/cilium/cilium/pkg/annotation"
-	k8sconst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
+	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
+	k8sUtils "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/utils"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/policy"
@@ -33,9 +34,9 @@ func GetPolicyLabelsv1(np *networkingv1.NetworkPolicy) labels.LabelArray {
 		policyName = np.Name
 	}
 
-	ns := k8sconst.ExtractNamespace(&np.ObjectMeta)
+	ns := k8sUtils.ExtractNamespace(&np.ObjectMeta)
 
-	return k8sconst.GetPolicyLabels(ns, policyName)
+	return k8sUtils.GetPolicyLabels(ns, policyName)
 }
 
 func parseNetworkPolicyPeer(namespace string, peer *networkingv1.NetworkPolicyPeer) *api.EndpointSelector {
@@ -50,21 +51,21 @@ func parseNetworkPolicyPeer(namespace string, peer *networkingv1.NetworkPolicyPe
 		// The PodSelector should only reflect to the same namespace
 		// the policy is being stored, thus we add the namespace to
 		// the MatchLabels map.
-		peer.PodSelector.MatchLabels[k8sconst.PodNamespaceLabel] = namespace
+		peer.PodSelector.MatchLabels[k8sConst.PodNamespaceLabel] = namespace
 	} else if peer.NamespaceSelector != nil {
 		labelSelector = peer.NamespaceSelector
 		matchLabels := map[string]string{}
 		// We use our own special label prefix for namespace metadata,
 		// thus we need to prefix that prefix to all NamespaceSelector.MatchLabels
 		for k, v := range peer.NamespaceSelector.MatchLabels {
-			matchLabels[policy.JoinPath(PodNamespaceMetaLabels, k)] = v
+			matchLabels[policy.JoinPath(k8sConst.PodNamespaceMetaLabels, k)] = v
 		}
 		peer.NamespaceSelector.MatchLabels = matchLabels
 
 		// We use our own special label prefix for namespace metadata,
 		// thus we need to prefix that prefix to all NamespaceSelector.MatchLabels
 		for i, lsr := range peer.NamespaceSelector.MatchExpressions {
-			lsr.Key = policy.JoinPath(PodNamespaceMetaLabels, lsr.Key)
+			lsr.Key = policy.JoinPath(k8sConst.PodNamespaceMetaLabels, lsr.Key)
 			peer.NamespaceSelector.MatchExpressions[i] = lsr
 		}
 	} else {
@@ -92,7 +93,7 @@ func ParseNetworkPolicy(np *networkingv1.NetworkPolicy) (api.Rules, error) {
 	ingresses := []api.IngressRule{}
 	egresses := []api.EgressRule{}
 
-	namespace := k8sconst.ExtractNamespace(&np.ObjectMeta)
+	namespace := k8sUtils.ExtractNamespace(&np.ObjectMeta)
 	for _, iRule := range np.Spec.Ingress {
 		ingress := api.IngressRule{}
 		if iRule.From != nil && len(iRule.From) > 0 {
@@ -170,7 +171,7 @@ func ParseNetworkPolicy(np *networkingv1.NetworkPolicy) (api.Rules, error) {
 	if np.Spec.PodSelector.MatchLabels == nil {
 		np.Spec.PodSelector.MatchLabels = map[string]string{}
 	}
-	np.Spec.PodSelector.MatchLabels[k8sconst.PodNamespaceLabel] = namespace
+	np.Spec.PodSelector.MatchLabels[k8sConst.PodNamespaceLabel] = namespace
 
 	rule := &api.Rule{
 		EndpointSelector: api.NewESFromK8sLabelSelector(labels.LabelSourceK8sKeyPrefix, &np.Spec.PodSelector),

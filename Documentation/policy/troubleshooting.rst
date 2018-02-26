@@ -73,7 +73,7 @@ For an endpoint with endpoint id 51796, We can print all policies applied to it 
     $ cilium endpoint get 51796 -o jsonpath='{range ..policy.l4.ingress[*].derived-from-rules}{@}{"\n"}{end}' | \
       tr -d '][' | \
       xargs -I{} bash -c 'echo "Labels: {}"; cilium policy get {}'
-    Labels: unspec:io.cilium.k8s-policy-name=rule1 unspec:io.cilium.k8s-policy-namespace=default
+    Labels: unspec:io.cilium.k8s.policy.name=rule1 unspec:io.cilium.k8s.policy.namespace=default
     [
       {
         "endpointSelector": {
@@ -81,12 +81,12 @@ For an endpoint with endpoint id 51796, We can print all policies applied to it 
              ],
         "labels": [
           {
-            "key": "io.cilium.k8s-policy-name",
+            "key": "io.cilium.k8s.policy.name",
             "value": "rule1",
             "source": "unspec"
           },
           {
-            "key": "io.cilium.k8s-policy-namespace",
+            "key": "io.cilium.k8s.policy.namespace",
             "value": "default",
             "source": "unspec"
           }

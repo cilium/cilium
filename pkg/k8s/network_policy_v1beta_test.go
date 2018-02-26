@@ -22,7 +22,7 @@ import (
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/comparator"
-	k8sconst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
+	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
@@ -73,14 +73,14 @@ func (s *K8sSuite) TestParseNetworkPolicyDeprecated(c *C) {
 	c.Assert(len(rules), Equals, 1)
 
 	fromEndpoints := labels.LabelArray{
-		labels.NewLabel(k8sconst.PodNamespaceLabel, v1.NamespaceDefault, labels.LabelSourceK8s),
+		labels.NewLabel(k8sConst.PodNamespaceLabel, v1.NamespaceDefault, labels.LabelSourceK8s),
 		labels.NewLabel("foo3", "bar3", labels.LabelSourceK8s),
 		labels.NewLabel("foo4", "bar4", labels.LabelSourceK8s),
 	}
 	ctx := policy.SearchContext{
 		From: fromEndpoints,
 		To: labels.LabelArray{
-			labels.NewLabel(k8sconst.PodNamespaceLabel, v1.NamespaceDefault, labels.LabelSourceK8s),
+			labels.NewLabel(k8sConst.PodNamespaceLabel, v1.NamespaceDefault, labels.LabelSourceK8s),
 			labels.NewLabel("foo1", "bar1", labels.LabelSourceK8s),
 			labels.NewLabel("foo2", "bar2", labels.LabelSourceK8s),
 		},
@@ -109,11 +109,16 @@ func (s *K8sSuite) TestParseNetworkPolicyDeprecated(c *C) {
 		Ingress: policy.L4PolicyMap{
 			"80/TCP": {
 				Port: 80, Protocol: api.ProtoTCP, U8Proto: 6,
-				FromEndpoints:    []api.EndpointSelector{epSelector},
-				L7Parser:         "",
-				L7RulesPerEp:     policy.L7DataMap{},
-				Ingress:          true,
-				DerivedFromRules: []labels.LabelArray{labels.ParseLabelArray("unspec:io.cilium.k8s-policy-name", "unspec:io.cilium.k8s-policy-namespace=default")},
+				FromEndpoints: []api.EndpointSelector{epSelector},
+				L7Parser:      "",
+				L7RulesPerEp:  policy.L7DataMap{},
+				Ingress:       true,
+				DerivedFromRules: []labels.LabelArray{
+					labels.ParseLabelArray(
+						"unspec:"+k8sConst.PolicyLabelName,
+						"unspec:"+k8sConst.PolicyLabelNamespace+"=default",
+					),
+				},
 			},
 		},
 		Egress: policy.L4PolicyMap{},
@@ -184,11 +189,11 @@ func (s *K8sSuite) TestParseNetworkPolicyEmptyFromDeprecated(c *C) {
 
 	ctx := policy.SearchContext{
 		From: labels.LabelArray{
-			labels.NewLabel(k8sconst.PodNamespaceLabel, v1.NamespaceDefault, labels.LabelSourceK8s),
+			labels.NewLabel(k8sConst.PodNamespaceLabel, v1.NamespaceDefault, labels.LabelSourceK8s),
 			labels.NewLabel("foo0", "bar0", labels.LabelSourceK8s),
 		},
 		To: labels.LabelArray{
-			labels.NewLabel(k8sconst.PodNamespaceLabel, v1.NamespaceDefault, labels.LabelSourceK8s),
+			labels.NewLabel(k8sConst.PodNamespaceLabel, v1.NamespaceDefault, labels.LabelSourceK8s),
 			labels.NewLabel("foo1", "bar1", labels.LabelSourceK8s),
 		},
 		Trace: policy.TRACE_VERBOSE,
@@ -239,11 +244,11 @@ func (s *K8sSuite) TestParseNetworkPolicyDenyAllDeprecated(c *C) {
 
 	ctx := policy.SearchContext{
 		From: labels.LabelArray{
-			labels.NewLabel(k8sconst.PodNamespaceLabel, v1.NamespaceDefault, labels.LabelSourceK8s),
+			labels.NewLabel(k8sConst.PodNamespaceLabel, v1.NamespaceDefault, labels.LabelSourceK8s),
 			labels.NewLabel("foo0", "bar0", labels.LabelSourceK8s),
 		},
 		To: labels.LabelArray{
-			labels.NewLabel(k8sconst.PodNamespaceLabel, v1.NamespaceDefault, labels.LabelSourceK8s),
+			labels.NewLabel(k8sConst.PodNamespaceLabel, v1.NamespaceDefault, labels.LabelSourceK8s),
 			labels.NewLabel("foo1", "bar1", labels.LabelSourceK8s),
 		},
 		Trace: policy.TRACE_VERBOSE,
@@ -320,7 +325,7 @@ func (s *K8sSuite) TestNetworkPolicyExamplesDeprecated(c *C) {
 	repo.AddList(rules)
 	ctx := policy.SearchContext{
 		From: labels.LabelArray{
-			labels.NewLabel(k8sconst.PodNamespaceLabel, "myns", labels.LabelSourceK8s),
+			labels.NewLabel(k8sConst.PodNamespaceLabel, "myns", labels.LabelSourceK8s),
 			labels.NewLabel("role", "frontend", labels.LabelSourceK8s),
 		},
 		To: labels.LabelArray{
@@ -333,7 +338,7 @@ func (s *K8sSuite) TestNetworkPolicyExamplesDeprecated(c *C) {
 
 	ctx = policy.SearchContext{
 		From: labels.LabelArray{
-			labels.NewLabel(k8sconst.PodNamespaceLabel, v1.NamespaceDefault, labels.LabelSourceK8s),
+			labels.NewLabel(k8sConst.PodNamespaceLabel, v1.NamespaceDefault, labels.LabelSourceK8s),
 			labels.NewLabel("role", "frontend", labels.LabelSourceK8s),
 		},
 		To: labels.LabelArray{
@@ -346,11 +351,11 @@ func (s *K8sSuite) TestNetworkPolicyExamplesDeprecated(c *C) {
 
 	ctx = policy.SearchContext{
 		From: labels.LabelArray{
-			labels.NewLabel(k8sconst.PodNamespaceLabel, "myns", labels.LabelSourceK8s),
+			labels.NewLabel(k8sConst.PodNamespaceLabel, "myns", labels.LabelSourceK8s),
 			labels.NewLabel("role", "frontend", labels.LabelSourceK8s),
 		},
 		To: labels.LabelArray{
-			labels.NewLabel(k8sconst.PodNamespaceLabel, "myns", labels.LabelSourceK8s),
+			labels.NewLabel(k8sConst.PodNamespaceLabel, "myns", labels.LabelSourceK8s),
 			labels.NewLabel("role", "backend", labels.LabelSourceK8s),
 		},
 		DPorts: []*models.Port{
@@ -412,11 +417,11 @@ func (s *K8sSuite) TestNetworkPolicyExamplesDeprecated(c *C) {
 	repo.AddList(rules)
 	ctx = policy.SearchContext{
 		From: labels.LabelArray{
-			labels.NewLabel(k8sconst.PodNamespaceLabel, v1.NamespaceDefault, labels.LabelSourceK8s),
-			labels.NewLabel(policy.JoinPath(PodNamespaceMetaLabels, "user"), "bob", labels.LabelSourceK8s),
+			labels.NewLabel(k8sConst.PodNamespaceLabel, v1.NamespaceDefault, labels.LabelSourceK8s),
+			labels.NewLabel(policy.JoinPath(k8sConst.PodNamespaceMetaLabels, "user"), "bob", labels.LabelSourceK8s),
 		},
 		To: labels.LabelArray{
-			labels.NewLabel(k8sconst.PodNamespaceLabel, v1.NamespaceDefault, labels.LabelSourceK8s),
+			labels.NewLabel(k8sConst.PodNamespaceLabel, v1.NamespaceDefault, labels.LabelSourceK8s),
 			labels.NewLabel("role", "frontend", labels.LabelSourceK8s),
 		},
 		Trace: policy.TRACE_VERBOSE,
@@ -433,8 +438,8 @@ func (s *K8sSuite) TestNetworkPolicyExamplesDeprecated(c *C) {
 
 	ctx = policy.SearchContext{
 		From: labels.LabelArray{
-			labels.NewLabel(k8sconst.PodNamespaceLabel, "myns", labels.LabelSourceK8s),
-			labels.NewLabel(policy.JoinPath(PodNamespaceMetaLabels, "user"), "bob", labels.LabelSourceK8s),
+			labels.NewLabel(k8sConst.PodNamespaceLabel, "myns", labels.LabelSourceK8s),
+			labels.NewLabel(policy.JoinPath(k8sConst.PodNamespaceMetaLabels, "user"), "bob", labels.LabelSourceK8s),
 		},
 		DPorts: []*models.Port{
 			{
@@ -443,7 +448,7 @@ func (s *K8sSuite) TestNetworkPolicyExamplesDeprecated(c *C) {
 			},
 		},
 		To: labels.LabelArray{
-			labels.NewLabel(k8sconst.PodNamespaceLabel, v1.NamespaceDefault, labels.LabelSourceK8s),
+			labels.NewLabel(k8sConst.PodNamespaceLabel, v1.NamespaceDefault, labels.LabelSourceK8s),
 			labels.NewLabel("role", "frontend", labels.LabelSourceK8s),
 		},
 		Trace: policy.TRACE_VERBOSE,
@@ -480,11 +485,11 @@ func (s *K8sSuite) TestNetworkPolicyExamplesDeprecated(c *C) {
 	repo.AddList(rules)
 	ctx = policy.SearchContext{
 		From: labels.LabelArray{
-			labels.NewLabel(k8sconst.PodNamespaceLabel, "myns", labels.LabelSourceK8s),
-			labels.NewLabel(policy.JoinPath(PodNamespaceMetaLabels, "user"), "bob", labels.LabelSourceK8s),
+			labels.NewLabel(k8sConst.PodNamespaceLabel, "myns", labels.LabelSourceK8s),
+			labels.NewLabel(policy.JoinPath(k8sConst.PodNamespaceMetaLabels, "user"), "bob", labels.LabelSourceK8s),
 		},
 		To: labels.LabelArray{
-			labels.NewLabel(k8sconst.PodNamespaceLabel, v1.NamespaceDefault, labels.LabelSourceK8s),
+			labels.NewLabel(k8sConst.PodNamespaceLabel, v1.NamespaceDefault, labels.LabelSourceK8s),
 			labels.NewLabel("role", "backend", labels.LabelSourceK8s),
 		},
 		Trace: policy.TRACE_VERBOSE,
@@ -494,11 +499,11 @@ func (s *K8sSuite) TestNetworkPolicyExamplesDeprecated(c *C) {
 
 	ctx = policy.SearchContext{
 		From: labels.LabelArray{
-			labels.NewLabel(k8sconst.PodNamespaceLabel, v1.NamespaceDefault, labels.LabelSourceK8s),
-			labels.NewLabel(policy.JoinPath(PodNamespaceMetaLabels, "user"), "bob", labels.LabelSourceK8s),
+			labels.NewLabel(k8sConst.PodNamespaceLabel, v1.NamespaceDefault, labels.LabelSourceK8s),
+			labels.NewLabel(policy.JoinPath(k8sConst.PodNamespaceMetaLabels, "user"), "bob", labels.LabelSourceK8s),
 		},
 		To: labels.LabelArray{
-			labels.NewLabel(k8sconst.PodNamespaceLabel, v1.NamespaceDefault, labels.LabelSourceK8s),
+			labels.NewLabel(k8sConst.PodNamespaceLabel, v1.NamespaceDefault, labels.LabelSourceK8s),
 			labels.NewLabel("role", "backend", labels.LabelSourceK8s),
 		},
 		Trace: policy.TRACE_VERBOSE,
@@ -508,11 +513,11 @@ func (s *K8sSuite) TestNetworkPolicyExamplesDeprecated(c *C) {
 
 	ctx = policy.SearchContext{
 		From: labels.LabelArray{
-			labels.NewLabel(k8sconst.PodNamespaceLabel, v1.NamespaceDefault, labels.LabelSourceK8s),
-			labels.NewLabel(policy.JoinPath(PodNamespaceMetaLabels, "user"), "bob", labels.LabelSourceK8s),
+			labels.NewLabel(k8sConst.PodNamespaceLabel, v1.NamespaceDefault, labels.LabelSourceK8s),
+			labels.NewLabel(policy.JoinPath(k8sConst.PodNamespaceMetaLabels, "user"), "bob", labels.LabelSourceK8s),
 		},
 		To: labels.LabelArray{
-			labels.NewLabel(k8sconst.PodNamespaceLabel, v1.NamespaceDefault, labels.LabelSourceK8s),
+			labels.NewLabel(k8sConst.PodNamespaceLabel, v1.NamespaceDefault, labels.LabelSourceK8s),
 			labels.NewLabel("role", "backend", labels.LabelSourceK8s),
 		},
 		DPorts: []*models.Port{
@@ -585,8 +590,8 @@ func (s *K8sSuite) TestNetworkPolicyExamplesDeprecated(c *C) {
 
 	ctx = policy.SearchContext{
 		From: labels.LabelArray{
-			labels.NewLabel(k8sconst.PodNamespaceLabel, v1.NamespaceDefault, labels.LabelSourceK8s),
-			labels.NewLabel(policy.JoinPath(PodNamespaceMetaLabels, "user"), "bob", labels.LabelSourceK8s),
+			labels.NewLabel(k8sConst.PodNamespaceLabel, v1.NamespaceDefault, labels.LabelSourceK8s),
+			labels.NewLabel(policy.JoinPath(k8sConst.PodNamespaceMetaLabels, "user"), "bob", labels.LabelSourceK8s),
 		},
 		DPorts: []*models.Port{
 			{
@@ -595,7 +600,7 @@ func (s *K8sSuite) TestNetworkPolicyExamplesDeprecated(c *C) {
 			},
 		},
 		To: labels.LabelArray{
-			labels.NewLabel(k8sconst.PodNamespaceLabel, v1.NamespaceDefault, labels.LabelSourceK8s),
+			labels.NewLabel(k8sConst.PodNamespaceLabel, v1.NamespaceDefault, labels.LabelSourceK8s),
 			labels.NewLabel("role", "frontend", labels.LabelSourceK8s),
 		},
 		Trace: policy.TRACE_VERBOSE,
@@ -605,8 +610,8 @@ func (s *K8sSuite) TestNetworkPolicyExamplesDeprecated(c *C) {
 
 	ctx = policy.SearchContext{
 		From: labels.LabelArray{
-			labels.NewLabel(k8sconst.PodNamespaceLabel, v1.NamespaceDefault, labels.LabelSourceK8s),
-			labels.NewLabel(policy.JoinPath(PodNamespaceMetaLabels, "user"), "bob", labels.LabelSourceK8s),
+			labels.NewLabel(k8sConst.PodNamespaceLabel, v1.NamespaceDefault, labels.LabelSourceK8s),
+			labels.NewLabel(policy.JoinPath(k8sConst.PodNamespaceMetaLabels, "user"), "bob", labels.LabelSourceK8s),
 		},
 		DPorts: []*models.Port{
 			{
@@ -615,7 +620,7 @@ func (s *K8sSuite) TestNetworkPolicyExamplesDeprecated(c *C) {
 			},
 		},
 		To: labels.LabelArray{
-			labels.NewLabel(k8sconst.PodNamespaceLabel, v1.NamespaceDefault, labels.LabelSourceK8s),
+			labels.NewLabel(k8sConst.PodNamespaceLabel, v1.NamespaceDefault, labels.LabelSourceK8s),
 			labels.NewLabel("role", "frontend", labels.LabelSourceK8s),
 		},
 		Trace: policy.TRACE_VERBOSE,
@@ -710,15 +715,15 @@ func (s *K8sSuite) TestNetworkPolicyExamplesDeprecated(c *C) {
 	ctx = policy.SearchContext{
 		From: labels.LabelArray{
 			// doesn't matter the namespace.
-			labels.NewLabel(k8sconst.PodNamespaceLabel, "myns", labels.LabelSourceK8s),
+			labels.NewLabel(k8sConst.PodNamespaceLabel, "myns", labels.LabelSourceK8s),
 			// component==redis is in the policy
-			labels.NewLabel(policy.JoinPath(PodNamespaceMetaLabels, "component"), "redis", labels.LabelSourceK8s),
+			labels.NewLabel(policy.JoinPath(k8sConst.PodNamespaceMetaLabels, "component"), "redis", labels.LabelSourceK8s),
 			// tier==cache is in the policy
-			labels.NewLabel(policy.JoinPath(PodNamespaceMetaLabels, "tier"), "cache", labels.LabelSourceK8s),
+			labels.NewLabel(policy.JoinPath(k8sConst.PodNamespaceMetaLabels, "tier"), "cache", labels.LabelSourceK8s),
 			// environment is not in `dev` which is in the policy
-			labels.NewLabel(policy.JoinPath(PodNamespaceMetaLabels, "environment"), "production", labels.LabelSourceK8s),
+			labels.NewLabel(policy.JoinPath(k8sConst.PodNamespaceMetaLabels, "environment"), "production", labels.LabelSourceK8s),
 			// doesn't matter, there isn't any matchExpression denying traffic from any zone.
-			labels.NewLabel(policy.JoinPath(PodNamespaceMetaLabels, "zone"), "eu-1", labels.LabelSourceK8s),
+			labels.NewLabel(policy.JoinPath(k8sConst.PodNamespaceMetaLabels, "zone"), "eu-1", labels.LabelSourceK8s),
 		},
 		DPorts: []*models.Port{
 			{
@@ -728,7 +733,7 @@ func (s *K8sSuite) TestNetworkPolicyExamplesDeprecated(c *C) {
 		},
 		To: labels.LabelArray{
 			// Namespace needs to be in `expressions` since the policy is being enforced for that namespace.
-			labels.NewLabel(k8sconst.PodNamespaceLabel, "expressions", labels.LabelSourceK8s),
+			labels.NewLabel(k8sConst.PodNamespaceLabel, "expressions", labels.LabelSourceK8s),
 			// component==redis is in the policy.
 			labels.NewLabel("component", "redis", labels.LabelSourceK8s),
 			// tier==cache is in the policy
@@ -741,7 +746,7 @@ func (s *K8sSuite) TestNetworkPolicyExamplesDeprecated(c *C) {
 
 	ctx.To = labels.LabelArray{
 		// Namespace needs to be in `expressions` since the policy is being enforced for that namespace.
-		labels.NewLabel(k8sconst.PodNamespaceLabel, "myns", labels.LabelSourceK8s),
+		labels.NewLabel(k8sConst.PodNamespaceLabel, "myns", labels.LabelSourceK8s),
 		// component==redis is in the policy.
 		labels.NewLabel("component", "redis", labels.LabelSourceK8s),
 		// tier==cache is in the policy
@@ -752,10 +757,10 @@ func (s *K8sSuite) TestNetworkPolicyExamplesDeprecated(c *C) {
 
 	ctx = policy.SearchContext{
 		From: labels.LabelArray{
-			labels.NewLabel(policy.JoinPath(PodNamespaceMetaLabels, "component"), "redis", labels.LabelSourceK8s),
-			labels.NewLabel(policy.JoinPath(PodNamespaceMetaLabels, "tier"), "cache", labels.LabelSourceK8s),
-			labels.NewLabel(policy.JoinPath(PodNamespaceMetaLabels, "environment"), "dev", labels.LabelSourceK8s),
-			labels.NewLabel(policy.JoinPath(PodNamespaceMetaLabels, "zone"), "eu-1", labels.LabelSourceK8s),
+			labels.NewLabel(policy.JoinPath(k8sConst.PodNamespaceMetaLabels, "component"), "redis", labels.LabelSourceK8s),
+			labels.NewLabel(policy.JoinPath(k8sConst.PodNamespaceMetaLabels, "tier"), "cache", labels.LabelSourceK8s),
+			labels.NewLabel(policy.JoinPath(k8sConst.PodNamespaceMetaLabels, "environment"), "dev", labels.LabelSourceK8s),
+			labels.NewLabel(policy.JoinPath(k8sConst.PodNamespaceMetaLabels, "zone"), "eu-1", labels.LabelSourceK8s),
 		},
 		DPorts: []*models.Port{
 			{
@@ -764,7 +769,7 @@ func (s *K8sSuite) TestNetworkPolicyExamplesDeprecated(c *C) {
 			},
 		},
 		To: labels.LabelArray{
-			labels.NewLabel(k8sconst.PodNamespaceLabel, "expressions", labels.LabelSourceK8s),
+			labels.NewLabel(k8sConst.PodNamespaceLabel, "expressions", labels.LabelSourceK8s),
 			labels.NewLabel("component", "redis", labels.LabelSourceK8s),
 			labels.NewLabel("tier", "cache", labels.LabelSourceK8s),
 		},
@@ -775,8 +780,8 @@ func (s *K8sSuite) TestNetworkPolicyExamplesDeprecated(c *C) {
 
 	ctx = policy.SearchContext{
 		From: labels.LabelArray{
-			labels.NewLabel(policy.JoinPath(PodNamespaceMetaLabels, "component"), "redis", labels.LabelSourceK8s),
-			labels.NewLabel(policy.JoinPath(PodNamespaceMetaLabels, "tier"), "cache", labels.LabelSourceK8s),
+			labels.NewLabel(policy.JoinPath(k8sConst.PodNamespaceMetaLabels, "component"), "redis", labels.LabelSourceK8s),
+			labels.NewLabel(policy.JoinPath(k8sConst.PodNamespaceMetaLabels, "tier"), "cache", labels.LabelSourceK8s),
 		},
 		DPorts: []*models.Port{
 			{
@@ -785,7 +790,7 @@ func (s *K8sSuite) TestNetworkPolicyExamplesDeprecated(c *C) {
 			},
 		},
 		To: labels.LabelArray{
-			labels.NewLabel(k8sconst.PodNamespaceLabel, "expressions", labels.LabelSourceK8s),
+			labels.NewLabel(k8sConst.PodNamespaceLabel, "expressions", labels.LabelSourceK8s),
 			labels.NewLabel("component", "redis", labels.LabelSourceK8s),
 			labels.NewLabel("tier", "cache", labels.LabelSourceK8s),
 		},

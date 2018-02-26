@@ -29,11 +29,12 @@ import (
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/ipam"
 	"github.com/cilium/cilium/pkg/k8s"
-	k8sconst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
+	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/node"
+	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/workloads"
 
 	dTypes "github.com/docker/engine-api/types"
@@ -199,11 +200,21 @@ func fetchK8sLabels(dockerLbls map[string]string) (map[string]string, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	// Also get all labels from the namespace where the pod is running
+	k8sNs, err := k8s.Client().CoreV1().Namespaces().Get(ns, metav1.GetOptions{})
+	if err != nil {
+		return nil, err
+	}
+
 	k8sLabels := result.GetLabels()
 	if k8sLabels == nil {
-		return nil, nil
+		k8sLabels = map[string]string{}
 	}
-	k8sLabels[k8sconst.PodNamespaceLabel] = ns
+	for k, v := range k8sNs.GetLabels() {
+		k8sLabels[policy.JoinPath(k8sConst.PodNamespaceMetaLabels, k)] = v
+	}
+	k8sLabels[k8sConst.PodNamespaceLabel] = ns
 	return k8sLabels, nil
 }
 

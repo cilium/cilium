@@ -778,7 +778,7 @@ var _ = Describe("K8sValidatedPolicyTestAcrossNamespaces", func() {
 		basicConnectivity := func() {
 			By("Loading Policies into Cilium")
 			policyPath := kubectl.ManifestGet("cnp-l7-stresstest.yaml")
-			policyCmd := "cilium policy get io.cilium.k8s-policy-name=l7-stresstest"
+			policyCmd := "cilium policy get io.cilium.k8s.policy.name=l7-stresstest"
 
 			_, err = kubectl.CiliumPolicyAction(helpers.KubeSystemNamespace, policyPath, helpers.KubectlCreate, helpers.HelperTimeout)
 			Expect(err).Should(BeNil(), fmt.Sprintf("Error creating resource %s: %s", policyPath, err))
@@ -798,7 +798,7 @@ var _ = Describe("K8sValidatedPolicyTestAcrossNamespaces", func() {
 			By("Testing Cilium NetworkPolicy enforcement from any namespace")
 
 			policyPath := kubectl.ManifestGet("cnp-any-namespace.yaml")
-			policyCmd := "cilium policy get io.cilium.k8s-policy-name=l7-stresstest"
+			policyCmd := "cilium policy get io.cilium.k8s.policy.name=l7-stresstest"
 
 			_, err = kubectl.CiliumPolicyAction(helpers.KubeSystemNamespace, policyPath, helpers.KubectlCreate, helpers.HelperTimeout)
 			Expect(err).Should(BeNil(), fmt.Sprintf("Error creating resource %s: %s", policyPath, err))
