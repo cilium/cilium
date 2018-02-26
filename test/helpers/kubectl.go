@@ -18,6 +18,9 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"io/ioutil"
+	"net"
+	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
@@ -29,7 +32,11 @@ import (
 	"github.com/asaskevich/govalidator"
 	"github.com/onsi/ginkgo"
 	"github.com/sirupsen/logrus"
+	"golang.org/x/crypto/ssh"
 	"k8s.io/api/core/v1"
+	k8sClient "k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/tools/clientcmd"
+	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 )
 
 const (
@@ -47,6 +54,47 @@ func GetCurrentK8SEnv() string { return os.Getenv("K8S_VERSION") }
 // SSHMeta.
 type Kubectl struct {
 	*SSHMeta
+	k8sClient.Clientset
+}
+
+// logHTTPTransport is a wrapper of http.Transport to log all http requests
+type logHTTPTransport struct {
+	transport *http.Transport
+	logger    *logrus.Entry
+}
+
+func (l *logHTTPTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	var reqURL, reqMethod, reqStr, rspStr string
+
+	reqStr = "<empty>"
+	if req != nil {
+		reqURL = req.URL.String()
+		reqMethod = req.Method
+		if req.Body != nil {
+			newBody, err := req.GetBody()
+			if err == nil {
+				body, _ := ioutil.ReadAll(newBody)
+				reqStr = string(body)
+			}
+		}
+	}
+
+	resp, err := l.transport.RoundTrip(req)
+
+	if err != nil {
+		rspStr = "error: " + err.Error()
+	} else {
+		rspStr = resp.Status
+	}
+	reqLog := l.logger.WithFields(
+		logrus.Fields{
+			"to":     reqURL,
+			"method": reqMethod,
+			"data":   reqStr,
+			"result": rspStr,
+		})
+	reqLog.Debugf("HTTPRequest")
+	return resp, err
 }
 
 // CreateKubectl initializes a Kubectl helper with the provided vmName and log
@@ -68,8 +116,49 @@ func CreateKubectl(vmName string, log *logrus.Entry) *Kubectl {
 		return nil
 	}
 	node.logger = log
+
+	k8sConfig, err := clientcmd.BuildConfigFromKubeconfigGetter("", func() (*clientcmdapi.Config, error) {
+		res = node.Exec("cat ${HOME}/.kube/config")
+		if res.WasSuccessful() {
+			return clientcmd.Load(res.stdout.Bytes())
+		}
+		return nil, fmt.Errorf("unable to read kubeconfig file: %s", res.GetStdErr())
+	})
+	if err != nil {
+		ginkgo.Fail(fmt.Sprintf(
+			"Cannot set kubernetes configuration: %s", err), 1)
+		return nil
+	}
+
+	k8sConfig.WrapTransport = func(rt http.RoundTripper) http.RoundTripper {
+		httpTransport, ok := rt.(*http.Transport)
+		if !ok {
+			return rt
+		}
+		httpTransport.DialContext = func(_ context.Context, network, addr string) (net.Conn, error) {
+			// Create a connection to the kubeapiserver via the ssh tunnel
+			conn, err := ssh.Dial("tcp", node.sshClient.GetHostPort(), node.sshClient.Config)
+			if err != nil {
+				return nil, err
+			}
+			return conn.Dial(network, addr)
+		}
+		// Create a wrapper so we can log the requests
+		return &logHTTPTransport{
+			logger:    log,
+			transport: httpTransport,
+		}
+	}
+
+	c, err := k8sClient.NewForConfig(k8sConfig)
+	if err != nil {
+		ginkgo.Fail(fmt.Sprintf(
+			"Cannot create kubernetes client: %s", err), 1)
+		return nil
+	}
 	return &Kubectl{
-		SSHMeta: node,
+		SSHMeta:   node,
+		Clientset: *c,
 	}
 }
 
