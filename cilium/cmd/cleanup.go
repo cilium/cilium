@@ -76,7 +76,7 @@ func runCleanup() {
 	// errors seen, but continue.  So that one remove function does not
 	// prevent the remaining from running.
 	type cleanupFunc func() error
-	checks := []cleanupFunc{removeAllMaps, unmountFS, removeDirs, removeCNI}
+	checks := []cleanupFunc{removeAllMaps, removeDirs, removeCNI}
 	for _, clean := range checks {
 		if err := clean(); err != nil {
 			fmt.Fprintf(os.Stderr, "Error: %s\n", err)
@@ -143,13 +143,6 @@ func removeDirs() error {
 		}
 	}
 	return nil
-}
-
-func unmountFS() error {
-	if !bpf.IsBpffs(bpf.GetMapRoot()) {
-		return nil
-	}
-	return bpf.UnMountFS()
 }
 
 func removeAllMaps() error {
