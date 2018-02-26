@@ -112,19 +112,6 @@ func OpenAfterMount(m *Map) error {
 	return nil
 }
 
-//IsBpffs check if the path is a valid bpf filesystem
-func IsBpffs(path string) bool {
-	// This is the value of the BPF Filesystem. If is into the container the
-	// mountpoint doesn't provide enough information. Defined on uapi/linux/magic.h
-	magic := uint32(0xCAFE4A11)
-	var fsdata unix.Statfs_t
-	if err := unix.Statfs(path, &fsdata); err != nil {
-		log.WithField(logfields.Path, path).Error("BPF filesystem path is not mounted")
-		return false
-	}
-	return int32(magic) == int32(fsdata.Type)
-}
-
 func mountCmdPipe(cmds []*exec.Cmd) (mountCmdOutput, mountCmdStandardError []byte, mountCmdError error) {
 
 	// We need atleast one command to pipe.
@@ -210,12 +197,22 @@ func mountFS() error {
 		}
 
 	}
-	if !IsBpffs(mapRoot) {
-		// TODO currently on minikube isBpffs check is failing. We need to make the following log
-		// fatal again. This will be tracked in #Issue 1475
-		//log.WithField(logfields.Path, mapRoot).Fatal("BPF: path is not mounted as a BPF filesystem.")
-		log.WithField(logfields.Path, mapRoot).Warning("BPF root is not a BPF filesystem")
+
+	var fsdata unix.Statfs_t
+	if err := unix.Statfs(mapRoot, &fsdata); err != nil {
+		return fmt.Errorf("BPF filesystem path %s is not mounted", mapRoot)
 	}
+
+	// This is the value of the BPF Filesystem defined in
+	// uapi/linux/magic.h The magic value can potentially be misleading if
+	// the BPF filesystem is mounted in the host and then volume mapped
+	// into a container.
+	magic := uint32(0xCAFE4A11)
+	if uint32(fsdata.Type) != magic {
+		log.WithField(logfields.Path, mapRoot).Warningf("BPF root is not a BPF filesystem (%#x != %#x)",
+			uint32(fsdata.Type), magic)
+	}
+
 	mountMutex.Lock()
 	for _, m := range delayedOpens {
 		m.OpenOrCreate()
