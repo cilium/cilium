@@ -53,11 +53,11 @@ function cleanup {
     k8s_apply_policy $NAMESPACE "delete -n kube-system" "${guestbook_dir}/policies/guestbook-policy-redis.json"
 
     log "k8s version is 1.7; checking that guestbook-redis policy is added in Cilium"
-    docker exec -i ${cilium_id} cilium policy get io.cilium.k8s-policy-name=guestbook-redis 2>/dev/null
+    docker exec -i ${cilium_id} cilium policy get io.cilium.k8s.policy.name=guestbook-redis 2>/dev/null
     if [ $? -eq 0 ]; then abort "guestbook-redis policy found in cilium; policy should have been deleted" ; fi
 
     log "k8s version is 1.7; checking that guestbook-web policy is added in Cilium"
-    docker exec -i ${cilium_id} cilium policy get io.cilium.k8s-policy-name=guestbook-web 2>/dev/null
+    docker exec -i ${cilium_id} cilium policy get io.cilium.k8s.policy.name=guestbook-web 2>/dev/null
     if [ $? -eq 0 ]; then abort "guestbook-web policy found in cilium; policy should have been deleted" ; fi
   else
     # guestbook-redis was previously removed
@@ -67,7 +67,7 @@ function cleanup {
     k8s_apply_policy $NAMESPACE "delete -n kube-system" "${guestbook_dir}/policies/guestbook-policy-web-deprecated.yaml"
 
     log "k8s version is 1.6; checking that guestbook-web-deprecated policy is added in Cilium"
-    docker exec -i ${cilium_id} cilium policy get io.cilium.k8s-policy-name=guestbook-web-deprecated 2>/dev/null
+    docker exec -i ${cilium_id} cilium policy get io.cilium.k8s.policy.name=guestbook-web-deprecated 2>/dev/null
     if [ $? -eq 0 ]; then abort "guestbook-web-deprecated policy found in cilium; policy should have been deleted" ; fi
   fi
 
@@ -149,7 +149,7 @@ set +e
 # TPR in k8s < 1.7.0
 if [[ "${k8s_version}" != 1.6.* ]]; then
     log "k8s version is 1.7: checking that guestbook-web policy is added"
-    docker exec -i ${cilium_id} cilium policy get io.cilium.k8s-policy-name=guestbook-web io.cilium.k8s-policy-namespace=default 1>/dev/null
+    docker exec -i ${cilium_id} cilium policy get io.cilium.k8s.policy.name=guestbook-web io.cilium.k8s.policy.namespace=default 1>/dev/null
 
     if [ $? -ne 0 ]; then
       log "Policies in Cilium: "
@@ -158,7 +158,7 @@ if [[ "${k8s_version}" != 1.6.* ]]; then
     fi
 
     log "k8s version is 1.7: checking that kube-system/guestbook-web policy is added"
-    docker exec -i ${cilium_id} cilium policy get io.cilium.k8s-policy-name=guestbook-web io.cilium.k8s-policy-namespace=kube-system 1>/dev/null
+    docker exec -i ${cilium_id} cilium policy get io.cilium.k8s.policy.name=guestbook-web io.cilium.k8s.policy.namespace=kube-system 1>/dev/null
 
     if [ $? -ne 0 ]; then
       log "Policies in Cilium: "
@@ -167,7 +167,7 @@ if [[ "${k8s_version}" != 1.6.* ]]; then
     fi
 else
     log "k8s version is 1.6; checking that guestbook-web-deprecated policy is added"
-    docker exec -i ${cilium_id} cilium policy get io.cilium.k8s-policy-name=guestbook-web-deprecated io.cilium.k8s-policy-namespace=default 1>/dev/null
+    docker exec -i ${cilium_id} cilium policy get io.cilium.k8s.policy.name=guestbook-web-deprecated io.cilium.k8s.policy.namespace=default 1>/dev/null
 
     if [ $? -ne 0 ]; then
       log "Policies in Cilium: "
@@ -175,7 +175,7 @@ else
       abort "default/guestbook-web-deprecated policy not in cilium"
     fi
 
-    docker exec -i ${cilium_id} cilium policy get io.cilium.k8s-policy-name=guestbook-web-deprecated io.cilium.k8s-policy-namespace=kube-system 1>/dev/null
+    docker exec -i ${cilium_id} cilium policy get io.cilium.k8s.policy.name=guestbook-web-deprecated io.cilium.k8s.policy.namespace=kube-system 1>/dev/null
 
     if [ $? -ne 0 ]; then
       log "Policies in Cilium: "
@@ -185,7 +185,7 @@ else
 fi
 
 log "checking that guestbook-redis-deprecated policy is added in Cilium"
-docker exec -i ${cilium_id} cilium policy get io.cilium.k8s-policy-name=guestbook-redis-deprecated io.cilium.k8s-policy-namespace=default 1>/dev/null
+docker exec -i ${cilium_id} cilium policy get io.cilium.k8s.policy.name=guestbook-redis-deprecated io.cilium.k8s.policy.namespace=default 1>/dev/null
 
 if [ $? -ne 0 ]; then
   log "Policies in Cilium: "
@@ -216,7 +216,7 @@ k8s_apply_policy $NAMESPACE "delete -n kube-system" "${guestbook_dir}/policies/g
 set +e
 
 log "checking that guestbook-redis-deprecated policy is added in Cilium"
-docker exec -i ${cilium_id} cilium policy get io.cilium.k8s-policy-name=guestbook-redis-deprecated 2>/dev/null
+docker exec -i ${cilium_id} cilium policy get io.cilium.k8s.policy.name=guestbook-redis-deprecated 2>/dev/null
 
 if [ $? -eq 0 ]; then abort "guestbook-redis-deprecated policy found in cilium; policy should have been deleted" ; fi
 
@@ -227,7 +227,7 @@ if [[ "${k8s_version}" != 1.6.* ]]; then
     k8s_apply_policy kube-system create "${guestbook_dir}/policies/guestbook-policy-redis.json"
 
     log "k8s version is 1.7, checking that guestbook-policy-redis policy is added in Cilium"
-    docker exec -i ${cilium_id} cilium policy get io.cilium.k8s-policy-name=guestbook-redis 1>/dev/null
+    docker exec -i ${cilium_id} cilium policy get io.cilium.k8s.policy.name=guestbook-redis 1>/dev/null
 
     if [ $? -ne 0 ]; then abort "guestbook-redis policy not in cilium" ; fi
 

@@ -395,7 +395,7 @@ and ``cilium`` CLI:
         ],
         "labels": [
           {
-            "key": "io.cilium.k8s-policy-name",
+            "key": "io.cilium.k8s.policy.name",
             "value": "rule1",
             "source": "unspec"
           }
@@ -432,7 +432,7 @@ and ``cilium`` CLI:
         ],
         "labels": [
           {
-            "key": "io.cilium.k8s-policy-name",
+            "key": "io.cilium.k8s.policy.name",
             "value": "access-backend",
             "source": "unspec"
           }

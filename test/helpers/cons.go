@@ -18,6 +18,8 @@ import (
 	"fmt"
 	"os"
 	"time"
+
+	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 )
 
 var (
@@ -143,8 +145,8 @@ const (
 	KubectlDelete = ResourceLifeCycleAction("delete")
 	KubectlApply  = ResourceLifeCycleAction("apply")
 
-	KubectlPolicyNameLabel      = "io.cilium.k8s-policy-name"
-	KubectlPolicyNameSpaceLabel = "io.cilium.k8s-policy-namespace"
+	KubectlPolicyNameLabel      = k8sConst.PolicyLabelName
+	KubectlPolicyNameSpaceLabel = k8sConst.PolicyLabelNamespace
 )
 
 var ciliumCLICommands = map[string]string{

@@ -20,6 +20,7 @@ import (
 	"io/ioutil"
 	"os"
 
+	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	"github.com/cilium/cilium/pkg/labels"
 
 	"k8s.io/api/core/v1"
@@ -71,7 +72,7 @@ func GetLabelsFromYaml(file string) ([][]string, error) {
 			} else {
 				ns = DefaultNamespace
 			}
-			yamlLabels = append(yamlLabels, labels.GenerateK8sLabelString(labels.K8sNamespaceLabel, ns))
+			yamlLabels = append(yamlLabels, labels.GenerateK8sLabelString(k8sConst.PodNamespaceLabel, ns))
 
 			for k, v := range deployment.Spec.Template.Labels {
 				yamlLabels = append(yamlLabels, labels.GenerateK8sLabelString(k, v))
@@ -84,7 +85,7 @@ func GetLabelsFromYaml(file string) ([][]string, error) {
 			} else {
 				ns = DefaultNamespace
 			}
-			yamlLabels = append(yamlLabels, labels.GenerateK8sLabelString(labels.K8sNamespaceLabel, ns))
+			yamlLabels = append(yamlLabels, labels.GenerateK8sLabelString(k8sConst.PodNamespaceLabel, ns))
 
 			for k, v := range controller.Spec.Template.Labels {
 				yamlLabels = append(yamlLabels, labels.GenerateK8sLabelString(k, v))
@@ -97,7 +98,7 @@ func GetLabelsFromYaml(file string) ([][]string, error) {
 			} else {
 				ns = DefaultNamespace
 			}
-			yamlLabels = append(yamlLabels, labels.GenerateK8sLabelString(labels.K8sNamespaceLabel, ns))
+			yamlLabels = append(yamlLabels, labels.GenerateK8sLabelString(k8sConst.PodNamespaceLabel, ns))
 
 			for k, v := range rep.Spec.Template.Labels {
 				yamlLabels = append(yamlLabels, labels.GenerateK8sLabelString(k, v))

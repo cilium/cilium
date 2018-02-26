@@ -22,6 +22,7 @@ import (
 	"strings"
 
 	"github.com/cilium/cilium/common"
+	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
 )
@@ -158,7 +159,8 @@ func defaultLabelPrefixCfg() *labelPrefixCfg {
 	}
 
 	expressions := []string{
-		K8sNamespaceLabel,                                          // include io.kubernetes.pod.namspace
+		k8sConst.PodNamespaceLabel,                                 // include io.kubernetes.pod.namspace
+		k8sConst.PodNamespaceMetaLabels,                            // include all namespace labels
 		"!io.kubernetes",                                           // ignore all other io.kubernetes labels
 		"!.*kubernetes.io",                                         // ignore all other kubernetes.io labels (annotation.*.k8s.io)
 		"!pod-template-generation",                                 // ignore pod-template-generation

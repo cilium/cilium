@@ -19,7 +19,8 @@ import (
 	"reflect"
 	"time"
 
-	k8sconst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
+	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
+	k8sUtils "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/utils"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/policy/api"
@@ -126,7 +127,7 @@ func (r *CiliumNetworkPolicy) Parse() (api.Rules, error) {
 		return nil, fmt.Errorf("CiliumNetworkPolicy must have name")
 	}
 
-	namespace := k8sconst.ExtractNamespace(&r.ObjectMeta)
+	namespace := k8sUtils.ExtractNamespace(&r.ObjectMeta)
 	name := r.ObjectMeta.Name
 
 	retRules := api.Rules{}
@@ -136,7 +137,7 @@ func (r *CiliumNetworkPolicy) Parse() (api.Rules, error) {
 			return nil, fmt.Errorf("Invalid CiliumNetworkPolicy spec: %s", err)
 
 		}
-		cr := k8sconst.ParseToCiliumRule(namespace, name, r.Spec)
+		cr := k8sUtils.ParseToCiliumRule(namespace, name, r.Spec)
 		retRules = append(retRules, cr)
 	}
 	if r.Specs != nil {
@@ -145,7 +146,7 @@ func (r *CiliumNetworkPolicy) Parse() (api.Rules, error) {
 				return nil, fmt.Errorf("Invalid CiliumNetworkPolicy specs: %s", err)
 
 			}
-			cr := k8sconst.ParseToCiliumRule(namespace, name, rule)
+			cr := k8sUtils.ParseToCiliumRule(namespace, name, rule)
 			retRules = append(retRules, cr)
 		}
 	}
@@ -155,8 +156,8 @@ func (r *CiliumNetworkPolicy) Parse() (api.Rules, error) {
 
 // GetControllerName returns the unique name for the controller manager.
 func (r *CiliumNetworkPolicy) GetControllerName() string {
-	name := k8sconst.GetObjNamespaceName(&r.ObjectMeta)
-	return fmt.Sprintf("%s (v1 %s)", k8sconst.CtrlPrefixPolicyStatus, name)
+	name := k8sUtils.GetObjNamespaceName(&r.ObjectMeta)
+	return fmt.Sprintf("%s (v1 %s)", k8sConst.CtrlPrefixPolicyStatus, name)
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

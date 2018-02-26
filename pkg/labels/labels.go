@@ -136,9 +136,6 @@ const (
 
 	// LabelSourceReservedKeyPrefix is the prefix of a reserved label
 	LabelSourceReservedKeyPrefix = LabelSourceReserved + "."
-
-	// K8sNamespaceLabel is the key that maps to the namespace for a pod.
-	K8sNamespaceLabel = "io.kubernetes.pod.namespace"
 )
 
 // Label is the cilium's representation of a container label.
