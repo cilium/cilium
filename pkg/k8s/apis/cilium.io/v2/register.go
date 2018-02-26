@@ -159,8 +159,9 @@ func createUpdateCRD(clientset apiextensionsclient.Interface, CRDName string, cr
 		return err
 	}
 
-	scopedLog.Info("Updating CRD (CustomResourceDefinition)...")
+	scopedLog.Debug("Checking if CRD (CustomResourceDefinition) needs update...")
 	if needsUpdate(clusterCRD, err) {
+		scopedLog.Info("Updating CRD (CustomResourceDefinition)...")
 		// Update the CRD with the validation schema.
 		err = wait.Poll(500*time.Millisecond, 60*time.Second, func() (bool, error) {
 			clusterCRD, err = clientset.ApiextensionsV1beta1().
@@ -170,6 +171,9 @@ func createUpdateCRD(clientset apiextensionsclient.Interface, CRDName string, cr
 				return false, err
 			}
 
+			// This seems too permissive but we only get here if the version is
+			// different per needsUpdate above. If so, we want to update on any
+			// validation change including adding or removing validation.
 			if clusterCRD.Spec.Validation == nil ||
 				!reflect.DeepEqual(clusterCRD.Spec.Validation.OpenAPIV3Schema, crv.OpenAPIV3Schema) {
 				clusterCRD.Spec.Validation = crd.Spec.Validation
@@ -179,17 +183,19 @@ func createUpdateCRD(clientset apiextensionsclient.Interface, CRDName string, cr
 					return true, nil
 				}
 				scopedLog.WithError(err).Debug("Unable to update CRD validation")
-				return false, nil
+				return false, err
 			}
 
 			return true, nil
 		})
 		if err != nil {
 			scopedLog.WithError(err).Error("Unable to update CRD")
+			return err
 		}
 	}
 
 	// wait for the CRD to be established
+	scopedLog.Debug("Waiting for CRD (CustomResourceDefinition) to be available...")
 	err = wait.Poll(500*time.Millisecond, 60*time.Second, func() (bool, error) {
 		crd, err := clientset.ApiextensionsV1beta1().CustomResourceDefinitions().Get(crd.ObjectMeta.Name, metav1.GetOptions{})
 		if err != nil {
@@ -218,8 +224,7 @@ func createUpdateCRD(clientset apiextensionsclient.Interface, CRDName string, cr
 		return err
 	}
 
-	scopedLog.Info("Installed CRD (CustomResourceDefinition)")
-
+	scopedLog.Info("CRD (CustomResourceDefinition) is installed and up-to-date")
 	return nil
 }
 
