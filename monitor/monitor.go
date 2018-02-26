@@ -156,22 +156,18 @@ func (m *Monitor) send(pl payload.Payload) {
 	if err != nil {
 		log.WithError(err).Fatal("meta encode")
 	}
+
+	msgBuf := append(metaBuf, payloadBuf...)
+
 	var next *list.Element
 	for e := listeners.Front(); e != nil; e = next {
 		client := e.Value.(net.Conn)
 		next = e.Next()
 
-		if _, err := client.Write(metaBuf); err != nil {
+		if _, err := client.Write(msgBuf); err != nil {
 			client.Close()
 			listeners.Remove(e)
 			writeError("metadata", err)
-			continue
-		}
-
-		if _, err := client.Write(payloadBuf); err != nil {
-			client.Close()
-			listeners.Remove(e)
-			writeError("payload", err)
 			continue
 		}
 	}
