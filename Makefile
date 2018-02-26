@@ -141,12 +141,6 @@ build-deb:
 build-rpm:
 	$(MAKE) -C ./contrib/packaging/rpm
 
-runtime-tests:
-	$(MAKE) -C tests runtime-tests
-
-k8s-tests:
-	$(MAKE) -C tests k8s-tests
-
 generate-api:
 	swagger generate server -t api/v1 -f api/v1/openapi.yaml -a restapi \
 	    -s server --default-scheme=unix -C api/v1/cilium-server.yml
