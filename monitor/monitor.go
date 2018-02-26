@@ -15,7 +15,6 @@
 package main
 
 import (
-	"container/list"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -29,13 +28,34 @@ import (
 	"github.com/cilium/cilium/pkg/lock"
 )
 
-const pollTimeout = 5000
+const (
+	pollTimeout = 5000
+
+	// queueSize is the size of the message queue
+	queueSize = 65536
+)
 
 var (
 	mutex         lock.Mutex
-	listeners     = list.New()
+	listeners     = make(map[*monitorListener]struct{})
 	monitorEvents *bpf.PerCpuEvents
 )
+
+type monitorListener struct {
+	conn  net.Conn
+	queue chan []byte
+}
+
+func newMonitorListener(c net.Conn) *monitorListener {
+	ml := &monitorListener{
+		conn:  c,
+		queue: make(chan []byte, queueSize),
+	}
+
+	go ml.drainQueue()
+
+	return ml
+}
 
 // Monitor structure for centralizing the responsibilities of the main events reader.
 type Monitor struct {
@@ -128,8 +148,8 @@ func (m *Monitor) handleConnection(server net.Listener) {
 		}
 
 		mutex.Lock()
-		listeners.PushBack(conn)
-		log.WithField("count.listener", listeners.Len()).Info("New monitor connected.")
+		listeners[newMonitorListener(conn)] = struct{}{}
+		log.WithField("count.listener", len(listeners)).Info("New monitor connected.")
 		mutex.Unlock()
 	}
 }
@@ -139,12 +159,8 @@ func (m *Monitor) handleConnection(server net.Listener) {
 func (m *Monitor) send(pl payload.Payload) {
 	mutex.Lock()
 	defer mutex.Unlock()
-	if listeners.Len() == 0 {
+	if len(listeners) == 0 {
 		return
-	}
-
-	writeError := func(prefix string, err error) {
-		log.WithError(err).Warnf("Monitor removed due to write failure (%s)", prefix)
 	}
 
 	payloadBuf, err := pl.Encode()
@@ -159,16 +175,33 @@ func (m *Monitor) send(pl payload.Payload) {
 
 	msgBuf := append(metaBuf, payloadBuf...)
 
-	var next *list.Element
-	for e := listeners.Front(); e != nil; e = next {
-		client := e.Value.(net.Conn)
-		next = e.Next()
+	for ml := range listeners {
+		ml.enqueue(msgBuf)
+	}
+}
 
-		if _, err := client.Write(msgBuf); err != nil {
-			client.Close()
-			listeners.Remove(e)
-			writeError("metadata", err)
-			continue
+func (ml *monitorListener) remove() {
+	mutex.Lock()
+	delete(listeners, ml)
+	mutex.Unlock()
+}
+
+func (ml *monitorListener) enqueue(msg []byte) {
+	select {
+	case ml.queue <- msg:
+	default:
+		log.Debugf("Per listener queue is full, dropping message")
+	}
+}
+
+func (ml *monitorListener) drainQueue() {
+	for {
+		msgBuf := <-ml.queue
+		if _, err := ml.conn.Write(msgBuf); err != nil {
+			ml.conn.Close()
+			ml.remove()
+			log.WithError(err).Warn("Monitor removed due to write failure")
+			return
 		}
 	}
 }
