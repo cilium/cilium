@@ -3,6 +3,9 @@
 *.a
 *.so
 
+# LLVM IR files
+*.ll
+
 # Folders
 _obj
 _test

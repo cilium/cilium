@@ -20,7 +20,8 @@ ifeq ("$(PKG_BUILD)","")
 all: $(BPF)
 
 %.o: %.c $(LIB)
-	${CLANG} ${CLANG_FLAGS} -c $< -o - | ${LLC} ${LLC_FLAGS} -o $@
+	${CLANG} ${CLANG_FLAGS} -c $< -o $(patsubst %.o,%.ll,$@)
+	${LLC} ${LLC_FLAGS} -o $@ $(patsubst %.o,%.ll,$@)
 
 check:
 	sparse -Wsparse-all ${FLAGS} *.c
@@ -33,8 +34,10 @@ LB_OPTIONS = \
 
 bpf_lb.o: bpf_lb.c $(LIB)
 	$(foreach OPTS,$(LB_OPTIONS), \
-		${CLANG} ${OPTS} ${CLANG_FLAGS} -c bpf_lb.c -o - | ${LLC} ${LLC_FLAGS} -o /dev/null;)
-	${CLANG} ${CLANG_FLAGS} -c $< -o - | ${LLC} ${LLC_FLAGS} -o $@
+		${CLANG} ${OPTS} ${CLANG_FLAGS} -c $< -o $(patsubst %.o,%.ll,$@) || exit 2; \
+		${LLC} ${LLC_FLAGS} -o /dev/null $(patsubst %.o,%.ll,$@) || exit 2; )
+	${CLANG} ${CLANG_FLAGS} -c $< -o $(patsubst %.o,%.ll,$@)
+	${LLC} ${LLC_FLAGS} -o $@ $(patsubst %.o,%.ll,$@)
 
 LXC_OPTIONS = \
 	 -DDROP_ALL \
@@ -45,8 +48,10 @@ LXC_OPTIONS = \
 
 bpf_lxc.o: bpf_lxc.c $(LIB)
 	$(foreach OPTS,$(LXC_OPTIONS), \
-		${CLANG} ${OPTS} ${CLANG_FLAGS} -c bpf_lxc.c -o - | ${LLC} ${LLC_FLAGS} -o /dev/null;)
-	${CLANG} ${CLANG_FLAGS} -c $< -o - | ${LLC} ${LLC_FLAGS} -o $@
+		${CLANG} ${OPTS} ${CLANG_FLAGS} -c $< -o $(patsubst %.o,%.ll,$@) || exit 2; \
+		${LLC} ${LLC_FLAGS} -o /dev/null $(patsubst %.o,%.ll,$@) || exit 2; )
+	${CLANG} ${CLANG_FLAGS} -c $< -o $(patsubst %.o,%.ll,$@)
+	${LLC} ${LLC_FLAGS} -o $@ $(patsubst %.o,%.ll,$@)
 
 else
 
