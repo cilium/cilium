@@ -38,7 +38,6 @@ import (
 	"github.com/cilium/cilium/daemon/defaults"
 	"github.com/cilium/cilium/daemon/options"
 	monitorLaunch "github.com/cilium/cilium/monitor/launch"
-	"github.com/cilium/cilium/monitor/payload"
 	"github.com/cilium/cilium/pkg/apierror"
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/byteorder"
@@ -1412,7 +1411,7 @@ func (d *Daemon) SendNotification(typ monitor.AgentNotification, text string) er
 		return fmt.Errorf("Unable to gob encode: %s", err)
 	}
 
-	err := d.sendEvent(append([]byte{byte(monitor.MessageTypeAgent)}, buf.Bytes()...))
+	err := d.nodeMonitor.SendEvent(append([]byte{byte(monitor.MessageTypeAgent)}, buf.Bytes()...))
 	if err != nil {
 		log.WithError(err).Debug("Failed to send agent notification")
 	}
@@ -1427,43 +1426,7 @@ func (d *Daemon) NewProxyLogRecord(l *accesslog.LogRecord) error {
 		return fmt.Errorf("Unable to gob encode: %s", err)
 	}
 
-	return d.sendEvent(append([]byte{byte(monitor.MessageTypeAccessLog)}, buf.Bytes()...))
-}
-
-func (d *Daemon) sendEvent(data []byte) error {
-	d.nodeMonitor.PipeLock.Lock()
-	defer d.nodeMonitor.PipeLock.Unlock()
-
-	if d.nodeMonitor.Pipe == nil {
-		return fmt.Errorf("monitor pipe not opened")
-	}
-
-	p := payload.Payload{Data: data, CPU: 0, Lost: 0, Type: payload.EventSample}
-
-	payloadBuf, err := p.Encode()
-	if err != nil {
-		return fmt.Errorf("Unable to encode payload: %s", err)
-	}
-
-	meta := &payload.Meta{Size: uint32(len(payloadBuf))}
-	metaBuf, err := meta.MarshalBinary()
-	if err != nil {
-		return fmt.Errorf("Unable to encode metadata: %s", err)
-	}
-
-	if _, err := d.nodeMonitor.Pipe.Write(metaBuf); err != nil {
-		d.nodeMonitor.Pipe.Close()
-		d.nodeMonitor.Pipe = nil
-		return fmt.Errorf("Unable to write metadata: %s", err)
-	}
-
-	if _, err := d.nodeMonitor.Pipe.Write(payloadBuf); err != nil {
-		d.nodeMonitor.Pipe.Close()
-		d.nodeMonitor.Pipe = nil
-		return fmt.Errorf("Unable to write payload: %s", err)
-	}
-
-	return nil
+	return d.nodeMonitor.SendEvent(append([]byte{byte(monitor.MessageTypeAccessLog)}, buf.Bytes()...))
 }
 
 // GetNodeSuffix returns the suffix to be appended to kvstore keys of this

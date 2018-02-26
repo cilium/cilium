@@ -17,11 +17,13 @@ package launch
 import (
 	"bufio"
 	"encoding/json"
+	"fmt"
 	"os"
 	"syscall"
 	"time"
 
 	"github.com/cilium/cilium/api/v1/models"
+	"github.com/cilium/cilium/monitor/payload"
 	"github.com/cilium/cilium/pkg/launcher"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
@@ -37,8 +39,8 @@ type NodeMonitor struct {
 
 	state *models.MonitorStatus
 
-	PipeLock lock.Mutex
-	Pipe     *os.File
+	pipeLock lock.Mutex
+	pipe     *os.File
 }
 
 // GetPid returns the node monitor's pid.
@@ -63,7 +65,7 @@ func (nm *NodeMonitor) Run(sockPath string) {
 		}
 
 		nm.Mutex.Lock()
-		nm.Pipe = pipe
+		nm.pipe = pipe
 		nm.Mutex.Unlock()
 
 		nm.Launcher.Run()
@@ -95,4 +97,42 @@ func (nm *NodeMonitor) setState(state *models.MonitorStatus) {
 	nm.Mutex.Lock()
 	nm.state = state
 	nm.Mutex.Unlock()
+}
+
+// SendEvent sends an event to the node monitor which will then distribute to
+// all monitor listeners
+func (nm *NodeMonitor) SendEvent(data []byte) error {
+	nm.pipeLock.Lock()
+	defer nm.pipeLock.Unlock()
+
+	if nm.pipe == nil {
+		return fmt.Errorf("monitor pipe not opened")
+	}
+
+	p := payload.Payload{Data: data, CPU: 0, Lost: 0, Type: payload.EventSample}
+
+	payloadBuf, err := p.Encode()
+	if err != nil {
+		return fmt.Errorf("Unable to encode payload: %s", err)
+	}
+
+	meta := &payload.Meta{Size: uint32(len(payloadBuf))}
+	metaBuf, err := meta.MarshalBinary()
+	if err != nil {
+		return fmt.Errorf("Unable to encode metadata: %s", err)
+	}
+
+	if _, err := nm.pipe.Write(metaBuf); err != nil {
+		nm.pipe.Close()
+		nm.pipe = nil
+		return fmt.Errorf("Unable to write metadata: %s", err)
+	}
+
+	if _, err := nm.pipe.Write(payloadBuf); err != nil {
+		nm.pipe.Close()
+		nm.pipe = nil
+		return fmt.Errorf("Unable to write payload: %s", err)
+	}
+
+	return nil
 }
