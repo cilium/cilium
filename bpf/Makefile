@@ -37,7 +37,11 @@ bpf_lb.o: bpf_lb.c $(LIB)
 	${CLANG} ${CLANG_FLAGS} -c $< -o - | ${LLC} ${LLC_FLAGS} -o $@
 
 LXC_OPTIONS = \
-	 -DDROP_ALL
+	 -DDROP_ALL \
+	 -DHAVE_LPM_MAP_TYPE \
+	 -DSKIP_CIDR_LPM_MAP \
+	 -DSKIP_CIDR_MAPPINGS
+	# FIXME: GH-2906: Test with both SKIP_CIDR_LPM_MAP and LPM_MAP_TYPE
 
 bpf_lxc.o: bpf_lxc.c $(LIB)
 	$(foreach OPTS,$(LXC_OPTIONS), \
