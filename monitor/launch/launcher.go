@@ -175,20 +175,12 @@ func (nm *NodeMonitor) send(data []byte) error {
 
 	p := payload.Payload{Data: data, CPU: 0, Lost: nm.lostSinceLastTime(), Type: payload.EventSample}
 
-	payloadBuf, err := p.Encode()
+	buf, err := p.BuildMessage()
 	if err != nil {
-		return fmt.Errorf("Unable to encode payload: %s", err)
+		return err
 	}
 
-	meta := &payload.Meta{Size: uint32(len(payloadBuf))}
-	metaBuf, err := meta.MarshalBinary()
-	if err != nil {
-		return fmt.Errorf("Unable to encode metadata: %s", err)
-	}
-
-	msgBuf := append(metaBuf, payloadBuf...)
-
-	if _, err := nm.pipe.Write(msgBuf); err != nil {
+	if _, err := nm.pipe.Write(buf); err != nil {
 		nm.pipe.Close()
 		nm.pipe = nil
 		return fmt.Errorf("Unable to write message buffer to pipe: %s", err)

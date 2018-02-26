@@ -18,6 +18,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"encoding/gob"
+	"fmt"
 	"io"
 
 	"github.com/cilium/cilium/pkg/byteorder"
@@ -120,4 +121,20 @@ func WriteMetaPayload(w io.Writer, meta *Meta, pl *Payload) error {
 	meta.WriteBinary(w)
 	_, err = w.Write(payloadBuf)
 	return err
+}
+
+// BuildMessage builds the binary message to be sent and returns it
+func (pl *Payload) BuildMessage() ([]byte, error) {
+	plBuf, err := pl.Encode()
+	if err != nil {
+		return nil, fmt.Errorf("unable to encode payload: %s", err)
+	}
+
+	meta := &Meta{Size: uint32(len(plBuf))}
+	metaBuf, err := meta.MarshalBinary()
+	if err != nil {
+		return nil, fmt.Errorf("unable to encode metadata: %s", err)
+	}
+
+	return append(metaBuf, plBuf...), nil
 }

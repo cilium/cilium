@@ -163,20 +163,13 @@ func (m *Monitor) send(pl payload.Payload) {
 		return
 	}
 
-	payloadBuf, err := pl.Encode()
+	buf, err := pl.BuildMessage()
 	if err != nil {
-		log.WithError(err).Fatal("payload encode")
+		log.WithError(err).Error("Unable to send notification to listeners")
 	}
-	meta := &payload.Meta{Size: uint32(len(payloadBuf))}
-	metaBuf, err := meta.MarshalBinary()
-	if err != nil {
-		log.WithError(err).Fatal("meta encode")
-	}
-
-	msgBuf := append(metaBuf, payloadBuf...)
 
 	for ml := range listeners {
-		ml.enqueue(msgBuf)
+		ml.enqueue(buf)
 	}
 }
 
