@@ -63,7 +63,6 @@ SCRIPT
 
 $testsuite = <<SCRIPT
 make -C ~/go/src/github.com/cilium/cilium/ tests || exit 1
-sudo -E env PATH="${PATH}" make -C ~/go/src/github.com/cilium/cilium/ runtime-tests
 SCRIPT
 
 $node_ip_base = ENV['IPV4_BASE_ADDR'] || ""
