@@ -214,7 +214,7 @@ func mountFS() error {
 		// TODO currently on minikube isBpffs check is failing. We need to make the following log
 		// fatal again. This will be tracked in #Issue 1475
 		//log.WithField(logfields.Path, mapRoot).Fatal("BPF: path is not mounted as a BPF filesystem.")
-		log.WithField(logfields.Path, mapRoot).Debug("BPF: path is not mounted as a BPF filesystem.")
+		log.WithField(logfields.Path, mapRoot).Warning("BPF root is not a BPF filesystem")
 	}
 	mountMutex.Lock()
 	for _, m := range delayedOpens {
@@ -235,6 +235,8 @@ func MountFS() {
 		if err := mountFS(); err != nil {
 			log.WithError(err).Fatal("Unable to mount BPF filesystem")
 		}
+
+		log.Infof("Mounted BPF filesystem %s", mapRoot)
 	})
 }
 
