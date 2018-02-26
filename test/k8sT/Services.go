@@ -154,6 +154,14 @@ var _ = Describe("K8sValidatedServicesTest", func() {
 		url := fmt.Sprintf("http://%s",
 			net.JoinHostPort(data.Spec.ClusterIP, fmt.Sprintf("%d", data.Spec.Ports[0].Port)))
 		testHTTPRequest(url)
+
+		url = fmt.Sprintf("http://%s",
+			net.JoinHostPort(helpers.K8s1Ip, fmt.Sprintf("%d", data.Spec.Ports[0].NodePort)))
+		testHTTPRequest(url)
+
+		url = fmt.Sprintf("http://%s",
+			net.JoinHostPort(helpers.K8s2Ip, fmt.Sprintf("%d", data.Spec.Ports[0].NodePort)))
+		testHTTPRequest(url)
 	})
 
 	Context("Headless services", func() {
