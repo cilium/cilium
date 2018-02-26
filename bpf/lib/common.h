@@ -177,11 +177,17 @@ struct endpoint_info {
 	struct portmap  portmap[PORTMAP_MAX];
 };
 
+struct remote_endpoint_info {
+	__u16		sec_label;
+	__u16		pad[3];
+};
+
 struct policy_key {
 	__u32		sec_label;
 	__u16		dport;
 	__u8		protocol;
-	__u8		pad;
+	__u8		egress:1,
+			pad:7;
 };
 
 struct policy_entry {

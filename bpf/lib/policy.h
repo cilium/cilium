@@ -19,12 +19,17 @@
 #define __LIB_POLICY_H_
 
 #include "drop.h"
+#include "eps.h"
 #include "maps.h"
 
-#if defined POLICY_INGRESS || defined REQUIRES_CAN_ACCESS
+#if defined POLICY_INGRESS || defined POLICY_EGRESS
+#define REQUIRES_CAN_ACCESS
+#endif
+
+#ifdef REQUIRES_CAN_ACCESS
 
 static inline int __inline__
-__policy_can_access(void *map, struct __sk_buff *skb, __u32 src_identity,
+__policy_can_access(void *map, struct __sk_buff *skb, __u32 identity,
 		    __u16 dport, __u8 proto, size_t cidr_addr_size,
 		    void *cidr_addr, int dir)
 {
@@ -34,16 +39,17 @@ __policy_can_access(void *map, struct __sk_buff *skb, __u32 src_identity,
 	struct policy_entry *policy;
 
 	struct policy_key key = {
-		.sec_label = src_identity,
+		.sec_label = identity,
 		.dport = dport,
 		.protocol = proto,
+		.egress = !dir,
 		.pad = 0,
 	};
 
 #ifdef HAVE_L4_POLICY
 	policy = map_lookup_elem(map, &key);
 	if (likely(policy)) {
-		cilium_dbg3(skb, DBG_L4_CREATE, src_identity, SECLABEL,
+		cilium_dbg3(skb, DBG_L4_CREATE, identity, SECLABEL,
 			    dport << 16 | proto);
 
 		/* FIXME: Use per cpu counters */
@@ -87,7 +93,7 @@ get_proxy_port:
 		if (policy->proxy_port)
 			return policy->proxy_port;
 		else
-			return __l4_policy_lookup(skb, proto, dport, dir, false);
+			return l4_policy_lookup(skb, proto, dport, dir, false);
 	}
 #endif /* HAVE_L4_POLICY */
 allow:
@@ -153,6 +159,73 @@ policy_can_access_ingress(struct __sk_buff *skb, __u32 src_label,
 }
 
 #endif /* POLICY_INGRESS || REQUIRES_CAN_ACCESS */
+
+#if defined POLICY_EGRESS && defined LXC_ID
+
+static inline int __inline__
+policy_can_egress(struct __sk_buff *skb, __u16 identity, __u16 dport, __u8 proto)
+{
+#ifdef DROP_ALL
+	return DROP_POLICY;
+#else
+	if (__policy_can_access(&POLICY_MAP, skb, identity, dport, proto, 0,
+				NULL, CT_EGRESS) == TC_ACT_OK)
+		goto allow;
+
+	cilium_dbg(skb, DBG_POLICY_DENIED, identity, SECLABEL);
+#ifndef IGNORE_DROP
+	return DROP_POLICY;
+#endif
+
+allow:
+	return TC_ACT_OK;
+#endif /* DROP_ALL */
+}
+
+static inline int policy_can_egress6(struct __sk_buff *skb,
+				     struct ipv6_ct_tuple *tuple)
+{
+	struct remote_endpoint_info *info;
+	__u16 identity = 0;
+
+	info = lookup_ip6_remote_endpoint(&tuple->daddr);
+	if (info)
+		identity = info->sec_label;
+	else
+		cilium_dbg(skb, DBG_IP_ID_MAP_FAILED6, tuple->daddr.p4, 0);
+
+	return policy_can_egress(skb, identity, tuple->dport, tuple->nexthdr);
+}
+
+static inline int policy_can_egress4(struct __sk_buff *skb,
+				     struct ipv4_ct_tuple *tuple)
+{
+	struct remote_endpoint_info *info;
+	__u16 identity = 0;
+
+	info = lookup_ip4_remote_endpoint(tuple->daddr);
+	if (info)
+		identity = info->sec_label;
+	else
+		cilium_dbg(skb, DBG_IP_ID_MAP_FAILED4, tuple->daddr, 0);
+
+	return policy_can_egress(skb, identity, tuple->dport, tuple->nexthdr);
+}
+
+#else /* POLICY_EGRESS && LXC_ID */
+
+static inline int
+policy_can_egress6(struct __sk_buff *skb, struct ipv6_ct_tuple *tuple)
+{
+	return TC_ACT_OK;
+}
+
+static inline int
+policy_can_egress4(struct __sk_buff *skb, struct ipv4_ct_tuple *tuple)
+{
+	return TC_ACT_OK;
+}
+#endif /* POLICY_EGRESS && LXC_ID */
 
 #if defined POLICY_INGRESS || defined POLICY_EGRESS
 

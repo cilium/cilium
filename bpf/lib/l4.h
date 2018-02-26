@@ -222,8 +222,8 @@ l4_egress_policy(struct __sk_buff *skb, __be16 dport, __u8 nexthdr)
  *          n < 0 if connection should be dropped with reason n
  */
 static inline int
-__l4_policy_lookup(struct __sk_buff *skb, __u8 nh, __be16 dport, int dir,
-		   bool skip_proxy)
+l4_policy_lookup(struct __sk_buff *skb, __u8 nh, __be16 dport, int dir,
+		 bool skip_proxy)
 {
 	int proxy_port = 0;
 
@@ -258,22 +258,6 @@ __l4_policy_lookup(struct __sk_buff *skb, __u8 nh, __be16 dport, int dir,
 	}
 
 	return proxy_port;
-}
-
-static inline int
-l4_policy_lookup4(struct __sk_buff *skb, struct ipv4_ct_tuple *tuple,
-		  int dir, bool skip_proxy)
-{
-	return __l4_policy_lookup(skb, tuple->nexthdr, tuple->dport, dir,
-				  skip_proxy);
-}
-
-static inline int
-l4_policy_lookup6(struct __sk_buff *skb, struct ipv6_ct_tuple *tuple,
-		  int dir, bool skip_proxy)
-{
-	return __l4_policy_lookup(skb, tuple->nexthdr, tuple->dport, dir,
-				  skip_proxy);
 }
 
 #endif
