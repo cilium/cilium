@@ -51,3 +51,14 @@
 #define ENABLE_IPv4
 #define ALLOW_TO_HOST
 #define HAVE_L4_POLICY
+
+#ifndef SKIP_CIDR_LPM_MAP
+#define CIDR6_INGRESS_MAP cilium_cidr6_ingress_foo
+#define CIDR4_INGRESS_MAP cilium_cidr4_ingress_foo
+#define CIDR6_EGRESS_MAP cilium_cidr6_egress_foo
+#define CIDR4_EGRESS_MAP cilium_cidr4_egress_foo
+#endif
+#ifndef SKIP_CIDR_MAPPINGS
+#define CIDR6_INGRESS_MAPPINGS { .net = {}, .mask = {} }
+#define CIDR4_INGRESS_MAPPINGS { .net = 0, .mask = 0 }
+#endif
