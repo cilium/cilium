@@ -1,4 +1,4 @@
-// Copyright 2016-2017 Authors of Cilium
+// Copyright 2016-2018 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -18,7 +18,6 @@ import (
 	"bufio"
 	"bytes"
 	"context"
-	"encoding/gob"
 	"fmt"
 	"net"
 	"os"
@@ -103,7 +102,7 @@ type Daemon struct {
 	uniqueIDMU lock.Mutex
 	uniqueID   map[uint64]bool
 
-	nodeMonitor  monitorLaunch.NodeMonitor
+	nodeMonitor  *monitorLaunch.NodeMonitor
 	ciliumHealth *health.CiliumHealth
 
 	// k8sAPIs is a set of k8s API in use. They are setup in EnableK8sWatcher,
@@ -927,6 +926,7 @@ func NewDaemon(c *Config) (*Daemon, error) {
 		loadBalancer: lb,
 		policy:       policy.NewPolicyRepository(),
 		uniqueID:     map[uint64]bool{},
+		nodeMonitor:  monitorLaunch.NewNodeMonitor(),
 
 		// FIXME
 		// The channel size has to be set to the maximum number of
@@ -1401,32 +1401,15 @@ func (d *Daemon) GetServiceList() []*models.Service {
 	return list
 }
 
+// SendNotification sends an agent notification to the monitor
 func (d *Daemon) SendNotification(typ monitor.AgentNotification, text string) error {
-	var (
-		buf   bytes.Buffer
-		event = monitor.AgentNotify{Type: typ, Text: text}
-	)
-
-	if err := gob.NewEncoder(&buf).Encode(event); err != nil {
-		return fmt.Errorf("Unable to gob encode: %s", err)
-	}
-
-	err := d.nodeMonitor.SendEvent(append([]byte{byte(monitor.MessageTypeAgent)}, buf.Bytes()...))
-	if err != nil {
-		log.WithError(err).Debug("Failed to send agent notification")
-	}
-
-	return err
+	event := monitor.AgentNotify{Type: typ, Text: text}
+	return d.nodeMonitor.SendEvent(monitor.MessageTypeAgent, event)
 }
 
 // NewProxyLogRecord is invoked by the proxy accesslog on each new access log entry
 func (d *Daemon) NewProxyLogRecord(l *accesslog.LogRecord) error {
-	var buf bytes.Buffer
-	if err := gob.NewEncoder(&buf).Encode(l); err != nil {
-		return fmt.Errorf("Unable to gob encode: %s", err)
-	}
-
-	return d.nodeMonitor.SendEvent(append([]byte{byte(monitor.MessageTypeAccessLog)}, buf.Bytes()...))
+	return d.nodeMonitor.SendEvent(monitor.MessageTypeAccessLog, l)
 }
 
 // GetNodeSuffix returns the suffix to be appended to kvstore keys of this

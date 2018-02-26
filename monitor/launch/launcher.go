@@ -1,4 +1,4 @@
-// Copyright 2017 Authors of Cilium
+// Copyright 2017-2018 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -16,6 +16,8 @@ package launch
 
 import (
 	"bufio"
+	"bytes"
+	"encoding/gob"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -31,7 +33,12 @@ import (
 
 var log = logging.DefaultLogger
 
-const targetName = "cilium-node-monitor"
+const (
+	targetName = "cilium-node-monitor"
+
+	// queueSize is the size of the message queue
+	queueSize = 524288
+)
 
 // NodeMonitor is used to wrap the node executable binary.
 type NodeMonitor struct {
@@ -39,13 +46,29 @@ type NodeMonitor struct {
 
 	state *models.MonitorStatus
 
+	// The following members are protected by pipeLock
 	pipeLock lock.Mutex
 	pipe     *os.File
+	lost     uint64
+	lostLast uint64
+
+	queue chan []byte
+}
+
+// NewNodeMonitor returns a new node monitor
+func NewNodeMonitor() *NodeMonitor {
+	nm := &NodeMonitor{
+		queue: make(chan []byte, queueSize),
+	}
+
+	go nm.eventDrainer()
+
+	return nm
 }
 
 // GetPid returns the node monitor's pid.
-func (m *NodeMonitor) GetPid() int {
-	return m.GetProcess().Pid
+func (nm *NodeMonitor) GetPid() int {
+	return nm.GetProcess().Pid
 }
 
 // Run starts the node monitor.
@@ -101,7 +124,48 @@ func (nm *NodeMonitor) setState(state *models.MonitorStatus) {
 
 // SendEvent sends an event to the node monitor which will then distribute to
 // all monitor listeners
-func (nm *NodeMonitor) SendEvent(data []byte) error {
+func (nm *NodeMonitor) SendEvent(typ int, event interface{}) error {
+	var buf bytes.Buffer
+
+	if err := gob.NewEncoder(&buf).Encode(event); err != nil {
+		nm.bumpLost()
+		return fmt.Errorf("Unable to gob encode: %s", err)
+	}
+
+	select {
+	case nm.queue <- append([]byte{byte(typ)}, buf.Bytes()...):
+	default:
+		nm.bumpLost()
+		return fmt.Errorf("Monitor queue is full, discarding notification")
+	}
+
+	return nil
+}
+
+// bumpLost accounts for a lost notification
+func (nm *NodeMonitor) bumpLost() {
+	nm.pipeLock.Lock()
+	nm.lost++
+	nm.pipeLock.Unlock()
+}
+
+// lostSinceLastTime returns the number of lost samples since the last call to
+// lostSinceLastTime(), the pipeLock must be held for writing.
+func (nm *NodeMonitor) lostSinceLastTime() uint64 {
+	delta := nm.lost - nm.lostLast
+	nm.lostLast = nm.lost
+	return delta
+}
+
+func (nm *NodeMonitor) eventDrainer() {
+	for {
+		if err := nm.send(<-nm.queue); err != nil {
+			log.WithError(err).Warning("Unable to send monitor notification")
+		}
+	}
+}
+
+func (nm *NodeMonitor) send(data []byte) error {
 	nm.pipeLock.Lock()
 	defer nm.pipeLock.Unlock()
 
@@ -109,7 +173,7 @@ func (nm *NodeMonitor) SendEvent(data []byte) error {
 		return fmt.Errorf("monitor pipe not opened")
 	}
 
-	p := payload.Payload{Data: data, CPU: 0, Lost: 0, Type: payload.EventSample}
+	p := payload.Payload{Data: data, CPU: 0, Lost: nm.lostSinceLastTime(), Type: payload.EventSample}
 
 	payloadBuf, err := p.Encode()
 	if err != nil {
@@ -122,16 +186,12 @@ func (nm *NodeMonitor) SendEvent(data []byte) error {
 		return fmt.Errorf("Unable to encode metadata: %s", err)
 	}
 
-	if _, err := nm.pipe.Write(metaBuf); err != nil {
-		nm.pipe.Close()
-		nm.pipe = nil
-		return fmt.Errorf("Unable to write metadata: %s", err)
-	}
+	msgBuf := append(metaBuf, payloadBuf...)
 
-	if _, err := nm.pipe.Write(payloadBuf); err != nil {
+	if _, err := nm.pipe.Write(msgBuf); err != nil {
 		nm.pipe.Close()
 		nm.pipe = nil
-		return fmt.Errorf("Unable to write payload: %s", err)
+		return fmt.Errorf("Unable to write message buffer to pipe: %s", err)
 	}
 
 	return nil
