@@ -51,15 +51,6 @@ func SetMapRoot(path string) {
 		panic("SetMapRoot() call after MapRoot was read")
 	}
 	mapRoot = path
-
-	mountMutex.Lock()
-	for _, m := range delayedOpens {
-		m.OpenOrCreate()
-	}
-
-	mounted = true
-	delayedOpens = []*Map{}
-	mountMutex.Unlock()
 }
 
 func GetMapRoot() string {
