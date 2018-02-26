@@ -1,4 +1,4 @@
-// Copyright 2016-2017 Authors of Cilium
+// Copyright 2016-2018 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -25,7 +25,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-	"github.com/cilium/cilium/pkg/syncbytes"
+	"github.com/cilium/cilium/pkg/pipeexec"
 
 	"golang.org/x/sys/unix"
 )
@@ -112,49 +112,6 @@ func OpenAfterMount(m *Map) error {
 	return nil
 }
 
-func mountCmdPipe(cmds []*exec.Cmd) (mountCmdOutput, mountCmdStandardError []byte, mountCmdError error) {
-
-	// We need atleast one command to pipe.
-	if len(cmds) < 1 {
-		return nil, nil, nil
-	}
-
-	// Total output of commands.
-	var output syncbytes.Buffer
-	var stderr syncbytes.Buffer
-
-	lastCmd := len(cmds) - 1
-	for i, cmd := range cmds[:lastCmd] {
-		var err error
-		// We need to connect every command's stdin to the previous command's stdout
-		if cmds[i+1].Stdin, err = cmd.StdoutPipe(); err != nil {
-			return nil, nil, err
-		}
-		// We need to connect each command's stderr to a buffer
-		cmd.Stderr = &stderr
-	}
-
-	// Connect the output and error for the last command
-	cmds[lastCmd].Stdout, cmds[lastCmd].Stderr = &output, &stderr
-
-	// Let's start each command
-	for _, cmd := range cmds {
-		if err := cmd.Start(); err != nil {
-			return output.Bytes(), stderr.Bytes(), err
-		}
-	}
-
-	// We wait for each command to complete
-	for _, cmd := range cmds {
-		if err := cmd.Wait(); err != nil {
-			return output.Bytes(), stderr.Bytes(), err
-		}
-	}
-
-	// Return the output and the standard error
-	return output.Bytes(), stderr.Bytes(), nil
-}
-
 func mountFS() error {
 	// Mount BPF Map directory if not already done
 	args := []string{"-q", mapRoot}
@@ -177,9 +134,8 @@ func mountFS() error {
 			exec.Command("cut", "-f1", "-d "),
 		}
 
-		output, stderr, _ := mountCmdPipe(cmds)
-
-		if len(stderr) > 0 {
+		output, stderr, err := pipeexec.CommandPipe(cmds)
+		if len(stderr) > 0 || err != nil {
 			return fmt.Errorf("command execution failed: %s", stderr)
 		}
 
