@@ -98,3 +98,12 @@ It is also possible to hard-code ``static-config`` sections that are simply an I
             labels:
               node-id: i-0598c7d7d356eba47
               node-az: a
+
+Prometheus-operator Integration
+===============================
+To integrate with `Prometheus-operator <https://coreos.com/operators/prometheus/docs/latest/>`_, create a Service object (https://github.com/cilium/cilium/blob/master/examples/kubernetes/cilium-metrics-svc.yaml) and ServiceMonitor (https://github.com/cilium/cilium/blob/metrics/examples/kubernetes/prometheus-k8s-service-monitor-cilium.yaml).
+
+.. parsed-literal::
+
+   $ kubectl apply -f cilium-metrics-svc.yaml
+   $ kubectl apply -f prometheus-k8s-service-monitor-cilium.yaml

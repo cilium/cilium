@@ -8,7 +8,7 @@ metadata:
     k8s-app: cilium-metrics-svc
     app: cilium-metrics-svc
 spec:
-  type: NodePort
+  type: ClusterIP
   ports:
   - port: 9090
     protocol: TCP
