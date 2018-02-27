@@ -16,6 +16,57 @@ We use GitHub issues to maintain a list of `Cilium Frequently Asked Questions
 (FAQ)`_. You can also check there to see if your question(s) is already
 addressed.
 
+Overall Health
+==============
+
+The first step in troubleshooting is to retrieve an overview of the overall
+health. This is achieved by running the ``cilium status`` command.
+
+Kubernetes
+----------
+
+When using Kubernetes, refer o the ``k8s-cilium-exec.sh`` script to execute
+``cilium status`` on all cluster nodes with ease. Download the
+``k8s-cilium-exec.sh`` script:
+
+.. code:: bash
+
+    $ curl -sLO releases.cilium.io/v1.0.0-rc4/tools/k8s-cilium-exec.sh
+    $ chmod +x ./k8s-cilium-exec.sh
+
+... and run ``cilium status`` on all nodes:
+
+.. code:: bash
+
+    $ ./k8s-cilium-exec.sh cilium status
+    KVStore:                Ok   Etcd: http://127.0.0.1:2379 - (Leader) 3.1.10
+    ContainerRuntime:       Ok
+    Kubernetes:             Ok   OK
+    Kubernetes APIs:        ["extensions/v1beta1::Ingress", "core/v1::Node", "CustomResourceDefinition", "cilium/v2::CiliumNetworkPolicy", "networking.k8s.io/v1::NetworkPolicy", "core/v1::Service", "core/v1::Endpoint"]
+    Cilium:                 Ok   OK
+    NodeMonitor:            Listening for events on 2 CPUs with 64x4096 of shared memory
+    Cilium health daemon:   Ok
+    Controller Status:      7/7 healthy
+    Proxy Status:           OK, ip 10.15.28.238, 0 redirects, port-range 10000-20000
+    Cluster health:   1/1 reachable   (2018-02-27T00:24:34Z)
+
+Generic Instructions
+--------------------
+
+.. code:: bash
+
+    $ cilium status
+    KVStore:                Ok   Etcd: http://127.0.0.1:2379 - (Leader) 3.1.10
+    ContainerRuntime:       Ok
+    Kubernetes:             Ok   OK
+    Kubernetes APIs:        ["extensions/v1beta1::Ingress", "core/v1::Node", "CustomResourceDefinition", "cilium/v2::CiliumNetworkPolicy", "networking.k8s.io/v1::NetworkPolicy", "core/v1::Service", "core/v1::Endpoint"]
+    Cilium:                 Ok   OK
+    NodeMonitor:            Listening for events on 2 CPUs with 64x4096 of shared memory
+    Cilium health daemon:   Ok
+    Controller Status:      7/7 healthy
+    Proxy Status:           OK, ip 10.15.28.238, 0 redirects, port-range 10000-20000
+    Cluster health:   1/1 reachable   (2018-02-27T00:24:34Z)
+
 Connectivity Issues
 ===================
 
