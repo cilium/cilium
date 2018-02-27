@@ -204,7 +204,7 @@ gofmt:
 
 precheck:
 	contrib/scripts/check-fmt.sh
-	contrib/scripts/no-newlines-in-log-call.sh
+	contrib/scripts/check-log-newlines.sh
 
 pprof-help:
 	@echo "Available pprof targets:"
