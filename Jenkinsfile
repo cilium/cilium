@@ -1,6 +1,6 @@
 pipeline {
     agent {
-        label 'vagrant'
+        label 'baremetal'
     }
     options {
         timeout(time: 140, unit: 'MINUTES')
