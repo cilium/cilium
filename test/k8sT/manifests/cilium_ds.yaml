@@ -6,7 +6,7 @@ metadata:
 data:
   # This etcd-config contains the etcd endpoints of your cluster. If you use
   # TLS please make sure you uncomment the ca-file line and add the respective
-  # certificate has a k8s secret, see explanation bellow in the comment labeled
+  # certificate has a k8s secret, see explanation below in the comment labeled
   # "ETCD-CERT"
   etcd-config: |-
     ---
@@ -18,7 +18,7 @@ data:
     #ca-file: '/var/lib/etcd-secrets/etcd-ca'
     #
     # In case you want client to server authentication, uncomment the following
-    # lines and add the certificate and key in cilium-etcd-secrets bellow
+    # lines and add the certificate and key in cilium-etcd-secrets below
     #key-file: '/var/lib/etcd-secrets/etcd-client-key'
     #cert-file: '/var/lib/etcd-secrets/etcd-client-crt'
 
