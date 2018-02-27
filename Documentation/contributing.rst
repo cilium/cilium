@@ -196,6 +196,13 @@ project root directory:
 
     $ make tests
 
+.. Warning::
+
+ Make tests executes envoy tests. This can sometimes cause the developer VM to
+ run out of memory. This pressure can be alleviated by shutting down the bazel
+ caching daemon left by these tests. Run ``(cd envoy; bazel shutdown)`` after
+ a build to do this. 
+
 Testing individual packages
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
