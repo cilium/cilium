@@ -57,13 +57,13 @@ contribute to Cilium:
 
 To run Cilium locally on VMs, you need:
 
-+----------------------------------------------------------------------------------+-----------------------+--------------------------------------------------------------------------------+
-| Dependency                                                                       | Version / Commit ID   | Download Command                                                               |
-+==================================================================================+=======================+================================================================================+
-| `Vagrant <https://www.vagrantup.com/downloads.html>`_                            | >= 1.8.3              | `Vagrant Install Instructions <https://www.vagrantup.com/docs/installation/>`_ |
-+----------------------------------------------------------------------------------+-----------------------+--------------------------------------------------------------------------------+
-| `VirtualBox <https://www.virtualbox.org/wiki/Downloads>`_ (if not using libvirt) | >= 5.1.22             | N/A (OS-specific)                                                              |
-+----------------------------------------------------------------------------------+-----------------------+--------------------------------------------------------------------------------+
++-----------------------------------------------------------+---------------------+--------------------------------------------------------------------------------+
+| Dependency                                                | Version / Commit ID | Download Command                                                               |
++===========================================================+=====================+================================================================================+
+| `Vagrant <https://www.vagrantup.com/downloads.html>`_     | >= 1.8.3            | `Vagrant Install Instructions <https://www.vagrantup.com/docs/installation/>`_ |
++-----------------------------------------------------------+---------------------+--------------------------------------------------------------------------------+
+| `VirtualBox <https://www.virtualbox.org/wiki/Downloads>`_ | >= 5.1.22           | N/A (OS-specific)                                                              |
++-----------------------------------------------------------+---------------------+--------------------------------------------------------------------------------+
 
 Finally, in order to build the documentation, you should have Sphinx installed:
 
@@ -87,8 +87,13 @@ environment variables and network setup that are managed via
 Using the provided Vagrantfile
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-To bring up a Vagrant VM  with Cilium
-plus dependencies installed, run:
+Cilium's Vagrantfile supports two boxes:
+
+* ``cilium/ubuntu`` (default)
+* ``cilium/opensuse``
+
+To bring up a Vagrant VM with Cilium plus dependencies installed, using the
+default Ubuntu box, run:
 
 ::
 
@@ -99,6 +104,14 @@ This will create and run a vagrant VM based on the base box
 following providers:
 
 * virtualbox
+
+To use openSUSE box, run.
+
+::
+
+    $ export DISTRIBUTION=opensuse
+    $ contrib/vagrant/start.sh
+
 
 Options
 ^^^^^^^
@@ -121,15 +134,15 @@ kubernetes installed and plus a worker, run:
 
 	$ IPV4=1 K8S=1 NWORKERS=1 contrib/vagrant/start.sh
 
-If you have any issue with the provided vagrant box
-``cilium/ubuntu-16.10`` or need a different box format, you may
-build the box yourself using the `packer scripts <https://github.com/cilium/packer-ubuntu-16.10>`_
+If you have any issue with the provided vagrant boxes
+(``cilium/ubuntu`` or ``cilium/opensuse``) or need a different box format,
+you may build the box yourself using the `packer scripts <https://github.com/cilium/packer-ci-build>`_
 
 Manual Installation
 ^^^^^^^^^^^^^^^^^^^
 
-Alternatively you can import the vagrant box ``cilium/ubuntu``
-directly and manually install Cilium:
+Alternatively you can import the vagrant box ``cilium/ubuntu`` or
+``cilium/opensuse`` directly and manually install Cilium:
 
 ::
 
