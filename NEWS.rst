@@ -2,6 +2,40 @@
 NEWS
 ******
 
+Version 1.0-rc5
+===============
+
+:date: 2018-02-27
+:commit: 0c269fc0212ce789c28e068137c6a963411e6df4
+
+Bugfixes Changes
+----------------
+
+* Fix BPF policy map specification inconsistency between BPF programs (2953_ @joestringer)
+* k8s: Do not attempt to sync headless services to datapath (2937_ @tgraf)
+* identity cache: Support looking up reserved identities (2922_ @tgraf)
+* Fix IPv4 L4 egress policy enforcement with service port mapping (2912_ @joestringer)
+* Fix kubernetes default deny policy for kubernetes 1.7 (2887_ @aanm)
+* Log Kafka responses (2881_ @tgraf)
+* Several fixes to support long-lived persistent connections (2855_ @tgraf)
+* Clean endpoint BPF map on daemon start (2814_ @mrostecki)
+
+Other Changes
+-------------
+
+* Add documentation on how to retrieve overall health of cluster (2944_ @tgraf)
+* monitor: Introduce channel to buffer notifications and listeners (2933_ @tgraf)
+* bpf: Warn if another program is using a VXLAN device (2929_ @tgraf)
+* Make Kafka K8s GSG CI tests work on multinode setup (2926_ @manalibhutiyani)
+* Add proxy status to cilium status (2894_ @tgraf)
+* contrib: Add script to run cilium monitor on all k8s nodes (2867_ @tgraf)
+* Update example cilium-ds.yaml files to support rolling updates. (2865_ @ashwinp)
+* Add cluster health summary to `cilium status` (2858_ @joestringer)
+* Consistently use `-o json` as the CLI arguments for printing JSON output across all commands that support JSON output (2852_ @joestringer)
+* Simplify output of `cilium status` by default, add new `--verbose`, `--brief` options (2821_ @joestringer)
+* Ginkgo : Support K8s CI Coverage for Kafka GSG (2806_ @manalibhutiyani)
+
+
 Version 1.0-rc4
 ===============
 
@@ -1062,3 +1096,22 @@ Fixes
 .. _2614: https://github.com/cilium/cilium/pull/2614
 .. _2607: https://github.com/cilium/cilium/pull/2607
 .. _2595: https://github.com/cilium/cilium/pull/2595
+.. _2953: https://github.com/cilium/cilium/pull/2953
+.. _2937: https://github.com/cilium/cilium/pull/2937
+.. _2922: https://github.com/cilium/cilium/pull/2922
+.. _2912: https://github.com/cilium/cilium/pull/2912
+.. _2887: https://github.com/cilium/cilium/pull/2887
+.. _2881: https://github.com/cilium/cilium/pull/2881
+.. _2855: https://github.com/cilium/cilium/pull/2855
+.. _2814: https://github.com/cilium/cilium/pull/2814
+.. _2944: https://github.com/cilium/cilium/pull/2944
+.. _2933: https://github.com/cilium/cilium/pull/2933
+.. _2929: https://github.com/cilium/cilium/pull/2929
+.. _2926: https://github.com/cilium/cilium/pull/2926
+.. _2894: https://github.com/cilium/cilium/pull/2894
+.. _2867: https://github.com/cilium/cilium/pull/2867
+.. _2865: https://github.com/cilium/cilium/pull/2865
+.. _2858: https://github.com/cilium/cilium/pull/2858
+.. _2852: https://github.com/cilium/cilium/pull/2852
+.. _2821: https://github.com/cilium/cilium/pull/2821
+.. _2806: https://github.com/cilium/cilium/pull/2806
