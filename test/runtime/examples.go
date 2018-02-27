@@ -41,7 +41,6 @@ var _ = Describe("RuntimeValidatedPolicyValidationTests", func() {
 
 	BeforeEach(func() {
 		once.Do(initialize)
-
 	})
 
 	AfterEach(func() {
