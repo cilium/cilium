@@ -142,11 +142,8 @@ func isNodeNetworkingWorking(kubectl *helpers.Kubectl, filter string) bool {
 		helpers.DefaultNamespace,
 		fmt.Sprintf("pod %s -o json", pods[1])).Filter("{.status.podIP}")
 	Expect(err).Should(BeNil())
-	_, err = kubectl.ExecPodCmd(helpers.DefaultNamespace, pods[0], helpers.Ping(podIP.String()))
-	if err != nil {
-		return false
-	}
-	return true
+	res := kubectl.ExecPodCmd(helpers.DefaultNamespace, pods[0], helpers.Ping(podIP.String()))
+	return res.WasSuccessful()
 }
 
 func waitToDeleteCilium(kubectl *helpers.Kubectl, logger *logrus.Entry) {

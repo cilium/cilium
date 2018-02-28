@@ -166,10 +166,12 @@ var _ = Describe("NightlyEpsMeasurement", func() {
 			for _, pod := range pods {
 				for service, ip := range services {
 					b.Time("Curl to service", func() {
-						_, err := kubectl.ExecPodCmd(
+
+						res := kubectl.ExecPodCmd(
 							helpers.DefaultNamespace, pod,
 							helpers.CurlFail(fmt.Sprintf("http://%s:80/", ip)))
-						Expect(err).To(BeNil(), "Cannot curl from %s to service %s on  ip %s", pod, service, ip)
+						res.ExpectSuccess(
+							"Cannot curl from %s to service %s on  ip %s", pod, service, ip)
 					})
 				}
 
@@ -350,15 +352,17 @@ var _ = Describe("NightlyExamples", func() {
 			clusterIP, _, err := kubectl.GetServiceHostPort(helpers.DefaultNamespace, appService)
 			Expect(err).Should(BeNil())
 
-			_, err = kubectl.ExecPodCmd(
+			res := kubectl.ExecPodCmd(
 				helpers.DefaultNamespace, appPods[helpers.App2],
 				helpers.CurlFail(fmt.Sprintf("http://%s/public", clusterIP)))
-			Expect(err).Should(BeNil())
+			res.ExpectSuccess("Cannot curl to %q from %q", clusterIP, appPods[helpers.App2])
 
-			_, err = kubectl.ExecPodCmd(
+			res = kubectl.ExecPodCmd(
 				helpers.DefaultNamespace, appPods[helpers.App3],
 				helpers.CurlFail(fmt.Sprintf("http://%s/public", clusterIP)))
-			Expect(err).Should(HaveOccurred())
+			res.ExpectFail("Can curl to %q from %q and it should",
+				clusterIP, appPods[helpers.App3])
+
 		})
 
 		It("Updating Cilium stable to master", func() {
@@ -379,10 +383,10 @@ var _ = Describe("NightlyExamples", func() {
 
 			appPods := helpers.GetAppPods(apps, helpers.DefaultNamespace, kubectl, "id")
 
-			_, err = kubectl.ExecPodCmd(
+			res := kubectl.ExecPodCmd(
 				helpers.DefaultNamespace, appPods[helpers.App2],
 				helpers.CurlFail(fmt.Sprintf("http://app1-service/public")))
-			Expect(err).To(BeNil(), "Cannot curl service")
+			res.ExpectSuccess("Cannot curl app1-service")
 
 			By("Updating cilium to master image")
 
@@ -430,10 +434,10 @@ var _ = Describe("NightlyExamples", func() {
 			Expect(status).Should(BeTrue(), "Cilium is not ready after timeout")
 			Expect(err).Should(BeNil(), "Cilium is not ready after timeout")
 
-			_, err = kubectl.ExecPodCmd(
+			res = kubectl.ExecPodCmd(
 				helpers.DefaultNamespace, appPods[helpers.App2],
 				helpers.CurlFail(fmt.Sprintf("http://app1-service/public")))
-			Expect(err).To(BeNil(), "Cannot curl service after update")
+			res.ExpectSuccess("Cannot curl service after update")
 		})
 	})
 })
