@@ -101,22 +101,32 @@ func CreateClient(config *rest.Config) (*kubernetes.Clientset, error) {
 }
 
 // GetServerVersion returns the kubernetes api-server version.
-func GetServerVersion() (*go_version.Version, error) {
+func GetServerVersion() (ver *go_version.Version, err error) {
 	sv, err := Client().Discovery().ServerVersion()
-	switch {
-	case err != nil:
+	if err != nil {
 		return nil, err
-
-	case sv.Major != "" && sv.Minor != "":
-		return go_version.NewVersion(fmt.Sprintf("%s.%s", sv.Major, sv.Minor))
-
-	case sv.GitVersion != "":
-		// This is a string like "v1.9.0"
-		return go_version.NewVersion(sv.GitVersion[1:])
-
-	default:
-		return nil, fmt.Errorf("Cannot parse k8s server version from %+v", sv)
 	}
+
+	// Try GitVersion first. In case of error fallback to MajorMinor
+	if sv.GitVersion != "" {
+		// This is a string like "v1.9.0"
+		ver, err = go_version.NewVersion(sv.GitVersion)
+		if err == nil {
+			return ver, err
+		}
+	}
+
+	if sv.Major != "" && sv.Minor != "" {
+		ver, err = go_version.NewVersion(fmt.Sprintf("%s.%s", sv.Major, sv.Minor))
+		if err == nil {
+			return ver, nil
+		}
+	}
+
+	if err != nil {
+		return nil, fmt.Errorf("cannot parse k8s server version from %+v: %s", sv, err)
+	}
+	return nil, fmt.Errorf("cannot parse k8s server version from %+v", sv)
 }
 
 // isConnReady returns the err for the controller-manager status
