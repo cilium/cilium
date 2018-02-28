@@ -27,7 +27,8 @@ PIP_REQUIREMENTS = \
 check-requirements:
 	@$(foreach PKG,$(PIP_REQUIREMENTS), \
 		pip list --format=json | grep ${PKG} > /dev/null || \
-		(echo "${PKG} not installed, run 'pip install ${PKG}'";  \
+		(echo "Documentation dependency '${PKG}' not installed."; \
+			echo "Run 'pip install ${PKG}'"; \
 			exit 1); \
 	)
 
