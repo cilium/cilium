@@ -199,9 +199,13 @@ skip_service_lookup:
 		 * Create a CT entry which allows to track replies and to
 		 * reverse NAT.
 		 */
+		ret = l4_policy_lookup6(skb, tuple, CT_EGRESS, false);
+		if (IS_ERR(ret))
+			return ret;
+		ct_state_new.proxy_port = ret;
 		ct_state_new.src_sec_id = SECLABEL;
-		ret = ct_create6(&CT_MAP6, tuple, skb, CT_EGRESS, &ct_state_new,
-				 false);
+
+		ret = ct_create6(&CT_MAP6, tuple, skb, CT_EGRESS, &ct_state_new);
 		if (IS_ERR(ret))
 			return ret;
 		ct_state.proxy_port = ct_state_new.proxy_port;
@@ -515,9 +519,13 @@ skip_service_lookup:
 		 * Create a CT entry which allows to track replies and to
 		 * reverse NAT.
 		 */
+		ret = l4_policy_lookup4(skb, &tuple, CT_EGRESS, false);
+		if (IS_ERR(ret))
+			return ret;
+		ct_state_new.proxy_port = ret;
 		ct_state_new.src_sec_id = SECLABEL;
-		ret = ct_create4(&CT_MAP4, &tuple, skb, CT_EGRESS, &ct_state_new,
-				 false);
+
+		ret = ct_create4(&CT_MAP4, &tuple, skb, CT_EGRESS, &ct_state_new);
 		if (IS_ERR(ret))
 			return ret;
 
@@ -838,8 +846,7 @@ static inline int __inline__ ipv6_policy(struct __sk_buff *skb, int ifindex, __u
 		ct_state_new.proxy_port = skip_proxy ? 0 : verdict;
 		ct_state_new.orig_dport = tuple.dport;
 		ct_state_new.src_sec_id = src_label;
-		ret = ct_create6(&CT_MAP6, &tuple, skb, CT_INGRESS, &ct_state_new,
-				 skip_proxy);
+		ret = ct_create6(&CT_MAP6, &tuple, skb, CT_INGRESS, &ct_state_new);
 		if (IS_ERR(ret))
 			return ret;
 
@@ -940,8 +947,7 @@ static inline int __inline__ ipv4_policy(struct __sk_buff *skb, int ifindex, __u
 		ct_state_new.proxy_port = skip_proxy ? 0 : verdict;
 		ct_state_new.orig_dport = tuple.dport;
 		ct_state_new.src_sec_id = src_label;
-		ret = ct_create4(&CT_MAP4, &tuple, skb, CT_INGRESS, &ct_state_new,
-				 skip_proxy);
+		ret = ct_create4(&CT_MAP4, &tuple, skb, CT_INGRESS, &ct_state_new);
 		if (IS_ERR(ret))
 			return ret;
 
