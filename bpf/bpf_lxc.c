@@ -831,10 +831,11 @@ static inline int __inline__ ipv6_policy(struct __sk_buff *skb, int ifindex, __u
 
 	/* Reply packets and related packets are allowed, all others must be
 	 * permitted by policy */
-	if (ret != CT_REPLY && ret != CT_RELATED && verdict != TC_ACT_OK)
+	if (ret != CT_REPLY && ret != CT_RELATED && verdict < 0)
 		return DROP_POLICY;
 
 	if (ret == CT_NEW) {
+		ct_state_new.proxy_port = skip_proxy ? 0 : verdict;
 		ct_state_new.orig_dport = tuple.dport;
 		ct_state_new.src_sec_id = src_label;
 		ret = ct_create6(&CT_MAP6, &tuple, skb, CT_INGRESS, &ct_state_new,
@@ -932,10 +933,11 @@ static inline int __inline__ ipv4_policy(struct __sk_buff *skb, int ifindex, __u
 
 	/* Reply packets and related packets are allowed, all others must be
 	 * permitted by policy */
-	if (ret != CT_REPLY && ret != CT_RELATED && verdict != TC_ACT_OK)
+	if (ret != CT_REPLY && ret != CT_RELATED && verdict < 0)
 		return DROP_POLICY;
 
 	if (ret == CT_NEW) {
+		ct_state_new.proxy_port = skip_proxy ? 0 : verdict;
 		ct_state_new.orig_dport = tuple.dport;
 		ct_state_new.src_sec_id = src_label;
 		ret = ct_create4(&CT_MAP4, &tuple, skb, CT_INGRESS, &ct_state_new,
