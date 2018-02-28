@@ -1457,6 +1457,42 @@ describe some of the differences for the BPF model:
   is not specific to tc, but can be applied with any other BPF program type
   that iproute2 supports (such as XDP, lwt).
 
+  The generated elf contains section headers describing the map id and the
+  entry within that map:
+
+  ::
+
+    $ llvm-objdump -S --no-show-raw-insn prog_array.o | less
+    prog_array.o:   file format ELF64-BPF
+
+    Disassembly of section 1/0:
+    looper:
+           0:       r6 = r1
+           1:       r2 = *(u32 *)(r6 + 48)
+           2:       r1 = r2
+           3:       r1 += 1
+           4:       *(u32 *)(r6 + 48) = r1
+           5:       r1 = 0 ll
+           7:       call -1
+           8:       r1 = r6
+           9:       r2 = 0 ll
+          11:       r3 = 0
+          12:       call 12
+          13:       r0 = 0
+          14:       exit
+    Disassembly of section prog:
+    entry:
+           0:       r2 = 0
+           1:       *(u32 *)(r1 + 48) = r2
+           2:       r2 = 0 ll
+           4:       r3 = 0
+           5:       call 12
+           6:       r0 = 0
+           7:       exi
+
+  In this case, the ``section 1/0`` indicates that the ``looper()`` function
+  resides in the map id ``1`` at position ``0``.
+
   The pinned map can be retrieved by a user space applications (e.g. Cilium daemon),
   but also by tc itself in order to update the map with new programs. Updates
   happen atomically, the initial entry programs that are triggered first from the
