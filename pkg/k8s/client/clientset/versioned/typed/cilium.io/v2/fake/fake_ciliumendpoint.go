@@ -60,7 +60,7 @@ func (c *FakeCiliumEndpoints) List(opts v1.ListOptions) (result *v2.CiliumEndpoi
 	if label == nil {
 		label = labels.Everything()
 	}
-	list := &v2.CiliumEndpointList{}
+	list := &v2.CiliumEndpointList{ListMeta: obj.(*v2.CiliumEndpointList).ListMeta}
 	for _, item := range obj.(*v2.CiliumEndpointList).Items {
 		if label.Matches(labels.Set(item.Labels)) {
 			list.Items = append(list.Items, item)

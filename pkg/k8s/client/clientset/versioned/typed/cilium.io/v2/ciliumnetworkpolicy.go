@@ -35,6 +35,7 @@ type CiliumNetworkPoliciesGetter interface {
 type CiliumNetworkPolicyInterface interface {
 	Create(*v2.CiliumNetworkPolicy) (*v2.CiliumNetworkPolicy, error)
 	Update(*v2.CiliumNetworkPolicy) (*v2.CiliumNetworkPolicy, error)
+	UpdateStatus(*v2.CiliumNetworkPolicy) (*v2.CiliumNetworkPolicy, error)
 	Delete(name string, options *v1.DeleteOptions) error
 	DeleteCollection(options *v1.DeleteOptions, listOptions v1.ListOptions) error
 	Get(name string, options v1.GetOptions) (*v2.CiliumNetworkPolicy, error)
@@ -112,6 +113,22 @@ func (c *ciliumNetworkPolicies) Update(ciliumNetworkPolicy *v2.CiliumNetworkPoli
 		Namespace(c.ns).
 		Resource("ciliumnetworkpolicies").
 		Name(ciliumNetworkPolicy.Name).
+		Body(ciliumNetworkPolicy).
+		Do().
+		Into(result)
+	return
+}
+
+// UpdateStatus was generated because the type contains a Status member.
+// Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
+
+func (c *ciliumNetworkPolicies) UpdateStatus(ciliumNetworkPolicy *v2.CiliumNetworkPolicy) (result *v2.CiliumNetworkPolicy, err error) {
+	result = &v2.CiliumNetworkPolicy{}
+	err = c.client.Put().
+		Namespace(c.ns).
+		Resource("ciliumnetworkpolicies").
+		Name(ciliumNetworkPolicy.Name).
+		SubResource("status").
 		Body(ciliumNetworkPolicy).
 		Do().
 		Into(result)
