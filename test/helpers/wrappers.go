@@ -70,7 +70,7 @@ func Netperf(endpoint string, perfTest PerfTest) string {
 // Netcat returns the string representing the netcat command to the specified
 // endpoint. It takes a variadic optionalValues arguments, This is passed to
 // fmt.Sprintf uses in the netcat message
-func NetCat(endpoint string, optionalValues ...interface{}) string {
+func Netcat(endpoint string, optionalValues ...interface{}) string {
 	if len(optionalValues) > 0 {
 		endpoint = fmt.Sprintf(endpoint, optionalValues...)
 	}
