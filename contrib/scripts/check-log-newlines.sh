@@ -2,10 +2,8 @@
 
 set -e
 
-if grep --include \*.go -r 'log\.' ../../ | grep -v vendor \
-  | grep -v envoy \
-  | grep -v contrib \
-  | grep -v logging.go \
+if grep --include \*.go -r 'log\.' ./ \
+  | grep -v -e vendor -e envoy -e contrib -e logging.go \
   | grep -F "\n"; then
   echo "found newline(s) in log call(s), please remove ending \n"
   exit 1
