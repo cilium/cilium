@@ -41,9 +41,14 @@ func Ping6(endpoint string) string {
 	return fmt.Sprintf("ping6 -c %d %s", PingCount, endpoint)
 }
 
-// CurlFail returns the string representing the curl command with `-s` and `--fail`
-// options enabled to curl the specified endpoint.
-func CurlFail(endpoint string) string {
+// CurlFail returns the string representing the curl command with `-s` and
+// `--fail` options enabled to curl the specified endpoint.  It takes a
+// variadic optinalValues argument. This is passed on to fmt.Sprintf() and uses
+// into the curl message
+func CurlFail(endpoint string, optionalValues ...interface{}) string {
+	if len(optionalValues) > 0 {
+		endpoint = fmt.Sprintf(endpoint, optionalValues...)
+	}
 	return fmt.Sprintf("curl -s --fail --connect-timeout %[1]d --max-time %[1]d %[2]s",
 		CurlConnectTimeout, endpoint)
 }
@@ -60,4 +65,14 @@ func CurlWithHTTPCode(endpoint string) string {
 // connectivity between endpoints.
 func Netperf(endpoint string, perfTest PerfTest) string {
 	return fmt.Sprintf("netperf -l 3 -t %s -H %s", perfTest, endpoint)
+}
+
+// Netcat returns the string representing the netcat command to the specified
+// endpoint. It takes a variadic optionalValues arguments, This is passed to
+// fmt.Sprintf uses in the netcat message
+func NetCat(endpoint string, optionalValues ...interface{}) string {
+	if len(optionalValues) > 0 {
+		endpoint = fmt.Sprintf(endpoint, optionalValues...)
+	}
+	return fmt.Sprintf("nc -w 4 %s", endpoint)
 }
