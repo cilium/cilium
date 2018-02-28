@@ -524,7 +524,7 @@ static inline int __inline__ ct_create4(void *map, struct ipv4_ct_tuple *tuple,
 	if (dir == CT_INGRESS) {
 		if (tuple->nexthdr == IPPROTO_UDP ||
 		    tuple->nexthdr == IPPROTO_TCP) {
-			cilium_dbg(skb, DBG_GENERIC, ct_state->orig_dport, tuple->nexthdr);
+			cilium_dbg(skb, DBG_GENERIC, tuple->dport, tuple->nexthdr);
 			/* Resolve L4 policy. This may fail due to policy reasons. May
 			 * optionally return a proxy port number to redirect all traffic to.
 			 *
@@ -536,7 +536,7 @@ static inline int __inline__ ct_create4(void *map, struct ipv4_ct_tuple *tuple,
 			if (orig_was_proxy) {
 				proxy_port = 0;
 			} else {
-				proxy_port = l4_ingress_policy(skb, ct_state->orig_dport, tuple->nexthdr);
+				proxy_port = l4_ingress_policy(skb, tuple->dport, tuple->nexthdr);
 				if (IS_ERR(proxy_port))
 					return proxy_port;
 			}
