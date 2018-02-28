@@ -426,24 +426,15 @@ out:
 /* Offset must point to IPv6 */
 static inline int __inline__ ct_create6(void *map, struct ipv6_ct_tuple *tuple,
 					struct __sk_buff *skb, int dir,
-					struct ct_state *ct_state,
-					bool orig_was_proxy)
+					struct ct_state *ct_state)
 {
 	/* Create entry in original direction */
 	struct ct_entry entry = { };
-	int proxy_port;
 
 	entry.rev_nat_index = ct_state->rev_nat_index;
 	entry.lb_loopback = ct_state->loopback;
+	entry.proxy_port = ct_state->proxy_port;
 	ct_update_timeout(&entry);
-
-	if (ct_state->proxy_port) {
-		proxy_port = ct_state->proxy_port;
-	} else {
-		proxy_port = l4_policy_lookup6(skb, tuple, dir, orig_was_proxy);
-		if (IS_ERR(proxy_port))
-			return proxy_port;
-	}
 
 	if (dir == CT_INGRESS) {
 		entry.rx_packets = 1;
@@ -452,8 +443,6 @@ static inline int __inline__ ct_create6(void *map, struct ipv6_ct_tuple *tuple,
 		entry.tx_packets = 1;
 		entry.tx_bytes = skb->len;
 	}
-
-	entry.proxy_port = proxy_port;
 
 	cilium_dbg3(skb, DBG_CT_CREATED6, entry.proxy_port << 16 | entry.rev_nat_index,
 		      ct_state->src_sec_id, 0);
@@ -483,31 +472,20 @@ static inline int __inline__ ct_create6(void *map, struct ipv6_ct_tuple *tuple,
 		return DROP_CT_CREATE_FAILED;
 	}
 
-	ct_state->proxy_port = proxy_port;
-
 	return 0;
 }
 
 static inline int __inline__ ct_create4(void *map, struct ipv4_ct_tuple *tuple,
 					struct __sk_buff *skb, int dir,
-					struct ct_state *ct_state,
-					bool orig_was_proxy)
+					struct ct_state *ct_state)
 {
 	/* Create entry in original direction */
 	struct ct_entry entry = { };
-	int proxy_port;
 
 	entry.rev_nat_index = ct_state->rev_nat_index;
 	entry.lb_loopback = ct_state->loopback;
+	entry.proxy_port = ct_state->proxy_port;
 	ct_update_timeout(&entry);
-
-	if (ct_state->proxy_port) {
-		proxy_port = ct_state->proxy_port;
-	} else {
-		proxy_port = l4_policy_lookup4(skb, tuple, dir, orig_was_proxy);
-		if (IS_ERR(proxy_port))
-			return proxy_port;
-	}
 
 	if (dir == CT_INGRESS) {
 		entry.rx_packets = 1;
@@ -516,8 +494,6 @@ static inline int __inline__ ct_create4(void *map, struct ipv4_ct_tuple *tuple,
 		entry.tx_packets = 1;
 		entry.tx_bytes = skb->len;
 	}
-
-	entry.proxy_port = ct_state->proxy_port;
 
 #ifdef LXC_NAT46
 	if (skb->cb[CB_NAT46_STATE] == NAT64)
@@ -577,8 +553,6 @@ static inline int __inline__ ct_create4(void *map, struct ipv4_ct_tuple *tuple,
 	if (map_update_elem(map, &icmp_tuple, &entry, 0) < 0)
 		return DROP_CT_CREATE_FAILED;
 
-	ct_state->proxy_port = proxy_port;
-
 	return 0;
 }
 
@@ -605,16 +579,14 @@ static inline int __inline__ ct_lookup4(void *map, struct ipv4_ct_tuple *tuple,
 
 static inline int __inline__ ct_create6(void *map, struct ipv6_ct_tuple *tuple,
 					struct __sk_buff *skb, int dir,
-					struct ct_state *ct_state,
-					bool orig_was_proxy)
+					struct ct_state *ct_state)
 {
 	return 0;
 }
 
 static inline int __inline__ ct_create4(void *map, struct ipv4_ct_tuple *tuple,
 					struct __sk_buff *skb, int dir,
-					struct ct_state *ct_state,
-					bool orig_was_proxy)
+					struct ct_state *ct_state)
 {
 	return 0;
 }

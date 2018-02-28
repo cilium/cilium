@@ -26,7 +26,7 @@
 static inline int __inline__
 __policy_can_access(void *map, struct __sk_buff *skb, __u32 src_identity,
 		    __u16 dport, __u8 proto, size_t cidr_addr_size,
-		    void *cidr_addr)
+		    void *cidr_addr, int dir)
 {
 #ifdef DROP_ALL
 	return DROP_POLICY;
@@ -83,8 +83,12 @@ __policy_can_access(void *map, struct __sk_buff *skb, __u32 src_identity,
 	return DROP_POLICY;
 #ifdef HAVE_L4_POLICY
 get_proxy_port:
-	if (likely(policy) && policy->proxy_port)
-		return policy->proxy_port;
+	if (likely(policy)) {
+		if (policy->proxy_port)
+			return policy->proxy_port;
+		else
+			return __l4_policy_lookup(skb, proto, dport, dir, false);
+	}
 #endif /* HAVE_L4_POLICY */
 allow:
 	return TC_ACT_OK;
@@ -114,7 +118,8 @@ policy_can_access_ingress(struct __sk_buff *skb, __u32 src_identity,
 	return DROP_POLICY;
 #else
 	int ret = __policy_can_access(&POLICY_MAP, skb, src_identity, dport,
-				      proto, cidr_addr_size, cidr_addr);
+				      proto, cidr_addr_size, cidr_addr,
+				      CT_INGRESS);
 	if (ret >= TC_ACT_OK)
 		return ret;
 
