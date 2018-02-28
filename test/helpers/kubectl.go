@@ -92,18 +92,10 @@ func (kub *Kubectl) ExecKafkaPodCmd(namespace string, pod string, arg string) er
 }
 
 // ExecPodCmd executes command cmd in the specified pod residing in the specified
-// namespace. It returns the stdout of the command that was executed, and an
-// error if cmd did not execute successfully.
-func (kub *Kubectl) ExecPodCmd(namespace string, pod string, cmd string) (string, error) {
+// namespace. It returns a pointer to CmdRes with all the output
+func (kub *Kubectl) ExecPodCmd(namespace string, pod string, cmd string) *CmdRes {
 	command := fmt.Sprintf("%s exec -n %s %s -- %s", KubectlCmd, namespace, pod, cmd)
-	stdout := new(bytes.Buffer)
-	stderr := new(bytes.Buffer)
-	err := kub.Execute(command, stdout, stderr)
-	if err != nil {
-		// TODO: Return CmdRes here
-		return "", fmt.Errorf("ExecPodCmd: command '%s' failed '%s' || '%s'", command, stdout.String(), stderr.String())
-	}
-	return stdout.String(), nil
+	return kub.Exec(command)
 }
 
 // Get retrieves the provided Kubernetes objects from the specified namespace.
@@ -574,11 +566,8 @@ func (kub *Kubectl) CiliumPolicyRevision(pod string) (int, error) {
 // CiliumIsPolicyLoaded returns true if the policy is loaded in the given
 // cilium Pod. it returns false in case that the policy is not in place
 func (kub *Kubectl) CiliumIsPolicyLoaded(pod string, policyCmd string) bool {
-	_, err := kub.ExecPodCmd(KubeSystemNamespace, pod, fmt.Sprintf("cilium policy get %s", policyCmd))
-	if err == nil {
-		return true
-	}
-	return false
+	res := kub.ExecPodCmd(KubeSystemNamespace, pod, fmt.Sprintf("cilium policy get %s", policyCmd))
+	return res.WasSuccessful()
 }
 
 // ResourceLifeCycleAction represents an action performed upon objects in

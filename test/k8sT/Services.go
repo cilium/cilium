@@ -81,8 +81,11 @@ var _ = Describe("K8sValidatedServicesTest", func() {
 		// two nodes
 		for _, pod := range pods {
 			for i := 1; i <= 10; i++ {
-				_, err := kubectl.ExecPodCmd(helpers.DefaultNamespace, pod, fmt.Sprintf("curl --connect-timeout 5 %s", url))
-				ExpectWithOffset(1, err).Should(BeNil(), "Pod '%s' can not connect to service '%s'", pod, url)
+				res := kubectl.ExecPodCmd(
+					helpers.DefaultNamespace, pod,
+					helpers.CurlFail(url))
+				ExpectWithOffset(1, res.WasSuccessful()).Should(BeTrue(),
+					"Pod %q can not connect to service %q", pod, url)
 			}
 		}
 	}
@@ -434,13 +437,14 @@ var _ = Describe("K8sValidatedServicesTest", func() {
 			Expect(err).Should(BeNil(), fmt.Sprintf("Error deleting resource %s: %s", policyPath, err))
 
 			By("Checking that all policies were deleted in Cilium")
-			output, err := kubectl.ExecPodCmd(helpers.KubeSystemNamespace, ciliumPodK8s1, policyCmd)
-			Expect(err).Should(Not(BeNil()), "policies should be deleted from Cilium: policies found: %s", output)
+			res := kubectl.ExecPodCmd(helpers.KubeSystemNamespace, ciliumPodK8s1, policyCmd)
+			res.ExpectFail("policies should be deleted from Cilium: %s", res.CombineOutput())
+
 		}()
 
 		By("Checking that policies were correctly imported into Cilium")
-		_, err = kubectl.ExecPodCmd(helpers.KubeSystemNamespace, ciliumPodK8s1, policyCmd)
-		Expect(err).Should(BeNil())
+		res := kubectl.ExecPodCmd(helpers.KubeSystemNamespace, ciliumPodK8s1, policyCmd)
+		res.ExpectSuccess("Policy %s is not imported", policyCmd)
 
 		By("After policy import")
 		shouldConnect(reviewsPodV1.String(), formatAPI(ratings, apiPort, health))
