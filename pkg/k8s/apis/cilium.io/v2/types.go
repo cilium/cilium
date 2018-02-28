@@ -40,7 +40,6 @@ var (
 )
 
 // +genclient
-// +genclient:noStatus
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 // CiliumNetworkPolicy is a Kubernetes third-party resource with an extended version
