@@ -354,7 +354,7 @@ func createBootstrap(filePath string, name, cluster, version string, xdsSock, en
 					ConnectTimeout:    &duration.Duration{Seconds: 1, Nanos: 0},
 					CleanupInterval:   &duration.Duration{Seconds: 1, Nanos: 500000000},
 					LbPolicy:          envoy_api_v2.Cluster_ORIGINAL_DST_LB,
-					ProtocolSelection: envoy_api_v2.Cluster_USE_CONFIGURED_PROTOCOL,
+					ProtocolSelection: envoy_api_v2.Cluster_USE_DOWNSTREAM_PROTOCOL,
 				},
 				{
 					Name:           "xdsCluster",
