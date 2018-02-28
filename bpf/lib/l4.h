@@ -207,4 +207,73 @@ l4_egress_policy(struct __sk_buff *skb, __be16 dport, __u8 nexthdr)
 #endif
 }
 
+/**
+ * Perform L4 policy lookup
+ * @arg skb:		packet
+ * @arg nh:		next header (IPPROTO_TCP, IPPROTO_UDP, ..)
+ * @arg dport		destination port of packet
+ * @arg dir		direction of packet (CT_INGRESS, CT_EGRESS)
+ * @arg skip_proxy	true if the proxy should be skipped
+ *
+ * FIXME GH-2904: Replace L4 embedded map lookup with proxy_port in POLICY_MAP
+ *
+ * Returns: 0 if connection is allowed
+ *          n > 0 if connection should be proxied to n
+ *          n < 0 if connection should be dropped with reason n
+ */
+static inline int
+__l4_policy_lookup(struct __sk_buff *skb, __u8 nh, __be16 dport, int dir,
+		   bool skip_proxy)
+{
+	int proxy_port = 0;
+
+	/* Resolve L4 policy. This may fail due to policy reasons. May
+	 * optionally return a proxy port number to redirect all traffic to.
+	 *
+	 * However when the sender _is_ the proxy we need to ensure that
+	 * we short circuit the redirect to proxy port logic. This happens
+	 * when using ingress policies because we are doing the
+	 * l4_ingress_policy() lookup in the context of the server.
+	 */
+	if (skip_proxy)
+		return 0;
+
+	if (dir == CT_INGRESS) {
+		if (nh == IPPROTO_UDP || nh == IPPROTO_TCP) {
+			cilium_dbg(skb, DBG_GENERIC, dport, nh);
+			proxy_port = l4_ingress_policy(skb, dport, nh);
+			if (unlikely(proxy_port < 0))
+				return proxy_port;
+
+			cilium_dbg(skb, DBG_L4_POLICY, proxy_port, CT_INGRESS);
+		}
+	} else {
+		if (nh == IPPROTO_UDP || nh == IPPROTO_TCP) {
+			proxy_port = l4_egress_policy(skb, dport, nh);
+			if (unlikely(proxy_port < 0))
+				return proxy_port;
+
+			cilium_dbg(skb, DBG_L4_POLICY, proxy_port, CT_EGRESS);
+		}
+	}
+
+	return proxy_port;
+}
+
+static inline int
+l4_policy_lookup4(struct __sk_buff *skb, struct ipv4_ct_tuple *tuple,
+		  int dir, bool skip_proxy)
+{
+	return __l4_policy_lookup(skb, tuple->nexthdr, tuple->dport, dir,
+				  skip_proxy);
+}
+
+static inline int
+l4_policy_lookup6(struct __sk_buff *skb, struct ipv6_ct_tuple *tuple,
+		  int dir, bool skip_proxy)
+{
+	return __l4_policy_lookup(skb, tuple->nexthdr, tuple->dport, dir,
+				  skip_proxy);
+}
+
 #endif

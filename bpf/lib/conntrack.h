@@ -431,44 +431,20 @@ static inline int __inline__ ct_create6(void *map, struct ipv6_ct_tuple *tuple,
 {
 	/* Create entry in original direction */
 	struct ct_entry entry = { };
-	int proxy_port = 0;
+	int proxy_port;
 
 	entry.rev_nat_index = ct_state->rev_nat_index;
 	entry.lb_loopback = ct_state->loopback;
 	ct_update_timeout(&entry);
 
+	proxy_port = l4_policy_lookup6(skb, tuple, dir, orig_was_proxy);
+	if (IS_ERR(proxy_port))
+		return proxy_port;
+
 	if (dir == CT_INGRESS) {
-		if (tuple->nexthdr == IPPROTO_UDP ||
-		    tuple->nexthdr == IPPROTO_TCP) {
-			/* Resolve L4 policy. This may fail due to policy reasons. May
-			 * optionally return a proxy port number to redirect all traffic to.
-			 */
-			if (orig_was_proxy) {
-				proxy_port = 0;
-			} else {
-				proxy_port = l4_ingress_policy(skb, tuple->dport, tuple->nexthdr);
-				if (IS_ERR(proxy_port))
-					return proxy_port;
-			}
-
-			cilium_dbg(skb, DBG_L4_POLICY, proxy_port, CT_INGRESS);
-		}
-
 		entry.rx_packets = 1;
 		entry.rx_bytes = skb->len;
 	} else {
-		if (tuple->nexthdr == IPPROTO_UDP ||
-		    tuple->nexthdr == IPPROTO_TCP) {
-			/* Resolve L4 policy. This may fail due to policy reasons. May
-			 * optionally return a proxy port number to redirect all traffic to.
-			 */
-			proxy_port = l4_egress_policy(skb, tuple->dport, tuple->nexthdr);
-			if (IS_ERR(proxy_port))
-				return proxy_port;
-
-			cilium_dbg(skb, DBG_L4_POLICY, proxy_port, CT_EGRESS);
-		}
-
 		entry.tx_packets = 1;
 		entry.tx_bytes = skb->len;
 	}
@@ -515,55 +491,25 @@ static inline int __inline__ ct_create4(void *map, struct ipv4_ct_tuple *tuple,
 {
 	/* Create entry in original direction */
 	struct ct_entry entry = { };
-	int proxy_port = 0;
+	int proxy_port;
 
 	entry.rev_nat_index = ct_state->rev_nat_index;
 	entry.lb_loopback = ct_state->loopback;
 	ct_update_timeout(&entry);
 
+	proxy_port = l4_policy_lookup4(skb, tuple, dir, orig_was_proxy);
+	if (IS_ERR(proxy_port))
+		return proxy_port;
+
 	if (dir == CT_INGRESS) {
-		if (tuple->nexthdr == IPPROTO_UDP ||
-		    tuple->nexthdr == IPPROTO_TCP) {
-			cilium_dbg(skb, DBG_GENERIC, tuple->dport, tuple->nexthdr);
-			/* Resolve L4 policy. This may fail due to policy reasons. May
-			 * optionally return a proxy port number to redirect all traffic to.
-			 *
-			 * However when the sender _is_ the proxy we need to ensure that
-			 * we short circuit the redirect to proxy port logic. This happens
-			 * when using ingress policies because we are doing the
-			 * l4_ingress_policy() lookup in the context of the server.
-			 */
-			if (orig_was_proxy) {
-				proxy_port = 0;
-			} else {
-				proxy_port = l4_ingress_policy(skb, tuple->dport, tuple->nexthdr);
-				if (IS_ERR(proxy_port))
-					return proxy_port;
-			}
-
-			cilium_dbg(skb, DBG_L4_POLICY, proxy_port, CT_INGRESS);
-		}
-
 		entry.rx_packets = 1;
 		entry.rx_bytes = skb->len;
 	} else {
-		if (tuple->nexthdr == IPPROTO_UDP ||
-		    tuple->nexthdr == IPPROTO_TCP) {
-			/* Resolve L4 policy. This may fail due to policy reasons. May
-			 * optionally return a proxy port number to redirect all traffic to.
-			 */
-			proxy_port = l4_egress_policy(skb, tuple->dport, tuple->nexthdr);
-			if (IS_ERR(proxy_port))
-				return proxy_port;
-
-			cilium_dbg(skb, DBG_L4_POLICY, proxy_port, CT_EGRESS);
-		}
-
 		entry.tx_packets = 1;
 		entry.tx_bytes = skb->len;
 	}
 
-	entry.proxy_port = proxy_port;
+	entry.proxy_port = ct_state->proxy_port;
 
 #ifdef LXC_NAT46
 	if (skb->cb[CB_NAT46_STATE] == NAT64)
@@ -664,6 +610,7 @@ static inline int __inline__ ct_create4(void *map, struct ipv4_ct_tuple *tuple,
 {
 	return 0;
 }
+
 #endif
 
 #endif
