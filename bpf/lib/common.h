@@ -185,8 +185,8 @@ struct policy_key {
 };
 
 struct policy_entry {
-	__u32		action;
-	__u32		pad;
+	__be16		proxy_port;
+	__u16		pad[3];
 	__u64		packets;
 	__u64		bytes;
 };

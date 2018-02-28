@@ -23,7 +23,7 @@
 
 #if defined POLICY_INGRESS || defined REQUIRES_CAN_ACCESS
 
-static inline int
+static inline int __inline__
 __policy_can_access(void *map, struct __sk_buff *skb, __u32 src_identity,
 		    __u16 dport, __u8 proto, size_t cidr_addr_size,
 		    void *cidr_addr)
@@ -49,7 +49,7 @@ __policy_can_access(void *map, struct __sk_buff *skb, __u32 src_identity,
 		/* FIXME: Use per cpu counters */
 		__sync_fetch_and_add(&policy->packets, 1);
 		__sync_fetch_and_add(&policy->bytes, skb->len);
-		return TC_ACT_OK;
+		goto get_proxy_port;
 	}
 #endif /* HAVE_L4_POLICY */
 
@@ -73,7 +73,7 @@ __policy_can_access(void *map, struct __sk_buff *skb, __u32 src_identity,
 		/* FIXME: Use per cpu counters */
 		__sync_fetch_and_add(&policy->packets, 1);
 		__sync_fetch_and_add(&policy->bytes, skb->len);
-		return TC_ACT_OK;
+		goto get_proxy_port;
 	}
 #endif /* HAVE_L4_POLICY */
 
@@ -81,6 +81,11 @@ __policy_can_access(void *map, struct __sk_buff *skb, __u32 src_identity,
 		goto allow;
 
 	return DROP_POLICY;
+#ifdef HAVE_L4_POLICY
+get_proxy_port:
+	if (likely(policy) && policy->proxy_port)
+		return policy->proxy_port;
+#endif /* HAVE_L4_POLICY */
 allow:
 	return TC_ACT_OK;
 #endif /* DROP_ALL */
@@ -96,10 +101,11 @@ allow:
  * @arg cidr_addr	Destination CIDR of this packet
  *
  * Returns:
- *   - TC_ACT_OK if the policy allows this traffic based on labels/L3/L4
+ *   - Positive integer indicating the proxy_port to handle this traffic
+ *   - TC_ACT_OK if the policy allows this traffic based only on labels/L3/L4
  *   - Negative error code if the packet should be dropped
  */
-static inline int
+static inline int __inline__
 policy_can_access_ingress(struct __sk_buff *skb, __u32 src_identity,
 			  __u16 dport, __u8 proto, size_t cidr_addr_size,
 			  void *cidr_addr)
@@ -107,9 +113,10 @@ policy_can_access_ingress(struct __sk_buff *skb, __u32 src_identity,
 #ifdef DROP_ALL
 	return DROP_POLICY;
 #else
-	if (__policy_can_access(&POLICY_MAP, skb, src_identity, dport, proto,
-				cidr_addr_size, cidr_addr) == TC_ACT_OK)
-		goto allow;
+	int ret = __policy_can_access(&POLICY_MAP, skb, src_identity, dport,
+				      proto, cidr_addr_size, cidr_addr);
+	if (ret >= TC_ACT_OK)
+		return ret;
 
 	// cidr_addr_size is a compile time constant so this should all be inlined neatly.
 	if (cidr_addr_size == sizeof(union v6addr) && lpm6_ingress_lookup(cidr_addr))
@@ -121,6 +128,8 @@ policy_can_access_ingress(struct __sk_buff *skb, __u32 src_identity,
 
 #ifndef IGNORE_DROP
 	return DROP_POLICY;
+#else
+	ret = TC_ACT_OK;
 #endif
 
 allow:

@@ -437,9 +437,13 @@ static inline int __inline__ ct_create6(void *map, struct ipv6_ct_tuple *tuple,
 	entry.lb_loopback = ct_state->loopback;
 	ct_update_timeout(&entry);
 
-	proxy_port = l4_policy_lookup6(skb, tuple, dir, orig_was_proxy);
-	if (IS_ERR(proxy_port))
-		return proxy_port;
+	if (ct_state->proxy_port) {
+		proxy_port = ct_state->proxy_port;
+	} else {
+		proxy_port = l4_policy_lookup6(skb, tuple, dir, orig_was_proxy);
+		if (IS_ERR(proxy_port))
+			return proxy_port;
+	}
 
 	if (dir == CT_INGRESS) {
 		entry.rx_packets = 1;
@@ -497,9 +501,13 @@ static inline int __inline__ ct_create4(void *map, struct ipv4_ct_tuple *tuple,
 	entry.lb_loopback = ct_state->loopback;
 	ct_update_timeout(&entry);
 
-	proxy_port = l4_policy_lookup4(skb, tuple, dir, orig_was_proxy);
-	if (IS_ERR(proxy_port))
-		return proxy_port;
+	if (ct_state->proxy_port) {
+		proxy_port = ct_state->proxy_port;
+	} else {
+		proxy_port = l4_policy_lookup4(skb, tuple, dir, orig_was_proxy);
+		if (IS_ERR(proxy_port))
+			return proxy_port;
+	}
 
 	if (dir == CT_INGRESS) {
 		entry.rx_packets = 1;
