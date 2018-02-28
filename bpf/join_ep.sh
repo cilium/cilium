@@ -36,8 +36,9 @@ function bpf_compile()
 	IN=$1
 	OUT=$2
 	TYPE=$3
+	EXTRA_CFLAGS=$4
 
-	clang -O2 -target bpf -emit-llvm				\
+	clang -O2 -target bpf -emit-llvm $EXTRA_CFLAGS			\
 	      -Wno-address-of-packed-member -Wno-unknown-warning-option	\
 	      -I$RUNDIR/globals -I$EPDIR -I$LIB/include			\
 	      -D__NR_CPUS__=$(nproc)					\
@@ -51,7 +52,7 @@ echo "Join EP id=$EPDIR ifname=$IFNAME"
 if [[ "${DEBUG}" == "true" ]]; then
   echo "kernel version: " `uname -a`
   echo "clang version: " `clang --version`
-  bpf_compile bpf_lxc.c bpf_lxc.asm asm
+  bpf_compile bpf_lxc.c bpf_lxc.asm asm -g
   bpf_preprocess bpf_lxc.c
 fi
 
