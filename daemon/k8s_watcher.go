@@ -72,14 +72,16 @@ const (
 var (
 	// k8sErrMsgMU guards additions and removals to k8sErrMsg, which stores a
 	// time after which a repeat error message can be printed
-	k8sErrMsgMU lock.Mutex
-	k8sErrMsg   = map[string]time.Time{}
+	k8sErrMsgMU  lock.Mutex
+	k8sErrMsg    = map[string]time.Time{}
+	k8sServerVer *go_version.Version
 
 	ciliumNPClient clientset.Interface
 
 	networkPolicyV1VerConstr, _ = go_version.NewConstraint(">= 1.7.0")
 
-	ciliumv2VerConstr, _ = go_version.NewConstraint(">= 1.7.0")
+	ciliumv2VerConstr, _           = go_version.NewConstraint(">= 1.7.0")
+	ciliumUpdateStatusVerConstr, _ = go_version.NewConstraint(">= 1.11.0")
 
 	k8sCM = controller.NewManager()
 )
@@ -211,13 +213,13 @@ func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 		return fmt.Errorf("Unable to create rest configuration for k8s CRD: %s", err)
 	}
 
-	sv, err := k8s.GetServerVersion()
+	k8sServerVer, err = k8s.GetServerVersion()
 	if err != nil {
 		return fmt.Errorf("unable to retrieve kubernetes serverversion: %s", err)
 	}
 
 	switch {
-	case ciliumv2VerConstr.Check(sv):
+	case ciliumv2VerConstr.Check(k8sServerVer):
 		err = cilium_v2.CreateCustomResourceDefinitions(apiextensionsclientset)
 		if err != nil {
 			return fmt.Errorf("Unable to create custom resource definition: %s", err)
@@ -240,7 +242,7 @@ func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 	serPods := serializer.NewFunctionQueue(1024)
 
 	switch {
-	case networkPolicyV1VerConstr.Check(sv):
+	case networkPolicyV1VerConstr.Check(k8sServerVer):
 		_, policyController := cache.NewInformer(
 			cache.NewListWatchFromClient(k8s.Client().NetworkingV1().RESTClient(),
 				"networkpolicies", v1.NamespaceAll, fields.Everything()),
@@ -407,7 +409,7 @@ func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 	si := informer.NewSharedInformerFactory(ciliumNPClient, reSyncPeriod)
 
 	switch {
-	case ciliumv2VerConstr.Check(sv):
+	case ciliumv2VerConstr.Check(k8sServerVer):
 		ciliumV2Controller := si.Cilium().V2().CiliumNetworkPolicies().Informer()
 		cnpStore := ciliumV2Controller.GetStore()
 		ciliumV2Controller.AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -1380,7 +1382,12 @@ func (d *Daemon) addCiliumNetworkPolicyV2(ciliumV2Store cache.Store, cnp *cilium
 				serverRuleCpy.SetPolicyStatus(nodeName, cnpns)
 				ns := k8sUtils.ExtractNamespace(&serverRuleCpy.ObjectMeta)
 
-				_, err2 = ciliumNPClient.CiliumV2().CiliumNetworkPolicies(ns).Update(serverRuleCpy)
+				switch {
+				case ciliumUpdateStatusVerConstr.Check(k8sServerVer):
+					_, err2 = ciliumNPClient.CiliumV2().CiliumNetworkPolicies(ns).UpdateStatus(serverRuleCpy)
+				default:
+					_, err2 = ciliumNPClient.CiliumV2().CiliumNetworkPolicies(ns).Update(serverRuleCpy)
+				}
 				if err2 == nil {
 					scopedLog.WithField("status", serverRuleCpy.Status).Debug("successfully updated with status")
 				} else {
