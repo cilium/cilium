@@ -201,12 +201,12 @@ var _ = Describe("K8sValidatedPolicyTest", func() {
 			res := kubectl.ExecPodCmd(
 				helpers.DefaultNamespace, appPods[helpers.App2],
 				helpers.CurlFail(fmt.Sprintf("http://%s/public", clusterIP)))
-			res.ExpectSuccess("App2 %q cannot curl clusterIP %q", appPods[helpers.App2], clusterIP)
+			res.ExpectSuccess("%q cannot curl clusterIP %q", appPods[helpers.App2], clusterIP)
 
 			res = kubectl.ExecPodCmd(
 				helpers.DefaultNamespace, appPods[helpers.App3],
 				helpers.CurlFail(fmt.Sprintf("http://%s/public", clusterIP)))
-			res.ExpectFail("App3 %q can curl to %q", appPods[helpers.App3], clusterIP)
+			res.ExpectFail("%q can curl to %q", appPods[helpers.App3], clusterIP)
 
 			eps = kubectl.CiliumEndpointPolicyVersion(ciliumPod)
 			status = kubectl.Delete(l3Policy)
@@ -232,23 +232,23 @@ var _ = Describe("K8sValidatedPolicyTest", func() {
 			res = kubectl.ExecPodCmd(
 				helpers.DefaultNamespace, appPods[helpers.App2],
 				helpers.CurlFail(fmt.Sprintf("http://%s/public", clusterIP)))
-			res.ExpectSuccess("App2 %q cannot curl clusterIP %q", appPods[helpers.App2], clusterIP)
+			res.ExpectSuccess("%q cannot curl clusterIP %q", appPods[helpers.App2], clusterIP)
 
 			res = kubectl.ExecPodCmd(
 				helpers.DefaultNamespace, appPods[helpers.App2],
 				helpers.CurlFail(fmt.Sprintf("http://%s/private", clusterIP)))
-			res.ExpectFail("App2 %q cannot curl clusterIP %q private",
+			res.ExpectFail("%q cannot curl clusterIP %q private",
 				appPods[helpers.App2], clusterIP)
 
 			res = kubectl.ExecPodCmd(
 				helpers.DefaultNamespace, appPods[helpers.App3],
 				helpers.CurlFail(fmt.Sprintf("http://%s/public", clusterIP)))
-			res.ExpectFail("App3 %q can curl to %q", appPods[helpers.App3], clusterIP)
+			res.ExpectFail("%q can curl to %q", appPods[helpers.App3], clusterIP)
 
 			res = kubectl.ExecPodCmd(
 				helpers.DefaultNamespace, appPods[helpers.App3],
 				helpers.CurlFail(fmt.Sprintf("http://%s/private", clusterIP)))
-			res.ExpectFail("App3 %q can curl to %q private", appPods[helpers.App3], clusterIP)
+			res.ExpectFail("%q can curl to %q private", appPods[helpers.App3], clusterIP)
 
 			eps = kubectl.CiliumEndpointPolicyVersion(ciliumPod)
 			status = kubectl.Delete(l7Policy)
@@ -261,7 +261,7 @@ var _ = Describe("K8sValidatedPolicyTest", func() {
 			res = kubectl.ExecPodCmd(
 				helpers.DefaultNamespace, appPods[helpers.App3],
 				helpers.CurlFail(fmt.Sprintf("http://%s/public", clusterIP)))
-			res.ExpectSuccess("App3 %q cannot curl to %q public", appPods[helpers.App3], clusterIP)
+			res.ExpectSuccess("%q cannot curl to %q public", appPods[helpers.App3], clusterIP)
 
 		}, 500)
 
@@ -312,12 +312,12 @@ var _ = Describe("K8sValidatedPolicyTest", func() {
 			res := kubectl.ExecPodCmd(
 				namespace, appPods[helpers.App2],
 				helpers.CurlFail(fmt.Sprintf("http://%s/public", clusterIP)))
-			res.ExpectSuccess("App2 %q cannot curl clusterIP %q", appPods[helpers.App2], clusterIP)
+			res.ExpectSuccess("%q cannot curl clusterIP %q", appPods[helpers.App2], clusterIP)
 
 			res = kubectl.ExecPodCmd(
 				namespace, appPods[helpers.App3],
 				helpers.CurlFail(fmt.Sprintf("http://%s/public", clusterIP)))
-			res.ExpectFail("App3 %q can curl to %q", appPods[helpers.App3], clusterIP)
+			res.ExpectFail("%q can curl to %q", appPods[helpers.App3], clusterIP)
 
 			By("Testing default namespace")
 			clusterIP, _, err = kubectl.GetServiceHostPort(helpers.DefaultNamespace, "app1-service")
@@ -327,12 +327,12 @@ var _ = Describe("K8sValidatedPolicyTest", func() {
 			res = kubectl.ExecPodCmd(
 				helpers.DefaultNamespace, appPods[helpers.App2],
 				helpers.CurlFail(fmt.Sprintf("http://%s/public", clusterIP)))
-			res.ExpectSuccess("App2 %q cannot curl clusterIP %q", appPods[helpers.App2], clusterIP)
+			res.ExpectSuccess("%q cannot curl clusterIP %q", appPods[helpers.App2], clusterIP)
 
 			res = kubectl.ExecPodCmd(
 				helpers.DefaultNamespace, appPods[helpers.App3],
 				helpers.CurlFail(fmt.Sprintf("http://%s/public", clusterIP)))
-			res.ExpectFail("App3 %q can curl to %q", appPods[helpers.App3], clusterIP)
+			res.ExpectFail("%q can curl to %q", appPods[helpers.App3], clusterIP)
 		})
 
 		It("Denies traffic with k8s default-deny policy", func() {
@@ -361,12 +361,12 @@ var _ = Describe("K8sValidatedPolicyTest", func() {
 			res := kubectl.ExecPodCmd(
 				namespace, appPods[helpers.App2],
 				helpers.CurlFail(fmt.Sprintf("http://%s/public", clusterIP)))
-			res.ExpectSuccess("App2 %q cannot curl clusterIP %q", appPods[helpers.App2], clusterIP)
+			res.ExpectSuccess("%q cannot curl clusterIP %q", appPods[helpers.App2], clusterIP)
 
 			res = kubectl.ExecPodCmd(
 				namespace, appPods[helpers.App3],
 				helpers.CurlFail(fmt.Sprintf("http://%s/public", clusterIP)))
-			res.ExpectFail("App3 %q can curl to %q", appPods[helpers.App3], clusterIP)
+			res.ExpectSuccess("%q cannot curl to %q", appPods[helpers.App3], clusterIP)
 
 			By("Installing ingress default-deny")
 
