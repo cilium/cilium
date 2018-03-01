@@ -446,55 +446,54 @@ var _ = Describe("RuntimeValidatedPolicies", func() {
 	httpRequestsPrivate := []string{httpPrivate, http6Private}
 	httpRequests := append(httpRequestsPublic, httpRequestsPrivate...)
 	allRequests := append(pingRequests, httpRequests...)
-	connectivityTest := func(tests []string, client, server string, assertFn func() types.GomegaMatcher) {
-		title := func(title string) string {
-			return fmt.Sprintf(title, client, server)
+	connectivityTest := func(tests []string, client, server string, expectsSuccess bool) {
+		var assertFn func() types.GomegaMatcher
+		if expectsSuccess {
+			assertFn = BeTrue
+		} else {
+			assertFn = BeFalse
 		}
+
 		_, err := vm.ContainerInspectNet(client)
-		Expect(err).Should(BeNil(), fmt.Sprintf(
+		ExpectWithOffset(1, err).Should(BeNil(), fmt.Sprintf(
 			"could not get container %q (client) meta", client))
 
 		srvIP, err := vm.ContainerInspectNet(server)
-		Expect(err).Should(BeNil(), fmt.Sprintf(
+		ExpectWithOffset(1, err).Should(BeNil(), fmt.Sprintf(
 			"could not get container %q (server) meta", server))
 		for _, test := range tests {
+			var command, commandName, dst, resultName string
 			switch test {
 			case ping:
-				By(title("Client %q pinging server %q IPv4"))
-				res := vm.ContainerExec(client, helpers.Ping(srvIP[helpers.IPv4]))
-				ExpectWithOffset(1, res.WasSuccessful()).Should(assertFn(), fmt.Sprintf(
-					"Client %q can't ping to server %q", client, srvIP[helpers.IPv4]))
+				command = helpers.Ping(srvIP[helpers.IPv4])
+				dst = srvIP[helpers.IPv4]
 			case ping6:
-
-				By(title("Client %q pinging server %q IPv6"))
-				res := vm.ContainerExec(client, helpers.Ping6(srvIP[helpers.IPv6]))
-				ExpectWithOffset(1, res.WasSuccessful()).Should(assertFn(), fmt.Sprintf(
-					"Client %q can't ping to server %q", client, srvIP[helpers.IPv6]))
-			case http:
-				By(title("Client '%s' HttpReq to server '%s' Ipv4"))
-				res := vm.ContainerExec(client, helpers.CurlFail(fmt.Sprintf(
-					"http://%s:80/public", srvIP[helpers.IPv4])))
-				ExpectWithOffset(1, res.WasSuccessful()).Should(assertFn(), fmt.Sprintf(
-					"Client %q can't curl to server %q", client, srvIP[helpers.IPv4]))
-			case http6:
-				By(title("Client %q HttpReq to server %q IPv6"))
-				res := vm.ContainerExec(client, helpers.CurlFail(fmt.Sprintf(
-					"http://[%s]:80/public", srvIP[helpers.IPv6])))
-				ExpectWithOffset(1, res.WasSuccessful()).Should(assertFn(), fmt.Sprintf(
-					"Client %q can't curl to server %q", client, srvIP[helpers.IPv6]))
-			case httpPrivate:
-				By(title("Client %q HttpReq to server %q private Ipv4"))
-				res := vm.ContainerExec(client, helpers.CurlFail(fmt.Sprintf(
-					"http://%s:80/private", srvIP[helpers.IPv4])))
-				ExpectWithOffset(1, res.WasSuccessful()).Should(assertFn(), fmt.Sprintf(
-					"Client %q can't curl to server %q private", client, srvIP[helpers.IPv4]))
-			case http6Private:
-				By(title("Client %q HttpReq to server %q private Ipv6"))
-				res := vm.ContainerExec(client, helpers.CurlFail(fmt.Sprintf(
-					"http://[%s]:80/private", srvIP[helpers.IPv6])))
-				ExpectWithOffset(1, res.WasSuccessful()).Should(assertFn(), fmt.Sprintf(
-					"Client %q can't curl to server %q private", client, srvIP[helpers.IPv6]))
+				command = helpers.Ping6(srvIP[helpers.IPv6])
+				dst = srvIP[helpers.IPv6]
+			case http, httpPrivate:
+				dst = srvIP[helpers.IPv4]
+			case http6, http6Private:
+				dst = fmt.Sprintf("[%s]", srvIP[helpers.IPv6])
 			}
+			switch test {
+			case ping, ping6:
+				commandName = "ping"
+			case http, http6:
+				commandName = "curl public URL on"
+				command = helpers.CurlFail("http://%s:80/public", dst)
+			case httpPrivate, http6Private:
+				commandName = "curl private URL on"
+				command = helpers.CurlFail("http://%s:80/private", dst)
+			}
+			if expectsSuccess {
+				resultName = "succeed"
+			} else {
+				resultName = "fail"
+			}
+			By(fmt.Sprintf("Client %q attempting to %s %s", client, commandName, server))
+			res := vm.ContainerExec(client, command)
+			ExpectWithOffset(1, res.WasSuccessful()).Should(assertFn(),
+				fmt.Sprintf("%q expects %s %s (%s) to %s", client, commandName, server, dst, resultName))
 		}
 	}
 
@@ -503,20 +502,20 @@ var _ = Describe("RuntimeValidatedPolicies", func() {
 		Expect(err).Should(BeNil())
 
 		//APP1 can connect to all Httpd1
-		connectivityTest(allRequests, helpers.App1, helpers.Httpd1, BeTrue)
+		connectivityTest(allRequests, helpers.App1, helpers.Httpd1, true)
 
 		//APP2 can't connect to Httpd1
-		connectivityTest([]string{http}, helpers.App2, helpers.Httpd1, BeFalse)
+		connectivityTest([]string{http}, helpers.App2, helpers.Httpd1, false)
 
 		// APP1 can reach using TCP HTTP2
-		connectivityTest(httpRequestsPublic, helpers.App1, helpers.Httpd2, BeTrue)
+		connectivityTest(httpRequestsPublic, helpers.App1, helpers.Httpd2, true)
 
 		// APP2 can't reach using TCP to HTTP2
-		connectivityTest(httpRequestsPublic, helpers.App2, helpers.Httpd2, BeFalse)
+		connectivityTest(httpRequestsPublic, helpers.App2, helpers.Httpd2, false)
 
 		// APP3 can reach using TCP to HTTP2, but can't ping due to egress rule.
-		connectivityTest(httpRequestsPublic, helpers.App3, helpers.Httpd2, BeTrue)
-		connectivityTest(pingRequests, helpers.App3, helpers.Httpd2, BeFalse)
+		connectivityTest(httpRequestsPublic, helpers.App3, helpers.Httpd2, true)
+		connectivityTest(pingRequests, helpers.App3, helpers.Httpd2, false)
 
 		// FIXME GH-1488: label-dependent egress policy denies this path.
 		//		  Uncomment test below when 1488 is resolved.
@@ -530,8 +529,8 @@ var _ = Describe("RuntimeValidatedPolicies", func() {
 
 		vm.WaitEndpointsReady()
 
-		connectivityTest(allRequests, helpers.App1, helpers.Httpd1, BeTrue)
-		connectivityTest(allRequests, helpers.App2, helpers.Httpd1, BeTrue)
+		connectivityTest(allRequests, helpers.App1, helpers.Httpd1, true)
+		connectivityTest(allRequests, helpers.App2, helpers.Httpd1, true)
 
 		By("Ingress CIDR")
 
@@ -560,8 +559,8 @@ var _ = Describe("RuntimeValidatedPolicies", func() {
 		Expect(err).Should(BeNil())
 		defer os.Remove(ingressJSON)
 
-		connectivityTest(httpRequestsPublic, helpers.App1, helpers.Httpd1, BeTrue)
-		connectivityTest(httpRequestsPublic, helpers.App2, helpers.Httpd1, BeFalse)
+		connectivityTest(httpRequestsPublic, helpers.App1, helpers.Httpd1, true)
+		connectivityTest(httpRequestsPublic, helpers.App2, helpers.Httpd1, false)
 
 		By("Egress CIDR")
 
@@ -591,8 +590,8 @@ var _ = Describe("RuntimeValidatedPolicies", func() {
 		_, err = vm.PolicyImportAndWait(path, helpers.HelperTimeout)
 		Expect(err).Should(BeNil())
 
-		connectivityTest(httpRequestsPublic, helpers.App1, helpers.Httpd1, BeTrue)
-		connectivityTest(httpRequestsPublic, helpers.App2, helpers.Httpd1, BeFalse)
+		connectivityTest(httpRequestsPublic, helpers.App1, helpers.Httpd1, true)
+		connectivityTest(httpRequestsPublic, helpers.App2, helpers.Httpd1, false)
 	})
 
 	It("L4Policy Checks", func() {
@@ -600,12 +599,12 @@ var _ = Describe("RuntimeValidatedPolicies", func() {
 		Expect(err).Should(BeNil())
 
 		for _, app := range []string{helpers.App1, helpers.App2} {
-			connectivityTest(pingRequests, app, helpers.Httpd1, BeFalse)
-			connectivityTest(httpRequestsPublic, app, helpers.Httpd1, BeTrue)
-			connectivityTest(pingRequests, app, helpers.Httpd2, BeFalse)
-			connectivityTest(httpRequestsPublic, app, helpers.Httpd2, BeTrue)
+			connectivityTest(pingRequests, app, helpers.Httpd1, false)
+			connectivityTest(httpRequestsPublic, app, helpers.Httpd1, true)
+			connectivityTest(pingRequests, app, helpers.Httpd2, false)
+			connectivityTest(httpRequestsPublic, app, helpers.Httpd2, true)
 		}
-		connectivityTest(allRequests, helpers.App3, helpers.Httpd1, BeFalse)
+		connectivityTest(allRequests, helpers.App3, helpers.Httpd1, false)
 
 		By("Disabling all the policies. All should work")
 
@@ -615,8 +614,8 @@ var _ = Describe("RuntimeValidatedPolicies", func() {
 		vm.WaitEndpointsReady()
 
 		for _, app := range []string{helpers.App1, helpers.App2} {
-			connectivityTest(allRequests, app, helpers.Httpd1, BeTrue)
-			connectivityTest(allRequests, app, helpers.Httpd2, BeTrue)
+			connectivityTest(allRequests, app, helpers.Httpd1, true)
+			connectivityTest(allRequests, app, helpers.Httpd2, true)
 		}
 	})
 
@@ -627,17 +626,17 @@ var _ = Describe("RuntimeValidatedPolicies", func() {
 
 		By("Simple Ingress")
 		//APP1 can connect to public, but no to private
-		connectivityTest(httpRequestsPublic, helpers.App1, helpers.Httpd1, BeTrue)
-		connectivityTest(httpRequestsPrivate, helpers.App1, helpers.Httpd1, BeFalse)
+		connectivityTest(httpRequestsPublic, helpers.App1, helpers.Httpd1, true)
+		connectivityTest(httpRequestsPrivate, helpers.App1, helpers.Httpd1, false)
 
 		//App2 can't connect
-		connectivityTest(httpRequestsPublic, helpers.App2, helpers.Httpd1, BeFalse)
+		connectivityTest(httpRequestsPublic, helpers.App2, helpers.Httpd1, false)
 
 		By("Simple Egress")
 
 		//APP2 can connnect to public, but no to private
-		connectivityTest(httpRequestsPublic, helpers.App2, helpers.Httpd2, BeTrue)
-		connectivityTest(httpRequestsPrivate, helpers.App2, helpers.Httpd2, BeFalse)
+		connectivityTest(httpRequestsPublic, helpers.App2, helpers.Httpd2, true)
+		connectivityTest(httpRequestsPrivate, helpers.App2, helpers.Httpd2, false)
 
 		By("Disabling all the policies. All should work")
 
@@ -646,8 +645,8 @@ var _ = Describe("RuntimeValidatedPolicies", func() {
 
 		vm.WaitEndpointsReady()
 
-		connectivityTest(allRequests, helpers.App1, helpers.Httpd1, BeTrue)
-		connectivityTest(allRequests, helpers.App2, helpers.Httpd1, BeTrue)
+		connectivityTest(allRequests, helpers.App1, helpers.Httpd1, true)
+		connectivityTest(allRequests, helpers.App2, helpers.Httpd1, true)
 
 		By("Multiple Ingress")
 
@@ -657,16 +656,16 @@ var _ = Describe("RuntimeValidatedPolicies", func() {
 
 		//APP1 can connnect to public, but no to private
 
-		connectivityTest(httpRequestsPublic, helpers.App1, helpers.Httpd1, BeTrue)
-		connectivityTest(httpRequestsPrivate, helpers.App1, helpers.Httpd1, BeFalse)
+		connectivityTest(httpRequestsPublic, helpers.App1, helpers.Httpd1, true)
+		connectivityTest(httpRequestsPrivate, helpers.App1, helpers.Httpd1, false)
 
 		//App2 can't connect
-		connectivityTest(httpRequestsPublic, helpers.App2, helpers.Httpd1, BeFalse)
+		connectivityTest(httpRequestsPublic, helpers.App2, helpers.Httpd1, false)
 
 		By("Multiple Egress")
 		// app2 can connect to /public, but not to /private
-		connectivityTest(httpRequestsPublic, helpers.App2, helpers.Httpd2, BeTrue)
-		connectivityTest(httpRequestsPrivate, helpers.App2, helpers.Httpd2, BeFalse)
+		connectivityTest(httpRequestsPublic, helpers.App2, helpers.Httpd2, true)
+		connectivityTest(httpRequestsPrivate, helpers.App2, helpers.Httpd2, false)
 
 		By("Disabling all the policies. All should work")
 
@@ -674,8 +673,8 @@ var _ = Describe("RuntimeValidatedPolicies", func() {
 		status.ExpectSuccess()
 		vm.WaitEndpointsReady()
 
-		connectivityTest(allRequests, helpers.App1, helpers.Httpd1, BeTrue)
-		connectivityTest(allRequests, helpers.App2, helpers.Httpd1, BeTrue)
+		connectivityTest(allRequests, helpers.App1, helpers.Httpd1, true)
+		connectivityTest(allRequests, helpers.App2, helpers.Httpd1, true)
 	})
 
 	It("Checks CIDR Policy", func() {
