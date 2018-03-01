@@ -787,3 +787,134 @@ func (s *ServerSuite) TestRequestStaleNonce(c *C) {
 	case <-streamDone:
 	}
 }
+
+func (s *ServerSuite) TestNAck(c *C) {
+	typeURL := "type.googleapis.com/envoy.api.v2.DummyConfiguration"
+
+	var err error
+	var req *envoy_api_v2.DiscoveryRequest
+	var resp *envoy_api_v2.DiscoveryResponse
+
+	ctx, cancel := context.WithTimeout(context.Background(), TestTimeout)
+	defer cancel()
+	wg := completion.NewWaitGroup(ctx)
+
+	cache := NewCache()
+	mutator := NewAckingResourceMutatorWrapper(cache, IstioNodeToIP)
+
+	streamCtx, closeStream := context.WithCancel(ctx)
+	stream := NewMockStream(streamCtx, 1, 1, StreamTimeout, StreamTimeout)
+	defer stream.Close()
+
+	server := NewServer(map[string]*ResourceTypeConfiguration{typeURL: {Source: cache, AckObserver: mutator}},
+		TestTimeout)
+
+	streamDone := make(chan struct{})
+
+	// Run the server's stream handler concurrently.
+	go func() {
+		err := server.HandleRequestStream(ctx, stream, AnyTypeURL)
+		close(streamDone)
+		c.Check(err, IsNil)
+	}()
+
+	// Request all resources.
+	req = &envoy_api_v2.DiscoveryRequest{
+		TypeUrl:       typeURL,
+		VersionInfo:   "",
+		Node:          nodes[node0],
+		ResourceNames: nil,
+		ResponseNonce: "",
+	}
+	err = stream.SendRequest(req)
+	c.Assert(err, IsNil)
+
+	// Expecting an empty response.
+	resp, err = stream.RecvResponse()
+	c.Assert(err, IsNil)
+	c.Assert(resp, ResponseMatches, "0", nil, false, typeURL)
+	c.Assert(resp.Nonce, Not(Equals), "")
+
+	// Request the next version of resources.
+	req = &envoy_api_v2.DiscoveryRequest{
+		TypeUrl:       typeURL,
+		VersionInfo:   resp.VersionInfo, // ACK the received version.
+		Node:          nodes[node0],
+		ResourceNames: nil,
+		ResponseNonce: resp.Nonce,
+	}
+	ackedVersion := resp.VersionInfo
+	err = stream.SendRequest(req)
+	c.Assert(err, IsNil)
+
+	// Create version 1 with resource 0.
+	time.Sleep(CacheUpdateDelay)
+	comp1 := wg.AddCompletion()
+	defer comp1.Complete()
+	mutator.Upsert(typeURL, resources[0].Name, resources[0], []string{node0}, comp1)
+	c.Assert(comp1, Not(IsCompleted))
+
+	// Expecting a response with that resource.
+	resp, err = stream.RecvResponse()
+	c.Assert(err, IsNil)
+	c.Assert(resp, ResponseMatches, "1", []proto.Message{resources[0]}, false, typeURL)
+	c.Assert(resp.Nonce, Not(Equals), "")
+
+	// NACK the received version of resources.
+	req = &envoy_api_v2.DiscoveryRequest{
+		TypeUrl:       typeURL,
+		VersionInfo:   ackedVersion, // NACK the received version.
+		Node:          nodes[node0],
+		ResourceNames: nil,
+		ResponseNonce: resp.Nonce,
+	}
+	err = stream.SendRequest(req)
+	c.Assert(err, IsNil)
+
+	// Create version 2 with resources 0 and 1.
+	time.Sleep(CacheUpdateDelay)
+	comp2 := wg.AddCompletion()
+	defer comp2.Complete()
+	mutator.Upsert(typeURL, resources[1].Name, resources[1], []string{node0}, comp2)
+	c.Assert(comp2, Not(IsCompleted))
+
+	// Version 1 was NACKed by the last request, so it must NOT be completed yet.
+	c.Assert(comp1, Not(IsCompleted))
+
+	// Expecting a response with both resources.
+	// Note that the stream should not have a message that repeats the previous one!
+	resp, err = stream.RecvResponse()
+	c.Assert(err, IsNil)
+	c.Assert(resp, ResponseMatches, "2", []proto.Message{resources[0], resources[1]}, false, typeURL)
+	c.Assert(resp.Nonce, Not(Equals), "")
+
+	c.Assert(comp2, Not(IsCompleted))
+
+	// Request the next version of resources.
+	req = &envoy_api_v2.DiscoveryRequest{
+		TypeUrl:       typeURL,
+		VersionInfo:   resp.VersionInfo, // ACK the received version.
+		Node:          nodes[node0],
+		ResourceNames: nil,
+		ResponseNonce: resp.Nonce,
+	}
+	err = stream.SendRequest(req)
+	c.Assert(err, IsNil)
+
+	// Expecting no response.
+
+	time.Sleep(CacheUpdateDelay)
+
+	// Versions 1 & 2 was ACKed by the last request.
+	c.Assert(comp1, IsCompleted)
+	c.Assert(comp2, IsCompleted)
+
+	// Close the stream.
+	closeStream()
+
+	select {
+	case <-ctx.Done():
+		c.Errorf("HandleRequestStream(%v, %v, %v) took too long to return after stream was closed", "ctx", "stream", AnyTypeURL)
+	case <-streamDone:
+	}
+}
