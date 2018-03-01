@@ -28,6 +28,18 @@ NetworkPolicy
 For more information, see the official `NetworkPolicy documentation
 <https://kubernetes.io/docs/concepts/services-networking/network-policies/>`_.
 
+Known missing features for Kubernetes Network Policy:
+
++----------------------------+----------------------------------------------+
+| Feature                    | Tracking Issue                               |
++============================+==============================================+
+| Use of named ports         | https://github.com/cilium/cilium/issues/2942 |
++----------------------------+----------------------------------------------+
+| L4-only enforcement        | https://github.com/cilium/cilium/issues/2907 |
++----------------------------+----------------------------------------------+
+| Label-based egress policy  | https://github.com/cilium/cilium/issues/1488 |
++----------------------------+----------------------------------------------+
+
 .. _CiliumNetworkPolicy:
 
 CiliumNetworkPolicy
