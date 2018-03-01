@@ -122,7 +122,7 @@ docker-image: clean GIT_VERSION envoy/SOURCE_VERSION
 	grep -v -E "(SOURCE|GIT)_VERSION" .gitignore >.dockerignore
 	echo ".*" >>.dockerignore # .git pruned out
 	echo "Documentation" >>.dockerignore # Not needed
-	docker build -t "cilium/cilium:$(DOCKER_IMAGE_TAG)" .
+	docker build --build-arg LOCKDEBUG=${LOCKDEBUG} -t "cilium/cilium:$(DOCKER_IMAGE_TAG)" .
 	echo -e "Push like this when ready:\ndocker push cilium/cilium:$(DOCKER_IMAGE_TAG)"
 
 docker-image-runtime:

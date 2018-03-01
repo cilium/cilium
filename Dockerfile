@@ -12,11 +12,12 @@ FROM cilium/cilium-builder:2018-02-16 as builder
 LABEL maintainer="maintainer@cilium.io"
 WORKDIR /go/src/github.com/cilium/cilium
 ADD . ./
+ARG LOCKDEBUG
 #
 # Please do not add any dependency updates before the 'make install' here,
 # as that will mess with caching for incremental builds!
 #
-RUN make PKG_BUILD=1 DESTDIR=/tmp/install clean-container build install
+RUN make LOCKDEBUG=$LOCKDEBUG PKG_BUILD=1 DESTDIR=/tmp/install clean-container build install
 
 #
 # Cilium runtime install.
