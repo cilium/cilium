@@ -239,13 +239,9 @@ func (s *SSHMeta) WaitEndpointsReady() bool {
 // configuration update command returned successfully and if the endpoint
 // was able to regenerate successfully, false otherwise.
 func (s *SSHMeta) EndpointSetConfig(id, option, value string) bool {
-	// TODO: GH-1725.
-	// For now use `grep` with an extra space to ensure that we only match
-	// on specified option.
-	// TODO: for consistency, all fields should be constants if they are reused.
 	logger := s.logger.WithFields(logrus.Fields{"endpointID": id})
 	res := s.ExecCilium(fmt.Sprintf(
-		"endpoint config %s | grep '%s ' | awk '{print $2}'", id, option))
+		"endpoint config %s -o json | jq '.mutable.%s'", id, option))
 
 	if res.SingleOut() == value {
 		logger.Debugf("no need to update %s=%s; value already set", option, value)
@@ -380,7 +376,7 @@ func (s *SSHMeta) SetPolicyEnforcement(status string) *CmdRes {
 	// We check before setting PolicyEnforcement; if we do not, EndpointWait
 	// will fail due to the status of the endpoints not changing.
 	log.Infof("setting %s=%s", PolicyEnforcement, status)
-	res := s.ExecCilium(fmt.Sprintf("config | grep %s | awk '{print $2}'", PolicyEnforcement))
+	res := s.ExecCilium(fmt.Sprintf("config -o json | jq '.mutable.%s'", PolicyEnforcement))
 	if res.SingleOut() == status {
 		return res
 	}
@@ -395,7 +391,7 @@ func (s *SSHMeta) PolicyDelAll() *CmdRes {
 // PolicyDel deletes the policy with the given ID from Cilium.
 func (s *SSHMeta) PolicyDel(id string) *CmdRes {
 	res := s.ExecCilium(fmt.Sprintf(
-		"policy delete %s | grep Revision: | awk '{print $2}'", id))
+		"policy delete %s -o json | jq '.revision'", id))
 	if !res.WasSuccessful() {
 		return res
 	}
@@ -419,8 +415,7 @@ func (s *SSHMeta) PolicyGetAll() *CmdRes {
 // PolicyGetRevision retrieves the current policy revision number in the Cilium
 // agent.
 func (s *SSHMeta) PolicyGetRevision() (int, error) {
-	//FIXME GH-1725
-	rev := s.ExecCilium("policy get | grep Revision| awk '{print $2}'")
+	rev := s.ExecCilium("policy get -o json | jq '.revision'")
 	return rev.IntOutput()
 }
 

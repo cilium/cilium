@@ -550,8 +550,7 @@ func (kub *Kubectl) CiliumNodesWait() (bool, error) {
 // CiliumPolicyRevision returns the policy revision in the specified Cilium pod.
 // Returns an error if the policy revision cannot be retrieved.
 func (kub *Kubectl) CiliumPolicyRevision(pod string) (int, error) {
-	// FIXME GH-1725
-	res := kub.CiliumExec(pod, "cilium policy get | grep Revision | awk '{print $2}'")
+	res := kub.CiliumExec(pod, "cilium policy get -o json | jq '.revision'")
 
 	if !res.WasSuccessful() {
 		return -1, fmt.Errorf("Cannot get the revision %s", res.Output())

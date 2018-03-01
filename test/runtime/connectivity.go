@@ -185,7 +185,7 @@ var _ = Describe("RuntimeValidatedConnectivityTest", func() {
 		AfterEach(func() {
 			vm.ContainerRm(cniServer)
 			vm.ContainerRm(cniClient)
-			vm.Exec("docker rm -f $(docker ps | grep busybox:latest | awk '{print $1}')")
+			vm.Exec("docker rm -f $(docker ps --filter ancestor=busybox:latest --format '{{.ID}}')")
 		})
 
 		runCNIContainer := func(name string, label string) {
