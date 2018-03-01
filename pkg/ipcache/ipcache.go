@@ -70,6 +70,26 @@ func NewIPCache() *IPCache {
 	}
 }
 
+// Lock locks the IPCache's mutex.
+func (ipc *IPCache) Lock() {
+	ipc.mutex.Lock()
+}
+
+// Unlock unlocks the IPCache's mutex.
+func (ipc *IPCache) Unlock() {
+	ipc.mutex.Unlock()
+}
+
+// RLock RLocks the IPCache's mutex.
+func (ipc *IPCache) RLock() {
+	ipc.mutex.RLock()
+}
+
+// RUnlock RUnlocks the IPCache's mutex.
+func (ipc *IPCache) RUnlock() {
+	ipc.mutex.RUnlock()
+}
+
 // upsert adds / updates the provided IP and identity into both caches contained
 // within ipc.
 func (ipc *IPCache) upsert(endpointIP string, identity identity.NumericIdentity) {
@@ -121,6 +141,15 @@ func (ipc *IPCache) LookupByIP(endpointIP string) (identity.NumericIdentity, boo
 	return identity, exists
 }
 
+// LookupByIPRLocked returns the corresponding security identity that endpoint IP maps
+// to within the provided IPCache, as well as if the corresponding entry exists
+// in the IPCache.
+func (ipc *IPCache) LookupByIPRLocked(endpointIP string) (identity.NumericIdentity, bool) {
+
+	identity, exists := ipc.ipToIdentityCache[endpointIP]
+	return identity, exists
+}
+
 // LookupByIdentity returns the set of endpoint IPs that have security identity
 // ID, as well as if the corresponding entry exists in the IPCache.
 func (ipc *IPCache) LookupByIdentity(id identity.NumericIdentity) (map[string]struct{}, bool) {
@@ -135,7 +164,11 @@ func (ipc *IPCache) LookupByIdentity(id identity.NumericIdentity) (map[string]st
 type IPIdentityMappingOwner interface {
 	// OnIPIdentityCacheChange will be called whenever there the state of the
 	// IPCache has changed.
-	OnIPIdentityCacheChange()
+	OnIPIdentityCacheChange(modType CacheModification, ipIDPair identity.IPIdentityPair)
+
+	// OnIPIdentityCacheGC will be called to sync other components which are
+	// reliant upon the IPIdentityCache with the IPIdentityCache.
+	OnIPIdentityCacheGC()
 }
 
 // GetIPIdentityMapModel returns all known endpoint IP to security identity mappings
@@ -145,22 +178,36 @@ func GetIPIdentityMapModel() {
 	// see GH-2555
 }
 
+// CacheModification represents the type of operation performed upon IPCache.
+type CacheModification string
+
+const (
+	// Upsert represents Upsertion into IPCache.
+	Upsert CacheModification = "Upsert"
+
+	// Delete represents deletion of an entry in IPCache.
+	Delete CacheModification = "Delete"
+)
+
 func ipIdentityWatcher(owner IPIdentityMappingOwner) {
 
 	for {
+
 		watcher := kvstore.ListAndWatch("endpointIPWatcher", IPIdentitiesPath, 512)
 
 		// Get events from channel as they come in.
 		for event := range watcher.Events {
 
 			var (
-				cacheChanged bool
-				ipIDPair     identity.IPIdentityPair
+				cacheChanged      bool
+				cacheModification CacheModification
+				ipIDPair          identity.IPIdentityPair
 			)
 
 			// Key and value are empty for ListDone event types, so just continue.
 			// See GH-3159.
 			if event.Typ == kvstore.EventTypeListDone {
+				owner.OnIPIdentityCacheGC()
 				continue
 			}
 
@@ -182,6 +229,7 @@ func ipIdentityWatcher(owner IPIdentityMappingOwner) {
 				if !exists || cachedIdentity != ipIDPair.ID {
 					IPIdentityCache.upsert(ipStr, ipIDPair.ID)
 					cacheChanged = true
+					cacheModification = Upsert
 
 					endpointIPs, _ := IPIdentityCache.LookupByIdentity(ipIDPair.ID)
 
@@ -197,6 +245,7 @@ func ipIdentityWatcher(owner IPIdentityMappingOwner) {
 				if exists {
 					IPIdentityCache.delete(ipStr)
 					cacheChanged = true
+					cacheModification = Delete
 
 					endpointIPs, exists := IPIdentityCache.LookupByIdentity(ipIDPair.ID)
 					if !exists {
@@ -220,8 +269,10 @@ func ipIdentityWatcher(owner IPIdentityMappingOwner) {
 					"endpoint-ip":      ipIDPair.IP,
 					"cached-identity":  cachedIdentity,
 					logfields.Identity: ipIDPair.ID,
-				}).Debugf("endpoint IP cache changed state")
-				owner.OnIPIdentityCacheChange()
+				}).Debugf("endpoint IP cache %s", cacheModification)
+
+				// Callback upon cache updates.
+				owner.OnIPIdentityCacheChange(cacheModification, ipIDPair)
 			}
 		}
 
