@@ -3,7 +3,7 @@ kind: Pod
 metadata:
   name: toservices
   labels:
-    zgroup: headless
+    zgroup: external
     test: toservices
 spec:
   containers:
