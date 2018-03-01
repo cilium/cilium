@@ -1,4 +1,4 @@
-// Copyright 2016-2017 Authors of Cilium
+// Copyright 2016-2018 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -44,7 +44,7 @@ const (
 )
 
 func (pe *PolicyEntry) String() string {
-	return string(pe.Action)
+	return fmt.Sprintf("%d %d %d", pe.ProxyPort, pe.Packets, pe.Bytes)
 }
 
 type policyKey struct {
@@ -55,10 +55,10 @@ type policyKey struct {
 }
 
 type PolicyEntry struct {
-	Action  uint32
-	Pad     uint32
-	Packets uint64
-	Bytes   uint64
+	ProxyPort uint16 // In network byte-order
+	Pad       [3]uint16
+	Packets   uint64
+	Bytes     uint64
 }
 
 func (pe *PolicyEntry) Add(oPe PolicyEntry) {
@@ -82,7 +82,7 @@ func (key *policyKey) String() string {
 // if the addition did not complete successfully.
 func (pm *PolicyMap) AllowIdentity(id uint32) error {
 	key := policyKey{Identity: id}
-	entry := PolicyEntry{Action: 1}
+	entry := PolicyEntry{}
 	return bpf.UpdateElement(pm.Fd, unsafe.Pointer(&key), unsafe.Pointer(&entry), 0)
 }
 
@@ -90,7 +90,7 @@ func (pm *PolicyMap) AllowIdentity(id uint32) error {
 // send traffic with destination port `dport` over protocol `proto`.
 func (pm *PolicyMap) AllowL4(id uint32, dport uint16, proto uint8) error {
 	key := policyKey{Identity: id, DestPort: byteorder.HostToNetwork(dport).(uint16), Nexthdr: proto}
-	entry := PolicyEntry{Action: 1}
+	entry := PolicyEntry{}
 	return bpf.UpdateElement(pm.Fd, unsafe.Pointer(&key), unsafe.Pointer(&entry), 0)
 }
 
@@ -135,8 +135,8 @@ func (pm *PolicyMap) Dump() (string, error) {
 		return "", err
 	}
 	for _, entry := range entries {
-		buffer.WriteString(fmt.Sprintf("%20s: %d %d %d\n",
-			entry.Key.String(), entry.Action, entry.Packets, entry.Bytes))
+		buffer.WriteString(fmt.Sprintf("%20s: %s\n",
+			entry.Key.String(), entry.PolicyEntry.String()))
 	}
 	return buffer.String(), nil
 }
