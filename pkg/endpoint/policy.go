@@ -99,6 +99,24 @@ func getSecurityIdentities(labelsMap *identityPkg.IdentityCache, selector *api.E
 	return identities
 }
 
+func getL4FilterEndpointSelector(filter *policy.L4Filter) []api.EndpointSelector {
+	// Since GH-3015 it's impossible to specify more than one L3 at a time,
+	// and the only L3 rule match that is allowed to be combined with L4
+	// is `FromEndpoints`. Therefore, if `FromEndpoints` is nil, then it
+	// selects all endpoints - so we can use a wildcard selector here.
+	// When additional L3-dependent L4 rules are supported, this logic
+	// will need to be amended to only wildcard endpoints when no L3 is
+	// specified. See also GH-2992 for context.
+	fromEndpointsSelectors := filter.FromEndpoints
+	if fromEndpointsSelectors == nil {
+		fromEndpointsSelectors = []api.EndpointSelector{
+			api.NewWildcardEndpointSelector(),
+		}
+	}
+
+	return fromEndpointsSelectors
+}
+
 // removeOldFilter removes the old l4 filter from the endpoint.
 // Returns a map that represents all policies that were attempted to be removed;
 // it maps to whether they were removed successfully (true or false)
@@ -109,7 +127,7 @@ func (e *Endpoint) removeOldFilter(owner Owner, labelsMap *identityPkg.IdentityC
 	port := uint16(filter.Port)
 	proto := uint8(filter.U8Proto)
 
-	for _, sel := range filter.FromEndpoints {
+	for _, sel := range getL4FilterEndpointSelector(filter) {
 		for _, id := range getSecurityIdentities(labelsMap, &sel) {
 			srcID := id.Uint32()
 			l4RuleCtx, l7RuleCtx := e.ParseL4Filter(filter)
@@ -156,7 +174,7 @@ func (e *Endpoint) applyNewFilter(owner Owner, labelsMap *identityPkg.IdentityCa
 	proto := uint8(filter.U8Proto)
 
 	errors := 0
-	for _, sel := range filter.FromEndpoints {
+	for _, sel := range getL4FilterEndpointSelector(filter) {
 		for _, id := range getSecurityIdentities(labelsMap, &sel) {
 			srcID := id.Uint32()
 			if e.PolicyMap.L4Exists(srcID, port, proto) {
