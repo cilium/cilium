@@ -17,7 +17,8 @@
     "ingress": [{
         "fromEndpoints": [
             {"matchLabels":{"reserved:host":""}},
-            {"matchLabels":{"id.app1":""}}
+            {"matchLabels":{"id.app1":""}},
+            {"matchLabels":{"id.app3":""}}
         ],
         "toPorts": [{
             "ports": [

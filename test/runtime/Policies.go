@@ -516,8 +516,9 @@ var _ = Describe("RuntimeValidatedPolicies", func() {
 		// APP2 can't reach using TCP to HTTP2
 		connectivityTest(httpRequestsPublic, helpers.App2, helpers.Httpd2, BeFalse)
 
-		// APP3 can reach using TCP HTTP3, but can't ping EGRESS
-		connectivityTest(httpRequestsPublic, helpers.App3, helpers.Httpd3, BeTrue)
+		// APP3 can reach using TCP to HTTP2, but can't ping due to egress rule.
+		connectivityTest(httpRequestsPublic, helpers.App3, helpers.Httpd2, BeTrue)
+		connectivityTest(pingRequests, helpers.App3, helpers.Httpd2, BeFalse)
 
 		By("Disabling all the policies. All should work")
 
