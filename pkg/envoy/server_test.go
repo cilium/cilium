@@ -172,26 +172,22 @@ var L4PolicyMap2 = map[string]policy.L4Filter{
 	},
 }
 
-var ExpectedDirectionNetworkPolicy1 = &cilium.DirectionNetworkPolicy{
-	PerPortPolicies: []*cilium.PortNetworkPolicy{
-		{
-			Port:     80,
-			Protocol: envoy_api_v2_core.SocketAddress_TCP,
-			Rules: []*cilium.PortNetworkPolicyRule{
-				ExpectedPortNetworkPolicyRule1,
-			},
+var ExpectedPerPortPolicies1 = []*cilium.PortNetworkPolicy{
+	{
+		Port:     80,
+		Protocol: envoy_api_v2_core.SocketAddress_TCP,
+		Rules: []*cilium.PortNetworkPolicyRule{
+			ExpectedPortNetworkPolicyRule1,
 		},
 	},
 }
 
-var ExpectedDirectionNetworkPolicy2 = &cilium.DirectionNetworkPolicy{
-	PerPortPolicies: []*cilium.PortNetworkPolicy{
-		{
-			Port:     8080,
-			Protocol: envoy_api_v2_core.SocketAddress_UDP,
-			Rules: []*cilium.PortNetworkPolicyRule{
-				ExpectedPortNetworkPolicyRule2,
-			},
+var ExpectedPerPortPolicies2 = []*cilium.PortNetworkPolicy{
+	{
+		Port:     8080,
+		Protocol: envoy_api_v2_core.SocketAddress_UDP,
+		Rules: []*cilium.PortNetworkPolicyRule{
+			ExpectedPortNetworkPolicyRule2,
 		},
 	},
 }
@@ -216,18 +212,18 @@ func (s *ServerSuite) TestGetPortNetworkPolicyRule(c *C) {
 
 func (s *ServerSuite) TestGetDirectionNetworkPolicy(c *C) {
 	obtained := getDirectionNetworkPolicy(L4PolicyMap1, IdentityCache)
-	c.Assert(obtained, DeepEquals, ExpectedDirectionNetworkPolicy1)
+	c.Assert(obtained, DeepEquals, ExpectedPerPortPolicies1)
 
 	obtained = getDirectionNetworkPolicy(L4PolicyMap2, IdentityCache)
-	c.Assert(obtained, DeepEquals, ExpectedDirectionNetworkPolicy2)
+	c.Assert(obtained, DeepEquals, ExpectedPerPortPolicies2)
 }
 
 func (s *ServerSuite) TestGetNetworkPolicy(c *C) {
 	obtained := getNetworkPolicy(123, L4Policy1, IdentityCache, IdentityCache)
 	expected := &cilium.NetworkPolicy{
-		Policy:  123,
-		Ingress: ExpectedDirectionNetworkPolicy1,
-		Egress:  ExpectedDirectionNetworkPolicy2,
+		Policy:                 123,
+		IngressPerPortPolicies: ExpectedPerPortPolicies1,
+		EgressPerPortPolicies:  ExpectedPerPortPolicies2,
 	}
 	c.Assert(obtained, DeepEquals, expected)
 }

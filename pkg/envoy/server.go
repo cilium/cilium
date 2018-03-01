@@ -36,6 +36,7 @@ import (
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
 
+	"fmt"
 	"github.com/gogo/protobuf/sortkeys"
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes/duration"
@@ -414,6 +415,11 @@ func getPortNetworkPolicyRule(sel api.EndpointSelector, l7Parser policy.L7Parser
 			remotePolicies = append(remotePolicies, uint64(id))
 		}
 	}
+
+	if len(remotePolicies) == 0 {
+		return nil
+	}
+
 	sortkeys.Uint64s(remotePolicies)
 
 	r := &cilium.PortNetworkPolicyRule{
@@ -422,16 +428,18 @@ func getPortNetworkPolicyRule(sel api.EndpointSelector, l7Parser policy.L7Parser
 
 	switch l7Parser {
 	case policy.ParserTypeHTTP:
-		httpRules := make([]*cilium.HttpNetworkPolicyRule, 0, len(l7Rules.HTTP))
-		for _, l7 := range l7Rules.HTTP {
-			headers, _ := getHTTPRule(&l7)
-			httpRules = append(httpRules, &cilium.HttpNetworkPolicyRule{Headers: headers})
-		}
-		SortHTTPNetworkPolicyRules(httpRules)
-		r.L7Rules = &cilium.PortNetworkPolicyRule_HttpRules{
-			HttpRules: &cilium.HttpNetworkPolicyRules{
-				HttpRules: httpRules,
-			},
+		if len(l7Rules.HTTP) > 0 { // Just cautious. This should never be false.
+			httpRules := make([]*cilium.HttpNetworkPolicyRule, 0, len(l7Rules.HTTP))
+			for _, l7 := range l7Rules.HTTP {
+				headers, _ := getHTTPRule(&l7)
+				httpRules = append(httpRules, &cilium.HttpNetworkPolicyRule{Headers: headers})
+			}
+			SortHTTPNetworkPolicyRules(httpRules)
+			r.L7Rules = &cilium.PortNetworkPolicyRule_HttpRules{
+				HttpRules: &cilium.HttpNetworkPolicyRules{
+					HttpRules: httpRules,
+				},
+			}
 		}
 	default:
 		// No L7 parser means nothing for an L7 proxy to do. Ignore the rule.
@@ -442,10 +450,12 @@ func getPortNetworkPolicyRule(sel api.EndpointSelector, l7Parser policy.L7Parser
 	return r
 }
 
-func getDirectionNetworkPolicy(l4Policy policy.L4PolicyMap, allowedIdentities identity.IdentityCache) *cilium.DirectionNetworkPolicy {
-	p := &cilium.DirectionNetworkPolicy{
-		PerPortPolicies: make([]*cilium.PortNetworkPolicy, 0, len(l4Policy)),
+func getDirectionNetworkPolicy(l4Policy policy.L4PolicyMap, allowedIdentities identity.IdentityCache) []*cilium.PortNetworkPolicy {
+	if len(l4Policy) == 0 {
+		return nil
 	}
+
+	PerPortPolicies := make([]*cilium.PortNetworkPolicy, 0, len(l4Policy))
 
 	for _, l4 := range l4Policy {
 		var protocol envoy_api_v2_core.SocketAddress_Protocol
@@ -470,38 +480,35 @@ func getDirectionNetworkPolicy(l4Policy policy.L4PolicyMap, allowedIdentities id
 		}
 		SortPortNetworkPolicyRules(pnp.Rules)
 
-		p.PerPortPolicies = append(p.PerPortPolicies, pnp)
+		PerPortPolicies = append(PerPortPolicies, pnp)
 	}
 
-	SortPortNetworkPolicies(p.PerPortPolicies)
+	SortPortNetworkPolicies(PerPortPolicies)
 
-	return p
+	return PerPortPolicies
 }
 
 // getNetworkPolicy converts a network policy into a cilium.NetworkPolicy.
 func getNetworkPolicy(id identity.NumericIdentity, policy *policy.L4Policy, allowedIngressIdentities, allowedEgressIdentities identity.IdentityCache) *cilium.NetworkPolicy {
-	p := &cilium.NetworkPolicy{
-		Policy: uint64(id),
+	return &cilium.NetworkPolicy{
+		Policy:                 uint64(id),
+		IngressPerPortPolicies: getDirectionNetworkPolicy(policy.Ingress, allowedIngressIdentities),
+		EgressPerPortPolicies:  getDirectionNetworkPolicy(policy.Egress, allowedEgressIdentities),
 	}
-
-	ingress := getDirectionNetworkPolicy(policy.Ingress, allowedIngressIdentities)
-	if len(ingress.PerPortPolicies) > 0 {
-		p.Ingress = ingress
-	}
-
-	egress := getDirectionNetworkPolicy(policy.Egress, allowedEgressIdentities)
-	if len(egress.PerPortPolicies) > 0 {
-		p.Egress = egress
-	}
-
-	return p
 }
 
 // UpdateNetworkPolicy adds or updates a network policy in the set published
 // to L7 proxies.
-func UpdateNetworkPolicy(id identity.NumericIdentity, policy *policy.L4Policy, allowedIngressIdentities, allowedEgressIdentities identity.IdentityCache) {
+func UpdateNetworkPolicy(id identity.NumericIdentity, policy *policy.L4Policy, allowedIngressIdentities, allowedEgressIdentities identity.IdentityCache) error {
+	networkPolicy := getNetworkPolicy(id, policy, allowedIngressIdentities, allowedEgressIdentities)
+	err := networkPolicy.Validate()
+	if err != nil {
+		return fmt.Errorf("error validating generated NetworkPolicy: %s", err)
+	}
+
 	name := strconv.FormatUint(uint64(id), 10)
-	NetworkPolicyCache.Upsert(NetworkPolicyTypeURL, name, getNetworkPolicy(id, policy, allowedIngressIdentities, allowedEgressIdentities), false)
+	NetworkPolicyCache.Upsert(NetworkPolicyTypeURL, name, networkPolicy, false)
+	return nil
 }
 
 // RemoveNetworkPolicy removes a network policy from the set published to L7

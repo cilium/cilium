@@ -210,29 +210,27 @@ func (ds *DaemonSuite) TestUpdateConsumerMap(c *C) {
 	sortkeys.Uint64s(expectedRemotePolicies)
 	expectedNetworkPolicy := &cilium.NetworkPolicy{
 		Policy: uint64(qaBarSecLblsCtx.ID),
-		Ingress: &cilium.DirectionNetworkPolicy{
-			PerPortPolicies: []*cilium.PortNetworkPolicy{
-				{
-					Port:     80,
-					Protocol: envoy_api_v2_core.SocketAddress_TCP,
-					Rules: []*cilium.PortNetworkPolicyRule{
-						{
-							RemotePolicies: expectedRemotePolicies,
-							L7Rules: &cilium.PortNetworkPolicyRule_HttpRules{
-								HttpRules: &cilium.HttpNetworkPolicyRules{
-									HttpRules: []*cilium.HttpNetworkPolicyRule{
-										{
-											Headers: []*envoy_api_v2_route.HeaderMatcher{
-												{
-													Name:  ":method",
-													Value: "GET",
-													Regex: &wrappers.BoolValue{Value: true},
-												},
-												{
-													Name:  ":path",
-													Value: "/bar",
-													Regex: &wrappers.BoolValue{Value: true},
-												},
+		IngressPerPortPolicies: []*cilium.PortNetworkPolicy{
+			{
+				Port:     80,
+				Protocol: envoy_api_v2_core.SocketAddress_TCP,
+				Rules: []*cilium.PortNetworkPolicyRule{
+					{
+						RemotePolicies: expectedRemotePolicies,
+						L7Rules: &cilium.PortNetworkPolicyRule_HttpRules{
+							HttpRules: &cilium.HttpNetworkPolicyRules{
+								HttpRules: []*cilium.HttpNetworkPolicyRule{
+									{
+										Headers: []*envoy_api_v2_route.HeaderMatcher{
+											{
+												Name:  ":method",
+												Value: "GET",
+												Regex: &wrappers.BoolValue{Value: true},
+											},
+											{
+												Name:  ":path",
+												Value: "/bar",
+												Regex: &wrappers.BoolValue{Value: true},
 											},
 										},
 									},
@@ -257,7 +255,7 @@ func (ds *DaemonSuite) TestUpdateConsumerMap(c *C) {
 	}
 	sortkeys.Uint64s(expectedRemotePolicies)
 	expectedNetworkPolicy.Policy = uint64(prodBarSecLblsCtx.ID)
-	expectedNetworkPolicy.Ingress.PerPortPolicies[0].Rules[0].RemotePolicies = expectedRemotePolicies
+	expectedNetworkPolicy.IngressPerPortPolicies[0].Rules[0].RemotePolicies = expectedRemotePolicies
 	c.Assert(prodBarNetworkPolicy, DeepEquals, expectedNetworkPolicy)
 }
 
