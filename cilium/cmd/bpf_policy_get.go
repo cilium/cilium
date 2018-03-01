@@ -1,4 +1,4 @@
-// Copyright 2017 Authors of Cilium
+// Copyright 2017-2018 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -28,7 +28,6 @@ import (
 	"github.com/cilium/cilium/pkg/command"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/maps/policymap"
-	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/u8proto"
 
 	"github.com/spf13/cobra"
@@ -96,7 +95,6 @@ func formatMap(w io.Writer, statsMap []policymap.PolicyEntryDump) {
 		labelsIDTitle  = "IDENTITY"
 		labelsDesTitle = "LABELS (source:key[=value])"
 		portTitle      = "PORT/PROTO"
-		actionTitle    = "ACTION"
 		bytesTitle     = "BYTES"
 		packetsTitle   = "PACKETS"
 	)
@@ -116,9 +114,9 @@ func formatMap(w io.Writer, statsMap []policymap.PolicyEntryDump) {
 	}
 
 	if printIDs {
-		fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t\n", labelsIDTitle, portTitle, actionTitle, bytesTitle, packetsTitle)
+		fmt.Fprintf(w, "%s\t%s\t%s\t%s\t\n", labelsIDTitle, portTitle, bytesTitle, packetsTitle)
 	} else {
-		fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t\n", labelsDesTitle, portTitle, actionTitle, bytesTitle, packetsTitle)
+		fmt.Fprintf(w, "%s\t%s\t%s\t%s\t\n", labelsDesTitle, portTitle, bytesTitle, packetsTitle)
 	}
 	for _, stat := range statsMap {
 		id := identity.NumericIdentity(stat.Key.Identity)
@@ -128,21 +126,20 @@ func formatMap(w io.Writer, statsMap []policymap.PolicyEntryDump) {
 			proto := u8proto.U8proto(stat.Key.Nexthdr)
 			port = fmt.Sprintf("%d/%s", dport, proto.String())
 		}
-		act := api.Decision(stat.Action)
 		if printIDs {
-			fmt.Fprintf(w, "%d\t%s\t%s\t%d\t%d\t\n", id, port, act.String(), stat.Bytes, stat.Packets)
+			fmt.Fprintf(w, "%d\t%s\t%d\t%d\t\n", id, port, stat.Bytes, stat.Packets)
 		} else if lbls := labelsID[id]; lbls != nil {
 			first := true
 			for _, lbl := range lbls.Labels {
 				if first {
-					fmt.Fprintf(w, "%s\t%s\t%s\t%d\t%d\t\n", lbl, port, act.String(), stat.Bytes, stat.Packets)
+					fmt.Fprintf(w, "%s\t%s\t%d\t%d\t\n", lbl, port, stat.Bytes, stat.Packets)
 					first = false
 				} else {
 					fmt.Fprintf(w, "%s\t\t\t\t\t\n", lbl)
 				}
 			}
 		} else {
-			fmt.Fprintf(w, "%d\t%s\t%s\t%d\t%d\t\n", id, port, act.String(), stat.Bytes, stat.Packets)
+			fmt.Fprintf(w, "%d\t%s\t%d\t%d\t\n", id, port, stat.Bytes, stat.Packets)
 		}
 	}
 }
