@@ -360,7 +360,7 @@ var _ = Describe("NightlyExamples", func() {
 			res = kubectl.ExecPodCmd(
 				helpers.DefaultNamespace, appPods[helpers.App3],
 				helpers.CurlFail(fmt.Sprintf("http://%s/public", clusterIP)))
-			res.ExpectFail("Can curl to %q from %q and it should",
+			res.ExpectFail("Can curl to %q from %q and it shouldn't",
 				clusterIP, appPods[helpers.App3])
 
 		})
