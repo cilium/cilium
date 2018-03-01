@@ -446,8 +446,11 @@ func (s *SSHMeta) PolicyImportAndWait(path string, timeout time.Duration) (int, 
 	body := func() bool {
 		currentRev, _ := s.PolicyGetRevision()
 		if currentRev > revision {
-			s.PolicyWait(currentRev)
-			return true
+			res := s.PolicyWait(currentRev)
+			if !res.WasSuccessful() {
+				log.Errorf("policy wait failed: %s", res.CombineOutput())
+			}
+			return res.WasSuccessful()
 		}
 		s.logger.WithFields(logrus.Fields{
 			logfields.PolicyRevision:    currentRev,
