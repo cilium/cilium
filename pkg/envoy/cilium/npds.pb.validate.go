@@ -44,28 +44,38 @@ func (m *NetworkPolicy) Validate() error {
 
 	// no validation rules for Policy
 
-	if v, ok := interface{}(m.GetIngress()).(interface {
-		Validate() error
-	}); ok {
-		if err := v.Validate(); err != nil {
-			return NetworkPolicyValidationError{
-				Field:  "Ingress",
-				Reason: "embedded message failed validation",
-				Cause:  err,
+	for idx, item := range m.GetIngressPerPortPolicies() {
+		_, _ = idx, item
+
+		if v, ok := interface{}(item).(interface {
+			Validate() error
+		}); ok {
+			if err := v.Validate(); err != nil {
+				return NetworkPolicyValidationError{
+					Field:  fmt.Sprintf("IngressPerPortPolicies[%v]", idx),
+					Reason: "embedded message failed validation",
+					Cause:  err,
+				}
 			}
 		}
+
 	}
 
-	if v, ok := interface{}(m.GetEgress()).(interface {
-		Validate() error
-	}); ok {
-		if err := v.Validate(); err != nil {
-			return NetworkPolicyValidationError{
-				Field:  "Egress",
-				Reason: "embedded message failed validation",
-				Cause:  err,
+	for idx, item := range m.GetEgressPerPortPolicies() {
+		_, _ = idx, item
+
+		if v, ok := interface{}(item).(interface {
+			Validate() error
+		}); ok {
+			if err := v.Validate(); err != nil {
+				return NetworkPolicyValidationError{
+					Field:  fmt.Sprintf("EgressPerPortPolicies[%v]", idx),
+					Reason: "embedded message failed validation",
+					Cause:  err,
+				}
 			}
 		}
+
 	}
 
 	return nil
@@ -102,72 +112,6 @@ func (e NetworkPolicyValidationError) Error() string {
 
 var _ error = NetworkPolicyValidationError{}
 
-// Validate checks the field values on DirectionNetworkPolicy with the rules
-// defined in the proto definition for this message. If any rules are
-// violated, an error is returned.
-func (m *DirectionNetworkPolicy) Validate() error {
-	if m == nil {
-		return nil
-	}
-
-	if len(m.GetPerPortPolicies()) < 1 {
-		return DirectionNetworkPolicyValidationError{
-			Field:  "PerPortPolicies",
-			Reason: "value must contain at least 1 item(s)",
-		}
-	}
-
-	for idx, item := range m.GetPerPortPolicies() {
-		_, _ = idx, item
-
-		if v, ok := interface{}(item).(interface {
-			Validate() error
-		}); ok {
-			if err := v.Validate(); err != nil {
-				return DirectionNetworkPolicyValidationError{
-					Field:  fmt.Sprintf("PerPortPolicies[%v]", idx),
-					Reason: "embedded message failed validation",
-					Cause:  err,
-				}
-			}
-		}
-
-	}
-
-	return nil
-}
-
-// DirectionNetworkPolicyValidationError is the validation error returned by
-// DirectionNetworkPolicy.Validate if the designated constraints aren't met.
-type DirectionNetworkPolicyValidationError struct {
-	Field  string
-	Reason string
-	Cause  error
-	Key    bool
-}
-
-// Error satisfies the builtin error interface
-func (e DirectionNetworkPolicyValidationError) Error() string {
-	cause := ""
-	if e.Cause != nil {
-		cause = fmt.Sprintf(" | caused by: %v", e.Cause)
-	}
-
-	key := ""
-	if e.Key {
-		key = "key for "
-	}
-
-	return fmt.Sprintf(
-		"invalid %sDirectionNetworkPolicy.%s: %s%s",
-		key,
-		e.Field,
-		e.Reason,
-		cause)
-}
-
-var _ error = DirectionNetworkPolicyValidationError{}
-
 // Validate checks the field values on PortNetworkPolicy with the rules defined
 // in the proto definition for this message. If any rules are violated, an
 // error is returned.
@@ -184,13 +128,6 @@ func (m *PortNetworkPolicy) Validate() error {
 	}
 
 	// no validation rules for Protocol
-
-	if len(m.GetRules()) < 1 {
-		return PortNetworkPolicyValidationError{
-			Field:  "Rules",
-			Reason: "value must contain at least 1 item(s)",
-		}
-	}
 
 	for idx, item := range m.GetRules() {
 		_, _ = idx, item
@@ -249,13 +186,6 @@ var _ error = PortNetworkPolicyValidationError{}
 func (m *PortNetworkPolicyRule) Validate() error {
 	if m == nil {
 		return nil
-	}
-
-	if len(m.GetRemotePolicies()) < 1 {
-		return PortNetworkPolicyRuleValidationError{
-			Field:  "RemotePolicies",
-			Reason: "value must contain at least 1 item(s)",
-		}
 	}
 
 	_PortNetworkPolicyRule_RemotePolicies_Unique := make(map[uint64]struct{}, len(m.GetRemotePolicies()))

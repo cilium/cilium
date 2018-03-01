@@ -17,7 +17,6 @@ It has these top-level messages:
 	BpfMetadata
 	L7Policy
 	NetworkPolicy
-	DirectionNetworkPolicy
 	PortNetworkPolicy
 	PortNetworkPolicyRule
 	HttpNetworkPolicyRules

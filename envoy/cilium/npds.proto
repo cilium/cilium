@@ -34,62 +34,64 @@ message NetworkPolicy {
   // Required.
   uint64 policy = 1;
 
-  // The part of the policy to be enforced at ingress by the filter.
-  // Optional.
-  DirectionNetworkPolicy ingress = 2;
+  // The part of the policy to be enforced at ingress by the filter, as a set
+  // of per-port network policies, one per destination L4 port.
+  // Every PortNetworkPolicy element in this set has a unique port / protocol
+  // combination.
+  // Optional. If empty, all flows in this direction are denied.
+  repeated PortNetworkPolicy ingress_per_port_policies = 2;
 
-  // The part of the policy to be enforced at egress by the filter.
-  // Optional.
-  DirectionNetworkPolicy egress = 3;
+  // The part of the policy to be enforced at egress by the filter, as a set
+  // of per-port network policies, one per destination L4 port.
+  // Every PortNetworkPolicy element in this set has a unique port / protocol
+  // combination.
+  // Optional. If empty, all flows in this direction are denied.
+  repeated PortNetworkPolicy egress_per_port_policies = 3;
 }
 
-// A network policy to be enforced on flows either to or from hosts.
-message DirectionNetworkPolicy {
-  // The set of per-port network policies, one per destination L4 port.
-  // Every PortNetworkPolicy element in this set has a unique toPort.
-  // Required and may not be empty.
-  repeated PortNetworkPolicy per_port_policies = 1 [(validate.rules).repeated .min_items = 1];
-}
-
-// A network policy to be enforced on flows to a specific destination L4 port.
+// A network policy to whitelist flows to a specific destination L4 port,
+// as a conjunction of predicates on L3/L4/L7 flows.
+// If all the predicates of a policy match a flow, the flow is whitelisted.
 message PortNetworkPolicy {
   // The flows' destination L4 port number, as an unsigned 16-bit integer.
-  // Required.
+  // If 0, all destination L4 port numbers are matched by this predicate.
   uint32 port = 1 [(validate.rules).uint32.lte = 65535];
 
   // The flows' L4 transport protocol.
   // Required.
   envoy.api.v2.core.SocketAddress.Protocol protocol = 2;
-  // TODO: Fix protoc-gen-validate. Adding any validate.rules to protocol above results in generating broken C++ code.
 
   // The network policy rules to be enforced on the flows to the port.
-  // A flow is allowed if any rule matches it. If no rule matches the flow, it is denied.
-  // Required and may not be empty.
-  repeated PortNetworkPolicyRule rules = 3 [(validate.rules).repeated .min_items = 1];
+  // Optional. A flow is matched by this predicate if either the set of
+  // rules is empty or any of the rules matches it.
+  repeated PortNetworkPolicyRule rules = 3;
 }
 
-// A network policy rule, as a conjunction of predicates on L3-L7 flows.
-// If all the predicates of a rule match a flow, the flow is allowed.
+// A network policy rule, as a conjunction of predicates on L3/L7 flows.
+// If all the predicates of a rule match a flow, the flow is matched by the
+// rule.
 message PortNetworkPolicyRule {
-  // The set of identifiers of policies of remote hosts that are allowed by this rule.
-  // This predicate matches a flow if the identifier of the policy applied on the flow's remote
-  // host is contained in this set. Required and may not be empty.
-  repeated uint64 remote_policies = 1 [(validate.rules).repeated = {min_items: 1, unique: true}];
+  // The set of identifiers of policies of remote hosts.
+  // A flow is matched by this predicate if the identifier of the policy
+  // applied on the flow's remote host is contained in this set.
+  // Optional. If not specified, any remote host is matched by this predicate.
+  repeated uint64 remote_policies = 1 [(validate.rules).repeated.unique = true];
 
+  // Optional. If not specified, any L7 request is matched by this predicate.
   oneof l7_rules {
     // The set of HTTP network policy rules.
-    // An HTTP request is allowed if any rule in this set matches it.
-    // Optional.
+    // An HTTP request is matched by this predicate if any of its rules matches
+    // the request.
     HttpNetworkPolicyRules http_rules = 100;
  }
 }
 
-// A set of network policy rules enforced on HTTP requests.
+// A set of network policy rules that match HTTP requests.
 message HttpNetworkPolicyRules {
   // The set of HTTP network policy rules.
-  // If any rule matches a request, the request is allowed. Otherwise, it is denied.
+  // An HTTP request is matched if any of its rules matches the request.
   // Required and may not be empty.
-  repeated HttpNetworkPolicyRule http_rules = 1 [(validate.rules).repeated .min_items = 1];
+  repeated HttpNetworkPolicyRule http_rules = 1 [(validate.rules).repeated.min_items = 1];
 }
 
 // An HTTP network policy rule, as a conjunction of predicates on HTTP requests.

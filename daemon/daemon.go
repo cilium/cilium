@@ -160,8 +160,7 @@ func (d *Daemon) UpdateNetworkPolicy(id identity.NumericIdentity, policy *policy
 	for id := range allowedEgressIdentities {
 		egress[id] = labelsMap[id]
 	}
-	d.l7Proxy.UpdateNetworkPolicy(id, policy, ingress, egress)
-	return nil
+	return d.l7Proxy.UpdateNetworkPolicy(id, policy, ingress, egress)
 }
 
 // RemoveNetworkPolicy removes a network policy from the set published to
