@@ -641,9 +641,9 @@ func (kub *Kubectl) CiliumPolicyAction(namespace, filepath string, action Resour
 	return "", nil
 }
 
-//CiliumReport report the cilium pod to the log and apppend the logs for the
-//given commands. Return err in case of any problem
-func (kub *Kubectl) CiliumReport(namespace string, pod string, commands []string) error {
+// CiliumReport report the cilium pod to the log and appends the logs for the
+// given commands.
+func (kub *Kubectl) CiliumReport(namespace string, pod string, commands []string) {
 	wr := kub.logger.Logger.Out
 	fmt.Fprint(wr, "StackTrace Begin\n")
 	data := kub.Logs(namespace, pod)
@@ -660,8 +660,18 @@ func (kub *Kubectl) CiliumReport(namespace string, pod string, commands []string
 	fmt.Fprint(wr, "StackTrace Ends\n")
 	kub.CiliumReportDump(namespace)
 	kub.GatherLogs()
+	kub.CheckLogsForDeadlock()
 
-	return nil
+}
+
+// CheckLogsForDeadlock checks if the logs for Cilium log messages that signify
+// that a deadlock has occurred.
+func (kub *Kubectl) CheckLogsForDeadlock() {
+	deadlockCheckCmd := fmt.Sprintf("%s -n %s logs -l k8s-app=cilium | grep -qi -B 5 -A 5 deadlock", KubectlCmd, KubeSystemNamespace)
+	res := kub.Exec(deadlockCheckCmd)
+	if res.WasSuccessful() {
+		log.Errorf("Deadlock during test run detected, check Cilium logs for context")
+	}
 }
 
 // CiliumReportDump runs a variety of commands (CiliumKubCLICommands) and writes the results to
