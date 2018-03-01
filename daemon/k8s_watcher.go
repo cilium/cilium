@@ -739,7 +739,7 @@ func (d *Daemon) addK8sServiceV1(svc *v1.Service) {
 	if strings.ToLower(svc.Spec.ClusterIP) == "none" {
 		headless = true
 	}
-	newSI := types.NewK8sServiceInfo(clusterIP, headless, svc.Labels)
+	newSI := types.NewK8sServiceInfo(clusterIP, headless, svc.Labels, svc.Spec.Selector)
 
 	// FIXME: Add support for
 	//  - NodePort
@@ -837,7 +837,7 @@ func (d *Daemon) addK8sEndpointV1(ep *v1.Endpoints) {
 	}
 
 	svc, ok := d.loadBalancer.K8sServices[svcns]
-	if ok && svc.IsHeadless {
+	if ok && svc.IsExternal() {
 		translator := k8s.NewK8sTranslator(svcns, *newSvcEP, false, svc.Labels)
 		err := d.policy.TranslateRules(translator)
 		if err != nil {
@@ -879,7 +879,7 @@ func (d *Daemon) deleteK8sEndpointV1(ep *v1.Endpoints) {
 
 	if endpoint, ok := d.loadBalancer.K8sEndpoints[svcns]; ok {
 		svc, ok := d.loadBalancer.K8sServices[svcns]
-		if ok && svc.IsHeadless {
+		if ok && svc.IsExternal() {
 			translator := k8s.NewK8sTranslator(svcns, *endpoint, true, svc.Labels)
 			err := d.policy.TranslateRules(translator)
 			if err != nil {
@@ -1174,7 +1174,7 @@ func (d *Daemon) addIngressV1beta1(ingress *v1beta1.Ingress) {
 	} else {
 		host = d.conf.HostV4Addr
 	}
-	ingressSvcInfo := types.NewK8sServiceInfo(host, false, nil)
+	ingressSvcInfo := types.NewK8sServiceInfo(host, false, nil, nil)
 	ingressSvcInfo.Ports[types.FEPortName(ingress.Spec.Backend.ServicePort.StrVal)] = fePort
 
 	syncIngress := func(ingressSvcInfo *types.K8sServiceInfo) error {

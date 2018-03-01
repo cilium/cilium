@@ -172,15 +172,22 @@ type K8sServiceInfo struct {
 	IsHeadless bool
 	Ports      map[FEPortName]*FEPort
 	Labels     map[string]string
+	Selector   map[string]string
+}
+
+// IsExternal returns true if the service is expected to serve out-of-cluster endpoints:
+func (si K8sServiceInfo) IsExternal() bool {
+	return len(si.Selector) == 0
 }
 
 // NewK8sServiceInfo creates a new K8sServiceInfo with the Ports map initialized.
-func NewK8sServiceInfo(ip net.IP, headless bool, labels map[string]string) *K8sServiceInfo {
+func NewK8sServiceInfo(ip net.IP, headless bool, labels map[string]string, selector map[string]string) *K8sServiceInfo {
 	return &K8sServiceInfo{
 		FEIP:       ip,
 		IsHeadless: headless,
 		Ports:      map[FEPortName]*FEPort{},
 		Labels:     labels,
+		Selector:   selector,
 	}
 }
 

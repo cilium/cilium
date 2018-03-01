@@ -19,6 +19,7 @@ import (
 	"net"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/asaskevich/govalidator"
 	"github.com/cilium/cilium/test/helpers"
@@ -167,7 +168,7 @@ var _ = Describe("K8sValidatedServicesTest", func() {
 		testHTTPRequest(url)
 	})
 
-	Context("Headless services", func() {
+	Context("External services", func() {
 
 		var endpointPath string
 		var expectedCIDR string = "198.49.23.144/32"
@@ -178,14 +179,14 @@ var _ = Describe("K8sValidatedServicesTest", func() {
 		var servicePath string
 
 		BeforeEach(func() {
-			servicePath = kubectl.ManifestGet("headless_service.yaml")
+			servicePath = kubectl.ManifestGet("external_service.yaml")
 			res := kubectl.Apply(servicePath)
 			res.ExpectSuccess(res.GetDebugMessage())
 
-			endpointPath = kubectl.ManifestGet("headless_endpoint.yaml")
-			podPath = kubectl.ManifestGet("headless_pod.yaml")
-			policyPath = kubectl.ManifestGet("headless_policy.yaml")
-			policyLabeledPath = kubectl.ManifestGet("headless_policy_labeled.yaml")
+			endpointPath = kubectl.ManifestGet("external_endpoint.yaml")
+			podPath = kubectl.ManifestGet("external_pod.yaml")
+			policyPath = kubectl.ManifestGet("external_policy.yaml")
+			policyLabeledPath = kubectl.ManifestGet("external_policy_labeled.yaml")
 
 			res = kubectl.Apply(podPath)
 			res.ExpectSuccess()
@@ -202,7 +203,7 @@ var _ = Describe("K8sValidatedServicesTest", func() {
 			res.ExpectSuccess()
 
 			waitFinish := func() bool {
-				data, err := kubectl.GetPodNames(helpers.DefaultNamespace, "zgroup=headless")
+				data, err := kubectl.GetPodNames(helpers.DefaultNamespace, "zgroup=external")
 				if err != nil {
 					return false
 				}
@@ -234,11 +235,14 @@ var _ = Describe("K8sValidatedServicesTest", func() {
 			endpointID := endpointIDs[fmt.Sprintf("%s:%s", helpers.DefaultNamespace, podName)]
 			Expect(endpointID).NotTo(BeNil())
 
-			res := kubectl.CiliumEndpointGet(ciliumPod, endpointID)
+			Eventually(func() string {
+				res := kubectl.CiliumEndpointGet(ciliumPod, endpointID)
 
-			data, err := res.Filter(`{[0].policy.cidr-policy.egress}`)
-			Expect(err).To(BeNil())
-			Expect(data.String()).To(ContainSubstring(expectedCIDR))
+				data, err := res.Filter(`{[0].policy.cidr-policy.egress}`)
+				Expect(err).To(BeNil())
+				return data.String()
+
+			}, 5*time.Minute, 10*time.Second).Should(ContainSubstring(expectedCIDR))
 		}
 
 		deletePath := func(path string) {
