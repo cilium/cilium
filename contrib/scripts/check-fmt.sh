@@ -1,5 +1,6 @@
 #!/usr/bin/env sh
 
+set -e
 diff="$(find . ! \( -path './contrib' -prune \) \
         ! \( -path './vendor' -prune \) \
         ! \( -path './.git' -prune \) \
