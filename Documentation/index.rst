@@ -52,10 +52,11 @@ The documentation is divided into the following sections:
 
 .. toctree::
    :maxdepth: 2
-   :caption: Installation
+   :caption: Administration
 
    install/system_requirements
    install/guides/index
+   install/upgrade
 
 .. toctree::
    :maxdepth: 2
