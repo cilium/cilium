@@ -59,12 +59,14 @@ GO_MAPPINGS := $(patsubst %/,%,$(map_sep)$(subst $(file_sep),$(map_sep),$(RAW_GO
 all: $(ENVOY_API_PROTO_PATH) $(ENVOY_GO_TARGETS) $(CILIUM_GO_TARGETS)
 
 $(ENVOY_GO_TARGETS): $(ENVOY_PROTO_SOURCES) Makefile.api
+	set -e; \
 	for path in $(ENVOY_PROTO_DIRS) ; do \
 		echo Compiling protos in $$path; \
 		$(PROTOC) -I $(ENVOY_API_PROTO_PATH) -I $(CILIUM_PROTO_PATH) $(PROTO_DEPS) --go_out=plugins=grpc$(GO_MAPPINGS):$(GO_OUT) $${path}*.proto; \
 	done
 
 $(CILIUM_GO_TARGETS): $(CILIUM_PROTO_SOURCES) Makefile.api
+	set -e; \
 	for path in $(CILIUM_PROTO_DIRS) ; do \
 		echo Compiling protos in $$path; \
 		$(PROTOC) -I $(ENVOY_API_PROTO_PATH) -I $(CILIUM_PROTO_PATH) $(PROTO_DEPS) --go_out=plugins=grpc$(GO_MAPPINGS):$(GO_OUT) --validate_out=lang=go:$(GO_OUT) $${path}*.proto; \
