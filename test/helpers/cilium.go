@@ -524,7 +524,18 @@ func (s *SSHMeta) ReportFailed(commands ...string) {
 	fmt.Fprint(wr, "StackTrace Ends\n")
 	s.ReportDump()
 	s.GatherLogs()
+	s.CheckLogsForDeadlock()
 	fmt.Fprint(wr, "===================== EXITING REPORT GENERATION =====================\n")
+}
+
+// CheckLogsForDeadlock checks if the logs for Cilium log messages that signify
+// that a deadlock has occurred.
+func (s *SSHMeta) CheckLogsForDeadlock() {
+	deadlockCheckCmd := fmt.Sprintf("sudo journalctl -au %s | grep -qi -B 5 -A 5 deadlock", DaemonName)
+	res := s.Exec(deadlockCheckCmd)
+	if res.WasSuccessful() {
+		log.Errorf("Deadlock during test run detected, check Cilium logs for context")
+	}
 }
 
 // ReportDump runs a variety of commands and writes the results to
