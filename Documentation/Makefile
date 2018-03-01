@@ -16,21 +16,17 @@ HEALTHDIR     = ../cilium-health
 help:
 	@$(SPHINXBUILD) -M help "$(SOURCEDIR)" "$(BUILDDIR)" $(SPHINXOPTS) $(O)
 
-PIP_REQUIREMENTS = \
-	sphinx \
-	sphinxcontrib-httpdomain \
-	sphinxcontrib-openapi \
-	sphinx-rtd-theme \
-	sphinx-tabs \
-	recommonmark
+PIP_REQUIREMENTS = $(shell cat requirements.txt | sed -e 's/==.*//g' -e 's/\n/ /g')
 
 check-requirements:
-	@$(foreach PKG,$(PIP_REQUIREMENTS), \
-		pip list --format=json | grep ${PKG} > /dev/null || \
-		(echo "Documentation dependency '${PKG}' not installed."; \
-			echo "Run 'pip install ${PKG}'"; \
-			exit 1); \
-	)
+	@set -e;								\
+	PYPKGS=$$(pip freeze);							\
+	for pkg in ${PIP_REQUIREMENTS}; do					\
+		echo $${PYPKGS} | grep -q $${pkg}				\
+		|| (echo "Documentation dependency '$${pkg}' not found.";	\
+		    echo "Run 'pip install -r Documentation/requirements.txt'";	\
+		    exit 2);							\
+	done
 
 cmdref:
 	# We don't know what changed so recreate the directory
