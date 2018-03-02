@@ -107,8 +107,16 @@ Vagrant.configure(2) do |config|
         config.vm.box_version = "32"
         vb.memory = ENV['VM_MEMORY'].to_i
         vb.cpus = ENV['VM_CPUS'].to_i
-
-        config.vm.synced_folder '.', '/home/vagrant/go/src/github.com/cilium/cilium'
+        if ENV["NFS"] then
+            config.vm.synced_folder '.', '/home/vagrant/go/src/github.com/cilium/cilium', type: "nfs"
+            # Don't forget to enable this ports on your host before starting the VM
+            # in order to have nfs working
+            # iptables -I INPUT -p udp -s 192.168.34.0/24 --dport 111 -j ACCEPT
+            # iptables -I INPUT -p udp -s 192.168.34.0/24 --dport 2049 -j ACCEPT
+            # iptables -I INPUT -p udp -s 192.168.34.0/24 --dport 20048 -j ACCEPT
+        else
+            config.vm.synced_folder '.', '/home/vagrant/go/src/github.com/cilium/cilium'
+        end
     end
 
     master_vm_name = "#{$vm_base_name}1#{$build_id_name}"
