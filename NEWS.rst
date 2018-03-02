@@ -2,6 +2,25 @@
 NEWS
 ******
 
+
+v1.0.0-rc6
+==========
+
+:date: 2018-03-02
+:commit: 5e90ac8271773a8d4cceca8b61511062489e845d
+
+Bugfixes Changes
+----------------
+
+* Envoy: add NACK processing (2991_ @jrajahalme)
+* envoy: Use downstream HTTP protocol for upstream connections. (2970_ @jrajahalme)
+
+Other Changes
+-------------
+
+* Removed action field from BPF policy map entries (2918_ @joestringer)
+
+
 Version 1.0-rc5
 ===============
 
@@ -1115,3 +1134,6 @@ Fixes
 .. _2852: https://github.com/cilium/cilium/pull/2852
 .. _2821: https://github.com/cilium/cilium/pull/2821
 .. _2806: https://github.com/cilium/cilium/pull/2806
+.. _2991: https://github.com/cilium/cilium/pull/2991
+.. _2970: https://github.com/cilium/cilium/pull/2970
+.. _2918: https://github.com/cilium/cilium/pull/2918
