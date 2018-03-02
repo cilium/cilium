@@ -16,6 +16,7 @@ package helpers
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -97,6 +98,14 @@ func (kub *Kubectl) ExecKafkaPodCmd(namespace string, pod string, arg string) er
 func (kub *Kubectl) ExecPodCmd(namespace string, pod string, cmd string) *CmdRes {
 	command := fmt.Sprintf("%s exec -n %s %s -- %s", KubectlCmd, namespace, pod, cmd)
 	return kub.Exec(command)
+}
+
+// ExecPodCmd executes command cmd in background in the specified pod residing
+// in the specified namespace. It returns a pointer to CmdRes with all the
+// output
+func (kub *Kubectl) ExecPodCmdContext(ctx context.Context, namespace string, pod string, cmd string) *CmdRes {
+	command := fmt.Sprintf("%s exec -n %s %s -- %s", KubectlCmd, namespace, pod, cmd)
+	return kub.ExecContext(ctx, command)
 }
 
 // Get retrieves the provided Kubernetes objects from the specified namespace.
