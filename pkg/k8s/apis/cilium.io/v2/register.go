@@ -732,6 +732,27 @@ var (
 			"optional, if all fields are empty or missing, the rule will match all Kafka " +
 			"messages.",
 		Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
+			"role": {
+				Description: "Role is a case-insensitive string and describes a group of API keys" +
+					"necessary to perform certain higher level Kafka operations such as" +
+					"\"produce\" or \"consume\". An APIGroup automatically expands into all APIKeys" +
+					"required to perform the specified higher level operation." +
+					"The following values are supported:" +
+					"- \"produce\": Allow producing to the topics specified in the rule" +
+					"- \"consume\": Allow consuming from the topics specified in the rule" +
+					"This field is incompatible with the APIKey field, either APIKey or Role" +
+					"may be specified. If omitted or empty, the field has no effect and the " +
+					"logic of the APIKey field applies.",
+				Type: "string",
+				Enum: []apiextensionsv1beta1.JSON{
+					{
+						Raw: []byte(`"produce"`),
+					},
+					{
+						Raw: []byte(`"consume"`),
+					},
+				},
+			},
 			"apiKey": {
 				Description: "APIKey is a case-insensitive string matched against the key of " +
 					"a request, e.g. \"produce\", \"fetch\", \"createtopic\", \"deletetopic\", " +

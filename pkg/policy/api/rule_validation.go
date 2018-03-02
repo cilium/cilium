@@ -150,12 +150,24 @@ func (e *EgressRule) sanitize() error {
 // TODO we need to add support to check
 // wildcard and prefix/suffix later on.
 func (kr *PortRuleKafka) Sanitize() error {
+	if (len(kr.APIKey) > 0) && (len(kr.Role) > 0) {
+		return fmt.Errorf("Cannot set both Role:%q and APIKey :%q together", kr.Role, kr.APIKey)
+	}
+
 	if len(kr.APIKey) > 0 {
 		n, ok := KafkaAPIKeyMap[strings.ToLower(kr.APIKey)]
 		if !ok {
 			return fmt.Errorf("invalid Kafka APIKey :%q", kr.APIKey)
 		}
-		kr.apiKeyInt = &n
+		kr.apiKeyInt = append(kr.apiKeyInt, n)
+	}
+
+	if len(kr.Role) > 0 {
+		err := kr.MapRoleToAPIKey()
+		if err != nil {
+			return fmt.Errorf("invalid Kafka APIRole :%q", kr.Role)
+		}
+
 	}
 
 	if len(kr.APIVersion) > 0 {

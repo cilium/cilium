@@ -22,6 +22,52 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+// isTopicAPIKey returns true if kind is apiKey message type which contains a
+// topic in its request.
+func isTopicAPIKey(kind int16) bool {
+	switch kind {
+	case api.ProduceKey,
+		api.FetchKey,
+		api.OffsetsKey,
+		api.MetadataKey,
+		api.LeaderAndIsr,
+		api.StopReplica,
+		api.UpdateMetadata,
+		api.OffsetCommitKey,
+		api.OffsetFetchKey,
+		api.CreateTopicsKey,
+		api.DeleteTopicsKey,
+		api.DeleteRecordsKey,
+		api.OffsetForLeaderEpochKey,
+		api.AddPartitionsToTxnKey,
+		api.WriteTxnMarkersKey,
+		api.TxnOffsetCommitKey,
+		api.AlterReplicaLogDirsKey,
+		api.DescribeLogDirsKey,
+		api.CreatePartitionsKey:
+
+		return true
+	}
+	return false
+}
+
+func matchNonTopicRequests(req *RequestMessage, rule api.PortRuleKafka) bool {
+	// matchNonTopicRequests() is called when
+	// the kafka parser was not able to parse beyond the generic header.
+	// This could be due to 2 sceanrios:
+	// 1. It was a non-topic request
+	// 2. The parser could not parse further even if there was a topic present.
+	// For scenario 2, if topic is present, we need to return
+	// false since topic can never be associated with this request kind.
+	if rule.Topic != "" && isTopicAPIKey(req.kind) {
+		return false
+	}
+	// TODO add functionality for parsing clientID GH-3097
+	//if rule.ClientID != "" && rule.ClientID != req.GetClientID() {
+	//	return false
+	//}
+	return true
+}
 func produceTopicContained(neededTopic string, topics []proto.ProduceReqTopic) bool {
 	for _, topic := range topics {
 		if topic.Name == neededTopic {
@@ -188,8 +234,7 @@ func (req *RequestMessage) ruleMatches(rule api.PortRuleKafka) bool {
 		fieldRule:    rule,
 	}), "Matching Kafka rule")
 
-	apiKey, isWildcard := rule.GetAPIKey()
-	if !isWildcard && apiKey != req.kind {
+	if !rule.CheckAPIKeyRole(req.kind) {
 		return false
 	}
 
@@ -202,14 +247,6 @@ func (req *RequestMessage) ruleMatches(rule api.PortRuleKafka) bool {
 	// to match into the request specific fields.
 	if rule.Topic == "" && rule.ClientID == "" {
 		return true
-	}
-
-	if req.request == nil {
-		flowdebug.Log(log.WithFields(logrus.Fields{
-			fieldRequest: req.String(),
-			fieldRule:    rule,
-		}), "Unparseable kafka message, denying...")
-		return false
 	}
 
 	switch val := req.request.(type) {
@@ -227,10 +264,17 @@ func (req *RequestMessage) ruleMatches(rule api.PortRuleKafka) bool {
 		return matchOffsetFetchReq(val, rule)
 	case *proto.ConsumerMetadataReq:
 		return true
+	case nil:
+		// This is the case when requests like
+		// heartbeat,findcordinator, et al
+		// are specified. They are not
+		// associated with a topic, but we should
+		// still check for ClientID present in request header.
+		return matchNonTopicRequests(req, rule)
+	default:
+		// If all conditions have been met, allow the request
+		return true
 	}
-
-	// If all conditions have been met, allow the request
-	return true
 }
 
 // MatchesRule validates the Kafka request message against the provided list of

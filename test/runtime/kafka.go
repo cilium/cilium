@@ -125,7 +125,7 @@ var _ = Describe("RuntimeValidatedKafka", func() {
 		ctx, cancel := context.WithCancel(context.Background())
 		data := vm.ExecContext(ctx, consumer(allowedTopic, MaxMessages))
 
-		//TODO: wait until ready
+		//TODO: wait until ready GH #3116
 		helpers.Sleep(5)
 		for i := 1; i <= MaxMessages; i++ {
 			producer(allowedTopic, fmt.Sprintf("Message %d", i))
@@ -136,6 +136,41 @@ var _ = Describe("RuntimeValidatedKafka", func() {
 			"Processed a total of %d messages", MaxMessages))
 
 		By("Disable topic")
+		res = vm.Exec(consumer(disallowTopic, MaxMessages))
+		res.ExpectFail("Kafka consumer can access to disallowTopic")
+	})
+
+	It("Kafka Policy Role Ingress", func() {
+		_, err := vm.PolicyImportAndWait(vm.GetFullPath("Policies-kafka-Role.json"), 300)
+		Expect(err).Should(BeNil(), "Expected nil got %s while importing policy Policies-kafka-Role.json", err)
+
+		endPoints, err := vm.PolicyEndpointsSummary()
+		Expect(err).Should(BeNil(), "Expect nil. Failed to apply policy on all endpoints with error :%s", err)
+		Expect(endPoints[helpers.Enabled]).To(Equal(1), "Expected 1 endpoint to be policy enabled. Policy enforcement failed")
+		Expect(endPoints[helpers.Disabled]).To(Equal(2), "Expected 2 endpoint to be policy disabled. Policy enforcement failed")
+
+		createTopic(allowedTopic)
+		createTopic(disallowTopic)
+
+		res := vm.ContainerExec("client",
+			"/opt/kafka/bin/kafka-topics.sh --list --zookeeper zook:2181")
+		res.ExpectSuccess("Cannot get kafka topics")
+
+		By("By sending produce/consume request on topic `allowedTopic`")
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+		data := vm.ExecContext(ctx, consumer(allowedTopic, MaxMessages))
+
+		//TODO: wait until ready GH #3116
+		helpers.Sleep(5)
+		for i := 1; i <= MaxMessages; i++ {
+			producer(allowedTopic, fmt.Sprintf("Message %d", i))
+		}
+
+		Expect(data.Output().String()).Should(ContainSubstring(
+			"Processed a total of %d messages", MaxMessages))
+
+		By("By sending produce/consume request on topic `disallowedTopic`")
 		res = vm.Exec(consumer(disallowTopic, MaxMessages))
 		res.ExpectFail("Kafka consumer can access to disallowTopic")
 	})

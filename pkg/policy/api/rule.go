@@ -15,7 +15,9 @@
 package api
 
 import (
+	"fmt"
 	"regexp"
+	"strings"
 
 	"github.com/cilium/cilium/pkg/labels"
 )
@@ -411,14 +413,23 @@ type PortRuleHTTP struct {
 // optional, if all fields are empty or missing, the rule will match all
 // Kafka messages.
 type PortRuleKafka struct {
-	// APIVersion is the version matched against the api version of the
-	// Kafka message. If set, it has to be a string representing a positive
-	// integer.
+	// Role is a case-insensitive string and describes a group of API keys
+	// necessary to perform certain higher level Kafka operations such as "produce"
+	// or "consume". An APIGroup automatically expands into all APIKeys required
+	// to perform the specified higher level operation.
 	//
-	// If omitted or empty, all versions are allowed.
+	// The following values are supported:
+	//  - "produce": Allow producing to the topics specified in the rule
+	//  - "consume": Allow consuming from the topics specified in the rule
+	//
+	// This field is incompatible with the APIKey field, either APIKey or Role
+	// may be specified.
+	//
+	// If omitted or empty, the field has no effect and the logic of the APIKey
+	// field applies.
 	//
 	// +optional
-	APIVersion string `json:"apiVersion,omitempty"`
+	Role string `json:"role,omitempty"`
 
 	// APIKey is a case-insensitive string matched against the key of a
 	// request, e.g. "produce", "fetch", "createtopic", "deletetopic", et al
@@ -428,6 +439,15 @@ type PortRuleKafka struct {
 	//
 	// +optional
 	APIKey string `json:"apiKey,omitempty"`
+
+	// APIVersion is the version matched against the api version of the
+	// Kafka message. If set, it has to be a string representing a positive
+	// integer.
+	//
+	// If omitted or empty, all versions are allowed.
+	//
+	// +optional
+	APIVersion string `json:"apiVersion,omitempty"`
 
 	// ClientID is the client identifier as provided in the request.
 	//
@@ -466,12 +486,55 @@ type PortRuleKafka struct {
 	// Private fields. These fields are used internally and are not exposed
 	// via the API.
 
-	// apiKeyInt is the integer representation of APIKey
-	apiKeyInt *int16
+	// apiKeyInt is the integer representation of expanded Role. It is a
+	// list of all low-level apiKeys to
+	// be expanded as per the value of Role
+	apiKeyInt KafkaRole
 
 	// apiVersionInt is the integer representation of APIVersion
 	apiVersionInt *int16
 }
+
+// List of Kafka apiKeys which have a topic in their
+// request
+const (
+	ProduceKey              = 0
+	FetchKey                = 1
+	OffsetsKey              = 2
+	MetadataKey             = 3
+	LeaderAndIsr            = 4
+	StopReplica             = 5
+	UpdateMetadata          = 6
+	OffsetCommitKey         = 8
+	OffsetFetchKey          = 9
+	FindCoordinatorKey      = 10
+	JoinGroupKey            = 11
+	CreateTopicsKey         = 19
+	DeleteTopicsKey         = 20
+	DeleteRecordsKey        = 21
+	OffsetForLeaderEpochKey = 23
+	AddPartitionsToTxnKey   = 24
+	WriteTxnMarkersKey      = 27
+	TxnOffsetCommitKey      = 28
+	AlterReplicaLogDirsKey  = 34
+	DescribeLogDirsKey      = 35
+	CreatePartitionsKey     = 37
+)
+
+// List of Kafka apiKey which are not associated with
+// any topic
+const (
+	HeartbeatKey   = 12
+	LeaveGroupKey  = 13
+	SyncgroupKey   = 14
+	APIVersionsKey = 18
+)
+
+// List of Kafka Roles
+const (
+	ProduceRole = "produce"
+	ConsumeRole = "consume"
+)
 
 // KafkaAPIKeyMap is the map of all allowed kafka API keys
 // with the key values.
@@ -553,6 +616,10 @@ var KafkaReverseAPIKeyMap = map[int16]string{
 	33: "alterconfigs",         /* AlterConfigs */
 }
 
+// KafkaRole is the list of all low-level apiKeys to
+// be expanded as per the value of Role
+type KafkaRole []int16
+
 // KafkaMaxTopicLen is the maximum character len of a topic.
 // Older Kafka versions had longer topic lengths of 255, in Kafka 0.10 version
 // the length was changed from 255 to 249. For compatibility reasons we are
@@ -561,24 +628,25 @@ const (
 	KafkaMaxTopicLen = 255
 )
 
-// KafkaMaxTopicVal is the maximum value of supported API Keys in KafkaAPIKeyMap
-// KafkaReverseAPIKeyMap
-const (
-	KafkaMaxAPIKeyVal = 33
-)
-
 // KafkaTopicValidChar is a one-time regex generation of all allowed characters
 // in kafka topic name.
 var KafkaTopicValidChar = regexp.MustCompile(`^[a-zA-Z0-9\\._\\-]+$`)
 
-// GetAPIKey returns the APIKey as integer or the bool set to true if any API
-// key is allowed
-func (kr *PortRuleKafka) GetAPIKey() (int16, bool) {
-	if kr.apiKeyInt == nil {
-		return 0, true
+// CheckAPIKeyRole checks the apiKey value in the request, and returns true if
+// it is allowed else false
+func (kr *PortRuleKafka) CheckAPIKeyRole(kind int16) bool {
+	// wildcard expression
+	if len(kr.apiKeyInt) == 0 {
+		return true
 	}
 
-	return *kr.apiKeyInt, false
+	// Check kind
+	for _, apiKey := range kr.apiKeyInt {
+		if apiKey == kind {
+			return true
+		}
+	}
+	return false
 }
 
 // GetAPIVersion returns the APIVersion as integer or the bool set to true if
@@ -589,4 +657,26 @@ func (kr *PortRuleKafka) GetAPIVersion() (int16, bool) {
 	}
 
 	return *kr.apiVersionInt, false
+}
+
+// MapRoleToAPIKey maps the Role to the low level set of APIKeys for that role
+func (kr *PortRuleKafka) MapRoleToAPIKey() error {
+	// Expand the kr.apiKeyInt array based on the Role.
+	// For produce role, we need to add mandatory apiKeys produce, metadata and
+	// apiversions. While for consume, we need to add mandatory apiKeys like
+	// fetch, offsets, offsetcommit, offsetfetch, apiversions, metadata,
+	// findcoordinator, joingroup, heartbeat,
+	// leavegroup and syncgroup.
+	switch strings.ToLower(kr.Role) {
+	case ProduceRole:
+		kr.apiKeyInt = KafkaRole{ProduceKey, MetadataKey, APIVersionsKey}
+		return nil
+	case ConsumeRole:
+		kr.apiKeyInt = KafkaRole{FetchKey, OffsetsKey, MetadataKey,
+			OffsetCommitKey, OffsetFetchKey, FindCoordinatorKey,
+			JoinGroupKey, HeartbeatKey, LeaveGroupKey, SyncgroupKey, APIVersionsKey}
+		return nil
+	default:
+		return fmt.Errorf("Invalid Kafka Role %s", kr.Role)
+	}
 }
