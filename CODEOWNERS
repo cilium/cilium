@@ -73,6 +73,7 @@ pkg/kafka/ @cilium/proxy
 pkg/kvstore/ @cilium/kvstore
 pkg/logging/ @cilium/cli
 pkg/maps/ @cilium/bpf
+pkg/monitor/datapath_debug.go @cilium/bpf
 pkg/policy @cilium/policy
 pkg/policy/api/ @cilium/api
 pkg/policy/prefilter.go @cilium/bpf
