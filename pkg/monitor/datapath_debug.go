@@ -89,6 +89,8 @@ const (
 	DbgCTCreated6
 	DbgSkipProxy
 	DbgL4Create
+	DbgIPIDMapFailed4
+	DbgIPIDMapFailed6
 )
 
 // must be in sync with <bpf/lib/conntrack.h>
@@ -327,6 +329,10 @@ func (n *DebugMsg) Dump(data []byte, prefix string) {
 		fmt.Printf("Skipping proxy, tc_index is set=%x", n.Arg1)
 	case DbgL4Create:
 		fmt.Printf("Matched L4 policy; creating conntrack %s\n", l4CreateInfo(n))
+	case DbgIPIDMapFailed4:
+		fmt.Printf("Failed to map daddr=%x to identity\n", ip4Str(n.Arg1))
+	case DbgIPIDMapFailed6:
+		fmt.Printf("Failed to map daddr.p4=[::%x] to identity\n", ip6Str(n.Arg1))
 	default:
 		fmt.Printf("Unknown message type=%d arg1=%d arg2=%d\n", n.SubType, n.Arg1, n.Arg2)
 	}
