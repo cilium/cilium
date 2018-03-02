@@ -65,7 +65,8 @@ func (k *PortRuleKafka) Exists(rules L7Rules) bool {
 
 // Equal returns true if both rules are equal
 func (k *PortRuleKafka) Equal(o PortRuleKafka) bool {
-	return k.APIVersion == o.APIVersion && k.APIKey == o.APIKey && k.Topic == o.Topic
+	return k.APIVersion == o.APIVersion && k.APIKey == o.APIKey &&
+		k.Topic == o.Topic && k.ClientID == o.ClientID && k.Role == o.Role
 }
 
 // Validate returns an error if the layer 4 protocol is not valid

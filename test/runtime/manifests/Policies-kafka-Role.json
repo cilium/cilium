@@ -1,0 +1,19 @@
+[{
+	"endpointSelector": {"matchLabels":{"id.kafka":""}},
+	"ingress": [{
+		"fromEndpoints": [
+			{"matchLabels":{"reserved:host":""}},
+			{"matchLabels":{"id.client":""}}
+		],
+		"toPorts": [{
+			"ports": [{"port": "9092", "protocol": "tcp"}],
+			"rules": {
+				"kafka": [
+					{"Role": "produce", "topic": "allowedTopic"},
+					{"Role": "consume", "topic": "allowedTopic"}
+				]
+			}
+		}]
+	}]
+}]
+
