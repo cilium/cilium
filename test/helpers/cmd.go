@@ -85,6 +85,14 @@ func (res *CmdRes) ExpectSuccess(optionalDescription ...interface{}) bool {
 		gomega.BeTrue(), optionalDescription...)
 }
 
+// ExpectContains asserts a string into the stdout of the response of executed
+// command. It accepts an optional parameter that can be used to annotate
+// failure messages.
+func (res *CmdRes) ExpectContains(data string, optionalDescription ...interface{}) bool {
+	return gomega.ExpectWithOffset(1, res.Output().String()).To(
+		gomega.ContainSubstring(data), optionalDescription...)
+}
+
 // CountLines return the number of lines in the stdout of res.
 func (res *CmdRes) CountLines() int {
 	return strings.Count(res.stdout.String(), "\n")
