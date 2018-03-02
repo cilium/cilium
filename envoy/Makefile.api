@@ -29,20 +29,21 @@ GO_OUT = ../pkg/envoy
 ENVOY_RAW_PROTOS := $(strip $(shell find -H $(ENVOY_API_PROTO_PATH)/envoy \( -name *.proto -and -not -path *service/trace/v2* -and -not -path *service/metrics/v2* \) -print))
 ENVOY_API_PROTOS := $(subst $(ENVOY_API_PROTO_PATH)/,,$(ENVOY_RAW_PROTOS))
 
-PROTO_SOURCES := $(addprefix $(ENVOY_API_PROTO_PATH)/,$(ENVOY_API_PROTOS))
-GO_TARGETS := $(addprefix $(GO_OUT)/,$(ENVOY_API_PROTOS:.proto=.pb.go))
+ENVOY_PROTO_SOURCES := $(addprefix $(ENVOY_API_PROTO_PATH)/,$(ENVOY_API_PROTOS))
+ENVOY_PROTO_DIRS := $(sort $(dir $(ENVOY_PROTO_SOURCES)))
+ENVOY_GO_TARGETS := $(addprefix $(GO_OUT)/,$(ENVOY_API_PROTOS:.proto=.pb.go))
 # Produce a raw list of package mappings
 RAW_GO_MAPPINGS := $(foreach proto,$(ENVOY_API_PROTOS),$(proto)=github.com/cilium/cilium/pkg/envoy/$(dir $(proto)))
 
-CILIUM_API_PROTOS := \
+CILIUM_PROTO_SOURCES := \
 	cilium/accesslog.proto \
 	cilium/cilium_bpf_metadata.proto \
 	cilium/npds.proto \
 	cilium/nphds.proto
-
-PROTO_SOURCES += $(CILIUM_API_PROTOS)
-GO_TARGETS += $(addprefix $(GO_OUT)/,$(CILIUM_API_PROTOS:.proto=.pb.go))
-RAW_GO_MAPPINGS += $(foreach proto,$(CILIUM_API_PROTOS),$(proto)=github.com/cilium/cilium/pkg/envoy/$(dir $(proto)))
+CILIUM_PROTO_DIRS := $(sort $(dir $(CILIUM_PROTO_SOURCES)))
+CILIUM_GO_TARGETS := $(addprefix $(GO_OUT)/,$(CILIUM_PROTO_SOURCES:.proto=.pb.go)) \
+	$(addprefix $(GO_OUT)/,$(CILIUM_PROTO_SOURCES:.proto=.pb.validate.go))
+RAW_GO_MAPPINGS += $(foreach proto,$(CILIUM_PROTO_SOURCES),$(proto)=github.com/cilium/cilium/pkg/envoy/$(dir $(proto)))
 
 # Add mappings to vendored dependencies
 RAW_GO_MAPPINGS += gogoproto/gogo.proto=github.com/gogo/protobuf/gogoproto/
@@ -55,14 +56,18 @@ file_sep +=
 map_sep := ,M
 GO_MAPPINGS := $(patsubst %/,%,$(map_sep)$(subst $(file_sep),$(map_sep),$(RAW_GO_MAPPINGS)))
 
-PROTO_DIRS := $(sort $(dir $(PROTO_SOURCES)))
+all: $(ENVOY_API_PROTO_PATH) $(ENVOY_GO_TARGETS) $(CILIUM_GO_TARGETS)
 
-all: $(ENVOY_API_PROTO_PATH) $(GO_TARGETS)
-
-$(GO_TARGETS): $(PROTO_SOURCES) Makefile.api
-	for path in $(PROTO_DIRS) ; do \
+$(ENVOY_GO_TARGETS): $(ENVOY_PROTO_SOURCES) Makefile.api
+	for path in $(ENVOY_PROTO_DIRS) ; do \
 		echo Compiling protos in $$path; \
 		$(PROTOC) -I $(ENVOY_API_PROTO_PATH) -I $(CILIUM_PROTO_PATH) $(PROTO_DEPS) --go_out=plugins=grpc$(GO_MAPPINGS):$(GO_OUT) $${path}*.proto; \
+	done
+
+$(CILIUM_GO_TARGETS): $(CILIUM_PROTO_SOURCES) Makefile.api
+	for path in $(CILIUM_PROTO_DIRS) ; do \
+		echo Compiling protos in $$path; \
+		$(PROTOC) -I $(ENVOY_API_PROTO_PATH) -I $(CILIUM_PROTO_PATH) $(PROTO_DEPS) --go_out=plugins=grpc$(GO_MAPPINGS):$(GO_OUT) --validate_out=lang=go:$(GO_OUT) $${path}*.proto; \
 	done
 
 .PHONY: all
