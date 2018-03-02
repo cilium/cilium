@@ -65,6 +65,7 @@ function create_dir() {
     rm -rf $TARGET_DIR
   fi
   mkdir -pv $TARGET_DIR
+  mkdir -pv $TARGET_DIR/tools
 }
 
 function copy_source() {
@@ -80,11 +81,12 @@ cp $CILIUM_SOURCE/daemon/cilium-agent $TARGET_DIR/cilium-agent-$ARCH
 cp $CILIUM_SOURCE/bugtool/cilium-bugtool $TARGET_DIR/cilium-bugtool-$ARCH || true
 cp $CILIUM_SOURCE/monitor/cilium-node-monitor $TARGET_DIR/cilium-node-monitor-$ARCH || true
 cp $CILIUM_SOURCE/cilium-health/cilium-health $TARGET_DIR/cilium-health-$ARCH || true
+cp $CILIUM_SOURCE/contrib/k8s/k8s-cilium-exec.sh $TARGET_DIR/tools/ || true
 
 # Generate  SHA256 digest
 cd $TARGET_DIR
 for f in *; do
-  sha256sum $f > $f.sha256sum
+  [ ! -d "$f" ] && sha256sum $f > $f.sha256sum
 done
 }
 
