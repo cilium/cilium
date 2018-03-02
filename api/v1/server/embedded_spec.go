@@ -1233,6 +1233,20 @@ func init() {
         }
       }
     },
+    "DirectRoutingConfiguration": {
+      "description": "DirectRoutingConfiguration is the direct routing configuration of a node\n",
+      "type": "object",
+      "properties": {
+        "announce": {
+          "description": "Available indicates that the node's endpoints can be reached via a\ndirect route that uses the node's external IP address as gateway.\nEnabling this flag does not automatically prefer direct routing,\nencapsulation must be disabled in order for direct routing to take\nplace.\n",
+          "type": "boolean"
+        },
+        "installRoutes": {
+          "description": "InstallRoutes indicates that this node automatically installs direct\nroutes to other nodes for their respective endpoint CIDRs.\n",
+          "type": "boolean"
+        }
+      }
+    },
     "Endpoint": {
       "description": "An endpoint is a namespaced network interface to which cilium applies policies",
       "type": "object",
@@ -2056,6 +2070,25 @@ func init() {
         },
         "responses": {
           "$ref": "#/definitions/MessageForwardingStatistics"
+        }
+      }
+    },
+    "RoutingConfiguration": {
+      "description": "RoutingConfiguration is the configuration of the node that defines how to\nreach endpoints running on the node\n",
+      "type": "object",
+      "properties": {
+        "directRouting": {
+          "description": "DirectRouting is the direct configuration announced and used",
+          "$ref": "#/definitions/DirectRoutingConfiguration"
+        },
+        "encapsulation": {
+          "description": "Encapsulation defines whether and how the endpoints on the node can\nbe reached using network encapsulation. Encapsulation is always the\npreferred routing mode unless it is explicitly disabled.\n",
+          "type": "string",
+          "enum": [
+            "disabled",
+            "vxlan",
+            "geneve"
+          ]
         }
       }
     },

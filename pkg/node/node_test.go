@@ -1,4 +1,4 @@
-// Copyright 2016-2017 Authors of Cilium
+// Copyright 2016-2018 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -67,4 +67,42 @@ func (s *NodeSuite) TestGetNodeIP(c *C) {
 	// Should still return NodeInternalIP and IPv4
 	c.Assert(ip.Equal(net.ParseIP("198.51.100.2")), Equals, true)
 
+}
+
+func (s *NodeSuite) TestAddressEqual(c *C) {
+	addr1 := Address{AddressType: v1.NodeExternalIP, IP: net.ParseIP("10.1.1.1")}
+	addr2 := Address{AddressType: v1.NodeInternalIP, IP: net.ParseIP("10.1.1.1")}
+	addr3 := Address{AddressType: v1.NodeInternalIP, IP: net.ParseIP("10.2.2.2")}
+	addr4 := Address{AddressType: v1.NodeExternalIP, IP: net.ParseIP("::1")}
+	addr5 := Address{}
+
+	c.Assert(addr1.Equal(addr1), Equals, true)
+	c.Assert(addr1.Equal(addr2), Equals, false)
+	c.Assert(addr1.Equal(addr3), Equals, false)
+	c.Assert(addr1.Equal(addr4), Equals, false)
+	c.Assert(addr1.Equal(addr5), Equals, false)
+
+	c.Assert(addr2.Equal(addr1), Equals, false)
+	c.Assert(addr2.Equal(addr2), Equals, true)
+	c.Assert(addr2.Equal(addr3), Equals, false)
+	c.Assert(addr2.Equal(addr4), Equals, false)
+	c.Assert(addr2.Equal(addr5), Equals, false)
+
+	c.Assert(addr3.Equal(addr1), Equals, false)
+	c.Assert(addr3.Equal(addr2), Equals, false)
+	c.Assert(addr3.Equal(addr3), Equals, true)
+	c.Assert(addr3.Equal(addr4), Equals, false)
+	c.Assert(addr3.Equal(addr5), Equals, false)
+
+	c.Assert(addr4.Equal(addr1), Equals, false)
+	c.Assert(addr4.Equal(addr2), Equals, false)
+	c.Assert(addr4.Equal(addr3), Equals, false)
+	c.Assert(addr4.Equal(addr4), Equals, true)
+	c.Assert(addr4.Equal(addr5), Equals, false)
+
+	c.Assert(addr5.Equal(addr1), Equals, false)
+	c.Assert(addr5.Equal(addr2), Equals, false)
+	c.Assert(addr5.Equal(addr3), Equals, false)
+	c.Assert(addr5.Equal(addr4), Equals, false)
+	c.Assert(addr5.Equal(addr5), Equals, true)
 }

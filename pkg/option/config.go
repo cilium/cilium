@@ -15,14 +15,18 @@
 package option
 
 import (
+	"fmt"
 	"net"
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/pkg/lock"
+
+	"github.com/spf13/viper"
 )
 
 const (
@@ -44,6 +48,14 @@ const (
 
 	// ModePreFilterGeneric for loading progs with xdpgeneric
 	ModePreFilterGeneric = "generic"
+)
+
+// CLI flags
+const (
+	AutoIPv6NodeRoutes    = "auto-ipv6-node-routes" // obsoleted (GH-4082)
+	AutoRouting           = "auto-routing"
+	AnnounceAutoRouting   = "announce-auto-routing"
+	K8sUseNodeAnnotations = "k8s-use-node-annotations"
 )
 
 // daemonConfig is the configuration used by Daemon.
@@ -88,6 +100,53 @@ type daemonConfig struct {
 
 	// AgentLabels contains additional labels to identify this agent in monitor events.
 	AgentLabels []string
+
+	routingConfig *models.RoutingConfiguration
+}
+
+func (c *daemonConfig) deriveNodeRoutingConfiguration() (*models.RoutingConfiguration, error) {
+	routingConfiguration := models.NewRoutingConfiguration()
+	switch strings.ToLower(c.Tunnel) {
+	case "vxlan":
+		routingConfiguration.Encapsulation = models.RoutingConfigurationEncapsulationVxlan
+	case "geneve":
+		routingConfiguration.Encapsulation = models.RoutingConfigurationEncapsulationGeneve
+	case "disabled", "false":
+		routingConfiguration.Encapsulation = models.RoutingConfigurationEncapsulationDisabled
+	default:
+		return nil, fmt.Errorf("Unknown encapsulation type '%s'. Supported values are vxlan, geneve, and disabled", c.Tunnel)
+	}
+
+	if viper.GetBool(AutoRouting) {
+		routingConfiguration.DirectRouting.InstallRoutes = true
+	}
+
+	if viper.GetBool(AnnounceAutoRouting) {
+		routingConfiguration.DirectRouting.Announce = true
+	}
+
+	return routingConfiguration, nil
+}
+
+var (
+	routingConfig *models.RoutingConfiguration
+)
+
+// Initialize is called early on in bootstrapping and initializes and validates
+// the configuration
+func Initialize() error {
+	conf, err := Config.deriveNodeRoutingConfiguration()
+	if err != nil {
+		return err
+	}
+
+	routingConfig = conf
+	return nil
+}
+
+// GetRoutingConfiguration() returns the routing configuration of the node
+func GetRoutingConfiguration() *models.RoutingConfiguration {
+	return routingConfig
 }
 
 var (

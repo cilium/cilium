@@ -1658,5 +1658,42 @@ definitions:
           last-failure-msg:
             description: Error message of last failed run
             type: string
+  DirectRoutingConfiguration:
+    description: |
+      DirectRoutingConfiguration is the direct routing configuration of a node
+    type: object
+    properties:
+      announce:
+        type: boolean
+        description: |
+          Available indicates that the node's endpoints can be reached via a
+          direct route that uses the node's external IP address as gateway.
+          Enabling this flag does not automatically prefer direct routing,
+          encapsulation must be disabled in order for direct routing to take
+          place.
+      installRoutes:
+        type: boolean
+        description: |
+          InstallRoutes indicates that this node automatically installs direct
+          routes to other nodes for their respective endpoint CIDRs.
+  RoutingConfiguration:
+    description: |
+     RoutingConfiguration is the configuration of the node that defines how to
+     reach endpoints running on the node
+    type: object
+    properties:
+      encapsulation:
+        description: |
+          Encapsulation defines whether and how the endpoints on the node can
+          be reached using network encapsulation. Encapsulation is always the
+          preferred routing mode unless it is explicitly disabled.
+        type: string
+        enum:
+        - disabled
+        - vxlan
+        - geneve
+      directRouting:
+        description: DirectRouting is the direct configuration announced and used
+        "$ref": "#/definitions/DirectRoutingConfiguration"
   Error:
     type: string
