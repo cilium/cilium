@@ -172,6 +172,12 @@ policy_can_egress(struct __sk_buff *skb, __u16 identity, __u16 dport, __u8 proto
 				NULL, CT_EGRESS) == TC_ACT_OK)
 		goto allow;
 
+	/* FIXME GH-1488: Remove this call when userspace pushes down
+	 *		  label-dependent L4 policies. */
+	int ret = l4_policy_lookup(skb, proto, dport, CT_EGRESS, false);
+	if (ret >= 0)
+		return ret;
+
 	cilium_dbg(skb, DBG_POLICY_DENIED, identity, SECLABEL);
 #ifndef IGNORE_DROP
 	return DROP_POLICY;
