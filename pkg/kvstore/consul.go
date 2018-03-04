@@ -407,15 +407,15 @@ func (c *consulClient) Watch(w *Watcher) {
 
 			// Keys reported for the first time must be new
 			if !ok {
-				if newPair.CreateIndex == newPair.ModifyIndex {
-					w.Events <- KeyValueEvent{
-						Typ:   EventTypeCreate,
-						Key:   newPair.Key,
-						Value: newPair.Value,
-					}
-				} else {
-					log.Warningf("consul: Previously unknown key %s received with CreateIndex(%d) != ModifyIndex(%d)",
+				if newPair.CreateIndex != newPair.ModifyIndex {
+					log.Debugf("consul: Previously unknown key %s received with CreateIndex(%d) != ModifyIndex(%d)",
 						newPair.Key, newPair.CreateIndex, newPair.ModifyIndex)
+				}
+
+				w.Events <- KeyValueEvent{
+					Typ:   EventTypeCreate,
+					Key:   newPair.Key,
+					Value: newPair.Value,
 				}
 			} else if oldPair.ModifyIndex != newPair.ModifyIndex {
 				w.Events <- KeyValueEvent{
@@ -425,6 +425,9 @@ func (c *consulClient) Watch(w *Watcher) {
 				}
 			}
 
+			// Everything left on localState will be assumed to
+			// have been deleted, therefore remove all keys in
+			// localState that still exist in the kvstore
 			delete(localState, newPair.Key)
 		}
 
