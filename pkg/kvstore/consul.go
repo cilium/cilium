@@ -414,7 +414,7 @@ func (c *consulClient) Watch(w *Watcher) {
 						Value: newPair.Value,
 					}
 				} else {
-					log.Warning("consul: Previously unknown key %s received with CreateIndex(%d) != ModifyIndex(%d)",
+					log.Warningf("consul: Previously unknown key %s received with CreateIndex(%d) != ModifyIndex(%d)",
 						newPair.Key, newPair.CreateIndex, newPair.ModifyIndex)
 				}
 			} else if oldPair.ModifyIndex != newPair.ModifyIndex {
