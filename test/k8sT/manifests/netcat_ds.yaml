@@ -1,0 +1,48 @@
+---
+apiVersion: extensions/v1beta1
+kind: DaemonSet
+metadata:
+  name: netcatds
+  namespace: default
+spec:
+  template:
+    metadata:
+      labels:
+        zgroup: netcatds
+    spec:
+      containers:
+      - name: netcat
+        image: cilium/demo-client
+        command: [ "sleep" ]
+        args:
+          - "1000h"
+        ports:
+          - containerPort: 8888
+      tolerations:
+      - effect: NoSchedule
+        key: node-role.kubernetes.io/master
+      - effect: NoSchedule
+        key: node.cloudprovider.kubernetes.io/uninitialized
+        value: "true"
+---
+apiVersion: "cilium.io/v2"
+kind: CiliumNetworkPolicy
+description: "L7 policy for incoming http "
+metadata:
+  name: "netcatds"
+spec:
+  endpointSelector:
+    matchLabels:
+      zgroup: netcatds
+  ingress:
+  - fromEndpoints:
+    - matchLabels:
+        zgroup: netcatds
+    toPorts:
+    - ports:
+      - port: "8888"
+        protocol: TCP
+      rules:
+        http:
+        - method: "GET"
+          path: "/public"
