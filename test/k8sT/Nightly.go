@@ -36,9 +36,10 @@ import (
 )
 
 var (
-	configMap       = "ConfigMap"
-	endpointTimeout = (60 * time.Second)
-	timeout         = time.Duration(300)
+	configMap        = "ConfigMap"
+	endpointTimeout  = (60 * time.Second)
+	timeout          = time.Duration(300)
+	netcatDsManifest = "netcat_ds.yaml"
 )
 
 var _ = Describe("NightlyEpsMeasurement", func() {
@@ -250,6 +251,9 @@ var _ = Describe("NightlyEpsMeasurement", func() {
 		}
 		// testConnectivity check that nc is running across the k8s nodes
 		testConnectivity := func() {
+
+			pipePath := "/tmp/nc_pipe.txt"
+
 			_, err := kubectl.WaitforPods(helpers.DefaultNamespace, "-l zgroup=netcatds", 600)
 			Expect(err).To(BeNil(), "Pods are not ready after timeout")
 
@@ -263,47 +267,41 @@ var _ = Describe("NightlyEpsMeasurement", func() {
 			Expect(err).To(BeNil(), "Cannot get netcat ips")
 
 			ncServer := getServer("8888")
-			ncClient := getClient(ips[server], "8888", "/tmp/nc_pipe.txt")
+			ncClient := getClient(ips[server], "8888", pipePath)
 
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
 
 			serverctx := kubectl.ExecPodCmdContext(ctx, helpers.DefaultNamespace, server, ncServer)
-			kubectl.ExecPodCmdContext(ctx, helpers.DefaultNamespace, client, ncClient)
+			_ = kubectl.ExecPodCmdContext(ctx, helpers.DefaultNamespace, client, ncClient)
 
+			testNcConnectivity := func(sleep time.Duration) {
+				helpers.Sleep(sleep)
+				uid := helpers.MakeUID()
+				_ = kubectl.ExecPodCmd(helpers.DefaultNamespace, client,
+					fmt.Sprintf(`echo -e "%s" >> %s`, HTTPRequest(uid), pipePath))
+				helpers.Sleep(5) // Give time to fill the buffer in context.
+				serverctx.ExpectContains(uid, "Cannot get server UUID")
+			}
 			By("Testing that simple nc works")
-			uid := helpers.MakeUID()
-			kubectl.ExecPodCmd(helpers.DefaultNamespace, client,
-				fmt.Sprintf(`echo -e "%s" >> /tmp/nc_pipe.txt`, HTTPRequest(uid)))
-			helpers.Sleep(5) // Give time to fill the buffer in context.
-			serverctx.ExpectContains(uid)
+			testNcConnectivity(1)
 
 			By("Sleeping for a minute to check tcp-keepalive")
-			helpers.Sleep(60)
-			uid = helpers.MakeUID()
-			kubectl.ExecPodCmd(helpers.DefaultNamespace, client,
-				fmt.Sprintf(`echo -e "%s" >> /tmp/nc_pipe.txt`, HTTPRequest(uid)))
-			helpers.Sleep(5) // Give time to fill the buffer in context.
-			serverctx.ExpectContains(uid)
+			testNcConnectivity(60)
 
 			By("Sleeping for six  minutes to check tcp-keepalive")
-			helpers.Sleep(360)
-			uid = helpers.MakeUID()
-			kubectl.ExecPodCmd(helpers.DefaultNamespace, client,
-				fmt.Sprintf(`echo -e "%s" >> /tmp/nc_pipe.txt`, HTTPRequest(uid)))
-			helpers.Sleep(5) // Give time to fill the buffer in context.
-			serverctx.ExpectContains(uid)
+			testNcConnectivity(360)
 		}
 
 		It("Test TCP Keepalive with L7 Policy", func() {
-			manifest := kubectl.ManifestGet("netcat_ds.yaml")
+			manifest := kubectl.ManifestGet(netcatDsManifest)
 			kubectl.Apply(manifest).ExpectSuccess("Cannot apply netcat ds")
 			defer kubectl.Delete(manifest)
 			testConnectivity()
 		})
 
 		It("Test TCP Keepalive without L7 Policy", func() {
-			manifest := kubectl.ManifestGet("netcat_ds.yaml")
+			manifest := kubectl.ManifestGet(netcatDsManifest)
 			kubectl.Apply(manifest).ExpectSuccess("Cannot apply netcat ds")
 			defer kubectl.Delete(manifest)
 			kubectl.Exec(fmt.Sprintf(
