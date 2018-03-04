@@ -17,8 +17,14 @@
 package lock
 
 import (
+	"time"
+
 	"github.com/sasha-s/go-deadlock"
 )
+
+func init() {
+	deadlock.Opts.DeadlockTimeout = time.Second * 310
+}
 
 type internalRWMutex struct {
 	deadlock.RWMutex
