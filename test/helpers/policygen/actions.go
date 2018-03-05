@@ -26,7 +26,8 @@ import (
 // It needs a `helpers.Kubectl` instance to run the command in the pod. It
 // returns a ResultType struct.
 func HTTPAction(srcPod string, target string, kub *helpers.Kubectl) ResultType {
-	command := fmt.Sprintf("%s exec -n %s %s -- %s -w \"%%{http_code}\"",
+	command := fmt.Sprintf(
+		"%s exec -n %s %s 2>/dev/null -- %s --output /dev/stout -w '%%{http_code}'",
 		helpers.KubectlCmd, helpers.DefaultNamespace,
 		srcPod, helpers.CurlFail(target))
 
