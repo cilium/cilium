@@ -33,18 +33,21 @@
     "endpointSelector": {
         "matchLabels":{"id.app3":""}
     },
-    "egress": [{
-        "toEndpoints": [
-            {"matchLabels":{"id.httpd2":""}}
-        ],
-        "toPorts": [{
-            "ports": [
-                {"port": "8000", "protocol": "tcp"},
-                {"port": "80",   "protocol": "tcp"},
-                {"port": "8080", "protocol": "tcp"},
-                {"port": "8080", "protocol": "udp"}]
-        }]
-   }]
+    "egress": [
+        {
+            "toEndpoints": [
+                {"matchLabels":{"id.httpd2":""}}
+            ]
+        }, {
+            "toPorts": [{
+                "ports": [
+                    {"port": "8000", "protocol": "tcp"},
+                    {"port": "80",   "protocol": "tcp"},
+                    {"port": "8080", "protocol": "tcp"},
+                    {"port": "8080", "protocol": "udp"}]
+            }]
+        }
+    ]
 }]
 
 

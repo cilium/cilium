@@ -892,7 +892,8 @@ var _ = Describe("RuntimeValidatedPolicies", func() {
 			"ingress": [{
 				"fromEndpoints": [
 					{"matchLabels":{"%s":""}}
-				],
+				]
+			}, {
 				"fromCIDRSet": [ {
 					"cidr": "%s",
 					"except": [

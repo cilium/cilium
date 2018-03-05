@@ -272,8 +272,7 @@ CIDR policies can be applied at ingress and egress:
 
 fromCIDR
   List of source prefixes/CIDRs that are allowed to talk to all endpoints
-  selected by the ``endpointSelector``. Note that this list is **in addition**
-  to the ``fromEndpoints`` specified. It is not required to allow the IPs of
+  selected by the ``endpointSelector``. It is not required to allow the IPs of
   endpoints if the endpoints are already allowed to communicate based on
   ``fromEndpoints`` rules.
 

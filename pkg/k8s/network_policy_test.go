@@ -1067,7 +1067,12 @@ func (s *K8sSuite) TestCIDRPolicyExamples(c *C) {
               "matchLabels": {
                 "user": "bob"
               }
-            },
+            }
+          }
+        ]
+      }, {
+        "from": [
+          {
             "ipBlock": {
               "cidr": "10.0.0.0/8",
 	          "except": [
@@ -1088,7 +1093,7 @@ func (s *K8sSuite) TestCIDRPolicyExamples(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(rules, NotNil)
 	c.Assert(len(rules), Equals, 1)
-	c.Assert(len(rules[0].Ingress), Equals, 1)
+	c.Assert(len(rules[0].Ingress), Equals, 2)
 
 	ex2 := []byte(`{
   "kind": "NetworkPolicy",
