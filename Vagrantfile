@@ -108,14 +108,45 @@ Vagrant.configure(2) do |config|
         vb.memory = ENV['VM_MEMORY'].to_i
         vb.cpus = ENV['VM_CPUS'].to_i
         if ENV["NFS"] then
-            config.vm.synced_folder '.', '/home/vagrant/go/src/github.com/cilium/cilium', type: "nfs"
+            mount_type = "nfs"
             # Don't forget to enable this ports on your host before starting the VM
             # in order to have nfs working
             # iptables -I INPUT -p udp -s 192.168.34.0/24 --dport 111 -j ACCEPT
             # iptables -I INPUT -p udp -s 192.168.34.0/24 --dport 2049 -j ACCEPT
             # iptables -I INPUT -p udp -s 192.168.34.0/24 --dport 20048 -j ACCEPT
         else
-            config.vm.synced_folder '.', '/home/vagrant/go/src/github.com/cilium/cilium'
+            mount_type = ""
+        end
+        config.vm.synced_folder '.', '/home/vagrant/go/src/github.com/cilium/cilium', type: mount_type
+        if ENV['USER_MOUNTS'] then
+            # Allow multiple mounts divided by commas
+            ENV['USER_MOUNTS'].split(",").each do |mnt|
+                # Split "<to>=<from>"
+                user_mount = mnt.split("=", 2)
+                # Only one element, assume a path relative to home directories in both ends
+                if user_mount.length == 1 then
+                    user_mount_to = "/home/vagrant/" + user_mount[0]
+                    user_mount_from = "~/" + user_mount[0]
+                else
+                    user_mount_to = user_mount[0]
+                    # Remove "~/" prefix if any.
+                    if user_mount_to.start_with?('~/') then
+                        user_mount_to[0..1] = ''
+                    end
+                    # Add home directory prefix for non-absolute paths
+                    if !user_mount_to.start_with?('/') then
+                        user_mount_to = "/home/vagrant/" + user_mount_to
+                    end
+                    user_mount_from = user_mount[1]
+                    # Add home prefix for host for any path in the project directory
+                    # as it is already mounted.
+                    if !user_mount_from.start_with?('/', '.', '~') then
+                        user_mount_from = "~/" + user_mount_from
+                    end
+                end
+                puts "Mounting host directory #{user_mount_from} as #{user_mount_to}"
+                config.vm.synced_folder "#{user_mount_from}", "#{user_mount_to}", type: mount_type
+            end
         end
     end
 
