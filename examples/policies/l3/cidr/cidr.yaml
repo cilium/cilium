@@ -9,7 +9,7 @@ spec:
   egress:
   - toCIDR:
     - 20.1.1.1/32
-    toCIDRSet:
+  - toCIDRSet:
     - cidr: 10.0.0.0/8
       except:
       - 10.96.0.0/12

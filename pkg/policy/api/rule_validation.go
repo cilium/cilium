@@ -47,12 +47,29 @@ func (r Rule) Sanitize() error {
 }
 
 func (i *IngressRule) sanitize() error {
-	if len(i.FromCIDR) > 0 && len(i.FromEndpoints) > 0 {
-		return fmt.Errorf("Combining FromCIDR and FromEndpoints is not supported yet")
+	l3Members := map[string]int{
+		"FromEndpoints": len(i.FromEndpoints),
+		"FromCIDR":      len(i.FromCIDR),
+		"FromCIDRSet":   len(i.FromCIDRSet),
+		"FromEntities":  len(i.FromEntities),
 	}
-
-	if len(i.FromCIDR) > 0 && len(i.ToPorts) > 0 {
-		return fmt.Errorf("Combining ToPorts and FromCIDR is not supported yet")
+	l3DependentL4Support := map[interface{}]bool{
+		"FromEndpoints": true,
+		"FromCIDR":      false,
+		"FromCIDRSet":   false,
+		"FromEntities":  false,
+	}
+	for m1 := range l3Members {
+		for m2 := range l3Members {
+			if m2 != m1 && l3Members[m1] > 0 && l3Members[m2] > 0 {
+				return fmt.Errorf("Combining %s and %s is not supported yet", m1, m2)
+			}
+		}
+	}
+	for member := range l3Members {
+		if l3Members[member] > 0 && len(i.ToPorts) > 0 && !l3DependentL4Support[member] {
+			return fmt.Errorf("Combining %s and ToPorts is not supported yet", member)
+		}
 	}
 
 	for n := range i.ToPorts {
@@ -81,8 +98,29 @@ func (i *IngressRule) sanitize() error {
 }
 
 func (e *EgressRule) sanitize() error {
-	if len(e.ToCIDR) > 0 && len(e.ToPorts) > 0 {
-		return fmt.Errorf("Combining ToPorts and ToCIDR is not supported yet")
+	l3Members := map[string]int{
+		"ToCIDR":     len(e.ToCIDR),
+		"ToCIDRSet":  len(e.ToCIDRSet),
+		"ToEntities": len(e.ToEntities),
+		"ToServices": len(e.ToServices),
+	}
+	l3DependentL4Support := map[interface{}]bool{
+		"ToCIDR":     false,
+		"ToCIDRSet":  false,
+		"ToEntities": false,
+		"ToServices": false,
+	}
+	for m1 := range l3Members {
+		for m2 := range l3Members {
+			if m2 != m1 && l3Members[m1] > 0 && l3Members[m2] > 0 {
+				return fmt.Errorf("Combining %s and %s is not supported yet", m1, m2)
+			}
+		}
+	}
+	for member := range l3Members {
+		if l3Members[member] > 0 && len(e.ToPorts) > 0 && !l3DependentL4Support[member] {
+			return fmt.Errorf("Combining %s and ToPorts is not supported yet", member)
+		}
 	}
 
 	for i := range e.ToPorts {

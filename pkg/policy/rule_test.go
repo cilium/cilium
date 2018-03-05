@@ -539,6 +539,7 @@ func (ds *PolicyTestSuite) TestL3Policy(c *C) {
 					"10.1.0.0/16",
 					"2001:dbf::/64",
 				},
+			}, {
 				ToCIDRSet: []api.CIDRRule{{Cidr: api.CIDR("10.0.0.0/8"), ExceptCIDRs: []api.CIDR{"10.96.0.0/12"}}},
 			},
 		},
