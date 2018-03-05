@@ -31,6 +31,7 @@ import (
 	client "github.com/coreos/etcd/clientv3"
 	"github.com/coreos/etcd/clientv3/concurrency"
 	clientyaml "github.com/coreos/etcd/clientv3/yaml"
+	v3rpcErrors "github.com/coreos/etcd/etcdserver/api/v3rpc/rpctypes"
 	"github.com/hashicorp/go-version"
 	"github.com/sirupsen/logrus"
 	ctx "golang.org/x/net/context"
@@ -444,36 +445,42 @@ func (e *etcdClient) DeletePrefix(path string) error {
 // Watch starts watching for changes in a prefix
 func (e *etcdClient) Watch(w *Watcher) {
 	lastRev := int64(0)
+	localCache := watcherCache{}
+	listSignalSent := false
 
+	scopedLog := log.WithFields(logrus.Fields{
+		fieldWatcher: w,
+		fieldPrefix:  w.prefix,
+	})
+
+reList:
 	for {
 		res, err := e.client.Get(ctx.Background(), w.prefix, client.WithPrefix(),
 			client.WithRev(lastRev), client.WithSerializable())
 		if err != nil {
-			log.WithFields(logrus.Fields{
-				fieldRev:     lastRev,
-				fieldPrefix:  w.prefix,
-				fieldWatcher: w,
-			}).WithError(err).Warn("Unable to list keys before starting watcher")
+			scopedLog.WithField(fieldRev, lastRev).WithError(err).Warn("Unable to list keys before starting watcher")
 			continue
 		}
 
 		lastRev := res.Header.Revision
 
-		log.WithFields(logrus.Fields{
-			fieldRev:     lastRev,
-			fieldWatcher: w,
-		}).Debugf("List response from etcd len=%d: %+v", res.Count, res)
+		scopedLog = scopedLog.WithField(fieldRev, lastRev)
+		scopedLog.Debugf("List response from etcd len=%d: %+v", res.Count, res)
 
 		if res.Count > 0 {
 			for _, key := range res.Kvs {
-				log.WithFields(logrus.Fields{
-					fieldRev:     lastRev,
-					fieldWatcher: w,
-				}).Debugf("Emiting list result as %v event for %s=%v", EventTypeCreate, key.Key, key.Value)
+				t := EventTypeCreate
+				if localCache.Exists(key.Key) {
+					t = EventTypeModify
+				}
+
+				localCache.MarkInUse(key.Key)
+				scopedLog.Debugf("Emiting list result as %v event for %s=%v", t, key.Key, key.Value)
+
 				w.Events <- KeyValueEvent{
 					Key:   string(key.Key),
 					Value: key.Value,
-					Typ:   EventTypeCreate,
+					Typ:   t,
 				}
 			}
 		}
@@ -483,15 +490,29 @@ func (e *etcdClient) Watch(w *Watcher) {
 			continue
 		}
 
-		w.Events <- KeyValueEvent{Typ: EventTypeListDone}
+		// Send out deletion events for all keys that were deleted
+		// between our last known revision and the latest revision
+		// received via Get
+		localCache.RemoveDeleted(func(k string) {
+			event := KeyValueEvent{
+				Key: k,
+				Typ: EventTypeDelete,
+			}
+
+			scopedLog.Debugf("Emiting EventTypeDelete event for %s", k)
+			w.Events <- event
+		})
+
+		// Only send the list signal once
+		if !listSignalSent {
+			w.Events <- KeyValueEvent{Typ: EventTypeListDone}
+			listSignalSent = true
+		}
 
 	recreateWatcher:
 		lastRev++
 
-		log.WithFields(logrus.Fields{
-			fieldRev:     lastRev,
-			fieldWatcher: w,
-		}).Debugf("Starting to watch %s", w.prefix)
+		scopedLog.WithField(fieldRev, lastRev).Debug("Starting to watch a prefix")
 		etcdWatch := e.client.Watch(ctx.Background(), w.prefix,
 			client.WithPrefix(), client.WithRev(lastRev))
 		for {
@@ -505,38 +526,50 @@ func (e *etcdClient) Watch(w *Watcher) {
 					goto recreateWatcher
 				}
 
-				lastRev = r.Header.Revision
+				scopedLog := scopedLog.WithField(fieldRev, r.Header.Revision)
 
 				if err := r.Err(); err != nil {
-					log.WithFields(logrus.Fields{
-						fieldRev:     lastRev,
-						fieldWatcher: w,
-					}).WithError(err).Warningf("etcd watcher received error")
-					continue
+					// We tried to watch on a compacted
+					// revision that may no longer exist,
+					// recreate the watcher and try to
+					// watch on the next possible revision
+					if err == v3rpcErrors.ErrCompacted {
+						scopedLog.WithError(err).Debug("Tried watching on compacted revision")
+					}
+
+					// Retrieve latest revision
+					lastRev = 0
+
+					// mark all local keys in state for
+					// deletion unless the upcoming GET
+					// marks them alive
+					localCache.MarkAllForDeletion()
+
+					continue reList
 				}
 
-				log.WithFields(logrus.Fields{
-					fieldRev:     lastRev,
-					fieldWatcher: w,
-				}).Debugf("Received event from etcd: %+v", r)
+				lastRev = r.Header.Revision
+				scopedLog.Debugf("Received event from etcd: %+v", r)
 
 				for _, ev := range r.Events {
 					event := KeyValueEvent{
 						Key:   string(ev.Kv.Key),
 						Value: ev.Kv.Value,
-						Typ:   EventTypeModify,
 					}
 
-					if ev.Type == client.EventTypeDelete {
+					switch {
+					case ev.Type == client.EventTypeDelete:
 						event.Typ = EventTypeDelete
-					} else if ev.IsCreate() {
+						localCache.RemoveKey(ev.Kv.Key)
+					case ev.IsCreate():
 						event.Typ = EventTypeCreate
+						localCache.MarkInUse(ev.Kv.Key)
+					default:
+						event.Typ = EventTypeModify
+						localCache.MarkInUse(ev.Kv.Key)
 					}
 
-					log.WithFields(logrus.Fields{
-						fieldRev:     lastRev,
-						fieldWatcher: w,
-					}).Debugf("Emiting %v event for %s=%v", event.Typ, event.Key, event.Value)
+					scopedLog.Debugf("Emiting %v event for %s=%v", event.Typ, event.Key, event.Value)
 
 					w.Events <- event
 				}
