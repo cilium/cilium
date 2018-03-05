@@ -250,7 +250,7 @@ Weekly Hangout
 * The developer community is hanging out on zoom on a weekly basis to chat.
   Everybody is welcome.
 * Weekly, Monday, 9:00 am PT, 12:00 pm (noon) ET, 6:00 pm CEST
-* `Join zoom <https://zoom.us/j/344163933>`_
+* `Join zoom <https://zoom.us/j/328820525>`_
 
 Contact
 =======
