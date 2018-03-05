@@ -7,7 +7,7 @@ pipeline {
     }
 
     options {
-        timeout(time: 220, unit: 'MINUTES')
+        timeout(time: 300, unit: 'MINUTES')
         timestamps()
     }
 
@@ -32,7 +32,7 @@ pipeline {
             steps {
                 parallel(
                     "Nightly":{
-                        sh 'cd ${TESTDIR}; ginkgo --focus="Nightly*" -v -noColor --timeout 215m'
+                        sh 'cd ${TESTDIR}; ginkgo --focus="Nightly*" -v -noColor --timeout 290m'
                     },
                 )
             }
