@@ -1,4 +1,4 @@
-// Copyright 2016-2017 Authors of Cilium
+// Copyright 2016-2018 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -119,6 +119,9 @@ type Map struct {
 	path string
 	once sync.Once
 	lock lock.RWMutex
+
+	// openLock serializes calls to Map.Open()
+	openLock lock.Mutex
 
 	// NonPersistent is true if the map does not contain persistent data
 	// and should be removed on startup.
@@ -353,25 +356,24 @@ reopen:
 }
 
 func (m *Map) Open() error {
-	var err error
-	m.once.Do(func() {
-		if m.fd != 0 {
-			err = nil
-			return
-		}
+	m.openLock.Lock()
+	defer m.openLock.Unlock()
 
-		if err = m.setPathIfUnset(); err != nil {
-			return
-		}
-		var fd int
-		fd, err = ObjGet(m.path)
-		if err != nil {
-			return
-		}
+	if m.fd != 0 {
+		return nil
+	}
 
-		m.fd = fd
-	})
-	return err
+	if err := m.setPathIfUnset(); err != nil {
+		return err
+	}
+
+	fd, err := ObjGet(m.path)
+	if err != nil {
+		return err
+	}
+
+	m.fd = fd
+	return nil
 }
 
 func (m *Map) Close() error {
