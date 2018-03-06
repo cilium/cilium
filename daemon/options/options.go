@@ -37,6 +37,7 @@ var (
 		endpoint.OptionConntrackLocal:      &endpoint.OptionSpecConntrackLocal,
 		endpoint.OptionConntrack:           &endpoint.OptionSpecConntrack,
 		endpoint.OptionDebug:               &endpoint.OptionSpecDebug,
+		endpoint.OptionDebugLB:             &endpoint.OptionSpecDebugLB,
 		endpoint.OptionDropNotify:          &endpoint.OptionSpecDropNotify,
 		endpoint.OptionTraceNotify:         &endpoint.OptionSpecTraceNotify,
 		endpoint.OptionNAT46:               &endpoint.OptionSpecNAT46,
