@@ -99,7 +99,6 @@ tags: $(GOLANG_SRCFILES) $(BPF_SRCFILES)
 
 clean-container:
 	-for i in $(SUBDIRS); do $(MAKE) -C $$i clean; done
-	-for i in $(SUBDIRSLIB); do $(MAKE) -C $$i clean; done
 
 clean: clean-container
 	-$(MAKE) -C ./contrib/packaging/deb clean
@@ -109,7 +108,6 @@ clean: clean-container
 install:
 	$(INSTALL) -m 0755 -d $(DESTDIR)$(BINDIR)
 	for i in $(SUBDIRS); do $(MAKE) -C $$i install; done
-	for i in $(SUBDIRSLIB); do $(MAKE) -C $$i install; done
 
 # Workaround for not having git in the build environment
 GIT_VERSION: .git
