@@ -766,7 +766,7 @@ func (e *Endpoint) regenerate(owner Owner, reason string) (retErr error) {
 	// compiled for
 	e.bumpPolicyRevision(revision)
 
-	e.getLogger().Info("Endpoint policy recalculated")
+	e.getLogger().Info("Endpoint regenerated")
 
 	return nil
 }
