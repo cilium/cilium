@@ -124,13 +124,6 @@ func StartEnvoy(adminPort uint32, stateDir, logDir string, baseID uint64) *Envoy
 	adminAddress := "127.0.0.1:" + strconv.FormatUint(uint64(adminPort), 10)
 	xdsPath := filepath.Join(stateDir, "xds.sock")
 	accessLogPath := filepath.Join(stateDir, "access_log.sock")
-	logger := &lumberjack.Logger{
-		Filename:   logPath,
-		MaxSize:    100, // megabytes
-		MaxBackups: 3,
-		MaxAge:     28,   //days
-		Compress:   true, // disabled by default
-	}
 
 	e := &Envoy{
 		stopCh:        make(chan struct{}),
@@ -160,6 +153,14 @@ func StartEnvoy(adminPort uint32, stateDir, logDir string, baseID uint64) *Envoy
 	// case no one reader reads it.
 	started := make(chan bool, 1)
 	go func() {
+		logger := &lumberjack.Logger{
+			Filename:   logPath,
+			MaxSize:    100, // megabytes
+			MaxBackups: 3,
+			MaxAge:     28,   //days
+			Compress:   true, // disabled by default
+		}
+		defer logger.Close()
 		var err error
 		for {
 			name := "cilium-envoy"
