@@ -85,7 +85,7 @@ struct bpf_elf_map __section_maps cilium_lb4_rr_seq = {
 };
 #define REV_NAT_F_TUPLE_SADDR 1
 #ifdef LB_DEBUG
-#define cilium_dbg_lb cilium_trace
+#define cilium_dbg_lb cilium_dbg
 #else
 #define cilium_dbg_lb(a, b, c, d)
 #endif
