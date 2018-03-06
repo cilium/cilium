@@ -3,7 +3,6 @@
 
 Vagrant.require_version ">= 1.8.3"
 
-num_nodes = (ENV['NNODES'] || 1).to_i
 cilium_version = (ENV['CILIUM_VERSION'] || "v1.0.0-rc6")
 cilium_opts = (ENV['CILIUM_OPTS'] || "--kvstore consul --kvstore-opt consul.address 192.168.33.11:8500 -t vxlan")
 cilium_tag = (ENV['CILIUM_TAG'] || "v1.0.0-rc6")
@@ -36,7 +35,7 @@ sudo -E docker-compose up -d --remove-orphans
 SCRIPT
 
 Vagrant.configure(2) do |config|
-    config.vm.box = "bento/ubuntu-17.04"
+    config.vm.box = "bento/ubuntu-17.10"
 
     # http://foo-o-rama.com/vagrant--stdin-is-not-a-tty--fix.html
     config.vm.provision "fix-no-tty", type: "shell" do |s|
@@ -63,12 +62,4 @@ Vagrant.configure(2) do |config|
        env: {"CILIUM_TAG" => cilium_tag, "CILIUM_OPTS" => cilium_opts},
        privileged: false, inline: $run
 
-    (1..num_nodes).each do |n|
-        node_vm_name = "cilium-#{n}"
-        config.vm.define node_vm_name do |node|
-            node.vm.hostname = node_vm_name
-            node_ip = "192.168.33.1#{n}"
-            node.vm.network "private_network", ip: "#{node_ip}"
-        end
-    end
 end
