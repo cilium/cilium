@@ -82,11 +82,12 @@ func runDebugInfo(cmd *cobra.Command, args []string) {
 	for _, ep := range p.EndpointList {
 		epID := strconv.FormatInt(ep.ID, 10)
 		printList(w, "BPF Endpoint List "+epID, "bpf", "endpoint", "list", epID)
-		printList(w, "BPF Policy List "+epID, "bpf", "policy", "list", epID)
+		printList(w, "BPF Policy Get "+epID, "bpf", "policy", "get", epID)
 		printList(w, "BPF CT List "+epID, "bpf", "ct", "list", epID)
 		printList(w, "BPF LB List "+epID, "bpf", "lb", "list", epID)
 		printList(w, "BPF Tunnel List "+epID, "bpf", "tunnel", "list", epID)
 		printList(w, "Endpoint Get "+epID, "endpoint", "get", epID)
+		printList(w, "Endpoint Log "+epID, "endpoint", "log", epID)
 
 		if ep.Identity != nil {
 			id := strconv.FormatInt(ep.Identity.ID, 10)
