@@ -156,6 +156,7 @@ var ciliumCLICommands = map[string]string{
 	"sudo cilium bpf tunnel list":     "bpf_tunnel_list.txt",
 	"cilium policy get":               "policy_get.txt",
 	"cilium status --all-controllers": "status.txt",
+	"sudo cilium debuginfo":           "debuginfo.txt",
 }
 
 // ciliumKubCLICommands these commands are the same as `ciliumCLICommands` but

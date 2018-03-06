@@ -16,9 +16,9 @@ package helpers
 
 import (
 	"fmt"
-	"io/ioutil"
 	"net"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -504,7 +504,7 @@ func (s *SSHMeta) PolicyWait(revisionNum int) *CmdRes {
 func (s *SSHMeta) ReportFailed(commands ...string) {
 	wr := s.logger.Logger.Out
 	fmt.Fprint(wr, "===================== TEST FAILED =====================\n")
-	fmt.Fprint(wr, "StackTrace Begin\n")
+	fmt.Fprint(wr, "Gathering Logs and Cilium CLI Output\n")
 
 	//FIXME: Ginkgo PR383 add here --since option
 	res := s.Exec("sudo journalctl --no-pager -u cilium | tail -n 50")
@@ -519,8 +519,8 @@ func (s *SSHMeta) ReportFailed(commands ...string) {
 		res = s.Exec(fmt.Sprintf("%s", cmd))
 		fmt.Fprint(wr, res.Output())
 	}
-	fmt.Fprint(wr, "StackTrace Ends\n")
-	s.ReportDump()
+	fmt.Fprint(wr, "Gathering Logs and Cilium CLI Output\n")
+	s.DumpCiliumCommandOutput()
 	s.GatherLogs()
 	s.CheckLogsForDeadlock()
 	fmt.Fprint(wr, "===================== EXITING REPORT GENERATION =====================\n")
@@ -536,16 +536,12 @@ func (s *SSHMeta) CheckLogsForDeadlock() {
 	}
 }
 
-// ReportDump runs a variety of commands and writes the results to
-// testResultsPath
-func (s *SSHMeta) ReportDump() {
+// DumpCiliumCommandOutput runs a variety of Cilium CLI commands and dumps their
+// output to files. These files are gathered as part of each Jenkins job for
+// postmortem debugging of build failures.
+func (s *SSHMeta) DumpCiliumCommandOutput() {
 
-	reportEndpointsCommands := map[string]string{
-		"cilium endpoint get %s":        "endpoint_%s.txt",
-		"sudo cilium bpf policy get %s": "bpf_policy_get_%s.txt",
-	}
-
-	testPath, err := ReportDirectory()
+	testPath, err := CreateReportDirectory()
 	if err != nil {
 		s.logger.WithError(err).Errorf(
 			"cannot create test results path '%s'", testPath)
@@ -553,41 +549,13 @@ func (s *SSHMeta) ReportDump() {
 	}
 	reportMap(testPath, ciliumCLICommands, s)
 
-	// Endpoint specific information:
-	eps, err := s.GetEndpointsIds()
-	if err != nil {
-		s.logger.Errorf("cannot get endpoint ids")
-	}
-	for _, ep := range eps {
-		for cmd, logfile := range reportEndpointsCommands {
-			command := fmt.Sprintf(cmd, ep)
-			res := s.Exec(command)
-
-			err = ioutil.WriteFile(
-				fmt.Sprintf("%s/%s", testPath, fmt.Sprintf(logfile, ep)),
-				res.CombineOutput().Bytes(),
-				LogPerm)
-
-			if err != nil {
-				s.logger.WithError(err).Errorf("cannot create test results for '%s'", command)
-			}
-		}
+	// No need to create file for bugtool because it creates an archive of files
+	// for us.
+	res := s.ExecCilium(fmt.Sprintf("bugtool -t %s", filepath.Join(BasePath, testPath)))
+	if !res.WasSuccessful() {
+		s.logger.Errorf("Error running bugtool: %s", res.CombineOutput())
 	}
 
-	eps, err = s.GetEndpointsIdentityIds()
-	if err != nil {
-		s.logger.WithError(err).Error("cannot get endpoint identity ids")
-	}
-	for _, ep := range eps {
-		res := s.Exec(fmt.Sprintf("cilium identity get %s", ep))
-		err = ioutil.WriteFile(
-			fmt.Sprintf("%s/%s", testPath, fmt.Sprintf("identity_%s.txt", ep)),
-			res.CombineOutput().Bytes(),
-			LogPerm)
-		if err != nil {
-			s.logger.WithError(err).Errorf("cannot create test results for identity get")
-		}
-	}
 }
 
 // GatherLogs dumps Cilium, Cilium Docker, key-value store logs, and gops output
@@ -602,7 +570,7 @@ func (s *SSHMeta) GatherLogs() {
 		fmt.Sprintf(`sudo bash -c "gops stats $(pgrep %s)"`, AgentDaemon):          "gops_stats.txt",
 	}
 
-	testPath, err := ReportDirectory()
+	testPath, err := CreateReportDirectory()
 	if err != nil {
 		s.logger.WithError(err).Errorf(
 			"cannot create test results path '%s'", testPath)

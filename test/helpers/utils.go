@@ -209,10 +209,10 @@ func Fail(description string, callerSkip ...int) {
 	ginkgo.Fail(description, callerSkip...)
 }
 
-// ReportDirectory creates and returns the directory path to export all report
+// CreateReportDirectory creates and returns the directory path to export all report
 // commands that need to be run in the case that a test has failed.
 // If the directory cannot be created it'll return an error
-func ReportDirectory() (string, error) {
+func CreateReportDirectory() (string, error) {
 	testDesc := ginkgo.CurrentGinkgoTestDescription()
 	prefix := ""
 	if strings.HasPrefix(strings.ToLower(testDesc.FullTestText), K8s) {
