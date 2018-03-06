@@ -10,6 +10,7 @@ BUILDDIR      = _build
 CMDREFDIR     = cmdref
 CILIUMDIR     = ../cilium
 AGENTDIR      = ../daemon
+BUGTOOLDIR    = ../bugtool
 HEALTHDIR     = ../cilium-health
 
 # Put it first so that "make" without argument is like "make help".
@@ -32,6 +33,7 @@ cmdref:
 	# We don't know what changed so recreate the directory
 	-rm -rvf $(CMDREFDIR)/cilium*
 	${CILIUMDIR}/cilium cmdref -d $(CMDREFDIR)
+	${BUGTOOLDIR}/cilium-bugtool cmdref -d $(CMDREFDIR)
 	${AGENTDIR}/cilium-agent --cmdref $(CMDREFDIR)
 	${HEALTHDIR}/cilium-health --cmdref $(CMDREFDIR)
 
