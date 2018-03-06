@@ -34,18 +34,17 @@ import (
 
 // BugtoolRootCmd is the top level command for the bugtool.
 var BugtoolRootCmd = &cobra.Command{
-	Use:   "bugtool",
-	Short: "Cilium agent debugging tool",
-	Long:  "cilium-bugtool - capture system and node information for debugging a Cilium node",
-	Example: `	# Create archive with files
+	Use:   "cilium-bugtool [OPTIONS]",
+	Short: "Collects agent & system information useful for bug reporting",
+	Example: `	# Collect information and create archive file
 	$ cilium-bugtool
 	[...]
 
-	# Serving files over HTTP
+	# Collect information and serve via HTTP
 	$ cilium-bugtool --serve
 	[...]
 
-	# Retrieve archive from a Cilium Kubernetes pod
+	# Collect and retrieve archive if Cilium is running in a Kubernetes pod
 	$ kubectl get pods --namespace kube-system
 	NAME                          READY     STATUS    RESTARTS   AGE
 	cilium-kg8lv                  1/1       Running   0          13m
