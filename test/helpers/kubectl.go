@@ -666,8 +666,14 @@ func (kub *Kubectl) CiliumReport(namespace string, pod string, commands []string
 // CheckLogsForDeadlock checks if the logs for Cilium log messages that signify
 // that a deadlock has occurred.
 func (kub *Kubectl) CheckLogsForDeadlock() {
-	deadlockCheckCmd := fmt.Sprintf("%s -n %s logs -l k8s-app=cilium | grep -qi -B 5 -A 5 deadlock", KubectlCmd, KubeSystemNamespace)
+	deadlockCheckCmd := fmt.Sprintf("%s -n %s --timestamps=true logs -l k8s-app=cilium | grep -qi -B 5 -A 5 deadlock", KubectlCmd, KubeSystemNamespace)
 	res := kub.Exec(deadlockCheckCmd)
+	if res.WasSuccessful() {
+		log.Errorf("Deadlock during test run detected, check Cilium logs for context")
+	}
+	// Also check for previous container
+	deadlockCheckCmd = fmt.Sprintf("%s -n %s --timestamps=true --previous logs -l k8s-app=cilium | grep -qi -B 5 -A 5 deadlock", KubectlCmd, KubeSystemNamespace)
+	res = kub.Exec(deadlockCheckCmd)
 	if res.WasSuccessful() {
 		log.Errorf("Deadlock during test run detected, check Cilium logs for context")
 	}
