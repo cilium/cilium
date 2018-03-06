@@ -52,13 +52,26 @@
 #define ALLOW_TO_HOST
 #define HAVE_L4_POLICY
 
-#ifndef SKIP_CIDR_LPM_MAP
+#ifndef SKIP_CIDR_PREFIXES
 #define CIDR6_INGRESS_MAP cilium_cidr6_ingress_foo
 #define CIDR4_INGRESS_MAP cilium_cidr4_ingress_foo
 #define CIDR6_EGRESS_MAP cilium_cidr6_egress_foo
 #define CIDR4_EGRESS_MAP cilium_cidr4_egress_foo
-#endif
-#ifndef SKIP_CIDR_MAPPINGS
-#define CIDR6_INGRESS_MAPPINGS { .net = {}, .mask = {} }
-#define CIDR4_INGRESS_MAPPINGS { .net = 0, .mask = 0 }
+/* It appears that we can support around ninety prefixes in an unrolled loop
+ * for LPM CIDR handling in older kernels along with the rest of the logic in
+ * the datapath, hence the defines below. This number was arrived to by
+ * adjusting the number of prefixes and running:
+ *    $ make -C bpf && sudo test/bpf/verifier-test.sh
+ *
+ *  If you're from a future where all supported kernels include LPM map type,
+ *  consider deprecating the hash-based CIDR lookup and removing the below.
+ */
+#define CIDR4_EGRESS_PREFIXES 32, 31, 30, 29, 28, 27, 26, 25, 24, 23, 22, 21, \
+20, 19, 18, 17, 16, 15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0
+#define CIDR6_EGRESS_PREFIXES 92, 91, 90, 89, 88, 87, 86, 85, 84, 83, 82, 81, \
+80, 79, 78, 77, 76, 75, 74, 73, 72, 71, 70, 69, 68, 67, 66, 65, 64, 63, 62,   \
+61, 60, 59, 58, 57, 56, 55, 54, 53, 52, 51, 50, 49, 48, 47, 46, 45, 44, 43,   \
+42, 41, 40, 39, 38, 37, 36, 35, 34, 33, CIDR4_EGRESS_PREFIXES
+#define CIDR6_INGRESS_PREFIXES CIDR6_EGRESS_PREFIXES
+#define CIDR4_INGRESS_PREFIXES CIDR4_EGRESS_PREFIXES
 #endif

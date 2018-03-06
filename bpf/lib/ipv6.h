@@ -133,6 +133,22 @@ static inline int ipv6_addr_in_net(union v6addr *addr, union v6addr *net, union 
 				&& (!mask->p4 || ((addr->p4 & mask->p4) == net->p4))))));
 }
 
+#define GET_PREFIX(PREFIX)						\
+	bpf_htonl(prefix < 32 ? ((1<<prefix) - 1) << (32-prefix)	\
+			      : 0xFFFFFFFF)
+
+static inline void ipv6_addr_clear_suffix(union v6addr *addr, int prefix)
+{
+	addr->p1 &= GET_PREFIX(prefix);
+	prefix -= 32;
+	addr->p2 &= GET_PREFIX(prefix);
+	prefix -= 32;
+	addr->p3 &= GET_PREFIX(prefix);
+	prefix -= 32;
+	addr->p4 &= GET_PREFIX(prefix);
+	prefix -= 32;
+}
+
 static inline int ipv6_match_prefix_96(const union v6addr *addr, const union v6addr *prefix)
 {
 	int tmp;

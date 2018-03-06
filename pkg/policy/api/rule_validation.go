@@ -23,9 +23,11 @@ import (
 
 const (
 	maxPorts = 40
-	// MaxCIDREntries is used to prevent compile failures at runtime.
-	MaxCIDREntries = 40
+	// MaxCIDRPrefixLengths is used to prevent compile failures at runtime.
+	MaxCIDRPrefixLengths = 40
 )
+
+type exists struct{}
 
 // Sanitize validates and sanitizes a policy rule. Minor edits such as
 // capitalization of the protocol name are automatically fixed up. More
@@ -78,22 +80,27 @@ func (i *IngressRule) sanitize() error {
 		}
 	}
 
-	if l := len(i.FromCIDR); l > MaxCIDREntries {
-		return fmt.Errorf("too many ingress CIDR entries %d/%d", l, MaxCIDREntries)
-	}
-
+	prefixLengths := map[int]exists{}
 	for n := range i.FromCIDR {
-		_, err := i.FromCIDR[n].sanitize()
+		prefixLength, err := i.FromCIDR[n].sanitize()
 		if err != nil {
 			return err
 		}
+		prefixLengths[prefixLength] = exists{}
 	}
 
 	for n := range i.FromCIDRSet {
-		_, err := i.FromCIDRSet[n].sanitize()
+		prefixLength, err := i.FromCIDRSet[n].sanitize()
 		if err != nil {
 			return err
 		}
+		prefixLengths[prefixLength] = exists{}
+	}
+
+	// FIXME GH-1781 count coalesced CIDRs and restrict the number of
+	// prefix lengths based on the CIDRSet exclusions.
+	if l := len(prefixLengths); l > MaxCIDRPrefixLengths {
+		return fmt.Errorf("too many ingress CIDR prefix lengths %d/%d", l, MaxCIDRPrefixLengths)
 	}
 
 	return nil
@@ -130,20 +137,27 @@ func (e *EgressRule) sanitize() error {
 			return err
 		}
 	}
-	if l := len(e.ToCIDR); l > MaxCIDREntries {
-		return fmt.Errorf("too many egress CIDR entries %d/%d", l, MaxCIDREntries)
-	}
+
+	prefixLengths := map[int]exists{}
 	for i := range e.ToCIDR {
-		_, err := e.ToCIDR[i].sanitize()
+		prefixLength, err := e.ToCIDR[i].sanitize()
 		if err != nil {
 			return err
 		}
+		prefixLengths[prefixLength] = exists{}
 	}
 	for i := range e.ToCIDRSet {
-		_, err := e.ToCIDRSet[i].sanitize()
+		prefixLength, err := e.ToCIDRSet[i].sanitize()
 		if err != nil {
 			return err
 		}
+		prefixLengths[prefixLength] = exists{}
+	}
+
+	// FIXME GH-1781 count coalesced CIDRs and restrict the number of
+	// prefix lengths based on the CIDRSet exclusions.
+	if l := len(prefixLengths); l > MaxCIDRPrefixLengths {
+		return fmt.Errorf("too many egress CIDR prefix lengths %d/%d", l, MaxCIDRPrefixLengths)
 	}
 
 	return nil
@@ -276,7 +290,7 @@ func (cidr CIDR) sanitize() (prefixLength int, err error) {
 		}
 	}
 
-	return prefixLength, err
+	return prefixLength, nil
 }
 
 // sanitize validates a CIDRRule by checking that the CIDR prefix itself is
@@ -314,5 +328,5 @@ func (c *CIDRRule) sanitize() (prefixLength int, err error) {
 		}
 	}
 
-	return prefixLength, err
+	return prefixLength, nil
 }
