@@ -247,6 +247,7 @@ func copyCiliumInfoCommands(cmdDir string, k8sPods []string) []string {
 func k8sCommands(allCommands []string, pods []string) []string {
 	// These commands do not require a pod argument
 	var commands = []string{
+		"kubectl get nodes -o wide",
 		"kubectl describe nodes",
 		"kubectl get pods,svc --all-namespaces",
 		"kubectl version",
@@ -269,6 +270,9 @@ func k8sCommands(allCommands []string, pods []string) []string {
 
 		// Check for previous logs of the pod
 		cmd := fmt.Sprintf("kubectl -n %s logs --previous -p %s", k8sNamespace, pod)
+		commands = append(commands, cmd)
+
+		cmd = fmt.Sprintf("kubectl -n %s describe pod %s", k8sNamespace, pod)
 		commands = append(commands, cmd)
 	}
 
