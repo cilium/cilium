@@ -17,11 +17,10 @@ package policy
 import (
 	"fmt"
 	"net"
-	"reflect"
+	"sort"
 	"strconv"
 
 	"github.com/cilium/cilium/api/v1/models"
-	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/maps/cidrmap"
 	"github.com/cilium/cilium/pkg/policy/api"
@@ -40,9 +39,10 @@ type CIDRPolicyMapRule struct {
 // CIDRPolicyMap does no locking internally, so the user is responsible for synchronizing
 // between multiple threads when applicable.
 type CIDRPolicyMap struct {
-	Map       map[string]*CIDRPolicyMapRule // Allowed L3 (CIDR) prefixes
-	IPv6Count int                           // Count of IPv6 prefixes in 'Map'
-	IPv4Count int                           // Count of IPv4 prefixes in 'Map'
+	Map map[string]*CIDRPolicyMapRule // Allowed L3 (CIDR) prefixes
+
+	IPv6PrefixCount map[int]int // Count of IPv6 prefixes in 'Map' indexed by prefix length
+	IPv4PrefixCount map[int]int // Count of IPv4 prefixes in 'Map' indexed by prefix length
 }
 
 // Insert places 'cidr' and its corresponding rule labels into map 'm'. Returns
@@ -74,9 +74,9 @@ func (m *CIDRPolicyMap) Insert(cidr string, ruleLabels labels.LabelArray) int {
 	if _, found := m.Map[key]; !found {
 		m.Map[key] = &CIDRPolicyMapRule{Prefix: *ipnet, DerivedFromRules: labels.LabelArrayList{ruleLabels}}
 		if ipnet.IP.To4() == nil {
-			m.IPv6Count++
+			m.IPv6PrefixCount[ones]++
 		} else {
-			m.IPv4Count++
+			m.IPv4PrefixCount[ones]++
 		}
 		return 1
 	} else {
@@ -86,23 +86,19 @@ func (m *CIDRPolicyMap) Insert(cidr string, ruleLabels labels.LabelArray) int {
 	return 0
 }
 
-// ToBPFData converts map 'm' into string slices 's6' (IPv6) and 's4' (IPv4),
-// formatted for insertion into bpf program.
-func (m *CIDRPolicyMap) ToBPFData() (s6, s4 []string) {
-	for _, v := range m.Map {
-		ipnet := v.Prefix
-		ip4 := ipnet.IP.To4()
-		if ip4 == nil { // IPv6
-			s6 = append(s6,
-				fmt.Sprintf("{{{__constant_htonl(%#x),__constant_htonl(%#x),__constant_htonl(%#x),__constant_htonl(%#x)}},{{__constant_htonl(%#x),__constant_htonl(%#x),__constant_htonl(%#x),__constant_htonl(%#x)}}}",
-					byteorder.HostToNetworkSlice(ipnet.IP[0:4], reflect.Uint32), byteorder.HostToNetworkSlice(ipnet.IP[4:8], reflect.Uint32),
-					byteorder.HostToNetworkSlice(ipnet.IP[8:12], reflect.Uint32), byteorder.HostToNetworkSlice(ipnet.IP[12:16], reflect.Uint32),
-					byteorder.HostToNetworkSlice(ipnet.Mask[0:4], reflect.Uint32), byteorder.HostToNetworkSlice(ipnet.Mask[4:8], reflect.Uint32),
-					byteorder.HostToNetworkSlice(ipnet.Mask[8:12], reflect.Uint32), byteorder.HostToNetworkSlice(ipnet.Mask[12:16], reflect.Uint32)))
-		} else {
-			s4 = append(s4, fmt.Sprintf("{__constant_htonl(%#x),__constant_htonl(%#x)}", byteorder.HostToNetworkSlice(ip4, reflect.Uint32), byteorder.HostToNetworkSlice(ipnet.Mask, reflect.Uint32)))
-		}
+// ToBPFData converts map 'm' into int slices 's6' (IPv6) and 's4' (IPv4),
+// formatted for insertion into bpf program as prefix lengths.
+func (m *CIDRPolicyMap) ToBPFData() (s6, s4 []int) {
+	for p := range m.IPv6PrefixCount {
+		s6 = append(s6, p)
 	}
+	for p := range m.IPv4PrefixCount {
+		s4 = append(s4, p)
+	}
+	// The datapath expects longest-to-shortest prefixes so that it can
+	// clear progressively more bits with a single load of the address.
+	sort.Sort(sort.Reverse(sort.IntSlice(s6)))
+	sort.Sort(sort.Reverse(sort.IntSlice(s4)))
 	return
 }
 
@@ -138,10 +134,14 @@ type CIDRPolicy struct {
 func NewCIDRPolicy() *CIDRPolicy {
 	return &CIDRPolicy{
 		Ingress: CIDRPolicyMap{
-			Map: make(map[string]*CIDRPolicyMapRule),
+			Map:             make(map[string]*CIDRPolicyMapRule),
+			IPv6PrefixCount: make(map[int]int),
+			IPv4PrefixCount: make(map[int]int),
 		},
 		Egress: CIDRPolicyMap{
-			Map: make(map[string]*CIDRPolicyMapRule),
+			Map:             make(map[string]*CIDRPolicyMapRule),
+			IPv6PrefixCount: make(map[int]int),
+			IPv4PrefixCount: make(map[int]int),
 		},
 	}
 }
@@ -179,11 +179,11 @@ func (cp *CIDRPolicy) Validate() error {
 	if cp == nil {
 		return nil
 	}
-	if l := len(cp.Egress.Map); l > api.MaxCIDREntries {
-		return fmt.Errorf("too many egress CIDR entries %d/%d", l, api.MaxCIDREntries)
+	if l := len(cp.Egress.IPv6PrefixCount); l > api.MaxCIDRPrefixLengths {
+		return fmt.Errorf("too many egress CIDR prefix lengths %d/%d", l, api.MaxCIDRPrefixLengths)
 	}
-	if l := len(cp.Ingress.Map); l > api.MaxCIDREntries {
-		return fmt.Errorf("too many ingress CIDR entries %d/%d", l, api.MaxCIDREntries)
+	if l := len(cp.Ingress.IPv6PrefixCount); l > api.MaxCIDRPrefixLengths {
+		return fmt.Errorf("too many ingress CIDR prefix lengths %d/%d", l, api.MaxCIDRPrefixLengths)
 	}
 	return nil
 }
