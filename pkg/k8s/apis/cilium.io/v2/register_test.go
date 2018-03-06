@@ -18,9 +18,7 @@ import (
 	. "gopkg.in/check.v1"
 
 	apiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
-	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
 type CiliumV2RegisterSuite struct{}
@@ -40,63 +38,42 @@ func (s *CiliumV2RegisterSuite) getTestUpToDateDefinition() *apiextensionsv1beta
 	}
 }
 
-func (s *CiliumV2RegisterSuite) TestNeedsUpdateNoUpdate(c *C) {
-	crd := s.getTestUpToDateDefinition()
-	e := errors.NewAlreadyExists(schema.GroupResource{}, "")
-
-	c.Assert(needsUpdate(crd, e), Equals, false)
-}
-
 func (s *CiliumV2RegisterSuite) TestNeedsUpdateNoValidation(c *C) {
 	crd := s.getTestUpToDateDefinition()
-	e := errors.NewAlreadyExists(schema.GroupResource{}, "")
 
 	crd.Spec.Validation = nil
 
-	c.Assert(needsUpdate(crd, e), Equals, true)
+	c.Assert(needsUpdate(crd), Equals, true)
 }
 
 func (s *CiliumV2RegisterSuite) TestNeedsUpdateNoLabels(c *C) {
 	crd := s.getTestUpToDateDefinition()
-	e := errors.NewAlreadyExists(schema.GroupResource{}, "")
 
 	crd.Labels = nil
 
-	c.Assert(needsUpdate(crd, e), Equals, true)
+	c.Assert(needsUpdate(crd), Equals, true)
 }
 
 func (s *CiliumV2RegisterSuite) TestNeedsUpdateNoVersionLabel(c *C) {
 	crd := s.getTestUpToDateDefinition()
-	e := errors.NewAlreadyExists(schema.GroupResource{}, "")
 
 	crd.Labels = map[string]string{"test": "test"}
 
-	c.Assert(needsUpdate(crd, e), Equals, true)
+	c.Assert(needsUpdate(crd), Equals, true)
 }
 
 func (s *CiliumV2RegisterSuite) TestNeedsUpdateOlderVersion(c *C) {
 	crd := s.getTestUpToDateDefinition()
-	e := errors.NewAlreadyExists(schema.GroupResource{}, "")
 
 	crd.Labels[CustomResourceDefinitionSchemaVersionKey] = "0.9"
 
-	c.Assert(needsUpdate(crd, e), Equals, true)
+	c.Assert(needsUpdate(crd), Equals, true)
 }
 
 func (s *CiliumV2RegisterSuite) TestNeedsUpdateCorruptedVersion(c *C) {
 	crd := s.getTestUpToDateDefinition()
-	e := errors.NewAlreadyExists(schema.GroupResource{}, "")
 
 	crd.Labels[CustomResourceDefinitionSchemaVersionKey] = "totally-not-semver"
 
-	c.Assert(needsUpdate(crd, e), Equals, true)
-}
-
-func (s *CiliumV2RegisterSuite) TestNeedsUpdateWrongError(c *C) {
-	crd := s.getTestUpToDateDefinition()
-	e := errors.NewUnauthorized("")
-
-	// Should be false, but this code path is unavailable in normal use.
-	// All errors other than AlreadyExists are handled before calling needsUpdate
-	c.Assert(needsUpdate(crd, e), Equals, false)
+	c.Assert(needsUpdate(crd), Equals, true)
 }

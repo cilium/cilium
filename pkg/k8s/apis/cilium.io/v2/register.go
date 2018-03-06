@@ -17,7 +17,6 @@ package v2
 import (
 	goerrors "errors"
 	"fmt"
-	"reflect"
 	"time"
 
 	k8sconst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
@@ -148,19 +147,18 @@ func createUpdateCRD(clientset apiextensionsclient.Interface, CRDName string, cr
 	if errors.IsNotFound(err) {
 		scopedLog.Info("Creating CRD (CustomResourceDefinition)...")
 		clusterCRD, err = clientset.ApiextensionsV1beta1().CustomResourceDefinitions().Create(crd)
+		// This occurs when multiple agents race to create the CRD. Since another has
+		// created it, it will also update it, hence the non-error return.
+		if errors.IsAlreadyExists(err) {
+			return nil
+		}
 	}
-	switch {
-	// This occurs when multiple agents race to create the CRD. Since another has
-	// created it, it will also update it, hence the non-error return.
-	case err != nil && errors.IsAlreadyExists(err):
-		return nil
-
-	case err != nil:
+	if err != nil {
 		return err
 	}
 
 	scopedLog.Debug("Checking if CRD (CustomResourceDefinition) needs update...")
-	if needsUpdate(clusterCRD, err) {
+	if needsUpdate(clusterCRD) {
 		scopedLog.Info("Updating CRD (CustomResourceDefinition)...")
 		// Update the CRD with the validation schema.
 		err = wait.Poll(500*time.Millisecond, 60*time.Second, func() (bool, error) {
@@ -174,10 +172,10 @@ func createUpdateCRD(clientset apiextensionsclient.Interface, CRDName string, cr
 			// This seems too permissive but we only get here if the version is
 			// different per needsUpdate above. If so, we want to update on any
 			// validation change including adding or removing validation.
-			if clusterCRD.Spec.Validation == nil ||
-				!reflect.DeepEqual(clusterCRD.Spec.Validation.OpenAPIV3Schema, crv.OpenAPIV3Schema) {
-				clusterCRD.Spec.Validation = crd.Spec.Validation
+			if needsUpdate(clusterCRD) {
 				scopedLog.Debug("CRD validation is different, updating it...")
+				clusterCRD.ObjectMeta.Labels = crd.ObjectMeta.Labels
+				clusterCRD.Spec = crd.Spec
 				_, err = clientset.ApiextensionsV1beta1().CustomResourceDefinitions().Update(clusterCRD)
 				if err == nil {
 					return true, nil
@@ -228,25 +226,21 @@ func createUpdateCRD(clientset apiextensionsclient.Interface, CRDName string, cr
 	return nil
 }
 
-func needsUpdate(
-	clusterCRD *apiextensionsv1beta1.CustomResourceDefinition,
-	createError error) bool {
+func needsUpdate(clusterCRD *apiextensionsv1beta1.CustomResourceDefinition) bool {
 
-	if errors.IsAlreadyExists(createError) {
-		if clusterCRD.Spec.Validation == nil {
-			// no validation detected
-			return true
-		}
-		v, ok := clusterCRD.Labels[CustomResourceDefinitionSchemaVersionKey]
-		if !ok {
-			// no schema version detected
-			return true
-		}
-		clusterVersion, err := version.NewVersion(v)
-		if err != nil || clusterVersion.LessThan(comparableCRDSchemaVersion) {
-			// version in cluster is either unparsable or smaller than current version
-			return true
-		}
+	if clusterCRD.Spec.Validation == nil {
+		// no validation detected
+		return true
+	}
+	v, ok := clusterCRD.Labels[CustomResourceDefinitionSchemaVersionKey]
+	if !ok {
+		// no schema version detected
+		return true
+	}
+	clusterVersion, err := version.NewVersion(v)
+	if err != nil || clusterVersion.LessThan(comparableCRDSchemaVersion) {
+		// version in cluster is either unparsable or smaller than current version
+		return true
 	}
 	return false
 }
