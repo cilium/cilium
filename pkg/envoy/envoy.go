@@ -33,6 +33,7 @@ import (
 
 	"github.com/golang/protobuf/proto"
 	"github.com/sirupsen/logrus"
+	"gopkg.in/natefinch/lumberjack.v2"
 )
 
 var log = logging.DefaultLogger
@@ -123,6 +124,13 @@ func StartEnvoy(adminPort uint32, stateDir, logDir string, baseID uint64) *Envoy
 	adminAddress := "127.0.0.1:" + strconv.FormatUint(uint64(adminPort), 10)
 	xdsPath := filepath.Join(stateDir, "xds.sock")
 	accessLogPath := filepath.Join(stateDir, "access_log.sock")
+	logger := &lumberjack.Logger{
+		Filename:   logPath,
+		MaxSize:    100, // megabytes
+		MaxBackups: 3,
+		MaxAge:     28,   //days
+		Compress:   true, // disabled by default
+	}
 
 	e := &Envoy{
 		stopCh:        make(chan struct{}),
@@ -152,18 +160,8 @@ func StartEnvoy(adminPort uint32, stateDir, logDir string, baseID uint64) *Envoy
 	// case no one reader reads it.
 	started := make(chan bool, 1)
 	go func() {
-		var logFile *os.File
 		var err error
 		for {
-			// Open log file
-			// TODO: log rotation!
-			if logFile == nil {
-				logFile, err = os.OpenFile(logPath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
-				if err != nil {
-					log.WithError(err).Warn("Envoy: Can not open log file ", logPath)
-				}
-			}
-
 			name := "cilium-envoy"
 			logLevel := envoyLevelMap[log.Level]
 			if logLevel == "" {
@@ -171,8 +169,8 @@ func StartEnvoy(adminPort uint32, stateDir, logDir string, baseID uint64) *Envoy
 			}
 
 			cmd := exec.Command(name, "-l", logLevel, "-c", bootstrapPath, "--base-id", strconv.FormatUint(baseID, 10))
-			cmd.Stderr = logFile
-			cmd.Stdout = logFile
+			cmd.Stderr = logger
+			cmd.Stdout = logger
 
 			if err := cmd.Start(); err != nil {
 				log.WithError(err).Warn("Envoy: failed to start.")
@@ -205,10 +203,6 @@ func StartEnvoy(adminPort uint32, stateDir, logDir string, baseID uint64) *Envoy
 				close(crashCh)
 			}()
 
-			if logFile != nil {
-				logFile.Close()
-				logFile = nil
-			}
 			// start again after a short wait. If Cilium exits this should be enough
 			// time to not start Envoy again in that case.
 			log.WithError(err).Info("Envoy: Sleeping for 100ms before respawning.")
