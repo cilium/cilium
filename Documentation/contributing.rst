@@ -43,6 +43,8 @@ contribute to Cilium:
 +----------------------------------------------------------------------------------+-----------------------+------------------------------------------------------------+
 | `protoc-gen-go <https://github.com/golang/protobuf/tree/master/protoc-gen-go>`_  | latest                | ``go get -u github.com/golang/protobuf/protoc-gen-go``     |
 +----------------------------------------------------------------------------------+-----------------------+------------------------------------------------------------+
+| `protoc-gen-validate <https://github.com/lyft/protoc-gen-validate>`_             | latest                | ``go get -u github.com/lyft/protoc-gen-validate``          |
++----------------------------------------------------------------------------------+-----------------------+------------------------------------------------------------+
 + `Docker <https://docs.docker.com/engine/installation/>`_                         | OS-Dependent          | N/A (OS-specific)                                          |
 +----------------------------------------------------------------------------------+-----------------------+------------------------------------------------------------+
 + `Docker-Compose <https://docs.docker.com/compose/install/>`_                     | OS-Dependent          | N/A (OS-specific)                                          |
