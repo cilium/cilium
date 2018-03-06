@@ -20,7 +20,9 @@
  * compilation without the full code generation engine backend.
  */
 #define DROP_NOTIFY
+#ifndef SKIP_DEBUG
 #define DEBUG
+#endif
 #define ENABLE_IPV4
 #define HANDLE_NS
 #define FROM_HOST

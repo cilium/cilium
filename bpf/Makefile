@@ -28,6 +28,7 @@ check:
 	clang ${CLANG_FLAGS} --analyze *.c
 
 LB_OPTIONS = \
+	-DSKIP_DEBUG \
 	-DLB_L3 \
 	-DLB_L4 \
 	-DLB_L3 -DLB_L4
@@ -40,6 +41,7 @@ bpf_lb.o: bpf_lb.c $(LIB)
 	${LLC} ${LLC_FLAGS} -o $@ $(patsubst %.o,%.ll,$@)
 
 LXC_OPTIONS = \
+	 -DSKIP_DEBUG \
 	 -DDROP_ALL \
 	 -DHAVE_LPM_MAP_TYPE \
 	 -DSKIP_CIDR_LPM_MAP \
