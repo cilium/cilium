@@ -684,7 +684,7 @@ func (kub *Kubectl) CiliumReportDump(namespace string) {
 			"cilium bpf policy get %s": "%s_bpf_policy_get_%s.txt",
 		}
 
-		testPath, err := ReportDirectory()
+		testPath, err := CreateReportDirectory()
 		if err != nil {
 			logger.WithError(err).Errorf("cannot create test result path '%s'", testPath)
 			return
@@ -749,7 +749,7 @@ func (kub *Kubectl) GatherLogs() {
 		"kubectl -n kube-system logs -l k8s-app=cilium": "cilium_logs.txt",
 	}
 
-	testPath, err := ReportDirectory()
+	testPath, err := CreateReportDirectory()
 	if err != nil {
 		kub.logger.WithError(err).Errorf(
 			"cannot create test results path '%s'", testPath)

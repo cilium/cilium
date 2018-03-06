@@ -209,7 +209,7 @@ func getOrSetEnvVar(key, value string) {
 }
 
 var _ = AfterEach(func() {
-	path, err := helpers.ReportDirectory()
+	path, err := helpers.CreateReportDirectory()
 
 	if err != nil {
 		log.WithError(err).Errorf("cannot create ReportDirectory")
