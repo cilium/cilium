@@ -9,4 +9,5 @@ cilium
 
       cilium
       cilium_*
+      cilium-bugtool_*
       cilium-health_*
