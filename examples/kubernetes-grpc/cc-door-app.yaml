@@ -3,6 +3,7 @@ kind: Deployment
 metadata:
   labels:
     app: cc-door-mgr
+    zgroup: grpcExample
   name: cc-door-mgr
 spec:
   replicas: 1
@@ -13,6 +14,7 @@ spec:
     metadata:
       labels:
         app: cc-door-mgr
+        zgroup: grpcExample
     spec:
       containers:
       - name: cc-door-mgr
@@ -28,6 +30,7 @@ kind: Service
 metadata:
   labels:
     app: cc-door-server
+    zgroup: grpcExample
   name: cc-door-server
 spec:
   ports:
@@ -44,6 +47,7 @@ kind: Pod
 metadata:
   labels:
     app: public-terminal
+    zgroup: grpcExample
   name: terminal-87
 spec:
   containers:

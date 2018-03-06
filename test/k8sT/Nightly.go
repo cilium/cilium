@@ -523,4 +523,81 @@ var _ = Describe("NightlyExamples", func() {
 			res.ExpectSuccess("Cannot curl service after update")
 		})
 	})
+
+	Context("Getting started guides", func() {
+
+		var (
+			GRPCManifest = "../examples/kubernetes-grpc/cc-door-app.yaml"
+			GRPCPolicy   = "../examples/kubernetes-grpc/cc-door-ingress-security.yaml"
+		)
+
+		BeforeEach(func() {
+			path := kubectl.ManifestGet("cilium_ds.yaml")
+			kubectl.Apply(path)
+			_, err := kubectl.WaitforPods(helpers.KubeSystemNamespace, "-l k8s-app=cilium", 600)
+			Expect(err).Should(BeNil())
+
+			err = kubectl.WaitKubeDNS()
+			Expect(err).Should(BeNil())
+		})
+
+		AfterEach(func() {
+			err := kubectl.WaitCleanAllTerminatingPods()
+			Expect(err).To(BeNil(), "cannot clean all terminating pods")
+		})
+
+		It("GRPC example", func() {
+
+			AppManifest := helpers.GetFilePath(GRPCManifest)
+			PolicyManifest := helpers.GetFilePath(GRPCPolicy)
+			clientPod := "terminal-87"
+
+			defer func() {
+				kubectl.Delete(AppManifest)
+				kubectl.Delete(PolicyManifest)
+			}()
+
+			By("Testing the example config")
+			kubectl.Apply(AppManifest).ExpectSuccess("cannot install the GRPC application")
+
+			_, err := kubectl.WaitforPods(helpers.DefaultNamespace, "-l zgroup=grpcExample", 300)
+			Expect(err).Should(BeNil(), "Pods are not ready after timeout")
+
+			res := kubectl.ExecPodCmd(
+				helpers.DefaultNamespace, clientPod,
+				"python3 /cloudcity/cc_door_client.py GetName 1")
+			res.ExpectSuccess("Client cannot get Name")
+
+			res = kubectl.ExecPodCmd(
+				helpers.DefaultNamespace, clientPod,
+				"python3 /cloudcity/cc_door_client.py GetLocation 1")
+			res.ExpectSuccess("Client cannot get Location")
+
+			res = kubectl.ExecPodCmd(
+				helpers.DefaultNamespace, clientPod,
+				"python3 /cloudcity/cc_door_client.py SetAccessCode 1 999")
+			res.ExpectSuccess("Client cannot set Accesscode")
+
+			By("Testing with L7 policy")
+			_, err = kubectl.CiliumPolicyAction(
+				helpers.DefaultNamespace, PolicyManifest,
+				helpers.KubectlApply, 300)
+			Expect(err).To(BeNil(), "Cannot import GPRC policy")
+
+			res = kubectl.ExecPodCmd(
+				helpers.DefaultNamespace, clientPod,
+				"python3 /cloudcity/cc_door_client.py GetName 1")
+			res.ExpectSuccess("Client cannot get Name")
+
+			res = kubectl.ExecPodCmd(
+				helpers.DefaultNamespace, clientPod,
+				"python3 /cloudcity/cc_door_client.py GetLocation 1")
+			res.ExpectSuccess("Client cannot get Location")
+
+			res = kubectl.ExecPodCmd(
+				helpers.DefaultNamespace, clientPod,
+				"python3 /cloudcity/cc_door_client.py SetAccessCode 1 999")
+			res.ExpectFail("Client can set Accesscode and it shoud not")
+		})
+	})
 })
