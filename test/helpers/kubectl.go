@@ -376,12 +376,18 @@ func (kub *Kubectl) WaitKubeDNS() error {
 func (kub *Kubectl) WaitCleanAllTerminatingPods() error {
 	body := func() bool {
 		res := kub.Exec(fmt.Sprintf(
-			"%s get pods --all-namespaces -o jsonpath='{.items[*].status.phase}'",
+			"%s get pods --all-namespaces -o jsonpath='{.items[*].metadata.deletionTimestamp}'",
 			KubectlCmd))
 		if !res.WasSuccessful() {
 			return false
 		}
-		podsTerminating := strings.Count(res.Output().String(), StateTerminating)
+
+		if res.Output().String() == "" {
+			// Output is empty so no terminating containers
+			return true
+		}
+
+		podsTerminating := len(strings.Split(res.Output().String(), " "))
 		kub.logger.WithField("Terminating pods", podsTerminating).Info("List of pods terminating")
 		if podsTerminating > 0 {
 			return false
