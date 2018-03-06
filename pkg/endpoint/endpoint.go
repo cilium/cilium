@@ -67,6 +67,7 @@ const (
 	OptionConntrackLocal      = "ConntrackLocal"
 	OptionConntrack           = "Conntrack"
 	OptionDebug               = "Debug"
+	OptionDebugLB             = "DebugLB"
 	OptionDropNotify          = "DropNotification"
 	OptionTraceNotify         = "TraceNotification"
 	OptionNAT46               = "NAT46"
@@ -108,6 +109,11 @@ var (
 		Description: "Enable debugging trace statements",
 	}
 
+	OptionSpecDebugLB = option.Option{
+		Define:      "LB_DEBUG",
+		Description: "Enable debugging trace statements for load balancer",
+	}
+
 	OptionSpecDropNotify = option.Option{
 		Define:      "DROP_NOTIFY",
 		Description: "Enable drop notifications",
@@ -145,6 +151,7 @@ var (
 		OptionConntrackLocal:      &OptionSpecConntrackLocal,
 		OptionConntrack:           &OptionSpecConntrack,
 		OptionDebug:               &OptionSpecDebug,
+		OptionDebugLB:             &OptionSpecDebugLB,
 		OptionDropNotify:          &OptionSpecDropNotify,
 		OptionTraceNotify:         &OptionSpecTraceNotify,
 		OptionNAT46:               &OptionSpecNAT46,
