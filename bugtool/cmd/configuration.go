@@ -268,8 +268,12 @@ func k8sCommands(allCommands []string, pods []string) []string {
 			commands = append(commands, cmd)
 		}
 
-		// Check for previous logs of the pod
-		cmd := fmt.Sprintf("kubectl -n %s logs --previous -p %s", k8sNamespace, pod)
+		// Retrieve current version of pod logs
+		cmd := fmt.Sprintf("kubectl -n %s logs --timestamps %s", k8sNamespace, pod)
+		commands = append(commands, cmd)
+
+		// Retrieve previous version of pod logs
+		cmd = fmt.Sprintf("kubectl -n %s logs --timestamps -p %s", k8sNamespace, pod)
 		commands = append(commands, cmd)
 
 		cmd = fmt.Sprintf("kubectl -n %s describe pod %s", k8sNamespace, pod)
