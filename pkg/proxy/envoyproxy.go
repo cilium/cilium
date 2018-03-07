@@ -46,7 +46,7 @@ func createEnvoyRedirect(r *Redirect, wg *completion.WaitGroup) (RedirectImpleme
 	envoyOnce.Do(func() {
 		// Start Envoy on first invocation
 		envoyProxy = envoy.StartEnvoy(9901, viper.GetString("state-dir"),
-			viper.GetString("state-dir"), 0)
+			viper.GetString("envoy-log"), 0)
 	})
 
 	if envoyProxy != nil {
