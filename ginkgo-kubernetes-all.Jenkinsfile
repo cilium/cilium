@@ -56,6 +56,16 @@ pipeline {
                 }
             }
         }
+        stage('Boot VMs k8s-next'){
+            environment {
+                GOPATH="${WORKSPACE}"
+                TESTDIR="${WORKSPACE}/${PROJ_PATH}/test"
+            }
+            steps {
+                sh 'cd ${TESTDIR}; K8S_VERSION=1.10 vagrant up --no-provision'
+                sh 'cd ${TESTDIR}; K8S_VERSION=1.11 vagrant up --no-provision'
+            }
+        }
         stage('Non-release-k8s-versions') {
             environment {
                 GOPATH="${WORKSPACE}"
