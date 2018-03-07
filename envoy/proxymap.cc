@@ -70,16 +70,16 @@ ProxyMap::ProxyMap(const std::string &bpf_root,
   std::string path6(bpf_root + "/tc/globals/cilium_proxy6");
 
   if (!proxy4map_.open(path4)) {
-    ENVOY_LOG(warn, "cilium.bpf_metadata: Cannot open IPv4 proxy map at {}",
+    ENVOY_LOG(info, "cilium.bpf_metadata: Cannot open IPv4 proxy map at {}",
               path4);
     parent_.stats_.bpf_open_error_.inc();
   }
   if (!proxy6map_.open(path6)) {
-    ENVOY_LOG(warn, "cilium.bpf_metadata: Cannot open IPv6 proxy map at {}",
+    ENVOY_LOG(info, "cilium.bpf_metadata: Cannot open IPv6 proxy map at {}",
               path6);
     parent_.stats_.bpf_open_error_.inc();
   }
-  ENVOY_LOG(debug, "cilium.bpf_metadata: Created proxymap for {}",
+  ENVOY_LOG(trace, "cilium.bpf_metadata: Created proxymap for {}",
             parent_.is_ingress_ ? "ingress" : "egress");
 }
 
@@ -105,7 +105,7 @@ bool ProxyMap::getBpfMetadata(Network::ConnectionSocket &socket) {
       key.nexthdr = 6;
 
       ENVOY_LOG(
-          debug,
+          trace,
           "cilium.bpf_metadata: Looking up key: {:x}, {:x}, {:x}, {:x}, {:x}",
           ntohl(key.saddr), ntohs(key.dport), ntohs(key.sport), key.nexthdr,
           key.pad);

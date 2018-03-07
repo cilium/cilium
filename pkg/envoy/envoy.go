@@ -28,6 +28,7 @@ import (
 	"time"
 
 	"github.com/cilium/cilium/pkg/completion"
+	"github.com/cilium/cilium/pkg/flowdebug"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/policy"
 
@@ -49,7 +50,26 @@ var (
 		logrus.DebugLevel: "debug",
 		// spdlog "trace" not mapped
 	}
+
+	tracing = false
 )
+
+// EnableTracing changes Envoy log level to "trace", producing the most logs.
+func EnableTracing() {
+	tracing = true
+}
+
+func mapLogLevel(level logrus.Level) string {
+	if tracing {
+		return "trace"
+	}
+
+	// Suppress the debug level if not debugging at flow level.
+	if level == logrus.DebugLevel && !flowdebug.Enabled() {
+		level = logrus.InfoLevel
+	}
+	return envoyLevelMap[level]
+}
 
 type admin struct {
 	adminURL string
@@ -72,18 +92,20 @@ func (a *admin) transact(query string) error {
 }
 
 func (a *admin) changeLogLevel(level logrus.Level) error {
-	envoyLevel := envoyLevelMap[level]
-	if envoyLevel != a.level {
-		err := a.transact("logging?level=" + envoyLevel)
-		if err != nil {
-			log.WithError(err).Warn("Envoy: Failed setting log level: ", envoyLevel)
-		} else {
-			a.level = envoyLevel
-		}
-		return err
+	envoyLevel := mapLogLevel(level)
+
+	if envoyLevel == a.level {
+		log.Debug("Envoy log level is already set as: " + envoyLevel)
+		return nil
 	}
-	log.Debug("Envoy log level is already set as: " + envoyLevel)
-	return nil
+
+	err := a.transact("logging?level=" + envoyLevel)
+	if err != nil {
+		log.WithError(err).Warn("Envoy: Failed setting log level: ", envoyLevel)
+	} else {
+		a.level = envoyLevel
+	}
+	return err
 }
 
 func (a *admin) quit() error {
@@ -163,13 +185,7 @@ func StartEnvoy(adminPort uint32, stateDir, logDir string, baseID uint64) *Envoy
 		defer logger.Close()
 		var err error
 		for {
-			name := "cilium-envoy"
-			logLevel := envoyLevelMap[log.Level]
-			if logLevel == "" {
-				logLevel = envoyLevelMap[logrus.InfoLevel]
-			}
-
-			cmd := exec.Command(name, "-l", logLevel, "-c", bootstrapPath, "--base-id", strconv.FormatUint(baseID, 10))
+			cmd := exec.Command("cilium-envoy", "-l", mapLogLevel(log.Level), "-c", bootstrapPath, "--base-id", strconv.FormatUint(baseID, 10))
 			cmd.Stderr = logger
 			cmd.Stdout = logger
 

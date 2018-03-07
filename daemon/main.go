@@ -76,6 +76,7 @@ const (
 	// list of supported verbose debug groups
 	argDebugVerboseFlow    = "flow"
 	argDebugVerboseKvstore = "kvstore"
+	argDebugVerboseEnvoy   = "envoy"
 )
 
 var (
@@ -484,6 +485,9 @@ func initEnv(cmd *cobra.Command) {
 			flowdebug.Enable()
 		case argDebugVerboseKvstore:
 			kvstore.EnableTracing()
+		case argDebugVerboseEnvoy:
+			log.Debugf("Enabling Envoy tracing")
+			envoy.EnableTracing()
 		default:
 			log.Warningf("Unknown verbose debug group: %s", grp)
 		}
