@@ -164,13 +164,13 @@ void AccessLog::Log(AccessLog::Entry &entry_,
     ssize_t sent =
         ::send(fd_, msg.data(), length, MSG_DONTWAIT | MSG_EOR | MSG_NOSIGNAL);
     if (sent == length) {
-      ENVOY_LOG(debug, "Cilium access log msg sent: {}", entry.DebugString());
+      ENVOY_LOG(trace, "Cilium access log msg sent: {}", entry.DebugString());
       return;
     }
     if (sent == -1) {
-      ENVOY_LOG(warn, "Cilium access log send failed: {}", strerror(errno));
+      ENVOY_LOG(debug, "Cilium access log send failed: {}", strerror(errno));
     } else {
-      ENVOY_LOG(warn, "Cilium access log send truncated by {} bytes.",
+      ENVOY_LOG(debug, "Cilium access log send truncated by {} bytes.",
                 length - sent);
     }
   }
@@ -189,7 +189,7 @@ bool AccessLog::Connect() {
 
   fd_ = ::socket(AF_UNIX, SOCK_SEQPACKET, 0);
   if (fd_ == -1) {
-    ENVOY_LOG(warn, "Can't create socket: {}", strerror(errno));
+    ENVOY_LOG(error, "Can't create socket: {}", strerror(errno));
     return false;
   }
 
