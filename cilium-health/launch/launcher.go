@@ -45,7 +45,7 @@ const targetName = "cilium-health"
 // Run launches the cilium-health daemon.
 func (ch *CiliumHealth) Run() {
 	ch.SetTarget(targetName)
-	ch.SetArgs([]string{"-d"})
+	ch.SetArgs([]string{"-d", "--admin=any"})
 
 	// Wait until Cilium API is available
 	for {
