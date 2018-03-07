@@ -1164,12 +1164,8 @@ type UpdateCompilationError struct {
 
 func (e UpdateCompilationError) Error() string { return e.msg }
 
-// Update modifies the endpoint options and regenerates the program.
+// Update modifies the endpoint options and *always* regenerates the program.
 func (e *Endpoint) Update(owner Owner, opts models.ConfigurationMap) error {
-	if opts == nil {
-		return nil
-	}
-
 	e.Mutex.Lock()
 	if err := e.Opts.Validate(opts); err != nil {
 		e.Mutex.Unlock()
@@ -1191,9 +1187,12 @@ func (e *Endpoint) Update(owner Owner, opts models.ConfigurationMap) error {
 	e.Mutex.Unlock()
 	ctCleaned.Wait()
 
-	if changed {
-		e.Regenerate(owner, "updated endpoint options & policy changes apply to this endpoint")
+	reason := "endpoint was updated via API"
+	if opts == nil {
+		reason = "endpoint was manually regenerated via API"
 	}
+
+	e.Regenerate(owner, reason)
 
 	return nil
 }
