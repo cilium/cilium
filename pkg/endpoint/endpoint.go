@@ -1171,7 +1171,8 @@ type UpdateCompilationError struct {
 
 func (e UpdateCompilationError) Error() string { return e.msg }
 
-// Update modifies the endpoint options and *always* regenerates the program.
+// Update modifies the endpoint options and *always* tries to regenerate the
+// endpoint's program.
 func (e *Endpoint) Update(owner Owner, opts models.ConfigurationMap) error {
 	e.Mutex.Lock()
 	if err := e.Opts.Validate(opts); err != nil {
@@ -1181,25 +1182,38 @@ func (e *Endpoint) Update(owner Owner, opts models.ConfigurationMap) error {
 
 	// Option changes may be overridden by the policy configuration.
 	// Currently we return all-OK even in that case.
-	changed, ctCleaned, err := e.TriggerPolicyUpdatesLocked(owner, opts)
+	needToRegenerate, ctCleaned, err := e.TriggerPolicyUpdatesLocked(owner, opts)
 	if err != nil {
 		e.Mutex.Unlock()
 		ctCleaned.Wait()
 		return UpdateCompilationError{err.Error()}
 	}
 
-	if changed {
-		changed = e.SetStateLocked(StateWaitingToRegenerate, "Updated endpoint options; policy changes apply to this endpoint")
-	}
-	e.Mutex.Unlock()
-	ctCleaned.Wait()
-
 	reason := "endpoint was updated via API"
+
+	// If configuration options are provided, we only regenerate if necessary.
+	// Otherwise always regenerate.
 	if opts == nil {
+		needToRegenerate = true
 		reason = "endpoint was manually regenerated via API"
 	}
 
-	e.Regenerate(owner, reason)
+	if needToRegenerate {
+		stateTransitionSucceeded := e.SetStateLocked(StateWaitingToRegenerate, reason)
+
+		e.Mutex.Unlock()
+		ctCleaned.Wait()
+
+		if stateTransitionSucceeded {
+			e.Regenerate(owner, reason)
+			return nil
+		}
+
+		return fmt.Errorf("unable to regenerate endpoint program because state transition to %s was unsuccessful; check `cilium endpoint log %d` for more information", StateWaitingToRegenerate, e.ID)
+	}
+
+	e.Mutex.Unlock()
+	ctCleaned.Wait()
 
 	return nil
 }
