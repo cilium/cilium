@@ -519,7 +519,7 @@ func (s *SSHMeta) ReportFailed(commands ...string) {
 		res = s.Exec(fmt.Sprintf("%s", cmd))
 		fmt.Fprint(wr, res.Output())
 	}
-	fmt.Fprint(wr, "Gathering Logs and Cilium CLI Output\n")
+
 	s.DumpCiliumCommandOutput()
 	s.GatherLogs()
 	s.CheckLogsForDeadlock()
