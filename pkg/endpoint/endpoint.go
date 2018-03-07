@@ -274,8 +274,9 @@ type Endpoint struct {
 	// LabelsHash is a SHA256 hash over the SecurityIdentity labels
 	LabelsHash string
 
-	// LabelsMap is the Set of all security labels used in the last policy computation
-	LabelsMap *identityPkg.IdentityCache
+	// identityCacheRevision is the revision of the identity cache that was
+	// used to calculate the policy
+	identityCacheRevision uint64
 
 	// PortMap is port mapping configuration of the endpoint
 	PortMap []PortMap // Port mapping used for this endpoint.
