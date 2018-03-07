@@ -58,9 +58,15 @@ fi
 
 bpf_compile bpf_lxc.c bpf_lxc.o obj
 
-# Unlink the old calls map so we can upgrade it
-CALLS_MAP=cilium_calls_$EPID
-rm "/sys/fs/bpf/tc/globals/$CALLS_MAP" 2> /dev/null || true
-
 tc qdisc replace dev $IFNAME clsact || true
-tc filter replace dev $IFNAME ingress prio 1 handle 1 bpf da obj $EPDIR/bpf_lxc.o sec from-container
+
+# Move the old calls map to a temporary location so it can be removed after the
+# program has been replaced
+CALLS_MAP="/sys/fs/bpf/tc/globals/cilium_calls_${EPID}"
+mv "$CALLS_MAP" "${CALLS_MAP}.old" 2> /dev/null || true
+tc filter replace dev $IFNAME ingress prio 1 handle 1 bpf da obj $EPDIR/bpf_lxc.o sec from-container || {
+	mv "${CALLS_MAP}.old" "${CALLS_MAP}"
+	exit 1
+}
+
+rm "${CALLS_MAP}.old" 2> /dev/null || true
