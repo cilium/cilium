@@ -199,6 +199,11 @@ function xdp_load()
 	ip link set dev $DEV $MODE obj $OUT sec $SEC
 }
 
+function remove_non_persistent_map()
+{
+	rm "/sys/fs/bpf/tc/globals/$1" 2> /dev/null || true
+}
+
 function bpf_load()
 {
 	DEV=$1
@@ -217,7 +222,7 @@ function bpf_load()
 
 	tc qdisc del dev $DEV clsact 2> /dev/null || true
 	tc qdisc add dev $DEV clsact
-	rm "/sys/fs/bpf/tc/globals/$CALLS_MAP" 2> /dev/null || true
+	remove_non_persistent_map $CALLS_MAP
 	tc filter add dev $DEV $WHERE prio 1 handle 1 bpf da obj $OUT sec $SEC
 }
 
@@ -298,7 +303,9 @@ if [ "$MODE" = "vxlan" -o "$MODE" = "geneve" ]; then
 	echo "#define ENCAP_IFINDEX $ENCAP_IDX" >> $RUNDIR/globals/node_config.h
 
 	CALLS_MAP="cilium_calls_overlay_${ID_WORLD}"
-	OPTS="-DSECLABEL=${ID_WORLD} -DPOLICY_MAP=cilium_policy_reserved_${ID_WORLD}"
+	POLICY_MAP="cilium_policy_reserved_${ID_WORLD}"
+	OPTS="-DSECLABEL=${ID_WORLD} -DPOLICY_MAP=${POLICY_MAP}"
+	remove_non_persistent_map $POLICY_MAP
 	bpf_load $ENCAP_DEV "$OPTS" "ingress" bpf_overlay.c bpf_overlay.o from-overlay ${CALLS_MAP}
 	echo "$ENCAP_DEV" > $RUNDIR/encap.state
 else
@@ -318,7 +325,9 @@ if [ "$MODE" = "direct" ]; then
 		echo 1 > /proc/sys/net/ipv6/conf/all/forwarding
 
 		CALLS_MAP=cilium_calls_netdev_${ID_WORLD}
-		OPTS="-DSECLABEL=${ID_WORLD} -DPOLICY_MAP=cilium_policy_reserved_${ID_WORLD}"
+		POLICY_MAP="cilium_policy_reserved_${ID_WORLD}"
+		OPTS="-DSECLABEL=${ID_WORLD} -DPOLICY_MAP=${POLICY_MAP}"
+		remove_non_persistent_map $POLICY_MAP
 		bpf_load $NATIVE_DEV "$OPTS" "ingress" bpf_netdev.c bpf_netdev.o from-netdev $CALLS_MAP
 
 		echo "$NATIVE_DEV" > $RUNDIR/device.state
@@ -347,7 +356,9 @@ fi
 
 # bpf_host.o requires to see an updated node_config.h which includes ENCAP_IFINDEX
 CALLS_MAP="cilium_calls_netdev_ns_${ID_HOST}"
-OPTS="-DFROM_HOST -DFIXED_SRC_SECCTX=${ID_HOST} -DSECLABEL=${ID_HOST} -DPOLICY_MAP=cilium_policy_reserved_${ID_HOST}"
+POLICY_MAP="cilium_policy_reserved_${ID_HOST}"
+OPTS="-DFROM_HOST -DFIXED_SRC_SECCTX=${ID_HOST} -DSECLABEL=${ID_HOST} -DPOLICY_MAP=${POLICY_MAP}"
+remove_non_persistent_map $POLICY_MAP
 bpf_load $HOST_DEV1 "$OPTS" "egress" bpf_netdev.c bpf_host.o from-netdev $CALLS_MAP
 
 if [ -n "$XDP_DEV" ]; then
