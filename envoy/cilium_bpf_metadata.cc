@@ -68,11 +68,11 @@ bool Instance::getBpfMetadata(Network::ConnectionSocket &socket) {
 Network::FilterStatus Instance::onAccept(Network::ListenerFilterCallbacks &cb) {
   Network::ConnectionSocket &socket = cb.socket();
   if (!getBpfMetadata(socket)) {
-    ENVOY_LOG(warn,
+    ENVOY_LOG(debug,
               "cilium.bpf_metadata ({}): no bpf metadata for the connection.",
               config_->is_ingress_ ? "ingress" : "egress");
   } else {
-    ENVOY_LOG(debug,
+    ENVOY_LOG(trace,
               "cilium.bpf_metadata ({}): GOT bpf metadata for new connection "
               "(mark: {:x})",
               config_->is_ingress_ ? "ingress" : "egress", socket.options()->hashKey());
