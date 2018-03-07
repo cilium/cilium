@@ -121,17 +121,20 @@ docker-image: clean GIT_VERSION envoy/SOURCE_VERSION
 	echo ".*" >>.dockerignore # .git pruned out
 	echo "Documentation" >>.dockerignore # Not needed
 	docker build --build-arg LOCKDEBUG=${LOCKDEBUG} -t "cilium/cilium:$(DOCKER_IMAGE_TAG)" .
-	echo -e "Push like this when ready:\ndocker push cilium/cilium:$(DOCKER_IMAGE_TAG)"
+	@echo "Push like this when ready:"
+	@echo "docker push cilium/cilium:$(DOCKER_IMAGE_TAG)"
 
 docker-image-runtime:
 	cd contrib/packaging/docker && docker build -t "cilium/cilium-runtime:$(UTC_DATE)" -f Dockerfile.runtime .
-	echo -e "Update Dockerfile with the new tag and push like this when ready:\ndocker push cilium/cilium-runtime:$(UTC_DATE)"
+	@echo "Update Dockerfile with the new tag and push like this when ready:"
+	@echo "docker push cilium/cilium-runtime:$(UTC_DATE)"
 
 docker-image-builder:
 	cp contrib/packaging/docker/Dockerfile.builder envoy/.
 	cd envoy && docker build -t "cilium/cilium-builder:$(UTC_DATE)" -f Dockerfile.builder .
 	rm envoy/Dockerfile.builder
-	echo -e "Update Dockerfile with the new tag and push like this when ready:\ndocker push cilium/cilium-builder:$(UTC_DATE)"
+	@echo "Update Dockerfile with the new tag and push like this when ready:"
+	@echo "docker push cilium/cilium-builder:$(UTC_DATE)"
 
 build-deb:
 	$(MAKE) -C ./contrib/packaging/deb
