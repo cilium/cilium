@@ -18,8 +18,8 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"io/ioutil"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -672,7 +672,7 @@ func (kub *Kubectl) CiliumReport(namespace string, pod string, commands []string
 		fmt.Fprintln(wr, out.CombineOutput())
 	}
 	fmt.Fprint(wr, "StackTrace Ends\n")
-	kub.CiliumReportDump(namespace)
+	kub.DumpCiliumCommandOutput(namespace)
 	kub.GatherLogs()
 	kub.CheckLogsForDeadlock()
 
@@ -694,16 +694,11 @@ func (kub *Kubectl) CheckLogsForDeadlock() {
 	}
 }
 
-// CiliumReportDump runs a variety of commands (CiliumKubCLICommands) and writes the results to
+// DumpCiliumCommandOutput runs a variety of commands (CiliumKubCLICommands) and writes the results to
 // TestResultsPath
-func (kub *Kubectl) CiliumReportDump(namespace string) {
+func (kub *Kubectl) DumpCiliumCommandOutput(namespace string) {
 	ReportOnPod := func(pod string) {
 		logger := kub.logger.WithField("CiliumPod", pod)
-
-		reportEndpointCommands := map[string]string{
-			"cilium endpoint get %s":   "%s_endpoint_get_%s.txt",
-			"cilium bpf policy get %s": "%s_bpf_policy_get_%s.txt",
-		}
 
 		testPath, err := CreateReportDirectory()
 		if err != nil {
@@ -718,33 +713,23 @@ func (kub *Kubectl) CiliumReportDump(namespace string) {
 		}
 		reportMap(testPath, reportCmds, kub.SSHMeta)
 
-		for _, ep := range kub.CiliumEndpointsIDs(pod) {
-			for cmd, logfile := range reportEndpointCommands {
-				command := fmt.Sprintf(cmd, ep)
-				res := kub.Exec(fmt.Sprintf(
-					"kubectl exec -n %s %s -- %s", namespace, pod, command))
-				err = ioutil.WriteFile(
-					fmt.Sprintf("%s/%s", testPath, fmt.Sprintf(logfile, pod, ep)),
-					res.CombineOutput().Bytes(),
-					LogPerm)
-				if err != nil {
-					logger.WithError(err).Errorf(
-						"cannot create test results for command '%s'", command)
+		// Get bugtool output. Since bugtool output is dumped in the pod's filesystem,
+		// copy it over with `kubectl cp`.
+		bugtoolCmd := fmt.Sprintf("kubectl exec -n %s %s -- cilium-bugtool", namespace, pod)
+		res := kub.Exec(bugtoolCmd)
+		if res.WasSuccessful() {
+			// Default output directory is /tmp for bugtool.
+			res = kub.Exec(fmt.Sprintf("kubectl exec -n %s %s -- ls /tmp/", namespace, pod))
+			tmpList := res.ByLines()
+			for _, line := range tmpList {
+				// Only copy over bugtool output to directory.
+				if strings.Contains(line, "cilium-bugtool") {
+					archiveName := fmt.Sprintf("%s-%s", pod, line)
+					res = kub.Exec(fmt.Sprintf("kubectl cp %s/%s:/tmp/%s %s", namespace, pod, line, filepath.Join(BasePath, testPath, archiveName)))
 				}
 			}
-		}
-
-		for _, id := range kub.CiliumEndpointsIdentityIDs(pod) {
-			cmd := fmt.Sprintf("kubectl exec -n %s %s -- cilium identity get %s", namespace, pod, id)
-
-			res := kub.Exec(cmd)
-			err = ioutil.WriteFile(
-				fmt.Sprintf("%s/%s", testPath, fmt.Sprintf("%s_identity_%s.txt", pod, id)),
-				res.CombineOutput().Bytes(),
-				LogPerm)
-			if err != nil {
-				logger.WithError(err).Errorf("cannot create test results for command '%s'", cmd)
-			}
+		} else {
+			log.Errorf("%s failed: %s", bugtoolCmd, res.CombineOutput().String())
 		}
 	}
 
