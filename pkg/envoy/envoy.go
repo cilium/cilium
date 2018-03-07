@@ -140,9 +140,8 @@ func GetEnvoyVersion() string {
 }
 
 // StartEnvoy starts an Envoy proxy instance.
-func StartEnvoy(adminPort uint32, stateDir, logDir string, baseID uint64) *Envoy {
+func StartEnvoy(adminPort uint32, stateDir, logPath string, baseID uint64) *Envoy {
 	bootstrapPath := filepath.Join(stateDir, "bootstrap.pb")
-	logPath := filepath.Join(logDir, "cilium-envoy.log")
 	adminAddress := "127.0.0.1:" + strconv.FormatUint(uint64(adminPort), 10)
 	xdsPath := filepath.Join(stateDir, "xds.sock")
 	accessLogPath := filepath.Join(stateDir, "access_log.sock")

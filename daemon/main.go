@@ -340,6 +340,7 @@ func init() {
 	flags.String("enable-policy", endpoint.DefaultEnforcement, "Enable policy enforcement")
 	flags.BoolVar(&enableTracing,
 		"enable-tracing", false, "Enable tracing while determining policy (debugging)")
+	flags.String("envoy-log", "/var/log/cilium-envoy.log", "Path to Envoy log")
 	flags.BoolVar(&useEnvoy,
 		"envoy-proxy", true, "This flag is deprecated and will be removed in the next release")
 	flags.MarkHidden("envoy-proxy")
