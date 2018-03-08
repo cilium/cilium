@@ -2,6 +2,32 @@
 NEWS
 ******
 
+v1.0.0-rc7
+==========
+
+:date: 2018-03-08
+:commit: 9412a28332cd0d7afe489f6efd37edc8668f3a81
+
+Bugfixes Changes
+----------------
+
+* add "update" verb for customresourcedefinitions in cilium DaemonSet spec file (3052_, @aanm)
+* bpf: Move calls map to temporary location and remove after filter replacement (3049_, @tgraf)
+* bpf: Remove policy maps of programs loaded in init.sh (3042_, @tgraf)
+* agent: Fix manual endpoint regeneration (3040_, @tgraf)
+* Fix cilium CRD update in case schema validation changes (3029_, @aanm)
+* examples/getting-started: Fix failure to install docker (3020_, @tgraf)
+* bpf: Retry opening map after initial error (3018_, @tgraf)
+* consul: Report modified keys even if previously not known (3013_, @tgraf)
+* Restore error behaviour of endpoint config updates (3054_, @ianvernon)
+
+Other Changes
+-------------
+
+* Delete obsolete cilium-envoy.log on startup (3047_, @manalibhutiyani)
+* Introduce `DebugLB` option in endpoint config (3036_, @joestringer)
+* Support log rotation for envoy log (3034_, @manalibhutiyani)
+
 
 v1.0.0-rc6
 ==========
@@ -1137,3 +1163,15 @@ Fixes
 .. _2991: https://github.com/cilium/cilium/pull/2991
 .. _2970: https://github.com/cilium/cilium/pull/2970
 .. _2918: https://github.com/cilium/cilium/pull/2918
+.. _3052: https://github.com/cilium/cilium/pull/3052
+.. _3049: https://github.com/cilium/cilium/pull/3049
+.. _3042: https://github.com/cilium/cilium/pull/3042
+.. _3040: https://github.com/cilium/cilium/pull/3040
+.. _3029: https://github.com/cilium/cilium/pull/3029
+.. _3020: https://github.com/cilium/cilium/pull/3020
+.. _3018: https://github.com/cilium/cilium/pull/3018
+.. _3013: https://github.com/cilium/cilium/pull/3013
+.. _3047: https://github.com/cilium/cilium/pull/3047
+.. _3036: https://github.com/cilium/cilium/pull/3036
+.. _3034: https://github.com/cilium/cilium/pull/3034
+.. _3054: https://github.com/cilium/cilium/pull/3054
