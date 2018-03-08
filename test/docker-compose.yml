@@ -15,8 +15,8 @@ services:
     depends_on:
       - consul
       - etcd
-    image: "eloycoto/cilium_dependencies"
-    command: "bash -c 'cd /tmp/cilium-net-build/src/github.com/cilium/cilium/; make tests-ginkgo-real'"
+    image: "cilium/cilium-builder:2018-02-16"
+    command: "bash -c 'cd /go/src/github.com/cilium/cilium/; make tests-ginkgo-real'"
     privileged: true
     volumes:
-      - "./../:/tmp/cilium-net-build/src/github.com/cilium/cilium/"
+      - "./../:/go/src/github.com/cilium/cilium/"
