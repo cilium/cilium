@@ -1209,7 +1209,9 @@ func (e *Endpoint) Update(owner Owner, opts models.ConfigurationMap) error {
 			return nil
 		}
 
-		return fmt.Errorf("unable to regenerate endpoint program because state transition to %s was unsuccessful; check `cilium endpoint log %d` for more information", StateWaitingToRegenerate, e.ID)
+		// FIXME: GH-3058: We need to queue up a regeneration
+		// nevertheless
+		return nil
 	}
 
 	e.Mutex.Unlock()
