@@ -75,7 +75,9 @@ var _ = Describe("NightlyPolicies", func() {
 
 	MemoryProfiler := func(ctx context.Context) {
 		kubectl.CiliumExportInfo(ctx, "k8s_nightly_policies", map[string]string{
-			"endpoint_list": "kubectl get pods --all-namespaces | wc -l",
+			"endpoint_list": fmt.Sprintf(
+				"%s get pods --all-namespaces -o json | jq '.items|length'",
+				helpers.KubectlCmd),
 		})
 	}
 
