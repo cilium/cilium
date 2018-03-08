@@ -214,12 +214,6 @@ func (d *Daemon) policyAdd(rules api.Rules, opts *AddOptions) (uint64, error) {
 func (d *Daemon) PolicyAdd(rules api.Rules, opts *AddOptions) (uint64, error) {
 	log.WithField(logfields.CiliumNetworkPolicy, logfields.Repr(rules)).Debug("Policy Add Request")
 
-	for _, r := range rules {
-		if err := r.Sanitize(); err != nil {
-			return 0, apierror.Error(PutPolicyFailureCode, err)
-		}
-	}
-
 	rev, err := d.policyAdd(rules, opts)
 	if err != nil {
 		return 0, apierror.Error(PutPolicyFailureCode, err)
@@ -292,6 +286,12 @@ func (h *putPolicy) Handle(params PutPolicyParams) middleware.Responder {
 	var rules api.Rules
 	if err := json.Unmarshal([]byte(*params.Policy), &rules); err != nil {
 		return NewPutPolicyInvalidPolicy()
+	}
+
+	for _, r := range rules {
+		if err := r.Sanitize(); err != nil {
+			return apierror.Error(PutPolicyFailureCode, err)
+		}
 	}
 
 	rev, err := d.PolicyAdd(rules, nil)

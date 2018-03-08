@@ -284,17 +284,12 @@ func (p *Repository) Add(r api.Rule) (uint64, error) {
 }
 
 // AddListLocked inserts a rule into the policy repository with the repository already locked
+// Expects that the entire rule list has already been sanitized.
 func (p *Repository) AddListLocked(rules api.Rules) (uint64, error) {
-	// Validate entire rule list first and only append array if
-	// all rules are valid
 	newList := make([]*rule, len(rules))
 	for i := range rules {
 		newList[i] = &rule{Rule: *rules[i]}
-		if err := newList[i].sanitize(); err != nil {
-			return p.revision, err
-		}
 	}
-
 	p.rules = append(p.rules, newList...)
 	p.revision++
 	metrics.PolicyCount.Add(float64(len(newList)))
