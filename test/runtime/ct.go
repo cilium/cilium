@@ -619,15 +619,20 @@ var _ = Describe("RuntimeValidatedConntrackTable", func() {
 		res := vm.SetPolicyEnforcement(helpers.PolicyEnforcementDefault)
 		res.ExpectSuccess("Setting policy enforcement as default")
 
+		areEndpointsReady := vm.WaitEndpointsReady()
+		Expect(areEndpointsReady).Should(BeTrue(), "Endpoints are not ready after timeout")
+
 		// #FIXME remove these 6 lines once GH-2496 is fixed
 		epIDs, err := vm.GetEndpointsIds()
 		Expect(err).To(BeNil(), "Getting endpoints identity IDs")
 		for _, v := range epIDs {
-			vm.ExecCilium(fmt.Sprintf("endpoint config %s IngressPolicy=false", v)).ExpectSuccess("Setting %s endpoint's IngressPolicy as false", v)
-			vm.ExecCilium(fmt.Sprintf("endpoint config %s EgressPolicy=false", v)).ExpectSuccess("Setting %s endpoint's EgressPolicy as false", v)
+			vm.ExecCilium(fmt.Sprintf("endpoint config %s IngressPolicy=false", v)).ExpectSuccess(
+				"Setting %s endpoint's IngressPolicy as false", v)
+			vm.ExecCilium(fmt.Sprintf("endpoint config %s EgressPolicy=false", v)).ExpectSuccess(
+				"Setting %s endpoint's EgressPolicy as false", v)
 		}
 
-		areEndpointsReady := vm.WaitEndpointsReady()
+		areEndpointsReady = vm.WaitEndpointsReady()
 		Expect(areEndpointsReady).Should(BeTrue(), "Endpoints not ready after timeout")
 
 		meta := containersMeta()
