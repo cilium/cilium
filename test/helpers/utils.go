@@ -16,6 +16,7 @@ package helpers
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"html/template"
 	"io"
@@ -121,6 +122,27 @@ func WithTimeout(body func() bool, msg string, config *TimeoutConfig) error {
 			}
 		case <-done:
 			return fmt.Errorf("Timeout reached: %s", msg)
+		}
+	}
+}
+
+// WithTimeoutErr executes body using the time interval specified. The function
+// f is executed until bool returns true or the given context signalizes Done.
+func WithTimeoutErr(ctx context.Context, f func() (bool, error), freq time.Duration) error {
+	ticker := time.NewTicker(freq)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-ticker.C:
+			exit, err := f()
+			if err != nil {
+				return err
+			}
+			if exit {
+				return nil
+			}
 		}
 	}
 }
