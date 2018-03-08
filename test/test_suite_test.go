@@ -23,12 +23,13 @@ import (
 	"time"
 
 	"github.com/cilium/cilium/pkg/logging"
+	"github.com/cilium/cilium/test/config"
 	ginkgoext "github.com/cilium/cilium/test/ginkgo-ext"
 	"github.com/cilium/cilium/test/helpers"
 
-	"github.com/cilium/cilium/test/config"
+	. "github.com/eloycoto/ginkgo-ext"
 	gops "github.com/google/gops/agent"
-	. "github.com/onsi/ginkgo"
+	"github.com/onsi/ginkgo"
 	ginkgoconfig "github.com/onsi/ginkgo/config"
 	"github.com/onsi/ginkgo/reporters"
 	. "github.com/onsi/gomega"
@@ -78,8 +79,10 @@ func TestTest(t *testing.T) {
 	}
 	junitReporter := reporters.NewJUnitReporter(fmt.Sprintf(
 		"%s.xml", ginkgoext.GetScopeWithVersion()))
-	RunSpecsWithDefaultAndCustomReporters(
-		t, ginkgoext.GetScopeWithVersion(), []Reporter{junitReporter})
+	// RunSpecsWithDefaultAndCustomReporters(
+	// 	t, ginkgoext.GetScopeWithVersion(), []ginkgo.Reporter{junitReporter})
+
+	RunSpecsWithDefaultAndCustomReporters(t, "Foo Suite", []ginkgo.Reporter{junitReporter})
 }
 
 func goReportVagrantStatus() chan bool {
@@ -117,7 +120,7 @@ func goReportVagrantStatus() chan bool {
 	return exit
 }
 
-var _ = BeforeSuite(func() {
+var _ = BeforeAll(func() {
 	var err error
 
 	if !config.CiliumTestConfig.Reprovision {
@@ -183,7 +186,7 @@ var _ = BeforeSuite(func() {
 	return
 })
 
-var _ = AfterSuite(func() {
+var _ = AfterAll(func() {
 	if !helpers.IsRunningOnJenkins() {
 		log.Infof("AfterSuite: not running on Jenkins; leaving VMs running for debugging")
 		return

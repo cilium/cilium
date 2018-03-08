@@ -23,7 +23,7 @@ import (
 	"github.com/cilium/cilium/test/helpers"
 
 	"github.com/asaskevich/govalidator"
-	. "github.com/onsi/ginkgo"
+	. "github.com/eloycoto/ginkgo-ext"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/types"
 	"github.com/sirupsen/logrus"

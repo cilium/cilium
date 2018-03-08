@@ -8,7 +8,8 @@ import (
 
 	"github.com/cilium/cilium/test/helpers"
 
-	. "github.com/onsi/ginkgo"
+	. "github.com/eloycoto/ginkgo-ext"
+	"github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/types"
 	"github.com/sirupsen/logrus"
@@ -336,7 +337,7 @@ var _ = Describe("RuntimeValidatedConntrackTest", func() {
 
 		By("Showing policies imported to Cilium")
 		res := vm.PolicyGetAll()
-		fmt.Fprintln(GinkgoWriter, res.CombineOutput())
+		fmt.Fprintln(ginkgo.GinkgoWriter, res.CombineOutput())
 
 		testCases := []conntestCases{
 			{
