@@ -30,13 +30,21 @@ Step 0: Install kubectl & minikube
 3. Install ``minikube`` ``>= 0.22.3`` as described on `minikube's
 github page <https://github.com/kubernetes/minikube/releases>`_.
 
-Then, boot a minikube cluster with the Container Network Interface
-(CNI) network plugin enabled as well as the `RBAC authorization module
-<https://kubernetes.io/docs/admin/authorization/rbac/>`_ enabled:
+Boot a minukube cluster with the Container Network Interface (CNI) network
+plugin, the ``localkube`` bootstrapper, ``CustomResourceValidation``, as well
+as the `RBAC authorization module
+<https://kubernetes.io/docs/admin/authorization/rbac/>`_ enabled.
+
+The ``localkube`` bootstrapper provides ``etcd`` >= ``3.1.0``, a cilium
+dependency. ``CustomResourceValidation`` will allow Cilium to install the
+Cilium Network Policy validator into kubernetes
+(`more info <https://kubernetes.io/docs/tasks/access
+kubernetes-api/extend-api-custom-resource-definitions/#validation>`_). RBAC is
+an Istio dependency.
 
 ::
 
-    $ minikube start --memory=4096 --network-plugin=cni --extra-config=apiserver.Authorization.Mode=RBAC
+    $ minikube start --network-plugin=cni --bootstrapper=localkube --feature-gates=CustomResourceValidation=true --memory=4096 --extra-config=apiserver.Authorization.Mode=RBAC
 
 After minikube has finished setting up your new Kubernetes cluster,
 you can check the status of the cluster by running ``kubectl get cs``:
@@ -49,10 +57,8 @@ you can check the status of the cluster by running ``kubectl get cs``:
     scheduler            Healthy   ok
     etcd-0               Healthy   {"health": "true"}
 
-If you're using minikube's ``localkube`` bootstrapper (the default
-setting), the Kubernetes system account must be bound to the
-``cluster-admin`` role to enable the ``kube-dns`` service to run with
-RBAC enabled:
+Bind the Kubernetes system account to the ``cluster-admin`` role to enable the
+``kube-dns`` service to run with RBAC enabled:
 
 ::
 
@@ -77,12 +83,12 @@ next step.
 Step 2: Install Istio
 =====================
 
-Download `Istio version 0.2.12
-<https://github.com/istio/istio/releases/tag/0.2.12>`_:
+Download `Istio version 0.6.0
+<https://github.com/istio/istio/releases/tag/0.6.0>`_:
 
 ::
 
-    $ export ISTIO_VERSION=0.2.12
+    $ export ISTIO_VERSION=0.6.0
     $ curl -L https://git.io/getLatestIstio | sh -
     $ export ISTIO_HOME=\`pwd\`/istio-${ISTIO_VERSION}
     $ export PATH="$PATH:${ISTIO_HOME}/bin"
@@ -93,7 +99,23 @@ Deploy Istio on Kubernetes:
 
     $ kubectl create -f ${ISTIO_HOME}/install/kubernetes/istio.yaml
 
-Check the progress of the deployment (every services should have an
+.. TODO:
+   Rewrite istio.yaml to replace the proxy and proxy_init images with
+   Cilium's images.
+
+Configure Istio's sidecar injection to use Cilium's Docker images for the
+sidecar proxies:
+
+::
+
+    $ sed -e 's,istio/proxy_init:0.6.0,cilium/istio_proxy_init:0.6.0,' \\
+          -e 's,istio/proxy:0.6.0,cilium/istio_proxy:0.6.0,' \\
+          -e 's,istio/proxy_debug:0.6.0,cilium/istio_proxy_debug:0.6.0,' \\
+          -e 's/imagePullPolicy:.*$/imagePullPolicy: Always/' \\
+          < ${ISTIO_HOME}/install/kubernetes/istio-sidecar-injector-configmap-release.yaml | \\
+          kubectl create -f -
+
+Check the progress of the deployment (every service should have an
 ``AVAILABLE`` count of ``1``):
 
 ::
@@ -101,7 +123,6 @@ Check the progress of the deployment (every services should have an
     $ kubectl get deployments -n istio-system
     NAME            DESIRED   CURRENT   UP-TO-DATE   AVAILABLE   AGE
     istio-ca        1         1         1            1           2m
-    istio-egress    1         1         1            1           2m
     istio-ingress   1         1         1            1           2m
     istio-mixer     1         1         1            1           2m
     istio-pilot     1         1         1            1           2m
@@ -143,17 +164,6 @@ Each Deployment must be packaged with Istio's Envoy sidecar proxy in
 order to be managed by Istio, by running the ``istioctl kube-inject``
 command on each YAML file.
 
-The Istio sidecar proxy can be used to perform inbound traffic
-filtering using `Istio Mixer
-<https://istio.io/docs/concepts/policy-and-control/mixer.html>`_.
-However, when Cilium is used for network filtering, Istio's inbound
-proxying may be redundant, as is the case in this demo.  In this case,
-the Istio sidecar can be modified to bypass the inbound proxy for all
-inbound traffic.  This can be done by modifying the container image
-used for the ``istio-init`` container:
-``cilium/istio_proxy_init:0.2.12`` instead of
-``istio/proxy_init:0.2.12``.
-
 To package the Istio sidecar proxy and generate final YAML
 specifications, run:
 
@@ -161,8 +171,7 @@ specifications, run:
 
     $ for service in productpage-service productpage-v1 details-v1 reviews-v1; do \\
           curl -s \ |SCM_WEB|\/examples/kubernetes-istio/bookinfo-${service}.yaml | \\
-          istioctl kube-inject -f - | \\
-          sed -e 's,istio/proxy_init:0.2.12,cilium/istio_proxy_init:0.2.12,' | \\
+          istioctl kube-inject --injectConfigMapName istio-inject -f - | \\
           kubectl create -f - ; done
     service "productpage" created
     ciliumnetworkpolicy "productpage-v1" created
@@ -174,7 +183,7 @@ specifications, run:
     ciliumnetworkpolicy "reviews-v1" created
     deployment "reviews-v1" created
 
-Check the progress of the deployment (every services should have an
+Check the progress of the deployment (every service should have an
 ``AVAILABLE`` count of ``1``):
 
 ::
@@ -183,7 +192,6 @@ Check the progress of the deployment (every services should have an
     NAME             DESIRED   CURRENT   UP-TO-DATE   AVAILABLE   AGE
     details-v1       1         1         1            1           6m
     productpage-v1   1         1         1            1           6m
-    ratings-v1       1         1         1            1           6m
     reviews-v1       1         1         1            1           6m
 
 To obtain the URL to the frontend productpage service, run:
@@ -231,14 +239,26 @@ Deploy the ``ratings v1`` and ``reviews v2`` services:
 
     $ for service in ratings-v1 reviews-v2; do \\
           curl -s \ |SCM_WEB|\/examples/kubernetes-istio/bookinfo-${service}.yaml | \\
-          istioctl kube-inject -f - | \\
-          sed -e 's,istio/proxy_init:0.2.12,cilium/istio_proxy_init:0.2.12,' | \\
+          istioctl kube-inject --injectConfigMapName istio-inject -f - | \\
           kubectl create -f - ; done
     service "ratings" created
     ciliumnetworkpolicy "ratings-v1" created
     deployment "ratings-v1" created
     ciliumnetworkpolicy "reviews-v2" created   
     deployment "reviews-v2" created
+
+Check the progress of the deployment (every service should have an
+``AVAILABLE`` count of ``1``):
+
+::
+
+    $ kubectl get deployments -n default
+    NAME             DESIRED   CURRENT   UP-TO-DATE   AVAILABLE   AGE
+    details-v1       1         1         1            1           6m
+    productpage-v1   1         1         1            1           6m
+    ratings-v1       1         1         1            1           57s
+    reviews-v1       1         1         1            1           6m
+    reviews-v2       1         1         1            1           57s
 
 Check in your web browser that no stars are appearing in the Book
 Reviews, even after refreshing the page several times.  This indicates
@@ -333,8 +353,7 @@ deploy a Kafka broker:
 .. parsed-literal::
 
     $ curl -s \ |SCM_WEB|\/examples/kubernetes-istio/kafka-v1.yaml | \\
-          istioctl kube-inject -f - | \\
-          sed -e 's,istio/proxy_init:0.2.12,cilium/istio_proxy_init:0.2.12,' | \\
+          istioctl kube-inject --injectConfigMapName istio-inject -f - | \\
           kubectl create -f -
     service "kafka" created
     ciliumnetworkpolicy "kafka-authaudit" created
@@ -400,13 +419,25 @@ CiliumNetworkPolicy and delete ``productpage v1``:
 .. parsed-literal::
 
     $ curl -s \ |SCM_WEB|\/examples/kubernetes-istio/bookinfo-productpage-v2.yaml | \\
-          istioctl kube-inject -f - | \\
-          sed -e 's,istio/proxy_init:0.2.12,cilium/istio_proxy_init:0.2.12,' | \\
+          istioctl kube-inject --injectConfigMapName istio-inject -f - | \\
           kubectl create -f -
     ciliumnetworkpolicy "productpage-v2" created
     deployment "productpage-v2" created
 
     $ kubectl delete -f \ |SCM_WEB|\/examples/kubernetes-istio/bookinfo-productpage-v1.yaml
+
+Check the progress of the deployment (every service should have an
+``AVAILABLE`` count of ``1``):
+
+::
+
+    $ kubectl get deployments -n default
+    NAME             DESIRED   CURRENT   UP-TO-DATE   AVAILABLE   AGE
+    details-v1       1         1         1            1           15m
+    productpage-v2   1         1         1            1           1m
+    ratings-v1       1         1         1            1           10m
+    reviews-v1       1         1         1            1           15m
+    reviews-v2       1         1         1            1           10m
 
 Check that the product REST API is still accessible, and that Cilium
 now denies at Layer-7 any access to the reviews and ratings REST API:
@@ -447,9 +478,22 @@ this service:
 .. parsed-literal::
 
     $ curl -s \ |SCM_WEB|\/examples/kubernetes-istio/authaudit-logger-v1.yaml | \\
-          istioctl kube-inject -f - | \\
-          sed -e 's,istio/proxy_init:0.2.12,cilium/istio_proxy_init:0.2.12,' | \\
+          istioctl kube-inject --injectConfigMapName istio-inject -f - | \\
           kubectl apply -f -
+
+Check the progress of the deployment (every service should have an
+``AVAILABLE`` count of ``1``):
+
+::
+
+    $ kubectl get deployments -n default
+    NAME                  DESIRED   CURRENT   UP-TO-DATE   AVAILABLE   AGE
+    authaudit-logger-v1   1         1         1            1           23s
+    details-v1            1         1         1            1           16m
+    productpage-v2        1         1         1            1           2m
+    ratings-v1            1         1         1            1           11m
+    reviews-v1            1         1         1            1           16m
+    reviews-v2            1         1         1            1           11m
 
 Every login and logout on the product page will result in a line in
 this service's log:

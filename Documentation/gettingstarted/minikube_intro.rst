@@ -10,12 +10,12 @@ Step 0: Install kubectl & minikube
 <https://github.com/kubernetes/minikube/releases>`_.
 
 Boot a minukube cluster with the Container Network Interface (CNI) network
-plugin, the ``localkube`` bootstrapper, and CustomResourceValidation.
+plugin, the ``localkube`` bootstrapper, and ``CustomResourceValidation``.
 
 The ``localkube`` bootstrapper provides ``etcd`` >= ``3.1.0``, a cilium
 dependency. ``CustomResourceValidation`` will allow Cilium to install the Cilium
 Network Policy validator into kubernetes
-(`more info <https://kubernetes.io/docs/tasks/access kubernetes-api/extend-api-custom-resource-definitions/#validation>`_)
+(`more info <https://kubernetes.io/docs/tasks/access kubernetes-api/extend-api-custom-resource-definitions/#validation>`_).
 
 ::
 
