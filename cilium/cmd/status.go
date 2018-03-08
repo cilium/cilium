@@ -83,7 +83,8 @@ func statusDaemon() {
 		pkg.FormatStatusResponse(w, sr, allAddresses, allControllers, allNodes, allRedirects)
 		w.Flush()
 
-		if sr.Cilium != nil && sr.Cilium.State != models.StatusStateOk {
+		state := sr.Cilium.State
+		if sr.Cilium != nil && state != models.StatusStateOk && state != models.StatusStateDisabled {
 			os.Exit(1)
 		}
 
