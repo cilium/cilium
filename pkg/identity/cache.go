@@ -30,16 +30,29 @@ var (
 // IdentityCache is a cache of identity to labels mapping
 type IdentityCache map[NumericIdentity]labels.LabelArray
 
-// GetIdentityCache returns a cache of all known identities
-func GetIdentityCache() IdentityCache {
-	cache := IdentityCache{}
+// IdentityCacheSnapshot is a snapshot of the identity cache
+type IdentityCacheSnapshot struct {
+	// Cache is a copy of the identity cache
+	Cache IdentityCache
+
+	// Revision is the revision of the cache used for the copy
+	Revision uint64
+}
+
+// GetIdentityCache returns a snapshot of the cache containing all known
+// identities
+func GetIdentityCache() IdentityCacheSnapshot {
+	snapshot := IdentityCacheSnapshot{
+		Cache:    IdentityCache{},
+		Revision: identityAllocator.GetCacheRevision(),
+	}
 
 	identityAllocator.ForeachCache(func(id allocator.ID, val allocator.AllocatorKey) {
 		gi := val.(globalIdentity)
-		cache[NumericIdentity(id)] = gi.LabelArray()
+		snapshot.Cache[NumericIdentity(id)] = gi.LabelArray()
 	})
 
-	return cache
+	return snapshot
 }
 
 // GetIdentities returns all known identities

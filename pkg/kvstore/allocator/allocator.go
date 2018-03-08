@@ -149,6 +149,9 @@ type Allocator struct {
 	// behind.
 	cache IDMap
 
+	// cacheRevision is bumped each time the cache is modified
+	cacheRevision uint64
+
 	// nextCache is the cache is constantly being filled by startWatch(),
 	// when startWatch has sucessfully performed the initial fill using
 	// ListPrefix, the cache above will be pointed to nextCache. If the
@@ -322,6 +325,13 @@ func (a *Allocator) ForeachCache(cb RangeFunc) {
 		cb(k, v)
 	}
 	a.mutex.RUnlock()
+}
+
+// GetCacheRevision returns the revision of the cache
+func (a *Allocator) GetCacheRevision() uint64 {
+	a.mutex.RLock()
+	defer a.mutex.RUnlock()
+	return a.cacheRevision
 }
 
 func invalidKey(key, prefix string, deleteInvalid bool) {
@@ -749,6 +759,12 @@ func (a *Allocator) startWatch() waitChan {
 					a.mutex.Lock()
 					// nextCache is valid, point the live cache to it
 					a.cache = a.nextCache
+
+					// The initial listing is blocking so
+					// we can wait to bump the revision
+					// until the initial list has been read
+					// completely.
+					a.cacheRevision++
 					a.mutex.Unlock()
 
 					// report that the list operation has
@@ -781,6 +797,8 @@ func (a *Allocator) startWatch() waitChan {
 						kvstore.Trace("Removing id from cache", nil, logrus.Fields{fieldID: id})
 						delete(a.nextCache, id)
 					}
+
+					a.cacheRevision++
 					a.mutex.Unlock()
 
 					a.Events <- AllocatorEvent{

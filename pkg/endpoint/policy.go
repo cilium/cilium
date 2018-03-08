@@ -84,9 +84,9 @@ func (e *Endpoint) ProxyID(l4 *policy.L4Filter) string {
 	return fmt.Sprintf("%d:%s:%s:%d", e.ID, direction, l4.Protocol, l4.Port)
 }
 
-func getSecurityIdentities(labelsMap *identityPkg.IdentityCache, selector *api.EndpointSelector) []identityPkg.NumericIdentity {
+func getSecurityIdentities(identityCache identityPkg.IdentityCache, selector *api.EndpointSelector) []identityPkg.NumericIdentity {
 	identities := []identityPkg.NumericIdentity{}
-	for idx, labels := range *labelsMap {
+	for idx, labels := range identityCache {
 		if selector.Matches(labels) {
 			log.WithFields(logrus.Fields{
 				logfields.IdentityLabels: labels,
@@ -102,7 +102,7 @@ func getSecurityIdentities(labelsMap *identityPkg.IdentityCache, selector *api.E
 // removeOldFilter removes the old l4 filter from the endpoint.
 // Returns a map that represents all policies that were attempted to be removed;
 // it maps to whether they were removed successfully (true or false)
-func (e *Endpoint) removeOldFilter(owner Owner, labelsMap *identityPkg.IdentityCache,
+func (e *Endpoint) removeOldFilter(owner Owner, identityCache identityPkg.IdentityCache,
 	filter *policy.L4Filter) policy.SecurityIDContexts {
 
 	fromEndpointsSrcIDs := policy.NewSecurityIDContexts()
@@ -110,7 +110,7 @@ func (e *Endpoint) removeOldFilter(owner Owner, labelsMap *identityPkg.IdentityC
 	proto := uint8(filter.U8Proto)
 
 	for _, sel := range filter.FromEndpoints {
-		for _, id := range getSecurityIdentities(labelsMap, &sel) {
+		for _, id := range getSecurityIdentities(identityCache, &sel) {
 			srcID := id.Uint32()
 			l4RuleCtx, l7RuleCtx := e.ParseL4Filter(filter)
 			if _, ok := fromEndpointsSrcIDs[id]; !ok {
@@ -148,7 +148,7 @@ func (e *Endpoint) removeOldFilter(owner Owner, labelsMap *identityPkg.IdentityC
 // It also returns the number of errors that occurred while when applying the
 // policy.
 // Applies for L3 dependent L4 not for L4-only.
-func (e *Endpoint) applyNewFilter(owner Owner, labelsMap *identityPkg.IdentityCache,
+func (e *Endpoint) applyNewFilter(owner Owner, identityCache identityPkg.IdentityCache,
 	filter *policy.L4Filter) (policy.SecurityIDContexts, int) {
 
 	fromEndpointsSrcIDs := policy.NewSecurityIDContexts()
@@ -157,7 +157,7 @@ func (e *Endpoint) applyNewFilter(owner Owner, labelsMap *identityPkg.IdentityCa
 
 	errors := 0
 	for _, sel := range filter.FromEndpoints {
-		for _, id := range getSecurityIdentities(labelsMap, &sel) {
+		for _, id := range getSecurityIdentities(identityCache, &sel) {
 			srcID := id.Uint32()
 			if e.PolicyMap.L4Exists(srcID, port, proto) {
 				e.getLogger().WithField("l4Filter", filter).Debug("L4 filter exists")
@@ -211,7 +211,7 @@ func setMapOperationResult(secIDs, newSecIDs policy.SecurityIDContexts) {
 // and a map that represents all L3-dependent L4 rules that were attempted
 // to be removed;
 // it maps to whether they were removed successfully (true or false)
-func (e *Endpoint) applyL4PolicyLocked(owner Owner, labelsMap *identityPkg.IdentityCache,
+func (e *Endpoint) applyL4PolicyLocked(owner Owner, identityCache identityPkg.IdentityCache,
 	oldPolicy, newPolicy *policy.L4Policy) (secIDsAdd, secIDsRm policy.SecurityIDContexts, err error) {
 
 	secIDsAdd = policy.NewSecurityIDContexts()
@@ -220,7 +220,7 @@ func (e *Endpoint) applyL4PolicyLocked(owner Owner, labelsMap *identityPkg.Ident
 	if oldPolicy != nil {
 		var secIDs policy.SecurityIDContexts
 		for _, filter := range oldPolicy.Ingress {
-			secIDs = e.removeOldFilter(owner, labelsMap, &filter)
+			secIDs = e.removeOldFilter(owner, identityCache, &filter)
 			setMapOperationResult(secIDsRm, secIDs)
 		}
 	}
@@ -234,7 +234,7 @@ func (e *Endpoint) applyL4PolicyLocked(owner Owner, labelsMap *identityPkg.Ident
 		secIDs       policy.SecurityIDContexts
 	)
 	for _, filter := range newPolicy.Ingress {
-		secIDs, errs = e.applyNewFilter(owner, labelsMap, &filter)
+		secIDs, errs = e.applyNewFilter(owner, identityCache, &filter)
 		setMapOperationResult(secIDsAdd, secIDs)
 		errors += errs
 	}
@@ -245,20 +245,22 @@ func (e *Endpoint) applyL4PolicyLocked(owner Owner, labelsMap *identityPkg.Ident
 	return secIDsAdd, secIDsRm, nil
 }
 
-func getLabelsMap() (*identityPkg.IdentityCache, error) {
-	labelsMap := identityPkg.GetIdentityCache()
+func getIdentityCacheSnapshot() (identityPkg.IdentityCacheSnapshot, error) {
+	snapshot := identityPkg.GetIdentityCache()
 
+	// The cache can be extended with all reserved identities safely as
+	// reserved identities never change
 	reservedIDs := policy.GetConsumableCache().GetReservedIDs()
 	var idx identityPkg.NumericIdentity
 	for _, idx = range reservedIDs {
 		lbls := policy.ResolveIdentityLabels(idx)
 		if lbls == nil || len(lbls) == 0 {
-			return nil, fmt.Errorf("unable to resolve reserved identity")
+			return snapshot, fmt.Errorf("unable to resolve reserved identity")
 		}
-		labelsMap[idx] = lbls
+		snapshot.Cache[idx] = lbls
 	}
 
-	return &labelsMap, nil
+	return snapshot, nil
 }
 
 // Must be called with global endpoint.Mutex held
@@ -288,7 +290,7 @@ func (e *Endpoint) resolveL4Policy(owner Owner, repo *policy.Repository, c *poli
 // and a map matching which rules were successfully added/modified;
 // and a map matching which rules were successfully removed.
 // Must be called with Consumable mutex held.
-func (e *Endpoint) regenerateConsumable(owner Owner, labelsMap *identityPkg.IdentityCache,
+func (e *Endpoint) regenerateConsumable(owner Owner, identityCache identityPkg.IdentityCacheSnapshot,
 	repo *policy.Repository, c *policy.Consumable) (changed bool, rulesAdd policy.SecurityIDContexts, rulesRm policy.SecurityIDContexts) {
 
 	var (
@@ -308,7 +310,7 @@ func (e *Endpoint) regenerateConsumable(owner Owner, labelsMap *identityPkg.Iden
 	// L4 policy needs to be applied on two conditions
 	// 1. The L4 policy has changed
 	// 2. The set of applicable security identities has changed.
-	if e.L4Policy == c.L4Policy && e.LabelsMap == labelsMap {
+	if e.L4Policy == c.L4Policy && e.identityCacheRevision == identityCache.Revision {
 		// If there were no modifications to the L3-L4, copy the existing L3-L4
 		// policy.
 		if c.L3L4Policy != nil {
@@ -320,7 +322,7 @@ func (e *Endpoint) regenerateConsumable(owner Owner, labelsMap *identityPkg.Iden
 		// PolicyMap can't be created in dry mode.
 		if !owner.DryModeEnabled() {
 			// Collect unused redirects.
-			rulesAdd, l4Rm, err = e.applyL4PolicyLocked(owner, labelsMap, e.L4Policy, c.L4Policy)
+			rulesAdd, l4Rm, err = e.applyL4PolicyLocked(owner, identityCache.Cache, e.L4Policy, c.L4Policy)
 			if err != nil {
 				// This should not happen, and we can't fail at this stage anyway.
 				e.getLogger().WithError(err).Fatal("L4 Policy application failed")
@@ -328,7 +330,7 @@ func (e *Endpoint) regenerateConsumable(owner Owner, labelsMap *identityPkg.Iden
 		}
 		// Reuse the common policy, will be used in lxc_config.h (CFG_L4_INGRESS and CFG_L4_EGRESS)
 		e.L4Policy = c.L4Policy
-		e.LabelsMap = labelsMap // Remember the set of labels used
+		e.identityCacheRevision = identityCache.Revision
 
 		// We need to know which rules are L4-only by checking
 		// if there are any L4-only rules that do not match a L3-L4 rule.
@@ -392,7 +394,7 @@ func (e *Endpoint) regenerateConsumable(owner Owner, labelsMap *identityPkg.Iden
 		ctx.Trace = policy.TRACE_ENABLED
 	}
 
-	for srcID, srcLabels := range *labelsMap {
+	for srcID, srcLabels := range identityCache.Cache {
 		ctx.From = srcLabels
 		e.getLogger().WithFields(logrus.Fields{
 			logfields.PolicyID: srcID,
@@ -533,18 +535,13 @@ func (e *Endpoint) regeneratePolicy(owner Owner, opts models.ConfigurationMap) (
 
 	e.getLogger().Debug("Starting regenerate...")
 
-	// Collect label arrays before policy computation, as this can fail.
-	// GH-1128 should allow optimizing this away, but currently we can't
-	// reliably know if the KV-store has changed or not, so we must scan
-	// through it each time.
-	labelsMap, err := getLabelsMap()
+	identityCacheSnapshot, err := getIdentityCacheSnapshot()
 	if err != nil {
 		e.getLogger().WithError(err).Debug("Received error while evaluating policy")
 		return false, nil, nil, err
 	}
-	if reflect.DeepEqual(e.LabelsMap, labelsMap) {
-		labelsMap = e.LabelsMap
-	}
+
+	identityCache := identityCacheSnapshot.Cache
 
 	repo := owner.GetPolicyRepository()
 	repo.Mutex.RLock()
@@ -553,7 +550,8 @@ func (e *Endpoint) regeneratePolicy(owner Owner, opts models.ConfigurationMap) (
 
 	// Recompute policy for this endpoint only if not already done for this revision.
 	if !e.forcePolicyCompute && e.nextPolicyRevision >= revision &&
-		labelsMap == e.LabelsMap && opts == nil {
+		e.identityCacheRevision == identityCacheSnapshot.Revision &&
+		opts == nil {
 
 		e.getLogger().WithFields(logrus.Fields{
 			"policyRevision.next": e.nextPolicyRevision,
@@ -614,7 +612,7 @@ func (e *Endpoint) regeneratePolicy(owner Owner, opts models.ConfigurationMap) (
 	opts[OptionEgressPolicy] = optionDisabled
 
 	if egress {
-		e.checkEgressAccess(owner, (*labelsMap)[identityPkg.ReservedIdentityHost], opts, OptionAllowToHost)
+		e.checkEgressAccess(owner, identityCache[identityPkg.ReservedIdentityHost], opts, OptionAllowToHost)
 	}
 
 	if !ingress && !egress {
@@ -635,14 +633,14 @@ func (e *Endpoint) regeneratePolicy(owner Owner, opts models.ConfigurationMap) (
 
 	optsChanged := e.applyOptsLocked(opts)
 
-	policyChanged2, consumersAdd, consumersRm := e.regenerateConsumable(owner, labelsMap, repo, c)
+	policyChanged2, consumersAdd, consumersRm := e.regenerateConsumable(owner, identityCacheSnapshot, repo, c)
 	if policyChanged2 {
 		policyChanged = true
 	}
 
 	// Publish the updated policy to L7 proxies.
 	// TODO: Pass the allowed egress identities.
-	err = owner.UpdateNetworkPolicy(c.ID, c.L4Policy, *labelsMap, c.IngressIdentities, nil)
+	err = owner.UpdateNetworkPolicy(c.ID, c.L4Policy, identityCache, c.IngressIdentities, nil)
 	if err != nil {
 		return false, nil, nil, err
 	}
@@ -662,11 +660,14 @@ func (e *Endpoint) regeneratePolicy(owner Owner, opts models.ConfigurationMap) (
 		e.getLogger().Debug("Forced policy recalculation")
 	}
 
+	// remember the policy revision that was used for the calculation, this
+	// revision will later be announced as the endpoint's policy revision
+	// when the datapath has adopted the calculated changes.
 	e.nextPolicyRevision = revision
 
-	// If no policy or options change occurred for this endpoint then the endpoint is
-	// already running the latest revision, otherwise we have to wait for
-	// the regeneration of the endpoint to complete.
+	// If no policy or options change occurred for this endpoint then the
+	// endpoint is already running the latest revision, otherwise we have
+	// to wait for the regeneration of the endpoint to complete.
 	if !policyChanged && !optsChanged {
 		e.setPolicyRevision(revision)
 	}
@@ -766,7 +767,7 @@ func (e *Endpoint) regenerate(owner Owner, reason string) (retErr error) {
 	// compiled for
 	e.bumpPolicyRevision(revision)
 
-	e.getLogger().Info("Endpoint policy recalculated")
+	e.getLogger().Info("Endpoint regenerated")
 
 	return nil
 }
