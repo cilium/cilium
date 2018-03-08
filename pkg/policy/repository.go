@@ -268,6 +268,7 @@ func (p *Repository) SearchRLocked(labels labels.LabelArray) api.Rules {
 }
 
 // Add inserts a rule into the policy repository
+// This is just a helper function for unit testing.
 func (p *Repository) Add(r api.Rule) (uint64, error) {
 	p.Mutex.Lock()
 	defer p.Mutex.Unlock()
@@ -277,12 +278,9 @@ func (p *Repository) Add(r api.Rule) (uint64, error) {
 		return p.revision, err
 	}
 
-	p.rules = append(p.rules, realRule)
-	p.revision++
-	metrics.PolicyCount.Inc()
-	metrics.PolicyRevision.Inc()
-
-	return p.revision, nil
+	newList := make([]*api.Rule, 1)
+	newList[0] = &r
+	return p.AddListLocked(newList)
 }
 
 // AddListLocked inserts a rule into the policy repository with the repository already locked
