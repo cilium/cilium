@@ -195,6 +195,12 @@ func (n *EndpointSelector) Matches(lblsToMatch k8sLbls.Labels) bool {
 	return lbSelector.Matches(lblsToMatch)
 }
 
+// IsWildcard returns true if the endpoint selector selects all endpoints.
+func (n *EndpointSelector) IsWildcard() bool {
+	return n.LabelSelector != nil &&
+		len(n.LabelSelector.MatchLabels)+len(n.LabelSelector.MatchExpressions) == 0
+}
+
 // EndpointSelectorSlice is a slice of EndpointSelectors that can be sorted.
 type EndpointSelectorSlice []EndpointSelector
 
