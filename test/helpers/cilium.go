@@ -551,7 +551,7 @@ func (s *SSHMeta) DumpCiliumCommandOutput() {
 
 	// No need to create file for bugtool because it creates an archive of files
 	// for us.
-	res := s.ExecCilium(fmt.Sprintf("bugtool -t %s", filepath.Join(BasePath, testPath)))
+	res := s.ExecWithSudo(fmt.Sprintf("cilium-bugtool -t %s", filepath.Join(BasePath, testPath)))
 	if !res.WasSuccessful() {
 		s.logger.Errorf("Error running bugtool: %s", res.CombineOutput())
 	}
