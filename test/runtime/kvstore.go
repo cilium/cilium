@@ -20,7 +20,7 @@ import (
 
 	"github.com/cilium/cilium/test/helpers"
 
-	. "github.com/onsi/ginkgo"
+	. "github.com/eloycoto/ginkgo-ext"
 	. "github.com/onsi/gomega"
 	"github.com/sirupsen/logrus"
 )

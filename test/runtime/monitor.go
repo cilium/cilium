@@ -19,11 +19,10 @@ import (
 	"fmt"
 	"math/rand"
 	"strings"
-	"sync"
 
 	"github.com/cilium/cilium/test/helpers"
 
-	. "github.com/onsi/ginkgo"
+	. "github.com/eloycoto/ginkgo-ext"
 	. "github.com/onsi/gomega"
 	"github.com/sirupsen/logrus"
 )
@@ -44,285 +43,277 @@ const (
 
 var _ = Describe("RuntimeValidatedMonitorTest", func() {
 
-	var once sync.Once
 	var logger *logrus.Entry
 	var vm *helpers.SSHMeta
 
-	initialize := func() {
+	BeforeAll(func() {
 		logger = log.WithFields(logrus.Fields{"testName": "RuntimeMonitorTest"})
 		logger.Info("Starting")
 		vm = helpers.CreateNewRuntimeHelper(helpers.Runtime, logger)
 		areEndpointsReady := vm.WaitEndpointsReady()
 		Expect(areEndpointsReady).Should(BeTrue())
-	}
-
-	BeforeEach(func() {
-		once.Do(initialize)
-		res := vm.SetPolicyEnforcement(helpers.PolicyEnforcementDefault)
-		res.ExpectSuccess()
-
 	})
 
 	AfterEach(func() {
 		if CurrentGinkgoTestDescription().Failed {
 			vm.ReportFailed()
 		}
-
-		vm.SampleContainersActions(helpers.Delete, helpers.CiliumDockerNetwork)
 	})
 
-	It("Cilium monitor verbose mode", func() {
-
-		res := vm.ExecCilium(fmt.Sprintf("config %s=true %s=true %s=true",
-			MonitorDebug, MonitorDropNotification, MonitorTraceNotification))
-		res.ExpectSuccess()
-
-		ctx, cancel := context.WithCancel(context.Background())
-
-		res = vm.ExecContext(ctx, "cilium monitor -v")
-		vm.SampleContainersActions(helpers.Create, helpers.CiliumDockerNetwork)
-		areEndpointsReady := vm.WaitEndpointsReady()
-		Expect(areEndpointsReady).Should(BeTrue())
-
-		helpers.Sleep(10)
-		cancel()
-		endpoints, err := vm.GetEndpointsIds()
-		Expect(err).Should(BeNil())
-
-		for k, v := range endpoints {
-			filter := fmt.Sprintf("FROM %s DEBUG:", v)
-			vm.ContainerExec(k, helpers.Ping(helpers.Httpd1))
-			Expect(res.Output().String()).Should(ContainSubstring(filter))
-		}
+	BeforeEach(func() {
+		res := vm.SetPolicyEnforcement(helpers.PolicyEnforcementDefault)
+		res.ExpectSuccess("cannot change policy enforcement to Default")
 	})
 
-	It("Cilium monitor event types", func() {
-		eventTypes := map[string]string{
-			"drop":    "DROP:",
-			"debug":   "DEBUG:",
-			"capture": "DEBUG:",
+	Context("With Sample Containers", func() {
+
+		BeforeAll(func() {
+			vm.SampleContainersActions(helpers.Create, helpers.CiliumDockerNetwork)
+		})
+
+		AfterAll(func() {
+			vm.SampleContainersActions(helpers.Delete, helpers.CiliumDockerNetwork)
+		})
+
+		monitorConfig := func() {
+			res := vm.ExecCilium(fmt.Sprintf("config %s=true %s=true %s=true",
+				MonitorDebug, MonitorDropNotification, MonitorTraceNotification))
+			ExpectWithOffset(1, res.WasSuccessful()).To(BeTrue(), "cannot update monitor config")
 		}
 
-		res := vm.ExecCilium(fmt.Sprintf("config %s=true %s=true %s=true",
-			MonitorDebug, MonitorDropNotification, MonitorTraceNotification))
-		res.ExpectSuccess()
-		for k, v := range eventTypes {
-			By(fmt.Sprintf("Type %s", k))
+		It("Cilium monitor verbose mode", func() {
+			monitorConfig()
 
 			ctx, cancel := context.WithCancel(context.Background())
-			res := vm.ExecContext(ctx, fmt.Sprintf("cilium monitor --type %s -v", k))
-			vm.SampleContainersActions(helpers.Create, helpers.CiliumDockerNetwork)
+			res := vm.ExecContext(ctx, "cilium monitor -v")
+			defer cancel()
+
 			areEndpointsReady := vm.WaitEndpointsReady()
 			Expect(areEndpointsReady).Should(BeTrue())
 
+			endpoints, err := vm.GetEndpointsIds()
+			Expect(err).Should(BeNil())
+
+			for k, v := range endpoints {
+				filter := fmt.Sprintf("FROM %s DEBUG:", v)
+				vm.ContainerExec(k, helpers.Ping(helpers.Httpd1))
+				Expect(res.Output().String()).Should(ContainSubstring(filter))
+			}
+		})
+
+		It("Cilium monitor event types", func() {
+
+			monitorConfig()
+
+			_, err := vm.PolicyImportAndWait(vm.GetFullPath(policiesL3JSON), helpers.HelperTimeout)
+			Expect(err).Should(BeNil())
+
+			defer func() {
+				vm.PolicyDelAll().ExpectSuccess("cannot delete the policy")
+			}()
+
+			areEndpointsReady := vm.WaitEndpointsReady()
+			Expect(areEndpointsReady).Should(BeTrue(), "Endpoints are not ready after timeout")
+
+			eventTypes := map[string]string{
+				"drop":    "DROP:",
+				"debug":   "DEBUG:",
+				"capture": "DEBUG:",
+			}
+
+			for k, v := range eventTypes {
+				By(fmt.Sprintf("Type %s", k))
+
+				ctx, cancel := context.WithCancel(context.Background())
+				defer cancel()
+				res := vm.ExecContext(ctx, fmt.Sprintf("cilium monitor --type %s -v", k))
+
+				areEndpointsReady := vm.WaitEndpointsReady()
+				Expect(areEndpointsReady).Should(BeTrue())
+
+				vm.ContainerExec(helpers.App1, helpers.Ping(helpers.Httpd1))
+				vm.ContainerExec(helpers.App3, helpers.Ping(helpers.Httpd1))
+				// helpers.Sleep(10)
+				// cancel()
+
+				Expect(res.CountLines()).Should(BeNumerically(">", 3))
+				Expect(res.Output().String()).Should(ContainSubstring(v))
+			}
+
+			By("all types together")
+			command := "cilium monitor -v"
+			for k := range eventTypes {
+				command = command + " --type " + k
+			}
+
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+
+			By(command)
+			res := vm.ExecContext(ctx, command)
+
+			areEndpointsReady = vm.WaitEndpointsReady()
+			Expect(areEndpointsReady).Should(BeTrue())
+
+			vm.ContainerExec(helpers.App3, helpers.Ping(helpers.Httpd1))
+			vm.ContainerExec(helpers.App1, helpers.Ping(helpers.Httpd1))
+
+			cancel()
+
+			Expect(res.CountLines()).Should(BeNumerically(">", 3))
+			output := res.Output().String()
+			for _, v := range eventTypes {
+				Expect(output).Should(ContainSubstring(v))
+			}
+		})
+
+		It("cilium monitor check --from", func() {
+			monitorConfig()
+
+			areEndpointsReady := vm.WaitEndpointsReady()
+			Expect(areEndpointsReady).Should(BeTrue())
+
+			endpoints, err := vm.GetEndpointsIds()
+			Expect(err).Should(BeNil())
+
+			ctx, cancel := context.WithCancel(context.Background())
+			res := vm.ExecContext(ctx, fmt.Sprintf(
+				"cilium monitor --type debug --from %s -v", endpoints[helpers.App1]))
 			vm.ContainerExec(helpers.App1, helpers.Ping(helpers.Httpd1))
 			helpers.Sleep(10)
 			cancel()
 
 			Expect(res.CountLines()).Should(BeNumerically(">", 3))
-			Expect(res.Output().String()).Should(ContainSubstring(v))
-			vm.SampleContainersActions(helpers.Delete, helpers.CiliumDockerNetwork)
-		}
+			filter := fmt.Sprintf("FROM %s DEBUG:", endpoints[helpers.App1])
+			Expect(res.Output().String()).Should(ContainSubstring(filter))
 
-		By("all types together")
-		command := "cilium monitor -v"
-		for k := range eventTypes {
-			command = command + " --type " + k
-		}
+			//MonitorDebug mode shouldn't have DROP lines
+			Expect(res.Output().String()).ShouldNot(ContainSubstring("DROP"))
+		})
 
-		ctx, cancel := context.WithCancel(context.Background())
-		res = vm.ExecContext(ctx, command)
-		vm.SampleContainersActions(helpers.Create, helpers.CiliumDockerNetwork)
-		areEndpointsReady := vm.WaitEndpointsReady()
-		Expect(areEndpointsReady).Should(BeTrue())
+		It("cilium monitor check --to", func() {
+			monitorConfig()
 
-		vm.ContainerExec(helpers.App1, helpers.Ping(helpers.Httpd1))
-		helpers.Sleep(10)
-		cancel()
+			areEndpointsReady := vm.WaitEndpointsReady()
+			Expect(areEndpointsReady).Should(BeTrue())
 
-		Expect(res.CountLines()).Should(BeNumerically(">", 3))
-		output := res.Output().String()
-		for _, v := range eventTypes {
-			Expect(output).Should(ContainSubstring(v))
-		}
-	})
+			endpoints, err := vm.GetEndpointsIds()
+			Expect(err).Should(BeNil())
 
-	It("cilium monitor check --from", func() {
-		res := vm.ExecCilium(fmt.Sprintf("config %s=true %s=true %s=true", MonitorDebug, MonitorDropNotification, MonitorTraceNotification))
-		res.ExpectSuccess()
+			ctx, cancel := context.WithCancel(context.Background())
+			res := vm.ExecContext(ctx, fmt.Sprintf(
+				"cilium monitor -v --to %s", endpoints[helpers.Httpd1]))
 
-		vm.SampleContainersActions(helpers.Create, helpers.CiliumDockerNetwork)
-		areEndpointsReady := vm.WaitEndpointsReady()
-		Expect(areEndpointsReady).Should(BeTrue())
+			vm.ContainerExec(helpers.App1, helpers.Ping(helpers.Httpd1))
+			vm.ContainerExec(helpers.App2, helpers.Ping(helpers.Httpd1))
+			helpers.Sleep(5)
+			cancel()
 
-		endpoints, err := vm.GetEndpointsIds()
-		Expect(err).Should(BeNil())
+			Expect(res.CountLines()).Should(BeNumerically(">=", 3))
+			filter := fmt.Sprintf("to endpoint %s", endpoints[helpers.Httpd1])
+			Expect(res.Output().String()).Should(ContainSubstring(filter))
+		})
 
-		ctx, cancel := context.WithCancel(context.Background())
-		res = vm.ExecContext(ctx, fmt.Sprintf(
-			"cilium monitor --type debug --from %s -v", endpoints[helpers.App1]))
-		vm.ContainerExec(helpers.App1, helpers.Ping(helpers.Httpd1))
-		helpers.Sleep(10)
-		cancel()
+		It("cilium monitor check --related-to", func() {
+			monitorConfig()
 
-		Expect(res.CountLines()).Should(BeNumerically(">", 3))
-		filter := fmt.Sprintf("FROM %s DEBUG:", endpoints[helpers.App1])
-		Expect(res.Output().String()).Should(ContainSubstring(filter))
+			areEndpointsReady := vm.WaitEndpointsReady()
+			Expect(areEndpointsReady).Should(BeTrue())
 
-		//MonitorDebug mode shouldn't have DROP lines
-		Expect(res.Output().String()).ShouldNot(ContainSubstring("DROP"))
+			endpoints, err := vm.GetEndpointsIds()
+			Expect(err).Should(BeNil())
 
-	})
+			ctx, cancel := context.WithCancel(context.Background())
+			res := vm.ExecContext(ctx, fmt.Sprintf(
+				"cilium monitor -v --related-to %s", endpoints[helpers.Httpd1]))
 
-	It("cilium monitor check --to", func() {
+			vm.WaitEndpointsReady()
+			vm.ContainerExec(helpers.App1, helpers.CurlFail("http://httpd1/public"))
 
-		res := vm.ExecCilium(fmt.Sprintf(
-			"config %s=true %s=true %s=true", MonitorDebug, MonitorDropNotification, MonitorTraceNotification))
-		res.ExpectSuccess()
+			helpers.Sleep(10)
+			cancel()
+			Expect(res.CountLines()).Should(BeNumerically(">=", 3))
+			filter := fmt.Sprintf("FROM %s DEBUG:", endpoints[helpers.Httpd1])
+			Expect(res.Output().String()).Should(ContainSubstring(filter))
+		})
 
-		vm.SampleContainersActions(helpers.Create, helpers.CiliumDockerNetwork)
-		areEndpointsReady := vm.WaitEndpointsReady()
-		Expect(areEndpointsReady).Should(BeTrue())
+		It("multiple monitors", func() {
+			monitorConfig()
 
-		endpoints, err := vm.GetEndpointsIds()
-		Expect(err).Should(BeNil())
+			areEndpointsReady := vm.WaitEndpointsReady()
+			Expect(areEndpointsReady).Should(BeTrue(), "Endpoints are not ready after timeout")
 
-		ctx, cancel := context.WithCancel(context.Background())
-		res = vm.ExecContext(ctx, fmt.Sprintf(
-			"cilium monitor -v --to %s", endpoints[helpers.Httpd1]))
+			var monitorRes []*helpers.CmdRes
+			ctx, cancelfn := context.WithCancel(context.Background())
 
-		vm.ContainerExec(helpers.App1, helpers.Ping(helpers.Httpd1))
-		vm.ContainerExec(helpers.App2, helpers.Ping(helpers.Httpd1))
-		helpers.Sleep(10)
-		cancel()
+			for i := 1; i <= 3; i++ {
+				monitorRes = append(monitorRes, vm.ExecContext(ctx, "cilium monitor"))
+			}
 
-		Expect(res.CountLines()).Should(BeNumerically(">=", 3))
-		filter := fmt.Sprintf("to endpoint %s", endpoints[helpers.Httpd1])
-		Expect(res.Output().String()).Should(ContainSubstring(filter))
+			vm.ContainerExec(helpers.App1, helpers.Ping(helpers.Httpd1))
+			cancelfn()
 
-	})
+			Expect(monitorRes[0].CountLines()).Should(BeNumerically(">", 2))
 
-	It("cilium monitor check --related-to", func() {
+			//Due to the ssh connection, sometimes the result has one line more in
+			//any output. So we check at least 5 lines are in the all outputs.
+			for i := 0; i < 5; i++ {
+				//ln: return a random number in the array len upper than 5 (First 5 lines)
+				ln := rand.Intn((len(monitorRes[0].ByLines())-1)-5) + 5
+				str := monitorRes[0].ByLines()[ln]
+				Expect(monitorRes[1].Output().String()).Should(ContainSubstring(str))
+				Expect(monitorRes[2].Output().String()).Should(ContainSubstring(str))
+			}
+		})
 
-		res := vm.ExecCilium(fmt.Sprintf(
-			"config %s=true %s=true %s=true", MonitorDebug, MonitorDropNotification, MonitorTraceNotification))
-		res.ExpectSuccess()
+		It("checks container ids match monitor output", func() {
+			res := vm.ExecCilium(fmt.Sprintf("config %s=true", MonitorDebug))
+			res.ExpectSuccess()
+			res = vm.SetPolicyEnforcement(helpers.PolicyEnforcementAlways)
+			res.ExpectSuccess()
 
-		vm.SampleContainersActions(helpers.Create, helpers.CiliumDockerNetwork)
-		areEndpointsReady := vm.WaitEndpointsReady()
-		Expect(areEndpointsReady).Should(BeTrue())
+			areEndpointsReady := vm.WaitEndpointsReady()
+			Expect(areEndpointsReady).Should(BeTrue(), "Endpoints are not ready after timeout")
 
-		endpoints, err := vm.GetEndpointsIds()
-		Expect(err).Should(BeNil())
+			ctx, cancel := context.WithCancel(context.Background())
+			res = vm.ExecContext(ctx, "cilium monitor -v")
 
-		ctx, cancel := context.WithCancel(context.Background())
-		res = vm.ExecContext(ctx, fmt.Sprintf(
-			"cilium monitor -v --related-to %s", endpoints[helpers.Httpd1]))
+			vm.ContainerExec(helpers.App1, helpers.Ping(helpers.Httpd1))
+			vm.ContainerExec(helpers.Httpd1, helpers.Ping(helpers.App1))
 
-		vm.WaitEndpointsReady()
-		vm.ContainerExec(helpers.App1, helpers.CurlFail("http://httpd1/public"))
+			endpoints, err := vm.GetEndpointsIDMap()
+			Expect(err).Should(BeNil())
 
-		helpers.Sleep(10)
-		cancel()
-		Expect(res.CountLines()).Should(BeNumerically(">=", 3))
-		filter := fmt.Sprintf("FROM %s DEBUG:", endpoints[helpers.Httpd1])
-		Expect(res.Output().String()).Should(ContainSubstring(filter))
-	})
+			helpers.Sleep(10)
+			cancel()
 
-	prepareContainers := func() {
-		vm.ContainerCreate(helpers.Client, helpers.NetperfImage, helpers.CiliumDockerNetwork, "-l id.client")
-		vm.ContainerCreate(helpers.Server, helpers.NetperfImage, helpers.CiliumDockerNetwork, "-l id.server")
+			// Expected full example output:
+			// CPU 01: MARK 0x3de3947b FROM 48896 DEBUG: Attempting local delivery for container id 29381 from seclabel 263
+			//                              ^                                                       ^
+			for _, line := range res.ByLines() {
+				var toID, fromID string
 
-		areEndpointsReady := vm.WaitEndpointsReady()
-		Expect(areEndpointsReady).Should(BeTrue())
-	}
-
-	cleanupContainers := func() {
-		vm.ContainerRm(helpers.Client)
-		vm.ContainerRm(helpers.Server)
-	}
-
-	It("multiple monitors", func() {
-		res := vm.ExecCilium(fmt.Sprintf(
-			"config %s=true %s=true %s=true %s=default",
-			MonitorDebug, MonitorDropNotification,
-			MonitorTraceNotification, helpers.PolicyEnforcement))
-		res.ExpectSuccess()
-
-		var monitorRes []*helpers.CmdRes
-
-		prepareContainers()
-		defer cleanupContainers()
-
-		ctx, cancelfn := context.WithCancel(context.Background())
-
-		for i := 1; i <= 3; i++ {
-			monitorRes = append(monitorRes, vm.ExecContext(ctx, "cilium monitor"))
-		}
-
-		vm.ContainerExec(helpers.Client, helpers.Ping(helpers.Server))
-		cancelfn()
-
-		Expect(monitorRes[0].CountLines()).Should(BeNumerically(">", 2))
-
-		//Due to the ssh connection, sometimes the result has one line more in
-		//any output. So we check at least 5 lines are in the all outputs.
-		for i := 0; i < 5; i++ {
-			//ln: return a random number in the array len upper than 5 (First 5 lines)
-			ln := rand.Intn((len(monitorRes[0].ByLines())-1)-5) + 5
-			str := monitorRes[0].ByLines()[ln]
-			Expect(monitorRes[1].Output().String()).Should(ContainSubstring(str))
-			Expect(monitorRes[2].Output().String()).Should(ContainSubstring(str))
-		}
-	})
-
-	It("checks container ids match monitor output", func() {
-		res := vm.ExecCilium(fmt.Sprintf("config %s=true", MonitorDebug))
-		res.ExpectSuccess()
-		res = vm.SetPolicyEnforcement(helpers.PolicyEnforcementAlways)
-		res.ExpectSuccess()
-
-		prepareContainers()
-		defer cleanupContainers()
-
-		ctx, cancel := context.WithCancel(context.Background())
-		res = vm.ExecContext(ctx, "cilium monitor -v")
-
-		vm.ContainerExec(helpers.Client, helpers.Ping(helpers.Server))
-		vm.ContainerExec(helpers.Server, helpers.Ping(helpers.Client))
-
-		endpoints, err := vm.GetEndpointsIDMap()
-		Expect(err).Should(BeNil())
-
-		helpers.Sleep(10)
-		cancel()
-
-		// Expected full example output:
-		// CPU 01: MARK 0x3de3947b FROM 48896 DEBUG: Attempting local delivery for container id 29381 from seclabel 263
-		//                              ^                                                       ^
-		for _, line := range res.ByLines() {
-			var toID, fromID string
-
-			fields := strings.Split(line, " ")
-			for i := range fields {
-				switch fields[i] {
-				case "FROM":
-					fromID = fields[i+1]
-					break
-				case "id":
-					toID = fields[i+1]
-					break
+				fields := strings.Split(line, " ")
+				for i := range fields {
+					switch fields[i] {
+					case "FROM":
+						fromID = fields[i+1]
+						break
+					case "id":
+						toID = fields[i+1]
+						break
+					}
 				}
-			}
-			if fromID == "" || toID == "" {
-				continue
-			}
-			By(fmt.Sprintf("checking endpoints in monitor line:\n%s",
-				line))
+				if fromID == "" || toID == "" {
+					continue
+				}
+				By(fmt.Sprintf("checking endpoints in monitor line:\n%s",
+					line))
 
-			Expect(toID).Should(Not(Equal(fromID)))
-			Expect(endpoints[toID]).Should(Not(BeNil()))
-			Expect(endpoints[fromID]).Should(Not(BeNil()))
-		}
+				Expect(toID).Should(Not(Equal(fromID)))
+				Expect(endpoints[toID]).Should(Not(BeNil()))
+				Expect(endpoints[fromID]).Should(Not(BeNil()))
+			}
+		})
 	})
 })
