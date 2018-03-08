@@ -206,6 +206,8 @@ func copyCiliumInfoCommands(cmdDir string, k8sPods []string) []string {
 	ciliumCommands := []string{
 		"cilium debuginfo",
 		"cilium config",
+		"cilium endpoint list",
+		"cilium service list",
 		"cilium bpf tunnel list",
 		"cilium bpf lb list",
 		"cilium bpf endpoint list",
@@ -249,7 +251,7 @@ func k8sCommands(allCommands []string, pods []string) []string {
 	var commands = []string{
 		"kubectl get nodes -o wide",
 		"kubectl describe nodes",
-		"kubectl get pods,svc --all-namespaces",
+		"kubectl get pods,svc,cnp,netpol --all-namespaces -o wide",
 		"kubectl version",
 	}
 
