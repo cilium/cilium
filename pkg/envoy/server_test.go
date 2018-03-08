@@ -150,6 +150,18 @@ var ExpectedPortNetworkPolicyRule2 = &cilium.PortNetworkPolicyRule{
 	},
 }
 
+var ExpectedPortNetworkPolicyRule3 = &cilium.PortNetworkPolicyRule{
+	RemotePolicies: nil, // Wildcard. Select all.
+	L7Rules: &cilium.PortNetworkPolicyRule_HttpRules{
+		HttpRules: &cilium.HttpNetworkPolicyRules{
+			HttpRules: []*cilium.HttpNetworkPolicyRule{
+				{Headers: ExpectedHeaders2},
+				{Headers: ExpectedHeaders1},
+			},
+		},
+	},
+}
+
 var L4PolicyMap1 = map[string]policy.L4Filter{
 	"80/TCP": {
 		Port:     80,
@@ -168,6 +180,17 @@ var L4PolicyMap2 = map[string]policy.L4Filter{
 		L7Parser: policy.ParserTypeHTTP,
 		L7RulesPerEp: policy.L7DataMap{
 			EndpointSelector2: L7Rules2,
+		},
+	},
+}
+
+var L4PolicyMap3 = map[string]policy.L4Filter{
+	"8080/UDP": {
+		Port:     80,
+		Protocol: api.ProtoTCP,
+		L7Parser: policy.ParserTypeHTTP,
+		L7RulesPerEp: policy.L7DataMap{
+			policy.WildcardEndpointSelector: L7Rules1,
 		},
 	},
 }
@@ -192,8 +215,23 @@ var ExpectedPerPortPolicies2 = []*cilium.PortNetworkPolicy{
 	},
 }
 
+var ExpectedPerPortPolicies3 = []*cilium.PortNetworkPolicy{
+	{
+		Port:     80,
+		Protocol: envoy_api_v2_core.SocketAddress_TCP,
+		Rules: []*cilium.PortNetworkPolicyRule{
+			ExpectedPortNetworkPolicyRule3,
+		},
+	},
+}
+
 var L4Policy1 = &policy.L4Policy{
 	Ingress: L4PolicyMap1,
+	Egress:  L4PolicyMap2,
+}
+
+var L4Policy2 = &policy.L4Policy{
+	Ingress: L4PolicyMap3,
 	Egress:  L4PolicyMap2,
 }
 
@@ -223,6 +261,16 @@ func (s *ServerSuite) TestGetNetworkPolicy(c *C) {
 	expected := &cilium.NetworkPolicy{
 		Policy:                 123,
 		IngressPerPortPolicies: ExpectedPerPortPolicies1,
+		EgressPerPortPolicies:  ExpectedPerPortPolicies2,
+	}
+	c.Assert(obtained, DeepEquals, expected)
+}
+
+func (s *ServerSuite) TestGetNetworkPolicyWildcard(c *C) {
+	obtained := getNetworkPolicy(123, L4Policy2, IdentityCache, IdentityCache)
+	expected := &cilium.NetworkPolicy{
+		Policy:                 123,
+		IngressPerPortPolicies: ExpectedPerPortPolicies3,
 		EgressPerPortPolicies:  ExpectedPerPortPolicies2,
 	}
 	c.Assert(obtained, DeepEquals, expected)

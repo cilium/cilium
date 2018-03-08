@@ -409,18 +409,23 @@ func createBootstrap(filePath string, name, cluster, version string, xdsSock, en
 
 func getPortNetworkPolicyRule(sel api.EndpointSelector, l7Parser policy.L7ParserType, l7Rules api.L7Rules,
 	allowedIdentities identity.IdentityCache) *cilium.PortNetworkPolicyRule {
+	// In case the endpoint selector is a wildcard, optimize the policy by
+	// setting an empty remote policies list to select all.
 	var remotePolicies []uint64
-	for id, labels := range allowedIdentities {
-		if sel.Matches(labels) {
-			remotePolicies = append(remotePolicies, uint64(id))
+	if !sel.IsWildcard() {
+		for id, labels := range allowedIdentities {
+			if sel.Matches(labels) {
+				remotePolicies = append(remotePolicies, uint64(id))
+			}
 		}
-	}
 
-	if len(remotePolicies) == 0 {
-		return nil
-	}
+		// No remote policies would match this rule. Discard it.
+		if len(remotePolicies) == 0 {
+			return nil
+		}
 
-	sortkeys.Uint64s(remotePolicies)
+		sortkeys.Uint64s(remotePolicies)
+	}
 
 	r := &cilium.PortNetworkPolicyRule{
 		RemotePolicies: remotePolicies,
