@@ -17,6 +17,7 @@ package helpers
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"net"
@@ -34,6 +35,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"golang.org/x/crypto/ssh"
 	"k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8sClient "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
@@ -866,6 +868,88 @@ func (kub *Kubectl) GetCiliumPodOnNode(namespace string, node string) (string, e
 	}
 
 	return res.Output().String(), nil
+}
+
+// podHasExited returns true if the pod has finished up running.
+func (kub *Kubectl) podHasExited(ns, podName string) (bool, error) {
+	pod, err := kub.CoreV1().Pods(ns).Get(podName, metav1.GetOptions{})
+	if err != nil {
+		return false, err
+	}
+	switch pod.Status.Phase {
+	case v1.PodFailed, v1.PodSucceeded:
+		return true, nil
+	}
+	return false, nil
+}
+
+// WaitForPodExit waits for the given pod in the given namespace until the pod
+// is finished running or until the given context deadline is reached.
+func (kub *Kubectl) WaitForPodExit(ctx context.Context, ns, podName string) error {
+	return WithTimeoutErr(ctx, func() (bool, error) {
+		return kub.podHasExited(ns, podName)
+	}, time.Second)
+}
+
+// isPodReady returns true if the given pod in the given namespace is running
+// and in ready state.
+func (kub *Kubectl) isPodReady(ns, podName string) (bool, error) {
+	pod, err := kub.CoreV1().Pods(ns).Get(podName, metav1.GetOptions{})
+	if err != nil {
+		return false, err
+	}
+	switch pod.Status.Phase {
+	case v1.PodFailed, v1.PodSucceeded:
+		return false, errors.New("Pod is not running")
+	case v1.PodRunning:
+		for _, cond := range pod.Status.Conditions {
+			if cond.Type == v1.PodReady && cond.Status == v1.ConditionTrue {
+				return true, nil
+			}
+		}
+	}
+	return false, nil
+}
+
+// WaitForPodReady waits for the given pod in the given namespace until the pod
+// is running and in ready state or until the given context deadline is reached.
+func (kub *Kubectl) WaitForPodReady(ctx context.Context, ns, podName string) error {
+	return WithTimeoutErr(ctx, func() (bool, error) {
+		return kub.isPodReady(ns, podName)
+	}, time.Second)
+}
+
+// podHasExitedSuccessfully returns true if the pod has finished up running. Error is returned
+// if an unsuccessful exit has occurred.
+func (kub *Kubectl) podHasExitedSuccessfully(ns, podName string) (bool, error) {
+	pod, err := kub.CoreV1().Pods(ns).Get(podName, metav1.GetOptions{})
+	if err != nil {
+		return false, err
+	}
+	if pod.Spec.RestartPolicy == v1.RestartPolicyAlways {
+		return true, fmt.Errorf("pod %q will never terminate with a succeeded state since its restart policy is Always", pod.Name)
+	}
+	switch pod.Status.Phase {
+	case v1.PodSucceeded:
+		return true, nil
+	case v1.PodFailed:
+		return true, fmt.Errorf("pod %q failed with status: %+v", pod.Name, pod.Status)
+	default:
+		return false, nil
+	}
+}
+
+// WaitForPodSuccess waits for the given pod in the given namespace until the
+// pod has successfully exited or until the given context deadline is reached.
+func (kub *Kubectl) WaitForPodSuccess(ctx context.Context, ns, podName string) (bool, error) {
+	err := WithTimeoutErr(ctx, func() (bool, error) {
+		return kub.podHasExitedSuccessfully(ns, podName)
+	}, time.Second)
+
+	if err != nil {
+		return false, err
+	}
+	return true, nil
 }
 
 // EndpointMap maps an endpoint's container name to its Cilium API endpoint model.

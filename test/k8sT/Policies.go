@@ -15,33 +15,47 @@
 package k8sTest
 
 import (
+	"context"
 	"fmt"
 	"sync"
+	"time"
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/test/helpers"
+
 	"github.com/go-openapi/swag"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/sirupsen/logrus"
+	"k8s.io/api/core/v1"
+	networkingv1 "k8s.io/api/networking/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
 var _ = Describe("K8sValidatedPolicyTest", func() {
 
-	var demoPath string
-	var once sync.Once
-	var kubectl *helpers.Kubectl
-	var l3Policy, l7Policy, denyIngress, denyEgress string
-	var logger *logrus.Entry
-	var path string
-	var podFilter string
-	var apps []string
+	var (
+		demoPath                                    string
+		once                                        sync.Once
+		kubectl                                     *helpers.Kubectl
+		l3Policy, l7Policy, denyIngress, denyEgress string
+		logger                                      *logrus.Entry
+		path                                        string
+		podFilter                                   string
+		apps                                        []string
+		service                                     *v1.Service
+		podServer                                   *v1.Pod
+		namespace                                   string
+	)
 
 	initialize := func() {
 		logger = log.WithFields(logrus.Fields{"testName": "K8sPolicyTest"})
 		logger.Info("Starting")
 		kubectl = helpers.CreateKubectl(helpers.K8s1VMName(), logger)
 		podFilter = "k8s:zgroup=testapp"
+
+		namespace = "namespace-selector-test"
 
 		//Manifest paths
 		demoPath = kubectl.ManifestGet("demo.yaml")
@@ -591,6 +605,80 @@ var _ = Describe("K8sValidatedPolicyTest", func() {
 			testConnectivitytoRedis()
 		})
 	})
+
+	Context("KubernetesNetworkPolicy between server and client", func() {
+		BeforeEach(func() {
+			By("Creating the namespace that will be used for the pods")
+			_, err := kubectl.CoreV1().Namespaces().Create(&v1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: namespace}})
+			Expect(err).NotTo(HaveOccurred())
+
+			By("Creating a simple server that serves on port 80 and 81.")
+			podServer, service = createServerPodAndService(kubectl, namespace, "server", []int{80, 81})
+
+			By("Waiting for pod ready", func() {
+				ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+				defer cancel()
+				err := kubectl.WaitForPodReady(ctx, namespace, podServer.Name)
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			By("Testing pods can connect to both ports when no policy is present.")
+			testCanConnect(kubectl, namespace, "client-can-connect-80", service, 80, true)
+			testCanConnect(kubectl, namespace, "client-can-connect-81", service, 81, true)
+		})
+
+		AfterEach(func() {
+			cleanupServerPodAndService(kubectl, podServer, service)
+			By("Deleting the namespace that was used for the pods")
+			err := kubectl.CoreV1().Namespaces().Delete(namespace, &metav1.DeleteOptions{})
+			Expect(err).NotTo(HaveOccurred())
+
+			if CurrentGinkgoTestDescription().Failed {
+				ciliumPod, _ := kubectl.GetCiliumPodOnNode(helpers.KubeSystemNamespace, helpers.K8s1)
+				kubectl.CiliumReport(helpers.KubeSystemNamespace, ciliumPod, []string{
+					"cilium policy get",
+					"cilium endpoint list"})
+			}
+		})
+
+		It("should enforce policy based on NamespaceSelector", func() {
+			if helpers.GetCurrentK8SEnv() == "1.6" {
+				Skip("K8s 1.6 doesn't offer a default deny mode in its policy")
+				return
+			}
+
+			policy := &networkingv1.NetworkPolicy{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "allow-ns-b-via-namespace-selector",
+				},
+				Spec: networkingv1.NetworkPolicySpec{
+					// Apply to server
+					PodSelector: metav1.LabelSelector{
+						MatchLabels: map[string]string{
+							"pod-name": podServer.Name,
+						},
+					},
+					// Allow traffic only from NS-B
+					Ingress: []networkingv1.NetworkPolicyIngressRule{{
+						From: []networkingv1.NetworkPolicyPeer{{
+							NamespaceSelector: &metav1.LabelSelector{
+								MatchLabels: map[string]string{
+									"ns-name": namespace,
+								},
+							},
+						}},
+					}},
+				},
+			}
+			policy, err := kubectl.NetworkingV1().NetworkPolicies(namespace).Create(policy)
+			Expect(err).NotTo(HaveOccurred())
+			defer cleanupNetworkPolicy(kubectl, policy)
+
+			// Create a pod with name 'client-cannot-connect', which will attempt to communicate with the server,
+			// but should not be able to now that isolation is on.
+			testCanConnect(kubectl, namespace, "client-cannot-connect", service, 80, false)
+		})
+	})
 })
 
 var _ = Describe("K8sValidatedPolicyTestAcrossNamespaces", func() {
@@ -819,3 +907,156 @@ var _ = Describe("K8sValidatedPolicyTestAcrossNamespaces", func() {
 	}, 300)
 
 })
+
+// Create a server pod with a listening container for each port in ports[].
+// Will also assign a pod label with key: "pod-name" and label set to the given podname for later use by the network
+// policy.
+func createServerPodAndService(k *helpers.Kubectl, namespace, podName string, ports []int) (*v1.Pod, *v1.Service) {
+	// Because we have a variable amount of ports, we'll first loop through and generate our Containers for our pod,
+	// and ServicePorts.for our Service.
+	containers := []v1.Container{}
+	servicePorts := []v1.ServicePort{}
+	for _, port := range ports {
+		// Build the containers for the server pod.
+		containers = append(containers, v1.Container{
+			Name:  fmt.Sprintf("%s-container-%d", podName, port),
+			Image: "gcr.io/kubernetes-e2e-test-images/porter-amd64:1.0",
+			Env: []v1.EnvVar{
+				{
+					Name:  fmt.Sprintf("SERVE_PORT_%d", port),
+					Value: "foo",
+				},
+			},
+			Ports: []v1.ContainerPort{
+				{
+					ContainerPort: int32(port),
+					Name:          fmt.Sprintf("serve-%d", port),
+				},
+			},
+			ReadinessProbe: &v1.Probe{
+				Handler: v1.Handler{
+					HTTPGet: &v1.HTTPGetAction{
+						Path: "/",
+						Port: intstr.IntOrString{
+							IntVal: int32(port),
+						},
+						Scheme: v1.URISchemeHTTP,
+					},
+				},
+			},
+		})
+
+		// Build the Service Ports for the service.
+		servicePorts = append(servicePorts, v1.ServicePort{
+			Name:       fmt.Sprintf("%s-%d", podName, port),
+			Port:       int32(port),
+			TargetPort: intstr.FromInt(port),
+		})
+	}
+
+	By(fmt.Sprintf("Creating a server pod %s in namespace %s", podName, namespace))
+	pod, err := k.CoreV1().Pods(namespace).Create(&v1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: podName,
+			Labels: map[string]string{
+				"pod-name": podName,
+			},
+		},
+		Spec: v1.PodSpec{
+			Containers:    containers,
+			RestartPolicy: v1.RestartPolicyNever,
+		},
+	})
+	ExpectWithOffset(1, err).NotTo(HaveOccurred(), "Unable to create pod %s/%s", namespace, podName)
+
+	svcName := fmt.Sprintf("svc-%s", podName)
+	By(fmt.Sprintf("Creating a service %s for pod %s in namespace %s", svcName, podName, namespace))
+	svc, err := k.CoreV1().Services(namespace).Create(&v1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: svcName,
+		},
+		Spec: v1.ServiceSpec{
+			Ports: servicePorts,
+			Selector: map[string]string{
+				"pod-name": podName,
+			},
+		},
+	})
+	ExpectWithOffset(1, err).NotTo(HaveOccurred(), "Unable to create service %s/%s", namespace, svcName)
+
+	return pod, svc
+}
+
+func cleanupServerPodAndService(k *helpers.Kubectl, pod *v1.Pod, service *v1.Service) {
+	By(fmt.Sprintf("Cleaning up the server %s/%s", pod.Namespace, pod.Name))
+	err := k.CoreV1().Pods(pod.Namespace).Delete(pod.Name, nil)
+	ExpectWithOffset(1, err).To(BeNil(), "Terminating containers are not deleted after timeout")
+
+	By(fmt.Sprintf("Cleaning up the server's service %s/%s", service.Namespace, service.Name))
+	err = k.CoreV1().Services(service.Namespace).Delete(service.Name, nil)
+	ExpectWithOffset(1, err).To(BeNil(), "Terminating containers are not deleted after timeout")
+}
+
+func createNetworkClientPod(k *helpers.Kubectl, ns, podName string, targetService *v1.Service, dPort int) *v1.Pod {
+	pod, err := k.CoreV1().Pods(ns).Create(&v1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: podName,
+			Labels: map[string]string{
+				"pod-name": podName,
+			},
+		},
+		Spec: v1.PodSpec{
+			RestartPolicy: v1.RestartPolicyNever,
+			Containers: []v1.Container{
+				{
+					Name:  fmt.Sprintf("%s-container", podName),
+					Image: "busybox",
+					Args: []string{
+						"/bin/sh",
+						"-c",
+						fmt.Sprintf("for i in $(seq 1 5); do wget -T 8 %s.%s:%d -O - && exit 0 || sleep 1; done; exit 1",
+							targetService.Name, targetService.Namespace, dPort),
+					},
+				},
+			},
+		},
+	})
+
+	ExpectWithOffset(1, err).NotTo(HaveOccurred(), "Not possible to create Pod %q", podName)
+
+	return pod
+}
+
+// testCanConnect creates and tests if a given pod can, or can not connect,
+// depending on the canConnect value, to a given service on a specific
+// destination port.
+func testCanConnect(k *helpers.Kubectl, ns, podName string, service *v1.Service, dPort int, canConnect bool) {
+	pod := createNetworkClientPod(k, ns, podName, service, dPort)
+	defer func() {
+		By(fmt.Sprintf("Cleaning up the pod %s", podName))
+		err := k.CoreV1().Pods(ns).Delete(pod.Name, nil)
+		ExpectWithOffset(2, err).NotTo(HaveOccurred(), "Pod %q should have been deleted", pod.Name)
+	}()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+	defer cancel()
+	err := k.WaitForPodExit(ctx, ns, podName)
+	ExpectWithOffset(1, err).NotTo(HaveOccurred(), "Pod %q should have finished successfully", pod.Name)
+
+	ctx, cancel = context.WithTimeout(context.Background(), 2*time.Minute)
+	defer cancel()
+	success, err := k.WaitForPodSuccess(ctx, ns, podName)
+	if canConnect {
+		ExpectWithOffset(1, err).NotTo(HaveOccurred(), "Pod did not finish as expected.")
+		ExpectWithOffset(1, success).To(BeTrue(), "Unable to connect to service %s on port %d. (It should)", service.String(), dPort)
+	} else {
+		ExpectWithOffset(1, err).To(HaveOccurred(), "Pod did not finish as expected.")
+		ExpectWithOffset(1, success).To(BeFalse(), "Able to connect to service %s on port %d. (It shouldn't)", service.String(), dPort)
+	}
+}
+
+func cleanupNetworkPolicy(k *helpers.Kubectl, policy *networkingv1.NetworkPolicy) {
+	By(fmt.Sprintf("Cleaning up the policy %s/%s", policy.Namespace, policy.Name))
+	err := k.NetworkingV1().NetworkPolicies(policy.Namespace).Delete(policy.Name, nil)
+	ExpectWithOffset(1, err).NotTo(HaveOccurred(), "Unable to clean up policy %s/%s", policy.Namespace, policy.Name)
+}
