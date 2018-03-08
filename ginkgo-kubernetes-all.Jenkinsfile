@@ -86,11 +86,11 @@ pipeline {
     }
     post {
         always {
-            cleanWs()
             sh "cd ${TESTDIR}; K8S_VERSION=1.7 vagrant destroy -f || true"
             sh "cd ${TESTDIR}; K8S_VERSION=1.8 vagrant destroy -f || true"
             sh "cd ${TESTDIR}; K8S_VERSION=1.10 vagrant destroy -f || true"
             sh "cd ${TESTDIR}; K8S_VERSION=1.11 vagrant destroy -f || true"
+            cleanWs()
         }
     }
 }
