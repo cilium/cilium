@@ -282,6 +282,7 @@ rules:
   - get
   - list
   - watch
+  - update
 - apiGroups:
   - cilium.io
   resources:
