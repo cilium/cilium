@@ -19,6 +19,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/identity"
+	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/u8proto"
 )
 
@@ -76,6 +77,7 @@ type L7RuleContext struct {
 	// RedirectPort is the L7 redirect port in the policy in network byte order
 	RedirectPort uint16
 	// L4Installed specifies if the L4 rule is installed in the L4 BPF map
+	// Deprecated
 	L4Installed bool
 }
 
@@ -90,4 +92,65 @@ func (rc L4RuleContext) PortProto() string {
 	proto := u8proto.U8proto(rc.Proto).String()
 	port := strconv.Itoa(int(byteorder.NetworkToHost(uint16(rc.Port)).(uint16)))
 	return port + "/" + proto
+}
+
+// EntityContexts maps am entity to a L4RuleContexts
+type EntityContexts map[api.Entity]L4RuleContexts
+
+// DeepCopy returns a deep copy of EntityContexts
+func (ec EntityContexts) DeepCopy() EntityContexts {
+	cpy := make(EntityContexts)
+	for k, v := range ec {
+		cpy[k] = v.DeepCopy()
+	}
+	return cpy
+}
+
+// NewEntityContexts returns a new L4RuleContexts created.
+func NewEntityContexts() EntityContexts {
+	return EntityContexts(make(map[api.Entity]L4RuleContexts))
+}
+
+// CIDRContexts maps a CIDR to a L4RuleContexts
+type CIDRContexts map[api.CIDR]L4RuleContexts
+
+// DeepCopy returns a deep copy of EntityContexts
+func (cc CIDRContexts) DeepCopy() CIDRContexts {
+	cpy := make(CIDRContexts)
+	for k, v := range cc {
+		cpy[k] = v.DeepCopy()
+	}
+	return cpy
+}
+
+// NewCIDRContexts returns a new L4RuleContexts created.
+func NewCIDRContexts() CIDRContexts {
+	return CIDRContexts(make(map[api.CIDR]L4RuleContexts))
+}
+
+// Policy contains all policies combined by each type of policy peer.
+type Policy struct {
+	// Revision contains the revision number for this calculated policy.
+	Revision uint64
+
+	// ByNumericIdentity contains the policy to be filtered by SecurityIDs
+	ByNumericIdentity SecurityIDContexts
+	// ByEntity contains the policy to be filtered by Entities
+	ByEntity EntityContexts
+	// ByCIDR contains the policy to be filtered by CIDR
+	ByCIDR CIDRContexts
+	// ByService contains the policy to be filtered by Service IP
+	// Since Service IPs are Virtual IPs this should only be used for egress
+	// enforcement.
+	ByService CIDRContexts
+}
+
+func NewPolicy() *Policy {
+	return &Policy{
+		Revision:          0,
+		ByNumericIdentity: NewSecurityIDContexts(),
+		ByEntity:          NewEntityContexts(),
+		ByCIDR:            NewCIDRContexts(),
+		ByService:         NewCIDRContexts(),
+	}
 }
