@@ -21,17 +21,20 @@ apt-get update && \
 #
 # Install Go
 #
-apt-get install -y --no-install-recommends apt-utils curl git ca-certificates && \
+apt-get install -y --no-install-recommends apt-utils curl git make ca-certificates && \
 curl -Sslk -o /tmp/go.linux-amd64.tar.gz https://storage.googleapis.com/golang/go1.9.linux-amd64.tar.gz && \
 tar -C /usr/local -xzf /tmp/go.linux-amd64.tar.gz && \
 rm /tmp/go.linux-amd64.tar.gz && \
 go get -u github.com/cilium/go-bindata/... && \
 go get -u github.com/golang/protobuf/protoc-gen-go && \
+go get -d github.com/lyft/protoc-gen-validate && \
+(cd /go/src/github.com/lyft/protoc-gen-validate ; git checkout 930a67cf7ba41b9d9436ad7a1be70a5d5ff6e1fc ; make build) && \
 #
 # Install build requirements
 #
-apt-get -y install --no-install-recommends gcc make binutils \
- pkg-config zip g++ zlib1g-dev unzip python wget rsync libtool cmake realpath m4 automake
+apt-get -y install --no-install-recommends gcc binutils \
+ pkg-config zip g++ zlib1g-dev unzip python wget rsync libtool cmake realpath m4 automake && \
+apt-get clean
 #
 # Extract the needed Bazel version from the repo
 #
