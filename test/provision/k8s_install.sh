@@ -49,9 +49,14 @@ sudo rm /var/lib/apt/lists/lock || true
 retry_function "wget https://packages.cloud.google.com/apt/doc/apt-key.gpg"
 apt-key add apt-key.gpg
 
+# @todo remove swapoff when the version of the VM is greather or equal to 37
+# Github issue: https://github.com/cilium/cilium/issues/3066
+# Image PR: https://github.com/cilium/packer-ci-build/pull/35
 # Swap is disabled  by recomendation of kubernetes
 # https://serverfault.com/questions/881517/why-disable-swap-on-kubernetes
 sudo swapoff -a
+sudo sed -i.bak '/ swap / s/^\(.*\)$/#\1/g' /etc/fstab
+
 
 KUBEADM_SLAVE_OPTIONS=""
 KUBEADM_OPTIONS=""
