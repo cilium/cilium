@@ -408,13 +408,14 @@ func createBootstrap(filePath string, name, cluster, version string, xdsSock, en
 }
 
 func getPortNetworkPolicyRule(sel api.EndpointSelector, l7Parser policy.L7ParserType, l7Rules api.L7Rules,
-	allowedIdentities identity.IdentityCache) *cilium.PortNetworkPolicyRule {
-	// In case the endpoint selector is a wildcard, optimize the policy by
-	// setting an empty remote policies list to select all.
+	labelsMap identity.IdentityCache, deniedIdentities map[identity.NumericIdentity]bool) *cilium.PortNetworkPolicyRule {
+	// In case the endpoint selector is a wildcard and there are no denied
+	// identities, optimize the policy by setting an empty remote policies list
+	// to match all remote policies.
 	var remotePolicies []uint64
-	if !sel.IsWildcard() {
-		for id, labels := range allowedIdentities {
-			if sel.Matches(labels) {
+	if !sel.IsWildcard() || len(deniedIdentities) > 0 {
+		for id, labels := range labelsMap {
+			if !deniedIdentities[id] && sel.Matches(labels) {
 				remotePolicies = append(remotePolicies, uint64(id))
 			}
 		}
@@ -455,7 +456,7 @@ func getPortNetworkPolicyRule(sel api.EndpointSelector, l7Parser policy.L7Parser
 	return r
 }
 
-func getDirectionNetworkPolicy(l4Policy policy.L4PolicyMap, allowedIdentities identity.IdentityCache) []*cilium.PortNetworkPolicy {
+func getDirectionNetworkPolicy(l4Policy policy.L4PolicyMap, labelsMap identity.IdentityCache, deniedIdentities map[identity.NumericIdentity]bool) []*cilium.PortNetworkPolicy {
 	if len(l4Policy) == 0 {
 		return nil
 	}
@@ -478,7 +479,7 @@ func getDirectionNetworkPolicy(l4Policy policy.L4PolicyMap, allowedIdentities id
 		}
 
 		for sel, l7 := range l4.L7RulesPerEp {
-			rule := getPortNetworkPolicyRule(sel, l4.L7Parser, l7, allowedIdentities)
+			rule := getPortNetworkPolicyRule(sel, l4.L7Parser, l7, labelsMap, deniedIdentities)
 			if rule != nil {
 				pnp.Rules = append(pnp.Rules, rule)
 			}
@@ -494,18 +495,20 @@ func getDirectionNetworkPolicy(l4Policy policy.L4PolicyMap, allowedIdentities id
 }
 
 // getNetworkPolicy converts a network policy into a cilium.NetworkPolicy.
-func getNetworkPolicy(id identity.NumericIdentity, policy *policy.L4Policy, allowedIngressIdentities, allowedEgressIdentities identity.IdentityCache) *cilium.NetworkPolicy {
+func getNetworkPolicy(id identity.NumericIdentity, policy *policy.L4Policy,
+	labelsMap identity.IdentityCache, deniedIngressIdentities, deniedEgressIdentities map[identity.NumericIdentity]bool) *cilium.NetworkPolicy {
 	return &cilium.NetworkPolicy{
 		Policy:                 uint64(id),
-		IngressPerPortPolicies: getDirectionNetworkPolicy(policy.Ingress, allowedIngressIdentities),
-		EgressPerPortPolicies:  getDirectionNetworkPolicy(policy.Egress, allowedEgressIdentities),
+		IngressPerPortPolicies: getDirectionNetworkPolicy(policy.Ingress, labelsMap, deniedIngressIdentities),
+		EgressPerPortPolicies:  getDirectionNetworkPolicy(policy.Egress, labelsMap, deniedEgressIdentities),
 	}
 }
 
-// UpdateNetworkPolicy adds or updates a network policy in the set published
+// UpdateNetworkPolicy adds or updates a network policy in the set of published
 // to L7 proxies.
-func UpdateNetworkPolicy(id identity.NumericIdentity, policy *policy.L4Policy, allowedIngressIdentities, allowedEgressIdentities identity.IdentityCache) error {
-	networkPolicy := getNetworkPolicy(id, policy, allowedIngressIdentities, allowedEgressIdentities)
+func UpdateNetworkPolicy(id identity.NumericIdentity, policy *policy.L4Policy,
+	labelsMap identity.IdentityCache, deniedIngressIdentities, deniedEgressIdentities map[identity.NumericIdentity]bool) error {
+	networkPolicy := getNetworkPolicy(id, policy, labelsMap, deniedIngressIdentities, deniedEgressIdentities)
 	err := networkPolicy.Validate()
 	if err != nil {
 		return fmt.Errorf("error validating generated NetworkPolicy: %s", err)

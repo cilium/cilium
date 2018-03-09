@@ -658,9 +658,35 @@ func (e *Endpoint) regeneratePolicy(owner Owner, opts models.ConfigurationMap) (
 		policyChanged = true
 	}
 
+	// Compute the set of identities explicitly denied by policy.
+	// This loop is similar to the one in regenerateConsumable called
+	// above, but this set only contains the identities with "Denied" verdicts.
+	ctx := policy.SearchContext{
+		To: c.LabelArray,
+	}
+	if owner.TracingEnabled() {
+		ctx.Trace = policy.TRACE_ENABLED
+	}
+	deniedIngressIdentities := make(map[identityPkg.NumericIdentity]bool)
+	for srcID, srcLabels := range *labelsMap {
+		if c.IngressIdentities[srcID] {
+			// Already allowed for L3-only.
+		} else {
+			ctx.From = srcLabels
+			e.getLogger().WithFields(logrus.Fields{
+				logfields.PolicyID: srcID,
+				"ctx":              ctx,
+			}).Debug("Evaluating context for source PolicyID")
+			if repo.CanReachRLocked(&ctx) == api.Denied {
+				// Denied explicitly by fromRequires clause.
+				deniedIngressIdentities[srcID] = true
+			}
+		}
+	}
+
 	// Publish the updated policy to L7 proxies.
-	// TODO: Pass the allowed egress identities.
-	err = owner.UpdateNetworkPolicy(c.ID, c.L4Policy, *labelsMap, c.IngressIdentities, nil)
+	// TODO: Pass the denied egress identities.
+	err = owner.UpdateNetworkPolicy(c.ID, c.L4Policy, *labelsMap, deniedIngressIdentities, nil)
 	if err != nil {
 		return false, nil, nil, err
 	}
