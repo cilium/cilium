@@ -196,7 +196,7 @@ Entities Based
 --------------
 
 ``fromEntities`` is used to describe the entities that can access the selected
-endpoints. ``toEntities`` is used to descrieb the entities that can be accessed
+endpoints. ``toEntities`` is used to describe the entities that can be accessed
 by the selected endpoints.
 
 The following entities are defined:
