@@ -134,6 +134,7 @@ type Policy struct {
 	Revision uint64
 
 	// ByNumericIdentity contains the policy to be filtered by SecurityIDs
+	// For now should only be used for ingress enforcement.
 	ByNumericIdentity SecurityIDContexts
 	// ByEntity contains the policy to be filtered by Entities
 	ByEntity EntityContexts

@@ -294,6 +294,14 @@ type Endpoint struct {
 	// reference to all policy related BPF
 	PolicyMap *policymap.PolicyMap `json:"-"`
 
+	// IngressPolicy contains all policies combined by each type of policy peer
+	// for Ingress enforcement.
+	IngressPolicy *policy.Policy
+
+	// EgressPolicy contains all policies combined by each type of policy peer
+	// for Egress enforcement.
+	EgressPolicy *policy.Policy
+
 	// CIDRPolicy is the CIDR based policy configuration of the endpoint
 	L3Policy *policy.CIDRPolicy `json:"-"`
 
