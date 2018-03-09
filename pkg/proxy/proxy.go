@@ -562,8 +562,8 @@ func (p *Proxy) RemoveRedirect(id string, wg *completion.WaitGroup) error {
 // UpdateNetworkPolicy adds or updates a network policy in the set
 // published to L7 proxies.
 func (p *Proxy) UpdateNetworkPolicy(id identityPkg.NumericIdentity, policy *policy.L4Policy,
-	allowedIngressIdentities, allowedEgressIdentities identityPkg.IdentityCache) error {
-	return envoy.UpdateNetworkPolicy(id, policy, allowedIngressIdentities, allowedEgressIdentities)
+	labelsMap identityPkg.IdentityCache, deniedIngressIdentities, deniedEgressIdentities map[identityPkg.NumericIdentity]bool) error {
+	return envoy.UpdateNetworkPolicy(id, policy, labelsMap, deniedIngressIdentities, deniedEgressIdentities)
 }
 
 // RemoveNetworkPolicy removes a network policy from the set published to

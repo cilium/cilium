@@ -127,6 +127,10 @@ var IdentityCache = identity.IdentityCache{
 	},
 }
 
+var DeniedIdentitiesNone = make(map[identity.NumericIdentity]bool)
+
+var DeniedIdentities1001 = map[identity.NumericIdentity]bool{1001: true}
+
 var ExpectedPortNetworkPolicyRule1 = &cilium.PortNetworkPolicyRule{
 	RemotePolicies: []uint64{1001, 1002},
 	L7Rules: &cilium.PortNetworkPolicyRule_HttpRules{
@@ -152,6 +156,30 @@ var ExpectedPortNetworkPolicyRule2 = &cilium.PortNetworkPolicyRule{
 
 var ExpectedPortNetworkPolicyRule3 = &cilium.PortNetworkPolicyRule{
 	RemotePolicies: nil, // Wildcard. Select all.
+	L7Rules: &cilium.PortNetworkPolicyRule_HttpRules{
+		HttpRules: &cilium.HttpNetworkPolicyRules{
+			HttpRules: []*cilium.HttpNetworkPolicyRule{
+				{Headers: ExpectedHeaders2},
+				{Headers: ExpectedHeaders1},
+			},
+		},
+	},
+}
+
+var ExpectedPortNetworkPolicyRule4 = &cilium.PortNetworkPolicyRule{
+	RemotePolicies: []uint64{1002}, // Like ExpectedPortNetworkPolicyRule1 but 1001 is denied.
+	L7Rules: &cilium.PortNetworkPolicyRule_HttpRules{
+		HttpRules: &cilium.HttpNetworkPolicyRules{
+			HttpRules: []*cilium.HttpNetworkPolicyRule{
+				{Headers: ExpectedHeaders2},
+				{Headers: ExpectedHeaders1},
+			},
+		},
+	},
+}
+
+var ExpectedPortNetworkPolicyRule5 = &cilium.PortNetworkPolicyRule{
+	RemotePolicies: []uint64{1002, 1003}, // Wildcard, but 1001 is denied.
 	L7Rules: &cilium.PortNetworkPolicyRule_HttpRules{
 		HttpRules: &cilium.HttpNetworkPolicyRules{
 			HttpRules: []*cilium.HttpNetworkPolicyRule{
@@ -225,6 +253,26 @@ var ExpectedPerPortPolicies3 = []*cilium.PortNetworkPolicy{
 	},
 }
 
+var ExpectedPerPortPolicies4 = []*cilium.PortNetworkPolicy{
+	{
+		Port:     80,
+		Protocol: envoy_api_v2_core.SocketAddress_TCP,
+		Rules: []*cilium.PortNetworkPolicyRule{
+			ExpectedPortNetworkPolicyRule4,
+		},
+	},
+}
+
+var ExpectedPerPortPolicies5 = []*cilium.PortNetworkPolicy{
+	{
+		Port:     80,
+		Protocol: envoy_api_v2_core.SocketAddress_TCP,
+		Rules: []*cilium.PortNetworkPolicyRule{
+			ExpectedPortNetworkPolicyRule5,
+		},
+	},
+}
+
 var L4Policy1 = &policy.L4Policy{
 	Ingress: L4PolicyMap1,
 	Egress:  L4PolicyMap2,
@@ -241,23 +289,25 @@ func (s *ServerSuite) TestGetHTTPRule(c *C) {
 }
 
 func (s *ServerSuite) TestGetPortNetworkPolicyRule(c *C) {
-	obtained := getPortNetworkPolicyRule(EndpointSelector1, policy.ParserTypeHTTP, L7Rules1, IdentityCache)
+	obtained := getPortNetworkPolicyRule(EndpointSelector1, policy.ParserTypeHTTP, L7Rules1,
+		IdentityCache, DeniedIdentitiesNone)
 	c.Assert(obtained, DeepEquals, ExpectedPortNetworkPolicyRule1)
 
-	obtained = getPortNetworkPolicyRule(EndpointSelector2, policy.ParserTypeHTTP, L7Rules2, IdentityCache)
+	obtained = getPortNetworkPolicyRule(EndpointSelector2, policy.ParserTypeHTTP, L7Rules2,
+		IdentityCache, DeniedIdentitiesNone)
 	c.Assert(obtained, DeepEquals, ExpectedPortNetworkPolicyRule2)
 }
 
 func (s *ServerSuite) TestGetDirectionNetworkPolicy(c *C) {
-	obtained := getDirectionNetworkPolicy(L4PolicyMap1, IdentityCache)
+	obtained := getDirectionNetworkPolicy(L4PolicyMap1, IdentityCache, DeniedIdentitiesNone)
 	c.Assert(obtained, DeepEquals, ExpectedPerPortPolicies1)
 
-	obtained = getDirectionNetworkPolicy(L4PolicyMap2, IdentityCache)
+	obtained = getDirectionNetworkPolicy(L4PolicyMap2, IdentityCache, DeniedIdentitiesNone)
 	c.Assert(obtained, DeepEquals, ExpectedPerPortPolicies2)
 }
 
 func (s *ServerSuite) TestGetNetworkPolicy(c *C) {
-	obtained := getNetworkPolicy(123, L4Policy1, IdentityCache, IdentityCache)
+	obtained := getNetworkPolicy(123, L4Policy1, IdentityCache, DeniedIdentitiesNone, DeniedIdentitiesNone)
 	expected := &cilium.NetworkPolicy{
 		Policy:                 123,
 		IngressPerPortPolicies: ExpectedPerPortPolicies1,
@@ -267,10 +317,30 @@ func (s *ServerSuite) TestGetNetworkPolicy(c *C) {
 }
 
 func (s *ServerSuite) TestGetNetworkPolicyWildcard(c *C) {
-	obtained := getNetworkPolicy(123, L4Policy2, IdentityCache, IdentityCache)
+	obtained := getNetworkPolicy(123, L4Policy2, IdentityCache, DeniedIdentitiesNone, DeniedIdentitiesNone)
 	expected := &cilium.NetworkPolicy{
 		Policy:                 123,
 		IngressPerPortPolicies: ExpectedPerPortPolicies3,
+		EgressPerPortPolicies:  ExpectedPerPortPolicies2,
+	}
+	c.Assert(obtained, DeepEquals, expected)
+}
+
+func (s *ServerSuite) TestGetNetworkPolicyDeny(c *C) {
+	obtained := getNetworkPolicy(123, L4Policy1, IdentityCache, DeniedIdentities1001, DeniedIdentitiesNone)
+	expected := &cilium.NetworkPolicy{
+		Policy:                 123,
+		IngressPerPortPolicies: ExpectedPerPortPolicies4,
+		EgressPerPortPolicies:  ExpectedPerPortPolicies2,
+	}
+	c.Assert(obtained, DeepEquals, expected)
+}
+
+func (s *ServerSuite) TestGetNetworkPolicyWildcardDeny(c *C) {
+	obtained := getNetworkPolicy(123, L4Policy2, IdentityCache, DeniedIdentities1001, DeniedIdentitiesNone)
+	expected := &cilium.NetworkPolicy{
+		Policy:                 123,
+		IngressPerPortPolicies: ExpectedPerPortPolicies5,
 		EgressPerPortPolicies:  ExpectedPerPortPolicies2,
 	}
 	c.Assert(obtained, DeepEquals, expected)

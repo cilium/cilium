@@ -56,7 +56,7 @@ type DaemonSuite struct {
 	OnGetPolicyRepository             func() *policy.Repository
 	OnUpdateProxyRedirect             func(e *e.Endpoint, l4 *policy.L4Filter) (uint16, error)
 	OnRemoveProxyRedirect             func(e *e.Endpoint, id string) error
-	OnUpdateNetworkPolicy             func(id identity.NumericIdentity, policy *policy.L4Policy, labelsMap identity.IdentityCache, allowedIngressIdentities, allowedEgressIdentities map[identity.NumericIdentity]bool) error
+	OnUpdateNetworkPolicy             func(id identity.NumericIdentity, policy *policy.L4Policy, labelsMap identity.IdentityCache, deniedIngressIdentities, deniedEgressIdentities map[identity.NumericIdentity]bool) error
 	OnRemoveNetworkPolicy             func(id identity.NumericIdentity)
 	OnGetStateDir                     func() string
 	OnGetBpfDir                       func() string
@@ -238,9 +238,9 @@ func (ds *DaemonSuite) RemoveProxyRedirect(e *e.Endpoint, id string) error {
 }
 
 func (ds *DaemonSuite) UpdateNetworkPolicy(id identity.NumericIdentity, policy *policy.L4Policy,
-	labelsMap identity.IdentityCache, allowedIngressIdentities, allowedEgressIdentities map[identity.NumericIdentity]bool) error {
+	labelsMap identity.IdentityCache, deniedIngressIdentities, deniedEgressIdentities map[identity.NumericIdentity]bool) error {
 	if ds.OnUpdateNetworkPolicy != nil {
-		return ds.OnUpdateNetworkPolicy(id, policy, labelsMap, allowedIngressIdentities, allowedEgressIdentities)
+		return ds.OnUpdateNetworkPolicy(id, policy, labelsMap, deniedIngressIdentities, deniedEgressIdentities)
 	}
 	panic("UpdateNetworkPolicy should not have been called")
 }
