@@ -268,7 +268,7 @@ typically external services, VMs or metal machines running in particular
 subnets. CIDR policy can also be used to limit access to external services, for
 example to limit external access to a particular IP range.
 
-CIDR policies can be applied at ingress and egress:
+CIDR policies can be applied at ingress or egress. On Ingress:
 
 fromCIDR
   List of source prefixes/CIDRs that are allowed to talk to all endpoints
@@ -283,6 +283,8 @@ fromCIDRSet
   prefix/CIDR from which communication is not allowed. Like ``fromCIDR``
   it is not required to list the IPs of endpoints if the endpoints are
   already allowed to communicate based on ``fromEndpoints`` rules.
+
+On Egress:
 
 toCIDR:
   List of destination prefixes/CIDRs that endpoints selected by
