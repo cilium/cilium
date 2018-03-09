@@ -11,7 +11,7 @@ spec:
   - fromEndpoints:
     - matchLabels:
         env: prod
-  - toPorts:
+    toPorts:
     - ports:
       - port: "80"
         protocol: TCP
