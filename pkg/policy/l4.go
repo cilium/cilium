@@ -136,18 +136,12 @@ func (dm L7DataMap) addRulesForEndpoints(rules api.L7Rules, fromEndpoints []api.
 	}
 
 	if len(fromEndpoints) > 0 {
-		for _, ep := range fromEndpoints {
-			dm[ep] = api.L7Rules{
-				HTTP:  append(dm[ep].HTTP, rules.HTTP...),
-				Kafka: append(dm[ep].Kafka, rules.Kafka...),
-			}
+		for _, epsel := range fromEndpoints {
+			dm[epsel] = rules
 		}
 	} else {
 		// If there are no explicit fromEps, have a 'special' wildcard endpoint.
-		dm[WildcardEndpointSelector] = api.L7Rules{
-			HTTP:  append(dm[WildcardEndpointSelector].HTTP, rules.HTTP...),
-			Kafka: append(dm[WildcardEndpointSelector].Kafka, rules.Kafka...),
-		}
+		dm[WildcardEndpointSelector] = rules
 	}
 }
 
