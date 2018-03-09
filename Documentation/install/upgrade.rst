@@ -7,7 +7,14 @@ Upgrade Guide
 Kubernetes Cilium Upgrade
 =========================
 
-Cilium should be upgraded using Kubernetes rolling upgrade functionality in order to minimize network disruptions for running workloads. 
+Cilium should be upgraded using Kubernetes rolling upgrade functionality in order to minimize network disruptions for running workloads.
+
+Make sure you are using the latest RBAC role and service account definitions
+before performing the rolling upgrade::
+
+::
+
+    kubectl apply -f \ |SCM_WEB|\/examples/kubernetes/rbac.yaml
 
 Substitute the desired Cilium version number of vX.Y.Z in the command below
 
