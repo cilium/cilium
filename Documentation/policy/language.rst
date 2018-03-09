@@ -117,8 +117,8 @@ For this purpose, the ``fromRequires`` field can be used to establish label
 requirements which serve as a foundation for any ``fromEndpoints``
 relationship.  ``fromRequires`` is a list of additional constraints which must
 be met in order for the selected endpoints to be reachable. These additional
-constraints do no by itself grant access privileges and must always be
-accompanied with at least one matching ``fromEndpoints``.
+constraints do not grant access privileges by themselves, so to allow traffic
+there must also be rules which match ``fromEndpoints``.
 
 The purpose of this rule is to allow establishing base requirements such as, any
 endpoint in ``env=prod`` can only be accessed if the source endpoint also carries
