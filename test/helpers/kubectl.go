@@ -24,6 +24,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -656,14 +657,19 @@ func (kub *Kubectl) CiliumNodesWait() (bool, error) {
 // CiliumPolicyRevision returns the policy revision in the specified Cilium pod.
 // Returns an error if the policy revision cannot be retrieved.
 func (kub *Kubectl) CiliumPolicyRevision(pod string) (int, error) {
-	res := kub.CiliumExec(pod, "cilium policy get -o json | jq '.revision'")
-
+	res := kub.CiliumExec(pod, "cilium policy get -o json")
 	if !res.WasSuccessful() {
-		return -1, fmt.Errorf("Cannot get the revision %s", res.Output())
+		return -1, fmt.Errorf("cannot get the revision %s", res.Output())
 	}
-	revi, err := res.IntOutput()
+
+	revision, err := res.Filter("{.revision}")
 	if err != nil {
-		kub.logger.Errorf("Revision on pod '%s' is not valid '%s'", pod, res.CombineOutput())
+		return -1, fmt.Errorf("cannot get revision from json: %s", err)
+	}
+
+	revi, err := strconv.Atoi(strings.Trim(revision.String(), "\n"))
+	if err != nil {
+		kub.logger.Errorf("revision on pod '%s' is not valid '%s'", pod, res.CombineOutput())
 		return -1, err
 	}
 	return revi, nil
