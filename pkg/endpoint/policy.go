@@ -20,6 +20,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"strconv"
 	"sync"
 	"time"
 
@@ -498,6 +499,230 @@ func (e *Endpoint) IngressOrEgressIsEnforced() bool {
 		e.Opts.IsEnabled(OptionEgressPolicy)
 }
 
+func (e *Endpoint) GetPortNumber(port string) (uint16, error) {
+	i, err := strconv.Atoi(port)
+	if err != nil {
+		// FIXME check for ports names here if it doesn't exist, the throw initial error
+		return 0, err
+	}
+	return uint16(i), nil
+}
+
+func (e *Endpoint) regeneratePolicyNew(owner Owner, opts models.ConfigurationMap) (*policy.Policy, *policy.Policy, uint64) {
+	policyRepo := owner.GetPolicyRepository()
+
+	oldIngressPolicy := e.IngressPolicy
+	oldEgressPolicy := e.EgressPolicy
+	oldPolicyRev := e.policyRevision
+
+	ingressPolicy := policy.NewPolicy()
+	egressPolicy := policy.NewPolicy()
+
+	ctx := &policy.SearchContext{
+		To: e.SecurityIdentity.Labels.LabelArray(),
+	}
+
+	policyRepo.Mutex.RLock()
+	defer policyRepo.Mutex.RUnlock()
+	ing, egress, rev := policyRepo.ResolvePolicy(ctx)
+
+	labelsMap, _ := getLabelsMap()
+
+	// Create ingress policy
+	for _, ig := range ing {
+		// FIXME needs validation of a singe peer on each ingress rule
+		// Accept only FromEntities or FromCIDR or FromEndpoints or ...
+
+		// Create the L4Port first
+		l4Ports := policy.NewL4RuleContexts()
+		for _, toPort := range ig.ToPorts {
+			for _, pp := range toPort.Ports {
+				port, err := e.GetPortNumber(pp.Port)
+				if err != nil {
+					log.Debugf("Error while getting port number for %s", port)
+					continue
+				}
+				l4RuleCtx := policy.L4RuleContext{
+					Port: port,
+					// FIXME do the translation of protocols to uint8
+					// For now 0 means any
+					Proto: 0,
+				}
+				if _, ok := l4Ports[l4RuleCtx]; !ok {
+					l4Ports[l4RuleCtx] = policy.L7RuleContext{}
+				}
+			}
+			// FIXME When/How to store the ProxyPort?
+		}
+
+		// Create the policy ByNumericIdentity
+		for srcID, srcLabels := range *labelsMap {
+			for _, es := range ig.FromEndpoints {
+				// FIXME do we still need to use the policy repo to know if something is Accepted or Deny?
+				if es.Matches(srcLabels) {
+					if _, ok := ingressPolicy.ByNumericIdentity[srcID]; !ok {
+						ingressPolicy.ByNumericIdentity[srcID] = l4Ports
+					}
+				}
+			}
+		}
+
+		// Create the policy ByEntity
+		for _, entity := range ig.FromEntities {
+			ingressPolicy.ByEntity[entity] = l4Ports
+		}
+
+		// Create the policy ByCIDR
+		for _, cidr := range ig.FromCIDR {
+			ingressPolicy.ByCIDR[cidr] = l4Ports
+		}
+	}
+
+	// Create egress policy
+	for _, eg := range egress {
+		// FIXME needs validation of a singe peer on each ingress rule
+		// Accept only ToEntities or ToCIDR or ToService or ...
+
+		// Create the L4Port first
+		l4Ports := policy.NewL4RuleContexts()
+		for _, toPort := range eg.ToPorts {
+			for _, pp := range toPort.Ports {
+				port, err := e.GetPortNumber(pp.Port)
+				if err != nil {
+					log.Debugf("Error while getting port number for %s", port)
+					continue
+				}
+				l4RuleCtx := policy.L4RuleContext{
+					Port: port,
+					// FIXME do the translation of protocols to uint8
+					// For now 0 means any
+					Proto: 0,
+				}
+				if _, ok := l4Ports[l4RuleCtx]; !ok {
+					l4Ports[l4RuleCtx] = policy.L7RuleContext{}
+				}
+			}
+			// FIXME When/How to store the ProxyPort?
+		}
+
+		// FIXME We need a list of all k8s services so we can match them
+		// by labels / name
+		// The ToPorts should be enforced the policy in the Service Port and not
+		// in the endpoint port that is backed by the Service.
+
+		//for srcID, srcLabels := range *labelsMap {
+		//	for _, es := range eg.ToServices {
+		//		if es.Matches(srcLabels) {
+		//			if _, ok := ingressPolicy.ByNumericIdentity[srcID]; !ok {
+		//				egressPolicy.ByNumericIdentity[srcID] = l4Ports
+		//			}
+		//		}
+		//	}
+		//}
+
+		// Create the policy ByEntity
+		for _, entity := range eg.ToEntities {
+			egressPolicy.ByEntity[entity] = l4Ports
+		}
+
+		// Create the policy ByCIDR
+		for _, cidr := range eg.ToCIDR {
+			egressPolicy.ByCIDR[cidr] = l4Ports
+		}
+	}
+
+	// No errors so do atomic assignment
+	e.IngressPolicy = ingressPolicy
+	e.EgressPolicy = egressPolicy
+	// Q: When to bump policy revision?
+	// A: When bpf enforces it
+	// But we still need to store the policy revision somewhere
+	e.nextPolicyRevision = rev
+
+	return oldIngressPolicy, oldEgressPolicy, oldPolicyRev
+}
+
+func (e *Endpoint) DebugPolicy() {
+	ingressPolicy := e.IngressPolicy
+	egressPolicy := e.EgressPolicy
+
+	// At this point we should have the policies calculated except the proxy
+	// Port. The proxy port creation/update should be done in a new function
+	// called after regeneratePolicyNew
+
+	// Ok, how to read the policy generated?
+	// For ingressPolicy.ByNumericIdentity
+	for ni, l4Rules := range ingressPolicy.ByNumericIdentity {
+		if l4Rules.IsL3Only() {
+			log.Debugf("EP %s will accept receiving NumericIdentity %s on all L4 ports", e.ID, ni)
+			//+-----------------------+----------------------------+
+			//|         KEY           |            VALUE           |
+			//+-IDENTITY-+-PORT/PROTO-+-REDIRECT-+-BYTES-+-PACKETS-+
+			//|    ni    |      0     |    0     |   0   |    0    |
+			//+-----------------------+----------------------------+
+		} else {
+			for l4Policy, l7Policy := range l4Rules {
+				pp := l4Policy.PortProto()
+				redi := l7Policy.RedirectPort
+				log.Debugf("EP %s will accept receiving NumericIdentity %s with PortProto %s redirects to %d", e.ID, ni, pp, redi)
+				//+-----------------------+----------------------------+
+				//|         KEY           |            VALUE           |
+				//+-IDENTITY-+-PORT/PROTO-+-REDIRECT-+-BYTES-+-PACKETS-+
+				//|    ni    |     pp     |   redi   |   0   |    0    |
+				//+-----------------------+----------------------------+
+			}
+		}
+	}
+
+	// I haven't figure out how BPF will map the FromCIDR and FromEntities
+	for entity, l4Rules := range ingressPolicy.ByEntity {
+		if l4Rules.IsL3Only() {
+			log.Debugf("EP %s will accept receiving Entity %s on all ports", e.ID, entity)
+		} else {
+			for l4Policy, l7Policy := range l4Rules {
+				pp := l4Policy.PortProto()
+				redi := l7Policy.RedirectPort
+				log.Debugf("EP %s will accept receiving Entity %s with PortProto %s redirects to %d", e.ID, entity, pp, redi)
+			}
+		}
+	}
+	for cidr, l4Rules := range ingressPolicy.ByCIDR {
+		if l4Rules.IsL3Only() {
+			log.Debugf("EP %s will accept receiving CIDR %s on all ports", e.ID, cidr)
+		} else {
+			for l4Policy, l7Policy := range l4Rules {
+				pp := l4Policy.PortProto()
+				redi := l7Policy.RedirectPort
+				log.Debugf("EP %s will accept receiving CIDR %s with PortProto %s redirects to %d", e.ID, cidr, pp, redi)
+			}
+		}
+	}
+
+	// Regarding egress
+	for cidr, l4Rules := range egressPolicy.ByCIDR {
+		if l4Rules.IsL3Only() {
+			log.Debugf("EP %s is allowed to send to CIDR %s on all ports", cidr)
+		} else {
+			for l4Policy, l7Policy := range l4Rules {
+				pp := l4Policy.PortProto()
+				redi := l7Policy.RedirectPort
+				log.Debugf("EP %s is allowed to send to CIDR %s on PortProto %s which redirects to %d", cidr, pp, redi)
+			}
+		}
+	}
+	for entity, l4Rules := range egressPolicy.ByEntity {
+		if l4Rules.IsL3Only() {
+			log.Debugf("EP %s is allowed to send to Entity %s on all ports", entity)
+		} else {
+			for l4Policy, l7Policy := range l4Rules {
+				pp := l4Policy.PortProto()
+				redi := l7Policy.RedirectPort
+				log.Debugf("EP %s is allowed to send to Entity %s on PortProto %s which redirects to %d", entity, pp, redi)
+			}
+		}
+	}
+}
+
 // regeneratePolicy regenerates endpoint's policy if needed and returns
 // whether the BPF for the given endpoint should be regenerated. Only
 // called when e.Consumable != nil.
@@ -530,6 +755,8 @@ func (e *Endpoint) IngressOrEgressIsEnforced() bool {
 //  - err: error in case of an error.
 // Must be called with endpoint mutex held.
 func (e *Endpoint) regeneratePolicy(owner Owner, opts models.ConfigurationMap) (bool, policy.SecurityIDContexts, policy.SecurityIDContexts, error) {
+	e.regeneratePolicyNew(owner, opts)
+	e.DebugPolicy()
 	// Dry mode does not regenerate policy via bpf regeneration, so we let it pass
 	// through. Some bpf/redirect updates are skipped in that case.
 	//

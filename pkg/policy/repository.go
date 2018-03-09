@@ -120,6 +120,21 @@ func (p *Repository) AllowsLabelAccess(ctx *SearchContext) api.Decision {
 	return decision
 }
 
+// ResolvePolicy returns all policy rules that affect the given endpoint
+func (p *Repository) ResolvePolicy(ctx *SearchContext) ([]api.IngressRule, []api.EgressRule, uint64) {
+	ingress := make([]api.IngressRule, 0)
+	egress := make([]api.EgressRule, 0)
+
+	for _, r := range p.rules {
+		if r.EndpointSelector.Matches(ctx.To) {
+			ingress = append(ingress, r.Ingress...)
+			egress = append(egress, r.Egress...)
+		}
+	}
+
+	return ingress, egress, p.revision
+}
+
 // ResolveL4Policy resolves the L4 policy for a set of endpoints by searching
 // the policy repository for `PortRule` rules that are attached to a `Rule`
 // where the EndpointSelector matches `ctx.To`. `ctx.From` takes no effect and
