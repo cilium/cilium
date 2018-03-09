@@ -4,6 +4,7 @@ pipeline {
     }
     environment {
         PROJ_PATH = "src/github.com/cilium/cilium"
+        MEMORY = "3072"
     }
 
     options {
