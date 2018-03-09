@@ -20,7 +20,7 @@ var policiesTestSuite = PolicyTestSuite{
 			kind:  ingress,
 			tests: ConnResultAllOK,
 			template: map[string]string{
-				"FromEndpoints": `[{}]`,
+				"fromEndpoints": `[{}]`,
 			},
 		},
 		{
@@ -28,7 +28,7 @@ var policiesTestSuite = PolicyTestSuite{
 			kind:  ingress,
 			tests: ConnResultAllOK,
 			template: map[string]string{
-				"FromEndpoints": `[{"matchLabels": { "id": "{{.SrcPod}}"}}]`,
+				"fromEndpoints": `[{"matchLabels": { "id": "{{.SrcPod}}"}}]`,
 			},
 		},
 		{
@@ -36,7 +36,7 @@ var policiesTestSuite = PolicyTestSuite{
 			kind:  ingress,
 			tests: ConnResultAllTimeout,
 			template: map[string]string{
-				"FromEndpoints": `[{"matchLabels": { "id": "{{.SrcPod}}Invalid"}}]`,
+				"fromEndpoints": `[{"matchLabels": { "id": "{{.SrcPod}}Invalid"}}]`,
 			},
 		},
 	},
@@ -52,7 +52,7 @@ var policiesTestSuite = PolicyTestSuite{
 			kind:  ingress,
 			tests: ConnResultOnlyHTTP,
 			template: map[string]string{
-				"Ports": `[{"port": "80"}]`,
+				"ports": `[{"port": "80"}]`,
 			},
 		},
 		{
@@ -60,7 +60,7 @@ var policiesTestSuite = PolicyTestSuite{
 			kind:  egress,
 			tests: ConnResultOnlyHTTPAndPing,
 			template: map[string]string{
-				"Ports": `[{"port": "80"}]`,
+				"ports": `[{"port": "80"}]`,
 			},
 		},
 		{
@@ -68,7 +68,7 @@ var policiesTestSuite = PolicyTestSuite{
 			kind:  ingress,
 			tests: ConnResultOnlyHTTP,
 			template: map[string]string{
-				"Ports": `[{"port": "80", "protocol": "TCP"}]`,
+				"ports": `[{"port": "80", "protocol": "TCP"}]`,
 			},
 		},
 		{
@@ -76,7 +76,7 @@ var policiesTestSuite = PolicyTestSuite{
 			kind:  ingress,
 			tests: ConnResultAllTimeout,
 			template: map[string]string{
-				"Ports": `[{"port": "80", "protocol": "UDP"}]`,
+				"ports": `[{"port": "80", "protocol": "UDP"}]`,
 			},
 		},
 		{
@@ -84,7 +84,7 @@ var policiesTestSuite = PolicyTestSuite{
 			kind:  egress,
 			tests: ConnResultOnlyHTTPAndPing,
 			template: map[string]string{
-				"Ports": `[{"port": "80", "protocol": "TCP"}]`,
+				"ports": `[{"port": "80", "protocol": "TCP"}]`,
 			},
 		},
 		{
@@ -92,7 +92,7 @@ var policiesTestSuite = PolicyTestSuite{
 			kind:  egress,
 			tests: ConnResultAllTimeoutExceptPing,
 			template: map[string]string{
-				"Ports": `[{"port": "80", "protocol": "UDP"}]`,
+				"ports": `[{"port": "80", "protocol": "UDP"}]`,
 			},
 		},
 	},
@@ -108,8 +108,8 @@ var policiesTestSuite = PolicyTestSuite{
 			kind:  ingress,
 			tests: ConnResultOnlyHTTPPrivate,
 			template: map[string]string{
-				"Rules": `{"http": [{"method": "GET", "path": "/private"}]}`,
-				"Ports": `[{"port": "80", "protocol": "TCP"}]`,
+				"rules": `{"http": [{"method": "GET", "path": "/private"}]}`,
+				"ports": `[{"port": "80", "protocol": "TCP"}]`,
 			},
 		},
 		{
@@ -117,8 +117,8 @@ var policiesTestSuite = PolicyTestSuite{
 			kind:  egress,
 			tests: ConnResultOnlyHTTPPrivateAndPing,
 			template: map[string]string{
-				"Rules": `{"http": [{"method": "GET", "path": "/private"}]}`,
-				"Ports": `[{"port": "80", "protocol": "TCP"}]`,
+				"rules": `{"http": [{"method": "GET", "path": "/private"}]}`,
+				"ports": `[{"port": "80", "protocol": "TCP"}]`,
 			},
 		},
 	},
