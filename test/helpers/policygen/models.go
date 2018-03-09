@@ -480,9 +480,9 @@ func (t *TestSpec) CreateCiliumNetworkPolicy() (string, error) {
 	}
 
 	type Spec struct {
-		EndpointSelector endpointSelector
-		Ingress          []rule
-		Egress           []rule
+		EndpointSelector endpointSelector `json:"endpointSelector"`
+		Ingress          []rule           `json:"ingress"`
+		Egress           []rule           `json:"egress"`
 	}
 	specs := []Spec{}
 	var err error
@@ -551,6 +551,7 @@ func (t *TestSpec) CreateCiliumNetworkPolicy() (string, error) {
 					"id": t.DestPod},
 			},
 			Ingress: []rule{ingressMap},
+			Egress:  []rule{},
 		})
 	}
 
@@ -560,7 +561,8 @@ func (t *TestSpec) CreateCiliumNetworkPolicy() (string, error) {
 				Matchlabels: map[string]string{
 					"id": t.SrcPod},
 			},
-			Egress: []rule{egressMap},
+			Egress:  []rule{egressMap},
+			Ingress: []rule{},
 		})
 	}
 
