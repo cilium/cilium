@@ -320,6 +320,7 @@ var _ = Describe("NightlyExamples", func() {
 	var demoPath string
 	var l3Policy, l7Policy string
 	var appService = "app1-service"
+	var stableImage = "cilium/cilium:stable"
 	var apps []string
 
 	initialize := func() {
@@ -421,7 +422,7 @@ var _ = Describe("NightlyExamples", func() {
 			Expect(status).Should(BeTrue(), "Cilium is not ready after timeout")
 			Expect(err).Should(BeNil(), "Cilium is not ready after timeout")
 
-			validatedImage("cilium/cilium:stable")
+			validatedImage(stableImage)
 		}
 
 		waitEndpointReady := func() {
@@ -434,14 +435,16 @@ var _ = Describe("NightlyExamples", func() {
 		}
 
 		AfterEach(func() {
-			kubectl.Exec(fmt.Sprintf(
-				"%s -n %s delete ds cilium",
-				helpers.KubectlCmd, helpers.KubeSystemNamespace)).ExpectSuccess(
-				"Cilium DS cannot be deleted")
+			res := kubectl.DeleteResource(
+				"ds", fmt.Sprintf("-n %s cilium", helpers.KubeSystemNamespace))
+			res.ExpectSuccess("Cilium DS cannot be deleted")
 		})
 
 		BeforeEach(func() {
 			kubectl.Exec("sudo docker rmi cilium/cilium")
+			// Making sure that we deleted the  cilium ds. No assert message
+			// becouse maybe is not present
+			kubectl.DeleteResource("ds", fmt.Sprintf("-n %s cilium", helpers.KubeSystemNamespace))
 			InstallExampleCilium()
 		})
 
@@ -498,7 +501,7 @@ var _ = Describe("NightlyExamples", func() {
 
 			By("Updating cilium to master image")
 
-			localImage := "k8s1:5000/cilium/cilium-dev"
+			localImage := "k8s1:5000/cilium/cilium-dev:latest"
 			resource := "daemonset/cilium"
 
 			kubectl.Exec(fmt.Sprintf("%s -n %s set image %s cilium-agent=%s",
@@ -542,7 +545,7 @@ var _ = Describe("NightlyExamples", func() {
 			Expect(status).Should(BeTrue(), "Cilium is not ready after timeout")
 			Expect(err).Should(BeNil(), "Cilium is not ready after timeout")
 
-			validatedImage("k8s1:5000/cilium/cilium-dev:latest")
+			validatedImage(localImage)
 			res = kubectl.ExecPodCmd(
 				helpers.DefaultNamespace, appPods[helpers.App2],
 				helpers.CurlFail(fmt.Sprintf("http://app1-service/public")))
