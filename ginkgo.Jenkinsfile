@@ -1,3 +1,11 @@
+def failFast = { String branch ->
+  if (branch == "origin/master" || branch == "master") {
+    return '--failFast=false'
+  } else {
+    return '--failFast=true'
+  }
+}
+
 pipeline {
     agent {
         label 'baremetal'
@@ -46,6 +54,7 @@ pipeline {
             environment {
                 GOPATH="${WORKSPACE}"
                 TESTDIR="${WORKSPACE}/${PROJ_PATH}/test"
+                FAILFAST = failFast(env.GIT_BRANCH)
             }
             options {
                 timeout(time: 90, unit: 'MINUTES')
@@ -56,7 +65,7 @@ pipeline {
                         sh 'cd ${TESTDIR}; ginkgo --focus="RuntimeValidated*" -v -noColor'
                     },
                     "K8s-1.9":{
-                        sh 'cd ${TESTDIR}; K8S_VERSION=1.9 ginkgo --focus=" K8sValidated*" -v -noColor'
+                        sh 'cd ${TESTDIR}; K8S_VERSION=1.9 ginkgo --focus=" K8sValidated*" -v -noColor ${FAILFAST}'
                     },
                     failFast: true
                 )
@@ -80,3 +89,4 @@ pipeline {
         }
     }
 }
+
