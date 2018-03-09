@@ -383,8 +383,8 @@ only be able to emit packets using TCP on port 80:
 
         .. literalinclude:: ../../examples/policies/l4/l4.json
 
-Layer 3 dependent Layer 4 rule
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Labels dependent Layer 4 rule
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 This example enables all endpoints with the label ``role=frontend`` to
 communicate with all endpoints with the label ``role=backend``, but they must
