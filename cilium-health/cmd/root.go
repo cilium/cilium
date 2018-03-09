@@ -73,7 +73,7 @@ func Execute() {
 func init() {
 	cobra.OnInitialize(initConfig)
 	flags := rootCmd.PersistentFlags()
-	flags.StringP("admin", "", string(serverPkg.AdminOptionAny), "Expose resources over 'unix' socket, 'any' socket")
+	flags.StringP("admin", "", string(serverPkg.AdminOptionUnix), "Expose resources over 'unix' socket, 'any' socket")
 	flags.BoolP("debug", "D", false, "Enable debug messages")
 	flags.BoolP("daemon", "d", false, "Run as a daemon")
 	flags.BoolP("passive", "p", false, "Only respond to HTTP health checks")
