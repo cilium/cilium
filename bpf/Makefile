@@ -34,9 +34,10 @@ LB_OPTIONS = \
 	-DLB_L3 -DLB_L4
 
 bpf_lb.o: bpf_lb.c $(LIB)
+	set -e; \
 	$(foreach OPTS,$(LB_OPTIONS), \
-		${CLANG} ${OPTS} ${CLANG_FLAGS} -c $< -o $(patsubst %.o,%.ll,$@) || exit 2; \
-		${LLC} ${LLC_FLAGS} -o /dev/null $(patsubst %.o,%.ll,$@) || exit 2; )
+		${CLANG} ${OPTS} ${CLANG_FLAGS} -c $< -o $(patsubst %.o,%.ll,$@); \
+		${LLC} ${LLC_FLAGS} -o /dev/null $(patsubst %.o,%.ll,$@); )
 	${CLANG} ${CLANG_FLAGS} -c $< -o $(patsubst %.o,%.ll,$@)
 	${LLC} ${LLC_FLAGS} -o $@ $(patsubst %.o,%.ll,$@)
 
@@ -49,9 +50,10 @@ LXC_OPTIONS = \
 	# FIXME: GH-2906: Test with both SKIP_CIDR_LPM_MAP and LPM_MAP_TYPE
 
 bpf_lxc.o: bpf_lxc.c $(LIB)
+	set -e; \
 	$(foreach OPTS,$(LXC_OPTIONS), \
-		${CLANG} ${OPTS} ${CLANG_FLAGS} -c $< -o $(patsubst %.o,%.ll,$@) || exit 2; \
-		${LLC} ${LLC_FLAGS} -o /dev/null $(patsubst %.o,%.ll,$@) || exit 2; )
+		${CLANG} ${OPTS} ${CLANG_FLAGS} -c $< -o $(patsubst %.o,%.ll,$@); \
+		${LLC} ${LLC_FLAGS} -o /dev/null $(patsubst %.o,%.ll,$@); )
 	${CLANG} ${CLANG_FLAGS} -c $< -o $(patsubst %.o,%.ll,$@)
 	${LLC} ${LLC_FLAGS} -o $@ $(patsubst %.o,%.ll,$@)
 
