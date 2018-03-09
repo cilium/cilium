@@ -16,7 +16,7 @@ cilium-health ping
 ### Options inherited from parent commands
 
 ```
-      --admin string     Expose resources over 'unix' socket, 'any' socket (default "any")
+      --admin string     Expose resources over 'unix' socket, 'any' socket (default "unix")
   -c, --cilium string    URI to Cilium server API
   -d, --daemon           Run as a daemon
   -D, --debug            Enable debug messages
