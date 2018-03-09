@@ -365,6 +365,20 @@ var _ = Describe("NightlyExamples", func() {
 	})
 
 	Context("Cilium DaemonSet from example", func() {
+		// validatedImage validates that the cilium image is the same as the
+		// given image
+		validatedImage := func(image string) {
+			By(fmt.Sprintf("Checking that installed image is %q", image))
+
+			filter := `{.items[*].status.containerStatuses[0].image}`
+			data, err := kubectl.GetPods(
+				helpers.KubeSystemNamespace, "-l k8s-app=cilium").Filter(filter)
+			ExpectWithOffset(1, err).To(BeNil(), "Cannot get cilium pods")
+
+			for _, val := range strings.Split(data.String(), " ") {
+				ExpectWithOffset(1, val).To(Equal(image), "Cilium image didn't update correcly")
+			}
+		}
 
 		// InstallExampleCilium uses Cilium Kubernetes example from the repo,
 		// changes the etcd parameter and installs the stable tag from docker-hub
@@ -406,6 +420,8 @@ var _ = Describe("NightlyExamples", func() {
 				helpers.KubeSystemNamespace, "-l k8s-app=cilium", timeout)
 			Expect(status).Should(BeTrue(), "Cilium is not ready after timeout")
 			Expect(err).Should(BeNil(), "Cilium is not ready after timeout")
+
+			validatedImage("cilium/cilium:stable")
 		}
 
 		waitEndpointReady := func() {
@@ -456,7 +472,8 @@ var _ = Describe("NightlyExamples", func() {
 
 		})
 
-		It("Updating Cilium stable to master", func() {
+		It("K8sValidated Updating Cilium stable to master", func() {
+			//This test should run in each PR for now.
 			By("Creating some endpoints and L7 policy")
 			kubectl.Apply(demoPath).ExpectSuccess()
 			_, err := kubectl.WaitforPods(helpers.DefaultNamespace, "-l zgroup=testapp", timeout)
@@ -525,6 +542,7 @@ var _ = Describe("NightlyExamples", func() {
 			Expect(status).Should(BeTrue(), "Cilium is not ready after timeout")
 			Expect(err).Should(BeNil(), "Cilium is not ready after timeout")
 
+			validatedImage("k8s1:5000/cilium/cilium-dev:latest")
 			res = kubectl.ExecPodCmd(
 				helpers.DefaultNamespace, appPods[helpers.App2],
 				helpers.CurlFail(fmt.Sprintf("http://app1-service/public")))
