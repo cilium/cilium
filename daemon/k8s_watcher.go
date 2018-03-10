@@ -226,12 +226,12 @@ func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 		d.k8sAPIGroups.addAPI(k8sAPIGroupCiliumV1)
 
 	case ciliumv2VerConstr.Check(sv):
-		d.k8sAPIGroups.addAPI(k8sAPIGroupCRD)
-		d.k8sAPIGroups.addAPI(k8sAPIGroupCiliumV2)
 		err = cilium_v2.CreateCustomResourceDefinitions(apiextensionsclientset)
 		if err != nil {
 			return fmt.Errorf("Unable to create custom resource definition: %s", err)
 		}
+		d.k8sAPIGroups.addAPI(k8sAPIGroupCRD)
+		d.k8sAPIGroups.addAPI(k8sAPIGroupCiliumV2)
 	}
 
 	ciliumNPClient, err = clientset.NewForConfig(restConfig)
