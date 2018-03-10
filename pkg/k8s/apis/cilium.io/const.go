@@ -37,6 +37,7 @@ const (
 
 const (
 	// V1 represents version 1 of cilium API
+	// Deprecated
 	V1 = iota
 	// V2 represents version 2 of cilium API
 	V2
