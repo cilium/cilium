@@ -28,7 +28,7 @@ Minimum Requirements
    * ``etcd`` must be at version ``>= 3.1.0``. To set up etcd, follow the
      `CoreOS etcd deployment instructions`_ for setting up an etcd cluster.
 * *kubectl*
-   * It is also required that you install ``kubectl`` version ``>= 1.6.4`` as
+   * It is also required that you install ``kubectl`` version ``>= 1.7.0`` as
      described in the `Kubernetes Docs`_.
 
 .. _`CoreOS deployment options`: https://coreos.com/kubernetes/docs/latest/getting-started.html#deployment-options
@@ -69,7 +69,7 @@ with Cilium networking configured.
 * Replace ${DNS_SERVICE_IP}. For more information about what this IP is, refer
   to `the CoreOS documentation for Kubernetes deployment options
   <https://coreos.com/kubernetes/docs/latest/getting-started.html#deployment-options>`_. 
-* Replace ${KUBE_VERSION} with a version  ``>= 1.6.4``.
+* Replace ${KUBE_VERSION} with a version  ``>= 1.7.0``.
 * Cilium-specific configuration    
 
     * Mount the CNI configuration directory you created in step 1 so Kubelet
@@ -264,7 +264,7 @@ Create the file ``/etc/kubernetes/manifests/kube-proxy.yaml`` and substitute
 the following variables:
 
 * ``${CLUSTER_CIDR}`` with the CIDR range for pods in your cluster.
-* ``${KUBE_VERSION}`` with a version  ``>= 1.6.4``.
+* ``${KUBE_VERSION}`` with a version  ``>= 1.7.0``.
 
 ::
 
@@ -390,7 +390,7 @@ with Cilium networking configured.
 * Replace ${MASTER_HOST}
 * Replace ${ADVERTISE_IP} with this node's publicly routable IP.
 * Replace ${DNS_SERVICE_IP}. For more information about what this IP is, refer to `the CoreOS documentation for Kubernetes deployment options <https://coreos.com/kubernetes/docs/latest/getting-started.html#deployment-options>`_. 
-* Replace ${KUBE_VERSION} with a version  ``>= 1.6.4``.
+* Replace ${KUBE_VERSION} with a version  ``>= 1.7.0``.
 * Cilium-specific configuration
 
     * Mount the CNI configuration directory you created in step 1 so Kubelet can pick up the CNI configuration from the host filesystem:
@@ -479,7 +479,7 @@ The next step is to setup kube-proxy as a static pod on all worker nodes.
 Create the file ``/etc/kubernetes/manifests/kube-proxy.yaml`` and substitute
 the following variables:
 
-* ``${KUBE_VERSION}`` with a version  ``>= 1.6.4``.
+* ``${KUBE_VERSION}`` with a version  ``>= 1.7.0``.
 * ``${MASTER_HOST}`` with the IP of the master node.
 * ``${CLUSTER_CIDR}`` with the CIDR range for pods in your cluster.
 
