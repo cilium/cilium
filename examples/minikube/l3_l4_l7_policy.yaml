@@ -1,6 +1,4 @@
 apiVersion: "cilium.io/v2"
-#for k8s <1.7 use:
-#apiVersion: "cilium.io/v1"
 kind: CiliumNetworkPolicy
 description: "L7 policy for getting started using Kubernetes guide"
 metadata:
