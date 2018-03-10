@@ -350,10 +350,6 @@ var _ = Describe("K8sValidatedPolicyTest", func() {
 		})
 
 		It("Denies traffic with k8s default-deny policy", func() {
-			if helpers.GetCurrentK8SEnv() == "1.6" {
-				Skip("K8s 1.6 doesn't offer a default deny in its policy")
-			}
-
 			namespace := helpers.DefaultNamespace
 
 			kubectl.Apply(demoPath).ExpectSuccess("Creating demo app")
@@ -642,11 +638,6 @@ var _ = Describe("K8sValidatedPolicyTest", func() {
 		})
 
 		It("should enforce policy based on NamespaceSelector", func() {
-			if helpers.GetCurrentK8SEnv() == "1.6" {
-				Skip("K8s 1.6 doesn't offer a default deny mode in its policy")
-				return
-			}
-
 			policy := &networkingv1.NetworkPolicy{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "allow-ns-b-via-namespace-selector",
