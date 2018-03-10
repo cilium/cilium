@@ -474,6 +474,30 @@ var (
 					Schema: &Service,
 				},
 			},
+			"toEndpoints": {
+				Description: "ToEndpoints is a list of endpoints identified by an " +
+					"EndpointSelector to which the endpoint subject to the rule" +
+					"is allowed to communicate.\n\nExample: Any endpoint with the label " +
+					"\"role=frontend\" can be consumed by any endpoint carrying the label " +
+					"\"role=backend\".",
+				Type: "array",
+				Items: &apiextensionsv1beta1.JSONSchemaPropsOrArray{
+					Schema: &EndpointSelector,
+				},
+			},
+			"toRequires": {
+				Description: "ToRequires is a list of additional constraints which must be " +
+					"met in order for the selected endpoints to be able to reach other " +
+					"endpoints. These additional constraints do not by themselves grant access " +
+					"privileges and must always be accompanied with at least one matching " +
+					"FromEndpoints.\n\nExample: Any Endpoint with the label \"team=A\" " +
+					"requires any endpoint to which it communicates to also carry the label " +
+					"\"team=A\".",
+				Type: "array",
+				Items: &apiextensionsv1beta1.JSONSchemaPropsOrArray{
+					Schema: &EndpointSelector,
+				},
+			},
 		},
 	}
 
