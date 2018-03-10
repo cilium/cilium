@@ -20,7 +20,7 @@ available to help.
 Step 0: Install kubectl & minikube
 ==================================
 
-1. Install ``kubectl`` version ``>= 1.6.3`` as described in the
+1. Install ``kubectl`` version ``>= 1.7.0`` as described in the
 `Kubernetes Docs
 <https://kubernetes.io/docs/tasks/tools/install-kubectl/>`_.
 

@@ -276,10 +276,6 @@ Create an L7-aware policy to protect *app1* using:
   $ kubectl create -f \ |SCM_WEB|\/examples/minikube/l3_l4_l7_policy.yaml
 
 
-.. note:: If this step is failing with an error complaining about version
-          ``cilium.io/v1`` not found then you are using a ``kubectl`` client
-          which is too old. Please upgrade to version >= ``1.6.3``.
-
 We can now re-run the same test as above, but we will see a different outcome:
 
 ::
