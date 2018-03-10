@@ -62,7 +62,7 @@ KUBEADM_SLAVE_OPTIONS=""
 KUBEADM_OPTIONS=""
 
 case $K8S_VERSION in
-    "1.6"|"1.7"|"1.8")
+    "1.7"|"1.8")
         KUBERNETES_CNI_VERSION="0.5.1-00"
         ;;
     "1.9")
@@ -85,7 +85,7 @@ esac
 
 #Install kubernetes
 case $K8S_VERSION in
-    "1.6"|"1.7"|"1.8"|"1.9")
+    "1.7"|"1.8"|"1.9")
         install_k8s_using_packages \
             kubernetes-cni=${KUBERNETES_CNI_VERSION} \
             kubelet=${K8S_VERSION}* \

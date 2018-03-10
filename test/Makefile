@@ -23,8 +23,5 @@ run:
 k8s:
 	ginkgo --focus " K8s*" -v -- --cilium.provision=$(provision)
 
-k8s16:
-	K8S_VERSION=1.6 ginkgo --focus " K8s*" -v -- --cilium.provision=$(provision)
-
 clean:
 	-rm -rf $(TEST_ARTIFACTS)
