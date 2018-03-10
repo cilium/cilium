@@ -15,7 +15,6 @@
 package scheme
 
 import (
-	ciliumv1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v1"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
@@ -47,7 +46,6 @@ func init() {
 // After this, RawExtensions in Kubernetes types will serialize kube-aggregator types
 // correctly.
 func AddToScheme(scheme *runtime.Scheme) {
-	ciliumv1.AddToScheme(scheme)
 	ciliumv2.AddToScheme(scheme)
 
 }

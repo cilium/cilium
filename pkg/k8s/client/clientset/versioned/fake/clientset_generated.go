@@ -16,8 +16,6 @@ package fake
 
 import (
 	clientset "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned"
-	ciliumv1 "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/cilium.io/v1"
-	fakeciliumv1 "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/cilium.io/v1/fake"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/cilium.io/v2"
 	fakeciliumv2 "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/cilium.io/v2/fake"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -59,11 +57,6 @@ func (c *Clientset) Discovery() discovery.DiscoveryInterface {
 }
 
 var _ clientset.Interface = &Clientset{}
-
-// CiliumV1 retrieves the CiliumV1Client
-func (c *Clientset) CiliumV1() ciliumv1.CiliumV1Interface {
-	return &fakeciliumv1.FakeCiliumV1{Fake: &c.Fake}
-}
 
 // CiliumV2 retrieves the CiliumV2Client
 func (c *Clientset) CiliumV2() ciliumv2.CiliumV2Interface {
