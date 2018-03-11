@@ -178,9 +178,10 @@ func (ds *DaemonSuite) TestSyncLabels(c *C) {
 	ep1 := epsWanted[0]
 	ep1.SecurityIdentity = nil
 	err := ds.d.syncLabels(ep1)
-	// Endpoint doesn't have a security label, syncLabels should not sync
-	// anything.
-	c.Assert(err, Not(IsNil))
+	// Endpoint doesn't have a security label but it has some operational labels
+	// so endpoint will have a new identity assigned
+	c.Assert(err, IsNil)
+	c.Assert(ep1.SecurityIdentity, NotNil)
 
 	// Let's make sure we delete all labels from the kv store first
 	ep2 := epsWanted[1]
