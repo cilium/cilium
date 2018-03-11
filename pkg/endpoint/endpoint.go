@@ -1768,7 +1768,9 @@ func (e *Endpoint) identityLabelsChanged(owner Owner, myChangeRev int) error {
 		return nil
 	}
 
-	if e.SecurityIdentity != nil && string(e.SecurityIdentity.Labels.SortedList()) != string(newLabels.SortedList()) {
+	if e.SecurityIdentity != nil &&
+		string(e.SecurityIdentity.Labels.SortedList()) == string(newLabels.SortedList()) {
+
 		e.Mutex.RUnlock()
 		elog.Debug("Endpoint labels unchanged, skipping resolution of identity")
 		return nil
