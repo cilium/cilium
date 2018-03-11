@@ -26,7 +26,10 @@ import (
 	"strings"
 	"time"
 
+	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/test/helpers"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	"github.com/onsi/ginkgo"
 	"github.com/onsi/gomega"
 	log "github.com/sirupsen/logrus"
@@ -479,12 +482,7 @@ func (t *TestSpec) CreateCiliumNetworkPolicy() (string, error) {
 		Matchlabels map[string]string `json:"matchlabels"`
 	}
 
-	type Spec struct {
-		EndpointSelector endpointSelector `json:"endpointSelector"`
-		Ingress          []rule           `json:"ingress"`
-		Egress           []rule           `json:"egress"`
-	}
-	specs := []Spec{}
+	specs := []api.Rule{}
 	var err error
 
 	ingressMap := map[string]interface{}{}
@@ -545,24 +543,45 @@ func (t *TestSpec) CreateCiliumNetworkPolicy() (string, error) {
 	}
 
 	if len(ingressMap) > 0 {
-		specs = append(specs, Spec{
-			EndpointSelector: endpointSelector{
-				Matchlabels: map[string]string{
-					"id": t.DestPod},
+		var ingressVal api.IngressRule
+		jsonOut, err := json.Marshal(ingressMap)
+		if err != nil {
+			return "", err
+		}
+		err = json.Unmarshal(jsonOut, ingressVal)
+		if err != nil {
+			return "", err
+		}
+		specs = append(specs, api.Rule{
+			EndpointSelector: api.EndpointSelector{
+				&metav1.LabelSelector{MatchLabels: map[string]string{
+					"id": t.DestPod,
+				}},
 			},
-			Ingress: []rule{ingressMap},
-			Egress:  []rule{},
+			Ingress: []api.IngressRule{ingressVal},
+			Egress:  []api.EgressRule{},
 		})
 	}
 
 	if len(egressMap) > 0 {
-		specs = append(specs, Spec{
-			EndpointSelector: endpointSelector{
-				Matchlabels: map[string]string{
-					"id": t.SrcPod},
+		var egressVal api.EgressRule
+		jsonOut, err := json.Marshal(egressMap)
+		if err != nil {
+			return "", err
+		}
+		err = json.Unmarshal(jsonOut, egressVal)
+		if err != nil {
+			return "", err
+		}
+
+		specs = append(specs, api.Rule{
+			EndpointSelector: api.EndpointSelector{
+				&metav1.LabelSelector{MatchLabels: map[string]string{
+					"id": t.SrcPod,
+				}},
 			},
-			Egress:  []rule{egressMap},
-			Ingress: []rule{},
+			Ingress: []api.IngressRule{},
+			Egress:  []api.EgressRule{egressVal},
 		})
 	}
 
