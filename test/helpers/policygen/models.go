@@ -478,10 +478,6 @@ func (t *TestSpec) CreateCiliumNetworkPolicy() (string, error) {
 
 	type rule map[string]interface{}
 
-	type endpointSelector struct {
-		Matchlabels map[string]string `json:"matchlabels"`
-	}
-
 	specs := []api.Rule{}
 	var err error
 
