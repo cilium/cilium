@@ -24,10 +24,10 @@ import (
 
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/test/config"
+	. "github.com/cilium/cilium/test/ginkgo-ext"
 	ginkgoext "github.com/cilium/cilium/test/ginkgo-ext"
 	"github.com/cilium/cilium/test/helpers"
 
-	. "github.com/eloycoto/ginkgo-ext"
 	gops "github.com/google/gops/agent"
 	"github.com/onsi/ginkgo"
 	ginkgoconfig "github.com/onsi/ginkgo/config"
@@ -79,10 +79,8 @@ func TestTest(t *testing.T) {
 	}
 	junitReporter := reporters.NewJUnitReporter(fmt.Sprintf(
 		"%s.xml", ginkgoext.GetScopeWithVersion()))
-	// RunSpecsWithDefaultAndCustomReporters(
-	// 	t, ginkgoext.GetScopeWithVersion(), []ginkgo.Reporter{junitReporter})
-
-	RunSpecsWithDefaultAndCustomReporters(t, "Foo Suite", []ginkgo.Reporter{junitReporter})
+	RunSpecsWithDefaultAndCustomReporters(
+		t, ginkgoext.GetScopeWithVersion(), []ginkgo.Reporter{junitReporter})
 }
 
 func goReportVagrantStatus() chan bool {

@@ -17,10 +17,16 @@ limitations under the License.
 package ginkgoext
 
 import (
+	"bytes"
+	"flag"
+	"os"
 	"reflect"
+	"regexp"
+	"strings"
 	"sync/atomic"
 
 	"github.com/onsi/ginkgo"
+	"github.com/onsi/ginkgo/config"
 )
 
 type scope struct {
@@ -68,6 +74,24 @@ var (
 )
 
 type Done ginkgo.Done
+
+func init() {
+
+	// Only use the Ginkgo options and discard all other options
+	args := []string{}
+	for _, arg := range os.Args[1:] {
+		if strings.Contains(arg, "--ginkgo") {
+			args = append(args, arg)
+		}
+	}
+
+	//Get GinkgoConfig flags
+	commandFlags := flag.NewFlagSet("ginkgo", flag.ContinueOnError)
+	commandFlags.SetOutput(new(bytes.Buffer))
+
+	config.Flags(commandFlags, "ginkgo", true)
+	commandFlags.Parse(args)
+}
 
 // BeforeAll runs the function once before any test in context
 func BeforeAll(body func()) bool {
@@ -170,13 +194,24 @@ func wrapItFunc(fn func(string, interface{}, ...float64) bool, focused bool) fun
 		if currentScope == nil {
 			return fn(text, body, timeout...)
 		}
-		if focused {
+		if focused || isTestFocussed(text) {
 			currentScope.focusedTests++
 		} else {
 			currentScope.normalTests++
 		}
 		return fn(text, wrapTest(body), timeout...)
 	}
+}
+
+// isTestFocussed checks the value of FocusString and return true if the given
+// text name is focussed, returns false if the test is not focussed.
+func isTestFocussed(text string) bool {
+	if config.GinkgoConfig.FocusString == "" {
+		return false
+	}
+
+	focusFilter := regexp.MustCompile(config.GinkgoConfig.FocusString)
+	return focusFilter.Match([]byte(text))
 }
 
 func applyAdvice(f interface{}, before, after func()) interface{} {
