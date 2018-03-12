@@ -18,9 +18,9 @@ import (
 	"context"
 	"sync"
 
+	. "github.com/cilium/cilium/test/ginkgo-ext"
 	"github.com/cilium/cilium/test/helpers"
 
-	. "github.com/eloycoto/ginkgo-ext"
 	. "github.com/onsi/gomega"
 	"github.com/sirupsen/logrus"
 )
