@@ -334,6 +334,14 @@ var _ = Describe("NightlyExamples", func() {
 		demoPath = kubectl.ManifestGet("demo.yaml")
 		l3Policy = kubectl.ManifestGet("l3_l4_policy.yaml")
 		l7Policy = kubectl.ManifestGet("l7_policy.yaml")
+
+		// Sometimes PolicyGen has a lot of pods running around without delete
+		// it. Using this we are sure that we delete before this test start
+		kubectl.Exec(fmt.Sprintf(
+			"%s delete --all pods,svc,cnp -n %s", helpers.KubectlCmd, helpers.DefaultNamespace))
+
+		err := kubectl.WaitCleanAllTerminatingPods()
+		Expect(err).To(BeNil(), "Terminating containers are not deleted after timeout")
 	}
 
 	BeforeEach(func() {
