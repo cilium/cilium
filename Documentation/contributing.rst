@@ -149,13 +149,14 @@ directly and manually install Cilium:
 Notes
 ^^^^^
 
-Your Cilium tree is mapped to the VM so that you do not need to keep copying
-files between your host and the VM. The default sync method vboxfs, that it's
-always sync. You can also use NFS to access your Cilium tree from the VM by
+Your Cilium tree is mapped to the VM so that you do not need to keep manually
+copying files between your host and the VM. Folders are by default synced
+automatically using `VirtualBox Shared Folders <https://www.virtualbox.org/manual/ch04.html#sharedfolders>`_ .
+You can also use NFS to access your Cilium tree from the VM by
 setting the environment variable ``NFS`` (mentioned above) before running the
-startup script (``export NFS=1``).  Note that your host firewall have the NFS
-UDP ports open, the startup script will give the address and port details for
-this.
+startup script (``export NFS=1``). Note that your host firewall must have a variety
+of port open. The Vagrantfile will inform you of the configuration of these addresses
+and ports to enable NFS.
 
 .. note::
 
@@ -474,7 +475,7 @@ To run all of the Nightly tests, run the following command from the ``test`` dir
 Similar to the other test suites, Ginkgo searches for all tests in all
 subdirectories that are "named" beginning with the string "Nightly" and contain
 any characters after it. The default version of running Nightly test are 1.8,
-but can be changed using ``K8S_VERSION`` env variable
+but can be changed using the environment variable ``K8S_VERSION``.
 
 Nightly Testing Jenkins Setup
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -729,7 +730,7 @@ illustrating which subset of tests the job runs.
 +-------------------------------------------------------------------------------------+-----------------+-----------------+--------------------+
 | `Cilium-PR-Ginkgo-Tests-All <https://jenkins.cilium.io/job/Cilium-PR-Ginkgo-Tests-All/>`_             | test-all-ginkgo | No                 |
 +-------------------------------------------------------------------------------------------------------+-----------------+--------------------+
-| `Cilium-Pr-Ginkgo-Test-k8s <https://jenkins.cilium.io/job/Cilium-PR-Ginkgo-Tests-K8s/c>`_             | test-missed-k8s | No                 |
+| `Cilium-Pr-Ginkgo-Test-k8s <https://jenkins.cilium.io/job/Cilium-PR-Ginkgo-Tests-k8s/>`_              | test-missed-k8s | No                 |
 +-------------------------------------------------------------------------------------------------------+-----------------+--------------------+
 | `Cilium-Nightly-Tests-PR <https://jenkins.cilium.io/job/Cilium-PR-Nightly-Tests-All/>`_               | test-nightly    | No                 |
 +-------------------------------------------------------------------------------------------------------+-----------------+--------------------+
@@ -777,43 +778,51 @@ example patch that shows how this can be achieved.
 
                             //This test should run in each PR for now.
 
-Jenkins jobs description
--------------------------
+Jenkins Job Descriptions
+------------------------
 
 Cilium-PR-Ginkgo-Tests-Validated
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-The first step is to run unit tests in a docker-compose localted in
-``test/docker-compose.yaml``
-The next step happens in parallel:
+The configuration for this job is contained within ``ginkgo.Jenkinsfile``.
 
-    - Runs the runtime e2e tests
-    - Runs the Kubernetes e2e tests in version 1.9
+It first runs unit tests using docker-compose using a YAML located at
+``test/docker-compose.yaml``.
+
+The next steps happens in parallel:
+
+    - Runs the runtime e2e tests.
+    - Runs the Kubernetes e2e tests against the latest default version of Kubernetes specified above.
 
 Cilium-Nightly-Tests-PR
-~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~
 
-Runs the Nightly tests with the folliwing setup:
+The configuration for this job is contained within ``Jenkinsfile.nightly``.
 
-    - 4 kubernetes nodes
-    - 4 GB of ram per node.
-    - 4 vCPU per node.
-    - Default in kubernetes 1.8
+This first runs the Nightly tests with the following setup:
 
-After run the first step, it tests Kubernetes tests in versions 1.7 and 1.8.
+    - 4 Kubernetes 1.8 nodes
+    - 4 GB of RAM per node.
+    - 4 vCPUs per node.
 
-Cilium-Pr-Ginkgo-Test-k8s
-~~~~~~~~~~~~~~~~~~~~~~~~~
+Then, it runs tests Kubernetes tests against versions of Kubernetes that are currently not tested against
+as part of each pull-request, but that Cilium still supports.
 
-Runs the Kubernetes test in all the Kubernetes missing versions that we do not
-run by default:
+It also runs a variety of tests against Envoy to ensure that proxy functionality is working correctly.
 
-First stage:
+Cilium-PR-Ginkgo-Tests-k8s
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Runs the Kubernetes e2e tests against all Kubernetes versions that are not currently not tested as part
+of each pull-request, but which Cilium still supports, as well as the the most-recently-released versions
+of Kuberentes that are not yet declared stable by Kubernetes upstream:
+
+First stage (stable versions which Cilium still supports):
 
     - 1.7
     - 1.8
 
-Second stage (Non stable versions)
+Second stage (unstable versions)
 
     - 1.10 beta
     - 1.11 alpha
