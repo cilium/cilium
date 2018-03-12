@@ -90,7 +90,7 @@ Download `Istio version 0.6.0
 
     $ export ISTIO_VERSION=0.6.0
     $ curl -L https://git.io/getLatestIstio | sh -
-    $ export ISTIO_HOME=\`pwd\`/istio-${ISTIO_VERSION}
+    $ export ISTIO_HOME=`pwd`/istio-${ISTIO_VERSION}
     $ export PATH="$PATH:${ISTIO_HOME}/bin"
 
 Deploy Istio on Kubernetes:
@@ -108,11 +108,11 @@ sidecar proxies:
 
 ::
 
-    $ sed -e 's,istio/proxy_init:0.6.0,cilium/istio_proxy_init:0.6.0,' \\
-          -e 's,istio/proxy:0.6.0,cilium/istio_proxy:0.6.0,' \\
-          -e 's,istio/proxy_debug:0.6.0,cilium/istio_proxy_debug:0.6.0,' \\
-          -e 's/imagePullPolicy:.*$/imagePullPolicy: Always/' \\
-          < ${ISTIO_HOME}/install/kubernetes/istio-sidecar-injector-configmap-release.yaml | \\
+    $ sed -e 's,istio/proxy_init:0.6.0,cilium/istio_proxy_init:0.6.0,' \
+          -e 's,istio/proxy:0.6.0,cilium/istio_proxy:0.6.0,' \
+          -e 's,istio/proxy_debug:0.6.0,cilium/istio_proxy_debug:0.6.0,' \
+          -e 's/imagePullPolicy:.*$/imagePullPolicy: Always/' \
+          < ${ISTIO_HOME}/install/kubernetes/istio-sidecar-injector-configmap-release.yaml | \
           kubectl create -f -
 
 Check the progress of the deployment (every service should have an
