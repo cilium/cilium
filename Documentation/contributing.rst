@@ -95,10 +95,9 @@ plus dependencies installed, run:
     $ contrib/vagrant/start.sh
 
 This will create and run a vagrant VM based on the base box
-``cilium/ubuntu-16.10``. The box is currently available for the
+``cilium/ubuntu``. The box is currently available for the
 following providers:
 
-* libvirt
 * virtualbox
 
 Options
@@ -129,33 +128,34 @@ build the box yourself using the `packer scripts <https://github.com/cilium/pack
 Manual Installation
 ^^^^^^^^^^^^^^^^^^^
 
-Alternatively you can import the vagrant box ``cilium/ubuntu-16.10``
+Alternatively you can import the vagrant box ``cilium/ubuntu``
 directly and manually install Cilium:
 
 ::
 
-        $ vagrant init cilium/ubuntu-16.10
+        $ vagrant init cilium/ubuntu
         $ vagrant up
         $ vagrant ssh [...]
         $ cd go/src/github.com/cilium/cilium/
         $ make
         $ sudo make install
-        $ sudo cp contrib/upstart/* /etc/init/
+        $ sudo mkdir -p /etc/sysconfig/
+        $ sudo cp contrib/systemd/cilium.service /etc/systemd/system/
+        $ sudo cp contrib/systemd/cilium  /etc/sysconfig/cilium
         $ sudo usermod -a -G cilium vagrant
-        $ sudo service cilium restart
+        $ sudo systemctl enable cilium
+        $ sudo systemctl restart cilium
 
 Notes
 ^^^^^
 
-Your Cilium tree is mapped to the VM so that you do not need to keep
-copying files between your host and the VM.  The default sync method
-is rsync, which only syncs when the VM is brought up, or when manually
-triggered (``vagrant rsync`` command in the Cilium tree).  You can
-also use NFS to access your Cilium tree from the VM by setting the
-environment variable ``NFS`` (mentioned above) before running the startup script
-(``export NFS=1``).  Note that your host firewall have the NFS UDP
-ports open, the startup script will give the address and port details
-for this.
+Your Cilium tree is mapped to the VM so that you do not need to keep copying
+files between your host and the VM. The default sync method vboxfs, that it's
+always sync. You can also use NFS to access your Cilium tree from the VM by
+setting the environment variable ``NFS`` (mentioned above) before running the
+startup script (``export NFS=1``).  Note that your host firewall have the NFS
+UDP ports open, the startup script will give the address and port details for
+this.
 
 .. note::
 
@@ -203,7 +203,7 @@ project root directory:
  Make tests executes envoy tests. This can sometimes cause the developer VM to
  run out of memory. This pressure can be alleviated by shutting down the bazel
  caching daemon left by these tests. Run ``(cd envoy; bazel shutdown)`` after
- a build to do this. 
+ a build to do this.
 
 Testing individual packages
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -305,14 +305,14 @@ To run the newly installed version of Cilium, restart the service:
 
 ::
 
-    $ sudo service cilium restart
+    $ sudo systemctl restart cilium
 
 You can verify the service and cilium-agent status by the following
 commands, respectively:
 
 ::
 
-    $ service cilium status
+    $ sudo systemctl status cilium
     $ cilium status
 
 .. _testsuite:
@@ -449,10 +449,13 @@ contain any characters after it.
 
 The Kubernetes tests support the following Kubernetes versions:
 
-* 1.6
 * 1.7
+* 1.8
+* 1.9
+* 1.10
+* 1.11
 
-By default, the Vagrant VMs are provisioned with Kubernetes 1.7. To run with any other
+By default, the Vagrant VMs are provisioned with Kubernetes 1.9. To run with any other
 supported version of Kubernetes, run the test suite with the following format:
 
 ::
@@ -469,8 +472,9 @@ To run all of the Nightly tests, run the following command from the ``test`` dir
     ginkgo --focus="Nightly*"  -noColor
 
 Similar to the other test suites, Ginkgo searches for all tests in all
-subdirectories that are "named" beginning with the string "Nightly" and
-contain any characters after it.
+subdirectories that are "named" beginning with the string "Nightly" and contain
+any characters after it. The default version of running Nightly test are 1.8,
+but can be changed using ``K8S_VERSION`` env variable
 
 Nightly Testing Jenkins Setup
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -480,7 +484,9 @@ The configuration for this job is stored in ``Jenkinsfile.nightly``.
 
 To see the results of these tests, you can view the JUnit Report for an individual job:
 
-1. Click on the build number you wish to get test results from on the left hand side of the `Cilium-Nightly-Tests Job <https://jenkins.cilium.io/job/Cilium-Nightly-Tests/>`_.
+1. Click on the build number you wish to get test results from on the left hand
+   side of the `Cilium-Nightly-Tests Job
+   <https://jenkins.cilium.io/job/Cilium-Nightly-Tests/>`_.
 2. Click on 'Test Results' on the left side of the page to view the results from the build.
    This will give you a report of which tests passed and failed. You can click on each test
    to view its corresponding output created from Ginkgo.
@@ -728,6 +734,47 @@ illustrating which subset of tests the job runs.
 | `Cilium-Nightly-Tests-PR <https://jenkins.cilium.io/job/Cilium-PR-Nightly-Tests-All/>`_               | test-nightly    | No                 |
 +-------------------------------------------------------------------------------------------------------+-----------------+--------------------+
 
+
+Jenkins jobs description
+-------------------------
+
+Cilium-PR-Ginkgo-Tests-Validated
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The first step is to run unit tests in a docker-compose localted in
+``test/docker-compose.yaml``
+The next step happens in parallel:
+
+    - Runs the runtime e2e tests
+    - Runs the Kubernetes e2e tests in version 1.9
+
+Cilium-Nightly-Tests-PR
+~~~~~~~~~~~~~~~~~~~~~~~~
+
+Runs the Nightly tests with the folliwing setup:
+
+    - 4 kubernetes nodes
+    - 4 GB of ram per node.
+    - 4 vCPU per node.
+    - Default in kubernetes 1.8
+
+After run the first step, it tests Kubernetes tests in versions 1.7 and 1.8.
+
+Cilium-Pr-Ginkgo-Test-k8s
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Runs the Kubernetes test in all the Kubernetes missing versions that we do not
+run by default:
+
+First stage:
+
+    - 1.7
+    - 1.8
+
+Second stage (Non stable versions)
+
+    - 1.10 beta
+    - 1.11 alpha
 
 CI / Testing environment
 ------------------------
