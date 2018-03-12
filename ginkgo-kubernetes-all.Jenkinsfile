@@ -1,3 +1,11 @@
+def failFast = { String branch ->
+  if (branch == "origin/master" || branch == "master") {
+    return '--failFast=false'
+  } else {
+    return '--failFast=true'
+  }
+}
+
 pipeline {
     agent {
         label 'baremetal'
@@ -98,16 +106,9 @@ pipeline {
             sh "cd ${TESTDIR}; K8S_VERSION=1.8 vagrant destroy -f || true"
             sh "cd ${TESTDIR}; K8S_VERSION=1.10 vagrant destroy -f || true"
             sh "cd ${TESTDIR}; K8S_VERSION=1.11 vagrant destroy -f || true"
-            sh "cd ${TESTDIR}; ./post_build_agent.sh || true'"
+            sh "cd ${TESTDIR}; ./post_build_agent.sh || true"
             cleanWs()
         }
     }
 }
 
-def failFast = { String branch ->
-  if (branch == "origin/master" || branch == "master") {
-    return '--failFast=false'
-  } else {
-    return '--failFast=true'
-  }
-}
