@@ -544,7 +544,7 @@ func (t *TestSpec) CreateCiliumNetworkPolicy() (string, error) {
 		if err != nil {
 			return "", err
 		}
-		err = json.Unmarshal(jsonOut, ingressVal)
+		err = json.Unmarshal(jsonOut, &ingressVal)
 		if err != nil {
 			return "", err
 		}
@@ -565,7 +565,7 @@ func (t *TestSpec) CreateCiliumNetworkPolicy() (string, error) {
 		if err != nil {
 			return "", err
 		}
-		err = json.Unmarshal(jsonOut, egressVal)
+		err = json.Unmarshal(jsonOut, &egressVal)
 		if err != nil {
 			return "", err
 		}
