@@ -136,6 +136,9 @@ var _ = Describe("RuntimeValidatedConntrackTable", func() {
 		containers(helpers.Delete)
 		res := vm.SetPolicyEnforcement(helpers.PolicyEnforcementDefault)
 		res.ExpectSuccess("Setting policyEnforcement to default")
+
+		areEndpointsReady := vm.WaitEndpointsReady()
+		Expect(areEndpointsReady).Should(BeTrue(), "Endpoints not ready after timeout")
 	})
 
 	// containersMeta returns a map where the key is the container name and the
@@ -626,10 +629,11 @@ var _ = Describe("RuntimeValidatedConntrackTable", func() {
 		epIDs, err := vm.GetEndpointsIds()
 		Expect(err).To(BeNil(), "Getting endpoints identity IDs")
 		for _, v := range epIDs {
-			vm.ExecCilium(fmt.Sprintf("endpoint config %s IngressPolicy=false", v)).ExpectSuccess(
-				"Setting %s endpoint's IngressPolicy as false", v)
-			vm.ExecCilium(fmt.Sprintf("endpoint config %s EgressPolicy=false", v)).ExpectSuccess(
-				"Setting %s endpoint's EgressPolicy as false", v)
+			status := vm.EndpointSetConfig(v, helpers.OptionIngressPolicy, "false")
+			Expect(status).To(BeTrue(), "Cannot update %s", helpers.OptionIngressPolicy)
+
+			status = vm.EndpointSetConfig(v, helpers.OptionEgressPolicy, "false")
+			Expect(status).To(BeTrue(), "Cannot update %s", helpers.OptionEgressPolicy)
 		}
 
 		areEndpointsReady = vm.WaitEndpointsReady()
