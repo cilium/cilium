@@ -8,7 +8,7 @@ PROVISIONSRC="/tmp/provision/"
 SRC_FOLDER="/home/vagrant/go/src/github.com/cilium/cilium"
 SYSTEMD_SERVICES="$SRC_FOLDER/contrib/systemd"
 MOUNT_SYSTEMD="sys-fs-bpf.mount"
-K8SV10="v1.10.0-beta.2"
+K8SV10="v1.10.0-beta.3"
 K8SV11="v1.11.0-alpha.0"
 
 NODE=$1
