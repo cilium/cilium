@@ -28,6 +28,11 @@ import (
 	"golang.org/x/crypto/ssh"
 )
 
+var (
+	//SSHMetaLogs is a buffer where all commands sent over ssh are saved.
+	SSHMetaLogs = NewWriter(new(bytes.Buffer))
+)
+
 // SSHMeta contains metadata to SSH into a remote location to run tests
 type SSHMeta struct {
 	sshClient *SSHClient
@@ -113,7 +118,7 @@ func (s *SSHMeta) Execute(cmd string, stdout io.Writer, stderr io.Writer) error 
 	if stderr == nil {
 		stderr = os.Stderr
 	}
-
+	fmt.Fprintln(SSHMetaLogs, cmd)
 	command := &SSHCommand{
 		Path:   cmd,
 		Stdin:  os.Stdin,
@@ -134,7 +139,6 @@ func (s *SSHMeta) ExecWithSudo(cmd string) *CmdRes {
 // Exec returns the results of executing the provided cmd via SSH.
 func (s *SSHMeta) Exec(cmd string) *CmdRes {
 	log.Debugf("running command: %s", cmd)
-
 	stdout := new(bytes.Buffer)
 	stderr := new(bytes.Buffer)
 	exit := true
@@ -187,6 +191,7 @@ func (s *SSHMeta) ExecContext(ctx context.Context, cmd string) *CmdRes {
 		panic("no context provided")
 	}
 
+	fmt.Fprintln(SSHMetaLogs, cmd)
 	stdout := new(bytes.Buffer)
 	stderr := new(bytes.Buffer)
 

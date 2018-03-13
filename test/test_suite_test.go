@@ -16,7 +16,6 @@ package ciliumTest
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 	"strconv"
 	"testing"
@@ -41,7 +40,8 @@ var (
 	DefaultSettings = map[string]string{
 		"K8S_VERSION": "1.9",
 	}
-	k8sNodesEnv = "K8S_NODES"
+	k8sNodesEnv  = "K8S_NODES"
+	commandslogs = "cmds.log"
 )
 
 func init() {
@@ -70,8 +70,18 @@ func configLogsOutput() {
 	log.Hooks.Add(&config.LogHook{})
 }
 
+func ShowCommands() {
+	if !config.CiliumTestConfig.ShowCommands {
+		return
+	}
+
+	helpers.SSHMetaLogs = helpers.NewWriter(os.Stdout)
+}
+
 func TestTest(t *testing.T) {
 	configLogsOutput()
+	ShowCommands()
+
 	if config.CiliumTestConfig.HoldEnvironment {
 		RegisterFailHandler(helpers.Fail)
 	} else {
@@ -216,21 +226,18 @@ func getOrSetEnvVar(key, value string) {
 }
 
 var _ = AfterEach(func() {
-	path, err := helpers.CreateReportDirectory()
 
+	defer config.TestLogWriterReset()
+	err := helpers.CreateLogFile(config.TestLogFileName, config.TestLogWriter.Bytes())
 	if err != nil {
-		log.WithError(err).Errorf("cannot create ReportDirectory")
+		log.WithError(err).Errorf("cannot create log file '%s'", config.TestLogFileName)
 		return
 	}
 
-	defer config.TestLogWriterReset()
-	filePath := fmt.Sprintf("%s/%s", path, config.TestLogFileName)
-	err = ioutil.WriteFile(
-		filePath,
-		config.TestLogWriter.Bytes(),
-		helpers.LogPerm)
+	defer helpers.SSHMetaLogs.Reset()
+	err = helpers.CreateLogFile(commandslogs, helpers.SSHMetaLogs.Bytes())
 	if err != nil {
-		log.WithError(err).Errorf("cannot create log file '%s'", filePath)
+		log.WithError(err).Errorf("cannot create log file '%s'", commandslogs)
 		return
 	}
 })

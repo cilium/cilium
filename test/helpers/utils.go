@@ -310,6 +310,20 @@ func CreateReportDirectory() (string, error) {
 	return testPath, err
 }
 
+// CreateLogFile creates the ReportDirectory if is not present, writes the
+// given data to the given filename.
+func CreateLogFile(filename string, data []byte) error {
+	path, err := CreateReportDirectory()
+	if err != nil {
+		log.WithError(err).Errorf("ReportDirectory cannot be created")
+		return err
+	}
+
+	finalPath := filepath.Join(path, filename)
+	err = ioutil.WriteFile(finalPath, data, LogPerm)
+	return err
+}
+
 // reportMap saves the output of the given commands to the specified filename.
 // Function needs a directory path where the files are going to be written and
 // a *SSHMeta instance to execute the commands
