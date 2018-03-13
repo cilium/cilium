@@ -16,8 +16,6 @@ package RuntimeTest
 
 import (
 	"fmt"
-	"math/rand"
-	"net"
 	"os"
 	"sort"
 	"strings"
@@ -991,125 +989,6 @@ var _ = Describe("RuntimeValidatedPolicyImportTests", func() {
 		}]
 		}]`, ports)
 		testInvalidPolicy(tooManyTCPPorts)
-	})
-
-	It("Test CIDR Limit", func() {
-		res := vm.ContainerCreate(helpers.Server, helpers.HttpdImage, helpers.CiliumDockerNetwork, "-l id.service2")
-
-		defer func() {
-			vm.ContainerRm(helpers.Server)
-		}()
-
-		res.ExpectSuccess()
-
-		areEndpointsReady := vm.WaitEndpointsReady()
-		Expect(areEndpointsReady).Should(BeTrue(), "Endpoints are not ready")
-
-		cidrPolicyJSON := "cidr_policy.json"
-		maxCIDRNum := 40
-
-		By(fmt.Sprintf("Testing Limit of Number of CIDRs Per Rule With Maximum %d", maxCIDRNum))
-
-		// Get current time in VM so we can check logs from the point in time
-		// since this test started for BPF verifier errors.
-		res = vm.Exec(`date +'%F %T'`)
-		res.ExpectSuccess("Unable to get current time in VM for checking Cilium logs")
-		timeNow := res.SingleOut()
-
-		// checkVerifierOutput checks the Cilium log for BPF Verifier errors. Such
-		// errors appear if too many CIDRs (over 4o) are added to a policy which
-		// applies to a specific endpoint.
-		checkVerifierOutput := func() {
-			analyzeLogCmd := fmt.Sprintf(`journalctl --no-pager --since "%s" -u cilium | grep "Verifier analysis"`, timeNow)
-			res = vm.Exec(analyzeLogCmd)
-
-			logOutputCmd := fmt.Sprintf(`journalctl -u cilium --since "%s"" | grep -B20 -F10 Verifier`, timeNow)
-			logOutput := vm.Exec(logOutputCmd)
-			res.ExpectFail("Policy was imported to Cilium with too many CIDRs, and verifier failed: %s", logOutput.SingleOut())
-		}
-
-		// genCIDRPolicy generates a CiliumNetworkPolicy with maxEntries CIDRs.
-		// The CIDRs are randomly generated. The policy applies to the container
-		// created at the start of this test. The generated policy is returned
-		// as a string.
-		genCIDRPolicy := func(maxEntries int) string {
-
-			// generateRandomCIDR generates a random IPv4 CIDR and returns it
-			// as a string.
-			generateRandomCIDR := func() string {
-				ipAddr := make(net.IP, 4)
-				for k := range ipAddr {
-					ipAddr[k] = byte(rand.Intn(256))
-				}
-
-				return ipAddr.String()
-			}
-
-			// Add maxEntries CIDRs in loop, then add one more outside of loop
-			// so last entry in list of CIDRs doesn't have a comma after.
-			var cidrs string
-			for i := 0; i < maxEntries; i++ {
-				cidrs += fmt.Sprintf(`"%s", `, generateRandomCIDR())
-			}
-
-			cidrs += fmt.Sprintf(`"%s"`, generateRandomCIDR())
-
-			cidrPolicy := fmt.Sprintf(`[{
-			"endpointSelector": {
-				"matchLabels": {"any:id.service2": ""}
-			},
-			"egress": [{
-				"toCIDR":
-					[ %s ]
-				}
-			]
-			}]`, cidrs)
-
-			return cidrPolicy
-
-		}
-
-		importCIDRPolicy := func(numCIDRs int) bool {
-			checkVerifierOutput()
-
-			generatedCIDRPolicy := genCIDRPolicy(numCIDRs)
-
-			err := helpers.RenderTemplateToFile(cidrPolicyJSON, generatedCIDRPolicy, 0777)
-			Expect(err).Should(BeNil())
-
-			defer os.Remove(cidrPolicyJSON)
-
-			path := helpers.GetFilePath(cidrPolicyJSON)
-			if numCIDRs > 39 {
-				By("Following error importing policy is expected because only at most 40 CIDRs are allowed in a single rule")
-			}
-			err = vm.PolicyImport(path)
-			if err != nil {
-
-				checkVerifierOutput()
-				return false
-
-			}
-			return true
-		}
-
-		// Import lots of policies with CIDR rules. All should succeed except those
-		// with more than the max number of CIDRs.
-		for i := 1; i < 4; i++ {
-			checkVerifierOutput()
-			for j := 1; j < maxCIDRNum+1; j++ {
-
-				returnFalse := importCIDRPolicy(j)
-				if !returnFalse {
-					break
-				}
-
-			}
-		}
-
-		// Check verifier output again just to make sure.
-		checkVerifierOutput()
-
 	})
 
 	It("Policy cmd", func() {
