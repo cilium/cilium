@@ -366,8 +366,8 @@ var _ = Describe("NightlyExamples", func() {
 	})
 
 	Context("Cilium DaemonSet from example", func() {
-		// validatedImage validates that the cilium image is the same as the
-		// given image
+		// validatedImage validates that the current image used by cilium pods
+		// is the same as the given image
 		validatedImage := func(image string) {
 			By(fmt.Sprintf("Checking that installed image is %q", image))
 
@@ -377,7 +377,7 @@ var _ = Describe("NightlyExamples", func() {
 			ExpectWithOffset(1, err).To(BeNil(), "Cannot get cilium pods")
 
 			for _, val := range strings.Split(data.String(), " ") {
-				ExpectWithOffset(1, val).To(Equal(image), "Cilium image didn't update correcly")
+				ExpectWithOffset(1, val).To(Equal(image), "Cilium image didn't update correctly")
 			}
 		}
 
@@ -443,7 +443,7 @@ var _ = Describe("NightlyExamples", func() {
 		BeforeEach(func() {
 			kubectl.Exec("sudo docker rmi cilium/cilium")
 			// Making sure that we deleted the  cilium ds. No assert message
-			// becouse maybe is not present
+			// because maybe is not present
 			kubectl.DeleteResource("ds", fmt.Sprintf("-n %s cilium", helpers.KubeSystemNamespace))
 			InstallExampleCilium()
 		})
