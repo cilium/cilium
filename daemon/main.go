@@ -394,6 +394,8 @@ func init() {
 		"ipv4-node", "auto", "IPv4 address of node")
 	flags.BoolVar(&config.RestoreState,
 		"restore", true, "Restores state, if possible, from previous daemon")
+	flags.Bool("sidecar-http-proxy", false, "Disable host HTTP proxy, assuming proxies in sidecar containers")
+	flags.MarkHidden("sidecar-http-proxy")
 	flags.BoolVar(&singleClusterRoute, "single-cluster-route", false,
 		"Use a single cluster route instead of per node routes")
 	flags.StringVar(&socketPath,

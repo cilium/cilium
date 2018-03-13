@@ -43,6 +43,7 @@ import (
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/u8proto"
 	"github.com/cilium/cilium/pkg/version"
+	"github.com/spf13/viper"
 )
 
 const (
@@ -445,6 +446,11 @@ func (e *Endpoint) addNewRedirectsFromMap(owner Owner, m policy.L4PolicyMap, des
 
 	for _, l4 := range m {
 		if l4.IsRedirect() {
+			// Ignore the redirect if the proxy is running in a sidecar container.
+			if l4.L7Parser == policy.ParserTypeHTTP && viper.GetBool("sidecar-http-proxy") {
+				continue
+			}
+
 			redirect, err := owner.UpdateProxyRedirect(e, &l4)
 			if err != nil {
 				return err
