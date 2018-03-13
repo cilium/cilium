@@ -83,13 +83,15 @@ func (i *IngressRule) sanitize() error {
 	}
 
 	for n := range i.FromCIDR {
-		if err := i.FromCIDR[n].sanitize(); err != nil {
+		_, err := i.FromCIDR[n].sanitize()
+		if err != nil {
 			return err
 		}
 	}
 
 	for n := range i.FromCIDRSet {
-		if err := i.FromCIDRSet[n].sanitize(); err != nil {
+		_, err := i.FromCIDRSet[n].sanitize()
+		if err != nil {
 			return err
 		}
 	}
@@ -132,13 +134,14 @@ func (e *EgressRule) sanitize() error {
 		return fmt.Errorf("too many egress CIDR entries %d/%d", l, MaxCIDREntries)
 	}
 	for i := range e.ToCIDR {
-		if err := e.ToCIDR[i].sanitize(); err != nil {
+		_, err := e.ToCIDR[i].sanitize()
+		if err != nil {
 			return err
 		}
 	}
-
 	for i := range e.ToCIDRSet {
-		if err := e.ToCIDRSet[i].sanitize(); err != nil {
+		_, err := e.ToCIDRSet[i].sanitize()
+		if err != nil {
 			return err
 		}
 	}
@@ -250,47 +253,48 @@ func (pp *PortProtocol) sanitize() error {
 	return nil
 }
 
-func (cidr CIDR) sanitize() error {
+// sanitize the given CIDR. If successful, returns the prefixLength specified
+// in the cidr and nil. Otherwise, returns (0, nil).
+func (cidr CIDR) sanitize() (prefixLength int, err error) {
 	strCIDR := string(cidr)
 	if strCIDR == "" {
-		return fmt.Errorf("IP must be specified")
+		return 0, fmt.Errorf("IP must be specified")
 	}
 
 	_, ipnet, err := net.ParseCIDR(strCIDR)
 	if err == nil {
 		// Returns the prefix length as zero if the mask is not continuous.
-		ones, _ := ipnet.Mask.Size()
-		if ones == 0 {
-			return fmt.Errorf("Mask length can not be zero")
+		prefixLength, _ = ipnet.Mask.Size()
+		if prefixLength == 0 {
+			return 0, fmt.Errorf("Mask length can not be zero")
 		}
 	} else {
 		// Try to parse as a fully masked IP or an IP subnetwork
 		ip := net.ParseIP(strCIDR)
 		if ip == nil {
-			return fmt.Errorf("Unable to parse CIDR: %s", err)
+			return 0, fmt.Errorf("Unable to parse CIDR: %s", err)
 		}
 	}
 
-	return nil
+	return prefixLength, err
 }
 
 // sanitize validates a CIDRRule by checking that the CIDR prefix itself is
 // valid, and ensuring that all of the exception CIDR prefixes are contained
 // within the allowed CIDR prefix.
-func (c *CIDRRule) sanitize() error {
+func (c *CIDRRule) sanitize() (prefixLength int, err error) {
 
 	// Only allow notation <IP address>/<prefix>. Note that this differs from
 	// the logic in api.CIDR.Sanitize().
 	_, cidrNet, err := net.ParseCIDR(string(c.Cidr))
-
 	if err != nil {
-		return err
+		return 0, err
 	}
 
 	// Returns the prefix length as zero if the mask is not continuous.
-	ones, _ := cidrNet.Mask.Size()
-	if ones == 0 {
-		return fmt.Errorf("Mask length can not be zero")
+	prefixLength, _ = cidrNet.Mask.Size()
+	if prefixLength == 0 {
+		return 0, fmt.Errorf("Mask length can not be zero")
 	}
 
 	// Ensure that each provided exception CIDR prefix  is formatted correctly,
@@ -299,16 +303,16 @@ func (c *CIDRRule) sanitize() error {
 	for _, p := range c.ExceptCIDRs {
 		exceptCIDRAddr, _, err := net.ParseCIDR(string(p))
 		if err != nil {
-			return err
+			return 0, err
 		}
 
 		// Note: this also checks that the allow CIDR prefix and the exception
 		// CIDR prefixes are part of the same address family.
 		if !cidrNet.Contains(exceptCIDRAddr) {
-			return fmt.Errorf("allow CIDR prefix %s does not contain "+
+			return 0, fmt.Errorf("allow CIDR prefix %s does not contain "+
 				"exclude CIDR prefix %s", c.Cidr, p)
 		}
 	}
 
-	return nil
+	return prefixLength, err
 }
