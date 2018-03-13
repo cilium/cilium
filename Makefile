@@ -23,7 +23,6 @@ $(SUBDIRS): force
 
 # invoked from ginkgo Jenkinsfile
 tests-ginkgo: force
-	go vet $(GOFILES)
 	# Make the bindata to run the unittest
 	$(MAKE) -C daemon go-bindata
 	docker-compose -f test/docker-compose.yml -p $$JOB_BASE_NAME-$$BUILD_NUMBER run --rm test
@@ -75,7 +74,6 @@ tests: force
 	$(MAKE) unit-tests tests-envoy
 
 unit-tests: start-kvstores
-	go vet $(GOFILES)
 	echo "mode: count" > coverage-all.out
 	echo "mode: count" > coverage.out
 	$(foreach pkg,$(TESTPKGS),\
@@ -206,6 +204,7 @@ gofmt:
 precheck:
 	contrib/scripts/check-fmt.sh
 	contrib/scripts/check-log-newlines.sh
+	@go vet $(GOFILES)
 
 pprof-help:
 	@echo "Available pprof targets:"
