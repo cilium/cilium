@@ -21,8 +21,10 @@ import (
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8sTypes "k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/watch"
-	"k8s.io/client-go/discovery"
+	discovery "k8s.io/client-go/discovery"
 	admissionregistrationv1alpha1 "k8s.io/client-go/kubernetes/typed/admissionregistration/v1alpha1"
+	admissionregistrationv1beta1 "k8s.io/client-go/kubernetes/typed/admissionregistration/v1beta1"
+	appsv1 "k8s.io/client-go/kubernetes/typed/apps/v1"
 	appsv1beta1 "k8s.io/client-go/kubernetes/typed/apps/v1beta1"
 	appsv1beta2 "k8s.io/client-go/kubernetes/typed/apps/v1beta2"
 	authenticationv1 "k8s.io/client-go/kubernetes/typed/authentication/v1"
@@ -36,6 +38,7 @@ import (
 	batchv2alpha1 "k8s.io/client-go/kubernetes/typed/batch/v2alpha1"
 	certificatesv1beta1 "k8s.io/client-go/kubernetes/typed/certificates/v1beta1"
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
+	eventsv1beta1 "k8s.io/client-go/kubernetes/typed/events/v1beta1"
 	extensionsv1beta1 "k8s.io/client-go/kubernetes/typed/extensions/v1beta1"
 	networkingv1 "k8s.io/client-go/kubernetes/typed/networking/v1"
 	policyv1beta1 "k8s.io/client-go/kubernetes/typed/policy/v1beta1"
@@ -45,6 +48,7 @@ import (
 	schedulingv1alpha1 "k8s.io/client-go/kubernetes/typed/scheduling/v1alpha1"
 	settingsv1alpha1 "k8s.io/client-go/kubernetes/typed/settings/v1alpha1"
 	storagev1 "k8s.io/client-go/kubernetes/typed/storage/v1"
+	storagev1alpha1 "k8s.io/client-go/kubernetes/typed/storage/v1alpha1"
 	storagev1beta1 "k8s.io/client-go/kubernetes/typed/storage/v1beta1"
 	"k8s.io/client-go/rest"
 )
@@ -228,7 +232,11 @@ func (c Clientset) AdmissionregistrationV1alpha1() admissionregistrationv1alpha1
 	return nil
 }
 
-func (c Clientset) Admissionregistration() admissionregistrationv1alpha1.AdmissionregistrationV1alpha1Interface {
+func (c Clientset) AdmissionregistrationV1beta1() admissionregistrationv1beta1.AdmissionregistrationV1beta1Interface {
+	return nil
+}
+
+func (c Clientset) Admissionregistration() admissionregistrationv1beta1.AdmissionregistrationV1beta1Interface {
 	return nil
 }
 
@@ -240,7 +248,11 @@ func (c Clientset) AppsV1beta2() appsv1beta2.AppsV1beta2Interface {
 	return nil
 }
 
-func (c Clientset) Apps() appsv1beta2.AppsV1beta2Interface {
+func (c Clientset) AppsV1() appsv1.AppsV1Interface {
+	return nil
+}
+
+func (c Clientset) Apps() appsv1.AppsV1Interface {
 	return nil
 }
 
@@ -304,6 +316,14 @@ func (c Clientset) Certificates() certificatesv1beta1.CertificatesV1beta1Interfa
 	return nil
 }
 
+func (c Clientset) EventsV1beta1() eventsv1beta1.EventsV1beta1Interface {
+	return nil
+}
+
+func (c Clientset) Events() eventsv1beta1.EventsV1beta1Interface {
+	return nil
+}
+
 func (c Clientset) ExtensionsV1beta1() extensionsv1beta1.ExtensionsV1beta1Interface {
 	return nil
 }
@@ -357,6 +377,10 @@ func (c Clientset) SchedulingV1alpha1() schedulingv1alpha1.SchedulingV1alpha1Int
 }
 
 func (c Clientset) Scheduling() schedulingv1alpha1.SchedulingV1alpha1Interface {
+	return nil
+}
+
+func (c Clientset) StorageV1alpha1() storagev1alpha1.StorageV1alpha1Interface {
 	return nil
 }
 

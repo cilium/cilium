@@ -2,12 +2,22 @@
 
 Go clients for talking to a [kubernetes](http://kubernetes.io/) cluster.
 
-We currently recommend using the v4.0.0 tag. See [INSTALL.md](/INSTALL.md) for
+We currently recommend using the v6.0.0 tag. See [INSTALL.md](/INSTALL.md) for
 detailed installation instructions. `go get k8s.io/client-go/...` works, but
 will give you head and doesn't handle the dependencies well.
 
-[![Build Status](https://travis-ci.org/kubernetes/client-go.svg?branch=master)](https://travis-ci.org/kubernetes/client-go)
-[![GoDoc](https://godoc.org/k8s.io/client-go?status.svg)](https://godoc.org/k8s.io/client-go)
+[![BuildStatus Widget]][BuildStatus Result]
+[![GoReport Widget]][GoReport Status]
+[![GoDocWidget]][GoDocReference]
+
+[BuildStatus Result]: https://travis-ci.org/kubernetes/client-go
+[BuildStatus Widget]: https://travis-ci.org/kubernetes/client-go.svg?branch=master
+
+[GoReport Status]: https://goreportcard.com/report/github.com/kubernetes/client-go
+[GoReport Widget]: https://goreportcard.com/badge/github.com/kubernetes/client-go
+
+[GoDocWidget]: https://godoc.org/k8s.io/client-go?status.svg
+[GoDocReference]:https://godoc.org/k8s.io/client-go 
 
 ## Table of Contents
 
@@ -17,6 +27,7 @@ will give you head and doesn't handle the dependencies well.
   - [Compatibility: client-go <-> Kubernetes clusters](#compatibility-client-go---kubernetes-clusters)
   - [Compatibility matrix](#compatibility-matrix)
   - [Why do the 1.4 and 1.5 branch contain top-level folder named after the version?](#why-do-the-14-and-15-branch-contain-top-level-folder-named-after-the-version)
+- [Kubernetes tags](#kubernetes-tags)
 - [How to get it](#how-to-get-it)
 - [How to use it](#how-to-use-it)
 - [Dependency management](#dependency-management)
@@ -80,27 +91,30 @@ We will backport bugfixes--but not new features--into older versions of
 
 #### Compatibility matrix
 
-|                     | Kubernetes 1.3 | Kubernetes 1.4 | Kubernetes 1.5 | Kubernetes 1.6 | Kubernetes 1.7 |
-|---------------------|----------------|----------------|----------------|----------------|----------------|
-| client-go 1.4       | +              | ✓              | -              | -              | -              |
-| client-go 1.5       | +              | +              | -              | -              | -              |
-| client-go 2.0       | +              | +              | ✓              | -              | -              |
-| client-go 3.0       | †              | †              | †              | ✓              | -              |
-| client-go 4.0       | †              | †              | †              | +              | ✓              |
-| client-go HEAD      | †              | †              | †              | +              | +              |
+|                     | Kubernetes 1.4 | Kubernetes 1.5 | Kubernetes 1.6 | Kubernetes 1.7 | Kubernetes 1.8 | Kubernetes 1.9 |
+|---------------------|----------------|----------------|----------------|----------------|----------------|----------------|
+| client-go 1.4       | ✓              | -              | -              | -              | -              | -              |
+| client-go 1.5       | +              | -              | -              | -              | -              | -              |
+| client-go 2.0       | +-             | ✓              | +-             | +-             | +-             | +-             |
+| client-go 3.0       | +-             | +-             | ✓              | -              | +-             | +-             |
+| client-go 4.0       | +-             | +-             | +-             | ✓              | +-             | +-             |
+| client-go 5.0       | +-             | +-             | +-             | +-             | ✓              | +-             |
+| client-go 6.0       | +-             | +-             | +-             | +-             | +-             | ✓              |
+| client-go HEAD      | +-             | +-             | +-             | +-             | +-             | +              |
 
 Key:
 
 * `✓` Exactly the same features / API objects in both client-go and the Kubernetes
   version.
-* `+` client-go has features or api objects that may not be present in the
-  Kubernetes cluster, but everything they have in common will work. Please
-  note that alpha APIs may vanish or change significantly in a single release.
-* `†` client-go has new features or api objects, and some APIs running in the
-  cluster may have been deprecated and removed from client-go. But everything
-  they share in common (i.e., most APIs) will work.
-* `-` The Kubernetes cluster has features the client-go library can't use
-  (additional API objects, etc).
+* `+` client-go has features or API objects that may not be present in the
+  Kubernetes cluster, either due to that client-go has additional new API, or
+  that the server has removed old API. However, everything they have in
+  common (i.e., most APIs) will work. Please note that alpha APIs may vanish or
+  change significantly in a single release.
+* `-` The Kubernetes cluster has features the client-go library can't use,
+  either due to the server has additional new API, or that client-go has
+  removed old API. However, everything they share in common (i.e., most APIs)
+  will work.
 
 See the [CHANGELOG](./CHANGELOG.md) for a detailed description of changes
 between client-go versions.
@@ -109,9 +123,11 @@ between client-go versions.
 |----------------|--------------------------------------|-------------------------------|
 | client-go 1.4  | Kubernetes main repo, 1.4 branch     | = -                           |
 | client-go 1.5  | Kubernetes main repo, 1.5 branch     | = -                           |
-| client-go 2.0  | Kubernetes main repo, 1.5 branch     | ✓                             |
-| client-go 3.0  | Kubernetes main repo, 1.6 branch     | ✓                             |
+| client-go 2.0  | Kubernetes main repo, 1.5 branch     | = -                           |
+| client-go 3.0  | Kubernetes main repo, 1.6 branch     | = -                           |
 | client-go 4.0  | Kubernetes main repo, 1.7 branch     | ✓                             |
+| client-go 5.0  | Kubernetes main repo, 1.8 branch     | ✓                             |
+| client-go 6.0  | Kubernetes main repo, 1.9 branch     | ✓                             |
 | client-go HEAD | Kubernetes main repo, master branch  | ✓                             |
 
 Key:
@@ -133,6 +149,23 @@ For the initial release of client-go, we thought it would be easiest to keep
 separate directories for each minor version. That soon proved to be a mistake.
 We are keeping the top-level folders in the 1.4 and 1.5 branches so that
 existing users won't be broken.
+
+### Kubernetes tags
+
+As of October 2017, client-go is still a mirror of
+[k8s.io/kubernetes/staging/src/client-go](https://github.com/kubernetes/kubernetes/tree/master/staging/src/k8s.io/client-go),
+the code development is still done in the staging area. Since Kubernetes 1.8
+release, when syncing the code from the staging area, we also sync the Kubernetes
+version tags to client-go, prefixed with "kubernetes-". For example, if you check
+out the `kubernetes-v1.8.0` tag in client-go, the code you get is exactly the
+same as if you check out the `v1.8.0` tag in kubernetes, and change directory to
+`staging/src/k8s.io/client-go`. The purpose is to let users quickly find matching
+commits among published repos, like
+[sample-apiserver](https://github.com/kubernetes/sample-apiserver),
+[apiextension-apiserver](https://github.com/kubernetes/apiextensions-apiserver),
+etc. The Kubernetes version tag does NOT claim any backwards compatibility
+guarantees for client-go. Please check the [semantic versions](#versioning) if
+you care about backwards compatibility.
 
 ### How to get it
 
