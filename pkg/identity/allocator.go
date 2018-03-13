@@ -111,6 +111,6 @@ func AllocateIdentity(lbls labels.Labels) (*Identity, bool, error) {
 // Release is the reverse operation of AllocateIdentity() and releases the
 // identity again. This function may result in kvstore operations.
 // After the last user has released the ID, the returned lastUse value is true.
-func (id *Identity) Release() (lastUse bool, err error) {
+func (id *Identity) Release() error {
 	return identityAllocator.Release(globalIdentity{id.Labels})
 }

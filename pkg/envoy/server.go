@@ -19,7 +19,6 @@ import (
 	"io/ioutil"
 	"net"
 	"os"
-	"strconv"
 	"strings"
 	"time"
 
@@ -495,9 +494,10 @@ func getDirectionNetworkPolicy(l4Policy policy.L4PolicyMap, labelsMap identity.I
 }
 
 // getNetworkPolicy converts a network policy into a cilium.NetworkPolicy.
-func getNetworkPolicy(id identity.NumericIdentity, policy *policy.L4Policy,
+func getNetworkPolicy(name string, id identity.NumericIdentity, policy *policy.L4Policy,
 	labelsMap identity.IdentityCache, deniedIngressIdentities, deniedEgressIdentities map[identity.NumericIdentity]bool) *cilium.NetworkPolicy {
 	return &cilium.NetworkPolicy{
+		Name:                   name,
 		Policy:                 uint64(id),
 		IngressPerPortPolicies: getDirectionNetworkPolicy(policy.Ingress, labelsMap, deniedIngressIdentities),
 		EgressPerPortPolicies:  getDirectionNetworkPolicy(policy.Egress, labelsMap, deniedEgressIdentities),
@@ -506,22 +506,44 @@ func getNetworkPolicy(id identity.NumericIdentity, policy *policy.L4Policy,
 
 // UpdateNetworkPolicy adds or updates a network policy in the set of published
 // to L7 proxies.
-func UpdateNetworkPolicy(id identity.NumericIdentity, policy *policy.L4Policy,
+// When the proxy acknowledges the network policy update, it will result in
+// a subsequent call to the endpoint's OnProxyPolicyAcknowledge() function.
+func UpdateNetworkPolicy(ep NetworkPolicyEndpoint, policy *policy.L4Policy,
 	labelsMap identity.IdentityCache, deniedIngressIdentities, deniedEgressIdentities map[identity.NumericIdentity]bool) error {
-	networkPolicy := getNetworkPolicy(id, policy, labelsMap, deniedIngressIdentities, deniedEgressIdentities)
-	err := networkPolicy.Validate()
-	if err != nil {
-		return fmt.Errorf("error validating generated NetworkPolicy: %s", err)
+
+	// First, validate all policies
+	ips := []string{
+		ep.GetIPv6Address(),
+		ep.GetIPv4Address(),
+	}
+	policies := []*cilium.NetworkPolicy{}
+	for _, ip := range ips {
+		if ip == "" {
+			continue
+		}
+		networkPolicy := getNetworkPolicy(ip, ep.GetIdentity(), policy, labelsMap, deniedIngressIdentities, deniedEgressIdentities)
+		err := networkPolicy.Validate()
+		if err != nil {
+			return fmt.Errorf("error validating generated NetworkPolicy for %s: %s", ip, err)
+		}
+		policies = append(policies, networkPolicy)
 	}
 
-	name := strconv.FormatUint(uint64(id), 10)
-	NetworkPolicyCache.Upsert(NetworkPolicyTypeURL, name, networkPolicy, false)
+	// When successful, push them into the cache.
+	for _, p := range policies {
+		NetworkPolicyCache.Upsert(NetworkPolicyTypeURL, p.Name, p, false)
+	}
 	return nil
 }
 
-// RemoveNetworkPolicy removes a network policy from the set published to L7
-// proxies.
-func RemoveNetworkPolicy(id identity.NumericIdentity) {
-	name := strconv.FormatUint(uint64(id), 10)
-	NetworkPolicyCache.Delete(NetworkPolicyTypeURL, name, false)
+// RemoveNetworkPolicy removes network policies relevant to the specified
+// endpoint from the set published to L7 proxies, and stops listening for
+// acks for policies on this endpoint.
+func RemoveNetworkPolicy(ep NetworkPolicyEndpoint) {
+	if ep.GetIPv6Address() != "" {
+		NetworkPolicyCache.Delete(NetworkPolicyTypeURL, ep.GetIPv6Address(), false)
+	}
+	if ep.GetIPv4Address() != "" {
+		NetworkPolicyCache.Delete(NetworkPolicyTypeURL, ep.GetIPv4Address(), false)
+	}
 }

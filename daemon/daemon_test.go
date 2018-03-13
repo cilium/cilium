@@ -56,8 +56,8 @@ type DaemonSuite struct {
 	OnGetPolicyRepository             func() *policy.Repository
 	OnUpdateProxyRedirect             func(e *e.Endpoint, l4 *policy.L4Filter) (uint16, error)
 	OnRemoveProxyRedirect             func(e *e.Endpoint, id string) error
-	OnUpdateNetworkPolicy             func(id identity.NumericIdentity, policy *policy.L4Policy, labelsMap identity.IdentityCache, deniedIngressIdentities, deniedEgressIdentities map[identity.NumericIdentity]bool) error
-	OnRemoveNetworkPolicy             func(id identity.NumericIdentity)
+	OnUpdateNetworkPolicy             func(e *e.Endpoint, policy *policy.L4Policy, labelsMap identity.IdentityCache, deniedIngressIdentities, deniedEgressIdentities map[identity.NumericIdentity]bool) error
+	OnRemoveNetworkPolicy             func(e *e.Endpoint)
 	OnGetStateDir                     func() string
 	OnGetBpfDir                       func() string
 	OnGetTunnelMode                   func() string
@@ -237,17 +237,17 @@ func (ds *DaemonSuite) RemoveProxyRedirect(e *e.Endpoint, id string) error {
 	panic("RemoveProxyRedirect should not have been called")
 }
 
-func (ds *DaemonSuite) UpdateNetworkPolicy(id identity.NumericIdentity, policy *policy.L4Policy,
+func (ds *DaemonSuite) UpdateNetworkPolicy(e *e.Endpoint, policy *policy.L4Policy,
 	labelsMap identity.IdentityCache, deniedIngressIdentities, deniedEgressIdentities map[identity.NumericIdentity]bool) error {
 	if ds.OnUpdateNetworkPolicy != nil {
-		return ds.OnUpdateNetworkPolicy(id, policy, labelsMap, deniedIngressIdentities, deniedEgressIdentities)
+		return ds.OnUpdateNetworkPolicy(e, policy, labelsMap, deniedIngressIdentities, deniedEgressIdentities)
 	}
 	panic("UpdateNetworkPolicy should not have been called")
 }
 
-func (ds *DaemonSuite) RemoveNetworkPolicy(id identity.NumericIdentity) {
+func (ds *DaemonSuite) RemoveNetworkPolicy(e *e.Endpoint) {
 	if ds.OnRemoveNetworkPolicy != nil {
-		ds.OnRemoveNetworkPolicy(id)
+		ds.OnRemoveNetworkPolicy(e)
 	}
 	panic("UpdateNetworkPolicy should not have been called")
 }
