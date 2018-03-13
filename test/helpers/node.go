@@ -20,6 +20,9 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
+
+	"github.com/cilium/cilium/test/config"
 
 	"github.com/sirupsen/logrus"
 	"golang.org/x/crypto/ssh"
@@ -67,12 +70,36 @@ func GetVagrantSSHMeta(vmName string) *SSHMeta {
 		log.Errorf("Node %s not found in ssh config", vmName)
 		return nil
 	}
-
-	return &SSHMeta{
+	sshMeta := &SSHMeta{
 		sshClient: node.GetSSHClient(),
 		rawConfig: config,
 		nodeName:  vmName,
 	}
+
+	sshMeta.setBasePath()
+	return sshMeta
+}
+
+// setBasePath if the SSHConfig is defined we set the BasePath to the GOPATH,
+// from golang 1.8 GOPATH is by default $HOME/go so we also check that.
+func (s *SSHMeta) setBasePath() {
+	if config.CiliumTestConfig.SSHConfig == "" {
+		return
+	}
+
+	gopath := s.Exec("echo $GOPATH").SingleOut()
+	if gopath != "" {
+		BasePath = filepath.Join(gopath, CiliumPath)
+		return
+	}
+
+	home := s.Exec("echo $HOME").SingleOut()
+	if home == "" {
+		return
+	}
+
+	BasePath = filepath.Join(home, "go", CiliumPath)
+	return
 }
 
 // Execute executes cmd on the provided node and stores the stdout / stderr of

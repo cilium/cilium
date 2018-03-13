@@ -25,12 +25,16 @@ import (
 var (
 	// HelperTimeout is a predefined timeout value for commands.
 	HelperTimeout time.Duration = 300 // WithTimeout helper translates it to seconds
-)
 
-const (
 	// BasePath is the path in the Vagrant VMs to which the test directory
 	// is mounted
 	BasePath = "/home/vagrant/go/src/github.com/cilium/cilium/test"
+)
+
+const (
+
+	//CiliumPath the path where cilium test code is located.
+	CiliumPath = "/src/github.com/cilium/cilium/test"
 
 	// ManifestBase tells ginkgo suite where to look for manifests
 	K8sManifestBase = "k8sT/manifests"

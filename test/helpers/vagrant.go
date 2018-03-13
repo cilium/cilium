@@ -21,12 +21,15 @@ import (
 	"os/exec"
 	"strings"
 
+	"github.com/cilium/cilium/test/config"
+
 	"github.com/onsi/ginkgo"
 	"github.com/sirupsen/logrus"
 )
 
-//Create a new vagrant server. Receives and scope that it's the target server that need to be created.
-// In case of any error on vagrant [provision|up|ssh-config] error will be returned.
+// CreateVM creates a new vagrant server.Receives a scope which indicates the
+// target server that needs to be created. In case of any error on vagrant
+// [provision|up|ssh-config] error will be returned.
 func CreateVM(scope string) error {
 	createCMD := "vagrant up %s --provision"
 
@@ -37,7 +40,7 @@ func CreateVM(scope string) error {
 		case "not_created":
 			createCMD = "vagrant up %s --provision"
 		default:
-			//Sometimes server are stoped and not destroyed. DestroyVM just in case
+			// Sometimes servers are stoped and not destroyed. Destroy VM just in case
 			DestroyVM(scope)
 		}
 	}
@@ -63,12 +66,7 @@ func CreateVM(scope string) error {
 		}).Fatalf("Create error on start")
 		return err
 	}
-
-	if err := cmd.Wait(); err != nil {
-		return err
-	}
-
-	return nil
+	return cmd.Wait()
 }
 
 // GetVagrantSSHMetadata returns a string containing the output of `vagrant ssh-config`
@@ -76,6 +74,9 @@ func CreateVM(scope string) error {
 // `vagrant ssh-config` fails to execute.
 func GetVagrantSSHMetadata(vmName string) ([]byte, error) {
 	cmd := getCmd(fmt.Sprintf("vagrant ssh-config %s", vmName))
+	if config.CiliumTestConfig.SSHConfig != "" {
+		cmd = getCmd(config.CiliumTestConfig.SSHConfig)
+	}
 	result, err := cmd.Output()
 	if err != nil {
 		return nil, err
