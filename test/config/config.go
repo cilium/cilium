@@ -21,6 +21,7 @@ type CiliumTestConfigType struct {
 	Reprovision     bool
 	HoldEnvironment bool
 	SSHConfig       string
+	ShowCommands    bool
 }
 
 // CiliumTestConfig holds the global configuration of commandline flags
@@ -35,4 +36,6 @@ func (c *CiliumTestConfigType) ParseFlags() {
 		"On failure, hold the environment in its current state")
 	flag.StringVar(&c.SSHConfig, "cilium.SSHConfig", "",
 		"Specify a custom command to fetch SSH configuration (eg: 'vagrant ssh-config')")
+	flag.BoolVar(&c.ShowCommands, "cilium.showCommands", false,
+		"Show the running commands in the stdout")
 }
