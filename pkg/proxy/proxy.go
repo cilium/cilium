@@ -561,15 +561,15 @@ func (p *Proxy) RemoveRedirect(id string, wg *completion.WaitGroup) error {
 
 // UpdateNetworkPolicy adds or updates a network policy in the set
 // published to L7 proxies.
-func (p *Proxy) UpdateNetworkPolicy(id identityPkg.NumericIdentity, policy *policy.L4Policy,
+func (p *Proxy) UpdateNetworkPolicy(ep envoy.NetworkPolicyEndpoint, policy *policy.L4Policy,
 	labelsMap identityPkg.IdentityCache, deniedIngressIdentities, deniedEgressIdentities map[identityPkg.NumericIdentity]bool) error {
-	return envoy.UpdateNetworkPolicy(id, policy, labelsMap, deniedIngressIdentities, deniedEgressIdentities)
+	return envoy.UpdateNetworkPolicy(ep, policy, labelsMap, deniedIngressIdentities, deniedEgressIdentities)
 }
 
 // RemoveNetworkPolicy removes a network policy from the set published to
 // L7 proxies.
-func (p *Proxy) RemoveNetworkPolicy(id identityPkg.NumericIdentity) {
-	envoy.RemoveNetworkPolicy(id)
+func (p *Proxy) RemoveNetworkPolicy(ep envoy.NetworkPolicyEndpoint) {
+	envoy.RemoveNetworkPolicy(ep)
 }
 
 // ChangeLogLevel changes proxy log level to correspond to the logrus log level 'level'.

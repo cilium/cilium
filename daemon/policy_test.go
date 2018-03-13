@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"github.com/cilium/cilium/common/addressing"
+	"github.com/cilium/cilium/pkg/comparator"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/envoy"
 	"github.com/cilium/cilium/pkg/envoy/cilium"
@@ -36,9 +37,12 @@ import (
 )
 
 var (
-	HardAddr    = mac.MAC{0x01, 0x02, 0x03, 0x04, 0x05, 0x06}
-	IPv6Addr, _ = addressing.NewCiliumIPv6("beef:beef:beef:beef:aaaa:aaaa:1111:1112")
-	IPv4Addr, _ = addressing.NewCiliumIPv4("10.11.12.13")
+	QAHardAddr      = mac.MAC{0x01, 0x02, 0x03, 0x04, 0x05, 0x06}
+	QAIPv6Addr, _   = addressing.NewCiliumIPv6("beef:beef:beef:beef:aaaa:aaaa:1111:1112")
+	QAIPv4Addr, _   = addressing.NewCiliumIPv4("10.11.12.13")
+	ProdHardAddr    = mac.MAC{0x01, 0x07, 0x08, 0x09, 0x0a, 0x0b}
+	ProdIPv6Addr, _ = addressing.NewCiliumIPv6("cafe:cafe:cafe:cafe:aaaa:aaaa:1111:1112")
+	ProdIPv4Addr, _ = addressing.NewCiliumIPv4("10.11.12.14")
 )
 
 func (ds *DaemonSuite) clearXDSNeworkPolicies() {
@@ -46,13 +50,15 @@ func (ds *DaemonSuite) clearXDSNeworkPolicies() {
 	envoy.NetworkPolicyCache.Clear(envoy.NetworkPolicyTypeURL, false)
 }
 
-func (ds *DaemonSuite) getXDSNetworkPolicies(c *C, resourceNames []string) map[identity.NumericIdentity]*cilium.NetworkPolicy {
+// getXDSNetworkPolicies returns the representation of the xDS network policies
+// as a map of IP addresses to NetworkPolicy objects
+func (ds *DaemonSuite) getXDSNetworkPolicies(c *C, resourceNames []string) map[string]*cilium.NetworkPolicy {
 	resources, err := envoy.NetworkPolicyCache.GetResources(context.Background(), envoy.NetworkPolicyTypeURL, nil, nil, resourceNames)
 	c.Assert(err, IsNil)
-	networkPolicies := make(map[identity.NumericIdentity]*cilium.NetworkPolicy, len(resources.Resources))
+	networkPolicies := make(map[string]*cilium.NetworkPolicy, len(resources.Resources))
 	for _, res := range resources.Resources {
 		networkPolicy := res.(*cilium.NetworkPolicy)
-		networkPolicies[identity.NumericIdentity(networkPolicy.Policy)] = networkPolicy
+		networkPolicies[networkPolicy.Name] = networkPolicy
 	}
 	return networkPolicies
 }
@@ -147,10 +153,10 @@ func (ds *DaemonSuite) TestUpdateConsumerMap(c *C) {
 
 	e := endpoint.NewEndpointWithState(1, endpoint.StateWaitingForIdentity)
 	e.IfName = "dummy1"
-	e.IPv6 = IPv6Addr
-	e.IPv4 = IPv4Addr
-	e.LXCMAC = HardAddr
-	e.NodeMAC = HardAddr
+	e.IPv6 = QAIPv6Addr
+	e.IPv4 = QAIPv4Addr
+	e.LXCMAC = QAHardAddr
+	e.NodeMAC = QAHardAddr
 
 	err2 := os.Mkdir("1", 755)
 	c.Assert(err2, IsNil)
@@ -175,10 +181,10 @@ func (ds *DaemonSuite) TestUpdateConsumerMap(c *C) {
 
 	e = endpoint.NewEndpointWithState(1, endpoint.StateWaitingForIdentity)
 	e.IfName = "dummy1"
-	e.IPv6 = IPv6Addr
-	e.IPv4 = IPv4Addr
-	e.LXCMAC = HardAddr
-	e.NodeMAC = HardAddr
+	e.IPv6 = ProdIPv6Addr
+	e.IPv4 = ProdIPv4Addr
+	e.LXCMAC = ProdHardAddr
+	e.NodeMAC = ProdHardAddr
 	e.SetIdentity(ds.d, prodBarSecLblsCtx)
 	e.Mutex.Lock()
 	ready = e.SetStateLocked(endpoint.StateWaitingToRegenerate, "test")
@@ -196,9 +202,9 @@ func (ds *DaemonSuite) TestUpdateConsumerMap(c *C) {
 	// Check that both policies have been updated in the xDS cache for the L7
 	// proxies.
 	networkPolicies := ds.getXDSNetworkPolicies(c, nil)
-	c.Assert(networkPolicies, HasLen, 2)
+	c.Assert(networkPolicies, HasLen, 4)
 
-	qaBarNetworkPolicy := networkPolicies[qaBarSecLblsCtx.ID]
+	qaBarNetworkPolicy := networkPolicies[QAIPv4Addr.String()]
 	c.Assert(qaBarNetworkPolicy, Not(IsNil))
 	expectedRemotePolicies := []uint64{
 		uint64(qaFooSecLblsCtx.ID),
@@ -209,6 +215,7 @@ func (ds *DaemonSuite) TestUpdateConsumerMap(c *C) {
 	}
 	sortkeys.Uint64s(expectedRemotePolicies)
 	expectedNetworkPolicy := &cilium.NetworkPolicy{
+		Name:   QAIPv4Addr.String(),
 		Policy: uint64(qaBarSecLblsCtx.ID),
 		IngressPerPortPolicies: []*cilium.PortNetworkPolicy{
 			{
@@ -242,9 +249,9 @@ func (ds *DaemonSuite) TestUpdateConsumerMap(c *C) {
 			},
 		},
 	}
-	c.Assert(qaBarNetworkPolicy, DeepEquals, expectedNetworkPolicy)
+	c.Assert(qaBarNetworkPolicy, comparator.DeepEquals, expectedNetworkPolicy)
 
-	prodBarNetworkPolicy := networkPolicies[prodBarSecLblsCtx.ID]
+	prodBarNetworkPolicy := networkPolicies[ProdIPv4Addr.String()]
 	c.Assert(prodBarNetworkPolicy, Not(IsNil))
 	expectedRemotePolicies = []uint64{
 		// The qaFoo identity is allowed by FromEndpoints but rejected by
@@ -254,9 +261,10 @@ func (ds *DaemonSuite) TestUpdateConsumerMap(c *C) {
 		uint64(prodFooJoeSecLblsCtx.ID),
 	}
 	sortkeys.Uint64s(expectedRemotePolicies)
+	expectedNetworkPolicy.Name = ProdIPv4Addr.String()
 	expectedNetworkPolicy.Policy = uint64(prodBarSecLblsCtx.ID)
 	expectedNetworkPolicy.IngressPerPortPolicies[0].Rules[0].RemotePolicies = expectedRemotePolicies
-	c.Assert(prodBarNetworkPolicy, DeepEquals, expectedNetworkPolicy)
+	c.Assert(prodBarNetworkPolicy, comparator.DeepEquals, expectedNetworkPolicy)
 }
 
 func (ds *DaemonSuite) TestReplacePolicy(c *C) {
@@ -360,10 +368,10 @@ func (ds *DaemonSuite) TestRemovePolicy(c *C) {
 	// Create the endpoint and generate its policy.
 	e := endpoint.NewEndpointWithState(1, endpoint.StateWaitingForIdentity)
 	e.IfName = "dummy1"
-	e.IPv6 = IPv6Addr
-	e.IPv4 = IPv4Addr
-	e.LXCMAC = HardAddr
-	e.NodeMAC = HardAddr
+	e.IPv6 = QAIPv6Addr
+	e.IPv4 = QAIPv4Addr
+	e.LXCMAC = QAHardAddr
+	e.NodeMAC = QAHardAddr
 	err2 := os.Mkdir("1", 755)
 	c.Assert(err2, IsNil)
 	defer func() {
@@ -384,8 +392,8 @@ func (ds *DaemonSuite) TestRemovePolicy(c *C) {
 	// Check that the policy has been updated in the xDS cache for the L7
 	// proxies.
 	networkPolicies := ds.getXDSNetworkPolicies(c, nil)
-	c.Assert(networkPolicies, HasLen, 1)
-	qaBarNetworkPolicy := networkPolicies[qaBarSecLblsCtx.ID]
+	c.Assert(networkPolicies, HasLen, 2)
+	qaBarNetworkPolicy := networkPolicies[QAIPv4Addr.String()]
 	c.Assert(qaBarNetworkPolicy, Not(IsNil))
 
 	// Delete the endpoint.
