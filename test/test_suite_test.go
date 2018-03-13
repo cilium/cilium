@@ -127,6 +127,12 @@ var _ = BeforeAll(func() {
 		return
 	}
 
+	if config.CiliumTestConfig.SSHConfig != "" {
+		// If we set a different VM that it's not in our test environment
+		// ginkgo cannot provision it, so skip setup below.
+		return
+	}
+
 	if progressChan := goReportVagrantStatus(); progressChan != nil {
 		defer func() { progressChan <- err == nil }()
 	}
