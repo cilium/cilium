@@ -22,17 +22,28 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/node"
 
+	go_version "github.com/hashicorp/go-version"
 	"github.com/sirupsen/logrus"
 )
 
 // Init initializes the Kubernetes package. It is required to call Configure()
 // beforehand.
 func Init() error {
+	compatibleVersions, err := go_version.NewConstraint(compatibleK8sVersions)
+	if err != nil {
+		return fmt.Errorf("unable to parse compatible k8s verions: %s", err)
+	}
+
 	if err := createDefaultClient(); err != nil {
 		return fmt.Errorf("unable to create k8s client: %s", err)
 	}
-	if _, err := GetServerVersion(); err != nil {
+
+	sv, err := GetServerVersion()
+	if err != nil {
 		return fmt.Errorf("k8s client failed to talk to k8s api-server: %s", err)
+	}
+	if !compatibleVersions.Check(sv) {
+		return fmt.Errorf("k8s version (%v) is not in compatible range (%v)", sv, compatibleK8sVersions)
 	}
 
 	if nodeName := os.Getenv(EnvNodeNameSpec); nodeName != "" {
