@@ -36,13 +36,13 @@ import (
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/maps/policymap"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/monitor"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
 
-	"github.com/cilium/cilium/pkg/maps/policymap"
 	"github.com/sirupsen/logrus"
 )
 
@@ -119,7 +119,7 @@ func getL4FilterEndpointSelector(filter *policy.L4Filter) []api.EndpointSelector
 	// When additional L3-dependent L4 rules are supported, this logic
 	// will need to be amended to only wildcard endpoints when no L3 is
 	// specified. See also GH-2992 for context.
-	fromEndpointsSelectors := filter.FromEndpoints
+	fromEndpointsSelectors := filter.Endpoints
 	if fromEndpointsSelectors == nil {
 		fromEndpointsSelectors = []api.EndpointSelector{
 			api.NewWildcardEndpointSelector(),
@@ -160,9 +160,9 @@ func (e *Endpoint) sweepFilters(oldPolicy *policy.L4Policy,
 // Returns a map that represents all policies that were attempted to be removed;
 // it maps to whether they were removed successfully (true or false)
 func (e *Endpoint) removeOldFilter(identities *identityPkg.IdentityCache,
-	filter *policy.L4Filter) policy.SecurityIDContexts {
+	filter *policy.L4Filter, direction policymap.TrafficDirection) policy.SecurityIDContexts {
 
-	fromEndpointsSrcIDs := policy.NewSecurityIDContexts()
+	attemptedRemovedMapEntries := policy.NewSecurityIDContexts()
 	port := uint16(filter.Port)
 	proto := uint8(filter.U8Proto)
 
@@ -170,33 +170,34 @@ func (e *Endpoint) removeOldFilter(identities *identityPkg.IdentityCache,
 		for _, id := range getSecurityIdentities(identities, &sel) {
 			srcID := id.Uint32()
 			l4RuleCtx, l7RuleCtx := e.ParseL4Filter(filter)
-			if _, ok := fromEndpointsSrcIDs[id]; !ok {
-				fromEndpointsSrcIDs[id] = policy.NewL4RuleContexts()
+			if _, ok := attemptedRemovedMapEntries[id]; !ok {
+				attemptedRemovedMapEntries[id] = policy.NewL4RuleContexts()
 			}
-			if err := e.PolicyMap.DeleteL4(srcID, port, proto, policymap.Ingress); err != nil {
+			if err := e.PolicyMap.DeleteL4(srcID, port, proto, direction); err != nil {
 				// This happens when the policy would add
 				// multiple copies of the same L4 policy. Only
 				// one of them is actually added, but we'll
 				// still try to remove it multiple times.
-				e.getLogger().WithError(err).WithField(logfields.L4PolicyID, srcID).Debug("Delete old l4 policy failed")
+				e.getLogger().WithError(err).WithFields(logrus.Fields{logfields.L4PolicyID: srcID,
+					logfields.TrafficDirection: direction}).Debug("deletion of old L4 policy failed")
 				// Set with false only if the key was not
 				// previously set nor the value was set
 				// with true. Since we can have multiple
 				// copies of the same L4 policy, a single
 				// successful DeleteL4 means the policy
 				// was actually removed.
-				v, ok := fromEndpointsSrcIDs[id][l4RuleCtx]
+				v, ok := attemptedRemovedMapEntries[id][l4RuleCtx]
 				if ok && !v.L4Installed {
-					fromEndpointsSrcIDs[id][l4RuleCtx] = l7RuleCtx
+					attemptedRemovedMapEntries[id][l4RuleCtx] = l7RuleCtx
 				}
 			} else {
 				l7RuleCtx.L4Installed = true
-				fromEndpointsSrcIDs[id][l4RuleCtx] = l7RuleCtx
+				attemptedRemovedMapEntries[id][l4RuleCtx] = l7RuleCtx
 			}
 		}
 	}
 
-	return fromEndpointsSrcIDs
+	return attemptedRemovedMapEntries
 }
 
 // applyNewFilter adds the given l4 filter to the endpoint.
@@ -206,7 +207,7 @@ func (e *Endpoint) removeOldFilter(identities *identityPkg.IdentityCache,
 // policy.
 // Applies for L3 dependent L4 not for L4-only.
 func (e *Endpoint) applyNewFilter(identities *identityPkg.IdentityCache,
-	filter *policy.L4Filter) (policy.SecurityIDContexts, int) {
+	filter *policy.L4Filter, direction policymap.TrafficDirection) (policy.SecurityIDContexts, int) {
 
 	fromEndpointsSrcIDs := policy.NewSecurityIDContexts()
 	port := uint16(filter.Port)
@@ -216,7 +217,7 @@ func (e *Endpoint) applyNewFilter(identities *identityPkg.IdentityCache,
 	for _, sel := range getL4FilterEndpointSelector(filter) {
 		for _, id := range getSecurityIdentities(identities, &sel) {
 			srcID := id.Uint32()
-			if e.PolicyMap.L4Exists(srcID, port, proto, policymap.Ingress) {
+			if e.PolicyMap.L4Exists(srcID, port, proto, direction) {
 				e.getLogger().WithField("l4Filter", filter).Debug("L4 filter exists")
 				continue
 			}
@@ -224,7 +225,7 @@ func (e *Endpoint) applyNewFilter(identities *identityPkg.IdentityCache,
 			if _, ok := fromEndpointsSrcIDs[id]; !ok {
 				fromEndpointsSrcIDs[id] = policy.NewL4RuleContexts()
 			}
-			if err := e.PolicyMap.AllowL4(srcID, port, proto, policymap.Ingress); err != nil {
+			if err := e.PolicyMap.AllowL4(srcID, port, proto, direction); err != nil {
 				e.getLogger().WithFields(logrus.Fields{
 					logfields.PolicyID: srcID,
 					logfields.Port:     port,
@@ -249,58 +250,75 @@ func (e *Endpoint) applyNewFilter(identities *identityPkg.IdentityCache,
 //  - The previous assigned value and the new value are both
 //    true
 func setMapOperationResult(secIDs, newSecIDs policy.SecurityIDContexts) {
-	for identity, ruleContexts := range newSecIDs {
-		for ruleContext, v := range ruleContexts {
+	for identity, l4RuleContexts := range newSecIDs {
+		for l4RuleContext, l7RuleContext := range l4RuleContexts {
 			if _, ok := secIDs[identity]; !ok {
 				secIDs[identity] = policy.NewL4RuleContexts()
 			}
-			e, ok := secIDs[identity][ruleContext]
-			v.L4Installed = (v.L4Installed && !ok) || (v.L4Installed && e.L4Installed)
-			secIDs[identity][ruleContext] = v
+			e, ok := secIDs[identity][l4RuleContext]
+			l7RuleContext.L4Installed = (l7RuleContext.L4Installed && !ok) || (l7RuleContext.L4Installed && e.L4Installed)
+			secIDs[identity][l4RuleContext] = l7RuleContext
 		}
 	}
 }
 
 // Looks for mismatches between 'oldPolicy' and 'newPolicy', and fixes up
 // this Endpoint's BPF PolicyMap to reflect the new L3+L4 combined policy.
-// Returns a map that represents all L3-dependent L4 rules that were attempted
+// Returns a map that represents all L3-dependent L4 PolicyMap entries that were attempted
 // to be added;
-// and a map that represents all L3-dependent L4 rules that were attempted
+// and a map that represents all L3-dependent L4 PolicyMap entries that were attempted
 // to be removed;
 // it maps to whether they were removed successfully (true or false)
+// TODO (it maps to rule contexts); 'whether they were removed successfully' doesn't
+// make sense - is this what L4Installed means?
 func (e *Endpoint) applyL4PolicyLocked(oldIdentities, newIdentities *identityPkg.IdentityCache,
-	oldPolicy, newPolicy *policy.L4Policy) (secIDsAdd, secIDsRm policy.SecurityIDContexts, err error) {
+	oldL4Policy, newL4Policy *policy.L4Policy) (addedPolicyMapEntries, removedPolicyMapEntries policy.SecurityIDContexts, err error) {
+
 	var (
 		errors, errs = 0, 0
 		secIDs       policy.SecurityIDContexts
 	)
 
-	secIDsAdd = policy.NewSecurityIDContexts()
-	secIDsRm = policy.NewSecurityIDContexts()
+	addedPolicyMapEntries = policy.NewSecurityIDContexts()
+	removedPolicyMapEntries = policy.NewSecurityIDContexts()
 
-	if oldPolicy != nil {
-		var secIDs policy.SecurityIDContexts
-		for _, filter := range oldPolicy.Ingress {
-			secIDs = e.removeOldFilter(oldIdentities, &filter)
-			setMapOperationResult(secIDsRm, secIDs)
+	// Need to iterate through old L3-L4 policy and remove all PolicyMap entries
+	// for both ingress and egress.
+	if oldL4Policy != nil {
+		for _, filter := range oldL4Policy.Ingress {
+			attemptedRemovedIngressMapEntries := e.removeOldFilter(oldIdentities, &filter, policymap.Ingress)
+			setMapOperationResult(removedPolicyMapEntries, attemptedRemovedIngressMapEntries)
 		}
-		errors += e.sweepFilters(oldPolicy, newIdentities)
+
+		for _, filter := range oldL4Policy.Egress {
+			_ = e.removeOldFilter(oldIdentities, &filter, policymap.Egress)
+			// TODO update maps for egress. Not touching conntrack for now.
+		}
+		errors += e.sweepFilters(oldL4Policy, newIdentities)
 	}
 
-	if newPolicy == nil {
-		return secIDsAdd, secIDsRm, nil
+	// No new entries to add to PolicyMap, so simply return.
+	if newL4Policy == nil {
+		return addedPolicyMapEntries, removedPolicyMapEntries, nil
 	}
 
-	for _, filter := range newPolicy.Ingress {
-		secIDs, errs = e.applyNewFilter(newIdentities, &filter)
-		setMapOperationResult(secIDsAdd, secIDs)
+	// Need to iterate through new L3-L4 policy and insert new PolicyMap entries
+	// for both ingress and egress.
+	for _, filter := range newL4Policy.Ingress {
+		secIDs, errs = e.applyNewFilter(newIdentities, &filter, policymap.Ingress)
+		setMapOperationResult(addedPolicyMapEntries, secIDs)
 		errors += errs
 	}
 
-	if errors > 0 {
-		return secIDsAdd, secIDsRm, fmt.Errorf("Some Label+L4 policy updates failed.")
+	for _, filter := range newL4Policy.Egress {
+		_, errs = e.applyNewFilter(newIdentities, &filter, policymap.Egress)
+		// TODO update maps for egress. Not touching conntrack for now.
 	}
-	return secIDsAdd, secIDsRm, nil
+
+	if errors > 0 {
+		return addedPolicyMapEntries, removedPolicyMapEntries, fmt.Errorf("Some Label+L4 policy updates failed.")
+	}
+	return addedPolicyMapEntries, removedPolicyMapEntries, nil
 }
 
 func getLabelsMap() (*identityPkg.IdentityCache, error) {
@@ -321,17 +339,32 @@ func getLabelsMap() (*identityPkg.IdentityCache, error) {
 
 // Must be called with global endpoint.Mutex held
 func (e *Endpoint) resolveL4Policy(owner Owner, repo *policy.Repository, c *policy.Consumable) error {
-	ctx := policy.SearchContext{
+
+	ingressCtx := policy.SearchContext{
 		To: c.LabelArray,
 	}
-	if owner.TracingEnabled() {
-		ctx.Trace = policy.TRACE_ENABLED
+
+	egressCtx := policy.SearchContext{
+		From: c.LabelArray,
 	}
 
-	newL4Policy, err := repo.ResolveL4Policy(&ctx)
+	if owner.TracingEnabled() {
+		ingressCtx.Trace = policy.TRACE_ENABLED
+		egressCtx.Trace = policy.TRACE_ENABLED
+	}
+
+	newL4IngressPolicy, err := repo.ResolveL4IngressPolicy(&ingressCtx)
 	if err != nil {
 		return err
 	}
+
+	newL4EgressPolicy, err := repo.ResolveL4EgressPolicy(&egressCtx)
+	if err != nil {
+		return err
+	}
+
+	newL4Policy := &policy.L4Policy{Ingress: *newL4IngressPolicy,
+		Egress: *newL4EgressPolicy}
 
 	if reflect.DeepEqual(c.L4Policy, newL4Policy) {
 		return nil
@@ -411,6 +444,7 @@ func (e *Endpoint) regenerateConsumable(owner Owner, labelsMap *identityPkg.Iden
 					rulesAdd[identityPkg.InvalidIdentity][l4RuleCtx] = l7RuleCtx
 				}
 			}
+			// TODO (ianvernon) egress support
 		}
 
 		// Only remove the CT entries of the rules that were successfully
