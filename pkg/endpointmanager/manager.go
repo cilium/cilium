@@ -59,9 +59,11 @@ func init() {
 // Must be called with ep.Mutex.RLock held.
 func Insert(ep *endpoint.Endpoint) {
 	mutex.Lock()
+	defer mutex.Unlock()
+
 	endpoints[ep.ID] = ep
 	updateReferences(ep)
-	mutex.Unlock()
+	ep.RunK8sCiliumEndpointSync() // start the k8s update controller
 }
 
 // Lookup looks up the endpoint by prefix id
@@ -307,8 +309,6 @@ func GetEndpoints() []*endpoint.Endpoint {
 
 // AddEndpoint takes the prepared endpoint object and starts managing it.
 func AddEndpoint(owner endpoint.Owner, ep *endpoint.Endpoint, reason string) error {
-	ep.RunK8sCiliumEndpointSync() // start the k8s update controller
-
 	alwaysEnforce := policy.GetPolicyEnabled() == endpoint.AlwaysEnforce
 	ep.Opts.Set(endpoint.OptionIngressPolicy, alwaysEnforce)
 	ep.Opts.Set(endpoint.OptionEgressPolicy, alwaysEnforce)
