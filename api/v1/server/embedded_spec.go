@@ -1427,7 +1427,7 @@ func init() {
       }
     },
     "EndpointHealthStatus": {
-      "description": "A common set of statuses for endpoint health * ` + "`" + `OK` + "`" + ` = All components operational * ` + "`" + `Bootstrap` + "`" + ` = This component is being created * ` + "`" + `Pending` + "`" + ` = A change is being processed to be applied * ` + "`" + `Warning` + "`" + ` = This component is not applying up-to-date policies (but is still applying the previous version) * ` + "`" + `Failure` + "`" + ` = An error has occurred and no policy is being applied * ` + "`" + `Disabled` + "`" + ` = This endpoint is disabled and will not handle traffic\n",
+      "description": "A common set of statuses for endpoint health * ` + "`" + `` + "`" + `OK` + "`" + `` + "`" + ` = All components operational * ` + "`" + `` + "`" + `Bootstrap` + "`" + `` + "`" + ` = This component is being created * ` + "`" + `` + "`" + `Pending` + "`" + `` + "`" + ` = A change is being processed to be applied * ` + "`" + `` + "`" + `Warning` + "`" + `` + "`" + ` = This component is not applying up-to-date policies (but is still applying the previous version) * ` + "`" + `` + "`" + `Failure` + "`" + `` + "`" + ` = An error has occurred and no policy is being applied * ` + "`" + `` + "`" + `Disabled` + "`" + `` + "`" + ` = This endpoint is disabled and will not handle traffic\n",
       "type": "string",
       "enum": [
         "OK",
@@ -2096,7 +2096,7 @@ func init() {
     },
     "endpoint-id": {
       "type": "string",
-      "description": "String describing an endpoint with the format ` + "`" + `[prefix:]id` + "`" + `. If no prefix\nis specified, a prefix of ` + "`" + `cilium-local:` + "`" + ` is assumed. Not all endpoints\nwill be addressable by all endpoint ID prefixes with the exception of the\nlocal Cilium UUID which is assigned to all endpoints.\n\nSupported endpoint id prefixes:\n  - cilium-local: Local Cilium endpoint UUID, e.g. cilium-local:3389595\n  - cilium-global: Global Cilium endpoint UUID, e.g. cilium-global:cluster1:nodeX:452343\n  - container-id: Container runtime ID, e.g. container-id:22222\n  - container-name: Container name, e.g. container-name:foobar\n  - pod-name: pod name for this container if K8s is enabled, e.g. pod-name:default:foobar\n  - docker-endpoint: Docker libnetwork endpoint ID, e.g. docker-endpoint:4444\n",
+      "description": "String describing an endpoint with the format ` + "`" + `` + "`" + `[prefix:]id` + "`" + `` + "`" + `. If no prefix\nis specified, a prefix of ` + "`" + `` + "`" + `cilium-local:` + "`" + `` + "`" + ` is assumed. Not all endpoints\nwill be addressable by all endpoint ID prefixes with the exception of the\nlocal Cilium UUID which is assigned to all endpoints.\n\nSupported endpoint id prefixes:\n  - cilium-local: Local Cilium endpoint UUID, e.g. cilium-local:3389595\n  - cilium-global: Global Cilium endpoint UUID, e.g. cilium-global:cluster1:nodeX:452343\n  - container-id: Container runtime ID, e.g. container-id:22222\n  - container-name: Container name, e.g. container-name:foobar\n  - pod-name: pod name for this container if K8s is enabled, e.g. pod-name:default:foobar\n  - docker-endpoint: Docker libnetwork endpoint ID, e.g. docker-endpoint:4444\n",
       "name": "id",
       "in": "path",
       "required": true
