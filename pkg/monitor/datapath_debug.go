@@ -91,6 +91,8 @@ const (
 	DbgL4Create
 	DbgIPIDMapFailed4
 	DbgIPIDMapFailed6
+	DbgIPIDMapSucceed4
+	DbgIPIDMapSucceed6
 )
 
 // must be in sync with <bpf/lib/conntrack.h>
@@ -333,6 +335,10 @@ func (n *DebugMsg) Dump(data []byte, prefix string) {
 		fmt.Printf("Failed to map daddr=%x to identity\n", ip4Str(n.Arg1))
 	case DbgIPIDMapFailed6:
 		fmt.Printf("Failed to map daddr.p4=[::%x] to identity\n", ip6Str(n.Arg1))
+	case DbgIPIDMapSucceed4:
+		fmt.Printf("Successfully mapped daddr=%x to identity=%d\n", ip4Str(n.Arg1), n.Arg2)
+	case DbgIPIDMapSucceed6:
+		fmt.Printf("Successfully mapped daddr.p4=[::%x] to identity=%d\n", ip6Str(n.Arg1), n.Arg2)
 	default:
 		fmt.Printf("Unknown message type=%d arg1=%d arg2=%d\n", n.SubType, n.Arg1, n.Arg2)
 	}
