@@ -205,8 +205,8 @@ static inline int policy_can_egress6(struct __sk_buff *skb,
 	info = lookup_ip6_remote_endpoint(daddr);
 	if (info)
 		identity = info->sec_label;
-	else
-		cilium_dbg(skb, DBG_IP_ID_MAP_FAILED6, daddr->p4, 0);
+	cilium_dbg(skb, info ? DBG_IP_ID_MAP_SUCCEED6 : DBG_IP_ID_MAP_FAILED6,
+		   daddr->p4, identity);
 
 	return policy_can_egress(skb, identity, tuple->dport, tuple->nexthdr);
 }
@@ -224,8 +224,8 @@ static inline int policy_can_egress4(struct __sk_buff *skb,
 	info = lookup_ip4_remote_endpoint(daddr);
 	if (info)
 		identity = info->sec_label;
-	else
-		cilium_dbg(skb, DBG_IP_ID_MAP_FAILED4, daddr, 0);
+	cilium_dbg(skb, info ? DBG_IP_ID_MAP_SUCCEED4 : DBG_IP_ID_MAP_FAILED4,
+		   daddr, identity);
 
 	return policy_can_egress(skb, identity, tuple->dport, tuple->nexthdr);
 }
