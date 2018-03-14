@@ -15,14 +15,12 @@
 package main
 
 import (
-	"context"
 	"os"
 	"time"
 
 	"github.com/cilium/cilium/common/addressing"
 	"github.com/cilium/cilium/pkg/comparator"
 	"github.com/cilium/cilium/pkg/endpoint"
-	"github.com/cilium/cilium/pkg/envoy"
 	"github.com/cilium/cilium/pkg/envoy/cilium"
 	envoy_api_v2_core "github.com/cilium/cilium/pkg/envoy/envoy/api/v2/core"
 	envoy_api_v2_route "github.com/cilium/cilium/pkg/envoy/envoy/api/v2/route"
@@ -45,21 +43,11 @@ var (
 	ProdIPv4Addr, _ = addressing.NewCiliumIPv4("10.11.12.14")
 )
 
-func (ds *DaemonSuite) clearXDSNeworkPolicies() {
-	// Empty the xDS cache of network policies published to L7 proxies.
-	envoy.NetworkPolicyCache.Clear(envoy.NetworkPolicyTypeURL, false)
-}
-
 // getXDSNetworkPolicies returns the representation of the xDS network policies
 // as a map of IP addresses to NetworkPolicy objects
 func (ds *DaemonSuite) getXDSNetworkPolicies(c *C, resourceNames []string) map[string]*cilium.NetworkPolicy {
-	resources, err := envoy.NetworkPolicyCache.GetResources(context.Background(), envoy.NetworkPolicyTypeURL, nil, nil, resourceNames)
+	networkPolicies, err := ds.d.l7Proxy.GetNetworkPolicies(resourceNames)
 	c.Assert(err, IsNil)
-	networkPolicies := make(map[string]*cilium.NetworkPolicy, len(resources.Resources))
-	for _, res := range resources.Resources {
-		networkPolicy := res.(*cilium.NetworkPolicy)
-		networkPolicies[networkPolicy.Name] = networkPolicy
-	}
 	return networkPolicies
 }
 
@@ -126,7 +114,7 @@ func (ds *DaemonSuite) TestUpdateConsumerMap(c *C) {
 		},
 	}
 
-	ds.clearXDSNeworkPolicies()
+	ds.d.l7Proxy.RemoveAllNetworkPolicies()
 
 	_, err3 := ds.d.PolicyAdd(rules, nil)
 	c.Assert(err3, Equals, nil)
@@ -356,7 +344,7 @@ func (ds *DaemonSuite) TestRemovePolicy(c *C) {
 		},
 	}
 
-	ds.clearXDSNeworkPolicies()
+	ds.d.l7Proxy.RemoveAllNetworkPolicies()
 
 	_, err3 := ds.d.PolicyAdd(rules, nil)
 	c.Assert(err3, Equals, nil)

@@ -17,21 +17,16 @@ package envoy
 import (
 	"io"
 	"io/ioutil"
-	"net"
 	"net/http"
-	"os"
 	"os/exec"
 	"path/filepath"
 	"strconv"
 	"strings"
-	"syscall"
 	"time"
 
-	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/flowdebug"
 	"github.com/cilium/cilium/pkg/logging"
 
-	"github.com/golang/protobuf/proto"
 	"github.com/sirupsen/logrus"
 	"gopkg.in/natefinch/lumberjack.v2"
 )
@@ -114,14 +109,9 @@ func (a *admin) quit() error {
 // Envoy manages a running Envoy proxy instance via the
 // ListenerDiscoveryService and RouteDiscoveryService gRPC APIs.
 type Envoy struct {
-	stopCh            chan struct{}
-	errCh             chan error
-	LogPath           string
-	AccessLogPath     string
-	accessLogListener *net.UnixListener
-	xdsSock           string
-	xds               *XDSServer
-	admin             *admin
+	stopCh chan struct{}
+	errCh  chan error
+	admin  *admin
 }
 
 // Logger is used to feed access log entires from Envoy to cilium access log.
@@ -142,16 +132,12 @@ func GetEnvoyVersion() string {
 func StartEnvoy(adminPort uint32, stateDir, logPath string, baseID uint64) *Envoy {
 	bootstrapPath := filepath.Join(stateDir, "bootstrap.pb")
 	adminAddress := "127.0.0.1:" + strconv.FormatUint(uint64(adminPort), 10)
-	xdsPath := filepath.Join(stateDir, "xds.sock")
-	accessLogPath := filepath.Join(stateDir, "access_log.sock")
+	xdsPath := getXDSPath(stateDir)
 
 	e := &Envoy{
-		stopCh:        make(chan struct{}),
-		errCh:         make(chan error, 1),
-		LogPath:       logPath,
-		AccessLogPath: accessLogPath,
-		xdsSock:       xdsPath,
-		admin:         &admin{adminURL: "http://" + adminAddress + "/"},
+		stopCh: make(chan struct{}),
+		errCh:  make(chan error, 1),
+		admin:  &admin{adminURL: "http://" + adminAddress + "/"},
 	}
 
 	// Use the same structure as Istio's pilot-agent for the node ID:
@@ -162,11 +148,7 @@ func StartEnvoy(adminPort uint32, stateDir, logPath string, baseID uint64) *Envo
 	createBootstrap(bootstrapPath, nodeId, "cluster1", "version1",
 		xdsPath, "cluster1", adminPort)
 
-	e.startAccesslogServer(accessLogPath)
-
 	log.Debug("Envoy: Starting ", *e)
-
-	e.xds = createXDSServer(xdsPath, accessLogPath)
 
 	// make it a buffered channel so we can not only
 	// read the written value but also skip it in
@@ -228,13 +210,7 @@ func StartEnvoy(adminPort uint32, stateDir, logPath string, baseID uint64) *Envo
 				// Start Envoy again
 				continue
 			case <-e.stopCh:
-				// Close the access log server
-				if e.accessLogListener != nil {
-					e.accessLogListener.Close()
-					e.accessLogListener = nil
-				}
 				log.Info("Envoy: Stopping process ", cmd.Process.Pid)
-				e.xds.stop()
 				if err := e.admin.quit(); err != nil {
 					log.WithError(err).Fatal("Envoy: Admin quit failed, killing process ", cmd.Process.Pid)
 
@@ -263,73 +239,6 @@ func isEOF(err error) bool {
 	return errlen >= 3 && strerr[errlen-3:] == io.EOF.Error()
 }
 
-func (e *Envoy) startAccesslogServer(accessLogPath string) {
-	// Create the access log listener
-	os.Remove(accessLogPath) // Remove/Unlink the old unix domain socket, if any.
-	var err error
-	e.accessLogListener, err = net.ListenUnix("unixpacket", &net.UnixAddr{Name: accessLogPath, Net: "unixpacket"})
-	if err != nil {
-		log.WithError(err).Fatal("Envoy: Failed to listen at ", accessLogPath)
-	}
-	e.accessLogListener.SetUnlinkOnClose(true)
-
-	go func() {
-		for {
-			// Each Envoy listener opens a new connection over the Unix domain socket.
-			// Multiple worker threads serving the listener share that same connection
-			uc, err := e.accessLogListener.AcceptUnix()
-			if err != nil {
-				// These errors are expected when we are closing down
-				if !strings.Contains(err.Error(), "closed network connection") &&
-					!strings.Contains(err.Error(), "invalid argument") {
-					log.WithError(err).Error("AcceptUnix failed")
-				}
-				break
-			}
-			log.Info("Envoy: Access log connection opened")
-			e.accessLogger(uc)
-		}
-	}()
-}
-
-func (e *Envoy) accessLogger(conn *net.UnixConn) {
-	defer func() {
-		log.Info("Envoy: Access log closing")
-		conn.Close()
-	}()
-
-	buf := make([]byte, 4096)
-	for {
-		n, _, flags, _, err := conn.ReadMsgUnix(buf, nil)
-		if err != nil {
-			if !isEOF(err) {
-				log.WithError(err).Error("Envoy: Access log read error")
-			}
-			break
-		}
-		if flags&syscall.MSG_TRUNC != 0 {
-			log.Warning("Envoy: Truncated access log message discarded.")
-			continue
-		}
-		pblog := HttpLogEntry{}
-		err = proto.Unmarshal(buf[:n], &pblog)
-		if err != nil {
-			log.WithError(err).Warning("Envoy: Invalid accesslog.proto HttpLogEntry message.")
-			continue
-		}
-
-		// Correlate the log entry with a listener
-		logger := e.xds.findListenerLogger(pblog.CiliumResourceName)
-
-		// Call the logger.
-		if logger != nil {
-			logger.Log(&pblog)
-		} else {
-			log.Infof("Envoy: Orphan Access log message for %s: %s", pblog.CiliumResourceName, pblog.String())
-		}
-	}
-}
-
 // StopEnvoy kills the Envoy process started with StartEnvoy. The gRPC API streams are terminated
 // first.
 func (e *Envoy) StopEnvoy() error {
@@ -339,16 +248,6 @@ func (e *Envoy) StopEnvoy() error {
 		return err
 	}
 	return nil
-}
-
-// AddListener adds a listener to a running Envoy proxy.
-func (e *Envoy) AddListener(name string, endpoint_policy_name string, port uint16, isIngress bool, logger Logger, wg *completion.WaitGroup) {
-	e.xds.addListener(name, endpoint_policy_name, port, isIngress, logger, wg)
-}
-
-// RemoveListener removes an existing Envoy Listener.
-func (e *Envoy) RemoveListener(name string, wg *completion.WaitGroup) {
-	e.xds.removeListener(name, wg)
 }
 
 // ChangeLogLevel changes Envoy log level to correspond to the logrus log level 'level'.

@@ -37,10 +37,10 @@ var (
 	ErrNotImplemented = errors.New("not implemented")
 )
 
-// StartXDSGRPCServer starts a gRPC server to serve xDS APIs using the given
+// startXDSGRPCServer starts a gRPC server to serve xDS APIs using the given
 // resource watcher and network listener.
 // Returns a function that stops the GRPC server when called.
-func StartXDSGRPCServer(listener net.Listener, ldsConfig, npdsConfig, nphdsConfig *xds.ResourceTypeConfiguration, resourceAccessTimeout time.Duration) context.CancelFunc {
+func startXDSGRPCServer(listener net.Listener, ldsConfig, npdsConfig, nphdsConfig *xds.ResourceTypeConfiguration, resourceAccessTimeout time.Duration) context.CancelFunc {
 	grpcServer := grpc.NewServer()
 
 	xdsServer := xds.NewServer(map[string]*xds.ResourceTypeConfiguration{

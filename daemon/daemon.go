@@ -1071,7 +1071,7 @@ func NewDaemon(c *Config) (*Daemon, error) {
 	}
 
 	// FIXME: Make configurable
-	d.l7Proxy = proxy.NewProxy(10000, 20000)
+	d.l7Proxy = proxy.StartProxySupport(10000, 20000, d.conf.RunDir)
 
 	if c.RestoreState {
 		if err := d.SyncState(d.conf.StateDir, true); err != nil {
