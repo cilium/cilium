@@ -522,6 +522,7 @@ func (s *SSHMeta) ReportFailed(commands ...string) {
 
 	s.DumpCiliumCommandOutput()
 	s.GatherLogs()
+	s.GatherDockerLogs()
 	s.CheckLogsForDeadlock()
 	fmt.Fprint(wr, "===================== EXITING REPORT GENERATION =====================\n")
 }

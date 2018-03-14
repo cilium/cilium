@@ -139,3 +139,26 @@ func (s *SSHMeta) SampleContainersActions(mode string, networkName string) {
 		}
 	}
 }
+
+// GatherDockerLogs dumps docker containers logs output to the directory
+// testResultsPath
+func (s *SSHMeta) GatherDockerLogs() {
+	res := s.Exec("docker ps -aq")
+	if !res.WasSuccessful() {
+		log.WithField("error", res.CombineOutput()).Errorf("cannot get docker logs")
+		return
+	}
+	commands := map[string]string{}
+	for _, k := range res.ByLines() {
+		key := fmt.Sprintf("docker logs %s", k)
+		commands[key] = fmt.Sprintf("container_%s.logs", k)
+	}
+
+	testPath, err := CreateReportDirectory()
+	if err != nil {
+		s.logger.WithError(err).Errorf(
+			"cannot create test results path '%s'", testPath)
+		return
+	}
+	reportMap(testPath, commands, s)
+}
