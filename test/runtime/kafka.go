@@ -114,19 +114,25 @@ var _ = Describe("RuntimeValidatedKafka", func() {
 		Expect(endPoints[helpers.Enabled]).To(Equal(1))
 		Expect(endPoints[helpers.Disabled]).To(Equal(2))
 
+		By("Creating new topics")
 		createTopic(allowedTopic)
 		createTopic(disallowTopic)
 
+		By("Listing new topics")
 		res := vm.ContainerExec("client",
 			"/opt/kafka/bin/kafka-topics.sh --list --zookeeper zook:2181")
 		res.ExpectSuccess("Cannot get kafka topics")
 
 		By("Allowed topic")
+		By("Starting consume on Allowed topic")
 		ctx, cancel := context.WithCancel(context.Background())
 		data := vm.ExecContext(ctx, consumer(allowedTopic, MaxMessages))
 
 		//TODO: wait until ready GH #3116
+		By("Sleeping for 5 sec")
 		helpers.Sleep(5)
+		By("Allowed topic")
+		By("Starting produce on Allowed topic")
 		for i := 1; i <= MaxMessages; i++ {
 			producer(allowedTopic, fmt.Sprintf("Message %d", i))
 		}
@@ -136,6 +142,7 @@ var _ = Describe("RuntimeValidatedKafka", func() {
 			"Processed a total of %d messages", MaxMessages))
 
 		By("Disable topic")
+		By("Starting consume on disAllowed topic")
 		res = vm.Exec(consumer(disallowTopic, MaxMessages))
 		res.ExpectFail("Kafka consumer can access to disallowTopic")
 	})
@@ -149,20 +156,28 @@ var _ = Describe("RuntimeValidatedKafka", func() {
 		Expect(endPoints[helpers.Enabled]).To(Equal(1), "Expected 1 endpoint to be policy enabled. Policy enforcement failed")
 		Expect(endPoints[helpers.Disabled]).To(Equal(2), "Expected 2 endpoint to be policy disabled. Policy enforcement failed")
 
+		By("Creating new topics")
 		createTopic(allowedTopic)
 		createTopic(disallowTopic)
+
+		By("Listing new topics")
 
 		res := vm.ContainerExec("client",
 			"/opt/kafka/bin/kafka-topics.sh --list --zookeeper zook:2181")
 		res.ExpectSuccess("Cannot get kafka topics")
 
 		By("By sending produce/consume request on topic `allowedTopic`")
+		By("Allowed topic")
+		By("Starting consume on Allowed topic")
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
 		data := vm.ExecContext(ctx, consumer(allowedTopic, MaxMessages))
 
 		//TODO: wait until ready GH #3116
+		By("Sleeping for 5 sec")
 		helpers.Sleep(5)
+		By("Allowed topic")
+		By("Starting produce on Allowed topic")
 		for i := 1; i <= MaxMessages; i++ {
 			producer(allowedTopic, fmt.Sprintf("Message %d", i))
 		}
@@ -171,6 +186,8 @@ var _ = Describe("RuntimeValidatedKafka", func() {
 			"Processed a total of %d messages", MaxMessages))
 
 		By("By sending produce/consume request on topic `disallowedTopic`")
+		By("Disable topic")
+		By("Starting consume on disAllowed topic")
 		res = vm.Exec(consumer(disallowTopic, MaxMessages))
 		res.ExpectFail("Kafka consumer can access to disallowTopic")
 	})

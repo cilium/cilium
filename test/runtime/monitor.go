@@ -95,9 +95,10 @@ var _ = Describe("RuntimeValidatedMonitorTest", func() {
 			Expect(err).Should(BeNil())
 
 			for k, v := range endpoints {
-				filter := fmt.Sprintf("FROM %s DEBUG:", v)
+				filter := fmt.Sprintf("FROM %s DEBUG:FAIL", v)
 				vm.ContainerExec(k, helpers.Ping(helpers.Httpd1))
 				Expect(res.Output().String()).Should(ContainSubstring(filter))
+				//Expect(res.Output().String()).Should(ContainSubstring(filter))
 			}
 		})
 
