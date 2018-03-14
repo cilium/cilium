@@ -613,6 +613,7 @@ func initEnv(cmd *cobra.Command) {
 	}
 
 	bpf.MountFS()
+	bpf.MountCgroup2()
 
 	logging.DefaultLogLevel = defaults.DefaultLogLevel
 	config.Opts.Set(endpoint.OptionDebug, viper.GetBool("debug"))
