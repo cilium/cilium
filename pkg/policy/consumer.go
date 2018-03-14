@@ -359,3 +359,13 @@ func (c *Consumable) AllowsIngress(id identity.NumericIdentity) bool {
 	c.Mutex.RUnlock()
 	return isIdentityAllowed
 }
+
+// AllowsEgress returns whether id is is in the list of allowed identities
+// from which egress traffic is allowed for this Consumable. This is a helper
+// used during unit-tests.
+func (c *Consumable) AllowsEgress(id identity.NumericIdentity) bool {
+	c.Mutex.RLock()
+	isIdentityAllowed, _ := c.EgressIdentities[id]
+	c.Mutex.RUnlock()
+	return isIdentityAllowed
+}

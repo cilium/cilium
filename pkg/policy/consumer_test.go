@@ -38,7 +38,7 @@ func (s *PolicyTestSuite) TestGetConsumable(c *C) {
 	c.Assert(c1, Not(Equals), c3)
 }
 
-func (s *PolicyTestSuite) TestIdentityAllowed(c *C) {
+func (s *PolicyTestSuite) TestIngressIdentityAllowed(c *C) {
 	cache := newConsumableCache()
 
 	c1 := cache.GetOrCreate(ID1, nil)
@@ -68,5 +68,38 @@ func (s *PolicyTestSuite) TestIdentityAllowed(c *C) {
 	c1.RemoveIngressIdentityLocked(ID3)
 	c.Assert(c1.AllowsIngress(ID3), Equals, false)
 	id3Allowed, _ = c1.IngressIdentities[ID3]
+	c.Assert(id3Allowed, Equals, false)
+}
+
+func (s *PolicyTestSuite) TestEgressIdentityAllowed(c *C) {
+	cache := newConsumableCache()
+
+	c1 := cache.GetOrCreate(ID1, nil)
+	c.Assert(c1.AllowsEgress(ID2), Equals, false)
+	c.Assert(c1.AllowsEgress(ID3), Equals, false)
+
+	c1.AllowEgressIdentityLocked(cache, ID2)
+	c.Assert(c1.AllowsEgress(ID2), Equals, true)
+	id2Allowed, _ := c1.EgressIdentities[ID2]
+	c.Assert(id2Allowed, Equals, true)
+
+	c1.AllowEgressIdentityLocked(cache, ID2)
+	c.Assert(c1.AllowsEgress(ID2), Equals, true)
+	id2Allowed, _ = c1.EgressIdentities[ID2]
+	c.Assert(id2Allowed, Equals, true)
+
+	c1.AllowEgressIdentityLocked(cache, ID3)
+	c.Assert(c1.AllowsEgress(ID3), Equals, true)
+	id3Allowed, _ := c1.EgressIdentities[ID3]
+	c.Assert(id3Allowed, Equals, true)
+
+	c1.RemoveEgressIdentityLocked(ID2)
+	c.Assert(c1.AllowsEgress(ID2), Equals, false)
+	id2Allowed, _ = c1.EgressIdentities[ID2]
+	c.Assert(id2Allowed, Equals, false)
+
+	c1.RemoveEgressIdentityLocked(ID3)
+	c.Assert(c1.AllowsEgress(ID3), Equals, false)
+	id3Allowed, _ = c1.EgressIdentities[ID3]
 	c.Assert(id3Allowed, Equals, false)
 }
