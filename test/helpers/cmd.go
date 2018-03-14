@@ -212,3 +212,16 @@ func (res *CmdRes) Unmarshal(data interface{}) error {
 func (res *CmdRes) GetDebugMessage() string {
 	return fmt.Sprintf("cmd: %s\noutput: %s", res.GetCmd(), res.CombineOutput())
 }
+
+// WaitUntilMatch waits until the given substring is present in the `CmdRes.stdout`
+// If the timeout is reached it will return an error.
+func (res *CmdRes) WaitUntilMatch(substr string) error {
+	body := func() bool {
+		return strings.Contains(res.Output().String(), substr)
+	}
+
+	return WithTimeout(
+		body,
+		fmt.Sprintf("%s is not in the output after timeout", substr),
+		&TimeoutConfig{Timeout: HelperTimeout})
+}
