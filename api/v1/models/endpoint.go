@@ -78,6 +78,9 @@ type Endpoint struct {
 	// The policy revision this endpoint is running on
 	PolicyRevision int64 `json:"policy-revision,omitempty"`
 
+	// The policy revision currently enforced in the proxy
+	ProxyPolicyRevision int64 `json:"proxy-policy-revision,omitempty"`
+
 	// Current state of endpoint
 	// Required: true
 	State EndpointState `json:"state"`
@@ -123,6 +126,8 @@ type Endpoint struct {
 /* polymorph Endpoint policy-enabled false */
 
 /* polymorph Endpoint policy-revision false */
+
+/* polymorph Endpoint proxy-policy-revision false */
 
 /* polymorph Endpoint state false */
 

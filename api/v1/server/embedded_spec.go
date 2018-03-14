@@ -1323,6 +1323,10 @@ func init() {
           "description": "The policy revision this endpoint is running on",
           "type": "integer"
         },
+        "proxy-policy-revision": {
+          "description": "The policy revision currently enforced in the proxy",
+          "type": "integer"
+        },
         "state": {
           "description": "Current state of endpoint",
           "$ref": "#/definitions/EndpointState"

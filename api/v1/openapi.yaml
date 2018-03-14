@@ -823,6 +823,9 @@ definitions:
       policy-revision:
         description: The policy revision this endpoint is running on
         type: integer
+      proxy-policy-revision:
+        description: The policy revision currently enforced in the proxy
+        type: integer
       controllers:
         description: Status of all endpoint controllers
         "$ref": "#/definitions/ControllerStatuses"

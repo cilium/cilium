@@ -471,6 +471,10 @@ type Endpoint struct {
 	// should be triggered once the policyRevision reaches the wanted wantedRev.
 	policyRevisionSignals map[policySignal]bool
 
+	// proxyPolicyRevision is the policy revision that has been applied to
+	// the proxy.
+	proxyPolicyRevision uint64
+
 	// nextPolicyRevision is the policy revision that the endpoint has
 	// updated to and that will become effective with the next regenerate
 	nextPolicyRevision uint64
@@ -748,15 +752,16 @@ func (e *Endpoint) GetModelRLocked() *models.Endpoint {
 			OrchestrationInfo:     e.OpLabels.OrchestrationInfo.GetModel(),
 			Disabled:              e.OpLabels.Disabled.GetModel(),
 		},
-		Mac:            e.LXCMAC.String(),
-		HostMac:        e.NodeMAC.String(),
-		PodName:        e.GetK8sNamespaceAndPodNameLocked(),
-		State:          currentState, // TODO: Validate
-		Status:         statusLog,
-		Health:         e.getHealthModel(),
-		Policy:         e.GetPolicyModel(),
-		PolicyEnabled:  &policy,
-		PolicyRevision: int64(e.policyRevision),
+		Mac:                 e.LXCMAC.String(),
+		HostMac:             e.NodeMAC.String(),
+		PodName:             e.GetK8sNamespaceAndPodNameLocked(),
+		State:               currentState, // TODO: Validate
+		Status:              statusLog,
+		Health:              e.getHealthModel(),
+		Policy:              e.GetPolicyModel(),
+		PolicyEnabled:       &policy,
+		PolicyRevision:      int64(e.policyRevision),
+		ProxyPolicyRevision: int64(e.proxyPolicyRevision),
 		Addressing: &models.EndpointAddressing{
 			IPV4: e.IPv4.String(),
 			IPV6: e.IPv6.String(),
@@ -1876,6 +1881,17 @@ func (e *Endpoint) bumpPolicyRevision(revision uint64) {
 	e.Mutex.Lock()
 	if revision > e.policyRevision {
 		e.setPolicyRevision(revision)
+	}
+	e.Mutex.Unlock()
+}
+
+// OnProxyPolicyUpdate is a callback used to update the Endpoint's
+// proxyPolicyRevision when the specified revision has been applied in the
+// proxy.
+func (e *Endpoint) OnProxyPolicyUpdate(revision uint64) {
+	e.Mutex.Lock()
+	if revision > e.proxyPolicyRevision {
+		e.proxyPolicyRevision = revision
 	}
 	e.Mutex.Unlock()
 }
