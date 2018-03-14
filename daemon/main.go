@@ -721,7 +721,7 @@ func runDaemon() {
 	}
 
 	if err := d.EnableK8sWatcher(5 * time.Minute); err != nil {
-		log.WithError(err).Warn("Error while enabling k8s watcher")
+		log.WithError(err).Fatal("Unable to establish connection to Kubernetes apiserver")
 	}
 
 	// This block is deprecated and will be removed later (GH-3050)

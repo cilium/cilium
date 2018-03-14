@@ -31,6 +31,9 @@ func Init() error {
 	if err := createDefaultClient(); err != nil {
 		return fmt.Errorf("unable to create k8s client: %s", err)
 	}
+	if _, err := GetServerVersion(); err != nil {
+		return fmt.Errorf("k8s client failed to talk to k8s api-server: %s", err)
+	}
 
 	if nodeName := os.Getenv(EnvNodeNameSpec); nodeName != "" {
 		// Use of the environment variable overwrites the node-name
