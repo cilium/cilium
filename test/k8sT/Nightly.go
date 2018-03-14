@@ -15,11 +15,8 @@
 package k8sTest
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
-	"os"
 	"path"
 	"strings"
 	"sync"
@@ -29,14 +26,12 @@ import (
 	"github.com/cilium/cilium/test/helpers"
 	"github.com/cilium/cilium/test/helpers/policygen"
 
-	"github.com/Jeffail/gabs"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/sirupsen/logrus"
 )
 
 var (
-	configMap        = "ConfigMap"
 	endpointTimeout  = (60 * time.Second)
 	timeout          = time.Duration(300)
 	netcatDsManifest = "netcat_ds.yaml"
@@ -320,7 +315,6 @@ var _ = Describe("NightlyExamples", func() {
 	var demoPath string
 	var l3Policy, l7Policy string
 	var appService = "app1-service"
-	var stableImage = "cilium/cilium:stable"
 	var apps []string
 
 	initialize := func() {
@@ -328,6 +322,8 @@ var _ = Describe("NightlyExamples", func() {
 		logger.Info("Starting")
 
 		kubectl = helpers.CreateKubectl(helpers.K8s1VMName(), logger)
+
+		ciliumPath = kubectl.ManifestGet("cilium_ds.yaml")
 		kubectl.Delete(ciliumPath)
 
 		apps = []string{helpers.App1, helpers.App2, helpers.App3}
@@ -366,74 +362,6 @@ var _ = Describe("NightlyExamples", func() {
 	})
 
 	Context("Cilium DaemonSet from example", func() {
-		// validatedImage validates that the current image used by cilium pods
-		// is the same as the given image
-		validatedImage := func(image string) {
-			By(fmt.Sprintf("Checking that installed image is %q", image))
-
-			filter := `{.items[*].status.containerStatuses[0].image}`
-			data, err := kubectl.GetPods(
-				helpers.KubeSystemNamespace, "-l k8s-app=cilium").Filter(filter)
-			ExpectWithOffset(1, err).To(BeNil(), "Cannot get cilium pods")
-
-			for _, val := range strings.Split(data.String(), " ") {
-				ExpectWithOffset(1, val).To(Equal(image), "Cilium image didn't update correctly")
-			}
-		}
-
-		// InstallExampleCilium uses Cilium Kubernetes example from the repo,
-		// changes the etcd parameter and installs the stable tag from docker-hub
-		InstallExampleCilium := func() {
-
-			var path = "../examples/kubernetes/cilium.yaml"
-			var result bytes.Buffer
-			newCiliumDSName := fmt.Sprintf("cilium_ds_%s.json", helpers.MakeUID())
-
-			objects, err := helpers.DecodeYAMLOrJSON(path)
-			Expect(err).To(BeNil())
-
-			for _, object := range objects {
-				data, err := json.Marshal(object)
-				Expect(err).To(BeNil())
-
-				jsonObj, err := gabs.ParseJSON(data)
-				Expect(err).To(BeNil())
-
-				value, _ := jsonObj.Path("kind").Data().(string)
-				if value == configMap {
-					jsonObj.SetP("---\nendpoints:\n- http://k8s1:9732\n", "data.etcd-config")
-					jsonObj.SetP("true", "data.debug")
-				}
-
-				result.WriteString(jsonObj.String())
-			}
-
-			fp, err := os.Create(newCiliumDSName)
-			defer fp.Close()
-			Expect(err).To(BeNil())
-
-			fmt.Fprint(fp, result.String())
-
-			kubectl.Apply(helpers.GetFilePath(newCiliumDSName)).ExpectSuccess(
-				"cannot apply cilium example daemonset")
-
-			status, err := kubectl.WaitforPods(
-				helpers.KubeSystemNamespace, "-l k8s-app=cilium", timeout)
-			Expect(status).Should(BeTrue(), "Cilium is not ready after timeout")
-			Expect(err).Should(BeNil(), "Cilium is not ready after timeout")
-
-			validatedImage(stableImage)
-		}
-
-		waitEndpointReady := func() {
-			ciliumPods, err := kubectl.GetCiliumPods(helpers.KubeSystemNamespace)
-			Expect(err).To(BeNil(), "cannot retrieve cilium pods")
-			for _, pod := range ciliumPods {
-				ExpectWithOffset(1, kubectl.CiliumEndpointWait(pod)).To(BeTrue(),
-					"Pod %v is not ready", pod)
-			}
-		}
-
 		AfterEach(func() {
 			res := kubectl.DeleteResource(
 				"ds", fmt.Sprintf("-n %s cilium", helpers.KubeSystemNamespace))
@@ -445,7 +373,7 @@ var _ = Describe("NightlyExamples", func() {
 			// Making sure that we deleted the  cilium ds. No assert message
 			// because maybe is not present
 			kubectl.DeleteResource("ds", fmt.Sprintf("-n %s cilium", helpers.KubeSystemNamespace))
-			InstallExampleCilium()
+			helpers.InstallExampleCilium(kubectl)
 		})
 
 		It("Check Kubernetes Example is working correctly", func() {
@@ -475,82 +403,6 @@ var _ = Describe("NightlyExamples", func() {
 
 		})
 
-		It("K8sValidated Updating Cilium stable to master", func() {
-			//This test should run in each PR for now.
-			By("Creating some endpoints and L7 policy")
-			kubectl.Apply(demoPath).ExpectSuccess()
-			_, err := kubectl.WaitforPods(helpers.DefaultNamespace, "-l zgroup=testapp", timeout)
-			Expect(err).Should(BeNil())
-
-			kubectl.Exec(fmt.Sprintf("%s scale deployment %s --replicas=10",
-				helpers.KubectlCmd, helpers.App1)).ExpectSuccess(
-				"Cannot scale %v deployment", helpers.App1)
-
-			_, err = kubectl.CiliumPolicyAction(
-				helpers.KubeSystemNamespace, l7Policy, helpers.KubectlApply, timeout)
-			Expect(err).Should(BeNil(), "cannot import l7 policy: %v", l7Policy)
-
-			waitEndpointReady()
-
-			appPods := helpers.GetAppPods(apps, helpers.DefaultNamespace, kubectl, "id")
-
-			res := kubectl.ExecPodCmd(
-				helpers.DefaultNamespace, appPods[helpers.App2],
-				helpers.CurlFail(fmt.Sprintf("http://app1-service/public")))
-			res.ExpectSuccess("Cannot curl app1-service")
-
-			By("Updating cilium to master image")
-
-			localImage := "k8s1:5000/cilium/cilium-dev:latest"
-			resource := "daemonset/cilium"
-
-			kubectl.Exec(fmt.Sprintf("%s -n %s set image %s cilium-agent=%s",
-				helpers.KubectlCmd, helpers.KubeSystemNamespace,
-				resource, localImage)).ExpectSuccess(
-				"Cannot update image")
-
-			kubectl.Exec(fmt.Sprintf("%s rollout status %s -n %s",
-				helpers.KubectlCmd, resource,
-				helpers.KubeSystemNamespace)).ExpectSuccess("Cannot rollout the change")
-
-			waitForUpdateImage := func() bool {
-				pods, err := kubectl.GetCiliumPods(helpers.KubeSystemNamespace)
-				if err != nil {
-					return false
-				}
-
-				filter := `{.items[*].status.containerStatuses[0].image}`
-				data, err := kubectl.GetPods(
-					helpers.KubeSystemNamespace, "-l k8s-app=cilium").Filter(filter)
-				if err != nil {
-					return false
-				}
-				number := strings.Count(data.String(), localImage)
-				if number == len(pods) {
-					return true
-				}
-				logger.Infof("Only '%v' of '%v' cilium pods updated to the new image",
-					number, len(pods))
-				return false
-			}
-
-			err = helpers.WithTimeout(
-				waitForUpdateImage,
-				"Cilium Pods are not updating correctly",
-				&helpers.TimeoutConfig{Timeout: timeout})
-			Expect(err).To(BeNil(), "Pods are not updating")
-
-			status, err := kubectl.WaitforPods(
-				helpers.KubeSystemNamespace, "-l k8s-app=cilium", timeout)
-			Expect(status).Should(BeTrue(), "Cilium is not ready after timeout")
-			Expect(err).Should(BeNil(), "Cilium is not ready after timeout")
-
-			validatedImage(localImage)
-			res = kubectl.ExecPodCmd(
-				helpers.DefaultNamespace, appPods[helpers.App2],
-				helpers.CurlFail(fmt.Sprintf("http://app1-service/public")))
-			res.ExpectSuccess("Cannot curl service after update")
-		})
 	})
 
 	Context("Getting started guides", func() {

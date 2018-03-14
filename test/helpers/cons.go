@@ -147,6 +147,9 @@ const (
 
 	KubectlPolicyNameLabel      = k8sConst.PolicyLabelName
 	KubectlPolicyNameSpaceLabel = k8sConst.PolicyLabelNamespace
+
+	StableImage = "cilium/cilium:stable"
+	configMap   = "ConfigMap"
 )
 
 var ciliumCLICommands = map[string]string{

@@ -17,6 +17,7 @@ package helpers
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"html/template"
 	"io"
@@ -29,6 +30,8 @@ import (
 	"time"
 
 	"github.com/cilium/cilium/test/config"
+
+	"github.com/Jeffail/gabs"
 	"github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"k8s.io/kubernetes/pkg/util/yaml"
@@ -144,6 +147,61 @@ func WithTimeoutErr(ctx context.Context, f func() (bool, error), freq time.Durat
 				return nil
 			}
 		}
+	}
+}
+
+// InstallExampleCilium uses Cilium Kubernetes example from the repo,
+// changes the etcd parameter and installs the stable tag from docker-hub
+func InstallExampleCilium(kubectl *Kubectl) {
+
+	var path = "../examples/kubernetes/cilium.yaml"
+	var result bytes.Buffer
+	timeout := time.Duration(300)
+
+	newCiliumDSName := fmt.Sprintf("cilium_ds_%s.json", MakeUID())
+
+	objects, err := DecodeYAMLOrJSON(path)
+	Expect(err).To(BeNil())
+
+	for _, object := range objects {
+		data, err := json.Marshal(object)
+		Expect(err).To(BeNil())
+
+		jsonObj, err := gabs.ParseJSON(data)
+		Expect(err).To(BeNil())
+
+		value, _ := jsonObj.Path("kind").Data().(string)
+		if value == configMap {
+			jsonObj.SetP("---\nendpoints:\n- http://k8s1:9732\n", "data.etcd-config")
+			jsonObj.SetP("true", "data.debug")
+		}
+
+		result.WriteString(jsonObj.String())
+	}
+
+	fp, err := os.Create(newCiliumDSName)
+	defer fp.Close()
+	Expect(err).To(BeNil())
+
+	fmt.Fprint(fp, result.String())
+
+	kubectl.Apply(GetFilePath(newCiliumDSName)).ExpectSuccess(
+		"cannot apply cilium example daemonset")
+
+	status, err := kubectl.WaitforPods(
+		KubeSystemNamespace, "-l k8s-app=cilium", timeout)
+	ExpectWithOffset(1, status).Should(BeTrue(), "Cilium is not ready after timeout")
+	ExpectWithOffset(1, err).Should(BeNil(), "Cilium is not ready after timeout")
+
+	ginkgo.By(fmt.Sprintf("Checking that installed image is %q", StableImage))
+
+	filter := `{.items[*].status.containerStatuses[0].image}`
+	data, err := kubectl.GetPods(
+		KubeSystemNamespace, "-l k8s-app=cilium").Filter(filter)
+	ExpectWithOffset(1, err).To(BeNil(), "Cannot get cilium pods")
+
+	for _, val := range strings.Split(data.String(), " ") {
+		ExpectWithOffset(1, val).To(Equal(StableImage), "Cilium image didn't update correctly")
 	}
 }
 
