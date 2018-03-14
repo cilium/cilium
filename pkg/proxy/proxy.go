@@ -20,6 +20,7 @@ import (
 	"math/rand"
 	"net"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/cilium/cilium/api/v1/models"
@@ -40,7 +41,6 @@ import (
 	"github.com/go-openapi/strfmt"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
-	"sync/atomic"
 )
 
 var (
@@ -209,6 +209,12 @@ type ProxySource interface {
 
 // Proxy maintains state about redirects
 type Proxy struct {
+	*envoy.XDSServer
+
+	// stateDir is the path of the directory where the state of L7 proxies is
+	// stored.
+	stateDir string
+
 	// mutex is the lock required when modifying any proxy datastructure
 	mutex lock.RWMutex
 
@@ -230,9 +236,14 @@ type Proxy struct {
 	redirects map[string]*Redirect
 }
 
-// NewProxy creates a Proxy to keep track of redirects.
-func NewProxy(minPort uint16, maxPort uint16) *Proxy {
+// StartProxySupport starts the servers to support L7 proxies: xDS GRPC server
+// and access log server.
+func StartProxySupport(minPort uint16, maxPort uint16, stateDir string) *Proxy {
+	xdsServer := envoy.StartXDSServer(stateDir)
+	envoy.StartAccessLogServer(stateDir, xdsServer)
 	return &Proxy{
+		XDSServer:      xdsServer,
+		stateDir:       stateDir,
 		rangeMin:       minPort,
 		rangeMax:       maxPort,
 		redirects:      make(map[string]*Redirect),
@@ -350,7 +361,7 @@ retryCreatePort:
 			redir.implementation, err = createKafkaRedirect(redir, kafkaConfiguration{})
 
 		case policy.ParserTypeHTTP:
-			redir.implementation, err = createEnvoyRedirect(redir, wg)
+			redir.implementation, err = createEnvoyRedirect(redir, p.stateDir, p.XDSServer, wg)
 
 		default:
 			return nil, fmt.Errorf("unsupported L7 parser type: %s", l4.L7Parser)
@@ -424,13 +435,7 @@ func (p *Proxy) UpdateNetworkPolicy(ep envoy.NetworkPolicyEndpoint, policy *poli
 	if !viper.GetBool("sidecar-http-proxy") && atomic.LoadInt32(&redirectCount) == 0 {
 		wg = nil
 	}
-	return envoy.UpdateNetworkPolicy(ep, policy, labelsMap, deniedIngressIdentities, deniedEgressIdentities, wg)
-}
-
-// RemoveNetworkPolicy removes a network policy from the set published to
-// L7 proxies.
-func (p *Proxy) RemoveNetworkPolicy(ep envoy.NetworkPolicyEndpoint) {
-	envoy.RemoveNetworkPolicy(ep)
+	return p.XDSServer.UpdateNetworkPolicy(ep, policy, labelsMap, deniedIngressIdentities, deniedEgressIdentities, wg)
 }
 
 // ChangeLogLevel changes proxy log level to correspond to the logrus log level 'level'.

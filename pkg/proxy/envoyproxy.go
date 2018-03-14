@@ -19,6 +19,7 @@ import (
 	"net/url"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/cilium/cilium/pkg/completion"
@@ -29,7 +30,6 @@ import (
 
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
-	"sync/atomic"
 )
 
 // the global Envoy instance
@@ -37,7 +37,8 @@ var envoyProxy *envoy.Envoy
 
 // envoyRedirect implements the Redirect interface for a l7 proxy
 type envoyRedirect struct {
-	redirect *Redirect
+	redirect  *Redirect
+	xdsServer *envoy.XDSServer
 }
 
 var envoyOnce sync.Once
@@ -49,15 +50,17 @@ var redirectCount int32
 
 // createEnvoyRedirect creates a redirect with corresponding proxy
 // configuration. This will launch a proxy instance.
-func createEnvoyRedirect(r *Redirect, wg *completion.WaitGroup) (RedirectImplementation, error) {
+func createEnvoyRedirect(r *Redirect, stateDir string, xdsServer *envoy.XDSServer, wg *completion.WaitGroup) (RedirectImplementation, error) {
 	envoyOnce.Do(func() {
 		// Start Envoy on first invocation
-		envoyProxy = envoy.StartEnvoy(9901, viper.GetString("state-dir"),
-			viper.GetString("envoy-log"), 0)
+		envoyProxy = envoy.StartEnvoy(9901, stateDir, viper.GetString("envoy-log"), 0)
 	})
 
 	if envoyProxy != nil {
-		redir := &envoyRedirect{redirect: r}
+		redir := &envoyRedirect{
+			redirect:  r,
+			xdsServer: xdsServer,
+		}
 
 		ip := r.source.GetIPv4Address()
 		if ip == "" {
@@ -66,7 +69,7 @@ func createEnvoyRedirect(r *Redirect, wg *completion.WaitGroup) (RedirectImpleme
 		if ip == "" {
 			return nil, fmt.Errorf("%s: Cannot create redirect, proxy source has no IP address.", r.id)
 		}
-		envoyProxy.AddListener(r.id, ip, r.ProxyPort, r.ingress, redir, wg)
+		xdsServer.AddListener(r.id, ip, r.ProxyPort, r.ingress, redir, wg)
 		atomic.AddInt32(&redirectCount, 1)
 
 		return redir, nil
@@ -83,10 +86,10 @@ func (r *envoyRedirect) UpdateRules(wg *completion.WaitGroup) error {
 // Close the redirect.
 func (r *envoyRedirect) Close(wg *completion.WaitGroup) {
 	if envoyProxy != nil {
-		envoyProxy.RemoveListener(r.redirect.id, wg)
+		r.xdsServer.RemoveListener(r.redirect.id, wg)
 		newCount := atomic.AddInt32(&redirectCount, -1)
 		if newCount < 0 {
-			log.Fatalf("Invalid redirect count %d < 0", newCount)
+			log.Fatalf("Envoy: Invalid redirect count %d < 0", newCount)
 		}
 	}
 }

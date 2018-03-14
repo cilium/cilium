@@ -71,19 +71,23 @@ func (s *EnvoySuite) TestEnvoy(c *C) {
 	stateLogDir := c.MkDir()
 	log.Debugf("state log directory: %s", stateLogDir)
 
+	xdsServer := StartXDSServer(stateLogDir)
+	defer xdsServer.stop()
+	StartAccessLogServer(stateLogDir, xdsServer)
+
 	// launch debug variant of the Envoy proxy
-	Envoy := StartEnvoy(9942, stateLogDir, filepath.Join(stateLogDir, "cilium-envoy.log"), 42)
-	c.Assert(Envoy, NotNil)
+	envoyProxy := StartEnvoy(9942, stateLogDir, filepath.Join(stateLogDir, "cilium-envoy.log"), 42)
+	c.Assert(envoyProxy, NotNil)
 	log.Debug("started Envoy")
 
 	log.Debug("adding listener1")
-	Envoy.AddListener("listener1", "1.2.3.4", 8081, true, &testRedirect{name: "listener1"}, s.waitGroup)
+	xdsServer.AddListener("listener1", "1.2.3.4", 8081, true, &testRedirect{name: "listener1"}, s.waitGroup)
 
 	log.Debug("adding listener2")
-	Envoy.AddListener("listener2", "1.2.3.4", 8082, true, &testRedirect{name: "listener2"}, s.waitGroup)
+	xdsServer.AddListener("listener2", "1.2.3.4", 8082, true, &testRedirect{name: "listener2"}, s.waitGroup)
 
 	log.Debug("adding listener3")
-	Envoy.AddListener("listener3", "1.2.3.4", 8083, false, &testRedirect{name: "listener3"}, s.waitGroup)
+	xdsServer.AddListener("listener3", "1.2.3.4", 8083, false, &testRedirect{name: "listener3"}, s.waitGroup)
 
 	err := s.waitForProxyCompletion()
 	c.Assert(err, IsNil)
@@ -92,7 +96,7 @@ func (s *EnvoySuite) TestEnvoy(c *C) {
 
 	// Remove listener3
 	log.Debug("removing listener 3")
-	Envoy.RemoveListener("listener3", s.waitGroup)
+	xdsServer.RemoveListener("listener3", s.waitGroup)
 
 	err = s.waitForProxyCompletion()
 	c.Assert(err, IsNil)
@@ -101,18 +105,22 @@ func (s *EnvoySuite) TestEnvoy(c *C) {
 
 	// Add listener3 again
 	log.Debug("adding listener 3")
-	Envoy.AddListener("listener3", "1.2.3.4", 8083, false, &testRedirect{name: "listener3"}, s.waitGroup)
+	xdsServer.AddListener("listener3", "1.2.3.4", 8083, false, &testRedirect{name: "listener3"}, s.waitGroup)
 
 	err = s.waitForProxyCompletion()
 	c.Assert(err, IsNil)
 	log.Debug("completed adding listener 3")
 	s.waitGroup = completion.NewWaitGroup(ctx)
 
+	log.Debug("stopping Envoy")
+	err = envoyProxy.StopEnvoy()
+	c.Assert(err, IsNil)
+
+	time.Sleep(2 * time.Second) // Wait for Envoy to really terminate.
+
 	// Remove listener3 again, and wait for timeout after stopping Envoy.
 	log.Debug("removing listener 3")
-	Envoy.RemoveListener("listener3", s.waitGroup)
-	err = Envoy.StopEnvoy()
-	c.Assert(err, IsNil)
+	xdsServer.RemoveListener("listener3", s.waitGroup)
 	err = s.waitForProxyCompletion()
 	c.Assert(err, NotNil)
 	log.Debugf("failed to remove listener 3: %s", err)
