@@ -30,8 +30,8 @@ type GetEndpointIDLogParams struct {
 	// HTTP Request Object
 	HTTPRequest *http.Request
 
-	/*String describing an endpoint with the format `[prefix:]id`. If no prefix
-	is specified, a prefix of `cilium-local:` is assumed. Not all endpoints
+	/*String describing an endpoint with the format ``[prefix:]id``. If no prefix
+	is specified, a prefix of ``cilium-local:`` is assumed. Not all endpoints
 	will be addressable by all endpoint ID prefixes with the exception of the
 	local Cilium UUID which is assigned to all endpoints.
 
