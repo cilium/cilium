@@ -33,6 +33,7 @@ import (
 	. "github.com/cilium/cilium/api/v1/server/restapi/daemon"
 	health "github.com/cilium/cilium/cilium-health/launch"
 	"github.com/cilium/cilium/common"
+	"github.com/cilium/cilium/common/addressing"
 	"github.com/cilium/cilium/common/types"
 	"github.com/cilium/cilium/daemon/defaults"
 	"github.com/cilium/cilium/daemon/options"
@@ -148,21 +149,21 @@ func (d *Daemon) RemoveProxyRedirect(e *endpoint.Endpoint, id string) error {
 
 // UpdateNetworkPolicy adds or updates a network policy in the set
 // published to L7 proxies.
-func (d *Daemon) UpdateNetworkPolicy(id identity.NumericIdentity, policy *policy.L4Policy,
+func (d *Daemon) UpdateNetworkPolicy(ipv6 addressing.CiliumIPv6, ipv4 addressing.CiliumIPv4, id identity.NumericIdentity, policy *policy.L4Policy,
 	labelsMap identity.IdentityCache, deniedIngressIdentities, deniedEgressIdentities map[identity.NumericIdentity]bool) error {
 	if d.l7Proxy == nil {
 		return fmt.Errorf("can't update network policy, proxy disabled")
 	}
-	return d.l7Proxy.UpdateNetworkPolicy(id, policy, labelsMap, deniedIngressIdentities, deniedEgressIdentities)
+	return d.l7Proxy.UpdateNetworkPolicy(ipv6, ipv4, id, policy, labelsMap, deniedIngressIdentities, deniedEgressIdentities)
 }
 
 // RemoveNetworkPolicy removes a network policy from the set published to
 // L7 proxies.
-func (d *Daemon) RemoveNetworkPolicy(id identity.NumericIdentity) {
+func (d *Daemon) RemoveNetworkPolicy(ipv6 addressing.CiliumIPv6, ipv4 addressing.CiliumIPv4) {
 	if d.l7Proxy == nil {
 		return
 	}
-	d.l7Proxy.RemoveNetworkPolicy(id)
+	d.l7Proxy.RemoveNetworkPolicy(ipv6, ipv4)
 }
 
 // QueueEndpointBuild puts the given request in the endpoints queue for

@@ -17,6 +17,7 @@ package endpoint
 import (
 	"net"
 
+	"github.com/cilium/cilium/common/addressing"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/monitor"
@@ -53,12 +54,12 @@ type Owner interface {
 
 	// UpdateNetworkPolicy adds or updates a network policy in the set
 	// published to L7 proxies.
-	UpdateNetworkPolicy(id identity.NumericIdentity, policy *policy.L4Policy,
+	UpdateNetworkPolicy(ipv6 addressing.CiliumIPv6, ipv4 addressing.CiliumIPv4, id identity.NumericIdentity, policy *policy.L4Policy,
 		labelsMap identity.IdentityCache, deniedIngressIdentities, deniedEgressIdentities map[identity.NumericIdentity]bool) error
 
 	// RemoveNetworkPolicy removes a network policy from the set published to
 	// L7 proxies.
-	RemoveNetworkPolicy(id identity.NumericIdentity)
+	RemoveNetworkPolicy(ipv6 addressing.CiliumIPv6, ipv4 addressing.CiliumIPv4)
 
 	// GetStateDir must return path to the state directory
 	GetStateDir() string

@@ -42,7 +42,7 @@ func (m *NetworkPolicy) Validate() error {
 		return nil
 	}
 
-	// no validation rules for Policy
+	// no validation rules for Name
 
 	for idx, item := range m.GetIngressPerPortPolicies() {
 		_, _ = idx, item
@@ -77,6 +77,8 @@ func (m *NetworkPolicy) Validate() error {
 		}
 
 	}
+
+	// no validation rules for Policy
 
 	return nil
 }

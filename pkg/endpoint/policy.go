@@ -751,7 +751,8 @@ func (e *Endpoint) regeneratePolicy(owner Owner, opts models.ConfigurationMap) (
 	// Publish the updated policy to L7 proxies.
 	// TODO: Pass the denied egress identities.
 	// TODO: This is past the point of no failures described above (!)
-	err = owner.UpdateNetworkPolicy(c.ID, c.L4Policy, *labelsMap, deniedIngressIdentities, nil)
+	err = owner.UpdateNetworkPolicy(e.IPv6, e.IPv4, c.ID, c.L4Policy,
+		*labelsMap, deniedIngressIdentities, nil)
 	if err != nil {
 		return false, nil, nil, err
 	}
