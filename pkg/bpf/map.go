@@ -532,6 +532,9 @@ func (m *Map) DeleteAll() error {
 	m.lock.Lock()
 	defer m.lock.Unlock()
 
+	scopedLog := log.WithFields(logrus.Fields{logfields.Path: m.path, "name": m.name})
+	scopedLog.Debug("deleting all entries in map")
+
 	key := make([]byte, m.KeySize)
 	nextKey := make([]byte, m.KeySize)
 
