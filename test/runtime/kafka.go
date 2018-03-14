@@ -126,7 +126,7 @@ var _ = Describe("RuntimeValidatedKafka", func() {
 		data := vm.ExecContext(ctx, consumer(allowedTopic, MaxMessages))
 
 		//TODO: wait until ready GH #3116
-		helpers.Sleep(5)
+		helpers.Sleep(10)
 		for i := 1; i <= MaxMessages; i++ {
 			producer(allowedTopic, fmt.Sprintf("Message %d", i))
 		}
@@ -162,7 +162,7 @@ var _ = Describe("RuntimeValidatedKafka", func() {
 		data := vm.ExecContext(ctx, consumer(allowedTopic, MaxMessages))
 
 		//TODO: wait until ready GH #3116
-		helpers.Sleep(5)
+		helpers.Sleep(10)
 		for i := 1; i <= MaxMessages; i++ {
 			producer(allowedTopic, fmt.Sprintf("Message %d", i))
 		}
