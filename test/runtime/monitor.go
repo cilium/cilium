@@ -97,6 +97,8 @@ var _ = Describe("RuntimeValidatedMonitorTest", func() {
 			for k, v := range endpoints {
 				filter := fmt.Sprintf("FROM %s DEBUG:", v)
 				vm.ContainerExec(k, helpers.Ping(helpers.Httpd1))
+				Expect(res.WaitUntilMatch(filter)).To(BeNil(),
+					"%q is not in the output after timeout", filter)
 				Expect(res.Output().String()).Should(ContainSubstring(filter))
 			}
 		})
@@ -133,9 +135,9 @@ var _ = Describe("RuntimeValidatedMonitorTest", func() {
 
 				vm.ContainerExec(helpers.App1, helpers.Ping(helpers.Httpd1))
 				vm.ContainerExec(helpers.App3, helpers.Ping(helpers.Httpd1))
-				// helpers.Sleep(10)
-				// cancel()
 
+				Expect(res.WaitUntilMatch(v)).To(BeNil(),
+					"%q is not in the output after timeout", v)
 				Expect(res.CountLines()).Should(BeNumerically(">", 3))
 				Expect(res.Output().String()).Should(ContainSubstring(v))
 			}
@@ -158,13 +160,13 @@ var _ = Describe("RuntimeValidatedMonitorTest", func() {
 			vm.ContainerExec(helpers.App3, helpers.Ping(helpers.Httpd1))
 			vm.ContainerExec(helpers.App1, helpers.Ping(helpers.Httpd1))
 
-			cancel()
+			for _, v := range eventTypes {
+				Expect(res.WaitUntilMatch(v)).To(BeNil(),
+					"%q is not in the output after timeout", v)
+				Expect(res.Output().String()).Should(ContainSubstring(v))
+			}
 
 			Expect(res.CountLines()).Should(BeNumerically(">", 3))
-			output := res.Output().String()
-			for _, v := range eventTypes {
-				Expect(output).Should(ContainSubstring(v))
-			}
 		})
 
 		It("cilium monitor check --from", func() {
@@ -177,14 +179,16 @@ var _ = Describe("RuntimeValidatedMonitorTest", func() {
 			Expect(err).Should(BeNil())
 
 			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+
 			res := vm.ExecContext(ctx, fmt.Sprintf(
 				"cilium monitor --type debug --from %s -v", endpoints[helpers.App1]))
 			vm.ContainerExec(helpers.App1, helpers.Ping(helpers.Httpd1))
-			helpers.Sleep(10)
-			cancel()
 
-			Expect(res.CountLines()).Should(BeNumerically(">", 3))
 			filter := fmt.Sprintf("FROM %s DEBUG:", endpoints[helpers.App1])
+			Expect(res.WaitUntilMatch(filter)).To(BeNil(),
+				"%q is not in the output after timeout", filter)
+			Expect(res.CountLines()).Should(BeNumerically(">", 3))
 			Expect(res.Output().String()).Should(ContainSubstring(filter))
 
 			//MonitorDebug mode shouldn't have DROP lines
@@ -201,16 +205,17 @@ var _ = Describe("RuntimeValidatedMonitorTest", func() {
 			Expect(err).Should(BeNil())
 
 			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
 			res := vm.ExecContext(ctx, fmt.Sprintf(
 				"cilium monitor -v --to %s", endpoints[helpers.Httpd1]))
 
 			vm.ContainerExec(helpers.App1, helpers.Ping(helpers.Httpd1))
 			vm.ContainerExec(helpers.App2, helpers.Ping(helpers.Httpd1))
-			helpers.Sleep(5)
-			cancel()
 
-			Expect(res.CountLines()).Should(BeNumerically(">=", 3))
 			filter := fmt.Sprintf("to endpoint %s", endpoints[helpers.Httpd1])
+			Expect(res.WaitUntilMatch(filter)).To(BeNil(),
+				"%q is not in the output after timeout", filter)
+			Expect(res.CountLines()).Should(BeNumerically(">=", 3))
 			Expect(res.Output().String()).Should(ContainSubstring(filter))
 		})
 
@@ -224,16 +229,17 @@ var _ = Describe("RuntimeValidatedMonitorTest", func() {
 			Expect(err).Should(BeNil())
 
 			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
 			res := vm.ExecContext(ctx, fmt.Sprintf(
 				"cilium monitor -v --related-to %s", endpoints[helpers.Httpd1]))
 
 			vm.WaitEndpointsReady()
 			vm.ContainerExec(helpers.App1, helpers.CurlFail("http://httpd1/public"))
 
-			helpers.Sleep(10)
-			cancel()
-			Expect(res.CountLines()).Should(BeNumerically(">=", 3))
 			filter := fmt.Sprintf("FROM %s DEBUG:", endpoints[helpers.Httpd1])
+			Expect(res.WaitUntilMatch(filter)).To(BeNil(),
+				"%q is not in the output after timeout", filter)
+			Expect(res.CountLines()).Should(BeNumerically(">=", 3))
 			Expect(res.Output().String()).Should(ContainSubstring(filter))
 		})
 

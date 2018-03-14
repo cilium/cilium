@@ -280,6 +280,8 @@ var _ = Describe("NightlyEpsMeasurement", func() {
 				uid := helpers.MakeUID()
 				_ = kubectl.ExecPodCmd(helpers.DefaultNamespace, client,
 					fmt.Sprintf(`echo -e "%s" >> %s`, HTTPRequest(uid), pipePath))
+				Expect(serverctx.WaitUntilMatch(uid)).To(BeNil(),
+					"%q is not in the server output after timeout", uid)
 				helpers.Sleep(5) // Give time to fill the buffer in context.
 				serverctx.ExpectContains(uid, "Cannot get server UUID")
 			}
