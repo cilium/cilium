@@ -36,13 +36,13 @@ import (
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/maps/policymap"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/monitor"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
 
-	"github.com/cilium/cilium/pkg/maps/policymap"
 	"github.com/sirupsen/logrus"
 )
 
@@ -119,7 +119,7 @@ func getL4FilterEndpointSelector(filter *policy.L4Filter) []api.EndpointSelector
 	// When additional L3-dependent L4 rules are supported, this logic
 	// will need to be amended to only wildcard endpoints when no L3 is
 	// specified. See also GH-2992 for context.
-	fromEndpointsSelectors := filter.FromEndpoints
+	fromEndpointsSelectors := filter.Endpoints
 	if fromEndpointsSelectors == nil {
 		fromEndpointsSelectors = []api.EndpointSelector{
 			api.NewWildcardEndpointSelector(),
@@ -293,17 +293,32 @@ func getLabelsMap() (*identityPkg.IdentityCache, error) {
 
 // Must be called with global endpoint.Mutex held
 func (e *Endpoint) resolveL4Policy(owner Owner, repo *policy.Repository, c *policy.Consumable) error {
-	ctx := policy.SearchContext{
+
+	ingressCtx := policy.SearchContext{
 		To: c.LabelArray,
 	}
-	if owner.TracingEnabled() {
-		ctx.Trace = policy.TRACE_ENABLED
+
+	egressCtx := policy.SearchContext{
+		From: c.LabelArray,
 	}
 
-	newL4Policy, err := repo.ResolveL4Policy(&ctx)
+	if owner.TracingEnabled() {
+		ingressCtx.Trace = policy.TRACE_ENABLED
+		egressCtx.Trace = policy.TRACE_ENABLED
+	}
+
+	newL4IngressPolicy, err := repo.ResolveL4IngressPolicy(&ingressCtx)
 	if err != nil {
 		return err
 	}
+
+	newL4EgressPolicy, err := repo.ResolveL4EgressPolicy(&egressCtx)
+	if err != nil {
+		return err
+	}
+
+	newL4Policy := &policy.L4Policy{Ingress: *newL4IngressPolicy,
+		Egress: *newL4EgressPolicy}
 
 	if reflect.DeepEqual(c.L4Policy, newL4Policy) {
 		return nil
@@ -383,6 +398,7 @@ func (e *Endpoint) regenerateConsumable(owner Owner, labelsMap *identityPkg.Iden
 					rulesAdd[identityPkg.InvalidIdentity][l4RuleCtx] = l7RuleCtx
 				}
 			}
+			// TODO (ianvernon) egress support
 		}
 
 		// Only remove the CT entries of the rules that were successfully
