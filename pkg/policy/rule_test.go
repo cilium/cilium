@@ -109,7 +109,9 @@ func (ds *PolicyTestSuite) TestRuleCanReach(c *C) {
 
 func (ds *PolicyTestSuite) TestL4Policy(c *C) {
 	toBar := &SearchContext{To: labels.ParseSelectLabelArray("bar")}
+	fromBar := &SearchContext{From: labels.ParseSelectLabelArray("bar")}
 	toFoo := &SearchContext{To: labels.ParseSelectLabelArray("foo")}
+	fromFoo := &SearchContext{From: labels.ParseSelectLabelArray("foo")}
 
 	rule1 := &rule{
 		Rule: api.Rule{
@@ -150,12 +152,12 @@ func (ds *PolicyTestSuite) TestL4Policy(c *C) {
 
 	expected := NewL4Policy()
 	expected.Ingress["80/TCP"] = L4Filter{
-		Port: 80, Protocol: api.ProtoTCP, U8Proto: 6, FromEndpoints: nil,
+		Port: 80, Protocol: api.ProtoTCP, U8Proto: 6, Endpoints: nil,
 		L7Parser: "http", L7RulesPerEp: l7map, Ingress: true,
 		DerivedFromRules: labels.LabelArrayList{nil},
 	}
 	expected.Ingress["8080/TCP"] = L4Filter{
-		Port: 8080, Protocol: api.ProtoTCP, U8Proto: 6, FromEndpoints: nil,
+		Port: 8080, Protocol: api.ProtoTCP, U8Proto: 6, Endpoints: nil,
 		L7Parser: "http", L7RulesPerEp: l7map, Ingress: true,
 		DerivedFromRules: labels.LabelArrayList{nil},
 	}
@@ -171,20 +173,38 @@ func (ds *PolicyTestSuite) TestL4Policy(c *C) {
 		DerivedFromRules: labels.LabelArrayList{nil},
 	}
 
-	state := traceState{}
-	res, err := rule1.resolveL4Policy(toBar, &state, NewL4Policy())
+	ingressState := traceState{}
+	egressState := traceState{}
+	res, err := rule1.resolveL4IngressPolicy(toBar, &ingressState, NewL4Policy())
 	c.Assert(err, IsNil)
 	c.Assert(res, Not(IsNil))
+
+	res2, err := rule1.resolveL4EgressPolicy(fromBar, &egressState, NewL4Policy())
+	c.Assert(err, IsNil)
+	c.Assert(res2, Not(IsNil))
+
+	res.Egress = res2.Egress
+
 	c.Assert(*res, comparator.DeepEquals, *expected)
-	c.Assert(state.selectedRules, Equals, 1)
-	c.Assert(state.matchedRules, Equals, 0)
+	c.Assert(ingressState.selectedRules, Equals, 1)
+	c.Assert(ingressState.matchedRules, Equals, 0)
+
+	c.Assert(egressState.selectedRules, Equals, 1)
+	c.Assert(egressState.matchedRules, Equals, 0)
 
 	// Foo isn't selected in the rule1's policy.
-	state = traceState{}
-	res, err = rule1.resolveL4Policy(toFoo, &state, NewL4Policy())
+	ingressState = traceState{}
+	egressState = traceState{}
+
+	res, err = rule1.resolveL4IngressPolicy(toFoo, &ingressState, NewL4Policy())
+	res2, err = rule1.resolveL4EgressPolicy(fromFoo, &ingressState, NewL4Policy())
+
 	c.Assert(res, IsNil)
-	c.Assert(state.selectedRules, Equals, 0)
-	c.Assert(state.matchedRules, Equals, 0)
+	c.Assert(res2, IsNil)
+	c.Assert(ingressState.selectedRules, Equals, 0)
+	c.Assert(ingressState.matchedRules, Equals, 0)
+	c.Assert(egressState.selectedRules, Equals, 0)
+	c.Assert(egressState.matchedRules, Equals, 0)
 
 	// This rule actually overlaps with the existing ingress "http" rule,
 	// so we'd expect it to merge.
@@ -226,7 +246,7 @@ func (ds *PolicyTestSuite) TestL4Policy(c *C) {
 
 	expected = NewL4Policy()
 	expected.Ingress["80/TCP"] = L4Filter{
-		Port: 80, Protocol: api.ProtoTCP, U8Proto: 6, FromEndpoints: nil,
+		Port: 80, Protocol: api.ProtoTCP, U8Proto: 6, Endpoints: nil,
 		L7Parser: "http", L7RulesPerEp: l7map, Ingress: true,
 		DerivedFromRules: labels.LabelArrayList{nil, nil},
 	}
@@ -241,23 +261,43 @@ func (ds *PolicyTestSuite) TestL4Policy(c *C) {
 		DerivedFromRules: labels.LabelArrayList{nil},
 	}
 
-	state = traceState{}
-	res, err = rule2.resolveL4Policy(toBar, &state, NewL4Policy())
+	ingressState = traceState{}
+	egressState = traceState{}
+	res, err = rule2.resolveL4IngressPolicy(toBar, &ingressState, NewL4Policy())
 	c.Assert(err, IsNil)
 	c.Assert(res, Not(IsNil))
+
+	res2, err = rule2.resolveL4EgressPolicy(fromBar, &egressState, NewL4Policy())
+	c.Assert(err, IsNil)
+	c.Assert(res2, Not(IsNil))
+
+	res.Egress = res2.Egress
+
 	c.Assert(len(res.Ingress), Equals, 1)
 	c.Assert(*res, comparator.DeepEquals, *expected)
-	c.Assert(state.selectedRules, Equals, 1)
-	c.Assert(state.matchedRules, Equals, 0)
+	c.Assert(ingressState.selectedRules, Equals, 1)
+	c.Assert(ingressState.matchedRules, Equals, 0)
 
-	state = traceState{}
-	res, err = rule2.resolveL4Policy(toFoo, &state, NewL4Policy())
+	c.Assert(egressState.selectedRules, Equals, 1)
+	c.Assert(egressState.matchedRules, Equals, 0)
+
+	ingressState = traceState{}
+	egressState = traceState{}
+
+	res, err = rule2.resolveL4IngressPolicy(toFoo, &ingressState, NewL4Policy())
 	c.Assert(res, IsNil)
-	c.Assert(state.selectedRules, Equals, 0)
-	c.Assert(state.matchedRules, Equals, 0)
+
+	res2, err = rule2.resolveL4EgressPolicy(fromFoo, &egressState, NewL4Policy())
+	c.Assert(res, IsNil)
+
+	c.Assert(ingressState.selectedRules, Equals, 0)
+	c.Assert(ingressState.matchedRules, Equals, 0)
+
+	c.Assert(egressState.selectedRules, Equals, 0)
+	c.Assert(egressState.matchedRules, Equals, 0)
 }
 
-func (ds *PolicyTestSuite) TestMergeL4Policy(c *C) {
+func (ds *PolicyTestSuite) TestMergeL4PolicyIngress(c *C) {
 	toBar := &SearchContext{To: labels.ParseSelectLabelArray("bar")}
 	//toFoo := &SearchContext{To: labels.ParseSelectLabelArray("foo")}
 
@@ -290,13 +330,13 @@ func (ds *PolicyTestSuite) TestMergeL4Policy(c *C) {
 	mergedES := []api.EndpointSelector{fooSelector, bazSelector}
 	expected := NewL4Policy()
 	expected.Ingress["80/TCP"] = L4Filter{
-		Port: 80, Protocol: api.ProtoTCP, U8Proto: 6, FromEndpoints: mergedES,
+		Port: 80, Protocol: api.ProtoTCP, U8Proto: 6, Endpoints: mergedES,
 		L7Parser: "", L7RulesPerEp: L7DataMap{}, Ingress: true,
 		DerivedFromRules: labels.LabelArrayList{nil, nil},
 	}
 
 	state := traceState{}
-	res, err := rule1.resolveL4Policy(toBar, &state, NewL4Policy())
+	res, err := rule1.resolveL4IngressPolicy(toBar, &state, NewL4Policy())
 	c.Assert(err, IsNil)
 	c.Assert(res, Not(IsNil))
 	c.Assert(*res, comparator.DeepEquals, *expected)
@@ -304,7 +344,68 @@ func (ds *PolicyTestSuite) TestMergeL4Policy(c *C) {
 	c.Assert(state.matchedRules, Equals, 0)
 }
 
-func (ds *PolicyTestSuite) TestMergeL7Policy(c *C) {
+func (ds *PolicyTestSuite) TestMergeL4PolicyEgress(c *C) {
+
+	/*+       ctx := &SearchContext{
+	+               To: labels.ParseSelectLabelArray("foo", "groupB"),
+	+               From:   labels.ParseSelectLabelArray("bar", "groupA"),
+	+               Logging: logging.NewLogBackend(buffer, "", 0),
+	+               Trace:   TRACE_VERBOSE,
+	+       }*/
+	buffer := new(bytes.Buffer)
+	fromBar := &SearchContext{
+		From:    labels.ParseSelectLabelArray("bar"),
+		Logging: logging.NewLogBackend(buffer, "", 0),
+		Trace:   TRACE_VERBOSE,
+	}
+	//toFoo := &SearchContext{To: labels.ParseSelectLabelArray("foo")}
+
+	fooSelector := api.NewESFromLabels(labels.ParseSelectLabel("foo"))
+	bazSelector := api.NewESFromLabels(labels.ParseSelectLabel("baz"))
+
+	// bar can access foo with TCP on port 80, and baz with TCP on port 80.
+	rule1 := &rule{
+		Rule: api.Rule{
+			EndpointSelector: api.NewESFromLabels(labels.ParseSelectLabel("bar")),
+			Egress: []api.EgressRule{
+				{
+					ToEndpoints: []api.EndpointSelector{fooSelector},
+					ToPorts: []api.PortRule{{
+						Ports: []api.PortProtocol{
+							{Port: "80", Protocol: api.ProtoTCP},
+						},
+					}},
+				},
+				{
+					ToEndpoints: []api.EndpointSelector{bazSelector},
+					ToPorts: []api.PortRule{{
+						Ports: []api.PortProtocol{
+							{Port: "80", Protocol: api.ProtoTCP},
+						},
+					}},
+				},
+			},
+		},
+	}
+
+	mergedES := []api.EndpointSelector{fooSelector, bazSelector}
+	expected := NewL4Policy()
+	expected.Egress["80/TCP"] = L4Filter{
+		Port: 80, Protocol: api.ProtoTCP, U8Proto: 6, Endpoints: mergedES,
+		L7Parser: "", L7RulesPerEp: L7DataMap{}, Ingress: false,
+		DerivedFromRules: labels.LabelArrayList{nil, nil},
+	}
+
+	state := traceState{}
+	res, err := rule1.resolveL4EgressPolicy(fromBar, &state, NewL4Policy())
+	c.Assert(err, IsNil)
+	c.Assert(res, Not(IsNil))
+	c.Assert(*res, comparator.DeepEquals, *expected)
+	c.Assert(state.selectedRules, Equals, 1)
+	c.Assert(state.matchedRules, Equals, 0)
+}
+
+func (ds *PolicyTestSuite) TestMergeL7PolicyIngress(c *C) {
 	toBar := &SearchContext{To: labels.ParseSelectLabelArray("bar")}
 	toFoo := &SearchContext{To: labels.ParseSelectLabelArray("foo")}
 
@@ -361,13 +462,13 @@ func (ds *PolicyTestSuite) TestMergeL7Policy(c *C) {
 
 	expected := NewL4Policy()
 	expected.Ingress["80/TCP"] = L4Filter{
-		Port: 80, Protocol: api.ProtoTCP, U8Proto: 6, FromEndpoints: nil,
+		Port: 80, Protocol: api.ProtoTCP, U8Proto: 6, Endpoints: nil,
 		L7Parser: "http", L7RulesPerEp: l7map, Ingress: true,
 		DerivedFromRules: labels.LabelArrayList{nil, nil, nil},
 	}
 
 	state := traceState{}
-	res, err := rule1.resolveL4Policy(toBar, &state, NewL4Policy())
+	res, err := rule1.resolveL4IngressPolicy(toBar, &state, NewL4Policy())
 	c.Assert(err, IsNil)
 	c.Assert(res, Not(IsNil))
 	c.Assert(*res, comparator.DeepEquals, *expected)
@@ -375,7 +476,7 @@ func (ds *PolicyTestSuite) TestMergeL7Policy(c *C) {
 	c.Assert(state.matchedRules, Equals, 0)
 
 	state = traceState{}
-	res, err = rule1.resolveL4Policy(toFoo, &state, NewL4Policy())
+	res, err = rule1.resolveL4IngressPolicy(toFoo, &state, NewL4Policy())
 	c.Assert(res, IsNil)
 	c.Assert(state.selectedRules, Equals, 0)
 	c.Assert(state.matchedRules, Equals, 0)
@@ -430,13 +531,13 @@ func (ds *PolicyTestSuite) TestMergeL7Policy(c *C) {
 
 	expected = NewL4Policy()
 	expected.Ingress["80/TCP"] = L4Filter{
-		Port: 80, Protocol: api.ProtoTCP, U8Proto: 6, FromEndpoints: nil,
+		Port: 80, Protocol: api.ProtoTCP, U8Proto: 6, Endpoints: nil,
 		L7Parser: "kafka", L7RulesPerEp: l7map, Ingress: true,
 		DerivedFromRules: labels.LabelArrayList{nil, nil, nil},
 	}
 
 	state = traceState{}
-	res, err = rule2.resolveL4Policy(toBar, &state, NewL4Policy())
+	res, err = rule2.resolveL4IngressPolicy(toBar, &state, NewL4Policy())
 	c.Assert(err, IsNil)
 	c.Assert(res, Not(IsNil))
 	c.Assert(*res, comparator.DeepEquals, *expected)
@@ -444,18 +545,18 @@ func (ds *PolicyTestSuite) TestMergeL7Policy(c *C) {
 	c.Assert(state.matchedRules, Equals, 0)
 
 	state = traceState{}
-	res, err = rule2.resolveL4Policy(toFoo, &state, NewL4Policy())
+	res, err = rule2.resolveL4IngressPolicy(toFoo, &state, NewL4Policy())
 	c.Assert(res, IsNil)
 	c.Assert(state.selectedRules, Equals, 0)
 	c.Assert(state.matchedRules, Equals, 0)
 
 	// Resolve rule1's policy, then try to add rule2.
-	res, err = rule1.resolveL4Policy(toBar, &state, NewL4Policy())
+	res, err = rule1.resolveL4IngressPolicy(toBar, &state, NewL4Policy())
 	c.Assert(err, IsNil)
 	c.Assert(res, Not(IsNil))
 
 	state = traceState{}
-	res, err = rule2.resolveL4Policy(toBar, &state, res)
+	res, err = rule2.resolveL4IngressPolicy(toBar, &state, res)
 	c.Assert(err, Not(IsNil))
 	c.Assert(err.Error(), Equals, "Cannot merge conflicting L7 parsers (kafka/http)")
 
@@ -508,13 +609,231 @@ func (ds *PolicyTestSuite) TestMergeL7Policy(c *C) {
 	}
 	expected = NewL4Policy()
 	expected.Ingress["80/TCP"] = L4Filter{
-		Port: 80, Protocol: api.ProtoTCP, U8Proto: 6, FromEndpoints: nil,
+		Port: 80, Protocol: api.ProtoTCP, U8Proto: 6, Endpoints: nil,
 		L7Parser: "kafka", L7RulesPerEp: l7map, Ingress: true,
 		DerivedFromRules: labels.LabelArrayList{nil, nil},
 	}
 
 	state = traceState{}
-	res, err = rule3.resolveL4Policy(toBar, &state, NewL4Policy())
+	res, err = rule3.resolveL4IngressPolicy(toBar, &state, NewL4Policy())
+	c.Assert(err, IsNil)
+	c.Assert(res, Not(IsNil))
+	c.Assert(*res, comparator.DeepEquals, *expected)
+	c.Assert(state.selectedRules, Equals, 1)
+	c.Assert(state.matchedRules, Equals, 0)
+}
+
+func (ds *PolicyTestSuite) TestMergeL7PolicyEgress(c *C) {
+	fromBar := &SearchContext{From: labels.ParseSelectLabelArray("bar")}
+	fromFoo := &SearchContext{From: labels.ParseSelectLabelArray("foo")}
+
+	fooSelector := []api.EndpointSelector{
+		api.NewESFromLabels(labels.ParseSelectLabel("foo")),
+	}
+
+	rule1 := &rule{
+		Rule: api.Rule{
+			EndpointSelector: api.NewESFromLabels(labels.ParseSelectLabel("bar")),
+			Egress: []api.EgressRule{
+				{
+					ToPorts: []api.PortRule{{
+						Ports: []api.PortProtocol{
+							{Port: "80", Protocol: api.ProtoTCP},
+						},
+					}},
+				},
+				{
+					ToPorts: []api.PortRule{{
+						Ports: []api.PortProtocol{
+							{Port: "80", Protocol: api.ProtoTCP},
+						},
+						Rules: &api.L7Rules{
+							HTTP: []api.PortRuleHTTP{
+								{Method: "GET", Path: "/"},
+							},
+						},
+					}},
+				},
+				{
+					ToEndpoints: fooSelector,
+					ToPorts: []api.PortRule{{
+						Ports: []api.PortProtocol{
+							{Port: "80", Protocol: api.ProtoTCP},
+						},
+						Rules: &api.L7Rules{
+							HTTP: []api.PortRuleHTTP{
+								{Method: "GET", Path: "/"},
+							},
+						},
+					}},
+				},
+			},
+		},
+	}
+
+	l7rules := api.L7Rules{
+		HTTP: []api.PortRuleHTTP{{Path: "/", Method: "GET"}},
+	}
+	l7map := L7DataMap{
+		WildcardEndpointSelector: l7rules,
+		fooSelector[0]:           l7rules,
+	}
+
+	expected := NewL4Policy()
+	expected.Egress["80/TCP"] = L4Filter{
+		Port: 80, Protocol: api.ProtoTCP, U8Proto: 6, Endpoints: nil,
+		L7Parser: "http", L7RulesPerEp: l7map, Ingress: false,
+		DerivedFromRules: labels.LabelArrayList{nil, nil, nil},
+	}
+
+	state := traceState{}
+	res, err := rule1.resolveL4EgressPolicy(fromBar, &state, NewL4Policy())
+	c.Assert(err, IsNil)
+	c.Assert(res, Not(IsNil))
+	c.Assert(*res, comparator.DeepEquals, *expected)
+	c.Assert(state.selectedRules, Equals, 1)
+	c.Assert(state.matchedRules, Equals, 0)
+
+	state = traceState{}
+	res, err = rule1.resolveL4EgressPolicy(fromFoo, &state, NewL4Policy())
+	c.Assert(res, IsNil)
+	c.Assert(state.selectedRules, Equals, 0)
+	c.Assert(state.matchedRules, Equals, 0)
+
+	rule2 := &rule{
+		Rule: api.Rule{
+			EndpointSelector: api.NewESFromLabels(labels.ParseSelectLabel("bar")),
+			Egress: []api.EgressRule{
+				{
+					ToPorts: []api.PortRule{{
+						Ports: []api.PortProtocol{
+							{Port: "80", Protocol: api.ProtoTCP},
+						},
+					}},
+				},
+				{
+					ToPorts: []api.PortRule{{
+						Ports: []api.PortProtocol{
+							{Port: "80", Protocol: api.ProtoTCP},
+						},
+						Rules: &api.L7Rules{
+							Kafka: []api.PortRuleKafka{
+								{Topic: "foo"},
+							},
+						},
+					}},
+				},
+				{
+					ToEndpoints: fooSelector,
+					ToPorts: []api.PortRule{{
+						Ports: []api.PortProtocol{
+							{Port: "80", Protocol: api.ProtoTCP},
+						},
+						Rules: &api.L7Rules{
+							Kafka: []api.PortRuleKafka{
+								{Topic: "foo"},
+							},
+						},
+					}},
+				},
+			},
+		},
+	}
+
+	l7rules = api.L7Rules{
+		Kafka: []api.PortRuleKafka{{Topic: "foo"}},
+	}
+	l7map = L7DataMap{
+		WildcardEndpointSelector: l7rules,
+		fooSelector[0]:           l7rules,
+	}
+	expected = NewL4Policy()
+	expected.Egress["80/TCP"] = L4Filter{
+		Port: 80, Protocol: api.ProtoTCP, U8Proto: 6, Endpoints: nil,
+		L7Parser: "kafka", L7RulesPerEp: l7map, Ingress: false,
+		DerivedFromRules: labels.LabelArrayList{nil, nil, nil},
+	}
+
+	state = traceState{}
+	res, err = rule2.resolveL4EgressPolicy(fromBar, &state, NewL4Policy())
+	c.Assert(err, IsNil)
+	c.Assert(res, Not(IsNil))
+	c.Assert(*res, comparator.DeepEquals, *expected)
+	c.Assert(state.selectedRules, Equals, 1)
+	c.Assert(state.matchedRules, Equals, 0)
+
+	state = traceState{}
+	res, err = rule2.resolveL4EgressPolicy(fromFoo, &state, NewL4Policy())
+	c.Assert(res, IsNil)
+	c.Assert(state.selectedRules, Equals, 0)
+	c.Assert(state.matchedRules, Equals, 0)
+
+	// Resolve rule1's policy, then try to add rule2.
+	res, err = rule1.resolveL4EgressPolicy(fromBar, &state, NewL4Policy())
+	c.Assert(err, IsNil)
+	c.Assert(res, Not(IsNil))
+
+	state = traceState{}
+	res, err = rule2.resolveL4EgressPolicy(fromBar, &state, res)
+	c.Assert(err, Not(IsNil))
+	c.Assert(err.Error(), Equals, "Cannot merge conflicting L7 parsers (kafka/http)")
+
+	// Similar to 'rule2', but with different topics for the l3-dependent
+	// rule and the l4-only rule.
+	rule3 := &rule{
+		Rule: api.Rule{
+			EndpointSelector: api.NewESFromLabels(labels.ParseSelectLabel("bar")),
+			Egress: []api.EgressRule{
+				{
+					ToEndpoints: fooSelector,
+					ToPorts: []api.PortRule{{
+						Ports: []api.PortProtocol{
+							{Port: "80", Protocol: api.ProtoTCP},
+						},
+						Rules: &api.L7Rules{
+							Kafka: []api.PortRuleKafka{
+								{Topic: "foo"},
+							},
+						},
+					}},
+				},
+				{
+					ToPorts: []api.PortRule{{
+						Ports: []api.PortProtocol{
+							{Port: "80", Protocol: api.ProtoTCP},
+						},
+						Rules: &api.L7Rules{
+							Kafka: []api.PortRuleKafka{
+								{Topic: "bar"},
+							},
+						},
+					}},
+				},
+			},
+		},
+	}
+
+	fooRules := api.L7Rules{
+		Kafka: []api.PortRuleKafka{{Topic: "foo"}},
+	}
+	barRules := api.L7Rules{
+		Kafka: []api.PortRuleKafka{{Topic: "bar"}},
+	}
+
+	// The l3-dependent l7 rules are not merged together.
+	l7map = L7DataMap{
+		fooSelector[0]:           fooRules,
+		WildcardEndpointSelector: barRules,
+	}
+	expected = NewL4Policy()
+	expected.Egress["80/TCP"] = L4Filter{
+		Port: 80, Protocol: api.ProtoTCP, U8Proto: 6, Endpoints: nil,
+		L7Parser: "kafka", L7RulesPerEp: l7map, Ingress: false,
+		DerivedFromRules: labels.LabelArrayList{nil, nil},
+	}
+
+	state = traceState{}
+	res, err = rule3.resolveL4EgressPolicy(fromBar, &state, NewL4Policy())
 	c.Assert(err, IsNil)
 	c.Assert(res, Not(IsNil))
 	c.Assert(*res, comparator.DeepEquals, *expected)
@@ -1082,6 +1401,7 @@ func (ds *PolicyTestSuite) TestL4RuleLabels(c *C) {
 
 	// endpoint selector for all tests
 	toBar := &SearchContext{To: labels.ParseSelectLabelArray("bar")}
+	fromBar := &SearchContext{From: labels.ParseSelectLabelArray("bar")}
 
 	for _, test := range testCases {
 		finalPolicy := NewL4Policy()
@@ -1092,7 +1412,8 @@ func (ds *PolicyTestSuite) TestL4RuleLabels(c *C) {
 
 			rule := &rule{Rule: apiRule}
 
-			rule.resolveL4Policy(toBar, &traceState{}, finalPolicy)
+			rule.resolveL4IngressPolicy(toBar, &traceState{}, finalPolicy)
+			rule.resolveL4EgressPolicy(fromBar, &traceState{}, finalPolicy)
 		}
 
 		c.Assert(len(finalPolicy.Ingress), Equals, len(test.expectedIngressLabels), Commentf(test.description))
@@ -1254,16 +1575,16 @@ func (ds *PolicyTestSuite) TestIngressL4AllowAll(c *C) {
 	ctxAToC90.DPorts = []*models.Port{{Port: 90, Protocol: models.PortProtocolTCP}}
 	checkIngress(c, repo, &ctxAToC90, api.Denied)
 
-	l4policy, err := repo.ResolveL4Policy(&ctxAToC80)
+	l4IngressPolicy, err := repo.ResolveL4IngressPolicy(&ctxAToC80)
 	c.Assert(err, IsNil)
 
-	filter, ok := l4policy.Ingress["80/TCP"]
+	filter, ok := (*l4IngressPolicy)["80/TCP"]
 	c.Assert(ok, Equals, true)
 	c.Assert(filter.Port, Equals, 80)
 	c.Assert(filter.Ingress, Equals, true)
 
 	// must have empty endpoint to select all
-	c.Assert(len(filter.FromEndpoints), Equals, 0)
+	c.Assert(len(filter.Endpoints), Equals, 0)
 }
 
 func (ds *PolicyTestSuite) TestEgressAllowAll(c *C) {
@@ -1298,9 +1619,6 @@ func (ds *PolicyTestSuite) TestEgressL4AllowAll(c *C) {
 			EndpointSelector: endpointSelectorA,
 			Egress: []api.EgressRule{
 				{
-					ToEndpoints: []api.EndpointSelector{
-						api.NewWildcardEndpointSelector(),
-					},
 					ToPorts: []api.PortRule{{
 						Ports: []api.PortProtocol{
 							{Port: "80", Protocol: api.ProtoTCP},
@@ -1312,29 +1630,27 @@ func (ds *PolicyTestSuite) TestEgressL4AllowAll(c *C) {
 	})
 
 	ctxAToC80 := ctxAToC
-	ctxAToC80.EgressL4Only = true
 	ctxAToC80.DPorts = []*models.Port{{Port: 80, Protocol: models.PortProtocolTCP}}
 	checkEgress(c, repo, &ctxAToC80, api.Allowed)
 
 	ctxAToC90 := ctxAToC
-	ctxAToC90.EgressL4Only = true
 	ctxAToC90.DPorts = []*models.Port{{Port: 90, Protocol: models.PortProtocolTCP}}
 	checkEgress(c, repo, &ctxAToC90, api.Denied)
 
 	buffer := new(bytes.Buffer)
-	ctx := SearchContext{To: labelsA, Trace: TRACE_VERBOSE, EgressL4Only: true}
+	ctx := SearchContext{From: labelsA, Trace: TRACE_VERBOSE}
 	ctx.Logging = logging.NewLogBackend(buffer, "", 0)
 
-	l4policy, err := repo.ResolveL4Policy(&ctx)
+	l4EgressPolicy, err := repo.ResolveL4EgressPolicy(&ctx)
 	c.Assert(err, IsNil)
 
 	c.Log(buffer)
 
-	filter, ok := l4policy.Egress["80/TCP"]
+	filter, ok := (*l4EgressPolicy)["80/TCP"]
 	c.Assert(ok, Equals, true)
 	c.Assert(filter.Port, Equals, 80)
 	c.Assert(filter.Ingress, Equals, false)
 
 	// must have empty endpoint selector to match on all sources
-	c.Assert(len(filter.FromEndpoints), Equals, 0)
+	c.Assert(len(filter.Endpoints), Equals, 0)
 }

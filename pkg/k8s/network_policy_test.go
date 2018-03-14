@@ -98,7 +98,7 @@ var (
 	}
 )
 
-func (s *K8sSuite) TestParseNetworkPolicy(c *C) {
+func (s *K8sSuite) TestParseNetworkPolicyIngress(c *C) {
 	netPolicy := &networkingv1.NetworkPolicy{
 		Spec: networkingv1.NetworkPolicySpec{
 			PodSelector: metav1.LabelSelector{
@@ -170,27 +170,23 @@ func (s *K8sSuite) TestParseNetworkPolicy(c *C) {
 		LabelSelector: &lblSelector,
 	}
 
-	result, err := repo.ResolveL4Policy(&ctx)
-	c.Assert(result, Not(IsNil))
+	ingressL4Policy, err := repo.ResolveL4IngressPolicy(&ctx)
+	c.Assert(ingressL4Policy, Not(IsNil))
 	c.Assert(err, IsNil)
-	c.Assert(result, comparator.DeepEquals, &policy.L4Policy{
-		Ingress: policy.L4PolicyMap{
-			"80/TCP": {
-				Port: 80, Protocol: api.ProtoTCP, U8Proto: 6,
-				FromEndpoints: []api.EndpointSelector{epSelector},
-				L7Parser:      "",
-				L7RulesPerEp:  policy.L7DataMap{},
-				Ingress:       true,
-				DerivedFromRules: []labels.LabelArray{
-					labels.ParseLabelArray(
-						"unspec:"+k8sConst.PolicyLabelName,
-						"unspec:"+k8sConst.PolicyLabelNamespace+"=default",
-					),
-				},
+	c.Assert(ingressL4Policy, comparator.DeepEquals, &policy.L4PolicyMap{
+		"80/TCP": {
+			Port: 80, Protocol: api.ProtoTCP, U8Proto: 6,
+			Endpoints:    []api.EndpointSelector{epSelector},
+			L7Parser:     "",
+			L7RulesPerEp: policy.L7DataMap{},
+			Ingress:      true,
+			DerivedFromRules: []labels.LabelArray{
+				labels.ParseLabelArray(
+					"unspec:"+k8sConst.PolicyLabelName,
+					"unspec:"+k8sConst.PolicyLabelNamespace+"=default",
+				),
 			},
 		},
-		Egress:   policy.L4PolicyMap{},
-		Revision: 0x1,
 	})
 
 	ctx.To = labels.LabelArray{
@@ -298,7 +294,6 @@ func (s *K8sSuite) TestParseNetworkPolicyNoSelectors(c *C) {
 
 func (s *K8sSuite) TestParseNetworkPolicyEgress(c *C) {
 
-	// L3 (label-based) only egress.
 	netPolicy := &networkingv1.NetworkPolicy{
 		Spec: networkingv1.NetworkPolicySpec{
 			PodSelector: metav1.LabelSelector{
@@ -319,6 +314,14 @@ func (s *K8sSuite) TestParseNetworkPolicyEgress(c *C) {
 							},
 						},
 					},
+					Ports: []networkingv1.NetworkPolicyPort{
+						{
+							Port: &intstr.IntOrString{
+								Type:   intstr.Int,
+								IntVal: 80,
+							},
+						},
+					},
 				},
 			},
 		},
@@ -334,35 +337,74 @@ func (s *K8sSuite) TestParseNetworkPolicyEgress(c *C) {
 		labels.NewLabel("foo2", "bar2", labels.LabelSourceK8s),
 	}
 
+	toEndpoints := labels.LabelArray{
+		labels.NewLabel(k8sConst.PodNamespaceLabel, v1.NamespaceDefault, labels.LabelSourceK8s),
+		labels.NewLabel("foo3", "bar3", labels.LabelSourceK8s),
+		labels.NewLabel("foo4", "bar4", labels.LabelSourceK8s),
+	}
+
 	ctx := policy.SearchContext{
-		From: fromEndpoints,
-		To: labels.LabelArray{
-			labels.NewLabel(k8sConst.PodNamespaceLabel, v1.NamespaceDefault, labels.LabelSourceK8s),
-			labels.NewLabel("foo3", "bar3", labels.LabelSourceK8s),
-			labels.NewLabel("foo4", "bar4", labels.LabelSourceK8s),
-		},
+		From:  fromEndpoints,
+		To:    toEndpoints,
 		Trace: policy.TRACE_VERBOSE,
 	}
 
 	repo := policy.NewPolicyRepository()
 	repo.AddList(rules)
-	c.Assert(repo.AllowsEgressRLocked(&ctx), Equals, api.Allowed)
+	// Because search context did not contain port-specific policy, deny is
+	// expected.
+	c.Assert(repo.AllowsEgressRLocked(&ctx), Equals, api.Denied)
+
+	matchLabels := make(map[string]string)
+	for _, v := range toEndpoints {
+		matchLabels[fmt.Sprintf("%s.%s", v.Source, v.Key)] = v.Value
+	}
+	lblSelector := metav1.LabelSelector{
+		MatchLabels: matchLabels,
+	}
+	epSelector := api.EndpointSelector{
+		LabelSelector: &lblSelector,
+	}
+
+	egressL4Policy, err := repo.ResolveL4EgressPolicy(&ctx)
+	c.Assert(egressL4Policy, Not(IsNil))
+	c.Assert(err, IsNil)
+	c.Assert(egressL4Policy, comparator.DeepEquals, &policy.L4PolicyMap{
+		"80/TCP": {
+			Port: 80, Protocol: api.ProtoTCP, U8Proto: 6,
+			Endpoints:    []api.EndpointSelector{epSelector},
+			L7Parser:     "",
+			L7RulesPerEp: policy.L7DataMap{},
+			Ingress:      false,
+			DerivedFromRules: []labels.LabelArray{
+				labels.ParseLabelArray(
+					"unspec:"+k8sConst.PolicyLabelName,
+					"unspec:"+k8sConst.PolicyLabelNamespace+"=default",
+				),
+			},
+		},
+	})
+
+	ctx.From = labels.LabelArray{
+		labels.NewLabel("foo2", "bar2", labels.LabelSourceK8s),
+	}
+
+	// ctx.From needs to have all labels from the policy in order to be accepted
+	c.Assert(repo.CanReachEgressRLocked(&ctx), Not(Equals), api.Allowed)
 
 	ctx = policy.SearchContext{
+		To: labels.LabelArray{
+			labels.NewLabel("foo3", "bar3", labels.LabelSourceK8s),
+		},
 		From: labels.LabelArray{
 			labels.NewLabel("foo1", "bar1", labels.LabelSourceK8s),
 			labels.NewLabel("foo2", "bar2", labels.LabelSourceK8s),
 		},
-		To: labels.LabelArray{
-			labels.NewLabel(k8sConst.PodNamespaceLabel, v1.NamespaceDefault, labels.LabelSourceK8s),
-			labels.NewLabel("foo4", "bar4", labels.LabelSourceK8s),
-		},
 		Trace: policy.TRACE_VERBOSE,
 	}
 
-	// ctx.To also needs to have all labels from the policy in order to be accepted
-	egressVerdict := repo.CanReachEgressRLocked(&ctx)
-	c.Assert(egressVerdict, Not(Equals), api.Allowed)
+	// ctx.To also needs to have all labels from the policy in order to be accepted.
+	c.Assert(repo.CanReachEgressRLocked(&ctx), Not(Equals), api.Allowed)
 }
 
 func parseAndAddRules(c *C, p *networkingv1.NetworkPolicy) *policy.Repository {
@@ -843,11 +885,9 @@ func (s *K8sSuite) TestNetworkPolicyExamples(c *C) {
 	// namespace `user=bob` AND port 443.
 	c.Assert(repo.AllowsIngressRLocked(&ctx), Equals, api.Denied)
 
-	l4Policy, err := repo.ResolveL4Policy(&ctx)
+	l4Policy, err := repo.ResolveL4IngressPolicy(&ctx)
 	c.Assert(l4Policy, Not(IsNil))
 	c.Assert(err, IsNil)
-	l4Verdict := l4Policy.IngressCoversDPorts([]*models.Port{})
-	c.Assert(l4Verdict, Equals, api.Denied)
 
 	ctx = policy.SearchContext{
 		From: labels.LabelArray{

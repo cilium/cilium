@@ -102,28 +102,25 @@ func (s *K8sSuite) TestParseNetworkPolicyDeprecated(c *C) {
 		LabelSelector: &lblSelector,
 	}
 
-	result, err := repo.ResolveL4Policy(&ctx)
-	c.Assert(result, Not(IsNil))
+	l4IngressPolicy, err := repo.ResolveL4IngressPolicy(&ctx)
+	c.Assert(l4IngressPolicy, Not(IsNil))
 	c.Assert(err, IsNil)
-	c.Assert(result, comparator.DeepEquals, &policy.L4Policy{
-		Ingress: policy.L4PolicyMap{
-			"80/TCP": {
-				Port: 80, Protocol: api.ProtoTCP, U8Proto: 6,
-				FromEndpoints: []api.EndpointSelector{epSelector},
-				L7Parser:      "",
-				L7RulesPerEp:  policy.L7DataMap{},
-				Ingress:       true,
-				DerivedFromRules: []labels.LabelArray{
-					labels.ParseLabelArray(
-						"unspec:"+k8sConst.PolicyLabelName,
-						"unspec:"+k8sConst.PolicyLabelNamespace+"=default",
-					),
-				},
+	c.Assert(l4IngressPolicy, comparator.DeepEquals, &policy.L4PolicyMap{
+		"80/TCP": {
+			Port: 80, Protocol: api.ProtoTCP, U8Proto: 6,
+			Endpoints:    []api.EndpointSelector{epSelector},
+			L7Parser:     "",
+			L7RulesPerEp: policy.L7DataMap{},
+			Ingress:      true,
+			DerivedFromRules: []labels.LabelArray{
+				labels.ParseLabelArray(
+					"unspec:"+k8sConst.PolicyLabelName,
+					"unspec:"+k8sConst.PolicyLabelNamespace+"=default",
+				),
 			},
 		},
-		Egress:   policy.L4PolicyMap{},
-		Revision: 0x1,
-	})
+	},
+	)
 
 	ctx.To = labels.LabelArray{
 		labels.NewLabel("foo2", "bar2", labels.LabelSourceK8s),
@@ -431,11 +428,9 @@ func (s *K8sSuite) TestNetworkPolicyExamplesDeprecated(c *C) {
 	// Should be DENY sense the traffic needs to come from
 	// namespace `user=bob` AND port 443.
 	c.Assert(repo.AllowsIngressRLocked(&ctx), Equals, api.Denied)
-	l4Policy, err := repo.ResolveL4Policy(&ctx)
-	c.Assert(l4Policy, Not(IsNil))
+	l4IngressPolicy, err := repo.ResolveL4IngressPolicy(&ctx)
+	c.Assert(l4IngressPolicy, Not(IsNil))
 	c.Assert(err, IsNil)
-	l4Veridict := l4Policy.IngressCoversDPorts([]*models.Port{})
-	c.Assert(l4Veridict, Equals, api.Denied)
 
 	ctx = policy.SearchContext{
 		From: labels.LabelArray{

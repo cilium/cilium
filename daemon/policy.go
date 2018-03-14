@@ -139,28 +139,33 @@ func (h *getPolicyResolve) Handle(params GetPolicyResolveParams) middleware.Resp
 	// If we hit the following code, policy enforcement is enabled for at least
 	// one of the endpoints corresponding to the provided sets of labels, or for
 	// the daemon.
-	buffer := new(bytes.Buffer)
+	ingressBuffer := new(bytes.Buffer)
+
 	ctx := params.IdentityContext
-	searchCtx := policy.SearchContext{
+	ingressSearchCtx := policy.SearchContext{
 		Trace:   policy.TRACE_ENABLED,
-		Logging: logging.NewLogBackend(buffer, "", 0),
+		Logging: logging.NewLogBackend(ingressBuffer, "", 0),
 		From:    labels.NewSelectLabelArrayFromModel(ctx.From),
 		To:      labels.NewSelectLabelArrayFromModel(ctx.To),
 		DPorts:  ctx.Dports,
 	}
 	if ctx.Verbose {
-		searchCtx.Trace = policy.TRACE_VERBOSE
+		ingressSearchCtx.Trace = policy.TRACE_VERBOSE
 	}
+
+	egressBuffer := new(bytes.Buffer)
+	egressSearchCtx := ingressSearchCtx
+	egressSearchCtx.Logging = logging.NewLogBackend(egressBuffer, "", 0)
 
 	d.policy.Mutex.RLock()
 
-	verdict := d.policy.AllowsIngressRLocked(&searchCtx)
+	ingressVerdict := d.policy.AllowsIngressRLocked(&ingressSearchCtx)
 
 	d.policy.Mutex.RUnlock()
 
 	result := models.PolicyTraceResult{
-		Verdict: verdict.String(),
-		Log:     buffer.String(),
+		Verdict: ingressVerdict.String(),
+		Log:     ingressBuffer.String(),
 	}
 
 	return NewGetPolicyResolveOK().WithPayload(&result)
