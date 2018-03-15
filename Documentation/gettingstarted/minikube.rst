@@ -28,15 +28,66 @@ agent and the Cilium CNI plugin.
 
 To deploy Cilium, run:
 
-.. parsed-literal::
+.. tabs::
+  .. group-tab:: K8s 1.7
 
-    $ kubectl create -f \ |SCM_WEB|\/examples/kubernetes/cilium.yaml
-    clusterrole "cilium" created
-    serviceaccount "cilium" created
-    clusterrolebinding "cilium" created
-    configmap "cilium-config" created
-    secret "cilium-etcd-secrets" created
-    daemonset "cilium" created
+    .. parsed-literal::
+
+      $ kubectl create -f \ |SCM_WEB|\/examples/kubernetes/1.7/cilium.yaml
+      clusterrole "cilium" created
+      serviceaccount "cilium" created
+      clusterrolebinding "cilium" created
+      configmap "cilium-config" created
+      secret "cilium-etcd-secrets" created
+      daemonset "cilium" created
+
+  .. group-tab:: K8s 1.8
+
+    .. parsed-literal::
+
+      $ kubectl create -f \ |SCM_WEB|\/examples/kubernetes/1.8/cilium.yaml
+      clusterrole "cilium" created
+      serviceaccount "cilium" created
+      clusterrolebinding "cilium" created
+      configmap "cilium-config" created
+      secret "cilium-etcd-secrets" created
+      daemonset "cilium" created
+
+  .. group-tab:: K8s 1.9
+
+    .. parsed-literal::
+
+      $ kubectl create -f \ |SCM_WEB|\/examples/kubernetes/1.9/cilium.yaml
+      clusterrole "cilium" created
+      serviceaccount "cilium" created
+      clusterrolebinding "cilium" created
+      configmap "cilium-config" created
+      secret "cilium-etcd-secrets" created
+      daemonset "cilium" created
+
+  .. group-tab:: K8s 1.10
+
+    .. parsed-literal::
+
+      $ kubectl create -f \ |SCM_WEB|\/examples/kubernetes/1.10/cilium.yaml
+      clusterrole "cilium" created
+      serviceaccount "cilium" created
+      clusterrolebinding "cilium" created
+      configmap "cilium-config" created
+      secret "cilium-etcd-secrets" created
+      daemonset "cilium" created
+
+  .. group-tab:: K8s 1.11
+
+    .. parsed-literal::
+
+      $ kubectl create -f \ |SCM_WEB|\/examples/kubernetes/1.11/cilium.yaml
+      clusterrole "cilium" created
+      serviceaccount "cilium" created
+      clusterrolebinding "cilium" created
+      configmap "cilium-config" created
+      secret "cilium-etcd-secrets" created
+      daemonset "cilium" created
 
 Kubernetes is now deploying Cilium with its RBAC, ConfigMap and Daemon Set as a
 pod on all cluster nodes. This operation is performed in the background.
@@ -458,10 +509,42 @@ Extra:  Metrics
 
 To try out the metrics exported by cilium, simply install the example prometheus spec file:
 
-.. parsed-literal::
 
-   $ kubectl create -f \ |SCM_WEB|\/examples/kubernetes/prometheus.yaml
-   $ kubectl replace --force -f \ |SCM_WEB|\/examples/kubernetes/cilium.yaml
+.. tabs::
+  .. group-tab:: K8s 1.7
+
+    .. parsed-literal::
+
+      $ kubectl create -f \ |SCM_WEB|\/examples/kubernetes/plugins/prometheus/prometheus.yaml
+      $ kubectl replace --force -f \ |SCM_WEB|\/examples/kubernetes/1.7/cilium.yaml
+
+  .. group-tab:: K8s 1.8
+
+    .. parsed-literal::
+
+      $ kubectl create -f \ |SCM_WEB|\/examples/kubernetes/plugins/prometheus/prometheus.yaml
+      $ kubectl replace --force -f \ |SCM_WEB|\/examples/kubernetes/1.8/cilium.yaml
+
+  .. group-tab:: K8s 1.9
+
+    .. parsed-literal::
+
+      $ kubectl create -f \ |SCM_WEB|\/examples/kubernetes/plugins/prometheus/prometheus.yaml
+      $ kubectl replace --force -f \ |SCM_WEB|\/examples/kubernetes/1.9/cilium.yaml
+
+  .. group-tab:: K8s 1.10
+
+    .. parsed-literal::
+
+      $ kubectl create -f \ |SCM_WEB|\/examples/kubernetes/plugins/prometheus/prometheus.yaml
+      $ kubectl replace --force -f \ |SCM_WEB|\/examples/kubernetes/1.10/cilium.yaml
+
+  .. group-tab:: K8s 1.11
+
+    .. parsed-literal::
+
+      $ kubectl create -f \ |SCM_WEB|\/examples/kubernetes/plugins/prometheus/prometheus.yaml
+      $ kubectl replace --force -f \ |SCM_WEB|\/examples/kubernetes/1.11/cilium.yaml
 
 
 This will create a barebones prometheus installation that you can use to
