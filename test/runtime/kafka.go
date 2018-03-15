@@ -132,6 +132,9 @@ var _ = Describe("RuntimeValidatedKafka", func() {
 		}
 		cancel()
 
+		err = data.WaitUntilMatch(fmt.Sprintf("Processed a total of %d messages", MaxMessages))
+		Expect(err).To(BeNil())
+
 		Expect(data.Output().String()).Should(ContainSubstring(
 			"Processed a total of %d messages", MaxMessages))
 
@@ -166,6 +169,9 @@ var _ = Describe("RuntimeValidatedKafka", func() {
 		for i := 1; i <= MaxMessages; i++ {
 			producer(allowedTopic, fmt.Sprintf("Message %d", i))
 		}
+
+		err = data.WaitUntilMatch(fmt.Sprintf("Processed a total of %d messages", MaxMessages))
+		Expect(err).To(BeNil())
 
 		Expect(data.Output().String()).Should(ContainSubstring(
 			"Processed a total of %d messages", MaxMessages))
