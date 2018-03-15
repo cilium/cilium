@@ -36,6 +36,10 @@ var (
 	// NetworkPolicyTypeURL type URL.
 	NetworkPolicyCache = xds.NewCache()
 
+	// AckingNetworkPolicyMutator handles acknowledgements of NetworkPolicy
+	// resource updates.
+	AckingNetworkPolicyMutator = xds.NewAckingResourceMutatorWrapper(NetworkPolicyCache, xds.IstioNodeToIP)
+
 	// NetworkPolicyHostsCache is the global cache of resources of type
 	// NetworkPolicyHosts. Resources in this cache must have the
 	// NetworkPolicyHostsTypeURL type URL.

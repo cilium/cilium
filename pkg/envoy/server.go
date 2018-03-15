@@ -41,6 +41,7 @@ import (
 	"github.com/golang/protobuf/ptypes/duration"
 	"github.com/golang/protobuf/ptypes/struct"
 	"github.com/golang/protobuf/ptypes/wrappers"
+	"github.com/spf13/viper"
 )
 
 // allowAction is a "Pass" route action to use in route rules. Immutable.
@@ -90,7 +91,7 @@ func createXDSServer(path, accessLogPath string) *XDSServer {
 
 	npdsConfig := &xds.ResourceTypeConfiguration{
 		Source:      NetworkPolicyCache,
-		AckObserver: nil, // We don't wait for ACKs for those resources.
+		AckObserver: AckingNetworkPolicyMutator,
 	}
 
 	nphdsConfig := &xds.ResourceTypeConfiguration{
@@ -509,7 +510,7 @@ func getNetworkPolicy(name string, id identity.NumericIdentity, policy *policy.L
 // When the proxy acknowledges the network policy update, it will result in
 // a subsequent call to the endpoint's OnProxyPolicyAcknowledge() function.
 func UpdateNetworkPolicy(ep NetworkPolicyEndpoint, policy *policy.L4Policy,
-	labelsMap identity.IdentityCache, deniedIngressIdentities, deniedEgressIdentities map[identity.NumericIdentity]bool) error {
+	labelsMap identity.IdentityCache, deniedIngressIdentities, deniedEgressIdentities map[identity.NumericIdentity]bool, wg *completion.WaitGroup) error {
 
 	// First, validate all policies
 	ips := []string{
@@ -531,7 +532,26 @@ func UpdateNetworkPolicy(ep NetworkPolicyEndpoint, policy *policy.L4Policy,
 
 	// When successful, push them into the cache.
 	for _, p := range policies {
-		NetworkPolicyCache.Upsert(NetworkPolicyTypeURL, p.Name, p, false)
+		policyRevision := policy.Revision
+		callback := func() {
+			ep.OnProxyPolicyUpdate(policyRevision)
+		}
+		var c *completion.Completion
+		if wg == nil {
+			c = completion.NewCallback(context.Background(), callback)
+		} else {
+			c = wg.AddCompletionWithCallback(callback)
+		}
+		nodeIDs := make([]string, 0, 1)
+		if viper.GetBool("sidecar-http-proxy") {
+			if ep.GetIPv4Address() == "" {
+				log.Fatal("envoy: sidecar proxy has no IPv4 address")
+			}
+			nodeIDs = append(nodeIDs, ep.GetIPv4Address())
+		} else {
+			nodeIDs = append(nodeIDs, "127.0.0.1")
+		}
+		AckingNetworkPolicyMutator.Upsert(NetworkPolicyTypeURL, p.Name, p, nodeIDs, c)
 	}
 	return nil
 }

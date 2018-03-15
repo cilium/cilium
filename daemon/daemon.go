@@ -153,7 +153,8 @@ func (d *Daemon) UpdateNetworkPolicy(e *endpoint.Endpoint, policy *policy.L4Poli
 	if d.l7Proxy == nil {
 		return fmt.Errorf("can't update network policy, proxy disabled")
 	}
-	return d.l7Proxy.UpdateNetworkPolicy(e, policy, labelsMap, deniedIngressIdentities, deniedEgressIdentities)
+	// TODO(jrajahalme): Pass e.ProxyWaitGroup down
+	return d.l7Proxy.UpdateNetworkPolicy(e, policy, labelsMap, deniedIngressIdentities, deniedEgressIdentities, nil)
 }
 
 // RemoveNetworkPolicy removes a network policy from the set published to
