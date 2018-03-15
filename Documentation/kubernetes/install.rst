@@ -280,11 +280,47 @@ already exists on a worker node and only creates it if it does not exist yet.
 Deploying the DaemonSet
 =======================
 
-.. parsed-literal::
+.. tabs::
+  .. group-tab:: K8s 1.7
 
-    $ wget \ |SCM_WEB|\/examples/kubernetes/cilium.yaml
-    $ vim cilium.yaml
-    [adjust the etcd address]
+    .. parsed-literal::
+
+      $ wget \ |SCM_WEB|\/examples/kubernetes/1.7/cilium.yaml
+      $ vim cilium.yaml
+      [adjust the etcd address]
+
+  .. group-tab:: K8s 1.8
+
+    .. parsed-literal::
+
+      $ wget \ |SCM_WEB|\/examples/kubernetes/1.8/cilium.yaml
+      $ vim cilium.yaml
+      [adjust the etcd address]
+
+  .. group-tab:: K8s 1.9
+
+    .. parsed-literal::
+
+      $ wget \ |SCM_WEB|\/examples/kubernetes/1.9/cilium.yaml
+      $ vim cilium.yaml
+      [adjust the etcd address]
+
+  .. group-tab:: K8s 1.10
+
+    .. parsed-literal::
+
+      $ wget \ |SCM_WEB|\/examples/kubernetes/1.10/cilium.yaml
+      $ vim cilium.yaml
+      [adjust the etcd address]
+
+  .. group-tab:: K8s 1.11
+
+    .. parsed-literal::
+
+      $ wget \ |SCM_WEB|\/examples/kubernetes/1.11/cilium.yaml
+      $ vim cilium.yaml
+      [adjust the etcd address]
+
 
 After configuring the ``cilium`` `ConfigMap` it is time to deploy it using
 ``kubectl``:
