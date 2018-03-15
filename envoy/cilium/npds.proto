@@ -32,7 +32,7 @@ service NetworkPolicyDiscoveryService {
 message NetworkPolicy {
   // The unique identifier of the network policy.
   // Required.
-  uint64 policy = 1;
+  string name = 1;
 
   // The part of the policy to be enforced at ingress by the filter, as a set
   // of per-port network policies, one per destination L4 port.
@@ -47,6 +47,11 @@ message NetworkPolicy {
   // combination.
   // Optional. If empty, all flows in this direction are denied.
   repeated PortNetworkPolicy egress_per_port_policies = 3;
+
+  // The policy identifier associated with the network policy. Corresponds to
+  // remote_policies entries in PortNetworkPolicyRule.
+  // Optional.
+  uint64 policy = 4;
 }
 
 // A network policy to whitelist flows to a specific destination L4 port,

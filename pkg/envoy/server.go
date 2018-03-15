@@ -19,10 +19,10 @@ import (
 	"io/ioutil"
 	"net"
 	"os"
-	"strconv"
 	"strings"
 	"time"
 
+	"github.com/cilium/cilium/common/addressing"
 	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/envoy/cilium"
 	envoy_api_v2 "github.com/cilium/cilium/pkg/envoy/envoy/api/v2"
@@ -495,9 +495,10 @@ func getDirectionNetworkPolicy(l4Policy policy.L4PolicyMap, labelsMap identity.I
 }
 
 // getNetworkPolicy converts a network policy into a cilium.NetworkPolicy.
-func getNetworkPolicy(id identity.NumericIdentity, policy *policy.L4Policy,
+func getNetworkPolicy(name string, id identity.NumericIdentity, policy *policy.L4Policy,
 	labelsMap identity.IdentityCache, deniedIngressIdentities, deniedEgressIdentities map[identity.NumericIdentity]bool) *cilium.NetworkPolicy {
 	return &cilium.NetworkPolicy{
+		Name:                   name,
 		Policy:                 uint64(id),
 		IngressPerPortPolicies: getDirectionNetworkPolicy(policy.Ingress, labelsMap, deniedIngressIdentities),
 		EgressPerPortPolicies:  getDirectionNetworkPolicy(policy.Egress, labelsMap, deniedEgressIdentities),
@@ -506,22 +507,42 @@ func getNetworkPolicy(id identity.NumericIdentity, policy *policy.L4Policy,
 
 // UpdateNetworkPolicy adds or updates a network policy in the set of published
 // to L7 proxies.
-func UpdateNetworkPolicy(id identity.NumericIdentity, policy *policy.L4Policy,
+func UpdateNetworkPolicy(ipv6 addressing.CiliumIPv6, ipv4 addressing.CiliumIPv4, id identity.NumericIdentity, policy *policy.L4Policy,
 	labelsMap identity.IdentityCache, deniedIngressIdentities, deniedEgressIdentities map[identity.NumericIdentity]bool) error {
-	networkPolicy := getNetworkPolicy(id, policy, labelsMap, deniedIngressIdentities, deniedEgressIdentities)
-	err := networkPolicy.Validate()
-	if err != nil {
-		return fmt.Errorf("error validating generated NetworkPolicy: %s", err)
+
+	ips := []string{}
+	if ipv6 != nil {
+		ips = append(ips, ipv6.String())
+	}
+	if ipv4 != nil {
+		ips = append(ips, ipv4.String())
 	}
 
-	name := strconv.FormatUint(uint64(id), 10)
-	NetworkPolicyCache.Upsert(NetworkPolicyTypeURL, name, networkPolicy, false)
+	// First, validate all policies
+	policies := []*cilium.NetworkPolicy{}
+	for i := range ips {
+		networkPolicy := getNetworkPolicy(ips[i], id, policy, labelsMap, deniedIngressIdentities, deniedEgressIdentities)
+		err := networkPolicy.Validate()
+		if err != nil {
+			return fmt.Errorf("error validating generated NetworkPolicy for %s: %s", ips[i], err)
+		}
+		policies = append(policies, networkPolicy)
+	}
+
+	// When successful, push them into the cache.
+	for i := range policies {
+		NetworkPolicyCache.Upsert(NetworkPolicyTypeURL, policies[i].Name, policies[i], false)
+	}
 	return nil
 }
 
 // RemoveNetworkPolicy removes a network policy from the set published to L7
 // proxies.
-func RemoveNetworkPolicy(id identity.NumericIdentity) {
-	name := strconv.FormatUint(uint64(id), 10)
-	NetworkPolicyCache.Delete(NetworkPolicyTypeURL, name, false)
+func RemoveNetworkPolicy(ipv6 addressing.CiliumIPv6, ipv4 addressing.CiliumIPv4) {
+	if ipv6 != nil {
+		NetworkPolicyCache.Delete(NetworkPolicyTypeURL, ipv6.String(), false)
+	}
+	if ipv4 != nil {
+		NetworkPolicyCache.Delete(NetworkPolicyTypeURL, ipv4.String(), false)
+	}
 }

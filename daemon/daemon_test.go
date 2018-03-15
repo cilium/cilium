@@ -24,6 +24,7 @@ import (
 	"time"
 
 	"github.com/cilium/cilium/common"
+	"github.com/cilium/cilium/common/addressing"
 	"github.com/cilium/cilium/daemon/options"
 	e "github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/identity"
@@ -56,8 +57,8 @@ type DaemonSuite struct {
 	OnGetPolicyRepository             func() *policy.Repository
 	OnUpdateProxyRedirect             func(e *e.Endpoint, l4 *policy.L4Filter) (uint16, error)
 	OnRemoveProxyRedirect             func(e *e.Endpoint, id string) error
-	OnUpdateNetworkPolicy             func(id identity.NumericIdentity, policy *policy.L4Policy, labelsMap identity.IdentityCache, deniedIngressIdentities, deniedEgressIdentities map[identity.NumericIdentity]bool) error
-	OnRemoveNetworkPolicy             func(id identity.NumericIdentity)
+	OnUpdateNetworkPolicy             func(ipv6 addressing.CiliumIPv6, ipv4 addressing.CiliumIPv4, id identity.NumericIdentity, policy *policy.L4Policy, labelsMap identity.IdentityCache, deniedIngressIdentities, deniedEgressIdentities map[identity.NumericIdentity]bool) error
+	OnRemoveNetworkPolicy             func(ipv6 addressing.CiliumIPv6, ipv4 addressing.CiliumIPv4)
 	OnGetStateDir                     func() string
 	OnGetBpfDir                       func() string
 	OnGetTunnelMode                   func() string
@@ -237,17 +238,17 @@ func (ds *DaemonSuite) RemoveProxyRedirect(e *e.Endpoint, id string) error {
 	panic("RemoveProxyRedirect should not have been called")
 }
 
-func (ds *DaemonSuite) UpdateNetworkPolicy(id identity.NumericIdentity, policy *policy.L4Policy,
+func (ds *DaemonSuite) UpdateNetworkPolicy(ipv6 addressing.CiliumIPv6, ipv4 addressing.CiliumIPv4, id identity.NumericIdentity, policy *policy.L4Policy,
 	labelsMap identity.IdentityCache, deniedIngressIdentities, deniedEgressIdentities map[identity.NumericIdentity]bool) error {
 	if ds.OnUpdateNetworkPolicy != nil {
-		return ds.OnUpdateNetworkPolicy(id, policy, labelsMap, deniedIngressIdentities, deniedEgressIdentities)
+		return ds.OnUpdateNetworkPolicy(ipv6, ipv4, id, policy, labelsMap, deniedIngressIdentities, deniedEgressIdentities)
 	}
 	panic("UpdateNetworkPolicy should not have been called")
 }
 
-func (ds *DaemonSuite) RemoveNetworkPolicy(id identity.NumericIdentity) {
+func (ds *DaemonSuite) RemoveNetworkPolicy(ipv6 addressing.CiliumIPv6, ipv4 addressing.CiliumIPv4) {
 	if ds.OnRemoveNetworkPolicy != nil {
-		ds.OnRemoveNetworkPolicy(id)
+		ds.OnRemoveNetworkPolicy(ipv6, ipv4)
 	}
 	panic("UpdateNetworkPolicy should not have been called")
 }

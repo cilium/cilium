@@ -137,12 +137,12 @@ func (ds *DaemonSuite) generateEPs(baseDir string, epsWanted []*e.Endpoint, epsM
 		return nil
 	}
 
-	ds.OnUpdateNetworkPolicy = func(id identity.NumericIdentity, policy *policy.L4Policy,
+	ds.OnUpdateNetworkPolicy = func(ipv6 addressing.CiliumIPv6, ipv4 addressing.CiliumIPv4, id identity.NumericIdentity, policy *policy.L4Policy,
 		labelsMap identity.IdentityCache, deniedIngressIdentities, deniedEgressIdentities map[identity.NumericIdentity]bool) error {
 		return nil
 	}
 
-	ds.OnRemoveNetworkPolicy = func(id identity.NumericIdentity) {}
+	ds.OnRemoveNetworkPolicy = func(ipv6 addressing.CiliumIPv6, ipv4 addressing.CiliumIPv4) {}
 
 	// Since all owner's funcs are implemented we can regenerate every endpoint.
 	epsNames := []string{}
