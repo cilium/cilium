@@ -21,7 +21,7 @@ import (
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/labels"
-	"github.com/cilium/cilium/pkg/policy/api"
+	"github.com/cilium/cilium/pkg/policy/api/v2"
 
 	"github.com/op/go-logging"
 )
@@ -102,5 +102,5 @@ func (s *SearchContext) CallDepth() string {
 
 // Translator is an interface for altering policy rules
 type Translator interface {
-	Translate(*api.Rule) error
+	Translate(*v2.Rule) error
 }

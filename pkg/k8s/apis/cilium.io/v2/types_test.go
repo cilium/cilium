@@ -22,7 +22,7 @@ import (
 	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	k8sUtils "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/utils"
 	"github.com/cilium/cilium/pkg/labels"
-	"github.com/cilium/cilium/pkg/policy/api"
+	"github.com/cilium/cilium/pkg/policy/api/v2"
 
 	. "gopkg.in/check.v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -38,74 +38,74 @@ type CiliumV2Suite struct{}
 var _ = Suite(&CiliumV2Suite{})
 
 var (
-	apiRule = api.Rule{
-		Ingress: []api.IngressRule{
+	apiRule = v2.Rule{
+		Ingress: []v2.IngressRule{
 			{
-				FromEndpoints: []api.EndpointSelector{
-					api.NewESFromLabels(
+				FromEndpoints: []v2.EndpointSelector{
+					v2.NewESFromLabels(
 						labels.ParseSelectLabel("role=frontend"),
 					),
-					api.NewESFromLabels(
+					v2.NewESFromLabels(
 						labels.ParseSelectLabel("reserved:world"),
 					),
 				},
-				ToPorts: []api.PortRule{
+				ToPorts: []v2.PortRule{
 					{
-						Ports: []api.PortProtocol{{Port: "80", Protocol: "TCP"}},
-						Rules: &api.L7Rules{HTTP: []api.PortRuleHTTP{{Path: "/public", Method: "GET"}}},
+						Ports: []v2.PortProtocol{{Port: "80", Protocol: "TCP"}},
+						Rules: &v2.L7Rules{HTTP: []v2.PortRuleHTTP{{Path: "/public", Method: "GET"}}},
 					},
 				},
 			},
 		},
-		Egress: []api.EgressRule{
+		Egress: []v2.EgressRule{
 			{
-				ToPorts: []api.PortRule{
+				ToPorts: []v2.PortRule{
 					{
-						Ports: []api.PortProtocol{{Port: "80", Protocol: "TCP"}},
-						Rules: &api.L7Rules{HTTP: []api.PortRuleHTTP{{Path: "/public", Method: "GET"}}},
+						Ports: []v2.PortProtocol{{Port: "80", Protocol: "TCP"}},
+						Rules: &v2.L7Rules{HTTP: []v2.PortRuleHTTP{{Path: "/public", Method: "GET"}}},
 					},
 				},
 			}, {
-				ToCIDR: []api.CIDR{"10.0.0.1"},
+				ToCIDR: []v2.CIDR{"10.0.0.1"},
 			}, {
-				ToCIDRSet: []api.CIDRRule{{Cidr: api.CIDR("10.0.0.0/8"), ExceptCIDRs: []api.CIDR{"10.96.0.0/12"}}},
+				ToCIDRSet: []v2.CIDRRule{{Cidr: v2.CIDR("10.0.0.0/8"), ExceptCIDRs: []v2.CIDR{"10.96.0.0/12"}}},
 			},
 		},
 	}
 
-	expectedSpecRule = api.Rule{
-		Ingress: []api.IngressRule{
+	expectedSpecRule = v2.Rule{
+		Ingress: []v2.IngressRule{
 			{
-				FromEndpoints: []api.EndpointSelector{
-					api.NewESFromLabels(
+				FromEndpoints: []v2.EndpointSelector{
+					v2.NewESFromLabels(
 						labels.ParseSelectLabel("role=frontend"),
 						labels.ParseSelectLabel("k8s:"+k8sConst.PodNamespaceLabel+"=default"),
 					),
-					api.NewESFromLabels(
+					v2.NewESFromLabels(
 						labels.ParseSelectLabel("reserved:world"),
 					),
 				},
-				ToPorts: []api.PortRule{
+				ToPorts: []v2.PortRule{
 					{
-						Ports: []api.PortProtocol{{Port: "80", Protocol: "TCP"}},
-						Rules: &api.L7Rules{HTTP: []api.PortRuleHTTP{{Path: "/public", Method: "GET"}}},
+						Ports: []v2.PortProtocol{{Port: "80", Protocol: "TCP"}},
+						Rules: &v2.L7Rules{HTTP: []v2.PortRuleHTTP{{Path: "/public", Method: "GET"}}},
 					},
 				},
 			},
 		},
-		Egress: []api.EgressRule{
+		Egress: []v2.EgressRule{
 			{
-				ToPorts: []api.PortRule{
+				ToPorts: []v2.PortRule{
 					{
-						Ports: []api.PortProtocol{{Port: "80", Protocol: "TCP"}},
-						Rules: &api.L7Rules{HTTP: []api.PortRuleHTTP{{Path: "/public", Method: "GET"}}},
+						Ports: []v2.PortProtocol{{Port: "80", Protocol: "TCP"}},
+						Rules: &v2.L7Rules{HTTP: []v2.PortRuleHTTP{{Path: "/public", Method: "GET"}}},
 					},
 				},
 			},
 			{
-				ToCIDR: []api.CIDR{"10.0.0.1"},
+				ToCIDR: []v2.CIDR{"10.0.0.1"},
 			}, {
-				ToCIDRSet: []api.CIDRRule{{Cidr: api.CIDR("10.0.0.0/8"), ExceptCIDRs: []api.CIDR{"10.96.0.0/12"}}},
+				ToCIDRSet: []v2.CIDRRule{{Cidr: v2.CIDR("10.0.0.0/8"), ExceptCIDRs: []v2.CIDR{"10.96.0.0/12"}}},
 			},
 		},
 		Labels: k8sUtils.GetPolicyLabels("default", "rule1"),
@@ -213,7 +213,7 @@ var (
 
 func (s *CiliumV2Suite) TestParseSpec(c *C) {
 
-	es := api.NewESFromLabels(labels.ParseSelectLabel("role=backend"))
+	es := v2.NewESFromLabels(labels.ParseSelectLabel("role=backend"))
 	es.MatchExpressions = []metav1.LabelSelectorRequirement{
 		{Key: "any.role", Operator: "NotIn", Values: []string{"production"}},
 	}
@@ -227,7 +227,7 @@ func (s *CiliumV2Suite) TestParseSpec(c *C) {
 		Spec: &apiRule,
 	}
 
-	expectedES := api.NewESFromLabels(labels.ParseSelectLabel("role=backend"), labels.ParseSelectLabel("k8s:"+k8sConst.PodNamespaceLabel+"=default"))
+	expectedES := v2.NewESFromLabels(labels.ParseSelectLabel("role=backend"), labels.ParseSelectLabel("k8s:"+k8sConst.PodNamespaceLabel+"=default"))
 	expectedES.MatchExpressions = []metav1.LabelSelectorRequirement{{Key: "any.role", Operator: "NotIn", Values: []string{"production"}}}
 
 	expectedSpecRule.EndpointSelector = expectedES
@@ -251,7 +251,7 @@ func (s *CiliumV2Suite) TestParseSpec(c *C) {
 }
 
 func (s *CiliumV2Suite) TestParseRules(c *C) {
-	es := api.NewESFromLabels(labels.ParseSelectLabel("role=backend"))
+	es := v2.NewESFromLabels(labels.ParseSelectLabel("role=backend"))
 	es.MatchExpressions = []metav1.LabelSelectorRequirement{{Key: "any.role", Operator: "NotIn", Values: []string{"production"}}}
 
 	apiRule.EndpointSelector = es
@@ -260,15 +260,15 @@ func (s *CiliumV2Suite) TestParseRules(c *C) {
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "rule1",
 		},
-		Specs: api.Rules{&apiRule, &apiRule},
+		Specs: v2.Rules{&apiRule, &apiRule},
 	}
 
-	expectedES := api.NewESFromLabels(labels.ParseSelectLabel("role=backend"), labels.ParseSelectLabel("k8s:"+k8sConst.PodNamespaceLabel+"=default"))
+	expectedES := v2.NewESFromLabels(labels.ParseSelectLabel("role=backend"), labels.ParseSelectLabel("k8s:"+k8sConst.PodNamespaceLabel+"=default"))
 	expectedES.MatchExpressions = []metav1.LabelSelectorRequirement{{Key: "any.role", Operator: "NotIn", Values: []string{"production"}}}
 
 	expectedSpecRule.EndpointSelector = expectedES
 
-	expectedSpecRules := api.Rules{&expectedSpecRule, &expectedSpecRule}
+	expectedSpecRules := v2.Rules{&expectedSpecRule, &expectedSpecRule}
 
 	rules, err := expectedPolicyRuleList.Parse()
 	c.Assert(err, IsNil)

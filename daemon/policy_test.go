@@ -27,7 +27,7 @@ import (
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/mac"
-	"github.com/cilium/cilium/pkg/policy/api"
+	"github.com/cilium/cilium/pkg/policy/api/v2"
 
 	"github.com/gogo/protobuf/sortkeys"
 	"github.com/golang/protobuf/ptypes/wrappers"
@@ -59,28 +59,28 @@ func (ds *DaemonSuite) TestUpdateConsumerMap(c *C) {
 	lblJoe := labels.ParseLabel("user=joe")
 	lblPete := labels.ParseLabel("user=pete")
 
-	rules := api.Rules{
+	rules := v2.Rules{
 		{
-			EndpointSelector: api.NewESFromLabels(lblBar),
-			Ingress: []api.IngressRule{
+			EndpointSelector: v2.NewESFromLabels(lblBar),
+			Ingress: []v2.IngressRule{
 				{
-					FromEndpoints: []api.EndpointSelector{
-						api.NewESFromLabels(lblJoe),
-						api.NewESFromLabels(lblPete),
-						api.NewESFromLabels(lblFoo),
+					FromEndpoints: []v2.EndpointSelector{
+						v2.NewESFromLabels(lblJoe),
+						v2.NewESFromLabels(lblPete),
+						v2.NewESFromLabels(lblFoo),
 					},
 				},
 				{
-					FromEndpoints: []api.EndpointSelector{
-						api.NewESFromLabels(lblFoo),
+					FromEndpoints: []v2.EndpointSelector{
+						v2.NewESFromLabels(lblFoo),
 					},
-					ToPorts: []api.PortRule{
+					ToPorts: []v2.PortRule{
 						{
-							Ports: []api.PortProtocol{
-								{Port: "80", Protocol: api.ProtoTCP},
+							Ports: []v2.PortProtocol{
+								{Port: "80", Protocol: v2.ProtoTCP},
 							},
-							Rules: &api.L7Rules{
-								HTTP: []api.PortRuleHTTP{
+							Rules: &v2.L7Rules{
+								HTTP: []v2.PortRuleHTTP{
 									{
 										Path:   "/bar",
 										Method: "GET",
@@ -93,21 +93,21 @@ func (ds *DaemonSuite) TestUpdateConsumerMap(c *C) {
 			},
 		},
 		{
-			EndpointSelector: api.NewESFromLabels(lblQA),
-			Ingress: []api.IngressRule{
+			EndpointSelector: v2.NewESFromLabels(lblQA),
+			Ingress: []v2.IngressRule{
 				{
-					FromRequires: []api.EndpointSelector{
-						api.NewESFromLabels(lblQA),
+					FromRequires: []v2.EndpointSelector{
+						v2.NewESFromLabels(lblQA),
 					},
 				},
 			},
 		},
 		{
-			EndpointSelector: api.NewESFromLabels(lblProd),
-			Ingress: []api.IngressRule{
+			EndpointSelector: v2.NewESFromLabels(lblProd),
+			Ingress: []v2.IngressRule{
 				{
-					FromRequires: []api.EndpointSelector{
-						api.NewESFromLabels(lblProd),
+					FromRequires: []v2.EndpointSelector{
+						v2.NewESFromLabels(lblProd),
 					},
 				},
 			},
@@ -262,14 +262,14 @@ func (ds *DaemonSuite) TestUpdateConsumerMap(c *C) {
 func (ds *DaemonSuite) TestReplacePolicy(c *C) {
 	lblBar := labels.ParseLabel("bar")
 	lbls := labels.ParseLabelArray("foo", "bar")
-	rules := api.Rules{
+	rules := v2.Rules{
 		{
 			Labels:           lbls,
-			EndpointSelector: api.NewESFromLabels(lblBar),
+			EndpointSelector: v2.NewESFromLabels(lblBar),
 		},
 		{
 			Labels:           lbls,
-			EndpointSelector: api.NewESFromLabels(lblBar),
+			EndpointSelector: v2.NewESFromLabels(lblBar),
 		},
 	}
 
@@ -293,28 +293,28 @@ func (ds *DaemonSuite) TestRemovePolicy(c *C) {
 	lblJoe := labels.ParseLabel("user=joe")
 	lblPete := labels.ParseLabel("user=pete")
 
-	rules := api.Rules{
+	rules := v2.Rules{
 		{
-			EndpointSelector: api.NewESFromLabels(lblBar),
-			Ingress: []api.IngressRule{
+			EndpointSelector: v2.NewESFromLabels(lblBar),
+			Ingress: []v2.IngressRule{
 				{
-					FromEndpoints: []api.EndpointSelector{
-						api.NewESFromLabels(lblJoe),
-						api.NewESFromLabels(lblPete),
-						api.NewESFromLabels(lblFoo),
+					FromEndpoints: []v2.EndpointSelector{
+						v2.NewESFromLabels(lblJoe),
+						v2.NewESFromLabels(lblPete),
+						v2.NewESFromLabels(lblFoo),
 					},
 				},
 				{
-					FromEndpoints: []api.EndpointSelector{
-						api.NewESFromLabels(lblFoo),
+					FromEndpoints: []v2.EndpointSelector{
+						v2.NewESFromLabels(lblFoo),
 					},
-					ToPorts: []api.PortRule{
+					ToPorts: []v2.PortRule{
 						{
-							Ports: []api.PortProtocol{
-								{Port: "80", Protocol: api.ProtoTCP},
+							Ports: []v2.PortProtocol{
+								{Port: "80", Protocol: v2.ProtoTCP},
 							},
-							Rules: &api.L7Rules{
-								HTTP: []api.PortRuleHTTP{
+							Rules: &v2.L7Rules{
+								HTTP: []v2.PortRuleHTTP{
 									{
 										Path:   "/bar",
 										Method: "GET",
@@ -327,21 +327,21 @@ func (ds *DaemonSuite) TestRemovePolicy(c *C) {
 			},
 		},
 		{
-			EndpointSelector: api.NewESFromLabels(lblQA),
-			Ingress: []api.IngressRule{
+			EndpointSelector: v2.NewESFromLabels(lblQA),
+			Ingress: []v2.IngressRule{
 				{
-					FromRequires: []api.EndpointSelector{
-						api.NewESFromLabels(lblQA),
+					FromRequires: []v2.EndpointSelector{
+						v2.NewESFromLabels(lblQA),
 					},
 				},
 			},
 		},
 		{
-			EndpointSelector: api.NewESFromLabels(lblProd),
-			Ingress: []api.IngressRule{
+			EndpointSelector: v2.NewESFromLabels(lblProd),
+			Ingress: []v2.IngressRule{
 				{
-					FromRequires: []api.EndpointSelector{
-						api.NewESFromLabels(lblProd),
+					FromRequires: []v2.EndpointSelector{
+						v2.NewESFromLabels(lblProd),
 					},
 				},
 			},

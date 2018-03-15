@@ -23,7 +23,7 @@ import (
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/policy"
-	"github.com/cilium/cilium/pkg/policy/api"
+	"github.com/cilium/cilium/pkg/policy/api/v2"
 
 	networkingv1 "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -51,7 +51,7 @@ func GetPolicyLabelsv1(np *networkingv1.NetworkPolicy) labels.LabelArray {
 	return k8sUtils.GetPolicyLabels(ns, policyName)
 }
 
-func parseNetworkPolicyPeer(namespace string, peer *networkingv1.NetworkPolicyPeer) *api.EndpointSelector {
+func parseNetworkPolicyPeer(namespace string, peer *networkingv1.NetworkPolicyPeer) *v2.EndpointSelector {
 
 	// TODO add unit test (GH-3080).
 	if peer == nil {
@@ -91,7 +91,7 @@ func parseNetworkPolicyPeer(namespace string, peer *networkingv1.NetworkPolicyPe
 		return nil
 	}
 
-	selector := api.NewESFromK8sLabelSelector(labels.LabelSourceK8sKeyPrefix, labelSelector)
+	selector := v2.NewESFromK8sLabelSelector(labels.LabelSourceK8sKeyPrefix, labelSelector)
 	return &selector
 }
 
@@ -107,19 +107,19 @@ func hasV1PolicyType(pTypes []networkingv1.PolicyType, typ networkingv1.PolicyTy
 // ParseNetworkPolicy parses a k8s NetworkPolicy. Returns a list of
 // Cilium policy rules that can be added, along with an error if there was an
 // error sanitizing the rules.
-func ParseNetworkPolicy(np *networkingv1.NetworkPolicy) (api.Rules, error) {
+func ParseNetworkPolicy(np *networkingv1.NetworkPolicy) (v2.Rules, error) {
 
 	if np == nil {
 		return nil, fmt.Errorf("cannot parse NetworkPolicy because it is nil")
 	}
 
-	ingresses := []api.IngressRule{}
-	egresses := []api.EgressRule{}
+	ingresses := []v2.IngressRule{}
+	egresses := []v2.EgressRule{}
 
 	namespace := k8sUtils.ExtractNamespace(&np.ObjectMeta)
 
 	for _, iRule := range np.Spec.Ingress {
-		ingress := api.IngressRule{}
+		ingress := v2.IngressRule{}
 
 		if iRule.Ports != nil && len(iRule.Ports) > 0 {
 			ingress.ToPorts = parsePorts(iRule.Ports)
@@ -146,7 +146,7 @@ func ParseNetworkPolicy(np *networkingv1.NetworkPolicy) (api.Rules, error) {
 			//   From []NetworkPolicyPeer
 			//   If this field is empty or missing, this rule matches all
 			//   sources (traffic not restricted by source).
-			all := api.NewESFromLabels(
+			all := v2.NewESFromLabels(
 				labels.NewLabel(labels.IDNameAll, "", labels.LabelSourceReserved),
 			)
 			ingress.FromEndpoints = append(ingress.FromEndpoints, all)
@@ -156,7 +156,7 @@ func ParseNetworkPolicy(np *networkingv1.NetworkPolicy) (api.Rules, error) {
 	}
 
 	for _, eRule := range np.Spec.Egress {
-		egress := api.EgressRule{}
+		egress := v2.EgressRule{}
 
 		if eRule.Ports != nil && len(eRule.Ports) > 0 {
 			egress.ToPorts = parsePorts(eRule.Ports)
@@ -179,7 +179,7 @@ func ParseNetworkPolicy(np *networkingv1.NetworkPolicy) (api.Rules, error) {
 			}
 		} else {
 			// []To is wildcard
-			all := api.NewESFromLabels(
+			all := v2.NewESFromLabels(
 				labels.NewLabel(labels.IDNameAll, "", labels.LabelSourceReserved),
 			)
 			egress.ToEndpoints = append(egress.ToEndpoints, all)
@@ -198,7 +198,7 @@ func ParseNetworkPolicy(np *networkingv1.NetworkPolicy) (api.Rules, error) {
 	if len(ingresses) == 0 &&
 		(hasV1PolicyType(np.Spec.PolicyTypes, networkingv1.PolicyTypeIngress) ||
 			!hasV1PolicyType(np.Spec.PolicyTypes, networkingv1.PolicyTypeEgress)) {
-		ingresses = []api.IngressRule{{}}
+		ingresses = []v2.IngressRule{{}}
 	}
 
 	// Convert the k8s default-deny model to the Cilium default-deny model
@@ -207,7 +207,7 @@ func ParseNetworkPolicy(np *networkingv1.NetworkPolicy) (api.Rules, error) {
 	//  policyTypes:
 	//	  - Egress
 	if len(egresses) == 0 && hasV1PolicyType(np.Spec.PolicyTypes, networkingv1.PolicyTypeEgress) {
-		egresses = []api.EgressRule{{}}
+		egresses = []v2.EgressRule{{}}
 	}
 
 	if np.Spec.PodSelector.MatchLabels == nil {
@@ -215,8 +215,8 @@ func ParseNetworkPolicy(np *networkingv1.NetworkPolicy) (api.Rules, error) {
 	}
 	np.Spec.PodSelector.MatchLabels[k8sConst.PodNamespaceLabel] = namespace
 
-	rule := &api.Rule{
-		EndpointSelector: api.NewESFromK8sLabelSelector(labels.LabelSourceK8sKeyPrefix, &np.Spec.PodSelector),
+	rule := &v2.Rule{
+		EndpointSelector: v2.NewESFromK8sLabelSelector(labels.LabelSourceK8sKeyPrefix, &np.Spec.PodSelector),
 		Labels:           GetPolicyLabelsv1(np),
 		Ingress:          ingresses,
 		Egress:           egresses,
@@ -226,31 +226,31 @@ func ParseNetworkPolicy(np *networkingv1.NetworkPolicy) (api.Rules, error) {
 		return nil, err
 	}
 
-	return api.Rules{rule}, nil
+	return v2.Rules{rule}, nil
 }
 
-func ipBlockToCIDRRule(block *networkingv1.IPBlock) api.CIDRRule {
+func ipBlockToCIDRRule(block *networkingv1.IPBlock) v2.CIDRRule {
 
 	// TODO: add unit test (GH-3080).
-	cidrRule := api.CIDRRule{}
-	cidrRule.Cidr = api.CIDR(block.CIDR)
+	cidrRule := v2.CIDRRule{}
+	cidrRule.Cidr = v2.CIDR(block.CIDR)
 	for _, v := range block.Except {
-		cidrRule.ExceptCIDRs = append(cidrRule.ExceptCIDRs, api.CIDR(v))
+		cidrRule.ExceptCIDRs = append(cidrRule.ExceptCIDRs, v2.CIDR(v))
 	}
 	return cidrRule
 }
 
 // parsePorts converts list of K8s NetworkPolicyPorts to Cilium PortRules.
-func parsePorts(ports []networkingv1.NetworkPolicyPort) []api.PortRule {
-	portRules := []api.PortRule{}
+func parsePorts(ports []networkingv1.NetworkPolicyPort) []v2.PortRule {
+	portRules := []v2.PortRule{}
 	for _, port := range ports {
 		if port.Protocol == nil && port.Port == nil {
 			continue
 		}
 
-		protocol := api.ProtoTCP
+		protocol := v2.ProtoTCP
 		if port.Protocol != nil {
-			protocol, _ = api.ParseL4Proto(string(*port.Protocol))
+			protocol, _ = v2.ParseL4Proto(string(*port.Protocol))
 		}
 
 		portStr := ""
@@ -258,8 +258,8 @@ func parsePorts(ports []networkingv1.NetworkPolicyPort) []api.PortRule {
 			portStr = port.Port.String()
 		}
 
-		portRule := api.PortRule{
-			Ports: []api.PortProtocol{
+		portRule := v2.PortRule{
+			Ports: []v2.PortProtocol{
 				{Port: portStr, Protocol: protocol},
 			},
 		}

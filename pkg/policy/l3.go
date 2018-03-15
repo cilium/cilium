@@ -23,7 +23,7 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/maps/cidrmap"
-	"github.com/cilium/cilium/pkg/policy/api"
+	"github.com/cilium/cilium/pkg/policy/api/v2"
 )
 
 // CIDRPolicyMapRule holds a L3 (CIDR) prefix and the rule labels that allow it.
@@ -179,11 +179,11 @@ func (cp *CIDRPolicy) Validate() error {
 	if cp == nil {
 		return nil
 	}
-	if l := len(cp.Egress.IPv6PrefixCount); l > api.MaxCIDRPrefixLengths {
-		return fmt.Errorf("too many egress CIDR prefix lengths %d/%d", l, api.MaxCIDRPrefixLengths)
+	if l := len(cp.Egress.IPv6PrefixCount); l > v2.MaxCIDRPrefixLengths {
+		return fmt.Errorf("too many egress CIDR prefix lengths %d/%d", l, v2.MaxCIDRPrefixLengths)
 	}
-	if l := len(cp.Ingress.IPv6PrefixCount); l > api.MaxCIDRPrefixLengths {
-		return fmt.Errorf("too many ingress CIDR prefix lengths %d/%d", l, api.MaxCIDRPrefixLengths)
+	if l := len(cp.Ingress.IPv6PrefixCount); l > v2.MaxCIDRPrefixLengths {
+		return fmt.Errorf("too many ingress CIDR prefix lengths %d/%d", l, v2.MaxCIDRPrefixLengths)
 	}
 	return nil
 }

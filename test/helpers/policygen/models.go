@@ -26,7 +26,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/cilium/cilium/pkg/policy/api"
+	"github.com/cilium/cilium/pkg/policy/api/v2"
 	"github.com/cilium/cilium/test/helpers"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -478,7 +478,7 @@ func (t *TestSpec) CreateCiliumNetworkPolicy() (string, error) {
 
 	type rule map[string]interface{}
 
-	specs := []api.Rule{}
+	specs := []v2.Rule{}
 	var err error
 
 	ingressMap := map[string]interface{}{}
@@ -539,7 +539,7 @@ func (t *TestSpec) CreateCiliumNetworkPolicy() (string, error) {
 	}
 
 	if len(ingressMap) > 0 {
-		var ingressVal api.IngressRule
+		var ingressVal v2.IngressRule
 		jsonOut, err := json.Marshal(ingressMap)
 		if err != nil {
 			return "", err
@@ -548,19 +548,19 @@ func (t *TestSpec) CreateCiliumNetworkPolicy() (string, error) {
 		if err != nil {
 			return "", err
 		}
-		specs = append(specs, api.Rule{
-			EndpointSelector: api.EndpointSelector{
+		specs = append(specs, v2.Rule{
+			EndpointSelector: v2.EndpointSelector{
 				LabelSelector: &metav1.LabelSelector{MatchLabels: map[string]string{
 					"id": t.DestPod,
 				}},
 			},
-			Ingress: []api.IngressRule{ingressVal},
-			Egress:  []api.EgressRule{},
+			Ingress: []v2.IngressRule{ingressVal},
+			Egress:  []v2.EgressRule{},
 		})
 	}
 
 	if len(egressMap) > 0 {
-		var egressVal api.EgressRule
+		var egressVal v2.EgressRule
 		jsonOut, err := json.Marshal(egressMap)
 		if err != nil {
 			return "", err
@@ -570,14 +570,14 @@ func (t *TestSpec) CreateCiliumNetworkPolicy() (string, error) {
 			return "", err
 		}
 
-		specs = append(specs, api.Rule{
-			EndpointSelector: api.EndpointSelector{
+		specs = append(specs, v2.Rule{
+			EndpointSelector: v2.EndpointSelector{
 				LabelSelector: &metav1.LabelSelector{MatchLabels: map[string]string{
 					"id": t.SrcPod,
 				}},
 			},
-			Ingress: []api.IngressRule{},
-			Egress:  []api.EgressRule{egressVal},
+			Ingress: []v2.IngressRule{},
+			Egress:  []v2.EgressRule{egressVal},
 		})
 	}
 

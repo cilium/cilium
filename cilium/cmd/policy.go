@@ -26,7 +26,7 @@ import (
 	"strings"
 
 	"github.com/cilium/cilium/pkg/logging/logfields"
-	"github.com/cilium/cilium/pkg/policy/api"
+	"github.com/cilium/cilium/pkg/policy/api/v2"
 
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
@@ -119,7 +119,7 @@ func ignoredFile(name string) bool {
 	return false
 }
 
-func loadPolicyFile(path string) (api.Rules, error) {
+func loadPolicyFile(path string) (v2.Rules, error) {
 	var content []byte
 	var err error
 	logrus.WithField(logfields.Path, path).Debug("Loading file")
@@ -134,7 +134,7 @@ func loadPolicyFile(path string) (api.Rules, error) {
 		return nil, err
 	}
 
-	var ruleList api.Rules
+	var ruleList v2.Rules
 	err = json.Unmarshal(content, &ruleList)
 	if err != nil {
 		return nil, handleUnmarshalError(path, content, err)
@@ -143,7 +143,7 @@ func loadPolicyFile(path string) (api.Rules, error) {
 	return ruleList, nil
 }
 
-func loadPolicy(name string) (api.Rules, error) {
+func loadPolicy(name string) (v2.Rules, error) {
 	logrus.WithField(logfields.Path, name).Debug("Entering directory")
 
 	if name == "-" {
@@ -163,7 +163,7 @@ func loadPolicy(name string) (api.Rules, error) {
 		return nil, err
 	}
 
-	result := api.Rules{}
+	result := v2.Rules{}
 	ruleList, err := processAllFilesFirst(name, files)
 	if err != nil {
 		return nil, err
@@ -181,8 +181,8 @@ func loadPolicy(name string) (api.Rules, error) {
 	return result, nil
 }
 
-func processAllFilesFirst(name string, files []os.FileInfo) (api.Rules, error) {
-	result := api.Rules{}
+func processAllFilesFirst(name string, files []os.FileInfo) (v2.Rules, error) {
+	result := v2.Rules{}
 
 	for _, f := range files {
 		if f.IsDir() || ignoredFile(path.Base(f.Name())) {
@@ -200,8 +200,8 @@ func processAllFilesFirst(name string, files []os.FileInfo) (api.Rules, error) {
 	return result, nil
 }
 
-func recursiveSearch(name string, files []os.FileInfo) (api.Rules, error) {
-	result := api.Rules{}
+func recursiveSearch(name string, files []os.FileInfo) (v2.Rules, error) {
+	result := v2.Rules{}
 	for _, f := range files {
 		if f.IsDir() {
 			if ignoredFile(path.Base(f.Name())) {

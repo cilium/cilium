@@ -16,7 +16,7 @@ package kafka
 
 import (
 	"github.com/cilium/cilium/pkg/flowdebug"
-	"github.com/cilium/cilium/pkg/policy/api"
+	"github.com/cilium/cilium/pkg/policy/api/v2"
 
 	"github.com/optiopay/kafka/proto"
 	"github.com/sirupsen/logrus"
@@ -26,32 +26,32 @@ import (
 // topic in its request.
 func isTopicAPIKey(kind int16) bool {
 	switch kind {
-	case api.ProduceKey,
-		api.FetchKey,
-		api.OffsetsKey,
-		api.MetadataKey,
-		api.LeaderAndIsr,
-		api.StopReplica,
-		api.UpdateMetadata,
-		api.OffsetCommitKey,
-		api.OffsetFetchKey,
-		api.CreateTopicsKey,
-		api.DeleteTopicsKey,
-		api.DeleteRecordsKey,
-		api.OffsetForLeaderEpochKey,
-		api.AddPartitionsToTxnKey,
-		api.WriteTxnMarkersKey,
-		api.TxnOffsetCommitKey,
-		api.AlterReplicaLogDirsKey,
-		api.DescribeLogDirsKey,
-		api.CreatePartitionsKey:
+	case v2.ProduceKey,
+		v2.FetchKey,
+		v2.OffsetsKey,
+		v2.MetadataKey,
+		v2.LeaderAndIsr,
+		v2.StopReplica,
+		v2.UpdateMetadata,
+		v2.OffsetCommitKey,
+		v2.OffsetFetchKey,
+		v2.CreateTopicsKey,
+		v2.DeleteTopicsKey,
+		v2.DeleteRecordsKey,
+		v2.OffsetForLeaderEpochKey,
+		v2.AddPartitionsToTxnKey,
+		v2.WriteTxnMarkersKey,
+		v2.TxnOffsetCommitKey,
+		v2.AlterReplicaLogDirsKey,
+		v2.DescribeLogDirsKey,
+		v2.CreatePartitionsKey:
 
 		return true
 	}
 	return false
 }
 
-func matchNonTopicRequests(req *RequestMessage, rule api.PortRuleKafka) bool {
+func matchNonTopicRequests(req *RequestMessage, rule v2.PortRuleKafka) bool {
 	// matchNonTopicRequests() is called when
 	// the kafka parser was not able to parse beyond the generic header.
 	// This could be due to 2 sceanrios:
@@ -78,7 +78,7 @@ func produceTopicContained(neededTopic string, topics []proto.ProduceReqTopic) b
 	return false
 }
 
-func matchProduceReq(req *proto.ProduceReq, rule api.PortRuleKafka) bool {
+func matchProduceReq(req *proto.ProduceReq, rule v2.PortRuleKafka) bool {
 	if req == nil {
 		return false
 	}
@@ -104,7 +104,7 @@ func fetchTopicContained(neededTopic string, topics []proto.FetchReqTopic) bool 
 	return false
 }
 
-func matchFetchReq(req *proto.FetchReq, rule api.PortRuleKafka) bool {
+func matchFetchReq(req *proto.FetchReq, rule v2.PortRuleKafka) bool {
 	if req == nil {
 		return false
 	}
@@ -130,7 +130,7 @@ func offsetTopicContained(neededTopic string, topics []proto.OffsetReqTopic) boo
 	return false
 }
 
-func matchOffsetReq(req *proto.OffsetReq, rule api.PortRuleKafka) bool {
+func matchOffsetReq(req *proto.OffsetReq, rule v2.PortRuleKafka) bool {
 	if req == nil {
 		return false
 	}
@@ -156,7 +156,7 @@ func topicContained(neededTopic string, topics []string) bool {
 	return false
 }
 
-func matchMetadataReq(req *proto.MetadataReq, rule api.PortRuleKafka) bool {
+func matchMetadataReq(req *proto.MetadataReq, rule v2.PortRuleKafka) bool {
 	if req == nil {
 		return false
 	}
@@ -182,7 +182,7 @@ func offsetCommitTopicContained(neededTopic string, topics []proto.OffsetCommitR
 	return false
 }
 
-func matchOffsetCommitReq(req *proto.OffsetCommitReq, rule api.PortRuleKafka) bool {
+func matchOffsetCommitReq(req *proto.OffsetCommitReq, rule v2.PortRuleKafka) bool {
 	if req == nil {
 		return false
 	}
@@ -208,7 +208,7 @@ func offsetFetchTopicContained(neededTopic string, topics []proto.OffsetFetchReq
 	return false
 }
 
-func matchOffsetFetchReq(req *proto.OffsetFetchReq, rule api.PortRuleKafka) bool {
+func matchOffsetFetchReq(req *proto.OffsetFetchReq, rule v2.PortRuleKafka) bool {
 	if req == nil {
 		return false
 	}
@@ -224,7 +224,7 @@ func matchOffsetFetchReq(req *proto.OffsetFetchReq, rule api.PortRuleKafka) bool
 	return true
 }
 
-func (req *RequestMessage) ruleMatches(rule api.PortRuleKafka) bool {
+func (req *RequestMessage) ruleMatches(rule v2.PortRuleKafka) bool {
 	if req == nil {
 		return false
 	}
@@ -280,7 +280,7 @@ func (req *RequestMessage) ruleMatches(rule api.PortRuleKafka) bool {
 // MatchesRule validates the Kafka request message against the provided list of
 // rules. The function will return true if the policy allows the message,
 // otherwise false is returned.
-func (req *RequestMessage) MatchesRule(rules []api.PortRuleKafka) bool {
+func (req *RequestMessage) MatchesRule(rules []v2.PortRuleKafka) bool {
 	for _, rule := range rules {
 		if req.ruleMatches(rule) {
 			return true

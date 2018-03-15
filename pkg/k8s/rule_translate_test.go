@@ -20,7 +20,7 @@ import (
 	"github.com/cilium/cilium/common/types"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/policy"
-	"github.com/cilium/cilium/pkg/policy/api"
+	"github.com/cilium/cilium/pkg/policy/api/v2"
 
 	. "gopkg.in/check.v1"
 )
@@ -48,13 +48,13 @@ func (s *K8sSuite) TestTranslatorDirect(c *C) {
 		},
 	}
 
-	rule1 := api.Rule{
-		EndpointSelector: api.NewESFromLabels(labels.ParseSelectLabel("bar")),
-		Egress: []api.EgressRule{
+	rule1 := v2.Rule{
+		EndpointSelector: v2.NewESFromLabels(labels.ParseSelectLabel("bar")),
+		Egress: []v2.EgressRule{
 			{
-				ToServices: []api.Service{
+				ToServices: []v2.Service{
 					{
-						K8sService: &api.K8sServiceNamespace{
+						K8sService: &v2.K8sServiceNamespace{
 							ServiceName: serviceInfo.ServiceName,
 							Namespace:   serviceInfo.Namespace,
 						},
@@ -113,18 +113,18 @@ func (s *K8sSuite) TestTranslatorLabels(c *C) {
 		},
 	}
 
-	selector := api.ServiceSelector{
+	selector := v2.ServiceSelector{
 		LabelSelector: &metav1.LabelSelector{
 			MatchLabels: svcLabels,
 		},
 	}
 
-	rule1 := api.Rule{
-		EndpointSelector: api.NewESFromLabels(labels.ParseSelectLabel("bar")),
-		Egress: []api.EgressRule{{
-			ToServices: []api.Service{
+	rule1 := v2.Rule{
+		EndpointSelector: v2.NewESFromLabels(labels.ParseSelectLabel("bar")),
+		Egress: []v2.EgressRule{{
+			ToServices: []v2.Service{
 				{
-					K8sServiceSelector: &api.K8sServiceSelectorNamespace{
+					K8sServiceSelector: &v2.K8sServiceSelectorNamespace{
 						Selector:  selector,
 						Namespace: "",
 					},
@@ -157,7 +157,7 @@ func (s *K8sSuite) TestTranslatorLabels(c *C) {
 }
 
 func (s *K8sSuite) TestGenerateToCIDRFromEndpoint(c *C) {
-	rule := &api.EgressRule{}
+	rule := &v2.EgressRule{}
 
 	epIP := "10.1.1.1"
 
@@ -216,12 +216,12 @@ func (s *K8sSuite) TestPreprocessRules(c *C) {
 		IsHeadless: true,
 	}
 
-	rule1 := api.Rule{
-		EndpointSelector: api.NewESFromLabels(labels.ParseSelectLabel("bar")),
-		Egress: []api.EgressRule{{
-			ToServices: []api.Service{
+	rule1 := v2.Rule{
+		EndpointSelector: v2.NewESFromLabels(labels.ParseSelectLabel("bar")),
+		Egress: []v2.EgressRule{{
+			ToServices: []v2.Service{
 				{
-					K8sService: &api.K8sServiceNamespace{
+					K8sService: &v2.K8sServiceNamespace{
 						ServiceName: serviceInfo.ServiceName,
 						Namespace:   serviceInfo.Namespace,
 					},
@@ -239,7 +239,7 @@ func (s *K8sSuite) TestPreprocessRules(c *C) {
 		serviceInfo: &service,
 	}
 
-	rules := api.Rules{&rule1}
+	rules := v2.Rules{&rule1}
 
 	err := PreprocessRules(rules, endpoints, services)
 	c.Assert(err, IsNil)
@@ -249,9 +249,9 @@ func (s *K8sSuite) TestPreprocessRules(c *C) {
 }
 
 func (s *K8sSuite) TestDontDeleteUserRules(c *C) {
-	userCIDR := api.CIDR("10.1.1.2/32")
-	rule := &api.EgressRule{
-		ToCIDRSet: []api.CIDRRule{
+	userCIDR := v2.CIDR("10.1.1.2/32")
+	rule := &v2.EgressRule{
+		ToCIDRSet: []v2.CIDRRule{
 			{
 				Cidr: userCIDR,
 			},

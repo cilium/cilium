@@ -24,7 +24,7 @@ import (
 	k8sUtils "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/utils"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-	"github.com/cilium/cilium/pkg/policy/api"
+	"github.com/cilium/cilium/pkg/policy/api/v2"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -52,10 +52,10 @@ type CiliumNetworkPolicy struct {
 	metav1.ObjectMeta `json:"metadata"`
 
 	// Spec is the desired Cilium specific rule specification.
-	Spec *api.Rule `json:"spec,omitempty"`
+	Spec *v2.Rule `json:"spec,omitempty"`
 
 	// Specs is a list of desired Cilium specific rule specification.
-	Specs api.Rules `json:"specs,omitempty"`
+	Specs v2.Rules `json:"specs,omitempty"`
 
 	// Status is the status of the Cilium policy rule
 	// +optional
@@ -126,7 +126,7 @@ func (r *CiliumNetworkPolicy) SpecEquals(o *CiliumNetworkPolicy) bool {
 
 // Parse parses a CiliumNetworkPolicy and returns a list of cilium policy
 // rules.
-func (r *CiliumNetworkPolicy) Parse() (api.Rules, error) {
+func (r *CiliumNetworkPolicy) Parse() (v2.Rules, error) {
 	if r.ObjectMeta.Name == "" {
 		return nil, fmt.Errorf("CiliumNetworkPolicy must have name")
 	}
@@ -134,7 +134,7 @@ func (r *CiliumNetworkPolicy) Parse() (api.Rules, error) {
 	namespace := k8sUtils.ExtractNamespace(&r.ObjectMeta)
 	name := r.ObjectMeta.Name
 
-	retRules := api.Rules{}
+	retRules := v2.Rules{}
 
 	if r.Spec != nil {
 		if err := r.Spec.Sanitize(); err != nil {

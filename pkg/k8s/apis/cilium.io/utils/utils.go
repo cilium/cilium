@@ -21,7 +21,7 @@ import (
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-	"github.com/cilium/cilium/pkg/policy/api"
+	"github.com/cilium/cilium/pkg/policy/api/v2"
 
 	"github.com/sirupsen/logrus"
 	"k8s.io/api/core/v1"
@@ -63,14 +63,14 @@ func GetPolicyLabels(ns, name string) labels.LabelArray {
 	)
 }
 
-func parseToCiliumIngressRule(namespace string, inRule, retRule *api.Rule) {
+func parseToCiliumIngressRule(namespace string, inRule, retRule *v2.Rule) {
 	if inRule.Ingress != nil {
-		retRule.Ingress = make([]api.IngressRule, len(inRule.Ingress))
+		retRule.Ingress = make([]v2.IngressRule, len(inRule.Ingress))
 		for i, ing := range inRule.Ingress {
 			if ing.FromEndpoints != nil {
-				retRule.Ingress[i].FromEndpoints = make([]api.EndpointSelector, len(ing.FromEndpoints))
+				retRule.Ingress[i].FromEndpoints = make([]v2.EndpointSelector, len(ing.FromEndpoints))
 				for j, ep := range ing.FromEndpoints {
-					retRule.Ingress[i].FromEndpoints[j] = api.NewESFromK8sLabelSelector("", ep.LabelSelector)
+					retRule.Ingress[i].FromEndpoints[j] = v2.NewESFromK8sLabelSelector("", ep.LabelSelector)
 					if retRule.Ingress[i].FromEndpoints[j].MatchLabels == nil {
 						retRule.Ingress[i].FromEndpoints[j].MatchLabels = map[string]string{}
 					}
@@ -89,23 +89,23 @@ func parseToCiliumIngressRule(namespace string, inRule, retRule *api.Rule) {
 			}
 
 			if ing.ToPorts != nil {
-				retRule.Ingress[i].ToPorts = make([]api.PortRule, len(ing.ToPorts))
+				retRule.Ingress[i].ToPorts = make([]v2.PortRule, len(ing.ToPorts))
 				copy(retRule.Ingress[i].ToPorts, ing.ToPorts)
 			}
 			if ing.FromCIDR != nil {
-				retRule.Ingress[i].FromCIDR = make([]api.CIDR, len(ing.FromCIDR))
+				retRule.Ingress[i].FromCIDR = make([]v2.CIDR, len(ing.FromCIDR))
 				copy(retRule.Ingress[i].FromCIDR, ing.FromCIDR)
 			}
 
 			if ing.FromCIDRSet != nil {
-				retRule.Ingress[i].FromCIDRSet = make([]api.CIDRRule, len(ing.FromCIDRSet))
+				retRule.Ingress[i].FromCIDRSet = make([]v2.CIDRRule, len(ing.FromCIDRSet))
 				copy(retRule.Ingress[i].FromCIDRSet, ing.FromCIDRSet)
 			}
 
 			if ing.FromRequires != nil {
-				retRule.Ingress[i].FromRequires = make([]api.EndpointSelector, len(ing.FromRequires))
+				retRule.Ingress[i].FromRequires = make([]v2.EndpointSelector, len(ing.FromRequires))
 				for j, ep := range ing.FromRequires {
-					retRule.Ingress[i].FromRequires[j] = api.NewESFromK8sLabelSelector("", ep.LabelSelector)
+					retRule.Ingress[i].FromRequires[j] = v2.NewESFromK8sLabelSelector("", ep.LabelSelector)
 					if retRule.Ingress[i].FromRequires[j].MatchLabels == nil {
 						retRule.Ingress[i].FromRequires[j].MatchLabels = map[string]string{}
 					}
@@ -119,22 +119,22 @@ func parseToCiliumIngressRule(namespace string, inRule, retRule *api.Rule) {
 			}
 
 			if ing.FromEntities != nil {
-				retRule.Ingress[i].FromEntities = make([]api.Entity, len(ing.FromEntities))
+				retRule.Ingress[i].FromEntities = make([]v2.Entity, len(ing.FromEntities))
 				copy(retRule.Ingress[i].FromEntities, ing.FromEntities)
 			}
 		}
 	}
 }
 
-func parseToCiliumEgressRule(namespace string, inRule, retRule *api.Rule) {
+func parseToCiliumEgressRule(namespace string, inRule, retRule *v2.Rule) {
 	if inRule.Egress != nil {
-		retRule.Egress = make([]api.EgressRule, len(inRule.Egress))
+		retRule.Egress = make([]v2.EgressRule, len(inRule.Egress))
 
 		for i, egr := range inRule.Egress {
 			if egr.ToEndpoints != nil {
-				retRule.Egress[i].ToEndpoints = make([]api.EndpointSelector, len(egr.ToEndpoints))
+				retRule.Egress[i].ToEndpoints = make([]v2.EndpointSelector, len(egr.ToEndpoints))
 				for j, ep := range egr.ToEndpoints {
-					retRule.Egress[i].ToEndpoints[j] = api.NewESFromK8sLabelSelector("", ep.LabelSelector)
+					retRule.Egress[i].ToEndpoints[j] = v2.NewESFromK8sLabelSelector("", ep.LabelSelector)
 					if retRule.Egress[i].ToEndpoints[j].MatchLabels == nil {
 						retRule.Egress[i].ToEndpoints[j].MatchLabels = map[string]string{}
 					}
@@ -152,23 +152,23 @@ func parseToCiliumEgressRule(namespace string, inRule, retRule *api.Rule) {
 			}
 
 			if egr.ToPorts != nil {
-				retRule.Egress[i].ToPorts = make([]api.PortRule, len(egr.ToPorts))
+				retRule.Egress[i].ToPorts = make([]v2.PortRule, len(egr.ToPorts))
 				copy(retRule.Egress[i].ToPorts, egr.ToPorts)
 			}
 			if egr.ToCIDR != nil {
-				retRule.Egress[i].ToCIDR = make([]api.CIDR, len(egr.ToCIDR))
+				retRule.Egress[i].ToCIDR = make([]v2.CIDR, len(egr.ToCIDR))
 				copy(retRule.Egress[i].ToCIDR, egr.ToCIDR)
 			}
 
 			if egr.ToCIDRSet != nil {
-				retRule.Egress[i].ToCIDRSet = make([]api.CIDRRule, len(egr.ToCIDRSet))
+				retRule.Egress[i].ToCIDRSet = make([]v2.CIDRRule, len(egr.ToCIDRSet))
 				copy(retRule.Egress[i].ToCIDRSet, egr.ToCIDRSet)
 			}
 
 			if egr.ToRequires != nil {
-				retRule.Egress[i].ToRequires = make([]api.EndpointSelector, len(egr.ToRequires))
+				retRule.Egress[i].ToRequires = make([]v2.EndpointSelector, len(egr.ToRequires))
 				for j, ep := range egr.ToRequires {
-					retRule.Egress[i].ToRequires[j] = api.NewESFromK8sLabelSelector("", ep.LabelSelector)
+					retRule.Egress[i].ToRequires[j] = v2.NewESFromK8sLabelSelector("", ep.LabelSelector)
 					if retRule.Egress[i].ToRequires[j].MatchLabels == nil {
 						retRule.Egress[i].ToRequires[j].MatchLabels = map[string]string{}
 					}
@@ -182,24 +182,24 @@ func parseToCiliumEgressRule(namespace string, inRule, retRule *api.Rule) {
 			}
 
 			if egr.ToServices != nil {
-				retRule.Egress[i].ToServices = make([]api.Service, len(egr.ToServices))
+				retRule.Egress[i].ToServices = make([]v2.Service, len(egr.ToServices))
 				copy(retRule.Egress[i].ToServices, egr.ToServices)
 			}
 
 			if egr.ToEntities != nil {
-				retRule.Egress[i].ToEntities = make([]api.Entity, len(egr.ToEntities))
+				retRule.Egress[i].ToEntities = make([]v2.Entity, len(egr.ToEntities))
 				copy(retRule.Egress[i].ToEntities, egr.ToEntities)
 			}
 		}
 	}
 }
 
-// ParseToCiliumRule returns an api.Rule with all the labels parsed into cilium
+// ParseToCiliumRule returns a v2.Rule with all the labels parsed into cilium
 // labels.
-func ParseToCiliumRule(namespace, name string, r *api.Rule) *api.Rule {
-	retRule := &api.Rule{}
+func ParseToCiliumRule(namespace, name string, r *v2.Rule) *v2.Rule {
+	retRule := &v2.Rule{}
 	if r.EndpointSelector.LabelSelector != nil {
-		retRule.EndpointSelector = api.NewESFromK8sLabelSelector("", r.EndpointSelector.LabelSelector)
+		retRule.EndpointSelector = v2.NewESFromK8sLabelSelector("", r.EndpointSelector.LabelSelector)
 		// The PodSelector should only reflect to the same namespace
 		// the policy is being stored, thus we add the namespace to
 		// the MatchLabels map.

@@ -22,7 +22,7 @@ import (
 
 	"github.com/cilium/cilium/common/types"
 	"github.com/cilium/cilium/pkg/policy"
-	"github.com/cilium/cilium/pkg/policy/api"
+	"github.com/cilium/cilium/pkg/policy/api/v2"
 )
 
 var _ policy.Translator = RuleTranslator{}
@@ -38,7 +38,7 @@ type RuleTranslator struct {
 }
 
 // Translate calls TranslateEgress on all r.Egress rules
-func (k RuleTranslator) Translate(r *api.Rule) error {
+func (k RuleTranslator) Translate(r *v2.Rule) error {
 	for egressIndex := range r.Egress {
 		err := k.TranslateEgress(&r.Egress[egressIndex])
 		if err != nil {
@@ -50,7 +50,7 @@ func (k RuleTranslator) Translate(r *api.Rule) error {
 
 // TranslateEgress populates/depopulates egress rules with ToCIDR entries based
 // on toService entries
-func (k RuleTranslator) TranslateEgress(r *api.EgressRule) error {
+func (k RuleTranslator) TranslateEgress(r *v2.EgressRule) error {
 	err := k.depopulateEgress(r)
 	if err != nil {
 		return err
@@ -64,7 +64,7 @@ func (k RuleTranslator) TranslateEgress(r *api.EgressRule) error {
 	return nil
 }
 
-func (k RuleTranslator) populateEgress(r *api.EgressRule) error {
+func (k RuleTranslator) populateEgress(r *v2.EgressRule) error {
 	for _, service := range r.ToServices {
 		if k.serviceMatches(service) {
 			if err := generateToCidrFromEndpoint(r, k.Endpoint); err != nil {
@@ -76,7 +76,7 @@ func (k RuleTranslator) populateEgress(r *api.EgressRule) error {
 	return nil
 }
 
-func (k RuleTranslator) depopulateEgress(r *api.EgressRule) error {
+func (k RuleTranslator) depopulateEgress(r *v2.EgressRule) error {
 	for _, service := range r.ToServices {
 		if k.serviceMatches(service) {
 			if err := deleteToCidrFromEndpoint(r, k.Endpoint); err != nil {
@@ -88,9 +88,9 @@ func (k RuleTranslator) depopulateEgress(r *api.EgressRule) error {
 	return nil
 }
 
-func (k RuleTranslator) serviceMatches(service api.Service) bool {
+func (k RuleTranslator) serviceMatches(service v2.Service) bool {
 	if service.K8sServiceSelector != nil {
-		es := api.EndpointSelector(service.K8sServiceSelector.Selector)
+		es := v2.EndpointSelector(service.K8sServiceSelector.Selector)
 		return es.Matches(labels.Set(k.ServiceLabels)) &&
 			(service.K8sServiceSelector.Namespace == k.Service.Namespace || service.K8sServiceSelector.Namespace == "")
 	}
@@ -106,7 +106,7 @@ func (k RuleTranslator) serviceMatches(service api.Service) bool {
 // generateToCidrFromEndpoint takes an egress rule and populates it with
 // ToCIDR rules based on provided endpoint object
 func generateToCidrFromEndpoint(
-	egress *api.EgressRule, endpoint types.K8sServiceEndpoint) error {
+	egress *v2.EgressRule, endpoint types.K8sServiceEndpoint) error {
 
 	// This will generate one-address CIDRs consisting of endpoint backend ip
 	mask := net.CIDRMask(128, 128)
@@ -129,8 +129,8 @@ func generateToCidrFromEndpoint(
 		}
 		if !found {
 			cidr := net.IPNet{IP: epIP.Mask(mask), Mask: mask}
-			egress.ToCIDRSet = append(egress.ToCIDRSet, api.CIDRRule{
-				Cidr:      api.CIDR(cidr.String()),
+			egress.ToCIDRSet = append(egress.ToCIDRSet, v2.CIDRRule{
+				Cidr:      v2.CIDR(cidr.String()),
 				Generated: true,
 			})
 		}
@@ -141,9 +141,9 @@ func generateToCidrFromEndpoint(
 // deleteToCidrFromEndpoint takes an egress rule and removes
 // ToCIDR rules matching endpoint
 func deleteToCidrFromEndpoint(
-	egress *api.EgressRule, endpoint types.K8sServiceEndpoint) error {
+	egress *v2.EgressRule, endpoint types.K8sServiceEndpoint) error {
 
-	newToCIDR := make([]api.CIDRRule, 0, len(egress.ToCIDRSet))
+	newToCIDR := make([]v2.CIDRRule, 0, len(egress.ToCIDRSet))
 
 	for ip := range endpoint.BEIPs {
 		epIP := net.ParseIP(ip)
@@ -171,7 +171,7 @@ func deleteToCidrFromEndpoint(
 
 // PreprocessRules translates rules that apply to headless services
 func PreprocessRules(
-	r api.Rules,
+	r v2.Rules,
 	endpoints map[types.K8sServiceNamespace]*types.K8sServiceEndpoint,
 	services map[types.K8sServiceNamespace]*types.K8sServiceInfo) error {
 

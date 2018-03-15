@@ -29,7 +29,7 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/policy"
-	"github.com/cilium/cilium/pkg/policy/api"
+	"github.com/cilium/cilium/pkg/policy/api/v2"
 
 	"github.com/go-openapi/runtime/middleware"
 	"github.com/op/go-logging"
@@ -127,7 +127,7 @@ func (h *getPolicyResolve) Handle(params GetPolicyResolveParams) middleware.Resp
 		if ctx.Verbose {
 			searchCtx.Trace = policy.TRACE_VERBOSE
 		}
-		verdict := api.Allowed.String()
+		verdict := v2.Allowed.String()
 		searchCtx.PolicyTrace("Label verdict: %s\n", verdict)
 		msg := fmt.Sprintf("%s\n  %s\n%s", searchCtx.String(), policyEnforcementMsg, buffer.String())
 		return NewGetPolicyResolveOK().WithPayload(&models.PolicyTraceResult{
@@ -172,11 +172,11 @@ type AddOptions struct {
 	Replace bool
 }
 
-func (d *Daemon) policyAdd(rules api.Rules, opts *AddOptions) (uint64, error) {
+func (d *Daemon) policyAdd(rules v2.Rules, opts *AddOptions) (uint64, error) {
 	d.policy.Mutex.Lock()
 	defer d.policy.Mutex.Unlock()
 
-	oldRules := api.Rules{}
+	oldRules := v2.Rules{}
 
 	if opts != nil && opts.Replace {
 		// Make copy of rules matching labels of new rules while
@@ -213,7 +213,7 @@ func (d *Daemon) policyAdd(rules api.Rules, opts *AddOptions) (uint64, error) {
 // k8s is not enabled. Otherwise, if k8s is enabled, policy is enabled on the
 // pods which are selected. Eventual changes in policy rules are propagated to
 // all locally managed endpoints.
-func (d *Daemon) PolicyAdd(rules api.Rules, opts *AddOptions) (uint64, error) {
+func (d *Daemon) PolicyAdd(rules v2.Rules, opts *AddOptions) (uint64, error) {
 	log.WithField(logfields.CiliumNetworkPolicy, logfields.Repr(rules)).Debug("Policy Add Request")
 
 	rev, err := d.policyAdd(rules, opts)
@@ -285,7 +285,7 @@ func newPutPolicyHandler(d *Daemon) PutPolicyHandler {
 func (h *putPolicy) Handle(params PutPolicyParams) middleware.Responder {
 	d := h.daemon
 
-	var rules api.Rules
+	var rules v2.Rules
 	if err := json.Unmarshal([]byte(*params.Policy), &rules); err != nil {
 		return NewPutPolicyInvalidPolicy()
 	}

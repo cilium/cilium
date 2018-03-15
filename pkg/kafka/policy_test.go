@@ -18,7 +18,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/cilium/cilium/pkg/policy/api"
+	"github.com/cilium/cilium/pkg/policy/api/v2"
 
 	"github.com/optiopay/kafka/proto"
 	. "gopkg.in/check.v1"
@@ -94,7 +94,7 @@ func (k *kafkaTestSuite) TestProduceRequest(c *C) {
 		if topic == "" {
 			result = true
 		}
-		c.Assert(matchProduceReq(req, api.PortRuleKafka{Topic: topic}), Equals, result)
+		c.Assert(matchProduceReq(req, v2.PortRuleKafka{Topic: topic}), Equals, result)
 	}
 
 	reqMsg := RequestMessage{
@@ -102,18 +102,18 @@ func (k *kafkaTestSuite) TestProduceRequest(c *C) {
 	}
 
 	// empty rules should match nothing
-	c.Assert(reqMsg.MatchesRule([]api.PortRuleKafka{}), Equals, false)
+	c.Assert(reqMsg.MatchesRule([]v2.PortRuleKafka{}), Equals, false)
 
 	// wildcard rule matches everything
-	c.Assert(reqMsg.MatchesRule([]api.PortRuleKafka{{}}), Equals, true)
+	c.Assert(reqMsg.MatchesRule([]v2.PortRuleKafka{{}}), Equals, true)
 
-	c.Assert(reqMsg.MatchesRule([]api.PortRuleKafka{
+	c.Assert(reqMsg.MatchesRule([]v2.PortRuleKafka{
 		{Topic: "foo"},
 	}), Equals, true)
-	c.Assert(reqMsg.MatchesRule([]api.PortRuleKafka{
+	c.Assert(reqMsg.MatchesRule([]v2.PortRuleKafka{
 		{Topic: "baz"}, {Topic: "foo2"},
 	}), Equals, false)
-	c.Assert(reqMsg.MatchesRule([]api.PortRuleKafka{
+	c.Assert(reqMsg.MatchesRule([]v2.PortRuleKafka{
 		{Topic: "foo2"}, {Topic: "foo"},
 	}), Equals, true)
 }
@@ -122,15 +122,15 @@ func (k *kafkaTestSuite) TestUnknownRequest(c *C) {
 	reqMsg := RequestMessage{kind: 18} // ApiVersions request
 
 	// Empty rule should disallow
-	c.Assert(reqMsg.MatchesRule([]api.PortRuleKafka{}), Equals, false)
+	c.Assert(reqMsg.MatchesRule([]v2.PortRuleKafka{}), Equals, false)
 
 	// Whitelisting of unknown message
-	rule1 := api.PortRuleKafka{APIKey: "metadata"}
+	rule1 := v2.PortRuleKafka{APIKey: "metadata"}
 	c.Assert(rule1.Sanitize(), IsNil)
-	rule2 := api.PortRuleKafka{APIKey: "apiversions"}
+	rule2 := v2.PortRuleKafka{APIKey: "apiversions"}
 	c.Assert(rule2.Sanitize(), IsNil)
-	c.Assert(reqMsg.MatchesRule([]api.PortRuleKafka{rule1, rule2}), Equals, true)
+	c.Assert(reqMsg.MatchesRule([]v2.PortRuleKafka{rule1, rule2}), Equals, true)
 
 	reqMsg = RequestMessage{kind: 19}
-	c.Assert(reqMsg.MatchesRule([]api.PortRuleKafka{rule1, rule2}), Equals, false)
+	c.Assert(reqMsg.MatchesRule([]v2.PortRuleKafka{rule1, rule2}), Equals, false)
 }
