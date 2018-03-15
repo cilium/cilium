@@ -382,7 +382,7 @@ func (s *Server) processRequestStream(ctx context.Context, streamLog *logrus.Ent
 				}
 			}
 
-			responseLog.Infof("sending xDS response with %d resources", len(resp.Resources))
+			responseLog.Debugf("sending xDS response with %d resources", len(resp.Resources))
 
 			out := &envoy_api_v2.DiscoveryResponse{
 				VersionInfo: strconv.FormatUint(resp.Version, 10),
