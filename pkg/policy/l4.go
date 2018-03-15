@@ -288,12 +288,16 @@ func (l4 L4PolicyMap) containsAllL3L4(labels labels.LabelArray, ports []*models.
 type L4Policy struct {
 	Ingress L4PolicyMap
 	Egress  L4PolicyMap
+
+	// Revision is the repository revision used to generate this policy.
+	Revision uint64
 }
 
 func NewL4Policy() *L4Policy {
 	return &L4Policy{
-		Ingress: L4PolicyMap{},
-		Egress:  L4PolicyMap{},
+		Ingress:  L4PolicyMap{},
+		Egress:   L4PolicyMap{},
+		Revision: 0,
 	}
 }
 

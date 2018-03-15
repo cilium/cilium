@@ -133,7 +133,8 @@ func (s *K8sSuite) TestParseNetworkPolicy(c *C) {
 				},
 			},
 		},
-		Egress: policy.L4PolicyMap{},
+		Egress:   policy.L4PolicyMap{},
+		Revision: 0x1,
 	})
 
 	ctx.To = labels.LabelArray{

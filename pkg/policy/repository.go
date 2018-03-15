@@ -152,6 +152,10 @@ func (p *Repository) ResolveL4Policy(ctx *SearchContext) (*L4Policy, error) {
 		}
 	}
 
+	if result != nil {
+		result.Revision = p.GetRevision()
+	}
+
 	state.trace(p, ctx)
 	return result, nil
 }
