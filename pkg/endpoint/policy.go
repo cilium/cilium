@@ -130,11 +130,11 @@ func getL4FilterEndpointSelector(filter *policy.L4Filter) []api.EndpointSelector
 	return fromEndpointsSelectors
 }
 
-// removeOldFilter removes the BPF map entries from the endpoint's PolicyMap which
+// removeOldL4Filter removes the BPF map entries from the endpoint's PolicyMap which
 // corresponds to the given L4Filter in the given direction.
 // Returns a map that represents all values from the endpoint's PolicyMap that
 // were attempted to be removed.
-func (e *Endpoint) removeOldFilter(labelsMap *identityPkg.IdentityCache,
+func (e *Endpoint) removeOldL4Filter(labelsMap *identityPkg.IdentityCache,
 	filter *policy.L4Filter, direction policymap.TrafficDirection) policy.SecurityIdentityL4L7Map {
 
 	attemptedRemovedMapEntries := policy.NewSecurityIdentityL4L7Map()
@@ -278,7 +278,7 @@ func (e *Endpoint) applyL4PolicyLocked(labelsMap *identityPkg.IdentityCache,
 	if oldPolicy != nil {
 		var secIDs policy.SecurityIdentityL4L7Map
 		for _, filter := range oldL4PolicyMap {
-			secIDs = e.removeOldFilter(labelsMap, &filter, direction)
+			secIDs = e.removeOldL4Filter(labelsMap, &filter, direction)
 			setMapOperationResult(secIDsRm, secIDs)
 		}
 	}
