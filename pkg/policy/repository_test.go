@@ -327,12 +327,14 @@ func (ds *PolicyTestSuite) TestMinikubeGettingStarted(c *C) {
 		Ingress:          true,
 		DerivedFromRules: []labels.LabelArray{nil, nil, nil},
 	}
+	expected.Revision = repo.GetRevision()
 
 	c.Assert(len(l4policy.Ingress), Equals, 1)
 	c.Assert(*l4policy, comparator.DeepEquals, *expected)
 
 	// L4 from app3 has no rules
 	expected = NewL4Policy()
+	expected.Revision = repo.GetRevision()
 	l4policy, err = repo.ResolveL4Policy(fromApp3)
 	c.Assert(err, IsNil)
 	c.Assert(len(l4policy.Ingress), Equals, 0)
