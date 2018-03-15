@@ -81,13 +81,19 @@ func getXDSPath(stateDir string) string {
 
 // StartXDSServer configures and starts the xDS GRPC server.
 func StartXDSServer(stateDir string) *XDSServer {
-	path := getXDSPath(stateDir)
+	xdsPath := getXDSPath(stateDir)
 	accessLogPath := getAccessLogPath(stateDir)
 
-	os.Remove(path)
-	socketListener, err := net.ListenUnix("unix", &net.UnixAddr{Name: path, Net: "unix"})
+	os.Remove(xdsPath)
+	socketListener, err := net.ListenUnix("unix", &net.UnixAddr{Name: xdsPath, Net: "unix"})
 	if err != nil {
-		log.WithError(err).Fatal("Envoy: Failed to listen at ", path)
+		log.WithError(err).Fatal("Envoy: Failed to listen at ", xdsPath)
+	}
+
+	// Make the socket accessible by non-root Envoy proxies, e.g. running in
+	// sidecar containers.
+	if err = os.Chmod(xdsPath, 0777); err != nil {
+		log.WithError(err).Fatal("Envoy: can't change mode of xDS socket at ", xdsPath)
 	}
 
 	ldsCache := xds.NewCache()
@@ -176,7 +182,7 @@ func StartXDSServer(stateDir string) *XDSServer {
 	}
 
 	return &XDSServer{
-		socketPath:           path,
+		socketPath:           xdsPath,
 		listenerProto:        listenerProto,
 		loggers:              make(map[string]Logger),
 		listenerMutator:      ldsMutator,
