@@ -44,17 +44,24 @@ func (wg *WaitGroup) Context() context.Context {
 	return wg.ctx
 }
 
-// AddCompletion creates a new completion, adds it into the wait group, and
-// returns it.
-func (wg *WaitGroup) AddCompletion() *Completion {
+// AddCompletionWithCallback creates a new completion, adds it to the wait
+// group, and returns it. The callback will be called upon completion.
+func (wg *WaitGroup) AddCompletionWithCallback(callback func()) *Completion {
 	wg.counterLocker.Lock()
 	defer wg.counterLocker.Unlock()
 	c := &Completion{
 		ctx:       wg.ctx,
 		completed: make(chan struct{}),
+		callback:  callback,
 	}
 	wg.pendingCompletions = append(wg.pendingCompletions, c)
 	return c
+}
+
+// AddCompletion creates a new completion, adds it into the wait group, and
+// returns it.
+func (wg *WaitGroup) AddCompletion() *Completion {
+	return wg.AddCompletionWithCallback(nil)
 }
 
 // Wait blocks until all completions added by calling AddCompletion are
@@ -91,6 +98,9 @@ type Completion struct {
 	// completed is the channel to be closed when Complete is called the first
 	// time.
 	completed chan struct{}
+
+	// callback is called when Complete is called the first time.
+	callback func()
 }
 
 // Context returns the context of the asynchronous computation.
@@ -107,6 +117,9 @@ func (c *Completion) Complete() {
 	case <-c.completed:
 	default:
 		close(c.completed)
+		if c.callback != nil {
+			c.callback()
+		}
 	}
 }
 
@@ -115,4 +128,13 @@ func (c *Completion) Complete() {
 // WaitGroup's Wait terminated because the context was canceled.
 func (c *Completion) Completed() <-chan struct{} {
 	return c.completed
+}
+
+// NewCallback creates a Completion which calls a function upon Complete().
+func NewCallback(ctx context.Context, callback func()) *Completion {
+	return &Completion{
+		ctx:       ctx,
+		completed: make(chan struct{}),
+		callback:  callback,
+	}
 }
