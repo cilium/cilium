@@ -130,47 +130,61 @@ func getL4FilterEndpointSelector(filter *policy.L4Filter) []api.EndpointSelector
 	return fromEndpointsSelectors
 }
 
-// removeOldFilter removes the old l4 filter from the endpoint.
+// removeOldFilter removes the BPF map entry from the endpoint's PolicyMap which
+// corresponds to the given L4Filter.
 // Returns a map that represents all policies that were attempted to be removed;
 // it maps to whether they were removed successfully (true or false)
 func (e *Endpoint) removeOldFilter(labelsMap *identityPkg.IdentityCache,
 	filter *policy.L4Filter, direction policymap.TrafficDirection) policy.SecurityIdentityL4L7Map {
 
-	attemptedRemovedPolicies := policy.NewSecurityIdentityL4L7Map()
+	attemptedRemovedMapEntries := policy.NewSecurityIdentityL4L7Map()
 	port := uint16(filter.Port)
 	proto := uint8(filter.U8Proto)
 
+	// Get endpoint selectors which correspond to L4Filter.
 	for _, sel := range getL4FilterEndpointSelector(filter) {
-		for _, id := range getSecurityIdentities(labelsMap, &sel) {
-			srcID := id.Uint32()
-			l4RuleCtx, l7RuleCtx := e.ParseL4Filter(filter)
-			if _, ok := attemptedRemovedPolicies[id]; !ok {
-				attemptedRemovedPolicies[id] = policy.NewL4L7Map()
+		// Get all identities which correspond to this endpoint selector and
+		// delete them from the BPF PolicyMap for this endpoint.
+		for _, securityIdentity := range getSecurityIdentities(labelsMap, &sel) {
+			srcID := securityIdentity.Uint32()
+
+			// Convert filter to in-memory representation which is used for
+			// conntrack cleanup. Since we are removing entries from the BPF
+			// datapath, we need to keep track of which entries were removed
+			// (and attempted to be removed) so we can clear the conntrack table
+			// of entries for which policy no longer allows traffic.
+			l4Metadata, l7Metadata := e.ParseL4Filter(filter)
+			if _, ok := attemptedRemovedMapEntries[securityIdentity]; !ok {
+				attemptedRemovedMapEntries[securityIdentity] = policy.NewL4L7Map()
 			}
 			if err := e.PolicyMap.DeleteL4(srcID, port, proto, direction); err != nil {
 				// This happens when the policy would add
 				// multiple copies of the same L4 policy. Only
 				// one of them is actually added, but we'll
 				// still try to remove it multiple times.
-				e.getLogger().WithError(err).WithField(logfields.L4PolicyID, srcID).Debug("deletion of old L4 policy failed")
+				e.getLogger().WithError(err).WithField(logfields.L4PolicyID, srcID).
+					Debug("deletion of old L4 policy failed")
 				// Set with false only if the key was not
 				// previously set nor the value was set
 				// with true. Since we can have multiple
 				// copies of the same L4 policy, a single
 				// successful DeleteL4 means the policy
 				// was actually removed.
-				v, ok := attemptedRemovedPolicies[id][l4RuleCtx]
+				v, ok := attemptedRemovedMapEntries[securityIdentity][l4Metadata]
 				if ok && !v.L4Installed {
-					attemptedRemovedPolicies[id][l4RuleCtx] = l7RuleCtx
+					attemptedRemovedMapEntries[securityIdentity][l4Metadata] = l7Metadata
 				}
 			} else {
-				l7RuleCtx.L4Installed = true
-				attemptedRemovedPolicies[id][l4RuleCtx] = l7RuleCtx
+				// Rule was successfully deleted.
+				// TODO (ianvernon) why is this value set to 'true' if the entry is
+				// no longer in the map?
+				l7Metadata.L4Installed = true
+				attemptedRemovedMapEntries[securityIdentity][l4Metadata] = l7Metadata
 			}
 		}
 	}
 
-	return attemptedRemovedPolicies
+	return attemptedRemovedMapEntries
 }
 
 // applyNewFilter adds the given l4 filter to the endpoint.
