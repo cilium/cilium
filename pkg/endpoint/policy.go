@@ -197,7 +197,7 @@ func (e *Endpoint) removeOldL4Filter(labelsMap *identityPkg.IdentityCache,
 func (e *Endpoint) applyNewFilter(labelsMap *identityPkg.IdentityCache,
 	filter *policy.L4Filter, direction policymap.TrafficDirection) (policy.SecurityIdentityL4L7Map, int) {
 
-	addedPolicies := policy.NewSecurityIdentityL4L7Map()
+	attemptedAddedMapEntries := policy.NewSecurityIdentityL4L7Map()
 	port := uint16(filter.Port)
 	proto := uint8(filter.U8Proto)
 
@@ -210,8 +210,8 @@ func (e *Endpoint) applyNewFilter(labelsMap *identityPkg.IdentityCache,
 				continue
 			}
 			l4RuleCtx, l7RuleCtx := e.ParseL4Filter(filter)
-			if _, ok := addedPolicies[id]; !ok {
-				addedPolicies[id] = policy.NewL4L7Map()
+			if _, ok := attemptedAddedMapEntries[id]; !ok {
+				attemptedAddedMapEntries[id] = policy.NewL4L7Map()
 			}
 			if err := e.PolicyMap.AllowL4(srcID, port, proto, direction); err != nil {
 				e.getLogger().WithFields(logrus.Fields{
@@ -222,14 +222,14 @@ func (e *Endpoint) applyNewFilter(labelsMap *identityPkg.IdentityCache,
 					"Update of l4 policy map failed")
 				errors++
 				l7RuleCtx.L4Installed = false
-				addedPolicies[id][l4RuleCtx] = l7RuleCtx
+				attemptedAddedMapEntries[id][l4RuleCtx] = l7RuleCtx
 			} else {
 				l7RuleCtx.L4Installed = true
-				addedPolicies[id][l4RuleCtx] = l7RuleCtx
+				attemptedAddedMapEntries[id][l4RuleCtx] = l7RuleCtx
 			}
 		}
 	}
-	return addedPolicies, errors
+	return attemptedAddedMapEntries, errors
 }
 
 // setMapOperationResult iterates over the newSecIDs and sets their result
