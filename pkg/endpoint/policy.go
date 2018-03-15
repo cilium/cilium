@@ -673,37 +673,13 @@ func (e *Endpoint) IngressOrEgressIsEnforced() bool {
 }
 
 func (e *Endpoint) updateNetworkPolicy(owner Owner) error {
-	// Compute the set of identities explicitly denied by policy.
-	// This loop is similar to the one in regenerateConsumable called
-	// above, but this set only contains the identities with "Denied" verdicts.
 	c := e.Consumable
-	ctx := policy.SearchContext{
-		To: c.LabelArray,
-	}
-	if owner.TracingEnabled() {
-		ctx.Trace = policy.TRACE_ENABLED
-	}
-	deniedIngressIdentities := make(map[identityPkg.NumericIdentity]bool)
-	for srcID, srcLabels := range *e.LabelsMap {
-		if c.IngressIdentities[srcID] {
-			// Already allowed for L3-only.
-		} else {
-			ctx.From = srcLabels
-			e.getLogger().WithFields(logrus.Fields{
-				logfields.PolicyID: srcID,
-				"ctx":              ctx,
-			}).Debug("Evaluating context for source PolicyID")
-			repo := owner.GetPolicyRepository()
-			if repo.CanReachIngressRLocked(&ctx) == api.Denied {
-				// Denied explicitly by fromRequires clause.
-				deniedIngressIdentities[srcID] = true
-			}
-		}
-	}
+
+	deniedIngressIdentities := computeDeniedIngressIdentities(e, c, owner.GetPolicyRepository(), e.LabelsMap, owner.TracingEnabled())
+	deniedEgressIdentities := computeDeniedEgressIdentities(e, c, owner.GetPolicyRepository(), e.LabelsMap, owner.TracingEnabled())
 
 	// Publish the updated policy to L7 proxies.
-	// TODO: Pass the denied egress identities.
-	err := owner.UpdateNetworkPolicy(e, c.L4Policy, *e.LabelsMap, deniedIngressIdentities, nil)
+	err := owner.UpdateNetworkPolicy(e, c.L4Policy, *e.LabelsMap, deniedIngressIdentities, deniedEgressIdentities)
 	if err != nil {
 		return err
 	}
@@ -917,6 +893,64 @@ func (e *Endpoint) regeneratePolicy(owner Owner, opts models.ConfigurationMap) (
 	needToRegenerateBPF = optsChanged || policyChanged || e.nextPolicyRevision > e.policyRevision
 
 	return needToRegenerateBPF, l4PolicyMapAdded, l4PolicyMapRemoved, nil
+}
+
+// computeDeniedIngressIdentities computes the set of identities explicitly denied
+// by ingress policy.
+func computeDeniedIngressIdentities(e *Endpoint, consumable *policy.Consumable, repo *policy.Repository, labelsMap *identityPkg.IdentityCache, tracingEnabled bool) map[identityPkg.NumericIdentity]bool {
+	ctx := policy.SearchContext{
+		To: consumable.LabelArray,
+	}
+	if tracingEnabled {
+		ctx.Trace = policy.TRACE_ENABLED
+	}
+	deniedIngressIdentities := make(map[identityPkg.NumericIdentity]bool)
+	for srcID, srcLabels := range *labelsMap {
+		if consumable.IngressIdentities[srcID] {
+			// Already allowed for L3-only.
+		} else {
+			ctx.From = srcLabels
+			e.getLogger().WithFields(logrus.Fields{
+				logfields.PolicyID: srcID,
+				"ctx":              ctx,
+			}).Debug("Evaluating context for source PolicyID")
+			if repo.CanReachIngressRLocked(&ctx) == api.Denied {
+				// Denied explicitly by fromRequires clause.
+				deniedIngressIdentities[srcID] = true
+			}
+		}
+	}
+
+	return deniedIngressIdentities
+}
+
+// computeDeniedEgressIdentities computes the set of identities explicitly denied
+// by egress policy.
+func computeDeniedEgressIdentities(e *Endpoint, consumable *policy.Consumable, repo *policy.Repository, labelsMap *identityPkg.IdentityCache, tracingEnabled bool) map[identityPkg.NumericIdentity]bool {
+	ctx := policy.SearchContext{
+		From: consumable.LabelArray,
+	}
+	if tracingEnabled {
+		ctx.Trace = policy.TRACE_ENABLED
+	}
+	deniedEgressIdentities := make(map[identityPkg.NumericIdentity]bool)
+	for srcID, srcLabels := range *labelsMap {
+		if consumable.EgressIdentities[srcID] {
+			// Already allowed for L3-only.
+		} else {
+			ctx.To = srcLabels
+			e.getLogger().WithFields(logrus.Fields{
+				logfields.PolicyID: srcID,
+				"ctx":              ctx,
+			}).Debug("Evaluating context for destination PolicyID")
+			if repo.CanReachEgressRLocked(&ctx) == api.Denied {
+				// Denied explicitly by fromRequires clause.
+				deniedEgressIdentities[srcID] = true
+			}
+		}
+	}
+
+	return deniedEgressIdentities
 }
 
 // Called with e.Mutex UNlocked
