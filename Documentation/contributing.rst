@@ -734,6 +734,48 @@ illustrating which subset of tests the job runs.
 | `Cilium-Nightly-Tests-PR <https://jenkins.cilium.io/job/Cilium-PR-Nightly-Tests-All/>`_               | test-nightly    | No                 |
 +-------------------------------------------------------------------------------------------------------+-----------------+--------------------+
 
+Using Jenkins for testing
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Typically when running Jenkins tests via one of the above trigger phases, it
+will run all of the tests in that particular category. However, there may be
+cases where you just want to run a single test quickly on Jenkins and observe
+the test result. To do so, you need to update the relevant test to have a
+custom name, and to update the Jenkins file to focus that test. Below is an
+example patch that shows how this can be achieved.
+
+.. code-block:: diff
+
+    diff --git a/ginkgo.Jenkinsfile b/ginkgo.Jenkinsfile
+    index ee17808748a6..637f99269a41 100644
+    --- a/ginkgo.Jenkinsfile
+    +++ b/ginkgo.Jenkinsfile
+    @@ -62,10 +62,10 @@ pipeline {
+                 steps {
+                     parallel(
+                         "Runtime":{
+    -                        sh 'cd ${TESTDIR}; ginkgo --focus="RuntimeValidated*" -v -noColor'
+    +                        sh 'cd ${TESTDIR}; ginkgo --focus="XFoooo*" -v -noColor'
+                         },
+                         "K8s-1.9":{
+    -                        sh 'cd ${TESTDIR}; K8S_VERSION=1.9 ginkgo --focus=" K8sValidated*" -v -noColor ${FAILFAST}'
+    +                        sh 'cd ${TESTDIR}; K8S_VERSION=1.9 ginkgo --focus=" K8sFooooo*" -v -noColor ${FAILFAST}'
+                         },
+                         failFast: true
+                     )
+    diff --git a/test/k8sT/Nightly.go b/test/k8sT/Nightly.go
+    index 62b324619797..3f955c73a818 100644
+    --- a/test/k8sT/Nightly.go
+    +++ b/test/k8sT/Nightly.go
+    @@ -466,7 +466,7 @@ var _ = Describe("NightlyExamples", func() {
+
+                    })
+
+    -               It("K8sValidated Updating Cilium stable to master", func() {
+    +               FIt("K8sFooooo K8sValidated Updating Cilium stable to master", func() {
+                            podFilter := "k8s:zgroup=testapp"
+
+                            //This test should run in each PR for now.
 
 Jenkins jobs description
 -------------------------
