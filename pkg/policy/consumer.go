@@ -68,7 +68,7 @@ type Consumable struct {
 	L4Policy *L4Policy `json:"l4-policy"`
 
 	// L3L4Policy contains the L3, L4 and L7 policy of this consumable
-	L3L4Policy *SecurityIDContexts `json:"l3-l4-policy"`
+	L3L4Policy *SecurityIdentityL4L7Map `json:"l3-l4-policy"`
 
 	cache *ConsumableCache
 }

@@ -137,7 +137,7 @@ func EnableConntrackGC(ipv4, ipv6 bool) {
 //  - all the endpoint IP addresses given in the epIPs slice AND
 //  - any of the given ids in the idsMod map, maps to true and matches the
 //    src_sec_id in the CT table.
-func ResetProxyPort(ipv4Enabled bool, e *endpoint.Endpoint, isLocal bool, epIPs []net.IP, idsMod policy.SecurityIDContexts) {
+func ResetProxyPort(ipv4Enabled bool, e *endpoint.Endpoint, isLocal bool, epIPs []net.IP, idsMod policy.SecurityIdentityL4L7Map) {
 
 	gcFilter := ctmap.NewGCFilterBy(ctmap.GCFilterByIDToMod)
 	gcFilter.IDsToMod = idsMod
@@ -158,7 +158,7 @@ func ResetProxyPort(ipv4Enabled bool, e *endpoint.Endpoint, isLocal bool, epIPs 
 // by isLocal, that contains:
 //  - all the endpoint IP addresses given in the epIPs slice AND
 //  - does not belong to the list of ids to keep
-func FlushCTEntriesOf(ipv4Enabled bool, e *endpoint.Endpoint, isLocal bool, epIPs []net.IP, idsToKeep policy.SecurityIDContexts) {
+func FlushCTEntriesOf(ipv4Enabled bool, e *endpoint.Endpoint, isLocal bool, epIPs []net.IP, idsToKeep policy.SecurityIdentityL4L7Map) {
 
 	gcFilter := ctmap.NewGCFilterBy(ctmap.GCFilterByIDsToKeep)
 	gcFilter.IDsToKeep = idsToKeep

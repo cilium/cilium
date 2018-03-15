@@ -277,7 +277,7 @@ func (d *Daemon) DebugEnabled() bool {
 // isCTLocal should be set as true if the endpoint's CT table is either
 // local or not (if it is not local then it is assumed to be global).
 // Implementation of pkg/endpoint.Owner interface
-func (d *Daemon) ResetProxyPort(e *endpoint.Endpoint, isCTLocal bool, epIPs []net.IP, idsToMod policy.SecurityIDContexts) {
+func (d *Daemon) ResetProxyPort(e *endpoint.Endpoint, isCTLocal bool, epIPs []net.IP, idsToMod policy.SecurityIdentityL4L7Map) {
 	endpointmanager.ResetProxyPort(!d.conf.IPv4Disabled, e, isCTLocal, epIPs, idsToMod)
 }
 
@@ -286,7 +286,7 @@ func (d *Daemon) ResetProxyPort(e *endpoint.Endpoint, isCTLocal bool, epIPs []ne
 // isCTLocal should be set as true if the endpoint's CT table is either
 // local or not (if it is not local then it is assumed to be global).
 // Implementation of pkg/endpoint.Owner interface
-func (d *Daemon) FlushCTEntries(e *endpoint.Endpoint, isCTLocal bool, epIPs []net.IP, idsToKeep policy.SecurityIDContexts) {
+func (d *Daemon) FlushCTEntries(e *endpoint.Endpoint, isCTLocal bool, epIPs []net.IP, idsToKeep policy.SecurityIdentityL4L7Map) {
 	endpointmanager.FlushCTEntriesOf(!d.conf.IPv4Disabled, e, isCTLocal, epIPs, idsToKeep)
 }
 

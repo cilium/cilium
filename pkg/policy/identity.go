@@ -22,25 +22,24 @@ import (
 	"github.com/cilium/cilium/pkg/u8proto"
 )
 
-// SecurityIDContexts maps a security identity to a L4L7Map.
-// The security identity used as a key is a source of flows (e.g. the source
-// of a TCP connection).
-// The L4RuleContexts is a whitelist of the flows allowed from that security
-// identity at ingress and egress.
-type SecurityIDContexts map[identity.NumericIdentity]L4L7Map
+// SecurityIdentityL4L7Map maps a security identity to an L4L7Map. This contains
+// all policy-related information which has dependencies upon other layers of the protocol
+// stack (the only exception to this is CIDR-related policy). An empty L4L7Map
+// corresponds to a policy which is identity-based only.
+type SecurityIdentityL4L7Map map[identity.NumericIdentity]L4L7Map
 
-// DeepCopy returns a deep copy of SecurityIDContexts
-func (sc SecurityIDContexts) DeepCopy() SecurityIDContexts {
-	cpy := make(SecurityIDContexts, len(sc))
+// DeepCopy returns a deep copy of SecurityIdentityL4L7Map.
+func (sc SecurityIdentityL4L7Map) DeepCopy() SecurityIdentityL4L7Map {
+	cpy := make(SecurityIdentityL4L7Map, len(sc))
 	for k, v := range sc {
 		cpy[k] = v.DeepCopy()
 	}
 	return cpy
 }
 
-// SecurityIDContexts returns a new L4L7Map created.
-func NewSecurityIDContexts() SecurityIDContexts {
-	return SecurityIDContexts(make(map[identity.NumericIdentity]L4L7Map))
+// SecurityIdentityL4L7Map allocates and initializes an empty SecurityIdentityL4L7Map.
+func NewSecurityIdentityL4L7Map() SecurityIdentityL4L7Map {
+	return make(SecurityIdentityL4L7Map)
 }
 
 // L4L7Map maps L4 policy-related metadata with L7 policy-related metadata.

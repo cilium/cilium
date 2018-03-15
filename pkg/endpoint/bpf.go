@@ -413,7 +413,7 @@ func (ep *epInfoCache) GetBPFValue() (*lxcmap.EndpointInfo, error) {
 // is updated.
 func updateCT(owner Owner, e *Endpoint, epIPs []net.IP,
 	isPolicyEnforced, isLocal bool,
-	idsToKeep, idsToMod policy.SecurityIDContexts) *sync.WaitGroup {
+	idsToKeep, idsToMod policy.SecurityIdentityL4L7Map) *sync.WaitGroup {
 
 	wg := &sync.WaitGroup{}
 	if isPolicyEnforced {
@@ -632,7 +632,7 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir, reason string) (uint64, err
 	}
 
 	var (
-		modifiedRules, deletedRules policy.SecurityIDContexts
+		modifiedRules, deletedRules policy.SecurityIdentityL4L7Map
 		policyChanged               bool
 	)
 	// Only generate & populate policy map if a security identity is set up for
