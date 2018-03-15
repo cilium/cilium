@@ -691,24 +691,24 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir, reason string) (uint64, err
 			policyChanged = false
 
 			p := *c.L3L4Policy
-			for identity, l4RuleContexts := range p {
-				for l4RuleContext, l7RuleContexts := range l4RuleContexts {
+			for identity, l4L7Map := range p {
+				for l4Metadata, l7Metadata := range l4L7Map {
 					var l4Filter policy.L4Filter
 					var ok bool
-					pp := l4RuleContext.PortProto()
-					if l4RuleContext.Ingress {
+					pp := l4Metadata.PortProto()
+					if l4Metadata.Ingress {
 						l4Filter, ok = c.L4Policy.Ingress[pp]
 					} else {
 						l4Filter, ok = c.L4Policy.Egress[pp]
 					}
 					if ok {
 						redirectPort := e.lookupRedirectPortBE(&l4Filter)
-						if l7RuleContexts.RedirectPort != redirectPort {
+						if l7Metadata.RedirectPort != redirectPort {
 							e.getLogger().Debugf("Will update CT map entry for identity %d and proxy ID %s with redirect port %d",
-								identity, l4RuleContext.ProxyID(), redirectPort)
+								identity, l4Metadata.ProxyID(), redirectPort)
 							policyChanged = true
-							l7RuleContexts.RedirectPort = redirectPort
-							p[identity][l4RuleContext] = l7RuleContexts
+							l7Metadata.RedirectPort = redirectPort
+							p[identity][l4Metadata] = l7Metadata
 						}
 					}
 				}

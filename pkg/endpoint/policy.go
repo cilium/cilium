@@ -415,9 +415,9 @@ func (e *Endpoint) regenerateConsumable(owner Owner, labelsMap *identityPkg.Iden
 		if c != nil && c.L4Policy != nil && c.L4Policy.Ingress != nil {
 			for _, l4Filter := range c.L4Policy.Ingress {
 				found := false
-				l4RuleCtx, l7RuleCtx := e.ParseL4Filter(&l4Filter)
-				for _, l4RuleContexts := range ingressRulesAdd {
-					if _, found = l4RuleContexts[l4RuleCtx]; found {
+				l4Rule, l7Rule := e.ParseL4Filter(&l4Filter)
+				for _, ruleL4IngressMetadata := range ingressRulesAdd {
+					if _, found = ruleL4IngressMetadata[l4Rule]; found {
 						break
 					}
 				}
@@ -425,8 +425,8 @@ func (e *Endpoint) regenerateConsumable(owner Owner, labelsMap *identityPkg.Iden
 					if _, ok := ingressRulesAdd[identityPkg.InvalidIdentity]; !ok {
 						ingressRulesAdd[identityPkg.InvalidIdentity] = policy.NewL4L7Map()
 					}
-					l7RuleCtx.L4Installed = true
-					ingressRulesAdd[identityPkg.InvalidIdentity][l4RuleCtx] = l7RuleCtx
+					l7Rule.L4Installed = true
+					ingressRulesAdd[identityPkg.InvalidIdentity][l4Rule] = l7Rule
 				}
 			}
 		}
