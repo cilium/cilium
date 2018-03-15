@@ -43,12 +43,12 @@ func NewSecurityIDContexts() SecurityIDContexts {
 	return SecurityIDContexts(make(map[identity.NumericIdentity]L4RuleContexts))
 }
 
-// L4RuleContexts maps a rule context to a L7RuleContext.
-type L4RuleContexts map[L4Rule]L7RuleContext
+// L4RuleContexts maps a rule context to a L7Rule.
+type L4RuleContexts map[L4Rule]L7Rule
 
 // NewL4RuleContexts returns a new L4RuleContexts.
 func NewL4RuleContexts() L4RuleContexts {
-	return L4RuleContexts(make(map[L4Rule]L7RuleContext))
+	return L4RuleContexts(make(map[L4Rule]L7Rule))
 }
 
 // DeepCopy returns a deep copy of L4RuleContexts
@@ -96,15 +96,16 @@ func (rc L4Rule) PortProto() string {
 	return port + "/" + proto
 }
 
-// L7RuleContext represents a L7 rule
-type L7RuleContext struct {
+// L7Rule contains the L7-specific parts of a policy rule.
+type L7Rule struct {
 	// RedirectPort is the L7 redirect port in the policy in network byte order.
 	RedirectPort uint16
 	// L4Installed specifies if the L4 rule is installed in the L4 BPF map.
 	L4Installed bool
 }
 
-// IsRedirect checks if the L7RuleContext is a redirect to the proxy.
-func (rc L7RuleContext) IsRedirect() bool {
+// IsRedirect checks if the L7Rule has a non-zero redirect port. A non-zero
+// redirect port means that traffic should be directed to the L7-proxy.
+func (rc L7Rule) IsRedirect() bool {
 	return rc.RedirectPort != 0
 }

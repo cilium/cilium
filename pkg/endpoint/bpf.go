@@ -64,15 +64,15 @@ func (e *Endpoint) lookupRedirectPortBE(l4Filter *policy.L4Filter) uint16 {
 }
 
 // ParseL4Filter parses a L4Filter and returns a L4Rule and a
-// L7RuleContext with L4Installed set to false.
+// L7Rule with L4Installed set to false.
 // Must be called with Endpoint.Mutex held.
-func (e *Endpoint) ParseL4Filter(l4Filter *policy.L4Filter) (policy.L4RuleContext, policy.L7RuleContext) {
-	return policy.L4RuleContext{
+func (e *Endpoint) ParseL4Filter(l4Filter *policy.L4Filter) (policy.L4Rule, policy.L7Rule) {
+	return policy.L4Rule{
 			EndpointID: e.ID,
 			Ingress:    l4Filter.Ingress,
 			Proto:      uint8(l4Filter.U8Proto),
 			Port:       byteorder.HostToNetwork(uint16(l4Filter.Port)).(uint16),
-		}, policy.L7RuleContext{
+		}, policy.L7Rule{
 			RedirectPort: e.lookupRedirectPortBE(l4Filter),
 		}
 }
