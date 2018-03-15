@@ -15,7 +15,6 @@
 package RuntimeTest
 
 import (
-	"context"
 	"fmt"
 	"sync"
 
@@ -34,7 +33,10 @@ var _ = Describe("RuntimeValidatedKafka", func() {
 
 	var allowedTopic string = "allowedTopic"
 	var disallowTopic string = "disallowTopic"
-	var MaxMessages int = 5
+	var produceCmd string = fmt.Sprintf(
+		"echo \"Message 0\" | docker exec -i client /opt/kafka/bin/kafka-console-producer.sh "+
+			"--broker-list kafka:9092 --topic %s", allowedTopic)
+	var MaxMessages int = 6
 
 	initialize := func() {
 		logger = log.WithFields(logrus.Fields{"testName": "RuntimeKafka"})
@@ -76,10 +78,11 @@ var _ = Describe("RuntimeValidatedKafka", func() {
 		res.ExpectSuccess()
 	}
 
-	consumer := func(topic string, maxMsg int) string {
-		return fmt.Sprintf(
-			"docker exec client /opt/kafka/bin/kafka-console-consumer.sh --bootstrap-server "+
-				"kafka:9092 --topic %s --max-messages %d --timeout-ms 30000", topic, maxMsg)
+	consumer := func(topic string, maxMsg int) *helpers.CmdRes {
+		res := vm.ContainerExec("client", fmt.Sprintf(
+			"/opt/kafka/bin/kafka-console-consumer.sh --bootstrap-server "+
+				"kafka:9092 --topic %s --max-messages %d --timeout-ms 30000 --from-beginning", topic, maxMsg))
+		return res
 	}
 
 	producer := func(topic string, message string) {
@@ -88,6 +91,18 @@ var _ = Describe("RuntimeValidatedKafka", func() {
 				"--broker-list kafka:9092 --topic %s",
 			message, topic)
 		vm.Exec(cmd)
+	}
+
+	// WaitKafkaBroker waits for the broker to be ready, by executing
+	// a produce request on existing topics and waiting for a response from broker
+	waitForKafkaBroker := func(pod string, cmd string) error {
+		body := func() bool {
+			res := vm.ContainerExec(pod, cmd)
+			fmt.Println(res.CombineOutput())
+			return res.WasSuccessful()
+		}
+		err := helpers.WithTimeout(body, "Kafka Broker not ready", &helpers.TimeoutConfig{Timeout: 150})
+		return err
 	}
 
 	BeforeEach(func() {
@@ -114,32 +129,34 @@ var _ = Describe("RuntimeValidatedKafka", func() {
 		Expect(endPoints[helpers.Enabled]).To(Equal(1))
 		Expect(endPoints[helpers.Disabled]).To(Equal(2))
 
+		By("Creating kafka topics")
 		createTopic(allowedTopic)
 		createTopic(disallowTopic)
 
+		By("Listing created Kafka topics")
 		res := vm.ContainerExec("client",
 			"/opt/kafka/bin/kafka-topics.sh --list --zookeeper zook:2181")
 		res.ExpectSuccess("Cannot get kafka topics")
 
-		By("Allowed topic")
-		ctx, cancel := context.WithCancel(context.Background())
-		data := vm.ExecContext(ctx, consumer(allowedTopic, MaxMessages))
+		// Waiting for kafka broker to be up.
+		err = waitForKafkaBroker("client", produceCmd)
+		Expect(err).To(BeNil(), "Kafka broker failed to come up")
 
-		//TODO: wait until ready GH #3116
-		helpers.Sleep(10)
-		for i := 1; i <= MaxMessages; i++ {
+		By("Allowed topic")
+
+		By("Sending produce request on kafka topic `allowedTopic`")
+		for i := 1; i <= MaxMessages-1; i++ {
 			producer(allowedTopic, fmt.Sprintf("Message %d", i))
 		}
-		cancel()
 
-		err = data.WaitUntilMatch(fmt.Sprintf("Processed a total of %d messages", MaxMessages))
-		Expect(err).To(BeNil())
+		By("Sending consume request on kafka topic `allowedTopic`")
+		res = consumer(allowedTopic, MaxMessages)
+		res.ExpectSuccess("Failed to consume messages from kafka topic `allowedTopic`")
 
-		Expect(data.Output().String()).Should(ContainSubstring(
+		Expect(res.Output().String()).Should(ContainSubstring(
 			"Processed a total of %d messages", MaxMessages))
-
 		By("Disable topic")
-		res = vm.Exec(consumer(disallowTopic, MaxMessages))
+		res = consumer(disallowTopic, MaxMessages)
 		res.ExpectFail("Kafka consumer can access to disallowTopic")
 	})
 
@@ -152,32 +169,35 @@ var _ = Describe("RuntimeValidatedKafka", func() {
 		Expect(endPoints[helpers.Enabled]).To(Equal(1), "Expected 1 endpoint to be policy enabled. Policy enforcement failed")
 		Expect(endPoints[helpers.Disabled]).To(Equal(2), "Expected 2 endpoint to be policy disabled. Policy enforcement failed")
 
+		By("Creating kafka topics")
 		createTopic(allowedTopic)
 		createTopic(disallowTopic)
 
+		By("Listing created Kafka topics")
 		res := vm.ContainerExec("client",
 			"/opt/kafka/bin/kafka-topics.sh --list --zookeeper zook:2181")
 		res.ExpectSuccess("Cannot get kafka topics")
 
-		By("By sending produce/consume request on topic `allowedTopic`")
-		ctx, cancel := context.WithCancel(context.Background())
-		defer cancel()
-		data := vm.ExecContext(ctx, consumer(allowedTopic, MaxMessages))
+		// Waiting for kafka broker to be up.
+		err = waitForKafkaBroker("client", produceCmd)
+		Expect(err).To(BeNil(), "Kafka broker failed to come up")
 
-		//TODO: wait until ready GH #3116
-		helpers.Sleep(10)
-		for i := 1; i <= MaxMessages; i++ {
+		By("By sending produce/consume request on topic `allowedTopic`")
+
+		By("Sending produce request on kafka topic `allowedTopic`")
+		for i := 1; i <= MaxMessages-1; i++ {
 			producer(allowedTopic, fmt.Sprintf("Message %d", i))
 		}
 
-		err = data.WaitUntilMatch(fmt.Sprintf("Processed a total of %d messages", MaxMessages))
-		Expect(err).To(BeNil())
+		By("Sending consume request on kafka topic `allowedTopic`")
+		res = consumer(allowedTopic, MaxMessages)
+		res.ExpectSuccess("Failed to consume messages from kafka topic `allowedTopic`")
 
-		Expect(data.Output().String()).Should(ContainSubstring(
+		Expect(res.Output().String()).Should(ContainSubstring(
 			"Processed a total of %d messages", MaxMessages))
 
-		By("By sending produce/consume request on topic `disallowedTopic`")
-		res = vm.Exec(consumer(disallowTopic, MaxMessages))
+		By("Disable topic")
+		res = consumer(disallowTopic, MaxMessages)
 		res.ExpectFail("Kafka consumer can access to disallowTopic")
 	})
 })
