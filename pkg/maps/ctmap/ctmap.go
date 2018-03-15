@@ -403,7 +403,7 @@ func (f *GCFilter) doFiltering(srcIP net.IP, dstIP net.IP, dstPort uint16, nextH
 		return
 	}
 
-	l4RuleCtx := policy.L4Rule{
+	l4RuleCtx := policy.L4Metadata{
 		EndpointID: f.EndpointID,
 		Ingress:    ingress,
 		Port:       dstPort,

@@ -43,11 +43,11 @@ func NewSecurityIdentityL4L7Map() SecurityIdentityL4L7Map {
 }
 
 // L4L7Map maps L4 policy-related metadata with L7 policy-related metadata.
-type L4L7Map map[L4Rule]L7Rule
+type L4L7Map map[L4Metadata]L7Metadata
 
 // NewL4L7Map returns a new L4L7Map.
 func NewL4L7Map() L4L7Map {
-	return L4L7Map(make(map[L4Rule]L7Rule))
+	return L4L7Map(make(map[L4Metadata]L7Metadata))
 }
 
 // DeepCopy returns a deep copy of L4L7Map.
@@ -68,7 +68,7 @@ func (rc L4L7Map) IsL3Only() bool {
 // L4Rule represents an L4 rule.
 // Do not use pointers for fields in this type since this structure is used as
 // a key for maps.
-type L4Rule struct {
+type L4Metadata struct {
 	// EndpointID is the identity of the endpoint where this rule is enforced, in host byte order.
 	EndpointID uint16
 	// Ingress indicates whether the flow is an ingress rule (vs. egress).
@@ -81,7 +81,7 @@ type L4Rule struct {
 
 // ProxyID return the proxy ID representation of this rule, in the same format
 // as returned by Endpoint.ProxyID.
-func (rc L4Rule) ProxyID() string {
+func (rc L4Metadata) ProxyID() string {
 	proto := u8proto.U8proto(rc.Proto).String()
 	port := byteorder.NetworkToHost(rc.Port).(uint16)
 	return ProxyID(rc.EndpointID, rc.Ingress, proto, port)
@@ -89,22 +89,22 @@ func (rc L4Rule) ProxyID() string {
 
 // String returns the port-protocol tuple in a human readable format, i.e.
 // with its port in host-byte order.
-func (rc L4Rule) String() string {
+func (rc L4Metadata) String() string {
 	proto := u8proto.U8proto(rc.Proto).String()
 	port := strconv.Itoa(int(byteorder.NetworkToHost(uint16(rc.Port)).(uint16)))
 	return port + "/" + proto
 }
 
-// L7Rule contains the L7-specific parts of a policy rule.
-type L7Rule struct {
+// L7Metadata contains the L7-specific parts of a policy rule.
+type L7Metadata struct {
 	// RedirectPort is the L7 redirect port in the policy in network byte order.
 	RedirectPort uint16
 	// L4Installed specifies if the L4 rule is installed in the L4 BPF map.
 	L4Installed bool
 }
 
-// IsRedirect checks if the L7Rule has a non-zero redirect port. A non-zero
+// IsRedirect checks if the L7Metadata has a non-zero redirect port. A non-zero
 // redirect port means that traffic should be directed to the L7-proxy.
-func (rc L7Rule) IsRedirect() bool {
+func (rc L7Metadata) IsRedirect() bool {
 	return rc.RedirectPort != 0
 }
