@@ -35,14 +35,14 @@ func StartAccessLogServer(stateDir string, xdsServer *XDSServer) {
 	os.Remove(accessLogPath) // Remove/Unlink the old unix domain socket, if any.
 	accessLogListener, err := net.ListenUnix("unixpacket", &net.UnixAddr{Name: accessLogPath, Net: "unixpacket"})
 	if err != nil {
-		log.WithError(err).Fatal("Envoy: Failed to listen at ", accessLogPath)
+		log.WithError(err).Fatalf("Envoy: Failed to open access log listen socket at %s", accessLogPath)
 	}
 	accessLogListener.SetUnlinkOnClose(true)
 
 	// Make the socket accessible by non-root Envoy proxies, e.g. running in
 	// sidecar containers.
 	if err = os.Chmod(accessLogPath, 0777); err != nil {
-		log.WithError(err).Fatal("Envoy: can't change mode of access log socket at ", accessLogPath)
+		log.WithError(err).Fatalf("Envoy: Failed to change mode of access log listen socket at %s", accessLogPath)
 	}
 
 	go func() {
@@ -52,13 +52,14 @@ func StartAccessLogServer(stateDir string, xdsServer *XDSServer) {
 			uc, err := accessLogListener.AcceptUnix()
 			if err != nil {
 				// These errors are expected when we are closing down
-				if !strings.Contains(err.Error(), "closed network connection") &&
-					!strings.Contains(err.Error(), "invalid argument") {
-					log.WithError(err).Error("AcceptUnix failed")
+				if strings.Contains(err.Error(), "closed network connection") ||
+					strings.Contains(err.Error(), "invalid argument") {
+					break
 				}
-				break
+				log.WithError(err).Warn("Envoy: Failed to accept access log connection")
+				continue
 			}
-			log.Info("Envoy: Access log connection opened")
+			log.Info("Envoy: Accepted access log connection")
 			accessLogger(uc, xdsServer)
 		}
 	}()
@@ -66,7 +67,7 @@ func StartAccessLogServer(stateDir string, xdsServer *XDSServer) {
 
 func accessLogger(conn *net.UnixConn, xdsServer *XDSServer) {
 	defer func() {
-		log.Info("Envoy: Access log closing")
+		log.Info("Envoy: Closing access log connection")
 		conn.Close()
 	}()
 
@@ -75,18 +76,18 @@ func accessLogger(conn *net.UnixConn, xdsServer *XDSServer) {
 		n, _, flags, _, err := conn.ReadMsgUnix(buf, nil)
 		if err != nil {
 			if !isEOF(err) {
-				log.WithError(err).Error("Envoy: Access log read error")
+				log.WithError(err).Error("Envoy: Error while reading from access log connection")
 			}
 			break
 		}
 		if flags&syscall.MSG_TRUNC != 0 {
-			log.Warning("Envoy: Truncated access log message discarded.")
+			log.Warning("Envoy: Discarded truncated access log message")
 			continue
 		}
 		pblog := HttpLogEntry{}
 		err = proto.Unmarshal(buf[:n], &pblog)
 		if err != nil {
-			log.WithError(err).Warning("Envoy: Invalid accesslog.proto HttpLogEntry message.")
+			log.WithError(err).Warning("Envoy: Discarded invalid access log message")
 			continue
 		}
 
@@ -97,7 +98,8 @@ func accessLogger(conn *net.UnixConn, xdsServer *XDSServer) {
 		if logger != nil {
 			logger.Log(&pblog)
 		} else {
-			log.Infof("Envoy: Orphan Access log message for %s: %s", pblog.CiliumResourceName, pblog.String())
+			log.Warnf("Envoy: Received access log message for non-existent listener %s: %s",
+				pblog.CiliumResourceName, pblog.String())
 		}
 	}
 }

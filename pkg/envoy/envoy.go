@@ -81,7 +81,7 @@ func (a *admin) transact(query string) error {
 		return err
 	}
 	ret := strings.Replace(string(body), "\r", "", -1)
-	log.Debug("Envoy admin response to " + query + ": " + ret)
+	log.Debugf("Envoy: Admin response to %s: %s", query, ret)
 	return nil
 }
 
@@ -89,13 +89,13 @@ func (a *admin) changeLogLevel(level logrus.Level) error {
 	envoyLevel := mapLogLevel(level)
 
 	if envoyLevel == a.level {
-		log.Debug("Envoy log level is already set as: " + envoyLevel)
+		log.Debugf("Envoy: Log level is already set as: %v", envoyLevel)
 		return nil
 	}
 
 	err := a.transact("logging?level=" + envoyLevel)
 	if err != nil {
-		log.WithError(err).Warn("Envoy: Failed setting log level: ", envoyLevel)
+		log.WithError(err).Warnf("Envoy: Failed to set log level to: %v", envoyLevel)
 	} else {
 		a.level = envoyLevel
 	}
@@ -123,7 +123,7 @@ type Logger interface {
 func GetEnvoyVersion() string {
 	out, err := exec.Command("cilium-envoy", "--version").Output()
 	if err != nil {
-		log.WithError(err).Fatal(`Envoy binary "cilium-envoy" cannot be executed`)
+		log.WithError(err).Fatal(`Envoy: Binary "cilium-envoy" cannot be executed`)
 	}
 	return strings.TrimSpace(string(out))
 }
@@ -148,7 +148,7 @@ func StartEnvoy(adminPort uint32, stateDir, logPath string, baseID uint64) *Envo
 	createBootstrap(bootstrapPath, nodeId, "cluster1", "version1",
 		xdsPath, "cluster1", adminPort)
 
-	log.Debug("Envoy: Starting ", *e)
+	log.Debugf("Envoy: Starting: %v", *e)
 
 	// make it a buffered channel so we can not only
 	// read the written value but also skip it in
@@ -163,27 +163,26 @@ func StartEnvoy(adminPort uint32, stateDir, logPath string, baseID uint64) *Envo
 			Compress:   true, // disabled by default
 		}
 		defer logger.Close()
-		var err error
 		for {
 			cmd := exec.Command("cilium-envoy", "-l", mapLogLevel(log.Level), "-c", bootstrapPath, "--base-id", strconv.FormatUint(baseID, 10))
 			cmd.Stderr = logger
 			cmd.Stdout = logger
 
 			if err := cmd.Start(); err != nil {
-				log.WithError(err).Warn("Envoy: failed to start.")
+				log.WithError(err).Warn("Envoy: Failed to start proxy")
 				select {
 				case started <- false:
 				default:
 				}
 				return
 			}
-			log.Debugf("Envoy: Started.")
+			log.Debugf("Envoy: Started proxy")
 			select {
 			case started <- true:
 			default:
 			}
 
-			log.Info("Envoy: Process started at pid ", cmd.Process.Pid)
+			log.Infof("Envoy: Proxy started with pid %d", cmd.Process.Pid)
 
 			// We do not return after a successful start, but watch the Envoy process
 			// and restart it if it crashes.
@@ -195,14 +194,14 @@ func StartEnvoy(adminPort uint32, stateDir, logPath string, baseID uint64) *Envo
 			crashCh := make(chan struct{})
 			go func() {
 				if err := cmd.Wait(); err != nil {
-					log.WithError(err).Warn("Envoy: Execution failed: ", err)
+					log.WithError(err).Warn("Envoy: Proxy crashed")
 				}
 				close(crashCh)
 			}()
 
 			// start again after a short wait. If Cilium exits this should be enough
 			// time to not start Envoy again in that case.
-			log.WithError(err).Info("Envoy: Sleeping for 100ms before respawning.")
+			log.Info("Envoy: Sleeping for 100ms before restarting proxy")
 			time.Sleep(100 * time.Millisecond)
 
 			select {
@@ -210,12 +209,12 @@ func StartEnvoy(adminPort uint32, stateDir, logPath string, baseID uint64) *Envo
 				// Start Envoy again
 				continue
 			case <-e.stopCh:
-				log.Info("Envoy: Stopping process ", cmd.Process.Pid)
+				log.Infof("Envoy: Stopping proxy with pid %d", cmd.Process.Pid)
 				if err := e.admin.quit(); err != nil {
-					log.WithError(err).Fatal("Envoy: Admin quit failed, killing process ", cmd.Process.Pid)
+					log.WithError(err).Fatalf("Envoy: Envoy admin quit failed, killing process with pid %d", cmd.Process.Pid)
 
 					if err := cmd.Process.Kill(); err != nil {
-						log.WithError(err).Fatal("Envoy: Stopping failed")
+						log.WithError(err).Fatal("Envoy: Stopping Envoy failed")
 						e.errCh <- err
 					}
 				}
