@@ -83,7 +83,7 @@ const (
 	ParserTypeKafka L7ParserType = "kafka"
 )
 
-// L4Filter contains all of the L4-relevant information from a policy rule,
+// L4Filter contains all of the L4-relevant information derived from policy,
 // including the label-based L3 list of endpoints to which this rule applies,
 // and information about L7-traffic which is dependent upon L4 (protocols for
 // proxy, etc).
