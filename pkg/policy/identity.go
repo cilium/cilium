@@ -22,12 +22,12 @@ import (
 	"github.com/cilium/cilium/pkg/u8proto"
 )
 
-// SecurityIDContexts maps a security identity to a L4RuleContexts.
+// SecurityIDContexts maps a security identity to a L4L7Map.
 // The security identity used as a key is a source of flows (e.g. the source
 // of a TCP connection).
 // The L4RuleContexts is a whitelist of the flows allowed from that security
 // identity at ingress and egress.
-type SecurityIDContexts map[identity.NumericIdentity]L4RuleContexts
+type SecurityIDContexts map[identity.NumericIdentity]L4L7Map
 
 // DeepCopy returns a deep copy of SecurityIDContexts
 func (sc SecurityIDContexts) DeepCopy() SecurityIDContexts {
@@ -38,31 +38,31 @@ func (sc SecurityIDContexts) DeepCopy() SecurityIDContexts {
 	return cpy
 }
 
-// SecurityIDContexts returns a new L4RuleContexts created.
+// SecurityIDContexts returns a new L4L7Map created.
 func NewSecurityIDContexts() SecurityIDContexts {
-	return SecurityIDContexts(make(map[identity.NumericIdentity]L4RuleContexts))
+	return SecurityIDContexts(make(map[identity.NumericIdentity]L4L7Map))
 }
 
-// L4RuleContexts maps a rule context to a L7Rule.
-type L4RuleContexts map[L4Rule]L7Rule
+// L4L7Map maps L4 policy-related metadata with L7 policy-related metadata.
+type L4L7Map map[L4Rule]L7Rule
 
-// NewL4RuleContexts returns a new L4RuleContexts.
-func NewL4RuleContexts() L4RuleContexts {
-	return L4RuleContexts(make(map[L4Rule]L7Rule))
+// NewL4L7Map returns a new L4L7Map.
+func NewL4L7Map() L4L7Map {
+	return L4L7Map(make(map[L4Rule]L7Rule))
 }
 
-// DeepCopy returns a deep copy of L4RuleContexts
-func (rc L4RuleContexts) DeepCopy() L4RuleContexts {
-	cpy := make(L4RuleContexts, len(rc))
+// DeepCopy returns a deep copy of L4L7Map.
+func (rc L4L7Map) DeepCopy() L4L7Map {
+	cpy := make(L4L7Map, len(rc))
 	for k, v := range rc {
 		cpy[k] = v
 	}
 	return cpy
 }
 
-// IsL3Only returns false if the given L4RuleContexts contains any entry. If it
+// IsL3Only returns false if the given L4L7Map contains any entry. If it
 // does not contain any entry it is considered an L3 only rule.
-func (rc L4RuleContexts) IsL3Only() bool {
+func (rc L4L7Map) IsL3Only() bool {
 	return rc != nil && len(rc) == 0
 }
 

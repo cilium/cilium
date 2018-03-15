@@ -145,7 +145,7 @@ func (e *Endpoint) removeOldFilter(labelsMap *identityPkg.IdentityCache,
 			srcID := id.Uint32()
 			l4RuleCtx, l7RuleCtx := e.ParseL4Filter(filter)
 			if _, ok := attemptedRemovedPolicies[id]; !ok {
-				attemptedRemovedPolicies[id] = policy.NewL4RuleContexts()
+				attemptedRemovedPolicies[id] = policy.NewL4L7Map()
 			}
 			if err := e.PolicyMap.DeleteL4(srcID, port, proto, direction); err != nil {
 				// This happens when the policy would add
@@ -197,7 +197,7 @@ func (e *Endpoint) applyNewFilter(labelsMap *identityPkg.IdentityCache,
 			}
 			l4RuleCtx, l7RuleCtx := e.ParseL4Filter(filter)
 			if _, ok := addedPolicies[id]; !ok {
-				addedPolicies[id] = policy.NewL4RuleContexts()
+				addedPolicies[id] = policy.NewL4L7Map()
 			}
 			if err := e.PolicyMap.AllowL4(srcID, port, proto, direction); err != nil {
 				e.getLogger().WithFields(logrus.Fields{
@@ -228,7 +228,7 @@ func setMapOperationResult(secIDs, newSecIDs policy.SecurityIDContexts) {
 	for identity, ruleContexts := range newSecIDs {
 		for ruleContext, v := range ruleContexts {
 			if _, ok := secIDs[identity]; !ok {
-				secIDs[identity] = policy.NewL4RuleContexts()
+				secIDs[identity] = policy.NewL4L7Map()
 			}
 			e, ok := secIDs[identity][ruleContext]
 			v.L4Installed = (v.L4Installed && !ok) || (v.L4Installed && e.L4Installed)
@@ -423,7 +423,7 @@ func (e *Endpoint) regenerateConsumable(owner Owner, labelsMap *identityPkg.Iden
 				}
 				if !found {
 					if _, ok := ingressRulesAdd[identityPkg.InvalidIdentity]; !ok {
-						ingressRulesAdd[identityPkg.InvalidIdentity] = policy.NewL4RuleContexts()
+						ingressRulesAdd[identityPkg.InvalidIdentity] = policy.NewL4L7Map()
 					}
 					l7RuleCtx.L4Installed = true
 					ingressRulesAdd[identityPkg.InvalidIdentity][l4RuleCtx] = l7RuleCtx
@@ -444,7 +444,7 @@ func (e *Endpoint) regenerateConsumable(owner Owner, labelsMap *identityPkg.Iden
 				}
 				if !found {
 					if _, ok := egressRulesAdd[identityPkg.InvalidIdentity]; !ok {
-						egressRulesAdd[identityPkg.InvalidIdentity] = policy.NewL4RuleContexts()
+						egressRulesAdd[identityPkg.InvalidIdentity] = policy.NewL4L7Map()
 					}
 					l7RuleCtx.L4Installed = true
 					egressRulesAdd[identityPkg.InvalidIdentity][l4RuleCtx] = l7RuleCtx
@@ -460,7 +460,7 @@ func (e *Endpoint) regenerateConsumable(owner Owner, labelsMap *identityPkg.Iden
 					rm, ok := ruleCtxsRm[addl4RuleCtx]
 					if rm.L4Installed && ok && !(addl7RuleCtx.L4Installed) {
 						if _, ok := ingressRulesRm[secID]; !ok {
-							ingressRulesRm[secID] = policy.NewL4RuleContexts()
+							ingressRulesRm[secID] = policy.NewL4L7Map()
 						}
 						ingressRulesRm[secID][addl4RuleCtx] = addl7RuleCtx
 					}
@@ -469,7 +469,7 @@ func (e *Endpoint) regenerateConsumable(owner Owner, labelsMap *identityPkg.Iden
 				// If the L3 rule was not re-added then we clean up all CT
 				// entries only based on L3.
 				if _, ok := ingressRulesRm[secID]; !ok {
-					ingressRulesRm[secID] = policy.NewL4RuleContexts()
+					ingressRulesRm[secID] = policy.NewL4L7Map()
 				}
 				for rmL4RuleCtx, rmL7RuleCtx := range ruleCtxsRm {
 					removed, ok := ingressRulesRm[secID][rmL4RuleCtx]
@@ -485,7 +485,7 @@ func (e *Endpoint) regenerateConsumable(owner Owner, labelsMap *identityPkg.Iden
 					rm, ok := ruleCtxsRm[addl4RuleCtx]
 					if rm.L4Installed && ok && !(addl7RuleCtx.L4Installed) {
 						if _, ok := egressRulesRm[secID]; !ok {
-							egressRulesRm[secID] = policy.NewL4RuleContexts()
+							egressRulesRm[secID] = policy.NewL4L7Map()
 						}
 						egressRulesRm[secID][addl4RuleCtx] = addl7RuleCtx
 					}
@@ -494,7 +494,7 @@ func (e *Endpoint) regenerateConsumable(owner Owner, labelsMap *identityPkg.Iden
 				// If the L3 rule was not re-added then we clean up all CT
 				// entries only based on L3.
 				if _, ok := egressRulesRm[secID]; !ok {
-					egressRulesRm[secID] = policy.NewL4RuleContexts()
+					egressRulesRm[secID] = policy.NewL4L7Map()
 				}
 				for rmL4RuleCtx, rmL7RuleCtx := range ruleCtxsRm {
 					removed, ok := egressRulesRm[secID][rmL4RuleCtx]
@@ -573,7 +573,7 @@ func (e *Endpoint) regenerateConsumable(owner Owner, labelsMap *identityPkg.Iden
 			// L3 rule should be also be marked as removed, but only if it was
 			// not previously created by a L3-L4 rule.
 			if _, ok := ingressRulesRm[ingressIdentity]; !ok {
-				ingressRulesRm[ingressIdentity] = policy.NewL4RuleContexts()
+				ingressRulesRm[ingressIdentity] = policy.NewL4L7Map()
 			}
 			// If the L3 rule was removed then we also need to remove it from
 			// the rulesAdded.
@@ -585,7 +585,7 @@ func (e *Endpoint) regenerateConsumable(owner Owner, labelsMap *identityPkg.Iden
 			// should be also be marked as added. But only if it was not previously
 			// created by an L3-L4 rule.
 			if _, ok := ingressRulesAdd[ingressIdentity]; !ok {
-				ingressRulesAdd[ingressIdentity] = policy.NewL4RuleContexts()
+				ingressRulesAdd[ingressIdentity] = policy.NewL4L7Map()
 			}
 		}
 	}
@@ -598,7 +598,7 @@ func (e *Endpoint) regenerateConsumable(owner Owner, labelsMap *identityPkg.Iden
 			// L3 rule should be also be marked as removed, but only if it was
 			// not previously created by a L3-L4 rule.
 			if _, ok := egressRulesRm[egressIdentity]; !ok {
-				egressRulesRm[egressIdentity] = policy.NewL4RuleContexts()
+				egressRulesRm[egressIdentity] = policy.NewL4L7Map()
 			}
 			// If the L3 rule was removed then we also need to remove it from
 			// the rulesAdded.
@@ -610,7 +610,7 @@ func (e *Endpoint) regenerateConsumable(owner Owner, labelsMap *identityPkg.Iden
 			// should be also be marked as added. But only if it was not previously
 			// created by an L3-L4 rule.
 			if _, ok := egressRulesAdd[egressIdentity]; !ok {
-				egressRulesAdd[egressIdentity] = policy.NewL4RuleContexts()
+				egressRulesAdd[egressIdentity] = policy.NewL4L7Map()
 			}
 		}
 	}
