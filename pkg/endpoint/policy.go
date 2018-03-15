@@ -130,10 +130,10 @@ func getL4FilterEndpointSelector(filter *policy.L4Filter) []api.EndpointSelector
 	return fromEndpointsSelectors
 }
 
-// removeOldFilter removes the BPF map entry from the endpoint's PolicyMap which
-// corresponds to the given L4Filter.
-// Returns a map that represents all policies that were attempted to be removed;
-// it maps to whether they were removed successfully (true or false)
+// removeOldFilter removes the BPF map entries from the endpoint's PolicyMap which
+// corresponds to the given L4Filter in the given direction.
+// Returns a map that represents all values from the endpoint's PolicyMap that
+// were attempted to be removed.
 func (e *Endpoint) removeOldFilter(labelsMap *identityPkg.IdentityCache,
 	filter *policy.L4Filter, direction policymap.TrafficDirection) policy.SecurityIdentityL4L7Map {
 
@@ -152,7 +152,8 @@ func (e *Endpoint) removeOldFilter(labelsMap *identityPkg.IdentityCache,
 			// conntrack cleanup. Since we are removing entries from the BPF
 			// datapath, we need to keep track of which entries were removed
 			// (and attempted to be removed) so we can clear the conntrack table
-			// of entries for which policy no longer allows traffic.
+			// of entries for which policy no longer allows traffic after policy
+			// is realized for this endpoint.
 			l4Metadata, l7Metadata := e.ParseL4Filter(filter)
 			if _, ok := attemptedRemovedMapEntries[securityIdentity]; !ok {
 				attemptedRemovedMapEntries[securityIdentity] = policy.NewL4L7Map()
