@@ -39,6 +39,12 @@ func StartAccessLogServer(stateDir string, xdsServer *XDSServer) {
 	}
 	accessLogListener.SetUnlinkOnClose(true)
 
+	// Make the socket accessible by non-root Envoy proxies, e.g. running in
+	// sidecar containers.
+	if err = os.Chmod(accessLogPath, 0777); err != nil {
+		log.WithError(err).Fatal("Envoy: can't change mode of access log socket at ", accessLogPath)
+	}
+
 	go func() {
 		for {
 			// Each Envoy listener opens a new connection over the Unix domain socket.
