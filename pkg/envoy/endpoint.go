@@ -24,4 +24,8 @@ type NetworkPolicyEndpoint interface {
 	GetIPv4Address() string
 	GetIPv6Address() string
 	GetIdentity() identity.NumericIdentity
+
+	// OnProxyPolicyUpdate is called when the proxy acknowledges that it
+	// has applied a policy.
+	OnProxyPolicyUpdate(policyRevision uint64)
 }
