@@ -60,7 +60,7 @@ func StartAccessLogServer(stateDir string, xdsServer *XDSServer) {
 				continue
 			}
 			log.Info("Envoy: Accepted access log connection")
-			accessLogger(uc, xdsServer)
+			go accessLogger(uc, xdsServer)
 		}
 	}()
 }
