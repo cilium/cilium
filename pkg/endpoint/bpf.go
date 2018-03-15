@@ -695,12 +695,13 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir, reason string) (uint64, err
 				for l4Metadata, l7Metadata := range l4L7Map {
 					var l4Filter policy.L4Filter
 					var ok bool
-					pp := l4Metadata.PortProto()
+					pp := l4Metadata.String()
 					if l4Metadata.Ingress {
 						l4Filter, ok = c.L4Policy.Ingress[pp]
 					} else {
 						l4Filter, ok = c.L4Policy.Egress[pp]
 					}
+
 					if ok {
 						redirectPort := e.lookupRedirectPortBE(&l4Filter)
 						if l7Metadata.RedirectPort != redirectPort {
