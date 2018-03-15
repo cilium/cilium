@@ -67,7 +67,7 @@ type Consumable struct {
 	// (label-dependent L4, and L4-dependent L7 policy).
 	L4Policy *L4Policy `json:"l4-policy"`
 
-	// L3L4Policy contains the L3, L4 and L7 ingress policy of this consumable
+	// L3L4Policy contains the L3, L4 and L7 policy of this consumable
 	L3L4Policy *SecurityIDContexts `json:"l3-l4-policy"`
 
 	cache *ConsumableCache
