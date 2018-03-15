@@ -9,14 +9,53 @@ Kubernetes Cilium Upgrade
 
 Cilium should be upgraded using Kubernetes rolling upgrade functionality in order to minimize network disruptions for running workloads.
 
-Make sure you are using the latest RBAC role and service account definitions
-before performing the rolling upgrade:
+The safest way to upgrade Cilium to version "\ |SCM_BRANCH|" is by updating the
+RBAC rules and the DaemonSet file provided, which makes sure the ConfigMap,
+initially set up by ``cilium.yaml``, already stored in the cluster will not be
+affected by the upgrade.
+Both files are dedicated to "\ |SCM_BRANCH|" for each Kubernetes version.
 
-.. parsed-literal::
+.. tabs::
+  .. group-tab:: K8s 1.7
 
-    kubectl apply -f \ |SCM_WEB|\/examples/kubernetes/rbac.yaml
+    .. parsed-literal::
 
-Substitute the desired Cilium version number of vX.Y.Z in the command below
+      $ kubectl apply -f \ |SCM_WEB|\/examples/kubernetes/1.7/rbac.yaml
+      $ kubectl apply -f \ |SCM_WEB|\/examples/kubernetes/1.7/cilium-ds.yaml
+
+  .. group-tab:: K8s 1.8
+
+    .. parsed-literal::
+
+      $ kubectl apply -f \ |SCM_WEB|\/examples/kubernetes/1.8/rbac.yaml
+      $ kubectl apply -f \ |SCM_WEB|\/examples/kubernetes/1.8/cilium-ds.yaml
+
+  .. group-tab:: K8s 1.9
+
+    .. parsed-literal::
+
+      $ kubectl apply -f \ |SCM_WEB|\/examples/kubernetes/1.9/rbac.yaml
+      $ kubectl apply -f \ |SCM_WEB|\/examples/kubernetes/1.9/cilium-ds.yaml
+
+  .. group-tab:: K8s 1.10
+
+    .. parsed-literal::
+
+      $ kubectl apply -f \ |SCM_WEB|\/examples/kubernetes/1.10/rbac.yaml
+      $ kubectl apply -f \ |SCM_WEB|\/examples/kubernetes/1.10/cilium-ds.yaml
+
+  .. group-tab:: K8s 1.11
+
+    .. parsed-literal::
+
+      $ kubectl apply -f \ |SCM_WEB|\/examples/kubernetes/1.11/rbac.yaml
+      $ kubectl apply -f \ |SCM_WEB|\/examples/kubernetes/1.11/cilium-ds.yaml
+
+
+You can also substitute the desired Cilium version number for vX.Y.Z in the
+command below, but be aware that copy of the spec file stored in Kubernetes
+might run out-of-sync with the CLI flags, or options, specified by each Cilium
+version.
 
 ::
 
