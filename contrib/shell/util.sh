@@ -1,5 +1,6 @@
 #!/bin/bash
 # Copyright 2016 The Kubernetes Authors All rights reserved.
+# Copyright 2018 Authors of Cilium
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -78,6 +79,35 @@ function relative() {
     for arg; do
         echo "$(realpath $(dirname $(which $0)))/$arg" | sed "s|$(realpath $(pwd))|.|"
     done
+}
+
+# Continue rebasing and progressively update the daemon/bpf.sha each time there
+# is a merge conflict for it. If there are merge conflicts in other files, it
+# will stop rebasing and return for user input.
+#
+# Expected usage:
+#   $ git rebase origin/master
+#   <Merge failure on daemon/bpf.sha>
+#   $ rebase-bindata
+#   <For each conflict, your editor opens to review the commit. Save & exit>
+function rebase-bindata
+{
+    (
+        set -x
+        while ! git rebase --continue ; do
+            grep -A 5 "=====" daemon/bpf.sha >daemon/bpf.sha.new
+            sed -i '/^[<=>][<=>]*.*$/d' daemon/bpf.sha.new
+            sed -i '/^$/d' daemon/bpf.sha.new
+            mv -f daemon/bpf.sha.new daemon/bpf.sha
+            make -C daemon apply-bindata
+            git add daemon/bpf.sha
+            if [ $(git diff --diff-filter=U | wc -l) -ne 0 ]; then
+                echo "Files that need manual merge:"
+                git diff --name-only --diff-filter=U
+                break
+            fi
+        done
+    )
 }
 
 trap "echo" EXIT
