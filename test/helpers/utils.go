@@ -154,7 +154,7 @@ func WithTimeoutErr(ctx context.Context, f func() (bool, error), freq time.Durat
 // changes the etcd parameter and installs the stable tag from docker-hub
 func InstallExampleCilium(kubectl *Kubectl) {
 
-	var path = "../examples/kubernetes/cilium.yaml"
+	var path = filepath.Join("..", "examples", "kubernetes", GetCurrentK8SEnv(), "cilium.yaml")
 	var result bytes.Buffer
 	timeout := time.Duration(300)
 
