@@ -740,29 +740,6 @@ func (ds *PolicyTestSuite) TestEgressRuleRestrictions(c *C) {
 	err := apiRule1.Sanitize()
 	c.Assert(err, Not(IsNil))
 
-	// Cannot combine ToEndpoints and ToPorts. See GH-3099.
-	apiRule1 = api.Rule{
-		EndpointSelector: api.NewESFromLabels(labels.ParseSelectLabel("bar")),
-		Egress: []api.EgressRule{
-			{
-				ToEndpoints: fooSelector,
-				ToPorts: []api.PortRule{{
-					Ports: []api.PortProtocol{
-						{Port: "80", Protocol: api.ProtoTCP},
-					},
-					Rules: &api.L7Rules{
-						Kafka: []api.PortRuleKafka{
-							{Topic: "foo"},
-						},
-					},
-				}},
-			},
-		},
-	}
-
-	err = apiRule1.Sanitize()
-	c.Assert(err, Not(IsNil))
-
 	// Cannot combine ToCIDR and ToPorts. See GH-1684.
 	apiRule1 = api.Rule{
 		EndpointSelector: api.NewESFromLabels(labels.ParseSelectLabel("bar")),
