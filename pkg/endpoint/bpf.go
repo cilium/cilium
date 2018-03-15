@@ -567,6 +567,10 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir, reason string) (uint64, err
 			return 0, fmt.Errorf("Unable to regenerate policy: %s", err)
 		}
 
+		if err = e.updateNetworkPolicy(owner); err != nil {
+			return 0, err
+		}
+
 		if err = e.writeHeaderfile(epdir, owner); err != nil {
 			return 0, fmt.Errorf("Unable to write header file: %s", err)
 		}
@@ -650,6 +654,10 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir, reason string) (uint64, err
 		if err != nil {
 			e.Mutex.Unlock()
 			return 0, fmt.Errorf("unable to regenerate policy for '%s': %s", e.PolicyMap.String(), err)
+		}
+
+		if err = e.updateNetworkPolicy(owner); err != nil {
+			return 0, err
 		}
 
 		// Evaluate generated policy to see if changes to connection tracking
