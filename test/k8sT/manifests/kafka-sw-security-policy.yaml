@@ -10,6 +10,17 @@ specs:
     ingress:
     - fromEndpoints:
       - matchLabels:
+          app: kafka
+      toPorts:
+      - ports:
+        - port: "2181"
+          protocol: TCP
+  - endpointSelector:
+      matchLabels:
+        app: kafka
+    ingress:
+    - fromEndpoints:
+      - matchLabels:
           app: empire-hq
       toPorts:
       - ports:
