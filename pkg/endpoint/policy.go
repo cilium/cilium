@@ -570,7 +570,7 @@ func (e *Endpoint) IngressOrEgressIsEnforced() bool {
 // optimized away by the revision checks.  However, if there has been
 // a further policy update between the first and second calls, the
 // second call will update the policy just before regenerating the BPF
-// programs to avoid needing to regenerate BPF programs aging right
+// programs to avoid needing to regenerate BPF programs again right
 // after.
 //
 // Policy changes are tracked so that only endpoints affected by the
