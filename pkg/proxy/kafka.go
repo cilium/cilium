@@ -1,4 +1,4 @@
-// Copyright 2017 Authors of Cilium
+// Copyright 2017-2018 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -21,7 +21,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/flowdebug"
-	identityPkg "github.com/cilium/cilium/pkg/identity"
+	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/kafka"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/node"
@@ -106,39 +106,41 @@ func createKafkaRedirect(r *Redirect, conf kafkaConfiguration) (RedirectImplemen
 	return redir, nil
 }
 
-func (k *kafkaRedirect) canAccess(req *kafka.RequestMessage, numIdentity identityPkg.NumericIdentity) bool {
-	var identity *identityPkg.Identity
+// canAccess determines if the kafka message req sent by identity is allowed to
+// be forwarded according to the rules configured on kafkaRedirect
+func (k *kafkaRedirect) canAccess(req *kafka.RequestMessage, srcIdentity identity.NumericIdentity) bool {
+	var id *identity.Identity
 
-	if numIdentity != 0 {
-		identity = identityPkg.LookupIdentityByID(numIdentity)
-		if identity == nil {
+	if srcIdentity != 0 {
+		id = identity.LookupIdentityByID(srcIdentity)
+		if id == nil {
 			log.WithFields(logrus.Fields{
 				logfields.Request:  req.String(),
-				logfields.Identity: numIdentity,
+				logfields.Identity: srcIdentity,
 			}).Warn("Unable to resolve identity to labels")
 		}
 	}
 
+	scopedLog := log.WithFields(logrus.Fields{
+		logfields.Request:  req.String(),
+		logfields.Identity: id,
+	})
+
 	k.redirect.mutex.RLock()
-	rules := k.redirect.rules.GetRelevantRules(identity)
+	rules := k.redirect.rules.GetRelevantRules(id)
 	k.redirect.mutex.RUnlock()
 
 	if rules.Kafka == nil {
-		flowdebug.Log(log.WithField(logfields.Request, req.String()),
-			"No Kafka rules loaded, rejecting")
+		flowdebug.Log(scopedLog, "No Kafka rules matching identity, rejecting")
 		return false
 	}
 
 	b, err := json.Marshal(rules.Kafka)
 	if err != nil {
-		flowdebug.Log(log.WithError(err).WithField(logfields.Request, req.String()),
-			"Error marshalling kafka rules to apply")
+		flowdebug.Log(scopedLog, "Error marshalling kafka rules to apply")
 		return false
 	} else {
-		flowdebug.Log(log.WithFields(logrus.Fields{
-			logfields.Request: req.String(),
-			"rule":            string(b),
-		}), "Applying rule")
+		flowdebug.Log(scopedLog.WithField("rule", string(b)), "Applying rule")
 	}
 
 	return req.MatchesRule(rules.Kafka)
@@ -231,7 +233,7 @@ func (k *kafkaRedirect) handleRequest(pair *connectionPair, req *kafka.RequestMe
 
 	record.fillInfo(k.redirect, addr.String(), dstIPPort, srcIdentity)
 
-	if !k.canAccess(req, identityPkg.NumericIdentity(srcIdentity)) {
+	if !k.canAccess(req, identity.NumericIdentity(srcIdentity)) {
 		flowdebug.Log(scopedLog, "Kafka request is denied by policy")
 
 		record.log(accesslog.TypeRequest, accesslog.VerdictDenied,
