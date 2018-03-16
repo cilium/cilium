@@ -438,7 +438,7 @@ type PortRuleHTTP struct {
 type PortRuleKafka struct {
 	// Role is a case-insensitive string and describes a group of API keys
 	// necessary to perform certain higher level Kafka operations such as "produce"
-	// or "consume". An APIGroup automatically expands into all APIKeys required
+	// or "consume". A Role automatically expands into all APIKeys required
 	// to perform the specified higher level operation.
 	//
 	// The following values are supported:
@@ -448,9 +448,8 @@ type PortRuleKafka struct {
 	// This field is incompatible with the APIKey field, either APIKey or Role
 	// may be specified.
 	//
-	// If omitted or empty, the field has no effect and the logic of the APIKey
-	// field applies.
-	//
+	// If omitted or empty, all keys are allowed, if APIKey is also empty.
+
 	// +optional
 	Role string `json:"role,omitempty"`
 
