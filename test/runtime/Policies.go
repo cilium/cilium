@@ -871,7 +871,7 @@ var _ = Describe("RuntimeValidatedPolicies", func() {
 		_, err = vm.PolicyRenderAndImport(script)
 		Expect(err).To(BeNil(), "Unable to import policy: %s", err)
 
-		By(fmt.Sprintf("Pinging httpd1 IPv4 from app3 (should NOT work beacuse we only allow traffic from %s to %s)", httpd2Label, httpd1Label))
+		By(fmt.Sprintf("Pinging httpd1 IPv4 from app3 (should NOT work because we only allow traffic from %s to %s)", httpd2Label, httpd1Label))
 		res = vm.ContainerExec(helpers.App3, helpers.Ping(helpers.Httpd1))
 		res.ExpectFail("Unexpected success pinging %s IPv4 from %s: %s", helpers.Httpd1, helpers.App3, res.CombineOutput().String())
 
@@ -903,6 +903,82 @@ var _ = Describe("RuntimeValidatedPolicies", func() {
 		_, err = vm.PolicyRenderAndImport(script)
 		Expect(err).To(BeNil(), "Unable to import policy: %s", err)
 
+	})
+
+	It("Extendend HTTP Methods tests", func() {
+		// @TODO When L3-dependent L7 the httpd2 server should be replaced to
+		// httpd1 and all in the same policy
+		httpMethods := []string{"GET", "POST"}
+		TestMethodPolicy := func(method string) {
+			vm.PolicyDelAll().ExpectSuccess("Cannot delete all policies")
+			policy := `
+			[{
+				"endpointSelector": {"matchLabels": {"id.httpd1": ""}},
+				"ingress": [{
+					"fromEndpoints": [{"matchLabels": {"id.app1": ""}}],
+					"toPorts": [{
+						"ports": [{"port": "80", "protocol": "tcp"}],
+						"rules": {
+							"HTTP": [{
+							  "method": "%[1]s",
+							  "path": "/public"
+							}]
+						}
+					}]
+				}]
+			},{
+				"endpointSelector": {"matchLabels": {"id.httpd2": ""}},
+				"ingress": [{
+					"fromEndpoints": [{"matchLabels": {"id.app2": ""}}],
+					"toPorts": [{
+						"ports": [{"port": "80", "protocol": "tcp"}],
+						"rules": {
+							"HTTP": [{
+								"method": "%[1]s",
+								"path": "/public",
+								"headers": ["X-Test: True"]
+							}]
+						}
+					}]
+				}]
+			}]`
+
+			_, err := vm.PolicyRenderAndImport(fmt.Sprintf(policy, method))
+			Expect(err).To(BeNil(), "Cannot import policy for %q", method)
+
+			srvIP, err := vm.ContainerInspectNet(helpers.Httpd1)
+			Expect(err).Should(BeNil(), "could not get container %q meta", helpers.Httpd1)
+
+			srvIP2, err := vm.ContainerInspectNet(helpers.Httpd2)
+			Expect(err).Should(BeNil(), "could not get container %q meta", helpers.Httpd2)
+
+			dest := helpers.CurlFail("http://%s/public -X %s", srvIP[helpers.IPv4], method)
+			destHeader := helpers.CurlFail("http://%s/public -H 'X-Test: True' -X %s",
+				srvIP2[helpers.IPv4], method)
+
+			vm.ContainerExec(helpers.App1, dest).ExpectSuccess(
+				"%q cannot http request to Public", helpers.App1)
+
+			vm.ContainerExec(helpers.App2, dest).ExpectFail(
+				"%q can http request to Public", helpers.App2)
+
+			vm.ContainerExec(helpers.App2, destHeader).ExpectSuccess(
+				"%q cannot http request to Public", helpers.App2)
+
+			vm.ContainerExec(helpers.App3, destHeader).ExpectFail(
+				"%q can http request to Public", helpers.App3)
+
+			vm.ContainerExec(helpers.App1, destHeader).ExpectFail(
+				"%q can http request to Public", helpers.App3)
+
+			vm.ContainerExec(helpers.App3, dest).ExpectFail(
+				"%q can http request to Public", helpers.App3)
+		}
+
+		for _, method := range httpMethods {
+			By(fmt.Sprintf("Testing method %s", method))
+			TestMethodPolicy(method)
+		}
 	})
 })
 
