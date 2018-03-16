@@ -20,6 +20,8 @@ import (
 	clientset "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/cilium.io/v2"
 	fakeciliumv2 "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/cilium.io/v2/fake"
+	ciliumnetworkpolicyv3 "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/networkpolicy.cilium.io/v3"
+	fakeciliumnetworkpolicyv3 "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/networkpolicy.cilium.io/v3/fake"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/discovery"
@@ -76,4 +78,14 @@ func (c *Clientset) CiliumV2() ciliumv2.CiliumV2Interface {
 // Cilium retrieves the CiliumV2Client
 func (c *Clientset) Cilium() ciliumv2.CiliumV2Interface {
 	return &fakeciliumv2.FakeCiliumV2{Fake: &c.Fake}
+}
+
+// CiliumNetworkPolicyV3 retrieves the CiliumNetworkPolicyV3Client
+func (c *Clientset) CiliumNetworkPolicyV3() ciliumnetworkpolicyv3.CiliumNetworkPolicyV3Interface {
+	return &fakeciliumnetworkpolicyv3.FakeCiliumNetworkPolicyV3{Fake: &c.Fake}
+}
+
+// CiliumNetworkPolicy retrieves the CiliumNetworkPolicyV3Client
+func (c *Clientset) CiliumNetworkPolicy() ciliumnetworkpolicyv3.CiliumNetworkPolicyV3Interface {
+	return &fakeciliumnetworkpolicyv3.FakeCiliumNetworkPolicyV3{Fake: &c.Fake}
 }

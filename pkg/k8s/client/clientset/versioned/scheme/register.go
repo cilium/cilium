@@ -18,6 +18,7 @@ package scheme
 
 import (
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	ciliumnetworkpolicyv3 "github.com/cilium/cilium/pkg/k8s/apis/networkpolicy.cilium.io/v3"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 	schema "k8s.io/apimachinery/pkg/runtime/schema"
@@ -49,4 +50,5 @@ func init() {
 // correctly.
 func AddToScheme(scheme *runtime.Scheme) {
 	ciliumv2.AddToScheme(scheme)
+	ciliumnetworkpolicyv3.AddToScheme(scheme)
 }

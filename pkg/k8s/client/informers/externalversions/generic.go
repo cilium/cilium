@@ -20,6 +20,7 @@ import (
 	"fmt"
 
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	v3 "github.com/cilium/cilium/pkg/k8s/apis/networkpolicy.cilium.io/v3"
 	schema "k8s.io/apimachinery/pkg/runtime/schema"
 	cache "k8s.io/client-go/tools/cache"
 )
@@ -55,6 +56,10 @@ func (f *sharedInformerFactory) ForResource(resource schema.GroupVersionResource
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Cilium().V2().CiliumEndpoints().Informer()}, nil
 	case v2.SchemeGroupVersion.WithResource("ciliumnetworkpolicies"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Cilium().V2().CiliumNetworkPolicies().Informer()}, nil
+
+		// Group=ciliumNetworkPolicy.cilium.io, Version=v3
+	case v3.SchemeGroupVersion.WithResource("ciliumnetworkpolicies"):
+		return &genericInformer{resource: resource.GroupResource(), informer: f.CiliumNetworkPolicy().V3().CiliumNetworkPolicies().Informer()}, nil
 
 	}
 
