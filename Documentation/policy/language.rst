@@ -528,7 +528,7 @@ if all fields are empty or missing, the rule will match all Kafka messages.
 The following fields can be matched on:
 
 Role
-  Role is a case-insensitive string and describes a group of API keys
+  Role is a case-insensitive string which describes a group of API keys
   necessary to perform certain higher level Kafka operations such as "produce"
   or "consume". A Role automatically expands into all APIKeys required
   to perform the specified higher level operation.
@@ -536,9 +536,9 @@ Role
   The following values are supported:
 	- "produce": Allow producing to the topics specified in the rule
 	- "consume": Allow consuming from the topics specified in the rule
-  This field is incompatible with the APIKey field, either APIKey or Role
-  may be specified. If omitted or empty, all keys are allowed, if APIKey is also
-  the empty
+  This field is incompatible with the APIKey field, i.e i.e APIKey and Role
+  cannot both be specified in the same rule..
+  If omitted or empty, all keys are allowed.
 
 APIKey
   APIKey is a case-insensitive string matched against the key of a request,
@@ -579,7 +579,7 @@ Topic
   If omitted or empty, all topics are allowed.
 
 Only allow producing to topic empire-announce using Role
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. only:: html
 

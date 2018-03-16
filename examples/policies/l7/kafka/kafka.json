@@ -13,10 +13,8 @@
         "kafka": [
             {"apiKey": "apiversions"},
             {"apiKey": "metadata"},
-            {"apiKey": "produce"},
-            {"topic": "deathstar-plans"},
-            {"apiKey": "produce"},
-            {"topic": "empire-announce"}
+            {"apiKey": "produce", "topic": "deathstar-plans"},
+            {"apiKey": "produce", "topic": "empire-announce"}
         ]
       }
     }]

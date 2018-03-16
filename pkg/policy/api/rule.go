@@ -445,10 +445,10 @@ type PortRuleKafka struct {
 	//  - "produce": Allow producing to the topics specified in the rule
 	//  - "consume": Allow consuming from the topics specified in the rule
 	//
-	// This field is incompatible with the APIKey field, either APIKey or Role
-	// may be specified.
+	// This field is incompatible with the APIKey field, i.e APIKey and Role
+	// cannot both be specified in the same rule.
 	//
-	// If omitted or empty, all keys are allowed, if APIKey is also empty.
+	// If omitted or empty, all keys are allowed.
 
 	// +optional
 	Role string `json:"role,omitempty"`
