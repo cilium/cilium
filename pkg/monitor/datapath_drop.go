@@ -72,6 +72,7 @@ var errors = map[uint8]string{
 	158: "Service backend not found",
 	159: "Policy denied (L4)",
 	160: "No tunnel/encapsulation endpoint (datapath BUG!)",
+	161: "Failed to insert into proxymap",
 }
 
 func dropReason(reason uint8) string {

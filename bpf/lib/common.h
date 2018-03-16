@@ -253,6 +253,7 @@ enum {
 #define DROP_NO_SERVICE		-158
 #define DROP_POLICY_L4		-159
 #define DROP_NO_TUNNEL_ENDPOINT -160
+#define DROP_PROXYMAP_CREATE_FAILED	-161
 
 
 /* Magic skb->mark markers which identify packets originating from the proxy
