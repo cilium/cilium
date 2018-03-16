@@ -409,31 +409,34 @@ var _ = Describe("RuntimeValidatedPolicyEnforcement", func() {
 
 var _ = Describe("RuntimeValidatedPolicies", func() {
 
-	var once sync.Once
 	var logger *logrus.Entry
 	var vm *helpers.SSHMeta
 
-	initialize := func() {
+	BeforeAll(func() {
 		logger = log.WithFields(logrus.Fields{"test": "RunPolicies"})
 		logger.Info("Starting")
 		vm = helpers.CreateNewRuntimeHelper(helpers.Runtime, logger)
+
+		vm.SampleContainersActions(helpers.Create, helpers.CiliumDockerNetwork)
+		vm.PolicyDelAll()
+
 		areEndpointsReady := vm.WaitEndpointsReady()
-		Expect(areEndpointsReady).Should(BeTrue())
-	}
+		Expect(areEndpointsReady).Should(BeTrue(), "Endpoints are not ready after timeout")
+	})
 
 	BeforeEach(func() {
-		once.Do(initialize)
-		vm.SampleContainersActions(helpers.Delete, helpers.CiliumDockerNetwork)
-		vm.PolicyDelAll()
-		vm.SampleContainersActions(helpers.Create, helpers.CiliumDockerNetwork)
-		vm.WaitEndpointsReady()
+		areEndpointsReady := vm.WaitEndpointsReady()
+		Expect(areEndpointsReady).Should(BeTrue(), "Endpoints are not ready after timeout")
 	})
 
 	AfterEach(func() {
 		if CurrentGinkgoTestDescription().Failed {
 			vm.ReportFailed()
 		}
+		vm.PolicyDelAll().ExpectSuccess("Unable to delete all policies")
+	})
 
+	AfterAll(func() {
 		vm.PolicyDelAll().ExpectSuccess("Unable to delete all policies")
 		vm.SampleContainersActions(helpers.Delete, helpers.CiliumDockerNetwork)
 	})
