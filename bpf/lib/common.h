@@ -405,10 +405,10 @@ struct ct_state {
 	__u32 src_sec_id;
 };
 
-/* Lifetime of a proxy redirection entry is an entire day. All proxies should
- * be using TCP keepalive to force some traffic over the connection
- * periodically. */
-#define PROXY_DEFAULT_LIFETIME 86400
+/* Lifetime of a proxy redirection entry. All proxies should be using TCP
+ * keepalive to force some traffic over the connection periodically to keep
+ * these entries alive. Cross-reference with ProxyKeepAlivePeriod. */
+#define PROXY_DEFAULT_LIFETIME 720
 
 /* The proxy key is written from the perspective of the source of the
  * connection, so the "destination" port reperesents the local host port which
