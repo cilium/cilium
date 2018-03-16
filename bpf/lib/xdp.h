@@ -22,11 +22,13 @@
 
 struct lpm_v4_key {
 	struct bpf_lpm_trie_key lpm;
+	__u32 pad;
 	__u8 addr[4];
 };
 
 struct lpm_v6_key {
 	struct bpf_lpm_trie_key lpm;
+	__u32 pad;
 	__u8 addr[16];
 };
 

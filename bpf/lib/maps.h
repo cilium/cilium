@@ -100,7 +100,7 @@ struct bpf_elf_map __section_maps tunnel_endpoint_map = {
 #endif
 
 #ifndef LPM_MAP_VALUE_SIZE
-#define LPM_MAP_VALUE_SIZE 1
+#define LPM_MAP_VALUE_SIZE 4
 #endif
 
 #ifdef HAVE_LPM_MAP_TYPE
@@ -111,18 +111,21 @@ struct bpf_elf_map __section_maps tunnel_endpoint_map = {
 
 struct bpf_lpm_trie_key6 {
 	struct bpf_lpm_trie_key lpm_key;
+	__u32 pad;
 	union v6addr lpm_addr;
 };
 
 struct bpf_lpm_trie_key4 {
 	struct bpf_lpm_trie_key lpm_key;
+	__u32 pad;
 	__be32 lpm_addr;
 };
 
 static __always_inline int lpm6_map_lookup(struct bpf_elf_map *map,
 					   union v6addr *addr, __u32 prefix)
 {
-	struct bpf_lpm_trie_key6 key = { { prefix }, *addr };
+	struct bpf_lpm_trie_key6 key = { { prefix }, 0, *addr };
+	key.lpm_key.prefixlen += sizeof(key.pad)*8;
 #ifndef HAVE_LPM_MAP_TYPE
 	ipv6_addr_clear_suffix(&key.lpm_addr, prefix);
 #endif
@@ -132,7 +135,8 @@ static __always_inline int lpm6_map_lookup(struct bpf_elf_map *map,
 static __always_inline int lpm4_map_lookup(struct bpf_elf_map *map,
 					   __be32 addr, __u32 prefix)
 {
-	struct bpf_lpm_trie_key4 key = { { prefix }, addr };
+	struct bpf_lpm_trie_key4 key = { { prefix }, 0, addr };
+	key.lpm_key.prefixlen += sizeof(key.pad)*8;
 #ifndef HAVE_LPM_MAP_TYPE
 	key.lpm_addr &= GET_PREFIX(prefix);
 #endif

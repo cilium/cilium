@@ -106,7 +106,8 @@ static __always_inline int check_v4(struct xdp_md *xdp)
 
 #ifdef CIDR4_FILTER
 	__builtin_memcpy(pfx.lpm.data, &ipv4_hdr->saddr, sizeof(pfx.addr));
-	pfx.lpm.prefixlen = 32;
+	pfx.lpm.prefixlen = (sizeof(pfx) - sizeof(pfx.lpm)) * 8;
+	pfx.pad = 0;
 
 #ifdef CIDR4_LPM_PREFILTER
 	if (map_lookup_elem(&CIDR4_LMAP_NAME, &pfx))
@@ -141,7 +142,8 @@ static __always_inline int check_v6(struct xdp_md *xdp)
 
 #ifdef CIDR6_FILTER
 	__builtin_memcpy(pfx.lpm.data, &ipv6_hdr->saddr, sizeof(pfx.addr));
-	pfx.lpm.prefixlen = 128;
+	pfx.lpm.prefixlen = (sizeof(pfx) - sizeof(pfx.lpm)) * 8;
+	pfx.pad = 0;
 
 #ifdef CIDR6_LPM_PREFILTER
 	if (map_lookup_elem(&CIDR6_LMAP_NAME, &pfx))

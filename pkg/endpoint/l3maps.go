@@ -32,6 +32,11 @@ const (
 	MapCount
 )
 
+const (
+	MapPrefixLenIPv6 = int(128) // bits
+	MapPrefixLenIPv4 = int(32)  // bits
+)
+
 // L3Maps is an array for pointers to all the supported L3 bpf map types.
 type L3Maps [MapCount]*cidrmap.CIDRMap
 
@@ -52,9 +57,9 @@ func (l3 *L3Maps) ResetBpfMap(mt L3MapType, path string) error {
 	// LPM trie maps cannot be dumped, so we clear them before opening
 	l3.DestroyBpfMap(mt, path)
 
-	prefixlen := int(128)
+	prefixlen := MapPrefixLenIPv6
 	if mt == IPv4Ingress || mt == IPv4Egress {
-		prefixlen = 32
+		prefixlen = MapPrefixLenIPv4
 	}
 	l3[mt], _, err = cidrmap.OpenMap(path, prefixlen, true)
 	return err
