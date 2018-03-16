@@ -20,7 +20,7 @@ import (
 	"io/ioutil"
 	"os"
 
-	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
+	k8sConst "github.com/cilium/cilium/pkg/k8s/apis"
 	"github.com/cilium/cilium/pkg/labels"
 
 	"k8s.io/api/core/v1"

@@ -22,7 +22,7 @@ import (
 	"strings"
 
 	"github.com/cilium/cilium/common"
-	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
+	k8sConst "github.com/cilium/cilium/pkg/k8s/apis"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
 )

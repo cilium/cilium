@@ -19,7 +19,7 @@ import (
 	"os"
 	"time"
 
-	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
+	k8sConst "github.com/cilium/cilium/pkg/k8s/apis"
 )
 
 var (
