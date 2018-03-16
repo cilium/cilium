@@ -87,12 +87,13 @@ var _ = Describe("K8sValidatedUpdates", func() {
 	It("Updating Cilium stable to master", func() {
 		By("Creating some endpoints and L7 policy")
 		kubectl.Apply(demoPath).ExpectSuccess()
-		_, err := kubectl.WaitforPods(helpers.DefaultNamespace, "-l zgroup=testapp", timeout)
-		Expect(err).Should(BeNil())
 
-		kubectl.Exec(fmt.Sprintf("%s scale deployment %s --replicas=10",
+		kubectl.Exec(fmt.Sprintf("%s scale deployment %s --replicas=5",
 			helpers.KubectlCmd, helpers.App1)).ExpectSuccess(
 			"Cannot scale %v deployment", helpers.App1)
+
+		_, err := kubectl.WaitforPods(helpers.DefaultNamespace, "-l zgroup=testapp", timeout)
+		Expect(err).Should(BeNil())
 
 		_, err = kubectl.CiliumPolicyAction(
 			helpers.KubeSystemNamespace, l7Policy, helpers.KubectlApply, timeout)
