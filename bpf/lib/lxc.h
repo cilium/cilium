@@ -135,7 +135,7 @@ ipv4_redirect_to_host_port(struct __sk_buff *skb, struct csum_offset *csum,
 	cilium_dbg3(skb, DBG_REV_PROXY_UPDATE,
 		    key.sport << 16 | key.dport, key.saddr, key.nexthdr);
 	if (map_update_elem(&cilium_proxy4, &key, &value, 0) < 0)
-		return DROP_CT_CREATE_FAILED;
+		return DROP_PROXYMAP_CREATE_FAILED;
 
 	return 0;
 }
@@ -184,7 +184,7 @@ ipv6_redirect_to_host_port(struct __sk_buff *skb, struct csum_offset *csum,
 	cilium_dbg_capture(skb, DBG_CAPTURE_PROXY_POST, new_port);
 
 	if (map_update_elem(&cilium_proxy6, &key, &value, 0) < 0)
-		return DROP_CT_CREATE_FAILED;
+		return DROP_PROXYMAP_CREATE_FAILED;
 
 	return 0;
 }
