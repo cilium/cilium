@@ -402,7 +402,6 @@ func (e *Endpoint) regenerateConsumable(owner Owner, labelsMap *identityPkg.Iden
 		// PolicyMap can't be created in dry mode.
 		if !owner.DryModeEnabled() {
 			// Collect unused redirects.
-
 			ingressRulesAdd, ingressL4ToRemove, err = e.applyL4PolicyLocked(labelsMap, e.L4Policy, c.L4Policy, policymap.Ingress)
 			if err != nil {
 				// This should not happen, and we can't fail at this stage anyway.
