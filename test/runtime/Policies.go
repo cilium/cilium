@@ -51,37 +51,38 @@ const (
 
 var _ = Describe("RuntimeValidatedPolicyEnforcement", func() {
 
-	var once sync.Once
 	var logger *logrus.Entry
 	var vm *helpers.SSHMeta
 
-	initialize := func() {
+	BeforeAll(func() {
 		logger = log.WithFields(logrus.Fields{"testName": "RuntimePolicyEnforcement"})
 		logger.Info("Starting")
 		vm = helpers.CreateNewRuntimeHelper(helpers.Runtime, logger)
+		vm.ContainerCreate("app", "cilium/demo-httpd", helpers.CiliumDockerNetwork, "-l id.app")
 		areEndpointsReady := vm.WaitEndpointsReady()
-		Expect(areEndpointsReady).Should(BeTrue())
-	}
+		Expect(areEndpointsReady).Should(BeTrue(), "Endpoints are not ready after timeout")
+	})
+
+	AfterAll(func() {
+		vm.ContainerRm("app")
+	})
 
 	BeforeEach(func() {
-		once.Do(initialize)
 		vm.PolicyDelAll()
-		vm.ContainerCreate("app", "cilium/demo-httpd", helpers.CiliumDockerNetwork, "-l id.app")
-		vm.WaitEndpointsReady()
+
+		areEndpointsReady := vm.WaitEndpointsReady()
+		Expect(areEndpointsReady).Should(BeTrue(), "Endpoints are not ready after timeout")
 	})
 
 	AfterEach(func() {
 		if CurrentGinkgoTestDescription().Failed {
 			vm.ReportFailed()
 		}
-
-		vm.ContainerRm("app")
 	})
 
 	Context("Policy Enforcement Default", func() {
 
 		BeforeEach(func() {
-			once.Do(initialize)
 			res := vm.SetPolicyEnforcement(helpers.PolicyEnforcementDefault)
 			res.ExpectSuccess()
 
@@ -226,8 +227,6 @@ var _ = Describe("RuntimeValidatedPolicyEnforcement", func() {
 	Context("Policy Enforcement Always", func() {
 		//The test Always to Default is already tested in from default-always
 		BeforeEach(func() {
-			once.Do(initialize)
-
 			res := vm.SetPolicyEnforcement(helpers.PolicyEnforcementAlways)
 			res.ExpectSuccess()
 
@@ -319,8 +318,6 @@ var _ = Describe("RuntimeValidatedPolicyEnforcement", func() {
 	Context("Policy Enforcement Never", func() {
 		//The test Always to Default is already tested in from default-always
 		BeforeEach(func() {
-			once.Do(initialize)
-
 			res := vm.SetPolicyEnforcement(helpers.PolicyEnforcementNever)
 			res.ExpectSuccess()
 		})
