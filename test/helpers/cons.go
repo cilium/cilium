@@ -33,7 +33,7 @@ var (
 
 const (
 
-	//CiliumPath the path where cilium test code is located.
+	//CiliumPath is the path where cilium test code is located.
 	CiliumPath = "/src/github.com/cilium/cilium/test"
 
 	// ManifestBase tells ginkgo suite where to look for manifests
