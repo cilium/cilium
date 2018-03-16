@@ -1,4 +1,4 @@
-// Copyright 2016-2017 Authors of Cilium
+// Copyright 2016-2018 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -68,15 +68,34 @@ const (
 	VersionIPV6
 )
 
-// EndpointInfo contains information about the endpoint sending/receiving the flow
+// EndpointInfo is used for the SourceEndpoint and DestinationEndpoint field
+// and contains information about the sending respectively receiving endpoint.
+// If the field using this struct is SourceEndpoint, all fields correspond to
+// the sending endpoint, if the field using this struct is DestinationEndpoint,
+// then all fields correspond to the receiving endpoint.
 type EndpointInfo struct {
-	ID           uint64
-	IPv4         string
-	IPv6         string
-	Port         uint16
-	Identity     uint64
-	LabelsSHA256 string // hex-encoded SHA-256 signature of the labels, 64 characters in length
-	Labels       []string
+	// ID is the endpoint id
+	ID uint64
+
+	// IPv4 is the IPv4 address of the endpoint
+	IPv4 string
+
+	// IPv6 is the IPv6 address of the endpoint
+	IPv6 string
+
+	// Port represents the source point for SourceEndpoint and the
+	// destination port for DestinationEndpoint
+	Port uint16
+
+	// Identity is the security identity of the endpoint
+	Identity uint64
+
+	// Labels is the list of security relevant labels of the endpoint
+	Labels []string
+
+	// LabelsSHA256 is the hex encoded SHA-256 signature over the Labels
+	// slice, 64 characters in length
+	LabelsSHA256 string
 }
 
 // ServiceInfo contains information about the Kubernetes service
