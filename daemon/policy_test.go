@@ -167,7 +167,7 @@ func (ds *DaemonSuite) TestUpdateConsumerMap(c *C) {
 		os.RemoveAll("1")
 		os.RemoveAll("1_backup")
 	}()
-	e.SetIdentity(ds.d, qaBarSecLblsCtx)
+	e.SetIdentity(qaBarSecLblsCtx)
 	e.Mutex.Lock()
 	ready := e.SetStateLocked(endpoint.StateWaitingToRegenerate, "test")
 	e.Mutex.Unlock()
@@ -185,7 +185,7 @@ func (ds *DaemonSuite) TestUpdateConsumerMap(c *C) {
 	e.IPv4 = ProdIPv4Addr
 	e.LXCMAC = ProdHardAddr
 	e.NodeMAC = ProdHardAddr
-	e.SetIdentity(ds.d, prodBarSecLblsCtx)
+	e.SetIdentity(prodBarSecLblsCtx)
 	e.Mutex.Lock()
 	ready = e.SetStateLocked(endpoint.StateWaitingToRegenerate, "test")
 	e.Mutex.Unlock()
@@ -381,7 +381,7 @@ func (ds *DaemonSuite) TestRemovePolicy(c *C) {
 		os.RemoveAll("1")
 		os.RemoveAll("1_backup")
 	}()
-	e.SetIdentity(ds.d, qaBarSecLblsCtx)
+	e.SetIdentity(qaBarSecLblsCtx)
 	e.Mutex.Lock()
 	ready := e.SetStateLocked(endpoint.StateWaitingToRegenerate, "test")
 	e.Mutex.Unlock()
