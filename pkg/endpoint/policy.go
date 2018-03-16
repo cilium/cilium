@@ -244,8 +244,8 @@ func setMapOperationResult(secIDs, newSecIDs policy.SecurityIdentityL4L7Map) {
 			if _, ok := secIDs[identity]; !ok {
 				secIDs[identity] = policy.NewL4L7Map()
 			}
-			e, ok := secIDs[identity][ruleContext]
-			v.L4Installed = (v.L4Installed && !ok) || (v.L4Installed && e.L4Installed)
+			l7Metadata, ok := secIDs[identity][ruleContext]
+			v.L4Installed = (v.L4Installed && !ok) || (v.L4Installed && l7Metadata.L4Installed)
 			secIDs[identity][ruleContext] = v
 		}
 	}
@@ -256,12 +256,12 @@ func setMapOperationResult(secIDs, newSecIDs policy.SecurityIdentityL4L7Map) {
 // Returns a map that represents all L3-dependent L4 rules that were attempted
 // to be added;
 // and a map that represents all L3-dependent L4 rules that were attempted
-// to be removed;
-// it maps to whether they were removed successfully (true or false)
+// to be removed.
 func (e *Endpoint) applyL4PolicyLocked(labelsMap *identityPkg.IdentityCache,
-	oldPolicy, newPolicy *policy.L4Policy, direction policymap.TrafficDirection) (secIDsAdd, secIDsRm policy.SecurityIdentityL4L7Map, err error) {
-	secIDsAdd = policy.NewSecurityIdentityL4L7Map()
-	secIDsRm = policy.NewSecurityIdentityL4L7Map()
+	oldPolicy, newPolicy *policy.L4Policy, direction policymap.TrafficDirection) (allAddedEntries, allRemovedEntries policy.SecurityIdentityL4L7Map, err error) {
+
+	allAddedEntries = policy.NewSecurityIdentityL4L7Map()
+	allRemovedEntries = policy.NewSecurityIdentityL4L7Map()
 
 	var oldL4PolicyMap policy.L4PolicyMap
 	var newL4PolicyMap policy.L4PolicyMap
@@ -275,33 +275,32 @@ func (e *Endpoint) applyL4PolicyLocked(labelsMap *identityPkg.IdentityCache,
 		newL4PolicyMap = newPolicy.Egress
 	}
 
+	// Remove all old filters.
 	if oldPolicy != nil {
-		var secIDs policy.SecurityIdentityL4L7Map
+		var attemptedRemovedPolicyMapEntries policy.SecurityIdentityL4L7Map
 		for _, filter := range oldL4PolicyMap {
-			secIDs = e.removeOldL4Filter(labelsMap, &filter, direction)
-			setMapOperationResult(secIDsRm, secIDs)
+			attemptedRemovedPolicyMapEntries = e.removeOldL4Filter(labelsMap, &filter, direction)
+			setMapOperationResult(allRemovedEntries, attemptedRemovedPolicyMapEntries)
 		}
 	}
 
 	if newPolicy == nil {
-		return secIDsAdd, secIDsRm, nil
+		return allAddedEntries, allRemovedEntries, nil
 	}
 
-	var (
-		errors, errs  = 0, 0
-		ingressSecIDs policy.SecurityIdentityL4L7Map
-	)
+	var errors = 0
 
+	// Add new filters.
 	for _, filter := range newL4PolicyMap {
-		ingressSecIDs, errs = e.applyNewFilter(labelsMap, &filter, direction)
-		setMapOperationResult(secIDsAdd, ingressSecIDs)
+		attemptedAddedPolicyMapEntries, errs := e.applyNewFilter(labelsMap, &filter, direction)
+		setMapOperationResult(allAddedEntries, attemptedAddedPolicyMapEntries)
 		errors += errs
 	}
 
 	if errors > 0 {
-		return secIDsAdd, secIDsRm, fmt.Errorf("Some Label+L4 policy updates failed.")
+		return allAddedEntries, allRemovedEntries, fmt.Errorf("Some Label+L4 policy updates failed.")
 	}
-	return secIDsAdd, secIDsRm, nil
+	return allAddedEntries, allRemovedEntries, nil
 }
 
 func getLabelsMap() (*identityPkg.IdentityCache, error) {
@@ -424,7 +423,7 @@ func (e *Endpoint) regenerateConsumable(owner Owner, labelsMap *identityPkg.Iden
 
 		// We need to know which rules are L4-only by checking
 		// if there are any L4-only rules that do not match a L3-L4 rule.
-		if c != nil && c.L4Policy != nil && c.L4Policy.Ingress != nil {
+		if c != nil && c.L4Policy != nil {
 			for _, l4Filter := range c.L4Policy.Ingress {
 				found := false
 				l4Rule, l7Rule := e.ParseL4Filter(&l4Filter)
@@ -441,15 +440,11 @@ func (e *Endpoint) regenerateConsumable(owner Owner, labelsMap *identityPkg.Iden
 					ingressRulesAdd[identityPkg.InvalidIdentity][l4Rule] = l7Rule
 				}
 			}
-		}
 
-		// We need to know which rules are L4-only by checking
-		// if there are any L4-only rules that do not match a L3-L4 rule.
-		if c != nil && c.L4Policy != nil && c.L4Policy.Egress != nil {
 			for _, l4Filter := range c.L4Policy.Egress {
 				found := false
 				l4RuleCtx, l7RuleCtx := e.ParseL4Filter(&l4Filter)
-				for _, l4RuleContexts := range ingressRulesAdd {
+				for _, l4RuleContexts := range egressRulesAdd {
 					if _, found = l4RuleContexts[l4RuleCtx]; found {
 						break
 					}
@@ -633,8 +628,8 @@ func (e *Endpoint) regenerateConsumable(owner Owner, labelsMap *identityPkg.Iden
 	}
 
 	if egressRulesAdd != nil {
-		egressRulesAddCpy := egressRulesAdd.DeepCopy()
-		c.L3L4Policy = &egressRulesAddCpy
+		_ = egressRulesAdd.DeepCopy()
+		//c.L3L4Policy = &egressRulesAddCpy
 	}
 
 	e.getLogger().WithFields(logrus.Fields{
