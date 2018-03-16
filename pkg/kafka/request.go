@@ -34,6 +34,10 @@ type RequestMessage struct {
 	request interface{}
 }
 
+// CorrelationID represents the correlation id as defined in the Kafka protocol
+// specification
+type CorrelationID uint32
+
 // GetAPIKey returns the kind of Kafka request
 func (req *RequestMessage) GetAPIKey() int16 {
 	return req.kind
@@ -50,8 +54,19 @@ func (req *RequestMessage) GetVersion() int16 {
 }
 
 // GetCorrelationID returns the Kafka request correlationID
-func (req *RequestMessage) GetCorrelationID() int32 {
-	return int32(binary.BigEndian.Uint32(req.rawMsg[8:12]))
+func (req *RequestMessage) GetCorrelationID() CorrelationID {
+	if len(req.rawMsg) >= 12 {
+		return CorrelationID(binary.BigEndian.Uint32(req.rawMsg[8:12]))
+	}
+
+	return CorrelationID(0)
+}
+
+// SetCorrelationID modified the correlation ID of the Kafka request
+func (req *RequestMessage) SetCorrelationID(id CorrelationID) {
+	if len(req.rawMsg) >= 12 {
+		binary.BigEndian.PutUint32(req.rawMsg[8:12], uint32(id))
+	}
 }
 
 func (req *RequestMessage) extractVersion() int16 {
