@@ -79,14 +79,14 @@ func (e *Endpoint) checkEgressAccess(owner Owner, dstLabels labels.LabelArray, o
 }
 
 // allowIngressIdentity must be called with global endpoint.Mutex held
-func (e *Endpoint) allowIngressIdentity(owner Owner, id identityPkg.NumericIdentity) bool {
+func (e *Endpoint) allowIngressIdentity(id identityPkg.NumericIdentity) bool {
 	return e.Consumable.AllowIngressIdentityLocked(policy.GetConsumableCache(), id)
 }
 
 // allowEgressIdentity allows security identity id to be communicated to by
 // this endpoint by updating the endpoint's Consumable.
 // Must be called with global endpoint.Mutex held.
-func (e *Endpoint) allowEgressIdentity(owner Owner, id identityPkg.NumericIdentity) bool {
+func (e *Endpoint) allowEgressIdentity(id identityPkg.NumericIdentity) bool {
 	cache := policy.GetConsumableCache()
 	return e.Consumable.AllowEgressIdentityLocked(cache, id)
 }
@@ -414,7 +414,7 @@ func (e *Endpoint) regenerateConsumable(owner Owner, labelsMap *identityPkg.Iden
 	}
 
 	if owner.AlwaysAllowLocalhost() || c.L4Policy.HasRedirect() {
-		if e.allowIngressIdentity(owner, identityPkg.ReservedIdentityHost) {
+		if e.allowIngressIdentity(identityPkg.ReservedIdentityHost) {
 			changed = true
 		}
 	}
@@ -444,7 +444,7 @@ func (e *Endpoint) regenerateConsumable(owner Owner, labelsMap *identityPkg.Iden
 
 		ingressAccess := repo.AllowsIngressLabelAccess(&ingressCtx)
 		if ingressAccess == api.Allowed {
-			if e.allowIngressIdentity(owner, identity) {
+			if e.allowIngressIdentity(identity) {
 				changed = true
 			}
 		}
@@ -466,7 +466,7 @@ func (e *Endpoint) regenerateConsumable(owner Owner, labelsMap *identityPkg.Iden
 			e.getLogger().WithFields(logrus.Fields{
 				logfields.PolicyID: identity,
 				"ctx":              ingressCtx}).Debug("egress allowed")
-			if e.allowEgressIdentity(owner, identity) {
+			if e.allowEgressIdentity(identity) {
 				changed = true
 			}
 		}
