@@ -81,7 +81,7 @@ var _ = Describe("RuntimeValidatedKafka", func() {
 	consumer := func(topic string, maxMsg int) *helpers.CmdRes {
 		res := vm.ContainerExec("client", fmt.Sprintf(
 			"/opt/kafka/bin/kafka-console-consumer.sh --bootstrap-server "+
-				"kafka:9092 --topic %s --max-messages %d --timeout-ms 30000 --from-beginning", topic, maxMsg))
+				"kafka:9092 --topic %s --max-messages %d --timeout-ms 300000 --from-beginning", topic, maxMsg))
 		return res
 	}
 
@@ -98,7 +98,6 @@ var _ = Describe("RuntimeValidatedKafka", func() {
 	waitForKafkaBroker := func(pod string, cmd string) error {
 		body := func() bool {
 			res := vm.ContainerExec(pod, cmd)
-			fmt.Println(res.CombineOutput())
 			return res.WasSuccessful()
 		}
 		err := helpers.WithTimeout(body, "Kafka Broker not ready", &helpers.TimeoutConfig{Timeout: 150})

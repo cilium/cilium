@@ -1,7 +1,11 @@
 [{
 	"endpointSelector": {"matchLabels":{"id.kafka":""}},
-	"ingress": [{
-		"fromEndpoints": [
+	"ingress": [
+		{"fromEndpoints": [
+			{"matchLabels": {"id.kafka": ""}
+			}]
+		},
+		{"fromEndpoints": [
 			{"matchLabels":{"reserved:host":""}},
 			{"matchLabels":{"id.client":""}}
 		],
