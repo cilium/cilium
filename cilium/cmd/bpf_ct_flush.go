@@ -27,7 +27,7 @@ import (
 
 // bpfCtFlushCmd represents the bpf_ct_flush command
 var bpfCtFlushCmd = &cobra.Command{
-	Use:    "flush",
+	Use:    "flush ( <endpoint identifier> | global )",
 	Short:  "Flush all connection tracking entries",
 	PreRun: requireEndpointIDorGlobal,
 	Run: func(cmd *cobra.Command, args []string) {

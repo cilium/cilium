@@ -28,7 +28,7 @@ import (
 
 // bpfCtListCmd represents the bpf_ct_list command
 var bpfCtListCmd = &cobra.Command{
-	Use:    "list",
+	Use:    "list ( <endpoint identifier> | global )",
 	Short:  "List connection tracking entries",
 	PreRun: requireEndpointIDorGlobal,
 	Run: func(cmd *cobra.Command, args []string) {

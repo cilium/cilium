@@ -10,7 +10,7 @@ List connection tracking entries
 List connection tracking entries
 
 ```
-cilium bpf ct list
+cilium bpf ct list ( <endpoint identifier> | global )
 ```
 
 ### Options
