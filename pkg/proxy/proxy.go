@@ -439,7 +439,11 @@ func (p *Proxy) CreateOrUpdateRedirect(l4 *policy.L4Filter, id string, source Pr
 				time.Sleep(time.Duration(10) * time.Second)
 				if deleted := proxymap.GC(); deleted > 0 {
 					log.WithField("count", deleted).
-						Debug("Evicted entries from proxy table")
+						Debug("Evicted entries from proxy4 table")
+				}
+				if deleted := proxymap.GC6(); deleted > 0 {
+					log.WithField("count", deleted).
+						Debug("Evicted entries from proxy6 table")
 				}
 			}
 		}()
