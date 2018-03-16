@@ -15,6 +15,7 @@
 package kafka
 
 import (
+	"encoding/binary"
 	"encoding/json"
 	"fmt"
 
@@ -26,6 +27,15 @@ import (
 type ResponseMessage struct {
 	rawMsg   []byte
 	response interface{}
+}
+
+// GetCorrelationID returns the Kafka request correlationID
+func (res *ResponseMessage) GetCorrelationID() int32 {
+	if len(res.rawMsg) >= 8 {
+		return int32(binary.BigEndian.Uint32(res.rawMsg[4:8]))
+	}
+
+	return int32(0)
 }
 
 // GetRaw returns the raw Kafka response
