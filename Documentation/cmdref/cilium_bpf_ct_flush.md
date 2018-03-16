@@ -10,7 +10,7 @@ Flush all connection tracking entries
 Flush all connection tracking entries
 
 ```
-cilium bpf ct flush
+cilium bpf ct flush ( <endpoint identifier> | global )
 ```
 
 ### Options inherited from parent commands
