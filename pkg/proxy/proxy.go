@@ -19,7 +19,6 @@ import (
 	"fmt"
 	"math/rand"
 	"net"
-	"strconv"
 	"sync"
 	"time"
 
@@ -36,6 +35,7 @@ import (
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/proxy/accesslog"
+	"github.com/cilium/cilium/pkg/proxy/logger"
 
 	"github.com/go-openapi/strfmt"
 	"github.com/sirupsen/logrus"
@@ -111,7 +111,35 @@ func newRedirect(port uint16, source ProxySource, id string) *Redirect {
 	}
 }
 
-func (r *Redirect) updateAccounting(t accesslog.FlowType, verdict accesslog.FlowVerdict) {
+func (r *Redirect) DeriveEndpointInfo(ip net.IP, info *accesslog.EndpointInfo) bool {
+	if ep := endpointmanager.LookupIPv4(addressing.DeriveCiliumIPv4(ip).String()); ep != nil {
+		ep.Mutex.RLock()
+		defer ep.Mutex.RUnlock()
+
+		info.ID = uint64(ep.ID)
+		info.Labels = ep.GetLabels()
+		info.LabelsSHA256 = ep.GetLabelsSHA()
+		info.Identity = uint64(ep.GetIdentity())
+
+		return true
+	}
+
+	return false
+}
+
+// GetObservationPoint returns the observation point at which the redirect is
+// attached to
+func (r *Redirect) GetObservationPoint() accesslog.ObservationPoint {
+	if r.ingress {
+		return accesslog.Ingress
+	}
+
+	return accesslog.Egress
+}
+
+// UpdateAccounting is called for each log record emitted as soon as the
+// verdict is known
+func (r *Redirect) UpdateAccounting(t accesslog.FlowType, verdict accesslog.FlowVerdict) {
 	r.mutex.Lock()
 	defer r.mutex.Unlock()
 
@@ -234,178 +262,6 @@ func (p *Proxy) allocatePort() (uint16, error) {
 
 var gcOnce sync.Once
 
-// localEndpointInfo fills the access log with the local endpoint info.
-func localEndpointInfo(r *Redirect, info *accesslog.EndpointInfo) {
-	source := r.source
-	source.Lock()
-	info.ID = source.GetID()
-	info.IPv4 = source.GetIPv4Address()
-	info.IPv6 = source.GetIPv6Address()
-	info.Labels = source.GetLabels()
-	info.LabelsSHA256 = source.GetLabelsSHA()
-	info.Identity = uint64(source.GetIdentity())
-	source.Unlock()
-}
-
-func fillInfo(r *Redirect, l *accesslog.LogRecord, srcIPPort, dstIPPort string, srcIdentity uint32) {
-	if r.ingress {
-		// At ingress the local origin endpoint is the destination
-		localEndpointInfo(r, &l.DestinationEndpoint)
-	} else {
-		// At egress, the local origin endpoint is the source
-		localEndpointInfo(r, &l.SourceEndpoint)
-	}
-
-	l.IPVersion = accesslog.VersionIPv4
-	ipstr, port, err := net.SplitHostPort(srcIPPort)
-	if err == nil {
-		ip := net.ParseIP(ipstr)
-		if ip != nil && ip.To4() == nil {
-			l.IPVersion = accesslog.VersionIPV6
-		}
-
-		p, err := strconv.ParseUint(port, 10, 16)
-		if err == nil {
-			l.SourceEndpoint.Port = uint16(p)
-			if r.ingress {
-				fillIngressSourceInfo(&l.SourceEndpoint, &ip, srcIdentity)
-			}
-		}
-	}
-
-	ipstr, port, err = net.SplitHostPort(dstIPPort)
-	if err == nil {
-		p, err := strconv.ParseUint(port, 10, 16)
-		if err == nil {
-			l.DestinationEndpoint.Port = uint16(p)
-			if !r.ingress {
-				fillEgressDestinationInfo(&l.DestinationEndpoint, ipstr)
-			}
-		}
-	}
-}
-
-// fillIdentity resolves the labels of the specified identity if known
-// locally and fills in the following info member fields:
-//  - info.Identity
-//  - info.Labels
-//  - info.LabelsSHA256
-func fillIdentity(info *accesslog.EndpointInfo, id identityPkg.NumericIdentity) {
-	info.Identity = uint64(id)
-
-	if identity := identityPkg.LookupIdentityByID(id); identity != nil {
-		info.Labels = identity.Labels.GetModel()
-		info.LabelsSHA256 = identity.GetLabelsSHA256()
-	}
-}
-
-// fillEndpointInfo tries to resolve the IP address and fills the EndpointInfo
-// fields with either ReservedIdentityHost or ReservedIdentityWorld
-func fillEndpointInfo(info *accesslog.EndpointInfo, ip net.IP) {
-	if ip.To4() != nil {
-		info.IPv4 = ip.String()
-
-		// first we try to resolve and check if the IP is
-		// same as Host
-		if node.IsHostIPv4(ip) {
-			fillIdentity(info, identityPkg.ReservedIdentityHost)
-			return
-		}
-
-		// If Host IP check fails, we try to resolve and check
-		// if IP belongs to the cluster.
-		if node.GetIPv4ClusterRange().Contains(ip) {
-			c := addressing.DeriveCiliumIPv4(ip)
-			ep := endpointmanager.LookupIPv4(c.String())
-			if ep != nil {
-				// Needs to be Lock as ep.GetLabelsSHA()
-				// might overwrite internal endpoint attributes
-				ep.Lock()
-				info.ID = uint64(ep.ID)
-				info.Labels = ep.GetLabels()
-				info.LabelsSHA256 = ep.GetLabelsSHA()
-				info.Identity = uint64(ep.GetIdentity())
-				ep.Unlock()
-			} else {
-				fillIdentity(info, identityPkg.ReservedIdentityCluster)
-			}
-		} else {
-			// If we are unable to resolve the HostIP as well
-			// as the cluster IP we mark this as a 'world' identity.
-			fillIdentity(info, identityPkg.ReservedIdentityWorld)
-		}
-	} else {
-		info.IPv6 = ip.String()
-
-		if node.IsHostIPv6(ip) {
-			fillIdentity(info, identityPkg.ReservedIdentityHost)
-			return
-		}
-
-		if node.GetIPv6ClusterRange().Contains(ip) {
-			c := addressing.DeriveCiliumIPv6(ip)
-			id := c.EndpointID()
-			info.ID = uint64(id)
-
-			ep := endpointmanager.LookupCiliumID(id)
-			if ep != nil {
-				// Needs to be Lock as ep.GetLabelsSHA()
-				// might overwrite internal endpoint attributes
-				ep.Lock()
-				info.Labels = ep.GetLabels()
-				info.LabelsSHA256 = ep.GetLabelsSHA()
-				info.Identity = uint64(ep.GetIdentity())
-				ep.Unlock()
-			} else {
-				fillIdentity(info, identityPkg.ReservedIdentityCluster)
-			}
-		} else {
-			fillIdentity(info, identityPkg.ReservedIdentityWorld)
-		}
-	}
-}
-
-// fillIngressSourceInfo fills the EndpointInfo fields, by fetching
-// the consumable from the consumable cache of endpoint using identity sent by
-// source. This is needed in ingress proxy while logging the source endpoint
-// info.  Since there will be 2 proxies on the same host, if both egress and
-// ingress policies are set, the ingress policy cannot determine the source
-// endpoint info based on ip address, as the ip address would be that of the
-// egress proxy i.e host.
-func fillIngressSourceInfo(info *accesslog.EndpointInfo, ip *net.IP, srcIdentity uint32) {
-
-	if srcIdentity != 0 {
-		if ip != nil {
-			if ip.To4() != nil {
-				info.IPv4 = ip.String()
-			} else {
-				info.IPv6 = ip.String()
-			}
-		}
-		fillIdentity(info, identityPkg.NumericIdentity(srcIdentity))
-	} else {
-		// source security identity 0 is possible when somebody else other than
-		// the BPF datapath attempts to
-		// connect to the proxy.
-		// We should try to resolve if the identity belongs to reserved_host
-		// or reserved_world.
-		if ip != nil {
-			fillEndpointInfo(info, *ip)
-		} else {
-			log.Warn("Missing security identity in source endpoint info")
-		}
-	}
-}
-
-// fillEgressDestinationInfo returns the destination EndpointInfo for a flow
-// leaving the proxy at egress.
-func fillEgressDestinationInfo(info *accesslog.EndpointInfo, ipstr string) {
-	ip := net.ParseIP(ipstr)
-	if ip != nil {
-		fillEndpointInfo(info, ip)
-	}
-}
-
 // updateRules updates the rules of the redirect, Redirect.mutex must be held
 func (r *Redirect) updateRules(l4 *policy.L4Filter) {
 	r.rules = policy.L7DataMap{}
@@ -419,19 +275,19 @@ func (r *Redirect) updateRules(l4 *policy.L4Filter) {
 // a proxy instance. If the redirect is already in place, only the rules will be
 // updated.
 func (p *Proxy) CreateOrUpdateRedirect(l4 *policy.L4Filter, id string, source ProxySource,
-	notifier accesslog.LogRecordNotifier, wg *completion.WaitGroup) (*Redirect, error) {
+	notifier logger.LogRecordNotifier, wg *completion.WaitGroup) (*Redirect, error) {
 	gcOnce.Do(func() {
-		accesslog.SetNotifier(notifier)
+		logger.SetNotifier(notifier)
 
 		if lf := viper.GetString("access-log"); lf != "" {
-			if err := accesslog.OpenLogfile(lf); err != nil {
-				log.WithError(err).WithField(accesslog.FieldFilePath, lf).
+			if err := logger.OpenLogfile(lf); err != nil {
+				log.WithError(err).WithField(logger.FieldFilePath, lf).
 					Warn("Cannot open L7 access log")
 			}
 		}
 
 		if labels := viper.GetStringSlice("agent-labels"); len(labels) != 0 {
-			accesslog.SetMetadata(labels)
+			logger.SetMetadata(labels)
 		}
 
 		go func() {
@@ -660,4 +516,21 @@ func (r *Redirect) removeProxyMapEntryOnClose(c net.Conn) error {
 	}
 
 	return proxymap.Delete(key)
+}
+
+// LocalEndpointInfo return an EndpointInfo with the information of the local endpoint
+func (r *Redirect) LocalEndpointInfo() accesslog.EndpointInfo {
+	source := r.source
+	info := accesslog.EndpointInfo{}
+
+	source.RLock()
+	info.ID = source.GetID()
+	info.IPv4 = source.GetIPv4Address()
+	info.IPv6 = source.GetIPv6Address()
+	info.Labels = source.GetLabels()
+	info.LabelsSHA256 = source.GetLabelsSHA()
+	info.Identity = uint64(source.GetIdentity())
+	source.RUnlock()
+
+	return info
 }
