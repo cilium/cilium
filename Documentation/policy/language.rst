@@ -527,17 +527,29 @@ if all fields are empty or missing, the rule will match all Kafka messages.
 
 The following fields can be matched on:
 
+Role
+  Role is a case-insensitive string and describes a group of API keys
+  necessary to perform certain higher level Kafka operations such as "produce"
+  or "consume". A Role automatically expands into all APIKeys required
+  to perform the specified higher level operation.
 
-APIVersion
-  APIVersion is the version matched against the api version of the Kafka
-  message. If set, it has to be a string representing a positive integer. If
-  omitted or empty, all versions are allowed.
+  The following values are supported:
+	- "produce": Allow producing to the topics specified in the rule
+	- "consume": Allow consuming from the topics specified in the rule
+  This field is incompatible with the APIKey field, either APIKey or Role
+  may be specified. If omitted or empty, all keys are allowed, if APIKey is also
+  the empty
 
 APIKey
   APIKey is a case-insensitive string matched against the key of a request,
   e.g. "produce", "fetch", "createtopic", "deletetopic", et al Reference:
   https://kafka.apache.org/protocol#protocol_api_keys.  If omitted or empty,
   all keys are allowed.
+
+APIVersion
+  APIVersion is the version matched against the api version of the Kafka
+  message. If set, it has to be a string representing a positive integer. If
+  omitted or empty, all versions are allowed.
 
 ClientID
   ClientID is the client identifier as provided in the request.
@@ -566,8 +578,25 @@ Topic
 
   If omitted or empty, all topics are allowed.
 
-Only allow producing to topic empire-announce
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Only allow producing to topic empire-announce using Role
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. only:: html
+
+   .. tabs::
+     .. group-tab:: k8s YAML
+
+        .. literalinclude:: ../../examples/policies/l7/kafka/kafka-Role.yaml
+     .. group-tab:: JSON
+
+        .. literalinclude:: ../../examples/policies/l7/kafka/kafka-Role.json
+
+.. only:: epub or latex
+
+        .. literalinclude:: ../../examples/policies/l7/kafka/kafka-Role.json
+
+Only allow producing to topic empire-announce using apiKeys
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. only:: html
 

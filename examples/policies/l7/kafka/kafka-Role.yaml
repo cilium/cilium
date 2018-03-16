@@ -1,0 +1,23 @@
+apiVersion: "cilium.io/v2"
+kind: CiliumNetworkPolicy
+description: "enable empire-hq to produce to empire-announce and deathstar-plans"
+metadata:
+  name: "rule1"
+spec:
+  endpointSelector:
+    matchLabels:
+      app: kafka
+  ingress:
+  - fromEndpoints:
+    - matchLabels:
+        app: empire-hq
+    toPorts:
+    - ports:
+      - port: "9092"
+        protocol: TCP
+      rules:
+        kafka:
+        - Role: "produce"
+          topic: "deathstar-plans"
+        - Role: "produce"
+          topic: "empire-announce"
