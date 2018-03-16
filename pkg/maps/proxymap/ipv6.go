@@ -1,4 +1,4 @@
-// Copyright 2016-2017 Authors of Cilium
+// Copyright 2016-2018 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -16,6 +16,7 @@ package proxymap
 
 import (
 	"fmt"
+	"math"
 	"net"
 	"strconv"
 	"unsafe"
@@ -24,6 +25,8 @@ import (
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/byteorder"
 )
+
+var Proxy6MapName = "cilium_proxy6"
 
 type Proxy6Key struct {
 	SAddr   types.IPv6
@@ -54,7 +57,7 @@ func (v *Proxy6Value) HostPort() string {
 
 var (
 	// Proxy6Map represents the BPF map for IPv6 proxy
-	Proxy6Map = bpf.NewMap("cilium_proxy6",
+	Proxy6Map = bpf.NewMap(Proxy6MapName,
 		bpf.MapTypeHash,
 		int(unsafe.Sizeof(Proxy6Key{})),
 		int(unsafe.Sizeof(Proxy6Value{})),
@@ -122,9 +125,8 @@ func LookupEgress6(key *Proxy6Key) (*Proxy6Value, error) {
 	return proxyVal.ToNetwork(), nil
 }
 
-func GC6() int {
-	t, _ := bpf.GetMtime()
-	tsec := t / 1000000000
+func gc6(time uint64) int {
+	tsec := time / 1000000000
 	deleted := 0
 
 	if err := Proxy6Map.Open(); err != nil {
@@ -137,6 +139,18 @@ func GC6() int {
 	}
 
 	return deleted
+}
+
+// GC6 garbage collects entries whose lifetime has expired. Returns the number
+// of entries removed.
+func GC6() int {
+	time, _ := bpf.GetMtime()
+	return gc6(time)
+}
+
+// Flush6 flushes all proxymap entries, returns the number of entries removed.
+func Flush6() int {
+	return gc6(math.MaxUint64)
 }
 
 // CleanupIPv6Redirects removes all redirects to a specific proxy port

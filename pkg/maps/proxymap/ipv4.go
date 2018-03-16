@@ -1,4 +1,4 @@
-// Copyright 2016-2017 Authors of Cilium
+// Copyright 2016-2018 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -16,6 +16,7 @@ package proxymap
 
 import (
 	"fmt"
+	"math"
 	"net"
 	"strconv"
 	"unsafe"
@@ -26,7 +27,10 @@ import (
 	"github.com/cilium/cilium/pkg/logging"
 )
 
-var log = logging.DefaultLogger
+var (
+	log           = logging.DefaultLogger
+	Proxy4MapName = "cilium_proxy4"
+)
 
 type Proxy4Key struct {
 	SAddr   types.IPv4
@@ -57,7 +61,7 @@ func (v *Proxy4Value) HostPort() string {
 
 var (
 	// Proxy4Map represents the BPF map for IPv4 proxy
-	Proxy4Map = bpf.NewMap("cilium_proxy4",
+	Proxy4Map = bpf.NewMap(Proxy4MapName,
 		bpf.MapTypeHash,
 		int(unsafe.Sizeof(Proxy4Key{})),
 		int(unsafe.Sizeof(Proxy4Value{})),
@@ -146,9 +150,8 @@ func doGc(key unsafe.Pointer, nextKey unsafe.Pointer, deleted *int, time uint32)
 	return true
 }
 
-func GC() int {
-	t, _ := bpf.GetMtime()
-	tsec := t / 1000000000
+func gc(time uint64) int {
+	tsec := time / 1000000000
 	deleted := 0
 
 	if err := Proxy4Map.Open(); err != nil {
@@ -161,6 +164,18 @@ func GC() int {
 	}
 
 	return deleted
+}
+
+// GC garbage collects entries whose lifetime has expired. Returns the number
+// of entries removed.
+func GC() int {
+	time, _ := bpf.GetMtime()
+	return gc(time)
+}
+
+// Flush flushes all proxymap entries, returns the number of entries removed.
+func Flush() int {
+	return gc(math.MaxUint64)
 }
 
 // CleanupIPv4Redirects removes all redirects to a specific proxy port
