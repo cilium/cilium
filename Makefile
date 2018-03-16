@@ -169,8 +169,8 @@ generate-k8s-api:
 	cd "$(GOPATH)/src/k8s.io/code-generator" && \
 	./generate-groups.sh deepcopy \
 	    github.com/cilium/cilium/pkg/k8s/client \
-	    github.com/cilium/cilium/pkg \
-	    "policy:api" \
+	    github.com/cilium/cilium/pkg/policy \
+	    "api:v2,v3" \
 	    --go-header-file "$(PWD)/hack/custom-boilerplate.go.txt"
 	cd "$(GOPATH)/src/k8s.io/code-generator" && \
 	./generate-groups.sh deepcopy \
