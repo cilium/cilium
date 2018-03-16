@@ -54,7 +54,7 @@ lookup_ip6_remote_endpoint(union v6addr *ip6)
 	key.ip6 = *ip6;
 	key.family = ENDPOINT_KEY_IPV6;
 
-	return map_lookup_elem(&cilium_remote_lxc, &key);
+	return map_lookup_elem(&cilium_ipcache, &key);
 }
 
 static __always_inline struct remote_endpoint_info *
@@ -65,7 +65,7 @@ lookup_ip4_remote_endpoint(__be32 ip4)
 	key.ip4 = ip4;
 	key.family = ENDPOINT_KEY_IPV4;
 
-	return map_lookup_elem(&cilium_remote_lxc, &key);
+	return map_lookup_elem(&cilium_ipcache, &key);
 }
 #endif /* POLICY_EGRESS */
 
