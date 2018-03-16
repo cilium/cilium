@@ -754,7 +754,7 @@ func (kub *Kubectl) CiliumPolicyAction(namespace, filepath string, action Resour
 
 // CiliumReport report the cilium pod to the log and appends the logs for the
 // given commands.
-func (kub *Kubectl) CiliumReport(namespace string, pod string, commands []string) {
+func (kub *Kubectl) CiliumReport(namespace string, pod string, commands ...[]string) {
 	wr := kub.logger.Logger.Out
 	fmt.Fprint(wr, "StackTrace Begin\n")
 	data := kub.Logs(namespace, pod)
