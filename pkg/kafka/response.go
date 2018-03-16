@@ -30,12 +30,19 @@ type ResponseMessage struct {
 }
 
 // GetCorrelationID returns the Kafka request correlationID
-func (res *ResponseMessage) GetCorrelationID() int32 {
+func (res *ResponseMessage) GetCorrelationID() CorrelationID {
 	if len(res.rawMsg) >= 8 {
-		return int32(binary.BigEndian.Uint32(res.rawMsg[4:8]))
+		return CorrelationID(binary.BigEndian.Uint32(res.rawMsg[4:8]))
 	}
 
-	return int32(0)
+	return CorrelationID(0)
+}
+
+// SetCorrelationID modified the correlation ID of the Kafka request
+func (res *ResponseMessage) SetCorrelationID(id CorrelationID) {
+	if len(res.rawMsg) >= 8 {
+		binary.BigEndian.PutUint32(res.rawMsg[4:8], uint32(id))
+	}
 }
 
 // GetRaw returns the raw Kafka response

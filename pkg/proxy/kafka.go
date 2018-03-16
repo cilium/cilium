@@ -166,24 +166,29 @@ func (k *kafkaRedirect) newLogRecordFromRequest(req *kafka.RequestMessage) kafka
 			logger.LogTags.Kafka(&accesslog.LogRecordKafka{
 				APIVersion:    req.GetVersion(),
 				APIKey:        apiKeyToString(req.GetAPIKey()),
-				CorrelationID: req.GetCorrelationID(),
+				CorrelationID: int32(req.GetCorrelationID()),
 			})),
 		topics: req.GetTopics(),
 	}
 }
 
-func (k *kafkaRedirect) newLogRecordFromResponse(res *kafka.ResponseMessage, record kafkaLogRecord) kafkaLogRecord {
-	record.Type = accesslog.TypeResponse
+func (k *kafkaRedirect) newLogRecordFromResponse(res *kafka.ResponseMessage, req *kafka.RequestMessage) kafkaLogRecord {
+	lr := kafkaLogRecord{
+		LogRecord: logger.NewLogRecord(k.redirect, accesslog.TypeResponse,
+			logger.LogTags.Kafka(&accesslog.LogRecordKafka{})),
+	}
 
-	// FIXME: This requires a cache of all requests and correlation of
-	// request with response using the correlation ID
-	record.ApplyTags(logger.LogTags.Kafka(&accesslog.LogRecordKafka{
-		CorrelationID: res.GetCorrelationID(),
-		APIVersion:    record.Kafka.APIVersion,
-		APIKey:        record.Kafka.APIKey,
-	}))
+	if res != nil {
+		lr.Kafka.CorrelationID = int32(res.GetCorrelationID())
+	}
 
-	return record
+	if req != nil {
+		lr.Kafka.APIVersion = req.GetVersion()
+		lr.Kafka.APIKey = apiKeyToString(req.GetAPIKey())
+		lr.topics = req.GetTopics()
+	}
+
+	return lr
 }
 
 // log Kafka log records
@@ -198,7 +203,7 @@ func (l *kafkaLogRecord) log(verdict accesslog.FlowVerdict, code int, info strin
 	}
 }
 
-func (k *kafkaRedirect) handleRequest(pair *connectionPair, req *kafka.RequestMessage) {
+func (k *kafkaRedirect) handleRequest(pair *connectionPair, req *kafka.RequestMessage, correlationCache *kafka.CorrelationCache) {
 	scopedLog := log.WithField(fieldID, pair.String())
 	flowdebug.Log(scopedLog.WithField(logfields.Request, req.String()), "Handling Kafka request")
 
@@ -275,8 +280,14 @@ func (k *kafkaRedirect) handleRequest(pair *connectionPair, req *kafka.RequestMe
 
 		// Start go routine to handle responses and pass in a copy of
 		// the request record as template for all responses
-		go k.handleResponseConnection(pair, record)
+		go k.handleResponseConnection(pair, correlationCache)
 	}
+
+	// The request is allowed so we will forward it:
+	// 1. Rewrite the correlation ID to a unique ID, it will be restored in
+	//    the response direction
+	// 2. Store the request in the correlation cache
+	correlationCache.HandleRequest(req, nil)
 
 	flowdebug.Log(scopedLog, "Forwarding Kafka request")
 	// log valid request
@@ -286,12 +297,17 @@ func (k *kafkaRedirect) handleRequest(pair *connectionPair, req *kafka.RequestMe
 	pair.Tx.Enqueue(req.GetRaw())
 }
 
-type kafkaReqMessageHander func(pair *connectionPair, req *kafka.RequestMessage)
+type kafkaReqMessageHander func(pair *connectionPair, req *kafka.RequestMessage, correlationCache *kafka.CorrelationCache)
 type kafkaRespMessageHander func(pair *connectionPair, req *kafka.ResponseMessage)
 
 func handleRequests(done <-chan struct{}, pair *connectionPair, c *proxyConnection,
 	record *kafkaLogRecord, handler kafkaReqMessageHander) {
 	defer c.Close()
+
+	// create a correlation cache
+	correlationCache := kafka.NewCorrelationCache()
+	defer correlationCache.DeleteCache()
+
 	scopedLog := log.WithField(fieldID, pair.String())
 	for {
 		req, err := kafka.ReadRequest(c.conn)
@@ -314,11 +330,12 @@ func handleRequests(done <-chan struct{}, pair *connectionPair, c *proxyConnecti
 			return
 		}
 
-		handler(pair, req)
+		handler(pair, req, correlationCache)
 	}
 }
 
-func (k *kafkaRedirect) handleResponses(done <-chan struct{}, pair *connectionPair, c *proxyConnection, reqRecord kafkaLogRecord, handler kafkaRespMessageHander) {
+func (k *kafkaRedirect) handleResponses(done <-chan struct{}, pair *connectionPair, c *proxyConnection,
+	correlationCache *kafka.CorrelationCache, handler kafkaRespMessageHander) {
 	defer c.Close()
 	scopedLog := log.WithField(fieldID, pair.String())
 	for {
@@ -333,12 +350,8 @@ func (k *kafkaRedirect) handleResponses(done <-chan struct{}, pair *connectionPa
 		default:
 		}
 
-		// FIXME: reqRecord contains the log record of the first
-		// request, this is not valid information for subsequent
-		// responses
-		record := k.newLogRecordFromResponse(rsp, reqRecord)
-
 		if err != nil {
+			record := k.newLogRecordFromResponse(nil, nil)
 			record.log(accesslog.VerdictError,
 				kafka.ErrInvalidMessage,
 				fmt.Sprintf("Unable to parse Kafka response: %s", err))
@@ -346,7 +359,16 @@ func (k *kafkaRedirect) handleResponses(done <-chan struct{}, pair *connectionPa
 			return
 		}
 
+		// 1. Find the request that correlates with this response based
+		//    on the correlation ID
+		// 2. Restore the original correlation id that was overwritten
+		//    by the proxy so the client is guaranteed to see the
+		//    correlation id as expected
+		req := correlationCache.CorrelateResponse(rsp)
+
+		record := k.newLogRecordFromResponse(rsp, req)
 		record.log(accesslog.VerdictForwarded, kafka.ErrNone, "")
+
 		handler(pair, rsp)
 	}
 }
@@ -373,13 +395,13 @@ func (k *kafkaRedirect) handleRequestConnection(pair *connectionPair) {
 	}
 }
 
-func (k *kafkaRedirect) handleResponseConnection(pair *connectionPair, record kafkaLogRecord) {
+func (k *kafkaRedirect) handleResponseConnection(pair *connectionPair, correlationCache *kafka.CorrelationCache) {
 	flowdebug.Log(log.WithFields(logrus.Fields{
 		"from": pair.Tx,
 		"to":   pair.Rx,
 	}), "Proxying response Kafka connection")
 
-	k.handleResponses(k.socket.closing, pair, pair.Tx, record,
+	k.handleResponses(k.socket.closing, pair, pair.Tx, correlationCache,
 		func(pair *connectionPair, rsp *kafka.ResponseMessage) {
 			pair.Rx.Enqueue(rsp.GetRaw())
 		})
