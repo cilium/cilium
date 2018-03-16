@@ -210,6 +210,7 @@ func copyCiliumInfoCommands(cmdDir string, k8sPods []string) []string {
 		"cilium bpf lb list",
 		"cilium bpf endpoint list",
 		"cilium bpf ct list global",
+		"cilium bpf proxy list",
 		"cilium status --verbose",
 	}
 	var commands []string
