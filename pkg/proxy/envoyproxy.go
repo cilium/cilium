@@ -1,4 +1,4 @@
-// Copyright 2016-2017 Authors of Cilium
+// Copyright 2016-2018 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -16,7 +16,6 @@ package proxy
 
 import (
 	"fmt"
-	"net/http"
 	"net/url"
 	"strings"
 	"sync"
@@ -26,6 +25,7 @@ import (
 	"github.com/cilium/cilium/pkg/envoy"
 	"github.com/cilium/cilium/pkg/flowdebug"
 	"github.com/cilium/cilium/pkg/proxy/accesslog"
+	"github.com/cilium/cilium/pkg/proxy/logger"
 
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
@@ -91,42 +91,26 @@ func parseURL(pblog *envoy.HttpLogEntry) *url.URL {
 	return u
 }
 
-// Log does access logging for Envoy
+// Log is called by the envoy package to log an individual access log record
 func (r *envoyRedirect) Log(pblog *envoy.HttpLogEntry) {
 	flowdebug.Log(log.WithFields(logrus.Fields{}),
 		fmt.Sprintf("%s: Access log message: %s", pblog.CiliumResourceName, pblog.String()))
 
-	headers := make(http.Header)
-	for _, header := range pblog.Headers {
-		headers.Add(header.Key, header.Value)
-	}
+	record := logger.NewLogRecord(r.redirect, pblog.GetFlowType(),
+		logger.LogTags.Timestamp(time.Unix(int64(pblog.Timestamp/1000000000), int64(pblog.Timestamp%1000000000))),
+		logger.LogTags.Verdict(pblog.GetVerdict(), pblog.CiliumRuleRef),
+		logger.LogTags.Addressing(logger.AddressingInfo{
+			SrcIPPort:   pblog.SourceAddress,
+			DstIPPort:   pblog.DestinationAddress,
+			SrcIdentity: pblog.SourceSecurityId,
+		}),
+		logger.LogTags.HTTP(&accesslog.LogRecordHTTP{
+			Method:   pblog.Method,
+			Code:     int(pblog.Status),
+			URL:      parseURL(pblog),
+			Protocol: pblog.GetProtocol(),
+			Headers:  pblog.GetNetHttpHeaders(),
+		}))
 
-	var proto string
-	switch pblog.HttpProtocol {
-	case envoy.Protocol_HTTP10:
-		proto = "HTTP/1"
-	case envoy.Protocol_HTTP11:
-		proto = "HTTP/1.1"
-	case envoy.Protocol_HTTP2:
-		proto = "HTTP/2"
-	}
-
-	record := newHTTPLogRecord(r.redirect, pblog.Method, parseURL(pblog), proto, headers)
-
-	record.fillInfo(r.redirect, pblog.SourceAddress, pblog.DestinationAddress, pblog.SourceSecurityId)
-
-	var flowType accesslog.FlowType
-	var verdict accesslog.FlowVerdict
-
-	switch pblog.EntryType {
-	case envoy.EntryType_Denied:
-		flowType, verdict = accesslog.TypeRequest, accesslog.VerdictDenied
-	case envoy.EntryType_Request:
-		flowType, verdict = accesslog.TypeRequest, accesslog.VerdictForwarded
-	case envoy.EntryType_Response:
-		flowType, verdict = accesslog.TypeResponse, accesslog.VerdictForwarded
-	}
-
-	record.Timestamp = time.Unix(int64(pblog.Timestamp/1000000000), int64(pblog.Timestamp%1000000000)).UTC().Format(time.RFC3339Nano)
-	record.logStamped(flowType, verdict, int(pblog.Status), pblog.CiliumRuleRef)
+	record.Log()
 }

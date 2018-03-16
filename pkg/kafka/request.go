@@ -22,8 +22,6 @@ import (
 	"io"
 
 	"github.com/cilium/cilium/pkg/flowdebug"
-	"github.com/cilium/cilium/pkg/policy/api"
-	"github.com/cilium/cilium/pkg/proxy/accesslog"
 
 	"github.com/optiopay/kafka/proto"
 )
@@ -213,23 +211,4 @@ func ReadRequest(reader io.Reader) (*RequestMessage, error) {
 		return nil, err
 	}
 	return req, nil
-}
-
-func apiKeyToString(apiKey int16) string {
-	if key, ok := api.KafkaReverseAPIKeyMap[apiKey]; ok {
-		return key
-	}
-	return fmt.Sprintf("%d", apiKey)
-}
-
-// GetLogRecord returns the LogRecord for a RequestMessage
-func (req *RequestMessage) GetLogRecord() accesslog.LogRecord {
-	return accesslog.LogRecord{
-		Kafka: &accesslog.LogRecordKafka{
-			APIVersion:    req.GetVersion(),
-			APIKey:        apiKeyToString(req.GetAPIKey()),
-			CorrelationID: req.GetCorrelationID(),
-		},
-		TransportProtocol: 6, // TCP's IANA-assigned protocol number
-	}
 }

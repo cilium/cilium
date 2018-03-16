@@ -59,7 +59,7 @@ import (
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/proxy"
-	"github.com/cilium/cilium/pkg/proxy/accesslog"
+	"github.com/cilium/cilium/pkg/proxy/logger"
 	"github.com/cilium/cilium/pkg/workloads"
 	"github.com/cilium/cilium/pkg/workloads/containerd"
 
@@ -1405,8 +1405,8 @@ func (d *Daemon) SendNotification(typ monitor.AgentNotification, text string) er
 }
 
 // NewProxyLogRecord is invoked by the proxy accesslog on each new access log entry
-func (d *Daemon) NewProxyLogRecord(l *accesslog.LogRecord) error {
-	return d.nodeMonitor.SendEvent(monitor.MessageTypeAccessLog, l)
+func (d *Daemon) NewProxyLogRecord(l *logger.LogRecord) error {
+	return d.nodeMonitor.SendEvent(monitor.MessageTypeAccessLog, l.LogRecord)
 }
 
 // GetNodeSuffix returns the suffix to be appended to kvstore keys of this
