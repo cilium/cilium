@@ -1072,7 +1072,7 @@ func (e *Endpoint) runIPIdentitySync(endpointIP addressing.CiliumIP) {
 // SetIdentity resets endpoint's policy identity to 'id'.
 // Caller triggers policy regeneration if needed.
 // Called with e.Mutex Locked
-func (e *Endpoint) SetIdentity(owner Owner, identity *identityPkg.Identity) {
+func (e *Endpoint) SetIdentity(identity *identityPkg.Identity) {
 	cache := policy.GetConsumableCache()
 
 	if e.Consumable != nil {

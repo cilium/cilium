@@ -263,7 +263,7 @@ func (d *Daemon) syncLabels(ep *endpoint.Endpoint) error {
 		}
 	}
 
-	ep.SetIdentity(d, identity)
+	ep.SetIdentity(identity)
 
 	return nil
 }

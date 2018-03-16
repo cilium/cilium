@@ -2117,7 +2117,7 @@ func (e *Endpoint) identityLabelsChanged(owner Owner, myChangeRev int) error {
 	elog.WithFields(logrus.Fields{logfields.Identity: identity.StringID()}).
 		Debug("Assigned new identity to endpoint")
 
-	e.SetIdentity(owner, identity)
+	e.SetIdentity(identity)
 
 	ready := e.SetStateLocked(StateWaitingToRegenerate, "Triggering regeneration due to new identity")
 	if ready {
