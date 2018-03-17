@@ -534,7 +534,7 @@ func UpdateNetworkPolicy(ep NetworkPolicyEndpoint, policy *policy.L4Policy,
 	for _, p := range policies {
 		policyRevision := policy.Revision
 		callback := func() {
-			ep.OnProxyPolicyUpdate(policyRevision)
+			go ep.OnProxyPolicyUpdate(policyRevision)
 		}
 		var c *completion.Completion
 		if wg == nil {
