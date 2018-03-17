@@ -356,6 +356,19 @@ func (k *kafkaRedirect) handleRequestConnection(pair *connectionPair) {
 	}), "Proxying request Kafka connection")
 
 	handleRequests(k.socket.closing, pair, pair.Rx, nil, k.handleRequest)
+
+	// The proxymap contains an entry with metadata for the receive side of the
+	// connection, remove it after the connection has been closed.
+	if pair.Rx != nil {
+		// We are running in our own go routine here so we can just
+		// block this go routine until after the connection is
+		// guaranteed to have been closed
+		time.Sleep(proxyConnectionCloseTimeout + time.Second)
+
+		if err := k.redirect.removeProxyMapEntryOnClose(pair.Rx.conn); err != nil {
+			log.WithError(err).Warning("Unable to remove proxymap entry after closing connection")
+		}
+	}
 }
 
 func (k *kafkaRedirect) handleResponseConnection(pair *connectionPair, record kafkaLogRecord) {
