@@ -30,10 +30,8 @@ var bpfProxyFlushCmd = &cobra.Command{
 	PreRun: requireEndpointIDorGlobal,
 	Run: func(cmd *cobra.Command, args []string) {
 		common.RequireRootPrivilege("cilium bpf proxy flush")
-		entries := proxymap.Flush6()
-		fmt.Printf("Flushed %d entries from %s\n", entries, proxymap.Proxy6MapName)
-		entries = proxymap.Flush()
-		fmt.Printf("Flushed %d entries from %s\n", entries, proxymap.Proxy4MapName)
+		entries := proxymap.Flush()
+		fmt.Printf("Flushed %d entries\n", entries)
 	},
 }
 

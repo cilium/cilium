@@ -439,11 +439,7 @@ func (p *Proxy) CreateOrUpdateRedirect(l4 *policy.L4Filter, id string, source Pr
 				time.Sleep(time.Duration(10) * time.Second)
 				if deleted := proxymap.GC(); deleted > 0 {
 					log.WithField("count", deleted).
-						Debug("Evicted entries from proxy4 table")
-				}
-				if deleted := proxymap.GC6(); deleted > 0 {
-					log.WithField("count", deleted).
-						Debug("Evicted entries from proxy6 table")
+						Debug("Evicted entries from proxy table")
 				}
 			}
 		}()
@@ -550,8 +546,7 @@ func (p *Proxy) RemoveRedirect(id string, wg *completion.WaitGroup) error {
 		// The cleanup of the proxymap is delayed a bit to ensure that
 		// the datapath has implemented the redirect change and we
 		// cleanup the map before we release the port and allow reuse
-		proxymap.CleanupIPv4Redirects(r.ProxyPort)
-		proxymap.CleanupIPv6Redirects(r.ProxyPort)
+		proxymap.CleanupOnRedirectClose(r.ProxyPort)
 
 		p.mutex.Lock()
 		delete(p.allocatedPorts, r.ProxyPort)
@@ -654,4 +649,15 @@ func (p *Proxy) GetStatusModel() *models.ProxyStatus {
 		PortRange: fmt.Sprintf("%d-%d", p.rangeMin, p.rangeMax),
 		Redirects: p.getRedirectsStatusModel(),
 	}
+}
+
+// removeProxyMapEntryOnClose is called after the proxy has closed a connection
+// and will remove the proxymap entry for that connection
+func (r *Redirect) removeProxyMapEntryOnClose(c net.Conn) error {
+	key, err := getProxyMapKey(c, r.ProxyPort)
+	if err != nil {
+		return fmt.Errorf("unable to extract proxymap key: %s", err)
+	}
+
+	return proxymap.Delete(key)
 }

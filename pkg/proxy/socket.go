@@ -433,54 +433,19 @@ func (p *connectionPair) close() {
 }
 
 func lookupNewDest(remoteAddr string, dport uint16) (uint32, string, error) {
-	ip, port, err := net.SplitHostPort(remoteAddr)
+	key, err := createProxyMapKey(remoteAddr, dport)
 	if err != nil {
-		return 0, "", fmt.Errorf("invalid remote address: %s", err)
+		return 0, "", err
 	}
 
-	pIP := net.ParseIP(ip)
-	if pIP == nil {
-		return 0, "", fmt.Errorf("unable to parse IP %s", ip)
-	}
-
-	sport, err := strconv.ParseUint(port, 10, 16)
+	val, err := proxymap.Lookup(key)
 	if err != nil {
-		return 0, "", fmt.Errorf("unable to parse port string: %s", err)
+		return 0, "", err
 	}
 
-	if pIP.To4() != nil {
-		key := &proxymap.Proxy4Key{
-			SPort:   uint16(sport),
-			DPort:   dport,
-			Nexthdr: 6,
-		}
+	flowdebug.Log(log.WithField(logfields.Object, logfields.Repr(val)), "Found proxy entry")
 
-		copy(key.SAddr[:], pIP.To4())
-
-		val, err := proxymap.LookupEgress4(key)
-		if err != nil {
-			return 0, "", fmt.Errorf("unable to find IPv4 proxy entry for %s: %s", key, err)
-		}
-
-		flowdebug.Log(log.WithField(logfields.Object, logfields.Repr(val)), "Found IPv4 proxy entry")
-		return val.SourceIdentity, val.HostPort(), nil
-	}
-
-	key := &proxymap.Proxy6Key{
-		SPort:   uint16(sport),
-		DPort:   dport,
-		Nexthdr: 6,
-	}
-
-	copy(key.SAddr[:], pIP.To16())
-
-	val, err := proxymap.LookupEgress6(key)
-	if err != nil {
-		return 0, "", fmt.Errorf("unable to find IPv6 proxy entry for %s: %s", key, err)
-	}
-
-	flowdebug.Log(log.WithField(logfields.Object, logfields.Repr(val)), "Found IPv6 proxy entry")
-	return val.SourceIdentity, val.HostPort(), nil
+	return val.GetSourceIdentity(), val.HostPort(), nil
 }
 
 func setFdMark(fd, mark int) {
@@ -504,4 +469,50 @@ func setSocketMark(c net.Conn, mark int) {
 			setFdMark(int(f.Fd()), mark)
 		}
 	}
+}
+
+func getProxyMapKey(c net.Conn, proxyPort uint16) (proxymap.ProxyMapKey, error) {
+	addr := c.RemoteAddr()
+	if addr == nil {
+		return nil, fmt.Errorf("RemoteAddr() returned nil")
+	}
+
+	return createProxyMapKey(addr.String(), proxyPort)
+}
+
+func createProxyMapKey(addr string, proxyPort uint16) (proxymap.ProxyMapKey, error) {
+	ip, port, err := net.SplitHostPort(addr)
+	if err != nil {
+		return nil, fmt.Errorf("invalid remote address '%s': %s", addr, err)
+	}
+
+	pIP := net.ParseIP(ip)
+	if pIP == nil {
+		return nil, fmt.Errorf("unable to parse IP %s", ip)
+	}
+
+	sport, err := strconv.ParseUint(port, 10, 16)
+	if err != nil {
+		return nil, fmt.Errorf("unable to parse port string: %s", err)
+	}
+
+	if pIP.To4() != nil {
+		key := proxymap.Proxy4Key{
+			SPort:   uint16(sport),
+			DPort:   proxyPort,
+			Nexthdr: 6,
+		}
+
+		copy(key.SAddr[:], pIP.To4())
+		return key, nil
+	}
+
+	key := proxymap.Proxy6Key{
+		SPort:   uint16(sport),
+		DPort:   proxyPort,
+		Nexthdr: 6,
+	}
+
+	copy(key.SAddr[:], pIP.To16())
+	return key, nil
 }
