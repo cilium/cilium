@@ -10,7 +10,7 @@ $SERVER_BOX= "cilium/ubuntu"
 $SERVER_VERSION="37"
 
 # RAM and CPU settings
-$MEMORY = (ENV['MEMORY'] || "2048").to_i
+$MEMORY = (ENV['MEMORY'] || "4096").to_i
 $CPU = (ENV['CPU'] || "2").to_i
 
 ENV["VAGRANT_DEFAULT_PROVIDER"] = "virtualbox"
