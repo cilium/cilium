@@ -48,9 +48,16 @@ var _ = Describe("K8sValidatedUpdates", func() {
 	}
 
 	AfterEach(func() {
+
+		//This policies maybe are not loaded, (Test failed before) so no assert here.
+		kubectl.Delete(l7Policy)
+		kubectl.Delete(l3Policy)
+		kubectl.Delete(demoPath)
+
 		res := kubectl.DeleteResource(
 			"ds", fmt.Sprintf("-n %s cilium", helpers.KubeSystemNamespace))
 		res.ExpectSuccess("Cilium DS cannot be deleted")
+
 	})
 
 	BeforeEach(func() {
