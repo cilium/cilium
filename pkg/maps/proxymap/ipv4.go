@@ -16,7 +16,6 @@ package proxymap
 
 import (
 	"fmt"
-	"math"
 	"net"
 	"strconv"
 	"unsafe"
@@ -52,6 +51,11 @@ type Proxy4Value struct {
 	Pad            uint16
 	SourceIdentity uint32
 	Lifetime       uint32
+}
+
+// GetSourceIdentity returns the source identity
+func (v *Proxy4Value) GetSourceIdentity() uint32 {
+	return v.SourceIdentity
 }
 
 func (v *Proxy4Value) HostPort() string {
@@ -118,7 +122,7 @@ func (v *Proxy4Value) String() string {
 		v.OrigDAddr.IP().String(), v.OrigDPort, v.SourceIdentity, v.Lifetime)
 }
 
-func LookupEgress4(key *Proxy4Key) (*Proxy4Value, error) {
+func lookupEgress4(key *Proxy4Key) (*Proxy4Value, error) {
 	val, err := Proxy4Map.Lookup(key.ToNetwork())
 	if err != nil {
 		return nil, err
@@ -166,20 +170,8 @@ func gc(time uint64) int {
 	return deleted
 }
 
-// GC garbage collects entries whose lifetime has expired. Returns the number
-// of entries removed.
-func GC() int {
-	time, _ := bpf.GetMtime()
-	return gc(time)
-}
-
-// Flush flushes all proxymap entries, returns the number of entries removed.
-func Flush() int {
-	return gc(math.MaxUint64)
-}
-
-// CleanupIPv4Redirects removes all redirects to a specific proxy port
-func CleanupIPv4Redirects(proxyPort uint16) {
+// cleanupIPv4Redirects removes all redirects to a specific proxy port
+func cleanupIPv4Redirects(proxyPort uint16) {
 	if err := Proxy4Map.Open(); err != nil {
 		return
 	}

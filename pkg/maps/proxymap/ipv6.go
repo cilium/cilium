@@ -16,7 +16,6 @@ package proxymap
 
 import (
 	"fmt"
-	"math"
 	"net"
 	"strconv"
 	"unsafe"
@@ -48,6 +47,11 @@ type Proxy6Value struct {
 	Pad            uint16
 	SourceIdentity uint32
 	Lifetime       uint32
+}
+
+// GetSourceIdentity returns the source identity
+func (v *Proxy6Value) GetSourceIdentity() uint32 {
+	return v.SourceIdentity
 }
 
 func (v *Proxy6Value) HostPort() string {
@@ -114,7 +118,7 @@ func (v *Proxy6Value) String() string {
 		v.OrigDAddr.IP().String(), v.OrigDPort, v.SourceIdentity, v.Lifetime)
 }
 
-func LookupEgress6(key *Proxy6Key) (*Proxy6Value, error) {
+func lookupEgress6(key *Proxy6Key) (*Proxy6Value, error) {
 	val, err := Proxy6Map.Lookup(key.ToNetwork())
 	if err != nil {
 		return nil, err
@@ -141,20 +145,8 @@ func gc6(time uint64) int {
 	return deleted
 }
 
-// GC6 garbage collects entries whose lifetime has expired. Returns the number
-// of entries removed.
-func GC6() int {
-	time, _ := bpf.GetMtime()
-	return gc6(time)
-}
-
-// Flush6 flushes all proxymap entries, returns the number of entries removed.
-func Flush6() int {
-	return gc6(math.MaxUint64)
-}
-
-// CleanupIPv6Redirects removes all redirects to a specific proxy port
-func CleanupIPv6Redirects(proxyPort uint16) {
+// cleanupIPv6Redirects removes all redirects to a specific proxy port
+func cleanupIPv6Redirects(proxyPort uint16) {
 	if err := Proxy6Map.Open(); err != nil {
 		return
 	}
