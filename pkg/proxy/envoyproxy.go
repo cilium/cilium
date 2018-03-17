@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"strings"
 	"sync"
 	"time"
 
@@ -76,6 +77,20 @@ func (r *envoyRedirect) Close(wg *completion.WaitGroup) {
 	}
 }
 
+func parseURL(pblog *envoy.HttpLogEntry) *url.URL {
+	path := strings.TrimPrefix(pblog.Path, "/")
+	u, err := url.Parse(fmt.Sprintf("%s://%s/%s", pblog.Scheme, pblog.Host, path))
+	if err != nil {
+		u = &url.URL{
+			Scheme: pblog.Scheme,
+			Host:   pblog.Host,
+			Path:   pblog.Path,
+		}
+	}
+
+	return u
+}
+
 // Log does access logging for Envoy
 func (r *envoyRedirect) Log(pblog *envoy.HttpLogEntry) {
 	flowdebug.Log(log.WithFields(logrus.Fields{}),
@@ -84,12 +99,6 @@ func (r *envoyRedirect) Log(pblog *envoy.HttpLogEntry) {
 	headers := make(http.Header)
 	for _, header := range pblog.Headers {
 		headers.Add(header.Key, header.Value)
-	}
-
-	URL := url.URL{
-		Scheme: pblog.Scheme,
-		Host:   pblog.Host,
-		Path:   pblog.Path,
 	}
 
 	var proto string
@@ -102,7 +111,7 @@ func (r *envoyRedirect) Log(pblog *envoy.HttpLogEntry) {
 		proto = "HTTP/2"
 	}
 
-	record := newHTTPLogRecord(r.redirect, pblog.Method, &URL, proto, headers)
+	record := newHTTPLogRecord(r.redirect, pblog.Method, parseURL(pblog), proto, headers)
 
 	record.fillInfo(r.redirect, pblog.SourceAddress, pblog.DestinationAddress, pblog.SourceSecurityId)
 
