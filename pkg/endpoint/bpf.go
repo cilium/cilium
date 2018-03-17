@@ -529,33 +529,6 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir, reason string) (uint64, err
 		return 0, fmt.Errorf("Skipping build due to invalid state: %s", e.state)
 	}
 
-	completionCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	e.ProxyWaitGroup = completion.NewWaitGroup(completionCtx)
-	defer func() {
-		cancel()
-		e.ProxyWaitGroup = nil
-	}()
-
-	// The set of IDs of proxy redirects that are required to implement the
-	// policy.
-	var desiredRedirects map[string]bool
-
-	// If there is a Consumable, walk the L4Policy for ports that require
-	// an L7 redirect and add them to the endpoint; update the L4PolicyMap
-	// with the redirects.
-	if e.Consumable != nil {
-		e.Consumable.Mutex.Lock()
-		if e.Consumable.L4Policy != nil {
-			desiredRedirects, err = e.addNewRedirects(owner, e.Consumable.L4Policy)
-			if err != nil {
-				e.Consumable.Mutex.Unlock()
-				e.Mutex.Unlock()
-				return 0, err
-			}
-		}
-		e.Consumable.Mutex.Unlock()
-	}
-
 	// If dry mode is enabled, no further changes to BPF maps are performed
 	if owner.DryModeEnabled() {
 		defer e.Mutex.Unlock()
@@ -567,8 +540,15 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir, reason string) (uint64, err
 			return 0, fmt.Errorf("Unable to regenerate policy: %s", err)
 		}
 
-		if err = e.updateNetworkPolicy(owner); err != nil {
-			return 0, err
+		// Dry mode needs Network Policy Updates, but e.ProxyWaitGroup must not
+		// be initialized, as there is no proxy ACKing the changes.
+		if e.Consumable != nil {
+			e.Consumable.Mutex.Lock()
+			if err = e.updateNetworkPolicy(owner); err != nil {
+				e.Consumable.Mutex.Unlock()
+				return 0, err
+			}
+			e.Consumable.Mutex.Unlock()
 		}
 
 		if err = e.writeHeaderfile(epdir, owner); err != nil {
@@ -578,6 +558,17 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir, reason string) (uint64, err
 		log.WithField(logfields.EndpointID, e.ID).Debug("Skipping bpf updates due to dry mode")
 		return e.nextPolicyRevision, nil
 	}
+
+	completionCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	e.ProxyWaitGroup = completion.NewWaitGroup(completionCtx)
+	defer func() {
+		cancel()
+		e.ProxyWaitGroup = nil
+	}()
+
+	// The set of IDs of proxy redirects that are required to implement the
+	// policy.
+	var desiredRedirects map[string]bool
 
 	// Anything below this point must be reverted upon failure as we are
 	// changing live BPF maps
@@ -656,9 +647,24 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir, reason string) (uint64, err
 			return 0, fmt.Errorf("unable to regenerate policy for '%s': %s", e.PolicyMap.String(), err)
 		}
 
+		// Walk the L4Policy for ports that require
+		// an L7 redirect and add them to the endpoint; update the L4PolicyMap
+		// with the redirects.
+		c.Mutex.Lock()
 		if err = e.updateNetworkPolicy(owner); err != nil {
+			c.Mutex.Unlock()
+			e.Mutex.Unlock()
 			return 0, err
 		}
+		if c.L4Policy != nil {
+			desiredRedirects, err = e.addNewRedirects(owner, c.L4Policy)
+			if err != nil {
+				c.Mutex.Unlock()
+				e.Mutex.Unlock()
+				return 0, err
+			}
+		}
+		c.Mutex.Unlock()
 
 		// Evaluate generated policy to see if changes to connection tracking
 		// need to be made.
