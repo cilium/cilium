@@ -46,7 +46,7 @@ func (t EventType) String() string {
 
 // KeyValueEvent is a change event for a Key/Value pair
 type KeyValueEvent struct {
-	// Typ is the type of event { EventTypeCreate | EventTypeModify | EventTypeDelete }
+	// Typ is the type of event { EventTypeCreate | EventTypeModify | EventTypeDelete | EventTypeListDone }
 	Typ EventType
 
 	// Key is the kvstore key that changed
