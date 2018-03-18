@@ -158,9 +158,15 @@ func ipIdentityWatcher(owner IPIdentityMappingOwner) {
 				ipIDPair     identity.IPIdentityPair
 			)
 
+			// Key and value are empty for ListDone event types, so just continue.
+			// See GH-3159.
+			if event.Typ == kvstore.EventTypeListDone {
+				continue
+			}
+
 			err := json.Unmarshal(event.Value, &ipIDPair)
 			if err != nil {
-				log.WithFields(logrus.Fields{"value": event.Value}).WithError(err).Errorf("not adding entry to ip cache; error unmarshaling data from key-value store")
+				log.WithFields(logrus.Fields{"key": event.Key, "value": event.Value}).WithError(err).Errorf("not adding entry to ip cache; error unmarshaling data from key-value store")
 				continue
 			}
 
