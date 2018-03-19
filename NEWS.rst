@@ -2,6 +2,51 @@
 NEWS
 ******
 
+v1.0.0-rc8
+==========
+
+:date: 2018-03-19
+:commit: bb11ad1a15907feb9304f55a26a95bed77291f1d
+
+Major Changes
+-------------
+
+* Bump kubernetes minimal version supported to 1.7 (3102_, @aanm)
+* Add Kafka roles to simplify policy specification language (2997_, @manalibhutiyani)
+* Add support for label-based policies on egress (2878_, @ianvernon)
+* Add mapping of endpoint IPs to security identities in the key-value store. Watch the key-value store for updates and cache them locally per agent. (2875_, @ianvernon)
+* Cilium exports CiliumEndpoint objects to kubernetes clusters. (2772_, @raybejjani)
+
+Bugfixes Changes
+----------------
+
+* pkg/ipcache: check if event type is EventTypeListDone before unmarshal of value (3193_, @ianvernon)
+* proxy: envoy: use url.Parse() to generate URL field (3188_, @tgraf)
+* Fix bug where IPv6 proxy map entries were never garbage collected (3181_, @joestringer)
+    * Log failure to insert into proxymap as its own monitor drop log
+    * Lower timeout for bpf proxy map entries (now 5 minutes)
+* Kafka CI: Add a WaitKafkaBroker to wait for Kafka broker to be up before produce/consume (3156_, @manalibhutiyani)
+* GinkgoRuntime CI: Avoid possible race between Kafka consume and produce (3153_, @manalibhutiyani)
+* Documentation: Fix generated links when documentation is built from tags (3128_, @tgraf)
+* create new identity when endpoint labels change and re assign identity based on all endpoint labels when restoring (3104_, @aanm)
+* Fix cilium status of k8s CRD watcher when unable to set up k8s client (3103_, @aanm)
+* examples/mesos: Change ubuntu VB to be correct version (3094_, @jMuzsik)
+* cilium status: Fix exit code when components are disabled (3069_, @tgraf)
+* Fix L4-only policy enforcement on ingress without `fromEndpoints` selector (2992_, @joestringer)
+* Add compatibility for kubernetes 1.11  (2966_, @aanm)
+* Remove proxymap entry after closing connection (3190_, @tgraf)
+
+Other Changes
+-------------
+
+* examples: Provide simple etcd standalone deployment example (3167_, @tgraf)
+* Report policy revision implemented by the proxy in Endpoint model (3151_, @joestringer)
+* Ginkgo: Add a option to run test in different vms (3120_, @eloycoto)
+* Support a larger number of CIDR prefixes when running on older kernels. Now limited by the number of unique prefix lengths in the policies for an endpoint, which should be less than forty.  (3119_, @joestringer)
+* Only expose cilium-health API over unix socket by default (3096_, @joestringer)
+* Reject policies that contain rules with more than one L3 match in a single rule (3015_, @joestringer)
+
+
 v1.0.0-rc7
 ==========
 
@@ -1175,3 +1220,26 @@ Fixes
 .. _3036: https://github.com/cilium/cilium/pull/3036
 .. _3034: https://github.com/cilium/cilium/pull/3034
 .. _3054: https://github.com/cilium/cilium/pull/3054
+.. _3102: https://github.com/cilium/cilium/pull/3102
+.. _2997: https://github.com/cilium/cilium/pull/2997
+.. _2878: https://github.com/cilium/cilium/pull/2878
+.. _2772: https://github.com/cilium/cilium/pull/2772
+.. _3193: https://github.com/cilium/cilium/pull/3193
+.. _3188: https://github.com/cilium/cilium/pull/3188
+.. _3181: https://github.com/cilium/cilium/pull/3181
+.. _3156: https://github.com/cilium/cilium/pull/3156
+.. _3153: https://github.com/cilium/cilium/pull/3153
+.. _3128: https://github.com/cilium/cilium/pull/3128
+.. _3104: https://github.com/cilium/cilium/pull/3104
+.. _3103: https://github.com/cilium/cilium/pull/3103
+.. _3094: https://github.com/cilium/cilium/pull/3094
+.. _3069: https://github.com/cilium/cilium/pull/3069
+.. _2992: https://github.com/cilium/cilium/pull/2992
+.. _2966: https://github.com/cilium/cilium/pull/2966
+.. _3167: https://github.com/cilium/cilium/pull/3167
+.. _3151: https://github.com/cilium/cilium/pull/3151
+.. _3120: https://github.com/cilium/cilium/pull/3120
+.. _3119: https://github.com/cilium/cilium/pull/3119
+.. _3096: https://github.com/cilium/cilium/pull/3096
+.. _3015: https://github.com/cilium/cilium/pull/3015
+.. _3190: https://github.com/cilium/cilium/pull/3190
