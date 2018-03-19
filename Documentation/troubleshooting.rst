@@ -31,7 +31,7 @@ When using Kubernetes, refer o the ``k8s-cilium-exec.sh`` script to execute
 
 .. code:: bash
 
-    $ curl -sLO releases.cilium.io/v1.0.0-rc4/tools/k8s-cilium-exec.sh
+    $ curl -sLO releases.cilium.io/v1.0.0-rc8/tools/k8s-cilium-exec.sh
     $ chmod +x ./k8s-cilium-exec.sh
 
 ... and run ``cilium status`` on all nodes:
