@@ -21,7 +21,6 @@
 # Specific code owners:
 # @eloycoto             Debian packaging
 # @aanm @ianvernon      Docker packaging
-# @tgraf                Oxy proxy
 # @scanf @borkmann      BPF documentation
 
 # The following filepaths should be sorted so that more specific paths occur
@@ -57,6 +56,7 @@ examples/mesos/Vagrantfile @cilium/vagrant
 examples/minikube/ @cilium/kubernetes
 ginkgo.Jenkinsfile @cilium/ci
 ginkgo-all.Jenkinsfile @cilium/ci
+ginkgo-kubernetes-all.Jenkinsfile @cilium/ci
 Jenkinsfile @cilium/ci
 Jenkinsfile.nightly @cilium/ci
 monitor/ @cilium/monitor
@@ -68,6 +68,7 @@ pkg/completion/ @cilium/proxy
 pkg/endpoint/ @cilium/endpoint
 pkg/envoy/ @cilium/proxy
 pkg/health/ @cilium/health
+pkg/ipcache/ @ianvernon
 pkg/k8s/ @cilium/kubernetes
 pkg/kafka/ @cilium/proxy
 pkg/kvstore/ @cilium/kvstore
@@ -79,7 +80,6 @@ pkg/policy/api/ @cilium/api
 pkg/policy/prefilter.go @cilium/bpf
 pkg/proxy/ @cilium/proxy
 pkg/proxy/accesslog @cilium/api
-pkg/proxy/oxyproxy.go @tgraf
 plugins/cilium-cni/ @cilium/kubernetes
 plugins/cilium-docker/ @cilium/docker
 README.md @cilium/docs
