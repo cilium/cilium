@@ -13,6 +13,7 @@ pipeline {
     environment {
         PROJ_PATH = "src/github.com/cilium/cilium"
         TESTDIR = "${WORKSPACE}/${PROJ_PATH}/"
+        MEMORY = "3072"
     }
 
     options {
