@@ -17,7 +17,7 @@ spec:
         protocol: TCP
       rules:
         kafka:
-        - Role: "produce"
+        - role: "produce"
           topic: "deathstar-plans"
-        - Role: "produce"
+        - role: "produce"
           topic: "empire-announce"
