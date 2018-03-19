@@ -20,6 +20,8 @@ import (
 	clientset "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/cilium.io/v2"
 	fakeciliumv2 "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/cilium.io/v2/fake"
+	ciliumendpointsv2 "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/endpoints.cilium.io/v2"
+	fakeciliumendpointsv2 "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/endpoints.cilium.io/v2/fake"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/discovery"
@@ -76,4 +78,14 @@ func (c *Clientset) CiliumV2() ciliumv2.CiliumV2Interface {
 // Cilium retrieves the CiliumV2Client
 func (c *Clientset) Cilium() ciliumv2.CiliumV2Interface {
 	return &fakeciliumv2.FakeCiliumV2{Fake: &c.Fake}
+}
+
+// CiliumEndpointsV2 retrieves the CiliumEndpointsV2Client
+func (c *Clientset) CiliumEndpointsV2() ciliumendpointsv2.CiliumEndpointsV2Interface {
+	return &fakeciliumendpointsv2.FakeCiliumEndpointsV2{Fake: &c.Fake}
+}
+
+// CiliumEndpoints retrieves the CiliumEndpointsV2Client
+func (c *Clientset) CiliumEndpoints() ciliumendpointsv2.CiliumEndpointsV2Interface {
+	return &fakeciliumendpointsv2.FakeCiliumEndpointsV2{Fake: &c.Fake}
 }

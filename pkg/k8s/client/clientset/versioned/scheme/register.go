@@ -18,6 +18,7 @@ package scheme
 
 import (
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	ciliumendpointsv2 "github.com/cilium/cilium/pkg/k8s/apis/endpoints.cilium.io/v2"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 	schema "k8s.io/apimachinery/pkg/runtime/schema"
@@ -49,4 +50,5 @@ func init() {
 // correctly.
 func AddToScheme(scheme *runtime.Scheme) {
 	ciliumv2.AddToScheme(scheme)
+	ciliumendpointsv2.AddToScheme(scheme)
 }

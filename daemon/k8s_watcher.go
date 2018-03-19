@@ -30,6 +30,7 @@ import (
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/k8s"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	endpoint_v2 "github.com/cilium/cilium/pkg/k8s/apis/endpoints.cilium.io/v2"
 	k8sUtils "github.com/cilium/cilium/pkg/k8s/apis/utils"
 	clientset "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned"
 	informer "github.com/cilium/cilium/pkg/k8s/client/informers/externalversions"
@@ -215,6 +216,10 @@ func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 	switch {
 	case ciliumv2VerConstr.Check(sv):
 		err = cilium_v2.CreateCustomResourceDefinitions(apiextensionsclientset)
+		if err != nil {
+			return fmt.Errorf("Unable to create custom resource definition: %s", err)
+		}
+		err = endpoint_v2.CreateCustomResourceDefinitions(apiextensionsclientset)
 		if err != nil {
 			return fmt.Errorf("Unable to create custom resource definition: %s", err)
 		}

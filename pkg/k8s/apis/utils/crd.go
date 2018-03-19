@@ -146,3 +146,28 @@ func needsUpdate(clusterCRD *apiextensionsv1beta1.CustomResourceDefinition, CRDV
 	}
 	return false
 }
+
+// Delete CRD removes the CRD by name, checking for existence first
+func DeleteCRD(clientset apiextensionsclient.Interface, CRDName string) error {
+	_, err := clientset.ApiextensionsV1beta1().CustomResourceDefinitions().Get(CRDName, metav1.GetOptions{})
+	switch {
+	case errors.IsNotFound(err):
+		return nil
+
+	case err != nil:
+		return err
+	}
+
+	zero := int64(0)                                    // because GracePeriodSeconds is a pointer
+	deletePropagation := metav1.DeletePropagationOrphan // because this is a string type but k8s wants a pointer
+	err = clientset.ApiextensionsV1beta1().
+		CustomResourceDefinitions().Delete(CRDName,
+		&metav1.DeleteOptions{
+			GracePeriodSeconds: &zero,              // immediate deletion
+			PropagationPolicy:  &deletePropagation, // dependents deleted in the background
+		})
+	if err != nil {
+		return fmt.Errorf("unable to delete k8s %s CRD %s.", CRDName, err)
+	}
+	return err
+}

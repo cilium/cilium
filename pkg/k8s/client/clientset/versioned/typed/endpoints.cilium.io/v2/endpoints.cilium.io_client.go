@@ -17,28 +17,28 @@
 package v2
 
 import (
-	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	v2 "github.com/cilium/cilium/pkg/k8s/apis/endpoints.cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/scheme"
 	serializer "k8s.io/apimachinery/pkg/runtime/serializer"
 	rest "k8s.io/client-go/rest"
 )
 
-type CiliumV2Interface interface {
+type CiliumEndpointsV2Interface interface {
 	RESTClient() rest.Interface
-	CiliumNetworkPoliciesGetter
+	CiliumEndpointsGetter
 }
 
-// CiliumV2Client is used to interact with features provided by the cilium.io group.
-type CiliumV2Client struct {
+// CiliumEndpointsV2Client is used to interact with features provided by the ciliumEndpoints.cilium.io group.
+type CiliumEndpointsV2Client struct {
 	restClient rest.Interface
 }
 
-func (c *CiliumV2Client) CiliumNetworkPolicies(namespace string) CiliumNetworkPolicyInterface {
-	return newCiliumNetworkPolicies(c, namespace)
+func (c *CiliumEndpointsV2Client) CiliumEndpoints(namespace string) CiliumEndpointInterface {
+	return newCiliumEndpoints(c, namespace)
 }
 
-// NewForConfig creates a new CiliumV2Client for the given config.
-func NewForConfig(c *rest.Config) (*CiliumV2Client, error) {
+// NewForConfig creates a new CiliumEndpointsV2Client for the given config.
+func NewForConfig(c *rest.Config) (*CiliumEndpointsV2Client, error) {
 	config := *c
 	if err := setConfigDefaults(&config); err != nil {
 		return nil, err
@@ -47,12 +47,12 @@ func NewForConfig(c *rest.Config) (*CiliumV2Client, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &CiliumV2Client{client}, nil
+	return &CiliumEndpointsV2Client{client}, nil
 }
 
-// NewForConfigOrDie creates a new CiliumV2Client for the given config and
+// NewForConfigOrDie creates a new CiliumEndpointsV2Client for the given config and
 // panics if there is an error in the config.
-func NewForConfigOrDie(c *rest.Config) *CiliumV2Client {
+func NewForConfigOrDie(c *rest.Config) *CiliumEndpointsV2Client {
 	client, err := NewForConfig(c)
 	if err != nil {
 		panic(err)
@@ -60,9 +60,9 @@ func NewForConfigOrDie(c *rest.Config) *CiliumV2Client {
 	return client
 }
 
-// New creates a new CiliumV2Client for the given RESTClient.
-func New(c rest.Interface) *CiliumV2Client {
-	return &CiliumV2Client{c}
+// New creates a new CiliumEndpointsV2Client for the given RESTClient.
+func New(c rest.Interface) *CiliumEndpointsV2Client {
+	return &CiliumEndpointsV2Client{c}
 }
 
 func setConfigDefaults(config *rest.Config) error {
@@ -80,7 +80,7 @@ func setConfigDefaults(config *rest.Config) error {
 
 // RESTClient returns a RESTClient that is used to communicate
 // with API server by this client implementation.
-func (c *CiliumV2Client) RESTClient() rest.Interface {
+func (c *CiliumEndpointsV2Client) RESTClient() rest.Interface {
 	if c == nil {
 		return nil
 	}

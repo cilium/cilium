@@ -17,22 +17,22 @@
 package fake
 
 import (
-	v2 "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/cilium.io/v2"
+	v2 "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/endpoints.cilium.io/v2"
 	rest "k8s.io/client-go/rest"
 	testing "k8s.io/client-go/testing"
 )
 
-type FakeCiliumV2 struct {
+type FakeCiliumEndpointsV2 struct {
 	*testing.Fake
 }
 
-func (c *FakeCiliumV2) CiliumNetworkPolicies(namespace string) v2.CiliumNetworkPolicyInterface {
-	return &FakeCiliumNetworkPolicies{c, namespace}
+func (c *FakeCiliumEndpointsV2) CiliumEndpoints(namespace string) v2.CiliumEndpointInterface {
+	return &FakeCiliumEndpoints{c, namespace}
 }
 
 // RESTClient returns a RESTClient that is used to communicate
 // with API server by this client implementation.
-func (c *FakeCiliumV2) RESTClient() rest.Interface {
+func (c *FakeCiliumEndpointsV2) RESTClient() rest.Interface {
 	var ret *rest.RESTClient
 	return ret
 }
