@@ -458,16 +458,6 @@ Extra:  Metrics
 
 To try out the metrics exported by cilium, simply install the example prometheus spec file:
 
-.. parsed-literal::
-
-   $ kubectl create -f \ |SCM_WEB|\/examples/kubernetes/prometheus.yaml
-   $ kubectl replace --force -f \ |SCM_WEB|\/examples/kubernetes/cilium.yaml
-
-
-This will create a barebones prometheus installation that you can use to
-inspect metrics from the agent, then restart cilium so it can consume the new
-prometheus configuration. Navigate to the web ui with:
-
 ::
 
    $ minikube service prometheus -n prometheus
