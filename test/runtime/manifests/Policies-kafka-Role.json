@@ -13,8 +13,8 @@
 			"ports": [{"port": "9092", "protocol": "tcp"}],
 			"rules": {
 				"kafka": [
-					{"Role": "produce", "topic": "allowedTopic"},
-					{"Role": "consume", "topic": "allowedTopic"}
+					{"role": "produce", "topic": "allowedTopic"},
+					{"role": "consume", "topic": "allowedTopic"}
 				]
 			}
 		}]
