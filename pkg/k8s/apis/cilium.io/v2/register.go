@@ -15,26 +15,21 @@
 package v2
 
 import (
-	goerrors "errors"
-	"fmt"
-	"time"
-
-	k8sconst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
+	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
+	k8sUtils "github.com/cilium/cilium/pkg/k8s/apis/utils"
 
 	apiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
-	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/apimachinery/pkg/util/wait"
 
 	"github.com/hashicorp/go-version"
 )
 
 const (
 	// CustomResourceDefinitionGroup is the name of the third party resource group
-	CustomResourceDefinitionGroup = k8sconst.GroupName
+	CustomResourceDefinitionGroup = k8sConst.GroupName
 
 	// CustomResourceDefinitionVersion is the current version of the resource
 	CustomResourceDefinitionVersion = "v2"
@@ -42,9 +37,6 @@ const (
 	// CustomResourceDefinitionSchemaVersion is semver-conformant version of CRD schema
 	// Used to determine if CRD needs to be updated in cluster
 	CustomResourceDefinitionSchemaVersion = "1.6"
-
-	// CustomResourceDefinitionSchemaVersionKey is key to label which holds the CRD schema version
-	CustomResourceDefinitionSchemaVersionKey = "io.cilium.k8s.crd.schema.version"
 )
 
 // SchemeGroupVersion is group version used to register these objects
@@ -138,7 +130,7 @@ func createCNPCRD(clientset apiextensionsclient.Interface) error {
 		ObjectMeta: metav1.ObjectMeta{
 			Name: CRDName,
 			Labels: map[string]string{
-				CustomResourceDefinitionSchemaVersionKey: CustomResourceDefinitionSchemaVersion,
+				k8sUtils.CustomResourceDefinitionSchemaVersionKey: CustomResourceDefinitionSchemaVersion,
 			},
 		},
 		Spec: apiextensionsv1beta1.CustomResourceDefinitionSpec{
@@ -155,7 +147,7 @@ func createCNPCRD(clientset apiextensionsclient.Interface) error {
 		},
 	}
 
-	return createUpdateCRD(clientset, "CiliumNetworkPolicy/v2", res)
+	return k8sUtils.CreateUpdateCRD(clientset, "CiliumNetworkPolicy/v2", res)
 }
 
 // createCEPCRD creates and updates the CiliumEndpoint CRD. It should be called
@@ -181,7 +173,7 @@ func createCEPCRD(clientset apiextensionsclient.Interface) error {
 		ObjectMeta: metav1.ObjectMeta{
 			Name: CRDName,
 			Labels: map[string]string{
-				CustomResourceDefinitionSchemaVersionKey: CustomResourceDefinitionSchemaVersion,
+				k8sUtils.CustomResourceDefinitionSchemaVersionKey: CustomResourceDefinitionSchemaVersion,
 			},
 		},
 		Spec: apiextensionsv1beta1.CustomResourceDefinitionSpec{
@@ -198,114 +190,7 @@ func createCEPCRD(clientset apiextensionsclient.Interface) error {
 		},
 	}
 
-	return createUpdateCRD(clientset, "CiliumEndpoint/v2", res)
-}
-
-// createUpdateCRD ensures the CRD object is installed into the k8s cluster. It
-// will create or update the CRD and it's validation when needed
-func createUpdateCRD(clientset apiextensionsclient.Interface, CRDName string, crd *apiextensionsv1beta1.CustomResourceDefinition) error {
-	scopedLog := log.WithField("name", CRDName)
-
-	clusterCRD, err := clientset.ApiextensionsV1beta1().CustomResourceDefinitions().Get(crd.ObjectMeta.Name, metav1.GetOptions{})
-	if errors.IsNotFound(err) {
-		scopedLog.Info("Creating CRD (CustomResourceDefinition)...")
-		clusterCRD, err = clientset.ApiextensionsV1beta1().CustomResourceDefinitions().Create(crd)
-		// This occurs when multiple agents race to create the CRD. Since another has
-		// created it, it will also update it, hence the non-error return.
-		if errors.IsAlreadyExists(err) {
-			return nil
-		}
-	}
-	if err != nil {
-		return err
-	}
-
-	scopedLog.Debug("Checking if CRD (CustomResourceDefinition) needs update...")
-	if needsUpdate(clusterCRD) {
-		scopedLog.Info("Updating CRD (CustomResourceDefinition)...")
-		// Update the CRD with the validation schema.
-		err = wait.Poll(500*time.Millisecond, 60*time.Second, func() (bool, error) {
-			clusterCRD, err = clientset.ApiextensionsV1beta1().
-				CustomResourceDefinitions().Get(crd.ObjectMeta.Name, metav1.GetOptions{})
-
-			if err != nil {
-				return false, err
-			}
-
-			// This seems too permissive but we only get here if the version is
-			// different per needsUpdate above. If so, we want to update on any
-			// validation change including adding or removing validation.
-			if needsUpdate(clusterCRD) {
-				scopedLog.Debug("CRD validation is different, updating it...")
-				clusterCRD.ObjectMeta.Labels = crd.ObjectMeta.Labels
-				clusterCRD.Spec = crd.Spec
-				_, err = clientset.ApiextensionsV1beta1().CustomResourceDefinitions().Update(clusterCRD)
-				if err == nil {
-					return true, nil
-				}
-				scopedLog.WithError(err).Debug("Unable to update CRD validation")
-				return false, err
-			}
-
-			return true, nil
-		})
-		if err != nil {
-			scopedLog.WithError(err).Error("Unable to update CRD")
-			return err
-		}
-	}
-
-	// wait for the CRD to be established
-	scopedLog.Debug("Waiting for CRD (CustomResourceDefinition) to be available...")
-	err = wait.Poll(500*time.Millisecond, 60*time.Second, func() (bool, error) {
-		crd, err := clientset.ApiextensionsV1beta1().CustomResourceDefinitions().Get(crd.ObjectMeta.Name, metav1.GetOptions{})
-		if err != nil {
-			return false, err
-		}
-		for _, cond := range crd.Status.Conditions {
-			switch cond.Type {
-			case apiextensionsv1beta1.Established:
-				if cond.Status == apiextensionsv1beta1.ConditionTrue {
-					return true, err
-				}
-			case apiextensionsv1beta1.NamesAccepted:
-				if cond.Status == apiextensionsv1beta1.ConditionFalse {
-					scopedLog.WithError(goerrors.New(cond.Reason)).Error("Name conflict for CRD")
-					return false, err
-				}
-			}
-		}
-		return false, err
-	})
-	if err != nil {
-		deleteErr := clientset.ApiextensionsV1beta1().CustomResourceDefinitions().Delete(crd.ObjectMeta.Name, nil)
-		if deleteErr != nil {
-			return fmt.Errorf("unable to delete k8s %s CRD %s. Deleting CRD due: %s", CRDName, deleteErr, err)
-		}
-		return err
-	}
-
-	scopedLog.Info("CRD (CustomResourceDefinition) is installed and up-to-date")
-	return nil
-}
-
-func needsUpdate(clusterCRD *apiextensionsv1beta1.CustomResourceDefinition) bool {
-
-	if clusterCRD.Spec.Validation == nil {
-		// no validation detected
-		return true
-	}
-	v, ok := clusterCRD.Labels[CustomResourceDefinitionSchemaVersionKey]
-	if !ok {
-		// no schema version detected
-		return true
-	}
-	clusterVersion, err := version.NewVersion(v)
-	if err != nil || clusterVersion.LessThan(comparableCRDSchemaVersion) {
-		// version in cluster is either unparsable or smaller than current version
-		return true
-	}
-	return false
+	return k8sUtils.CreateUpdateCRD(clientset, "CiliumEndpoint/v2", res)
 }
 
 func getStr(str string) *string {

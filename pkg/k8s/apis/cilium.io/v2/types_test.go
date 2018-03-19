@@ -20,7 +20,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/comparator"
 	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
-	k8sUtils "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/utils"
+	k8sUtils "github.com/cilium/cilium/pkg/k8s/apis/utils"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/policy/api"
 
