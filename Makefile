@@ -74,6 +74,7 @@ tests: force
 	$(MAKE) unit-tests tests-envoy
 
 unit-tests: start-kvstores
+	$(QUIET) $(MAKE) -C daemon/ check-bindata
 	$(QUIET) echo "mode: count" > coverage-all.out
 	$(QUIET) echo "mode: count" > coverage.out
 	$(foreach pkg,$(TESTPKGS),\
