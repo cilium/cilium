@@ -524,27 +524,34 @@ Kafka (Tech Preview)
 
 PortRuleKafka is a list of Kafka protocol constraints. All fields are optional,
 if all fields are empty or missing, the rule will match all Kafka messages.
+There are two ways to specify the Kafka rules. We can choose to specify a
+high-level "produce" or "consume" role to a topic or choose to specify more
+low-level Kafka protocol specific apiKeys. Writing rules based on Kafka roles
+is easier and covers most common use cases, however if more granularity is
+needed then users can alternatively write rules using specific apiKeys.
 
 The following fields can be matched on:
 
 Role
   Role is a case-insensitive string which describes a group of API keys
-  necessary to perform certain higher level Kafka operations such as "produce"
+  necessary to perform certain higher-level Kafka operations such as "produce"
   or "consume". A Role automatically expands into all APIKeys required
-  to perform the specified higher level operation.
+  to perform the specified higher-level operation.
+  The following roles are supported:
 
-  The following values are supported:
-	- "produce": Allow producing to the topics specified in the rule
-	- "consume": Allow consuming from the topics specified in the rule
-  This field is incompatible with the APIKey field, i.e i.e APIKey and Role
-  cannot both be specified in the same rule..
-  If omitted or empty, all keys are allowed.
+    - "produce": Allow producing to the topics specified in the rule.
+    - "consume": Allow consuming from the topics specified in the rule.
+
+  This field is incompatible with the APIKey field, i.e APIKey and Role
+  cannot both be specified in the same rule.
+  If omitted or empty, and if APIKey is not specified, then all keys are
+  allowed.
 
 APIKey
   APIKey is a case-insensitive string matched against the key of a request,
   e.g. "produce", "fetch", "createtopic", "deletetopic", et al Reference:
-  https://kafka.apache.org/protocol#protocol_api_keys.  If omitted or empty,
-  all keys are allowed.
+  https://kafka.apache.org/protocol#protocol_api_keys. If omitted or empty,
+  and if Role is not specified, then all keys are allowed.
 
 APIVersion
   APIVersion is the version matched against the api version of the Kafka
@@ -586,14 +593,14 @@ Only allow producing to topic empire-announce using Role
    .. tabs::
      .. group-tab:: k8s YAML
 
-        .. literalinclude:: ../../examples/policies/l7/kafka/kafka-Role.yaml
+        .. literalinclude:: ../../examples/policies/l7/kafka/kafka-role.yaml
      .. group-tab:: JSON
 
-        .. literalinclude:: ../../examples/policies/l7/kafka/kafka-Role.json
+        .. literalinclude:: ../../examples/policies/l7/kafka/kafka-role.json
 
 .. only:: epub or latex
 
-        .. literalinclude:: ../../examples/policies/l7/kafka/kafka-Role.json
+        .. literalinclude:: ../../examples/policies/l7/kafka/kafka-role.json
 
 Only allow producing to topic empire-announce using apiKeys
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

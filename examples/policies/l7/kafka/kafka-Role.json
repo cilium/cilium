@@ -11,8 +11,8 @@
       ],
       "rules": {
         "kafka": [
-            {"Role": "produce","topic": "deathstar-plans"},
-            {"Role": "produce", "topic": "empire-announce"}
+            {"role": "produce","topic": "deathstar-plans"},
+            {"role": "produce", "topic": "empire-announce"}
         ]
       }
     }]
