@@ -93,7 +93,8 @@ struct bpf_elf_map __section_maps tunnel_endpoint_map = {
 
 #endif
 
-#if defined POLICY_INGRESS || defined POLICY_EGRESS
+#if (defined POLICY_INGRESS || defined POLICY_EGRESS) || \
+    (defined CIDR4_FILTER || defined CIDR6_FILTER)
 
 #ifndef LPM_MAP_SIZE
 #define LPM_MAP_SIZE 1024
