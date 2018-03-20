@@ -924,6 +924,9 @@ Steps to release
     See the ``README`` in the ``contrib/release`` directory for more information.
 11. Create a GitHub release and include the release notes as well as links to
     the binaries.
+12. Update the release branch on
+    `Jenkins <https://jenkins.cilium.io/job/cilium-ginkgo/job/cilium/>`__ to be tested on
+    every change and Nightly.
 
 Developer's Certificate of Origin
 ---------------------------------
