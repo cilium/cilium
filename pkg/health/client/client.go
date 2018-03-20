@@ -179,6 +179,9 @@ func FormatHealthStatusResponse(w io.Writer, sr *models.HealthStatusResponse, pr
 	if succinct {
 		fmt.Fprintf(w, "Cluster health:\t%d/%d reachable\t(%s)\n",
 			healthy, len(sr.Nodes), sr.Timestamp)
+		if printAll || healthy < len(sr.Nodes) {
+			fmt.Fprintf(w, "  Name\tIP\tReachable\tEndpoints reachable\n")
+		}
 	} else {
 		fmt.Fprintf(w, "Probe time:\t%s\n", sr.Timestamp)
 		fmt.Fprintf(w, "Nodes:\n")
@@ -192,9 +195,6 @@ func FormatHealthStatusResponse(w io.Writer, sr *models.HealthStatusResponse, pr
 			localStr = " (localhost)"
 		}
 		if succinct {
-			if printAll || healthy < len(sr.Nodes) {
-				fmt.Fprintf(w, "  Name\tIP\tReachable\tEndpoints reachable\n")
-			}
 			if printAll || !nodeIsHealthy(node) {
 				fmt.Fprintf(w, "  %s\t%s\t%t\t%t\n", node.Name,
 					node.Host.PrimaryAddress.IP,
