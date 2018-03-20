@@ -12,7 +12,7 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-var _ = Describe("K8sValidatedUpdates", func() {
+var _ = Describe("DisabledK8sValidatedUpdates", func() {
 
 	var kubectl *helpers.Kubectl
 	var logger *logrus.Entry
