@@ -33,6 +33,7 @@ import (
 
 	"github.com/asaskevich/govalidator"
 	"github.com/onsi/ginkgo"
+	"github.com/onsi/gomega"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/crypto/ssh"
 	"k8s.io/api/core/v1"
@@ -775,6 +776,24 @@ func (kub *Kubectl) CiliumReport(namespace string, pod string, commands ...[]str
 	kub.GatherLogs()
 	kub.CheckLogsForDeadlock()
 
+}
+
+// ValidateNoErrorsOnLogs checks in cilium logs since the given duration (By
+// default `CurrentGinkgoTestDescription().Duration`) that no `panic` messages
+// or `deadlocks`. In case of any of these messages, it'll mark the test as
+// failed.
+func (kub *Kubectl) ValidateNoErrorsOnLogs(duration time.Duration) {
+	cmd := fmt.Sprintf("%s -n %s logs --timestamps=true -l k8s-app=cilium --since=%vs",
+		KubectlCmd, KubeSystemNamespace, duration.Seconds())
+	res := kub.Exec(fmt.Sprintf("%s --previous", cmd))
+	if !res.WasSuccessful() {
+		res = kub.Exec(cmd)
+	}
+	logs := res.Output().String()
+	gomega.ExpectWithOffset(1, logs).ToNot(gomega.ContainSubstring("panic: "),
+		"Found a panic in Cilium logs")
+	gomega.ExpectWithOffset(1, logs).ToNot(gomega.ContainSubstring(deadLockHeader),
+		"Found a deadlock in Cilium logs")
 }
 
 // CheckLogsForDeadlock checks if the logs for Cilium log messages that signify

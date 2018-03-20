@@ -149,7 +149,8 @@ type GinkgoTestDescription struct {
 	FileName   string
 	LineNumber int
 
-	Failed bool
+	Failed   bool
+	Duration time.Duration
 }
 
 //CurrentGinkgoTestDescripton returns information about the current running test.
@@ -169,6 +170,7 @@ func CurrentGinkgoTestDescription() GinkgoTestDescription {
 		FileName:       subjectCodeLocation.FileName,
 		LineNumber:     subjectCodeLocation.LineNumber,
 		Failed:         summary.HasFailureState(),
+		Duration:       summary.RunTime,
 	}
 }
 
@@ -233,7 +235,7 @@ func buildDefaultReporter() Reporter {
 	}
 }
 
-//Skip notifies Ginkgo that the current spec should be skipped.
+//Skip notifies Ginkgo that the current spec was skipped.
 func Skip(message string, callerSkip ...int) {
 	skip := 0
 	if len(callerSkip) > 0 {
@@ -275,9 +277,9 @@ func GinkgoRecover() {
 //Describe blocks allow you to organize your specs.  A Describe block can contain any number of
 //BeforeEach, AfterEach, JustBeforeEach, It, and Measurement blocks.
 //
-//In addition you can nest Describe and Context blocks.  Describe and Context blocks are functionally
+//In addition you can nest Describe, Context and When blocks.  Describe, Context and When blocks are functionally
 //equivalent.  The difference is purely semantic -- you typical Describe the behavior of an object
-//or method and, within that Describe, outline a number of Contexts.
+//or method and, within that Describe, outline a number of Contexts and Whens.
 func Describe(text string, body func()) bool {
 	globalSuite.PushContainerNode(text, body, types.FlagTypeNone, codelocation.New(1))
 	return true
@@ -304,9 +306,9 @@ func XDescribe(text string, body func()) bool {
 //Context blocks allow you to organize your specs.  A Context block can contain any number of
 //BeforeEach, AfterEach, JustBeforeEach, It, and Measurement blocks.
 //
-//In addition you can nest Describe and Context blocks.  Describe and Context blocks are functionally
+//In addition you can nest Describe, Context and When blocks.  Describe, Context and When blocks are functionally
 //equivalent.  The difference is purely semantic -- you typical Describe the behavior of an object
-//or method and, within that Describe, outline a number of Contexts.
+//or method and, within that Describe, outline a number of Contexts and Whens.
 func Context(text string, body func()) bool {
 	globalSuite.PushContainerNode(text, body, types.FlagTypeNone, codelocation.New(1))
 	return true
@@ -327,6 +329,35 @@ func PContext(text string, body func()) bool {
 //You can mark the tests within a describe block as pending using XContext
 func XContext(text string, body func()) bool {
 	globalSuite.PushContainerNode(text, body, types.FlagTypePending, codelocation.New(1))
+	return true
+}
+
+//When blocks allow you to organize your specs.  A When block can contain any number of
+//BeforeEach, AfterEach, JustBeforeEach, It, and Measurement blocks.
+//
+//In addition you can nest Describe, Context and When blocks.  Describe, Context and When blocks are functionally
+//equivalent.  The difference is purely semantic -- you typical Describe the behavior of an object
+//or method and, within that Describe, outline a number of Contexts and Whens.
+func When(text string, body func()) bool {
+	globalSuite.PushContainerNode("when "+text, body, types.FlagTypeNone, codelocation.New(1))
+	return true
+}
+
+//You can focus the tests within a describe block using FWhen
+func FWhen(text string, body func()) bool {
+	globalSuite.PushContainerNode("when "+text, body, types.FlagTypeFocused, codelocation.New(1))
+	return true
+}
+
+//You can mark the tests within a describe block as pending using PWhen
+func PWhen(text string, body func()) bool {
+	globalSuite.PushContainerNode("when "+text, body, types.FlagTypePending, codelocation.New(1))
+	return true
+}
+
+//You can mark the tests within a describe block as pending using XWhen
+func XWhen(text string, body func()) bool {
+	globalSuite.PushContainerNode("when "+text, body, types.FlagTypePending, codelocation.New(1))
 	return true
 }
 
@@ -362,22 +393,26 @@ func XIt(text string, _ ...interface{}) bool {
 //which "It" does not fit into a natural sentence flow. All the same protocols apply for Specify blocks
 //which apply to It blocks.
 func Specify(text string, body interface{}, timeout ...float64) bool {
-	return It(text, body, timeout...)
+	globalSuite.PushItNode(text, body, types.FlagTypeNone, codelocation.New(1), parseTimeout(timeout...))
+	return true
 }
 
 //You can focus individual Specifys using FSpecify
 func FSpecify(text string, body interface{}, timeout ...float64) bool {
-	return FIt(text, body, timeout...)
+	globalSuite.PushItNode(text, body, types.FlagTypeFocused, codelocation.New(1), parseTimeout(timeout...))
+	return true
 }
 
 //You can mark Specifys as pending using PSpecify
 func PSpecify(text string, is ...interface{}) bool {
-	return PIt(text, is...)
+	globalSuite.PushItNode(text, func() {}, types.FlagTypePending, codelocation.New(1), 0)
+	return true
 }
 
 //You can mark Specifys as pending using XSpecify
 func XSpecify(text string, is ...interface{}) bool {
-	return XIt(text, is...)
+	globalSuite.PushItNode(text, func() {}, types.FlagTypePending, codelocation.New(1), 0)
+	return true
 }
 
 //By allows you to better document large Its.

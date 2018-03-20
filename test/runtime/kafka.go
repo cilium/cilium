@@ -112,6 +112,7 @@ var _ = Describe("RuntimeValidatedKafka", func() {
 	})
 
 	AfterEach(func() {
+		vm.ValidateNoErrorsOnLogs(CurrentGinkgoTestDescription().Duration)
 		if CurrentGinkgoTestDescription().Failed {
 			vm.ReportFailed()
 		}

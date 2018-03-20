@@ -61,6 +61,7 @@ var _ = Describe("K8sValidatedServicesTest", func() {
 	})
 
 	AfterEach(func() {
+		kubectl.ValidateNoErrorsOnLogs(CurrentGinkgoTestDescription().Duration)
 		if CurrentGinkgoTestDescription().Failed {
 			ciliumPod, _ := kubectl.GetCiliumPodOnNode("kube-system", "k8s1")
 			kubectl.CiliumReport("kube-system", ciliumPod, []string{

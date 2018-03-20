@@ -17,7 +17,6 @@ package RuntimeTest
 import (
 	"fmt"
 	"os"
-	"sync"
 
 	. "github.com/cilium/cilium/test/ginkgo-ext"
 	"github.com/cilium/cilium/test/helpers"
@@ -28,22 +27,26 @@ import (
 
 var _ = Describe("RuntimeValidatedLB", func() {
 
-	var once sync.Once
 	var logger *logrus.Entry
 	var vm *helpers.SSHMeta
 
-	initialize := func() {
+	BeforeAll(func() {
 		logger = log.WithFields(logrus.Fields{"test": "RuntimeLB"})
 		logger.Info("Starting")
 		vm = helpers.CreateNewRuntimeHelper(helpers.Runtime, logger)
 		vm.PolicyDelAll().ExpectSuccess()
-	}
+	})
+
+	AfterAll(func() {
+		vm.ServiceDelAll().ExpectSuccess()
+	})
 
 	images := map[string]string{
 		helpers.Httpd1: helpers.HttpdImage,
 		helpers.Httpd2: helpers.HttpdImage,
 		helpers.Client: helpers.NetperfImage,
 	}
+
 	createContainers := func() {
 		By("Creating containers for traffic test")
 
@@ -53,6 +56,7 @@ var _ = Describe("RuntimeValidatedLB", func() {
 		epStatus := vm.WaitEndpointsReady()
 		Expect(epStatus).Should(BeTrue())
 	}
+
 	deleteContainers := func() {
 		for k := range images {
 			vm.ContainerRm(k)
@@ -60,18 +64,18 @@ var _ = Describe("RuntimeValidatedLB", func() {
 	}
 
 	BeforeEach(func() {
-		once.Do(initialize)
 		vm.ServiceDelAll().ExpectSuccess()
 	}, 500)
 
 	AfterEach(func() {
+		vm.ValidateNoErrorsOnLogs(CurrentGinkgoTestDescription().Duration)
+
 		if CurrentGinkgoTestDescription().Failed {
 			vm.ReportFailed(
 				"sudo cilium service list",
 				"sudo cilium endpoint list")
 		}
 		cleanupLBDevice(vm)
-		deleteContainers()
 	}, 500)
 
 	It("validates basic service management functionality", func() {
@@ -134,190 +138,206 @@ var _ = Describe("RuntimeValidatedLB", func() {
 		result.ExpectFail("unexpected success fetching service with id 20, service should not be present")
 	}, 500)
 
-	It("validates that services work for L3 (IP) loadbalancing", func() {
-		err := createLBDevice(vm)
-		if err != nil {
-			log.Errorf("error creating interface: %s", err)
-		}
-		Expect(err).Should(BeNil())
+	Context("With Containers", func() {
 
-		createContainers()
-		httpd1, err := vm.ContainerInspectNet(helpers.Httpd1)
-		Expect(err).Should(BeNil())
-		httpd2, err := vm.ContainerInspectNet(helpers.Httpd2)
-		Expect(err).Should(BeNil())
+		BeforeAll(func() {
+			createContainers()
+		})
 
-		By(fmt.Sprintf("Creating services"))
+		AfterAll(func() {
+			deleteContainers()
+		})
 
-		services := map[string][]string{
-			"2.2.2.2:0": {
-				fmt.Sprintf("%s:0", httpd1[helpers.IPv4]),
-				fmt.Sprintf("%s:0", httpd2[helpers.IPv4]),
-			},
-			"[f00d::1:1]:0": {
-				fmt.Sprintf("[%s]:0", httpd1[helpers.IPv6]),
-				fmt.Sprintf("[%s]:0", httpd2[helpers.IPv6]),
-			},
-			"3.3.3.3:0": {
-				fmt.Sprintf("%s:0", "10.0.2.15"),
-			},
-			"[f00d::1:2]:0": {
-				fmt.Sprintf("[%s]:0", "fd02:1:1:1:1:1:1:1"),
-			},
-		}
-		svc := 1
-		for fe, be := range services {
-			status := vm.ServiceAdd(svc, fe, be)
-			status.ExpectSuccess(fmt.Sprintf("failed to create service %s=>%v", fe, be))
-			svc++
-		}
+		It("validates that services work for L3 (IP) loadbalancing", func() {
+			err := createLBDevice(vm)
+			if err != nil {
+				log.Errorf("error creating interface: %s", err)
+			}
+			Expect(err).Should(BeNil())
 
-		By("Pinging host => bpf_lb => container")
+			httpd1, err := vm.ContainerInspectNet(helpers.Httpd1)
+			Expect(err).Should(BeNil())
+			httpd2, err := vm.ContainerInspectNet(helpers.Httpd2)
+			Expect(err).Should(BeNil())
 
-		status := vm.Exec(helpers.Ping("2.2.2.2"))
-		status.ExpectSuccess("failed to ping service IP from host")
-		// FIXME GH-2889: createLBDevice() doesn't configure host IPv6
-		//status = vm.Exec(helpers.Ping6("f00d::1:1"))
-		//status.ExpectSuccess("failed to ping service IP from host")
+			By(fmt.Sprintf("Creating services"))
 
-		By("Pinging container => bpf_lb => container")
+			services := map[string][]string{
+				"2.2.2.2:0": {
+					fmt.Sprintf("%s:0", httpd1[helpers.IPv4]),
+					fmt.Sprintf("%s:0", httpd2[helpers.IPv4]),
+				},
+				"[f00d::1:1]:0": {
+					fmt.Sprintf("[%s]:0", httpd1[helpers.IPv6]),
+					fmt.Sprintf("[%s]:0", httpd2[helpers.IPv6]),
+				},
+				"3.3.3.3:0": {
+					fmt.Sprintf("%s:0", "10.0.2.15"),
+				},
+				"[f00d::1:2]:0": {
+					fmt.Sprintf("[%s]:0", "fd02:1:1:1:1:1:1:1"),
+				},
+			}
+			svc := 1
+			for fe, be := range services {
+				status := vm.ServiceAdd(svc, fe, be)
+				status.ExpectSuccess(fmt.Sprintf("failed to create service %s=>%v", fe, be))
+				svc++
+			}
 
-		status = vm.ContainerExec(helpers.Client, helpers.Ping("2.2.2.2"))
-		status.ExpectSuccess("failed to ping service IP 2.2.2.2")
-		status = vm.ContainerExec(helpers.Client, helpers.Ping6("f00d::1:1"))
-		status.ExpectSuccess("failed to ping service IP f00d::1:1")
+			By("Pinging host => bpf_lb => container")
 
-		By("Pinging container => bpf_lb => host")
+			status := vm.Exec(helpers.Ping("2.2.2.2"))
+			status.ExpectSuccess("failed to ping service IP from host")
+			// FIXME GH-2889: createLBDevice() doesn't configure host IPv6
+			//status = vm.Exec(helpers.Ping6("f00d::1:1"))
+			//status.ExpectSuccess("failed to ping service IP from host")
 
-		status = vm.ContainerExec(helpers.Client, helpers.Ping("3.3.3.3"))
-		status.ExpectSuccess("failed to ping service IP 3.3.3.3")
-		status = vm.ContainerExec(helpers.Client, helpers.Ping("f00d::1:2"))
-		status.ExpectSuccess("failed to ping service IP f00d::1:2")
+			By("Pinging container => bpf_lb => container")
 
-		By("Configuring services to point to own IP via service")
+			status = vm.ContainerExec(helpers.Client, helpers.Ping("2.2.2.2"))
+			status.ExpectSuccess("failed to ping service IP 2.2.2.2")
+			status = vm.ContainerExec(helpers.Client, helpers.Ping6("f00d::1:1"))
+			status.ExpectSuccess("failed to ping service IP f00d::1:1")
 
-		vm.ServiceDelAll().ExpectSuccess()
-		loopbackServices := map[string]string{
-			"2.2.2.2:0":     fmt.Sprintf("%s:0", httpd1[helpers.IPv4]),
-			"[f00d::1:1]:0": fmt.Sprintf("[%s]:0", httpd1[helpers.IPv6]),
-		}
-		svc = 1
-		for fe, be := range loopbackServices {
-			status := vm.ServiceAdd(svc, fe, []string{be})
-			status.ExpectSuccess(fmt.Sprintf("failed to create service %s=>%v", fe, be))
-			svc++
-		}
+			By("Pinging container => bpf_lb => host")
 
-		By("Pinging from server1 to its own service IP")
+			status = vm.ContainerExec(helpers.Client, helpers.Ping("3.3.3.3"))
+			status.ExpectSuccess("failed to ping service IP 3.3.3.3")
+			status = vm.ContainerExec(helpers.Client, helpers.Ping("f00d::1:2"))
+			status.ExpectSuccess("failed to ping service IP f00d::1:2")
 
-		status = vm.ContainerExec(helpers.Httpd1, helpers.Ping("2.2.2.2"))
-		status.ExpectSuccess("failed to ping service IP 2.2.2.2")
-		status = vm.ContainerExec(helpers.Httpd1, helpers.Ping6("f00d::1:1"))
-		status.ExpectSuccess("failed to ping service IP f00d::1:1")
-	}, 500)
+			By("Configuring services to point to own IP via service")
 
-	It("validates that services work for L4 (IP+Port) loadbalancing", func() {
-		err := createLBDevice(vm)
-		if err != nil {
-			log.Errorf("error creating interface: %s", err)
-		}
-		Expect(err).Should(BeNil())
+			vm.ServiceDelAll().ExpectSuccess()
+			loopbackServices := map[string]string{
+				"2.2.2.2:0":     fmt.Sprintf("%s:0", httpd1[helpers.IPv4]),
+				"[f00d::1:1]:0": fmt.Sprintf("[%s]:0", httpd1[helpers.IPv6]),
+			}
+			svc = 1
+			for fe, be := range loopbackServices {
+				status := vm.ServiceAdd(svc, fe, []string{be})
+				status.ExpectSuccess(fmt.Sprintf("failed to create service %s=>%v", fe, be))
+				svc++
+			}
 
-		createContainers()
-		httpd1, err := vm.ContainerInspectNet(helpers.Httpd1)
-		Expect(err).Should(BeNil())
-		httpd2, err := vm.ContainerInspectNet(helpers.Httpd2)
-		Expect(err).Should(BeNil())
+			By("Pinging from server1 to its own service IP")
 
-		By(fmt.Sprintf("Creating services"))
+			status = vm.ContainerExec(helpers.Httpd1, helpers.Ping("2.2.2.2"))
+			status.ExpectSuccess("failed to ping service IP 2.2.2.2")
+			status = vm.ContainerExec(helpers.Httpd1, helpers.Ping6("f00d::1:1"))
+			status.ExpectSuccess("failed to ping service IP f00d::1:1")
+		}, 500)
 
-		services := map[string][]string{
-			"2.2.2.2:80": {
-				fmt.Sprintf("%s:80", httpd1[helpers.IPv4]),
-				fmt.Sprintf("%s:80", httpd2[helpers.IPv4]),
-			},
-			"[f00d::1:1]:80": {
-				fmt.Sprintf("[%s]:80", httpd1[helpers.IPv6]),
-				fmt.Sprintf("[%s]:80", httpd2[helpers.IPv6]),
-			},
-		}
-		svc := 1
-		for fe, be := range services {
-			status := vm.ServiceAdd(svc, fe, be)
-			status.ExpectSuccess("failed to create service %s=>%v", fe, be)
-			svc++
-		}
+		It("validates that services work for L4 (IP+Port) loadbalancing", func() {
+			err := createLBDevice(vm)
+			if err != nil {
+				log.Errorf("error creating interface: %s", err)
+			}
+			Expect(err).Should(BeNil())
 
-		By("Making HTTP requests from container => bpf_lb => container")
+			httpd1, err := vm.ContainerInspectNet(helpers.Httpd1)
+			Expect(err).Should(BeNil())
+			httpd2, err := vm.ContainerInspectNet(helpers.Httpd2)
+			Expect(err).Should(BeNil())
 
-		for ip := range services {
-			url := fmt.Sprintf("http://%s/public", ip)
-			status := vm.ContainerExec(helpers.Client, helpers.CurlFail(url))
-			status.ExpectSuccess(fmt.Sprintf("failed to fetch via URL %s", url))
-		}
-	}, 500)
+			By(fmt.Sprintf("Creating services"))
 
-	It("validates service recovery on restart", func() {
-		service := "2.2.2.2:80"
-		svcID := 1
-		testCmd := helpers.CurlFail(fmt.Sprintf("http://%s/public", service))
+			services := map[string][]string{
+				"2.2.2.2:80": {
+					fmt.Sprintf("%s:80", httpd1[helpers.IPv4]),
+					fmt.Sprintf("%s:80", httpd2[helpers.IPv4]),
+				},
+				"[f00d::1:1]:80": {
+					fmt.Sprintf("[%s]:80", httpd1[helpers.IPv6]),
+					fmt.Sprintf("[%s]:80", httpd2[helpers.IPv6]),
+				},
+			}
+			svc := 1
+			for fe, be := range services {
+				status := vm.ServiceAdd(svc, fe, be)
+				status.ExpectSuccess("failed to create service %s=>%v", fe, be)
+				svc++
+			}
 
-		createContainers()
-		httpd1, err := vm.ContainerInspectNet("httpd1")
-		Expect(err).Should(BeNil())
-		httpd2, err := vm.ContainerInspectNet("httpd2")
-		Expect(err).Should(BeNil())
+			By("Making HTTP requests from container => bpf_lb => container")
 
-		status := vm.ServiceAdd(svcID, service, []string{
-			fmt.Sprintf("%s:80", httpd1["IPv4"]),
-			fmt.Sprintf("%s:80", httpd2["IPv4"])})
-		status.ExpectSuccess("failed to create service %s=>{httpd1,httpd2}", service)
+			for ip := range services {
+				url := fmt.Sprintf("http://%s/public", ip)
+				status := vm.ContainerExec(helpers.Client, helpers.CurlFail(url))
+				status.ExpectSuccess(fmt.Sprintf("failed to fetch via URL %s", url))
+			}
+		}, 500)
 
-		By("Making HTTP request via the service before restart")
+		It("validates service recovery on restart", func() {
+			service := "2.2.2.2:80"
+			svcID := 1
+			testCmd := helpers.CurlFail(fmt.Sprintf("http://%s/public", service))
 
-		status = vm.ContainerExec(helpers.Client, testCmd)
-		status.ExpectSuccess("Failed to fetch URL via service")
-		oldSvc := vm.ServiceList()
-		oldSvc.ExpectSuccess("Cannot retrieve service list")
+			httpd1, err := vm.ContainerInspectNet("httpd1")
+			Expect(err).Should(BeNil())
+			httpd2, err := vm.ContainerInspectNet("httpd2")
+			Expect(err).Should(BeNil())
 
-		By("Fetching service state before restart")
+			status := vm.ServiceAdd(svcID, service, []string{
+				fmt.Sprintf("%s:80", httpd1["IPv4"]),
+				fmt.Sprintf("%s:80", httpd2["IPv4"])})
+			status.ExpectSuccess("failed to create service %s=>{httpd1,httpd2}", service)
 
-		oldSvcIds, err := vm.ServiceGetIds()
-		Expect(err).Should(BeNil())
-		oldBpfLB, err := vm.BpfLBList()
-		Expect(err).Should(BeNil())
+			By("Making HTTP request via the service before restart")
 
-		err = vm.RestartCilium()
-		Expect(err).Should(BeNil())
+			status = vm.ContainerExec(helpers.Client, testCmd)
+			status.ExpectSuccess("Failed to fetch URL via service")
+			oldSvc := vm.ServiceList()
+			oldSvc.ExpectSuccess("Cannot retrieve service list")
 
-		By("Checking that the service was restored correctly")
+			By("Fetching service state before restart")
 
-		svcIds, err := vm.ServiceGetIds()
-		Expect(err).Should(BeNil())
-		Expect(len(svcIds)).Should(Equal(len(oldSvcIds)),
-			"Service ids %s do not match old service ids %s", svcIds, oldSvcIds)
-		newSvc := vm.ServiceList()
-		newSvc.ExpectSuccess("Cannot retrieve service list after restart")
-		newSvc.ExpectEqual(oldSvc.Output().String(), "Service list does not match")
+			oldSvcIds, err := vm.ServiceGetIds()
+			Expect(err).Should(BeNil())
+			oldBpfLB, err := vm.BpfLBList()
+			Expect(err).Should(BeNil())
 
-		By("Checking that BPF LB maps match the service")
+			err = vm.RestartCilium()
+			Expect(err).Should(BeNil())
 
-		newBpfLB, err := vm.BpfLBList()
-		Expect(err).Should(BeNil(), "Cannot retrieve bpf lb list after restart")
-		Expect(oldBpfLB).Should(Equal(newBpfLB))
-		svcSync, err := vm.ServiceIsSynced(svcID)
-		Expect(err).Should(BeNil(), "Service is not sync with BPF LB")
-		Expect(svcSync).Should(BeTrue())
+			By("Checking that the service was restored correctly")
 
-		By("Making HTTP request via the service after restart")
+			svcIds, err := vm.ServiceGetIds()
+			Expect(err).Should(BeNil())
+			Expect(len(svcIds)).Should(Equal(len(oldSvcIds)),
+				"Service ids %s do not match old service ids %s", svcIds, oldSvcIds)
+			newSvc := vm.ServiceList()
+			newSvc.ExpectSuccess("Cannot retrieve service list after restart")
+			newSvc.ExpectEqual(oldSvc.Output().String(), "Service list does not match")
 
-		status = vm.ContainerExec("client", testCmd)
-		status.ExpectSuccess("Failed to fetch URL via service")
+			By("Checking that BPF LB maps match the service")
+
+			newBpfLB, err := vm.BpfLBList()
+			Expect(err).Should(BeNil(), "Cannot retrieve bpf lb list after restart")
+			Expect(oldBpfLB).Should(Equal(newBpfLB))
+			svcSync, err := vm.ServiceIsSynced(svcID)
+			Expect(err).Should(BeNil(), "Service is not sync with BPF LB")
+			Expect(svcSync).Should(BeTrue())
+
+			By("Making HTTP request via the service after restart")
+
+			status = vm.ContainerExec("client", testCmd)
+			status.ExpectSuccess("Failed to fetch URL via service")
+		})
 	})
 
 	Context("Services Policies", func() {
-		AfterEach(func() {
+
+		BeforeAll(func() {
+			vm.SampleContainersActions(helpers.Create, helpers.CiliumDockerNetwork)
+		})
+
+		AfterAll(func() {
 			vm.SampleContainersActions(helpers.Delete, helpers.CiliumDockerNetwork)
+		})
+
+		AfterEach(func() {
 			vm.PolicyDelAll().ExpectSuccess()
 			vm.ServiceDelAll().ExpectSuccess()
 
@@ -327,7 +347,6 @@ var _ = Describe("RuntimeValidatedLB", func() {
 		})
 
 		testServicesWithPolicies := func(svcPort int) {
-			vm.SampleContainersActions(helpers.Create, helpers.CiliumDockerNetwork)
 			ready := vm.WaitEndpointsReady()
 			Expect(ready).To(BeTrue())
 

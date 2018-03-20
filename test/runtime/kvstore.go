@@ -54,6 +54,7 @@ var _ = Describe("RuntimeValidatedKVStoreTest", func() {
 	}, 150)
 
 	AfterEach(func() {
+		vm.ValidateNoErrorsOnLogs(CurrentGinkgoTestDescription().Duration)
 		if CurrentGinkgoTestDescription().Failed {
 			vm.ReportFailed(
 				"sudo docker ps -a",

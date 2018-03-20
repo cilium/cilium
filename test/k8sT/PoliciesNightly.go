@@ -51,6 +51,7 @@ var _ = Describe("NightlyPolicies", func() {
 	})
 
 	AfterEach(func() {
+		kubectl.ValidateNoErrorsOnLogs(CurrentGinkgoTestDescription().Duration)
 		if CurrentGinkgoTestDescription().Failed {
 			ciliumPod, _ := kubectl.GetCiliumPodOnNode(helpers.KubeSystemNamespace, "k8s1")
 			kubectl.CiliumReport("kube-system", ciliumPod, []string{
