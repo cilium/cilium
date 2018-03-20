@@ -77,7 +77,7 @@ type TcpProxy struct {
 	//   want to configure the filter using v1 config structure, please make this
 	//   field a boolean with value ``true`` and configure via the opaque ``value`` field
 	//   like is suggested in the filter `README
-	//   <https://github.com/envoyproxy/data-plane-api/blob/master/envoy/api/v2/filter/README.md>`_.
+	//   <https://github.com/envoyproxy/data-plane-api/blob/master/envoy/config/filter/README.md>`_.
 	DeprecatedV1 *TcpProxy_DeprecatedV1 `protobuf:"bytes,6,opt,name=deprecated_v1,json=deprecatedV1" json:"deprecated_v1,omitempty"`
 	// The maximum number of unsuccessful connection attempts that will be made before
 	// giving up. If the parameter is not specified, 1 connection attempt will be made.

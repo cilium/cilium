@@ -8,6 +8,7 @@
 #include "common/network/address_impl.h"
 
 #include "cilium_bpf_metadata.h"
+#include "cilium_socket_option.h"
 
 namespace Envoy {
 namespace Cilium {
@@ -105,7 +106,7 @@ bool ProxyMap::getBpfMetadata(Network::ConnectionSocket &socket) {
       key.nexthdr = 6;
 
       ENVOY_LOG(
-          trace,
+          debug,
           "cilium.bpf_metadata: Looking up key: {:x}, {:x}, {:x}, {:x}, {:x}",
           ntohl(key.saddr), ntohs(key.dport), ntohs(key.sport), key.nexthdr,
           key.pad);
@@ -120,7 +121,8 @@ bool ProxyMap::getBpfMetadata(Network::ConnectionSocket &socket) {
 	if (*orig_local_address != *socket.localAddress()) {
 	  socket.setLocalAddress(orig_local_address, true);
 	}
-        socket.setOptions(std::make_shared<SocketMarkOption>(parent_.getMark(value.identity)));
+        uint32_t identity = value.identity;
+        socket.setOptions(std::make_shared<SocketOption>(parent_.getMark(identity), identity, parent_.is_ingress_, ntohs(value.orig_dport)));
         return true;
       }
       ENVOY_LOG(info, "cilium.bpf_metadata: IPv4 bpf map lookup failed: {}",
@@ -146,7 +148,8 @@ bool ProxyMap::getBpfMetadata(Network::ConnectionSocket &socket) {
 	if (*orig_local_address != *socket.localAddress()) {
 	  socket.setLocalAddress(orig_local_address, true);
 	}
-        socket.setOptions(std::make_shared<SocketMarkOption>(parent_.getMark(value.identity)));
+        uint32_t identity = value.identity;
+        socket.setOptions(std::make_shared<SocketOption>(parent_.getMark(identity), identity, parent_.is_ingress_, ntohs(value.orig_dport)));
         return true;
       }
       ENVOY_LOG(info, "cilium.bpf_metadata: IPv6 bpf map lookup failed: {}",

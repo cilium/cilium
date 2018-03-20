@@ -249,7 +249,7 @@ func (ds *DaemonSuite) RemoveNetworkPolicy(e *e.Endpoint) {
 	if ds.OnRemoveNetworkPolicy != nil {
 		ds.OnRemoveNetworkPolicy(e)
 	}
-	panic("UpdateNetworkPolicy should not have been called")
+	panic("RemoveNetworkPolicy should not have been called")
 }
 
 func (ds *DaemonSuite) GetStateDir() string {

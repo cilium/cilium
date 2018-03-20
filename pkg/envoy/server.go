@@ -129,6 +129,10 @@ func createXDSServer(path, accessLogPath string) *XDSServer {
 							"name": {&structpb.Value_StringValue{StringValue: "cilium.l7policy"}},
 							"config": {&structpb.Value_StructValue{StructValue: &structpb.Struct{Fields: map[string]*structpb.Value{
 								"access_log_path": {&structpb.Value_StringValue{StringValue: accessLogPath}},
+								"api_config_source": {&structpb.Value_StructValue{StructValue: &structpb.Struct{Fields: map[string]*structpb.Value{
+									"api_type":      {&structpb.Value_NumberValue{NumberValue: float64(envoy_api_v2_core.ApiConfigSource_GRPC)}},
+									"cluster_names": {&structpb.Value_StringValue{StringValue: "xdsCluster"}},
+								}}}},
 							}}}},
 						}}}},
 						{&structpb.Value_StructValue{StructValue: &structpb.Struct{Fields: map[string]*structpb.Value{
@@ -153,7 +157,6 @@ func createXDSServer(path, accessLogPath string) *XDSServer {
 			Config: &structpb.Struct{Fields: map[string]*structpb.Value{
 				"is_ingress": {&structpb.Value_BoolValue{BoolValue: false}},
 				"bpf_root":   {&structpb.Value_StringValue{StringValue: "/sys/fs/bpf"}},
-				"identity":   {&structpb.Value_NumberValue{NumberValue: float64(0)}},
 			}},
 		}},
 	}
@@ -168,7 +171,7 @@ func createXDSServer(path, accessLogPath string) *XDSServer {
 	}
 }
 
-func (s *XDSServer) addListener(name string, port uint16, l7rules policy.L7DataMap, isIngress bool, logger Logger, wg *completion.WaitGroup) {
+func (s *XDSServer) addListener(name string, endpoint_policy_name string, port uint16, l7rules policy.L7DataMap, isIngress bool, logger Logger, wg *completion.WaitGroup) {
 	log.Debug("Envoy: addListener ", name)
 
 	s.mutex.Lock()
@@ -195,6 +198,7 @@ func (s *XDSServer) addListener(name string, port uint16, l7rules policy.L7DataM
 	}
 
 	listenerConf.FilterChains[0].Filters[0].Config.Fields["http_filters"].GetListValue().Values[0].GetStructValue().Fields["config"].GetStructValue().Fields["listener_id"] = &structpb.Value{Kind: &structpb.Value_StringValue{StringValue: name}}
+	listenerConf.FilterChains[0].Filters[0].Config.Fields["http_filters"].GetListValue().Values[0].GetStructValue().Fields["config"].GetStructValue().Fields["policy_name"] = &structpb.Value{Kind: &structpb.Value_StringValue{StringValue: endpoint_policy_name}}
 
 	s.listenerMutator.Upsert(ListenerTypeURL, name, listenerConf, []string{"127.0.0.1"}, wg.AddCompletion())
 }

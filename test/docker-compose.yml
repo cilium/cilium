@@ -15,7 +15,7 @@ services:
     depends_on:
       - consul
       - etcd
-    image: "cilium/cilium-builder:2018-03-09"
+    image: "cilium/cilium-builder:2018-03-16"
     command: "bash -c 'cd /go/src/github.com/cilium/cilium/; make tests-ginkgo-real'"
     privileged: true
     volumes:

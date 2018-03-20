@@ -53,7 +53,14 @@ func createEnvoyRedirect(r *Redirect, wg *completion.WaitGroup) (RedirectImpleme
 	if envoyProxy != nil {
 		redir := &envoyRedirect{redirect: r}
 
-		envoyProxy.AddListener(r.id, r.ProxyPort, r.rules, r.ingress, redir, wg)
+		ip := r.source.GetIPv4Address()
+		if ip == "" {
+			ip = r.source.GetIPv6Address()
+		}
+		if ip == "" {
+			return nil, fmt.Errorf("%s: Cannot create redirect, proxy source has no IP address.", r.id)
+		}
+		envoyProxy.AddListener(r.id, ip, r.ProxyPort, r.rules, r.ingress, redir, wg)
 
 		return redir, nil
 	}

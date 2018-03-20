@@ -56,8 +56,7 @@ AccessLog::~AccessLog() {}
 
 void AccessLog::Entry::InitFromRequest(
     std::string listener_id, const Network::Connection *conn,
-    const Http::HeaderMap &headers, const RequestInfo::RequestInfo &info,
-    const Router::RouteEntry *route) {
+    const Http::HeaderMap &headers, const RequestInfo::RequestInfo &info) {
   auto time = info.startTime();
   entry.set_timestamp(std::chrono::duration_cast<std::chrono::nanoseconds>(
                           time.time_since_epoch())
@@ -80,15 +79,6 @@ void AccessLog::Entry::InitFromRequest(
   entry.set_http_protocol(proto);
 
   entry.set_cilium_resource_name(listener_id);
-
-  // Get rule reference from the opaque config of the route entry
-  if (route) {
-    auto ocmap = route->opaqueConfig();
-    auto it = ocmap.find("cilium_rule_ref");
-    if (it != ocmap.end()) {
-      entry.set_cilium_rule_ref(it->second);
-    }
-  }
 
   if (conn) {
     if (conn->socketOptions() != nullptr) {

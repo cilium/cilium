@@ -343,8 +343,8 @@ func (e *Envoy) StopEnvoy() error {
 }
 
 // AddListener adds a listener to a running Envoy proxy.
-func (e *Envoy) AddListener(name string, port uint16, l7rules policy.L7DataMap, isIngress bool, logger Logger, wg *completion.WaitGroup) {
-	e.xds.addListener(name, port, l7rules, isIngress, logger, wg)
+func (e *Envoy) AddListener(name string, endpoint_policy_name string, port uint16, l7rules policy.L7DataMap, isIngress bool, logger Logger, wg *completion.WaitGroup) {
+	e.xds.addListener(name, endpoint_policy_name, port, l7rules, isIngress, logger, wg)
 }
 
 // UpdateListener changes to the L7 rules of an existing Envoy Listener.
