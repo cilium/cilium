@@ -25,9 +25,6 @@ const (
 
 	// NetworkPolicyHostsTypeURL is the type URL of NetworkPolicyHosts resources.
 	NetworkPolicyHostsTypeURL = "type.googleapis.com/cilium.NetworkPolicyHosts"
-
-	// RouteConfigurationTypeURL is the type URL of RouteConfiguration resources.
-	RouteConfigurationTypeURL = "type.googleapis.com/envoy.api.v2.RouteConfiguration"
 )
 
 var (
