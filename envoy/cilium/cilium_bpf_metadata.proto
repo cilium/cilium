@@ -9,7 +9,4 @@ message BpfMetadata {
 
   // 'true' if the filter is on ingress proxy, 'false' for egress proxy.
   bool is_ingress = 2;
-
-  // Cilium security identity for which this proxy is confugured.
-  uint32 identity = 3;
 }

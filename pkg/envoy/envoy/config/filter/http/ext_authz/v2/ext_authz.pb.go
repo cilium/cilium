@@ -31,17 +31,17 @@ const _ = proto.ProtoPackageIsVersion2 // please upgrade the proto package
 
 // [#not-implemented-hide:]
 // External Authorization filter calls out to an external service over the
-// gRPC Authorization API defined by :ref:`external_auth <envoy_api_msg_auth.CheckRequest>`.
+// gRPC Authorization API defined by
+// :ref:`external_auth <envoy_api_msg_auth.CheckRequest>`.
 // A failed check will cause this filter to return 403 Forbidden.
 type ExtAuthz struct {
 	// The external authorization gRPC service configuration.
 	GrpcService *envoy_api_v2_core1.GrpcService `protobuf:"bytes,1,opt,name=grpc_service,json=grpcService" json:"grpc_service,omitempty"`
 	// The filter's behaviour in case the external authorization service does
 	// not respond back. If set to true then in case of failure to get a
-	// response back from the authorization service allow the traffic.
+	// response back from the authorization service or getting a response that
+	// is NOT denied then traffic will be permitted.
 	// Defaults to false.
-	// If set to true and the response from the authorization service is NOT
-	// Denied then the traffic will be permitted.
 	FailureModeAllow bool `protobuf:"varint,2,opt,name=failure_mode_allow,json=failureModeAllow" json:"failure_mode_allow,omitempty"`
 }
 

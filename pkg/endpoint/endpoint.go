@@ -1594,6 +1594,7 @@ func (e *Endpoint) LeaveLocked(owner Owner) int {
 				Error("Unable to release identity of endpoint")
 			errors++
 		}
+		// TODO: Check if network policy was created even without SecurityIdentity
 		owner.RemoveNetworkPolicy(e)
 		e.SecurityIdentity = nil
 	}

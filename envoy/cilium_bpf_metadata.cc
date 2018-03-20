@@ -9,6 +9,8 @@
 
 #include "common/common/assert.h"
 
+#include "cilium_socket_option.h"
+
 namespace Envoy {
 namespace Server {
 namespace Configuration {
@@ -27,8 +29,9 @@ public:
 	new Filter::BpfMetadata::Config(MessageUtil::downcastAndValidate<const ::cilium::BpfMetadata&>(proto_config),
 					context.scope()));
     // Set the socket mark option for the listen socket.
-    // TODO: Share
-    context.setListenSocketOptions(std::make_shared<Cilium::SocketMarkOption>(config->getMark(config->identity_)));
+    // Can use identity 0 on the listen socket option, as the bpf datapath is only interested
+    // in whether the proxy is ingress, egress, or if there is no proxy at all.
+    context.setListenSocketOptions(std::make_shared<Cilium::SocketMarkOption>(config->getMark(0)));
 
     return [config](Network::ListenerFilterManager &filter_manager) mutable -> void {
       filter_manager.addAcceptFilter(std::make_unique<Filter::BpfMetadata::Instance>(config));
@@ -57,9 +60,8 @@ namespace BpfMetadata {
 
 Config::Config(const ::cilium::BpfMetadata &config, Stats::Scope &scope)
     : bpf_root_(config.bpf_root().length() ? config.bpf_root() : "/sys/fs/bpf"),
-      stats_{ALL_BPF_METADATA_STATS(POOL_COUNTER(scope))},
-      is_ingress_(config.is_ingress()),
-      identity_(config.identity()), maps_(bpf_root_, *this) {}
+      stats_{ALL_BPF_METADATA_STATS(POOL_COUNTER(scope))}, is_ingress_(config.is_ingress()),
+      maps_(bpf_root_, *this) {}
 
 bool Instance::getBpfMetadata(Network::ConnectionSocket &socket) {
   return config_->maps_.getBpfMetadata(socket);

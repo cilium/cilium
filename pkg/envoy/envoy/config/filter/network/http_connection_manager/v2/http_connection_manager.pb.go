@@ -202,7 +202,6 @@ type HttpConnectionManager struct {
 	// :ref:`config_http_conn_man_headers_x-envoy-internal`, and
 	// :ref:`config_http_conn_man_headers_x-envoy-external-address` for more information.
 	UseRemoteAddress *google_protobuf1.BoolValue `protobuf:"bytes,14,opt,name=use_remote_address,json=useRemoteAddress" json:"use_remote_address,omitempty"`
-	// [#not-implemented-hide:]
 	// The number of additional ingress proxy hops from the right side of the
 	// :ref:`config_http_conn_man_headers_x-forwarded-for` HTTP header to trust when
 	// determining the origin client's IP address. The default is zero if this option

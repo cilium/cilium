@@ -25,8 +25,7 @@ public:
   class Entry {
   public:
     void InitFromRequest(std::string listener_id, const Network::Connection *,
-                         const Http::HeaderMap &, const RequestInfo::RequestInfo &,
-                         const Router::RouteEntry *);
+                         const Http::HeaderMap &, const RequestInfo::RequestInfo &);
     void UpdateFromResponse(const Http::HeaderMap &, const RequestInfo::RequestInfo &);
 
     ::cilium::HttpLogEntry entry{};
