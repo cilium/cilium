@@ -67,7 +67,7 @@ func (d *Daemon) SyncState(dir string, clean bool) error {
 			scopedLog := log.WithField(logfields.EndpointID, ep.ID)
 			if clean && !containerd.IsRunning(ep) {
 				scopedLog.Info("No workload could be associated with endpoint being restored, ignoring")
-				d.deleteEndpoint(ep)
+				d.deleteEndpointQuiet(ep)
 				epRegenerated <- false
 				epRestored <- false
 				return
@@ -80,7 +80,7 @@ func (d *Daemon) SyncState(dir string, clean bool) error {
 			if err := d.allocateIPsLocked(ep); err != nil {
 				ep.Mutex.Unlock()
 				scopedLog.WithError(err).Error("Failed to re-allocate IP of endpoint. Not restoring endpoint.")
-				d.deleteEndpoint(ep)
+				d.deleteEndpointQuiet(ep)
 				epRegenerated <- false
 				epRestored <- false
 				return

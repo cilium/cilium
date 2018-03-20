@@ -1567,8 +1567,8 @@ func (e *Endpoint) replaceIdentityLabels(l pkgLabels.Labels) int {
 
 // LeaveLocked removes the endpoint's directory from the system. Must be called
 // with Endpoint's mutex AND BuildMutex locked.
-func (e *Endpoint) LeaveLocked(owner Owner) int {
-	errors := 0
+func (e *Endpoint) LeaveLocked(owner Owner) []error {
+	errors := []error{}
 
 	owner.RemoveFromEndpointQueue(uint64(e.ID))
 	if c := e.Consumable; c != nil {
@@ -1582,17 +1582,14 @@ func (e *Endpoint) LeaveLocked(owner Owner) int {
 
 	if e.PolicyMap != nil {
 		if err := e.PolicyMap.Close(); err != nil {
-			e.getLogger().WithError(err).WithField(logfields.Path, e.PolicyMapPathLocked()).Warn("Unable to close policy map")
-			errors++
+			errors = append(errors, fmt.Errorf("unable to close policymap %s: %s", e.PolicyGlobalMapPathLocked(), err))
 		}
 	}
 
 	if e.SecurityIdentity != nil {
 		err := e.SecurityIdentity.Release()
 		if err != nil {
-			log.WithError(err).WithField(logfields.Identity, e.SecurityIdentity.ID).
-				Error("Unable to release identity of endpoint")
-			errors++
+			errors = append(errors, fmt.Errorf("unable to release identity: %s", err))
 		}
 		owner.RemoveNetworkPolicy(e)
 		e.SecurityIdentity = nil
