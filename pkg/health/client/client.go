@@ -162,6 +162,34 @@ func nodeIsHealthy(node *models.NodeStatus) bool {
 		(node.Endpoint == nil || pathIsHealthy(node.Endpoint))
 }
 
+func nodeIsLocalhost(node *models.NodeStatus, self *models.SelfStatus) bool {
+	return self != nil && node.Name == self.Name
+}
+
+func formatNodeStatus(w io.Writer, node *models.NodeStatus, printAll, verbose, succinct, localhost bool) {
+	localStr := ""
+	if localhost {
+		localStr = " (localhost)"
+	}
+	if succinct {
+		if printAll || !nodeIsHealthy(node) {
+			fmt.Fprintf(w, "  %s%s\t%s\t%t\t%t\n", node.Name,
+				localStr, node.Host.PrimaryAddress.IP,
+				pathIsHealthy(node.Host.PrimaryAddress),
+				pathIsHealthy(node.Endpoint))
+		}
+	} else {
+		fmt.Fprintf(w, "  %s%s:\n", node.Name, localStr)
+		formatPathStatus(w, "Host", node.Host.PrimaryAddress, "    ", verbose)
+		if verbose && len(node.Host.SecondaryAddresses) > 0 {
+			for _, addr := range node.Host.SecondaryAddresses {
+				formatPathStatus(w, "Secondary", addr, "      ", verbose)
+			}
+		}
+		formatPathStatus(w, "Endpoint", node.Endpoint, "    ", verbose)
+	}
+}
+
 // FormatHealthStatusResponse writes a HealthStatusResponse as a string to the
 // writer.
 //
@@ -170,10 +198,16 @@ func nodeIsHealthy(node *models.NodeStatus) bool {
 // 'verbose', if true, overrides 'succinct' and prints all information
 // 'maxLines', if nonzero, determines the maximum number of lines to print
 func FormatHealthStatusResponse(w io.Writer, sr *models.HealthStatusResponse, printAll, succinct, verbose bool, maxLines int) {
-	var healthy int
+	var (
+		healthy   int
+		localhost *models.NodeStatus
+	)
 	for _, node := range sr.Nodes {
 		if nodeIsHealthy(node) {
 			healthy++
+		}
+		if nodeIsLocalhost(node, sr.Local) {
+			localhost = node
 		}
 	}
 	if succinct {
@@ -186,31 +220,19 @@ func FormatHealthStatusResponse(w io.Writer, sr *models.HealthStatusResponse, pr
 		fmt.Fprintf(w, "Probe time:\t%s\n", sr.Timestamp)
 		fmt.Fprintf(w, "Nodes:\n")
 	}
+
+	if localhost != nil {
+		formatNodeStatus(w, localhost, printAll, succinct, verbose, true)
+		maxLines--
+	}
 	for n, node := range sr.Nodes {
 		if maxLines > 0 && n > maxLines {
 			break
 		}
-		localStr := ""
-		if sr.Local != nil && node.Name == sr.Local.Name {
-			localStr = " (localhost)"
+		if node == localhost {
+			continue
 		}
-		if succinct {
-			if printAll || !nodeIsHealthy(node) {
-				fmt.Fprintf(w, "  %s\t%s\t%t\t%t\n", node.Name,
-					node.Host.PrimaryAddress.IP,
-					pathIsHealthy(node.Host.PrimaryAddress),
-					pathIsHealthy(node.Endpoint))
-			}
-		} else {
-			fmt.Fprintf(w, "  %s%s:\n", node.Name, localStr)
-			formatPathStatus(w, "Host", node.Host.PrimaryAddress, "    ", verbose)
-			if verbose && len(node.Host.SecondaryAddresses) > 0 {
-				for _, addr := range node.Host.SecondaryAddresses {
-					formatPathStatus(w, "Secondary", addr, "      ", verbose)
-				}
-			}
-			formatPathStatus(w, "Endpoint", node.Endpoint, "    ", verbose)
-		}
+		formatNodeStatus(w, node, printAll, succinct, verbose, false)
 	}
 	if maxLines > 0 && len(sr.Nodes)-healthy > maxLines {
 		fmt.Fprintf(w, "  ...")
