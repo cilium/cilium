@@ -679,6 +679,12 @@ var _ = Describe("K8sValidatedPolicyTestAcrossNamespaces", func() {
 	var once sync.Once
 	var path string
 
+	var (
+		namespace     = "namespace"
+		qaNs          = "qa"
+		developmentNs = "development"
+	)
+
 	initialize := func() {
 		logger = log.WithFields(logrus.Fields{"testName": "K8sPolicyTestAcrossNamespaces"})
 		logger.Info("Starting")
@@ -694,8 +700,22 @@ var _ = Describe("K8sValidatedPolicyTestAcrossNamespaces", func() {
 		Expect(err).Should(BeNil())
 	}
 
+	namespaceAction := func(ns string, action string) {
+		switch action {
+		case helpers.Create:
+			kubectl.CreateResource(namespace, ns).ExpectSuccess(
+				"cannot create namespace %s", ns)
+
+		case helpers.Delete:
+			kubectl.DeleteResource(namespace, ns).ExpectSuccess(
+				"cannot delete namespace %s", ns)
+		}
+	}
+
 	BeforeEach(func() {
 		once.Do(initialize)
+		namespaceAction(qaNs, helpers.Create)
+		namespaceAction(developmentNs, helpers.Create)
 	})
 
 	AfterEach(func() {
@@ -705,47 +725,28 @@ var _ = Describe("K8sValidatedPolicyTestAcrossNamespaces", func() {
 				"cilium bpf tunnel list",
 				"cilium endpoint list"})
 		}
+
+		namespaceAction(qaNs, helpers.Delete)
+		namespaceAction(developmentNs, helpers.Delete)
+
 		err := kubectl.WaitCleanAllTerminatingPods()
 		Expect(err).To(BeNil(), "Terminating containers are not deleted after timeout")
 	})
 
-	It("Policies Across Namespaces", func() {
+	checkCiliumPoliciesDeleted := func(ciliumPod, policyCmd string) {
+		By(fmt.Sprintf("Checking that all policies were deleted in Cilium pod %s", ciliumPod))
+		ExpectWithOffset(1, kubectl.CiliumIsPolicyLoaded(ciliumPod, policyCmd)).To(BeFalse(),
+			"policies should be deleted from Cilium: policies found: %s", policyCmd)
+	}
 
-		namespace := "namespace"
-		qaNs := "qa"
-		developmentNs := "development"
+	It("Policies Across Namespaces", func() {
 		podNameFilter := "{.items[*].metadata.name}"
 
-		checkCiliumPoliciesDeleted := func(ciliumPod, policyCmd string) {
-			By(fmt.Sprintf("Checking that all policies were deleted in Cilium pod %s", ciliumPod))
-			ExpectWithOffset(1, kubectl.CiliumIsPolicyLoaded(ciliumPod, policyCmd)).To(BeFalse(),
-				"policies should be deleted from Cilium: policies found: %s", policyCmd)
-		}
-
-		// formatLabelArgument formats the provided key-value pairs as labels for use in
-		// querying Kubernetes.
-		formatLabelArgument := func(firstKey, firstValue string, nextLabels ...string) string {
-			baseString := fmt.Sprintf("-l %s=%s", firstKey, firstValue)
-			if nextLabels == nil {
-				return baseString
-			} else if len(nextLabels)%2 != 0 {
-				panic("must provide even number of arguments for label key-value pairings")
-			} else {
-				for i := 0; i < len(nextLabels); i += 2 {
-					baseString = fmt.Sprintf("%s,%s=%s", baseString, nextLabels[i], nextLabels[i+1])
-				}
-			}
-			return baseString
-		}
-
-		logInfo := func(cmd string) {
-			res := kubectl.Exec(cmd)
-			log.Infof("%s", res.GetStdOut())
-		}
-
 		policyDeleteAndCheck := func(ciliumPods []string, policyPath, policyCmd string) {
-			_, err := kubectl.CiliumPolicyAction(helpers.KubeSystemNamespace, policyPath, helpers.KubectlDelete, helpers.HelperTimeout)
-			Expect(err).Should(BeNil(), fmt.Sprintf("Error deleting resource %s: %s", policyPath, err))
+			_, err := kubectl.CiliumPolicyAction(
+				helpers.KubeSystemNamespace, policyPath,
+				helpers.KubectlDelete, helpers.HelperTimeout)
+			Expect(err).Should(BeNil(), "Error deleting resource %s", policyPath)
 
 			for _, pod := range ciliumPods {
 				checkCiliumPoliciesDeleted(pod, policyCmd)
@@ -754,25 +755,21 @@ var _ = Describe("K8sValidatedPolicyTestAcrossNamespaces", func() {
 
 		testConnectivity := func(frontendPod, backendIP string) {
 			By(fmt.Sprintf("Testing connectivity from %s to %s", frontendPod, backendIP))
-			By("netstat output")
 
-			res := kubectl.Exec("netstat -ltn")
-			By(fmt.Sprintf("%s", res.GetStdOut()))
+			kubectl.Exec("netstat -ltn") // To keep the info in the log
 
 			By(fmt.Sprintf("running curl %s:80 from pod %s (should work)", backendIP, frontendPod))
-			returnCode := kubectl.Exec(fmt.Sprintf("kubectl exec -n qa -i %s -- curl -s -o /dev/null -w \"%%{http_code}\" http://%s:80/", frontendPod, backendIP)).GetStdOut()
 
-			Expect(returnCode).Should(Equal("200"), "Unable to connect between front and backend:80/")
+			res := kubectl.ExecPodCmd(
+				qaNs, frontendPod, helpers.CurlFail("http://%s:80", backendIP))
+			res.ExpectSuccess("Unable to connect between front and backend:80/")
 
 			By(fmt.Sprintf("running curl %s:80/health from pod %s (shouldn't work)", backendIP, frontendPod))
 
-			returnCode = kubectl.Exec(fmt.Sprintf("kubectl exec -n qa -i %s -- curl --connect-timeout 20 -s -o /dev/null -w \"%%{http_code}\" http://%s:80/health", frontendPod, backendIP)).GetStdOut()
-
-			Expect(returnCode).Should(Equal("403"), fmt.Sprintf("Unexpected connection between frontend and backend; wanted HTTP 403, got: HTTP %s", returnCode))
+			res = kubectl.ExecPodCmd(
+				qaNs, frontendPod, helpers.CurlWithHTTPCode("http://%s:80/health", backendIP))
+			res.ExpectContains("403", "Unexpected response code,wanted HTTP 403")
 		}
-
-		ciliumPodK8s1, err := kubectl.GetCiliumPodOnNode(helpers.KubeSystemNamespace, helpers.K8s1)
-		Expect(err).Should(BeNil())
 
 		ciliumPodK8s2, err := kubectl.GetCiliumPodOnNode(helpers.KubeSystemNamespace, helpers.K8s2)
 		Expect(err).Should(BeNil())
@@ -789,25 +786,10 @@ var _ = Describe("K8sValidatedPolicyTestAcrossNamespaces", func() {
 				ciliumPod, res.CombineOutput())
 		}
 
-		By("Creating Kubernetes namespace qa")
-		res := kubectl.CreateResource(namespace, qaNs)
-		defer func() {
-			kubectl.NamespaceDelete(qaNs).ExpectSuccess()
-		}()
-		res.ExpectSuccess()
-
-		By("Creating Kubernetes namespace development")
-
-		res = kubectl.NamespaceCreate(developmentNs)
-		defer func() {
-			kubectl.NamespaceDelete(developmentNs).ExpectSuccess()
-		}()
-		res.ExpectSuccess()
-
 		resources := []string{"1-frontend.json", "2-backend-server.json", "3-backend.json"}
 		for _, resource := range resources {
 			resourcePath := kubectl.ManifestGet(resource)
-			res = kubectl.Create(resourcePath)
+			res := kubectl.Create(resourcePath)
 			defer kubectl.Delete(resourcePath)
 			res.ExpectSuccess()
 		}
@@ -816,85 +798,51 @@ var _ = Describe("K8sValidatedPolicyTestAcrossNamespaces", func() {
 		areEndpointsReady := kubectl.CiliumEndpointWait(ciliumPodK8s2)
 		Expect(areEndpointsReady).Should(BeTrue())
 
-		pods, err := kubectl.WaitForServiceEndpoints(developmentNs, "", "backend", "80", helpers.HelperTimeout)
+		pods, err := kubectl.WaitForServiceEndpoints(
+			developmentNs, "", "backend", "80", helpers.HelperTimeout)
 		Expect(err).Should(BeNil())
 		Expect(pods).Should(BeTrue())
 
-		By("Getting K8s services")
-		logInfo("kubectl get svc --all-namespaces")
-
-		By("Getting information about pods in qa namespace")
-		logInfo("kubectl get pods -n qa -o wide")
-
-		By("Getting information about pods in development namespace")
-		logInfo("kubectl get pods -n development -o wide")
-
-		By("Getting information about backend service in development namespace")
-		logInfo("kubectl describe svc -n development backend")
-
-		frontendPod, err := kubectl.GetPods(qaNs, formatLabelArgument("id", "client")).Filter(podNameFilter)
+		frontendPod, err := kubectl.GetPods(qaNs, "-l id=client").Filter(podNameFilter)
 		Expect(err).Should(BeNil())
 
-		By(fmt.Sprintf("%s", frontendPod))
-
-		backendPod, err := kubectl.GetPods(developmentNs, formatLabelArgument("id", "server")).Filter(podNameFilter)
-		Expect(err).Should(BeNil())
-
-		By(fmt.Sprintf("%s", backendPod))
-
-		backendSvcIP, err := kubectl.Exec("kubectl get svc -n development -o json").Filter("{.items[*].spec.clusterIP}")
-		Expect(err).Should(BeNil())
-
-		By(fmt.Sprintf("Backend Service IP: %s", backendSvcIP.String()))
+		backendSvcIP, _, err := kubectl.GetServiceHostPort(developmentNs, "backend")
+		Expect(err).Should(BeNil(), "Backend service cannot be retrieved")
 
 		By("Running tests WITHOUT Policy / Proxy loaded")
 
 		By(fmt.Sprintf("running curl %s:80 from pod %s (should work)", backendSvcIP, frontendPod))
-		returnCode := kubectl.Exec(fmt.Sprintf("kubectl exec -n qa -i %s -- curl -s -o /dev/null -w \"%%{http_code}\" http://%s:80/", frontendPod, backendSvcIP)).GetStdOut()
+		res := kubectl.ExecPodCmd(
+			qaNs, frontendPod.String(),
+			helpers.CurlFail("http://%s:80/", backendSvcIP))
+		res.ExpectSuccess("Unable to connect between %s and %s:80/", frontendPod, backendSvcIP)
 
-		Expect(returnCode).Should(Equal("200"), "Unable to connect between %s and %s:80/", frontendPod, backendSvcIP)
-
-		basicConnectivity := func() {
-			By("Loading Policies into Cilium")
+		By("Loading L7 Policies into Cilium", func() {
 			policyPath := kubectl.ManifestGet("cnp-l7-stresstest.yaml")
 			policyCmd := "cilium policy get io.cilium.k8s.policy.name=l7-stresstest"
-
-			_, err = kubectl.CiliumPolicyAction(helpers.KubeSystemNamespace, policyPath, helpers.KubectlCreate, helpers.HelperTimeout)
-			Expect(err).Should(BeNil(), fmt.Sprintf("Error creating resource %s: %s", policyPath, err))
-
 			defer policyDeleteAndCheck(ciliumPods, policyPath, policyCmd)
 
-			res := kubectl.ExecPodCmd(helpers.KubeSystemNamespace, ciliumPodK8s1, "cilium policy get")
-			res.ExpectSuccess("output of 'cilium policy get': %s", res.CombineOutput())
+			_, err = kubectl.CiliumPolicyAction(
+				helpers.KubeSystemNamespace, policyPath,
+				helpers.KubectlCreate, helpers.HelperTimeout)
+			Expect(err).Should(BeNil(), "Error creating resource %s", policyPath)
 
 			By("Running tests WITH Policy / Proxy loaded")
-			testConnectivity(frontendPod.String(), backendSvcIP.String())
-		}
-
-		basicConnectivity()
-
-		crossNamespaceTest := func() {
-			By("Testing Cilium NetworkPolicy enforcement from any namespace")
-
+			testConnectivity(frontendPod.String(), backendSvcIP)
+		})
+		By("Testing Cilium NetworkPolicy enforcement from any namespace", func() {
 			policyPath := kubectl.ManifestGet("cnp-any-namespace.yaml")
 			policyCmd := "cilium policy get io.cilium.k8s.policy.name=l7-stresstest"
-
-			_, err = kubectl.CiliumPolicyAction(helpers.KubeSystemNamespace, policyPath, helpers.KubectlCreate, helpers.HelperTimeout)
-			Expect(err).Should(BeNil(), fmt.Sprintf("Error creating resource %s: %s", policyPath, err))
-
 			defer policyDeleteAndCheck(ciliumPods, policyPath, policyCmd)
 
-			res := kubectl.ExecPodCmd(helpers.KubeSystemNamespace, ciliumPodK8s1, "cilium policy get")
-			res.ExpectSuccess("output of 'cilium policy get': %s", res.CombineOutput())
+			_, err = kubectl.CiliumPolicyAction(
+				helpers.KubeSystemNamespace, policyPath,
+				helpers.KubectlCreate, helpers.HelperTimeout)
+			Expect(err).Should(BeNil(), "Error creating resource %s", policyPath)
 
 			By("Running tests WITH Policy / Proxy loaded")
-
-			testConnectivity(frontendPod.String(), backendSvcIP.String())
-
-		}
-
-		crossNamespaceTest()
-
+			testConnectivity(frontendPod.String(), backendSvcIP)
+		})
 	}, 300)
 
 })
