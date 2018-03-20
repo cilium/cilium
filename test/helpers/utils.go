@@ -310,7 +310,7 @@ func CreateReportDirectory() (string, error) {
 	return testPath, err
 }
 
-// CreateLogFile creates the ReportDirectory if is not present, writes the
+// CreateLogFile creates the ReportDirectory if it is not present, writes the
 // given data to the given filename.
 func CreateLogFile(filename string, data []byte) error {
 	path, err := CreateReportDirectory()

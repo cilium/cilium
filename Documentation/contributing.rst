@@ -500,12 +500,16 @@ framework in the ``test/`` directory and interact with ginkgo directly:
 ::
 
     $ cd test/
-    $ ginkgo -- --help | grep -A 1 cilium
+    $ ginkgo . -- --help | grep -A 1 cilium
+      -cilium.SSHConfig string
+            Specify a custom command to fetch SSH configuration (eg: 'vagrant ssh-config')
       -cilium.holdEnvironment
             On failure, hold the environment in its current state
       -cilium.provision
             Provision Vagrant boxes and Cilium before running test (default true)
-    $ ginkgo --focus "Policies*" -- -cilium.holdEnvironment
+      -cilium.showCommands
+            Output which commands are ran to stdout
+    $ ginkgo --focus "Policies*" -- --cilium.provision=false
 
 For more information about other built-in options to Ginkgo, consult the
 `Ginkgo documentation <https://onsi.github.io/ginkgo/>`_.

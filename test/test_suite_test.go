@@ -40,8 +40,8 @@ var (
 	DefaultSettings = map[string]string{
 		"K8S_VERSION": "1.9",
 	}
-	k8sNodesEnv  = "K8S_NODES"
-	commandslogs = "cmds.log"
+	k8sNodesEnv         = "K8S_NODES"
+	commandsLogFileName = "cmds.log"
 )
 
 func init() {
@@ -235,9 +235,9 @@ var _ = AfterEach(func() {
 	}
 
 	defer helpers.SSHMetaLogs.Reset()
-	err = helpers.CreateLogFile(commandslogs, helpers.SSHMetaLogs.Bytes())
+	err = helpers.CreateLogFile(commandsLogFileName, helpers.SSHMetaLogs.Bytes())
 	if err != nil {
-		log.WithError(err).Errorf("cannot create log file '%s'", commandslogs)
+		log.WithError(err).Errorf("cannot create log file '%s'", commandsLogFileName)
 		return
 	}
 })
