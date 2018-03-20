@@ -40,14 +40,13 @@ var (
 // StartXDSGRPCServer starts a gRPC server to serve xDS APIs using the given
 // resource watcher and network listener.
 // Returns a function that stops the GRPC server when called.
-func StartXDSGRPCServer(listener net.Listener, ldsConfig, npdsConfig, nphdsConfig, rdsConfig *xds.ResourceTypeConfiguration, resourceAccessTimeout time.Duration) context.CancelFunc {
+func StartXDSGRPCServer(listener net.Listener, ldsConfig, npdsConfig, nphdsConfig *xds.ResourceTypeConfiguration, resourceAccessTimeout time.Duration) context.CancelFunc {
 	grpcServer := grpc.NewServer()
 
 	xdsServer := xds.NewServer(map[string]*xds.ResourceTypeConfiguration{
 		ListenerTypeURL:           ldsConfig,
 		NetworkPolicyTypeURL:      npdsConfig,
 		NetworkPolicyHostsTypeURL: nphdsConfig,
-		RouteConfigurationTypeURL: rdsConfig,
 	}, resourceAccessTimeout)
 	dsServer := (*xdsGRPCServer)(xdsServer)
 
@@ -55,7 +54,6 @@ func StartXDSGRPCServer(listener net.Listener, ldsConfig, npdsConfig, nphdsConfi
 	envoy_api_v2.RegisterListenerDiscoveryServiceServer(grpcServer, dsServer)
 	cilium.RegisterNetworkPolicyDiscoveryServiceServer(grpcServer, dsServer)
 	cilium.RegisterNetworkPolicyHostsDiscoveryServiceServer(grpcServer, dsServer)
-	envoy_api_v2.RegisterRouteDiscoveryServiceServer(grpcServer, dsServer)
 
 	reflection.Register(grpcServer)
 
@@ -102,16 +100,6 @@ func (s *xdsGRPCServer) StreamNetworkPolicyHosts(stream cilium.NetworkPolicyHost
 }
 
 func (s *xdsGRPCServer) FetchNetworkPolicyHosts(ctx net_context.Context, req *envoy_api_v2.DiscoveryRequest) (*envoy_api_v2.DiscoveryResponse, error) {
-	// The Fetch methods are only called via the REST API, which is not
-	// implemented in Cilium. Only the Stream methods are called over gRPC.
-	return nil, ErrNotImplemented
-}
-
-func (s *xdsGRPCServer) StreamRoutes(stream envoy_api_v2.RouteDiscoveryService_StreamRoutesServer) error {
-	return (*xds.Server)(s).HandleRequestStream(stream.Context(), stream, RouteConfigurationTypeURL)
-}
-
-func (s *xdsGRPCServer) FetchRoutes(ctx net_context.Context, req *envoy_api_v2.DiscoveryRequest) (*envoy_api_v2.DiscoveryResponse, error) {
 	// The Fetch methods are only called via the REST API, which is not
 	// implemented in Cilium. Only the Stream methods are called over gRPC.
 	return nil, ErrNotImplemented

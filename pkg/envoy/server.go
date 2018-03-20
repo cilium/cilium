@@ -44,11 +44,6 @@ import (
 	"github.com/spf13/viper"
 )
 
-// allowAction is a "Pass" route action to use in route rules. Immutable.
-var envoyRouteAllowAction = &envoy_api_v2_route.Route_Route{Route: &envoy_api_v2_route.RouteAction{
-	ClusterSpecifier: &envoy_api_v2_route.RouteAction_Cluster{Cluster: "cluster1"},
-}}
-
 // XDSServer provides a high-lever interface to manage resources published
 // using the xDS gRPC API.
 type XDSServer struct {
@@ -66,10 +61,6 @@ type XDSServer struct {
 
 	// listenerMutator publishes listener updates to Envoy proxies.
 	listenerMutator xds.AckingResourceMutator
-
-	// listenerMutator publishes route configuration updates to Envoy
-	// proxies.
-	routeMutator xds.AckingResourceMutator
 
 	// stopServer stops the xDS gRPC server.
 	stopServer context.CancelFunc
@@ -99,14 +90,7 @@ func createXDSServer(path, accessLogPath string) *XDSServer {
 		AckObserver: nil, // We don't wait for ACKs for those resources.
 	}
 
-	rdsCache := xds.NewCache()
-	rdsMutator := xds.NewAckingResourceMutatorWrapper(rdsCache, xds.IstioNodeToIP)
-	rdsConfig := &xds.ResourceTypeConfiguration{
-		Source:      rdsCache,
-		AckObserver: rdsMutator,
-	}
-
-	stopServer := StartXDSGRPCServer(socketListener, ldsConfig, npdsConfig, nphdsConfig, rdsConfig, 5*time.Second)
+	stopServer := StartXDSGRPCServer(socketListener, ldsConfig, npdsConfig, nphdsConfig, 5*time.Second)
 
 	listenerProto := &envoy_api_v2.Listener{
 		Address: &envoy_api_v2_core.Address{
@@ -140,14 +124,25 @@ func createXDSServer(path, accessLogPath string) *XDSServer {
 							"config": {&structpb.Value_StructValue{StructValue: &structpb.Struct{Fields: map[string]*structpb.Value{}}}},
 						}}}},
 					}}}},
-					"rds": {&structpb.Value_StructValue{StructValue: &structpb.Struct{Fields: map[string]*structpb.Value{
-						"config_source": {&structpb.Value_StructValue{StructValue: &structpb.Struct{Fields: map[string]*structpb.Value{
-							"api_config_source": {&structpb.Value_StructValue{StructValue: &structpb.Struct{Fields: map[string]*structpb.Value{
-								"api_type":      {&structpb.Value_NumberValue{NumberValue: float64(envoy_api_v2_core.ApiConfigSource_GRPC)}},
-								"cluster_names": {&structpb.Value_StringValue{StringValue: "xdsCluster"}},
+					"route_config": {&structpb.Value_StructValue{StructValue: &structpb.Struct{Fields: map[string]*structpb.Value{
+						"virtual_hosts": {&structpb.Value_ListValue{ListValue: &structpb.ListValue{Values: []*structpb.Value{
+							{&structpb.Value_StructValue{StructValue: &structpb.Struct{Fields: map[string]*structpb.Value{
+								"name": {&structpb.Value_StringValue{StringValue: "default_route"}},
+								"domains": {&structpb.Value_ListValue{ListValue: &structpb.ListValue{Values: []*structpb.Value{
+									{&structpb.Value_StringValue{StringValue: "*"}},
+								}}}},
+								"routes": {&structpb.Value_ListValue{ListValue: &structpb.ListValue{Values: []*structpb.Value{
+									{&structpb.Value_StructValue{StructValue: &structpb.Struct{Fields: map[string]*structpb.Value{
+										"match": {&structpb.Value_StructValue{StructValue: &structpb.Struct{Fields: map[string]*structpb.Value{
+											"prefix": {&structpb.Value_StringValue{StringValue: "/"}},
+										}}}},
+										"route": {&structpb.Value_StructValue{StructValue: &structpb.Struct{Fields: map[string]*structpb.Value{
+											"cluster": {&structpb.Value_StringValue{StringValue: "cluster1"}},
+										}}}},
+									}}}},
+								}}}},
 							}}}},
 						}}}},
-						// "route_config_name": {&structpb.Value_StringValue{StringValue: "route_config_name"}},
 					}}}},
 				}},
 			}},
@@ -166,12 +161,11 @@ func createXDSServer(path, accessLogPath string) *XDSServer {
 		listenerProto:   listenerProto,
 		loggers:         make(map[string]Logger),
 		listenerMutator: ldsMutator,
-		routeMutator:    rdsMutator,
 		stopServer:      stopServer,
 	}
 }
 
-func (s *XDSServer) addListener(name string, endpoint_policy_name string, port uint16, l7rules policy.L7DataMap, isIngress bool, logger Logger, wg *completion.WaitGroup) {
+func (s *XDSServer) addListener(name string, endpoint_policy_name string, port uint16, isIngress bool, logger Logger, wg *completion.WaitGroup) {
 	log.Debug("Envoy: addListener ", name)
 
 	s.mutex.Lock()
@@ -185,14 +179,10 @@ func (s *XDSServer) addListener(name string, endpoint_policy_name string, port u
 
 	s.mutex.Unlock()
 
-	s.routeMutator.Upsert(RouteConfigurationTypeURL, name, getRouteConfiguration(name, l7rules),
-		[]string{"127.0.0.1"}, wg.AddCompletion())
-
 	// Fill in the listener-specific parts.
 	listenerConf := proto.Clone(s.listenerProto).(*envoy_api_v2.Listener)
 	listenerConf.Name = name
 	listenerConf.Address.GetSocketAddress().PortSpecifier = &envoy_api_v2_core.SocketAddress_PortValue{PortValue: uint32(port)}
-	listenerConf.FilterChains[0].Filters[0].Config.Fields["rds"].GetStructValue().Fields["route_config_name"] = &structpb.Value{Kind: &structpb.Value_StringValue{StringValue: name}}
 	if isIngress {
 		listenerConf.ListenerFilters[0].Config.Fields["is_ingress"].GetKind().(*structpb.Value_BoolValue).BoolValue = true
 	}
@@ -201,20 +191,6 @@ func (s *XDSServer) addListener(name string, endpoint_policy_name string, port u
 	listenerConf.FilterChains[0].Filters[0].Config.Fields["http_filters"].GetListValue().Values[0].GetStructValue().Fields["config"].GetStructValue().Fields["policy_name"] = &structpb.Value{Kind: &structpb.Value_StringValue{StringValue: endpoint_policy_name}}
 
 	s.listenerMutator.Upsert(ListenerTypeURL, name, listenerConf, []string{"127.0.0.1"}, wg.AddCompletion())
-}
-
-func (s *XDSServer) updateListener(name string, l7rules policy.L7DataMap, wg *completion.WaitGroup) {
-	s.mutex.Lock()
-	log.Debug("Envoy: updateListener ", name)
-	l := s.loggers[name]
-	// Bail out if this listener does not exist
-	if l == nil {
-		log.Fatalf("Envoy: updateListener: Listener %s does not exist", name)
-	}
-	s.mutex.Unlock()
-
-	s.routeMutator.Upsert(RouteConfigurationTypeURL, name, getRouteConfiguration(name, l7rules),
-		[]string{"127.0.0.1"}, wg.AddCompletion())
 }
 
 func (s *XDSServer) removeListener(name string, wg *completion.WaitGroup) {
@@ -229,8 +205,6 @@ func (s *XDSServer) removeListener(name string, wg *completion.WaitGroup) {
 	s.mutex.Unlock()
 
 	s.listenerMutator.Delete(ListenerTypeURL, name, []string{"127.0.0.1"}, wg.AddCompletion())
-
-	s.routeMutator.Delete(RouteConfigurationTypeURL, name, []string{"127.0.0.1"}, wg.AddCompletion())
 }
 
 // Find the listener given the Envoy Resource name
@@ -304,48 +278,6 @@ func getHTTPRule(h *api.PortRuleHTTP) (headers []*envoy_api_v2_route.HeaderMatch
 	}
 	SortHeaderMatchers(headers)
 	return
-}
-
-func getRoute(h *api.PortRuleHTTP) *envoy_api_v2_route.Route {
-	headers, ruleRef := getHTTPRule(h)
-
-	// Envoy v2 API has a Path Regex, but it has not been
-	// implemented yet, so we must always match the root of the
-	// path to not miss anything.
-	return &envoy_api_v2_route.Route{
-		Match: &envoy_api_v2_route.RouteMatch{
-			PathSpecifier: &envoy_api_v2_route.RouteMatch_Prefix{Prefix: "/"},
-			Headers:       headers,
-		},
-		Action: envoyRouteAllowAction,
-		Metadata: &envoy_api_v2_core.Metadata{
-			FilterMetadata: map[string]*structpb.Struct{
-				"envoy.router": {Fields: map[string]*structpb.Value{
-					"cilium_rule_ref": {&structpb.Value_StringValue{StringValue: ruleRef}},
-				}},
-			},
-		},
-	}
-}
-
-func getRouteConfiguration(name string, l7rules policy.L7DataMap) *envoy_api_v2.RouteConfiguration {
-	routes := make([]*envoy_api_v2_route.Route, 0, len(l7rules))
-	for _, ep := range l7rules {
-		// XXX: We should translate the fromEndpoints selector
-		// (the key of the l7rules map) to a filter in Envoy
-		// listener and not simply append the rules together.
-		for _, h := range ep.HTTP {
-			routes = append(routes, getRoute(&h))
-		}
-	}
-	return &envoy_api_v2.RouteConfiguration{
-		Name: name,
-		VirtualHosts: []*envoy_api_v2_route.VirtualHost{{
-			Name:    name,
-			Domains: []string{"*"},
-			Routes:  routes,
-		}},
-	}
 }
 
 func createBootstrap(filePath string, name, cluster, version string, xdsSock, envoyClusterName string, adminPort uint32) {

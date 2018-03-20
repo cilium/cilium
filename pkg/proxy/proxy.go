@@ -40,6 +40,7 @@ import (
 	"github.com/go-openapi/strfmt"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
+	"sync/atomic"
 )
 
 var (
@@ -418,6 +419,11 @@ func (p *Proxy) RemoveRedirect(id string, wg *completion.WaitGroup) error {
 // published to L7 proxies.
 func (p *Proxy) UpdateNetworkPolicy(ep envoy.NetworkPolicyEndpoint, policy *policy.L4Policy,
 	labelsMap identityPkg.IdentityCache, deniedIngressIdentities, deniedEgressIdentities map[identityPkg.NumericIdentity]bool, wg *completion.WaitGroup) error {
+	// If there are no redirects configured, Envoy won't query for network policies
+	// and therefore will never ACK them, and we'd wait forever.
+	if !viper.GetBool("sidecar-http-proxy") && atomic.LoadInt32(&redirectCount) == 0 {
+		wg = nil
+	}
 	return envoy.UpdateNetworkPolicy(ep, policy, labelsMap, deniedIngressIdentities, deniedEgressIdentities, wg)
 }
 

@@ -30,7 +30,6 @@ import (
 	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/flowdebug"
 	"github.com/cilium/cilium/pkg/logging"
-	"github.com/cilium/cilium/pkg/policy"
 
 	"github.com/golang/protobuf/proto"
 	"github.com/sirupsen/logrus"
@@ -343,13 +342,8 @@ func (e *Envoy) StopEnvoy() error {
 }
 
 // AddListener adds a listener to a running Envoy proxy.
-func (e *Envoy) AddListener(name string, endpoint_policy_name string, port uint16, l7rules policy.L7DataMap, isIngress bool, logger Logger, wg *completion.WaitGroup) {
-	e.xds.addListener(name, endpoint_policy_name, port, l7rules, isIngress, logger, wg)
-}
-
-// UpdateListener changes to the L7 rules of an existing Envoy Listener.
-func (e *Envoy) UpdateListener(name string, l7rules policy.L7DataMap, wg *completion.WaitGroup) {
-	e.xds.updateListener(name, l7rules, wg)
+func (e *Envoy) AddListener(name string, endpoint_policy_name string, port uint16, isIngress bool, logger Logger, wg *completion.WaitGroup) {
+	e.xds.addListener(name, endpoint_policy_name, port, isIngress, logger, wg)
 }
 
 // RemoveListener removes an existing Envoy Listener.

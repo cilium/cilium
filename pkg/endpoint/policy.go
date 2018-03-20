@@ -759,6 +759,7 @@ func (e *Endpoint) regeneratePolicy(owner Owner, opts models.ConfigurationMap) (
 	optsChanged := e.applyOptsLocked(opts)
 
 	// Determines all security-identity based policy.
+	// Updates e.LabelsMap to labelsMap if changed
 	policyChanged2, consumersAdd, consumersRm, err := e.regenerateConsumable(owner, labelsMap, repo, c)
 	if err != nil {
 		return false, nil, nil, err

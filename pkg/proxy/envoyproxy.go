@@ -29,6 +29,7 @@ import (
 
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
+	"sync/atomic"
 )
 
 // the global Envoy instance
@@ -40,6 +41,11 @@ type envoyRedirect struct {
 }
 
 var envoyOnce sync.Once
+
+// redirectCount is the count of configured redirects.
+// This variable must be read and updated atomically.
+// Must always be >=0.
+var redirectCount int32
 
 // createEnvoyRedirect creates a redirect with corresponding proxy
 // configuration. This will launch a proxy instance.
@@ -60,7 +66,8 @@ func createEnvoyRedirect(r *Redirect, wg *completion.WaitGroup) (RedirectImpleme
 		if ip == "" {
 			return nil, fmt.Errorf("%s: Cannot create redirect, proxy source has no IP address.", r.id)
 		}
-		envoyProxy.AddListener(r.id, ip, r.ProxyPort, r.rules, r.ingress, redir, wg)
+		envoyProxy.AddListener(r.id, ip, r.ProxyPort, r.ingress, redir, wg)
+		atomic.AddInt32(&redirectCount, 1)
 
 		return redir, nil
 	}
@@ -70,17 +77,17 @@ func createEnvoyRedirect(r *Redirect, wg *completion.WaitGroup) (RedirectImpleme
 
 // UpdateRules replaces old l7 rules of a redirect with new ones.
 func (r *envoyRedirect) UpdateRules(wg *completion.WaitGroup) error {
-	if envoyProxy != nil {
-		envoyProxy.UpdateListener(r.redirect.id, r.redirect.rules, wg)
-		return nil
-	}
-	return fmt.Errorf("%s: Envoy proxy process failed to start, can not update redirect ", r.redirect.id)
+	return nil
 }
 
 // Close the redirect.
 func (r *envoyRedirect) Close(wg *completion.WaitGroup) {
 	if envoyProxy != nil {
 		envoyProxy.RemoveListener(r.redirect.id, wg)
+		newCount := atomic.AddInt32(&redirectCount, -1)
+		if newCount < 0 {
+			log.Fatalf("Invalid redirect count %d < 0", newCount)
+		}
 	}
 }
 

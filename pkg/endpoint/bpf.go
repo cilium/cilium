@@ -651,11 +651,6 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir, reason string) (uint64, err
 		// an L7 redirect and add them to the endpoint; update the L4PolicyMap
 		// with the redirects.
 		c.Mutex.Lock()
-		if err = e.updateNetworkPolicy(owner); err != nil {
-			c.Mutex.Unlock()
-			e.Mutex.Unlock()
-			return 0, err
-		}
 		if c.L4Policy != nil {
 			desiredRedirects, err = e.addNewRedirects(owner, c.L4Policy)
 			if err != nil {
@@ -663,6 +658,13 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir, reason string) (uint64, err
 				e.Mutex.Unlock()
 				return 0, err
 			}
+		}
+		// Update policies after adding redirects, otherwise we will not wait for
+		// acks for the first policy upates for the first added redirects.
+		if err = e.updateNetworkPolicy(owner); err != nil {
+			c.Mutex.Unlock()
+			e.Mutex.Unlock()
+			return 0, err
 		}
 		c.Mutex.Unlock()
 
