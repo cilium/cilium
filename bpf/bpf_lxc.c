@@ -1035,10 +1035,16 @@ __section_tail(CILIUM_MAP_POLICY, LXC_ID) int handle_policy(struct __sk_buff *sk
 
 	ifindex = skb->cb[CB_IFINDEX];
 
-	if (ifindex)
-		return redirect(ifindex, 0);
-	else
+	if (ifindex) {
+		ret = redirect(ifindex, 0);
+		if (IS_ERR(ret))
+			return send_drop_notify(skb, src_label, SECLABEL,
+						LXC_ID, ifindex, ret,
+						TC_ACT_SHOT);
+		return ret;
+	} else {
 		return TC_ACT_OK;
+	}
 }
 
 #ifdef LXC_NAT46
