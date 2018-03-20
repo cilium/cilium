@@ -501,7 +501,7 @@ var (
 		},
 	}
 
-	EndpointSelector = LabelSelector
+	EndpointSelector = *LabelSelector.DeepCopy()
 
 	IngressRule = apiextensionsv1beta1.JSONSchemaProps{
 		Description: "IngressRule contains all rule types which can be applied at ingress, " +
@@ -955,13 +955,13 @@ var (
 		},
 	}
 
-	spec = Rule
+	spec = *Rule.DeepCopy()
 
 	specs = apiextensionsv1beta1.JSONSchemaProps{
 		Description: "Specs is a list of desired Cilium specific rule specification.",
 		Type:        "array",
 		Items: &apiextensionsv1beta1.JSONSchemaPropsOrArray{
-			Schema: &Rule,
+			Schema: &spec,
 		},
 	}
 )
