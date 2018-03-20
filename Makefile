@@ -202,13 +202,15 @@ release:
 gofmt:
 	for pkg in $(GOFILES); do go fmt $$pkg; done
 
-precheck:
+govet:
+	@$(ECHO_CHECK) vetting all GOFILES...
+	$(GO) tool vet $(SUBDIRS)
+
+precheck: govet
 	@$(ECHO_CHECK) contrib/scripts/check-fmt.sh
 	$(QUIET) contrib/scripts/check-fmt.sh
 	@$(ECHO_CHECK) contrib/scripts/check-log-newlines.sh
 	$(QUIET) contrib/scripts/check-log-newlines.sh
-	@$(ECHO_CHECK) vetting all GOFILES...
-	$(QUIET)go vet $(GOFILES)
 
 pprof-help:
 	@echo "Available pprof targets:"
