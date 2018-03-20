@@ -324,11 +324,10 @@ func (e *Endpoint) resolveL4Policy(owner Owner, repo *policy.Repository, c *poli
 // and a map matching which rules were successfully removed.
 // Must be called with Consumable mutex held.
 func (e *Endpoint) regenerateConsumable(owner Owner, labelsMap *identityPkg.IdentityCache,
-	repo *policy.Repository, c *policy.Consumable) (changed bool, rulesAdd policy.SecurityIDContexts, rulesRm policy.SecurityIDContexts) {
+	repo *policy.Repository, c *policy.Consumable) (changed bool, rulesAdd, rulesRm policy.SecurityIDContexts, err error) {
 
 	var (
 		l4Rm policy.SecurityIDContexts
-		err  error
 	)
 
 	// Mark all entries unused by denying them
@@ -362,7 +361,8 @@ func (e *Endpoint) regenerateConsumable(owner Owner, labelsMap *identityPkg.Iden
 			rulesAdd, l4Rm, err = e.applyL4PolicyLocked(owner, labelsMap, e.L4Policy, c.L4Policy)
 			if err != nil {
 				// This should not happen, and we can't fail at this stage anyway.
-				e.getLogger().WithError(err).Fatal("L4 Policy application failed")
+				e.getLogger().WithError(err).Error("L4 Policy application failed")
+				return
 			}
 		}
 		// Reuse the common policy, will be used in lxc_config.h (CFG_L4_INGRESS and CFG_L4_EGRESS)
@@ -524,7 +524,7 @@ func (e *Endpoint) regenerateConsumable(owner Owner, labelsMap *identityPkg.Iden
 		"l4Rm":                      l4Rm,
 		"rulesRm":                   rulesRm,
 	}).Debug("consumable regenerated")
-	return changed, rulesAdd, rulesRm
+	return changed, rulesAdd, rulesRm, nil
 }
 
 // Must be called with global repo.Mutrex, e.Mutex, and c.Mutex held
@@ -756,7 +756,10 @@ func (e *Endpoint) regeneratePolicy(owner Owner, opts models.ConfigurationMap) (
 	optsChanged := e.applyOptsLocked(opts)
 
 	// Determines all security-identity based policy.
-	policyChanged2, consumersAdd, consumersRm := e.regenerateConsumable(owner, labelsMap, repo, c)
+	policyChanged2, consumersAdd, consumersRm, err := e.regenerateConsumable(owner, labelsMap, repo, c)
+	if err != nil {
+		return false, nil, nil, err
+	}
 	if policyChanged2 {
 		policyChanged = true
 	}
