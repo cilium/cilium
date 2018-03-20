@@ -22,12 +22,16 @@ import (
 	"github.com/cilium/cilium/pkg/u8proto"
 )
 
-// SecurityIDContexts maps a security identity to a L4RuleContexts
+// SecurityIDContexts maps a security identity to a L4RuleContexts.
+// The security identity used as a key is a source of flows (e.g. the source
+// of a TCP connection).
+// The L4RuleContexts is a whitelist of the flows allowed from that security
+// identity at ingress and egress.
 type SecurityIDContexts map[identity.NumericIdentity]L4RuleContexts
 
 // DeepCopy returns a deep copy of SecurityIDContexts
 func (sc SecurityIDContexts) DeepCopy() SecurityIDContexts {
-	cpy := make(SecurityIDContexts)
+	cpy := make(SecurityIDContexts, len(sc))
 	for k, v := range sc {
 		cpy[k] = v.DeepCopy()
 	}
@@ -49,7 +53,7 @@ func NewL4RuleContexts() L4RuleContexts {
 
 // DeepCopy returns a deep copy of L4RuleContexts
 func (rc L4RuleContexts) DeepCopy() L4RuleContexts {
-	cpy := make(L4RuleContexts)
+	cpy := make(L4RuleContexts, len(rc))
 	for k, v := range rc {
 		cpy[k] = v
 	}
@@ -62,32 +66,44 @@ func (rc L4RuleContexts) IsL3Only() bool {
 	return rc != nil && len(rc) == 0
 }
 
-// L4RuleContext represents a L4 rule
+// L4RuleContext represents a L4 rule.
 // Don't use pointers here since this structure is used as key on maps.
 type L4RuleContext struct {
-	// Port is the destination port in the policy in network byte order
-	Port uint16
-	// Proto is the protocol ID used
+	// EndpointID is the identity of the endpoint where this rule is enforced, in host byte order.
+	EndpointID uint16
+	// Ingress indicates whether the flow is an ingress rule (vs. egress).
+	Ingress bool
+	// Proto is the IP protocol of the flow.
 	Proto uint8
+	// Port is the destination port in the policy, in network byte order.
+	Port uint16
+}
+
+// ProxyID return the proxy ID representation of this rule, in the same format
+// as returned by Endpoint.ProxyID.
+func (rc L4RuleContext) ProxyID() string {
+	proto := u8proto.U8proto(rc.Proto).String()
+	port := byteorder.NetworkToHost(rc.Port).(uint16)
+	return ProxyID(rc.EndpointID, rc.Ingress, proto, port)
+}
+
+// PortProto returns the port-proto tuple in a human readable format. i.e.
+// with its port in host byte order.
+func (rc L4RuleContext) PortProto() string {
+	proto := u8proto.U8proto(rc.Proto).String()
+	port := strconv.Itoa(int(byteorder.NetworkToHost(uint16(rc.Port)).(uint16)))
+	return port + "/" + proto
 }
 
 // L7RuleContext represents a L7 rule
 type L7RuleContext struct {
-	// RedirectPort is the L7 redirect port in the policy in network byte order
+	// RedirectPort is the L7 redirect port in the policy in network byte order.
 	RedirectPort uint16
-	// L4Installed specifies if the L4 rule is installed in the L4 BPF map
+	// L4Installed specifies if the L4 rule is installed in the L4 BPF map.
 	L4Installed bool
 }
 
 // IsRedirect checks if the L7RuleContext is a redirect to the proxy.
 func (rc L7RuleContext) IsRedirect() bool {
 	return rc.RedirectPort != 0
-}
-
-// PortProto returns the port proto tuple in a human readable format. i.e.
-// with its port in host byte order.
-func (rc L4RuleContext) PortProto() string {
-	proto := u8proto.U8proto(rc.Proto).String()
-	port := strconv.Itoa(int(byteorder.NetworkToHost(uint16(rc.Port)).(uint16)))
-	return port + "/" + proto
 }

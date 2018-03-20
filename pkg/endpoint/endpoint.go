@@ -15,11 +15,13 @@
 package endpoint
 
 import (
+	"context"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"math/rand"
+	"net"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -58,7 +60,6 @@ import (
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/rest"
 
-	"context"
 	"github.com/sirupsen/logrus"
 )
 
@@ -2191,4 +2192,16 @@ func (e *Endpoint) WaitForPolicyRevision(ctx context.Context, rev uint64) <-chan
 	}
 	e.policyRevisionSignals[ps] = true
 	return ch
+}
+
+// IPs returns the slice of valid IPs for this endpoint.
+func (e *Endpoint) IPs() []net.IP {
+	ips := []net.IP{}
+	if e.IPv4 != nil {
+		ips = append(ips, e.IPv4.IP())
+	}
+	if e.IPv6 != nil {
+		ips = append(ips, e.IPv6.IP())
+	}
+	return ips
 }

@@ -120,12 +120,15 @@ const (
 type GCFilterFlags uint
 
 // GCFilter contains the necessary fields to filter the CT maps.
+// Filtering by endpoint requires both EndpointID to be > 0 and
+// EndpointIP to be not nil.
 type GCFilter struct {
-	Time      uint32
-	IP        net.IP
-	IDsToMod  policy.SecurityIDContexts
-	IDsToKeep policy.SecurityIDContexts
-	Type      GCFilterFlags
+	Type       GCFilterFlags
+	IDsToMod   policy.SecurityIDContexts
+	IDsToKeep  policy.SecurityIDContexts
+	Time       uint32
+	EndpointID uint16
+	EndpointIP net.IP
 }
 
 // NewGCFilterBy creates a new GCFilter with the given flags.
@@ -267,7 +270,7 @@ func doGC6(m *bpf.Map, filter *GCFilter) int {
 		// In CT entries, the source address of the conntrack entry (`saddr`) is
 		// the destination of the packet received, therefore it's the packet's
 		// destination IP
-		action = filter.doFiltering(nextKey.saddr.IP(), nextKey.sport, uint8(nextKey.nexthdr), nextKey.flags, entry)
+		action = filter.doFiltering(nextKey.daddr.IP(), nextKey.saddr.IP(), nextKey.sport, uint8(nextKey.nexthdr), nextKey.flags, entry)
 
 		switch action {
 		case modifyEntry:
@@ -325,7 +328,7 @@ func doGC4(m *bpf.Map, filter *GCFilter) int {
 		// In CT entries, the source address of the conntrack entry (`saddr`) is
 		// the destination of the packet received, therefore it's the packet's
 		// destination IP
-		action = filter.doFiltering(nextKey.saddr.IP(), nextKey.sport, uint8(nextKey.nexthdr), nextKey.flags, entry)
+		action = filter.doFiltering(nextKey.daddr.IP(), nextKey.saddr.IP(), nextKey.sport, uint8(nextKey.nexthdr), nextKey.flags, entry)
 
 		switch action {
 		case modifyEntry:
@@ -350,7 +353,7 @@ func doGC4(m *bpf.Map, filter *GCFilter) int {
 	return deleted
 }
 
-func (f *GCFilter) doFiltering(dstIP net.IP, dstPort uint16, nextHdr, flags uint8, entry *CtEntry) (action int) {
+func (f *GCFilter) doFiltering(srcIP net.IP, dstIP net.IP, dstPort uint16, nextHdr, flags uint8, entry *CtEntry) (action int) {
 	action = noAction
 
 	// Delete all entries with a lifetime smaller than f timestamp.
@@ -360,24 +363,38 @@ func (f *GCFilter) doFiltering(dstIP net.IP, dstPort uint16, nextHdr, flags uint
 		action = deleteEntry
 	}
 
-	// used by FlushCTEntriesOf
-	// Delete all entries of the given dstIP that are not filtered
-	if f.Type&GCFilterByIDsToKeep != 0 &&
-		dstIP.Equal(f.IP) &&
-		// only delete TUPLE_F_IN connections since the clean up is made
-		// for ingress policies
-		flags&TUPLE_F_IN != 0 {
+	// If the filter doesn't contain an endpoint ID & IP, no entries will get matched below.
+	if f.EndpointID == 0 || f.EndpointIP == nil {
+		return
+	}
 
+	// Determine whether the entry matches the endpoint IP,
+	// and the direction of the entry (ingress or egress).
+	var ingress bool
+	if flags&TUPLE_F_IN != 0 && dstIP.Equal(f.EndpointIP) {
+		ingress = true
+	} else if flags&TUPLE_F_IN == 0 && srcIP.Equal(f.EndpointIP) {
+		ingress = false
+	} else {
+		// Didn't match the endpoint IP.
+		return
+	}
+
+	l4RuleCtx := policy.L4RuleContext{
+		EndpointID: f.EndpointID,
+		Ingress:    ingress,
+		Port:       dstPort,
+		Proto:      nextHdr,
+	}
+
+	// Used by FlushCTEntriesOf.
+	// Delete all entries of the given endpoint IP that are not filtered.
+	if f.Type&GCFilterByIDsToKeep != 0 {
 		// Check if the src_sec_id of that entry is still allowed
 		// to talk with the destination IP.
 		if filterRuleCtx, ok := f.IDsToKeep[identity.NumericIdentity(entry.src_sec_id)]; !ok {
 			action = deleteEntry
 		} else {
-			l4RuleCtx := policy.L4RuleContext{
-				Port:  dstPort,
-				Proto: nextHdr,
-			}
-
 			if filterRuleCtx.IsL3Only() {
 				// If the rule is L3-only then check if it's allowed by
 				// L4-only rules.
@@ -404,25 +421,16 @@ func (f *GCFilter) doFiltering(dstIP net.IP, dstPort uint16, nextHdr, flags uint
 	}
 
 	// used by ModifyEntriesOf
-	if f.Type&GCFilterByIDToMod != 0 &&
-		dstIP.Equal(f.IP) &&
-		// only modify TUPLE_F_IN connections since the modification is made
-		// for ingress policies
-		flags&TUPLE_F_IN != 0 {
+	if f.Type&GCFilterByIDToMod != 0 {
 
 		// Check if the src_sec_id of that entry needs to be modified
 		// by the given filter.
 		if filterRuleCtx, ok := f.IDsToMod[identity.NumericIdentity(entry.src_sec_id)]; ok {
-			ruleCtx := policy.L4RuleContext{
-				Port:  dstPort,
-				Proto: nextHdr,
-			}
-
 			if filterRuleCtx.IsL3Only() {
 				// If the rule is L3-only then check if it's allowed by
 				// L4-only rules.
 				if l4OnlyRules, ok := f.IDsToMod[identity.InvalidIdentity]; ok {
-					if l7RuleCtx, ok := l4OnlyRules[ruleCtx]; ok {
+					if l7RuleCtx, ok := l4OnlyRules[l4RuleCtx]; ok {
 						if l7RuleCtx.L4Installed &&
 							l7RuleCtx.IsRedirect() &&
 							entry.proxy_port != 0 {
@@ -435,7 +443,7 @@ func (f *GCFilter) doFiltering(dstIP net.IP, dstPort uint16, nextHdr, flags uint
 			} else {
 				// If the rule is not L3-only then check if it's allowed by
 				// L3-L4 rules.
-				if l7RuleCtx, ok := filterRuleCtx[ruleCtx]; ok {
+				if l7RuleCtx, ok := filterRuleCtx[l4RuleCtx]; ok {
 					if l7RuleCtx.L4Installed &&
 						l7RuleCtx.IsRedirect() &&
 						entry.proxy_port != 0 {
