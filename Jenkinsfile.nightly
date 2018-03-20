@@ -25,7 +25,7 @@ pipeline {
         stage('Nightly-Tests') {
             environment {
                 K8S_NODES=4
-                K8S_VERSION=1.8
+                K8S_VERSION=1.9
                 MEMORY=4096
                 CPU=4
             }
@@ -61,7 +61,7 @@ pipeline {
             post {
                 always {
                     sh 'cd ${TEST_DIR}; ./archive_test_results.sh || true'
-                    archiveArtifacts artifacts: "test_results_k8s_17_${JOB_BASE_NAME}_${BUILD_NUMBER}.tar", allowEmptyArchive: true
+                    archiveArtifacts artifacts: "test_results_k8s_${JOB_BASE_NAME}_${BUILD_NUMBER}.tar", allowEmptyArchive: true
                     junit 'test/*.xml'
                 }
             }
