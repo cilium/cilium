@@ -286,8 +286,8 @@ move_local_rules
 # using a separate routing table
 setup_proxy_rules
 
-sed '/ENCAP_GENEVE/d' $RUNDIR/globals/node_config.h
-sed '/ENCAP_VXLAN/d' $RUNDIR/globals/node_config.h
+sed -i '/ENCAP_GENEVE/d' $RUNDIR/globals/node_config.h
+sed -i '/ENCAP_VXLAN/d' $RUNDIR/globals/node_config.h
 if [ "$MODE" = "vxlan" ]; then
 	echo "#define ENCAP_VXLAN 1" >> $RUNDIR/globals/node_config.h
 elif [ "$MODE" = "geneve" ]; then
