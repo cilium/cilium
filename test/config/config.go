@@ -37,5 +37,5 @@ func (c *CiliumTestConfigType) ParseFlags() {
 	flag.StringVar(&c.SSHConfig, "cilium.SSHConfig", "",
 		"Specify a custom command to fetch SSH configuration (eg: 'vagrant ssh-config')")
 	flag.BoolVar(&c.ShowCommands, "cilium.showCommands", false,
-		"Show the running commands in the stdout")
+		"Output which commands are ran to stdout")
 }
