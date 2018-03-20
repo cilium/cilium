@@ -126,5 +126,5 @@ func (lk *localKeys) release(key string) (lastUse bool, err error) {
 		return false, nil
 	}
 
-	return false, fmt.Errorf("unable to find key")
+	return false, fmt.Errorf("unable to find key in local cache")
 }
