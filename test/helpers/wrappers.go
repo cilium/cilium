@@ -55,8 +55,13 @@ func CurlFail(endpoint string, optionalValues ...interface{}) string {
 
 // CurlWithHTTPCode retunrs the string representation of the curl command which
 // only outputs the HTTP code returned by its execution against the specified
-// endpoint.
-func CurlWithHTTPCode(endpoint string) string {
+// endpoint. It takes a variadic optinalValues argument. This is passed on to
+// fmt.Sprintf() and uses into the curl message
+func CurlWithHTTPCode(endpoint string, optionalValues ...interface{}) string {
+	if len(optionalValues) > 0 {
+		endpoint = fmt.Sprintf(endpoint, optionalValues...)
+	}
+
 	return fmt.Sprintf(`curl -s --output /dev/stderr -w '%%{http_code}' --connect-timeout %d XGET %s`,
 		CurlConnectTimeout, endpoint)
 }

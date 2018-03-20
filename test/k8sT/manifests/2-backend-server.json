@@ -22,7 +22,7 @@
             "spec":{
                 "containers":[{
                     "name":"server",
-                    "image":"httpd",
+                    "image":"cilium/demo-httpd",
                     "ports":[{
                         "name":"http",
                         "containerPort":80
