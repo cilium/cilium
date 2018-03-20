@@ -314,6 +314,15 @@ func (h *patchEndpointID) Handle(params PatchEndpointIDParams) middleware.Respon
 
 func (d *Daemon) deleteEndpoint(ep *endpoint.Endpoint) int {
 	scopedLog := log.WithField(logfields.EndpointID, ep.ID)
+	errors := d.deleteEndpointQuiet(ep)
+	for _, err := range errors {
+		scopedLog.WithError(err).Warn("Ignoring error while deleting endpoint")
+	}
+	return len(errors)
+}
+
+func (d *Daemon) deleteEndpointQuiet(ep *endpoint.Endpoint) []error {
+	errors := []error{}
 
 	// Wait for existing builds to complete and prevent further builds
 	ep.BuildMutex.Lock()
@@ -326,15 +335,13 @@ func (d *Daemon) deleteEndpoint(ep *endpoint.Endpoint) int {
 	if ep.GetStateLocked() == endpoint.StateDisconnecting {
 		ep.Mutex.Unlock()
 		ep.BuildMutex.Unlock()
-		return 0
+		return []error{}
 	}
 	ep.SetStateLocked(endpoint.StateDisconnecting, "Deleting endpoint")
 
 	// Remove the endpoint before we clean up. This ensures it is no longer
 	// listed or queued for rebuilds.
 	endpointmanager.Remove(ep)
-
-	var errors int
 
 	// If dry mode is enabled, no changes to BPF maps are performed
 	if !d.DryModeEnabled() {
@@ -346,56 +353,49 @@ func (d *Daemon) deleteEndpoint(ep *endpoint.Endpoint) int {
 
 		// Remove policy BPF map
 		if err := os.RemoveAll(ep.PolicyMapPathLocked()); err != nil {
-			scopedLog.WithError(err).WithField(logfields.Path, ep.PolicyMapPathLocked()).Warn("Unable to remove policy map file")
-			errors++
+			errors = append(errors, fmt.Errorf("unable to remove policy map file %s: %s", ep.PolicyMapPathLocked(), err))
 		}
 
 		// Remove calls BPF map
 		if err := os.RemoveAll(ep.CallsMapPathLocked()); err != nil {
-			scopedLog.WithError(err).WithField(logfields.Path, ep.CallsMapPathLocked()).Warn("Unable to remove calls map file")
-			errors++
+			errors = append(errors, fmt.Errorf("unable to remove calls map file %s: %s", ep.CallsMapPathLocked(), err))
 		}
 
 		// Remove IPv6 connection tracking map
 		if err := os.RemoveAll(ep.Ct6MapPathLocked()); err != nil {
-			scopedLog.WithError(err).WithField(logfields.Path, ep.Ct6MapPathLocked()).Warn("Unable to remove IPv6 CT map file")
-			errors++
+			errors = append(errors, fmt.Errorf("unable to remove IPv6 CT map %s: %s", ep.Ct6MapPathLocked(), err))
 		}
 
 		// Remove IPv4 connection tracking map
 		if err := os.RemoveAll(ep.Ct4MapPathLocked()); err != nil {
-			scopedLog.WithError(err).WithField(logfields.Path, ep.Ct4MapPathLocked()).Warn("Unable to remove IPv4 CT map file")
-			errors++
+			errors = append(errors, fmt.Errorf("unable to remove IPv4 CT map %s: %s", ep.Ct4MapPathLocked(), err))
 		}
 
 		// Remove handle_policy() tail call entry for EP
 		if err := ep.RemoveFromGlobalPolicyMap(); err != nil {
-			scopedLog.WithError(err).Warn("Unable to remove EP from global policy map!")
-			errors++
+			errors = append(errors, fmt.Errorf("unable to remove endpoint from global policy map: %s", err))
 		}
 	}
 
 	if !d.conf.IPv4Disabled {
 		if err := ipam.ReleaseIP(ep.IPv4.IP()); err != nil {
-			scopedLog.WithError(err).WithField(logfields.IPAddr, ep.IPv4.IP()).Warn("Error while releasing IPv4")
-			errors++
+			errors = append(errors, fmt.Errorf("unable to release ipv4 address: %s", err))
 		}
 	}
 
 	if err := ipam.ReleaseIP(ep.IPv6.IP()); err != nil {
-		scopedLog.WithError(err).WithField(logfields.IPAddr, ep.IPv6.IP()).Warn("Error while releasing IPv6")
-		errors++
+		errors = append(errors, fmt.Errorf("unable to release ipv6 address: %s", err))
 	}
 
 	completionCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	ep.ProxyWaitGroup = completion.NewWaitGroup(completionCtx)
 
-	errors += ep.LeaveLocked(d)
+	errors = append(errors, ep.LeaveLocked(d)...)
 	ep.Mutex.Unlock()
 
 	err := ep.WaitForProxyCompletions()
 	if err != nil {
-		scopedLog.WithError(err).Warn("Error removing proxy redirects.")
+		errors = append(errors, fmt.Errorf("unable to remove proxy redirects: %s", err))
 	}
 	cancel()
 	ep.ProxyWaitGroup = nil

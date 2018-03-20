@@ -23,7 +23,6 @@ import (
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/logging"
-	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
 var log = logging.DefaultLogger
@@ -204,12 +203,11 @@ func DeleteEntry(ip net.IP) error {
 
 // DeleteElement deletes the endpoint using all keys which represent the
 // endpoint. It returns the number of errors encountered during deletion.
-func DeleteElement(f EndpointFrontend) int {
-	errors := 0
+func DeleteElement(f EndpointFrontend) []error {
+	errors := []error{}
 	for _, k := range f.GetBPFKeys() {
 		if err := LXCMap.Delete(k); err != nil {
-			log.WithError(err).WithField(logfields.BPFMapKey, k).Warn("Unable to delete endpoint in BPF map")
-			errors++
+			errors = append(errors, fmt.Errorf("Unable to delete key %v in endpoint BPF map: %s", k, err))
 		}
 	}
 
