@@ -482,6 +482,7 @@ type Endpoint struct {
 	// policyRevision is the policy revision this endpoint is currently on
 	// to modify this field please use endpoint.setPolicyRevision instead
 	policyRevision uint64
+
 	// policyRevisionSignals contains a map of PolicyRevision signals that
 	// should be triggered once the policyRevision reaches the wanted wantedRev.
 	policyRevisionSignals map[policySignal]bool

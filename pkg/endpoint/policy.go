@@ -92,13 +92,9 @@ func (e *Endpoint) allowEgressIdentity(owner Owner, id identityPkg.NumericIdenti
 	return e.Consumable.AllowEgressIdentityLocked(cache, id)
 }
 
-// ProxyID returns a unique string to identify a proxy mapping
+// ProxyID returns a unique string to identify a proxy mapping.
 func (e *Endpoint) ProxyID(l4 *policy.L4Filter) string {
-	direction := "ingress"
-	if !l4.Ingress {
-		direction = "egress"
-	}
-	return fmt.Sprintf("%d:%s:%s:%d", e.ID, direction, l4.Protocol, l4.Port)
+	return policy.ProxyID(e.ID, l4.Ingress, string(l4.Protocol), uint16(l4.Port))
 }
 
 func getSecurityIdentities(labelsMap *identityPkg.IdentityCache, selector *api.EndpointSelector) []identityPkg.NumericIdentity {

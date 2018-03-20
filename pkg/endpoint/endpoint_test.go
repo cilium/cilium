@@ -23,6 +23,8 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/common/addressing"
 	"github.com/cilium/cilium/pkg/comparator"
+	"github.com/cilium/cilium/pkg/policy"
+	"github.com/cilium/cilium/pkg/policy/api"
 
 	. "gopkg.in/check.v1"
 )
@@ -362,4 +364,16 @@ func (s *EndpointSuite) TestWaitForPolicyRevision(c *C) {
 
 	// Number of policy revision signals should be 0
 	c.Assert(len(e.policyRevisionSignals), Equals, 0)
+}
+
+func (s *EndpointSuite) TestProxyID(c *C) {
+	e := &Endpoint{ID: 123, policyRevision: 0}
+
+	id := e.ProxyID(&policy.L4Filter{Port: 8080, Protocol: api.ProtoTCP, Ingress: true})
+	endpointID, ingress, protocol, port, err := policy.ParseProxyID(id)
+	c.Assert(endpointID, Equals, uint16(123))
+	c.Assert(ingress, Equals, true)
+	c.Assert(protocol, Equals, "TCP")
+	c.Assert(port, Equals, uint16(8080))
+	c.Assert(err, IsNil)
 }
