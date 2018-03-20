@@ -198,7 +198,7 @@ func createCEPCRD(clientset apiextensionsclient.Interface) error {
 		},
 	}
 
-	return createUpdateCRD(clientset, "v2.CiliumEndpoint", res)
+	return createUpdateCRD(clientset, "CiliumEndpoint/v2", res)
 }
 
 // createUpdateCRD ensures the CRD object is installed into the k8s cluster. It
