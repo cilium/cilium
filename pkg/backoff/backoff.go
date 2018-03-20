@@ -53,7 +53,7 @@ func (b *Exponential) Wait() {
 	b.attempt++
 
 	if b.Name == "" {
-		b.Name = string(uuid.NewUUID())
+		b.Name = uuid.NewUUID().String()
 	}
 
 	min := time.Duration(1) * time.Second
