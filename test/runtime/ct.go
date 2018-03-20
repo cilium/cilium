@@ -126,6 +126,8 @@ var _ = Describe("RuntimeDisabledValidatedConntrackTable", func() {
 	})
 
 	AfterEach(func() {
+
+		vm.ValidateNoErrorsOnLogs(CurrentGinkgoTestDescription().Duration)
 		if CurrentGinkgoTestDescription().Failed {
 			vm.ReportFailed(
 				"sudo cilium bpf ct list global",

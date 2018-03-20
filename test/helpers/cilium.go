@@ -27,6 +27,7 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 
 	"github.com/onsi/ginkgo"
+	"github.com/onsi/gomega"
 	"github.com/sirupsen/logrus"
 )
 
@@ -525,6 +526,21 @@ func (s *SSHMeta) ReportFailed(commands ...string) {
 	s.GatherDockerLogs()
 	s.CheckLogsForDeadlock()
 	fmt.Fprint(wr, "===================== EXITING REPORT GENERATION =====================\n")
+}
+
+// ValidateNoErrorsOnLogs checks in cilium logs since the given duration (By
+// default `CurrentGinkgoTestDescription().Duration`) that no `panic` messages
+// or `deadlocks`. In case of any of these messages, it'll mark the test as
+// failed.
+func (s *SSHMeta) ValidateNoErrorsOnLogs(duration time.Duration) {
+	logsCmd := fmt.Sprintf(`sudo journalctl -au %s --since '%v seconds ago'`,
+		DaemonName, duration.Seconds())
+	logs := s.Exec(logsCmd).Output().String()
+
+	gomega.ExpectWithOffset(1, logs).ToNot(gomega.ContainSubstring("panic: "),
+		"Found a panic in Cilium logs")
+	gomega.ExpectWithOffset(1, logs).ToNot(gomega.ContainSubstring(deadLockHeader),
+		"Found a deadlock in Cilium logs")
 }
 
 // CheckLogsForDeadlock checks if the logs for Cilium log messages that signify

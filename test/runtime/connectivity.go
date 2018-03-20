@@ -38,6 +38,7 @@ var _ = Describe("RuntimeValidatedConnectivityTest", func() {
 	}
 
 	AfterEach(func() {
+		vm.ValidateNoErrorsOnLogs(CurrentGinkgoTestDescription().Duration)
 		if CurrentGinkgoTestDescription().Failed {
 			vm.ReportFailed()
 		}
@@ -485,6 +486,7 @@ var _ = Describe("RuntimeValidatedConntrackTest", func() {
 	})
 
 	AfterEach(func() {
+		vm.ValidateNoErrorsOnLogs(CurrentGinkgoTestDescription().Duration)
 		if CurrentGinkgoTestDescription().Failed {
 			vm.ReportFailed()
 		}

@@ -77,8 +77,8 @@ var _ = Describe(demoTestName, func() {
 	})
 
 	AfterEach(func() {
+		kubectl.ValidateNoErrorsOnLogs(CurrentGinkgoTestDescription().Duration)
 		if CurrentGinkgoTestDescription().Failed {
-			log.Debugf("======================== TEST FAILED ======================== ")
 			ciliumPod, _ := kubectl.GetCiliumPodOnNode(helpers.KubeSystemNamespace, helpers.K8s1)
 			kubectl.CiliumReport(helpers.KubeSystemNamespace, ciliumPod)
 		}

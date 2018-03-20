@@ -75,6 +75,8 @@ var _ = Describe("RuntimeValidatedPolicyEnforcement", func() {
 	})
 
 	AfterEach(func() {
+		vm.ValidateNoErrorsOnLogs(CurrentGinkgoTestDescription().Duration)
+
 		if CurrentGinkgoTestDescription().Failed {
 			vm.ReportFailed()
 		}
@@ -430,6 +432,8 @@ var _ = Describe("RuntimeValidatedPolicies", func() {
 	})
 
 	AfterEach(func() {
+		vm.ValidateNoErrorsOnLogs(CurrentGinkgoTestDescription().Duration)
+
 		if CurrentGinkgoTestDescription().Failed {
 			vm.ReportFailed()
 		}
@@ -1006,6 +1010,7 @@ var _ = Describe("RuntimeValidatedPolicyImportTests", func() {
 	})
 
 	AfterEach(func() {
+		vm.ValidateNoErrorsOnLogs(CurrentGinkgoTestDescription().Duration)
 		if CurrentGinkgoTestDescription().Failed {
 			vm.ReportFailed()
 		}
