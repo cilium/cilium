@@ -68,8 +68,10 @@ func (e *Endpoint) lookupRedirectPortBE(l4Filter *policy.L4Filter) uint16 {
 // Must be called with Endpoint.Mutex held.
 func (e *Endpoint) ParseL4Filter(l4Filter *policy.L4Filter) (policy.L4RuleContext, policy.L7RuleContext) {
 	return policy.L4RuleContext{
-			Port:  byteorder.HostToNetwork(uint16(l4Filter.Port)).(uint16),
-			Proto: uint8(l4Filter.U8Proto),
+			EndpointID: e.ID,
+			Ingress:    l4Filter.Ingress,
+			Proto:      uint8(l4Filter.U8Proto),
+			Port:       byteorder.HostToNetwork(uint16(l4Filter.Port)).(uint16),
 		}, policy.L7RuleContext{
 			RedirectPort: e.lookupRedirectPortBE(l4Filter),
 		}
@@ -682,34 +684,31 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir, reason string) (uint64, err
 		if policyChanged &&
 			modifiedRules == nil &&
 			c.L4Policy != nil &&
-			c.L4Policy.Ingress != nil &&
+			(len(c.L4Policy.Ingress) > 0 || len(c.L4Policy.Egress) > 0) &&
 			c.L3L4Policy != nil {
 
 			// Only update CT if the RedirectPort was changed.
 			policyChanged = false
 
-			newSecIDCtxs := policy.NewSecurityIDContexts()
 			p := *c.L3L4Policy
 			for identity, l4RuleContexts := range p {
-
 				for l4RuleContext, l7RuleContexts := range l4RuleContexts {
+					var l4Filter policy.L4Filter
+					var ok bool
 					pp := l4RuleContext.PortProto()
-					l4Filter, ok := c.L4Policy.Ingress[pp]
-
-					if ok {
-						l7RuleContexts.RedirectPort = e.lookupRedirectPortBE(&l4Filter)
-						if _, ok := newSecIDCtxs[identity]; !ok {
-							newSecIDCtxs[identity] = policy.NewL4RuleContexts()
-						}
-						newSecIDCtxs[identity][l4RuleContext] = l7RuleContexts
-						policyChanged = true
+					if l4RuleContext.Ingress {
+						l4Filter, ok = c.L4Policy.Ingress[pp]
+					} else {
+						l4Filter, ok = c.L4Policy.Egress[pp]
 					}
-				}
-			}
-
-			if policyChanged {
-				for ni, ruleContexts := range newSecIDCtxs {
-					p[ni] = ruleContexts
+					if ok {
+						redirectPort := e.lookupRedirectPortBE(&l4Filter)
+						if l7RuleContexts.RedirectPort != redirectPort {
+							policyChanged = true
+							l7RuleContexts.RedirectPort = redirectPort
+							p[identity][l4RuleContext] = l7RuleContexts
+						}
+					}
 				}
 			}
 
@@ -773,7 +772,7 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir, reason string) (uint64, err
 	// update the CT without requiring to lock the endpoint again.
 	isPolicyEnforced := e.IngressOrEgressIsEnforced()
 	isLocal := e.Opts.IsEnabled(OptionConntrackLocal)
-	epIPs := []net.IP{e.IPv4.IP(), e.IPv6.IP()}
+	epIPs := e.IPs()
 
 	e.Mutex.Unlock()
 

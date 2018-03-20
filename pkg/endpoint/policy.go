@@ -17,7 +17,6 @@ package endpoint
 import (
 	"encoding/json"
 	"fmt"
-	"net"
 	"os"
 	"path"
 	"path/filepath"
@@ -965,8 +964,7 @@ func (e *Endpoint) TriggerPolicyUpdatesLocked(owner Owner, opts models.Configura
 	if changed && consumersAdd != nil {
 		policyEnforced := e.IngressOrEgressIsEnforced()
 		isLocal := e.Opts.IsEnabled(OptionConntrackLocal)
-		epIPs := []net.IP{e.IPv4.IP(), e.IPv6.IP()}
-		ctCleaned = updateCT(owner, e, epIPs, policyEnforced, isLocal, consumersAdd, consumersRm)
+		ctCleaned = updateCT(owner, e, e.IPs(), policyEnforced, isLocal, consumersAdd, consumersRm)
 	}
 
 	e.getLogger().Debugf("TriggerPolicyUpdatesLocked: changed: %t", changed)
