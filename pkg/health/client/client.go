@@ -21,6 +21,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"sort"
 	"strings"
 	"time"
 
@@ -225,7 +226,12 @@ func FormatHealthStatusResponse(w io.Writer, sr *models.HealthStatusResponse, pr
 		formatNodeStatus(w, localhost, printAll, succinct, verbose, true)
 		maxLines--
 	}
-	for n, node := range sr.Nodes {
+
+	nodes := sr.Nodes
+	sort.Slice(nodes, func(i, j int) bool {
+		return strings.Compare(nodes[i].Name, nodes[j].Name) < 0
+	})
+	for n, node := range nodes {
 		if maxLines > 0 && n > maxLines {
 			break
 		}
