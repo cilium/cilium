@@ -34,7 +34,6 @@ import (
 	"github.com/cilium/cilium/daemon/options"
 	"github.com/cilium/cilium/pkg/bpf"
 	configPkg "github.com/cilium/cilium/pkg/config"
-	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/envoy"
 	"github.com/cilium/cilium/pkg/flowdebug"
@@ -531,7 +530,7 @@ func initEnv(cmd *cobra.Command) {
 	}
 
 	if config.IPv4Disabled {
-		endpoint.IPv4Enabled = false
+		configPkg.IPv4Enabled = false
 		node.EnableIPv4 = false
 	}
 

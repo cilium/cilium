@@ -315,17 +315,17 @@ func (d *Daemon) writeNetdevHeader(dir string) error {
 // returns #define for PolicyIngress based on the configuration of the daemon.
 func (d *Daemon) fmtPolicyEnforcementIngress() string {
 	if policy.GetPolicyEnabled() == configPkg.AlwaysEnforce {
-		return fmt.Sprintf("#define %s\n", endpoint.OptionIngressSpecPolicy.Define)
+		return fmt.Sprintf("#define %s\n", configPkg.OptionIngressSpecPolicy.Define)
 	}
-	return fmt.Sprintf("#undef %s\n", endpoint.OptionIngressSpecPolicy.Define)
+	return fmt.Sprintf("#undef %s\n", configPkg.OptionIngressSpecPolicy.Define)
 }
 
 // returns #define for PolicyEgress based on the configuration of the daemon.
 func (d *Daemon) fmtPolicyEnforcementEgress() string {
 	if policy.GetPolicyEnabled() == configPkg.AlwaysEnforce {
-		return fmt.Sprintf("#define %s\n", endpoint.OptionEgressSpecPolicy.Define)
+		return fmt.Sprintf("#define %s\n", configPkg.OptionEgressSpecPolicy.Define)
 	}
-	return fmt.Sprintf("#undef %s\n", endpoint.OptionEgressSpecPolicy.Define)
+	return fmt.Sprintf("#undef %s\n", configPkg.OptionEgressSpecPolicy.Define)
 }
 
 // Must be called with d.conf.EnablePolicyMU locked.
