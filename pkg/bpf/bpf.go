@@ -25,7 +25,9 @@ import (
 	"unsafe"
 
 	"github.com/cilium/cilium/pkg/logging"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 
+	"github.com/sirupsen/logrus"
 	"golang.org/x/sys/unix"
 )
 
@@ -271,9 +273,77 @@ func ObjClose(fd int) error {
 	return nil
 }
 
+func objCheck(fd int, path string, mapType int, keySize, valueSize, maxEntries, flags uint32) bool {
+	info, err := GetMapInfo(os.Getpid(), fd)
+	if err != nil {
+		return false
+	}
+
+	scopedLog := log.WithField(logfields.Path, path)
+	mismatch := false
+
+	if int(info.MapType) != mapType {
+		scopedLog.WithFields(logrus.Fields{
+			"old": info.MapType,
+			"new": mapType,
+		}).Info("Map type mismatch for BPF map")
+		mismatch = true
+	}
+
+	if info.KeySize != keySize {
+		scopedLog.WithFields(logrus.Fields{
+			"old": info.KeySize,
+			"new": keySize,
+		}).Info("Key-size mismatch for BPF map")
+		mismatch = true
+	}
+
+	if info.ValueSize != valueSize {
+		scopedLog.WithFields(logrus.Fields{
+			"old": info.ValueSize,
+			"new": valueSize,
+		}).Info("Value-size mismatch for BPF map")
+		mismatch = true
+	}
+
+	if info.MaxEntries != maxEntries {
+		scopedLog.WithFields(logrus.Fields{
+			"old": info.MaxEntries,
+			"new": maxEntries,
+		}).Info("Max entries mismatch for BPF map")
+		mismatch = true
+	}
+	if info.Flags != flags {
+		scopedLog.WithFields(logrus.Fields{
+			"old": info.Flags,
+			"new": flags,
+		}).Info("Flags mismatch for BPF map")
+		mismatch = true
+	}
+
+	if mismatch {
+		if info.MapType == MapTypeProgArray {
+			return false
+		}
+
+		scopedLog.WithFields(logrus.Fields{
+			"map": path,
+		}).Info("Removing map to allow for property upgrade (expect map data loss)")
+
+		// Kernel still holds map reference count via attached prog.
+		// Only exception is prog array, but that is already resolved
+		// differently.
+		os.Remove(path)
+		return true
+	}
+
+	return false
+}
+
 func OpenOrCreateMap(path string, mapType int, keySize, valueSize, maxEntries, flags uint32) (int, bool, error) {
 	var fd int
 
+	redo := false
 	isNewMap := false
 
 	rl := unix.Rlimit{
@@ -289,7 +359,8 @@ func OpenOrCreateMap(path string, mapType int, keySize, valueSize, maxEntries, f
 		return 0, isNewMap, fmt.Errorf("Unable to increase rlimit: %s", err)
 	}
 
-	if _, err = os.Stat(path); os.IsNotExist(err) {
+recreate:
+	if _, err = os.Stat(path); os.IsNotExist(err) || redo {
 		mapDir := filepath.Dir(path)
 		if _, err = os.Stat(mapDir); os.IsNotExist(err) {
 			if err = os.MkdirAll(mapDir, 0755); err != nil {
@@ -328,6 +399,22 @@ func OpenOrCreateMap(path string, mapType int, keySize, valueSize, maxEntries, f
 	}
 
 	fd, err = ObjGet(path)
+	if err == nil {
+		redo = objCheck(
+			fd,
+			path,
+			mapType,
+			keySize,
+			valueSize,
+			maxEntries,
+			flags,
+		)
+		if redo == true {
+			ObjClose(fd)
+			goto recreate
+		}
+	}
+
 	return fd, isNewMap, err
 }
 

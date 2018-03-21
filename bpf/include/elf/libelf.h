@@ -33,7 +33,7 @@
 #include <sys/types.h>
 
 /* Get the ELF types.  */
-#include <elf.h>
+#include "elf.h"
 
 #ifndef SHF_COMPRESSED
  /* Older glibc elf.h might not yet define the ELF compression types.  */

@@ -12,12 +12,19 @@ BPF = bpf_lxc.o bpf_netdev.o bpf_overlay.o bpf_lb.o bpf_xdp.o
 SCRIPTS = init.sh join_ep.sh run_probes.sh spawn_netns.sh
 LIB := $(shell find ./ -name '*.h')
 
-CLANG ?= clang
-LLC   ?= llc
+TARGET=cilium-map-migrate
+
+CLANG  ?= clang
+LLC    ?= llc
+HOSTCC ?= gcc
+
+$(TARGET): $(TARGET).c
+	@$(ECHO_CC)
+	# Due to gcc bug, -lelf needs to be at the end.
+	$(QUIET) ${HOSTCC} -Wall -O2 -I include/ $@.c -lelf -o $@
 
 ifeq ("$(PKG_BUILD)","")
-
-all: $(BPF)
+all: $(BPF) $(TARGET)
 
 %.o: %.c $(LIB)
 	@$(ECHO_CC)
@@ -61,15 +68,14 @@ bpf_lxc.o: bpf_lxc.c $(LIB)
 	@$(ECHO_CC)
 	$(QUIET) ${CLANG} ${CLANG_FLAGS} -c $< -o $(patsubst %.o,%.ll,$@)
 	$(QUIET) ${LLC} ${LLC_FLAGS} -o $@ $(patsubst %.o,%.ll,$@)
-
 else
-
-all:
-
+all: $(TARGET)
 endif
 
 install:
+	$(INSTALL) -m 0755 $(TARGET) $(DESTDIR)$(BINDIR)
 
 clean:
 	@$(ECHO_CLEAN) $(notdir $(shell pwd))
 	$(QUIET)rm -fr *.o
+	$(QUIET)rm -f $(TARGET)
