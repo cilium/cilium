@@ -464,9 +464,10 @@ func (f *GCFilter) doFiltering(srcIP net.IP, dstIP net.IP, dstPort uint16, nextH
 func GC(m *bpf.Map, mapName string, filter *GCFilter) int {
 	if filter.Type&GCFilterByTime != 0 {
 		// If LRUHashtable, no need to garbage collect as LRUHashtable cleans itself up.
-		if m.MapInfo.MapType == bpf.MapTypeLRUHash {
-			return 0
-		}
+		// FIXME: GH-3239 LRU logic is not handling timeouts gracefully enough
+		// if m.MapInfo.MapType == bpf.MapTypeLRUHash {
+		// 	return 0
+		// }
 		t, _ := bpf.GetMtime()
 		tsec := t / 1000000000
 		filter.Time = uint32(tsec)
