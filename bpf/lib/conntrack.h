@@ -557,12 +557,6 @@ static inline int __inline__ ct_create4(void *map, struct ipv4_ct_tuple *tuple,
 }
 
 #else /* !CONNTRACK */
-static inline int __inline__ __ct_lookup(void *map, struct __sk_buff *skb, void *tuple,
-					 int action, int dir, struct ct_state *ct_state)
-{
-	return 0;
-}
-
 static inline int __inline__ ct_lookup6(void *map, struct ipv6_ct_tuple *tuple,
 					struct __sk_buff *skb, int off, __u32 secctx, int dir,
 					struct ct_state *ct_state)
