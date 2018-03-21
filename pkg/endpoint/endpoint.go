@@ -239,8 +239,8 @@ func getCiliumClient() (ciliumClient cilium_client_v2.CiliumV2Interface, err err
 //   - only run with probability 1/nodes
 //   - get list of CEPs
 //   - for each CEP
-//       delete CEP if the node does not exist
-// CiliumEndpoint objects follow a nodename-cep-endpointID scheme
+//       delete CEP if the corresponding pod does not exist
+// CiliumEndpoint objects have the same name as the pod they represent
 func RunK8sCiliumEndpointSyncGC() {
 	var (
 		controllerName = fmt.Sprintf("sync-to-k8s-ciliumendpoint-gc (%v)", node.GetName())
@@ -273,37 +273,45 @@ func RunK8sCiliumEndpointSyncGC() {
 		scopedLog.WithError(err).Error("Not starting controller because unable to get cilium k8s client")
 		return
 	}
+	k8sClient := k8s.Client()
 
 	// this dummy manager is needed only to add this controller to the global list
 	controller.NewManager().UpdateController(controllerName,
 		controller.ControllerParams{
 			RunInterval: 1 * time.Minute,
 			DoFunc: func() error {
-				nodes := node.GetNodes()
-
 				// Don't run if there are no other known nodes
 				// Only run with a probability of 1/(number of nodes in cluster). This
 				// is because this controller runs on every node on the same interval
 				// but only one is neede to run.
+				nodes := node.GetNodes()
 				if len(nodes) <= 1 || runThrottler.Int63n(int64(len(nodes))) != 0 {
 					return nil
 				}
 
+				clusterPodSet := map[string]bool{}
+				clusterPods, err := k8sClient.CoreV1().Pods("").List(meta_v1.ListOptions{})
+				if err != nil {
+					return err
+				}
+				for _, pod := range clusterPods.Items {
+					podFullName := pod.Name + ":" + pod.Namespace
+					clusterPodSet[podFullName] = true
+				}
+
 				// "" is all-namespaces
-				ceps, err := ciliumClient.CiliumEndpoints("").List(meta_v1.ListOptions{})
+				ceps, err := ciliumClient.CiliumEndpoints(meta_v1.NamespaceAll).List(meta_v1.ListOptions{})
 				if err != nil {
 					scopedLog.WithError(err).Error("Cannot list CEPs")
 					return err
 				}
 				for _, cep := range ceps.Items {
-					parts := strings.Split(cep.Name, "-cep")
-					ownerNode := parts[0]
-
-					if _, found := nodes[node.Identity{Name: ownerNode}]; !found {
+					cepFullName := cep.Name + ":" + cep.Namespace
+					if _, found := clusterPodSet[cepFullName]; !found {
 						// delete
 						scopedLog = scopedLog.WithFields(logrus.Fields{
 							logfields.EndpointID: cep.Status.ID,
-							logfields.Node:       ownerNode,
+							logfields.K8sPodName: cepFullName,
 						})
 						scopedLog.Info("Orphaned CiliumEndpoint is being garbage collected")
 						if err := ciliumClient.CiliumEndpoints(cep.Namespace).Delete(cep.Name, &meta_v1.DeleteOptions{}); err != nil {
@@ -532,12 +540,11 @@ func (e *Endpoint) WaitForProxyCompletions() error {
 
 // RunK8sCiliumEndpointSync starts a controller that syncronizes the endpoint
 // to the corresponding k8s CiliumEndpoint CRD
-// CiliumEndpoint objects follow a nodename-cep-endpointID scheme
+// CiliumEndpoint objects have the same name as the pod they represent
 func (e *Endpoint) RunK8sCiliumEndpointSync() {
 	var (
 		endpointID     = e.ID
 		controllerName = fmt.Sprintf("sync-to-k8s-ciliumendpoint (%v)", endpointID)
-		epName         = fmt.Sprintf("%v-cep-%v", node.GetName(), endpointID)
 		scopedLog      = e.getLogger().WithField("controller", controllerName)
 	)
 
@@ -571,6 +578,12 @@ func (e *Endpoint) RunK8sCiliumEndpointSync() {
 		controller.ControllerParams{
 			RunInterval: 10 * time.Second,
 			DoFunc: func() (err error) {
+				podName := e.GetK8sPodName()
+				if podName == "" {
+					scopedLog.Debug("Skipping CiliumEndpoint update because it has no k8s pod name")
+					return nil
+				}
+
 				namespace := e.GetK8sNamespace()
 				if namespace == "" {
 					scopedLog.Debug("Skipping CiliumEndpoint update because it has no k8s namespace")
@@ -588,7 +601,7 @@ func (e *Endpoint) RunK8sCiliumEndpointSync() {
 					}
 				}()
 
-				cep, err := ciliumClient.CiliumEndpoints(namespace).Get(epName, meta_v1.GetOptions{})
+				cep, err := ciliumClient.CiliumEndpoints(namespace).Get(podName, meta_v1.GetOptions{})
 				switch {
 				// A real error
 				case err != nil && !k8serrors.IsNotFound(err):
@@ -616,7 +629,7 @@ func (e *Endpoint) RunK8sCiliumEndpointSync() {
 				// The CEP was not found, this is the first creation of the endpoint
 				cep = &cilium_v2.CiliumEndpoint{
 					ObjectMeta: meta_v1.ObjectMeta{
-						Name: epName,
+						Name: podName,
 					},
 					Status: cilium_v2.CiliumEndpointDetail(*mdl),
 				}
@@ -630,8 +643,9 @@ func (e *Endpoint) RunK8sCiliumEndpointSync() {
 				return nil
 			},
 			StopFunc: func() error {
+				podName := e.GetK8sPodName()
 				namespace := e.GetK8sNamespace()
-				if err := ciliumClient.CiliumEndpoints(namespace).Delete(epName, &meta_v1.DeleteOptions{}); err != nil {
+				if err := ciliumClient.CiliumEndpoints(namespace).Delete(podName, &meta_v1.DeleteOptions{}); err != nil {
 					scopedLog.WithError(err).Error("Unable to delete CEP")
 					return err
 				}
