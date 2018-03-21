@@ -220,6 +220,13 @@ func getCiliumClient() (ciliumClient cilium_client_v2.CiliumV2Interface, err err
 		return nil, err
 	}
 
+	// This guards against the situation where another invocation of this
+	// function (in another thread or previous in time) might have returned an
+	// error and not initialized ciliumEndpointSyncControllerK8sClient
+	if ciliumEndpointSyncControllerK8sClient == nil {
+		return nil, errors.New("No initialised k8s Cilium CRD client")
+	}
+
 	return ciliumEndpointSyncControllerK8sClient.CiliumV2(), nil
 }
 
