@@ -384,6 +384,22 @@ func (s *K8sSuite) TestParseNetworkPolicyEgressAllowAll(c *C) {
 	c.Assert(repo.CanReachEgressRLocked(&ctxAToC), Equals, api.Allowed)
 }
 
+func (s *K8sSuite) TestParseNetworkPolicyIngressAllowAll(c *C) {
+	repo := parseAndAddRules(c, &networkingv1.NetworkPolicy{
+		Spec: networkingv1.NetworkPolicySpec{
+			PodSelector: labelSelectorC,
+			Ingress: []networkingv1.NetworkPolicyIngressRule{
+				{
+					From: []networkingv1.NetworkPolicyPeer{},
+				},
+			},
+		},
+	})
+
+	c.Assert(repo.AllowsIngressRLocked(&ctxAToB), Equals, api.Denied)
+	c.Assert(repo.AllowsIngressRLocked(&ctxAToC), Equals, api.Allowed)
+}
+
 func (s *K8sSuite) TestParseNetworkPolicyUnknownProto(c *C) {
 	netPolicy := &networkingv1.NetworkPolicy{
 		Spec: networkingv1.NetworkPolicySpec{
