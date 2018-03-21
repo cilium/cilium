@@ -20,7 +20,6 @@ import (
 	"math/rand"
 	"net"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"github.com/cilium/cilium/api/v1/models"
@@ -424,18 +423,6 @@ func (p *Proxy) RemoveRedirect(id string, wg *completion.WaitGroup) error {
 	}()
 
 	return nil
-}
-
-// UpdateNetworkPolicy adds or updates a network policy in the set
-// published to L7 proxies.
-func (p *Proxy) UpdateNetworkPolicy(ep envoy.NetworkPolicyEndpoint, policy *policy.L4Policy,
-	labelsMap identityPkg.IdentityCache, deniedIngressIdentities, deniedEgressIdentities map[identityPkg.NumericIdentity]bool, wg *completion.WaitGroup) error {
-	// If there are no redirects configured, Envoy won't query for network policies
-	// and therefore will never ACK them, and we'd wait forever.
-	if !viper.GetBool("sidecar-http-proxy") && atomic.LoadInt32(&redirectCount) == 0 {
-		wg = nil
-	}
-	return p.XDSServer.UpdateNetworkPolicy(ep, policy, labelsMap, deniedIngressIdentities, deniedEgressIdentities, wg)
 }
 
 // ChangeLogLevel changes proxy log level to correspond to the logrus log level 'level'.
