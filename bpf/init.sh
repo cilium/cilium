@@ -196,12 +196,9 @@ function xdp_load()
 
 	ip link set dev $DEV $MODE off
 	rm -f "/sys/fs/bpf/xdp/globals/$CIDR_MAP" 2> /dev/null || true
+	cilium-map-migrate -s $OUT
 	ip link set dev $DEV $MODE obj $OUT sec $SEC
-}
-
-function remove_non_persistent_map()
-{
-	rm "/sys/fs/bpf/tc/globals/$1" 2> /dev/null || true
+	cilium-map-migrate -e $OUT -r $?
 }
 
 function bpf_load()
@@ -222,8 +219,9 @@ function bpf_load()
 
 	tc qdisc del dev $DEV clsact 2> /dev/null || true
 	tc qdisc add dev $DEV clsact
-	remove_non_persistent_map $CALLS_MAP
+	cilium-map-migrate -s $OUT
 	tc filter add dev $DEV $WHERE prio 1 handle 1 bpf da obj $OUT sec $SEC
+	cilium-map-migrate -e $OUT -r $?
 }
 
 function encap_fail()
@@ -308,7 +306,6 @@ if [ "$MODE" = "vxlan" -o "$MODE" = "geneve" ]; then
 	CALLS_MAP="cilium_calls_overlay_${ID_WORLD}"
 	POLICY_MAP="cilium_policy_reserved_${ID_WORLD}"
 	OPTS="-DSECLABEL=${ID_WORLD} -DPOLICY_MAP=${POLICY_MAP}"
-	remove_non_persistent_map $POLICY_MAP
 	bpf_load $ENCAP_DEV "$OPTS" "ingress" bpf_overlay.c bpf_overlay.o from-overlay ${CALLS_MAP}
 	echo "$ENCAP_DEV" > $RUNDIR/encap.state
 else
@@ -330,7 +327,6 @@ if [ "$MODE" = "direct" ]; then
 		CALLS_MAP=cilium_calls_netdev_${ID_WORLD}
 		POLICY_MAP="cilium_policy_reserved_${ID_WORLD}"
 		OPTS="-DSECLABEL=${ID_WORLD} -DPOLICY_MAP=${POLICY_MAP}"
-		remove_non_persistent_map $POLICY_MAP
 		bpf_load $NATIVE_DEV "$OPTS" "ingress" bpf_netdev.c bpf_netdev.o from-netdev $CALLS_MAP
 
 		echo "$NATIVE_DEV" > $RUNDIR/device.state
@@ -361,7 +357,6 @@ fi
 CALLS_MAP="cilium_calls_netdev_ns_${ID_HOST}"
 POLICY_MAP="cilium_policy_reserved_${ID_HOST}"
 OPTS="-DFROM_HOST -DFIXED_SRC_SECCTX=${ID_HOST} -DSECLABEL=${ID_HOST} -DPOLICY_MAP=${POLICY_MAP}"
-remove_non_persistent_map $POLICY_MAP
 bpf_load $HOST_DEV1 "$OPTS" "egress" bpf_netdev.c bpf_host.o from-netdev $CALLS_MAP
 
 if [ -n "$XDP_DEV" ]; then

@@ -252,68 +252,6 @@ func (m *Map) setPathIfUnset() error {
 	return nil
 }
 
-func (m *Map) migrate(fd int) (bool, error) {
-	info, err := GetMapInfo(os.Getpid(), fd)
-	if err != nil {
-		return false, nil
-	}
-
-	scopedLog := log.WithField(logfields.Path, m.path)
-	mismatch := false
-
-	if info.MapType != m.MapType {
-		scopedLog.WithFields(logrus.Fields{
-			"old": info.MapType,
-			"new": m.MapType,
-		}).Info("Map type mismatch for BPF map")
-		mismatch = true
-	}
-
-	if info.KeySize != m.KeySize {
-		scopedLog.WithFields(logrus.Fields{
-			"old": info.KeySize,
-			"new": m.KeySize,
-		}).Info("Key-size mismatch for BPF map")
-		mismatch = true
-	}
-
-	if info.ValueSize != m.ValueSize {
-		scopedLog.WithFields(logrus.Fields{
-			"old": info.ValueSize,
-			"new": m.ValueSize,
-		}).Info("Value-size mismatch for BPF map")
-		mismatch = true
-	}
-
-	if info.MaxEntries != m.MaxEntries {
-		scopedLog.WithFields(logrus.Fields{
-			"old": info.MaxEntries,
-			"new": m.MaxEntries,
-		}).Info("Max entries mismatch for BPF map")
-		mismatch = true
-	}
-
-	if info.Flags != m.Flags {
-		scopedLog.WithFields(logrus.Fields{
-			"old": info.Flags,
-			"new": m.Flags,
-		}).Info("Flags mismatch for BPF map")
-		mismatch = true
-	}
-	if mismatch {
-		b, err := m.containsEntries()
-		if err == nil && !b {
-			scopedLog.Info("Safely removing empty map so it can be recreated")
-			os.Remove(m.path)
-			return true, nil
-		}
-
-		return false, fmt.Errorf("could not resolve BPF map mismatch (see log for details)")
-	}
-
-	return false, nil
-}
-
 func (m *Map) OpenOrCreate() (bool, error) {
 	m.lock.Lock()
 	defer m.lock.Unlock()
@@ -332,26 +270,12 @@ func (m *Map) OpenOrCreate() (bool, error) {
 		os.Remove(m.path)
 	}
 
-reopen:
 	fd, isNew, err := OpenOrCreateMap(m.path, int(m.MapType), m.KeySize, m.ValueSize, m.MaxEntries, m.Flags)
 	if err != nil {
 		return false, err
 	}
 
-	// Only persistent maps need to be migrated, non-persistent maps will
-	// have been deleted above before opening.
-	if !m.NonPersistent {
-		if retry, err := m.migrate(fd); err != nil {
-			if isNew {
-				os.Remove(m.path)
-			}
-			return false, err
-		} else if retry {
-			goto reopen
-		}
-	}
 	m.fd = fd
-
 	return isNew, nil
 }
 
