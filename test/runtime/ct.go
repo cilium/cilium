@@ -97,6 +97,7 @@ var _ = Describe("RuntimeDisabledValidatedConntrackTable", func() {
 
 		case helpers.Delete:
 			for _, x := range containersNames {
+				//@TODO Add assert here when #3235 is fixed
 				vm.ContainerRm(x)
 			}
 		}
@@ -142,7 +143,10 @@ var _ = Describe("RuntimeDisabledValidatedConntrackTable", func() {
 		vm.PolicyDelAll()
 		netcatPort = 11111
 
+		// A lot of these test checks the number of connections. To avoid
+		// having false positives clean CT table after each test
 		vm.ExecCilium("bpf ct flush global")
+
 	})
 
 	// containersMeta returns a map where the key is the container name and the
