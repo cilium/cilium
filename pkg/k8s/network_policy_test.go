@@ -389,6 +389,14 @@ func (s *K8sSuite) TestParseNetworkPolicyEgressAllowAll(c *C) {
 
 	c.Assert(repo.AllowsEgressRLocked(&ctxAToB), Equals, api.Allowed)
 	c.Assert(repo.CanReachEgressRLocked(&ctxAToC), Equals, api.Allowed)
+
+	ctxAToC80 := ctxAToC
+	ctxAToC80.DPorts = []*models.Port{{Port: 80, Protocol: models.PortProtocolTCP}}
+	c.Assert(repo.AllowsEgressRLocked(&ctxAToC80), Equals, api.Allowed)
+
+	ctxAToC90 := ctxAToC
+	ctxAToC90.DPorts = []*models.Port{{Port: 90, Protocol: models.PortProtocolTCP}}
+	c.Assert(repo.AllowsEgressRLocked(&ctxAToC90), Equals, api.Allowed)
 }
 
 // Re-enable via GH-3099
@@ -429,6 +437,14 @@ func (s *K8sSuite) TestParseNetworkPolicyIngressAllowAll(c *C) {
 
 	c.Assert(repo.AllowsIngressRLocked(&ctxAToB), Equals, api.Denied)
 	c.Assert(repo.AllowsIngressRLocked(&ctxAToC), Equals, api.Allowed)
+
+	ctxAToC80 := ctxAToC
+	ctxAToC80.DPorts = []*models.Port{{Port: 80, Protocol: models.PortProtocolTCP}}
+	c.Assert(repo.AllowsIngressRLocked(&ctxAToC80), Equals, api.Allowed)
+
+	ctxAToC90 := ctxAToC
+	ctxAToC90.DPorts = []*models.Port{{Port: 90, Protocol: models.PortProtocolTCP}}
+	c.Assert(repo.AllowsIngressRLocked(&ctxAToC90), Equals, api.Allowed)
 }
 
 func (s *K8sSuite) TestParseNetworkPolicyIngressL4AllowAll(c *C) {
