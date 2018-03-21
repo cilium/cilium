@@ -42,6 +42,55 @@ type K8sSuite struct{}
 
 var _ = Suite(&K8sSuite{})
 
+var (
+	labelsA = labels.LabelArray{
+		labels.NewLabel(k8sConst.PodNamespaceLabel, v1.NamespaceDefault, labels.LabelSourceK8s),
+		labels.NewLabel("id", "a", labels.LabelSourceK8s),
+	}
+
+	labelSelectorA = metav1.LabelSelector{
+		MatchLabels: map[string]string{
+			"id": "a",
+		},
+	}
+
+	labelsB = labels.LabelArray{
+		labels.NewLabel(k8sConst.PodNamespaceLabel, v1.NamespaceDefault, labels.LabelSourceK8s),
+		labels.NewLabel("id1", "b", labels.LabelSourceK8s),
+		labels.NewLabel("id2", "c", labels.LabelSourceK8s),
+	}
+
+	labelSelectorB = metav1.LabelSelector{
+		MatchLabels: map[string]string{
+			"id1": "b",
+			"id2": "c",
+		},
+	}
+
+	labelsC = labels.LabelArray{
+		labels.NewLabel(k8sConst.PodNamespaceLabel, v1.NamespaceDefault, labels.LabelSourceK8s),
+		labels.NewLabel("id", "c", labels.LabelSourceK8s),
+	}
+
+	labelSelectorC = metav1.LabelSelector{
+		MatchLabels: map[string]string{
+			"id": "c",
+		},
+	}
+
+	ctxAToB = policy.SearchContext{
+		From:  labelsA,
+		To:    labelsB,
+		Trace: policy.TRACE_VERBOSE,
+	}
+
+	ctxAToC = policy.SearchContext{
+		From:  labelsA,
+		To:    labelsC,
+		Trace: policy.TRACE_VERBOSE,
+	}
+)
+
 func (s *K8sSuite) TestParseNetworkPolicy(c *C) {
 	netPolicy := &networkingv1.NetworkPolicy{
 		Spec: networkingv1.NetworkPolicySpec{
@@ -307,6 +356,32 @@ func (s *K8sSuite) TestParseNetworkPolicyEgress(c *C) {
 	// ctx.To also needs to have all labels from the policy in order to be accepted
 	egressVerdict := repo.CanReachEgressRLocked(&ctx)
 	c.Assert(egressVerdict, Not(Equals), api.Allowed)
+}
+
+func parseAndAddRules(c *C, p *networkingv1.NetworkPolicy) *policy.Repository {
+	repo := policy.NewPolicyRepository()
+	rules, err := ParseNetworkPolicy(p)
+	c.Assert(err, IsNil)
+	_, err = repo.AddList(rules)
+	c.Assert(err, IsNil)
+
+	return repo
+}
+
+func (s *K8sSuite) TestParseNetworkPolicyEgressAllowAll(c *C) {
+	repo := parseAndAddRules(c, &networkingv1.NetworkPolicy{
+		Spec: networkingv1.NetworkPolicySpec{
+			PodSelector: labelSelectorA,
+			Egress: []networkingv1.NetworkPolicyEgressRule{
+				{
+					To: []networkingv1.NetworkPolicyPeer{},
+				},
+			},
+		},
+	})
+
+	c.Assert(repo.AllowsEgressRLocked(&ctxAToB), Equals, api.Allowed)
+	c.Assert(repo.CanReachEgressRLocked(&ctxAToC), Equals, api.Allowed)
 }
 
 func (s *K8sSuite) TestParseNetworkPolicyUnknownProto(c *C) {

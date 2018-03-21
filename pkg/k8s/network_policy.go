@@ -171,7 +171,14 @@ func ParseNetworkPolicy(np *networkingv1.NetworkPolicy) (api.Rules, error) {
 					egress.ToCIDRSet = append(egress.ToCIDRSet, ipBlockToCIDRRule(rule.IPBlock))
 				}
 			}
+		} else {
+			// []To is wildcard
+			all := api.NewESFromLabels(
+				labels.NewLabel(labels.IDNameAll, "", labels.LabelSourceReserved),
+			)
+			egress.ToEndpoints = append(egress.ToEndpoints, all)
 		}
+
 		egresses = append(egresses, egress)
 	}
 
