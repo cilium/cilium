@@ -65,6 +65,7 @@ func (e *Endpoint) lookupRedirectPortBE(l4Filter *policy.L4Filter) uint16 {
 
 // ParseL4Filter parses a L4Filter and returns a L4Metadata and a
 // L7Metadata with L4Installed set to false.
+// This is used to convert
 // Must be called with Endpoint.Mutex held.
 func (e *Endpoint) ParseL4Filter(l4Filter *policy.L4Filter) (policy.L4Metadata, policy.L7Metadata) {
 	return policy.L4Metadata{

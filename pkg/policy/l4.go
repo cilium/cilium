@@ -84,9 +84,9 @@ const (
 )
 
 // L4Filter contains all of the L4-relevant information derived from policy,
-// including the label-based L3 list of endpoints to which this rule applies,
+// including the label-based L3 list of endpoints to which the filter applies,
 // and information about L7-traffic which is dependent upon L4 (protocols for
-// proxy, etc).
+// proxy, etc). It
 type L4Filter struct {
 	// Port is the destination port to allow
 	Port int `json:"port"`
@@ -105,7 +105,7 @@ type L4Filter struct {
 	Ingress bool `json:"-"`
 	// Egress is true if filter applies at egress
 	Egress bool `json:"-"`
-	// The rule labels of this Filter
+	// DerivedFromRules is the list of labels of rules that apply to this L4Filter.
 	DerivedFromRules labels.LabelArrayList `json:"-"`
 }
 
