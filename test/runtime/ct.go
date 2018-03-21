@@ -18,7 +18,6 @@ import (
 	"fmt"
 	"net"
 	"strings"
-	"sync"
 
 	. "github.com/cilium/cilium/test/ginkgo-ext"
 	"github.com/cilium/cilium/test/helpers"
@@ -55,7 +54,6 @@ var _ = Describe("RuntimeDisabledValidatedConntrackTable", func() {
 	var (
 		logger *logrus.Entry
 		vm     *helpers.SSHMeta
-		once   sync.Once
 
 		HTTPPrivate   = "private"
 		HTTPPublic    = "public"
@@ -99,30 +97,40 @@ var _ = Describe("RuntimeDisabledValidatedConntrackTable", func() {
 
 		case helpers.Delete:
 			for _, x := range containersNames {
-				vm.ContainerRm(x).ExpectSuccess()
+				vm.ContainerRm(x)
 			}
 		}
 	}
 
-	initialize := func() {
+	BeforeAll(func() {
 		logger = log.WithFields(logrus.Fields{"testName": "RuntimeConntrack"})
 		logger.Info("Starting")
 		vm = helpers.CreateNewRuntimeHelper(helpers.Runtime, logger)
 		err := vm.WaitUntilReady(100)
 		Expect(err).To(BeNil())
 		vm.NetworkCreate(helpers.CiliumDockerNetwork, "")
-	}
+
+		containers(helpers.Create)
+	})
+
+	AfterAll(func() {
+		containers(helpers.Delete)
+		res := vm.SetPolicyEnforcement(helpers.PolicyEnforcementDefault)
+		res.ExpectSuccess("Setting policyEnforcement to default")
+
+		areEndpointsReady := vm.WaitEndpointsReady()
+		Expect(areEndpointsReady).Should(BeTrue(), "Endpoints not ready after timeout")
+	})
 
 	BeforeEach(func() {
-		once.Do(initialize)
-
 		res := vm.SetPolicyEnforcement(helpers.PolicyEnforcementAlways)
 		res.ExpectSuccess("Setting policy enforcement as always")
 
 		res = vm.PolicyDelAll()
 		res.ExpectSuccess("Deleting all policies")
 
-		containers(helpers.Create)
+		areEndpointsReady := vm.WaitEndpointsReady()
+		Expect(areEndpointsReady).Should(BeTrue(), "Endpoints not ready after timeout")
 	})
 
 	AfterEach(func() {
@@ -135,12 +143,8 @@ var _ = Describe("RuntimeDisabledValidatedConntrackTable", func() {
 		}
 		vm.PolicyDelAll()
 		netcatPort = 11111
-		containers(helpers.Delete)
-		res := vm.SetPolicyEnforcement(helpers.PolicyEnforcementDefault)
-		res.ExpectSuccess("Setting policyEnforcement to default")
 
-		areEndpointsReady := vm.WaitEndpointsReady()
-		Expect(areEndpointsReady).Should(BeTrue(), "Endpoints not ready after timeout")
+		vm.ExecCilium("bpf ct flush global")
 	})
 
 	// containersMeta returns a map where the key is the container name and the
