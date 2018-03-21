@@ -26,9 +26,11 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-#ifndef HAVE_LRU_MAP_TYPE
+// FIXME: GH-3239 LRU logic is not handling timeouts gracefully enough
+// #ifndef HAVE_LRU_MAP_TYPE
+// #define NEEDS_TIMEOUT 1
+// #endif
 #define NEEDS_TIMEOUT 1
-#endif
 
 #ifndef EVENT_SOURCE
 #define EVENT_SOURCE 0
