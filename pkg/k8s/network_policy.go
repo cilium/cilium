@@ -120,6 +120,11 @@ func ParseNetworkPolicy(np *networkingv1.NetworkPolicy) (api.Rules, error) {
 
 	for _, iRule := range np.Spec.Ingress {
 		ingress := api.IngressRule{}
+
+		if iRule.Ports != nil && len(iRule.Ports) > 0 {
+			ingress.ToPorts = parsePorts(iRule.Ports)
+		}
+
 		if iRule.From != nil && len(iRule.From) > 0 {
 			for _, rule := range iRule.From {
 				endpointSelector := parseNetworkPolicyPeer(namespace, &rule)
@@ -136,11 +141,7 @@ func ParseNetworkPolicy(np *networkingv1.NetworkPolicy) (api.Rules, error) {
 					ingress.FromCIDRSet = append(ingress.FromCIDRSet, ipBlockToCIDRRule(rule.IPBlock))
 				}
 			}
-		}
-
-		if iRule.Ports != nil && len(iRule.Ports) > 0 {
-			ingress.ToPorts = parsePorts(iRule.Ports)
-		} else if iRule.From == nil || len(iRule.From) == 0 {
+		} else {
 			// Based on NetworkPolicyIngressRule docs:
 			//   From []NetworkPolicyPeer
 			//   If this field is empty or missing, this rule matches all

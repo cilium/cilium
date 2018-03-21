@@ -89,6 +89,13 @@ var (
 		To:    labelsC,
 		Trace: policy.TRACE_VERBOSE,
 	}
+
+	port80 = networkingv1.NetworkPolicyPort{
+		Port: &intstr.IntOrString{
+			Type:   intstr.Int,
+			IntVal: 80,
+		},
+	}
 )
 
 func (s *K8sSuite) TestParseNetworkPolicy(c *C) {
@@ -398,6 +405,30 @@ func (s *K8sSuite) TestParseNetworkPolicyIngressAllowAll(c *C) {
 
 	c.Assert(repo.AllowsIngressRLocked(&ctxAToB), Equals, api.Denied)
 	c.Assert(repo.AllowsIngressRLocked(&ctxAToC), Equals, api.Allowed)
+}
+
+func (s *K8sSuite) TestParseNetworkPolicyIngressL4AllowAll(c *C) {
+	repo := parseAndAddRules(c, &networkingv1.NetworkPolicy{
+		Spec: networkingv1.NetworkPolicySpec{
+			PodSelector: labelSelectorC,
+			Ingress: []networkingv1.NetworkPolicyIngressRule{
+				{
+					Ports: []networkingv1.NetworkPolicyPort{port80},
+					From:  []networkingv1.NetworkPolicyPeer{},
+				},
+			},
+		},
+	})
+
+	c.Assert(repo.AllowsIngressRLocked(&ctxAToB), Equals, api.Denied)
+
+	ctxAToC80 := ctxAToC
+	ctxAToC80.DPorts = []*models.Port{{Port: 80, Protocol: models.PortProtocolTCP}}
+	c.Assert(repo.AllowsIngressRLocked(&ctxAToC80), Equals, api.Allowed)
+
+	ctxAToC90 := ctxAToC
+	ctxAToC90.DPorts = []*models.Port{{Port: 90, Protocol: models.PortProtocolTCP}}
+	c.Assert(repo.AllowsIngressRLocked(&ctxAToC90), Equals, api.Denied)
 }
 
 func (s *K8sSuite) TestParseNetworkPolicyUnknownProto(c *C) {
