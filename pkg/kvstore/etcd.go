@@ -180,7 +180,25 @@ func newEtcdClient(config *client.Config, cfgPath string) (BackendOperations, er
 		return nil, err
 	}
 	log.Info("Waiting for etcd client to be ready")
-	s, err := concurrency.NewSession(c)
+
+	var s *concurrency.Session
+	sessionChan := make(chan *concurrency.Session)
+	errorChan := make(chan error)
+	go func() {
+		session, err := concurrency.NewSession(c)
+		sessionChan <- session
+		errorChan <- err
+		close(sessionChan)
+		close(errorChan)
+	}()
+
+	select {
+	case s = <-sessionChan:
+		err = <-errorChan
+	case <-time.After(config.DialTimeout):
+		err = fmt.Errorf("Timed out while waiting for etcd session. Ensure that etcd version is at least %s", minRequiredVersion.String())
+	}
+
 	if err != nil {
 		return nil, fmt.Errorf("Unable to contact etcd: %s", err)
 	}
