@@ -113,6 +113,8 @@ func (k RuleTranslator) serviceMatches(service *v3.ServiceRule) bool {
 func generateToCidrFromEndpoint(
 	egress *v3.EgressRule, endpoint types.K8sServiceEndpoint) error {
 
+	var err error
+
 	isIPInCIDR := func(epIP net.IP, cidr []v3.CIDR) (bool, error) {
 		for _, c := range cidr {
 			_, cidr, err := net.ParseCIDR(string(c))
@@ -129,17 +131,18 @@ func generateToCidrFromEndpoint(
 	// This will generate one-address CIDRs consisting of endpoint backend ip
 	mask := net.CIDRMask(128, 128)
 	for ip := range endpoint.BEIPs {
+		found := false
+
 		epIP := net.ParseIP(ip)
 		if epIP == nil {
 			return fmt.Errorf("Unable to parse ip: %s", ip)
 		}
 
-		if egress.ToCIDRs == nil || egress.ToCIDRs.CIDR == nil {
-			continue
-		}
-		found, err := isIPInCIDR(epIP, egress.ToCIDRs.CIDR)
-		if err != nil {
-			return err
+		if egress.ToCIDRs != nil && egress.ToCIDRs.CIDR != nil {
+			found, err = isIPInCIDR(epIP, egress.ToCIDRs.CIDR)
+			if err != nil {
+				return err
+			}
 		}
 		if !found {
 			if egress.ToCIDRs == nil {

@@ -127,22 +127,13 @@ func ParseNetworkPolicy(np *networkingv1.NetworkPolicy) (v3.Rules, error) {
 				identitySelector := parseNetworkPolicyPeer(namespace, &rule)
 
 				if identitySelector != nil {
-					if len(l4Ports) == 0 {
-						ingresses = append(ingresses, v3.IngressRule{
-							FromIdentities: &v3.IdentityRule{
-								IdentitySelector: *identitySelector,
-							},
-						})
-					} else {
-						for _, l4Port := range l4Ports {
-							ingresses = append(ingresses, v3.IngressRule{
-								FromIdentities: &v3.IdentityRule{
-									IdentitySelector: *identitySelector,
-									ToPorts:          l4Port.DeepCopy(),
-								},
-							})
-						}
-					}
+					ingresses = append(ingresses, v3.IngressRule{
+						FromIdentities: &v3.IdentityRule{
+							IdentitySelector: *identitySelector,
+							ToPorts:          l4Ports.DeepCopy(),
+							// TODO @tgraf add L4 wildcard here
+						},
+					})
 				} else {
 					// No label-based selectors were in NetworkPolicyPeer.
 					log.WithField(logfields.K8sNetworkPolicyName, np.Name).Debug("NetworkPolicyPeer does not have PodSelector or NamespaceSelector")
@@ -150,24 +141,16 @@ func ParseNetworkPolicy(np *networkingv1.NetworkPolicy) (v3.Rules, error) {
 
 				// Parse CIDR-based parts of rule.
 				if rule.IPBlock != nil {
-					if len(l4Ports) == 0 {
-						ingresses = append(ingresses, v3.IngressRule{
-							FromCIDRs: ipBlockToCIDRRule(rule.IPBlock),
-						})
-					} else {
-						for _, l4Port := range l4Ports {
-							fromCIDRS := v3.IngressRule{
-								FromCIDRs: ipBlockToCIDRRule(rule.IPBlock),
-							}
-							fromCIDRS.FromCIDRs.ToPorts = l4Port.DeepCopy()
-
-							ingresses = append(ingresses, fromCIDRS)
-						}
+					fromCIDRS := v3.IngressRule{
+						FromCIDRs: ipBlockToCIDRRule(rule.IPBlock),
 					}
+					fromCIDRS.FromCIDRs.ToPorts = l4Ports.DeepCopy()
+					// TODO @tgraf add L4 wildcard here
+
+					ingresses = append(ingresses, fromCIDRS)
 				}
 			}
-		}
-		if len(iRule.Ports) == 0 && len(iRule.From) == 0 {
+		} else {
 			// Based on NetworkPolicyIngressRule docs:
 			//   From []NetworkPolicyPeer
 			//   If this field is empty or missing, this rule matches all
@@ -178,6 +161,7 @@ func ParseNetworkPolicy(np *networkingv1.NetworkPolicy) (v3.Rules, error) {
 			ingresses = append(ingresses, v3.IngressRule{
 				FromIdentities: &v3.IdentityRule{
 					IdentitySelector: all,
+					ToPorts:          l4Ports.DeepCopy(),
 				},
 			})
 		}
@@ -193,47 +177,28 @@ func ParseNetworkPolicy(np *networkingv1.NetworkPolicy) (v3.Rules, error) {
 					identitySelector := parseNetworkPolicyPeer(namespace, &rule)
 
 					if identitySelector != nil {
-						if len(l4Ports) == 0 {
-							egresses = append(egresses, v3.EgressRule{
-								ToIdentities: &v3.IdentityRule{
-									IdentitySelector: *identitySelector,
-								},
-							})
-						} else {
-							for _, l4Port := range l4Ports {
-								egresses = append(egresses, v3.EgressRule{
-									ToIdentities: &v3.IdentityRule{
-										IdentitySelector: *identitySelector,
-										ToPorts:          l4Port.DeepCopy(),
-									},
-								})
-							}
-						}
-
+						egresses = append(egresses, v3.EgressRule{
+							ToIdentities: &v3.IdentityRule{
+								IdentitySelector: *identitySelector,
+								ToPorts:          l4Ports.DeepCopy(),
+								// TODO @tgraf add L4 wildcard here
+							},
+						})
 					} else {
 						log.WithField(logfields.K8sNetworkPolicyName, np.Name).Debug("NetworkPolicyPeer does not have PodSelector or NamespaceSelector")
 					}
 				}
 				if rule.IPBlock != nil {
-					if len(l4Ports) == 0 {
-						egresses = append(egresses, v3.EgressRule{
-							ToCIDRs: ipBlockToCIDRRule(rule.IPBlock),
-						})
-					} else {
-						for _, l4Port := range l4Ports {
-							toCIDRs := v3.EgressRule{
-								ToCIDRs: ipBlockToCIDRRule(rule.IPBlock),
-							}
-							toCIDRs.ToCIDRs.ToPorts = l4Port.DeepCopy()
-
-							egresses = append(egresses, toCIDRs)
-						}
+					toCIDRs := v3.EgressRule{
+						ToCIDRs: ipBlockToCIDRRule(rule.IPBlock),
 					}
+					toCIDRs.ToCIDRs.ToPorts = l4Ports.DeepCopy()
+					// TODO @tgraf add L4 wildcard here
+
+					egresses = append(egresses, toCIDRs)
 				}
 			}
-		}
-
-		if len(eRule.To) == 0 {
+		} else {
 			// Based on NetworkPolicyIngressRule docs:
 			//   From []NetworkPolicyPeer
 			//   If this field is empty or missing, this rule matches all
@@ -247,6 +212,7 @@ func ParseNetworkPolicy(np *networkingv1.NetworkPolicy) (v3.Rules, error) {
 			egresses = append(egresses, v3.EgressRule{
 				ToIdentities: &v3.IdentityRule{
 					IdentitySelector: all,
+					ToPorts:          l4Ports.DeepCopy(),
 				},
 			})
 		}
@@ -263,11 +229,7 @@ func ParseNetworkPolicy(np *networkingv1.NetworkPolicy) (v3.Rules, error) {
 		(hasV1PolicyType(np.Spec.PolicyTypes, networkingv1.PolicyTypeIngress) ||
 			!hasV1PolicyType(np.Spec.PolicyTypes, networkingv1.PolicyTypeEgress)) {
 
-		ingresses = []v3.IngressRule{
-			{FromCIDRs: &v3.CIDRRule{CIDR: v3.NewWildcardCIDR()}},
-			{FromEntities: &v3.EntityRule{Entities: []v3.Entity{v3.Entity(v3.EntityAll)}}},
-			{FromIdentities: &v3.IdentityRule{IdentitySelector: v3.NewWildcardIdentitySelector()}},
-		}
+		ingresses = []v3.IngressRule{{}}
 	}
 
 	// Convert the k8s default-deny model to the Cilium default-deny model
@@ -277,11 +239,7 @@ func ParseNetworkPolicy(np *networkingv1.NetworkPolicy) (v3.Rules, error) {
 	//	  - Egress
 	if len(egresses) == 0 && hasV1PolicyType(np.Spec.PolicyTypes, networkingv1.PolicyTypeEgress) {
 
-		egresses = []v3.EgressRule{
-			{ToCIDRs: &v3.CIDRRule{CIDR: v3.NewWildcardCIDR()}},
-			{ToEntities: &v3.EntityRule{Entities: []v3.Entity{v3.Entity(v3.EntityAll)}}},
-			{ToIdentities: &v3.IdentityRule{IdentitySelector: v3.NewWildcardIdentitySelector()}},
-		}
+		egresses = []v3.EgressRule{{}}
 	}
 
 	if np.Spec.PodSelector.MatchLabels == nil {
@@ -318,12 +276,12 @@ func ipBlockToCIDRRule(block *networkingv1.IPBlock) *v3.CIDRRule {
 	return cidrRule
 }
 
-// parsePorts converts list of K8s NetworkPolicyPorts to Cilium PortRules.
-func parsePorts(ports []networkingv1.NetworkPolicyPort) []v3.PortRule {
+// parsePorts converts list of K8s NetworkPolicyPorts to a Cilium PortRule.
+func parsePorts(ports []networkingv1.NetworkPolicyPort) *v3.PortRule {
 	if ports == nil {
 		return nil
 	}
-	portRules := []v3.PortRule{}
+	var pps []v3.PortProtocol
 	for _, port := range ports {
 		if port.Protocol == nil && port.Port == nil {
 			continue
@@ -339,14 +297,12 @@ func parsePorts(ports []networkingv1.NetworkPolicyPort) []v3.PortRule {
 			portStr = port.Port.String()
 		}
 
-		portRule := v3.PortRule{
-			Ports: []v3.PortProtocol{
-				{Port: portStr, Protocol: protocol},
-			},
-		}
-
-		portRules = append(portRules, portRule)
+		pps = append(pps,
+			v3.PortProtocol{
+				Port:     portStr,
+				Protocol: protocol,
+			})
 	}
 
-	return portRules
+	return &v3.PortRule{Ports: pps}
 }

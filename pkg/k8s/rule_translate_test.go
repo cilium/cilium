@@ -20,7 +20,7 @@ import (
 	"github.com/cilium/cilium/common/types"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/policy"
-	"github.com/cilium/cilium/pkg/policy/api/v2"
+	"github.com/cilium/cilium/pkg/policy/api/v3"
 
 	. "gopkg.in/check.v1"
 )
@@ -48,16 +48,14 @@ func (s *K8sSuite) TestTranslatorDirect(c *C) {
 		},
 	}
 
-	rule1 := v2.Rule{
-		EndpointSelector: v2.NewESFromLabels(labels.ParseSelectLabel("bar")),
-		Egress: []v2.EgressRule{
+	rule1 := v3.Rule{
+		EndpointSelector: v3.NewESFromLabels(labels.ParseSelectLabel("bar")),
+		Egress: []v3.EgressRule{
 			{
-				ToServices: []v2.Service{
-					{
-						K8sService: &v2.K8sServiceNamespace{
-							ServiceName: serviceInfo.ServiceName,
-							Namespace:   serviceInfo.Namespace,
-						},
+				ToServices: &v3.ServiceRule{
+					K8sService: &v3.K8sServiceNamespace{
+						ServiceName: serviceInfo.ServiceName,
+						Namespace:   serviceInfo.Namespace,
 					},
 				},
 			},
@@ -75,8 +73,8 @@ func (s *K8sSuite) TestTranslatorDirect(c *C) {
 
 	rule := repo.SearchRLocked(tag1)[0].Egress[0]
 
-	c.Assert(len(rule.ToCIDRSet), Equals, 1)
-	c.Assert(string(rule.ToCIDRSet[0].Cidr), Equals, epIP+"/32")
+	c.Assert(len(rule.ToCIDRs.CIDR), Equals, 1)
+	c.Assert(string(rule.ToCIDRs.CIDR[0]), Equals, epIP+"/32")
 
 	translator = NewK8sTranslator(serviceInfo, endpointInfo, true, map[string]string{})
 	err = repo.TranslateRules(translator)
@@ -84,7 +82,7 @@ func (s *K8sSuite) TestTranslatorDirect(c *C) {
 	rule = repo.SearchRLocked(tag1)[0].Egress[0]
 
 	c.Assert(err, IsNil)
-	c.Assert(len(rule.ToCIDRSet), Equals, 0)
+	c.Assert(len(rule.ToCIDRs.CIDR), Equals, 0)
 }
 
 func (s *K8sSuite) TestTranslatorLabels(c *C) {
@@ -113,21 +111,19 @@ func (s *K8sSuite) TestTranslatorLabels(c *C) {
 		},
 	}
 
-	selector := v2.ServiceSelector{
+	selector := v3.ServiceSelector{
 		LabelSelector: &metav1.LabelSelector{
 			MatchLabels: svcLabels,
 		},
 	}
 
-	rule1 := v2.Rule{
-		EndpointSelector: v2.NewESFromLabels(labels.ParseSelectLabel("bar")),
-		Egress: []v2.EgressRule{{
-			ToServices: []v2.Service{
-				{
-					K8sServiceSelector: &v2.K8sServiceSelectorNamespace{
-						Selector:  selector,
-						Namespace: "",
-					},
+	rule1 := v3.Rule{
+		EndpointSelector: v3.NewESFromLabels(labels.ParseSelectLabel("bar")),
+		Egress: []v3.EgressRule{{
+			ToServices: &v3.ServiceRule{
+				K8sServiceSelector: &v3.K8sServiceSelectorNamespace{
+					Selector:  selector,
+					Namespace: "",
 				},
 			}},
 		},
@@ -144,8 +140,8 @@ func (s *K8sSuite) TestTranslatorLabels(c *C) {
 
 	rule := repo.SearchRLocked(tag1)[0].Egress[0]
 
-	c.Assert(len(rule.ToCIDRSet), Equals, 1)
-	c.Assert(string(rule.ToCIDRSet[0].Cidr), Equals, epIP+"/32")
+	c.Assert(len(rule.ToCIDRs.CIDR), Equals, 1)
+	c.Assert(string(rule.ToCIDRs.CIDR[0]), Equals, epIP+"/32")
 
 	translator = NewK8sTranslator(serviceInfo, endpointInfo, true, svcLabels)
 	err = repo.TranslateRules(translator)
@@ -153,11 +149,11 @@ func (s *K8sSuite) TestTranslatorLabels(c *C) {
 	rule = repo.SearchRLocked(tag1)[0].Egress[0]
 
 	c.Assert(err, IsNil)
-	c.Assert(len(rule.ToCIDRSet), Equals, 0)
+	c.Assert(len(rule.ToCIDRs.CIDR), Equals, 0)
 }
 
 func (s *K8sSuite) TestGenerateToCIDRFromEndpoint(c *C) {
-	rule := &v2.EgressRule{}
+	rule := &v3.EgressRule{}
 
 	epIP := "10.1.1.1"
 
@@ -176,19 +172,19 @@ func (s *K8sSuite) TestGenerateToCIDRFromEndpoint(c *C) {
 	err := generateToCidrFromEndpoint(rule, endpointInfo)
 	c.Assert(err, IsNil)
 
-	c.Assert(len(rule.ToCIDRSet), Equals, 1)
-	c.Assert(string(rule.ToCIDRSet[0].Cidr), Equals, epIP+"/32")
+	c.Assert(len(rule.ToCIDRs.CIDR), Equals, 1)
+	c.Assert(string(rule.ToCIDRs.CIDR[0]), Equals, epIP+"/32")
 
 	// second run, to make sure there are no duplicates added
 	err = generateToCidrFromEndpoint(rule, endpointInfo)
 	c.Assert(err, IsNil)
 
-	c.Assert(len(rule.ToCIDRSet), Equals, 1)
-	c.Assert(string(rule.ToCIDRSet[0].Cidr), Equals, epIP+"/32")
+	c.Assert(len(rule.ToCIDRs.CIDR), Equals, 1)
+	c.Assert(string(rule.ToCIDRs.CIDR[0]), Equals, epIP+"/32")
 
 	err = deleteToCidrFromEndpoint(rule, endpointInfo)
 	c.Assert(err, IsNil)
-	c.Assert(len(rule.ToCIDRSet), Equals, 0)
+	c.Assert(len(rule.ToCIDRs.CIDR), Equals, 0)
 }
 
 func (s *K8sSuite) TestPreprocessRules(c *C) {
@@ -216,15 +212,13 @@ func (s *K8sSuite) TestPreprocessRules(c *C) {
 		IsHeadless: true,
 	}
 
-	rule1 := v2.Rule{
-		EndpointSelector: v2.NewESFromLabels(labels.ParseSelectLabel("bar")),
-		Egress: []v2.EgressRule{{
-			ToServices: []v2.Service{
-				{
-					K8sService: &v2.K8sServiceNamespace{
-						ServiceName: serviceInfo.ServiceName,
-						Namespace:   serviceInfo.Namespace,
-					},
+	rule1 := v3.Rule{
+		EndpointSelector: v3.NewESFromLabels(labels.ParseSelectLabel("bar")),
+		Egress: []v3.EgressRule{{
+			ToServices: &v3.ServiceRule{
+				K8sService: &v3.K8sServiceNamespace{
+					ServiceName: serviceInfo.ServiceName,
+					Namespace:   serviceInfo.Namespace,
 				},
 			}},
 		},
@@ -239,22 +233,20 @@ func (s *K8sSuite) TestPreprocessRules(c *C) {
 		serviceInfo: &service,
 	}
 
-	rules := v2.Rules{&rule1}
+	rules := v3.Rules{&rule1}
 
 	err := PreprocessRules(rules, endpoints, services)
 	c.Assert(err, IsNil)
 
-	c.Assert(len(rule1.Egress[0].ToCIDRSet), Equals, 1)
-	c.Assert(string(rule1.Egress[0].ToCIDRSet[0].Cidr), Equals, epIP+"/32")
+	c.Assert(len(rule1.Egress[0].ToCIDRs.CIDR), Equals, 1)
+	c.Assert(string(rule1.Egress[0].ToCIDRs.CIDR[0]), Equals, epIP+"/32")
 }
 
 func (s *K8sSuite) TestDontDeleteUserRules(c *C) {
-	userCIDR := v2.CIDR("10.1.1.2/32")
-	rule := &v2.EgressRule{
-		ToCIDRSet: []v2.CIDRRule{
-			{
-				Cidr: userCIDR,
-			},
+	userCIDR := v3.CIDR("10.1.1.2/32")
+	rule := &v3.EgressRule{
+		ToCIDRs: &v3.CIDRRule{
+			CIDR: []v3.CIDR{userCIDR},
 		},
 	}
 
@@ -275,18 +267,18 @@ func (s *K8sSuite) TestDontDeleteUserRules(c *C) {
 	err := generateToCidrFromEndpoint(rule, endpointInfo)
 	c.Assert(err, IsNil)
 
-	c.Assert(len(rule.ToCIDRSet), Equals, 2)
-	c.Assert(string(rule.ToCIDRSet[1].Cidr), Equals, epIP+"/32")
+	c.Assert(len(rule.ToCIDRs.CIDR), Equals, 2)
+	c.Assert(string(rule.ToCIDRs.CIDR[1]), Equals, epIP+"/32")
 
 	// second run, to make sure there are no duplicates added
 	err = generateToCidrFromEndpoint(rule, endpointInfo)
 	c.Assert(err, IsNil)
 
-	c.Assert(len(rule.ToCIDRSet), Equals, 2)
-	c.Assert(string(rule.ToCIDRSet[1].Cidr), Equals, epIP+"/32")
+	c.Assert(len(rule.ToCIDRs.CIDR), Equals, 2)
+	c.Assert(string(rule.ToCIDRs.CIDR[1]), Equals, epIP+"/32")
 
 	err = deleteToCidrFromEndpoint(rule, endpointInfo)
 	c.Assert(err, IsNil)
-	c.Assert(len(rule.ToCIDRSet), Equals, 1)
-	c.Assert(string(rule.ToCIDRSet[0].Cidr), Equals, string(userCIDR))
+	c.Assert(len(rule.ToCIDRs.CIDR), Equals, 1)
+	c.Assert(string(rule.ToCIDRs.CIDR[0]), Equals, string(userCIDR))
 }

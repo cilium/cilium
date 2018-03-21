@@ -134,8 +134,11 @@ func (n IdentitySelector) HasKey(key string) bool {
 
 // NewWildcardIdentitySelector returns a selector that matches on all identities
 func NewWildcardIdentitySelector() IdentitySelector {
-	return IdentitySelector{&metav1.LabelSelector{MatchLabels: map[string]string{}}}
+	return is
 }
+
+// FIXME GH-3262, replace the `is` above, with the this IdentitySelector creator.
+var is = IdentitySelector{&metav1.LabelSelector{MatchLabels: map[string]string{}}}
 
 // NewESFromLabels creates a new identity selector from the given labels.
 func NewESFromLabels(lbls ...*labels.Label) IdentitySelector {
@@ -176,6 +179,9 @@ func NewESFromK8sLabelSelector(srcPrefix string, ls *metav1.LabelSelector) Ident
 // Returns always true if the identity selector contains the reserved label for
 // "all".
 func (n *IdentitySelector) Matches(lblsToMatch k8sLbls.Labels) bool {
+	if n.IsWildcard() {
+		return true
+	}
 	lbSelector, err := metav1.LabelSelectorAsSelector(n.LabelSelector)
 	if err != nil {
 		// FIXME: Omit this error or throw it to the caller?
@@ -197,8 +203,8 @@ func (n *IdentitySelector) Matches(lblsToMatch k8sLbls.Labels) bool {
 
 // IsWildcard returns true if the identity selector selects all identities.
 func (n *IdentitySelector) IsWildcard() bool {
-	return n.LabelSelector != nil &&
-		len(n.LabelSelector.MatchLabels)+len(n.LabelSelector.MatchExpressions) == 0
+	return n == nil || (n.LabelSelector != nil &&
+		len(n.LabelSelector.MatchLabels)+len(n.LabelSelector.MatchExpressions) == 0)
 }
 
 // IdentitySelectorSlice is a slice of IdentitySelectors that can be sorted.

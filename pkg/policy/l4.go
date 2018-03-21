@@ -156,9 +156,7 @@ func CreateL4Filter(fromEndpoint *v3.IdentitySelector, rule *v3.PortRule, port v
 	u8p, _ := u8proto.ParseProtocol(string(protocol))
 
 	var fromEndpoints []v3.IdentitySelector
-	if fromEndpoint == nil {
-		fromEndpoints = []v3.IdentitySelector{}
-	} else {
+	if fromEndpoint != nil {
 		fromEndpoints = []v3.IdentitySelector{*fromEndpoint}
 	}
 

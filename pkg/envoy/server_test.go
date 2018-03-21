@@ -22,7 +22,7 @@ import (
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/policy"
-	"github.com/cilium/cilium/pkg/policy/api/v2"
+	"github.com/cilium/cilium/pkg/policy/api/v3"
 
 	"github.com/golang/protobuf/ptypes/wrappers"
 
@@ -37,19 +37,19 @@ var (
 	Identity = identity.NumericIdentity(123)
 )
 
-var PortRuleHTTP1 = &v2.PortRuleHTTP{
+var PortRuleHTTP1 = &v3.PortRuleHTTP{
 	Path:    "/foo",
 	Method:  "GET",
 	Host:    "foo.cilium.io",
 	Headers: []string{"header2 value", "header1"},
 }
 
-var PortRuleHTTP2 = &v2.PortRuleHTTP{
+var PortRuleHTTP2 = &v3.PortRuleHTTP{
 	Path:   "/bar",
 	Method: "PUT",
 }
 
-var PortRuleHTTP3 = &v2.PortRuleHTTP{
+var PortRuleHTTP3 = &v3.PortRuleHTTP{
 	Path:   "/bar",
 	Method: "GET",
 }
@@ -105,17 +105,17 @@ var ExpectedHeaders3 = []*envoy_api_v2_route.HeaderMatcher{
 	},
 }
 
-var EndpointSelector1 = v2.NewESFromLabels(
+var EndpointSelector1 = v3.NewESFromLabels(
 	&labels.Label{Key: "app", Value: "etcd", Source: labels.LabelSourceK8s},
 )
 
-var EndpointSelector2 = v2.NewESFromLabels(
+var EndpointSelector2 = v3.NewESFromLabels(
 	&labels.Label{Key: "version", Value: "v1", Source: labels.LabelSourceK8s},
 )
 
-var L7Rules1 = v2.L7Rules{HTTP: []v2.PortRuleHTTP{*PortRuleHTTP1, *PortRuleHTTP2}}
+var L7Rules1 = v3.L7Rules{HTTP: []v3.PortRuleHTTP{*PortRuleHTTP1, *PortRuleHTTP2}}
 
-var L7Rules2 = v2.L7Rules{HTTP: []v2.PortRuleHTTP{*PortRuleHTTP1}}
+var L7Rules2 = v3.L7Rules{HTTP: []v3.PortRuleHTTP{*PortRuleHTTP1}}
 
 var IdentityCache = identity.IdentityCache{
 	1001: []*labels.Label{
@@ -124,7 +124,7 @@ var IdentityCache = identity.IdentityCache{
 	},
 	1002: []*labels.Label{
 		{Key: "app", Value: "etcd", Source: labels.LabelSourceK8s},
-		{Key: "version", Value: "v2", Source: labels.LabelSourceK8s},
+		{Key: "version", Value: "v3", Source: labels.LabelSourceK8s},
 	},
 	1003: []*labels.Label{
 		{Key: "app", Value: "cassandra", Source: labels.LabelSourceK8s},
@@ -198,7 +198,7 @@ var ExpectedPortNetworkPolicyRule5 = &cilium.PortNetworkPolicyRule{
 var L4PolicyMap1 = map[string]policy.L4Filter{
 	"80/TCP": {
 		Port:     80,
-		Protocol: v2.ProtoTCP,
+		Protocol: v3.ProtoTCP,
 		L7Parser: policy.ParserTypeHTTP,
 		L7RulesPerEp: policy.L7DataMap{
 			EndpointSelector1: L7Rules1,
@@ -209,7 +209,7 @@ var L4PolicyMap1 = map[string]policy.L4Filter{
 var L4PolicyMap2 = map[string]policy.L4Filter{
 	"8080/UDP": {
 		Port:     8080,
-		Protocol: v2.ProtoUDP,
+		Protocol: v3.ProtoUDP,
 		L7Parser: policy.ParserTypeHTTP,
 		L7RulesPerEp: policy.L7DataMap{
 			EndpointSelector2: L7Rules2,
@@ -220,10 +220,10 @@ var L4PolicyMap2 = map[string]policy.L4Filter{
 var L4PolicyMap3 = map[string]policy.L4Filter{
 	"8080/UDP": {
 		Port:     80,
-		Protocol: v2.ProtoTCP,
+		Protocol: v3.ProtoTCP,
 		L7Parser: policy.ParserTypeHTTP,
 		L7RulesPerEp: policy.L7DataMap{
-			policy.WildcardEndpointSelector: L7Rules1,
+			policy.WildcardIdentitySelector: L7Rules1,
 		},
 	},
 }

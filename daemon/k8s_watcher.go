@@ -1458,11 +1458,22 @@ func (d *Daemon) addCiliumNetworkPolicyV2(ciliumV2Store cache.Store, cnp *cilium
 	rules, err := cnp.Parse()
 	if err == nil && len(rules) > 0 {
 		v3Rules := v3.V2RulesTov3Rules(&rules)
-		d.loadBalancer.K8sMU.Lock()
-		err = k8s.PreprocessRules(*v3Rules, d.loadBalancer.K8sEndpoints, d.loadBalancer.K8sServices)
-		d.loadBalancer.K8sMU.Unlock()
-		if err == nil {
-			rev, err = d.PolicyAdd(*v3Rules, &AddOptions{Replace: true})
+		if v3Rules != nil {
+			for _, rule := range *v3Rules {
+				err = rule.Sanitize()
+				if err != nil {
+					err = fmt.Errorf("after converting to v3 got invalid CiliumNetworkPolicy specs: %s", err)
+					break
+				}
+			}
+			if err == nil {
+				d.loadBalancer.K8sMU.Lock()
+				err = k8s.PreprocessRules(*v3Rules, d.loadBalancer.K8sEndpoints, d.loadBalancer.K8sServices)
+				d.loadBalancer.K8sMU.Unlock()
+				if err == nil {
+					rev, err = d.PolicyAdd(*v3Rules, &AddOptions{Replace: true})
+				}
+			}
 		}
 	}
 
@@ -1560,15 +1571,26 @@ func (d *Daemon) deleteCiliumNetworkPolicyV2(cnp *cilium_v2.CiliumNetworkPolicy)
 	}
 
 	rules, err := cnp.Parse()
-	v3Rules := v3.V2RulesTov3Rules(&rules)
 	if err == nil {
-		if v3Rules != nil && len(*v3Rules) > 0 {
-			// On a CNP, the transformed rule is stored in the local repository
-			// with a set of labels. On a CNP with multiple rules all rules are
-			// stored in the local repository with the same set of labels.
-			// Therefore the deletion on the local repository can be done with
-			// the set of labels of the first rule.
-			_, err = d.PolicyDelete((*v3Rules)[0].Labels)
+		v3Rules := v3.V2RulesTov3Rules(&rules)
+		if v3Rules != nil {
+			for _, rule := range *v3Rules {
+				err = rule.Sanitize()
+				if err != nil {
+					err = fmt.Errorf("after converting to v3 got invalid CiliumNetworkPolicy specs: %s", err)
+					break
+				}
+			}
+			if err == nil {
+				if len(*v3Rules) > 0 {
+					// On a CNP, the transformed rule is stored in the local repository
+					// with a set of labels. On a CNP with multiple rules all rules are
+					// stored in the local repository with the same set of labels.
+					// Therefore the deletion on the local repository can be done with
+					// the set of labels of the first rule.
+					_, err = d.PolicyDelete((*v3Rules)[0].Labels)
+				}
+			}
 		}
 	}
 	if err == nil {
@@ -1611,7 +1633,7 @@ func (d *Daemon) updateCiliumNetworkPolicyV2(ciliumV2Store cache.Store,
 	d.addCiliumNetworkPolicyV2(ciliumV2Store, newRuleCpy)
 }
 
-func (d *Daemon) addCiliumNetworkPolicyV3(ciliumV2Store cache.Store, cnp *cilium_v3.CiliumNetworkPolicy) {
+func (d *Daemon) addCiliumNetworkPolicyV3(ciliumV3Store cache.Store, cnp *cilium_v3.CiliumNetworkPolicy) {
 	scopedLog := log.WithFields(logrus.Fields{
 		logfields.CiliumNetworkPolicyName: cnp.ObjectMeta.Name,
 		logfields.K8sAPIVersion:           cnp.TypeMeta.APIVersion,
@@ -1647,20 +1669,20 @@ func (d *Daemon) addCiliumNetworkPolicyV3(ciliumV2Store cache.Store, cnp *cilium
 
 				waitForEPsErr := endpointmanager.WaitForEndpointsAtPolicyRev(ctx, rev)
 
-				serverRuleStore, exists, err2 := ciliumV2Store.Get(cnp)
+				serverRuleStore, exists, err2 := ciliumV3Store.Get(cnp)
 				if err2 != nil {
-					return fmt.Errorf("unable to find v2.CiliumNetworkPolicy in local cache: %s", err2)
+					return fmt.Errorf("unable to find v3.CiliumNetworkPolicy in local cache: %s", err2)
 				}
 				if !exists {
-					return errors.New("v2.CiliumNetworkPolicy does not exist in local cache")
+					return errors.New("v3.CiliumNetworkPolicy does not exist in local cache")
 				}
 
 				serverRule, ok := serverRuleStore.(*cilium_v3.CiliumNetworkPolicy)
 				if !ok {
 					scopedLog.WithFields(logrus.Fields{
 						logfields.CiliumNetworkPolicy: logfields.Repr(serverRuleStore),
-					}).Warn("Received object of unknown type from API server, expecting v2.CiliumNetworkPolicy")
-					return errors.New("Received object of unknown type from API server, expecting v2.CiliumNetworkPolicy")
+					}).Warn("Received object of unknown type from API server, expecting v3.CiliumNetworkPolicy")
+					return errors.New("Received object of unknown type from API server, expecting v3.CiliumNetworkPolicy")
 				}
 
 				serverRuleCpy := serverRule.DeepCopy()

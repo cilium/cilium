@@ -385,16 +385,16 @@ func (s *K8sSuite) TestParseNetworkPolicyEgressAllowAll(c *C) {
 		},
 	})
 
-	c.Assert(repo.AllowsEgressRLocked(&ctxAToB), Equals, v2.Allowed)
-	c.Assert(repo.CanReachEgressRLocked(&ctxAToC), Equals, v2.Allowed)
+	c.Assert(repo.AllowsEgressRLocked(&ctxAToB), Equals, v3.Allowed)
+	c.Assert(repo.CanReachEgressRLocked(&ctxAToC), Equals, v3.Allowed)
 
 	ctxAToC80 := ctxAToC
 	ctxAToC80.DPorts = []*models.Port{{Port: 80, Protocol: models.PortProtocolTCP}}
-	c.Assert(repo.AllowsEgressRLocked(&ctxAToC80), Equals, v2.Allowed)
+	c.Assert(repo.AllowsEgressRLocked(&ctxAToC80), Equals, v3.Allowed)
 
 	ctxAToC90 := ctxAToC
 	ctxAToC90.DPorts = []*models.Port{{Port: 90, Protocol: models.PortProtocolTCP}}
-	c.Assert(repo.AllowsEgressRLocked(&ctxAToC90), Equals, v2.Allowed)
+	c.Assert(repo.AllowsEgressRLocked(&ctxAToC90), Equals, v3.Allowed)
 }
 
 // Re-enable via GH-3099
@@ -414,11 +414,11 @@ func (s *K8sSuite) TestParseNetworkPolicyEgressAllowAll(c *C) {
 //
 // 	ctxAToC80 := ctxAToC
 // 	ctxAToC80.DPorts = []*models.Port{{Port: 80, Protocol: models.PortProtocolTCP}}
-// 	c.Assert(repo.AllowsEgressRLocked(&ctxAToC80), Equals, v2.Allowed)
+// 	c.Assert(repo.AllowsEgressRLocked(&ctxAToC80), Equals, v3.Allowed)
 //
 // 	ctxAToC90 := ctxAToC
 // 	ctxAToC90.DPorts = []*models.Port{{Port: 90, Protocol: models.PortProtocolTCP}}
-// 	c.Assert(repo.AllowsEgressRLocked(&ctxAToC90), Equals, v2.Denied)
+// 	c.Assert(repo.AllowsEgressRLocked(&ctxAToC90), Equals, v3.Denied)
 // }
 
 func (s *K8sSuite) TestParseNetworkPolicyIngressAllowAll(c *C) {
@@ -433,16 +433,16 @@ func (s *K8sSuite) TestParseNetworkPolicyIngressAllowAll(c *C) {
 		},
 	})
 
-	c.Assert(repo.AllowsIngressRLocked(&ctxAToB), Equals, v2.Denied)
-	c.Assert(repo.AllowsIngressRLocked(&ctxAToC), Equals, v2.Allowed)
+	c.Assert(repo.AllowsIngressRLocked(&ctxAToB), Equals, v3.Denied)
+	c.Assert(repo.AllowsIngressRLocked(&ctxAToC), Equals, v3.Allowed)
 
 	ctxAToC80 := ctxAToC
 	ctxAToC80.DPorts = []*models.Port{{Port: 80, Protocol: models.PortProtocolTCP}}
-	c.Assert(repo.AllowsIngressRLocked(&ctxAToC80), Equals, v2.Allowed)
+	c.Assert(repo.AllowsIngressRLocked(&ctxAToC80), Equals, v3.Allowed)
 
 	ctxAToC90 := ctxAToC
 	ctxAToC90.DPorts = []*models.Port{{Port: 90, Protocol: models.PortProtocolTCP}}
-	c.Assert(repo.AllowsIngressRLocked(&ctxAToC90), Equals, v2.Allowed)
+	c.Assert(repo.AllowsIngressRLocked(&ctxAToC90), Equals, v3.Allowed)
 }
 
 func (s *K8sSuite) TestParseNetworkPolicyIngressL4AllowAll(c *C) {
@@ -458,15 +458,15 @@ func (s *K8sSuite) TestParseNetworkPolicyIngressL4AllowAll(c *C) {
 		},
 	})
 
-	c.Assert(repo.AllowsIngressRLocked(&ctxAToB), Equals, v2.Denied)
+	c.Assert(repo.AllowsIngressRLocked(&ctxAToB), Equals, v3.Denied)
 
 	ctxAToC80 := ctxAToC
 	ctxAToC80.DPorts = []*models.Port{{Port: 80, Protocol: models.PortProtocolTCP}}
-	c.Assert(repo.AllowsIngressRLocked(&ctxAToC80), Equals, v2.Allowed)
+	c.Assert(repo.AllowsIngressRLocked(&ctxAToC80), Equals, v3.Allowed)
 
 	ctxAToC90 := ctxAToC
 	ctxAToC90.DPorts = []*models.Port{{Port: 90, Protocol: models.PortProtocolTCP}}
-	c.Assert(repo.AllowsIngressRLocked(&ctxAToC90), Equals, v2.Denied)
+	c.Assert(repo.AllowsIngressRLocked(&ctxAToC90), Equals, v3.Denied)
 }
 
 func (s *K8sSuite) TestParseNetworkPolicyUnknownProto(c *C) {
@@ -1371,18 +1371,18 @@ func (s *K8sSuite) TestCIDRPolicyExamples(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(rules, NotNil)
 	c.Assert(len(rules), Equals, 1)
-	c.Assert(rules[0].Egress[0].ToCIDRSet[0].Cidr, Equals, v3.CIDR("10.0.0.0/8"))
+	c.Assert(rules[0].Egress[0].ToCIDRs.CIDR[0], Equals, v3.CIDR("10.0.0.0/8"))
 
 	expectedCIDRs := []v3.CIDR{"10.96.0.0/12", "10.255.255.254/32"}
-	for k, v := range rules[0].Egress[0].ToCIDRSet[0].ExceptCIDRs {
+	for k, v := range rules[0].Egress[0].ToCIDRs.ExceptCIDRs {
 		c.Assert(v, Equals, expectedCIDRs[k])
 	}
 
 	expectedCIDRs = []v3.CIDR{"11.96.0.0/12", "11.255.255.254/32"}
-	for k, v := range rules[0].Egress[0].ToCIDRSet[1].ExceptCIDRs {
+	for k, v := range rules[0].Egress[1].ToCIDRs.ExceptCIDRs {
 		c.Assert(v, Equals, expectedCIDRs[k])
 	}
 
-	c.Assert(len(rules[0].Egress), Equals, 1)
+	c.Assert(len(rules[0].Egress), Equals, 2)
 
 }

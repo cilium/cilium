@@ -388,10 +388,11 @@ func v2ERTov3ER(v2ER *v2.EgressRule) []EgressRule {
 }
 
 func v2CIDRRuleTov3CIDRRule(v2CR *v2.CIDRRule) *CIDRRule {
-	var v3CR *CIDRRule
 	if v2CR == nil {
-		return v3CR
+		return nil
 	}
+
+	v3CR := &CIDRRule{}
 
 	v2CRCpy := v2CR.DeepCopy()
 
@@ -432,6 +433,7 @@ func v2PRTov3PR(v2PR *v2.PortRule) *PortRule {
 	v3PR := &PortRule{}
 
 	if v2PR.Rules != nil {
+		v3PR.Rules = &L7Rules{}
 		if v2PR.Rules.HTTP != nil {
 			v3PR.Rules.HTTP = []PortRuleHTTP{}
 		}

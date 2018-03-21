@@ -161,6 +161,11 @@ type PortRule struct {
 	Rules *L7Rules `json:"rules,omitempty"`
 }
 
+// IsWildcard returns true if PortRule is nil or PortRule.Ports slice is empty.
+func (pr *PortRule) IsWildcard() bool {
+	return pr == nil || len(pr.Ports) == 0
+}
+
 // L7Rules is a union of port level rule types. Mixing of different port
 // level rule types is disallowed, so exactly one of the following must be set.
 // If none are specified, then no additional port level rules are applied.

@@ -93,9 +93,17 @@ func (i *IngressRule) sanitize() error {
 		}
 	}
 
-	if i.FromEntities != nil && i.FromEntities.ToPorts != nil {
-		if err := i.FromEntities.ToPorts.sanitize(); err != nil {
-			return err
+	if i.FromEntities != nil {
+		for _, entity := range i.FromEntities.Entities {
+			_, ok := EntitySelectorMapping[entity]
+			if !ok {
+				return fmt.Errorf("unsupported entity: %s", entity)
+			}
+		}
+		if i.FromEntities.ToPorts != nil {
+			if err := i.FromEntities.ToPorts.sanitize(); err != nil {
+				return err
+			}
 		}
 	}
 
@@ -146,9 +154,17 @@ func (e *EgressRule) sanitize() error {
 		}
 	}
 
-	if e.ToEntities != nil && e.ToEntities.ToPorts != nil {
-		if err := e.ToEntities.ToPorts.sanitize(); err != nil {
-			return err
+	if e.ToEntities != nil {
+		for _, entity := range e.ToEntities.Entities {
+			_, ok := EntitySelectorMapping[entity]
+			if !ok {
+				return fmt.Errorf("unsupported entity: %s", entity)
+			}
+		}
+		if e.ToEntities.ToPorts != nil {
+			if err := e.ToEntities.ToPorts.sanitize(); err != nil {
+				return err
+			}
 		}
 	}
 
@@ -267,14 +283,8 @@ func (cidr CIDR) sanitize() (prefixLength int, err error) {
 		return 0, fmt.Errorf("IP must be specified")
 	}
 
-	_, ipnet, err := net.ParseCIDR(strCIDR)
-	if err == nil {
-		// Returns the prefix length as zero if the mask is not continuous.
-		prefixLength, _ = ipnet.Mask.Size()
-		if prefixLength == 0 {
-			return 0, fmt.Errorf("Mask length can not be zero")
-		}
-	} else {
+	_, _, err = net.ParseCIDR(strCIDR)
+	if err != nil {
 		// Try to parse as a fully masked IP or an IP subnetwork
 		ip := net.ParseIP(strCIDR)
 		if ip == nil {

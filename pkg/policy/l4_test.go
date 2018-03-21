@@ -105,18 +105,17 @@ func (s *PolicyTestSuite) TestCreateL4Filter(c *C) {
 			},
 		},
 	}
-	selectors := []v3.EndpointSelector{
+	selectors := []v3.IdentitySelector{
 		{},
 		v3.NewESFromLabels(labels.ParseSelectLabel("bar")),
 	}
 
 	for _, selector := range selectors {
-		eps := []v3.EndpointSelector{selector}
 		for _, direction := range []string{"ingress", "egress"} {
 			// Regardless of ingress/egress, we should end up with
 			// a single L7 rule whether the selector is wildcarded
 			// or if it is based on specific labels.
-			filter := CreateL4Filter(eps, portrule, tuple,
+			filter := CreateL4Filter(&selector, &portrule, tuple,
 				direction, tuple.Protocol, nil)
 			c.Assert(len(filter.L7RulesPerEp), Equals, 1)
 		}
@@ -148,7 +147,7 @@ func (s *PolicyTestSuite) TestJSONMarshal(c *C) {
 		Ingress: L4PolicyMap{
 			"80/TCP": {
 				Port: 80, Protocol: v3.ProtoTCP,
-				FromEndpoints: []v3.EndpointSelector{fooSelector},
+				FromEndpoints: []v3.IdentitySelector{fooSelector},
 				L7Parser:      "http",
 				L7RulesPerEp: L7DataMap{
 					fooSelector: v3.L7Rules{
@@ -159,7 +158,7 @@ func (s *PolicyTestSuite) TestJSONMarshal(c *C) {
 			},
 			"8080/TCP": {
 				Port: 8080, Protocol: v3.ProtoTCP,
-				FromEndpoints: []v3.EndpointSelector{fooSelector},
+				FromEndpoints: []v3.IdentitySelector{fooSelector},
 				L7Parser:      "http",
 				L7RulesPerEp: L7DataMap{
 					fooSelector: v3.L7Rules{
