@@ -16,8 +16,10 @@ package cmd
 
 import (
 	"fmt"
+	"os"
 
 	"github.com/cilium/cilium/api/v1/models"
+	"github.com/cilium/cilium/pkg/command"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/option"
 
@@ -45,6 +47,7 @@ var endpointConfigCmd = &cobra.Command{
 func init() {
 	endpointCmd.AddCommand(endpointConfigCmd)
 	endpointConfigCmd.Flags().BoolVarP(&listOptions, "list-options", "", false, "List available options")
+	command.AddJSONOutput(endpointConfigCmd)
 }
 
 func listEndpointOptions() {
@@ -62,6 +65,13 @@ func configEndpoint(cmd *cobra.Command, args []string) {
 
 	opts := args[1:]
 	if len(opts) == 0 {
+		if command.OutputJSON() {
+			if err := command.PrintOutput(cfg); err != nil {
+				os.Exit(1)
+			}
+			return
+		}
+
 		dumpConfig(cfg.Immutable)
 		dumpConfig(cfg.Mutable)
 		return
