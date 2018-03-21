@@ -22,7 +22,8 @@ endpoint config 5421 DropNotification=false TraceNotification=false
 ### Options
 
 ```
-      --list-options   List available options
+      --list-options    List available options
+  -o, --output string   json| jsonpath='{}'
 ```
 
 ### Options inherited from parent commands
