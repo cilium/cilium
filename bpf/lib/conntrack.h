@@ -29,6 +29,7 @@
 #include "nat46.h"
 
 #define CT_DEFAULT_LIFETIME	43200
+#define CT_SYN_TIMEOUT		300
 #define CT_CLOSE_TIMEOUT	10
 
 #ifdef CONNTRACK
@@ -51,9 +52,13 @@ static inline void __inline__ __ct_update_timeout(struct ct_entry *entry,
 #endif
 }
 
-static inline void __inline__ ct_update_timeout(struct ct_entry *entry)
+static inline void __inline__ ct_update_timeout(struct ct_entry *entry, bool syn)
 {
-	__ct_update_timeout(entry, CT_DEFAULT_LIFETIME);
+	entry->seen_non_syn |= !syn;
+	if (entry->seen_non_syn)
+		__ct_update_timeout(entry, CT_DEFAULT_LIFETIME);
+	else
+		__ct_update_timeout(entry, CT_SYN_TIMEOUT);
 }
 
 static inline void __inline__ ct_reset_closing(struct ct_entry *entry)
@@ -69,7 +74,8 @@ static inline bool __inline__ ct_entry_alive(const struct ct_entry *entry)
 
 static inline int __inline__ __ct_lookup(void *map, struct __sk_buff *skb,
 					 void *tuple, int action, int dir,
-					 struct ct_state *ct_state)
+					 struct ct_state *ct_state,
+					 bool pkt_is_syn)
 {
 	struct ct_entry *entry;
 	int ret;
@@ -77,8 +83,9 @@ static inline int __inline__ __ct_lookup(void *map, struct __sk_buff *skb,
 	if ((entry = map_lookup_elem(map, tuple))) {
 		cilium_dbg(skb, DBG_CT_MATCH, entry->lifetime,
 			entry->proxy_port << 16 | entry->rev_nat_index);
-		if (ct_entry_alive(entry))
-			ct_update_timeout(entry);
+		if (ct_entry_alive(entry)) {
+			ct_update_timeout(entry, pkt_is_syn);
+		}
 		if (ct_state) {
 			ct_state->rev_nat_index = entry->rev_nat_index;
 			ct_state->loopback = entry->lb_loopback;
@@ -107,7 +114,7 @@ static inline int __inline__ __ct_lookup(void *map, struct __sk_buff *skb,
 			ret = entry->rx_closing + entry->tx_closing;
 			if (unlikely(ret >= 1)) {
 				ct_reset_closing(entry);
-				ct_update_timeout(entry);
+				ct_update_timeout(entry, pkt_is_syn);
 			}
 			break;
 		case ACTION_CLOSE:
@@ -167,6 +174,7 @@ static inline int __inline__ ct_lookup6(void *map, struct ipv6_ct_tuple *tuple,
 					struct ct_state *ct_state)
 {
 	int ret = CT_NEW, action = ACTION_UNSPEC;
+	bool syn = false;
 
 	/* The tuple is created in reverse order initially to find a
 	 * potential reverse flow. This is required because the RELATED
@@ -229,6 +237,8 @@ static inline int __inline__ ct_lookup6(void *map, struct ipv6_ct_tuple *tuple,
 				action = ACTION_CLOSE;
 			else
 				action = ACTION_CREATE;
+
+			syn = flags.syn;
 		}
 
 		/* load sport + dport into tuple */
@@ -257,7 +267,8 @@ static inline int __inline__ ct_lookup6(void *map, struct ipv6_ct_tuple *tuple,
 	cilium_dbg3(skb, DBG_CT_LOOKUP6_1, (__u32) tuple->saddr.p4, (__u32) tuple->daddr.p4,
 		      (bpf_ntohs(tuple->sport) << 16) | bpf_ntohs(tuple->dport));
 	cilium_dbg3(skb, DBG_CT_LOOKUP6_2, (tuple->nexthdr << 8) | tuple->flags, 0, 0);
-	if ((ret = __ct_lookup(map, skb, tuple, action, dir, ct_state)) != CT_NEW) {
+	ret = __ct_lookup(map, skb, tuple, action, dir, ct_state, syn);
+	if (ret != CT_NEW) {
 		if (likely(ret == CT_ESTABLISHED)) {
 			if (unlikely(tuple->flags & TUPLE_F_RELATED))
 				ret = CT_RELATED;
@@ -269,7 +280,7 @@ static inline int __inline__ ct_lookup6(void *map, struct ipv6_ct_tuple *tuple,
 
 	/* Lookup entry in forward direction */
 	ipv6_ct_tuple_reverse(tuple);
-	ret = __ct_lookup(map, skb, tuple, action, dir, ct_state);
+	ret = __ct_lookup(map, skb, tuple, action, dir, ct_state, syn);
 
 #ifdef LXC_NAT46
 	skb->cb[CB_NAT46_STATE] = NAT46_CLEAR;
@@ -313,6 +324,7 @@ static inline int __inline__ ct_lookup4(void *map, struct ipv4_ct_tuple *tuple,
 					struct ct_state *ct_state)
 {
 	int ret = CT_NEW, action = ACTION_UNSPEC;
+	bool syn = false;
 
 	/* The tuple is created in reverse order initially to find a
 	 * potential reverse flow. This is required because the RELATED
@@ -374,6 +386,8 @@ static inline int __inline__ ct_lookup4(void *map, struct ipv4_ct_tuple *tuple,
 				action = ACTION_CLOSE;
 			else
 				action = ACTION_CREATE;
+
+			syn = flags.syn;
 		}
 
 		/* load sport + dport into tuple */
@@ -403,7 +417,8 @@ static inline int __inline__ ct_lookup4(void *map, struct ipv4_ct_tuple *tuple,
 		      (bpf_ntohs(tuple->sport) << 16) | bpf_ntohs(tuple->dport));
 	cilium_dbg3(skb, DBG_CT_LOOKUP4_2, (tuple->nexthdr << 8) | tuple->flags, 0, 0);
 #endif
-	if ((ret = __ct_lookup(map, skb, tuple, action, dir, ct_state)) != CT_NEW) {
+	ret = __ct_lookup(map, skb, tuple, action, dir, ct_state, syn);
+	if (ret != CT_NEW) {
 		if (likely(ret == CT_ESTABLISHED)) {
 			if (unlikely(tuple->flags & TUPLE_F_RELATED))
 				ret = CT_RELATED;
@@ -415,7 +430,7 @@ static inline int __inline__ ct_lookup4(void *map, struct ipv4_ct_tuple *tuple,
 
 	/* Lookup entry in forward direction */
 	ipv4_ct_tuple_reverse(tuple);
-	ret = __ct_lookup(map, skb, tuple, action, dir, ct_state);
+	ret = __ct_lookup(map, skb, tuple, action, dir, ct_state, syn);
 
 out:
 	cilium_dbg(skb, DBG_CT_VERDICT, ret < 0 ? -ret : ret,
@@ -434,7 +449,7 @@ static inline int __inline__ ct_create6(void *map, struct ipv6_ct_tuple *tuple,
 	entry.rev_nat_index = ct_state->rev_nat_index;
 	entry.lb_loopback = ct_state->loopback;
 	entry.proxy_port = ct_state->proxy_port;
-	ct_update_timeout(&entry);
+	ct_update_timeout(&entry, tuple->nexthdr == IPPROTO_TCP);
 
 	if (dir == CT_INGRESS) {
 		entry.rx_packets = 1;
@@ -460,6 +475,7 @@ static inline int __inline__ ct_create6(void *map, struct ipv6_ct_tuple *tuple,
 	};
 
 	entry.proxy_port = 0;
+	entry.seen_non_syn = true; /* For ICMP, there is no SYN. */
 
 	ipv6_addr_copy(&icmp_tuple.daddr, &tuple->daddr);
 	ipv6_addr_copy(&icmp_tuple.saddr, &tuple->saddr);
@@ -485,7 +501,7 @@ static inline int __inline__ ct_create4(void *map, struct ipv4_ct_tuple *tuple,
 	entry.rev_nat_index = ct_state->rev_nat_index;
 	entry.lb_loopback = ct_state->loopback;
 	entry.proxy_port = ct_state->proxy_port;
-	ct_update_timeout(&entry);
+	ct_update_timeout(&entry, tuple->nexthdr == IPPROTO_TCP);
 
 	if (dir == CT_INGRESS) {
 		entry.rx_packets = 1;
@@ -548,6 +564,7 @@ static inline int __inline__ ct_create4(void *map, struct ipv4_ct_tuple *tuple,
 	};
 
 	entry.proxy_port = 0;
+	entry.seen_non_syn = true; /* For ICMP, there is no SYN. */
 
 	/* FIXME: We could do a lookup and check if an L3 entry already exists */
 	if (map_update_elem(map, &icmp_tuple, &entry, 0) < 0)

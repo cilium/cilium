@@ -344,7 +344,8 @@ struct ct_entry {
 	      tx_closing:1,
 	      nat46:1,
 	      lb_loopback:1,
-	      reserve:12;
+	      seen_non_syn:1,
+	      reserve:11;
 	__u16 rev_nat_index;
 	__be16 proxy_port;
 	__u32 src_sec_id;
