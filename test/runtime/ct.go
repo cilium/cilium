@@ -50,7 +50,7 @@ func (c connTest) String() string {
 	return fmt.Sprintf("%s-%s-%s", c.src[helpers.Name], c.destination[helpers.Name], c.kind)
 }
 
-var _ = Describe("DisabledRuntimeValidatedConntrackTable", func() {
+var _ = Describe("RuntimeDisabledValidatedConntrackTable", func() {
 
 	var (
 		logger *logrus.Entry
