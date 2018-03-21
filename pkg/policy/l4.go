@@ -25,17 +25,17 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/labels"
-	"github.com/cilium/cilium/pkg/policy/api/v2"
+	"github.com/cilium/cilium/pkg/policy/api/v3"
 	"github.com/cilium/cilium/pkg/u8proto"
 )
 
 var (
-	// WildcardEndpointSelector is a selector that matches on all endpoints
-	WildcardEndpointSelector = v2.NewWildcardEndpointSelector()
+	// WildcardIdentitySelector is a selector that matches on all endpoints
+	WildcardIdentitySelector = v3.NewWildcardIdentitySelector()
 )
 
-// L7DataMap contains a map of L7 rules per endpoint where key is a hash of EndpointSelector
-type L7DataMap map[v2.EndpointSelector]v2.L7Rules
+// L7DataMap contains a map of L7 rules per endpoint where key is a hash of IdentitySelector
+type L7DataMap map[v3.IdentitySelector]v3.L7Rules
 
 func (l7 L7DataMap) MarshalJSON() ([]byte, error) {
 	if len(l7) == 0 {
@@ -44,7 +44,7 @@ func (l7 L7DataMap) MarshalJSON() ([]byte, error) {
 
 	/* First, create a sorted slice of the selectors so we can get
 	 * consistent JSON output */
-	selectors := make(v2.EndpointSelectorSlice, 0, len(l7))
+	selectors := make(v3.IdentitySelectorSlice, 0, len(l7))
 	for es := range l7 {
 		selectors = append(selectors, es)
 	}
@@ -88,12 +88,12 @@ type L4Filter struct {
 	// Port is the destination port to allow
 	Port int `json:"port"`
 	// Protocol is the L4 protocol to allow or NONE
-	Protocol v2.L4Proto `json:"protocol"`
+	Protocol v3.L4Proto `json:"protocol"`
 	// U8Proto is the Protocol in numeric format, or 0 for NONE
 	U8Proto u8proto.U8proto `json:"-"`
 	// FromEndpoints limit the source labels for allowing traffic. If
 	// FromEndpoints is empty, then it selects all endpoints.
-	FromEndpoints []v2.EndpointSelector `json:"-"`
+	FromEndpoints []v3.IdentitySelector `json:"-"`
 	// L7Parser specifies the L7 protocol parser (optional)
 	L7Parser L7ParserType `json:"-"`
 	// L7RulesPerEp is a list of L7 rules per endpoint passed to the L7 proxy (optional)
@@ -106,8 +106,8 @@ type L4Filter struct {
 
 // GetRelevantRules returns the relevant rules based on the source and
 // destination addressing/identity information.
-func (dm L7DataMap) GetRelevantRules(identity *identity.Identity) v2.L7Rules {
-	rules := v2.L7Rules{}
+func (dm L7DataMap) GetRelevantRules(identity *identity.Identity) v3.L7Rules {
+	rules := v3.L7Rules{}
 	matched := 0
 
 	if identity != nil {
@@ -122,7 +122,7 @@ func (dm L7DataMap) GetRelevantRules(identity *identity.Identity) v2.L7Rules {
 
 	if matched == 0 {
 		// Fall back to wildcard selector
-		if rules, ok := dm[WildcardEndpointSelector]; ok {
+		if rules, ok := dm[WildcardIdentitySelector]; ok {
 			return rules
 		}
 	}
@@ -130,32 +130,37 @@ func (dm L7DataMap) GetRelevantRules(identity *identity.Identity) v2.L7Rules {
 	return rules
 }
 
-func (dm L7DataMap) addRulesForEndpoints(rules v2.L7Rules, fromEndpoints []v2.EndpointSelector) {
+func (dm L7DataMap) addRulesForEndpoints(rules v3.L7Rules, fromEndpoints *v3.IdentitySelector) {
 	if rules.Len() == 0 {
 		return
 	}
 
-	if len(fromEndpoints) > 0 {
-		for _, epsel := range fromEndpoints {
-			dm[epsel] = rules
-		}
+	if fromEndpoints != nil {
+		dm[*fromEndpoints] = rules
 	} else {
 		// If there are no explicit fromEps, have a 'special' wildcard endpoint.
-		dm[WildcardEndpointSelector] = rules
+		dm[WildcardIdentitySelector] = rules
 	}
 }
 
-// CreateL4Filter creates an L4Filter for the specified v2.PortProtocol in
+// CreateL4Filter creates an L4Filter for the specified v3.PortProtocol in
 // the direction ("ingress"/"egress") for a particular protocol.
 // This L4Filter will only apply to endpoints covered by `fromEndpoints`.
 // `rule` allows a series of L7 rules to be associated with this L4Filter.
-func CreateL4Filter(fromEndpoints []v2.EndpointSelector, rule v2.PortRule, port v2.PortProtocol,
-	direction string, protocol v2.L4Proto, ruleLabels labels.LabelArray) L4Filter {
+func CreateL4Filter(fromEndpoint *v3.IdentitySelector, rule *v3.PortRule, port v3.PortProtocol,
+	direction string, protocol v3.L4Proto, ruleLabels labels.LabelArray) L4Filter {
 
 	// already validated via PortRule.Validate()
 	p, _ := strconv.ParseUint(port.Port, 0, 16)
 	// already validated via L4Proto.Validate()
 	u8p, _ := u8proto.ParseProtocol(string(protocol))
+
+	var fromEndpoints []v3.IdentitySelector
+	if fromEndpoint == nil {
+		fromEndpoints = []v3.IdentitySelector{}
+	} else {
+		fromEndpoints = []v3.IdentitySelector{*fromEndpoint}
+	}
 
 	l4 := L4Filter{
 		Port:             int(p),
@@ -170,7 +175,7 @@ func CreateL4Filter(fromEndpoints []v2.EndpointSelector, rule v2.PortRule, port 
 		l4.Ingress = true
 	}
 
-	if protocol == v2.ProtoTCP && rule.Rules != nil {
+	if rule != nil && rule.Rules != nil && protocol == v3.ProtoTCP {
 		switch {
 		case len(rule.Rules.HTTP) > 0:
 			l4.L7Parser = ParserTypeHTTP
@@ -178,7 +183,7 @@ func CreateL4Filter(fromEndpoints []v2.EndpointSelector, rule v2.PortRule, port 
 			l4.L7Parser = ParserTypeKafka
 		}
 
-		l4.L7RulesPerEp.addRulesForEndpoints(*rule.Rules, fromEndpoints)
+		l4.L7RulesPerEp.addRulesForEndpoints(*rule.Rules, fromEndpoint)
 	}
 
 	return l4
@@ -242,19 +247,19 @@ func (l4 L4PolicyMap) HasRedirect() bool {
 // containsAllL3L4 checks if the L4PolicyMap contains all L4 ports in `ports`.
 // For L4Filters that specify FromEndpoints, uses `labels` to determine whether
 // the policy allows L4 communication between the corresponding endpoints.
-// Returns v2.Denied in the following conditions:
+// Returns v3.Denied in the following conditions:
 // * If the `L4PolicyMap` has at least one rule and `ports` is empty.
 // * If a single port is not present in the `L4PolicyMap`.
 // * If a port is present in the `L4PolicyMap`, but it applies FromEndpoints
 //   constraints that require labels not present in `labels`.
-// Otherwise, returns v2.Allowed.
-func (l4 L4PolicyMap) containsAllL3L4(labels labels.LabelArray, ports []*models.Port) v2.Decision {
+// Otherwise, returns v3.Allowed.
+func (l4 L4PolicyMap) containsAllL3L4(labels labels.LabelArray, ports []*models.Port) v3.Decision {
 	if len(l4) == 0 {
-		return v2.Allowed
+		return v3.Allowed
 	}
 
 	if len(ports) == 0 {
-		return v2.Denied
+		return v3.Denied
 	}
 
 	for _, l4CtxIng := range ports {
@@ -272,17 +277,17 @@ func (l4 L4PolicyMap) containsAllL3L4(labels labels.LabelArray, ports []*models.
 				udpmatch = udpFilter.matchesLabels(labels)
 			}
 			if !tcpmatch && !udpmatch {
-				return v2.Denied
+				return v3.Denied
 			}
 		default:
 			port := fmt.Sprintf("%d/%s", l4CtxIng.Port, lwrProtocol)
 			filter, match := l4[port]
 			if !match || !filter.matchesLabels(labels) {
-				return v2.Denied
+				return v3.Denied
 			}
 		}
 	}
-	return v2.Allowed
+	return v3.Allowed
 }
 
 type L4Policy struct {
@@ -303,19 +308,19 @@ func NewL4Policy() *L4Policy {
 
 // IngressCoversDPorts checks if the receiver's ingress `L4Policy` contains all
 // `dPorts`.
-func (l4 *L4Policy) IngressCoversDPorts(dPorts []*models.Port) v2.Decision {
+func (l4 *L4Policy) IngressCoversDPorts(dPorts []*models.Port) v3.Decision {
 	return l4.Ingress.containsAllL3L4(labels.LabelArray{}, dPorts)
 }
 
 // IngressCoversContext checks if the receiver's ingress `L4Policy` contains
 // all `dPorts` and `labels`.
-func (l4 *L4Policy) IngressCoversContext(ctx *SearchContext) v2.Decision {
+func (l4 *L4Policy) IngressCoversContext(ctx *SearchContext) v3.Decision {
 	return l4.Ingress.containsAllL3L4(ctx.From, ctx.DPorts)
 }
 
 // EgressCoversDPorts checks if the receiver's egress `L4Policy` contains all
 // `dPorts`.
-func (l4 *L4Policy) EgressCoversDPorts(dPorts []*models.Port) v2.Decision {
+func (l4 *L4Policy) EgressCoversDPorts(dPorts []*models.Port) v3.Decision {
 	return l4.Egress.containsAllL3L4(labels.LabelArray{}, dPorts)
 }
 

@@ -25,7 +25,7 @@ import (
 	"github.com/cilium/cilium/pkg/kafka"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/policy"
-	"github.com/cilium/cilium/pkg/policy/api/v2"
+	"github.com/cilium/cilium/pkg/policy/api/v3"
 	"github.com/cilium/cilium/pkg/proxy/accesslog"
 	"github.com/cilium/cilium/pkg/proxy/logger"
 
@@ -158,7 +158,7 @@ type kafkaLogRecord struct {
 }
 
 func apiKeyToString(apiKey int16) string {
-	if key, ok := v2.KafkaReverseAPIKeyMap[apiKey]; ok {
+	if key, ok := v3.KafkaReverseAPIKeyMap[apiKey]; ok {
 		return key
 	}
 	return fmt.Sprintf("%d", apiKey)
