@@ -21,6 +21,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/cilium/cilium/test/config"
 
@@ -69,8 +70,14 @@ func GetVagrantSSHMeta(vmName string) *SSHMeta {
 		log.WithError(err).Error("Error importing ssh config")
 		return nil
 	}
+	var node *SSHConfig
 	log.Debugf("done importing ssh config")
-	node := nodes[vmName]
+	for name := range nodes {
+		if strings.HasPrefix(name, vmName) {
+			node = nodes[name]
+			break
+		}
+	}
 	if node == nil {
 		log.Errorf("Node %s not found in ssh config", vmName)
 		return nil
