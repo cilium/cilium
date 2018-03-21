@@ -429,7 +429,7 @@ func (ds *PolicyTestSuite) TestMinikubeGettingStarted(c *C) {
 	expected.Revision = repo.GetRevision()
 
 	c.Assert(len(*l4IngressPolicy), Equals, 1)
-	c.Assert(*l4IngressPolicy, comparator.DeepEquals, *expected)
+	c.Assert(*l4IngressPolicy, comparator.DeepEquals, expected.Ingress)
 
 	// L4 from app3 has no rules
 	expected = NewL4Policy()
@@ -437,7 +437,7 @@ func (ds *PolicyTestSuite) TestMinikubeGettingStarted(c *C) {
 	l4IngressPolicy, err = repo.ResolveL4IngressPolicy(fromApp3)
 	c.Assert(err, IsNil)
 	c.Assert(len(*l4IngressPolicy), Equals, 0)
-	c.Assert(*l4IngressPolicy, comparator.DeepEquals, *expected)
+	c.Assert(*l4IngressPolicy, comparator.DeepEquals, expected.Ingress)
 }
 
 func buildSearchCtx(from, to string, port uint16) *SearchContext {
