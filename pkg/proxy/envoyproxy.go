@@ -19,7 +19,6 @@ import (
 	"net/url"
 	"strings"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"github.com/cilium/cilium/pkg/completion"
@@ -43,11 +42,6 @@ type envoyRedirect struct {
 
 var envoyOnce sync.Once
 
-// redirectCount is the count of configured redirects.
-// This variable must be read and updated atomically.
-// Must always be >=0.
-var redirectCount int32
-
 // createEnvoyRedirect creates a redirect with corresponding proxy
 // configuration. This will launch a proxy instance.
 func createEnvoyRedirect(r *Redirect, stateDir string, xdsServer *envoy.XDSServer, wg *completion.WaitGroup) (RedirectImplementation, error) {
@@ -70,7 +64,6 @@ func createEnvoyRedirect(r *Redirect, stateDir string, xdsServer *envoy.XDSServe
 			return nil, fmt.Errorf("%s: Cannot create redirect, proxy source has no IP address.", r.id)
 		}
 		xdsServer.AddListener(r.id, ip, r.ProxyPort, r.ingress, redir, wg)
-		atomic.AddInt32(&redirectCount, 1)
 
 		return redir, nil
 	}
@@ -87,10 +80,6 @@ func (r *envoyRedirect) UpdateRules(wg *completion.WaitGroup) error {
 func (r *envoyRedirect) Close(wg *completion.WaitGroup) {
 	if envoyProxy != nil {
 		r.xdsServer.RemoveListener(r.redirect.id, wg)
-		newCount := atomic.AddInt32(&redirectCount, -1)
-		if newCount < 0 {
-			log.Fatalf("Envoy: Invalid redirect count %d < 0", newCount)
-		}
 	}
 }
 

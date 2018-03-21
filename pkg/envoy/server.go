@@ -476,6 +476,15 @@ func getNetworkPolicy(name string, id identity.NumericIdentity, policy *policy.L
 // a subsequent call to the endpoint's OnProxyPolicyAcknowledge() function.
 func (s *XDSServer) UpdateNetworkPolicy(ep NetworkPolicyEndpoint, policy *policy.L4Policy,
 	labelsMap identity.IdentityCache, deniedIngressIdentities, deniedEgressIdentities map[identity.NumericIdentity]bool, wg *completion.WaitGroup) error {
+
+	s.mutex.Lock()
+	// If there are no redirects configured, Envoy won't query for network policies
+	// and therefore will never ACK them, and we'd wait forever.
+	if !viper.GetBool("sidecar-http-proxy") && len(s.loggers) == 0 {
+		wg = nil
+	}
+	s.mutex.Unlock()
+
 	// First, validate all policies
 	ips := []string{
 		ep.GetIPv6Address(),
