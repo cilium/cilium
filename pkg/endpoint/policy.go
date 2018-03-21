@@ -137,7 +137,7 @@ func getL4FilterEndpointSelector(filter *policy.L4Filter) []api.EndpointSelector
 // removeOldFilter removes the old l4 filter from the endpoint.
 // Returns a map that represents all policies that were attempted to be removed;
 // it maps to whether they were removed successfully (true or false)
-func (e *Endpoint) removeOldFilter(owner Owner, labelsMap *identityPkg.IdentityCache,
+func (e *Endpoint) removeOldFilter(labelsMap *identityPkg.IdentityCache,
 	filter *policy.L4Filter) policy.SecurityIDContexts {
 
 	fromEndpointsSrcIDs := policy.NewSecurityIDContexts()
@@ -183,7 +183,7 @@ func (e *Endpoint) removeOldFilter(owner Owner, labelsMap *identityPkg.IdentityC
 // It also returns the number of errors that occurred while when applying the
 // policy.
 // Applies for L3 dependent L4 not for L4-only.
-func (e *Endpoint) applyNewFilter(owner Owner, labelsMap *identityPkg.IdentityCache,
+func (e *Endpoint) applyNewFilter(labelsMap *identityPkg.IdentityCache,
 	filter *policy.L4Filter) (policy.SecurityIDContexts, int) {
 
 	fromEndpointsSrcIDs := policy.NewSecurityIDContexts()
@@ -246,7 +246,7 @@ func setMapOperationResult(secIDs, newSecIDs policy.SecurityIDContexts) {
 // and a map that represents all L3-dependent L4 rules that were attempted
 // to be removed;
 // it maps to whether they were removed successfully (true or false)
-func (e *Endpoint) applyL4PolicyLocked(owner Owner, labelsMap *identityPkg.IdentityCache,
+func (e *Endpoint) applyL4PolicyLocked(labelsMap *identityPkg.IdentityCache,
 	oldPolicy, newPolicy *policy.L4Policy) (secIDsAdd, secIDsRm policy.SecurityIDContexts, err error) {
 
 	secIDsAdd = policy.NewSecurityIDContexts()
@@ -255,7 +255,7 @@ func (e *Endpoint) applyL4PolicyLocked(owner Owner, labelsMap *identityPkg.Ident
 	if oldPolicy != nil {
 		var secIDs policy.SecurityIDContexts
 		for _, filter := range oldPolicy.Ingress {
-			secIDs = e.removeOldFilter(owner, labelsMap, &filter)
+			secIDs = e.removeOldFilter(labelsMap, &filter)
 			setMapOperationResult(secIDsRm, secIDs)
 		}
 	}
@@ -269,7 +269,7 @@ func (e *Endpoint) applyL4PolicyLocked(owner Owner, labelsMap *identityPkg.Ident
 		secIDs       policy.SecurityIDContexts
 	)
 	for _, filter := range newPolicy.Ingress {
-		secIDs, errs = e.applyNewFilter(owner, labelsMap, &filter)
+		secIDs, errs = e.applyNewFilter(labelsMap, &filter)
 		setMapOperationResult(secIDsAdd, secIDs)
 		errors += errs
 	}
@@ -358,7 +358,7 @@ func (e *Endpoint) regenerateConsumable(owner Owner, labelsMap *identityPkg.Iden
 		// PolicyMap can't be created in dry mode.
 		if !owner.DryModeEnabled() {
 			// Collect unused redirects.
-			rulesAdd, l4Rm, err = e.applyL4PolicyLocked(owner, labelsMap, e.L4Policy, c.L4Policy)
+			rulesAdd, l4Rm, err = e.applyL4PolicyLocked(labelsMap, e.L4Policy, c.L4Policy)
 			if err != nil {
 				// This should not happen, and we can't fail at this stage anyway.
 				e.getLogger().WithError(err).Error("L4 Policy application failed")

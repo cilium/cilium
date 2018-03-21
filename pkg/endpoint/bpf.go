@@ -75,7 +75,7 @@ func (e *Endpoint) ParseL4Filter(l4Filter *policy.L4Filter) (policy.L4RuleContex
 		}
 }
 
-func (e *Endpoint) writeL4Map(fw *bufio.Writer, owner Owner, m policy.L4PolicyMap, config string) error {
+func (e *Endpoint) writeL4Map(fw *bufio.Writer, m policy.L4PolicyMap, config string) error {
 	array := ""
 	index := 0
 
@@ -109,7 +109,7 @@ func (e *Endpoint) writeL4Map(fw *bufio.Writer, owner Owner, m policy.L4PolicyMa
 	return nil
 }
 
-func (e *Endpoint) writeL4Policy(fw *bufio.Writer, owner Owner) error {
+func (e *Endpoint) writeL4Policy(fw *bufio.Writer) error {
 	if e.Consumable == nil {
 		return nil
 	}
@@ -123,11 +123,11 @@ func (e *Endpoint) writeL4Policy(fw *bufio.Writer, owner Owner) error {
 
 	fmt.Fprintf(fw, "#define HAVE_L4_POLICY\n")
 
-	if err := e.writeL4Map(fw, owner, l4policy.Ingress, "CFG_L4_INGRESS"); err != nil {
+	if err := e.writeL4Map(fw, l4policy.Ingress, "CFG_L4_INGRESS"); err != nil {
 		return err
 	}
 
-	return e.writeL4Map(fw, owner, l4policy.Egress, "CFG_L4_EGRESS")
+	return e.writeL4Map(fw, l4policy.Egress, "CFG_L4_EGRESS")
 }
 
 func (e *Endpoint) writeHeaderfile(prefix string, owner Owner) error {
@@ -270,7 +270,7 @@ func (e *Endpoint) writeHeaderfile(prefix string, owner Owner) error {
 	}
 	fw.WriteString("\n")
 
-	if err := e.writeL4Policy(fw, owner); err != nil {
+	if err := e.writeL4Policy(fw); err != nil {
 		return err
 	}
 
