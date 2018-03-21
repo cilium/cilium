@@ -55,4 +55,12 @@
 // Wait blocks until either all Completions are completed, or the context is
 // canceled (e.g. times out), whichever happens first. The returned error is
 // non-nil in the case the context is canceled, nil otherwise.
+//
+// A Completion can also be created with a callback, which is called at most
+// once when the Completion is successfully completed before the context is
+// cancelled:
+//
+//    comp := wg.AddCompletionWithCallback(func() { fmt.Println("completed') })
+//
+// The callback is called in the goroutine which calls Complete the first time.
 package completion
