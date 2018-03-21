@@ -95,6 +95,9 @@ type Completion struct {
 	// ctx is the context of the wait group.
 	ctx context.Context
 
+	// lock is used to check and close the completed channel atomically.
+	lock lock.Mutex
+
 	// completed is the channel to be closed when Complete is called the first
 	// time.
 	completed chan struct{}
@@ -113,10 +116,13 @@ func (c *Completion) Context() context.Context {
 // Complete notifies of the completion of the asynchronous computation.
 // Idempotent.
 func (c *Completion) Complete() {
+	c.lock.Lock()
 	select {
 	case <-c.completed:
+		c.lock.Unlock()
 	default:
 		close(c.completed)
+		c.lock.Unlock()
 		if c.callback != nil {
 			c.callback()
 		}
