@@ -157,6 +157,11 @@ func ParseNetworkPolicy(np *networkingv1.NetworkPolicy) (api.Rules, error) {
 
 	for _, eRule := range np.Spec.Egress {
 		egress := api.EgressRule{}
+
+		if eRule.Ports != nil && len(eRule.Ports) > 0 {
+			egress.ToPorts = parsePorts(eRule.Ports)
+		}
+
 		if eRule.To != nil && len(eRule.To) > 0 {
 			for _, rule := range eRule.To {
 				if rule.NamespaceSelector != nil || rule.PodSelector != nil {
