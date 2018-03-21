@@ -7,7 +7,7 @@ $K8S_VERSION = ENV['K8S_VERSION'] || "1.9"
 $K8S_NODES = (ENV['K8S_NODES'] || "2").to_i
 
 $SERVER_BOX= "cilium/ubuntu"
-$SERVER_VERSION="37"
+$SERVER_VERSION="39"
 
 # RAM and CPU settings
 $MEMORY = (ENV['MEMORY'] || "4096").to_i
