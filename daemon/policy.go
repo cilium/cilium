@@ -23,6 +23,7 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	. "github.com/cilium/cilium/api/v1/server/restapi/policy"
 	"github.com/cilium/cilium/pkg/apierror"
+	configPkg "github.com/cilium/cilium/pkg/config"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/labels"
@@ -57,9 +58,9 @@ func (d *Daemon) EnableEndpointPolicyEnforcement(e *endpoint.Endpoint) (ingress 
 	// First check if policy enforcement should be enabled at the daemon level.
 	// If policy enforcement is enabled for the daemon, then it has to be
 	// enabled for the endpoint.
-	if policy.GetPolicyEnabled() == endpoint.AlwaysEnforce {
+	if policy.GetPolicyEnabled() == configPkg.AlwaysEnforce {
 		return true, true
-	} else if policy.GetPolicyEnabled() == endpoint.DefaultEnforcement {
+	} else if policy.GetPolicyEnabled() == configPkg.DefaultEnforcement {
 		// Default mode means that if rules contain labels that match this endpoint,
 		// then enable policy enforcement for this endpoint.
 		// GH-1676: Could check e.Consumable instead? Would be much cheaper.
@@ -91,10 +92,10 @@ func (h *getPolicyResolve) Handle(params GetPolicyResolveParams) middleware.Resp
 	d.policy.Mutex.RLock()
 
 	// If policy enforcement isn't enabled, then traffic is allowed.
-	if policy.GetPolicyEnabled() == endpoint.NeverEnforce {
+	if policy.GetPolicyEnabled() == configPkg.NeverEnforce {
 		policyEnforcementMsg = "Policy enforcement is disabled for the daemon."
 		isPolicyEnforcementEnabled = false
-	} else if policy.GetPolicyEnabled() == endpoint.DefaultEnforcement {
+	} else if policy.GetPolicyEnabled() == configPkg.DefaultEnforcement {
 		// If there are no rules matching the set of from / to labels provided in
 		// the API request, that means that policy enforcement is not enabled
 		// for the endpoints corresponding to said sets of labels; thus, we allow

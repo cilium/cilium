@@ -40,6 +40,7 @@ import (
 	"github.com/cilium/cilium/pkg/apierror"
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/byteorder"
+	configPkg "github.com/cilium/cilium/pkg/config"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/identity"
@@ -269,7 +270,7 @@ func (d *Daemon) PolicyEnforcement() string {
 
 // DebugEnabled returns if debug mode is enabled.
 func (d *Daemon) DebugEnabled() bool {
-	return d.conf.Opts.IsEnabled(endpoint.OptionDebug)
+	return d.conf.Opts.IsEnabled(configPkg.OptionDebug)
 }
 
 // ResetProxyPort cleans the connection tracking of the given endpoint
@@ -313,7 +314,7 @@ func (d *Daemon) writeNetdevHeader(dir string) error {
 
 // returns #define for PolicyIngress based on the configuration of the daemon.
 func (d *Daemon) fmtPolicyEnforcementIngress() string {
-	if policy.GetPolicyEnabled() == endpoint.AlwaysEnforce {
+	if policy.GetPolicyEnabled() == configPkg.AlwaysEnforce {
 		return fmt.Sprintf("#define %s\n", endpoint.OptionIngressSpecPolicy.Define)
 	}
 	return fmt.Sprintf("#undef %s\n", endpoint.OptionIngressSpecPolicy.Define)
@@ -321,7 +322,7 @@ func (d *Daemon) fmtPolicyEnforcementIngress() string {
 
 // returns #define for PolicyEgress based on the configuration of the daemon.
 func (d *Daemon) fmtPolicyEnforcementEgress() string {
-	if policy.GetPolicyEnabled() == endpoint.AlwaysEnforce {
+	if policy.GetPolicyEnabled() == configPkg.AlwaysEnforce {
 		return fmt.Sprintf("#define %s\n", endpoint.OptionEgressSpecPolicy.Define)
 	}
 	return fmt.Sprintf("#undef %s\n", endpoint.OptionEgressSpecPolicy.Define)
@@ -1206,7 +1207,7 @@ func mapValidateWalker(path string) error {
 
 func changedOption(key string, value bool, data interface{}) {
 	d := data.(*Daemon)
-	if key == endpoint.OptionDebug {
+	if key == configPkg.OptionDebug {
 		// Set the debug toggle (this can be a no-op)
 		logging.ToggleDebugLogs(d.DebugEnabled())
 		// Reflect log level change to proxies
@@ -1256,7 +1257,7 @@ func (h *patchConfig) Handle(params PatchConfigParams) middleware.Responder {
 	if enforcement != "" {
 		log.Debug("configuration request to change PolicyEnforcement for daemon")
 		switch enforcement {
-		case endpoint.NeverEnforce, endpoint.DefaultEnforcement, endpoint.AlwaysEnforce:
+		case configPkg.NeverEnforce, configPkg.DefaultEnforcement, configPkg.AlwaysEnforce:
 
 			// Update policy enforcement configuration if needed.
 			oldEnforcementValue := policy.GetPolicyEnabled()

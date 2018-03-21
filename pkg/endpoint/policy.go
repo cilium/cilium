@@ -42,6 +42,7 @@ import (
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
 
+	"github.com/cilium/cilium/pkg/config"
 	"github.com/cilium/cilium/pkg/maps/policymap"
 	"github.com/sirupsen/logrus"
 )
@@ -550,9 +551,9 @@ func (e *Endpoint) regenerateL3Policy(owner Owner, repo *policy.Repository, revi
 // IngressOrEgressIsEnforced returns true if either ingress or egress is in
 // enforcement mode or if the global policy enforcement is enabled.
 func (e *Endpoint) IngressOrEgressIsEnforced() bool {
-	return policy.GetPolicyEnabled() == AlwaysEnforce ||
-		e.Opts.IsEnabled(OptionIngressPolicy) ||
-		e.Opts.IsEnabled(OptionEgressPolicy)
+	return policy.GetPolicyEnabled() == config.AlwaysEnforce ||
+		e.Opts.IsEnabled(config.OptionIngressPolicy) ||
+		e.Opts.IsEnabled(config.OptionEgressPolicy)
 }
 
 func (e *Endpoint) updateNetworkPolicy(owner Owner) error {
@@ -722,17 +723,17 @@ func (e *Endpoint) regeneratePolicy(owner Owner, opts models.ConfigurationMap) (
 	// depends on the conntrack options
 	if c.L4Policy != nil {
 		if c.L4Policy.RequiresConntrack() {
-			opts[OptionConntrack] = optionEnabled
+			opts[config.OptionConntrack] = optionEnabled
 		}
 	}
 
 	ingress, egress := owner.EnableEndpointPolicyEnforcement(e)
 
-	opts[OptionIngressPolicy] = optionDisabled
-	opts[OptionEgressPolicy] = optionDisabled
+	opts[config.OptionIngressPolicy] = optionDisabled
+	opts[config.OptionEgressPolicy] = optionDisabled
 
 	if egress {
-		e.checkEgressAccess(owner, (*labelsMap)[identityPkg.ReservedIdentityHost], opts, OptionAllowToHost)
+		e.checkEgressAccess(owner, (*labelsMap)[identityPkg.ReservedIdentityHost], opts, config.OptionAllowToHost)
 	}
 
 	if !ingress && !egress {
@@ -740,14 +741,14 @@ func (e *Endpoint) regeneratePolicy(owner Owner, opts models.ConfigurationMap) (
 	} else {
 		if ingress && egress {
 			e.getLogger().Debug("Policy Ingress and Egress enabled")
-			opts[OptionIngressPolicy] = optionEnabled
-			opts[OptionEgressPolicy] = optionEnabled
+			opts[config.OptionIngressPolicy] = optionEnabled
+			opts[config.OptionEgressPolicy] = optionEnabled
 		} else if ingress {
 			e.getLogger().Debug("Policy Ingress enabled")
-			opts[OptionIngressPolicy] = optionEnabled
+			opts[config.OptionIngressPolicy] = optionEnabled
 		} else {
 			e.getLogger().Debug("Policy Egress enabled")
-			opts[OptionEgressPolicy] = optionEnabled
+			opts[config.OptionEgressPolicy] = optionEnabled
 		}
 	}
 
@@ -963,7 +964,7 @@ func (e *Endpoint) TriggerPolicyUpdatesLocked(owner Owner, opts models.Configura
 
 	if changed && consumersAdd != nil {
 		policyEnforced := e.IngressOrEgressIsEnforced()
-		isLocal := e.Opts.IsEnabled(OptionConntrackLocal)
+		isLocal := e.Opts.IsEnabled(config.OptionConntrackLocal)
 		ctCleaned = updateCT(owner, e, e.IPs(), policyEnforced, isLocal, consumersAdd, consumersRm)
 	}
 

@@ -33,6 +33,7 @@ import (
 	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/completion"
+	"github.com/cilium/cilium/pkg/config"
 	"github.com/cilium/cilium/pkg/geneve"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -202,8 +203,8 @@ func (e *Endpoint) writeHeaderfile(prefix string, owner Owner) error {
 	// all packets, but only if policy enforcement
 	// is enabled for the endpoint / daemon.
 	if !e.PolicyCalculated &&
-		(e.Opts.IsEnabled(OptionIngressPolicy) || e.Opts.IsEnabled(OptionEgressPolicy)) &&
-		owner.PolicyEnforcement() != NeverEnforce {
+		(e.Opts.IsEnabled(config.OptionIngressPolicy) || e.Opts.IsEnabled(config.OptionEgressPolicy)) &&
+		owner.PolicyEnforcement() != config.NeverEnforce {
 		fw.WriteString("#define DROP_ALL\n")
 	}
 
@@ -247,7 +248,7 @@ func (e *Endpoint) writeHeaderfile(prefix string, owner Owner) error {
 		}
 	}
 	fmt.Fprintf(fw, "#define CALLS_MAP %s\n", path.Base(e.CallsMapPathLocked()))
-	if e.Opts.IsEnabled(OptionConntrackLocal) {
+	if e.Opts.IsEnabled(config.OptionConntrackLocal) {
 		fmt.Fprintf(fw, "#define CT_MAP_SIZE %s\n", strconv.Itoa(ctmap.MapNumEntriesLocal))
 		fmt.Fprintf(fw, "#define CT_MAP6 %s\n", ctmap.MapName6+strconv.Itoa(int(e.ID)))
 		fmt.Fprintf(fw, "#define CT_MAP4 %s\n", ctmap.MapName4+strconv.Itoa(int(e.ID)))
@@ -771,7 +772,7 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir, reason string) (uint64, err
 	// store the current endpoint state so we can later on
 	// update the CT without requiring to lock the endpoint again.
 	isPolicyEnforced := e.IngressOrEgressIsEnforced()
-	isLocal := e.Opts.IsEnabled(OptionConntrackLocal)
+	isLocal := e.Opts.IsEnabled(config.OptionConntrackLocal)
 	epIPs := e.IPs()
 
 	e.Mutex.Unlock()

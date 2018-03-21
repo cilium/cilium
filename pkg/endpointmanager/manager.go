@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/cilium/cilium/pkg/config"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
@@ -287,7 +288,7 @@ func HasGlobalCT() bool {
 	eps := GetEndpoints()
 	for _, e := range eps {
 		e.RLock()
-		globalCT := e.Consumable != nil && !e.Opts.IsEnabled(endpoint.OptionConntrackLocal)
+		globalCT := e.Consumable != nil && !e.Opts.IsEnabled(config.OptionConntrackLocal)
 		e.RUnlock()
 		if globalCT {
 			return true
@@ -309,9 +310,9 @@ func GetEndpoints() []*endpoint.Endpoint {
 
 // AddEndpoint takes the prepared endpoint object and starts managing it.
 func AddEndpoint(owner endpoint.Owner, ep *endpoint.Endpoint, reason string) error {
-	alwaysEnforce := policy.GetPolicyEnabled() == endpoint.AlwaysEnforce
-	ep.Opts.Set(endpoint.OptionIngressPolicy, alwaysEnforce)
-	ep.Opts.Set(endpoint.OptionEgressPolicy, alwaysEnforce)
+	alwaysEnforce := policy.GetPolicyEnabled() == config.AlwaysEnforce
+	ep.Opts.Set(config.OptionIngressPolicy, alwaysEnforce)
+	ep.Opts.Set(config.OptionEgressPolicy, alwaysEnforce)
 
 	if err := ep.CreateDirectory(); err != nil {
 		return err

@@ -33,6 +33,7 @@ import (
 	"github.com/cilium/cilium/daemon/defaults"
 	"github.com/cilium/cilium/daemon/options"
 	"github.com/cilium/cilium/pkg/bpf"
+	configPkg "github.com/cilium/cilium/pkg/config"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/envoy"
@@ -337,7 +338,7 @@ func init() {
 		false, "Disable east-west K8s load balancing by cilium")
 	flags.StringVarP(&dockerEndpoint,
 		"docker", "e", workloads.GetRuntimeDefaultOpt(workloads.Docker).Endpoint, "Path to docker runtime socket (DEPRECATED: use container-runtime-endpoint instead)")
-	flags.String("enable-policy", endpoint.DefaultEnforcement, "Enable policy enforcement")
+	flags.String("enable-policy", configPkg.DefaultEnforcement, "Enable policy enforcement")
 	flags.BoolVar(&enableTracing,
 		"enable-tracing", false, "Enable tracing while determining policy (debugging)")
 	flags.String("envoy-log", "/var/log/cilium-envoy.log", "Path to Envoy log")
@@ -613,16 +614,16 @@ func initEnv(cmd *cobra.Command) {
 	bpf.MountFS()
 
 	logging.DefaultLogLevel = defaults.DefaultLogLevel
-	config.Opts.Set(endpoint.OptionDebug, viper.GetBool("debug"))
+	config.Opts.Set(configPkg.OptionDebug, viper.GetBool("debug"))
 
 	autoIPv6NodeRoutes = viper.GetBool("auto-ipv6-node-routes")
 
-	config.Opts.Set(endpoint.OptionDropNotify, true)
-	config.Opts.Set(endpoint.OptionTraceNotify, true)
+	config.Opts.Set(configPkg.OptionDropNotify, true)
+	config.Opts.Set(configPkg.OptionTraceNotify, true)
 	config.Opts.Set(options.PolicyTracing, enableTracing)
-	config.Opts.Set(endpoint.OptionConntrack, !disableConntrack)
-	config.Opts.Set(endpoint.OptionConntrackAccounting, !disableConntrack)
-	config.Opts.Set(endpoint.OptionConntrackLocal, false)
+	config.Opts.Set(configPkg.OptionConntrack, !disableConntrack)
+	config.Opts.Set(configPkg.OptionConntrackAccounting, !disableConntrack)
+	config.Opts.Set(configPkg.OptionConntrackLocal, false)
 
 	policy.SetPolicyEnabled(strings.ToLower(viper.GetString("enable-policy")))
 
