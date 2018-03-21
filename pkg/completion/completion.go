@@ -80,7 +80,7 @@ Loop:
 			// Complete the remaining completions to make sure their completed
 			// channels are closed.
 			for _, comp := range wg.pendingCompletions[i:] {
-				comp.Complete()
+				comp.complete(false)
 			}
 			break Loop
 		}
@@ -116,6 +116,15 @@ func (c *Completion) Context() context.Context {
 // Complete notifies of the completion of the asynchronous computation.
 // Idempotent.
 func (c *Completion) Complete() {
+	c.complete(true)
+}
+
+// Complete notifies of the completion of the asynchronous computation.
+// If this is the first time this method is called, runCallback is true, and
+// the Completion was created by calling WaitGroup.AddCompletionWithCallback or
+// NewCallback with a non-nil callback, that callback is called.
+// Idempotent.
+func (c *Completion) complete(runCallback bool) {
 	c.lock.Lock()
 	select {
 	case <-c.completed:
@@ -123,7 +132,7 @@ func (c *Completion) Complete() {
 	default:
 		close(c.completed)
 		c.lock.Unlock()
-		if c.callback != nil {
+		if runCallback && c.callback != nil {
 			c.callback()
 		}
 	}
