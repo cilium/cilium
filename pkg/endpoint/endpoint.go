@@ -31,10 +31,8 @@ import (
 	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/controller"
 	identityPkg "github.com/cilium/cilium/pkg/identity"
-	"github.com/cilium/cilium/pkg/labels"
 	pkgLabels "github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
-	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/mac"
 	"github.com/cilium/cilium/pkg/maps/policymap"
 	"github.com/cilium/cilium/pkg/option"
@@ -415,25 +413,8 @@ func (e *Endpoint) StringID() string {
 	return strconv.Itoa(int(e.ID))
 }
 
-func (e *Endpoint) GetIdentity() identityPkg.NumericIdentity {
-	if e.SecurityIdentity != nil {
-		return e.SecurityIdentity.ID
-	}
-
-	return identityPkg.InvalidIdentity
-}
-
 func (e *Endpoint) directoryPath() string {
 	return filepath.Join(".", fmt.Sprintf("%d", e.ID))
-}
-
-func (e *Endpoint) Allows(id identityPkg.NumericIdentity) bool {
-	e.Mutex.RLock()
-	defer e.Mutex.RUnlock()
-	if e.Consumable != nil {
-		return e.Consumable.AllowsIngress(id)
-	}
-	return false
 }
 
 // String returns endpoint on a JSON format.
@@ -605,80 +586,6 @@ func (e *Endpoint) Update(owner Owner, opts models.ConfigurationMap) error {
 	ctCleaned.Wait()
 
 	return nil
-}
-
-// HasLabels returns whether endpoint e contains all labels l. Will return 'false'
-// if any label in l is not in the endpoint's labels.
-func (e *Endpoint) HasLabels(l pkgLabels.Labels) bool {
-	e.Mutex.RLock()
-	defer e.Mutex.RUnlock()
-	allEpLabels := e.OpLabels.AllLabels()
-
-	for _, v := range l {
-		found := false
-		for _, j := range allEpLabels {
-			if j.Equals(v) {
-				found = true
-				break
-			}
-		}
-		if !found {
-			return false
-		}
-	}
-
-	return true
-}
-
-func (e *Endpoint) replaceInformationLabels(l pkgLabels.Labels) {
-	e.Mutex.Lock()
-	for k, v := range l {
-		tmp := v.DeepCopy()
-		e.getLogger().WithField(logfields.Labels, logfields.Repr(tmp)).Debug("Assigning orchestration information label")
-		e.OpLabels.OrchestrationInfo[k] = tmp
-	}
-	e.Mutex.Unlock()
-}
-
-// replaceIdentityLabels replaces the identity labels of an endpoint. If a net
-// changed occurred, the identityRevision is bumped and return, otherwise 0 is
-// returned.
-func (e *Endpoint) replaceIdentityLabels(l pkgLabels.Labels) int {
-	e.Mutex.Lock()
-	changed := false
-
-	e.OpLabels.OrchestrationIdentity.MarkAllForDeletion()
-	e.OpLabels.Disabled.MarkAllForDeletion()
-
-	for k, v := range l {
-		switch {
-		case e.OpLabels.Disabled[k] != nil:
-			e.OpLabels.Disabled[k].DeletionMark = false
-
-		case e.OpLabels.OrchestrationIdentity[k] != nil:
-			e.OpLabels.OrchestrationIdentity[k].DeletionMark = false
-
-		default:
-			tmp := v.DeepCopy()
-			e.getLogger().WithField(logfields.Labels, logfields.Repr(tmp)).Debug("Assigning orchestration identity label")
-			e.OpLabels.OrchestrationIdentity[k] = tmp
-			changed = true
-		}
-	}
-
-	if e.OpLabels.OrchestrationIdentity.DeleteMarked() || e.OpLabels.Disabled.DeleteMarked() {
-		changed = true
-	}
-
-	rev := 0
-	if changed {
-		e.identityRevision++
-		rev = e.identityRevision
-	}
-
-	e.Mutex.Unlock()
-
-	return rev
 }
 
 // LeaveLocked removes the endpoint's directory from the system. Must be called
@@ -860,29 +767,6 @@ func (e *Endpoint) getIDandLabels() string {
 	}
 
 	return fmt.Sprintf("%d (%s)", e.ID, labels)
-}
-
-// UpdateLabels is called to update the labels of an endpoint. Calls to this
-// function do not necessarily mean that the labels actually changed. The
-// container runtime layer will periodically synchronize labels.
-//
-// If a net label changed was performed, the endpoint will receive a new
-// identity and will be regenerated. Both of these operations will happen in
-// the background.
-func (e *Endpoint) UpdateLabels(owner Owner, identityLabels, infoLabels labels.Labels) {
-	log.WithFields(logrus.Fields{
-		logfields.ContainerID:    e.GetShortContainerID(),
-		logfields.EndpointID:     e.StringID(),
-		logfields.IdentityLabels: identityLabels.String(),
-		logfields.InfoLabels:     infoLabels.String(),
-	}).Debug("Refreshing labels of endpoint")
-
-	e.replaceInformationLabels(infoLabels)
-
-	// replace identity labels and update the identity if labels have changed
-	if rev := e.replaceIdentityLabels(identityLabels); rev != 0 {
-		e.runLabelsResolver(owner, rev)
-	}
 }
 
 // setPolicyRevision sets the policy wantedRev with the given revision.

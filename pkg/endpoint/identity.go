@@ -199,3 +199,20 @@ func (e *Endpoint) ModifyIdentityLabels(owner Owner, addLabels, delLabels labels
 
 	return nil
 }
+
+func (e *Endpoint) GetIdentity() identityPkg.NumericIdentity {
+	if e.SecurityIdentity != nil {
+		return e.SecurityIdentity.ID
+	}
+
+	return identityPkg.InvalidIdentity
+}
+
+func (e *Endpoint) Allows(id identityPkg.NumericIdentity) bool {
+	e.Mutex.RLock()
+	defer e.Mutex.RUnlock()
+	if e.Consumable != nil {
+		return e.Consumable.AllowsIngress(id)
+	}
+	return false
+}
