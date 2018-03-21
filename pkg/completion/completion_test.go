@@ -142,7 +142,7 @@ func (s *CompletionSuite) TestCompletionTimeout(c *C) {
 	comp.Complete()
 }
 
-func (s *CompletionSuite) TestCompletionMultipleCallbacks(c *C) {
+func (s *CompletionSuite) TestCompletionMultipleCompleteCalls(c *C) {
 	var err error
 
 	ctx, cancel := context.WithTimeout(context.Background(), TestTimeout)
@@ -162,4 +162,60 @@ func (s *CompletionSuite) TestCompletionMultipleCallbacks(c *C) {
 	// Wait should return immediately, since the only completion is already completed.
 	err = wg.Wait()
 	c.Assert(err, IsNil)
+}
+
+func (s *CompletionSuite) TestCompletionWithCallback(c *C) {
+	var err error
+	var callbackCount int
+
+	ctx, cancel := context.WithTimeout(context.Background(), TestTimeout)
+	defer cancel()
+
+	// Set a shorter timeout to shorten the test duration.
+	wg := NewWaitGroup(ctx)
+
+	comp := wg.AddCompletionWithCallback(func() { callbackCount++ })
+	c.Assert(comp.Context(), Equals, ctx)
+
+	// Complete is idempotent.
+	comp.Complete()
+	comp.Complete()
+	comp.Complete()
+
+	// The callback is called exactly once.
+	c.Assert(callbackCount, Equals, 1)
+
+	// Wait should return immediately, since the only completion is already completed.
+	err = wg.Wait()
+	c.Assert(err, IsNil)
+}
+
+func (s *CompletionSuite) TestCompletionWithCallbackTimeout(c *C) {
+	var err error
+	var callbackCount int
+
+	ctx, cancel := context.WithTimeout(context.Background(), TestTimeout)
+	defer cancel()
+
+	// Set a shorter timeout to shorten the test duration.
+	wgCtx, cancel := context.WithTimeout(ctx, WaitGroupTimeout)
+	defer cancel()
+	wg := NewWaitGroup(wgCtx)
+
+	comp := wg.AddCompletionWithCallback(func() { callbackCount++ })
+	c.Assert(comp.Context(), Equals, wgCtx)
+
+	// comp never completes.
+
+	// Wait should block until wgCtx expires.
+	err = wg.Wait()
+	c.Assert(err, Not(IsNil))
+	c.Assert(err, Equals, wgCtx.Err())
+
+	// Complete is idempotent and harmless, and can be called after the
+	// context is canceled.
+	comp.Complete()
+
+	// The callback is never called.
+	c.Assert(callbackCount, Equals, 0)
 }
