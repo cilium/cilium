@@ -3,26 +3,24 @@ package k8sTest
 import (
 	"fmt"
 	"strings"
-	"sync"
 
+	. "github.com/cilium/cilium/test/ginkgo-ext"
 	"github.com/cilium/cilium/test/helpers"
 
-	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/sirupsen/logrus"
 )
 
-var _ = Describe("DisabledK8sValidatedUpdates", func() {
+var _ = Describe("K8sValidatedUpdates", func() {
 
 	var kubectl *helpers.Kubectl
 	var logger *logrus.Entry
-	var once sync.Once
 	var ciliumPath string
 	var demoPath string
 	var l3Policy, l7Policy string
 	var apps []string
 
-	initialize := func() {
+	BeforeAll(func() {
 		logger = log.WithFields(logrus.Fields{"testName": "NightlyK8sEpsMeasurement"})
 		logger.Info("Starting")
 
@@ -45,7 +43,7 @@ var _ = Describe("DisabledK8sValidatedUpdates", func() {
 		err := kubectl.WaitCleanAllTerminatingPods()
 		Expect(err).To(BeNil(), "Terminating containers are not deleted after timeout")
 
-	}
+	})
 
 	AfterEach(func() {
 		kubectl.ValidateNoErrorsOnLogs(CurrentGinkgoTestDescription().Duration)
@@ -53,9 +51,9 @@ var _ = Describe("DisabledK8sValidatedUpdates", func() {
 			ciliumPod, _ := kubectl.GetCiliumPodOnNode(
 				helpers.KubeSystemNamespace, helpers.K8s1VMName())
 			kubectl.CiliumReport("kube-system", ciliumPod, []string{
-				"cilium service list",
 				"cilium endpoint list"})
 		}
+
 		//This policies maybe are not loaded, (Test failed before) so no assert here.
 		kubectl.Delete(l7Policy)
 		kubectl.Delete(l3Policy)
@@ -65,10 +63,11 @@ var _ = Describe("DisabledK8sValidatedUpdates", func() {
 			"ds", fmt.Sprintf("-n %s cilium", helpers.KubeSystemNamespace))
 		res.ExpectSuccess("Cilium DS cannot be deleted")
 
+		err := kubectl.WaitCleanAllTerminatingPods()
+		Expect(err).To(BeNil(), "Terminating containers are not deleted after timeout")
 	})
 
 	BeforeEach(func() {
-		once.Do(initialize)
 		kubectl.Exec("sudo docker rmi cilium/cilium")
 		// Making sure that we deleted the  cilium ds. No assert message
 		// because maybe is not present
@@ -102,7 +101,7 @@ var _ = Describe("DisabledK8sValidatedUpdates", func() {
 		By("Creating some endpoints and L7 policy")
 		kubectl.Apply(demoPath).ExpectSuccess()
 
-		kubectl.Exec(fmt.Sprintf("%s scale deployment %s --replicas=5",
+		kubectl.Exec(fmt.Sprintf("%s scale deployment %s --replicas=3",
 			helpers.KubectlCmd, helpers.App1)).ExpectSuccess(
 			"Cannot scale %v deployment", helpers.App1)
 
@@ -131,10 +130,6 @@ var _ = Describe("DisabledK8sValidatedUpdates", func() {
 			helpers.KubectlCmd, helpers.KubeSystemNamespace,
 			resource, localImage)).ExpectSuccess(
 			"Cannot update image")
-
-		kubectl.Exec(fmt.Sprintf("%s rollout status %s -n %s",
-			helpers.KubectlCmd, resource,
-			helpers.KubeSystemNamespace)).ExpectSuccess("Cannot rollout the change")
 
 		waitForUpdateImage := func() bool {
 			pods, err := kubectl.GetCiliumPods(helpers.KubeSystemNamespace)

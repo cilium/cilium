@@ -16,12 +16,11 @@ package k8sTest
 
 import (
 	"fmt"
-	"sync"
 
+	. "github.com/cilium/cilium/test/ginkgo-ext"
 	"github.com/cilium/cilium/test/helpers"
 	"github.com/cilium/cilium/test/helpers/policygen"
 
-	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/sirupsen/logrus"
 )
@@ -30,9 +29,8 @@ var _ = Describe("NightlyPolicies", func() {
 
 	var kubectl *helpers.Kubectl
 	var logger *logrus.Entry
-	var once sync.Once
 
-	initialize := func() {
+	BeforeAll(func() {
 		logger = log.WithFields(logrus.Fields{"testName": "NightlyK8sPolicies"})
 		logger.Info("Starting")
 
@@ -44,10 +42,6 @@ var _ = Describe("NightlyPolicies", func() {
 
 		err = kubectl.WaitKubeDNS()
 		Expect(err).Should(BeNil())
-	}
-
-	BeforeEach(func() {
-		once.Do(initialize)
 	})
 
 	AfterEach(func() {
@@ -63,6 +57,14 @@ var _ = Describe("NightlyPolicies", func() {
 		Expect(err).To(BeNil(), "Terminating containers are not deleted after timeout")
 	})
 
+	AfterAll(func() {
+		// Delete all pods created
+		kubectl.Exec(fmt.Sprintf(
+			"%s delete --all pods,svc,cnp -n %s", helpers.KubectlCmd, helpers.DefaultNamespace))
+
+		err := kubectl.WaitCleanAllTerminatingPods()
+		Expect(err).To(BeNil(), "Terminating containers are not deleted after timeout")
+	})
 	Context("PolicyEnforcement default", func() {
 		createTests := func() {
 			testSpecs := policygen.GeneratedTestSpec()
