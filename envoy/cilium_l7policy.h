@@ -38,8 +38,8 @@ struct FilterStats {
 class Config : public Logger::Loggable<Logger::Id::filter> {
 public:
   Config(const envoy::api::v2::core::ApiConfigSource& api_config_source,
-	 const std::string& policy_name, const std::string& listener_id,
-	 const std::string& access_log_path, Server::Configuration::FactoryContext& context);
+	 const std::string& policy_name, const std::string& access_log_path,
+	 Server::Configuration::FactoryContext& context);
   Config(const Json::Object &config, Server::Configuration::FactoryContext& context);
   Config(const ::cilium::L7Policy &config, Server::Configuration::FactoryContext& context);
   ~Config();
@@ -47,7 +47,6 @@ public:
   void Log(AccessLog::Entry &, ::cilium::EntryType);
 
   FilterStats stats_;
-  std::string listener_id_;
   std::string policy_name_;
   std::shared_ptr<const Cilium::NetworkPolicyMap> npmap_;
 

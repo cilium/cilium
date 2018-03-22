@@ -29,8 +29,8 @@ message HttpLogEntry {
 
   EntryType entry_type = 3;
 
-  // Cilium Redirect resource name
-  string cilium_resource_name = 4;
+  // Cilium network policy resource name
+  string policy_name = 4;
 
   // Cilium rule reference
   string cilium_rule_ref = 5;

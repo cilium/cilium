@@ -15,12 +15,15 @@
 package envoy
 
 import (
-	"github.com/golang/protobuf/proto"
 	"net"
 	"os"
 	"path/filepath"
 	"strings"
 	"syscall"
+
+	"github.com/cilium/cilium/pkg/envoy/cilium"
+
+	"github.com/golang/protobuf/proto"
 )
 
 func getAccessLogPath(stateDir string) string {
@@ -60,6 +63,9 @@ func StartAccessLogServer(stateDir string, xdsServer *XDSServer) {
 				continue
 			}
 			log.Info("Envoy: Accepted access log connection")
+
+			// Serve this access log socket in a goroutine, so we can serve multiple
+			// connections concurrently.
 			go accessLogger(uc, xdsServer)
 		}
 	}()
@@ -84,7 +90,7 @@ func accessLogger(conn *net.UnixConn, xdsServer *XDSServer) {
 			log.Warning("Envoy: Discarded truncated access log message")
 			continue
 		}
-		pblog := HttpLogEntry{}
+		pblog := cilium.HttpLogEntry{}
 		err = proto.Unmarshal(buf[:n], &pblog)
 		if err != nil {
 			log.WithError(err).Warning("Envoy: Discarded invalid access log message")
@@ -92,14 +98,14 @@ func accessLogger(conn *net.UnixConn, xdsServer *XDSServer) {
 		}
 
 		// Correlate the log entry with a listener
-		logger := xdsServer.findListenerLogger(pblog.CiliumResourceName)
+		logger := xdsServer.findListenerLogger(pblog.PolicyName)
 
 		// Call the logger.
 		if logger != nil {
 			logger.Log(&pblog)
 		} else {
-			log.Warnf("Envoy: Received access log message for non-existent listener %s: %s",
-				pblog.CiliumResourceName, pblog.String())
+			log.Warnf("Envoy: Received access log message for non-existent network policy %s: %s",
+				pblog.PolicyName, pblog.String())
 		}
 	}
 }

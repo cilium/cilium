@@ -203,7 +203,6 @@ static_resources:
           - name: test_l7policy
             config:
               access_log_path: ""
-              listener_id: foo42
               policy_name: "173"
               api_config_source:
                 api_type: GRPC

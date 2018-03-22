@@ -23,6 +23,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/envoy"
+	"github.com/cilium/cilium/pkg/envoy/cilium"
 	"github.com/cilium/cilium/pkg/flowdebug"
 	"github.com/cilium/cilium/pkg/proxy/accesslog"
 	"github.com/cilium/cilium/pkg/proxy/logger"
@@ -83,7 +84,7 @@ func (r *envoyRedirect) Close(wg *completion.WaitGroup) {
 	}
 }
 
-func parseURL(pblog *envoy.HttpLogEntry) *url.URL {
+func parseURL(pblog *cilium.HttpLogEntry) *url.URL {
 	path := strings.TrimPrefix(pblog.Path, "/")
 	u, err := url.Parse(fmt.Sprintf("%s://%s/%s", pblog.Scheme, pblog.Host, path))
 	if err != nil {
@@ -98,9 +99,9 @@ func parseURL(pblog *envoy.HttpLogEntry) *url.URL {
 }
 
 // Log is called by the envoy package to log an individual access log record
-func (r *envoyRedirect) Log(pblog *envoy.HttpLogEntry) {
+func (r *envoyRedirect) Log(pblog *cilium.HttpLogEntry) {
 	flowdebug.Log(log.WithFields(logrus.Fields{}),
-		fmt.Sprintf("%s: Access log message: %s", pblog.CiliumResourceName, pblog.String()))
+		fmt.Sprintf("%s: Access log message: %s", pblog.PolicyName, pblog.String()))
 
 	record := logger.NewLogRecord(r.redirect, pblog.GetFlowType(),
 		logger.LogTags.Timestamp(time.Unix(int64(pblog.Timestamp/1000000000), int64(pblog.Timestamp%1000000000))),

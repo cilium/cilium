@@ -43,8 +43,6 @@ func (m *L7Policy) Validate() error {
 
 	// no validation rules for AccessLogPath
 
-	// no validation rules for ListenerId
-
 	// no validation rules for PolicyName
 
 	if v, ok := interface{}(m.GetApiConfigSource()).(interface {

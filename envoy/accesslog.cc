@@ -55,7 +55,7 @@ AccessLog::AccessLog(std::string path) : path_(path), fd_(-1), open_count_(1) {}
 AccessLog::~AccessLog() {}
 
 void AccessLog::Entry::InitFromRequest(
-    std::string listener_id, const Network::Connection *conn,
+    std::string policy_name, const Network::Connection *conn,
     const Http::HeaderMap &headers, const RequestInfo::RequestInfo &info) {
   auto time = info.startTime();
   entry.set_timestamp(std::chrono::duration_cast<std::chrono::nanoseconds>(
@@ -77,7 +77,7 @@ void AccessLog::Entry::InitFromRequest(
   }
   entry.set_http_protocol(proto);
 
-  entry.set_cilium_resource_name(listener_id);
+  entry.set_policy_name(policy_name);
 
   if (conn) {
     if (conn->socketOptions() != nullptr) {
