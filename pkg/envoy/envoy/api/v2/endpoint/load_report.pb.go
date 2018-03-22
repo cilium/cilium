@@ -36,7 +36,7 @@ type UpstreamLocalityStats struct {
 	//
 	// The total number of requests successfully completed by the endpoints in the
 	// locality. These include non-5xx responses for HTTP, where errors
-	// originate at the client and the endpoint responded successfuly. For gRPC,
+	// originate at the client and the endpoint responded successfully. For gRPC,
 	// the grpc-status values are those not covered by total_error_requests below.
 	TotalSuccessfulRequests uint64 `protobuf:"varint,2,opt,name=total_successful_requests,json=totalSuccessfulRequests" json:"total_successful_requests,omitempty"`
 	// The total number of unfinished requests

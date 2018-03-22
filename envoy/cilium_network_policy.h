@@ -45,8 +45,14 @@ public:
 	for (const auto& header: rule.headers()) {
 	  headers_.emplace_back(header);
 	  const auto& header_data = headers_.back();
-	  ENVOY_LOG(trace, "Cilium L7 HttpNetworkPolicyRule(): HeaderData {}={} ({})",
-		    header_data.name_.get(), header_data.value_, header_data.is_regex_ ? "regex" : "literal");
+	  ENVOY_LOG(trace, "Cilium L7 HttpNetworkPolicyRule(): HeaderData {}={}",
+		    header_data.name_.get(),
+		    header_data.header_match_type_ == Router::ConfigUtility::HeaderMatchType::Range
+		    ? fmt::format("[{}-{})", header_data.range_.start(), header_data.range_.end())
+		    : header_data.header_match_type_ == Router::ConfigUtility::HeaderMatchType::Value
+		    ? header_data.value_
+		    : header_data.header_match_type_ == Router::ConfigUtility::HeaderMatchType::Regex
+		    ? "<REGEX>" : "<UNKNOWN>");
 	}
       }
 

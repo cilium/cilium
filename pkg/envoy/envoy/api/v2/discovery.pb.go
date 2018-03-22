@@ -46,7 +46,6 @@ type DiscoveryRequest struct {
 	// may be empty if no nonce is available, e.g. at startup or for non-stream
 	// xDS implementations.
 	ResponseNonce string `protobuf:"bytes,5,opt,name=response_nonce,json=responseNonce" json:"response_nonce,omitempty"`
-	// [#not-implemented-hide:]
 	// This is populated when the previous :ref:`DiscoveryResponse <envoy_api_msg_DiscoveryResponse>`
 	// failed to update configuration. The *message* field in *error_details* provides the Envoy
 	// internal exception related to the failure. It is only intended for consumption during manual
