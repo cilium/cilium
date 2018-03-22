@@ -12,6 +12,8 @@
 #include <string>
 #include <vector>
 
+#include "linux/bpf.h"
+
 namespace Envoy {
 namespace Cilium {
 
@@ -107,6 +109,15 @@ bool Bpf::insert(const void *key, const void *value) {
   attr.flags = BPF_ANY;
 
   return bpfSyscall(BPF_MAP_UPDATE_ELEM, &attr) == 0;
+}
+
+bool Bpf::remove(const void *key) {
+  union bpf_attr attr = {};
+  attr.map_fd = uint32_t(fd_);
+  attr.key = uintptr_t(key);
+  attr.flags = BPF_ANY;
+
+  return bpfSyscall(BPF_MAP_DELETE_ELEM, &attr) == 0;
 }
 
 bool Bpf::lookup(const void *key, void *value) {

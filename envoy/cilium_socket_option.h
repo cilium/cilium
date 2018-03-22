@@ -3,6 +3,8 @@
 #include "envoy/network/listen_socket.h"
 #include "common/common/logger.h"
 
+#include "proxymap.h"
+
 namespace Envoy {
 namespace Cilium {
 
@@ -33,13 +35,16 @@ public:
 
 class SocketOption : public SocketMarkOption {
 public:
-  SocketOption(uint32_t mark, uint32_t source_identity, bool ingress, uint16_t port)
-    : SocketMarkOption(mark), source_identity_(source_identity), ingress_(ingress), port_(port) {
-    ENVOY_LOG(debug, "Cilium SocketOption(): mark: {}, source_identity: {}, ingress: {}, port: {}", mark, source_identity_, ingress_, port_);
+SocketOption(const ProxyMapSharedPtr& maps, uint32_t mark, uint32_t source_identity, bool ingress, uint16_t port, uint16_t proxy_port)
+    : SocketMarkOption(mark), maps_(maps), source_identity_(source_identity), ingress_(ingress), port_(port), proxy_port_(proxy_port) {
+    ENVOY_LOG(debug, "Cilium SocketOption(): mark: {}, source_identity: {}, ingress: {}, port: {}, proxy_port: {}", mark, source_identity_, ingress_, port_, proxy_port_);
   }
+
+  ProxyMapSharedPtr maps_;
   uint32_t source_identity_;
   bool ingress_;
   uint16_t port_;
+  uint16_t proxy_port_;
 };
 
 } // namespace Cilium

@@ -11,7 +11,7 @@
 #include <string>
 #include <vector>
 
-#include "linux/bpf.h"
+union bpf_attr;
 
 namespace Envoy {
 namespace Cilium {
@@ -69,6 +69,13 @@ public:
    * @returns boolean for success of the operation.
    */
   bool insert(const void *key, const void *value);
+
+  /**
+   * Delete the entry identified with the key from the map, if it exists.
+   * @param key pointer to the key identifying the new entry to be inserted.
+   * @returns boolean for success of the operation.
+   */
+  bool remove(const void *key);
 
   /**
    * Lookup an entry from the bpf map identified with the key, storing the found
