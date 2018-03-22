@@ -15,7 +15,7 @@ var _ = math.Inf
 type BpfMetadata struct {
 	// File system root for bpf. Defaults to "/sys/fs/bpf" if left empty.
 	BpfRoot string `protobuf:"bytes,1,opt,name=bpf_root,json=bpfRoot" json:"bpf_root,omitempty"`
-	// 'true' if the filter is on ingress proxy, 'false' for egress proxy.
+	// 'true' if the filter is on ingress listener, 'false' for egress listener.
 	IsIngress bool `protobuf:"varint,2,opt,name=is_ingress,json=isIngress" json:"is_ingress,omitempty"`
 }
 

@@ -36,6 +36,7 @@ import (
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
+	"github.com/cilium/cilium/pkg/proxy/logger"
 
 	"github.com/gogo/protobuf/sortkeys"
 	"github.com/golang/protobuf/proto"
@@ -57,11 +58,12 @@ type XDSServer struct {
 	// listenerProto is a generic Envoy Listener protobuf. Immutable.
 	listenerProto *envoy_api_v2.Listener
 
-	// loggers maps a listener resource name to its Logger.
-	loggers map[string]Logger
-
 	// listenerMutator publishes listener updates to Envoy proxies.
 	listenerMutator xds.AckingResourceMutator
+
+	// listeners is the set of names of listeners that have been added by
+	// calling AddListener.
+	listeners map[string]struct{}
 
 	// networkPolicyCache publishes network policy configuration updates to
 	// Envoy proxies.
@@ -70,6 +72,10 @@ type XDSServer struct {
 	// networkPolicyMutator wraps networkPolicyCache to publish route
 	// configuration updates to Envoy proxies.
 	networkPolicyMutator xds.AckingResourceMutator
+
+	// networkPolicyEndpointInfoSources maps each network policy's name to the
+	// info source on the local endpoint.
+	networkPolicyEndpointInfoSources map[string]logger.EndpointInfoSource
 
 	// stopServer stops the xDS gRPC server.
 	stopServer context.CancelFunc
@@ -184,28 +190,29 @@ func StartXDSServer(stateDir string) *XDSServer {
 	}
 
 	return &XDSServer{
-		socketPath:           xdsPath,
-		listenerProto:        listenerProto,
-		loggers:              make(map[string]Logger),
-		listenerMutator:      ldsMutator,
-		networkPolicyCache:   npdsCache,
-		networkPolicyMutator: npdsMutator,
-		stopServer:           stopServer,
+		socketPath:                       xdsPath,
+		listenerProto:                    listenerProto,
+		listenerMutator:                  ldsMutator,
+		listeners:                        make(map[string]struct{}),
+		networkPolicyCache:               npdsCache,
+		networkPolicyMutator:             npdsMutator,
+		networkPolicyEndpointInfoSources: make(map[string]logger.EndpointInfoSource),
+		stopServer:                       stopServer,
 	}
 }
 
 // AddListener adds a listener to a running Envoy proxy.
-func (s *XDSServer) AddListener(name string, endpointPolicyName string, port uint16, isIngress bool, logger Logger, wg *completion.WaitGroup) {
+func (s *XDSServer) AddListener(name string, endpointPolicyName string, port uint16, isIngress bool, wg *completion.WaitGroup) {
 	log.Debugf("Envoy: addListener %s", name)
 
 	s.mutex.Lock()
 
 	// Bail out if this listener already exists
-	if _, ok := s.loggers[name]; ok {
+	if _, ok := s.listeners[name]; ok {
 		log.Fatalf("Envoy: Attempt to add existing listener: %s", name)
 	}
 
-	s.loggers[name] = logger
+	s.listeners[name] = struct{}{}
 
 	s.mutex.Unlock()
 
@@ -226,26 +233,14 @@ func (s *XDSServer) AddListener(name string, endpointPolicyName string, port uin
 func (s *XDSServer) RemoveListener(name string, wg *completion.WaitGroup) {
 	s.mutex.Lock()
 	log.Debugf("Envoy: removeListener %s", name)
-	l := s.loggers[name]
-	// Bail out if this listener does not exist
-	if l == nil {
+	if _, ok := s.listeners[name]; !ok {
+		// Bail out if this listener does not exist
 		log.Fatalf("Envoy: Attempt to remove non-existent listener: %s", name)
 	}
-	delete(s.loggers, name)
+	delete(s.listeners, name)
 	s.mutex.Unlock()
 
 	s.listenerMutator.Delete(ListenerTypeURL, name, []string{"127.0.0.1"}, wg.AddCompletion())
-}
-
-// Find the listener given the Envoy Resource name
-func (s *XDSServer) findListenerLogger(name string) Logger {
-	if s == nil {
-		return nil
-	}
-	s.mutex.RLock()
-	defer s.mutex.RUnlock()
-
-	return s.loggers[name]
 }
 
 func (s *XDSServer) stop() {
@@ -479,9 +474,10 @@ func (s *XDSServer) UpdateNetworkPolicy(ep NetworkPolicyEndpoint, policy *policy
 	labelsMap identity.IdentityCache, deniedIngressIdentities, deniedEgressIdentities map[identity.NumericIdentity]bool, wg *completion.WaitGroup) error {
 
 	s.mutex.Lock()
-	// If there are no redirects configured, Envoy won't query for network policies
-	// and therefore will never ACK them, and we'd wait forever.
-	if !viper.GetBool("sidecar-http-proxy") && len(s.loggers) == 0 {
+	// If there are no listeners configured, the local node's Envoy proxy won't
+	// query for network policies and therefore will never ACK them, and we'd
+	// wait forever.
+	if !viper.GetBool("sidecar-http-proxy") && len(s.listeners) == 0 {
 		wg = nil
 	}
 	s.mutex.Unlock()
@@ -526,6 +522,7 @@ func (s *XDSServer) UpdateNetworkPolicy(ep NetworkPolicyEndpoint, policy *policy
 			nodeIDs = append(nodeIDs, "127.0.0.1")
 		}
 		s.networkPolicyMutator.Upsert(NetworkPolicyTypeURL, p.Name, p, nodeIDs, c)
+		s.networkPolicyEndpointInfoSources[p.Name] = ep
 	}
 	return nil
 }
@@ -535,10 +532,14 @@ func (s *XDSServer) UpdateNetworkPolicy(ep NetworkPolicyEndpoint, policy *policy
 // acks for policies on this endpoint.
 func (s *XDSServer) RemoveNetworkPolicy(ep NetworkPolicyEndpoint) {
 	if ep.GetIPv6Address() != "" {
-		s.networkPolicyCache.Delete(NetworkPolicyTypeURL, ep.GetIPv6Address(), false)
+		name := ep.GetIPv6Address()
+		s.networkPolicyCache.Delete(NetworkPolicyTypeURL, name, false)
+		delete(s.networkPolicyEndpointInfoSources, name)
 	}
 	if ep.GetIPv4Address() != "" {
-		s.networkPolicyCache.Delete(NetworkPolicyTypeURL, ep.GetIPv4Address(), false)
+		name := ep.GetIPv4Address()
+		s.networkPolicyCache.Delete(NetworkPolicyTypeURL, name, false)
+		delete(s.networkPolicyEndpointInfoSources, name)
 	}
 }
 
@@ -562,4 +563,11 @@ func (s *XDSServer) GetNetworkPolicies(resourceNames []string) (map[string]*cili
 		networkPolicies[networkPolicy.Name] = networkPolicy
 	}
 	return networkPolicies, nil
+}
+
+// getLocalEndpointInfoSource returns the endpoint info source for the local
+// endpoint on which the network policy of the given name if enforced, or nil
+// if not found.
+func (s *XDSServer) getLocalEndpointInfoSource(networkPolicyName string) logger.EndpointInfoSource {
+	return s.networkPolicyEndpointInfoSources[networkPolicyName]
 }

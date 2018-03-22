@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package proxy
+package envoy
 
 import (
 	"github.com/cilium/cilium/pkg/envoy/cilium"
@@ -20,7 +20,11 @@ import (
 	. "gopkg.in/check.v1"
 )
 
-func (k *proxyTestSuite) TestParseURL(c *C) {
+type AccessLogServerSuite struct{}
+
+var _ = Suite(&AccessLogServerSuite{})
+
+func (k *AccessLogServerSuite) TestParseURL(c *C) {
 	logs := []cilium.HttpLogEntry{
 		{Scheme: "http", Host: "foo", Path: "/foo?blah=131"},
 		{Scheme: "http", Host: "foo", Path: "foo?blah=131"},

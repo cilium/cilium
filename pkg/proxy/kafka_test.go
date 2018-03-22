@@ -202,7 +202,7 @@ func (k *proxyTestSuite) TestKafkaRedirect(c *C) {
 		},
 		// Disable use of SO_MARK
 		noMarker: true,
-	})
+	}, DefaultEndpointInfoRegistry)
 	c.Assert(err, IsNil)
 	defer redir.Close(nil)
 

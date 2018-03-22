@@ -62,51 +62,66 @@ const (
 	FieldKafkaCorrelationID = "kafkaCorrelationID"
 )
 
-// LogRecordProducer defines the interface that a proxy has to implement in
-// order to support access logging
-type LogRecordProducer interface {
-	// DeriveEndpointInfo must lookup the endpoint by IP and fill the
-	// endpoint's parameters into the EndpointInfo struct. The function
-	// must return true if the endpoint was found.
-	DeriveEndpointInfo(ip net.IP, info *accesslog.EndpointInfo) bool
+// LogRecord is a proxy log record based off accesslog.LogRecord.
+type LogRecord struct {
+	accesslog.LogRecord
 
-	// LocalEndpoint must return information about the local endpoint which
+	// endpointInfoRegistry provides access to any endpoint's information given
+	// its IP address.
+	endpointInfoRegistry EndpointInfoRegistry
+
+	// localEndpointInfo is the information on the local endpoint which
 	// either sent the request (for egress) or is receiving the request
 	// (for ingress)
-	LocalEndpointInfo() accesslog.EndpointInfo
-
-	// GetObservationPoint must return the ObservationPoint at which the log record is being produced
-	GetObservationPoint() accesslog.ObservationPoint
-
-	// UpdateAccounting is called for each log record as soon as the log
-	// verdict is known
-	UpdateAccounting(t accesslog.FlowType, v accesslog.FlowVerdict)
+	localEndpointInfo *accesslog.EndpointInfo
 }
 
-// fillIdentity resolves the labels of the specified identity if known
-// locally and fills in the following info member fields:
-//  - info.Identity
-//  - info.Labels
-//  - info.LabelsSHA256
-func fillIdentity(info *accesslog.EndpointInfo, id identity.NumericIdentity) {
-	info.Identity = uint64(id)
-
-	if identity := identity.LookupIdentityByID(id); identity != nil {
-		info.Labels = identity.Labels.GetModel()
-		info.LabelsSHA256 = identity.GetLabelsSHA256()
+// NewLogRecord creates a new log record and applies optional tags
+//
+// Example:
+// record := logger.NewLogRecord(localEndpointInfoSource, flowType,
+//                observationPoint, logger.LogTags.Timestamp(time.Now()))
+func NewLogRecord(endpointInfoRegistry EndpointInfoRegistry, localEndpointInfoSource EndpointInfoSource, t accesslog.FlowType, ingress bool, tags ...LogTag) *LogRecord {
+	var observationPoint accesslog.ObservationPoint
+	if ingress {
+		observationPoint = accesslog.Ingress
+	} else {
+		observationPoint = accesslog.Egress
 	}
+
+	lr := LogRecord{
+		LogRecord: accesslog.LogRecord{
+			Type:              t,
+			ObservationPoint:  observationPoint,
+			IPVersion:         accesslog.VersionIPv4,
+			TransportProtocol: 6,
+			Timestamp:         time.Now().UTC().Format(time.RFC3339Nano),
+			NodeAddressInfo: accesslog.NodeAddressInfo{
+				IPv4: node.GetExternalIPv4().String(),
+				IPv6: node.GetIPv6().String(),
+			},
+		},
+		endpointInfoRegistry: endpointInfoRegistry,
+		localEndpointInfo:    getEndpointInfo(localEndpointInfoSource),
+	}
+
+	for _, tagFn := range tags {
+		tagFn(&lr)
+	}
+
+	return &lr
 }
 
 // fillEndpointInfo tries to resolve the IP address and fills the EndpointInfo
 // fields with either ReservedIdentityHost or ReservedIdentityWorld
-func fillEndpointInfo(producer LogRecordProducer, info *accesslog.EndpointInfo, ip net.IP) {
+func (lr *LogRecord) fillEndpointInfo(info *accesslog.EndpointInfo, ip net.IP) {
 	if ip.To4() != nil {
 		info.IPv4 = ip.String()
 
 		// first we try to resolve and check if the IP is
 		// same as Host
 		if node.IsHostIPv4(ip) {
-			fillIdentity(info, identity.ReservedIdentityHost)
+			lr.endpointInfoRegistry.FillEndpointIdentityByID(identity.ReservedIdentityHost, info)
 			return
 		}
 
@@ -114,28 +129,28 @@ func fillEndpointInfo(producer LogRecordProducer, info *accesslog.EndpointInfo, 
 		// if IP belongs to the cluster.
 		if node.GetIPv4ClusterRange().Contains(ip) {
 			// If endpoint cannot be found, set to cluster identity
-			if !producer.DeriveEndpointInfo(ip, info) {
-				fillIdentity(info, identity.ReservedIdentityCluster)
+			if !lr.endpointInfoRegistry.FillEndpointIdentityByIP(ip, info) {
+				lr.endpointInfoRegistry.FillEndpointIdentityByID(identity.ReservedIdentityCluster, info)
 			}
 		} else {
 			// If we are unable to resolve the HostIP as well
 			// as the cluster IP we mark this as a 'world' identity.
-			fillIdentity(info, identity.ReservedIdentityWorld)
+			lr.endpointInfoRegistry.FillEndpointIdentityByID(identity.ReservedIdentityWorld, info)
 		}
 	} else {
 		info.IPv6 = ip.String()
 
 		if node.IsHostIPv6(ip) {
-			fillIdentity(info, identity.ReservedIdentityHost)
+			lr.endpointInfoRegistry.FillEndpointIdentityByID(identity.ReservedIdentityHost, info)
 			return
 		}
 
 		if node.GetIPv6ClusterRange().Contains(ip) {
-			if !producer.DeriveEndpointInfo(ip, info) {
-				fillIdentity(info, identity.ReservedIdentityCluster)
+			if !lr.endpointInfoRegistry.FillEndpointIdentityByIP(ip, info) {
+				lr.endpointInfoRegistry.FillEndpointIdentityByID(identity.ReservedIdentityCluster, info)
 			}
 		} else {
-			fillIdentity(info, identity.ReservedIdentityWorld)
+			lr.endpointInfoRegistry.FillEndpointIdentityByID(identity.ReservedIdentityWorld, info)
 		}
 	}
 }
@@ -147,7 +162,7 @@ func fillEndpointInfo(producer LogRecordProducer, info *accesslog.EndpointInfo, 
 // ingress policies are set, the ingress policy cannot determine the source
 // endpoint info based on ip address, as the ip address would be that of the
 // egress proxy i.e host.
-func fillIngressSourceInfo(producer LogRecordProducer, info *accesslog.EndpointInfo, ip *net.IP, srcIdentity uint32) {
+func (lr *LogRecord) fillIngressSourceInfo(info *accesslog.EndpointInfo, ip *net.IP, srcIdentity uint32) {
 	if srcIdentity != 0 {
 		if ip != nil {
 			if ip.To4() != nil {
@@ -156,7 +171,7 @@ func fillIngressSourceInfo(producer LogRecordProducer, info *accesslog.EndpointI
 				info.IPv6 = ip.String()
 			}
 		}
-		fillIdentity(info, identity.NumericIdentity(srcIdentity))
+		lr.endpointInfoRegistry.FillEndpointIdentityByID(identity.NumericIdentity(srcIdentity), info)
 	} else {
 		// source security identity 0 is possible when somebody else other than
 		// the BPF datapath attempts to
@@ -164,7 +179,7 @@ func fillIngressSourceInfo(producer LogRecordProducer, info *accesslog.EndpointI
 		// We should try to resolve if the identity belongs to reserved_host
 		// or reserved_world.
 		if ip != nil {
-			fillEndpointInfo(producer, info, *ip)
+			lr.fillEndpointInfo(info, *ip)
 		} else {
 			log.Warn("Missing security identity in source endpoint info")
 		}
@@ -173,10 +188,10 @@ func fillIngressSourceInfo(producer LogRecordProducer, info *accesslog.EndpointI
 
 // fillEgressDestinationInfo returns the destination EndpointInfo for a flow
 // leaving the proxy at egress.
-func fillEgressDestinationInfo(producer LogRecordProducer, info *accesslog.EndpointInfo, ipstr string) {
+func (lr *LogRecord) fillEgressDestinationInfo(info *accesslog.EndpointInfo, ipstr string) {
 	ip := net.ParseIP(ipstr)
 	if ip != nil {
-		fillEndpointInfo(producer, info, ip)
+		lr.fillEndpointInfo(info, ip)
 	}
 }
 
@@ -194,8 +209,6 @@ func (logTags) Verdict(v accesslog.FlowVerdict, info string) LogTag {
 	return func(lr *LogRecord) {
 		lr.Verdict = v
 		lr.Info = info
-
-		lr.producer.UpdateAccounting(lr.Type, lr.Verdict)
 	}
 }
 
@@ -219,9 +232,9 @@ func (logTags) Addressing(i AddressingInfo) LogTag {
 	return func(lr *LogRecord) {
 		switch lr.ObservationPoint {
 		case accesslog.Ingress:
-			lr.DestinationEndpoint = lr.producer.LocalEndpointInfo()
+			lr.DestinationEndpoint = *lr.localEndpointInfo
 		case accesslog.Egress:
-			lr.SourceEndpoint = lr.producer.LocalEndpointInfo()
+			lr.SourceEndpoint = *lr.localEndpointInfo
 		}
 
 		ipstr, port, err := net.SplitHostPort(i.SrcIPPort)
@@ -235,7 +248,7 @@ func (logTags) Addressing(i AddressingInfo) LogTag {
 			if err == nil {
 				lr.SourceEndpoint.Port = uint16(p)
 				if lr.ObservationPoint == accesslog.Ingress {
-					fillIngressSourceInfo(lr.producer, &lr.SourceEndpoint, &ip, i.SrcIdentity)
+					lr.fillIngressSourceInfo(&lr.SourceEndpoint, &ip, i.SrcIdentity)
 				}
 			}
 		}
@@ -246,7 +259,7 @@ func (logTags) Addressing(i AddressingInfo) LogTag {
 			if err == nil {
 				lr.DestinationEndpoint.Port = uint16(p)
 				if lr.ObservationPoint == accesslog.Egress {
-					fillEgressDestinationInfo(lr.producer, &lr.DestinationEndpoint, ipstr)
+					lr.fillEgressDestinationInfo(&lr.DestinationEndpoint, ipstr)
 				}
 			}
 		}
@@ -265,42 +278,6 @@ func (logTags) Kafka(k *accesslog.LogRecordKafka) LogTag {
 	return func(lr *LogRecord) {
 		lr.Kafka = k
 	}
-}
-
-// LogRecord is a proxy log record based off accesslog.LogRecord
-type LogRecord struct {
-	accesslog.LogRecord
-
-	// producer is a reference to whoever produced this log record
-	producer LogRecordProducer
-}
-
-// NewLogRecord creates a new log record and applies optional tags
-//
-// Example:
-// record := logger.NewLogRecord(flowType, observationPoint,
-//                logger.LogTags.Timestamp(time.Now()))
-func NewLogRecord(producer LogRecordProducer, t accesslog.FlowType, tags ...LogTag) LogRecord {
-	lr := LogRecord{
-		LogRecord: accesslog.LogRecord{
-			Type:              t,
-			ObservationPoint:  producer.GetObservationPoint(),
-			IPVersion:         accesslog.VersionIPv4,
-			TransportProtocol: 6,
-			Timestamp:         time.Now().UTC().Format(time.RFC3339Nano),
-			NodeAddressInfo: accesslog.NodeAddressInfo{
-				IPv4: node.GetExternalIPv4().String(),
-				IPv6: node.GetIPv6().String(),
-			},
-		},
-		producer: producer,
-	}
-
-	for _, tagFn := range tags {
-		tagFn(&lr)
-	}
-
-	return lr
 }
 
 // ApplyTags applies tags to an existing log record

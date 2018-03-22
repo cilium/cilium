@@ -55,7 +55,7 @@ AccessLog::AccessLog(std::string path) : path_(path), fd_(-1), open_count_(1) {}
 AccessLog::~AccessLog() {}
 
 void AccessLog::Entry::InitFromRequest(
-    std::string policy_name, const Network::Connection *conn,
+    std::string policy_name, bool ingress, const Network::Connection *conn,
     const Http::HeaderMap &headers, const RequestInfo::RequestInfo &info) {
   auto time = info.startTime();
   entry.set_timestamp(std::chrono::duration_cast<std::chrono::nanoseconds>(
@@ -116,6 +116,8 @@ void AccessLog::Entry::InitFromRequest(
         return Http::HeaderMap::Iterate::Continue;
       },
       &entry);
+
+    entry.set_is_ingress(ingress);
 }
 
 void AccessLog::Entry::UpdateFromResponse(

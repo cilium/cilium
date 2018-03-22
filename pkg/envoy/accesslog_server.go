@@ -15,23 +15,35 @@
 package envoy
 
 import (
+	"fmt"
 	"net"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
 	"syscall"
+	"time"
 
 	"github.com/cilium/cilium/pkg/envoy/cilium"
+	"github.com/cilium/cilium/pkg/flowdebug"
+	"github.com/cilium/cilium/pkg/proxy/accesslog"
+	"github.com/cilium/cilium/pkg/proxy/logger"
 
 	"github.com/golang/protobuf/proto"
+	"github.com/sirupsen/logrus"
 )
 
 func getAccessLogPath(stateDir string) string {
 	return filepath.Join(stateDir, "access_log.sock")
 }
 
+type accessLogServer struct {
+	xdsServer            *XDSServer
+	endpointInfoRegistry logger.EndpointInfoRegistry
+}
+
 // StartAccessLogServer starts the access log server.
-func StartAccessLogServer(stateDir string, xdsServer *XDSServer) {
+func StartAccessLogServer(stateDir string, xdsServer *XDSServer, endpointInfoRegistry logger.EndpointInfoRegistry) {
 	accessLogPath := getAccessLogPath(stateDir)
 
 	// Create the access log listener
@@ -46,6 +58,11 @@ func StartAccessLogServer(stateDir string, xdsServer *XDSServer) {
 	// sidecar containers.
 	if err = os.Chmod(accessLogPath, 0777); err != nil {
 		log.WithError(err).Fatalf("Envoy: Failed to change mode of access log listen socket at %s", accessLogPath)
+	}
+
+	server := accessLogServer{
+		xdsServer:            xdsServer,
+		endpointInfoRegistry: endpointInfoRegistry,
 	}
 
 	go func() {
@@ -66,12 +83,12 @@ func StartAccessLogServer(stateDir string, xdsServer *XDSServer) {
 
 			// Serve this access log socket in a goroutine, so we can serve multiple
 			// connections concurrently.
-			go accessLogger(uc, xdsServer)
+			go server.accessLogger(uc)
 		}
 	}()
 }
 
-func accessLogger(conn *net.UnixConn, xdsServer *XDSServer) {
+func (s *accessLogServer) accessLogger(conn *net.UnixConn) {
 	defer func() {
 		log.Info("Envoy: Closing access log connection")
 		conn.Close()
@@ -97,15 +114,50 @@ func accessLogger(conn *net.UnixConn, xdsServer *XDSServer) {
 			continue
 		}
 
-		// Correlate the log entry with a listener
-		logger := xdsServer.findListenerLogger(pblog.PolicyName)
+		flowdebug.Log(log.WithFields(logrus.Fields{}),
+			fmt.Sprintf("%s: Access log message: %s", pblog.PolicyName, pblog.String()))
 
-		// Call the logger.
-		if logger != nil {
-			logger.Log(&pblog)
-		} else {
-			log.Warnf("Envoy: Received access log message for non-existent network policy %s: %s",
-				pblog.PolicyName, pblog.String())
+		// Correlate the log entry's network policy name with a local endpoint info source.
+		localEndpointInfoSource := s.xdsServer.getLocalEndpointInfoSource(pblog.PolicyName)
+		if localEndpointInfoSource == nil {
+			log.Warnf("Envoy: Discarded access log message for non-existent network policy %s",
+				pblog.PolicyName)
+			continue
+		}
+
+		s.logRecord(localEndpointInfoSource, &pblog)
+	}
+}
+
+func parseURL(pblog *cilium.HttpLogEntry) *url.URL {
+	path := strings.TrimPrefix(pblog.Path, "/")
+	u, err := url.Parse(fmt.Sprintf("%s://%s/%s", pblog.Scheme, pblog.Host, path))
+	if err != nil {
+		u = &url.URL{
+			Scheme: pblog.Scheme,
+			Host:   pblog.Host,
+			Path:   pblog.Path,
 		}
 	}
+	return u
+}
+
+func (s *accessLogServer) logRecord(localEndpointInfoSource logger.EndpointInfoSource, pblog *cilium.HttpLogEntry) {
+	logger.NewLogRecord(s.endpointInfoRegistry, localEndpointInfoSource, pblog.GetFlowType(), pblog.IsIngress,
+		logger.LogTags.Timestamp(time.Unix(int64(pblog.Timestamp/1000000000), int64(pblog.Timestamp%1000000000))),
+		logger.LogTags.Verdict(pblog.GetVerdict(), pblog.CiliumRuleRef),
+		logger.LogTags.Addressing(logger.AddressingInfo{
+			SrcIPPort:   pblog.SourceAddress,
+			DstIPPort:   pblog.DestinationAddress,
+			SrcIdentity: pblog.SourceSecurityId,
+		}),
+		logger.LogTags.HTTP(&accesslog.LogRecordHTTP{
+			Method:   pblog.Method,
+			Code:     int(pblog.Status),
+			URL:      parseURL(pblog),
+			Protocol: pblog.GetProtocol(),
+			Headers:  pblog.GetNetHttpHeaders(),
+		})).Log()
+
+	// TODO: Update proxy redirect stats.
 }

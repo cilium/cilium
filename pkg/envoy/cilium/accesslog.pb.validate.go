@@ -130,6 +130,8 @@ func (m *HttpLogEntry) Validate() error {
 
 	}
 
+	// no validation rules for IsIngress
+
 	return nil
 }
 

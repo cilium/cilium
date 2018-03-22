@@ -124,17 +124,19 @@ void AccessFilter::onDestroy() {}
 
 Http::FilterHeadersStatus AccessFilter::decodeHeaders(Http::HeaderMap& headers, bool) {
   const auto& conn = callbacks_->connection();
+  bool ingress = false;
   bool allowed = false;
   if (config_->npmap_ && conn) {
     const auto& options_ = conn->socketOptions();
     if (options_) {
       const auto options = dynamic_cast<Cilium::SocketOption*>(options_.get());
       if (options) {
-	if (options->ingress_) {
-	  allowed = config_->npmap_->Allowed(config_->policy_name_, true, options->port_,
+        ingress = options->ingress_;
+	if (ingress) {
+	  allowed = config_->npmap_->Allowed(config_->policy_name_, ingress, options->port_,
 					     options->source_identity_, headers);
 	} else {
-	  allowed = config_->npmap_->Allowed(config_->policy_name_, false, options->port_,
+	  allowed = config_->npmap_->Allowed(config_->policy_name_, ingress, options->port_,
 					     0 /* no remote ID yet */, headers);
 	}
 	ENVOY_LOG(debug, "Cilium L7: {} policy lookup for endpoint {}: {}",
@@ -151,7 +153,7 @@ Http::FilterHeadersStatus AccessFilter::decodeHeaders(Http::HeaderMap& headers, 
   }
 
   // Fill in the log entry
-  log_entry_.InitFromRequest(config_->policy_name_, callbacks_->connection(),
+  log_entry_.InitFromRequest(config_->policy_name_, ingress, callbacks_->connection(),
                              headers, callbacks_->requestInfo());
   if (!allowed) {
     denied_ = true;

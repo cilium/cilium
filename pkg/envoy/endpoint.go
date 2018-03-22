@@ -15,15 +15,13 @@
 package envoy
 
 import (
-	"github.com/cilium/cilium/pkg/identity"
+	"github.com/cilium/cilium/pkg/proxy/logger"
 )
 
 // NetworkPolicyEndpoint describes the parts of the Endpoint that are relevant
 // to configuring NetworkPolicy in Envoy. This is a subset of `Endpoint`.
 type NetworkPolicyEndpoint interface {
-	GetIPv4Address() string
-	GetIPv6Address() string
-	GetIdentity() identity.NumericIdentity
+	logger.EndpointInfoSource
 
 	// OnProxyPolicyUpdate is called when the proxy acknowledges that it
 	// has applied a policy.
