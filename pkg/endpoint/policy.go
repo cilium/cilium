@@ -984,20 +984,20 @@ func (e *Endpoint) TriggerPolicyUpdatesLocked(owner Owner, opts models.Configura
 		return false, ctCleaned, nil
 	}
 
-	changed, consumersAdd, consumersRm, err := e.regeneratePolicy(owner, opts)
+	needToRegenerateBPF, consumersAdd, consumersRm, err := e.regeneratePolicy(owner, opts)
 	if err != nil {
 		return false, ctCleaned, fmt.Errorf("%s: %s", e.StringID(), err)
 	}
 
-	if changed && consumersAdd != nil {
+	if needToRegenerateBPF && consumersAdd != nil {
 		policyEnforced := e.IngressOrEgressIsEnforced()
 		isLocal := e.Opts.IsEnabled(OptionConntrackLocal)
 		ctCleaned = updateCT(owner, e, e.IPs(), policyEnforced, isLocal, consumersAdd, consumersRm)
 	}
 
-	e.getLogger().Debugf("TriggerPolicyUpdatesLocked: changed: %t", changed)
+	e.getLogger().Debugf("TriggerPolicyUpdatesLocked: changed: %t", needToRegenerateBPF)
 
-	return changed, ctCleaned, nil
+	return needToRegenerateBPF, ctCleaned, nil
 }
 
 func (e *Endpoint) runIdentityToK8sPodSync() {
