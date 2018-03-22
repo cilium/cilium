@@ -15,6 +15,7 @@
 package RuntimeTest
 
 import (
+	"context"
 	"fmt"
 	"sync"
 
@@ -37,6 +38,7 @@ var _ = Describe("RuntimeValidatedKafka", func() {
 		"echo \"Message 0\" | docker exec -i client /opt/kafka/bin/kafka-console-producer.sh "+
 			"--broker-list kafka:9092 --topic %s", allowedTopic)
 	var MaxMessages int = 6
+	var client string = "client"
 
 	initialize := func() {
 		logger = log.WithFields(logrus.Fields{"testName": "RuntimeKafka"})
@@ -72,24 +74,26 @@ var _ = Describe("RuntimeValidatedKafka", func() {
 
 	createTopic := func(name string) {
 		logger.Infof("Creating new kafka topic %s", name)
-		res := vm.ContainerExec("client", fmt.Sprintf(
+		res := vm.ContainerExec(client, fmt.Sprintf(
 			"/opt/kafka/bin/kafka-topics.sh --create --zookeeper zook:2181 "+
 				"--replication-factor 1 --partitions 1 --topic %s", name))
 		res.ExpectSuccess()
 	}
+	consumerCmd := func(topic string, maxMsg int) string {
+		return fmt.Sprintf("/opt/kafka/bin/kafka-console-consumer.sh --bootstrap-server "+
+			"kafka:9092 --topic %s --max-messages %d --timeout-ms 300000 --from-beginning",
+			topic, maxMsg)
+	}
 
 	consumer := func(topic string, maxMsg int) *helpers.CmdRes {
-		res := vm.ContainerExec("client", fmt.Sprintf(
-			"/opt/kafka/bin/kafka-console-consumer.sh --bootstrap-server "+
-				"kafka:9092 --topic %s --max-messages %d --timeout-ms 300000 --from-beginning", topic, maxMsg))
-		return res
+		return vm.ContainerExec(client, consumerCmd(topic, maxMsg))
 	}
 
 	producer := func(topic string, message string) {
 		cmd := fmt.Sprintf(
-			"echo %s | docker exec -i client /opt/kafka/bin/kafka-console-producer.sh "+
+			"echo %s | docker exec -i %s /opt/kafka/bin/kafka-console-producer.sh "+
 				"--broker-list kafka:9092 --topic %s",
-			message, topic)
+			message, client, topic)
 		vm.Exec(cmd)
 	}
 
@@ -134,12 +138,12 @@ var _ = Describe("RuntimeValidatedKafka", func() {
 		createTopic(disallowTopic)
 
 		By("Listing created Kafka topics")
-		res := vm.ContainerExec("client",
+		res := vm.ContainerExec(client,
 			"/opt/kafka/bin/kafka-topics.sh --list --zookeeper zook:2181")
 		res.ExpectSuccess("Cannot get kafka topics")
 
 		// Waiting for kafka broker to be up.
-		err = waitForKafkaBroker("client", produceCmd)
+		err = waitForKafkaBroker(client, produceCmd)
 		Expect(err).To(BeNil(), "Kafka broker failed to come up")
 
 		By("Allowed topic")
@@ -174,12 +178,12 @@ var _ = Describe("RuntimeValidatedKafka", func() {
 		createTopic(disallowTopic)
 
 		By("Listing created Kafka topics")
-		res := vm.ContainerExec("client",
+		res := vm.ContainerExec(client,
 			"/opt/kafka/bin/kafka-topics.sh --list --zookeeper zook:2181")
 		res.ExpectSuccess("Cannot get kafka topics")
 
 		// Waiting for kafka broker to be up.
-		err = waitForKafkaBroker("client", produceCmd)
+		err = waitForKafkaBroker(client, produceCmd)
 		Expect(err).To(BeNil(), "Kafka broker failed to come up")
 
 		By("By sending produce/consume request on topic `allowedTopic`")
@@ -197,7 +201,12 @@ var _ = Describe("RuntimeValidatedKafka", func() {
 			"Processed a total of %d messages", MaxMessages))
 
 		By("Disable topic")
-		res = consumer(disallowTopic, MaxMessages)
-		res.ExpectFail("Kafka consumer can access to disallowTopic")
+		// Consumer timeout didn't work correctly, so make sure that AUTH is present in the reply
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+		res = vm.ExecContext(ctx, fmt.Sprintf(
+			"docker exec -i %s %s", client, consumerCmd(disallowTopic, MaxMessages)))
+		err = res.WaitUntilMatch("{disallowTopic=TOPIC_AUTHORIZATION_FAILED}")
+		Expect(err).To(BeNil(), "Traffic in disallowTopic is allowed")
 	})
 })
