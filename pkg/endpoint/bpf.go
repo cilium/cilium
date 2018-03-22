@@ -704,6 +704,8 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir, reason string) (uint64, err
 					if ok {
 						redirectPort := e.lookupRedirectPortBE(&l4Filter)
 						if l7RuleContexts.RedirectPort != redirectPort {
+							e.getLogger().Debugf("Will update CT map entry for identity %d and proxy ID %s with redirect port %d",
+								identity, l4RuleContext.ProxyID(), redirectPort)
 							policyChanged = true
 							l7RuleContexts.RedirectPort = redirectPort
 							p[identity][l4RuleContext] = l7RuleContexts
@@ -793,6 +795,7 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir, reason string) (uint64, err
 	// CT entry clean up should always happen
 	// even if the bpf program build has failed
 	if policyChanged {
+		e.getLogger().Debug("Updating CT map entries to reflect policy changes")
 		wg := updateCT(owner, e, epIPs, isPolicyEnforced, isLocal, modifiedRules, deletedRules)
 		defer wg.Wait()
 	}
@@ -817,7 +820,7 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir, reason string) (uint64, err
 	// The last operation hooks the endpoint into the endpoint table and exposes it
 	err = lxcmap.WriteEndpoint(epInfoCache)
 	if err != nil {
-		log.WithField(logfields.EndpointID, e.ID).WithError(err).Error("Exposing new bpf failed!")
+		log.WithField(logfields.EndpointID, e.ID).WithError(err).Error("Exposing new bpf failed")
 	}
 	return epInfoCache.revision, err
 }

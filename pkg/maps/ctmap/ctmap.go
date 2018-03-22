@@ -26,6 +26,8 @@ import (
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/policy"
+
+	"github.com/sirupsen/logrus"
 )
 
 var log = logging.DefaultLogger
@@ -106,8 +108,10 @@ type CtEntryDump struct {
 }
 
 const (
+	// GCFilterNone doesn't filter the CT entries
+	GCFilterNone = iota
 	// GCFilterByTime filters CT entries by time
-	GCFilterByTime = 1 << iota
+	GCFilterByTime
 	// GCFilterByIDToMod modifies all CT entries with the new proxyport number
 	// if they are matched by the filter.
 	GCFilterByIDToMod
@@ -116,14 +120,14 @@ const (
 	GCFilterByIDsToKeep
 )
 
-// GCFilterFlags is the type for the different filter flags
-type GCFilterFlags uint
+// GCFilterType is the type of a filter.
+type GCFilterType uint
 
 // GCFilter contains the necessary fields to filter the CT maps.
 // Filtering by endpoint requires both EndpointID to be > 0 and
 // EndpointIP to be not nil.
 type GCFilter struct {
-	Type       GCFilterFlags
+	Type       GCFilterType
 	IDsToMod   policy.SecurityIDContexts
 	IDsToKeep  policy.SecurityIDContexts
 	Time       uint32
@@ -131,10 +135,10 @@ type GCFilter struct {
 	EndpointIP net.IP
 }
 
-// NewGCFilterBy creates a new GCFilter with the given flags.
-func NewGCFilterBy(f GCFilterFlags) *GCFilter {
+// NewGCFilterBy creates a new GCFilter of the given type.
+func NewGCFilterBy(filterType GCFilterType) *GCFilter {
 	return &GCFilter{
-		Type:      f,
+		Type:      filterType,
 		IDsToMod:  policy.NewSecurityIDContexts(),
 		IDsToKeep: policy.NewSecurityIDContexts(),
 	}
@@ -143,6 +147,8 @@ func NewGCFilterBy(f GCFilterFlags) *GCFilter {
 // TypeString returns the filter type in human readable way.
 func (f *GCFilter) TypeString() string {
 	switch f.Type {
+	case GCFilterNone:
+		return "none"
 	case GCFilterByTime:
 		return "timeout"
 	case GCFilterByIDToMod:
@@ -251,7 +257,7 @@ func doGC6(m *bpf.Map, filter *GCFilter) int {
 	}
 
 	// If the filter is by ID and the IDsToMod is empty then skip GC.
-	if filter.Type&GCFilterByIDToMod != 0 {
+	if filter.Type == GCFilterByIDToMod {
 		if len(filter.IDsToMod) == 0 {
 			return 0
 		}
@@ -309,7 +315,7 @@ func doGC4(m *bpf.Map, filter *GCFilter) int {
 	}
 
 	// If the filter is by ID and the IDsToMod is empty then skip GC.
-	if filter.Type&GCFilterByIDToMod != 0 {
+	if filter.Type == GCFilterByIDToMod {
 		if len(filter.IDsToMod) == 0 {
 			return 0
 		}
@@ -354,17 +360,31 @@ func doGC4(m *bpf.Map, filter *GCFilter) int {
 }
 
 func (f *GCFilter) doFiltering(srcIP net.IP, dstIP net.IP, dstPort uint16, nextHdr, flags uint8, entry *CtEntry) (action int) {
+	scopedLog := log.WithFields(logrus.Fields{
+		"entrySrcIP":       srcIP,
+		"entryDstIP":       dstIP,
+		"entryDstPort":     byteorder.NetworkToHost(dstPort),
+		"entryProto":       nextHdr,
+		"entryFlags":       flags,
+		"entrySrcSecID":    entry.src_sec_id,
+		"entryProxyPort":   byteorder.NetworkToHost(entry.proxy_port),
+		"filterType":       f.TypeString(),
+		"filterEndpointID": f.EndpointID,
+		"filterEndpointIP": f.EndpointIP,
+	})
+	scopedLog.Debug("Filtering CT map entry")
+
 	action = noAction
 
 	// Delete all entries with a lifetime smaller than f timestamp.
-	if f.Type&GCFilterByTime != 0 &&
-		entry.lifetime < f.Time {
-
+	if f.Type == GCFilterByTime && entry.lifetime < f.Time {
 		action = deleteEntry
+		scopedLog.Debug("Deleting CT map entry: too old")
 	}
 
 	// If the filter doesn't contain an endpoint ID & IP, no entries will get matched below.
 	if f.EndpointID == 0 || f.EndpointIP == nil {
+		scopedLog.Debug("Ignoring CT map entry: no endpoint ID or IP given in filter")
 		return
 	}
 
@@ -373,10 +393,13 @@ func (f *GCFilter) doFiltering(srcIP net.IP, dstIP net.IP, dstPort uint16, nextH
 	var ingress bool
 	if flags&TUPLE_F_IN != 0 && dstIP.Equal(f.EndpointIP) {
 		ingress = true
+		scopedLog.Debug("Ingress CT map entry matches endpoint IP")
 	} else if flags&TUPLE_F_IN == 0 && srcIP.Equal(f.EndpointIP) {
 		ingress = false
+		scopedLog.Debug("Egress CT map entry matches endpoint IP")
 	} else {
 		// Didn't match the endpoint IP.
+		scopedLog.Debug("Ignoring CT map entry: didn't match endpoint IP")
 		return
 	}
 
@@ -387,82 +410,93 @@ func (f *GCFilter) doFiltering(srcIP net.IP, dstIP net.IP, dstPort uint16, nextH
 		Proto:      nextHdr,
 	}
 
+	switch f.Type {
+
 	// Used by FlushCTEntriesOf.
 	// Delete all entries of the given endpoint IP that are not filtered.
-	if f.Type&GCFilterByIDsToKeep != 0 {
+	case GCFilterByIDsToKeep:
 		// Check if the src_sec_id of that entry is still allowed
 		// to talk with the destination IP.
-		if filterRuleCtx, ok := f.IDsToKeep[identity.NumericIdentity(entry.src_sec_id)]; !ok {
+		filterRuleCtx, ok := f.IDsToKeep[identity.NumericIdentity(entry.src_sec_id)]
+		if !ok {
 			action = deleteEntry
-		} else {
-			if filterRuleCtx.IsL3Only() {
-				// If the rule is L3-only then check if it's allowed by
-				// L4-only rules.
-				if l4OnlyRules, ok := f.IDsToKeep[identity.InvalidIdentity]; ok {
-					wasAdded, ok := l4OnlyRules[l4RuleCtx]
-					if !ok || !wasAdded.L4Installed {
-						action = deleteEntry
-					}
-				}
-			} else {
-				// If the rule is not L3-only then check if it's allowed by
-				// L3-L4 rules.
-				if l7Rule, ok := filterRuleCtx[l4RuleCtx]; ok {
-					if l7Rule.L4Installed && entry.proxy_port != l7Rule.RedirectPort {
-						action = modifyEntry
-						entry.proxy_port = l7Rule.RedirectPort
-					}
-				} else {
-					// No rule allows this port then it should be removed.
-					action = deleteEntry
-				}
+			scopedLog.Debug("Deleting CT map entry: src sec ID is no more allowed by policy")
+			return
+		}
+
+		if filterRuleCtx.IsL3Only() {
+			// If the rule is L3-only then check whether that entry is denied by
+			// L4-only rules.
+			filterRuleCtx, ok = f.IDsToKeep[identity.InvalidIdentity]
+			if !ok {
+				scopedLog.Debug("Ignoring CT map entry: allowed by L3-only rule")
+				return
 			}
 		}
-	}
 
-	// used by ModifyEntriesOf
-	if f.Type&GCFilterByIDToMod != 0 {
+		l7RuleCtx, ok := filterRuleCtx[l4RuleCtx]
+		if !ok {
+			action = deleteEntry
+			scopedLog.Debug("Deleting CT map entry: not allowed by any L4+ rule")
+			return
+		}
 
+		scopedLog.Debugf("Evaluating L7 rule context: RedirectPort=%d, L4Installed=%t",
+			byteorder.NetworkToHost(l7RuleCtx.RedirectPort), l7RuleCtx.L4Installed)
+
+		if l7RuleCtx.L4Installed && entry.proxy_port != l7RuleCtx.RedirectPort {
+			action = modifyEntry
+			scopedLog.Debugf("Modifying CT map entry: setting proxy port to %d",
+				byteorder.NetworkToHost(l7RuleCtx.RedirectPort))
+			entry.proxy_port = l7RuleCtx.RedirectPort
+			return
+		}
+
+	// Used by ModifyEntriesOf.
+	case GCFilterByIDToMod:
 		// Check if the src_sec_id of that entry needs to be modified
 		// by the given filter.
-		if filterRuleCtx, ok := f.IDsToMod[identity.NumericIdentity(entry.src_sec_id)]; ok {
-			if filterRuleCtx.IsL3Only() {
-				// If the rule is L3-only then check if it's allowed by
-				// L4-only rules.
-				if l4OnlyRules, ok := f.IDsToMod[identity.InvalidIdentity]; ok {
-					if l7RuleCtx, ok := l4OnlyRules[l4RuleCtx]; ok {
-						if l7RuleCtx.L4Installed &&
-							l7RuleCtx.IsRedirect() &&
-							entry.proxy_port != 0 {
+		filterRuleCtx, ok := f.IDsToMod[identity.NumericIdentity(entry.src_sec_id)]
+		if !ok {
+			scopedLog.Debug("Ignoring CT map entry: src sec ID is no more allowed by policy")
+			return
+		}
 
-							entry.proxy_port = 0
-							action = modifyEntry
-						}
-					}
-				}
-			} else {
-				// If the rule is not L3-only then check if it's allowed by
-				// L3-L4 rules.
-				if l7RuleCtx, ok := filterRuleCtx[l4RuleCtx]; ok {
-					if l7RuleCtx.L4Installed &&
-						l7RuleCtx.IsRedirect() &&
-						entry.proxy_port != 0 {
-
-						entry.proxy_port = 0
-						action = modifyEntry
-					}
-				}
+		if filterRuleCtx.IsL3Only() {
+			// If the rule is L3-only then check whether that entry is denied by
+			// L4-only rules.
+			filterRuleCtx, ok = f.IDsToKeep[identity.InvalidIdentity]
+			if !ok {
+				scopedLog.Debug("Ignoring CT map entry: not allowed by L4-only rules")
+				return
 			}
+		}
+
+		l7RuleCtx, ok := filterRuleCtx[l4RuleCtx]
+		if !ok {
+			scopedLog.Debug("Ignoring CT map entry: not allowed by any L4+ rule")
+			return
+		}
+
+		scopedLog.Debugf("Evaluating L7 rule context: RedirectPort=%d, L4Installed=%t",
+			byteorder.NetworkToHost(l7RuleCtx.RedirectPort), l7RuleCtx.L4Installed)
+
+		if l7RuleCtx.L4Installed && l7RuleCtx.IsRedirect() && entry.proxy_port != 0 {
+			action = modifyEntry
+			scopedLog.Debugf("Modifying CT map entry: setting proxy port to %d", 0)
+			entry.proxy_port = 0
+			return
 		}
 	}
 
+	scopedLog.Debug("Ignoring CT map entry: no action required")
 	return
 }
 
 // GC runs garbage collection for map m with name mapName with the given filter.
 // It returns how many items were deleted from m.
 func GC(m *bpf.Map, mapName string, filter *GCFilter) int {
-	if filter.Type&GCFilterByTime != 0 {
+	if filter.Type == GCFilterByTime {
 		// If LRUHashtable, no need to garbage collect as LRUHashtable cleans itself up.
 		// FIXME: GH-3239 LRU logic is not handling timeouts gracefully enough
 		// if m.MapInfo.MapType == bpf.MapTypeLRUHash {
