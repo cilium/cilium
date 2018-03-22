@@ -39,10 +39,11 @@ const (
 
 // kafkaRedirect implements the Redirect interface for an l7 proxy
 type kafkaRedirect struct {
-	redirect *Redirect
-	conf     kafkaConfiguration
-	rules    policy.L7DataMap
-	socket   *proxySocket
+	redirect             *Redirect
+	endpointInfoRegistry logger.EndpointInfoRegistry
+	conf                 kafkaConfiguration
+	rules                policy.L7DataMap
+	socket               *proxySocket
 }
 
 type destLookupFunc func(remoteAddr string, dport uint16) (uint32, string, error)
@@ -54,10 +55,11 @@ type kafkaConfiguration struct {
 
 // createKafkaRedirect creates a redirect to the kafka proxy. The redirect structure passed
 // in is safe to access for reading and writing.
-func createKafkaRedirect(r *Redirect, conf kafkaConfiguration) (RedirectImplementation, error) {
+func createKafkaRedirect(r *Redirect, conf kafkaConfiguration, endpointInfoRegistry logger.EndpointInfoRegistry) (RedirectImplementation, error) {
 	redir := &kafkaRedirect{
-		redirect: r,
-		conf:     conf,
+		redirect:             r,
+		conf:                 conf,
+		endpointInfoRegistry: endpointInfoRegistry,
 	}
 
 	if redir.conf.lookupNewDest == nil {
@@ -73,7 +75,7 @@ func createKafkaRedirect(r *Redirect, conf kafkaConfiguration) (RedirectImplemen
 			markIdentity = int(r.source.GetIdentity())
 		}
 
-		marker = GetMagicMark(r.ingress, markIdentity)
+		marker = getMagicMark(r.ingress, markIdentity)
 	}
 
 	// Listen needs to be in the synchronous part of this function to ensure that
@@ -149,7 +151,7 @@ func (k *kafkaRedirect) canAccess(req *kafka.RequestMessage, srcIdentity identit
 
 // kafkaLogRecord wraps an accesslog.LogRecord so that we can define methods with a receiver
 type kafkaLogRecord struct {
-	logger.LogRecord
+	*logger.LogRecord
 	topics []string
 }
 
@@ -162,7 +164,8 @@ func apiKeyToString(apiKey int16) string {
 
 func (k *kafkaRedirect) newLogRecordFromRequest(req *kafka.RequestMessage) kafkaLogRecord {
 	return kafkaLogRecord{
-		LogRecord: logger.NewLogRecord(k.redirect, accesslog.TypeRequest,
+		LogRecord: logger.NewLogRecord(k.endpointInfoRegistry, k.redirect.LocalEndpointInfoSource(),
+			accesslog.TypeRequest, k.redirect.ingress,
 			logger.LogTags.Kafka(&accesslog.LogRecordKafka{
 				APIVersion:    req.GetVersion(),
 				APIKey:        apiKeyToString(req.GetAPIKey()),
@@ -174,8 +177,8 @@ func (k *kafkaRedirect) newLogRecordFromRequest(req *kafka.RequestMessage) kafka
 
 func (k *kafkaRedirect) newLogRecordFromResponse(res *kafka.ResponseMessage, req *kafka.RequestMessage) kafkaLogRecord {
 	lr := kafkaLogRecord{
-		LogRecord: logger.NewLogRecord(k.redirect, accesslog.TypeResponse,
-			logger.LogTags.Kafka(&accesslog.LogRecordKafka{})),
+		LogRecord: logger.NewLogRecord(k.endpointInfoRegistry, k.redirect.LocalEndpointInfoSource(),
+			accesslog.TypeResponse, k.redirect.ingress, logger.LogTags.Kafka(&accesslog.LogRecordKafka{})),
 	}
 
 	if res != nil {
@@ -255,7 +258,7 @@ func (k *kafkaRedirect) handleRequest(pair *connectionPair, req *kafka.RequestMe
 	if pair.Tx.Closed() {
 		marker := 0
 		if !k.conf.noMarker {
-			marker = GetMagicMark(k.redirect.ingress, int(srcIdentity))
+			marker = getMagicMark(k.redirect.ingress, int(srcIdentity))
 		}
 
 		flowdebug.Log(scopedLog.WithFields(logrus.Fields{

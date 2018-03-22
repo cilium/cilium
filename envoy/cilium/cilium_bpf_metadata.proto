@@ -7,6 +7,6 @@ message BpfMetadata {
   // File system root for bpf. Defaults to "/sys/fs/bpf" if left empty.
   string bpf_root = 1;
 
-  // 'true' if the filter is on ingress proxy, 'false' for egress proxy.
+  // 'true' if the filter is on ingress listener, 'false' for egress listener.
   bool is_ingress = 2;
 }

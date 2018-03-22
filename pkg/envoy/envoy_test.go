@@ -17,16 +17,17 @@ package envoy
 import (
 	"context"
 	"errors"
+	"net"
 	"os"
 	"path/filepath"
 	"testing"
 	"time"
 
 	"github.com/cilium/cilium/pkg/completion"
-	"github.com/cilium/cilium/pkg/envoy/cilium"
+	"github.com/cilium/cilium/pkg/identity"
+	"github.com/cilium/cilium/pkg/proxy/accesslog"
 
 	"github.com/sirupsen/logrus"
-
 	. "gopkg.in/check.v1"
 )
 
@@ -39,14 +40,6 @@ type EnvoySuite struct {
 
 var _ = Suite(&EnvoySuite{})
 
-type testRedirect struct {
-	name string
-}
-
-func (t *testRedirect) Log(pblog *cilium.HttpLogEntry) {
-	log.Infof("%s/%s: Access log message: %s", t.name, pblog.PolicyName, pblog.String())
-}
-
 func (s *EnvoySuite) waitForProxyCompletion() error {
 	start := time.Now()
 	log.Debug("Waiting for proxy updates to complete...")
@@ -56,6 +49,16 @@ func (s *EnvoySuite) waitForProxyCompletion() error {
 	}
 	log.Debug("Wait time for proxy updates: ", time.Since(start))
 	return nil
+}
+
+type dummyEndpointInfoRegistry struct{}
+
+func (r *dummyEndpointInfoRegistry) FillEndpointIdentityByID(id identity.NumericIdentity, info *accesslog.EndpointInfo) bool {
+	return false
+}
+
+func (r *dummyEndpointInfoRegistry) FillEndpointIdentityByIP(ip net.IP, info *accesslog.EndpointInfo) bool {
+	return false
 }
 
 func (s *EnvoySuite) TestEnvoy(c *C) {
@@ -74,7 +77,7 @@ func (s *EnvoySuite) TestEnvoy(c *C) {
 
 	xdsServer := StartXDSServer(stateLogDir)
 	defer xdsServer.stop()
-	StartAccessLogServer(stateLogDir, xdsServer)
+	StartAccessLogServer(stateLogDir, xdsServer, &dummyEndpointInfoRegistry{})
 
 	// launch debug variant of the Envoy proxy
 	envoyProxy := StartEnvoy(9942, stateLogDir, filepath.Join(stateLogDir, "cilium-envoy.log"), 42)
@@ -82,13 +85,13 @@ func (s *EnvoySuite) TestEnvoy(c *C) {
 	log.Debug("started Envoy")
 
 	log.Debug("adding listener1")
-	xdsServer.AddListener("listener1", "1.2.3.4", 8081, true, &testRedirect{name: "listener1"}, s.waitGroup)
+	xdsServer.AddListener("listener1", "1.2.3.4", 8081, true, s.waitGroup)
 
 	log.Debug("adding listener2")
-	xdsServer.AddListener("listener2", "1.2.3.4", 8082, true, &testRedirect{name: "listener2"}, s.waitGroup)
+	xdsServer.AddListener("listener2", "1.2.3.4", 8082, true, s.waitGroup)
 
 	log.Debug("adding listener3")
-	xdsServer.AddListener("listener3", "1.2.3.4", 8083, false, &testRedirect{name: "listener3"}, s.waitGroup)
+	xdsServer.AddListener("listener3", "1.2.3.4", 8083, false, s.waitGroup)
 
 	err := s.waitForProxyCompletion()
 	c.Assert(err, IsNil)
@@ -106,7 +109,7 @@ func (s *EnvoySuite) TestEnvoy(c *C) {
 
 	// Add listener3 again
 	log.Debug("adding listener 3")
-	xdsServer.AddListener("listener3", "1.2.3.4", 8083, false, &testRedirect{name: "listener3"}, s.waitGroup)
+	xdsServer.AddListener("listener3", "1.2.3.4", 8083, false, s.waitGroup)
 
 	err = s.waitForProxyCompletion()
 	c.Assert(err, IsNil)

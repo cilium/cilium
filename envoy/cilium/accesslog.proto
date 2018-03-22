@@ -54,4 +54,8 @@ message HttpLogEntry {
   
   // Request headers not included above
   repeated KeyValue headers = 14;
+
+  // 'true' if the request was received by an ingress listener,
+  // 'false' if received by an egress listener
+  bool is_ingress = 15;
 }

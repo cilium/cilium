@@ -15,26 +15,20 @@
 package proxy
 
 import (
-	"encoding/json"
 	"fmt"
 	"math/rand"
-	"net"
 	"sync"
 	"time"
 
 	"github.com/cilium/cilium/api/v1/models"
-	"github.com/cilium/cilium/common/addressing"
 	"github.com/cilium/cilium/pkg/completion"
-	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/envoy"
-	identityPkg "github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/proxymap"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/policy"
-	"github.com/cilium/cilium/pkg/proxy/accesslog"
 	"github.com/cilium/cilium/pkg/proxy/logger"
 
 	"github.com/go-openapi/strfmt"
@@ -43,20 +37,7 @@ import (
 )
 
 var (
-	log          = logging.DefaultLogger
-	perFlowDebug = false
-)
-
-// Magic markers are attached to each packet. The lower 16 bits are used to
-// identify packets which have gone through the proxy and to determine whether
-// the packet is coming from a proxy at ingress or egress. The marking is
-// compatible with Kubernetes's use of the packet mark.  The upper 16 bits can
-// be used to carry the security identity.
-const (
-	magicMarkIngress int = 0x0FEA
-	magicMarkEgress  int = 0x0FEB
-	magicMarkK8sMasq int = 0x4000
-	magicMarkK8sDrop int = 0x8000
+	log = logging.DefaultLogger
 )
 
 // field names used while logging
@@ -72,139 +53,6 @@ const (
 	// redirectCreationAttempts is the number of attempts to create a redirect
 	redirectCreationAttempts = 5
 )
-
-type Redirect struct {
-	// The following fields are only written to during initialization, it
-	// is safe to read these fields without locking the mutex
-
-	// ProxyPort is the port the redirects redirects to where the proxy is
-	// listening on
-	ProxyPort      uint16
-	endpointID     uint64
-	id             string
-	ingress        bool
-	port           uint16
-	source         ProxySource
-	parserType     policy.L7ParserType
-	created        time.Time
-	implementation RedirectImplementation
-
-	// The following fields are updated while the redirect is alive, the
-	// mutex must be held to read and write these fields
-	mutex       lock.RWMutex
-	lastUpdated time.Time
-	rules       policy.L7DataMap
-	stats       models.ProxyRedirectStatistics
-}
-
-func newRedirect(port uint16, source ProxySource, id string) *Redirect {
-	return &Redirect{
-		port:        port,
-		source:      source,
-		id:          id,
-		created:     time.Now(),
-		lastUpdated: time.Now(),
-		stats: models.ProxyRedirectStatistics{
-			Requests:  &models.MessageForwardingStatistics{},
-			Responses: &models.MessageForwardingStatistics{},
-		},
-	}
-}
-
-func (r *Redirect) DeriveEndpointInfo(ip net.IP, info *accesslog.EndpointInfo) bool {
-	if ep := endpointmanager.LookupIPv4(addressing.DeriveCiliumIPv4(ip).String()); ep != nil {
-		ep.Mutex.RLock()
-		defer ep.Mutex.RUnlock()
-
-		info.ID = uint64(ep.ID)
-		info.Labels = ep.GetLabels()
-		info.LabelsSHA256 = ep.GetLabelsSHA()
-		info.Identity = uint64(ep.GetIdentity())
-
-		return true
-	}
-
-	return false
-}
-
-// GetObservationPoint returns the observation point at which the redirect is
-// attached to
-func (r *Redirect) GetObservationPoint() accesslog.ObservationPoint {
-	if r.ingress {
-		return accesslog.Ingress
-	}
-
-	return accesslog.Egress
-}
-
-// UpdateAccounting is called for each log record emitted as soon as the
-// verdict is known
-func (r *Redirect) UpdateAccounting(t accesslog.FlowType, verdict accesslog.FlowVerdict) {
-	r.mutex.Lock()
-	defer r.mutex.Unlock()
-
-	var stats *models.MessageForwardingStatistics
-
-	switch t {
-	case accesslog.TypeRequest:
-		stats = r.stats.Requests
-	case accesslog.TypeResponse:
-		stats = r.stats.Responses
-	default:
-		return
-	}
-
-	stats.Received++
-
-	switch verdict {
-	case accesslog.VerdictForwarded:
-		stats.Forwarded++
-	case accesslog.VerdictDenied:
-		stats.Denied++
-	case accesslog.VerdictError:
-		stats.Error++
-	}
-}
-
-// RedirectImplementation is the generic proxy redirect interface that each
-// proxy redirect type must implement
-type RedirectImplementation interface {
-	UpdateRules(wg *completion.WaitGroup) error
-	Close(wg *completion.WaitGroup)
-}
-
-// GetMagicMark returns the magic marker with which each packet must be marked.
-// The mark is different depending on whether the proxy is injected at ingress
-// or egress.
-func GetMagicMark(isIngress bool, identity int) int {
-	mark := 0
-
-	if isIngress {
-		mark = magicMarkIngress
-	} else {
-		mark = magicMarkEgress
-	}
-
-	if identity != 0 {
-		mark |= identity << 16
-	}
-
-	return mark
-}
-
-// ProxySource returns information about the endpoint being proxied.
-type ProxySource interface {
-	GetID() uint64
-	RLock()
-	RUnlock()
-	Lock()
-	Unlock()
-	GetLabels() []string
-	GetLabelsSHA() string
-	GetIdentity() identityPkg.NumericIdentity
-	GetIPv4Address() string
-	GetIPv6Address() string
-}
 
 // Proxy maintains state about redirects
 type Proxy struct {
@@ -239,7 +87,7 @@ type Proxy struct {
 // and access log server.
 func StartProxySupport(minPort uint16, maxPort uint16, stateDir string) *Proxy {
 	xdsServer := envoy.StartXDSServer(stateDir)
-	envoy.StartAccessLogServer(stateDir, xdsServer)
+	envoy.StartAccessLogServer(stateDir, xdsServer, DefaultEndpointInfoRegistry)
 	return &Proxy{
 		XDSServer:      xdsServer,
 		stateDir:       stateDir,
@@ -273,19 +121,11 @@ func (p *Proxy) allocatePort() (uint16, error) {
 
 var gcOnce sync.Once
 
-// updateRules updates the rules of the redirect, Redirect.mutex must be held
-func (r *Redirect) updateRules(l4 *policy.L4Filter) {
-	r.rules = policy.L7DataMap{}
-	for key, val := range l4.L7RulesPerEp {
-		r.rules[key] = val
-	}
-}
-
 // CreateOrUpdateRedirect creates or updates a L4 redirect with corresponding
 // proxy configuration. This will allocate a proxy port as required and launch
 // a proxy instance. If the redirect is already in place, only the rules will be
 // updated.
-func (p *Proxy) CreateOrUpdateRedirect(l4 *policy.L4Filter, id string, source ProxySource,
+func (p *Proxy) CreateOrUpdateRedirect(l4 *policy.L4Filter, id string, source logger.EndpointInfoSource,
 	notifier logger.LogRecordNotifier, wg *completion.WaitGroup) (*Redirect, error) {
 	gcOnce.Do(func() {
 		logger.SetNotifier(notifier)
@@ -357,7 +197,7 @@ retryCreatePort:
 
 		switch l4.L7Parser {
 		case policy.ParserTypeKafka:
-			redir.implementation, err = createKafkaRedirect(redir, kafkaConfiguration{})
+			redir.implementation, err = createKafkaRedirect(redir, kafkaConfiguration{}, DefaultEndpointInfoRegistry)
 
 		case policy.ParserTypeHTTP:
 			redir.implementation, err = createEnvoyRedirect(redir, p.stateDir, p.XDSServer, wg)
@@ -432,39 +272,9 @@ func ChangeLogLevel(level logrus.Level) {
 	}
 }
 
-func (r *Redirect) getLocation() string {
-	if r.ingress {
-		return "ingress"
-	}
-
-	return "egress"
-}
-
-func (r *Redirect) getRulesModel() []string {
-	model := make([]string, len(r.rules))
-	idx := 0
-	for selector, rule := range r.rules {
-		jsonSelector, _ := json.Marshal(selector)
-		var jsonRule []byte
-
-		switch r.parserType {
-		case policy.ParserTypeHTTP:
-			jsonRule, _ = json.Marshal(rule.HTTP)
-		case policy.ParserTypeKafka:
-			jsonRule, _ = json.Marshal(rule.Kafka)
-		}
-
-		model[idx] = fmt.Sprintf("from %s: %s", string(jsonSelector), string(jsonRule))
-		idx++
-	}
-	return model
-}
-
 func getRedirectStatusModel(r *Redirect) *models.ProxyRedirectStatus {
 	r.mutex.RLock()
 	defer r.mutex.RUnlock()
-
-	statsCopy := r.stats
 
 	return &models.ProxyRedirectStatus{
 		Protocol:           string(r.parserType),
@@ -476,7 +286,6 @@ func getRedirectStatusModel(r *Redirect) *models.ProxyRedirectStatus {
 		Created:            strfmt.DateTime(r.created),
 		LastUpdated:        strfmt.DateTime(r.lastUpdated),
 		Rules:              r.getRulesModel(),
-		Statistics:         &statsCopy,
 	}
 }
 
@@ -503,32 +312,4 @@ func (p *Proxy) GetStatusModel() *models.ProxyStatus {
 		PortRange: fmt.Sprintf("%d-%d", p.rangeMin, p.rangeMax),
 		Redirects: p.getRedirectsStatusModel(),
 	}
-}
-
-// removeProxyMapEntryOnClose is called after the proxy has closed a connection
-// and will remove the proxymap entry for that connection
-func (r *Redirect) removeProxyMapEntryOnClose(c net.Conn) error {
-	key, err := getProxyMapKey(c, r.ProxyPort)
-	if err != nil {
-		return fmt.Errorf("unable to extract proxymap key: %s", err)
-	}
-
-	return proxymap.Delete(key)
-}
-
-// LocalEndpointInfo return an EndpointInfo with the information of the local endpoint
-func (r *Redirect) LocalEndpointInfo() accesslog.EndpointInfo {
-	source := r.source
-	info := accesslog.EndpointInfo{}
-
-	source.RLock()
-	info.ID = source.GetID()
-	info.IPv4 = source.GetIPv4Address()
-	info.IPv6 = source.GetIPv6Address()
-	info.Labels = source.GetLabels()
-	info.LabelsSHA256 = source.GetLabelsSHA()
-	info.Identity = uint64(source.GetIdentity())
-	source.RUnlock()
-
-	return info
 }

@@ -68,8 +68,7 @@ const (
 	VersionIPV6
 )
 
-// EndpointInfo is used for the SourceEndpoint and DestinationEndpoint field
-// and contains information about the sending respectively receiving endpoint.
+// EndpointInfo contains information about the sending (resp. receiving) endpoint.
 // If the field using this struct is SourceEndpoint, all fields correspond to
 // the sending endpoint, if the field using this struct is DestinationEndpoint,
 // then all fields correspond to the receiving endpoint.
