@@ -116,7 +116,7 @@ var _ = Describe("RuntimeValidatedKafka", func() {
 		if CurrentGinkgoTestDescription().Failed {
 			vm.ReportFailed()
 		}
-		vm.Exec("policy delete --all")
+		vm.PolicyDelAll()
 		containers("delete")
 	})
 
