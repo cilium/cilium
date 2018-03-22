@@ -26,6 +26,7 @@ import (
 	"strings"
 
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/policy/api/v2"
 	"github.com/cilium/cilium/pkg/policy/api/v3"
 
 	"github.com/sirupsen/logrus"
@@ -136,11 +137,31 @@ func loadPolicyFile(path string) (v3.Rules, error) {
 
 	var ruleList v3.Rules
 	err = json.Unmarshal(content, &ruleList)
+	if err == nil {
+		err = ruleList.Sanitize()
+	}
 	if err != nil {
-		return nil, handleUnmarshalError(path, content, err)
+		// try load a v2.Rule
+		var v2RuleList v2.Rules
+		err2 := json.Unmarshal(content, &v2RuleList)
+		if err2 != nil {
+			return nil, handleUnmarshalError(path, content, err)
+		}
+		err = v2RuleList.Sanitize()
+		if err != nil {
+			return nil, handleUnmarshalError(path, content, err)
+		}
+		var v3RuleList *v3.Rules
+		v3RuleList, err = v3.V2RulesTov3RulesSanitized(&v2RuleList)
+		if err != nil {
+			return nil, handleUnmarshalError(path, content, err)
+		}
+		if v3RuleList != nil {
+			ruleList = *v3RuleList
+		}
 	}
 
-	return ruleList, nil
+	return ruleList, err
 }
 
 func loadPolicy(name string) (v3.Rules, error) {
