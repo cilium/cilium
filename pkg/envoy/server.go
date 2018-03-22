@@ -130,6 +130,8 @@ func StartXDSServer(stateDir string) *XDSServer {
 		},
 		FilterChains: []*envoy_api_v2_listener.FilterChain{{
 			Filters: []*envoy_api_v2_listener.Filter{{
+				Name: "cilium.network",
+			}, {
 				Name: "envoy.http_connection_manager",
 				Config: &structpb.Struct{Fields: map[string]*structpb.Value{
 					"stat_prefix": {&structpb.Value_StringValue{StringValue: "proxy"}},
@@ -215,8 +217,8 @@ func (s *XDSServer) AddListener(name string, endpointPolicyName string, port uin
 		listenerConf.ListenerFilters[0].Config.Fields["is_ingress"].GetKind().(*structpb.Value_BoolValue).BoolValue = true
 	}
 
-	listenerConf.FilterChains[0].Filters[0].Config.Fields["http_filters"].GetListValue().Values[0].GetStructValue().Fields["config"].GetStructValue().Fields["listener_id"] = &structpb.Value{Kind: &structpb.Value_StringValue{StringValue: name}}
-	listenerConf.FilterChains[0].Filters[0].Config.Fields["http_filters"].GetListValue().Values[0].GetStructValue().Fields["config"].GetStructValue().Fields["policy_name"] = &structpb.Value{Kind: &structpb.Value_StringValue{StringValue: endpointPolicyName}}
+	listenerConf.FilterChains[0].Filters[1].Config.Fields["http_filters"].GetListValue().Values[0].GetStructValue().Fields["config"].GetStructValue().Fields["listener_id"] = &structpb.Value{Kind: &structpb.Value_StringValue{StringValue: name}}
+	listenerConf.FilterChains[0].Filters[1].Config.Fields["http_filters"].GetListValue().Values[0].GetStructValue().Fields["config"].GetStructValue().Fields["policy_name"] = &structpb.Value{Kind: &structpb.Value_StringValue{StringValue: endpointPolicyName}}
 
 	s.listenerMutator.Upsert(ListenerTypeURL, name, listenerConf, []string{"127.0.0.1"}, wg.AddCompletion())
 }

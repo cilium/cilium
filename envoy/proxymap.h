@@ -1,26 +1,23 @@
 #pragma once
 
-#include "envoy/network/listen_socket.h"
-
 #include "common/common/logger.h"
+#include "envoy/network/listen_socket.h"
+#include "envoy/network/connection.h"
+#include "envoy/singleton/instance.h"
 
 #include "bpf.h"
 
 namespace Envoy {
-
-namespace Filter {
-namespace BpfMetadata {
-class Config;
-} // namespace BpfMetadata
-} // namespace Filter
-
 namespace Cilium {
 
-class ProxyMap : Logger::Loggable<Logger::Id::filter> {
+class ProxyMap : public Singleton::Instance, Logger::Loggable<Logger::Id::filter> {
 public:
-  ProxyMap(const std::string &bpf_root, Filter::BpfMetadata::Config &parent);
+  ProxyMap(const std::string &bpf_root);
 
-  bool getBpfMetadata(Network::ConnectionSocket &socket);
+  const std::string& bpfRoot() { return bpf_root_; }
+
+  bool getBpfMetadata(Network::ConnectionSocket& socket, uint32_t* identity, uint16_t* orig_dport, uint16_t* proxy_port);
+  bool removeBpfMetadata(Network::Connection& conn, uint16_t proxy_port);
 
 private:
   class Proxy4Map : public Bpf {
@@ -33,10 +30,12 @@ private:
     Proxy6Map();
   };
 
-  Filter::BpfMetadata::Config &parent_;
+  std::string bpf_root_;
   Proxy4Map proxy4map_;
   Proxy6Map proxy6map_;
 };
 
+typedef std::shared_ptr<ProxyMap> ProxyMapSharedPtr;
+ 
 } // namespace Cilium
 } // namespace Envoy

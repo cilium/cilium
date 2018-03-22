@@ -7,8 +7,7 @@
 
 #include "common/network/address_impl.h"
 
-#include "cilium_bpf_metadata.h"
-#include "cilium_socket_option.h"
+#include "linux/bpf.h"
 
 namespace Envoy {
 namespace Cilium {
@@ -62,29 +61,23 @@ ProxyMap::Proxy6Map::Proxy6Map()
     : Bpf(BPF_MAP_TYPE_HASH, sizeof(struct proxy6_tbl_key),
           sizeof(struct proxy6_tbl_value)) {}
 
-ProxyMap::ProxyMap(const std::string &bpf_root,
-                   Filter::BpfMetadata::Config &parent)
-    : parent_(parent) {
+ProxyMap::ProxyMap(const std::string &bpf_root) : bpf_root_(bpf_root) {
   // Open the bpf maps from Cilium specific paths
-  // TODO: make these paths configurable!
-  std::string path4(bpf_root + "/tc/globals/cilium_proxy4");
-  std::string path6(bpf_root + "/tc/globals/cilium_proxy6");
 
+  std::string path4(bpf_root_ + "/tc/globals/cilium_proxy4");
   if (!proxy4map_.open(path4)) {
-    ENVOY_LOG(info, "cilium.bpf_metadata: Cannot open IPv4 proxy map at {}",
-              path4);
-    parent_.stats_.bpf_open_error_.inc();
+    ENVOY_LOG(info, "cilium.bpf_metadata: Cannot open IPv4 proxy map at {}", path4);
   }
+
+  std::string path6(bpf_root_ + "/tc/globals/cilium_proxy6");
   if (!proxy6map_.open(path6)) {
-    ENVOY_LOG(info, "cilium.bpf_metadata: Cannot open IPv6 proxy map at {}",
-              path6);
-    parent_.stats_.bpf_open_error_.inc();
+    ENVOY_LOG(info, "cilium.bpf_metadata: Cannot open IPv6 proxy map at {}", path6);
   }
-  ENVOY_LOG(trace, "cilium.bpf_metadata: Created proxymap for {}",
-            parent_.is_ingress_ ? "ingress" : "egress");
+
+  ENVOY_LOG(trace, "cilium.bpf_metadata: Created proxymap.");
 }
 
-bool ProxyMap::getBpfMetadata(Network::ConnectionSocket &socket) {
+bool ProxyMap::getBpfMetadata(Network::ConnectionSocket &socket, uint32_t* identity, uint16_t* orig_dport, uint16_t* proxy_port) {
   Network::Address::InstanceConstSharedPtr local_address =
       socket.localAddress();
   Network::Address::InstanceConstSharedPtr remote_address =
@@ -106,7 +99,7 @@ bool ProxyMap::getBpfMetadata(Network::ConnectionSocket &socket) {
       key.nexthdr = 6;
 
       ENVOY_LOG(
-          debug,
+          trace,
           "cilium.bpf_metadata: Looking up key: {:x}, {:x}, {:x}, {:x}, {:x}",
           ntohl(key.saddr), ntohs(key.dport), ntohs(key.sport), key.nexthdr,
           key.pad);
@@ -121,8 +114,9 @@ bool ProxyMap::getBpfMetadata(Network::ConnectionSocket &socket) {
 	if (*orig_local_address != *socket.localAddress()) {
 	  socket.setLocalAddress(orig_local_address, true);
 	}
-        uint32_t identity = value.identity;
-        socket.setOptions(std::make_shared<SocketOption>(parent_.getMark(identity), identity, parent_.is_ingress_, ntohs(value.orig_dport)));
+        *identity = value.identity;
+	*proxy_port = ntohs(key.dport);
+        *orig_dport = ntohs(value.orig_dport);
         return true;
       }
       ENVOY_LOG(info, "cilium.bpf_metadata: IPv4 bpf map lookup failed: {}",
@@ -148,8 +142,9 @@ bool ProxyMap::getBpfMetadata(Network::ConnectionSocket &socket) {
 	if (*orig_local_address != *socket.localAddress()) {
 	  socket.setLocalAddress(orig_local_address, true);
 	}
-        uint32_t identity = value.identity;
-        socket.setOptions(std::make_shared<SocketOption>(parent_.getMark(identity), identity, parent_.is_ingress_, ntohs(value.orig_dport)));
+        *identity = value.identity;
+	*proxy_port = ntohs(key.dport);
+        *orig_dport = ntohs(value.orig_dport);
         return true;
       }
       ENVOY_LOG(info, "cilium.bpf_metadata: IPv6 bpf map lookup failed: {}",
@@ -161,7 +156,65 @@ bool ProxyMap::getBpfMetadata(Network::ConnectionSocket &socket) {
           rip->addressAsString(), ip->addressAsString());
     }
   }
-  parent_.stats_.bpf_lookup_error_.inc();
+  return false;
+}
+
+bool ProxyMap::removeBpfMetadata(Network::Connection &conn, uint16_t proxy_port) {
+  Network::Address::InstanceConstSharedPtr local_address = conn.localAddress();
+  Network::Address::InstanceConstSharedPtr remote_address = conn.remoteAddress();
+
+  if (local_address->type() == Network::Address::Type::Ip &&
+      remote_address->type() == Network::Address::Type::Ip) {
+    const auto &ip = local_address->ip();
+    const auto &rip = remote_address->ip();
+
+    if (ip->version() == Network::Address::IpVersion::v4 &&
+        rip->version() == Network::Address::IpVersion::v4) {
+      struct proxy4_tbl_key key {};
+
+      key.saddr = rip->ipv4()->address();
+      key.dport = htons(proxy_port);
+      key.sport = htons(rip->port());
+      key.nexthdr = 6;
+
+      ENVOY_CONN_LOG(
+          trace,
+          "cilium.bpf_metadata: Deleting key: {:x}, {:x}, {:x}, {:x}, {:x}", conn,
+          ntohl(key.saddr), ntohs(key.dport), ntohs(key.sport), key.nexthdr,
+          key.pad);
+
+      if (proxy4map_.remove(&key)) {
+        return true;
+      }
+      ENVOY_CONN_LOG(info, "cilium.bpf_metadata: IPv4 bpf proxymap remove failed: {}", conn,
+                strerror(errno));
+    } else if (ip->version() == Network::Address::IpVersion::v6 &&
+               rip->version() == Network::Address::IpVersion::v6) {
+      struct proxy6_tbl_key key {};
+
+      absl::uint128 saddr = rip->ipv6()->address();
+      memcpy(&key.saddr, &saddr, 16);
+      key.dport = htons(proxy_port);
+      key.sport = htons(rip->port());
+      key.nexthdr = 6;
+
+      if (proxy6map_.remove(&key)) {
+        return true;
+      }
+      ENVOY_CONN_LOG(info, "cilium.bpf_metadata: IPv6 bpf proxymap remove failed: {}", conn,
+                strerror(errno));
+    } else {
+      ENVOY_CONN_LOG(
+          info,
+          "cilium.bpf_metadata: IP address type mismatch: Source: {}, Dest: {}", conn,
+          rip->addressAsString(), ip->addressAsString());
+    }
+  } else {
+    ENVOY_CONN_LOG(
+	info,
+        "cilium.bpf_metadata: Address type mismatch: Source: {}, Dest: {}", conn,
+        remote_address->asString(), local_address->asString());
+  }
   return false;
 }
 

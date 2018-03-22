@@ -35,9 +35,17 @@ namespace BpfMetadata {
 
 class TestConfig : public Config {
 public:
-  TestConfig(const ::cilium::BpfMetadata& config, Stats::Scope& scope)
-    : Config(config, scope),
-      socket_mark_(std::make_shared<Cilium::SocketOption>(42, 1, true, 80)) {}
+  TestConfig(const ::cilium::BpfMetadata& config, Server::Configuration::ListenerFactoryContext& context)
+    : Config(config, context),
+      socket_mark_(std::make_shared<Cilium::SocketOption>(maps_, 42, 1, true, 80, 10000)) {}
+
+  bool getBpfMetadata(Network::ConnectionSocket &socket) override {
+    // fake setting the local address. It remains the same as required by the test infra, but it will be marked as restored
+    // as required by the original_dst cluster.
+    socket.setLocalAddress(original_dst_address, true);
+    socket.setOptions(socket_mark_);
+    return true;
+  }
 
   Network::Socket::OptionsSharedPtr socket_mark_;
 };
@@ -46,18 +54,7 @@ typedef std::shared_ptr<TestConfig> TestConfigSharedPtr;
 
 class TestInstance : public Instance {
 public:
-  TestInstance(TestConfigSharedPtr config)
-    : Instance(config), test_config_(config.get()) {}
-
-  bool getBpfMetadata(Network::ConnectionSocket &socket) override {
-    // fake setting the local address. It remains the same as required by the test infra, but it will be marked as restored
-    // as required by the original_dst cluster.
-    socket.setLocalAddress(original_dst_address, true);
-    socket.setOptions(test_config_->socket_mark_);
-    return true;
-  }
-
-  TestConfig *test_config_;
+  TestInstance(TestConfigSharedPtr config) : Instance(config) {}
 };
 
 } // namespace BpfMetadata
@@ -76,8 +73,7 @@ public:
   ListenerFilterFactoryCb
   createFilterFactoryFromProto(const Protobuf::Message& proto_config,
                       ListenerFactoryContext &context) override {
-    Filter::BpfMetadata::TestConfigSharedPtr config(
-        new Filter::BpfMetadata::TestConfig(MessageUtil::downcastAndValidate<const ::cilium::BpfMetadata&>(proto_config), context.scope()));
+    auto config = std::make_shared<Filter::BpfMetadata::TestConfig>(MessageUtil::downcastAndValidate<const ::cilium::BpfMetadata&>(proto_config), context);
 
     return [config](
                Network::ListenerFilterManager &filter_manager) mutable -> void {
@@ -198,7 +194,8 @@ static_resources:
         is_ingress: true
     filter_chains:
       filters:
-        name: envoy.http_connection_manager
+      - name: cilium.network
+      - name: envoy.http_connection_manager
         config:
           stat_prefix: config_test
           codec_type: auto
