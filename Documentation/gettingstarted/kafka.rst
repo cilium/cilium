@@ -220,16 +220,12 @@ The above rule applies to inbound (i.e., "ingress") connections to kafka-broker 
 indicated by "app: kafka"
 in the "endpointSelector" section).  The rule will apply to connections from pods with label
 "app: empire-outpost" as indicated by the "fromEndpoints" section.   The rule explicitly matches
-Kafka connections destined to TCP 9092, and white-lists a list of protocol requests according to various
-fields found in Kafka protocol messages.  Specifically, each request contains an "apiKey" field that
-indicates the type of request, and the policy white-lists several apiKey's here, the most important being the
-apiKey "fetch",
-which allows the client to consume from a particular topic.   Notice that requests with "apiKey: fetch"
-are further limited by a "topic" field, in this case *empire-announce*.
+Kafka connections destined to TCP 9092, and allows consume/produce actions on various topics of interest.
+For example we are allowing *consume* from topic *empire-announce* in this case.
 
-The full policy adds two additional rules that permit the legitimate produce request
+The full policy adds two additional rules that permit the legitimate "produce"
 (topic *empire-announce* and topic *deathstar-plans*) from *empire-hq* and the
-legitimate fetch requests (topic = "deathstar-plans") from *empire-backup*.  The full policy
+legitimate consume  (topic = "deathstar-plans") from *empire-backup*.  The full policy
 can be reviewed by opening the URL in the command below in a browser.
 
 Apply this Kafka-aware network security policy using ``kubectl`` in the main window:
@@ -247,13 +243,13 @@ Type control-c and then run:
   [2017-10-31 07:08:34,088] ERROR Error when sending message to topic empire-announce with key: null, value: 33  bytes with error: (org.apache.kafka.clients.producer.internals.ErrorLoggingCallback)
   org.apache.kafka.common.errors.TopicAuthorizationException: Not authorized to access topics: [empire-announce]
 
-This is because the policy does not allow messages with apiKey = "produce" for topic "empire-announce" from
+This is because the policy does not allow messages with role = "produce" for topic "empire-announce" from
 containers with label app = empire-outpost.  Its worth noting that we don't simply drop the message (which
 could easily be confused with a network error), but rather we respond with the Kafka access denied error
 (similar to how HTTP would return an error code of 403 unauthorized).
 
 Likewise, if the outpost container ever tries to consume from topic *deathstar-plans*, it is denied, as
-apiKey = fetch is only allowed for topic *empire-announce*.
+role = consume is only allowed for topic *empire-announce*.
 
 To test, from the outpost-9999 terminal, run:
 
