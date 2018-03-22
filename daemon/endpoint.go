@@ -207,8 +207,17 @@ func NewPatchEndpointIDHandler(d *Daemon) PatchEndpointIDHandler {
 	return &patchEndpointID{d: d}
 }
 
+func validPatchTransitionState(state models.EndpointState) bool {
+	switch string(state) {
+	case "", endpoint.StateWaitingForIdentity, endpoint.StateReady:
+		return true
+	}
+	return false
+}
+
 func (h *patchEndpointID) Handle(params PatchEndpointIDParams) middleware.Responder {
-	log.WithField(logfields.Params, logfields.Repr(params)).Debug("PATCH /endpoint/{id} request")
+	scopedLog := log.WithField(logfields.Params, logfields.Repr(params))
+	scopedLog.Debug("PATCH /endpoint/{id} request")
 
 	epTemplate := params.Endpoint
 
@@ -218,6 +227,12 @@ func (h *patchEndpointID) Handle(params PatchEndpointIDParams) middleware.Respon
 	newEp, err2 := endpoint.NewEndpointFromChangeModel(epTemplate, addLabels)
 	if err2 != nil {
 		return apierror.Error(PutEndpointIDInvalidCode, err2)
+	}
+
+	// Log invalid state transitions, but do not error out for backwards
+	// compatibility.
+	if !validPatchTransitionState(epTemplate.State) {
+		scopedLog.Debugf("PATCH /endpoint/{id} to invalid state '%s'", epTemplate.State)
 	}
 
 	ep, err := endpointmanager.Lookup(params.ID)
@@ -266,8 +281,7 @@ func (h *patchEndpointID) Handle(params PatchEndpointIDParams) middleware.Respon
 	// are always internally managed, but we do not error out for
 	// backwards compatibility.
 	if epTemplate.State != "" &&
-		(string(epTemplate.State) == endpoint.StateWaitingForIdentity ||
-			string(epTemplate.State) == endpoint.StateReady) &&
+		validPatchTransitionState(epTemplate.State) &&
 		ep.GetStateLocked() != endpoint.StateWaitingForIdentity {
 		// Will not change state if the current state does not allow the transition.
 		if ep.SetStateLocked(endpoint.StateWaitingForIdentity, "Update endpoint from API PATCH") {
