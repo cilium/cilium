@@ -97,8 +97,7 @@ var _ = Describe("DisabledRuntimeValidatedConntrackTable", func() {
 
 		case helpers.Delete:
 			for _, x := range containersNames {
-				//@TODO Add assert here when #3235 is fixed
-				vm.ContainerRm(x)
+				vm.ContainerRm(x).ExpectSuccess("Container %s cannot be deleted", x)
 			}
 		}
 	}

@@ -35,6 +35,7 @@ type scope struct {
 	counter      int32
 	before       []func()
 	after        []func()
+	afterEach    []func()
 	started      int32
 	failed       bool
 	normalTests  int
@@ -119,6 +120,48 @@ func AfterAll(body func()) bool {
 	return true
 }
 
+// RunAfterEach is a wrapper that executes all AfterEach functions that are
+// stored in cs.afterEach array.
+func RunAfterEach(cs *scope) {
+	if cs == nil {
+		return
+	}
+
+	for _, body := range cs.afterEach {
+		body()
+	}
+
+	// Only run afterAll when all the counters are 0 and all afterEach are executed
+	after := func() {
+		if cs.counter == 0 && cs.after != nil {
+			for _, after := range cs.after {
+				after()
+			}
+		}
+	}
+	after()
+}
+
+// AfterEach runs the function after each test in context
+func AfterEach(body func(), timeout ...float64) bool {
+	if currentScope == nil {
+		return ginkgo.AfterEach(body, timeout...)
+	}
+	cs := currentScope
+	result := true
+	if cs.afterEach == nil {
+		// If no scope, register only one AfterEach in the scope, after that
+		// RunAfterEeach will run all afterEach functions registered in the
+		// scope.
+		fn := func() {
+			RunAfterEach(cs)
+		}
+		result = ginkgo.AfterEach(fn, timeout...)
+	}
+	cs.afterEach = append(cs.afterEach, body)
+	return result
+}
+
 // BeforeEach runs the function before each test in context
 func BeforeEach(body interface{}, timeout ...float64) bool {
 	if currentScope == nil {
@@ -141,22 +184,6 @@ func BeforeEach(body interface{}, timeout ...float64) bool {
 		}
 	}
 	return ginkgo.BeforeEach(applyAdvice(body, before, nil), timeout...)
-}
-
-// AfterEach runs the function after each test in context
-func AfterEach(body interface{}, timeout ...float64) bool {
-	if currentScope == nil {
-		return ginkgo.AfterEach(body, timeout...)
-	}
-	cs := currentScope
-	after := func() {
-		if cs.counter == 0 && cs.after != nil {
-			for _, after := range cs.after {
-				after()
-			}
-		}
-	}
-	return ginkgo.AfterEach(applyAdvice(body, nil, after), timeout...)
 }
 
 func wrapContextFunc(fn func(string, func()) bool, focused bool) func(string, func()) bool {
