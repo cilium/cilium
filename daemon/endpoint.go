@@ -240,6 +240,14 @@ func (h *patchEndpointID) Handle(params PatchEndpointIDParams) middleware.Respon
 
 	ep.Mutex.Lock()
 
+	// The endpoint may have just been deleted since the lookup, so return
+	// that it can't be found.
+	if ep.GetStateLocked() == endpoint.StateDisconnecting ||
+		ep.GetStateLocked() == endpoint.StateDisconnected {
+		ep.Mutex.Unlock()
+		return NewPatchEndpointIDNotFound()
+	}
+
 	changed := false
 
 	if epTemplate.InterfaceIndex != 0 && ep.IfIndex != newEp.IfIndex {
