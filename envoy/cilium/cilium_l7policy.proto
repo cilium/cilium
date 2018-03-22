@@ -9,12 +9,9 @@ message L7Policy {
   // Path to the unix domain socket for the cilium access log.
   string access_log_path = 1;
 
-  // Cilium identifier for the listener.
-  string listener_id = 2;
-
   // Cilium endpoint security policy to enforce
-  string policy_name = 3;
+  string policy_name = 2;
 
   // gRPC API config source for network policy
-  envoy.api.v2.core.ApiConfigSource api_config_source = 4;
+  envoy.api.v2.core.ApiConfigSource api_config_source = 3;
 }

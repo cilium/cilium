@@ -93,7 +93,7 @@ func (m *HttpLogEntry) Validate() error {
 
 	// no validation rules for EntryType
 
-	// no validation rules for CiliumResourceName
+	// no validation rules for PolicyName
 
 	// no validation rules for CiliumRuleRef
 

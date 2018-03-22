@@ -86,10 +86,10 @@ createPolicyMap(const envoy::api::v2::core::ApiConfigSource& api_config_source,
 } // namespace
 
 Config::Config(const envoy::api::v2::core::ApiConfigSource& api_config_source,
-	       const std::string& policy_name, const std::string& listener_id,
-	       const std::string& access_log_path, Server::Configuration::FactoryContext& context)
+	       const std::string& policy_name, const std::string& access_log_path,
+	       Server::Configuration::FactoryContext& context)
     : stats_{ALL_CILIUM_STATS(POOL_COUNTER_PREFIX(context.scope(), "cilium"))},
-      listener_id_(listener_id),  policy_name_(policy_name), access_log_(nullptr) {
+      policy_name_(policy_name), access_log_(nullptr) {
   if (access_log_path.length()) {
     access_log_ = AccessLog::Open(access_log_path);
     if (!access_log_) {
@@ -103,10 +103,10 @@ Config::Config(const envoy::api::v2::core::ApiConfigSource& api_config_source,
 }
 
 Config::Config(const Json::Object &config, Server::Configuration::FactoryContext& context)
-    : Config(ApiConfigSource(*config.getObject("api_config_source")), config.getString("policy_name"), config.getString("listener_id"), config.getString("access_log_path"), context) {}
+    : Config(ApiConfigSource(*config.getObject("api_config_source")), config.getString("policy_name"), config.getString("access_log_path"), context) {}
 
 Config::Config(const ::cilium::L7Policy &config, Server::Configuration::FactoryContext& context)
-    : Config(config.api_config_source(), config.policy_name(), config.listener_id(), config.access_log_path(), context) {}
+    : Config(config.api_config_source(), config.policy_name(), config.access_log_path(), context) {}
 
 Config::~Config() {
   if (access_log_) {
@@ -151,7 +151,7 @@ Http::FilterHeadersStatus AccessFilter::decodeHeaders(Http::HeaderMap& headers, 
   }
 
   // Fill in the log entry
-  log_entry_.InitFromRequest(config_->listener_id_, callbacks_->connection(),
+  log_entry_.InitFromRequest(config_->policy_name_, callbacks_->connection(),
                              headers, callbacks_->requestInfo());
   if (!allowed) {
     denied_ = true;

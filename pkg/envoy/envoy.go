@@ -24,6 +24,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/cilium/cilium/pkg/envoy/cilium"
 	"github.com/cilium/cilium/pkg/flowdebug"
 	"github.com/cilium/cilium/pkg/logging"
 
@@ -116,7 +117,7 @@ type Envoy struct {
 
 // Logger is used to feed access log entires from Envoy to cilium access log.
 type Logger interface {
-	Log(entry *HttpLogEntry)
+	Log(entry *cilium.HttpLogEntry)
 }
 
 // GetEnvoyVersion returns the envoy binary version string

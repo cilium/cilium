@@ -23,6 +23,7 @@ import (
 	"time"
 
 	"github.com/cilium/cilium/pkg/completion"
+	"github.com/cilium/cilium/pkg/envoy/cilium"
 
 	"github.com/sirupsen/logrus"
 
@@ -42,8 +43,8 @@ type testRedirect struct {
 	name string
 }
 
-func (t *testRedirect) Log(pblog *HttpLogEntry) {
-	log.Infof("%s/%s: Access log message: %s", t.name, pblog.CiliumResourceName, pblog.String())
+func (t *testRedirect) Log(pblog *cilium.HttpLogEntry) {
+	log.Infof("%s/%s: Access log message: %s", t.name, pblog.PolicyName, pblog.String())
 }
 
 func (s *EnvoySuite) waitForProxyCompletion() error {

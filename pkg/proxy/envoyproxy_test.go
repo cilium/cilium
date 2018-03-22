@@ -15,13 +15,13 @@
 package proxy
 
 import (
-	"github.com/cilium/cilium/pkg/envoy"
+	"github.com/cilium/cilium/pkg/envoy/cilium"
 
 	. "gopkg.in/check.v1"
 )
 
 func (k *proxyTestSuite) TestParseURL(c *C) {
-	logs := []envoy.HttpLogEntry{
+	logs := []cilium.HttpLogEntry{
 		{Scheme: "http", Host: "foo", Path: "/foo?blah=131"},
 		{Scheme: "http", Host: "foo", Path: "foo?blah=131"},
 		{Scheme: "http", Host: "foo", Path: "/foo"},
