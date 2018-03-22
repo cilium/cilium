@@ -1506,9 +1506,22 @@ type UpdateCompilationError struct {
 
 func (e UpdateCompilationError) Error() string { return e.msg }
 
+// UpdateStateChangeError is an error that indicates that updating the state
+// of an endpoint was unsuccessful.
+// Implements error interface.
+type UpdateStateChangeError struct {
+	msg string
+}
+
+func (e UpdateStateChangeError) Error() string { return e.msg }
+
 // Update modifies the endpoint options and *always* tries to regenerate the
-// endpoint's program.
+// endpoint's program. Returns an error if the provided options are not valid,
+// if there was an issue triggering policy updates for the given endpoint,
+// or if endpoint regeneration was unable to be triggered.
 func (e *Endpoint) Update(owner Owner, opts models.ConfigurationMap) error {
+	e.getLogger().WithField("configuration-options", opts).Debug("updating endpoint configuration options")
+
 	e.Mutex.Lock()
 	if err := e.Opts.Validate(opts); err != nil {
 		e.Mutex.Unlock()
@@ -1534,19 +1547,50 @@ func (e *Endpoint) Update(owner Owner, opts models.ConfigurationMap) error {
 	}
 
 	if needToRegenerate {
-		stateTransitionSucceeded := e.SetStateLocked(StateWaitingToRegenerate, reason)
+		e.getLogger().Debug("need to regenerate endpoint; checking state before" +
+			" attempting to regenerate")
+
+		// TODO / FIXME: GH-3281: need ways to queue up regenerations per-endpoint.
+
+		// Default timeout for PATCH /endpoint/{id}/config is 30 seconds, so put
+		// timeout in this function a bit below that timeout. If the timeout
+		// for clients in API is below this value, they will get a message containing
+		// "context deadline exceeded".
+		stateChangeTimeout := time.Duration(25 * time.Second)
+
+		// Check up until stateChangeTimeout seconds for endpoint state before
+		// trying to update configuration.
+		timeout := time.After(stateChangeTimeout)
+
+		// Check for endpoint state every second.
+		ticker := time.NewTicker(1 * time.Second)
+		defer ticker.Stop()
 
 		e.Mutex.Unlock()
-		ctCleaned.Wait()
-
-		if stateTransitionSucceeded {
-			e.Regenerate(owner, reason)
-			return nil
+		for {
+			select {
+			case <-ticker.C:
+				e.Mutex.Lock()
+				// Check endpoint state before attempting configuration update because
+				// configuration updates can only be applied when the endpoint is in
+				// specific states. See GH-3058.
+				stateTransitionSucceeded := e.SetStateLocked(StateWaitingToRegenerate, reason)
+				if stateTransitionSucceeded {
+					e.Mutex.Unlock()
+					ctCleaned.Wait()
+					e.Regenerate(owner, reason)
+					return nil
+				}
+				e.Mutex.Unlock()
+			case <-timeout:
+				e.Mutex.Lock()
+				e.getLogger().Warningf("timed out waiting for endpoint state to change")
+				e.Mutex.Unlock()
+				ctCleaned.Wait()
+				return UpdateStateChangeError{fmt.Sprintf("unable to regenerate endpoint program because state transition to %s was unsuccessful; check `cilium endpoint log %d` for more information", StateWaitingToRegenerate, e.ID)}
+			}
 		}
 
-		// FIXME: GH-3058: We need to queue up a regeneration
-		// nevertheless
-		return nil
 	}
 
 	e.Mutex.Unlock()
