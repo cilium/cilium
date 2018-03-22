@@ -315,7 +315,7 @@ func (h *patchEndpointID) Handle(params PatchEndpointIDParams) middleware.Respon
 	}
 	ep.Mutex.Unlock()
 
-	if changed {
+	if ep.GetStateLocked() == endpoint.StateWaitingToRegenerate {
 		if err := ep.RegenerateWait(h.d, "Waiting on endpoint regeneration because identity is known while handling API PATCH"); err != nil {
 			return apierror.Error(PatchEndpointIDFailedCode, err)
 		}
