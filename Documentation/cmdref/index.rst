@@ -4,7 +4,7 @@ Command Reference
 .. only:: html
 
    .. toctree::
-      :maxdepth: 1
+      :maxdepth: 0
       :glob:
 
       cilium-agent
