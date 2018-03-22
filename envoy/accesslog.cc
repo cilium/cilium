@@ -63,8 +63,7 @@ void AccessLog::Entry::InitFromRequest(
                           .count());
 
   ::cilium::Protocol proto;
-  switch (info.protocol().valid() ? info.protocol().value()
-                                  : Http::Protocol::Http11) {
+  switch (info.protocol() ? info.protocol().value() : Http::Protocol::Http11) {
   case Http::Protocol::Http10:
     proto = ::cilium::Protocol::HTTP10;
     break;
@@ -121,14 +120,16 @@ void AccessLog::Entry::InitFromRequest(
 
 void AccessLog::Entry::UpdateFromResponse(
     const Http::HeaderMap &headers, const RequestInfo::RequestInfo &info) {
-  auto time = info.startTime() + info.duration();
+  auto time = info.startTime();
+  if (info.lastUpstreamRxByteReceived()) {
+    time += info.lastUpstreamRxByteReceived().value();
+  }
   entry.set_timestamp(std::chrono::duration_cast<std::chrono::nanoseconds>(
                           time.time_since_epoch())
                           .count());
 
-  auto rc = info.responseCode();
-  if (rc.valid()) {
-    entry.set_status(rc.value());
+  if (info.responseCode()) {
+    entry.set_status(info.responseCode().value());
   } else {
     const Http::HeaderEntry *status_entry = headers.Status();
     if (status_entry) {
