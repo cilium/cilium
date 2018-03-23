@@ -595,12 +595,13 @@ func (s *SSHMeta) GatherLogs() {
 	}
 	reportMap(testPath, ciliumLogCommands, s)
 
-	ciliumBPFStateCommands := []string{
-		fmt.Sprintf("sudo cp -r %s %s/%s/lib", RunDir, BasePath, testPath),
-		fmt.Sprintf("sudo cp -r %s %s/%s/run", LibDir, BasePath, testPath),
+	ciliumStateCommands := []string{
+		fmt.Sprintf("sudo cp %s %s", CiliumEnvoyLogPath, filepath.Join(BasePath, testPath)),
+		fmt.Sprintf("sudo cp -r %s %s", RunDir, filepath.Join(BasePath, testPath, "lib")),
+		fmt.Sprintf("sudo cp -r %s %s", LibDir, filepath.Join(BasePath, testPath, "run")),
 	}
 
-	for _, cmd := range ciliumBPFStateCommands {
+	for _, cmd := range ciliumStateCommands {
 		res := s.Exec(cmd)
 		if !res.WasSuccessful() {
 			s.logger.Errorf("cannot gather files for cmd '%s': %s", cmd, res.CombineOutput())
