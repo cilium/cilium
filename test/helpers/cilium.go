@@ -237,8 +237,7 @@ func (s *SSHMeta) WaitEndpointsReady() bool {
 
 // EndpointSetConfig sets the provided configuration option to the provided
 // value for the endpoint with the endpoint ID id. It returns true if the
-// configuration update command returned successfully and if the endpoint
-// was able to regenerate successfully, false otherwise.
+// configuration update command returned successfully.
 func (s *SSHMeta) EndpointSetConfig(id, option, value string) bool {
 	logger := s.logger.WithFields(logrus.Fields{"endpointID": id})
 	res := s.ExecCilium(fmt.Sprintf(
@@ -261,7 +260,7 @@ func (s *SSHMeta) EndpointSetConfig(id, option, value string) bool {
 		return false
 	}
 
-	return s.WaitEndpointRegenerated(id)
+	return true
 }
 
 // ListEndpoints returns the CmdRes resulting from executing
