@@ -107,7 +107,7 @@ func (s *accessLogServer) accessLogger(conn *net.UnixConn) {
 			log.Warning("Envoy: Discarded truncated access log message")
 			continue
 		}
-		pblog := cilium.HttpLogEntry{}
+		pblog := cilium.HttpLogEntry{} // TODO: Support Kafka.
 		err = proto.Unmarshal(buf[:n], &pblog)
 		if err != nil {
 			log.WithError(err).Warning("Envoy: Discarded invalid access log message")
@@ -118,14 +118,14 @@ func (s *accessLogServer) accessLogger(conn *net.UnixConn) {
 			fmt.Sprintf("%s: Access log message: %s", pblog.PolicyName, pblog.String()))
 
 		// Correlate the log entry's network policy name with a local endpoint info source.
-		localEndpointInfoSource := s.xdsServer.getLocalEndpointInfoSource(pblog.PolicyName)
-		if localEndpointInfoSource == nil {
+		localEndpoint := s.xdsServer.getLocalEndpoint(pblog.PolicyName)
+		if localEndpoint == nil {
 			log.Warnf("Envoy: Discarded access log message for non-existent network policy %s",
 				pblog.PolicyName)
 			continue
 		}
 
-		s.logRecord(localEndpointInfoSource, &pblog)
+		s.logRecord(localEndpoint, &pblog)
 	}
 }
 
@@ -142,8 +142,10 @@ func parseURL(pblog *cilium.HttpLogEntry) *url.URL {
 	return u
 }
 
-func (s *accessLogServer) logRecord(localEndpointInfoSource logger.EndpointInfoSource, pblog *cilium.HttpLogEntry) {
-	logger.NewLogRecord(s.endpointInfoRegistry, localEndpointInfoSource, pblog.GetFlowType(), pblog.IsIngress,
+func (s *accessLogServer) logRecord(localEndpoint NetworkPolicyEndpoint, pblog *cilium.HttpLogEntry) {
+	// TODO: Support Kafka.
+
+	r := logger.NewLogRecord(s.endpointInfoRegistry, localEndpoint, pblog.GetFlowType(), pblog.IsIngress,
 		logger.LogTags.Timestamp(time.Unix(int64(pblog.Timestamp/1000000000), int64(pblog.Timestamp%1000000000))),
 		logger.LogTags.Verdict(pblog.GetVerdict(), pblog.CiliumRuleRef),
 		logger.LogTags.Addressing(logger.AddressingInfo{
@@ -157,7 +159,16 @@ func (s *accessLogServer) logRecord(localEndpointInfoSource logger.EndpointInfoS
 			URL:      parseURL(pblog),
 			Protocol: pblog.GetProtocol(),
 			Headers:  pblog.GetNetHttpHeaders(),
-		})).Log()
+		}))
 
-	// TODO: Update proxy redirect stats.
+	r.Log()
+
+	var port uint16
+	if pblog.IsIngress {
+		port = r.DestinationEndpoint.Port
+	} else {
+		port = r.SourceEndpoint.Port
+	}
+	request := pblog.GetFlowType() == accesslog.TypeRequest
+	localEndpoint.UpdateProxyRedirectStatistics("http", port, pblog.IsIngress, request, r.Verdict)
 }
