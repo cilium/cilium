@@ -137,6 +137,9 @@ const (
 	RunDir          = "/var/run/cilium"
 	LibDir          = "/var/lib/cilium"
 
+	CiliumEnvoyLogName = "cilium-envoy.log"
+	CiliumEnvoyLogPath = "/var/log/cilium-envoy.log"
+
 	DaemonName             = "cilium"
 	CiliumDockerDaemonName = "cilium-docker"
 	AgentDaemon            = "cilium-agent"

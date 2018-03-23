@@ -849,6 +849,14 @@ func (kub *Kubectl) DumpCiliumCommandOutput(namespace string) {
 		} else {
 			log.Errorf("%s failed: %s", bugtoolCmd, res.CombineOutput().String())
 		}
+
+		// Copy Cilium envoy logs. Since the logs are in the pod's filesystem,
+		// copy them over with `kubectl cp`.
+		ciliumEnvoyLogCmd := fmt.Sprintf("kubectl cp %s/%s:%s %s", namespace, pod, CiliumEnvoyLogPath, filepath.Join(BasePath, testPath, CiliumEnvoyLogName))
+		res = kub.Exec(ciliumEnvoyLogCmd)
+		if !res.WasSuccessful() {
+			log.Errorf("%s failed: %s", ciliumEnvoyLogCmd, res.CombineOutput().String())
+		}
 	}
 
 	pods, err := kub.GetCiliumPods(namespace)
