@@ -142,7 +142,7 @@ func parseURL(pblog *cilium.HttpLogEntry) *url.URL {
 	return u
 }
 
-func (s *accessLogServer) logRecord(localEndpoint NetworkPolicyEndpoint, pblog *cilium.HttpLogEntry) {
+func (s *accessLogServer) logRecord(localEndpoint logger.EndpointUpdater, pblog *cilium.HttpLogEntry) {
 	// TODO: Support Kafka.
 
 	r := logger.NewLogRecord(s.endpointInfoRegistry, localEndpoint, pblog.GetFlowType(), pblog.IsIngress,
@@ -163,12 +163,14 @@ func (s *accessLogServer) logRecord(localEndpoint NetworkPolicyEndpoint, pblog *
 
 	r.Log()
 
+	// Update stats for the endpoint.
+	ingress := r.ObservationPoint == accesslog.Ingress
 	var port uint16
-	if pblog.IsIngress {
+	if ingress {
 		port = r.DestinationEndpoint.Port
 	} else {
 		port = r.SourceEndpoint.Port
 	}
-	request := pblog.GetFlowType() == accesslog.TypeRequest
-	localEndpoint.UpdateProxyRedirectStatistics("http", port, pblog.IsIngress, request, r.Verdict)
+	request := r.Type == accesslog.TypeRequest
+	localEndpoint.UpdateProxyRedirectStatistics("http", port, ingress, request, r.Verdict)
 }

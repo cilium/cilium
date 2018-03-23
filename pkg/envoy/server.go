@@ -36,6 +36,7 @@ import (
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
+	"github.com/cilium/cilium/pkg/proxy/logger"
 
 	"github.com/gogo/protobuf/sortkeys"
 	"github.com/golang/protobuf/proto"
@@ -74,7 +75,7 @@ type XDSServer struct {
 
 	// networkPolicyEndpoints maps each network policy's name to the info on
 	// the local endpoint.
-	networkPolicyEndpoints map[string]NetworkPolicyEndpoint
+	networkPolicyEndpoints map[string]logger.EndpointUpdater
 
 	// stopServer stops the xDS gRPC server.
 	stopServer context.CancelFunc
@@ -195,7 +196,7 @@ func StartXDSServer(stateDir string) *XDSServer {
 		listeners:              make(map[string]struct{}),
 		networkPolicyCache:     npdsCache,
 		networkPolicyMutator:   npdsMutator,
-		networkPolicyEndpoints: make(map[string]NetworkPolicyEndpoint),
+		networkPolicyEndpoints: make(map[string]logger.EndpointUpdater),
 		stopServer:             stopServer,
 	}
 }
@@ -469,8 +470,9 @@ func getNetworkPolicy(name string, id identity.NumericIdentity, policy *policy.L
 // to L7 proxies.
 // When the proxy acknowledges the network policy update, it will result in
 // a subsequent call to the endpoint's OnProxyPolicyAcknowledge() function.
-func (s *XDSServer) UpdateNetworkPolicy(ep NetworkPolicyEndpoint, policy *policy.L4Policy,
-	labelsMap identity.IdentityCache, deniedIngressIdentities, deniedEgressIdentities map[identity.NumericIdentity]bool, wg *completion.WaitGroup) error {
+func (s *XDSServer) UpdateNetworkPolicy(ep logger.EndpointUpdater, policy *policy.L4Policy,
+	labelsMap identity.IdentityCache, deniedIngressIdentities, deniedEgressIdentities map[identity.NumericIdentity]bool,
+	wg *completion.WaitGroup) error {
 
 	s.mutex.Lock()
 	// If there are no listeners configured, the local node's Envoy proxy won't
@@ -529,7 +531,7 @@ func (s *XDSServer) UpdateNetworkPolicy(ep NetworkPolicyEndpoint, policy *policy
 // RemoveNetworkPolicy removes network policies relevant to the specified
 // endpoint from the set published to L7 proxies, and stops listening for
 // acks for policies on this endpoint.
-func (s *XDSServer) RemoveNetworkPolicy(ep NetworkPolicyEndpoint) {
+func (s *XDSServer) RemoveNetworkPolicy(ep logger.EndpointInfoSource) {
 	if ep.GetIPv6Address() != "" {
 		name := ep.GetIPv6Address()
 		s.networkPolicyCache.Delete(NetworkPolicyTypeURL, name, false)
@@ -566,6 +568,6 @@ func (s *XDSServer) GetNetworkPolicies(resourceNames []string) (map[string]*cili
 
 // getLocalEndpoint returns the endpoint info for the local endpoint on which
 // the network policy of the given name if enforced, or nil if not found.
-func (s *XDSServer) getLocalEndpoint(networkPolicyName string) NetworkPolicyEndpoint {
+func (s *XDSServer) getLocalEndpoint(networkPolicyName string) logger.EndpointUpdater {
 	return s.networkPolicyEndpoints[networkPolicyName]
 }

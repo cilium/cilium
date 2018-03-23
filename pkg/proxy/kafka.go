@@ -31,6 +31,7 @@ import (
 
 	"github.com/optiopay/kafka/proto"
 	"github.com/sirupsen/logrus"
+	"net"
 )
 
 const (
@@ -72,7 +73,7 @@ func createKafkaRedirect(r *Redirect, conf kafkaConfiguration, endpointInfoRegis
 		// As ingress proxy, all replies to incoming requests must have the
 		// identity of the endpoint we are proxying for
 		if r.ingress {
-			markIdentity = int(r.source.GetIdentity())
+			markIdentity = int(r.localEndpoint.GetIdentity())
 		}
 
 		marker = getMagicMark(r.ingress, markIdentity)
@@ -152,7 +153,8 @@ func (k *kafkaRedirect) canAccess(req *kafka.RequestMessage, srcIdentity identit
 // kafkaLogRecord wraps an accesslog.LogRecord so that we can define methods with a receiver
 type kafkaLogRecord struct {
 	*logger.LogRecord
-	topics []string
+	localEndpoint logger.EndpointUpdater
+	topics        []string
 }
 
 func apiKeyToString(apiKey int16) string {
@@ -164,21 +166,23 @@ func apiKeyToString(apiKey int16) string {
 
 func (k *kafkaRedirect) newLogRecordFromRequest(req *kafka.RequestMessage) kafkaLogRecord {
 	return kafkaLogRecord{
-		LogRecord: logger.NewLogRecord(k.endpointInfoRegistry, k.redirect.LocalEndpointInfoSource(),
+		LogRecord: logger.NewLogRecord(k.endpointInfoRegistry, k.redirect.localEndpoint,
 			accesslog.TypeRequest, k.redirect.ingress,
 			logger.LogTags.Kafka(&accesslog.LogRecordKafka{
 				APIVersion:    req.GetVersion(),
 				APIKey:        apiKeyToString(req.GetAPIKey()),
 				CorrelationID: int32(req.GetCorrelationID()),
 			})),
-		topics: req.GetTopics(),
+		localEndpoint: k.redirect.localEndpoint,
+		topics:        req.GetTopics(),
 	}
 }
 
 func (k *kafkaRedirect) newLogRecordFromResponse(res *kafka.ResponseMessage, req *kafka.RequestMessage) kafkaLogRecord {
 	lr := kafkaLogRecord{
-		LogRecord: logger.NewLogRecord(k.endpointInfoRegistry, k.redirect.LocalEndpointInfoSource(),
+		LogRecord: logger.NewLogRecord(k.endpointInfoRegistry, k.redirect.localEndpoint,
 			accesslog.TypeResponse, k.redirect.ingress, logger.LogTags.Kafka(&accesslog.LogRecordKafka{})),
+		localEndpoint: k.redirect.localEndpoint,
 	}
 
 	if res != nil {
@@ -204,44 +208,41 @@ func (l *kafkaLogRecord) log(verdict accesslog.FlowVerdict, code int, info strin
 		l.Kafka.Topic.Topic = t
 		l.Log()
 	}
+
+	// Update stats for the endpoint.
+	// Count only one request.
+	ingress := l.ObservationPoint == accesslog.Ingress
+	var port uint16
+	if ingress {
+		port = l.DestinationEndpoint.Port
+	} else {
+		port = l.SourceEndpoint.Port
+	}
+	if port == 0 {
+		// Something went wrong when identifying the endpoints.
+		// Ignore in order to avoid polluting the stats.
+		return
+	}
+	request := l.Type == accesslog.TypeRequest
+	l.localEndpoint.UpdateProxyRedirectStatistics("kafka", port, ingress, request, l.Verdict)
+
 }
 
-func (k *kafkaRedirect) handleRequest(pair *connectionPair, req *kafka.RequestMessage, correlationCache *kafka.CorrelationCache) {
+func (k *kafkaRedirect) handleRequest(pair *connectionPair, req *kafka.RequestMessage, correlationCache *kafka.CorrelationCache,
+	remoteAddr net.Addr, remoteIdentity uint32, origDstAddr string) {
 	scopedLog := log.WithField(fieldID, pair.String())
 	flowdebug.Log(scopedLog.WithField(logfields.Request, req.String()), "Handling Kafka request")
 
 	record := k.newLogRecordFromRequest(req)
 
-	addr := pair.Rx.conn.RemoteAddr()
-	if addr == nil {
-		info := fmt.Sprint("RemoteAddr() is nil")
-		scopedLog.Warn(info)
-		record.log(accesslog.VerdictError, kafka.ErrInvalidMessage, info)
-		return
-	}
-
-	// retrieve identity of source together with original destination IP
-	// and destination port
-	srcIdentity, dstIPPort, err := k.conf.lookupNewDest(addr.String(), k.redirect.ProxyPort)
-	if err != nil {
-		scopedLog.WithField("source",
-			addr.String()).WithError(err).Error("Unable lookup original destination")
-		record.log(accesslog.VerdictError, kafka.ErrInvalidMessage,
-			fmt.Sprintf("Unable lookup original destination: %s", err))
-		return
-	}
-
 	record.ApplyTags(logger.LogTags.Addressing(logger.AddressingInfo{
-		SrcIPPort:   addr.String(),
-		DstIPPort:   dstIPPort,
-		SrcIdentity: srcIdentity,
+		SrcIPPort:   remoteAddr.String(),
+		DstIPPort:   origDstAddr,
+		SrcIdentity: remoteIdentity,
 	}))
 
-	if !k.canAccess(req, identity.NumericIdentity(srcIdentity)) {
+	if !k.canAccess(req, identity.NumericIdentity(remoteIdentity)) {
 		flowdebug.Log(scopedLog, "Kafka request is denied by policy")
-
-		record.log(accesslog.VerdictDenied,
-			kafka.ErrTopicAuthorizationFailed, fmt.Sprint("Kafka request is denied by policy"))
 
 		resp, err := req.CreateResponse(proto.ErrTopicAuthorizationFailed)
 		if err != nil {
@@ -251,6 +252,9 @@ func (k *kafkaRedirect) handleRequest(pair *connectionPair, req *kafka.RequestMe
 			return
 		}
 
+		record.log(accesslog.VerdictDenied,
+			kafka.ErrTopicAuthorizationFailed, fmt.Sprint("Kafka request is denied by policy"))
+
 		pair.Rx.Enqueue(resp.GetRaw())
 		return
 	}
@@ -258,19 +262,19 @@ func (k *kafkaRedirect) handleRequest(pair *connectionPair, req *kafka.RequestMe
 	if pair.Tx.Closed() {
 		marker := 0
 		if !k.conf.noMarker {
-			marker = getMagicMark(k.redirect.ingress, int(srcIdentity))
+			marker = getMagicMark(k.redirect.ingress, int(remoteIdentity))
 		}
 
 		flowdebug.Log(scopedLog.WithFields(logrus.Fields{
 			"marker":      marker,
-			"destination": dstIPPort,
+			"destination": origDstAddr,
 		}), "Dialing original destination")
 
-		txConn, err := ciliumDialer(marker, addr.Network(), dstIPPort)
+		txConn, err := ciliumDialer(marker, remoteAddr.Network(), origDstAddr)
 		if err != nil {
 			scopedLog.WithError(err).WithFields(logrus.Fields{
-				"origNetwork": addr.Network(),
-				"origDest":    dstIPPort,
+				"origNetwork": remoteAddr.Network(),
+				"origDest":    origDstAddr,
 			}).Error("Unable to dial original destination")
 
 			record.log(accesslog.VerdictError,
@@ -283,7 +287,7 @@ func (k *kafkaRedirect) handleRequest(pair *connectionPair, req *kafka.RequestMe
 
 		// Start go routine to handle responses and pass in a copy of
 		// the request record as template for all responses
-		go k.handleResponseConnection(pair, correlationCache)
+		go k.handleResponseConnection(pair, correlationCache, remoteAddr, remoteIdentity, origDstAddr)
 	}
 
 	// The request is allowed so we will forward it:
@@ -300,18 +304,35 @@ func (k *kafkaRedirect) handleRequest(pair *connectionPair, req *kafka.RequestMe
 	pair.Tx.Enqueue(req.GetRaw())
 }
 
-type kafkaReqMessageHander func(pair *connectionPair, req *kafka.RequestMessage, correlationCache *kafka.CorrelationCache)
+type kafkaReqMessageHander func(pair *connectionPair, req *kafka.RequestMessage, correlationCache *kafka.CorrelationCache,
+	remoteAddr net.Addr, remoteIdentity uint32, origDstAddr string)
 type kafkaRespMessageHander func(pair *connectionPair, req *kafka.ResponseMessage)
 
-func handleRequests(done <-chan struct{}, pair *connectionPair, c *proxyConnection,
-	record *kafkaLogRecord, handler kafkaReqMessageHander) {
+func (k *kafkaRedirect) handleRequests(done <-chan struct{}, pair *connectionPair, c *proxyConnection,
+	handler kafkaReqMessageHander) {
 	defer c.Close()
+
+	scopedLog := log.WithField(fieldID, pair.String())
+
+	remoteAddr := pair.Rx.conn.RemoteAddr()
+	if remoteAddr == nil {
+		scopedLog.Error("Kafka request connection has no remote address")
+		return
+	}
+
+	// retrieve identity of source together with original destination IP
+	// and destination port
+	srcIdentity, dstIPPort, err := k.conf.lookupNewDest(remoteAddr.String(), k.redirect.ProxyPort)
+	if err != nil {
+		scopedLog.WithField("source",
+			remoteAddr.String()).WithError(err).Error("Unable to lookup original destination")
+		return
+	}
 
 	// create a correlation cache
 	correlationCache := kafka.NewCorrelationCache()
 	defer correlationCache.DeleteCache()
 
-	scopedLog := log.WithField(fieldID, pair.String())
 	for {
 		req, err := kafka.ReadRequest(c.conn)
 
@@ -325,20 +346,17 @@ func handleRequests(done <-chan struct{}, pair *connectionPair, c *proxyConnecti
 		}
 
 		if err != nil {
-			if record != nil {
-				record.log(accesslog.VerdictError,
-					kafka.ErrInvalidMessage, fmt.Sprintf("Unable to parse Kafka request: %s", err))
-			}
 			scopedLog.WithError(err).Error("Unable to parse Kafka request; closing Kafka request connection")
 			return
 		}
 
-		handler(pair, req, correlationCache)
+		handler(pair, req, correlationCache, remoteAddr, srcIdentity, dstIPPort)
 	}
 }
 
 func (k *kafkaRedirect) handleResponses(done <-chan struct{}, pair *connectionPair, c *proxyConnection,
-	correlationCache *kafka.CorrelationCache, handler kafkaRespMessageHander) {
+	correlationCache *kafka.CorrelationCache, handler kafkaRespMessageHander,
+	remoteAddr net.Addr, remoteIdentity uint32, origDstAddr string) {
 	defer c.Close()
 	scopedLog := log.WithField(fieldID, pair.String())
 	for {
@@ -370,6 +388,11 @@ func (k *kafkaRedirect) handleResponses(done <-chan struct{}, pair *connectionPa
 		req := correlationCache.CorrelateResponse(rsp)
 
 		record := k.newLogRecordFromResponse(rsp, req)
+		record.ApplyTags(logger.LogTags.Addressing(logger.AddressingInfo{
+			SrcIPPort:   remoteAddr.String(),
+			DstIPPort:   origDstAddr,
+			SrcIdentity: remoteIdentity,
+		}))
 		record.log(accesslog.VerdictForwarded, kafka.ErrNone, "")
 
 		handler(pair, rsp)
@@ -382,7 +405,7 @@ func (k *kafkaRedirect) handleRequestConnection(pair *connectionPair) {
 		"to":   pair.Tx,
 	}), "Proxying request Kafka connection")
 
-	handleRequests(k.socket.closing, pair, pair.Rx, nil, k.handleRequest)
+	k.handleRequests(k.socket.closing, pair, pair.Rx, k.handleRequest)
 
 	// The proxymap contains an entry with metadata for the receive side of the
 	// connection, remove it after the connection has been closed.
@@ -398,7 +421,8 @@ func (k *kafkaRedirect) handleRequestConnection(pair *connectionPair) {
 	}
 }
 
-func (k *kafkaRedirect) handleResponseConnection(pair *connectionPair, correlationCache *kafka.CorrelationCache) {
+func (k *kafkaRedirect) handleResponseConnection(pair *connectionPair, correlationCache *kafka.CorrelationCache,
+	remoteAddr net.Addr, remoteIdentity uint32, origDstAddr string) {
 	flowdebug.Log(log.WithFields(logrus.Fields{
 		"from": pair.Tx,
 		"to":   pair.Rx,
@@ -407,7 +431,7 @@ func (k *kafkaRedirect) handleResponseConnection(pair *connectionPair, correlati
 	k.handleResponses(k.socket.closing, pair, pair.Tx, correlationCache,
 		func(pair *connectionPair, rsp *kafka.ResponseMessage) {
 			pair.Rx.Enqueue(rsp.GetRaw())
-		})
+		}, remoteAddr, remoteIdentity, origDstAddr)
 }
 
 // UpdateRules replaces old l7 rules of a redirect with new ones.

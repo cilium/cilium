@@ -50,19 +50,19 @@ func createEnvoyRedirect(r *Redirect, stateDir string, xdsServer *envoy.XDSServe
 			xdsServer:  xdsServer,
 		}
 
-		ip := r.source.GetIPv4Address()
+		ip := r.localEndpoint.GetIPv4Address()
 		if ip == "" {
-			ip = r.source.GetIPv6Address()
+			ip = r.localEndpoint.GetIPv6Address()
 		}
 		if ip == "" {
-			return nil, fmt.Errorf("%s: Cannot create redirect, proxy source has no IP address.", r.id)
+			return nil, fmt.Errorf("%s: Cannot create redirect, proxy local endpoint has no IP address", r.id)
 		}
 		xdsServer.AddListener(redirectID, ip, r.ProxyPort, r.ingress, wg)
 
 		return redir, nil
 	}
 
-	return nil, fmt.Errorf("%s: Envoy proxy process failed to start, can not add redirect ", r.id)
+	return nil, fmt.Errorf("%s: Envoy proxy process failed to start, cannot add redirect", r.id)
 }
 
 // UpdateRules replaces old l7 rules of a redirect with new ones.
