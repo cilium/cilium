@@ -61,7 +61,6 @@ var _ = Describe("K8sValidatedChaosTest", func() {
 	})
 
 	AfterEach(func() {
-		kubectl.ValidateNoErrorsOnLogs(CurrentGinkgoTestDescription().Duration)
 		if CurrentGinkgoTestDescription().Failed {
 			ciliumPod, _ := kubectl.GetCiliumPodOnNode(
 				helpers.KubeSystemNamespace, helpers.K8s1VMName())
@@ -69,7 +68,7 @@ var _ = Describe("K8sValidatedChaosTest", func() {
 				"cilium service list",
 				"cilium endpoint list"})
 		}
-
+		kubectl.ValidateNoErrorsInLogs(CurrentGinkgoTestDescription().Duration)
 		kubectl.Delete(demoDSPath).ExpectSuccess(
 			"%s deployment cannot be deleted", demoDSPath)
 		err := kubectl.WaitCleanAllTerminatingPods()

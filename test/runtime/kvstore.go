@@ -54,12 +54,12 @@ var _ = Describe("RuntimeValidatedKVStoreTest", func() {
 	}, 150)
 
 	AfterEach(func() {
-		vm.ValidateNoErrorsOnLogs(CurrentGinkgoTestDescription().Duration)
 		if CurrentGinkgoTestDescription().Failed {
 			vm.ReportFailed(
 				"sudo docker ps -a",
 				"sudo cilium endpoint list")
 		}
+		vm.ValidateNoErrorsInLogs(CurrentGinkgoTestDescription().Duration)
 		containers(helpers.Delete)
 		vm.Exec("sudo systemctl start cilium")
 	})

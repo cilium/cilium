@@ -52,14 +52,13 @@ var _ = Describe("K8sValidatedTunnelTest", func() {
 	}, 600)
 
 	AfterEach(func() {
-		kubectl.ValidateNoErrorsOnLogs(CurrentGinkgoTestDescription().Duration)
 		if CurrentGinkgoTestDescription().Failed {
 			ciliumPod, _ := kubectl.GetCiliumPodOnNode(helpers.KubeSystemNamespace, helpers.K8s1)
 			kubectl.CiliumReport(helpers.KubeSystemNamespace, ciliumPod, []string{
 				"cilium bpf tunnel list",
 				"cilium endpoint list"})
 		}
-
+		kubectl.ValidateNoErrorsInLogs(CurrentGinkgoTestDescription().Duration)
 		kubectl.Delete(demoDSPath)
 		err := kubectl.WaitCleanAllTerminatingPods()
 		Expect(err).To(BeNil(), "Terminating containers are not deleted after timeout")

@@ -68,13 +68,12 @@ var _ = Describe("RuntimeValidatedLB", func() {
 	}, 500)
 
 	AfterEach(func() {
-		vm.ValidateNoErrorsOnLogs(CurrentGinkgoTestDescription().Duration)
-
 		if CurrentGinkgoTestDescription().Failed {
 			vm.ReportFailed(
 				"sudo cilium service list",
 				"sudo cilium endpoint list")
 		}
+		vm.ValidateNoErrorsInLogs(CurrentGinkgoTestDescription().Duration)
 		cleanupLBDevice(vm)
 	}, 500)
 

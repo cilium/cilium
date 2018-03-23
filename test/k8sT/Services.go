@@ -61,7 +61,6 @@ var _ = Describe("K8sValidatedServicesTest", func() {
 	})
 
 	AfterEach(func() {
-		kubectl.ValidateNoErrorsOnLogs(CurrentGinkgoTestDescription().Duration)
 		if CurrentGinkgoTestDescription().Failed {
 			ciliumPod, _ := kubectl.GetCiliumPodOnNode("kube-system", "k8s1")
 			kubectl.CiliumReport("kube-system", ciliumPod, []string{
@@ -69,6 +68,7 @@ var _ = Describe("K8sValidatedServicesTest", func() {
 				"cilium endpoint list",
 				"cilium policy get"})
 		}
+		kubectl.ValidateNoErrorsInLogs(CurrentGinkgoTestDescription().Duration)
 		err := kubectl.WaitCleanAllTerminatingPods()
 		Expect(err).To(BeNil(), "Terminating containers are not deleted after timeout")
 	})

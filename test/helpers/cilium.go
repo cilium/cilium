@@ -528,11 +528,11 @@ func (s *SSHMeta) ReportFailed(commands ...string) {
 	fmt.Fprint(wr, "===================== EXITING REPORT GENERATION =====================\n")
 }
 
-// ValidateNoErrorsOnLogs checks in cilium logs since the given duration (By
+// ValidateNoErrorsInLogs checks in cilium logs since the given duration (By
 // default `CurrentGinkgoTestDescription().Duration`) do not contain `panic` or
 // `deadlocks` messages . In case of any of these messages, it'll mark the test
 // as failed.
-func (s *SSHMeta) ValidateNoErrorsOnLogs(duration time.Duration) {
+func (s *SSHMeta) ValidateNoErrorsInLogs(duration time.Duration) {
 	logsCmd := fmt.Sprintf(`sudo journalctl -au %s --since '%v seconds ago'`,
 		DaemonName, duration.Seconds())
 	logs := s.Exec(logsCmd).Output().String()

@@ -80,13 +80,13 @@ var _ = Describe("NightlyEpsMeasurement", func() {
 	})
 
 	AfterEach(func() {
-		kubectl.ValidateNoErrorsOnLogs(CurrentGinkgoTestDescription().Duration)
 		if CurrentGinkgoTestDescription().Failed {
 			ciliumPod, _ := kubectl.GetCiliumPodOnNode(helpers.KubeSystemNamespace, helpers.K8s1)
 			kubectl.CiliumReport(helpers.KubeSystemNamespace, ciliumPod, []string{
 				"cilium service list",
 				"cilium endpoint list"})
 		}
+		kubectl.ValidateNoErrorsInLogs(CurrentGinkgoTestDescription().Duration)
 		err := kubectl.WaitCleanAllTerminatingPods()
 		Expect(err).To(BeNil(), "Terminating containers are not deleted after timeout")
 
@@ -292,7 +292,7 @@ var _ = Describe("NightlyEpsMeasurement", func() {
 		}
 
 		It("Test TCP Keepalive with L7 Policy", func() {
-			kubectl.ValidateNoErrorsOnLogs(CurrentGinkgoTestDescription().Duration)
+			kubectl.ValidateNoErrorsInLogs(CurrentGinkgoTestDescription().Duration)
 			manifest := kubectl.ManifestGet(netcatDsManifest)
 			kubectl.Apply(manifest).ExpectSuccess("Cannot apply netcat ds")
 			defer kubectl.Delete(manifest)
@@ -350,13 +350,13 @@ var _ = Describe("NightlyExamples", func() {
 	})
 
 	AfterEach(func() {
-		kubectl.ValidateNoErrorsOnLogs(CurrentGinkgoTestDescription().Duration)
 		if CurrentGinkgoTestDescription().Failed {
 			ciliumPod, _ := kubectl.GetCiliumPodOnNode(helpers.KubeSystemNamespace, helpers.K8s1)
 			kubectl.CiliumReport(helpers.KubeSystemNamespace, ciliumPod, []string{
 				"cilium service list",
 				"cilium endpoint list"})
 		}
+		kubectl.ValidateNoErrorsInLogs(CurrentGinkgoTestDescription().Duration)
 
 		kubectl.Delete(demoPath)
 		kubectl.Delete(l3Policy)
