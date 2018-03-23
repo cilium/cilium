@@ -21,7 +21,7 @@ var (
 	TestLogWriter bytes.Buffer
 	// TestLogFileName is the file name to dump `TestLogWriter` content when
 	// test finish
-	TestLogFileName = "logs"
+	TestLogFileName = "test-output.log"
 )
 
 // TestLogWriterReset resets the current buffer
