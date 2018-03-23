@@ -151,7 +151,7 @@ func (s *SSHMeta) GatherDockerLogs() {
 	commands := map[string]string{}
 	for _, k := range res.ByLines() {
 		key := fmt.Sprintf("docker logs %s", k)
-		commands[key] = fmt.Sprintf("container_%s.logs", k)
+		commands[key] = fmt.Sprintf("container_%s.log", k)
 	}
 
 	testPath, err := CreateReportDirectory()
