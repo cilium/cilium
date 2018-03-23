@@ -910,8 +910,7 @@ var _ = Describe("RuntimeValidatedPolicies", func() {
 	})
 
 	It("Extendend HTTP Methods tests", func() {
-		// @TODO When L3-dependent L7 the httpd2 server should be replaced to
-		// httpd1 and all in the same policy
+		// This test also test l3-l7 dependant
 		httpMethods := []string{"GET", "POST"}
 		TestMethodPolicy := func(method string) {
 			vm.PolicyDelAll().ExpectSuccess("Cannot delete all policies")
@@ -931,7 +930,7 @@ var _ = Describe("RuntimeValidatedPolicies", func() {
 					}]
 				}]
 			},{
-				"endpointSelector": {"matchLabels": {"id.httpd2": ""}},
+				"endpointSelector": {"matchLabels": {"id.httpd1": ""}},
 				"ingress": [{
 					"fromEndpoints": [{"matchLabels": {"id.app2": ""}}],
 					"toPorts": [{
@@ -953,12 +952,9 @@ var _ = Describe("RuntimeValidatedPolicies", func() {
 			srvIP, err := vm.ContainerInspectNet(helpers.Httpd1)
 			Expect(err).Should(BeNil(), "could not get container %q meta", helpers.Httpd1)
 
-			srvIP2, err := vm.ContainerInspectNet(helpers.Httpd2)
-			Expect(err).Should(BeNil(), "could not get container %q meta", helpers.Httpd2)
-
 			dest := helpers.CurlFail("http://%s/public -X %s", srvIP[helpers.IPv4], method)
 			destHeader := helpers.CurlFail("http://%s/public -H 'X-Test: True' -X %s",
-				srvIP2[helpers.IPv4], method)
+				srvIP[helpers.IPv4], method)
 
 			vm.ContainerExec(helpers.App1, dest).ExpectSuccess(
 				"%q cannot http request to Public", helpers.App1)
@@ -969,10 +965,10 @@ var _ = Describe("RuntimeValidatedPolicies", func() {
 			vm.ContainerExec(helpers.App2, destHeader).ExpectSuccess(
 				"%q cannot http request to Public", helpers.App2)
 
-			vm.ContainerExec(helpers.App3, destHeader).ExpectFail(
-				"%q can http request to Public", helpers.App3)
+			vm.ContainerExec(helpers.App1, destHeader).ExpectSuccess(
+				"%q can http request to Public", helpers.App1)
 
-			vm.ContainerExec(helpers.App1, destHeader).ExpectFail(
+			vm.ContainerExec(helpers.App3, destHeader).ExpectFail(
 				"%q can http request to Public", helpers.App3)
 
 			vm.ContainerExec(helpers.App3, dest).ExpectFail(
