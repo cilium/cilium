@@ -20,3 +20,16 @@ package v2
 // it is sufficient to have a single fromEndpoints rule match, none of
 // the fromRequires may be violated at the same time.
 type Rules []*Rule
+
+func (rs *Rules) Sanitize() error {
+	if rs == nil {
+		return nil
+	}
+	for _, r := range *rs {
+		err := r.Sanitize()
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
