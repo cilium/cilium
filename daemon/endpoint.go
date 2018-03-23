@@ -318,6 +318,7 @@ func (h *patchEndpointID) Handle(params PatchEndpointIDParams) middleware.Respon
 		changed = true
 	}
 
+	wait := false
 	if changed {
 		// Force policy regeneration as endpoint's configuration was changed.
 		// Other endpoints need not be regenerated as no labels were changed.
@@ -326,10 +327,13 @@ func (h *patchEndpointID) Handle(params PatchEndpointIDParams) middleware.Respon
 		if ep.GetStateLocked() == endpoint.StateReady {
 			ep.SetStateLocked(endpoint.StateWaitingToRegenerate, "Forcing endpoint regeneration because identity is known while handling API PATCH")
 		}
+		if ep.GetStateLocked() == endpoint.StateWaitingToRegenerate {
+			wait = true
+		}
 	}
 	ep.Mutex.Unlock()
 
-	if ep.GetStateLocked() == endpoint.StateWaitingToRegenerate {
+	if wait {
 		if err := ep.RegenerateWait(h.d, "Waiting on endpoint regeneration because identity is known while handling API PATCH"); err != nil {
 			return apierror.Error(PatchEndpointIDFailedCode, err)
 		}
