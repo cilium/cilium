@@ -529,9 +529,9 @@ func (s *SSHMeta) ReportFailed(commands ...string) {
 }
 
 // ValidateNoErrorsOnLogs checks in cilium logs since the given duration (By
-// default `CurrentGinkgoTestDescription().Duration`) that no `panic` messages
-// or `deadlocks`. In case of any of these messages, it'll mark the test as
-// failed.
+// default `CurrentGinkgoTestDescription().Duration`) do not contain `panic` or
+// `deadlocks` messages . In case of any of these messages, it'll mark the test
+// as failed.
 func (s *SSHMeta) ValidateNoErrorsOnLogs(duration time.Duration) {
 	logsCmd := fmt.Sprintf(`sudo journalctl -au %s --since '%v seconds ago'`,
 		DaemonName, duration.Seconds())
