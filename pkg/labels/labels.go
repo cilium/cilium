@@ -403,7 +403,7 @@ func NewSelectLabelArrayFromModel(base []string) LabelArray {
 
 // GetModel returns model with all the values of the labels.
 func (l Labels) GetModel() []string {
-	res := []string{}
+	res := make([]string, 0, len(l))
 	for _, v := range l {
 		res = append(res, v.String())
 	}

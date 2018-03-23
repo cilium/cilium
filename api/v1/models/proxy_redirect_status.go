@@ -21,18 +21,18 @@ import (
 type ProxyRedirectStatus struct {
 
 	// The port the proxy is listening on
-	AllocatedProxyPort int64 `json:"allocatedProxyPort,omitempty"`
+	AllocatedProxyPort int64 `json:"allocated-proxy-port,omitempty"`
 
-	// Timestamp of when redirected was created
+	// Timestamp of when redirect was created
 	Created strfmt.DateTime `json:"created,omitempty"`
 
 	// ID of the endpoint the redirect is installed for
-	EndpointID int64 `json:"endpointID,omitempty"`
+	EndpointID int64 `json:"endpoint-id,omitempty"`
 
-	// Labels of the endpoint the redirect is installed for
-	EndpointLabels Labels `json:"endpointLabels"`
+	// Security identity of the endpoint the redirect is installed for
+	EndpointIdentity *Identity `json:"endpoint-identity,omitempty"`
 
-	// Timestamp of when redirected was last updated
+	// Timestamp of when redirect was last updated
 	LastUpdated strfmt.DateTime `json:"last-updated,omitempty"`
 
 	// The location of where the redirect is installed
@@ -46,18 +46,15 @@ type ProxyRedirectStatus struct {
 
 	// List of rules configured
 	Rules []string `json:"rules"`
-
-	// Statistics of this redirected
-	Statistics *ProxyRedirectStatistics `json:"statistics,omitempty"`
 }
 
-/* polymorph ProxyRedirectStatus allocatedProxyPort false */
+/* polymorph ProxyRedirectStatus allocated-proxy-port false */
 
 /* polymorph ProxyRedirectStatus created false */
 
-/* polymorph ProxyRedirectStatus endpointID false */
+/* polymorph ProxyRedirectStatus endpoint-id false */
 
-/* polymorph ProxyRedirectStatus endpointLabels false */
+/* polymorph ProxyRedirectStatus endpoint-identity false */
 
 /* polymorph ProxyRedirectStatus last-updated false */
 
@@ -69,11 +66,14 @@ type ProxyRedirectStatus struct {
 
 /* polymorph ProxyRedirectStatus rules false */
 
-/* polymorph ProxyRedirectStatus statistics false */
-
 // Validate validates this proxy redirect status
 func (m *ProxyRedirectStatus) Validate(formats strfmt.Registry) error {
 	var res []error
+
+	if err := m.validateEndpointIdentity(formats); err != nil {
+		// prop
+		res = append(res, err)
+	}
 
 	if err := m.validateLocation(formats); err != nil {
 		// prop
@@ -85,14 +85,28 @@ func (m *ProxyRedirectStatus) Validate(formats strfmt.Registry) error {
 		res = append(res, err)
 	}
 
-	if err := m.validateStatistics(formats); err != nil {
-		// prop
-		res = append(res, err)
-	}
-
 	if len(res) > 0 {
 		return errors.CompositeValidationError(res...)
 	}
+	return nil
+}
+
+func (m *ProxyRedirectStatus) validateEndpointIdentity(formats strfmt.Registry) error {
+
+	if swag.IsZero(m.EndpointIdentity) { // not required
+		return nil
+	}
+
+	if m.EndpointIdentity != nil {
+
+		if err := m.EndpointIdentity.Validate(formats); err != nil {
+			if ve, ok := err.(*errors.Validation); ok {
+				return ve.ValidateName("endpoint-identity")
+			}
+			return err
+		}
+	}
+
 	return nil
 }
 
@@ -141,25 +155,6 @@ func (m *ProxyRedirectStatus) validateRules(formats strfmt.Registry) error {
 
 	if swag.IsZero(m.Rules) { // not required
 		return nil
-	}
-
-	return nil
-}
-
-func (m *ProxyRedirectStatus) validateStatistics(formats strfmt.Registry) error {
-
-	if swag.IsZero(m.Statistics) { // not required
-		return nil
-	}
-
-	if m.Statistics != nil {
-
-		if err := m.Statistics.Validate(formats); err != nil {
-			if ve, ok := err.(*errors.Validation); ok {
-				return ve.ValidateName("statistics")
-			}
-			return err
-		}
 	}
 
 	return nil

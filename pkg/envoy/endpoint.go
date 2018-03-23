@@ -15,6 +15,7 @@
 package envoy
 
 import (
+	"github.com/cilium/cilium/pkg/proxy/accesslog"
 	"github.com/cilium/cilium/pkg/proxy/logger"
 )
 
@@ -26,4 +27,9 @@ type NetworkPolicyEndpoint interface {
 	// OnProxyPolicyUpdate is called when the proxy acknowledges that it
 	// has applied a policy.
 	OnProxyPolicyUpdate(policyRevision uint64)
+
+	// UpdateProxyRedirectStatistics updates the Endpoint's proxy redirect
+	// statistics to account for a new observed flow with the given
+	// characteristics.
+	UpdateProxyRedirectStatistics(l7Protocol string, port uint16, ingress, request bool, verdict accesslog.FlowVerdict)
 }

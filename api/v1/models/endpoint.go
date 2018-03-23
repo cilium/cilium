@@ -7,6 +7,7 @@ package models
 
 import (
 	"encoding/json"
+	"strconv"
 
 	strfmt "github.com/go-openapi/strfmt"
 
@@ -78,8 +79,11 @@ type Endpoint struct {
 	// The policy revision this endpoint is running on
 	PolicyRevision int64 `json:"policy-revision,omitempty"`
 
-	// The policy revision currently enforced in the proxy
+	// The policy revision currently enforced in the proxy for this endpoint
 	ProxyPolicyRevision int64 `json:"proxy-policy-revision,omitempty"`
+
+	// Statistics of the proxy redirects configured for this endpoint
+	ProxyStatistics []*ProxyRedirectStatistics `json:"proxy-statistics"`
 
 	// Current state of endpoint
 	// Required: true
@@ -129,6 +133,8 @@ type Endpoint struct {
 
 /* polymorph Endpoint proxy-policy-revision false */
 
+/* polymorph Endpoint proxy-statistics false */
+
 /* polymorph Endpoint state false */
 
 /* polymorph Endpoint status false */
@@ -168,6 +174,11 @@ func (m *Endpoint) Validate(formats strfmt.Registry) error {
 	}
 
 	if err := m.validatePolicyEnabled(formats); err != nil {
+		// prop
+		res = append(res, err)
+	}
+
+	if err := m.validateProxyStatistics(formats); err != nil {
 		// prop
 		res = append(res, err)
 	}
@@ -337,6 +348,33 @@ func (m *Endpoint) validatePolicyEnabled(formats strfmt.Registry) error {
 	// value enum
 	if err := m.validatePolicyEnabledEnum("policy-enabled", "body", *m.PolicyEnabled); err != nil {
 		return err
+	}
+
+	return nil
+}
+
+func (m *Endpoint) validateProxyStatistics(formats strfmt.Registry) error {
+
+	if swag.IsZero(m.ProxyStatistics) { // not required
+		return nil
+	}
+
+	for i := 0; i < len(m.ProxyStatistics); i++ {
+
+		if swag.IsZero(m.ProxyStatistics[i]) { // not required
+			continue
+		}
+
+		if m.ProxyStatistics[i] != nil {
+
+			if err := m.ProxyStatistics[i].Validate(formats); err != nil {
+				if ve, ok := err.(*errors.Validation); ok {
+					return ve.ValidateName("proxy-statistics" + "." + strconv.Itoa(i))
+				}
+				return err
+			}
+		}
+
 	}
 
 	return nil

@@ -23,7 +23,7 @@ type ProxyStatus struct {
 	IP string `json:"ip,omitempty"`
 
 	// Port range used for proxying
-	PortRange string `json:"portRange,omitempty"`
+	PortRange string `json:"port-range,omitempty"`
 
 	// List of all configured redirects
 	Redirects []*ProxyRedirectStatus `json:"redirects"`
@@ -31,7 +31,7 @@ type ProxyStatus struct {
 
 /* polymorph ProxyStatus ip false */
 
-/* polymorph ProxyStatus portRange false */
+/* polymorph ProxyStatus port-range false */
 
 /* polymorph ProxyStatus redirects false */
 

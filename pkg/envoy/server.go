@@ -36,7 +36,6 @@ import (
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
-	"github.com/cilium/cilium/pkg/proxy/logger"
 
 	"github.com/gogo/protobuf/sortkeys"
 	"github.com/golang/protobuf/proto"
@@ -73,9 +72,9 @@ type XDSServer struct {
 	// configuration updates to Envoy proxies.
 	networkPolicyMutator xds.AckingResourceMutator
 
-	// networkPolicyEndpointInfoSources maps each network policy's name to the
-	// info source on the local endpoint.
-	networkPolicyEndpointInfoSources map[string]logger.EndpointInfoSource
+	// networkPolicyEndpoints maps each network policy's name to the info on
+	// the local endpoint.
+	networkPolicyEndpoints map[string]NetworkPolicyEndpoint
 
 	// stopServer stops the xDS gRPC server.
 	stopServer context.CancelFunc
@@ -190,14 +189,14 @@ func StartXDSServer(stateDir string) *XDSServer {
 	}
 
 	return &XDSServer{
-		socketPath:                       xdsPath,
-		listenerProto:                    listenerProto,
-		listenerMutator:                  ldsMutator,
-		listeners:                        make(map[string]struct{}),
-		networkPolicyCache:               npdsCache,
-		networkPolicyMutator:             npdsMutator,
-		networkPolicyEndpointInfoSources: make(map[string]logger.EndpointInfoSource),
-		stopServer:                       stopServer,
+		socketPath:             xdsPath,
+		listenerProto:          listenerProto,
+		listenerMutator:        ldsMutator,
+		listeners:              make(map[string]struct{}),
+		networkPolicyCache:     npdsCache,
+		networkPolicyMutator:   npdsMutator,
+		networkPolicyEndpoints: make(map[string]NetworkPolicyEndpoint),
+		stopServer:             stopServer,
 	}
 }
 
@@ -522,7 +521,7 @@ func (s *XDSServer) UpdateNetworkPolicy(ep NetworkPolicyEndpoint, policy *policy
 			nodeIDs = append(nodeIDs, "127.0.0.1")
 		}
 		s.networkPolicyMutator.Upsert(NetworkPolicyTypeURL, p.Name, p, nodeIDs, c)
-		s.networkPolicyEndpointInfoSources[p.Name] = ep
+		s.networkPolicyEndpoints[p.Name] = ep
 	}
 	return nil
 }
@@ -534,12 +533,12 @@ func (s *XDSServer) RemoveNetworkPolicy(ep NetworkPolicyEndpoint) {
 	if ep.GetIPv6Address() != "" {
 		name := ep.GetIPv6Address()
 		s.networkPolicyCache.Delete(NetworkPolicyTypeURL, name, false)
-		delete(s.networkPolicyEndpointInfoSources, name)
+		delete(s.networkPolicyEndpoints, name)
 	}
 	if ep.GetIPv4Address() != "" {
 		name := ep.GetIPv4Address()
 		s.networkPolicyCache.Delete(NetworkPolicyTypeURL, name, false)
-		delete(s.networkPolicyEndpointInfoSources, name)
+		delete(s.networkPolicyEndpoints, name)
 	}
 }
 
@@ -565,9 +564,8 @@ func (s *XDSServer) GetNetworkPolicies(resourceNames []string) (map[string]*cili
 	return networkPolicies, nil
 }
 
-// getLocalEndpointInfoSource returns the endpoint info source for the local
-// endpoint on which the network policy of the given name if enforced, or nil
-// if not found.
-func (s *XDSServer) getLocalEndpointInfoSource(networkPolicyName string) logger.EndpointInfoSource {
-	return s.networkPolicyEndpointInfoSources[networkPolicyName]
+// getLocalEndpoint returns the endpoint info for the local endpoint on which
+// the network policy of the given name if enforced, or nil if not found.
+func (s *XDSServer) getLocalEndpoint(networkPolicyName string) NetworkPolicyEndpoint {
+	return s.networkPolicyEndpoints[networkPolicyName]
 }

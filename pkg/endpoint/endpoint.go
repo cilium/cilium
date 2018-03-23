@@ -55,6 +55,8 @@ import (
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
+	"github.com/cilium/cilium/pkg/proxy/accesslog"
+
 	go_version "github.com/hashicorp/go-version"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -495,6 +497,16 @@ type Endpoint struct {
 	// the proxy.
 	proxyPolicyRevision uint64
 
+	// proxyStatisticsMutex is the mutex that must be held to read or write
+	// proxyStatistics.
+	proxyStatisticsMutex lock.RWMutex
+
+	// proxyStatistics contains statistics of proxy redirects.
+	// They keys in this map are the ProxyRedirectStatistics with their
+	// Statistics set to nil.
+	// You must hold Endpoint.proxyStatisticsMutex to read or write it.
+	proxyStatistics map[models.ProxyRedirectStatistics]*models.ProxyRedirectStatistics
+
 	// nextPolicyRevision is the policy revision that the endpoint has
 	// updated to and that will become effective with the next regenerate
 	nextPolicyRevision uint64
@@ -772,6 +784,14 @@ func (e *Endpoint) GetModelRLocked() *models.Endpoint {
 		statusLog = statusLog[:1]
 	}
 
+	// Make a shallow copy of the stats.
+	e.proxyStatisticsMutex.RLock()
+	proxyStats := make([]*models.ProxyRedirectStatistics, 0, len(e.proxyStatistics))
+	for _, s := range e.proxyStatistics {
+		proxyStats = append(proxyStats, s)
+	}
+	e.proxyStatisticsMutex.RUnlock()
+
 	mdl := &models.Endpoint{
 		ID:               int64(e.ID),
 		Configuration:    e.Opts.GetModel(),
@@ -798,6 +818,7 @@ func (e *Endpoint) GetModelRLocked() *models.Endpoint {
 		PolicyEnabled:       &policy,
 		PolicyRevision:      int64(e.policyRevision),
 		ProxyPolicyRevision: int64(e.proxyPolicyRevision),
+		ProxyStatistics:     proxyStats,
 		Addressing: &models.EndpointAddressing{
 			IPV4: e.IPv4.String(),
 			IPV6: e.IPv6.String(),
@@ -1928,6 +1949,59 @@ func (e *Endpoint) OnProxyPolicyUpdate(revision uint64) {
 		e.proxyPolicyRevision = revision
 	}
 	e.Mutex.Unlock()
+}
+
+// UpdateProxyRedirectStatistics updates the Endpoint's proxy redirect
+// statistics to account for a new observed flow with the given
+// characteristics.
+func (e *Endpoint) UpdateProxyRedirectStatistics(l7Protocol string, port uint16, ingress, request bool, verdict accesslog.FlowVerdict) {
+	var location string
+	if ingress {
+		location = models.ProxyRedirectStatisticsLocationIngress
+	} else {
+		location = models.ProxyRedirectStatisticsLocationEgress
+	}
+	key := models.ProxyRedirectStatistics{
+		Location: location,
+		Port:     int64(port),
+		Protocol: l7Protocol,
+	}
+
+	e.proxyStatisticsMutex.Lock()
+	defer e.proxyStatisticsMutex.Unlock()
+
+	if e.proxyStatistics == nil {
+		e.proxyStatistics = make(map[models.ProxyRedirectStatistics]*models.ProxyRedirectStatistics)
+	}
+
+	proxyStats, ok := e.proxyStatistics[key]
+	if !ok {
+		keyCopy := key
+		proxyStats = &keyCopy
+		proxyStats.Statistics = &models.RequestResponseStatistics{
+			Requests:  &models.MessageForwardingStatistics{},
+			Responses: &models.MessageForwardingStatistics{},
+		}
+		e.proxyStatistics[key] = proxyStats
+	}
+
+	var stats *models.MessageForwardingStatistics
+	if request {
+		stats = proxyStats.Statistics.Requests
+	} else {
+		stats = proxyStats.Statistics.Responses
+	}
+
+	stats.Received++
+
+	switch verdict {
+	case accesslog.VerdictForwarded:
+		stats.Forwarded++
+	case accesslog.VerdictDenied:
+		stats.Denied++
+	case accesslog.VerdictError:
+		stats.Error++
+	}
 }
 
 // APICanModify determines whether API requests from a user are allowed to

@@ -1324,8 +1324,15 @@ func init() {
           "type": "integer"
         },
         "proxy-policy-revision": {
-          "description": "The policy revision currently enforced in the proxy",
+          "description": "The policy revision currently enforced in the proxy for this endpoint",
           "type": "integer"
+        },
+        "proxy-statistics": {
+          "description": "Statistics of the proxy redirects configured for this endpoint",
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/ProxyRedirectStatistics"
+          }
         },
         "state": {
           "description": "Current state of endpoint",
@@ -1892,14 +1899,28 @@ func init() {
       }
     },
     "ProxyRedirectStatistics": {
-      "description": "Statistics of a proxy redirect",
+      "description": "Statistics of a set of proxy redirects for an endpoint",
       "type": "object",
       "properties": {
-        "requests": {
-          "$ref": "#/definitions/MessageForwardingStatistics"
+        "location": {
+          "description": "Location of where the redirect is installed",
+          "type": "string",
+          "enum": [
+            "ingress",
+            "egress"
+          ]
         },
-        "responses": {
-          "$ref": "#/definitions/MessageForwardingStatistics"
+        "port": {
+          "description": "The port subject to the redirect",
+          "type": "integer"
+        },
+        "protocol": {
+          "description": "Name of the L7 protocol",
+          "type": "string"
+        },
+        "statistics": {
+          "description": "Statistics of this set of proxy redirect",
+          "$ref": "#/definitions/RequestResponseStatistics"
         }
       }
     },
@@ -1907,25 +1928,25 @@ func init() {
       "description": "Status of a proxy redirect",
       "type": "object",
       "properties": {
-        "allocatedProxyPort": {
+        "allocated-proxy-port": {
           "description": "The port the proxy is listening on",
           "type": "integer"
         },
         "created": {
-          "description": "Timestamp of when redirected was created",
+          "description": "Timestamp of when redirect was created",
           "type": "string",
           "format": "date-time"
         },
-        "endpointID": {
+        "endpoint-id": {
           "description": "ID of the endpoint the redirect is installed for",
           "type": "integer"
         },
-        "endpointLabels": {
-          "description": "Labels of the endpoint the redirect is installed for",
-          "$ref": "#/definitions/Labels"
+        "endpoint-identity": {
+          "description": "Security identity of the endpoint the redirect is installed for",
+          "$ref": "#/definitions/Identity"
         },
         "last-updated": {
-          "description": "Timestamp of when redirected was last updated",
+          "description": "Timestamp of when redirect was last updated",
           "type": "string",
           "format": "date-time"
         },
@@ -1951,10 +1972,6 @@ func init() {
           "items": {
             "type": "string"
           }
-        },
-        "statistics": {
-          "description": "Statistics of this redirected",
-          "$ref": "#/definitions/ProxyRedirectStatistics"
         }
       }
     },
@@ -1966,7 +1983,7 @@ func init() {
           "description": "IP address that the proxy listens on",
           "type": "string"
         },
-        "portRange": {
+        "port-range": {
           "description": "Port range used for proxying",
           "type": "string"
         },
@@ -1976,6 +1993,18 @@ func init() {
           "items": {
             "$ref": "#/definitions/ProxyRedirectStatus"
           }
+        }
+      }
+    },
+    "RequestResponseStatistics": {
+      "description": "Statistics of a proxy redirect",
+      "type": "object",
+      "properties": {
+        "requests": {
+          "$ref": "#/definitions/MessageForwardingStatistics"
+        },
+        "responses": {
+          "$ref": "#/definitions/MessageForwardingStatistics"
         }
       }
     },

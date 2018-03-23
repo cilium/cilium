@@ -6,38 +6,51 @@ package models
 // Editing this file might prove futile when you re-run the swagger generate command
 
 import (
+	"encoding/json"
+
 	strfmt "github.com/go-openapi/strfmt"
 
 	"github.com/go-openapi/errors"
 	"github.com/go-openapi/swag"
+	"github.com/go-openapi/validate"
 )
 
-// ProxyRedirectStatistics Statistics of a proxy redirect
+// ProxyRedirectStatistics Statistics of a set of proxy redirects for an endpoint
 // swagger:model ProxyRedirectStatistics
 
 type ProxyRedirectStatistics struct {
 
-	// requests
-	Requests *MessageForwardingStatistics `json:"requests,omitempty"`
+	// Location of where the redirect is installed
+	Location string `json:"location,omitempty"`
 
-	// responses
-	Responses *MessageForwardingStatistics `json:"responses,omitempty"`
+	// The port subject to the redirect
+	Port int64 `json:"port,omitempty"`
+
+	// Name of the L7 protocol
+	Protocol string `json:"protocol,omitempty"`
+
+	// Statistics of this set of proxy redirect
+	Statistics *RequestResponseStatistics `json:"statistics,omitempty"`
 }
 
-/* polymorph ProxyRedirectStatistics requests false */
+/* polymorph ProxyRedirectStatistics location false */
 
-/* polymorph ProxyRedirectStatistics responses false */
+/* polymorph ProxyRedirectStatistics port false */
+
+/* polymorph ProxyRedirectStatistics protocol false */
+
+/* polymorph ProxyRedirectStatistics statistics false */
 
 // Validate validates this proxy redirect statistics
 func (m *ProxyRedirectStatistics) Validate(formats strfmt.Registry) error {
 	var res []error
 
-	if err := m.validateRequests(formats); err != nil {
+	if err := m.validateLocation(formats); err != nil {
 		// prop
 		res = append(res, err)
 	}
 
-	if err := m.validateResponses(formats); err != nil {
+	if err := m.validateStatistics(formats); err != nil {
 		// prop
 		res = append(res, err)
 	}
@@ -48,36 +61,58 @@ func (m *ProxyRedirectStatistics) Validate(formats strfmt.Registry) error {
 	return nil
 }
 
-func (m *ProxyRedirectStatistics) validateRequests(formats strfmt.Registry) error {
+var proxyRedirectStatisticsTypeLocationPropEnum []interface{}
 
-	if swag.IsZero(m.Requests) { // not required
+func init() {
+	var res []string
+	if err := json.Unmarshal([]byte(`["ingress","egress"]`), &res); err != nil {
+		panic(err)
+	}
+	for _, v := range res {
+		proxyRedirectStatisticsTypeLocationPropEnum = append(proxyRedirectStatisticsTypeLocationPropEnum, v)
+	}
+}
+
+const (
+	// ProxyRedirectStatisticsLocationIngress captures enum value "ingress"
+	ProxyRedirectStatisticsLocationIngress string = "ingress"
+	// ProxyRedirectStatisticsLocationEgress captures enum value "egress"
+	ProxyRedirectStatisticsLocationEgress string = "egress"
+)
+
+// prop value enum
+func (m *ProxyRedirectStatistics) validateLocationEnum(path, location string, value string) error {
+	if err := validate.Enum(path, location, value, proxyRedirectStatisticsTypeLocationPropEnum); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (m *ProxyRedirectStatistics) validateLocation(formats strfmt.Registry) error {
+
+	if swag.IsZero(m.Location) { // not required
 		return nil
 	}
 
-	if m.Requests != nil {
-
-		if err := m.Requests.Validate(formats); err != nil {
-			if ve, ok := err.(*errors.Validation); ok {
-				return ve.ValidateName("requests")
-			}
-			return err
-		}
+	// value enum
+	if err := m.validateLocationEnum("location", "body", m.Location); err != nil {
+		return err
 	}
 
 	return nil
 }
 
-func (m *ProxyRedirectStatistics) validateResponses(formats strfmt.Registry) error {
+func (m *ProxyRedirectStatistics) validateStatistics(formats strfmt.Registry) error {
 
-	if swag.IsZero(m.Responses) { // not required
+	if swag.IsZero(m.Statistics) { // not required
 		return nil
 	}
 
-	if m.Responses != nil {
+	if m.Statistics != nil {
 
-		if err := m.Responses.Validate(formats); err != nil {
+		if err := m.Statistics.Validate(formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
-				return ve.ValidateName("responses")
+				return ve.ValidateName("statistics")
 			}
 			return err
 		}

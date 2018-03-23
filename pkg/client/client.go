@@ -294,15 +294,13 @@ func FormatStatusResponse(w io.Writer, sr *models.StatusResponse, allAddresses, 
 		if allRedirects {
 			for _, r := range sr.Proxy.Redirects {
 				fmt.Fprintf(w, "  Redirect %s, endpoint %d %s, %s %d->%d (created %s, last-updated %s)\n",
-					r.Protocol, r.EndpointID, r.EndpointLabels,
+					r.Protocol, r.EndpointID, r.EndpointIdentity.Labels,
 					r.Location, r.Port, r.AllocatedProxyPort,
 					timeSince(time.Time(r.Created)),
 					timeSince(time.Time(r.LastUpdated)))
 				for _, rule := range r.Rules {
 					fmt.Fprintf(w, "    - %s\n", rule)
 				}
-				formatMessageForwardStatistics(w, "->", r.Statistics.Requests)
-				formatMessageForwardStatistics(w, "<-", r.Statistics.Responses)
 			}
 		}
 	} else {

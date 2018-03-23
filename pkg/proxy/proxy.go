@@ -281,11 +281,15 @@ func getRedirectStatusModel(r *Redirect) *models.ProxyRedirectStatus {
 		Port:               int64(r.port),
 		AllocatedProxyPort: int64(r.ProxyPort),
 		EndpointID:         int64(r.endpointID),
-		EndpointLabels:     r.source.GetLabels(),
-		Location:           r.getLocation(),
-		Created:            strfmt.DateTime(r.created),
-		LastUpdated:        strfmt.DateTime(r.lastUpdated),
-		Rules:              r.getRulesModel(),
+		EndpointIdentity: &models.Identity{
+			ID:           int64(r.source.GetIdentity()),
+			Labels:       r.source.GetLabels(),
+			LabelsSHA256: r.source.GetLabelsSHA(),
+		},
+		Location:    r.getLocation(),
+		Created:     strfmt.DateTime(r.created),
+		LastUpdated: strfmt.DateTime(r.lastUpdated),
+		Rules:       r.getRulesModel(),
 	}
 }
 
