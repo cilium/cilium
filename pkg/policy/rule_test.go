@@ -519,6 +519,35 @@ func (ds *PolicyTestSuite) TestMergeL7Policy(c *C) {
 	c.Assert(state.matchedRules, Equals, 0)
 }
 
+func (ds *PolicyTestSuite) TestRuleWithNoEndpointSelector(c *C) {
+	apiRule1 := api.Rule{
+		Ingress: []api.IngressRule{
+			{
+				FromCIDR: []api.CIDR{
+					"10.0.1.0/24",
+					"192.168.2.0",
+					"10.0.3.1",
+					"2001:db8::1/48",
+					"2001:db9::",
+				},
+			},
+		},
+		Egress: []api.EgressRule{
+			{
+				ToCIDR: []api.CIDR{
+					"10.1.0.0/16",
+					"2001:dbf::/64",
+				},
+			}, {
+				ToCIDRSet: []api.CIDRRule{{Cidr: api.CIDR("10.0.0.0/8"), ExceptCIDRs: []api.CIDR{"10.96.0.0/12"}}},
+			},
+		},
+	}
+
+	err := apiRule1.Sanitize()
+	c.Assert(err, Not(IsNil))
+}
+
 func (ds *PolicyTestSuite) TestL3Policy(c *C) {
 	apiRule1 := api.Rule{
 		EndpointSelector: api.NewESFromLabels(labels.ParseSelectLabel("bar")),
@@ -586,6 +615,7 @@ func (ds *PolicyTestSuite) TestL3Policy(c *C) {
 
 	// Must be parsable, make sure Validate fails when not.
 	err = api.Rule{
+		EndpointSelector: api.NewESFromLabels(labels.ParseSelectLabel("bar")),
 		Ingress: []api.IngressRule{{
 			FromCIDR: []api.CIDR{"10.0.1..0/24"},
 		}},
@@ -595,6 +625,7 @@ func (ds *PolicyTestSuite) TestL3Policy(c *C) {
 	// Test CIDRRule with no provided CIDR or ExceptionCIDR.
 	// Should fail as CIDR is required.
 	err = api.Rule{
+		EndpointSelector: api.NewESFromLabels(labels.ParseSelectLabel("bar")),
 		Ingress: []api.IngressRule{{
 			FromCIDRSet: []api.CIDRRule{{Cidr: "", ExceptCIDRs: nil}},
 		}},
@@ -604,6 +635,7 @@ func (ds *PolicyTestSuite) TestL3Policy(c *C) {
 	// Test CIDRRule with only CIDR provided; should not fail, as ExceptionCIDR
 	// is optional.
 	err = api.Rule{
+		EndpointSelector: api.NewESFromLabels(labels.ParseSelectLabel("bar")),
 		Ingress: []api.IngressRule{{
 			FromCIDRSet: []api.CIDRRule{{Cidr: "10.0.1.0/24", ExceptCIDRs: nil}},
 		}},
@@ -613,6 +645,7 @@ func (ds *PolicyTestSuite) TestL3Policy(c *C) {
 	// Cannot provide just an IP to a CIDRRule; Cidr must be of format
 	// <IP>/<prefix>.
 	err = api.Rule{
+		EndpointSelector: api.NewESFromLabels(labels.ParseSelectLabel("bar")),
 		Ingress: []api.IngressRule{{
 			FromCIDRSet: []api.CIDRRule{{Cidr: "10.0.1.32", ExceptCIDRs: nil}},
 		}},
@@ -621,6 +654,7 @@ func (ds *PolicyTestSuite) TestL3Policy(c *C) {
 
 	// Cannot exclude a range that is not part of the CIDR.
 	err = api.Rule{
+		EndpointSelector: api.NewESFromLabels(labels.ParseSelectLabel("bar")),
 		Ingress: []api.IngressRule{{
 			FromCIDRSet: []api.CIDRRule{{Cidr: "10.0.0.0/10", ExceptCIDRs: []api.CIDR{"10.64.0.0/11"}}},
 		}},
@@ -629,6 +663,7 @@ func (ds *PolicyTestSuite) TestL3Policy(c *C) {
 
 	// Must have a mask, make sure Validate fails when not.
 	err = api.Rule{
+		EndpointSelector: api.NewESFromLabels(labels.ParseSelectLabel("bar")),
 		Ingress: []api.IngressRule{{
 			FromCIDR: []api.CIDR{"10.0.1.0/0"},
 		}},
@@ -638,6 +673,7 @@ func (ds *PolicyTestSuite) TestL3Policy(c *C) {
 	// Prefix length must be in range for the address, make sure
 	// Validate fails if given prefix length is out of range.
 	err = api.Rule{
+		EndpointSelector: api.NewESFromLabels(labels.ParseSelectLabel("bar")),
 		Ingress: []api.IngressRule{{
 			FromCIDR: []api.CIDR{"10.0.1.0/34"},
 		}},
