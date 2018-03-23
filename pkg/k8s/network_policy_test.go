@@ -269,7 +269,7 @@ func (s *K8sSuite) TestParseNetworkPolicyNoSelectors(c *C) {
 
 	expectedRules := v3.Rules{
 		&v3.Rule{
-			EndpointSelector: epSelector,
+			IdentitySelector: epSelector,
 			Ingress: []v3.IngressRule{
 				{
 					FromCIDRs: &v3.CIDRRule{

@@ -31,7 +31,7 @@ type rule struct {
 }
 
 func (r *rule) String() string {
-	return fmt.Sprintf("%v", r.EndpointSelector)
+	return fmt.Sprintf("%v", r.IdentitySelector)
 }
 
 func (policy *L4Filter) addFromEndpoints(fromEndpoints *v3.IdentitySelector) bool {
@@ -186,7 +186,7 @@ func (state *traceState) unSelectRule(ctx *SearchContext, r *rule) {
 }
 
 func (r *rule) resolveL4Policy(ctx *SearchContext, state *traceState, result *L4Policy) (*L4Policy, error) {
-	if !r.EndpointSelector.Matches(ctx.To) {
+	if !r.IdentitySelector.Matches(ctx.To) {
 		state.unSelectRule(ctx, r)
 		return nil, nil
 	}
@@ -289,7 +289,7 @@ func computeResultantCIDRSet(cidrs *v3.CIDRRule) []v3.CIDR {
 // added to result, a nil CIDRPolicy is returned.
 func (r *rule) resolveCIDRPolicy(ctx *SearchContext, state *traceState, result *CIDRPolicy) *CIDRPolicy {
 	// Don't select rule if it doesn't apply to the given context.
-	if !r.EndpointSelector.Matches(ctx.To) {
+	if !r.IdentitySelector.Matches(ctx.To) {
 		state.unSelectRule(ctx, r)
 		return nil
 	}
@@ -352,7 +352,7 @@ func (r *rule) resolveCIDRPolicy(ctx *SearchContext, state *traceState, result *
 // contained within r.
 func (r *rule) canReachIngress(ctx *SearchContext, state *traceState) v3.Decision {
 
-	if !r.EndpointSelector.Matches(ctx.To) {
+	if !r.IdentitySelector.Matches(ctx.To) {
 		state.unSelectRule(ctx, r)
 		return v3.Undecided
 	}
@@ -420,7 +420,7 @@ func (r *rule) canReachIngress(ctx *SearchContext, state *traceState) v3.Decisio
 // contained within r.
 func (r *rule) canReachEgress(ctx *SearchContext, state *traceState) v3.Decision {
 
-	if !r.EndpointSelector.Matches(ctx.From) {
+	if !r.IdentitySelector.Matches(ctx.From) {
 		state.unSelectRule(ctx, r)
 		return v3.Undecided
 	}

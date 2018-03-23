@@ -32,7 +32,7 @@ import (
 type Rule struct {
 	// IdentitySelector selects all endpoints which should be subject to
 	// this rule. Cannot be empty.
-	EndpointSelector IdentitySelector `json:"endpointSelector"`
+	IdentitySelector IdentitySelector `json:"identitySelector"`
 
 	// Ingress is a list of IngressRule which are enforced at ingress.
 	// If omitted or empty, this rule does not apply at ingress.

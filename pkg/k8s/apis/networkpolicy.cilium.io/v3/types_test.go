@@ -137,7 +137,7 @@ var (
 	}
 
 	rawRule = []byte(`{
-        "endpointSelector": {
+        "identitySelector": {
             "matchLabels": {
                 "role": "backend"
             },
@@ -277,7 +277,7 @@ func (s *CiliumV3Suite) TestParseSpec(c *C) {
 		{Key: "any.role", Operator: "NotIn", Values: []string{"production"}},
 	}
 
-	apiRule.EndpointSelector = es
+	apiRule.IdentitySelector = es
 
 	expectedPolicyRule := &CiliumNetworkPolicy{
 		ObjectMeta: metav1.ObjectMeta{
@@ -289,7 +289,7 @@ func (s *CiliumV3Suite) TestParseSpec(c *C) {
 	expectedES := v3.NewESFromLabels(labels.ParseSelectLabel("role=backend"), labels.ParseSelectLabel("k8s:"+k8sConst.PodNamespaceLabel+"=default"))
 	expectedES.MatchExpressions = []metav1.LabelSelectorRequirement{{Key: "any.role", Operator: "NotIn", Values: []string{"production"}}}
 
-	expectedSpecRule.EndpointSelector = expectedES
+	expectedSpecRule.IdentitySelector = expectedES
 
 	rules, err := expectedPolicyRule.Parse()
 	c.Assert(err, IsNil)
@@ -313,7 +313,7 @@ func (s *CiliumV3Suite) TestParseRules(c *C) {
 	es := v3.NewESFromLabels(labels.ParseSelectLabel("role=backend"))
 	es.MatchExpressions = []metav1.LabelSelectorRequirement{{Key: "any.role", Operator: "NotIn", Values: []string{"production"}}}
 
-	apiRule.EndpointSelector = es
+	apiRule.IdentitySelector = es
 
 	expectedPolicyRuleList := &CiliumNetworkPolicy{
 		ObjectMeta: metav1.ObjectMeta{
@@ -325,7 +325,7 @@ func (s *CiliumV3Suite) TestParseRules(c *C) {
 	expectedES := v3.NewESFromLabels(labels.ParseSelectLabel("role=backend"), labels.ParseSelectLabel("k8s:"+k8sConst.PodNamespaceLabel+"=default"))
 	expectedES.MatchExpressions = []metav1.LabelSelectorRequirement{{Key: "any.role", Operator: "NotIn", Values: []string{"production"}}}
 
-	expectedSpecRule.EndpointSelector = expectedES
+	expectedSpecRule.IdentitySelector = expectedES
 
 	expectedSpecRules := v3.Rules{&expectedSpecRule, &expectedSpecRule}
 

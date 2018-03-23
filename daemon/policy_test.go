@@ -61,7 +61,7 @@ func (ds *DaemonSuite) TestUpdateConsumerMap(c *C) {
 
 	rules := v3.Rules{
 		{
-			EndpointSelector: v3.NewESFromLabels(lblBar),
+			IdentitySelector: v3.NewESFromLabels(lblBar),
 			Ingress: []v3.IngressRule{
 				{
 					FromIdentities: &v3.IdentityRule{
@@ -99,7 +99,7 @@ func (ds *DaemonSuite) TestUpdateConsumerMap(c *C) {
 			},
 		},
 		{
-			EndpointSelector: v3.NewESFromLabels(lblQA),
+			IdentitySelector: v3.NewESFromLabels(lblQA),
 			Ingress: []v3.IngressRule{
 				{
 					FromRequires: &v3.EndpointRequire{
@@ -109,7 +109,7 @@ func (ds *DaemonSuite) TestUpdateConsumerMap(c *C) {
 			},
 		},
 		{
-			EndpointSelector: v3.NewESFromLabels(lblProd),
+			IdentitySelector: v3.NewESFromLabels(lblProd),
 			Ingress: []v3.IngressRule{
 				{
 					FromRequires: &v3.EndpointRequire{
@@ -271,11 +271,11 @@ func (ds *DaemonSuite) TestReplacePolicy(c *C) {
 	rules := v3.Rules{
 		{
 			Labels:           lbls,
-			EndpointSelector: v3.NewESFromLabels(lblBar),
+			IdentitySelector: v3.NewESFromLabels(lblBar),
 		},
 		{
 			Labels:           lbls,
-			EndpointSelector: v3.NewESFromLabels(lblBar),
+			IdentitySelector: v3.NewESFromLabels(lblBar),
 		},
 	}
 
@@ -301,7 +301,7 @@ func (ds *DaemonSuite) TestRemovePolicy(c *C) {
 
 	rules := v3.Rules{
 		{
-			EndpointSelector: v3.NewESFromLabels(lblBar),
+			IdentitySelector: v3.NewESFromLabels(lblBar),
 			Ingress: []v3.IngressRule{
 
 				{
@@ -340,7 +340,7 @@ func (ds *DaemonSuite) TestRemovePolicy(c *C) {
 			},
 		},
 		{
-			EndpointSelector: v3.NewESFromLabels(lblQA),
+			IdentitySelector: v3.NewESFromLabels(lblQA),
 			Ingress: []v3.IngressRule{
 				{
 					FromIdentities: &v3.IdentityRule{
@@ -350,7 +350,7 @@ func (ds *DaemonSuite) TestRemovePolicy(c *C) {
 			},
 		},
 		{
-			EndpointSelector: v3.NewESFromLabels(lblProd),
+			IdentitySelector: v3.NewESFromLabels(lblProd),
 			Ingress: []v3.IngressRule{
 				{
 					FromRequires: &v3.EndpointRequire{

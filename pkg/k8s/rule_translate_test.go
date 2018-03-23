@@ -49,7 +49,7 @@ func (s *K8sSuite) TestTranslatorDirect(c *C) {
 	}
 
 	rule1 := v3.Rule{
-		EndpointSelector: v3.NewESFromLabels(labels.ParseSelectLabel("bar")),
+		IdentitySelector: v3.NewESFromLabels(labels.ParseSelectLabel("bar")),
 		Egress: []v3.EgressRule{
 			{
 				ToServices: &v3.ServiceRule{
@@ -118,7 +118,7 @@ func (s *K8sSuite) TestTranslatorLabels(c *C) {
 	}
 
 	rule1 := v3.Rule{
-		EndpointSelector: v3.NewESFromLabels(labels.ParseSelectLabel("bar")),
+		IdentitySelector: v3.NewESFromLabels(labels.ParseSelectLabel("bar")),
 		Egress: []v3.EgressRule{{
 			ToServices: &v3.ServiceRule{
 				K8sServiceSelector: &v3.K8sServiceSelectorNamespace{
@@ -213,7 +213,7 @@ func (s *K8sSuite) TestPreprocessRules(c *C) {
 	}
 
 	rule1 := v3.Rule{
-		EndpointSelector: v3.NewESFromLabels(labels.ParseSelectLabel("bar")),
+		IdentitySelector: v3.NewESFromLabels(labels.ParseSelectLabel("bar")),
 		Egress: []v3.EgressRule{{
 			ToServices: &v3.ServiceRule{
 				K8sService: &v3.K8sServiceNamespace{

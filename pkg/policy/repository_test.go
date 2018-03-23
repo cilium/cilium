@@ -39,16 +39,16 @@ func (ds *PolicyTestSuite) TestAddSearchDelete(c *C) {
 		labels.ParseLabel("tag2"),
 	}
 	rule1 := v3.Rule{
-		EndpointSelector: v3.NewESFromLabels(labels.ParseSelectLabel("foo")),
+		IdentitySelector: v3.NewESFromLabels(labels.ParseSelectLabel("foo")),
 		Labels:           lbls1,
 	}
 	rule2 := v3.Rule{
-		EndpointSelector: v3.NewESFromLabels(labels.ParseSelectLabel("bar")),
+		IdentitySelector: v3.NewESFromLabels(labels.ParseSelectLabel("bar")),
 		Labels:           lbls1,
 	}
 	lbls2 := labels.LabelArray{labels.ParseSelectLabel("tag3")}
 	rule3 := v3.Rule{
-		EndpointSelector: v3.NewESFromLabels(labels.ParseSelectLabel("bar")),
+		IdentitySelector: v3.NewESFromLabels(labels.ParseSelectLabel("bar")),
 		Labels:           lbls2,
 	}
 
@@ -129,7 +129,7 @@ func (ds *PolicyTestSuite) TestCanReach(c *C) {
 
 	tag1 := labels.LabelArray{labels.ParseLabel("tag1")}
 	rule1 := v3.Rule{
-		EndpointSelector: v3.NewESFromLabels(labels.ParseSelectLabel("bar")),
+		IdentitySelector: v3.NewESFromLabels(labels.ParseSelectLabel("bar")),
 		Ingress: []v3.IngressRule{
 			{
 				FromIdentities: &v3.IdentityRule{
@@ -143,7 +143,7 @@ func (ds *PolicyTestSuite) TestCanReach(c *C) {
 	// selector: groupA
 	// require: groupA
 	rule2 := v3.Rule{
-		EndpointSelector: v3.NewESFromLabels(labels.ParseSelectLabel("groupA")),
+		IdentitySelector: v3.NewESFromLabels(labels.ParseSelectLabel("groupA")),
 		Ingress: []v3.IngressRule{
 			{
 				FromRequires: &v3.EndpointRequire{
@@ -156,7 +156,7 @@ func (ds *PolicyTestSuite) TestCanReach(c *C) {
 		Labels: tag1,
 	}
 	rule3 := v3.Rule{
-		EndpointSelector: v3.NewESFromLabels(labels.ParseSelectLabel("bar2")),
+		IdentitySelector: v3.NewESFromLabels(labels.ParseSelectLabel("bar2")),
 		Ingress: []v3.IngressRule{
 			{
 				FromIdentities: &v3.IdentityRule{
@@ -235,7 +235,7 @@ func (ds *PolicyTestSuite) TestMinikubeGettingStarted(c *C) {
 	selectorFromApp2 := v3.NewESFromLabels(labels.ParseSelectLabel("id=app2"))
 
 	_, err := repo.Add(v3.Rule{
-		EndpointSelector: v3.NewESFromLabels(labels.ParseSelectLabel("id=app1")),
+		IdentitySelector: v3.NewESFromLabels(labels.ParseSelectLabel("id=app1")),
 		Ingress: []v3.IngressRule{
 			{
 				FromIdentities: &v3.IdentityRule{
@@ -252,7 +252,7 @@ func (ds *PolicyTestSuite) TestMinikubeGettingStarted(c *C) {
 	c.Assert(err, IsNil)
 
 	_, err = repo.Add(v3.Rule{
-		EndpointSelector: v3.NewESFromLabels(labels.ParseSelectLabel("id=app1")),
+		IdentitySelector: v3.NewESFromLabels(labels.ParseSelectLabel("id=app1")),
 		Ingress: []v3.IngressRule{
 			{
 				FromIdentities: &v3.IdentityRule{
@@ -274,7 +274,7 @@ func (ds *PolicyTestSuite) TestMinikubeGettingStarted(c *C) {
 	c.Assert(err, IsNil)
 
 	_, err = repo.Add(v3.Rule{
-		EndpointSelector: v3.NewESFromLabels(labels.ParseSelectLabel("id=app1")),
+		IdentitySelector: v3.NewESFromLabels(labels.ParseSelectLabel("id=app1")),
 		Ingress: []v3.IngressRule{
 			{
 				FromIdentities: &v3.IdentityRule{
@@ -304,7 +304,7 @@ func (ds *PolicyTestSuite) TestMinikubeGettingStarted(c *C) {
 
 	// Due to the lack of a set structure for L4Filter.FromRequires,
 	// merging multiple L3-dependent rules together will result in multiple
-	// instances of the EndpointSelector. We duplicate them in the expected
+	// instances of the IdentitySelector. We duplicate them in the expected
 	// output here just to get the tests passing.
 	selectorFromApp2DupList := []v3.IdentitySelector{
 		v3.NewESFromLabels(
@@ -370,7 +370,7 @@ func buildRule(from, to, port string) v3.Rule {
 		}
 	}
 	return v3.Rule{
-		EndpointSelector: toES,
+		IdentitySelector: toES,
 		Ingress: []v3.IngressRule{
 			{
 				FromIdentities: &v3.IdentityRule{
@@ -440,7 +440,7 @@ func (ds *PolicyTestSuite) TestPolicyTrace(c *C) {
 
 	// Test that FromRequires "baz" drops "foo" traffic
 	l3rule = v3.Rule{
-		EndpointSelector: v3.NewESFromLabels(labels.ParseSelectLabel("bar")),
+		IdentitySelector: v3.NewESFromLabels(labels.ParseSelectLabel("bar")),
 		Ingress: []v3.IngressRule{{
 			FromRequires: &v3.EndpointRequire{
 				IdentitySelector: []v3.IdentitySelector{v3.NewESFromLabels(labels.ParseSelectLabel("baz"))},

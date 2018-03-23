@@ -184,25 +184,25 @@ func parseToCiliumEgressRule(namespace string, inRule []v3.EgressRule) []v3.Egre
 // labels.
 func ParseToCiliumRule(namespace, name string, r *v3.Rule) *v3.Rule {
 	retRule := &v3.Rule{}
-	if r.EndpointSelector.LabelSelector != nil {
-		retRule.EndpointSelector = v3.NewESFromK8sLabelSelector("", r.EndpointSelector.LabelSelector)
+	if r.IdentitySelector.LabelSelector != nil {
+		retRule.IdentitySelector = v3.NewESFromK8sLabelSelector("", r.IdentitySelector.LabelSelector)
 		// The PodSelector should only reflect to the same namespace
 		// the policy is being stored, thus we add the namespace to
 		// the MatchLabels map.
-		if retRule.EndpointSelector.LabelSelector.MatchLabels == nil {
-			retRule.EndpointSelector.LabelSelector.MatchLabels = map[string]string{}
+		if retRule.IdentitySelector.LabelSelector.MatchLabels == nil {
+			retRule.IdentitySelector.LabelSelector.MatchLabels = map[string]string{}
 		}
 
-		userNamespace, ok := retRule.EndpointSelector.LabelSelector.MatchLabels[podPrefixLbl]
+		userNamespace, ok := retRule.IdentitySelector.LabelSelector.MatchLabels[podPrefixLbl]
 		if ok && userNamespace != namespace {
 			log.WithFields(logrus.Fields{
 				logfields.K8sNamespace:              namespace,
 				logfields.CiliumNetworkPolicyName:   name,
 				logfields.K8sNamespace + ".illegal": userNamespace,
-			}).Warn("CiliumNetworkPolicy contains illegal namespace match in EndpointSelector." +
-				" EndpointSelector always applies in namespace of the policy resource, removing illegal namespace match'.")
+			}).Warn("CiliumNetworkPolicy contains illegal namespace match in IdentitySelector." +
+				" IdentitySelector always applies in namespace of the policy resource, removing illegal namespace match'.")
 		}
-		retRule.EndpointSelector.LabelSelector.MatchLabels[podPrefixLbl] = namespace
+		retRule.IdentitySelector.LabelSelector.MatchLabels[podPrefixLbl] = namespace
 	}
 
 	retRule.Ingress = parseToCiliumIngressRule(namespace, r.Ingress)

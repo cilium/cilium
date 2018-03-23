@@ -44,7 +44,7 @@ func NewPolicyRepository() *Repository {
 // traceState is an internal structure used to collect information
 // while determining policy decision
 type traceState struct {
-	// selectedRules is the number of rules with matching EndpointSelector
+	// selectedRules is the number of rules with matching IdentitySelector
 	selectedRules int
 
 	// matchedRules is the number of rules that have allowed traffic
@@ -122,7 +122,7 @@ func (p *Repository) AllowsIngressLabelAccess(ctx *SearchContext) v3.Decision {
 
 // ResolveL4Policy resolves the L4 policy for a set of endpoints by searching
 // the policy repository for `PortRule` rules that are attached to a `Rule`
-// where the EndpointSelector matches `ctx.To`. `ctx.From` takes no effect and
+// where the IdentitySelector matches `ctx.To`. `ctx.From` takes no effect and
 // is ignored in the search.  If multiple `PortRule` rules are found, all rules
 // are merged together. If rules contains overlapping port definitions, the first
 // rule found in the repository takes precedence.
@@ -162,7 +162,7 @@ func (p *Repository) ResolveL4Policy(ctx *SearchContext) (*L4Policy, error) {
 
 // ResolveCIDRPolicy resolves the L3 policy for a set of endpoints by searching
 // the policy repository for `CIDR` rules that are attached to a `Rule`
-// where the EndpointSelector matches `ctx.To`. `ctx.From` takes no effect and
+// where the IdentitySelector matches `ctx.To`. `ctx.From` takes no effect and
 // is ignored in the search.
 func (p *Repository) ResolveCIDRPolicy(ctx *SearchContext) *CIDRPolicy {
 	result := NewCIDRPolicy()
@@ -447,7 +447,7 @@ func (p *Repository) GetRulesMatching(labels labels.LabelArray) (ingressMatch bo
 	ingressMatch = false
 	egressMatch = false
 	for _, r := range p.rules {
-		rulesMatch := r.EndpointSelector.Matches(labels)
+		rulesMatch := r.IdentitySelector.Matches(labels)
 		if rulesMatch {
 			if len(r.Ingress) > 0 {
 				ingressMatch = true

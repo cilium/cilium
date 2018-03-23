@@ -25,13 +25,8 @@ import (
 // will be returned.
 func V2RulesTov3RulesSanitized(v2Rules *v2.Rules) (*Rules, error) {
 	v3Rules := V2RulesTov3Rules(v2Rules)
-	for _, v3Rule := range *v3Rules {
-		err := v3Rule.Sanitize()
-		if err != nil {
-			return nil, err
-		}
-	}
-	return v3Rules, nil
+	err := v3Rules.Sanitize()
+	return v3Rules, err
 }
 
 // V2RuleTov3RuleSanitized translates the given v2Rule to the respective v3
@@ -74,7 +69,7 @@ func V2RuleTov3Rule(v2Rule *v2.Rule) *Rule {
 	}
 	v3Rule := &Rule{}
 
-	v3Rule.EndpointSelector = *v2ESTov3ES(&v2Rule.EndpointSelector)
+	v3Rule.IdentitySelector = *v2ESTov3ES(&v2Rule.EndpointSelector)
 
 	if v2Rule.Ingress != nil {
 		v3Rule.Ingress = []IngressRule{}

@@ -250,7 +250,7 @@ func ParseNetworkPolicyV1beta1(np *v1beta1.NetworkPolicy) (v3.Rules, error) {
 	np.Spec.PodSelector.MatchLabels[k8sConst.PodNamespaceLabel] = namespace
 
 	rule := &v3.Rule{
-		EndpointSelector: v3.NewESFromK8sLabelSelector(labels.LabelSourceK8sKeyPrefix, &np.Spec.PodSelector),
+		IdentitySelector: v3.NewESFromK8sLabelSelector(labels.LabelSourceK8sKeyPrefix, &np.Spec.PodSelector),
 		Labels:           GetPolicyLabelsv1beta1(np),
 		Ingress:          ingresses,
 		Egress:           egresses,

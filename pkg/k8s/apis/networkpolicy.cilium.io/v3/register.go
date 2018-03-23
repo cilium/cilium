@@ -289,7 +289,7 @@ var (
 		"CIDR":                     CIDR,
 		"CIDRRule":                 CIDRRule,
 		"EgressRule":               EgressRule,
-		"EndpointSelector":         EndpointSelector,
+		"IdentitySelector":         EndpointSelector,
 		"IngressRule":              IngressRule,
 		"K8sServiceNamespace":      K8sServiceNamespace,
 		"L7Rules":                  L7Rules,
@@ -434,7 +434,7 @@ var (
 			},
 			"toEndpoints": {
 				Description: "ToEndpoints is a list of endpoints identified by an " +
-					"EndpointSelector to which the endpoint subject to the rule" +
+					"IdentitySelector to which the endpoint subject to the rule" +
 					"is allowed to communicate.\n\nExample: Any endpoint with the label " +
 					"\"role=frontend\" can be consumed by any endpoint carrying the label " +
 					"\"role=backend\".",
@@ -507,7 +507,7 @@ var (
 			},
 			"fromEndpoints": {
 				Description: "FromEndpoints is a list of endpoints identified by an " +
-					"EndpointSelector which are allowed to communicate with the endpoint " +
+					"IdentitySelector which are allowed to communicate with the endpoint " +
 					"subject to the rule.\n\nExample: Any endpoint with the label " +
 					"\"role=backend\" can be consumed by any endpoint carrying the label " +
 					"\"role=frontend\".",
@@ -925,7 +925,7 @@ var (
 )
 
 func init() {
-	EndpointSelector.Description = "EndpointSelector is a wrapper for k8s LabelSelector."
+	EndpointSelector.Description = "IdentitySelector is a wrapper for k8s LabelSelector."
 
 	portRuleProps := PortRule.Properties["rules"]
 	portRuleProps.Description = "Rules is a list of additional port level rules which must be " +
@@ -934,7 +934,7 @@ func init() {
 	PortRule.Properties["rules"] = portRuleProps
 
 	ruleProps := Rule.Properties["endpointSelector"]
-	ruleProps.Description = "EndpointSelector selects all endpoints which should be subject " +
+	ruleProps.Description = "IdentitySelector selects all endpoints which should be subject " +
 		"to this rule. Cannot be empty."
 	Rule.Properties["endpointSelector"] = ruleProps
 
