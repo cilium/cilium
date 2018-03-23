@@ -45,7 +45,7 @@ type Redirect struct {
 	id             string
 	ingress        bool
 	port           uint16
-	source         logger.EndpointInfoSource
+	localEndpoint  logger.EndpointUpdater
 	parserType     policy.L7ParserType
 	created        time.Time
 	implementation RedirectImplementation
@@ -57,13 +57,13 @@ type Redirect struct {
 	rules       policy.L7DataMap
 }
 
-func newRedirect(port uint16, source logger.EndpointInfoSource, id string) *Redirect {
+func newRedirect(port uint16, localEndpoint logger.EndpointUpdater, id string) *Redirect {
 	return &Redirect{
-		port:        port,
-		source:      source,
-		id:          id,
-		created:     time.Now(),
-		lastUpdated: time.Now(),
+		port:          port,
+		localEndpoint: localEndpoint,
+		id:            id,
+		created:       time.Now(),
+		lastUpdated:   time.Now(),
 	}
 }
 
@@ -112,9 +112,4 @@ func (r *Redirect) removeProxyMapEntryOnClose(c net.Conn) error {
 	}
 
 	return proxymap.Delete(key)
-}
-
-// LocalEndpointInfoSource returns an EndpointInfoSource with the information on the local endpoint.
-func (r *Redirect) LocalEndpointInfoSource() logger.EndpointInfoSource {
-	return r.source
 }

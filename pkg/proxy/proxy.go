@@ -125,7 +125,7 @@ var gcOnce sync.Once
 // proxy configuration. This will allocate a proxy port as required and launch
 // a proxy instance. If the redirect is already in place, only the rules will be
 // updated.
-func (p *Proxy) CreateOrUpdateRedirect(l4 *policy.L4Filter, id string, source logger.EndpointInfoSource,
+func (p *Proxy) CreateOrUpdateRedirect(l4 *policy.L4Filter, id string, localEndpoint logger.EndpointUpdater,
 	notifier logger.LogRecordNotifier, wg *completion.WaitGroup) (*Redirect, error) {
 	gcOnce.Do(func() {
 		logger.SetNotifier(notifier)
@@ -180,8 +180,8 @@ func (p *Proxy) CreateOrUpdateRedirect(l4 *policy.L4Filter, id string, source lo
 		return r, nil
 	}
 
-	redir := newRedirect(uint16(l4.Port), source, id)
-	redir.endpointID = source.GetID()
+	redir := newRedirect(uint16(l4.Port), localEndpoint, id)
+	redir.endpointID = localEndpoint.GetID()
 	redir.ingress = l4.Ingress
 	redir.parserType = l4.L7Parser
 	redir.updateRules(l4)
@@ -282,9 +282,9 @@ func getRedirectStatusModel(r *Redirect) *models.ProxyRedirectStatus {
 		AllocatedProxyPort: int64(r.ProxyPort),
 		EndpointID:         int64(r.endpointID),
 		EndpointIdentity: &models.Identity{
-			ID:           int64(r.source.GetIdentity()),
-			Labels:       r.source.GetLabels(),
-			LabelsSHA256: r.source.GetLabelsSHA(),
+			ID:           int64(r.localEndpoint.GetIdentity()),
+			Labels:       r.localEndpoint.GetLabels(),
+			LabelsSHA256: r.localEndpoint.GetLabelsSHA(),
 		},
 		Location:    r.getLocation(),
 		Created:     strfmt.DateTime(r.created),

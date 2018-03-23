@@ -23,6 +23,7 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
+	"github.com/cilium/cilium/pkg/proxy/logger"
 
 	"github.com/optiopay/kafka"
 	"github.com/optiopay/kafka/proto"
@@ -40,7 +41,7 @@ type proxyTestSuite struct{}
 var _ = Suite(&proxyTestSuite{})
 
 var (
-	sourceMocker = &proxySourceMocker{
+	localEndpointMock logger.EndpointUpdater = &proxyUpdaterMock{
 		id:       1000,
 		ipv4:     "10.0.0.1",
 		ipv6:     "f00d::1",
@@ -186,7 +187,7 @@ func (k *proxyTestSuite) TestKafkaRedirect(c *C) {
 	kafkaRule2 := api.PortRuleKafka{APIKey: "produce", APIVersion: "0", Topic: "allowedTopic"}
 	c.Assert(kafkaRule2.Sanitize(), IsNil)
 
-	r := newRedirect(uint16(serverPort), sourceMocker, "foo")
+	r := newRedirect(uint16(serverPort), localEndpointMock, "foo")
 	r.ProxyPort = uint16(proxyPort)
 	r.ingress = true
 

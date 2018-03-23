@@ -49,6 +49,22 @@ func getEndpointInfo(source EndpointInfoSource) *accesslog.EndpointInfo {
 	}
 }
 
+// EndpointUpdater returns information about an endpoint being proxied and
+// is called back to update the endpoint when proxy events occur.
+// This is a subset of `Endpoint`.
+type EndpointUpdater interface {
+	EndpointInfoSource
+
+	// OnProxyPolicyUpdate is called when the proxy acknowledges that it
+	// has applied a policy.
+	OnProxyPolicyUpdate(policyRevision uint64)
+
+	// UpdateProxyRedirectStatistics updates the Endpoint's proxy redirect
+	// statistics to account for a new observed flow with the given
+	// characteristics.
+	UpdateProxyRedirectStatistics(l7Protocol string, port uint16, ingress, request bool, verdict accesslog.FlowVerdict)
+}
+
 // EndpointInfoRegistry provides endpoint information lookup by endpoint IP
 // address.
 type EndpointInfoRegistry interface {
