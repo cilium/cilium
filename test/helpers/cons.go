@@ -141,6 +141,7 @@ const (
 	CiliumEnvoyLogPath = "/var/log/cilium-envoy.log"
 
 	DaemonName             = "cilium"
+	CiliumBugtool          = "cilium-bugtool"
 	CiliumDockerDaemonName = "cilium-docker"
 	AgentDaemon            = "cilium-agent"
 
