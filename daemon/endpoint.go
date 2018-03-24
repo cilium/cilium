@@ -717,10 +717,10 @@ func (d *Daemon) OnIPIdentityCacheChange(modType ipcache.CacheModification, ipID
 
 	// Update BPF Maps.
 	key := ipCacheBPF.NewEndpointKey(ipIDPair.IP)
-	value := ipCacheBPF.RemoteEndpointInfo{SecurityIdentity: uint16(ipIDPair.ID)}
 
 	switch modType {
 	case ipcache.Upsert:
+		value := ipCacheBPF.RemoteEndpointInfo{SecurityIdentity: uint16(ipIDPair.ID)}
 		err := ipCacheBPF.IPCache.Update(key, value)
 		if err != nil {
 			log.WithError(err).WithFields(logrus.Fields{"key": key.String(),
