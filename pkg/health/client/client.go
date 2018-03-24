@@ -164,7 +164,7 @@ func nodeIsLocalhost(node *models.NodeStatus, self *models.SelfStatus) bool {
 	return self != nil && node.Name == self.Name
 }
 
-func formatNodeStatus(w io.Writer, node *models.NodeStatus, printAll, verbose, succinct, localhost bool) {
+func formatNodeStatus(w io.Writer, node *models.NodeStatus, printAll, succinct, verbose, localhost bool) {
 	localStr := ""
 	if localhost {
 		localStr = " (localhost)"
