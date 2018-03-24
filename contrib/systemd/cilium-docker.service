@@ -7,7 +7,7 @@ Requires=docker.service
 Environment=INITSYSTEM=SYSTEMD
 Type=simple
 ExecStartPre=-/usr/bin/killall -9 cilium-docker
-ExecStart=/usr/bin/cilium-docker
+ExecStart=/usr/bin/cilium-docker --debug
 Restart=on-failure
 
 [Install]
