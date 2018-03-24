@@ -38,10 +38,8 @@ var _ = Describe("RuntimeValidatedConnectivityTest", func() {
 	}
 
 	AfterEach(func() {
-		vm.ValidateNoErrorsOnLogs(CurrentGinkgoTestDescription().Duration)
-		if CurrentGinkgoTestDescription().Failed {
-			vm.ReportFailed()
-		}
+		vm.CiliumReport()
+		vm.ValidateNoErrorsInLogs(CurrentGinkgoTestDescription().Duration)
 		vm.PolicyDelAll().ExpectSuccess("Policies cannot be deleted")
 		return
 	})
@@ -486,11 +484,8 @@ var _ = Describe("RuntimeValidatedConntrackTest", func() {
 	})
 
 	AfterEach(func() {
-		vm.ValidateNoErrorsOnLogs(CurrentGinkgoTestDescription().Duration)
-		if CurrentGinkgoTestDescription().Failed {
-			vm.ReportFailed()
-		}
-
+		vm.CiliumReport()
+		vm.ValidateNoErrorsInLogs(CurrentGinkgoTestDescription().Duration)
 		containersToRm := []string{helpers.Client, helpers.Server, helpers.Httpd1, helpers.Httpd2, curl1ContainerName, curl2ContainerName}
 		for _, containerToRm := range containersToRm {
 			vm.ContainerRm(containerToRm)
