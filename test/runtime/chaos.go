@@ -47,9 +47,7 @@ var _ = Describe("RuntimeValidatedChaos", func() {
 	})
 
 	AfterEach(func() {
-		if CurrentGinkgoTestDescription().Failed {
-			vm.ReportFailed()
-		}
+		vm.CiliumReport()
 		vm.ValidateNoErrorsInLogs(CurrentGinkgoTestDescription().Duration)
 
 		vm.ContainerRm(helpers.Client)

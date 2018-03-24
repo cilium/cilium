@@ -500,9 +500,9 @@ func (s *SSHMeta) PolicyWait(revisionNum int) *CmdRes {
 	return s.ExecCilium(fmt.Sprintf("policy wait %d", revisionNum))
 }
 
-// ReportFailed gathers relevant Cilium runtime data and logs for debugging
+// CiliumReport gathers relevant Cilium runtime data and logs for debugging
 // purposes.
-func (s *SSHMeta) ReportFailed(commands ...string) {
+func (s *SSHMeta) CiliumReport(commands ...string) {
 	wr := s.logger.Logger.Out
 	fmt.Fprint(wr, "===================== TEST FAILED =====================\n")
 	fmt.Fprint(wr, "Gathering Logs and Cilium CLI Output\n")

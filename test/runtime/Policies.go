@@ -76,7 +76,7 @@ var _ = Describe("RuntimeValidatedPolicyEnforcement", func() {
 
 	AfterEach(func() {
 		if CurrentGinkgoTestDescription().Failed {
-			vm.ReportFailed()
+			vm.CiliumReport()
 		}
 		vm.ValidateNoErrorsInLogs(CurrentGinkgoTestDescription().Duration)
 	})
@@ -425,9 +425,7 @@ var _ = Describe("RuntimeValidatedPolicies", func() {
 	})
 
 	AfterEach(func() {
-		if CurrentGinkgoTestDescription().Failed {
-			vm.ReportFailed()
-		}
+		vm.CiliumReport()
 		vm.ValidateNoErrorsInLogs(CurrentGinkgoTestDescription().Duration)
 		vm.PolicyDelAll().ExpectSuccess("Unable to delete all policies")
 	})
@@ -998,9 +996,7 @@ var _ = Describe("RuntimeValidatedPolicyImportTests", func() {
 	})
 
 	AfterEach(func() {
-		if CurrentGinkgoTestDescription().Failed {
-			vm.ReportFailed()
-		}
+		vm.CiliumReport()
 		vm.ValidateNoErrorsInLogs(CurrentGinkgoTestDescription().Duration)
 		vm.SampleContainersActions(helpers.Delete, helpers.CiliumDockerNetwork)
 		allEndpointsDeleted := vm.WaitEndpointsDeleted()

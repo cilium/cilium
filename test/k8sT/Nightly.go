@@ -80,12 +80,10 @@ var _ = Describe("NightlyEpsMeasurement", func() {
 	})
 
 	AfterEach(func() {
-		if CurrentGinkgoTestDescription().Failed {
-			ciliumPod, _ := kubectl.GetCiliumPodOnNode(helpers.KubeSystemNamespace, helpers.K8s1)
-			kubectl.CiliumReport(helpers.KubeSystemNamespace, ciliumPod, []string{
-				"cilium service list",
-				"cilium endpoint list"})
-		}
+		ciliumPod, _ := kubectl.GetCiliumPodOnNode(helpers.KubeSystemNamespace, helpers.K8s1)
+		kubectl.CiliumReport(helpers.KubeSystemNamespace, ciliumPod, []string{
+			"cilium service list",
+			"cilium endpoint list"})
 		kubectl.ValidateNoErrorsInLogs(CurrentGinkgoTestDescription().Duration)
 		err := kubectl.WaitCleanAllTerminatingPods()
 		Expect(err).To(BeNil(), "Terminating containers are not deleted after timeout")
@@ -350,12 +348,10 @@ var _ = Describe("NightlyExamples", func() {
 	})
 
 	AfterEach(func() {
-		if CurrentGinkgoTestDescription().Failed {
-			ciliumPod, _ := kubectl.GetCiliumPodOnNode(helpers.KubeSystemNamespace, helpers.K8s1)
-			kubectl.CiliumReport(helpers.KubeSystemNamespace, ciliumPod, []string{
-				"cilium service list",
-				"cilium endpoint list"})
-		}
+		ciliumPod, _ := kubectl.GetCiliumPodOnNode(helpers.KubeSystemNamespace, helpers.K8s1)
+		kubectl.CiliumReport(helpers.KubeSystemNamespace, ciliumPod, []string{
+			"cilium service list",
+			"cilium endpoint list"})
 		kubectl.ValidateNoErrorsInLogs(CurrentGinkgoTestDescription().Duration)
 
 		kubectl.Delete(demoPath)

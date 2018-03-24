@@ -44,9 +44,7 @@ var _ = Describe("RuntimeValidatedPolicyValidationTests", func() {
 	})
 
 	AfterEach(func() {
-		if CurrentGinkgoTestDescription().Failed {
-			vm.ReportFailed()
-		}
+		vm.CiliumReport()
 		vm.ValidateNoErrorsInLogs(CurrentGinkgoTestDescription().Duration)
 	})
 

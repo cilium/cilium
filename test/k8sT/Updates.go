@@ -46,12 +46,10 @@ var _ = Describe("K8sValidatedUpdates", func() {
 	})
 
 	AfterEach(func() {
-		if CurrentGinkgoTestDescription().Failed {
-			ciliumPod, _ := kubectl.GetCiliumPodOnNode(
-				helpers.KubeSystemNamespace, helpers.K8s1VMName())
-			kubectl.CiliumReport("kube-system", ciliumPod, []string{
-				"cilium endpoint list"})
-		}
+		ciliumPod, _ := kubectl.GetCiliumPodOnNode(
+			helpers.KubeSystemNamespace, helpers.K8s1VMName())
+		kubectl.CiliumReport("kube-system", ciliumPod, []string{
+			"cilium endpoint list"})
 		kubectl.ValidateNoErrorsInLogs(CurrentGinkgoTestDescription().Duration)
 		//This policies maybe are not loaded, (Test failed before) so no assert here.
 		kubectl.Delete(l7Policy)

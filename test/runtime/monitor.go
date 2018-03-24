@@ -55,9 +55,7 @@ var _ = Describe("RuntimeValidatedMonitorTest", func() {
 	})
 
 	AfterEach(func() {
-		if CurrentGinkgoTestDescription().Failed {
-			vm.ReportFailed()
-		}
+		vm.CiliumReport()
 		vm.ValidateNoErrorsInLogs(CurrentGinkgoTestDescription().Duration)
 	})
 

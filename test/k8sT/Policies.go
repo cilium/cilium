@@ -81,12 +81,10 @@ var _ = Describe("K8sValidatedPolicyTest", func() {
 	})
 
 	AfterEach(func() {
-		if CurrentGinkgoTestDescription().Failed {
-			ciliumPod, _ := kubectl.GetCiliumPodOnNode(helpers.KubeSystemNamespace, helpers.K8s1)
-			kubectl.CiliumReport(helpers.KubeSystemNamespace, ciliumPod, []string{
-				"cilium bpf tunnel list",
-				"cilium endpoint list"})
-		}
+		ciliumPod, _ := kubectl.GetCiliumPodOnNode(helpers.KubeSystemNamespace, helpers.K8s1)
+		kubectl.CiliumReport(helpers.KubeSystemNamespace, ciliumPod, []string{
+			"cilium bpf tunnel list",
+			"cilium endpoint list"})
 		kubectl.ValidateNoErrorsInLogs(CurrentGinkgoTestDescription().Duration)
 		err := kubectl.WaitCleanAllTerminatingPods()
 		Expect(err).To(BeNil(), "Terminating containers are not deleted after timeout")
@@ -630,12 +628,10 @@ var _ = Describe("K8sValidatedPolicyTest", func() {
 			err := kubectl.CoreV1().Namespaces().Delete(namespace, &metav1.DeleteOptions{})
 			Expect(err).NotTo(HaveOccurred())
 
-			if CurrentGinkgoTestDescription().Failed {
-				ciliumPod, _ := kubectl.GetCiliumPodOnNode(helpers.KubeSystemNamespace, helpers.K8s1)
-				kubectl.CiliumReport(helpers.KubeSystemNamespace, ciliumPod, []string{
-					"cilium policy get",
-					"cilium endpoint list"})
-			}
+			ciliumPod, _ := kubectl.GetCiliumPodOnNode(helpers.KubeSystemNamespace, helpers.K8s1)
+			kubectl.CiliumReport(helpers.KubeSystemNamespace, ciliumPod, []string{
+				"cilium policy get",
+				"cilium endpoint list"})
 		})
 
 		It("should enforce policy based on NamespaceSelector", func() {
@@ -720,12 +716,10 @@ var _ = Describe("K8sValidatedPolicyTestAcrossNamespaces", func() {
 	})
 
 	AfterEach(func() {
-		if CurrentGinkgoTestDescription().Failed {
-			ciliumPod, _ := kubectl.GetCiliumPodOnNode(helpers.KubeSystemNamespace, helpers.K8s1)
-			kubectl.CiliumReport(helpers.KubeSystemNamespace, ciliumPod, []string{
-				"cilium bpf tunnel list",
-				"cilium endpoint list"})
-		}
+		ciliumPod, _ := kubectl.GetCiliumPodOnNode(helpers.KubeSystemNamespace, helpers.K8s1)
+		kubectl.CiliumReport(helpers.KubeSystemNamespace, ciliumPod, []string{
+			"cilium bpf tunnel list",
+			"cilium endpoint list"})
 		kubectl.ValidateNoErrorsInLogs(CurrentGinkgoTestDescription().Duration)
 
 		namespaceAction(qaNs, helpers.Delete)

@@ -47,9 +47,7 @@ var _ = Describe("RuntimeValidatedCLI", func() {
 	})
 
 	AfterEach(func() {
-		if CurrentGinkgoTestDescription().Failed {
-			vm.ReportFailed("cilium endpoint list")
-		}
+		vm.CiliumReport("cilium endpoint list")
 		vm.ValidateNoErrorsInLogs(CurrentGinkgoTestDescription().Duration)
 	})
 

@@ -77,10 +77,8 @@ var _ = Describe(demoTestName, func() {
 	})
 
 	AfterEach(func() {
-		if CurrentGinkgoTestDescription().Failed {
-			ciliumPod, _ := kubectl.GetCiliumPodOnNode(helpers.KubeSystemNamespace, helpers.K8s1)
-			kubectl.CiliumReport(helpers.KubeSystemNamespace, ciliumPod)
-		}
+		ciliumPod, _ := kubectl.GetCiliumPodOnNode(helpers.KubeSystemNamespace, helpers.K8s1)
+		kubectl.CiliumReport(helpers.KubeSystemNamespace, ciliumPod)
 		kubectl.ValidateNoErrorsInLogs(CurrentGinkgoTestDescription().Duration)
 		By("Deleting all resources created during test")
 		kubectl.Delete(l7PolicyYAMLLink)

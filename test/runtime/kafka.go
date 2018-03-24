@@ -116,9 +116,7 @@ var _ = Describe("RuntimeValidatedKafka", func() {
 	})
 
 	AfterEach(func() {
-		if CurrentGinkgoTestDescription().Failed {
-			vm.ReportFailed()
-		}
+		vm.CiliumReport()
 		vm.ValidateNoErrorsInLogs(CurrentGinkgoTestDescription().Duration)
 		vm.PolicyDelAll()
 		containers("delete")
