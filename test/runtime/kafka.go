@@ -62,7 +62,7 @@ var _ = Describe("RuntimeValidatedKafka", func() {
 			Expect(err).Should(BeNil())
 
 			vm.ContainerCreate("kafka", "wurstmeister/kafka", helpers.CiliumDockerNetwork, fmt.Sprintf(
-				"-l id.kafka -e KAFKA_ZOOKEEPER_CONNECT=%s:2181 ", zook["IPv4"]))
+				"-l id.kafka -e KAFKA_ZOOKEEPER_CONNECT=%s:2181 -e KAFKA_ZOOKEEPER_SESSION_TIMEOUT_MS=20000", zook["IPv4"]))
 
 		case "delete":
 			for k := range images {
