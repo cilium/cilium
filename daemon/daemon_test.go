@@ -25,6 +25,7 @@ import (
 
 	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/daemon/options"
+	configPkg "github.com/cilium/cilium/pkg/config"
 	e "github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/kvstore"
@@ -92,8 +93,8 @@ func (ds *DaemonSuite) SetUpTest(c *C) {
 	// Get the default labels prefix filter
 	err = labels.ParseLabelPrefixCfg(nil, "")
 	c.Assert(err, IsNil)
-	daemonConf.Opts.Set(e.OptionDropNotify, true)
-	daemonConf.Opts.Set(e.OptionTraceNotify, true)
+	daemonConf.Opts.Set(configPkg.OptionDropNotify, true)
+	daemonConf.Opts.Set(configPkg.OptionTraceNotify, true)
 
 	d, err := NewDaemon(daemonConf)
 	c.Assert(err, IsNil)

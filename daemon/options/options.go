@@ -15,7 +15,7 @@
 package options
 
 import (
-	"github.com/cilium/cilium/pkg/endpoint"
+	configPkg "github.com/cilium/cilium/pkg/config"
 	"github.com/cilium/cilium/pkg/option"
 )
 
@@ -33,14 +33,14 @@ var (
 	}
 
 	DaemonMutableOptionLibrary = option.OptionLibrary{
-		endpoint.OptionConntrackAccounting: &endpoint.OptionSpecConntrackAccounting,
-		endpoint.OptionConntrackLocal:      &endpoint.OptionSpecConntrackLocal,
-		endpoint.OptionConntrack:           &endpoint.OptionSpecConntrack,
-		endpoint.OptionDebug:               &endpoint.OptionSpecDebug,
-		endpoint.OptionDebugLB:             &endpoint.OptionSpecDebugLB,
-		endpoint.OptionDropNotify:          &endpoint.OptionSpecDropNotify,
-		endpoint.OptionTraceNotify:         &endpoint.OptionSpecTraceNotify,
-		endpoint.OptionNAT46:               &endpoint.OptionSpecNAT46,
+		configPkg.OptionConntrackAccounting: &configPkg.OptionSpecConntrackAccounting,
+		configPkg.OptionConntrackLocal:      &configPkg.OptionSpecConntrackLocal,
+		configPkg.OptionConntrack:           &configPkg.OptionSpecConntrack,
+		configPkg.OptionDebug:               &configPkg.OptionSpecDebug,
+		configPkg.OptionDebugLB:             &configPkg.OptionSpecDebugLB,
+		configPkg.OptionDropNotify:          &configPkg.OptionSpecDropNotify,
+		configPkg.OptionTraceNotify:         &configPkg.OptionSpecTraceNotify,
+		configPkg.OptionNAT46:               &configPkg.OptionSpecNAT46,
 	}
 )
 

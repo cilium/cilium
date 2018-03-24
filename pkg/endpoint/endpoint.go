@@ -60,6 +60,7 @@ import (
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/rest"
 
+	"github.com/cilium/cilium/pkg/config"
 	"github.com/sirupsen/logrus"
 )
 
@@ -76,105 +77,25 @@ type PortMap struct {
 }
 
 const (
-	OptionAllowToHost         = "AllowToHost"
-	OptionConntrackAccounting = "ConntrackAccounting"
-	OptionConntrackLocal      = "ConntrackLocal"
-	OptionConntrack           = "Conntrack"
-	OptionDebug               = "Debug"
-	OptionDebugLB             = "DebugLB"
-	OptionDropNotify          = "DropNotification"
-	OptionTraceNotify         = "TraceNotification"
-	OptionNAT46               = "NAT46"
-	OptionIngressPolicy       = "IngressPolicy"
-	OptionEgressPolicy        = "EgressPolicy"
-	AlwaysEnforce             = "always"
-	NeverEnforce              = "never"
-	DefaultEnforcement        = "default"
-
 	maxLogs = 256
 )
 
 var (
-	OptionSpecAllowToHost = option.Option{
-		Define:      "ALLOW_TO_HOST",
-		Immutable:   true,
-		Description: "Allow all traffic to local host",
-	}
-
-	OptionSpecConntrackAccounting = option.Option{
-		Define:      "CONNTRACK_ACCOUNTING",
-		Description: "Enable per flow (conntrack) statistics",
-		Requires:    []string{OptionConntrack},
-	}
-
-	OptionSpecConntrackLocal = option.Option{
-		Define:      "CONNTRACK_LOCAL",
-		Description: "Use endpoint dedicated tracking table instead of global one",
-		Requires:    []string{OptionConntrack},
-	}
-
-	OptionSpecConntrack = option.Option{
-		Define:      "CONNTRACK",
-		Description: "Enable stateful connection tracking",
-	}
-
-	OptionSpecDebug = option.Option{
-		Define:      "DEBUG",
-		Description: "Enable debugging trace statements",
-	}
-
-	OptionSpecDebugLB = option.Option{
-		Define:      "LB_DEBUG",
-		Description: "Enable debugging trace statements for load balancer",
-	}
-
-	OptionSpecDropNotify = option.Option{
-		Define:      "DROP_NOTIFY",
-		Description: "Enable drop notifications",
-	}
-
-	OptionSpecTraceNotify = option.Option{
-		Define:      "TRACE_NOTIFY",
-		Description: "Enable trace notifications",
-	}
-
-	OptionSpecNAT46 = option.Option{
-		Define:      "ENABLE_NAT46",
-		Description: "Enable automatic NAT46 translation",
-		Requires:    []string{OptionConntrack},
-		Verify: func(key string, val bool) error {
-			if !IPv4Enabled {
-				return fmt.Errorf("NAT46 requires IPv4 to be enabled")
-			}
-			return nil
-		},
-	}
-
-	OptionIngressSpecPolicy = option.Option{
-		Define:      "POLICY_INGRESS",
-		Description: "Enable ingress policy enforcement",
-	}
-
-	OptionEgressSpecPolicy = option.Option{
-		Define:      "POLICY_EGRESS",
-		Description: "Enable egress policy enforcement",
-	}
-
 	EndpointMutableOptionLibrary = option.OptionLibrary{
-		OptionConntrackAccounting: &OptionSpecConntrackAccounting,
-		OptionConntrackLocal:      &OptionSpecConntrackLocal,
-		OptionConntrack:           &OptionSpecConntrack,
-		OptionDebug:               &OptionSpecDebug,
-		OptionDebugLB:             &OptionSpecDebugLB,
-		OptionDropNotify:          &OptionSpecDropNotify,
-		OptionTraceNotify:         &OptionSpecTraceNotify,
-		OptionNAT46:               &OptionSpecNAT46,
-		OptionIngressPolicy:       &OptionIngressSpecPolicy,
-		OptionEgressPolicy:        &OptionEgressSpecPolicy,
+		config.OptionConntrackAccounting: &config.OptionSpecConntrackAccounting,
+		config.OptionConntrackLocal:      &config.OptionSpecConntrackLocal,
+		config.OptionConntrack:           &config.OptionSpecConntrack,
+		config.OptionDebug:               &config.OptionSpecDebug,
+		config.OptionDebugLB:             &config.OptionSpecDebugLB,
+		config.OptionDropNotify:          &config.OptionSpecDropNotify,
+		config.OptionTraceNotify:         &config.OptionSpecTraceNotify,
+		config.OptionNAT46:               &config.OptionSpecNAT46,
+		config.OptionIngressPolicy:       &config.OptionIngressSpecPolicy,
+		config.OptionEgressPolicy:        &config.OptionEgressSpecPolicy,
 	}
 
 	EndpointOptionLibrary = option.OptionLibrary{
-		OptionAllowToHost: &OptionSpecAllowToHost,
+		config.OptionAllowToHost: &config.OptionSpecAllowToHost,
 	}
 
 	// ciliumEPControllerLimit is the range of k8s versions with which we are
@@ -753,8 +674,8 @@ func (e *Endpoint) GetModelRLocked() *models.Endpoint {
 		currentState = models.EndpointStateNotReady
 	}
 
-	policyIngressEnabled := e.Opts.IsEnabled(OptionIngressPolicy)
-	policyEgressEnabled := e.Opts.IsEnabled(OptionEgressPolicy)
+	policyIngressEnabled := e.Opts.IsEnabled(config.OptionIngressPolicy)
+	policyEgressEnabled := e.Opts.IsEnabled(config.OptionEgressPolicy)
 
 	if policyIngressEnabled && policyEgressEnabled {
 		policy = models.EndpointPolicyEnabledBoth

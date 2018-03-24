@@ -20,6 +20,7 @@ import (
 	"path/filepath"
 
 	"github.com/cilium/cilium/common"
+	configPkg "github.com/cilium/cilium/pkg/config"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	identityPkg "github.com/cilium/cilium/pkg/identity"
@@ -90,9 +91,9 @@ func (d *Daemon) SyncState(dir string, clean bool) error {
 				ep.SetDefaultOpts(nil)
 			} else {
 				ep.SetDefaultOpts(d.conf.Opts)
-				alwaysEnforce := policy.GetPolicyEnabled() == endpoint.AlwaysEnforce
-				ep.Opts.Set(endpoint.OptionIngressPolicy, alwaysEnforce)
-				ep.Opts.Set(endpoint.OptionEgressPolicy, alwaysEnforce)
+				alwaysEnforce := policy.GetPolicyEnabled() == configPkg.AlwaysEnforce
+				ep.Opts.Set(configPkg.OptionIngressPolicy, alwaysEnforce)
+				ep.Opts.Set(configPkg.OptionEgressPolicy, alwaysEnforce)
 			}
 
 			endpointmanager.Insert(ep)

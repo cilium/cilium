@@ -26,6 +26,7 @@ import (
 	"github.com/cilium/cilium/pkg/maps/ctmap"
 	"github.com/cilium/cilium/pkg/policy"
 
+	"github.com/cilium/cilium/pkg/config"
 	"github.com/sirupsen/logrus"
 )
 
@@ -106,7 +107,7 @@ func EnableConntrackGC(ipv4, ipv6 bool) {
 				// right now. We still need to traverse
 				// other EPs since some may not be part
 				// of the global CT, but have a local one.
-				isLocal := e.Opts.IsEnabled(endpoint.OptionConntrackLocal)
+				isLocal := e.Opts.IsEnabled(config.OptionConntrackLocal)
 				if isLocal == false {
 					if seenGlobal == true {
 						e.Mutex.RUnlock()
