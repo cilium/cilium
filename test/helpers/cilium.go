@@ -25,6 +25,7 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/test/config"
 
 	"github.com/onsi/ginkgo"
 	"github.com/onsi/gomega"
@@ -528,6 +529,12 @@ func (s *SSHMeta) PolicyWait(revisionNum int) *CmdRes {
 // purposes.
 func (s *SSHMeta) ReportFailed(commands ...string) {
 	wr := s.logger.Logger.Out
+
+	if config.CiliumTestConfig.HoldEnvironment {
+		fmt.Fprint(wr, "Skipped gathering logs (-cilium.holdEnvironment=true)\n")
+		return
+	}
+
 	fmt.Fprint(wr, "===================== TEST FAILED =====================\n")
 	fmt.Fprint(wr, "Gathering Logs and Cilium CLI Output\n")
 	res := s.ExecCilium("endpoint list")
