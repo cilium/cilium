@@ -27,6 +27,7 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/test/config"
 	ginkgoext "github.com/cilium/cilium/test/ginkgo-ext"
 
 	"github.com/onsi/ginkgo"
@@ -604,9 +605,13 @@ func (s *SSHMeta) PolicyWait(revisionNum int) *CmdRes {
 // ReportFailed gathers relevant Cilium runtime data and logs for debugging
 // purposes.
 func (s *SSHMeta) ReportFailed(commands ...string) {
+	if config.CiliumTestConfig.HoldEnvironment {
+		ginkgoext.GinkgoPrint("Skipped gathering logs (-cilium.holdEnvironment=true)\n")
+		return
+	}
+
 	// Log the following line to both the log file, and to console to delineate
 	// when log gathering begins.
-
 	ginkgoext.GinkgoPrint("===================== TEST FAILED =====================")
 	res := s.ExecCilium("endpoint list") // save the output in the logs
 	ginkgoext.GinkgoPrint(res.GetDebugMessage())
