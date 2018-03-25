@@ -31,6 +31,7 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/annotation"
 	cnpv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	"github.com/cilium/cilium/test/config"
 	ginkgoext "github.com/cilium/cilium/test/ginkgo-ext"
 
 	"github.com/asaskevich/govalidator"
@@ -967,6 +968,11 @@ func (kub *Kubectl) CiliumPolicyAction(namespace, filepath string, action Resour
 // CiliumReport report the cilium pod to the log and appends the logs for the
 // given commands.
 func (kub *Kubectl) CiliumReport(namespace string, commands ...string) {
+	if config.CiliumTestConfig.HoldEnvironment {
+		ginkgoext.GinkgoPrint("Skipped gathering logs (-cilium.holdEnvironment=true)\n")
+		return
+	}
+
 	pods, err := kub.GetCiliumPods(namespace)
 	if err != nil {
 		kub.logger.WithError(err).Error("cannot retrieve cilium pods on ReportDump")
