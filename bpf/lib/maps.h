@@ -280,7 +280,9 @@ LPM_LOOKUP_FN(lpm4_egress_lookup, __be32, CIDR4_EGRESS_PREFIXES,
 #endif /* POLICY_EGRESS */
 
 #if defined(POLICY_INGRESS) || defined(POLICY_EGRESS)
+#ifndef SKIP_UNDEF_LPM_LOOKUP_FN
 #undef LPM_LOOKUP_FN
+#endif
 #endif /* POLICY_INGRESS || POLICY_EGRESS */
 
 #if defined POLICY_EGRESS && defined LXC_ID
