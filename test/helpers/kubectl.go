@@ -755,26 +755,33 @@ func (kub *Kubectl) CiliumPolicyAction(namespace, filepath string, action Resour
 
 // CiliumReport report the cilium pod to the log and appends the logs for the
 // given commands.
-// TODO - remove 'pod' parameter, this function should just get logs from all
-// Cilium pods without the need to provide the parameter itself.
-func (kub *Kubectl) CiliumReport(namespace string, pod string, commands ...[]string) {
+func (kub *Kubectl) CiliumReport(namespace string, commands ...[]string) {
 	sendToLog = false
 	defer func() {
 		sendToLog = true
 	}()
 
+	pods, err := kub.GetCiliumPods(namespace)
+	if err != nil {
+		kub.logger.WithError(err).Error("cannot retrieve cilium pods on ReportDump")
+		return
+	}
+
 	wr := kub.logger.Logger.Out
 	fmt.Fprint(wr, "StackTrace Begin\n")
-	data := kub.Logs(namespace, pod)
+
+	data := kub.Exec(fmt.Sprintf("%s get pods -o wide", KubectlCmd))
 	fmt.Fprintln(wr, data.Output())
 
-	data = kub.Exec(fmt.Sprintf("%s get pods -o wide", KubectlCmd))
-	fmt.Fprintln(wr, data.Output())
+	for _, pod := range pods {
+		res := kub.Logs(namespace, pod)
+		fmt.Fprintln(wr, res.Output())
 
-	for _, cmd := range commands {
-		command := fmt.Sprintf("%s exec -n %s %s -- %s", KubectlCmd, namespace, pod, cmd)
-		out := kub.Exec(command)
-		fmt.Fprintln(wr, out.CombineOutput())
+		for _, cmd := range commands {
+			command := fmt.Sprintf("%s exec -n %s %s -- %s", KubectlCmd, namespace, pod, cmd)
+			out := kub.Exec(command)
+			fmt.Fprintln(wr, out.CombineOutput())
+		}
 	}
 	fmt.Fprint(wr, "StackTrace Ends\n")
 	kub.DumpCiliumCommandOutput(namespace)

@@ -83,8 +83,7 @@ var _ = Describe("K8sValidatedPolicyTest", func() {
 	AfterEach(func() {
 		kubectl.ValidateNoErrorsOnLogs(CurrentGinkgoTestDescription().Duration)
 		if CurrentGinkgoTestDescription().Failed {
-			ciliumPod, _ := kubectl.GetCiliumPodOnNode(helpers.KubeSystemNamespace, helpers.K8s1)
-			kubectl.CiliumReport(helpers.KubeSystemNamespace, ciliumPod, []string{
+			kubectl.CiliumReport(helpers.KubeSystemNamespace, []string{
 				"cilium bpf tunnel list",
 				"cilium endpoint list"})
 		}
@@ -631,8 +630,7 @@ var _ = Describe("K8sValidatedPolicyTest", func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			if CurrentGinkgoTestDescription().Failed {
-				ciliumPod, _ := kubectl.GetCiliumPodOnNode(helpers.KubeSystemNamespace, helpers.K8s1)
-				kubectl.CiliumReport(helpers.KubeSystemNamespace, ciliumPod, []string{
+				kubectl.CiliumReport(helpers.KubeSystemNamespace, []string{
 					"cilium policy get",
 					"cilium endpoint list"})
 			}
@@ -722,8 +720,7 @@ var _ = Describe("K8sValidatedPolicyTestAcrossNamespaces", func() {
 	AfterEach(func() {
 		kubectl.ValidateNoErrorsOnLogs(CurrentGinkgoTestDescription().Duration)
 		if CurrentGinkgoTestDescription().Failed {
-			ciliumPod, _ := kubectl.GetCiliumPodOnNode(helpers.KubeSystemNamespace, helpers.K8s1)
-			kubectl.CiliumReport(helpers.KubeSystemNamespace, ciliumPod, []string{
+			kubectl.CiliumReport(helpers.KubeSystemNamespace, []string{
 				"cilium bpf tunnel list",
 				"cilium endpoint list"})
 		}

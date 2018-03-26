@@ -63,9 +63,7 @@ var _ = Describe("K8sValidatedChaosTest", func() {
 	AfterEach(func() {
 		kubectl.ValidateNoErrorsOnLogs(CurrentGinkgoTestDescription().Duration)
 		if CurrentGinkgoTestDescription().Failed {
-			ciliumPod, _ := kubectl.GetCiliumPodOnNode(
-				helpers.KubeSystemNamespace, helpers.K8s1VMName())
-			kubectl.CiliumReport("kube-system", ciliumPod, []string{
+			kubectl.CiliumReport(helpers.KubeSystemNamespace, []string{
 				"cilium service list",
 				"cilium endpoint list"})
 		}
