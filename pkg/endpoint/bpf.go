@@ -43,6 +43,7 @@ import (
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/u8proto"
 	"github.com/cilium/cilium/pkg/version"
+
 	"github.com/spf13/viper"
 )
 
@@ -453,7 +454,7 @@ func (e *Endpoint) addNewRedirectsFromMap(owner Owner, m policy.L4PolicyMap, des
 				continue
 			}
 
-			redirect, err := owner.UpdateProxyRedirect(e, &l4)
+			redirectPort, err := owner.UpdateProxyRedirect(e, &l4)
 			if err != nil {
 				return err
 			}
@@ -462,8 +463,15 @@ func (e *Endpoint) addNewRedirectsFromMap(owner Owner, m policy.L4PolicyMap, des
 			if e.realizedRedirects == nil {
 				e.realizedRedirects = make(map[string]uint16)
 			}
-			e.realizedRedirects[proxyID] = redirect
+			e.realizedRedirects[proxyID] = redirectPort
 			desiredRedirects[proxyID] = true
+
+			// Update the endpoint API model to report that Cilium manages a
+			// redirect for that port.
+			e.proxyStatisticsMutex.Lock()
+			proxyStats := e.getProxyStatisticsLocked(string(l4.L7Parser), uint16(l4.Port), l4.Ingress)
+			proxyStats.AllocatedProxyPort = int64(redirectPort)
+			e.proxyStatisticsMutex.Unlock()
 		}
 	}
 	return nil
@@ -493,7 +501,7 @@ func (e *Endpoint) removeOldRedirects(owner Owner, desiredRedirects map[string]b
 		return
 	}
 
-	for id := range e.realizedRedirects {
+	for id, redirectPort := range e.realizedRedirects {
 		// Remove only the redirects that are not required.
 		if desiredRedirects[id] {
 			continue
@@ -502,6 +510,25 @@ func (e *Endpoint) removeOldRedirects(owner Owner, desiredRedirects map[string]b
 			e.getLogger().WithError(err).WithField(logfields.L4PolicyID, id).Warn("Error while removing proxy redirect")
 		} else {
 			delete(e.realizedRedirects, id)
+
+			// Update the endpoint API model to report that no redirect is
+			// active or known for that port anymore. We never delete stats
+			// until an endpoint is deleted, so we only set the redirect port
+			// to 0.
+			//
+			// We don't know the L7 protocol of the redirect, so we can't just
+			// build a ProxyStatistics and lookup e.proxyStatistics by key.
+			// We have to loop to find which entry has the same redirect port.
+			// Looping is acceptable since there should be only a few redirects
+			// for each endpoint.
+			e.proxyStatisticsMutex.Lock()
+			for _, stats := range e.proxyStatistics {
+				if stats.AllocatedProxyPort == int64(redirectPort) {
+					stats.AllocatedProxyPort = 0
+					break
+				}
+			}
+			e.proxyStatisticsMutex.Unlock()
 		}
 	}
 }

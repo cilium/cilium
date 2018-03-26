@@ -31,7 +31,6 @@ import (
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/proxy/logger"
 
-	"github.com/go-openapi/strfmt"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 )
@@ -180,7 +179,7 @@ func (p *Proxy) CreateOrUpdateRedirect(l4 *policy.L4Filter, id string, localEndp
 		return r, nil
 	}
 
-	redir := newRedirect(uint16(l4.Port), localEndpoint, id)
+	redir := newRedirect(localEndpoint, id)
 	redir.endpointID = localEndpoint.GetID()
 	redir.ingress = l4.Ingress
 	redir.parserType = l4.L7Parser
@@ -272,40 +271,6 @@ func ChangeLogLevel(level logrus.Level) {
 	}
 }
 
-func getRedirectStatusModel(r *Redirect) *models.ProxyRedirectStatus {
-	r.mutex.RLock()
-	defer r.mutex.RUnlock()
-
-	return &models.ProxyRedirectStatus{
-		Protocol:           string(r.parserType),
-		Port:               int64(r.port),
-		AllocatedProxyPort: int64(r.ProxyPort),
-		EndpointID:         int64(r.endpointID),
-		EndpointIdentity: &models.Identity{
-			ID:           int64(r.localEndpoint.GetIdentity()),
-			Labels:       r.localEndpoint.GetLabels(),
-			LabelsSHA256: r.localEndpoint.GetLabelsSHA(),
-		},
-		Location:    r.getLocation(),
-		Created:     strfmt.DateTime(r.created),
-		LastUpdated: strfmt.DateTime(r.lastUpdated),
-		Rules:       r.getRulesModel(),
-	}
-}
-
-// getRedirectStatusModel returns the status of all redirects
-func (p *Proxy) getRedirectsStatusModel() []*models.ProxyRedirectStatus {
-	redirects := make([]*models.ProxyRedirectStatus, len(p.redirects))
-
-	idx := 0
-	for _, redirect := range p.redirects {
-		redirects[idx] = getRedirectStatusModel(redirect)
-		idx++
-	}
-
-	return redirects
-}
-
 // GetStatusModel returns the proxy status as API model
 func (p *Proxy) GetStatusModel() *models.ProxyStatus {
 	p.mutex.RLock()
@@ -314,6 +279,5 @@ func (p *Proxy) GetStatusModel() *models.ProxyStatus {
 	return &models.ProxyStatus{
 		IP:        node.GetInternalIPv4().String(),
 		PortRange: fmt.Sprintf("%d-%d", p.rangeMin, p.rangeMax),
-		Redirects: p.getRedirectsStatusModel(),
 	}
 }

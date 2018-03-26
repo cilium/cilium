@@ -1331,7 +1331,7 @@ func init() {
           "description": "Statistics of the proxy redirects configured for this endpoint",
           "type": "array",
           "items": {
-            "$ref": "#/definitions/ProxyRedirectStatistics"
+            "$ref": "#/definitions/ProxyStatistics"
           }
         },
         "state": {
@@ -1898,10 +1898,14 @@ func init() {
         }
       }
     },
-    "ProxyRedirectStatistics": {
+    "ProxyStatistics": {
       "description": "Statistics of a set of proxy redirects for an endpoint",
       "type": "object",
       "properties": {
+        "allocated-proxy-port": {
+          "description": "The port the proxy is listening on",
+          "type": "integer"
+        },
         "location": {
           "description": "Location of where the redirect is installed",
           "type": "string",
@@ -1924,57 +1928,6 @@ func init() {
         }
       }
     },
-    "ProxyRedirectStatus": {
-      "description": "Status of a proxy redirect",
-      "type": "object",
-      "properties": {
-        "allocated-proxy-port": {
-          "description": "The port the proxy is listening on",
-          "type": "integer"
-        },
-        "created": {
-          "description": "Timestamp of when redirect was created",
-          "type": "string",
-          "format": "date-time"
-        },
-        "endpoint-id": {
-          "description": "ID of the endpoint the redirect is installed for",
-          "type": "integer"
-        },
-        "endpoint-identity": {
-          "description": "Security identity of the endpoint the redirect is installed for",
-          "$ref": "#/definitions/Identity"
-        },
-        "last-updated": {
-          "description": "Timestamp of when redirect was last updated",
-          "type": "string",
-          "format": "date-time"
-        },
-        "location": {
-          "description": "The location of where the redirect is installed",
-          "type": "string",
-          "enum": [
-            "ingress",
-            "egress"
-          ]
-        },
-        "port": {
-          "description": "The port subject to the redirect",
-          "type": "integer"
-        },
-        "protocol": {
-          "description": "Name of the L7 protocol",
-          "type": "string"
-        },
-        "rules": {
-          "description": "List of rules configured",
-          "type": "array",
-          "items": {
-            "type": "string"
-          }
-        }
-      }
-    },
     "ProxyStatus": {
       "description": "Status of proxy",
       "type": "object",
@@ -1986,13 +1939,6 @@ func init() {
         "port-range": {
           "description": "Port range used for proxying",
           "type": "string"
-        },
-        "redirects": {
-          "description": "List of all configured redirects",
-          "type": "array",
-          "items": {
-            "$ref": "#/definitions/ProxyRedirectStatus"
-          }
         }
       }
     },

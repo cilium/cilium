@@ -224,7 +224,7 @@ func (l *kafkaLogRecord) log(verdict accesslog.FlowVerdict, code int, info strin
 		return
 	}
 	request := l.Type == accesslog.TypeRequest
-	l.localEndpoint.UpdateProxyRedirectStatistics("kafka", port, ingress, request, l.Verdict)
+	l.localEndpoint.UpdateProxyStatistics("kafka", port, ingress, request, l.Verdict)
 
 }
 

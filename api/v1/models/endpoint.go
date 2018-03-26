@@ -83,7 +83,7 @@ type Endpoint struct {
 	ProxyPolicyRevision int64 `json:"proxy-policy-revision,omitempty"`
 
 	// Statistics of the proxy redirects configured for this endpoint
-	ProxyStatistics []*ProxyRedirectStatistics `json:"proxy-statistics"`
+	ProxyStatistics []*ProxyStatistics `json:"proxy-statistics"`
 
 	// Current state of endpoint
 	// Required: true

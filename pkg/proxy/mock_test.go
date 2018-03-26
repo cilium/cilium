@@ -43,6 +43,6 @@ func (m *proxyUpdaterMock) GetLabelsSHA() string {
 }
 
 func (m *proxyUpdaterMock) OnProxyPolicyUpdate(policyRevision uint64) {}
-func (m *proxyUpdaterMock) UpdateProxyRedirectStatistics(l7Protocol string, port uint16, ingress, request bool,
+func (m *proxyUpdaterMock) UpdateProxyStatistics(l7Protocol string, port uint16, ingress, request bool,
 	verdict accesslog.FlowVerdict) {
 }

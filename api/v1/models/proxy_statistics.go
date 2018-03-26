@@ -15,10 +15,13 @@ import (
 	"github.com/go-openapi/validate"
 )
 
-// ProxyRedirectStatistics Statistics of a set of proxy redirects for an endpoint
-// swagger:model ProxyRedirectStatistics
+// ProxyStatistics Statistics of a set of proxy redirects for an endpoint
+// swagger:model ProxyStatistics
 
-type ProxyRedirectStatistics struct {
+type ProxyStatistics struct {
+
+	// The port the proxy is listening on
+	AllocatedProxyPort int64 `json:"allocated-proxy-port,omitempty"`
 
 	// Location of where the redirect is installed
 	Location string `json:"location,omitempty"`
@@ -33,16 +36,18 @@ type ProxyRedirectStatistics struct {
 	Statistics *RequestResponseStatistics `json:"statistics,omitempty"`
 }
 
-/* polymorph ProxyRedirectStatistics location false */
+/* polymorph ProxyStatistics allocated-proxy-port false */
 
-/* polymorph ProxyRedirectStatistics port false */
+/* polymorph ProxyStatistics location false */
 
-/* polymorph ProxyRedirectStatistics protocol false */
+/* polymorph ProxyStatistics port false */
 
-/* polymorph ProxyRedirectStatistics statistics false */
+/* polymorph ProxyStatistics protocol false */
 
-// Validate validates this proxy redirect statistics
-func (m *ProxyRedirectStatistics) Validate(formats strfmt.Registry) error {
+/* polymorph ProxyStatistics statistics false */
+
+// Validate validates this proxy statistics
+func (m *ProxyStatistics) Validate(formats strfmt.Registry) error {
 	var res []error
 
 	if err := m.validateLocation(formats); err != nil {
@@ -61,7 +66,7 @@ func (m *ProxyRedirectStatistics) Validate(formats strfmt.Registry) error {
 	return nil
 }
 
-var proxyRedirectStatisticsTypeLocationPropEnum []interface{}
+var proxyStatisticsTypeLocationPropEnum []interface{}
 
 func init() {
 	var res []string
@@ -69,26 +74,26 @@ func init() {
 		panic(err)
 	}
 	for _, v := range res {
-		proxyRedirectStatisticsTypeLocationPropEnum = append(proxyRedirectStatisticsTypeLocationPropEnum, v)
+		proxyStatisticsTypeLocationPropEnum = append(proxyStatisticsTypeLocationPropEnum, v)
 	}
 }
 
 const (
-	// ProxyRedirectStatisticsLocationIngress captures enum value "ingress"
-	ProxyRedirectStatisticsLocationIngress string = "ingress"
-	// ProxyRedirectStatisticsLocationEgress captures enum value "egress"
-	ProxyRedirectStatisticsLocationEgress string = "egress"
+	// ProxyStatisticsLocationIngress captures enum value "ingress"
+	ProxyStatisticsLocationIngress string = "ingress"
+	// ProxyStatisticsLocationEgress captures enum value "egress"
+	ProxyStatisticsLocationEgress string = "egress"
 )
 
 // prop value enum
-func (m *ProxyRedirectStatistics) validateLocationEnum(path, location string, value string) error {
-	if err := validate.Enum(path, location, value, proxyRedirectStatisticsTypeLocationPropEnum); err != nil {
+func (m *ProxyStatistics) validateLocationEnum(path, location string, value string) error {
+	if err := validate.Enum(path, location, value, proxyStatisticsTypeLocationPropEnum); err != nil {
 		return err
 	}
 	return nil
 }
 
-func (m *ProxyRedirectStatistics) validateLocation(formats strfmt.Registry) error {
+func (m *ProxyStatistics) validateLocation(formats strfmt.Registry) error {
 
 	if swag.IsZero(m.Location) { // not required
 		return nil
@@ -102,7 +107,7 @@ func (m *ProxyRedirectStatistics) validateLocation(formats strfmt.Registry) erro
 	return nil
 }
 
-func (m *ProxyRedirectStatistics) validateStatistics(formats strfmt.Registry) error {
+func (m *ProxyStatistics) validateStatistics(formats strfmt.Registry) error {
 
 	if swag.IsZero(m.Statistics) { // not required
 		return nil
@@ -122,7 +127,7 @@ func (m *ProxyRedirectStatistics) validateStatistics(formats strfmt.Registry) er
 }
 
 // MarshalBinary interface implementation
-func (m *ProxyRedirectStatistics) MarshalBinary() ([]byte, error) {
+func (m *ProxyStatistics) MarshalBinary() ([]byte, error) {
 	if m == nil {
 		return nil, nil
 	}
@@ -130,8 +135,8 @@ func (m *ProxyRedirectStatistics) MarshalBinary() ([]byte, error) {
 }
 
 // UnmarshalBinary interface implementation
-func (m *ProxyRedirectStatistics) UnmarshalBinary(b []byte) error {
-	var res ProxyRedirectStatistics
+func (m *ProxyStatistics) UnmarshalBinary(b []byte) error {
+	var res ProxyStatistics
 	if err := swag.ReadJSON(b, &res); err != nil {
 		return err
 	}

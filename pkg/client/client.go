@@ -171,11 +171,6 @@ func FormatStatusResponseBrief(w io.Writer, sr *models.StatusResponse) {
 	}
 }
 
-func formatMessageForwardStatistics(w io.Writer, direction string, s *models.MessageForwardingStatistics) {
-	fmt.Fprintf(w, "    %s %d received, %d forwarded, %d denied, %d error\n",
-		direction, s.Received, s.Forwarded, s.Denied, s.Error)
-}
-
 // FormatStatusResponse writes a StatusResponse as a string to the writer.
 //
 // The parameters 'allAddresses', 'allControllers', 'allNodes', respectively,
@@ -288,22 +283,9 @@ func FormatStatusResponse(w io.Writer, sr *models.StatusResponse, allAddresses, 
 	}
 
 	if sr.Proxy != nil {
-		fmt.Fprintf(w, "Proxy Status:\tOK, ip %s, %d redirects, port-range %s\n",
-			sr.Proxy.IP, len(sr.Proxy.Redirects), sr.Proxy.PortRange)
-
-		if allRedirects {
-			for _, r := range sr.Proxy.Redirects {
-				fmt.Fprintf(w, "  Redirect %s, endpoint %d %s, %s %d->%d (created %s, last-updated %s)\n",
-					r.Protocol, r.EndpointID, r.EndpointIdentity.Labels,
-					r.Location, r.Port, r.AllocatedProxyPort,
-					timeSince(time.Time(r.Created)),
-					timeSince(time.Time(r.LastUpdated)))
-				for _, rule := range r.Rules {
-					fmt.Fprintf(w, "    - %s\n", rule)
-				}
-			}
-		}
+		fmt.Fprintf(w, "Proxy Status:\tOK, ip %s, port-range %s\n",
+			sr.Proxy.IP, sr.Proxy.PortRange)
 	} else {
-		fmt.Fprintf(w, "Proxy Status:\tNo L7 rules loaded\n")
+		fmt.Fprintf(w, "Proxy Status:\tNo managed proxy redirect\n")
 	}
 }
