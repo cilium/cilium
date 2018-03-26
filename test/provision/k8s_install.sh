@@ -8,8 +8,6 @@ PROVISIONSRC="/tmp/provision/"
 SRC_FOLDER="/home/vagrant/go/src/github.com/cilium/cilium"
 SYSTEMD_SERVICES="$SRC_FOLDER/contrib/systemd"
 MOUNT_SYSTEMD="sys-fs-bpf.mount"
-K8SV10="v1.10.0-beta.3"
-K8SV11="v1.11.0-alpha.0"
 
 NODE=$1
 IP=$2
@@ -53,41 +51,45 @@ KUBEADM_SLAVE_OPTIONS=""
 KUBEADM_OPTIONS=""
 
 case $K8S_VERSION in
-    "1.7"|"1.8")
+    "1.7")
         KUBERNETES_CNI_VERSION="0.5.1-00"
+        K8S_FULL_VERSION="1.7.15"
+        ;;
+    "1.8")
+        KUBERNETES_CNI_VERSION="0.5.1-00"
+        K8S_FULL_VERSION="1.8.10"
         ;;
     "1.9")
         KUBERNETES_CNI_VERSION="0.6.0-00"
+        K8S_FULL_VERSION="1.9.6"
         KUBEADM_SLAVE_OPTIONS="--discovery-token-unsafe-skip-ca-verification"
         ;;
 
     "1.10")
-        KUBERNETES_CNI_VERSION="v0.6.0"
-        KUBEADM_OPTIONS="--kubernetes-version=${K8SV10}"
+        KUBERNETES_CNI_VERSION="0.6.0-00"
+        K8S_FULL_VERSION="1.10.0"
         KUBEADM_SLAVE_OPTIONS="--discovery-token-unsafe-skip-ca-verification"
         ;;
 
     "1.11")
         KUBERNETES_CNI_VERSION="v0.6.0"
-        KUBEADM_OPTIONS="--kubernetes-version=${K8SV11}"
+        K8S_FULL_VERSION="1.11.0-alpha.0"
+        KUBEADM_OPTIONS="--kubernetes-version=v${K8S_FULL_VERSION}"
         KUBEADM_SLAVE_OPTIONS="--discovery-token-unsafe-skip-ca-verification"
         ;;
 esac
 
 #Install kubernetes
 case $K8S_VERSION in
-    "1.7"|"1.8"|"1.9")
+    "1.7"|"1.8"|"1.9"|"1.10")
         install_k8s_using_packages \
             kubernetes-cni=${KUBERNETES_CNI_VERSION} \
-            kubelet=${K8S_VERSION}* \
-            kubeadm=${K8S_VERSION}* \
-            kubectl=${K8S_VERSION}*
-        ;;
-    "1.10")
-        install_k8s_using_binary "${K8SV10}" "${KUBERNETES_CNI_VERSION}"
+            kubelet=${K8S_FULL_VERSION}* \
+            kubeadm=${K8S_FULL_VERSION}* \
+            kubectl=${K8S_FULL_VERSION}*
         ;;
     "1.11")
-        install_k8s_using_binary "${K8SV11}" "${KUBERNETES_CNI_VERSION}"
+        install_k8s_using_binary "v${K8S_FULL_VERSION}" "${KUBERNETES_CNI_VERSION}"
         ;;
 esac
 
