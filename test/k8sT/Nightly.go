@@ -82,8 +82,7 @@ var _ = Describe("NightlyEpsMeasurement", func() {
 	AfterEach(func() {
 		kubectl.ValidateNoErrorsOnLogs(CurrentGinkgoTestDescription().Duration)
 		if CurrentGinkgoTestDescription().Failed {
-			ciliumPod, _ := kubectl.GetCiliumPodOnNode(helpers.KubeSystemNamespace, helpers.K8s1)
-			kubectl.CiliumReport(helpers.KubeSystemNamespace, ciliumPod, []string{
+			kubectl.CiliumReport(helpers.KubeSystemNamespace, []string{
 				"cilium service list",
 				"cilium endpoint list"})
 		}
@@ -352,8 +351,7 @@ var _ = Describe("NightlyExamples", func() {
 	AfterEach(func() {
 		kubectl.ValidateNoErrorsOnLogs(CurrentGinkgoTestDescription().Duration)
 		if CurrentGinkgoTestDescription().Failed {
-			ciliumPod, _ := kubectl.GetCiliumPodOnNode(helpers.KubeSystemNamespace, helpers.K8s1)
-			kubectl.CiliumReport(helpers.KubeSystemNamespace, ciliumPod, []string{
+			kubectl.CiliumReport(helpers.KubeSystemNamespace, []string{
 				"cilium service list",
 				"cilium endpoint list"})
 		}

@@ -54,8 +54,7 @@ var _ = Describe("K8sValidatedTunnelTest", func() {
 	AfterEach(func() {
 		kubectl.ValidateNoErrorsOnLogs(CurrentGinkgoTestDescription().Duration)
 		if CurrentGinkgoTestDescription().Failed {
-			ciliumPod, _ := kubectl.GetCiliumPodOnNode(helpers.KubeSystemNamespace, helpers.K8s1)
-			kubectl.CiliumReport(helpers.KubeSystemNamespace, ciliumPod, []string{
+			kubectl.CiliumReport(helpers.KubeSystemNamespace, []string{
 				"cilium bpf tunnel list",
 				"cilium endpoint list"})
 		}
@@ -85,7 +84,7 @@ var _ = Describe("K8sValidatedTunnelTest", func() {
 			cmds := []string{
 				"cilium bpf tunnel list",
 			}
-			kubectl.CiliumReport(helpers.KubeSystemNamespace, ciliumPod, cmds)
+			kubectl.CiliumReport(helpers.KubeSystemNamespace, cmds)
 		}
 
 		status.ExpectSuccess()
@@ -121,7 +120,7 @@ var _ = Describe("K8sValidatedTunnelTest", func() {
 			cmds := []string{
 				"cilium bpf tunnel list",
 			}
-			kubectl.CiliumReport(helpers.KubeSystemNamespace, ciliumPod, cmds)
+			kubectl.CiliumReport(helpers.KubeSystemNamespace, cmds)
 		}
 		Expect(status.IntOutput()).Should(Equal(5))
 
