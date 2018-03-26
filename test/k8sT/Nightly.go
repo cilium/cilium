@@ -23,10 +23,11 @@ import (
 	"time"
 
 	"github.com/cilium/cilium/api/v1/models"
+	. "github.com/cilium/cilium/test/ginkgo-ext"
 	"github.com/cilium/cilium/test/helpers"
 	"github.com/cilium/cilium/test/helpers/policygen"
 
-	. "github.com/onsi/ginkgo"
+	"github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/sirupsen/logrus"
 )
@@ -79,13 +80,17 @@ var _ = Describe("NightlyEpsMeasurement", func() {
 		once.Do(initialize)
 	})
 
-	AfterEach(func() {
+	AfterFailed(func() {
+		kubectl.CiliumReport(helpers.KubeSystemNamespace, []string{
+			"cilium service list",
+			"cilium endpoint list"})
+	})
+
+	JustAfterEach(func() {
 		kubectl.ValidateNoErrorsOnLogs(CurrentGinkgoTestDescription().Duration)
-		if CurrentGinkgoTestDescription().Failed {
-			kubectl.CiliumReport(helpers.KubeSystemNamespace, []string{
-				"cilium service list",
-				"cilium endpoint list"})
-		}
+	})
+
+	AfterEach(func() {
 		err := kubectl.WaitCleanAllTerminatingPods()
 		Expect(err).To(BeNil(), "Terminating containers are not deleted after timeout")
 
@@ -116,7 +121,7 @@ var _ = Describe("NightlyEpsMeasurement", func() {
 		return result
 	}
 
-	Measure("The endpoint creation", func(b Benchmarker) {
+	Measure("The endpoint creation", func(b ginkgo.Benchmarker) {
 		desiredState := string(models.EndpointStateReady)
 
 		deployEndpoints()
@@ -187,7 +192,7 @@ var _ = Describe("NightlyEpsMeasurement", func() {
 				"%s delete --all pods,svc,cnp -n %s", helpers.KubectlCmd, helpers.DefaultNamespace))
 		})
 
-		Measure(fmt.Sprintf("Applying policies to %d pods in a group of %d", numPods, bunchPods), func(b Benchmarker) {
+		Measure(fmt.Sprintf("Applying policies to %d pods in a group of %d", numPods, bunchPods), func(b ginkgo.Benchmarker) {
 			testDef := func() {
 				logger.Errorf("Creating %d new pods, total created are %d", numPods, podsCreated)
 				testSpecGroup := policygen.TestSpecsGroup{}
@@ -348,14 +353,17 @@ var _ = Describe("NightlyExamples", func() {
 		once.Do(initialize)
 	})
 
-	AfterEach(func() {
-		kubectl.ValidateNoErrorsOnLogs(CurrentGinkgoTestDescription().Duration)
-		if CurrentGinkgoTestDescription().Failed {
-			kubectl.CiliumReport(helpers.KubeSystemNamespace, []string{
-				"cilium service list",
-				"cilium endpoint list"})
-		}
+	AfterFailed(func() {
+		kubectl.CiliumReport(helpers.KubeSystemNamespace, []string{
+			"cilium service list",
+			"cilium endpoint list"})
+	})
 
+	JustAfterEach(func() {
+		kubectl.ValidateNoErrorsOnLogs(CurrentGinkgoTestDescription().Duration)
+	})
+
+	AfterEach(func() {
 		kubectl.Delete(demoPath)
 		kubectl.Delete(l3Policy)
 		kubectl.Delete(l7Policy)
