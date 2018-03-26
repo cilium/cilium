@@ -62,6 +62,7 @@ var (
 	FIt                                   = wrapItFunc(ginkgo.FIt, true)
 	PIt                                   = ginkgo.PIt
 	XIt                                   = ginkgo.XIt
+	Measure                               = ginkgo.Measure
 	By                                    = ginkgo.By
 	JustBeforeEach                        = ginkgo.JustBeforeEach
 	BeforeSuite                           = ginkgo.BeforeSuite
