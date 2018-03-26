@@ -19,8 +19,9 @@ import (
 	"sync"
 
 	"github.com/cilium/cilium/api/v1/models"
+	. "github.com/cilium/cilium/test/ginkgo-ext"
 	"github.com/cilium/cilium/test/helpers"
-	. "github.com/onsi/ginkgo"
+
 	. "github.com/onsi/gomega"
 	"github.com/sirupsen/logrus"
 )
@@ -94,16 +95,18 @@ var _ = Describe("K8sValidatedKafkaPolicyTest", func() {
 		Expect(err).Should(BeNil())
 	})
 
-	AfterEach(func() {
-		kubectl.ValidateNoErrorsOnLogs(CurrentGinkgoTestDescription().Duration)
-		if CurrentGinkgoTestDescription().Failed {
-			kubectl.CiliumReport(helpers.KubeSystemNamespace, []string{
-				"cilium bpf tunnel list",
-				"cilium endpoint list",
-				"cilium service list",
-				"cilium policy get"})
-		}
+	AfterFailed(func() {
+		kubectl.CiliumReport(helpers.KubeSystemNamespace, []string{
+			"cilium service list",
+			"cilium policy get",
+			"cilium endpoint list"})
+	})
 
+	JustAfterEach(func() {
+		kubectl.ValidateNoErrorsOnLogs(CurrentGinkgoTestDescription().Duration)
+	})
+
+	AfterEach(func() {
 		By("Deleting demo path")
 		kubectl.Delete(demoPath)
 		err := kubectl.WaitCleanAllTerminatingPods()

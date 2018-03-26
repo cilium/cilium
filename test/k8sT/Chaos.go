@@ -18,9 +18,9 @@ import (
 	"fmt"
 	"sync"
 
+	. "github.com/cilium/cilium/test/ginkgo-ext"
 	"github.com/cilium/cilium/test/helpers"
 
-	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/sirupsen/logrus"
 )
@@ -60,14 +60,17 @@ var _ = Describe("K8sValidatedChaosTest", func() {
 		Expect(err).Should(BeNil(), "Pods are not ready after timeout")
 	})
 
-	AfterEach(func() {
-		kubectl.ValidateNoErrorsOnLogs(CurrentGinkgoTestDescription().Duration)
-		if CurrentGinkgoTestDescription().Failed {
-			kubectl.CiliumReport(helpers.KubeSystemNamespace, []string{
-				"cilium service list",
-				"cilium endpoint list"})
-		}
+	AfterFailed(func() {
+		kubectl.CiliumReport(helpers.KubeSystemNamespace, []string{
+			"cilium service list",
+			"cilium endpoint list"})
+	})
 
+	JustAfterEach(func() {
+		kubectl.ValidateNoErrorsOnLogs(CurrentGinkgoTestDescription().Duration)
+	})
+
+	AfterEach(func() {
 		kubectl.Delete(demoDSPath).ExpectSuccess(
 			"%s deployment cannot be deleted", demoDSPath)
 		err := kubectl.WaitCleanAllTerminatingPods()

@@ -19,9 +19,9 @@ import (
 	"path/filepath"
 	"sync"
 
+	. "github.com/cilium/cilium/test/ginkgo-ext"
 	"github.com/cilium/cilium/test/helpers"
 
-	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/sirupsen/logrus"
 )
@@ -76,12 +76,15 @@ var _ = Describe(demoTestName, func() {
 		once.Do(initialize)
 	})
 
-	AfterEach(func() {
-		kubectl.ValidateNoErrorsOnLogs(CurrentGinkgoTestDescription().Duration)
-		if CurrentGinkgoTestDescription().Failed {
-			kubectl.CiliumReport(helpers.KubeSystemNamespace)
-		}
+	AfterFailed(func() {
+		kubectl.CiliumReport(helpers.KubeSystemNamespace)
+	})
 
+	JustAfterEach(func() {
+		kubectl.ValidateNoErrorsOnLogs(CurrentGinkgoTestDescription().Duration)
+	})
+
+	AfterEach(func() {
 		By("Deleting all resources created during test")
 		kubectl.Delete(l7PolicyYAMLLink)
 		kubectl.Delete(l4PolicyYAMLLink)

@@ -22,9 +22,9 @@ import (
 	"time"
 
 	"github.com/asaskevich/govalidator"
+	. "github.com/cilium/cilium/test/ginkgo-ext"
 	"github.com/cilium/cilium/test/helpers"
 
-	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/sirupsen/logrus"
 	"k8s.io/api/core/v1"
@@ -60,14 +60,18 @@ var _ = Describe("K8sValidatedServicesTest", func() {
 		once.Do(initialize)
 	})
 
-	AfterEach(func() {
+	AfterFailed(func() {
+		kubectl.CiliumReport(helpers.KubeSystemNamespace, []string{
+			"cilium service list",
+			"cilium policy get",
+			"cilium endpoint list"})
+	})
+
+	JustAfterEach(func() {
 		kubectl.ValidateNoErrorsOnLogs(CurrentGinkgoTestDescription().Duration)
-		if CurrentGinkgoTestDescription().Failed {
-			kubectl.CiliumReport("kube-system", []string{
-				"cilium service list",
-				"cilium endpoint list",
-				"cilium policy get"})
-		}
+	})
+
+	AfterEach(func() {
 		err := kubectl.WaitCleanAllTerminatingPods()
 		Expect(err).To(BeNil(), "Terminating containers are not deleted after timeout")
 	})
