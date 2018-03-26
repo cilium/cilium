@@ -18,9 +18,9 @@ import (
 	"fmt"
 	"sync"
 
+	. "github.com/cilium/cilium/test/ginkgo-ext"
 	"github.com/cilium/cilium/test/helpers"
 
-	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/sirupsen/logrus"
 )
@@ -47,14 +47,18 @@ var _ = Describe(testName, func() {
 		once.Do(initialize)
 	})
 
-	AfterEach(func() {
+	AfterFailed(func() {
+		kubectl.CiliumReport(helpers.KubeSystemNamespace, []string{
+			"cilium service list",
+			"cilium endpoint list",
+			"cilium policy get"})
+	})
+
+	JustAfterEach(func() {
 		kubectl.ValidateNoErrorsOnLogs(CurrentGinkgoTestDescription().Duration)
-		if CurrentGinkgoTestDescription().Failed {
-			kubectl.CiliumReport(helpers.KubeSystemNamespace, []string{
-				"cilium service list",
-				"cilium endpoint list",
-				"cilium policy get"})
-		}
+	})
+
+	AfterEach(func() {
 		err := kubectl.WaitCleanAllTerminatingPods()
 		Expect(err).To(BeNil(), "Terminating containers are not deleted after timeout")
 	})

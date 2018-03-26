@@ -21,10 +21,10 @@ import (
 	"time"
 
 	"github.com/cilium/cilium/api/v1/models"
+	. "github.com/cilium/cilium/test/ginkgo-ext"
 	"github.com/cilium/cilium/test/helpers"
 
 	"github.com/go-openapi/swag"
-	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/sirupsen/logrus"
 	"k8s.io/api/core/v1"
@@ -81,14 +81,18 @@ var _ = Describe("K8sValidatedPolicyTest", func() {
 	})
 
 	AfterEach(func() {
-		kubectl.ValidateNoErrorsOnLogs(CurrentGinkgoTestDescription().Duration)
-		if CurrentGinkgoTestDescription().Failed {
-			kubectl.CiliumReport(helpers.KubeSystemNamespace, []string{
-				"cilium bpf tunnel list",
-				"cilium endpoint list"})
-		}
 		err := kubectl.WaitCleanAllTerminatingPods()
 		Expect(err).To(BeNil(), "Terminating containers are not deleted after timeout")
+	})
+
+	AfterFailed(func() {
+		kubectl.CiliumReport(helpers.KubeSystemNamespace, []string{
+			"cilium service list",
+			"cilium endpoint list"})
+	})
+
+	JustAfterEach(func() {
+		kubectl.ValidateNoErrorsOnLogs(CurrentGinkgoTestDescription().Duration)
 	})
 
 	Context("Basic Test", func() {
@@ -628,12 +632,6 @@ var _ = Describe("K8sValidatedPolicyTest", func() {
 			By("Deleting the namespace that was used for the pods")
 			err := kubectl.CoreV1().Namespaces().Delete(namespace, &metav1.DeleteOptions{})
 			Expect(err).NotTo(HaveOccurred())
-
-			if CurrentGinkgoTestDescription().Failed {
-				kubectl.CiliumReport(helpers.KubeSystemNamespace, []string{
-					"cilium policy get",
-					"cilium endpoint list"})
-			}
 		})
 
 		It("should enforce policy based on NamespaceSelector", func() {
@@ -717,14 +715,17 @@ var _ = Describe("K8sValidatedPolicyTestAcrossNamespaces", func() {
 		namespaceAction(developmentNs, helpers.Create)
 	})
 
-	AfterEach(func() {
-		kubectl.ValidateNoErrorsOnLogs(CurrentGinkgoTestDescription().Duration)
-		if CurrentGinkgoTestDescription().Failed {
-			kubectl.CiliumReport(helpers.KubeSystemNamespace, []string{
-				"cilium bpf tunnel list",
-				"cilium endpoint list"})
-		}
+	AfterFailed(func() {
+		kubectl.CiliumReport(helpers.KubeSystemNamespace, []string{
+			"cilium service list",
+			"cilium endpoint list"})
+	})
 
+	JustAfterEach(func() {
+		kubectl.ValidateNoErrorsOnLogs(CurrentGinkgoTestDescription().Duration)
+	})
+
+	AfterEach(func() {
 		namespaceAction(qaNs, helpers.Delete)
 		namespaceAction(developmentNs, helpers.Delete)
 
