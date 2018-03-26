@@ -38,12 +38,16 @@ var _ = Describe("RuntimeValidatedConnectivityTest", func() {
 	}
 
 	AfterEach(func() {
-		vm.ValidateNoErrorsOnLogs(CurrentGinkgoTestDescription().Duration)
-		if CurrentGinkgoTestDescription().Failed {
-			vm.ReportFailed()
-		}
 		vm.PolicyDelAll().ExpectSuccess("Policies cannot be deleted")
 		return
+	})
+
+	JustAfterEach(func() {
+		vm.ValidateNoErrorsOnLogs(CurrentGinkgoTestDescription().Duration)
+	})
+
+	AfterFailed(func() {
+		vm.ReportFailed()
 	})
 
 	Context("Basic Connectivity test", func() {
@@ -486,11 +490,6 @@ var _ = Describe("RuntimeValidatedConntrackTest", func() {
 	})
 
 	AfterEach(func() {
-		vm.ValidateNoErrorsOnLogs(CurrentGinkgoTestDescription().Duration)
-		if CurrentGinkgoTestDescription().Failed {
-			vm.ReportFailed()
-		}
-
 		containersToRm := []string{helpers.Client, helpers.Server, helpers.Httpd1, helpers.Httpd2, curl1ContainerName, curl2ContainerName}
 		for _, containerToRm := range containersToRm {
 			vm.ContainerRm(containerToRm)
@@ -499,6 +498,14 @@ var _ = Describe("RuntimeValidatedConntrackTest", func() {
 
 		res := vm.SetPolicyEnforcement(helpers.PolicyEnforcementDefault)
 		res.ExpectSuccess("Cannot set policy enforcement to default mode")
+	})
+
+	JustAfterEach(func() {
+		vm.ValidateNoErrorsOnLogs(CurrentGinkgoTestDescription().Duration)
+	})
+
+	AfterFailed(func() {
+		vm.ReportFailed()
 	})
 
 	It("Conntrack-related configuration options for endpoints", func() {

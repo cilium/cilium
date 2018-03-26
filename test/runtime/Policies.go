@@ -74,12 +74,12 @@ var _ = Describe("RuntimeValidatedPolicyEnforcement", func() {
 		Expect(areEndpointsReady).Should(BeTrue(), "Endpoints are not ready after timeout")
 	})
 
-	AfterEach(func() {
+	JustAfterEach(func() {
 		vm.ValidateNoErrorsOnLogs(CurrentGinkgoTestDescription().Duration)
+	})
 
-		if CurrentGinkgoTestDescription().Failed {
-			vm.ReportFailed()
-		}
+	AfterFailed(func() {
+		vm.ReportFailed()
 	})
 
 	Context("Policy Enforcement Default", func() {
@@ -426,12 +426,15 @@ var _ = Describe("RuntimeValidatedPolicies", func() {
 	})
 
 	AfterEach(func() {
-		vm.ValidateNoErrorsOnLogs(CurrentGinkgoTestDescription().Duration)
-
-		if CurrentGinkgoTestDescription().Failed {
-			vm.ReportFailed()
-		}
 		vm.PolicyDelAll().ExpectSuccess("Unable to delete all policies")
+	})
+
+	JustAfterEach(func() {
+		vm.ValidateNoErrorsOnLogs(CurrentGinkgoTestDescription().Duration)
+	})
+
+	AfterFailed(func() {
+		vm.ReportFailed()
 	})
 
 	AfterAll(func() {

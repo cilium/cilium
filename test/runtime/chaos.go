@@ -47,12 +47,16 @@ var _ = Describe("RuntimeValidatedChaos", func() {
 	})
 
 	AfterEach(func() {
-		vm.ValidateNoErrorsOnLogs(CurrentGinkgoTestDescription().Duration)
-		if CurrentGinkgoTestDescription().Failed {
-			vm.ReportFailed()
-		}
 		vm.ContainerRm(helpers.Client)
 		vm.ContainerRm(helpers.Server)
+	})
+
+	JustAfterEach(func() {
+		vm.ValidateNoErrorsOnLogs(CurrentGinkgoTestDescription().Duration)
+	})
+
+	AfterFailed(func() {
+		vm.ReportFailed()
 	})
 
 	It("Endpoint recovery on restart", func() {

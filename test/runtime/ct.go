@@ -134,19 +134,23 @@ var _ = Describe("DisabledRuntimeValidatedConntrackTable", func() {
 	})
 
 	AfterEach(func() {
-
-		vm.ValidateNoErrorsOnLogs(CurrentGinkgoTestDescription().Duration)
-		if CurrentGinkgoTestDescription().Failed {
-			vm.ReportFailed(
-				"sudo cilium bpf ct list global",
-				"sudo cilium endpoint list")
-		}
 		vm.PolicyDelAll()
 		netcatPort = 11111
 
 		// A lot of these test checks the number of connections. To avoid
 		// having false positives clean CT table after each test
 		vm.ExecCilium("bpf ct flush global")
+
+	})
+
+	JustAfterEach(func() {
+		vm.ValidateNoErrorsOnLogs(CurrentGinkgoTestDescription().Duration)
+	})
+
+	AfterFailed(func() {
+		vm.ReportFailed(
+			"sudo cilium bpf ct list global",
+			"sudo cilium endpoint list")
 
 	})
 
