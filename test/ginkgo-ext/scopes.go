@@ -30,17 +30,19 @@ import (
 )
 
 type scope struct {
-	parent       *scope
-	children     []*scope
-	counter      int32
-	before       []func()
-	after        []func()
-	afterEach    []func()
-	started      int32
-	failed       bool
-	normalTests  int
-	focusedTests int
-	focused      bool
+	parent        *scope
+	children      []*scope
+	counter       int32
+	before        []func()
+	after         []func()
+	afterEach     []func()
+	justAfterEach []func()
+	afterFail     []func()
+	started       int32
+	failed        bool
+	normalTests   int
+	focusedTests  int
+	focused       bool
 }
 
 var (
@@ -120,11 +122,49 @@ func AfterAll(body func()) bool {
 	return true
 }
 
+//JustAfterEach runs the function just after each test, before all AfterEeach,
+//AfterFailed and AfterAll
+func JustAfterEach(body func()) bool {
+	if currentScope != nil {
+		if body == nil {
+			currentScope.before = nil
+			return true
+		}
+		currentScope.justAfterEach = append(currentScope.justAfterEach, body)
+		return AfterEach(func() {})
+	}
+	return true
+}
+
+// JustAfterFailed runs the function after test and JustAfterEach if the test
+// has failed and before all AfterEach
+func AfterFailed(body func()) bool {
+	if currentScope != nil {
+		if body == nil {
+			currentScope.before = nil
+			return true
+		}
+		currentScope.afterFail = append(currentScope.afterFail, body)
+		return AfterEach(func() {})
+	}
+	return true
+}
+
 // RunAfterEach is a wrapper that executes all AfterEach functions that are
 // stored in cs.afterEach array.
 func RunAfterEach(cs *scope) {
 	if cs == nil {
 		return
+	}
+
+	for _, body := range cs.justAfterEach {
+		body()
+	}
+
+	for _, body := range cs.afterFail {
+		if ginkgo.CurrentGinkgoTestDescription().Failed {
+			body()
+		}
 	}
 
 	for _, body := range cs.afterEach {
