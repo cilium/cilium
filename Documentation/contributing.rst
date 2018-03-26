@@ -60,9 +60,9 @@ To run Cilium locally on VMs, you need:
 +----------------------------------------------------------------------------------+-----------------------+--------------------------------------------------------------------------------+
 | Dependency                                                                       | Version / Commit ID   | Download Command                                                               |
 +==================================================================================+=======================+================================================================================+
-| `Vagrant <https://www.vagrantup.com/downloads.html>`_                            | >= 1.8.3              | `Vagrant Install Instructions <https://www.vagrantup.com/docs/installation/>`_ |
+| `Vagrant <https://www.vagrantup.com/downloads.html>`_                            | >= 2.0                | `Vagrant Install Instructions <https://www.vagrantup.com/docs/installation/>`_ |
 +----------------------------------------------------------------------------------+-----------------------+--------------------------------------------------------------------------------+
-| `VirtualBox <https://www.virtualbox.org/wiki/Downloads>`_ (if not using libvirt) | >= 5.1.22             | N/A (OS-specific)                                                              |
+| `VirtualBox <https://www.virtualbox.org/wiki/Downloads>`_ (if not using libvirt) | >= 5.2                | N/A (OS-specific)                                                              |
 +----------------------------------------------------------------------------------+-----------------------+--------------------------------------------------------------------------------+
 
 Finally, in order to build the documentation, you should have Sphinx installed:
@@ -181,6 +181,31 @@ If for some reason, running of the provisioning script fails, you should bring t
 
     $ vagrant halt
 
+Packer-CI-Build
+^^^^^^^^^^^^^^^^
+
+As part of Cilium development, we use a custom base box with a bunch of
+pre-installed libraries and tools that we need to enhance our daily workflow.
+That base box is built with `Packer <https://www.packer.io/>`_ and it is hosted
+in the `packer-ci-build <https://github.com/cilium/packer-ci-build>`_ Github
+repository.
+
+New versions of this box can be created via `Jenkins
+<https://jenkins.cilium.io/job/cilium/job/packer-ci-build/job/master/>`_, where
+new builds of the image will be pushed to  `Vagrant Cloud
+<https://app.vagrantup.com/cilium>`_ . The version of the image correspods to
+the `BUILD_ID <https://qa.nuxeo.org/jenkins/pipeline-syntax/globals#env>`_ on
+Jenkins job.  That version ID will be used in Cilium `Vagrantfiles
+<https://github.com/cilium/cilium/blob/master/test/Vagrantfile#L10>`_.
+
+Changes to this image are made via contributions to the packer-ci-build
+repository. Authorized GitHub users can trigger builds with a GitHub comment on
+the PR containing the trigger phrase ``build-me-please``.
+
+This box will need to be updated when a new developer needs a new dependency
+that it's not satisfied in the current version of the box, or the cilium
+dependencies caches differ from the current master, to avoid to download all
+this libraries in the CI build.
 
 Unit Testing
 ------------
@@ -564,6 +589,38 @@ Best Practices for Writing Tests
     if CurrentGinkgoTestDescription().Failed {
         vm.ReportFailed()
     }
+
+
+Ginkgo Extensions
+~~~~~~~~~~~~~~~~~~
+
+In Cilium, some Ginkgo features are extended to cover some uses cases that are
+useful for testing Cilium.
+
+BeforeAll
+^^^^^^^^^^
+
+This function will run before all `BeforeEach
+<https://onsi.github.io/ginkgo/#extracting-common-setup-beforeeach>`_ within a
+`Describe or Context
+<https://onsi.github.io/ginkgo/#organizing-specs-with-containers-describe-and-context>`_.
+This method is an equivalent to ``SetUp`` or initalize function in common
+unit test frameworks.
+
+AfterAll
+^^^^^^^^^
+
+This method will run after all `AfterEach
+<https://onsi.github.io/ginkgo/#extracting-common-setup-beforeeach>`_ functions
+defined in a `Describe or Context
+<https://onsi.github.io/ginkgo/#organizing-specs-with-containers-describe-and-context>`_.
+This method is used for tearing down objects created which are used by all
+``Its`` within the given ``Context`` or ``Describe``. It is ran after all Its
+have ran, this method is a equivalent to `tearDown` or `finalize` methods in
+common unit test frameworks.
+
+A good use case for using ``AfterAll`` method is to remove containers or pods
+that are needed for multiple ``Its`` in the given ``Context`` or ``Describe``.
 
 Debugging:
 ~~~~~~~~~~~
