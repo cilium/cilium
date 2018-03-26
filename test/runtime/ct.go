@@ -475,7 +475,7 @@ var _ = Describe("DisabledRuntimeValidatedConntrackTable", func() {
 		}
 
 		res := vm.PolicyDel(policyLabels)
-		res.WasSuccessful()
+		res.ExpectSuccess("Expected delete of policy %q to succeed", policyLabels)
 
 		By("Installing L3-L4-L7 policy")
 
@@ -511,7 +511,7 @@ var _ = Describe("DisabledRuntimeValidatedConntrackTable", func() {
 
 		By("Removing policy %q", policyLabels)
 		res = vm.PolicyDel(policyLabels)
-		res.WasSuccessful()
+		res.ExpectSuccess("Expected delete of policy %q to succeed", policyLabels)
 
 		By("Installing other L7 rule after testing L7. The previous rule shouldn't work!")
 
