@@ -502,10 +502,10 @@ type Endpoint struct {
 	proxyStatisticsMutex lock.RWMutex
 
 	// proxyStatistics contains statistics of proxy redirects.
-	// They keys in this map are the ProxyRedirectStatistics with their
-	// Statistics set to nil.
+	// They keys in this map are the ProxyStatistics with their
+	// AllocatedProxyPort and Statistics fields set to 0 and nil.
 	// You must hold Endpoint.proxyStatisticsMutex to read or write it.
-	proxyStatistics map[models.ProxyRedirectStatistics]*models.ProxyRedirectStatistics
+	proxyStatistics map[models.ProxyStatistics]*models.ProxyStatistics
 
 	// nextPolicyRevision is the policy revision that the endpoint has
 	// updated to and that will become effective with the next regenerate
@@ -786,11 +786,13 @@ func (e *Endpoint) GetModelRLocked() *models.Endpoint {
 
 	// Make a shallow copy of the stats.
 	e.proxyStatisticsMutex.RLock()
-	proxyStats := make([]*models.ProxyRedirectStatistics, 0, len(e.proxyStatistics))
-	for _, s := range e.proxyStatistics {
-		proxyStats = append(proxyStats, s)
+	proxyStats := make([]*models.ProxyStatistics, 0, len(e.proxyStatistics))
+	for _, stats := range e.proxyStatistics {
+		statsCopy := *stats
+		proxyStats = append(proxyStats, &statsCopy)
 	}
 	e.proxyStatisticsMutex.RUnlock()
+	sortProxyStats(proxyStats)
 
 	mdl := &models.Endpoint{
 		ID:               int64(e.ID),
@@ -1951,27 +1953,24 @@ func (e *Endpoint) OnProxyPolicyUpdate(revision uint64) {
 	e.Mutex.Unlock()
 }
 
-// UpdateProxyRedirectStatistics updates the Endpoint's proxy redirect
-// statistics to account for a new observed flow with the given
-// characteristics.
-func (e *Endpoint) UpdateProxyRedirectStatistics(l7Protocol string, port uint16, ingress, request bool, verdict accesslog.FlowVerdict) {
+// getProxyStatisticsLocked gets the ProxyStatistics for the flows with the
+// given characteristics, or adds a new one and returns it.
+// Must be called with e.proxyStatisticsMutex held.
+func (e *Endpoint) getProxyStatisticsLocked(l7Protocol string, port uint16, ingress bool) *models.ProxyStatistics {
 	var location string
 	if ingress {
-		location = models.ProxyRedirectStatisticsLocationIngress
+		location = models.ProxyStatisticsLocationIngress
 	} else {
-		location = models.ProxyRedirectStatisticsLocationEgress
+		location = models.ProxyStatisticsLocationEgress
 	}
-	key := models.ProxyRedirectStatistics{
+	key := models.ProxyStatistics{
 		Location: location,
 		Port:     int64(port),
 		Protocol: l7Protocol,
 	}
 
-	e.proxyStatisticsMutex.Lock()
-	defer e.proxyStatisticsMutex.Unlock()
-
 	if e.proxyStatistics == nil {
-		e.proxyStatistics = make(map[models.ProxyRedirectStatistics]*models.ProxyRedirectStatistics)
+		e.proxyStatistics = make(map[models.ProxyStatistics]*models.ProxyStatistics)
 	}
 
 	proxyStats, ok := e.proxyStatistics[key]
@@ -1984,6 +1983,17 @@ func (e *Endpoint) UpdateProxyRedirectStatistics(l7Protocol string, port uint16,
 		}
 		e.proxyStatistics[key] = proxyStats
 	}
+
+	return proxyStats
+}
+
+// UpdateProxyStatistics updates the Endpoint's proxy  statistics to account
+// for a new observed flow with the given characteristics.
+func (e *Endpoint) UpdateProxyStatistics(l7Protocol string, port uint16, ingress, request bool, verdict accesslog.FlowVerdict) {
+	e.proxyStatisticsMutex.Lock()
+	defer e.proxyStatisticsMutex.Unlock()
+
+	proxyStats := e.getProxyStatisticsLocked(l7Protocol, port, ingress)
 
 	var stats *models.MessageForwardingStatistics
 	if request {

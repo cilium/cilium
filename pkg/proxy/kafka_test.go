@@ -28,6 +28,7 @@ import (
 	"github.com/optiopay/kafka"
 	"github.com/optiopay/kafka/proto"
 	"github.com/sirupsen/logrus"
+
 	. "gopkg.in/check.v1"
 )
 
@@ -178,7 +179,6 @@ func (k *proxyTestSuite) TestKafkaRedirect(c *C) {
 		"address": server.Address(),
 	}).Debug("Started kafka server")
 
-	_, serverPort := server.HostPort()
 	proxyAddress := fmt.Sprintf("%s:%d", proxyAddress, uint16(proxyPort))
 
 	kafkaRule1 := api.PortRuleKafka{APIKey: "metadata", APIVersion: "0"}
@@ -187,7 +187,7 @@ func (k *proxyTestSuite) TestKafkaRedirect(c *C) {
 	kafkaRule2 := api.PortRuleKafka{APIKey: "produce", APIVersion: "0", Topic: "allowedTopic"}
 	c.Assert(kafkaRule2.Sanitize(), IsNil)
 
-	r := newRedirect(uint16(serverPort), localEndpointMock, "foo")
+	r := newRedirect(localEndpointMock, "foo")
 	r.ProxyPort = uint16(proxyPort)
 	r.ingress = true
 

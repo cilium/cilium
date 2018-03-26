@@ -172,5 +172,5 @@ func (s *accessLogServer) logRecord(localEndpoint logger.EndpointUpdater, pblog 
 		port = r.SourceEndpoint.Port
 	}
 	request := r.Type == accesslog.TypeRequest
-	localEndpoint.UpdateProxyRedirectStatistics("http", port, ingress, request, r.Verdict)
+	localEndpoint.UpdateProxyStatistics("http", port, ingress, request, r.Verdict)
 }

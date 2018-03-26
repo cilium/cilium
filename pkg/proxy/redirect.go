@@ -15,7 +15,6 @@
 package proxy
 
 import (
-	"encoding/json"
 	"fmt"
 	"net"
 	"time"
@@ -44,7 +43,6 @@ type Redirect struct {
 	endpointID     uint64
 	id             string
 	ingress        bool
-	port           uint16
 	localEndpoint  logger.EndpointUpdater
 	parserType     policy.L7ParserType
 	created        time.Time
@@ -57,9 +55,8 @@ type Redirect struct {
 	rules       policy.L7DataMap
 }
 
-func newRedirect(port uint16, localEndpoint logger.EndpointUpdater, id string) *Redirect {
+func newRedirect(localEndpoint logger.EndpointUpdater, id string) *Redirect {
 	return &Redirect{
-		port:          port,
 		localEndpoint: localEndpoint,
 		id:            id,
 		created:       time.Now(),
@@ -73,34 +70,6 @@ func (r *Redirect) updateRules(l4 *policy.L4Filter) {
 	for key, val := range l4.L7RulesPerEp {
 		r.rules[key] = val
 	}
-}
-
-func (r *Redirect) getLocation() string {
-	if r.ingress {
-		return "ingress"
-	}
-
-	return "egress"
-}
-
-func (r *Redirect) getRulesModel() []string {
-	model := make([]string, len(r.rules))
-	idx := 0
-	for selector, rule := range r.rules {
-		jsonSelector, _ := json.Marshal(selector)
-		var jsonRule []byte
-
-		switch r.parserType {
-		case policy.ParserTypeHTTP:
-			jsonRule, _ = json.Marshal(rule.HTTP)
-		case policy.ParserTypeKafka:
-			jsonRule, _ = json.Marshal(rule.Kafka)
-		}
-
-		model[idx] = fmt.Sprintf("from %s: %s", string(jsonSelector), string(jsonRule))
-		idx++
-	}
-	return model
 }
 
 // removeProxyMapEntryOnClose is called after the proxy has closed a connection
