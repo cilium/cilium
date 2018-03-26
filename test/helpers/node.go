@@ -31,7 +31,8 @@ import (
 
 var (
 	//SSHMetaLogs is a buffer where all commands sent over ssh are saved.
-	SSHMetaLogs = NewWriter(new(bytes.Buffer))
+	SSHMetaLogs      = NewWriter(new(bytes.Buffer))
+	sendToLog   bool = true // Set to false if commands don't need to save in the logs
 )
 
 // SSHMeta contains metadata to SSH into a remote location to run tests
@@ -163,8 +164,9 @@ func (s *SSHMeta) Exec(cmd string) *CmdRes {
 	if exiterr, ok := err.(*ssh.ExitError); ok {
 		res.exitcode = exiterr.Waitmsg.ExitStatus()
 	}
-
-	res.SendToLog()
+	if sendToLog {
+		res.SendToLog()
+	}
 	return &res
 }
 
@@ -218,7 +220,9 @@ func (s *SSHMeta) ExecContext(ctx context.Context, cmd string) *CmdRes {
 
 	go func() {
 		s.sshClient.RunCommandContext(ctx, command)
-		res.SendToLog()
+		if sendToLog {
+			res.SendToLog()
+		}
 	}()
 
 	return &res

@@ -758,6 +758,11 @@ func (kub *Kubectl) CiliumPolicyAction(namespace, filepath string, action Resour
 // TODO - remove 'pod' parameter, this function should just get logs from all
 // Cilium pods without the need to provide the parameter itself.
 func (kub *Kubectl) CiliumReport(namespace string, pod string, commands ...[]string) {
+	sendToLog = false
+	defer func() {
+		sendToLog = true
+	}()
+
 	wr := kub.logger.Logger.Out
 	fmt.Fprint(wr, "StackTrace Begin\n")
 	data := kub.Logs(namespace, pod)
