@@ -502,16 +502,15 @@ func (s *SSHMeta) PolicyWait(revisionNum int) *CmdRes {
 // ReportFailed gathers relevant Cilium runtime data and logs for debugging
 // purposes.
 func (s *SSHMeta) ReportFailed(commands ...string) {
+	sendToLog = false
+	defer func() {
+		sendToLog = true
+	}()
+
 	wr := s.logger.Logger.Out
 	fmt.Fprint(wr, "===================== TEST FAILED =====================\n")
 	fmt.Fprint(wr, "Gathering Logs and Cilium CLI Output\n")
-
-	//FIXME: Ginkgo PR383 add here --since option
-	res := s.Exec("sudo journalctl --no-pager -u cilium | tail -n 50")
-	fmt.Fprint(wr, res.Output())
-
-	fmt.Fprint(wr, "\n")
-	res = s.ExecCilium("endpoint list")
+	res := s.ExecCilium("endpoint list")
 	fmt.Fprint(wr, res.Output())
 
 	for _, cmd := range commands {
