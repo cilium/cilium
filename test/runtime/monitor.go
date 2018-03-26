@@ -54,11 +54,12 @@ var _ = Describe("RuntimeValidatedMonitorTest", func() {
 		Expect(areEndpointsReady).Should(BeTrue())
 	})
 
-	AfterEach(func() {
+	JustAfterEach(func() {
 		vm.ValidateNoErrorsOnLogs(CurrentGinkgoTestDescription().Duration)
-		if CurrentGinkgoTestDescription().Failed {
-			vm.ReportFailed()
-		}
+	})
+
+	AfterFailed(func() {
+		vm.ReportFailed()
 	})
 
 	BeforeEach(func() {

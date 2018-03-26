@@ -41,6 +41,20 @@ var _ = Describe("RuntimeValidatedLB", func() {
 		vm.ServiceDelAll().ExpectSuccess()
 	})
 
+	JustAfterEach(func() {
+		vm.ValidateNoErrorsOnLogs(CurrentGinkgoTestDescription().Duration)
+	})
+
+	AfterFailed(func() {
+		vm.ReportFailed(
+			"sudo cilium service list",
+			"sudo cilium endpoint list")
+	})
+
+	AfterEach(func() {
+		cleanupLBDevice(vm)
+	}, 500)
+
 	images := map[string]string{
 		helpers.Httpd1: helpers.HttpdImage,
 		helpers.Httpd2: helpers.HttpdImage,
@@ -65,17 +79,6 @@ var _ = Describe("RuntimeValidatedLB", func() {
 
 	BeforeEach(func() {
 		vm.ServiceDelAll().ExpectSuccess()
-	}, 500)
-
-	AfterEach(func() {
-		vm.ValidateNoErrorsOnLogs(CurrentGinkgoTestDescription().Duration)
-
-		if CurrentGinkgoTestDescription().Failed {
-			vm.ReportFailed(
-				"sudo cilium service list",
-				"sudo cilium endpoint list")
-		}
-		cleanupLBDevice(vm)
 	}, 500)
 
 	It("validates basic service management functionality", func() {
