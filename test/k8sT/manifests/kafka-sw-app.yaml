@@ -80,6 +80,7 @@ spec:
     protocol: TCP
   selector:
     app: kafka
+  clusterIP: None
 ---
 apiVersion: extensions/v1beta1
 kind: Deployment
