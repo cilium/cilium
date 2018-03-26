@@ -17,7 +17,7 @@
 set -e
 
 DEV="cilium-probe"
-DIR=bpf
+DIR=$(dirname $0)/../../bpf
 TC_PROGS="bpf_lb bpf_lxc bpf_netdev bpf_overlay"
 
 function clean_maps {
@@ -64,7 +64,7 @@ for p in ${TC_PROGS}; do
 	load_prog "tc filter replace" "ingress bpf da" ${DIR}/${p}
 	clean_maps
 done
-if ip link set help 2>&1 | grep -q xdp; then
+if ip link set help 2>&1 | grep -q xdpgeneric; then
 	ip link set dev ${DEV} xdpgeneric off
 	load_prog "ip link set" "xdpgeneric" ${DIR}/bpf_xdp
 else
