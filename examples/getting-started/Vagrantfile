@@ -1,7 +1,7 @@
 # -*- mode: ruby -*-
 # vi: set ft=ruby :
 
-Vagrant.require_version ">= 1.8.3"
+Vagrant.require_version ">= 2.0.0"
 
 cilium_version = (ENV['CILIUM_VERSION'] || "v1.0.0-rc8")
 cilium_opts = (ENV['CILIUM_OPTS'] || "--kvstore consul --kvstore-opt consul.address 192.168.33.11:8500 -t vxlan")
