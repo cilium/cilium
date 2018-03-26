@@ -80,6 +80,11 @@ func (key *policyKey) String() string {
 	return fmt.Sprintf("%s: %d", trafficDirectionString, key.Identity)
 }
 
+// GetIdentity returns the identity of the entry
+func (key *policyKey) GetIdentity() uint32 {
+	return key.Identity
+}
+
 // AllowIdentity adds an entry into the PolicyMap for security identity ID.
 // Inserting an entry into the map for a given identity for the specified
 // trafficDirection allows traffic in the specified direction in reference to
@@ -132,6 +137,12 @@ func (pm *PolicyMap) DeleteIdentity(id uint32, trafficDirection TrafficDirection
 func (pm *PolicyMap) DeleteL4(id uint32, dport uint16, proto uint8, trafficDirection TrafficDirection) error {
 	key := policyKey{Identity: id, DestPort: byteorder.HostToNetwork(dport).(uint16), Nexthdr: proto, TrafficDirection: trafficDirection.Uint8()}
 	return bpf.DeleteElement(pm.Fd, unsafe.Pointer(&key))
+}
+
+// DeleteEntry removes an entry from the PolicyMap. It can be used in
+// conjunction with DumpToSlice() to inspect and delete map entries.
+func (pm *PolicyMap) DeleteEntry(entry *PolicyEntryDump) error {
+	return bpf.DeleteElement(pm.Fd, unsafe.Pointer(&entry.Key))
 }
 
 func (pm *PolicyMap) String() string {

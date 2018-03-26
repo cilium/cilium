@@ -129,10 +129,37 @@ func getL4FilterEndpointSelector(filter *policy.L4Filter) []api.EndpointSelector
 	return fromEndpointsSelectors
 }
 
+func (e *Endpoint) sweepFilters(oldPolicy *policy.L4Policy,
+	identities *identityPkg.IdentityCache) (errors int) {
+
+	oldEntries, err := e.PolicyMap.DumpToSlice()
+	if err != nil {
+		e.getLogger().WithError(err).WithFields(logrus.Fields{
+			logfields.PolicyRevision: oldPolicy.Revision,
+		}).Warning("Delete stale l4 policy failed")
+		errors++
+		return
+	}
+	for _, entry := range oldEntries {
+		id := identityPkg.NumericIdentity(entry.Key.GetIdentity())
+		if _, ok := (*identities)[id]; !ok {
+			if err := e.PolicyMap.DeleteEntry(&entry); err != nil {
+				e.getLogger().WithError(err).WithFields(logrus.Fields{
+					logfields.PolicyRevision: oldPolicy.Revision,
+					logfields.Identity:       id,
+				}).Warning("Delete stale l4 policy failed")
+				errors++
+			}
+		}
+	}
+
+	return
+}
+
 // removeOldFilter removes the old l4 filter from the endpoint.
 // Returns a map that represents all policies that were attempted to be removed;
 // it maps to whether they were removed successfully (true or false)
-func (e *Endpoint) removeOldFilter(labelsMap *identityPkg.IdentityCache,
+func (e *Endpoint) removeOldFilter(identities *identityPkg.IdentityCache,
 	filter *policy.L4Filter) policy.SecurityIDContexts {
 
 	fromEndpointsSrcIDs := policy.NewSecurityIDContexts()
@@ -140,7 +167,7 @@ func (e *Endpoint) removeOldFilter(labelsMap *identityPkg.IdentityCache,
 	proto := uint8(filter.U8Proto)
 
 	for _, sel := range getL4FilterEndpointSelector(filter) {
-		for _, id := range getSecurityIdentities(labelsMap, &sel) {
+		for _, id := range getSecurityIdentities(identities, &sel) {
 			srcID := id.Uint32()
 			l4RuleCtx, l7RuleCtx := e.ParseL4Filter(filter)
 			if _, ok := fromEndpointsSrcIDs[id]; !ok {
@@ -178,7 +205,7 @@ func (e *Endpoint) removeOldFilter(labelsMap *identityPkg.IdentityCache,
 // It also returns the number of errors that occurred while when applying the
 // policy.
 // Applies for L3 dependent L4 not for L4-only.
-func (e *Endpoint) applyNewFilter(labelsMap *identityPkg.IdentityCache,
+func (e *Endpoint) applyNewFilter(identities *identityPkg.IdentityCache,
 	filter *policy.L4Filter) (policy.SecurityIDContexts, int) {
 
 	fromEndpointsSrcIDs := policy.NewSecurityIDContexts()
@@ -187,7 +214,7 @@ func (e *Endpoint) applyNewFilter(labelsMap *identityPkg.IdentityCache,
 
 	errors := 0
 	for _, sel := range getL4FilterEndpointSelector(filter) {
-		for _, id := range getSecurityIdentities(labelsMap, &sel) {
+		for _, id := range getSecurityIdentities(identities, &sel) {
 			srcID := id.Uint32()
 			if e.PolicyMap.L4Exists(srcID, port, proto, policymap.Ingress) {
 				e.getLogger().WithField("l4Filter", filter).Debug("L4 filter exists")
@@ -243,6 +270,10 @@ func setMapOperationResult(secIDs, newSecIDs policy.SecurityIDContexts) {
 // it maps to whether they were removed successfully (true or false)
 func (e *Endpoint) applyL4PolicyLocked(oldIdentities, newIdentities *identityPkg.IdentityCache,
 	oldPolicy, newPolicy *policy.L4Policy) (secIDsAdd, secIDsRm policy.SecurityIDContexts, err error) {
+	var (
+		errors, errs = 0, 0
+		secIDs       policy.SecurityIDContexts
+	)
 
 	secIDsAdd = policy.NewSecurityIDContexts()
 	secIDsRm = policy.NewSecurityIDContexts()
@@ -253,16 +284,13 @@ func (e *Endpoint) applyL4PolicyLocked(oldIdentities, newIdentities *identityPkg
 			secIDs = e.removeOldFilter(oldIdentities, &filter)
 			setMapOperationResult(secIDsRm, secIDs)
 		}
+		errors += e.sweepFilters(oldPolicy, newIdentities)
 	}
 
 	if newPolicy == nil {
 		return secIDsAdd, secIDsRm, nil
 	}
 
-	var (
-		errors, errs = 0, 0
-		secIDs       policy.SecurityIDContexts
-	)
 	for _, filter := range newPolicy.Ingress {
 		secIDs, errs = e.applyNewFilter(newIdentities, &filter)
 		setMapOperationResult(secIDsAdd, secIDs)
