@@ -612,9 +612,31 @@ func (e *Endpoint) updateNetworkPolicy(owner Owner) error {
 		}
 	}
 
+	// Reset SearchContext to reflect change in directionality.
+	ctx = policy.SearchContext{
+		From: c.LabelArray,
+	}
+
+	deniedEgressIdentities := make(map[identityPkg.NumericIdentity]bool)
+	for dstID, dstLabels := range *e.LabelsMap {
+		if c.EgressIdentities[dstID] {
+			// Already allowed for L3-only.
+		} else {
+			ctx.To = dstLabels
+			e.getLogger().WithFields(logrus.Fields{
+				logfields.PolicyID: dstID,
+				"ctx":              ctx,
+			}).Debug("Evaluating context for destination PolicyID")
+			repo := owner.GetPolicyRepository()
+			if repo.CanReachEgressRLocked(&ctx) == api.Denied {
+				// Denied explicitly by toRequires clause.
+				deniedEgressIdentities[dstID] = true
+			}
+		}
+	}
+
 	// Publish the updated policy to L7 proxies.
-	// TODO: Pass the denied egress identities.
-	err := owner.UpdateNetworkPolicy(e, c.L4Policy, *e.LabelsMap, deniedIngressIdentities, nil)
+	err := owner.UpdateNetworkPolicy(e, c.L4Policy, *e.LabelsMap, deniedIngressIdentities, deniedEgressIdentities)
 	if err != nil {
 		return err
 	}
