@@ -458,12 +458,18 @@ func getDirectionNetworkPolicy(l4Policy policy.L4PolicyMap, labelsMap identity.I
 // getNetworkPolicy converts a network policy into a cilium.NetworkPolicy.
 func getNetworkPolicy(name string, id identity.NumericIdentity, policy *policy.L4Policy,
 	labelsMap identity.IdentityCache, deniedIngressIdentities, deniedEgressIdentities map[identity.NumericIdentity]bool) *cilium.NetworkPolicy {
-	return &cilium.NetworkPolicy{
-		Name:                   name,
-		Policy:                 uint64(id),
-		IngressPerPortPolicies: getDirectionNetworkPolicy(policy.Ingress, labelsMap, deniedIngressIdentities),
-		EgressPerPortPolicies:  getDirectionNetworkPolicy(policy.Egress, labelsMap, deniedEgressIdentities),
+	p := &cilium.NetworkPolicy{
+		Name:   name,
+		Policy: uint64(id),
 	}
+
+	// If no policy, deny all traffic. Otherwise, convert the policies for ingress and egress.
+	if policy != nil {
+		p.IngressPerPortPolicies = getDirectionNetworkPolicy(policy.Ingress, labelsMap, deniedIngressIdentities)
+		p.EgressPerPortPolicies = getDirectionNetworkPolicy(policy.Egress, labelsMap, deniedEgressIdentities)
+	}
+
+	return p
 }
 
 // UpdateNetworkPolicy adds or updates a network policy in the set published

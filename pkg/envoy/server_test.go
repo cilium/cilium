@@ -354,3 +354,14 @@ func (s *ServerSuite) TestGetNetworkPolicyWildcardDeny(c *C) {
 	}
 	c.Assert(obtained, comparator.DeepEquals, expected)
 }
+
+func (s *ServerSuite) TestGetNetworkPolicyNil(c *C) {
+	obtained := getNetworkPolicy(IPv4Addr, Identity, nil, IdentityCache, DeniedIdentities1001, DeniedIdentitiesNone)
+	expected := &cilium.NetworkPolicy{
+		Name:                   IPv4Addr,
+		Policy:                 uint64(Identity),
+		IngressPerPortPolicies: nil,
+		EgressPerPortPolicies:  nil,
+	}
+	c.Assert(obtained, comparator.DeepEquals, expected)
+}
