@@ -224,7 +224,7 @@ func v2IRTov3IR(v2IR *v2.IngressRule) []IngressRule {
 
 		for _, v := range v3PR {
 			v3IR = append(v3IR,
-				IngressRule{FromCIDRs: &CIDRRule{CIDR: NewWildcardCIDR(), ToPorts: v.DeepCopy()}},
+				// IngressRule{FromCIDRs: &CIDRRule{CIDR: NewWildcardCIDR(), ToPorts: v.DeepCopy()}},
 				IngressRule{FromEntities: &EntityRule{Entities: []Entity{Entity(EntityAll)}, ToPorts: v.DeepCopy()}},
 				IngressRule{FromIdentities: &IdentityRule{IdentitySelector: NewWildcardIdentitySelector(), ToPorts: v.DeepCopy()}},
 			)
@@ -372,7 +372,7 @@ func v2ERTov3ER(v2ER *v2.EgressRule) []EgressRule {
 
 		for _, v := range v3PR {
 			v3ER = append(v3ER,
-				EgressRule{ToCIDRs: &CIDRRule{CIDR: NewWildcardCIDR(), ToPorts: v.DeepCopy()}},
+				// EgressRule{ToCIDRs: &CIDRRule{CIDR: NewWildcardCIDR(), ToPorts: v.DeepCopy()}},
 				EgressRule{ToEntities: &EntityRule{Entities: []Entity{Entity(EntityAll)}, ToPorts: v.DeepCopy()}},
 				EgressRule{ToIdentities: &IdentityRule{IdentitySelector: NewWildcardIdentitySelector(), ToPorts: v.DeepCopy()}},
 			)
