@@ -62,6 +62,6 @@ func AnnotatePod(e PodEndpoint, annotationKey, annotationValue string) error {
 		return fmt.Errorf("unable to annotate pod, cannot update pod: %s", err)
 	}
 
-	scopedLog.Debug("Successfully annotated pod with %s=%s", annotationKey, annotationValue)
+	scopedLog.Debugf("Successfully annotated pod with %s=%s", annotationKey, annotationValue)
 	return nil
 }
