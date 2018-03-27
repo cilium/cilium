@@ -32,7 +32,7 @@ go get -d github.com/lyft/protoc-gen-validate && \
 #
 # Install build requirements
 #
-apt-get -y install --no-install-recommends gcc binutils \
+apt-get -y install --no-install-recommends gcc binutils libelf-dev \
  pkg-config zip g++ zlib1g-dev unzip python wget rsync libtool cmake realpath m4 automake && \
 apt-get clean
 #
