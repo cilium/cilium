@@ -9,6 +9,7 @@ import (
 	. "github.com/cilium/cilium/test/ginkgo-ext"
 	"github.com/cilium/cilium/test/helpers"
 
+	"github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/types"
 	"github.com/sirupsen/logrus"
@@ -288,7 +289,7 @@ var _ = Describe("RuntimeValidatedConntrackTest", func() {
 
 	var curl1ContainerName = "curl"
 	var curl2ContainerName = "curl2"
-	var CTPolicyConntracLocalDisabled = "ct-test-policy-conntrack-local-disabled.json"
+	var CTPolicyConntrackLocalDisabled = "ct-test-policy-conntrack-local-disabled.json"
 
 	type conntestCases struct {
 		from        string
@@ -339,6 +340,10 @@ var _ = Describe("RuntimeValidatedConntrackTest", func() {
 		ExpectWithOffset(1, err).Should(BeNil(),
 			"could not get metadata for container %q", curl2ContainerName)
 		By(fmt.Sprintf("httpd1 container Docker networking: %s", curl2DockerNetworking))
+
+		By("Showing policies imported to Cilium")
+		res := vm.PolicyGetAll()
+		fmt.Fprintln(ginkgo.GinkgoWriter, res.CombineOutput())
 
 		testCases := []conntestCases{
 			{
@@ -430,7 +435,7 @@ var _ = Describe("RuntimeValidatedConntrackTest", func() {
 
 		for _, test := range testCases {
 			By(fmt.Sprintf("Container %q test connectivity to %q", test.from, test.destination))
-			res := vm.ContainerExec(test.from, test.to)
+			res = vm.ContainerExec(test.from, test.to)
 			ExpectWithOffset(1, res.WasSuccessful()).To(test.assert(),
 				"The result of %q from container %q to %s does not match", test.to, test.from, test.destination)
 		}
@@ -440,7 +445,7 @@ var _ = Describe("RuntimeValidatedConntrackTest", func() {
 			By("Testing bidirectional connectivity from client to server")
 
 			By(fmt.Sprintf("container %s pinging %s IPv6 (should NOT work)", helpers.Server, helpers.Client))
-			res := vm.ContainerExec(helpers.Server, helpers.Ping6(clientDockerNetworking[helpers.IPv6]))
+			res = vm.ContainerExec(helpers.Server, helpers.Ping6(clientDockerNetworking[helpers.IPv6]))
 			ExpectWithOffset(1, res.WasSuccessful()).Should(BeFalse(), fmt.Sprintf(
 				"container %s unexpectedly was able to ping to %s %s", helpers.Server, helpers.Client, clientDockerNetworking[helpers.IPv6]))
 
@@ -465,7 +470,7 @@ var _ = Describe("RuntimeValidatedConntrackTest", func() {
 		retrievedConfigurationValue, err := vm.GetEndpointMutableConfigurationOption(endpointID, configurationOptionName)
 		ExpectWithOffset(1, err).To(BeNil(), "Cannot get endpoint configuration")
 		ExpectWithOffset(1, retrievedConfigurationValue).To(Equal(desiredConfigurationOptionValue),
-			"Mutable configuration %s do not match", desiredConfigurationOptionValue)
+			"Mutable configuration %s does not match", desiredConfigurationOptionValue)
 	}
 
 	BeforeEach(func() {
@@ -479,7 +484,7 @@ var _ = Describe("RuntimeValidatedConntrackTest", func() {
 		vm.ContainerCreate(curl1ContainerName, helpers.NetperfImage, helpers.CiliumDockerNetwork, "-l id.curl")
 		vm.ContainerCreate(curl2ContainerName, helpers.NetperfImage, helpers.CiliumDockerNetwork, "-l id.curl2")
 
-		vm.PolicyDelAll().ExpectSuccess("cannot deleted all policies")
+		vm.PolicyDelAll().ExpectSuccess("cannot delete all policies")
 
 		_, err := vm.PolicyImportAndWait(vm.GetFullPath("ct-test-policy.json"), helpers.HelperTimeout)
 		Expect(err).Should(BeNil())
@@ -543,9 +548,9 @@ var _ = Describe("RuntimeValidatedConntrackTest", func() {
 
 		// Need to add policy that allows communication in both directions.
 		_, err = vm.PolicyImportAndWait(
-			vm.GetFullPath(CTPolicyConntracLocalDisabled),
+			vm.GetFullPath(CTPolicyConntrackLocalDisabled),
 			helpers.HelperTimeout)
-		Expect(err).Should(BeNil(), "cannot import %s", CTPolicyConntracLocalDisabled)
+		Expect(err).Should(BeNil(), "cannot import %s", CTPolicyConntrackLocalDisabled)
 
 		clientServerConnectivity(false)
 	})
