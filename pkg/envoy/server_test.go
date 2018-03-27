@@ -304,15 +304,15 @@ func (s *ServerSuite) TestGetPortNetworkPolicyRule(c *C) {
 }
 
 func (s *ServerSuite) TestGetDirectionNetworkPolicy(c *C) {
-	obtained := getDirectionNetworkPolicy(L4PolicyMap1, IdentityCache, DeniedIdentitiesNone)
+	obtained := getDirectionNetworkPolicy(L4PolicyMap1, true, IdentityCache, DeniedIdentitiesNone)
 	c.Assert(obtained, comparator.DeepEquals, ExpectedPerPortPolicies1)
 
-	obtained = getDirectionNetworkPolicy(L4PolicyMap2, IdentityCache, DeniedIdentitiesNone)
+	obtained = getDirectionNetworkPolicy(L4PolicyMap2, true, IdentityCache, DeniedIdentitiesNone)
 	c.Assert(obtained, comparator.DeepEquals, ExpectedPerPortPolicies2)
 }
 
 func (s *ServerSuite) TestGetNetworkPolicy(c *C) {
-	obtained := getNetworkPolicy(IPv4Addr, Identity, L4Policy1, IdentityCache, DeniedIdentitiesNone, DeniedIdentitiesNone)
+	obtained := getNetworkPolicy(IPv4Addr, Identity, L4Policy1, true, true, IdentityCache, DeniedIdentitiesNone, DeniedIdentitiesNone)
 	expected := &cilium.NetworkPolicy{
 		Name:                   IPv4Addr,
 		Policy:                 uint64(Identity),
@@ -323,7 +323,7 @@ func (s *ServerSuite) TestGetNetworkPolicy(c *C) {
 }
 
 func (s *ServerSuite) TestGetNetworkPolicyWildcard(c *C) {
-	obtained := getNetworkPolicy(IPv4Addr, Identity, L4Policy2, IdentityCache, DeniedIdentitiesNone, DeniedIdentitiesNone)
+	obtained := getNetworkPolicy(IPv4Addr, Identity, L4Policy2, true, true, IdentityCache, DeniedIdentitiesNone, DeniedIdentitiesNone)
 	expected := &cilium.NetworkPolicy{
 		Name:                   IPv4Addr,
 		Policy:                 uint64(Identity),
@@ -334,7 +334,7 @@ func (s *ServerSuite) TestGetNetworkPolicyWildcard(c *C) {
 }
 
 func (s *ServerSuite) TestGetNetworkPolicyDeny(c *C) {
-	obtained := getNetworkPolicy(IPv4Addr, Identity, L4Policy1, IdentityCache, DeniedIdentities1001, DeniedIdentitiesNone)
+	obtained := getNetworkPolicy(IPv4Addr, Identity, L4Policy1, true, true, IdentityCache, DeniedIdentities1001, DeniedIdentitiesNone)
 	expected := &cilium.NetworkPolicy{
 		Name:                   IPv4Addr,
 		Policy:                 uint64(Identity),
@@ -345,7 +345,7 @@ func (s *ServerSuite) TestGetNetworkPolicyDeny(c *C) {
 }
 
 func (s *ServerSuite) TestGetNetworkPolicyWildcardDeny(c *C) {
-	obtained := getNetworkPolicy(IPv4Addr, Identity, L4Policy2, IdentityCache, DeniedIdentities1001, DeniedIdentitiesNone)
+	obtained := getNetworkPolicy(IPv4Addr, Identity, L4Policy2, true, true, IdentityCache, DeniedIdentities1001, DeniedIdentitiesNone)
 	expected := &cilium.NetworkPolicy{
 		Name:                   IPv4Addr,
 		Policy:                 uint64(Identity),
@@ -356,12 +356,34 @@ func (s *ServerSuite) TestGetNetworkPolicyWildcardDeny(c *C) {
 }
 
 func (s *ServerSuite) TestGetNetworkPolicyNil(c *C) {
-	obtained := getNetworkPolicy(IPv4Addr, Identity, nil, IdentityCache, DeniedIdentities1001, DeniedIdentitiesNone)
+	obtained := getNetworkPolicy(IPv4Addr, Identity, nil, true, true, IdentityCache, DeniedIdentities1001, DeniedIdentitiesNone)
 	expected := &cilium.NetworkPolicy{
 		Name:                   IPv4Addr,
 		Policy:                 uint64(Identity),
 		IngressPerPortPolicies: nil,
 		EgressPerPortPolicies:  nil,
+	}
+	c.Assert(obtained, comparator.DeepEquals, expected)
+}
+
+func (s *ServerSuite) TestGetNetworkPolicyIngressNotEnforced(c *C) {
+	obtained := getNetworkPolicy(IPv4Addr, Identity, L4Policy2, false, true, IdentityCache, DeniedIdentities1001, DeniedIdentitiesNone)
+	expected := &cilium.NetworkPolicy{
+		Name:                   IPv4Addr,
+		Policy:                 uint64(Identity),
+		IngressPerPortPolicies: allowAllPortNetworkPolicy,
+		EgressPerPortPolicies:  ExpectedPerPortPolicies2,
+	}
+	c.Assert(obtained, comparator.DeepEquals, expected)
+}
+
+func (s *ServerSuite) TestGetNetworkPolicyEgressNotEnforced(c *C) {
+	obtained := getNetworkPolicy(IPv4Addr, Identity, L4Policy2, true, false, IdentityCache, DeniedIdentities1001, DeniedIdentitiesNone)
+	expected := &cilium.NetworkPolicy{
+		Name:                   IPv4Addr,
+		Policy:                 uint64(Identity),
+		IngressPerPortPolicies: ExpectedPerPortPolicies5,
+		EgressPerPortPolicies:  allowAllPortNetworkPolicy,
 	}
 	c.Assert(obtained, comparator.DeepEquals, expected)
 }

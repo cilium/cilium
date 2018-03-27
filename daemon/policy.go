@@ -55,21 +55,23 @@ func (d *Daemon) TriggerPolicyUpdates(force bool) *sync.WaitGroup {
 // Must be called with e.Consumable.Mutex and d.GetPolicyRepository().Mutex held.
 func (d *Daemon) EnableEndpointPolicyEnforcement(e *endpoint.Endpoint) (ingress bool, egress bool) {
 	// First check if policy enforcement should be enabled at the daemon level.
-	// If policy enforcement is enabled for the daemon, then it has to be
-	// enabled for the endpoint.
-	if policy.GetPolicyEnabled() == endpoint.AlwaysEnforce {
+	switch policy.GetPolicyEnabled() {
+	case endpoint.AlwaysEnforce:
+		// If policy enforcement is enabled for the daemon, then it has to be
+		// enabled for the endpoint.
 		return true, true
-	} else if policy.GetPolicyEnabled() == endpoint.DefaultEnforcement {
+	case endpoint.DefaultEnforcement:
 		// Default mode means that if rules contain labels that match this endpoint,
 		// then enable policy enforcement for this endpoint.
 		// GH-1676: Could check e.Consumable instead? Would be much cheaper.
 		return d.GetPolicyRepository().GetRulesMatching(e.Consumable.LabelArray, false)
+	default:
+		// If policy enforcement isn't enabled for the daemon we do not enable
+		// policy enforcement for the endpoint.
+		// This means that daemon policy enforcement mode is 'never', so no policy
+		// enforcement should be applied to the specified endpoint.
+		return false, false
 	}
-	// If policy enforcement isn't enabled for the daemon we do not enable
-	// policy enforcement for the endpoint.
-	// This means that daemon policy enforcement mode is 'never', so no policy
-	// enforcement should be applied to the specified endpoint.
-	return false, false
 }
 
 type getPolicyResolve struct {

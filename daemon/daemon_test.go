@@ -44,6 +44,10 @@ func Test(t *testing.T) { TestingT(t) }
 type DaemonSuite struct {
 	d *Daemon
 
+	// oldPolicyEnabled is the policy enforcement mode that was set before the test,
+	// as returned by policy.GetPolicyEnabled().
+	oldPolicyEnabled string
+
 	kvstoreInit bool
 
 	// Owners interface mock
@@ -72,6 +76,9 @@ type DaemonSuite struct {
 }
 
 func (ds *DaemonSuite) SetUpTest(c *C) {
+	ds.oldPolicyEnabled = policy.GetPolicyEnabled()
+	policy.SetPolicyEnabled(e.DefaultEnforcement)
+
 	// kvstore is initialized before generic SetUpTest so it must have been completed
 	ds.kvstoreInit = true
 
@@ -137,6 +144,9 @@ func (ds *DaemonSuite) TearDownTest(c *C) {
 		kvstore.DeletePrefix(common.OperationalPath)
 		kvstore.DeletePrefix(kvstore.BaseKeyPrefix)
 	}
+
+	// Restore the policy enforcement mode.
+	policy.SetPolicyEnabled(ds.oldPolicyEnabled)
 }
 
 type DaemonEtcdSuite struct {

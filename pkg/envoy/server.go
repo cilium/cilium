@@ -46,6 +46,17 @@ import (
 	"github.com/spf13/viper"
 )
 
+var (
+	// allowAllPortNetworkPolicy is a PortNetworkPolicy that allows all traffic
+	// to any L4 port.
+	allowAllPortNetworkPolicy = []*cilium.PortNetworkPolicy{
+		// Allow all TCP traffic to any port.
+		{Protocol: envoy_api_v2_core.SocketAddress_TCP},
+		// Allow all UDP traffic to any port.
+		{Protocol: envoy_api_v2_core.SocketAddress_UDP},
+	}
+)
+
 // XDSServer provides a high-lever interface to manage resources published
 // using the xDS gRPC API.
 type XDSServer struct {
@@ -417,7 +428,13 @@ func getPortNetworkPolicyRule(sel api.EndpointSelector, l7Parser policy.L7Parser
 	return r
 }
 
-func getDirectionNetworkPolicy(l4Policy policy.L4PolicyMap, labelsMap identity.IdentityCache, deniedIdentities map[identity.NumericIdentity]bool) []*cilium.PortNetworkPolicy {
+func getDirectionNetworkPolicy(l4Policy policy.L4PolicyMap, policyEnforced bool,
+	labelsMap identity.IdentityCache, deniedIdentities map[identity.NumericIdentity]bool) []*cilium.PortNetworkPolicy {
+	if !policyEnforced {
+		// Return an allow-all policy.
+		return allowAllPortNetworkPolicy
+	}
+
 	if len(l4Policy) == 0 {
 		return nil
 	}
@@ -457,7 +474,8 @@ func getDirectionNetworkPolicy(l4Policy policy.L4PolicyMap, labelsMap identity.I
 
 // getNetworkPolicy converts a network policy into a cilium.NetworkPolicy.
 func getNetworkPolicy(name string, id identity.NumericIdentity, policy *policy.L4Policy,
-	labelsMap identity.IdentityCache, deniedIngressIdentities, deniedEgressIdentities map[identity.NumericIdentity]bool) *cilium.NetworkPolicy {
+	ingressPolicyEnforced, egressPolicyEnforced bool, labelsMap identity.IdentityCache,
+	deniedIngressIdentities, deniedEgressIdentities map[identity.NumericIdentity]bool) *cilium.NetworkPolicy {
 	p := &cilium.NetworkPolicy{
 		Name:   name,
 		Policy: uint64(id),
@@ -465,8 +483,8 @@ func getNetworkPolicy(name string, id identity.NumericIdentity, policy *policy.L
 
 	// If no policy, deny all traffic. Otherwise, convert the policies for ingress and egress.
 	if policy != nil {
-		p.IngressPerPortPolicies = getDirectionNetworkPolicy(policy.Ingress, labelsMap, deniedIngressIdentities)
-		p.EgressPerPortPolicies = getDirectionNetworkPolicy(policy.Egress, labelsMap, deniedEgressIdentities)
+		p.IngressPerPortPolicies = getDirectionNetworkPolicy(policy.Ingress, ingressPolicyEnforced, labelsMap, deniedIngressIdentities)
+		p.EgressPerPortPolicies = getDirectionNetworkPolicy(policy.Egress, egressPolicyEnforced, labelsMap, deniedEgressIdentities)
 	}
 
 	return p
@@ -477,8 +495,8 @@ func getNetworkPolicy(name string, id identity.NumericIdentity, policy *policy.L
 // When the proxy acknowledges the network policy update, it will result in
 // a subsequent call to the endpoint's OnProxyPolicyAcknowledge() function.
 func (s *XDSServer) UpdateNetworkPolicy(ep logger.EndpointUpdater, policy *policy.L4Policy,
-	labelsMap identity.IdentityCache, deniedIngressIdentities, deniedEgressIdentities map[identity.NumericIdentity]bool,
-	wg *completion.WaitGroup) error {
+	ingressPolicyEnforced, egressPolicyEnforced bool, labelsMap identity.IdentityCache,
+	deniedIngressIdentities, deniedEgressIdentities map[identity.NumericIdentity]bool, wg *completion.WaitGroup) error {
 
 	s.mutex.Lock()
 	// If there are no listeners configured, the local node's Envoy proxy won't
@@ -494,12 +512,13 @@ func (s *XDSServer) UpdateNetworkPolicy(ep logger.EndpointUpdater, policy *polic
 		ep.GetIPv6Address(),
 		ep.GetIPv4Address(),
 	}
-	policies := []*cilium.NetworkPolicy{}
+	var policies []*cilium.NetworkPolicy
 	for _, ip := range ips {
 		if ip == "" {
 			continue
 		}
-		networkPolicy := getNetworkPolicy(ip, ep.GetIdentity(), policy, labelsMap, deniedIngressIdentities, deniedEgressIdentities)
+		networkPolicy := getNetworkPolicy(ip, ep.GetIdentity(), policy, ingressPolicyEnforced, egressPolicyEnforced,
+			labelsMap, deniedIngressIdentities, deniedEgressIdentities)
 		err := networkPolicy.Validate()
 		if err != nil {
 			return fmt.Errorf("error validating generated NetworkPolicy for %s: %s", ip, err)
