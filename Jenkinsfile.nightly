@@ -25,7 +25,7 @@ pipeline {
         stage('Nightly-Tests') {
             environment {
                 K8S_NODES=4
-                K8S_VERSION=1.9
+                K8S_VERSION=1.10
                 MEMORY=4096
                 CPU=4
             }
@@ -49,14 +49,21 @@ pipeline {
 
         stage('Kubernetes tests') {
             steps {
-                parallel(
-                    "K8s-1.7":{
-                        sh 'cd ${TESTDIR}; K8S_VERSION=1.7 ginkgo --focus=" K8s*" -v -noColor'
-                    },
-                   "K8s-1.8":{
-                        sh 'cd ${TESTDIR}; K8S_VERSION=1.8 ginkgo --focus=" K8s*" -v -noColor'
-                    }
-                )
+                script {
+                    parallel(
+                        "K8s-1.7":{
+                            sh 'cd ${TESTDIR}; K8S_VERSION=1.7 ginkgo --focus=" K8s*" -v -noColor'
+                        },
+                       "K8s-1.8":{
+                            sh 'cd ${TESTDIR}; K8S_VERSION=1.8 ginkgo --focus=" K8s*" -v -noColor'
+                        }
+                    )
+                    parallel(
+                        "K8s-1.9":{
+                            sh 'cd ${TESTDIR}; K8S_VERSION=1.9 ginkgo --focus=" K8s*" -v -noColor'
+                        }
+                    )
+                }
             }
             post {
                 always {
@@ -80,9 +87,10 @@ pipeline {
     }
     post {
         always {
-            sh "cd ${TESTDIR}; K8S_VERSION=1.8 vagrant destroy -f || true"
             sh "cd ${TESTDIR}; K8S_VERSION=1.7 vagrant destroy -f || true"
+            sh "cd ${TESTDIR}; K8S_VERSION=1.8 vagrant destroy -f || true"
             sh "cd ${TESTDIR}; K8S_VERSION=1.9 vagrant destroy -f || true"
+            sh "cd ${TESTDIR}; K8S_VERSION=1.10 vagrant destroy -f || true"
             sh "cd ${TESTDIR}; vagrant destroy -f || true"
             sh 'cd ${TEST_DIR}; ./post_build_agent.sh || true'
             cleanWs()
