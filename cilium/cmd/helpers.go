@@ -21,10 +21,12 @@ import (
 	"os"
 	"regexp"
 	"strconv"
+	"strings"
 	"text/tabwriter"
 
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/identity"
+	"github.com/cilium/cilium/pkg/maps/policymap"
 
 	"github.com/spf13/cobra"
 )
@@ -184,4 +186,19 @@ func expandNestedJSON(result bytes.Buffer) (bytes.Buffer, error) {
 	}
 
 	return result, nil
+}
+
+// parseTrafficString converts the provided string to its corresponding
+// TrafficDirection. If the string does not correspond to a valid TrafficDirection
+// type, returns Invalid and a corresponding error.
+func parseTrafficString(td string) (policymap.TrafficDirection, error) {
+	lowered := strings.ToLower(td)
+	if lowered == "ingress" {
+		return policymap.Ingress, nil
+	} else if lowered == "egress" {
+		return policymap.Egress, nil
+	} else {
+		return policymap.Invalid, fmt.Errorf("invalid direction %q provided", td)
+	}
+
 }
