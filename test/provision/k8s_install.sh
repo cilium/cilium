@@ -20,7 +20,11 @@ source ${PROVISIONSRC}/helpers.bash
 # TODO: Check if the k8s version is the same
 
 if [[ -f  "/etc/provision_finished" ]]; then
-    sudo dpkg -l | grep kubelet
+    if grep Ubuntu /etc/lsb-release; then
+        sudo dpkg -l | grep kubelet
+    else
+        sudo rpm -q kubelet
+    fi
     echo "provision is finished, recompiling"
     /tmp/provision/compile.sh
     exit 0
@@ -41,22 +45,37 @@ ff02::2 ip6-allrouters
 192.168.36.16 k8s6
 EOF
 
-cat <<EOF > /etc/apt/sources.list.d/kubernetes.list
-deb http://apt.kubernetes.io/ kubernetes-xenial main
+if grep Ubuntu /etc/lsb-release; then
+    cat <<EOF > /etc/apt/sources.list.d/kubernetes.list
+    deb http://apt.kubernetes.io/ kubernetes-xenial main
 EOF
 
-sudo rm /var/lib/apt/lists/lock || true
-retry_function "wget https://packages.cloud.google.com/apt/doc/apt-key.gpg"
-apt-key add apt-key.gpg
+    sudo rm /var/lib/apt/lists/lock || true
+    retry_function "wget https://packages.cloud.google.com/apt/doc/apt-key.gpg"
+    apt-key add apt-key.gpg
+else
+    wget https://packages.cloud.google.com/yum/doc/yum-key.gpg
+    wget https://packages.cloud.google.com/yum/doc/rpm-package-key.gpg
+    sudo rpm --import yum-key.gpg
+    sudo rpm --import rpm-package-key.gpg
+    sudo zypper ar -t yum https://packages.cloud.google.com/yum/repos/kubernetes-el7-x86_64 kubernetes
+    sudo zypper ref
+fi
 
 KUBEADM_SLAVE_OPTIONS=""
 KUBEADM_OPTIONS=""
 
 case $K8S_VERSION in
-    "1.7"|"1.8")
+    "1.7")
+        RELEASE_URL="https://storage.googleapis.com/kubernetes-release/release/stable-1.7.txt"
+        KUBERNETES_CNI_VERSION="0.5.1-00"
+        ;;
+    "1.8")
+        RELEASE_URL="https://storage.googleapis.com/kubernetes-release/release/stable-1.8.txt"
         KUBERNETES_CNI_VERSION="0.5.1-00"
         ;;
     "1.9")
+        RELEASE_URL="https://storage.googleapis.com/kubernetes-release/release/stable-1.9.txt"
         KUBERNETES_CNI_VERSION="0.6.0-00"
         KUBEADM_SLAVE_OPTIONS="--discovery-token-unsafe-skip-ca-verification"
         ;;
@@ -77,11 +96,12 @@ esac
 #Install kubernetes
 case $K8S_VERSION in
     "1.7"|"1.8"|"1.9")
+        K8S_FULL_VERSION=$(curl $RELEASE_URL | perl -pe 's/v//g')
         install_k8s_using_packages \
             kubernetes-cni=${KUBERNETES_CNI_VERSION} \
-            kubelet=${K8S_VERSION}* \
-            kubeadm=${K8S_VERSION}* \
-            kubectl=${K8S_VERSION}*
+            kubelet=${K8S_FULL_VERSION}* \
+            kubeadm=${K8S_FULL_VERSION}* \
+            kubectl=${K8S_FULL_VERSION}*
         ;;
     "1.10")
         install_k8s_using_binary "${K8SV10}" "${KUBERNETES_CNI_VERSION}"
@@ -100,6 +120,9 @@ sudo rm -rfv /var/lib/kubelet
 
 # Allow iptables forwarding so kube-dns can function.
 sudo iptables --policy FORWARD ACCEPT
+
+# Ensure that kubelet will use cgroupfs cgroup driver
+sudo sed -i 's/systemd/cgroupfs/g' /etc/systemd/system/kubelet.service.d/10-kubeadm.conf
 
 #check hostname to know if is kubernetes or runtime test
 if [[ "${HOST}" == "k8s1" ]]; then

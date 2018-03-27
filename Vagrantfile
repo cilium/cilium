@@ -11,6 +11,9 @@ Calling 'vagrant up' directly is not supported.  Instead, please run the followi
 END
 end
 
+$DISTRIBUTION = ENV['DISTRIBUTION'] || "ubuntu"
+$SERVER_VERSION = "41"
+
 if ENV['IPV4'] == '0'
     raise Vagrant::Errors::VagrantError.new, <<END
 Disabling IPv4 is currently not allowed until k8s 1.9 is released
@@ -25,10 +28,15 @@ echo "----------------------------------------------------------------"
 export PATH=/home/vagrant/go/bin:/usr/local/clang/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games
 sudo service docker restart
 echo 'cd ~/go/src/github.com/cilium/cilium' >> /home/vagrant/.bashrc
-sudo -E /usr/local/go/bin/go get github.com/cilium/go-bindata/...
-sudo -E /usr/local/go/bin/go get -u github.com/google/gops
-sudo -E /usr/local/go/bin/go get -d github.com/lyft/protoc-gen-validate
-(cd ~/go/src/github.com/lyft/protoc-gen-validate ; sudo git checkout 930a67cf7ba41b9d9436ad7a1be70a5d5ff6e1fc ; make build)
+# TODO(mrostecki): Provide packages for all go dependencies and do `go get` only on Ubuntu.
+# Or even better - move all those dependencies to boxes.
+export GOPATH=/root/go
+mkdir -p $GOPATH
+sudo -E go get github.com/cilium/go-bindata/...
+sudo -E go get -u github.com/google/gops
+sudo -E go get -d github.com/lyft/protoc-gen-validate
+PROTOC_GEN_PATH=~/go/src/github.com/lyft/protoc-gen-validate
+(cd $PROTOC_GEN_PATH ; sudo git checkout v0.0.6 ; make build)
 sudo chown -R vagrant:vagrant /home/vagrant
 curl -SsL https://github.com/cilium/bpf-map/releases/download/v1.0/bpf-map -o bpf-map
 chmod +x bpf-map
@@ -54,10 +62,10 @@ $install = <<SCRIPT
 sudo -E make -C /home/vagrant/go/src/github.com/cilium/cilium/ install
 
 sudo mkdir -p /etc/sysconfig
-sudo cp /home/vagrant/go/src/github.com/cilium/cilium/contrib/systemd/cilium-consul.service /lib/systemd/system
-sudo cp /home/vagrant/go/src/github.com/cilium/cilium/contrib/systemd/cilium-docker.service /lib/systemd/system
-sudo cp /home/vagrant/go/src/github.com/cilium/cilium/contrib/systemd/cilium-etcd.service /lib/systemd/system
-sudo cp /home/vagrant/go/src/github.com/cilium/cilium/contrib/systemd/cilium.service /lib/systemd/system
+sudo cp /home/vagrant/go/src/github.com/cilium/cilium/contrib/systemd/cilium-consul.service /etc/systemd/system
+sudo cp /home/vagrant/go/src/github.com/cilium/cilium/contrib/systemd/cilium-docker.service /etc/systemd/system
+sudo cp /home/vagrant/go/src/github.com/cilium/cilium/contrib/systemd/cilium-etcd.service /etc/systemd/system
+sudo cp /home/vagrant/go/src/github.com/cilium/cilium/contrib/systemd/cilium.service /etc/systemd/system
 sudo cp /home/vagrant/go/src/github.com/cilium/cilium/contrib/systemd/cilium /etc/sysconfig
 
 sudo usermod -a -G cilium vagrant
@@ -104,8 +112,8 @@ Vagrant.configure(2) do |config|
         # Do not inherit DNS server from host, use proxy
         vb.customize ["modifyvm", :id, "--natdnshostresolver1", "on"]
         vb.customize ["modifyvm", :id, "--natdnsproxy1", "on"]
-        config.vm.box = "cilium/ubuntu"
-        config.vm.box_version = "41"
+        config.vm.box = "cilium/#{$DISTRIBUTION}"
+        config.vm.box_version = $SERVER_VERSION
         vb.memory = ENV['VM_MEMORY'].to_i
         vb.cpus = ENV['VM_CPUS'].to_i
         if ENV["NFS"] then
