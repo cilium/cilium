@@ -236,6 +236,10 @@ func (ds *DaemonSuite) TestUpdateConsumerMap(c *C) {
 				},
 			},
 		},
+		EgressPerPortPolicies: []*cilium.PortNetworkPolicy{ // Allow-all policy.
+			{Protocol: envoy_api_v2_core.SocketAddress_TCP},
+			{Protocol: envoy_api_v2_core.SocketAddress_UDP},
+		},
 	}
 	c.Assert(qaBarNetworkPolicy, comparator.DeepEquals, expectedNetworkPolicy)
 
