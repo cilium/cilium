@@ -22,53 +22,53 @@ import (
 	"github.com/cilium/cilium/pkg/u8proto"
 )
 
-// SecurityIDContexts maps a security identity to a L4RuleContexts.
-// The security identity used as a key is a source of flows (e.g. the source
-// of a TCP connection).
-// The L4RuleContexts is a whitelist of the flows allowed from that security
-// identity at ingress and egress.
-type SecurityIDContexts map[identity.NumericIdentity]L4RuleContexts
+// SecurityIdentityL4L7Map maps a security identity to an L4L7Map. This contains
+// all policy-related information which has dependencies upon other layers of the protocol
+// stack (the only exception to this is CIDR-related policy). An empty L4L7Map
+// corresponds to a policy which is identity-based only.
+type SecurityIdentityL4L7Map map[identity.NumericIdentity]L4L7Map
 
-// DeepCopy returns a deep copy of SecurityIDContexts
-func (sc SecurityIDContexts) DeepCopy() SecurityIDContexts {
-	cpy := make(SecurityIDContexts, len(sc))
+// DeepCopy returns a deep copy of SecurityIdentityL4L7Map.
+func (sc SecurityIdentityL4L7Map) DeepCopy() SecurityIdentityL4L7Map {
+	cpy := make(SecurityIdentityL4L7Map, len(sc))
 	for k, v := range sc {
 		cpy[k] = v.DeepCopy()
 	}
 	return cpy
 }
 
-// SecurityIDContexts returns a new L4RuleContexts created.
-func NewSecurityIDContexts() SecurityIDContexts {
-	return SecurityIDContexts(make(map[identity.NumericIdentity]L4RuleContexts))
+// SecurityIdentityL4L7Map allocates and initializes an empty SecurityIdentityL4L7Map.
+func NewSecurityIdentityL4L7Map() SecurityIdentityL4L7Map {
+	return make(SecurityIdentityL4L7Map)
 }
 
-// L4RuleContexts maps a rule context to a L7RuleContext.
-type L4RuleContexts map[L4RuleContext]L7RuleContext
+// L4L7Map maps L4 policy-related metadata with L7 policy-related metadata.
+type L4L7Map map[L4Metadata]L7Metadata
 
-// NewL4RuleContexts returns a new L4RuleContexts.
-func NewL4RuleContexts() L4RuleContexts {
-	return L4RuleContexts(make(map[L4RuleContext]L7RuleContext))
+// NewL4L7Map returns a new L4L7Map.
+func NewL4L7Map() L4L7Map {
+	return L4L7Map(make(map[L4Metadata]L7Metadata))
 }
 
-// DeepCopy returns a deep copy of L4RuleContexts
-func (rc L4RuleContexts) DeepCopy() L4RuleContexts {
-	cpy := make(L4RuleContexts, len(rc))
+// DeepCopy returns a deep copy of L4L7Map.
+func (rc L4L7Map) DeepCopy() L4L7Map {
+	cpy := make(L4L7Map, len(rc))
 	for k, v := range rc {
 		cpy[k] = v
 	}
 	return cpy
 }
 
-// IsL3Only returns false if the given L4RuleContexts contains any entry. If it
+// IsL3Only returns false if the given L4L7Map contains any entry. If it
 // does not contain any entry it is considered an L3 only rule.
-func (rc L4RuleContexts) IsL3Only() bool {
+func (rc L4L7Map) IsL3Only() bool {
 	return rc != nil && len(rc) == 0
 }
 
-// L4RuleContext represents a L4 rule.
-// Don't use pointers here since this structure is used as key on maps.
-type L4RuleContext struct {
+// L4Rule represents an L4 rule.
+// Do not use pointers for fields in this type since this structure is used as
+// a key for maps.
+type L4Metadata struct {
 	// EndpointID is the identity of the endpoint where this rule is enforced, in host byte order.
 	EndpointID uint16
 	// Ingress indicates whether the flow is an ingress rule (vs. egress).
@@ -81,29 +81,30 @@ type L4RuleContext struct {
 
 // ProxyID return the proxy ID representation of this rule, in the same format
 // as returned by Endpoint.ProxyID.
-func (rc L4RuleContext) ProxyID() string {
+func (rc L4Metadata) ProxyID() string {
 	proto := u8proto.U8proto(rc.Proto).String()
 	port := byteorder.NetworkToHost(rc.Port).(uint16)
 	return ProxyID(rc.EndpointID, rc.Ingress, proto, port)
 }
 
-// PortProto returns the port-proto tuple in a human readable format. i.e.
-// with its port in host byte order.
-func (rc L4RuleContext) PortProto() string {
+// String returns the port-protocol tuple in a human readable format, i.e.
+// with its port in host-byte order.
+func (rc L4Metadata) String() string {
 	proto := u8proto.U8proto(rc.Proto).String()
 	port := strconv.Itoa(int(byteorder.NetworkToHost(uint16(rc.Port)).(uint16)))
 	return port + "/" + proto
 }
 
-// L7RuleContext represents a L7 rule
-type L7RuleContext struct {
+// L7Metadata contains the L7-specific parts of a policy rule.
+type L7Metadata struct {
 	// RedirectPort is the L7 redirect port in the policy in network byte order.
 	RedirectPort uint16
 	// L4Installed specifies if the L4 rule is installed in the L4 BPF map.
 	L4Installed bool
 }
 
-// IsRedirect checks if the L7RuleContext is a redirect to the proxy.
-func (rc L7RuleContext) IsRedirect() bool {
+// IsRedirect checks if the L7Metadata has a non-zero redirect port. A non-zero
+// redirect port means that traffic should be directed to the L7-proxy.
+func (rc L7Metadata) IsRedirect() bool {
 	return rc.RedirectPort != 0
 }

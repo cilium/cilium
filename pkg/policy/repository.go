@@ -120,29 +120,53 @@ func (p *Repository) AllowsIngressLabelAccess(ctx *SearchContext) api.Decision {
 	return decision
 }
 
-// ResolveL4Policy resolves the L4 policy for a set of endpoints by searching
-// the policy repository for `PortRule` rules that are attached to a `Rule`
-// where the EndpointSelector matches `ctx.To`. `ctx.From` takes no effect and
+// ResolveL4IngressPolicy resolves the L4 ingress policy for a set of endpoints
+// by searching the policy repository for `PortRule` rules that are attached to
+// a `Rule` where the EndpointSelector matches `ctx.To`. `ctx.From` takes no effect and
 // is ignored in the search.  If multiple `PortRule` rules are found, all rules
 // are merged together. If rules contains overlapping port definitions, the first
 // rule found in the repository takes precedence.
 //
 // TODO: Coalesce l7 rules?
-func (p *Repository) ResolveL4Policy(ctx *SearchContext) (*L4Policy, error) {
+func (p *Repository) ResolveL4IngressPolicy(ctx *SearchContext) (*L4PolicyMap, error) {
 	result := NewL4Policy()
 
 	ctx.PolicyTrace("\n")
-	if ctx.EgressL4Only {
-		ctx.PolicyTrace("Resolving egress port policy for %+v\n", ctx.To)
-	} else if ctx.IngressL4Only {
-		ctx.PolicyTrace("Resolving ingress port policy for %+v\n", ctx.To)
-	} else {
-		ctx.PolicyTrace("Resolving port policy for %+v\n", ctx.To)
-	}
+	ctx.PolicyTrace("Resolving ingress port policy for %+v\n", ctx.To)
 
 	state := traceState{}
 	for _, r := range p.rules {
-		found, err := r.resolveL4Policy(ctx, &state, result)
+		found, err := r.resolveL4IngressPolicy(ctx, &state, result)
+		if err != nil {
+			return nil, err
+		}
+		state.ruleID++
+		if found != nil {
+			state.matchedRules++
+		}
+	}
+
+	state.trace(p, ctx)
+	return &result.Ingress, nil
+}
+
+// ResolveL4EgressPolicy resolves the L4 egress policy for a set of endpoints
+// by searching the policy repository for `PortRule` rules that are attached to
+// a `Rule` where the EndpointSelector matches `ctx.From`. `ctx.To` takes no effect and
+// is ignored in the search.  If multiple `PortRule` rules are found, all rules
+// are merged together. If rules contains overlapping port definitions, the first
+// rule found in the repository takes precedence.
+//
+// TODO (ianvernon) unit tests
+func (p *Repository) ResolveL4EgressPolicy(ctx *SearchContext) (*L4PolicyMap, error) {
+	result := NewL4Policy()
+
+	ctx.PolicyTrace("\n")
+	ctx.PolicyTrace("Resolving egress port policy for %+v\n", ctx.To)
+
+	state := traceState{}
+	for _, r := range p.rules {
+		found, err := r.resolveL4EgressPolicy(ctx, &state, result)
 		if err != nil {
 			return nil, err
 		}
@@ -157,7 +181,7 @@ func (p *Repository) ResolveL4Policy(ctx *SearchContext) (*L4Policy, error) {
 	}
 
 	state.trace(p, ctx)
-	return result, nil
+	return &result.Egress, nil
 }
 
 // ResolveCIDRPolicy resolves the L3 policy for a set of endpoints by searching
@@ -179,19 +203,16 @@ func (p *Repository) ResolveCIDRPolicy(ctx *SearchContext) *CIDRPolicy {
 	return result
 }
 
-func (p *Repository) allowsL4Egress(searchCtx *SearchContext) api.Decision {
-	ctx := *searchCtx
-	ctx.To = ctx.From
-	ctx.From = labels.LabelArray{}
+func (p *Repository) allowsL4Egress(ctx *SearchContext) api.Decision {
 	ctx.EgressL4Only = true
 
-	policy, err := p.ResolveL4Policy(&ctx)
+	egressL4Policy, err := p.ResolveL4EgressPolicy(ctx)
 	if err != nil {
 		log.WithError(err).Warn("Evaluation error while resolving L4 egress policy")
 	}
 	verdict := api.Undecided
-	if err == nil && len(policy.Egress) > 0 {
-		verdict = policy.EgressCoversDPorts(ctx.DPorts)
+	if err == nil && len(*egressL4Policy) > 0 {
+		verdict = egressL4Policy.EgressCoversContext(ctx)
 	}
 
 	if len(ctx.DPorts) == 0 {
@@ -206,13 +227,13 @@ func (p *Repository) allowsL4Egress(searchCtx *SearchContext) api.Decision {
 func (p *Repository) allowsL4Ingress(ctx *SearchContext) api.Decision {
 	ctx.IngressL4Only = true
 
-	policy, err := p.ResolveL4Policy(ctx)
+	ingressPolicy, err := p.ResolveL4IngressPolicy(ctx)
 	if err != nil {
 		log.WithError(err).Warn("Evaluation error while resolving L4 ingress policy")
 	}
 	verdict := api.Undecided
-	if err == nil && len(policy.Ingress) > 0 {
-		verdict = policy.IngressCoversContext(ctx)
+	if err == nil && len(*ingressPolicy) > 0 {
+		verdict = ingressPolicy.IngressCoversContext(ctx)
 	}
 
 	if len(ctx.DPorts) == 0 {
@@ -233,22 +254,14 @@ func (p *Repository) AllowsIngressRLocked(ctx *SearchContext) api.Decision {
 	decision := p.CanReachIngressRLocked(ctx)
 	ctx.PolicyTrace("Label verdict: %s", decision.String())
 	if decision == api.Allowed {
-		ctx.PolicyTrace("L4 ingress & egress policies skipped")
+		ctx.PolicyTrace("L4 ingress policies skipped")
 		return decision
 	}
 
 	// We only report the overall decision as L4 inclusive if a port has
 	// been specified
 	if len(ctx.DPorts) != 0 {
-		l4Egress := p.allowsL4Egress(ctx)
-		l4Ingress := p.allowsL4Ingress(ctx)
-
-		// Explicit deny should deny; Allow+Undecided should allow
-		if l4Egress == api.Denied || l4Ingress == api.Denied {
-			decision = api.Denied
-		} else if l4Egress == api.Allowed || l4Ingress == api.Allowed {
-			decision = api.Allowed
-		}
+		decision = p.allowsL4Ingress(ctx)
 	}
 
 	if decision != api.Allowed {
@@ -274,6 +287,8 @@ func (p *Repository) AllowsEgressRLocked(egressCtx *SearchContext) api.Decision 
 		egressDecision = p.allowsL4Egress(egressCtx)
 	}
 
+	// If we cannot determine whether allowed at L4, undecided decision becomes
+	// deny decision.
 	if egressDecision != api.Allowed {
 		egressDecision = api.Denied
 	}
@@ -366,6 +381,7 @@ func (p *Repository) AddListLocked(rules api.Rules) (uint64, error) {
 	newList := make([]*rule, len(rules))
 	for i := range rules {
 		newList[i] = &rule{Rule: *rules[i]}
+		//fmt.Printf("rule: %s\n", newList[i])
 	}
 	p.rules = append(p.rules, newList...)
 	p.revision++

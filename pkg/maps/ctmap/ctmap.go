@@ -128,8 +128,8 @@ type GCFilterType uint
 // EndpointIP to be not nil.
 type GCFilter struct {
 	Type       GCFilterType
-	IDsToMod   policy.SecurityIDContexts
-	IDsToKeep  policy.SecurityIDContexts
+	IDsToMod   policy.SecurityIdentityL4L7Map
+	IDsToKeep  policy.SecurityIdentityL4L7Map
 	Time       uint32
 	EndpointID uint16
 	EndpointIP net.IP
@@ -139,8 +139,8 @@ type GCFilter struct {
 func NewGCFilterBy(filterType GCFilterType) *GCFilter {
 	return &GCFilter{
 		Type:      filterType,
-		IDsToMod:  policy.NewSecurityIDContexts(),
-		IDsToKeep: policy.NewSecurityIDContexts(),
+		IDsToMod:  policy.NewSecurityIdentityL4L7Map(),
+		IDsToKeep: policy.NewSecurityIdentityL4L7Map(),
 	}
 }
 
@@ -403,7 +403,7 @@ func (f *GCFilter) doFiltering(srcIP net.IP, dstIP net.IP, dstPort uint16, nextH
 		return
 	}
 
-	l4RuleCtx := policy.L4RuleContext{
+	l4RuleCtx := policy.L4Metadata{
 		EndpointID: f.EndpointID,
 		Ingress:    ingress,
 		Port:       dstPort,

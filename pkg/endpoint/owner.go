@@ -87,13 +87,13 @@ type Owner interface {
 	// the CT entry fields.
 	// isCTLocal should be set as true if the endpoint's CT table is either
 	// local or not (if is not local then it is assumed to be global).
-	ResetProxyPort(e *Endpoint, isCTLocal bool, ips []net.IP, idsToMod policy.SecurityIDContexts)
+	ResetProxyPort(e *Endpoint, isCTLocal bool, ips []net.IP, idsToMod policy.SecurityIdentityL4L7Map)
 
 	// FlushCTEntries flushes all entries in the Connection Tracking table for
 	// where the given endpoint IPs except the entries that match the idsToKeep
 	// isCTLocal should be set as true if the endpoint's CT table is either
 	// local or not (if is not local then it is assumed to be global).
-	FlushCTEntries(e *Endpoint, isCTLocal bool, ips []net.IP, idsToKeep policy.SecurityIDContexts)
+	FlushCTEntries(e *Endpoint, isCTLocal bool, ips []net.IP, idsToKeep policy.SecurityIdentityL4L7Map)
 
 	// SendNotification is called to emit an agent notification
 	SendNotification(typ monitor.AgentNotification, text string) error

@@ -63,16 +63,17 @@ func (e *Endpoint) lookupRedirectPortBE(l4Filter *policy.L4Filter) uint16 {
 	return byteorder.HostToNetwork(e.realizedRedirects[proxyID]).(uint16)
 }
 
-// ParseL4Filter parses a L4Filter and returns a L4RuleContext and a
-// L7RuleContext with L4Installed set to false.
+// ParseL4Filter parses a L4Filter and returns a L4Metadata and a
+// L7Metadata with L4Installed set to false.
+// This is used to convert
 // Must be called with Endpoint.Mutex held.
-func (e *Endpoint) ParseL4Filter(l4Filter *policy.L4Filter) (policy.L4RuleContext, policy.L7RuleContext) {
-	return policy.L4RuleContext{
+func (e *Endpoint) ParseL4Filter(l4Filter *policy.L4Filter) (policy.L4Metadata, policy.L7Metadata) {
+	return policy.L4Metadata{
 			EndpointID: e.ID,
 			Ingress:    l4Filter.Ingress,
 			Proto:      uint8(l4Filter.U8Proto),
 			Port:       byteorder.HostToNetwork(uint16(l4Filter.Port)).(uint16),
-		}, policy.L7RuleContext{
+		}, policy.L7Metadata{
 			RedirectPort: e.lookupRedirectPortBE(l4Filter),
 		}
 }
@@ -413,7 +414,7 @@ func (ep *epInfoCache) GetBPFValue() (*lxcmap.EndpointInfo, error) {
 // is updated.
 func updateCT(owner Owner, e *Endpoint, epIPs []net.IP,
 	isPolicyEnforced, isLocal bool,
-	idsToKeep, idsToMod policy.SecurityIDContexts) *sync.WaitGroup {
+	idsToKeep, idsToMod policy.SecurityIdentityL4L7Map) *sync.WaitGroup {
 
 	wg := &sync.WaitGroup{}
 	if isPolicyEnforced {
@@ -632,7 +633,7 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir, reason string) (uint64, err
 	}
 
 	var (
-		modifiedRules, deletedRules policy.SecurityIDContexts
+		modifiedRules, deletedRules policy.SecurityIdentityL4L7Map
 		policyChanged               bool
 	)
 	// Only generate & populate policy map if a security identity is set up for
@@ -691,24 +692,25 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir, reason string) (uint64, err
 			policyChanged = false
 
 			p := *c.L3L4Policy
-			for identity, l4RuleContexts := range p {
-				for l4RuleContext, l7RuleContexts := range l4RuleContexts {
+			for identity, l4L7Map := range p {
+				for l4Metadata, l7Metadata := range l4L7Map {
 					var l4Filter policy.L4Filter
 					var ok bool
-					pp := l4RuleContext.PortProto()
-					if l4RuleContext.Ingress {
+					pp := l4Metadata.String()
+					if l4Metadata.Ingress {
 						l4Filter, ok = c.L4Policy.Ingress[pp]
 					} else {
 						l4Filter, ok = c.L4Policy.Egress[pp]
 					}
+
 					if ok {
 						redirectPort := e.lookupRedirectPortBE(&l4Filter)
-						if l7RuleContexts.RedirectPort != redirectPort {
+						if l7Metadata.RedirectPort != redirectPort {
 							e.getLogger().Debugf("Will update CT map entry for identity %d and proxy ID %s with redirect port %d",
-								identity, l4RuleContext.ProxyID(), redirectPort)
+								identity, l4Metadata.ProxyID(), redirectPort)
 							policyChanged = true
-							l7RuleContexts.RedirectPort = redirectPort
-							p[identity][l4RuleContext] = l7RuleContexts
+							l7Metadata.RedirectPort = redirectPort
+							p[identity][l4Metadata] = l7Metadata
 						}
 					}
 				}
