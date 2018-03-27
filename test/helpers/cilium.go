@@ -502,11 +502,6 @@ func (s *SSHMeta) PolicyWait(revisionNum int) *CmdRes {
 // ReportFailed gathers relevant Cilium runtime data and logs for debugging
 // purposes.
 func (s *SSHMeta) ReportFailed(commands ...string) {
-	sendToLog = false
-	defer func() {
-		sendToLog = true
-	}()
-
 	wr := s.logger.Logger.Out
 	fmt.Fprint(wr, "===================== TEST FAILED =====================\n")
 	fmt.Fprint(wr, "Gathering Logs and Cilium CLI Output\n")
@@ -566,7 +561,9 @@ func (s *SSHMeta) DumpCiliumCommandOutput() {
 
 	// No need to create file for bugtool because it creates an archive of files
 	// for us.
-	res := s.ExecWithSudo(fmt.Sprintf("%s -t %s", CiliumBugtool, filepath.Join(BasePath, testPath)))
+	res := s.ExecWithSudo(
+		fmt.Sprintf("%s -t %s", CiliumBugtool, filepath.Join(BasePath, testPath)),
+		ExecOptions{SkipLog: true})
 	if !res.WasSuccessful() {
 		s.logger.Errorf("Error running bugtool: %s", res.CombineOutput())
 	}
@@ -600,7 +597,7 @@ func (s *SSHMeta) GatherLogs() {
 	}
 
 	for _, cmd := range ciliumStateCommands {
-		res := s.Exec(cmd)
+		res := s.Exec(cmd, ExecOptions{SkipLog: true})
 		if !res.WasSuccessful() {
 			s.logger.Errorf("cannot gather files for cmd '%s': %s", cmd, res.CombineOutput())
 		}
