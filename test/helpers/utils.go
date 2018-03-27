@@ -334,7 +334,7 @@ func reportMap(path string, reportCmds map[string]string, node *SSHMeta) {
 	}
 
 	for cmd, logfile := range reportCmds {
-		res := node.Exec(cmd)
+		res := node.Exec(cmd, ExecOptions{SkipLog: true})
 		err := ioutil.WriteFile(
 			fmt.Sprintf("%s/%s", path, logfile),
 			res.CombineOutput().Bytes(),

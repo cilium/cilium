@@ -31,8 +31,7 @@ import (
 
 var (
 	//SSHMetaLogs is a buffer where all commands sent over ssh are saved.
-	SSHMetaLogs      = NewWriter(new(bytes.Buffer))
-	sendToLog   bool = true // Set to false if commands don't need to save in the logs
+	SSHMetaLogs = NewWriter(new(bytes.Buffer))
 )
 
 // SSHMeta contains metadata to SSH into a remote location to run tests
@@ -139,13 +138,23 @@ func (s *SSHMeta) Execute(cmd string, stdout io.Writer, stderr io.Writer) error 
 
 // ExecWithSudo returns the result of executing the provided cmd via SSH using
 // sudo.
-func (s *SSHMeta) ExecWithSudo(cmd string) *CmdRes {
+func (s *SSHMeta) ExecWithSudo(cmd string, options ...ExecOptions) *CmdRes {
 	command := fmt.Sprintf("sudo %s", cmd)
-	return s.Exec(command)
+	return s.Exec(command, options...)
+}
+
+// ExecOptions options to execute Exec and ExecWithContext
+type ExecOptions struct {
+	SkipLog bool
 }
 
 // Exec returns the results of executing the provided cmd via SSH.
-func (s *SSHMeta) Exec(cmd string) *CmdRes {
+func (s *SSHMeta) Exec(cmd string, options ...ExecOptions) *CmdRes {
+	var ops ExecOptions
+	if len(options) > 0 {
+		ops = options[0]
+	}
+
 	log.Debugf("running command: %s", cmd)
 	stdout := new(bytes.Buffer)
 	stderr := new(bytes.Buffer)
@@ -164,7 +173,7 @@ func (s *SSHMeta) Exec(cmd string) *CmdRes {
 	if exiterr, ok := err.(*ssh.ExitError); ok {
 		res.exitcode = exiterr.Waitmsg.ExitStatus()
 	}
-	if sendToLog {
+	if !ops.SkipLog {
 		res.SendToLog()
 	}
 	return &res
@@ -195,9 +204,14 @@ func (s *SSHMeta) GetCopy() *SSHMeta {
 
 // ExecContext returns the results of running cmd via SSH in the specified
 // context.
-func (s *SSHMeta) ExecContext(ctx context.Context, cmd string) *CmdRes {
+func (s *SSHMeta) ExecContext(ctx context.Context, cmd string, options ...ExecOptions) *CmdRes {
 	if ctx == nil {
 		panic("no context provided")
+	}
+
+	var ops ExecOptions
+	if len(options) > 0 {
+		ops = options[0]
 	}
 
 	fmt.Fprintln(SSHMetaLogs, cmd)
@@ -220,7 +234,7 @@ func (s *SSHMeta) ExecContext(ctx context.Context, cmd string) *CmdRes {
 
 	go func() {
 		s.sshClient.RunCommandContext(ctx, command)
-		if sendToLog {
+		if !ops.SkipLog {
 			res.SendToLog()
 		}
 	}()

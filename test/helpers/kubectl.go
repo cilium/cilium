@@ -756,11 +756,6 @@ func (kub *Kubectl) CiliumPolicyAction(namespace, filepath string, action Resour
 // CiliumReport report the cilium pod to the log and appends the logs for the
 // given commands.
 func (kub *Kubectl) CiliumReport(namespace string, commands ...[]string) {
-	sendToLog = false
-	defer func() {
-		sendToLog = true
-	}()
-
 	pods, err := kub.GetCiliumPods(namespace)
 	if err != nil {
 		kub.logger.WithError(err).Error("cannot retrieve cilium pods on ReportDump")
@@ -847,7 +842,7 @@ func (kub *Kubectl) DumpCiliumCommandOutput(namespace string) {
 		// copy it over with `kubectl cp`.
 		bugtoolCmd := fmt.Sprintf("%s exec -n %s %s -- %s",
 			KubectlCmd, namespace, pod, CiliumBugtool)
-		res := kub.Exec(bugtoolCmd)
+		res := kub.Exec(bugtoolCmd, ExecOptions{SkipLog: true})
 		if res.WasSuccessful() {
 			// Default output directory is /tmp for bugtool.
 			res = kub.Exec(fmt.Sprintf("%s exec -n %s %s -- ls /tmp/", KubectlCmd, namespace, pod))
@@ -858,7 +853,8 @@ func (kub *Kubectl) DumpCiliumCommandOutput(namespace string) {
 					archiveName := fmt.Sprintf("%s-%s", pod, line)
 					res = kub.Exec(fmt.Sprintf("%s cp %s/%s:/tmp/%s %s",
 						KubectlCmd, namespace, pod, line,
-						filepath.Join(BasePath, testPath, archiveName)))
+						filepath.Join(BasePath, testPath, archiveName)),
+						ExecOptions{SkipLog: true})
 				}
 			}
 		} else {
@@ -870,7 +866,7 @@ func (kub *Kubectl) DumpCiliumCommandOutput(namespace string) {
 		ciliumEnvoyLogCmd := fmt.Sprintf("%s cp %s/%s:%s %s",
 			KubectlCmd, namespace, pod, CiliumEnvoyLogPath,
 			filepath.Join(BasePath, testPath, CiliumEnvoyLogName))
-		res = kub.Exec(ciliumEnvoyLogCmd)
+		res = kub.Exec(ciliumEnvoyLogCmd, ExecOptions{SkipLog: true})
 		if !res.WasSuccessful() {
 			log.Errorf("%s failed: %s", ciliumEnvoyLogCmd, res.CombineOutput().String())
 		}
