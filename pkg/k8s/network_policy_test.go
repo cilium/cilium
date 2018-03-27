@@ -441,29 +441,27 @@ func (s *K8sSuite) TestParseNetworkPolicyEgressAllowAll(c *C) {
 	c.Assert(repo.AllowsEgressRLocked(&ctxAToC90), Equals, api.Allowed)
 }
 
-// Re-enable via GH-3099
-//
-// func (s *K8sSuite) TestParseNetworkPolicyEgressL4AllowAll(c *C) {
-// 	repo := parseAndAddRules(c, &networkingv1.NetworkPolicy{
-// 		Spec: networkingv1.NetworkPolicySpec{
-// 			PodSelector: labelSelectorA,
-// 			Egress: []networkingv1.NetworkPolicyEgressRule{
-// 				{
-// 					Ports: []networkingv1.NetworkPolicyPort{port80},
-// 					To:    []networkingv1.NetworkPolicyPeer{},
-// 				},
-// 			},
-// 		},
-// 	})
-//
-// 	ctxAToC80 := ctxAToC
-// 	ctxAToC80.DPorts = []*models.Port{{Port: 80, Protocol: models.PortProtocolTCP}}
-// 	c.Assert(repo.AllowsEgressRLocked(&ctxAToC80), Equals, api.Allowed)
-//
-// 	ctxAToC90 := ctxAToC
-// 	ctxAToC90.DPorts = []*models.Port{{Port: 90, Protocol: models.PortProtocolTCP}}
-// 	c.Assert(repo.AllowsEgressRLocked(&ctxAToC90), Equals, api.Denied)
-// }
+func (s *K8sSuite) TestParseNetworkPolicyEgressL4AllowAll(c *C) {
+	repo := parseAndAddRules(c, &networkingv1.NetworkPolicy{
+		Spec: networkingv1.NetworkPolicySpec{
+			PodSelector: labelSelectorA,
+			Egress: []networkingv1.NetworkPolicyEgressRule{
+				{
+					Ports: []networkingv1.NetworkPolicyPort{port80},
+					To:    []networkingv1.NetworkPolicyPeer{},
+				},
+			},
+		},
+	})
+
+	ctxAToC80 := ctxAToC
+	ctxAToC80.DPorts = []*models.Port{{Port: 80, Protocol: models.PortProtocolTCP}}
+	c.Assert(repo.AllowsEgressRLocked(&ctxAToC80), Equals, api.Allowed)
+
+	ctxAToC90 := ctxAToC
+	ctxAToC90.DPorts = []*models.Port{{Port: 90, Protocol: models.PortProtocolTCP}}
+	c.Assert(repo.AllowsEgressRLocked(&ctxAToC90), Equals, api.Denied)
+}
 
 func (s *K8sSuite) TestParseNetworkPolicyIngressAllowAll(c *C) {
 	repo := parseAndAddRules(c, &networkingv1.NetworkPolicy{
