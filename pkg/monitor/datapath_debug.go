@@ -335,13 +335,13 @@ func (n *DebugMsg) Dump(data []byte, prefix string) {
 	case DbgL4Create:
 		fmt.Printf("Matched L4 policy; creating conntrack %s\n", l4CreateInfo(n))
 	case DbgIPIDMapFailed4:
-		fmt.Printf("Failed to map daddr=%x to identity\n", ip4Str(n.Arg1))
+		fmt.Printf("Failed to map daddr=%s to identity\n", ip4Str(n.Arg1))
 	case DbgIPIDMapFailed6:
-		fmt.Printf("Failed to map daddr.p4=[::%x] to identity\n", ip6Str(n.Arg1))
+		fmt.Printf("Failed to map daddr.p4=[::%s] to identity\n", ip6Str(n.Arg1))
 	case DbgIPIDMapSucceed4:
-		fmt.Printf("Successfully mapped daddr=%x to identity=%d\n", ip4Str(n.Arg1), n.Arg2)
+		fmt.Printf("Successfully mapped daddr=%s to identity=%d\n", ip4Str(n.Arg1), n.Arg2)
 	case DbgIPIDMapSucceed6:
-		fmt.Printf("Successfully mapped daddr.p4=[::%x] to identity=%d\n", ip6Str(n.Arg1), n.Arg2)
+		fmt.Printf("Successfully mapped daddr.p4=[::%s] to identity=%d\n", ip6Str(n.Arg1), n.Arg2)
 	default:
 		fmt.Printf("Unknown message type=%d arg1=%d arg2=%d\n", n.SubType, n.Arg1, n.Arg2)
 	}
