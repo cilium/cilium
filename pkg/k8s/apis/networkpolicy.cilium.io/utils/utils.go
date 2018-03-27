@@ -94,7 +94,7 @@ func parseToCiliumIngressRule(namespace string, inRule []v3.IngressRule) []v3.In
 		}
 
 		if ing.FromRequires != nil {
-			retRule[i].FromRequires = &v3.EndpointRequire{}
+			retRule[i].FromRequires = &v3.IdentityRequirement{}
 
 			retRule[i].FromRequires.IdentitySelector = make([]v3.IdentitySelector, len(ing.FromRequires.IdentitySelector))
 			for i, v := range ing.FromRequires.IdentitySelector {
@@ -151,7 +151,7 @@ func parseToCiliumEgressRule(namespace string, inRule []v3.EgressRule) []v3.Egre
 		}
 
 		if eg.ToRequires != nil {
-			retRule[i].ToRequires = &v3.EndpointRequire{}
+			retRule[i].ToRequires = &v3.IdentityRequirement{}
 
 			retRule[i].ToRequires.IdentitySelector = make([]v3.IdentitySelector, len(eg.ToRequires.IdentitySelector))
 			for i, v := range eg.ToRequires.IdentitySelector {

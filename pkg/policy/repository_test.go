@@ -146,7 +146,7 @@ func (ds *PolicyTestSuite) TestCanReach(c *C) {
 		IdentitySelector: v3.NewESFromLabels(labels.ParseSelectLabel("groupA")),
 		Ingress: []v3.IngressRule{
 			{
-				FromRequires: &v3.EndpointRequire{
+				FromRequires: &v3.IdentityRequirement{
 					IdentitySelector: []v3.IdentitySelector{
 						v3.NewESFromLabels(labels.ParseSelectLabel("groupA")),
 					},
@@ -442,7 +442,7 @@ func (ds *PolicyTestSuite) TestPolicyTrace(c *C) {
 	l3rule = v3.Rule{
 		IdentitySelector: v3.NewESFromLabels(labels.ParseSelectLabel("bar")),
 		Ingress: []v3.IngressRule{{
-			FromRequires: &v3.EndpointRequire{
+			FromRequires: &v3.IdentityRequirement{
 				IdentitySelector: []v3.IdentitySelector{v3.NewESFromLabels(labels.ParseSelectLabel("baz"))},
 			},
 		}},

@@ -65,7 +65,7 @@ type Rule struct {
 type IngressRule struct {
 	FromIdentities *IdentityRule `json:"fromIdentities,omitempty"`
 
-	FromRequires *EndpointRequire `json:"fromRequires,omitempty"`
+	FromRequires *IdentityRequirement `json:"fromRequires,omitempty"`
 
 	FromCIDRs *CIDRRule `json:"fromCIDR,omitempty"`
 
@@ -75,7 +75,7 @@ type IngressRule struct {
 type EgressRule struct {
 	ToIdentities *IdentityRule `json:"toIdentities,omitempty"`
 
-	ToRequires *EndpointRequire `json:"toRequires,omitempty"`
+	ToRequires *IdentityRequirement `json:"toRequires,omitempty"`
 
 	ToCIDRs *CIDRRule `json:"toCIDR,omitempty"`
 
@@ -89,7 +89,7 @@ type IdentityRule struct {
 	ToPorts          *PortRule        `json:"toPorts,omitempty"`
 }
 
-type EndpointRequire struct {
+type IdentityRequirement struct {
 	IdentitySelector []IdentitySelector `json:"anyOf"`
 }
 

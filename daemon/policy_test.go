@@ -102,7 +102,7 @@ func (ds *DaemonSuite) TestUpdateConsumerMap(c *C) {
 			IdentitySelector: v3.NewESFromLabels(lblQA),
 			Ingress: []v3.IngressRule{
 				{
-					FromRequires: &v3.EndpointRequire{
+					FromRequires: &v3.IdentityRequirement{
 						IdentitySelector: []v3.IdentitySelector{v3.NewESFromLabels(lblQA)},
 					},
 				},
@@ -112,7 +112,7 @@ func (ds *DaemonSuite) TestUpdateConsumerMap(c *C) {
 			IdentitySelector: v3.NewESFromLabels(lblProd),
 			Ingress: []v3.IngressRule{
 				{
-					FromRequires: &v3.EndpointRequire{
+					FromRequires: &v3.IdentityRequirement{
 						IdentitySelector: []v3.IdentitySelector{v3.NewESFromLabels(lblProd)},
 					},
 				},
@@ -353,7 +353,7 @@ func (ds *DaemonSuite) TestRemovePolicy(c *C) {
 			IdentitySelector: v3.NewESFromLabels(lblProd),
 			Ingress: []v3.IngressRule{
 				{
-					FromRequires: &v3.EndpointRequire{
+					FromRequires: &v3.IdentityRequirement{
 						IdentitySelector: []v3.IdentitySelector{v3.NewESFromLabels(lblQA)},
 					},
 				},

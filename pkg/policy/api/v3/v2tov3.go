@@ -184,7 +184,7 @@ func v2IRTov3IR(v2IR *v2.IngressRule) []IngressRule {
 	}
 
 	for _, v := range v2IR.FromRequires {
-		fromRequires := &EndpointRequire{
+		fromRequires := &IdentityRequirement{
 			IdentitySelector: []IdentitySelector{*v2ESTov3ES(&v)},
 		}
 
@@ -311,7 +311,7 @@ func v2ERTov3ER(v2ER *v2.EgressRule) []EgressRule {
 	}
 
 	for _, v := range v2ER.ToRequires {
-		toRequires := &EndpointRequire{
+		toRequires := &IdentityRequirement{
 			IdentitySelector: []IdentitySelector{*v2ESTov3ES(&v)},
 		}
 
