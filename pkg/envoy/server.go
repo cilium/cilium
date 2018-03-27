@@ -74,6 +74,7 @@ type XDSServer struct {
 
 	// listeners is the set of names of listeners that have been added by
 	// calling AddListener.
+	// mutex must be held when accessing this.
 	listeners map[string]struct{}
 
 	// networkPolicyCache publishes network policy configuration updates to
@@ -86,6 +87,7 @@ type XDSServer struct {
 
 	// networkPolicyEndpoints maps each network policy's name to the info on
 	// the local endpoint.
+	// mutex must be held when accessing this.
 	networkPolicyEndpoints map[string]logger.EndpointUpdater
 
 	// stopServer stops the xDS gRPC server.
@@ -222,7 +224,6 @@ func (s *XDSServer) AddListener(name string, endpointPolicyName string, port uin
 	if _, ok := s.listeners[name]; ok {
 		log.Fatalf("Envoy: Attempt to add existing listener: %s", name)
 	}
-
 	s.listeners[name] = struct{}{}
 
 	s.mutex.Unlock()
@@ -499,13 +500,14 @@ func (s *XDSServer) UpdateNetworkPolicy(ep logger.EndpointUpdater, policy *polic
 	deniedIngressIdentities, deniedEgressIdentities map[identity.NumericIdentity]bool, wg *completion.WaitGroup) error {
 
 	s.mutex.Lock()
+	defer s.mutex.Unlock()
+
 	// If there are no listeners configured, the local node's Envoy proxy won't
 	// query for network policies and therefore will never ACK them, and we'd
 	// wait forever.
 	if !viper.GetBool("sidecar-http-proxy") && len(s.listeners) == 0 {
 		wg = nil
 	}
-	s.mutex.Unlock()
 
 	// First, validate all policies
 	ips := []string{
@@ -550,6 +552,7 @@ func (s *XDSServer) UpdateNetworkPolicy(ep logger.EndpointUpdater, policy *polic
 		s.networkPolicyMutator.Upsert(NetworkPolicyTypeURL, p.Name, p, nodeIDs, c)
 		s.networkPolicyEndpoints[p.Name] = ep
 	}
+
 	return nil
 }
 
@@ -557,6 +560,9 @@ func (s *XDSServer) UpdateNetworkPolicy(ep logger.EndpointUpdater, policy *polic
 // endpoint from the set published to L7 proxies, and stops listening for
 // acks for policies on this endpoint.
 func (s *XDSServer) RemoveNetworkPolicy(ep logger.EndpointInfoSource) {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+
 	if ep.GetIPv6Address() != "" {
 		name := ep.GetIPv6Address()
 		s.networkPolicyCache.Delete(NetworkPolicyTypeURL, name, false)
@@ -594,5 +600,8 @@ func (s *XDSServer) GetNetworkPolicies(resourceNames []string) (map[string]*cili
 // getLocalEndpoint returns the endpoint info for the local endpoint on which
 // the network policy of the given name if enforced, or nil if not found.
 func (s *XDSServer) getLocalEndpoint(networkPolicyName string) logger.EndpointUpdater {
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+
 	return s.networkPolicyEndpoints[networkPolicyName]
 }
