@@ -16,7 +16,6 @@ package cmd
 
 import (
 	"fmt"
-	"os"
 	"strconv"
 
 	"github.com/cilium/cilium/common"
@@ -30,7 +29,7 @@ import (
 
 // bpfPolicyAddCmd represents the bpf_policy_add command
 var bpfPolicyAddCmd = &cobra.Command{
-	Use:    "add <endpoint id> <identity> [port/proto]",
+	Use:    "add <endpoint id> <traffic-direction> <identity> [port/proto]",
 	Short:  "Add/update policy entry",
 	PreRun: requireEndpointID,
 	Run: func(cmd *cobra.Command, args []string) {
@@ -43,32 +42,37 @@ func init() {
 	bpfPolicyCmd.AddCommand(bpfPolicyAddCmd)
 }
 
-// TODO - update with support for updating egress policy as well. See GH-3114.
 func updatePolicyKey(cmd *cobra.Command, args []string, add bool) {
-	if len(args) < 2 {
-		Usagef(cmd, "<endpoint id> and <identity> required")
+	if len(args) < 3 {
+		Usagef(cmd, "<endpoint id>, <traffic-direction>, and <identity> required")
 	}
 
-	lbl := args[0]
-	if id := identity.GetReservedID(lbl); id != identity.IdentityUnknown {
-		lbl = "reserved_" + strconv.FormatUint(uint64(id), 10)
-	}
-
-	file := bpf.MapPath(policymap.MapName + lbl)
-	policyMap, _, err := policymap.OpenMap(file)
+	trafficDirection := args[1]
+	parsedTd, err := parseTrafficString(trafficDirection)
 	if err != nil {
-		Fatalf("Cannot open policymap '%s' : %s", file, err)
+		Fatalf("Failed to convert %s to a valid traffic direction: %s", args[1], err)
 	}
 
-	peerLbl, err := strconv.ParseUint(args[1], 10, 32)
+	endpointID := args[0]
+	if numericIdentity := identity.GetReservedID(endpointID); numericIdentity != identity.IdentityUnknown {
+		endpointID = "reserved_" + strconv.FormatUint(uint64(numericIdentity), 10)
+	}
+
+	policyMapPath := bpf.MapPath(policymap.MapName + endpointID)
+	policyMap, _, err := policymap.OpenMap(policyMapPath)
 	if err != nil {
-		Fatalf("Failed to convert %s", args[1])
+		Fatalf("Cannot open policymap '%s' : %s", policyMapPath, err)
+	}
+
+	peerLbl, err := strconv.ParseUint(args[2], 10, 32)
+	if err != nil {
+		Fatalf("Failed to convert %s", args[2])
 	}
 
 	port := uint16(0)
 	protos := []uint8{}
-	if len(args) > 2 {
-		pp, err := parseL4PortsSlice([]string{args[2]})
+	if len(args) > 3 {
+		pp, err := parseL4PortsSlice([]string{args[3]})
 		if err != nil {
 			Fatalf("Failed to parse L4: %s", err)
 		}
@@ -88,24 +92,18 @@ func updatePolicyKey(cmd *cobra.Command, args []string, add bool) {
 		protos = append(protos, 0)
 	}
 
-	ok := true
 	label := uint32(peerLbl)
 	for _, proto := range protos {
 		u8p := u8proto.U8proto(proto)
 		entry := fmt.Sprintf("%d %d/%s", label, port, u8p.String())
 		if add == true {
-			if err := policyMap.AllowL4(label, port, proto, policymap.Ingress); err != nil {
-				fmt.Printf("Cannot add policy key '%s': %s\n", entry, err)
-				ok = false
+			if err := policyMap.AllowL4(label, port, proto, parsedTd); err != nil {
+				Fatalf("Cannot add policy key '%s': %s\n", entry, err)
 			}
 		} else {
-			if err := policyMap.DeleteL4(label, port, proto, policymap.Ingress); err != nil {
-				fmt.Printf("Cannot delete policy key '%s': %s\n", entry, err)
-				ok = false
+			if err := policyMap.DeleteL4(label, port, proto, parsedTd); err != nil {
+				Fatalf("Cannot delete policy key '%s': %s\n", entry, err)
 			}
 		}
-	}
-	if !ok {
-		os.Exit(1)
 	}
 }
