@@ -58,7 +58,7 @@ func startXDSGRPCServer(listener net.Listener, ldsConfig, npdsConfig, nphdsConfi
 	reflection.Register(grpcServer)
 
 	go func() {
-		log.Infof("Envoy: Starting xDS gRPC server listening on %s", listener)
+		log.Infof("Envoy: Starting xDS gRPC server listening on %s", listener.Addr())
 		if err := grpcServer.Serve(listener); err != nil && !strings.Contains(err.Error(), "closed network connection") {
 			log.WithError(err).Fatal("Envoy: Failed to serve xDS gRPC API")
 		}
