@@ -227,14 +227,11 @@ func ipIdentityWatcher(owner IPIdentityMappingOwner) {
 				cachedIdentity    identity.NumericIdentity
 			)
 
-			// Key and value are empty for ListDone event types; do not try
-			// to unmarshal key or value.
-			if event.Typ == kvstore.EventTypeListDone {
-				owner.OnIPIdentityCacheGC()
-				continue
-			}
-
+			// TODO factor out Envoy code into callback. That way this could be
+			// made more-easily testable.
 			switch event.Typ {
+			case kvstore.EventTypeListDone:
+				owner.OnIPIdentityCacheGC()
 			case kvstore.EventTypeCreate, kvstore.EventTypeModify:
 
 				err := json.Unmarshal(event.Value, &ipIDPair)
@@ -247,6 +244,7 @@ func ipIdentityWatcher(owner IPIdentityMappingOwner) {
 
 				cachedIdentity, exists := IPIdentityCache.LookupByIP(ipStr)
 
+				// Need to add or update entry.
 				if !exists || cachedIdentity != ipIDPair.ID {
 					IPIdentityCache.upsert(ipStr, ipIDPair.ID)
 					cacheChanged = true
@@ -266,7 +264,7 @@ func ipIdentityWatcher(owner IPIdentityMappingOwner) {
 				// Synchronize local caching of endpoint IP to ipIDPair mapping with
 				// operation key-value store has informed us about.
 
-				convertedKey, err := keyToIP(event.Key)
+				keyIP, err := keyToIP(event.Key)
 
 				// Value is not present in deletion event; need to convert key
 				// to IP.
@@ -275,36 +273,36 @@ func ipIdentityWatcher(owner IPIdentityMappingOwner) {
 					continue
 				}
 
-				ipIDPair.IP = convertedKey
-				ipStr := convertedKey.String()
+				ipIDPair.IP = keyIP
+				ipStr := keyIP.String()
 
-				cachedIdentity, exists := IPIdentityCache.LookupByIP(ipStr)
+				cachedIdentity, isIPInCache := IPIdentityCache.LookupByIP(ipStr)
 
-				if exists {
-
-					// Perform lookup first to get list of identities.
-					identityToDelete, _ := IPIdentityCache.LookupByIP(ipStr)
-					ipIDPair.ID = identityToDelete
-
-					endpointIPs, exists := IPIdentityCache.LookupByIdentity(identityToDelete)
+				if isIPInCache {
+					// Set value of ipIDPair.ID for logging purposes and owner callback.
+					ipIDPair.ID = cachedIdentity
 
 					IPIdentityCache.delete(ipStr)
+
+					// This lookup needs to be *after* the above call to delete
+					// in order to determine if the identity-to IP mapping still
+					// exists in the cache. This determines what operation is
+					// performed on the Envoy cache.
+					endpointIPs, isIdentityInCache := IPIdentityCache.LookupByIdentity(cachedIdentity)
 					cacheChanged = true
 					cacheModification = Delete
 
-					if !exists {
-						// Delete from XDS Cache as well.
+					if !isIdentityInCache {
 						envoy.NetworkPolicyHostsCache.Delete(envoy.NetworkPolicyHostsTypeURL, cachedIdentity.StringID(), false)
 					} else {
-						// Update list in XDS cache without this ip.
-
-						// TODO (factor this out into a helper function).
+						// Update list in XDS cache without this IP, as this
+						// identity still maps to other IPs.
 						ipStrings := make([]string, 0, len(endpointIPs))
 						for endpointIP := range endpointIPs {
 							ipStrings = append(ipStrings, endpointIP)
 						}
 						sort.Strings(ipStrings)
-						envoy.NetworkPolicyHostsCache.Upsert(envoy.NetworkPolicyHostsTypeURL, identityToDelete.StringID(), &envoyAPI.NetworkPolicyHosts{Policy: uint64(identityToDelete), HostAddresses: ipStrings}, false)
+						envoy.NetworkPolicyHostsCache.Upsert(envoy.NetworkPolicyHostsTypeURL, cachedIdentity.StringID(), &envoyAPI.NetworkPolicyHosts{Policy: uint64(cachedIdentity), HostAddresses: ipStrings}, false)
 					}
 				}
 			}
