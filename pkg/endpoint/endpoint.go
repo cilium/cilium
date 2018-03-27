@@ -1487,6 +1487,11 @@ func (e *Endpoint) logStatusLocked(typ StatusType, code StatusCode, msg string) 
 		Timestamp: time.Now().UTC(),
 	}
 	e.Status.addStatusLog(sts)
+	e.getLogger().WithFields(logrus.Fields{
+		"code":                  sts.Status.Code,
+		"type":                  sts.Status.Type,
+		logfields.EndpointState: sts.Status.State,
+	}).Debug(msg)
 }
 
 type UpdateValidationError struct {
