@@ -18,6 +18,9 @@ package policymap
 type TrafficDirection uint8
 
 const (
+	// Invalid represents an invalid traffic direction.
+	Invalid TrafficDirection = 2
+
 	// Egress represents egress traffic.
 	Egress TrafficDirection = 1
 
