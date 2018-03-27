@@ -530,9 +530,12 @@ func (s *XDSServer) UpdateNetworkPolicy(ep logger.EndpointUpdater, policy *polic
 
 	// When successful, push them into the cache.
 	for _, p := range policies {
-		policyRevision := policy.Revision
-		callback := func() {
-			go ep.OnProxyPolicyUpdate(policyRevision)
+		var callback func()
+		if policy != nil {
+			policyRevision := policy.Revision
+			callback = func() {
+				go ep.OnProxyPolicyUpdate(policyRevision)
+			}
 		}
 		var c *completion.Completion
 		if wg == nil {
