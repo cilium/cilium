@@ -533,67 +533,6 @@ var _ = Describe("RuntimeValidatedPolicies", func() {
 
 		connectivityTest(allRequests, helpers.App1, helpers.Httpd1, true)
 		connectivityTest(allRequests, helpers.App2, helpers.Httpd1, true)
-
-		By("Ingress CIDR")
-
-		app1, err := vm.ContainerInspectNet(helpers.App1)
-		Expect(err).Should(BeNil())
-
-		script := fmt.Sprintf(`
-			[{
-				"endpointSelector": {
-					"matchLabels":{"id.httpd1":""}
-				},
-				"ingress": [
-					{"fromEndpoints": [
-						{ "matchLabels": {"id.app1": ""}}
-					]},
-					{"fromCIDR":
-						[ "%s/32", "%s" ]}
-				]
-			}]`, app1[helpers.IPv4], app1[helpers.IPv6])
-
-		err = helpers.RenderTemplateToFile(ingressJSON, script, 0777)
-		Expect(err).Should(BeNil())
-
-		path := helpers.GetFilePath(ingressJSON)
-		_, err = vm.PolicyImportAndWait(path, helpers.HelperTimeout)
-		Expect(err).Should(BeNil())
-		defer os.Remove(ingressJSON)
-
-		connectivityTest(httpRequestsPublic, helpers.App1, helpers.Httpd1, true)
-		connectivityTest(httpRequestsPublic, helpers.App2, helpers.Httpd1, false)
-
-		By("Egress CIDR")
-
-		httpd1, err := vm.ContainerInspectNet(helpers.Httpd1)
-		Expect(err).Should(BeNil())
-
-		script = fmt.Sprintf(`
-			[{
-				"endpointSelector": {
-					"matchLabels":{"id.httpd1":""}
-				},
-				"ingress": [{
-					"fromEndpoints": [{"matchLabels":{"id.app1":""}}]
-				}]
-			},
-			{
-				 "endpointSelector":
-					{"matchLabels":{"id.%s":""}},
-				 "egress": [{
-					"toCIDR": [ "%s/32", "%s" ]
-				 }]
-			}]`, helpers.App1, httpd1[helpers.IPv4], httpd1[helpers.IPv6])
-		err = helpers.RenderTemplateToFile(egressJSON, script, 0777)
-		Expect(err).Should(BeNil())
-		path = helpers.GetFilePath(egressJSON)
-		defer os.Remove(egressJSON)
-		_, err = vm.PolicyImportAndWait(path, helpers.HelperTimeout)
-		Expect(err).Should(BeNil())
-
-		connectivityTest(httpRequestsPublic, helpers.App1, helpers.Httpd1, true)
-		connectivityTest(httpRequestsPublic, helpers.App2, helpers.Httpd1, false)
 	})
 
 	It("L4Policy Checks", func() {
