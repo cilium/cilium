@@ -586,6 +586,11 @@ var _ = Describe("RuntimeValidatedPolicies", func() {
 		connectivityTest(httpRequestsPublic, helpers.App2, helpers.Httpd2, true)
 		connectivityTest(httpRequestsPrivate, helpers.App2, helpers.Httpd2, false)
 
+		// TODO (1488) - uncomment when l3-dependent-l7 is merged for egress.
+		//connectivityTest(httpRequestsPublic, helpers.App3, helpers.Httpd3, true)
+		//connectivityTest(httpRequestsPrivate, helpers.App3, helpers.Httpd3, false)
+		//connectivityTest(allRequests, helpers.App3, helpers.Httpd2, false)
+
 		By("Disabling all the policies. All should work")
 
 		status := vm.PolicyDelAll()
