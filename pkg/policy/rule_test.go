@@ -582,7 +582,7 @@ func (ds *PolicyTestSuite) TestL3Policy(c *C) {
 	c.Assert(err, IsNil)
 
 	rule1 := &rule{Rule: apiRule1}
-	err = rule1.sanitize()
+	err = rule1.Sanitize()
 	c.Assert(err, IsNil)
 
 	expected := NewCIDRPolicy()
@@ -812,7 +812,7 @@ func (ds *PolicyTestSuite) TestRuleCanReachFromEntity(c *C) {
 		},
 	}
 
-	c.Assert(rule1.sanitize(), IsNil)
+	c.Assert(rule1.Sanitize(), IsNil)
 
 	state := traceState{}
 	c.Assert(rule1.canReachIngress(fromWorld, &state), Equals, api.Allowed)
@@ -846,7 +846,7 @@ func (ds *PolicyTestSuite) TestRuleCanReachEntity(c *C) {
 		},
 	}
 
-	c.Assert(rule1.sanitize(), IsNil)
+	c.Assert(rule1.Sanitize(), IsNil)
 
 	state := traceState{}
 	c.Assert(rule1.canReachEgress(toWorld, &state), Equals, api.Allowed)
@@ -859,68 +859,62 @@ func (ds *PolicyTestSuite) TestRuleCanReachEntity(c *C) {
 }
 
 func (ds *PolicyTestSuite) TestPolicyEntityValidationEgress(c *C) {
-	r := rule{
-		Rule: api.Rule{
-			EndpointSelector: api.NewESFromLabels(labels.ParseSelectLabel("bar")),
-			Egress: []api.EgressRule{
-				{
-					ToEntities: []api.Entity{api.EntityWorld},
-				},
+	r := api.Rule{
+		EndpointSelector: api.NewESFromLabels(labels.ParseSelectLabel("bar")),
+		Egress: []api.EgressRule{
+			{
+				ToEntities: []api.Entity{api.EntityWorld},
 			},
 		},
 	}
-	c.Assert(r.sanitize(), IsNil)
-	c.Assert(len(r.toEntities), Equals, 1)
+	c.Assert(r.Sanitize(), IsNil)
+	c.Assert(len(r.Egress[0].ToEntities), Equals, 1)
 
 	r.Egress[0].ToEntities = []api.Entity{api.EntityHost}
-	c.Assert(r.sanitize(), IsNil)
-	c.Assert(len(r.toEntities), Equals, 1)
+	c.Assert(r.Sanitize(), IsNil)
+	c.Assert(len(r.Egress[0].ToEntities), Equals, 1)
 
 	r.Egress[0].ToEntities = []api.Entity{"trololo"}
-	c.Assert(r.sanitize(), NotNil)
+	c.Assert(r.Sanitize(), NotNil)
 }
 
 func (ds *PolicyTestSuite) TestPolicyEntityValidationIngress(c *C) {
-	r := rule{
-		Rule: api.Rule{
-			EndpointSelector: api.NewESFromLabels(labels.ParseSelectLabel("bar")),
-			Ingress: []api.IngressRule{
-				{
-					FromEntities: []api.Entity{api.EntityWorld},
-				},
+	r := api.Rule{
+		EndpointSelector: api.NewESFromLabels(labels.ParseSelectLabel("bar")),
+		Ingress: []api.IngressRule{
+			{
+				FromEntities: []api.Entity{api.EntityWorld},
 			},
 		},
 	}
-	c.Assert(r.sanitize(), IsNil)
-	c.Assert(len(r.fromEntities), Equals, 1)
+	c.Assert(r.Sanitize(), IsNil)
+	c.Assert(len(r.Ingress[0].FromEntities), Equals, 1)
 
 	r.Ingress[0].FromEntities = []api.Entity{api.EntityHost}
-	c.Assert(r.sanitize(), IsNil)
-	c.Assert(len(r.fromEntities), Equals, 1)
+	c.Assert(r.Sanitize(), IsNil)
+	c.Assert(len(r.Ingress[0].FromEntities), Equals, 1)
 
 	r.Ingress[0].FromEntities = []api.Entity{"trololo"}
-	c.Assert(r.sanitize(), NotNil)
+	c.Assert(r.Sanitize(), NotNil)
 }
 
 func (ds *PolicyTestSuite) TestPolicyEntityValidationEntitySelectorsFill(c *C) {
-	r := rule{
-		Rule: api.Rule{
-			EndpointSelector: api.NewESFromLabels(labels.ParseSelectLabel("bar")),
-			Ingress: []api.IngressRule{
-				{
-					FromEntities: []api.Entity{api.EntityWorld, api.EntityHost},
-				},
+	r := api.Rule{
+		EndpointSelector: api.NewESFromLabels(labels.ParseSelectLabel("bar")),
+		Ingress: []api.IngressRule{
+			{
+				FromEntities: []api.Entity{api.EntityWorld, api.EntityHost},
 			},
-			Egress: []api.EgressRule{
-				{
-					ToEntities: []api.Entity{api.EntityWorld, api.EntityHost},
-				},
+		},
+		Egress: []api.EgressRule{
+			{
+				ToEntities: []api.Entity{api.EntityWorld, api.EntityHost},
 			},
 		},
 	}
-	c.Assert(r.sanitize(), IsNil)
-	c.Assert(len(r.fromEntities), Equals, 2)
-	c.Assert(len(r.toEntities), Equals, 2)
+	c.Assert(r.Sanitize(), IsNil)
+	c.Assert(len(r.Ingress[0].FromEntities), Equals, 2)
+	c.Assert(len(r.Egress[0].ToEntities), Equals, 2)
 }
 
 func (ds *PolicyTestSuite) TestL3RuleLabels(c *C) {
@@ -1004,11 +998,9 @@ func (ds *PolicyTestSuite) TestL3RuleLabels(c *C) {
 		for _, r := range test.rulesToApply {
 			apiRule := rules[r]
 			err := apiRule.Sanitize()
-			c.Assert(err, IsNil, Commentf("Cannot sanitize api.Rule: %+v", apiRule))
+			c.Assert(err, IsNil, Commentf("Cannot sanitize Rule: %+v", apiRule))
 
 			rule := &rule{Rule: apiRule}
-			err = rule.sanitize()
-			c.Assert(err, IsNil, Commentf("Cannot sanitize Rule: %+v", rule))
 
 			rule.resolveCIDRPolicy(toBar, &traceState{}, finalPolicy)
 		}
@@ -1122,8 +1114,6 @@ func (ds *PolicyTestSuite) TestL4RuleLabels(c *C) {
 			c.Assert(err, IsNil, Commentf("Cannot sanitize api.Rule: %+v", apiRule))
 
 			rule := &rule{Rule: apiRule}
-			err = rule.sanitize()
-			c.Assert(err, IsNil, Commentf("Cannot sanitize Rule: %+v", rule))
 
 			rule.resolveL4Policy(toBar, &traceState{}, finalPolicy)
 		}

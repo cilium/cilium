@@ -28,55 +28,10 @@ import (
 
 type rule struct {
 	api.Rule
-
-	fromEntities []api.EndpointSelector
-	toEntities   []api.EndpointSelector
 }
 
 func (r *rule) String() string {
 	return fmt.Sprintf("%v", r.EndpointSelector)
-}
-
-// sanitize has a side effect of populating the fromEntities and toEntities
-// slices to avoid superfluent map accesses
-func (r *rule) sanitize() error {
-	if r == nil || r.EndpointSelector.LabelSelector == nil {
-		return fmt.Errorf("nil rule")
-	}
-
-	if err := r.Rule.Sanitize(); err != nil {
-		return err
-	}
-
-	// resetting entity selector slices
-	r.fromEntities = []api.EndpointSelector{}
-	r.toEntities = []api.EndpointSelector{}
-	entities := []api.Entity{}
-
-	ingressEntityCounter := 0
-	for _, rule := range r.Ingress {
-		entities = append(entities, rule.FromEntities...)
-		ingressEntityCounter += len(rule.FromEntities)
-	}
-
-	for _, rule := range r.Egress {
-		entities = append(entities, rule.ToEntities...)
-	}
-
-	for j, entity := range entities {
-		selector, ok := api.EntitySelectorMapping[entity]
-		if !ok {
-			return fmt.Errorf("unsupported entity: %s", entity)
-		}
-
-		if j < ingressEntityCounter {
-			r.fromEntities = append(r.fromEntities, selector)
-		} else {
-			r.toEntities = append(r.toEntities, selector)
-		}
-	}
-
-	return nil
 }
 
 func (policy *L4Filter) addFromEndpoints(fromEndpoints []api.EndpointSelector) bool {
@@ -424,13 +379,17 @@ func (r *rule) canReachIngress(ctx *SearchContext, state *traceState) api.Decisi
 		}
 	}
 
-	for _, entitySelector := range r.fromEntities {
-		if entitySelector.Matches(ctx.From) {
-			ctx.PolicyTrace("+     Found all required labels to match entity %s\n", entitySelector.String())
-			state.matchedRules++
-			return api.Allowed
-		}
+	for _, r := range r.Ingress {
+		for _, entity := range r.FromEntities {
+			// Don't need to check if valid entity because sanitization has already occurred.
+			entitySelector, _ := api.EntitySelectorMapping[entity]
+			if entitySelector.Matches(ctx.From) {
+				ctx.PolicyTrace("+     Found all required labels to match entity %s\n", entitySelector.String())
+				state.matchedRules++
+				return api.Allowed
+			}
 
+		}
 	}
 
 	return api.Undecided
@@ -479,23 +438,14 @@ func (r *rule) canReachEgress(ctx *SearchContext, state *traceState) api.Decisio
 		}
 	}
 
-	for _, entitySelector := range r.toEntities {
-		if entitySelector.Matches(ctx.To) {
-			ctx.PolicyTrace("+     Found all required labels to match entity %s\n", entitySelector.String())
-			state.matchedRules++
-			return api.Allowed
-		}
-	}
-
-	return api.Undecided
-}
-
-func (r *rule) canReachEntities(ctx *SearchContext, state *traceState) api.Decision {
-	for _, entitySelector := range r.toEntities {
-		if entitySelector.Matches(ctx.To) {
-			ctx.PolicyTrace("+     Found all required labels to match entity %s\n", entitySelector.String())
-			state.matchedRules++
-			return api.Allowed
+	for _, r := range r.Egress {
+		for _, entity := range r.ToEntities {
+			entitySelector, _ := api.EntitySelectorMapping[entity]
+			if entitySelector.Matches(ctx.To) {
+				ctx.PolicyTrace("+     Found all required labels to match entity %s\n", entitySelector.String())
+				state.matchedRules++
+				return api.Allowed
+			}
 		}
 	}
 

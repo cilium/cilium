@@ -350,8 +350,7 @@ func (p *Repository) Add(r api.Rule) (uint64, error) {
 	p.Mutex.Lock()
 	defer p.Mutex.Unlock()
 
-	realRule := &rule{Rule: r}
-	if err := realRule.sanitize(); err != nil {
+	if err := r.Sanitize(); err != nil {
 		return p.revision, err
 	}
 
@@ -444,7 +443,7 @@ func (p *Repository) GetJSON() string {
 // fromEntities and toEntities.
 //
 // Must be called with p.Mutex held
-func (p *Repository) GetRulesMatching(labels labels.LabelArray, includeEntities bool) (ingressMatch bool, egressMatch bool) {
+func (p *Repository) GetRulesMatching(labels labels.LabelArray) (ingressMatch bool, egressMatch bool) {
 	ingressMatch = false
 	egressMatch = false
 	for _, r := range p.rules {
@@ -454,15 +453,6 @@ func (p *Repository) GetRulesMatching(labels labels.LabelArray, includeEntities 
 				ingressMatch = true
 			}
 			if len(r.Egress) > 0 {
-				egressMatch = true
-			}
-		}
-
-		if includeEntities {
-			if len(r.fromEntities) > 0 {
-				ingressMatch = true
-			}
-			if len(r.toEntities) > 0 {
 				egressMatch = true
 			}
 		}
