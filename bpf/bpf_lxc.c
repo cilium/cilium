@@ -199,12 +199,18 @@ skip_service_lookup:
 	/* If the packet is in the establishing direction and it's destined
 	 * within the cluster, it must match policy or be dropped. If it's
 	 * bound for the host/outside, a subsequent CIDR check will be done
-	 * below. */
+	 * below (we still need to do an L4 check in this case, however). */
 	verdict = policy_can_egress6(skb, tuple);
 	BPF_V6(router_ip, ROUTER_IP);
-	if (ret != CT_REPLY && ret != CT_RELATED && verdict < 0 &&
-	    ipv6_match_prefix_64(daddr, &router_ip))
-		return verdict;
+	if (ipv6_match_prefix_64(daddr, &router_ip)) {
+		if (ret != CT_REPLY && ret != CT_RELATED && verdict < 0)
+			return verdict;
+	} else {
+		verdict = l4_policy_lookup(skb, tuple->nexthdr, tuple->dport,
+					   CT_EGRESS, false);
+		if (verdict < 0)
+			return verdict;
+	}
 
 	switch (ret) {
 	case CT_NEW:
@@ -514,11 +520,17 @@ skip_service_lookup:
 	/* If the packet is in the establishing direction and it's destined
 	 * within the cluster, it must match policy or be dropped. If it's
 	 * bound for the host/outside, a subsequent CIDR check will be done
-	 * below. */
+	 * below (we still need to do an L4 check in this case, however). */
 	verdict = policy_can_egress4(skb, &tuple);
-	if (ret != CT_REPLY && ret != CT_RELATED && verdict < 0 &&
-	    (orig_dip & IPV4_CLUSTER_MASK) == IPV4_CLUSTER_RANGE)
-		return verdict;
+	if ((orig_dip & IPV4_CLUSTER_MASK) == IPV4_CLUSTER_RANGE) {
+		if (ret != CT_REPLY && ret != CT_RELATED && verdict < 0)
+			return verdict;
+	} else {
+		verdict = l4_policy_lookup(skb, tuple.nexthdr, tuple.dport,
+					   CT_EGRESS, false);
+		if (verdict < 0)
+			return verdict;
+	}
 
 	switch (ret) {
 	case CT_NEW:
