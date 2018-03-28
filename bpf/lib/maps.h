@@ -276,9 +276,10 @@ LPM_LOOKUP_FN(lpm4_egress_lookup, __be32, CIDR4_EGRESS_PREFIXES,
 
 #endif /* POLICY_INGRESS || POLICY_EGRESS */
 
+/* No egress policy, default allow all CIDR */
 #ifndef POLICY_INGRESS
-#define lpm6_ingress_lookup(ADDR) 0
-#define lpm4_ingress_lookup(ADDR) 0
+#define lpm6_ingress_lookup(ADDR) 1
+#define lpm4_ingress_lookup(ADDR) 1
 #endif
 
 /* No egress policy, default allow all CIDR */
