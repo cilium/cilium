@@ -18,11 +18,6 @@ CLANG  ?= clang
 LLC    ?= llc
 HOSTCC ?= gcc
 
-$(TARGET): $(TARGET).c
-	@$(ECHO_CC)
-	@# Due to gcc bug, -lelf needs to be at the end.
-	$(QUIET) ${HOSTCC} -Wall -O2 -I include/ $@.c -lelf -o $@
-
 ifeq ("$(PKG_BUILD)","")
 all: $(BPF) $(TARGET)
 
@@ -71,6 +66,11 @@ bpf_lxc.o: bpf_lxc.c $(LIB)
 else
 all: $(TARGET)
 endif
+
+$(TARGET): $(TARGET).c
+	@$(ECHO_CC)
+	@# Due to gcc bug, -lelf needs to be at the end.
+	$(QUIET) ${HOSTCC} -Wall -O2 -I include/ $@.c -lelf -o $@
 
 install:
 	$(INSTALL) -m 0755 $(TARGET) $(DESTDIR)$(BINDIR)
