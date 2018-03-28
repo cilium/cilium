@@ -40,6 +40,7 @@ import (
 	"github.com/cilium/cilium/pkg/apierror"
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/byteorder"
+	"github.com/cilium/cilium/pkg/datapath"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/identity"
@@ -274,22 +275,14 @@ func (d *Daemon) DebugEnabled() bool {
 	return d.conf.Opts.IsEnabled(endpoint.OptionDebug)
 }
 
-// ResetProxyPort cleans the connection tracking of the given endpoint
-// where the given endpoint IPs and the idsToRm match the CT entry fields.
-// isCTLocal should be set as true if the endpoint's CT table is either
-// local or not (if it is not local then it is assumed to be global).
-// Implementation of pkg/endpoint.Owner interface
-func (d *Daemon) ResetProxyPort(e *endpoint.Endpoint, isCTLocal bool, epIPs []net.IP, idsToMod policy.SecurityIDContexts) {
-	endpointmanager.ResetProxyPort(!d.conf.IPv4Disabled, e, isCTLocal, epIPs, idsToMod)
+// IPv4Enabled must return true if IPv4 is enabled
+func (d *Daemon) IPv4Enabled() bool {
+	return !d.conf.IPv4Disabled
 }
 
-// FlushCTEntries flushes the connection tracking of the given endpoint
-// where the given endpoint IPs match the CT entry IP fields.
-// isCTLocal should be set as true if the endpoint's CT table is either
-// local or not (if it is not local then it is assumed to be global).
-// Implementation of pkg/endpoint.Owner interface
-func (d *Daemon) FlushCTEntries(e *endpoint.Endpoint, isCTLocal bool, epIPs []net.IP, idsToKeep policy.SecurityIDContexts) {
-	endpointmanager.FlushCTEntriesOf(!d.conf.IPv4Disabled, e, isCTLocal, epIPs, idsToKeep)
+// IPv6Enabled must return true if IPv6 is enabled
+func (d *Daemon) IPv6Enabled() bool {
+	return true
 }
 
 func (d *Daemon) writeNetdevHeader(dir string) error {
@@ -1419,4 +1412,9 @@ func (d *Daemon) GetNodeSuffix() string {
 
 	log.Fatal("Node IP not available yet")
 	return "<nil>"
+}
+
+// GetDatapathEndpoints return a slice of all datapath relevant endpoints
+func (d *Daemon) GetDatapathEndpoints() []datapath.Endpoint {
+	return endpointmanager.GetDatapathEndpoints()
 }

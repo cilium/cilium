@@ -33,6 +33,7 @@ import (
 	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/completion"
+	"github.com/cilium/cilium/pkg/datapath"
 	"github.com/cilium/cilium/pkg/geneve"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -423,7 +424,7 @@ func updateCT(owner Owner, e *Endpoint, epIPs []net.IP,
 		go func(wg *sync.WaitGroup) {
 			// New security identities added, so we need to flush all CT entries
 			// except the idsToKeep.
-			owner.FlushCTEntries(e, isLocal, epIPs, idsToKeep)
+			datapath.FlushCTEntries(e, isLocal, epIPs, idsToKeep)
 			wg.Done()
 		}(wg)
 	} else {
@@ -431,7 +432,7 @@ func updateCT(owner Owner, e *Endpoint, epIPs []net.IP,
 		go func(wg *sync.WaitGroup) {
 			// Security identities removed, so we need to modify all CT entries
 			// with idsToMod because there's no policy being enforced.
-			owner.ResetProxyPort(e, isLocal, epIPs, idsToMod)
+			datapath.ResetProxyPort(e, isLocal, epIPs, idsToMod)
 			wg.Done()
 		}(wg)
 	}

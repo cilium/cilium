@@ -2338,3 +2338,12 @@ func (e *Endpoint) IPs() []net.IP {
 	}
 	return ips
 }
+
+// UseIsolatedConntrack returns true if the endpoint is configured to use an
+// isolated connection tracking table
+func (e *Endpoint) UseIsolatedConntrack() bool {
+	e.Mutex.RLock()
+	defer e.Mutex.RUnlock()
+
+	return e.Opts.IsEnabled(OptionConntrackLocal)
+}

@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/cilium/cilium/pkg/datapath"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
@@ -301,6 +302,17 @@ func HasGlobalCT() bool {
 func GetEndpoints() []*endpoint.Endpoint {
 	mutex.RLock()
 	eps := make([]*endpoint.Endpoint, 0, len(endpoints))
+	for _, ep := range endpoints {
+		eps = append(eps, ep)
+	}
+	mutex.RUnlock()
+	return eps
+}
+
+// GetDatapathEndpoints return a slice of all endpoints
+func GetDatapathEndpoints() []datapath.Endpoint {
+	mutex.RLock()
+	eps := make([]datapath.Endpoint, 0, len(endpoints))
 	for _, ep := range endpoints {
 		eps = append(eps, ep)
 	}

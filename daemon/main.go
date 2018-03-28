@@ -33,8 +33,8 @@ import (
 	"github.com/cilium/cilium/daemon/defaults"
 	"github.com/cilium/cilium/daemon/options"
 	"github.com/cilium/cilium/pkg/bpf"
+	"github.com/cilium/cilium/pkg/datapath"
 	"github.com/cilium/cilium/pkg/endpoint"
-	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/envoy"
 	"github.com/cilium/cilium/pkg/flowdebug"
 	"github.com/cilium/cilium/pkg/k8s"
@@ -699,7 +699,7 @@ func runDaemon() {
 	}
 
 	policy.Init()
-	endpointmanager.EnableConntrackGC(!d.conf.IPv4Disabled, true)
+	datapath.Init(d)
 
 	if enableLogstash {
 		go EnableLogstash(logstashAddr, int(logstashProbeTimer))
