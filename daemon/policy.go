@@ -64,7 +64,7 @@ func (d *Daemon) EnableEndpointPolicyEnforcement(e *endpoint.Endpoint) (ingress 
 		// Default mode means that if rules contain labels that match this endpoint,
 		// then enable policy enforcement for this endpoint.
 		// GH-1676: Could check e.Consumable instead? Would be much cheaper.
-		return d.GetPolicyRepository().GetRulesMatching(e.Consumable.LabelArray, false)
+		return d.GetPolicyRepository().GetRulesMatching(e.Consumable.LabelArray)
 	default:
 		// If policy enforcement isn't enabled for the daemon we do not enable
 		// policy enforcement for the endpoint.
@@ -101,8 +101,8 @@ func (h *getPolicyResolve) Handle(params GetPolicyResolveParams) middleware.Resp
 		// the API request, that means that policy enforcement is not enabled
 		// for the endpoints corresponding to said sets of labels; thus, we allow
 		// traffic between these sets of labels, and do not enforce policy between them.
-		fromIngress, fromEgress := d.policy.GetRulesMatching(labels.NewSelectLabelArrayFromModel(params.IdentityContext.From), true)
-		toIngress, toEgress := d.policy.GetRulesMatching(labels.NewSelectLabelArrayFromModel(params.IdentityContext.To), true)
+		fromIngress, fromEgress := d.policy.GetRulesMatching(labels.NewSelectLabelArrayFromModel(params.IdentityContext.From))
+		toIngress, toEgress := d.policy.GetRulesMatching(labels.NewSelectLabelArrayFromModel(params.IdentityContext.To))
 		if !fromIngress && !fromEgress && !toIngress && !toEgress {
 			policyEnforcementMsg = "Policy enforcement is disabled because " +
 				"no rules in the policy repository match any endpoint selector " +

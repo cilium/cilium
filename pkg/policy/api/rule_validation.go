@@ -102,6 +102,13 @@ func (i *IngressRule) sanitize() error {
 		prefixLengths[prefixLength] = exists{}
 	}
 
+	for _, fromEntity := range i.FromEntities {
+		_, ok := EntitySelectorMapping[fromEntity]
+		if !ok {
+			return fmt.Errorf("unsupported entity: %s", fromEntity)
+		}
+	}
+
 	// FIXME GH-1781 count coalesced CIDRs and restrict the number of
 	// prefix lengths based on the CIDRSet exclusions.
 	if l := len(prefixLengths); l > MaxCIDRPrefixLengths {
@@ -159,6 +166,13 @@ func (e *EgressRule) sanitize() error {
 			return err
 		}
 		prefixLengths[prefixLength] = exists{}
+	}
+
+	for _, toEntity := range e.ToEntities {
+		_, ok := EntitySelectorMapping[toEntity]
+		if !ok {
+			return fmt.Errorf("unsupported entity: %s", toEntity)
+		}
 	}
 
 	// FIXME GH-1781 count coalesced CIDRs and restrict the number of

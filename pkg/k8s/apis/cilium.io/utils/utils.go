@@ -117,6 +117,11 @@ func parseToCiliumIngressRule(namespace string, inRule, retRule *api.Rule) {
 					}
 				}
 			}
+
+			if ing.FromEntities != nil {
+				retRule.Ingress[i].FromEntities = make([]api.Entity, len(ing.FromEntities))
+				copy(retRule.Ingress[i].FromEntities, ing.FromEntities)
+			}
 		}
 	}
 }
@@ -179,6 +184,11 @@ func parseToCiliumEgressRule(namespace string, inRule, retRule *api.Rule) {
 			if egr.ToServices != nil {
 				retRule.Egress[i].ToServices = make([]api.Service, len(egr.ToServices))
 				copy(retRule.Egress[i].ToServices, egr.ToServices)
+			}
+
+			if egr.ToEntities != nil {
+				retRule.Egress[i].ToEntities = make([]api.Entity, len(egr.ToEntities))
+				copy(retRule.Egress[i].ToEntities, egr.ToEntities)
 			}
 		}
 	}
