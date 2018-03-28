@@ -224,7 +224,7 @@ static __always_inline int lpm6_map_lookup(struct bpf_elf_map *map,
 static __always_inline int lpm4_map_lookup(struct bpf_elf_map *map,
 					   __be32 addr, __u32 prefix)
 {
-	struct bpf_lpm_trie_key4 key = { { prefix }, addr & ((1<<prefix)-1)};
+	struct bpf_lpm_trie_key4 key = { { prefix }, addr & GET_PREFIX(prefix) };
 	return map_lookup_elem(map, &key) != NULL;
 }
 
