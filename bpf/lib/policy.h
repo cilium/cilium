@@ -172,16 +172,15 @@ policy_can_egress(struct __sk_buff *skb, __u16 identity, __u16 dport, __u8 proto
 #ifdef DROP_ALL
 	return DROP_POLICY;
 #else
-	if (__policy_can_access(&POLICY_MAP, skb, identity, dport, proto, 0,
-				NULL, CT_EGRESS) == TC_ACT_OK)
-		goto allow;
+	int ret = __policy_can_access(&POLICY_MAP, skb, identity, dport, proto,
+				      0, NULL, CT_EGRESS);
+	if (ret >= 0)
+		return ret;
 
 	cilium_dbg(skb, DBG_POLICY_DENIED, identity, SECLABEL);
 #ifndef IGNORE_DROP
 	return DROP_POLICY;
 #endif
-
-allow:
 	return TC_ACT_OK;
 #endif /* DROP_ALL */
 }
