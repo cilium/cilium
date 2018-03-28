@@ -18,6 +18,21 @@ import (
 	"github.com/cilium/cilium/pkg/labels"
 )
 
+const (
+	// Version of the current policy defined here.
+	Version = "v3"
+)
+
+// VersionRule is a wrapper for Rules to append the version number of the
+// policy, when using cilium CLI.
+type VersionRule struct {
+	// Rule is the api rule used for this version.
+	Rule `json:"rule"`
+
+	// Version is the version of this policy type.
+	Version string `json:"version"`
+}
+
 // Rule is a policy rule which must be applied to all endpoints which match the
 // labels contained in the identitySelector.
 //

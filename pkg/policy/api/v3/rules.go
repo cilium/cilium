@@ -33,3 +33,13 @@ func (r *Rules) Sanitize() error {
 	}
 	return nil
 }
+
+// VersionRules is a wrapper for Rules to append the version number of the
+// policy, when using cilium CLI.
+type VersionRules struct {
+	// Rules are the api rules used for this version.
+	Rules `json:"rules"`
+
+	// Version is the version of this policy type.
+	Version string `json:"version"`
+}

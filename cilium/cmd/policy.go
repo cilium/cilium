@@ -120,7 +120,7 @@ func ignoredFile(name string) bool {
 	return false
 }
 
-func loadPolicyFile(path string) (v3.Rules, error) {
+func loadPolicyFile(path string) (*v3.VersionRules, error) {
 	var content []byte
 	var err error
 	logrus.WithField(logfields.Path, path).Debug("Loading file")
@@ -135,10 +135,10 @@ func loadPolicyFile(path string) (v3.Rules, error) {
 		return nil, err
 	}
 
-	var ruleList v3.Rules
+	var ruleList v3.VersionRules
 	err = json.Unmarshal(content, &ruleList)
 	if err == nil {
-		err = ruleList.Sanitize()
+		err = ruleList.Rules.Sanitize()
 	}
 	if err != nil {
 		// try load a v2.Rule
@@ -157,14 +157,15 @@ func loadPolicyFile(path string) (v3.Rules, error) {
 			return nil, handleUnmarshalError(path, content, err)
 		}
 		if v3RuleList != nil {
-			ruleList = *v3RuleList
+			ruleList.Rules = *v3RuleList
 		}
+		ruleList.Version = v3.Version
 	}
 
-	return ruleList, err
+	return &ruleList, err
 }
 
-func loadPolicy(name string) (v3.Rules, error) {
+func loadPolicy(name string) (*v3.VersionRules, error) {
 	logrus.WithField(logfields.Path, name).Debug("Entering directory")
 
 	if name == "-" {
@@ -184,26 +185,26 @@ func loadPolicy(name string) (v3.Rules, error) {
 		return nil, err
 	}
 
-	result := v3.Rules{}
+	result := &v3.VersionRules{Rules: v3.Rules{}}
 	ruleList, err := processAllFilesFirst(name, files)
 	if err != nil {
 		return nil, err
 	}
-	result = append(result, ruleList...)
+	result.Rules = append(result.Rules, ruleList.Rules...)
 
 	ruleList, err = recursiveSearch(name, files)
 	if err != nil {
 		return nil, err
 	}
-	result = append(result, ruleList...)
+	result.Rules = append(result.Rules, ruleList.Rules...)
 
 	logrus.WithField(logfields.Path, name).Debug("Leaving directory")
 
 	return result, nil
 }
 
-func processAllFilesFirst(name string, files []os.FileInfo) (v3.Rules, error) {
-	result := v3.Rules{}
+func processAllFilesFirst(name string, files []os.FileInfo) (*v3.VersionRules, error) {
+	result := &v3.VersionRules{Rules: v3.Rules{}}
 
 	for _, f := range files {
 		if f.IsDir() || ignoredFile(path.Base(f.Name())) {
@@ -215,14 +216,14 @@ func processAllFilesFirst(name string, files []os.FileInfo) (v3.Rules, error) {
 			return nil, err
 		}
 
-		result = append(result, ruleList...)
+		result.Rules = append(result.Rules, ruleList.Rules...)
 	}
 
 	return result, nil
 }
 
-func recursiveSearch(name string, files []os.FileInfo) (v3.Rules, error) {
-	result := v3.Rules{}
+func recursiveSearch(name string, files []os.FileInfo) (*v3.VersionRules, error) {
+	result := &v3.VersionRules{Rules: v3.Rules{}}
 	for _, f := range files {
 		if f.IsDir() {
 			if ignoredFile(path.Base(f.Name())) {
@@ -233,7 +234,7 @@ func recursiveSearch(name string, files []os.FileInfo) (v3.Rules, error) {
 			if err != nil {
 				return nil, err
 			}
-			result = append(result, ruleList...)
+			result.Rules = append(result.Rules, ruleList.Rules...)
 		}
 	}
 	return result, nil

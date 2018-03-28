@@ -285,25 +285,29 @@ func newPutPolicyHandler(d *Daemon) PutPolicyHandler {
 func (h *putPolicy) Handle(params PutPolicyParams) middleware.Responder {
 	d := h.daemon
 
-	var rules v3.Rules
+	var rules v3.VersionRules
 	if err := json.Unmarshal([]byte(*params.Policy), &rules); err != nil {
 		return NewPutPolicyInvalidPolicy()
 	}
 
-	for _, r := range rules {
+	if rules.Version != v3.Version {
+		return apierror.Error(PutPolicyFailureCode, fmt.Errorf("unknown policy version %q", rules.Version))
+	}
+
+	for _, r := range rules.Rules {
 		if err := r.Sanitize(); err != nil {
 			return apierror.Error(PutPolicyFailureCode, err)
 		}
 	}
 
-	rev, err := d.PolicyAdd(rules, nil)
+	rev, err := d.PolicyAdd(rules.Rules, nil)
 	if err != nil {
 		return apierror.Error(PutPolicyFailureCode, err)
 	}
 
 	policy := &models.Policy{
 		Revision: int64(rev),
-		Policy:   policy.JSONMarshalRules(rules),
+		Policy:   policy.JSONMarshalRules(rules.Rules),
 	}
 	return NewPutPolicyOK().WithPayload(policy)
 }
