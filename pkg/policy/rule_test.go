@@ -15,13 +15,16 @@
 package policy
 
 import (
+	"bytes"
 	"fmt"
 	"net"
 
+	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/comparator"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/policy/api"
 
+	"github.com/op/go-logging"
 	. "gopkg.in/check.v1"
 )
 
@@ -1142,4 +1145,229 @@ func (ds *PolicyTestSuite) TestL4RuleLabels(c *C) {
 		}
 
 	}
+}
+
+var (
+	labelsA = labels.LabelArray{
+		labels.NewLabel("id", "a", labels.LabelSourceK8s),
+	}
+
+	endpointSelectorA = api.NewESFromLabels(labels.ParseSelectLabel("id=a"))
+
+	labelsB = labels.LabelArray{
+		labels.NewLabel("id1", "b", labels.LabelSourceK8s),
+		labels.NewLabel("id2", "c", labels.LabelSourceK8s),
+	}
+
+	labelsC = labels.LabelArray{
+		labels.NewLabel("id", "c", labels.LabelSourceK8s),
+	}
+
+	endpointSelectorC = api.NewESFromLabels(labels.ParseSelectLabel("id=c"))
+
+	ctxAToB = SearchContext{From: labelsA, To: labelsB, Trace: TRACE_VERBOSE}
+	ctxAToC = SearchContext{From: labelsA, To: labelsC, Trace: TRACE_VERBOSE}
+)
+
+func expectResult(c *C, expected, obtained api.Decision, buffer *bytes.Buffer) {
+	if obtained != expected {
+		c.Errorf("Unexpected result: obtained=%v, expected=%v", obtained, expected)
+		c.Log(buffer)
+	}
+}
+
+func checkIngress(c *C, repo *Repository, ctx *SearchContext, verdict api.Decision) {
+	repo.Mutex.RLock()
+	defer repo.Mutex.RUnlock()
+
+	buffer := new(bytes.Buffer)
+	ctx.Logging = logging.NewLogBackend(buffer, "", 0)
+	expectResult(c, verdict, repo.AllowsIngressRLocked(ctx), buffer)
+}
+
+func checkEgress(c *C, repo *Repository, ctx *SearchContext, verdict api.Decision) {
+	repo.Mutex.RLock()
+	defer repo.Mutex.RUnlock()
+
+	buffer := new(bytes.Buffer)
+	ctx.Logging = logging.NewLogBackend(buffer, "", 0)
+	expectResult(c, verdict, repo.AllowsEgressRLocked(ctx), buffer)
+}
+
+func parseAndAddRules(c *C, rules api.Rules) *Repository {
+	repo := NewPolicyRepository()
+	_, err := repo.AddList(rules)
+	c.Assert(err, IsNil)
+
+	return repo
+}
+
+func (ds *PolicyTestSuite) TestIngressAllowAll(c *C) {
+	repo := parseAndAddRules(c, api.Rules{
+		&api.Rule{
+			EndpointSelector: endpointSelectorC,
+			Ingress: []api.IngressRule{
+				{
+					// Allow all L3&L4 ingress rule
+					FromEndpoints: []api.EndpointSelector{
+						api.NewWildcardEndpointSelector(),
+					},
+				},
+			},
+		},
+	})
+
+	checkIngress(c, repo, &ctxAToB, api.Denied)
+	checkIngress(c, repo, &ctxAToC, api.Allowed)
+
+	ctxAToC80 := ctxAToC
+	ctxAToC80.DPorts = []*models.Port{{Port: 80, Protocol: models.PortProtocolTCP}}
+	checkIngress(c, repo, &ctxAToC80, api.Allowed)
+
+	ctxAToC90 := ctxAToC
+	ctxAToC90.DPorts = []*models.Port{{Port: 90, Protocol: models.PortProtocolTCP}}
+	checkIngress(c, repo, &ctxAToC90, api.Allowed)
+}
+
+func (ds *PolicyTestSuite) TestIngressAllowAllL4Overlap(c *C) {
+	repo := parseAndAddRules(c, api.Rules{
+		&api.Rule{
+			EndpointSelector: endpointSelectorC,
+			Ingress: []api.IngressRule{
+				{
+					// Allow all L3&L4 ingress rule
+					FromEndpoints: []api.EndpointSelector{
+						api.NewWildcardEndpointSelector(),
+					},
+				},
+				{
+					// This rule is a subset of the above
+					// rule and should *NOT* restrict to
+					// port 80 only
+					ToPorts: []api.PortRule{{
+						Ports: []api.PortProtocol{
+							{Port: "80", Protocol: api.ProtoTCP},
+						},
+					}},
+				},
+			},
+		},
+	})
+
+	ctxAToC80 := ctxAToC
+	ctxAToC80.DPorts = []*models.Port{{Port: 80, Protocol: models.PortProtocolTCP}}
+	checkIngress(c, repo, &ctxAToC80, api.Allowed)
+
+	ctxAToC90 := ctxAToC
+	ctxAToC90.DPorts = []*models.Port{{Port: 90, Protocol: models.PortProtocolTCP}}
+	checkIngress(c, repo, &ctxAToC90, api.Allowed)
+}
+
+func (ds *PolicyTestSuite) TestIngressL4AllowAll(c *C) {
+	repo := parseAndAddRules(c, api.Rules{
+		&api.Rule{
+			EndpointSelector: endpointSelectorC,
+			Ingress: []api.IngressRule{
+				{
+					ToPorts: []api.PortRule{{
+						Ports: []api.PortProtocol{
+							{Port: "80", Protocol: api.ProtoTCP},
+						},
+					}},
+				},
+			},
+		},
+	})
+
+	ctxAToC80 := ctxAToC
+	ctxAToC80.DPorts = []*models.Port{{Port: 80, Protocol: models.PortProtocolTCP}}
+	checkIngress(c, repo, &ctxAToC80, api.Allowed)
+
+	ctxAToC90 := ctxAToC
+	ctxAToC90.DPorts = []*models.Port{{Port: 90, Protocol: models.PortProtocolTCP}}
+	checkIngress(c, repo, &ctxAToC90, api.Denied)
+
+	l4policy, err := repo.ResolveL4Policy(&ctxAToC80)
+	c.Assert(err, IsNil)
+
+	filter, ok := l4policy.Ingress["80/TCP"]
+	c.Assert(ok, Equals, true)
+	c.Assert(filter.Port, Equals, 80)
+	c.Assert(filter.Ingress, Equals, true)
+
+	// must have empty endpoint to select all
+	c.Assert(len(filter.FromEndpoints), Equals, 0)
+}
+
+func (ds *PolicyTestSuite) TestEgressAllowAll(c *C) {
+	repo := parseAndAddRules(c, api.Rules{
+		&api.Rule{
+			EndpointSelector: endpointSelectorA,
+			Egress: []api.EgressRule{
+				{
+					ToEndpoints: []api.EndpointSelector{
+						api.NewWildcardEndpointSelector(),
+					},
+				},
+			},
+		},
+	})
+
+	checkEgress(c, repo, &ctxAToB, api.Allowed)
+	checkEgress(c, repo, &ctxAToC, api.Allowed)
+
+	ctxAToC80 := ctxAToC
+	ctxAToC80.DPorts = []*models.Port{{Port: 80, Protocol: models.PortProtocolTCP}}
+	checkEgress(c, repo, &ctxAToC80, api.Allowed)
+
+	ctxAToC90 := ctxAToC
+	ctxAToC90.DPorts = []*models.Port{{Port: 90, Protocol: models.PortProtocolTCP}}
+	checkEgress(c, repo, &ctxAToC90, api.Allowed)
+}
+
+func (ds *PolicyTestSuite) TestEgressL4AllowAll(c *C) {
+	repo := parseAndAddRules(c, api.Rules{
+		&api.Rule{
+			EndpointSelector: endpointSelectorA,
+			Egress: []api.EgressRule{
+				{
+					ToEndpoints: []api.EndpointSelector{
+						api.NewWildcardEndpointSelector(),
+					},
+					ToPorts: []api.PortRule{{
+						Ports: []api.PortProtocol{
+							{Port: "80", Protocol: api.ProtoTCP},
+						},
+					}},
+				},
+			},
+		},
+	})
+
+	ctxAToC80 := ctxAToC
+	ctxAToC80.EgressL4Only = true
+	ctxAToC80.DPorts = []*models.Port{{Port: 80, Protocol: models.PortProtocolTCP}}
+	checkEgress(c, repo, &ctxAToC80, api.Allowed)
+
+	ctxAToC90 := ctxAToC
+	ctxAToC90.EgressL4Only = true
+	ctxAToC90.DPorts = []*models.Port{{Port: 90, Protocol: models.PortProtocolTCP}}
+	checkEgress(c, repo, &ctxAToC90, api.Denied)
+
+	buffer := new(bytes.Buffer)
+	ctx := SearchContext{To: labelsA, Trace: TRACE_VERBOSE, EgressL4Only: true}
+	ctx.Logging = logging.NewLogBackend(buffer, "", 0)
+
+	l4policy, err := repo.ResolveL4Policy(&ctx)
+	c.Assert(err, IsNil)
+
+	c.Log(buffer)
+
+	filter, ok := l4policy.Egress["80/TCP"]
+	c.Assert(ok, Equals, true)
+	c.Assert(filter.Port, Equals, 80)
+	c.Assert(filter.Ingress, Equals, false)
+
+	// must have empty endpoint selector to match on all sources
+	c.Assert(len(filter.FromEndpoints), Equals, 0)
 }
