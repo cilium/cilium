@@ -37,8 +37,7 @@
         {
             "toEndpoints": [
                 {"matchLabels":{"id.httpd2":""}}
-            ]
-        }, {
+            ],
             "toPorts": [{
                 "ports": [
                     {"port": "8000", "protocol": "tcp"},
