@@ -165,6 +165,7 @@ struct bpf_elf_map __section_maps CIDR6_EGRESS_MAP = {
 	.flags		= BPF_F_NO_PREALLOC,
 };
 #else /* CIDR6_EGRESS_MAP */
+/* map empty, default deny everything */
 #define lpm6_egress_lookup(ADDR) 0
 #endif /* CIDR6_EGRESS_MAP */
 
@@ -178,6 +179,7 @@ struct bpf_elf_map __section_maps CIDR4_EGRESS_MAP = {
 	.flags		= BPF_F_NO_PREALLOC,
 };
 #else
+/* map empty, default deny everything */
 #define lpm4_egress_lookup(ADDR) 0
 #endif /* CIDR4_EGRESS_MAP */
 
@@ -279,9 +281,10 @@ LPM_LOOKUP_FN(lpm4_egress_lookup, __be32, CIDR4_EGRESS_PREFIXES,
 #define lpm4_ingress_lookup(ADDR) 0
 #endif
 
+/* No egress policy, default allow all CIDR */
 #ifndef POLICY_EGRESS
-#define lpm6_egress_lookup(ADDR) 0
-#define lpm4_egress_lookup(ADDR) 0
+#define lpm6_egress_lookup(ADDR) 1
+#define lpm4_egress_lookup(ADDR) 1
 #endif
 
 #if defined POLICY_EGRESS && defined LXC_ID
