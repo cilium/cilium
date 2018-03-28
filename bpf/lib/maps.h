@@ -129,6 +129,51 @@ struct bpf_lpm_trie_key4 {
 	__be32 lpm_addr;
 };
 
+static __always_inline int lpm6_map_lookup(struct bpf_elf_map *map,
+					   union v6addr *addr, __u32 prefix)
+{
+	struct bpf_lpm_trie_key6 key = { { prefix }, *addr };
+#ifndef HAVE_LPM_MAP_TYPE
+	ipv6_addr_clear_suffix(&key.lpm_addr, prefix);
+#endif
+	return map_lookup_elem(map, &key) != NULL;
+}
+
+static __always_inline int lpm4_map_lookup(struct bpf_elf_map *map,
+					   __be32 addr, __u32 prefix)
+{
+	struct bpf_lpm_trie_key4 key = { { prefix }, addr };
+#ifndef HAVE_LPM_MAP_TYPE
+	key.lpm_addr &= GET_PREFIX(prefix);
+#endif
+	return map_lookup_elem(map, &key) != NULL;
+}
+
+#ifndef HAVE_LPM_MAP_TYPE
+/* Define a function with the following NAME which iterates through PREFIXES
+ * (a list of integers ordered from high to low representing prefix length),
+ * performing a lookup in MAP using LOOKUP_FN to find a provided IP of type
+ * IPTYPE. */
+#define LPM_LOOKUP_FN(NAME, IPTYPE, PREFIXES, MAP, LOOKUP_FN)		\
+static __always_inline int __##NAME(IPTYPE addr)			\
+{									\
+	int prefixes[] = { PREFIXES };					\
+	const int size = (sizeof(prefixes) / sizeof(prefixes[0]));	\
+	int i;								\
+									\
+_Pragma("unroll")							\
+	for (i = 0; i < size; i++)					\
+		if (LOOKUP_FN(&MAP, addr, prefixes[i]))			\
+			return 1;					\
+									\
+	return 0;							\
+}
+#endif /* HAVE_LPM_MAP_TYPE */
+
+#endif /* POLICY_INGRESS || POLICY_EGRESS */
+
+#ifdef POLICY_INGRESS
+
 #ifdef CIDR6_INGRESS_MAP
 struct bpf_elf_map __section_maps CIDR6_INGRESS_MAP = {
 	.type		= LPM_MAP_TYPE,
@@ -155,6 +200,32 @@ struct bpf_elf_map __section_maps CIDR4_INGRESS_MAP = {
 #define lpm4_ingress_lookup(ADDR) 0
 #endif /* CIDR4_INGRESS_MAP */
 
+#ifdef HAVE_LPM_MAP_TYPE
+#ifdef CIDR6_INGRESS_MAP
+#define lpm6_ingress_lookup(ADDR) lpm6_map_lookup(&CIDR6_INGRESS_MAP, ADDR, 128)
+#endif
+#ifdef CIDR4_INGRESS_MAP
+#define lpm4_ingress_lookup(ADDR) lpm4_map_lookup(&CIDR4_INGRESS_MAP, ADDR, 32)
+#endif
+#else /* HAVE_LPM_MAP_TYPE */
+#ifdef CIDR6_INGRESS_PREFIXES
+LPM_LOOKUP_FN(lpm6_ingress_lookup, union v6addr *, CIDR6_INGRESS_PREFIXES,
+	      CIDR6_INGRESS_MAP, lpm6_map_lookup)
+#define lpm6_ingress_lookup(ADDR) __lpm6_ingress_lookup(ADDR)
+#endif
+#ifdef CIDR4_INGRESS_PREFIXES
+LPM_LOOKUP_FN(lpm4_ingress_lookup, __be32, CIDR4_INGRESS_PREFIXES,
+	      CIDR4_INGRESS_MAP, lpm4_map_lookup)
+#define lpm4_ingress_lookup(ADDR) __lpm4_ingress_lookup(ADDR)
+#endif
+#endif /* HAVE_LPM_MAP_TYPE */
+#else /* POLICY_INGRESS */
+/* No ingress policy, default allow all CIDR */
+#define lpm6_ingress_lookup(ADDR) 1
+#define lpm4_ingress_lookup(ADDR) 1
+#endif /* POLICY_INGRESS */
+
+#ifdef POLICY_EGRESS
 #ifdef CIDR6_EGRESS_MAP
 struct bpf_elf_map __section_maps CIDR6_EGRESS_MAP = {
 	.type		= LPM_MAP_TYPE,
@@ -184,109 +255,33 @@ struct bpf_elf_map __section_maps CIDR4_EGRESS_MAP = {
 #endif /* CIDR4_EGRESS_MAP */
 
 #ifdef HAVE_LPM_MAP_TYPE
-static __always_inline int lpm6_map_lookup(struct bpf_elf_map *map, union v6addr *addr, __u32 prefix)
-{
-	struct bpf_lpm_trie_key6 key = { { prefix }, *addr };
-	return map_lookup_elem(map, &key) != NULL;
-}
-
-static __always_inline int lpm4_map_lookup(struct bpf_elf_map *map, __be32 addr, __u32 prefix)
-{
-	struct bpf_lpm_trie_key4 key = { { prefix }, addr };
-	return map_lookup_elem(map, &key) != NULL;
-}
-
-#ifdef CIDR6_INGRESS_MAP
-#define lpm6_ingress_lookup(ADDR) lpm6_map_lookup(&CIDR6_INGRESS_MAP, ADDR, 128)
-#endif
-
-#ifdef CIDR4_INGRESS_MAP
-#define lpm4_ingress_lookup(ADDR) lpm4_map_lookup(&CIDR4_INGRESS_MAP, ADDR, 32)
-#endif
-
 #ifdef CIDR6_EGRESS_MAP
 #define lpm6_egress_lookup(ADDR) lpm6_map_lookup(&CIDR6_EGRESS_MAP, ADDR, 128)
 #endif
-
 #ifdef CIDR4_EGRESS_MAP
 #define lpm4_egress_lookup(ADDR) lpm4_map_lookup(&CIDR4_EGRESS_MAP, ADDR, 32)
 #endif
-
 #else /* HAVE_LPM_MAP_TYPE */
-static __always_inline int lpm6_map_lookup(struct bpf_elf_map *map,
-					   union v6addr *addr, __u32 prefix)
-{
-	struct bpf_lpm_trie_key6 key = { { prefix }, *addr };
-	ipv6_addr_clear_suffix(&key.lpm_addr, prefix);
-	return map_lookup_elem(map, &key) != NULL;
-}
-
-static __always_inline int lpm4_map_lookup(struct bpf_elf_map *map,
-					   __be32 addr, __u32 prefix)
-{
-	struct bpf_lpm_trie_key4 key = { { prefix }, addr & GET_PREFIX(prefix) };
-	return map_lookup_elem(map, &key) != NULL;
-}
-
-/* Define a function with the following NAME which iterates through PREFIXES
- * (a list of integers ordered from high to low representing prefix length),
- * performing a lookup in MAP using LOOKUP_FN to find a provided IP of type
- * IPTYPE. */
-#define LPM_LOOKUP_FN(NAME, IPTYPE, PREFIXES, MAP, LOOKUP_FN)		\
-static __always_inline int __##NAME(IPTYPE addr)			\
-{									\
-	int prefixes[] = { PREFIXES };					\
-	const int size = (sizeof(prefixes) / sizeof(prefixes[0]));	\
-	int i;								\
-									\
-_Pragma("unroll")							\
-	for (i = 0; i < size; i++)					\
-		if (LOOKUP_FN(&MAP, addr, prefixes[i]))			\
-			return 1;					\
-									\
-	return 0;							\
-}
-
-#ifdef CIDR6_INGRESS_PREFIXES
-LPM_LOOKUP_FN(lpm6_ingress_lookup, union v6addr *, CIDR6_INGRESS_PREFIXES,
-	      CIDR6_INGRESS_MAP, lpm6_map_lookup)
-#define lpm6_ingress_lookup(ADDR) __lpm6_ingress_lookup(ADDR)
-#endif
-
-#ifdef CIDR4_INGRESS_PREFIXES
-LPM_LOOKUP_FN(lpm4_ingress_lookup, __be32, CIDR4_INGRESS_PREFIXES,
-	      CIDR4_INGRESS_MAP, lpm4_map_lookup)
-#define lpm4_ingress_lookup(ADDR) __lpm4_ingress_lookup(ADDR)
-#endif
-
 #ifdef CIDR6_EGRESS_PREFIXES
 LPM_LOOKUP_FN(lpm6_egress_lookup, union v6addr *, CIDR6_EGRESS_PREFIXES,
 	      CIDR6_EGRESS_MAP, lpm6_map_lookup)
 #define lpm6_egress_lookup(ADDR) __lpm6_egress_lookup(ADDR)
 #endif
-
 #ifdef CIDR4_EGRESS_PREFIXES
 LPM_LOOKUP_FN(lpm4_egress_lookup, __be32, CIDR4_EGRESS_PREFIXES,
 	      CIDR4_EGRESS_MAP, lpm4_map_lookup)
 #define lpm4_egress_lookup(ADDR) __lpm4_egress_lookup(ADDR)
 #endif
-
-#undef LPM_LOOKUP_FN
 #endif /* !HAVE_LPM_MAP_TYPE */
-
-#endif /* POLICY_INGRESS || POLICY_EGRESS */
-
+#else /* POLICY_EGRESS */
 /* No egress policy, default allow all CIDR */
-#ifndef POLICY_INGRESS
-#define lpm6_ingress_lookup(ADDR) 1
-#define lpm4_ingress_lookup(ADDR) 1
-#endif
-
-/* No egress policy, default allow all CIDR */
-#ifndef POLICY_EGRESS
 #define lpm6_egress_lookup(ADDR) 1
 #define lpm4_egress_lookup(ADDR) 1
-#endif
+#endif /* POLICY_EGRESS */
+
+#if defined(POLICY_INGRESS) || defined(POLICY_EGRESS)
+#undef LPM_LOOKUP_FN
+#endif /* POLICY_INGRESS || POLICY_EGRESS */
 
 #if defined POLICY_EGRESS && defined LXC_ID
 /* Global IP -> Identity map for applying egress label-based policy */
