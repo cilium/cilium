@@ -68,7 +68,7 @@ func (e *Endpoint) checkEgressAccess(owner Owner, dstLabels labels.LabelArray, o
 		logfields.Labels + ".to":   ctx.To,
 	})
 
-	switch owner.GetPolicyRepository().AllowsIngressLabelAccess(&ctx) {
+	switch owner.GetPolicyRepository().AllowsEgressLabelAccess(&ctx) {
 	case api.Allowed:
 		opts[opt] = optionEnabled
 		scopedLog.Debug("checkEgressAccess: Enabled")
