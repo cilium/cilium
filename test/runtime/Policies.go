@@ -1145,7 +1145,7 @@ var _ = Describe("RuntimeValidatedPolicyImportTests", func() {
 		Expect(areEndpointsDeleted).To(BeTrue())
 
 		By("Getting ID of cilium-health endpoint")
-		res := vm.Exec(`cilium endpoint list -o jsonpath="{[?(@.labels.orchestration-identity[0]=='reserved:health')].id}"`)
+		res := vm.Exec(`cilium endpoint list -o jsonpath="{[?(@.labels.status.security-relevant[0]=='reserved:health')].id}"`)
 		Expect(res).Should(Not(BeNil()), "Unable to get cilium-health ID")
 
 		healthID := strings.TrimSpace(res.GetStdOut())

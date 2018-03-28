@@ -99,16 +99,16 @@ func (o *OpLabels) AllLabels() Labels {
 }
 
 // NewOplabelsFromModel creates new label from the model.
-func NewOplabelsFromModel(base *models.LabelConfiguration) *OpLabels {
+func NewOplabelsFromModel(base *models.LabelConfigurationStatus) *OpLabels {
 	if base == nil {
 		return nil
 	}
 
 	return &OpLabels{
-		Custom:                NewLabelsFromModel(base.Custom),
+		Custom:                NewLabelsFromModel(base.Realized.User),
 		Disabled:              NewLabelsFromModel(base.Disabled),
-		OrchestrationIdentity: NewLabelsFromModel(base.OrchestrationIdentity),
-		OrchestrationInfo:     NewLabelsFromModel(base.OrchestrationInfo),
+		OrchestrationIdentity: NewLabelsFromModel(base.SecurityRelevant),
+		OrchestrationInfo:     NewLabelsFromModel(base.Derived),
 	}
 }
 

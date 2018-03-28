@@ -242,18 +242,11 @@ paths:
             "$ref": "#/definitions/LabelConfiguration"
         '404':
           description: Endpoint not found
-    put:
-      summary: Modify label configuration of endpoint
+    patch:
+      summary: Set label configuration of endpoint
       description: |
-        Updates the list of labels associated with an endpoint by applying
-        a label modificator structure to the label configuration of an
-        endpoint.
-
-        The label configuration mutation is only executed as a whole, i.e.
-        if any of the labels to be deleted are not either on the list of
-        orchestration system labels, custom labels, or already disabled,
-        then the request will fail. Labels to be added which already exist
-        on either the orchestration list or custom list will be ignored.
+        Sets labels associated with an endpoint. These can be user provided or
+        derived from the orchestration system.
       tags:
       - endpoint
       parameters:
@@ -262,17 +255,12 @@ paths:
         in: body
         required: true
         schema:
-          "$ref": "#/definitions/LabelConfigurationModifier"
+          "$ref": "#/definitions/LabelConfigurationSpec"
       responses:
         '200':
           description: Success
         '404':
           description: Endpoint not found
-        '460':
-          description: Label to be deleted not found
-          x-go-name: LabelNotFound
-          schema:
-            "$ref": "#/definitions/Error"
         '500':
           description: Error while updating labels
           x-go-name: UpdateFailed
@@ -1097,37 +1085,34 @@ definitions:
     description: Label configuration of an endpoint
     type: object
     properties:
-      orchestration-identity:
+      spec:
+        description: The user provided desired configuration
+        "$ref": "#/definitions/LabelConfigurationSpec"
+      status:
+        description: The current configuration
+        "$ref": "#/definitions/LabelConfigurationStatus"
+  LabelConfigurationSpec:
+    description: User desired Label configuration of an endpoint
+    type: object
+    properties:
+      user:
+        description: "Custom labels in addition to orchestration system labels."
+        "$ref": "#/definitions/Labels"
+  LabelConfigurationStatus:
+    description: Labels and label configuration of an endpoint
+    type: object
+    properties:
+      realized:
+        description: The current configuration
+        "$ref": "#/definitions/LabelConfigurationSpec"
+      security-relevant:
         description: "Labels derived from orchestration system that are used in computing a security identity"
         "$ref": "#/definitions/Labels"
-      orchestration-info:
-        description: "Labels derived from orchestration system that are not used in computing a security identity"
-        "$ref": "#/definitions/Labels"
-      custom:
-        description: "Custom labels in addition to orchestration system labels."
+      derived:
+        description: "All labels derived from the orchestration system"
         "$ref": "#/definitions/Labels"
       disabled:
         description: "Labels derived from orchestration system which have been disabled."
-        "$ref": "#/definitions/Labels"
-  LabelConfigurationModifier:
-    description: |
-      Structure describing label mutations to be performed on a
-      LabelConfiguration object.
-    type: object
-    properties:
-      add:
-        description: |
-          List of labels to add and enable. If the label is an orchestration
-          system label which has been disabled before, it will be removed from
-          the disabled list and readded to the orchestration list. Otherwise
-          it will be added to the custom label list.
-        "$ref": "#/definitions/Labels"
-      delete:
-        description: |
-          List of labels to delete. If the label is an orchestration system
-          label, then it will be deleted from the orchestration list and
-          added to the disabled list. Otherwise it will be removed from the
-          custom list.
         "$ref": "#/definitions/Labels"
   StatusResponse:
     description: Health and status information of daemon

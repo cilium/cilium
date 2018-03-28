@@ -19,7 +19,6 @@ import (
 	"os"
 	"text/tabwriter"
 
-	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/labels"
@@ -40,19 +39,12 @@ var endpointLabelsCmd = &cobra.Command{
 	PreRun: requireEndpointID,
 	Run: func(cmd *cobra.Command, args []string) {
 		_, id, _ := endpoint.ValidateID(args[0])
-		lo := &models.LabelConfigurationModifier{}
-		addLabels := labels.ParseStringLabels(toAdd)
-		if len(addLabels) != 0 {
-			lo.Add = addLabels.GetModel()
-		}
+		addLabels := labels.ParseStringLabels(toAdd).GetModel()
 
-		deleteLabels := labels.ParseStringLabels(toDelete)
-		if len(deleteLabels) != 0 {
-			lo.Delete = deleteLabels.GetModel()
-		}
+		deleteLabels := labels.ParseStringLabels(toDelete).GetModel()
 
 		if len(addLabels) > 0 || len(deleteLabels) > 0 {
-			if err := client.EndpointLabelsPut(id, lo); err != nil {
+			if err := client.EndpointLabelsPatch(id, addLabels, deleteLabels); err != nil {
 				Fatalf("Cannot modifying labels %s", err)
 			}
 		}
@@ -60,7 +52,7 @@ var endpointLabelsCmd = &cobra.Command{
 		if lbls, err := client.EndpointLabelsGet(id); err != nil {
 			Fatalf("Cannot get endpoint labels: %s", err)
 		} else {
-			printEndpointLabels(labels.NewOplabelsFromModel(lbls))
+			printEndpointLabels(labels.NewOplabelsFromModel(lbls.Status))
 		}
 	},
 }
@@ -71,6 +63,7 @@ func init() {
 	endpointLabelsCmd.Flags().StringSliceVarP(&toDelete, "delete", "d", []string{}, "Delete/disable labels")
 }
 
+// printEndpointLabels pretty prints labels with tabs
 func printEndpointLabels(lbls *labels.OpLabels) {
 	log.WithField(logfields.Labels, logfields.Repr(*lbls)).Debug("All Labels")
 	w := tabwriter.NewWriter(os.Stdout, 2, 0, 3, ' ', 0)

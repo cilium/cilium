@@ -564,11 +564,18 @@ func (h *getEndpointIDLabels) Handle(params GetEndpointIDLabelsParams) middlewar
 	}
 
 	ep.Mutex.RLock()
+	spec := &models.LabelConfigurationSpec{
+		User: ep.OpLabels.Custom.GetModel(),
+	}
+
 	cfg := models.LabelConfiguration{
-		Disabled:              ep.OpLabels.Disabled.GetModel(),
-		Custom:                ep.OpLabels.Custom.GetModel(),
-		OrchestrationIdentity: ep.OpLabels.OrchestrationIdentity.GetModel(),
-		OrchestrationInfo:     ep.OpLabels.OrchestrationInfo.GetModel(),
+		Spec: spec,
+		Status: &models.LabelConfigurationStatus{
+			Realized:         spec,
+			SecurityRelevant: ep.OpLabels.OrchestrationIdentity.GetModel(),
+			Derived:          ep.OpLabels.OrchestrationInfo.GetModel(),
+			Disabled:         ep.OpLabels.Disabled.GetModel(),
+		},
 	}
 	ep.Mutex.RUnlock()
 
@@ -647,14 +654,14 @@ func (d *Daemon) updateEndpointLabels(id string, add, del labels.Labels) (int, e
 		return GetEndpointIDInvalidCode, err
 	}
 	if ep == nil {
-		return PutEndpointIDLabelsNotFoundCode, fmt.Errorf("Endpoint ID %s not found", id)
+		return PatchEndpointIDLabelsNotFoundCode, fmt.Errorf("Endpoint ID %s not found", id)
 	}
 
 	if err := ep.ModifyIdentityLabels(d, addLabels, delLabels); err != nil {
-		return PutEndpointIDLabelsNotFoundCode, err
+		return PatchEndpointIDLabelsNotFoundCode, err
 	}
 
-	return PutEndpointIDLabelsOKCode, nil
+	return PatchEndpointIDLabelsOKCode, nil
 }
 
 // updateEndpointLabelsFromAPI is the same as updateEndpointLabels(), but also
@@ -665,9 +672,9 @@ func (d *Daemon) updateEndpointLabelsFromAPI(id string, add, del labels.Labels) 
 		return 0, nil
 	}
 	if lbls := addLabels.FindReserved(); lbls != nil {
-		return PutEndpointIDLabelsUpdateFailedCode, fmt.Errorf("Not allowed to add reserved labels: %s", lbls)
+		return PatchEndpointIDLabelsUpdateFailedCode, fmt.Errorf("Not allowed to add reserved labels: %s", lbls)
 	} else if lbls := delLabels.FindReserved(); lbls != nil {
-		return PutEndpointIDLabelsUpdateFailedCode, fmt.Errorf("Not allowed to delete reserved labels: %s", lbls)
+		return PatchEndpointIDLabelsUpdateFailedCode, fmt.Errorf("Not allowed to delete reserved labels: %s", lbls)
 	}
 
 	ep, err := endpointmanager.Lookup(id)
@@ -675,40 +682,72 @@ func (d *Daemon) updateEndpointLabelsFromAPI(id string, add, del labels.Labels) 
 		return GetEndpointIDInvalidCode, err
 	}
 	if ep == nil {
-		return PutEndpointIDLabelsNotFoundCode, fmt.Errorf("Endpoint ID %s not found", id)
+		return PatchEndpointIDLabelsNotFoundCode, fmt.Errorf("Endpoint ID %s not found", id)
 	}
 	if err = endpoint.APICanModify(ep); err != nil {
-		return PutEndpointIDInvalidCode, err
+		return PatchEndpointIDInvalidCode, err
 	}
 
 	if err := ep.ModifyIdentityLabels(d, addLabels, delLabels); err != nil {
-		return PutEndpointIDLabelsNotFoundCode, err
+		return PatchEndpointIDLabelsNotFoundCode, err
 	}
 
-	return PutEndpointIDLabelsOKCode, nil
+	return PatchEndpointIDLabelsOKCode, nil
 }
 
 type putEndpointIDLabels struct {
 	daemon *Daemon
 }
 
-func NewPutEndpointIDLabelsHandler(d *Daemon) PutEndpointIDLabelsHandler {
+func NewPatchEndpointIDLabelsHandler(d *Daemon) PatchEndpointIDLabelsHandler {
 	return &putEndpointIDLabels{daemon: d}
 }
 
-func (h *putEndpointIDLabels) Handle(params PutEndpointIDLabelsParams) middleware.Responder {
-	log.WithField(logfields.Params, logfields.Repr(params)).Debug("PUT /endpoint/{id}/labels request")
+func (h *putEndpointIDLabels) Handle(params PatchEndpointIDLabelsParams) middleware.Responder {
+	log.WithField(logfields.Params, logfields.Repr(params)).Debug("PATCH /endpoint/{id}/labels request")
 
 	d := h.daemon
 	mod := params.Configuration
-	add := labels.NewLabelsFromModel(mod.Add)
-	del := labels.NewLabelsFromModel(mod.Delete)
+	lbls := labels.NewLabelsFromModel(mod.User)
+
+	add := labels.Labels{}
+	del := labels.Labels{}
+
+	ep, err := endpointmanager.Lookup(params.ID)
+	if err != nil {
+		return NewPatchEndpointIDLabelsNotFound()
+	}
+
+	ep.Mutex.RLock()
+	currentLbls := ep.OpLabels.DeepCopy()
+	ep.Mutex.RUnlock()
+
+	for _, lbl := range lbls {
+		if currentLbls.Custom[lbl.Key] == nil {
+			add[lbl.Key] = lbl
+		}
+	}
+
+	for _, currLbl := range currentLbls.Custom {
+		if lbls[currLbl.Key] == nil {
+			del[currLbl.Key] = currLbl
+		}
+	}
+
+	// FIXME Somewhere in the code we crash if these are non-nil but length 0. We
+	// retain this behaviour here because it's easier.
+	if len(del) == 0 {
+		del = nil
+	}
+	if len(add) == 0 {
+		add = nil
+	}
 
 	code, err := d.updateEndpointLabelsFromAPI(params.ID, add, del)
 	if err != nil {
 		return apierror.Error(code, err)
 	}
-	return NewPutEndpointIDLabelsOK()
+	return NewPatchEndpointIDLabelsOK()
 }
 
 // OnIPIdentityCacheChange is called whenever there is a change of state in the

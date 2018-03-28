@@ -553,7 +553,7 @@ func (kub *Kubectl) CiliumEndpointsListByLabel(pod, label string) (EndpointMap, 
 	}
 
 	for _, ep := range data {
-		for _, orchLabel := range ep.Labels.OrchestrationIdentity {
+		for _, orchLabel := range ep.Labels.Status.SecurityRelevant {
 			if label == orchLabel {
 				result[ep.ContainerName] = ep
 				break

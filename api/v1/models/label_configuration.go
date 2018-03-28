@@ -17,34 +17,72 @@ import (
 
 type LabelConfiguration struct {
 
-	// Custom labels in addition to orchestration system labels.
-	Custom Labels `json:"custom"`
+	// The user provided desired configuration
+	Spec *LabelConfigurationSpec `json:"spec,omitempty"`
 
-	// Labels derived from orchestration system which have been disabled.
-	Disabled Labels `json:"disabled"`
-
-	// Labels derived from orchestration system that are used in computing a security identity
-	OrchestrationIdentity Labels `json:"orchestration-identity"`
-
-	// Labels derived from orchestration system that are not used in computing a security identity
-	OrchestrationInfo Labels `json:"orchestration-info"`
+	// The current configuration
+	Status *LabelConfigurationStatus `json:"status,omitempty"`
 }
 
-/* polymorph LabelConfiguration custom false */
+/* polymorph LabelConfiguration spec false */
 
-/* polymorph LabelConfiguration disabled false */
-
-/* polymorph LabelConfiguration orchestration-identity false */
-
-/* polymorph LabelConfiguration orchestration-info false */
+/* polymorph LabelConfiguration status false */
 
 // Validate validates this label configuration
 func (m *LabelConfiguration) Validate(formats strfmt.Registry) error {
 	var res []error
 
+	if err := m.validateSpec(formats); err != nil {
+		// prop
+		res = append(res, err)
+	}
+
+	if err := m.validateStatus(formats); err != nil {
+		// prop
+		res = append(res, err)
+	}
+
 	if len(res) > 0 {
 		return errors.CompositeValidationError(res...)
 	}
+	return nil
+}
+
+func (m *LabelConfiguration) validateSpec(formats strfmt.Registry) error {
+
+	if swag.IsZero(m.Spec) { // not required
+		return nil
+	}
+
+	if m.Spec != nil {
+
+		if err := m.Spec.Validate(formats); err != nil {
+			if ve, ok := err.(*errors.Validation); ok {
+				return ve.ValidateName("spec")
+			}
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (m *LabelConfiguration) validateStatus(formats strfmt.Registry) error {
+
+	if swag.IsZero(m.Status) { // not required
+		return nil
+	}
+
+	if m.Status != nil {
+
+		if err := m.Status.Validate(formats); err != nil {
+			if ve, ok := err.(*errors.Validation); ok {
+				return ve.ValidateName("status")
+			}
+			return err
+		}
+	}
+
 	return nil
 }
 

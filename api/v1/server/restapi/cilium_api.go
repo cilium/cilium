@@ -114,6 +114,9 @@ func NewCiliumAPI(spec *loads.Document) *CiliumAPI {
 		EndpointPatchEndpointIDConfigHandler: endpoint.PatchEndpointIDConfigHandlerFunc(func(params endpoint.PatchEndpointIDConfigParams) middleware.Responder {
 			return middleware.NotImplemented("operation EndpointPatchEndpointIDConfig has not yet been implemented")
 		}),
+		EndpointPatchEndpointIDLabelsHandler: endpoint.PatchEndpointIDLabelsHandlerFunc(func(params endpoint.PatchEndpointIDLabelsParams) middleware.Responder {
+			return middleware.NotImplemented("operation EndpointPatchEndpointIDLabels has not yet been implemented")
+		}),
 		IPAMPostIPAMHandler: ipam.PostIPAMHandlerFunc(func(params ipam.PostIPAMParams) middleware.Responder {
 			return middleware.NotImplemented("operation IPAMPostIPAM has not yet been implemented")
 		}),
@@ -122,9 +125,6 @@ func NewCiliumAPI(spec *loads.Document) *CiliumAPI {
 		}),
 		EndpointPutEndpointIDHandler: endpoint.PutEndpointIDHandlerFunc(func(params endpoint.PutEndpointIDParams) middleware.Responder {
 			return middleware.NotImplemented("operation EndpointPutEndpointID has not yet been implemented")
-		}),
-		EndpointPutEndpointIDLabelsHandler: endpoint.PutEndpointIDLabelsHandlerFunc(func(params endpoint.PutEndpointIDLabelsParams) middleware.Responder {
-			return middleware.NotImplemented("operation EndpointPutEndpointIDLabels has not yet been implemented")
 		}),
 		PolicyPutPolicyHandler: policy.PutPolicyHandlerFunc(func(params policy.PutPolicyParams) middleware.Responder {
 			return middleware.NotImplemented("operation PolicyPutPolicy has not yet been implemented")
@@ -212,14 +212,14 @@ type CiliumAPI struct {
 	EndpointPatchEndpointIDHandler endpoint.PatchEndpointIDHandler
 	// EndpointPatchEndpointIDConfigHandler sets the operation handler for the patch endpoint ID config operation
 	EndpointPatchEndpointIDConfigHandler endpoint.PatchEndpointIDConfigHandler
+	// EndpointPatchEndpointIDLabelsHandler sets the operation handler for the patch endpoint ID labels operation
+	EndpointPatchEndpointIDLabelsHandler endpoint.PatchEndpointIDLabelsHandler
 	// IPAMPostIPAMHandler sets the operation handler for the post IP a m operation
 	IPAMPostIPAMHandler ipam.PostIPAMHandler
 	// IPAMPostIPAMIPHandler sets the operation handler for the post IP a m IP operation
 	IPAMPostIPAMIPHandler ipam.PostIPAMIPHandler
 	// EndpointPutEndpointIDHandler sets the operation handler for the put endpoint ID operation
 	EndpointPutEndpointIDHandler endpoint.PutEndpointIDHandler
-	// EndpointPutEndpointIDLabelsHandler sets the operation handler for the put endpoint ID labels operation
-	EndpointPutEndpointIDLabelsHandler endpoint.PutEndpointIDLabelsHandler
 	// PolicyPutPolicyHandler sets the operation handler for the put policy operation
 	PolicyPutPolicyHandler policy.PutPolicyHandler
 	// PrefilterPutPrefilterHandler sets the operation handler for the put prefilter operation
@@ -385,6 +385,10 @@ func (o *CiliumAPI) Validate() error {
 		unregistered = append(unregistered, "endpoint.PatchEndpointIDConfigHandler")
 	}
 
+	if o.EndpointPatchEndpointIDLabelsHandler == nil {
+		unregistered = append(unregistered, "endpoint.PatchEndpointIDLabelsHandler")
+	}
+
 	if o.IPAMPostIPAMHandler == nil {
 		unregistered = append(unregistered, "ipam.PostIPAMHandler")
 	}
@@ -395,10 +399,6 @@ func (o *CiliumAPI) Validate() error {
 
 	if o.EndpointPutEndpointIDHandler == nil {
 		unregistered = append(unregistered, "endpoint.PutEndpointIDHandler")
-	}
-
-	if o.EndpointPutEndpointIDLabelsHandler == nil {
-		unregistered = append(unregistered, "endpoint.PutEndpointIDLabelsHandler")
 	}
 
 	if o.PolicyPutPolicyHandler == nil {
@@ -623,6 +623,11 @@ func (o *CiliumAPI) initHandlerCache() {
 	}
 	o.handlers["PATCH"]["/endpoint/{id}/config"] = endpoint.NewPatchEndpointIDConfig(o.context, o.EndpointPatchEndpointIDConfigHandler)
 
+	if o.handlers["PATCH"] == nil {
+		o.handlers["PATCH"] = make(map[string]http.Handler)
+	}
+	o.handlers["PATCH"]["/endpoint/{id}/labels"] = endpoint.NewPatchEndpointIDLabels(o.context, o.EndpointPatchEndpointIDLabelsHandler)
+
 	if o.handlers["POST"] == nil {
 		o.handlers["POST"] = make(map[string]http.Handler)
 	}
@@ -637,11 +642,6 @@ func (o *CiliumAPI) initHandlerCache() {
 		o.handlers["PUT"] = make(map[string]http.Handler)
 	}
 	o.handlers["PUT"]["/endpoint/{id}"] = endpoint.NewPutEndpointID(o.context, o.EndpointPutEndpointIDHandler)
-
-	if o.handlers["PUT"] == nil {
-		o.handlers["PUT"] = make(map[string]http.Handler)
-	}
-	o.handlers["PUT"]["/endpoint/{id}/labels"] = endpoint.NewPutEndpointIDLabels(o.context, o.EndpointPutEndpointIDLabelsHandler)
 
 	if o.handlers["PUT"] == nil {
 		o.handlers["PUT"] = make(map[string]http.Handler)

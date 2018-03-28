@@ -794,22 +794,30 @@ func (e *Endpoint) GetModelRLocked() *models.Endpoint {
 	e.proxyStatisticsMutex.RUnlock()
 	sortProxyStats(proxyStats)
 
-	mdl := &models.Endpoint{
-		ID:               int64(e.ID),
-		Configuration:    e.Opts.GetModel(),
-		ContainerID:      e.DockerID,
-		ContainerName:    e.ContainerName,
-		DockerEndpointID: e.DockerEndpointID,
-		DockerNetworkID:  e.DockerNetworkID,
-		Identity:         e.SecurityIdentity.GetModel(),
-		InterfaceIndex:   int64(e.IfIndex),
-		InterfaceName:    e.IfName,
-		Labels: &models.LabelConfiguration{
-			Custom:                e.OpLabels.Custom.GetModel(),
-			OrchestrationIdentity: e.OpLabels.OrchestrationIdentity.GetModel(),
-			OrchestrationInfo:     e.OpLabels.OrchestrationInfo.GetModel(),
-			Disabled:              e.OpLabels.Disabled.GetModel(),
+	lblSpec := &models.LabelConfigurationSpec{
+		User: e.OpLabels.Custom.GetModel(),
+	}
+	lblMdl := &models.LabelConfiguration{
+		Spec: lblSpec,
+		Status: &models.LabelConfigurationStatus{
+			Realized:         lblSpec,
+			SecurityRelevant: e.OpLabels.OrchestrationIdentity.GetModel(),
+			Derived:          e.OpLabels.OrchestrationInfo.GetModel(),
+			Disabled:         e.OpLabels.Disabled.GetModel(),
 		},
+	}
+
+	mdl := &models.Endpoint{
+		ID:                  int64(e.ID),
+		Configuration:       e.Opts.GetModel(),
+		ContainerID:         e.DockerID,
+		ContainerName:       e.ContainerName,
+		DockerEndpointID:    e.DockerEndpointID,
+		DockerNetworkID:     e.DockerNetworkID,
+		Identity:            e.SecurityIdentity.GetModel(),
+		InterfaceIndex:      int64(e.IfIndex),
+		InterfaceName:       e.IfName,
+		Labels:              lblMdl,
 		Mac:                 e.LXCMAC.String(),
 		HostMac:             e.NodeMAC.String(),
 		PodName:             e.GetK8sNamespaceAndPodNameLocked(),
@@ -830,10 +838,10 @@ func (e *Endpoint) GetModelRLocked() *models.Endpoint {
 
 	// Sort these slices since they come out in random orders. This allows
 	// reflect.DeepEqual to succeed.
-	sort.StringSlice(mdl.Labels.Custom).Sort()
-	sort.StringSlice(mdl.Labels.Disabled).Sort()
-	sort.StringSlice(mdl.Labels.OrchestrationIdentity).Sort()
-	sort.StringSlice(mdl.Labels.OrchestrationInfo).Sort()
+	sort.StringSlice(mdl.Labels.Spec.User).Sort() // also sorts .Status.Realized.User
+	sort.StringSlice(mdl.Labels.Status.Disabled).Sort()
+	sort.StringSlice(mdl.Labels.Status.SecurityRelevant).Sort()
+	sort.StringSlice(mdl.Labels.Status.Derived).Sort()
 	sort.Slice(mdl.Controllers, func(i, j int) bool { return mdl.Controllers[i].Name < mdl.Controllers[j].Name })
 	return mdl
 }
@@ -1632,7 +1640,7 @@ func (e *Endpoint) replaceInformationLabels(l pkgLabels.Labels) {
 	e.Mutex.Lock()
 	for k, v := range l {
 		tmp := v.DeepCopy()
-		e.getLogger().WithField(logfields.Labels, logfields.Repr(tmp)).Debug("Assigning orchestration information label")
+		e.getLogger().WithField(logfields.Labels, logfields.Repr(tmp)).Debug("Assigning information label")
 		e.OpLabels.OrchestrationInfo[k] = tmp
 	}
 	e.Mutex.Unlock()
@@ -1658,7 +1666,7 @@ func (e *Endpoint) replaceIdentityLabels(l pkgLabels.Labels) int {
 
 		default:
 			tmp := v.DeepCopy()
-			e.getLogger().WithField(logfields.Labels, logfields.Repr(tmp)).Debug("Assigning orchestration identity label")
+			e.getLogger().WithField(logfields.Labels, logfields.Repr(tmp)).Debug("Assigning security relevant label")
 			e.OpLabels.OrchestrationIdentity[k] = tmp
 			changed = true
 		}
