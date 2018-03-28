@@ -391,7 +391,7 @@ pass_to_stack:
 	return TC_ACT_OK;
 }
 
-static inline int handle_ipv6(struct __sk_buff *skb)
+static inline int __inline__ handle_ipv6(struct __sk_buff *skb)
 {
 	struct ipv6_ct_tuple tuple = {};
 	void *data, *data_end;
