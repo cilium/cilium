@@ -36,18 +36,15 @@ namespace BpfMetadata {
 class TestConfig : public Config {
 public:
   TestConfig(const ::cilium::BpfMetadata& config, Server::Configuration::ListenerFactoryContext& context)
-    : Config(config, context),
-      socket_mark_(std::make_shared<Cilium::SocketOption>(maps_, 42, 1, true, 80, 10000)) {}
+    : Config(config, context) {}
 
   bool getBpfMetadata(Network::ConnectionSocket &socket) override {
     // fake setting the local address. It remains the same as required by the test infra, but it will be marked as restored
     // as required by the original_dst cluster.
     socket.setLocalAddress(original_dst_address, true);
-    socket.setOptions(socket_mark_);
+    socket.addOption(std::make_unique<Cilium::SocketOption>(maps_, 42, 1, true, 80, 10000));
     return true;
   }
-
-  Network::Socket::OptionsSharedPtr socket_mark_;
 };
 
 typedef std::shared_ptr<TestConfig> TestConfigSharedPtr;

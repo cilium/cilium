@@ -129,21 +129,26 @@ Http::FilterHeadersStatus AccessFilter::decodeHeaders(Http::HeaderMap& headers, 
   if (config_->npmap_ && conn) {
     const auto& options_ = conn->socketOptions();
     if (options_) {
-      const auto options = dynamic_cast<Cilium::SocketOption*>(options_.get());
-      if (options) {
-        ingress = options->ingress_;
-	if (ingress) {
-	  allowed = config_->npmap_->Allowed(config_->policy_name_, ingress, options->port_,
-					     options->source_identity_, headers);
-	} else {
-	  allowed = config_->npmap_->Allowed(config_->policy_name_, ingress, options->port_,
-					     0 /* no remote ID yet */, headers);
+      const Cilium::SocketOption* option = nullptr;
+      for (const auto& option_: *options_) {
+	option = dynamic_cast<Cilium::SocketOption*>(option_.get());
+	if (option) {
+	  ingress = option->ingress_;
+	  if (ingress) {
+	    allowed = config_->npmap_->Allowed(config_->policy_name_, ingress, option->port_,
+					       option->identity_, headers);
+	  } else {
+	    allowed = config_->npmap_->Allowed(config_->policy_name_, ingress, option->port_,
+					       0 /* no remote ID yet */, headers);
+	  }
+	  ENVOY_LOG(debug, "Cilium L7: {} policy lookup for endpoint {}: {}",
+		    ingress ? "Ingress" : "Egress", config_->policy_name_,
+		    allowed ? "ALLOW" : "DENY");
+	  break;
 	}
-	ENVOY_LOG(debug, "Cilium L7: {} policy lookup for endpoint {}: {}",
-		  options->ingress_ ? "Ingress" : "Egress", config_->policy_name_,
-		  allowed ? "ALLOW" : "DENY");
-      } else {
-	ENVOY_LOG(warn, "Cilium L7: Socket Options dynamic cast failed");
+      }
+      if (!option) {
+	ENVOY_LOG(warn, "Cilium L7: Cilium Socket Option not found");
       }
     } else {
       ENVOY_LOG(warn, "Cilium L7: No socket options");

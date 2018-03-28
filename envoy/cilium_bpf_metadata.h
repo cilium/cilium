@@ -23,11 +23,6 @@ public:
   Config(const ::cilium::BpfMetadata &config, Server::Configuration::ListenerFactoryContext& context);
   virtual ~Config() {}
 
-  uint32_t getMark(uint32_t identity) {
-    // Magic marker values must match with Cilium.
-    return ((is_ingress_) ? 0xFEA : 0xFEB) | (identity << 16);
-  }
-
   virtual bool getBpfMetadata(Network::ConnectionSocket &socket);
 
   bool is_ingress_;

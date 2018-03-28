@@ -7,7 +7,7 @@ workspace(name = "cilium")
 #
 # No other line in this file may have ENVOY_SHA followed by an equals sign!
 #
-ENVOY_SHA = "12434bee6a6be56a62955999ed38e16a7a9ee054"
+ENVOY_SHA = "fc3693b5205518171a590d87e51ae317040f9276"
 
 http_archive(
     name = "envoy",
@@ -38,5 +38,3 @@ load("@com_lyft_protoc_gen_validate//bazel:go_proto_library.bzl", "go_proto_repo
 go_proto_repositories(shared=0)
 go_rules_dependencies()
 go_register_toolchains()
-load("@io_bazel_rules_go//proto:def.bzl", "proto_register_toolchains")
-proto_register_toolchains()

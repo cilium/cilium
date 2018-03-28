@@ -8,6 +8,8 @@
 
 #include "common/common/utility.h"
 
+#include "cilium_socket_option.h"
+
 namespace Envoy {
 namespace Cilium {
 
@@ -80,8 +82,19 @@ void AccessLog::Entry::InitFromRequest(
   entry.set_policy_name(policy_name);
 
   if (conn) {
-    if (conn->socketOptions() != nullptr) {
-      entry.set_source_security_id(conn->socketOptions()->hashKey() >> 16);
+    const auto& options_ = conn->socketOptions();
+    if (options_) {
+      const Cilium::SocketMarkOption* option = nullptr;
+      for (const auto& option_: *options_) {
+	option = dynamic_cast<Cilium::SocketMarkOption*>(option_.get());
+	if (option) {
+	  entry.set_source_security_id(option->identity_);
+	  break;
+	}
+      }
+      if (!option) {
+	ENVOY_CONN_LOG(warn, "accesslog: Cilium Socket Option not found", *conn);
+      }
     }
     entry.set_source_address(conn->remoteAddress()->asString());
     entry.set_destination_address(conn->localAddress()->asString());
