@@ -19,7 +19,7 @@
 },
 {
     "endpointSelector":
-        {"matchLabels":{"id.http2":""}},
+        {"matchLabels":{"id.httpd2":""}},
     "ingress": [{
         "fromEndpoints": [
             {"matchLabels":{"reserved:host":""}},
