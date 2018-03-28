@@ -159,9 +159,16 @@ func (s *Server) updateCluster(connectivity []*healthModels.NodeStatus) {
 func (s *Server) GetStatusResponse() *healthModels.HealthStatusResponse {
 	s.RLock()
 	defer s.RUnlock()
+
+	var name string
+	// Check if localStatus is populated already. If not, the name is empty
+	if s.localStatus != nil {
+		name = s.localStatus.Name
+	}
+
 	return &healthModels.HealthStatusResponse{
 		Local: &healthModels.SelfStatus{
-			Name: s.localStatus.Name,
+			Name: name,
 		},
 		Nodes:     s.connectivity,
 		Timestamp: s.lastProbe.Format(time.RFC3339),
