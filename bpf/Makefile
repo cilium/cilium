@@ -20,7 +20,7 @@ HOSTCC ?= gcc
 
 $(TARGET): $(TARGET).c
 	@$(ECHO_CC)
-	# Due to gcc bug, -lelf needs to be at the end.
+	@# Due to gcc bug, -lelf needs to be at the end.
 	$(QUIET) ${HOSTCC} -Wall -O2 -I include/ $@.c -lelf -o $@
 
 ifeq ("$(PKG_BUILD)","")
