@@ -8,3 +8,4 @@ spec:
       role: victim
   ingress:
   - fromEndpoints:
+    - {}
