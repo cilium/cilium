@@ -339,9 +339,8 @@ skip_service_lookup:
                 }
 #endif
 
-		/* Skip policy on matching egress prefixes. */
-		if (likely(lpm6_egress_lookup(daddr)))
-			policy_mark_skip(skb);
+		if (unlikely(!lpm6_egress_lookup(daddr)))
+			return DROP_POLICY_CIDR;
 
 		goto pass_to_stack;
 	}
@@ -388,17 +387,8 @@ pass_to_stack:
 	send_trace_notify(skb, TRACE_TO_STACK, SECLABEL, dstID, 0, 0,
 			  forwarding_reason);
 
-#ifndef POLICY_EGRESS
-	/* No policy, pass directly down to stack */
 	cilium_dbg_capture(skb, DBG_CAPTURE_DELIVERY, 0);
 	return TC_ACT_OK;
-#else
-	skb->cb[CB_SRC_LABEL] = SECLABEL;
-	skb->cb[CB_IFINDEX] = 0; /* Indicate passing to stack */
-
-	tail_call(skb, &cilium_reserved_policy, WORLD_ID);
-	return DROP_MISSED_TAIL_CALL;
-#endif
 }
 
 static inline int handle_ipv6(struct __sk_buff *skb)
@@ -649,9 +639,8 @@ skip_service_lookup:
 		dstID = CLUSTER_ID;
 		goto pass_to_stack;
 	} else {
-		/* Skip policy on matching egress prefixes. */
-		if (likely(lpm4_egress_lookup(orig_dip)))
-			policy_mark_skip(skb);
+		if (unlikely(!lpm4_egress_lookup(orig_dip)))
+			return DROP_POLICY_CIDR;
 
 		goto pass_to_stack;
 	}
@@ -700,17 +689,8 @@ pass_to_stack:
 	send_trace_notify(skb, TRACE_TO_STACK, SECLABEL, dstID, 0, 0,
 			  forwarding_reason);
 
-#ifndef POLICY_EGRESS
-	/* No policy, pass directly down to stack */
 	cilium_dbg_capture(skb, DBG_CAPTURE_DELIVERY, 0);
 	return TC_ACT_OK;
-#else
-	skb->cb[CB_SRC_LABEL] = SECLABEL;
-	skb->cb[CB_IFINDEX] = 0; /* Indicate passing to stack */
-
-	tail_call(skb, &cilium_reserved_policy, WORLD_ID);
-	return DROP_MISSED_TAIL_CALL;
-#endif
 }
 
 __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV4) int tail_handle_ipv4(struct __sk_buff *skb)

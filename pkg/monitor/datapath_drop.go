@@ -73,6 +73,7 @@ var errors = map[uint8]string{
 	159: "Policy denied (L4)",
 	160: "No tunnel/encapsulation endpoint (datapath BUG!)",
 	161: "Failed to insert into proxymap",
+	162: "Policy denied (CIDR)",
 }
 
 func dropReason(reason uint8) string {
