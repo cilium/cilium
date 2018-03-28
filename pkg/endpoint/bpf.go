@@ -41,6 +41,7 @@ import (
 	"github.com/cilium/cilium/pkg/maps/lxcmap"
 	"github.com/cilium/cilium/pkg/maps/policymap"
 	"github.com/cilium/cilium/pkg/policy"
+	"github.com/cilium/cilium/pkg/status"
 	"github.com/cilium/cilium/pkg/u8proto"
 	"github.com/cilium/cilium/pkg/version"
 
@@ -156,7 +157,7 @@ func (e *Endpoint) writeHeaderfile(prefix string, owner Owner) error {
 		}
 	}
 	if err != nil {
-		e.LogStatus(BPF, Warning, fmt.Sprintf("Unable to create a base64: %s", err))
+		e.LogStatus(status.BPF, status.Warning, fmt.Sprintf("Unable to create a base64: %s", err))
 	}
 
 	if e.DockerID == "" {

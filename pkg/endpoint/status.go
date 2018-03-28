@@ -17,65 +17,14 @@ package endpoint
 import (
 	"fmt"
 
-	"github.com/cilium/cilium/common"
-)
-
-type StatusCode int
-
-const (
-	OK       StatusCode = 0
-	Warning  StatusCode = -1
-	Failure  StatusCode = -2
-	Disabled StatusCode = -3
-)
-
-// StatusType represents the type for the given status, higher the value, higher
-// the priority.
-type StatusType int
-
-const (
-	BPF    StatusType = 200
-	Policy StatusType = 100
-	Other  StatusType = 0
+	"github.com/cilium/cilium/pkg/status"
 )
 
 type Status struct {
-	Code  StatusCode `json:"code"`
-	Msg   string     `json:"msg"`
-	Type  StatusType `json:"status-type"`
-	State string     `json:"state"`
-}
-
-func (sc StatusCode) ColorString() string {
-	var text string
-	switch sc {
-	case OK:
-		text = common.Green("OK")
-	case Warning:
-		text = common.Yellow("Warning")
-	case Failure:
-		text = common.Red("Failure")
-	case Disabled:
-		text = common.Yellow("Disabled")
-	default:
-		text = "Unknown code"
-	}
-	return fmt.Sprintf("%s", text)
-}
-
-func (sc StatusCode) String() string {
-	switch sc {
-	case OK:
-		return "OK"
-	case Warning:
-		return "Warning"
-	case Failure:
-		return "Failure"
-	case Disabled:
-		return "Disabled"
-	default:
-		return "Unknown code"
-	}
+	Code  status.Code `json:"code"`
+	Msg   string      `json:"msg"`
+	Type  status.Type `json:"status-type"`
+	State string      `json:"state"`
 }
 
 func (s Status) String() string {

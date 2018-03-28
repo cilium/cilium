@@ -25,6 +25,7 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
 	"github.com/cilium/cilium/pkg/policy"
+	"github.com/cilium/cilium/pkg/status"
 
 	"github.com/sirupsen/logrus"
 )
@@ -66,7 +67,7 @@ func RunGC(e *endpoint.Endpoint, isLocal, isIPv6 bool, filter *ctmap.GCFilter) {
 	m, err := bpf.OpenMap(file)
 	if err != nil {
 		log.WithError(err).WithField(logfields.Path, file).Warn("Unable to open map")
-		e.LogStatus(endpoint.BPF, endpoint.Warning, fmt.Sprintf("Unable to open CT map %s: %s", file, err))
+		e.LogStatus(status.BPF, status.Warning, fmt.Sprintf("Unable to open CT map %s: %s", file, err))
 		return
 	}
 	defer m.Close()

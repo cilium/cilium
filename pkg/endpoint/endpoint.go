@@ -56,6 +56,7 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/proxy/accesslog"
+	"github.com/cilium/cilium/pkg/status"
 
 	go_version "github.com/hashicorp/go-version"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -761,7 +762,7 @@ func (e *Endpoint) GetModelRLocked() *models.Endpoint {
 	}
 
 	currentState := models.EndpointState(e.state)
-	if currentState == models.EndpointStateReady && e.Status.CurrentStatus() != OK {
+	if currentState == models.EndpointStateReady && e.Status.CurrentStatus() != status.OK {
 		currentState = models.EndpointStateNotReady
 	}
 
@@ -844,7 +845,7 @@ func (e *Endpoint) GetModelRLocked() *models.Endpoint {
 func (e *Endpoint) getHealthModel() *models.EndpointHealth {
 	// Duplicated from GetModelRLocked.
 	currentState := models.EndpointState(e.state)
-	if currentState == models.EndpointStateReady && e.Status.CurrentStatus() != OK {
+	if currentState == models.EndpointStateReady && e.Status.CurrentStatus() != status.OK {
 		currentState = models.EndpointStateNotReady
 	}
 
@@ -1011,8 +1012,8 @@ type statusLogMsg struct {
 // statusLog represents a slice of statusLogMsg.
 type statusLog []*statusLogMsg
 
-// componentStatus represents a map of a single statusLogMsg by StatusType.
-type componentStatus map[StatusType]*statusLogMsg
+// componentStatus represents a map of a single statusLogMsg by status.Type.
+type componentStatus map[status.Type]*statusLogMsg
 
 // contains checks if the given `s` statusLogMsg is present in the
 // priorityStatus.
@@ -1020,23 +1021,9 @@ func (ps componentStatus) contains(s *statusLogMsg) bool {
 	return ps[s.Status.Type] == s
 }
 
-// statusTypeSlice represents a slice of StatusType, is used for sorting
-// purposes.
-type statusTypeSlice []StatusType
-
-// Len returns the length of the slice.
-func (p statusTypeSlice) Len() int { return len(p) }
-
-// Less returns true if the element `j` is less than element `i`.
-// *It's reversed* so that we can sort the slice by high to lowest priority.
-func (p statusTypeSlice) Less(i, j int) bool { return p[i] > p[j] }
-
-// Swap swaps element in `i` with element in `j`.
-func (p statusTypeSlice) Swap(i, j int) { p[i], p[j] = p[j], p[i] }
-
 // sortByPriority returns a statusLog ordered from highest priority to lowest.
 func (ps componentStatus) sortByPriority() statusLog {
-	prs := statusTypeSlice{}
+	prs := status.TypeSlice{}
 	for k := range ps {
 		prs = append(prs, k)
 	}
@@ -1088,7 +1075,7 @@ func (e *EndpointStatus) getAndIncIdx() int {
 	// non-OK status!
 	if e.Index < len(e.Log) &&
 		e.CurrentStatuses.contains(e.Log[e.Index]) &&
-		e.Log[e.Index].Status.Code != OK {
+		e.Log[e.Index].Status.Code != status.OK {
 		e.Index++
 		if e.Index >= maxLogs {
 			e.Index = 0
@@ -1144,16 +1131,16 @@ func (e *EndpointStatus) GetModel() []*models.EndpointStatusChange {
 	return list
 }
 
-func (e *EndpointStatus) CurrentStatus() StatusCode {
+func (e *EndpointStatus) CurrentStatus() status.Code {
 	e.indexMU.RLock()
 	defer e.indexMU.RUnlock()
 	sP := e.CurrentStatuses.sortByPriority()
 	for _, v := range sP {
-		if v.Status.Code != OK {
+		if v.Status.Code != status.OK {
 			return v.Status.Code
 		}
 	}
-	return OK
+	return status.OK
 }
 
 func (e *EndpointStatus) String() string {
@@ -1453,7 +1440,7 @@ func (e *Endpoint) Ct4MapPathLocked() string {
 	return Ct4MapPath(int(e.ID))
 }
 
-func (e *Endpoint) LogStatus(typ StatusType, code StatusCode, msg string) {
+func (e *Endpoint) LogStatus(typ status.Type, code status.Code, msg string) {
 	e.Mutex.Lock()
 	defer e.Mutex.Unlock()
 	// FIXME GH2323 instead of a mutex we could use a channel to send the status
@@ -1463,20 +1450,20 @@ func (e *Endpoint) LogStatus(typ StatusType, code StatusCode, msg string) {
 	e.logStatusLocked(typ, code, msg)
 }
 
-func (e *Endpoint) LogStatusOK(typ StatusType, msg string) {
-	e.LogStatus(typ, OK, msg)
+func (e *Endpoint) LogStatusOK(typ status.Type, msg string) {
+	e.LogStatus(typ, status.OK, msg)
 }
 
 // LogStatusOKLocked will log an OK message of the given status type with the
 // given msg string.
 // must be called with endpoint.Mutex held
-func (e *Endpoint) LogStatusOKLocked(typ StatusType, msg string) {
+func (e *Endpoint) LogStatusOKLocked(typ status.Type, msg string) {
 	e.Status.indexMU.Lock()
 	defer e.Status.indexMU.Unlock()
-	e.logStatusLocked(typ, OK, msg)
+	e.logStatusLocked(typ, status.OK, msg)
 }
 
-func (e *Endpoint) logStatusLocked(typ StatusType, code StatusCode, msg string) {
+func (e *Endpoint) logStatusLocked(typ status.Type, code status.Code, msg string) {
 	sts := &statusLogMsg{
 		Status: Status{
 			Code:  code,
@@ -1924,12 +1911,12 @@ func (e *Endpoint) SetStateLocked(toState, reason string) bool {
 			"line": fileLine,
 		}).Info("Invalid state transition skipped")
 	}
-	e.logStatusLocked(Other, Warning, fmt.Sprintf("Skipped invalid state transition to %s due to: %s", toState, reason))
+	e.logStatusLocked(status.Other, status.Warning, fmt.Sprintf("Skipped invalid state transition to %s due to: %s", toState, reason))
 	return false
 
 OKState:
 	e.state = toState
-	e.logStatusLocked(Other, OK, reason)
+	e.logStatusLocked(status.Other, status.OK, reason)
 	return true
 }
 
@@ -1972,12 +1959,12 @@ func (e *Endpoint) BuilderSetStateLocked(toState, reason string) bool {
 			goto OKState
 		}
 	}
-	e.logStatusLocked(Other, Warning, fmt.Sprintf("Skipped invalid state transition to %s due to: %s", toState, reason))
+	e.logStatusLocked(status.Other, status.Warning, fmt.Sprintf("Skipped invalid state transition to %s due to: %s", toState, reason))
 	return false
 
 OKState:
 	e.state = toState
-	e.logStatusLocked(Other, OK, reason)
+	e.logStatusLocked(status.Other, status.OK, reason)
 	return true
 }
 
@@ -2229,7 +2216,7 @@ func (e *Endpoint) identityLabelsChanged(owner Owner, myChangeRev int) error {
 	identity, _, err := identityPkg.AllocateIdentity(newLabels)
 	if err != nil {
 		err = fmt.Errorf("unable to resolve identity: %s", err)
-		e.LogStatus(Other, Warning, fmt.Sprintf("%s (will retry)", err.Error()))
+		e.LogStatus(status.Other, status.Warning, fmt.Sprintf("%s (will retry)", err.Error()))
 		return err
 	}
 

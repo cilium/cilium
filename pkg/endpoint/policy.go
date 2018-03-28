@@ -41,6 +41,7 @@ import (
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
+	"github.com/cilium/cilium/pkg/status"
 
 	"github.com/cilium/cilium/pkg/maps/policymap"
 	"github.com/sirupsen/logrus"
@@ -968,12 +969,12 @@ func (e *Endpoint) Regenerate(owner Owner, reason string) <-chan bool {
 			if err := e.regenerate(owner, reason); err != nil {
 				buildSuccess = false
 				scopedLog.WithError(err).Warn("Regeneration of endpoint program failed")
-				e.LogStatus(BPF, Failure, "Error regenerating endpoint: "+err.Error())
+				e.LogStatus(status.BPF, status.Failure, "Error regenerating endpoint: "+err.Error())
 				owner.SendNotification(monitor.AgentNotifyEndpointRegenerateFail,
 					e.getIDandLabels()+": "+err.Error())
 			} else {
 				buildSuccess = true
-				e.LogStatusOK(BPF, "Successfully regenerated endpoint program due to "+reason)
+				e.LogStatusOK(status.BPF, "Successfully regenerated endpoint program due to "+reason)
 				owner.SendNotification(monitor.AgentNotifyEndpointRegenerateSuccess, e.getIDandLabels())
 			}
 

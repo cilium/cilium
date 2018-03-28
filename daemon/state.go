@@ -27,6 +27,7 @@ import (
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/policy"
+	"github.com/cilium/cilium/pkg/status"
 	"github.com/cilium/cilium/pkg/workloads/containerd"
 
 	"github.com/sirupsen/logrus"
@@ -75,7 +76,7 @@ func (d *Daemon) SyncState(dir string, clean bool) error {
 
 			ep.Mutex.Lock()
 			scopedLog.Debug("Restoring endpoint")
-			ep.LogStatusOKLocked(endpoint.Other, "Restoring endpoint from previous cilium instance")
+			ep.LogStatusOKLocked(status.Other, "Restoring endpoint from previous cilium instance")
 
 			if err := d.allocateIPsLocked(ep); err != nil {
 				ep.Mutex.Unlock()
@@ -98,7 +99,7 @@ func (d *Daemon) SyncState(dir string, clean bool) error {
 			endpointmanager.Insert(ep)
 			epRestored <- true
 
-			ep.LogStatusOKLocked(endpoint.Other, "Synchronizing endpoint labels with KVStore")
+			ep.LogStatusOKLocked(status.Other, "Synchronizing endpoint labels with KVStore")
 			if err := d.syncLabels(ep); err != nil {
 				scopedLog.WithError(err).Warn("Unable to restore endpoint")
 				ep.Mutex.Unlock()
