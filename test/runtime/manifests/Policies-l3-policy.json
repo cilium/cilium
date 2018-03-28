@@ -47,7 +47,18 @@
             }]
         }
     ]
-}]
+},
+{
+    "endpointSelector": {
+        "matchLabels":{"id.app2":""}
+    },
+    "egress": [{
+        "toEndpoints": [
+            {"matchLabels":{"id.httpd3":""}}
+        ]
+    }]
+}
+]
 
 
 
