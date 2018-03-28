@@ -56,20 +56,25 @@ Network::FilterStatus Instance::onNewConnection() {
   auto& conn = callbacks_->connection();
   const auto& options_ = conn.socketOptions();
   if (options_) {
-    const auto options = dynamic_cast<Cilium::SocketOption*>(options_.get());
-    if (options) {
-      if (options->maps_) {
-	// Insert connection callback to delete the proxymap entry once the connection is closed.
-	ASSERT(!maps_);
-	maps_ = options->maps_;
-	proxy_port_ = options->proxy_port_;
-	conn.addConnectionCallbacks(*this);
-	ENVOY_CONN_LOG(debug, "Cilium Network: Added connection callbacks", conn);
-      } else {
-	ENVOY_CONN_LOG(warn, "Cilium Network: No proxymap", conn);
+    const Cilium::SocketOption* option = nullptr;
+    for (const auto& option_: *options_) {
+      option = dynamic_cast<Cilium::SocketOption*>(option_.get());
+      if (option) {
+	if (option->maps_) {
+	  // Insert connection callback to delete the proxymap entry once the connection is closed.
+	  ASSERT(!maps_);
+	  maps_ = option->maps_;
+	  proxy_port_ = option->proxy_port_;
+	  conn.addConnectionCallbacks(*this);
+	  ENVOY_CONN_LOG(debug, "Cilium Network: Added connection callbacks", conn);
+	  break;
+	} else {
+	  ENVOY_CONN_LOG(warn, "Cilium Network: No proxymap", conn);
+	}
       }
-    } else {
-      ENVOY_CONN_LOG(warn, "Cilium Network: Socket Options dynamic cast failed", conn);
+    }
+    if (!option) {
+      ENVOY_CONN_LOG(warn, "Cilium Network: Cilium Socket Option not found", conn);
     }
   } else {
     ENVOY_CONN_LOG(warn, "Cilium Network: No socket options", conn);

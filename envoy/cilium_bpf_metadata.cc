@@ -29,7 +29,7 @@ public:
     // Set the socket mark option for the listen socket.
     // Can use identity 0 on the listen socket option, as the bpf datapath is only interested
     // in whether the proxy is ingress, egress, or if there is no proxy at all.
-    context.setListenSocketOptions(std::make_shared<Cilium::SocketMarkOption>(config->getMark(0)));
+    context.addListenSocketOption(std::make_unique<Cilium::SocketMarkOption>(0, config->is_ingress_));
 
     return [config](Network::ListenerFilterManager &filter_manager) mutable -> void {
       filter_manager.addAcceptFilter(std::make_unique<Filter::BpfMetadata::Instance>(config));
@@ -77,7 +77,7 @@ bool Config::getBpfMetadata(Network::ConnectionSocket& socket) {
   uint16_t orig_dport, proxy_port;
   bool ok = maps_->getBpfMetadata(socket, &identity, &orig_dport, &proxy_port);
   if (ok) {
-    socket.setOptions(std::make_shared<Cilium::SocketOption>(maps_, getMark(identity), identity, is_ingress_, orig_dport, proxy_port));
+    socket.addOption(std::make_unique<Cilium::SocketOption>(maps_, identity, is_ingress_, orig_dport, proxy_port));
   }
   return ok;
 }
@@ -86,13 +86,12 @@ Network::FilterStatus Instance::onAccept(Network::ListenerFilterCallbacks &cb) {
   Network::ConnectionSocket &socket = cb.socket();
   if (!config_->getBpfMetadata(socket)) {
     ENVOY_LOG(debug,
-              "cilium.bpf_metadata ({}): no bpf metadata for the connection.",
+              "cilium.bpf_metadata ({}): no bpf metadata for the connection",
               config_->is_ingress_ ? "ingress" : "egress");
   } else {
     ENVOY_LOG(trace,
-              "cilium.bpf_metadata ({}): GOT bpf metadata for new connection "
-              "(mark: {:x})",
-              config_->is_ingress_ ? "ingress" : "egress", socket.options()->hashKey());
+              "cilium.bpf_metadata ({}): GOT bpf metadata for new connection",
+              config_->is_ingress_ ? "ingress" : "egress");
   }
   return Network::FilterStatus::Continue;
 }
