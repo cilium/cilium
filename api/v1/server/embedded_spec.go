@@ -387,12 +387,12 @@ func init() {
           }
         }
       },
-      "put": {
-        "description": "Updates the list of labels associated with an endpoint by applying\na label modificator structure to the label configuration of an\nendpoint.\n\nThe label configuration mutation is only executed as a whole, i.e.\nif any of the labels to be deleted are not either on the list of\norchestration system labels, custom labels, or already disabled,\nthen the request will fail. Labels to be added which already exist\non either the orchestration list or custom list will be ignored.\n",
+      "patch": {
+        "description": "Sets labels associated with an endpoint. These can be user provided or\nderived from the orchestration system.\n",
         "tags": [
           "endpoint"
         ],
-        "summary": "Modify label configuration of endpoint",
+        "summary": "Set label configuration of endpoint",
         "parameters": [
           {
             "$ref": "#/parameters/endpoint-id"
@@ -402,7 +402,7 @@ func init() {
             "in": "body",
             "required": true,
             "schema": {
-              "$ref": "#/definitions/LabelConfigurationModifier"
+              "$ref": "#/definitions/LabelConfigurationSpec"
             }
           }
         ],
@@ -412,13 +412,6 @@ func init() {
           },
           "404": {
             "description": "Endpoint not found"
-          },
-          "460": {
-            "description": "Label to be deleted not found",
-            "schema": {
-              "$ref": "#/definitions/Error"
-            },
-            "x-go-name": "LabelNotFound"
           },
           "500": {
             "description": "Error while updating labels",
@@ -1697,34 +1690,44 @@ func init() {
       "description": "Label configuration of an endpoint",
       "type": "object",
       "properties": {
-        "custom": {
+        "spec": {
+          "description": "The user provided desired configuration",
+          "$ref": "#/definitions/LabelConfigurationSpec"
+        },
+        "status": {
+          "description": "The current configuration",
+          "$ref": "#/definitions/LabelConfigurationStatus"
+        }
+      }
+    },
+    "LabelConfigurationSpec": {
+      "description": "User desired Label configuration of an endpoint",
+      "type": "object",
+      "properties": {
+        "user": {
           "description": "Custom labels in addition to orchestration system labels.",
+          "$ref": "#/definitions/Labels"
+        }
+      }
+    },
+    "LabelConfigurationStatus": {
+      "description": "Labels and label configuration of an endpoint",
+      "type": "object",
+      "properties": {
+        "derived": {
+          "description": "All labels derived from the orchestration system",
           "$ref": "#/definitions/Labels"
         },
         "disabled": {
           "description": "Labels derived from orchestration system which have been disabled.",
           "$ref": "#/definitions/Labels"
         },
-        "orchestration-identity": {
+        "realized": {
+          "description": "The current configuration",
+          "$ref": "#/definitions/LabelConfigurationSpec"
+        },
+        "security-relevant": {
           "description": "Labels derived from orchestration system that are used in computing a security identity",
-          "$ref": "#/definitions/Labels"
-        },
-        "orchestration-info": {
-          "description": "Labels derived from orchestration system that are not used in computing a security identity",
-          "$ref": "#/definitions/Labels"
-        }
-      }
-    },
-    "LabelConfigurationModifier": {
-      "description": "Structure describing label mutations to be performed on a\nLabelConfiguration object.\n",
-      "type": "object",
-      "properties": {
-        "add": {
-          "description": "List of labels to add and enable. If the label is an orchestration\nsystem label which has been disabled before, it will be removed from\nthe disabled list and readded to the orchestration list. Otherwise\nit will be added to the custom label list.\n",
-          "$ref": "#/definitions/Labels"
-        },
-        "delete": {
-          "description": "List of labels to delete. If the label is an orchestration system\nlabel, then it will be deleted from the orchestration list and\nadded to the disabled list. Otherwise it will be removed from the\ncustom list.\n",
           "$ref": "#/definitions/Labels"
         }
       }

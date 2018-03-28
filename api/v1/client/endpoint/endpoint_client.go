@@ -310,6 +310,38 @@ func (a *Client) PatchEndpointIDConfig(params *PatchEndpointIDConfigParams) (*Pa
 }
 
 /*
+PatchEndpointIDLabels sets label configuration of endpoint
+
+Sets labels associated with an endpoint. These can be user provided or
+derived from the orchestration system.
+
+*/
+func (a *Client) PatchEndpointIDLabels(params *PatchEndpointIDLabelsParams) (*PatchEndpointIDLabelsOK, error) {
+	// TODO: Validate the params before sending
+	if params == nil {
+		params = NewPatchEndpointIDLabelsParams()
+	}
+
+	result, err := a.transport.Submit(&runtime.ClientOperation{
+		ID:                 "PatchEndpointIDLabels",
+		Method:             "PATCH",
+		PathPattern:        "/endpoint/{id}/labels",
+		ProducesMediaTypes: []string{"application/json"},
+		ConsumesMediaTypes: []string{"application/json"},
+		Schemes:            []string{"http"},
+		Params:             params,
+		Reader:             &PatchEndpointIDLabelsReader{formats: a.formats},
+		Context:            params.Context,
+		Client:             params.HTTPClient,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return result.(*PatchEndpointIDLabelsOK), nil
+
+}
+
+/*
 PutEndpointID creates endpoint
 
 Creates a new endpoint
@@ -337,45 +369,6 @@ func (a *Client) PutEndpointID(params *PutEndpointIDParams) (*PutEndpointIDCreat
 		return nil, err
 	}
 	return result.(*PutEndpointIDCreated), nil
-
-}
-
-/*
-PutEndpointIDLabels modifies label configuration of endpoint
-
-Updates the list of labels associated with an endpoint by applying
-a label modificator structure to the label configuration of an
-endpoint.
-
-The label configuration mutation is only executed as a whole, i.e.
-if any of the labels to be deleted are not either on the list of
-orchestration system labels, custom labels, or already disabled,
-then the request will fail. Labels to be added which already exist
-on either the orchestration list or custom list will be ignored.
-
-*/
-func (a *Client) PutEndpointIDLabels(params *PutEndpointIDLabelsParams) (*PutEndpointIDLabelsOK, error) {
-	// TODO: Validate the params before sending
-	if params == nil {
-		params = NewPutEndpointIDLabelsParams()
-	}
-
-	result, err := a.transport.Submit(&runtime.ClientOperation{
-		ID:                 "PutEndpointIDLabels",
-		Method:             "PUT",
-		PathPattern:        "/endpoint/{id}/labels",
-		ProducesMediaTypes: []string{"application/json"},
-		ConsumesMediaTypes: []string{"application/json"},
-		Schemes:            []string{"http"},
-		Params:             params,
-		Reader:             &PutEndpointIDLabelsReader{formats: a.formats},
-		Context:            params.Context,
-		Client:             params.HTTPClient,
-	})
-	if err != nil {
-		return nil, err
-	}
-	return result.(*PutEndpointIDLabelsOK), nil
 
 }
 

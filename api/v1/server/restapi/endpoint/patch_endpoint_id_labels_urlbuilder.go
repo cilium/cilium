@@ -12,8 +12,8 @@ import (
 	"strings"
 )
 
-// PutEndpointIDLabelsURL generates an URL for the put endpoint ID labels operation
-type PutEndpointIDLabelsURL struct {
+// PatchEndpointIDLabelsURL generates an URL for the patch endpoint ID labels operation
+type PatchEndpointIDLabelsURL struct {
 	ID string
 
 	_basePath string
@@ -24,7 +24,7 @@ type PutEndpointIDLabelsURL struct {
 // WithBasePath sets the base path for this url builder, only required when it's different from the
 // base path specified in the swagger spec.
 // When the value of the base path is an empty string
-func (o *PutEndpointIDLabelsURL) WithBasePath(bp string) *PutEndpointIDLabelsURL {
+func (o *PatchEndpointIDLabelsURL) WithBasePath(bp string) *PatchEndpointIDLabelsURL {
 	o.SetBasePath(bp)
 	return o
 }
@@ -32,12 +32,12 @@ func (o *PutEndpointIDLabelsURL) WithBasePath(bp string) *PutEndpointIDLabelsURL
 // SetBasePath sets the base path for this url builder, only required when it's different from the
 // base path specified in the swagger spec.
 // When the value of the base path is an empty string
-func (o *PutEndpointIDLabelsURL) SetBasePath(bp string) {
+func (o *PatchEndpointIDLabelsURL) SetBasePath(bp string) {
 	o._basePath = bp
 }
 
 // Build a url path and query string
-func (o *PutEndpointIDLabelsURL) Build() (*url.URL, error) {
+func (o *PatchEndpointIDLabelsURL) Build() (*url.URL, error) {
 	var result url.URL
 
 	var _path = "/endpoint/{id}/labels"
@@ -46,7 +46,7 @@ func (o *PutEndpointIDLabelsURL) Build() (*url.URL, error) {
 	if id != "" {
 		_path = strings.Replace(_path, "{id}", id, -1)
 	} else {
-		return nil, errors.New("ID is required on PutEndpointIDLabelsURL")
+		return nil, errors.New("ID is required on PatchEndpointIDLabelsURL")
 	}
 	_basePath := o._basePath
 	if _basePath == "" {
@@ -58,7 +58,7 @@ func (o *PutEndpointIDLabelsURL) Build() (*url.URL, error) {
 }
 
 // Must is a helper function to panic when the url builder returns an error
-func (o *PutEndpointIDLabelsURL) Must(u *url.URL, err error) *url.URL {
+func (o *PatchEndpointIDLabelsURL) Must(u *url.URL, err error) *url.URL {
 	if err != nil {
 		panic(err)
 	}
@@ -69,17 +69,17 @@ func (o *PutEndpointIDLabelsURL) Must(u *url.URL, err error) *url.URL {
 }
 
 // String returns the string representation of the path with query string
-func (o *PutEndpointIDLabelsURL) String() string {
+func (o *PatchEndpointIDLabelsURL) String() string {
 	return o.Must(o.Build()).String()
 }
 
 // BuildFull builds a full url with scheme, host, path and query string
-func (o *PutEndpointIDLabelsURL) BuildFull(scheme, host string) (*url.URL, error) {
+func (o *PatchEndpointIDLabelsURL) BuildFull(scheme, host string) (*url.URL, error) {
 	if scheme == "" {
-		return nil, errors.New("scheme is required for a full url on PutEndpointIDLabelsURL")
+		return nil, errors.New("scheme is required for a full url on PatchEndpointIDLabelsURL")
 	}
 	if host == "" {
-		return nil, errors.New("host is required for a full url on PutEndpointIDLabelsURL")
+		return nil, errors.New("host is required for a full url on PatchEndpointIDLabelsURL")
 	}
 
 	base, err := o.Build()
@@ -93,6 +93,6 @@ func (o *PutEndpointIDLabelsURL) BuildFull(scheme, host string) (*url.URL, error
 }
 
 // StringFull returns the string representation of a complete url
-func (o *PutEndpointIDLabelsURL) StringFull(scheme, host string) string {
+func (o *PatchEndpointIDLabelsURL) StringFull(scheme, host string) string {
 	return o.Must(o.BuildFull(scheme, host)).String()
 }

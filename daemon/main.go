@@ -774,7 +774,7 @@ func runDaemon() {
 
 	// /endpoint/{id}/labels/
 	api.EndpointGetEndpointIDLabelsHandler = NewGetEndpointIDLabelsHandler(d)
-	api.EndpointPutEndpointIDLabelsHandler = NewPutEndpointIDLabelsHandler(d)
+	api.EndpointPatchEndpointIDLabelsHandler = NewPatchEndpointIDLabelsHandler(d)
 
 	// /endpoint/{id}/log/
 	api.EndpointGetEndpointIDLogHandler = NewGetEndpointIDLogHandler(d)

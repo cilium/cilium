@@ -18,6 +18,7 @@ import (
 	"github.com/cilium/cilium/api/v1/client/endpoint"
 	"github.com/cilium/cilium/api/v1/models"
 	pkgEndpoint "github.com/cilium/cilium/pkg/endpoint"
+	"github.com/cilium/cilium/pkg/labels"
 )
 
 // EndpointList returns a list of all endpoints
@@ -116,8 +117,38 @@ func (c *Client) EndpointLabelsGet(id string) (*models.LabelConfiguration, error
 }
 
 // EndpointLabelsPut modifies endpoint label configuration
-func (c *Client) EndpointLabelsPut(id string, cfg *models.LabelConfigurationModifier) error {
-	params := endpoint.NewPutEndpointIDLabelsParams().WithID(id)
-	_, err := c.Endpoint.PutEndpointIDLabels(params.WithConfiguration(cfg))
+// add: List of labels to add and enable. If the label is an orchestration
+// system label which has been disabled before, it will be removed from
+// the disabled list and readded to the orchestration list. Otherwise
+// it will be added to the custom label list.
+//
+// delete: List of labels to delete. If the label is an orchestration system
+// label, then it will be deleted from the orchestration list and
+// added to the disabled list. Otherwise it will be removed from the
+// custom list.
+//
+func (c *Client) EndpointLabelsPatch(id string, toAdd, toDelete models.Labels) error {
+	currentCfg, err := c.EndpointLabelsGet(id)
+	if err != nil {
+		return err
+	}
+
+	userLbl := labels.NewLabelsFromModel(currentCfg.Status.Realized.User)
+	for _, lbl := range toAdd {
+		lblParsed := labels.ParseLabel(lbl)
+		if _, found := userLbl[lblParsed.Key]; !found {
+			userLbl[lblParsed.Key] = lblParsed
+		}
+	}
+	for _, lbl := range toDelete {
+		lblParsed := labels.ParseLabel(lbl)
+		if _, found := userLbl[lblParsed.Key]; found {
+			delete(userLbl, lblParsed.Key)
+		}
+	}
+	currentCfg.Spec.User = userLbl.GetModel()
+
+	params := endpoint.NewPatchEndpointIDLabelsParams().WithID(id)
+	_, err = c.Endpoint.PatchEndpointIDLabels(params.WithConfiguration(currentCfg.Spec))
 	return Hint(err)
 }

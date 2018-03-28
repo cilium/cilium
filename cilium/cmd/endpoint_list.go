@@ -115,12 +115,12 @@ func printEndpointList(w *tabwriter.Writer, eps []*models.Endpoint) {
 			id = fmt.Sprintf("%d", ep.Identity.ID)
 		}
 
-		if len(ep.Labels.OrchestrationIdentity) == 0 {
+		if len(ep.Labels.Status.SecurityRelevant) == 0 {
 			listEndpoint(w, ep, id, "no labels")
 		} else {
 
 			first := true
-			lbls := ep.Labels.OrchestrationIdentity
+			lbls := ep.Labels.Status.SecurityRelevant
 			sort.Strings(lbls)
 			for _, lbl := range lbls {
 				if first {

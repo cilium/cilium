@@ -18,18 +18,18 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 )
 
-// NewPutEndpointIDLabelsParams creates a new PutEndpointIDLabelsParams object
+// NewPatchEndpointIDLabelsParams creates a new PatchEndpointIDLabelsParams object
 // with the default values initialized.
-func NewPutEndpointIDLabelsParams() PutEndpointIDLabelsParams {
+func NewPatchEndpointIDLabelsParams() PatchEndpointIDLabelsParams {
 	var ()
-	return PutEndpointIDLabelsParams{}
+	return PatchEndpointIDLabelsParams{}
 }
 
-// PutEndpointIDLabelsParams contains all the bound params for the put endpoint ID labels operation
+// PatchEndpointIDLabelsParams contains all the bound params for the patch endpoint ID labels operation
 // typically these are obtained from a http.Request
 //
-// swagger:parameters PutEndpointIDLabels
-type PutEndpointIDLabelsParams struct {
+// swagger:parameters PatchEndpointIDLabels
+type PatchEndpointIDLabelsParams struct {
 
 	// HTTP Request Object
 	HTTPRequest *http.Request
@@ -38,7 +38,7 @@ type PutEndpointIDLabelsParams struct {
 	  Required: true
 	  In: body
 	*/
-	Configuration *models.LabelConfigurationModifier
+	Configuration *models.LabelConfigurationSpec
 	/*String describing an endpoint with the format ``[prefix:]id``. If no prefix
 	is specified, a prefix of ``cilium-local:`` is assumed. Not all endpoints
 	will be addressable by all endpoint ID prefixes with the exception of the
@@ -60,13 +60,13 @@ type PutEndpointIDLabelsParams struct {
 
 // BindRequest both binds and validates a request, it assumes that complex things implement a Validatable(strfmt.Registry) error interface
 // for simple values it will use straight method calls
-func (o *PutEndpointIDLabelsParams) BindRequest(r *http.Request, route *middleware.MatchedRoute) error {
+func (o *PatchEndpointIDLabelsParams) BindRequest(r *http.Request, route *middleware.MatchedRoute) error {
 	var res []error
 	o.HTTPRequest = r
 
 	if runtime.HasBody(r) {
 		defer r.Body.Close()
-		var body models.LabelConfigurationModifier
+		var body models.LabelConfigurationSpec
 		if err := route.Consumer.Consume(r.Body, &body); err != nil {
 			if err == io.EOF {
 				res = append(res, errors.Required("configuration", "body"))
@@ -99,7 +99,7 @@ func (o *PutEndpointIDLabelsParams) BindRequest(r *http.Request, route *middlewa
 	return nil
 }
 
-func (o *PutEndpointIDLabelsParams) bindID(rawData []string, hasKey bool, formats strfmt.Registry) error {
+func (o *PatchEndpointIDLabelsParams) bindID(rawData []string, hasKey bool, formats strfmt.Registry) error {
 	var raw string
 	if len(rawData) > 0 {
 		raw = rawData[len(rawData)-1]

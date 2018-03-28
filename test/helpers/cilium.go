@@ -286,8 +286,8 @@ func (s *SSHMeta) GetEndpointsIDMap() (map[string]string, error) {
 // corresponding endpoint ID, and an error if the list of endpoints cannot be
 // retrieved via the Cilium CLI.
 func (s *SSHMeta) GetEndpointsIds() (map[string]string, error) {
-	// cilium endpoint list -o jsonpath='{range [?(@.labels.orchestration-identity[0]!='reserved:health')]}{@.container-name}{"="}{@.id}{"\n"}{end}'
-	filter := `{range [?(@.labels.orchestration-identity[0]!="reserved:health")]}{@.container-name}{"="}{@.id}{"\n"}{end}`
+	// cilium endpoint list -o jsonpath='{range [?(@.labels.status.security-relevant[0]!='reserved:health')]}{@.container-name}{"="}{@.id}{"\n"}{end}'
+	filter := `{range [?(@.labels.status.security-relevant[0]!="reserved:health")]}{@.container-name}{"="}{@.id}{"\n"}{end}`
 	cmd := fmt.Sprintf("endpoint list -o jsonpath='%s'", filter)
 	endpoints := s.ExecCilium(cmd)
 	if !endpoints.WasSuccessful() {
@@ -315,7 +315,7 @@ func (s *SSHMeta) GetEndpointsNames() ([]string, error) {
 		return nil, fmt.Errorf("`cilium endpoint get` was not successful")
 	}
 
-	result, err := data.Filter("{ [?(@.labels.orchestration-identity[0]!='reserved:health')].container-name }")
+	result, err := data.Filter("{ [?(@.labels.status.security-relevant[0]!='reserved:health')].container-name }")
 	if err != nil {
 		return nil, err
 	}
@@ -351,7 +351,7 @@ func (s *SSHMeta) PolicyEndpointsSummary() (map[string]int, error) {
 		return nil, fmt.Errorf("was not able to list endpoints: %s", res.CombineOutput().String())
 	}
 
-	endpoints, err := res.Filter("{ [?(@.labels.orchestration-identity[0]!='reserved:health')].policy-enabled }")
+	endpoints, err := res.Filter("{ [?(@.labels.status.security-relevant[0]!='reserved:health')].policy-enabled }")
 
 	if err != nil {
 		return result, fmt.Errorf(`cannot filter for "policy-enabled" from output of "cilium endpoint list"`)

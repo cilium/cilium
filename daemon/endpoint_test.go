@@ -61,5 +61,5 @@ func (ds *DaemonSuite) TestUpdateSecLabels(c *C) {
 	lbls := labels.NewLabelsFromModel([]string{"reserved:world"})
 	code, err := ds.d.updateEndpointLabelsFromAPI("1", lbls, nil)
 	c.Assert(err, Not(IsNil))
-	c.Assert(code, Equals, apiEndpoint.PutEndpointIDLabelsUpdateFailedCode)
+	c.Assert(code, Equals, apiEndpoint.PatchEndpointIDLabelsUpdateFailedCode)
 }
