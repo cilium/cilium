@@ -48,4 +48,20 @@
             ]
         }]
     }]
+},
+{
+    "endpointSelector": {
+        "matchLabels":{"id.app1":""}
+    },
+    "egress": [{
+        "toEndpoints": [
+            {"matchLabels":{}}
+        ],
+        "toPorts": [{
+            "ports": [
+                {"port": "8080",   "protocol": "tcp"},
+                {"port": "80",   "protocol": "tcp"}
+            ]
+        }]
+    }]
 }]

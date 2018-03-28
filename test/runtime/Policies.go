@@ -552,6 +552,7 @@ var _ = Describe("RuntimeValidatedPolicies", func() {
 			connectivityTest(httpRequestsPublic, app, helpers.Httpd2, true)
 		}
 		connectivityTest(allRequests, helpers.App3, helpers.Httpd1, false)
+		connectivityTest(pingRequests, helpers.App1, helpers.Httpd3, false)
 
 		By("Disabling all the policies. All should work")
 
@@ -572,16 +573,16 @@ var _ = Describe("RuntimeValidatedPolicies", func() {
 		Expect(err).Should(BeNil())
 
 		By("Simple Ingress")
-		//APP1 can connect to public, but no to private
+		// app1 can connect to /public, but not to /private.
 		connectivityTest(httpRequestsPublic, helpers.App1, helpers.Httpd1, true)
 		connectivityTest(httpRequestsPrivate, helpers.App1, helpers.Httpd1, false)
 
-		//App2 can't connect
+		// app cannot connect to httpd1 because httpd1 only allows ingress from app1.
 		connectivityTest(httpRequestsPublic, helpers.App2, helpers.Httpd1, false)
 
 		By("Simple Egress")
 
-		//APP2 can connnect to public, but no to private
+		// app2 can connect to public, but no to private
 		connectivityTest(httpRequestsPublic, helpers.App2, helpers.Httpd2, true)
 		connectivityTest(httpRequestsPrivate, helpers.App2, helpers.Httpd2, false)
 
@@ -877,7 +878,7 @@ var _ = Describe("RuntimeValidatedPolicies", func() {
 	})
 
 	It("Extendend HTTP Methods tests", func() {
-		// This test also test l3-l7 dependant
+		// This also tests L3-dependent L7.
 		httpMethods := []string{"GET", "POST"}
 		TestMethodPolicy := func(method string) {
 			vm.PolicyDelAll().ExpectSuccess("Cannot delete all policies")
