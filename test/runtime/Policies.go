@@ -521,12 +521,10 @@ var _ = Describe("RuntimeValidatedPolicies", func() {
 		connectivityTest(httpRequestsPublic, helpers.App3, helpers.Httpd2, true)
 		connectivityTest(pingRequests, helpers.App3, helpers.Httpd2, false)
 
-		// FIXME GH-1488: label-dependent egress policy denies this path.
-		//		  Uncomment test below when 1488 is resolved.
 		// APP3 can't reach using TCP to HTTP3
-		//connectivityTest(allRequests, helpers.App3, helpers.Httpd3, false)
+		connectivityTest(allRequests, helpers.App3, helpers.Httpd3, false)
 
-		By("Disabling all the policies. All should work")
+		By("Deleting all policies; all tests should succeed")
 
 		status := vm.PolicyDelAll()
 		status.ExpectSuccess()
