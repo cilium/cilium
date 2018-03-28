@@ -163,13 +163,14 @@ const (
 	monitorLogFileName = "monitor.log"
 	microscopeManifest = `https://raw.githubusercontent.com/cilium/microscope/master/docs/microscope.yaml`
 
-	deadLockHeader = "POTENTIAL DEADLOCK:" // from github.com/sasha-s/go-deadlock/deadlock.go:header
-
 	// IPv4Host is an IP which is used in some datapath tests for simulating external IPv4 connectivity.
 	IPv4Host = "192.168.254.254"
 
 	// IPv6Host is an IP which is used in some datapath tests for simulating external IPv6 connectivity.
 	IPv6Host = "fdff::ff"
+
+	deadLockHeader    = "POTENTIAL DEADLOCK:" // from github.com/sasha-s/go-deadlock/deadlock.go:header
+	segmentationFault = "segmentation fault"  // from https://github.com/cilium/cilium/issues/3233
 )
 
 var ciliumCLICommands = map[string]string{

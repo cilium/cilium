@@ -973,9 +973,9 @@ func (kub *Kubectl) CiliumReport(namespace string, commands ...[]string) {
 }
 
 // ValidateNoErrorsOnLogs checks in cilium logs since the given duration (By
-// default `CurrentGinkgoTestDescription().Duration`) do not contain `panic` or
-// `deadlocks` messages. In case of any of these messages, it'll mark the test
-// as failed.
+// default `CurrentGinkgoTestDescription().Duration`) do not contain `panic`,
+// `deadlocks` or `segmentation faults` messages. In case of any of these
+// messages, it'll mark the test as failed.
 func (kub *Kubectl) ValidateNoErrorsOnLogs(duration time.Duration) {
 	cmd := fmt.Sprintf("%s -n %s logs --timestamps=true -l k8s-app=cilium --since=%vs",
 		KubectlCmd, KubeSystemNamespace, duration.Seconds())
@@ -988,6 +988,8 @@ func (kub *Kubectl) ValidateNoErrorsOnLogs(duration time.Duration) {
 		"Found a panic in Cilium logs")
 	gomega.ExpectWithOffset(1, logs).ToNot(gomega.ContainSubstring(deadLockHeader),
 		"Found a deadlock in Cilium logs")
+	gomega.ExpectWithOffset(1, logs).ToNot(gomega.ContainSubstring(segmentationFault),
+		"Found a %q in Cilium logs", segmentationFault)
 }
 
 // CheckLogsForDeadlock checks if the logs for Cilium log messages that signify
