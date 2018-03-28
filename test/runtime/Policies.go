@@ -524,6 +524,12 @@ var _ = Describe("RuntimeValidatedPolicies", func() {
 		// APP3 can't reach using TCP to HTTP3
 		connectivityTest(allRequests, helpers.App3, helpers.Httpd3, false)
 
+		// app2 can reach httpd3 for all requests due to l3-only label-based allow policy.
+		connectivityTest(allRequests, helpers.App2, helpers.Httpd3, true)
+
+		// app2 cannot reach httpd2 for all requests.
+		connectivityTest(allRequests, helpers.App2, helpers.Httpd2, false)
+
 		By("Deleting all policies; all tests should succeed")
 
 		status := vm.PolicyDelAll()
