@@ -31,7 +31,8 @@ var _ = Describe("K8sValidatedKafkaPolicyTest", func() {
 	var demoPath string
 	var once sync.Once
 	var kubectl *helpers.Kubectl
-	var l7Policy string
+	var l7PolicyRole string
+	var l7PolicyApikey string
 	var logger *logrus.Entry
 	var path string
 	var podFilter string
@@ -66,7 +67,8 @@ var _ = Describe("K8sValidatedKafkaPolicyTest", func() {
 
 		//Manifest paths
 		demoPath = kubectl.ManifestGet("kafka-sw-app.yaml")
-		l7Policy = kubectl.ManifestGet("kafka-sw-security-policy.yaml")
+		l7PolicyRole = kubectl.ManifestGet("kafka-sw-security-policy.yaml")
+		l7PolicyApikey = kubectl.ManifestGet("kafka-sw-security-policy-apikey.yaml")
 
 		// Kafka GSG app pods
 		apps = []string{kafkaApp, zookApp, backupApp, empireHqApp, outpostApp}
@@ -114,7 +116,7 @@ var _ = Describe("K8sValidatedKafkaPolicyTest", func() {
 
 	})
 
-	It("KafkaPolicies", func() {
+	It("KafkaPoliciesRole", func() {
 		clusterIP, err := kubectl.Get(helpers.DefaultNamespace, "svc").Filter(
 			"{.items[?(@.metadata.name == \"kafka-service\")].spec.clusterIP}")
 		logger.Infof("KafkaPolicyRulesTest: cluster service ip '%s'", clusterIP)
@@ -156,9 +158,9 @@ var _ = Describe("K8sValidatedKafkaPolicyTest", func() {
 			helpers.DefaultNamespace, appPods[outpostApp], fmt.Sprintf(prodOutAnnounce))
 		Expect(err).Should(BeNil())
 
-		By("Apply L7 kafka policy")
+		By("Apply L7 kafka policy for kafka roles")
 		eps1 := kubectl.CiliumEndpointPolicyVersion(ciliumPod1)
-		_, err = kubectl.CiliumPolicyAction(helpers.KubeSystemNamespace, l7Policy, helpers.KubectlApply, 300)
+		_, err = kubectl.CiliumPolicyAction(helpers.KubeSystemNamespace, l7PolicyRole, helpers.KubectlApply, 300)
 		Expect(err).Should(BeNil())
 
 		By("Waiting for endpoint updates with L7 policy")
@@ -247,8 +249,152 @@ var _ = Describe("K8sValidatedKafkaPolicyTest", func() {
 		Expect(err).Should(HaveOccurred())
 
 		eps1 = kubectl.CiliumEndpointPolicyVersion(ciliumPod1)
-		By("Deleting L7 policy")
-		status := kubectl.Delete(l7Policy)
+		By("Deleting L7 policy for kafka roles")
+		status := kubectl.Delete(l7PolicyRole)
+		status.ExpectSuccess()
+		kubectl.CiliumEndpointWait(ciliumPod1)
+
+		//Only 1 endpoint on node1 is affected by L7 rule
+		err = helpers.WaitUntilEndpointUpdates(ciliumPod1, eps1, 3, kubectl)
+		Expect(err).Should(BeNil())
+
+	}, 500)
+
+	It("KafkaPoliciesApiKey", func() {
+		clusterIP, err := kubectl.Get(helpers.DefaultNamespace, "svc").Filter(
+			"{.items[?(@.metadata.name == \"kafka-service\")].spec.clusterIP}")
+		logger.Infof("KafkaPolicyRulesTest: cluster service ip '%s'", clusterIP)
+		Expect(err).Should(BeNil())
+
+		By("Waiting for all Cilium Pods and endpoints to be ready ")
+		By("Waiting for node K8s1")
+		ciliumPod1, _ := kubectl.WaitCiliumEndpointReady(podFilter, helpers.K8s1)
+
+		By("Waiting for node K8s2")
+		kubectl.WaitCiliumEndpointReady(podFilter, helpers.K8s2)
+
+		appPods := helpers.GetAppPods(apps, helpers.DefaultNamespace, kubectl, "app")
+		By("Testing basic Kafka Produce and Consume")
+
+		// We need to produce first, since consumer script waits for
+		// some messages to be already there by the producer.
+		err = kubectl.ExecKafkaPodCmd(
+			helpers.DefaultNamespace, appPods[empireHqApp], fmt.Sprintf(prodHqAnnounce))
+		Expect(err).Should(BeNil())
+
+		err = kubectl.ExecKafkaPodCmd(
+			helpers.DefaultNamespace, appPods[outpostApp], fmt.Sprintf(conOutpostAnnoune))
+		Expect(err).Should(BeNil())
+
+		err = kubectl.ExecKafkaPodCmd(
+			helpers.DefaultNamespace, appPods[empireHqApp], fmt.Sprintf(prodHqDeathStar))
+		Expect(err).Should(BeNil())
+
+		err = kubectl.ExecKafkaPodCmd(
+			helpers.DefaultNamespace, appPods[outpostApp], fmt.Sprintf(conOutDeathStar))
+		Expect(err).Should(BeNil())
+
+		err = kubectl.ExecKafkaPodCmd(
+			helpers.DefaultNamespace, appPods[backupApp], fmt.Sprintf(prodBackAnnounce))
+		Expect(err).Should(BeNil())
+
+		err = kubectl.ExecKafkaPodCmd(
+			helpers.DefaultNamespace, appPods[outpostApp], fmt.Sprintf(prodOutAnnounce))
+		Expect(err).Should(BeNil())
+
+		By("Apply L7 kafka policy for kafka apiKeys")
+		eps1 := kubectl.CiliumEndpointPolicyVersion(ciliumPod1)
+		_, err = kubectl.CiliumPolicyAction(helpers.KubeSystemNamespace, l7PolicyApikey, helpers.KubectlApply, 300)
+		Expect(err).Should(BeNil())
+
+		By("Waiting for endpoint updates with L7 policy")
+		err = helpers.WaitUntilEndpointUpdates(ciliumPod1, eps1, 3, kubectl)
+		Expect(err).Should(BeNil())
+		epsStatus1 := helpers.WithTimeout(func() bool {
+			endpoints1, err := kubectl.CiliumEndpointsListByLabel(ciliumPod1, podFilter)
+			if err != nil {
+				return false
+			}
+			return endpoints1.AreReady()
+		}, "could not get endpoints", &helpers.TimeoutConfig{Timeout: 100})
+
+		Expect(epsStatus1).Should(BeNil())
+
+		endpoints1, err := kubectl.CiliumEndpointsListByLabel(ciliumPod1, podFilter)
+		policyStatus1 := endpoints1.GetPolicyStatus()
+
+		/*
+			Kafka multinode setup:
+
+			K8s1:
+				1. empire-backup
+				2. empire-hq
+				3. kafka-broker : ingress policy only
+
+			K8s2:
+			   1. zook
+			   2. empire-outpost-8888
+			   3. empire-outpost-9999
+		*/
+		By("Testing Kafka endpoint policy enforcement status on K8s1")
+		Expect(policyStatus1[models.EndpointPolicyEnabledNone]).Should(Equal(2))
+		// Only the kafka broker app should have ingress policy enabled.
+		Expect(policyStatus1[models.EndpointPolicyEnabledIngress]).Should(Equal(1))
+		Expect(policyStatus1[models.EndpointPolicyEnabledEgress]).Should(Equal(0))
+		Expect(policyStatus1[models.EndpointPolicyEnabledBoth]).Should(Equal(0))
+
+		By("Testing endpoint policy trace status on kafka-broker node")
+
+		trace := kubectl.CiliumExec(ciliumPod1, fmt.Sprintf(
+			"cilium policy trace --src-k8s-pod default:%s --dst-k8s-pod default:%s --dport 9092",
+			appPods[empireHqApp], appPods[kafkaApp]))
+		trace.ExpectSuccess(trace.CombineOutput().String())
+		Expect(trace.Output().String()).Should(ContainSubstring("Final verdict: ALLOWED"))
+
+		trace = kubectl.CiliumExec(ciliumPod1, fmt.Sprintf(
+			"cilium policy trace --src-k8s-pod default:%s --dst-k8s-pod default:%s --dport 9092",
+			appPods[backupApp], appPods[kafkaApp]))
+		trace.ExpectSuccess(trace.CombineOutput().String())
+		Expect(trace.Output().String()).Should(ContainSubstring("Final verdict: ALLOWED"))
+
+		trace = kubectl.CiliumExec(ciliumPod1, fmt.Sprintf(
+			"cilium policy trace --src-k8s-pod default:%s --dst-k8s-pod default:%s --dport 80",
+			appPods[empireHqApp], appPods[kafkaApp]))
+		trace.ExpectSuccess(trace.CombineOutput().String())
+		Expect(trace.Output().String()).Should(ContainSubstring("Final verdict: DENIED"))
+
+		By("Testing Kafka L7 policy enforcement status")
+		err = kubectl.ExecKafkaPodCmd(
+			helpers.DefaultNamespace, appPods[empireHqApp], fmt.Sprintf(prodHqAnnounce))
+		Expect(err).Should(BeNil())
+
+		err = kubectl.ExecKafkaPodCmd(
+			helpers.DefaultNamespace, appPods[outpostApp], fmt.Sprintf(conOutpostAnnoune))
+		Expect(err).Should(BeNil())
+
+		err = kubectl.ExecKafkaPodCmd(
+			helpers.DefaultNamespace, appPods[empireHqApp], fmt.Sprintf(prodHqDeathStar))
+		Expect(err).Should(BeNil())
+
+		err = kubectl.ExecKafkaPodCmd(
+			helpers.DefaultNamespace, appPods[outpostApp], fmt.Sprintf(conOutpostAnnoune))
+		Expect(err).Should(BeNil())
+
+		err = kubectl.ExecKafkaPodCmd(
+			helpers.DefaultNamespace, appPods[backupApp], fmt.Sprintf(prodBackAnnounce))
+		Expect(err).Should(HaveOccurred())
+
+		err = kubectl.ExecKafkaPodCmd(
+			helpers.DefaultNamespace, appPods[outpostApp], fmt.Sprintf(conOutDeathStar))
+		Expect(err).Should(HaveOccurred())
+
+		err = kubectl.ExecKafkaPodCmd(
+			helpers.DefaultNamespace, appPods[outpostApp], fmt.Sprintf(prodOutAnnounce))
+		Expect(err).Should(HaveOccurred())
+
+		eps1 = kubectl.CiliumEndpointPolicyVersion(ciliumPod1)
+		By("Deleting L7 policy for kafka apiKeys")
+		status := kubectl.Delete(l7PolicyApikey)
 		status.ExpectSuccess()
 		kubectl.CiliumEndpointWait(ciliumPod1)
 

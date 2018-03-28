@@ -1,0 +1,78 @@
+apiVersion: "cilium.io/v2"
+kind: CiliumNetworkPolicy
+description: "Allow only permitted Kafka requests to empire Kafka broker"
+metadata:
+  name: "secure-empire-kafka"
+specs:
+  - endpointSelector:
+      matchLabels:
+        app: kafka
+    ingress:
+    - fromEndpoints:
+      - matchLabels:
+          app: empire-hq
+      toPorts:
+      - ports:
+        - port: "9092"
+          protocol: TCP
+        rules:
+          kafka:
+          - apiKey: "apiversions"
+          - apiKey: "metadata"
+          - apiKey: "produce"
+            topic: "deathstar-plans"
+          - apiKey: "produce"
+            topic: "empire-announce"
+    - fromEndpoints:
+      - matchLabels:
+          app: kafka
+  - endpointSelector:
+      matchLabels:
+        app: kafka
+    ingress:
+    - fromEndpoints:
+      - matchLabels:
+          app: empire-outpost
+      toPorts:
+      - ports:
+        - port: "9092"
+          protocol: TCP
+        rules:
+          kafka:
+          - apiKey: "fetch"
+            topic: "empire-announce"
+          - apiKey: "apiversions"
+          - apiKey: "metadata"
+          - apiKey: "findcoordinator"
+          - apiKey: "joingroup"
+          - apiKey: "leavegroup"
+          - apiKey: "syncgroup"
+          - apiKey: "offsets"
+          - apiKey: "offsetcommit"
+          - apiKey: "offsetfetch"
+          - apiKey: "heartbeat"
+  - endpointSelector:
+      matchLabels:
+        app: kafka
+    ingress:
+    - fromEndpoints:
+      - matchLabels:
+          app: empire-backup
+      toPorts:
+      - ports:
+        - port: "9092"
+          protocol: TCP
+        rules:
+          kafka:
+          - apiKey: "fetch"
+            topic: "deathstar-plans"
+          - apiKey: "apiversions"
+          - apiKey: "metadata"
+          - apiKey: "findcoordinator"
+          - apiKey: "joingroup"
+          - apiKey: "leavegroup"
+          - apiKey: "syncgroup"
+          - apiKey: "offsets"
+          - apiKey: "offsetcommit"
+          - apiKey: "offsetfetch"
+          - apiKey: "heartbeat"
