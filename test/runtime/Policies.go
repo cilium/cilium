@@ -638,6 +638,7 @@ var _ = Describe("RuntimeValidatedPolicies", func() {
 		ipv6Host := "fdff::ff"
 		httpd2Label := "id.httpd2"
 		httpd1Label := "id.httpd1"
+		app3Label := "id.app3"
 
 		log.Infof("IPV4 Address Host: %s", ipv4Host)
 		log.Infof("IPV4 Address Other Host: %s", ipv4OtherHost)
@@ -748,21 +749,21 @@ var _ = Describe("RuntimeValidatedPolicies", func() {
 		By("Importing L3 Label-Based Policy Allowing traffic from httpd2 to httpd1")
 		script = fmt.Sprintf(`
 		[{
-			"endpointSelector": {"matchLabels":{"%s":""}},
+			"endpointSelector": {"matchLabels":{"%[1]s":""}},
 			"ingress": [{
 				"fromEndpoints": [
-					{"matchLabels":{"%s":""}}
+					{"matchLabels":{"%[2]s":""}}
 				]
 			}]
 		},
 		{
-			"endpointSelector": {"matchLabels":{"%s":""}},
+			"endpointSelector": {"matchLabels":{"%[2]s":""}},
 			"egress": [{
 				"toEndpoints": [
-					{"matchLabels":{"%s":""}}
+					{"matchLabels":{"%[1]s":""}}
 				]
 			}]
-		}]`, httpd1Label, httpd2Label, httpd2Label, httpd1Label)
+		}]`, httpd1Label, httpd2Label)
 		_, err = vm.PolicyRenderAndImport(script)
 		Expect(err).To(BeNil(), "Unable to import policy: %s", err)
 
@@ -788,7 +789,7 @@ var _ = Describe("RuntimeValidatedPolicies", func() {
 		By(fmt.Sprintf("Importing Policy Allowing Ingress From %s --> %s And From CIDRs %s, %s", helpers.Httpd2, helpers.Httpd1, ipv4Prefix, ipv6Prefix))
 		script = fmt.Sprintf(`
 		[{
-			"endpointSelector": {"matchLabels":{"%s":""}},
+			"endpointSelector": {"matchLabels":{"%[1]s":""}},
 			"ingress": [{
 				"fromEndpoints":  [
 					{"matchLabels":{"%s":""}}
@@ -804,10 +805,10 @@ var _ = Describe("RuntimeValidatedPolicies", func() {
 			"endpointSelector": {"matchLabels":{"%s":""}},
 			"egress": [{
 				"toEndpoints":  [
-					{"matchLabels":{"%s":""}}
+					{"matchLabels":{"%[1]s":""}}
 				]
 			}]
-		}]`, httpd1Label, httpd2Label, ipv4Prefix, ipv6Prefix, "id.app3", httpd1Label)
+		}]`, httpd1Label, httpd2Label, ipv4Prefix, ipv6Prefix, app3Label)
 
 		_, err = vm.PolicyRenderAndImport(script)
 		Expect(err).To(BeNil(), "Unable to import policy: %s", err)
@@ -826,7 +827,7 @@ var _ = Describe("RuntimeValidatedPolicies", func() {
 		By(fmt.Sprintf("Importing Policy Allowing Ingress From %s --> %s And From CIDRs %s", helpers.Httpd2, helpers.Httpd1, ipv4OtherNet))
 		script = fmt.Sprintf(`
 		[{
-			"endpointSelector": {"matchLabels":{"%s":""}},
+			"endpointSelector": {"matchLabels":{"%[1]s":""}},
 			"ingress": [{
 				"fromEndpoints": [
 					{"matchLabels":{"%s":""}}
@@ -841,10 +842,10 @@ var _ = Describe("RuntimeValidatedPolicies", func() {
 			"endpointSelector": {"matchLabels":{"%s":""}},
 			"egress": [{
 				"toEndpoints": [
-					{"matchLabels":{"%s":""}}
+					{"matchLabels":{"%[1]s":""}}
 				]
 			}]
-		}]`, httpd1Label, httpd2Label, ipv4OtherNet, "id.app3", httpd1Label)
+		}]`, httpd1Label, httpd2Label, ipv4OtherNet, app3Label)
 		_, err = vm.PolicyRenderAndImport(script)
 		Expect(err).To(BeNil(), "Unable to import policy: %s", err)
 
