@@ -818,7 +818,7 @@ func (d *Daemon) init() error {
 	fmt.Fprintf(fw, "#define CILIUM_LB_MAP_MAX_ENTRIES %d\n", lbmap.MaxEntries)
 	fmt.Fprintf(fw, "#define TUNNEL_ENDPOINT_MAP_SIZE %d\n", tunnel.MaxEntries)
 	fmt.Fprintf(fw, "#define PROXY_MAP_SIZE %d\n", proxymap.MaxEntries)
-	fmt.Fprintf(fw, "#define ENDPOINTS_MAP_SIZE %d\n", lxcmap.MaxKeys)
+	fmt.Fprintf(fw, "#define ENDPOINTS_MAP_SIZE %d\n", lxcmap.MaxEntries)
 	fmt.Fprintf(fw, "#define LPM_MAP_SIZE %d\n", cidrmap.MaxEntries)
 	fmt.Fprintf(fw, "#define POLICY_MAP_SIZE %d\n", policymap.MaxEntries)
 	fmt.Fprintf(fw, "#define IPCACHE_MAP_SIZE %d\n", ipcachemap.MaxEntries)
@@ -937,7 +937,7 @@ func NewDaemon(c *Config) (*Daemon, error) {
 		// The channel size has to be set to the maximum number of
 		// possible endpoints to guarantee that enqueueing into the
 		// build queue never blocks.
-		buildEndpointChan: make(chan *endpoint.Request, lxcmap.MaxKeys),
+		buildEndpointChan: make(chan *endpoint.Request, lxcmap.MaxEntries),
 		compilationMutex:  new(lock.RWMutex),
 	}
 
