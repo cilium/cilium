@@ -16,6 +16,14 @@
     }],
     "labels": ["id=server"]
 },{
+    "endpointSelector": {"matchLabels":{"id.client":""}},
+    "egress": [{
+        "toEndpoints": [
+            {"matchLabels":{"id.server":""}}
+        ]
+    }],
+    "labels": ["id=egress-from-client-to-server"]
+},{
     "endpointSelector": {"matchLabels":{"id.httpd":""}},
     "ingress": [{
         "fromEndpoints": [
