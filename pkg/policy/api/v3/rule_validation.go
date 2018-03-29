@@ -1,4 +1,4 @@
-// Copyright 2016-2017 Authors of Cilium
+// Copyright 2016-2018 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package api
+package v3
 
 import (
 	"fmt"
@@ -34,8 +34,8 @@ type exists struct{}
 // fundamental violations will cause an error to be returned.
 func (r Rule) Sanitize() error {
 
-	if r.EndpointSelector.LabelSelector == nil {
-		return fmt.Errorf("rule cannot have nil EndpointSelector")
+	if r.IdentitySelector.LabelSelector == nil {
+		return fmt.Errorf("rule cannot have nil IdentitySelector")
 	}
 
 	for i := range r.Ingress {
@@ -54,131 +54,123 @@ func (r Rule) Sanitize() error {
 }
 
 func (i *IngressRule) sanitize() error {
-	l3Members := map[string]int{
-		"FromEndpoints": len(i.FromEndpoints),
-		"FromCIDR":      len(i.FromCIDR),
-		"FromCIDRSet":   len(i.FromCIDRSet),
-		"FromEntities":  len(i.FromEntities),
+	l3Members := map[string]bool{
+		"FromIdentities": i.FromIdentities != nil,
+		"FromCIDRs":      i.FromCIDRs != nil,
+		"FromRequires":   i.FromRequires != nil,
+		"FromEntities":   i.FromEntities != nil,
 	}
-	l3DependentL4Support := map[interface{}]bool{
-		"FromEndpoints": true,
-		"FromCIDR":      false,
-		"FromCIDRSet":   false,
-		"FromEntities":  false,
-	}
+
 	for m1 := range l3Members {
 		for m2 := range l3Members {
-			if m2 != m1 && l3Members[m1] > 0 && l3Members[m2] > 0 {
-				return fmt.Errorf("Combining %s and %s is not supported yet", m1, m2)
+			if m2 != m1 && l3Members[m1] && l3Members[m2] {
+				return fmt.Errorf("combining %s and %s is not supported yet", m1, m2)
 			}
 		}
 	}
-	for member := range l3Members {
-		if l3Members[member] > 0 && len(i.ToPorts) > 0 && !l3DependentL4Support[member] {
-			return fmt.Errorf("Combining %s and ToPorts is not supported yet", member)
-		}
-	}
 
-	for n := range i.ToPorts {
-		if err := i.ToPorts[n].sanitize(); err != nil {
+	if i.FromIdentities != nil && i.FromIdentities.ToPorts != nil {
+		if err := i.FromIdentities.ToPorts.sanitize(); err != nil {
 			return err
 		}
 	}
 
-	prefixLengths := map[int]exists{}
-	for n := range i.FromCIDR {
-		prefixLength, err := i.FromCIDR[n].sanitize()
-		if err != nil {
-			return err
+	if i.FromCIDRs != nil {
+		prefixLengths := map[int]exists{}
+		for n := range i.FromCIDRs.CIDR {
+			prefixLength, err := i.FromCIDRs.CIDR[n].sanitize()
+			if err != nil {
+				return err
+			}
+			prefixLengths[prefixLength] = exists{}
 		}
-		prefixLengths[prefixLength] = exists{}
+
+		// FIXME GH-1781 count coalesced CIDRs and restrict the number of
+		// prefix lengths based on the CIDRSet exclusions.
+		if l := len(prefixLengths); l > MaxCIDRPrefixLengths {
+			return fmt.Errorf("too many ingress CIDR prefix lengths %d/%d", l, MaxCIDRPrefixLengths)
+		}
+
+		if i.FromCIDRs.ToPorts != nil {
+			if err := i.FromCIDRs.ToPorts.sanitize(); err != nil {
+				return err
+			}
+		}
 	}
 
-	for n := range i.FromCIDRSet {
-		prefixLength, err := i.FromCIDRSet[n].sanitize()
-		if err != nil {
-			return err
+	if i.FromEntities != nil {
+		for _, entity := range i.FromEntities.Entities {
+			_, ok := EntitySelectorMapping[entity]
+			if !ok {
+				return fmt.Errorf("unsupported entity: %s", entity)
+			}
 		}
-		prefixLengths[prefixLength] = exists{}
-	}
-
-	for _, fromEntity := range i.FromEntities {
-		_, ok := EntitySelectorMapping[fromEntity]
-		if !ok {
-			return fmt.Errorf("unsupported entity: %s", fromEntity)
+		if i.FromEntities.ToPorts != nil {
+			if err := i.FromEntities.ToPorts.sanitize(); err != nil {
+				return err
+			}
 		}
-	}
-
-	// FIXME GH-1781 count coalesced CIDRs and restrict the number of
-	// prefix lengths based on the CIDRSet exclusions.
-	if l := len(prefixLengths); l > MaxCIDRPrefixLengths {
-		return fmt.Errorf("too many ingress CIDR prefix lengths %d/%d", l, MaxCIDRPrefixLengths)
 	}
 
 	return nil
 }
 
 func (e *EgressRule) sanitize() error {
-	l3Members := map[string]int{
-		"ToCIDR":      len(e.ToCIDR),
-		"ToCIDRSet":   len(e.ToCIDRSet),
-		"ToEndpoints": len(e.ToEndpoints),
-		"ToEntities":  len(e.ToEntities),
-		"ToServices":  len(e.ToServices),
-	}
-	l3DependentL4Support := map[interface{}]bool{
-		"ToCIDR":      false,
-		"ToCIDRSet":   false,
-		"ToEndpoints": false,
-		"ToEntities":  false,
-		"ToServices":  false,
+	l3Members := map[string]bool{
+		"ToCIDR":       e.ToCIDRs != nil,
+		"ToIdentities": e.ToIdentities != nil,
+		"ToEntities":   e.ToEntities != nil,
+		"ToServices":   e.ToServices != nil,
 	}
 	for m1 := range l3Members {
 		for m2 := range l3Members {
-			if m2 != m1 && l3Members[m1] > 0 && l3Members[m2] > 0 {
+			if m2 != m1 && l3Members[m1] && l3Members[m2] {
 				return fmt.Errorf("Combining %s and %s is not supported yet", m1, m2)
 			}
 		}
 	}
-	for member := range l3Members {
-		if l3Members[member] > 0 && len(e.ToPorts) > 0 && !l3DependentL4Support[member] {
-			return fmt.Errorf("Combining %s and ToPorts is not supported yet", member)
-		}
-	}
 
-	for i := range e.ToPorts {
-		if err := e.ToPorts[i].sanitize(); err != nil {
+	if e.ToIdentities != nil && e.ToIdentities.ToPorts != nil {
+		if err := e.ToIdentities.ToPorts.sanitize(); err != nil {
 			return err
 		}
 	}
 
-	prefixLengths := map[int]exists{}
-	for i := range e.ToCIDR {
-		prefixLength, err := e.ToCIDR[i].sanitize()
-		if err != nil {
-			return err
+	if e.ToCIDRs != nil {
+		prefixLengths := map[int]exists{}
+		for n := range e.ToCIDRs.CIDR {
+			prefixLength, err := e.ToCIDRs.CIDR[n].sanitize()
+			if err != nil {
+				return err
+			}
+			prefixLengths[prefixLength] = exists{}
 		}
-		prefixLengths[prefixLength] = exists{}
-	}
-	for i := range e.ToCIDRSet {
-		prefixLength, err := e.ToCIDRSet[i].sanitize()
-		if err != nil {
-			return err
+
+		// FIXME GH-1781 count coalesced CIDRs and restrict the number of
+		// prefix lengths based on the CIDRSet exclusions.
+		if l := len(prefixLengths); l > MaxCIDRPrefixLengths {
+			return fmt.Errorf("too many egress CIDR prefix lengths %d/%d", l, MaxCIDRPrefixLengths)
 		}
-		prefixLengths[prefixLength] = exists{}
+
+		if e.ToCIDRs.ToPorts != nil {
+			if err := e.ToCIDRs.ToPorts.sanitize(); err != nil {
+				return err
+			}
+		}
 	}
 
-	for _, toEntity := range e.ToEntities {
-		_, ok := EntitySelectorMapping[toEntity]
-		if !ok {
-			return fmt.Errorf("unsupported entity: %s", toEntity)
+	if e.ToEntities != nil {
+		for _, entity := range e.ToEntities.Entities {
+			_, ok := EntitySelectorMapping[entity]
+			if !ok {
+				return fmt.Errorf("unsupported entity: %s", entity)
+			}
 		}
-	}
-
-	// FIXME GH-1781 count coalesced CIDRs and restrict the number of
-	// prefix lengths based on the CIDRSet exclusions.
-	if l := len(prefixLengths); l > MaxCIDRPrefixLengths {
-		return fmt.Errorf("too many egress CIDR prefix lengths %d/%d", l, MaxCIDRPrefixLengths)
+		if e.ToEntities.ToPorts != nil {
+			if err := e.ToEntities.ToPorts.sanitize(); err != nil {
+				return err
+			}
+		}
 	}
 
 	return nil
@@ -296,14 +288,8 @@ func (cidr CIDR) sanitize() (prefixLength int, err error) {
 		return 0, fmt.Errorf("IP must be specified")
 	}
 
-	_, ipnet, err := net.ParseCIDR(strCIDR)
-	if err == nil {
-		// Returns the prefix length as zero if the mask is not continuous.
-		prefixLength, _ = ipnet.Mask.Size()
-		if prefixLength == 0 {
-			return 0, fmt.Errorf("Mask length can not be zero")
-		}
-	} else {
+	_, _, err = net.ParseCIDR(strCIDR)
+	if err != nil {
 		// Try to parse as a fully masked IP or an IP subnetwork
 		ip := net.ParseIP(strCIDR)
 		if ip == nil {
@@ -318,36 +304,37 @@ func (cidr CIDR) sanitize() (prefixLength int, err error) {
 // valid, and ensuring that all of the exception CIDR prefixes are contained
 // within the allowed CIDR prefix.
 func (c *CIDRRule) sanitize() (prefixLength int, err error) {
-
-	// Only allow notation <IP address>/<prefix>. Note that this differs from
-	// the logic in api.CIDR.Sanitize().
-	_, cidrNet, err := net.ParseCIDR(string(c.Cidr))
-	if err != nil {
-		return 0, err
-	}
-
-	// Returns the prefix length as zero if the mask is not continuous.
-	prefixLength, _ = cidrNet.Mask.Size()
-	if prefixLength == 0 {
-		return 0, fmt.Errorf("Mask length can not be zero")
-	}
-
-	// Ensure that each provided exception CIDR prefix  is formatted correctly,
-	// and is contained within the CIDR prefix to/from which we want to allow
-	// traffic.
-	for _, p := range c.ExceptCIDRs {
-		exceptCIDRAddr, _, err := net.ParseCIDR(string(p))
+	for _, cidr := range c.CIDR {
+		// Only allow notation <IP address>/<prefix>. Note that this differs from
+		// the logic in api.CIDR.Sanitize().
+		_, cidrNet, err := net.ParseCIDR(string(cidr))
 		if err != nil {
 			return 0, err
 		}
 
-		// Note: this also checks that the allow CIDR prefix and the exception
-		// CIDR prefixes are part of the same address family.
-		if !cidrNet.Contains(exceptCIDRAddr) {
-			return 0, fmt.Errorf("allow CIDR prefix %s does not contain "+
-				"exclude CIDR prefix %s", c.Cidr, p)
+		// Returns the prefix length as zero if the mask is not continuous.
+		prefixLength, _ = cidrNet.Mask.Size()
+		if prefixLength == 0 {
+			return 0, fmt.Errorf("Mask length can not be zero")
+		}
+
+		// Ensure that each provided exception CIDR prefix  is formatted correctly,
+		// and is contained within the CIDR prefix to/from which we want to allow
+		// traffic.
+		for _, p := range c.ExceptCIDRs {
+			exceptCIDRAddr, _, err := net.ParseCIDR(string(p))
+			if err != nil {
+				return 0, err
+			}
+
+			// Note: this also checks that the allow CIDR prefix and the exception
+			// CIDR prefixes are part of the same address family.
+			if !cidrNet.Contains(exceptCIDRAddr) {
+				return 0, fmt.Errorf("allow CIDR prefix %s does not contain "+
+					"exclude CIDR prefix %s", cidr, p)
+			}
 		}
 	}
 
-	return prefixLength, nil
+	return 0, nil
 }

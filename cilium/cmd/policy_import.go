@@ -41,12 +41,12 @@ var policyImportCmd = &cobra.Command{
 			log.WithField("rule", logfields.Repr(ruleList)).Debug("Constructed policy object for import")
 
 			// Ignore request if no policies have been found
-			if len(ruleList) == 0 {
+			if len(ruleList.Rules) == 0 {
 				fmt.Printf("No policy specified")
 				return
 			}
 
-			for _, r := range ruleList {
+			for _, r := range ruleList.Rules {
 				if err := r.Sanitize(); err != nil {
 					Fatalf("%s", err)
 				}

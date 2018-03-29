@@ -40,7 +40,7 @@ import (
 	"github.com/cilium/cilium/pkg/monitor"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/policy"
-	"github.com/cilium/cilium/pkg/policy/api"
+	"github.com/cilium/cilium/pkg/policy/api/v3"
 
 	"github.com/cilium/cilium/pkg/maps/policymap"
 	"github.com/sirupsen/logrus"
@@ -69,10 +69,10 @@ func (e *Endpoint) checkEgressAccess(owner Owner, dstLabels labels.LabelArray, o
 	})
 
 	switch owner.GetPolicyRepository().AllowsIngressLabelAccess(&ctx) {
-	case api.Allowed:
+	case v3.Allowed:
 		opts[opt] = optionEnabled
 		scopedLog.Debug("checkEgressAccess: Enabled")
-	case api.Denied:
+	case v3.Denied:
 		opts[opt] = optionDisabled
 		scopedLog.Debug("checkEgressAccess: Disabled")
 	}
@@ -96,7 +96,7 @@ func (e *Endpoint) ProxyID(l4 *policy.L4Filter) string {
 	return policy.ProxyID(e.ID, l4.Ingress, string(l4.Protocol), uint16(l4.Port))
 }
 
-func getSecurityIdentities(labelsMap *identityPkg.IdentityCache, selector *api.EndpointSelector) []identityPkg.NumericIdentity {
+func getSecurityIdentities(labelsMap *identityPkg.IdentityCache, selector *v3.IdentitySelector) []identityPkg.NumericIdentity {
 	identities := []identityPkg.NumericIdentity{}
 	for idx, labels := range *labelsMap {
 		if selector.Matches(labels) {
@@ -111,7 +111,7 @@ func getSecurityIdentities(labelsMap *identityPkg.IdentityCache, selector *api.E
 	return identities
 }
 
-func getL4FilterEndpointSelector(filter *policy.L4Filter) []api.EndpointSelector {
+func getL4FilterIdentitySelector(filter *policy.L4Filter) []v3.IdentitySelector {
 	// Since GH-3015 it's impossible to specify more than one L3 at a time,
 	// and the only L3 rule match that is allowed to be combined with L4
 	// is `FromEndpoints`. Therefore, if `FromEndpoints` is nil, then it
@@ -121,8 +121,8 @@ func getL4FilterEndpointSelector(filter *policy.L4Filter) []api.EndpointSelector
 	// specified. See also GH-2992 for context.
 	fromEndpointsSelectors := filter.FromEndpoints
 	if fromEndpointsSelectors == nil {
-		fromEndpointsSelectors = []api.EndpointSelector{
-			api.NewWildcardEndpointSelector(),
+		fromEndpointsSelectors = []v3.IdentitySelector{
+			v3.NewWildcardIdentitySelector(),
 		}
 	}
 
@@ -166,7 +166,7 @@ func (e *Endpoint) removeOldFilter(identities *identityPkg.IdentityCache,
 	port := uint16(filter.Port)
 	proto := uint8(filter.U8Proto)
 
-	for _, sel := range getL4FilterEndpointSelector(filter) {
+	for _, sel := range getL4FilterIdentitySelector(filter) {
 		for _, id := range getSecurityIdentities(identities, &sel) {
 			srcID := id.Uint32()
 			l4RuleCtx, l7RuleCtx := e.ParseL4Filter(filter)
@@ -213,7 +213,7 @@ func (e *Endpoint) applyNewFilter(identities *identityPkg.IdentityCache,
 	proto := uint8(filter.U8Proto)
 
 	errors := 0
-	for _, sel := range getL4FilterEndpointSelector(filter) {
+	for _, sel := range getL4FilterIdentitySelector(filter) {
 		for _, id := range getSecurityIdentities(identities, &sel) {
 			srcID := id.Uint32()
 			if e.PolicyMap.L4Exists(srcID, port, proto, policymap.Ingress) {
@@ -471,7 +471,7 @@ func (e *Endpoint) regenerateConsumable(owner Owner, labelsMap *identityPkg.Iden
 		}).Debug("Evaluating ingress context for source PolicyID")
 
 		ingressAccess := repo.AllowsIngressLabelAccess(&ingressCtx)
-		if ingressAccess == api.Allowed {
+		if ingressAccess == v3.Allowed {
 			if e.allowIngressIdentity(identity) {
 				changed = true
 			}
@@ -490,7 +490,7 @@ func (e *Endpoint) regenerateConsumable(owner Owner, labelsMap *identityPkg.Iden
 			"labels":             labels,
 		}).Debugf("egress verdict: %v", egressAccess)
 
-		if egressAccess == api.Allowed {
+		if egressAccess == v3.Allowed {
 			e.getLogger().WithFields(logrus.Fields{
 				logfields.PolicyID: identity,
 				"ctx":              ingressCtx}).Debug("egress allowed")
@@ -605,7 +605,7 @@ func (e *Endpoint) updateNetworkPolicy(owner Owner) error {
 				"ctx":              ctx,
 			}).Debug("Evaluating context for source PolicyID")
 			repo := owner.GetPolicyRepository()
-			if repo.CanReachIngressRLocked(&ctx) == api.Denied {
+			if repo.CanReachIngressRLocked(&ctx) == v3.Denied {
 				// Denied explicitly by fromRequires clause.
 				deniedIngressIdentities[srcID] = true
 			}
@@ -628,7 +628,7 @@ func (e *Endpoint) updateNetworkPolicy(owner Owner) error {
 				"ctx":              ctx,
 			}).Debug("Evaluating context for destination PolicyID")
 			repo := owner.GetPolicyRepository()
-			if repo.CanReachEgressRLocked(&ctx) == api.Denied {
+			if repo.CanReachEgressRLocked(&ctx) == v3.Denied {
 				// Denied explicitly by toRequires clause.
 				deniedEgressIdentities[dstID] = true
 			}

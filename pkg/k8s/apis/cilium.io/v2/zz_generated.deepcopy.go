@@ -19,7 +19,7 @@
 package v2
 
 import (
-	api "github.com/cilium/cilium/pkg/policy/api"
+	api_v2 "github.com/cilium/cilium/pkg/policy/api/v2"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 )
 
@@ -93,18 +93,18 @@ func (in *CiliumNetworkPolicy) DeepCopyInto(out *CiliumNetworkPolicy) {
 		if *in == nil {
 			*out = nil
 		} else {
-			*out = new(api.Rule)
+			*out = new(api_v2.Rule)
 			(*in).DeepCopyInto(*out)
 		}
 	}
 	if in.Specs != nil {
 		in, out := &in.Specs, &out.Specs
-		*out = make(api.Rules, len(*in))
+		*out = make(api_v2.Rules, len(*in))
 		for i := range *in {
 			if (*in)[i] == nil {
 				(*out)[i] = nil
 			} else {
-				(*out)[i] = new(api.Rule)
+				(*out)[i] = new(api_v2.Rule)
 				(*in)[i].DeepCopyInto((*out)[i])
 			}
 		}

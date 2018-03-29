@@ -26,7 +26,8 @@ import (
 	"strings"
 
 	"github.com/cilium/cilium/pkg/logging/logfields"
-	"github.com/cilium/cilium/pkg/policy/api"
+	"github.com/cilium/cilium/pkg/policy/api/v2"
+	"github.com/cilium/cilium/pkg/policy/api/v3"
 
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
@@ -119,7 +120,7 @@ func ignoredFile(name string) bool {
 	return false
 }
 
-func loadPolicyFile(path string) (api.Rules, error) {
+func loadPolicyFile(path string) (*v3.VersionRules, error) {
 	var content []byte
 	var err error
 	logrus.WithField(logfields.Path, path).Debug("Loading file")
@@ -134,16 +135,37 @@ func loadPolicyFile(path string) (api.Rules, error) {
 		return nil, err
 	}
 
-	var ruleList api.Rules
+	var ruleList v3.VersionRules
 	err = json.Unmarshal(content, &ruleList)
+	if err == nil {
+		err = ruleList.Rules.Sanitize()
+	}
 	if err != nil {
-		return nil, handleUnmarshalError(path, content, err)
+		// try load a v2.Rule
+		var v2RuleList v2.Rules
+		err2 := json.Unmarshal(content, &v2RuleList)
+		if err2 != nil {
+			return nil, handleUnmarshalError(path, content, err)
+		}
+		err = v2RuleList.Sanitize()
+		if err != nil {
+			return nil, handleUnmarshalError(path, content, err)
+		}
+		var v3RuleList *v3.Rules
+		v3RuleList, err = v3.V2RulesTov3RulesSanitized(&v2RuleList)
+		if err != nil {
+			return nil, handleUnmarshalError(path, content, err)
+		}
+		if v3RuleList != nil {
+			ruleList.Rules = *v3RuleList
+		}
+		ruleList.Version = v3.Version
 	}
 
-	return ruleList, nil
+	return &ruleList, err
 }
 
-func loadPolicy(name string) (api.Rules, error) {
+func loadPolicy(name string) (*v3.VersionRules, error) {
 	logrus.WithField(logfields.Path, name).Debug("Entering directory")
 
 	if name == "-" {
@@ -163,26 +185,26 @@ func loadPolicy(name string) (api.Rules, error) {
 		return nil, err
 	}
 
-	result := api.Rules{}
+	result := &v3.VersionRules{Rules: v3.Rules{}}
 	ruleList, err := processAllFilesFirst(name, files)
 	if err != nil {
 		return nil, err
 	}
-	result = append(result, ruleList...)
+	result.Rules = append(result.Rules, ruleList.Rules...)
 
 	ruleList, err = recursiveSearch(name, files)
 	if err != nil {
 		return nil, err
 	}
-	result = append(result, ruleList...)
+	result.Rules = append(result.Rules, ruleList.Rules...)
 
 	logrus.WithField(logfields.Path, name).Debug("Leaving directory")
 
 	return result, nil
 }
 
-func processAllFilesFirst(name string, files []os.FileInfo) (api.Rules, error) {
-	result := api.Rules{}
+func processAllFilesFirst(name string, files []os.FileInfo) (*v3.VersionRules, error) {
+	result := &v3.VersionRules{Rules: v3.Rules{}}
 
 	for _, f := range files {
 		if f.IsDir() || ignoredFile(path.Base(f.Name())) {
@@ -194,14 +216,14 @@ func processAllFilesFirst(name string, files []os.FileInfo) (api.Rules, error) {
 			return nil, err
 		}
 
-		result = append(result, ruleList...)
+		result.Rules = append(result.Rules, ruleList.Rules...)
 	}
 
 	return result, nil
 }
 
-func recursiveSearch(name string, files []os.FileInfo) (api.Rules, error) {
-	result := api.Rules{}
+func recursiveSearch(name string, files []os.FileInfo) (*v3.VersionRules, error) {
+	result := &v3.VersionRules{Rules: v3.Rules{}}
 	for _, f := range files {
 		if f.IsDir() {
 			if ignoredFile(path.Base(f.Name())) {
@@ -212,7 +234,7 @@ func recursiveSearch(name string, files []os.FileInfo) (api.Rules, error) {
 			if err != nil {
 				return nil, err
 			}
-			result = append(result, ruleList...)
+			result.Rules = append(result.Rules, ruleList.Rules...)
 		}
 	}
 	return result, nil

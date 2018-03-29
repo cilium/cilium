@@ -1,4 +1,4 @@
-// Copyright 2016-2017 Authors of Cilium
+// Copyright 2016-2018 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package api
+package v3
 
 import (
 	"encoding/json"
@@ -29,30 +29,30 @@ import (
 
 var log = logging.DefaultLogger
 
-// EndpointSelector is a wrapper for k8s LabelSelector.
-type EndpointSelector struct {
+// IdentitySelector is a wrapper for k8s LabelSelector.
+type IdentitySelector struct {
 	*metav1.LabelSelector
 }
 
 // LabelSelectorString returns a user-friendly string representation of
-// EndpointSelector.
-func (n *EndpointSelector) LabelSelectorString() string {
+// IdentitySelector.
+func (n *IdentitySelector) LabelSelectorString() string {
 	return metav1.FormatLabelSelector(n.LabelSelector)
 }
 
-// String returns a string representation of EndpointSelector.
-func (n EndpointSelector) String() string {
+// String returns a string representation of IdentitySelector.
+func (n IdentitySelector) String() string {
 	j, _ := n.MarshalJSON()
 	return string(j)
 }
 
-// Hash return hash of the internal json structure that represents the endpoint selector
-func (n *EndpointSelector) Hash() (uint64, error) {
+// Hash return hash of the internal json structure that represents the identity selector
+func (n *IdentitySelector) Hash() (uint64, error) {
 	return hashstructure.Hash(n.LabelSelector, nil)
 }
 
-// UnmarshalJSON unmarshals the endpoint selector from the byte array.
-func (n *EndpointSelector) UnmarshalJSON(b []byte) error {
+// UnmarshalJSON unmarshals the identity selector from the byte array.
+func (n *IdentitySelector) UnmarshalJSON(b []byte) error {
 	n.LabelSelector = &metav1.LabelSelector{}
 	err := json.Unmarshal(b, n.LabelSelector)
 	if err != nil {
@@ -77,7 +77,7 @@ func (n *EndpointSelector) UnmarshalJSON(b []byte) error {
 }
 
 // MarshalJSON returns a JSON representation of the byte array.
-func (n EndpointSelector) MarshalJSON() ([]byte, error) {
+func (n IdentitySelector) MarshalJSON() ([]byte, error) {
 	ls := metav1.LabelSelector{}
 
 	if n.LabelSelector == nil {
@@ -102,9 +102,9 @@ func (n EndpointSelector) MarshalJSON() ([]byte, error) {
 	return json.Marshal(ls)
 }
 
-// HasKeyPrefix checks if the endpoint selector contains the given key prefix in
+// HasKeyPrefix checks if the identity selector contains the given key prefix in
 // its MatchLabels map and MatchExpressions slice.
-func (n EndpointSelector) HasKeyPrefix(prefix string) bool {
+func (n IdentitySelector) HasKeyPrefix(prefix string) bool {
 	for k := range n.MatchLabels {
 		if strings.HasPrefix(k, prefix) {
 			return true
@@ -118,9 +118,9 @@ func (n EndpointSelector) HasKeyPrefix(prefix string) bool {
 	return false
 }
 
-// HasKey checks if the endpoint selector contains the given key in
+// HasKey checks if the identity selector contains the given key in
 // its MatchLabels map or in its MatchExpressions slice.
-func (n EndpointSelector) HasKey(key string) bool {
+func (n IdentitySelector) HasKey(key string) bool {
 	if _, ok := n.MatchLabels[key]; ok {
 		return true
 	}
@@ -132,27 +132,30 @@ func (n EndpointSelector) HasKey(key string) bool {
 	return false
 }
 
-// NewWildcardEndpointSelector returns a selector that matches on all endpoints
-func NewWildcardEndpointSelector() EndpointSelector {
-	return EndpointSelector{&metav1.LabelSelector{MatchLabels: map[string]string{}}}
+// NewWildcardIdentitySelector returns a selector that matches on all identities
+func NewWildcardIdentitySelector() IdentitySelector {
+	return is
 }
 
-// NewESFromLabels creates a new endpoint selector from the given labels.
-func NewESFromLabels(lbls ...*labels.Label) EndpointSelector {
+// FIXME GH-3262, replace the `is` above, with the this IdentitySelector creator.
+var is = IdentitySelector{&metav1.LabelSelector{MatchLabels: map[string]string{}}}
+
+// NewESFromLabels creates a new identity selector from the given labels.
+func NewESFromLabels(lbls ...*labels.Label) IdentitySelector {
 	ml := map[string]string{}
 	for _, lbl := range lbls {
 		ml[lbl.GetExtendedKey()] = lbl.Value
 	}
-	return EndpointSelector{
+	return IdentitySelector{
 		&metav1.LabelSelector{
 			MatchLabels: ml,
 		},
 	}
 }
 
-// NewESFromK8sLabelSelector returns a new endpoint selector from the label
+// NewESFromK8sLabelSelector returns a new identity selector from the label
 // where it the given srcPrefix will be encoded in the label's keys.
-func NewESFromK8sLabelSelector(srcPrefix string, ls *metav1.LabelSelector) EndpointSelector {
+func NewESFromK8sLabelSelector(srcPrefix string, ls *metav1.LabelSelector) IdentitySelector {
 	newLs := &metav1.LabelSelector{}
 	if ls.MatchLabels != nil {
 		newLabels := map[string]string{}
@@ -169,19 +172,22 @@ func NewESFromK8sLabelSelector(srcPrefix string, ls *metav1.LabelSelector) Endpo
 		}
 		newLs.MatchExpressions = newMatchExpr
 	}
-	return EndpointSelector{newLs}
+	return IdentitySelector{newLs}
 }
 
-// Matches returns true if the endpoint selector Matches the `lblsToMatch`.
-// Returns always true if the endpoint selector contains the reserved label for
+// Matches returns true if the identity selector Matches the `lblsToMatch`.
+// Returns always true if the identity selector contains the reserved label for
 // "all".
-func (n *EndpointSelector) Matches(lblsToMatch k8sLbls.Labels) bool {
+func (n *IdentitySelector) Matches(lblsToMatch k8sLbls.Labels) bool {
+	if n.IsWildcard() {
+		return true
+	}
 	lbSelector, err := metav1.LabelSelectorAsSelector(n.LabelSelector)
 	if err != nil {
 		// FIXME: Omit this error or throw it to the caller?
-		// We are doing the verification in the ParseEndpointSelector but
+		// We are doing the verification in the ParseIdentitySelector but
 		// don't make sure the user can modify the current labels.
-		log.WithError(err).WithField(logfields.EndpointLabelSelector,
+		log.WithError(err).WithField(logfields.IdentityLabelSelector,
 			logfields.Repr(n)).Error("unable to match label selector in selector")
 		return false
 	}
@@ -195,19 +201,19 @@ func (n *EndpointSelector) Matches(lblsToMatch k8sLbls.Labels) bool {
 	return lbSelector.Matches(lblsToMatch)
 }
 
-// IsWildcard returns true if the endpoint selector selects all endpoints.
-func (n *EndpointSelector) IsWildcard() bool {
-	return n.LabelSelector != nil &&
-		len(n.LabelSelector.MatchLabels)+len(n.LabelSelector.MatchExpressions) == 0
+// IsWildcard returns true if the identity selector selects all identities.
+func (n *IdentitySelector) IsWildcard() bool {
+	return n == nil || (n.LabelSelector != nil &&
+		len(n.LabelSelector.MatchLabels)+len(n.LabelSelector.MatchExpressions) == 0)
 }
 
-// EndpointSelectorSlice is a slice of EndpointSelectors that can be sorted.
-type EndpointSelectorSlice []EndpointSelector
+// IdentitySelectorSlice is a slice of IdentitySelectors that can be sorted.
+type IdentitySelectorSlice []IdentitySelector
 
-func (s EndpointSelectorSlice) Len() int      { return len(s) }
-func (s EndpointSelectorSlice) Swap(i, j int) { s[i], s[j] = s[j], s[i] }
+func (s IdentitySelectorSlice) Len() int      { return len(s) }
+func (s IdentitySelectorSlice) Swap(i, j int) { s[i], s[j] = s[j], s[i] }
 
-func (s EndpointSelectorSlice) Less(i, j int) bool {
+func (s IdentitySelectorSlice) Less(i, j int) bool {
 	strI := s[i].LabelSelectorString()
 	strJ := s[j].LabelSelectorString()
 

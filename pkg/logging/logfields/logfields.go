@@ -123,8 +123,11 @@ const (
 	// EndpointLabelSelector is a selector for Endpoints by label
 	EndpointLabelSelector = "EndpointLabelSelector"
 
-	// EndpointSelector is a selector for Endpoints
-	EndpointSelector = "EndpointSelector"
+	// IdentityLabelSelector is a selector for Identities by label
+	IdentityLabelSelector = "IdentityLabelSelector"
+
+	// IdentitySelector is a selector for Endpoints
+	EndpointSelector = "IdentitySelector"
 
 	// Path is a filesystem path. It can be a file or directory.
 	// Note: pkg/proxy/accesslog points to this variable so be careful when

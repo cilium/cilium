@@ -1,4 +1,4 @@
-// Copyright 2016-2017 Authors of Cilium
+// Copyright 2016-2018 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,11 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package api
+// +k8s:deepcopy-gen=package
+// +k8s:openapi-gen=true
 
-// Rules is a collection of api.Rule.
-//
-// All rules must be evaluated in order to come to a conclusion. While
-// it is sufficient to have a single fromEndpoints rule match, none of
-// the fromRequires may be violated at the same time.
-type Rules []*Rule
+// Package api defines the API of the Cilium network policy interface
+// +groupName=api
+package v2

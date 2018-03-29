@@ -289,3 +289,9 @@ rules:
   - ciliumendpoints
   verbs:
   - "*"
+- apiGroups:
+  - networkpolicy.cilium.io
+  resources:
+  - ciliumnetworkpolicies
+  verbs:
+  - "*"
