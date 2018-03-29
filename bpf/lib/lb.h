@@ -32,8 +32,6 @@
 
 #include "csum.h"
 
-/* FIXME: Make configurable */
-#define CILIUM_LB_MAP_MAX_ENTRIES	65536
 #define CILIUM_LB_MAP_MAX_FE		256
 
 struct bpf_elf_map __section_maps cilium_lb6_reverse_nat = {

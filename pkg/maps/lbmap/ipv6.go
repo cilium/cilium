@@ -30,7 +30,7 @@ var (
 		bpf.MapTypeHash,
 		int(unsafe.Sizeof(Service6Key{})),
 		int(unsafe.Sizeof(Service6Value{})),
-		maxEntries,
+		MaxEntries,
 		0,
 		func(key []byte, value []byte) (bpf.MapKey, bpf.MapValue, error) {
 			svcKey, svcVal := Service6Key{}, Service6Value{}
@@ -46,7 +46,7 @@ var (
 		bpf.MapTypeHash,
 		int(unsafe.Sizeof(RevNat6Key{})),
 		int(unsafe.Sizeof(RevNat6Value{})),
-		maxEntries,
+		MaxEntries,
 		0,
 		func(key []byte, value []byte) (bpf.MapKey, bpf.MapValue, error) {
 			var ukey uint16
