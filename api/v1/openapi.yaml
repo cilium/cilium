@@ -198,7 +198,7 @@ paths:
         '200':
           description: Success
           schema:
-            "$ref": "#/definitions/Configuration"
+            "$ref": "#/definitions/EndpointConfigurationStatus"
         '404':
           description: Endpoint not found
     patch:
@@ -210,11 +210,11 @@ paths:
       - endpoint
       parameters:
       - "$ref": "#/parameters/endpoint-id"
-      - name: configuration
+      - name: endpoint-configuration
         in: body
         required: true
         schema:
-          "$ref": "#/definitions/ConfigurationMap"
+          "$ref": "#/definitions/EndpointConfigurationSpec"
       responses:
         '200':
           description: Success
@@ -752,7 +752,7 @@ definitions:
         type: integer
       configuration:
         description: configuration options for this endpoint
-        "$ref": "#/definitions/Configuration"
+        "$ref": "#/definitions/EndpointConfigurationSpec"
       container-id:
         description: ID assigned by container runtime
         type: string
@@ -1257,8 +1257,8 @@ definitions:
         "$ref": "#/definitions/KVstoreConfiguration"
   Configuration:
     description: |
-      General purpose structure to hold configuration of the daemon and
-      endpoints. Split into a mutable and immutable section.
+      General purpose structure to hold configuration of the daemon. Split into
+      a mutable and immutable section.
     type: object
     properties:
       mutable:
@@ -1269,6 +1269,29 @@ definitions:
         "$ref": "#/definitions/ConfigurationMap"
       policy-enforcement:
         type: string
+  EndpointConfigurationSpec:
+    description: An endpoint's configuration
+    type: object
+    properties:
+      options:
+        description: Changeable configuration
+        "$ref": "#/definitions/ConfigurationMap"
+      label-configuration:
+        description: the endpoint's labels
+        "$ref": "#/definitions/LabelConfigurationSpec"
+  EndpointConfigurationStatus:
+    description: An endpoint's configuration
+    type: object
+    properties:
+      realized:
+        description: currently applied changeable configuration
+        "$ref": "#/definitions/EndpointConfigurationSpec"
+      immutable:
+        description: Immutable configuration (read-only)
+        "$ref": "#/definitions/ConfigurationMap"
+      error:
+        description: Most recent error, if applicable
+        "$ref": "#/definitions/Error"
   ConfigurationMap:
     description: |
       Map of configuration key/value pairs.
