@@ -39,7 +39,7 @@ func init() {
           "200": {
             "description": "Success",
             "schema": {
-              "$ref": "#/definitions/DaemonConfigurationResponse"
+              "$ref": "#/definitions/DaemonConfiguration"
             }
           }
         }
@@ -56,7 +56,7 @@ func init() {
             "in": "body",
             "required": true,
             "schema": {
-              "$ref": "#/definitions/Configuration"
+              "$ref": "#/definitions/DaemonConfigurationSpec"
             }
           }
         ],
@@ -1060,23 +1060,6 @@ func init() {
         }
       }
     },
-    "Configuration": {
-      "description": "General purpose structure to hold configuration of the daemon. Split into\na mutable and immutable section.\n",
-      "type": "object",
-      "properties": {
-        "immutable": {
-          "description": "Immutable configuration (read-only)",
-          "$ref": "#/definitions/ConfigurationMap"
-        },
-        "mutable": {
-          "description": "Changeable configuration",
-          "$ref": "#/definitions/ConfigurationMap"
-        },
-        "policy-enforcement": {
-          "type": "string"
-        }
-      }
-    },
     "ConfigurationMap": {
       "description": "Map of configuration key/value pairs.\n",
       "type": "object",
@@ -1158,15 +1141,49 @@ func init() {
         "$ref": "#/definitions/ControllerStatus"
       }
     },
-    "DaemonConfigurationResponse": {
-      "description": "Response to a daemon configuration request. Contains the addressing\ninformation and configuration settings.\n",
+    "DaemonConfiguration": {
+      "description": "Response to a daemon configuration request.\n",
+      "type": "object",
+      "properties": {
+        "spec": {
+          "description": "Changeable configuration",
+          "$ref": "#/definitions/DaemonConfigurationSpec"
+        },
+        "status": {
+          "description": "Current daemon configuration related status.Contains the addressing\ninformation, k8s, node monitor and immutable and mutable\nconfiguration settings. \n",
+          "$ref": "#/definitions/DaemonConfigurationStatus"
+        }
+      }
+    },
+    "DaemonConfigurationSpec": {
+      "description": "The controllable configuration of the daemon.",
+      "type": "object",
+      "properties": {
+        "options": {
+          "description": "Changeable configuration",
+          "$ref": "#/definitions/ConfigurationMap"
+        },
+        "policy-enforcement": {
+          "description": "The policy-enforcement mode: default, always, never",
+          "type": "string",
+          "enum": [
+            "default",
+            "always",
+            "never"
+          ]
+        }
+      }
+    },
+    "DaemonConfigurationStatus": {
+      "description": "Response to a daemon configuration request. Contains the addressing\ninformation, k8s, node monitor and immutable and mutable configuration\nsettings.\n",
       "type": "object",
       "properties": {
         "addressing": {
           "$ref": "#/definitions/NodeAddressing"
         },
-        "configuration": {
-          "$ref": "#/definitions/Configuration"
+        "immutable": {
+          "description": "Immutable configuration (read-only)",
+          "$ref": "#/definitions/ConfigurationMap"
         },
         "k8s-configuration": {
           "type": "string"
@@ -1181,8 +1198,9 @@ func init() {
           "description": "Status of the node monitor",
           "$ref": "#/definitions/MonitorStatus"
         },
-        "policy-enforcement": {
-          "type": "string"
+        "realized": {
+          "description": "Currently applied configuration",
+          "$ref": "#/definitions/DaemonConfigurationSpec"
         }
       }
     },

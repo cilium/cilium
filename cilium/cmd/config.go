@@ -60,29 +60,30 @@ func configDaemon(cmd *cobra.Command, opts []string) {
 		Fatalf("Error while retrieving configuration: %s", err)
 	}
 
+	cfgStatus := resp.Status
 	if numPages > 0 {
-		if resp.NodeMonitor != nil && numPages != int(resp.NodeMonitor.Npages) {
+		if cfgStatus.NodeMonitor != nil && numPages != int(cfgStatus.NodeMonitor.Npages) {
 			dOpts["MonitorNumPages"] = strconv.Itoa(numPages)
 		}
 	} else if len(opts) == 0 {
 		if command.OutputJSON() {
-			if err := command.PrintOutput(resp.Configuration); err != nil {
+			if err := command.PrintOutput(cfgStatus.Realized.Options); err != nil {
 				os.Exit(1)
 			}
 			return
 		}
-		dumpConfig(resp.Configuration.Immutable)
-		dumpConfig(resp.Configuration.Mutable)
-		fmt.Printf("%-24s %s\n", "k8s-configuration", resp.K8sConfiguration)
-		fmt.Printf("%-24s %s\n", "k8s-endpoint", resp.K8sEndpoint)
-		fmt.Printf("%-24s %s\n", "PolicyEnforcement", resp.PolicyEnforcement)
-		if resp.NodeMonitor != nil {
-			fmt.Printf("%-24s %d\n", "MonitorNumPages", resp.NodeMonitor.Npages)
+		dumpConfig(cfgStatus.Immutable)
+		dumpConfig(cfgStatus.Realized.Options)
+		fmt.Printf("%-24s %s\n", "k8s-configuration", cfgStatus.K8sConfiguration)
+		fmt.Printf("%-24s %s\n", "k8s-endpoint", cfgStatus.K8sEndpoint)
+		fmt.Printf("%-24s %s\n", "PolicyEnforcement", cfgStatus.Realized.PolicyEnforcement)
+		if cfgStatus.NodeMonitor != nil {
+			fmt.Printf("%-24s %d\n", "MonitorNumPages", cfgStatus.NodeMonitor.Npages)
 		}
 		return
 	}
 
-	var cfg models.Configuration
+	var cfg models.DaemonConfigurationSpec
 
 	for k := range opts {
 
@@ -110,7 +111,7 @@ func configDaemon(cmd *cobra.Command, opts []string) {
 		}
 	}
 
-	cfg.Mutable = dOpts
+	cfg.Options = dOpts
 	if err := client.ConfigPatch(cfg); err != nil {
 		Fatalf("Unable to change agent configuration: %s\n", err)
 	}
