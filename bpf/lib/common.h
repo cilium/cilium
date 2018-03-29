@@ -37,7 +37,6 @@
 #endif
 
 #define RESERVED_POLICY_SIZE 128
-#define IPCACHE_MAP_SIZE 512000
 
 #define __inline__ __attribute__((always_inline))
 
