@@ -91,7 +91,7 @@ var _ = Describe("RuntimeValidatedKVStoreTest", func() {
 		defer cancel()
 		vm.ExecContext(
 			ctx,
-			"sudo cilium-agent --kvstore etcd --kvstore-opt etcd.address=127.0.0.1:4001")
+			"sudo cilium-agent --kvstore etcd --kvstore-opt etcd.address=127.0.0.1:4001 2>&1 | logger -t cilium")
 		err := vm.WaitUntilReady(150)
 		Expect(err).Should(BeNil())
 
