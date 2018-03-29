@@ -21,7 +21,7 @@ var _ = Describe("K8sValidatedUpdates", func() {
 	var apps []string
 
 	BeforeAll(func() {
-		logger = log.WithFields(logrus.Fields{"testName": "NightlyK8sEpsMeasurement"})
+		logger = log.WithFields(logrus.Fields{"testName": "K8sValidatedUpdates"})
 		logger.Info("Starting")
 
 		kubectl = helpers.CreateKubectl(helpers.K8s1VMName(), logger)
