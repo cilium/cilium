@@ -9,7 +9,7 @@ License:       Apache
 URL:           https://github/cilium/cilium
 ExclusiveArch: x86_64
 Source0:       https://github.com/cilium/%{name}/archive/%{commit0}.tar.gz#/%{name}-%{shortcommit0}.tar.gz
-BuildRequires: golang, go-bindata, glibc-devel(x86-32)
+BuildRequires: golang, go-bindata, glibc-devel(x86-32), cmake, bazel, gcc-c++, elfutils-libelf-devel, libstdc++-static, libtool, wget
 Requires:      docker-engine >= 1.12, glibc-devel(x86-32), iproute >= 4.10, clang
 %{?fc25:Requires: clang >= 3.8, clang < 3.9}
 
@@ -33,7 +33,10 @@ export GOPATH=$(pwd)/%{name}-%{commit0}
 export PKG_BUILD=1
 cd %{name}-%{commit0}/src/github.com/cilium/%{name}
 %{__make} -C daemon apply-bindata
-%{__make} build
+%{__make} V=1 plugins bpf cilium daemon monitor cilium-health bugtool
+git submodule update --init
+cd envoy
+bazel build //:envoy
 
 %install
 export GOPATH=$(pwd)/%{name}-%{commit0}
@@ -67,8 +70,13 @@ chmod 644 "%{buildroot}%{_sysconfdir}/sysconfig/cilium"
 %{_bindir}/cilium-node-monitor
 %{_bindir}/cilium-bugtool
 %{_bindir}/cilium-health
+%{_bindir}/cilium-envoy
+%{_bindir}/cilium-map-migrate
 
 %changelog
+* Thu Mar 29 2018 Tony Lambiris <tony@criticalstack.com> - 1.0.0rc8-0.git${SHORTCOMMIT}
+- Added cilium-envoy and cilium-map-migrate to %files
+
 * Wed Dec 20 2017 Tony Lambiris <tony@criticalstack.com> - 0.13.90-0.git${SHORTCOMMIT}
 - Added cilium-bugtool, cilium-bugtool and sys-fs-bpf.mount to %files
 
