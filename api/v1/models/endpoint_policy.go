@@ -17,6 +17,10 @@ import (
 
 type EndpointPolicy struct {
 
+	// List of identities to which this endpoint is allowed to communicate
+	//
+	AllowedEgressIdentities []int64 `json:"allowed-egress-identities"`
+
 	// List of identities allowed to communicate to this endpoint
 	//
 	AllowedIngressIdentities []int64 `json:"allowed-ingress-identities"`
@@ -34,6 +38,8 @@ type EndpointPolicy struct {
 	L4 *L4Policy `json:"l4,omitempty"`
 }
 
+/* polymorph EndpointPolicy allowed-egress-identities false */
+
 /* polymorph EndpointPolicy allowed-ingress-identities false */
 
 /* polymorph EndpointPolicy build false */
@@ -47,6 +53,11 @@ type EndpointPolicy struct {
 // Validate validates this endpoint policy
 func (m *EndpointPolicy) Validate(formats strfmt.Registry) error {
 	var res []error
+
+	if err := m.validateAllowedEgressIdentities(formats); err != nil {
+		// prop
+		res = append(res, err)
+	}
 
 	if err := m.validateAllowedIngressIdentities(formats); err != nil {
 		// prop
@@ -66,6 +77,15 @@ func (m *EndpointPolicy) Validate(formats strfmt.Registry) error {
 	if len(res) > 0 {
 		return errors.CompositeValidationError(res...)
 	}
+	return nil
+}
+
+func (m *EndpointPolicy) validateAllowedEgressIdentities(formats strfmt.Registry) error {
+
+	if swag.IsZero(m.AllowedEgressIdentities) { // not required
+		return nil
+	}
+
 	return nil
 }
 

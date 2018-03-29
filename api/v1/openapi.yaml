@@ -961,6 +961,12 @@ definitions:
         type: array
         items:
           type: integer
+      allowed-egress-identities:
+        description: |
+          List of identities to which this endpoint is allowed to communicate
+        type: array
+        items:
+          type: integer
       l4:
         "$ref": "#/definitions/L4Policy"
       cidr-policy:
