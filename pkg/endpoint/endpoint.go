@@ -940,10 +940,16 @@ func (e *Endpoint) GetPolicyModel() *models.EndpointPolicy {
 		ingressIdentities = append(ingressIdentities, int64(ingressIdentity))
 	}
 
+	egressIdentities := make([]int64, 0, len(e.Consumable.EgressIdentities))
+	for egressIdentity := range e.Consumable.EgressIdentities {
+		egressIdentities = append(egressIdentities, int64(egressIdentity))
+	}
+
 	return &models.EndpointPolicy{
 		ID:    int64(e.Consumable.ID),
 		Build: int64(e.Consumable.Iteration),
 		AllowedIngressIdentities: ingressIdentities,
+		AllowedEgressIdentities:  egressIdentities,
 		CidrPolicy:               e.L3Policy.GetModel(),
 		L4:                       e.Consumable.L4Policy.GetModel(),
 	}
