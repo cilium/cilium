@@ -23,9 +23,9 @@ import (
 )
 
 const (
-	// MaxKeys is the maximum number of keys that can be present in the
+	// MaxEntries is the maximum number of keys that can be present in the
 	// RemoteEndpointMap.
-	MaxKeys = 0x7D000
+	MaxEntries = 512000
 )
 
 // EndpointKey implements the bpf.MapKey interface.
@@ -71,7 +71,7 @@ var (
 		bpf.BPF_MAP_TYPE_HASH,
 		int(unsafe.Sizeof(EndpointKey{})),
 		int(unsafe.Sizeof(RemoteEndpointInfo{})),
-		MaxKeys,
+		MaxEntries,
 		0,
 		func(key []byte, value []byte) (bpf.MapKey, bpf.MapValue, error) {
 			k, v := EndpointKey{}, RemoteEndpointInfo{}
