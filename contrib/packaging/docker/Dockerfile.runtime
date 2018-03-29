@@ -1,7 +1,7 @@
 #
 # Cilium runtime base image
 #
-FROM ubuntu:16.10 as runtime-base
+FROM ubuntu:17.10 as runtime-base
 RUN apt-get update && \
 #
 # Prepackaged Cilium runtime dependencies
@@ -22,7 +22,7 @@ RUN \
 #
 apt-get install -y --no-install-recommends make git curl ca-certificates xz-utils \
 # Additional iproute2 build dependencies
-  gcc git pkg-config bison flex && \
+  gcc git pkg-config bison flex build-essential && \
 #
 # clang-3.8.1
 #
@@ -44,7 +44,7 @@ strip /usr/local/clang+llvm/bin/* && \
 #
 # iproute2
 #
-git clone -b v4.10.0 git://git.kernel.org/pub/scm/linux/kernel/git/shemminger/iproute2.git && \
+git clone -b v4.12.0 git://git.kernel.org/pub/scm/network/iproute2/iproute2.git && \
 cd iproute2 && \
 ./configure && \
 make -j `getconf _NPROCESSORS_ONLN` && \
