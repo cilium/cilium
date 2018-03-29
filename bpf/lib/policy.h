@@ -192,9 +192,7 @@ static inline int policy_can_egress6(struct __sk_buff *skb,
 	union v6addr *daddr;
 	__u16 identity = 0;
 
-	/* For outgoing connections, lib/conntrack.h swaps the src/dst. */
-	daddr = &tuple->saddr;
-
+	daddr = ipv6_ct_tuple_get_daddr(tuple);
 	info = lookup_ip6_remote_endpoint(daddr);
 	if (info)
 		identity = info->sec_label;
@@ -211,9 +209,7 @@ static inline int policy_can_egress4(struct __sk_buff *skb,
 	__u16 identity = 0;
 	__be32 daddr;
 
-	/* For outgoing connections, lib/conntrack.h swaps the src/dst. */
-	daddr = tuple->saddr;
-
+	daddr = ipv4_ct_tuple_get_daddr(tuple);
 	info = lookup_ip4_remote_endpoint(daddr);
 	if (info)
 		identity = info->sec_label;
