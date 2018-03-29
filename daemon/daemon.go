@@ -1248,42 +1248,41 @@ func (h *patchConfig) Handle(params PatchConfigParams) middleware.Responder {
 	d.conf.ConfigPatchMutex.Lock()
 	defer d.conf.ConfigPatchMutex.Unlock()
 
-	if numPagesEntry, ok := params.Configuration.Mutable["MonitorNumPages"]; ok {
-		nmArgs := d.nodeMonitor.GetArgs()
+	cfgSpec := params.Configuration
+	nmArgs := d.nodeMonitor.GetArgs()
+	if numPagesEntry, ok := cfgSpec.Options["MonitorNumPages"]; ok && nmArgs[0] != numPagesEntry {
 		if len(nmArgs) == 0 || nmArgs[0] != numPagesEntry {
 			args := []string{"--num-pages %s", numPagesEntry}
 			d.nodeMonitor.Restart(args)
 		}
-		if len(params.Configuration.Mutable) == 0 {
+		if len(cfgSpec.Options) == 0 {
 			return NewPatchConfigOK()
 		}
-		delete(params.Configuration.Mutable, "MonitorNumPages")
+		delete(cfgSpec.Options, "MonitorNumPages")
 	}
-	if err := d.conf.Opts.Validate(params.Configuration.Mutable); err != nil {
+	if err := d.conf.Opts.Validate(cfgSpec.Options); err != nil {
 		return apierror.Error(PatchConfigBadRequestCode, err)
 	}
 
 	// Track changes to daemon's configuration
 	var changes int
 
-	enforcement := params.Configuration.PolicyEnforcement
-
 	// Only update if value provided for PolicyEnforcement.
-	if enforcement != "" {
-		log.Debug("configuration request to change PolicyEnforcement for daemon")
+	if enforcement := cfgSpec.PolicyEnforcement; enforcement != "" {
 		switch enforcement {
 		case endpoint.NeverEnforce, endpoint.DefaultEnforcement, endpoint.AlwaysEnforce:
-
 			// Update policy enforcement configuration if needed.
 			oldEnforcementValue := policy.GetPolicyEnabled()
 
 			// If the policy enforcement configuration has indeed changed, we have
 			// to regenerate endpoints and update daemon's configuration.
 			if enforcement != oldEnforcementValue {
+				log.Debug("configuration request to change PolicyEnforcement for daemon")
 				changes++
 				policy.SetPolicyEnabled(enforcement)
 				d.TriggerPolicyUpdates(true)
 			}
+
 		default:
 			msg := fmt.Errorf("Invalid option for PolicyEnforcement %s", enforcement)
 			log.Warn(msg)
@@ -1292,7 +1291,7 @@ func (h *patchConfig) Handle(params PatchConfigParams) middleware.Responder {
 		log.Debug("finished configuring PolicyEnforcement for daemon")
 	}
 
-	changes += d.conf.Opts.Apply(params.Configuration.Mutable, changedOption, d)
+	changes += d.conf.Opts.Apply(cfgSpec.Options, changedOption, d)
 
 	log.WithField("count", changes).Debug("Applied changes to daemon's configuration")
 
@@ -1326,17 +1325,26 @@ func (h *getConfig) Handle(params GetConfigParams) middleware.Responder {
 
 	d := h.daemon
 
-	cfg := &models.DaemonConfigurationResponse{
-		Addressing:        d.getNodeAddressing(),
-		Configuration:     d.conf.Opts.GetModel(),
-		K8sConfiguration:  k8s.GetKubeconfigPath(),
-		K8sEndpoint:       k8s.GetAPIServer(),
+	spec := &models.DaemonConfigurationSpec{
+		Options:           *d.conf.Opts.GetMutableModel(),
 		PolicyEnforcement: policy.GetPolicyEnabled(),
-		NodeMonitor:       d.nodeMonitor.State(),
+	}
+
+	status := &models.DaemonConfigurationStatus{
+		Addressing:       d.getNodeAddressing(),
+		K8sConfiguration: k8s.GetKubeconfigPath(),
+		K8sEndpoint:      k8s.GetAPIServer(),
+		NodeMonitor:      d.nodeMonitor.State(),
 		KvstoreConfiguration: &models.KVstoreConfiguration{
 			Type:    kvStore,
 			Options: kvStoreOpts,
 		},
+		Realized: spec,
+	}
+
+	cfg := &models.DaemonConfiguration{
+		Spec:   spec,
+		Status: status,
 	}
 
 	return NewGetConfigOK().WithPayload(cfg)

@@ -25,7 +25,7 @@ type GetConfigOK struct {
 	/*
 	  In: Body
 	*/
-	Payload *models.DaemonConfigurationResponse `json:"body,omitempty"`
+	Payload *models.DaemonConfiguration `json:"body,omitempty"`
 }
 
 // NewGetConfigOK creates GetConfigOK with default headers values
@@ -34,13 +34,13 @@ func NewGetConfigOK() *GetConfigOK {
 }
 
 // WithPayload adds the payload to the get config o k response
-func (o *GetConfigOK) WithPayload(payload *models.DaemonConfigurationResponse) *GetConfigOK {
+func (o *GetConfigOK) WithPayload(payload *models.DaemonConfiguration) *GetConfigOK {
 	o.Payload = payload
 	return o
 }
 
 // SetPayload sets the payload to the get config o k response
-func (o *GetConfigOK) SetPayload(payload *models.DaemonConfigurationResponse) {
+func (o *GetConfigOK) SetPayload(payload *models.DaemonConfiguration) {
 	o.Payload = payload
 }
 
