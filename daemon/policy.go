@@ -153,6 +153,7 @@ func (h *getPolicyResolve) Handle(params GetPolicyResolveParams) middleware.Resp
 		ingressSearchCtx.Trace = policy.TRACE_VERBOSE
 	}
 
+	// TODO: GH-3394 (add egress trace to API for policy trace).
 	egressBuffer := new(bytes.Buffer)
 	egressSearchCtx := ingressSearchCtx
 	egressSearchCtx.Logging = logging.NewLogBackend(egressBuffer, "", 0)
