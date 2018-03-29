@@ -172,13 +172,8 @@ policy_can_egress(struct __sk_buff *skb, __u16 identity, __u16 dport, __u8 proto
 #ifdef DROP_ALL
 	return DROP_POLICY;
 #else
-	if (__policy_can_access(&POLICY_MAP, skb, identity, dport, proto, 0,
-				NULL, CT_EGRESS) == TC_ACT_OK)
-		goto allow;
-
-	/* FIXME GH-1488: Remove this call when userspace pushes down
-	 *		  label-dependent L4 policies. */
-	int ret = l4_policy_lookup(skb, proto, dport, CT_EGRESS, false);
+	int ret = __policy_can_access(&POLICY_MAP, skb, identity, dport, proto,
+				      0, NULL, CT_EGRESS);
 	if (ret >= 0)
 		return ret;
 
@@ -186,8 +181,6 @@ policy_can_egress(struct __sk_buff *skb, __u16 identity, __u16 dport, __u8 proto
 #ifndef IGNORE_DROP
 	return DROP_POLICY;
 #endif
-
-allow:
 	return TC_ACT_OK;
 #endif /* DROP_ALL */
 }

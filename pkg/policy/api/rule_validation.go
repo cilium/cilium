@@ -122,7 +122,7 @@ func (e *EgressRule) sanitize() error {
 	l3DependentL4Support := map[interface{}]bool{
 		"ToCIDR":      false,
 		"ToCIDRSet":   false,
-		"ToEndpoints": false,
+		"ToEndpoints": true,
 		"ToEntities":  false,
 		"ToServices":  false,
 	}

@@ -185,6 +185,19 @@ func ParseNetworkPolicy(np *networkingv1.NetworkPolicy) (api.Rules, error) {
 			egress.ToEndpoints = append(egress.ToEndpoints, all)
 		}
 
+		if eRule.Ports != nil && len(eRule.Ports) > 0 {
+			egress.ToPorts = parsePorts(eRule.Ports)
+		} else if eRule.To == nil || len(eRule.To) == 0 {
+			// Based on NetworkPolicyEgressRule docs:
+			//   From []NetworkPolicyPeer
+			//   If this field is empty or missing, this rule matches all
+			//   sources (traffic not restricted by source).
+			all := api.NewESFromLabels(
+				labels.NewLabel(labels.IDNameAll, "", labels.LabelSourceReserved),
+			)
+			egress.ToEndpoints = append(egress.ToEndpoints, all)
+		}
+
 		egresses = append(egresses, egress)
 	}
 

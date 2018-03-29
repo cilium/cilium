@@ -15,22 +15,14 @@
 package cmd
 
 import (
-	"fmt"
-	"os"
-	"strconv"
-
 	"github.com/cilium/cilium/common"
-	"github.com/cilium/cilium/pkg/bpf"
-	"github.com/cilium/cilium/pkg/identity"
-	"github.com/cilium/cilium/pkg/maps/policymap"
-	"github.com/cilium/cilium/pkg/u8proto"
 
 	"github.com/spf13/cobra"
 )
 
 // bpfPolicyAddCmd represents the bpf_policy_add command
 var bpfPolicyAddCmd = &cobra.Command{
-	Use:    "add <endpoint id> <identity> [port/proto]",
+	Use:    "add <endpoint id> <traffic-direction> <identity> [port/proto]",
 	Short:  "Add/update policy entry",
 	PreRun: requireEndpointID,
 	Run: func(cmd *cobra.Command, args []string) {
@@ -41,71 +33,4 @@ var bpfPolicyAddCmd = &cobra.Command{
 
 func init() {
 	bpfPolicyCmd.AddCommand(bpfPolicyAddCmd)
-}
-
-// TODO - update with support for updating egress policy as well. See GH-3114.
-func updatePolicyKey(cmd *cobra.Command, args []string, add bool) {
-	if len(args) < 2 {
-		Usagef(cmd, "<endpoint id> and <identity> required")
-	}
-
-	lbl := args[0]
-	if id := identity.GetReservedID(lbl); id != identity.IdentityUnknown {
-		lbl = "reserved_" + strconv.FormatUint(uint64(id), 10)
-	}
-
-	file := bpf.MapPath(policymap.MapName + lbl)
-	policyMap, _, err := policymap.OpenMap(file)
-	if err != nil {
-		Fatalf("Cannot open policymap '%s' : %s", file, err)
-	}
-
-	peerLbl, err := strconv.ParseUint(args[1], 10, 32)
-	if err != nil {
-		Fatalf("Failed to convert %s", args[1])
-	}
-
-	port := uint16(0)
-	protos := []uint8{}
-	if len(args) > 2 {
-		pp, err := parseL4PortsSlice([]string{args[2]})
-		if err != nil {
-			Fatalf("Failed to parse L4: %s", err)
-		}
-		port = pp[0].Port
-		if port != 0 {
-			proto, _ := u8proto.ParseProtocol(pp[0].Protocol)
-			if proto == 0 {
-				for _, proto := range u8proto.ProtoIDs {
-					protos = append(protos, uint8(proto))
-				}
-			} else {
-				protos = append(protos, uint8(proto))
-			}
-		}
-	}
-	if len(protos) == 0 {
-		protos = append(protos, 0)
-	}
-
-	ok := true
-	label := uint32(peerLbl)
-	for _, proto := range protos {
-		u8p := u8proto.U8proto(proto)
-		entry := fmt.Sprintf("%d %d/%s", label, port, u8p.String())
-		if add == true {
-			if err := policyMap.AllowL4(label, port, proto, policymap.Ingress); err != nil {
-				fmt.Printf("Cannot add policy key '%s': %s\n", entry, err)
-				ok = false
-			}
-		} else {
-			if err := policyMap.DeleteL4(label, port, proto, policymap.Ingress); err != nil {
-				fmt.Printf("Cannot delete policy key '%s': %s\n", entry, err)
-				ok = false
-			}
-		}
-	}
-	if !ok {
-		os.Exit(1)
-	}
 }

@@ -68,11 +68,6 @@ type SearchContext struct {
 	From    labels.LabelArray
 	To      labels.LabelArray
 	DPorts  []*models.Port
-
-	// IngressL4Only is true if only ingress L4 policy should be evaluated
-	IngressL4Only bool
-	// EgressL4Only is true if only egress L4 policy should be evaluated
-	EgressL4Only bool
 }
 
 func (s *SearchContext) String() string {

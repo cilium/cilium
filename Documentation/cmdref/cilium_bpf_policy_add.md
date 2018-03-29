@@ -10,7 +10,7 @@ Add/update policy entry
 Add/update policy entry
 
 ```
-cilium bpf policy add <endpoint id> <identity> [port/proto]
+cilium bpf policy add <endpoint id> <traffic-direction> <identity> [port/proto]
 ```
 
 ### Options inherited from parent commands
