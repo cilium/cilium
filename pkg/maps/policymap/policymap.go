@@ -27,7 +27,8 @@ import (
 )
 
 const (
-	MapName = "cilium_policy_"
+	MapName    = "cilium_policy_"
+	MaxEntries = 16384
 )
 
 var (
@@ -38,10 +39,6 @@ type PolicyMap struct {
 	path string
 	Fd   int
 }
-
-const (
-	MAX_KEYS = 1024
-)
 
 func (pe *PolicyEntry) String() string {
 	return fmt.Sprintf("%d %d %d", pe.ProxyPort, pe.Packets, pe.Bytes)
@@ -231,7 +228,7 @@ func (pm *PolicyMap) Close() error {
 func Validate(path string) (bool, error) {
 	dummy := bpf.NewMap(path, bpf.BPF_MAP_TYPE_HASH,
 		int(unsafe.Sizeof(policyKey{})),
-		int(unsafe.Sizeof(PolicyEntry{})), MAX_KEYS, 0, nil)
+		int(unsafe.Sizeof(PolicyEntry{})), MaxEntries, 0, nil)
 
 	existing, err := bpf.OpenMap(path)
 	if err != nil {
@@ -253,7 +250,7 @@ func OpenMap(path string) (*PolicyMap, bool, error) {
 		bpf.BPF_MAP_TYPE_HASH,
 		uint32(unsafe.Sizeof(policyKey{})),
 		uint32(unsafe.Sizeof(PolicyEntry{})),
-		MAX_KEYS,
+		MaxEntries,
 		0,
 	)
 

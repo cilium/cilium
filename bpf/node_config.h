@@ -56,6 +56,7 @@
 #define LB_DST_MAC { .addr = { 0xce, 0x72, 0xa7, 0x03, 0x88, 0x58 } }
 #define CILIUM_LB_MAP_MAX_ENTRIES	65536
 #define PROXY_MAP_SIZE 524288
+#define POLICY_MAP_SIZE 16384
 #ifndef SKIP_DEBUG
 #define LB_DEBUG
 #endif

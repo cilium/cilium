@@ -59,7 +59,7 @@ struct bpf_elf_map __section_maps POLICY_MAP = {
 	.size_key	= sizeof(struct policy_key),
 	.size_value	= sizeof(struct policy_entry),
 	.pinning	= PIN_GLOBAL_NS,
-	.max_elem	= 1024,
+	.max_elem	= POLICY_MAP_SIZE,
 };
 #endif
 
