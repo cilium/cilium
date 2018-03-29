@@ -195,11 +195,13 @@ func expandNestedJSON(result bytes.Buffer) (bytes.Buffer, error) {
 // type, returns Invalid and a corresponding error.
 func parseTrafficString(td string) (policymap.TrafficDirection, error) {
 	lowered := strings.ToLower(td)
-	if lowered == "ingress" {
+
+	switch lowered {
+	case "ingress":
 		return policymap.Ingress, nil
-	} else if lowered == "egress" {
+	case "egress":
 		return policymap.Egress, nil
-	} else {
+	default:
 		return policymap.Invalid, fmt.Errorf("invalid direction %q provided", td)
 	}
 
