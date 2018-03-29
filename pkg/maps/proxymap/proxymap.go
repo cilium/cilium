@@ -21,6 +21,10 @@ import (
 	"github.com/cilium/cilium/pkg/bpf"
 )
 
+const (
+	MaxEntries = 524288
+)
+
 // ProxyMapKey is the generic type for Proxy6Key or Proxy4Key
 type ProxyMapKey interface{}
 

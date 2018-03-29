@@ -68,7 +68,7 @@ struct bpf_elf_map __section_maps cilium_proxy4 = {
 	.size_key	= sizeof(struct proxy4_tbl_key),
 	.size_value	= sizeof(struct proxy4_tbl_value),
 	.pinning	= PIN_GLOBAL_NS,
-	.max_elem	= 8192,
+	.max_elem	= PROXY_MAP_SIZE,
 };
 
 struct bpf_elf_map __section_maps cilium_proxy6= {
@@ -76,7 +76,7 @@ struct bpf_elf_map __section_maps cilium_proxy6= {
 	.size_key	= sizeof(struct proxy6_tbl_key),
 	.size_value	= sizeof(struct proxy6_tbl_value),
 	.pinning	= PIN_GLOBAL_NS,
-	.max_elem	= 8192,
+	.max_elem	= PROXY_MAP_SIZE,
 };
 
 #ifndef SKIP_CALLS_MAP
