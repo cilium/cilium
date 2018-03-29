@@ -53,7 +53,7 @@ type Driver interface {
 type driver struct {
 	mutex       lock.RWMutex
 	client      *client.Client
-	conf        models.DaemonConfigurationResponse
+	conf        models.DaemonConfigurationStatus
 	routes      []api.StaticRoute
 	gatewayIPv6 string
 	gatewayIPv4 string
@@ -96,11 +96,11 @@ func NewDriver(url string) (Driver, error) {
 			}
 			time.Sleep(time.Duration(tries) * time.Second)
 		} else {
-			if res.Addressing == nil || res.Addressing.IPV6 == nil {
+			if res.Status.Addressing == nil || res.Status.Addressing.IPV6 == nil {
 				scopedLog.Fatal("Invalid addressing information from daemon")
 			}
 
-			d.conf = *res
+			d.conf = *res.Status
 			break
 		}
 	}

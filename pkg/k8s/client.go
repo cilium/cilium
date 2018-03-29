@@ -65,8 +65,8 @@ func createConfig(endpoint, kubeCfgPath string) (*rest.Config, error) {
 
 // CreateConfigFromAgentResponse creates a client configuration from a
 // models.DaemonConfigurationResponse
-func CreateConfigFromAgentResponse(resp *models.DaemonConfigurationResponse) (*rest.Config, error) {
-	return createConfig(resp.K8sEndpoint, resp.K8sConfiguration)
+func CreateConfigFromAgentResponse(resp *models.DaemonConfiguration) (*rest.Config, error) {
+	return createConfig(resp.Status.K8sEndpoint, resp.Status.K8sConfiguration)
 }
 
 // CreateConfig creates a client configuration based on the configured API

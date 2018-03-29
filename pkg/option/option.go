@@ -146,15 +146,6 @@ func (bo *BoolOptions) GetMutableModel() *models.ConfigurationMap {
 	return &mutableCfg
 }
 
-func (bo *BoolOptions) GetModel() *models.Configuration {
-	cfg := models.Configuration{
-		Immutable: *bo.GetImmutableModel(),
-		Mutable:   *bo.GetMutableModel(),
-	}
-
-	return &cfg
-}
-
 func (bo *BoolOptions) DeepCopy() *BoolOptions {
 	bo.optsMU.RLock()
 	cpy := &BoolOptions{
