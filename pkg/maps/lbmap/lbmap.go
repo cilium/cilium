@@ -31,7 +31,7 @@ var log = logging.DefaultLogger
 
 const (
 	// Maximum number of entries in each hashtable
-	maxEntries   = 65536
+	MaxEntries   = 65536
 	maxFrontEnds = 256
 	// MaxSeq is used by daemon for generating bpf define LB_RR_MAX_SEQ.
 	MaxSeq = 31
