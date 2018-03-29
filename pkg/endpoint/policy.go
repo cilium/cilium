@@ -178,8 +178,10 @@ func (e *Endpoint) removeOldFilter(identities *identityPkg.IdentityCache,
 				// multiple copies of the same L4 policy. Only
 				// one of them is actually added, but we'll
 				// still try to remove it multiple times.
-				e.getLogger().WithError(err).WithFields(logrus.Fields{logfields.L4PolicyID: srcID,
-					logfields.TrafficDirection: direction}).Debug("deletion of old L4 policy failed")
+				e.getLogger().WithError(err).WithFields(logrus.Fields{
+					logfields.L4PolicyID:       srcID,
+					logfields.TrafficDirection: direction,
+				}).Debug("deletion of old L4 policy failed")
 				// Set with false only if the key was not
 				// previously set nor the value was set
 				// with true. Since we can have multiple
