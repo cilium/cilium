@@ -5,7 +5,12 @@
             {"matchLabels":{"id.server":""}}
 	]
     }],
-    "labels": ["id=from-server-to-client"]
+    "egress": [{
+        "toEndpoints": [
+            {"matchLabels":{"id.server":""}}
+         ]
+    }],
+    "labels": ["id=ingress-from-server-and-egress-to-server"]
 },
 {
     "endpointSelector": {"matchLabels":{"id.client":""}},
@@ -23,6 +28,10 @@
             {"matchLabels":{"reserved:host":""}}
         ]
     }],
-    "labels": ["id=from-host-to-server"]
-}
-]
+    "egress": [{
+        "toEndpoints": [
+            {"matchLabels":{"id.client":""}}
+        ]
+    }],
+    "labels": ["id=ingress-from-host"]
+}]
