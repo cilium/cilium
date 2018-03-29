@@ -17,9 +17,11 @@ specs:
           protocol: TCP
         rules:
           kafka:
-          - role: "produce"
+          - apiKey: "apiversions"
+          - apiKey: "metadata"
+          - apiKey: "produce"
             topic: "deathstar-plans"
-          - role: "produce"
+          - apiKey: "produce"
             topic: "empire-announce"
     - fromEndpoints:
       - matchLabels:
@@ -37,8 +39,18 @@ specs:
           protocol: TCP
         rules:
           kafka:
-          - role: "consume"
+          - apiKey: "fetch"
             topic: "empire-announce"
+          - apiKey: "apiversions"
+          - apiKey: "metadata"
+          - apiKey: "findcoordinator"
+          - apiKey: "joingroup"
+          - apiKey: "leavegroup"
+          - apiKey: "syncgroup"
+          - apiKey: "offsets"
+          - apiKey: "offsetcommit"
+          - apiKey: "offsetfetch"
+          - apiKey: "heartbeat"
   - endpointSelector:
       matchLabels:
         app: kafka
@@ -52,5 +64,15 @@ specs:
           protocol: TCP
         rules:
           kafka:
-          - role: "consume"
+          - apiKey: "fetch"
             topic: "deathstar-plans"
+          - apiKey: "apiversions"
+          - apiKey: "metadata"
+          - apiKey: "findcoordinator"
+          - apiKey: "joingroup"
+          - apiKey: "leavegroup"
+          - apiKey: "syncgroup"
+          - apiKey: "offsets"
+          - apiKey: "offsetcommit"
+          - apiKey: "offsetfetch"
+          - apiKey: "heartbeat"
