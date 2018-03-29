@@ -421,6 +421,9 @@ var _ = Describe("RuntimeValidatedPolicies", func() {
 	})
 
 	BeforeEach(func() {
+		res := vm.SetPolicyEnforcement(helpers.PolicyEnforcementDefault)
+		res.ExpectSuccess()
+
 		areEndpointsReady := vm.WaitEndpointsReady()
 		Expect(areEndpointsReady).Should(BeTrue(), "Endpoints are not ready after timeout")
 	})
@@ -802,7 +805,15 @@ var _ = Describe("RuntimeValidatedPolicies", func() {
 					{"matchLabels":{"%s":""}}
 				]
 			}]
-		}]`, httpd1Label, httpd2Label)
+		},
+		{
+			"endpointSelector": {"matchLabels":{"%s":""}},
+			"egress": [{
+				"toEndpoints": [
+					{"matchLabels":{"%s":""}}
+				]
+			}]
+		}]`, httpd1Label, httpd2Label, httpd2Label, httpd1Label)
 		_, err = vm.PolicyRenderAndImport(script)
 		Expect(err).To(BeNil(), "Unable to import policy: %s", err)
 
@@ -839,7 +850,15 @@ var _ = Describe("RuntimeValidatedPolicies", func() {
 					"%s"
 				]
 			}]
-		}]`, httpd1Label, httpd2Label, ipv4Prefix, ipv6Prefix)
+		},
+		{
+			"endpointSelector": {"matchLabels":{"%s":""}},
+			"egress": [{
+				"toEndpoints":  [
+					{"matchLabels":{"%s":""}}
+				]
+			}]
+		}]`, httpd1Label, httpd2Label, ipv4Prefix, ipv6Prefix, "id.app3", httpd1Label)
 
 		_, err = vm.PolicyRenderAndImport(script)
 		Expect(err).To(BeNil(), "Unable to import policy: %s", err)
@@ -868,7 +887,15 @@ var _ = Describe("RuntimeValidatedPolicies", func() {
 					"%s"
 				]
 			}]
-		}]`, httpd1Label, httpd2Label, ipv4OtherNet)
+		},
+		{
+			"endpointSelector": {"matchLabels":{"%s":""}},
+			"egress": [{
+				"toEndpoints": [
+					{"matchLabels":{"%s":""}}
+				]
+			}]
+		}]`, httpd1Label, httpd2Label, ipv4OtherNet, "id.app3", httpd1Label)
 		_, err = vm.PolicyRenderAndImport(script)
 		Expect(err).To(BeNil(), "Unable to import policy: %s", err)
 
