@@ -21,6 +21,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/cilium/cilium/pkg/policy/api"
 	. "github.com/cilium/cilium/test/ginkgo-ext"
 	"github.com/cilium/cilium/test/helpers"
 
@@ -883,7 +884,7 @@ var _ = Describe("RuntimeValidatedPolicies", func() {
 
 	})
 
-	It("Extendend HTTP Methods tests", func() {
+	It("Extended HTTP Methods tests", func() {
 		// This also tests L3-dependent L7.
 		httpMethods := []string{"GET", "POST"}
 		TestMethodPolicy := func(method string) {
@@ -953,6 +954,45 @@ var _ = Describe("RuntimeValidatedPolicies", func() {
 			By(fmt.Sprintf("Testing method %s", method))
 			TestMethodPolicy(method)
 		}
+	})
+
+	It("Tests Egress To World", func() {
+
+		// Set policy enforcement to default deny so that we can do negative tests
+		// before importing policy
+		res := vm.SetPolicyEnforcement(helpers.PolicyEnforcementAlways)
+		res.ExpectSuccess()
+
+		areEndpointsReady := vm.WaitEndpointsReady()
+		Expect(areEndpointsReady).Should(BeTrue(), "Endpoints are not ready after timeout")
+
+		googleDNS := "8.8.8.8"
+		failedPing := vm.ContainerExec(helpers.App1, helpers.Ping(googleDNS))
+		failedPing.ExpectFail("unexpectedly able to ping %s", googleDNS)
+
+		app1Label := "id.app1"
+		policy := fmt.Sprintf(`
+		[{
+			"endpointSelector": {"matchLabels":{"%s":""}},
+			"egress": [{
+				"toEntities": [
+					"%s"
+				]
+			}]
+		}]`, app1Label, api.EntityWorld)
+
+		_, err := vm.PolicyRenderAndImport(policy)
+		Expect(err).To(BeNil(), "Unable to import policy: %s", err)
+
+		areEndpointsReady = vm.WaitEndpointsReady()
+		Expect(areEndpointsReady).Should(BeTrue(), "Endpoints are not ready after timeout")
+
+		successPing := vm.ContainerExec(helpers.App1, helpers.Ping(googleDNS))
+		successPing.ExpectSuccess("not able to ping %s", googleDNS)
+
+		res = vm.ContainerExec(helpers.App1, helpers.Ping(helpers.App2))
+		res.ExpectFail("unexpectedly able to ping %s", helpers.App2)
+
 	})
 })
 
