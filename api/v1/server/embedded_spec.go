@@ -1453,6 +1453,13 @@ func init() {
       "description": "Policy information of an endpoint",
       "type": "object",
       "properties": {
+        "allowed-egress-identities": {
+          "description": "List of identities to which this endpoint is allowed to communicate\n",
+          "type": "array",
+          "items": {
+            "type": "integer"
+          }
+        },
         "allowed-ingress-identities": {
           "description": "List of identities allowed to communicate to this endpoint\n",
           "type": "array",
