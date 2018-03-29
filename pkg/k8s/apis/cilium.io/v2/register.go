@@ -45,6 +45,22 @@ const (
 
 	// CustomResourceDefinitionSchemaVersionKey is key to label which holds the CRD schema version
 	CustomResourceDefinitionSchemaVersionKey = "io.cilium.k8s.crd.schema.version"
+
+	// CustomResourceDefinitionSingularName is the singular name of custom resource definition
+	CustomResourceDefinitionSingularName = "ciliumnetworkpolicy"
+
+	// CustomResourceDefinitionPluralName is the plural name of custom resource definition
+	CustomResourceDefinitionPluralName = "ciliumnetworkpolicies"
+
+	// CustomResourceDefinitionKind is the Kind name of custom resource definition
+	CustomResourceDefinitionKind = "CiliumNetworkPolicy"
+)
+
+var (
+	// CustomResourceDefinitionShortNames are the abbreviated names to refer to this CRD's instances
+	CustomResourceDefinitionShortNames = []string{"cnp", "ciliumnp"}
+
+	CRDName = CustomResourceDefinitionPluralName + "." + SchemeGroupVersion.Group
 )
 
 // SchemeGroupVersion is group version used to register these objects
@@ -115,25 +131,18 @@ func CreateCustomResourceDefinitions(clientset apiextensionsclient.Interface) er
 	return nil
 }
 
+// IsCRDInstalled checks the the CRD is installed in kube-apiserver.
+func IsCRDInstalled(clientset apiextensionsclient.Interface) (bool, error) {
+	_, err := clientset.ApiextensionsV1beta1().CustomResourceDefinitions().Get(CRDName, metav1.GetOptions{})
+	if errors.IsNotFound(err) {
+		return false, nil
+	}
+	return true, err
+}
+
 // createCNPCRD creates and updates the CiliumNetworkPolicies CRD. It should be called
 // on agent startup but is idempotent and safe to call again.
 func createCNPCRD(clientset apiextensionsclient.Interface) error {
-	var (
-		// CustomResourceDefinitionSingularName is the singular name of custom resource definition
-		CustomResourceDefinitionSingularName = "ciliumnetworkpolicy"
-
-		// CustomResourceDefinitionPluralName is the plural name of custom resource definition
-		CustomResourceDefinitionPluralName = "ciliumnetworkpolicies"
-
-		// CustomResourceDefinitionShortNames are the abbreviated names to refer to this CRD's instances
-		CustomResourceDefinitionShortNames = []string{"cnp", "ciliumnp"}
-
-		// CustomResourceDefinitionKind is the Kind name of custom resource definition
-		CustomResourceDefinitionKind = "CiliumNetworkPolicy"
-
-		CRDName = CustomResourceDefinitionPluralName + "." + SchemeGroupVersion.Group
-	)
-
 	res := &apiextensionsv1beta1.CustomResourceDefinition{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: CRDName,

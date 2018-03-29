@@ -47,6 +47,7 @@ import (
 	"k8s.io/api/core/v1"
 	"k8s.io/api/extensions/v1beta1"
 	networkingv1 "k8s.io/api/networking/v1"
+	apiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/util/runtime"
@@ -66,6 +67,7 @@ const (
 	k8sAPIGroupIngressV1Beta1    = "extensions/v1beta1::Ingress"
 	k8sAPIGroupCiliumV2          = "cilium/v2::CiliumNetworkPolicy"
 	k8sAPIGroupCiliumV3          = "cilium/v3::CiliumNetworkPolicy"
+	k8sAPIGroupExtensionsCRD     = "apiextensions.k8s.io/v1beta1::CustomResourceDefinition"
 )
 
 var (
@@ -75,6 +77,7 @@ var (
 	k8sErrMsg   = map[string]time.Time{}
 
 	stopNetworkingV1PolicyController = make(chan struct{})
+	stopCiliumV2Controller           = make(chan struct{})
 
 	ciliumNPClient clientset.Interface
 
@@ -101,6 +104,13 @@ func (m *k8sAPIGroupsUsed) addAPI(api string) {
 		m.apis = make(map[string]bool)
 	}
 	m.apis[api] = true
+}
+
+func (m *k8sAPIGroupsUsed) existAPI(api string) bool {
+	m.Lock()
+	defer m.Unlock()
+	ok, exist := m.apis[api]
+	return ok && exist
 }
 
 func (m *k8sAPIGroupsUsed) removeAPI(api string) {
@@ -216,14 +226,24 @@ func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 		return fmt.Errorf("unable to retrieve kubernetes serverversion: %s", err)
 	}
 
+	var v2CRDInstalled bool
+
 	switch {
 	case ciliumv2VerConstr.Check(sv):
+		// FIXME GH-3381 uncomment these lines and remove the next line
+		v2CRDInstalled = true
+		// // Check if v2CRD is installed, if it's not installed then use v3 immediately.
+		// if v2CRDInstalled, err = cilium_v2.IsCRDInstalled(apiextensionsclientset); err != nil {
+		// 	return fmt.Errorf("Unable to check custom resource definition v2: %s", err)
+		// } else if v2CRDInstalled {
+		// //Update CRD in case user has not upgrade to v3 yet.
 		err = cilium_v2.CreateCustomResourceDefinitions(apiextensionsclientset)
 		if err != nil {
 			return fmt.Errorf("Unable to create custom resource definition: %s", err)
 		}
 		d.k8sAPIGroups.addAPI(k8sAPIGroupCRD)
 		d.k8sAPIGroups.addAPI(k8sAPIGroupCiliumV2)
+		// }
 		err = cilium_v3.CreateCustomResourceDefinitions(apiextensionsclientset)
 		if err != nil {
 			return fmt.Errorf("Unable to create custom resource definition: %s", err)
@@ -244,6 +264,7 @@ func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 	serEps := serializer.NewFunctionQueue(20)
 	serCNPs := serializer.NewFunctionQueue(20)
 	serNodes := serializer.NewFunctionQueue(20)
+	serCRDs := serializer.NewFunctionQueue(20)
 
 	switch {
 	case networkPolicyV1beta1VerConstr.Check(sv):
@@ -449,43 +470,46 @@ func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 	go ingressController.Run(wait.NeverStop)
 	d.k8sAPIGroups.addAPI(k8sAPIGroupIngressV1Beta1)
 
-	si := informer.NewSharedInformerFactory(ciliumNPClient, reSyncPeriod)
-
 	switch {
 	case ciliumv2VerConstr.Check(sv):
-		ciliumV2Controller := si.Cilium().V2().CiliumNetworkPolicies().Informer()
-		cnpStore := ciliumV2Controller.GetStore()
-		ciliumV2Controller.AddEventHandler(cache.ResourceEventHandlerFuncs{
-			AddFunc: func(obj interface{}) {
-				metrics.SetTSValue(metrics.EventTSK8s, time.Now())
-				if cnp := copyObjToV2CNP(obj); cnp != nil {
-					serCNPs.Enqueue(func() error {
-						d.addCiliumNetworkPolicyV2(cnpStore, cnp)
-						return nil
-					}, serializer.NoRetry)
-				}
-			},
-			UpdateFunc: func(oldObj, newObj interface{}) {
-				metrics.SetTSValue(metrics.EventTSK8s, time.Now())
-				if oldCNP := copyObjToV2CNP(oldObj); oldCNP != nil {
-					if newCNP := copyObjToV2CNP(newObj); newCNP != nil {
+		if v2CRDInstalled {
+			si := informer.NewSharedInformerFactory(ciliumNPClient, reSyncPeriod)
+			ciliumV2Controller := si.Cilium().V2().CiliumNetworkPolicies().Informer()
+			cnpStore := ciliumV2Controller.GetStore()
+			ciliumV2Controller.AddEventHandler(cache.ResourceEventHandlerFuncs{
+				AddFunc: func(obj interface{}) {
+					metrics.SetTSValue(metrics.EventTSK8s, time.Now())
+					if cnp := copyObjToV2CNP(obj); cnp != nil {
 						serCNPs.Enqueue(func() error {
-							d.updateCiliumNetworkPolicyV2(cnpStore, oldCNP, newCNP)
+							d.addCiliumNetworkPolicyV2(cnpStore, cnp)
 							return nil
 						}, serializer.NoRetry)
 					}
-				}
-			},
-			DeleteFunc: func(obj interface{}) {
-				metrics.SetTSValue(metrics.EventTSK8s, time.Now())
-				if cnp := copyObjToV2CNP(obj); cnp != nil {
-					serCNPs.Enqueue(func() error {
-						d.deleteCiliumNetworkPolicyV2(cnp)
-						return nil
-					}, serializer.NoRetry)
-				}
-			},
-		})
+				},
+				UpdateFunc: func(oldObj, newObj interface{}) {
+					metrics.SetTSValue(metrics.EventTSK8s, time.Now())
+					if oldCNP := copyObjToV2CNP(oldObj); oldCNP != nil {
+						if newCNP := copyObjToV2CNP(newObj); newCNP != nil {
+							serCNPs.Enqueue(func() error {
+								d.updateCiliumNetworkPolicyV2(cnpStore, oldCNP, newCNP)
+								return nil
+							}, serializer.NoRetry)
+						}
+					}
+				},
+				DeleteFunc: func(obj interface{}) {
+					metrics.SetTSValue(metrics.EventTSK8s, time.Now())
+					if cnp := copyObjToV2CNP(obj); cnp != nil {
+						serCNPs.Enqueue(func() error {
+							d.deleteCiliumNetworkPolicyV2(cnp)
+							return nil
+						}, serializer.NoRetry)
+					}
+				},
+			})
+			go ciliumV2Controller.Run(stopCiliumV2Controller)
+		}
+		si := informer.NewSharedInformerFactory(ciliumNPClient, reSyncPeriod)
 		ciliumV3Controller := si.CiliumNetworkPolicy().V3().CiliumNetworkPolicies().Informer()
 		cnpv3Store := ciliumV3Controller.GetStore()
 		ciliumV3Controller.AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -519,9 +543,8 @@ func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 				}
 			},
 		})
+		go ciliumV3Controller.Run(wait.NeverStop)
 	}
-
-	si.Start(wait.NeverStop)
 
 	_, nodesController := cache.NewInformer(
 		cache.NewListWatchFromClient(k8s.Client().CoreV1().RESTClient(),
@@ -564,6 +587,26 @@ func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 	d.k8sAPIGroups.addAPI(k8sAPIGroupNodeV1Core)
 
 	endpoint.RunK8sCiliumEndpointSyncGC()
+
+	_, crdController := cache.NewInformer(
+		cache.NewListWatchFromClient(apiextensionsclientset.ApiextensionsV1beta1().RESTClient(),
+			"customresourcedefinitions", v1.NamespaceAll, fields.Everything()),
+		&apiextensionsv1beta1.CustomResourceDefinition{},
+		reSyncPeriod,
+		cache.ResourceEventHandlerFuncs{
+			DeleteFunc: func(obj interface{}) {
+				metrics.SetTSValue(metrics.EventTSK8s, time.Now())
+				if crd := copyObjToV1beta1CRD(obj); crd != nil {
+					serCRDs.Enqueue(func() error {
+						d.deleteK8sv1beta1CRD(crd)
+						return nil
+					}, serializer.NoRetry)
+				}
+			},
+		},
+	)
+	go crdController.Run(wait.NeverStop)
+	d.k8sAPIGroups.addAPI(k8sAPIGroupExtensionsCRD)
 
 	return nil
 }
@@ -648,6 +691,16 @@ func copyObjToV1Node(obj interface{}) *v1.Node {
 	return node.DeepCopy()
 }
 
+func copyObjToV1beta1CRD(obj interface{}) *apiextensionsv1beta1.CustomResourceDefinition {
+	crd, ok := obj.(*apiextensionsv1beta1.CustomResourceDefinition)
+	if !ok {
+		log.WithField(logfields.Object, logfields.Repr(obj)).
+			Warn("Ignoring invalid k8s apiextensionsv1beta1 CRD")
+		return nil
+	}
+	return crd.DeepCopy()
+}
+
 func (d *Daemon) addK8sNetworkPolicyV1(k8sNP *networkingv1.NetworkPolicy) {
 	scopedLog := log.WithField(logfields.K8sAPIVersion, k8sNP.TypeMeta.APIVersion)
 	rules, err := k8s.ParseNetworkPolicy(k8sNP)
@@ -699,6 +752,18 @@ func (d *Daemon) deleteK8sNetworkPolicyV1(k8sNP *networkingv1.NetworkPolicy) {
 		scopedLog.WithError(err).Error("Error while deleting k8s NetworkPolicy")
 	} else {
 		scopedLog.Info("NetworkPolicy successfully removed")
+	}
+}
+
+func (d *Daemon) deleteK8sv1beta1CRD(crd *apiextensionsv1beta1.CustomResourceDefinition) {
+	if crd == nil {
+		return
+	}
+	log.Debugf("Receive delete event for CRD %s", crd.Name)
+	if crd.Name == cilium_v2.CRDName && d.k8sAPIGroups.existAPI(k8sAPIGroupCiliumV2) {
+		d.k8sAPIGroups.removeAPI(k8sAPIGroupCiliumV2)
+		// We close the channel so this cilium node will no longer receive any v2 events
+		close(stopCiliumV2Controller)
 	}
 }
 
