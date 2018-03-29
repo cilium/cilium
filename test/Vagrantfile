@@ -6,7 +6,7 @@ $BUILD_NUMBER = ENV['BUILD_NUMBER'] || "0"
 $JOB_NAME = ENV['JOB_BASE_NAME'] || "LOCAL"
 $K8S_VERSION = ENV['K8S_VERSION'] || "1.10"
 $K8S_NODES = (ENV['K8S_NODES'] || "2").to_i
-
+$NFS = ENV['NFS']=="1"? true : false
 $SERVER_BOX= "cilium/ubuntu"
 $SERVER_VERSION="41"
 
@@ -28,7 +28,11 @@ Vagrant.configure("2") do |config|
         server.vm.box =  "#{$SERVER_BOX}"
         server.vm.box_version = $SERVER_VERSION
         server.vm.hostname = "runtime"
-        server.vm.synced_folder "../", "/home/vagrant/go/src/github.com/cilium/cilium"
+
+        # This network is only used by NFS
+        server.vm.network "private_network", type: "dhcp"
+        server.vm.synced_folder "../", "/home/vagrant/go/src/github.com/cilium/cilium",
+            nfs: $NFS
 
         # Provision section
         server.vm.provision :shell,
@@ -57,7 +61,10 @@ Vagrant.configure("2") do |config|
                 ip: "192.168.36.1#{i}",
                 virtualbox__intnet: "cilium-k8s#{$BUILD_NUMBER}-#{$JOB_NAME}-#{$K8S_VERSION}"
 
-            server.vm.synced_folder "../", "/home/vagrant/go/src/github.com/cilium/cilium"
+            # This network is only used by NFS
+            server.vm.network "private_network", type: "dhcp"
+            server.vm.synced_folder "../", "/home/vagrant/go/src/github.com/cilium/cilium",
+                nfs: $NFS
             # Provision section
             server.vm.provision :shell,
                 :inline => "sed -i 's/^mesg n$/tty -s \\&\\& mesg n/g' /root/.profile"
