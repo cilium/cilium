@@ -65,7 +65,7 @@ for the patch config operation typically these are written to a http.Request
 type PatchConfigParams struct {
 
 	/*Configuration*/
-	Configuration *models.Configuration
+	Configuration *models.DaemonConfigurationSpec
 
 	timeout    time.Duration
 	Context    context.Context
@@ -106,13 +106,13 @@ func (o *PatchConfigParams) SetHTTPClient(client *http.Client) {
 }
 
 // WithConfiguration adds the configuration to the patch config params
-func (o *PatchConfigParams) WithConfiguration(configuration *models.Configuration) *PatchConfigParams {
+func (o *PatchConfigParams) WithConfiguration(configuration *models.DaemonConfigurationSpec) *PatchConfigParams {
 	o.SetConfiguration(configuration)
 	return o
 }
 
 // SetConfiguration adds the configuration to the patch config params
-func (o *PatchConfigParams) SetConfiguration(configuration *models.Configuration) {
+func (o *PatchConfigParams) SetConfiguration(configuration *models.DaemonConfigurationSpec) {
 	o.Configuration = configuration
 }
 
@@ -125,7 +125,7 @@ func (o *PatchConfigParams) WriteToRequest(r runtime.ClientRequest, reg strfmt.R
 	var res []error
 
 	if o.Configuration == nil {
-		o.Configuration = new(models.Configuration)
+		o.Configuration = new(models.DaemonConfigurationSpec)
 	}
 
 	if err := r.SetBodyParam(o.Configuration); err != nil {

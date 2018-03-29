@@ -37,7 +37,7 @@ paths:
         '200':
           description: Success
           schema:
-            "$ref": "#/definitions/DaemonConfigurationResponse"
+            "$ref": "#/definitions/DaemonConfiguration"
     patch:
       summary: Modify daemon configuration
       description: |
@@ -51,7 +51,7 @@ paths:
         in: body
         required: true
         schema:
-          "$ref": "#/definitions/Configuration"
+          "$ref": "#/definitions/DaemonConfigurationSpec"
       responses:
         '200':
           description: Success
@@ -1235,41 +1235,58 @@ definitions:
         type: object
         additionalProperties:
           type: string
-  DaemonConfigurationResponse:
+  DaemonConfiguration:
     description: |
-      Response to a daemon configuration request. Contains the addressing
-      information and configuration settings.
+      Response to a daemon configuration request.
     type: object
     properties:
+      spec:
+        description: Changeable configuration
+        "$ref": "#/definitions/DaemonConfigurationSpec"
+      status:
+        description: |
+          Current daemon configuration related status.Contains the addressing
+          information, k8s, node monitor and immutable and mutable
+          configuration settings. 
+        "$ref": "#/definitions/DaemonConfigurationStatus"
+  DaemonConfigurationSpec:
+    description: The controllable configuration of the daemon.
+    type: object
+    properties:
+      options:
+        description: Changeable configuration
+        "$ref": "#/definitions/ConfigurationMap"
+      policy-enforcement:
+        description: "The policy-enforcement mode"
+        type: string
+        enum:
+          - default
+          - always
+          - never
+  DaemonConfigurationStatus:
+    description: |
+      Response to a daemon configuration request. Contains the addressing
+      information, k8s, node monitor and immutable and mutable configuration
+      settings.
+    type: object
+    properties:
+      realized:
+        description: Currently applied configuration
+        "$ref": "#/definitions/DaemonConfigurationSpec"
+      immutable:
+        description: Immutable configuration (read-only)
+        "$ref": "#/definitions/ConfigurationMap"
       addressing:
         "$ref": "#/definitions/NodeAddressing"
-      configuration:
-        "$ref": "#/definitions/Configuration"
       k8s-endpoint:
         type: string
       k8s-configuration:
-        type: string
-      policy-enforcement:
         type: string
       nodeMonitor:
         description: Status of the node monitor
         "$ref": "#/definitions/MonitorStatus"
       kvstoreConfiguration:
         "$ref": "#/definitions/KVstoreConfiguration"
-  Configuration:
-    description: |
-      General purpose structure to hold configuration of the daemon. Split into
-      a mutable and immutable section.
-    type: object
-    properties:
-      mutable:
-        description: Changeable configuration
-        "$ref": "#/definitions/ConfigurationMap"
-      immutable:
-        description: Immutable configuration (read-only)
-        "$ref": "#/definitions/ConfigurationMap"
-      policy-enforcement:
-        type: string
   EndpointConfigurationSpec:
     description: An endpoint's configuration
     type: object
