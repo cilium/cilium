@@ -29,7 +29,8 @@ import (
 var log = logging.DefaultLogger
 
 const (
-	MapName = "cilium_cidr_"
+	MapName    = "cilium_cidr_"
+	MaxEntries = 16384
 )
 
 // CIDRMap refers to an LPM trie map at 'path'.
@@ -41,7 +42,6 @@ type CIDRMap struct {
 }
 
 const (
-	MAX_KEYS           = 1024
 	LPM_MAP_VALUE_SIZE = 1
 )
 
@@ -143,7 +143,7 @@ func (cm *CIDRMap) Close() error {
 // whether element's prefixlen can vary and we thus need to use a LPM
 // trie instead of hash table.
 func OpenMap(path string, prefixlen int, prefixdyn bool) (*CIDRMap, bool, error) {
-	return OpenMapElems(path, prefixlen, prefixdyn, MAX_KEYS)
+	return OpenMapElems(path, prefixlen, prefixdyn, MaxEntries)
 }
 
 // OpenMapElems is the same as OpenMap only with defined maxelem as argument.
