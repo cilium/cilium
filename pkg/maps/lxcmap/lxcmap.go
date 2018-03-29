@@ -30,8 +30,8 @@ var log = logging.DefaultLogger
 const (
 	MapName = "cilium_lxc"
 
-	// MaxKeys represents the maximum number of endpoints in the map
-	MaxKeys = 0xFFFF
+	// MaxEntries represents the maximum number of endpoints in the map
+	MaxEntries = 65535
 
 	// PortMapMax represents the maximum number of Ports Mapping per container.
 	PortMapMax = 16
@@ -43,7 +43,7 @@ var (
 		bpf.MapTypeHash,
 		int(unsafe.Sizeof(EndpointKey{})),
 		int(unsafe.Sizeof(EndpointInfo{})),
-		MaxKeys,
+		MaxEntries,
 		0,
 		func(key []byte, value []byte) (bpf.MapKey, bpf.MapValue, error) {
 			k, v := EndpointKey{}, EndpointInfo{}
