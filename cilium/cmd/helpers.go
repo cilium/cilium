@@ -207,6 +207,10 @@ func parseTrafficString(td string) (policymap.TrafficDirection, error) {
 
 }
 
+// updatePolicyKey updates an entry to the PolicyMap for the endpoint ID, identity,
+// traffic direction, and optional list of ports in the list of arguments for the
+// given command. Adds the entry to the PolicyMap if add is true, deletes if fails.
+// TODO: GH-3396.
 func updatePolicyKey(cmd *cobra.Command, args []string, add bool) {
 	if len(args) < 3 {
 		Usagef(cmd, "<endpoint id>, <traffic-direction>, and <identity> required")
