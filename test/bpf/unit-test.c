@@ -94,8 +94,11 @@ static void test_lpm_lookup()
 	assert(__lpm4_lookup11(htonl(0xFFE00000)));
 	assert(__lpm4_lookup11(htonl(0xFFFFFFFF)));
 	assert(__lpm4_lookup11(htonl(0xFFF00000)));
+	addr = htonl(0xF0000000);
+	assert(__lpm4_lookup11(htonl(0xF0000000)));
 	addr = htonl(0x00000000);
 	assert(__lpm4_lookup0(addr));
+	assert(__lpm4_lookup0(htonl(0xFFFFFFFF)));
 }
 
 int main(int argc, char *argv[])
