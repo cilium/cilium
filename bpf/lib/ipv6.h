@@ -134,7 +134,7 @@ static inline int ipv6_addr_in_net(union v6addr *addr, union v6addr *net, union 
 }
 
 #define GET_PREFIX(PREFIX)						\
-	bpf_htonl(prefix < 32 ? ((1<<prefix) - 1) << (32-prefix)	\
+	bpf_htonl(prefix <= 0 ? 0 : prefix < 32 ? ((1<<prefix) - 1) << (32-prefix)	\
 			      : 0xFFFFFFFF)
 
 static inline void ipv6_addr_clear_suffix(union v6addr *addr, int prefix)
