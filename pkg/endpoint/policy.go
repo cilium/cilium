@@ -292,7 +292,7 @@ func (e *Endpoint) applyL4PolicyLocked(oldIdentities, newIdentities *identityPkg
 
 		for _, filter := range oldL4Policy.Egress {
 			_ = e.removeOldFilter(oldIdentities, &filter, policymap.Egress)
-			// TODO update maps for egress. Not touching conntrack for now.
+			// TODO: GH-3393 update maps for egress. Not touching conntrack for now.
 		}
 		errors += e.sweepFilters(oldL4Policy, newIdentities)
 	}
@@ -312,7 +312,7 @@ func (e *Endpoint) applyL4PolicyLocked(oldIdentities, newIdentities *identityPkg
 
 	for _, filter := range newL4Policy.Egress {
 		_, errs = e.applyNewFilter(newIdentities, &filter, policymap.Egress)
-		// TODO update maps for egress. Not touching conntrack for now.
+		// TODO: GH-3393 update maps for egress. Not touching conntrack for now.
 	}
 
 	if errors > 0 {
