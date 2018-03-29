@@ -47,6 +47,7 @@ var _ = Describe("K8sValidatedPolicyTest", func() {
 		service                                     *v1.Service
 		podServer                                   *v1.Pod
 		namespace                                   string
+		app1Service                                 string = "app1-service"
 	)
 
 	initialize := func() {
@@ -96,23 +97,58 @@ var _ = Describe("K8sValidatedPolicyTest", func() {
 	})
 
 	Context("Basic Test", func() {
+		var (
+			ciliumPod string
+			clusterIP string
+			appPods   map[string]string
+		)
+
+		BeforeAll(func() {
+			kubectl.Apply(demoPath)
+
+			_, err := kubectl.WaitforPods(helpers.DefaultNamespace, "-l zgroup=testapp", 300)
+			Expect(err).Should(BeNil(), "Test pods are not ready after timeout")
+
+			ciliumPod, err = kubectl.GetCiliumPodOnNode(helpers.KubeSystemNamespace, helpers.K8s1)
+
+			Expect(err).Should(BeNil(), "cannot get CiliumPod")
+
+			clusterIP, _, err = kubectl.GetServiceHostPort(helpers.DefaultNamespace, app1Service)
+			Expect(err).To(BeNil(), "Cannot get service on %q namespace", helpers.DefaultNamespace)
+			appPods = helpers.GetAppPods(apps, helpers.DefaultNamespace, kubectl, "id")
+			logger.WithFields(logrus.Fields{
+				"ciliumPod": ciliumPod,
+				"clusterIP": clusterIP}).Info("Initial data")
+
+		})
+
+		AfterAll(func() {
+			kubectl.Delete(demoPath)
+		})
 
 		BeforeEach(func() {
-			kubectl.Apply(demoPath)
+			status := kubectl.CiliumExec(
+				ciliumPod, fmt.Sprintf("cilium config %s=%s",
+					helpers.PolicyEnforcement, helpers.PolicyEnforcementDefault))
+			status.ExpectSuccess()
+			kubectl.CiliumEndpointWait(ciliumPod)
+
 			_, err := kubectl.WaitforPods(helpers.DefaultNamespace, "-l zgroup=testapp", 300)
 			Expect(err).Should(BeNil())
+
 		})
 
 		AfterEach(func() {
-			kubectl.Delete(demoPath)
-			// TO make sure that are not in place
+			// TO make sure that are not in place, so no assert messages here
 			kubectl.Delete(l3Policy)
 			kubectl.Delete(l7Policy)
+			kubectl.Delete(denyIngress)
+			kubectl.Delete(denyEgress)
 		})
 
 		It("tests PolicyEnforcement updates", func() {
 			By("Waiting for cilium pod and endpoints on K8s1 to be ready")
-			ciliumPod, endpoints := kubectl.WaitCiliumEndpointReady(podFilter, helpers.K8s1)
+			_, endpoints := kubectl.WaitCiliumEndpointReady(podFilter, helpers.K8s1)
 			policyStatus := endpoints.GetPolicyStatus()
 			// default mode with no policy, all endpoints must be in allow all
 			Expect(policyStatus[models.EndpointPolicyEnabledNone]).Should(Equal(4))
@@ -160,26 +196,12 @@ var _ = Describe("K8sValidatedPolicyTest", func() {
 		}, 500)
 
 		It("checks all kind of kubernetes policies", func() {
-			appPods := helpers.GetAppPods(apps, helpers.DefaultNamespace, kubectl, "id")
-			service := "app1-service"
-			clusterIP, _, err := kubectl.GetServiceHostPort(helpers.DefaultNamespace, service)
 			logger.Infof("PolicyRulesTest: cluster service ip '%s'", clusterIP)
-			Expect(err).Should(BeNil(), "Cannot get service %q", service)
-
-			ciliumPod, err := kubectl.GetCiliumPodOnNode(helpers.KubeSystemNamespace, helpers.K8s1)
-			Expect(err).Should(BeNil())
-
-			status := kubectl.CiliumExec(
-				ciliumPod, fmt.Sprintf("cilium config %s=%s",
-					helpers.PolicyEnforcement, helpers.PolicyEnforcementDefault))
-			status.ExpectSuccess()
-
-			kubectl.CiliumEndpointWait(ciliumPod)
 
 			By("Testing L3/L4 rules")
 
 			eps := kubectl.CiliumEndpointPolicyVersion(ciliumPod)
-			_, err = kubectl.CiliumPolicyAction(
+			_, err := kubectl.CiliumPolicyAction(
 				helpers.KubeSystemNamespace, l3Policy, helpers.KubectlApply, 300)
 			Expect(err).Should(BeNil())
 
@@ -194,7 +216,6 @@ var _ = Describe("K8sValidatedPolicyTest", func() {
 			}, "could not get endpoints", &helpers.TimeoutConfig{Timeout: 100})
 
 			Expect(epsStatus).Should(BeNil())
-			appPods = helpers.GetAppPods(apps, helpers.DefaultNamespace, kubectl, "id")
 
 			endpoints, err := kubectl.CiliumEndpointsListByLabel(ciliumPod, podFilter)
 			policyStatus := endpoints.GetPolicyStatus()
@@ -227,8 +248,7 @@ var _ = Describe("K8sValidatedPolicyTest", func() {
 			res.ExpectFail("%q can curl to %q", appPods[helpers.App3], clusterIP)
 
 			eps = kubectl.CiliumEndpointPolicyVersion(ciliumPod)
-			status = kubectl.Delete(l3Policy)
-			status.ExpectSuccess()
+			kubectl.Delete(l3Policy).ExpectSuccess("Cannot delete L3 Policy")
 			kubectl.CiliumEndpointWait(ciliumPod)
 
 			//Only 1 endpoint is affected by L7 rule
@@ -244,8 +264,6 @@ var _ = Describe("K8sValidatedPolicyTest", func() {
 			Expect(err).Should(BeNil())
 			err = helpers.WaitUntilEndpointUpdates(ciliumPod, eps, 4, kubectl)
 			Expect(err).Should(BeNil())
-
-			appPods = helpers.GetAppPods(apps, helpers.DefaultNamespace, kubectl, "id")
 
 			res = kubectl.ExecPodCmd(
 				helpers.DefaultNamespace, appPods[helpers.App2],
@@ -269,8 +287,7 @@ var _ = Describe("K8sValidatedPolicyTest", func() {
 			res.ExpectFail("%q can curl to %q private", appPods[helpers.App3], clusterIP)
 
 			eps = kubectl.CiliumEndpointPolicyVersion(ciliumPod)
-			status = kubectl.Delete(l7Policy)
-			status.ExpectSuccess()
+			kubectl.Delete(l7Policy).ExpectSuccess("Cannot delete L7 Policy")
 
 			//Only 1 endpoint is affected by L7 rule
 			err = helpers.WaitUntilEndpointUpdates(ciliumPod, eps, 4, kubectl)
@@ -302,9 +319,6 @@ var _ = Describe("K8sValidatedPolicyTest", func() {
 			Expect(pods).To(BeTrue(), "testapp pods are not ready after timeout")
 			Expect(err).To(BeNil(), "testapp pods are not ready after timeout")
 
-			ciliumPod, err := kubectl.GetCiliumPodOnNode(helpers.KubeSystemNamespace, helpers.K8s1)
-			Expect(err).Should(BeNil())
-
 			By("Applying Policy in namespace")
 			eps := kubectl.CiliumEndpointPolicyVersion(ciliumPod)
 			_, err = kubectl.CiliumPolicyAction(
@@ -323,24 +337,21 @@ var _ = Describe("K8sValidatedPolicyTest", func() {
 			Expect(err).Should(BeNil(), "Endpoints timeout on namespaces %q", helpers.DefaultNamespace)
 
 			By(fmt.Sprintf("Testing %s namespace", namespace))
-			clusterIP, _, err := kubectl.GetServiceHostPort(namespace, "app1-service")
+			clusterIPSecondNs, _, err := kubectl.GetServiceHostPort(namespace, app1Service)
 			Expect(err).To(BeNil(), "Cannot get service on %q namespace", namespace)
-			appPods := helpers.GetAppPods(apps, namespace, kubectl, "id")
+			appPodsSecondNS := helpers.GetAppPods(apps, namespace, kubectl, "id")
 
 			res := kubectl.ExecPodCmd(
-				namespace, appPods[helpers.App2],
-				helpers.CurlFail(fmt.Sprintf("http://%s/public", clusterIP)))
+				namespace, appPodsSecondNS[helpers.App2],
+				helpers.CurlFail(fmt.Sprintf("http://%s/public", clusterIPSecondNs)))
 			res.ExpectSuccess("%q cannot curl clusterIP %q", appPods[helpers.App2], clusterIP)
 
 			res = kubectl.ExecPodCmd(
-				namespace, appPods[helpers.App3],
-				helpers.CurlFail(fmt.Sprintf("http://%s/public", clusterIP)))
+				namespace, appPodsSecondNS[helpers.App3],
+				helpers.CurlFail(fmt.Sprintf("http://%s/public", clusterIPSecondNs)))
 			res.ExpectFail("%q can curl to %q", appPods[helpers.App3], clusterIP)
 
 			By("Testing default namespace")
-			clusterIP, _, err = kubectl.GetServiceHostPort(helpers.DefaultNamespace, "app1-service")
-			Expect(err).To(BeNil(), "Cannot get service on default namespace")
-			appPods = helpers.GetAppPods(apps, helpers.DefaultNamespace, kubectl, "id")
 
 			res = kubectl.ExecPodCmd(
 				helpers.DefaultNamespace, appPods[helpers.App2],
@@ -353,32 +364,15 @@ var _ = Describe("K8sValidatedPolicyTest", func() {
 			res.ExpectFail("%q can curl to %q", appPods[helpers.App3], clusterIP)
 		})
 
-		It("Denies traffic with k8s default-deny policy", func() {
-			namespace := helpers.DefaultNamespace
-
-			kubectl.Apply(demoPath).ExpectSuccess("Creating demo app")
-
-			ciliumPod, err := kubectl.GetCiliumPodOnNode(helpers.KubeSystemNamespace, helpers.K8s1)
-			Expect(err).Should(BeNil())
-
-			pods, err := kubectl.WaitforPods(
-				namespace,
-				"-l zgroup=testapp", 300)
-			Expect(pods).To(BeTrue(), "testapp pods are not ready after timeout")
-			Expect(err).To(BeNil(), "testapp pods are not ready after timeout")
-
-			By("Testing connectivity without any policy loaded")
-			clusterIP, _, err := kubectl.GetServiceHostPort(namespace, "app1-service")
-			Expect(err).To(BeNil(), "Cannot get service on %q namespace", namespace)
-			appPods := helpers.GetAppPods(apps, namespace, kubectl, "id")
+		It("Denies traffic with k8s default-deny ingress policy", func() {
 
 			res := kubectl.ExecPodCmd(
-				namespace, appPods[helpers.App2],
+				helpers.DefaultNamespace, appPods[helpers.App2],
 				helpers.CurlFail(fmt.Sprintf("http://%s/public", clusterIP)))
 			res.ExpectSuccess("%q cannot curl clusterIP %q", appPods[helpers.App2], clusterIP)
 
 			res = kubectl.ExecPodCmd(
-				namespace, appPods[helpers.App3],
+				helpers.DefaultNamespace, appPods[helpers.App3],
 				helpers.CurlFail(fmt.Sprintf("http://%s/public", clusterIP)))
 			res.ExpectSuccess("%q cannot curl to %q", appPods[helpers.App3], clusterIP)
 
@@ -386,13 +380,10 @@ var _ = Describe("K8sValidatedPolicyTest", func() {
 
 			eps := kubectl.CiliumEndpointPolicyVersion(ciliumPod)
 
-			_, err = kubectl.CiliumPolicyAction(
+			_, err := kubectl.CiliumPolicyAction(
 				helpers.KubeSystemNamespace, denyIngress, helpers.KubectlApply, 300)
 			Expect(err).Should(BeNil(),
-				"L3 deny-ingress Policy cannot be applied in %q namespace", namespace)
-			defer func() {
-				kubectl.Delete(denyIngress).ExpectSuccess()
-			}()
+				"L3 deny-ingress Policy cannot be applied in %q namespace", helpers.DefaultNamespace)
 
 			err = helpers.WaitUntilEndpointUpdates(ciliumPod, eps, 4, kubectl)
 			Expect(err).To(BeNil(), "Waiting for endpoint updates on %s", ciliumPod)
@@ -400,15 +391,17 @@ var _ = Describe("K8sValidatedPolicyTest", func() {
 			By("Testing connectivity with ingress default-deny policy loaded")
 
 			res = kubectl.ExecPodCmd(
-				namespace, appPods[helpers.App2],
+				helpers.DefaultNamespace, appPods[helpers.App2],
 				helpers.CurlFail(fmt.Sprintf("http://%s/public", clusterIP)))
 			res.ExpectFail("Ingress connectivity should be denied by policy")
 
 			res = kubectl.ExecPodCmd(
-				namespace, appPods[helpers.App3],
+				helpers.DefaultNamespace, appPods[helpers.App3],
 				helpers.CurlFail(fmt.Sprintf("http://%s/public", clusterIP)))
 			res.ExpectFail("Ingress connectivity should be denied by policy")
+		})
 
+		It("Denies traffic with k8s default-deny egress policy", func() {
 			if helpers.GetCurrentK8SEnv() == "1.7" {
 				log.Info("K8s 1.7 doesn't offer a default deny for egress")
 				return
@@ -416,15 +409,12 @@ var _ = Describe("K8sValidatedPolicyTest", func() {
 
 			By("Installing egress default-deny")
 
-			eps = kubectl.CiliumEndpointPolicyVersion(ciliumPod)
+			eps := kubectl.CiliumEndpointPolicyVersion(ciliumPod)
 
-			_, err = kubectl.CiliumPolicyAction(
+			_, err := kubectl.CiliumPolicyAction(
 				helpers.KubeSystemNamespace, denyEgress, helpers.KubectlApply, 300)
 			Expect(err).Should(BeNil(),
-				"L3 deny-egress Policy cannot be applied in %q namespace", namespace)
-			defer func() {
-				kubectl.Delete(denyEgress).ExpectSuccess()
-			}()
+				"L3 deny-egress Policy cannot be applied in %q namespace", helpers.DefaultNamespace)
 
 			err = helpers.WaitUntilEndpointUpdates(ciliumPod, eps, 4, kubectl)
 			Expect(err).To(BeNil(), "Waiting for endpoint updates on %s", ciliumPod)
@@ -438,7 +428,7 @@ var _ = Describe("K8sValidatedPolicyTest", func() {
 			epsWithEgress := 0
 			for _, ep := range epList {
 				for _, lbls := range ep.Labels.OrchestrationIdentity {
-					if lbls == "k8s:io.kubernetes.pod.namespace="+namespace {
+					if lbls == "k8s:io.kubernetes.pod.namespace="+helpers.DefaultNamespace {
 						switch swag.StringValue(ep.PolicyEnabled) {
 						case models.EndpointPolicyEnabledBoth, models.EndpointPolicyEnabledEgress:
 							epsWithEgress++
@@ -447,6 +437,22 @@ var _ = Describe("K8sValidatedPolicyTest", func() {
 				}
 			}
 			Expect(epsWithEgress).To(Equal(4), "All endpoints should have egress policy enabled")
+			for _, pod := range []string{appPods[helpers.App2], appPods[helpers.App3]} {
+				res := kubectl.ExecPodCmd(
+					helpers.DefaultNamespace, pod,
+					helpers.CurlFail("http://www.google.com/"))
+				res.ExpectFail("Egress connectivity should be denied for pod %q", pod)
+
+				res = kubectl.ExecPodCmd(
+					helpers.DefaultNamespace, pod,
+					helpers.Ping("8.8.8.8"))
+				res.ExpectFail("Egress ping connectivity should be denied for pod %q", pod)
+
+				res = kubectl.ExecPodCmd(
+					helpers.DefaultNamespace, pod,
+					"host www.google.com")
+				res.ExpectSuccess("Egress DNS connectivity should be allowed for pod %q", pod)
+			}
 		})
 	})
 
