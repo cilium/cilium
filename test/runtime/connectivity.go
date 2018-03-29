@@ -289,6 +289,7 @@ var _ = Describe("RuntimeValidatedConntrackTest", func() {
 
 	var curl1ContainerName = "curl"
 	var curl2ContainerName = "curl2"
+	var CTPolicyConntrackLocalDisabled = "ct-test-policy-conntrack-local-disabled.json"
 
 	type conntestCases struct {
 		from        string
@@ -463,12 +464,13 @@ var _ = Describe("RuntimeValidatedConntrackTest", func() {
 	applyAndVerifyConfigApplied := func(endpointID, configurationOptionName, desiredConfigurationOptionValue string) {
 		By(fmt.Sprintf("Setting %s Option for Endpoint %s to %s", configurationOptionName, endpointID, desiredConfigurationOptionValue))
 		status := vm.EndpointSetConfig(endpointID, configurationOptionName, desiredConfigurationOptionValue)
-		Expect(status).Should(BeTrue(), "could not set %s=%s on endpoint %q", desiredConfigurationOptionValue, desiredConfigurationOptionValue, endpointID)
+		ExpectWithOffset(1, status).Should(BeTrue(), "could not set %s=%s on endpoint %q", desiredConfigurationOptionValue, desiredConfigurationOptionValue, endpointID)
 
 		By(fmt.Sprintf("Checking that %s Option for Endpoint %s was set to %s", configurationOptionName, endpointID, desiredConfigurationOptionValue))
 		retrievedConfigurationValue, err := vm.GetEndpointMutableConfigurationOption(endpointID, configurationOptionName)
-		Expect(err).To(BeNil())
-		Expect(retrievedConfigurationValue).To(Equal(desiredConfigurationOptionValue))
+		ExpectWithOffset(1, err).To(BeNil(), "Cannot get endpoint configuration")
+		ExpectWithOffset(1, retrievedConfigurationValue).To(Equal(desiredConfigurationOptionValue),
+			"Mutable configuration %s does not match", desiredConfigurationOptionValue)
 	}
 
 	BeforeEach(func() {
@@ -482,7 +484,7 @@ var _ = Describe("RuntimeValidatedConntrackTest", func() {
 		vm.ContainerCreate(curl1ContainerName, helpers.NetperfImage, helpers.CiliumDockerNetwork, "-l id.curl")
 		vm.ContainerCreate(curl2ContainerName, helpers.NetperfImage, helpers.CiliumDockerNetwork, "-l id.curl2")
 
-		vm.PolicyDelAll()
+		vm.PolicyDelAll().ExpectSuccess("cannot delete all policies")
 
 		_, err := vm.PolicyImportAndWait(vm.GetFullPath("ct-test-policy.json"), helpers.HelperTimeout)
 		Expect(err).Should(BeNil())
@@ -533,7 +535,8 @@ var _ = Describe("RuntimeValidatedConntrackTest", func() {
 			for _, endpointToConfigure := range endpointsToConfigure {
 				applyAndVerifyConfigApplied(endpointToConfigure, helpers.OptionConntrackLocal, conntrackLocalOptionMode)
 			}
-
+			areEndpointsReady := vm.WaitEndpointsReady()
+			Expect(areEndpointsReady).Should(BeTrue(), "Endpoints are not ready after timeout")
 			clientServerConnectivity(true)
 		}
 
@@ -544,8 +547,10 @@ var _ = Describe("RuntimeValidatedConntrackTest", func() {
 		}
 
 		// Need to add policy that allows communication in both directions.
-		_, err = vm.PolicyImportAndWait(vm.GetFullPath("ct-test-policy-conntrack-local-disabled.json"), helpers.HelperTimeout)
-		Expect(err).Should(BeNil())
+		_, err = vm.PolicyImportAndWait(
+			vm.GetFullPath(CTPolicyConntrackLocalDisabled),
+			helpers.HelperTimeout)
+		Expect(err).Should(BeNil(), "cannot import %s", CTPolicyConntrackLocalDisabled)
 
 		clientServerConnectivity(false)
 	})
