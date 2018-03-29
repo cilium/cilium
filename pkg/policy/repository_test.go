@@ -112,7 +112,7 @@ func (ds *PolicyTestSuite) TestAddSearchDelete(c *C) {
 	repo.Mutex.RUnlock()
 }
 
-func (ds *PolicyTestSuite) TestCanReach(c *C) {
+func (ds *PolicyTestSuite) TestCanReachIngress(c *C) {
 	repo := NewPolicyRepository()
 
 	fooToBar := &SearchContext{
@@ -201,6 +201,104 @@ func (ds *PolicyTestSuite) TestCanReach(c *C) {
 
 	// foo=>bar3, no rule => Denied
 	c.Assert(repo.AllowsIngressRLocked(&SearchContext{
+		From: labels.ParseSelectLabelArray("foo"),
+		To:   labels.ParseSelectLabelArray("bar3"),
+	}), Equals, api.Denied)
+}
+
+func (ds *PolicyTestSuite) TestCanReachEgress(c *C) {
+	repo := NewPolicyRepository()
+
+	fooToBar := &SearchContext{
+		From: labels.ParseSelectLabelArray("foo"),
+		To:   labels.ParseSelectLabelArray("bar"),
+	}
+
+	repo.Mutex.RLock()
+	// no rules loaded: CanReach => undecided
+	c.Assert(repo.CanReachEgressRLocked(fooToBar), Equals, api.Undecided)
+	// no rules loaded: Allows() => denied
+	c.Assert(repo.AllowsEgressRLocked(fooToBar), Equals, api.Denied)
+	repo.Mutex.RUnlock()
+
+	tag1 := labels.LabelArray{labels.ParseLabel("tag1")}
+	rule1 := api.Rule{
+		EndpointSelector: api.NewESFromLabels(labels.ParseSelectLabel("foo")),
+		Egress: []api.EgressRule{
+			{
+				ToEndpoints: []api.EndpointSelector{
+					api.NewESFromLabels(labels.ParseSelectLabel("bar")),
+				},
+			},
+		},
+		Labels: tag1,
+	}
+
+	// selector: groupA
+	// require: groupA
+	rule2 := api.Rule{
+		EndpointSelector: api.NewESFromLabels(labels.ParseSelectLabel("groupA")),
+		Egress: []api.EgressRule{
+			{
+				ToRequires: []api.EndpointSelector{
+					api.NewESFromLabels(labels.ParseSelectLabel("groupA")),
+				},
+			},
+		},
+		Labels: tag1,
+	}
+	rule3 := api.Rule{
+		EndpointSelector: api.NewESFromLabels(labels.ParseSelectLabel("foo")),
+		Egress: []api.EgressRule{
+			{
+				ToEndpoints: []api.EndpointSelector{
+					api.NewESFromLabels(labels.ParseSelectLabel("bar2")),
+				},
+			},
+		},
+		Labels: tag1,
+	}
+	_, err := repo.Add(rule1)
+	c.Assert(err, IsNil)
+	_, err = repo.Add(rule2)
+	c.Assert(err, IsNil)
+	_, err = repo.Add(rule3)
+	c.Assert(err, IsNil)
+
+	// foo=>bar is OK
+	c.Assert(repo.AllowsEgressRLocked(fooToBar), Equals, api.Allowed)
+
+	// foo=>bar2 is OK
+	c.Assert(repo.AllowsEgressRLocked(&SearchContext{
+		From: labels.ParseSelectLabelArray("foo"),
+		To:   labels.ParseSelectLabelArray("bar2"),
+	}), Equals, api.Allowed)
+
+	// foo=>bar inside groupA is OK
+	c.Assert(repo.AllowsEgressRLocked(&SearchContext{
+		From: labels.ParseSelectLabelArray("foo", "groupA"),
+		To:   labels.ParseSelectLabelArray("bar", "groupA"),
+	}), Equals, api.Allowed)
+
+	buffer := new(bytes.Buffer)
+	// groupB can't talk to groupA => Denied
+	ctx := &SearchContext{
+		To:      labels.ParseSelectLabelArray("foo", "groupB"),
+		From:    labels.ParseSelectLabelArray("bar", "groupA"),
+		Logging: logging.NewLogBackend(buffer, "", 0),
+		Trace:   TRACE_VERBOSE,
+	}
+	verdict := repo.AllowsEgressRLocked(ctx)
+	c.Assert(verdict, Equals, api.Denied)
+
+	// no restriction on groupB, unused label => OK
+	c.Assert(repo.AllowsEgressRLocked(&SearchContext{
+		From: labels.ParseSelectLabelArray("foo", "groupB"),
+		To:   labels.ParseSelectLabelArray("bar", "groupB"),
+	}), Equals, api.Allowed)
+
+	// foo=>bar3, no rule => Denied
+	c.Assert(repo.AllowsEgressRLocked(&SearchContext{
 		From: labels.ParseSelectLabelArray("foo"),
 		To:   labels.ParseSelectLabelArray("bar3"),
 	}), Equals, api.Denied)
@@ -295,7 +393,7 @@ func (ds *PolicyTestSuite) TestMinikubeGettingStarted(c *C) {
 	defer repo.Mutex.RUnlock()
 
 	// L4 from app2 is restricted
-	l4policy, err := repo.ResolveL4Policy(fromApp2)
+	l4IngressPolicy, err := repo.ResolveL4IngressPolicy(fromApp2)
 	c.Assert(err, IsNil)
 
 	// Due to the lack of a set structure for L4Filter.FromEndpoints,
@@ -317,8 +415,8 @@ func (ds *PolicyTestSuite) TestMinikubeGettingStarted(c *C) {
 	expected := NewL4Policy()
 	expected.Ingress["80/TCP"] = L4Filter{
 		Port: 80, Protocol: api.ProtoTCP, U8Proto: 6,
-		FromEndpoints: selectorFromApp2DupList,
-		L7Parser:      "http",
+		Endpoints: selectorFromApp2DupList,
+		L7Parser:  "http",
 		L7RulesPerEp: L7DataMap{
 			selectorFromApp2[0]: api.L7Rules{
 				HTTP: []api.PortRuleHTTP{{Path: "/", Method: "GET"}},
@@ -329,16 +427,16 @@ func (ds *PolicyTestSuite) TestMinikubeGettingStarted(c *C) {
 	}
 	expected.Revision = repo.GetRevision()
 
-	c.Assert(len(l4policy.Ingress), Equals, 1)
-	c.Assert(*l4policy, comparator.DeepEquals, *expected)
+	c.Assert(len(*l4IngressPolicy), Equals, 1)
+	c.Assert(*l4IngressPolicy, comparator.DeepEquals, expected.Ingress)
 
 	// L4 from app3 has no rules
 	expected = NewL4Policy()
 	expected.Revision = repo.GetRevision()
-	l4policy, err = repo.ResolveL4Policy(fromApp3)
+	l4IngressPolicy, err = repo.ResolveL4IngressPolicy(fromApp3)
 	c.Assert(err, IsNil)
-	c.Assert(len(l4policy.Ingress), Equals, 0)
-	c.Assert(*l4policy, comparator.DeepEquals, *expected)
+	c.Assert(len(*l4IngressPolicy), Equals, 0)
+	c.Assert(*l4IngressPolicy, comparator.DeepEquals, expected.Ingress)
 }
 
 func buildSearchCtx(from, to string, port uint16) *SearchContext {
@@ -414,7 +512,7 @@ func (ds *PolicyTestSuite) TestPolicyTrace(c *C) {
 1/1 rules selected
 Found allow rule
 Label verdict: allowed
-L4 ingress & egress policies skipped
+L4 ingress policies skipped
 `
 	ctx := buildSearchCtx("foo", "bar", 0)
 	repo.checkTrace(c, ctx, expectedOut, api.Allowed)
@@ -435,13 +533,6 @@ Label verdict: undecided
 	// bar=>foo:80 is Denied, also checks L4 policy
 	ctx = buildSearchCtx("bar", "foo", 80)
 	expectedOut += `
-Resolving egress port policy for [any:bar]
-* Rule {"matchLabels":{"any:bar":""}}: selected
-    No L4 rules
-1/1 rules selected
-Found no allow rule
-L4 egress verdict: undecided
-
 Resolving ingress port policy for [any:foo]
 0/1 rules selected
 Found no allow rule
@@ -472,14 +563,9 @@ L4 ingress verdict: undecided
 Found no allow rule
 Label verdict: undecided
 
-Resolving egress port policy for [any:baz]
-0/2 rules selected
-Found no allow rule
-L4 egress verdict: undecided
-
 Resolving ingress port policy for [any:bar]
 * Rule {"matchLabels":{"any:bar":""}}: selected
-    No L4 rules
+    No L4 Ingress rules
 * Rule {"matchLabels":{"any:bar":""}}: selected
     Allows Ingress port [{80 ANY}] from endpoints [{"matchLabels":{"reserved:host":""}} {"matchLabels":{"any:baz":""}}]
       Found all required labels
@@ -506,18 +592,9 @@ L4 ingress verdict: allowed
 Found no allow rule
 Label verdict: undecided
 
-Resolving egress port policy for [any:bar]
-* Rule {"matchLabels":{"any:bar":""}}: selected
-    No L4 rules
-* Rule {"matchLabels":{"any:bar":""}}: selected
-    No L4 rules
-2/2 rules selected
-Found no allow rule
-L4 egress verdict: undecided
-
 Resolving ingress port policy for [any:bar]
 * Rule {"matchLabels":{"any:bar":""}}: selected
-    No L4 rules
+    No L4 Ingress rules
 * Rule {"matchLabels":{"any:bar":""}}: selected
     Allows Ingress port [{80 ANY}] from endpoints [{"matchLabels":{"reserved:host":""}} {"matchLabels":{"any:baz":""}}]
       Labels [any:bar] not found
