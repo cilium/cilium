@@ -124,12 +124,12 @@ type Listener struct {
 	// When this flag is not set (default), the socket is not modified, i.e. the transparent option
 	// is neither set nor reset.
 	Transparent *google_protobuf.BoolValue `protobuf:"bytes,10,opt,name=transparent" json:"transparent,omitempty"`
-	// [#not-implemented-hide:] Whether the listener should set the IP_FREEBIND socket option. When
-	// this flag is set to true, listeners can be bound to an IP address that is not configured on
-	// the system running Envoy.
-	// When this flag is set to false, the option IP_FREEBIND is disabled on the socket.
-	// When this flag is not set (default), the socket is not modified, i.e. the option is neither
-	// enabled nor disabled.
+	// [#not-implemented-hide:] Whether the listener should set the *IP_FREEBIND*
+	// socket option. When this flag is set to true, listeners can be bound to an
+	// IP address that is not configured on the system running Envoy. When this
+	// flag is set to false, the option *IP_FREEBIND* is disabled on the socket.
+	// When this flag is not set (default), the socket is not modified, i.e. the
+	// option is neither enabled nor disabled.
 	Freebind *google_protobuf.BoolValue `protobuf:"bytes,11,opt,name=freebind" json:"freebind,omitempty"`
 }
 
