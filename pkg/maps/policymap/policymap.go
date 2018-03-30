@@ -22,13 +22,23 @@ import (
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/comparator"
+	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
 const (
-	MapName    = "cilium_policy_"
+	MapName = "cilium_policy_"
+
+	// MaxEntries is the upper limit of entries in the per endpoint policy
+	// table
 	MaxEntries = 16384
+
+	// ProgArrayMaxEntries is the upper limit of entries in the program
+	// array for the tail calls to jump into the endpoint specific policy
+	// programs. This number *MUST* be identical to the maximum number of
+	// allowed identities.
+	ProgArrayMaxEntries = identity.MaxIdentity
 )
 
 var (
