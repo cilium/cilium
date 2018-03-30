@@ -838,6 +838,8 @@ func (kub *Kubectl) DumpCiliumCommandOutput(namespace string) {
 		}
 		reportMap(testPath, reportCmds, kub.SSHMeta)
 
+		logsPath := filepath.Join(BasePath, testPath)
+
 		// Get bugtool output. Since bugtool output is dumped in the pod's filesystem,
 		// copy it over with `kubectl cp`.
 		bugtoolCmd := fmt.Sprintf("%s exec -n %s %s -- %s",
@@ -851,21 +853,32 @@ func (kub *Kubectl) DumpCiliumCommandOutput(namespace string) {
 				// Only copy over bugtool output to directory.
 				if strings.Contains(line, CiliumBugtool) {
 					archiveName := fmt.Sprintf("%s-%s", pod, line)
-					res = kub.Exec(fmt.Sprintf("%s cp %s/%s:/tmp/%s %s",
-						KubectlCmd, namespace, pod, line,
-						filepath.Join(BasePath, testPath, archiveName)),
+					res = kub.Exec(fmt.Sprintf(
+						"%s cp %s/%s:/tmp/%s /tmp/", KubectlCmd, namespace, pod, line),
 						ExecOptions{SkipLog: true})
+					if !res.WasSuccessful() {
+						logger.Errorf("'%s' failed: %s", res.GetCmd(), res.CombineOutput())
+					}
+					res = kub.Exec(fmt.Sprintf(
+						"cp %s %s",
+						filepath.Join("/tmp/", line),
+						filepath.Join(logsPath, archiveName)),
+						ExecOptions{SkipLog: true})
+
+					if !res.WasSuccessful() {
+						logger.Errorf("'%s' failed: %s", res.GetCmd(), res.CombineOutput())
+					}
 				}
 			}
 		} else {
-			log.Errorf("%s failed: %s", bugtoolCmd, res.CombineOutput().String())
+			logger.Errorf("%s failed: %s", bugtoolCmd, res.CombineOutput().String())
 		}
 
 		// Copy Cilium envoy logs. Since the logs are in the pod's filesystem,
 		// copy them over with `kubectl cp`.
 		ciliumEnvoyLogCmd := fmt.Sprintf("%s cp %s/%s:%s %s",
 			KubectlCmd, namespace, pod, CiliumEnvoyLogPath,
-			filepath.Join(BasePath, testPath, CiliumEnvoyLogName))
+			filepath.Join(logsPath, CiliumEnvoyLogName))
 		res = kub.Exec(ciliumEnvoyLogCmd, ExecOptions{SkipLog: true})
 		if !res.WasSuccessful() {
 			log.Errorf("%s failed: %s", ciliumEnvoyLogCmd, res.CombineOutput().String())
