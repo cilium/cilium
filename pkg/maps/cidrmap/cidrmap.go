@@ -74,6 +74,7 @@ func (cm *CIDRMap) InsertCIDR(cidr net.IPNet) error {
 	if cm.Prefixlen != 0 && cm.Prefixlen != key.Prefixlen {
 		return fmt.Errorf("Unable to update element with different prefixlen than map!")
 	}
+	log.WithField(logfields.Path, cm.path).Debugf("Inserting CIDR entry %s", cidr.String())
 	return bpf.UpdateElement(cm.Fd, unsafe.Pointer(&key), unsafe.Pointer(&entry), 0)
 }
 
@@ -83,6 +84,7 @@ func (cm *CIDRMap) DeleteCIDR(cidr net.IPNet) error {
 	if cm.Prefixlen != 0 && cm.Prefixlen != key.Prefixlen {
 		return fmt.Errorf("Unable to delete element with different prefixlen than map!")
 	}
+	log.WithField(logfields.Path, cm.path).Debugf("Removing CIDR entry %s", cidr.String())
 	return bpf.DeleteElement(cm.Fd, unsafe.Pointer(&key))
 }
 
