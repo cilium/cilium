@@ -818,21 +818,23 @@ func (e *Endpoint) regeneratePolicy(owner Owner, opts models.ConfigurationMap) (
 	opts[OptionEgressPolicy] = optionDisabled
 
 	if egress {
+		// Need to explicitly check for access to host because localhost access
+		// is a special case in the datapath.
 		e.checkEgressAccess(owner, (*labelsMap)[identityPkg.ReservedIdentityHost], opts, OptionAllowToHost)
 	}
 
 	if !ingress && !egress {
-		e.getLogger().Debug("Policy Ingress and Egress disabled")
+		e.getLogger().Debug("ingress and egress policy enforcement not enabled")
 	} else {
 		if ingress && egress {
-			e.getLogger().Debug("Policy Ingress and Egress enabled")
+			e.getLogger().Debug("policy enforcement for ingress and egress enabled")
 			opts[OptionIngressPolicy] = optionEnabled
 			opts[OptionEgressPolicy] = optionEnabled
 		} else if ingress {
-			e.getLogger().Debug("Policy Ingress enabled")
+			e.getLogger().Debug("policy enforcement for ingress enabled")
 			opts[OptionIngressPolicy] = optionEnabled
 		} else {
-			e.getLogger().Debug("Policy Egress enabled")
+			e.getLogger().Debug("policy enforcement for egress enabled")
 			opts[OptionEgressPolicy] = optionEnabled
 		}
 	}
