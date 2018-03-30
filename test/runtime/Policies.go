@@ -958,6 +958,7 @@ var _ = Describe("RuntimeValidatedPolicies", func() {
 
 	It("Tests Egress To World", func() {
 		googleDNS := "8.8.8.8"
+		googleHTTP := "google.com"
 		checkEgressToWorld := func() {
 			By("Testing egress access to the world")
 			res := vm.ContainerExec(helpers.App1, helpers.Ping(googleDNS))
@@ -967,6 +968,10 @@ var _ = Describe("RuntimeValidatedPolicies", func() {
 			res = vm.ContainerExec(helpers.App1, helpers.Ping(helpers.App2))
 			ExpectWithOffset(2, res.WasSuccessful()).Should(
 				BeFalse(), "unexpectedly able to ping %s", helpers.App2)
+
+			res = vm.ContainerExec(helpers.App1, helpers.CurlFail("http://%s", googleHTTP))
+			ExpectWithOffset(2, res.WasSuccessful()).Should(
+				BeTrue(), "not able to curl %s", googleHTTP)
 		}
 
 		setupPolicyAndTestEgressToWorld := func(policy string) {
