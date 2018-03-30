@@ -957,6 +957,27 @@ var _ = Describe("RuntimeValidatedPolicies", func() {
 	})
 
 	It("Tests Egress To World", func() {
+		googleDNS := "8.8.8.8"
+		checkEgressToWorld := func() {
+			By("Testing egress access to the world")
+			res := vm.ContainerExec(helpers.App1, helpers.Ping(googleDNS))
+			ExpectWithOffset(2, res.WasSuccessful()).Should(
+				BeTrue(), "not able to ping %s", googleDNS)
+
+			res = vm.ContainerExec(helpers.App1, helpers.Ping(helpers.App2))
+			ExpectWithOffset(2, res.WasSuccessful()).Should(
+				BeFalse(), "unexpectedly able to ping %s", helpers.App2)
+		}
+
+		setupPolicyAndTestEgressToWorld := func(policy string) {
+			_, err := vm.PolicyRenderAndImport(policy)
+			ExpectWithOffset(1, err).To(BeNil(), "Unable to import policy: %s\n%s", err, policy)
+
+			areEndpointsReady := vm.WaitEndpointsReady()
+			ExpectWithOffset(1, areEndpointsReady).Should(BeTrue(), "Endpoints are not ready after timeout")
+
+			checkEgressToWorld()
+		}
 
 		// Set policy enforcement to default deny so that we can do negative tests
 		// before importing policy
@@ -966,11 +987,11 @@ var _ = Describe("RuntimeValidatedPolicies", func() {
 		areEndpointsReady := vm.WaitEndpointsReady()
 		Expect(areEndpointsReady).Should(BeTrue(), "Endpoints are not ready after timeout")
 
-		googleDNS := "8.8.8.8"
 		failedPing := vm.ContainerExec(helpers.App1, helpers.Ping(googleDNS))
 		failedPing.ExpectFail("unexpectedly able to ping %s", googleDNS)
 
-		app1Label := "id.app1"
+		By("testing basic egress to world")
+		app1Label := fmt.Sprintf("id.%s", helpers.App1)
 		policy := fmt.Sprintf(`
 		[{
 			"endpointSelector": {"matchLabels":{"%s":""}},
@@ -980,19 +1001,9 @@ var _ = Describe("RuntimeValidatedPolicies", func() {
 				]
 			}]
 		}]`, app1Label, api.EntityWorld)
+		setupPolicyAndTestEgressToWorld(policy)
 
-		_, err := vm.PolicyRenderAndImport(policy)
-		Expect(err).To(BeNil(), "Unable to import policy: %s\n%s", err, policy)
-
-		areEndpointsReady = vm.WaitEndpointsReady()
-		Expect(areEndpointsReady).Should(BeTrue(), "Endpoints are not ready after timeout")
-
-		successPing := vm.ContainerExec(helpers.App1, helpers.Ping(googleDNS))
-		successPing.ExpectSuccess("not able to ping %s", googleDNS)
-
-		res = vm.ContainerExec(helpers.App1, helpers.Ping(helpers.App2))
-		res.ExpectFail("unexpectedly able to ping %s", helpers.App2)
-
+		vm.PolicyDelAll().ExpectSuccess("Unable to delete all policies")
 	})
 })
 
