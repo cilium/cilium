@@ -127,7 +127,7 @@ Http::FilterHeadersStatus AccessFilter::decodeHeaders(Http::HeaderMap& headers, 
     if (options_) {
       const Cilium::SocketOption* option = nullptr;
       for (const auto& option_: *options_) {
-	option = dynamic_cast<Cilium::SocketOption*>(option_.get());
+	option = dynamic_cast<const Cilium::SocketOption*>(option_.get());
 	if (option) {
 	  ingress = option->ingress_;
 	  if (ingress) {

@@ -86,7 +86,7 @@ void AccessLog::Entry::InitFromRequest(
     if (options_) {
       const Cilium::SocketMarkOption* option = nullptr;
       for (const auto& option_: *options_) {
-	option = dynamic_cast<Cilium::SocketMarkOption*>(option_.get());
+	option = dynamic_cast<const Cilium::SocketMarkOption*>(option_.get());
 	if (option) {
 	  entry.set_source_security_id(option->identity_);
 	  break;
