@@ -242,7 +242,7 @@ var _ = Describe("K8sValidatedServicesTest", func() {
 			Eventually(func() string {
 				res := kubectl.CiliumEndpointGet(ciliumPod, endpointID)
 
-				data, err := res.Filter(`{[0].policy.realized.cidr-policy.egress}`)
+				data, err := res.Filter(`{[0].status.policy.realized.cidr-policy.egress}`)
 				Expect(err).To(BeNil())
 				return data.String()
 

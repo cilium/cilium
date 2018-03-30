@@ -93,8 +93,8 @@ func main() {
 	skel.PluginMain(cmdAdd, cmdDel, version.All)
 }
 
-func IPv6IsEnabled(ipam *models.IPAM) bool {
-	if ipam == nil || ipam.Endpoint.IPV6 == "" {
+func IPv6IsEnabled(ipam *models.IPAMResponse) bool {
+	if ipam == nil || ipam.Address.IPV6 == "" {
 		return false
 	}
 
@@ -105,8 +105,8 @@ func IPv6IsEnabled(ipam *models.IPAM) bool {
 	return true
 }
 
-func IPv4IsEnabled(ipam *models.IPAM) bool {
-	if ipam == nil || ipam.Endpoint.IPV4 == "" {
+func IPv4IsEnabled(ipam *models.IPAMResponse) bool {
+	if ipam == nil || ipam.Address.IPV4 == "" {
 		return false
 	}
 
@@ -155,7 +155,7 @@ func releaseIP(client *client.Client, ip string) {
 	}
 }
 
-func releaseIPs(client *client.Client, addr *models.EndpointAddressing) {
+func releaseIPs(client *client.Client, addr *models.AddressPair) {
 	releaseIP(client, addr.IPV6)
 	releaseIP(client, addr.IPV4)
 }
@@ -201,7 +201,7 @@ func addIPConfigToLink(ip addressing.CiliumIP, routes []plugins.Route, link netl
 	return nil
 }
 
-func configureIface(ipam *models.IPAM, ifName string, state *CmdState) (string, error) {
+func configureIface(ipam *models.IPAMResponse, ifName string, state *CmdState) (string, error) {
 	link, err := netlink.LinkByName(ifName)
 	if err != nil {
 		return "", fmt.Errorf("failed to lookup %q: %v", ifName, err)
@@ -329,7 +329,7 @@ func cmdAdd(args *skel.CmdArgs) error {
 		ContainerID: args.ContainerID,
 		Labels:      addLabels,
 		State:       models.EndpointStateWaitingForIdentity,
-		Addressing:  &models.EndpointAddressing{},
+		Addressing:  &models.AddressPair{},
 	}
 
 	veth, peer, tmpIfName, err := plugins.SetupVeth(ep.ContainerID, n.MTU, ep)
@@ -361,12 +361,12 @@ func cmdAdd(args *skel.CmdArgs) error {
 		return err
 	}
 
-	if ipam.Endpoint == nil {
+	if ipam.Address == nil {
 		return fmt.Errorf("Invalid IPAM response, missing addressing")
 	}
 
-	ep.Addressing.IPV6 = ipam.Endpoint.IPV6
-	ep.Addressing.IPV4 = ipam.Endpoint.IPV4
+	ep.Addressing.IPV6 = ipam.Address.IPV6
+	ep.Addressing.IPV4 = ipam.Address.IPV4
 
 	// release addresses on failure
 	defer func() {
@@ -452,7 +452,9 @@ func cmdDel(args *skel.CmdArgs) error {
 		log.WithError(err).WithField(logfields.EndpointID, id).Debug("Agent is not aware of endpoint")
 		return nil
 	} else {
-		releaseIPs(client, ep.Addressing)
+		for _, address := range ep.Status.Networking.Addressing {
+			releaseIPs(client, address)
+		}
 	}
 
 	if err := client.EndpointDelete(id); err != nil {

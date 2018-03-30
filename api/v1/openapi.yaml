@@ -367,7 +367,7 @@ paths:
         '201':
           description: Success
           schema:
-            "$ref": "#/definitions/IPAM"
+            "$ref": "#/definitions/IPAMResponse"
         '502':
           description: Allocation failure
           x-go-name: Failure
@@ -725,87 +725,18 @@ parameters:
     - ipv6
 definitions:
   Endpoint:
-    description: Endpoint
+    description: An endpoint is a namespaced network interface to which cilium applies policies
     type: object
-    required:
-      - state
-      - policy-enabled
     properties:
       id:
-        description: Local endpoint ID
+        description: The cilium-agent-local ID of the endpoint
         type: integer
-      configuration:
-        description: configuration options for this endpoint
+      spec:
+        description: The desired configuration state of the endpoint
         "$ref": "#/definitions/EndpointConfigurationSpec"
-      container-id:
-        description: ID assigned by container runtime
-        type: string
-      container-name:
-        description: Name assigned to container
-        type: string
-      docker-endpoint-id:
-        description: Docker endpoint ID
-        type: string
-      labels:
-        description: Labels describing the identity
-        "$ref": "#/definitions/LabelConfiguration"
-      docker-network-id:
-        description: Docker network ID
-        type: string
-      interface-name:
-        description: Name of network device
-        type: string
-      interface-index:
-        description: Index of network device
-        type: integer
-      state:
-        description: Current state of endpoint
-        "$ref": "#/definitions/EndpointState"
       status:
-        description: Most recent status log. See endpoint/{id}/log for the complete log.
-        "$ref": "#/definitions/EndpointStatusLog"
-      health:
-        description: Health of the endpoint
-        "$ref": "#/definitions/EndpointHealth"
-      mac:
-        description: MAC address
-        type: string
-      host-mac:
-        description: MAC address
-        type: string
-      addressing:
-        "$ref": "#/definitions/EndpointAddressing"
-      identity:
-        description: Security identity
-        "$ref": "#/definitions/Identity"
-      pod-name:
-        description: K8s pod for this endpoint
-        type: string
-      policy:
-        description: Policy information of endpoint
-        "$ref": "#/definitions/EndpointPolicyStatus"
-      policy-enabled:
-        description: Whether policy enforcement is enabled (ingress, egress, both or none)
-        type: string
-        enum:
-          - none
-          - ingress
-          - egress
-          - both
-      policy-revision:
-        description: The policy revision this endpoint is running on
-        type: integer
-      proxy-policy-revision:
-        description: The policy revision currently enforced in the proxy for this endpoint
-        type: integer
-      proxy-statistics:
-        description: Statistics of the proxy redirects configured for this endpoint
-        type: array
-        items:
-          "$ref": "#/definitions/ProxyStatistics"
-      controllers:
-        description: Status of all endpoint controllers
-        "$ref": "#/definitions/ControllerStatuses"
+        description: The desired and realized configuration state of the endpoint
+        "$ref": "#/definitions/EndpointStatus"
   EndpointChangeRequest:
     description: |
       Structure which contains the mutable elements of an Endpoint.
@@ -847,10 +778,46 @@ definitions:
         description: MAC address
         type: string
       addressing:
-        "$ref": "#/definitions/EndpointAddressing"
+        "$ref": "#/definitions/AddressPair"
       policy-enabled:
         description: Whether policy enforcement is enabled or not
         type: boolean
+  EndpointStatus:
+    description: The current state and configuration of the endpoint, its policy & datapath, and subcomponents
+    type: object
+    required:
+      - state
+    properties:
+      external-identifiers:
+        description: Unique identifiers for this endpoint from outside cilium
+        "$ref": "#/definitions/EndpointIdentifiers"
+      identity:
+        description: The security identity for this endpoint
+        "$ref": "#/definitions/Identity"
+      labels:
+        description: Labels applied to this endpoint
+        "$ref": "#/definitions/LabelConfigurationStatus"
+      realized:
+        description: The configuration in effect on this endpoint
+        "$ref": "#/definitions/EndpointConfigurationSpec"
+      networking:
+        description: Networking properties of the endpoint
+        "$ref": "#/definitions/EndpointNetworking"
+      policy:
+        description: The policy applied to this endpoint from the policy repository
+        "$ref": "#/definitions/EndpointPolicyStatus"
+      log:
+        description: Most recent status log. See endpoint/{id}/log for the complete log.
+        "$ref": "#/definitions/EndpointStatusLog"
+      controllers:
+        description: Status of internal controllers attached to this endpoint
+        "$ref": "#/definitions/ControllerStatuses"
+      state:
+        description: Current state of endpoint
+        "$ref": "#/definitions/EndpointState"
+      health:
+        description: Summary overall endpoint & subcomponent health
+        "$ref": "#/definitions/EndpointHealth"
   EndpointState:
     description: State of endpoint
     type: string
@@ -927,6 +894,23 @@ definitions:
       realized:
         description: The policy in the datapath for this endpoint
         "$ref": "#/definitions/EndpointPolicy"
+      proxy-policy-revision:
+        description: The policy revision currently enforced in the proxy for this endpoint
+        type: integer
+      proxy-statistics:
+        description: Statistics of the proxy redirects configured for this endpoint
+        type: array
+        items:
+          "$ref": "#/definitions/ProxyStatistics"
+  EndpointPolicyEnabled:
+    description: Whether policy enforcement is enabled (ingress, egress, both or none)
+    type: string
+    enum:
+      - none
+      - ingress
+      - egress
+      - both
+
   EndpointPolicy:
     description: Policy information of an endpoint
     type: object
@@ -937,6 +921,9 @@ definitions:
       id:
         description: Own identity of endpoint
         type: integer
+      policy-enabled:
+        description: Whether policy enforcement is enabled (ingress, egress, both or none)
+        "$ref": "#/definitions/EndpointPolicyEnabled"
       build:
         description: Build number of calculated policy in use
         type: integer
@@ -1061,18 +1048,18 @@ definitions:
         type: array
         items:
           type: string
-  IPAM:
+  IPAMResponse:
     description: IPAM configuration of an endpoint
     type: object
     required:
-      - endpoint
+      - address
       - host-addressing
     properties:
-      endpoint:
-        "$ref": "#/definitions/EndpointAddressing"
+      address:
+        "$ref": "#/definitions/AddressPair"
       host-addressing:
         "$ref": "#/definitions/NodeAddressing"
-  EndpointAddressing:
+  AddressPair:
     description: Addressing information of an endpoint
     type: object
     properties:
@@ -1097,6 +1084,48 @@ definitions:
         "$ref": "#/definitions/Labels"
       labelsSHA256:
         description: SHA256 of labels
+        type: string
+  EndpointNetworking:
+    description: Unique identifiers for this endpoint from outside cilium
+    type: object
+    properties:
+      addressing:
+        description: IP4/6 addresses assigned to this Endpoint
+        type: array
+        items:
+          "$ref": "#/definitions/AddressPair"
+      host-addressing:
+        "$ref": "#/definitions/NodeAddressing"
+      host-mac:
+        description: MAC address
+        type: string
+      mac:
+        description: MAC address
+        type: string
+      interface-name:
+        description: Name of network device
+        type: string
+      interface-index:
+        description: Index of network device
+        type: integer
+  EndpointIdentifiers:
+    description: Unique identifiers for this endpoint from outside cilium
+    type: object
+    properties:
+      container-id:
+        description: ID assigned by container runtime
+        type: string
+      container-name:
+        description: Name assigned to container
+        type: string
+      docker-endpoint-id:
+        description: Docker endpoint ID
+        type: string
+      docker-network-id:
+        description: Docker network ID
+        type: string
+      pod-name:
+        description: K8s pod for this endpoint
         type: string
   Labels:
     description: Set of labels

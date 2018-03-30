@@ -567,7 +567,7 @@ func init() {
           "201": {
             "description": "Success",
             "schema": {
-              "$ref": "#/definitions/IPAM"
+              "$ref": "#/definitions/IPAMResponse"
             }
           },
           "502": {
@@ -955,6 +955,20 @@ func init() {
       "description": "IP address",
       "type": "string"
     },
+    "AddressPair": {
+      "description": "Addressing information of an endpoint",
+      "type": "object",
+      "properties": {
+        "ipv4": {
+          "description": "IPv4 address",
+          "type": "string"
+        },
+        "ipv6": {
+          "description": "IPv6 address",
+          "type": "string"
+        }
+      }
+    },
     "BackendAddress": {
       "description": "Service backend address",
       "type": "object",
@@ -1220,126 +1234,20 @@ func init() {
       }
     },
     "Endpoint": {
-      "description": "Endpoint",
+      "description": "An endpoint is a namespaced network interface to which cilium applies policies",
       "type": "object",
-      "required": [
-        "state",
-        "policy-enabled"
-      ],
       "properties": {
-        "addressing": {
-          "$ref": "#/definitions/EndpointAddressing"
+        "id": {
+          "description": "The cilium-agent-local ID of the endpoint",
+          "type": "integer"
         },
-        "configuration": {
-          "description": "configuration options for this endpoint",
+        "spec": {
+          "description": "The desired configuration state of the endpoint",
           "$ref": "#/definitions/EndpointConfigurationSpec"
         },
-        "container-id": {
-          "description": "ID assigned by container runtime",
-          "type": "string"
-        },
-        "container-name": {
-          "description": "Name assigned to container",
-          "type": "string"
-        },
-        "controllers": {
-          "description": "Status of all endpoint controllers",
-          "$ref": "#/definitions/ControllerStatuses"
-        },
-        "docker-endpoint-id": {
-          "description": "Docker endpoint ID",
-          "type": "string"
-        },
-        "docker-network-id": {
-          "description": "Docker network ID",
-          "type": "string"
-        },
-        "health": {
-          "description": "Health of the endpoint",
-          "$ref": "#/definitions/EndpointHealth"
-        },
-        "host-mac": {
-          "description": "MAC address",
-          "type": "string"
-        },
-        "id": {
-          "description": "Local endpoint ID",
-          "type": "integer"
-        },
-        "identity": {
-          "description": "Security identity",
-          "$ref": "#/definitions/Identity"
-        },
-        "interface-index": {
-          "description": "Index of network device",
-          "type": "integer"
-        },
-        "interface-name": {
-          "description": "Name of network device",
-          "type": "string"
-        },
-        "labels": {
-          "description": "Labels describing the identity",
-          "$ref": "#/definitions/LabelConfiguration"
-        },
-        "mac": {
-          "description": "MAC address",
-          "type": "string"
-        },
-        "pod-name": {
-          "description": "K8s pod for this endpoint",
-          "type": "string"
-        },
-        "policy": {
-          "description": "Policy information of endpoint",
-          "$ref": "#/definitions/EndpointPolicyStatus"
-        },
-        "policy-enabled": {
-          "description": "Whether policy enforcement is enabled (ingress, egress, both or none)",
-          "type": "string",
-          "enum": [
-            "none",
-            "ingress",
-            "egress",
-            "both"
-          ]
-        },
-        "policy-revision": {
-          "description": "The policy revision this endpoint is running on",
-          "type": "integer"
-        },
-        "proxy-policy-revision": {
-          "description": "The policy revision currently enforced in the proxy for this endpoint",
-          "type": "integer"
-        },
-        "proxy-statistics": {
-          "description": "Statistics of the proxy redirects configured for this endpoint",
-          "type": "array",
-          "items": {
-            "$ref": "#/definitions/ProxyStatistics"
-          }
-        },
-        "state": {
-          "description": "Current state of endpoint",
-          "$ref": "#/definitions/EndpointState"
-        },
         "status": {
-          "description": "Most recent status log. See endpoint/{id}/log for the complete log.",
-          "$ref": "#/definitions/EndpointStatusLog"
-        }
-      }
-    },
-    "EndpointAddressing": {
-      "description": "Addressing information of an endpoint",
-      "type": "object",
-      "properties": {
-        "ipv4": {
-          "description": "IPv4 address",
-          "type": "string"
-        },
-        "ipv6": {
-          "description": "IPv6 address",
-          "type": "string"
+          "description": "The desired and realized configuration state of the endpoint",
+          "$ref": "#/definitions/EndpointStatus"
         }
       }
     },
@@ -1351,7 +1259,7 @@ func init() {
       ],
       "properties": {
         "addressing": {
-          "$ref": "#/definitions/EndpointAddressing"
+          "$ref": "#/definitions/AddressPair"
         },
         "container-id": {
           "description": "ID assigned by container runtime",
@@ -1466,6 +1374,64 @@ func init() {
         "Disabled"
       ]
     },
+    "EndpointIdentifiers": {
+      "description": "Unique identifiers for this endpoint from outside cilium",
+      "type": "object",
+      "properties": {
+        "container-id": {
+          "description": "ID assigned by container runtime",
+          "type": "string"
+        },
+        "container-name": {
+          "description": "Name assigned to container",
+          "type": "string"
+        },
+        "docker-endpoint-id": {
+          "description": "Docker endpoint ID",
+          "type": "string"
+        },
+        "docker-network-id": {
+          "description": "Docker network ID",
+          "type": "string"
+        },
+        "pod-name": {
+          "description": "K8s pod for this endpoint",
+          "type": "string"
+        }
+      }
+    },
+    "EndpointNetworking": {
+      "description": "Unique identifiers for this endpoint from outside cilium",
+      "type": "object",
+      "properties": {
+        "addressing": {
+          "description": "IP4/6 addresses assigned to this Endpoint",
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/AddressPair"
+          }
+        },
+        "host-addressing": {
+          "$ref": "#/definitions/NodeAddressing"
+        },
+        "host-mac": {
+          "description": "MAC address",
+          "type": "string"
+        },
+        "interface-index": {
+          "description": "Index of network device",
+          "type": "integer"
+        },
+        "interface-name": {
+          "description": "Name of network device",
+          "type": "string"
+        },
+        "mac": {
+          "description": "MAC address",
+          "type": "string"
+        }
+      }
+    },
     "EndpointPolicy": {
       "description": "Policy information of an endpoint",
       "type": "object",
@@ -1498,16 +1464,41 @@ func init() {
         "l4": {
           "$ref": "#/definitions/L4Policy"
         },
+        "policy-enabled": {
+          "description": "Whether policy enforcement is enabled (ingress, egress, both or none)",
+          "$ref": "#/definitions/EndpointPolicyEnabled"
+        },
         "policy-revision": {
           "description": "The agent-local policy revision",
           "type": "integer"
         }
       }
     },
+    "EndpointPolicyEnabled": {
+      "description": "Whether policy enforcement is enabled (ingress, egress, both or none)",
+      "type": "string",
+      "enum": [
+        "none",
+        "ingress",
+        "egress",
+        "both"
+      ]
+    },
     "EndpointPolicyStatus": {
       "description": "Policy information of an endpoint",
       "type": "object",
       "properties": {
+        "proxy-policy-revision": {
+          "description": "The policy revision currently enforced in the proxy for this endpoint",
+          "type": "integer"
+        },
+        "proxy-statistics": {
+          "description": "Statistics of the proxy redirects configured for this endpoint",
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/ProxyStatistics"
+          }
+        },
         "realized": {
           "description": "The policy in the datapath for this endpoint",
           "$ref": "#/definitions/EndpointPolicy"
@@ -1532,6 +1523,55 @@ func init() {
         "disconnecting",
         "disconnected"
       ]
+    },
+    "EndpointStatus": {
+      "description": "The current state and configuration of the endpoint, its policy \u0026 datapath, and subcomponents",
+      "type": "object",
+      "required": [
+        "state"
+      ],
+      "properties": {
+        "controllers": {
+          "description": "Status of internal controllers attached to this endpoint",
+          "$ref": "#/definitions/ControllerStatuses"
+        },
+        "external-identifiers": {
+          "description": "Unique identifiers for this endpoint from outside cilium",
+          "$ref": "#/definitions/EndpointIdentifiers"
+        },
+        "health": {
+          "description": "Summary overall endpoint \u0026 subcomponent health",
+          "$ref": "#/definitions/EndpointHealth"
+        },
+        "identity": {
+          "description": "The security identity for this endpoint",
+          "$ref": "#/definitions/Identity"
+        },
+        "labels": {
+          "description": "Labels applied to this endpoint",
+          "$ref": "#/definitions/LabelConfigurationStatus"
+        },
+        "log": {
+          "description": "Most recent status log. See endpoint/{id}/log for the complete log.",
+          "$ref": "#/definitions/EndpointStatusLog"
+        },
+        "networking": {
+          "description": "Networking properties of the endpoint",
+          "$ref": "#/definitions/EndpointNetworking"
+        },
+        "policy": {
+          "description": "The policy applied to this endpoint from the policy repository",
+          "$ref": "#/definitions/EndpointPolicyStatus"
+        },
+        "realized": {
+          "description": "The configuration in effect on this endpoint",
+          "$ref": "#/definitions/EndpointConfigurationSpec"
+        },
+        "state": {
+          "description": "Current state of endpoint",
+          "$ref": "#/definitions/EndpointState"
+        }
+      }
     },
     "EndpointStatusChange": {
       "description": "Indication of a change of status",
@@ -1592,16 +1632,16 @@ func init() {
         }
       }
     },
-    "IPAM": {
+    "IPAMResponse": {
       "description": "IPAM configuration of an endpoint",
       "type": "object",
       "required": [
-        "endpoint",
+        "address",
         "host-addressing"
       ],
       "properties": {
-        "endpoint": {
-          "$ref": "#/definitions/EndpointAddressing"
+        "address": {
+          "$ref": "#/definitions/AddressPair"
         },
         "host-addressing": {
           "$ref": "#/definitions/NodeAddressing"

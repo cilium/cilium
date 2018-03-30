@@ -19,7 +19,7 @@ import (
 type EndpointChangeRequest struct {
 
 	// addressing
-	Addressing *EndpointAddressing `json:"addressing,omitempty"`
+	Addressing *AddressPair `json:"addressing,omitempty"`
 
 	// ID assigned by container runtime
 	ContainerID string `json:"container-id,omitempty"`

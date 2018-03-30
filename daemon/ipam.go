@@ -37,9 +37,9 @@ func NewPostIPAMHandler(d *Daemon) ipamapi.PostIPAMHandler {
 
 // Handle incoming requests address allocation requests for the daemon.
 func (h *postIPAM) Handle(params ipamapi.PostIPAMParams) middleware.Responder {
-	resp := &models.IPAM{
+	resp := &models.IPAMResponse{
 		HostAddressing: h.daemon.getNodeAddressing(),
-		Endpoint:       &models.EndpointAddressing{},
+		Address:        &models.AddressPair{},
 	}
 
 	ipv4, ipv6, err := ipam.AllocateNext(strings.ToLower(swag.StringValue(params.Family)))
@@ -48,11 +48,11 @@ func (h *postIPAM) Handle(params ipamapi.PostIPAMParams) middleware.Responder {
 	}
 
 	if ipv4 != nil {
-		resp.Endpoint.IPV4 = ipv4.String()
+		resp.Address.IPV4 = ipv4.String()
 	}
 
 	if ipv6 != nil {
-		resp.Endpoint.IPV6 = ipv6.String()
+		resp.Address.IPV6 = ipv6.String()
 	}
 
 	return ipamapi.NewPostIPAMCreated().WithPayload(resp)

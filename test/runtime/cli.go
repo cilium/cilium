@@ -69,7 +69,7 @@ var _ = Describe("RuntimeValidatedCLI", func() {
 
 			epModel := vm.EndpointGet(fmt.Sprintf("-l container:%s", fooID))
 			Expect(epModel).ShouldNot(BeNil(), "no endpoint model returned")
-			identity := epModel.Identity.ID
+			identity := epModel.Status.Identity.ID
 
 			out, err := vm.ExecCilium(fmt.Sprintf("identity get %d -o json", identity)).Filter("{[0].labelsSHA256}")
 
@@ -91,7 +91,7 @@ var _ = Describe("RuntimeValidatedCLI", func() {
 
 			epModel := vm.EndpointGet(fmt.Sprintf("-l container:%s", fooID))
 			Expect(epModel).ShouldNot(BeNil(), "no endpoint model returned")
-			identity := strconv.FormatInt(epModel.Identity.ID, 10)
+			identity := strconv.FormatInt(epModel.Status.Identity.ID, 10)
 
 			res := vm.ExecCilium(fmt.Sprintf("identity list container:%s", fooID))
 			res.ExpectSuccess(fmt.Sprintf("Unable to get identity list output for label container:%s", fooID))

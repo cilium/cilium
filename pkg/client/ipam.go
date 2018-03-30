@@ -25,7 +25,7 @@ const (
 )
 
 // IPAMAllocate allocates an IP address out of address family specific pool.
-func (c *Client) IPAMAllocate(family string) (*models.IPAM, error) {
+func (c *Client) IPAMAllocate(family string) (*models.IPAMResponse, error) {
 	params := ipam.NewPostIPAMParams()
 
 	if family != "" {
