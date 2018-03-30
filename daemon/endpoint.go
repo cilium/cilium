@@ -715,6 +715,12 @@ func (h *putEndpointIDLabels) Handle(params PutEndpointIDLabelsParams) middlewar
 // IPCache (pkg/ipcache).
 // TODO (FIXME): GH-3161.
 func (d *Daemon) OnIPIdentityCacheChange(modType ipcache.CacheModification, ipIDPair identity.IPIdentityPair) {
+
+	log.WithFields(logrus.Fields{logfields.Modification: modType,
+		logfields.IPAddr:   ipIDPair.IP,
+		logfields.Identity: ipIDPair.ID}).
+		Debug("daemon notified of IP-Identity cache state change")
+
 	// TODO - see if we can factor this into an interface under something like
 	// pkg/datapath instead of in the daemon directly so that the code is more
 	// logically located.
