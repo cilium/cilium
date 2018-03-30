@@ -78,9 +78,35 @@ func (e *Endpoint) ParseL4Filter(l4Filter *policy.L4Filter) (policy.L4RuleContex
 		}
 }
 
-func (e *Endpoint) writeL4Map(fw *bufio.Writer, m policy.L4PolicyMap, config string) error {
-	array := ""
-	index := 0
+// filterAccumulator accumulates proxyport / L4 allow configurations during
+// e.writeL4Map() iteration.
+type filterAccumulator struct {
+	config string
+	array  string
+	index  int
+}
+
+func (fa *filterAccumulator) add(dport, redirect uint16, protoNum uint8) {
+	entry := fmt.Sprintf("%d,%d,%d,%d", fa.index, dport, redirect, protoNum)
+	if fa.array != "" {
+		fa.array = fa.array + "," + entry
+	} else {
+		fa.array = entry
+	}
+	fa.index++
+}
+
+func (fa *filterAccumulator) writeL4Map(fw *bufio.Writer) {
+	if fa.array == "" {
+		fmt.Fprintf(fw, "#undef %s\n", fa.config)
+	} else {
+		fmt.Fprintf(fw, "#define %s %s, (), 0\n", fa.config, fa.array)
+		fmt.Fprintf(fw, "#define NR_%s %d\n", fa.config, fa.index)
+	}
+}
+
+func (e *Endpoint) writeL4Map(fw *bufio.Writer, m policy.L4PolicyMap, configL4 string) error {
+	l4cfg := &filterAccumulator{config: configL4}
 
 	for _, l4 := range m {
 		// Represents struct l4_allow in bpf/lib/l4.h
@@ -89,25 +115,12 @@ func (e *Endpoint) writeL4Map(fw *bufio.Writer, m policy.L4PolicyMap, config str
 			return fmt.Errorf("invalid protocol %s", l4.Protocol)
 		}
 
-		dport := byteorder.HostToNetwork(uint16(l4.Port))
-
+		dport := byteorder.HostToNetwork(uint16(l4.Port)).(uint16)
 		redirect := e.lookupRedirectPortBE(&l4)
-		entry := fmt.Sprintf("%d,%d,%d,%d", index, dport, redirect, protoNum)
-		if array != "" {
-			array = array + "," + entry
-		} else {
-			array = entry
-		}
-
-		index++
+		l4cfg.add(dport, redirect, uint8(protoNum))
 	}
 
-	if array == "" {
-		fmt.Fprintf(fw, "#undef %s\n", config)
-	} else {
-		fmt.Fprintf(fw, "#define %s %s, (), 0\n", config, array)
-		fmt.Fprintf(fw, "#define NR_%s %d\n", config, len(m))
-	}
+	l4cfg.writeL4Map(fw)
 
 	return nil
 }
