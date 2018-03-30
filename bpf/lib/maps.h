@@ -40,7 +40,7 @@ struct bpf_elf_map __section_maps cilium_policy = {
 	.size_key	= sizeof(__u32),
 	.size_value	= sizeof(__u32),
 	.pinning	= PIN_GLOBAL_NS,
-	.max_elem	= POLICY_MAP_SIZE,
+	.max_elem	= POLICY_PROG_MAP_SIZE,
 };
 
 struct bpf_elf_map __section_maps cilium_reserved_policy = {
