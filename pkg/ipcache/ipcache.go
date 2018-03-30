@@ -93,9 +93,9 @@ func (ipc *IPCache) RUnlock() {
 	ipc.mutex.RUnlock()
 }
 
-// upsert adds / updates the provided IP and identity into both caches contained
+// Upsert adds / updates the provided IP and identity into both caches contained
 // within ipc.
-func (ipc *IPCache) upsert(endpointIP string, identity identity.NumericIdentity) {
+func (ipc *IPCache) Upsert(endpointIP string, identity identity.NumericIdentity) {
 	ipc.mutex.Lock()
 	defer ipc.mutex.Unlock()
 
@@ -246,7 +246,7 @@ func ipIdentityWatcher(owner IPIdentityMappingOwner) {
 
 				// Need to add or update entry.
 				if !ipExists || cachedIdentity != ipIDPair.ID {
-					IPIdentityCache.upsert(ipStr, ipIDPair.ID)
+					IPIdentityCache.Upsert(ipStr, ipIDPair.ID)
 					cacheChanged = true
 					cacheModification = Upsert
 
@@ -262,7 +262,7 @@ func ipIdentityWatcher(owner IPIdentityMappingOwner) {
 					sort.Strings(ipStrings)
 					envoy.NetworkPolicyHostsCache.Upsert(envoy.NetworkPolicyHostsTypeURL, ipIDPair.ID.StringID(), &envoyAPI.NetworkPolicyHosts{Policy: uint64(ipIDPair.ID), HostAddresses: ipStrings}, false)
 
-					// This lookup needs to be *after* the above call to upsert
+					// This lookup needs to be *after* the above call to Upsert
 					// in order to determine if the identity-to IP mapping still
 					// exists in the IPIdentityCache. This determines what operation is
 					// performed on the Envoy cache for updating the entry for
@@ -305,10 +305,11 @@ func ipIdentityWatcher(owner IPIdentityMappingOwner) {
 
 			if cacheChanged {
 				log.WithFields(logrus.Fields{
-					"endpoint-ip":      ipIDPair.IP,
-					"cached-identity":  cachedIdentity,
-					logfields.Identity: ipIDPair.ID,
-				}).Debugf("endpoint IP cache %s", cacheModification)
+					"endpoint-ip":          ipIDPair.IP,
+					"cached-identity":      cachedIdentity,
+					logfields.Identity:     ipIDPair.ID,
+					logfields.Modification: cacheModification,
+				}).Debugf("endpoint IP cache state change")
 
 				// Callback upon cache updates.
 				owner.OnIPIdentityCacheChange(cacheModification, ipIDPair)
