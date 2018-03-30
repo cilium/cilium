@@ -69,4 +69,7 @@ GIT_VERSION
 envoy/SOURCE_VERSION
 envoy/Dockerfile.builder
 
+# To run Envoy tests under gdb do "cd envoy && make debug && ln -s bazel-envoy/external external"
+envoy/external
+
 test/bpf/_results
