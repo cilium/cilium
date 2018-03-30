@@ -45,18 +45,6 @@ func (m *L7Policy) Validate() error {
 
 	// no validation rules for PolicyName
 
-	if v, ok := interface{}(m.GetApiConfigSource()).(interface {
-		Validate() error
-	}); ok {
-		if err := v.Validate(); err != nil {
-			return L7PolicyValidationError{
-				Field:  "ApiConfigSource",
-				Reason: "embedded message failed validation",
-				Cause:  err,
-			}
-		}
-	}
-
 	return nil
 }
 

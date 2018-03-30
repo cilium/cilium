@@ -65,8 +65,10 @@ Network::FilterStatus Instance::onNewConnection() {
 	  ASSERT(!maps_);
 	  maps_ = option->maps_;
 	  proxy_port_ = option->proxy_port_;
-	  conn.addConnectionCallbacks(*this);
-	  ENVOY_CONN_LOG(debug, "Cilium Network: Added connection callbacks", conn);
+	  if (proxy_port_ != 0) {
+	    conn.addConnectionCallbacks(*this);
+	    ENVOY_CONN_LOG(debug, "Cilium Network: Added connection callbacks to delete proxymap entry later", conn);
+	  }
 	  break;
 	} else {
 	  ENVOY_CONN_LOG(warn, "Cilium Network: No proxymap", conn);

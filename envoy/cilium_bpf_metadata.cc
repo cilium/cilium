@@ -58,39 +58,71 @@ namespace BpfMetadata {
 
 // Singleton registration via macro defined in envoy/singleton/manager.h
 SINGLETON_MANAGER_REGISTRATION(cilium_bpf_proxymap);
+SINGLETON_MANAGER_REGISTRATION(cilium_host_map);
+
+namespace {
+
+std::shared_ptr<const Cilium::PolicyHostMap>
+createHostMap(Server::Configuration::ListenerFactoryContext& context) {
+  return context.singletonManager().getTyped<const Cilium::PolicyHostMap>(
+    SINGLETON_MANAGER_REGISTERED_NAME(cilium_host_map), [&context] {
+      return std::make_shared<Cilium::PolicyHostMap>(
+        context.localInfo().node(), context.clusterManager(),
+	context.dispatcher(), context.scope(), context.threadLocal());
+    });
+}
+
+} // namespace
 
 Config::Config(const ::cilium::BpfMetadata &config, Server::Configuration::ListenerFactoryContext& context)
     : is_ingress_(config.is_ingress()) {
-  // Note: all instances use the bpf root of the first filter instantiated!
-  std::string bpf_root = config.bpf_root().length() ? config.bpf_root() : "/sys/fs/bpf";
-  maps_ = context.singletonManager().getTyped<Cilium::ProxyMap>(
-    SINGLETON_MANAGER_REGISTERED_NAME(cilium_bpf_proxymap), [&bpf_root] {
-      return std::make_shared<Cilium::ProxyMap>(bpf_root);
-    });
-  if (bpf_root != maps_->bpfRoot()) {
-    throw EnvoyException(fmt::format("cilium.bpf_metadata: Invalid bpf_root: {}", bpf_root));
+  // Note: all instances use the bpf root of the first filter with non-empty bpf_root instantiated!
+  std::string bpf_root = config.bpf_root();
+  if (bpf_root.length() > 0) {
+    maps_ = context.singletonManager().getTyped<Cilium::ProxyMap>(
+        SINGLETON_MANAGER_REGISTERED_NAME(cilium_bpf_proxymap), [&bpf_root] {
+	  return std::make_shared<Cilium::ProxyMap>(bpf_root);
+	});
+    if (bpf_root != maps_->bpfRoot()) {
+      throw EnvoyException(fmt::format("cilium.bpf_metadata: Invalid bpf_root: {}", bpf_root));
+    }
   }
+  hosts_ = createHostMap(context);
 }
 
-bool Config::getBpfMetadata(Network::ConnectionSocket& socket) {
-  uint32_t identity;
+bool Config::getMetadata(Network::ConnectionSocket& socket) {
+  uint32_t source_identity, destination_identity = 2 /* WORLD */;
   uint16_t orig_dport, proxy_port;
-  bool ok = maps_->getBpfMetadata(socket, &identity, &orig_dport, &proxy_port);
+  bool ok = false;
+
+  if (maps_) {
+    ok = maps_->getBpfMetadata(socket, &source_identity, &orig_dport, &proxy_port);
+  } else if (hosts_ && socket.remoteAddress()->ip() && socket.localAddress()->ip()) {
+    // Resolve the source security ID
+    source_identity = hosts_->resolve(socket.remoteAddress()->ip()->addressAsString());
+    orig_dport = socket.localAddress()->ip()->port();
+    proxy_port = 0; // no proxy_port when no bpf.
+    ok = true;
+  }
   if (ok) {
-    socket.addOption(std::make_unique<Cilium::SocketOption>(maps_, identity, is_ingress_, orig_dport, proxy_port));
+    // Resolve the destination security ID
+    if (hosts_ && socket.localAddress()->ip()) {
+      destination_identity = hosts_->resolve(socket.localAddress()->ip()->addressAsString());
+    }
+    socket.addOption(std::make_unique<Cilium::SocketOption>(maps_, source_identity, destination_identity, is_ingress_, orig_dport, proxy_port));
   }
   return ok;
 }
 
 Network::FilterStatus Instance::onAccept(Network::ListenerFilterCallbacks &cb) {
   Network::ConnectionSocket &socket = cb.socket();
-  if (!config_->getBpfMetadata(socket)) {
+  if (!config_->getMetadata(socket)) {
     ENVOY_LOG(debug,
-              "cilium.bpf_metadata ({}): no bpf metadata for the connection",
+              "cilium.bpf_metadata ({}): NO metadata for the connection",
               config_->is_ingress_ ? "ingress" : "egress");
   } else {
     ENVOY_LOG(trace,
-              "cilium.bpf_metadata ({}): GOT bpf metadata for new connection",
+              "cilium.bpf_metadata ({}): GOT metadata for new connection",
               config_->is_ingress_ ? "ingress" : "egress");
   }
   return Network::FilterStatus::Continue;
