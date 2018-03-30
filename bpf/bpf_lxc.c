@@ -897,7 +897,7 @@ static inline int __inline__ ipv4_policy(struct __sk_buff *skb, int ifindex, __u
 	struct ct_state ct_state = {};
 	struct ct_state ct_state_new = {};
 	bool skip_proxy;
-	__be32 orig_dip;
+	__be32 orig_dip, orig_sip;
 
 	if (!revalidate_data(skb, &data, &data_end, &ip4))
 		return DROP_INVALID;
@@ -912,6 +912,7 @@ static inline int __inline__ ipv4_policy(struct __sk_buff *skb, int ifindex, __u
 	tuple.daddr = ip4->daddr;
 	tuple.saddr = ip4->saddr;
 	orig_dip = ip4->daddr;
+	orig_sip = ip4->saddr;
 
 	l4_off = ETH_HLEN + ipv4_hdrlen(ip4);
 	csum_l4_offset_and_flags(tuple.nexthdr, &csum_off);
@@ -941,8 +942,8 @@ static inline int __inline__ ipv4_policy(struct __sk_buff *skb, int ifindex, __u
 	}
 
 	verdict = policy_can_access_ingress(skb, src_label, tuple.dport,
-					    tuple.nexthdr, sizeof(tuple.saddr),
-					    &tuple.saddr);
+					    tuple.nexthdr, sizeof(orig_sip),
+					    &orig_sip);
 
 	/* Reply packets and related packets are allowed, all others must be
 	 * permitted by policy */
