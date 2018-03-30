@@ -1,5 +1,6 @@
 #include "cilium_network_policy.h"
 #include "cilium/npds.pb.validate.h"
+#include "grpc_subscription.h"
 
 #include <string>
 #include <unordered_set>
@@ -11,29 +12,6 @@
 namespace Envoy {
 namespace Cilium {
 
-namespace {
-
-std::unique_ptr<Envoy::Config::Subscription<cilium::NetworkPolicy>>
-subscribe(const envoy::api::v2::core::ApiConfigSource& api_config_source,
-	  const LocalInfo::LocalInfo& local_info,
-	  Upstream::ClusterManager& cm, Event::Dispatcher& dispatcher,
-	  Stats::Scope &scope) {
-  Config::Utility::checkApiConfigSourceSubscriptionBackingCluster(cm.clusters(), api_config_source);
-  Config::SubscriptionStats stats = Config::Utility::generateStats(scope);
-
-  return std::make_unique<Config::GrpcSubscriptionImpl<cilium::NetworkPolicy>>(
-                local_info.node(),
-		Config::Utility::factoryForApiConfigSource(cm.grpcAsyncClientManager(),
-							   api_config_source,
-							   scope)->create(),
-		dispatcher,
-		*Protobuf::DescriptorPool::generated_pool()->FindMethodByName(
-		      "cilium.NetworkPolicyDiscoveryService.StreamNetworkPolicies"),
-		stats);
-}
-
-} // namespace
-
 NetworkPolicyMap::NetworkPolicyMap(std::unique_ptr<Envoy::Config::Subscription<cilium::NetworkPolicy>>&& subscription,
 				   ThreadLocal::SlotAllocator& tls)
   : tls_(tls.allocateSlot()), subscription_(std::move(subscription)) {
@@ -43,11 +21,10 @@ NetworkPolicyMap::NetworkPolicyMap(std::unique_ptr<Envoy::Config::Subscription<c
   subscription_->start({}, *this);
 }
 
-NetworkPolicyMap::NetworkPolicyMap(const envoy::api::v2::core::ApiConfigSource& api_config_source,
-				   const LocalInfo::LocalInfo& local_info,
+NetworkPolicyMap::NetworkPolicyMap(const envoy::api::v2::core::Node& node,
 				   Upstream::ClusterManager& cm, Event::Dispatcher& dispatcher,
 				   Stats::Scope &scope, ThreadLocal::SlotAllocator& tls)
-  : NetworkPolicyMap(subscribe(api_config_source, local_info, cm, dispatcher, scope), tls) {}
+  : NetworkPolicyMap(subscribe<cilium::NetworkPolicy>("cilium.NetworkPolicyDiscoveryService.StreamNetworkPolicies", node, cm, dispatcher, scope), tls) {}
 
 void NetworkPolicyMap::onConfigUpdate(const ResourceVector& resources) {
   ENVOY_LOG(debug, "NetworkPolicyMap::onConfigUpdate({}), version: {}", resources.size(), subscription_->versionInfo());

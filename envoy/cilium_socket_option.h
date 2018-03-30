@@ -46,12 +46,13 @@ public:
 
 class SocketOption : public SocketMarkOption {
 public:
-SocketOption(const ProxyMapSharedPtr& maps, uint32_t source_identity, bool ingress, uint16_t port, uint16_t proxy_port)
-  : SocketMarkOption(source_identity, ingress), maps_(maps), port_(port), proxy_port_(proxy_port) {
-    ENVOY_LOG(debug, "Cilium SocketOption(): source_identity: {}, ingress: {}, port: {}, proxy_port: {}", identity_, ingress_, port_, proxy_port_);
+  SocketOption(const ProxyMapSharedPtr& maps, uint32_t source_identity, uint32_t destination_identity, bool ingress, uint16_t port, uint16_t proxy_port)
+    : SocketMarkOption(source_identity, ingress), maps_(maps), destination_identity_(destination_identity), port_(port), proxy_port_(proxy_port) {
+    ENVOY_LOG(debug, "Cilium SocketOption(): source_identity: {}, destination_identity: {}, ingress: {}, port: {}, proxy_port: {}", identity_, destination_identity_, ingress_, port_, proxy_port_);
   }
 
   ProxyMapSharedPtr maps_;
+  uint32_t destination_identity_;
   uint16_t port_;
   uint16_t proxy_port_;
 };

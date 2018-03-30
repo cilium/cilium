@@ -159,10 +159,6 @@ func StartXDSServer(stateDir string) *XDSServer {
 							"name": {&structpb.Value_StringValue{StringValue: "cilium.l7policy"}},
 							"config": {&structpb.Value_StructValue{StructValue: &structpb.Struct{Fields: map[string]*structpb.Value{
 								"access_log_path": {&structpb.Value_StringValue{StringValue: accessLogPath}},
-								"api_config_source": {&structpb.Value_StructValue{StructValue: &structpb.Struct{Fields: map[string]*structpb.Value{
-									"api_type":      {&structpb.Value_NumberValue{NumberValue: float64(envoy_api_v2_core.ApiConfigSource_GRPC)}},
-									"cluster_names": {&structpb.Value_StringValue{StringValue: "xdsCluster"}},
-								}}}},
 							}}}},
 						}}}},
 						{&structpb.Value_StructValue{StructValue: &structpb.Struct{Fields: map[string]*structpb.Value{

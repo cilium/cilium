@@ -61,32 +61,19 @@ static Registry::RegisterFactory<
 
 namespace {
 
-envoy::api::v2::core::ApiConfigSource
-ApiConfigSource(const Json::Object &config) {
-  envoy::api::v2::core::ApiConfigSource api_config_source;
-  
-  ASSERT(config.getString("api_type", Envoy::Config::ApiType::get().Grpc) == Envoy::Config::ApiType::get().Grpc);
-  api_config_source.set_api_type(envoy::api::v2::core::ApiConfigSource::GRPC);
-  api_config_source.add_cluster_names(config.getObject("cluster")->getString("name"));
-
-  return api_config_source;
-}
-
 std::shared_ptr<const Cilium::NetworkPolicyMap>
-createPolicyMap(const envoy::api::v2::core::ApiConfigSource& api_config_source,
-		Server::Configuration::FactoryContext& context) {
+createPolicyMap(Server::Configuration::FactoryContext& context) {
   return context.singletonManager().getTyped<const Cilium::NetworkPolicyMap>(
-    SINGLETON_MANAGER_REGISTERED_NAME(cilium_network_policy), [&api_config_source, &context] {
+    SINGLETON_MANAGER_REGISTERED_NAME(cilium_network_policy), [&context] {
       return std::make_shared<Cilium::NetworkPolicyMap>(
-	api_config_source, context.localInfo(), context.clusterManager(),
+	context.localInfo().node(), context.clusterManager(),
 	context.dispatcher(), context.scope(), context.threadLocal());
     });
 }
 
 } // namespace
 
-Config::Config(const envoy::api::v2::core::ApiConfigSource& api_config_source,
-	       const std::string& policy_name, const std::string& access_log_path,
+Config::Config(const std::string& policy_name, const std::string& access_log_path,
 	       Server::Configuration::FactoryContext& context)
     : stats_{ALL_CILIUM_STATS(POOL_COUNTER_PREFIX(context.scope(), "cilium"))},
       policy_name_(policy_name), access_log_(nullptr) {
@@ -99,14 +86,14 @@ Config::Config(const envoy::api::v2::core::ApiConfigSource& api_config_source,
 
   // Get the shared policy provider, or create it if not already created.
   // Note that the API config source is assumed to be the same for all filter instances!
-  npmap_ = createPolicyMap(api_config_source, context);
+  npmap_ = createPolicyMap(context);
 }
 
 Config::Config(const Json::Object &config, Server::Configuration::FactoryContext& context)
-    : Config(ApiConfigSource(*config.getObject("api_config_source")), config.getString("policy_name"), config.getString("access_log_path"), context) {}
+    : Config(config.getString("policy_name"), config.getString("access_log_path"), context) {}
 
 Config::Config(const ::cilium::L7Policy &config, Server::Configuration::FactoryContext& context)
-    : Config(config.api_config_source(), config.policy_name(), config.access_log_path(), context) {}
+    : Config(config.policy_name(), config.access_log_path(), context) {}
 
 Config::~Config() {
   if (access_log_) {
@@ -139,11 +126,12 @@ Http::FilterHeadersStatus AccessFilter::decodeHeaders(Http::HeaderMap& headers, 
 					       option->identity_, headers);
 	  } else {
 	    allowed = config_->npmap_->Allowed(config_->policy_name_, ingress, option->port_,
-					       0 /* no remote ID yet */, headers);
+					       option->destination_identity_, headers);
 	  }
-	  ENVOY_LOG(debug, "Cilium L7: {} policy lookup for endpoint {}: {}",
-		    ingress ? "Ingress" : "Egress", config_->policy_name_,
-		    allowed ? "ALLOW" : "DENY");
+	  ENVOY_LOG(debug, "Cilium L7: {} ({}->{}) policy lookup for endpoint {}: {}",
+		    ingress ? "Ingress" : "Egress",
+		    option->identity_, option->destination_identity_,
+		    config_->policy_name_, allowed ? "ALLOW" : "DENY");
 	  break;
 	}
       }

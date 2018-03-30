@@ -20,10 +20,9 @@ class NetworkPolicyMap : public Singleton::Instance,
                          Config::SubscriptionCallbacks<cilium::NetworkPolicy>,
                          public Logger::Loggable<Logger::Id::config> {
 public:
-  NetworkPolicyMap(const envoy::api::v2::core::ApiConfigSource& api_config_source,
-		   const LocalInfo::LocalInfo& local_info,
-		   Upstream::ClusterManager& cm, Event::Dispatcher& dispatcher,
-		   Stats::Scope &scope, ThreadLocal::SlotAllocator& tls);
+  NetworkPolicyMap(const envoy::api::v2::core::Node& node, Upstream::ClusterManager& cm,
+		   Event::Dispatcher& dispatcher, Stats::Scope &scope,
+		   ThreadLocal::SlotAllocator& tls);
   NetworkPolicyMap(std::unique_ptr<Envoy::Config::Subscription<cilium::NetworkPolicy>>&& subscription,
 		   ThreadLocal::SlotAllocator& tls);
   ~NetworkPolicyMap() {}

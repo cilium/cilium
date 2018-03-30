@@ -21,9 +21,6 @@ api_proto_library(
 api_proto_library(
     name = "cilium_l7policy",
     srcs = ["cilium/cilium_l7policy.proto"],
-    deps = [
-        "@envoy_api//envoy/api/v2/core:config_source",
-    ],
 )
 
 envoy_cc_binary(
@@ -77,6 +74,27 @@ envoy_cc_library(
     ],
 )
 
+api_proto_library(
+    name = "config_source",
+    srcs = [],
+    deps = [
+        "@envoy_api//envoy/api/v2/core:config_source",
+    ],
+)
+
+envoy_cc_library(
+    name = "grpc_subscription_lib",
+    hdrs = [
+        "grpc_subscription.h",
+    ],
+    repository = "@envoy",
+    deps = [
+        "@envoy//source/exe:envoy_common_lib",
+        "@envoy//source/common/config:subscription_factory_lib",
+        ":config_source_cc",
+    ],
+)
+
 envoy_cc_library(
     name = "cilium_l7policy_lib",
     srcs = [
@@ -98,9 +116,9 @@ envoy_cc_library(
         "@envoy//source/common/network:address_lib",
         "@envoy//include/envoy/config:subscription_interface",
         "@envoy//include/envoy/singleton:manager_interface",
-        "@envoy//source/common/config:subscription_factory_lib",
         "@envoy//source/common/local_info:local_info_lib",
         ":npds_cc",
+        ":grpc_subscription_lib",
     ],
 )
 
@@ -121,9 +139,7 @@ envoy_cc_library(
     deps = [
         "@envoy//include/envoy/network:listen_socket_interface",
         "@envoy//include/envoy/network:connection_interface",
-        "@envoy//include/envoy/config:subscription_interface",
         "@envoy//include/envoy/singleton:manager_interface",
-        "@envoy//source/common/config:subscription_factory_lib",
         "@envoy//source/common/common:assert_lib",
         "@envoy//source/common/common:logger_lib",
         "@envoy//source/common/network:address_lib",
@@ -157,9 +173,11 @@ envoy_cc_library(
     name = "cilium_bpf_metadata_lib",
     srcs = [
         "cilium_bpf_metadata.cc",
+        "cilium_host_map.cc",
     ],
     hdrs = [
         "cilium_bpf_metadata.h",
+        "cilium_host_map.h",
     ],
     repository = "@envoy",
     deps = [
@@ -172,9 +190,14 @@ envoy_cc_library(
         "@envoy//source/common/common:logger_lib",
         "@envoy//source/common/network:address_lib",
         "@envoy//source/common/router:config_utility_lib",
+        "@envoy//include/envoy/config:subscription_interface",
+        "@envoy//include/envoy/singleton:manager_interface",
+        "@envoy//source/common/local_info:local_info_lib",
+        ":nphds_cc",
         ":proxymap_lib",
         ":cilium_bpf_metadata_cc",
         ":cilium_socket_option_lib",
+        ":grpc_subscription_lib",
     ],
 )
 
