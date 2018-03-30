@@ -848,6 +848,10 @@ func (d *Daemon) init() error {
 			if err := lxcmap.AddHostEntry(ip); err != nil {
 				return fmt.Errorf("Unable to add host entry to endpoint map: %s", err)
 			}
+
+			log.WithField(logfields.IPAddr, ip).Debug("Adding local ip to ipcache")
+			ipcache.IPIdentityCache.Upsert(ip.String(), identity.ReservedIdentityHost)
+			d.OnIPIdentityCacheChange(ipcache.Upsert, identity.IPIdentityPair{IP: ip, ID: identity.ReservedIdentityHost})
 		}
 
 		if _, err := lbmap.Service6Map.OpenOrCreate(); err != nil {
@@ -1054,9 +1058,6 @@ func NewDaemon(c *Config) (*Daemon, error) {
 	// as the node address is required as sufix
 	identity.InitIdentityAllocator(&d)
 
-	// Start watcher for endpoint IP --> identity mappings in key-value store.
-	ipcache.InitIPIdentityWatcher(&d)
-
 	if !d.conf.IPv4Disabled {
 		// Allocate IPv4 service loopback IP
 		loopbackIPv4, _, err := ipam.AllocateNext("ipv4")
@@ -1071,6 +1072,11 @@ func NewDaemon(c *Config) (*Daemon, error) {
 		log.WithError(err).Error("Error while initializing daemon")
 		return nil, err
 	}
+
+	// Start watcher for endpoint IP --> identity mappings in key-value store.
+	// this needs to be done *after* init() for the daemon in that function,
+	// we populate the IPCache with the host's IP(s).
+	ipcache.InitIPIdentityWatcher(&d)
 
 	// FIXME: Make configurable
 	d.l7Proxy = proxy.StartProxySupport(10000, 20000, d.conf.RunDir)
