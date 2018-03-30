@@ -158,6 +158,12 @@ const (
 	daemonSet   = "DaemonSet"
 
 	deadLockHeader = "POTENTIAL DEADLOCK:" // from github.com/sasha-s/go-deadlock/deadlock.go:header
+
+	// IPv4Host is an IP which is used in some datapath tests for simulating external IPv4 connectivity.
+	IPv4Host = "192.168.254.254"
+
+	// IPv6Host is an IP which is used in some datapath tests for simulating external IPv6 connectivity.
+	IPv6Host = "fdff::ff"
 )
 
 var ciliumCLICommands = map[string]string{
