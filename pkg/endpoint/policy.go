@@ -394,7 +394,7 @@ func (e *Endpoint) regenerateConsumable(owner Owner, labelsMap *identityPkg.Iden
 				return
 			}
 		}
-		// Reuse the common policy, will be used in lxc_config.h (CFG_L4_INGRESS and CFG_L4_EGRESS)
+		// Reuse the common policy, will be used in lxc_config.h (CFG_CIDRL4_INGRESS and CFG_CIDRL4_EGRESS)
 		e.L4Policy = c.L4Policy
 		e.LabelsMap = labelsMap // Remember the set of labels used
 
