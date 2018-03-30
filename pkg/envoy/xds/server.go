@@ -300,24 +300,23 @@ func (s *Server) processRequestStream(ctx context.Context, streamLog *logrus.Ent
 			// the last response yet. Ignore every request until it processes
 			// that response and sends a request with that response's nonce.
 			if state.nonce == "" || state.nonce == req.GetResponseNonce() {
-				if versionInfo != nil {
-					if *versionInfo == state.version {
-						// This request is an ACK.
-						// Notify every observer of the ACK.
-						ackObserver := s.ackObservers[typeURL]
-						if ackObserver != nil {
-							requestLog.Debug("notifying observers of ACK")
-							ackObserver.HandleResourceVersionAck(*versionInfo, req.GetNode(), state.resourceNames, typeURL)
-						} else {
-							requestLog.Debug("ACK received but no observers are waiting for ACKs")
-						}
+				if versionInfo != nil && *versionInfo == state.version {
+					// This request is an ACK.
+					// Notify every observer of the ACK.
+					ackObserver := s.ackObservers[typeURL]
+					if ackObserver != nil {
+						requestLog.Debug("notifying observers of ACK")
+						ackObserver.HandleResourceVersionAck(*versionInfo, req.GetNode(), state.resourceNames, typeURL)
 					} else {
-						requestLog.Warningf("NACK received for version %d; waiting for a version update before sending again", state.version)
-						// Watcher will behave as if the sent version was acked.
-						// Otherwise we will just be sending the same failing
-						// version over and over filling logs.
-						*versionInfo = state.version
+						requestLog.Debug("ACK received but no observers are waiting for ACKs")
 					}
+				} else if state.nonce != "" {
+					requestLog.Warningf("NACK received for version %d; waiting for a version update before sending again", state.version)
+					// Watcher will behave as if the sent version was acked.
+					// Otherwise we will just be sending the same failing
+					// version over and over filling logs.
+					stateVersionCopy := state.version
+					versionInfo = &stateVersionCopy
 				}
 
 				if state.pendingWatchCancel != nil {
