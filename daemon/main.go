@@ -341,6 +341,8 @@ func init() {
 	flags.BoolVar(&enableTracing,
 		"enable-tracing", false, "Enable tracing while determining policy (debugging)")
 	flags.String("envoy-log", "", "Path to a separate Envoy log file, if any")
+	flags.String("http-403-msg", "", "Message returned in proxy L7 403 body")
+	flags.MarkHidden("http-403-msg")
 	flags.BoolVar(&useEnvoy,
 		"envoy-proxy", true, "This flag is deprecated and will be removed in the next release")
 	flags.MarkHidden("envoy-proxy")
