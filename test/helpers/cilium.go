@@ -796,3 +796,15 @@ func (s *SSHMeta) RestartCilium() error {
 	}
 	return nil
 }
+
+// AddIPToLoopbackDevice adds the specified IP (assumed to be in form <ip>/<mask>)
+// to the loopback device on s.
+func (s *SSHMeta) AddIPToLoopbackDevice(ip string) *CmdRes {
+	return s.Exec(fmt.Sprintf("sudo ip addr add dev lo %s", ip))
+}
+
+// RemoveIPFromLoopbackDevice removes the specified IP (assumed to be in form <ip>/<mask>)
+// from the loopback device on s.
+func (s *SSHMeta) RemoveIPFromLoopbackDevice(ip string) *CmdRes {
+	return s.Exec(fmt.Sprintf("sudo ip addr del dev lo %s", ip))
+}
