@@ -219,4 +219,8 @@ const (
 	// TrafficDirection represents the directionality of traffic with respect
 	// to an endpoint.
 	TrafficDirection = "trafficDirection"
+
+	// Modification represents a type of state change operation (insert, delete,
+	// upsert, etc.).
+	Modification = "modification"
 )
