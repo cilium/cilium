@@ -81,7 +81,7 @@ var (
 			}
 			return k, v, nil
 		},
-	).WithNonPersistent()
+	)
 )
 
 func init() {
