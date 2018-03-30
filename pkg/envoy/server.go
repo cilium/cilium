@@ -102,6 +102,7 @@ func getXDSPath(stateDir string) string {
 func StartXDSServer(stateDir string) *XDSServer {
 	xdsPath := getXDSPath(stateDir)
 	accessLogPath := getAccessLogPath(stateDir)
+	denied403body := viper.GetString("http-403-msg")
 
 	os.Remove(xdsPath)
 	socketListener, err := net.ListenUnix("unix", &net.UnixAddr{Name: xdsPath, Net: "unix"})
@@ -159,6 +160,7 @@ func StartXDSServer(stateDir string) *XDSServer {
 							"name": {&structpb.Value_StringValue{StringValue: "cilium.l7policy"}},
 							"config": {&structpb.Value_StructValue{StructValue: &structpb.Struct{Fields: map[string]*structpb.Value{
 								"access_log_path": {&structpb.Value_StringValue{StringValue: accessLogPath}},
+								"denied_403_body": {&structpb.Value_StringValue{StringValue: denied403body}},
 							}}}},
 						}}}},
 						{&structpb.Value_StructValue{StructValue: &structpb.Struct{Fields: map[string]*structpb.Value{

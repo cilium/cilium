@@ -74,14 +74,21 @@ createPolicyMap(Server::Configuration::FactoryContext& context) {
 } // namespace
 
 Config::Config(const std::string& policy_name, const std::string& access_log_path,
-	       Server::Configuration::FactoryContext& context)
+	       const std::string& denied_403_body, Server::Configuration::FactoryContext& context)
     : stats_{ALL_CILIUM_STATS(POOL_COUNTER_PREFIX(context.scope(), "cilium"))},
-      policy_name_(policy_name), access_log_(nullptr) {
+      policy_name_(policy_name), denied_403_body_(denied_403_body), access_log_(nullptr) {
   if (access_log_path.length()) {
     access_log_ = AccessLog::Open(access_log_path);
     if (!access_log_) {
       ENVOY_LOG(warn, "Cilium filter can not open access log socket {}", access_log_path);
     }
+  }
+  if (denied_403_body_.length() == 0) {
+    denied_403_body_ = "Access denied";
+  }
+  size_t len = denied_403_body_.length();
+  if (len < 2 || denied_403_body_[len-2] != '\r' || denied_403_body_[len-1] != '\n') {
+    denied_403_body_.append("\r\n");
   }
 
   // Get the shared policy provider, or create it if not already created.
@@ -90,10 +97,10 @@ Config::Config(const std::string& policy_name, const std::string& access_log_pat
 }
 
 Config::Config(const Json::Object &config, Server::Configuration::FactoryContext& context)
-    : Config(config.getString("policy_name"), config.getString("access_log_path"), context) {}
+    : Config(config.getString("policy_name"), config.getString("access_log_path"), config.getString("denied_403_body"), context) {}
 
 Config::Config(const ::cilium::L7Policy &config, Server::Configuration::FactoryContext& context)
-    : Config(config.policy_name(), config.access_log_path(), context) {}
+    : Config(config.policy_name(), config.access_log_path(), config.denied_403_body(), context) {}
 
 Config::~Config() {
   if (access_log_) {
@@ -156,7 +163,7 @@ Http::FilterHeadersStatus AccessFilter::decodeHeaders(Http::HeaderMap& headers, 
     Http::HeaderMapPtr response_headers{new Http::HeaderMapImpl{
         {Http::Headers::get().Status,
          std::to_string(enumToInt(Http::Code::Forbidden))}}};
-    Buffer::OwnedImpl response_data{"Access denied\r\n"};
+    Buffer::OwnedImpl response_data{config_->denied_403_body_};
 
     callbacks_->encodeHeaders(std::move(response_headers), false);
     callbacks_->encodeData(response_data, true);
