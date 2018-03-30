@@ -982,7 +982,7 @@ var _ = Describe("RuntimeValidatedPolicies", func() {
 		}]`, app1Label, api.EntityWorld)
 
 		_, err := vm.PolicyRenderAndImport(policy)
-		Expect(err).To(BeNil(), "Unable to import policy: %s", err)
+		Expect(err).To(BeNil(), "Unable to import policy: %s\n%s", err, policy)
 
 		areEndpointsReady = vm.WaitEndpointsReady()
 		Expect(areEndpointsReady).Should(BeTrue(), "Endpoints are not ready after timeout")
