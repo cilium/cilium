@@ -1187,7 +1187,7 @@ var _ = Describe("RuntimeValidatedPolicyImportTests", func() {
 		Expect(areEndpointsDeleted).To(BeTrue())
 
 		By("Getting ID of cilium-health endpoint")
-		res := vm.Exec(`cilium endpoint list -o jsonpath="{[?(@.labels.status.security-relevant[0]=='reserved:health')].id}"`)
+		res := vm.Exec(`cilium endpoint list -o jsonpath="{[?(@.status.labels.security-relevant[0]=='reserved:health')].id}"`)
 		Expect(res).Should(Not(BeNil()), "Unable to get cilium-health ID")
 
 		healthID := strings.TrimSpace(res.GetStdOut())
@@ -1242,21 +1242,21 @@ var _ = Describe("RuntimeValidatedPolicyImportTests", func() {
 		By("Getting models of endpoints to access policy-related metadata")
 		httpd2EndpointModel := vm.EndpointGet(httpd2EndpointID)
 		Expect(httpd2EndpointModel).To(Not(BeNil()), "Expected non-nil model for endpoint %s", helpers.Httpd2)
-		Expect(httpd2EndpointModel.Identity).To(Not(BeNil()), "Expected non-nil identity for endpoint %s", helpers.Httpd2)
+		Expect(httpd2EndpointModel.Status.Identity).To(Not(BeNil()), "Expected non-nil identity for endpoint %s", helpers.Httpd2)
 
 		httpd1EndpointModel := vm.EndpointGet(httpd1EndpointID)
 		Expect(httpd1EndpointModel).To(Not(BeNil()), "Expected non-nil model for endpoint %s", helpers.Httpd1)
-		Expect(httpd1EndpointModel.Identity).To(Not(BeNil()), "Expected non-nil identity for endpoint %s", helpers.Httpd1)
-		Expect(httpd1EndpointModel.Policy).To(Not(BeNil()), "Expected non-nil policy for endpoint %s", helpers.Httpd1)
+		Expect(httpd1EndpointModel.Status.Identity).To(Not(BeNil()), "Expected non-nil identity for endpoint %s", helpers.Httpd1)
+		Expect(httpd1EndpointModel.Status.Policy).To(Not(BeNil()), "Expected non-nil policy for endpoint %s", helpers.Httpd1)
 
-		httpd1SecurityIdentity := httpd1EndpointModel.Identity.ID
-		httpd2SecurityIdentity := httpd2EndpointModel.Identity.ID
+		httpd1SecurityIdentity := httpd1EndpointModel.Status.Identity.ID
+		httpd2SecurityIdentity := httpd2EndpointModel.Status.Identity.ID
 
 		// TODO - remove hardcoding of host identity.
 		By(fmt.Sprintf("Verifying allowed identities for ingress traffic to %s", helpers.Httpd1))
 		expectedIngressIdentitiesHttpd1 := []int64{1, httpd2SecurityIdentity}
 
-		actualIngressIdentitiesHttpd1 := httpd1EndpointModel.Policy.Realized.AllowedIngressIdentities
+		actualIngressIdentitiesHttpd1 := httpd1EndpointModel.Status.Policy.Realized.AllowedIngressIdentities
 
 		// Sort to ensure that equality check of slice doesn't fail due to ordering being different.
 		sort.Slice(actualIngressIdentitiesHttpd1, func(i, j int) bool { return actualIngressIdentitiesHttpd1[i] < actualIngressIdentitiesHttpd1[j] })
@@ -1293,19 +1293,19 @@ var _ = Describe("RuntimeValidatedPolicyImportTests", func() {
 		By("Getting models of endpoints to access policy-related metadata")
 		httpd2EndpointModel = vm.EndpointGet(httpd2EndpointID)
 		Expect(httpd2EndpointModel).To(Not(BeNil()), "Expected non-nil model for endpoint %s", helpers.Httpd2)
-		Expect(httpd2EndpointModel.Identity).To(Not(BeNil()), "Expected non-nil identity for endpoint %s", helpers.Httpd2)
+		Expect(httpd2EndpointModel.Status.Identity).To(Not(BeNil()), "Expected non-nil identity for endpoint %s", helpers.Httpd2)
 
 		httpd1EndpointModel = vm.EndpointGet(httpd1EndpointID)
 		Expect(httpd1EndpointModel).To(Not(BeNil()), "Expected non-nil model for endpoint %s", helpers.Httpd1)
-		Expect(httpd1EndpointModel.Identity).To(Not(BeNil()), "Expected non-nil identity for endpoint %s", helpers.Httpd1)
-		Expect(httpd1EndpointModel.Policy).To(Not(BeNil()), "Expected non-nil policy for endpoint %s", helpers.Httpd1)
+		Expect(httpd1EndpointModel.Status.Identity).To(Not(BeNil()), "Expected non-nil identity for endpoint %s", helpers.Httpd1)
+		Expect(httpd1EndpointModel.Status.Policy).To(Not(BeNil()), "Expected non-nil policy for endpoint %s", helpers.Httpd1)
 
-		httpd1SecurityIdentity = httpd1EndpointModel.Identity.ID
-		httpd2SecurityIdentity = httpd2EndpointModel.Identity.ID
+		httpd1SecurityIdentity = httpd1EndpointModel.Status.Identity.ID
+		httpd2SecurityIdentity = httpd2EndpointModel.Status.Identity.ID
 
 		By(fmt.Sprintf("Verifying allowed identities for ingress traffic to %s", helpers.Httpd1))
 		expectedIngressIdentitiesHttpd1 = []int64{httpd2SecurityIdentity}
-		actualIngressIdentitiesHttpd1 = httpd1EndpointModel.Policy.Realized.AllowedIngressIdentities
+		actualIngressIdentitiesHttpd1 = httpd1EndpointModel.Status.Policy.Realized.AllowedIngressIdentities
 		Expect(expectedIngressIdentitiesHttpd1).Should(Equal(actualIngressIdentitiesHttpd1), "Expected allowed identities %v, but instead got %v", expectedIngressIdentitiesHttpd1, actualIngressIdentitiesHttpd1)
 
 		res = vm.PolicyDelAll()

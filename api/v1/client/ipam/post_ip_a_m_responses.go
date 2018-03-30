@@ -54,7 +54,7 @@ func NewPostIPAMCreated() *PostIPAMCreated {
 Success
 */
 type PostIPAMCreated struct {
-	Payload *models.IPAM
+	Payload *models.IPAMResponse
 }
 
 func (o *PostIPAMCreated) Error() string {
@@ -63,7 +63,7 @@ func (o *PostIPAMCreated) Error() string {
 
 func (o *PostIPAMCreated) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
 
-	o.Payload = new(models.IPAM)
+	o.Payload = new(models.IPAMResponse)
 
 	// response payload
 	if err := consumer.Consume(response.Body(), o.Payload); err != nil && err != io.EOF {

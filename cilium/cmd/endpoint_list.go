@@ -24,7 +24,6 @@ import (
 	"github.com/cilium/cilium/pkg/command"
 	"github.com/cilium/cilium/pkg/endpoint"
 
-	"github.com/go-openapi/swag"
 	"github.com/spf13/cobra"
 )
 
@@ -52,9 +51,9 @@ func init() {
 }
 
 func listEndpoint(w *tabwriter.Writer, ep *models.Endpoint, id string, label string) {
-	var isIngressPolicyEnabled string
-	var isEgressPolicyEnabled string
-	switch swag.StringValue(ep.PolicyEnabled) {
+	var isIngressPolicyEnabled models.EndpointPolicyEnabled
+	var isEgressPolicyEnabled models.EndpointPolicyEnabled
+	switch ep.Status.Policy.Realized.PolicyEnabled {
 	case models.EndpointPolicyEnabledNone:
 		isIngressPolicyEnabled = PolicyDisabled
 		isEgressPolicyEnabled = PolicyDisabled
@@ -68,8 +67,7 @@ func listEndpoint(w *tabwriter.Writer, ep *models.Endpoint, id string, label str
 		isIngressPolicyEnabled = PolicyDisabled
 		isEgressPolicyEnabled = PolicyEnabled
 	}
-	fmt.Fprintf(w, "%d\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t\n",
-		ep.ID, isIngressPolicyEnabled, isEgressPolicyEnabled, id, label, ep.Addressing.IPV6, ep.Addressing.IPV4, ep.State)
+	fmt.Fprintf(w, "%d\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t\n", ep.ID, isIngressPolicyEnabled, isEgressPolicyEnabled, id, label, ep.Status.Networking.Addressing[0].IPV6, ep.Status.Networking.Addressing[0].IPV4, ep.Status.State)
 }
 
 func listEndpoints() {
@@ -111,16 +109,16 @@ func printEndpointList(w *tabwriter.Writer, eps []*models.Endpoint) {
 
 	for _, ep := range eps {
 		id := "<no label id>"
-		if ep.Identity != nil {
-			id = fmt.Sprintf("%d", ep.Identity.ID)
+		if ep.Status.Identity != nil {
+			id = fmt.Sprintf("%d", ep.Status.Identity.ID)
 		}
 
-		if len(ep.Labels.Status.SecurityRelevant) == 0 {
+		if len(ep.Status.Labels.SecurityRelevant) == 0 {
 			listEndpoint(w, ep, id, "no labels")
 		} else {
 
 			first := true
-			lbls := ep.Labels.Status.SecurityRelevant
+			lbls := ep.Status.Labels.SecurityRelevant
 			sort.Strings(lbls)
 			for _, lbl := range lbls {
 				if first {

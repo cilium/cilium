@@ -37,6 +37,9 @@ type EndpointPolicy struct {
 	// l4
 	L4 *L4Policy `json:"l4,omitempty"`
 
+	// Whether policy enforcement is enabled (ingress, egress, both or none)
+	PolicyEnabled EndpointPolicyEnabled `json:"policy-enabled,omitempty"`
+
 	// The agent-local policy revision
 	PolicyRevision int64 `json:"policy-revision,omitempty"`
 }
@@ -52,6 +55,8 @@ type EndpointPolicy struct {
 /* polymorph EndpointPolicy id false */
 
 /* polymorph EndpointPolicy l4 false */
+
+/* polymorph EndpointPolicy policy-enabled false */
 
 /* polymorph EndpointPolicy policy-revision false */
 
@@ -75,6 +80,11 @@ func (m *EndpointPolicy) Validate(formats strfmt.Registry) error {
 	}
 
 	if err := m.validateL4(formats); err != nil {
+		// prop
+		res = append(res, err)
+	}
+
+	if err := m.validatePolicyEnabled(formats); err != nil {
 		// prop
 		res = append(res, err)
 	}
@@ -136,6 +146,22 @@ func (m *EndpointPolicy) validateL4(formats strfmt.Registry) error {
 			}
 			return err
 		}
+	}
+
+	return nil
+}
+
+func (m *EndpointPolicy) validatePolicyEnabled(formats strfmt.Registry) error {
+
+	if swag.IsZero(m.PolicyEnabled) { // not required
+		return nil
+	}
+
+	if err := m.PolicyEnabled.Validate(formats); err != nil {
+		if ve, ok := err.(*errors.Validation); ok {
+			return ve.ValidateName("policy-enabled")
+		}
+		return err
 	}
 
 	return nil

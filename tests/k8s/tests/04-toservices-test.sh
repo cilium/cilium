@@ -91,7 +91,7 @@ epID=$(kubectl exec -n kube-system ${LOCAL_CILIUM_POD} cilium endpoint list | aw
 log "endpoint ID: ${epID}"
 
 # TODO: when jq is available in CI switch to this test
-#cidr=$(kubectl exec -n kube-system ${LOCAL_CILIUM_POD} cilium endpoint get ${epID} | jq '.[0]["policy"]["realized"]["cidr-policy"]["egress"][0]' -M)
+#cidr=$(kubectl exec -n kube-system ${LOCAL_CILIUM_POD} cilium endpoint get ${epID} | jq '.[0]["status]["policy"]["realized"]["cidr-policy"]["egress"][0]' -M)
 #if [ "${expected_cidr}" != "${cidr}" ]; then
 #  abort "endpoint IP $expected_cidr isn't found in policy egress toCIDR rules"
 #fi
@@ -118,7 +118,7 @@ create_policy
 wait_for_cilium_ep_gen k8s ${NAMESPACE} ${LOCAL_CILIUM_POD}
 
 # TODO: when jq is available in CI switch to this test
-#cidr=$(kubectl exec -n kube-system ${LOCAL_CILIUM_POD} cilium endpoint get ${epID} | jq '.[0]["policy"]["realized"]["cidr-policy"]["egress"][0]')
+#cidr=$(kubectl exec -n kube-system ${LOCAL_CILIUM_POD} cilium endpoint get ${epID} | jq '.[0]["status]["policy"]["realized"]["cidr-policy"]["egress"][0]')
 #if [ "${expected_cidr}" != "${cidr}" ]; then
 #  abort "endpoint IP $expected_cidr isn't found in policy egress toCIDR rules"
 #fi

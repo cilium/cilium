@@ -617,6 +617,7 @@ func (e *Endpoint) RunK8sCiliumEndpointSync() {
 					scopedLog.Debug("Skipping CiliumEndpoint update because it has not changed")
 					return nil
 				}
+				k8sMdl := (*cilium_v2.CiliumEndpointDetail)(mdl)
 
 				cep, err := ciliumClient.CiliumEndpoints(namespace).Get(podName, meta_v1.GetOptions{})
 				switch {
@@ -641,12 +642,7 @@ func (e *Endpoint) RunK8sCiliumEndpointSync() {
 				// do an update
 				case err == nil:
 					// Update the copy of the cep
-					(*cilium_v2.CiliumEndpointDetail)(mdl).DeepCopyInto(&cep.Status)
-					if cep.Status.ID == 0 {
-						err = errors.New("Failed to deepcopy CiliumEndpoint object")
-						scopedLog.WithError(err).Error("Cannot deepcopy CEP.status")
-						return err
-					}
+					k8sMdl.DeepCopyInto(&cep.Status)
 
 					if _, err = ciliumClient.CiliumEndpoints(namespace).Update(cep); err != nil {
 						scopedLog.WithError(err).Error("Cannot update CEP")
@@ -662,7 +658,7 @@ func (e *Endpoint) RunK8sCiliumEndpointSync() {
 					ObjectMeta: meta_v1.ObjectMeta{
 						Name: podName,
 					},
-					Status: cilium_v2.CiliumEndpointDetail(*mdl),
+					Status: *k8sMdl,
 				}
 
 				_, err = ciliumClient.CiliumEndpoints(namespace).Create(cep)
@@ -759,7 +755,6 @@ func NewEndpointFromChangeModel(base *models.EndpointChangeRequest, l pkgLabels.
 // GetModelRLocked returns the API model of endpoint e.
 // e.Mutex must be RLocked.
 func (e *Endpoint) GetModelRLocked() *models.Endpoint {
-	policy := models.EndpointPolicyEnabledNone
 	if e == nil {
 		return nil
 	}
@@ -767,17 +762,6 @@ func (e *Endpoint) GetModelRLocked() *models.Endpoint {
 	currentState := models.EndpointState(e.state)
 	if currentState == models.EndpointStateReady && e.Status.CurrentStatus() != OK {
 		currentState = models.EndpointStateNotReady
-	}
-
-	policyIngressEnabled := e.Opts.IsEnabled(OptionIngressPolicy)
-	policyEgressEnabled := e.Opts.IsEnabled(OptionEgressPolicy)
-
-	if policyIngressEnabled && policyEgressEnabled {
-		policy = models.EndpointPolicyEnabledBoth
-	} else if policyIngressEnabled {
-		policy = models.EndpointPolicyEnabledIngress
-	} else if policyEgressEnabled {
-		policy = models.EndpointPolicyEnabledEgress
 	}
 
 	// This returns the most recent log entry for this endpoint. It is backwards
@@ -788,73 +772,66 @@ func (e *Endpoint) GetModelRLocked() *models.Endpoint {
 		statusLog = statusLog[:1]
 	}
 
-	// Make a shallow copy of the stats.
-	e.proxyStatisticsMutex.RLock()
-	proxyStats := make([]*models.ProxyStatistics, 0, len(e.proxyStatistics))
-	for _, stats := range e.proxyStatistics {
-		statsCopy := *stats
-		proxyStats = append(proxyStats, &statsCopy)
-	}
-	e.proxyStatisticsMutex.RUnlock()
-	sortProxyStats(proxyStats)
-
 	lblSpec := &models.LabelConfigurationSpec{
 		User: e.OpLabels.Custom.GetModel(),
 	}
-	lblMdl := &models.LabelConfiguration{
-		Spec: lblSpec,
-		Status: &models.LabelConfigurationStatus{
-			Realized:         lblSpec,
-			SecurityRelevant: e.OpLabels.OrchestrationIdentity.GetModel(),
-			Derived:          e.OpLabels.OrchestrationInfo.GetModel(),
-			Disabled:         e.OpLabels.Disabled.GetModel(),
-		},
+	lblMdl := &models.LabelConfigurationStatus{
+		Realized:         lblSpec,
+		SecurityRelevant: e.OpLabels.OrchestrationIdentity.GetModel(),
+		Derived:          e.OpLabels.OrchestrationInfo.GetModel(),
+		Disabled:         e.OpLabels.Disabled.GetModel(),
+	}
+	// Sort these slices since they come out in random orders. This allows
+	// reflect.DeepEqual to succeed.
+	sort.StringSlice(lblSpec.User).Sort()
+	sort.StringSlice(lblMdl.Disabled).Sort()
+	sort.StringSlice(lblMdl.SecurityRelevant).Sort()
+	sort.StringSlice(lblMdl.Derived).Sort()
+
+	controllerMdl := e.controllers.GetStatusModel()
+	sort.Slice(controllerMdl, func(i, j int) bool { return controllerMdl[i].Name < controllerMdl[j].Name })
+
+	spec := &models.EndpointConfigurationSpec{
+		LabelConfiguration: lblSpec,
+		Options:            *e.Opts.GetMutableModel(),
 	}
 
 	mdl := &models.Endpoint{
-		ID: int64(e.ID),
-		Configuration: &models.EndpointConfigurationSpec{
-			LabelConfiguration: lblSpec,
-			Options:            *e.Opts.GetMutableModel(),
+		ID:   int64(e.ID),
+		Spec: spec,
+		Status: &models.EndpointStatus{
+			// FIXME GH-3280 When we begin implementing revision numbers this will
+			// diverge from models.Endpoint.Spec to reflect the in-datapath config
+			Realized: spec,
+			Identity: e.SecurityIdentity.GetModel(),
+			Labels:   lblMdl,
+			Networking: &models.EndpointNetworking{
+				Addressing: []*models.AddressPair{{
+					IPV4: e.IPv4.String(),
+					IPV6: e.IPv6.String(),
+				}},
+				InterfaceIndex: int64(e.IfIndex),
+				InterfaceName:  e.IfName,
+				Mac:            e.LXCMAC.String(),
+				HostMac:        e.NodeMAC.String(),
+			},
+			ExternalIdentifiers: &models.EndpointIdentifiers{
+				ContainerID:      e.DockerID,
+				ContainerName:    e.ContainerName,
+				DockerEndpointID: e.DockerEndpointID,
+				DockerNetworkID:  e.DockerNetworkID,
+				PodName:          e.GetK8sNamespaceAndPodNameLocked(),
+			},
+			// FIXME GH-3280 When we begin returning endpoint revisions this should
+			// change to return the configured and in-datapath policies.
+			Policy:      e.GetPolicyModel(),
+			Log:         statusLog,
+			Controllers: controllerMdl,
+			State:       currentState, // TODO: Validate
+			Health:      e.getHealthModel(),
 		},
-		ContainerID:      e.DockerID,
-		ContainerName:    e.ContainerName,
-		DockerEndpointID: e.DockerEndpointID,
-		DockerNetworkID:  e.DockerNetworkID,
-		Identity:         e.SecurityIdentity.GetModel(),
-		InterfaceIndex:   int64(e.IfIndex),
-		InterfaceName:    e.IfName,
-		Labels:           lblMdl,
-		Mac:              e.LXCMAC.String(),
-		HostMac:          e.NodeMAC.String(),
-		PodName:          e.GetK8sNamespaceAndPodNameLocked(),
-		State:            currentState, // TODO: Validate
-		Status:           statusLog,
-		Health:           e.getHealthModel(),
-		// FIXME GH-3280 When we begin returning endpoint revisions this should
-		// change to return the configured and in-datapath policies.
-		Policy: &models.EndpointPolicyStatus{
-			Spec:     e.GetPolicyModel(),
-			Realized: e.GetPolicyModel(),
-		},
-		PolicyEnabled:       &policy,
-		PolicyRevision:      int64(e.policyRevision),
-		ProxyPolicyRevision: int64(e.proxyPolicyRevision),
-		ProxyStatistics:     proxyStats,
-		Addressing: &models.EndpointAddressing{
-			IPV4: e.IPv4.String(),
-			IPV6: e.IPv6.String(),
-		},
-		Controllers: e.controllers.GetStatusModel(),
 	}
 
-	// Sort these slices since they come out in random orders. This allows
-	// reflect.DeepEqual to succeed.
-	sort.StringSlice(mdl.Labels.Spec.User).Sort() // also sorts .Status.Realized.User
-	sort.StringSlice(mdl.Labels.Status.Disabled).Sort()
-	sort.StringSlice(mdl.Labels.Status.SecurityRelevant).Sort()
-	sort.StringSlice(mdl.Labels.Status.Derived).Sort()
-	sort.Slice(mdl.Controllers, func(i, j int) bool { return mdl.Controllers[i].Name < mdl.Controllers[j].Name })
 	return mdl
 }
 
@@ -943,7 +920,7 @@ func (e *Endpoint) GetModel() *models.Endpoint {
 // GetPolicyModel returns the endpoint's policy as an API model.
 //
 // Must be called with e.Mutex locked.
-func (e *Endpoint) GetPolicyModel() *models.EndpointPolicy {
+func (e *Endpoint) GetPolicyModel() *models.EndpointPolicyStatus {
 	if e == nil {
 		return nil
 	}
@@ -965,14 +942,46 @@ func (e *Endpoint) GetPolicyModel() *models.EndpointPolicy {
 		egressIdentities = append(egressIdentities, int64(egressIdentity))
 	}
 
-	return &models.EndpointPolicy{
-		ID:             int64(e.Consumable.ID),
-		PolicyRevision: int64(e.policyRevision),
-		Build:          int64(e.Consumable.Iteration),
+	policyIngressEnabled := e.Opts.IsEnabled(OptionIngressPolicy)
+	policyEgressEnabled := e.Opts.IsEnabled(OptionEgressPolicy)
+
+	policyEnabled := models.EndpointPolicyEnabledNone
+	switch {
+	case policyIngressEnabled && policyEgressEnabled:
+		policyEnabled = models.EndpointPolicyEnabledBoth
+	case policyIngressEnabled:
+		policyEnabled = models.EndpointPolicyEnabledIngress
+	case policyEgressEnabled:
+		policyEnabled = models.EndpointPolicyEnabledEgress
+	}
+
+	// Make a shallow copy of the stats.
+	e.proxyStatisticsMutex.RLock()
+	proxyStats := make([]*models.ProxyStatistics, 0, len(e.proxyStatistics))
+	for _, stats := range e.proxyStatistics {
+		statsCopy := *stats
+		proxyStats = append(proxyStats, &statsCopy)
+	}
+	e.proxyStatisticsMutex.RUnlock()
+	sortProxyStats(proxyStats)
+
+	mdl := &models.EndpointPolicy{
+		ID:                       int64(e.Consumable.ID),
+		Build:                    int64(e.Consumable.Iteration),
+		PolicyRevision:           int64(e.policyRevision),
 		AllowedIngressIdentities: ingressIdentities,
 		AllowedEgressIdentities:  egressIdentities,
 		CidrPolicy:               e.L3Policy.GetModel(),
 		L4:                       e.Consumable.L4Policy.GetModel(),
+		PolicyEnabled:            policyEnabled,
+	}
+	// FIXME GH-3280 Once we start returning revisions Realized should be the
+	// policy implemented in the data path
+	return &models.EndpointPolicyStatus{
+		Spec:                mdl,
+		Realized:            mdl,
+		ProxyPolicyRevision: int64(e.proxyPolicyRevision),
+		ProxyStatistics:     proxyStats,
 	}
 }
 

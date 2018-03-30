@@ -24,7 +24,6 @@ import (
 	. "github.com/cilium/cilium/test/ginkgo-ext"
 	"github.com/cilium/cilium/test/helpers"
 
-	"github.com/go-openapi/swag"
 	. "github.com/onsi/gomega"
 	"github.com/sirupsen/logrus"
 	"k8s.io/api/core/v1"
@@ -430,9 +429,9 @@ var _ = Describe("K8sValidatedPolicyTest", func() {
 
 			epsWithEgress := 0
 			for _, ep := range epList {
-				for _, lbls := range ep.Labels.Status.SecurityRelevant {
+				for _, lbls := range ep.Status.Labels.SecurityRelevant {
 					if lbls == "k8s:io.kubernetes.pod.namespace="+helpers.DefaultNamespace {
-						switch swag.StringValue(ep.PolicyEnabled) {
+						switch ep.Status.Policy.Realized.PolicyEnabled {
 						case models.EndpointPolicyEnabledBoth, models.EndpointPolicyEnabledEgress:
 							epsWithEgress++
 						}

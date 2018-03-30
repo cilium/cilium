@@ -517,7 +517,7 @@ func (kub *Kubectl) CiliumEndpointGet(pod string, id string) *CmdRes {
 // CiliumEndpointsIDs returns a mapping  of a pod name to it is corresponding
 // endpoint's security identity
 func (kub *Kubectl) CiliumEndpointsIDs(pod string) map[string]string {
-	filter := `{range [*]}{@.pod-name}{"="}{@.id}{"\n"}{end}`
+	filter := `{range [*]}{@.status.external-identifiers.pod-name}{"="}{@.id}{"\n"}{end}`
 	return kub.CiliumExec(pod, fmt.Sprintf(
 		"cilium endpoint list -o jsonpath='%s'", filter)).KVOutput()
 }
@@ -525,7 +525,7 @@ func (kub *Kubectl) CiliumEndpointsIDs(pod string) map[string]string {
 // CiliumEndpointsStatus returns a mapping  of a pod name to it is corresponding
 // endpoint's status
 func (kub *Kubectl) CiliumEndpointsStatus(pod string) map[string]string {
-	filter := `{range [*]}{@.pod-name}{"="}{@.state}{"\n"}{end}`
+	filter := `{range [*]}{@.status.external-identifiers.pod-name}{"="}{@.status.state}{"\n"}{end}`
 	return kub.CiliumExec(pod, fmt.Sprintf(
 		"cilium endpoint list -o jsonpath='%s'", filter)).KVOutput()
 }
@@ -533,7 +533,7 @@ func (kub *Kubectl) CiliumEndpointsStatus(pod string) map[string]string {
 // CiliumEndpointsIdentityIDs returns a mapping with of a pod name to it is
 // corresponding endpoint's security identity
 func (kub *Kubectl) CiliumEndpointsIdentityIDs(pod string) map[string]string {
-	filter := `{range [*]}{@.container-name}{"="}{@.identity.id}{"\n"}{end}`
+	filter := `{range [*]}{@.status.external-identifiers.container-name}{"="}{@.status.identity.id}{"\n"}{end}`
 	return kub.CiliumExec(pod, fmt.Sprintf(
 		"cilium endpoint list -o jsonpath='%s'", filter)).KVOutput()
 }
@@ -553,9 +553,9 @@ func (kub *Kubectl) CiliumEndpointsListByLabel(pod, label string) (EndpointMap, 
 	}
 
 	for _, ep := range data {
-		for _, orchLabel := range ep.Labels.Status.SecurityRelevant {
+		for _, orchLabel := range ep.Status.Labels.SecurityRelevant {
 			if label == orchLabel {
-				result[ep.ContainerName] = ep
+				result[ep.Status.ExternalIdentifiers.ContainerName] = ep
 				break
 			}
 		}
@@ -570,7 +570,7 @@ func (kub *Kubectl) CiliumEndpointsListByLabel(pod, label string) (EndpointMap, 
 func (kub *Kubectl) CiliumEndpointWait(pod string) bool {
 
 	body := func() bool {
-		status, err := kub.CiliumEndpointsList(pod).Filter("{[*].state}")
+		status, err := kub.CiliumEndpointsList(pod).Filter("{[*].status.state}")
 		if err != nil {
 			return false
 		}
@@ -606,7 +606,7 @@ func (kub *Kubectl) CiliumEndpointWait(pod string) bool {
 // policy revision number for all endpoints in the specified Cilium pod.
 func (kub *Kubectl) CiliumEndpointPolicyVersion(pod string) map[string]int64 {
 	result := map[string]int64{}
-	filter := `{range [*]}{@.id}{"="}{@.policy-revision}{"\n"}{end}`
+	filter := `{range [*]}{@.id}{"="}{@.status.policy.realized.policy-revision}{"\n"}{end}`
 
 	data := kub.CiliumExec(
 		pod,
@@ -1027,8 +1027,8 @@ type EndpointMap map[string]models.Endpoint
 //	models.EndpointPolicyEnabledIngress
 //	models.EndpointPolicyEnabledEgress
 //	models.EndpointPolicyEnabledBoth
-func (epMap *EndpointMap) GetPolicyStatus() map[string]int {
-	result := map[string]int{
+func (epMap *EndpointMap) GetPolicyStatus() map[models.EndpointPolicyEnabled]int {
+	result := map[models.EndpointPolicyEnabled]int{
 		models.EndpointPolicyEnabledNone:    0,
 		models.EndpointPolicyEnabledIngress: 0,
 		models.EndpointPolicyEnabledEgress:  0,
@@ -1036,7 +1036,7 @@ func (epMap *EndpointMap) GetPolicyStatus() map[string]int {
 	}
 
 	for _, ep := range *epMap {
-		result[*ep.PolicyEnabled]++
+		result[ep.Status.Policy.Realized.PolicyEnabled]++
 	}
 	return result
 }
@@ -1044,7 +1044,7 @@ func (epMap *EndpointMap) GetPolicyStatus() map[string]int {
 // AreReady returns true if all Cilium endpoints are in 'ready' state
 func (epMap *EndpointMap) AreReady() bool {
 	for _, ep := range *epMap {
-		if ep.State != models.EndpointStateReady {
+		if ep.Status.State != models.EndpointStateReady {
 			return false
 		}
 	}

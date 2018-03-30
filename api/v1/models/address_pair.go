@@ -12,10 +12,10 @@ import (
 	"github.com/go-openapi/swag"
 )
 
-// EndpointAddressing Addressing information of an endpoint
-// swagger:model EndpointAddressing
+// AddressPair Addressing information of an endpoint
+// swagger:model AddressPair
 
-type EndpointAddressing struct {
+type AddressPair struct {
 
 	// IPv4 address
 	IPV4 string `json:"ipv4,omitempty"`
@@ -24,12 +24,12 @@ type EndpointAddressing struct {
 	IPV6 string `json:"ipv6,omitempty"`
 }
 
-/* polymorph EndpointAddressing ipv4 false */
+/* polymorph AddressPair ipv4 false */
 
-/* polymorph EndpointAddressing ipv6 false */
+/* polymorph AddressPair ipv6 false */
 
-// Validate validates this endpoint addressing
-func (m *EndpointAddressing) Validate(formats strfmt.Registry) error {
+// Validate validates this address pair
+func (m *AddressPair) Validate(formats strfmt.Registry) error {
 	var res []error
 
 	if len(res) > 0 {
@@ -39,7 +39,7 @@ func (m *EndpointAddressing) Validate(formats strfmt.Registry) error {
 }
 
 // MarshalBinary interface implementation
-func (m *EndpointAddressing) MarshalBinary() ([]byte, error) {
+func (m *AddressPair) MarshalBinary() ([]byte, error) {
 	if m == nil {
 		return nil, nil
 	}
@@ -47,8 +47,8 @@ func (m *EndpointAddressing) MarshalBinary() ([]byte, error) {
 }
 
 // UnmarshalBinary interface implementation
-func (m *EndpointAddressing) UnmarshalBinary(b []byte) error {
-	var res EndpointAddressing
+func (m *AddressPair) UnmarshalBinary(b []byte) error {
+	var res AddressPair
 	if err := swag.ReadJSON(b, &res); err != nil {
 		return err
 	}

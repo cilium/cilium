@@ -166,7 +166,7 @@ func (s *SSHMeta) WaitEndpointRegenerated(id string) bool {
 		return false
 	}
 
-	epState := endpoint.State
+	epState := endpoint.Status.State
 
 	for ; epState != desiredState && counter < MaxRetries; counter++ {
 
@@ -181,7 +181,7 @@ func (s *SSHMeta) WaitEndpointRegenerated(id string) bool {
 		if endpoint == nil {
 			return false
 		}
-		epState = endpoint.State
+		epState = endpoint.Status.State
 	}
 
 	if counter > MaxRetries {
@@ -227,7 +227,7 @@ func (s *SSHMeta) WaitEndpointsReady() bool {
 	logger := s.logger.WithFields(logrus.Fields{"functionName": "WaitEndpointsReady"})
 	desiredState := string(models.EndpointStateReady)
 	body := func() bool {
-		filter := `{range [*]}{@.container-name}{"="}{@.state}{"\n"}{end}`
+		filter := `{range [*]}{@.status.external-identifiers.container-name}{"="}{@.status.state}{"\n"}{end}`
 		cmd := fmt.Sprintf(`cilium endpoint list -o jsonpath='%s'`, filter)
 
 		res := s.Exec(cmd)
@@ -297,7 +297,7 @@ func (s *SSHMeta) ListEndpoints() *CmdRes {
 // name, and an error if the list of endpoints cannot be retrieved via the
 // Cilium CLI.
 func (s *SSHMeta) GetEndpointsIDMap() (map[string]string, error) {
-	filter := `{range [*]}{@.id}{"="}{@.container-name}{"\n"}{end}`
+	filter := `{range [*]}{@.id}{"="}{@.status.external-identifiers.container-name}{"\n"}{end}`
 	cmd := fmt.Sprintf("endpoint list -o jsonpath='%s'", filter)
 	endpoints := s.ExecCilium(cmd)
 	if !endpoints.WasSuccessful() {
@@ -310,8 +310,8 @@ func (s *SSHMeta) GetEndpointsIDMap() (map[string]string, error) {
 // corresponding endpoint ID, and an error if the list of endpoints cannot be
 // retrieved via the Cilium CLI.
 func (s *SSHMeta) GetEndpointsIds() (map[string]string, error) {
-	// cilium endpoint list -o jsonpath='{range [?(@.labels.status.security-relevant[0]!='reserved:health')]}{@.container-name}{"="}{@.id}{"\n"}{end}'
-	filter := `{range [?(@.labels.status.security-relevant[0]!="reserved:health")]}{@.container-name}{"="}{@.id}{"\n"}{end}`
+	// cilium endpoint list -o jsonpath='{range [?(@.status.labels.security-relevant[0]!='reserved:health')]}{@.status.external-identifiers.container-name}{"="}{@.id}{"\n"}{end}'
+	filter := `{range [?(@.status.labels.security-relevant[0]!="reserved:health")]}{@.status.external-identifiers.container-name}{"="}{@.id}{"\n"}{end}`
 	cmd := fmt.Sprintf("endpoint list -o jsonpath='%s'", filter)
 	endpoints := s.ExecCilium(cmd)
 	if !endpoints.WasSuccessful() {
@@ -324,7 +324,7 @@ func (s *SSHMeta) GetEndpointsIds() (map[string]string, error) {
 // corresponding endpoint's security identity, it will return an error if the list
 // of endpoints cannot be retrieved via the Cilium CLI.
 func (s *SSHMeta) GetEndpointsIdentityIds() (map[string]string, error) {
-	filter := `{range [*]}{@.container-name}{"="}{@.identity.id}{"\n"}{end}`
+	filter := `{range [*]}{@.status.external-identifiers.container-name}{"="}{@.status.identity.id}{"\n"}{end}`
 	endpoints := s.ExecCilium(fmt.Sprintf("endpoint list -o jsonpath='%s'", filter))
 	if !endpoints.WasSuccessful() {
 		return nil, fmt.Errorf("cannot get endpoint list: %s", endpoints.CombineOutput())
@@ -339,7 +339,7 @@ func (s *SSHMeta) GetEndpointsNames() ([]string, error) {
 		return nil, fmt.Errorf("`cilium endpoint get` was not successful")
 	}
 
-	result, err := data.Filter("{ [?(@.labels.status.security-relevant[0]!='reserved:health')].container-name }")
+	result, err := data.Filter("{ [?(@.status.labels.security-relevant[0]!='reserved:health')].status.external-identifiers.container-name }")
 	if err != nil {
 		return nil, err
 	}
@@ -375,14 +375,14 @@ func (s *SSHMeta) PolicyEndpointsSummary() (map[string]int, error) {
 		return nil, fmt.Errorf("was not able to list endpoints: %s", res.CombineOutput().String())
 	}
 
-	endpoints, err := res.Filter("{ [?(@.labels.status.security-relevant[0]!='reserved:health')].policy-enabled }")
+	endpoints, err := res.Filter("{ [?(@.status.labels.security-relevant[0]!='reserved:health')].status.policy.realized.policy-enabled }")
 
 	if err != nil {
 		return result, fmt.Errorf(`cannot filter for "policy-enabled" from output of "cilium endpoint list"`)
 	}
 	status := strings.Split(endpoints.String(), " ")
 	for _, kind := range status {
-		switch kind {
+		switch models.EndpointPolicyEnabled(kind) {
 		case models.EndpointPolicyEnabledBoth, models.EndpointPolicyEnabledEgress,
 			models.EndpointPolicyEnabledIngress:
 			result[Enabled]++

@@ -25,7 +25,7 @@ type PostIPAMCreated struct {
 	/*
 	  In: Body
 	*/
-	Payload *models.IPAM `json:"body,omitempty"`
+	Payload *models.IPAMResponse `json:"body,omitempty"`
 }
 
 // NewPostIPAMCreated creates PostIPAMCreated with default headers values
@@ -34,13 +34,13 @@ func NewPostIPAMCreated() *PostIPAMCreated {
 }
 
 // WithPayload adds the payload to the post Ip a m created response
-func (o *PostIPAMCreated) WithPayload(payload *models.IPAM) *PostIPAMCreated {
+func (o *PostIPAMCreated) WithPayload(payload *models.IPAMResponse) *PostIPAMCreated {
 	o.Payload = payload
 	return o
 }
 
 // SetPayload sets the payload to the post Ip a m created response
-func (o *PostIPAMCreated) SetPayload(payload *models.IPAM) {
+func (o *PostIPAMCreated) SetPayload(payload *models.IPAMResponse) {
 	o.Payload = payload
 }
 

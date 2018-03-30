@@ -114,7 +114,7 @@ func LaunchAsEndpoint(owner endpoint.Owner, hostAddressing *models.NodeAddressin
 		ContainerID:   endpoint.NewCiliumID(id),
 		ContainerName: "cilium-health",
 		State:         models.EndpointStateWaitingForIdentity,
-		Addressing: &models.EndpointAddressing{
+		Addressing: &models.AddressPair{
 			IPV6: ip6.String(),
 			IPV4: ip4.String(),
 		},

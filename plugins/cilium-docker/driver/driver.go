@@ -341,7 +341,7 @@ func (driver *driver) createEndpoint(w http.ResponseWriter, r *http.Request) {
 		State:            models.EndpointStateCreating,
 		DockerEndpointID: create.EndpointID,
 		DockerNetworkID:  create.NetworkID,
-		Addressing: &models.EndpointAddressing{
+		Addressing: &models.AddressPair{
 			IPV6: ip6.String(),
 			IPV4: create.Interface.Address,
 		},
@@ -417,7 +417,7 @@ func (driver *driver) joinEndpoint(w http.ResponseWriter, r *http.Request) {
 	}
 
 	log.WithField(logfields.Object, old).Debug("Existing endpoint")
-	if old.State != models.EndpointStateCreating {
+	if old.Status.State != models.EndpointStateCreating {
 		sendError(w, "Error: endpoint not in creating state", http.StatusBadRequest)
 		return
 	}

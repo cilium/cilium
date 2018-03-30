@@ -6,6 +6,8 @@ package models
 // Editing this file might prove futile when you re-run the swagger generate command
 
 import (
+	"strconv"
+
 	strfmt "github.com/go-openapi/strfmt"
 
 	"github.com/go-openapi/errors"
@@ -17,12 +19,22 @@ import (
 
 type EndpointPolicyStatus struct {
 
+	// The policy revision currently enforced in the proxy for this endpoint
+	ProxyPolicyRevision int64 `json:"proxy-policy-revision,omitempty"`
+
+	// Statistics of the proxy redirects configured for this endpoint
+	ProxyStatistics []*ProxyStatistics `json:"proxy-statistics"`
+
 	// The policy in the datapath for this endpoint
 	Realized *EndpointPolicy `json:"realized,omitempty"`
 
 	// The policy that should apply to this endpoint
 	Spec *EndpointPolicy `json:"spec,omitempty"`
 }
+
+/* polymorph EndpointPolicyStatus proxy-policy-revision false */
+
+/* polymorph EndpointPolicyStatus proxy-statistics false */
 
 /* polymorph EndpointPolicyStatus realized false */
 
@@ -31,6 +43,11 @@ type EndpointPolicyStatus struct {
 // Validate validates this endpoint policy status
 func (m *EndpointPolicyStatus) Validate(formats strfmt.Registry) error {
 	var res []error
+
+	if err := m.validateProxyStatistics(formats); err != nil {
+		// prop
+		res = append(res, err)
+	}
 
 	if err := m.validateRealized(formats); err != nil {
 		// prop
@@ -45,6 +62,33 @@ func (m *EndpointPolicyStatus) Validate(formats strfmt.Registry) error {
 	if len(res) > 0 {
 		return errors.CompositeValidationError(res...)
 	}
+	return nil
+}
+
+func (m *EndpointPolicyStatus) validateProxyStatistics(formats strfmt.Registry) error {
+
+	if swag.IsZero(m.ProxyStatistics) { // not required
+		return nil
+	}
+
+	for i := 0; i < len(m.ProxyStatistics); i++ {
+
+		if swag.IsZero(m.ProxyStatistics[i]) { // not required
+			continue
+		}
+
+		if m.ProxyStatistics[i] != nil {
+
+			if err := m.ProxyStatistics[i].Validate(formats); err != nil {
+				if ve, ok := err.(*errors.Validation); ok {
+					return ve.ValidateName("proxy-statistics" + "." + strconv.Itoa(i))
+				}
+				return err
+			}
+		}
+
+	}
+
 	return nil
 }
 

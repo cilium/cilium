@@ -13,29 +13,29 @@ import (
 	"github.com/go-openapi/validate"
 )
 
-// IPAM IPAM configuration of an endpoint
-// swagger:model IPAM
+// IPAMResponse IPAM configuration of an endpoint
+// swagger:model IPAMResponse
 
-type IPAM struct {
+type IPAMResponse struct {
 
-	// endpoint
+	// address
 	// Required: true
-	Endpoint *EndpointAddressing `json:"endpoint"`
+	Address *AddressPair `json:"address"`
 
 	// host addressing
 	// Required: true
 	HostAddressing *NodeAddressing `json:"host-addressing"`
 }
 
-/* polymorph IPAM endpoint false */
+/* polymorph IPAMResponse address false */
 
-/* polymorph IPAM host-addressing false */
+/* polymorph IPAMResponse host-addressing false */
 
-// Validate validates this IP a m
-func (m *IPAM) Validate(formats strfmt.Registry) error {
+// Validate validates this IP a m response
+func (m *IPAMResponse) Validate(formats strfmt.Registry) error {
 	var res []error
 
-	if err := m.validateEndpoint(formats); err != nil {
+	if err := m.validateAddress(formats); err != nil {
 		// prop
 		res = append(res, err)
 	}
@@ -51,17 +51,17 @@ func (m *IPAM) Validate(formats strfmt.Registry) error {
 	return nil
 }
 
-func (m *IPAM) validateEndpoint(formats strfmt.Registry) error {
+func (m *IPAMResponse) validateAddress(formats strfmt.Registry) error {
 
-	if err := validate.Required("endpoint", "body", m.Endpoint); err != nil {
+	if err := validate.Required("address", "body", m.Address); err != nil {
 		return err
 	}
 
-	if m.Endpoint != nil {
+	if m.Address != nil {
 
-		if err := m.Endpoint.Validate(formats); err != nil {
+		if err := m.Address.Validate(formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
-				return ve.ValidateName("endpoint")
+				return ve.ValidateName("address")
 			}
 			return err
 		}
@@ -70,7 +70,7 @@ func (m *IPAM) validateEndpoint(formats strfmt.Registry) error {
 	return nil
 }
 
-func (m *IPAM) validateHostAddressing(formats strfmt.Registry) error {
+func (m *IPAMResponse) validateHostAddressing(formats strfmt.Registry) error {
 
 	if err := validate.Required("host-addressing", "body", m.HostAddressing); err != nil {
 		return err
@@ -90,7 +90,7 @@ func (m *IPAM) validateHostAddressing(formats strfmt.Registry) error {
 }
 
 // MarshalBinary interface implementation
-func (m *IPAM) MarshalBinary() ([]byte, error) {
+func (m *IPAMResponse) MarshalBinary() ([]byte, error) {
 	if m == nil {
 		return nil, nil
 	}
@@ -98,8 +98,8 @@ func (m *IPAM) MarshalBinary() ([]byte, error) {
 }
 
 // UnmarshalBinary interface implementation
-func (m *IPAM) UnmarshalBinary(b []byte) error {
-	var res IPAM
+func (m *IPAMResponse) UnmarshalBinary(b []byte) error {
+	var res IPAMResponse
 	if err := swag.ReadJSON(b, &res); err != nil {
 		return err
 	}
