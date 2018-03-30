@@ -29,10 +29,6 @@ NetworkPolicyMap::NetworkPolicyMap(const envoy::api::v2::core::Node& node,
 void NetworkPolicyMap::onConfigUpdate(const ResourceVector& resources) {
   ENVOY_LOG(debug, "NetworkPolicyMap::onConfigUpdate({}), version: {}", resources.size(), subscription_->versionInfo());
 
-  if (resources.empty()) {
-    ENVOY_LOG(warn, "Empty Network Policy in onConfigUpdate()");
-    return;
-  }
   std::unordered_set<std::string> keeps;
 
   // Collect a shared vector of policies to be added
