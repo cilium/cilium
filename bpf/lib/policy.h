@@ -93,7 +93,7 @@ get_proxy_port:
 		if (policy->proxy_port)
 			return policy->proxy_port;
 		else
-			return l4_policy_lookup(skb, proto, dport, dir, false);
+			return l4_proxy_lookup(skb, proto, dport, dir);
 	}
 #endif /* HAVE_L4_POLICY */
 allow:

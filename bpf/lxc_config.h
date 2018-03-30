@@ -42,10 +42,10 @@
 #define LB_L3
 #define LB_L4
 #define CONNTRACK
-#define NR_CFG_L4_INGRESS 2
-#define CFG_L4_INGRESS 0, 80, 8080, 0, 1, 80, 8080, 0, (), 0
-#define NR_CFG_L4_EGRESS 1
-#define CFG_L4_EGRESS 0, 80, 8080, 0, (), 0
+#define NR_CFG_CIDRL4_INGRESS 2
+#define CFG_CIDRL4_INGRESS 0, 80, 8080, 0, 1, 80, 8080, 0, (), 0
+#define NR_CFG_CIDRL4_EGRESS 1
+#define CFG_CIDRL4_EGRESS 0, 80, 8080, 0, (), 0
 #define POLICY_INGRESS
 #define POLICY_EGRESS
 #define ENABLE_IPv4

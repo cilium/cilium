@@ -135,26 +135,27 @@ struct l4_allow
 	__u8 nexthdr;
 };
 
-#if (defined CFG_L4_INGRESS || defined CFG_L4_EGRESS) && !defined CONNTRACK
-#error "CFG_L4_* requires CONNTRACK to be enabled"
+#if (defined CFG_CIDRL4_INGRESS || defined CFG_CIDRL4_EGRESS || \
+     defined CFG_L3L4_INGRESS || defined CFG_L3L4_EGRESS) && !defined CONNTRACK
+#error "CFG_L* requires CONNTRACK to be enabled"
 #endif
 
-#ifdef CFG_L4_INGRESS
+#ifdef CFG_CIDRL4_INGRESS
 static inline int __inline__ l4_ingress_embedded(__be16 dport, __u8 nexthdr)
 {
 	int allowed = DROP_POLICY_L4;
 
-	BPF_L4_MAP(allowed, dport, nexthdr, CFG_L4_INGRESS);
+	BPF_L4_MAP(allowed, dport, nexthdr, CFG_CIDRL4_INGRESS);
 	return allowed;
 }
 #endif
 
-#ifdef CFG_L4_EGRESS
+#ifdef CFG_CIDRL4_EGRESS
 static inline int __inline__ l4_egress_embedded(__be16 dport, __u8 nexthdr)
 {
 	int allowed = DROP_POLICY_L4;
 
-	BPF_L4_MAP(allowed, dport, nexthdr, CFG_L4_EGRESS);
+	BPF_L4_MAP(allowed, dport, nexthdr, CFG_CIDRL4_EGRESS);
 	return allowed;
 }
 #endif
@@ -165,7 +166,7 @@ static inline int __inline__ l4_egress_embedded(__be16 dport, __u8 nexthdr)
  * @arg dport:	 destination port (ingress port on endpoint)
  * @arg nexthdr: next header (IPPROTO_TCP, IPPROTO_UDP, ..)
  *
- * The L4 space defaults to allow all unless CFG_L4_INGRESS is
+ * The L4 space defaults to allow all unless CFG_CIDRL4_INGRESS is
  * specified in which case only allowed port + protocol pairs
  * will be allowed.
  *
@@ -176,7 +177,7 @@ static inline int __inline__ l4_egress_embedded(__be16 dport, __u8 nexthdr)
 static inline int __inline__
 l4_ingress_policy(struct __sk_buff *skb, __be16 dport, __u8 nexthdr)
 {
-#ifdef CFG_L4_INGRESS
+#if defined CFG_CIDRL4_INGRESS
 	return l4_ingress_embedded(dport, nexthdr);
 #else
 	return 0;
@@ -189,7 +190,7 @@ l4_ingress_policy(struct __sk_buff *skb, __be16 dport, __u8 nexthdr)
  * @arg dport:	 egress destination port
  * @arg nexthdr: next header (IPPROTO_TCP, IPPROTO_UDP, ..)
  *
- * The L4 space defaults to allow all unless CFG_L4_INGRESS is
+ * The L4 space defaults to allow all unless CFG_CIDRL4_INGRESS is
  * specified in which case only allowed port + protocol pairs
  * will be allowed.
  *
@@ -200,7 +201,7 @@ l4_ingress_policy(struct __sk_buff *skb, __be16 dport, __u8 nexthdr)
 static inline int __inline__
 l4_egress_policy(struct __sk_buff *skb, __be16 dport, __u8 nexthdr)
 {
-#ifdef CFG_L4_EGRESS
+#if defined CFG_CIDRL4_EGRESS
 	return l4_egress_embedded(dport, nexthdr);
 #else
 	return 0;
@@ -214,8 +215,6 @@ l4_egress_policy(struct __sk_buff *skb, __be16 dport, __u8 nexthdr)
  * @arg dport		destination port of packet
  * @arg dir		direction of packet (CT_INGRESS, CT_EGRESS)
  * @arg skip_proxy	true if the proxy should be skipped
- *
- * FIXME GH-2904: Replace L4 embedded map lookup with proxy_port in POLICY_MAP
  *
  * Returns: 0 if connection is allowed
  *          n > 0 if connection should be proxied to n
@@ -260,4 +259,79 @@ l4_policy_lookup(struct __sk_buff *skb, __u8 nh, __be16 dport, int dir,
 	return proxy_port;
 }
 
+/**
+ * Perform L4 ingress proxyport lookup
+ * @arg skb:	 packet
+ * @arg dport:	 destination port (ingress port on endpoint)
+ * @arg nexthdr: next header (IPPROTO_TCP, IPPROTO_UDP, ..)
+ *
+ * Returns: 0 if connection is allowed
+ *          n > 0 if connection should be proxied to n
+ */
+static inline int __inline__
+l4_ingress_proxy_lookup(struct __sk_buff *skb, __be16 dport, __u8 nexthdr)
+{
+#ifdef CFG_L3L4_INGRESS
+	int allowed = DROP_POLICY_L4;
+
+	BPF_L4_MAP(allowed, dport, nexthdr, CFG_L3L4_INGRESS);
+	return allowed > 0 ? allowed : 0;
+#else
+	return 0;
+#endif
+}
+
+/**
+ * Perform L4 egress proxyport lookup
+ * @arg skb:	 packet
+ * @arg dport:	 egress destination port
+ * @arg nexthdr: next header (IPPROTO_TCP, IPPROTO_UDP, ..)
+ *
+ * Returns: 0 if connection is allowed
+ *          n > 0 if connection should be proxied to n
+ */
+static inline int __inline__
+l4_egress_proxy_lookup(struct __sk_buff *skb, __be16 dport, __u8 nexthdr)
+{
+#ifdef CFG_L3L4_EGRESS
+	int allowed = DROP_POLICY_L4;
+
+	BPF_L4_MAP(allowed, dport, nexthdr, CFG_L3L4_EGRESS);
+	return allowed > 0 ? allowed : 0;
+#else
+	return 0;
+#endif
+}
+
+/**
+ * Look up proxyport for L3-dependent L4 policy
+ *
+ * FIXME GH-2564: Replace L4 embedded map lookup with proxy_port in POLICY_MAP
+ */
+static inline int
+l4_proxy_lookup(struct __sk_buff *skb, __u8 nh, __be16 dport, int dir)
+{
+	int proxy_port = 0;
+
+	if (dir == CT_INGRESS) {
+		if (nh == IPPROTO_UDP || nh == IPPROTO_TCP) {
+			cilium_dbg(skb, DBG_GENERIC, dport, nh);
+			proxy_port = l4_ingress_proxy_lookup(skb, dport, nh);
+			if (unlikely(proxy_port < 0))
+				return proxy_port;
+
+			cilium_dbg(skb, DBG_L4_POLICY, proxy_port, CT_INGRESS);
+		}
+	} else {
+		if (nh == IPPROTO_UDP || nh == IPPROTO_TCP) {
+			proxy_port = l4_egress_proxy_lookup(skb, dport, nh);
+			if (unlikely(proxy_port < 0))
+				return proxy_port;
+
+			cilium_dbg(skb, DBG_L4_POLICY, proxy_port, CT_EGRESS);
+		}
+	}
+
+	return proxy_port;
+}
 #endif

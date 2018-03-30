@@ -79,7 +79,8 @@ func (e *Endpoint) ParseL4Filter(l4Filter *policy.L4Filter) (policy.L4RuleContex
 }
 
 // filterAccumulator accumulates proxyport / L4 allow configurations during
-// e.writeL4Map() iteration.
+// e.writeL4Map() iteration. One will be defined for L4-only filters,
+// and one for L3-dependent L4 filters.
 type filterAccumulator struct {
 	config string
 	array  string
@@ -105,8 +106,9 @@ func (fa *filterAccumulator) writeL4Map(fw *bufio.Writer) {
 	}
 }
 
-func (e *Endpoint) writeL4Map(fw *bufio.Writer, m policy.L4PolicyMap, configL4 string) error {
-	l4cfg := &filterAccumulator{config: configL4}
+func (e *Endpoint) writeL4Map(fw *bufio.Writer, m policy.L4PolicyMap, configL4, configL3L4 string) error {
+	cidrl4cfg := &filterAccumulator{config: configL4}
+	l3l4cfg := &filterAccumulator{config: configL3L4}
 
 	for _, l4 := range m {
 		// Represents struct l4_allow in bpf/lib/l4.h
@@ -117,10 +119,14 @@ func (e *Endpoint) writeL4Map(fw *bufio.Writer, m policy.L4PolicyMap, configL4 s
 
 		dport := byteorder.HostToNetwork(uint16(l4.Port)).(uint16)
 		redirect := e.lookupRedirectPortBE(&l4)
-		l4cfg.add(dport, redirect, uint8(protoNum))
+		if l4.Endpoints == nil {
+			cidrl4cfg.add(dport, redirect, uint8(protoNum))
+		}
+		l3l4cfg.add(dport, redirect, uint8(protoNum))
 	}
 
-	l4cfg.writeL4Map(fw)
+	cidrl4cfg.writeL4Map(fw)
+	l3l4cfg.writeL4Map(fw)
 
 	return nil
 }
@@ -139,11 +145,11 @@ func (e *Endpoint) writeL4Policy(fw *bufio.Writer) error {
 
 	fmt.Fprintf(fw, "#define HAVE_L4_POLICY\n")
 
-	if err := e.writeL4Map(fw, l4policy.Ingress, "CFG_L4_INGRESS"); err != nil {
+	if err := e.writeL4Map(fw, l4policy.Ingress, "CFG_CIDRL4_INGRESS", "CFG_L3L4_INGRESS"); err != nil {
 		return err
 	}
 
-	return e.writeL4Map(fw, l4policy.Egress, "CFG_L4_EGRESS")
+	return e.writeL4Map(fw, l4policy.Egress, "CFG_CIDRL4_EGRESS", "CFG_L3L4_EGRESS")
 }
 
 func (e *Endpoint) writeHeaderfile(prefix string, owner Owner) error {
