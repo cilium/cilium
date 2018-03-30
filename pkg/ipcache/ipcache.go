@@ -242,23 +242,32 @@ func ipIdentityWatcher(owner IPIdentityMappingOwner) {
 
 				ipStr := ipIDPair.IP.String()
 
-				cachedIdentity, exists := IPIdentityCache.LookupByIP(ipStr)
+				cachedIdentity, ipExists := IPIdentityCache.LookupByIP(ipStr)
 
 				// Need to add or update entry.
-				if !exists || cachedIdentity != ipIDPair.ID {
+				if !ipExists || cachedIdentity != ipIDPair.ID {
 					IPIdentityCache.upsert(ipStr, ipIDPair.ID)
 					cacheChanged = true
 					cacheModification = Upsert
 
 					endpointIPs, _ := IPIdentityCache.LookupByIdentity(ipIDPair.ID)
 
-					// Update XDS Cache as well.
+					// Update XDS Cache as well with the new identity to IP mapping.
+					// The old identity to IP mapping for this IP in the XDS
+					// cache may still be present.
 					ipStrings := make([]string, 0, len(endpointIPs))
 					for endpointIP := range endpointIPs {
 						ipStrings = append(ipStrings, endpointIP)
 					}
 					sort.Strings(ipStrings)
 					envoy.NetworkPolicyHostsCache.Upsert(envoy.NetworkPolicyHostsTypeURL, ipIDPair.ID.StringID(), &envoyAPI.NetworkPolicyHosts{Policy: uint64(ipIDPair.ID), HostAddresses: ipStrings}, false)
+
+					// This lookup needs to be *after* the above call to upsert
+					// in order to determine if the identity-to IP mapping still
+					// exists in the IPIdentityCache. This determines what operation is
+					// performed on the Envoy cache for updating the entry for
+					// the old identity for this IP.
+					updateXDSCacheForOldIdentity(cachedIdentity)
 				}
 			case kvstore.EventTypeDelete:
 				// Synchronize local caching of endpoint IP to ipIDPair mapping with
@@ -283,27 +292,14 @@ func ipIdentityWatcher(owner IPIdentityMappingOwner) {
 					ipIDPair.ID = cachedIdentity
 
 					IPIdentityCache.delete(ipStr)
-
-					// This lookup needs to be *after* the above call to delete
-					// in order to determine if the identity-to IP mapping still
-					// exists in the cache. This determines what operation is
-					// performed on the Envoy cache.
-					endpointIPs, isIdentityInCache := IPIdentityCache.LookupByIdentity(cachedIdentity)
 					cacheChanged = true
 					cacheModification = Delete
 
-					if !isIdentityInCache {
-						envoy.NetworkPolicyHostsCache.Delete(envoy.NetworkPolicyHostsTypeURL, cachedIdentity.StringID(), false)
-					} else {
-						// Update list in XDS cache without this IP, as this
-						// identity still maps to other IPs.
-						ipStrings := make([]string, 0, len(endpointIPs))
-						for endpointIP := range endpointIPs {
-							ipStrings = append(ipStrings, endpointIP)
-						}
-						sort.Strings(ipStrings)
-						envoy.NetworkPolicyHostsCache.Upsert(envoy.NetworkPolicyHostsTypeURL, cachedIdentity.StringID(), &envoyAPI.NetworkPolicyHosts{Policy: uint64(cachedIdentity), HostAddresses: ipStrings}, false)
-					}
+					// This needs to be *after* the above call to delete
+					// in order to determine if the identity-to IP mapping still
+					// exists in the IPIdentityCache. This determines what operation is
+					// performed on the Envoy cache.
+					updateXDSCacheForOldIdentity(cachedIdentity)
 				}
 			}
 
@@ -329,4 +325,20 @@ func InitIPIdentityWatcher(owner IPIdentityMappingOwner) {
 	setupIPIdentityWatcher.Do(func() {
 		go ipIdentityWatcher(owner)
 	})
+}
+
+// updateXDSCacheForOldIdentity updates the XDS cache entry for old identity
+// with the list of IPs that is stored in the IPIdentityCache.
+func updateXDSCacheForOldIdentity(oldIdentity identity.NumericIdentity) {
+	endpointIPs, isIdentityInCache := IPIdentityCache.LookupByIdentity(oldIdentity)
+	if !isIdentityInCache {
+		envoy.NetworkPolicyHostsCache.Delete(envoy.NetworkPolicyHostsTypeURL, oldIdentity.StringID(), false)
+	} else {
+		ipStrings := make([]string, 0, len(endpointIPs))
+		for endpointIP := range endpointIPs {
+			ipStrings = append(ipStrings, endpointIP)
+		}
+		sort.Strings(ipStrings)
+		envoy.NetworkPolicyHostsCache.Upsert(envoy.NetworkPolicyHostsTypeURL, oldIdentity.StringID(), &envoyAPI.NetworkPolicyHosts{Policy: uint64(oldIdentity), HostAddresses: ipStrings}, false)
+	}
 }
