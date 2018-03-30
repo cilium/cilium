@@ -620,6 +620,19 @@ func (e *Endpoint) RunK8sCiliumEndpointSync() {
 
 				cep, err := ciliumClient.CiliumEndpoints(namespace).Get(podName, meta_v1.GetOptions{})
 				switch {
+				// The CEP doesn't exist. We will fall through to the create code below
+				case err != nil && k8serrors.IsNotFound(err):
+					break
+
+				// Delete an invalid CEP. We will fall through to the create code below
+				case err != nil && !k8serrors.IsInvalid(err):
+					scopedLog.WithError(err).Warn("Invalid CEP during update")
+					err := ciliumClient.CiliumEndpoints(namespace).Delete(podName, &meta_v1.DeleteOptions{})
+					if err != nil {
+						scopedLog.WithError(err).Warn("Error deleting invalid CEP during update")
+						return err
+					}
+
 				// A real error
 				case err != nil && !k8serrors.IsNotFound(err):
 					scopedLog.WithError(err).Error("Cannot get CEP for update")
