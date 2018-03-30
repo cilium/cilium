@@ -45,13 +45,6 @@ var (
 		UDP:         ResultTimeout,
 	}
 
-	ConnResultAllTimeoutExceptPing = ConnTestSpec{
-		HTTP:        ResultTimeout,
-		HTTPPrivate: ResultTimeout,
-		Ping:        ResultOK,
-		UDP:         ResultTimeout,
-	}
-
 	ConnResultOnlyHTTP = ConnTestSpec{
 		HTTP:        ResultOK,
 		HTTPPrivate: ResultOK,
@@ -59,24 +52,10 @@ var (
 		UDP:         ResultTimeout,
 	}
 
-	ConnResultOnlyHTTPAndPing = ConnTestSpec{
-		HTTP:        ResultOK,
-		HTTPPrivate: ResultOK,
-		Ping:        ResultOK,
-		UDP:         ResultTimeout,
-	}
-
 	ConnResultOnlyHTTPPrivate = ConnTestSpec{
 		HTTP:        ResultAuth,
 		HTTPPrivate: ResultOK,
 		Ping:        ResultTimeout,
-		UDP:         ResultTimeout,
-	}
-
-	ConnResultOnlyHTTPPrivateAndPing = ConnTestSpec{
-		HTTP:        ResultAuth,
-		HTTPPrivate: ResultOK,
-		Ping:        ResultOK,
 		UDP:         ResultTimeout,
 	}
 
