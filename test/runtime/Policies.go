@@ -1009,6 +1009,32 @@ var _ = Describe("RuntimeValidatedPolicies", func() {
 		setupPolicyAndTestEgressToWorld(policy)
 
 		vm.PolicyDelAll().ExpectSuccess("Unable to delete all policies")
+
+		By("testing that in-cluster L7 doesn't affect egress L3")
+		app2Label := fmt.Sprintf("id.%s", helpers.App2)
+		policy = fmt.Sprintf(`
+		[{
+			"endpointSelector": {"matchLabels":{"%s":""}},
+			"egress": [{
+				"toEntities": [
+					"%s"
+				]
+			}, {
+				"toEndpoints": [{"matchLabels": {"%s": ""}}],
+				"toPorts": [{
+					"ports": [{"port": "80", "protocol": "tcp"}],
+					"rules": {
+						"HTTP": [{
+						  "method": "GET",
+						  "path": "/nowhere"
+						}]
+					}
+				}]
+			}]
+		}]`, app1Label, api.EntityWorld, app2Label)
+		setupPolicyAndTestEgressToWorld(policy)
+
+		vm.PolicyDelAll().ExpectSuccess("Unable to delete all policies")
 	})
 })
 
