@@ -804,21 +804,26 @@ func (e *Endpoint) GetModelRLocked() *models.Endpoint {
 			LabelConfiguration: lblSpec,
 			Options:            *e.Opts.GetMutableModel(),
 		},
-		ContainerID:         e.DockerID,
-		ContainerName:       e.ContainerName,
-		DockerEndpointID:    e.DockerEndpointID,
-		DockerNetworkID:     e.DockerNetworkID,
-		Identity:            e.SecurityIdentity.GetModel(),
-		InterfaceIndex:      int64(e.IfIndex),
-		InterfaceName:       e.IfName,
-		Labels:              lblMdl,
-		Mac:                 e.LXCMAC.String(),
-		HostMac:             e.NodeMAC.String(),
-		PodName:             e.GetK8sNamespaceAndPodNameLocked(),
-		State:               currentState, // TODO: Validate
-		Status:              statusLog,
-		Health:              e.getHealthModel(),
-		Policy:              e.GetPolicyModel(),
+		ContainerID:      e.DockerID,
+		ContainerName:    e.ContainerName,
+		DockerEndpointID: e.DockerEndpointID,
+		DockerNetworkID:  e.DockerNetworkID,
+		Identity:         e.SecurityIdentity.GetModel(),
+		InterfaceIndex:   int64(e.IfIndex),
+		InterfaceName:    e.IfName,
+		Labels:           lblMdl,
+		Mac:              e.LXCMAC.String(),
+		HostMac:          e.NodeMAC.String(),
+		PodName:          e.GetK8sNamespaceAndPodNameLocked(),
+		State:            currentState, // TODO: Validate
+		Status:           statusLog,
+		Health:           e.getHealthModel(),
+		// FIXME GH-3280 When we begin returning endpoint revisions this should
+		// change to return the configured and in-datapath policies.
+		Policy: &models.EndpointPolicyStatus{
+			Spec:     e.GetPolicyModel(),
+			Realized: e.GetPolicyModel(),
+		},
 		PolicyEnabled:       &policy,
 		PolicyRevision:      int64(e.policyRevision),
 		ProxyPolicyRevision: int64(e.proxyPolicyRevision),
@@ -948,8 +953,9 @@ func (e *Endpoint) GetPolicyModel() *models.EndpointPolicy {
 	}
 
 	return &models.EndpointPolicy{
-		ID:    int64(e.Consumable.ID),
-		Build: int64(e.Consumable.Iteration),
+		ID:             int64(e.Consumable.ID),
+		PolicyRevision: int64(e.policyRevision),
+		Build:          int64(e.Consumable.Iteration),
 		AllowedIngressIdentities: ingressIdentities,
 		AllowedEgressIdentities:  egressIdentities,
 		CidrPolicy:               e.L3Policy.GetModel(),

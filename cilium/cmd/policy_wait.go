@@ -55,7 +55,10 @@ var policyWaitCmd = &cobra.Command{
 			notReady := 0
 
 			for _, ep := range eps {
-				if ep.Policy != nil {
+				if ep.Policy != nil && ep.Policy.Realized != nil {
+					// FIXME GH-3280 When we begin populating revision numbers and
+					// ep.Policy.Realized correctly, this should check
+					// ep.Status.Policy.Realized.Revision
 					if ep.PolicyRevision >= reqRevision &&
 						ep.State == models.EndpointStateReady {
 						ready++

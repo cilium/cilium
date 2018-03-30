@@ -1256,7 +1256,7 @@ var _ = Describe("RuntimeValidatedPolicyImportTests", func() {
 		By(fmt.Sprintf("Verifying allowed identities for ingress traffic to %s", helpers.Httpd1))
 		expectedIngressIdentitiesHttpd1 := []int64{1, httpd2SecurityIdentity}
 
-		actualIngressIdentitiesHttpd1 := httpd1EndpointModel.Policy.AllowedIngressIdentities
+		actualIngressIdentitiesHttpd1 := httpd1EndpointModel.Policy.Realized.AllowedIngressIdentities
 
 		// Sort to ensure that equality check of slice doesn't fail due to ordering being different.
 		sort.Slice(actualIngressIdentitiesHttpd1, func(i, j int) bool { return actualIngressIdentitiesHttpd1[i] < actualIngressIdentitiesHttpd1[j] })
@@ -1305,7 +1305,7 @@ var _ = Describe("RuntimeValidatedPolicyImportTests", func() {
 
 		By(fmt.Sprintf("Verifying allowed identities for ingress traffic to %s", helpers.Httpd1))
 		expectedIngressIdentitiesHttpd1 = []int64{httpd2SecurityIdentity}
-		actualIngressIdentitiesHttpd1 = httpd1EndpointModel.Policy.AllowedIngressIdentities
+		actualIngressIdentitiesHttpd1 = httpd1EndpointModel.Policy.Realized.AllowedIngressIdentities
 		Expect(expectedIngressIdentitiesHttpd1).Should(Equal(actualIngressIdentitiesHttpd1), "Expected allowed identities %v, but instead got %v", expectedIngressIdentitiesHttpd1, actualIngressIdentitiesHttpd1)
 
 		res = vm.PolicyDelAll()

@@ -23,7 +23,7 @@ type DaemonConfigurationSpec struct {
 	// Changeable configuration
 	Options ConfigurationMap `json:"options,omitempty"`
 
-	// The policy-enforcement mode: default, always, never
+	// The policy-enforcement mode
 	PolicyEnforcement string `json:"policy-enforcement,omitempty"`
 }
 

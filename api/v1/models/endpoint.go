@@ -70,7 +70,7 @@ type Endpoint struct {
 	PodName string `json:"pod-name,omitempty"`
 
 	// Policy information of endpoint
-	Policy *EndpointPolicy `json:"policy,omitempty"`
+	Policy *EndpointPolicyStatus `json:"policy,omitempty"`
 
 	// Whether policy enforcement is enabled (ingress, egress, both or none)
 	// Required: true
