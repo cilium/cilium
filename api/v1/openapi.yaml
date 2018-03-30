@@ -800,7 +800,7 @@ definitions:
         type: string
       policy:
         description: Policy information of endpoint
-        "$ref": "#/definitions/EndpointPolicy"
+        "$ref": "#/definitions/EndpointPolicyStatus"
       policy-enabled:
         description: Whether policy enforcement is enabled (ingress, egress, both or none)
         type: string
@@ -934,10 +934,23 @@ definitions:
         type: string
       state:
         "$ref": "#/definitions/EndpointState"
+  EndpointPolicyStatus:
+    description: Policy information of an endpoint
+    type: object
+    properties:
+      spec:
+        description: The policy that should apply to this endpoint
+        "$ref": "#/definitions/EndpointPolicy"
+      realized:
+        description: The policy in the datapath for this endpoint
+        "$ref": "#/definitions/EndpointPolicy"
   EndpointPolicy:
     description: Policy information of an endpoint
     type: object
     properties:
+      policy-revision:
+        description: The agent-local policy revision
+        type: integer
       id:
         description: Own identity of endpoint
         type: integer

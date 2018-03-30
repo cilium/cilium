@@ -1164,7 +1164,7 @@ func init() {
           "$ref": "#/definitions/ConfigurationMap"
         },
         "policy-enforcement": {
-          "description": "The policy-enforcement mode: default, always, never",
+          "description": "The policy-enforcement mode",
           "type": "string",
           "enum": [
             "default",
@@ -1319,7 +1319,7 @@ func init() {
         },
         "policy": {
           "description": "Policy information of endpoint",
-          "$ref": "#/definitions/EndpointPolicy"
+          "$ref": "#/definitions/EndpointPolicyStatus"
         },
         "policy-enabled": {
           "description": "Whether policy enforcement is enabled (ingress, egress, both or none)",
@@ -1524,6 +1524,24 @@ func init() {
         },
         "l4": {
           "$ref": "#/definitions/L4Policy"
+        },
+        "policy-revision": {
+          "description": "The agent-local policy revision",
+          "type": "integer"
+        }
+      }
+    },
+    "EndpointPolicyStatus": {
+      "description": "Policy information of an endpoint",
+      "type": "object",
+      "properties": {
+        "realized": {
+          "description": "The policy in the datapath for this endpoint",
+          "$ref": "#/definitions/EndpointPolicy"
+        },
+        "spec": {
+          "description": "The policy that should apply to this endpoint",
+          "$ref": "#/definitions/EndpointPolicy"
         }
       }
     },
