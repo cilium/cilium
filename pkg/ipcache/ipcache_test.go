@@ -44,7 +44,7 @@ func (s *IPCacheTestSuite) TestIPCache(c *C) {
 	// Deletion of key that doesn't exist doesn't cause panic.
 	IPIdentityCache.delete(endpointIP)
 
-	IPIdentityCache.upsert(endpointIP, identity)
+	IPIdentityCache.Upsert(endpointIP, identity)
 
 	// Assure both caches are updated..
 	c.Assert(len(IPIdentityCache.ipToIdentityCache), Equals, 1)
@@ -54,7 +54,7 @@ func (s *IPCacheTestSuite) TestIPCache(c *C) {
 	c.Assert(cachedIdentity, Equals, identity)
 	c.Assert(exists, Equals, true)
 
-	IPIdentityCache.upsert(endpointIP, identity)
+	IPIdentityCache.Upsert(endpointIP, identity)
 
 	// No duplicates.
 	c.Assert(len(IPIdentityCache.ipToIdentityCache), Equals, 1)
@@ -70,10 +70,10 @@ func (s *IPCacheTestSuite) TestIPCache(c *C) {
 
 	c.Assert(exists, Equals, false)
 
-	IPIdentityCache.upsert(endpointIP, identity)
+	IPIdentityCache.Upsert(endpointIP, identity)
 
 	newIdentity := identityPkg.NumericIdentity(69)
-	IPIdentityCache.upsert(endpointIP, newIdentity)
+	IPIdentityCache.Upsert(endpointIP, newIdentity)
 
 	// Ensure that update of cache with new identity doesn't keep old identity-to-ip
 	// mapping around.
@@ -97,7 +97,7 @@ func (s *IPCacheTestSuite) TestIPCache(c *C) {
 	identities := []identityPkg.NumericIdentity{5, 67, 29, 29, 29}
 
 	for index := range endpointIPs {
-		IPIdentityCache.upsert(endpointIPs[index], identities[index])
+		IPIdentityCache.Upsert(endpointIPs[index], identities[index])
 		cachedIdentity, _ := IPIdentityCache.LookupByIP(endpointIPs[index])
 		c.Assert(cachedIdentity, Equals, identities[index])
 	}
