@@ -712,7 +712,6 @@ var _ = Describe("RuntimeValidatedPolicies", func() {
 		_, err = vm.PolicyRenderAndImport(script)
 		Expect(err).To(BeNil(), "Unable to import policy: %s", err)
 
-		By(fmt.Sprintf("Pinging host IPv4 (%s) from %s (should work) because it is contained within CIDR %s", helpers.IPv4Host, helpers.Httpd2, ipv4OtherHost))
 		res = vm.ContainerExec(helpers.Httpd2, helpers.Ping(helpers.IPv4Host))
 		res.ExpectSuccess("Unexpected failure pinging host (%s) from %s: %s", helpers.IPv4Host, helpers.Httpd2, res.CombineOutput().String())
 
@@ -1039,6 +1038,70 @@ var _ = Describe("RuntimeValidatedPolicies", func() {
 		setupPolicyAndTestEgressToWorld(policy)
 
 		vm.PolicyDelAll().ExpectSuccess("Unable to delete all policies")
+	})
+
+	Context("TestsEgressToHost", func() {
+
+		hostDockerContainer := "hostDockerContainer"
+
+		BeforeAll(func() {
+			By("Starting httpd server using host networking")
+			res := vm.ContainerCreate(hostDockerContainer, helpers.HttpdImage, helpers.HostDockerNetwork, "-l id.hostDockerContainer")
+			res.ExpectSuccess("unable to start Docker container with host networking")
+		})
+
+		AfterAll(func() {
+			vm.ContainerRm(hostDockerContainer)
+		})
+
+		It("Tests Egress To Host", func() {
+
+			app1Label := "id.app1"
+			hostIP := "10.0.2.15"
+
+			By(fmt.Sprintf("Pinging %s from %s before importing policy (should work)", api.EntityHost, helpers.App1))
+			failedPing := vm.ContainerExec(helpers.App1, helpers.Ping(hostIP))
+			failedPing.ExpectSuccess("unable able to ping %s", hostIP)
+
+			// Flush global conntrack table to be safe because egress conntrack cleanup
+			// is still to be completed (GH-3393).
+			By(fmt.Sprintf("Flushing global connection tracking table before importing policy"))
+			vm.FlushGlobalConntrackTable().ExpectSuccess("Unable to flush global conntrack table")
+
+			By(fmt.Sprintf("Importing policy which allows egress to %s entity from %s", api.EntityHost, helpers.App1))
+			policy := fmt.Sprintf(`
+			[{
+				"endpointSelector": {"matchLabels":{"%s":""}},
+				"egress": [{
+					"toEntities": [
+						"%s"
+					]
+				}]
+			}]`, app1Label, api.EntityHost)
+
+			_, err := vm.PolicyRenderAndImport(policy)
+			Expect(err).To(BeNil(), "Unable to import policy: %s", err)
+
+			By(fmt.Sprintf("Pinging %s from %s (should work)", api.EntityHost, helpers.App1))
+			successPing := vm.ContainerExec(helpers.App1, helpers.Ping(hostIP))
+			successPing.ExpectSuccess("not able to ping %s", hostIP)
+
+			// Docker container running with host networking is accessible via
+			// the host's IP address. See https://docs.docker.com/network/host/.
+			By(fmt.Sprintf("Accessing /public using Docker container using host networking from %s (should work)", helpers.App1))
+			successCurl := vm.ContainerExec(helpers.App1, helpers.CurlWithHTTPCode(fmt.Sprintf("http://%s/public", hostIP)))
+			successCurl.ExpectContains("200", "Expected to be able to access /public in host Docker container")
+
+			By(fmt.Sprintf("Pinging %s from %s (shouldn't work)", helpers.App2, helpers.App1))
+			failPing := vm.ContainerExec(helpers.App1, helpers.Ping(helpers.App2))
+			failPing.ExpectFail("not able to ping %s", helpers.App2)
+
+			httpd2, err := vm.ContainerInspectNet(helpers.Httpd2)
+			By(fmt.Sprintf("Accessing /public in %s from %s (shouldn't work)", helpers.App2, helpers.App1))
+			failCurl := vm.ContainerExec(helpers.App1, helpers.CurlFail(fmt.Sprintf("http://%s/public", httpd2[helpers.IPv4])))
+			failCurl.ExpectFail("unexpectedly able to access %s when access should only be allowed to host", helpers.Httpd2)
+
+		})
 	})
 })
 
