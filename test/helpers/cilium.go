@@ -808,3 +808,8 @@ func (s *SSHMeta) AddIPToLoopbackDevice(ip string) *CmdRes {
 func (s *SSHMeta) RemoveIPFromLoopbackDevice(ip string) *CmdRes {
 	return s.Exec(fmt.Sprintf("sudo ip addr del dev lo %s", ip))
 }
+
+// FlushGlobalConntrackTable flushes the global connection tracking table.
+func (s *SSHMeta) FlushGlobalConntrackTable() *CmdRes {
+	return s.ExecCilium("bpf ct flush global")
+}
