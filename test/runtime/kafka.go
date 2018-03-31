@@ -129,6 +129,9 @@ var _ = Describe("RuntimeValidatedKafka", func() {
 	})
 
 	It("Kafka Policy Ingress", func() {
+		// GH-3440 Re-enable when stable
+		return
+
 		_, err := vm.PolicyImportAndWait(vm.GetFullPath("Policies-kafka.json"), 300)
 		Expect(err).Should(BeNil())
 
@@ -170,6 +173,9 @@ var _ = Describe("RuntimeValidatedKafka", func() {
 	})
 
 	It("Kafka Policy Role Ingress", func() {
+		// GH-3440 Re-enable when stable
+		return
+
 		_, err := vm.PolicyImportAndWait(vm.GetFullPath("Policies-kafka-Role.json"), 300)
 		Expect(err).Should(BeNil(), "Expected nil got %s while importing policy Policies-kafka-Role.json", err)
 
