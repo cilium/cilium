@@ -23,7 +23,6 @@
 
 #define CILIUM_MAP_POLICY	1
 #define CILIUM_MAP_CALLS	2
-#define CILIUM_MAP_RES_POLICY	3
 
 struct bpf_elf_map __section_maps cilium_lxc = {
 	.type		= BPF_MAP_TYPE_HASH,
@@ -41,15 +40,6 @@ struct bpf_elf_map __section_maps cilium_policy = {
 	.size_value	= sizeof(__u32),
 	.pinning	= PIN_GLOBAL_NS,
 	.max_elem	= POLICY_PROG_MAP_SIZE,
-};
-
-struct bpf_elf_map __section_maps cilium_reserved_policy = {
-	.type		= BPF_MAP_TYPE_PROG_ARRAY,
-	.id		= CILIUM_MAP_RES_POLICY,
-	.size_key	= sizeof(__u32),
-	.size_value	= sizeof(__u32),
-	.pinning	= PIN_GLOBAL_NS,
-	.max_elem	= RESERVED_POLICY_SIZE,
 };
 
 /* Per-endpoint policy enforcement map */

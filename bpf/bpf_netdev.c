@@ -1,5 +1,5 @@
 /*
- *  Copyright (C) 2016-2017 Authors of Cilium
+ *  Copyright (C) 2016-2018 Authors of Cilium
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -465,25 +465,6 @@ int from_netdev(struct __sk_buff *skb)
 	}
 
 	return ret;
-}
-
-__section_tail(CILIUM_MAP_RES_POLICY, SECLABEL) int handle_policy(struct __sk_buff *skb)
-{
-	__u32 src_label = skb->cb[CB_SRC_LABEL];
-	int ifindex = skb->cb[CB_IFINDEX];
-
-	if (policy_can_access_ingress(skb, src_label, 0, 0, 0, NULL) < 0) {
-		return send_drop_notify(skb, src_label, SECLABEL, 0, ifindex,
-					DROP_POLICY, TC_ACT_SHOT);
-	} else {
-		cilium_dbg_capture(skb, DBG_CAPTURE_DELIVERY, ifindex);
-
-		/* ifindex 0 indicates passing down to the stack */
-		if (ifindex == 0)
-			return TC_ACT_OK;
-		else
-			return redirect(ifindex, 0);
-	}
 }
 
 BPF_LICENSE("GPL");
