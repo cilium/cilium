@@ -42,7 +42,7 @@ public:
     // fake setting the local address. It remains the same as required by the test infra, but it will be marked as restored
     // as required by the original_dst cluster.
     socket.setLocalAddress(original_dst_address, true);
-    socket.addOption(std::make_shared<Cilium::SocketOption>(maps_, 42, 1, true, 80, 10000));
+    socket.addOption(std::make_shared<Cilium::SocketOption>(maps_, 1, 173, true, 80, 10000));
     return true;
   }
 };
