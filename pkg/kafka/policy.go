@@ -68,22 +68,9 @@ func matchNonTopicRequests(req *RequestMessage, rule api.PortRuleKafka) bool {
 	//}
 	return true
 }
-func produceTopicContained(neededTopic string, topics []proto.ProduceReqTopic) bool {
-	for _, topic := range topics {
-		if topic.Name == neededTopic {
-			return true
-		}
-	}
-
-	return false
-}
 
 func matchProduceReq(req *proto.ProduceReq, rule api.PortRuleKafka) bool {
 	if req == nil {
-		return false
-	}
-
-	if rule.Topic != "" && !produceTopicContained(rule.Topic, req.Topics) {
 		return false
 	}
 
@@ -92,16 +79,6 @@ func matchProduceReq(req *proto.ProduceReq, rule api.PortRuleKafka) bool {
 	}
 
 	return true
-}
-
-func fetchTopicContained(neededTopic string, topics []proto.FetchReqTopic) bool {
-	for _, topic := range topics {
-		if topic.Name == neededTopic {
-			return true
-		}
-	}
-
-	return false
 }
 
 func matchFetchReq(req *proto.FetchReq, rule api.PortRuleKafka) bool {
@@ -109,25 +86,11 @@ func matchFetchReq(req *proto.FetchReq, rule api.PortRuleKafka) bool {
 		return false
 	}
 
-	if rule.Topic != "" && !fetchTopicContained(rule.Topic, req.Topics) {
-		return false
-	}
-
 	if rule.ClientID != "" && rule.ClientID != req.ClientID {
 		return false
 	}
 
 	return true
-}
-
-func offsetTopicContained(neededTopic string, topics []proto.OffsetReqTopic) bool {
-	for _, topic := range topics {
-		if topic.Name == neededTopic {
-			return true
-		}
-	}
-
-	return false
 }
 
 func matchOffsetReq(req *proto.OffsetReq, rule api.PortRuleKafka) bool {
@@ -135,25 +98,11 @@ func matchOffsetReq(req *proto.OffsetReq, rule api.PortRuleKafka) bool {
 		return false
 	}
 
-	if rule.Topic != "" && !offsetTopicContained(rule.Topic, req.Topics) {
-		return false
-	}
-
 	if rule.ClientID != "" && rule.ClientID != req.ClientID {
 		return false
 	}
 
 	return true
-}
-
-func topicContained(neededTopic string, topics []string) bool {
-	for _, topic := range topics {
-		if topic == neededTopic {
-			return true
-		}
-	}
-
-	return false
 }
 
 func matchMetadataReq(req *proto.MetadataReq, rule api.PortRuleKafka) bool {
@@ -161,25 +110,11 @@ func matchMetadataReq(req *proto.MetadataReq, rule api.PortRuleKafka) bool {
 		return false
 	}
 
-	if rule.Topic != "" && !topicContained(rule.Topic, req.Topics) {
-		return false
-	}
-
 	if rule.ClientID != "" && rule.ClientID != req.ClientID {
 		return false
 	}
 
 	return true
-}
-
-func offsetCommitTopicContained(neededTopic string, topics []proto.OffsetCommitReqTopic) bool {
-	for _, topic := range topics {
-		if topic.Name == neededTopic {
-			return true
-		}
-	}
-
-	return false
 }
 
 func matchOffsetCommitReq(req *proto.OffsetCommitReq, rule api.PortRuleKafka) bool {
@@ -187,10 +122,6 @@ func matchOffsetCommitReq(req *proto.OffsetCommitReq, rule api.PortRuleKafka) bo
 		return false
 	}
 
-	if rule.Topic != "" && !offsetCommitTopicContained(rule.Topic, req.Topics) {
-		return false
-	}
-
 	if rule.ClientID != "" && rule.ClientID != req.ClientID {
 		return false
 	}
@@ -198,22 +129,8 @@ func matchOffsetCommitReq(req *proto.OffsetCommitReq, rule api.PortRuleKafka) bo
 	return true
 }
 
-func offsetFetchTopicContained(neededTopic string, topics []proto.OffsetFetchReqTopic) bool {
-	for _, topic := range topics {
-		if topic.Name == neededTopic {
-			return true
-		}
-	}
-
-	return false
-}
-
 func matchOffsetFetchReq(req *proto.OffsetFetchReq, rule api.PortRuleKafka) bool {
 	if req == nil {
-		return false
-	}
-
-	if rule.Topic != "" && !offsetFetchTopicContained(rule.Topic, req.Topics) {
 		return false
 	}
 
@@ -281,11 +198,28 @@ func (req *RequestMessage) ruleMatches(rule api.PortRuleKafka) bool {
 // rules. The function will return true if the policy allows the message,
 // otherwise false is returned.
 func (req *RequestMessage) MatchesRule(rules []api.PortRuleKafka) bool {
-	for _, rule := range rules {
-		if req.ruleMatches(rule) {
-			return true
-		}
+	topics := req.GetTopics()
+	// Maintain a map of all topics in the request.
+	// We should allow the request only if all topics are
+	// allowed by the list of rules.
+	reqTopicsMap := make(map[string]bool, len(topics))
+	for _, topic := range topics {
+		reqTopicsMap[topic] = true
 	}
 
+	for _, rule := range rules {
+		if rule.Topic == "" || len(topics) == 0 {
+			if req.ruleMatches(rule) {
+				return true
+			}
+		} else if reqTopicsMap[rule.Topic] {
+			if req.ruleMatches(rule) {
+				delete(reqTopicsMap, rule.Topic)
+				if len(reqTopicsMap) == 0 {
+					return true
+				}
+			}
+		}
+	}
 	return false
 }
