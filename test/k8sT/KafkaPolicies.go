@@ -115,6 +115,9 @@ var _ = Describe("K8sValidatedKafkaPolicyTest", func() {
 	})
 
 	It("KafkaPolicies", func() {
+		// GH-3440 Re-enable when stable
+		return
+
 		clusterIP, err := kubectl.Get(helpers.DefaultNamespace, "svc").Filter(
 			"{.items[?(@.metadata.name == \"kafka-service\")].spec.clusterIP}")
 		logger.Infof("KafkaPolicyRulesTest: cluster service ip '%s'", clusterIP)
