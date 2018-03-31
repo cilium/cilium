@@ -34,7 +34,6 @@ import (
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/kvstore"
-	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/policymap"
 	"github.com/cilium/cilium/pkg/metrics"
@@ -52,31 +51,6 @@ const (
 	optionEnabled  = "enabled"
 	optionDisabled = "disabled"
 )
-
-func (e *Endpoint) checkEgressAccess(owner Owner, dstLabels labels.LabelArray, opts models.ConfigurationMap, opt string) {
-	ctx := policy.SearchContext{
-		From: e.Consumable.LabelArray,
-		To:   dstLabels,
-	}
-
-	if owner.TracingEnabled() {
-		ctx.Trace = policy.TRACE_ENABLED
-	}
-
-	scopedLog := e.getLogger().WithFields(logrus.Fields{
-		logfields.Labels + ".from": ctx.From,
-		logfields.Labels + ".to":   ctx.To,
-	})
-
-	switch owner.GetPolicyRepository().AllowsEgressLabelAccess(&ctx) {
-	case api.Allowed:
-		opts[opt] = optionEnabled
-		scopedLog.Debug("checkEgressAccess: Enabled")
-	case api.Denied:
-		opts[opt] = optionDisabled
-		scopedLog.Debug("checkEgressAccess: Disabled")
-	}
-}
 
 // allowIngressIdentity must be called with global endpoint.Mutex held
 func (e *Endpoint) allowIngressIdentity(id identityPkg.NumericIdentity) bool {
@@ -814,12 +788,6 @@ func (e *Endpoint) regeneratePolicy(owner Owner, opts models.ConfigurationMap) (
 
 	opts[OptionIngressPolicy] = optionDisabled
 	opts[OptionEgressPolicy] = optionDisabled
-
-	if egress {
-		// Need to explicitly check for access to host because localhost access
-		// is a special case in the datapath.
-		e.checkEgressAccess(owner, (*labelsMap)[identityPkg.ReservedIdentityHost], opts, OptionAllowToHost)
-	}
 
 	if !ingress && !egress {
 		e.getLogger().Debug("ingress and egress policy enforcement not enabled")

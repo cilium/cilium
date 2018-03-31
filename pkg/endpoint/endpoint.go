@@ -78,7 +78,6 @@ type PortMap struct {
 }
 
 const (
-	OptionAllowToHost         = "AllowToHost"
 	OptionConntrackAccounting = "ConntrackAccounting"
 	OptionConntrackLocal      = "ConntrackLocal"
 	OptionConntrack           = "Conntrack"
@@ -97,12 +96,6 @@ const (
 )
 
 var (
-	OptionSpecAllowToHost = option.Option{
-		Define:      "ALLOW_TO_HOST",
-		Immutable:   true,
-		Description: "Allow all traffic to local host",
-	}
-
 	OptionSpecConntrackAccounting = option.Option{
 		Define:      "CONNTRACK_ACCOUNTING",
 		Description: "Enable per flow (conntrack) statistics",
@@ -175,9 +168,7 @@ var (
 		OptionEgressPolicy:        &OptionEgressSpecPolicy,
 	}
 
-	EndpointOptionLibrary = option.OptionLibrary{
-		OptionAllowToHost: &OptionSpecAllowToHost,
-	}
+	EndpointOptionLibrary = option.OptionLibrary{}
 
 	// ciliumEPControllerLimit is the range of k8s versions with which we are
 	// willing to run the EndpointCRD controllers

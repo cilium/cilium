@@ -1,5 +1,5 @@
 /*
- *  Copyright (C) 2016-2017 Authors of Cilium
+ *  Copyright (C) 2016-2018 Authors of Cilium
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -364,20 +364,8 @@ to_host:
 		send_trace_notify(skb, TRACE_TO_HOST, SECLABEL, HOST_ID, 0, HOST_IFINDEX,
 				  forwarding_reason);
 
-#ifndef POLICY_EGRESS
 		cilium_dbg_capture(skb, DBG_CAPTURE_DELIVERY, HOST_IFINDEX);
 		return redirect(HOST_IFINDEX, 0);
-#else
-		skb->cb[CB_SRC_LABEL] = SECLABEL;
-		skb->cb[CB_IFINDEX] = HOST_IFINDEX;
-
-#ifdef ALLOW_TO_HOST
-		policy_mark_skip(skb);
-#endif
-
-		tail_call(skb, &cilium_reserved_policy, HOST_ID);
-		return DROP_MISSED_TAIL_CALL;
-#endif
 	}
 
 pass_to_stack:
@@ -670,20 +658,8 @@ to_host:
 		send_trace_notify(skb, TRACE_TO_HOST, SECLABEL, HOST_ID, 0, HOST_IFINDEX,
 				  forwarding_reason);
 
-#ifndef POLICY_EGRESS
 		cilium_dbg_capture(skb, DBG_CAPTURE_DELIVERY, HOST_IFINDEX);
 		return redirect(HOST_IFINDEX, 0);
-#else
-		skb->cb[CB_SRC_LABEL] = SECLABEL;
-		skb->cb[CB_IFINDEX] = HOST_IFINDEX;
-
-#ifdef ALLOW_TO_HOST
-		policy_mark_skip(skb);
-#endif
-
-		tail_call(skb, &cilium_reserved_policy, HOST_ID);
-		return DROP_MISSED_TAIL_CALL;
-#endif
 	}
 
 pass_to_stack:
