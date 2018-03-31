@@ -402,6 +402,9 @@ var _ = Describe("K8sValidatedPolicyTest", func() {
 		})
 
 		It("Denies traffic with k8s default-deny egress policy", func() {
+			// GH-3437 Temporarily disabled
+			return
+
 			if helpers.GetCurrentK8SEnv() == "1.7" {
 				log.Info("K8s 1.7 doesn't offer a default deny for egress")
 				return
