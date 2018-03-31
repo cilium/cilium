@@ -77,6 +77,9 @@ const (
 	// CiliumDockerNetwork is the name of the Docker network which Cilium manages.
 	CiliumDockerNetwork = "cilium-net"
 
+	// HostDockerNetwork is the name of the host network driver.
+	HostDockerNetwork = "host"
+
 	// NetperfImage is the Docker image used for performance testing
 	NetperfImage = "tgraf/netperf"
 
