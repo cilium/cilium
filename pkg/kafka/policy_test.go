@@ -78,25 +78,6 @@ func (k *kafkaTestSuite) TestProduceRequest(c *C) {
 		},
 	}
 
-	expected := map[string]bool{
-		"foo":  true,
-		"foo2": false,
-		"bar":  true,
-		"bar ": false,
-		"baz":  false,
-		"":     false,
-	}
-
-	for topic, result := range expected {
-		c.Assert(produceTopicContained(topic, req.Topics), Equals, result)
-
-		// empty topic in rule matches all topics
-		if topic == "" {
-			result = true
-		}
-		c.Assert(matchProduceReq(req, api.PortRuleKafka{Topic: topic}), Equals, result)
-	}
-
 	reqMsg := RequestMessage{
 		request: req,
 	}
@@ -109,13 +90,23 @@ func (k *kafkaTestSuite) TestProduceRequest(c *C) {
 
 	c.Assert(reqMsg.MatchesRule([]api.PortRuleKafka{
 		{Topic: "foo"},
+	}), Equals, false)
+	c.Assert(reqMsg.MatchesRule([]api.PortRuleKafka{
+		{Topic: "foo"}, {Topic: "bar"},
 	}), Equals, true)
+	c.Assert(reqMsg.MatchesRule([]api.PortRuleKafka{
+		{Topic: "foo"}, {Topic: "baz"},
+	}), Equals, false)
 	c.Assert(reqMsg.MatchesRule([]api.PortRuleKafka{
 		{Topic: "baz"}, {Topic: "foo2"},
 	}), Equals, false)
 	c.Assert(reqMsg.MatchesRule([]api.PortRuleKafka{
-		{Topic: "foo2"}, {Topic: "foo"},
+		{Topic: "bar"}, {Topic: "foo"},
 	}), Equals, true)
+
+	c.Assert(reqMsg.MatchesRule([]api.PortRuleKafka{
+		{Topic: "bar"}, {Topic: "foo"}, {Topic: "baz"}}), Equals, true)
+
 }
 
 func (k *kafkaTestSuite) TestUnknownRequest(c *C) {
