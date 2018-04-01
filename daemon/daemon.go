@@ -1248,25 +1248,26 @@ func (h *patchConfig) Handle(params PatchConfigParams) middleware.Responder {
 	d.conf.ConfigPatchMutex.Lock()
 	defer d.conf.ConfigPatchMutex.Unlock()
 
-	if numPagesEntry, ok := params.Configuration.Mutable["MonitorNumPages"]; ok {
-		nmArgs := d.nodeMonitor.GetArgs()
+	cfgSpec := params.Configuration
+	nmArgs := d.nodeMonitor.GetArgs()
+	if numPagesEntry, ok := cfgSpec.Options["MonitorNumPages"]; ok && nmArgs[0] != numPagesEntry {
 		if len(nmArgs) == 0 || nmArgs[0] != numPagesEntry {
 			args := []string{"--num-pages %s", numPagesEntry}
 			d.nodeMonitor.Restart(args)
 		}
-		if len(params.Configuration.Mutable) == 0 {
+		if len(cfgSpec.Options) == 0 {
 			return NewPatchConfigOK()
 		}
-		delete(params.Configuration.Mutable, "MonitorNumPages")
+		delete(cfgSpec.Options, "MonitorNumPages")
 	}
-	if err := d.conf.Opts.Validate(params.Configuration.Mutable); err != nil {
+	if err := d.conf.Opts.Validate(cfgSpec.Options); err != nil {
 		return apierror.Error(PatchConfigBadRequestCode, err)
 	}
 
 	// Track changes to daemon's configuration
 	var changes int
 
-	enforcement := params.Configuration.PolicyEnforcement
+	enforcement := cfgSpec.PolicyEnforcement
 
 	// Only update if value provided for PolicyEnforcement.
 	if enforcement != "" {
@@ -1292,7 +1293,7 @@ func (h *patchConfig) Handle(params PatchConfigParams) middleware.Responder {
 		log.Debug("finished configuring PolicyEnforcement for daemon")
 	}
 
-	changes += d.conf.Opts.Apply(params.Configuration.Mutable, changedOption, d)
+	changes += d.conf.Opts.Apply(cfgSpec.Options, changedOption, d)
 
 	log.WithField("count", changes).Debug("Applied changes to daemon's configuration")
 
@@ -1326,9 +1327,13 @@ func (h *getConfig) Handle(params GetConfigParams) middleware.Responder {
 
 	d := h.daemon
 
-	cfg := &models.DaemonConfigurationResponse{
+	spec := &models.DaemonConfigurationSpec{
+		Options:           *d.conf.Opts.GetMutableModel(),
+		PolicyEnforcement: policy.GetPolicyEnabled(),
+	}
+
+	status := &models.DaemonConfigurationStatus{
 		Addressing:        d.getNodeAddressing(),
-		Configuration:     d.conf.Opts.GetModel(),
 		K8sConfiguration:  k8s.GetKubeconfigPath(),
 		K8sEndpoint:       k8s.GetAPIServer(),
 		PolicyEnforcement: policy.GetPolicyEnabled(),
@@ -1337,6 +1342,12 @@ func (h *getConfig) Handle(params GetConfigParams) middleware.Responder {
 			Type:    kvStore,
 			Options: kvStoreOpts,
 		},
+		Realized: spec,
+	}
+
+	cfg := &models.DaemonConfiguration{
+		Spec:   spec,
+		Status: status,
 	}
 
 	return NewGetConfigOK().WithPayload(cfg)

@@ -39,13 +39,14 @@ func setupKvstore() {
 		if err != nil {
 			Fatalf("Unable to retrieve cilium configuration: %s", err)
 		}
+		cfgStatus := resp.Status
 
 		if kvStore == "" {
-			kvStore = resp.KvstoreConfiguration.Type
+			kvStore = cfgStatus.KvstoreConfiguration.Type
 		}
 
 		if len(kvStoreOpts) == 0 {
-			for k, v := range resp.KvstoreConfiguration.Options {
+			for k, v := range cfgStatus.KvstoreConfiguration.Options {
 				kvStoreOpts[k] = v
 			}
 		}

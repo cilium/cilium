@@ -12,31 +12,25 @@ import (
 	"github.com/go-openapi/swag"
 )
 
-// Configuration General purpose structure to hold configuration of the daemon. Split into
-// a mutable and immutable section.
+// DaemonConfigurationSpec General purpose structure to hold the controllable configuration of the daemon.
 //
-// swagger:model Configuration
+// swagger:model DaemonConfigurationSpec
 
-type Configuration struct {
-
-	// Immutable configuration (read-only)
-	Immutable ConfigurationMap `json:"immutable,omitempty"`
+type DaemonConfigurationSpec struct {
 
 	// Changeable configuration
-	Mutable ConfigurationMap `json:"mutable,omitempty"`
+	Options ConfigurationMap `json:"options,omitempty"`
 
-	// policy enforcement
+	// The policy-enforcement mode: default, always, never
 	PolicyEnforcement string `json:"policy-enforcement,omitempty"`
 }
 
-/* polymorph Configuration immutable false */
+/* polymorph DaemonConfigurationSpec options false */
 
-/* polymorph Configuration mutable false */
+/* polymorph DaemonConfigurationSpec policy-enforcement false */
 
-/* polymorph Configuration policy-enforcement false */
-
-// Validate validates this configuration
-func (m *Configuration) Validate(formats strfmt.Registry) error {
+// Validate validates this daemon configuration spec
+func (m *DaemonConfigurationSpec) Validate(formats strfmt.Registry) error {
 	var res []error
 
 	if len(res) > 0 {
@@ -46,7 +40,7 @@ func (m *Configuration) Validate(formats strfmt.Registry) error {
 }
 
 // MarshalBinary interface implementation
-func (m *Configuration) MarshalBinary() ([]byte, error) {
+func (m *DaemonConfigurationSpec) MarshalBinary() ([]byte, error) {
 	if m == nil {
 		return nil, nil
 	}
@@ -54,8 +48,8 @@ func (m *Configuration) MarshalBinary() ([]byte, error) {
 }
 
 // UnmarshalBinary interface implementation
-func (m *Configuration) UnmarshalBinary(b []byte) error {
-	var res Configuration
+func (m *DaemonConfigurationSpec) UnmarshalBinary(b []byte) error {
+	var res DaemonConfigurationSpec
 	if err := swag.ReadJSON(b, &res); err != nil {
 		return err
 	}
