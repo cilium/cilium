@@ -112,6 +112,7 @@ paths:
             "$ref": "#/definitions/Error"
     patch:
       summary: Modify existing endpoint
+      deprecated: true
       description: |
         Applies the endpoint change request to an existing endpoint
       tags:
