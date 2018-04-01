@@ -64,7 +64,7 @@ func (i *IngressRule) sanitize() error {
 		"FromEndpoints": true,
 		"FromCIDR":      false,
 		"FromCIDRSet":   false,
-		"FromEntities":  false,
+		"FromEntities":  true,
 	}
 	for m1 := range l3Members {
 		for m2 := range l3Members {
@@ -130,7 +130,7 @@ func (e *EgressRule) sanitize() error {
 		"ToCIDR":      false,
 		"ToCIDRSet":   false,
 		"ToEndpoints": true,
-		"ToEntities":  false,
+		"ToEntities":  true,
 		"ToServices":  false,
 	}
 	for m1 := range l3Members {

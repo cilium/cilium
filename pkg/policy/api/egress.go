@@ -96,7 +96,7 @@ type EgressRule struct {
 	// `world` and `host`
 	//
 	// +optional
-	ToEntities []Entity `json:"toEntities,omitempty"`
+	ToEntities EntitySlice `json:"toEntities,omitempty"`
 
 	// ToServices is a list of services to which the endpoint subject
 	// to the rule is allowed to initiate connections.
@@ -106,4 +106,10 @@ type EgressRule struct {
 	// initiate connections to all cidrs backing the "external-service" service
 	// + optional
 	ToServices []Service `json:"toServices,omitempty"`
+}
+
+// GetDestinationEndpointSelectors returns a slice of endpoints selectors
+// covering all L3 destination selectors of the egress rule
+func (e *EgressRule) GetDestinationEndpointSelectors() EndpointSelectorSlice {
+	return append(e.ToEndpoints, e.ToEntities.GetAsEndpointSelectors()...)
 }
