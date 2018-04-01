@@ -121,9 +121,7 @@ func getL4FilterEndpointSelector(filter *policy.L4Filter) []api.EndpointSelector
 	// specified. See also GH-2992 for context.
 	fromEndpointsSelectors := filter.Endpoints
 	if fromEndpointsSelectors == nil {
-		fromEndpointsSelectors = []api.EndpointSelector{
-			api.NewWildcardEndpointSelector(),
-		}
+		fromEndpointsSelectors = []api.EndpointSelector{api.WildcardEndpointSelector}
 	}
 
 	return fromEndpointsSelectors

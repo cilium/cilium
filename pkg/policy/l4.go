@@ -28,11 +28,6 @@ import (
 	"github.com/cilium/cilium/pkg/u8proto"
 )
 
-var (
-	// WildcardEndpointSelector is a selector that matches on all endpoints
-	WildcardEndpointSelector = api.NewWildcardEndpointSelector()
-)
-
 // L7DataMap contains a map of L7 rules per endpoint where key is a hash of EndpointSelector
 type L7DataMap map[api.EndpointSelector]api.L7Rules
 
@@ -121,7 +116,7 @@ func (l7 L7DataMap) GetRelevantRules(identity *identity.Identity) api.L7Rules {
 
 	if matched == 0 {
 		// Fall back to wildcard selector
-		if rules, ok := l7[WildcardEndpointSelector]; ok {
+		if rules, ok := l7[api.WildcardEndpointSelector]; ok {
 			return rules
 		}
 	}
@@ -140,7 +135,7 @@ func (l7 L7DataMap) addRulesForEndpoints(rules api.L7Rules, endpoints []api.Endp
 		}
 	} else {
 		// If there are no explicit fromEps, have a 'special' wildcard endpoint.
-		l7[WildcardEndpointSelector] = rules
+		l7[api.WildcardEndpointSelector] = rules
 	}
 }
 

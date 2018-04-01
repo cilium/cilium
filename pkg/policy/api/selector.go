@@ -132,10 +132,14 @@ func (n EndpointSelector) HasKey(key string) bool {
 	return false
 }
 
-// NewWildcardEndpointSelector returns a selector that matches on all endpoints
-func NewWildcardEndpointSelector() EndpointSelector {
+// newWildcardEndpointSelector returns a selector that matches on all endpoints
+func newWildcardEndpointSelector() EndpointSelector {
 	return EndpointSelector{&metav1.LabelSelector{MatchLabels: map[string]string{}}}
 }
+
+// WildcardEndpointSelector is a wildcard endpoint selector matching all
+// endpoints that can be described with labels.
+var WildcardEndpointSelector = newWildcardEndpointSelector()
 
 // NewESFromLabels creates a new endpoint selector from the given labels.
 func NewESFromLabels(lbls ...*labels.Label) EndpointSelector {

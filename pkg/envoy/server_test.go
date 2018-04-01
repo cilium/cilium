@@ -223,7 +223,7 @@ var L4PolicyMap3 = map[string]policy.L4Filter{
 		Protocol: api.ProtoTCP,
 		L7Parser: policy.ParserTypeHTTP,
 		L7RulesPerEp: policy.L7DataMap{
-			policy.WildcardEndpointSelector: L7Rules1,
+			api.WildcardEndpointSelector: L7Rules1,
 		},
 	},
 }
