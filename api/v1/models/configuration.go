@@ -12,8 +12,8 @@ import (
 	"github.com/go-openapi/swag"
 )
 
-// Configuration General purpose structure to hold configuration of the daemon and
-// endpoints. Split into a mutable and immutable section.
+// Configuration General purpose structure to hold configuration of the daemon. Split into
+// a mutable and immutable section.
 //
 // swagger:model Configuration
 

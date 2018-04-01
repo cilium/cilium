@@ -64,8 +64,8 @@ for the patch endpoint ID config operation typically these are written to a http
 */
 type PatchEndpointIDConfigParams struct {
 
-	/*Configuration*/
-	Configuration models.ConfigurationMap
+	/*EndpointConfiguration*/
+	EndpointConfiguration *models.EndpointConfigurationSpec
 	/*ID
 	  String describing an endpoint with the format ``[prefix:]id``. If no prefix
 	is specified, a prefix of ``cilium-local:`` is assumed. Not all endpoints
@@ -122,15 +122,15 @@ func (o *PatchEndpointIDConfigParams) SetHTTPClient(client *http.Client) {
 	o.HTTPClient = client
 }
 
-// WithConfiguration adds the configuration to the patch endpoint ID config params
-func (o *PatchEndpointIDConfigParams) WithConfiguration(configuration models.ConfigurationMap) *PatchEndpointIDConfigParams {
-	o.SetConfiguration(configuration)
+// WithEndpointConfiguration adds the endpointConfiguration to the patch endpoint ID config params
+func (o *PatchEndpointIDConfigParams) WithEndpointConfiguration(endpointConfiguration *models.EndpointConfigurationSpec) *PatchEndpointIDConfigParams {
+	o.SetEndpointConfiguration(endpointConfiguration)
 	return o
 }
 
-// SetConfiguration adds the configuration to the patch endpoint ID config params
-func (o *PatchEndpointIDConfigParams) SetConfiguration(configuration models.ConfigurationMap) {
-	o.Configuration = configuration
+// SetEndpointConfiguration adds the endpointConfiguration to the patch endpoint ID config params
+func (o *PatchEndpointIDConfigParams) SetEndpointConfiguration(endpointConfiguration *models.EndpointConfigurationSpec) {
+	o.EndpointConfiguration = endpointConfiguration
 }
 
 // WithID adds the id to the patch endpoint ID config params
@@ -152,7 +152,11 @@ func (o *PatchEndpointIDConfigParams) WriteToRequest(r runtime.ClientRequest, re
 	}
 	var res []error
 
-	if err := r.SetBodyParam(o.Configuration); err != nil {
+	if o.EndpointConfiguration == nil {
+		o.EndpointConfiguration = new(models.EndpointConfigurationSpec)
+	}
+
+	if err := r.SetBodyParam(o.EndpointConfiguration); err != nil {
 		return err
 	}
 

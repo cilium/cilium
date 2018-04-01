@@ -86,7 +86,7 @@ func (c *Client) EndpointHealthGet(id string) (*models.EndpointHealth, error) {
 }
 
 // EndpointConfigGet returns endpoint configuration
-func (c *Client) EndpointConfigGet(id string) (*models.Configuration, error) {
+func (c *Client) EndpointConfigGet(id string) (*models.EndpointConfigurationStatus, error) {
 	params := endpoint.NewGetEndpointIDConfigParams().WithID(id)
 	resp, err := c.Endpoint.GetEndpointIDConfig(params)
 	if err != nil {
@@ -96,10 +96,10 @@ func (c *Client) EndpointConfigGet(id string) (*models.Configuration, error) {
 }
 
 // EndpointConfigPatch modifies endpoint configuration
-func (c *Client) EndpointConfigPatch(id string, cfg models.ConfigurationMap) error {
+func (c *Client) EndpointConfigPatch(id string, cfg *models.EndpointConfigurationSpec) error {
 	params := endpoint.NewPatchEndpointIDConfigParams().WithID(id)
 	if cfg != nil {
-		params.SetConfiguration(cfg)
+		params.SetEndpointConfiguration(cfg)
 	}
 
 	_, err := c.Endpoint.PatchEndpointIDConfig(params)
