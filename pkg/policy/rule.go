@@ -127,41 +127,34 @@ func mergeL4Ingress(ctx *SearchContext, rule api.IngressRule, ruleLabels labels.
 	}
 
 	fromEndpoints := rule.GetSourceEndpointSelectors()
-
 	found := 0
-	var err error
+
+	if ctx.From != nil && len(fromEndpoints) > 0 {
+		if !fromEndpoints.Matches(ctx.From) {
+			ctx.PolicyTrace("    Labels %s not found", ctx.From)
+			return 0, nil
+		}
+	}
+
+	ctx.PolicyTrace("    Found all required labels")
 
 	for _, r := range rule.ToPorts {
-		if fromEndpoints != nil {
-			ctx.PolicyTrace("    Allows %s port %v from endpoints %v\n", policymap.Ingress, r.Ports, fromEndpoints)
-		} else {
-			ctx.PolicyTrace("    Allows %s port %v\n", policymap.Ingress, r.Ports)
-		}
-
+		ctx.PolicyTrace("    Allows %s port %v from endpoints %v\n", policymap.Ingress, r.Ports, fromEndpoints)
 		if r.Rules != nil {
 			for _, l7 := range r.Rules.HTTP {
 				ctx.PolicyTrace("        %+v\n", l7)
 			}
 		}
 
-		if ctx.From != nil && len(fromEndpoints) > 0 {
-			if !fromEndpoints.Matches(ctx.From) {
-				ctx.PolicyTrace("      Labels %s not found", ctx.From)
-				continue
-			}
-		}
-		ctx.PolicyTrace("      Found all required labels")
-
 		for _, p := range r.Ports {
-			var cnt int
 			if p.Protocol != api.ProtoAny {
-				cnt, err = mergeL4IngressPort(ctx, fromEndpoints, r, p, p.Protocol, ruleLabels, resMap)
+				cnt, err := mergeL4IngressPort(ctx, fromEndpoints, r, p, p.Protocol, ruleLabels, resMap)
 				if err != nil {
 					return found, err
 				}
 				found += cnt
 			} else {
-				cnt, err = mergeL4IngressPort(ctx, fromEndpoints, r, p, api.ProtoTCP, ruleLabels, resMap)
+				cnt, err := mergeL4IngressPort(ctx, fromEndpoints, r, p, api.ProtoTCP, ruleLabels, resMap)
 				if err != nil {
 					return found, err
 				}
@@ -417,16 +410,10 @@ func mergeL4Egress(ctx *SearchContext, rule api.EgressRule, ruleLabels labels.La
 	}
 
 	toEndpoints := rule.GetDestinationEndpointSelectors()
-
 	found := 0
-	var err error
 
 	for _, r := range rule.ToPorts {
-		if toEndpoints != nil {
-			ctx.PolicyTrace("    Allows %s port %v to endpoints %v\n", policymap.Egress, r.Ports, toEndpoints)
-		} else {
-			ctx.PolicyTrace("    Allows %s port %v\n", policymap.Egress, r.Ports)
-		}
+		ctx.PolicyTrace("    Allows %s port %v to endpoints %v\n", policymap.Egress, r.Ports, toEndpoints)
 
 		if r.Rules != nil {
 			for _, l7 := range r.Rules.HTTP {
@@ -435,15 +422,14 @@ func mergeL4Egress(ctx *SearchContext, rule api.EgressRule, ruleLabels labels.La
 		}
 
 		for _, p := range r.Ports {
-			var cnt int
 			if p.Protocol != api.ProtoAny {
-				cnt, err = mergeL4EgressPort(ctx, toEndpoints, r, p, p.Protocol, ruleLabels, resMap)
+				cnt, err := mergeL4EgressPort(ctx, toEndpoints, r, p, p.Protocol, ruleLabels, resMap)
 				if err != nil {
 					return found, err
 				}
 				found += cnt
 			} else {
-				cnt, err = mergeL4EgressPort(ctx, toEndpoints, r, p, api.ProtoTCP, ruleLabels, resMap)
+				cnt, err := mergeL4EgressPort(ctx, toEndpoints, r, p, api.ProtoTCP, ruleLabels, resMap)
 				if err != nil {
 					return found, err
 				}
