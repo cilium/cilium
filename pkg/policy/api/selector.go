@@ -217,3 +217,15 @@ func (s EndpointSelectorSlice) Less(i, j int) bool {
 
 	return strings.Compare(strI, strJ) < 0
 }
+
+// Matches returns true if any of the EndpointSelectors in the slice match the
+// provided labels
+func (s EndpointSelectorSlice) Matches(ctx labels.LabelArray) bool {
+	for _, selector := range s {
+		if selector.Matches(ctx) {
+			return true
+		}
+	}
+
+	return false
+}
