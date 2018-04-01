@@ -301,9 +301,17 @@ func (bo *BoolOptions) Validate(n models.ConfigurationMap) error {
 	bo.optsMU.RLock()
 	defer bo.optsMU.RUnlock()
 	for k, v := range n {
-		if val, err := NormalizeBool(v); err != nil {
+		newVal, err := NormalizeBool(v)
+		if err != nil {
 			return err
-		} else if err := bo.Library.Validate(k, val); err != nil {
+		}
+
+		// Ignore validation if value is identical
+		if oldVal, ok := bo.Opts[k]; ok && oldVal == newVal {
+			continue
+		}
+
+		if err := bo.Library.Validate(k, newVal); err != nil {
 			return err
 		}
 	}
