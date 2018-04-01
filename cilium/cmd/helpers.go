@@ -20,14 +20,17 @@ import (
 	"fmt"
 	"os"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 	"text/tabwriter"
 
+	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/maps/policymap"
+	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/u8proto"
 
 	"github.com/spf13/cobra"
@@ -273,6 +276,25 @@ func updatePolicyKey(cmd *cobra.Command, args []string, add bool) {
 			if err := policyMap.DeleteL4(label, port, proto, parsedTd); err != nil {
 				Fatalf("Cannot delete policy key '%s': %s\n", entry, err)
 			}
+		}
+	}
+}
+
+// dumpConfig pretty prints boolean options
+func dumpConfig(Opts map[string]string) {
+	opts := []string{}
+	for k := range Opts {
+		opts = append(opts, k)
+	}
+	sort.Strings(opts)
+
+	for _, k := range opts {
+		if enabled, err := option.NormalizeBool(Opts[k]); err != nil {
+			Fatalf("Invalid option answer %s: %s", Opts[k], err)
+		} else if enabled {
+			fmt.Printf("%-24s %s\n", k, common.Green("Enabled"))
+		} else {
+			fmt.Printf("%-24s %s\n", k, common.Red("Disabled"))
 		}
 	}
 }

@@ -54,7 +54,7 @@ func NewGetEndpointIDConfigOK() *GetEndpointIDConfigOK {
 Success
 */
 type GetEndpointIDConfigOK struct {
-	Payload *models.Configuration
+	Payload *models.EndpointConfigurationStatus
 }
 
 func (o *GetEndpointIDConfigOK) Error() string {
@@ -63,7 +63,7 @@ func (o *GetEndpointIDConfigOK) Error() string {
 
 func (o *GetEndpointIDConfigOK) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
 
-	o.Payload = new(models.Configuration)
+	o.Payload = new(models.EndpointConfigurationStatus)
 
 	// response payload
 	if err := consumer.Consume(response.Body(), o.Payload); err != nil && err != io.EOF {

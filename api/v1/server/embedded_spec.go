@@ -240,6 +240,7 @@ func init() {
           "endpoint"
         ],
         "summary": "Modify existing endpoint",
+        "deprecated": true,
         "parameters": [
           {
             "$ref": "#/parameters/endpoint-id"
@@ -288,7 +289,7 @@ func init() {
           "200": {
             "description": "Success",
             "schema": {
-              "$ref": "#/definitions/Configuration"
+              "$ref": "#/definitions/EndpointConfigurationStatus"
             }
           },
           "404": {
@@ -307,11 +308,11 @@ func init() {
             "$ref": "#/parameters/endpoint-id"
           },
           {
-            "name": "configuration",
+            "name": "endpoint-configuration",
             "in": "body",
             "required": true,
             "schema": {
-              "$ref": "#/definitions/ConfigurationMap"
+              "$ref": "#/definitions/EndpointConfigurationSpec"
             }
           }
         ],
@@ -1060,7 +1061,7 @@ func init() {
       }
     },
     "Configuration": {
-      "description": "General purpose structure to hold configuration of the daemon and\nendpoints. Split into a mutable and immutable section.\n",
+      "description": "General purpose structure to hold configuration of the daemon. Split into\na mutable and immutable section.\n",
       "type": "object",
       "properties": {
         "immutable": {
@@ -1240,7 +1241,7 @@ func init() {
         },
         "configuration": {
           "description": "configuration options for this endpoint",
-          "$ref": "#/definitions/Configuration"
+          "$ref": "#/definitions/EndpointConfigurationSpec"
         },
         "container-id": {
           "description": "ID assigned by container runtime",
@@ -1408,6 +1409,38 @@ func init() {
         "state": {
           "description": "Current state of endpoint",
           "$ref": "#/definitions/EndpointState"
+        }
+      }
+    },
+    "EndpointConfigurationSpec": {
+      "description": "An endpoint's configuration",
+      "type": "object",
+      "properties": {
+        "label-configuration": {
+          "description": "the endpoint's labels",
+          "$ref": "#/definitions/LabelConfigurationSpec"
+        },
+        "options": {
+          "description": "Changeable configuration",
+          "$ref": "#/definitions/ConfigurationMap"
+        }
+      }
+    },
+    "EndpointConfigurationStatus": {
+      "description": "An endpoint's configuration",
+      "type": "object",
+      "properties": {
+        "error": {
+          "description": "Most recent error, if applicable",
+          "$ref": "#/definitions/Error"
+        },
+        "immutable": {
+          "description": "Immutable configuration (read-only)",
+          "$ref": "#/definitions/ConfigurationMap"
+        },
+        "realized": {
+          "description": "currently applied changeable configuration",
+          "$ref": "#/definitions/EndpointConfigurationSpec"
         }
       }
     },

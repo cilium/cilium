@@ -808,8 +808,11 @@ func (e *Endpoint) GetModelRLocked() *models.Endpoint {
 	}
 
 	mdl := &models.Endpoint{
-		ID:                  int64(e.ID),
-		Configuration:       e.Opts.GetModel(),
+		ID: int64(e.ID),
+		Configuration: &models.EndpointConfigurationSpec{
+			LabelConfiguration: lblSpec,
+			Options:            *e.Opts.GetMutableModel(),
+		},
 		ContainerID:         e.DockerID,
 		ContainerName:       e.ContainerName,
 		DockerEndpointID:    e.DockerEndpointID,
@@ -1533,18 +1536,18 @@ func (e UpdateStateChangeError) Error() string { return e.msg }
 // endpoint's program. Returns an error if the provided options are not valid,
 // if there was an issue triggering policy updates for the given endpoint,
 // or if endpoint regeneration was unable to be triggered.
-func (e *Endpoint) Update(owner Owner, opts models.ConfigurationMap) error {
-	e.getLogger().WithField("configuration-options", opts).Debug("updating endpoint configuration options")
+func (e *Endpoint) Update(owner Owner, cfg *models.EndpointConfigurationSpec) error {
+	e.getLogger().WithField("configuration-options", cfg).Debug("updating endpoint configuration options")
 
 	e.Mutex.Lock()
-	if err := e.Opts.Validate(opts); err != nil {
+	if err := e.Opts.Validate(cfg.Options); err != nil {
 		e.Mutex.Unlock()
 		return UpdateValidationError{err.Error()}
 	}
 
 	// Option changes may be overridden by the policy configuration.
 	// Currently we return all-OK even in that case.
-	needToRegenerate, ctCleaned, err := e.TriggerPolicyUpdatesLocked(owner, opts)
+	needToRegenerate, ctCleaned, err := e.TriggerPolicyUpdatesLocked(owner, cfg.Options)
 	if err != nil {
 		e.Mutex.Unlock()
 		ctCleaned.Wait()
@@ -1555,7 +1558,7 @@ func (e *Endpoint) Update(owner Owner, opts models.ConfigurationMap) error {
 
 	// If configuration options are provided, we only regenerate if necessary.
 	// Otherwise always regenerate.
-	if opts == nil {
+	if cfg.Options == nil {
 		needToRegenerate = true
 		reason = "endpoint was manually regenerated via API"
 	}

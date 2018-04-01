@@ -25,7 +25,7 @@ type GetEndpointIDConfigOK struct {
 	/*
 	  In: Body
 	*/
-	Payload *models.Configuration `json:"body,omitempty"`
+	Payload *models.EndpointConfigurationStatus `json:"body,omitempty"`
 }
 
 // NewGetEndpointIDConfigOK creates GetEndpointIDConfigOK with default headers values
@@ -34,13 +34,13 @@ func NewGetEndpointIDConfigOK() *GetEndpointIDConfigOK {
 }
 
 // WithPayload adds the payload to the get endpoint Id config o k response
-func (o *GetEndpointIDConfigOK) WithPayload(payload *models.Configuration) *GetEndpointIDConfigOK {
+func (o *GetEndpointIDConfigOK) WithPayload(payload *models.EndpointConfigurationStatus) *GetEndpointIDConfigOK {
 	o.Payload = payload
 	return o
 }
 
 // SetPayload sets the payload to the get endpoint Id config o k response
-func (o *GetEndpointIDConfigOK) SetPayload(payload *models.Configuration) {
+func (o *GetEndpointIDConfigOK) SetPayload(payload *models.EndpointConfigurationStatus) {
 	o.Payload = payload
 }
 

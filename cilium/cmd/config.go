@@ -17,15 +17,12 @@ package cmd
 import (
 	"fmt"
 	"os"
-	"sort"
 	"strconv"
 	"strings"
 
 	"github.com/cilium/cilium/api/v1/models"
-	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/daemon/options"
 	"github.com/cilium/cilium/pkg/command"
-	"github.com/cilium/cilium/pkg/option"
 
 	"github.com/spf13/cobra"
 )
@@ -53,24 +50,6 @@ func init() {
 	configCmd.Flags().BoolVarP(&listOptions, "list-options", "", false, "List available options")
 	configCmd.Flags().IntVarP(&numPages, "num-pages", "n", 0, "Number of pages for perf ring buffer. New values have to be > 0")
 	command.AddJSONOutput(configCmd)
-}
-
-func dumpConfig(Opts map[string]string) {
-	opts := []string{}
-	for k := range Opts {
-		opts = append(opts, k)
-	}
-	sort.Strings(opts)
-
-	for _, k := range opts {
-		if enabled, err := option.NormalizeBool(Opts[k]); err != nil {
-			Fatalf("Invalid option answer %s: %s", Opts[k], err)
-		} else if enabled {
-			fmt.Printf("%-24s %s\n", k, common.Green("Enabled"))
-		} else {
-			fmt.Printf("%-24s %s\n", k, common.Red("Disabled"))
-		}
-	}
 }
 
 func configDaemon(cmd *cobra.Command, opts []string) {
