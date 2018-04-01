@@ -25,7 +25,7 @@ type Endpoint struct {
 	Addressing *EndpointAddressing `json:"addressing,omitempty"`
 
 	// configuration options for this endpoint
-	Configuration *Configuration `json:"configuration,omitempty"`
+	Configuration *EndpointConfigurationSpec `json:"configuration,omitempty"`
 
 	// ID assigned by container runtime
 	ContainerID string `json:"container-id,omitempty"`

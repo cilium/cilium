@@ -18,7 +18,6 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/command"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/option"
@@ -73,12 +72,12 @@ func configEndpoint(cmd *cobra.Command, args []string) {
 		}
 
 		dumpConfig(cfg.Immutable)
-		dumpConfig(cfg.Mutable)
+		dumpConfig(cfg.Realized.Options)
 		return
 	}
 
-	epOpts := make(models.ConfigurationMap, len(opts))
-
+	// modify the configuration we fetched directly since we don't need it
+	modifiedOptsCfg := cfg.Realized
 	for k := range opts {
 		name, value, err := option.ParseOption(opts[k], &endpoint.EndpointOptionLibrary)
 		if err != nil {
@@ -86,13 +85,13 @@ func configEndpoint(cmd *cobra.Command, args []string) {
 		}
 
 		if value {
-			epOpts[name] = "enabled"
+			modifiedOptsCfg.Options[name] = "enabled"
 		} else {
-			epOpts[name] = "disabled"
+			modifiedOptsCfg.Options[name] = "disabled"
 		}
 	}
 
-	err = client.EndpointConfigPatch(id, epOpts)
+	err = client.EndpointConfigPatch(id, modifiedOptsCfg)
 	if err != nil {
 		Fatalf("Cannot update endpoint %s: %s", id, err)
 	}

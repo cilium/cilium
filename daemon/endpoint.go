@@ -473,7 +473,7 @@ func (h *deleteEndpointID) Handle(params DeleteEndpointIDParams) middleware.Resp
 }
 
 // EndpointUpdate updates the options of the given endpoint and regenerates the endpoint
-func (d *Daemon) EndpointUpdate(id string, opts models.ConfigurationMap) error {
+func (d *Daemon) EndpointUpdate(id string, cfg *models.EndpointConfigurationSpec) error {
 	ep, err := endpointmanager.Lookup(id)
 	if err != nil {
 		return apierror.Error(PatchEndpointIDInvalidCode, err)
@@ -483,7 +483,7 @@ func (d *Daemon) EndpointUpdate(id string, opts models.ConfigurationMap) error {
 	}
 
 	if ep != nil {
-		if err := ep.Update(d, opts); err != nil {
+		if err := ep.Update(d, cfg); err != nil {
 			switch err.(type) {
 			case endpoint.UpdateValidationError:
 				return apierror.Error(PatchEndpointIDConfigInvalidCode, err)
@@ -513,7 +513,7 @@ func (h *patchEndpointIDConfig) Handle(params PatchEndpointIDConfigParams) middl
 	log.WithField(logfields.Params, logfields.Repr(params)).Debug("PATCH /endpoint/{id}/config request")
 
 	d := h.daemon
-	if err := d.EndpointUpdate(params.ID, params.Configuration); err != nil {
+	if err := d.EndpointUpdate(params.ID, params.EndpointConfiguration); err != nil {
 		if apierr, ok := err.(*apierror.APIError); ok {
 			return apierr
 		}
@@ -540,7 +540,17 @@ func (h *getEndpointIDConfig) Handle(params GetEndpointIDConfigParams) middlewar
 	} else if ep == nil {
 		return NewGetEndpointIDConfigNotFound()
 	} else {
-		return NewGetEndpointIDConfigOK().WithPayload(ep.Opts.GetModel())
+		cfgStatus := &models.EndpointConfigurationStatus{
+			Realized: &models.EndpointConfigurationSpec{
+				LabelConfiguration: &models.LabelConfigurationSpec{
+					User: ep.OpLabels.Custom.GetModel(),
+				},
+				Options: *ep.Opts.GetMutableModel(),
+			},
+			Immutable: *ep.Opts.GetImmutableModel(),
+		}
+
+		return NewGetEndpointIDConfigOK().WithPayload(cfgStatus)
 	}
 }
 

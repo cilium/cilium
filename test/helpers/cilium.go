@@ -98,7 +98,7 @@ func (s *SSHMeta) GetEndpointMutableConfigurationOption(endpointID, optionName s
 	}
 
 	// Endpoint currently only has mutable options.
-	configurationOptionValue, configOptionExists := endpointModel.Configuration.Mutable[optionName]
+	configurationOptionValue, configOptionExists := endpointModel.Configuration.Options[optionName]
 	if !configOptionExists {
 		return "", fmt.Errorf("provided configuration option %s does not exist in endpoint %s configuration", optionName, endpointID)
 	}
@@ -241,7 +241,7 @@ func (s *SSHMeta) WaitEndpointsReady() bool {
 func (s *SSHMeta) EndpointSetConfig(id, option, value string) bool {
 	logger := s.logger.WithFields(logrus.Fields{"endpointID": id})
 	res := s.ExecCilium(fmt.Sprintf(
-		"endpoint config %s -o json | jq '.mutable.%s'", id, option))
+		"endpoint config %s -o json | jq '.realized.options.%s'", id, option))
 
 	if res.SingleOut() == value {
 		logger.Debugf("no need to update %s=%s; value already set", option, value)

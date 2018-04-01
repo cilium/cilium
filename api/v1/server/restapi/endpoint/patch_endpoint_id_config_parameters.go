@@ -38,7 +38,7 @@ type PatchEndpointIDConfigParams struct {
 	  Required: true
 	  In: body
 	*/
-	Configuration models.ConfigurationMap
+	EndpointConfiguration *models.EndpointConfigurationSpec
 	/*String describing an endpoint with the format ``[prefix:]id``. If no prefix
 	is specified, a prefix of ``cilium-local:`` is assumed. Not all endpoints
 	will be addressable by all endpoint ID prefixes with the exception of the
@@ -66,12 +66,12 @@ func (o *PatchEndpointIDConfigParams) BindRequest(r *http.Request, route *middle
 
 	if runtime.HasBody(r) {
 		defer r.Body.Close()
-		var body models.ConfigurationMap
+		var body models.EndpointConfigurationSpec
 		if err := route.Consumer.Consume(r.Body, &body); err != nil {
 			if err == io.EOF {
-				res = append(res, errors.Required("configuration", "body"))
+				res = append(res, errors.Required("endpointConfiguration", "body"))
 			} else {
-				res = append(res, errors.NewParseError("configuration", "body", "", err))
+				res = append(res, errors.NewParseError("endpointConfiguration", "body", "", err))
 			}
 
 		} else {
@@ -80,12 +80,12 @@ func (o *PatchEndpointIDConfigParams) BindRequest(r *http.Request, route *middle
 			}
 
 			if len(res) == 0 {
-				o.Configuration = body
+				o.EndpointConfiguration = &body
 			}
 		}
 
 	} else {
-		res = append(res, errors.Required("configuration", "body"))
+		res = append(res, errors.Required("endpointConfiguration", "body"))
 	}
 
 	rID, rhkID, _ := route.Params.GetOK("id")
