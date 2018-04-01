@@ -214,7 +214,7 @@ func (c *Consumable) removeFromMaps(id identity.NumericIdentity, trafficDirectio
 // IngressIdentities map. Must be called with Consumable mutex Locked.
 // Returns true if the identity was not present in this Consumable's
 // IngressIdentities map, and thus had to be added, false if it is already added.
-func (c *Consumable) AllowIngressIdentityLocked(cache *ConsumableCache, id identity.NumericIdentity) bool {
+func (c *Consumable) AllowIngressIdentityLocked(id identity.NumericIdentity) bool {
 	_, exists := c.IngressIdentities[id]
 	if !exists {
 		log.WithFields(logrus.Fields{
@@ -222,28 +222,6 @@ func (c *Consumable) AllowIngressIdentityLocked(cache *ConsumableCache, id ident
 			"consumable":       logfields.Repr(c),
 		}).Debug("Allowing security identity on ingress for consumable")
 		c.addToPolicyMaps(id, policymap.Ingress)
-
-		// If id corresponds to a reserved identity, Consumable corresponding to
-		// that security identity needs to be updated explicitly, as reserved
-		// identities do not have a corresponding endpoint for which policy
-		// recalculation (when Consumables are updated) is done.
-		if id.IsReservedIdentity() {
-			reservedConsumable := cache.Lookup(id)
-			if reservedConsumable != nil {
-				// If we are accessing the same Consumable (allowing traffic
-				// to itself), we don't need to take its mutex because it was
-				// already taken before calling this function.
-				if id != c.ID {
-					reservedConsumable.Mutex.Lock()
-					reservedConsumable.AllowIngressIdentityLocked(cache, c.ID)
-					reservedConsumable.Mutex.Unlock()
-				} else {
-					reservedConsumable.AllowIngressIdentityLocked(cache, c.ID)
-				}
-			} else {
-				log.WithField(logfields.Identity, id).Warningf("unable to allow ingress from identity %d", c.ID)
-			}
-		}
 	}
 
 	c.IngressIdentities[id] = true
@@ -255,35 +233,14 @@ func (c *Consumable) AllowIngressIdentityLocked(cache *ConsumableCache, id ident
 // EgressIdentities map. Must be called with Consumable mutex Locked.
 // Returns true if the identity was not present in this Consumable's
 // EgressIdentities map, and thus had to be added, false if it is already added.
-func (c *Consumable) AllowEgressIdentityLocked(cache *ConsumableCache, id identity.NumericIdentity) bool {
+func (c *Consumable) AllowEgressIdentityLocked(id identity.NumericIdentity) bool {
 	_, exists := c.EgressIdentities[id]
 	if !exists {
 		log.WithFields(logrus.Fields{
 			logfields.Identity: id,
 			"consumable":       logfields.Repr(c),
 		}).Debug("New egress security identity for consumable")
-
 		c.addToPolicyMaps(id, policymap.Egress)
-
-		// If id corresponds to a reserved identity, Consumable corresponding to
-		// that security identity needs to be updated explicitly, as reserved
-		// identities do not have a corresponding endpoint for which policy
-		// recalculation (when Consumables are updated) is done.
-		if id.IsReservedIdentity() {
-			reservedConsumable := cache.Lookup(id)
-			if reservedConsumable != nil {
-				// Avoid deadlock ; is this necessary? Being cautious.
-				if id != c.ID {
-					reservedConsumable.Mutex.Lock()
-					reservedConsumable.AllowEgressIdentityLocked(cache, c.ID)
-					reservedConsumable.Mutex.Unlock()
-				} else {
-					reservedConsumable.AllowEgressIdentityLocked(cache, c.ID)
-				}
-			} else {
-				log.WithField(logfields.Identity, id).Warningf("unable to allow egress to identity %d", c.ID)
-			}
-		}
 	}
 	c.EgressIdentities[id] = true
 	return !exists // not changed.
@@ -296,27 +253,6 @@ func (c *Consumable) RemoveIngressIdentityLocked(id identity.NumericIdentity) {
 	if _, ok := c.IngressIdentities[id]; ok {
 		log.WithField(logfields.Identity, id).Debug("Removing identity from ingress map")
 		delete(c.IngressIdentities, id)
-
-		// Consumables corresponding to reserved identities need to be updated
-		// explicitly because they are not updated or regenerated.
-		if id.IsReservedIdentity() {
-			reservedConsumable := c.cache.Lookup(id)
-			if reservedConsumable != nil {
-				// If we are accessing the same Consumable (allowing traffic
-				// to itself), we don't need to take its mutex because it was
-				// already taken before calling this function.
-				if id != c.ID {
-					reservedConsumable.Mutex.Lock()
-					reservedConsumable.RemoveIngressIdentityLocked(c.ID)
-					reservedConsumable.Mutex.Unlock()
-				} else {
-					reservedConsumable.RemoveIngressIdentityLocked(c.ID)
-				}
-			} else {
-				log.WithField(logfields.Identity, id).Warningf("unable to disallow ingress from identity %d", c.ID)
-			}
-
-		}
 		c.removeFromMaps(id, policymap.Ingress)
 	}
 }
@@ -328,25 +264,6 @@ func (c *Consumable) RemoveEgressIdentityLocked(id identity.NumericIdentity) {
 	if _, ok := c.EgressIdentities[id]; ok {
 		log.WithField(logfields.Identity, id).Debug("Removing egress identity")
 		delete(c.EgressIdentities, id)
-
-		// Consumables corresponding to reserved identities need to be updated
-		// explicitly because they are not updated or regenerated.
-		if id.IsReservedIdentity() {
-			reservedConsumable := c.cache.Lookup(id)
-			if reservedConsumable != nil {
-				// Avoid deadlock!
-				if id != c.ID {
-					reservedConsumable.Mutex.Lock()
-					reservedConsumable.RemoveEgressIdentityLocked(c.ID)
-					reservedConsumable.Mutex.Unlock()
-				} else {
-					reservedConsumable.RemoveEgressIdentityLocked(c.ID)
-				}
-			} else {
-				log.WithField(logfields.Identity, id).Warningf("unable to disallow egress to identity %d", c.ID)
-			}
-		}
-
 		c.removeFromMaps(id, policymap.Egress)
 	}
 }

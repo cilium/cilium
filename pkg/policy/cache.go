@@ -1,4 +1,4 @@
-// Copyright 2016-2017 Authors of Cilium
+// Copyright 2016-2018 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,14 +15,10 @@
 package policy
 
 import (
-	"fmt"
-
-	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-	"github.com/cilium/cilium/pkg/maps/policymap"
 )
 
 var (
@@ -113,23 +109,17 @@ func ResolveIdentityLabels(id identity.NumericIdentity) labels.LabelArray {
 // calculation, which is done for a specific endpoint when it is regenerated.
 func Init() {
 	for key, val := range identity.ReservedIdentities {
-		log.WithField(logfields.Identity, key).Debug("creating policy for identity")
-
-		policyMapPath := bpf.MapPath(fmt.Sprintf("%sreserved_%d", policymap.MapName, int(val)))
-
-		policyMap, _, err := policymap.OpenMap(policyMapPath)
-		if err != nil {
-			log.WithError(err).Fatalf("Could not create policy BPF map for reserved identity '%s'", policyMapPath)
-		}
+		log.WithField(logfields.Identity, key).Debug("Registering reserved identity")
 
 		identity := identity.NewIdentity(val, labels.Labels{
 			key: labels.NewLabel(val.String(), "", labels.LabelSourceReserved),
 		})
-		c := GetConsumableCache().GetOrCreate(val, identity)
-		if c == nil {
+
+		cache := GetConsumableCache()
+		if c := cache.GetOrCreate(val, identity); c != nil {
+			GetConsumableCache().addReserved(c)
+		} else {
 			log.WithField(logfields.Identity, identity).Fatal("Unable to initialize consumable")
 		}
-		GetConsumableCache().addReserved(c)
-		c.AddMap(policyMap)
 	}
 }

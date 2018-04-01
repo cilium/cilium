@@ -54,15 +54,14 @@ const (
 
 // allowIngressIdentity must be called with global endpoint.Mutex held
 func (e *Endpoint) allowIngressIdentity(id identityPkg.NumericIdentity) bool {
-	return e.Consumable.AllowIngressIdentityLocked(policy.GetConsumableCache(), id)
+	return e.Consumable.AllowIngressIdentityLocked(id)
 }
 
 // allowEgressIdentity allows security identity id to be communicated to by
 // this endpoint by updating the endpoint's Consumable.
 // Must be called with global endpoint.Mutex held.
 func (e *Endpoint) allowEgressIdentity(id identityPkg.NumericIdentity) bool {
-	cache := policy.GetConsumableCache()
-	return e.Consumable.AllowEgressIdentityLocked(cache, id)
+	return e.Consumable.AllowEgressIdentityLocked(id)
 }
 
 // ProxyID returns a unique string to identify a proxy mapping.
