@@ -567,8 +567,8 @@ Resolving ingress port policy for [any:bar]
 * Rule {"matchLabels":{"any:bar":""}}: selected
     No L4 Ingress rules
 * Rule {"matchLabels":{"any:bar":""}}: selected
+    Found all required labels
     Allows Ingress port [{80 ANY}] from endpoints [{"matchLabels":{"reserved:host":""}} {"matchLabels":{"any:baz":""}}]
-      Found all required labels
 2/2 rules selected
 Found allow rule
 L4 ingress verdict: allowed
@@ -596,8 +596,7 @@ Resolving ingress port policy for [any:bar]
 * Rule {"matchLabels":{"any:bar":""}}: selected
     No L4 Ingress rules
 * Rule {"matchLabels":{"any:bar":""}}: selected
-    Allows Ingress port [{80 ANY}] from endpoints [{"matchLabels":{"reserved:host":""}} {"matchLabels":{"any:baz":""}}]
-      Labels [any:bar] not found
+    Labels [any:bar] not found
 2/2 rules selected
 Found no allow rule
 L4 ingress verdict: undecided
