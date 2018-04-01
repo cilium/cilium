@@ -120,18 +120,18 @@ func mergeL4IngressPort(ctx *SearchContext, endpoints []api.EndpointSelector, r 
 	return 1, nil
 }
 
-func mergeL4Ingress(ctx *SearchContext, fromEndpoints []api.EndpointSelector, portRules []api.PortRule,
-	ruleLabels labels.LabelArray, resMap L4PolicyMap) (int, error) {
-
-	if len(portRules) == 0 {
+func mergeL4Ingress(ctx *SearchContext, rule api.IngressRule, ruleLabels labels.LabelArray, resMap L4PolicyMap) (int, error) {
+	if len(rule.ToPorts) == 0 {
 		ctx.PolicyTrace("    No L4 %s rules\n", policymap.Ingress)
 		return 0, nil
 	}
 
+	fromEndpoints := rule.GetSourceEndpointSelectors()
+
 	found := 0
 	var err error
 
-	for _, r := range portRules {
+	for _, r := range rule.ToPorts {
 		if fromEndpoints != nil {
 			ctx.PolicyTrace("    Allows %s port %v from endpoints %v\n", policymap.Ingress, r.Ports, fromEndpoints)
 		} else {
@@ -144,15 +144,8 @@ func mergeL4Ingress(ctx *SearchContext, fromEndpoints []api.EndpointSelector, po
 			}
 		}
 
-		l3match := false
-		if ctx.From != nil && fromEndpoints != nil {
-			for _, labels := range fromEndpoints {
-				if labels.Matches(ctx.From) {
-					l3match = true
-					break
-				}
-			}
-			if l3match == false {
+		if ctx.From != nil && len(fromEndpoints) > 0 {
+			if !fromEndpoints.Matches(ctx.From) {
 				ctx.PolicyTrace("      Labels %s not found", ctx.From)
 				continue
 			}
@@ -209,7 +202,7 @@ func (r *rule) resolveL4IngressPolicy(ctx *SearchContext, state *traceState, res
 		ctx.PolicyTrace("    No L4 ingress rules\n")
 	}
 	for _, ingressRule := range r.Ingress {
-		cnt, err := mergeL4Ingress(ctx, ingressRule.FromEndpoints, ingressRule.ToPorts, r.Rule.Labels.DeepCopy(), result.Ingress)
+		cnt, err := mergeL4Ingress(ctx, ingressRule, r.Rule.Labels.DeepCopy(), result.Ingress)
 		if err != nil {
 			return nil, err
 		}
@@ -348,9 +341,9 @@ func (r *rule) canReachIngress(ctx *SearchContext, state *traceState) api.Decisi
 	}
 
 	// separate loop is needed as failure to meet FromRequires always takes
-	// precedence over FromEndpoints
+	// precedence over FromEndpoints and FromEntities
 	for _, r := range r.Ingress {
-		for _, sel := range r.FromEndpoints {
+		for _, sel := range r.GetSourceEndpointSelectors() {
 			ctx.PolicyTrace("    Allows from labels %+v", sel)
 			if sel.Matches(ctx.From) {
 				ctx.PolicyTrace("      Found all required labels")
@@ -363,19 +356,6 @@ func (r *rule) canReachIngress(ctx *SearchContext, state *traceState) api.Decisi
 			} else {
 				ctx.PolicyTrace("      Labels %v not found\n", ctx.From)
 			}
-		}
-	}
-
-	for _, r := range r.Ingress {
-		for _, entity := range r.FromEntities {
-			// Don't need to check if valid entity because sanitization has already occurred.
-			entitySelector, _ := api.EntitySelectorMapping[entity]
-			if entitySelector.Matches(ctx.From) {
-				ctx.PolicyTrace("+     Found all required labels to match entity %s\n", entitySelector.String())
-				state.matchedRules++
-				return api.Allowed
-			}
-
 		}
 	}
 
@@ -409,9 +389,9 @@ func (r *rule) canReachEgress(ctx *SearchContext, state *traceState) api.Decisio
 	}
 
 	// Separate loop is needed as failure to meet ToRequires always takes
-	// precedence over ToEndpoints.
+	// precedence over ToEndpoints and ToEntities
 	for _, r := range r.Egress {
-		for _, sel := range r.ToEndpoints {
+		for _, sel := range r.GetDestinationEndpointSelectors() {
 			ctx.PolicyTrace("    Allows to labels %+v", sel)
 			if sel.Matches(ctx.To) {
 				ctx.PolicyTrace("      Found all required labels")
@@ -427,34 +407,23 @@ func (r *rule) canReachEgress(ctx *SearchContext, state *traceState) api.Decisio
 		}
 	}
 
-	for _, r := range r.Egress {
-		for _, entity := range r.ToEntities {
-			entitySelector, _ := api.EntitySelectorMapping[entity]
-			if entitySelector.Matches(ctx.To) {
-				ctx.PolicyTrace("+     Found all required labels to match entity %s\n", entitySelector.String())
-				state.matchedRules++
-				return api.Allowed
-			}
-		}
-	}
-
 	return api.Undecided
 }
 
-func mergeL4Egress(ctx *SearchContext, toEndpoints []api.EndpointSelector, portRules []api.PortRule,
-	ruleLabels labels.LabelArray, resMap L4PolicyMap) (int, error) {
-
-	if len(portRules) == 0 {
+func mergeL4Egress(ctx *SearchContext, rule api.EgressRule, ruleLabels labels.LabelArray, resMap L4PolicyMap) (int, error) {
+	if len(rule.ToPorts) == 0 {
 		ctx.PolicyTrace("    No L4 %s rules\n", policymap.Egress)
 		return 0, nil
 	}
 
+	toEndpoints := rule.GetDestinationEndpointSelectors()
+
 	found := 0
 	var err error
 
-	for _, r := range portRules {
+	for _, r := range rule.ToPorts {
 		if toEndpoints != nil {
-			ctx.PolicyTrace("    Allows %s port %v from endpoints %v\n", policymap.Egress, r.Ports, toEndpoints)
+			ctx.PolicyTrace("    Allows %s port %v to endpoints %v\n", policymap.Egress, r.Ports, toEndpoints)
 		} else {
 			ctx.PolicyTrace("    Allows %s port %v\n", policymap.Egress, r.Ports)
 		}
@@ -464,21 +433,6 @@ func mergeL4Egress(ctx *SearchContext, toEndpoints []api.EndpointSelector, portR
 				ctx.PolicyTrace("        %+v\n", l7)
 			}
 		}
-
-		l3match := false
-		if ctx.To != nil && toEndpoints != nil {
-			for _, labels := range toEndpoints {
-				if labels.Matches(ctx.To) {
-					l3match = true
-					break
-				}
-			}
-			if l3match == false {
-				ctx.PolicyTrace("      Labels %s not found", ctx.To)
-				continue
-			}
-		}
-		ctx.PolicyTrace("      Found all required labels")
 
 		for _, p := range r.Ports {
 			var cnt int
@@ -584,7 +538,7 @@ func (r *rule) resolveL4EgressPolicy(ctx *SearchContext, state *traceState, resu
 		ctx.PolicyTrace("    No L4 rules\n")
 	}
 	for _, egressRule := range r.Egress {
-		cnt, err := mergeL4Egress(ctx, egressRule.ToEndpoints, egressRule.ToPorts, r.Rule.Labels.DeepCopy(), result.Egress)
+		cnt, err := mergeL4Egress(ctx, egressRule, r.Rule.Labels.DeepCopy(), result.Egress)
 		if err != nil {
 			return nil, err
 		}

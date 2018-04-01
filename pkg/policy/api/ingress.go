@@ -103,5 +103,11 @@ type IngressRule struct {
 	// `world` and `host`
 	//
 	// +optional
-	FromEntities []Entity `json:"fromEntities,omitempty"`
+	FromEntities EntitySlice `json:"fromEntities,omitempty"`
+}
+
+// GetSourceEndpointSelectors returns a slice of endpoints selectors covering
+// all L3 source selectors of the ingress rule
+func (i *IngressRule) GetSourceEndpointSelectors() EndpointSelectorSlice {
+	return append(i.FromEndpoints, i.FromEntities.GetAsEndpointSelectors()...)
 }
