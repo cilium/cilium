@@ -45,17 +45,17 @@ func (s *PolicyTestSuite) TestIngressIdentityAllowed(c *C) {
 	c.Assert(c1.AllowsIngress(ID2), Equals, false)
 	c.Assert(c1.AllowsIngress(ID3), Equals, false)
 
-	c1.AllowIngressIdentityLocked(cache, ID2)
+	c1.AllowIngressIdentityLocked(ID2)
 	c.Assert(c1.AllowsIngress(ID2), Equals, true)
 	id2Allowed, _ := c1.IngressIdentities[ID2]
 	c.Assert(id2Allowed, Equals, true)
 
-	c1.AllowIngressIdentityLocked(cache, ID2)
+	c1.AllowIngressIdentityLocked(ID2)
 	c.Assert(c1.AllowsIngress(ID2), Equals, true)
 	id2Allowed, _ = c1.IngressIdentities[ID2]
 	c.Assert(id2Allowed, Equals, true)
 
-	c1.AllowIngressIdentityLocked(cache, ID3)
+	c1.AllowIngressIdentityLocked(ID3)
 	c.Assert(c1.AllowsIngress(ID3), Equals, true)
 	id3Allowed, _ := c1.IngressIdentities[ID3]
 	c.Assert(id3Allowed, Equals, true)
@@ -78,17 +78,17 @@ func (s *PolicyTestSuite) TestEgressIdentityAllowed(c *C) {
 	c.Assert(c1.AllowsEgress(ID2), Equals, false)
 	c.Assert(c1.AllowsEgress(ID3), Equals, false)
 
-	c1.AllowEgressIdentityLocked(cache, ID2)
+	c1.AllowEgressIdentityLocked(ID2)
 	c.Assert(c1.AllowsEgress(ID2), Equals, true)
 	id2Allowed, _ := c1.EgressIdentities[ID2]
 	c.Assert(id2Allowed, Equals, true)
 
-	c1.AllowEgressIdentityLocked(cache, ID2)
+	c1.AllowEgressIdentityLocked(ID2)
 	c.Assert(c1.AllowsEgress(ID2), Equals, true)
 	id2Allowed, _ = c1.EgressIdentities[ID2]
 	c.Assert(id2Allowed, Equals, true)
 
-	c1.AllowEgressIdentityLocked(cache, ID3)
+	c1.AllowEgressIdentityLocked(ID3)
 	c.Assert(c1.AllowsEgress(ID3), Equals, true)
 	id3Allowed, _ := c1.EgressIdentities[ID3]
 	c.Assert(id3Allowed, Equals, true)
