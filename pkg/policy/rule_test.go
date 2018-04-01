@@ -147,7 +147,7 @@ func (ds *PolicyTestSuite) TestL4Policy(c *C) {
 		HTTP: []api.PortRuleHTTP{{Path: "/", Method: "GET"}},
 	}
 	l7map := L7DataMap{
-		WildcardEndpointSelector: l7rules,
+		api.WildcardEndpointSelector: l7rules,
 	}
 
 	expected := NewL4Policy()
@@ -456,8 +456,8 @@ func (ds *PolicyTestSuite) TestMergeL7PolicyIngress(c *C) {
 		HTTP: []api.PortRuleHTTP{{Path: "/", Method: "GET"}},
 	}
 	l7map := L7DataMap{
-		WildcardEndpointSelector: l7rules,
-		fooSelector[0]:           l7rules,
+		api.WildcardEndpointSelector: l7rules,
+		fooSelector[0]:               l7rules,
 	}
 
 	expected := NewL4Policy()
@@ -525,8 +525,8 @@ func (ds *PolicyTestSuite) TestMergeL7PolicyIngress(c *C) {
 		Kafka: []api.PortRuleKafka{{Topic: "foo"}},
 	}
 	l7map = L7DataMap{
-		WildcardEndpointSelector: l7rules,
-		fooSelector[0]:           l7rules,
+		api.WildcardEndpointSelector: l7rules,
+		fooSelector[0]:               l7rules,
 	}
 
 	expected = NewL4Policy()
@@ -604,8 +604,8 @@ func (ds *PolicyTestSuite) TestMergeL7PolicyIngress(c *C) {
 
 	// The l3-dependent l7 rules are not merged together.
 	l7map = L7DataMap{
-		fooSelector[0]:           fooRules,
-		WildcardEndpointSelector: barRules,
+		fooSelector[0]:               fooRules,
+		api.WildcardEndpointSelector: barRules,
 	}
 	expected = NewL4Policy()
 	expected.Ingress["80/TCP"] = L4Filter{
@@ -675,8 +675,8 @@ func (ds *PolicyTestSuite) TestMergeL7PolicyEgress(c *C) {
 		HTTP: []api.PortRuleHTTP{{Path: "/", Method: "GET"}},
 	}
 	l7map := L7DataMap{
-		WildcardEndpointSelector: l7rules,
-		fooSelector[0]:           l7rules,
+		api.WildcardEndpointSelector: l7rules,
+		fooSelector[0]:               l7rules,
 	}
 
 	expected := NewL4Policy()
@@ -744,8 +744,8 @@ func (ds *PolicyTestSuite) TestMergeL7PolicyEgress(c *C) {
 		Kafka: []api.PortRuleKafka{{Topic: "foo"}},
 	}
 	l7map = L7DataMap{
-		WildcardEndpointSelector: l7rules,
-		fooSelector[0]:           l7rules,
+		api.WildcardEndpointSelector: l7rules,
+		fooSelector[0]:               l7rules,
 	}
 	expected = NewL4Policy()
 	expected.Egress["80/TCP"] = L4Filter{
@@ -822,8 +822,8 @@ func (ds *PolicyTestSuite) TestMergeL7PolicyEgress(c *C) {
 
 	// The l3-dependent l7 rules are not merged together.
 	l7map = L7DataMap{
-		fooSelector[0]:           fooRules,
-		WildcardEndpointSelector: barRules,
+		fooSelector[0]:               fooRules,
+		api.WildcardEndpointSelector: barRules,
 	}
 	expected = NewL4Policy()
 	expected.Egress["80/TCP"] = L4Filter{
@@ -1498,7 +1498,7 @@ func (ds *PolicyTestSuite) TestIngressAllowAll(c *C) {
 				{
 					// Allow all L3&L4 ingress rule
 					FromEndpoints: []api.EndpointSelector{
-						api.NewWildcardEndpointSelector(),
+						api.WildcardEndpointSelector,
 					},
 				},
 			},
@@ -1525,7 +1525,7 @@ func (ds *PolicyTestSuite) TestIngressAllowAllL4Overlap(c *C) {
 				{
 					// Allow all L3&L4 ingress rule
 					FromEndpoints: []api.EndpointSelector{
-						api.NewWildcardEndpointSelector(),
+						api.WildcardEndpointSelector,
 					},
 				},
 				{
@@ -1594,7 +1594,7 @@ func (ds *PolicyTestSuite) TestEgressAllowAll(c *C) {
 			Egress: []api.EgressRule{
 				{
 					ToEndpoints: []api.EndpointSelector{
-						api.NewWildcardEndpointSelector(),
+						api.WildcardEndpointSelector,
 					},
 				},
 			},

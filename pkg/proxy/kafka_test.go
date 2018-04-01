@@ -192,7 +192,7 @@ func (k *proxyTestSuite) TestKafkaRedirect(c *C) {
 	r.ingress = true
 
 	r.rules = policy.L7DataMap{
-		policy.WildcardEndpointSelector: api.L7Rules{
+		api.WildcardEndpointSelector: api.L7Rules{
 			Kafka: []api.PortRuleKafka{kafkaRule1, kafkaRule2},
 		},
 	}
