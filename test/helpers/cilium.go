@@ -86,24 +86,48 @@ func (s *SSHMeta) EndpointGet(id string) *models.Endpoint {
 // configuration option optionName for the endpoint with ID endpointID, or an
 // error if optionName's corresponding value cannot be retrieved for the
 // endpoint.
-func (s *SSHMeta) GetEndpointMutableConfigurationOption(endpointID, optionName string) (configurationOptionValue string, err error) {
-	endpointModel := s.EndpointGet(endpointID)
-	if endpointModel == nil {
-		return "", fmt.Errorf("endpoint model for endpoint %s is nil", endpointID)
+func (s *SSHMeta) GetEndpointMutableConfigurationOption(endpointID, optionName string) (string, error) {
+	cmd := fmt.Sprintf("endpoint config %s -o json | jq -r '.realized.options.%s'", endpointID, optionName)
+	res := s.ExecCilium(cmd)
+	if !res.WasSuccessful() {
+		return "", fmt.Errorf("Unable to execute %q: %s", cmd, res.CombineOutput())
 	}
 
-	endpointConfiguration := endpointModel.Configuration
-	if endpointConfiguration == nil {
-		return "", fmt.Errorf("nil configuration of endpoint %s", endpointID)
+	return res.SingleOut(), nil
+}
+
+// SetAndWaitForEndpointConfiguration waits for the endpoint configuration to become a certain value
+func (s *SSHMeta) SetAndWaitForEndpointConfiguration(endpointID, optionName, expectedValue string) bool {
+	maxRetries := 10
+
+	log.Infof("Setting endpoint %s config %s=%s", endpointID, optionName, expectedValue)
+
+	// HACK:
+	// Retry multiple times as policy generations can still be queued up in
+	// which case the value will immediately swap back
+	for retry := 1; retry <= maxRetries; retry++ {
+		status := s.EndpointSetConfig(endpointID, optionName, expectedValue)
+		if retry == maxRetries {
+			gomega.ExpectWithOffset(1, status).Should(gomega.BeTrue(), "could not set %s=%s on endpoint %q", optionName, expectedValue, endpointID)
+		} else if !status {
+			continue
+		}
+
+		value, err := s.GetEndpointMutableConfigurationOption(endpointID, optionName)
+		gomega.ExpectWithOffset(1, err).To(gomega.BeNil(), "Cannot get endpoint configuration")
+
+		if value == expectedValue {
+			return true
+		}
+
+		if retry == maxRetries {
+			gomega.ExpectWithOffset(1, value).To(gomega.Equal(expectedValue), "Endpoint configuration %s does not match", optionName)
+		}
+
+		time.Sleep(time.Duration(retry) * time.Second)
 	}
 
-	// Endpoint currently only has mutable options.
-	configurationOptionValue, configOptionExists := endpointModel.Configuration.Options[optionName]
-	if !configOptionExists {
-		return "", fmt.Errorf("provided configuration option %s does not exist in endpoint %s configuration", optionName, endpointID)
-	}
-
-	return configurationOptionValue, nil
+	return false
 }
 
 // EndpointStatusLog returns the status log API model for the specified endpoint.
@@ -241,7 +265,7 @@ func (s *SSHMeta) WaitEndpointsReady() bool {
 func (s *SSHMeta) EndpointSetConfig(id, option, value string) bool {
 	logger := s.logger.WithFields(logrus.Fields{"endpointID": id})
 	res := s.ExecCilium(fmt.Sprintf(
-		"endpoint config %s -o json | jq '.realized.options.%s'", id, option))
+		"endpoint config %s -o json | jq -r '.realized.options.%s'", id, option))
 
 	if res.SingleOut() == value {
 		logger.Debugf("no need to update %s=%s; value already set", option, value)
@@ -376,6 +400,7 @@ func (s *SSHMeta) SetPolicyEnforcement(status string) *CmdRes {
 	// We check before setting PolicyEnforcement; if we do not, EndpointWait
 	// will fail due to the status of the endpoints not changing.
 	log.Infof("setting %s=%s", PolicyEnforcement, status)
+	// FIXME: This does not work
 	res := s.ExecCilium(fmt.Sprintf("config -o json | jq '.mutable.%s'", PolicyEnforcement))
 	if res.SingleOut() == status {
 		return res
@@ -385,6 +410,7 @@ func (s *SSHMeta) SetPolicyEnforcement(status string) *CmdRes {
 
 // PolicyDelAll deletes all policy rules currently imported into Cilium.
 func (s *SSHMeta) PolicyDelAll() *CmdRes {
+	log.Info("Deleting all policy in agent")
 	return s.PolicyDel("--all")
 }
 
