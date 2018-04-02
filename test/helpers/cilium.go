@@ -657,8 +657,8 @@ func (s *SSHMeta) ServiceIsSynced(id int) (bool, error) {
 	}
 
 	frontendAddr := net.JoinHostPort(
-		svc.FrontendAddress.IP,
-		fmt.Sprintf("%d", svc.FrontendAddress.Port))
+		svc.Status.Realized.FrontendAddress.IP,
+		fmt.Sprintf("%d", svc.Status.Realized.FrontendAddress.Port))
 	lb, ok := bpfLB[frontendAddr]
 	if ok == false {
 		return false, fmt.Errorf(
@@ -666,7 +666,7 @@ func (s *SSHMeta) ServiceIsSynced(id int) (bool, error) {
 			id, frontendAddr)
 	}
 
-	for _, backendAddr := range svc.BackendAddresses {
+	for _, backendAddr := range svc.Status.Realized.BackendAddresses {
 		result := false
 		backendSVC := net.JoinHostPort(
 			*backendAddr.IP,
@@ -713,15 +713,15 @@ func (s *SSHMeta) ServiceGetFrontendAddress(id int) (string, error) {
 	}
 
 	frontendAddress := net.JoinHostPort(
-		svc.FrontendAddress.IP,
-		fmt.Sprintf("%d", svc.FrontendAddress.Port))
+		svc.Status.Realized.FrontendAddress.IP,
+		fmt.Sprintf("%d", svc.Status.Realized.FrontendAddress.Port))
 	return frontendAddress, nil
 }
 
 // ServiceGetIds returns an array with the IDs of all Cilium services. Returns
 // an error if the IDs cannot be retrieved
 func (s *SSHMeta) ServiceGetIds() ([]string, error) {
-	filter := `{range [*]}{@.ID}{"\n"}{end}`
+	filter := `{range [*]}{@.status.realized.id}{"\n"}{end}`
 	res, err := s.ServiceList().Filter(filter)
 	if err != nil {
 		return nil, err

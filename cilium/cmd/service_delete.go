@@ -36,8 +36,8 @@ var serviceDeleteCmd = &cobra.Command{
 			}
 
 			for _, svc := range list {
-				if err := client.DeleteServiceID(svc.ID); err != nil {
-					log.WithError(err).WithField(logfields.ServiceID, svc.ID).Error("Cannot delete service")
+				if err := client.DeleteServiceID(svc.Status.Realized.ID); err != nil {
+					log.WithError(err).WithField(logfields.ServiceID, svc.Status.Realized.ID).Error("Cannot delete service")
 				}
 			}
 

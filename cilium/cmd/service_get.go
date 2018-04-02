@@ -43,7 +43,7 @@ var serviceGetCmd = &cobra.Command{
 		}
 
 		slice := []string{}
-		for _, be := range svc.BackendAddresses {
+		for _, be := range svc.Status.Realized.BackendAddresses {
 			if bea, err := types.NewL3n4AddrFromBackendModel(be); err != nil {
 				slice = append(slice, fmt.Sprintf("invalid backend: %+v", be))
 			} else {
@@ -58,14 +58,14 @@ var serviceGetCmd = &cobra.Command{
 			return
 		}
 
-		if fea, err := types.NewL3n4AddrFromModel(svc.FrontendAddress); err != nil {
+		if fea, err := types.NewL3n4AddrFromModel(svc.Status.Realized.FrontendAddress); err != nil {
 			fmt.Fprintf(os.Stderr, "invalid frontend model: %s", err)
 		} else {
 			fmt.Printf("%s =>\n", fea.String())
 		}
 
 		for i, be := range slice {
-			fmt.Printf("\t\t%d => %s (%d)\n", i+1, be, svc.ID)
+			fmt.Printf("\t\t%d => %s (%d)\n", i+1, be, svc.Status.Realized.ID)
 		}
 	},
 }

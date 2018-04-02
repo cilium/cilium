@@ -39,7 +39,7 @@ type PutServiceIDParams struct {
 	  Required: true
 	  In: body
 	*/
-	Config *models.Service
+	Config *models.ServiceSpec
 	/*ID of service
 	  Required: true
 	  In: path
@@ -55,7 +55,7 @@ func (o *PutServiceIDParams) BindRequest(r *http.Request, route *middleware.Matc
 
 	if runtime.HasBody(r) {
 		defer r.Body.Close()
-		var body models.Service
+		var body models.ServiceSpec
 		if err := route.Consumer.Consume(r.Body, &body); err != nil {
 			if err == io.EOF {
 				res = append(res, errors.Required("config", "body"))
