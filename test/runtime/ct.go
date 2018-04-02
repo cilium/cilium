@@ -725,12 +725,15 @@ var _ = Describe("DisabledRuntimeValidatedConntrackTable", func() {
 	})
 
 	It("Testing L7 proxy redirection after a L3 connection is made with the exact 5 tuple", func() {
-		vm.SetPolicyEnforcement(helpers.PolicyEnforcementDefault)
-		vm.WaitEndpointsReady()
+		res := vm.SetPolicyEnforcement(helpers.PolicyEnforcementDefault)
+		res.ExpectSuccess("Setting policyEnforcement to default")
+		areEndpointsReady := vm.WaitEndpointsReady()
+		Expect(areEndpointsReady).Should(BeTrue(), "Endpoints are not ready after timeout")
+
 		epIdentities, err := vm.GetEndpointsIdentityIds()
 		Expect(err).To(BeNil(), "Getting endpoints identity IDs")
 
-		res := vm.PolicyDelAll()
+		res = vm.PolicyDelAll()
 		res.ExpectSuccess("Deleting all policies")
 
 		policy := `
@@ -749,7 +752,7 @@ var _ = Describe("DisabledRuntimeValidatedConntrackTable", func() {
 		_, err = vm.PolicyRenderAndImport(policy)
 		Expect(err).To(BeNil(), "Installing an L3-only policy")
 
-		areEndpointsReady := vm.WaitEndpointsReady()
+		areEndpointsReady = vm.WaitEndpointsReady()
 		Expect(areEndpointsReady).Should(BeTrue(), "Endpoints not ready after timeout")
 
 		meta := containersMeta()
