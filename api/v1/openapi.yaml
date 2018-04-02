@@ -581,47 +581,30 @@ paths:
         '200':
           description: Success
           schema:
-            "$ref": "#/definitions/CIDRList"
+            "$ref": "#/definitions/Prefilter"
         '500':
-          description: CIDR list get failed
+          description: Prefilter get failed
           x-go-name: Failure
           schema:
             "$ref": "#/definitions/Error"
-    put:
+    patch:
       summary: Update list of CIDRs
       tags:
       - prefilter
       parameters:
-      - "$ref": "#/parameters/cidr-list"
+      - "$ref": "#/parameters/prefilter-spec"
       responses:
         '200':
           description: Updated
+          schema:
+            "$ref": "#/definitions/Prefilter"
         '461':
           description: Invalid CIDR prefix
           x-go-name: InvalidCIDR
           schema:
             "$ref": "#/definitions/Error"
         '500':
-          description: CIDR update failed
-          x-go-name: Failure
-          schema:
-            "$ref": "#/definitions/Error"
-    delete:
-      summary: Delete list of CIDRs
-      tags:
-      - prefilter
-      parameters:
-      - "$ref": "#/parameters/cidr-list"
-      responses:
-        '200':
-          description: Deleted
-        '461':
-          description: Invalid CIDR prefix
-          x-go-name: InvalidCIDR
-          schema:
-            "$ref": "#/definitions/Error"
-        '500':
-          description: CIDR deletion failed
+          description: Prefilter update failed
           x-go-name: Failure
           schema:
             "$ref": "#/definitions/Error"
@@ -720,13 +703,13 @@ parameters:
     required: true
     schema:
       "$ref": "#/definitions/ServiceSpec"
-  cidr-list:
-    name: cidr-list
-    description: List of CIDRs for filter table
+  prefilter-spec:
+    name: prefilter-spec
+    description: List of CIDR ranges for filter table
     required: true
     in: body
     schema:
-      "$ref": "#/definitions/CIDRList"
+      "$ref": "#/definitions/PrefilterSpec"
   ipam-ip:
     name: ip
     description: IP address
@@ -1014,6 +997,31 @@ definitions:
         type: array
         items:
           "$ref": "#/definitions/PolicyRule"
+
+  Prefilter:
+    description: Collection of endpoints to be served
+    type: object
+    properties:
+      spec:
+        "$ref": "#/definitions/PrefilterSpec"
+      status:
+        "$ref": "#/definitions/PrefilterStatus"
+  PrefilterSpec:
+    description: CIDR ranges implemented in the Prefilter
+    type: object
+    properties:
+      revision:
+        type: integer
+      deny:
+        type: array
+        items:
+          type: string
+  PrefilterStatus:
+    description: CIDR ranges implemented in the Prefilter
+    type: object
+    properties:
+      realized:
+        "$ref": "#/definitions/PrefilterSpec"
 
   CIDRList:
     description: List of CIDRs

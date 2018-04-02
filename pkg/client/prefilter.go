@@ -20,7 +20,7 @@ import (
 )
 
 // GetPrefilter returns a list of all CIDR prefixes
-func (c *Client) GetPrefilter() (*models.CIDRList, error) {
+func (c *Client) GetPrefilter() (*models.Prefilter, error) {
 	resp, err := c.Prefilter.GetPrefilter(nil)
 	if err != nil {
 		return nil, Hint(err)
@@ -28,16 +28,39 @@ func (c *Client) GetPrefilter() (*models.CIDRList, error) {
 	return resp.Payload, nil
 }
 
-// PutPrefilter adds a list of CIDR prefixes
-func (c *Client) PutPrefilter(cl *models.CIDRList) error {
-	params := prefilter.NewPutPrefilterParams().WithCidrList(cl)
-	_, err := c.Prefilter.PutPrefilter(params)
-	return Hint(err)
+// PatchPrefilter sets a list of CIDR prefixes
+func (c *Client) PatchPrefilter(spec *models.PrefilterSpec) (*models.Prefilter, error) {
+	params := prefilter.NewPatchPrefilterParams().WithPrefilterSpec(spec)
+	resp, err := c.Prefilter.PatchPrefilter(params)
+	if err != nil {
+		return nil, Hint(err)
+	}
+	return resp.Payload, nil
 }
 
 // DeletePrefilter deletes a list of CIDR prefixes
-func (c *Client) DeletePrefilter(cl *models.CIDRList) error {
-	params := prefilter.NewDeletePrefilterParams().WithCidrList(cl)
-	_, err := c.Prefilter.DeletePrefilter(params)
+func (c *Client) DeletePrefilter(spec *models.PrefilterSpec) error {
+	current, err := c.GetPrefilter()
+	if err != nil {
+		return Hint(err)
+	}
+
+	deleteSet := map[string]bool{}
+	keepList := []string{}
+	for _, delCIDR := range spec.Deny {
+		deleteSet[delCIDR] = true
+	}
+
+	if current.Status != nil && current.Status.Realized != nil {
+		for _, keepCIDR := range current.Status.Realized.Deny {
+			if !deleteSet[keepCIDR] {
+				keepList = append(keepList, keepCIDR)
+			}
+		}
+	}
+
+	update := current.Status.Realized
+	update.Deny = keepList
+	_, err = c.PatchPrefilter(update)
 	return Hint(err)
 }

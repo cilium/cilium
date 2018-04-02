@@ -791,11 +791,11 @@ func init() {
           "200": {
             "description": "Success",
             "schema": {
-              "$ref": "#/definitions/CIDRList"
+              "$ref": "#/definitions/Prefilter"
             }
           },
           "500": {
-            "description": "CIDR list get failed",
+            "description": "Prefilter get failed",
             "schema": {
               "$ref": "#/definitions/Error"
             },
@@ -803,19 +803,22 @@ func init() {
           }
         }
       },
-      "put": {
+      "patch": {
         "tags": [
           "prefilter"
         ],
         "summary": "Update list of CIDRs",
         "parameters": [
           {
-            "$ref": "#/parameters/cidr-list"
+            "$ref": "#/parameters/prefilter-spec"
           }
         ],
         "responses": {
           "200": {
-            "description": "Updated"
+            "description": "Updated",
+            "schema": {
+              "$ref": "#/definitions/Prefilter"
+            }
           },
           "461": {
             "description": "Invalid CIDR prefix",
@@ -825,37 +828,7 @@ func init() {
             "x-go-name": "InvalidCIDR"
           },
           "500": {
-            "description": "CIDR update failed",
-            "schema": {
-              "$ref": "#/definitions/Error"
-            },
-            "x-go-name": "Failure"
-          }
-        }
-      },
-      "delete": {
-        "tags": [
-          "prefilter"
-        ],
-        "summary": "Delete list of CIDRs",
-        "parameters": [
-          {
-            "$ref": "#/parameters/cidr-list"
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Deleted"
-          },
-          "461": {
-            "description": "Invalid CIDR prefix",
-            "schema": {
-              "$ref": "#/definitions/Error"
-            },
-            "x-go-name": "InvalidCIDR"
-          },
-          "500": {
-            "description": "CIDR deletion failed",
+            "description": "Prefilter update failed",
             "schema": {
               "$ref": "#/definitions/Error"
             },
@@ -1977,6 +1950,42 @@ func init() {
         }
       }
     },
+    "Prefilter": {
+      "description": "Collection of endpoints to be served",
+      "type": "object",
+      "properties": {
+        "spec": {
+          "$ref": "#/definitions/PrefilterSpec"
+        },
+        "status": {
+          "$ref": "#/definitions/PrefilterStatus"
+        }
+      }
+    },
+    "PrefilterSpec": {
+      "description": "CIDR ranges implemented in the Prefilter",
+      "type": "object",
+      "properties": {
+        "deny": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "revision": {
+          "type": "integer"
+        }
+      }
+    },
+    "PrefilterStatus": {
+      "description": "CIDR ranges implemented in the Prefilter",
+      "type": "object",
+      "properties": {
+        "realized": {
+          "$ref": "#/definitions/PrefilterSpec"
+        }
+      }
+    },
     "ProxyStatistics": {
       "description": "Statistics of a set of proxy redirects for an endpoint",
       "type": "object",
@@ -2156,15 +2165,6 @@ func init() {
     }
   },
   "parameters": {
-    "cidr-list": {
-      "description": "List of CIDRs for filter table",
-      "name": "cidr-list",
-      "in": "body",
-      "required": true,
-      "schema": {
-        "$ref": "#/definitions/CIDRList"
-      }
-    },
     "endpoint-change-request": {
       "name": "endpoint",
       "in": "body",
@@ -2234,6 +2234,15 @@ func init() {
       "required": true,
       "schema": {
         "type": "string"
+      }
+    },
+    "prefilter-spec": {
+      "description": "List of CIDR ranges for filter table",
+      "name": "prefilter-spec",
+      "in": "body",
+      "required": true,
+      "schema": {
+        "$ref": "#/definitions/PrefilterSpec"
       }
     },
     "service-address": {

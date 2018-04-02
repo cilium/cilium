@@ -38,9 +38,9 @@ func init() {
 }
 
 func deleteFilters(cmd *cobra.Command, args []string) {
-	cl := &models.CIDRList{
+	spec := &models.PrefilterSpec{
 		Revision: int64(revision),
-		List:     cidrs,
+		Deny:     cidrs,
 	}
 	for _, cidr := range cidrs {
 		_, _, err := net.ParseCIDR(cidr)
@@ -48,9 +48,9 @@ func deleteFilters(cmd *cobra.Command, args []string) {
 			Fatalf("Cannot parse CIDR \"%s\": %s", cidr, err)
 		}
 	}
-	if err := client.DeletePrefilter(cl); err != nil {
+	if err := client.DeletePrefilter(spec); err != nil {
 		Fatalf("Cannot delete prefilter: %s", err)
 	} else {
-		fmt.Printf("Deleted %d prefilter entries\n", len(cl.List))
+		fmt.Printf("Deleted %d prefilter entries\n", len(spec.Deny))
 	}
 }
