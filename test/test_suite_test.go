@@ -151,6 +151,7 @@ var _ = BeforeAll(func() {
 	case helpers.Runtime:
 		err = helpers.CreateVM(helpers.Runtime)
 		if err != nil {
+			log.WithError(err).Error("Error starting VM")
 			Fail(fmt.Sprintf("error starting VM %q: %s", helpers.Runtime, err))
 		}
 
@@ -159,7 +160,12 @@ var _ = BeforeAll(func() {
 		err = vm.SetUpCilium()
 
 		if err != nil {
-			Fail(fmt.Sprintf("cilium was unable to be set up correctly: %s", err))
+			// AfterFailed function is not defined in this scope, fired the
+			// ReportFailed manually for this assert to gather cilium logs Fix
+			// #3428
+			vm.ReportFailed()
+			log.WithError(err).Error("Cilium was unable to be set up correctly")
+			Fail(fmt.Sprintf("Cilium was unable to be set up correctly: %s", err))
 		}
 
 	case helpers.K8s:
