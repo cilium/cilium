@@ -25,7 +25,7 @@ type GetPrefilterOK struct {
 	/*
 	  In: Body
 	*/
-	Payload *models.CIDRList `json:"body,omitempty"`
+	Payload *models.Prefilter `json:"body,omitempty"`
 }
 
 // NewGetPrefilterOK creates GetPrefilterOK with default headers values
@@ -34,13 +34,13 @@ func NewGetPrefilterOK() *GetPrefilterOK {
 }
 
 // WithPayload adds the payload to the get prefilter o k response
-func (o *GetPrefilterOK) WithPayload(payload *models.CIDRList) *GetPrefilterOK {
+func (o *GetPrefilterOK) WithPayload(payload *models.Prefilter) *GetPrefilterOK {
 	o.Payload = payload
 	return o
 }
 
 // SetPayload sets the payload to the get prefilter o k response
-func (o *GetPrefilterOK) SetPayload(payload *models.CIDRList) {
+func (o *GetPrefilterOK) SetPayload(payload *models.Prefilter) {
 	o.Payload = payload
 }
 
@@ -59,7 +59,7 @@ func (o *GetPrefilterOK) WriteResponse(rw http.ResponseWriter, producer runtime.
 // GetPrefilterFailureCode is the HTTP code returned for type GetPrefilterFailure
 const GetPrefilterFailureCode int = 500
 
-/*GetPrefilterFailure CIDR list get failed
+/*GetPrefilterFailure Prefilter get failed
 
 swagger:response getPrefilterFailure
 */

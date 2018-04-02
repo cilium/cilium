@@ -51,9 +51,6 @@ func NewCiliumAPI(spec *loads.Document) *CiliumAPI {
 		PolicyDeletePolicyHandler: policy.DeletePolicyHandlerFunc(func(params policy.DeletePolicyParams) middleware.Responder {
 			return middleware.NotImplemented("operation PolicyDeletePolicy has not yet been implemented")
 		}),
-		PrefilterDeletePrefilterHandler: prefilter.DeletePrefilterHandlerFunc(func(params prefilter.DeletePrefilterParams) middleware.Responder {
-			return middleware.NotImplemented("operation PrefilterDeletePrefilter has not yet been implemented")
-		}),
 		ServiceDeleteServiceIDHandler: service.DeleteServiceIDHandlerFunc(func(params service.DeleteServiceIDParams) middleware.Responder {
 			return middleware.NotImplemented("operation ServiceDeleteServiceID has not yet been implemented")
 		}),
@@ -117,6 +114,9 @@ func NewCiliumAPI(spec *loads.Document) *CiliumAPI {
 		EndpointPatchEndpointIDLabelsHandler: endpoint.PatchEndpointIDLabelsHandlerFunc(func(params endpoint.PatchEndpointIDLabelsParams) middleware.Responder {
 			return middleware.NotImplemented("operation EndpointPatchEndpointIDLabels has not yet been implemented")
 		}),
+		PrefilterPatchPrefilterHandler: prefilter.PatchPrefilterHandlerFunc(func(params prefilter.PatchPrefilterParams) middleware.Responder {
+			return middleware.NotImplemented("operation PrefilterPatchPrefilter has not yet been implemented")
+		}),
 		IPAMPostIPAMHandler: ipam.PostIPAMHandlerFunc(func(params ipam.PostIPAMParams) middleware.Responder {
 			return middleware.NotImplemented("operation IPAMPostIPAM has not yet been implemented")
 		}),
@@ -128,9 +128,6 @@ func NewCiliumAPI(spec *loads.Document) *CiliumAPI {
 		}),
 		PolicyPutPolicyHandler: policy.PutPolicyHandlerFunc(func(params policy.PutPolicyParams) middleware.Responder {
 			return middleware.NotImplemented("operation PolicyPutPolicy has not yet been implemented")
-		}),
-		PrefilterPutPrefilterHandler: prefilter.PutPrefilterHandlerFunc(func(params prefilter.PutPrefilterParams) middleware.Responder {
-			return middleware.NotImplemented("operation PrefilterPutPrefilter has not yet been implemented")
 		}),
 		ServicePutServiceIDHandler: service.PutServiceIDHandlerFunc(func(params service.PutServiceIDParams) middleware.Responder {
 			return middleware.NotImplemented("operation ServicePutServiceID has not yet been implemented")
@@ -170,8 +167,6 @@ type CiliumAPI struct {
 	IPAMDeleteIPAMIPHandler ipam.DeleteIPAMIPHandler
 	// PolicyDeletePolicyHandler sets the operation handler for the delete policy operation
 	PolicyDeletePolicyHandler policy.DeletePolicyHandler
-	// PrefilterDeletePrefilterHandler sets the operation handler for the delete prefilter operation
-	PrefilterDeletePrefilterHandler prefilter.DeletePrefilterHandler
 	// ServiceDeleteServiceIDHandler sets the operation handler for the delete service ID operation
 	ServiceDeleteServiceIDHandler service.DeleteServiceIDHandler
 	// DaemonGetConfigHandler sets the operation handler for the get config operation
@@ -214,6 +209,8 @@ type CiliumAPI struct {
 	EndpointPatchEndpointIDConfigHandler endpoint.PatchEndpointIDConfigHandler
 	// EndpointPatchEndpointIDLabelsHandler sets the operation handler for the patch endpoint ID labels operation
 	EndpointPatchEndpointIDLabelsHandler endpoint.PatchEndpointIDLabelsHandler
+	// PrefilterPatchPrefilterHandler sets the operation handler for the patch prefilter operation
+	PrefilterPatchPrefilterHandler prefilter.PatchPrefilterHandler
 	// IPAMPostIPAMHandler sets the operation handler for the post IP a m operation
 	IPAMPostIPAMHandler ipam.PostIPAMHandler
 	// IPAMPostIPAMIPHandler sets the operation handler for the post IP a m IP operation
@@ -222,8 +219,6 @@ type CiliumAPI struct {
 	EndpointPutEndpointIDHandler endpoint.PutEndpointIDHandler
 	// PolicyPutPolicyHandler sets the operation handler for the put policy operation
 	PolicyPutPolicyHandler policy.PutPolicyHandler
-	// PrefilterPutPrefilterHandler sets the operation handler for the put prefilter operation
-	PrefilterPutPrefilterHandler prefilter.PutPrefilterHandler
 	// ServicePutServiceIDHandler sets the operation handler for the put service ID operation
 	ServicePutServiceIDHandler service.PutServiceIDHandler
 
@@ -299,10 +294,6 @@ func (o *CiliumAPI) Validate() error {
 
 	if o.PolicyDeletePolicyHandler == nil {
 		unregistered = append(unregistered, "policy.DeletePolicyHandler")
-	}
-
-	if o.PrefilterDeletePrefilterHandler == nil {
-		unregistered = append(unregistered, "prefilter.DeletePrefilterHandler")
 	}
 
 	if o.ServiceDeleteServiceIDHandler == nil {
@@ -389,6 +380,10 @@ func (o *CiliumAPI) Validate() error {
 		unregistered = append(unregistered, "endpoint.PatchEndpointIDLabelsHandler")
 	}
 
+	if o.PrefilterPatchPrefilterHandler == nil {
+		unregistered = append(unregistered, "prefilter.PatchPrefilterHandler")
+	}
+
 	if o.IPAMPostIPAMHandler == nil {
 		unregistered = append(unregistered, "ipam.PostIPAMHandler")
 	}
@@ -403,10 +398,6 @@ func (o *CiliumAPI) Validate() error {
 
 	if o.PolicyPutPolicyHandler == nil {
 		unregistered = append(unregistered, "policy.PutPolicyHandler")
-	}
-
-	if o.PrefilterPutPrefilterHandler == nil {
-		unregistered = append(unregistered, "prefilter.PutPrefilterHandler")
 	}
 
 	if o.ServicePutServiceIDHandler == nil {
@@ -521,11 +512,6 @@ func (o *CiliumAPI) initHandlerCache() {
 	if o.handlers["DELETE"] == nil {
 		o.handlers["DELETE"] = make(map[string]http.Handler)
 	}
-	o.handlers["DELETE"]["/prefilter"] = prefilter.NewDeletePrefilter(o.context, o.PrefilterDeletePrefilterHandler)
-
-	if o.handlers["DELETE"] == nil {
-		o.handlers["DELETE"] = make(map[string]http.Handler)
-	}
 	o.handlers["DELETE"]["/service/{id}"] = service.NewDeleteServiceID(o.context, o.ServiceDeleteServiceIDHandler)
 
 	if o.handlers["GET"] == nil {
@@ -628,6 +614,11 @@ func (o *CiliumAPI) initHandlerCache() {
 	}
 	o.handlers["PATCH"]["/endpoint/{id}/labels"] = endpoint.NewPatchEndpointIDLabels(o.context, o.EndpointPatchEndpointIDLabelsHandler)
 
+	if o.handlers["PATCH"] == nil {
+		o.handlers["PATCH"] = make(map[string]http.Handler)
+	}
+	o.handlers["PATCH"]["/prefilter"] = prefilter.NewPatchPrefilter(o.context, o.PrefilterPatchPrefilterHandler)
+
 	if o.handlers["POST"] == nil {
 		o.handlers["POST"] = make(map[string]http.Handler)
 	}
@@ -647,11 +638,6 @@ func (o *CiliumAPI) initHandlerCache() {
 		o.handlers["PUT"] = make(map[string]http.Handler)
 	}
 	o.handlers["PUT"]["/policy"] = policy.NewPutPolicy(o.context, o.PolicyPutPolicyHandler)
-
-	if o.handlers["PUT"] == nil {
-		o.handlers["PUT"] = make(map[string]http.Handler)
-	}
-	o.handlers["PUT"]["/prefilter"] = prefilter.NewPutPrefilter(o.context, o.PrefilterPutPrefilterHandler)
 
 	if o.handlers["PUT"] == nil {
 		o.handlers["PUT"] = make(map[string]http.Handler)

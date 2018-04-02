@@ -54,7 +54,7 @@ func NewGetPrefilterOK() *GetPrefilterOK {
 Success
 */
 type GetPrefilterOK struct {
-	Payload *models.CIDRList
+	Payload *models.Prefilter
 }
 
 func (o *GetPrefilterOK) Error() string {
@@ -63,7 +63,7 @@ func (o *GetPrefilterOK) Error() string {
 
 func (o *GetPrefilterOK) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
 
-	o.Payload = new(models.CIDRList)
+	o.Payload = new(models.Prefilter)
 
 	// response payload
 	if err := consumer.Consume(response.Body(), o.Payload); err != nil && err != io.EOF {
@@ -80,7 +80,7 @@ func NewGetPrefilterFailure() *GetPrefilterFailure {
 
 /*GetPrefilterFailure handles this case with default header values.
 
-CIDR list get failed
+Prefilter get failed
 */
 type GetPrefilterFailure struct {
 	Payload models.Error

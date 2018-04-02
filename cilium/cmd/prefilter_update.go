@@ -43,9 +43,9 @@ func init() {
 }
 
 func updateFilters(cmd *cobra.Command, args []string) {
-	cl := &models.CIDRList{
+	spec := &models.PrefilterSpec{
 		Revision: int64(revision),
-		List:     cidrs,
+		Deny:     cidrs,
 	}
 	for _, cidr := range cidrs {
 		_, _, err := net.ParseCIDR(cidr)
@@ -53,9 +53,9 @@ func updateFilters(cmd *cobra.Command, args []string) {
 			Fatalf("Cannot parse CIDR \"%s\": %s", cidr, err)
 		}
 	}
-	if err := client.PutPrefilter(cl); err != nil {
+	if _, err := client.PatchPrefilter(spec); err != nil {
 		Fatalf("Cannot add/update prefilter: %s", err)
 	} else {
-		fmt.Printf("Updated %d prefilter entries\n", len(cl.List))
+		fmt.Printf("Updated %d prefilter entries\n", len(spec.Deny))
 	}
 }

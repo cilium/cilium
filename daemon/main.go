@@ -804,8 +804,7 @@ func runDaemon() {
 
 	// /prefilter/
 	api.PrefilterGetPrefilterHandler = NewGetPrefilterHandler(d)
-	api.PrefilterPutPrefilterHandler = NewPutPrefilterHandler(d)
-	api.PrefilterDeletePrefilterHandler = NewDeletePrefilterHandler(d)
+	api.PrefilterPatchPrefilterHandler = NewPatchPrefilterHandler(d)
 
 	// /ipam/{ip}/
 	api.IPAMPostIPAMHandler = NewPostIPAMHandler(d)

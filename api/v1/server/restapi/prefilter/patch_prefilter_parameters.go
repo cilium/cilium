@@ -16,43 +16,43 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 )
 
-// NewPutPrefilterParams creates a new PutPrefilterParams object
+// NewPatchPrefilterParams creates a new PatchPrefilterParams object
 // with the default values initialized.
-func NewPutPrefilterParams() PutPrefilterParams {
+func NewPatchPrefilterParams() PatchPrefilterParams {
 	var ()
-	return PutPrefilterParams{}
+	return PatchPrefilterParams{}
 }
 
-// PutPrefilterParams contains all the bound params for the put prefilter operation
+// PatchPrefilterParams contains all the bound params for the patch prefilter operation
 // typically these are obtained from a http.Request
 //
-// swagger:parameters PutPrefilter
-type PutPrefilterParams struct {
+// swagger:parameters PatchPrefilter
+type PatchPrefilterParams struct {
 
 	// HTTP Request Object
 	HTTPRequest *http.Request
 
-	/*List of CIDRs for filter table
+	/*List of CIDR ranges for filter table
 	  Required: true
 	  In: body
 	*/
-	CidrList *models.CIDRList
+	PrefilterSpec *models.PrefilterSpec
 }
 
 // BindRequest both binds and validates a request, it assumes that complex things implement a Validatable(strfmt.Registry) error interface
 // for simple values it will use straight method calls
-func (o *PutPrefilterParams) BindRequest(r *http.Request, route *middleware.MatchedRoute) error {
+func (o *PatchPrefilterParams) BindRequest(r *http.Request, route *middleware.MatchedRoute) error {
 	var res []error
 	o.HTTPRequest = r
 
 	if runtime.HasBody(r) {
 		defer r.Body.Close()
-		var body models.CIDRList
+		var body models.PrefilterSpec
 		if err := route.Consumer.Consume(r.Body, &body); err != nil {
 			if err == io.EOF {
-				res = append(res, errors.Required("cidrList", "body"))
+				res = append(res, errors.Required("prefilterSpec", "body"))
 			} else {
-				res = append(res, errors.NewParseError("cidrList", "body", "", err))
+				res = append(res, errors.NewParseError("prefilterSpec", "body", "", err))
 			}
 
 		} else {
@@ -61,12 +61,12 @@ func (o *PutPrefilterParams) BindRequest(r *http.Request, route *middleware.Matc
 			}
 
 			if len(res) == 0 {
-				o.CidrList = &body
+				o.PrefilterSpec = &body
 			}
 		}
 
 	} else {
-		res = append(res, errors.Required("cidrList", "body"))
+		res = append(res, errors.Required("prefilterSpec", "body"))
 	}
 
 	if len(res) > 0 {
