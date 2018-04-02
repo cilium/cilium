@@ -401,9 +401,6 @@ var _ = Describe("K8sValidatedPolicyTest", func() {
 		})
 
 		It("Denies traffic with k8s default-deny egress policy", func() {
-			// GH-3437 Temporarily disabled
-			return
-
 			if helpers.GetCurrentK8SEnv() == "1.7" {
 				log.Info("K8s 1.7 doesn't offer a default deny for egress")
 				return
@@ -453,7 +450,7 @@ var _ = Describe("K8sValidatedPolicyTest", func() {
 				res = kubectl.ExecPodCmd(
 					helpers.DefaultNamespace, pod,
 					"host www.google.com")
-				res.ExpectSuccess("Egress DNS connectivity should be allowed for pod %q", pod)
+				res.ExpectFail("Egress DNS connectivity should be denied for pod %q", pod)
 			}
 		})
 	})
