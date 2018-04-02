@@ -49,9 +49,9 @@ func (c *Client) PolicyDelete(labels []string) (*models.Policy, error) {
 	return resp.Payload, Hint(err)
 }
 
-// PolicyResolveGet resolves policy for a context with source and destination identity.
-func (c *Client) PolicyResolveGet(context *models.IdentityContext) (*models.PolicyTraceResult, error) {
-	params := policy.NewGetPolicyResolveParams().WithIdentityContext(context)
+// PolicyResolveGet resolves policy for a Trace Selector with source and destination identity.
+func (c *Client) PolicyResolveGet(traceSelector *models.TraceSelector) (*models.PolicyTraceResult, error) {
+	params := policy.NewGetPolicyResolveParams().WithTraceSelector(traceSelector)
 	resp, err := c.Policy.GetPolicyResolve(params)
 	if err != nil {
 		return nil, Hint(err)

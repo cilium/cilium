@@ -64,11 +64,11 @@ for the get policy resolve operation typically these are written to a http.Reque
 */
 type GetPolicyResolveParams struct {
 
-	/*IdentityContext
+	/*TraceSelector
 	  Context to provide policy evaluation on
 
 	*/
-	IdentityContext *models.IdentityContext
+	TraceSelector *models.TraceSelector
 
 	timeout    time.Duration
 	Context    context.Context
@@ -108,15 +108,15 @@ func (o *GetPolicyResolveParams) SetHTTPClient(client *http.Client) {
 	o.HTTPClient = client
 }
 
-// WithIdentityContext adds the identityContext to the get policy resolve params
-func (o *GetPolicyResolveParams) WithIdentityContext(identityContext *models.IdentityContext) *GetPolicyResolveParams {
-	o.SetIdentityContext(identityContext)
+// WithTraceSelector adds the traceSelector to the get policy resolve params
+func (o *GetPolicyResolveParams) WithTraceSelector(traceSelector *models.TraceSelector) *GetPolicyResolveParams {
+	o.SetTraceSelector(traceSelector)
 	return o
 }
 
-// SetIdentityContext adds the identityContext to the get policy resolve params
-func (o *GetPolicyResolveParams) SetIdentityContext(identityContext *models.IdentityContext) {
-	o.IdentityContext = identityContext
+// SetTraceSelector adds the traceSelector to the get policy resolve params
+func (o *GetPolicyResolveParams) SetTraceSelector(traceSelector *models.TraceSelector) {
+	o.TraceSelector = traceSelector
 }
 
 // WriteToRequest writes these params to a swagger request
@@ -127,11 +127,11 @@ func (o *GetPolicyResolveParams) WriteToRequest(r runtime.ClientRequest, reg str
 	}
 	var res []error
 
-	if o.IdentityContext == nil {
-		o.IdentityContext = new(models.IdentityContext)
+	if o.TraceSelector == nil {
+		o.TraceSelector = new(models.TraceSelector)
 	}
 
-	if err := r.SetBodyParam(o.IdentityContext); err != nil {
+	if err := r.SetBodyParam(o.TraceSelector); err != nil {
 		return err
 	}
 

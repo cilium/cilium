@@ -768,7 +768,7 @@ func init() {
         "summary": "Resolve policy for an identity context",
         "parameters": [
           {
-            "$ref": "#/parameters/identity-context"
+            "$ref": "#/parameters/trace-selector"
           }
         ],
         "responses": {
@@ -1643,29 +1643,6 @@ func init() {
         }
       }
     },
-    "IdentityContext": {
-      "description": "Context describing a pair of source and destination identity",
-      "type": "object",
-      "properties": {
-        "dports": {
-          "description": "List of Layer 4 port and protocol pairs which will be used in communication\nfrom the source identity to the destination identity.\n",
-          "type": "array",
-          "items": {
-            "$ref": "#/definitions/Port"
-          }
-        },
-        "from": {
-          "$ref": "#/definitions/Labels"
-        },
-        "to": {
-          "$ref": "#/definitions/Labels"
-        },
-        "verbose": {
-          "description": "Enable verbose tracing.\n",
-          "type": "boolean"
-        }
-      }
-    },
     "K8sStatus": {
       "description": "Status of Kubernetes integration",
       "type": "object",
@@ -2162,6 +2139,45 @@ func init() {
           "$ref": "#/definitions/ProxyStatus"
         }
       }
+    },
+    "TraceFrom": {
+      "type": "object",
+      "properties": {
+        "labels": {
+          "$ref": "#/definitions/Labels"
+        }
+      }
+    },
+    "TraceSelector": {
+      "description": "Context describing a pair of source and destination identity",
+      "type": "object",
+      "properties": {
+        "from": {
+          "$ref": "#/definitions/TraceFrom"
+        },
+        "to": {
+          "$ref": "#/definitions/TraceTo"
+        },
+        "verbose": {
+          "description": "Enable verbose tracing.\n",
+          "type": "boolean"
+        }
+      }
+    },
+    "TraceTo": {
+      "type": "object",
+      "properties": {
+        "dports": {
+          "description": "List of Layer 4 port and protocol pairs which will be used in communication\nfrom the source identity to the destination identity.\n",
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Port"
+          }
+        },
+        "labels": {
+          "$ref": "#/definitions/Labels"
+        }
+      }
     }
   },
   "parameters": {
@@ -2179,14 +2195,6 @@ func init() {
       "name": "id",
       "in": "path",
       "required": true
-    },
-    "identity-context": {
-      "description": "Context to provide policy evaluation on",
-      "name": "identity-context",
-      "in": "body",
-      "schema": {
-        "$ref": "#/definitions/IdentityContext"
-      }
     },
     "identity-id": {
       "type": "string",
@@ -2268,6 +2276,14 @@ func init() {
       "name": "id",
       "in": "path",
       "required": true
+    },
+    "trace-selector": {
+      "description": "Context to provide policy evaluation on",
+      "name": "trace-selector",
+      "in": "body",
+      "schema": {
+        "$ref": "#/definitions/TraceSelector"
+      }
     }
   },
   "x-schemes": [

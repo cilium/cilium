@@ -497,7 +497,7 @@ paths:
       tags:
       - policy
       parameters:
-      - "$ref": "#/parameters/identity-context"
+      - "$ref": "#/parameters/trace-selector"
       responses:
         '200':
           description: Success
@@ -678,12 +678,12 @@ parameters:
     required: true
     in: path
     type: string
-  identity-context:
-    name: identity-context
+  trace-selector:
+    name: trace-selector
     description: Context to provide policy evaluation on
     in: body
     schema:
-      "$ref": "#/definitions/IdentityContext"
+      "$ref": "#/definitions/TraceSelector"
   service-id:
     name: id
     description: ID of service
@@ -1412,13 +1412,27 @@ definitions:
         description: Layer 4 port number
         type: integer
         format: uint16
-  IdentityContext:
+  TraceSelector:
     description: Context describing a pair of source and destination identity
     type: object
     properties:
       from:
-        "$ref": "#/definitions/Labels"
+        "$ref": "#/definitions/TraceFrom"
       to:
+        "$ref": "#/definitions/TraceTo"
+      verbose:
+        description: |
+          Enable verbose tracing.
+        type: boolean
+  TraceFrom:
+    type: object
+    properties:
+      labels:
+        "$ref": "#/definitions/Labels"
+  TraceTo:
+    type: object
+    properties:
+      labels:
         "$ref": "#/definitions/Labels"
       dports:
         description: |
@@ -1427,10 +1441,7 @@ definitions:
         type: array
         items:
           "$ref": "#/definitions/Port"
-      verbose:
-        description: |
-          Enable verbose tracing.
-        type: boolean
+
   FrontendAddress:
     description: Layer 4 address
     type: object

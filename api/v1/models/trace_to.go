@@ -14,37 +14,26 @@ import (
 	"github.com/go-openapi/swag"
 )
 
-// IdentityContext Context describing a pair of source and destination identity
-// swagger:model IdentityContext
+// TraceTo trace to
+// swagger:model TraceTo
 
-type IdentityContext struct {
+type TraceTo struct {
 
 	// List of Layer 4 port and protocol pairs which will be used in communication
 	// from the source identity to the destination identity.
 	//
 	Dports []*Port `json:"dports"`
 
-	// from
-	From Labels `json:"from"`
-
-	// to
-	To Labels `json:"to"`
-
-	// Enable verbose tracing.
-	//
-	Verbose bool `json:"verbose,omitempty"`
+	// labels
+	Labels Labels `json:"labels"`
 }
 
-/* polymorph IdentityContext dports false */
+/* polymorph TraceTo dports false */
 
-/* polymorph IdentityContext from false */
+/* polymorph TraceTo labels false */
 
-/* polymorph IdentityContext to false */
-
-/* polymorph IdentityContext verbose false */
-
-// Validate validates this identity context
-func (m *IdentityContext) Validate(formats strfmt.Registry) error {
+// Validate validates this trace to
+func (m *TraceTo) Validate(formats strfmt.Registry) error {
 	var res []error
 
 	if err := m.validateDports(formats); err != nil {
@@ -58,7 +47,7 @@ func (m *IdentityContext) Validate(formats strfmt.Registry) error {
 	return nil
 }
 
-func (m *IdentityContext) validateDports(formats strfmt.Registry) error {
+func (m *TraceTo) validateDports(formats strfmt.Registry) error {
 
 	if swag.IsZero(m.Dports) { // not required
 		return nil
@@ -86,7 +75,7 @@ func (m *IdentityContext) validateDports(formats strfmt.Registry) error {
 }
 
 // MarshalBinary interface implementation
-func (m *IdentityContext) MarshalBinary() ([]byte, error) {
+func (m *TraceTo) MarshalBinary() ([]byte, error) {
 	if m == nil {
 		return nil, nil
 	}
@@ -94,8 +83,8 @@ func (m *IdentityContext) MarshalBinary() ([]byte, error) {
 }
 
 // UnmarshalBinary interface implementation
-func (m *IdentityContext) UnmarshalBinary(b []byte) error {
-	var res IdentityContext
+func (m *TraceTo) UnmarshalBinary(b []byte) error {
+	var res TraceTo
 	if err := swag.ReadJSON(b, &res); err != nil {
 		return err
 	}
