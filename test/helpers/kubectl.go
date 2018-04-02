@@ -736,7 +736,10 @@ func (kub *Kubectl) CiliumPolicyAction(namespace, filepath string, action Resour
 			// Wait until all the pods are synced
 			for pod, rev := range waitingRev {
 				kub.logger.Infof("CiliumPolicyAction: Wait for endpoints to sync on pod '%s'", pod)
-				kub.ExecPodCmd(namespace, pod, fmt.Sprintf("cilium policy wait %d", rev))
+				res := kub.ExecPodCmd(namespace, pod, fmt.Sprintf("cilium policy wait %d", rev))
+				if !res.WasSuccessful() {
+					return false
+				}
 				kub.logger.Infof("CiliumPolicyAction: revision %d in pod '%s' is ready", rev, pod)
 			}
 			return true
