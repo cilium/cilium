@@ -1464,13 +1464,15 @@ func (d *Daemon) addCiliumNetworkPolicyV2(ciliumV2Store cache.Store, cnp *cilium
 				// Most important is the error while adding the CNP
 				if err != nil {
 					cnpns = cilium_v2.CiliumNetworkPolicyNodeStatus{
-						Error: err.Error(),
-						OK:    false,
+						Error:       err.Error(),
+						OK:          false,
+						LastUpdated: cilium_v2.NewTimestamp(),
 					}
 				} else if err2 != nil {
 					cnpns = cilium_v2.CiliumNetworkPolicyNodeStatus{
-						Error: err2.Error(),
-						OK:    false,
+						Error:       err2.Error(),
+						OK:          false,
+						LastUpdated: cilium_v2.NewTimestamp(),
 					}
 				}
 
