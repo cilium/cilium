@@ -2,6 +2,66 @@
 NEWS
 ******
 
+v1.0.0-rc9
+==========
+
+:date: 2018-04-01
+:commit: f1d4144ddb62003ccf58e016c523f323ad82c3a1
+
+Major Changes
+-------------
+
+* envoy: Make 403 message configurable. (3430_, @jrajahalme)
+* Add support label-dependent L4 egress policy (3372_, @ianvernon)
+
+Bugfixes Changes
+----------------
+
+* Fix entity dependent L4 enforcement (3451_, @tgraf)
+* cli: Fix cilium bpf policy get (3446_, @tgraf)
+* Fix CIDR ingress lookup (3406_, @joestringer)
+* xds: Handle NACKs of initial versions of resources (3405_, @rlenglet)
+* datapath: fix egress to world entity traffic, add e2e test  (3386_, @ianvernon)
+* bug: Fix panic in health server logs if /healthz didn't respond before checking status (3378_, @nebril)
+* pkg/policy: remove fromEntities and toEntities from rule type (3375_, @ianvernon)
+* Fix IPv4 CIDR lookup on older kernels (3366_, @joestringer)
+* Fix egress CIDR policy enforcement (3348_, @tgraf)
+* envoy: Fix concurrency issues in Cilium xDS server (3341_, @rlenglet)
+* Fix bug where policies associated with stale identities remain in BPF policy maps, which could lead to "Argument list too long" errors while regenerating endpoints (3321_, @joestringer)
+* Update CI and docs : kafka zookeeper connection timeout to 20 sec (3308_, @manalibhutiyani)
+* Reject CiliumNetworkPolicy rules which do not have EndpointSelector field (3275_, @ianvernon)
+* Envoy: delete proxymap on connection close (3271_, @jrajahalme)
+* Fix nested cmdref links in documentation (3265_, @joestringer)
+* completion: Fix race condition that can cause panic (3256_, @rlenglet)
+* Additional NetworkPolicy tests and egress wildcard fix (3246_, @tgraf)
+* Add timeout for getting etcd session (3228_, @nebril)
+* conntrack: Cleanup egress entries and distinguish redirects per endpoint (3221_, @rlenglet)
+* Silence warnings during endpoint restore (3216_, @tgraf)
+* Fix MTU connectivity issue with external services (3205_, @joestringer)
+* endpoint: Don't fail with fatal on l4 policy application (3199_, @tgraf)
+* Add new Kafka Role to the docs (3186_, @manalibhutiyani)
+* Fix log records for Kafka responses (3127_, @tgraf)
+
+Other Changes
+-------------
+
+* Refactor /endpoint/{id}/config for API 1.0 stabilit (3448_, @tgraf)
+* envoy: Add host identity (nphds) gRPC client (3407_, @jrajahalme)
+* Increase capacity of BPF maps (3391_, @tgraf)
+* daemon: Merge Envoy logs with cilium logs by default. (3364_, @jrajahalme)
+* docs: Fix the Kafka policy to use the new role in the GSG (3350_, @manalibhutiyani)
+* CI / GSG : make Kafka service headless (3320_, @manalibhutiyani)
+* Use alpine as base image for Docs container (3301_, @iamShantanu101)
+* Update kafka zookeeper session timeout to 20 sec in CI tests and docs (3298_, @manalibhutiyani)
+* Support access log from sidecar and per-endpoint redirect stats (3278_, @rlenglet)
+* Improve sanity checking in endpoint PATCH API (3274_, @joestringer)
+* Update Kafka GSG policy and docs to use the new "roles" (3269_, @manalibhutiyani)
+* maps: allow for migration when map properties change (3267_, @borkmann)
+* bpf: Retire CT entries quickly for unreplied connections  (3238_, @joestringer)
+* CMD: Add json output on endpoint config (3234_, @eloycoto)
+* Plumb the contents of the ip-identity cache to a BPF map for lookup in the datapath. (3037_, @ianvernon)
+
+
 v1.0.0-rc8
 ==========
 
@@ -1243,3 +1303,44 @@ Fixes
 .. _3096: https://github.com/cilium/cilium/pull/3096
 .. _3015: https://github.com/cilium/cilium/pull/3015
 .. _3190: https://github.com/cilium/cilium/pull/3190
+.. _3430: https://github.com/cilium/cilium/pull/3430
+.. _3372: https://github.com/cilium/cilium/pull/3372
+.. _3451: https://github.com/cilium/cilium/pull/3451
+.. _3446: https://github.com/cilium/cilium/pull/3446
+.. _3406: https://github.com/cilium/cilium/pull/3406
+.. _3405: https://github.com/cilium/cilium/pull/3405
+.. _3386: https://github.com/cilium/cilium/pull/3386
+.. _3378: https://github.com/cilium/cilium/pull/3378
+.. _3375: https://github.com/cilium/cilium/pull/3375
+.. _3366: https://github.com/cilium/cilium/pull/3366
+.. _3348: https://github.com/cilium/cilium/pull/3348
+.. _3341: https://github.com/cilium/cilium/pull/3341
+.. _3321: https://github.com/cilium/cilium/pull/3321
+.. _3308: https://github.com/cilium/cilium/pull/3308
+.. _3275: https://github.com/cilium/cilium/pull/3275
+.. _3271: https://github.com/cilium/cilium/pull/3271
+.. _3265: https://github.com/cilium/cilium/pull/3265
+.. _3256: https://github.com/cilium/cilium/pull/3256
+.. _3246: https://github.com/cilium/cilium/pull/3246
+.. _3228: https://github.com/cilium/cilium/pull/3228
+.. _3221: https://github.com/cilium/cilium/pull/3221
+.. _3216: https://github.com/cilium/cilium/pull/3216
+.. _3205: https://github.com/cilium/cilium/pull/3205
+.. _3199: https://github.com/cilium/cilium/pull/3199
+.. _3186: https://github.com/cilium/cilium/pull/3186
+.. _3127: https://github.com/cilium/cilium/pull/3127
+.. _3448: https://github.com/cilium/cilium/pull/3448
+.. _3407: https://github.com/cilium/cilium/pull/3407
+.. _3391: https://github.com/cilium/cilium/pull/3391
+.. _3364: https://github.com/cilium/cilium/pull/3364
+.. _3350: https://github.com/cilium/cilium/pull/3350
+.. _3320: https://github.com/cilium/cilium/pull/3320
+.. _3301: https://github.com/cilium/cilium/pull/3301
+.. _3298: https://github.com/cilium/cilium/pull/3298
+.. _3278: https://github.com/cilium/cilium/pull/3278
+.. _3274: https://github.com/cilium/cilium/pull/3274
+.. _3269: https://github.com/cilium/cilium/pull/3269
+.. _3267: https://github.com/cilium/cilium/pull/3267
+.. _3238: https://github.com/cilium/cilium/pull/3238
+.. _3234: https://github.com/cilium/cilium/pull/3234
+.. _3037: https://github.com/cilium/cilium/pull/3037
