@@ -163,6 +163,9 @@ var _ = Describe("RuntimeValidatedConnectivityTest", func() {
 			status := vm.EndpointSetConfig(endpoints[helpers.Client], "NAT46", helpers.OptionEnabled)
 			Expect(status).Should(BeTrue())
 
+			areEndpointsReady := vm.WaitEndpointsReady()
+			Expect(areEndpointsReady).Should(BeTrue(), "Endpoints not ready after timeout")
+
 			res := vm.ContainerExec(helpers.Client, helpers.Ping6(fmt.Sprintf(
 				"::FFFF:%s", server[helpers.IPv4])))
 
