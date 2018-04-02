@@ -57,6 +57,7 @@ test/tmp.yaml
 test/*_service_manifest.json
 test/*_manifest.yaml
 test/*_policy.json
+test/*.xml
 
 # Emacs backup files
 *~
