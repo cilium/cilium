@@ -34,7 +34,7 @@ type GetPolicyResolveParams struct {
 	/*Context to provide policy evaluation on
 	  In: body
 	*/
-	IdentityContext *models.IdentityContext
+	TraceSelector *models.TraceSelector
 }
 
 // BindRequest both binds and validates a request, it assumes that complex things implement a Validatable(strfmt.Registry) error interface
@@ -45,16 +45,16 @@ func (o *GetPolicyResolveParams) BindRequest(r *http.Request, route *middleware.
 
 	if runtime.HasBody(r) {
 		defer r.Body.Close()
-		var body models.IdentityContext
+		var body models.TraceSelector
 		if err := route.Consumer.Consume(r.Body, &body); err != nil {
-			res = append(res, errors.NewParseError("identityContext", "body", "", err))
+			res = append(res, errors.NewParseError("traceSelector", "body", "", err))
 		} else {
 			if err := body.Validate(route.Formats); err != nil {
 				res = append(res, err)
 			}
 
 			if len(res) == 0 {
-				o.IdentityContext = &body
+				o.TraceSelector = &body
 			}
 		}
 

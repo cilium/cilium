@@ -158,14 +158,18 @@ If multiple sources and / or destinations are provided, each source is tested wh
 
 		for _, v := range srcSlices {
 			for _, w := range dstSlices {
-				search := models.IdentityContext{
-					From:    v,
-					To:      w,
-					Dports:  dPorts,
+				search := models.TraceSelector{
+					From: &models.TraceFrom{
+						Labels: v,
+					},
+					To: &models.TraceTo{
+						Labels: w,
+						Dports: dPorts,
+					},
 					Verbose: verbose,
 				}
 
-				params := NewGetPolicyResolveParams().WithIdentityContext(&search)
+				params := NewGetPolicyResolveParams().WithTraceSelector(&search)
 				if scr, err := client.Policy.GetPolicyResolve(params); err != nil {
 					Fatalf("Error while retrieving policy assessment result: %s\n", err)
 				} else if command.OutputJSON() {
