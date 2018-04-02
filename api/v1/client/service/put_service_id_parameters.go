@@ -69,7 +69,7 @@ type PutServiceIDParams struct {
 	  Service configuration
 
 	*/
-	Config *models.Service
+	Config *models.ServiceSpec
 	/*ID
 	  ID of service
 
@@ -115,13 +115,13 @@ func (o *PutServiceIDParams) SetHTTPClient(client *http.Client) {
 }
 
 // WithConfig adds the config to the put service ID params
-func (o *PutServiceIDParams) WithConfig(config *models.Service) *PutServiceIDParams {
+func (o *PutServiceIDParams) WithConfig(config *models.ServiceSpec) *PutServiceIDParams {
 	o.SetConfig(config)
 	return o
 }
 
 // SetConfig adds the config to the put service ID params
-func (o *PutServiceIDParams) SetConfig(config *models.Service) {
+func (o *PutServiceIDParams) SetConfig(config *models.ServiceSpec) {
 	o.Config = config
 }
 
@@ -145,7 +145,7 @@ func (o *PutServiceIDParams) WriteToRequest(r runtime.ClientRequest, reg strfmt.
 	var res []error
 
 	if o.Config == nil {
-		o.Config = new(models.Service)
+		o.Config = new(models.ServiceSpec)
 	}
 
 	if err := r.SetBodyParam(o.Config); err != nil {

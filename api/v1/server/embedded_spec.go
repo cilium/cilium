@@ -2036,6 +2036,18 @@ func init() {
     "Service": {
       "description": "Collection of endpoints to be served",
       "type": "object",
+      "properties": {
+        "spec": {
+          "$ref": "#/definitions/ServiceSpec"
+        },
+        "status": {
+          "$ref": "#/definitions/ServiceStatus"
+        }
+      }
+    },
+    "ServiceSpec": {
+      "description": "Configuration of a service",
+      "type": "object",
       "required": [
         "frontend-address"
       ],
@@ -2068,6 +2080,15 @@ func init() {
         "id": {
           "description": "Unique identification",
           "type": "integer"
+        }
+      }
+    },
+    "ServiceStatus": {
+      "description": "Configuration of a service",
+      "type": "object",
+      "properties": {
+        "realized": {
+          "$ref": "#/definitions/ServiceSpec"
         }
       }
     },
@@ -2229,7 +2250,7 @@ func init() {
       "in": "body",
       "required": true,
       "schema": {
-        "$ref": "#/definitions/Service"
+        "$ref": "#/definitions/ServiceSpec"
       }
     },
     "service-id": {

@@ -70,14 +70,24 @@ func updateService(cmd *cobra.Command, args []string) {
 	id := int64(idU)
 	fa, faIP := parseFrontendAddress(frontend)
 
-	svc := &models.Service{
-		ID:               id,
-		FrontendAddress:  fa,
-		BackendAddresses: []*models.BackendAddress{},
-		Flags: &models.ServiceFlags{
-			DirectServerReturn: addRev,
-		},
+	var spec *models.ServiceSpec
+	svc, err := client.GetServiceID(id)
+	if err == nil {
+		spec = svc.Status.Realized
+		fmt.Printf("Updating existing service with id '%v'\n", id)
+	} else {
+		spec = &models.ServiceSpec{ID: id}
+		fmt.Printf("Creating new service with id '%v'\n", id)
 	}
+
+	// This can happen when we create a new service or when the service returned
+	// to us has no flags set
+	if spec.Flags == nil {
+		spec.Flags = &models.ServiceSpecFlags{}
+	}
+
+	spec.FrontendAddress = fa
+	spec.Flags.DirectServerReturn = addRev
 
 	if len(backends) == 0 {
 		fmt.Printf("Reading backend list from stdin...\n")
@@ -88,6 +98,7 @@ func updateService(cmd *cobra.Command, args []string) {
 		}
 	}
 
+	spec.BackendAddresses = nil
 	for _, backend := range backends {
 		tmp := strings.Split(backend, "/")
 		if len(tmp) > 2 {
@@ -121,14 +132,14 @@ func updateService(cmd *cobra.Command, args []string) {
 		}
 
 		ba := be.GetBackendModel()
-		svc.BackendAddresses = append(svc.BackendAddresses, ba)
+		spec.BackendAddresses = append(spec.BackendAddresses, ba)
 	}
 
-	if created, err := client.PutServiceID(id, svc); err != nil {
+	if created, err := client.PutServiceID(id, spec); err != nil {
 		Fatalf("Cannot add/update service: %s", err)
 	} else if created {
-		fmt.Printf("Added service with %d backends\n", len(svc.BackendAddresses))
+		fmt.Printf("Added service with %d backends\n", len(spec.BackendAddresses))
 	} else {
-		fmt.Printf("Updated service with %d backends\n", len(svc.BackendAddresses))
+		fmt.Printf("Updated service with %d backends\n", len(spec.BackendAddresses))
 	}
 }

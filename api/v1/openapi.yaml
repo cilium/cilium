@@ -719,7 +719,7 @@ parameters:
     in: body
     required: true
     schema:
-      "$ref": "#/definitions/Service"
+      "$ref": "#/definitions/ServiceSpec"
   cidr-list:
     name: cidr-list
     description: List of CIDRs for filter table
@@ -1461,6 +1461,14 @@ definitions:
   Service:
     description: Collection of endpoints to be served
     type: object
+    properties:
+      spec:
+        "$ref": "#/definitions/ServiceSpec"
+      status:
+        "$ref": "#/definitions/ServiceStatus"
+  ServiceSpec:
+    description: Configuration of a service
+    type: object
     required:
     - frontend-address
     properties:
@@ -1485,6 +1493,12 @@ definitions:
           direct-server-return:
             description: Perform direct server return
             type: boolean
+  ServiceStatus:
+    description: Configuration of a service
+    type: object
+    properties:
+      realized:
+        "$ref": "#/definitions/ServiceSpec"
   ProxyStatus:
     description: Status of proxy
     type: object

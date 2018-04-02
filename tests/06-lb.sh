@@ -231,7 +231,7 @@ LIST_FIXTURE=$(cat <<-EOF
 EOF
 )
 
-DATA=$(curl -s --unix-socket /var/run/cilium/cilium.sock http://localhost/v1beta/service/ | jq '.[0]')
+DATA=$(curl -s --unix-socket /var/run/cilium/cilium.sock http://localhost/v1beta/service/ | jq '.[0].status.realized')
  
 # Check if it's the only service present
 log "checking that service 1 was added"

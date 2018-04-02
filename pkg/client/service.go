@@ -39,7 +39,7 @@ func (c *Client) GetServiceID(id int64) (*models.Service, error) {
 }
 
 // PutServiceID creates or updates a service. Returns true if service was created.
-func (c *Client) PutServiceID(id int64, svc *models.Service) (bool, error) {
+func (c *Client) PutServiceID(id int64, svc *models.ServiceSpec) (bool, error) {
 	svc.ID = id
 	params := service.NewPutServiceIDParams().WithID(id).WithConfig(svc)
 	_, created, err := c.Service.PutServiceID(params)

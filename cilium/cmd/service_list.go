@@ -69,14 +69,14 @@ func printServiceList(w *tabwriter.Writer, list []*models.Service) {
 	svcs := []ServiceOutput{}
 
 	for _, svc := range list {
-		feA, err := types.NewL3n4AddrFromModel(svc.FrontendAddress)
+		feA, err := types.NewL3n4AddrFromModel(svc.Status.Realized.FrontendAddress)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "error parsing frontend %+v", svc.FrontendAddress)
+			fmt.Fprintf(os.Stderr, "error parsing frontend %+v", svc.Status.Realized.FrontendAddress)
 			continue
 		}
 
 		var backendAddresses []string
-		for i, be := range svc.BackendAddresses {
+		for i, be := range svc.Status.Realized.BackendAddresses {
 			beA, err := types.NewL3n4AddrFromBackendModel(be)
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "error parsing backend %+v", be)
@@ -92,7 +92,7 @@ func printServiceList(w *tabwriter.Writer, list []*models.Service) {
 		}
 
 		SvcOutput := ServiceOutput{
-			ID:               svc.ID,
+			ID:               svc.Status.Realized.ID,
 			FrontendAddress:  feA.String(),
 			BackendAddresses: backendAddresses,
 		}

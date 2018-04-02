@@ -70,17 +70,22 @@ func (s *LBSVC) GetModel() *models.Service {
 	}
 
 	id := int64(s.FE.ID)
-	svc := &models.Service{
+	spec := &models.ServiceSpec{
 		ID:               id,
 		FrontendAddress:  s.FE.GetModel(),
 		BackendAddresses: make([]*models.BackendAddress, len(s.BES)),
 	}
 
 	for i, be := range s.BES {
-		svc.BackendAddresses[i] = be.GetBackendModel()
+		spec.BackendAddresses[i] = be.GetBackendModel()
 	}
 
-	return svc
+	return &models.Service{
+		Spec: spec,
+		Status: &models.ServiceStatus{
+			Realized: spec,
+		},
+	}
 }
 
 // SVCMap is a map of the daemon's services. The key is the sha256sum of the LBSVC's FE
