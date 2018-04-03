@@ -117,8 +117,8 @@ var _ = Describe("K8sValidatedKafkaPolicyTest", func() {
 	It("KafkaPolicies", func() {
 		clusterIP, err := kubectl.Get(helpers.DefaultNamespace, "svc").Filter(
 			"{.items[?(@.metadata.name == \"kafka-service\")].spec.clusterIP}")
+		Expect(err).Should(BeNil(), "Failed to get clusterIP")
 		logger.Infof("KafkaPolicyRulesTest: cluster service ip '%s'", clusterIP)
-		Expect(err).Should(BeNil())
 
 		By("Waiting for all Cilium Pods and endpoints to be ready ")
 		By("Waiting for node K8s1")
@@ -134,32 +134,32 @@ var _ = Describe("K8sValidatedKafkaPolicyTest", func() {
 		// some messages to be already there by the producer.
 		err = kubectl.ExecKafkaPodCmd(
 			helpers.DefaultNamespace, appPods[empireHqApp], fmt.Sprintf(prodHqAnnounce))
-		Expect(err).Should(BeNil())
+		Expect(err).Should(BeNil(), "Failed to produce to empire-hq on topic empire-announce")
 
 		err = kubectl.ExecKafkaPodCmd(
 			helpers.DefaultNamespace, appPods[outpostApp], fmt.Sprintf(conOutpostAnnoune))
-		Expect(err).Should(BeNil())
+		Expect(err).Should(BeNil(), "Failed to consume from outpost on topic empire-announce")
 
 		err = kubectl.ExecKafkaPodCmd(
 			helpers.DefaultNamespace, appPods[empireHqApp], fmt.Sprintf(prodHqDeathStar))
-		Expect(err).Should(BeNil())
+		Expect(err).Should(BeNil(), "Failed to produce to empire-hq on topic deathstar-plans")
 
 		err = kubectl.ExecKafkaPodCmd(
 			helpers.DefaultNamespace, appPods[outpostApp], fmt.Sprintf(conOutDeathStar))
-		Expect(err).Should(BeNil())
+		Expect(err).Should(BeNil(), "Failed to consume from outpost on topic deathstar-plans")
 
 		err = kubectl.ExecKafkaPodCmd(
 			helpers.DefaultNamespace, appPods[backupApp], fmt.Sprintf(prodBackAnnounce))
-		Expect(err).Should(BeNil())
+		Expect(err).Should(BeNil(), "Failed to produce to backup on topic empire-announce")
 
 		err = kubectl.ExecKafkaPodCmd(
 			helpers.DefaultNamespace, appPods[outpostApp], fmt.Sprintf(prodOutAnnounce))
-		Expect(err).Should(BeNil())
+		Expect(err).Should(BeNil(), "Failed to produce to outpost on topic empire-announce")
 
 		By("Apply L7 kafka policy")
 		eps1 := kubectl.CiliumEndpointPolicyVersion(ciliumPod1)
 		_, err = kubectl.CiliumPolicyAction(helpers.KubeSystemNamespace, l7Policy, helpers.KubectlApply, 300)
-		Expect(err).Should(BeNil())
+		Expect(err).Should(BeNil(), "Failed to apply Kafka L7 policy")
 
 		By("Waiting for endpoint updates with L7 policy")
 		err = helpers.WaitUntilEndpointUpdates(ciliumPod1, eps1, 3, kubectl)
@@ -172,9 +172,10 @@ var _ = Describe("K8sValidatedKafkaPolicyTest", func() {
 			return endpoints1.AreReady()
 		}, "could not get endpoints", &helpers.TimeoutConfig{Timeout: 100})
 
-		Expect(epsStatus1).Should(BeNil())
-
+		Expect(epsStatus1).Should(BeNil(), "Cilium endpoint list timeout")
 		endpoints1, err := kubectl.CiliumEndpointsListByLabel(ciliumPod1, podFilter)
+		Expect(err).Should(BeNil(), "Failed to get cilium endpoint list")
+
 		policyStatus1 := endpoints1.GetPolicyStatus()
 
 		/*
@@ -220,41 +221,41 @@ var _ = Describe("K8sValidatedKafkaPolicyTest", func() {
 		By("Testing Kafka L7 policy enforcement status")
 		err = kubectl.ExecKafkaPodCmd(
 			helpers.DefaultNamespace, appPods[empireHqApp], fmt.Sprintf(prodHqAnnounce))
-		Expect(err).Should(BeNil())
+		Expect(err).Should(BeNil(), "Failed to produce to empire-hq on topic empire-announce")
 
 		err = kubectl.ExecKafkaPodCmd(
 			helpers.DefaultNamespace, appPods[outpostApp], fmt.Sprintf(conOutpostAnnoune))
-		Expect(err).Should(BeNil())
+		Expect(err).Should(BeNil(), "Failed to consume from outpost on topic empire-announce")
 
 		err = kubectl.ExecKafkaPodCmd(
 			helpers.DefaultNamespace, appPods[empireHqApp], fmt.Sprintf(prodHqDeathStar))
-		Expect(err).Should(BeNil())
+		Expect(err).Should(BeNil(), "Failed to produce from empire-hq on topic deathstar-plans")
 
 		err = kubectl.ExecKafkaPodCmd(
 			helpers.DefaultNamespace, appPods[outpostApp], fmt.Sprintf(conOutpostAnnoune))
-		Expect(err).Should(BeNil())
+		Expect(err).Should(BeNil(), "Failed to consume from outpost on topic empire-announce")
 
 		err = kubectl.ExecKafkaPodCmd(
 			helpers.DefaultNamespace, appPods[backupApp], fmt.Sprintf(prodBackAnnounce))
-		Expect(err).Should(HaveOccurred())
+		Expect(err).Should(HaveOccurred(), " Produce to backup on topic empire-announce should have been denied")
 
 		err = kubectl.ExecKafkaPodCmd(
 			helpers.DefaultNamespace, appPods[outpostApp], fmt.Sprintf(conOutDeathStar))
-		Expect(err).Should(HaveOccurred())
+		Expect(err).Should(HaveOccurred(), " Consume from outpost on topic deathstar-plans should have been denied")
 
 		err = kubectl.ExecKafkaPodCmd(
 			helpers.DefaultNamespace, appPods[outpostApp], fmt.Sprintf(prodOutAnnounce))
-		Expect(err).Should(HaveOccurred())
+		Expect(err).Should(HaveOccurred(), "Produce to outpost on topic empire-announce should have been denied")
 
 		eps1 = kubectl.CiliumEndpointPolicyVersion(ciliumPod1)
 		By("Deleting L7 policy")
 		status := kubectl.Delete(l7Policy)
-		status.ExpectSuccess()
+		status.ExpectSuccess("Error deleting Kafka L7 policy")
 		kubectl.CiliumEndpointWait(ciliumPod1)
 
 		//Only 1 endpoint on node1 is affected by L7 rule
 		err = helpers.WaitUntilEndpointUpdates(ciliumPod1, eps1, 3, kubectl)
-		Expect(err).Should(BeNil())
+		Expect(err).Should(BeNil(), "Failed to update endpoints")
 
 	}, 500)
 })
