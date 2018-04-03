@@ -186,11 +186,12 @@ policy_can_egress(struct __sk_buff *skb, __u16 identity, __u16 dport, __u8 proto
 }
 
 static inline int policy_can_egress6(struct __sk_buff *skb,
-				     struct ipv6_ct_tuple *tuple)
+				     struct ipv6_ct_tuple *tuple,
+				     __u16 default_identity)
 {
 	struct remote_endpoint_info *info;
+	__u16 identity = default_identity;
 	union v6addr *daddr;
-	__u16 identity = 0;
 
 	daddr = ipv6_ct_tuple_get_daddr(tuple);
 	info = lookup_ip6_remote_endpoint(daddr);
@@ -203,10 +204,11 @@ static inline int policy_can_egress6(struct __sk_buff *skb,
 }
 
 static inline int policy_can_egress4(struct __sk_buff *skb,
-				     struct ipv4_ct_tuple *tuple)
+				     struct ipv4_ct_tuple *tuple,
+				     __u16 default_identity)
 {
 	struct remote_endpoint_info *info;
-	__u16 identity = 0;
+	__u16 identity = default_identity;
 	__be32 daddr;
 
 	daddr = ipv4_ct_tuple_get_daddr(tuple);
@@ -222,13 +224,15 @@ static inline int policy_can_egress4(struct __sk_buff *skb,
 #else /* POLICY_EGRESS && LXC_ID */
 
 static inline int
-policy_can_egress6(struct __sk_buff *skb, struct ipv6_ct_tuple *tuple)
+policy_can_egress6(struct __sk_buff *skb, struct ipv6_ct_tuple *tuple,
+		   __u16 default_identity)
 {
 	return TC_ACT_OK;
 }
 
 static inline int
-policy_can_egress4(struct __sk_buff *skb, struct ipv4_ct_tuple *tuple)
+policy_can_egress4(struct __sk_buff *skb, struct ipv4_ct_tuple *tuple,
+		   __u16 default_identity)
 {
 	return TC_ACT_OK;
 }
