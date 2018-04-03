@@ -641,8 +641,10 @@ var _ = Describe("RuntimeValidatedConntrackTest", func() {
 			By(fmt.Sprintf("Testing with endpoint configuration option: ConntrackLocal=%s", conntrackLocalOptionMode))
 
 			for _, endpointToConfigure := range endpointsToConfigure {
-				vm.SetAndWaitForEndpointConfiguration(endpointToConfigure, helpers.OptionConntrackLocal, conntrackLocalOptionMode)
-
+				err := vm.SetAndWaitForEndpointConfiguration(
+					endpointToConfigure, helpers.OptionConntrackLocal, conntrackLocalOptionMode)
+				Expect(err).To(BeNil(), "Cannot set ConnTrackLocal=%q for endpoint %q",
+					conntrackLocalOptionMode, endpointToConfigure)
 			}
 			areEndpointsReady := vm.WaitEndpointsReady()
 			Expect(areEndpointsReady).Should(BeTrue(), "Endpoints are not ready after timeout")
@@ -656,8 +658,10 @@ var _ = Describe("RuntimeValidatedConntrackTest", func() {
 
 		for _, endpointToConfigure := range endpointsToConfigure {
 			// ConntrackLocal must be disabled as it depends on Conntrack
-			vm.SetAndWaitForEndpointConfiguration(endpointToConfigure, helpers.OptionConntrackLocal, helpers.OptionDisabled)
-			vm.SetAndWaitForEndpointConfiguration(endpointToConfigure, helpers.OptionConntrack, helpers.OptionDisabled)
+			err := vm.SetAndWaitForEndpointConfiguration(endpointToConfigure, helpers.OptionConntrackLocal, helpers.OptionDisabled)
+			Expect(err).To(BeNil(), "Cannot disable ConntrackLocal for the endpoint %q", endpointToConfigure)
+			err = vm.SetAndWaitForEndpointConfiguration(endpointToConfigure, helpers.OptionConntrack, helpers.OptionDisabled)
+			Expect(err).To(BeNil(), "Cannot disable ConnTrackLocal for the endpoint %q", endpointToConfigure)
 		}
 
 		// Need to add policy that allows communication in both directions.
