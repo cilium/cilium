@@ -151,10 +151,16 @@ func AfterFailed(body func()) bool {
 	return true
 }
 
-// RunAfterEach is a wrapper that executes all AfterEach functions that are
-// stored in cs.afterEach array.
-func RunAfterEach(cs *scope) {
-	if cs == nil {
+// justAfterEachStatus map to store what `justAfterEach` functions have been
+// already executed for the given test
+var justAfterEachStatus map[string]bool = map[string]bool{}
+
+// runAllJustAfterEach runs all the `scope.justAfterEach` functions for the
+// given scope and parent scopes. This function make sure that all the
+// `JustAfterEach` functions are called before AfterEach functions.
+func runAllJustAfterEach(cs *scope, testName string) {
+	if _, ok := justAfterEachStatus[testName]; ok {
+		// JustAfterEach calls are already executed in the children
 		return
 	}
 
@@ -162,11 +168,47 @@ func RunAfterEach(cs *scope) {
 		body()
 	}
 
+	if cs.parent != nil {
+		runAllJustAfterEach(cs.parent, testName)
+	}
+}
+
+// afterFailedStatus map to store what `AfterFail` functions have been
+// already executed for the given test.
+var afterFailedStatus map[string]bool = map[string]bool{}
+
+// runAllAfterFail runs all the afterFail functions for the given
+// scope and parent scopes. This function make sure that all the `AfterFail`
+// functions are called before AfterEach.
+func runAllAfterFail(cs *scope, testName string) {
+	if _, ok := afterFailedStatus[testName]; ok {
+		// AfterFailcalls are already executed in the children
+		return
+	}
+
 	for _, body := range cs.afterFail {
 		if ginkgo.CurrentGinkgoTestDescription().Failed {
 			body()
 		}
 	}
+
+	if cs.parent != nil {
+		runAllAfterFail(cs.parent, testName)
+	}
+}
+
+// RunAfterEach is a wrapper that executes all AfterEach functions that are
+// stored in cs.afterEach array.
+func RunAfterEach(cs *scope) {
+	if cs == nil {
+		return
+	}
+	testName := ginkgo.CurrentGinkgoTestDescription().FullTestText
+	runAllJustAfterEach(cs, testName)
+	justAfterEachStatus[testName] = true
+
+	runAllAfterFail(cs, testName)
+	afterFailedStatus[testName] = true
 
 	for _, body := range cs.afterEach {
 		body()
