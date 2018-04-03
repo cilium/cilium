@@ -50,6 +50,16 @@ type etcdModule struct {
 }
 
 var (
+	// etcdVersionMismatchFatal defines whether the agent should die
+	// immediately if an etcd not matching the minimal version is
+	// encountered.
+	etcdVersionMismatchFatal = true
+
+	// versionCheckTimeout is the time we wait trying to verify the version
+	// of an etcd endpoint. The timeout can be encountered on network
+	// connectivity problems.
+	versionCheckTimeout = 30 * time.Second
+
 	minRequiredVersion, _ = version.NewConstraint(">= 3.1.0")
 
 	// etcdDummyAddress can be overwritten from test invokers using ldflags
@@ -145,9 +155,7 @@ func (e *etcdClient) renewSession() error {
 
 	log.WithField(fieldSession, newSession).Debug("Renewing etcd session")
 
-	if err := e.checkMinVersion(10 * time.Second); err != nil {
-		return fmt.Errorf("Invalid etcd version: %s", err)
-	}
+	go e.checkMinVersion()
 
 	if err := renewDefaultLease(); err != nil {
 		e.client.Close()
@@ -207,9 +215,8 @@ func newEtcdClient(config *client.Config, cfgPath string) (BackendOperations, er
 		session:   s,
 		lockPaths: map[string]*lock.Mutex{},
 	}
-	if err := ec.checkMinVersion(15 * time.Second); err != nil {
-		log.WithError(err).Fatal("Error checking etcd min version")
-	}
+
+	go ec.checkMinVersion()
 
 	kvstoreControllers.UpdateController("kvstore-etcd-session-renew",
 		controller.ControllerParams{
@@ -238,39 +245,42 @@ func getEPVersion(c client.Maintenance, etcdEP string, timeout time.Duration) (*
 }
 
 // checkMinVersion checks the minimal version running on etcd cluster. If the
-// minimal version running doesn't meet cilium minimal requirements, returns
-// an error.
-func (e *etcdClient) checkMinVersion(timeout time.Duration) error {
+// minimal version running doesn't meet cilium minimal requirements, a fatal
+// log message is printed which terminates the agent. This function should be
+// run whenever the etcd client is connected for the first time and whenever
+// the session is renewed.
+func (e *etcdClient) checkMinVersion() bool {
 	eps := e.client.Endpoints()
-	var errors bool
+
 	for _, ep := range eps {
-		v, err := getEPVersion(e.client.Maintenance, ep, timeout)
+		v, err := getEPVersion(e.client.Maintenance, ep, versionCheckTimeout)
 		if err != nil {
-			log.WithError(err).Debug("Unable to check etcd min version")
-			log.WithError(err).WithField(fieldEtcdEndpoint, ep).Warn("Checking version of etcd endpoint")
-			errors = true
+			log.WithError(err).WithField(fieldEtcdEndpoint, ep).
+				Warn("Unable to verify version of etcd endpoint")
 			continue
 		}
+
 		if !minRequiredVersion.Check(v) {
 			// FIXME: after we rework the refetching IDs for a connection lost
 			// remove this Errorf and replace it with a warning
-			return fmt.Errorf("Minimal etcd version not met in %q,"+
-				" required: %s, found: %s", ep, minRequiredVersion.String(), v.String())
+			if etcdVersionMismatchFatal {
+				log.Fatalf("Minimal etcd version not met in %q, required: %s, found: %s",
+					ep, minRequiredVersion.String(), v.String())
+			}
+			return false
 		}
 
 		log.WithFields(logrus.Fields{
 			fieldEtcdEndpoint: ep,
 			"version":         v,
-		}).Debug("Version of etcd endpoint OK")
+		}).Debug("Successfully verified version of etcd endpoint")
 	}
 
 	if len(eps) == 0 {
 		log.Warn("Minimal etcd version unknown: No etcd endpoints available")
-	} else if errors {
-		log.WithField("version.min", minRequiredVersion).Warn("Unable to check etcd's cluster version." +
-			" Please make sure the minimal etcd version is running on all endpoints")
 	}
-	return nil
+
+	return true
 }
 
 func (e *etcdClient) LockPath(path string) (kvLocker, error) {

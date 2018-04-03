@@ -117,8 +117,14 @@ func (s *EtcdSuite) TestETCDVersionCheck(c *C) {
 	client := etcdClient{
 		client: cli,
 	}
-	e := client.checkMinVersion(1 * time.Second)
-	c.Assert(e, IsNil)
+
+	// disable fatal log message on version mismatch
+	etcdVersionMismatchFatal = false
+
+	// short timeout for tests
+	versionCheckTimeout = time.Second
+
+	c.Assert(client.checkMinVersion(), Equals, true)
 
 	// One endpoint has a bad version and should fail
 	cfg.Endpoints = []string{"http://127.0.0.1:4003", "http://127.0.0.1:4004", "http://127.0.0.1:4005"}
@@ -129,6 +135,5 @@ func (s *EtcdSuite) TestETCDVersionCheck(c *C) {
 		client: cli,
 	}
 
-	e = client.checkMinVersion(1 * time.Second)
-	c.Assert(e, NotNil)
+	c.Assert(client.checkMinVersion(), Equals, false)
 }
