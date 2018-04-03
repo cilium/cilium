@@ -249,6 +249,10 @@ l4_policy_lookup(struct __sk_buff *skb, __u8 nh, __be16 dport, int dir,
 				return proxy_port;
 
 			cilium_dbg(skb, DBG_L4_POLICY, proxy_port, CT_INGRESS);
+#ifdef POLICY_INGRESS
+		} else {
+			proxy_port = DROP_POLICY_L4;
+#endif
 		}
 	} else {
 		if (nh == IPPROTO_UDP || nh == IPPROTO_TCP) {
@@ -257,6 +261,10 @@ l4_policy_lookup(struct __sk_buff *skb, __u8 nh, __be16 dport, int dir,
 				return proxy_port;
 
 			cilium_dbg(skb, DBG_L4_POLICY, proxy_port, CT_EGRESS);
+#ifdef POLICY_EGRESS
+		} else {
+			proxy_port = DROP_POLICY_L4;
+#endif
 		}
 	}
 
