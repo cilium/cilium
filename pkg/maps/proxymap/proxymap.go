@@ -43,7 +43,7 @@ func Delete(key ProxyMapKey) error {
 		return Proxy6Map.Delete(&keyValue)
 	}
 
-	return fmt.Errorf("Unknown proxymap key type: %+v", key)
+	return fmt.Errorf("unknown proxymap key type: %T", key)
 }
 
 // Lookup looks up an entry in the proxymap
@@ -52,7 +52,7 @@ func Lookup(key ProxyMapKey) (ProxyMapValue, error) {
 	case Proxy4Key:
 		val, err := lookupEgress4(&keyValue)
 		if err != nil {
-			return nil, fmt.Errorf("unable to find IPv4 proxy entry for %s: %s", key, err)
+			return nil, fmt.Errorf("unable to find IPv4 proxy entry for %s: %s", &keyValue, err)
 		}
 
 		return val, nil
@@ -60,13 +60,13 @@ func Lookup(key ProxyMapKey) (ProxyMapValue, error) {
 	case Proxy6Key:
 		val, err := lookupEgress6(&keyValue)
 		if err != nil {
-			return nil, fmt.Errorf("unable to find IPv6 proxy entry for %s: %s", key, err)
+			return nil, fmt.Errorf("unable to find IPv6 proxy entry for %s: %s", &keyValue, err)
 		}
 
 		return val, nil
 	}
 
-	return nil, fmt.Errorf("Unknown proxymap key type: %+v", key)
+	return nil, fmt.Errorf("unknown proxymap key type: %T", key)
 }
 
 // CleanupOnRedirectClose cleans up the proxymap after a redirect has been
