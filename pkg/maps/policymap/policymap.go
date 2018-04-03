@@ -63,7 +63,9 @@ type policyKey struct {
 
 type PolicyEntry struct {
 	ProxyPort uint16 // In network byte-order
-	Pad       [3]uint16
+	Pad0      uint16
+	Pad1      uint16
+	Pad2      uint16
 	Packets   uint64
 	Bytes     uint64
 }
