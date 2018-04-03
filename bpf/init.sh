@@ -182,6 +182,38 @@ function bpf_compile()
 	llc -march=bpf -mcpu=probe -filetype=$TYPE -o $OUT
 }
 
+function ipc_load()
+{
+	OPTS=$1
+
+	SOCKMAP="/sys/fs/bpf/tc/globals/sock_ops_map"
+	CGRP2="/mnt/cilium-cgroup2"
+
+	SOCKOPS_OBJ="bpf_sockops.o"
+	SOCKOPS_C="bpf_sockops.c"
+	SOCKOPS_PIN="/sys/fs/bpf/sockops"
+
+	IPC_OBJ="bpf_ipc.o"
+	IPC_C="bpf_ipc.c"
+	IPC_PIN="/sys/fs/bpf/ipc"
+
+	if [ -f $IPC_PIN ]; then
+		rm $IPC_PIN
+	fi
+
+	if [ -f $SOCKOPS_PIN ]; then
+		rm $SOCKOPS_PIN
+	fi
+
+	bpf_compile $SOCKOPS_C $SOCKOPS_OBJ obj "$OPTS"
+	bpf_compile $IPC_C $IPC_OBJ obj "$OPTS"
+
+	bpftool prog load $IPC_OBJ $IPC_PIN
+	bpftool prog load $SOCKOPS_OBJ $SOCKOPS_PIN
+	bpftool cgroup attach $CGRP2 sock_ops pinned $SOCKOPS_PIN
+	bpftool attach add msg_verdict pinned $SOCKMAP pinned $IPC_PIN
+}
+
 function xdp_load()
 {
 	DEV=$1
@@ -364,3 +396,5 @@ if [ -n "$XDP_DEV" ]; then
 	OPTS=""
 	xdp_load $XDP_DEV $XDP_MODE "$OPTS" bpf_xdp.c bpf_xdp.o from-netdev $CIDR_MAP
 fi
+
+ipc_load "$OPTS"

@@ -142,6 +142,33 @@ struct portmap {
 #define ENDPOINT_KEY_IPV4 1
 #define ENDPOINT_KEY_IPV6 2
 
+/* Structure representing an L7 sock */
+struct sock_key {
+	union {
+		struct {
+			__u32		sip4;
+			__u32		pad1;
+			__u32		pad2;
+			__u32		pad3;
+		};
+		union v6addr	sip6;
+	};
+	union {
+		struct {
+			__u32		dip4;
+			__u32		pad4;
+			__u32		pad5;
+			__u32		pad6;
+		};
+		union v6addr	dip6;
+	};
+	__u8 family;
+	__u8 pad7;
+	__u16 pad8;
+	__u32 sport;
+	__u32 dport;
+} __attribute__((packed));
+
 /* Structure representing an IPv4 or IPv6 address, being used for:
  *  - key as endpoints map
  *  - key for tunnel endpoint map

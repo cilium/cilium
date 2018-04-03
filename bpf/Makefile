@@ -8,7 +8,7 @@ CLANG_FLAGS :=  ${FLAGS} -target bpf -emit-llvm
 CLANG_FLAGS += -Wall -Werror -Wno-address-of-packed-member -Wno-unknown-warning-option
 LLC_FLAGS   := -march=bpf -mcpu=probe -filetype=obj
 
-BPF = bpf_lxc.o bpf_netdev.o bpf_overlay.o bpf_lb.o bpf_xdp.o
+BPF = bpf_lxc.o bpf_netdev.o bpf_overlay.o bpf_lb.o bpf_xdp.o bpf_sockops.o bpf_ipc.o
 SCRIPTS = init.sh join_ep.sh run_probes.sh spawn_netns.sh
 LIB := $(shell find ./ -name '*.h')
 
