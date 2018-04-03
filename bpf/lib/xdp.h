@@ -20,21 +20,6 @@
 
 #include <stdbool.h>
 
-struct lpm_v4_key {
-	struct bpf_lpm_trie_key lpm;
-	__u8 addr[4];
-};
-
-struct lpm_v6_key {
-	struct bpf_lpm_trie_key lpm;
-	__u8 addr[16];
-};
-
-struct lpm_val {
-	/* Just dummy for now. */
-	__u8 flags;
-};
-
 static __always_inline void *xdp_data(const struct xdp_md *xdp)
 {
 	return (void *)(unsigned long)xdp->data;

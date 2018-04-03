@@ -44,8 +44,8 @@
 #ifdef CIDR4_FILTER
 struct bpf_elf_map __section_maps CIDR4_HMAP_NAME = {
 	.type		= BPF_MAP_TYPE_HASH,
-	.size_key	= sizeof(struct lpm_v4_key),
-	.size_value	= sizeof(struct lpm_val),
+	.size_key	= sizeof(struct bpf_lpm_trie_key4),
+	.size_value	= LPM_MAP_VALUE_SIZE,
 	.flags		= BPF_F_NO_PREALLOC,
 	.pinning	= PIN_GLOBAL_NS,
 	.max_elem	= CIDR4_HMAP_ELEMS,
@@ -54,8 +54,8 @@ struct bpf_elf_map __section_maps CIDR4_HMAP_NAME = {
 #ifdef CIDR4_LPM_PREFILTER
 struct bpf_elf_map __section_maps CIDR4_LMAP_NAME = {
 	.type		= BPF_MAP_TYPE_LPM_TRIE,
-	.size_key	= sizeof(struct lpm_v4_key),
-	.size_value	= sizeof(struct lpm_val),
+	.size_key	= sizeof(struct bpf_lpm_trie_key4),
+	.size_value	= LPM_MAP_VALUE_SIZE,
 	.flags		= BPF_F_NO_PREALLOC,
 	.pinning	= PIN_GLOBAL_NS,
 	.max_elem	= CIDR4_LMAP_ELEMS,
@@ -66,8 +66,8 @@ struct bpf_elf_map __section_maps CIDR4_LMAP_NAME = {
 #ifdef CIDR6_FILTER
 struct bpf_elf_map __section_maps CIDR6_HMAP_NAME = {
 	.type		= BPF_MAP_TYPE_HASH,
-	.size_key	= sizeof(struct lpm_v6_key),
-	.size_value	= sizeof(struct lpm_val),
+	.size_key	= sizeof(struct bpf_lpm_trie_key6),
+	.size_value	= LPM_MAP_VALUE_SIZE,
 	.flags		= BPF_F_NO_PREALLOC,
 	.pinning	= PIN_GLOBAL_NS,
 	.max_elem	= CIDR4_HMAP_ELEMS,
@@ -76,8 +76,8 @@ struct bpf_elf_map __section_maps CIDR6_HMAP_NAME = {
 #ifdef CIDR6_LPM_PREFILTER
 struct bpf_elf_map __section_maps CIDR6_LMAP_NAME = {
 	.type		= BPF_MAP_TYPE_LPM_TRIE,
-	.size_key	= sizeof(struct lpm_v6_key),
-	.size_value	= sizeof(struct lpm_val),
+	.size_key	= sizeof(struct bpf_lpm_trie_key6),
+	.size_value	= LPM_MAP_VALUE_SIZE,
 	.flags		= BPF_F_NO_PREALLOC,
 	.pinning	= PIN_GLOBAL_NS,
 	.max_elem	= CIDR4_LMAP_ELEMS,
@@ -99,14 +99,16 @@ static __always_inline int check_v4(struct xdp_md *xdp)
 	void *data_end = xdp_data_end(xdp);
 	void *data = xdp_data(xdp);
 	struct iphdr *ipv4_hdr = data + sizeof(struct ethhdr);
-	struct lpm_v4_key pfx __maybe_unused;
+	struct bpf_lpm_trie_key4 pfx __maybe_unused;
 
 	if (xdp_no_room(ipv4_hdr + 1, data_end))
 		return XDP_DROP;
 
 #ifdef CIDR4_FILTER
-	__builtin_memcpy(pfx.lpm.data, &ipv4_hdr->saddr, sizeof(pfx.addr));
-	pfx.lpm.prefixlen = 32;
+	__builtin_memcpy(pfx.lpm_key.data, &ipv4_hdr->saddr,
+			 sizeof(pfx.lpm_addr));
+	pfx.lpm_key.prefixlen = (sizeof(pfx) - sizeof(pfx.lpm_key)) * 8;
+	pfx.pad = 0;
 
 #ifdef CIDR4_LPM_PREFILTER
 	if (map_lookup_elem(&CIDR4_LMAP_NAME, &pfx))
@@ -134,14 +136,16 @@ static __always_inline int check_v6(struct xdp_md *xdp)
 	void *data_end = xdp_data_end(xdp);
 	void *data = xdp_data(xdp);
 	struct ipv6hdr *ipv6_hdr = data + sizeof(struct ethhdr);
-	struct lpm_v6_key pfx __maybe_unused;
+	struct bpf_lpm_trie_key6 pfx __maybe_unused;
 
 	if (xdp_no_room(ipv6_hdr + 1, data_end))
 		return XDP_DROP;
 
 #ifdef CIDR6_FILTER
-	__builtin_memcpy(pfx.lpm.data, &ipv6_hdr->saddr, sizeof(pfx.addr));
-	pfx.lpm.prefixlen = 128;
+	__builtin_memcpy(pfx.lpm_key.data, &ipv6_hdr->saddr,
+			 sizeof(pfx.lpm_addr));
+	pfx.lpm_key.prefixlen = (sizeof(pfx) - sizeof(pfx.lpm_key)) * 8;
+	pfx.pad = 0;
 
 #ifdef CIDR6_LPM_PREFILTER
 	if (map_lookup_elem(&CIDR6_LMAP_NAME, &pfx))

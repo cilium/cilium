@@ -35,24 +35,34 @@ const (
 
 // CIDRMap refers to an LPM trie map at 'path'.
 type CIDRMap struct {
-	path      string
-	Fd        int
-	AddrSize  int // max prefix length in bytes, 4 for IPv4, 16 for IPv6
+	path string
+	Fd   int
+
+	// max prefix length in bytes, 4 for IPv4, 16 for IPv6
+	AddrSize int
+
+	// max prefix length in bits used in lookups including padding,
+	// 64 for IPv4, 160 for IPv6
 	Prefixlen uint32
 }
 
 const (
-	LPM_MAP_VALUE_SIZE = 1
+	LPM_MAP_VALUE_SIZE = 4
 )
 
-type cidrKey struct {
+type cidrKeyCommon struct {
 	Prefixlen uint32
-	Net       [16]byte
+	Pad       uint32
+}
+
+type cidrKey struct {
+	cidrKeyCommon
+	Net [16]byte
 }
 
 func (cm *CIDRMap) cidrKeyInit(cidr net.IPNet) (key cidrKey) {
 	ones, _ := cidr.Mask.Size()
-	key.Prefixlen = uint32(ones)
+	key.Prefixlen = uint32(uintptr(ones) + unsafe.Sizeof(key.Pad)*8)
 	// IPv4 address can be represented by 16 byte slice in 'cidr.IP',
 	// in which case the address is at the end of the slice.
 	copy(key.Net[:], cidr.IP[len(cidr.IP)-cm.AddrSize:len(cidr.IP)])
@@ -60,7 +70,8 @@ func (cm *CIDRMap) cidrKeyInit(cidr net.IPNet) (key cidrKey) {
 }
 
 func (cm *CIDRMap) keyCidrInit(key cidrKey) (cidr net.IPNet) {
-	cidr.Mask = net.CIDRMask(int(key.Prefixlen), cm.AddrSize*8)
+	prefixLen := int(uintptr(key.Prefixlen) - unsafe.Sizeof(key.Pad)*8)
+	cidr.Mask = net.CIDRMask(prefixLen, cm.AddrSize*8)
 	cidr.IP = make(net.IP, cm.AddrSize)
 	copy(cidr.IP[len(cidr.IP)-cm.AddrSize:len(cidr.IP)], key.Net[:])
 	return
@@ -142,11 +153,13 @@ func (cm *CIDRMap) Close() error {
 // created, and 'false' if the map already existed. prefixdyn denotes
 // whether element's prefixlen can vary and we thus need to use a LPM
 // trie instead of hash table.
+// prefixlen is the maximum address prefix in bits.
 func OpenMap(path string, prefixlen int, prefixdyn bool) (*CIDRMap, bool, error) {
 	return OpenMapElems(path, prefixlen, prefixdyn, MaxEntries)
 }
 
 // OpenMapElems is the same as OpenMap only with defined maxelem as argument.
+// prefixlen is the maximum address prefix in bits.
 func OpenMapElems(path string, prefixlen int, prefixdyn bool, maxelem uint32) (*CIDRMap, bool, error) {
 	var typeMap = bpf.BPF_MAP_TYPE_LPM_TRIE
 	var prefix = 0
@@ -159,10 +172,11 @@ func OpenMapElems(path string, prefixlen int, prefixdyn bool, maxelem uint32) (*
 		return nil, false, fmt.Errorf("prefixlen must be > 0")
 	}
 	bytes := (prefixlen-1)/8 + 1
+	keySize := unsafe.Sizeof(cidrKeyCommon{}) + uintptr(bytes)
 	fd, isNewMap, err := bpf.OpenOrCreateMap(
 		path,
 		typeMap,
-		uint32(unsafe.Sizeof(uint32(0))+uintptr(bytes)),
+		uint32(keySize),
 		uint32(LPM_MAP_VALUE_SIZE),
 		maxelem,
 		bpf.BPF_F_NO_PREALLOC,
@@ -174,7 +188,7 @@ func OpenMapElems(path string, prefixlen int, prefixdyn bool, maxelem uint32) (*
 		fd, isNewMap, err = bpf.OpenOrCreateMap(
 			path,
 			typeMap,
-			uint32(unsafe.Sizeof(uint32(0))+uintptr(bytes)),
+			uint32(keySize),
 			uint32(LPM_MAP_VALUE_SIZE),
 			maxelem,
 			bpf.BPF_F_NO_PREALLOC,
@@ -186,7 +200,12 @@ func OpenMapElems(path string, prefixlen int, prefixdyn bool, maxelem uint32) (*
 		}
 	}
 
-	m := &CIDRMap{path: path, Fd: fd, AddrSize: bytes, Prefixlen: uint32(prefix)}
+	m := &CIDRMap{
+		path:      path,
+		Fd:        fd,
+		AddrSize:  bytes,
+		Prefixlen: uint32(uintptr(prefix) + unsafe.Sizeof(cidrKeyCommon{}.Pad)*8),
+	}
 
 	log.WithFields(logrus.Fields{
 		logfields.Path: path,
