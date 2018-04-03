@@ -208,8 +208,11 @@ skip_service_lookup:
 	} else {
 		verdict = l4_policy_lookup(skb, tuple->nexthdr, tuple->dport,
 					   CT_EGRESS, false);
-		if (verdict < 0)
-			return verdict;
+		if (verdict < 0) {
+			if (unlikely(!lpm6_egress_lookup(daddr)))
+				return verdict;
+			verdict = 0;
+		}
 	}
 
 	switch (ret) {
@@ -344,10 +347,6 @@ skip_service_lookup:
 			return DROP_MISSED_TAIL_CALL;
                 }
 #endif
-
-		if (unlikely(!lpm6_egress_lookup(daddr)))
-			return DROP_POLICY_CIDR;
-
 		goto pass_to_stack;
 	}
 
@@ -516,8 +515,11 @@ skip_service_lookup:
 	} else {
 		verdict = l4_policy_lookup(skb, tuple.nexthdr, tuple.dport,
 					   CT_EGRESS, false);
-		if (verdict < 0)
-			return verdict;
+		if (verdict < 0) {
+			if (unlikely(!lpm4_egress_lookup(orig_dip)))
+				return verdict;
+			verdict = 0;
+		}
 	}
 
 	switch (ret) {
@@ -637,13 +639,8 @@ skip_service_lookup:
 		 */
 		policy_mark_skip(skb);
 		dstID = CLUSTER_ID;
-		goto pass_to_stack;
-	} else {
-		if (unlikely(!lpm4_egress_lookup(orig_dip)))
-			return DROP_POLICY_CIDR;
-
-		goto pass_to_stack;
 	}
+	goto pass_to_stack;
 
 to_host:
 	if (1) {

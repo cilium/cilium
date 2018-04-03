@@ -179,6 +179,8 @@ l4_ingress_policy(struct __sk_buff *skb, __be16 dport, __u8 nexthdr)
 {
 #if defined CFG_CIDRL4_INGRESS
 	return l4_ingress_embedded(dport, nexthdr);
+#elif defined POLICY_INGRESS
+	return DROP_POLICY_L4;
 #else
 	return 0;
 #endif
@@ -203,6 +205,8 @@ l4_egress_policy(struct __sk_buff *skb, __be16 dport, __u8 nexthdr)
 {
 #if defined CFG_CIDRL4_EGRESS
 	return l4_egress_embedded(dport, nexthdr);
+#elif defined POLICY_EGRESS
+	return DROP_POLICY_L4;
 #else
 	return 0;
 #endif
