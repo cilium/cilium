@@ -97,37 +97,38 @@ func (s *SSHMeta) GetEndpointMutableConfigurationOption(endpointID, optionName s
 }
 
 // SetAndWaitForEndpointConfiguration waits for the endpoint configuration to become a certain value
-func (s *SSHMeta) SetAndWaitForEndpointConfiguration(endpointID, optionName, expectedValue string) bool {
-	maxRetries := 10
-
-	log.Infof("Setting endpoint %s config %s=%s", endpointID, optionName, expectedValue)
-
-	// HACK:
-	// Retry multiple times as policy generations can still be queued up in
-	// which case the value will immediately swap back
-	for retry := 1; retry <= maxRetries; retry++ {
+func (s *SSHMeta) SetAndWaitForEndpointConfiguration(endpointID, optionName, expectedValue string) error {
+	logger := s.logger.WithFields(logrus.Fields{
+		logfields.EndpointID: endpointID,
+		"option":             optionName,
+		"value":              expectedValue})
+	body := func() bool {
+		logger.Infof("Setting endpoint configuration")
 		status := s.EndpointSetConfig(endpointID, optionName, expectedValue)
-		if retry == maxRetries {
-			gomega.ExpectWithOffset(1, status).Should(gomega.BeTrue(), "could not set %s=%s on endpoint %q", optionName, expectedValue, endpointID)
-		} else if !status {
-			continue
+		if !status {
+			logger.Error("Cannot set endpoint configuration")
+			return status
 		}
 
 		value, err := s.GetEndpointMutableConfigurationOption(endpointID, optionName)
-		gomega.ExpectWithOffset(1, err).To(gomega.BeNil(), "Cannot get endpoint configuration")
+		if err != nil {
+			log.WithError(err).Error("cannot get endpoint configuration")
+			return false
+		}
 
 		if value == expectedValue {
 			return true
 		}
-
-		if retry == maxRetries {
-			gomega.ExpectWithOffset(1, value).To(gomega.Equal(expectedValue), "Endpoint configuration %s does not match", optionName)
-		}
-
-		time.Sleep(time.Duration(retry) * time.Second)
+		logger.Debugf("Expected configuration option to have value %s, but got %s",
+			expectedValue, value)
+		return false
 	}
 
-	return false
+	err := WithTimeout(
+		body,
+		fmt.Sprintf("cannot set endpoint config for endpoint %q", endpointID),
+		&TimeoutConfig{Timeout: HelperTimeout})
+	return err
 }
 
 // EndpointStatusLog returns the status log API model for the specified endpoint.
