@@ -37,6 +37,7 @@ var _ = Describe("RuntimeValidatedKafka", func() {
 	var produceCmd string = fmt.Sprintf(
 		"echo \"Message 0\" | docker exec -i client /opt/kafka/bin/kafka-console-producer.sh "+
 			"--broker-list kafka:9092 --topic %s", allowedTopic)
+	var listTopicsCmd string = "/opt/kafka/bin/kafka-topics.sh --list --zookeeper zook:2181"
 	var MaxMessages int = 6
 	var client string = "client"
 
@@ -113,6 +114,15 @@ var _ = Describe("RuntimeValidatedKafka", func() {
 		containers("create")
 		epsReady := vm.WaitEndpointsReady()
 		Expect(epsReady).Should(BeTrue())
+		// Waiting for kafka broker to be up.
+		err := waitForKafkaBroker(client, listTopicsCmd)
+		Expect(err).To(BeNil(), "Kafka broker failed to come up")
+		By("Creating kafka topics")
+		createTopic(allowedTopic)
+		createTopic(disallowTopic)
+		By("Listing created Kafka topics")
+		res := vm.ContainerExec(client, listTopicsCmd)
+		res.ExpectSuccess("Cannot list kafka topics")
 	})
 
 	AfterEach(func() {
@@ -138,14 +148,6 @@ var _ = Describe("RuntimeValidatedKafka", func() {
 			"Check number of endpoints with policy enforcement enabled")
 		Expect(endPoints[helpers.Disabled]).To(Equal(2),
 			"Check number of endpoints with policy enforcement disabled")
-		By("Creating kafka topics")
-		createTopic(allowedTopic)
-		createTopic(disallowTopic)
-
-		By("Listing created Kafka topics")
-		res := vm.ContainerExec(client,
-			"/opt/kafka/bin/kafka-topics.sh --list --zookeeper zook:2181")
-		res.ExpectSuccess("Cannot get kafka topics")
 
 		// Waiting for kafka broker to be up.
 		err = waitForKafkaBroker(client, produceCmd)
@@ -159,7 +161,7 @@ var _ = Describe("RuntimeValidatedKafka", func() {
 		}
 
 		By("Sending consume request on kafka topic `allowedTopic`")
-		res = consumer(allowedTopic, MaxMessages)
+		res := consumer(allowedTopic, MaxMessages)
 		res.ExpectSuccess("Failed to consume messages from kafka topic `allowedTopic`")
 
 		Expect(res.Output().String()).Should(ContainSubstring(
@@ -178,15 +180,6 @@ var _ = Describe("RuntimeValidatedKafka", func() {
 		Expect(endPoints[helpers.Enabled]).To(Equal(1), "Expected 1 endpoint to be policy enabled. Policy enforcement failed")
 		Expect(endPoints[helpers.Disabled]).To(Equal(2), "Expected 2 endpoint to be policy disabled. Policy enforcement failed")
 
-		By("Creating kafka topics")
-		createTopic(allowedTopic)
-		createTopic(disallowTopic)
-
-		By("Listing created Kafka topics")
-		res := vm.ContainerExec(client,
-			"/opt/kafka/bin/kafka-topics.sh --list --zookeeper zook:2181")
-		res.ExpectSuccess("Cannot get kafka topics")
-
 		// Waiting for kafka broker to be up.
 		err = waitForKafkaBroker(client, produceCmd)
 		Expect(err).To(BeNil(), "Kafka broker failed to come up")
@@ -199,7 +192,7 @@ var _ = Describe("RuntimeValidatedKafka", func() {
 		}
 
 		By("Sending consume request on kafka topic `allowedTopic`")
-		res = consumer(allowedTopic, MaxMessages)
+		res := consumer(allowedTopic, MaxMessages)
 		res.ExpectSuccess("Failed to consume messages from kafka topic `allowedTopic`")
 
 		Expect(res.Output().String()).Should(ContainSubstring(
