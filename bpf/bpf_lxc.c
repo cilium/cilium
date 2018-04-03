@@ -327,8 +327,7 @@ skip_service_lookup:
 	}
 #endif
 
-	/* Check if destination is within our cluster prefix */
-	if (ipv6_match_prefix_64(daddr, &router_ip)) {
+	if (dstID == CLUSTER_ID) {
 		/* Packet is going to peer inside the cluster prefix. This can
 		 * happen if encapsulation has been disabled and all remote
 		 * peer packets are routed or the destination is part of a
@@ -337,7 +336,6 @@ skip_service_lookup:
 		 * FIXME GH-1392: Differentiate between local / remote prefixes
 		 */
 		policy_mark_skip(skb);
-		dstID = CLUSTER_ID;
 		goto pass_to_stack;
 	} else {
 #ifdef LXC_NAT46
@@ -625,9 +623,7 @@ skip_service_lookup:
 			return ret;
 	}
 #endif
-	/* Check if destination is within our cluster prefix */
-	if ((orig_dip & IPV4_CLUSTER_MASK) == IPV4_CLUSTER_RANGE) {
-
+	if (dstID == CLUSTER_ID) {
 		/* Packet is going to peer inside the cluster prefix. This can
 		 * happen if encapsulation has been disabled and all remote
 		 * peer packets are routed or the destination is part of a
@@ -636,7 +632,6 @@ skip_service_lookup:
 		 * FIXME GH-1392: Differentiate between local / remote prefixes
 		 */
 		policy_mark_skip(skb);
-		dstID = CLUSTER_ID;
 	}
 	goto pass_to_stack;
 
