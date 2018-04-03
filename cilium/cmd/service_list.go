@@ -46,6 +46,14 @@ func listServices(cmd *cobra.Command, args []string) {
 	if err != nil {
 		Fatalf("Cannot get services list: %s", err)
 	}
+
+	if command.OutputJSON() {
+		if err := command.PrintOutput(list); err != nil {
+			os.Exit(1)
+		}
+		return
+	}
+
 	w := tabwriter.NewWriter(os.Stdout, 5, 0, 3, ' ', 0)
 	printServiceList(w, list)
 }
@@ -94,13 +102,6 @@ func printServiceList(w *tabwriter.Writer, list []*models.Service) {
 	sort.Slice(svcs, func(i, j int) bool {
 		return svcs[i].ID <= svcs[j].ID
 	})
-
-	if command.OutputJSON() {
-		if err := command.PrintOutput(svcs); err != nil {
-			os.Exit(1)
-		}
-		return
-	}
 
 	for _, service := range svcs {
 		var str string
