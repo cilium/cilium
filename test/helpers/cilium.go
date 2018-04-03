@@ -721,12 +721,14 @@ func (s *SSHMeta) ServiceGetFrontendAddress(id int) (string, error) {
 // ServiceGetIds returns an array with the IDs of all Cilium services. Returns
 // an error if the IDs cannot be retrieved
 func (s *SSHMeta) ServiceGetIds() ([]string, error) {
-	filter := `{range [*]}{@.ID}{end}`
+	filter := `{range [*]}{@.ID}{"\n"}{end}`
 	res, err := s.ServiceList().Filter(filter)
 	if err != nil {
 		return nil, err
 	}
-	return strings.Split(res.String(), "\n"), nil
+	// trim the trailing \n
+	trimmed := strings.Trim(res.String(), "\n")
+	return strings.Split(trimmed, "\n"), nil
 }
 
 // ServiceDel is a wrapper around `cilium service delete <id>`. It returns the
