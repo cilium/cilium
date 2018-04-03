@@ -853,8 +853,8 @@ func (kub *Kubectl) DumpCiliumCommandOutput(namespace string) {
 				// Only copy over bugtool output to directory.
 				if strings.Contains(line, CiliumBugtool) {
 					archiveName := fmt.Sprintf("%s-%s", pod, line)
-					res = kub.Exec(fmt.Sprintf(
-						"%s cp %s/%s:/tmp/%s /tmp/", KubectlCmd, namespace, pod, line),
+					res = kub.Exec(fmt.Sprintf("%[1]s cp %[2]s/%[3]s:/tmp/%[4]s /tmp/%[4]s",
+						KubectlCmd, namespace, pod, line),
 						ExecOptions{SkipLog: true})
 					if !res.WasSuccessful() {
 						logger.Errorf("'%s' failed: %s", res.GetCmd(), res.CombineOutput())
