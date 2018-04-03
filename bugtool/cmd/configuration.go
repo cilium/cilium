@@ -71,6 +71,7 @@ func defaultCommands(confDir string, cmdDir string, k8sPods []string) []string {
 		"iptables -S",
 		"ip6tables -S",
 		"iptables -L -v",
+		"ip rule",
 	}
 
 	// Commands that require variables and / or more configuration are added
