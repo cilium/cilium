@@ -20,7 +20,7 @@ specs:
         rules:
           http:
           - method: GET
-            path: "^/ratings/[0-9]*$"
+            path: "/ratings/[0-9]*"
     - fromEndpoints:
         - matchLabels:
             "k8s:app": reviews
@@ -32,4 +32,4 @@ specs:
         rules:
           http:
           - method: GET
-            path: "^/ratings/[0-9]*$"
+            path: "/ratings/[0-9]*"
