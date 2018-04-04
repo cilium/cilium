@@ -26,7 +26,7 @@ func init() {
     "title": "Cilium API",
     "version": "v1beta"
   },
-  "basePath": "/v1beta",
+  "basePath": "/v1",
   "paths": {
     "/config": {
       "get": {
