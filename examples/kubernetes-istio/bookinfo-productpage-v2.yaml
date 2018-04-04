@@ -33,19 +33,19 @@ specs:
         rules:
           http:
           - method: GET
-            path: "^/$"
+            path: "/"
           - method: GET
-            path: "^/index.html$"
+            path: "/index.html"
           - method: POST
-            path: "^/login$"
+            path: "/login"
           - method: GET
-            path: "^/logout$"
+            path: "/logout"
           - method: GET
-            path: "^/productpage$"
+            path: "/productpage"
           - method: GET
-            path: "^/api/v1/products$"
+            path: "/api/v1/products"
           - method: GET
-            path: "^/api/v1/products/[0-9]*$"
+            path: "/api/v1/products/[0-9]*"
 ---
 apiVersion: extensions/v1beta1
 kind: Deployment
