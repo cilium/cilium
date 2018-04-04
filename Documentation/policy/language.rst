@@ -202,13 +202,13 @@ by the selected endpoints.
 The following entities are defined:
 
 host
-  The local host serving the endpoint
-
+    The local host serving the endpoint. On ingress, this also includes
+    the host of other Cilium cluster nodes.
 world
-  The world outside of the cluster.
+    All traffic outside of the cluster.
 
 all
-  Everyone
+    All traffic both within the cluster and outside of the cluster.
 
 Access to/from local host
 ~~~~~~~~~~~~~~~~~~~~~~~~~
