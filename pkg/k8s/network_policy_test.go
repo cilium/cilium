@@ -177,7 +177,7 @@ func (s *K8sSuite) TestParseNetworkPolicyIngress(c *C) {
 		"80/TCP": {
 			Port: 80, Protocol: api.ProtoTCP, U8Proto: 6,
 			Endpoints:    []api.EndpointSelector{epSelector},
-			L7Parser:     "",
+			L7Parser:     policy.ParserTypeNone,
 			L7RulesPerEp: policy.L7DataMap{},
 			Ingress:      true,
 			DerivedFromRules: []labels.LabelArray{
@@ -373,7 +373,7 @@ func (s *K8sSuite) TestParseNetworkPolicyEgress(c *C) {
 		"80/TCP": {
 			Port: 80, Protocol: api.ProtoTCP, U8Proto: 6,
 			Endpoints:    []api.EndpointSelector{epSelector},
-			L7Parser:     "",
+			L7Parser:     policy.ParserTypeNone,
 			L7RulesPerEp: policy.L7DataMap{},
 			Ingress:      false,
 			DerivedFromRules: []labels.LabelArray{

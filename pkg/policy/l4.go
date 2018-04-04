@@ -72,6 +72,8 @@ func (l7 L7DataMap) MarshalJSON() ([]byte, error) {
 type L7ParserType string
 
 const (
+	// ParserTypeNone represents the case where no parser type is provided.
+	ParserTypeNone L7ParserType = ""
 	// ParserTypeHTTP specifies a HTTP parser type
 	ParserTypeHTTP L7ParserType = "http"
 	// ParserTypeKafka specifies a Kafka parser type
@@ -85,10 +87,10 @@ type L4Filter struct {
 	Protocol api.L4Proto `json:"protocol"`
 	// U8Proto is the Protocol in numeric format, or 0 for NONE
 	U8Proto u8proto.U8proto `json:"-"`
-	// Endpoints limits the labels for allowing traffic (to / from). If
-	// Endpoints is empty, then it selects all endpoints.
-	Endpoints []api.EndpointSelector `json:"-"`
-	// L7Parser specifies the L7 protocol parser (optional)
+	// Endpoints limits the labels for allowing traffic (to / from).
+	Endpoints api.EndpointSelectorSlice `json:"-"`
+	// L7Parser specifies the L7 protocol parser (optional). If specified as
+	// an empty string, then means that no L7 proxy redirect is performed.
 	L7Parser L7ParserType `json:"-"`
 	// L7RulesPerEp is a list of L7 rules per endpoint passed to the L7 proxy (optional)
 	L7RulesPerEp L7DataMap `json:"l7-rules,omitempty"`
@@ -96,6 +98,11 @@ type L4Filter struct {
 	Ingress bool `json:"-"`
 	// The rule labels of this Filter
 	DerivedFromRules labels.LabelArrayList `json:"-"`
+}
+
+// AllowsAllAtL3 returns whether this L4Filter applies to all endpoints at L3.
+func (l4 *L4Filter) AllowsAllAtL3() bool {
+	return l4.Endpoints.SelectsAllEndpoints() || len(l4.Endpoints) == 0
 }
 
 // GetRelevantRules returns the relevant rules based on the source and
@@ -143,7 +150,7 @@ func (l7 L7DataMap) addRulesForEndpoints(rules api.L7Rules, endpoints []api.Endp
 // the ingress direction for a particular protocol.
 // This L4Filter will only apply to endpoints covered by `fromEndpoints`.
 // `rule` allows a series of L7 rules to be associated with this L4Filter.
-func CreateL4IngressFilter(fromEndpoints []api.EndpointSelector, rule api.PortRule, port api.PortProtocol,
+func CreateL4IngressFilter(fromEndpoints api.EndpointSelectorSlice, rule api.PortRule, port api.PortProtocol,
 	protocol api.L4Proto, ruleLabels labels.LabelArray) L4Filter {
 
 	// already validated via PortRule.Validate()
@@ -151,12 +158,18 @@ func CreateL4IngressFilter(fromEndpoints []api.EndpointSelector, rule api.PortRu
 	// already validated via L4Proto.Validate()
 	u8p, _ := u8proto.ParseProtocol(string(protocol))
 
+	filterEndpoints := fromEndpoints
+	if fromEndpoints.SelectsAllEndpoints() {
+		filterEndpoints = api.EndpointSelectorSlice{api.WildcardEndpointSelector}
+
+	}
+
 	l4 := L4Filter{
 		Port:             int(p),
 		Protocol:         protocol,
 		U8Proto:          u8p,
 		L7RulesPerEp:     make(L7DataMap),
-		Endpoints:        fromEndpoints,
+		Endpoints:        filterEndpoints,
 		DerivedFromRules: labels.LabelArrayList{ruleLabels},
 	}
 
@@ -180,7 +193,7 @@ func CreateL4IngressFilter(fromEndpoints []api.EndpointSelector, rule api.PortRu
 // the egress direction for a particular protocol.
 // This L4Filter will only apply to endpoints covered by `fromEndpoints`.
 // `rule` allows a series of L7 rules to be associated with this L4Filter.
-func CreateL4EgressFilter(toEndpoints []api.EndpointSelector, rule api.PortRule, port api.PortProtocol,
+func CreateL4EgressFilter(toEndpoints api.EndpointSelectorSlice, rule api.PortRule, port api.PortProtocol,
 	protocol api.L4Proto, ruleLabels labels.LabelArray) L4Filter {
 
 	// already validated via PortRule.Validate()
@@ -188,12 +201,18 @@ func CreateL4EgressFilter(toEndpoints []api.EndpointSelector, rule api.PortRule,
 	// already validated via L4Proto.Validate()
 	u8p, _ := u8proto.ParseProtocol(string(protocol))
 
+	filterEndpoints := toEndpoints
+	if toEndpoints.SelectsAllEndpoints() {
+		filterEndpoints = api.EndpointSelectorSlice{api.WildcardEndpointSelector}
+
+	}
+
 	l4 := L4Filter{
 		Port:             int(p),
 		Protocol:         protocol,
 		U8Proto:          u8p,
 		L7RulesPerEp:     make(L7DataMap),
-		Endpoints:        toEndpoints,
+		Endpoints:        filterEndpoints,
 		DerivedFromRules: labels.LabelArrayList{ruleLabels},
 	}
 
@@ -215,7 +234,7 @@ func CreateL4EgressFilter(toEndpoints []api.EndpointSelector, rule api.PortRule,
 
 // IsRedirect returns true if the L4 filter contains a port redirection
 func (l4 *L4Filter) IsRedirect() bool {
-	return l4.L7Parser != ""
+	return l4.L7Parser != ParserTypeNone
 }
 
 // MarshalIndent returns the `L4Filter` in indented JSON string.
@@ -237,7 +256,7 @@ func (l4 L4Filter) String() string {
 }
 
 func (l4 L4Filter) matchesLabels(labels labels.LabelArray) bool {
-	if len(l4.Endpoints) == 0 {
+	if l4.AllowsAllAtL3() {
 		return true
 	} else if len(labels) == 0 {
 		return false
