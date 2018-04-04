@@ -29,7 +29,7 @@ always
 never
   With this mode, policy enforcement is disabled on all endpoints, even if
   rules do select specific endpoints. In other words, all traffic is allowed
-  from any source with respect to an endpoint.
+  from any source (on ingress) or destination (on egress).
 
 Policy enforcement is configurable at runtime by running:
 
@@ -96,10 +96,9 @@ egress are omitted, the rule has no effect.
 ----
 
 endpointSelector
-  Selects the endpoints to which the policy rules contained must be applied to.
-  All endpoints which match the labels specified in the `endpointSelector`
-  will have the policy rules applied to. See the `LabelSelector` section for
-  additional details.
+  Selects the endpoints which the policy rules apply to. The policy rules
+  will be applied to all endpoints which match the labels specified in the
+  `endpointSelector`. See the `LabelSelector` section for additional details.
 
 ingress
   List of rules which must apply at ingress of the endpoint, i.e. to all
@@ -127,6 +126,7 @@ description
 Endpoint Selector
 -----------------
 
-The Endpoint Selector is based off on LabelSelector of Kubernetes. It is called
-Endpoint Selector because it only applies to labels associated with
-`endpoints`.
+The Endpoint Selector is based on the `Kubernetes LabelSelector
+<https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/#label-selectors>`_.
+It is called Endpoint Selector because it only applies to labels associated
+with `endpoints`.
