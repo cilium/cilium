@@ -1093,9 +1093,11 @@ func NewDaemon(c *Config) (*Daemon, error) {
 		if err := d.SyncState(d.conf.StateDir, true); err != nil {
 			log.WithError(err).Warn("Error while recovering endpoints")
 		}
-		if err := d.SyncLBMap(); err != nil {
-			log.WithError(err).Warn("Error while recovering endpoints")
-		}
+		go func() {
+			if err := d.SyncLBMap(); err != nil {
+				log.WithError(err).Warn("Error while recovering endpoints")
+			}
+		}()
 	} else {
 		// We need to read all docker containers so we know we won't
 		// going to allocate the same IP addresses and we will ignore
