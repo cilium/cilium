@@ -5,7 +5,7 @@ Deploying Cilium on a minikube cluster is simple. The provided
 ``cilium-ds.yaml`` file contains a DaemonSet spec which can be used to take
 care of all deployments steps.
 
-Boot a minukube cluster with the Container Network Interface (CNI) network
+Boot a minikube cluster with the Container Network Interface (CNI) network
 plugin, the ``localkube`` bootstrapper, and CustomResourceValidation.
 
 The ``localkube`` bootstrapper provides ``etcd`` >= ``3.1.0``, a cilium

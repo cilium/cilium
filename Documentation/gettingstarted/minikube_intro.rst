@@ -9,7 +9,7 @@ Step 0: Install kubectl & minikube
 3. Install ``minikube`` ``>= 0.22.3`` as described on `minikube's github page
 <https://github.com/kubernetes/minikube/releases>`_.
 
-Boot a minukube cluster with the Container Network Interface (CNI) network
+Boot a minikube cluster with the Container Network Interface (CNI) network
 plugin, the ``localkube`` bootstrapper, and ``CustomResourceValidation``.
 
 The ``localkube`` bootstrapper provides ``etcd`` >= ``3.1.0``, a cilium
