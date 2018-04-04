@@ -545,17 +545,14 @@ var _ = Describe("K8sValidatedPolicyTest", func() {
 			}
 		}
 		It("checks policy example", func() {
+
 			waitforPods()
 
 			By("Apply policy to web")
-			eps := kubectl.CiliumEndpointPolicyVersion(ciliumPod)
-			_, err := kubectl.CiliumPolicyAction(
+			_, err = kubectl.CiliumPolicyAction(
 				helpers.KubeSystemNamespace, kubectl.ManifestGet(webPolicy),
 				helpers.KubectlApply, 300)
 			Expect(err).Should(BeNil(), "Cannot apply web-policy")
-
-			err = helpers.WaitUntilEndpointUpdates(ciliumPod, eps, 3, kubectl)
-			Expect(err).To(BeNil(), "Pods are not ready after timeout")
 
 			policyCheck := fmt.Sprintf("cilium policy get %s=%s %s=%s",
 				helpers.KubectlPolicyNameLabel, webPolicyName,
@@ -566,15 +563,11 @@ var _ = Describe("K8sValidatedPolicyTest", func() {
 				"Policy %q is not in cilium", webPolicyName)
 
 			By("Apply policy to Redis")
-			eps = kubectl.CiliumEndpointPolicyVersion(ciliumPod)
 			_, err = kubectl.CiliumPolicyAction(
 				helpers.KubeSystemNamespace, kubectl.ManifestGet(redisPolicy),
 				helpers.KubectlApply, 300)
 
 			Expect(err).Should(BeNil(), "Cannot apply redis policy")
-
-			err = helpers.WaitUntilEndpointUpdates(ciliumPod, eps, 1, kubectl)
-			Expect(err).To(BeNil(), "Pods are not ready after timeout")
 
 			policyCheck = fmt.Sprintf("%s=%s %s=%s",
 				helpers.KubectlPolicyNameLabel, redisPolicyName,
@@ -586,19 +579,17 @@ var _ = Describe("K8sValidatedPolicyTest", func() {
 
 			testConnectivitytoRedis()
 
-			kubectl.Delete(kubectl.ManifestGet(redisPolicy)).ExpectSuccess(
-				"Cannot delete the redis policy")
+			_, err = kubectl.CiliumPolicyAction(
+				helpers.KubeSystemNamespace, kubectl.ManifestGet(redisPolicy),
+				helpers.KubectlDelete, 300)
+			Expect(err).Should(BeNil(), "Cannot apply redis policy")
 
 			By("Apply deprecated policy to Redis")
 
-			eps = kubectl.CiliumEndpointPolicyVersion(ciliumPod)
 			_, err = kubectl.CiliumPolicyAction(
 				helpers.KubeSystemNamespace, kubectl.ManifestGet(redisPolicyDeprecated),
 				helpers.KubectlApply, 300)
 			Expect(err).Should(BeNil(), "Cannot apply redis deprecated policy err: %q", err)
-
-			err = helpers.WaitUntilEndpointUpdates(ciliumPod, eps, 1, kubectl)
-			Expect(err).To(BeNil(), "Pods are not ready after timeout")
 
 			policyCheck = fmt.Sprintf("%s=%s %s=%s",
 				helpers.KubectlPolicyNameLabel, redisPolicyDeprecatedName,
@@ -607,6 +598,7 @@ var _ = Describe("K8sValidatedPolicyTest", func() {
 				"Policy %q is not in cilium", redisPolicyName)
 			Expect(kubectl.CiliumIsPolicyLoaded(ciliumPod2, policyCheck)).To(BeTrue(),
 				"Policy %q is not in cilium", redisPolicyName)
+
 			testConnectivitytoRedis()
 		})
 	})
