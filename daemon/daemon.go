@@ -1100,9 +1100,11 @@ func NewDaemon(c *Config) (*Daemon, error) {
 		if err := d.SyncState(d.conf.StateDir, true); err != nil {
 			log.WithError(err).Warn("Error while recovering endpoints")
 		}
-		if err := d.SyncLBMap(); err != nil {
-			log.WithError(err).Warn("Error while recovering endpoints")
-		}
+		go func() {
+			if err := d.SyncLBMap(); err != nil {
+				log.WithError(err).Warn("Error while recovering endpoints")
+			}
+		}()
 	} else {
 		log.Info("No previous state to restore. Cilium will not manage existing continers")
 		// We need to read all docker containers so we know we won't
