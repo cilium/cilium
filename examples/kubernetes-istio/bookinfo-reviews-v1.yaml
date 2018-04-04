@@ -49,7 +49,7 @@ specs:
         rules:
           http:
           - method: GET
-            path: "^/reviews/[0-9]*$"
+            path: "/reviews/[0-9]*"
 ---
 apiVersion: extensions/v1beta1
 kind: Deployment
