@@ -206,12 +206,11 @@ func readEPsFromDirNames(basePath string, eptsDirNames []string) []*endpoint.End
 			scopedLog.Debug("Reading directory")
 			epFiles, err := ioutil.ReadDir(epDir)
 			if err != nil {
-				scopedLog.Warn("Error while reading directory. Ignoring it...")
+				scopedLog.WithError(err).Warn("Error while reading directory. Ignoring it...")
 				return ""
 			}
 			cHeaderFile := common.FindEPConfigCHeader(epDir, epFiles)
 			if cHeaderFile == "" {
-				scopedLog.Info("File not found. Ignoring endpoint.")
 				return ""
 			}
 			return cHeaderFile
@@ -226,6 +225,12 @@ func readEPsFromDirNames(basePath string, eptsDirNames []string) []*endpoint.End
 			logfields.EndpointID: epID,
 			logfields.Path:       cHeaderFile,
 		})
+
+		if cHeaderFile == "" {
+			scopedLog.Info("C header file not found. Ignoring endpoint")
+			continue
+		}
+
 		scopedLog.Debug("Found endpoint C header file")
 
 		strEp, err := common.GetCiliumVersionString(cHeaderFile)
@@ -235,7 +240,7 @@ func readEPsFromDirNames(basePath string, eptsDirNames []string) []*endpoint.End
 		}
 		ep, err := endpoint.ParseEndpoint(strEp)
 		if err != nil {
-			scopedLog.WithError(err).Warn("Unable to read the C header file")
+			scopedLog.WithError(err).Warn("Unable to parse the C header file")
 			continue
 		}
 		possibleEPs = append(possibleEPs, ep)
