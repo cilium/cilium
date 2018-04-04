@@ -17,7 +17,7 @@ subscribe(const std::string& grpc_method, const envoy::api::v2::core::Node& node
   // Hard-coded Cilium gRPC cluster
   envoy::api::v2::core::ApiConfigSource api_config_source{};
   api_config_source.set_api_type(envoy::api::v2::core::ApiConfigSource::GRPC);
-  api_config_source.add_cluster_names("xdsCluster");
+  api_config_source.add_cluster_names("xds-grpc-cilium");
 
   Config::Utility::checkApiConfigSourceSubscriptionBackingCluster(cm.clusters(), api_config_source);
   Config::SubscriptionStats stats = Config::Utility::generateStats(scope);

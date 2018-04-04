@@ -329,7 +329,7 @@ func createBootstrap(filePath string, name, cluster, version string, xdsSock, en
 					ProtocolSelection: envoy_api_v2.Cluster_USE_DOWNSTREAM_PROTOCOL,
 				},
 				{
-					Name:           "xdsCluster",
+					Name:           "xds-grpc-cilium",
 					Type:           envoy_api_v2.Cluster_STATIC,
 					ConnectTimeout: &duration.Duration{Seconds: 1, Nanos: 0},
 					LbPolicy:       envoy_api_v2.Cluster_ROUND_ROBIN,
@@ -348,7 +348,7 @@ func createBootstrap(filePath string, name, cluster, version string, xdsSock, en
 				ConfigSourceSpecifier: &envoy_api_v2_core.ConfigSource_ApiConfigSource{
 					ApiConfigSource: &envoy_api_v2_core.ApiConfigSource{
 						ApiType:      envoy_api_v2_core.ApiConfigSource_GRPC,
-						ClusterNames: []string{"xdsCluster"},
+						ClusterNames: []string{"xds-grpc-cilium"},
 					},
 				},
 			},
