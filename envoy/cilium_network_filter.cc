@@ -58,7 +58,7 @@ Network::FilterStatus Instance::onNewConnection() {
   if (options_) {
     const Cilium::SocketOption* option = nullptr;
     for (const auto& option_: *options_) {
-      option = dynamic_cast<Cilium::SocketOption*>(option_.get());
+      option = dynamic_cast<const Cilium::SocketOption*>(option_.get());
       if (option) {
 	if (option->maps_) {
 	  // Insert connection callback to delete the proxymap entry once the connection is closed.

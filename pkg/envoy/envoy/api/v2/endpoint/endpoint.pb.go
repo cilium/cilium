@@ -134,11 +134,11 @@ type LocalityLbEndpoints struct {
 	// localities  at the same priority level to produce the effective percentage
 	// of traffic for the locality.
 	//
-	// Weights must be specified for either all localities in a given priority
-	// level or none.
-	//
-	// If unspecified, each locality is presumed to have equal weight in a
-	// cluster.
+	// Locality weights are only considered when :ref:`locality weighted load
+	// balancing <arch_overview_load_balancing_locality_weighted_lb>` is
+	// configured. These weights are ignored otherwise. If no weights are
+	// specificed when locality weighted load balancing is enabled, the cluster is
+	// assumed to have a weight of 1.
 	//
 	// .. attention::
 	//
