@@ -20,6 +20,7 @@ import (
 	"path"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/cilium/cilium/common"
@@ -60,6 +61,13 @@ var (
 	// connectivity problems.
 	versionCheckTimeout = 30 * time.Second
 
+	// statusCheckTimeout is the timeout when performing status checks with
+	// all etcd endpoints
+	statusCheckTimeout = 5 * time.Second
+
+	// statusCheckInterval is the interval in which the status is checked
+	statusCheckInterval = 5 * time.Second
+
 	minRequiredVersion, _ = version.NewConstraint(">= 3.1.0")
 
 	// etcdDummyAddress can be overwritten from test invokers using ldflags
@@ -75,6 +83,8 @@ var (
 			},
 		},
 	}
+
+	statusCheckerStarted sync.Once
 )
 
 func (e *etcdModule) getName() string {
@@ -215,6 +225,10 @@ func newEtcdClient(config *client.Config, cfgPath string) (BackendOperations, er
 		session:   s,
 		lockPaths: map[string]*lock.Mutex{},
 	}
+
+	statusCheckerStarted.Do(func() {
+		go ec.statusChecker()
+	})
 
 	go ec.checkMinVersion()
 
@@ -606,19 +620,72 @@ reList:
 	}
 }
 
-func (e *etcdClient) Status() (string, error) {
-	eps := e.client.Endpoints()
-	var err1 error
-	for i, ep := range eps {
-		if sr, err := e.client.Status(ctx.Background(), ep); err != nil {
-			err1 = err
-		} else if sr.Header.MemberId == sr.Leader {
-			eps[i] = fmt.Sprintf("%s - (Leader) %s", ep, sr.Version)
-		} else {
-			eps[i] = fmt.Sprintf("%s - %s", ep, sr.Version)
-		}
+var (
+	// latestStatusSnapshot is a snapshot of the latest etcd cluster status
+	latestStatusSnapshot = "No connection to etcd"
+
+	// latestErrorStatus is the latest error condition of the etcd connection
+	latestErrorStatus error
+
+	// statusLock protects latestStatusSnapshot for read/write acess
+	statusLock lock.RWMutex
+)
+
+func (e *etcdClient) determineEndpointStatus(endpointAddress string) (string, error) {
+	ctxTimeout, cancel := ctx.WithTimeout(ctx.Background(), statusCheckTimeout)
+	defer cancel()
+
+	log.Debugf("Checking status to etcd endpoint %s", endpointAddress)
+
+	status, err := e.client.Status(ctxTimeout, endpointAddress)
+	if err != nil {
+		return fmt.Sprintf("%s - %s", endpointAddress, err), err
 	}
-	return "Etcd: " + strings.Join(eps, "; "), err1
+
+	str := fmt.Sprintf("%s - %s", endpointAddress, status.Version)
+	if status.Header.MemberId == status.Leader {
+		str += " (Leader)"
+	}
+
+	return str, nil
+}
+
+func (e *etcdClient) statusChecker() error {
+	for {
+		newStatus := []string{}
+		ok := 0
+
+		log.Debugf("Performing status check to etcd")
+
+		endpoints := e.client.Endpoints()
+		for _, ep := range endpoints {
+			st, err := e.determineEndpointStatus(ep)
+			if err == nil {
+				ok++
+			}
+
+			newStatus = append(newStatus, st)
+		}
+
+		statusLock.Lock()
+		latestStatusSnapshot = fmt.Sprintf("etcd: %d/%d connected: %s", ok, len(endpoints), strings.Join(newStatus, "; "))
+
+		// Only mark the etcd health as unstable if no etcd endpoints can be reached
+		if len(endpoints) > 0 && ok == 0 {
+			latestErrorStatus = fmt.Errorf("Not able to connect to any etcd endpoints")
+		}
+
+		statusLock.Unlock()
+
+		time.Sleep(statusCheckInterval)
+	}
+}
+
+func (e *etcdClient) Status() (string, error) {
+	statusLock.RLock()
+	defer statusLock.RUnlock()
+
+	return latestStatusSnapshot, latestErrorStatus
 }
 
 // Get returns value of key
