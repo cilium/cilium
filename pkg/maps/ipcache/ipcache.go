@@ -20,7 +20,10 @@ import (
 	"unsafe"
 
 	"github.com/cilium/cilium/pkg/bpf"
+	"github.com/cilium/cilium/pkg/logging"
 )
+
+var log = logging.DefaultLogger
 
 const (
 	// MaxEntries is the maximum number of keys that can be present in the
@@ -85,5 +88,8 @@ var (
 )
 
 func init() {
-	bpf.OpenAfterMount(IPCache)
+	err := bpf.OpenAfterMount(IPCache)
+	if err != nil {
+		log.WithError(err).Error("unable to open map")
+	}
 }
