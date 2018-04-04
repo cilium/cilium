@@ -45,6 +45,8 @@ func (m *L7Policy) Validate() error {
 
 	// no validation rules for PolicyName
 
+	// no validation rules for Denied_403Body
+
 	return nil
 }
 
