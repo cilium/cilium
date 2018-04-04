@@ -580,7 +580,10 @@ func (e *Endpoint) RunK8sCiliumEndpointSync() {
 		return
 	}
 
-	var lastMdl *models.Endpoint
+	var (
+		lastMdl  *models.Endpoint
+		firstRun = true
+	)
 
 	// NOTE: The controller functions do NOT hold the endpoint locks
 	e.controllers.UpdateController(controllerName,
@@ -625,8 +628,18 @@ func (e *Endpoint) RunK8sCiliumEndpointSync() {
 				case err != nil && k8serrors.IsNotFound(err):
 					break
 
+				// Delete the CEP on the first ever run. We will fall through to the create code below
+				case firstRun:
+					firstRun = false
+					scopedLog.Debug("Deleting CEP on first run")
+					err := ciliumClient.CiliumEndpoints(namespace).Delete(podName, &meta_v1.DeleteOptions{})
+					if err != nil {
+						scopedLog.WithError(err).Warn("Error deleting CEP")
+						return err
+					}
+
 				// Delete an invalid CEP. We will fall through to the create code below
-				case err != nil && !k8serrors.IsInvalid(err):
+				case err != nil && k8serrors.IsInvalid(err):
 					scopedLog.WithError(err).Warn("Invalid CEP during update")
 					err := ciliumClient.CiliumEndpoints(namespace).Delete(podName, &meta_v1.DeleteOptions{})
 					if err != nil {
