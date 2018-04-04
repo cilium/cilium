@@ -6,7 +6,7 @@ info:
   version: v1beta
 x-schemes:
 - unix
-basePath: "/v1beta"
+basePath: "/v1"
 produces:
 - application/json
 consumes:

@@ -8,7 +8,7 @@ Cilium
     Schemes:
       unix
     Host: localhost
-    BasePath: /v1beta
+    BasePath: /v1
     Version: v1beta
 
     Consumes:
