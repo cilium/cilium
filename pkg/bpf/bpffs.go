@@ -99,6 +99,7 @@ func OpenAfterMount(m *Map) error {
 		return err
 	}
 
+	log.WithField(logfields.BPFMapName, m.name).Debug("bpffs is not mounted yet; adding to list of maps to open once it is mounted")
 	delayedOpens = append(delayedOpens, m)
 	return nil
 }
@@ -162,7 +163,10 @@ func mountFS() error {
 
 	mountMutex.Lock()
 	for _, m := range delayedOpens {
-		m.OpenOrCreate()
+		_, err = m.OpenOrCreate()
+		if err != nil {
+			log.WithError(err).WithField(logfields.BPFMapName, m.name).Error("error opening map after bpffs was mounted")
+		}
 	}
 
 	mounted = true
