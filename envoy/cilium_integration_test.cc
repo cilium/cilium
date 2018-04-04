@@ -38,11 +38,11 @@ public:
   TestConfig(const ::cilium::BpfMetadata& config, Server::Configuration::ListenerFactoryContext& context)
     : Config(config, context) {}
 
-  bool getBpfMetadata(Network::ConnectionSocket &socket) override {
+  bool getMetadata(Network::ConnectionSocket &socket) override {
     // fake setting the local address. It remains the same as required by the test infra, but it will be marked as restored
     // as required by the original_dst cluster.
     socket.setLocalAddress(original_dst_address, true);
-    socket.addOption(std::make_unique<Cilium::SocketOption>(maps_, 42, 1, true, 80, 10000));
+    socket.addOption(std::make_unique<Cilium::SocketOption>(maps_, 1, 173, true, 80, 10000));
     return true;
   }
 };
@@ -171,7 +171,7 @@ static_resources:
     - socket_address:
         address: 127.0.0.1
         port_value: 0
-  - name: xds_cluster
+  - name: xds-grpc-cilium
     connect_timeout: { seconds: 5 }
     type: STATIC
     lb_policy: ROUND_ROBIN
@@ -201,9 +201,6 @@ static_resources:
             config:
               access_log_path: ""
               policy_name: "173"
-              api_config_source:
-                api_type: GRPC
-                cluster_names: xds_cluster
           - name: envoy.router
           route_config:
             name: policy_enabled
