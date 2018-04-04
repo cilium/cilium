@@ -18,6 +18,10 @@ with Kubernetes:
   `ThirdPartyResource` and `CustomResourceDefinition` which supports to specify
   policies at Layers 3-7 for both ingress and egress.
 
+It is recommended to only use one of the above policy types at a time to
+minimize unintended effects arising from the interaction between the
+policies.
+
 .. _NetworkPolicy:
 .. _networkpolicy_state:
 
@@ -35,9 +39,7 @@ Known missing features for Kubernetes Network Policy:
 +============================+==============================================+
 | Use of named ports         | https://github.com/cilium/cilium/issues/2942 |
 +----------------------------+----------------------------------------------+
-| L4-only enforcement        | https://github.com/cilium/cilium/issues/2907 |
-+----------------------------+----------------------------------------------+
-| Label-based egress policy  | https://github.com/cilium/cilium/issues/1488 |
+| CIDR-based L4 policy       | https://github.com/cilium/cilium/issues/1684 |
 +----------------------------+----------------------------------------------+
 
 .. _CiliumNetworkPolicy:
@@ -64,6 +66,10 @@ The raw specification of the resource in Go looks like this:
 
                 // Specs is a list of desired Cilium specific rule specification.
                 Specs api.Rules `json:"specs,omitempty"`
+
+                // Status is the status of the Cilium policy rule
+                // +optional
+                Status CiliumNetworkPolicyStatus `json:"status"`
         }
 
 Metadata 
@@ -78,6 +84,9 @@ Spec
 Specs
   Field which contains a list of :ref:`policy_rule`. This field is useful if
   multiple rules must be removed or added atomatically.
+
+Status
+  Provides visibility into whether the policy has been successfully applied
 
 Examples
 ========
