@@ -51,6 +51,10 @@ const (
 	MapTypeLPMTrie
 	MapTypeArrayOfMaps
 	MapTypeHashOfMaps
+	MapTypeDevMap
+	MapTypeSockMap
+	MapTypeCpuMap
+	MapTypeSockHash
 )
 
 func (t MapType) String() string {
@@ -81,6 +85,14 @@ func (t MapType) String() string {
 		return "Array of maps"
 	case MapTypeHashOfMaps:
 		return "Hash of maps"
+	case MapTypeDevMap:
+		return "Device Map"
+	case MapTypeSockMap:
+		return "Socket Map"
+	case MapTypeCpuMap:
+		return "CPU Redirect Map"
+	case MapTypeSockHash:
+		return "Socket Hash"
 	}
 
 	return "Unknown"
