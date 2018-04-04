@@ -204,11 +204,11 @@ same TCP/UDP connection.
 
 .. image:: images/cilium_k8s_demo_l3-l4-policy-170817.png
 
-We can achieve that with the following Kubernetes NetworkPolicy:
+We can achieve that with the following CiliumNetworkPolicy:
 
 .. literalinclude:: ../../examples/minikube/l3_l4_policy.yaml
 
-Kubernetes NetworkPolicies match on pod labels using "podSelector" to
+CiliumNetworkPolicies match on pod labels using "endpointSelector" to
 identify the sources and destinations to which the policy applies.
 The above policy whitelists traffic sent from *app2* pods to *app1* pods
 on TCP port 80.
@@ -265,15 +265,45 @@ You can observe the policy via ``kubectl``
 
 ::
 
-    $ kubectl get networkpolicies
-    NAME             POD-SELECTOR   AGE
-    access-backend   id=app1        2m
+    $ kubectl get cnp
+    NAME      AGE
+    rule1     42s
 
-    $ kubectl describe networkpolicies access-backend
-    Name:           access-backend
-    Namespace:      default
-    Labels:         <none>
-    Annotations:    <none>
+    $ kubectl describe cnp rule1
+    Name:         rule1
+    Namespace:    default
+    Labels:       <none>
+    Annotations:  <none>
+    API Version:  cilium.io/v2
+    Kind:         CiliumNetworkPolicy
+    Metadata:
+      Cluster Name:        
+      Creation Timestamp:  2018-04-04T22:46:16Z
+      Generation:          0
+      Initializers:        <nil>
+      Resource Version:    17204
+      Self Link:           /apis/cilium.io/v2/namespaces/default/ciliumnetworkpolicies/rule1
+      UID:                 fc04f184-3859-11e8-9fba-08002792155c
+    Spec:
+      Endpoint Selector:
+        Match Labels:
+          Any : Id:  app1
+      Ingress:
+        From Endpoints:
+          Match Labels:
+            Any : Id:  app2
+        To Ports:
+          Ports:
+            Port:      80
+            Protocol:  TCP
+    Status:
+      Nodes:
+        Minikube:
+          Enforcing:              true
+          Last Updated:           2018-04-04T22:46:20.462630226Z
+          Local Policy Revision:  6
+          Ok:                     true
+    Events:                       <none>
 
 
 Step 5:  Apply and Test HTTP-aware L7 Policy
@@ -320,11 +350,11 @@ API call, but disallowing all other calls (including GET /private).
 
 .. literalinclude:: ../../examples/minikube/l3_l4_l7_policy.yaml
 
-Create an L7-aware policy to protect *app1* using:
+Update the existing rule to apply L7-aware policy to protect *app1* using:
 
 .. parsed-literal::
 
-  $ kubectl create -f \ |SCM_WEB|\/examples/minikube/l3_l4_l7_policy.yaml
+  $ kubectl apply -f \ |SCM_WEB|\/examples/minikube/l3_l4_l7_policy.yaml
 
 
 We can now re-run the same test as above, but we will see a different outcome:
@@ -351,57 +381,53 @@ You can observe the L7 policy via ``kubectl``:
 ::
 
     $ kubectl get ciliumnetworkpolicies
-    NAME      KIND
-    rule1     CiliumNetworkPolicy.v2.cilium.io
-
-    $ kubectl describe networkpolicies access-backend
-    Name:           access-backend
-    Namespace:      default
-    Labels:         <none>
-    Annotations:    <none>
-
+    NAME      AGE
+    rule1     4m 
     $ kubectl describe ciliumnetworkpolicies rule1
-    Name:	    rule1
-    Namespace:	    default
-    Labels:	    <none>
-    Annotations:    <none>
-    API Version:    cilium.io/v2
-    Kind:	    CiliumNetworkPolicy
+    Name:         rule1
+    Namespace:    default
+    Labels:       <none>
+    Annotations:  kubectl.kubernetes.io/last-applied-configuration={"apiVersion":"cilium.io/v2","description":"L7 policy for getting started using Kubernetes guide","kind":"CiliumNetworkPolicy","metadata":{"annotations...
+    API Version:  cilium.io/v2
+    Kind:         CiliumNetworkPolicy
     Metadata:
-      Cluster Name:		
-      Creation Timestamp:   2017-12-05T01:57:10Z
-      Generation:	    0
-      Resource Version:	    3788
-      Self Link:	    /apis/cilium.io/v2/namespaces/default/ciliumnetworkpolicies/rule1
-      UID:		    9b05edfb-d95f-11e7-a72e-080027ea1305
+      Cluster Name:        
+      Creation Timestamp:  2018-04-04T22:46:16Z
+      Generation:          0
+      Initializers:        <nil>
+      Resource Version:    17527
+      Self Link:           /apis/cilium.io/v2/namespaces/default/ciliumnetworkpolicies/rule1
+      UID:                 fc04f184-3859-11e8-9fba-08002792155c
     Spec:
       Endpoint Selector:
         Match Labels:
-          Any : Id:	app1
+          Any : Id:  app1
       Ingress:
         From Endpoints:
           Match Labels:
-            Any : Id:	app2
+            Any : Id:  app2
         To Ports:
           Ports:
-            Port:	80
-            Protocol:	TCP
+            Port:      80
+            Protocol:  TCP
           Rules:
             Http:
-              Method:	GET
-              Path:	/public
+              Method:  GET
+              Path:    /public
     Status:
       Nodes:
         Minikube:
-          Last Updated:	2017-12-05T01:57:10.409172216Z
-          Ok:		true
-    Events:		<none>
-
+          Enforcing:              true
+          Last Updated:           2018-04-04T22:49:34.744363299Z
+          Local Policy Revision:  9
+          Ok:                     true
+    Events:                       <none>
+     
 and ``cilium`` CLI:
 
 ::
 
-    $ kubectl exec cilium-1c2cz -n kube-system cilium policy get
+    $ kubectl -n kube-system exec cilium-qh5l2 cilium policy get
     [
       {
         "endpointSelector": {
@@ -445,48 +471,17 @@ and ``cilium`` CLI:
             "key": "io.cilium.k8s.policy.name",
             "value": "rule1",
             "source": "unspec"
-          }
-        ]
-      },
-      {
-        "endpointSelector": {
-          "matchLabels": {
-            "k8s:id": "app1",
-            "k8s:io.kubernetes.pod.namespace": "default"
-          }
-        },
-        "ingress": [
+          },
           {
-            "fromEndpoints": [
-              {
-                "matchLabels": {
-                  "k8s:id": "app2",
-                  "k8s:io.kubernetes.pod.namespace": "default"
-                }
-              }
-            ],
-            "toPorts": [
-              {
-                "ports": [
-                  {
-                    "port": "80",
-                    "protocol": "TCP"
-                  }
-                ]
-              }
-            ]
-          }
-        ],
-        "labels": [
-          {
-            "key": "io.cilium.k8s.policy.name",
-            "value": "access-backend",
+            "key": "io.cilium.k8s.policy.namespace",
+            "value": "default",
             "source": "unspec"
           }
         ]
       }
     ]
-    Revision: 4
+    Revision: 10
+
 
 We hope you enjoyed the tutorial.  Feel free to play more with the setup, read
 the rest of the documentation, and reach out to us on the `Cilium
