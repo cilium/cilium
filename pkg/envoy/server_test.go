@@ -195,6 +195,10 @@ var ExpectedPortNetworkPolicyRule5 = &cilium.PortNetworkPolicyRule{
 	},
 }
 
+var ExpectedPortNetworkPolicyRule6 = &cilium.PortNetworkPolicyRule{
+	RemotePolicies: []uint64{1001, 1002},
+}
+
 var L4PolicyMap1 = map[string]policy.L4Filter{
 	"80/TCP": {
 		Port:     80,
@@ -218,12 +222,34 @@ var L4PolicyMap2 = map[string]policy.L4Filter{
 }
 
 var L4PolicyMap3 = map[string]policy.L4Filter{
-	"8080/UDP": {
+	"80/UDP": {
 		Port:     80,
 		Protocol: api.ProtoTCP,
 		L7Parser: policy.ParserTypeHTTP,
 		L7RulesPerEp: policy.L7DataMap{
 			api.WildcardEndpointSelector: L7Rules1,
+		},
+	},
+}
+
+// L4PolicyMap4 is an L4-only policy, with no L7 rules.
+var L4PolicyMap4 = map[string]policy.L4Filter{
+	"80/TCP": {
+		Port:     80,
+		Protocol: api.ProtoTCP,
+		L7RulesPerEp: policy.L7DataMap{
+			EndpointSelector1: api.L7Rules{},
+		},
+	},
+}
+
+// L4PolicyMap5 is an L4-only policy, with no L7 rules.
+var L4PolicyMap5 = map[string]policy.L4Filter{
+	"80/TCP": {
+		Port:     80,
+		Protocol: api.ProtoTCP,
+		L7RulesPerEp: policy.L7DataMap{
+			api.WildcardEndpointSelector: api.L7Rules{},
 		},
 	},
 }
@@ -278,6 +304,23 @@ var ExpectedPerPortPolicies5 = []*cilium.PortNetworkPolicy{
 	},
 }
 
+var ExpectedPerPortPolicies6 = []*cilium.PortNetworkPolicy{
+	{
+		Port:     80,
+		Protocol: envoy_api_v2_core.SocketAddress_TCP,
+		Rules: []*cilium.PortNetworkPolicyRule{
+			ExpectedPortNetworkPolicyRule6,
+		},
+	},
+}
+
+var ExpectedPerPortPolicies7 = []*cilium.PortNetworkPolicy{
+	{
+		Port:     80,
+		Protocol: envoy_api_v2_core.SocketAddress_TCP,
+	},
+}
+
 var L4Policy1 = &policy.L4Policy{
 	Ingress: L4PolicyMap1,
 	Egress:  L4PolicyMap2,
@@ -304,11 +347,21 @@ func (s *ServerSuite) TestGetPortNetworkPolicyRule(c *C) {
 }
 
 func (s *ServerSuite) TestGetDirectionNetworkPolicy(c *C) {
+	// L4+L7
 	obtained := getDirectionNetworkPolicy(L4PolicyMap1, true, IdentityCache, DeniedIdentitiesNone)
 	c.Assert(obtained, comparator.DeepEquals, ExpectedPerPortPolicies1)
 
+	// L4+L7
 	obtained = getDirectionNetworkPolicy(L4PolicyMap2, true, IdentityCache, DeniedIdentitiesNone)
 	c.Assert(obtained, comparator.DeepEquals, ExpectedPerPortPolicies2)
+
+	// L4-only
+	obtained = getDirectionNetworkPolicy(L4PolicyMap4, true, IdentityCache, DeniedIdentitiesNone)
+	c.Assert(obtained, comparator.DeepEquals, ExpectedPerPortPolicies6)
+
+	// L4-only
+	obtained = getDirectionNetworkPolicy(L4PolicyMap5, true, IdentityCache, DeniedIdentitiesNone)
+	c.Assert(obtained, comparator.DeepEquals, ExpectedPerPortPolicies7)
 }
 
 func (s *ServerSuite) TestGetNetworkPolicy(c *C) {

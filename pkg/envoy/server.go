@@ -418,11 +418,9 @@ func getPortNetworkPolicyRule(sel api.EndpointSelector, l7Parser policy.L7Parser
 				},
 			}
 		}
-	default:
-		// No L7 parser means nothing for an L7 proxy to do. Ignore the rule.
-		return nil
+	case policy.ParserTypeKafka:
+		// TODO: Support Kafka. For now, just ignore any Kafka L7 rule.
 	}
-	// TODO: Support Kafka.
 
 	return r
 }
@@ -458,6 +456,14 @@ func getDirectionNetworkPolicy(l4Policy policy.L4PolicyMap, policyEnforced bool,
 		for sel, l7 := range l4.L7RulesPerEp {
 			rule := getPortNetworkPolicyRule(sel, l4.L7Parser, l7, labelsMap, deniedIdentities)
 			if rule != nil {
+				if len(rule.RemotePolicies) == 0 && rule.L7Rules == nil {
+					// Got an allow-all rule, which would short-circuit all of
+					// the other rules. Just set no rules, which has the same
+					// effect of allowing all.
+					pnp.Rules = nil
+					break
+				}
+
 				pnp.Rules = append(pnp.Rules, rule)
 			}
 		}
