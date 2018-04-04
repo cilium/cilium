@@ -83,7 +83,38 @@ type PortNetworkPolicyRuleSlice []*cilium.PortNetworkPolicyRule
 
 // PortNetworkPolicyRuleLess reports whether the r1 rule should sort before
 // the r2 rule.
+// L3-L4-only rules are less than L7 rules.
 func PortNetworkPolicyRuleLess(r1, r2 *cilium.PortNetworkPolicyRule) bool {
+	// TODO: Support Kafka.
+
+	http1, http2 := r1.GetHttpRules(), r2.GetHttpRules()
+	switch {
+	case http1 == nil && http2 != nil:
+		return true
+	case http1 != nil && http2 == nil:
+		return false
+	}
+
+	if http1 != nil && http2 != nil {
+		httpRules1, httpRules2 := http1.HttpRules, http2.HttpRules
+		switch {
+		case len(httpRules1) < len(httpRules2):
+			return true
+		case len(httpRules1) > len(httpRules2):
+			return false
+		}
+		// Assuming that the slices are sorted.
+		for idx := range httpRules1 {
+			httpRule1, httpRule2 := httpRules1[idx], httpRules2[idx]
+			switch {
+			case HTTPNetworkPolicyRuleLess(httpRule1, httpRule2):
+				return true
+			case HTTPNetworkPolicyRuleLess(httpRule2, httpRule1):
+				return false
+			}
+		}
+	}
+
 	remotePolicies1, remotePolicies2 := r1.RemotePolicies, r2.RemotePolicies
 	switch {
 	case len(remotePolicies1) < len(remotePolicies2):
@@ -98,36 +129,6 @@ func PortNetworkPolicyRuleLess(r1, r2 *cilium.PortNetworkPolicyRule) bool {
 		case p1 < p2:
 			return true
 		case p1 > p2:
-			return false
-		}
-	}
-
-	// TODO: Support Kafka.
-	http1, http2 := r1.GetHttpRules(), r2.GetHttpRules()
-	switch {
-	case http1 == nil && http2 != nil:
-		return true
-	case http1 != nil && http2 == nil:
-		return false
-	case http1 == nil && http2 == nil:
-		// Elements are equal.
-		return false
-	}
-
-	httpRules1, httpRules2 := http1.HttpRules, http2.HttpRules
-	switch {
-	case len(httpRules1) < len(httpRules2):
-		return true
-	case len(httpRules1) > len(httpRules2):
-		return false
-	}
-	// Assuming that the slices are sorted.
-	for idx := range httpRules1 {
-		httpRule1, httpRule2 := httpRules1[idx], httpRules2[idx]
-		switch {
-		case HTTPNetworkPolicyRuleLess(httpRule1, httpRule2):
-			return true
-		case HTTPNetworkPolicyRuleLess(httpRule2, httpRule1):
 			return false
 		}
 	}
