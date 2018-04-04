@@ -240,19 +240,20 @@ var _ = Describe("NightlyEpsMeasurement", func() {
 				filePipe, ip, port)
 		}
 
-		HTTPRequest := func(uid string) string {
+		HTTPRequest := func(uid, host string) string {
 			request := `GET /public HTTP/1.1\r\n` +
-				`host: 10.10.1.93:8888\r\n` +
+				`host: %s:8888\r\n` +
 				`user-agent: curl/7.54.0\r\n` +
 				`accept: */*\r\n` +
 				`UID: %s\r\n` +
 				`content-length: 0\r\n`
-			return fmt.Sprintf(request, uid)
+			return fmt.Sprintf(request, host, uid)
 		}
 		// testConnectivity check that nc is running across the k8s nodes
 		testConnectivity := func() {
 
 			pipePath := "/tmp/nc_pipe.txt"
+			listeningString := "listening on [::]:8888"
 
 			_, err := kubectl.WaitforPods(helpers.DefaultNamespace, "-l zgroup=netcatds", 600)
 			Expect(err).To(BeNil(), "Pods are not ready after timeout")
@@ -273,16 +274,18 @@ var _ = Describe("NightlyEpsMeasurement", func() {
 			defer cancel()
 
 			serverctx := kubectl.ExecPodCmdContext(ctx, helpers.DefaultNamespace, server, ncServer)
+			err = serverctx.WaitUntilMatch(listeningString)
+			Expect(err).To(BeNil(), "netcat server did not start correctly")
+
 			_ = kubectl.ExecPodCmdContext(ctx, helpers.DefaultNamespace, client, ncClient)
 
 			testNcConnectivity := func(sleep time.Duration) {
 				helpers.Sleep(sleep)
 				uid := helpers.MakeUID()
 				_ = kubectl.ExecPodCmd(helpers.DefaultNamespace, client,
-					fmt.Sprintf(`echo -e "%s" >> %s`, HTTPRequest(uid), pipePath))
+					fmt.Sprintf(`echo -e "%s" >> %s`, HTTPRequest(uid, ips[client]), pipePath))
 				Expect(serverctx.WaitUntilMatch(uid)).To(BeNil(),
 					"%q is not in the server output after timeout", uid)
-				helpers.Sleep(5) // Give time to fill the buffer in context.
 				serverctx.ExpectContains(uid, "Cannot get server UUID")
 			}
 			By("Testing that simple nc works")
