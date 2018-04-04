@@ -415,13 +415,9 @@ func (ds *PolicyTestSuite) TestMinikubeGettingStarted(c *C) {
 	expected := NewL4Policy()
 	expected.Ingress["80/TCP"] = L4Filter{
 		Port: 80, Protocol: api.ProtoTCP, U8Proto: 6,
-		Endpoints: selectorFromApp2DupList,
-		L7Parser:  "http",
-		L7RulesPerEp: L7DataMap{
-			selectorFromApp2[0]: api.L7Rules{
-				HTTP: []api.PortRuleHTTP{{Path: "/", Method: "GET"}},
-			},
-		},
+		Endpoints:        selectorFromApp2DupList,
+		L7Parser:         ParserTypeNone,
+		L7RulesPerEp:     L7DataMap{},
 		Ingress:          true,
 		DerivedFromRules: []labels.LabelArray{nil, nil, nil},
 	}
