@@ -168,6 +168,7 @@ func defaultLabelPrefixCfg() *labelPrefixCfg {
 		"!controller-revision-hash",                                // ignore controller-revision-hash
 		"!annotation." + common.CiliumK8sAnnotationPrefix,          // ignore all cilium annotations
 		"!annotation." + common.CiliumIdentityAnnotationDeprecated, // ignore all cilium annotations
+		"!annotation.sidecar.istio.io",                             // ignore all istio sidecar annotation labels
 	}
 
 	for _, e := range expressions {
