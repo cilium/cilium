@@ -16,21 +16,21 @@ specs:
         rules:
           http:
           - method: GET
-            path: "^/$"
+            path: "/"
           - method: GET
-            path: "^/index.html$"
+            path: "/index.html"
           - method: POST
-            path: "^/login$"
+            path: "/login"
           - method: GET
-            path: "^/logout$"
+            path: "/logout"
           - method: GET
-            path: "^/productpage$"
+            path: "/productpage"
           - method: GET
-            path: "^/api/v1/products$"
+            path: "/api/v1/products"
           - method: GET
-            path: "^/api/v1/products/[0-9]*$"
+            path: "/api/v1/products/[0-9]*"
 #          - method: GET
-#            path: "^/api/v1/products/[0-9]*/reviews$"
+#            path: "/api/v1/products/[0-9]*/reviews"
 #          - method: GET
-#            path: "^/api/v1/products/[0-9]*/ratings$"
+#            path: "/api/v1/products/[0-9]*/ratings"
 
