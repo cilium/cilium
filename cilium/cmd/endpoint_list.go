@@ -31,6 +31,7 @@ import (
 const (
 	PolicyEnabled  = "Enabled"
 	PolicyDisabled = "Disabled"
+	UnknownState   = "Unknown"
 )
 
 var noHeaders bool
@@ -50,24 +51,70 @@ func init() {
 	command.AddJSONOutput(endpointListCmd)
 }
 
-func listEndpoint(w *tabwriter.Writer, ep *models.Endpoint, id string, label string) {
-	var isIngressPolicyEnabled models.EndpointPolicyEnabled
-	var isEgressPolicyEnabled models.EndpointPolicyEnabled
+func endpointPolicyMode(ep *models.Endpoint) (string, string) {
+	if ep.Status == nil || ep.Status.Policy == nil || ep.Status.Policy.Realized == nil {
+		return UnknownState, UnknownState
+	}
+
 	switch ep.Status.Policy.Realized.PolicyEnabled {
 	case models.EndpointPolicyEnabledNone:
-		isIngressPolicyEnabled = PolicyDisabled
-		isEgressPolicyEnabled = PolicyDisabled
+		return PolicyDisabled, PolicyDisabled
 	case models.EndpointPolicyEnabledBoth:
-		isIngressPolicyEnabled = PolicyEnabled
-		isEgressPolicyEnabled = PolicyEnabled
+		return PolicyEnabled, PolicyEnabled
 	case models.EndpointPolicyEnabledIngress:
-		isIngressPolicyEnabled = PolicyEnabled
-		isEgressPolicyEnabled = PolicyDisabled
+		return PolicyEnabled, PolicyDisabled
 	case models.EndpointPolicyEnabledEgress:
-		isIngressPolicyEnabled = PolicyDisabled
-		isEgressPolicyEnabled = PolicyEnabled
+		return PolicyDisabled, PolicyEnabled
 	}
-	fmt.Fprintf(w, "%d\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t\n", ep.ID, isIngressPolicyEnabled, isEgressPolicyEnabled, id, label, ep.Status.Networking.Addressing[0].IPV6, ep.Status.Networking.Addressing[0].IPV4, ep.Status.State)
+
+	return UnknownState, UnknownState
+}
+
+func endpointAddressPair(ep *models.Endpoint) (string, string) {
+	if ep.Status == nil || ep.Status.Networking == nil {
+		return UnknownState, UnknownState
+	}
+
+	if len(ep.Status.Networking.Addressing) < 1 {
+		return "No address", "No address"
+	}
+
+	return ep.Status.Networking.Addressing[0].IPV6, ep.Status.Networking.Addressing[0].IPV4
+}
+
+func endpointState(ep *models.Endpoint) string {
+	if ep.Status == nil {
+		return UnknownState
+	}
+
+	return string(ep.Status.State)
+}
+
+func endpointLabels(ep *models.Endpoint) []string {
+	if ep.Status == nil || ep.Status.Labels == nil ||
+		len(ep.Status.Labels.SecurityRelevant) == 0 {
+		return []string{"no labels"}
+	}
+
+	lbls := ep.Status.Labels.SecurityRelevant
+	sort.Strings(lbls)
+	return lbls
+}
+
+func endpointID(ep *models.Endpoint) string {
+	id := "<no label id>"
+	if ep.Status != nil && ep.Status.Identity != nil {
+		id = fmt.Sprintf("%d", ep.Status.Identity.ID)
+	}
+	return id
+}
+
+func listEndpoint(w *tabwriter.Writer, ep *models.Endpoint, id string, label string) {
+	policyIngress, policyEgress := endpointPolicyMode(ep)
+	ipv6, ipv4 := endpointAddressPair(ep)
+
+	fmt.Fprintf(w, "%d\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t\n", ep.ID,
+		policyIngress, policyEgress, id, label, ipv6, ipv4, endpointState(ep))
 }
 
 func listEndpoints() {
@@ -108,28 +155,13 @@ func printEndpointList(w *tabwriter.Writer, eps []*models.Endpoint) {
 	}
 
 	for _, ep := range eps {
-		id := "<no label id>"
-		if ep.Status.Identity != nil {
-			id = fmt.Sprintf("%d", ep.Status.Identity.ID)
-		}
-
-		if len(ep.Status.Labels.SecurityRelevant) == 0 {
-			listEndpoint(w, ep, id, "no labels")
-		} else {
-
-			first := true
-			lbls := ep.Status.Labels.SecurityRelevant
-			sort.Strings(lbls)
-			for _, lbl := range lbls {
-				if first {
-					listEndpoint(w, ep, id, lbl)
-					first = false
-				} else {
-					fmt.Fprintf(w, "\t\t\t\t%s\t\t\t\t\n", lbl)
-				}
+		for i, lbl := range endpointLabels(ep) {
+			if i == 0 {
+				listEndpoint(w, ep, endpointID(ep), lbl)
+			} else {
+				fmt.Fprintf(w, "\t\t\t\t%s\t\t\t\t\n", lbl)
 			}
 		}
-
 	}
 	w.Flush()
 }
