@@ -21,7 +21,7 @@ can talk to each other. Layer 3 policies can be specified using the following me
 * `Entities based`: Entities are used to describe remote peers which can be
   categorized without knowing their IP addresses. This includes connectivity
   to the local host serving the endpoints or all connectivity to outside of
-  the cluster. Future versions will allow to define your own entities.
+  the cluster.
 
 * `CIDR based`: This is used to describe the relationship to or from external
   services if the remote peer is not an endpoint. This requires to hardcode either
@@ -213,6 +213,10 @@ world
     All traffic outside of the cluster.
 all
     All traffic both within the cluster and outside of the cluster.
+
+.. versionadded:: future
+   Allowing users to `define custom identities <https://github.com/cilium/cilium/issues/3553>`_
+   is on the roadmap but has not been implemented yet.
 
 Access to/from local host
 ~~~~~~~~~~~~~~~~~~~~~~~~~
