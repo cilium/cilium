@@ -985,6 +985,64 @@ Steps to release
     `Jenkins <https://jenkins.cilium.io/job/cilium-ginkgo/job/cilium/>`__ to be tested on
     every change and Nightly.
 
+
+Backporting process
+~~~~~~~~~~~~~~~~~~~
+
+Cilium PRs that are marked with label ``stable/needs-backporting`` need to be backported to the stable branch(es), listed below. Following steps summarize the process.
+
+1. Make sure the Github labels are up-to-date, as this process will
+   deal with all commits from PRs that have the
+   ``stable/needs-backporting`` set.
+2. The scripts referred to below need to be run in Linux, they do not
+   work on OSX.  You can use the cilium dev VM for this, but you need
+   to configure git to have your name and email address to be used in
+   the commit messages:
+
+.. code-block:: bash
+
+        $ git config --global user.name "John Doe"
+        $ git config --global user.email johndoe@example.com
+
+3. Make sure you have your a GitHub developer access token
+   available. For details, see `contrib/backporting/README.md
+   <https://github.com/cilium/cilium/blob/master/contrib/backporting/README.md>`_
+4. Fetch the repo, e.g., ``git fetch``
+5. Check out the stable branch you are backporting to, e.g., ``git
+   checkout v1.0``
+6. Create a new branch for your backports, e.g., ``git branch
+   stable-backports-YY-MM-DD``
+7. Check out your backports branch, e.g., ``git checkout stable-backports-YY-MM-DD``
+8. Run the ``check-stable`` script, referring to your Github access
+   token, this will list the commits that need backporting, from the
+   newest to oldest:
+
+.. code-block:: bash
+
+        $ GITHUB_TOKEN=xxx contrib/backporting/check-stable
+
+9. Cherry-pick the commits using the master git SHAs listed, starting
+   from the oldest (bottom), working your way up and fixing any merge
+   conflicts as they appear. Note that for PRs that have multiple
+   commits you will want to check that you are cherry-picking oldest
+   commits first.
+
+.. code-block:: bash
+
+        $ contrib/backporting/cherry-pick <oldest-commit-sha>
+        ...
+        $ contrib/backporting/cherry-pick <newest-commit-sha>
+
+10. Push your backports branch to cilium repo, e.g., ``git push -u
+    origin stable-backports-YY-MM-DD``
+11. In Github, create a new PR from you branch towards the feature
+    branch you are backporting to. Note that by default Github creates
+    PRs against the master branch, so you will need to change it.
+
+Stable branches
+~~~~~~~~~~~~~~~
+- `v1.0 <https://github.com/cilium/cilium/tree/v1.0>`__
+
 Developer's Certificate of Origin
 ---------------------------------
 
