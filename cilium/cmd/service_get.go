@@ -41,6 +41,9 @@ var serviceGetCmd = &cobra.Command{
 		if err != nil {
 			Fatalf("Cannot get service '%v': %s\n", id, err)
 		}
+		if svc.Status == nil || svc.Status.Realized == nil {
+			Fatalf("Cannot get service '%v': empty response\n", id)
+		}
 
 		slice := []string{}
 		for _, be := range svc.Status.Realized.BackendAddresses {

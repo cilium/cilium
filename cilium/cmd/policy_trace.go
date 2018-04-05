@@ -216,7 +216,13 @@ func appendEpLabelsToSlice(labelSlice []string, epID string) []string {
 	if err != nil {
 		Fatalf("Cannot get endpoint corresponding to identifier %s: %s\n", epID, err)
 	}
-	return append(labelSlice, ep.Status.Identity.Labels...)
+
+	lbls := []string{}
+	if ep.Status != nil && ep.Status.Identity != nil && ep.Status.Identity.Labels != nil {
+		lbls = ep.Status.Identity.Labels
+	}
+
+	return append(labelSlice, lbls...)
 }
 
 func parseLabels(slice []string) ([]string, error) {
