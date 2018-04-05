@@ -2,6 +2,29 @@
 NEWS
 ******
 
+v1.0.0-rc10
+===========
+
+Bugfixes Changes
+----------------
+
+* policymap: Avoid using golang arrays in entry (3506_, @joestringer)
+* etcd: Run etcd version check in the background (3499_, @tgraf)
+* Test: Fix bugtool on kubernetes 1.7 (3487_, @eloycoto)
+* Fix L4-only policy egress to world and CIDR-only egress to world (3486_, @joestringer)
+* proxy: Use the same proxy map size as in BPF (3485_, @rlenglet)
+* bpf: Do not route packets from egress proxy back into cilium_host (3473_, @tgraf)
+* Continue to show timestamps in error cases in CiliumNetworkPolicy NodeStatus. (3461_, @aanm)
+* policy: Add missing EntitySlice autogen code (3458_, @raybejjani)
+* Fix l3-dependent L4/L7 rules applying to CIDR egress traffic (3434_, @joestringer)
+
+Other Changes
+-------------
+
+* bugtool: add `ip rule` and `cilium-health status` commands (3500_, @ianvernon)
+* Policy: Kafka multi-topic request support (3445_, @manalibhutiyani)
+
+
 v1.0.0-rc9
 ==========
 
@@ -1344,3 +1367,14 @@ Fixes
 .. _3238: https://github.com/cilium/cilium/pull/3238
 .. _3234: https://github.com/cilium/cilium/pull/3234
 .. _3037: https://github.com/cilium/cilium/pull/3037
+.. _3506: https://github.com/cilium/cilium/pull/3506
+.. _3499: https://github.com/cilium/cilium/pull/3499
+.. _3487: https://github.com/cilium/cilium/pull/3487
+.. _3486: https://github.com/cilium/cilium/pull/3486
+.. _3485: https://github.com/cilium/cilium/pull/3485
+.. _3473: https://github.com/cilium/cilium/pull/3473
+.. _3461: https://github.com/cilium/cilium/pull/3461
+.. _3458: https://github.com/cilium/cilium/pull/3458
+.. _3434: https://github.com/cilium/cilium/pull/3434
+.. _3500: https://github.com/cilium/cilium/pull/3500
+.. _3445: https://github.com/cilium/cilium/pull/3445
