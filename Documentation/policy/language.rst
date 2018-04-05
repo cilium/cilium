@@ -561,13 +561,13 @@ Role
 
 APIKey
   APIKey is a case-insensitive string matched against the key of a request,
-  e.g. "produce", "fetch", "createtopic", "deletetopic", et al Reference:
-  https://kafka.apache.org/protocol#protocol_api_keys. If omitted or empty,
-  and if Role is not specified, then all keys are allowed.
+  for example "produce", "fetch", "createtopic", "deletetopic". For a more
+  extensive list, see the `Kafka protocol reference <https://kafka.apache.org/protocol#protocol_api_keys>`_.
+  This field is incompatible with the Role field.
 
 APIVersion
   APIVersion is the version matched against the api version of the Kafka
-  message. If set, it has to be a string representing a positive integer. If
+  message. If set, it must be a string representing a positive integer. If
   omitted or empty, all versions are allowed.
 
 ClientID
@@ -585,20 +585,17 @@ ClientID
 
 Topic
   Topic is the topic name contained in the message. If a Kafka request contains
-  multiple topics, then all topics must be allowed or the message will be
-  rejected.
+  multiple topics, then all topics in the message must be allowed by the policy
+  or the message will be rejected.
 
   This constraint is ignored if the matched request message type doesn't
-  contain any topic. Maximum size of Topic can be 249 characters as per recent
-  Kafka spec and allowed characters are a-z, A-Z, 0-9, -, . and _ Older Kafka
-  versions had longer topic lengths of 255, but in Kafka 0.10 version the
-  length was changed from 255 to 249. For compatibility reasons we are using
-  255
+  contain any topic. The maximum length of the Topic is 249 characters,
+  which must be either ``a-z``, ``A-Z``, ``0-9``, ``-``, ``.`` or ``_``.
 
   If omitted or empty, all topics are allowed.
 
-Only allow producing to topic empire-announce using Role
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Allow producing to topic empire-announce using Role
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. only:: html
 
@@ -614,8 +611,8 @@ Only allow producing to topic empire-announce using Role
 
         .. literalinclude:: ../../examples/policies/l7/kafka/kafka-role.json
 
-Only allow producing to topic empire-announce using apiKeys
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Allow producing to topic empire-announce using apiKeys
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. only:: html
 
