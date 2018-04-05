@@ -72,10 +72,15 @@ func updateService(cmd *cobra.Command, args []string) {
 
 	var spec *models.ServiceSpec
 	svc, err := client.GetServiceID(id)
-	if err == nil {
+	switch {
+	case err == nil && (svc.Status == nil || svc.Status.Realized == nil):
+		Fatalf("Cannot update service %d: empty state", id)
+
+	case err == nil:
 		spec = svc.Status.Realized
 		fmt.Printf("Updating existing service with id '%v'\n", id)
-	} else {
+
+	default:
 		spec = &models.ServiceSpec{ID: id}
 		fmt.Printf("Creating new service with id '%v'\n", id)
 	}

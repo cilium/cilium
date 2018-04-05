@@ -36,6 +36,11 @@ var serviceDeleteCmd = &cobra.Command{
 			}
 
 			for _, svc := range list {
+				if svc.Status == nil || svc.Status.Realized == nil {
+					log.Error("Skipping service due to empty state")
+					continue
+				}
+
 				if err := client.DeleteServiceID(svc.Status.Realized.ID); err != nil {
 					log.WithError(err).WithField(logfields.ServiceID, svc.Status.Realized.ID).Error("Cannot delete service")
 				}
