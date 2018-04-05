@@ -49,9 +49,13 @@ var endpointLabelsCmd = &cobra.Command{
 			}
 		}
 
-		if lbls, err := client.EndpointLabelsGet(id); err != nil {
+		lbls, err := client.EndpointLabelsGet(id)
+		switch {
+		case err != nil:
 			Fatalf("Cannot get endpoint labels: %s", err)
-		} else {
+		case lbls == nil || lbls.Status == nil:
+			Fatalf("Cannot get endpoint labels: empty response")
+		default:
 			printEndpointLabels(labels.NewOplabelsFromModel(lbls.Status))
 		}
 	},

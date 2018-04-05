@@ -39,6 +39,10 @@ func setupKvstore() {
 		if err != nil {
 			Fatalf("Unable to retrieve cilium configuration: %s", err)
 		}
+		if resp.Status == nil {
+			Fatalf("Unable to retrieve cilium configuration: empty response")
+		}
+
 		cfgStatus := resp.Status
 
 		if kvStore == "" {
