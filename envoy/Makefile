@@ -27,6 +27,11 @@ CLANG_FORMAT ?= clang-format
 BUILDIFIER ?= buildifier
 STRIP ?= strip
 
+ifdef CILIUM_DISABLE_ENVOY_BUILD
+all install clean:
+	echo "Envoy build is disabled by environment variable CILIUM_DISABLE_ENVOY_BUILD"
+else
+
 # Dockerfile builds require special options
 ifdef PKG_BUILD
 BAZEL_OPTS ?= --batch
@@ -48,13 +53,16 @@ api: force-non-root Makefile.api
 
 envoy: force-non-root
 	@$(ECHO_BAZEL)
+	-rm -f bazel-out/k8-fastbuild/bin/_objs/envoy/external/envoy/source/common/common/version_linkstamp.o
 	$(BAZEL) $(BAZEL_OPTS) build $(BAZEL_BUILD_OPTS) //:envoy
 
 # Allow root build for release
 $(ENVOY_BIN) envoy-release: force
+	-rm -f bazel-out/k8-opt/bin/_objs/envoy/external/envoy/source/common/common/version_linkstamp.o
 	$(BAZEL) $(BAZEL_OPTS) build $(BAZEL_BUILD_OPTS) -c opt //:envoy
 
 envoy-debug: force-non-root
+	-rm -f bazel-out/k8-dbg/bin/_objs/envoy/external/envoy/source/common/common/version_linkstamp.o
 	$(BAZEL) $(BAZEL_OPTS) build $(BAZEL_BUILD_OPTS) -c dbg //:envoy
 
 $(CHECK_FORMAT): force-non-root
@@ -122,4 +130,6 @@ endif
 force-non-root:
 ifeq ($(USER),root)
 	$(error This target cannot be run as root!)
+endif
+
 endif

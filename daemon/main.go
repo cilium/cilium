@@ -346,6 +346,10 @@ func init() {
 	flags.BoolVar(&useEnvoy,
 		"envoy-proxy", true, "This flag is deprecated and will be removed in the next release")
 	flags.MarkHidden("envoy-proxy")
+	flags.Bool("disable-envoy-version-check", false, "Do not perform Envoy binary version check on startup")
+	flags.MarkHidden("disable-envoy-version-check")
+	// Disable version check if Envoy build is disabled
+	viper.BindEnv("disable-envoy-version-check", "CILIUM_DISABLE_ENVOY_BUILD")
 	flags.IntVar(&v4ClusterCidrMaskSize,
 		"ipv4-cluster-cidr-mask-size", 8, "Mask size for the cluster wide CIDR")
 	flags.StringVar(&v4Prefix,
@@ -515,16 +519,20 @@ func initEnv(cmd *cobra.Command) {
 	log.Info("|___|_|_|_|___|_|_|_|")
 	log.Infof("Cilium %s", version.Version)
 
-	envoyVersion := envoy.GetEnvoyVersion()
-	log.Infof("%s", envoyVersion)
+	if viper.GetBool("disable-envoy-version-check") {
+		log.Info("Envoy version check disabled")
+	} else {
+		envoyVersion := envoy.GetEnvoyVersion()
+		log.Infof("%s", envoyVersion)
 
-	envoyVersionArray := strings.Fields(envoyVersion)
-	if len(envoyVersionArray) < 3 {
-		log.Fatal("Truncated Envoy version string, cannot verify version match.")
-	}
-	// Make sure Envoy version matches ours
-	if !strings.HasPrefix(envoyVersionArray[2], version.GetCiliumVersion().Revision) {
-		log.Warn("Envoy version mismatch, aborting.")
+		envoyVersionArray := strings.Fields(envoyVersion)
+		if len(envoyVersionArray) < 3 {
+			log.Fatal("Truncated Envoy version string, cannot verify version match.")
+		}
+		// Make sure Envoy version matches ours
+		if !strings.HasPrefix(envoyVersionArray[2], version.GetCiliumVersion().Revision) {
+			log.Fatal("Envoy version mismatch, aborting.")
+		}
 	}
 
 	if viper.GetBool("pprof") {
