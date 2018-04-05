@@ -112,6 +112,11 @@ static inline int map_lxc_out(struct __sk_buff *skb, int l4_off, __u8 nexthdr)
 }
 #endif /* DISABLE_PORT_MAP */
 
+static inline bool redirect_to_proxy(int verdict)
+{
+	return verdict > 0;
+}
+
 static inline int ipv6_l3_from_lxc(struct __sk_buff *skb,
 				   struct ipv6_ct_tuple *tuple, int l3_off,
 				   struct ethhdr *eth, struct ipv6hdr *ip6)
@@ -226,7 +231,6 @@ skip_service_lookup:
 		ret = ct_create6(&CT_MAP6, tuple, skb, CT_EGRESS, &ct_state_new);
 		if (IS_ERR(ret))
 			return ret;
-		ct_state.proxy_port = ct_state_new.proxy_port;
 		break;
 
 	case CT_ESTABLISHED:
@@ -252,14 +256,14 @@ skip_service_lookup:
 		return DROP_POLICY;
 	}
 
-	if (ct_state.proxy_port) {
+	if (redirect_to_proxy(verdict)) {
 		union macaddr host_mac = HOST_IFINDEX_MAC;
 		union v6addr host_ip = {};
 
 		BPF_V6(host_ip, HOST_IP);
 
 		ret = ipv6_redirect_to_host_port(skb, &csum_off, l4_off,
-						 ct_state.proxy_port, tuple->dport,
+						 verdict, tuple->dport,
 						 orig_dip, tuple, &host_ip, SECLABEL,
 						 forwarding_reason);
 		if (IS_ERR(ret))
@@ -530,8 +534,6 @@ skip_service_lookup:
 		ret = ct_create4(&CT_MAP4, &tuple, skb, CT_EGRESS, &ct_state_new);
 		if (IS_ERR(ret))
 			return ret;
-
-		ct_state.proxy_port = ct_state_new.proxy_port;
 		break;
 
 	case CT_ESTABLISHED:
@@ -553,11 +555,11 @@ skip_service_lookup:
 		return DROP_POLICY;
 	}
 
-	if (ct_state.proxy_port) {
+	if (redirect_to_proxy(verdict)) {
 		union macaddr host_mac = HOST_IFINDEX_MAC;
 
 		ret = ipv4_redirect_to_host_port(skb, &csum_off, l4_off,
-						 ct_state.proxy_port, tuple.dport,
+						 verdict, tuple.dport,
 						 orig_dip, &tuple, SECLABEL, forwarding_reason);
 		if (IS_ERR(ret))
 			return ret;
@@ -813,19 +815,21 @@ static inline int __inline__ ipv6_policy(struct __sk_buff *skb, int ifindex, __u
 	 * permitted by policy */
 	if (ret != CT_REPLY && ret != CT_RELATED && verdict < 0)
 		return DROP_POLICY;
+	if (skip_proxy)
+		verdict = 0;
 
 	if (ret == CT_NEW) {
-		ct_state_new.proxy_port = skip_proxy ? 0 : verdict;
+		ct_state_new.proxy_port = verdict;
 		ct_state_new.orig_dport = tuple.dport;
 		ct_state_new.src_sec_id = src_label;
 		ret = ct_create6(&CT_MAP6, &tuple, skb, CT_INGRESS, &ct_state_new);
 		if (IS_ERR(ret))
 			return ret;
 
-		ct_state.proxy_port = ct_state_new.proxy_port;
+		/* NOTE: tuple has been invalidated after this */
 	}
 
-	if (ct_state.proxy_port && (ret == CT_NEW || ret == CT_ESTABLISHED)) {
+	if (redirect_to_proxy(verdict) && (ret == CT_NEW || ret == CT_ESTABLISHED)) {
 		union macaddr host_mac = HOST_IFINDEX_MAC;
 		union macaddr router_mac = NODE_MAC;
 		union v6addr host_ip = {};
@@ -833,7 +837,7 @@ static inline int __inline__ ipv6_policy(struct __sk_buff *skb, int ifindex, __u
 		BPF_V6(host_ip, HOST_IP);
 
 		ret = ipv6_redirect_to_host_port(skb, &csum_off, l4_off,
-						 ct_state.proxy_port, tuple.dport,
+						 verdict, tuple.dport,
 						 orig_dip, &tuple, &host_ip, src_label,
 						 *forwarding_reason);
 		if (IS_ERR(ret))
@@ -915,9 +919,11 @@ static inline int __inline__ ipv4_policy(struct __sk_buff *skb, int ifindex, __u
 	 * permitted by policy */
 	if (ret != CT_REPLY && ret != CT_RELATED && verdict < 0)
 		return DROP_POLICY;
+	if (skip_proxy)
+		verdict = 0;
 
 	if (ret == CT_NEW) {
-		ct_state_new.proxy_port = skip_proxy ? 0 : verdict;
+		ct_state_new.proxy_port = verdict;
 		ct_state_new.orig_dport = tuple.dport;
 		ct_state_new.src_sec_id = src_label;
 		ret = ct_create4(&CT_MAP4, &tuple, skb, CT_INGRESS, &ct_state_new);
@@ -925,16 +931,14 @@ static inline int __inline__ ipv4_policy(struct __sk_buff *skb, int ifindex, __u
 			return ret;
 
 		/* NOTE: tuple has been invalidated after this */
-
-		ct_state.proxy_port = ct_state_new.proxy_port;
 	}
 
-	if (ct_state.proxy_port && (ret == CT_NEW || ret == CT_ESTABLISHED)) {
+	if (redirect_to_proxy(verdict) && (ret == CT_NEW || ret == CT_ESTABLISHED)) {
 		union macaddr host_mac = HOST_IFINDEX_MAC;
 		union macaddr router_mac = NODE_MAC;
 
 		ret = ipv4_redirect_to_host_port(skb, &csum_off, l4_off,
-						 ct_state.proxy_port, tuple.dport,
+						 verdict, tuple.dport,
 						 orig_dip, &tuple, src_label, *forwarding_reason);
 		if (IS_ERR(ret))
 			return ret;
