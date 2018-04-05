@@ -4,7 +4,7 @@ Layer 3 Examples
 ================
 
 The layer 3 policy establishes the base connectivity rules regarding which endpoints
-can talk to each other. Layer 3 policies can be specified using two methods:
+can talk to each other. Layer 3 policies can be specified using the following methods:
 
 * `Labels based`: This is used to describe the relationship if both endpoints
   are managed by Cilium and are thus assigned labels. The big advantage of this
@@ -19,9 +19,9 @@ can talk to each other. Layer 3 policies can be specified using two methods:
   destination endpoint is not controlled by Cilium.
 
 * `Entities based`: Entities are used to describe remote peers which can be
-   categorized without knowing their IP addresses. This includes connectivity
-   to the local host serving the endpoints or all connectivity to outside of
-   the cluster. Future versions will allow to define your own entities.
+  categorized without knowing their IP addresses. This includes connectivity
+  to the local host serving the endpoints or all connectivity to outside of
+  the cluster. Future versions will allow to define your own entities.
 
 * `CIDR based`: This is used to describe the relationship to or from external
   services if the remote peer is not an endpoint. This requires to hardcode either
@@ -65,7 +65,7 @@ Ingress Allow All
 ~~~~~~~~~~~~~~~~~
 
 An empty `EndpointSelector` will select all endpoints, thus writing a rule that will allow
-all ingress traffic to an endpoint is simple:
+all ingress traffic to an endpoint may be done as follows:
 
 .. only:: html
 
@@ -146,16 +146,21 @@ be only accessible if the source endpoint also has the label ``env=prod``.
 Services based
 --------------
 
-Services running in your cluster can be whitelisted in Egress rules. Currently
-headless Kubernetes services defined by their name and namespace or label selector
-are supported. More documentation on `HeadlessServices`.
-Future versions of Cilium will support specifying non Kubernetes services and services
-which are backed by pods.
+Services running in your cluster can be whitelisted in Egress rules.
+Currently Kubernetes `Services without a Selector
+<https://kubernetes.io/docs/concepts/services-networking/service/#services-without-selectors>`_
+are supported when defined by their name and namespace or label selector.
+Future versions of Cilium will support specifying non-Kubernetes services
+and Kubernetes services which are backed by pods.
 
 This example shows how to allow all endpoints with the label ``id=app2``
 to talk to all endpoints of kubernetes service ``myservice`` in kubernetes
-namespace ``default``. Note that ``myservice`` needs to be a headless service
-for this policy to take effect.
+namespace ``default``.
+
+.. note::
+
+	These rules will only take effect on Kubernetes services without a
+	selector.
 
 .. only:: html
 
@@ -206,7 +211,6 @@ host
     the host of other Cilium cluster nodes.
 world
     All traffic outside of the cluster.
-
 all
     All traffic both within the cluster and outside of the cluster.
 
@@ -268,41 +272,40 @@ typically external services, VMs or metal machines running in particular
 subnets. CIDR policy can also be used to limit access to external services, for
 example to limit external access to a particular IP range.
 
-CIDR policies can be applied at ingress or egress. On Ingress:
+CIDR policies can be applied at ingress or egress. If you already allow
+communication with endpoints using ``fromEndpoints`` or ``toEndpoints``, then
+you do not need to also add their IPs using CIDR-based policy.
+
+Ingress
+~~~~~~~
 
 fromCIDR
   List of source prefixes/CIDRs that are allowed to talk to all endpoints
-  selected by the ``endpointSelector``. It is not required to allow the IPs of
-  endpoints if the endpoints are already allowed to communicate based on
-  ``fromEndpoints`` rules.
+  selected by the ``endpointSelector``.
 
 fromCIDRSet
   List of source prefixes/CIDRs that are allowed to talk to all endpoints
   selected by the ``endpointSelector``, along with an optional list of
   prefixes/CIDRs per source prefix/CIDR that are subnets of the source
-  prefix/CIDR from which communication is not allowed. Like ``fromCIDR``
-  it is not required to list the IPs of endpoints if the endpoints are
-  already allowed to communicate based on ``fromEndpoints`` rules.
+  prefix/CIDR from which communication is not allowed.
 
-On Egress:
+Egress
+~~~~~~
 
-toCIDR:
+toCIDR
   List of destination prefixes/CIDRs that endpoints selected by
   ``endpointSelector`` are allowed to talk to. Note that endpoints which are
   selected by a ``fromEndpoints`` are automatically allowed to talk to their
-  respective destination endpoints. It is not required to list the IP of
-  destination endpoints.
+  respective destination endpoints.
 
 toCIDRSet
   List of destination prefixes/CIDRs that are allowed to talk to all endpoints
   selected by the ``endpointSelector``, along with an optional list of
   prefixes/CIDRs per source prefix/CIDR that are subnets of the destination
-  prefix/CIDR to which communication is not allowed. Like toCIDR, it is not
-  required to list the IPs of destination endpoints if they are already
-  selected by a ``fromEndpoints``.
+  prefix/CIDR to which communication is not allowed.
 
-Restrict to external CIDR block
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Allow to external CIDR block
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 This example shows how to allow all endpoints with the label ``app=myService``
 to talk to the external IP ``20.1.1.1``, as well as the CIDR prefix ``10.0.0.0/8``,
