@@ -2,6 +2,8 @@
 
 #include <string>
 
+#include "absl/types/optional.h"
+
 #include "envoy/stats/stats_macros.h"
 
 #include "common/common/logger.h"
@@ -38,7 +40,8 @@ struct FilterStats {
 class Config : public Logger::Loggable<Logger::Id::filter> {
 public:
   Config(const std::string& policy_name, const std::string& access_log_path,
-	 const std::string& denied_403_body, Server::Configuration::FactoryContext& context);
+	 const std::string& denied_403_body, const absl::optional<bool>& is_ingress,
+	 Server::Configuration::FactoryContext& context);
   Config(const Json::Object &config, Server::Configuration::FactoryContext& context);
   Config(const ::cilium::L7Policy &config, Server::Configuration::FactoryContext& context);
   ~Config();
@@ -49,6 +52,7 @@ public:
   const std::string policy_name_;
   std::shared_ptr<const Cilium::NetworkPolicyMap> npmap_;
   std::string denied_403_body_;
+  absl::optional<bool> is_ingress_;
 
 private:
   AccessLog *access_log_;
