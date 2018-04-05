@@ -616,7 +616,7 @@ defined in a `Describe or Context
 <https://onsi.github.io/ginkgo/#organizing-specs-with-containers-describe-and-context>`_.
 This method is used for tearing down objects created which are used by all
 ``Its`` within the given ``Context`` or ``Describe``. It is ran after all Its
-have ran, this method is a equivalent to `tearDown` or `finalize` methods in
+have ran, this method is a equivalent to ``tearDown`` or ``finalize`` methods in
 common unit test frameworks.
 
 A good use case for using ``AfterAll`` method is to remove containers or pods
