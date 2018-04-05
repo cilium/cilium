@@ -275,7 +275,6 @@ LPM_LOOKUP_FN(lpm4_egress_lookup, __be32, CIDR4_EGRESS_PREFIXES,
 #endif
 #endif /* POLICY_INGRESS || POLICY_EGRESS */
 
-#if defined POLICY_EGRESS && defined LXC_ID
 /* Global IP -> Identity map for applying egress label-based policy */
 struct bpf_elf_map __section_maps cilium_ipcache = {
 	.type		= BPF_MAP_TYPE_HASH,
@@ -284,7 +283,6 @@ struct bpf_elf_map __section_maps cilium_ipcache = {
 	.pinning	= PIN_GLOBAL_NS,
 	.max_elem	= IPCACHE_MAP_SIZE,
 };
-#endif
 
 #ifndef SKIP_CALLS_MAP
 static __always_inline void ep_tail_call(struct __sk_buff *skb, uint32_t index)
