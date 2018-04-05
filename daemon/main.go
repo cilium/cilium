@@ -109,7 +109,6 @@ var (
 	singleClusterRoute    bool
 	socketPath            string
 	tracePayloadLen       int
-	useEnvoy              bool // deprecated, value is ignored
 	v4Address             string
 	v4ClusterCidrMaskSize int
 	v4Prefix              string
@@ -343,9 +342,6 @@ func init() {
 	flags.String("envoy-log", "", "Path to a separate Envoy log file, if any")
 	flags.String("http-403-msg", "", "Message returned in proxy L7 403 body")
 	flags.MarkHidden("http-403-msg")
-	flags.BoolVar(&useEnvoy,
-		"envoy-proxy", true, "This flag is deprecated and will be removed in the next release")
-	flags.MarkHidden("envoy-proxy")
 	flags.Bool("disable-envoy-version-check", false, "Do not perform Envoy binary version check on startup")
 	flags.MarkHidden("disable-envoy-version-check")
 	// Disable version check if Envoy build is disabled
