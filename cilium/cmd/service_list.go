@@ -69,6 +69,11 @@ func printServiceList(w *tabwriter.Writer, list []*models.Service) {
 	svcs := []ServiceOutput{}
 
 	for _, svc := range list {
+		if svc.Status == nil || svc.Status.Realized == nil {
+			fmt.Fprint(os.Stderr, "error parsing svc: empty state")
+			continue
+		}
+
 		feA, err := types.NewL3n4AddrFromModel(svc.Status.Realized.FrontendAddress)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "error parsing frontend %+v", svc.Status.Realized.FrontendAddress)

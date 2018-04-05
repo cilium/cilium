@@ -89,7 +89,7 @@ func runDebugInfo(cmd *cobra.Command, args []string) {
 		printList(w, "Endpoint Get "+epID, "endpoint", "get", epID)
 		printList(w, "Endpoint Log "+epID, "endpoint", "log", epID)
 
-		if ep.Status.Identity != nil {
+		if ep.Status != nil && ep.Status.Identity != nil {
 			id := strconv.FormatInt(ep.Status.Identity.ID, 10)
 			printList(w, "Identity get "+id, "identity", "get", id)
 		}

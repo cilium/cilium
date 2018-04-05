@@ -59,6 +59,9 @@ func configDaemon(cmd *cobra.Command, opts []string) {
 	if err != nil {
 		Fatalf("Error while retrieving configuration: %s", err)
 	}
+	if resp.Status == nil {
+		Fatalf("Empty configuration status returned")
+	}
 
 	cfgStatus := resp.Status
 	if numPages > 0 {
