@@ -235,6 +235,10 @@ func (s *SSHMeta) WaitEndpointsReady() bool {
 		cmd := fmt.Sprintf(`cilium endpoint list -o jsonpath='%s'`, filter)
 
 		res := s.Exec(cmd)
+		if !res.WasSuccessful() {
+			logger.Infof("Cannot get endpoint list: %s", res.CombineOutput())
+			return false
+		}
 		values := res.KVOutput()
 		total := len(values)
 
