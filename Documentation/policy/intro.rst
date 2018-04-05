@@ -1,11 +1,13 @@
 .. _policy_guide:
 
+.. _policy_enforcement_modes:
+
 Policy Enforcement Modes
 ========================
 
 Whether an endpoint accepts traffic from source is dependent upon the
-configuration of the agent and the policy. The agent can be put into the
-following three policy enforcement modes:
+configuration of the agent and the policy. The agent or specific endpoints
+can be put into the following three policy enforcement modes:
 
 default
   This is the behavior for policy enforcement when Cilium is launched without
@@ -31,7 +33,7 @@ never
   rules do select specific endpoints. In other words, all traffic is allowed
   from any source (on ingress) or destination (on egress).
 
-Policy enforcement is configurable at runtime by running:
+Policy enforcement for all endpoints is configurable at runtime by running:
 
 .. code:: bash
 
@@ -44,6 +46,14 @@ daemon:
 .. code:: bash
 
     $ cilium-agent --enable-policy={default,always,never} [...]
+
+If there is only a specific endpoint that you want to put into a particular
+enforcement mode, you can do that with the following command, using an ID
+from ``cilium endpoint list``:
+
+.. code:: bash
+
+    $ cilium endpoint config <ID> PolicyEnforcement={default,always,never}
 
 .. _policy_rule:
 
