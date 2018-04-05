@@ -60,13 +60,21 @@ from ``cilium endpoint list``:
 Rule Basics
 ===========
 
-All policy rules share a common base type which specifies what endpoints the
-rule applies to and also carries common metadata to identify the rule.
+All policy rules are based upon a whitelist model, that is, each rule in the
+policy allows traffic that matches the rule. If two rules exist, and one
+would match a broader set of traffic, then all traffic matching the broader
+rule will be allowed. If there is an intersection between two or more rules,
+then traffic matching the union of those rules will be allowed. Finally, if
+traffic does not match any of the rules, it will be dropped persuant to the
+`policy_enforcement_modes`.
 
-Each rule is split into an ingress section which contains the rules which must
-be applied at ingress and egress of all endpoints matching the endpoint
-selector. Either ingress, egress, or both can be provided. If both ingress and
-egress are omitted, the rule has no effect.
+Policy rules share a common base type which specifies which endpoints the
+rule applies to and common metadata to identify the rule. Each rule is split
+into an ingress section and an egress section. The ingress section contains
+the rules which must be applied to traffic entering the endpoint, and the
+egress section contains rules applied to traffic coming from the endpoint
+matching the endpoint selector. Either ingress, egress, or both can be
+provided. If both ingress and egress are omitted, the rule has no effect.
 
 .. code-block:: go
 
