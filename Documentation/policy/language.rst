@@ -337,13 +337,14 @@ Layer 4 policy can be specified in addition to layer 3 policies or independently
 It restricts the ability of an endpoint to emit and/or receive packets on a
 particular port using a particular protocol. If no layer 4 policy is specified
 for an endpoint, the endpoint is allowed to send and receive on all layer 4
-ports and protocols. Layer 4 policies apply to ports after service port mapping
-has been applied.
+ports and protocols including ICMP. If any layer 4 policy is specified, then
+ICMP will be blocked unless it's related to a connection that is otherwise
+allowed by the policy. Layer 4 policies apply to ports after service port
+mapping has been applied.
 
 Layer 4 policy can be specified at both ingress and egress using the
-``toPorts`` field:
-
-The ``toPorts`` field takes a ``PortProtocol`` structure which is defined as follows:
+``toPorts`` field. The ``toPorts`` field takes a ``PortProtocol`` structure
+which is defined as follows:
 
 .. code-block:: go
 
@@ -363,14 +364,11 @@ The ``toPorts`` field takes a ``PortProtocol`` structure which is defined as fol
                 Protocol string `json:"protocol,omitempty"`
         }
 
-.. note:: There is currently a max limit of 40 ports per endpoint. This might
-          change in the future when support for ranges is added.
-
 Example (L4)
 ~~~~~~~~~~~~
 
 The following rule limits all endpoints with the label ``app=myService`` to
-only be able to emit packets using TCP on port 80:
+only be able to emit packets using TCP on port 80, to any layer 3 destination:
 
 .. only:: html
 
@@ -386,12 +384,15 @@ only be able to emit packets using TCP on port 80:
 
         .. literalinclude:: ../../examples/policies/l4/l4.json
 
-Labels dependent Layer 4 rule
+Labels-dependent Layer 4 rule
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 This example enables all endpoints with the label ``role=frontend`` to
 communicate with all endpoints with the label ``role=backend``, but they must
-communicate using using TCP on port 80:
+communicate using TCP on port 80. Endpoints with other labels will not be
+able to communicate with the endpoints with the label ``role=backend``, and
+endpoints with the label ``role=frontend`` will not be able to communicate with
+``role=backend`` on ports other than 80.
 
 .. only:: html
 
@@ -414,21 +415,7 @@ Layer 7 policy rules are embedded into `l4_policy` rules and can be specified
 for ingress and egress. ``L7Rules`` structure is a base type containing an
 enumeration of protocol specific fields.
 
-The structure is implemented as a union, i.e. only one member field can be used
-per port. If multiple ``toPorts`` rules with identical ``PortProtocol`` select
-an overlapping list of endpoints, then the Layer 7 rules are combined together
-if they are of the same type. If the type differs, the policy is rejected.
-
-Each member consists of a list of application protocol rules. An Layer 7
-request is permitted if at least one of the rules matches. If no rules are
-specified, then all traffic is permitted.
-
-
-.. note:: Layer 7 rules can currently not be made dependent on layer 3 and 4
-          rules. This feature is currently being added to the respective
-          datapath components.
-
-::
+.. code-block:: go
 
         // L7Rules is a union of port level rule types. Mixing of different port
         // level rule types is disallowed, so exactly one of the following must be set.
@@ -445,11 +432,28 @@ specified, then all traffic is permitted.
                 Kafka []PortRuleKafka `json:"kafka,omitempty"`
         }
 
-.. note:: Unlike Layer 3 and Layer 4 policies, violation of Layer 7 rules does
+The structure is implemented as a union, i.e. only one member field can be used
+per port. If multiple ``toPorts`` rules with identical ``PortProtocol`` select
+an overlapping list of endpoints, then the layer 7 rules are combined together
+if they are of the same type. If the type differs, the policy is rejected.
+
+Each member consists of a list of application protocol rules. A layer 7
+request is permitted if at least one of the rules matches. If no rules are
+specified, then all traffic is permitted.
+
+If a layer 4 rule is specified in the policy, and a similar layer 4 rule
+with layer 7 rules is also specified, then the layer 7 portions of the
+latter rule will have no effect.
+
+.. note:: Unlike layer 3 and layer 4 policies, violation of layer 7 rules does
           not result in packet drops. Instead, if possible, an application
           protocol specific access denied message is crafted and returned, e.g.
           an *HTTP 403 access denied* is sent back for HTTP requests which
           violate the policy.
+
+.. note:: There is currently a max limit of 40 ports with layer 7 policies per
+          endpoint. This might change in the future when support for ranges is
+          added.
 
 HTTP
 ----
@@ -478,6 +482,11 @@ Headers
 
 Allow GET /public
 ~~~~~~~~~~~~~~~~~
+
+The following example allows ``GET`` requests to the URL ``/public`` to be
+allowed to endpoints with the labels ``env:prod``, but requests to any other
+URL, or using another method, will be rejected. Requests on ports other than
+port 80 will be dropped.
 
 .. only:: html
 
