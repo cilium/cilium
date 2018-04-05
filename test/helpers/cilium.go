@@ -607,19 +607,30 @@ func (s *SSHMeta) PolicyWait(revisionNum int) *CmdRes {
 func (s *SSHMeta) ReportFailed(commands ...string) {
 	if config.CiliumTestConfig.HoldEnvironment {
 		ginkgoext.GinkgoPrint("Skipped gathering logs (-cilium.holdEnvironment=true)\n")
-		return
+		return false
 	}
 
 	// Log the following line to both the log file, and to console to delineate
 	// when log gathering begins.
 	ginkgoext.GinkgoPrint("===================== TEST FAILED =====================")
-	res := s.ExecCilium("endpoint list") // save the output in the logs
-	ginkgoext.GinkgoPrint(res.GetDebugMessage())
 
 	for _, cmd := range commands {
 		res = s.ExecWithSudo(fmt.Sprintf("%s", cmd))
 		ginkgoext.GinkgoPrint(res.GetDebugMessage())
 	}
+
+	return true
+}
+
+// ReportFailed gathers relevant Cilium runtime data and logs for debugging
+// purposes.
+func (s *SSHMeta) ReportFailed(commands ...string) {
+	if !s.reportFailed(commands...) {
+		return
+	}
+
+	res := s.ExecCilium("endpoint list")
+	ginkgoext.GinkgoPrint(res.GetDebugMessage())
 
 	s.DumpCiliumCommandOutput()
 	s.GatherLogs()
@@ -628,6 +639,15 @@ func (s *SSHMeta) ReportFailed(commands ...string) {
 	// Log the following line to both the log file, and to console to delineate
 	// when log gathering begins.
 	ginkgoext.GinkgoPrint("===================== EXITING REPORT GENERATION =====================")
+}
+
+// ReportFailedWithoutCilium gathers the specified logs, and does not gather
+// cilium logs (useful if, for instance, cilium is not running at the time)
+func (s *SSHMeta) ReportFailedWithoutCilium(commands ...string) {
+	if !s.reportFailed(commands...) {
+		return
+	}
+	ginkgoext.GinkgoPrint("===================== EXITING REPORT GENERATION =====================\n")
 }
 
 // ValidateNoErrorsOnLogs checks in cilium logs since the given duration (By
