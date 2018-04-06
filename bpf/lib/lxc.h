@@ -188,7 +188,6 @@ ipv6_redirect_to_host_port(struct __sk_buff *skb, struct csum_offset *csum,
 
 	return 0;
 }
-#endif
 
 /**
  * tc_index_is_from_proxy - returns true if packet originates from egress proxy
@@ -203,3 +202,4 @@ static inline bool __inline__ tc_index_skip_proxy(struct __sk_buff *skb)
 
 	return tc_index & TC_INDEX_F_SKIP_PROXY;
 }
+#endif /* __LIB_LXC_H_ */
