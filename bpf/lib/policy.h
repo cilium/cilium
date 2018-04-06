@@ -22,11 +22,22 @@
 #include "eps.h"
 #include "maps.h"
 
+/**
+ * MinimalNumericIdentity describes the lowest possible identity
+ * allocated to endpoints. Numbers lower than this indicated
+ * reserved identities.
+ */
+#define MINIMAL_NUMERIC_IDENTITY 256
+
 #if defined POLICY_INGRESS || defined POLICY_EGRESS
 #define REQUIRES_CAN_ACCESS
 #endif
 
 #ifdef REQUIRES_CAN_ACCESS
+static inline bool identity_is_reserved(__u32 identity)
+{
+	return identity < MINIMAL_NUMERIC_IDENTITY;
+}
 
 static inline int __inline__
 __policy_can_access(void *map, struct __sk_buff *skb, __u32 identity,
@@ -133,11 +144,15 @@ policy_can_access_ingress(struct __sk_buff *skb, __u32 src_identity,
 	if (ret >= TC_ACT_OK)
 		return ret;
 
-	// cidr_addr_size is a compile time constant so this should all be inlined neatly.
-	if (cidr_addr_size == sizeof(union v6addr) && lpm6_ingress_lookup(cidr_addr))
-		goto allow;
-	if (cidr_addr_size == sizeof(__be32) && lpm4_ingress_lookup(*(__be32 *)cidr_addr))
-		goto allow;
+	/* CIDR policy only applies to traffic peering with something that is
+	 * not managed by Cilium. */
+	if (identity_is_reserved(src_identity)) {
+		// cidr_addr_size is a compile time constant so this should all be inlined neatly.
+		if (cidr_addr_size == sizeof(union v6addr) && lpm6_ingress_lookup(cidr_addr))
+			goto allow;
+		if (cidr_addr_size == sizeof(__be32) && lpm4_ingress_lookup(*(__be32 *)cidr_addr))
+			goto allow;
+	}
 
 	cilium_dbg(skb, DBG_POLICY_DENIED, src_identity, SECLABEL);
 
