@@ -19,11 +19,13 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/cilium/cilium/pkg/datapath"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/policy"
+	"github.com/cilium/cilium/pkg/status"
 
 	"github.com/prometheus/client_golang/prometheus"
 )
@@ -263,13 +265,13 @@ func TriggerPolicyUpdates(owner endpoint.Owner) *sync.WaitGroup {
 
 			if err != nil {
 				log.WithError(err).Warn("Error while handling policy updates for endpoint")
-				ep.LogStatus(endpoint.Policy, endpoint.Failure, "Error while handling policy updates for endpoint: "+err.Error())
+				ep.LogStatus(status.Policy, status.Failure, "Error while handling policy updates for endpoint: "+err.Error())
 			} else {
 				// Wait for endpoint CT clean has complete before
 				// regenerating endpoint.
 				ctCleaned.Wait()
 				if !policyChanges {
-					ep.LogStatusOK(endpoint.Policy, "Endpoint policy update skipped because no changes were needed")
+					ep.LogStatusOK(status.Policy, "Endpoint policy update skipped because no changes were needed")
 				} else if regen {
 					// Regenerate logs status according to the build success/failure
 					<-ep.Regenerate(owner, "endpoint policy updated & changes were needed")
@@ -300,6 +302,17 @@ func HasGlobalCT() bool {
 func GetEndpoints() []*endpoint.Endpoint {
 	mutex.RLock()
 	eps := make([]*endpoint.Endpoint, 0, len(endpoints))
+	for _, ep := range endpoints {
+		eps = append(eps, ep)
+	}
+	mutex.RUnlock()
+	return eps
+}
+
+// GetDatapathEndpoints return a slice of all endpoints
+func GetDatapathEndpoints() []datapath.Endpoint {
+	mutex.RLock()
+	eps := make([]datapath.Endpoint, 0, len(endpoints))
 	for _, ep := range endpoints {
 		eps = append(eps, ep)
 	}
