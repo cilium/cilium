@@ -10,6 +10,7 @@
 _obj
 _test
 tests/cilium-files
+test/test_results
 _build/
 
 # Architecture specific extensions/prefixes
