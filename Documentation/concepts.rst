@@ -491,7 +491,7 @@ tracing back which container labels are assigned to the origin container.
 
 .. note::
 
-   As the packet headers contain security sensitive information, it is higly
+   As the packet headers contain security sensitive information, it is highly
    recommended to either encrypt all traffic or run Cilium in a trusted network
    environment.
 
@@ -594,7 +594,7 @@ Container communication with the outside world has two primary modes:
    container cluster.
 
  * Containers making outgoing connections.  Examples include connecting to
-   3rd-party API services like Twillio or Stripe as well as accessing private
+   3rd-party API services like Twilio or Stripe as well as accessing private
    APIs that are hosted elsewhere in your enterprise datacenter or cloud
    deployment.
 

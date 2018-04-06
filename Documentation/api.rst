@@ -9,10 +9,10 @@ Introduction
 ************
 
 The Cilium API is JSON based and provided by the ``cilium-agent``. The purpose
-of the API is to provide visbility and control over an individual agent
+of the API is to provide visibility and control over an individual agent
 instance. In general, all API calls affect only the resources managed by the
 individual ``cilium-agent`` serving the API. A few selected API calls such as
-the security identity resolution provides cluster wide visbility. Such API
+the security identity resolution provides cluster wide visibility. Such API
 calls are marked specifically. Unless noted otherwise, API calls will only affect
 local agent resources.
 
