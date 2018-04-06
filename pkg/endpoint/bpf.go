@@ -340,7 +340,7 @@ func writeGeneve(prefix string, e *Endpoint) ([]byte, error) {
 	// GENEVE_CLASS_EXPERIMENTAL, GENEVE_TYPE_SECLABEL
 
 	// The int() cast here is required as otherwise Sprintf does the
-	// convertion incorrectly. Looks like a golang bug.
+	// conversion incorrectly. Looks like a golang bug.
 	identityHex := fmt.Sprintf("%08x", int(e.GetIdentity()))
 	err := geneve.WriteOpts(filepath.Join(prefix, "geneve_opts.cfg"), "0xffff", "0x1", "4", identityHex)
 	if err != nil {

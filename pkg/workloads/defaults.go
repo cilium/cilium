@@ -20,7 +20,7 @@ import (
 
 const (
 	// EndpointCorrelationMaxRetries is the number of retries to correlate
-	// a workload start event with an exising endpoint before giving up.
+	// a workload start event with an existing endpoint before giving up.
 	EndpointCorrelationMaxRetries = 20
 )
 

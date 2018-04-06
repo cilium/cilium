@@ -61,7 +61,7 @@ func (conn *ConnTestSpec) GetField(field string) ResultType {
 	return ResultType{}
 }
 
-// PolicyTestKind is utilized to decribe a new TestCase
+// PolicyTestKind is utilized to describe a new TestCase
 // It needs a described name, the kind of the test (Egrees or Ingress) and the
 // expected result of `ConnTestSpec`
 // Template field is used to render the cilium network policy.
@@ -118,7 +118,7 @@ type ResultType struct {
 
 // String returns the ResultType in humman readable format
 func (res ResultType) String() string {
-	return fmt.Sprintf("kind: %s sucess: %t", res.kind, res.success)
+	return fmt.Sprintf("kind: %s success: %t", res.kind, res.success)
 }
 
 // PolicyTestSuite groups together L3, L4, and L7 policy-related tests.

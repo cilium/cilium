@@ -91,7 +91,7 @@ func parseRuntimeType(str string) (containerRuntimeType, error) {
 	case None, Auto, Docker:
 		return crt, nil
 	default:
-		return None, fmt.Errorf("ContainerRuntime %s is not avaiable", crt)
+		return None, fmt.Errorf("ContainerRuntime %s is not available", crt)
 	}
 }
 

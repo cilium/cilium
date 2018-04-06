@@ -220,7 +220,7 @@ retryCreatePort:
 			scopedLog.WithError(err).Error("Unable to create ", l4.L7Parser, " proxy")
 			return nil, err
 
-		// an error ocurred and we can retry
+		// an error occurred and we can retry
 		default:
 			scopedLog.WithError(err).Warning("Unable to create ", l4.L7Parser, " proxy, will retry")
 		}
