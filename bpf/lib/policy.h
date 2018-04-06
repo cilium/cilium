@@ -202,52 +202,67 @@ policy_can_egress(struct __sk_buff *skb, __u16 identity, __u16 dport, __u8 proto
 
 static inline int policy_can_egress6(struct __sk_buff *skb,
 				     struct ipv6_ct_tuple *tuple,
-				     __u16 default_identity)
+				     __u16 default_identity,
+				     union v6addr *daddr)
 {
 	struct remote_endpoint_info *info;
 	__u16 identity = default_identity;
-	union v6addr *daddr;
+	int verdict;
 
-	daddr = ipv6_ct_tuple_get_daddr(tuple);
 	info = lookup_ip6_remote_endpoint(daddr);
 	if (info)
 		identity = info->sec_label;
 	cilium_dbg(skb, info ? DBG_IP_ID_MAP_SUCCEED6 : DBG_IP_ID_MAP_FAILED6,
 		   daddr->p4, identity);
 
-	return policy_can_egress(skb, identity, tuple->dport, tuple->nexthdr);
+	verdict = policy_can_egress(skb, identity, tuple->dport, tuple->nexthdr);
+	if (identity_is_reserved(identity) && verdict < 0) {
+		if (unlikely(!lpm6_egress_lookup(daddr)))
+			verdict = DROP_POLICY_CIDR;
+		else
+			verdict = 0;
+	}
+
+	return verdict;
 }
 
 static inline int policy_can_egress4(struct __sk_buff *skb,
 				     struct ipv4_ct_tuple *tuple,
-				     __u16 default_identity)
+				     __u16 default_identity, __be32 daddr)
 {
 	struct remote_endpoint_info *info;
 	__u16 identity = default_identity;
-	__be32 daddr;
+	int verdict;
 
-	daddr = ipv4_ct_tuple_get_daddr(tuple);
 	info = lookup_ip4_remote_endpoint(daddr);
 	if (info)
 		identity = info->sec_label;
 	cilium_dbg(skb, info ? DBG_IP_ID_MAP_SUCCEED4 : DBG_IP_ID_MAP_FAILED4,
 		   daddr, identity);
 
-	return policy_can_egress(skb, identity, tuple->dport, tuple->nexthdr);
+	verdict = policy_can_egress(skb, identity, tuple->dport, tuple->nexthdr);
+	if (identity_is_reserved(identity) && verdict < 0) {
+		if (unlikely(!lpm4_egress_lookup(daddr)))
+			verdict = DROP_POLICY_CIDR;
+		else
+			verdict = 0;
+	}
+
+	return verdict;
 }
 
 #else /* POLICY_EGRESS && LXC_ID */
 
 static inline int
 policy_can_egress6(struct __sk_buff *skb, struct ipv6_ct_tuple *tuple,
-		   __u16 default_identity)
+		   __u16 default_identity, union v6addr *daddr)
 {
 	return TC_ACT_OK;
 }
 
 static inline int
 policy_can_egress4(struct __sk_buff *skb, struct ipv4_ct_tuple *tuple,
-		   __u16 default_identity)
+		   __u16 default_identity, __be32 daddr)
 {
 	return TC_ACT_OK;
 }
