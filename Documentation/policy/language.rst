@@ -274,11 +274,16 @@ CIDR policies are used to define policies to and from endpoints which are not
 managed by Cilium and thus do not have labels associated with them. These are
 typically external services, VMs or metal machines running in particular
 subnets. CIDR policy can also be used to limit access to external services, for
-example to limit external access to a particular IP range.
+example to limit external access to a particular IP range. CIDR policies can
+be applied at ingress or egress.
 
-CIDR policies can be applied at ingress or egress. If you already allow
-communication with endpoints using ``fromEndpoints`` or ``toEndpoints``, then
-you do not need to also add their IPs using CIDR-based policy.
+CIDR rules apply if Cilium cannot map the source or destination to an identity
+derived from endpoint labels, ie the `reserved_labels`. For example, CIDR rules
+will apply to traffic where one side of the connection is:
+
+* A network endpoint outside the cluster
+* The host network namespace where the pod is running.
+* Within the cluster prefix but the IP's networking is not provided by Cilium.
 
 Ingress
 ~~~~~~~
