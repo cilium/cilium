@@ -113,7 +113,7 @@ type IDMap map[ID]AllocatorKey
 // ... match found:
 // 2.1 Create a new slave key. This operation is potentially racy as the master
 //     key can be removed in the meantime.
-//       etcd: Create is made conditional on existance of master key
+//       etcd: Create is made conditional on existence of master key
 //       consul: locking
 //
 // ... match not found:
@@ -150,7 +150,7 @@ type Allocator struct {
 	cache IDMap
 
 	// nextCache is the cache is constantly being filled by startWatch(),
-	// when startWatch has sucessfully performed the initial fill using
+	// when startWatch has successfully performed the initial fill using
 	// ListPrefix, the cache above will be pointed to nextCache. If the
 	// startWatch() fails to perform the initial list, then the cache is
 	// never pointed to nextCache. This guarantees that a valid cache is

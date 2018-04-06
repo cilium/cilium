@@ -143,7 +143,7 @@ func catCommands() []string {
 
 func copyConfigCommands(confDir string, k8sPods []string) []string {
 	commands := []string{}
-	// Location is a convenince structure to avoid too many long lines
+	// Location is a convenience structure to avoid too many long lines
 	type Location struct {
 		Src string
 		Dst string

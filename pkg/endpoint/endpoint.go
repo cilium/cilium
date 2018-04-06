@@ -1995,7 +1995,7 @@ func (e *Endpoint) BuilderSetStateLocked(toState, reason string) bool {
 		switch toState {
 		// Builder transitions the endpoint from
 		// waiting-to-regenerate state to regenerating state
-		// right after aquiring the endpoint lock, and while
+		// right after acquiring the endpoint lock, and while
 		// endpoint's build mutex is held. All changes to
 		// cilium and endpoint configuration, policy as well
 		// as the existing set of security identities will be
