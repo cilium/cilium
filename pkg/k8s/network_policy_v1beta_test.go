@@ -102,6 +102,8 @@ func (s *K8sSuite) TestParseNetworkPolicyDeprecated(c *C) {
 		LabelSelector: &lblSelector,
 	}
 
+	// TODO - this test is not in the right package. We should test parsing
+	// of policy and internal policy resolution within Cilium *separately*.
 	l4IngressPolicy, err := repo.ResolveL4IngressPolicy(&ctx)
 	c.Assert(l4IngressPolicy, Not(IsNil))
 	c.Assert(err, IsNil)
