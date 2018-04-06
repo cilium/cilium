@@ -226,7 +226,7 @@ serving the particular endpoint.
 
 .. note:: Kubernetes will automatically allow all communication from and to the
 	  local host of all local endpoints. You can run the agent with the
-	  option ``--allow-localhost=policy`` to disable this behaviour which
+	  option ``--allow-localhost=policy`` to disable this behavior which
 	  will give you control over this via policy.
 
 .. only:: html
@@ -597,7 +597,7 @@ Topic
   multiple topics, then all topics in the message must be allowed by the policy
   or the message will be rejected.
 
-  This constraint is ignored if the matched request message type doesn't
+  This constraint is ignored if the matched request message type does not
   contain any topic. The maximum length of the Topic is 249 characters,
   which must be either ``a-z``, ``A-Z``, ``0-9``, ``-``, ``.`` or ``_``.
 

@@ -73,7 +73,7 @@ To deploy Cilium, run:
       serviceaccount "cilium" created
 
 Kubernetes is now deploying Cilium with its RBAC settings, ConfigMap
-and DaemonSet as a pod on minkube. This operation is performed in the
+and DaemonSet as a pod on minikube. This operation is performed in the
 background.
 
 Run the following command to check the progress of the deployment:

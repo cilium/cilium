@@ -602,7 +602,7 @@ This function will run before all `BeforeEach
 <https://onsi.github.io/ginkgo/#extracting-common-setup-beforeeach>`_ within a
 `Describe or Context
 <https://onsi.github.io/ginkgo/#organizing-specs-with-containers-describe-and-context>`_.
-This method is an equivalent to ``SetUp`` or initalize functions in common
+This method is an equivalent to ``SetUp`` or initialize functions in common
 unit test frameworks.
 
 AfterAll
@@ -874,7 +874,7 @@ Cilium-PR-Ginkgo-Tests-k8s
 
 Runs the Kubernetes e2e tests against all Kubernetes versions that are not currently not tested as part
 of each pull-request, but which Cilium still supports, as well as the the most-recently-released versions
-of Kuberentes that are not yet declared stable by Kubernetes upstream:
+of Kubernetes that are not yet declared stable by Kubernetes upstream:
 
 First stage (stable versions which Cilium still supports):
 

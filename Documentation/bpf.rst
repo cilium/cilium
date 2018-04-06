@@ -444,7 +444,7 @@ and continue execution of the old program with the instructions following
 after the ``bpf_tail_call()``. Tail calls are a powerful utility, for example,
 parsing network headers could be structured through tail calls. During runtime,
 functionality can be added or replaced atomically, and thus altering the BPF
-program's execution behaviour.
+program's execution behavior.
 
 BPF to BPF Calls
 ----------------
