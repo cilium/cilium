@@ -209,15 +209,10 @@ skip_service_lookup:
 	/* If the packet is in the establishing direction and it's destined
 	 * within the cluster, it must match policy or be dropped. If it's
 	 * bound for the host/outside, perform the CIDR policy check. */
-	verdict = policy_can_egress6(skb, tuple, dstID);
-	if (dstID == CLUSTER_ID) {
-		if (ret != CT_REPLY && ret != CT_RELATED && verdict < 0)
-			return verdict;
-	} else if (verdict < 0) {
-		if (unlikely(!lpm6_egress_lookup(daddr)))
-			return verdict;
-		verdict = 0;
-	}
+	verdict = policy_can_egress6(skb, tuple, dstID,
+				     ipv6_ct_tuple_get_daddr(tuple));
+	if (ret != CT_REPLY && ret != CT_RELATED && verdict < 0)
+		return verdict;
 
 	switch (ret) {
 	case CT_NEW:
@@ -512,15 +507,10 @@ skip_service_lookup:
 	/* If the packet is in the establishing direction and it's destined
 	 * within the cluster, it must match policy or be dropped. If it's
 	 * bound for the host/outside, perform the CIDR policy check. */
-	verdict = policy_can_egress4(skb, &tuple, dstID);
-	if (dstID == CLUSTER_ID) {
-		if (ret != CT_REPLY && ret != CT_RELATED && verdict < 0)
-			return verdict;
-	} else if (verdict < 0) {
-		if (unlikely(!lpm4_egress_lookup(orig_dip)))
-			return verdict;
-		verdict = 0;
-	}
+	verdict = policy_can_egress4(skb, &tuple, dstID,
+				     ipv4_ct_tuple_get_daddr(&tuple));
+	if (ret != CT_REPLY && ret != CT_RELATED && verdict < 0)
+		return verdict;
 
 	switch (ret) {
 	case CT_NEW:
