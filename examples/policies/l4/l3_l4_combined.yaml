@@ -9,7 +9,7 @@ spec:
   ingress:
   - fromEndpoints:
     - matchLabels:
-      role: frontend
+        role: frontend
     toPorts:
     - ports:
       - port: "80"
