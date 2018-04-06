@@ -441,7 +441,7 @@ func (d *Daemon) RevNATDump() ([]types.L3n4AddrID, error) {
 // KVStore's ID, that entry will be updated on the bpf map accordingly with the new ID
 // retrieved from the KVStore.
 func (d *Daemon) SyncLBMap() error {
-	log.Debug("syncing BPF LBMaps with daemon's LB maps")
+	log.Info("Syncing BPF LBMaps with daemon's LB maps...")
 	d.loadBalancer.BPFMapMU.Lock()
 	defer d.loadBalancer.BPFMapMU.Unlock()
 
