@@ -698,26 +698,33 @@ func initEnv(cmd *cobra.Command) {
 	log.Infof("Container runtimes being used: %s", workloads.GetRuntimesString())
 }
 func runDaemon() {
+	log.Info("Initializing daemon")
 	d, err := NewDaemon(config)
 	if err != nil {
 		log.WithError(err).Fatal("Error while creating daemon")
 		return
 	}
 
-	policy.Init()
+	policy.InitReserved()
+
+	log.Info("Starting connection tracking garbage collector")
 	endpointmanager.EnableConntrackGC(!d.conf.IPv4Disabled, true)
 
 	if enableLogstash {
+		log.Info("Enabling Logstash")
 		go EnableLogstash(logstashAddr, int(logstashProbeTimer))
 	}
 
+	log.Info("Launching node monitor daemon")
 	go d.nodeMonitor.Run(path.Join(defaults.RuntimePath, defaults.EventsPipe))
 
 	// Launch cilium-health in the same namespace as cilium.
+	log.Info("Launching Cilium health daemon")
 	d.ciliumHealth = &health.CiliumHealth{}
 	go d.ciliumHealth.Run()
 
 	// Launch another cilium-health as an endpoint, managed by cilium.
+	log.Info("Launching Cilium health endpoint")
 	addressing := d.getNodeAddressing()
 	cancelHealth := health.LaunchAsEndpoint(d, addressing, d.conf.Opts)
 	defer cancelHealth()
@@ -752,6 +759,7 @@ func runDaemon() {
 		}
 	}
 
+	log.Info("Initializing Cilium API")
 	api := restapi.NewCiliumAPI(swaggerSpec)
 
 	api.Logger = log.Infof
@@ -826,6 +834,8 @@ func runDaemon() {
 	server.ConfigureAPI()
 
 	d.SendNotification(monitor.AgentNotifyStart, time.Now().String())
+
+	log.Info("Daemon initialization completed")
 
 	if err := server.Serve(); err != nil {
 		log.WithError(err).Fatal("Error returned from non-returning Serve() call")

@@ -209,6 +209,7 @@ func keyToIP(key string) (net.IP, error) {
 }
 
 func ipIdentityWatcher(owner IPIdentityMappingOwner) {
+	log.Info("Starting IP identity watcher")
 
 	for {
 

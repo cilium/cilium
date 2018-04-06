@@ -60,8 +60,10 @@ func shortContainerID(id string) string {
 // containers started or dead.
 func EnableEventListener() error {
 	if dockerClient == nil {
+		log.Debug("Not enabling docker/containerd event listener because dockerClient is nil")
 		return nil
 	}
+	log.Info("Enabling docker/containerd event listener")
 
 	ws := newWatcherState(eventQueueBufferSize)
 	// start a go routine which periodically synchronizes containers

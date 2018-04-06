@@ -945,6 +945,7 @@ func NewDaemon(c *Config) (*Daemon, error) {
 	workloads.Init(&d)
 
 	// Clear previous leftovers before listening for new requests
+	log.Info("Clearing leftover Cilium veths")
 	err := d.clearCiliumVeths()
 	if err != nil {
 		log.WithError(err).Debug("Unable to clean leftover veths")
@@ -952,6 +953,7 @@ func NewDaemon(c *Config) (*Daemon, error) {
 
 	// Create at least 4 worker threads or the same amount as there are
 	// CPUs.
+	log.Info("Launching endpoint builder workers")
 	d.StartEndpointBuilders(numWorkerThreads())
 
 	if k8s.IsEnabled() {
@@ -981,6 +983,7 @@ func NewDaemon(c *Config) (*Daemon, error) {
 	//
 	// Then, we will calculate the IPv4 or IPv6 alloc prefix based on the IPv6
 	// or IPv4 alloc prefix, respectively, retrieved by k8s node annotations.
+	log.Info("Initializing node addressing")
 	if config.Device == "undefined" {
 		node.InitDefaultPrefix("")
 	}
@@ -1029,6 +1032,7 @@ func NewDaemon(c *Config) (*Daemon, error) {
 	}
 
 	if k8s.IsEnabled() {
+		log.Info("Annotating k8s node with CIDR ranges")
 		err := k8s.AnnotateNode(k8s.Client(), node.GetName(),
 			node.GetIPv4AllocRange(), node.GetIPv6NodeRange(),
 			nil, nil)
@@ -1038,14 +1042,15 @@ func NewDaemon(c *Config) (*Daemon, error) {
 	}
 
 	// Set up ipam conf after init() because we might be running d.conf.KVStoreIPv4Registration
+	log.Info("Initializing IPAM")
 	if err = ipam.Init(); err != nil {
 		log.WithError(err).Fatal("IPAM init failed")
 	}
 
+	log.Info("Validating configured node address ranges")
 	if err := node.ValidatePostInit(); err != nil {
 		log.WithError(err).Fatal("postinit failed")
 	}
-	// REVIEW should these be changed? they seem intended for humans
 	log.Info("Addressing information:")
 	log.Infof("  Local node-name: %s", node.GetName())
 	log.Infof("  Node-IPv6: %s", node.GetIPv6())
@@ -1059,6 +1064,7 @@ func NewDaemon(c *Config) (*Daemon, error) {
 	log.Infof("  IPv6 router address: %s", node.GetIPv6Router())
 
 	// Populate list of nodes with local node entry
+	log.Info("Adding local node to local cluster node list")
 	ni, n := node.GetLocalNode()
 	node.UpdateNode(ni, n, node.TunnelRoute, nil)
 
@@ -1073,7 +1079,7 @@ func NewDaemon(c *Config) (*Daemon, error) {
 			return nil, fmt.Errorf("Unable to reserve IPv4 loopback address: %s", err)
 		}
 		d.loopbackIPv4 = loopbackIPv4
-		log.Infof("Loopback IPv4: %s", d.loopbackIPv4.String())
+		log.Infof("  Loopback IPv4: %s", d.loopbackIPv4.String())
 	}
 
 	if err = d.init(); err != nil {
@@ -1090,6 +1096,7 @@ func NewDaemon(c *Config) (*Daemon, error) {
 	d.l7Proxy = proxy.StartProxySupport(10000, 20000, d.conf.RunDir)
 
 	if c.RestoreState {
+		log.Info("Restoring state...")
 		if err := d.SyncState(d.conf.StateDir, true); err != nil {
 			log.WithError(err).Warn("Error while recovering endpoints")
 		}
@@ -1099,6 +1106,7 @@ func NewDaemon(c *Config) (*Daemon, error) {
 			}
 		}()
 	} else {
+		log.Info("No previous state to restore. Cilium will not manage existing continers")
 		// We need to read all docker containers so we know we won't
 		// going to allocate the same IP addresses and we will ignore
 		// these containers from reading.
@@ -1108,6 +1116,7 @@ func NewDaemon(c *Config) (*Daemon, error) {
 	d.collectStaleMapGarbage()
 
 	// Allocate health endpoint IPs after restoring state
+	log.Info("Building health endpoint")
 	health4, health6, err := ipam.AllocateNext("")
 	if err != nil {
 		log.WithError(err).Fatal("Error while allocating cilium-health IP")
