@@ -14,7 +14,7 @@
 
 package kvstore
 
-// EventType defines the type of watch event that occured
+// EventType defines the type of watch event that occurred
 type EventType int
 
 const (

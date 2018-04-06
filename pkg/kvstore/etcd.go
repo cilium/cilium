@@ -517,7 +517,7 @@ reList:
 				}
 
 				localCache.MarkInUse(key.Key)
-				scopedLog.Debugf("Emiting list result as %v event for %s=%v", t, key.Key, key.Value)
+				scopedLog.Debugf("Emitting list result as %v event for %s=%v", t, key.Key, key.Value)
 
 				w.Events <- KeyValueEvent{
 					Key:   string(key.Key),
@@ -541,7 +541,7 @@ reList:
 				Typ: EventTypeDelete,
 			}
 
-			scopedLog.Debugf("Emiting EventTypeDelete event for %s", k)
+			scopedLog.Debugf("Emitting EventTypeDelete event for %s", k)
 			w.Events <- event
 		})
 
@@ -611,7 +611,7 @@ reList:
 						localCache.MarkInUse(ev.Kv.Key)
 					}
 
-					scopedLog.Debugf("Emiting %v event for %s=%v", event.Typ, event.Key, event.Value)
+					scopedLog.Debugf("Emitting %v event for %s=%v", event.Typ, event.Key, event.Value)
 
 					w.Events <- event
 				}

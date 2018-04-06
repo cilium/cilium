@@ -102,7 +102,7 @@ var (
 
 	// Events
 
-	// EventTS*is the time in seconds since epoch that we last recieved an
+	// EventTS*is the time in seconds since epoch that we last received an
 	// event that we will handle
 	// source is one of k8s, containerd or apia
 
