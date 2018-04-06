@@ -375,7 +375,7 @@ a collection of Bash scripts for testing Cilium. `Ginkgo <https://onsi.github.io
 has been chosen as this testing framework
 The tests in the ``test`` directory are built on top of Ginkgo. Ginkgo provides
 a rich framework for developing tests alongside the benefits of Golang
-(compilation-time checks, types, etc.). To get accustomsed to the basics of
+(compilation-time checks, types, etc.). To get accustomed to the basics of
 Ginkgo, we recommend reading the
 `Ginkgo Getting-Started Guide <https://onsi.github.io/ginkgo/#getting-started-writing-your-first-test>`_ ,
 as well as running `example tests <https://github.com/onsi/composition-ginkgo-example>`_
