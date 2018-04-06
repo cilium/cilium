@@ -103,11 +103,12 @@ func ResolveIdentityLabels(id identity.NumericIdentity) labels.LabelArray {
 	return nil
 }
 
-// Init must be called to initialize the Consumables that represent the reserved
+// InitReserved must be called to initialize the Consumables that represent the reserved
 // identities. This is because the reserved identities do not correspond to
 // endpoints, and thus must be created explicitly, as opposed to during policy
 // calculation, which is done for a specific endpoint when it is regenerated.
-func Init() {
+func InitReserved() {
+	log.Info("Initializing reserved identities")
 	for key, val := range identity.ReservedIdentities {
 		log.WithField(logfields.Identity, key).Debug("Registering reserved identity")
 

@@ -75,6 +75,7 @@ type IdentityAllocatorOwner interface {
 // invocation of this function will have an effect.
 func InitIdentityAllocator(owner IdentityAllocatorOwner) {
 	setupOnce.Do(func() {
+		log.Info("Initializing identity allocator")
 		minID := allocator.ID(MinimalNumericIdentity)
 		maxID := allocator.ID(^uint16(0))
 		a, err := allocator.NewAllocator(IdentitiesPath, globalIdentity{},

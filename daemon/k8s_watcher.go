@@ -194,8 +194,10 @@ func k8sErrorHandler(e error) {
 // Kubernetes api server at the given reSyncPeriod duration.
 func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 	if !k8s.IsEnabled() {
+		log.Debug("Not enabling k8s event listener because k8s is not enabled")
 		return nil
 	}
+	log.Info("Enabling k8s event listener")
 
 	restConfig, err := k8s.CreateConfig()
 	if err != nil {
