@@ -277,10 +277,10 @@ under the `General Public License, Version 2.0 <bpf/COPYING>`_.
     :alt: Cilium Logo
     :width: 350px
 
-.. |build-status| image:: https://jenkins.cilium.io/job/cilium/job/cilium/job/master/badge/icon
+.. |build-status| image:: https://jenkins.cilium.io/job/cilium-ginkgo/job/cilium/job/master/badge/icon
     :alt: Build Status
     :scale: 100%
-    :target: https://jenkins.cilium.io/job/cilium/job/cilium/job/master/
+    :target: https://jenkins.cilium.io/job/cilium-ginkgo/job/cilium/job/master/
 
 .. |go-report| image:: https://goreportcard.com/badge/github.com/cilium/cilium
     :alt: Go Report Card
