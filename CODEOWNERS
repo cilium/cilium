@@ -62,6 +62,7 @@ Jenkinsfile.nightly @cilium/ci
 monitor/ @cilium/monitor
 monitor/payload @cilium/api
 pkg/apierror/ @cilium/api
+pkg/apipanic/ @cilium/api
 pkg/apisocket/ @cilium/api
 pkg/bpf/ @cilium/bpf
 pkg/completion/ @cilium/proxy
