@@ -793,7 +793,7 @@ var _ = Describe("RuntimeValidatedPolicies", func() {
 			"endpointSelector": {"matchLabels":{"%[1]s":""}},
 			"ingress": [{
 				"fromEndpoints":  [
-					{"matchLabels":{"%s":""}}
+					{"matchLabels":{"%[2]s":""}}
 				]
 			}, {
 				"fromCIDR": [
@@ -803,24 +803,32 @@ var _ = Describe("RuntimeValidatedPolicies", func() {
 			}]
 		},
 		{
-			"endpointSelector": {"matchLabels":{"%s":""}},
+			"endpointSelector": {"matchLabels":{"%[2]s":""}},
 			"egress": [{
 				"toEndpoints":  [
 					{"matchLabels":{"%[1]s":""}}
 				]
 			}]
-		}]`, httpd1Label, httpd2Label, ipv4Prefix, ipv6Prefix, app3Label)
+		}]`, httpd1Label, httpd2Label, ipv4Prefix, ipv6Prefix)
 
 		_, err = vm.PolicyRenderAndImport(script)
 		Expect(err).To(BeNil(), "Unable to import policy: %s", err)
 
-		By(fmt.Sprintf("Pinging httpd1 IPv4 from app3 (should work because we allow ingress from CIDR %s which app3 is included)", ipv4Prefix))
-		res = vm.ContainerExec(helpers.App3, helpers.Ping(helpers.Httpd1))
-		res.ExpectSuccess("Unexpected failure pinging %s IPv4 from %s: %s", helpers.Httpd1, helpers.App3, res.CombineOutput().String())
+		By("Pinging httpd1 IPV4 from httpd2 (should work because we allowed traffic to httpd1 labels from httpd2 labels)")
+		res = vm.ContainerExec(helpers.Httpd2, helpers.Ping(httpd1DockerNetworking[helpers.IPv4]))
+		res.ExpectSuccess("Unexpected failure pinging %s (%s) from %s: %s", helpers.Httpd1, httpd1DockerNetworking[helpers.IPv4], helpers.Httpd2, res.CombineOutput().String())
 
-		By(fmt.Sprintf("Pinging httpd1 IPv6 from app3 (should work because we allow ingress from CIDR %s which app3 is included)", ipv6Prefix))
+		By("Pinging httpd1 IPv6 from httpd2 (should work because we allowed traffic to httpd1 labels from httpd2 labels)")
+		res = vm.ContainerExec(helpers.Httpd2, helpers.Ping6(httpd1DockerNetworking[helpers.IPv6]))
+		res.ExpectSuccess("Unexpected failure pinging %s (%s) from %s: %s", helpers.Httpd1, httpd1DockerNetworking[helpers.IPv6], helpers.Httpd2, res.CombineOutput().String())
+
+		By(fmt.Sprintf("Pinging httpd1 IPv4 from app3 (shouldn't work because CIDR policies don't apply to endpoint-endpoint communication)", ipv4Prefix))
+		res = vm.ContainerExec(helpers.App3, helpers.Ping(helpers.Httpd1))
+		res.ExpectFail("Unexpected success pinging %s IPv4 from %s: %s", helpers.Httpd1, helpers.App3, res.CombineOutput().String())
+
+		By(fmt.Sprintf("Pinging httpd1 IPv6 from app3 (shouldn't work because CIDR policies don't apply to endpoint-endpoint communication)", ipv6Prefix))
 		res = vm.ContainerExec(helpers.App3, helpers.Ping6(helpers.Httpd1))
-		res.ExpectSuccess("Unexpected failure pinging %s IPv6 from %s: %s", helpers.Httpd1, helpers.App3, res.CombineOutput().String())
+		res.ExpectFail("Unexpected success pinging %s IPv6 from %s: %s", helpers.Httpd1, helpers.App3, res.CombineOutput().String())
 
 		vm.PolicyDelAll().ExpectSuccess("Unable to delete all policies")
 
