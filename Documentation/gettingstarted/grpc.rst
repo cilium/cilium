@@ -33,7 +33,7 @@ To deploy the Cilium daemonset run the following ``kubectl`` command:
     daemonset "cilium" created
 
 Kubernetes is now deploying Cilium with its RBAC, ConfigMap and Daemon Set as a
-pod on minkube. This operation is performed in the background.
+pod on minikube. This operation is performed in the background.
 
 Run the following command to check the progress of the deployment:
 

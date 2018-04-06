@@ -7,7 +7,7 @@ Monitoring & Metrics
 cilium-agent can be configured to serve `Prometheus <https://prometheus.io>`_
 metrics. Prometheus is a pluggable metrics collection and storage system and
 can act as a data source for `Grafana <https://grafana.com/>`_, a metrics
-visualisation system. Unlike some metrics collectors like statsd, Prometheus requires the
+visualization system. Unlike some metrics collectors like statsd, Prometheus requires the
 collectors to pull metrics from each source.
 
 cilium must be invoked with the ``--prometheus-serve-addr`` option (the
@@ -32,7 +32,7 @@ discover the port.*
 An example of how to do this can be found in the cilium
 `kubernetes example spec file <https://github.com/cilium/cilium/blob/master/examples/kubernetes/cilium.yaml>`_
 
-To configure this automatic discovery and collecction, Prometheus itself requires a
+To configure this automatic discovery and collection, Prometheus itself requires a
 `kubernetes_sd_config <https://prometheus.io/docs/prometheus/latest/configuration/configuration/>`_
 configuration.
 This will use the kubernetes API server to discover pods, nodes etc. It also

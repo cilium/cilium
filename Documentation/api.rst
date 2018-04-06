@@ -85,7 +85,7 @@ Compatibility Guarantees
 The Cilium API is still marked **unstable** overall at this point but several
 core sections have already matured a lot. We will declare the overall API
 stable with the release of version 1.0. In the meantime, we would like maintain
-the flexibility to adjust to feedback. The APIs are also heavily dependant on
+the flexibility to adjust to feedback. The APIs are also heavily dependent on
 the evolution of various orchestration systems which have not stabilized yet.
 
 If you are planning to utilize the API and could benefit from a stable API,

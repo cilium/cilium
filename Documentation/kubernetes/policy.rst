@@ -83,7 +83,7 @@ Spec
   Field which contains a :ref:`policy_rule`
 Specs
   Field which contains a list of :ref:`policy_rule`. This field is useful if
-  multiple rules must be removed or added atomatically.
+  multiple rules must be removed or added automatically.
 
 Status
   Provides visibility into whether the policy has been successfully applied
