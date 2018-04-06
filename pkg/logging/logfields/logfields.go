@@ -223,4 +223,7 @@ const (
 	// Modification represents a type of state change operation (insert, delete,
 	// upsert, etc.).
 	Modification = "modification"
+
+	// BPFMapName is the name of a BPF map.
+	BPFMapName = "bpfMapName"
 )
