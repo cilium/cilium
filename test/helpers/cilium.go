@@ -617,7 +617,6 @@ func (s *SSHMeta) GatherLogs() {
 	reportMap(testPath, ciliumLogCommands, s)
 
 	ciliumStateCommands := []string{
-		fmt.Sprintf("sudo cp %s %s", CiliumEnvoyLogPath, filepath.Join(BasePath, testPath)),
 		fmt.Sprintf("sudo cp -r %s %s", RunDir, filepath.Join(BasePath, testPath, "lib")),
 		fmt.Sprintf("sudo cp -r %s %s", LibDir, filepath.Join(BasePath, testPath, "run")),
 	}
