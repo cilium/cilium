@@ -229,3 +229,19 @@ func (s EndpointSelectorSlice) Matches(ctx labels.LabelArray) bool {
 
 	return false
 }
+
+// SelectsAllEndpoints returns whether the EndpointSelectorSlice selects all
+// endpoints (if it contains the WildcardEndpointSelector, or if it is empty).
+func (s EndpointSelectorSlice) SelectsAllEndpoints() bool {
+
+	if len(s) == 0 {
+		return true
+	}
+
+	for _, selector := range s {
+		if selector.IsWildcard() {
+			return true
+		}
+	}
+	return false
+}
