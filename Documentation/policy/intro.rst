@@ -65,7 +65,7 @@ policy allows traffic that matches the rule. If two rules exist, and one
 would match a broader set of traffic, then all traffic matching the broader
 rule will be allowed. If there is an intersection between two or more rules,
 then traffic matching the union of those rules will be allowed. Finally, if
-traffic does not match any of the rules, it will be dropped persuant to the
+traffic does not match any of the rules, it will be dropped pursuant to the
 `policy_enforcement_modes`.
 
 Policy rules share a common base type which specifies which endpoints the

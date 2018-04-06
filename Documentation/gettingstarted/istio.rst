@@ -201,7 +201,7 @@ To obtain the URL to the frontend productpage service, run:
     $ export PRODUCTPAGE=`minikube service productpage -n default --url`
     $ echo "Open URL: ${PRODUCTPAGE}/productpage"
 
-Open that URL in your web browswer and check that the application has
+Open that URL in your web browser and check that the application has
 been successfully deployed.
 
 Step 4: Canary and Deploy the Reviews Service V2
