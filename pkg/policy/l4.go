@@ -109,23 +109,20 @@ func (l4 *L4Filter) AllowsAllAtL3() bool {
 // destination addressing/identity information.
 func (l7 L7DataMap) GetRelevantRules(identity *identity.Identity) api.L7Rules {
 	rules := api.L7Rules{}
-	matched := 0
 
 	if identity != nil {
 		for selector, endpointRules := range l7 {
 			if selector.Matches(identity.Labels.LabelArray()) {
-				matched++
 				rules.HTTP = append(rules.HTTP, endpointRules.HTTP...)
 				rules.Kafka = append(rules.Kafka, endpointRules.Kafka...)
 			}
 		}
 	}
 
-	if matched == 0 {
-		// Fall back to wildcard selector
-		if rules, ok := l7[api.WildcardEndpointSelector]; ok {
-			return rules
-		}
+	// Rules applying to all sources are always appended
+	if r, ok := l7[api.WildcardEndpointSelector]; ok {
+		rules.HTTP = append(rules.HTTP, r.HTTP...)
+		rules.Kafka = append(rules.Kafka, r.Kafka...)
 	}
 
 	return rules
