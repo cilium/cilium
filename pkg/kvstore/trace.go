@@ -36,7 +36,11 @@ func EnableTracing() {
 // Trace is used to trace kvstore debug messages
 func Trace(format string, err error, fields logrus.Fields, a ...interface{}) {
 	if traceEnabled {
-		log.WithError(err).WithFields(fields).Debugf(format)
+		if err != nil {
+			log.WithError(err).WithFields(fields).Debugf(format)
+		} else {
+			log.WithFields(fields).Debugf(format)
+		}
 	}
 }
 
