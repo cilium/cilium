@@ -39,6 +39,22 @@ var policiesTestSuite = PolicyTestSuite{
 				"fromEndpoints": `[{"matchLabels": { "id": "{{.SrcPod}}Invalid"}}]`,
 			},
 		},
+		{
+			name:  "Egress Label",
+			kind:  egress,
+			tests: ConnResultAllOK,
+			template: map[string]string{
+				"toEndpoints": `[{"matchLabels": { "id": "{{.SrcPod}}"}}]`,
+			},
+		},
+		{
+			name:  "Egress Label Invalid",
+			kind:  egress,
+			tests: ConnResultAllTimeout,
+			template: map[string]string{
+				"toEndpoints": `[{"matchLabels": { "id": "{{.SrcPod}}Invalid"}}]`,
+			},
+		},
 	},
 	l4Checks: []PolicyTestKind{
 		{
