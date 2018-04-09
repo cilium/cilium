@@ -248,8 +248,8 @@ func (e *Endpoint) applyL4PolicyLocked(oldIdentities, newIdentities *identityPkg
 	oldL4Policy, newL4Policy *policy.L4Policy) (addedPolicyMapEntries, removedPolicyMapEntries policy.SecurityIDContexts, err error) {
 
 	var (
-		errors, errs = 0, 0
-		secIDs       policy.SecurityIDContexts
+		errors = 0
+		secIDs policy.SecurityIDContexts
 	)
 
 	addedPolicyMapEntries = policy.NewSecurityIDContexts()
@@ -278,13 +278,15 @@ func (e *Endpoint) applyL4PolicyLocked(oldIdentities, newIdentities *identityPkg
 	// Need to iterate through new L3-L4 policy and insert new PolicyMap entries
 	// for both ingress and egress.
 	for _, filter := range newL4Policy.Ingress {
+		var errs int
 		secIDs, errs = e.applyNewFilter(newIdentities, &filter, policymap.Ingress)
 		setMapOperationResult(addedPolicyMapEntries, secIDs)
 		errors += errs
 	}
 
 	for _, filter := range newL4Policy.Egress {
-		_, errs = e.applyNewFilter(newIdentities, &filter, policymap.Egress)
+		_, errs := e.applyNewFilter(newIdentities, &filter, policymap.Egress)
+		errors += errs
 		// TODO: GH-3393 update maps for egress. Not touching conntrack for now.
 	}
 
