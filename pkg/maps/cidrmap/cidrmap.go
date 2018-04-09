@@ -39,6 +39,10 @@ type CIDRMap struct {
 	Fd        int
 	AddrSize  int // max prefix length in bytes, 4 for IPv4, 16 for IPv6
 	Prefixlen uint32
+
+	// PrefixIsDynamic determines whether it's valid for entries to have
+	// a prefix length that is not equal to the Prefixlen above
+	PrefixIsDynamic bool
 }
 
 const (
@@ -66,13 +70,25 @@ func (cm *CIDRMap) keyCidrInit(key cidrKey) (cidr net.IPNet) {
 	return
 }
 
+// checkPrefixlen checks whether it's valid to manipulate elements in the map
+// with the specified key. If it's unsupported, it returns an error.
+func (cm *CIDRMap) checkPrefixlen(key *cidrKey, operation string) error {
+	if cm.Prefixlen != 0 &&
+		((cm.PrefixIsDynamic && cm.Prefixlen < key.Prefixlen) ||
+			(!cm.PrefixIsDynamic && cm.Prefixlen != key.Prefixlen)) {
+		return fmt.Errorf("Unable to %s element with dynamic prefix length cm.Prefixlen=%d key.Prefixlen=%d",
+			operation, cm.Prefixlen, key.Prefixlen)
+	}
+	return nil
+}
+
 // InsertCIDR inserts an entry to 'cm' with key 'cidr'. Value is currently not
 // used.
 func (cm *CIDRMap) InsertCIDR(cidr net.IPNet) error {
 	key := cm.cidrKeyInit(cidr)
 	entry := [LPM_MAP_VALUE_SIZE]byte{}
-	if cm.Prefixlen != 0 && cm.Prefixlen != key.Prefixlen {
-		return fmt.Errorf("Unable to update element with different prefixlen than map!")
+	if err := cm.checkPrefixlen(&key, "update"); err != nil {
+		return err
 	}
 	log.WithField(logfields.Path, cm.path).Debugf("Inserting CIDR entry %s", cidr.String())
 	return bpf.UpdateElement(cm.Fd, unsafe.Pointer(&key), unsafe.Pointer(&entry), 0)
@@ -81,8 +97,8 @@ func (cm *CIDRMap) InsertCIDR(cidr net.IPNet) error {
 // DeleteCIDR deletes an entry from 'cm' with key 'cidr'.
 func (cm *CIDRMap) DeleteCIDR(cidr net.IPNet) error {
 	key := cm.cidrKeyInit(cidr)
-	if cm.Prefixlen != 0 && cm.Prefixlen != key.Prefixlen {
-		return fmt.Errorf("Unable to delete element with different prefixlen than map!")
+	if err := cm.checkPrefixlen(&key, "delete"); err != nil {
+		return err
 	}
 	log.WithField(logfields.Path, cm.path).Debugf("Removing CIDR entry %s", cidr.String())
 	return bpf.DeleteElement(cm.Fd, unsafe.Pointer(&key))
@@ -186,7 +202,13 @@ func OpenMapElems(path string, prefixlen int, prefixdyn bool, maxelem uint32) (*
 		}
 	}
 
-	m := &CIDRMap{path: path, Fd: fd, AddrSize: bytes, Prefixlen: uint32(prefix)}
+	m := &CIDRMap{
+		path:            path,
+		Fd:              fd,
+		AddrSize:        bytes,
+		Prefixlen:       uint32(prefix),
+		PrefixIsDynamic: prefixdyn,
+	}
 
 	log.WithFields(logrus.Fields{
 		logfields.Path: path,
