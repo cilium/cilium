@@ -84,9 +84,30 @@ type Proxy struct {
 
 // StartProxySupport starts the servers to support L7 proxies: xDS GRPC server
 // and access log server.
-func StartProxySupport(minPort uint16, maxPort uint16, stateDir string) *Proxy {
+func StartProxySupport(minPort uint16, maxPort uint16, stateDir string, accessLogNotifier logger.LogRecordNotifier) *Proxy {
 	xdsServer := envoy.StartXDSServer(stateDir)
+
+	// TODO: Pass those as parameters.
+	accessLogFile := viper.GetString("access-log")
+	accessLogMetadata := viper.GetStringSlice("agent-labels")
+
+	if accessLogFile != "" {
+		if err := logger.OpenLogfile(accessLogFile); err != nil {
+			log.WithError(err).WithField(logger.FieldFilePath, accessLogFile).
+				Warn("Cannot open L7 access log")
+		}
+	}
+
+	if accessLogNotifier != nil {
+		logger.SetNotifier(accessLogNotifier)
+	}
+
+	if len(accessLogMetadata) > 0 {
+		logger.SetMetadata(accessLogMetadata)
+	}
+
 	envoy.StartAccessLogServer(stateDir, xdsServer, DefaultEndpointInfoRegistry)
+
 	return &Proxy{
 		XDSServer:      xdsServer,
 		stateDir:       stateDir,
@@ -125,21 +146,8 @@ var gcOnce sync.Once
 // a proxy instance. If the redirect is already in place, only the rules will be
 // updated.
 func (p *Proxy) CreateOrUpdateRedirect(l4 *policy.L4Filter, id string, localEndpoint logger.EndpointUpdater,
-	notifier logger.LogRecordNotifier, wg *completion.WaitGroup) (*Redirect, error) {
+	wg *completion.WaitGroup) (*Redirect, error) {
 	gcOnce.Do(func() {
-		logger.SetNotifier(notifier)
-
-		if lf := viper.GetString("access-log"); lf != "" {
-			if err := logger.OpenLogfile(lf); err != nil {
-				log.WithError(err).WithField(logger.FieldFilePath, lf).
-					Warn("Cannot open L7 access log")
-			}
-		}
-
-		if labels := viper.GetStringSlice("agent-labels"); len(labels) != 0 {
-			logger.SetMetadata(labels)
-		}
-
 		go func() {
 			for {
 				time.Sleep(time.Duration(10) * time.Second)
