@@ -535,13 +535,20 @@ var _ = Describe("K8sValidatedPolicyTest", func() {
 			webPods, err := kubectl.GetPodsNodes(helpers.DefaultNamespace, "-l k8s-app.guestbook=web")
 			Expect(err).To(BeNil(), "Cannot get web pods")
 
+			serviceIP, port, err := kubectl.GetServiceHostPort(helpers.DefaultNamespace, "redis-master")
+
 			for pod := range webPods {
-				command := `nc redis-master 6379 <<EOF
-							PING
-							EOF`
-				res := kubectl.ExecPodCmd(helpers.DefaultNamespace, pod, command)
-				ExpectWithOffset(1, res.WasSuccessful()).To(BeTrue(),
-					"Web pod %q cannot connect to redis", pod)
+
+				// Access both service IP / host name of redis-master.
+				redisMetadata := map[string]int{serviceIP: port, "redis-master": port}
+				for k, v := range redisMetadata {
+					command := fmt.Sprintf(`nc %s %d <<EOF
+PING
+EOF`, k, v)
+					res := kubectl.ExecPodCmd(helpers.DefaultNamespace, pod, command)
+					ExpectWithOffset(1, res.WasSuccessful()).To(BeTrue(),
+						"Web pod %q cannot connect to redis", pod)
+				}
 			}
 		}
 		It("checks policy example", func() {
