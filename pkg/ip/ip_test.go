@@ -136,7 +136,7 @@ func (s *IPTestSuite) TestRemoveCIDRs(c *C) {
 
 	// Cannot remove CIDRs that are of a different address family.
 	removeCIDRs = []*net.IPNet{createIPNet("fd44:7089:ff32:712b::", 66, int(ipv6BitLen))}
-	allowedCIDRs, err = RemoveCIDRs(allowCIDRs, removeCIDRs)
+	_, err = RemoveCIDRs(allowCIDRs, removeCIDRs)
 	c.Assert(err, NotNil)
 
 	//IPv6 tests
