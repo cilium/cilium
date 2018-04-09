@@ -82,13 +82,6 @@ type Owner interface {
 	// of BPF programs.
 	GetCompilationLock() *lock.RWMutex
 
-	// ResetProxyPort modifies the entries in the Connection Tracking table for
-	// the given endpoint where the given endpoint IPs and the idsToMod match
-	// the CT entry fields.
-	// isCTLocal should be set as true if the endpoint's CT table is either
-	// local or not (if is not local then it is assumed to be global).
-	ResetProxyPort(e *Endpoint, isCTLocal bool, ips []net.IP, idsToMod policy.SecurityIDContexts)
-
 	// FlushCTEntries flushes all entries in the Connection Tracking table for
 	// where the given endpoint IPs except the entries that match the idsToKeep
 	// isCTLocal should be set as true if the endpoint's CT table is either
