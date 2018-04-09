@@ -175,7 +175,11 @@ func InstallExampleCilium(kubectl *Kubectl) {
 			jsonObj.SetP("---\nendpoints:\n- http://k8s1:9732\n", "data.etcd-config")
 			jsonObj.SetP("true", "data.debug")
 		}
-
+		value, _ = jsonObj.Path("kind").Data().(string)
+		if value == daemonSet {
+			container := jsonObj.Path("spec.template.spec.containers").Index(0)
+			container.Set(StableImage, "image")
+		}
 		result.WriteString(jsonObj.String())
 	}
 

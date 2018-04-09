@@ -11,7 +11,7 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-var _ = Describe("DisabledK8sValidatedUpdates", func() {
+var _ = Describe("K8sValidatedUpdates", func() {
 
 	var kubectl *helpers.Kubectl
 	var logger *logrus.Entry
@@ -104,10 +104,6 @@ var _ = Describe("DisabledK8sValidatedUpdates", func() {
 
 		By("Creating some endpoints and L7 policy")
 		kubectl.Apply(demoPath).ExpectSuccess()
-
-		kubectl.Exec(fmt.Sprintf("%s scale deployment %s --replicas=3",
-			helpers.KubectlCmd, helpers.App1)).ExpectSuccess(
-			"Cannot scale %v deployment", helpers.App1)
 
 		_, err := kubectl.WaitforPods(helpers.DefaultNamespace, "-l zgroup=testapp", timeout)
 		Expect(err).Should(BeNil())
