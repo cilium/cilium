@@ -57,6 +57,7 @@ import (
 	"github.com/cilium/cilium/pkg/maps/lxcmap"
 	"github.com/cilium/cilium/pkg/maps/policymap"
 	"github.com/cilium/cilium/pkg/maps/proxymap"
+	"github.com/cilium/cilium/pkg/maps/sockmap"
 	"github.com/cilium/cilium/pkg/maps/tunnel"
 	"github.com/cilium/cilium/pkg/monitor"
 	"github.com/cilium/cilium/pkg/node"
@@ -823,6 +824,7 @@ func (d *Daemon) init() error {
 	fmt.Fprintf(fw, "#define POLICY_MAP_SIZE %d\n", policymap.MaxEntries)
 	fmt.Fprintf(fw, "#define IPCACHE_MAP_SIZE %d\n", ipcachemap.MaxEntries)
 	fmt.Fprintf(fw, "#define POLICY_PROG_MAP_SIZE %d\n", policymap.ProgArrayMaxEntries)
+	fmt.Fprintf(fw, "#define SOCKOPS_MAP_SIZE %d\n", sockmap.MaxEntries)
 
 	fmt.Fprintf(fw, "#define TRACE_PAYLOAD_LEN %dULL\n", tracePayloadLen)
 
