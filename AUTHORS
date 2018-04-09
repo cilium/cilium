@@ -5,8 +5,8 @@ Alban Crequy                            alban@kinvolk.io
 Alexander Alemayhu                      alexander@alemayhu.com
 Alexei Starovoitov                      alexei.starovoitov@gmail.com
 Amre Shakimov                           amre@covalent.io
-André Martins                          andre@cilium.io
-Ashwin Paranjpe                         ashwin@covalent.io
+André Martins                           andre@cilium.io
+Ashwin Paranjpe                         ashwinp.work@gmail.com
 Craig Box                               craig.box@gmail.com
 Cynthia Thomas                          techcet@users.noreply.github.com
 Daniel Borkmann                         daniel@iogearbox.net
@@ -21,12 +21,11 @@ Florian Koch                            f0@users.noreply.github.com
 Fred Hsu                                fredlhsu@gmail.com
 Fulvio Risso                            fulvio.risso@polito.it
 Gianluca Arbezzano                      gianarb92@gmail.com
-halfcrazy                               hackzhuyan@gmail.com
 Ian Vernon                              ian@cilium.io
 Ivar Lazzaro                            ivarlazzaro@gmail.com
 Jan-Erik Rediger                        janerik@fnordig.de
 Jarno Rajahalme                         jarno@covalent.io
-Jerry                                   jerrymuzsik@icloud.com
+Jerry J. Muzsik                         jerrymuzsik@icloud.com
 Joe Farrell                             joe2farrell@gmail.com
 Joe Stringer                            joe@covalent.io
 John Fastabend                          john.fastabend@gmail.com
@@ -59,6 +58,7 @@ Thomas Graf                             thomas@cilium.io
 Tobias Klauser                          tklauser@distanz.ch
 Tony Lambiris                           tony@criticalstack.com
 Trevor Roberts Jr                       Trevor.Roberts.Jr@gmail.com
+Zhu Yan                                 hackzhuyan@gmail.com
 
 The following additional people are mentioned in commit logs as having provided
 helpful bug reports, suggestions or have otherwise provided value to the
