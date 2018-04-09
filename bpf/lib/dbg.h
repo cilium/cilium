@@ -72,7 +72,7 @@ enum {
 				 * arg2: direction
 				 * arg3: unused
 				 */
-	DBG_CT_CREATED4,        /* arg1: (proxy_port << 16) | rev_nat_index
+	DBG_CT_CREATED4,        /* arg1: (unused << 16) | rev_nat_index
 				 * arg2: src sec-id
 				 * arg3: lb address
 				 */ 
@@ -84,7 +84,7 @@ enum {
 				 * arg2: direction
 				 * arg3: unused
 				 */
-	DBG_CT_CREATED6,        /* arg1: (proxy_port << 16) | rev_nat_index
+	DBG_CT_CREATED6,        /* arg1: (unused << 16) | rev_nat_index
 				 * arg2: src sec-id
 				 * arg3: unused
 				 */

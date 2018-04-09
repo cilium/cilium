@@ -81,15 +81,13 @@ static inline int __inline__ __ct_lookup(void *map, struct __sk_buff *skb,
 	int ret;
 
 	if ((entry = map_lookup_elem(map, tuple))) {
-		cilium_dbg(skb, DBG_CT_MATCH, entry->lifetime,
-			entry->proxy_port << 16 | entry->rev_nat_index);
+		cilium_dbg(skb, DBG_CT_MATCH, entry->lifetime, entry->rev_nat_index);
 		if (ct_entry_alive(entry)) {
 			ct_update_timeout(entry, pkt_is_syn);
 		}
 		if (ct_state) {
 			ct_state->rev_nat_index = entry->rev_nat_index;
 			ct_state->loopback = entry->lb_loopback;
-			ct_state->proxy_port = entry->proxy_port;
 		}
 
 #ifdef LXC_NAT46
@@ -286,8 +284,7 @@ static inline int __inline__ ct_lookup6(void *map, struct ipv6_ct_tuple *tuple,
 	skb->cb[CB_NAT46_STATE] = NAT46_CLEAR;
 #endif
 out:
-	cilium_dbg(skb, DBG_CT_VERDICT, ret < 0 ? -ret : ret,
-		ct_state->proxy_port << 16 | ct_state->rev_nat_index);
+	cilium_dbg(skb, DBG_CT_VERDICT, ret < 0 ? -ret : ret, ct_state->rev_nat_index);
 	return ret;
 }
 
@@ -433,8 +430,7 @@ static inline int __inline__ ct_lookup4(void *map, struct ipv4_ct_tuple *tuple,
 	ret = __ct_lookup(map, skb, tuple, action, dir, ct_state, syn);
 
 out:
-	cilium_dbg(skb, DBG_CT_VERDICT, ret < 0 ? -ret : ret,
-		ct_state->proxy_port << 16 | ct_state->rev_nat_index);
+	cilium_dbg(skb, DBG_CT_VERDICT, ret < 0 ? -ret : ret, ct_state->rev_nat_index);
 	return ret;
 }
 
@@ -448,7 +444,6 @@ static inline int __inline__ ct_create6(void *map, struct ipv6_ct_tuple *tuple,
 
 	entry.rev_nat_index = ct_state->rev_nat_index;
 	entry.lb_loopback = ct_state->loopback;
-	entry.proxy_port = ct_state->proxy_port;
 	ct_update_timeout(&entry, tuple->nexthdr == IPPROTO_TCP);
 
 	if (dir == CT_INGRESS) {
@@ -459,8 +454,7 @@ static inline int __inline__ ct_create6(void *map, struct ipv6_ct_tuple *tuple,
 		entry.tx_bytes = skb->len;
 	}
 
-	cilium_dbg3(skb, DBG_CT_CREATED6, entry.proxy_port << 16 | entry.rev_nat_index,
-		      ct_state->src_sec_id, 0);
+	cilium_dbg3(skb, DBG_CT_CREATED6, entry.rev_nat_index, ct_state->src_sec_id, 0);
 
 	entry.src_sec_id = ct_state->src_sec_id;
 	if (map_update_elem(map, tuple, &entry, 0) < 0)
@@ -474,7 +468,6 @@ static inline int __inline__ ct_create6(void *map, struct ipv6_ct_tuple *tuple,
 		.flags = tuple->flags | TUPLE_F_RELATED,
 	};
 
-	entry.proxy_port = 0;
 	entry.seen_non_syn = true; /* For ICMP, there is no SYN. */
 
 	ipv6_addr_copy(&icmp_tuple.daddr, &tuple->daddr);
@@ -500,7 +493,6 @@ static inline int __inline__ ct_create4(void *map, struct ipv4_ct_tuple *tuple,
 
 	entry.rev_nat_index = ct_state->rev_nat_index;
 	entry.lb_loopback = ct_state->loopback;
-	entry.proxy_port = ct_state->proxy_port;
 	ct_update_timeout(&entry, tuple->nexthdr == IPPROTO_TCP);
 
 	if (dir == CT_INGRESS) {
@@ -516,8 +508,7 @@ static inline int __inline__ ct_create4(void *map, struct ipv4_ct_tuple *tuple,
 		entry.nat46 = dir == CT_EGRESS;
 #endif
 
-	cilium_dbg3(skb, DBG_CT_CREATED4, entry.proxy_port << 16 | entry.rev_nat_index,
-		      ct_state->src_sec_id, ct_state->addr);
+	cilium_dbg3(skb, DBG_CT_CREATED4, entry.rev_nat_index, ct_state->src_sec_id, ct_state->addr);
 
 	entry.src_sec_id = ct_state->src_sec_id;
 	if (map_update_elem(map, tuple, &entry, 0) < 0)
@@ -563,7 +554,6 @@ static inline int __inline__ ct_create4(void *map, struct ipv4_ct_tuple *tuple,
 		.flags = tuple->flags | TUPLE_F_RELATED,
 	};
 
-	entry.proxy_port = 0;
 	entry.seen_non_syn = true; /* For ICMP, there is no SYN. */
 
 	/* FIXME: We could do a lookup and check if an L3 entry already exists */
