@@ -369,7 +369,7 @@ struct ct_entry {
 	      seen_non_syn:1,
 	      reserve:11;
 	__u16 rev_nat_index;
-	__be16 proxy_port;
+	__be16 unused;
 	__u32 src_sec_id;
 };
 
@@ -422,7 +422,6 @@ struct ct_state {
 	__u16 loopback:1,
 	      reserved:15;
 	__be16 orig_dport;
-	__be16 proxy_port;
 	__be32 addr;
 	__be32 svc_addr;
 	__u32 src_sec_id;
