@@ -155,6 +155,7 @@ const (
 
 	StableImage = "cilium/cilium:stable"
 	configMap   = "ConfigMap"
+	daemonSet   = "DaemonSet"
 
 	deadLockHeader = "POTENTIAL DEADLOCK:" // from github.com/sasha-s/go-deadlock/deadlock.go:header
 )
