@@ -35,10 +35,10 @@ func (s *NodeSuite) TestIstioNodeToIP(c *C) {
 	c.Check(ip, Equals, "10.1.1.0")
 
 	node.Id = "sidecar~10.1.1.0~v0.default"
-	ip, err = IstioNodeToIP(&node)
+	_, err = IstioNodeToIP(&node)
 	c.Assert(err, Not(IsNil))
 
 	node.Id = "sidecar~not-an-ip~v0.default~default.svc.cluster.local"
-	ip, err = IstioNodeToIP(&node)
+	_, err = IstioNodeToIP(&node)
 	c.Assert(err, Not(IsNil))
 }
