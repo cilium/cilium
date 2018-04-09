@@ -199,7 +199,9 @@ func (ds *PolicyTestSuite) TestL4Policy(c *C) {
 	egressState = traceState{}
 
 	res, err = rule1.resolveL4IngressPolicy(toFoo, &ingressState, NewL4Policy())
+	c.Assert(err, IsNil)
 	res2, err = rule1.resolveL4EgressPolicy(fromFoo, &ingressState, NewL4Policy())
+	c.Assert(err, IsNil)
 
 	c.Assert(res, IsNil)
 	c.Assert(res2, IsNil)
@@ -289,9 +291,11 @@ func (ds *PolicyTestSuite) TestL4Policy(c *C) {
 	egressState = traceState{}
 
 	res, err = rule2.resolveL4IngressPolicy(toFoo, &ingressState, NewL4Policy())
+	c.Assert(err, IsNil)
 	c.Assert(res, IsNil)
 
 	res2, err = rule2.resolveL4EgressPolicy(fromFoo, &egressState, NewL4Policy())
+	c.Assert(err, IsNil)
 	c.Assert(res, IsNil)
 
 	c.Assert(ingressState.selectedRules, Equals, 0)
@@ -458,10 +462,6 @@ func (ds *PolicyTestSuite) TestMergeL7PolicyIngress(c *C) {
 		},
 	}
 
-	l7map := L7DataMap{
-		api.WildcardEndpointSelector: api.L7Rules{},
-	}
-
 	expected := NewL4Policy()
 	expected.Ingress["80/TCP"] = L4Filter{
 		Port: 80, Protocol: api.ProtoTCP, U8Proto: 6, Endpoints: api.EndpointSelectorSlice{api.WildcardEndpointSelector},
@@ -479,6 +479,7 @@ func (ds *PolicyTestSuite) TestMergeL7PolicyIngress(c *C) {
 
 	state = traceState{}
 	res, err = rule1.resolveL4IngressPolicy(toFoo, &state, NewL4Policy())
+	c.Assert(err, IsNil)
 	c.Assert(res, IsNil)
 	c.Assert(state.selectedRules, Equals, 0)
 	c.Assert(state.matchedRules, Equals, 0)
@@ -519,7 +520,7 @@ func (ds *PolicyTestSuite) TestMergeL7PolicyIngress(c *C) {
 	l7rules := api.L7Rules{
 		Kafka: []api.PortRuleKafka{{Topic: "foo"}},
 	}
-	l7map = L7DataMap{
+	l7map := L7DataMap{
 		api.WildcardEndpointSelector: l7rules,
 		fooSelectorSlice[0]:          l7rules,
 	}
@@ -541,6 +542,7 @@ func (ds *PolicyTestSuite) TestMergeL7PolicyIngress(c *C) {
 
 	state = traceState{}
 	res, err = rule2.resolveL4IngressPolicy(toFoo, &state, NewL4Policy())
+	c.Assert(err, IsNil)
 	c.Assert(res, IsNil)
 	c.Assert(state.selectedRules, Equals, 0)
 	c.Assert(state.matchedRules, Equals, 0)
@@ -551,7 +553,7 @@ func (ds *PolicyTestSuite) TestMergeL7PolicyIngress(c *C) {
 	c.Assert(res, Not(IsNil))
 
 	state = traceState{}
-	res, err = rule2.resolveL4IngressPolicy(toBar, &state, res)
+	_, err = rule2.resolveL4IngressPolicy(toBar, &state, res)
 
 	// Despite there being conflicting L7 parsers, because we allow all at L4,
 	// we do not even worry about L7 policy within the rules when merging.
@@ -671,14 +673,6 @@ func (ds *PolicyTestSuite) TestMergeL7PolicyEgress(c *C) {
 		},
 	}
 
-	l7rules := api.L7Rules{
-		HTTP: []api.PortRuleHTTP{{Path: "/", Method: "GET"}},
-	}
-	l7map := L7DataMap{
-		api.WildcardEndpointSelector: l7rules,
-		fooSelector[0]:               l7rules,
-	}
-
 	expected := NewL4Policy()
 	expected.Egress["80/TCP"] = L4Filter{
 		Port: 80, Protocol: api.ProtoTCP, U8Proto: 6, Endpoints: []api.EndpointSelector{api.WildcardEndpointSelector},
@@ -696,6 +690,7 @@ func (ds *PolicyTestSuite) TestMergeL7PolicyEgress(c *C) {
 
 	state = traceState{}
 	res, err = rule1.resolveL4EgressPolicy(fromFoo, &state, NewL4Policy())
+	c.Assert(err, IsNil)
 	c.Assert(res, IsNil)
 	c.Assert(state.selectedRules, Equals, 0)
 	c.Assert(state.matchedRules, Equals, 0)
@@ -740,13 +735,6 @@ func (ds *PolicyTestSuite) TestMergeL7PolicyEgress(c *C) {
 		},
 	}
 
-	l7rules = api.L7Rules{
-		Kafka: []api.PortRuleKafka{{Topic: "foo"}},
-	}
-	l7map = L7DataMap{
-		api.WildcardEndpointSelector: l7rules,
-		fooSelector[0]:               l7rules,
-	}
 	expected = NewL4Policy()
 	expected.Egress["80/TCP"] = L4Filter{
 		Port: 80, Protocol: api.ProtoTCP, U8Proto: 6, Endpoints: api.EndpointSelectorSlice{api.WildcardEndpointSelector},
@@ -764,6 +752,7 @@ func (ds *PolicyTestSuite) TestMergeL7PolicyEgress(c *C) {
 
 	state = traceState{}
 	res, err = rule2.resolveL4EgressPolicy(fromFoo, &state, NewL4Policy())
+	c.Assert(err, IsNil)
 	c.Assert(res, IsNil)
 	c.Assert(state.selectedRules, Equals, 0)
 	c.Assert(state.matchedRules, Equals, 0)
@@ -774,7 +763,7 @@ func (ds *PolicyTestSuite) TestMergeL7PolicyEgress(c *C) {
 	c.Assert(res, Not(IsNil))
 
 	state = traceState{}
-	res, err = rule2.resolveL4EgressPolicy(fromBar, &state, res)
+	_, err = rule2.resolveL4EgressPolicy(fromBar, &state, res)
 	// Despite there being conflicting L7 parsers, because we allow all at L4,
 	// we do not even worry about L7 policy within the rules when merging.
 	c.Assert(err, IsNil)
@@ -822,7 +811,7 @@ func (ds *PolicyTestSuite) TestMergeL7PolicyEgress(c *C) {
 	}
 
 	// The l3-dependent l7 rules are not merged together.
-	l7map = L7DataMap{
+	l7map := L7DataMap{
 		fooSelector[0]:               fooRules,
 		api.WildcardEndpointSelector: barRules,
 	}
