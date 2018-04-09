@@ -524,7 +524,17 @@ var _ = Describe("K8sValidatedPolicyTest", func() {
 		})
 
 		waitforPods := func() {
-			pods, err := kubectl.WaitforPods(
+			pods, err := kubectl.WaitForServiceEndpoints(
+				helpers.DefaultNamespace, "", "redis-master", "6379", helpers.HelperTimeout)
+			Expect(err).Should(BeNil())
+			Expect(pods).Should(BeTrue())
+
+			pods, err = kubectl.WaitForServiceEndpoints(
+				helpers.DefaultNamespace, "", "redis-slave", "6379", helpers.HelperTimeout)
+			Expect(err).Should(BeNil())
+			Expect(pods).Should(BeTrue())
+
+			pods, err = kubectl.WaitforPods(
 				helpers.DefaultNamespace,
 				fmt.Sprintf("-l %s", groupLabel), 300)
 			ExpectWithOffset(1, pods).Should(BeTrue())
