@@ -190,7 +190,7 @@ func AnnotateNode(c kubernetes.Interface, nodeName string, v4CIDR, v6CIDR *net.I
 		for n := 1; n <= maxUpdateRetries; n++ {
 			node, err = GetNode(c, nodeName)
 			if err == nil {
-				node, err = updateNodeAnnotation(c, node, v4CIDR, v6CIDR, v4HealthIP, v6HealthIP)
+				_, err = updateNodeAnnotation(c, node, v4CIDR, v6CIDR, v4HealthIP, v6HealthIP)
 			} else {
 				if errors.IsNotFound(err) {
 					err = ErrNilNode
