@@ -130,7 +130,7 @@ func (d *Daemon) UpdateProxyRedirect(e *endpoint.Endpoint, l4 *policy.L4Filter) 
 		return 0, fmt.Errorf("can't redirect, proxy disabled")
 	}
 
-	r, err := d.l7Proxy.CreateOrUpdateRedirect(l4, e.ProxyID(l4), e, d, e.ProxyWaitGroup)
+	r, err := d.l7Proxy.CreateOrUpdateRedirect(l4, e.ProxyID(l4), e, e.ProxyWaitGroup)
 	if err != nil {
 		return 0, err
 	}
@@ -1077,8 +1077,8 @@ func NewDaemon(c *Config) (*Daemon, error) {
 	// we populate the IPCache with the host's IP(s).
 	ipcache.InitIPIdentityWatcher(&d)
 
-	// FIXME: Make configurable
-	d.l7Proxy = proxy.StartProxySupport(10000, 20000, d.conf.RunDir)
+	// FIXME: Make the port range configurable.
+	d.l7Proxy = proxy.StartProxySupport(10000, 20000, d.conf.RunDir, &d)
 
 	if c.RestoreState {
 		log.Info("Restoring state...")
