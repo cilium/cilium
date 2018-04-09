@@ -118,6 +118,8 @@ func (m *CIDRPolicyMap) PopulateBPF(cidrmap *cidrmap.CIDRMap) error {
 		}
 		err := cidrmap.InsertCIDR(value)
 		if err != nil {
+			log.WithError(err).WithField("CIDR", value).
+				Warningf("Failed to insert CIDR")
 			return err
 		}
 	}
