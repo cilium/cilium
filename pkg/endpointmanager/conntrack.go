@@ -131,28 +131,6 @@ func EnableConntrackGC(ipv4, ipv6 bool) {
 	}()
 }
 
-// ResetProxyPort modifies the connection tracking table of the given endpoint
-// `e`. It modifies all CT entries that of the CT table local or global, defined
-// by isLocal, that contain:
-//  - all the endpoint IP addresses given in the epIPs slice AND
-//  - any of the given ids in the idsMod map, maps to true and matches the
-//    src_sec_id in the CT table.
-func ResetProxyPort(ipv4Enabled bool, e *endpoint.Endpoint, isLocal bool, epIPs []net.IP, idsMod policy.SecurityIDContexts) {
-
-	gcFilter := ctmap.NewGCFilterBy(ctmap.GCFilterByIDToMod)
-	gcFilter.IDsToMod = idsMod
-	gcFilter.EndpointID = e.ID
-	for _, epIP := range epIPs {
-		gcFilter.EndpointIP = epIP
-
-		if epIP.To4() == nil {
-			RunGC(e, isLocal, true, gcFilter)
-		} else if ipv4Enabled {
-			RunGC(e, isLocal, false, gcFilter)
-		}
-	}
-}
-
 // FlushCTEntriesOf cleans the connection tracking table of the given endpoint
 // `e`. It removes all CT entries that of the CT table local or global, defined
 // by isLocal, that contains:

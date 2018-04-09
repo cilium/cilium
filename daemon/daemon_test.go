@@ -69,7 +69,6 @@ type DaemonSuite struct {
 	OnRemoveFromEndpointQueue         func(epID uint64)
 	OnDebugEnabled                    func() bool
 	OnGetCompilationLock              func() *lock.RWMutex
-	OnResetProxyPort                  func(e *e.Endpoint, isCTLocal bool, ips []net.IP, idsToMod policy.SecurityIDContexts)
 	OnFlushCTEntries                  func(e *e.Endpoint, isCTLocal bool, ips []net.IP, idsToKeep policy.SecurityIDContexts)
 	OnSendNotification                func(typ monitor.AgentNotification, text string) error
 	OnNewProxyLogRecord               func(l *accesslog.LogRecord) error
@@ -129,7 +128,6 @@ func (ds *DaemonSuite) SetUpTest(c *C) {
 	ds.OnRemoveFromEndpointQueue = nil
 	ds.OnDebugEnabled = nil
 	ds.OnGetCompilationLock = nil
-	ds.OnResetProxyPort = nil
 	ds.OnFlushCTEntries = nil
 	ds.OnSendNotification = nil
 	ds.OnNewProxyLogRecord = nil
@@ -311,14 +309,6 @@ func (ds *DaemonSuite) GetCompilationLock() *lock.RWMutex {
 		return ds.OnGetCompilationLock()
 	}
 	panic("GetCompilationLock should not have been called")
-}
-
-func (ds *DaemonSuite) ResetProxyPort(e *e.Endpoint, isCTLocal bool, ips []net.IP, idsToMod policy.SecurityIDContexts) {
-	if ds.OnResetProxyPort != nil {
-		ds.OnResetProxyPort(e, isCTLocal, ips, idsToMod)
-		return
-	}
-	panic("ResetProxyPort should not have been called")
 }
 
 func (ds *DaemonSuite) FlushCTEntries(e *e.Endpoint, isCTLocal bool, ips []net.IP, idsToKeep policy.SecurityIDContexts) {

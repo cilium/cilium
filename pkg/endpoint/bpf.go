@@ -425,10 +425,7 @@ func (ep *epInfoCache) GetBPFValue() (*lxcmap.EndpointInfo, error) {
 
 // updateCT updates the Connection Tracking based on the endpoint's policy
 // enforcement. If the policy enforcement is true, all CT entries will be
-// removed except the ones matched by idsToKeep. If the policy enforcement
-// is not being enforced then all CT entries that match idsToMod will be
-// modified, by resetting its proxy_port to 0 since there is no proxy running
-// with policy enforcement disabled.
+// removed except the ones matched by idsToKeep.
 // It returns a sync.WaitGroup that will signalize when the CT entry table
 // is updated.
 func updateCT(owner Owner, e *Endpoint, epIPs []net.IP,
@@ -442,14 +439,6 @@ func updateCT(owner Owner, e *Endpoint, epIPs []net.IP,
 			// New security identities added, so we need to flush all CT entries
 			// except the idsToKeep.
 			owner.FlushCTEntries(e, isLocal, epIPs, idsToKeep)
-			wg.Done()
-		}(wg)
-	} else {
-		wg.Add(1)
-		go func(wg *sync.WaitGroup) {
-			// Security identities removed, so we need to modify all CT entries
-			// with idsToMod because there's no policy being enforced.
-			owner.ResetProxyPort(e, isLocal, epIPs, idsToMod)
 			wg.Done()
 		}(wg)
 	}
