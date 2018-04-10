@@ -580,13 +580,13 @@ Best Practices for Writing Tests
 
 * Provide informative output to console during a test using the `By construct <https://onsi.github.io/ginkgo/#documenting-complex-its-by>`_. This helps with debugging and gives those who did not write the test a good idea of what is going on. The lower the barrier of entry is for understanding tests, the better our tests will be!
 * Leave the testing environment in the same state that it was in when the test started by deleting resources, resetting configuration, etc.
-* Gather logs in the case that a test fails. If a test fails while running on Jenkins, a postmortem needs to be done to analyze why. So, dumping logs to a location where Jenkins can pick them up is of the highest imperative. Use the following code in an `AfterEach <https://onsi.github.io/ginkgo/#extracting-common-setup-beforeeach>`_ for all tests:
+* Gather logs in the case that a test fails. If a test fails while running on Jenkins, a postmortem needs to be done to analyze why. So, dumping logs to a location where Jenkins can pick them up is of the highest imperative. Use the following code in an ``AfterFailed`` method:
 
 ::
 
-    if CurrentGinkgoTestDescription().Failed {
-        vm.ReportFailed()
-    }
+	AfterFailed(func() {
+		vm.ReportFailed()
+	})
 
 
 Ginkgo Extensions
@@ -620,6 +620,77 @@ common unit test frameworks.
 A good use case for using ``AfterAll`` method is to remove containers or pods
 that are needed for multiple ``Its`` in the given ``Context`` or ``Describe``.
 
+JustAfterEach
+^^^^^^^^^^^^^
+
+This method will run just after each test and before ``AfterFailed`` and
+``AfterEach``. The main reason of this method is to to perform some assertions
+for a group of tests.  A good example of using a global ``JustAfterEach``
+function is for deadlock detection, which checks the Cilium logs for deadlocks
+that may have occurred in the duration of the tests.
+
+AfterFailed
+^^^^^^^^^^^
+
+This method will run before all ``AfterEach`` and after ``JustAfterEach``. This
+function is only called when the test failed.This construct is used to gather
+logs, the status of Cilium, etc, which provide data for analysis when tests
+fail.
+
+Example Test Layaout
+^^^^^^^^^^^^^^^^^^^^^
+
+Here is an example layout of how a test may be written with the aforementioned
+constructs:
+
+Test description diagram:
+::
+
+    Describe
+        BeforeAll(A)
+        AfterAll(A)
+        AfterFailed(A)
+        AfterEach(A)
+        JustAfterEach(A)
+        TESTA1
+        TESTA2
+        TESTA3
+        Context
+            BeforeAll(B)
+            AfterAll(B)
+            AfterFailed(B)
+            AfterEach(B)
+            JustAfterEach(B)
+            TESTB1
+            TESTB2
+            TESTB3
+
+
+Test execution flow:
+::
+
+    Describe
+        BeforeAll
+        TESTA1; JustAfterEach(A), AfterFailed(A), AfterEach(A)
+        TESTA2; JustAfterEach(A), AfterFailed(A), AfterEach(A)
+        TESTA3; JustAfterEach(A), AfterFailed(A), AfterEach(A)
+        Context
+            BeforeAll(B)
+            TESTB1:
+               JustAfterEach(B); JustAfterEach(A)
+               AfterFailed(B); AfterFailed(A);
+               AfterEach(B) ; AfterEach(A);
+            TESTB2:
+               JustAfterEach(B); JustAfterEach(A)
+               AfterFailed(B); AfterFailed(A);
+               AfterEach(B) ; AfterEach(A);
+            TESTB3:
+               JustAfterEach(B); JustAfterEach(A)
+               AfterFailed(B); AfterFailed(A);
+               AfterEach(B) ; AfterEach(A);
+            AfterAll(B)
+        AfterAll(A)
+
 Debugging:
 ~~~~~~~~~~
 
@@ -649,6 +720,61 @@ saved, in case of a failing test an exhaustive data will be added.
 	Cilium:             Ok   OK
 	NodeMonitor:        Disabled
 	Allocated IPv4 addresses:
+
+
+Running with delve
+^^^^^^^^^^^^^^^^^^
+
+`Delve <https://github.com/derekparker/delve>`_ is a debugging tool for Go
+applications. If you want to run your test with delve,  you should add a new
+breakpoint using
+`runtime.BreakPoint() <https://golang.org/pkg/runtime/#Breakpoint>`_ in the
+code, and run ginkgo using ``dlv``.
+
+Example how to run ginkgo using ``dlv``:
+
+::
+
+	dlv test . -- --ginkgo.focus="Runtime" -ginkgo.v=true --cilium.provision=false
+
+
+Running test in other VMs
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+If you want to run test in a different VM, you can use ``--cilium.SSHConfig`` to
+provide the SSH configuration of the endpoint on which tests will be ran. The
+tests presume the following on the remote instance:
+
+- Cilium source code is located in the directory ``/home/vagrant/go/src/github.com/cilium/cilium/``.
+- Cilium is installed and running.
+
+The ssh connection needs to be defined as a ``ssh-config`` file and need to have
+the following targets:
+
+- runtime: To run runtime tests
+- k8s{1..2}-${K8S_VERSION}: to run Kubernetes tests. These instances must have
+  Kubernetes installed and running as a prerequisite for running tests.
+
+An example ``ssh-config`` can be the following:
+
+::
+
+	Host runtime
+	  HostName 127.0.0.1
+	  User vagrant
+	  Port 2222
+	  UserKnownHostsFile /dev/null
+	  StrictHostKeyChecking no
+	  PasswordAuthentication no
+	  IdentityFile /home/eloy/.go/src/github.com/cilium/cilium/test/.vagrant/machines/runtime/virtualbox/private_key
+	  IdentitiesOnly yes
+	  LogLevel FATAL
+
+To run this you can use the following command:
+
+::
+
+    ginkgo  -v -- --cilium.provision=false --cilium.SSHConfig="cat ssh-config"
 
 
 Further Assistance
