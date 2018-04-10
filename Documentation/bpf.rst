@@ -326,7 +326,8 @@ will be JIT compiled in a transparent and efficient way, meaning that the JIT
 compiler only needs to emit a call instruction since the register mapping
 is made in such a way that BPF register assignments already match the
 underlying architecture's calling convention. This allows for easily extending
-the core kernel with new helper functionality.
+the core kernel with new helper functionality. All BPF helper functions are
+part of the core kernel and cannot be extended or added through kernel modules.
 
 The aforementioned function signature also allows the verifier to perform type
 checks. The above ``struct bpf_func_proto`` is used to hand all the necessary
@@ -339,6 +340,13 @@ contents such as a pointer / size pair for the BPF stack buffer, which the
 helper should read from or write to. In the latter case, the verifier can also
 perform additional checks, for example, whether the buffer was previously
 initialized.
+
+The list of available BPF helper functions is rather long and constantly growing,
+for example, at the time of this writing, tc BPF programs can choose from 38
+different BPF helpers. The kernel's ``struct bpf_verifier_ops`` contains a
+``get_func_proto`` callback function that provides the mapping of a specific
+``enum bpf_func_id`` to one of the available helpers for a given BPF program
+type.
 
 Maps
 ----
@@ -356,15 +364,12 @@ Map implementations are provided by the core kernel. There are generic maps with
 per-CPU and non-per-CPU flavor that can read / write arbitrary data, but there are
 also a few non-generic maps that are used along with helper functions.
 
-Generic maps currently available:
-
-* ``BPF_MAP_TYPE_HASH``
-* ``BPF_MAP_TYPE_ARRAY``
-* ``BPF_MAP_TYPE_PERCPU_HASH``
-* ``BPF_MAP_TYPE_PERCPU_ARRAY``
-* ``BPF_MAP_TYPE_LRU_HASH``
-* ``BPF_MAP_TYPE_LRU_PERCPU_HASH``
-* ``BPF_MAP_TYPE_LPM_TRIE``
+Generic maps currently available are ``BPF_MAP_TYPE_HASH``, ``BPF_MAP_TYPE_ARRAY``,
+``BPF_MAP_TYPE_PERCPU_HASH``, ``BPF_MAP_TYPE_PERCPU_ARRAY``, ``BPF_MAP_TYPE_LRU_HASH``,
+``BPF_MAP_TYPE_LRU_PERCPU_HASH`` and ``BPF_MAP_TYPE_LPM_TRIE``. They all use the
+same common set of BPF helper functions in order to perform lookup, update or
+delete operations while implementing a different backend with differing semantics
+and performance characteristics.
 
 Non-generic maps currently in the kernel:
 
@@ -441,6 +446,95 @@ parsing network headers could be structured through tail calls. During runtime,
 functionality can be added or replaced atomically, and thus altering the BPF
 program's execution behaviour.
 
+BPF to BPF Calls
+----------------
+
+Aside from BPF helper calls and BPF tail calls, a more recent feature that has
+been added to the BPF core infrastructure is BPF to BPF calls. Before this
+feature was introduced into the kernel, a typical BPF C program had to declare
+any reusable code that, for example, resides in headers as ``always_inline``
+such that when LLVM compiles and generates the BPF object file all these
+functions were inlined and therefore duplicated many times in the resulting
+object file, artifically inflating its code size:
+
+  ::
+
+    #include <linux/bpf.h>
+
+    #ifndef __section
+    # define __section(NAME)                  \
+       __attribute__((section(NAME), used))
+    #endif
+
+    #ifndef __inline
+    # define __inline                         \
+       inline __attribute__((always_inline))
+    #endif
+
+    static __inline int foo(void)
+    {
+        return XDP_DROP;
+    }
+
+    __section("prog")
+    int xdp_drop(struct xdp_md *ctx)
+    {
+        return foo();
+    }
+
+    char __license[] __section("license") = "GPL";
+
+The main reason why this was necessary was due to lack of function call support
+in the BPF program loader as well as verifier, interpreter and JITs. Starting
+with Linux kernel 4.16 and LLVM 6.0 this restriction got lifted and BPF programs
+no longer need to use ``always_inline`` everywhere. Thus, the prior shown BPF
+example code can then be rewritten more naturally as:
+
+  ::
+
+    #include <linux/bpf.h>
+
+    #ifndef __section
+    # define __section(NAME)                  \
+       __attribute__((section(NAME), used))
+    #endif
+
+    static int foo(void)
+    {
+        return XDP_DROP;
+    }
+
+    __section("prog")
+    int xdp_drop(struct xdp_md *ctx)
+    {
+        return foo();
+    }
+
+    char __license[] __section("license") = "GPL";
+
+Mainstream BPF JIT compilers like ``x86_64`` and ``arm64`` support BPF to BPF
+calls today with others following in near future. BPF to BPF call is an
+important performance optimization since it heavily reduces the generated BPF
+code size and therefore becomes friendlier to a CPU's icache.
+
+The calling convention known from BPF helper function applies to BPF to BPF
+calls just as well, meaning ``r1`` up to ``r5`` are for passing arguments to
+the callee and the result is returned in ``r0``. ``r1`` to ``r5`` are scratch
+registers whereas ``r6`` to ``r9`` preserved accross calls the usual way. The
+maximum number of nesting calls respectively allowed call frames is ``8``.
+A caller can pass pointers (e.g. to the caller's stack frame) down to the
+callee, but never vice versa.
+
+BPF to BPF calls are currently incompatible with the use of BPF tail calls,
+since the latter requires to reuse the current stack setup as-is, whereas
+the former adds additional stack frames and thus changes the expected layout
+for tail calls.
+
+BPF JIT compilers emit separate images for each function body and later fix
+up the function call addresses in the image in a final JIT pass. This has
+proven to require minimal changes to the JITs in that they can treat BPF to
+BPF calls as conventional BPF helper calls.
+
 JIT
 ---
 
@@ -471,6 +565,15 @@ issuing a grep for ``HAVE_EBPF_JIT``:
     arch/sparc/Kconfig:     select HAVE_EBPF_JIT   if SPARC64
     arch/x86/Kconfig:       select HAVE_EBPF_JIT   if X86_64
 
+JIT compilers speed up execution of the BPF program significantly since they
+reduce the per instruction cost compared to the interpreter. Often instructions
+can be mapped 1:1 with native instructions of the underlying architecture. This
+also reduces the resulting executable image size and is therefore more icache
+friendly to the CPU. In particular in case of CISC instruction sets such as
+``x86``, the JITs are optimized for emitting the shortest possible opcodes for
+a given instruction to shrink the total necessary size for the program
+translation.
+
 Hardening
 ---------
 
@@ -495,6 +598,11 @@ determined through:
 The option ``CONFIG_ARCH_HAS_SET_MEMORY`` is not configurable, thanks to
 which this protection is always built-in. Other architectures might follow
 in the future.
+
+In case of the ``x86_64`` JIT compiler, the JITing of the indirect jump from
+the use of tail calls is realized through a retpoline in case ``CONFIG_RETPOLINE``
+has been set which is the default at the time of writing in most modern Linux
+distributions.
 
 In case of ``/proc/sys/net/core/bpf_jit_harden`` set to ``1`` additional
 hardening steps for the JIT compilation take effect for unprivileged users.
@@ -574,6 +682,31 @@ At the same time, hardening also disables any JIT kallsyms exposure
 for privileged users, preventing that JIT image addresses are not
 exposed to ``/proc/kallsyms`` anymore.
 
+Moreover, the Linux kernel provides the option ``CONFIG_BPF_JIT_ALWAYS_ON``
+which removes the entire BPF interpreter from the kernel and permanently
+enables the JIT compiler. This has been developed as part of a mitigation
+in the context of Spectre v2 such that when used in a VM-based setting,
+the guest kernel is not going to reuse the host kernel's BPF interpreter
+when mounting an attack anymore. For container-based environments, the
+``CONFIG_BPF_JIT_ALWAYS_ON`` configuration option is optional, but in
+case JITs are enabled there anyway, the interpreter may as well be compiled
+out to reduce the kernel's complexity. Thus, it is also generally
+recommended for widely used JITs in case of main stream architectures
+such as ``x86_64`` and ``arm64``.
+
+Last but not least, the kernel offers an option to disable the use of
+the ``bpf(2)`` system call for unpriviledged users through the
+``/proc/sys/kernel/unprivileged_bpf_disabled`` sysctl knob. This is
+on purpose a one-time kill switch, meaning once set to ``1``, there is
+no option to reset it back to ``0`` until a new kernel reboot. When
+set only ``CAP_SYS_ADMIN`` priviledged processes out of the initial
+namespace are allowed to use the ``bpf(2)`` system call from that
+point onwards. Upon start, Cilium sets this knob to ``1`` as well.
+
+::
+
+    # echo 1 > /proc/sys/kernel/unprivileged_bpf_disabled
+
 Offloads
 --------
 
@@ -583,7 +716,9 @@ code directly on the NIC.
 
 Currently, the ``nfp`` driver from Netronome has support for offloading
 BPF through a JIT compiler which translates BPF instructions to an
-instruction set implemented against the NIC.
+instruction set implemented against the NIC. This includes offloading
+of BPF maps to the NIC as well, thus the offloaded BPF program can
+perform map lookups, updates and deletions.
 
 Toolchain
 =========
@@ -600,10 +735,11 @@ A step by step guide for setting up a development environment for BPF can be fou
 below for both Fedora and Ubuntu. This will guide you through building, installing
 and testing a development kernel as well as building and installing iproute2.
 
-The step of building your own iproute2 and Linux kernel is usually not necessary
+The step of manually building iproute2 and Linux kernel is usually not necessary
 given that major distributions already ship recent enough kernels by default, but
 would be needed for testing bleeding edge versions or contributing BPF patches to
-iproute2 and to the Linux kernel, respectively.
+iproute2 and to the Linux kernel, respectively. Similarly, for debugging and
+introspection purposes building bpftool is optional, but recommended.
 
 Fedora
 ``````
@@ -613,7 +749,7 @@ The following applies to Fedora 25 or later:
 ::
 
     $ sudo dnf install -y git gcc ncurses-devel elfutils-libelf-devel bc \
-      openssl-devel libcap-devel clang llvm
+      openssl-devel libcap-devel clang llvm graphviz
 
 .. note:: If you are running some other Fedora derivative and ``dnf`` is missing,
           try using ``yum`` instead.
@@ -626,7 +762,8 @@ The following applies to Ubuntu 17.04 or later:
 ::
 
     $ sudo apt-get install -y make gcc libssl-dev bc libelf-dev libcap-dev \
-      clang gcc-multilib llvm libncurses5-dev git pkg-config libmnl bison flex
+      clang gcc-multilib llvm libncurses5-dev git pkg-config libmnl bison flex \
+      graphviz
 
 Compiling the Kernel
 ````````````````````
@@ -719,14 +856,14 @@ be used:
 
 ::
 
-    $ git clone git://git.kernel.org/pub/scm/linux/kernel/git/shemminger/iproute2.git
+    $ git clone git://git.kernel.org/pub/scm/linux/kernel/git/iproute2/iproute2.git
 
 Similarly, to clone into mentioned ``net-next`` branch of iproute2, run the
 following:
 
 ::
 
-    $ git clone -b net-next git://git.kernel.org/pub/scm/linux/kernel/git/shemminger/iproute2.git
+    $ git clone -b net-next git://git.kernel.org/pub/scm/linux/kernel/git/iproute2/iproute2.git
 
 After that, proceed with the build and installation:
 
@@ -754,6 +891,48 @@ After that, proceed with the build and installation:
 Ensure that the ``configure`` script shows ``ELF support: yes``, so that iproute2
 can process ELF files from LLVM's BPF back end. libelf was listed in the instructions
 for installing the dependencies in case of Fedora and Ubuntu earlier.
+
+Compiling bpftool
+`````````````````
+
+bpftool is an essential tool around debugging and introspection of BPF programs
+and maps. It is part of the kernel tree and available under ``tools/bpf/bpftool/``.
+
+Make sure to have cloned either the ``net`` or ``net-next`` kernel tree as described
+earlier. In order to build and install bpftool, the following steps are required:
+
+::
+
+    $ cd <kernel-tree>/tools/bpf/bpftool/
+    $ make
+    Auto-detecting system features:
+    ...                        libbfd: [ on  ]
+    ...        disassembler-four-args: [ OFF ]
+
+      CC       xlated_dumper.o
+      CC       prog.o
+      CC       common.o
+      CC       cgroup.o
+      CC       main.o
+      CC       json_writer.o
+      CC       cfg.o
+      CC       map.o
+      CC       jit_disasm.o
+      CC       disasm.o
+    make[1]: Entering directory '/home/foo/trees/net/tools/lib/bpf'
+
+    Auto-detecting system features:
+    ...                        libelf: [ on  ]
+    ...                           bpf: [ on  ]
+
+      CC       libbpf.o
+      CC       bpf.o
+      CC       nlattr.o
+      LD       libbpf-in.o
+      LINK     libbpf.a
+    make[1]: Leaving directory '/home/foo/trees/bpf/tools/lib/bpf'
+      LINK     bpftool
+    $ sudo make install
 
 LLVM
 ----
@@ -973,7 +1152,7 @@ can later on be passed to llc:
 
 ::
 
-    $ clang -O2 -Wall -emit-llvm -c xdp-example.c -o xdp-example.bc
+    $ clang -O2 -Wall -target bpf -emit-llvm -c xdp-example.c -o xdp-example.bc
     $ llc xdp-example.bc -march=bpf -filetype=obj -o xdp-example.o
 
 The generated LLVM IR can also be dumped in human readable format through:
@@ -989,12 +1168,91 @@ currently unsupported, too.
 Furthermore, compilation from BPF assembly (e.g. ``llvm-mc xdp-example.S -arch bpf -filetype=obj -o xdp-example.o``)
 is currently not supported either due to missing BPF assembly parser.
 
+LLVM by default uses the BPF base instruction set for generating code
+in order to make sure that the generated object file can also be loaded
+with older kernels such as long-term stable kernels (e.g. 4.9+).
+
+However, LLVM has a ``-mcpu`` selector for the BPF back end in order to
+select different versions of the BPF instruction set, namely instruction
+set extensions on top of the BPF base instruction set in order to generate
+more efficient and smaller code.
+
+Available ``-mcpu`` options can be queried through:
+
+::
+
+    $ llc -march bpf -mcpu=help
+    Available CPUs for this target:
+
+      generic - Select the generic processor.
+      probe   - Select the probe processor.
+      v1      - Select the v1 processor.
+      v2      - Select the v2 processor.
+    [...]
+
+The ``generic`` processor is the default processor, which is also the
+base instruction set ``v1`` of BPF. Options ``v1`` and ``v2`` are typically
+useful in an environment where the BPF program is being cross compiled
+and the target host where the program is loaded differs from the one
+where it is compiled (and thus available BPF kernel features might differ
+as well).
+
+The recommended ``-mcpu`` option which is also used by Cilium internally is
+``-mcpu=probe``! Here, the LLVM BPF back end queries the kernel for availability
+of BPF instruction set extensions and when found available, LLVM will use
+them for compiling the BPF program whenever appropriate.
+
+A full command line example with llc's ``-mcpu=probe``:
+
+::
+
+    $ clang -O2 -Wall -target bpf -emit-llvm -c xdp-example.c -o xdp-example.bc
+    $ llc xdp-example.bc -march=bpf -mcpu=probe -filetype=obj -o xdp-example.o
+
+Generally, LLVM IR generation is architecture independent. There are
+however a few differences when using ``clang -target bpf`` versus
+leaving ``-target bpf`` out and thus using clang's default target which,
+depending on the underlying architecture, might be ``x86_64``, ``arm64``
+or others.
+
+Quoting from the kernel's ``Documentation/bpf/bpf_devel_QA.txt``:
+
+* BPF programs may recursively include header file(s) with file scope
+  inline assembly codes. The default target can handle this well, while
+  bpf target may fail if bpf backend assembler does not understand
+  these assembly codes, which is true in most cases.
+
+* When compiled without -g, additional elf sections, e.g., ``.eh_frame``
+  and ``.rela.eh_frame``, may be present in the object file with default
+  target, but not with bpf target.
+
+* The default target may turn a C switch statement into a switch table
+  lookup and jump operation. Since the switch table is placed in the
+  global read-only section, the bpf program will fail to load.
+  The bpf target does not support switch table optimization. The clang
+  option ``-fno-jump-tables`` can be used to disable switch table
+  generation.
+
+* For clang ``-target bpf``, it is guaranteed that pointer or long /
+  unsigned long types will always have a width of 64 bit, no matter
+  whether underlying clang binary or default target (or kernel) is
+  32 bit. However, when native clang target is used, then it will
+  compile these types based on the underlying architecture's
+  conventions, meaning in case of 32 bit architecture, pointer or
+  long / unsigned long types e.g. in BPF context structure will have
+  width of 32 bit while the BPF LLVM back end still operates in 64 bit.
+
+The native target is mostly needed in tracing for the case of walking
+the kernel's ``struct pt_regs`` that maps CPU registers, or other kernel
+structures where CPU's register width matters. In all other cases such
+as networking, the use of ``clang -target bpf`` is the preferred choice.
+
 When writing C programs for BPF, there are a couple of pitfalls to be aware
 of, compared to usual application development with C. The following items
 describe some of the differences for the BPF model:
 
-1. **Everything needs to be inlined, there are no function or shared library
-   calls available.**
+1. **Everything needs to be inlined, there are no function calls (on older
+   LLVM versions) or shared library calls available.**
 
    Shared libraries, etc cannot be used with BPF. However, common library
    code used in BPF programs can be placed into header files and included in
@@ -1003,11 +1261,13 @@ describe some of the differences for the BPF model:
    the kernel or other libraries and reuse their static inline functions or
    macros / definitions.
 
-   Eventually LLVM needs to compile the entire code into a flat sequence of
-   BPF instructions for a given program section. Best practice is to use an
-   annotation like ``__inline`` for every library function as shown below.
-   The use of ``always_inline`` is recommended, since the compiler could still
-   decide to uninline large functions that are only annotated as ``inline``.
+   Unless a recent kernel (4.16+) and LLVM (6.0+) is used where BPF to BPF
+   function calls are supported, then LLVM needs to compile and inline the
+   entire code into a flat sequence of BPF instructions for a given program
+   section. In such case, best practice is to use an annotation like ``__inline``
+   for every library function as shown below. The use of ``always_inline``
+   is recommended, since the compiler could still decide to uninline large
+   functions that are only annotated as ``inline``.
 
    In case the latter happens, LLVM will generate a relocation entry into
    the ELF file, which BPF ELF loaders such as iproute2 cannot resolve and
@@ -1205,11 +1465,11 @@ describe some of the differences for the BPF model:
 
     # tc filter show dev em1 ingress
     filter protocol all pref 49152 bpf
-    filter protocol all pref 49152 bpf handle 0x1 tc-example.o:[ingress] direct-action tag c5f7825e5dac396f
+    filter protocol all pref 49152 bpf handle 0x1 tc-example.o:[ingress] direct-action id 1 tag c5f7825e5dac396f
 
     # tc filter show dev em1 egress
     filter protocol all pref 49152 bpf
-    filter protocol all pref 49152 bpf handle 0x1 tc-example.o:[egress] direct-action tag b2fd5adc0f262714
+    filter protocol all pref 49152 bpf handle 0x1 tc-example.o:[egress] direct-action id 2 tag b2fd5adc0f262714
 
     # mount | grep bpf
     sysfs on /sys/fs/bpf type sysfs (rw,nosuid,nodev,noexec,relatime,seclabel)
@@ -1314,7 +1574,7 @@ describe some of the differences for the BPF model:
   due to an LLVM issue in the back end, and is therefore not recommended to be
   used until the issue is fixed.
 
-6. **There are no loops available.**
+6. **There are no loops available (yet).**
 
   The BPF verifier in the kernel checks that a BPF program does not contain
   loops by performing a depth first search of all possible program paths besides
@@ -1509,7 +1769,7 @@ describe some of the differences for the BPF model:
   map at index / key ``0`` with a new program residing in the object file ``new.o``
   under section ``foo``.
 
-8. **Limited stack space of 512 bytes.**
+8. **Limited stack space of maximum 512 bytes.**
 
   Stack space in BPF programs is limited to only 512 bytes, which needs to be
   taken into careful consideration when implementing BPF programs in C. However,
@@ -1654,22 +1914,26 @@ of all details, but enough for getting started.
 
     # tc filter show dev em1 ingress
     filter protocol all pref 49152 bpf
-    filter protocol all pref 49152 bpf handle 0x1 prog.o:[ingress] direct-action tag c5f7825e5dac396f
+    filter protocol all pref 49152 bpf handle 0x1 prog.o:[ingress] direct-action id 1 tag c5f7825e5dac396f
 
     # tc filter show dev em1 egress
     filter protocol all pref 49152 bpf
-    filter protocol all pref 49152 bpf handle 0x1 prog.o:[egress] direct-action tag b2fd5adc0f262714
+    filter protocol all pref 49152 bpf handle 0x1 prog.o:[egress] direct-action id 2 tag b2fd5adc0f262714
 
   The output of ``prog.o:[ingress]`` tells that program section ``ingress`` was
   loaded from the file ``prog.o``, and ``bpf`` operates in ``direct-action`` mode.
-  The program tags are appended for each, which denotes a hash over the instruction
-  stream which can be used for debugging / introspection.
+  The program ``id`` and ``tag`` is appended for each case, where the latter denotes
+  a hash over the instruction stream which can be correlated with the object file
+  or ``perf`` reports with stack traces, etc. Last but not least, the ``id``
+  represents the system-wide unique BPF program identifier that can be used along
+  with ``bpftool`` to further inspect or dump the attached BPF program.
 
   tc can attach more than just a single BPF program, it provides various other
   classifiers which can be chained together. However, attaching a single BPF program
   is fully sufficient since all packet operations can be contained in the program
-  itself thanks to ``da`` (``direct-action``) mode. For optimal performance and
-  flexibility, this is the recommended usage.
+  itself thanks to ``da`` (``direct-action``) mode, meaning the BPF program itself
+  will already return the tc action verdict such as ``TC_ACT_OK``, ``TC_ACT_SHOT``
+  and others. For optimal performance and flexibility, this is the recommended usage.
 
   In the above ``show`` command, tc also displays ``pref 49152`` and
   ``handle 0x1`` next to the BPF related output. Both are auto-generated in
@@ -1691,7 +1955,7 @@ of all details, but enough for getting started.
 
     # tc filter show dev em1 ingress
     filter protocol all pref 1 bpf
-    filter protocol all pref 1 bpf handle 0x1 prog.o:[foobar] direct-action tag c5f7825e5dac396f
+    filter protocol all pref 1 bpf handle 0x1 prog.o:[foobar] direct-action id 1 tag c5f7825e5dac396f
 
   And for the atomic replacement, the following can be issued for updating the
   existing program at ``ingress`` hook with the new BPF program from the file
@@ -1822,6 +2086,322 @@ pointers. After that all the programs themselves are created through the BPF
 system call, and tail called maps, if present, updated with the program's file
 descriptors.
 
+bpftool
+-------
+
+bpftool is the main introspection and debugging tool around BPF and developed
+and shipped along with the Linux kernel tree under ``tools/bpf/bpftool/``.
+
+The tool can dump all BPF programs and maps that are currently loaded in
+the system, or list and correlate all BPF maps used by a specific program.
+Furthermore, it allows to dump the entire map's key / value pairs, or
+lookup, update, delete individual ones as well as retrieve a key's neighbor
+key in the map. Such operations can be performed based on BPF program or
+map IDs or by specifying the location of a BPF file system pinned program
+or map. The tool additionally also offers an option to pin maps or programs
+into the BPF file system.
+
+For a quick overview of all BPF programs currently loaded on the host
+invoke the following command:
+
+  ::
+
+     # bpftool prog
+     398: sched_cls  tag 56207908be8ad877
+        loaded_at Apr 09/16:24  uid 0
+        xlated 8800B  jited 6184B  memlock 12288B  map_ids 18,5,17,14
+     399: sched_cls  tag abc95fb4835a6ec9
+        loaded_at Apr 09/16:24  uid 0
+        xlated 344B  jited 223B  memlock 4096B  map_ids 18
+     400: sched_cls  tag afd2e542b30ff3ec
+        loaded_at Apr 09/16:24  uid 0
+        xlated 1720B  jited 1001B  memlock 4096B  map_ids 17
+     401: sched_cls  tag 2dbbd74ee5d51cc8
+        loaded_at Apr 09/16:24  uid 0
+        xlated 3728B  jited 2099B  memlock 4096B  map_ids 17
+     [...]
+
+Similarly, to get an overview of all active maps:
+
+  ::
+
+    # bpftool map
+    5: hash  flags 0x0
+        key 20B  value 112B  max_entries 65535  memlock 13111296B
+    6: hash  flags 0x0
+        key 20B  value 20B  max_entries 65536  memlock 7344128B
+    7: hash  flags 0x0
+        key 10B  value 16B  max_entries 8192  memlock 790528B
+    8: hash  flags 0x0
+        key 22B  value 28B  max_entries 8192  memlock 987136B
+    9: hash  flags 0x0
+        key 20B  value 8B  max_entries 512000  memlock 49352704B
+    [...]
+
+Note that for each command, bpftool also supports json based output by
+appending ``--json`` at the end of the command line. An additional
+``--pretty`` improves the output to be more human readable.
+
+  ::
+
+     # bpftool prog --json --pretty
+
+For dumping the post-verifier BPF instruction image of a specific BPF
+program, one starting point could be to inspect a specific program, e.g.
+attached to the tc ingress hook:
+
+  ::
+
+     # tc filter show dev cilium_host egress
+     filter protocol all pref 1 bpf chain 0
+     filter protocol all pref 1 bpf chain 0 handle 0x1 bpf_host.o:[from-netdev] \
+                         direct-action not_in_hw id 406 tag e0362f5bd9163a0a jited
+
+The program from the object file ``bpf_host.o``, section ``from-netdev`` has
+a BPF program ID of ``406`` as denoted in ``id 406``. Based on this information
+bpftool can provide some high-level metadata specific to the program:
+
+  ::
+
+     # bpftool prog show id 406
+     406: sched_cls  tag e0362f5bd9163a0a
+          loaded_at Apr 09/16:24  uid 0
+          xlated 11144B  jited 7721B  memlock 12288B  map_ids 18,20,8,5,6,14
+
+The program of ID 406 is of type ``sched_cls`` (``BPF_PROG_TYPE_SCHED_CLS``),
+has a ``tag`` of ``e0362f5bd9163a0a`` (sha sum over the instruction sequence),
+it was loaded by root ``uid 0`` on ``Apr 09/16:24``. The BPF instruction
+sequence is ``11,144 bytes`` long and the JITed image ``7,721 bytes``. The
+program itself (excluding maps) consumes ``12,288 bytes`` that are accounted /
+charged against user ``uid 0``. And the BPF program uses the BPF maps with
+IDs ``18``, ``20``, ``8``, ``5``, ``6`` and ``14``. The latter IDs can further
+be used to get information or dump the map themselves.
+
+Additionally, bpftool can issue a dump request of the BPF instructions the
+program runs:
+
+  ::
+
+     # bpftool prog dump xlated id 406
+      0: (b7) r7 = 0
+      1: (63) *(u32 *)(r1 +60) = r7
+      2: (63) *(u32 *)(r1 +56) = r7
+      3: (63) *(u32 *)(r1 +52) = r7
+     [...]
+     47: (bf) r4 = r10
+     48: (07) r4 += -40
+     49: (79) r6 = *(u64 *)(r10 -104)
+     50: (bf) r1 = r6
+     51: (18) r2 = map[id:18]                    <-- BPF map id 18
+     53: (b7) r5 = 32
+     54: (85) call bpf_skb_event_output#5656112  <-- BPF helper call
+     55: (69) r1 = *(u16 *)(r6 +192)
+     [...]
+
+bpftool correlates BPF map IDs into the instruction stream as shown above
+as well as calls to BPF helpers or other BPF programs.
+
+The instruction dump reuses the same 'pretty-printer' as the kernel's BPF
+verifier. Since the program was JITed and therefore the actual JIT image
+that was generated out of above ``xlated`` instructions is executed, it
+can be dumped as well through bpftool:
+
+  ::
+
+     # bpftool prog dump jited id 406
+      0:        push   %rbp
+      1:        mov    %rsp,%rbp
+      4:        sub    $0x228,%rsp
+      b:        sub    $0x28,%rbp
+      f:        mov    %rbx,0x0(%rbp)
+     13:        mov    %r13,0x8(%rbp)
+     17:        mov    %r14,0x10(%rbp)
+     1b:        mov    %r15,0x18(%rbp)
+     1f:        xor    %eax,%eax
+     21:        mov    %rax,0x20(%rbp)
+     25:        mov    0x80(%rdi),%r9d
+     [...]
+
+Mainly for BPF JIT developers, the option also exists to interleave the
+disassembly with the actual native opcodes:
+
+  ::
+
+     # bpftool prog dump jited id 406 opcodes
+      0:        push   %rbp
+                55
+      1:        mov    %rsp,%rbp
+                48 89 e5
+      4:        sub    $0x228,%rsp
+                48 81 ec 28 02 00 00
+      b:        sub    $0x28,%rbp
+                48 83 ed 28
+      f:        mov    %rbx,0x0(%rbp)
+                48 89 5d 00
+     13:        mov    %r13,0x8(%rbp)
+                4c 89 6d 08
+     17:        mov    %r14,0x10(%rbp)
+                4c 89 75 10
+     1b:        mov    %r15,0x18(%rbp)
+                4c 89 7d 18
+     [...]
+
+The same interleaving can be done for the normal BPF instructions which
+can sometimes be useful for debugging in the kernel:
+
+  ::
+
+     # bpftool prog dump xlated id 406 opcodes
+      0: (b7) r7 = 0
+         b7 07 00 00 00 00 00 00
+      1: (63) *(u32 *)(r1 +60) = r7
+         63 71 3c 00 00 00 00 00
+      2: (63) *(u32 *)(r1 +56) = r7
+         63 71 38 00 00 00 00 00
+      3: (63) *(u32 *)(r1 +52) = r7
+         63 71 34 00 00 00 00 00
+      4: (63) *(u32 *)(r1 +48) = r7
+         63 71 30 00 00 00 00 00
+      5: (63) *(u32 *)(r1 +64) = r7
+         63 71 40 00 00 00 00 00
+      [...]
+
+The basic blocks of a program can also be visualized with the help of
+``graphviz``. For this purpose bpftool has a ``visual`` dump mode that
+generates a dot file instead of the plain BPF ``xlated`` instruction
+dump that can later be converted to a png file:
+
+  ::
+
+     # bpftool prog dump xlated id 406 visual &> output.dot
+     $ dot -Tpng output.dot -o output.png
+
+Another option would be to pass the dot file to dotty as a viewer, that
+is ``dotty output.dot``, where the result for the ``bpf_host.o`` program
+looks as follows (small extract):
+
+.. image:: images/bpf_dot.png
+    :align: center
+
+Note that the ``xlated`` instruction dump provides the post-verifier BPF
+instruction image which means that it dumps the instructions as if they
+were to be run through the BPF interpreter. In the kernel, the verifier
+performs various rewrites of the original instructions provided by the
+BPF loader.
+
+One example of rewrites is the inlining of helper functions in order to
+improve runtime performance, here in the case of a map lookup for hash
+tables:
+
+  ::
+
+     # bpftool prog dump xlated id 3
+      0: (b7) r1 = 2
+      1: (63) *(u32 *)(r10 -4) = r1
+      2: (bf) r2 = r10
+      3: (07) r2 += -4
+      4: (18) r1 = map[id:2]                      <-- BPF map id 2
+      6: (85) call __htab_map_lookup_elem#77408   <-+ BPF helper inlined rewrite
+      7: (15) if r0 == 0x0 goto pc+2                |
+      8: (07) r0 += 56                              |
+      9: (79) r0 = *(u64 *)(r0 +0)                <-+
+     10: (15) if r0 == 0x0 goto pc+24
+     11: (bf) r2 = r10
+     12: (07) r2 += -4
+     [...]
+
+bpftool correlates calls to helper functions or BPF to BPF calls through
+kallsyms. Therefore, make sure that JITed BPF programs are exposed to
+kallsyms (``bpf_jit_kallsyms``) and that kallsyms addresses are not
+obfuscated (calls are otherwise shown as ``call bpf_unspec#0``):
+
+  ::
+
+     # echo 0 > /proc/sys/kernel/kptr_restrict
+     # echo 1 > /proc/sys/net/core/bpf_jit_kallsyms
+
+BPF to BPF calls are correlated as well for both, interpreter as well
+as JIT case. In the latter, the tag of the subprogram is shown as
+call target. In each case, the ``pc+2`` is the pc-relative offset of
+the call target, which denotes the subprogram.
+
+  ::
+
+     # bpftool prog dump xlated id 1
+     0: (85) call pc+2#__bpf_prog_run_args32
+     1: (b7) r0 = 1
+     2: (95) exit
+     3: (b7) r0 = 2
+     4: (95) exit
+
+JITed variant of the dump:
+
+  ::
+
+     # bpftool prog dump xlated id 1
+     0: (85) call pc+2#bpf_prog_3b185187f1855c4c_F
+     1: (b7) r0 = 1
+     2: (95) exit
+     3: (b7) r0 = 2
+     4: (95) exit
+
+In the case of tail calls, the kernel maps them into a single instruction
+internally, bpftool will still correlate them as a helper call for ease
+of debugging:
+
+  ::
+
+     # bpftool prog dump xlated id 2
+     [...]
+     10: (b7) r2 = 8
+     11: (85) call bpf_trace_printk#-41312
+     12: (bf) r1 = r6
+     13: (18) r2 = map[id:1]
+     15: (b7) r3 = 0
+     16: (85) call bpf_tail_call#12
+     17: (b7) r1 = 42
+     18: (6b) *(u16 *)(r6 +46) = r1
+     19: (b7) r0 = 0
+     20: (95) exit
+
+     # bpftool map show id 1
+     1: prog_array  flags 0x0
+           key 4B  value 4B  max_entries 1  memlock 4096B
+
+Dumping an entire map is possible through the ``map dump`` subcommand
+which iterates through all present map elements and dumps the key /
+value pairs as hex.
+
+With upcoming BTF (BPF Type Format), the map also holds debugging information
+about the key / value structure and bpftool will be able to 'pretty-print' the
+content besides a hex dump:
+
+  ::
+
+     # bpftool map dump id 5
+     key:
+     f0 0d 00 00 00 00 00 00  0a 66 00 00 00 00 8a d6
+     02 00 00 00
+     value:
+     00 00 00 00 00 00 00 00  01 00 00 00 00 00 00 00
+     00 00 00 00 00 00 00 00  00 00 00 00 00 00 00 00
+     00 00 00 00 00 00 00 00  00 00 00 00 00 00 00 00
+     00 00 00 00 00 00 00 00  00 00 00 00 00 00 00 00
+     00 00 00 00 00 00 00 00  00 00 00 00 00 00 00 00
+     00 00 00 00 00 00 00 00  00 00 00 00 00 00 00 00
+     00 00 00 00 00 00 00 00  00 00 00 00 00 00 00 00
+     key:
+     0a 66 1c ee 00 00 00 00  00 00 00 00 00 00 00 00
+     01 00 00 00
+     value:
+     00 00 00 00 00 00 00 00  01 00 00 00 00 00 00 00
+     00 00 00 00 00 00 00 00  00 00 00 00 00 00 00 00
+     [...]
+     Found 6 elements
+
+Lookup, update, delete, and 'get next key' operations on the map for specific
+keys can be performed through bpftool as well.
+
 BPF sysctls
 -----------
 
@@ -1872,6 +2452,23 @@ The Linux kernel provides few sysctls that are BPF related and covered in this s
   | 1     | Enable JIT kallsyms export for privileged users only              |
   +-------+-------------------------------------------------------------------+
 
+* ``/proc/sys/kernel/unprivileged_bpf_disabled``: Enables or disable unprivileged
+  use of the ``bpf(2)`` system call. The Linux kernel has unprivileged use of
+  ``bpf(2)`` enabled by default, but once the switch is flipped, unprivileged use
+  will be permanently disabled until the next reboot. This sysctl knob is a one-time
+  switch, meaning if once set, then neither an application nor an admin can reset
+  the value anymore. This knob does not affect any cBPF programs such as seccomp
+  or traditional socket filters that do not use the ``bpf(2)`` system call for
+  loading the program into the kernel.
+
+  +-------+-------------------------------------------------------------------+
+  | Value | Description                                                       |
+  +-------+-------------------------------------------------------------------+
+  | 0     | Unprivileged use of bpf syscall enabled (kernel's default value)  |
+  +-------+-------------------------------------------------------------------+
+  | 1     | Unprivileged use of bpf syscall disabled                          |
+  +-------+-------------------------------------------------------------------+
+
 Kernel Testing
 --------------
 
@@ -1919,7 +2516,7 @@ size when possible. ``image`` contains the address of the generated JIT image, `
 and ``pid`` the user space application name and PID respectively, which triggered the
 compilation process. The dump output for eBPF and cBPF JITs is the same format.
 
-In the kernel tree under ``tools/net/``, there is a tool called ``bpf_jit_disasm``. It
+In the kernel tree under ``tools/bpf/``, there is a tool called ``bpf_jit_disasm``. It
 reads out the latest dump and prints the disassembly for further inspection:
 
 ::
@@ -1996,6 +2593,10 @@ Alternatively, the tool can also dump related opcodes along with the disassembly
       45:       retq
         c3
 
+More recently, ``bpftool`` adapted the same feature of dumping the BPF JIT
+image based on a given BPF program ID already loaded in the system (see
+bpftool section).
+
 For performance analysis of JITed BPF programs, ``perf`` can be used as
 usual. As a prerequisite, JITed programs need to be exported through kallsyms
 infrastructure.
@@ -2019,7 +2620,7 @@ would then release the cloned ``skb`` again and return with an error message.
     # tc filter add dev em1 ingress bpf da obj prog.o sec main
     # tc filter show dev em1 ingress
     filter protocol all pref 49152 bpf
-    filter protocol all pref 49152 bpf handle 0x1 prog.o:[main] direct-action tag 8227addf251b7543
+    filter protocol all pref 49152 bpf handle 0x1 prog.o:[main] direct-action id 1 tag 8227addf251b7543
 
     # cat /proc/kallsyms
     [...]
@@ -2144,9 +2745,28 @@ TODO
 Further Reading
 ===============
 
-Mentioned lists of projects, talks, papers, and further reading material
-are likely not complete. Thus, feel free to open pull requests to complete
-the list.
+Mentioned lists of docs, projects, talks, papers, and further reading
+material are likely not complete. Thus, feel free to open pull requests
+to complete the list.
+
+Kernel Developer FAQ
+--------------------
+
+Under ``Documentation/bpf/``, the Linux kernel provides two FAQ files that
+are mainly targeted for kernel developers involved in the BPF subsystem.
+
+* BPF Devel FAQ: this document provides mostly information around patch
+  submission process as well as BPF kernel tree, stable tree and bug
+  reporting workflows, questions around BPF's extensibility and interaction
+  with LLVM and more.
+
+  https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/Documentation/bpf/bpf_devel_QA.txt
+
+* BPF Design FAQ: this document tries to answer frequently asked questions
+  around BPF design descisions related to the instruction set, verifier,
+  calling convention, JITs, etc.
+
+  https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/Documentation/bpf/bpf_design_QA.txt
 
 Projects using BPF
 ------------------
@@ -2198,34 +2818,13 @@ various parts of XDP and BPF:
 BPF Newsletter
 --------------
 
-Alexander Alemayhu initiated a newsletter around BPF that appears roughly once
-per week covering latest developments around BPF in Linux kernel land and its
-surrounding ecosystem in user space:
+Alexander Alemayhu initiated a newsletter around BPF roughly once per week
+covering latest developments around BPF in Linux kernel land and its
+surrounding ecosystem in user space.
 
-5. May 2017,
-     BPF Updates 05,
-     Alexander Alemayhu,
-     https://www.cilium.io/blog/2017/5/31/bpf-updates-05
+All BPF update newsletters (01 - 12) can be found here:
 
-4. May 2017,
-     BPF Updates 04,
-     Alexander Alemayhu,
-     https://www.cilium.io/blog/2017/5/24/bpf-updates-04
-
-3. May 2017,
-     BPF Updates 03,
-     Alexander Alemayhu,
-     https://www.cilium.io/blog/2017/5/17/bpf-updates-03
-
-2. May 2017,
-     BPF Updates 02,
-     Alexander Alemayhu,
-     https://www.cilium.io/blog/2017/5/10/bpf-updates-02
-
-1. May 2017,
-     BPF Updates 01,
-     Alexander Alemayhu,
-     https://www.cilium.io/blog/2017/5/2/bpf-updates-01-2017-05-02
+     https://cilium.io/blog/categories/BPF%20Newsletter
 
 Podcasts
 --------
