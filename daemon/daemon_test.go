@@ -16,7 +16,6 @@ package main
 
 import (
 	"io/ioutil"
-	"net"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -69,7 +68,6 @@ type DaemonSuite struct {
 	OnRemoveFromEndpointQueue         func(epID uint64)
 	OnDebugEnabled                    func() bool
 	OnGetCompilationLock              func() *lock.RWMutex
-	OnFlushCTEntries                  func(e *e.Endpoint, isCTLocal bool, ips []net.IP, idsToKeep policy.SecurityIDContexts)
 	OnSendNotification                func(typ monitor.AgentNotification, text string) error
 	OnNewProxyLogRecord               func(l *accesslog.LogRecord) error
 }
@@ -128,7 +126,6 @@ func (ds *DaemonSuite) SetUpTest(c *C) {
 	ds.OnRemoveFromEndpointQueue = nil
 	ds.OnDebugEnabled = nil
 	ds.OnGetCompilationLock = nil
-	ds.OnFlushCTEntries = nil
 	ds.OnSendNotification = nil
 	ds.OnNewProxyLogRecord = nil
 }
@@ -309,14 +306,6 @@ func (ds *DaemonSuite) GetCompilationLock() *lock.RWMutex {
 		return ds.OnGetCompilationLock()
 	}
 	panic("GetCompilationLock should not have been called")
-}
-
-func (ds *DaemonSuite) FlushCTEntries(e *e.Endpoint, isCTLocal bool, ips []net.IP, idsToKeep policy.SecurityIDContexts) {
-	if ds.OnFlushCTEntries != nil {
-		ds.OnFlushCTEntries(e, isCTLocal, ips, idsToKeep)
-		return
-	}
-	panic("FlushCTEntries should not have been called")
 }
 
 func (ds *DaemonSuite) SendNotification(typ monitor.AgentNotification, text string) error {

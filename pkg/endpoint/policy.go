@@ -1011,15 +1011,9 @@ func (e *Endpoint) TriggerPolicyUpdatesLocked(owner Owner, opts models.Configura
 		return false, ctCleaned, nil
 	}
 
-	needToRegenerateBPF, consumersAdd, consumersRm, err := e.regeneratePolicy(owner, opts)
+	needToRegenerateBPF, _, _, err := e.regeneratePolicy(owner, opts)
 	if err != nil {
 		return false, ctCleaned, fmt.Errorf("%s: %s", e.StringID(), err)
-	}
-
-	if needToRegenerateBPF && consumersAdd != nil {
-		policyEnforced := e.IngressOrEgressIsEnforced()
-		isLocal := e.Opts.IsEnabled(OptionConntrackLocal)
-		ctCleaned = updateCT(owner, e, e.IPs(), policyEnforced, isLocal, consumersAdd, consumersRm)
 	}
 
 	e.getLogger().Debugf("TriggerPolicyUpdatesLocked: changed: %t", needToRegenerateBPF)

@@ -24,7 +24,6 @@ import (
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/flowdebug"
-	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/policy"
 
@@ -110,9 +109,6 @@ const (
 	GCFilterNone = iota
 	// GCFilterByTime filters CT entries by time
 	GCFilterByTime
-	// GCFilterByIDsToKeep removes all CT entries that do not match by the
-	// filter.
-	GCFilterByIDsToKeep
 )
 
 // GCFilterType is the type of a filter.
@@ -146,8 +142,6 @@ func (f *GCFilter) TypeString() string {
 		return "none"
 	case GCFilterByTime:
 		return "timeout"
-	case GCFilterByIDsToKeep:
-		return "security ID to keep"
 	default:
 		return "(unknown)"
 	}
@@ -341,79 +335,14 @@ func (f *GCFilter) doFiltering(srcIP net.IP, dstIP net.IP, dstPort uint16, nextH
 	})
 	flowdebug.Log(scopedLog, "Filtering CT map entry")
 
-	action = noAction
-
 	// Delete all entries with a lifetime smaller than f timestamp.
 	if f.Type == GCFilterByTime && entry.lifetime < f.Time {
-		action = deleteEntry
 		flowdebug.Log(scopedLog, "Deleting CT map entry: too old")
-	}
-
-	// If the filter doesn't contain an endpoint ID & IP, no entries will get matched below.
-	if f.EndpointID == 0 || f.EndpointIP == nil {
-		flowdebug.Log(scopedLog, "Ignoring CT map entry: no endpoint ID or IP given in filter")
-		return
-	}
-
-	// Determine whether the entry matches the endpoint IP,
-	// and the direction of the entry (ingress or egress).
-	var ingress bool
-	if flags&TUPLE_F_IN != 0 && dstIP.Equal(f.EndpointIP) {
-		ingress = true
-		flowdebug.Log(scopedLog, "Ingress CT map entry matches endpoint IP")
-	} else if flags&TUPLE_F_IN == 0 && srcIP.Equal(f.EndpointIP) {
-		ingress = false
-		flowdebug.Log(scopedLog, "Egress CT map entry matches endpoint IP")
-	} else {
-		// Didn't match the endpoint IP.
-		flowdebug.Log(scopedLog, "Ignoring CT map entry: didn't match endpoint IP")
-		return
-	}
-
-	l4RuleCtx := policy.L4RuleContext{
-		EndpointID: f.EndpointID,
-		Ingress:    ingress,
-		Port:       dstPort,
-		Proto:      nextHdr,
-	}
-
-	switch f.Type {
-
-	// Used by FlushCTEntriesOf.
-	// Delete all entries of the given endpoint IP that are not filtered.
-	case GCFilterByIDsToKeep:
-		// Check if the src_sec_id of that entry is still allowed
-		// to talk with the destination IP.
-		filterRuleCtx, ok := f.IDsToKeep[identity.NumericIdentity(entry.src_sec_id)]
-		if !ok {
-			action = deleteEntry
-			flowdebug.Log(scopedLog, "Deleting CT map entry: src sec ID is no more allowed by policy")
-			return
-		}
-
-		if filterRuleCtx.IsL3Only() {
-			// If the rule is L3-only then check whether that entry is denied by
-			// L4-only rules.
-			filterRuleCtx, ok = f.IDsToKeep[identity.InvalidIdentity]
-			if !ok {
-				flowdebug.Log(scopedLog, "Ignoring CT map entry: allowed by L3-only rule")
-				return
-			}
-		}
-
-		l7RuleCtx, ok := filterRuleCtx[l4RuleCtx]
-		if !ok {
-			action = deleteEntry
-			flowdebug.Log(scopedLog, "Deleting CT map entry: not allowed by any L4+ rule")
-			return
-		}
-
-		flowdebug.Logf(scopedLog, "Evaluating L7 rule context: RedirectPort=%d, L4Installed=%t",
-			byteorder.NetworkToHost(l7RuleCtx.RedirectPort), l7RuleCtx.L4Installed)
+		return deleteEntry
 	}
 
 	flowdebug.Log(scopedLog, "Ignoring CT map entry: no action required")
-	return
+	return noAction
 }
 
 // GC runs garbage collection for map m with name mapName with the given filter.
