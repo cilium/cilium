@@ -181,9 +181,8 @@ func ctCreate6Info(n *DebugMsg) string {
 }
 
 func verdictInfo(arg uint32) string {
-	proxyPort := byteorder.NetworkToHost(uint16(arg >> 16))
 	revnat := byteorder.NetworkToHost(uint16(arg & 0xFFFF))
-	return fmt.Sprintf("proxy_port=%d revnat=%d", proxyPort, revnat)
+	return fmt.Sprintf("revnat=%d", revnat)
 }
 
 func proxyInfo(arg1 uint32, arg2 uint32) string {

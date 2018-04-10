@@ -287,6 +287,9 @@ func (c *consulClient) SetMaxID(key string, firstID, maxID uint32) error {
 			return err
 		}
 		k, _, err = c.KV().Get(key, nil)
+		if err != nil {
+			return err
+		}
 		if k == nil {
 			// Something is really wrong
 			errMsg := "Unable to setting ID because the key is always empty\n"

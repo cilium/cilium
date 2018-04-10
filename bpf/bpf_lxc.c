@@ -211,8 +211,14 @@ skip_service_lookup:
 	 * bound for the host/outside, perform the CIDR policy check. */
 	verdict = policy_can_egress6(skb, tuple, dstID,
 				     ipv6_ct_tuple_get_daddr(tuple));
-	if (ret != CT_REPLY && ret != CT_RELATED && verdict < 0)
+	if (ret != CT_REPLY && ret != CT_RELATED && verdict < 0) {
+		/* If the connection was previously known and packet is now
+		 * denied, remove the connection tracking entry */
+		if (ret == CT_ESTABLISHED)
+			ct_delete6(&CT_MAP6, tuple, skb);
+
 		return verdict;
+	}
 
 	switch (ret) {
 	case CT_NEW:
@@ -221,7 +227,6 @@ skip_service_lookup:
 		 * Create a CT entry which allows to track replies and to
 		 * reverse NAT.
 		 */
-		ct_state_new.proxy_port = verdict;
 		ct_state_new.src_sec_id = SECLABEL;
 		ret = ct_create6(&CT_MAP6, tuple, skb, CT_EGRESS, &ct_state_new);
 		if (IS_ERR(ret))
@@ -509,8 +514,14 @@ skip_service_lookup:
 	 * bound for the host/outside, perform the CIDR policy check. */
 	verdict = policy_can_egress4(skb, &tuple, dstID,
 				     ipv4_ct_tuple_get_daddr(&tuple));
-	if (ret != CT_REPLY && ret != CT_RELATED && verdict < 0)
+	if (ret != CT_REPLY && ret != CT_RELATED && verdict < 0) {
+		/* If the connection was previously known and packet is now
+		 * denied, remove the connection tracking entry */
+		if (ret == CT_ESTABLISHED)
+			ct_delete4(&CT_MAP4, &tuple, skb);
+
 		return verdict;
+	}
 
 	switch (ret) {
 	case CT_NEW:
@@ -519,7 +530,6 @@ skip_service_lookup:
 		 * Create a CT entry which allows to track replies and to
 		 * reverse NAT.
 		 */
-		ct_state_new.proxy_port = verdict;
 		ct_state_new.src_sec_id = SECLABEL;
 		ret = ct_create4(&CT_MAP4, &tuple, skb, CT_EGRESS, &ct_state_new);
 		if (IS_ERR(ret))
@@ -803,13 +813,19 @@ static inline int __inline__ ipv6_policy(struct __sk_buff *skb, int ifindex, __u
 
 	/* Reply packets and related packets are allowed, all others must be
 	 * permitted by policy */
-	if (ret != CT_REPLY && ret != CT_RELATED && verdict < 0)
+	if (ret != CT_REPLY && ret != CT_RELATED && verdict < 0) {
+		/* If the connection was previously known and packet is now
+		 * denied, remove the connection tracking entry */
+		if (ret == CT_ESTABLISHED)
+			ct_delete6(&CT_MAP6, &tuple, skb);
+
 		return DROP_POLICY;
+	}
+
 	if (skip_proxy)
 		verdict = 0;
 
 	if (ret == CT_NEW) {
-		ct_state_new.proxy_port = verdict;
 		ct_state_new.orig_dport = tuple.dport;
 		ct_state_new.src_sec_id = src_label;
 		ret = ct_create6(&CT_MAP6, &tuple, skb, CT_INGRESS, &ct_state_new);
@@ -907,13 +923,19 @@ static inline int __inline__ ipv4_policy(struct __sk_buff *skb, int ifindex, __u
 
 	/* Reply packets and related packets are allowed, all others must be
 	 * permitted by policy */
-	if (ret != CT_REPLY && ret != CT_RELATED && verdict < 0)
+	if (ret != CT_REPLY && ret != CT_RELATED && verdict < 0) {
+		/* If the connection was previously known and packet is now
+		 * denied, remove the connection tracking entry */
+		if (ret == CT_ESTABLISHED)
+			ct_delete4(&CT_MAP4, &tuple, skb);
+
 		return DROP_POLICY;
+	}
+
 	if (skip_proxy)
 		verdict = 0;
 
 	if (ret == CT_NEW) {
-		ct_state_new.proxy_port = verdict;
 		ct_state_new.orig_dport = tuple.dport;
 		ct_state_new.src_sec_id = src_label;
 		ret = ct_create4(&CT_MAP4, &tuple, skb, CT_INGRESS, &ct_state_new);

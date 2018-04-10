@@ -132,7 +132,7 @@ func (s *K8sSuite) TestParseNetworkPolicyIngress(c *C) {
 		},
 	}
 
-	rules, err := ParseNetworkPolicy(netPolicy)
+	_, err := ParseNetworkPolicy(netPolicy)
 	c.Assert(err, IsNil)
 
 	fromEndpoints := labels.LabelArray{
@@ -151,7 +151,7 @@ func (s *K8sSuite) TestParseNetworkPolicyIngress(c *C) {
 		Trace: policy.TRACE_VERBOSE,
 	}
 
-	rules, err = ParseNetworkPolicy(netPolicy)
+	rules, err := ParseNetworkPolicy(netPolicy)
 	c.Assert(err, IsNil)
 	c.Assert(len(rules), Equals, 1)
 
@@ -683,7 +683,7 @@ func (s *K8sSuite) TestNetworkPolicyExamples(c *C) {
 	err := json.Unmarshal(ex1, &np)
 	c.Assert(err, IsNil)
 
-	rules, err := ParseNetworkPolicy(&np)
+	_, err = ParseNetworkPolicy(&np)
 	c.Assert(err, IsNil)
 
 	// Example 1b: Only allow traffic from frontend pods to backend pods
@@ -727,7 +727,7 @@ func (s *K8sSuite) TestNetworkPolicyExamples(c *C) {
 	err = json.Unmarshal(ex1, &np)
 	c.Assert(err, IsNil)
 
-	rules, err = ParseNetworkPolicy(&np)
+	rules, err := ParseNetworkPolicy(&np)
 	c.Assert(err, IsNil)
 	c.Assert(len(rules), Equals, 1)
 
@@ -819,7 +819,7 @@ func (s *K8sSuite) TestNetworkPolicyExamples(c *C) {
 	err = json.Unmarshal(ex2, &np)
 	c.Assert(err, IsNil)
 
-	rules, err = ParseNetworkPolicy(&np)
+	_, err = ParseNetworkPolicy(&np)
 	c.Assert(err, IsNil)
 
 	// Example 2b: Allow from any source in Bob's namespaces.
@@ -1080,6 +1080,7 @@ func (s *K8sSuite) TestNetworkPolicyExamples(c *C) {
 	c.Assert(err, IsNil)
 
 	rules, err = ParseNetworkPolicy(&np)
+	c.Assert(err, IsNil)
 	// add example 2
 	repo.AddList(rules)
 

@@ -19,7 +19,6 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"net"
 	"os"
 	"os/exec"
 	"path"
@@ -27,7 +26,6 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/cilium/cilium/common"
@@ -218,12 +216,9 @@ func (e *Endpoint) writeHeaderfile(prefix string, owner Owner) error {
 	}
 	fw.WriteString(" */\n\n")
 
-	// If there hasn't been a policy calculated yet, we need to be sure we drop
-	// all packets, but only if policy enforcement
-	// is enabled for the endpoint / daemon.
-	if !e.PolicyCalculated &&
-		(e.Opts.IsEnabled(OptionIngressPolicy) || e.Opts.IsEnabled(OptionEgressPolicy)) &&
-		owner.PolicyEnforcement() != NeverEnforce {
+	// If policy has not been derived or calculated yet, all packets must
+	// be dropped until the policy of the endpoint has been determined.
+	if !e.PolicyCalculated && owner.PolicyEnforcement() != NeverEnforce {
 		fw.WriteString("#define DROP_ALL\n")
 	}
 
@@ -421,39 +416,6 @@ func (ep *epInfoCache) GetBPFKeys() []lxcmap.EndpointKey {
 // Must only be called if init() succeeded.
 func (ep *epInfoCache) GetBPFValue() (*lxcmap.EndpointInfo, error) {
 	return ep.value, nil
-}
-
-// updateCT updates the Connection Tracking based on the endpoint's policy
-// enforcement. If the policy enforcement is true, all CT entries will be
-// removed except the ones matched by idsToKeep. If the policy enforcement
-// is not being enforced then all CT entries that match idsToMod will be
-// modified, by resetting its proxy_port to 0 since there is no proxy running
-// with policy enforcement disabled.
-// It returns a sync.WaitGroup that will signalize when the CT entry table
-// is updated.
-func updateCT(owner Owner, e *Endpoint, epIPs []net.IP,
-	isPolicyEnforced, isLocal bool,
-	idsToKeep, idsToMod policy.SecurityIDContexts) *sync.WaitGroup {
-
-	wg := &sync.WaitGroup{}
-	if isPolicyEnforced {
-		wg.Add(1)
-		go func(wg *sync.WaitGroup) {
-			// New security identities added, so we need to flush all CT entries
-			// except the idsToKeep.
-			owner.FlushCTEntries(e, isLocal, epIPs, idsToKeep)
-			wg.Done()
-		}(wg)
-	} else {
-		wg.Add(1)
-		go func(wg *sync.WaitGroup) {
-			// Security identities removed, so we need to modify all CT entries
-			// with idsToMod because there's no policy being enforced.
-			owner.ResetProxyPort(e, isLocal, epIPs, idsToMod)
-			wg.Done()
-		}(wg)
-	}
-	return wg
 }
 
 // addNewRedirectsFromMap must be called while holding the endpoint and consumable
@@ -678,8 +640,8 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir, reason string) (uint64, err
 	}
 
 	var (
-		modifiedRules, deletedRules policy.SecurityIDContexts
-		policyChanged               bool
+		modifiedRules policy.SecurityIDContexts
+		policyChanged bool
 	)
 	// Only generate & populate policy map if a security identity is set up for
 	// this endpoint.
@@ -689,7 +651,7 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir, reason string) (uint64, err
 		// Regenerate policy and apply any options resulting in the
 		// policy change.
 		// This also populates e.PolicyMap.
-		policyChanged, modifiedRules, deletedRules, err = e.regeneratePolicy(owner, nil)
+		policyChanged, modifiedRules, _, err = e.regeneratePolicy(owner, nil)
 		if err != nil {
 			e.Mutex.Unlock()
 			return 0, fmt.Errorf("unable to regenerate policy for '%s': %s", e.PolicyMap.String(), err)
@@ -815,13 +777,6 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir, reason string) (uint64, err
 		}
 	}
 
-	// Since the endpoint's lock will be unlocked, we need to
-	// store the current endpoint state so we can later on
-	// update the CT without requiring to lock the endpoint again.
-	isPolicyEnforced := e.IngressOrEgressIsEnforced()
-	isLocal := e.Opts.IsEnabled(OptionConntrackLocal)
-	epIPs := e.IPs()
-
 	e.Mutex.Unlock()
 
 	libdir := owner.GetBpfDir()
@@ -838,13 +793,6 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir, reason string) (uint64, err
 
 	// Compile and install BPF programs for this endpoint
 	err = e.runInit(libdir, rundir, epdir, epInfoCache.ifName, debug)
-	// CT entry clean up should always happen
-	// even if the bpf program build has failed
-	if policyChanged {
-		e.getLogger().Debug("Updating CT map entries to reflect policy changes")
-		wg := updateCT(owner, e, epIPs, isPolicyEnforced, isLocal, modifiedRules, deletedRules)
-		defer wg.Wait()
-	}
 	if err != nil {
 		return epInfoCache.revision, err
 	}

@@ -103,6 +103,9 @@ type Daemon struct {
 	policy            *policy.Repository
 	preFilter         *policy.PreFilter
 
+	statusCollectMutex lock.RWMutex
+	statusResponse     models.StatusResponse
+
 	uniqueIDMU lock.Mutex
 	uniqueID   map[uint64]bool
 
@@ -127,7 +130,7 @@ func (d *Daemon) UpdateProxyRedirect(e *endpoint.Endpoint, l4 *policy.L4Filter) 
 		return 0, fmt.Errorf("can't redirect, proxy disabled")
 	}
 
-	r, err := d.l7Proxy.CreateOrUpdateRedirect(l4, e.ProxyID(l4), e, d, e.ProxyWaitGroup)
+	r, err := d.l7Proxy.CreateOrUpdateRedirect(l4, e.ProxyID(l4), e, e.ProxyWaitGroup)
 	if err != nil {
 		return 0, err
 	}
@@ -275,24 +278,6 @@ func (d *Daemon) PolicyEnforcement() string {
 // DebugEnabled returns if debug mode is enabled.
 func (d *Daemon) DebugEnabled() bool {
 	return d.conf.Opts.IsEnabled(endpoint.OptionDebug)
-}
-
-// ResetProxyPort cleans the connection tracking of the given endpoint
-// where the given endpoint IPs and the idsToRm match the CT entry fields.
-// isCTLocal should be set as true if the endpoint's CT table is either
-// local or not (if it is not local then it is assumed to be global).
-// Implementation of pkg/endpoint.Owner interface
-func (d *Daemon) ResetProxyPort(e *endpoint.Endpoint, isCTLocal bool, epIPs []net.IP, idsToMod policy.SecurityIDContexts) {
-	endpointmanager.ResetProxyPort(!d.conf.IPv4Disabled, e, isCTLocal, epIPs, idsToMod)
-}
-
-// FlushCTEntries flushes the connection tracking of the given endpoint
-// where the given endpoint IPs match the CT entry IP fields.
-// isCTLocal should be set as true if the endpoint's CT table is either
-// local or not (if it is not local then it is assumed to be global).
-// Implementation of pkg/endpoint.Owner interface
-func (d *Daemon) FlushCTEntries(e *endpoint.Endpoint, isCTLocal bool, epIPs []net.IP, idsToKeep policy.SecurityIDContexts) {
-	endpointmanager.FlushCTEntriesOf(!d.conf.IPv4Disabled, e, isCTLocal, epIPs, idsToKeep)
 }
 
 func (d *Daemon) writeNetdevHeader(dir string) error {
@@ -1092,8 +1077,8 @@ func NewDaemon(c *Config) (*Daemon, error) {
 	// we populate the IPCache with the host's IP(s).
 	ipcache.InitIPIdentityWatcher(&d)
 
-	// FIXME: Make configurable
-	d.l7Proxy = proxy.StartProxySupport(10000, 20000, d.conf.RunDir)
+	// FIXME: Make the port range configurable.
+	d.l7Proxy = proxy.StartProxySupport(10000, 20000, d.conf.RunDir, &d)
 
 	if c.RestoreState {
 		log.Info("Restoring state...")
@@ -1125,6 +1110,8 @@ func NewDaemon(c *Config) (*Daemon, error) {
 	node.SetIPv6HealthIP(health6)
 	log.Debugf("IPv4 health endpoint address: %s", node.GetIPv4HealthIP())
 	log.Debugf("IPv6 health endpoint address: %s", node.GetIPv6HealthIP())
+
+	d.startStatusCollector()
 
 	return &d, nil
 }

@@ -248,8 +248,8 @@ func (e *Endpoint) applyL4PolicyLocked(oldIdentities, newIdentities *identityPkg
 	oldL4Policy, newL4Policy *policy.L4Policy) (addedPolicyMapEntries, removedPolicyMapEntries policy.SecurityIDContexts, err error) {
 
 	var (
-		errors, errs = 0, 0
-		secIDs       policy.SecurityIDContexts
+		errors = 0
+		secIDs policy.SecurityIDContexts
 	)
 
 	addedPolicyMapEntries = policy.NewSecurityIDContexts()
@@ -278,13 +278,15 @@ func (e *Endpoint) applyL4PolicyLocked(oldIdentities, newIdentities *identityPkg
 	// Need to iterate through new L3-L4 policy and insert new PolicyMap entries
 	// for both ingress and egress.
 	for _, filter := range newL4Policy.Ingress {
+		var errs int
 		secIDs, errs = e.applyNewFilter(newIdentities, &filter, policymap.Ingress)
 		setMapOperationResult(addedPolicyMapEntries, secIDs)
 		errors += errs
 	}
 
 	for _, filter := range newL4Policy.Egress {
-		_, errs = e.applyNewFilter(newIdentities, &filter, policymap.Egress)
+		_, errs := e.applyNewFilter(newIdentities, &filter, policymap.Egress)
+		errors += errs
 		// TODO: GH-3393 update maps for egress. Not touching conntrack for now.
 	}
 
@@ -1009,15 +1011,9 @@ func (e *Endpoint) TriggerPolicyUpdatesLocked(owner Owner, opts models.Configura
 		return false, ctCleaned, nil
 	}
 
-	needToRegenerateBPF, consumersAdd, consumersRm, err := e.regeneratePolicy(owner, opts)
+	needToRegenerateBPF, _, _, err := e.regeneratePolicy(owner, opts)
 	if err != nil {
 		return false, ctCleaned, fmt.Errorf("%s: %s", e.StringID(), err)
-	}
-
-	if needToRegenerateBPF && consumersAdd != nil {
-		policyEnforced := e.IngressOrEgressIsEnforced()
-		isLocal := e.Opts.IsEnabled(OptionConntrackLocal)
-		ctCleaned = updateCT(owner, e, e.IPs(), policyEnforced, isLocal, consumersAdd, consumersRm)
 	}
 
 	e.getLogger().Debugf("TriggerPolicyUpdatesLocked: changed: %t", needToRegenerateBPF)
