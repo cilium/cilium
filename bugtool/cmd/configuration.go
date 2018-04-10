@@ -24,6 +24,7 @@ import (
 
 	"github.com/cilium/cilium/daemon/defaults"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/test/helpers"
 
 	"github.com/sirupsen/logrus"
 )
@@ -72,6 +73,10 @@ func defaultCommands(confDir string, cmdDir string, k8sPods []string) []string {
 		"ip6tables -S",
 		"iptables -L -v",
 		"ip rule",
+		// gops
+		fmt.Sprintf("gops memstats $(pidof %s)", helpers.AgentDaemon),
+		fmt.Sprintf("gops stack $(pidof %s)", helpers.AgentDaemon),
+		fmt.Sprintf("gops stats $(pidof %s)", helpers.AgentDaemon),
 	}
 
 	// Commands that require variables and / or more configuration are added
