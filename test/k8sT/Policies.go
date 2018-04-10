@@ -771,15 +771,17 @@ EOF`, k, v)
 
 var _ = Describe("K8sValidatedPolicyTestAcrossNamespaces", func() {
 
-	var kubectl *helpers.Kubectl
-	var logger *logrus.Entry
-	var once sync.Once
-	var path string
-
 	var (
-		namespace     = "namespace"
-		qaNs          = "qa"
-		developmentNs = "development"
+		namespace           = "namespace"
+		qaNs                = "qa"
+		developmentNs       = "development"
+		resources           = []string{"1-frontend.json", "2-backend-server.json", "3-backend.json"}
+		kubectl             *helpers.Kubectl
+		logger              *logrus.Entry
+		once                sync.Once
+		ciliumDaemonSetPath string
+		cnpL7Stresstest     string
+		cnpAnyNamespace     string
 	)
 
 	initialize := func() {
@@ -787,8 +789,11 @@ var _ = Describe("K8sValidatedPolicyTestAcrossNamespaces", func() {
 		logger.Info("Starting")
 		kubectl = helpers.CreateKubectl(helpers.K8s1VMName(), logger)
 
-		path = kubectl.ManifestGet("cilium_ds.yaml")
-		kubectl.Apply(path)
+		ciliumDaemonSetPath = kubectl.ManifestGet("cilium_ds.yaml")
+		cnpL7Stresstest = kubectl.ManifestGet("cnp-l7-stresstest.yaml")
+		cnpAnyNamespace = kubectl.ManifestGet("cnp-any-namespace.yaml")
+
+		_ = kubectl.Apply(ciliumDaemonSetPath)
 		status, err := kubectl.WaitforPods(helpers.KubeSystemNamespace, "-l k8s-app=cilium", 300)
 		Expect(status).Should(BeTrue())
 		Expect(err).Should(BeNil())
@@ -813,6 +818,12 @@ var _ = Describe("K8sValidatedPolicyTestAcrossNamespaces", func() {
 		once.Do(initialize)
 		namespaceAction(qaNs, helpers.Create)
 		namespaceAction(developmentNs, helpers.Create)
+
+		for _, resource := range resources {
+			resourcePath := kubectl.ManifestGet(resource)
+			res := kubectl.Create(resourcePath)
+			res.ExpectSuccess()
+		}
 	})
 
 	AfterFailed(func() {
@@ -826,6 +837,16 @@ var _ = Describe("K8sValidatedPolicyTestAcrossNamespaces", func() {
 	})
 
 	AfterEach(func() {
+		for _, resource := range resources {
+			resourcePath := kubectl.ManifestGet(resource)
+			// Do not check result of deletion of resources because we do not
+			// want to perform assertions in AfterEach.
+			_ = kubectl.Delete(resourcePath)
+		}
+
+		_ = kubectl.Delete(cnpL7Stresstest)
+		_ = kubectl.Delete(cnpAnyNamespace)
+
 		namespaceAction(qaNs, helpers.Delete)
 		namespaceAction(developmentNs, helpers.Delete)
 
@@ -886,14 +907,6 @@ var _ = Describe("K8sValidatedPolicyTestAcrossNamespaces", func() {
 				ciliumPod, res.CombineOutput())
 		}
 
-		resources := []string{"1-frontend.json", "2-backend-server.json", "3-backend.json"}
-		for _, resource := range resources {
-			resourcePath := kubectl.ManifestGet(resource)
-			res := kubectl.Create(resourcePath)
-			defer kubectl.Delete(resourcePath)
-			res.ExpectSuccess()
-		}
-
 		By("Waiting for endpoints to be ready on k8s-2 node")
 		areEndpointsReady := kubectl.CiliumEndpointWait(ciliumPodK8s2)
 		Expect(areEndpointsReady).Should(BeTrue())
@@ -918,30 +931,28 @@ var _ = Describe("K8sValidatedPolicyTestAcrossNamespaces", func() {
 		res.ExpectSuccess("Unable to connect between %s and %s:80/", frontendPod, backendSvcIP)
 
 		By("Loading L7 Policies into Cilium", func() {
-			policyPath := kubectl.ManifestGet("cnp-l7-stresstest.yaml")
 			policyCmd := "cilium policy get io.cilium.k8s.policy.name=l7-stresstest"
-			defer policyDeleteAndCheck(ciliumPods, policyPath, policyCmd)
 
 			_, err = kubectl.CiliumPolicyAction(
-				helpers.KubeSystemNamespace, policyPath,
+				helpers.KubeSystemNamespace, cnpL7Stresstest,
 				helpers.KubectlCreate, helpers.HelperTimeout)
-			Expect(err).Should(BeNil(), "Error creating resource %s", policyPath)
+			Expect(err).Should(BeNil(), "Error creating resource %s", cnpL7Stresstest)
 
 			By("Running tests WITH Policy / Proxy loaded")
 			testConnectivity(frontendPod.String(), backendSvcIP)
+			policyDeleteAndCheck(ciliumPods, cnpL7Stresstest, policyCmd)
 		})
 		By("Testing Cilium NetworkPolicy enforcement from any namespace", func() {
-			policyPath := kubectl.ManifestGet("cnp-any-namespace.yaml")
 			policyCmd := "cilium policy get io.cilium.k8s.policy.name=l7-stresstest"
-			defer policyDeleteAndCheck(ciliumPods, policyPath, policyCmd)
 
 			_, err = kubectl.CiliumPolicyAction(
-				helpers.KubeSystemNamespace, policyPath,
+				helpers.KubeSystemNamespace, cnpAnyNamespace,
 				helpers.KubectlCreate, helpers.HelperTimeout)
-			Expect(err).Should(BeNil(), "Error creating resource %s", policyPath)
+			Expect(err).Should(BeNil(), "Error creating resource %s", cnpAnyNamespace)
 
 			By("Running tests WITH Policy / Proxy loaded")
 			testConnectivity(frontendPod.String(), backendSvcIP)
+			policyDeleteAndCheck(ciliumPods, cnpAnyNamespace, policyCmd)
 		})
 	}, 300)
 
