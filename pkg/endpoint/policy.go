@@ -1,4 +1,4 @@
-// Copyright 2016-2017 Authors of Cilium
+// Copyright 2016-2018 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -84,22 +84,6 @@ func getSecurityIdentities(labelsMap *identityPkg.IdentityCache, selector *api.E
 	return identities
 }
 
-func getL4FilterEndpointSelector(filter *policy.L4Filter) []api.EndpointSelector {
-	// Since GH-3015 it's impossible to specify more than one L3 at a time,
-	// and the only L3 rule match that is allowed to be combined with L4
-	// is `FromEndpoints`. Therefore, if `FromEndpoints` is nil, then it
-	// selects all endpoints - so we can use a wildcard selector here.
-	// When additional L3-dependent L4 rules are supported, this logic
-	// will need to be amended to only wildcard endpoints when no L3 is
-	// specified. See also GH-2992 for context.
-	fromEndpointsSelectors := filter.Endpoints
-	if fromEndpointsSelectors == nil {
-		fromEndpointsSelectors = []api.EndpointSelector{api.WildcardEndpointSelector}
-	}
-
-	return fromEndpointsSelectors
-}
-
 func (e *Endpoint) sweepFilters(oldPolicy *policy.L4Policy,
 	identities *identityPkg.IdentityCache) (errors int) {
 
@@ -137,7 +121,7 @@ func (e *Endpoint) removeOldFilter(identities *identityPkg.IdentityCache,
 	port := uint16(filter.Port)
 	proto := uint8(filter.U8Proto)
 
-	for _, sel := range getL4FilterEndpointSelector(filter) {
+	for _, sel := range filter.Endpoints {
 		for _, id := range getSecurityIdentities(identities, &sel) {
 			srcID := id.Uint32()
 			l4RuleCtx, l7RuleCtx := e.ParseL4Filter(filter)
@@ -187,7 +171,7 @@ func (e *Endpoint) applyNewFilter(identities *identityPkg.IdentityCache,
 	proto := uint8(filter.U8Proto)
 
 	errors := 0
-	for _, sel := range getL4FilterEndpointSelector(filter) {
+	for _, sel := range filter.Endpoints {
 		for _, id := range getSecurityIdentities(identities, &sel) {
 			srcID := id.Uint32()
 			if e.PolicyMap.L4Exists(srcID, port, proto, direction) {
