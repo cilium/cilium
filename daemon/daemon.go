@@ -1078,7 +1078,8 @@ func NewDaemon(c *Config) (*Daemon, error) {
 	ipcache.InitIPIdentityWatcher(&d)
 
 	// FIXME: Make the port range configurable.
-	d.l7Proxy = proxy.StartProxySupport(10000, 20000, d.conf.RunDir, &d)
+	d.l7Proxy = proxy.StartProxySupport(10000, 20000, d.conf.RunDir,
+		d.conf.AccessLog, &d, d.conf.AgentLabels)
 
 	if c.RestoreState {
 		log.Info("Restoring state...")
@@ -1091,7 +1092,7 @@ func NewDaemon(c *Config) (*Daemon, error) {
 			}
 		}()
 	} else {
-		log.Info("No previous state to restore. Cilium will not manage existing continers")
+		log.Info("No previous state to restore. Cilium will not manage existing containers")
 		// We need to read all docker containers so we know we won't
 		// going to allocate the same IP addresses and we will ignore
 		// these containers from reading.

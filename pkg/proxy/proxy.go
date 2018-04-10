@@ -32,7 +32,6 @@ import (
 	"github.com/cilium/cilium/pkg/proxy/logger"
 
 	"github.com/sirupsen/logrus"
-	"github.com/spf13/viper"
 )
 
 var (
@@ -84,12 +83,9 @@ type Proxy struct {
 
 // StartProxySupport starts the servers to support L7 proxies: xDS GRPC server
 // and access log server.
-func StartProxySupport(minPort uint16, maxPort uint16, stateDir string, accessLogNotifier logger.LogRecordNotifier) *Proxy {
+func StartProxySupport(minPort uint16, maxPort uint16, stateDir string,
+	accessLogFile string, accessLogNotifier logger.LogRecordNotifier, accessLogMetadata []string) *Proxy {
 	xdsServer := envoy.StartXDSServer(stateDir)
-
-	// TODO: Pass those as parameters.
-	accessLogFile := viper.GetString("access-log")
-	accessLogMetadata := viper.GetStringSlice("agent-labels")
 
 	if accessLogFile != "" {
 		if err := logger.OpenLogfile(accessLogFile); err != nil {
@@ -150,7 +146,7 @@ func (p *Proxy) CreateOrUpdateRedirect(l4 *policy.L4Filter, id string, localEndp
 	gcOnce.Do(func() {
 		go func() {
 			for {
-				time.Sleep(time.Duration(10) * time.Second)
+				time.Sleep(10 * time.Second)
 				if deleted := proxymap.GC(); deleted > 0 {
 					log.WithField("count", deleted).
 						Debug("Evicted entries from proxy table")

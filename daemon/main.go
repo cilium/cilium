@@ -307,9 +307,9 @@ func checkMinRequirements() {
 func init() {
 	cobra.OnInitialize(initConfig)
 	flags := RootCmd.Flags()
-	flags.String(
+	flags.StringVar(&config.AccessLog,
 		"access-log", "", "Path to access log of supported L7 requests observed")
-	flags.StringSlice(
+	flags.StringSliceVar(&config.AgentLabels,
 		"agent-labels", []string{}, "Additional labels to identify this agent")
 	flags.StringVar(&config.AllowLocalhost,
 		"allow-localhost", AllowLocalhostAuto, "Policy when to allow local stack to reach local endpoints { auto | always | policy } ")
