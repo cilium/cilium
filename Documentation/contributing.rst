@@ -749,6 +749,116 @@ for debugging what is going on inside them, for example:
     00000000  01 00 00 00 00 00 00 00  00 00 00 00 00 00 00 00  |................|
     00000010  00 00 00 00 00 00 00 00                           |........|
 
+Update cilium-builder and cilium-runtime images
+-----------------------------------------------
+
+Login to quay.io with your credentials to the repository that you want to
+update:
+
+`cilium-builder <https://quay.io/repository/cilium/cilium-builder?tab=builds>`__ - contains all envoy dependencies
+`cilium-runtime <https://quay.io/repository/cilium/cilium-runtime?tab=builds>`__ - contains all cilium dependencies (excluding envoy dependencies)
+
+0. After login, select the tab "builds" on the left menu.
+
+.. image:: images/cilium-quayio-tag-0.png
+    :width: 600px
+    :align: center
+    :height: 300px
+
+1. Click on the wheel.
+2. Enable the trigger for that build trigger.
+
+.. image:: images/cilium-quayio-tag-1.png
+    :width: 600px
+    :align: center
+    :height: 300px
+
+3. Confirm that you want to enable the trigger.
+
+.. image:: images/cilium-quayio-tag-2.png
+    :width: 600px
+    :align: center
+    :height: 300px
+
+4. After enabling the trigger, click again on the wheel.
+5. And click on "Run Trigger Now".
+
+.. image:: images/cilium-quayio-tag-3.png
+    :width: 600px
+    :align: center
+    :height: 300px
+
+6. A new pop-up will appear and you can select the branch that contains your
+   changes.
+7. Select the branch that contains the new changes.
+
+.. image:: images/cilium-quayio-tag-4.png
+    :width: 600px
+    :align: center
+    :height: 300px
+
+8. After selecting your branch click on "Start Build".
+
+.. image:: images/cilium-quayio-tag-5.png
+    :width: 600px
+    :align: center
+    :height: 300px
+
+9. Once the build has started you can disable the Build trigger by clicking on
+   the wheel.
+10. And click on "Disable Trigger".
+
+.. image:: images/cilium-quayio-tag-6.png
+    :width: 600px
+    :align: center
+    :height: 300px
+
+11. Confirm that you want to disable the build trigger.
+
+.. image:: images/cilium-quayio-tag-7.png
+    :width: 600px
+    :align: center
+    :height: 300px
+
+12. Once the build is finished click under Tags (on the left menu).
+13. Click on the wheel and;
+14. Add a new tag to the image that was built.
+
+.. image:: images/cilium-quayio-tag-8.png
+    :width: 600px
+    :align: center
+    :height: 300px
+
+15. Write the name of the tag that you want to give for the newly built image.
+16. Confirm the name is correct and click on "Create Tag".
+
+.. image:: images/cilium-quayio-tag-9.png
+    :width: 600px
+    :align: center
+    :height: 300px
+
+17. After the new tag was created you can delete the other tag, which is the
+    name of your branch. Select the tag name.
+18. Click in Actions.
+19. Click in "Delete Tags".
+
+.. image:: images/cilium-quayio-tag-10.png
+    :width: 600px
+    :align: center
+    :height: 300px
+
+20. Confirm that you want to delete tag with your branch name.
+
+.. image:: images/cilium-quayio-tag-11.png
+    :width: 600px
+    :align: center
+    :height: 300px
+
+You have created a new image build with a new tag. The next steps should be to
+update the repository root's Dockerfile so that it points to the new
+``cilium-builder`` or ``cilium-runtime`` image recently created.
+
+
 Submitting a pull request
 -------------------------
 
