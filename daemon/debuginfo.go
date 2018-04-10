@@ -48,8 +48,7 @@ func (h *getDebugInfo) Handle(params restapi.GetDebuginfoParams) middleware.Resp
 		dr.KernelVersion = fmt.Sprintf("%s", kver)
 	}
 
-	s := getHealthz{d}
-	status := s.getStatus(d)
+	status := d.getStatus()
 	dr.CiliumStatus = &status
 
 	var p endpoint.GetEndpointParams
