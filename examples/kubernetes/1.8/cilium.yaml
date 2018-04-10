@@ -207,7 +207,7 @@ spec:
         operator: "Exists"
 ---
 kind: ClusterRoleBinding
-apiVersion: rbac.authorization.k8s.io/v1beta2
+apiVersion: rbac.authorization.k8s.io/v1beta1
 metadata:
   name: cilium
 roleRef:
@@ -222,7 +222,7 @@ subjects:
   name: system:nodes
 ---
 kind: ClusterRole
-apiVersion: rbac.authorization.k8s.io/v1beta2
+apiVersion: rbac.authorization.k8s.io/v1beta1
 metadata:
   name: cilium
 rules:
