@@ -2,6 +2,39 @@
 NEWS
 ******
 
+v1.0.0-rc11
+===========
+
+:date: 2018-04-09
+:commit: 12450070c6ac48c8985e345d9cf8da5288613185
+
+Major Changes
+-------------
+
+* cilium-agent API v1 is stable (3513_, @raybejjani)
+
+Bugfixes Changes
+----------------
+
+* policy: Apply wildcarded source L7 rules to all sources (3574_, @tgraf)
+* Unconditionally open the BPF ipcache from the datapath to avoid issues with delayed opening of maps in Minikube (3567_, @ianvernon)
+* bpf: Derive proxy_port from policy rather than CT (3566_, @tgraf)
+* Fix ICMPv6 response handling for IPv6 connections (3556_, @joestringer)
+* cilium: Make cilium endpoint list resilient (3551_, @tgraf)
+* cli: protect against API nils (3550_, @raybejjani)
+* Recover from panics in Cilium API (3548_, @nebril)
+* Don't block daemon startup due to syncing loadbalancer BPF maps with KVstore (3535_, @joestringer)
+* etcd: Move etcd status check into the background (3532_, @tgraf)
+* labels: Ignore istio sidecar annotation labels (3516_, @tgraf)
+* Clear logging in state.go (3511_, @nebril)
+
+Other Changes
+-------------
+
+* Only apply CIDR policy to special identities (Makes ingress/egress policy consistent) (3565_, @joestringer)
+* docs: Correct spelling mistakes in the docs (3525_, @manalibhutiyani)
+
+
 v1.0.0-rc10
 ===========
 
@@ -1378,3 +1411,17 @@ Fixes
 .. _3434: https://github.com/cilium/cilium/pull/3434
 .. _3500: https://github.com/cilium/cilium/pull/3500
 .. _3445: https://github.com/cilium/cilium/pull/3445
+.. _3513: https://github.com/cilium/cilium/pull/3513
+.. _3574: https://github.com/cilium/cilium/pull/3574
+.. _3567: https://github.com/cilium/cilium/pull/3567
+.. _3566: https://github.com/cilium/cilium/pull/3566
+.. _3556: https://github.com/cilium/cilium/pull/3556
+.. _3551: https://github.com/cilium/cilium/pull/3551
+.. _3550: https://github.com/cilium/cilium/pull/3550
+.. _3548: https://github.com/cilium/cilium/pull/3548
+.. _3535: https://github.com/cilium/cilium/pull/3535
+.. _3532: https://github.com/cilium/cilium/pull/3532
+.. _3516: https://github.com/cilium/cilium/pull/3516
+.. _3511: https://github.com/cilium/cilium/pull/3511
+.. _3565: https://github.com/cilium/cilium/pull/3565
+.. _3525: https://github.com/cilium/cilium/pull/3525
