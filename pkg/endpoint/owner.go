@@ -15,8 +15,6 @@
 package endpoint
 
 import (
-	"net"
-
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/monitor"
@@ -81,12 +79,6 @@ type Owner interface {
 	// GetCompilationLock returns the mutex responsible for synchronizing compilation
 	// of BPF programs.
 	GetCompilationLock() *lock.RWMutex
-
-	// FlushCTEntries flushes all entries in the Connection Tracking table for
-	// where the given endpoint IPs except the entries that match the idsToKeep
-	// isCTLocal should be set as true if the endpoint's CT table is either
-	// local or not (if is not local then it is assumed to be global).
-	FlushCTEntries(e *Endpoint, isCTLocal bool, ips []net.IP, idsToKeep policy.SecurityIDContexts)
 
 	// SendNotification is called to emit an agent notification
 	SendNotification(typ monitor.AgentNotification, text string) error
