@@ -233,8 +233,9 @@ static inline int __inline__ ct_lookup6(void *map, struct ipv6_ct_tuple *tuple,
 
 			if (unlikely(flags.rst || flags.fin))
 				action = ACTION_CLOSE;
-			else
+			else if (unlikely(flags.syn && !flags.ack))
 				action = ACTION_CREATE;
+			/* else leave action as ACTION_UNSPEC */
 
 			syn = flags.syn;
 		}
@@ -381,8 +382,9 @@ static inline int __inline__ ct_lookup4(void *map, struct ipv4_ct_tuple *tuple,
 
 			if (unlikely(flags.rst || flags.fin))
 				action = ACTION_CLOSE;
-			else
+			else if (unlikely(flags.syn && !flags.ack))
 				action = ACTION_CREATE;
+			/* else leave action as ACTION_UNSPEC */
 
 			syn = flags.syn;
 		}
