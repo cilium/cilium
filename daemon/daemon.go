@@ -103,6 +103,9 @@ type Daemon struct {
 	policy            *policy.Repository
 	preFilter         *policy.PreFilter
 
+	statusCollectMutex lock.RWMutex
+	statusResponse     models.StatusResponse
+
 	uniqueIDMU lock.Mutex
 	uniqueID   map[uint64]bool
 
@@ -1107,6 +1110,8 @@ func NewDaemon(c *Config) (*Daemon, error) {
 	node.SetIPv6HealthIP(health6)
 	log.Debugf("IPv4 health endpoint address: %s", node.GetIPv4HealthIP())
 	log.Debugf("IPv6 health endpoint address: %s", node.GetIPv6HealthIP())
+
+	d.startStatusCollector()
 
 	return &d, nil
 }
