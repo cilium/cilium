@@ -524,15 +524,16 @@ var _ = Describe("K8sValidatedPolicyTest", func() {
 		})
 
 		waitforPods := func() {
+			port := "6379"
 			pods, err := kubectl.WaitForServiceEndpoints(
-				helpers.DefaultNamespace, "", "redis-master", "6379", helpers.HelperTimeout)
-			Expect(err).Should(BeNil())
-			Expect(pods).Should(BeTrue())
+				helpers.DefaultNamespace, "", "redis-master", port, helpers.HelperTimeout)
+			Expect(err).Should(BeNil(), "error waiting for redis-master service to be ready on port %s", port)
+			Expect(pods).Should(BeTrue(), "timed out waiting for redis-master service to be ready")
 
 			pods, err = kubectl.WaitForServiceEndpoints(
-				helpers.DefaultNamespace, "", "redis-slave", "6379", helpers.HelperTimeout)
-			Expect(err).Should(BeNil())
-			Expect(pods).Should(BeTrue())
+				helpers.DefaultNamespace, "", "redis-slave", port, helpers.HelperTimeout)
+			Expect(err).Should(BeNil(), "error waiting for redis-slave service to be ready on port %s", port)
+			Expect(pods).Should(BeTrue(), "timed out waiting for redis-slave service to be ready")
 
 			pods, err = kubectl.WaitforPods(
 				helpers.DefaultNamespace,
@@ -557,7 +558,7 @@ PING
 EOF`, k, v)
 					res := kubectl.ExecPodCmd(helpers.DefaultNamespace, pod, command)
 					ExpectWithOffset(1, res.WasSuccessful()).To(BeTrue(),
-						"Web pod %q cannot connect to redis", pod)
+						"Web pod %q cannot connect to redis-master on '%s:%d'", pod, k, v)
 				}
 			}
 		}
