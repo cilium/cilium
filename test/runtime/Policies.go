@@ -52,8 +52,10 @@ const (
 
 var _ = Describe("RuntimeValidatedPolicyEnforcement", func() {
 
-	var logger *logrus.Entry
-	var vm *helpers.SSHMeta
+	var (
+		logger *logrus.Entry
+		vm     *helpers.SSHMeta
+	)
 
 	BeforeAll(func() {
 		logger = log.WithFields(logrus.Fields{"testName": "RuntimePolicyEnforcement"})
@@ -406,8 +408,11 @@ var _ = Describe("RuntimeValidatedPolicyEnforcement", func() {
 
 var _ = Describe("RuntimeValidatedPolicies", func() {
 
-	var logger *logrus.Entry
-	var vm *helpers.SSHMeta
+	var (
+		logger      *logrus.Entry
+		vm          *helpers.SSHMeta
+		monitorStop func() error
+	)
 
 	BeforeAll(func() {
 		logger = log.WithFields(logrus.Fields{"test": "RunPolicies"})
@@ -433,8 +438,13 @@ var _ = Describe("RuntimeValidatedPolicies", func() {
 		vm.PolicyDelAll().ExpectSuccess("Unable to delete all policies")
 	})
 
+	JustBeforeEach(func() {
+		monitorStop = vm.MonitorStart()
+	})
+
 	JustAfterEach(func() {
 		vm.ValidateNoErrorsOnLogs(CurrentGinkgoTestDescription().Duration)
+		Expect(monitorStop()).To(BeNil(), "cannot stop monitor command")
 	})
 
 	AfterFailed(func() {

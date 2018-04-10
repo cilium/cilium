@@ -29,6 +29,7 @@ var _ = Describe("RuntimeValidatedLB", func() {
 
 	var logger *logrus.Entry
 	var vm *helpers.SSHMeta
+	var monitorStop func() error
 
 	BeforeAll(func() {
 		logger = log.WithFields(logrus.Fields{"test": "RuntimeLB"})
@@ -41,8 +42,13 @@ var _ = Describe("RuntimeValidatedLB", func() {
 		vm.ServiceDelAll().ExpectSuccess()
 	})
 
+	JustBeforeEach(func() {
+		monitorStop = vm.MonitorStart()
+	})
+
 	JustAfterEach(func() {
 		vm.ValidateNoErrorsOnLogs(CurrentGinkgoTestDescription().Duration)
+		Expect(monitorStop()).To(BeNil(), "cannot stop monitor command")
 	})
 
 	AfterFailed(func() {

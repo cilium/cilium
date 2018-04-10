@@ -20,12 +20,17 @@ var _ = Describe("RuntimeValidatedConnectivityTest", func() {
 	var once sync.Once
 	var logger *logrus.Entry
 	var vm *helpers.SSHMeta
+	var monitorStop func() error
 
 	initialize := func() {
 		logger = log.WithFields(logrus.Fields{"test": "RuntimeConnectivityTest"})
 		logger.Info("Starting")
 		vm = helpers.CreateNewRuntimeHelper(helpers.Runtime, logger)
 	}
+
+	JustBeforeEach(func() {
+		monitorStop = vm.MonitorStart()
+	})
 
 	BeforeEach(func() {
 		once.Do(initialize)
@@ -44,6 +49,7 @@ var _ = Describe("RuntimeValidatedConnectivityTest", func() {
 
 	JustAfterEach(func() {
 		vm.ValidateNoErrorsOnLogs(CurrentGinkgoTestDescription().Duration)
+		Expect(monitorStop()).To(BeNil(), "cannot stop monitor command")
 	})
 
 	AfterFailed(func() {
@@ -289,6 +295,7 @@ var _ = Describe("RuntimeValidatedConntrackTest", func() {
 	var logger *logrus.Entry
 	var vm *helpers.SSHMeta
 	var once sync.Once
+	var monitorStop func() error
 
 	var curl1ContainerName = "curl"
 	var curl2ContainerName = "curl2"
@@ -623,6 +630,10 @@ var _ = Describe("RuntimeValidatedConntrackTest", func() {
 
 	})
 
+	JustBeforeEach(func() {
+		monitorStop = vm.MonitorStart()
+	})
+
 	AfterEach(func() {
 		containersToRm := []string{helpers.Client, helpers.Server, helpers.Httpd1, helpers.Httpd2, curl1ContainerName, curl2ContainerName}
 		for _, containerToRm := range containersToRm {
@@ -636,6 +647,7 @@ var _ = Describe("RuntimeValidatedConntrackTest", func() {
 
 	JustAfterEach(func() {
 		vm.ValidateNoErrorsOnLogs(CurrentGinkgoTestDescription().Duration)
+		Expect(monitorStop()).To(BeNil(), "cannot stop monitor command")
 	})
 
 	AfterFailed(func() {
