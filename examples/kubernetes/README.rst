@@ -37,12 +37,20 @@ are 5 files:
 - :code:`cilium-ds.yaml` - The :code:`DaemonSet` to deploy Cilium in the
   Kubernetes cluster, some advanced options can be changed here.
 
+- :code:`cilium-sidecar-ds.yaml` - The :code:`DaemonSet` to deploy Cilium in
+  the Kubernetes cluster in combination with Istio, some advanced options can
+  be changed here.
+
 - :code:`cilium-rbac.yaml` - The Cilium's RBAC for the Kubernetes cluster.
 
 - :code:`cilium-sa.yaml` - The Cilium's Kubernetes :code:`ServiceAccount`.
 
 - :code:`cilium.yaml` - All previous files concatenated into a single file,
   useful to deploy Cilium in a minikube environment with a "single line" command.
+
+- :code:`cilium-sidecar.yaml` - All previous files concatenated into a single
+  file, useful to deploy Cilium with Istio in a minikube environment with a
+  "single line" command.
 
 Add-ons
 -------
