@@ -603,9 +603,6 @@ func (s *SSHMeta) GatherLogs() {
 		fmt.Sprintf("sudo journalctl -au %s --no-pager", DaemonName):             "cilium.log",
 		fmt.Sprintf("sudo journalctl -au %s --no-pager", CiliumDockerDaemonName): "cilium-docker.log",
 		"sudo docker logs cilium-consul":                                         "consul.log",
-		fmt.Sprintf(`sudo bash -c "gops memstats $(pgrep %s)"`, AgentDaemon):     "gops_memstats.txt",
-		fmt.Sprintf(`sudo bash -c "gops stack $(pgrep %s)"`, AgentDaemon):        "gops_stack.txt",
-		fmt.Sprintf(`sudo bash -c "gops stats $(pgrep %s)"`, AgentDaemon):        "gops_stats.txt",
 	}
 
 	testPath, err := CreateReportDirectory()
