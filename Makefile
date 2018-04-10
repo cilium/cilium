@@ -129,15 +129,9 @@ docker-image: clean GIT_VERSION envoy/SOURCE_VERSION
 
 docker-image-runtime:
 	cd contrib/packaging/docker && docker build -t "cilium/cilium-runtime:$(UTC_DATE)" -f Dockerfile.runtime .
-	@echo "Update Dockerfile with the new tag and push like this when ready:"
-	@echo "docker push cilium/cilium-runtime:$(UTC_DATE)"
 
 docker-image-builder:
-	cp contrib/packaging/docker/Dockerfile.builder envoy/.
 	cd envoy && docker build -t "cilium/cilium-builder:$(UTC_DATE)" -f Dockerfile.builder .
-	rm envoy/Dockerfile.builder
-	@echo "Update Dockerfile with the new tag and push like this when ready:"
-	@echo "docker push cilium/cilium-builder:$(UTC_DATE)"
 
 build-deb:
 	$(MAKE) -C ./contrib/packaging/deb
