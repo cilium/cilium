@@ -180,7 +180,7 @@ If for some reason, running of the provisioning script fails, you should bring t
     $ vagrant halt
 
 Packer-CI-Build
-^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^
 
 As part of Cilium development, we use a custom base box with a bunch of
 pre-installed libraries and tools that we need to enhance our daily workflow.
@@ -206,7 +206,7 @@ that is not installed in the current version of the box, or if a dependency that
 is cached within the box becomes stale.
 
 Testing
-------------
+-------
 
 Cilium uses the standard `go test <https://golang.org/pkg/testing/>`__ framework
 in combination with `gocheck <http://labix.org/gocheck>`__ for richer testing
@@ -590,13 +590,13 @@ Best Practices for Writing Tests
 
 
 Ginkgo Extensions
-~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~
 
 In Cilium, some Ginkgo features are extended to cover some uses cases that are
 useful for testing Cilium.
 
 BeforeAll
-^^^^^^^^^^
+^^^^^^^^^
 
 This function will run before all `BeforeEach
 <https://onsi.github.io/ginkgo/#extracting-common-setup-beforeeach>`_ within a
@@ -606,7 +606,7 @@ This method is an equivalent to ``SetUp`` or initialize functions in common
 unit test frameworks.
 
 AfterAll
-^^^^^^^^^
+^^^^^^^^
 
 This method will run after all `AfterEach
 <https://onsi.github.io/ginkgo/#extracting-common-setup-beforeeach>`_ functions
@@ -621,7 +621,7 @@ A good use case for using ``AfterAll`` method is to remove containers or pods
 that are needed for multiple ``Its`` in the given ``Context`` or ``Describe``.
 
 Debugging:
-~~~~~~~~~~~
+~~~~~~~~~~
 
 Ginkgo provides to us different ways of debugging. In case that you want to see
 all the logs messages in the console you can run the test in verbose mode using
