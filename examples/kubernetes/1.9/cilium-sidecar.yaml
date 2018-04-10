@@ -1,5 +1,5 @@
 kind: DaemonSet
-apiVersion: apps/v1beta2
+apiVersion: apps/v1
 metadata:
   name: cilium
   namespace: kube-system
@@ -43,6 +43,7 @@ spec:
           - "--kvstore=etcd"
           - "--kvstore-opt=etcd.config=/var/lib/etcd-config/etcd.config"
           - "--disable-ipv4=$(DISABLE_IPV4)"
+          - "--sidecar-http-proxy"
         ports:
           - name: prometheus
             containerPort: 9090
@@ -207,7 +208,7 @@ data:
   etcd-client-crt: ""
 ---
 kind: ClusterRoleBinding
-apiVersion: rbac.authorization.k8s.io/v1beta1
+apiVersion: rbac.authorization.k8s.io/v1
 metadata:
   name: cilium
 roleRef:
@@ -222,7 +223,7 @@ subjects:
   name: system:nodes
 ---
 kind: ClusterRole
-apiVersion: rbac.authorization.k8s.io/v1beta1
+apiVersion: rbac.authorization.k8s.io/v1
 metadata:
   name: cilium
 rules:

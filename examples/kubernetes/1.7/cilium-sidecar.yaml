@@ -1,5 +1,5 @@
 kind: DaemonSet
-apiVersion: apps/v1beta2
+apiVersion: extensions/v1beta1
 metadata:
   name: cilium
   namespace: kube-system
@@ -43,6 +43,7 @@ spec:
           - "--kvstore=etcd"
           - "--kvstore-opt=etcd.config=/var/lib/etcd-config/etcd.config"
           - "--disable-ipv4=$(DISABLE_IPV4)"
+          - "--sidecar-http-proxy"
         ports:
           - name: prometheus
             containerPort: 9090
