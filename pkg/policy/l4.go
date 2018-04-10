@@ -1,4 +1,4 @@
-// Copyright 2016-2017 Authors of Cilium
+// Copyright 2016-2018 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -143,22 +143,21 @@ func (l7 L7DataMap) addRulesForEndpoints(rules api.L7Rules, endpoints []api.Endp
 	}
 }
 
-// CreateL4IngressFilter creates an L4Filter for the specified api.PortProtocol in
-// the ingress direction for a particular protocol.
-// This L4Filter will only apply to endpoints covered by `fromEndpoints`.
-// `rule` allows a series of L7 rules to be associated with this L4Filter.
-func CreateL4IngressFilter(fromEndpoints api.EndpointSelectorSlice, rule api.PortRule, port api.PortProtocol,
-	protocol api.L4Proto, ruleLabels labels.LabelArray) L4Filter {
+// CreateL4Filter creates a filter for L4 policy that applies to the specified
+// endpoints and port/protocol, with reference to the original rules that the
+// filter is derived from. This filter may be associated with a series of L7
+// rules via the `rule` parameter.
+func CreateL4Filter(peerEndpoints api.EndpointSelectorSlice, rule api.PortRule, port api.PortProtocol,
+	protocol api.L4Proto, ruleLabels labels.LabelArray, ingress bool) L4Filter {
 
 	// already validated via PortRule.Validate()
 	p, _ := strconv.ParseUint(port.Port, 0, 16)
 	// already validated via L4Proto.Validate()
 	u8p, _ := u8proto.ParseProtocol(string(protocol))
 
-	filterEndpoints := fromEndpoints
-	if fromEndpoints.SelectsAllEndpoints() {
+	filterEndpoints := peerEndpoints
+	if peerEndpoints.SelectsAllEndpoints() {
 		filterEndpoints = api.EndpointSelectorSlice{api.WildcardEndpointSelector}
-
 	}
 
 	l4 := L4Filter{
@@ -168,9 +167,8 @@ func CreateL4IngressFilter(fromEndpoints api.EndpointSelectorSlice, rule api.Por
 		L7RulesPerEp:     make(L7DataMap),
 		Endpoints:        filterEndpoints,
 		DerivedFromRules: labels.LabelArrayList{ruleLabels},
+		Ingress:          ingress,
 	}
-
-	l4.Ingress = true
 
 	if protocol == api.ProtoTCP && rule.Rules != nil {
 		switch {
@@ -179,54 +177,30 @@ func CreateL4IngressFilter(fromEndpoints api.EndpointSelectorSlice, rule api.Por
 		case len(rule.Rules.Kafka) > 0:
 			l4.L7Parser = ParserTypeKafka
 		}
-
-		l4.L7RulesPerEp.addRulesForEndpoints(*rule.Rules, fromEndpoints)
+		l4.L7RulesPerEp.addRulesForEndpoints(*rule.Rules, peerEndpoints)
 	}
 
 	return l4
 }
 
-// CreateL4EgressFilter creates an L4Filter for the specified api.PortProtocol in
-// the egress direction for a particular protocol.
-// This L4Filter will only apply to endpoints covered by `fromEndpoints`.
-// `rule` allows a series of L7 rules to be associated with this L4Filter.
+// CreateL4IngressFilter creates a filter for L4 policy that applies to the
+// specified endpoints and port/protocol for ingress traffic, with reference
+// to the original rules that the filter is derived from. This filter may be
+// associated with a series of L7 rules via the `rule` parameter.
+func CreateL4IngressFilter(fromEndpoints api.EndpointSelectorSlice, rule api.PortRule, port api.PortProtocol,
+	protocol api.L4Proto, ruleLabels labels.LabelArray) L4Filter {
+
+	return CreateL4Filter(fromEndpoints, rule, port, protocol, ruleLabels, true)
+}
+
+// CreateL4EgressFilter creates a filter for L4 policy that applies to the
+// specified endpoints and port/protocol for egress traffic, with reference
+// to the original rules that the filter is derived from. This filter may be
+// associated with a series of L7 rules via the `rule` parameter.
 func CreateL4EgressFilter(toEndpoints api.EndpointSelectorSlice, rule api.PortRule, port api.PortProtocol,
 	protocol api.L4Proto, ruleLabels labels.LabelArray) L4Filter {
 
-	// already validated via PortRule.Validate()
-	p, _ := strconv.ParseUint(port.Port, 0, 16)
-	// already validated via L4Proto.Validate()
-	u8p, _ := u8proto.ParseProtocol(string(protocol))
-
-	filterEndpoints := toEndpoints
-	if toEndpoints.SelectsAllEndpoints() {
-		filterEndpoints = api.EndpointSelectorSlice{api.WildcardEndpointSelector}
-
-	}
-
-	l4 := L4Filter{
-		Port:             int(p),
-		Protocol:         protocol,
-		U8Proto:          u8p,
-		L7RulesPerEp:     make(L7DataMap),
-		Endpoints:        filterEndpoints,
-		DerivedFromRules: labels.LabelArrayList{ruleLabels},
-	}
-
-	l4.Ingress = false
-
-	if protocol == api.ProtoTCP && rule.Rules != nil {
-		switch {
-		case len(rule.Rules.HTTP) > 0:
-			l4.L7Parser = ParserTypeHTTP
-		case len(rule.Rules.Kafka) > 0:
-			l4.L7Parser = ParserTypeKafka
-		}
-
-		l4.L7RulesPerEp.addRulesForEndpoints(*rule.Rules, toEndpoints)
-	}
-
-	return l4
+	return CreateL4Filter(toEndpoints, rule, port, protocol, ruleLabels, false)
 }
 
 // IsRedirect returns true if the L4 filter contains a port redirection
