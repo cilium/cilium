@@ -59,6 +59,7 @@ above, as well as a Kubernetes Service for both Kafka and Zookeeper.
 
     $ kubectl create -f \ |SCM_WEB|\/examples/kubernetes-kafka/kafka-sw-app.yaml
     deployment "kafka-broker" created
+    deployment "zookeeper" created
     service "zook" created
     service "kafka-service" created
     deployment "empire-hq" created
@@ -66,26 +67,26 @@ above, as well as a Kubernetes Service for both Kafka and Zookeeper.
     deployment "empire-outpost-9999" created
     deployment "empire-backup" created
 
-Kubernetes will deploy the pods and service  in the background.  Running
-``kubectl get svc,pods`` will inform you about the progress of the operation.
+Kubernetes will deploy the pods and service  in the background.
+Running ``kubectl get svc,pods`` will inform you about the progress of the operation.
 Each pod will go through several states until it reaches ``Running`` at which
 point the setup is ready.
 
 ::
 
-    $ kubectl get pods,svc
-    NAME                                     READY     STATUS    RESTARTS   AGE
-    po/empire-backup-955026812-cnv9j         1/1       Running   0          1m
-    po/empire-hq-1887702787-48sd1            1/1       Running   0          1m
-    po/empire-outpost-8888-422023320-0568m   1/1       Running   0          1m
-    po/empire-outpost-9999-422023320-wlllp   1/1       Running   0          1m
-    po/kafka-broker-3436435889-tsg2s         2/2       Running   0          1m
+    $ kubectl get svc,pods
+    NAME            TYPE        CLUSTER-IP      EXTERNAL-IP   PORT(S)    AGE
+    kafka-service   ClusterIP   None            <none>        9092/TCP   2m
+    kubernetes      ClusterIP   10.96.0.1       <none>        443/TCP    10m
+    zook            ClusterIP   10.97.250.131   <none>        2181/TCP   2m
 
-    NAME                CLUSTER-IP   EXTERNAL-IP   PORT(S)    AGE
-    svc/kafka-service   10.0.0.20    <none>        9092/TCP   1m
-    svc/kubernetes      10.0.0.1     <none>        443/TCP    6m
-    svc/zook            10.0.0.200   <none>        2181/TCP   1m
-
+    NAME                                   READY     STATUS    RESTARTS   AGE
+    empire-backup-6f4567d5fd-gcrvg         1/1       Running   0          2m
+    empire-hq-59475b4b64-mrdww             1/1       Running   0          2m
+    empire-outpost-8888-78dffd49fb-tnnhf   1/1       Running   0          2m
+    empire-outpost-9999-7dd9fc5f5b-xp6jw   1/1       Running   0          2m
+    kafka-broker-b874c78fd-jdwqf           1/1       Running   0          2m
+    zookeeper-85f64b8cd4-nprck             1/1       Running   0          2m
 
 Step 3: Setup Client Terminals
 ==============================
@@ -240,7 +241,7 @@ Type control-c and then run:
 ::
 
   $ echo "Vader Trips on His Own Cape" | ./kafka-produce.sh --topic empire-announce
-  [2017-10-31 07:08:34,088] ERROR Error when sending message to topic empire-announce with key: null, value: 33  bytes with error: (org.apache.kafka.clients.producer.internals.ErrorLoggingCallback)
+  >>[2018-04-10 23:50:34,638] ERROR Error when sending message to topic empire-announce with key: null, value: 27 bytes with error: (org.apache.kafka.clients.producer.internals.ErrorLoggingCallback)
   org.apache.kafka.common.errors.TopicAuthorizationException: Not authorized to access topics: [empire-announce]
 
 This is because the policy does not allow messages with role = "produce" for topic "empire-announce" from
@@ -255,13 +256,10 @@ To test, from the outpost-9999 terminal, run:
 
 ::
 
-  $ ./kafka-consume.sh --topic deathstar-plans
-  [2017-10-31 07:09:36,679] WARN Not authorized to read from topic deathstar-plans. (org.apache.kafka.clients.consumer.internals.Fetcher)
-  [2017-10-31 07:09:36,683] ERROR Error processing message, terminating consumer process:  (kafka.tools.ConsoleConsumer$)
-  org.apache.kafka.common.errors.TopicAuthorizationException: Not authorized to access topics: [deathstar-plans]
-  Processed a total of 0 messages
+  $./kafka-consume.sh --topic deathstar-plans
+  [2018-04-10 23:51:12,956] WARN Error while fetching metadata with correlation id 2 : {deathstar-plans=TOPIC_AUTHORIZATION_FAILED} (org.apache.kafka.clients.NetworkClient)
 
-This is blocked as well, thanks to the Cilium network policy.  Imagine how different things would have been if the empire had been using
+This is blocked as well, thanks to the Cilium network policy. Imagine how different things would have been if the empire had been using
 Cilium from the beginning!
 
 Step 6: Clean Up
