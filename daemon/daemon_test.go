@@ -86,11 +86,12 @@ func (ds *DaemonSuite) SetUpTest(c *C) {
 	c.Assert(err, IsNil)
 
 	daemonConf := &Config{
-		DryMode:  true,
-		Opts:     option.NewBoolOptions(&options.Library),
-		Device:   "undefined",
-		RunDir:   tempRunDir,
-		StateDir: tempRunDir,
+		DryMode:   true,
+		Opts:      option.NewBoolOptions(&options.Library),
+		Device:    "undefined",
+		RunDir:    tempRunDir,
+		StateDir:  tempRunDir,
+		AccessLog: filepath.Join(tempRunDir, "cilium-access.log"),
 	}
 
 	// Get the default labels prefix filter

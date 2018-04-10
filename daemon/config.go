@@ -87,6 +87,12 @@ type Config struct {
 
 	// Monitor contains the configuration for the node monitor.
 	Monitor *models.MonitorStatus
+
+	// AccessLog is the path to the access log of supported L7 requests observed.
+	AccessLog string
+
+	// AgentLabels contains additional labels to identify this agent in monitor events.
+	AgentLabels []string
 }
 
 func NewConfig() *Config {

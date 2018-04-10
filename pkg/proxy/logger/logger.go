@@ -358,7 +358,7 @@ func (lr *LogRecord) Log() {
 // Called with lock held
 func openLogfileLocked(lf string) error {
 	logPath = lf
-	log.WithField(FieldFilePath, logPath).Debug("Opened access log")
+	log.WithField(FieldFilePath, logPath).Info("Opened access log")
 
 	logger = &lumberjack.Logger{
 		Filename:   lf,
