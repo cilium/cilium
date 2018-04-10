@@ -52,7 +52,7 @@ namespace Filter {
 namespace CiliumL3 {
 
 Network::FilterStatus Instance::onNewConnection() {
-  ENVOY_LOG(warn, "Cilium Network: onNewConnection");
+  ENVOY_LOG(debug, "Cilium Network: onNewConnection");
   auto& conn = callbacks_->connection();
   const auto& options_ = conn.socketOptions();
   if (options_) {
