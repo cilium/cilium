@@ -15,6 +15,7 @@
 package server
 
 import (
+	"fmt"
 	"sync"
 	"time"
 
@@ -113,10 +114,13 @@ func (s *Server) getNodes() (nodeMap, error) {
 
 	resp, err := s.Daemon.GetHealthz(nil)
 	if err != nil {
-		log.WithError(err).Warn("Failed to retrieve Cilium /healthz")
-		return nil, err
+		return nil, fmt.Errorf("unable to get agent health: %s", err)
 	}
 	log.Debug("Got cilium /healthz")
+
+	if resp == nil || resp.Payload == nil || resp.Payload.Cluster == nil {
+		return nil, fmt.Errorf("received nil health response")
+	}
 
 	if resp.Payload.Cluster.Self != "" {
 		s.localStatus = &healthModels.SelfStatus{
@@ -126,11 +130,13 @@ func (s *Server) getNodes() (nodeMap, error) {
 
 	nodes := make(nodeMap)
 	for _, n := range resp.Payload.Cluster.Nodes {
-		if n.PrimaryAddress.IPV4 != nil {
-			nodes[ipString(n.PrimaryAddress.IPV4.IP)] = n
-		}
-		if n.PrimaryAddress.IPV6 != nil {
-			nodes[ipString(n.PrimaryAddress.IPV6.IP)] = n
+		if n.PrimaryAddress != nil {
+			if n.PrimaryAddress.IPV4 != nil {
+				nodes[ipString(n.PrimaryAddress.IPV4.IP)] = n
+			}
+			if n.PrimaryAddress.IPV6 != nil {
+				nodes[ipString(n.PrimaryAddress.IPV6.IP)] = n
+			}
 		}
 		for _, addr := range n.SecondaryAddresses {
 			nodes[ipString(addr.IP)] = n
