@@ -9,6 +9,9 @@ GOLANG_SRCFILES=$(shell for pkg in $(subst github.com/cilium/cilium/,,$(GOFILES)
 BPF_FILES ?= $(shell git ls-files ../bpf/ | tr "\n" ' ')
 BPF_SRCFILES=$(subst ../,,$(BPF_FILES))
 
+SWAGGER_VERSION = 0.12.0
+SWAGGER = $(QUIET)docker run --rm -v $(CURDIR):$(CURDIR) -w $(CURDIR) -e GOPATH=$(GOPATH) --entrypoint swagger quay.io/goswagger/swagger:$(SWAGGER_VERSION)
+
 GOTEST_OPTS = -test.v -check.v
 
 UTC_DATE=$(shell date -u "+%Y-%m-%d")
@@ -148,16 +151,19 @@ runtime-tests:
 k8s-tests:
 	$(MAKE) -C tests k8s-tests
 
-generate-api:
-	swagger generate server -t api/v1 -f api/v1/openapi.yaml -a restapi \
-	    -s server --default-scheme=unix -C api/v1/cilium-server.yml
-	swagger generate client -t api/v1 -f api/v1/openapi.yaml -a restapi
+generate-api: api/v1/openapi.yaml
+	@$(ECHO_GEN)api/v1/openapi.yaml
+	-$(SWAGGER) generate server -s server -a restapi \
+		-t api/v1 -f api/v1/openapi.yaml --default-scheme=unix -C api/v1/cilium-server.yml
+	-$(SWAGGER) generate client -a restapi \
+		-t api/v1 -f api/v1/openapi.yaml
 
-generate-health-api:
-	swagger generate server -t api/v1 -f api/v1/health/openapi.yaml \
-	    -a restapi -t api/v1/health/ -s server
-	swagger generate client -t api/v1 -f api/v1/health/openapi.yaml \
-	    -a restapi -t api/v1/health/
+generate-health-api: api/v1/health/openapi.yaml
+	@$(ECHO_GEN)api/v1/health/openapi.yaml
+	-$(SWAGGER) generate server -s server -a restapi \
+		-t api/v1 -t api/v1/health/ -f api/v1/health/openapi.yaml
+	-$(SWAGGER) generate client -a restapi \
+		-t api/v1 -t api/v1/health/ -f api/v1/health/openapi.yaml
 
 generate-k8s-api:
 	cd "$(GOPATH)/src/k8s.io/code-generator" && \
@@ -272,5 +278,5 @@ postcheck: build
 	$(QUIET) contrib/scripts/lock-check.sh
 	-$(QUIET) $(MAKE) -C Documentation/ dummy SPHINXOPTS="-q" 2>&1 | grep -v "tabs assets"
 
-.PHONY: force
+.PHONY: force generate-api generate-health-api
 force :;
