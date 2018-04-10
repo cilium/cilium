@@ -16,6 +16,7 @@ package main
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/cilium/cilium/api/v1/models"
 	. "github.com/cilium/cilium/api/v1/server/restapi/daemon"
@@ -28,6 +29,10 @@ import (
 	"github.com/go-openapi/runtime/middleware"
 	k8sTypes "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+)
+
+const (
+	collectStatusInterval = 5 * time.Second
 )
 
 func (d *Daemon) getK8sStatus() *models.K8sStatus {
@@ -86,8 +91,8 @@ func checkLocks(d *Daemon) {
 	d.GetCompilationLock().Unlock()
 }
 
-func (h *getHealthz) getNodeStatus() *models.ClusterStatus {
-	ipv4 := !h.daemon.conf.IPv4Disabled
+func (d *Daemon) getNodeStatus() *models.ClusterStatus {
+	ipv4 := !d.conf.IPv4Disabled
 
 	local, _ := node.GetLocalNode()
 	clusterStatus := models.ClusterStatus{
@@ -102,13 +107,31 @@ func (h *getHealthz) getNodeStatus() *models.ClusterStatus {
 	return &clusterStatus
 }
 
+func (d *Daemon) collectStatus() {
+	for {
+		response := d.getStatus()
+
+		d.statusCollectMutex.Lock()
+		d.statusResponse = response
+		d.statusCollectMutex.Unlock()
+
+		time.Sleep(collectStatusInterval)
+	}
+}
+
+func (d *Daemon) startStatusCollector() {
+	go d.collectStatus()
+}
+
 func (h *getHealthz) Handle(params GetHealthzParams) middleware.Responder {
 	d := h.daemon
-	sr := h.getStatus(d)
+	d.statusCollectMutex.RLock()
+	sr := d.statusResponse
+	d.statusCollectMutex.RUnlock()
 	return NewGetHealthzOK().WithPayload(&sr)
 }
 
-func (h *getHealthz) getStatus(d *Daemon) models.StatusResponse {
+func (d *Daemon) getStatus() models.StatusResponse {
 	sr := models.StatusResponse{
 		Controllers: controller.GetGlobalStatus(),
 	}
@@ -150,8 +173,11 @@ func (h *getHealthz) getStatus(d *Daemon) models.StatusResponse {
 
 	sr.NodeMonitor = d.nodeMonitor.State()
 
-	sr.Cluster = h.getNodeStatus()
-	sr.Cluster.CiliumHealth = d.ciliumHealth.GetStatus()
+	sr.Cluster = d.getNodeStatus()
+
+	if d.ciliumHealth != nil {
+		sr.Cluster.CiliumHealth = d.ciliumHealth.GetStatus()
+	}
 
 	if d.l7Proxy != nil {
 		sr.Proxy = d.l7Proxy.GetStatusModel()
