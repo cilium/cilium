@@ -1,5 +1,5 @@
 kind: DaemonSet
-apiVersion: apps/v1beta2
+apiVersion: __DS_API_VERSION__
 metadata:
   name: cilium
   namespace: kube-system
@@ -33,7 +33,7 @@ spec:
     spec:
       serviceAccountName: cilium
       containers:
-      - image: cilium/cilium:latest
+      - image: cilium/cilium:__CILIUM_VERSION__
         imagePullPolicy: Always
         name: cilium-agent
         command: [ "cilium-agent" ]
@@ -43,6 +43,7 @@ spec:
           - "--kvstore=etcd"
           - "--kvstore-opt=etcd.config=/var/lib/etcd-config/etcd.config"
           - "--disable-ipv4=$(DISABLE_IPV4)"
+          - "--sidecar-http-proxy"
         ports:
           - name: prometheus
             containerPort: 9090
@@ -161,133 +162,3 @@ spec:
       # Mark cilium's pod as critical for rescheduling
       - key: CriticalAddonsOnly
         operator: "Exists"
----
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: cilium-config
-  namespace: kube-system
-data:
-  # This etcd-config contains the etcd endpoints of your cluster. If you use
-  # TLS please make sure you uncomment the ca-file line and add the respective
-  # certificate has a k8s secret, see explanation below in the comment labeled
-  # "ETCD-CERT"
-  etcd-config: |-
-    ---
-    endpoints:
-    - http://127.0.0.1:2379
-    #
-    # In case you want to use TLS in etcd, uncomment the following line
-    # and add the certificate as explained in the comment labeled "ETCD-CERT"
-    #ca-file: '/var/lib/etcd-secrets/etcd-ca'
-    #
-    # In case you want client to server authentication, uncomment the following
-    # lines and add the certificate and key in cilium-etcd-secrets below
-    #key-file: '/var/lib/etcd-secrets/etcd-client-key'
-    #cert-file: '/var/lib/etcd-secrets/etcd-client-crt'
-
-  # If you want to run cilium in debug mode change this value to true
-  debug: "false"
-  disable-ipv4: "false"
----
-# The etcd secrets can be populated in kubernetes.
-# For more information see: https://kubernetes.io/docs/concepts/configuration/secret
-kind: Secret
-apiVersion: v1
-type: Opaque
-metadata:
-  name: cilium-etcd-secrets
-  namespace: kube-system
-data:
-  # ETCD-CERT: Each value should contain the whole certificate in base64, on a
-  # single line. You can generate the base64 with: $ base64 -w 0 ./ca.pem
-  # (the "-w 0" generates the output on a single line)
-  etcd-ca: ""
-  etcd-client-key: ""
-  etcd-client-crt: ""
----
-kind: ClusterRoleBinding
-apiVersion: rbac.authorization.k8s.io/v1beta1
-metadata:
-  name: cilium
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: ClusterRole
-  name: cilium
-subjects:
-- kind: ServiceAccount
-  name: cilium
-  namespace: kube-system
-- kind: Group
-  name: system:nodes
----
-kind: ClusterRole
-apiVersion: rbac.authorization.k8s.io/v1beta1
-metadata:
-  name: cilium
-rules:
-- apiGroups:
-  - "networking.k8s.io"
-  resources:
-  - networkpolicies
-  verbs:
-  - get
-  - list
-  - watch
-- apiGroups:
-  - ""
-  resources:
-  - namespaces
-  - services
-  - nodes
-  - endpoints
-  - componentstatuses
-  verbs:
-  - get
-  - list
-  - watch
-- apiGroups:
-  - ""
-  resources:
-  - pods
-  - nodes
-  verbs:
-  - get
-  - list
-  - watch
-  - update
-- apiGroups:
-  - extensions
-  resources:
-  - networkpolicies #FIXME remove this when we drop support for k8s NP-beta GH-1202
-  - thirdpartyresources
-  - ingresses
-  verbs:
-  - create
-  - get
-  - list
-  - watch
-- apiGroups:
-  - "apiextensions.k8s.io"
-  resources:
-  - customresourcedefinitions
-  verbs:
-  - create
-  - get
-  - list
-  - watch
-  - update
-- apiGroups:
-  - cilium.io
-  resources:
-  - ciliumnetworkpolicies
-  - ciliumendpoints
-  verbs:
-  - "*"
----
-kind: ServiceAccount
-apiVersion: v1
-metadata:
-  name: cilium
-  namespace: kube-system
----
