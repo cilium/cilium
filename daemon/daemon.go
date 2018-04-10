@@ -277,15 +277,6 @@ func (d *Daemon) DebugEnabled() bool {
 	return d.conf.Opts.IsEnabled(endpoint.OptionDebug)
 }
 
-// FlushCTEntries flushes the connection tracking of the given endpoint
-// where the given endpoint IPs match the CT entry IP fields.
-// isCTLocal should be set as true if the endpoint's CT table is either
-// local or not (if it is not local then it is assumed to be global).
-// Implementation of pkg/endpoint.Owner interface
-func (d *Daemon) FlushCTEntries(e *endpoint.Endpoint, isCTLocal bool, epIPs []net.IP, idsToKeep policy.SecurityIDContexts) {
-	endpointmanager.FlushCTEntriesOf(!d.conf.IPv4Disabled, e, isCTLocal, epIPs, idsToKeep)
-}
-
 func (d *Daemon) writeNetdevHeader(dir string) error {
 
 	headerPath := filepath.Join(dir, common.NetdevHeaderFileName)
