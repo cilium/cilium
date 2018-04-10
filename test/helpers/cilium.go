@@ -15,7 +15,9 @@
 package helpers
 
 import (
+	"context"
 	"fmt"
+	"io/ioutil"
 	"net"
 	"os"
 	"path/filepath"
@@ -353,6 +355,36 @@ func (s *SSHMeta) GetEndpointsNames() ([]string, error) {
 // TODO: this can just be a constant; there's no need to have a function.
 func (s *SSHMeta) ManifestsPath() string {
 	return fmt.Sprintf("%s/runtime/manifests/", BasePath)
+}
+
+// MonitorStart starts the  monitor command in background and return a callback
+// function to stop the monitor when the user needs. When the callback is
+// called the command will stop and monitor's output is saved on
+// `monitorLogFileName` file.
+func (s *SSHMeta) MonitorStart() func() error {
+	cmd := "cilium monitor -v | ts '[%Y-%m-%d %H:%M:%S]'"
+	ctx, cancel := context.WithCancel(context.Background())
+	res := s.ExecContext(ctx, cmd, ExecOptions{SkipLog: true})
+
+	cb := func() error {
+		cancel()
+		testPath, err := CreateReportDirectory()
+		if err != nil {
+			s.logger.WithError(err).Errorf(
+				"cannot create test results path '%s'", testPath)
+			return err
+		}
+
+		err = ioutil.WriteFile(
+			filepath.Join(testPath, monitorLogFileName),
+			res.CombineOutput().Bytes(),
+			LogPerm)
+		if err != nil {
+			log.WithError(err).Errorf("cannot create monitor log file")
+		}
+		return nil
+	}
+	return cb
 }
 
 // GetFullPath returns the path of file name prepended with the absolute path

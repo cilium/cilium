@@ -40,11 +40,13 @@ func getStarWarsResourceLink(file string) string {
 var _ = Describe(demoTestName, func() {
 
 	var (
-		demoPath   string
-		once       sync.Once
-		kubectl    *helpers.Kubectl
-		logger     *logrus.Entry
-		ciliumYAML string
+		demoPath         string
+		once             sync.Once
+		kubectl          *helpers.Kubectl
+		logger           *logrus.Entry
+		ciliumYAML       string
+		microscopeErr    error
+		microscopeCancel func() error
 
 		deathStarYAMLLink = getStarWarsResourceLink("02-deathstar.yaml")
 		l4PolicyYAMLLink  = getStarWarsResourceLink("policy/l4_policy.yaml")
@@ -80,8 +82,14 @@ var _ = Describe(demoTestName, func() {
 		kubectl.CiliumReport(helpers.KubeSystemNamespace)
 	})
 
+	JustBeforeEach(func() {
+		microscopeErr, microscopeCancel = kubectl.MicroscopeStart()
+		Expect(microscopeErr).To(BeNil(), "Microscope cannot be started")
+	})
+
 	JustAfterEach(func() {
 		kubectl.ValidateNoErrorsOnLogs(CurrentGinkgoTestDescription().Duration)
+		Expect(microscopeCancel()).To(BeNil(), "cannot stop microscope")
 	})
 
 	AfterEach(func() {

@@ -28,6 +28,8 @@ import (
 
 var _ = Describe("K8sValidatedKafkaPolicyTest", func() {
 
+	var microscopeErr error
+	var microscopeCancel func() error
 	var demoPath string
 	var once sync.Once
 	var kubectl *helpers.Kubectl
@@ -102,8 +104,14 @@ var _ = Describe("K8sValidatedKafkaPolicyTest", func() {
 			"cilium endpoint list"})
 	})
 
+	JustBeforeEach(func() {
+		microscopeErr, microscopeCancel = kubectl.MicroscopeStart()
+		Expect(microscopeErr).To(BeNil(), "Microscope cannot be started")
+	})
+
 	JustAfterEach(func() {
 		kubectl.ValidateNoErrorsOnLogs(CurrentGinkgoTestDescription().Duration)
+		Expect(microscopeCancel()).To(BeNil(), "cannot stop microscope")
 	})
 
 	AfterEach(func() {

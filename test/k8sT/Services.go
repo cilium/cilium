@@ -36,6 +36,8 @@ var _ = Describe("K8sValidatedServicesTest", func() {
 	var logger *logrus.Entry
 	var once sync.Once
 	var serviceName string = "app1-service"
+	var microscopeErr error
+	var microscopeCancel func() error
 
 	applyPolicy := func(path string) {
 		_, err := kubectl.CiliumPolicyAction(helpers.KubeSystemNamespace, path, helpers.KubectlApply, helpers.HelperTimeout)
@@ -67,8 +69,14 @@ var _ = Describe("K8sValidatedServicesTest", func() {
 			"cilium endpoint list"})
 	})
 
+	JustBeforeEach(func() {
+		microscopeErr, microscopeCancel = kubectl.MicroscopeStart()
+		Expect(microscopeErr).To(BeNil(), "Microscope cannot be started")
+	})
+
 	JustAfterEach(func() {
 		kubectl.ValidateNoErrorsOnLogs(CurrentGinkgoTestDescription().Duration)
+		Expect(microscopeCancel()).To(BeNil(), "cannot stop microscope")
 	})
 
 	AfterEach(func() {

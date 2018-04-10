@@ -48,6 +48,8 @@ var _ = Describe("K8sValidatedPolicyTest", func() {
 		podServer                                         *v1.Pod
 		namespace                                         string
 		app1Service                                       string = "app1-service"
+		microscopeErr                                     error
+		microscopeCancel                                  func() error
 	)
 
 	initialize := func() {
@@ -94,8 +96,14 @@ var _ = Describe("K8sValidatedPolicyTest", func() {
 			"cilium endpoint list"})
 	})
 
+	JustBeforeEach(func() {
+		microscopeErr, microscopeCancel = kubectl.MicroscopeStart()
+		Expect(microscopeErr).To(BeNil(), "Microscope cannot be started")
+	})
+
 	JustAfterEach(func() {
 		kubectl.ValidateNoErrorsOnLogs(CurrentGinkgoTestDescription().Duration)
+		Expect(microscopeCancel()).To(BeNil(), "cannot stop microscope")
 	})
 
 	Context("Basic Test", func() {
@@ -782,6 +790,8 @@ var _ = Describe("K8sValidatedPolicyTestAcrossNamespaces", func() {
 		ciliumDaemonSetPath string
 		cnpL7Stresstest     string
 		cnpAnyNamespace     string
+		microscopeErr       error
+		microscopeCancel    func() error
 	)
 
 	initialize := func() {
@@ -832,8 +842,14 @@ var _ = Describe("K8sValidatedPolicyTestAcrossNamespaces", func() {
 			"cilium endpoint list"})
 	})
 
+	JustBeforeEach(func() {
+		microscopeErr, microscopeCancel = kubectl.MicroscopeStart()
+		Expect(microscopeErr).To(BeNil(), "Microscope cannot be started")
+	})
+
 	JustAfterEach(func() {
 		kubectl.ValidateNoErrorsOnLogs(CurrentGinkgoTestDescription().Duration)
+		Expect(microscopeCancel()).To(BeNil(), "cannot stop microscope")
 	})
 
 	AfterEach(func() {

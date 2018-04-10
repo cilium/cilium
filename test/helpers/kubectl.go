@@ -302,6 +302,49 @@ func (kub *Kubectl) ManifestGet(manifestFilename string) string {
 	return fmt.Sprintf("%s/k8sT/manifests/%s", BasePath, manifestFilename)
 }
 
+// MicroscopeStart installs (if it is not installed) a new microscope pod, wai
+// until pod is ready and run microscope in background. It returns a error in
+// case of the microscope cannot be installed or it is not ready after a
+// timeout, also it returns a callback function to stop the monitor and save
+// the output to `helpers.monitorLogFileName` file
+func (kub *Kubectl) MicroscopeStart() (error, func() error) {
+	microscope := "microscope"
+	cmd := fmt.Sprintf("%[1]s -n %[2]s exec %[3]s -- %[3]s --combine",
+		KubectlCmd, KubeSystemNamespace, microscope)
+	kub.Apply(microscopeManifest)
+
+	_, err := kub.WaitforPods(
+		KubeSystemNamespace,
+		fmt.Sprintf("-l k8s-app=%s", microscope),
+		300)
+	if err != nil {
+		return err, nil
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	res := kub.ExecContext(ctx, cmd, ExecOptions{SkipLog: true})
+
+	cb := func() error {
+		cancel()
+		testPath, err := CreateReportDirectory()
+		if err != nil {
+			kub.logger.WithError(err).Errorf(
+				"cannot create test results path '%s'", testPath)
+			return err
+		}
+
+		err = ioutil.WriteFile(
+			filepath.Join(testPath, monitorLogFileName),
+			res.CombineOutput().Bytes(),
+			LogPerm)
+		if err != nil {
+			log.WithError(err).Errorf("cannot create monitor log file")
+		}
+		return nil
+	}
+	return nil, cb
+}
+
 // NodeCleanMetadata annotates each node in the Kubernetes cluster with the
 // annotation.V4CIDRName and annotation.V6CIDRName annotations. It returns an
 // error if the nodes cannot be retrieved via the Kubernetes API.

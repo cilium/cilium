@@ -31,6 +31,7 @@ var _ = Describe("RuntimeValidatedKafka", func() {
 	var once sync.Once
 	var logger *logrus.Entry
 	var vm *helpers.SSHMeta
+	var monitorStop func() error
 
 	var allowedTopic string = "allowedTopic"
 	var disallowTopic string = "disallowTopic"
@@ -130,8 +131,13 @@ var _ = Describe("RuntimeValidatedKafka", func() {
 		containers("delete")
 	})
 
+	JustBeforeEach(func() {
+		monitorStop = vm.MonitorStart()
+	})
+
 	JustAfterEach(func() {
 		vm.ValidateNoErrorsOnLogs(CurrentGinkgoTestDescription().Duration)
+		Expect(monitorStop()).To(BeNil(), "cannot stop monitor command")
 	})
 
 	AfterFailed(func() {
