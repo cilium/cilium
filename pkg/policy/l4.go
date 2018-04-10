@@ -177,7 +177,7 @@ func CreateL4Filter(peerEndpoints api.EndpointSelectorSlice, rule api.PortRule, 
 		case len(rule.Rules.Kafka) > 0:
 			l4.L7Parser = ParserTypeKafka
 		}
-		l4.L7RulesPerEp.addRulesForEndpoints(*rule.Rules, peerEndpoints)
+		l4.L7RulesPerEp.addRulesForEndpoints(*rule.Rules, filterEndpoints)
 	}
 
 	return l4
