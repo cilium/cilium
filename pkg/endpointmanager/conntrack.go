@@ -16,7 +16,6 @@ package endpointmanager
 
 import (
 	"fmt"
-	"net"
 	"strconv"
 	"time"
 
@@ -24,7 +23,6 @@ import (
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
-	"github.com/cilium/cilium/pkg/policy"
 
 	"github.com/sirupsen/logrus"
 )
@@ -129,25 +127,4 @@ func EnableConntrackGC(ipv4, ipv6 bool) {
 			seenGlobal = false
 		}
 	}()
-}
-
-// FlushCTEntriesOf cleans the connection tracking table of the given endpoint
-// `e`. It removes all CT entries that of the CT table local or global, defined
-// by isLocal, that contains:
-//  - all the endpoint IP addresses given in the epIPs slice AND
-//  - does not belong to the list of ids to keep
-func FlushCTEntriesOf(ipv4Enabled bool, e *endpoint.Endpoint, isLocal bool, epIPs []net.IP, idsToKeep policy.SecurityIDContexts) {
-
-	gcFilter := ctmap.NewGCFilterBy(ctmap.GCFilterByIDsToKeep)
-	gcFilter.IDsToKeep = idsToKeep
-	gcFilter.EndpointID = e.ID
-	for _, epIP := range epIPs {
-		gcFilter.EndpointIP = epIP
-
-		if epIP.To4() == nil {
-			RunGC(e, isLocal, true, gcFilter)
-		} else if ipv4Enabled {
-			RunGC(e, isLocal, false, gcFilter)
-		}
-	}
 }
