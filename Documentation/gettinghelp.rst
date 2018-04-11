@@ -4,18 +4,23 @@
 Getting Help
 ############
 
-We use GitHub issues to maintain a list of `Cilium Frequently Asked Questions (FAQ)`_.
-Check there to see if your question(s) is already addressed.
+Cilium is a project  with a growing community, so if you need help there a
+numerous ways to getting help:
 
-The best way to get help if you get stuck is to contact us on the
-`Cilium Slack channel <https://cilium.herokuapp.com>`_.
+**Cilium Frequently Asked Questions (FAQ)**: Cilium uses `GitHub
+tags <https://github.com/cilium/cilium/issues?utf8=%E2%9C%93&q=label%3Akind%2Fquestion%20>`_
+to maintain a list of users question. So we suggest you to check if your
+question is already addressed.
 
-If you are confident that you have found a bug, or if you have a feature
-request, please go ahead and create an issue on our
-`bug tracker <https://github.com/cilium/cilium/issues>`_.
+**Chat**: The best way to get immediate help if you get stuck is to ask in one
+of `Cilium Slack channels <https://cilium.herokuapp.com>`_.
 
-If you are interested in contributing to the code or docs, ping us on
-`Slack <https://cilium.herokuapp.com>`_ or just dive in on
-`Github <https://github.com/cilium/cilium/>`_!
+**BugTracker**: All the issues are addressed in `GitHub issue tracker
+<https://github.com/cilium/cilium/issues>`_.  If you want to report a bug or a
+new feature please fill the issue according to the GitHub template.
 
-.. _Cilium Frequently Asked Questions (FAQ): https://github.com/cilium/cilium/issues?utf8=%E2%9C%93&q=label%3Akind%2Fquestion%20
+**Contributing**: If you want to contribute, reading the :ref:`dev_guide` should
+help you.
+
+**Security**: If you want to report any Security issue please, send an email to
+``security@cilium.io``
