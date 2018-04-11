@@ -109,16 +109,26 @@ public:
 
     class PortNetworkPolicyRules : public Logger::Loggable<Logger::Id::config> {
     public:
-      PortNetworkPolicyRules(const google::protobuf::RepeatedPtrField<cilium::PortNetworkPolicyRule>& rules) {
+      PortNetworkPolicyRules(const google::protobuf::RepeatedPtrField<cilium::PortNetworkPolicyRule>& rules) : have_http_rules_(false) {
 	if (rules.size() == 0) {
 	    ENVOY_LOG(trace, "Cilium L7 PortNetworkPolicyRules(): No rules, will allow everything.");
 	}
 	for (const auto& it: rules) {
+	  if (it.has_http_rules()) {
+	    have_http_rules_ = true;
+	  }
 	  rules_.emplace_back(PortNetworkPolicyRule(it));
 	}
       }
 
       bool Matches(uint64_t remote_id, const Envoy::Http::HeaderMap& headers) const {
+	if (!have_http_rules_) {
+	  // If there are no L7 rules, host proxy will not create a proxy redirect at all,
+	  // whereby the decicion made by the bpf datapath is final. Emulate the same behavior
+	  // in the sidecar by allowing such traffic.
+	  // TODO: This will need to be revised when non-bpf datapaths are to be supported.
+	  return true;
+	}
 	// Empty set matches any payload from anyone
 	if (rules_.size() == 0) {
 	  return true;
@@ -132,6 +142,7 @@ public:
       }
 
       std::vector<PortNetworkPolicyRule> rules_; // Allowed if empty.
+      bool have_http_rules_;
     };
     
     class PortNetworkPolicy : public Logger::Loggable<Logger::Id::config> {
@@ -152,17 +163,28 @@ public:
       }
 
       bool Matches(uint32_t port, uint64_t remote_id, const Envoy::Http::HeaderMap& headers) const {
+	bool found_port_rule = false;
 	auto it = rules_.find(port);
 	if (it != rules_.end()) {
 	  if (it->second.Matches(remote_id, headers)) {
 	    return true;
 	  }
+	  found_port_rule = true;
 	}
 	// Check for any rules that wildcard the port
-	if (port != 0) {
-	  return Matches(0, remote_id, headers);
+	it = rules_.find(0);
+	if (it != rules_.end()) {
+	  if (it->second.Matches(remote_id, headers)) {
+	    return true;
+	  }
+	  found_port_rule = true;
 	}
-	return false;
+
+	// No policy for the port was found. Cilium always creates a policy for redirects it
+	// creates, so the host proxy never gets here. Sidecar gets all the traffic, which we need
+	// to pass through since the bpf datapath already allowed it.
+        // TODO: Change back to false only when non-bpf datapath is supported?
+	return found_port_rule ? false : true;
       }
 
       std::unordered_map<uint32_t, PortNetworkPolicyRules> rules_;
