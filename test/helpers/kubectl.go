@@ -892,12 +892,24 @@ func (kub *Kubectl) DumpCiliumCommandOutput(namespace string) {
 // directory
 func (kub *Kubectl) GatherLogs() {
 	reportCmds := map[string]string{
-		"kubectl get pods -o wide --all-namespaces":     "pods.txt",
-		"kubectl get services -o wide --all-namespaces": "svc.txt",
-		"kubectl get ds -o wide --all-namespaces":       "ds.txt",
-		"kubectl get cnp --all-namespaces":              "cnp.txt",
-		"kubectl describe pods --all-namespaces":        "pods_status.txt",
-		"kubectl -n kube-system logs -l k8s-app=cilium": "cilium_logs.txt",
+		"kubectl get pods --all-namespaces -o json":                  "pods.txt",
+		"kubectl get services --all-namespaces -o json":              "svc.txt",
+		"kubectl get ds --all-namespaces -o json":                    "ds.txt",
+		"kubectl get cnp --all-namespaces -o json":                   "cnp.txt",
+		"kubectl describe pods --all-namespaces -o json":             "pods_status.txt",
+		"kubectl get replicationcontroller --all-namespaces -o json": "replicationcontroller.txt",
+		"kubectl get deployment --all-namespaces -o json":            "deployment.txt",
+	}
+
+	ciliumPods, err := kub.GetCiliumPods(KubeSystemNamespace)
+	if err != nil {
+		kub.logger.WithError(err).Error("Cannot get cilium pods")
+	}
+
+	for _, pod := range ciliumPods {
+		key := fmt.Sprintf("kubectl -n kube-system logs --timestamps %s", pod)
+		value := fmt.Sprintf("%s-logs.log", pod)
+		reportCmds[key] = value
 	}
 
 	testPath, err := CreateReportDirectory()
