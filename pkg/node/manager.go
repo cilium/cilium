@@ -398,6 +398,10 @@ func updateIPRoute(oldNode, n *Node, ownAddr net.IP) {
 func deleteIPRoute(node *Node) {
 	oldNodeIPv6 := node.GetNodeIP(true)
 
+	if oldNodeIPv6 == nil {
+		return
+	}
+
 	err := routeDel(oldNodeIPv6.String(), node.IPv6AllocCIDR.String(), node.dev)
 	if err != nil {
 		log.WithError(err).WithFields(logrus.Fields{
