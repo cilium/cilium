@@ -82,15 +82,8 @@ The full example can be found in the `cilium/client-example`_ repository.
 Compatibility Guarantees
 ************************
 
-The Cilium API is still marked **unstable** overall at this point but several
-core sections have already matured a lot. We will declare the overall API
-stable with the release of version 1.0. In the meantime, we would like maintain
-the flexibility to adjust to feedback. The APIs are also heavily dependent on
-the evolution of various orchestration systems which have not stabilized yet.
-
-If you are planning to utilize the API and could benefit from a stable API,
-please approach us on Slack and we can discuss marking certain sections of the
-API stable and start maintaining backwards compatibility.
+Cilium API is stable as of version 1.0, backward compatibility will be upheld
+for whole lifecycle of Cilium 1.x.
 
 *************
 API Reference
