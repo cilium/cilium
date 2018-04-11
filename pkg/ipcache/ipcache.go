@@ -121,7 +121,8 @@ func DeleteIPFromKVStore(ip string) error {
 	return kvstore.Delete(ipKey)
 }
 
-// Upsert adds / updates the provided IP<->identity mapping into the IPCache.
+// Upsert adds / updates the provided IP (endpoint or CIDR prefix) and identity
+// into the IPCache.
 func (ipc *IPCache) Upsert(IP string, identity identity.NumericIdentity) {
 	ipc.mutex.Lock()
 	defer ipc.mutex.Unlock()
@@ -161,34 +162,34 @@ func (ipc *IPCache) deleteLocked(IP string) {
 	}
 }
 
-// delete removes the provided IP-to-security-identity mapping from both caches
-// within ipc.
-func (ipc *IPCache) delete(endpointIP string) {
+// delete removes the provided IP-to-security-identity mapping from the IPCache.
+func (ipc *IPCache) delete(IP string) {
 	ipc.mutex.Lock()
 	defer ipc.mutex.Unlock()
-	ipc.deleteLocked(endpointIP)
+	ipc.deleteLocked(IP)
 }
 
 // LookupByIP returns the corresponding security identity that endpoint IP maps
 // to within the provided IPCache, as well as if the corresponding entry exists
 // in the IPCache.
-func (ipc *IPCache) LookupByIP(endpointIP string) (identity.NumericIdentity, bool) {
+func (ipc *IPCache) LookupByIP(IP string) (identity.NumericIdentity, bool) {
 	ipc.mutex.RLock()
 	defer ipc.mutex.RUnlock()
-	return ipc.LookupByIPRLocked(endpointIP)
+	return ipc.LookupByIPRLocked(IP)
 }
 
 // LookupByIPRLocked returns the corresponding security identity that endpoint IP maps
 // to within the provided IPCache, as well as if the corresponding entry exists
 // in the IPCache.
-func (ipc *IPCache) LookupByIPRLocked(endpointIP string) (identity.NumericIdentity, bool) {
+func (ipc *IPCache) LookupByIPRLocked(IP string) (identity.NumericIdentity, bool) {
 
-	identity, exists := ipc.ipToIdentityCache[endpointIP]
+	identity, exists := ipc.ipToIdentityCache[IP]
 	return identity, exists
 }
 
-// LookupByIdentity returns the set of endpoint IPs that have security identity
-// ID, as well as if the corresponding entry exists in the IPCache.
+// LookupByIdentity returns the set of IPs (endpoint or CIDR prefix) that have
+// security identity ID, as well as whether the corresponding entry exists in
+// the IPCache.
 func (ipc *IPCache) LookupByIdentity(id identity.NumericIdentity) (map[string]struct{}, bool) {
 	ipc.mutex.RLock()
 	defer ipc.mutex.RUnlock()
@@ -226,20 +227,49 @@ const (
 	Delete CacheModification = "Delete"
 )
 
-func keyToIP(key string) (net.IP, error) {
+// keyToIPNet returns the IPNet describing the key, whether it is a host, and
+// an error (if one occurs)
+func keyToIPNet(key string) (parsedPrefix *net.IPNet, host bool, err error) {
 	requiredPrefix := fmt.Sprintf("%s/", path.Join(IPIdentitiesPath, AddressSpace))
 	if !strings.HasPrefix(key, requiredPrefix) {
-		return nil, fmt.Errorf("Found invalid key %s outside of prefix %s", key, IPIdentitiesPath)
+		err = fmt.Errorf("Found invalid key %s outside of prefix %s", key, IPIdentitiesPath)
+		return
 	}
 
 	suffix := strings.TrimPrefix(key, requiredPrefix)
 
-	parsedIP := net.ParseIP(suffix)
-	if parsedIP == nil {
-		return nil, fmt.Errorf("unable to parse IP from suffix %s", suffix)
+	// Key is formatted as "prefix/192.0.2.0/24" for CIDRs
+	_, parsedPrefix, err = net.ParseCIDR(suffix)
+	if err != nil {
+		// Key is likely a host in the format "prefix/192.0.2.3"
+		parsedIP := net.ParseIP(suffix)
+		if parsedIP == nil {
+			err = fmt.Errorf("unable to parse IP from suffix %s", suffix)
+			return
+		}
+		err = nil
+		host = true
+		ipv4 := parsedIP.To4()
+		bits := net.IPv6len * 8
+		if ipv4 != nil {
+			parsedIP = ipv4
+			bits = net.IPv4len * 8
+		}
+		parsedPrefix = &net.IPNet{IP: parsedIP, Mask: net.CIDRMask(bits, bits)}
 	}
 
-	return parsedIP, nil
+	return
+}
+
+// findShadowedCIDR attempts to search for a CIDR with a full prefix (eg, /32
+// for IPv4) which matches the IP in the specified pair. Only performs the
+// search if 'isHost' is true. Returns the identity and whether the IP was found.
+func findShadowedCIDR(pair *identity.IPIdentityPair, isHost bool) (identity.NumericIdentity, bool) {
+	if !isHost {
+		return identity.InvalidIdentity, false
+	}
+	cidrStr := pair.PrefixString(false)
+	return IPIdentityCache.LookupByIP(cidrStr)
 }
 
 func ipIdentityWatcher(listeners []IPIdentityMappingListener) {
@@ -263,60 +293,102 @@ func ipIdentityWatcher(listeners []IPIdentityMappingListener) {
 				ipIsInCache       bool
 			)
 
+			// Synchronize local caching of endpoint IP to ipIDPair mapping with
+			// operation key-value store has informed us about.
+			//
+			// To resolve conflicts between hosts and full CIDR prefixes:
+			// - Insert hosts into the cache as ".../w.x.y.z"
+			// - Insert CIDRS into the cache as ".../w.x.y.z/N"
+			// - If a host entry created, notify the listeners.
+			// - If a CIDR is created and there's no overlapping host
+			//   entry, ie it is a less than fully masked CIDR, OR
+			//   it is a fully masked CIDR and there is no corresponding
+			//   host entry, then:
+			//   - Notify the listeners.
+			//   - Otherwise, do not notify listeners.
+			// - If a host is removed, check for an overlapping CIDR
+			//   and if it exists, notify the listeners with an upsert
+			//   for the CIDR's identity
+			// - If any other deletion case, notify listeners of
+			//   the deletion event.
 			switch event.Typ {
 			case kvstore.EventTypeListDone:
 				for _, listener := range listeners {
 					listener.OnIPIdentityCacheGC()
 				}
 			case kvstore.EventTypeCreate, kvstore.EventTypeModify:
-
 				err := json.Unmarshal(event.Value, &ipIDPair)
 				if err != nil {
 					scopedLog.WithError(err).Errorf("not adding entry to ip cache; error unmarshaling data from key-value store")
 					continue
 				}
 
-				ipStr := ipIDPair.IP.String()
-
+				isHost := ipIDPair.Mask == nil
+				ipStr := ipIDPair.PrefixString(isHost)
 				cachedIdentity, ipIsInCache = IPIdentityCache.LookupByIP(ipStr)
 
-				// Need to add or update entry.
+				// Host IP identities take precedence over CIDR
+				// identities, so if this event is for a full
+				// CIDR prefix and there's an existing entry
+				// with a different ID, then break out.
+				if !isHost {
+					ones, bits := ipIDPair.Mask.Size()
+					if ipIsInCache && ones == bits {
+						if cachedIdentity != ipIDPair.ID {
+							IPIdentityCache.Upsert(ipStr, ipIDPair.ID)
+							scopedLog.WithField(logfields.IPAddr, ipIDPair.IP).
+								Infof("Received KVstore update for CIDR overlapping with endpoint IP.")
+						}
+						continue
+					}
+				}
+
+				// Insert or update the IP -> ID mapping.
 				if !ipIsInCache || cachedIdentity != ipIDPair.ID {
 					IPIdentityCache.Upsert(ipStr, ipIDPair.ID)
 					cacheChanged = true
 					cacheModification = Upsert
 				}
 			case kvstore.EventTypeDelete:
-				// Synchronize local caching of endpoint IP to ipIDPair mapping with
-				// operation key-value store has informed us about.
-
-				keyIP, err := keyToIP(event.Key)
-
-				// Value is not present in deletion event; need to convert key
-				// to IP.
+				// Value is not present in deletion event;
+				// need to convert kvstore key to IP.
+				ipnet, isHost, err := keyToIPNet(event.Key)
 				if err != nil {
 					scopedLog.Error("error parsing IP from key: %s", err)
 					continue
 				}
 
-				ipIDPair.IP = keyIP
-				ipStr := keyIP.String()
-
+				ipIDPair.IP = ipnet.IP
+				if isHost {
+					ipIDPair.Mask = nil
+				} else {
+					ipIDPair.Mask = ipnet.Mask
+				}
+				ipStr := ipIDPair.PrefixString(isHost)
 				cachedIdentity, ipIsInCache = IPIdentityCache.LookupByIP(ipStr)
 
 				if ipIsInCache {
-					// Set value of ipIDPair.ID for logging purposes and owner callback.
-					ipIDPair.ID = cachedIdentity
-
-					IPIdentityCache.delete(ipStr)
 					cacheChanged = true
-					cacheModification = Delete
+					IPIdentityCache.delete(ipStr)
+
+					// Set up the IPIDPair and cacheModification for listener callbacks
+					prefixIdentity, shadowedCIDR := findShadowedCIDR(&ipIDPair, isHost)
+					if shadowedCIDR {
+						scopedLog.WithField(logfields.IPAddr, ipIDPair.IP).
+							Infof("Received KVstore deletion for endpoint IP shadowing CIDR, restoring CIDR.")
+						ipIDPair.ID = prefixIdentity
+						cacheModification = Upsert
+					} else {
+						ipIDPair.ID = cachedIdentity
+						cacheModification = Delete
+					}
 				}
 			}
 
 			if cacheChanged {
 				log.WithFields(logrus.Fields{
-					"endpoint-ip":          ipIDPair.IP,
+					logfields.IPAddr:       ipIDPair.IP,
+					logfields.IPMask:       ipIDPair.Mask,
 					"cached-identity":      cachedIdentity,
 					logfields.Identity:     ipIDPair.ID,
 					logfields.Modification: cacheModification,
