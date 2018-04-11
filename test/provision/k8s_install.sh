@@ -57,23 +57,21 @@ case $K8S_VERSION in
         ;;
     "1.8")
         KUBERNETES_CNI_VERSION="0.5.1-00"
-        K8S_FULL_VERSION="1.8.10"
+        K8S_FULL_VERSION="1.8.11"
         ;;
     "1.9")
         KUBERNETES_CNI_VERSION="0.6.0-00"
-        K8S_FULL_VERSION="1.9.6"
+        K8S_FULL_VERSION="1.9.7"
         KUBEADM_SLAVE_OPTIONS="--discovery-token-unsafe-skip-ca-verification"
         ;;
-
     "1.10")
         KUBERNETES_CNI_VERSION="0.6.0-00"
-        K8S_FULL_VERSION="1.10.0"
+        K8S_FULL_VERSION="1.10.1"
         KUBEADM_SLAVE_OPTIONS="--discovery-token-unsafe-skip-ca-verification"
         ;;
-
     "1.11")
         KUBERNETES_CNI_VERSION="v0.6.0"
-        K8S_FULL_VERSION="1.11.0-alpha.0"
+        K8S_FULL_VERSION="1.11.0-alpha.1"
         KUBEADM_OPTIONS="--kubernetes-version=v${K8S_FULL_VERSION}"
         KUBEADM_SLAVE_OPTIONS="--discovery-token-unsafe-skip-ca-verification"
         ;;
