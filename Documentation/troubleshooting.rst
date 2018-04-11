@@ -31,7 +31,7 @@ When using Kubernetes, refer o the ``k8s-cilium-exec.sh`` script to execute
 
 .. code:: bash
 
-    $ curl -sLO releases.cilium.io/v1.0.0-rc9/tools/k8s-cilium-exec.sh
+    $ curl -sLO releases.cilium.io/v1.0.0-rc11/tools/k8s-cilium-exec.sh
     $ chmod +x ./k8s-cilium-exec.sh
 
 ... and run ``cilium status`` on all nodes:
@@ -56,16 +56,18 @@ Generic Instructions
 .. code:: bash
 
     $ cilium status
-    KVStore:                Ok   Etcd: http://127.0.0.1:2379 - (Leader) 3.1.10
+    KVStore:                Ok   etcd: 1/1 connected: https://192.168.33.11:2379 - 3.2.7 (Leader)
     ContainerRuntime:       Ok
     Kubernetes:             Ok   OK
-    Kubernetes APIs:        ["extensions/v1beta1::Ingress", "core/v1::Node", "CustomResourceDefinition", "cilium/v2::CiliumNetworkPolicy", "networking.k8s.io/v1::NetworkPolicy", "core/v1::Service", "core/v1::Endpoint"]
+    Kubernetes APIs:        ["core/v1::Endpoint", "extensions/v1beta1::Ingress", "core/v1::Node", "CustomResourceDefinition", "cilium/v2::CiliumNetworkPolicy", "networking.k8s.io/v1::NetworkPolicy", "core/v1::Service"]
     Cilium:                 Ok   OK
     NodeMonitor:            Listening for events on 2 CPUs with 64x4096 of shared memory
     Cilium health daemon:   Ok
-    Controller Status:      7/7 healthy
-    Proxy Status:           OK, ip 10.15.28.238, 0 redirects, port-range 10000-20000
-    Cluster health:   1/1 reachable   (2018-02-27T00:24:34Z)
+    IPv4 address pool:      261/65535 allocated
+    IPv6 address pool:      4/4294967295 allocated
+    Controller Status:      20/20 healthy
+    Proxy Status:           OK, ip 10.0.28.238, port-range 10000-20000
+    Cluster health:   2/2 reachable   (2018-04-11T15:41:01Z)
 
 Connectivity Issues
 ===================
@@ -127,15 +129,15 @@ queried for the connectivity status of the last probe.
 .. code:: bash
 
     $ cilium-health status
-    Probe time:   2018-01-30T00:13:55Z
+    Probe time:   2018-04-11T15:44:01Z
     Nodes:
-      cilium-master:
-        Host connectivity to 172.0.54.195:
-          ICMP:          OK, RTT=714.515µs
-          HTTP via L3:   OK, RTT=967.612µs
-        Endpoint connectivity to 172.200.152.27:
-          ICMP:          OK, RTT=962.767µs
-          HTTP via L3:   OK, RTT=1.378938ms
+      k8s1 (localhost):
+        Host connectivity to 192.168.34.11:
+          ICMP:          OK, RTT=12.50832ms
+          HTTP via L3:   OK, RTT=1.341462ms
+        Endpoint connectivity to 10.0.242.54:
+          ICMP:          OK, RTT=12.760288ms
+          HTTP via L3:   OK, RTT=5.419183m
       ...
 
 For each node, the connectivity will be displayed for each protocol and path,
@@ -180,12 +182,12 @@ from the BPF based datapath. Debugging messages are sent if either the
 mode of the agent can be enabled by starting ``cilium-agent`` with the option
 ``--debug`` enabled or by running ``cilium config debug=true`` for an already
 running agent. Debugging of an individual endpoint can be enabled by running
-``cilium endpoint config ID Debug=true``
+``cilium endpoint config ID debug=true``
 
 
 .. code:: bash
 
-    $ cilium endpoint config 3978 Debug=true
+    $ cilium endpoint config 3978 debug=true
     Endpoint 3978 configuration updated successfully
     $ cilium monitor -v --hex
     Listening for events on 2 CPUs with 64x4096 of shared memory
@@ -255,12 +257,12 @@ namespace can be changed via ``k8s-namespace`` and ``k8s-label`` respectively.
 If you'd prefer to browse the dump, there is a HTTP flag.
 
 ::
-  
+
   cilium-bugtool --serve
 
 
 If you want to capture the archive from a Kubernetes pod, then the process is a
- bit different
+bit different
 
 ::
 
@@ -277,7 +279,7 @@ If you want to capture the archive from a Kubernetes pod, then the process is a
       [...]
 
     # Copy the archive from the pod
-    $ kubectl cp kube-system/cilium-kg8lv:/tmp/cilium-bugtool-243785589.tar /tmp/cilium-bugtool-243785589.tar
+    $ kubectl cp kube-system/cilium-kg8lv:/tmp/cilium-bugtool-20180411-155146.166+0000-UTC-266836983.tar /tmp/cilium-bugtool-20180411-155146.166+0000-UTC-266836983.tar
       [...]
 
 .. Note::
