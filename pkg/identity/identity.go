@@ -15,6 +15,7 @@
 package identity
 
 import (
+	"fmt"
 	"net"
 
 	"github.com/cilium/cilium/api/v1/models"
@@ -37,13 +38,15 @@ type Identity struct {
 }
 
 // IPIdentityPair is a pairing of an IP and the security identity to which that
-// IP corresponds.
+// IP corresponds. May include an optional Mask which, if present, denotes that
+// the IP represents a CIDR with the specified Mask.
 //
 // WARNING - STABLE API
 // This structure is written as JSON to the key-value store. Do NOT modify this
 // structure in ways which are not JSON forward compatible.
 type IPIdentityPair struct {
 	IP       net.IP          `json:"IP"`
+	Mask     net.IPMask      `json:"Mask"`
 	ID       NumericIdentity `json:"ID"`
 	Metadata string          `json:"Metadata"`
 }
@@ -110,4 +113,21 @@ func NewIdentity(id NumericIdentity, lbls labels.Labels) *Identity {
 		lblArray = lbls.ToSlice()
 	}
 	return &Identity{ID: id, Labels: lbls, LabelArray: lblArray}
+}
+
+// PrefixString returns the IPIdentityPair's IP as either a host IP in the
+// format w.x.y.z if 'host' is true, or as a prefix in the format the w.x.y.z/N
+// if 'host' is false.
+func (pair *IPIdentityPair) PrefixString(host bool) string {
+	var suffix string
+	if !host {
+		ones := net.IPv6len
+		if pair.Mask == nil && pair.IP.To4() != nil {
+			ones = net.IPv4len
+		} else {
+			ones, _ = pair.Mask.Size()
+		}
+		suffix = fmt.Sprintf("/%d", ones)
+	}
+	return fmt.Sprintf("%s%s", pair.IP.String(), suffix)
 }

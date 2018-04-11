@@ -66,6 +66,9 @@ const (
 	// IPAddr is an IPV4 or IPv6 address
 	IPAddr = "ipAddr"
 
+	// IPMask is an IPV4 or IPv6 address mask
+	IPMask = "ipMask"
+
 	// IPv4 is an IPv4 address
 	IPv4 = "ipv4"
 
