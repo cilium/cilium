@@ -114,8 +114,8 @@ Now that we have Cilium deployed and ``kube-dns`` operating correctly we can
 deploy our demo application.
 
 In our simple example, there are three microservices applications: *app1*, *app2*, and *app3*.
-*App1* runs an HTTP webservice on port 80, which is exposed as a Kubernetes Service that
-load-balances requests to *app1* to be across two pod replicas.
+*App1* runs an HTTP webservice on port 80, which is exposed as a `Kubernetes Service <https://kubernetes.io/docs/concepts/services-networking/service/>`_
+that load-balances requests to *app1* to be across two pod replicas.
 
 *App2* and *app3* exist so that we can test different security policies for allowing applications
 to access *app1*.
@@ -124,7 +124,7 @@ to access *app1*.
 
 .. image:: images/cilium_k8s_demo-150817.png
 
-The file ``demo.yaml`` contains a Kubernetes Deployment for each of the three applications,
+The file ``demo.yaml`` contains a `Kubernetes Deployment <https://kubernetes.io/docs/concepts/workloads/controllers/deployment/>`_ for each of the three applications,
 with each deployment identified using the Kubernetes labels id=app1, id=app2,
 and id=app3.
 It also include a app1-service, which load-balances traffic to all pods with label id=app1.
@@ -138,7 +138,7 @@ It also include a app1-service, which load-balances traffic to all pods with lab
     pod "app3" created
 
 
-Kubernetes will deploy the pods and service  in the background.  Running
+Kubernetes will deploy the pods and service in the background.  Running
 ``kubectl get svc,pods`` will inform you about the progress of the operation.
 Each pod will go through several states until it reaches ``Running`` at which
 point the pod is ready.
@@ -177,7 +177,7 @@ Each pod will be represented in Cilium as an :ref:`endpoint`. We can invoke the
     32138      Disabled           Disabled          263        k8s:id=app1                               f00d::a0f:0:0:7d8a   10.15.150.193   ready   
                                                                k8s:io.kubernetes.pod.namespace=default 
 
-Policy enforcement is still disabled on all of these pods because no network
+Both ingress and egress policy enforcement is still disabled on all of these pods because no network
 policy has been imported yet which select any of the pods.
 
 
@@ -220,7 +220,7 @@ To apply this L3/L4 policy, run:
     $ kubectl create -f \ |SCM_WEB|\/examples/minikube/l3_l4_policy.yaml
 
 If we run ``cilium endpoint list`` again we will see that the pods with the
-label ``id=app1`` now have policy enforcement enabled.
+label ``id=app1`` now have ingress policy enforcement enabled inline with the policy above.
 
 ::
 
@@ -252,7 +252,7 @@ To test this out, we'll make an HTTP request to app1 from both *app2* and *app3*
     $ kubectl exec app2 -- curl -s app1-service.default.svc.cluster.local
     <html><body><h1>It works!</h1></body></html>
 
-This works, as expected.   Now the same request run from an *app3* pod will fail:
+This works as expected.   Now the same request run from an *app3* pod will fail:
 
 ::
 
