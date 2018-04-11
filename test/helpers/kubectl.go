@@ -302,16 +302,16 @@ func (kub *Kubectl) ManifestGet(manifestFilename string) string {
 	return fmt.Sprintf("%s/k8sT/manifests/%s", BasePath, manifestFilename)
 }
 
-// MicroscopeStart installs (if it is not installed) a new microscope pod, wai
-// until pod is ready and run microscope in background. It returns a error in
-// case of the microscope cannot be installed or it is not ready after a
-// timeout, also it returns a callback function to stop the monitor and save
-// the output to `helpers.monitorLogFileName` file
+// MicroscopeStart installs (if it is not installed) a new microscope pod,
+// waits until pod is ready, and runs microscope in background. It returns an
+// error in the case where microscope cannot be installed, or it is not ready after
+// a timeout. Also it returns a callback function to stop the monitor and save
+// the output to `helpers.monitorLogFileName` file.
 func (kub *Kubectl) MicroscopeStart() (error, func() error) {
 	microscope := "microscope"
 	cmd := fmt.Sprintf("%[1]s -n %[2]s exec %[3]s -- %[3]s --combine",
 		KubectlCmd, KubeSystemNamespace, microscope)
-	kub.Apply(microscopeManifest)
+	_ = kub.Apply(microscopeManifest)
 
 	_, err := kub.WaitforPods(
 		KubeSystemNamespace,
