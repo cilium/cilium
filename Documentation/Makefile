@@ -50,4 +50,9 @@ cmdref:
 %: Makefile check-requirements
 	@$(ECHO_GEN)_build/$@
 	$(SPHINXBUILD) -b spelling -d "$(BUILDDIR)/doctrees" "$(SOURCEDIR)" "$(BUILDDIR)/spelling"
+	@if [ "$$(wc -l < "$(BUILDDIR)/spelling/output.txt")" -ne "0" ]; then \
+		echo "ERROR: Found misspelled words in the documentation! If you believe the"; \
+		echo "words are not misspelled, please add them to ./Documentation/spelling_wordlist.txt"; \
+		exit 1; \
+	fi
 	$(SPHINXBUILD) -M $@ "$(SOURCEDIR)" "$(BUILDDIR)" $(SPHINXOPTS) $(O)
