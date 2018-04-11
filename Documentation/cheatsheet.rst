@@ -2,157 +2,399 @@
 Command Cheatsheet
 ******************
 
-Below is a short list of examples of the various commands Cilium has to offer.
-If a command you use is missing please don’t hesitate to add it to one of the
-groups or create a new one.
-
-Basics
-======
+Cilium is controlled via an easy command-line interface. This CLI is a single
+application that takes subcommands that you can find in the command reference
+guide.
 
 ::
 
-        # Check the status of the agent
+    $ cilium
+    CLI for interacting with the local Cilium Agent
 
-        cilium status
+    Usage:
+      cilium [command]
+
+    Available Commands:
+      bpf                      Direct access to local BPF maps
+      cleanup                  Reset the agent state
+      completion               Output shell completion code for bash
+      config                   Cilium configuration options
+      debuginfo                Request available debugging information from agent
+      endpoint                 Manage endpoints
+      identity                 Manage security identities
+      kvstore                  Direct access to the kvstore
+      monitor                  Monitoring
+      policy                   Manage security policies
+      prefilter                Manage XDP CIDR filters
+      service                  Manage services & loadbalancers
+      status                   Display status of daemon
+      version                  Print version information
+
+    Flags:
+          --config string   config file (default is $HOME/.cilium.yaml)
+      -D, --debug           Enable debug messages
+      -H, --host string     URI to server-side API
+
+    Use "cilium [command] --help" for more information about a command.
+
+All commands and subcommands have the option ``-h`` that will provide information
+about the options and arguments that the subcommand has. In case of any error in
+the command, Cilium CLI will return a non-zero status.
+
+Command utilities:
+==================
+
+JSON Output
+-----------
+
+All the list commands will return a pretty printed list with the information
+retrieved from Cilium Daemon. If you need something more detailed you can use JSON
+output, to get the JSON output you can use the global option ``-o json``
 
 ::
 
-        # Get the current agent configuration
+    $ cilium endpoint list -o json
 
-        cilium config
+Moreover, Cilium also provides a `JSONPath
+<http://goessner.net/articles/JsonPath/>`_ support, so detailed information can
+be extracted. JSONPath template reference can be found in `Kubernetes
+documentation <https://kubernetes.io/docs/reference/kubectl/jsonpath/>`_
 
-Policy management
+::
+
+    $ cilium endpoint list -o jsonpath='{[*].id}'
+    29898 38939 56326
+    $ cilium endpoint list -o jsonpath='{range [*]}{@.id}{"="}{@.status.policy.spec.policy-enabled}{"\n"}{end}'
+    29898=none
+    38939=none
+    56326=none
+
+
+Shell Tab-completion
+--------------------
+
+If you use bash or zsh, Cilium CLI can provide tab completion for subcommands.
+If you want to install tab completion, you should run the following command in
+your terminal.
+
+::
+
+   $ source <(cilium completion)
+
+If you want to have Cilium completion always loaded, you can install using the
+following:
+
+::
+
+    $ echo "source <(cilium completion)" >> ~/.bashrc
+
+
+Command examples:
 =================
 
+Basics
+------
+
+Check the status of the agent
 ::
 
-	# Importing a policy
+    $ cilium status
+    KVStore:                Ok         Consul: 172.17.0.3:8300
+    ContainerRuntime:       Ok
+    Kubernetes:             Disabled
+    Cilium:                 Ok         OK
+    NodeMonitor:            Listening for events on 2 CPUs with 64x4096 of shared memory
+    Cilium health daemon:   Ok
+    Controller Status:      6/6 healthy
+    Proxy Status:           OK, ip 10.15.28.238, port-range 10000-20000
+    Cluster health:   1/1 reachable   (2018-04-11T07:33:09Z)
+    $
 
-	cilium policy import <my-policy.json>
-
+Get a detailed status of the agent:
 ::
 
-	# Get list of all imported policy rules
+    $ cilium status --all-controllers --all-health --all-redirects
+    KVStore:                Ok         Consul: 172.17.0.3:8300
+    ContainerRuntime:       Ok
+    Kubernetes:             Disabled
+    Cilium:                 Ok         OK
+    NodeMonitor:            Listening for events on 2 CPUs with 64x4096 of shared memory
+    Cilium health daemon:   Ok
+    Controller Status:      6/6 healthy
+      Name                                 Last success   Last error   Count   Message
+      kvstore-lease-keepalive              2m52s ago      never        0       no error
+      ipcache-bpf-garbage-collection       2m50s ago      never        0       no error
+      resolve-identity-29898               2m50s ago      never        0       no error
+      sync-identity-to-k8s-pod (29898)     50s ago        never        0       no error
+      sync-IPv4-identity-mapping (29898)   2m49s ago      never        0       no error
+      sync-IPv6-identity-mapping (29898)   2m49s ago      never        0       no error
+    Proxy Status:   OK, ip 10.15.28.238, port-range 10000-20000
+    Cluster health:         1/1 reachable   (2018-04-11T07:32:09Z)
+      Name                  IP              Reachable   Endpoints reachable
+      runtime (localhost)   10.0.2.15       true        false
+    $
+
+Get the current agent configuration
+::
+
+    cilium config
+
+Policy management
+-----------------
+
+
+Importing a Cilium Network Policy
+::
+
+    cilium policy import my-policy.json
+
+
+Get list of all imported policy rules
+::
 
 	cilium policy get
 
+Remove all policies
 ::
-
-	# Remove all policy
 
 	cilium policy delete --all
 
-Connectivity
-============
-
-::
-
-	# Check cluster connectivity
-
-	cilium-health status
-
-Monitoring
-==========
-
-::
-
-	# Monitor cilium datapath notifications
-
-	cilium monitor 
-
-::
-
-	# Verbose output (including debug if enabled)
-
-	cilium monitor -v
-
-::
-
-        # Filter for only the events to endpoint
-
-        cilium monitor --related-to=<id>
-
-::
-
-	# Show notifications only for dropped packet events
-
-	cilium monitor --type drop
-
-::
-
-	# Don't dissect packet payload, display payload in hex format
-
-	cilium monitor -v --hex
-
-Endpoints
-=========
-
-::
-
-	# Get list of all local endpoints
-
-	cilium endpoint list
-
-::
-
-        # Get detailed view of endpoint properties and state
-
-        cilium endpoint get <id>
-
-::
-
-        # Show recent endpoint specific log entries
-
-        cilium endpoint log <id>
-
-::
-
-	# Enable debugging output on the cilium monitor for this endpoint
-
-	cilium endpoint config <id> Debug=true
 
 Tracing
-=======
+~~~~~~~
 
+
+Check policy enforcement between two labels on port 80:
 ::
-
-	# Check policy enforcement between two labels on port 80
 
 	cilium policy trace -s <app.from> -d <app.to> --dport 80
 
+
+Check policy enforcement between two identities
 ::
 
-        # Check policy enforcement between two identities
+    cilium policy trace --src-identity <from-id> --dst-identity <to-id>
 
-        cilium policy trace --src-identity <from-id> --dst-identity <to-id>
-
+Check policy enforcement between two pods:
 ::
 
-        # Check policy enforcement between two pods
+    cilium policy trace --src-k8s-pod <namespace>:<pod.from> --dst-k8s-pod <namespace>:<pod.to>
 
-        cilium policy trace --src-k8s-pod <namespace>:<pod.from> --dst-k8s-pod <namespace>:<pod.to>
+
+Monitoring
+~~~~~~~~~~~
+
+
+Monitor cilium datapath notifications
+::
+
+    cilium monitor
+
+
+Verbose output (including debug if enabled)
+::
+
+    cilium monitor -v
+
+
+Filter for only the events related to endpoint
+::
+
+    cilium monitor --related-to=<id>
+
+
+Filter for only events on layer 7
+::
+
+    cilium monitor -t L7
+
+
+Show notifications only for dropped packet events
+::
+
+    cilium monitor --type drop
+
+
+Don't dissect packet payload, display payload in hex information
+::
+
+    cilium monitor -v --hex
+
+
+
+Connectivity
+------------
+
+Check cluster Connectivity
+::
+
+	cilium-health status
+
+There is also a `blog post
+<https://cilium.io/blog/2018/2/6/cilium-troubleshooting-cluster-health-monitor>`_
+related to this tool.
+
+Endpoints
+---------
+
+Get list of all local endpoints
+::
+
+    cilium endpoint list
+
+Get detailed view of endpoint properties and state
+::
+
+    cilium endpoint get <id>
+
+Show recent endpoint specific log entries
+::
+
+    cilium endpoint log <id>
+
+Enable debugging output on the cilium monitor for this endpoint
+::
+
+    cilium endpoint config <id> Debug=true
+
 
 Loadbalancing
-=============
+-------------
 
-
+Get list of loadbalancer services
 ::
 
-        # Get list of loadbalancer services
+    cilium service list
 
-        cilium service list
+
+Or you can get the loadbalancer information using bpf list
+:::
+
+    cilium bpf lb list
+
+
+Add a new loadbalancer
+::
+
+    cilium service update --frontend 127.0.0.1:80 \
+        --backends 127.0.0.2:90,127.0.0.3:90 \
+        --id 20 \
+        --rev 2
 
 BPF
-===
+---
+
+List node tunneling mapping information
+::
+
+    cilium bpf tunnel list
+
+Checking logs for verifier issue
+::
+
+    journalctl -u cilium | grep -B20 -F10 Verifier
+
+List connection tracking entries:
+::
+
+    sudo cilium bpf ct list global
+
+Flush connection tracking entries:
+::
+
+    sudo cilium bpf ct flush
+
+List proxy configuration:
+::
+
+    sudo cilium bpf proxy list
+
+
+Kubernetes examples:
+=====================
+
+If you running Cilium on top of Kubernetes you may also want a way to list all
+cilium endpoints or policies from a single Kubectl commands. Cilium provides all
+this information to the user by using `Kubernetes Resource Definitions
+<https://kubernetes.io/docs/concepts/api-extension/custom-resources/>`_:
+
+Policies
+---------
+
+In Kubernetes you can use two kinds of policies, Kubernetes Network Policies or
+Cilium Network Policies. Both can be retrieved from the ``kubectl`` command:
+
+.. code-block:: bash
+   :name: Kubernetes Network Policies
+   :caption: Kubernetes Network Policies
+
+    kubectl get netpol
+
+.. code-block:: bash
+   :name: Kubernetes Cilium Policies
+   :caption: Kubernetes Cilium Policies
+
+    $ kubectl get cnp
+    NAME      AGE
+    rule1     3m
+    $ kubectl get cnp rule1
+    NAME      AGE
+    rule1     3m
+    $ kubectl get cnp rule1 -o json
+
+
+Endpoints
+----------
+
+To retrieve a list of all endpoints managed by cilium, ``Cilum Endpoint``
+resource can be used.
 
 ::
 
-        # List node tunneling mapping information
+    $ kubectl get cep
+    NAME                AGE
+    34e299f0-b25c2fef   41s
+    34e299f0-dd86986c   42s
+    4d088f48-83e4f98d   2m
+    4d088f48-d04ab55f   2m
+    5c6211b5-9217a4d1   1m
+    5c6211b5-dccc3d24   1m
+    700e0976-6cb50b02   3m
+    700e0976-afd3a30c   3m
+    78092a35-4874ed16   1m
+    78092a35-4b08b92b   1m
+    9b74f61f-14571299   7s
+    9b74f61f-f9a96f4a   7s
 
-        cilium bpf tunnel list
+    $ kubectl get cep 700e0976-6cb50b02 -o json
 
+    $ kubectl get cep -o jsonpath='{range .items[*]}{@.status.id}{"="}{@.status.status.policy.spec.policy-enabled}{"\n"}{end}'
+    30391=ingress
+    5766=ingress
+    51796=none
+    40355=none
+
+
+Microscope
+----------
+
+Cilium also provides an option to monitor all connections from all Kubernetes
+nodes. `Microscope <https://github.com/cilium/microscope>`_ is a distributed
+monitor that connects to all Cilium instances and retrieves monitor information
+from there.
+
+Cilium also provides the ability to monitor all cilium-managed connections in
+the kubernetes cluster via `Microscope <https://github.com/cilium/microscope>`_.
+It is a distributed monitor that connects to all Cilium instances and retrieves
+monitor information from each node.
+
+Microscope can be installed an run as a pod, the basic usage is the following:
 ::
 
-        # Checking logs for verifier issue
+    $ kubectl apply -f
+    https://github.com/cilium/microscope/blob/master/docs/microscope.yaml
+    $ kubectl exec -n kube-system microscope -- microscope -h
 
-        journalctl -u cilium | grep -B20 -F10 Verifier
+
+More information about Cilium Microscope options can be found on the project
+homepage: `cilium/microscope <https://github.com/cilium/microscope>`_
