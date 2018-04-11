@@ -455,7 +455,7 @@ feature was introduced into the kernel, a typical BPF C program had to declare
 any reusable code that, for example, resides in headers as ``always_inline``
 such that when LLVM compiles and generates the BPF object file all these
 functions were inlined and therefore duplicated many times in the resulting
-object file, artifically inflating its code size:
+object file, artificially inflating its code size:
 
   ::
 
@@ -515,12 +515,12 @@ example code can then be rewritten more naturally as:
 Mainstream BPF JIT compilers like ``x86_64`` and ``arm64`` support BPF to BPF
 calls today with others following in near future. BPF to BPF call is an
 important performance optimization since it heavily reduces the generated BPF
-code size and therefore becomes friendlier to a CPU's icache.
+code size and therefore becomes friendlier to a CPU's instruction cache.
 
 The calling convention known from BPF helper function applies to BPF to BPF
 calls just as well, meaning ``r1`` up to ``r5`` are for passing arguments to
 the callee and the result is returned in ``r0``. ``r1`` to ``r5`` are scratch
-registers whereas ``r6`` to ``r9`` preserved accross calls the usual way. The
+registers whereas ``r6`` to ``r9`` preserved across calls the usual way. The
 maximum number of nesting calls respectively allowed call frames is ``8``.
 A caller can pass pointers (e.g. to the caller's stack frame) down to the
 callee, but never vice versa.
@@ -568,11 +568,11 @@ issuing a grep for ``HAVE_EBPF_JIT``:
 JIT compilers speed up execution of the BPF program significantly since they
 reduce the per instruction cost compared to the interpreter. Often instructions
 can be mapped 1:1 with native instructions of the underlying architecture. This
-also reduces the resulting executable image size and is therefore more icache
-friendly to the CPU. In particular in case of CISC instruction sets such as
-``x86``, the JITs are optimized for emitting the shortest possible opcodes for
-a given instruction to shrink the total necessary size for the program
-translation.
+also reduces the resulting executable image size and is therefore more
+instruction cache friendly to the CPU. In particular in case of CISC instruction
+sets such as ``x86``, the JITs are optimized for emitting the shortest possible
+opcodes for a given instruction to shrink the total necessary size for the
+program translation.
 
 Hardening
 ---------
@@ -695,11 +695,11 @@ recommended for widely used JITs in case of main stream architectures
 such as ``x86_64`` and ``arm64``.
 
 Last but not least, the kernel offers an option to disable the use of
-the ``bpf(2)`` system call for unpriviledged users through the
+the ``bpf(2)`` system call for unprivileged users through the
 ``/proc/sys/kernel/unprivileged_bpf_disabled`` sysctl knob. This is
 on purpose a one-time kill switch, meaning once set to ``1``, there is
 no option to reset it back to ``0`` until a new kernel reboot. When
-set only ``CAP_SYS_ADMIN`` priviledged processes out of the initial
+set only ``CAP_SYS_ADMIN`` privileged processes out of the initial
 namespace are allowed to use the ``bpf(2)`` system call from that
 point onwards. Upon start, Cilium sets this knob to ``1`` as well.
 
@@ -2763,7 +2763,7 @@ are mainly targeted for kernel developers involved in the BPF subsystem.
   https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/Documentation/bpf/bpf_devel_QA.txt
 
 * BPF Design FAQ: this document tries to answer frequently asked questions
-  around BPF design descisions related to the instruction set, verifier,
+  around BPF design decisions related to the instruction set, verifier,
   calling convention, JITs, etc.
 
   https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/Documentation/bpf/bpf_design_QA.txt
