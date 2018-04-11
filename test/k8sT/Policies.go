@@ -538,13 +538,22 @@ var _ = Describe("K8sValidatedPolicyTest", func() {
 			webPods, err := kubectl.GetPodsNodes(helpers.DefaultNamespace, "-l k8s-app.guestbook=web")
 			Expect(err).To(BeNil(), "Cannot get web pods")
 
+			serviceIP, port, err := kubectl.GetServiceHostPort(helpers.DefaultNamespace, "redis-master")
+
 			for pod := range webPods {
-				command := `nc redis-master 6379 <<EOF
-							PING
-							EOF`
-				res := kubectl.ExecPodCmd(helpers.DefaultNamespace, pod, command)
-				ExpectWithOffset(1, res.WasSuccessful()).To(BeTrue(),
-					"Web pod %q cannot connect to redis", pod)
+				// GH-3462: only access service IP, not host name of redis-master.
+				// Work to revert this change is tracked by GH-3663.
+				//redisMetadata := map[string]int{serviceIP: port, "redis-master": port}
+
+				redisMetadata := map[string]int{serviceIP: port}
+				for k, v := range redisMetadata {
+					command := fmt.Sprintf(`nc %s %d <<EOF
+PING
+EOF`, k, v)
+					res := kubectl.ExecPodCmd(helpers.DefaultNamespace, pod, command)
+					ExpectWithOffset(1, res.WasSuccessful()).To(BeTrue(),
+						"Web pod %q cannot connect to redis-master on '%s:%d'", pod, k, v)
+				}
 			}
 		}
 		It("checks policy example", func() {
