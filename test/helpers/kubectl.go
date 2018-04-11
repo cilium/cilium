@@ -910,6 +910,11 @@ func (kub *Kubectl) GatherLogs() {
 		key := fmt.Sprintf("kubectl -n kube-system logs --timestamps %s", pod)
 		value := fmt.Sprintf("%s-logs.log", pod)
 		reportCmds[key] = value
+
+		prevKey := fmt.Sprintf("kubectl -n kube-system logs --timestamps --previous %s", pod)
+		prevValue := fmt.Sprintf("%s-logs-previous.log", pod)
+
+		reportCmds[prevKey] = prevValue
 	}
 
 	testPath, err := CreateReportDirectory()
