@@ -37,7 +37,9 @@ import (
 
 // TriggerPolicyUpdates triggers policy updates for every daemon's endpoint.
 // This is called after policy changes, but also after some changes in daemon
-// configuration and endpoint labels.
+// configuration and endpoint labels. If force is set to true, then the global
+// policy revision is incremented, which forces all endpoints to have their
+// BPF programs regenerated.
 // Returns a waiting group which signalizes when all endpoints are regenerated.
 func (d *Daemon) TriggerPolicyUpdates(force bool) *sync.WaitGroup {
 	if force {
