@@ -19,6 +19,7 @@ DDoS
 DTrace
 Dangaard
 Datapath
+Devel
 Dinan
 DoorManager
 FIt
@@ -73,6 +74,7 @@ Profiler
 Runtime
 Sharma
 Shirokov
+Spectre
 Starovoitov
 Stateful
 Suchakra
@@ -84,6 +86,7 @@ Toolchain
 Tracepoints
 Twilio
 Userspace
+VM
 Vagrantfile
 Verifier
 Viljoen
@@ -116,6 +119,7 @@ bgpd
 bindata
 bootstrapper
 bpf
+bpftool
 browsable
 bugfixes
 bugtool
@@ -155,6 +159,7 @@ endpointSelector
 enum
 etcd
 ethernet
+extensibility
 filesystem
 filesystems
 firewalling
@@ -225,6 +230,7 @@ loadbalancers
 loadbalancing
 lockless
 logfile
+lookups
 loopback
 lwt
 macOS
@@ -243,10 +249,13 @@ netdevice
 netdevices
 nodeX
 ons
+onwards
 orchestrator
+pc
 pem
 perf
 pluggable
+png
 pre
 prefilter
 priori
@@ -260,6 +269,7 @@ queueing
 recompiles
 repo
 repos
+retpoline
 roadmap
 rollout
 routable
@@ -269,6 +279,7 @@ runtimes
 sandboxing
 scalability
 scalable
+seccomp
 selftest
 selftests
 setrlimit
@@ -276,10 +287,13 @@ sgr
 stateful
 statsd
 structs
+subcommand
 subdirectories
 subnet
 subnets
 subregisters
+syscall
+sysctl
 sysctls
 systemd
 tc
