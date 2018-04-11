@@ -4,43 +4,73 @@
 Monitoring & Metrics
 ********************
 
-cilium-agent can be configured to serve `Prometheus <https://prometheus.io>`_
+``cilium-agent`` can be configured to serve `Prometheus <https://prometheus.io>`_
 metrics. Prometheus is a pluggable metrics collection and storage system and
 can act as a data source for `Grafana <https://grafana.com/>`_, a metrics
-visualization system. Unlike some metrics collectors like statsd, Prometheus requires the
+visualization frontend. Unlike some metrics collectors like statsd, Prometheus requires the
 collectors to pull metrics from each source.
 
-cilium must be invoked with the ``--prometheus-serve-addr`` option (the
-`kubernetes example spec file <https://github.com/cilium/cilium/blob/master/examples/kubernetes/cilium.yaml>`_
-already does this). This is a ``IP:Port`` pair and passing no IP (i.e.
-``:9090``) will bind the server to all available interfaces (usually there is
-only one in a container).
+To expose any metrics, invoke ``cilium-agent`` with the
+``--prometheus-serve-addr`` option. This option takes a ``IP:Port`` pair but
+passing an empty IP (e.g. ``:9090``) will bind the server to all available
+interfaces (there is usually only one in a container).
 
+Exported Metrics
+================
 
-cilium as a kubernetes pod
+All metrics are exported under the ``cilium`` Prometheus namespace. When
+running and collecting in Kubernetes they will be tagged with a pod name and
+namespace.
+
+Endpoint
+--------
+
+* ``endpoint_count``: Number of endpoints managed by this agent
+* ``endpoint_regenerating``: Number of endpoints currently regenerating
+* ``endpoint_regenerations``: Count of all endpoint regenerations that have completed, tagged by outcome
+
+Policy
+------
+
+* ``policy_count``: Number of policies currently loaded
+* ``policy_max_revision``: Highest policy revision number in the agent
+* ``policy_import_errors``: Number of times a policy import has failed
+
+Events external to Cilium
+-------------------------
+* ``event_ts``: Last timestamp when we received an event. Further labelled by
+  source: ``api``, ``containerd``, ``k8s``.
+
+Cilium as a Kubernetes pod
 ==========================
-The Prometheus reference configuration includes "jobs" to automatically collect pod metrics marked appropriately. Your cilium spec will need two labels:
+The Cilium `Prometheus reference configuration <https://github.com/cilium/cilium/blob/master/examples/kubernetes/prometheus.yaml>`_
+configures jobs that automatically collect pod metrics marked with the
+appropriate two labels.
+
+Your Cilium spec will need these annotations:
 
 .. code-block:: yaml
 
         prometheus.io/scrape: "true"
         prometheus.io/port: "9090"
 
-*Note: the port can be configured to any value. Prometheus uses this label to
-discover the port.*
+The reference Cilium Kubernetes DaemonSet `Kubernetes spec <https://github.com/cilium/cilium/blob/master/examples/kubernetes/cilium.yaml>`_
+is an example of how to configure ``cilium-agent`` and set the appropriate labels.
 
-An example of how to do this can be found in the cilium
-`kubernetes example spec file <https://github.com/cilium/cilium/blob/master/examples/kubernetes/cilium.yaml>`_
+*Note: the port can be configured per-pod to any value and the label set
+accordingly. Prometheus uses this label to discover the port.*
 
-To configure this automatic discovery and collection, Prometheus itself requires a
-`kubernetes_sd_config <https://prometheus.io/docs/prometheus/latest/configuration/configuration/>`_
-configuration.
-This will use the kubernetes API server to discover pods, nodes etc. It also
-takes rules that match and filter pods on labels and annotations, and otherwise
-tag the metrics series.
+To configure automatic metric discovery and collection, Prometheus itself requires a
+`kubernetes_sd_config configuration <https://prometheus.io/docs/prometheus/latest/configuration/configuration/>`_.
+The configured rules are used to filter pods and nodes by label and annotation,
+and tag the resulting metrics series. In the Kubernetes case Prometheus will
+contact the Kubernetes API server for these lists and must have permissions to
+do so.
 
-An example `promethues configuration file <https://github.com/cilium/cilium/blob/master/examples/kubernetes/cilium.yaml>`_
-can be found alongside the kubernetes cilium spec. The critical discovery section is:
+An example `promethues configuration <https://github.com/cilium/cilium/blob/master/examples/kubernetes/prometheus.yaml>`_
+can be found alongside the reference Cilium Kubernetes DaemonSet spec.
+
+The critical discovery section is:
 
 .. code-block:: yaml
 
@@ -73,21 +103,22 @@ can be found alongside the kubernetes cilium spec. The critical discovery sectio
             target_label: kubernetes_pod_name
 
 This job configures prometheus to do a number of things for all pods returned
-by the kubernetes API server:
+by the Kubernetes API server:
 
 - find and keep all pods that have labels ``k8s-app=cilium`` and ``prometheus.io/scrape=true``
 - extract the IP and port of the pod from ``address`` and ``prometheus.io/port``
-- discover the metrics url path from the label ``prometheus.io/path`` and uses the default of ``/metrics`` when it isn't present
-- populate metrics tags for the kubernetes namespace and pod name derived from the pod labels
+- discover the metrics URL path from the label ``prometheus.io/path`` or use the default of ``/metrics`` when it isn't present
+- populate metrics tags for the Kubernetes namespace and pod name derived from the pod labels
 
-cilium as a host-agent on a node
+Cilium as a host-agent on a node
 ================================
 Prometheus can use a number of more common service discovery schemes, such as
-consul and DNS, or a cloud provider API, such as AWS EC2, GCE or Azure.
-Relevant documentation can be found at the
-`Prometheus site <https://prometheus.io/docs/prometheus/latest/configuration/configuration/>`_.
+consul and DNS, or a cloud provider API, such as AWS, GCE or Azure.
+`Prometheus documentation <https://prometheus.io/docs/prometheus/latest/configuration/configuration/>`_
+contains more information.
 
-It is also possible to hard-code ``static-config`` sections that are simply an IP address and port:
+It is also possible to hard-code ``static-config`` sections that simply contain
+a hardcoded IP address and port:
 
 .. code-block:: yaml
 
