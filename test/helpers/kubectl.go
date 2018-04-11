@@ -899,7 +899,17 @@ func (kub *Kubectl) GatherLogs() {
 		"kubectl describe pods --all-namespaces -o json":             "pods_status.txt",
 		"kubectl get replicationcontroller --all-namespaces -o json": "replicationcontroller.txt",
 		"kubectl get deployment --all-namespaces -o json":            "deployment.txt",
-		"kubectl -n kube-system logs -l k8s-app=cilium --timestamps": "cilium_logs.txt",
+	}
+
+	ciliumPods, err := kub.GetCiliumPods(KubeSystemNamespace)
+	if err != nil {
+		kub.logger.WithError(err).Error("Cannot get cilium pods")
+	}
+
+	for _, pod := range ciliumPods {
+		key := fmt.Sprintf("kubectl -n kube-system logs --timestamps %s", pod)
+		value := fmt.Sprintf("%s-logs.log", pod)
+		reportCmds[key] = value
 	}
 
 	testPath, err := CreateReportDirectory()
