@@ -550,8 +550,11 @@ var _ = Describe("K8sValidatedPolicyTest", func() {
 
 			for pod := range webPods {
 
-				// Access both service IP / host name of redis-master.
-				redisMetadata := map[string]int{serviceIP: port, "redis-master": port}
+				// GH-3462: only access service IP, not host name of redis-master.
+				// Work to revert this change is tracked by GH-3663.
+				//redisMetadata := map[string]int{serviceIP: port, "redis-master": port}
+
+				redisMetadata := map[string]int{serviceIP: port}
 				for k, v := range redisMetadata {
 					command := fmt.Sprintf(`nc %s %d <<EOF
 PING
