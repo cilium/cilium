@@ -1776,6 +1776,51 @@ describe some of the differences for the BPF model:
   as mentioned earlier in point 3, a ``BPF_MAP_TYPE_PERCPU_ARRAY`` map with a
   single entry can be used in order to enlarge scratch buffer space.
 
+9. **Use of BPF inline assembly possible.**
+
+  LLVM also allows to use inline assembly for BPF for the rare cases where it
+  might be needed. The following (nonsense) toy example shows a 64 bit atomic
+  add. Due to lack of documentation, LLVM source code in ``lib/Target/BPF/BPFInstrInfo.td``
+  as well as ``test/CodeGen/BPF/`` might be helpful for providing some additional
+  examples. Test code:
+
+  ::
+
+    #include <linux/bpf.h>
+
+    #ifndef __section
+    # define __section(NAME)                  \
+       __attribute__((section(NAME), used))
+    #endif
+
+    __section("prog")
+    int xdp_test(struct xdp_md *ctx)
+    {
+        __u64 a = 2, b = 3, *c = &a;
+        /* just a toy xadd example to show the syntax */
+        asm volatile("lock *(u64 *)(%0+0) += %1" : "=r"(c) : "r"(b), "0"(c));
+        return a;
+    }
+
+    char __license[] __section("license") = "GPL";
+
+  The above program is compiled into the following sequence of BPF
+  instructions:
+
+  ::
+
+    Verifier analysis:
+
+    0: (b7) r1 = 2
+    1: (7b) *(u64 *)(r10 -8) = r1
+    2: (b7) r1 = 3
+    3: (bf) r2 = r10
+    4: (07) r2 += -8
+    5: (db) lock *(u64 *)(r2 +0) += r1
+    6: (79) r0 = *(u64 *)(r10 -8)
+    7: (95) exit
+    processed 8 insns (limit 131072), stack depth 8
+
 iproute2
 --------
 
@@ -1844,9 +1889,10 @@ of all details, but enough for getting started.
 
   The ``ip link`` command will display an ``xdp`` flag if the interface has an XDP
   program attached. ``ip link | grep xdp`` can thus be used to find all interfaces
-  that have XDP running. Further introspection facilities will be provided through
-  the detailed view with ``ip -d link`` once the kernel API gains support for
-  dumping additional attributes.
+  that have XDP running. Further introspection facilities are provided through
+  the detailed view with ``ip -d link`` and ``bpftool`` can be used to retrieve
+  information about the attached program based on the BPF program ID shown in
+  the ``ip link`` dump.
 
   In order to remove the existing XDP program from the interface, the following
   command must be issued:
@@ -1854,6 +1900,131 @@ of all details, but enough for getting started.
   ::
 
     # ip link set dev em1 xdp off
+
+  In the case of switching a driver's operation mode from non-XDP to native XDP
+  and vice versa, typically the driver needs to reconfigure its receive (and
+  transmit) rings in order to ensure received packet are set up linearly
+  within a single page for BPF to read and write into. However, once completed,
+  then most drivers only need to perform an atomic replacement of the program
+  itself when a BPF program is requested to be swapped.
+
+  In total, XDP supports three operation modes which iproute2 implements as well:
+  ``xdpdrv``, ``xdpoffload`` and ``xdpgeneric``.
+
+  ``xdpdrv`` stands for native XDP, meaning the BPF program is run directly in
+  the driver's receive path at the earliest possible point in software. This is
+  the normal / conventional XDP mode and requires driver's to implement XDP
+  support, which all major 10G/40G/+ networking drivers in the upstream Linux
+  kernel already provide.
+
+  ``xdpgeneric`` stands for generic XDP and is intended as an experimental test
+  bed for drivers which do not yet support native XDP. Given the generic XDP hook
+  in the ingress path comes at a much later point in time when the packet already
+  enters the stack's main receive path as a ``skb``, the performance is significantly
+  less than with processing in ``xdpdrv`` mode. ``xdpgeneric`` therefore is for
+  the most part only interesting for experimenting, less for production environments.
+
+  Last but not least, the ``xdpoffload`` mode is implemented by SmartNICs such
+  as those supported by Netronome's nfp driver and allow for offloading the entire
+  BPF/XDP program into hardware, thus the program is run on each packet reception
+  directly on the card. This provides even higher performance than running in
+  native XDP although not all BPF map types or BPF helper functions are available
+  for use compared to native XDP. The BPF verifier will reject the program in
+  such case and report to the user what is unsupported. Other than staying in
+  the realm of supported BPF features and helper functions, no special precautions
+  have to be taken when writing BPF C programs.
+
+  When a command like ``ip link set dev em1 xdp obj [...]`` is used, then the
+  kernel will attempt to load the program first as native XDP, and in case the
+  driver does not support native XDP, it will automatically fall back to generic
+  XDP. Thus, for example, using explicitly ``xdpdrv`` instead of ``xdp``, the
+  kernel will only attempt to load the program as native XDP and fail in case
+  the driver does not support it, which provides a guarantee that generic XDP
+  is avoided altogether.
+
+  Example for enforcing a BPF/XDP program to be loaded in native XDP mode,
+  dumping the link details and unloading the program again:
+
+  ::
+
+     # ip -force link set dev em1 xdpdrv obj prog.o
+     # ip link show
+     [...]
+     6: em1: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 xdp qdisc mq state UP mode DORMANT group default qlen 1000
+         link/ether be:08:4d:b6:85:65 brd ff:ff:ff:ff:ff:ff
+         prog/xdp id 1 tag 57cd311f2e27366b
+     [...]
+     # ip link set dev em1 xdpdrv off
+
+  Same example now for forcing generic XDP, even if the driver would support
+  native XDP, and additionally dumping the BPF instructions of the attached
+  dummy program through bpftool:
+
+  ::
+
+    # ip -force link set dev em1 xdpgeneric obj prog.o
+    # ip link show
+    [...]
+    6: em1: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 xdpgeneric qdisc mq state UP mode DORMANT group default qlen 1000
+        link/ether be:08:4d:b6:85:65 brd ff:ff:ff:ff:ff:ff
+        prog/xdp id 4 tag 57cd311f2e27366b                <-- BPF program ID 4
+    [...]
+    # bpftool prog dump xlated id 4                       <-- Dump of instructions running on em1
+    0: (b7) r0 = 1
+    1: (95) exit
+    # ip link set dev em1 xdpgeneric off
+
+  And last but not least offloaded XDP, where we additionally dump prog
+  information via bpftool for retrieving general metadata about the:
+
+  ::
+
+     # ip -force link set dev em1 xdpoffload obj prog.o
+     # ip link show
+     [...]
+     6: em1: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 xdpoffload qdisc mq state UP mode DORMANT group default qlen 1000
+         link/ether be:08:4d:b6:85:65 brd ff:ff:ff:ff:ff:ff
+         prog/xdp id 8 tag 57cd311f2e27366b
+     [...]
+     # bpftool prog show id 8
+     8: xdp  tag 57cd311f2e27366b dev em1                  <-- Also indicates a BPF program offloaded to em1
+         loaded_at Apr 11/20:38  uid 0
+         xlated 16B  not jited  memlock 4096B
+     # ip link set dev em1 xdpoffload off
+
+  Note that it is not possible to use ``xdpdrv`` and ``xdpgeneric`` or other
+  modes at the same time, meaning only one of the XDP operation modes must be
+  picked.
+
+  A switch between different XDP modes e.g. from generic to native or vice
+  versa is not atomically possible. Only switching programs within a specific
+  operation mode is:
+
+  ::
+
+     # ip -force link set dev em1 xdpgeneric obj prog.o
+     # ip -force link set dev em1 xdpoffload obj prog.o
+     RTNETLINK answers: File exists
+     # ip -force link set dev em1 xdpdrv obj prog.o
+     RTNETLINK answers: File exists
+     # ip -force link set dev em1 xdpgeneric obj prog.o    <-- Succeeds due to xdpgeneric
+     #
+
+  Switching between modes requires to first leave the current operation mode
+  in order to then enter the new one:
+
+  ::
+
+     # ip -force link set dev em1 xdpgeneric obj prog.o
+     # ip -force link set dev em1 xdpgeneric off
+     # ip -force link set dev em1 xdpoffload obj prog.o
+     # ip l
+     [...]
+     6: em1: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 xdpoffload qdisc mq state UP mode DORMANT group default qlen 1000
+         link/ether be:08:4d:b6:85:65 brd ff:ff:ff:ff:ff:ff
+         prog/xdp id 17 tag 57cd311f2e27366b
+     [...]
+     # ip -force link set dev em1 xdpoffload off
 
 **2. Loading of tc BPF object files.**
 
@@ -1980,6 +2151,65 @@ of all details, but enough for getting started.
   ::
 
     # tc qdisc del dev em1 clsact
+
+  tc BPF programs can also be offloaded if the NIC and driver has support for it
+  similarly as with XDP BPF programs. Netronome's nfp supported NICs offer both
+  types of BPF offload.
+
+  ::
+
+    # tc qdisc add dev em1 clsact
+    # tc filter replace dev em1 ingress pref 1 handle 1 bpf skip_sw da obj prog.o
+    Error: TC offload is disabled on net device.
+    We have an error talking to the kernel
+
+  If the above error is shown, then tc hardware offload first needs to be enabled
+  for the device through ethtool's ``hw-tc-offload`` setting:
+
+  ::
+
+    # ethtool -K em1 hw-tc-offload on
+    # tc qdisc add dev em1 clsact
+    # tc filter replace dev em1 ingress pref 1 handle 1 bpf skip_sw da obj prog.o
+    # tc filter show dev em1 ingress
+    filter protocol all pref 1 bpf
+    filter protocol all pref 1 bpf handle 0x1 prog.o:[classifier] direct-action skip_sw in_hw id 19 tag 57cd311f2e27366b
+
+  The ``in_hw`` flag confirms that the program has been offloaded to the NIC.
+
+  Note that BPF offloads for both tc and XDP cannot be loaded at the same time,
+  either the tc or XDP offload option must be selected.
+
+**3. Testing BPF offload interface via netdevsim driver.**
+
+  The netdevsim driver which is part of the Linux kernel provides a dummy driver
+  which implements offload interfaces for XDP BPF and tc BPF programs and
+  facilitates testing kernel changes or low-level user space programs
+  implementing a control plane directly against the kernel's UAPI.
+
+  A netdevsim device can be created as follows:
+
+  ::
+
+    # ip link add dev sim0 type netdevsim
+    # ip link set dev sim0 up
+    # ethtool -K sim0 hw-tc-offload on
+    # ip l
+    [...]
+    7: sim0: <BROADCAST,NOARP,UP,LOWER_UP> mtu 1500 qdisc noqueue state UNKNOWN mode DEFAULT group default qlen 1000
+        link/ether a2:24:4c:1c:c2:b3 brd ff:ff:ff:ff:ff:ff
+
+  After that step, XDP BPF or tc BPF programs can be test loaded as shown
+  in the various examples earlier:
+
+  ::
+
+    # ip -force link set dev sim0 xdpoffload obj prog.o
+    # ip l
+    [...]
+    7: sim0: <BROADCAST,NOARP,UP,LOWER_UP> mtu 1500 xdpoffload qdisc noqueue state UNKNOWN mode DEFAULT group default qlen 1000
+        link/ether a2:24:4c:1c:c2:b3 brd ff:ff:ff:ff:ff:ff
+        prog/xdp id 20 tag 57cd311f2e27366b
 
 These two workflows are the basic operations to load XDP BPF respectively tc BPF
 programs with iproute2.
@@ -2730,13 +2960,20 @@ with a sufficiently large limit could be performed. The ``RLIMIT_MEMLOCK`` is
 mainly enforcing limits for unprivileged users. Depending on the setup,
 setting a higher limit for privileged users is often acceptable.
 
-tc (traffic control)
-====================
+Program Types
+=============
+
+At the time of this writing, there are eighteen different BPF program types
+available, two of them are further explained in below subsections, namely
+XDP BPF programs as well as tc BPF programs.
+
+XDP
+---
 
 TODO
 
-XDP
-===
+tc (traffic control)
+--------------------
 
 TODO
 
