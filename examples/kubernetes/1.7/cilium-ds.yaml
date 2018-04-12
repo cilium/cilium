@@ -32,6 +32,22 @@ spec:
         prometheus.io/port: "9090"
     spec:
       serviceAccountName: cilium
+      initContainers:
+      - name: clean-cilium-state
+        image: busybox
+        command: ['sh', '-c', 'if [ "${CLEAN_CILIUM_STATE}" = "true" ]; then rm -rf /var/run/cilium/state; rm -rf /sys/fs/bpf/tc/globals/cilium_*; fi']
+        volumeMounts:
+          - name: bpf-maps
+            mountPath: /sys/fs/bpf
+          - name: cilium-run
+            mountPath: /var/run/cilium
+        env:
+          - name: "CLEAN_CILIUM_STATE"
+            valueFrom:
+                configMapKeyRef:
+                  name: cilium-config
+                  optional: true
+                  key: clean-cilium-state
       containers:
       - image: cilium/cilium:latest
         imagePullPolicy: Always
