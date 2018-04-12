@@ -1029,19 +1029,6 @@ func ParseEndpoint(strEp string) (*Endpoint, error) {
 	return &ep, nil
 }
 
-func (e *Endpoint) RemoveFromGlobalPolicyMap() error {
-	gpm, err := policymap.OpenGlobalMap(e.PolicyGlobalMapPathLocked())
-	if err == nil {
-		// We need to remove ourselves from global map, so that
-		// resources (prog/map reference counts) can be released.
-		gpm.DeleteIdentity(uint32(e.ID), policymap.Ingress)
-		gpm.DeleteIdentity(uint32(e.ID), policymap.Egress)
-		gpm.Close()
-	}
-
-	return err
-}
-
 // GetBPFKeys returns all keys which should represent this endpoint in the BPF
 // endpoints map
 func (e *Endpoint) GetBPFKeys() []lxcmap.EndpointKey {
