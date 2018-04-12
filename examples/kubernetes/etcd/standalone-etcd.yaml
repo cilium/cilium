@@ -30,9 +30,7 @@ spec:
   type: NodePort
   selector:
     component: "cilium-etcd"
-
 ---
-
 apiVersion: apps/v1beta1
 kind: StatefulSet
 metadata:
@@ -74,6 +72,7 @@ spec:
         args:
           - --name=cilium-etcd-$(HOSTNAME_IP)
           - --listen-client-urls=http://0.0.0.0:32379
+          - --listen-peer-urls=http://0.0.0.0:32380
           - --advertise-client-urls=http://$(HOSTNAME_IP):32379
           - --initial-cluster-token=cilium-etcd-cluster-1
           - --initial-cluster-state=new
