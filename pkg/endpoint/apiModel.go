@@ -309,3 +309,10 @@ func (e *Endpoint) getHealthModel() *models.EndpointHealth {
 
 	return &h
 }
+
+// GetHealthModel returns the endpoint's health object.
+func (e *Endpoint) GetHealthModel() *models.EndpointHealth {
+	e.Mutex.RLock()
+	defer e.Mutex.RUnlock()
+	return e.getHealthModel()
+}

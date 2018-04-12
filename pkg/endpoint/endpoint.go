@@ -708,13 +708,6 @@ func NewEndpointWithState(ID uint16, state string) *Endpoint {
 	}
 }
 
-// GetHealthModel returns the endpoint's health object.
-func (e *Endpoint) GetHealthModel() *models.EndpointHealth {
-	e.Mutex.RLock()
-	defer e.Mutex.RUnlock()
-	return e.getHealthModel()
-}
-
 // GetID returns the endpoint's ID
 func (e *Endpoint) GetID() uint64 {
 	return uint64(e.ID)
