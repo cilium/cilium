@@ -177,3 +177,71 @@ func (e *Endpoint) GetModel() *models.Endpoint {
 
 	return e.GetModelRLocked()
 }
+
+// GetPolicyModel returns the endpoint's policy as an API model.
+//
+// Must be called with e.Mutex locked.
+func (e *Endpoint) GetPolicyModel() *models.EndpointPolicyStatus {
+	if e == nil {
+		return nil
+	}
+
+	if e.Consumable == nil {
+		return nil
+	}
+
+	e.Consumable.Mutex.RLock()
+	defer e.Consumable.Mutex.RUnlock()
+
+	ingressIdentities := make([]int64, 0, len(e.Consumable.IngressIdentities))
+	for ingressIdentity := range e.Consumable.IngressIdentities {
+		ingressIdentities = append(ingressIdentities, int64(ingressIdentity))
+	}
+
+	egressIdentities := make([]int64, 0, len(e.Consumable.EgressIdentities))
+	for egressIdentity := range e.Consumable.EgressIdentities {
+		egressIdentities = append(egressIdentities, int64(egressIdentity))
+	}
+
+	policyIngressEnabled := e.Opts.IsEnabled(OptionIngressPolicy)
+	policyEgressEnabled := e.Opts.IsEnabled(OptionEgressPolicy)
+
+	policyEnabled := models.EndpointPolicyEnabledNone
+	switch {
+	case policyIngressEnabled && policyEgressEnabled:
+		policyEnabled = models.EndpointPolicyEnabledBoth
+	case policyIngressEnabled:
+		policyEnabled = models.EndpointPolicyEnabledIngress
+	case policyEgressEnabled:
+		policyEnabled = models.EndpointPolicyEnabledEgress
+	}
+
+	// Make a shallow copy of the stats.
+	e.proxyStatisticsMutex.RLock()
+	proxyStats := make([]*models.ProxyStatistics, 0, len(e.proxyStatistics))
+	for _, stats := range e.proxyStatistics {
+		statsCopy := *stats
+		proxyStats = append(proxyStats, &statsCopy)
+	}
+	e.proxyStatisticsMutex.RUnlock()
+	sortProxyStats(proxyStats)
+
+	mdl := &models.EndpointPolicy{
+		ID:                       int64(e.Consumable.ID),
+		Build:                    int64(e.Consumable.Iteration),
+		PolicyRevision:           int64(e.policyRevision),
+		AllowedIngressIdentities: ingressIdentities,
+		AllowedEgressIdentities:  egressIdentities,
+		CidrPolicy:               e.L3Policy.GetModel(),
+		L4:                       e.Consumable.L4Policy.GetModel(),
+		PolicyEnabled:            policyEnabled,
+	}
+	// FIXME GH-3280 Once we start returning revisions Realized should be the
+	// policy implemented in the data path
+	return &models.EndpointPolicyStatus{
+		Spec:                mdl,
+		Realized:            mdl,
+		ProxyPolicyRevision: int64(e.proxyPolicyRevision),
+		ProxyStatistics:     proxyStats,
+	}
+}
