@@ -314,11 +314,6 @@ func RunK8sCiliumEndpointSyncGC() {
 }
 
 const (
-	// CallsMapName specifies the base prefix for EP specific call map.
-	CallsMapName = "cilium_calls_"
-	// PolicyGlobalMapName specifies the global tail call map for EP handle_policy() lookup.
-	PolicyGlobalMapName = "cilium_policy"
-
 	// ReservedCEPNamespace is the namespace to use for reserved endpoints that
 	// don't have a namespace (e.g. health)
 	ReservedCEPNamespace = meta_v1.NamespaceSystem

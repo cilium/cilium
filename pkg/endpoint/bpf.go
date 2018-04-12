@@ -52,6 +52,11 @@ import (
 const (
 	// ExecTimeout is the execution timeout to use in join_ep.sh executions
 	ExecTimeout = 300 * time.Second
+
+	// CallsMapName specifies the base prefix for EP specific call map.
+	CallsMapName = "cilium_calls_"
+	// PolicyGlobalMapName specifies the global tail call map for EP handle_policy() lookup.
+	PolicyGlobalMapName = "cilium_policy"
 )
 
 // lookupRedirectPortBE returns the redirect L4 proxy port for the given L4
