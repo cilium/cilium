@@ -1029,68 +1029,6 @@ func ParseEndpoint(strEp string) (*Endpoint, error) {
 	return &ep, nil
 }
 
-// mapPath returns the path to a map for endpoint ID.
-func mapPath(mapname string, id int) string {
-	return bpf.MapPath(mapname + strconv.Itoa(id))
-}
-
-// PolicyMapPathLocked returns the path to the policy map of endpoint.
-func (e *Endpoint) PolicyMapPathLocked() string {
-	return mapPath(policymap.MapName, int(e.ID))
-}
-
-// IPv6IngressMapPathLocked returns the path to policy map of endpoint.
-func (e *Endpoint) IPv6IngressMapPathLocked() string {
-	return mapPath(cidrmap.MapName+"ingress6_", int(e.ID))
-}
-
-// IPv6EgressMapPathLocked returns the path to policy map of endpoint.
-func (e *Endpoint) IPv6EgressMapPathLocked() string {
-	return mapPath(cidrmap.MapName+"egress6_", int(e.ID))
-}
-
-// IPv4IngressMapPathLocked returns the path to policy map of endpoint.
-func (e *Endpoint) IPv4IngressMapPathLocked() string {
-	return mapPath(cidrmap.MapName+"ingress4_", int(e.ID))
-}
-
-// IPv4EgressMapPathLocked returns the path to policy map of endpoint.
-func (e *Endpoint) IPv4EgressMapPathLocked() string {
-	return mapPath(cidrmap.MapName+"egress4_", int(e.ID))
-}
-
-// PolicyGlobalMapPathLocked returns the path to the global policy map.
-func (e *Endpoint) PolicyGlobalMapPathLocked() string {
-	return bpf.MapPath(PolicyGlobalMapName)
-}
-
-func CallsMapPath(id int) string {
-	return bpf.MapPath(CallsMapName + strconv.Itoa(id))
-}
-
-// CallsMapPathLocked returns the path to cilium tail calls map of an endpoint.
-func (e *Endpoint) CallsMapPathLocked() string {
-	return CallsMapPath(int(e.ID))
-}
-
-// Ct6MapPath returns the path to IPv6 connection tracking map of endpoint.
-func Ct6MapPath(id int) string {
-	return bpf.MapPath(ctmap.MapName6 + strconv.Itoa(id))
-}
-
-func (e *Endpoint) Ct6MapPathLocked() string {
-	return Ct6MapPath(int(e.ID))
-}
-
-// Ct4MapPath returns the path to IPv4 connection tracking map of endpoint.
-func Ct4MapPath(id int) string {
-	return bpf.MapPath(ctmap.MapName4 + strconv.Itoa(id))
-}
-
-func (e *Endpoint) Ct4MapPathLocked() string {
-	return Ct4MapPath(int(e.ID))
-}
-
 func (e *Endpoint) LogStatus(typ StatusType, code StatusCode, msg string) {
 	e.Mutex.Lock()
 	defer e.Mutex.Unlock()
