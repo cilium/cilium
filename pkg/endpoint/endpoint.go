@@ -1603,22 +1603,6 @@ func (e *Endpoint) UpdateLabels(owner Owner, identityLabels, infoLabels labels.L
 	}
 }
 
-func (e *Endpoint) identityResolutionIsObsolete(myChangeRev int) bool {
-	// If in disconnected state, skip as well as this operation is no
-	// longer required.
-	if e.state == StateDisconnected {
-		return true
-	}
-
-	// Check if the endpoint has since received a new identity revision, if
-	// so, abort as a new resolution routine will have been started.
-	if myChangeRev != e.identityRevision {
-		return true
-	}
-
-	return false
-}
-
 func (e *Endpoint) runLabelsResolver(owner Owner, myChangeRev int) {
 	ctrlName := fmt.Sprintf("resolve-identity-%d", e.ID)
 	e.controllers.UpdateController(ctrlName,
