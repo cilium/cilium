@@ -20,6 +20,7 @@ import (
 	"fmt"
 
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	endpoints_cilium_io_v2 "github.com/cilium/cilium/pkg/k8s/apis/endpoints.cilium.io/v2"
 	schema "k8s.io/apimachinery/pkg/runtime/schema"
 	cache "k8s.io/client-go/tools/cache"
 )
@@ -51,10 +52,12 @@ func (f *genericInformer) Lister() cache.GenericLister {
 func (f *sharedInformerFactory) ForResource(resource schema.GroupVersionResource) (GenericInformer, error) {
 	switch resource {
 	// Group=cilium.io, Version=v2
-	case v2.SchemeGroupVersion.WithResource("ciliumendpoints"):
-		return &genericInformer{resource: resource.GroupResource(), informer: f.Cilium().V2().CiliumEndpoints().Informer()}, nil
 	case v2.SchemeGroupVersion.WithResource("ciliumnetworkpolicies"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Cilium().V2().CiliumNetworkPolicies().Informer()}, nil
+
+		// Group=ciliumEndpoints.cilium.io, Version=v2
+	case endpoints_cilium_io_v2.SchemeGroupVersion.WithResource("ciliumendpoints"):
+		return &genericInformer{resource: resource.GroupResource(), informer: f.CiliumEndpoints().V2().CiliumEndpoints().Informer()}, nil
 
 	}
 

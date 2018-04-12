@@ -16,10 +16,10 @@
 
 package v2
 
-// CiliumNetworkPolicyListerExpansion allows custom methods to be added to
-// CiliumNetworkPolicyLister.
-type CiliumNetworkPolicyListerExpansion interface{}
+// CiliumEndpointListerExpansion allows custom methods to be added to
+// CiliumEndpointLister.
+type CiliumEndpointListerExpansion interface{}
 
-// CiliumNetworkPolicyNamespaceListerExpansion allows custom methods to be added to
-// CiliumNetworkPolicyNamespaceLister.
-type CiliumNetworkPolicyNamespaceListerExpansion interface{}
+// CiliumEndpointNamespaceListerExpansion allows custom methods to be added to
+// CiliumEndpointNamespaceLister.
+type CiliumEndpointNamespaceListerExpansion interface{}

@@ -279,6 +279,11 @@ rules:
   - cilium.io
   resources:
   - ciliumnetworkpolicies
+  verbs:
+  - "*"
+- apiGroups:
+  - endpoints.cilium.io
+  resources:
   - ciliumendpoints
   verbs:
   - "*"

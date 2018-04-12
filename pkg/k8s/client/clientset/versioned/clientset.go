@@ -18,6 +18,7 @@ package versioned
 
 import (
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/cilium.io/v2"
+	ciliumendpointsv2 "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/endpoints.cilium.io/v2"
 	glog "github.com/golang/glog"
 	discovery "k8s.io/client-go/discovery"
 	rest "k8s.io/client-go/rest"
@@ -29,13 +30,17 @@ type Interface interface {
 	CiliumV2() ciliumv2.CiliumV2Interface
 	// Deprecated: please explicitly pick a version if possible.
 	Cilium() ciliumv2.CiliumV2Interface
+	CiliumEndpointsV2() ciliumendpointsv2.CiliumEndpointsV2Interface
+	// Deprecated: please explicitly pick a version if possible.
+	CiliumEndpoints() ciliumendpointsv2.CiliumEndpointsV2Interface
 }
 
 // Clientset contains the clients for groups. Each group has exactly one
 // version included in a Clientset.
 type Clientset struct {
 	*discovery.DiscoveryClient
-	ciliumV2 *ciliumv2.CiliumV2Client
+	ciliumV2          *ciliumv2.CiliumV2Client
+	ciliumEndpointsV2 *ciliumendpointsv2.CiliumEndpointsV2Client
 }
 
 // CiliumV2 retrieves the CiliumV2Client
@@ -47,6 +52,17 @@ func (c *Clientset) CiliumV2() ciliumv2.CiliumV2Interface {
 // Please explicitly pick a version.
 func (c *Clientset) Cilium() ciliumv2.CiliumV2Interface {
 	return c.ciliumV2
+}
+
+// CiliumEndpointsV2 retrieves the CiliumEndpointsV2Client
+func (c *Clientset) CiliumEndpointsV2() ciliumendpointsv2.CiliumEndpointsV2Interface {
+	return c.ciliumEndpointsV2
+}
+
+// Deprecated: CiliumEndpoints retrieves the default version of CiliumEndpointsClient.
+// Please explicitly pick a version.
+func (c *Clientset) CiliumEndpoints() ciliumendpointsv2.CiliumEndpointsV2Interface {
+	return c.ciliumEndpointsV2
 }
 
 // Discovery retrieves the DiscoveryClient
@@ -69,6 +85,10 @@ func NewForConfig(c *rest.Config) (*Clientset, error) {
 	if err != nil {
 		return nil, err
 	}
+	cs.ciliumEndpointsV2, err = ciliumendpointsv2.NewForConfig(&configShallowCopy)
+	if err != nil {
+		return nil, err
+	}
 
 	cs.DiscoveryClient, err = discovery.NewDiscoveryClientForConfig(&configShallowCopy)
 	if err != nil {
@@ -83,6 +103,7 @@ func NewForConfig(c *rest.Config) (*Clientset, error) {
 func NewForConfigOrDie(c *rest.Config) *Clientset {
 	var cs Clientset
 	cs.ciliumV2 = ciliumv2.NewForConfigOrDie(c)
+	cs.ciliumEndpointsV2 = ciliumendpointsv2.NewForConfigOrDie(c)
 
 	cs.DiscoveryClient = discovery.NewDiscoveryClientForConfigOrDie(c)
 	return &cs
@@ -92,6 +113,7 @@ func NewForConfigOrDie(c *rest.Config) *Clientset {
 func New(c rest.Interface) *Clientset {
 	var cs Clientset
 	cs.ciliumV2 = ciliumv2.New(c)
+	cs.ciliumEndpointsV2 = ciliumendpointsv2.New(c)
 
 	cs.DiscoveryClient = discovery.NewDiscoveryClient(c)
 	return &cs

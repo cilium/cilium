@@ -40,9 +40,8 @@ import (
 	"github.com/cilium/cilium/pkg/controller"
 	identityPkg "github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/k8s"
-	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	endpoint_cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/endpoints.cilium.io/v2"
 	clientset "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned"
-	cilium_client_v2 "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/labels"
 	pkgLabels "github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
@@ -174,11 +173,11 @@ var (
 	// willing to run the EndpointCRD controllers
 	ciliumEPControllerLimit, _ = go_version.NewConstraint("> 1.6")
 
-	// ciliumEndpointSyncControllerK8sClient is a k8s client shared by the
+	// ciliumioClient is a k8s client shared by the
 	// RunK8sCiliumEndpointSync and RunK8sCiliumEndpointSyncGC. They obtain the
 	// controller via getCiliumClient and the sync.Once is used to avoid race.
-	ciliumEndpointSyncControllerOnce      sync.Once
-	ciliumEndpointSyncControllerK8sClient clientset.Interface
+	ciliumioClient     clientset.Interface
+	ciliumioClientOnce sync.Once
 )
 
 func init() {
@@ -187,14 +186,15 @@ func init() {
 	}
 }
 
-// getCiliumClient builds and returns a k8s auto-generated client for cilium
-// objects
-func getCiliumClient() (ciliumClient cilium_client_v2.CiliumV2Interface, err error) {
+// getCiliumClient builds and returns a k8s auto-generated client for the
+// cilium.io API group objects. It is different than the client in pkg.k8s,
+// which is for the core k8s APIs.
+func getCiliumClient() (ciliumClient clientset.Interface, err error) {
 	// This allows us to reuse the k8s client
-	ciliumEndpointSyncControllerOnce.Do(func() {
+	ciliumioClientOnce.Do(func() {
 		var (
-			restConfig *rest.Config
-			k8sClient  *clientset.Clientset
+			restConfig   *rest.Config
+			ciliumClient *clientset.Clientset
 		)
 
 		restConfig, err = k8s.CreateConfig()
@@ -202,12 +202,12 @@ func getCiliumClient() (ciliumClient cilium_client_v2.CiliumV2Interface, err err
 			return
 		}
 
-		k8sClient, err = clientset.NewForConfig(restConfig)
+		ciliumClient, err = clientset.NewForConfig(restConfig)
 		if err != nil {
 			return
 		}
 
-		ciliumEndpointSyncControllerK8sClient = k8sClient
+		ciliumioClient = ciliumClient
 	})
 
 	if err != nil {
@@ -216,12 +216,12 @@ func getCiliumClient() (ciliumClient cilium_client_v2.CiliumV2Interface, err err
 
 	// This guards against the situation where another invocation of this
 	// function (in another thread or previous in time) might have returned an
-	// error and not initialized ciliumEndpointSyncControllerK8sClient
-	if ciliumEndpointSyncControllerK8sClient == nil {
+	// error and not initialized ciliumioClient
+	if ciliumioClient == nil {
 		return nil, errors.New("No initialised k8s Cilium CRD client")
 	}
 
-	return ciliumEndpointSyncControllerK8sClient.CiliumV2(), nil
+	return ciliumioClient, nil
 }
 
 // RunK8sCiliumEndpointSyncGC starts the node-singleton sweeper for
@@ -262,12 +262,13 @@ func RunK8sCiliumEndpointSyncGC() {
 		return
 	}
 
-	ciliumClient, err := getCiliumClient()
+	k8sClient := k8s.Client()              // k8s API client
+	ciliumClient, err := getCiliumClient() // cilium.io generated client
 	if err != nil {
 		scopedLog.WithError(err).Error("Not starting controller because unable to get cilium k8s client")
 		return
 	}
-	k8sClient := k8s.Client()
+	endpointClient := ciliumClient.CiliumEndpointsV2() // endpoints.cilium.io generated client
 
 	// this dummy manager is needed only to add this controller to the global list
 	controller.NewManager().UpdateController(controllerName,
@@ -294,7 +295,7 @@ func RunK8sCiliumEndpointSyncGC() {
 				}
 
 				// "" is all-namespaces
-				ceps, err := ciliumClient.CiliumEndpoints(meta_v1.NamespaceAll).List(meta_v1.ListOptions{})
+				ceps, err := endpointClient.CiliumEndpoints(meta_v1.NamespaceAll).List(meta_v1.ListOptions{})
 				if err != nil {
 					scopedLog.WithError(err).Error("Cannot list CEPs")
 					return err
@@ -308,7 +309,7 @@ func RunK8sCiliumEndpointSyncGC() {
 							logfields.K8sPodName: cepFullName,
 						})
 						scopedLog.Info("Orphaned CiliumEndpoint is being garbage collected")
-						if err := ciliumClient.CiliumEndpoints(cep.Namespace).Delete(cep.Name, &meta_v1.DeleteOptions{}); err != nil {
+						if err := endpointClient.CiliumEndpoints(cep.Namespace).Delete(cep.Name, &meta_v1.DeleteOptions{}); err != nil {
 							scopedLog.WithError(err).Error("Unable to delete CEP")
 							return err
 						}
@@ -574,11 +575,12 @@ func (e *Endpoint) RunK8sCiliumEndpointSync() {
 		return
 	}
 
-	ciliumClient, err := getCiliumClient()
+	k8sClient, err := getCiliumClient()
 	if err != nil {
 		scopedLog.WithError(err).Error("Not starting controller because unable to get cilium k8s client")
 		return
 	}
+	endpointClient := k8sClient.CiliumEndpointsV2()
 
 	var (
 		lastMdl  *models.Endpoint
@@ -620,9 +622,8 @@ func (e *Endpoint) RunK8sCiliumEndpointSync() {
 					scopedLog.Debug("Skipping CiliumEndpoint update because it has not changed")
 					return nil
 				}
-				k8sMdl := (*cilium_v2.CiliumEndpointDetail)(mdl)
-
-				cep, err := ciliumClient.CiliumEndpoints(namespace).Get(podName, meta_v1.GetOptions{})
+				k8sMdl := (*endpoint_cilium_v2.CiliumEndpointDetail)(mdl)
+				cep, err := endpointClient.CiliumEndpoints(namespace).Get(podName, meta_v1.GetOptions{})
 				switch {
 				// The CEP doesn't exist. We will fall through to the create code below
 				case err != nil && k8serrors.IsNotFound(err):
@@ -641,7 +642,7 @@ func (e *Endpoint) RunK8sCiliumEndpointSync() {
 				// Delete an invalid CEP. We will fall through to the create code below
 				case err != nil && k8serrors.IsInvalid(err):
 					scopedLog.WithError(err).Warn("Invalid CEP during update")
-					err := ciliumClient.CiliumEndpoints(namespace).Delete(podName, &meta_v1.DeleteOptions{})
+					err := endpointClient.CiliumEndpoints(namespace).Delete(podName, &meta_v1.DeleteOptions{})
 					if err != nil {
 						scopedLog.WithError(err).Warn("Error deleting invalid CEP during update")
 						return err
@@ -656,8 +657,13 @@ func (e *Endpoint) RunK8sCiliumEndpointSync() {
 				case err == nil:
 					// Update the copy of the cep
 					k8sMdl.DeepCopyInto(&cep.Status)
+					if cep.Status.ID == 0 {
+						err = errors.New("Failed to deepcopy CiliumEndpoint object")
+						scopedLog.WithError(err).Error("Cannot deepcopy CEP.status")
+						return err
+					}
 
-					if _, err = ciliumClient.CiliumEndpoints(namespace).Update(cep); err != nil {
+					if _, err = endpointClient.CiliumEndpoints(namespace).Update(cep); err != nil {
 						scopedLog.WithError(err).Error("Cannot update CEP")
 						return err
 					}
@@ -667,14 +673,14 @@ func (e *Endpoint) RunK8sCiliumEndpointSync() {
 				}
 
 				// The CEP was not found, this is the first creation of the endpoint
-				cep = &cilium_v2.CiliumEndpoint{
+				cep = &endpoint_cilium_v2.CiliumEndpoint{
 					ObjectMeta: meta_v1.ObjectMeta{
 						Name: podName,
 					},
 					Status: *k8sMdl,
 				}
 
-				_, err = ciliumClient.CiliumEndpoints(namespace).Create(cep)
+				_, err = endpointClient.CiliumEndpoints(namespace).Create(cep)
 				if err != nil {
 					scopedLog.WithError(err).Error("Cannot create CEP")
 					return err
@@ -685,7 +691,7 @@ func (e *Endpoint) RunK8sCiliumEndpointSync() {
 			StopFunc: func() error {
 				podName := e.GetK8sPodName()
 				namespace := e.GetK8sNamespace()
-				if err := ciliumClient.CiliumEndpoints(namespace).Delete(podName, &meta_v1.DeleteOptions{}); err != nil {
+				if err := endpointClient.CiliumEndpoints(namespace).Delete(podName, &meta_v1.DeleteOptions{}); err != nil {
 					scopedLog.WithError(err).Error("Unable to delete CEP")
 					return err
 				}

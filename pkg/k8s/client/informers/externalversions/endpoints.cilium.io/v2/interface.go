@@ -22,8 +22,8 @@ import (
 
 // Interface provides access to all the informers in this group version.
 type Interface interface {
-	// CiliumNetworkPolicies returns a CiliumNetworkPolicyInformer.
-	CiliumNetworkPolicies() CiliumNetworkPolicyInformer
+	// CiliumEndpoints returns a CiliumEndpointInformer.
+	CiliumEndpoints() CiliumEndpointInformer
 }
 
 type version struct {
@@ -37,7 +37,7 @@ func New(f internalinterfaces.SharedInformerFactory, namespace string, tweakList
 	return &version{factory: f, namespace: namespace, tweakListOptions: tweakListOptions}
 }
 
-// CiliumNetworkPolicies returns a CiliumNetworkPolicyInformer.
-func (v *version) CiliumNetworkPolicies() CiliumNetworkPolicyInformer {
-	return &ciliumNetworkPolicyInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
+// CiliumEndpoints returns a CiliumEndpointInformer.
+func (v *version) CiliumEndpoints() CiliumEndpointInformer {
+	return &ciliumEndpointInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
 }

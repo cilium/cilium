@@ -19,10 +19,10 @@ package v2
 import (
 	time "time"
 
-	cilium_io_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	endpoints_cilium_io_v2 "github.com/cilium/cilium/pkg/k8s/apis/endpoints.cilium.io/v2"
 	versioned "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned"
 	internalinterfaces "github.com/cilium/cilium/pkg/k8s/client/informers/externalversions/internalinterfaces"
-	v2 "github.com/cilium/cilium/pkg/k8s/client/listers/cilium.io/v2"
+	v2 "github.com/cilium/cilium/pkg/k8s/client/listers/endpoints.cilium.io/v2"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 	watch "k8s.io/apimachinery/pkg/watch"
@@ -59,16 +59,16 @@ func NewFilteredCiliumEndpointInformer(client versioned.Interface, namespace str
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.CiliumV2().CiliumEndpoints(namespace).List(options)
+				return client.CiliumEndpointsV2().CiliumEndpoints(namespace).List(options)
 			},
 			WatchFunc: func(options v1.ListOptions) (watch.Interface, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.CiliumV2().CiliumEndpoints(namespace).Watch(options)
+				return client.CiliumEndpointsV2().CiliumEndpoints(namespace).Watch(options)
 			},
 		},
-		&cilium_io_v2.CiliumEndpoint{},
+		&endpoints_cilium_io_v2.CiliumEndpoint{},
 		resyncPeriod,
 		indexers,
 	)
@@ -79,7 +79,7 @@ func (f *ciliumEndpointInformer) defaultInformer(client versioned.Interface, res
 }
 
 func (f *ciliumEndpointInformer) Informer() cache.SharedIndexInformer {
-	return f.factory.InformerFor(&cilium_io_v2.CiliumEndpoint{}, f.defaultInformer)
+	return f.factory.InformerFor(&endpoints_cilium_io_v2.CiliumEndpoint{}, f.defaultInformer)
 }
 
 func (f *ciliumEndpointInformer) Lister() v2.CiliumEndpointLister {

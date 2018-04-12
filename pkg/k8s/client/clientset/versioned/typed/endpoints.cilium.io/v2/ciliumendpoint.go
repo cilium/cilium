@@ -17,7 +17,7 @@
 package v2
 
 import (
-	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	v2 "github.com/cilium/cilium/pkg/k8s/apis/endpoints.cilium.io/v2"
 	scheme "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/scheme"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
@@ -51,7 +51,7 @@ type ciliumEndpoints struct {
 }
 
 // newCiliumEndpoints returns a CiliumEndpoints
-func newCiliumEndpoints(c *CiliumV2Client, namespace string) *ciliumEndpoints {
+func newCiliumEndpoints(c *CiliumEndpointsV2Client, namespace string) *ciliumEndpoints {
 	return &ciliumEndpoints{
 		client: c.RESTClient(),
 		ns:     namespace,
