@@ -24,6 +24,7 @@ import (
 	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/daemon/defaults"
 	"github.com/cilium/cilium/pkg/bpf"
+	"github.com/cilium/cilium/pkg/maps/tunnel"
 
 	"github.com/spf13/cobra"
 	"github.com/vishvananda/netlink"
@@ -45,7 +46,6 @@ const (
 	ciliumLinkPrefix = "cilium_"
 	hostLinkPrefix   = "lxc"
 	hostLinkLen      = len(hostLinkPrefix + "XXXXX")
-	tunnelMap        = "tunnel_endpoint_map"
 	cniConfig        = "/etc/cni/net.d/10-cilium-cni.conf"
 )
 
@@ -95,7 +95,7 @@ func showWhatWillBeRemoved(routes map[int]netlink.Route, links map[int]netlink.L
 		"- library code in %s\n"+
 		"- endpoint state in %s\n"+
 		"- CNI configuration at %s\n",
-		bpf.MapPrefixPath(), ciliumLinkPrefix, tunnelMap, bpf.GetMapRoot(),
+		bpf.MapPrefixPath(), ciliumLinkPrefix, tunnel.MapName, bpf.GetMapRoot(),
 		defaults.LibraryPath, defaults.RuntimePath, cniConfig)
 
 	if len(routes) > 0 {
@@ -158,7 +158,7 @@ func removeAllMaps() error {
 	for _, m := range maps {
 		name := m.Name()
 		// Skip non Cilium looking maps
-		if !strings.HasPrefix(name, ciliumLinkPrefix) && name != tunnelMap {
+		if !strings.HasPrefix(name, ciliumLinkPrefix) && name != tunnel.MapName {
 			continue
 		}
 		if err = os.Remove(filepath.Join(mapDir, name)); err != nil {
