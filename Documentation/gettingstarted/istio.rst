@@ -96,7 +96,10 @@ To deploy Cilium, run:
 
     .. parsed-literal::
 
-      $ kubectl create -f \ |SCM_WEB|\/examples/kubernetes/1.7/cilium-sidecar.yaml
+      $ curl -s \ |SCM_WEB|\/examples/kubernetes/1.7/cilium.yaml | \\
+        sed -e 's/sidecar-http-proxy: "false"/sidecar-http-proxy: "true"/' | \\
+        kubectl create -f -
+
       configmap "cilium-config" created
       secret "cilium-etcd-secrets" created
       daemonset.extensions "cilium" created
@@ -108,7 +111,10 @@ To deploy Cilium, run:
 
     .. parsed-literal::
 
-      $ kubectl create -f \ |SCM_WEB|\/examples/kubernetes/1.8/cilium-sidecar.yaml
+      $ curl -s \ |SCM_WEB|\/examples/kubernetes/1.8/cilium.yaml | \\
+        sed -e 's/sidecar-http-proxy: "false"/sidecar-http-proxy: "true"/' | \\
+        kubectl create -f -
+
       configmap "cilium-config" created
       secret "cilium-etcd-secrets" created
       daemonset.extensions "cilium" created
@@ -120,7 +126,10 @@ To deploy Cilium, run:
 
     .. parsed-literal::
 
-      $ kubectl create -f \ |SCM_WEB|\/examples/kubernetes/1.9/cilium-sidecar.yaml
+      $ curl -s \ |SCM_WEB|\/examples/kubernetes/1.9/cilium.yaml | \\
+        sed -e 's/sidecar-http-proxy: "false"/sidecar-http-proxy: "true"/' | \\
+        kubectl create -f -
+
       configmap "cilium-config" created
       secret "cilium-etcd-secrets" created
       daemonset.extensions "cilium" created
@@ -132,7 +141,10 @@ To deploy Cilium, run:
 
     .. parsed-literal::
 
-      $ kubectl create -f \ |SCM_WEB|\/examples/kubernetes/1.10/cilium-sidecar.yaml
+      $ curl -s \ |SCM_WEB|\/examples/kubernetes/1.10/cilium.yaml | \\
+        sed -e 's/sidecar-http-proxy: "false"/sidecar-http-proxy: "true"/' | \\
+        kubectl create -f -
+
       configmap "cilium-config" created
       secret "cilium-etcd-secrets" created
       daemonset.extensions "cilium" created
@@ -144,7 +156,10 @@ To deploy Cilium, run:
 
     .. parsed-literal::
 
-      $ kubectl create -f \ |SCM_WEB|\/examples/kubernetes/1.11/cilium-sidecar.yaml
+      $ curl -s \ |SCM_WEB|\/examples/kubernetes/1.11/cilium.yaml | \\
+        sed -e 's/sidecar-http-proxy: "false"/sidecar-http-proxy: "true"/' | \\
+        kubectl create -f -
+
       configmap "cilium-config" created
       secret "cilium-etcd-secrets" created
       daemonset.extensions "cilium" created
