@@ -1974,8 +1974,8 @@ of all details, but enough for getting started.
     1: (95) exit
     # ip link set dev em1 xdpgeneric off
 
-  And last but not least offloaded XDP, where we additionally dump prog
-  information via bpftool for retrieving general metadata about the:
+  And last but not least offloaded XDP, where we additionally dump program
+  information via bpftool for retrieving general metadata:
 
   ::
 
@@ -2964,13 +2964,272 @@ Program Types
 =============
 
 At the time of this writing, there are eighteen different BPF program types
-available, two of them are further explained in below subsections, namely
-XDP BPF programs as well as tc BPF programs.
+available, two of the main types for networking are further explained in below
+subsections, namely XDP BPF programs as well as tc BPF programs.
 
 XDP
 ---
 
-TODO
+XDP stands for eXpress Data Path and provides a framework for BPF that enables
+high-performance programmable packet processing in the Linux kernel. It runs
+the BPF program at the earliest possible point in software, namely at the moment
+the network driver receives the packet.
+
+At this point in the fast-path the driver just picked up the packet from its
+receive rings, without having done any expensive operations such as allocating
+an ``skb`` for pushing the packet further up the networking stack, without
+having pushed the packet into the GRO engine, etc. Thus, the XDP BPF program
+is executed at the earliest point when it becomes available to the CPU for
+processing.
+
+XDP works in concert with the Linux kernel and its infrastructure, meaning
+the kernel is not bypassed as in various networking frameworks that operate
+in user space only. Keeping the packet in kernel space has several major
+advantages:
+
+* XDP is able to reuse all the upstream developed kernel networking drivers,
+  user space tooling, or even other available in-kernel infrastructure such
+  as routing tables, sockets, etc in BPF helper calls itself.
+* Residing in kernel space, XDP has the same security model as the rest of
+  the kernel for accessing hardware.
+* There is no need for crossing kernel / user space boundaries since the
+  processed packet already resides in the kernel and can therefore flexibly
+  forward packets into other in-kernel entities like namespaces used by
+  containers or the kernel's networking stack itself.
+* Punting packets from XDP to the kernel's robust, widely used and efficient
+  TCP/IP stack is trivially possible, allows for full reuse and does not
+  require maintaining a separate TCP/IP stack as with user space frameworks.
+* The use of BPF allows for full programmability, keeping a stable ABI with
+  the same 'never-break-user-space' guarantees as with the kernel's system
+  call ABI and compared to modules it also provides safety measures thanks to
+  the BPF verifier that ensures the stability of the kernel's operation.
+* XDP trivially allows for atomically swapping programs during runtime without
+  any network traffic interruption or even kernel / system reboot.
+* XDP does not require any third party kernel modules or licensing. It is
+  a core part of the Linux kernel and developed by the kernel community.
+* XDP is already enabled and shipped everywhere with major distributions
+  running a kernel equivalent to 4.8 or higher and supports most major 10G
+  or higher networking drivers.
+
+**BPF program return codes**
+
+After running the XDP BPF program, a verdict is returned from the program in
+order to tell the driver how to process the packet next. In the ``linux/bpf.h``
+system header file all available return verdicts are enumerated:
+
+::
+
+    enum xdp_action {
+        XDP_ABORTED = 0,
+        XDP_DROP,
+        XDP_PASS,
+        XDP_TX,
+        XDP_REDIRECT,
+    };
+
+``XDP_DROP`` as the name suggests will drop the packet right at the driver
+level without wasting any further resources. This is in particular useful
+for BPF programs implementing DDoS mitigation mechanisms or firewalling in
+general. The ``XDP_PASS`` return code means that the packet is allowed to
+be passed up to the kernel's networking stack. Meaning, the current CPU
+that was processing this packet now allocates a ``skb``, populates it, and
+passes it onwards into the GRO engine. This would be equivalent to the
+default packet handling behavior without XDP. With ``XDP_TX`` the BPF program
+has an efficient option to transmit the network packet out of the same NIC it
+just arrived on again. This is typically useful when few nodes are implementing,
+for example, firewalling with subsequent load balancing in a cluster and
+thus act as a hairpinned load balancer pushing the incoming packets back
+into the switch after rewriting them in XDP BPF. ``XDP_REDIRECT`` is similar
+to ``XDP_TX`` in that it is able to transmit the XDP packet, but through
+another NIC. Another option for the ``XDP_REDIRECT`` case is to redirect
+into a BPF cpumap, meaning, the CPUs serving XDP on the NIC's receive queues
+can continue to do so and push the packet for processing the upper kernel
+stack to a remote CPU. This is similar to ``XDP_PASS``, but with the ability
+that the XDP BPF program can keep serving the incoming high load as opposed
+to temporarily spend work on the current packet for pushing into upper
+layers. Last but not least, ``XDP_ABORTED`` which serves denoting an exception
+like state from the program and has the same behavior as ``XDP_DROP`` only
+that ``XDP_ABORTED`` passes the ``trace_xdp_exception`` tracepoint which
+can be additionally monitored to detect misbehavior.
+
+**Use cases for XDP**
+
+Some of the main use cases for XDP are presented in this subsection. The
+list is non-exhaustive and given the programmability and efficiency XDP
+and BPF enables, it can easily be adapted to solve very specific use
+cases.
+
+* **DDoS mitigation, firewalling**
+
+  One of the basic XDP BPF features is to tell the driver to drop a packet
+  with ``XDP_DROP`` at this early stage which allows for any kind of efficient
+  network policy enforcement with having an extremely low per packet cost.
+  This is ideal in situations when needing to cope with any sort of DDoS
+  attacks, but also more general allows to implement any sort of firewalling
+  policies with close to no overhead in BPF e.g. in either case as stand alone
+  appliance (e.g. scrubbing 'clean' traffic through ``XDP_TX``) or widely
+  deployed on nodes protecting end hosts themselves (via ``XDP_PASS`` or
+  cpumap ``XDP_REDIRECT`` for good traffic). Offloaded XDP takes this even
+  one step further by moving the already small per packet cost entirely
+  into the NIC with processing at line-rate.
+
+..
+
+* **Forwarding and load-balancing**
+
+  Another major use case of XDP is packet forwarding and load-balancing
+  through either ``XDP_TX`` or ``XDP_REDIRECT`` actions. The packet can
+  be arbitrarily mangled by the BPF program running in the XDP layer,
+  even BPF helper functions are available for increasing or decreasing
+  the packet's headroom in order to arbitrarily encapsulate respectively
+  decapsulate the packet before sending it out again. With ``XDP_TX``
+  hairpinned load-balancers can be implemented that push the packet out
+  of the same networking device it originally arrived on, or with the
+  ``XDP_REDIRECT`` action it can be forwarded to another NIC for
+  transmission. The latter return code can also be used in combination
+  with BPF's cpumap to load-balance packets for passing up the local
+  stack, but on remote, non-XDP processing CPUs.
+
+..
+
+* **Pre-stack filtering / processing**
+
+  Besides policy enforcement, XDP can also be used for hardening the
+  kernel's networking stack with the help of ``XDP_DROP`` case, meaning,
+  it can drop irrelevant packets for a local node right at the earliest
+  possible point before the networking stack sees them e.g. given we
+  know that a node only serves TCP traffic, any UDP, SCTP or other L4
+  traffic can be dropped right away. This has the advantage that packets
+  do not need to traverse various entities like GRO engine, the kernel's
+  flow dissector and others before it can be determined to drop them and
+  thus this allows for reducing the kernel's attack surface. Thanks to
+  XDP's early processing stage, this effectively 'pretends' to the kernel's
+  networking stack that these packets have never been seen by the networking
+  device. Additionally, if a potential bug in the stack's receive path
+  got uncovered and would cause a 'ping of death' like scenario, XDP can be
+  utilized to drop such packets right away without having to reboot the
+  kernel or restart any services. Due to the ability to atomically swap
+  such programs to enforce a drop of bad packets, no network traffic is
+  even interrupted on a host.
+
+  Another use case for pre-stack processing is that given the kernel has not
+  yet allocated an ``skb`` for the packet, the BPF program is free to modify
+  the packet and, again, have it 'pretend' to the stack that it was received
+  by the networking device this way. This allows for cases such as having
+  custom packet mangling and encapsulation protocols where the packet can be
+  decapsulated prior to entering GRO aggregation in which GRO otherwise would
+  not be able to perform any sort of aggregation due to not being aware of
+  the custom protocol. XDP also allows to push metadata (non-packet data) in
+  front of the packet. This is 'invisible' to the normal kernel stack, can
+  be GRO aggregated (for matching metadata) and later on processed in
+  coordination with a tc ingress BPF program where it has the context of
+  a ``skb`` available for e.g. setting various skb fields.
+
+..
+
+* **Flow sampling, monitoring**
+
+  XDP can also be used for cases such as packet monitoring, sampling or any
+  other network analytics, for example, as part of an intermediate node in
+  the path or on end hosts in combination also with prior mentioned use cases.
+  For complex packet analysis, XDP provides a facility to efficiently push
+  network packets (truncated or with full payload) and custom metadata into
+  a fast lockless per CPU memory mapped ring buffer provided from the Linux
+  perf infrastructure to an user space application. This also allows for
+  cases where only a flow's initial data can be analyzed and once determined
+  as good traffic having the monitoring bypassed. Thanks to the flexibility
+  brought by BPF, this allows for implementing any sort of custom monitoring
+  or sampling.
+
+..
+
+**XDP operation modes**
+
+* **Native XDP**
+
+  TODO
+
+..
+
+* **Offloaded XDP**
+
+  TODO
+
+..
+
+* **Generic XDP**
+
+  TODO
+
+..
+
+**Driver support**
+
+Since BPF and XDP is evolving quickly in terms of feature and driver support,
+the following lists native and offloaded XDP drivers as of kernel 4.17.
+
+**Drivers supporting native XDP**
+
+* **Broadcom**
+
+  * bnxt
+
+..
+
+* **Cavium**
+
+  * thunderx
+
+..
+
+* **Intel**
+
+  * ixgbe
+  * ixgbevf
+  * i40e
+
+..
+
+* **Mellanox**
+
+  * mlx4
+  * mlx5
+
+..
+
+* **Netronome**
+
+  * nfp
+
+..
+
+* **Solarflare**
+
+  * sfc [1]_
+
+..
+
+* **Others**
+
+  * tun
+  * virtio_net
+
+..
+
+* **Qlogic**
+
+  * qede
+
+.. [1] XDP available via out of tree driver as of kernel 4.17, but will be
+   upstreamed soon.
+
+**Drivers supporting offloaded XDP**
+
+* **Netronome**
+
+  * nfp
+
+TODO (remaining XDP)
 
 tc (traffic control)
 --------------------
@@ -2992,14 +3251,16 @@ Kernel Developer FAQ
 Under ``Documentation/bpf/``, the Linux kernel provides two FAQ files that
 are mainly targeted for kernel developers involved in the BPF subsystem.
 
-* BPF Devel FAQ: this document provides mostly information around patch
+* **BPF Devel FAQ:** this document provides mostly information around patch
   submission process as well as BPF kernel tree, stable tree and bug
   reporting workflows, questions around BPF's extensibility and interaction
   with LLVM and more.
 
   https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/Documentation/bpf/bpf_devel_QA.txt
 
-* BPF Design FAQ: this document tries to answer frequently asked questions
+..
+
+* **BPF Design FAQ:** this document tries to answer frequently asked questions
   around BPF design decisions related to the instruction set, verifier,
   calling convention, JITs, etc.
 
@@ -3008,22 +3269,227 @@ are mainly targeted for kernel developers involved in the BPF subsystem.
 Projects using BPF
 ------------------
 
-The following list includes some open source projects making use of BPF:
+The following list includes a selection of open source projects making
+use of BPF respectively provide tooling for BPF. In this context the eBPF
+instruction set is specifically meant instead of projects utilizing the
+legacy cBPF:
 
-- BCC - tools for BPF-based Linux IO analysis, networking, monitoring, and more
-  (https://github.com/iovisor/bcc)
-- Cilium
-  (https://github.com/cilium/cilium)
-- iproute2 (ip and tc tools)
-  (https://wiki.linuxfoundation.org/networking/iproute2)
-- perf tool
-  (https://perf.wiki.kernel.org/index.php/Main_Page)
-- ply - a dynamic tracer for Linux
-  (https://wkz.github.io/ply)
-- Go bindings for creating BPF programs
-  (https://github.com/iovisor/gobpf)
-- Suricata IDS
-  (https://suricata-ids.org)
+**Tracing**
+
+* **BCC**
+
+  BCC stands for BPF Compiler Collection and its key feature is to provide
+  a set of easy to use and efficient kernel tracing utilities all based
+  upon BPF programs hooking into kernel infrastructure based upon kprobes,
+  kretprobes, tracepoints, uprobes, uretprobes as well as USDT probes. The
+  collection provides close to hundred tools targeting different layers
+  across the stack from applications, system libraries, to the various
+  different kernel subsystems in order to analyze a system's performance
+  characteristics or problems. Additionally, BCC provides an API in order
+  to be used as a library for other projects.
+
+  https://github.com/iovisor/bcc
+
+..
+
+* **bpftrace**
+
+  bpftrace is a DTrace-style dynamic tracing tool for Linux and uses LLVM
+  as a back end to compile scripts to BPF-bytecode and makes use of BCC
+  for interacting with the kernel's BPF tracing infrastructure. It provides
+  a higher-level language for implementing tracing scripts compared to
+  native BCC.
+
+  https://github.com/ajor/bpftrace
+
+..
+
+* **perf**
+
+  The perf tool which is developed by the Linux kernel community as
+  part of the kernel source tree provides a way to load tracing BPF
+  programs through the conventional perf record subcommand where the
+  aggregated data from BPF can be retrieved and post processed in
+  perf.data for example through perf script and other means.
+
+  https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/tools/perf
+
+..
+
+* **ply**
+
+  ply is a tracing tool that follows the 'Little Language' approach of
+  yore, and compiles ply scripts into Linux BPF programs that are attached
+  to kprobes and tracepoints in the kernel. The scripts have a C-like syntax,
+  heavily inspired by DTrace and by extension awk. ply keeps dependencies
+  to very minimum and only requires flex and bison at build time, only libc
+  at runtime.
+
+  https://github.com/wkz/ply
+
+..
+
+* **systemtap**
+
+  systemtap is a scripting language and tool for extracting, filtering and
+  summarizing data in order to diagnose and analyze performance or functional
+  problems. It comes with a BPF back end called stapbpf which translates
+  the script directly into BPF without the need of an additional compiler
+  and injects the probe into the kernel. Thus, unlike stap's kernel modules
+  this does neither have external dependencies nor requires to load kernel
+  modules.
+
+  https://sourceware.org/git/gitweb.cgi?p=systemtap.git;a=summary
+
+..
+
+* **PCP**
+
+  Performance Co-Pilot (PCP) is a system performance and analysis framework
+  which is able to collect metrics through a variety of agents as well as
+  analyze collected systems' performance metrics in real-time or by using
+  historical data. With pmdabcc, PCP has a BCC based performance metrics
+  domain agent which extracts data from the kernel via BPF and BCC.
+
+  https://github.com/performancecopilot/pcp
+
+..
+
+* **Weave Scope**
+
+  Weave Scope is a cloud monitoring tool collecting data about processes,
+  networking connections or other system data by making use of BPF in combination
+  with kprobes. Weave Scope works on top of the gobpf library in order to load
+  BPF ELF files into the kernel, and comes with a tcptracer-bpf tool which
+  monitors connect, accept and close calls in order to trace TCP events.
+
+  https://github.com/weaveworks/scope
+
+..
+
+**Networking**
+
+* **Cilium**
+
+  Cilium provides and transparently secures network connectivity and load-balancing
+  between application workloads such as application containers or processes. Cilium
+  operates at Layer 3/4 to provide traditional networking and security services
+  as well as Layer 7 to protect and secure use of modern application protocols
+  such as HTTP, gRPC and Kafka. It is integrated into orchestration frameworks
+  such as Kubernetes and Mesos, and BPF is the foundational part of Cilium that
+  operates in the kernel's networking data path.
+
+  https://github.com/cilium/cilium
+
+..
+
+* **Suricata**
+
+  Suricata is a network IDS, IPS and NSM engine, and utilizes BPF as well as XDP
+  in three different areas, that is, as BPF filter in order to process or bypass
+  certain packets, as a BPF based load balancer in order to allow for programmable
+  load balancing and for XDP to implement a bypass or dropping mechanism at high
+  packet rates.
+
+  https://github.com/OISF/suricata
+
+..
+
+* **systemd**
+
+  systemd allows for IPv4/v6 accounting as well as implementing network access
+  control for its systemd units based on BPF's cgroup ingress and egress hooks.
+  Accounting is based on packets / bytes, and ACLs can be specified as address
+  prefixes for allow / deny rules. More information can be found at:
+
+  http://0pointer.net/blog/ip-accounting-and-access-lists-with-systemd.html
+
+  https://github.com/systemd/systemd
+
+..
+
+* **iproute2**
+
+  iproute2 offers the ability to load BPF programs as LLVM generated ELF files
+  into the kernel. iproute2 supports both, XDP BPF programs as well as tc BPF
+  programs through a common BPF loader backend. The tc and ip command line
+  utilities enable loader and introspection functionality for the user.
+
+  https://git.kernel.org/pub/scm/network/iproute2/iproute2.git/
+
+..
+
+* **p4c-xdp**
+
+  p4c-xdp presents a P4 compiler backend targeting BPF and XDP. P4 is a domain
+  specific language describing how packets are processed by the data plane of
+  a programmable network element such as NICs, appliances or switches, and with
+  the help of p4c-xdp P4 programs can be translated into BPF C programs which
+  can be compiled by clang / LLVM and loaded as BPF programs into the kernel
+  at XDP layer for high performance packet processing.
+
+  https://github.com/vmware/p4c-xdp
+
+..
+
+**Others**
+
+* **LLVM**
+
+  clang / LLVM provides the BPF back end in order to compile C BPF programs
+  into BPF instructions contained in ELF files. The LLVM BPF back end is
+  developed alongside with the BPF core infrastructure in the Linux kernel
+  and maintained by the same community. clang / LLVM is a key part in the
+  toolchain for developing BPF programs.
+
+  https://llvm.org/
+
+..
+
+* **libbpf**
+
+  libbpf is a generic BPF library which is developed by the Linux kernel
+  community as part of the kernel source tree and allows for loading and
+  attaching BPF programs from LLVM generated ELF files into the kernel.
+  The library is used by other kernel projects such as perf and bpftool.
+
+  https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/tools/lib/bpf
+
+..
+
+* **bpftool**
+
+  bpftool is the main tool for introspecting and debugging BPF programs
+  and BPF maps, and like libbpf is developed by the Linux kernel community.
+  It allows for dumping all active BPF programs and maps in the system,
+  dumping and disassembling BPF or JITed BPF instructions from a program
+  as well as dumping and manipulating BPF maps in the system. bpftool
+  supports interaction with the BPF filesystem, loading various program
+  types from an object file into the kernel and much more.
+
+  https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/tools/bpf/bpftool
+
+..
+
+* **gobpf**
+
+  gobpf provides go bindings for the bcc framework as well as low-level routines in
+  oder to load and use BPF programs from ELF files.
+
+  https://github.com/iovisor/gobpf
+
+..
+
+* **ebpf_asm**
+
+  ebpf_asm provides an assembler for BPF programs written in an Intel-like assembly
+  syntax, and therefore offers an alternative for writing BPF programs directly in
+  assembly for cases where programs are rather small and simple without needing the
+  clang / LLVM toolchain.
+
+  https://github.com/solarflarecom/ebpf_asm
+
+..
 
 XDP Newbies
 -----------
