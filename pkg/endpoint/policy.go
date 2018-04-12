@@ -968,7 +968,8 @@ func (e *Endpoint) regenerate(owner Owner, reason string) (retErr error) {
 }
 
 // Regenerate forces the regeneration of endpoint programs & policy
-// Should only be called with e.state == StateWaitingToRegenerate
+// Should only be called with e.state == StateWaitingToRegenerate or with
+// e.state == StateWaitingForIdentity
 func (e *Endpoint) Regenerate(owner Owner, reason string) <-chan bool {
 	newReq := &Request{
 		ID:           uint64(e.ID),
