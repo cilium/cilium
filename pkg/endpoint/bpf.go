@@ -45,8 +45,8 @@ import (
 	"github.com/cilium/cilium/pkg/u8proto"
 	"github.com/cilium/cilium/pkg/version"
 
-	"github.com/spf13/viper"
 	"github.com/cilium/cilium/pkg/bpf"
+	"github.com/spf13/viper"
 )
 
 const (
