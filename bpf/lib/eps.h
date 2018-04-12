@@ -1,5 +1,5 @@
 /*
- *  Copyright (C) 2017 Authors of Cilium
+ *  Copyright (C) 2017-2018 Authors of Cilium
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -46,27 +46,63 @@ lookup_ip4_endpoint(struct iphdr *ip4)
 }
 
 #if defined POLICY_EGRESS && defined LXC_ID
+/* IPCACHE_STATIC_PREFIX gets sizeof non-IP, non-prefix part of ipcache_key */
+#define IPCACHE_STATIC_PREFIX							\
+	(8 * (sizeof(struct ipcache_key) - sizeof(struct bpf_lpm_trie_key)	\
+	      - sizeof(union v6addr)))
+#define IPCACHE_PREFIX_LEN(PREFIX) (IPCACHE_STATIC_PREFIX + PREFIX)
+
 static __always_inline struct remote_endpoint_info *
-lookup_ip6_remote_endpoint(union v6addr *ip6)
+ipcache_lookup6(struct bpf_elf_map *map, union v6addr *addr, __u32 prefix)
 {
-	struct endpoint_key key = {};
-
-	key.ip6 = *ip6;
-	key.family = ENDPOINT_KEY_IPV6;
-
-	return map_lookup_elem(&cilium_ipcache, &key);
+	struct ipcache_key key = {
+		.lpm_key = { IPCACHE_PREFIX_LEN(prefix) },
+		.family = ENDPOINT_KEY_IPV6,
+		.ip6 = *addr,
+	};
+	ipv6_addr_clear_suffix(&key.ip6, prefix);
+	return map_lookup_elem(map, &key);
 }
 
 static __always_inline struct remote_endpoint_info *
-lookup_ip4_remote_endpoint(__be32 ip4)
+ipcache_lookup4(struct bpf_elf_map *map, __be32 addr, __u32 prefix)
 {
-	struct endpoint_key key = {};
-
-	key.ip4 = ip4;
-	key.family = ENDPOINT_KEY_IPV4;
-
-	return map_lookup_elem(&cilium_ipcache, &key);
+	struct ipcache_key key = {
+		.lpm_key = { IPCACHE_PREFIX_LEN(prefix) },
+		.family = ENDPOINT_KEY_IPV4,
+		.ip4 = addr,
+	};
+	key.ip4 &= GET_PREFIX(prefix);
+	return map_lookup_elem(map, &key);
 }
+
+/* Define a function with the following NAME which iterates through PREFIXES
+ * (a list of integers ordered from high to low representing prefix length),
+ * performing a lookup in MAP using LOOKUP_FN to find a provided IP of type
+ * IPTYPE. */
+#define LPM_LOOKUP_FN(NAME, IPTYPE, PREFIXES, MAP, LOOKUP_FN)		\
+static __always_inline struct remote_endpoint_info *NAME(IPTYPE addr) \
+{									\
+	int prefixes[] = { PREFIXES };					\
+	const int size = (sizeof(prefixes) / sizeof(prefixes[0]));	\
+	struct remote_endpoint_info *info;				\
+	int i;								\
+									\
+_Pragma("unroll")							\
+	for (i = 0; i < size; i++) {					\
+		info = LOOKUP_FN(&MAP, addr, prefixes[i]);		\
+		if (info != NULL)					\
+			return info;					\
+	}								\
+									\
+	return NULL;							\
+}
+LPM_LOOKUP_FN(lookup_ip6_remote_endpoint, union v6addr *, IPCACHE6_PREFIXES,
+	      cilium_ipcache, ipcache_lookup6)
+LPM_LOOKUP_FN(lookup_ip4_remote_endpoint, __be32, IPCACHE4_PREFIXES,
+	      cilium_ipcache, ipcache_lookup4)
+#undef LPM_LOOKUP_FN
+
 #endif /* POLICY_EGRESS */
 
 #endif /* __LIB_EPS_H_ */

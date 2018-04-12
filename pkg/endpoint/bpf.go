@@ -1,4 +1,4 @@
-// Copyright 2016-2017 Authors of Cilium
+// Copyright 2016-2018 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -327,6 +327,10 @@ func (e *Endpoint) writeHeaderfile(prefix string, owner Owner) error {
 			fw.WriteString("\n")
 		}
 	}
+
+	// IPCache only supports hosts at the moment, only set host prefix
+	fw.WriteString("#define IPCACHE6_PREFIXES 128\n") // bits
+	fw.WriteString("#define IPCACHE4_PREFIXES 32\n")  // bits
 
 	return fw.Flush()
 }

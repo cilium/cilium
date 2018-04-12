@@ -19,6 +19,7 @@ import (
 	"net"
 	"unsafe"
 
+	"github.com/cilium/cilium/common/types"
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/logging"
 )
@@ -31,24 +32,57 @@ const (
 	MaxEntries = 512000
 )
 
-// EndpointKey implements the bpf.MapKey interface.
-type EndpointKey struct {
-	bpf.EndpointKey
+// Key implements the bpf.MapKey interface.
+//
+// Must be in sync with struct bpf_ipcache_key in <bpf/lib/eps.h>
+type Key struct {
+	Prefixlen uint32
+	Pad1      uint16
+	Pad2      uint8
+	Family    uint8
+	IP        types.IPv6 // represents both IPv6 and IPv4 (in the lowest four bytes)
 }
 
 // GetKeyPtr returns the unsafe pointer to the BPF key
-func (k EndpointKey) GetKeyPtr() unsafe.Pointer { return unsafe.Pointer(&k) }
+func (k Key) GetKeyPtr() unsafe.Pointer { return unsafe.Pointer(&k) }
 
 // NewValue returns a new empty instance of the structure representing the BPF
 // map value
-func (k EndpointKey) NewValue() bpf.MapValue { return &RemoteEndpointInfo{} }
+func (k Key) NewValue() bpf.MapValue { return &RemoteEndpointInfo{} }
 
-// NewEndpointKey returns an EndpointKey based on the provided IP address. The
-// address family is automatically detected
-func NewEndpointKey(ip net.IP) EndpointKey {
-	return EndpointKey{
-		EndpointKey: bpf.NewEndpointKey(ip),
+func getStaticPrefixBits() uint32 {
+	staticMatchSize := unsafe.Sizeof(Key{})
+	staticMatchSize -= unsafe.Sizeof(Key{}.Prefixlen)
+	staticMatchSize -= unsafe.Sizeof(Key{}.IP)
+	return uint32(staticMatchSize) * 8
+}
+
+func (k Key) String() string {
+	switch k.Family {
+	case bpf.EndpointKeyIPv4:
+		return net.IP(k.IP[:net.IPv4len]).String()
+	case bpf.EndpointKeyIPv6:
+		return k.IP.String()
 	}
+	return fmt.Sprintf("<unknown> %#v", k)
+}
+
+// NewKey returns an Key based on the provided IP address. The
+// address family is automatically detected
+func NewKey(ip net.IP) Key {
+	result := Key{}
+
+	if ip4 := ip.To4(); ip4 != nil {
+		result.Prefixlen = net.IPv4len*8 + getStaticPrefixBits()
+		result.Family = bpf.EndpointKeyIPv4
+		copy(result.IP[:], ip4)
+	} else {
+		result.Prefixlen = net.IPv6len*8 + getStaticPrefixBits()
+		result.Family = bpf.EndpointKeyIPv6
+		copy(result.IP[:], ip)
+	}
+
+	return result
 }
 
 // RemoteEndpointInfo implements the bpf.MapValue interface. It contains the
@@ -72,12 +106,12 @@ var (
 	IPCache = bpf.NewMap(
 		"cilium_ipcache",
 		bpf.BPF_MAP_TYPE_HASH,
-		int(unsafe.Sizeof(EndpointKey{})),
+		int(unsafe.Sizeof(Key{})),
 		int(unsafe.Sizeof(RemoteEndpointInfo{})),
 		MaxEntries,
 		0,
 		func(key []byte, value []byte) (bpf.MapKey, bpf.MapValue, error) {
-			k, v := EndpointKey{}, RemoteEndpointInfo{}
+			k, v := Key{}, RemoteEndpointInfo{}
 
 			if err := bpf.ConvertKeyValue(key, value, &k, &v); err != nil {
 				return nil, nil, err

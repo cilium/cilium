@@ -26,7 +26,7 @@ import (
 )
 
 const (
-	ipAddrTitle   = "IP ADDRESS"
+	ipAddrTitle   = "IP PREFIX/ADDRESS"
 	identityTitle = "IDENTITY"
 )
 

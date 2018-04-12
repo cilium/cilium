@@ -784,7 +784,7 @@ func (d *Daemon) OnIPIdentityCacheChange(modType ipcache.CacheModification, ipID
 	// logically located.
 
 	// Update BPF Maps.
-	key := ipCacheBPF.NewEndpointKey(ipIDPair.IP)
+	key := ipCacheBPF.NewKey(ipIDPair.IP)
 
 	switch modType {
 	case ipcache.Upsert:
@@ -828,12 +828,12 @@ func (d *Daemon) OnIPIdentityCacheGC() {
 				ipcache.IPIdentityCache.RLock()
 				defer ipcache.IPIdentityCache.RUnlock()
 
-				keysToRemove := map[ipCacheBPF.EndpointKey]struct{}{}
+				keysToRemove := map[ipCacheBPF.Key]struct{}{}
 
 				// Add all keys which are in BPF map but not in in-memory cache
 				// to set of keys to remove from BPF map.
 				cb := func(key bpf.MapKey, value bpf.MapValue) {
-					k := key.(ipCacheBPF.EndpointKey)
+					k := key.(ipCacheBPF.Key)
 					keyToIP := k.String()
 
 					// Don't RLock as part of the same goroutine.
