@@ -896,7 +896,7 @@ func (kub *Kubectl) GatherLogs() {
 		"kubectl get services --all-namespaces -o json":              "svc.txt",
 		"kubectl get ds --all-namespaces -o json":                    "ds.txt",
 		"kubectl get cnp --all-namespaces -o json":                   "cnp.txt",
-		"kubectl describe pods --all-namespaces -o json":             "pods_status.txt",
+		"kubectl describe pods --all-namespaces":                     "pods_status.txt",
 		"kubectl get replicationcontroller --all-namespaces -o json": "replicationcontroller.txt",
 		"kubectl get deployment --all-namespaces -o json":            "deployment.txt",
 	}
