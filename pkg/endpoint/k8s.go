@@ -26,10 +26,18 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/sirupsen/logrus"
+	// todo check this is the right rand
 	"math/rand"
 	"time"
 
+	"github.com/cilium/cilium/api/v1/models"
+	"github.com/cilium/cilium/pkg/labels"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"reflect"
+
+	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 )
 
 // getCiliumClient builds and returns a k8s auto-generated client for cilium
@@ -169,6 +177,154 @@ func RunK8sCiliumEndpointSyncGC() {
 							return err
 						}
 					}
+				}
+				return nil
+			},
+		})
+}
+
+// RunK8sCiliumEndpointSync starts a controller that syncronizes the endpoint
+// to the corresponding k8s CiliumEndpoint CRD
+// CiliumEndpoint objects have the same name as the pod they represent
+func (e *Endpoint) RunK8sCiliumEndpointSync() {
+	var (
+		endpointID     = e.ID
+		controllerName = fmt.Sprintf("sync-to-k8s-ciliumendpoint (%v)", endpointID)
+		scopedLog      = e.getLogger().WithField("controller", controllerName)
+		healthLbls     = labels.Labels{labels.IDNameHealth: labels.NewLabel(labels.IDNameHealth, "", labels.LabelSourceReserved)}
+	)
+
+	if !k8s.IsEnabled() {
+		scopedLog.Debug("Not starting controller because k8s is disabled")
+		return
+	}
+	sv, err := k8s.GetServerVersion()
+	if err != nil {
+		scopedLog.WithError(err).Error("unable to retrieve kubernetes serverversion")
+		return
+	}
+	if !ciliumEPControllerLimit.Check(sv) {
+		scopedLog.WithFields(logrus.Fields{
+			"expected": sv,
+			"found":    ciliumEPControllerLimit,
+		}).Warn("cannot run with this k8s version")
+		return
+	}
+
+	ciliumClient, err := getCiliumClient()
+	if err != nil {
+		scopedLog.WithError(err).Error("Not starting controller because unable to get cilium k8s client")
+		return
+	}
+
+	var (
+		lastMdl  *models.Endpoint
+		firstRun = true
+	)
+
+	// NOTE: The controller functions do NOT hold the endpoint locks
+	e.controllers.UpdateController(controllerName,
+		controller.ControllerParams{
+			RunInterval: 10 * time.Second,
+			DoFunc: func() (err error) {
+				var (
+					podName    string
+					namespace  string
+					isHealthEP = e.HasLabels(healthLbls)
+				)
+
+				switch isHealthEP {
+				case true:
+					podName = HealthCEPPrefix + node.GetName()
+					namespace = ReservedCEPNamespace
+
+				case false:
+					podName = e.GetK8sPodName()
+					if podName == "" {
+						scopedLog.Debug("Skipping CiliumEndpoint update because it has no k8s pod name")
+						return nil
+					}
+
+					namespace = e.GetK8sNamespace()
+					if namespace == "" {
+						scopedLog.Debug("Skipping CiliumEndpoint update because it has no k8s namespace")
+						return nil
+					}
+				}
+
+				mdl := e.GetModel()
+				if reflect.DeepEqual(mdl, lastMdl) {
+					scopedLog.Debug("Skipping CiliumEndpoint update because it has not changed")
+					return nil
+				}
+				k8sMdl := (*cilium_v2.CiliumEndpointDetail)(mdl)
+
+				cep, err := ciliumClient.CiliumEndpoints(namespace).Get(podName, meta_v1.GetOptions{})
+				switch {
+				// The CEP doesn't exist. We will fall through to the create code below
+				case err != nil && k8serrors.IsNotFound(err):
+					break
+
+					// Delete the CEP on the first ever run. We will fall through to the create code below
+				case firstRun:
+					firstRun = false
+					scopedLog.Debug("Deleting CEP on first run")
+					err := ciliumClient.CiliumEndpoints(namespace).Delete(podName, &meta_v1.DeleteOptions{})
+					if err != nil {
+						scopedLog.WithError(err).Warn("Error deleting CEP")
+						return err
+					}
+
+					// Delete an invalid CEP. We will fall through to the create code below
+				case err != nil && k8serrors.IsInvalid(err):
+					scopedLog.WithError(err).Warn("Invalid CEP during update")
+					err := ciliumClient.CiliumEndpoints(namespace).Delete(podName, &meta_v1.DeleteOptions{})
+					if err != nil {
+						scopedLog.WithError(err).Warn("Error deleting invalid CEP during update")
+						return err
+					}
+
+					// A real error
+				case err != nil && !k8serrors.IsNotFound(err):
+					scopedLog.WithError(err).Error("Cannot get CEP for update")
+					return err
+
+					// do an update
+				case err == nil:
+					// Update the copy of the cep
+					k8sMdl.DeepCopyInto(&cep.Status)
+
+					if _, err = ciliumClient.CiliumEndpoints(namespace).Update(cep); err != nil {
+						scopedLog.WithError(err).Error("Cannot update CEP")
+						return err
+					}
+
+					lastMdl = mdl
+					return nil
+				}
+
+				// The CEP was not found, this is the first creation of the endpoint
+				cep = &cilium_v2.CiliumEndpoint{
+					ObjectMeta: meta_v1.ObjectMeta{
+						Name: podName,
+					},
+					Status: *k8sMdl,
+				}
+
+				_, err = ciliumClient.CiliumEndpoints(namespace).Create(cep)
+				if err != nil {
+					scopedLog.WithError(err).Error("Cannot create CEP")
+					return err
+				}
+
+				return nil
+			},
+			StopFunc: func() error {
+				podName := e.GetK8sPodName()
+				namespace := e.GetK8sNamespace()
+				if err := ciliumClient.CiliumEndpoints(namespace).Delete(podName, &meta_v1.DeleteOptions{}); err != nil {
+					scopedLog.WithError(err).Error("Unable to delete CEP")
+					return err
 				}
 				return nil
 			},
