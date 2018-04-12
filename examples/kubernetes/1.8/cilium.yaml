@@ -11,7 +11,7 @@ data:
   etcd-config: |-
     ---
     endpoints:
-    - http://127.0.0.1:2379
+    - http://127.0.0.1:31079
     #
     # In case you want to use TLS in etcd, uncomment the following line
     # and add the certificate as explained in the comment labeled "ETCD-CERT"
