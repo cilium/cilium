@@ -83,7 +83,7 @@ struct bpf_elf_map __section_maps CALLS_MAP = {
 
 #ifdef ENCAP_IFINDEX
 
-struct bpf_elf_map __section_maps tunnel_endpoint_map = {
+struct bpf_elf_map __section_maps cilium_tunnel_map = {
 	.type		= BPF_MAP_TYPE_HASH,
 	.size_key	= sizeof(struct endpoint_key),
 	.size_value	= sizeof(struct endpoint_key),

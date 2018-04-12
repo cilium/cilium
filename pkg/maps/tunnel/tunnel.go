@@ -22,7 +22,7 @@ import (
 )
 
 const (
-	mapName = "tunnel_endpoint_map"
+	MapName = "cilium_tunnel_map"
 
 	// MaxEntries is the maximum entries in the tunnel endpoint map
 	MaxEntries = 65536
@@ -30,7 +30,7 @@ const (
 
 var (
 	// TunnelMap represents the BPF map for tunnels
-	TunnelMap = bpf.NewMap(mapName,
+	TunnelMap = bpf.NewMap(MapName,
 		bpf.MapTypeHash,
 		int(unsafe.Sizeof(tunnelEndpoint{})),
 		int(unsafe.Sizeof(tunnelEndpoint{})),
