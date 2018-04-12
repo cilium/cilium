@@ -15,6 +15,8 @@
 package endpoint
 
 import (
+	"sort"
+
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/common/addressing"
 	pkgLabels "github.com/cilium/cilium/pkg/labels"
@@ -80,4 +82,87 @@ func NewEndpointFromChangeModel(base *models.EndpointChangeRequest, l pkgLabels.
 	}
 
 	return ep, nil
+}
+
+// GetModelRLocked returns the API model of endpoint e.
+// e.Mutex must be RLocked.
+func (e *Endpoint) GetModelRLocked() *models.Endpoint {
+	if e == nil {
+		return nil
+	}
+
+	currentState := models.EndpointState(e.state)
+	if currentState == models.EndpointStateReady && e.Status.CurrentStatus() != OK {
+		currentState = models.EndpointStateNotReady
+	}
+
+	// This returns the most recent log entry for this endpoint. It is backwards
+	// compatible with the json from before we added `cilium endpoint log` but it
+	// only returns 1 entry.
+	statusLog := e.Status.GetModel()
+	if len(statusLog) > 0 {
+		statusLog = statusLog[:1]
+	}
+
+	lblSpec := &models.LabelConfigurationSpec{
+		User: e.OpLabels.Custom.GetModel(),
+	}
+	lblMdl := &models.LabelConfigurationStatus{
+		Realized:         lblSpec,
+		SecurityRelevant: e.OpLabels.OrchestrationIdentity.GetModel(),
+		Derived:          e.OpLabels.OrchestrationInfo.GetModel(),
+		Disabled:         e.OpLabels.Disabled.GetModel(),
+	}
+	// Sort these slices since they come out in random orders. This allows
+	// reflect.DeepEqual to succeed.
+	sort.StringSlice(lblSpec.User).Sort()
+	sort.StringSlice(lblMdl.Disabled).Sort()
+	sort.StringSlice(lblMdl.SecurityRelevant).Sort()
+	sort.StringSlice(lblMdl.Derived).Sort()
+
+	controllerMdl := e.controllers.GetStatusModel()
+	sort.Slice(controllerMdl, func(i, j int) bool { return controllerMdl[i].Name < controllerMdl[j].Name })
+
+	spec := &models.EndpointConfigurationSpec{
+		LabelConfiguration: lblSpec,
+		Options:            *e.Opts.GetMutableModel(),
+	}
+
+	mdl := &models.Endpoint{
+		ID:   int64(e.ID),
+		Spec: spec,
+		Status: &models.EndpointStatus{
+			// FIXME GH-3280 When we begin implementing revision numbers this will
+			// diverge from models.Endpoint.Spec to reflect the in-datapath config
+			Realized: spec,
+			Identity: e.SecurityIdentity.GetModel(),
+			Labels:   lblMdl,
+			Networking: &models.EndpointNetworking{
+				Addressing: []*models.AddressPair{{
+					IPV4: e.IPv4.String(),
+					IPV6: e.IPv6.String(),
+				}},
+				InterfaceIndex: int64(e.IfIndex),
+				InterfaceName:  e.IfName,
+				Mac:            e.LXCMAC.String(),
+				HostMac:        e.NodeMAC.String(),
+			},
+			ExternalIdentifiers: &models.EndpointIdentifiers{
+				ContainerID:      e.DockerID,
+				ContainerName:    e.ContainerName,
+				DockerEndpointID: e.DockerEndpointID,
+				DockerNetworkID:  e.DockerNetworkID,
+				PodName:          e.GetK8sNamespaceAndPodNameLocked(),
+			},
+			// FIXME GH-3280 When we begin returning endpoint revisions this should
+			// change to return the configured and in-datapath policies.
+			Policy:      e.GetPolicyModel(),
+			Log:         statusLog,
+			Controllers: controllerMdl,
+			State:       currentState, // TODO: Validate
+			Health:      e.getHealthModel(),
+		},
+	}
+
+	return mdl
 }
