@@ -895,3 +895,16 @@ func (e *Endpoint) RemoveFromGlobalPolicyMap() error {
 
 	return err
 }
+
+// GetBPFKeys returns all keys which should represent this endpoint in the BPF
+// endpoints map
+func (e *Endpoint) GetBPFKeys() []lxcmap.EndpointKey {
+	key := lxcmap.NewEndpointKey(e.IPv6.IP())
+
+	if e.IPv4 != nil {
+		key4 := lxcmap.NewEndpointKey(e.IPv4.IP())
+		return []lxcmap.EndpointKey{key, key4}
+	}
+
+	return []lxcmap.EndpointKey{key}
+}
