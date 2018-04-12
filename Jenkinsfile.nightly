@@ -61,8 +61,8 @@ pipeline {
             }
             post {
                 always {
-                    sh 'cd ${TEST_DIR}; ./archive_test_results.sh || true'
-                    archiveArtifacts artifacts: "test_results_k8s_${JOB_BASE_NAME}_${BUILD_NUMBER}.zip", allowEmptyArchive: true
+                    sh 'cd ${TESTDIR}; ./archive_test_results.sh "k8s"|| true'
+                    archiveArtifacts artifacts: "k8s_test_results_${JOB_BASE_NAME}_${BUILD_NUMBER}.zip", allowEmptyArchive: true
                     junit 'test/*.xml'
                 }
             }
@@ -85,7 +85,7 @@ pipeline {
             sh "cd ${TESTDIR}; K8S_VERSION=1.7 vagrant destroy -f || true"
             sh "cd ${TESTDIR}; K8S_VERSION=1.9 vagrant destroy -f || true"
             sh "cd ${TESTDIR}; vagrant destroy -f || true"
-            sh 'cd ${TEST_DIR}; ./post_build_agent.sh || true'
+            sh 'cd ${TESTDIR}; ./post_build_agent.sh || true'
             cleanWs()
         }
     }
