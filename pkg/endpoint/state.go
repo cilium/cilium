@@ -105,3 +105,51 @@ OKState:
 	e.logStatusLocked(Other, OK, reason)
 	return true
 }
+
+// BuilderSetStateLocked modifies the endpoint's state
+// endpoint.Mutex must be held
+// endpoint BuildMutex must be held!
+func (e *Endpoint) BuilderSetStateLocked(toState, reason string) bool {
+	// Validate the state transition.
+	fromState := e.state
+	switch fromState { // From state
+	case StateCreating, StateWaitingForIdentity, StateReady, StateDisconnecting, StateDisconnected:
+		// No valid transitions for the builder
+	case StateWaitingToRegenerate:
+		switch toState {
+		// Builder transitions the endpoint from
+		// waiting-to-regenerate state to regenerating state
+		// right after acquiring the endpoint lock, and while
+		// endpoint's build mutex is held. All changes to
+		// cilium and endpoint configuration, policy as well
+		// as the existing set of security identities will be
+		// reconsidered after this point, i.e., even if some
+		// of them are changed regeneration need not be queued
+		// if the endpoint is already in waiting-to-regenerate
+		// state.
+		case StateRegenerating:
+			goto OKState
+		}
+	case StateRegenerating:
+		switch toState {
+		// While still holding the build mutex, the builder
+		// tries to transition the endpoint to ready
+		// state. But since the endpoint mutex was released
+		// for the duration of the bpf generation, it is
+		// possible that another build request has been
+		// queued. In this case the endpoint has been
+		// transitioned to waiting-to-regenerate state
+		// already, and the transition to ready state is
+		// skipped.
+		case StateReady:
+			goto OKState
+		}
+	}
+	e.logStatusLocked(Other, Warning, fmt.Sprintf("Skipped invalid state transition to %s due to: %s", toState, reason))
+	return false
+
+OKState:
+	e.state = toState
+	e.logStatusLocked(Other, OK, reason)
+	return true
+}
