@@ -113,6 +113,12 @@ var EndpointSelector2 = api.NewESFromLabels(
 	&labels.Label{Key: "version", Value: "v1", Source: labels.LabelSourceK8s},
 )
 
+// EndpointSelector3 is similar to EndpointSelector1 except that it is more
+// general by matching on any label source.
+var EndpointSelector3 = api.NewESFromLabels(
+	&labels.Label{Key: "app", Value: "etcd", Source: labels.LabelSourceAny},
+)
+
 var L7Rules1 = api.L7Rules{HTTP: []api.PortRuleHTTP{*PortRuleHTTP1, *PortRuleHTTP2}}
 
 var L7Rules2 = api.L7Rules{HTTP: []api.PortRuleHTTP{*PortRuleHTTP1}}
@@ -135,6 +141,8 @@ var IdentityCache = identity.IdentityCache{
 var DeniedIdentitiesNone = make(map[identity.NumericIdentity]bool)
 
 var DeniedIdentities1001 = map[identity.NumericIdentity]bool{1001: true}
+
+var DeniedIdentities1001And1002 = map[identity.NumericIdentity]bool{1001: true, 1002: true}
 
 var ExpectedPortNetworkPolicyRule1 = &cilium.PortNetworkPolicyRule{
 	RemotePolicies: []uint64{1001, 1002},
@@ -195,8 +203,20 @@ var ExpectedPortNetworkPolicyRule5 = &cilium.PortNetworkPolicyRule{
 	},
 }
 
-var ExpectedPortNetworkPolicyRule6 = &cilium.PortNetworkPolicyRule{
+var ExpectedPortNetworkPolicyRuleL4Only1001And1002 = &cilium.PortNetworkPolicyRule{
 	RemotePolicies: []uint64{1001, 1002},
+}
+
+var ExpectedPortNetworkPolicyRuleL4Only1001 = &cilium.PortNetworkPolicyRule{
+	RemotePolicies: []uint64{1001},
+}
+
+var ExpectedPortNetworkPolicyRuleL4Only1002 = &cilium.PortNetworkPolicyRule{
+	RemotePolicies: []uint64{1002},
+}
+
+var ExpectedPortNetworkPolicyRuleL4Only1001And1003 = &cilium.PortNetworkPolicyRule{
+	RemotePolicies: []uint64{1001, 1003},
 }
 
 var L4PolicyMap1 = map[string]policy.L4Filter{
@@ -250,6 +270,122 @@ var L4PolicyMap5 = map[string]policy.L4Filter{
 		Protocol: api.ProtoTCP,
 		L7RulesPerEp: policy.L7DataMap{
 			api.WildcardEndpointSelector: api.L7Rules{},
+		},
+	},
+}
+
+// L4PolicyMap6 is an L3-only policy.
+var L4PolicyMap6 = map[string]policy.L4Filter{
+	"0/TCP": {
+		Port:     0,
+		Protocol: api.ProtoTCP,
+		L7RulesPerEp: policy.L7DataMap{
+			EndpointSelector1: api.L7Rules{},
+		},
+	},
+	"0/UDP": {
+		Port:     0,
+		Protocol: api.ProtoUDP,
+		L7RulesPerEp: policy.L7DataMap{
+			EndpointSelector1: api.L7Rules{},
+		},
+	},
+}
+
+var L4PolicyMap7 = map[string]policy.L4Filter{
+	// L4+L7
+	"80/TCP": {
+		Port:     80,
+		Protocol: api.ProtoTCP,
+		L7Parser: policy.ParserTypeHTTP,
+		L7RulesPerEp: policy.L7DataMap{
+			EndpointSelector3: api.L7Rules{}, // L4-only
+			EndpointSelector1: L7Rules1,      // L7
+		},
+	},
+}
+
+var L4PolicyMap8 = map[string]policy.L4Filter{
+	// L4+L7
+	"80/TCP": {
+		Port:     80,
+		Protocol: api.ProtoTCP,
+		L7Parser: policy.ParserTypeHTTP,
+		L7RulesPerEp: policy.L7DataMap{
+			EndpointSelector2: api.L7Rules{}, // L4-only
+			EndpointSelector1: L7Rules1,      // L7
+		},
+	},
+}
+
+var L4PolicyMap9 = map[string]policy.L4Filter{
+	// L3-only
+	"0/TCP": {
+		Port:     0,
+		Protocol: api.ProtoTCP,
+		L7RulesPerEp: policy.L7DataMap{
+			EndpointSelector1: api.L7Rules{},
+		},
+	},
+	// L3-only
+	"0/UDP": {
+		Port:     0,
+		Protocol: api.ProtoUDP,
+		L7RulesPerEp: policy.L7DataMap{
+			EndpointSelector1: api.L7Rules{},
+		},
+	},
+	// L4-only
+	"8080/TCP": {
+		Port:     8080,
+		Protocol: api.ProtoTCP,
+		L7RulesPerEp: policy.L7DataMap{
+			EndpointSelector1: api.L7Rules{},
+		},
+	},
+	// L4+L7
+	"80/TCP": {
+		Port:     80,
+		Protocol: api.ProtoTCP,
+		L7Parser: policy.ParserTypeHTTP,
+		L7RulesPerEp: policy.L7DataMap{
+			EndpointSelector1: L7Rules1,
+		},
+	},
+}
+
+var L4PolicyMap10 = map[string]policy.L4Filter{
+	// L3-only
+	"0/TCP": {
+		Port:     0,
+		Protocol: api.ProtoTCP,
+		L7RulesPerEp: policy.L7DataMap{
+			EndpointSelector2: api.L7Rules{},
+		},
+	},
+	// L3-only
+	"0/UDP": {
+		Port:     0,
+		Protocol: api.ProtoUDP,
+		L7RulesPerEp: policy.L7DataMap{
+			EndpointSelector2: api.L7Rules{},
+		},
+	},
+	// L4-only
+	"8080/TCP": {
+		Port:     8080,
+		Protocol: api.ProtoTCP,
+		L7RulesPerEp: policy.L7DataMap{
+			EndpointSelector1: api.L7Rules{},
+		},
+	},
+	// L4+L7
+	"80/TCP": {
+		Port:     80,
+		Protocol: api.ProtoTCP,
+		L7Parser: policy.ParserTypeHTTP,
+		L7RulesPerEp: policy.L7DataMap{
+			EndpointSelector1: L7Rules1,
 		},
 	},
 }
@@ -309,7 +445,7 @@ var ExpectedPerPortPolicies6 = []*cilium.PortNetworkPolicy{
 		Port:     80,
 		Protocol: envoy_api_v2_core.SocketAddress_TCP,
 		Rules: []*cilium.PortNetworkPolicyRule{
-			ExpectedPortNetworkPolicyRule6,
+			ExpectedPortNetworkPolicyRuleL4Only1001And1002,
 		},
 	},
 }
@@ -321,6 +457,82 @@ var ExpectedPerPortPolicies7 = []*cilium.PortNetworkPolicy{
 	},
 }
 
+var ExpectedPerPortPolicies8 = []*cilium.PortNetworkPolicy{
+	{
+		// Wildcard L4 port.
+		Protocol: envoy_api_v2_core.SocketAddress_TCP,
+		Rules: []*cilium.PortNetworkPolicyRule{
+			{RemotePolicies: []uint64{1001, 1002}}, // Wildcard L7.
+		},
+	},
+	{
+		// Wildcard L4 port.
+		Protocol: envoy_api_v2_core.SocketAddress_UDP,
+		Rules: []*cilium.PortNetworkPolicyRule{
+			{RemotePolicies: []uint64{1001, 1002}}, // Wildcard L7.
+		},
+	},
+}
+
+var ExpectedPerPortPolicies9 = []*cilium.PortNetworkPolicy{
+	{
+		Port:     80,
+		Protocol: envoy_api_v2_core.SocketAddress_TCP,
+		Rules: []*cilium.PortNetworkPolicyRule{
+			ExpectedPortNetworkPolicyRuleL4Only1001And1003,
+			ExpectedPortNetworkPolicyRule4,
+		},
+	},
+}
+
+var ExpectedPerPortPolicies10 = []*cilium.PortNetworkPolicy{
+	{
+		Protocol: envoy_api_v2_core.SocketAddress_TCP,
+		Rules: []*cilium.PortNetworkPolicyRule{
+			ExpectedPortNetworkPolicyRuleL4Only1001And1002,
+		},
+	},
+	{
+		Protocol: envoy_api_v2_core.SocketAddress_UDP,
+		Rules: []*cilium.PortNetworkPolicyRule{
+			ExpectedPortNetworkPolicyRuleL4Only1001And1002,
+		},
+	},
+}
+
+var ExpectedPerPortPolicies11 = []*cilium.PortNetworkPolicy{
+	// L3-only
+	{
+		Protocol: envoy_api_v2_core.SocketAddress_TCP,
+		Rules: []*cilium.PortNetworkPolicyRule{
+			ExpectedPortNetworkPolicyRuleL4Only1001And1003,
+		},
+	},
+	// L4+L7
+	{
+		Port:     80,
+		Protocol: envoy_api_v2_core.SocketAddress_TCP,
+		Rules: []*cilium.PortNetworkPolicyRule{
+			ExpectedPortNetworkPolicyRule4, // ID 1001 is not listed because it's already allowed at L3-only
+		},
+	},
+	// L4-only
+	{
+		Port:     8080,
+		Protocol: envoy_api_v2_core.SocketAddress_TCP,
+		Rules: []*cilium.PortNetworkPolicyRule{
+			ExpectedPortNetworkPolicyRuleL4Only1002, // ID 1001 is not listed because it's already allowed at L3-only
+		},
+	},
+	// L3-only
+	{
+		Protocol: envoy_api_v2_core.SocketAddress_UDP,
+		Rules: []*cilium.PortNetworkPolicyRule{
+			ExpectedPortNetworkPolicyRuleL4Only1001And1003,
+		},
+	},
+}
+
 var L4Policy1 = &policy.L4Policy{
 	Ingress: L4PolicyMap1,
 	Egress:  L4PolicyMap2,
@@ -329,6 +541,11 @@ var L4Policy1 = &policy.L4Policy{
 var L4Policy2 = &policy.L4Policy{
 	Ingress: L4PolicyMap3,
 	Egress:  L4PolicyMap2,
+}
+
+var L4Policy3 = &policy.L4Policy{
+	Ingress: L4PolicyMap7,
+	Egress:  nil,
 }
 
 func (s *ServerSuite) TestGetHTTPRule(c *C) {
@@ -362,6 +579,37 @@ func (s *ServerSuite) TestGetDirectionNetworkPolicy(c *C) {
 	// L4-only
 	obtained = getDirectionNetworkPolicy(L4PolicyMap5, true, IdentityCache, DeniedIdentitiesNone)
 	c.Assert(obtained, comparator.DeepEquals, ExpectedPerPortPolicies7)
+
+	// L3-only
+	obtained = getDirectionNetworkPolicy(L4PolicyMap6, true, IdentityCache, DeniedIdentitiesNone)
+	c.Assert(obtained, comparator.DeepEquals, ExpectedPerPortPolicies8)
+}
+
+func (s *ServerSuite) TestGetDirectionNetworkPolicyOptimizeL4Only(c *C) {
+	// Mix of L4-only and L4+L7 rules which match on the exact same set of
+	// remote policies.
+	obtained := getDirectionNetworkPolicy(L4PolicyMap7, true, IdentityCache, DeniedIdentitiesNone)
+	// The result is a single L4-only rule.
+	c.Assert(obtained, comparator.DeepEquals, ExpectedPerPortPolicies6)
+
+	// Mix of L4-only and L4+L7 rules which match on partially overlapping sets
+	// of remote policies.
+	obtained = getDirectionNetworkPolicy(L4PolicyMap8, true, IdentityCache, DeniedIdentitiesNone)
+	// The result is a the unmodified L4-only rule, and the L7 rule with a
+	// smaller set of remote policies.
+	c.Assert(obtained, comparator.DeepEquals, ExpectedPerPortPolicies9)
+}
+
+func (s *ServerSuite) TestGetDirectionNetworkPolicyOptimizeL3Only(c *C) {
+	// Mix of L3-only, L4-only, and L4+L7 rules which match on the exact same
+	// set of remote policies.
+	obtained := getDirectionNetworkPolicy(L4PolicyMap9, true, IdentityCache, DeniedIdentitiesNone)
+	c.Assert(obtained, comparator.DeepEquals, ExpectedPerPortPolicies10)
+
+	// Mix of L3-only, L4-only, and L4+L7 rules which match on partially
+	// overlapping sets  of remote policies.
+	obtained = getDirectionNetworkPolicy(L4PolicyMap10, true, IdentityCache, DeniedIdentitiesNone)
+	c.Assert(obtained, comparator.DeepEquals, ExpectedPerPortPolicies11)
 }
 
 func (s *ServerSuite) TestGetNetworkPolicy(c *C) {

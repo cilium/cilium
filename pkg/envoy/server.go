@@ -429,6 +429,189 @@ func getPortNetworkPolicyRule(sel api.EndpointSelector, l7Parser policy.L7Parser
 	return r
 }
 
+// portNetworkPolicyIsL3Only returns whether a PortNetworkPolicy is L3-only,
+// i.e. if it has port 0. As a sanity check, this method panics if the rule has
+// both port 0 and any L7 rules, which must never happen.
+func portNetworkPolicyIsL3Only(pnp *cilium.PortNetworkPolicy) bool {
+	if pnp.Port != 0 {
+		return false
+	}
+	for _, rule := range pnp.Rules {
+		if rule.L7Rules != nil {
+			log.Fatalf("PortNetworkPolicy has both port 0 and L7 rules: %v", pnp)
+		}
+	}
+	return true
+}
+
+// optimizePortNetworkPolicyRuleRemotePolicies removes from the given rule the
+// remote policies that are already allowed, as listed in the given
+// allowedRemotePolicies set.
+// Returns true if the rule is to be kept after optimization, or false if the
+// rule doesn't match any remote policies and is to be discarded.
+func optimizePortNetworkPolicyRuleRemotePolicies(allowedRemotePolicies map[uint64]bool,
+	rule *cilium.PortNetworkPolicyRule) bool {
+	// The rule allows all remote policies. Nothing to optimize. Keep the
+	// rule as-is.
+	if len(rule.RemotePolicies) == 0 {
+		return true
+	}
+
+	// Remove from the rule all the remote policies that are already allowed.
+	// Preserve the order.
+	newRemotePolicies := make([]uint64, 0, len(rule.RemotePolicies))
+	for _, remotePolicy := range rule.RemotePolicies {
+		// The remote policy is not already allowed. Keep it.
+		if !allowedRemotePolicies[remotePolicy] {
+			newRemotePolicies = append(newRemotePolicies, remotePolicy)
+		}
+	}
+
+	// All of the rule's remote policies are already allowed.
+	// This rule is redundant. Eliminate it.
+	if len(newRemotePolicies) == 0 {
+		return false
+	}
+
+	rule.RemotePolicies = newRemotePolicies
+	return true
+}
+
+// optimizePortNetworkPolicyRules optimizes the port network policy's rules by
+// removing redundant allowed remote policies in rules, as well as redundant
+// rules that don't allow any remote policy after optimization.
+func optimizePortNetworkPolicyRules(pnp *cilium.PortNetworkPolicy) {
+	if len(pnp.Rules) == 0 {
+		return
+	}
+
+	// List remote policies allowed at L4-only for this L4 port, i.e. that are
+	// allowed by rules that have no L7 rules.
+	var hasL4OnlyRules bool
+	allowedRemotePolicies := make(map[uint64]bool)
+	var allowedRemotePoliciesSlice []uint64
+	for _, rule := range pnp.Rules {
+		if rule.L7Rules == nil { // L4-only rule.
+			if len(rule.RemotePolicies) == 0 {
+				// This is an allow-all rule, which would short-circuit all of
+				// the other rules. Just set no rules, which has the same
+				// effect of allowing all.
+				pnp.Rules = nil
+				return
+			}
+
+			for _, remotePolicy := range rule.RemotePolicies {
+				if !allowedRemotePolicies[remotePolicy] {
+					allowedRemotePolicies[remotePolicy] = true
+					allowedRemotePoliciesSlice = append(allowedRemotePoliciesSlice, remotePolicy)
+				}
+			}
+			hasL4OnlyRules = true
+		}
+	}
+
+	newRules := make([]*cilium.PortNetworkPolicyRule, 0, len(pnp.Rules))
+
+	// Aggregate all L4-only rules into one.
+	if hasL4OnlyRules {
+		sortkeys.Uint64s(allowedRemotePoliciesSlice)
+		newRules = append(newRules, &cilium.PortNetworkPolicyRule{RemotePolicies: allowedRemotePoliciesSlice})
+	}
+
+	// Optimize the allowed remote policies of all L7 rules by removing L7
+	// rules which remote policies are all already allowed at L4-only.
+	for _, rule := range pnp.Rules {
+		if rule.L7Rules != nil && optimizePortNetworkPolicyRuleRemotePolicies(allowedRemotePolicies, rule) {
+			newRules = append(newRules, rule)
+		}
+	}
+
+	// TODO: Aggregate L7 rules that have the same set of allowed remote policies.
+
+	pnp.Rules = newRules
+}
+
+// optimizeDirectionNetworkPolicy returns the list of perPortPolicies optimized
+// by removing redundant allowed remote policies, rules and per port policies.
+func optimizeDirectionNetworkPolicy(perPortPolicies []*cilium.PortNetworkPolicy) []*cilium.PortNetworkPolicy {
+	if len(perPortPolicies) == 0 {
+		return perPortPolicies
+	}
+
+	// List remote policies allowed by L3-only policies (each L3-only policy
+	// both wildcards the L4 port (its port is 0) and has no L7 rules).
+	// There can be at most two L3-only policies: one for TCP, and one for
+	// UDP. We only keep a map of allowed remote policies for each L3-only
+	// policy, since this is its only useful information.
+	allowedRemotePoliciesPerProto := make(map[envoy_api_v2_core.SocketAddress_Protocol]map[uint64]bool, 2)
+	for _, pnp := range perPortPolicies {
+		if portNetworkPolicyIsL3Only(pnp) {
+			// Build a map of allowed remote policies for this L4 protocol.
+			remotePolicies := make(map[uint64]bool)
+			for _, rule := range pnp.Rules {
+				for _, remotePolicy := range rule.RemotePolicies {
+					remotePolicies[remotePolicy] = true
+				}
+			}
+			allowedRemotePoliciesPerProto[pnp.Protocol] = remotePolicies
+		}
+	}
+
+	// If there are no L3-only rules, there is nothing to optimize.
+	if len(allowedRemotePoliciesPerProto) == 0 {
+		return perPortPolicies
+	}
+
+	// Remove remote policies from L4/L7 rules when they are already covered by
+	// L3-only rules.
+	newPerPortPolicies := make([]*cilium.PortNetworkPolicy, 0, len(perPortPolicies))
+	for _, pnp := range perPortPolicies {
+		// L3-only rule. Keep it.
+		if portNetworkPolicyIsL3Only(pnp) {
+			newPerPortPolicies = append(newPerPortPolicies, pnp)
+			continue
+		}
+
+		allowedRemotePolicies := allowedRemotePoliciesPerProto[pnp.Protocol]
+
+		// No L3-only rule found for this L4 protocol. Keep all the rules
+		// for this L4 protocol as-is.
+		if allowedRemotePolicies == nil {
+			newPerPortPolicies = append(newPerPortPolicies, pnp)
+			continue
+		}
+
+		// The L3-only rule allows all. Eliminate all the L4/L7 rules for
+		// this L4 protocol.
+		if len(allowedRemotePolicies) == 0 {
+			continue
+		}
+
+		// Keep L4 rules that allow all remote policies for an L4 port.
+		if len(pnp.Rules) == 0 {
+			newPerPortPolicies = append(newPerPortPolicies, pnp)
+			continue
+		}
+
+		// Optimize the rules for the port network policy.
+		newRules := make([]*cilium.PortNetworkPolicyRule, 0, len(pnp.Rules))
+		for _, rule := range pnp.Rules {
+			if optimizePortNetworkPolicyRuleRemotePolicies(allowedRemotePolicies, rule) {
+				newRules = append(newRules, rule)
+			}
+		}
+
+		// Only keep the port network policy if it still has rules matching any
+		// remote policies.
+		if len(newRules) > 0 {
+			pnp.Rules = newRules
+			newPerPortPolicies = append(newPerPortPolicies, pnp)
+		}
+	}
+
+	return newPerPortPolicies
+}
+
 func getDirectionNetworkPolicy(l4Policy policy.L4PolicyMap, policyEnforced bool,
 	labelsMap identity.IdentityCache, deniedIdentities map[identity.NumericIdentity]bool) []*cilium.PortNetworkPolicy {
 	if !policyEnforced {
@@ -440,7 +623,7 @@ func getDirectionNetworkPolicy(l4Policy policy.L4PolicyMap, policyEnforced bool,
 		return nil
 	}
 
-	PerPortPolicies := make([]*cilium.PortNetworkPolicy, 0, len(l4Policy))
+	perPortPolicies := make([]*cilium.PortNetworkPolicy, 0, len(l4Policy))
 
 	for _, l4 := range l4Policy {
 		var protocol envoy_api_v2_core.SocketAddress_Protocol
@@ -457,19 +640,9 @@ func getDirectionNetworkPolicy(l4Policy policy.L4PolicyMap, policyEnforced bool,
 			Rules:    make([]*cilium.PortNetworkPolicyRule, 0, len(l4.L7RulesPerEp)),
 		}
 
-		allowAll := false
 		for sel, l7 := range l4.L7RulesPerEp {
 			rule := getPortNetworkPolicyRule(sel, l4.L7Parser, l7, labelsMap, deniedIdentities)
 			if rule != nil {
-				if len(rule.RemotePolicies) == 0 && rule.L7Rules == nil {
-					// Got an allow-all rule, which would short-circuit all of
-					// the other rules. Just set no rules, which has the same
-					// effect of allowing all.
-					allowAll = true
-					pnp.Rules = nil
-					break
-				}
-
 				pnp.Rules = append(pnp.Rules, rule)
 			}
 		}
@@ -478,22 +651,29 @@ func getDirectionNetworkPolicy(l4Policy policy.L4PolicyMap, policyEnforced bool,
 		// This means that no traffic was explicitly allowed for this port.
 		// In this case, just don't generate any PortNetworkPolicy for this
 		// port.
-		if !allowAll && len(pnp.Rules) == 0 {
+		if len(pnp.Rules) == 0 {
 			continue
 		}
 
+		// Optimize the rules *after* checking that we have at least one rule,
+		// because the policy may end up with no rules as a result of the
+		// optimization, in the case of an allow-all L4-only rule.
+		optimizePortNetworkPolicyRules(pnp)
+
 		SortPortNetworkPolicyRules(pnp.Rules)
 
-		PerPortPolicies = append(PerPortPolicies, pnp)
+		perPortPolicies = append(perPortPolicies, pnp)
 	}
 
-	if len(PerPortPolicies) == 0 {
+	perPortPolicies = optimizeDirectionNetworkPolicy(perPortPolicies)
+
+	if len(perPortPolicies) == 0 {
 		return nil
 	}
 
-	SortPortNetworkPolicies(PerPortPolicies)
+	SortPortNetworkPolicies(perPortPolicies)
 
-	return PerPortPolicies
+	return perPortPolicies
 }
 
 // getNetworkPolicy converts a network policy into a cilium.NetworkPolicy.
