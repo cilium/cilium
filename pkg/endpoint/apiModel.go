@@ -316,3 +316,38 @@ func (e *Endpoint) GetHealthModel() *models.EndpointHealth {
 	defer e.Mutex.RUnlock()
 	return e.getHealthModel()
 }
+
+type orderEndpoint func(e1, e2 *models.Endpoint) bool
+
+// OrderEndpointAsc orders the slice of Endpoint in ascending ID order.
+func OrderEndpointAsc(eps []*models.Endpoint) {
+	ascPriority := func(e1, e2 *models.Endpoint) bool {
+		return e1.ID < e2.ID
+	}
+	orderEndpoint(ascPriority).sort(eps)
+}
+
+func (by orderEndpoint) sort(eps []*models.Endpoint) {
+	dS := &epSorter{
+		eps: eps,
+		by:  by,
+	}
+	sort.Sort(dS)
+}
+
+type epSorter struct {
+	eps []*models.Endpoint
+	by  func(e1, e2 *models.Endpoint) bool
+}
+
+func (epS *epSorter) Len() int {
+	return len(epS.eps)
+}
+
+func (epS *epSorter) Swap(i, j int) {
+	epS.eps[i], epS.eps[j] = epS.eps[j], epS.eps[i]
+}
+
+func (epS *epSorter) Less(i, j int) bool {
+	return epS.by(epS.eps[i], epS.eps[j])
+}
