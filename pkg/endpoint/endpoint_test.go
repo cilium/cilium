@@ -23,6 +23,7 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/common/addressing"
 	"github.com/cilium/cilium/pkg/comparator"
+	pkgLabels "github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
 
@@ -169,6 +170,44 @@ func (s *EndpointSuite) TestEndpointStatus(c *C) {
 	}
 	eps.addStatusLog(sts)
 	c.Assert(eps.String(), Equals, "OK")
+}
+
+func (s *EndpointSuite) TestEndpointUpdateLabels(c *C) {
+	e := Endpoint{
+		ID:     IPv6Addr.EndpointID(),
+		IPv6:   IPv6Addr,
+		IPv4:   IPv4Addr,
+		Status: NewEndpointStatus(),
+		OpLabels: pkgLabels.OpLabels{
+			Custom:                pkgLabels.Labels{},
+			Disabled:              pkgLabels.Labels{},
+			OrchestrationIdentity: pkgLabels.Labels{},
+			OrchestrationInfo:     pkgLabels.Labels{},
+		},
+	}
+	e.Mutex.Lock()
+	e.SetDefaultOpts(nil)
+	e.Mutex.Unlock()
+
+	// Test that inserting identity labels works
+	rev := e.replaceIdentityLabels(pkgLabels.Map2Labels(map[string]string{"foo": "bar", "zip": "zop"}, "cilium"))
+	c.Assert(rev, Not(Equals), 0)
+	c.Assert(string(e.OpLabels.OrchestrationIdentity.SortedList()), Equals, "cilium:foo=bar;cilium:zip=zop;")
+	// Test that nothing changes
+	rev = e.replaceIdentityLabels(pkgLabels.Map2Labels(map[string]string{"foo": "bar", "zip": "zop"}, "cilium"))
+	c.Assert(rev, Equals, 0)
+	c.Assert(string(e.OpLabels.OrchestrationIdentity.SortedList()), Equals, "cilium:foo=bar;cilium:zip=zop;")
+	// Remove one label, change the source and value of the other.
+	rev = e.replaceIdentityLabels(pkgLabels.Map2Labels(map[string]string{"foo": "zop"}, "nginx"))
+	c.Assert(rev, Not(Equals), 0)
+	c.Assert(string(e.OpLabels.OrchestrationIdentity.SortedList()), Equals, "nginx:foo=zop;")
+
+	// Test that inserting information labels works
+	e.replaceInformationLabels(pkgLabels.Map2Labels(map[string]string{"foo": "bar", "zip": "zop"}, "cilium"))
+	c.Assert(string(e.OpLabels.OrchestrationInfo.SortedList()), Equals, "cilium:foo=bar;cilium:zip=zop;")
+	// Remove one label, change the source and value of the other.
+	e.replaceInformationLabels(pkgLabels.Map2Labels(map[string]string{"foo": "zop"}, "nginx"))
+	c.Assert(string(e.OpLabels.OrchestrationInfo.SortedList()), Equals, "nginx:foo=zop;")
 }
 
 func (s *EndpointSuite) TestEndpointState(c *C) {

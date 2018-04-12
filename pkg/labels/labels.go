@@ -145,7 +145,7 @@ type Label struct {
 	// Source can be one of the values present in const.go (e.g.: LabelSourceContainer)
 	Source string `json:"source"`
 	// Mark element to be used to find unused labels in lists
-	DeletionMark bool `json:"-"`
+	deletionMark bool `json:"-"`
 }
 
 // Labels is a map of labels where the map's key is the same as the label's key.
@@ -164,19 +164,41 @@ func (l Labels) String() string {
 	return str
 }
 
-// MarkAllForDeletion marks all the labels with the DeletionMark.
+// MarkAllForDeletion marks all the labels with the deletionMark.
 func (l Labels) MarkAllForDeletion() {
 	for k := range l {
-		l[k].DeletionMark = true
+		l[k].deletionMark = true
 	}
 }
 
-// DeleteMarked deletes the labels which have the DeletionMark set and returns
+func (l *Label) ClearDeletionMark() {
+	l.deletionMark = false
+}
+
+// UpsertLabel updates or inserts 'label' in 'l', but only if exactly the same label
+// was not already in 'l'. If a label with the same key is found, the label's deletionMark
+// is cleared. Returns 'true' if a label was added, or an old label was updated, 'false'
+// otherwise.
+func (l Labels) UpsertLabel(label *Label) bool {
+	oldLabel := l[label.Key]
+	if oldLabel != nil {
+		l[label.Key].ClearDeletionMark()
+		// Key is the same, check if Value and Source are also the same
+		if label.Value == oldLabel.Value && label.Source == oldLabel.Source {
+			return false // No change
+		}
+	}
+	// Insert or replace old label
+	l[label.Key] = label.DeepCopy()
+	return true
+}
+
+// DeleteMarked deletes the labels which have the deletionMark set and returns
 // true if any of them were deleted.
 func (l Labels) DeleteMarked() bool {
 	deleted := false
 	for k := range l {
-		if l[k].DeletionMark {
+		if l[k].deletionMark {
 			delete(l, k)
 			deleted = true
 		}
