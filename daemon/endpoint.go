@@ -318,23 +318,30 @@ func (h *patchEndpointID) Handle(params PatchEndpointIDParams) middleware.Respon
 		changed = true
 	}
 
-	wait := false
+	reason := ""
 	if changed {
 		// Force policy regeneration as endpoint's configuration was changed.
 		// Other endpoints need not be regenerated as no labels were changed.
+		// Note that we still need to (eventually) regenerate the endpoint for
+		// the changes to take effect.
 		ep.ForcePolicyCompute()
+
 		// Transition to waiting-to-regenerate if ready.
 		if ep.GetStateLocked() == endpoint.StateReady {
 			ep.SetStateLocked(endpoint.StateWaitingToRegenerate, "Forcing endpoint regeneration because identity is known while handling API PATCH")
 		}
-		if ep.GetStateLocked() == endpoint.StateWaitingToRegenerate {
-			wait = true
+
+		switch ep.GetStateLocked() {
+		case endpoint.StateWaitingToRegenerate:
+			reason = "Waiting on endpoint regeneration because identity is known while handling API PATCH"
+		case endpoint.StateWaitingForIdentity:
+			reason = "Waiting on endpoint initial program regeneration while handling API PATCH"
 		}
 	}
 	ep.Mutex.Unlock()
 
-	if wait {
-		if err := ep.RegenerateWait(h.d, "Waiting on endpoint regeneration because identity is known while handling API PATCH"); err != nil {
+	if reason != "" {
+		if err := ep.RegenerateWait(h.d, reason); err != nil {
 			return apierror.Error(PatchEndpointIDFailedCode, err)
 		}
 		// FIXME: Special return code to indicate regeneration happened?
