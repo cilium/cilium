@@ -1573,12 +1573,6 @@ func (e *Endpoint) GetDockerNetworkID() string {
 
 // GetState returns the endpoint's state
 // endpoint.Mutex may only be RLock()ed
-func (e *Endpoint) GetStateLocked() string {
-	return e.state
-}
-
-// GetState returns the endpoint's state
-// endpoint.Mutex may only be RLock()ed
 func (e *Endpoint) GetState() string {
 	e.Mutex.RLock()
 	defer e.Mutex.RUnlock()
