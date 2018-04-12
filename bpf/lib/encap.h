@@ -35,7 +35,7 @@ static inline int __encap_and_redirect(struct __sk_buff *skb, struct endpoint_ke
 	__u32 node_id;
 	int ret;
 
-	if ((tunnel = map_lookup_elem(&tunnel_endpoint_map, k)) == NULL) {
+	if ((tunnel = map_lookup_elem(&cilium_tunnel_map, k)) == NULL) {
 		return DROP_NO_TUNNEL_ENDPOINT;
 	}
 
