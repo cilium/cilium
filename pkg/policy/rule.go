@@ -58,7 +58,7 @@ func mergeL4IngressPort(ctx *SearchContext, endpoints []api.EndpointSelector, r 
 	// allows all traffic on L3.
 	//
 	// Existing filter selects all endpoints, so don't add new endpoints.
-	if existingFilter.AllowsAllAtL3() && len(filterToMerge.Endpoints) > 0 {
+	if existingFilter.AllowsAllAtL3() && !filterToMerge.AllowsAllAtL3() {
 		log.WithFields(logrus.Fields{
 			logfields.EndpointSelector: filterToMerge.Endpoints,
 			"policy":                   existingFilter,
@@ -75,7 +75,7 @@ func mergeL4IngressPort(ctx *SearchContext, endpoints []api.EndpointSelector, r 
 		}
 	} else {
 		// If new rule allows all endpoints, then allow all endpoints.
-		if len(existingFilter.Endpoints) > 0 && filterToMerge.AllowsAllAtL3() {
+		if !existingFilter.AllowsAllAtL3() && filterToMerge.AllowsAllAtL3() {
 			log.WithFields(logrus.Fields{
 				logfields.EndpointSelector: filterToMerge.Endpoints,
 				"policy":                   existingFilter,
@@ -496,7 +496,7 @@ func mergeL4EgressPort(ctx *SearchContext, endpoints []api.EndpointSelector, r a
 	// allows all traffic on L3.
 	//
 	// Existing filter selects all endpoints, so don't add new endpoints.
-	if existingFilter.AllowsAllAtL3() && len(filterToMerge.Endpoints) > 0 {
+	if existingFilter.AllowsAllAtL3() && !filterToMerge.AllowsAllAtL3() {
 		log.WithFields(logrus.Fields{
 			logfields.EndpointSelector: filterToMerge.Endpoints,
 			"policy":                   existingFilter,
@@ -513,7 +513,7 @@ func mergeL4EgressPort(ctx *SearchContext, endpoints []api.EndpointSelector, r a
 		}
 	} else {
 		// If new rule allows all endpoints, then allow all endpoints.
-		if len(existingFilter.Endpoints) > 0 && filterToMerge.AllowsAllAtL3() {
+		if !existingFilter.AllowsAllAtL3() && filterToMerge.AllowsAllAtL3() {
 			log.WithFields(logrus.Fields{
 				logfields.EndpointSelector: filterToMerge.Endpoints,
 				"policy":                   existingFilter,
