@@ -99,8 +99,6 @@ var _ = Describe("K8sValidatedUpdates", func() {
 	}
 
 	It("Updating Cilium stable to master", func() {
-		// GH-3442 Re-enable once stable
-		return
 
 		By("Creating some endpoints and L7 policy")
 		kubectl.Apply(demoPath).ExpectSuccess()
