@@ -39,16 +39,35 @@ Bind the Kubernetes system account to the ``cluster-admin`` role to enable the
 
     $ kubectl create clusterrolebinding kube-system-default-binding-cluster-admin --clusterrole=cluster-admin --serviceaccount=kube-system:default
 
-To check that all Kubernetes pods are ``Running`` and 100% ready,
-including ``kube-dns``, run:
+
+4. Install etcd as a dependency of cilium in minikube by running:
+
+.. parsed-literal::
+
+  $ kubectl create -f \ |SCM_WEB|\/examples/kubernetes/addons/etcd/standalone-etcd.yaml
+  service "etcd-cilium" created
+  statefulset.apps "etcd-cilium" created
+
+To check that all pods are ``Running`` and 100% ready, including ``kube-dns``
+and ``etcd-cilium-0`` run:
 
 ::
 
-    $ kubectl get pods -n kube-system
-    NAME                          READY     STATUS    RESTARTS   AGE
-    kube-addon-manager-minikube   1/1       Running   0          59s
-    kube-dns-86f6f55dd5-5xdz8     3/3       Running   0          55s
-    storage-provisioner           1/1       Running   0          56s
+    $ kubectl get pods --all-namespaces
+    NAMESPACE     NAME                               READY     STATUS    RESTARTS   AGE
+    default       etcd-cilium-0                      1/1       Running   0          1m
+    kube-system   etcd-minikube                      1/1       Running   0          3m
+    kube-system   kube-addon-manager-minikube        1/1       Running   0          4m
+    kube-system   kube-apiserver-minikube            1/1       Running   0          3m
+    kube-system   kube-controller-manager-minikube   1/1       Running   0          3m
+    kube-system   kube-dns-86f4d74b45-lhzfv          3/3       Running   0          4m
+    kube-system   kube-proxy-tcd7h                   1/1       Running   0          4m
+    kube-system   kube-scheduler-minikube            1/1       Running   0          4m
+    kube-system   storage-provisioner                1/1       Running   0          4m
 
-If you see output similar to this, you are ready to proceed to the
-next step.
+If you see output similar to this, you are ready to proceed to the next step.
+
+.. note::
+
+    The output might differ between minikube versions, you should expect to have
+    all pods in READY state before continuing.
