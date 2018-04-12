@@ -319,31 +319,6 @@ func RunK8sCiliumEndpointSyncGC() {
 }
 
 const (
-	// StateCreating is used to set the endpoint is being created.
-	StateCreating = string(models.EndpointStateCreating)
-
-	// StateWaitingForIdentity is used to set if the endpoint is waiting
-	// for an identity from the KVStore.
-	StateWaitingForIdentity = string(models.EndpointStateWaitingForIdentity)
-
-	// StateReady specifies if the endpoint is ready to be used.
-	StateReady = string(models.EndpointStateReady)
-
-	// StateWaitingToRegenerate specifies when the endpoint needs to be regenerated, but regeneration has not started yet.
-	StateWaitingToRegenerate = string(models.EndpointStateWaitingToRegenerate)
-
-	// StateRegenerating specifies when the endpoint is being regenerated.
-	StateRegenerating = string(models.EndpointStateRegenerating)
-
-	// StateDisconnecting indicates that the endpoint is being disconnected
-	StateDisconnecting = string(models.EndpointStateDisconnecting)
-
-	// StateDisconnected is used to set the endpoint is disconnected.
-	StateDisconnected = string(models.EndpointStateDisconnected)
-
-	// StateRestoring is used to set the endpoint is being restored.
-	StateRestoring = string(models.EndpointStateRestoring)
-
 	// CallsMapName specifies the base prefix for EP specific call map.
 	CallsMapName = "cilium_calls_"
 	// PolicyGlobalMapName specifies the global tail call map for EP handle_policy() lookup.
