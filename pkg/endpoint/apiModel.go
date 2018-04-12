@@ -245,3 +245,67 @@ func (e *Endpoint) GetPolicyModel() *models.EndpointPolicyStatus {
 		ProxyStatistics:     proxyStats,
 	}
 }
+
+// GetHealthModel returns the endpoint's health object.
+//
+// Must be called with e.Mutex locked.
+func (e *Endpoint) getHealthModel() *models.EndpointHealth {
+	// Duplicated from GetModelRLocked.
+	currentState := models.EndpointState(e.state)
+	if currentState == models.EndpointStateReady && e.Status.CurrentStatus() != OK {
+		currentState = models.EndpointStateNotReady
+	}
+
+	h := models.EndpointHealth{
+		Bpf:           models.EndpointHealthStatusDisabled,
+		Policy:        models.EndpointHealthStatusDisabled,
+		Connected:     false,
+		OverallHealth: models.EndpointHealthStatusDisabled,
+	}
+	switch currentState {
+	case models.EndpointStateRegenerating, models.EndpointStateWaitingToRegenerate, models.EndpointStateDisconnecting:
+		h = models.EndpointHealth{
+			Bpf:           models.EndpointHealthStatusPending,
+			Policy:        models.EndpointHealthStatusPending,
+			Connected:     true,
+			OverallHealth: models.EndpointHealthStatusPending,
+		}
+	case models.EndpointStateCreating:
+		h = models.EndpointHealth{
+			Bpf:           models.EndpointHealthStatusBootstrap,
+			Policy:        models.EndpointHealthStatusDisabled,
+			Connected:     true,
+			OverallHealth: models.EndpointHealthStatusDisabled,
+		}
+	case models.EndpointStateWaitingForIdentity:
+		h = models.EndpointHealth{
+			Bpf:           models.EndpointHealthStatusDisabled,
+			Policy:        models.EndpointHealthStatusBootstrap,
+			Connected:     true,
+			OverallHealth: models.EndpointHealthStatusDisabled,
+		}
+	case models.EndpointStateNotReady:
+		h = models.EndpointHealth{
+			Bpf:           models.EndpointHealthStatusWarning,
+			Policy:        models.EndpointHealthStatusWarning,
+			Connected:     true,
+			OverallHealth: models.EndpointHealthStatusWarning,
+		}
+	case models.EndpointStateDisconnected:
+		h = models.EndpointHealth{
+			Bpf:           models.EndpointHealthStatusDisabled,
+			Policy:        models.EndpointHealthStatusDisabled,
+			Connected:     false,
+			OverallHealth: models.EndpointHealthStatusDisabled,
+		}
+	case models.EndpointStateReady:
+		h = models.EndpointHealth{
+			Bpf:           models.EndpointHealthStatusOK,
+			Policy:        models.EndpointHealthStatusOK,
+			Connected:     true,
+			OverallHealth: models.EndpointHealthStatusOK,
+		}
+	}
+
+	return &h
+}
