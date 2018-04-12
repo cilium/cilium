@@ -14,6 +14,12 @@
 
 package endpoint
 
+import (
+	"fmt"
+	"github.com/cilium/cilium/pkg/controller"
+	"time"
+)
+
 func (e *Endpoint) identityResolutionIsObsolete(myChangeRev int) bool {
 	// If in disconnected state, skip as well as this operation is no
 	// longer required.
@@ -28,4 +34,16 @@ func (e *Endpoint) identityResolutionIsObsolete(myChangeRev int) bool {
 	}
 
 	return false
+}
+
+func (e *Endpoint) runLabelsResolver(owner Owner, myChangeRev int) {
+	ctrlName := fmt.Sprintf("resolve-identity-%d", e.ID)
+	e.controllers.UpdateController(ctrlName,
+		controller.ControllerParams{
+			DoFunc: func() error {
+				return e.identityLabelsChanged(owner, myChangeRev)
+			},
+			RunInterval: time.Duration(5) * time.Minute,
+		},
+	)
 }
