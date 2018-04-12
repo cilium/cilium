@@ -413,15 +413,10 @@ var _ = Describe("K8sValidatedPolicyTest", func() {
 
 			By("Installing knp egress default-deny")
 
-			eps := kubectl.CiliumEndpointPolicyVersion(ciliumPod)
-
 			_, err := kubectl.CiliumPolicyAction(
 				helpers.KubeSystemNamespace, knpDenyEgress, helpers.KubectlApply, 300)
 			Expect(err).Should(BeNil(),
 				"L3 deny-egress Policy cannot be applied in %q namespace", helpers.DefaultNamespace)
-
-			err = helpers.WaitUntilEndpointUpdates(ciliumPod, eps, 4, kubectl)
-			Expect(err).To(BeNil(), "Waiting for endpoint updates on %s", ciliumPod)
 
 			By("Testing if egress policy enforcement is enabled on the endpoint")
 
@@ -473,15 +468,10 @@ var _ = Describe("K8sValidatedPolicyTest", func() {
 
 			By("Installing cnp ingress default-deny")
 
-			eps := kubectl.CiliumEndpointPolicyVersion(ciliumPod)
-
 			_, err := kubectl.CiliumPolicyAction(
 				helpers.KubeSystemNamespace, cnpDenyIngress, helpers.KubectlApply, 300)
 			Expect(err).Should(BeNil(),
 				"L3 deny-ingress Policy cannot be applied in %q namespace", helpers.DefaultNamespace)
-
-			err = helpers.WaitUntilEndpointUpdates(ciliumPod, eps, 4, kubectl)
-			Expect(err).To(BeNil(), "Waiting for endpoint updates on %s", ciliumPod)
 
 			By("Testing connectivity with ingress default-deny policy loaded")
 
