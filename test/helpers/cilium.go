@@ -695,6 +695,7 @@ func (s *SSHMeta) GatherLogs() {
 	ciliumStateCommands := []string{
 		fmt.Sprintf("sudo rsync -rv --exclude=*.sock %s %s", RunDir, filepath.Join(BasePath, testPath, "lib")),
 		fmt.Sprintf("sudo rsync -rv --exclude=*.sock %s %s", LibDir, filepath.Join(BasePath, testPath, "run")),
+		fmt.Sprintf("sudo mv /tmp/core* %s", filepath.Join(BasePath, testPath)),
 	}
 
 	for _, cmd := range ciliumStateCommands {
