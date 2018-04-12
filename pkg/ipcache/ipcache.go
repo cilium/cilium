@@ -137,8 +137,7 @@ func (ipc *IPCache) delete(endpointIP string) {
 func (ipc *IPCache) LookupByIP(endpointIP string) (identity.NumericIdentity, bool) {
 	ipc.mutex.RLock()
 	defer ipc.mutex.RUnlock()
-	identity, exists := ipc.ipToIdentityCache[endpointIP]
-	return identity, exists
+	return ipc.LookupByIPRLocked(endpointIP)
 }
 
 // LookupByIPRLocked returns the corresponding security identity that endpoint IP maps
