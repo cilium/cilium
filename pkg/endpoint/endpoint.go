@@ -1029,40 +1029,6 @@ func ParseEndpoint(strEp string) (*Endpoint, error) {
 	return &ep, nil
 }
 
-// GetBPFValue returns the value which should represent this endpoint in the
-// BPF endpoints map
-func (e *Endpoint) GetBPFValue() (*lxcmap.EndpointInfo, error) {
-	mac, err := e.LXCMAC.Uint64()
-	if err != nil {
-		return nil, err
-	}
-
-	nodeMAC, err := e.NodeMAC.Uint64()
-	if err != nil {
-		return nil, err
-	}
-
-	info := &lxcmap.EndpointInfo{
-		IfIndex: uint32(e.IfIndex),
-		// Store security identity in network byte order so it can be
-		// written into the packet without an additional byte order
-		// conversion.
-		SecLabelID: byteorder.HostToNetwork(uint16(e.GetIdentity())).(uint16),
-		LxcID:      e.ID,
-		MAC:        lxcmap.MAC(mac),
-		NodeMAC:    lxcmap.MAC(nodeMAC),
-	}
-
-	for i, pM := range e.PortMap {
-		info.PortMap[i] = lxcmap.PortMap{
-			From: byteorder.HostToNetwork(pM.From).(uint16),
-			To:   byteorder.HostToNetwork(pM.To).(uint16),
-		}
-	}
-
-	return info, nil
-}
-
 // mapPath returns the path to a map for endpoint ID.
 func mapPath(mapname string, id int) string {
 	return bpf.MapPath(mapname + strconv.Itoa(id))
