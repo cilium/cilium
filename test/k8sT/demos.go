@@ -28,7 +28,7 @@ import (
 
 var (
 	demoTestName         = "K8sValidatedDemosTest"
-	starWarsDemoLinkRoot = "https://raw.githubusercontent.com/cilium/star-wars-demo/master/v1/"
+	starWarsDemoLinkRoot = "https://raw.githubusercontent.com/cilium/star-wars-demo/master/v1"
 )
 
 func getStarWarsResourceLink(file string) string {
@@ -119,11 +119,11 @@ var _ = Describe(demoTestName, func() {
 		}()
 		res.ExpectSuccess("Unable to apply taint to %s: %s", helpers.K8s1, res.CombineOutput())
 
-		By("Applying deathstar Deployment")
+		By("Applying deathstar deployment")
 		res = kubectl.Apply(deathStarYAMLLink)
 		res.ExpectSuccess("unable to apply %s: %s", deathStarYAMLLink, res.CombineOutput())
 
-		By("Waiting for deathstart deployment pods to be ready")
+		By("Waiting for deathstar deployment pods to be ready")
 		_, err = kubectl.WaitforPods(helpers.DefaultNamespace, fmt.Sprintf("-l %s", empireLabel), 300)
 		Expect(err).Should(BeNil(), "Empire pods are not ready after timeout")
 
@@ -161,6 +161,7 @@ var _ = Describe(demoTestName, func() {
 		res.ExpectContains("200", "unable to curl %s/v1: %s", deathstarServiceName, res.CombineOutput())
 
 		By(fmt.Sprintf("Importing L7 Policy which restricts access to %s", exhaustPortPath))
+		kubectl.Delete(l4PolicyYAMLLink)
 		res = kubectl.Apply(l7PolicyYAMLLink)
 		res.ExpectSuccess("unable to apply %s: %s", l7PolicyYAMLLink, res.CombineOutput())
 
