@@ -686,10 +686,6 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir, reason string) (uint64, err
 		}
 	}
 
-	var (
-		modifiedRules policy.SecurityIDContexts
-		policyChanged bool
-	)
 	// Only generate & populate policy map if a security identity is set up for
 	// this endpoint.
 	if c != nil {
@@ -698,7 +694,7 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir, reason string) (uint64, err
 		// Regenerate policy and apply any options resulting in the
 		// policy change.
 		// This also populates e.PolicyMap.
-		policyChanged, modifiedRules, _, err = e.regeneratePolicy(owner, nil)
+		_, _, _, err = e.regeneratePolicy(owner, nil)
 		if err != nil {
 			e.Mutex.Unlock()
 			return 0, fmt.Errorf("unable to regenerate policy for '%s': %s", e.PolicyMap.String(), err)
@@ -724,54 +720,6 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir, reason string) (uint64, err
 			return 0, err
 		}
 		c.Mutex.Unlock()
-
-		// Evaluate generated policy to see if changes to connection tracking
-		// need to be made.
-		//
-		// policyChanged can still be true and, at the same time,
-		// the modifiedRules be nil. If this happens it means
-		// the L7 was changed so we need to update the
-		// L3L4Policy map with the new proxyport.
-		//
-		// modifiedRules contains if new L4 ports were added/modified and/or
-		// L3 rules were changed
-		c.Mutex.RLock()
-		if policyChanged &&
-			modifiedRules == nil &&
-			c.L4Policy != nil &&
-			(len(c.L4Policy.Ingress) > 0 || len(c.L4Policy.Egress) > 0) &&
-			c.L3L4Policy != nil {
-
-			// Only update CT if the RedirectPort was changed.
-			policyChanged = false
-
-			p := *c.L3L4Policy
-			for identity, l4RuleContexts := range p {
-				for l4RuleContext, l7RuleContexts := range l4RuleContexts {
-					var l4Filter policy.L4Filter
-					var ok bool
-					pp := l4RuleContext.PortProto()
-					if l4RuleContext.Ingress {
-						l4Filter, ok = c.L4Policy.Ingress[pp]
-					} else {
-						l4Filter, ok = c.L4Policy.Egress[pp]
-					}
-					if ok {
-						redirectPort := e.lookupRedirectPortBE(&l4Filter)
-						if l7RuleContexts.RedirectPort != redirectPort {
-							e.getLogger().Debugf("Will update CT map entry for identity %d and proxy ID %s with redirect port %d",
-								identity, l4RuleContext.ProxyID(), redirectPort)
-							policyChanged = true
-							l7RuleContexts.RedirectPort = redirectPort
-							p[identity][l4RuleContext] = l7RuleContexts
-						}
-					}
-				}
-			}
-
-			modifiedRules = c.L3L4Policy.DeepCopy()
-		}
-		c.Mutex.RUnlock()
 	}
 
 	// Generate header file specific to this endpoint for use in compiling

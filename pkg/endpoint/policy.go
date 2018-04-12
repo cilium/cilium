@@ -358,13 +358,7 @@ func (e *Endpoint) regenerateConsumable(owner Owner, labelsMap *identityPkg.Iden
 	// L4 policy needs to be applied on two conditions
 	// 1. The L4 policy has changed
 	// 2. The set of applicable security identities has changed.
-	if e.L4Policy == c.L4Policy && e.LabelsMap == labelsMap {
-		// If there were no modifications to the L3-L4, copy the existing L3-L4
-		// policy.
-		if c.L3L4Policy != nil {
-			rulesAdd = *c.L3L4Policy
-		}
-	} else {
+	if e.L4Policy != c.L4Policy || e.LabelsMap != labelsMap {
 		e.getLogger().Debug("policy changed to L4Policy or LabelsMap having changed")
 		changed = true
 
@@ -540,11 +534,6 @@ func (e *Endpoint) regenerateConsumable(owner Owner, labelsMap *identityPkg.Iden
 			changed = true
 			// TODO (ianvernon): conntrack work for egress.
 		}
-	}
-
-	if rulesAdd != nil {
-		rulesAddCpy := rulesAdd.DeepCopy() // Store the L3-L4 policy
-		c.L3L4Policy = &rulesAddCpy
 	}
 
 	e.getLogger().WithFields(logrus.Fields{
