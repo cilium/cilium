@@ -102,7 +102,7 @@ type L4Filter struct {
 
 // AllowsAllAtL3 returns whether this L4Filter applies to all endpoints at L3.
 func (l4 *L4Filter) AllowsAllAtL3() bool {
-	return l4.Endpoints.SelectsAllEndpoints() || len(l4.Endpoints) == 0
+	return l4.Endpoints.SelectsAllEndpoints()
 }
 
 // GetRelevantRules returns the relevant rules based on the source and
