@@ -166,3 +166,14 @@ func (e *Endpoint) GetModelRLocked() *models.Endpoint {
 
 	return mdl
 }
+
+// GetModel returns the API model of endpoint e.
+func (e *Endpoint) GetModel() *models.Endpoint {
+	if e == nil {
+		return nil
+	}
+	e.Mutex.RLock()
+	defer e.Mutex.RUnlock()
+
+	return e.GetModelRLocked()
+}

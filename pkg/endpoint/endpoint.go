@@ -779,17 +779,6 @@ func (e *Endpoint) GetHealthModel() *models.EndpointHealth {
 	return e.getHealthModel()
 }
 
-// GetModel returns the API model of endpoint e.
-func (e *Endpoint) GetModel() *models.Endpoint {
-	if e == nil {
-		return nil
-	}
-	e.Mutex.RLock()
-	defer e.Mutex.RUnlock()
-
-	return e.GetModelRLocked()
-}
-
 // GetPolicyModel returns the endpoint's policy as an API model.
 //
 // Must be called with e.Mutex locked.
