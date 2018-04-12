@@ -171,15 +171,6 @@ func init() {
 	}
 }
 
-const (
-	// ReservedCEPNamespace is the namespace to use for reserved endpoints that
-	// don't have a namespace (e.g. health)
-	ReservedCEPNamespace = meta_v1.NamespaceSystem
-
-	// HealthCEPPrefix is the prefix used to name the cilium health endpoints' CEP
-	HealthCEPPrefix = "cilium-health-"
-)
-
 // Endpoint represents a container or similar which can be individually
 // addresses on L3 with its own IP addresses. This structured is managed by the
 // endpoint manager in pkg/endpointmanager.

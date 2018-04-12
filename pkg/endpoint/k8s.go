@@ -40,6 +40,15 @@ import (
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 )
 
+const (
+	// ReservedCEPNamespace is the namespace to use for reserved endpoints that
+	// don't have a namespace (e.g. health)
+	ReservedCEPNamespace = meta_v1.NamespaceSystem
+
+	// HealthCEPPrefix is the prefix used to name the cilium health endpoints' CEP
+	HealthCEPPrefix = "cilium-health-"
+)
+
 // getCiliumClient builds and returns a k8s auto-generated client for cilium
 // objects
 func getCiliumClient() (ciliumClient cilium_client_v2.CiliumV2Interface, err error) {
