@@ -134,6 +134,9 @@ const (
 	// LabelSourceReserved is the label source for reserved types.
 	LabelSourceReserved = "reserved"
 
+	// LabelSourceCIDR is the label source for generated CIDRs.
+	LabelSourceCIDR = "cidr"
+
 	// LabelSourceReservedKeyPrefix is the prefix of a reserved label
 	LabelSourceReservedKeyPrefix = LabelSourceReserved + "."
 )
