@@ -1645,6 +1645,216 @@ func (ds *PolicyTestSuite) TestEgressL4AllowAll(c *C) {
 	c.Assert(filter.Endpoints[0], Equals, api.WildcardEndpointSelector)
 }
 
+func (ds *PolicyTestSuite) TestEgressL4AllowWorld(c *C) {
+	repo := parseAndAddRules(c, api.Rules{
+		&api.Rule{
+			EndpointSelector: endpointSelectorA,
+			Egress: []api.EgressRule{
+				{
+					ToEntities: []api.Entity{api.EntityWorld},
+					ToPorts: []api.PortRule{{
+						Ports: []api.PortProtocol{
+							{Port: "80", Protocol: api.ProtoTCP},
+						},
+					}},
+				},
+			},
+		},
+	})
+
+	worldLabel := labels.ParseSelectLabelArray("reserved:world")
+	ctxAToWorld80 := SearchContext{From: labelsA, To: worldLabel, Trace: TRACE_VERBOSE}
+	ctxAToWorld80.DPorts = []*models.Port{{Port: 80, Protocol: models.PortProtocolTCP}}
+	checkEgress(c, repo, &ctxAToWorld80, api.Allowed)
+
+	ctxAToWorld90 := ctxAToWorld80
+	ctxAToWorld90.DPorts = []*models.Port{{Port: 90, Protocol: models.PortProtocolTCP}}
+	checkEgress(c, repo, &ctxAToWorld90, api.Denied)
+
+	// Pod to pod must be denied on port 80 and 90, only world was whitelisted
+	fooLabel := labels.ParseSelectLabelArray("k8s:app=foo")
+	ctxAToFoo := SearchContext{From: labelsA, To: fooLabel, Trace: TRACE_VERBOSE,
+		DPorts: []*models.Port{{Port: 80, Protocol: models.PortProtocolTCP}}}
+	checkEgress(c, repo, &ctxAToFoo, api.Denied)
+	ctxAToFoo90 := ctxAToFoo
+	ctxAToFoo90.DPorts = []*models.Port{{Port: 90, Protocol: models.PortProtocolTCP}}
+	checkEgress(c, repo, &ctxAToFoo90, api.Denied)
+
+	buffer := new(bytes.Buffer)
+	ctx := SearchContext{From: labelsA, Trace: TRACE_VERBOSE}
+	ctx.Logging = logging.NewLogBackend(buffer, "", 0)
+
+	l4EgressPolicy, err := repo.ResolveL4EgressPolicy(&ctx)
+	c.Assert(err, IsNil)
+
+	c.Log(buffer)
+
+	filter, ok := (*l4EgressPolicy)["80/TCP"]
+	c.Assert(ok, Equals, true)
+	c.Assert(filter.Port, Equals, 80)
+	c.Assert(filter.Ingress, Equals, false)
+
+	c.Assert(len(filter.Endpoints), Equals, 1)
+
+	cidrPolicy := repo.ResolveCIDRPolicy(&ctx)
+	c.Assert(cidrPolicy, Not(IsNil))
+
+	c.Log(buffer)
+
+	// Check that no CIDR rules were generated
+	c.Assert(len(cidrPolicy.Ingress.Map), Equals, 0)
+	c.Assert(len(cidrPolicy.Egress.Map), Equals, 0)
+}
+
+func (ds *PolicyTestSuite) TestEgressL4AllowAllEntity(c *C) {
+	repo := parseAndAddRules(c, api.Rules{
+		&api.Rule{
+			EndpointSelector: endpointSelectorA,
+			Egress: []api.EgressRule{
+				{
+					ToEntities: []api.Entity{api.EntityAll},
+					ToPorts: []api.PortRule{{
+						Ports: []api.PortProtocol{
+							{Port: "80", Protocol: api.ProtoTCP},
+						},
+					}},
+				},
+			},
+		},
+	})
+
+	worldLabel := labels.ParseSelectLabelArray("reserved:world")
+	ctxAToWorld80 := SearchContext{From: labelsA, To: worldLabel, Trace: TRACE_VERBOSE}
+	ctxAToWorld80.DPorts = []*models.Port{{Port: 80, Protocol: models.PortProtocolTCP}}
+	checkEgress(c, repo, &ctxAToWorld80, api.Allowed)
+
+	ctxAToWorld90 := ctxAToWorld80
+	ctxAToWorld90.DPorts = []*models.Port{{Port: 90, Protocol: models.PortProtocolTCP}}
+	checkEgress(c, repo, &ctxAToWorld90, api.Denied)
+
+	// Pod to pod must be allowed on port 80, denied on port 90 (all identity)
+	fooLabel := labels.ParseSelectLabelArray("k8s:app=foo")
+	ctxAToFoo := SearchContext{From: labelsA, To: fooLabel, Trace: TRACE_VERBOSE,
+		DPorts: []*models.Port{{Port: 80, Protocol: models.PortProtocolTCP}}}
+	checkEgress(c, repo, &ctxAToFoo, api.Allowed)
+	ctxAToFoo90 := ctxAToFoo
+	ctxAToFoo90.DPorts = []*models.Port{{Port: 90, Protocol: models.PortProtocolTCP}}
+	checkEgress(c, repo, &ctxAToFoo90, api.Denied)
+
+	buffer := new(bytes.Buffer)
+	ctx := SearchContext{From: labelsA, Trace: TRACE_VERBOSE}
+	ctx.Logging = logging.NewLogBackend(buffer, "", 0)
+
+	l4EgressPolicy, err := repo.ResolveL4EgressPolicy(&ctx)
+	c.Assert(err, IsNil)
+
+	c.Log(buffer)
+
+	filter, ok := (*l4EgressPolicy)["80/TCP"]
+	c.Assert(ok, Equals, true)
+	c.Assert(filter.Port, Equals, 80)
+	c.Assert(filter.Ingress, Equals, false)
+
+	c.Assert(len(filter.Endpoints), Equals, 1)
+
+	cidrPolicy := repo.ResolveCIDRPolicy(&ctx)
+	c.Assert(cidrPolicy, Not(IsNil))
+
+	c.Log(buffer)
+
+	// Check that no CIDR rules were generated
+	c.Assert(len(cidrPolicy.Ingress.Map), Equals, 0)
+	c.Assert(len(cidrPolicy.Egress.Map), Equals, 0)
+}
+
+func (ds *PolicyTestSuite) TestEgressL3AllowWorld(c *C) {
+	repo := parseAndAddRules(c, api.Rules{
+		&api.Rule{
+			EndpointSelector: endpointSelectorA,
+			Egress: []api.EgressRule{
+				{
+					ToEntities: []api.Entity{api.EntityWorld},
+				},
+			},
+		},
+	})
+
+	worldLabel := labels.ParseSelectLabelArray("reserved:world")
+	ctxAToWorld80 := SearchContext{From: labelsA, To: worldLabel, Trace: TRACE_VERBOSE}
+	ctxAToWorld80.DPorts = []*models.Port{{Port: 80, Protocol: models.PortProtocolTCP}}
+	checkEgress(c, repo, &ctxAToWorld80, api.Allowed)
+
+	ctxAToWorld90 := ctxAToWorld80
+	ctxAToWorld90.DPorts = []*models.Port{{Port: 90, Protocol: models.PortProtocolTCP}}
+	checkEgress(c, repo, &ctxAToWorld90, api.Allowed)
+
+	// Pod to pod must be denied on port 80 and 90, only world was whitelisted
+	fooLabel := labels.ParseSelectLabelArray("k8s:app=foo")
+	ctxAToFoo := SearchContext{From: labelsA, To: fooLabel, Trace: TRACE_VERBOSE,
+		DPorts: []*models.Port{{Port: 80, Protocol: models.PortProtocolTCP}}}
+	checkEgress(c, repo, &ctxAToFoo, api.Denied)
+	ctxAToFoo90 := ctxAToFoo
+	ctxAToFoo90.DPorts = []*models.Port{{Port: 90, Protocol: models.PortProtocolTCP}}
+	checkEgress(c, repo, &ctxAToFoo90, api.Denied)
+
+	buffer := new(bytes.Buffer)
+	ctx := SearchContext{From: labelsA, Trace: TRACE_VERBOSE}
+	ctx.Logging = logging.NewLogBackend(buffer, "", 0)
+
+	cidrPolicy := repo.ResolveCIDRPolicy(&ctx)
+	c.Assert(cidrPolicy, Not(IsNil))
+
+	c.Log(buffer)
+
+	// Check that no CIDR rules were generated
+	c.Assert(len(cidrPolicy.Ingress.Map), Equals, 0)
+	c.Assert(len(cidrPolicy.Egress.Map), Equals, 0)
+}
+
+func (ds *PolicyTestSuite) TestEgressL3AllowAllEntity(c *C) {
+	repo := parseAndAddRules(c, api.Rules{
+		&api.Rule{
+			EndpointSelector: endpointSelectorA,
+			Egress: []api.EgressRule{
+				{
+					ToEntities: []api.Entity{api.EntityAll},
+				},
+			},
+		},
+	})
+
+	worldLabel := labels.ParseSelectLabelArray("reserved:world")
+	ctxAToWorld80 := SearchContext{From: labelsA, To: worldLabel, Trace: TRACE_VERBOSE}
+	ctxAToWorld80.DPorts = []*models.Port{{Port: 80, Protocol: models.PortProtocolTCP}}
+	checkEgress(c, repo, &ctxAToWorld80, api.Allowed)
+
+	ctxAToWorld90 := ctxAToWorld80
+	ctxAToWorld90.DPorts = []*models.Port{{Port: 90, Protocol: models.PortProtocolTCP}}
+	checkEgress(c, repo, &ctxAToWorld90, api.Allowed)
+
+	// Pod to pod must be allowed on both port 80 and 90 (L3 only rule)
+	fooLabel := labels.ParseSelectLabelArray("k8s:app=foo")
+	ctxAToFoo := SearchContext{From: labelsA, To: fooLabel, Trace: TRACE_VERBOSE,
+		DPorts: []*models.Port{{Port: 80, Protocol: models.PortProtocolTCP}}}
+	checkEgress(c, repo, &ctxAToFoo, api.Allowed)
+	ctxAToFoo90 := ctxAToFoo
+	ctxAToFoo90.DPorts = []*models.Port{{Port: 90, Protocol: models.PortProtocolTCP}}
+	checkEgress(c, repo, &ctxAToFoo90, api.Allowed)
+
+	buffer := new(bytes.Buffer)
+	ctx := SearchContext{From: labelsA, Trace: TRACE_VERBOSE}
+	ctx.Logging = logging.NewLogBackend(buffer, "", 0)
+
+	cidrPolicy := repo.ResolveCIDRPolicy(&ctx)
+	c.Assert(cidrPolicy, Not(IsNil))
+
+	c.Log(buffer)
+
+	// Check that no CIDR rules were generated
+	c.Assert(len(cidrPolicy.Ingress.Map), Equals, 0)
+	c.Assert(len(cidrPolicy.Egress.Map), Equals, 0)
+}
+
 func (ds *PolicyTestSuite) TestL4WildcardMerge(c *C) {
 
 	// First, test implicit case.
