@@ -215,6 +215,16 @@ func (ds *DaemonSuite) TestUpdateConsumerMap(c *C) {
 						L7Rules: &cilium.PortNetworkPolicyRule_HttpRules{
 							HttpRules: &cilium.HttpNetworkPolicyRules{
 								HttpRules: []*cilium.HttpNetworkPolicyRule{
+									{},
+								},
+							},
+						},
+					},
+					{
+						RemotePolicies: expectedRemotePolicies,
+						L7Rules: &cilium.PortNetworkPolicyRule_HttpRules{
+							HttpRules: &cilium.HttpNetworkPolicyRules{
+								HttpRules: []*cilium.HttpNetworkPolicyRule{
 									{
 										Headers: []*envoy_api_v2_route.HeaderMatcher{
 											{
@@ -253,9 +263,70 @@ func (ds *DaemonSuite) TestUpdateConsumerMap(c *C) {
 		uint64(prodFooJoeSecLblsCtx.ID),
 	}
 	sortkeys.Uint64s(expectedRemotePolicies)
-	expectedNetworkPolicy.Name = ProdIPv4Addr.String()
-	expectedNetworkPolicy.Policy = uint64(prodBarSecLblsCtx.ID)
-	expectedNetworkPolicy.IngressPerPortPolicies[0].Rules[0].RemotePolicies = expectedRemotePolicies
+	expectedRemotePolicies2 := []uint64{
+		uint64(prodFooJoeSecLblsCtx.ID),
+	}
+	sortkeys.Uint64s(expectedRemotePolicies2)
+
+	expectedNetworkPolicy = &cilium.NetworkPolicy{
+		Name:   ProdIPv4Addr.String(),
+		Policy: uint64(prodBarSecLblsCtx.ID),
+		IngressPerPortPolicies: []*cilium.PortNetworkPolicy{
+			{
+				Port:     80,
+				Protocol: envoy_api_v2_core.SocketAddress_TCP,
+				Rules: []*cilium.PortNetworkPolicyRule{
+					{
+						RemotePolicies: expectedRemotePolicies2,
+						L7Rules: &cilium.PortNetworkPolicyRule_HttpRules{
+							HttpRules: &cilium.HttpNetworkPolicyRules{
+								HttpRules: []*cilium.HttpNetworkPolicyRule{
+									{},
+								},
+							},
+						},
+					},
+					{
+						RemotePolicies: expectedRemotePolicies,
+						L7Rules: &cilium.PortNetworkPolicyRule_HttpRules{
+							HttpRules: &cilium.HttpNetworkPolicyRules{
+								HttpRules: []*cilium.HttpNetworkPolicyRule{
+									{},
+								},
+							},
+						},
+					},
+					{
+						RemotePolicies: expectedRemotePolicies,
+						L7Rules: &cilium.PortNetworkPolicyRule_HttpRules{
+							HttpRules: &cilium.HttpNetworkPolicyRules{
+								HttpRules: []*cilium.HttpNetworkPolicyRule{
+									{
+										Headers: []*envoy_api_v2_route.HeaderMatcher{
+											{
+												Name:  ":method",
+												Value: "GET",
+												Regex: &wrappers.BoolValue{Value: true},
+											},
+											{
+												Name:  ":path",
+												Value: "/bar",
+												Regex: &wrappers.BoolValue{Value: true},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		EgressPerPortPolicies: []*cilium.PortNetworkPolicy{ // Allow-all policy.
+			{Protocol: envoy_api_v2_core.SocketAddress_TCP},
+			{Protocol: envoy_api_v2_core.SocketAddress_UDP},
+		},
+	}
 	c.Assert(prodBarNetworkPolicy, comparator.DeepEquals, expectedNetworkPolicy)
 }
 

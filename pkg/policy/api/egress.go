@@ -113,3 +113,10 @@ type EgressRule struct {
 func (e *EgressRule) GetDestinationEndpointSelectors() EndpointSelectorSlice {
 	return append(e.ToEndpoints, e.ToEntities.GetAsEndpointSelectors()...)
 }
+
+// IsLabelBased returns true whether the L3 destination endpoints are selected
+// based on labels, i.e. either by setting ToEndpoints or ToEntities, or not
+// setting any To field.
+func (e *EgressRule) IsLabelBased() bool {
+	return len(e.ToRequires)+len(e.ToCIDR)+len(e.ToCIDRSet)+len(e.ToServices) == 0
+}

@@ -111,3 +111,10 @@ type IngressRule struct {
 func (i *IngressRule) GetSourceEndpointSelectors() EndpointSelectorSlice {
 	return append(i.FromEndpoints, i.FromEntities.GetAsEndpointSelectors()...)
 }
+
+// IsLabelBased returns true whether the L3 source endpoints are selected based
+// on labels, i.e. either by setting FromEndpoints or FromEntities, or not
+// setting any From field.
+func (i *IngressRule) IsLabelBased() bool {
+	return len(i.FromRequires)+len(i.FromCIDR)+len(i.FromCIDRSet) == 0
+}
