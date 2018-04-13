@@ -21,6 +21,9 @@ Choose a descriptive title that summarizes the symptom of the bug
 - Kernel version (run `uname -a`)
 - Orchestration system version in use (e.g. `kubectl version`, Mesos, ...)
 - Link to relevant artifacts (policies, deployments scripts, ...)
+- Upload a system dump (run `curl -sLO
+releases.cilium.io/tools/cluster-diagnosis.zip &&
+python cluster-diagnosis.zip sysdump` and then attach the generated zip file)
 
 ### How to reproduce the issue
 

@@ -116,6 +116,41 @@ When running in :ref:`arch_direct_routing` mode:
 
 4. Verify that the firewall on each node permits to route the endpoint IPs.
 
+Cluster Diagnosis Tool
+===========================
+The ``cluster-diagnosis`` tool can help identify the most commonly encountered
+issues in Cilium deployments. The tool currently supports Kubernetes
+and Minikube clusters only.
+
+The tool performs various checks and provides hints to fix specific
+issues that it has identified.
+
+The following is a list of prerequisites:
+
+* Requires Python >= 2.7.*
+* Requires ``kubectl``.
+* ``kubectl`` should be pointing to your cluster before running the tool.
+
+You can download the latest version of the cluster-diagnosis.zip file
+using the following command:
+
+::
+
+    curl -sLO releases.cilium.io/tools/cluster-diagnosis.zip
+
+Command to run the cluster-diagnosis tool:
+
+::
+
+    python cluster-diagnosis.zip
+
+Command to collect the system dump using the cluster-diagnosis tool:
+
+::
+
+    python cluster-diagnosis.zip sysdump
+
+
 Cluster connectivity check
 ==========================
 
@@ -313,30 +348,6 @@ Below is an approximate list of the kind of information in the archive.
 * ``cilium policy get``
 * ``cilium service list``
 * ...
-
-Cluster Diagnosis Tool
-===========================
-The ``cluster-diagnosis`` tool can help identify the most commonly encountered
-issues in Cilium deployments. The tool currently supports Kubernetes
-and Minikube clusters only.
-
-The tool performs various checks and provides hints to fix specific
-issues that it has identified.
-
-The following is a list of prerequisites:
-
-* Requires Python >= 2.7.*
-* Requires ``kubectl``.
-* ``kubectl`` should be pointing to your cluster before running the tool.
-
-Command to run the cluster-diagnosis tool:
-
-::
-
-    python cluster-diagnosis.zip
-
-You can download the latest version of the cluster-diagnosis.zip file
-here: https://github.com/cilium/cluster-diagnosis/releases/latest.
 
 .. _Slack channel: https://cilium.herokuapp.com
 .. _NodeSelector: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/
