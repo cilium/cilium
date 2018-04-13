@@ -19,12 +19,9 @@ import (
 	"fmt"
 	"net"
 	"path"
-	"sort"
 	"strings"
 	"sync"
 
-	"github.com/cilium/cilium/pkg/envoy"
-	envoyAPI "github.com/cilium/cilium/pkg/envoy/cilium"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/lock"
@@ -162,9 +159,9 @@ func (ipc *IPCache) LookupByIdentity(id identity.NumericIdentity) (map[string]st
 	return ips, exists
 }
 
-// IPIdentityMappingOwner is the interface the owner of an identity allocator
-// must implement
-type IPIdentityMappingOwner interface {
+// IPIdentityMappingListener represents a component that is interested in
+// learning about IP to Identity mapping events.
+type IPIdentityMappingListener interface {
 	// OnIPIdentityCacheChange will be called whenever there the state of the
 	// IPCache has changed.
 	OnIPIdentityCacheChange(modType CacheModification, ipIDPair identity.IPIdentityPair)
@@ -208,7 +205,7 @@ func keyToIP(key string) (net.IP, error) {
 	return parsedIP, nil
 }
 
-func ipIdentityWatcher(owner IPIdentityMappingOwner) {
+func ipIdentityWatcher(listeners []IPIdentityMappingListener) {
 	log.Info("Starting IP identity watcher")
 
 	for {
@@ -228,11 +225,11 @@ func ipIdentityWatcher(owner IPIdentityMappingOwner) {
 				cachedIdentity    identity.NumericIdentity
 			)
 
-			// TODO factor out Envoy code into callback. That way this could be
-			// made more-easily testable.
 			switch event.Typ {
 			case kvstore.EventTypeListDone:
-				owner.OnIPIdentityCacheGC()
+				for _, listener := range listeners {
+					listener.OnIPIdentityCacheGC()
+				}
 			case kvstore.EventTypeCreate, kvstore.EventTypeModify:
 
 				err := json.Unmarshal(event.Value, &ipIDPair)
@@ -250,25 +247,6 @@ func ipIdentityWatcher(owner IPIdentityMappingOwner) {
 					IPIdentityCache.Upsert(ipStr, ipIDPair.ID)
 					cacheChanged = true
 					cacheModification = Upsert
-
-					endpointIPs, _ := IPIdentityCache.LookupByIdentity(ipIDPair.ID)
-
-					// Update XDS Cache as well with the new identity to IP mapping.
-					// The old identity to IP mapping for this IP in the XDS
-					// cache may still be present.
-					ipStrings := make([]string, 0, len(endpointIPs))
-					for endpointIP := range endpointIPs {
-						ipStrings = append(ipStrings, endpointIP)
-					}
-					sort.Strings(ipStrings)
-					envoy.NetworkPolicyHostsCache.Upsert(envoy.NetworkPolicyHostsTypeURL, ipIDPair.ID.StringID(), &envoyAPI.NetworkPolicyHosts{Policy: uint64(ipIDPair.ID), HostAddresses: ipStrings}, false)
-
-					// This lookup needs to be *after* the above call to Upsert
-					// in order to determine if the identity-to IP mapping still
-					// exists in the IPIdentityCache. This determines what operation is
-					// performed on the Envoy cache for updating the entry for
-					// the old identity for this IP.
-					updateXDSCacheForOldIdentity(cachedIdentity)
 				}
 			case kvstore.EventTypeDelete:
 				// Synchronize local caching of endpoint IP to ipIDPair mapping with
@@ -295,12 +273,6 @@ func ipIdentityWatcher(owner IPIdentityMappingOwner) {
 					IPIdentityCache.delete(ipStr)
 					cacheChanged = true
 					cacheModification = Delete
-
-					// This needs to be *after* the above call to delete
-					// in order to determine if the identity-to IP mapping still
-					// exists in the IPIdentityCache. This determines what operation is
-					// performed on the Envoy cache.
-					updateXDSCacheForOldIdentity(cachedIdentity)
 				}
 			}
 
@@ -313,7 +285,14 @@ func ipIdentityWatcher(owner IPIdentityMappingOwner) {
 				}).Debugf("endpoint IP cache state change")
 
 				// Callback upon cache updates.
-				owner.OnIPIdentityCacheChange(cacheModification, ipIDPair)
+				for _, listener := range listeners {
+					if ipIDPair.ID != cachedIdentity {
+						cachedPair := ipIDPair
+						cachedPair.ID = cachedIdentity
+						listener.OnIPIdentityCacheChange(Delete, cachedPair)
+					}
+					listener.OnIPIdentityCacheChange(cacheModification, ipIDPair)
+				}
 			}
 		}
 
@@ -323,24 +302,8 @@ func ipIdentityWatcher(owner IPIdentityMappingOwner) {
 
 // InitIPIdentityWatcher initializes the watcher for ip-identity mapping events
 // in the key-value store.
-func InitIPIdentityWatcher(owner IPIdentityMappingOwner) {
+func InitIPIdentityWatcher(listeners []IPIdentityMappingListener) {
 	setupIPIdentityWatcher.Do(func() {
-		go ipIdentityWatcher(owner)
+		go ipIdentityWatcher(listeners)
 	})
-}
-
-// updateXDSCacheForOldIdentity updates the XDS cache entry for old identity
-// with the list of IPs that is stored in the IPIdentityCache.
-func updateXDSCacheForOldIdentity(oldIdentity identity.NumericIdentity) {
-	endpointIPs, isIdentityInCache := IPIdentityCache.LookupByIdentity(oldIdentity)
-	if !isIdentityInCache {
-		envoy.NetworkPolicyHostsCache.Delete(envoy.NetworkPolicyHostsTypeURL, oldIdentity.StringID(), false)
-	} else {
-		ipStrings := make([]string, 0, len(endpointIPs))
-		for endpointIP := range endpointIPs {
-			ipStrings = append(ipStrings, endpointIP)
-		}
-		sort.Strings(ipStrings)
-		envoy.NetworkPolicyHostsCache.Upsert(envoy.NetworkPolicyHostsTypeURL, oldIdentity.StringID(), &envoyAPI.NetworkPolicyHosts{Policy: uint64(oldIdentity), HostAddresses: ipStrings}, false)
-	}
 }

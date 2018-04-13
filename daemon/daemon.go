@@ -42,6 +42,7 @@ import (
 	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/endpointmanager"
+	"github.com/cilium/cilium/pkg/envoy"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/ipam"
 	"github.com/cilium/cilium/pkg/ipcache"
@@ -1075,7 +1076,8 @@ func NewDaemon(c *Config) (*Daemon, error) {
 	// Start watcher for endpoint IP --> identity mappings in key-value store.
 	// this needs to be done *after* init() for the daemon in that function,
 	// we populate the IPCache with the host's IP(s).
-	ipcache.InitIPIdentityWatcher(&d)
+	ipcacheListeners := []ipcache.IPIdentityMappingListener{&d, &envoy.NetworkPolicyHostsCache}
+	ipcache.InitIPIdentityWatcher(ipcacheListeners)
 
 	// FIXME: Make the port range configurable.
 	d.l7Proxy = proxy.StartProxySupport(10000, 20000, d.conf.RunDir,
