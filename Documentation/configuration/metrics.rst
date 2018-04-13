@@ -38,7 +38,7 @@ Policy
 
 Events external to Cilium
 -------------------------
-* ``event_ts``: Last timestamp when we received an event. Further labelled by
+* ``event_ts``: Last timestamp when we received an event. Further labeled by
   source: ``api``, ``containerd``, ``k8s``.
 
 Cilium as a Kubernetes pod
