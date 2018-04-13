@@ -3474,7 +3474,7 @@ legacy cBPF:
 * **gobpf**
 
   gobpf provides go bindings for the bcc framework as well as low-level routines in
-  oder to load and use BPF programs from ELF files.
+  order to load and use BPF programs from ELF files.
 
   https://github.com/iovisor/gobpf
 
