@@ -161,13 +161,18 @@ func CreateL4IngressFilter(fromEndpoints api.EndpointSelectorSlice, rule api.Por
 
 	}
 
+	var derivedFromRules labels.LabelArrayList
+	if ruleLabels != nil {
+		derivedFromRules = labels.LabelArrayList{ruleLabels}
+	}
+
 	l4 := L4Filter{
 		Port:             int(p),
 		Protocol:         protocol,
 		U8Proto:          u8p,
 		L7RulesPerEp:     make(L7DataMap),
 		Endpoints:        filterEndpoints,
-		DerivedFromRules: labels.LabelArrayList{ruleLabels},
+		DerivedFromRules: derivedFromRules,
 	}
 
 	l4.Ingress = true
@@ -204,13 +209,18 @@ func CreateL4EgressFilter(toEndpoints api.EndpointSelectorSlice, rule api.PortRu
 
 	}
 
+	var derivedFromRules labels.LabelArrayList
+	if ruleLabels != nil {
+		derivedFromRules = labels.LabelArrayList{ruleLabels}
+	}
+
 	l4 := L4Filter{
 		Port:             int(p),
 		Protocol:         protocol,
 		U8Proto:          u8p,
 		L7RulesPerEp:     make(L7DataMap),
 		Endpoints:        filterEndpoints,
-		DerivedFromRules: labels.LabelArrayList{ruleLabels},
+		DerivedFromRules: derivedFromRules,
 	}
 
 	l4.Ingress = false

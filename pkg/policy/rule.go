@@ -27,6 +27,10 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+// portAny is a value of api.PortProtocol.Port used internally to wildcard the
+// L4 port.
+const portAny = "0"
+
 type rule struct {
 	api.Rule
 }
@@ -69,7 +73,9 @@ func mergeL4IngressPort(ctx *SearchContext, endpoints []api.EndpointSelector, r 
 		// permissive as possible at L3, the L4 information is already contained
 		// within the filter, and there is no L7 metadata to add to the filter.
 		if r.NumRules() == 0 {
-			existingFilter.DerivedFromRules = append(existingFilter.DerivedFromRules, ruleLabels)
+			if ruleLabels != nil {
+				existingFilter.DerivedFromRules = append(existingFilter.DerivedFromRules, ruleLabels)
+			}
 			resMap[key] = existingFilter
 			return 1, nil
 		}
@@ -105,7 +111,9 @@ func mergeL4IngressPort(ctx *SearchContext, endpoints []api.EndpointSelector, r 
 			delete(existingFilter.L7RulesPerEp, k)
 		}
 		existingFilter.L7Parser = ParserTypeNone
-		existingFilter.DerivedFromRules = append(existingFilter.DerivedFromRules, ruleLabels)
+		if ruleLabels != nil {
+			existingFilter.DerivedFromRules = append(existingFilter.DerivedFromRules, ruleLabels)
+		}
 		resMap[key] = existingFilter
 		return 1, nil
 	}
@@ -155,15 +163,27 @@ func mergeL4IngressPort(ctx *SearchContext, endpoints []api.EndpointSelector, r 
 		}
 	}
 
-	existingFilter.DerivedFromRules = append(existingFilter.DerivedFromRules, ruleLabels)
+	if ruleLabels != nil {
+		existingFilter.DerivedFromRules = append(existingFilter.DerivedFromRules, ruleLabels)
+	}
 	resMap[key] = existingFilter
 	return 1, nil
 }
 
 func mergeL4Ingress(ctx *SearchContext, rule api.IngressRule, ruleLabels labels.LabelArray, resMap L4PolicyMap) (int, error) {
-	if len(rule.ToPorts) == 0 {
-		ctx.PolicyTrace("    No L4 %s rules\n", policymap.Ingress)
-		return 0, nil
+	if len(rule.ToPorts) == 0 { // L3-only rule.
+		// Only keep label-based rules.
+		if !rule.IsLabelBased() {
+			ctx.PolicyTrace("    Non-L4 %s rule\n", policymap.Ingress)
+			return 0, nil
+		}
+
+		ctx.PolicyTrace("    L3 %s rule\n", policymap.Ingress)
+
+		// Rewrite the L3 rule into an equivalent L4 rule which wildcards all
+		// of: L4 protocol, L4 port, L7 rules.
+		// It is safe to modify rule here because it is passed by copy.
+		rule.ToPorts = []api.PortRule{{Ports: []api.PortProtocol{{Port: portAny, Protocol: api.ProtoAny}}}}
 	}
 
 	fromEndpoints := rule.GetSourceEndpointSelectors()
@@ -430,9 +450,19 @@ func (r *rule) canReachEgress(ctx *SearchContext, state *traceState) api.Decisio
 }
 
 func mergeL4Egress(ctx *SearchContext, rule api.EgressRule, ruleLabels labels.LabelArray, resMap L4PolicyMap) (int, error) {
-	if len(rule.ToPorts) == 0 {
-		ctx.PolicyTrace("    No L4 %s rules\n", policymap.Egress)
-		return 0, nil
+	if len(rule.ToPorts) == 0 { // L3-only rule.
+		// Only keep label-based rules.
+		if !rule.IsLabelBased() {
+			ctx.PolicyTrace("    Non-L4 %s rule\n", policymap.Egress)
+			return 0, nil
+		}
+
+		ctx.PolicyTrace("    L3 %s rule\n", policymap.Egress)
+
+		// Rewrite the L3 rule into an equivalent L4 rule which wildcards all
+		// of: L4 protocol, L4 port, L7 rules.
+		// It is safe to modify rule here because it is passed by copy.
+		rule.ToPorts = []api.PortRule{{Ports: []api.PortProtocol{{Port: portAny, Protocol: api.ProtoAny}}}}
 	}
 
 	toEndpoints := rule.GetDestinationEndpointSelectors()
@@ -507,7 +537,9 @@ func mergeL4EgressPort(ctx *SearchContext, endpoints []api.EndpointSelector, r a
 		// permissive as possible at L3, the L4 information is already contained
 		// within the filter, and there is no L7 metadata to add to the filter.
 		if r.NumRules() == 0 {
-			existingFilter.DerivedFromRules = append(existingFilter.DerivedFromRules, ruleLabels)
+			if ruleLabels != nil {
+				existingFilter.DerivedFromRules = append(existingFilter.DerivedFromRules, ruleLabels)
+			}
 			resMap[key] = existingFilter
 			return 1, nil
 		}
@@ -543,7 +575,9 @@ func mergeL4EgressPort(ctx *SearchContext, endpoints []api.EndpointSelector, r a
 			delete(existingFilter.L7RulesPerEp, k)
 		}
 		existingFilter.L7Parser = ParserTypeNone
-		existingFilter.DerivedFromRules = append(existingFilter.DerivedFromRules, ruleLabels)
+		if ruleLabels != nil {
+			existingFilter.DerivedFromRules = append(existingFilter.DerivedFromRules, ruleLabels)
+		}
 		resMap[key] = existingFilter
 		return 1, nil
 	}
@@ -593,7 +627,9 @@ func mergeL4EgressPort(ctx *SearchContext, endpoints []api.EndpointSelector, r a
 		}
 	}
 
-	existingFilter.DerivedFromRules = append(existingFilter.DerivedFromRules, ruleLabels)
+	if ruleLabels != nil {
+		existingFilter.DerivedFromRules = append(existingFilter.DerivedFromRules, ruleLabels)
+	}
 	resMap[key] = existingFilter
 	return 1, nil
 }
