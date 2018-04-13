@@ -20,11 +20,8 @@ import (
 
 	"github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/labels"
-	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/policymap"
 	"github.com/cilium/cilium/pkg/policy/api"
-
-	"github.com/sirupsen/logrus"
 )
 
 type rule struct {
@@ -54,60 +51,18 @@ func mergeL4IngressPort(ctx *SearchContext, endpoints []api.EndpointSelector, r 
 	// for merging with the filter which is already in the policy map.
 	filterToMerge := CreateL4IngressFilter(endpoints, r, p, proto, ruleLabels)
 
-	// Handle cases where filter we are merging new rule with, or new rule itself
-	// allows all traffic on L3.
+	// Handle cases where filter we are merging new rule with, new rule itself
+	// allows all traffic on L3, or both rules allow all traffic on L3.
 	//
-	// Existing filter selects all endpoints, so don't add new endpoints.
-	if existingFilter.AllowsAllAtL3() && !filterToMerge.AllowsAllAtL3() {
-		log.WithFields(logrus.Fields{
-			logfields.EndpointSelector: filterToMerge.Endpoints,
-			"policy":                   existingFilter,
-		}).Debug("skipping L4 filter as the endpoints are already covered")
-
-		// Existing L4Filter already selects all endpoints; if there are no L7 rules
-		// to add from the new rule, then we can just exit because the rule is as
-		// permissive as possible at L3, the L4 information is already contained
-		// within the filter, and there is no L7 metadata to add to the filter.
-		if r.NumRules() == 0 {
-			existingFilter.DerivedFromRules = append(existingFilter.DerivedFromRules, ruleLabels)
-			resMap[key] = existingFilter
-			return 1, nil
-		}
+	// Case 1: Both filters select all endpoints
+	if existingFilter.AllowsAllAtL3() && filterToMerge.AllowsAllAtL3() ||
+		existingFilter.AllowsAllAtL3() && !filterToMerge.AllowsAllAtL3() ||
+		!existingFilter.AllowsAllAtL3() && filterToMerge.AllowsAllAtL3() {
+		existingFilter.Endpoints = api.EndpointSelectorSlice{api.WildcardEndpointSelector}
 	} else {
-		// If new rule allows all endpoints, then allow all endpoints.
-		if !existingFilter.AllowsAllAtL3() && filterToMerge.AllowsAllAtL3() {
-			log.WithFields(logrus.Fields{
-				logfields.EndpointSelector: filterToMerge.Endpoints,
-				"policy":                   existingFilter,
-			}).Debug("new L4 filter applies to all endpoints, making the policy more permissive")
-
-			existingFilter.Endpoints = api.EndpointSelectorSlice{api.WildcardEndpointSelector}
-
-			// If new rule allows all endpoints and does have L7 rules, update
-			// filter's L7Parser.
-			if filterToMerge.L7Parser != ParserTypeNone && existingFilter.L7Parser == ParserTypeNone {
-				existingFilter.L7Parser = filterToMerge.L7Parser
-			}
-		} else {
-			existingFilter.Endpoints = append(existingFilter.Endpoints, endpoints...)
-		}
-	}
-
-	// Now, determine whether we allow all on L4.
-	// Rule we are merging with existing L4Filter has no L7 rules, but applies
-	// to the same L4 port-protocol tuple, which *does* have L7 rules. If a rule
-	// applying to the same port/protocol has no L7 rules, then that equates to
-	// allowing all on L7, so just remove existing L7-related metadata for this
-	// port-proto tuple. Or, if we already have a filter which allows all L4, yet
-	// are trying to add a rule which restricts on L7, do not restrict on L7.
-	if r.NumRules() == 0 || existingFilter.L7Parser == ParserTypeNone {
-		for k := range existingFilter.L7RulesPerEp {
-			delete(existingFilter.L7RulesPerEp, k)
-		}
-		existingFilter.L7Parser = ParserTypeNone
-		existingFilter.DerivedFromRules = append(existingFilter.DerivedFromRules, ruleLabels)
-		resMap[key] = existingFilter
-		return 1, nil
+		// Case 4: no wildcard endpoint selectors in existing filter or in filter
+		// to merge, so just append endpoints.
+		existingFilter.Endpoints = append(existingFilter.Endpoints, endpoints...)
 	}
 
 	// Merge the L7-related data from the arguments provided to this function
@@ -492,60 +447,18 @@ func mergeL4EgressPort(ctx *SearchContext, endpoints []api.EndpointSelector, r a
 	// for merging with the filter which is already in the policy map.
 	filterToMerge := CreateL4EgressFilter(endpoints, r, p, proto, ruleLabels)
 
-	// Handle cases where filter we are merging new rule with, or new rule itself
-	// allows all traffic on L3.
+	// Handle cases where filter we are merging new rule with, new rule itself
+	// allows all traffic on L3, or both rules allow all traffic on L3.
 	//
-	// Existing filter selects all endpoints, so don't add new endpoints.
-	if existingFilter.AllowsAllAtL3() && !filterToMerge.AllowsAllAtL3() {
-		log.WithFields(logrus.Fields{
-			logfields.EndpointSelector: filterToMerge.Endpoints,
-			"policy":                   existingFilter,
-		}).Debug("skipping L4 filter as the endpoints are already covered")
-
-		// Existing L4Filter already selects all endpoints; if there are no L7 rules
-		// to add from the new rule, then we can just exit because the rule is as
-		// permissive as possible at L3, the L4 information is already contained
-		// within the filter, and there is no L7 metadata to add to the filter.
-		if r.NumRules() == 0 {
-			existingFilter.DerivedFromRules = append(existingFilter.DerivedFromRules, ruleLabels)
-			resMap[key] = existingFilter
-			return 1, nil
-		}
+	// Case 1: Both filters select all endpoints
+	if existingFilter.AllowsAllAtL3() && filterToMerge.AllowsAllAtL3() ||
+		existingFilter.AllowsAllAtL3() && !filterToMerge.AllowsAllAtL3() ||
+		!existingFilter.AllowsAllAtL3() && filterToMerge.AllowsAllAtL3() {
+		existingFilter.Endpoints = api.EndpointSelectorSlice{api.WildcardEndpointSelector}
 	} else {
-		// If new rule allows all endpoints, then allow all endpoints.
-		if !existingFilter.AllowsAllAtL3() && filterToMerge.AllowsAllAtL3() {
-			log.WithFields(logrus.Fields{
-				logfields.EndpointSelector: filterToMerge.Endpoints,
-				"policy":                   existingFilter,
-			}).Debug("new L4 filter applies to all endpoints, making the policy more permissive")
-
-			existingFilter.Endpoints = api.EndpointSelectorSlice{api.WildcardEndpointSelector}
-
-			// If new rule allows all endpoints and does have L7 rules, update
-			// filter's L7Parser.
-			if filterToMerge.L7Parser != ParserTypeNone && existingFilter.L7Parser == ParserTypeNone {
-				existingFilter.L7Parser = filterToMerge.L7Parser
-			}
-		} else {
-			existingFilter.Endpoints = append(existingFilter.Endpoints, endpoints...)
-		}
-	}
-
-	// Now, determine whether we allow all on L4.
-	// Rule we are merging with existing L4Filter has no L7 rules, but applies
-	// to the same L4 port-protocol tuple, which *does* have L7 rules. If a rule
-	// applying to the same port/protocol has no L7 rules, then that equates to
-	// allowing all on L7, so just remove existing L7-related metadata for this
-	// port-proto tuple. Or, if we already have a filter which allows all L4, yet
-	// are trying to add a rule which restricts on L7, do not restrict on L7.
-	if r.NumRules() == 0 || existingFilter.L7Parser == ParserTypeNone {
-		for k := range existingFilter.L7RulesPerEp {
-			delete(existingFilter.L7RulesPerEp, k)
-		}
-		existingFilter.L7Parser = ParserTypeNone
-		existingFilter.DerivedFromRules = append(existingFilter.DerivedFromRules, ruleLabels)
-		resMap[key] = existingFilter
-		return 1, nil
+		// Case 4: no wildcard endpoint selectors in existing filter or in filter
+		// to merge, so just append endpoints.
+		existingFilter.Endpoints = append(existingFilter.Endpoints, endpoints...)
 	}
 
 	// Merge the L7-related data from the arguments provided to this function
