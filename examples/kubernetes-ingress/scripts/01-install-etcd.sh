@@ -11,6 +11,8 @@ dir=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
 
 source "${dir}/helpers.bash"
 
+cache_dir="${dir}/../../../hack/cache/k8s/${k8s_version}"
+
 log "Installing etcd..."
 
 certs_dir="${dir}/certs"
@@ -25,12 +27,10 @@ cp "${certs_dir}/etcd-server.pem" \
    /etc/etcd/
 
 if [ -n "${INSTALL}" ]; then
-    log "Downloading etcd..."
+    download_to "${cache_dir}" "etcd-${etcd_version}-linux-amd64.tar.gz" \
+        "https://github.com/coreos/etcd/releases/download/${etcd_version}/etcd-${etcd_version}-linux-amd64.tar.gz"
 
-    wget -nv https://github.com/coreos/etcd/releases/download/${etcd_version}/etcd-${etcd_version}-linux-amd64.tar.gz
-
-    log "Downloading etcd... Done!"
-
+    cp "${cache_dir}/etcd-${etcd_version}-linux-amd64.tar.gz" .
     tar -xvf etcd-${etcd_version}-linux-amd64.tar.gz
 
     sudo mv etcd-${etcd_version}-linux-amd64/etcd* /usr/bin/

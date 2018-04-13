@@ -10,6 +10,8 @@ dir=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
 
 source "${dir}/helpers.bash"
 
+cache_dir="${dir}/../../../hack/cache/k8s/${k8s_version}"
+
 log "Installing kubernetes worker components..."
 
 certs_dir="${dir}/certs"
@@ -19,28 +21,19 @@ set -e
 sudo mkdir -p /opt/cni
 
 if [ -n "${INSTALL}" ]; then
-    log "Downloading kubectl..."
+    for component in kubectl kubelet kube-proxy; do
+        download_to "${cache_dir}" "${component}" \
+            "https://dl.k8s.io/release/${k8s_version}/bin/linux/amd64/${component}"
 
-    wget -nv https://dl.k8s.io/release/${k8s_version}/bin/linux/amd64/kubectl
+        cp "${cache_dir}/${component}" .
+    done
 
-    log "Downloading kubectl... Done!"
-    log "Downloading cni..."
+    download_to "${cache_dir}" "cni-amd64-0799f5732f2a11b329d9e3d51b9c8f2e3759f2ff.tar.gz" \
+        "https://dl.k8s.io/network-plugins/cni-amd64-0799f5732f2a11b329d9e3d51b9c8f2e3759f2ff.tar.gz"
 
-    wget -nv https://dl.k8s.io/network-plugins/cni-amd64-0799f5732f2a11b329d9e3d51b9c8f2e3759f2ff.tar.gz
+    cp "${cache_dir}/../cni-amd64-0799f5732f2a11b329d9e3d51b9c8f2e3759f2ff.tar.gz" .
 
     sudo tar -xvf cni-amd64-0799f5732f2a11b329d9e3d51b9c8f2e3759f2ff.tar.gz -C /opt/cni
-
-    log "Downloading cni... Done!"
-    log "Downloading kubelet..."
-
-    wget -nv https://dl.k8s.io/release/${k8s_version}/bin/linux/amd64/kubelet
-
-    log "Downloading kubelet... Done!"
-    log "Downloading kube-proxy..."
-
-    wget -nv https://dl.k8s.io/release/${k8s_version}/bin/linux/amd64/kube-proxy
-
-    log "Downloading kube-proxy... Done!"
 
     chmod +x kubelet kubectl kube-proxy
 

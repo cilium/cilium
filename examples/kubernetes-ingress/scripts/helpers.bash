@@ -76,6 +76,21 @@ function check_num_params {
   fi
 }
 
+function download_to {
+    cache_dir="${1}"
+    component="${2}"
+    url="${3}"
+
+    mkdir -p "${cache_dir}"
+    if [ ! -f "${cache_dir}/${component}" ]; then
+        log "Downloading ${component}..."
+
+        wget -O "${cache_dir}/${component}" -nv "${url}"
+
+        log "Downloading ${component}... Done!"
+    fi
+}
+
 function log {
   local save=$-
   set +u
