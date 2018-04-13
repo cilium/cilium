@@ -296,7 +296,7 @@ func RunK8sCiliumEndpointSyncGC() {
 				// "" is all-namespaces
 				ceps, err := ciliumClient.CiliumEndpoints(meta_v1.NamespaceAll).List(meta_v1.ListOptions{})
 				if err != nil {
-					scopedLog.WithError(err).Error("Cannot list CEPs")
+					scopedLog.WithError(err).Debug("Cannot list CEPs")
 					return err
 				}
 				for _, cep := range ceps.Items {
@@ -307,9 +307,9 @@ func RunK8sCiliumEndpointSyncGC() {
 							logfields.EndpointID: cep.Status.ID,
 							logfields.K8sPodName: cepFullName,
 						})
-						scopedLog.Info("Orphaned CiliumEndpoint is being garbage collected")
+						scopedLog.Debug("Orphaned CiliumEndpoint is being garbage collected")
 						if err := ciliumClient.CiliumEndpoints(cep.Namespace).Delete(cep.Name, &meta_v1.DeleteOptions{}); err != nil {
-							scopedLog.WithError(err).Error("Unable to delete CEP")
+							scopedLog.WithError(err).Debug("Unable to delete CEP")
 							return err
 						}
 					}
