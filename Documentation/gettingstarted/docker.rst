@@ -1,6 +1,6 @@
-************************************
-Getting Started Using Docker Compose
-************************************
+***************************************
+Getting Started Using `Docker Compose`_
+***************************************
 
 This tutorial leverages Vagrant and VirtualBox, thus should run on any
 operating system supported by Vagrant, including Linux, macOS, and Windows.
@@ -38,7 +38,7 @@ Then navigate into ``examples/getting-started`` and run ``vagrant up``:
 
 The script usually takes a few minutes depending on the speed of your internet
 connection. Vagrant will set up a VM, install the Docker container runtime and
-run Cilium with the help of Docker compose. When the script completes successfully,
+run Cilium with the help of `Docker Compose`_. When the script completes successfully,
 it will print:
 
 ::
@@ -51,6 +51,8 @@ it will print:
 If the script exits with an error message, do not attempt to proceed with the
 tutorial, as later steps will not work properly.   Instead, contact us on the
 `Cilium Slack channel <https://cilium.herokuapp.com>`_.
+
+.. _`Docker Compose`: https://docs.docker.com/compose/
 
 Step 3: Accessing the VM
 ========================
