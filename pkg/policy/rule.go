@@ -312,13 +312,6 @@ func (r *rule) resolveCIDRPolicy(ctx *SearchContext, state *traceState, result *
 		allCIDRs = append(allCIDRs, ingressRule.FromCIDR...)
 		allCIDRs = append(allCIDRs, computeResultantCIDRSet(ingressRule.FromCIDRSet)...)
 
-		for _, fromEntity := range ingressRule.FromEntities {
-			switch fromEntity {
-			case api.EntityWorld:
-				allCIDRs = append(allCIDRs, api.CIDRMatchAll...)
-			}
-		}
-
 		if cnt := mergeCIDR(ctx, "Ingress", allCIDRs, r.Labels, &result.Ingress); cnt > 0 {
 			found += cnt
 		}
@@ -329,13 +322,6 @@ func (r *rule) resolveCIDRPolicy(ctx *SearchContext, state *traceState, result *
 		var allCIDRs []api.CIDR
 		allCIDRs = append(allCIDRs, egressRule.ToCIDR...)
 		allCIDRs = append(allCIDRs, computeResultantCIDRSet(egressRule.ToCIDRSet)...)
-
-		for _, toEntity := range egressRule.ToEntities {
-			switch toEntity {
-			case api.EntityWorld:
-				allCIDRs = append(allCIDRs, api.CIDRMatchAll...)
-			}
-		}
 
 		if cnt := mergeCIDR(ctx, "Egress", allCIDRs, r.Labels, &result.Egress); cnt > 0 {
 			found += cnt
