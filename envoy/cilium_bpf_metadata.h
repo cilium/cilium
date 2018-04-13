@@ -27,7 +27,7 @@ public:
   virtual bool getMetadata(Network::ConnectionSocket &socket);
 
   bool is_ingress_;
-  Cilium::ProxyMapSharedPtr maps_;
+  Cilium::ProxyMapSharedPtr maps_{};
   std::shared_ptr<const Cilium::PolicyHostMap> hosts_;
 };
 
