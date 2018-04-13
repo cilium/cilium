@@ -983,6 +983,10 @@ __section_tail(CILIUM_MAP_POLICY, LXC_ID) int handle_policy(struct __sk_buff *sk
 	__u32 src_label = skb->cb[CB_SRC_LABEL];
 	int forwarding_reason = 0;
 
+#ifdef DROP_ALL
+	ret = DROP_POLICY;
+	if (0) {
+#endif
 	switch (skb->protocol) {
 	case bpf_htons(ETH_P_IPV6):
 		ret = ipv6_policy(skb, ifindex, src_label, &forwarding_reason);
@@ -998,6 +1002,9 @@ __section_tail(CILIUM_MAP_POLICY, LXC_ID) int handle_policy(struct __sk_buff *sk
 		ret = DROP_UNKNOWN_L3;
 		break;
 	}
+#ifdef DROP_ALL
+	}
+#endif
 
 	if (IS_ERR(ret))
 		return send_drop_notify(skb, src_label, SECLABEL, LXC_ID,
