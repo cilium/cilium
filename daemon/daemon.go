@@ -845,7 +845,13 @@ func (d *Daemon) init() error {
 
 			log.WithField(logfields.IPAddr, ip).Debug("Adding local ip to ipcache")
 			ipcache.IPIdentityCache.Upsert(ip.String(), identity.ReservedIdentityHost)
-			d.OnIPIdentityCacheChange(ipcache.Upsert, identity.IPIdentityPair{IP: ip, ID: identity.ReservedIdentityHost})
+
+			// The ipcache hasn't been bootstrapped yet, and we don't actually
+			// want to propagate reserved:host->ID mappings across the cluster.
+			// Manually push it into each IPIdentityMappingListener.
+			localIPIDPair := identity.IPIdentityPair{IP: ip, ID: identity.ReservedIdentityHost}
+			d.OnIPIdentityCacheChange(ipcache.Upsert, localIPIDPair)
+			envoy.NetworkPolicyHostsCache.OnIPIdentityCacheChange(ipcache.Upsert, localIPIDPair)
 		}
 
 		if _, err := lbmap.Service6Map.OpenOrCreate(); err != nil {
