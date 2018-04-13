@@ -463,6 +463,41 @@ func (kub *Kubectl) WaitKubeDNS() error {
 	return err
 }
 
+// WaitForKubeDNSEntry waits until the given DNS entry is ready in kube-dns
+// pod. If the container is not ready after timeout it returns an error. The
+// name's format query should be `${name}.${namespace}`. If `svc.cluster.local`
+// is not present it appends to the given name and it checks  the full FQDN
+func (kub *Kubectl) WaitForKubeDNSEntry(name string) error {
+	svcSuffix := "svc.cluster.local"
+	logger := kub.logger.WithField("dnsName", name)
+
+	if !strings.HasSuffix(name, svcSuffix) {
+		name = fmt.Sprintf("%s.%s", name, svcSuffix)
+	}
+	// https://bugs.launchpad.net/ubuntu/+source/bind9/+bug/854705
+	digCMD := "dig +short %s @%s | grep -v -e '^$'"
+
+	podsIPs, err := kub.GetPodsIPs(KubeSystemNamespace, "k8s-app=kube-dns")
+	if err != nil {
+		logger.WithError(err).Error("cannot get kube-dns pods")
+		return err
+	}
+
+	body := func() bool {
+		var result bool
+		for _, ip := range podsIPs {
+			res := kub.Exec(fmt.Sprintf(digCMD, name, ip))
+			result = res.WasSuccessful()
+		}
+		return result
+	}
+
+	return WithTimeout(
+		body,
+		fmt.Sprintf("DNS %q is not ready after timeout", name),
+		&TimeoutConfig{Timeout: HelperTimeout})
+}
+
 // WaitCleanAllTerminatingPods waits until all nodes that are in `Terminating`
 // state are deleted correctly in the platform. In case of excedding the
 // default timeout it returns an error

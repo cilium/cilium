@@ -101,6 +101,7 @@ var _ = Describe(demoTestName, func() {
 		allianceLabel := "org=alliance"
 		empireLabel := "org=empire"
 		deathstarServiceName := "deathstar.default.svc.cluster.local"
+
 		exhaustPortPath := filepath.Join(deathstarServiceName, "/v1/exhaust-port")
 
 		By(fmt.Sprintf("Getting Cilium Pod on node %s", helpers.K8s2))
@@ -111,7 +112,6 @@ var _ = Describe(demoTestName, func() {
 		// don't have to customize the YAML for this test.
 		By(fmt.Sprintf("Tainting %s so that all pods run on %s", helpers.K8s1, helpers.K8s2))
 		res := kubectl.Exec(fmt.Sprintf("kubectl taint nodes %s demo=false:NoSchedule", helpers.K8s1))
-
 		defer func() {
 			By(fmt.Sprintf("Removing taint from %s after test finished", helpers.K8s1))
 			res := kubectl.Exec(fmt.Sprintf("kubectl taint nodes %s demo:NoSchedule-", helpers.K8s1))
@@ -151,6 +151,10 @@ var _ = Describe(demoTestName, func() {
 		xwingPod := xwingPods[0]
 
 		By("Showing how alliance can execute REST API call to main API endpoint")
+
+		err = kubectl.WaitForKubeDNSEntry(deathstarServiceName)
+		Expect(err).To(BeNil(), "DNS entry is not ready after timeout")
+
 		res = kubectl.ExecPodCmd(helpers.DefaultNamespace, xwingPod,
 			helpers.CurlWithHTTPCode("http://%s/v1", deathstarServiceName))
 		res.ExpectContains("200", "unable to curl %s/v1: %s", deathstarServiceName, res.CombineOutput())

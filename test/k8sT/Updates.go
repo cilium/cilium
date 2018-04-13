@@ -19,6 +19,7 @@ var _ = Describe("K8sValidatedUpdates", func() {
 	var demoPath string
 	var l3Policy, l7Policy string
 	var apps []string
+	var app1Service string = "app1-service.default.svc.cluster.local"
 
 	BeforeAll(func() {
 		logger = log.WithFields(logrus.Fields{"testName": "K8sValidatedUpdates"})
@@ -114,9 +115,12 @@ var _ = Describe("K8sValidatedUpdates", func() {
 
 		appPods := helpers.GetAppPods(apps, helpers.DefaultNamespace, kubectl, "id")
 
+		err = kubectl.WaitForKubeDNSEntry(app1Service)
+		Expect(err).To(BeNil(), "DNS entry is not ready after timeout")
+
 		res := kubectl.ExecPodCmd(
 			helpers.DefaultNamespace, appPods[helpers.App2],
-			helpers.CurlFail(fmt.Sprintf("http://app1-service/public")))
+			helpers.CurlFail("http://%s/public", app1Service))
 		res.ExpectSuccess("Cannot curl app1-service")
 
 		By("Updating cilium to master image")
@@ -162,9 +166,13 @@ var _ = Describe("K8sValidatedUpdates", func() {
 		Expect(err).Should(BeNil(), "Cilium is not ready after timeout")
 
 		validatedImage(localImage)
+
+		err = kubectl.WaitForKubeDNSEntry(app1Service)
+		Expect(err).To(BeNil(), "DNS entry is not ready after timeout")
+
 		res = kubectl.ExecPodCmd(
 			helpers.DefaultNamespace, appPods[helpers.App2],
-			helpers.CurlFail(fmt.Sprintf("http://app1-service/public")))
-		res.ExpectSuccess("Cannot curl service after update")
+			helpers.CurlFail("http://%s/public", app1Service))
+		res.ExpectSuccess("Cannot curl app1-service")
 	})
 })

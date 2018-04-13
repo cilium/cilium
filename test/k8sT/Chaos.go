@@ -32,6 +32,7 @@ var _ = Describe("K8sValidatedChaosTest", func() {
 	var once sync.Once
 	var demoDSPath string
 	var ciliumPath string
+	var testDSService string = "testds-service.default.svc.cluster.local"
 
 	initialize := func() {
 		logger = log.WithFields(logrus.Fields{"testName": "K8sChaosTest"})
@@ -95,8 +96,11 @@ var _ = Describe("K8sValidatedChaosTest", func() {
 				ExpectWithOffset(1, res.WasSuccessful()).To(BeTrue(),
 					"Cannot ping from %q to %q", pod, ip)
 
+				err = kubectl.WaitForKubeDNSEntry(testDSService)
+				ExpectWithOffset(1, err).To(BeNil(), "DNS entry is not ready after timeout")
+
 				res = kubectl.ExecPodCmd(
-					helpers.DefaultNamespace, pod, helpers.CurlFail("http://testds-service:80/"))
+					helpers.DefaultNamespace, pod, helpers.CurlFail("http://%s:80/", testDSService))
 				ExpectWithOffset(1, res.WasSuccessful()).To(BeTrue(),
 					"Cannot curl from %q to testds-service", pod)
 			}
