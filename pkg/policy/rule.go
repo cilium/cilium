@@ -27,6 +27,10 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+// portAny is a value of api.PortProtocol.Port used internally to wildcard the
+// L4 port.
+const portAny = "0"
+
 type rule struct {
 	api.Rule
 }
@@ -161,9 +165,19 @@ func mergeL4IngressPort(ctx *SearchContext, endpoints []api.EndpointSelector, r 
 }
 
 func mergeL4Ingress(ctx *SearchContext, rule api.IngressRule, ruleLabels labels.LabelArray, resMap L4PolicyMap) (int, error) {
-	if len(rule.ToPorts) == 0 {
-		ctx.PolicyTrace("    No L4 %s rules\n", policymap.Ingress)
-		return 0, nil
+	if len(rule.ToPorts) == 0 { // L3-only rule.
+		// Only keep label-based rules.
+		if !rule.IsLabelBased() {
+			ctx.PolicyTrace("    Non-L4 %s rule\n", policymap.Ingress)
+			return 0, nil
+		}
+
+		ctx.PolicyTrace("    L3 %s rule\n", policymap.Ingress)
+
+		// Rewrite the L3 rule into an equivalent L4 rule which wildcards all
+		// of: L4 protocol, L4 port, L7 rules.
+		// It is safe to modify rule here because it is passed by copy.
+		rule.ToPorts = []api.PortRule{{Ports: []api.PortProtocol{{Port: portAny, Protocol: api.ProtoAny}}}}
 	}
 
 	fromEndpoints := rule.GetSourceEndpointSelectors()
@@ -430,9 +444,19 @@ func (r *rule) canReachEgress(ctx *SearchContext, state *traceState) api.Decisio
 }
 
 func mergeL4Egress(ctx *SearchContext, rule api.EgressRule, ruleLabels labels.LabelArray, resMap L4PolicyMap) (int, error) {
-	if len(rule.ToPorts) == 0 {
-		ctx.PolicyTrace("    No L4 %s rules\n", policymap.Egress)
-		return 0, nil
+	if len(rule.ToPorts) == 0 { // L3-only rule.
+		// Only keep label-based rules.
+		if !rule.IsLabelBased() {
+			ctx.PolicyTrace("    Non-L4 %s rule\n", policymap.Egress)
+			return 0, nil
+		}
+
+		ctx.PolicyTrace("    L3 %s rule\n", policymap.Egress)
+
+		// Rewrite the L3 rule into an equivalent L4 rule which wildcards all
+		// of: L4 protocol, L4 port, L7 rules.
+		// It is safe to modify rule here because it is passed by copy.
+		rule.ToPorts = []api.PortRule{{Ports: []api.PortProtocol{{Port: portAny, Protocol: api.ProtoAny}}}}
 	}
 
 	toEndpoints := rule.GetDestinationEndpointSelectors()

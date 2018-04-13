@@ -311,7 +311,11 @@ func getHTTPRule(h *api.PortRuleHTTP) (headers []*envoy_api_v2_route.HeaderMatch
 		}
 		ruleRef += `")`
 	}
-	SortHeaderMatchers(headers)
+	if len(headers) == 0 {
+		headers = nil
+	} else {
+		SortHeaderMatchers(headers)
+	}
 	return
 }
 
@@ -453,6 +457,7 @@ func getDirectionNetworkPolicy(l4Policy policy.L4PolicyMap, policyEnforced bool,
 			Rules:    make([]*cilium.PortNetworkPolicyRule, 0, len(l4.L7RulesPerEp)),
 		}
 
+		allowAll := false
 		for sel, l7 := range l4.L7RulesPerEp {
 			rule := getPortNetworkPolicyRule(sel, l4.L7Parser, l7, labelsMap, deniedIdentities)
 			if rule != nil {
@@ -460,6 +465,7 @@ func getDirectionNetworkPolicy(l4Policy policy.L4PolicyMap, policyEnforced bool,
 					// Got an allow-all rule, which would short-circuit all of
 					// the other rules. Just set no rules, which has the same
 					// effect of allowing all.
+					allowAll = true
 					pnp.Rules = nil
 					break
 				}
@@ -467,9 +473,22 @@ func getDirectionNetworkPolicy(l4Policy policy.L4PolicyMap, policyEnforced bool,
 				pnp.Rules = append(pnp.Rules, rule)
 			}
 		}
+
+		// No rule for this port matches any remote identity.
+		// This means that no traffic was explicitly allowed for this port.
+		// In this case, just don't generate any PortNetworkPolicy for this
+		// port.
+		if !allowAll && len(pnp.Rules) == 0 {
+			continue
+		}
+
 		SortPortNetworkPolicyRules(pnp.Rules)
 
 		PerPortPolicies = append(PerPortPolicies, pnp)
+	}
+
+	if len(PerPortPolicies) == 0 {
+		return nil
 	}
 
 	SortPortNetworkPolicies(PerPortPolicies)
