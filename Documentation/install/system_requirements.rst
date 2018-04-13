@@ -16,11 +16,12 @@ system must meet these requirements:
 - `Linux kernel`_ >= 4.8 (>= 4.9.17 LTS recommended)
 - :ref:`req_kvstore` etcd >= 3.1.0 or consul >= 0.6.4
 
-.. note:: Kernel versions <4.9 are vulnerable to Spectre_ (CVE-2017-5715_ and CVE-2017-5753_)
+.. note:: Kernel versions <4.9 are likely vulnerable to `Meltdown and Spectre`_ (CVE-2017-5715_, CVE-2017-5753_ and CVE-2017-5754_)
 
-.. _Spectre: https://meltdownattack.com/
-.. _CVE-2017-5715: http://cve.mitre.org/cgi-bin/cvename.cgi?name=2017-5715
-.. _CVE-2017-5753: http://cve.mitre.org/cgi-bin/cvename.cgi?name=2017-5753
+.. _`Meltdown and Spectre`: https://meltdownattack.com/
+.. _CVE-2017-5715: https://cve.mitre.org/cgi-bin/cvename.cgi?name=2017-5715
+.. _CVE-2017-5753: https://cve.mitre.org/cgi-bin/cvename.cgi?name=2017-5753
+.. _CVE-2017-5754: https://cve.mitre.org/cgi-bin/cvename.cgi?name=2017-5754
 
 When running Cilium as a native process on your host (i.e. **not** running the
 ``cilium/cilium`` container image) these additional requirements must be met:
@@ -79,7 +80,7 @@ run Linux kernel version 4.8.0 or later to run a Cilium agent. More recent
 kernels may provide additional BPF functionality that Cilium will automatically
 detect and use on agent start.
 
-.. note:: Kernel versions <4.9 are vulnerable to Spectre_ (CVE-2017-5715_ and CVE-2017-5753_)
+.. note:: Kernel versions <4.9 are likely vulnerable to `Meltdown and Spectre`_ (CVE-2017-5715_, CVE-2017-5753_ and CVE-2017-5754_)
 
 In order for the BPF feature to be enabled properly, the following kernel
 configuration options must be enabled. This is typically the case  with
