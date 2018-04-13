@@ -304,10 +304,11 @@ var _ = Describe("K8sValidatedServicesTest", func() {
 		v1 := "v1"
 		v2 := "v2"
 
-		productPage := "productpage"
-		reviews := "reviews"
-		ratings := "ratings"
-		details := "details"
+		productPage := "productpage.default.svc.cluster.local"
+		reviews := "reviews.default.svc.cluster.local"
+		ratings := "ratings.default.svc.cluster.local"
+		details := "details.default.svc.cluster.local"
+		dnsChecks := []string{productPage, reviews, ratings, details}
 		app := "app"
 		resourceYamls := []string{"bookinfo-v1.yaml", "bookinfo-v2.yaml"}
 		health := "health"
@@ -419,6 +420,12 @@ var _ = Describe("K8sValidatedServicesTest", func() {
 		Expect(pods).Should(BeTrue())
 		Expect(err).Should(BeNil())
 
+		By("Validating DNS")
+		for _, name := range dnsChecks {
+			err = kubectl.WaitForKubeDNSEntry(name)
+			Expect(err).To(BeNil(), "DNS entry is not ready after timeout")
+		}
+
 		By("Before policy import; all pods should be able to connect")
 		shouldConnect(reviewsPodV1.String(), formatAPI(ratings, apiPort, health))
 		shouldConnect(reviewsPodV1.String(), formatAPI(ratings, apiPort, ""))
@@ -453,6 +460,12 @@ var _ = Describe("K8sValidatedServicesTest", func() {
 		By("Checking that policies were correctly imported into Cilium")
 		res := kubectl.ExecPodCmd(helpers.KubeSystemNamespace, ciliumPodK8s1, policyCmd)
 		res.ExpectSuccess("Policy %s is not imported", policyCmd)
+
+		By("Validating DNS")
+		for _, name := range dnsChecks {
+			err = kubectl.WaitForKubeDNSEntry(name)
+			Expect(err).To(BeNil(), "DNS entry is not ready after timeout")
+		}
 
 		By("After policy import")
 		shouldConnect(reviewsPodV1.String(), formatAPI(ratings, apiPort, health))
