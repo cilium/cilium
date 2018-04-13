@@ -101,7 +101,8 @@ The advantages for pushing these instructions into the kernel include:
   kernel modules. BPF is a core part of the Linux kernel that is shipped everywhere,
   and guarantees that existing BPF programs keep running with newer kernel versions.
   This guarantee is the same guarantee that the kernel provides for system calls with
-  regard to user space applications.
+  regard to user space applications. Moreover, BPF programs are portable across
+  different architectures.
 
 * BPF programs work in concert with the kernel, they make use of existing kernel
   infrastructure (e.g. drivers, netdevices, tunnels, protocol stack, sockets) and
@@ -2965,7 +2966,10 @@ Program Types
 
 At the time of this writing, there are eighteen different BPF program types
 available, two of the main types for networking are further explained in below
-subsections, namely XDP BPF programs as well as tc BPF programs.
+subsections, namely XDP BPF programs as well as tc BPF programs. Extensive
+usage examples for the two program types for LLVM, iproute2 or other tools
+are spread throughout the toolchain section and not covered here. Instead,
+this section focuses on their architecture, concepts and use cases.
 
 XDP
 ---
@@ -2995,7 +2999,8 @@ advantages:
 * There is no need for crossing kernel / user space boundaries since the
   processed packet already resides in the kernel and can therefore flexibly
   forward packets into other in-kernel entities like namespaces used by
-  containers or the kernel's networking stack itself.
+  containers or the kernel's networking stack itself. This is particularly
+  relevant in times of Meltdown and Spectre.
 * Punting packets from XDP to the kernel's robust, widely used and efficient
   TCP/IP stack is trivially possible, allows for full reuse and does not
   require maintaining a separate TCP/IP stack as with user space frameworks.
@@ -3005,11 +3010,80 @@ advantages:
   the BPF verifier that ensures the stability of the kernel's operation.
 * XDP trivially allows for atomically swapping programs during runtime without
   any network traffic interruption or even kernel / system reboot.
+* XDP allows for flexible structuring of workloads integrated into
+  the kernel. For example, it can operate in "busy polling" or "interrupt
+  driven" mode. Explicitly dedicating CPUs to XDP is not required. There
+  are no special hardware requirements and it does not rely on hugepages.
 * XDP does not require any third party kernel modules or licensing. It is
-  a core part of the Linux kernel and developed by the kernel community.
+  a long-term architectural solution, a core part of the Linux kernel, and
+  developed by the kernel community.
 * XDP is already enabled and shipped everywhere with major distributions
   running a kernel equivalent to 4.8 or higher and supports most major 10G
   or higher networking drivers.
+
+As a framework for running BPF in the driver, XDP additionally ensures that
+packets are laid out linearly and fit into a single DMA'ed page which is
+readable and writeable by the BPF program. XDP also ensures that additional
+headroom of 256 bytes is available to the program for implementing custom
+encapsulation headers with the help of the ``bpf_xdp_adjust_head()`` BPF helper
+or adding custom metadata in front of the packet through ``bpf_xdp_adjust_meta()``.
+
+The framework contains XDP action codes further described in the section
+below which a BPF program can return in order to instruct the driver how
+to proceed with the packet, and it enables the possibility to atomically
+replace BPF programs running at the XDP layer. XDP is tailored for
+high-performance by design. BPF allows to access the packet data through
+'direct packet access' which means that the program holds data pointers
+directly in registers, loads the content into registers, respectively
+writes from there into the packet.
+
+The packet representation in XDP that is passed to the BPF program as
+the BPF context looks as follows:
+
+::
+
+    struct xdp_buff {
+        void *data;
+        void *data_end;
+        void *data_meta;
+        void *data_hard_start;
+        struct xdp_rxq_info *rxq;
+    };
+
+``data`` points to the start of the packet data in the page, and as the
+name suggests, ``data_end`` points to the end of the packet data. Since XDP
+allows for a headroom, ``data_hard_start`` points to the maximum possible
+headroom start in the page, meaning, when the packet should be encapsulated,
+then ``data`` is moved closer towards ``data_hard_start`` via ``bpf_xdp_adjust_head()``.
+The same BPF helper function also allows for decapsulation in which case
+``data`` is moved further away from ``data_hard_start``.
+
+``data_meta`` initially points to the same location as ``data`` but
+``bpf_xdp_adjust_meta()`` is able to move the pointer towards ``data_hard_start``
+as well in order to provide room for custom metadata which is invisible to
+the normal kernel networking stack but can be read by tc BPF programs since
+it is transferred from XDP to the ``skb``. Vice versa, it can remove or reduce
+the size of the custom metadata through the same BPF helper function by
+moving ``data_meta`` away from ``data_hard_start`` again. ``data_meta`` can
+also be used soley for passing state between tail calls similarly to the
+``skb->cb[]`` control block case that is accessible in tc BPF programs.
+
+This gives the following relation respectively invariant for the ``struct xdp_buff``
+packet pointers: ``data_hard_start`` <= ``data_meta`` <= ``data`` < ``data_end``.
+
+The ``rxq`` field points to some additional per receive queue metadata which
+is populated at ring setup time (not at XDP runtime):
+
+::
+
+    struct xdp_rxq_info {
+        struct net_device *dev;
+        u32 queue_index;
+        u32 reg_state;
+    } ____cacheline_aligned;
+
+The BPF program can retrieve ``queue_index`` as well as additional data
+from the netdevice itself such as ``ifindex``, etc.
 
 **BPF program return codes**
 
@@ -3063,14 +3137,14 @@ cases.
 
   One of the basic XDP BPF features is to tell the driver to drop a packet
   with ``XDP_DROP`` at this early stage which allows for any kind of efficient
-  network policy enforcement with having an extremely low per packet cost.
+  network policy enforcement with having an extremely low per-packet cost.
   This is ideal in situations when needing to cope with any sort of DDoS
   attacks, but also more general allows to implement any sort of firewalling
   policies with close to no overhead in BPF e.g. in either case as stand alone
   appliance (e.g. scrubbing 'clean' traffic through ``XDP_TX``) or widely
   deployed on nodes protecting end hosts themselves (via ``XDP_PASS`` or
   cpumap ``XDP_REDIRECT`` for good traffic). Offloaded XDP takes this even
-  one step further by moving the already small per packet cost entirely
+  one step further by moving the already small per-packet cost entirely
   into the NIC with processing at line-rate.
 
 ..
@@ -3143,23 +3217,66 @@ cases.
 
 ..
 
+One example of XDP BPF production usage is Facebook's SHIV and Droplet
+infrastructure which implement their L4 load-balancing and DDoS countermeasures.
+Migrating their production infrastructure away from netfilter's IPVS
+(IP Virtual Server) over to XDP BPF allowed for a 10x speedup compared
+to their previous IPVS setup. This was first presented at the netdev 2.1
+conference:
+
+* Slides: https://www.netdevconf.org/2.1/slides/apr6/zhou-netdev-xdp-2017.pdf
+* Video: https://youtu.be/YEU2ClcGqts
+
+Another example is the integration of XDP into Cloudflare's DDoS mitigation
+pipeline, which originally was using cBPF instead of eBPF for attack signature
+matching through iptables' ``xt_bpf`` module. Due to use of iptables this
+caused severe performance problems under attack where a user space bypass
+solution was deemed necessary but came with drawbacks as well such as needing
+to busy poll the NIC and expensive packet re-injection into the kernel's stack.
+The migration over to eBPF and XDP combined best of both worlds by having
+high-performance programmable packet processing directly inside the kernel:
+
+* Slides: https://www.netdevconf.org/2.1/slides/apr6/bertin_Netdev-XDP.pdf
+* Video: https://youtu.be/7OuOukmuivg
+
 **XDP operation modes**
+
+XDP has three operation modes where 'native' XDP is the default mode. When
+talked about XDP this mode is typically implied.
 
 * **Native XDP**
 
-  TODO
+  This is the default mode where the XDP BPF program is run directly out
+  of the networking driver's early receive path. Most widespread used NICs
+  for 10G and higher support native XDP already.
 
 ..
 
 * **Offloaded XDP**
 
-  TODO
+  In the offloaded XDP mode the XDP BPF program is directly offloaded into
+  the NIC instead of being executed on the host CPU. Thus, the already
+  extremely low per-packet cost is pushed off the host CPU entirely and
+  executed on the NIC, providing even higher performance than running in
+  native XDP. This offload is typically implemented by SmartNICs
+  containing multi-threaded, multicore flow processors where a in-kernel
+  JIT compiler translates BPF into native instructions for the latter.
+  Drivers supporting offloaded XDP usually also support native XDP for
+  cases where some BPF helpers may not yet or only be available for the
+  native mode.
 
 ..
 
 * **Generic XDP**
 
-  TODO
+  For drivers not implementing native or offloaded XDP yet, the kernel
+  provides an option for generic XDP which does not require any driver
+  changes since run at a much later point out of the networking stack.
+  This setting is primarily targeted at developers who want to write and
+  test programs against the kernel's XDP API, and will not operate at the
+  performance rate of the native or offloaded modes. For XDP usage in a
+  production environment either the native or offloaded mode is better
+  suited and the recommended way to run XDP.
 
 ..
 
@@ -3220,16 +3337,19 @@ the following lists native and offloaded XDP drivers as of kernel 4.17.
 
   * qede
 
-.. [1] XDP available via out of tree driver as of kernel 4.17, but will be
-   upstreamed soon.
-
 **Drivers supporting offloaded XDP**
 
 * **Netronome**
 
-  * nfp
+  * nfp [2]_
 
-TODO (remaining XDP)
+Note that examples for writing and loading XDP programs are included in
+the toolchain section under the respective tools.
+
+.. [1] XDP for sfc available via out of tree driver as of kernel 4.17, but
+   will be upstreamed soon.
+.. [2] Some BPF helper functions such as retrieving the current CPU number
+   will not be available in an offloaded setting.
 
 tc (traffic control)
 --------------------
@@ -3390,6 +3510,8 @@ legacy cBPF:
   certain packets, as a BPF based load balancer in order to allow for programmable
   load balancing and for XDP to implement a bypass or dropping mechanism at high
   packet rates.
+
+  http://suricata.readthedocs.io/en/latest/capture-hardware/ebpf-xdp.html
 
   https://github.com/OISF/suricata
 
