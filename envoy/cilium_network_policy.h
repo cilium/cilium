@@ -80,14 +80,8 @@ public:
       bool Matches(uint64_t remote_id, const Envoy::Http::HeaderMap& headers) const {
 	// Remote ID must match if we have any.
 	if (allowed_remotes_.size() > 0) {
-	  bool matches = false;
-	  for (const auto& remote: allowed_remotes_) {
-	    if (remote == remote_id) {
-	      matches = true;
-	      break;
-	    }
-	  }
-	  if (!matches) {
+	  auto search = allowed_remotes_.find(remote_id);
+	  if (search == allowed_remotes_.end()) {
 	    return false;
 	  }
 	}
