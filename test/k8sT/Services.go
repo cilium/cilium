@@ -304,10 +304,10 @@ var _ = Describe("K8sValidatedServicesTest", func() {
 		v1 := "v1"
 		v2 := "v2"
 
-		productPage := "productpage.default.svc.cluster.local"
-		reviews := "reviews.default.svc.cluster.local"
-		ratings := "ratings.default.svc.cluster.local"
-		details := "details.default.svc.cluster.local"
+		productPage := "productpage"
+		reviews := "reviews"
+		ratings := "ratings"
+		details := "details"
 		dnsChecks := []string{productPage, reviews, ratings, details}
 		app := "app"
 		resourceYamls := []string{"bookinfo-v1.yaml", "bookinfo-v2.yaml"}
@@ -349,11 +349,13 @@ var _ = Describe("K8sValidatedServicesTest", func() {
 
 		// formatAPI is a helper function which formats a URI to access.
 		formatAPI := func(service, port, resource string) string {
+			target := fmt.Sprintf(
+				"%s.%s.svc.cluster.local:%s",
+				service, helpers.DefaultNamespace, port)
 			if resource != "" {
-				return fmt.Sprintf("%s:%s/%s", service, port, resource)
+				return fmt.Sprintf("%s/%s", target, resource)
 			}
-
-			return fmt.Sprintf("%s:%s", service, port)
+			return target
 		}
 
 		By(fmt.Sprintf("Getting Cilium Pod on node %s", helpers.K8s1))
@@ -422,7 +424,7 @@ var _ = Describe("K8sValidatedServicesTest", func() {
 
 		By("Validating DNS")
 		for _, name := range dnsChecks {
-			err = kubectl.WaitForKubeDNSEntry(name)
+			err = kubectl.WaitForKubeDNSEntry(fmt.Sprintf("%s.%s", name, helpers.DefaultNamespace))
 			Expect(err).To(BeNil(), "DNS entry is not ready after timeout")
 		}
 
@@ -463,7 +465,7 @@ var _ = Describe("K8sValidatedServicesTest", func() {
 
 		By("Validating DNS")
 		for _, name := range dnsChecks {
-			err = kubectl.WaitForKubeDNSEntry(name)
+			err = kubectl.WaitForKubeDNSEntry(fmt.Sprintf("%s.%s", name, helpers.DefaultNamespace))
 			Expect(err).To(BeNil(), "DNS entry is not ready after timeout")
 		}
 
