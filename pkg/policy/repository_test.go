@@ -787,8 +787,10 @@ func (ds *PolicyTestSuite) TestWildcardL3RulesEgressToEntities(c *C) {
 func (ds *PolicyTestSuite) TestMinikubeGettingStarted(c *C) {
 	repo := NewPolicyRepository()
 
+	app2Selector := labels.ParseSelectLabelArray("id=app2")
+
 	fromApp2 := &SearchContext{
-		From:  labels.ParseSelectLabelArray("id=app2"),
+		From:  app2Selector,
 		To:    labels.ParseSelectLabelArray("id=app1"),
 		Trace: TRACE_VERBOSE,
 	}
@@ -808,10 +810,12 @@ func (ds *PolicyTestSuite) TestMinikubeGettingStarted(c *C) {
 	c.Assert(repo.AllowsIngressLabelAccess(fromApp3), Equals, api.Denied)
 	repo.Mutex.RUnlock()
 
+	selFromApp2 := api.NewESFromLabels(
+		labels.ParseSelectLabel("id=app2"),
+	)
+
 	selectorFromApp2 := []api.EndpointSelector{
-		api.NewESFromLabels(
-			labels.ParseSelectLabel("id=app2"),
-		),
+		selFromApp2,
 	}
 
 	_, err := repo.Add(api.Rule{
@@ -890,16 +894,23 @@ func (ds *PolicyTestSuite) TestMinikubeGettingStarted(c *C) {
 		api.NewESFromLabels(
 			labels.ParseSelectLabel("id=app2"),
 		),
+		api.NewESFromLabels(
+			labels.ParseSelectLabel("id=app2"),
+		),
 	}
 
 	expected := NewL4Policy()
 	expected.Ingress["80/TCP"] = L4Filter{
 		Port: 80, Protocol: api.ProtoTCP, U8Proto: 6,
-		Endpoints:        selectorFromApp2DupList,
-		L7Parser:         ParserTypeNone,
-		L7RulesPerEp:     L7DataMap{},
+		Endpoints: selectorFromApp2DupList,
+		L7Parser:  ParserTypeHTTP,
+		L7RulesPerEp: L7DataMap{
+			selFromApp2: api.L7Rules{
+				HTTP: []api.PortRuleHTTP{{}},
+			},
+		},
 		Ingress:          true,
-		DerivedFromRules: []labels.LabelArray{nil, nil, nil},
+		DerivedFromRules: []labels.LabelArray{nil, nil, nil, nil},
 	}
 	expected.Revision = repo.GetRevision()
 
