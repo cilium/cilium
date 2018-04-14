@@ -304,7 +304,7 @@ func RunK8sCiliumEndpointSyncGC() {
 					if _, found := clusterPodSet[cepFullName]; !found {
 						// delete
 						scopedLog = scopedLog.WithFields(logrus.Fields{
-							logfields.EndpointID: cep.Status.ID,
+							logfields.EndpointID: cep.ID,
 							logfields.K8sPodName: cepFullName,
 						})
 						scopedLog.Info("Orphaned CiliumEndpoint is being garbage collected")
@@ -620,7 +620,7 @@ func (e *Endpoint) RunK8sCiliumEndpointSync() {
 					scopedLog.Debug("Skipping CiliumEndpoint update because it has not changed")
 					return nil
 				}
-				k8sMdl := (*cilium_v2.CiliumEndpointDetail)(mdl)
+				k8sMdl := (*cilium_v2.CiliumEndpointStatus)(mdl.Status)
 
 				cep, err := ciliumClient.CiliumEndpoints(namespace).Get(podName, meta_v1.GetOptions{})
 				switch {
@@ -671,6 +671,7 @@ func (e *Endpoint) RunK8sCiliumEndpointSync() {
 					ObjectMeta: meta_v1.ObjectMeta{
 						Name: podName,
 					},
+					ID:     mdl.ID,
 					Status: *k8sMdl,
 				}
 

@@ -188,29 +188,30 @@ type CiliumEndpoint struct {
 	// +k8s:openapi-gen=false
 	metav1.ObjectMeta `json:"metadata"`
 
-	Status CiliumEndpointDetail `json:"status"`
+	ID     int64                `json:"id,omitempty"`
+	Status CiliumEndpointStatus `json:"status"`
 }
 
-// CiliumEndpointDetail is the status of a Cilium policy rule
-// The custom deepcopy function below is a workaround. We can generate a
-// deepcopy for CiliumEndpointDetail but not for the various models.* types it
-// includes. We can't generate functions for classes in other packages, nor can
-// we change the models.Endpoint type to use proxy types we define here.
+// CiliumEndpointStatus is the status of a Cilium policy rule The custom
+// deepcopy function below is a workaround. We can generate a deepcopy for
+// CiliumEndpointStatus but not for the various models.* types it includes. We
+// can't generate functions for classes in other packages, nor can we change
+// the models.EndpointStatus type to use proxy types we define here.
 // +k8s:deepcopy-gen=false
-type CiliumEndpointDetail models.Endpoint
+type CiliumEndpointStatus models.EndpointStatus
 
 // DeepCopyInto is an inefficient hack to allow reusing models.Endpoint in the
 // CiliumEndpoint CRD.
-func (in *CiliumEndpointDetail) DeepCopyInto(out *CiliumEndpointDetail) {
+func (in *CiliumEndpointStatus) DeepCopyInto(out *CiliumEndpointStatus) {
 	*out = *in
-	b, err := (*models.Endpoint)(in).MarshalBinary()
+	b, err := (*models.EndpointStatus)(in).MarshalBinary()
 	if err != nil {
-		log.WithError(err).Error("Cannot marshal models.Endpoint during CiliumEndpoitnDetail deepcopy")
+		log.WithError(err).Error("Cannot marshal models.Endpoint during CiliumEndpointStatus deepcopy")
 		return
 	}
-	err = (*models.Endpoint)(out).UnmarshalBinary(b)
+	err = (*models.EndpointStatus)(out).UnmarshalBinary(b)
 	if err != nil {
-		log.WithError(err).Error("Cannot unmarshal models.Endpoint during CiliumEndpoitnDetail deepcopy")
+		log.WithError(err).Error("Cannot unmarshal models.Endpoint during CiliumEndpointStatus deepcopy")
 		return
 	}
 }
