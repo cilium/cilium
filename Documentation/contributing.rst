@@ -637,8 +637,8 @@ function is only called when the test failed.This construct is used to gather
 logs, the status of Cilium, etc, which provide data for analysis when tests
 fail.
 
-Example Test Layaout
-^^^^^^^^^^^^^^^^^^^^^
+Example Test Layout
+^^^^^^^^^^^^^^^^^^^
 
 Here is an example layout of how a test may be written with the aforementioned
 constructs:
