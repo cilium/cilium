@@ -69,7 +69,7 @@ func (s *SSHMeta) EndpointGet(id string) *models.Endpoint {
 		return nil
 	}
 	var data []models.Endpoint
-	endpointGetCmd := fmt.Sprintf("endpoint get %s", id)
+	endpointGetCmd := fmt.Sprintf("endpoint get %s -o json", id)
 	res := s.ExecCilium(endpointGetCmd)
 	err := res.Unmarshal(&data)
 	if err != nil {
@@ -337,7 +337,7 @@ func (s *SSHMeta) GetEndpointsIdentityIds() (map[string]string, error) {
 func (s *SSHMeta) GetEndpointsNames() ([]string, error) {
 	data := s.ListEndpoints()
 	if data.WasSuccessful() == false {
-		return nil, fmt.Errorf("`cilium endpoint get` was not successful")
+		return nil, fmt.Errorf("`cilium endpoint list` was not successful")
 	}
 
 	result, err := data.Filter("{ [?(@.status.labels.security-relevant[0]!='reserved:health')].status.external-identifiers.container-name }")
