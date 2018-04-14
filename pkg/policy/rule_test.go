@@ -305,87 +305,6 @@ func (ds *PolicyTestSuite) TestL4Policy(c *C) {
 	c.Assert(egressState.matchedRules, Equals, 0)
 }
 
-func (ds *PolicyTestSuite) TestL4PolicyFromL3Rules(c *C) {
-	endpointsBar := api.EndpointSelectorSlice{api.NewESFromLabels(labels.ParseSelectLabel("bar"))}
-	endpointsFoo := api.EndpointSelectorSlice{api.NewESFromLabels(labels.ParseSelectLabel("foo"))}
-	toBar := &SearchContext{To: labels.ParseSelectLabelArray("bar")}
-	fromBar := &SearchContext{From: labels.ParseSelectLabelArray("bar")}
-	toFoo := &SearchContext{To: labels.ParseSelectLabelArray("foo")}
-	fromFoo := &SearchContext{From: labels.ParseSelectLabelArray("foo")}
-
-	rule1 := &rule{
-		Rule: api.Rule{
-			EndpointSelector: api.NewESFromLabels(labels.ParseSelectLabel("bar")),
-			Ingress: []api.IngressRule{
-				{
-					FromEndpoints: endpointsBar,
-					// L3-only rule.
-				},
-			},
-			Egress: []api.EgressRule{
-				{
-					ToEndpoints: endpointsFoo,
-					// L3-only rule.
-				},
-			},
-		},
-	}
-
-	expected := NewL4Policy()
-	expected.Ingress["0/TCP"] = L4Filter{
-		Port: 0, Protocol: api.ProtoTCP, U8Proto: 6, Endpoints: endpointsBar, Ingress: true,
-		L7RulesPerEp: L7DataMap{}, DerivedFromRules: labels.LabelArrayList{nil},
-	}
-	expected.Ingress["0/UDP"] = L4Filter{
-		Port: 0, Protocol: api.ProtoUDP, U8Proto: 17, Endpoints: endpointsBar, Ingress: true,
-		L7RulesPerEp: L7DataMap{}, DerivedFromRules: labels.LabelArrayList{nil},
-	}
-
-	expected.Egress["0/TCP"] = L4Filter{
-		Port: 0, Protocol: api.ProtoTCP, U8Proto: 6, Endpoints: endpointsFoo, Ingress: false,
-		L7RulesPerEp: L7DataMap{}, DerivedFromRules: labels.LabelArrayList{nil},
-	}
-	expected.Egress["0/UDP"] = L4Filter{
-		Port: 0, Protocol: api.ProtoUDP, U8Proto: 17, Endpoints: endpointsFoo, Ingress: false,
-		L7RulesPerEp: L7DataMap{}, DerivedFromRules: labels.LabelArrayList{nil},
-	}
-
-	ingressState := traceState{}
-	egressState := traceState{}
-	res, err := rule1.resolveL4IngressPolicy(toBar, &ingressState, NewL4Policy())
-	c.Assert(err, IsNil)
-	c.Assert(res, Not(IsNil))
-
-	res2, err := rule1.resolveL4EgressPolicy(fromBar, &egressState, NewL4Policy())
-	c.Assert(err, IsNil)
-	c.Assert(res2, Not(IsNil))
-
-	res.Egress = res2.Egress
-
-	c.Assert(*res, comparator.DeepEquals, *expected)
-	c.Assert(ingressState.selectedRules, Equals, 1)
-	c.Assert(ingressState.matchedRules, Equals, 0)
-
-	c.Assert(egressState.selectedRules, Equals, 1)
-	c.Assert(egressState.matchedRules, Equals, 0)
-
-	// Foo isn't selected in the rule1's policy.
-	ingressState = traceState{}
-	egressState = traceState{}
-
-	res, err = rule1.resolveL4IngressPolicy(toFoo, &ingressState, NewL4Policy())
-	c.Assert(err, IsNil)
-	res2, err = rule1.resolveL4EgressPolicy(fromFoo, &ingressState, NewL4Policy())
-	c.Assert(err, IsNil)
-
-	c.Assert(res, IsNil)
-	c.Assert(res2, IsNil)
-	c.Assert(ingressState.selectedRules, Equals, 0)
-	c.Assert(ingressState.matchedRules, Equals, 0)
-	c.Assert(egressState.selectedRules, Equals, 0)
-	c.Assert(egressState.matchedRules, Equals, 0)
-}
-
 func (ds *PolicyTestSuite) TestMergeL4PolicyIngress(c *C) {
 	toBar := &SearchContext{To: labels.ParseSelectLabelArray("bar")}
 	//toFoo := &SearchContext{To: labels.ParseSelectLabelArray("foo")}
@@ -2182,11 +2101,12 @@ func (ds *PolicyTestSuite) TestL3L4L7Merge(c *C) {
 	c.Assert(filter.Port, Equals, 80)
 	c.Assert(filter.Ingress, Equals, true)
 
-	c.Assert(len(filter.Endpoints), Equals, 1)
+	c.Assert(len(filter.Endpoints), Equals, 2)
 	c.Assert(filter.Endpoints[0], Equals, api.WildcardEndpointSelector)
+	c.Assert(filter.Endpoints[1], Equals, endpointSelectorC)
 
 	c.Assert(filter.L7Parser, Equals, ParserTypeHTTP)
-	c.Assert(len(filter.L7RulesPerEp), Equals, 1)
+	c.Assert(len(filter.L7RulesPerEp), Equals, 2)
 
 	repo = parseAndAddRules(c, api.Rules{&api.Rule{
 		EndpointSelector: endpointSelectorA,
@@ -2228,9 +2148,10 @@ func (ds *PolicyTestSuite) TestL3L4L7Merge(c *C) {
 	c.Assert(filter.Port, Equals, 80)
 	c.Assert(filter.Ingress, Equals, true)
 
-	c.Assert(len(filter.Endpoints), Equals, 1)
+	c.Assert(len(filter.Endpoints), Equals, 2)
 	c.Assert(filter.Endpoints[0], Equals, api.WildcardEndpointSelector)
+	c.Assert(filter.Endpoints[1], Equals, endpointSelectorC)
 
 	c.Assert(filter.L7Parser, Equals, ParserTypeHTTP)
-	c.Assert(len(filter.L7RulesPerEp), Equals, 1)
+	c.Assert(len(filter.L7RulesPerEp), Equals, 2)
 }

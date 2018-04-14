@@ -16,6 +16,7 @@ package policy
 
 import (
 	"encoding/json"
+	"strconv"
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/labels"
@@ -120,45 +121,105 @@ func (p *Repository) AllowsIngressLabelAccess(ctx *SearchContext) api.Decision {
 	return decision
 }
 
-// wildcardL3Rules updates each L7 rule to allow at L7 all traffic that is
-// allowed at L3-only.
-func wildcardL3Rules(l4Policy L4PolicyMap) {
-	// Duplicate L3-only rules into wildcard L7 rules.
-	for _, filter1 := range l4Policy {
-		if filter1.L7Parser != ParserTypeNone {
-			// Ignore rules that are L7. Only consider rules that are L3-only
-			// or L4-only.
+func wildcardL3L4Rule(proto api.L4Proto, port int, endpoints api.EndpointSelectorSlice,
+	ruleLabels labels.LabelArray, l4Policy L4PolicyMap) {
+	for k, filter := range l4Policy {
+		if proto != filter.Protocol || (port != 0 && port != filter.Port) {
 			continue
 		}
-		for k, filter2 := range l4Policy {
-			if filter1.U8Proto != filter2.U8Proto || (filter1.Port != 0 && filter1.Port != filter2.Port) {
+		switch filter.L7Parser {
+		case ParserTypeNone:
+			continue
+		case ParserTypeHTTP:
+			// Wildcard at L7 all the endpoints allowed at L3 or L4.
+			for _, sel := range endpoints {
+				filter.L7RulesPerEp[sel] = api.L7Rules{
+					HTTP: []api.PortRuleHTTP{{}},
+				}
+			}
+			filter.Endpoints = append(filter.Endpoints, endpoints...)
+			filter.DerivedFromRules = append(filter.DerivedFromRules, ruleLabels)
+			l4Policy[k] = filter
+		case ParserTypeKafka:
+			// Wildcard at L7 all the endpoints allowed at L3 or L4.
+			for _, sel := range endpoints {
+				rule := api.PortRuleKafka{}
+				rule.Sanitize()
+				filter.L7RulesPerEp[sel] = api.L7Rules{
+					Kafka: []api.PortRuleKafka{rule},
+				}
+			}
+			filter.Endpoints = append(filter.Endpoints, endpoints...)
+			filter.DerivedFromRules = append(filter.DerivedFromRules, ruleLabels)
+			l4Policy[k] = filter
+		}
+	}
+}
+
+// wildcardL3L4Rules updates each ingress L7 rule to allow at L7 all traffic that
+// is allowed at L3-only or L3/L4.
+func (p *Repository) wildcardL3L4Rules(ctx *SearchContext, ingress bool, l4Policy L4PolicyMap) {
+	// Duplicate L3-only rules into wildcard L7 rules.
+	for _, r := range p.rules {
+		if ingress {
+			if !r.EndpointSelector.Matches(ctx.To) {
 				continue
 			}
-			switch filter2.L7Parser {
-			case ParserTypeNone:
+			for _, rule := range r.Ingress {
+				// Non-label-based rule. Ignore.
+				if !rule.IsLabelBased() {
+					continue
+				}
+
+				fromEndpoints := rule.GetSourceEndpointSelectors()
+				ruleLabels := r.Rule.Labels.DeepCopy()
+
+				// L3-only rule.
+				if len(rule.ToPorts) == 0 {
+					wildcardL3L4Rule(api.ProtoTCP, 0, fromEndpoints, ruleLabels, l4Policy)
+					wildcardL3L4Rule(api.ProtoUDP, 0, fromEndpoints, ruleLabels, l4Policy)
+				} else {
+					for _, toPort := range rule.ToPorts {
+						// L3/L4-only rule
+						if toPort.Rules == nil {
+							for _, p := range toPort.Ports {
+								// Already validated via PortRule.Validate().
+								port, _ := strconv.ParseUint(p.Port, 0, 16)
+								wildcardL3L4Rule(p.Protocol, int(port), fromEndpoints, ruleLabels, l4Policy)
+							}
+						}
+					}
+				}
+			}
+		} else {
+			if !r.EndpointSelector.Matches(ctx.From) {
 				continue
-			case ParserTypeHTTP:
-				// Wildcard at L7 all the endpoints allowed at L3 or L4.
-				for _, sel := range filter1.Endpoints {
-					filter2.L7RulesPerEp[sel] = api.L7Rules{
-						HTTP: []api.PortRuleHTTP{{}},
+			}
+			for _, rule := range r.Egress {
+				// Non-label-based rule. Ignore.
+				if !rule.IsLabelBased() {
+					continue
+				}
+
+				toEndpoints := rule.GetDestinationEndpointSelectors()
+				ruleLabels := r.Rule.Labels.DeepCopy()
+
+				// L3-only rule.
+				if len(rule.ToPorts) == 0 {
+					wildcardL3L4Rule(api.ProtoTCP, 0, toEndpoints, ruleLabels, l4Policy)
+					wildcardL3L4Rule(api.ProtoUDP, 0, toEndpoints, ruleLabels, l4Policy)
+				} else {
+					for _, toPort := range rule.ToPorts {
+						// L3/L4-only rule
+						if toPort.Rules == nil {
+							for _, p := range toPort.Ports {
+								// Already validated via PortRule.Validate().
+								port, _ := strconv.ParseUint(p.Port, 0, 16)
+								wildcardL3L4Rule(p.Protocol, int(port), toEndpoints, ruleLabels, l4Policy)
+							}
+						}
 					}
 				}
-				filter2.Endpoints = append(filter2.Endpoints, filter1.Endpoints...)
-				filter2.DerivedFromRules = append(filter2.DerivedFromRules, filter1.DerivedFromRules...)
-				l4Policy[k] = filter2
-			case ParserTypeKafka:
-				// Wildcard at L7 all the endpoints allowed at L3 or L4.
-				for _, sel := range filter1.Endpoints {
-					rule := api.PortRuleKafka{}
-					rule.Sanitize()
-					filter2.L7RulesPerEp[sel] = api.L7Rules{
-						Kafka: []api.PortRuleKafka{rule},
-					}
-				}
-				filter2.Endpoints = append(filter2.Endpoints, filter1.Endpoints...)
-				filter2.DerivedFromRules = append(filter2.DerivedFromRules, filter1.DerivedFromRules...)
-				l4Policy[k] = filter2
 			}
 		}
 	}
@@ -190,7 +251,7 @@ func (p *Repository) ResolveL4IngressPolicy(ctx *SearchContext) (*L4PolicyMap, e
 		}
 	}
 
-	wildcardL3Rules(result.Ingress)
+	p.wildcardL3L4Rules(ctx, true, result.Ingress)
 
 	state.trace(p, ctx)
 	return &result.Ingress, nil
@@ -224,7 +285,7 @@ func (p *Repository) ResolveL4EgressPolicy(ctx *SearchContext) (*L4PolicyMap, er
 		result.Revision = p.GetRevision()
 	}
 
-	wildcardL3Rules(result.Egress)
+	p.wildcardL3L4Rules(ctx, false, result.Egress)
 
 	state.trace(p, ctx)
 	return &result.Egress, nil
