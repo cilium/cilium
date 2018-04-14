@@ -20,7 +20,7 @@ status of ``kube-dns`` you can run the following command:
     NAME       DESIRED   CURRENT   UP-TO-DATE   AVAILABLE   AGE
     kube-dns   1         1         1            1           13h
 
-Where at least one pod should be availabe.
+Where at least one pod should be available.
 
 Step 2: Deploy the Demo Application
 ===================================
