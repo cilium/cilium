@@ -6,7 +6,7 @@ Cilium Backporting Scripts
 `GITHUB_TOKEN=xxx check-stable`
 
 The `check-stable` script is derived from `relnotes` and scans for PRs which
-have been merged and marked with the label `stable/needs-backporting`. The
+have been merged and marked with the label `stable/needs-backport`. The
 script will list those PRs and all non-merge commit ids that were part of the
 merge. There are three columns: first one is the correlated sha of the commit
 from the master branch, second one is the sha of the commit from the pull
