@@ -1225,11 +1225,11 @@ Steps to release
 Backporting process
 ~~~~~~~~~~~~~~~~~~~
 
-Cilium PRs that are marked with label ``stable/needs-backporting`` need to be backported to the stable branch(es), listed below. Following steps summarize the process.
+Cilium PRs that are marked with label ``stable/needs-backport`` need to be backported to the stable branch(es), listed below. Following steps summarize the process.
 
 1. Make sure the Github labels are up-to-date, as this process will
    deal with all commits from PRs that have the
-   ``stable/needs-backporting`` set.
+   ``stable/needs-backport`` set.
 2. The scripts referred to below need to be run in Linux, they do not
    work on OSX.  You can use the cilium dev VM for this, but you need
    to configure git to have your name and email address to be used in
