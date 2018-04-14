@@ -284,10 +284,6 @@ static inline int __inline__ ct_lookup6(void *map, struct ipv6_ct_tuple *tuple,
 #ifdef LXC_NAT46
 	skb->cb[CB_NAT46_STATE] = NAT46_CLEAR;
 #endif
-	/* No entries found, packet must be eligible for creating a CT entry */
-	if (ret == CT_NEW && action != ACTION_CREATE)
-		ret = DROP_CT_CANT_CREATE;
-
 out:
 	cilium_dbg(skb, DBG_CT_VERDICT, ret < 0 ? -ret : ret, ct_state->rev_nat_index);
 	return ret;
@@ -434,10 +430,6 @@ static inline int __inline__ ct_lookup4(void *map, struct ipv4_ct_tuple *tuple,
 	/* Lookup entry in forward direction */
 	ipv4_ct_tuple_reverse(tuple);
 	ret = __ct_lookup(map, skb, tuple, action, dir, ct_state, syn);
-
-	/* No entries found, packet must be eligible for creating a CT entry */
-	if (ret == CT_NEW && action != ACTION_CREATE)
-		ret = DROP_CT_CANT_CREATE;
 
 out:
 	cilium_dbg(skb, DBG_CT_VERDICT, ret < 0 ? -ret : ret, ct_state->rev_nat_index);
