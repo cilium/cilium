@@ -977,7 +977,7 @@ var _ = Describe("RuntimeValidatedPolicies", func() {
 			ExpectWithOffset(2, res.WasSuccessful()).Should(
 				BeFalse(), "unexpectedly able to ping %s", helpers.App2)
 
-			res = vm.ContainerExec(helpers.App1, helpers.CurlFail("http://%s", googleHTTP))
+			res = vm.ContainerExec(helpers.App1, helpers.CurlFail("-4 http://%s", googleHTTP))
 			ExpectWithOffset(2, res.WasSuccessful()).Should(
 				BeTrue(), "not able to curl %s", googleHTTP)
 		}
