@@ -131,9 +131,6 @@ var _ = Describe(demoTestName, func() {
 		res = kubectl.Apply(l4PolicyYAMLLink)
 		res.ExpectSuccess("unable to apply %s: %s", l4PolicyYAMLLink, res.CombineOutput())
 
-		arePodsReady := kubectl.CiliumEndpointWait(ciliumPod2)
-		Expect(arePodsReady).To(BeTrue(), "pods running on k8s2 are not ready")
-
 		By("Applying alliance deployment")
 		res = kubectl.Apply(xwingYAMLLink)
 		res.ExpectSuccess("unable to apply %s: %s", xwingYAMLLink, res.CombineOutput())
@@ -149,6 +146,10 @@ var _ = Describe(demoTestName, func() {
 
 		// Test only needs to access one of the pods.
 		xwingPod := xwingPods[0]
+
+		By("Making sure all endpoints are in ready state")
+		arePodsReady := kubectl.CiliumEndpointWait(ciliumPod2)
+		Expect(arePodsReady).To(BeTrue(), "pods running on k8s2 are not ready")
 
 		By("Showing how alliance can execute REST API call to main API endpoint")
 
