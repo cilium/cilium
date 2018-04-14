@@ -15,14 +15,16 @@ Cheatsheet
 Cheng
 Chewbacca
 Chun
+Cloudflare
 DDoS
-DTrace
 Dangaard
 Datapath
 Devel
 Dinan
+DMA
 Dockerfile
 DoorManager
+DTrace
 FIt
 Fastabend
 GOPATH
@@ -126,6 +128,7 @@ bootstrapper
 bpf
 bpftool
 bpftrace
+breakpoint
 browsable
 bugfixes
 bugtool
@@ -199,7 +202,9 @@ hashtable
 hashtables
 hoc
 hq
+http
 https
+hugepages
 hunderx
 hypervisors
 ie
@@ -267,6 +272,7 @@ mlx
 mountd
 mov
 mul
+multicore
 multinode
 namespace
 namespaces
@@ -275,6 +281,7 @@ netdev
 netdevice
 netdevices
 netdevsim
+netfilter
 nf
 nfp
 nodeX
@@ -374,6 +381,7 @@ whitelisted
 whitelisting
 whitelists
 wouldn
+writeable
 xdp
 xml
 xoring

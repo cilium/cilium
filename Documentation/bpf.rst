@@ -3065,7 +3065,7 @@ the normal kernel networking stack but can be read by tc BPF programs since
 it is transferred from XDP to the ``skb``. Vice versa, it can remove or reduce
 the size of the custom metadata through the same BPF helper function by
 moving ``data_meta`` away from ``data_hard_start`` again. ``data_meta`` can
-also be used soley for passing state between tail calls similarly to the
+also be used solely for passing state between tail calls similarly to the
 ``skb->cb[]`` control block case that is accessible in tc BPF programs.
 
 This gives the following relation respectively invariant for the ``struct xdp_buff``
