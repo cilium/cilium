@@ -2,6 +2,50 @@
 NEWS
 ******
 
+v1.0.0-rc13
+===========
+
+:date: 2018-04-15
+:commit: 2e0c7fa2b2bfb0af407d8d6cff8b654ef6358f70
+
+Major Changes
+-------------
+
+* cilium-agent API v1 is stable (3513_, @raybejjani)
+
+Bugfixes Changes
+----------------
+
+* Keep L7Parser type of rule which restricts on L7 even if rule is shadowed by another rule which allows-all on L7 (3732_, @ianvernon)
+* policy: Do not wildcard CIDR 0/0 for world entity (3711_, @tgraf)
+* pkg/node: fix nil pointer dereference when deleting IPv6 route for non-IPv6 node (3646_, @aanm)
+* Fix cilium spec files for kubernetes 1.8.0 (3640_, @aanm)
+* health: Do sanity checking on health response (3631_, @tgraf)
+* agent: Provide non-blocking agent status (3607_, @tgraf)
+* Remove need for connection tracking cleanup on policy change (3605_, @tgraf)
+* Fix prefix based CIDR matching (3603_, @joestringer)
+* policy: Do not make initial endpoint DROP_ALL mode dependent on polic… (3602_, @tgraf)
+* policy: Apply wildcarded source L7 rules to all sources (3574_, @tgraf)
+* Unconditionally open the BPF ipcache from the datapath to avoid issues with delayed opening of maps in Minikube (3567_, @ianvernon)
+* bpf: Derive proxy_port from policy rather than CT (3566_, @tgraf)
+* Fix ICMPv6 response handling for IPv6 connections (3556_, @joestringer)
+* cilium: Make cilium endpoint list resilient (3551_, @tgraf)
+* cli: protect against API nils (3550_, @raybejjani)
+* Recover from panics in Cilium API (3548_, @nebril)
+* Don't block daemon startup due to syncing loadbalancer BPF maps with KVstore (3535_, @joestringer)
+* etcd: Move etcd status check into the background (3532_, @tgraf)
+* labels: Ignore istio sidecar annotation labels (3516_, @tgraf)
+* Clear logging in state.go (3511_, @nebril)
+
+Other Changes
+-------------
+
+* bpf: Only create conntrack entries for SYN packets (3629_, @joestringer)
+* Remove proxy port from connection tracking table (3601_, @tgraf)
+* Only apply CIDR policy to special identities (Makes ingress/egress policy consistent) (3565_, @joestringer)
+* docs: Correct spelling mistakes in the docs (3525_, @manalibhutiyani)
+
+
 v1.0.0-rc11
 ===========
 
@@ -1423,5 +1467,30 @@ Fixes
 .. _3532: https://github.com/cilium/cilium/pull/3532
 .. _3516: https://github.com/cilium/cilium/pull/3516
 .. _3511: https://github.com/cilium/cilium/pull/3511
+.. _3565: https://github.com/cilium/cilium/pull/3565
+.. _3525: https://github.com/cilium/cilium/pull/3525
+.. _3513: https://github.com/cilium/cilium/pull/3513
+.. _3732: https://github.com/cilium/cilium/pull/3732
+.. _3711: https://github.com/cilium/cilium/pull/3711
+.. _3646: https://github.com/cilium/cilium/pull/3646
+.. _3640: https://github.com/cilium/cilium/pull/3640
+.. _3631: https://github.com/cilium/cilium/pull/3631
+.. _3607: https://github.com/cilium/cilium/pull/3607
+.. _3605: https://github.com/cilium/cilium/pull/3605
+.. _3603: https://github.com/cilium/cilium/pull/3603
+.. _3602: https://github.com/cilium/cilium/pull/3602
+.. _3574: https://github.com/cilium/cilium/pull/3574
+.. _3567: https://github.com/cilium/cilium/pull/3567
+.. _3566: https://github.com/cilium/cilium/pull/3566
+.. _3556: https://github.com/cilium/cilium/pull/3556
+.. _3551: https://github.com/cilium/cilium/pull/3551
+.. _3550: https://github.com/cilium/cilium/pull/3550
+.. _3548: https://github.com/cilium/cilium/pull/3548
+.. _3535: https://github.com/cilium/cilium/pull/3535
+.. _3532: https://github.com/cilium/cilium/pull/3532
+.. _3516: https://github.com/cilium/cilium/pull/3516
+.. _3511: https://github.com/cilium/cilium/pull/3511
+.. _3629: https://github.com/cilium/cilium/pull/3629
+.. _3601: https://github.com/cilium/cilium/pull/3601
 .. _3565: https://github.com/cilium/cilium/pull/3565
 .. _3525: https://github.com/cilium/cilium/pull/3525
