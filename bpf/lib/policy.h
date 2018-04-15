@@ -174,7 +174,11 @@ policy_can_access_ingress(struct __sk_buff *skb, __u32 src_label,
 			  __u16 dport, __u8 proto, size_t cidr_addr_size,
 			  void *cidr_addr)
 {
+#ifdef DROP_ALL
+	return DROP_POLICY;
+#else
 	return TC_ACT_OK;
+#endif
 }
 
 #endif /* POLICY_INGRESS */
@@ -205,6 +209,9 @@ static inline int policy_can_egress6(struct __sk_buff *skb,
 				     __u16 default_identity,
 				     union v6addr *daddr)
 {
+#ifdef DROP_ALL
+	return DROP_POLICY;
+#else
 	struct remote_endpoint_info *info;
 	__u16 identity = default_identity;
 	int verdict;
@@ -224,12 +231,16 @@ static inline int policy_can_egress6(struct __sk_buff *skb,
 	}
 
 	return verdict;
+#endif /* DROP_ALL */
 }
 
 static inline int policy_can_egress4(struct __sk_buff *skb,
 				     struct ipv4_ct_tuple *tuple,
 				     __u16 default_identity, __be32 daddr)
 {
+#ifdef DROP_ALL
+	return DROP_POLICY;
+#else
 	struct remote_endpoint_info *info;
 	__u16 identity = default_identity;
 	int verdict;
@@ -249,6 +260,7 @@ static inline int policy_can_egress4(struct __sk_buff *skb,
 	}
 
 	return verdict;
+#endif /* DROP_ALL */
 }
 
 #else /* POLICY_EGRESS && LXC_ID */
@@ -257,18 +269,26 @@ static inline int
 policy_can_egress6(struct __sk_buff *skb, struct ipv6_ct_tuple *tuple,
 		   __u16 default_identity, union v6addr *daddr)
 {
+#ifdef DROP_ALL
+	return DROP_POLICY;
+#else
 	return TC_ACT_OK;
+#endif
 }
 
 static inline int
 policy_can_egress4(struct __sk_buff *skb, struct ipv4_ct_tuple *tuple,
 		   __u16 default_identity, __be32 daddr)
 {
+#ifdef DROP_ALL
+	return DROP_POLICY;
+#else
 	return TC_ACT_OK;
+#endif
 }
 #endif /* POLICY_EGRESS && LXC_ID */
 
-#if defined POLICY_INGRESS || defined POLICY_EGRESS
+#if !defined DROP_ALL && (defined POLICY_INGRESS || defined POLICY_EGRESS)
 
 /**
  * Mark skb to skip policy enforcement
@@ -305,7 +325,11 @@ static inline void policy_clear_mark(struct __sk_buff *skb)
 
 static inline int is_policy_skip(struct __sk_buff *skb)
 {
+#ifdef DROP_ALL
+	return 0;
+#else
 	return 1;
+#endif
 }
 #endif /* POLICY_INGRESS || POLICY_EGRESS */
 

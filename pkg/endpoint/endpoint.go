@@ -1673,11 +1673,14 @@ func (e *Endpoint) HasLabels(l pkgLabels.Labels) bool {
 
 func (e *Endpoint) replaceInformationLabels(l pkgLabels.Labels) {
 	e.Mutex.Lock()
-	for k, v := range l {
-		tmp := v.DeepCopy()
-		e.getLogger().WithField(logfields.Labels, logfields.Repr(tmp)).Debug("Assigning information label")
-		e.OpLabels.OrchestrationInfo[k] = tmp
+	e.OpLabels.OrchestrationInfo.MarkAllForDeletion()
+
+	for _, v := range l {
+		if e.OpLabels.OrchestrationInfo.UpsertLabel(v) {
+			e.getLogger().WithField(logfields.Labels, logfields.Repr(v)).Debug("Assigning information label")
+		}
 	}
+	e.OpLabels.OrchestrationInfo.DeleteMarked()
 	e.Mutex.Unlock()
 }
 
@@ -1692,17 +1695,11 @@ func (e *Endpoint) replaceIdentityLabels(l pkgLabels.Labels) int {
 	e.OpLabels.Disabled.MarkAllForDeletion()
 
 	for k, v := range l {
-		switch {
-		case e.OpLabels.Disabled[k] != nil:
-			e.OpLabels.Disabled[k].DeletionMark = false
-
-		case e.OpLabels.OrchestrationIdentity[k] != nil:
-			e.OpLabels.OrchestrationIdentity[k].DeletionMark = false
-
-		default:
-			tmp := v.DeepCopy()
-			e.getLogger().WithField(logfields.Labels, logfields.Repr(tmp)).Debug("Assigning security relevant label")
-			e.OpLabels.OrchestrationIdentity[k] = tmp
+		// A disabled identity label stays disabled without value updates
+		if e.OpLabels.Disabled[k] != nil {
+			e.OpLabels.Disabled[k].ClearDeletionMark()
+		} else if e.OpLabels.OrchestrationIdentity.UpsertLabel(v) {
+			e.getLogger().WithField(logfields.Labels, logfields.Repr(v)).Debug("Assigning security relevant label")
 			changed = true
 		}
 	}

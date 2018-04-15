@@ -28,7 +28,7 @@ import (
 
 var (
 	demoTestName         = "K8sValidatedDemosTest"
-	starWarsDemoLinkRoot = "https://raw.githubusercontent.com/cilium/star-wars-demo/master/v1/"
+	starWarsDemoLinkRoot = "https://raw.githubusercontent.com/cilium/star-wars-demo/master/v1"
 )
 
 func getStarWarsResourceLink(file string) string {
@@ -101,6 +101,7 @@ var _ = Describe(demoTestName, func() {
 		allianceLabel := "org=alliance"
 		empireLabel := "org=empire"
 		deathstarServiceName := "deathstar.default.svc.cluster.local"
+
 		exhaustPortPath := filepath.Join(deathstarServiceName, "/v1/exhaust-port")
 
 		By(fmt.Sprintf("Getting Cilium Pod on node %s", helpers.K8s2))
@@ -111,7 +112,6 @@ var _ = Describe(demoTestName, func() {
 		// don't have to customize the YAML for this test.
 		By(fmt.Sprintf("Tainting %s so that all pods run on %s", helpers.K8s1, helpers.K8s2))
 		res := kubectl.Exec(fmt.Sprintf("kubectl taint nodes %s demo=false:NoSchedule", helpers.K8s1))
-
 		defer func() {
 			By(fmt.Sprintf("Removing taint from %s after test finished", helpers.K8s1))
 			res := kubectl.Exec(fmt.Sprintf("kubectl taint nodes %s demo:NoSchedule-", helpers.K8s1))
@@ -119,20 +119,17 @@ var _ = Describe(demoTestName, func() {
 		}()
 		res.ExpectSuccess("Unable to apply taint to %s: %s", helpers.K8s1, res.CombineOutput())
 
-		By("Applying deathstar Deployment")
+		By("Applying deathstar deployment")
 		res = kubectl.Apply(deathStarYAMLLink)
 		res.ExpectSuccess("unable to apply %s: %s", deathStarYAMLLink, res.CombineOutput())
 
-		By("Waiting for deathstart deployment pods to be ready")
+		By("Waiting for deathstar deployment pods to be ready")
 		_, err = kubectl.WaitforPods(helpers.DefaultNamespace, fmt.Sprintf("-l %s", empireLabel), 300)
 		Expect(err).Should(BeNil(), "Empire pods are not ready after timeout")
 
 		By("Applying policy and waiting for policy revision to increase in Cilium pods")
 		res = kubectl.Apply(l4PolicyYAMLLink)
 		res.ExpectSuccess("unable to apply %s: %s", l4PolicyYAMLLink, res.CombineOutput())
-
-		arePodsReady := kubectl.CiliumEndpointWait(ciliumPod2)
-		Expect(arePodsReady).To(BeTrue(), "pods running on k8s2 are not ready")
 
 		By("Applying alliance deployment")
 		res = kubectl.Apply(xwingYAMLLink)
@@ -150,11 +147,21 @@ var _ = Describe(demoTestName, func() {
 		// Test only needs to access one of the pods.
 		xwingPod := xwingPods[0]
 
+		By("Making sure all endpoints are in ready state")
+		arePodsReady := kubectl.CiliumEndpointWait(ciliumPod2)
+		Expect(arePodsReady).To(BeTrue(), "pods running on k8s2 are not ready")
+
 		By("Showing how alliance can execute REST API call to main API endpoint")
-		res = kubectl.Exec(fmt.Sprintf("kubectl exec -it %s -- curl -s --output /dev/stderr -w '%%{http_code}' -XGET %s/v1", xwingPod, deathstarServiceName))
+
+		err = kubectl.WaitForKubeDNSEntry(deathstarServiceName)
+		Expect(err).To(BeNil(), "DNS entry is not ready after timeout")
+
+		res = kubectl.ExecPodCmd(helpers.DefaultNamespace, xwingPod,
+			helpers.CurlWithHTTPCode("http://%s/v1", deathstarServiceName))
 		res.ExpectContains("200", "unable to curl %s/v1: %s", deathstarServiceName, res.CombineOutput())
 
 		By(fmt.Sprintf("Importing L7 Policy which restricts access to %s", exhaustPortPath))
+		kubectl.Delete(l4PolicyYAMLLink)
 		res = kubectl.Apply(l7PolicyYAMLLink)
 		res.ExpectSuccess("unable to apply %s: %s", l7PolicyYAMLLink, res.CombineOutput())
 

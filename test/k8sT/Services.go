@@ -308,6 +308,7 @@ var _ = Describe("K8sValidatedServicesTest", func() {
 		reviews := "reviews"
 		ratings := "ratings"
 		details := "details"
+		dnsChecks := []string{productPage, reviews, ratings, details}
 		app := "app"
 		resourceYamls := []string{"bookinfo-v1.yaml", "bookinfo-v2.yaml"}
 		health := "health"
@@ -348,11 +349,13 @@ var _ = Describe("K8sValidatedServicesTest", func() {
 
 		// formatAPI is a helper function which formats a URI to access.
 		formatAPI := func(service, port, resource string) string {
+			target := fmt.Sprintf(
+				"%s.%s.svc.cluster.local:%s",
+				service, helpers.DefaultNamespace, port)
 			if resource != "" {
-				return fmt.Sprintf("%s:%s/%s", service, port, resource)
+				return fmt.Sprintf("%s/%s", target, resource)
 			}
-
-			return fmt.Sprintf("%s:%s", service, port)
+			return target
 		}
 
 		By(fmt.Sprintf("Getting Cilium Pod on node %s", helpers.K8s1))
@@ -419,6 +422,12 @@ var _ = Describe("K8sValidatedServicesTest", func() {
 		Expect(pods).Should(BeTrue())
 		Expect(err).Should(BeNil())
 
+		By("Validating DNS")
+		for _, name := range dnsChecks {
+			err = kubectl.WaitForKubeDNSEntry(fmt.Sprintf("%s.%s", name, helpers.DefaultNamespace))
+			Expect(err).To(BeNil(), "DNS entry is not ready after timeout")
+		}
+
 		By("Before policy import; all pods should be able to connect")
 		shouldConnect(reviewsPodV1.String(), formatAPI(ratings, apiPort, health))
 		shouldConnect(reviewsPodV1.String(), formatAPI(ratings, apiPort, ""))
@@ -453,6 +462,12 @@ var _ = Describe("K8sValidatedServicesTest", func() {
 		By("Checking that policies were correctly imported into Cilium")
 		res := kubectl.ExecPodCmd(helpers.KubeSystemNamespace, ciliumPodK8s1, policyCmd)
 		res.ExpectSuccess("Policy %s is not imported", policyCmd)
+
+		By("Validating DNS")
+		for _, name := range dnsChecks {
+			err = kubectl.WaitForKubeDNSEntry(fmt.Sprintf("%s.%s", name, helpers.DefaultNamespace))
+			Expect(err).To(BeNil(), "DNS entry is not ready after timeout")
+		}
 
 		By("After policy import")
 		shouldConnect(reviewsPodV1.String(), formatAPI(ratings, apiPort, health))

@@ -540,12 +540,13 @@ var _ = Describe("K8sValidatedPolicyTest", func() {
 
 			serviceIP, port, err := kubectl.GetServiceHostPort(helpers.DefaultNamespace, "redis-master")
 
-			for pod := range webPods {
-				// GH-3462: only access service IP, not host name of redis-master.
-				// Work to revert this change is tracked by GH-3663.
-				//redisMetadata := map[string]int{serviceIP: port, "redis-master": port}
+			serviceName := "redis-master.default.svc.cluster.local"
+			err = kubectl.WaitForKubeDNSEntry(serviceName)
+			Expect(err).To(BeNil(), "DNS entry is not ready after timeout")
 
-				redisMetadata := map[string]int{serviceIP: port}
+			for pod := range webPods {
+
+				redisMetadata := map[string]int{serviceIP: port, serviceName: port}
 				for k, v := range redisMetadata {
 					command := fmt.Sprintf(`nc %s %d <<EOF
 PING
