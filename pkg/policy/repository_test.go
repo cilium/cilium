@@ -422,6 +422,147 @@ func (ds *PolicyTestSuite) TestWildcardL3RulesIngress(c *C) {
 	c.Assert((*policy), comparator.DeepEquals, expectedPolicy)
 }
 
+func (ds *PolicyTestSuite) TestWildcardL4RulesIngress(c *C) {
+	repo := NewPolicyRepository()
+
+	selFoo := api.NewESFromLabels(labels.ParseSelectLabel("id=foo"))
+	selBar1 := api.NewESFromLabels(labels.ParseSelectLabel("id=bar1"))
+	selBar2 := api.NewESFromLabels(labels.ParseSelectLabel("id=bar2"))
+
+	labelsL3 := labels.LabelArray{labels.ParseLabel("l3")}
+	labelsKafka := labels.LabelArray{labels.ParseLabel("kafka")}
+	labelsHTTP := labels.LabelArray{labels.ParseLabel("http")}
+
+	l49092Rule := api.Rule{
+		EndpointSelector: selFoo,
+		Ingress: []api.IngressRule{
+			{
+				FromEndpoints: []api.EndpointSelector{selBar1},
+				ToPorts: []api.PortRule{{
+					Ports: []api.PortProtocol{
+						{Port: "9092", Protocol: api.ProtoTCP},
+					},
+				}},
+			},
+		},
+		Labels: labelsL3,
+	}
+	l49092Rule.Sanitize()
+	_, err := repo.Add(l49092Rule)
+	c.Assert(err, IsNil)
+
+	kafkaRule := api.Rule{
+		EndpointSelector: selFoo,
+		Ingress: []api.IngressRule{
+			{
+				FromEndpoints: []api.EndpointSelector{selBar2},
+				ToPorts: []api.PortRule{{
+					Ports: []api.PortProtocol{
+						{Port: "9092", Protocol: api.ProtoTCP},
+					},
+					Rules: &api.L7Rules{
+						Kafka: []api.PortRuleKafka{
+							{APIKey: "produce"},
+						},
+					},
+				}},
+			},
+		},
+		Labels: labelsKafka,
+	}
+	kafkaRule.Sanitize()
+	_, err = repo.Add(kafkaRule)
+	c.Assert(err, IsNil)
+
+	l480Rule := api.Rule{
+		EndpointSelector: selFoo,
+		Ingress: []api.IngressRule{
+			{
+				FromEndpoints: []api.EndpointSelector{selBar1},
+				ToPorts: []api.PortRule{{
+					Ports: []api.PortProtocol{
+						{Port: "80", Protocol: api.ProtoTCP},
+					},
+				}},
+			},
+		},
+		Labels: labelsL3,
+	}
+	l480Rule.Sanitize()
+	_, err = repo.Add(l480Rule)
+	c.Assert(err, IsNil)
+
+	httpRule := api.Rule{
+		EndpointSelector: selFoo,
+		Ingress: []api.IngressRule{
+			{
+				FromEndpoints: []api.EndpointSelector{selBar2},
+				ToPorts: []api.PortRule{{
+					Ports: []api.PortProtocol{
+						{Port: "80", Protocol: api.ProtoTCP},
+					},
+					Rules: &api.L7Rules{
+						HTTP: []api.PortRuleHTTP{
+							{Method: "GET", Path: "/"},
+						},
+					},
+				}},
+			},
+		},
+		Labels: labelsHTTP,
+	}
+	_, err = repo.Add(httpRule)
+	c.Assert(err, IsNil)
+
+	ctx := &SearchContext{
+		To: labels.ParseSelectLabelArray("id=foo"),
+	}
+
+	repo.Mutex.RLock()
+	defer repo.Mutex.RUnlock()
+
+	policy, err := repo.ResolveL4IngressPolicy(ctx)
+	c.Assert(err, IsNil)
+
+	expectedPolicy := L4PolicyMap{
+		"80/TCP": {
+			Port:      80,
+			Protocol:  api.ProtoTCP,
+			U8Proto:   0x6,
+			Endpoints: []api.EndpointSelector{selBar1, selBar2, selBar1},
+			L7Parser:  ParserTypeHTTP,
+			Ingress:   true,
+			L7RulesPerEp: L7DataMap{
+				selBar1: api.L7Rules{
+					HTTP: []api.PortRuleHTTP{{}},
+				},
+				selBar2: api.L7Rules{
+					HTTP: []api.PortRuleHTTP{httpRule.Ingress[0].ToPorts[0].Rules.HTTP[0]},
+				},
+			},
+			DerivedFromRules: labels.LabelArrayList{labelsL3, labelsHTTP, labelsL3},
+		},
+		"9092/TCP": {
+			Port:      9092,
+			Protocol:  api.ProtoTCP,
+			U8Proto:   0x6,
+			Endpoints: []api.EndpointSelector{selBar1, selBar2, selBar1},
+			L7Parser:  ParserTypeKafka,
+			Ingress:   true,
+			L7RulesPerEp: L7DataMap{
+				selBar1: api.L7Rules{
+					Kafka: []api.PortRuleKafka{{}},
+				},
+				selBar2: api.L7Rules{
+					Kafka: []api.PortRuleKafka{kafkaRule.Ingress[0].ToPorts[0].Rules.Kafka[0]},
+				},
+			},
+			DerivedFromRules: labels.LabelArrayList{labelsL3, labelsKafka, labelsL3},
+		},
+	}
+	c.Assert((*policy), comparator.DeepEquals, expectedPolicy)
+}
+
 func (ds *PolicyTestSuite) TestWildcardL3RulesEgress(c *C) {
 	repo := NewPolicyRepository()
 
@@ -535,6 +676,147 @@ func (ds *PolicyTestSuite) TestWildcardL3RulesEgress(c *C) {
 				},
 			},
 			DerivedFromRules: labels.LabelArrayList{labelsHTTP, labelsL3},
+		},
+	}
+	c.Assert((*policy), comparator.DeepEquals, expectedPolicy)
+}
+
+func (ds *PolicyTestSuite) TestWildcardL4RulesEgress(c *C) {
+	repo := NewPolicyRepository()
+
+	selFoo := api.NewESFromLabels(labels.ParseSelectLabel("id=foo"))
+	selBar1 := api.NewESFromLabels(labels.ParseSelectLabel("id=bar1"))
+	selBar2 := api.NewESFromLabels(labels.ParseSelectLabel("id=bar2"))
+
+	labelsL3 := labels.LabelArray{labels.ParseLabel("l3")}
+	labelsKafka := labels.LabelArray{labels.ParseLabel("kafka")}
+	labelsHTTP := labels.LabelArray{labels.ParseLabel("http")}
+
+	l49092Rule := api.Rule{
+		EndpointSelector: selFoo,
+		Egress: []api.EgressRule{
+			{
+				ToEndpoints: []api.EndpointSelector{selBar1},
+				ToPorts: []api.PortRule{{
+					Ports: []api.PortProtocol{
+						{Port: "9092", Protocol: api.ProtoTCP},
+					},
+				}},
+			},
+		},
+		Labels: labelsL3,
+	}
+	l49092Rule.Sanitize()
+	_, err := repo.Add(l49092Rule)
+	c.Assert(err, IsNil)
+
+	kafkaRule := api.Rule{
+		EndpointSelector: selFoo,
+		Egress: []api.EgressRule{
+			{
+				ToEndpoints: []api.EndpointSelector{selBar2},
+				ToPorts: []api.PortRule{{
+					Ports: []api.PortProtocol{
+						{Port: "9092", Protocol: api.ProtoTCP},
+					},
+					Rules: &api.L7Rules{
+						Kafka: []api.PortRuleKafka{
+							{APIKey: "produce"},
+						},
+					},
+				}},
+			},
+		},
+		Labels: labelsKafka,
+	}
+	kafkaRule.Sanitize()
+	_, err = repo.Add(kafkaRule)
+	c.Assert(err, IsNil)
+
+	l480Rule := api.Rule{
+		EndpointSelector: selFoo,
+		Egress: []api.EgressRule{
+			{
+				ToEndpoints: []api.EndpointSelector{selBar1},
+				ToPorts: []api.PortRule{{
+					Ports: []api.PortProtocol{
+						{Port: "80", Protocol: api.ProtoTCP},
+					},
+				}},
+			},
+		},
+		Labels: labelsL3,
+	}
+	l480Rule.Sanitize()
+	_, err = repo.Add(l480Rule)
+	c.Assert(err, IsNil)
+
+	httpRule := api.Rule{
+		EndpointSelector: selFoo,
+		Egress: []api.EgressRule{
+			{
+				ToEndpoints: []api.EndpointSelector{selBar2},
+				ToPorts: []api.PortRule{{
+					Ports: []api.PortProtocol{
+						{Port: "80", Protocol: api.ProtoTCP},
+					},
+					Rules: &api.L7Rules{
+						HTTP: []api.PortRuleHTTP{
+							{Method: "GET", Path: "/"},
+						},
+					},
+				}},
+			},
+		},
+		Labels: labelsHTTP,
+	}
+	_, err = repo.Add(httpRule)
+	c.Assert(err, IsNil)
+
+	ctx := &SearchContext{
+		From: labels.ParseSelectLabelArray("id=foo"),
+	}
+
+	repo.Mutex.RLock()
+	defer repo.Mutex.RUnlock()
+
+	policy, err := repo.ResolveL4EgressPolicy(ctx)
+	c.Assert(err, IsNil)
+
+	expectedPolicy := L4PolicyMap{
+		"80/TCP": {
+			Port:      80,
+			Protocol:  api.ProtoTCP,
+			U8Proto:   0x6,
+			Endpoints: []api.EndpointSelector{selBar1, selBar2, selBar1},
+			L7Parser:  ParserTypeHTTP,
+			Ingress:   false,
+			L7RulesPerEp: L7DataMap{
+				selBar1: api.L7Rules{
+					HTTP: []api.PortRuleHTTP{{}},
+				},
+				selBar2: api.L7Rules{
+					HTTP: []api.PortRuleHTTP{httpRule.Egress[0].ToPorts[0].Rules.HTTP[0]},
+				},
+			},
+			DerivedFromRules: labels.LabelArrayList{labelsL3, labelsHTTP, labelsL3},
+		},
+		"9092/TCP": {
+			Port:      9092,
+			Protocol:  api.ProtoTCP,
+			U8Proto:   0x6,
+			Endpoints: []api.EndpointSelector{selBar1, selBar2, selBar1},
+			L7Parser:  ParserTypeKafka,
+			Ingress:   false,
+			L7RulesPerEp: L7DataMap{
+				selBar1: api.L7Rules{
+					Kafka: []api.PortRuleKafka{{}},
+				},
+				selBar2: api.L7Rules{
+					Kafka: []api.PortRuleKafka{kafkaRule.Egress[0].ToPorts[0].Rules.Kafka[0]},
+				},
+			},
+			DerivedFromRules: labels.LabelArrayList{labelsL3, labelsKafka, labelsL3},
 		},
 	}
 	c.Assert((*policy), comparator.DeepEquals, expectedPolicy)
