@@ -24,6 +24,6 @@
 			},
 		},
 		.warn = "Your kernel doesn't support LPM trie maps for BPF, "
-		        "thus disabling CIDR policies. Recommendation is to "
-			"run 4.11+ kernels.",
+		        "thus switching back to using hash table for CIDR "
+			"policies. Recommendation is to run 4.11+ kernels.",
 	},
