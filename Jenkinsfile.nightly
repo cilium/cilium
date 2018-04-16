@@ -11,6 +11,7 @@ pipeline {
     options {
         timeout(time: 500, unit: 'MINUTES')
         timestamps()
+        ansiColor('xterm')
     }
 
     stages {
@@ -32,7 +33,7 @@ pipeline {
             steps {
                 parallel(
                     "Nightly":{
-                        sh 'cd ${TESTDIR}; ginkgo --focus="Nightly*" -v -noColor --timeout 390m'
+                        sh 'cd ${TESTDIR}; ginkgo --focus="Nightly*" -v --timeout 390m'
                     },
                 )
             }
@@ -51,10 +52,10 @@ pipeline {
             steps {
                 parallel(
                     "K8s-1.7":{
-                        sh 'cd ${TESTDIR}; K8S_VERSION=1.7 ginkgo --focus=" K8s*" -v -noColor'
+                        sh 'cd ${TESTDIR}; K8S_VERSION=1.7 ginkgo --focus=" K8s*" -v'
                     },
                    "K8s-1.8":{
-                        sh 'cd ${TESTDIR}; K8S_VERSION=1.8 ginkgo --focus=" K8s*" -v -noColor'
+                        sh 'cd ${TESTDIR}; K8S_VERSION=1.8 ginkgo --focus=" K8s*" -v'
                     }
                 )
             }

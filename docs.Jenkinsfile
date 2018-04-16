@@ -6,6 +6,7 @@ pipeline {
     options {
         timeout(time: 10, unit: 'MINUTES')
         timestamps()
+        ansiColor('xterm')
     }
     stages {
         stage('Docs') {
