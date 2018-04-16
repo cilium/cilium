@@ -68,7 +68,7 @@ pipeline {
             post {
                 always {
                     sh 'cd test/; ./archive_test_results.sh || true'
-                    archiveArtifacts artifacts: "test_results_${JOB_BASE_NAME}_${BUILD_NUMBER}.tar", allowEmptyArchive: true
+                    archiveArtifacts artifacts: "test_results_${JOB_BASE_NAME}_${BUILD_NUMBER}.zip", allowEmptyArchive: true
                     junit 'test/*.xml'
                     sh 'cd test/; ./post_build_agent.sh || true'
                 }
