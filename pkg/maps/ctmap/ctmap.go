@@ -23,11 +23,8 @@ import (
 
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/byteorder"
-	"github.com/cilium/cilium/pkg/flowdebug"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/policy"
-
-	"github.com/sirupsen/logrus"
 )
 
 var log = logging.DefaultLogger
@@ -322,26 +319,11 @@ func doGC4(m *bpf.Map, filter *GCFilter) int {
 }
 
 func (f *GCFilter) doFiltering(srcIP net.IP, dstIP net.IP, dstPort uint16, nextHdr, flags uint8, entry *CtEntry) (action int) {
-	scopedLog := log.WithFields(logrus.Fields{
-		"entrySrcIP":       srcIP,
-		"entryDstIP":       dstIP,
-		"entryDstPort":     byteorder.NetworkToHost(dstPort),
-		"entryProto":       nextHdr,
-		"entryFlags":       flags,
-		"entrySrcSecID":    entry.src_sec_id,
-		"filterType":       f.TypeString(),
-		"filterEndpointID": f.EndpointID,
-		"filterEndpointIP": f.EndpointIP,
-	})
-	flowdebug.Log(scopedLog, "Filtering CT map entry")
-
 	// Delete all entries with a lifetime smaller than f timestamp.
 	if f.Type == GCFilterByTime && entry.lifetime < f.Time {
-		flowdebug.Log(scopedLog, "Deleting CT map entry: too old")
 		return deleteEntry
 	}
 
-	flowdebug.Log(scopedLog, "Ignoring CT map entry: no action required")
 	return noAction
 }
 
