@@ -21,6 +21,9 @@ import (
 	"github.com/cilium/cilium/pkg/envoy/xds"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/ipcache"
+	"github.com/cilium/cilium/pkg/logging/logfields"
+
+	"github.com/sirupsen/logrus"
 )
 
 const (
@@ -61,16 +64,65 @@ func (cache *NPHDSCache) OnIPIdentityCacheGC() {
 func (cache *NPHDSCache) OnIPIdentityCacheChange(
 	modType ipcache.CacheModification, ipIDPair identity.IPIdentityPair) {
 
-	endpointIPs, isIdentityInCache := ipcache.IPIdentityCache.LookupByIdentity(ipIDPair.ID)
-	if modType == ipcache.Delete && !isIdentityInCache {
-		cache.Delete(NetworkPolicyHostsTypeURL, ipIDPair.ID.StringID(), false)
-	} else {
-		ipStrings := make([]string, 0, len(endpointIPs))
-		for endpointIP := range endpointIPs {
-			ipStrings = append(ipStrings, endpointIP)
+	// Look up the current resources for the specified Identity.
+	msg, err := cache.Lookup(NetworkPolicyHostsTypeURL, ipIDPair.ID.StringID())
+	if err != nil {
+		log.WithError(err).WithFields(logrus.Fields{
+			logfields.IPAddr:       ipIDPair.IP,
+			logfields.Identity:     ipIDPair.ID,
+			logfields.Modification: modType,
+		}).Warning("Can't lookup NPHDS cache")
+		return
+	}
+
+	switch modType {
+	case ipcache.Upsert:
+		var npHost *envoyAPI.NetworkPolicyHosts
+		if msg == nil {
+			npHost = &envoyAPI.NetworkPolicyHosts{Policy: uint64(ipIDPair.ID), HostAddresses: make([]string, 0, 1)}
+		} else {
+			npHost = msg.(*envoyAPI.NetworkPolicyHosts)
 		}
-		sort.Strings(ipStrings)
-		npHost := &envoyAPI.NetworkPolicyHosts{Policy: uint64(ipIDPair.ID), HostAddresses: ipStrings}
+		npHost.HostAddresses = append(npHost.HostAddresses, ipIDPair.IP.String())
+		sort.Strings(npHost.HostAddresses)
 		cache.Upsert(NetworkPolicyHostsTypeURL, ipIDPair.ID.StringID(), npHost, false)
+	case ipcache.Delete:
+		if msg == nil {
+			// Doesn't exist; already deleted.
+			return
+		}
+		cache.handleIPDelete(msg.(*envoyAPI.NetworkPolicyHosts), ipIDPair.ID.StringID(), ipIDPair.IP.String())
+	}
+}
+
+// handleIPUpsert deletes elements from the NPHDS cache with the specified peer IP->ID mapping.
+func (cache *NPHDSCache) handleIPDelete(npHost *envoyAPI.NetworkPolicyHosts, peerIdentity, peerIP string) {
+	targetIndex := -1
+	for i, endpointIP := range npHost.HostAddresses {
+		if endpointIP == peerIP {
+			targetIndex = i
+			break
+		}
+	}
+	if targetIndex < 0 {
+		log.WithFields(logrus.Fields{
+			logfields.IPAddr:       peerIP,
+			logfields.Identity:     peerIdentity,
+			logfields.Modification: ipcache.Delete,
+		}).Warning("Can't find IP in NPHDS cache")
+		return
+	}
+
+	// If removing this host would result in empty list, delete it.
+	// Otherwise, update to a list that doesn't contain the target IP
+	if len(npHost.HostAddresses) <= 1 {
+		cache.Delete(NetworkPolicyHostsTypeURL, peerIdentity, false)
+	} else {
+		if len(npHost.HostAddresses) == targetIndex {
+			npHost.HostAddresses = npHost.HostAddresses[0:targetIndex]
+		} else {
+			npHost.HostAddresses = append(npHost.HostAddresses[0:targetIndex], npHost.HostAddresses[targetIndex+1:]...)
+		}
+		cache.Upsert(NetworkPolicyHostsTypeURL, peerIdentity, npHost, false)
 	}
 }
