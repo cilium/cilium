@@ -49,7 +49,7 @@ cmdref:
 # "make mode" option.  $(O) is meant as a shortcut for $(SPHINXOPTS).
 %: Makefile check-requirements
 	@$(ECHO_GEN)_build/$@
-	$(SPHINXBUILD) -b spelling -d "$(BUILDDIR)/doctrees" "$(SOURCEDIR)" "$(BUILDDIR)/spelling"
+	$(SPHINXBUILD) -b spelling -d "$(BUILDDIR)/doctrees" "$(SOURCEDIR)" "$(BUILDDIR)/spelling" $(SPHINXOPTS)
 	@if [ "$$(wc -l < "$(BUILDDIR)/spelling/output.txt")" -ne "0" ]; then \
 		echo "ERROR: Found misspelled words in the documentation! If you believe the"; \
 		echo "words are not misspelled, please add them to ./Documentation/spelling_wordlist.txt"; \
