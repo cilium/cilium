@@ -292,7 +292,6 @@ var _ = Describe("RuntimeValidatedConntrackTest", func() {
 
 	var curl1ContainerName = "curl"
 	var curl2ContainerName = "curl2"
-	var maxTestTrials = 3
 	var CTPolicyConntrackLocalDisabled = "ct-test-policy-conntrack-local-disabled.json"
 
 	type conntestCases struct {
@@ -449,21 +448,11 @@ var _ = Describe("RuntimeValidatedConntrackTest", func() {
 			},
 		}
 
-		// This retry logic of maxTestTrials per test case is temporary till
-		// GH #3393 issue to support egress CT cleanup is in place.
 		for _, test := range testCases {
 			By(fmt.Sprintf("Container %q test connectivity to %q", test.from, test.destination))
-			for testTryCount := 0; testTryCount <= maxTestTrials; testTryCount++ {
-				res = vm.ContainerExec(test.from, test.to)
-				if res.WasSuccessful() == false {
-					if testTryCount == maxTestTrials {
-						ExpectWithOffset(1, res.WasSuccessful()).To(test.assert(),
-							"The result of %q from container %q to %s does not match", test.to, test.from, test.destination)
-					}
-				} else {
-					break // break from inner loop and try next test-case.
-				}
-			}
+			res = vm.ContainerExec(test.from, test.to)
+			ExpectWithOffset(1, res.WasSuccessful()).To(test.assert(),
+				"The result of %q from container %q to %s does not match", test.to, test.from, test.destination)
 		}
 
 		By("Testing bidirectional connectivity from client to server")
