@@ -22,6 +22,7 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	pkgMTU "github.com/cilium/cilium/pkg/mtu"
 
 	"github.com/vishvananda/netlink"
 )
@@ -135,7 +136,7 @@ func SetupVethWithNames(lxcIfName, tmpIfName string, mtu int, ep *models.Endpoin
 		return nil, nil, fmt.Errorf("unable to lookup veth just created: %s", err)
 	}
 
-	if err = netlink.LinkSetMTU(hostVeth, mtu); err != nil {
+	if err = netlink.LinkSetMTU(hostVeth, pkgMTU.MaxMTU); err != nil {
 		return nil, nil, fmt.Errorf("unable to set MTU to %q: %s", lxcIfName, err)
 	}
 
