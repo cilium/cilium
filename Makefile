@@ -131,7 +131,7 @@ docker-image-runtime:
 	cd contrib/packaging/docker && docker build -t "cilium/cilium-runtime:$(UTC_DATE)" -f Dockerfile.runtime .
 
 docker-image-builder:
-	cd envoy && docker build -t "cilium/cilium-builder:$(UTC_DATE)" -f Dockerfile.builder .
+	cd envoy && docker build -t "cilium/cilium-builder:$(UTC_DATE)" .
 
 build-deb:
 	$(MAKE) -C ./contrib/packaging/deb
