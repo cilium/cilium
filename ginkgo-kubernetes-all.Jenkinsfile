@@ -21,6 +21,7 @@ pipeline {
     options {
         timeout(time: 140, unit: 'MINUTES')
         timestamps()
+        ansiColor('xterm')
     }
     stages {
         stage('Checkout') {
@@ -47,10 +48,10 @@ pipeline {
             steps {
                 parallel(
                     "K8s-1.8":{
-                        sh 'cd ${TESTDIR}; K8S_VERSION=1.8 ginkgo --focus=" K8s*" -v -noColor ${FAILFAST}'
+                        sh 'cd ${TESTDIR}; K8S_VERSION=1.8 ginkgo --focus=" K8s*" -v ${FAILFAST}'
                     },
                     "K8s-1.9":{
-                        sh 'cd ${TESTDIR}; K8S_VERSION=1.9 ginkgo --focus=" K8s*" -v -noColor ${FAILFAST}'
+                        sh 'cd ${TESTDIR}; K8S_VERSION=1.9 ginkgo --focus=" K8s*" -v ${FAILFAST}'
                     },
                 )
             }
@@ -82,7 +83,7 @@ pipeline {
             steps {
                 parallel(
                     "K8s-1.11":{
-                        sh 'cd ${TESTDIR}; K8S_VERSION=1.11 ginkgo --focus=" K8s*" -v -noColor ${FAILFAST}'
+                        sh 'cd ${TESTDIR}; K8S_VERSION=1.11 ginkgo --focus=" K8s*" -v ${FAILFAST}'
                     },
                 )
             }
