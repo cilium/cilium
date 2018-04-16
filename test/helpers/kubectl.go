@@ -479,19 +479,22 @@ func (kub *Kubectl) WaitForKubeDNSEntry(name string) error {
 	// https://bugs.launchpad.net/ubuntu/+source/bind9/+bug/854705
 	digCMD := "dig +short %s @%s | grep -v -e '^$'"
 
-	podsIPs, err := kub.GetPodsIPs(KubeSystemNamespace, "k8s-app=kube-dns")
+	// If it fails we want to know if it's because of connection cannot be
+	// established or DNS does not exist.
+	digCMDFallback := "dig +tcp %s @%s"
+
+	host, _, err := kub.GetServiceHostPort(KubeSystemNamespace, "kube-dns")
 	if err != nil {
-		logger.WithError(err).Error("cannot get kube-dns pods")
+		logger.WithError(err).Error("cannot get kube-dns service IP")
 		return err
 	}
 
 	body := func() bool {
-		var result bool
-		for _, ip := range podsIPs {
-			res := kub.Exec(fmt.Sprintf(digCMD, name, ip))
-			result = res.WasSuccessful()
+		res := kub.Exec(fmt.Sprintf(digCMD, name, host))
+		if !res.WasSuccessful() {
+			_ = kub.Exec(fmt.Sprintf(digCMDFallback, name, host))
 		}
-		return result
+		return res.WasSuccessful()
 	}
 
 	return WithTimeout(
@@ -929,13 +932,16 @@ func (kub *Kubectl) DumpCiliumCommandOutput(namespace string) {
 // directory
 func (kub *Kubectl) GatherLogs() {
 	reportCmds := map[string]string{
-		"kubectl get pods --all-namespaces -o json":                  "pods.txt",
-		"kubectl get services --all-namespaces -o json":              "svc.txt",
-		"kubectl get ds --all-namespaces -o json":                    "ds.txt",
-		"kubectl get cnp --all-namespaces -o json":                   "cnp.txt",
-		"kubectl describe pods --all-namespaces":                     "pods_status.txt",
-		"kubectl get replicationcontroller --all-namespaces -o json": "replicationcontroller.txt",
-		"kubectl get deployment --all-namespaces -o json":            "deployment.txt",
+		"kubectl get pods --all-namespaces -o json":                    "pods.txt",
+		"kubectl get services --all-namespaces -o json":                "svc.txt",
+		"kubectl get ds --all-namespaces -o json":                      "ds.txt",
+		"kubectl get cnp --all-namespaces -o json":                     "cnp.txt",
+		"kubectl describe pods --all-namespaces":                       "pods_status.txt",
+		"kubectl get replicationcontroller --all-namespaces -o json":   "replicationcontroller.txt",
+		"kubectl get deployment --all-namespaces -o json":              "deployment.txt",
+		"kubectl -n kube-system logs -l k8s-app='kube-dns' -c kubedns": "kubedns.log",
+		"kubectl -n kube-system logs -l k8s-app='kube-dns' -c dnsmasq": "dnsmasq.log",
+		"kubectl -n kube-system logs -l k8s-app='kube-dns' -c sidecar": "kubedns-sidecar.log",
 	}
 
 	ciliumPods, err := kub.GetCiliumPods(KubeSystemNamespace)
