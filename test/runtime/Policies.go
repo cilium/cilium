@@ -639,10 +639,12 @@ var _ = Describe("RuntimeValidatedPolicies", func() {
 		httpd1Label := "id.httpd1"
 		app3Label := "id.app3"
 
-		log.Infof("IPV4 Address Host: %s", helpers.IPv4Host)
-		log.Infof("IPV4 Address Other Host: %s", ipv4OtherHost)
-		log.Infof("IPV4 Other Net: %s", ipv4OtherNet)
-		log.Infof("IPV6 Host: %s", helpers.IPv6Host)
+		logger.WithFields(logrus.Fields{
+			"IPv4_host":       helpers.IPv4Host,
+			"IPv4_other_host": ipv4OtherHost,
+			"IPv4_other_net":  ipv4OtherNet,
+			"IPv6_host":       helpers.IPv6Host}).
+			Info("VM IP address configuration")
 
 		// If the pseudo host IPs have not been removed since the last run but
 		// Cilium was restarted, the IPs may have been picked up as valid host
@@ -1089,7 +1091,7 @@ var _ = Describe("RuntimeValidatedPolicies", func() {
 			// Docker container running with host networking is accessible via
 			// the host's IP address. See https://docs.docker.com/network/host/.
 			By(fmt.Sprintf("Accessing /public using Docker container using host networking from %s (should work)", helpers.App1))
-			successCurl := vm.ContainerExec(helpers.App1, helpers.CurlWithHTTPCode(fmt.Sprintf("http://%s/public", hostIP)))
+			successCurl := vm.ContainerExec(helpers.App1, helpers.CurlWithHTTPCode("http://%s/public", hostIP))
 			successCurl.ExpectContains("200", "Expected to be able to access /public in host Docker container")
 
 			By(fmt.Sprintf("Pinging %s from %s (shouldn't work)", helpers.App2, helpers.App1))
@@ -1097,8 +1099,10 @@ var _ = Describe("RuntimeValidatedPolicies", func() {
 			failPing.ExpectFail("not able to ping %s", helpers.App2)
 
 			httpd2, err := vm.ContainerInspectNet(helpers.Httpd2)
+			Expect(err).Should(BeNil(), fmt.Sprintf("Unable to get networking information for container %s", helpers.Httpd2))
+
 			By(fmt.Sprintf("Accessing /public in %s from %s (shouldn't work)", helpers.App2, helpers.App1))
-			failCurl := vm.ContainerExec(helpers.App1, helpers.CurlFail(fmt.Sprintf("http://%s/public", httpd2[helpers.IPv4])))
+			failCurl := vm.ContainerExec(helpers.App1, helpers.CurlFail("http://%s/public", httpd2[helpers.IPv4]))
 			failCurl.ExpectFail("unexpectedly able to access %s when access should only be allowed to host", helpers.Httpd2)
 
 		})
