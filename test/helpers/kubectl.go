@@ -463,6 +463,44 @@ func (kub *Kubectl) WaitKubeDNS() error {
 	return err
 }
 
+// WaitForKubeDNSEntry waits until the given DNS entry is ready in kube-dns
+// pod. If the container is not ready after timeout it returns an error. The
+// name's format query should be `${name}.${namespace}`. If `svc.cluster.local`
+// is not present it appends to the given name and it checks  the full FQDN
+func (kub *Kubectl) WaitForKubeDNSEntry(name string) error {
+	svcSuffix := "svc.cluster.local"
+	logger := kub.logger.WithField("dnsName", name)
+
+	if !strings.HasSuffix(name, svcSuffix) {
+		name = fmt.Sprintf("%s.%s", name, svcSuffix)
+	}
+	// https://bugs.launchpad.net/ubuntu/+source/bind9/+bug/854705
+	digCMD := "dig +short %s @%s | grep -v -e '^$'"
+
+	// If it fails we want to know if it's because of connection cannot be
+	// established or DNS does not exist.
+	digCMDFallback := "dig +tcp %s @%s"
+
+	host, _, err := kub.GetServiceHostPort(KubeSystemNamespace, "kube-dns")
+	if err != nil {
+		logger.WithError(err).Error("cannot get kube-dns service IP")
+		return err
+	}
+
+	body := func() bool {
+		res := kub.Exec(fmt.Sprintf(digCMD, name, host))
+		if !res.WasSuccessful() {
+			_ = kub.Exec(fmt.Sprintf(digCMDFallback, name, host))
+		}
+		return res.WasSuccessful()
+	}
+
+	return WithTimeout(
+		body,
+		fmt.Sprintf("DNS %q is not ready after timeout", name),
+		&TimeoutConfig{Timeout: HelperTimeout})
+}
+
 // WaitCleanAllTerminatingPods waits until all nodes that are in `Terminating`
 // state are deleted correctly in the platform. In case of excedding the
 // default timeout it returns an error
@@ -892,13 +930,16 @@ func (kub *Kubectl) DumpCiliumCommandOutput(namespace string) {
 // directory
 func (kub *Kubectl) GatherLogs() {
 	reportCmds := map[string]string{
-		"kubectl get pods --all-namespaces -o json":                  "pods.txt",
-		"kubectl get services --all-namespaces -o json":              "svc.txt",
-		"kubectl get ds --all-namespaces -o json":                    "ds.txt",
-		"kubectl get cnp --all-namespaces -o json":                   "cnp.txt",
-		"kubectl describe pods --all-namespaces -o json":             "pods_status.txt",
-		"kubectl get replicationcontroller --all-namespaces -o json": "replicationcontroller.txt",
-		"kubectl get deployment --all-namespaces -o json":            "deployment.txt",
+		"kubectl get pods --all-namespaces -o json":                    "pods.txt",
+		"kubectl get services --all-namespaces -o json":                "svc.txt",
+		"kubectl get ds --all-namespaces -o json":                      "ds.txt",
+		"kubectl get cnp --all-namespaces -o json":                     "cnp.txt",
+		"kubectl describe pods --all-namespaces":                       "pods_status.txt",
+		"kubectl get replicationcontroller --all-namespaces -o json":   "replicationcontroller.txt",
+		"kubectl get deployment --all-namespaces -o json":              "deployment.txt",
+		"kubectl -n kube-system logs -l k8s-app='kube-dns' -c kubedns": "kubedns.log",
+		"kubectl -n kube-system logs -l k8s-app='kube-dns' -c dnsmasq": "dnsmasq.log",
+		"kubectl -n kube-system logs -l k8s-app='kube-dns' -c sidecar": "kubedns-sidecar.log",
 	}
 
 	ciliumPods, err := kub.GetCiliumPods(KubeSystemNamespace)
