@@ -2,12 +2,12 @@
 
 ## cilium bpf ipcache
 
-List remote endpoint IPs and their corresponding security identities
+List endpoint IPs (local and remote) and their corresponding security identities
 
 ### Synopsis
 
 
-List remote endpoint IPs and their corresponding security identities
+List endpoint IPs (local and remote) and their corresponding security identities
 
 ```
 cilium bpf ipcache list
