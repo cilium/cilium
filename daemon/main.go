@@ -309,8 +309,10 @@ func init() {
 	flags := RootCmd.Flags()
 	flags.StringVar(&config.AccessLog,
 		"access-log", "", "Path to access log of supported L7 requests observed")
+	viper.BindEnv("access-log", "CILIUM_ACCESS_LOG")
 	flags.StringSliceVar(&config.AgentLabels,
 		"agent-labels", []string{}, "Additional labels to identify this agent")
+	viper.BindEnv("access-labels", "CILIUM_ACCESS_LABELS")
 	flags.StringVar(&config.AllowLocalhost,
 		"allow-localhost", AllowLocalhostAuto, "Policy when to allow local stack to reach local endpoints { auto | always | policy } ")
 	flags.Bool(
