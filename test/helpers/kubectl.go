@@ -395,6 +395,8 @@ func (kub *Kubectl) WaitForServiceEndpoints(namespace string, filter string, ser
 			"namespace": namespace,
 			"filter":    filter,
 			"data":      data,
+			"service":   service,
+			"port":      port,
 		}).Info("WaitForServiceEndpoints: service endpoint not ready")
 		return false
 	}
@@ -714,7 +716,7 @@ func (kub *Kubectl) CiliumPolicyRevision(pod string) (int, error) {
 // CiliumIsPolicyLoaded returns true if the policy is loaded in the given
 // cilium Pod. it returns false in case that the policy is not in place
 func (kub *Kubectl) CiliumIsPolicyLoaded(pod string, policyCmd string) bool {
-	res := kub.ExecPodCmd(KubeSystemNamespace, pod, fmt.Sprintf("cilium policy get %s", policyCmd))
+	res := kub.CiliumExec(pod, fmt.Sprintf("cilium policy get %s", policyCmd))
 	return res.WasSuccessful()
 }
 
@@ -771,7 +773,7 @@ func (kub *Kubectl) CiliumPolicyAction(namespace, filepath string, action Resour
 			// Wait until all the pods are synced
 			for pod, rev := range waitingRev {
 				kub.logger.Infof("CiliumPolicyAction: Wait for endpoints to sync on pod '%s'", pod)
-				res := kub.ExecPodCmd(namespace, pod, fmt.Sprintf("cilium policy wait %d", rev))
+				res := kub.CiliumExec(pod, fmt.Sprintf("cilium policy wait %d", rev))
 				if !res.WasSuccessful() {
 					return false
 				}
