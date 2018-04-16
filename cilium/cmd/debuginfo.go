@@ -84,6 +84,7 @@ func runDebugInfo(cmd *cobra.Command, args []string) {
 		printList(w, "BPF Policy Get "+epID, "bpf", "policy", "get", epID)
 		printList(w, "BPF CT List "+epID, "bpf", "ct", "list", epID)
 		printList(w, "Endpoint Get "+epID, "endpoint", "get", epID)
+		printList(w, "Endpoint Health "+epID, "endpoint", "health", epID)
 		printList(w, "Endpoint Log "+epID, "endpoint", "log", epID)
 
 		if ep.Status != nil && ep.Status.Identity != nil {
