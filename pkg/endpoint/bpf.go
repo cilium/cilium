@@ -65,20 +65,6 @@ func (e *Endpoint) lookupRedirectPortBE(l4Filter *policy.L4Filter) uint16 {
 	return byteorder.HostToNetwork(e.realizedRedirects[proxyID]).(uint16)
 }
 
-// ParseL4Filter parses a L4Filter and returns a L4RuleContext and a
-// L7RuleContext with L4Installed set to false.
-// Must be called with Endpoint.Mutex held.
-func (e *Endpoint) ParseL4Filter(l4Filter *policy.L4Filter) (policy.L4RuleContext, policy.L7RuleContext) {
-	return policy.L4RuleContext{
-			EndpointID: e.ID,
-			Ingress:    l4Filter.Ingress,
-			Proto:      uint8(l4Filter.U8Proto),
-			Port:       byteorder.HostToNetwork(uint16(l4Filter.Port)).(uint16),
-		}, policy.L7RuleContext{
-			RedirectPort: e.lookupRedirectPortBE(l4Filter),
-		}
-}
-
 // filterAccumulator accumulates proxyport / L4 allow configurations during
 // e.writeL4Map() iteration. One will be defined for L4-only filters,
 // and one for L3-dependent L4 filters.
@@ -593,7 +579,7 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir, reason string) (uint64, err
 		// Regenerate policy and apply any options resulting in the
 		// policy change.
 		// Note that PolicyMap is not initialized!
-		if _, _, _, err = e.regeneratePolicy(owner, nil); err != nil {
+		if _, err = e.regeneratePolicy(owner, nil); err != nil {
 			return 0, fmt.Errorf("Unable to regenerate policy: %s", err)
 		}
 
@@ -694,7 +680,7 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir, reason string) (uint64, err
 		// Regenerate policy and apply any options resulting in the
 		// policy change.
 		// This also populates e.PolicyMap.
-		_, _, _, err = e.regeneratePolicy(owner, nil)
+		_, err = e.regeneratePolicy(owner, nil)
 		if err != nil {
 			e.Mutex.Unlock()
 			return 0, fmt.Errorf("unable to regenerate policy for '%s': %s", e.PolicyMap.String(), err)
