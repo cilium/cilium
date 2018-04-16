@@ -44,7 +44,7 @@ const (
 // monitorCmd represents the monitor command
 var monitorCmd = &cobra.Command{
 	Use:   "monitor",
-	Short: "Monitoring",
+	Short: "Display BPF program events",
 	Long: `The monitor displays notifications and events emitted by the BPF
 programs attached to endpoints and devices. This includes:
   * Dropped packet notifications
