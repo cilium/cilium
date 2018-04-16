@@ -117,6 +117,18 @@ func TablePrinter(firstTitle, secondTitle string, data map[string][]string) {
 	w.Flush()
 }
 
+func ColumnPrinter(firstTitle string, data []string) {
+	w := tabwriter.NewWriter(os.Stdout, 5, 0, 3, ' ', 0)
+
+	fmt.Fprintf(w, "%s\n", firstTitle)
+
+	for _, key := range data {
+		fmt.Fprintf(w, "%s\n", key)
+	}
+
+	w.Flush()
+}
+
 // Search 'result' for strings with escaped JSON inside, and expand the JSON.
 func expandNestedJSON(result bytes.Buffer) (bytes.Buffer, error) {
 	reStringWithJSON := regexp.MustCompile(`"[^"\\{]*{.*[^\\]"`)

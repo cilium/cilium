@@ -80,7 +80,7 @@ var (
 				return nil, nil, err
 			}
 			return k, v, nil
-		},
+		}, nil,
 	)
 )
 

@@ -141,10 +141,13 @@ type Map struct {
 
 	// DumpParser is a function for parsing keys and values from BPF maps
 	dumpParser DumpParser
+
+	// DumpKey is a function for parsing keys from BPF maps
+	dumpKey DumpKey
 }
 
 // NewMap creates a new Map instance - object representing a BPF map
-func NewMap(name string, mapType MapType, keySize int, valueSize int, maxEntries int, flags uint32, dumpParser DumpParser) *Map {
+func NewMap(name string, mapType MapType, keySize int, valueSize int, maxEntries int, flags uint32, dumpParser DumpParser, dumpKey DumpKey) *Map {
 	m := &Map{
 		MapInfo: MapInfo{
 			MapType:       mapType,
@@ -156,6 +159,7 @@ func NewMap(name string, mapType MapType, keySize int, valueSize int, maxEntries
 		},
 		name:       path.Base(name),
 		dumpParser: dumpParser,
+		dumpKey:    dumpKey,
 	}
 	m.setPathIfUnset()
 	return m
@@ -325,6 +329,7 @@ func (m *Map) Close() error {
 }
 
 type DumpParser func(key []byte, value []byte) (MapKey, MapValue, error)
+type DumpKey func(key []byte) (MapKey, error)
 type DumpCallback func(key MapKey, value MapValue)
 type MapValidator func(path string) (bool, error)
 
@@ -343,6 +348,7 @@ func (m *Map) DumpWithCallback(cb DumpCallback) error {
 		return err
 	}
 
+	fmt.Printf("name %s path %s id %d\n", m.name, m.path, m.fd)
 	for {
 		err := GetNextKey(
 			m.fd,
@@ -389,6 +395,44 @@ func (m *Map) Dump(hash map[string][]string) error {
 		return err
 	}
 
+	return nil
+}
+
+// Dump key in the map
+func (m *Map) DumpKeys(list *[]string) error {
+	callback := func(key MapKey) {
+		*list = append(*list, key.String())
+	}
+
+	m.lock.RLock()
+	defer m.lock.RUnlock()
+
+	key := make([]byte, m.KeySize)
+	nextKey := make([]byte, m.KeySize)
+
+	if err := m.Open(); err != nil {
+		return err
+	}
+
+	for {
+		err := GetNextKey(
+			m.fd,
+			unsafe.Pointer(&key[0]),
+			unsafe.Pointer(&nextKey[0]),
+		)
+
+		if err != nil {
+			break
+		}
+
+		k, err := m.dumpKey(nextKey)
+		if err != nil {
+			return err
+		}
+		callback(k)
+
+		copy(key, nextKey)
+	}
 	return nil
 }
 
@@ -520,6 +564,16 @@ func ConvertKeyValue(bKey []byte, bValue []byte, key interface{}, value interfac
 
 	if err := binary.Read(valueBuf, byteorder.Native, value); err != nil {
 		return fmt.Errorf("Unable to convert value: %s", err)
+	}
+
+	return nil
+}
+
+func ConvertKey(bKey []byte, key interface{}) error {
+	keyBuf := bytes.NewBuffer(bKey)
+
+	if err := binary.Read(keyBuf, byteorder.Native, key); err != nil {
+		return fmt.Errorf("Unable to convert key: %s", err)
 	}
 
 	return nil

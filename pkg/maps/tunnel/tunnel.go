@@ -44,7 +44,7 @@ var (
 			}
 
 			return k, v, nil
-		})
+		}, nil)
 )
 
 func init() {

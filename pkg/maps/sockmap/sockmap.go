@@ -21,13 +21,21 @@ import (
 
 	"github.com/cilium/cilium/common/types"
 	"github.com/cilium/cilium/pkg/bpf"
+	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/logging"
 )
 
+const (
+	SockmapKeyIPv4 uint8 = 1
+	SockmapKeyIPv6 uint8 = 2
+)
+
 type SockmapKey struct {
-	DIP    types.IPv6
 	SIP    types.IPv6
+	DIP    types.IPv6
 	Family uint8
+	Pad0   uint8
+	Pad1   uint16
 	SPort  uint32
 	DPort  uint32
 }
@@ -36,8 +44,22 @@ type SockmapValue struct {
 	fd uint32
 }
 
-func (v SockmapKey) String() string {
-	return fmt.Sprintf("%s:%i->%s:%i", v.SIP.String(), v.SPort, v.DIP.String(), v.DPort)
+func (k SockmapKey) ToIP() (net.IP, net.IP) { //(net.IP, net.IP) {
+	switch k.Family {
+	case SockmapKeyIPv4:
+		return k.SIP[:4], k.DIP[:4]
+	case SockmapKeyIPv6:
+		return k.SIP[:], k.DIP[:]
+	}
+	return nil, nil
+}
+
+func (key SockmapKey) String() string {
+	dip, sip := key.ToIP()
+
+	return fmt.Sprintf("%s:%d->%s:%d",
+		sip.String(), byteorder.HostToNetwork(key.SPort),
+		dip.String(), byteorder.HostToNetwork(key.DPort))
 }
 
 func (v SockmapValue) String() string {
@@ -88,8 +110,8 @@ const (
 )
 
 var (
-	// SockMap represents the BPF map for sockets
-	SockMap = bpf.NewMap(MapName,
+	// Sockmap represents the BPF map for sockets
+	Sockmap = bpf.NewMap(MapName,
 		bpf.MapTypeSockHash,
 		int(unsafe.Sizeof(SockmapKey{})),
 		4,
@@ -104,11 +126,19 @@ var (
 
 			return k, v, nil
 		},
+		func(key []byte) (bpf.MapKey, error) {
+			k := SockmapKey{}
+			if err := bpf.ConvertKey(key, &k); err != nil {
+				return nil, err
+			}
+
+			return k, nil
+		},
 	)
 )
 
 func init() {
-	bpf.OpenAfterMount(SockMap)
+	bpf.OpenAfterMount(Sockmap)
 }
 
 // EndpointFrontend is the interface to implement for an object to synchronize
@@ -120,7 +150,7 @@ type EndpointFrontend interface {
 
 // DeleteEntry deletes a single map entry
 func DeleteEntry(dip net.IP, sip net.IP, sport uint32, dport uint32) error {
-	return SockMap.Delete(NewSockmapKey(dip, sip, sport, dport))
+	return Sockmap.Delete(NewSockmapKey(dip, sip, sport, dport))
 }
 
 // DeleteElement deletes the endpoint using all keys which represent the
@@ -128,7 +158,7 @@ func DeleteEntry(dip net.IP, sip net.IP, sport uint32, dport uint32) error {
 func DeleteElement(f EndpointFrontend) []error {
 	errors := []error{}
 	for _, k := range f.GetBPFKeys() {
-		if err := SockMap.Delete(k); err != nil {
+		if err := Sockmap.Delete(k); err != nil {
 			errors = append(errors, fmt.Errorf("Unable to delete key %v in endpoint BPF map: %s", k, err))
 		}
 	}

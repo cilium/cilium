@@ -79,7 +79,7 @@ var (
 			}
 
 			return k.ToNetwork(), v.ToNetwork(), nil
-		}).WithNonPersistent()
+		}, nil).WithNonPersistent()
 )
 
 func init() {
