@@ -375,7 +375,7 @@ type Endpoint struct {
 	ID uint16
 
 	// Mutex protects write operations to this endpoint structure
-	Mutex lock.RWMutex
+	Mutex lock.RWMutex `json:"-"`
 
 	// ContainerName is the name given to the endpoint by the container runtime
 	ContainerName string
@@ -473,6 +473,10 @@ type Endpoint struct {
 	// bypass policy while it is still being resolved.
 	PolicyCalculated bool `json:"-"`
 
+	// bpfHeaderfileHash is the hash of the last BPF headerfile that has been
+	// compiled and installed.
+	bpfHeaderfileHash string
+
 	k8sPodName   string
 	k8sNamespace string
 
@@ -512,7 +516,7 @@ type Endpoint struct {
 	//
 	// FIXME: Mark private once endpoint deletion can be moved into
 	// `pkg/endpoint`
-	BuildMutex lock.Mutex
+	BuildMutex lock.Mutex `json:"-"`
 
 	// logger is a logrus object with fields set to report an endpoints information.
 	// You must hold Endpoint.Mutex to read or write it (but not to log with it).
