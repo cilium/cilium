@@ -376,13 +376,25 @@ var _ = Describe("RuntimeValidatedConntrackTest", func() {
 			},
 			{
 				from:        curl1ContainerName,
-				to:          helpers.CurlFail("http://%s:80", httpd2DockerNetworking[helpers.IPv6]),
+				to:          helpers.CurlFail("http://[%s]:80", httpd2DockerNetworking[helpers.IPv6]),
 				destination: helpers.Httpd2,
 				assert:      BeFalse,
 			},
 			{
 				from:        curl1ContainerName,
-				to:          helpers.CurlFail("http://[%s]:80", httpd2DockerNetworking[helpers.IPv6]),
+				to:          helpers.CurlFail("http://%s:80", httpd2DockerNetworking[helpers.IPv4]),
+				destination: helpers.Httpd2,
+				assert:      BeFalse,
+			},
+			{
+				from:        curl2ContainerName,
+				to:          helpers.CurlFail("http://[%s]:80", httpdDockerNetworking[helpers.IPv6]),
+				destination: helpers.Httpd2,
+				assert:      BeFalse,
+			},
+			{
+				from:        curl2ContainerName,
+				to:          helpers.CurlFail("http://%s:80", httpdDockerNetworking[helpers.IPv4]),
 				destination: helpers.Httpd2,
 				assert:      BeFalse,
 			},
@@ -534,13 +546,25 @@ var _ = Describe("RuntimeValidatedConntrackTest", func() {
 			},
 			{
 				from:        curl1ContainerName,
-				to:          helpers.CurlFail("http://%s:80", httpd2DockerNetworking[helpers.IPv6]),
+				to:          helpers.CurlFail("http://[%s]:80", httpd2DockerNetworking[helpers.IPv6]),
 				destination: helpers.Httpd2,
 				assert:      BeFalse,
 			},
 			{
 				from:        curl1ContainerName,
+				to:          helpers.CurlFail("http://%s:80", httpd2DockerNetworking[helpers.IPv4]),
+				destination: helpers.Httpd2,
+				assert:      BeFalse,
+			},
+			{
+				from:        curl2ContainerName,
 				to:          helpers.CurlFail("http://[%s]:80", httpd2DockerNetworking[helpers.IPv6]),
+				destination: helpers.Httpd2,
+				assert:      BeFalse,
+			},
+			{
+				from:        curl2ContainerName,
+				to:          helpers.CurlFail("http://%s:80", httpd2DockerNetworking[helpers.IPv4]),
 				destination: helpers.Httpd2,
 				assert:      BeFalse,
 			},
@@ -672,7 +696,7 @@ var _ = Describe("RuntimeValidatedConntrackTest", func() {
 			err := vm.SetAndWaitForEndpointConfiguration(endpointToConfigure, helpers.OptionConntrackLocal, helpers.OptionDisabled)
 			Expect(err).To(BeNil(), "Cannot disable ConntrackLocal for the endpoint %q", endpointToConfigure)
 			err = vm.SetAndWaitForEndpointConfiguration(endpointToConfigure, helpers.OptionConntrack, helpers.OptionDisabled)
-			Expect(err).To(BeNil(), "Cannot disable ConnTrackLocal for the endpoint %q", endpointToConfigure)
+			Expect(err).To(BeNil(), "Cannot disable ConnTrack for the endpoint %q", endpointToConfigure)
 		}
 
 		// Need to add policy that allows communication in both directions.
