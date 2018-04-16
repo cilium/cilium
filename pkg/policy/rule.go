@@ -54,13 +54,12 @@ func mergeL4IngressPort(ctx *SearchContext, endpoints []api.EndpointSelector, r 
 	// Handle cases where filter we are merging new rule with, new rule itself
 	// allows all traffic on L3, or both rules allow all traffic on L3.
 	//
-	// Case 1: Both filters select all endpoints
-	if existingFilter.AllowsAllAtL3() && filterToMerge.AllowsAllAtL3() ||
-		existingFilter.AllowsAllAtL3() && !filterToMerge.AllowsAllAtL3() ||
-		!existingFilter.AllowsAllAtL3() && filterToMerge.AllowsAllAtL3() {
+	// Case 1: either filter selects all endpoints, which means that this filter
+	// can now simply select all endpoints.
+	if existingFilter.AllowsAllAtL3() || filterToMerge.AllowsAllAtL3() {
 		existingFilter.Endpoints = api.EndpointSelectorSlice{api.WildcardEndpointSelector}
 	} else {
-		// Case 4: no wildcard endpoint selectors in existing filter or in filter
+		// Case 2: no wildcard endpoint selectors in existing filter or in filter
 		// to merge, so just append endpoints.
 		existingFilter.Endpoints = append(existingFilter.Endpoints, endpoints...)
 	}
@@ -450,13 +449,12 @@ func mergeL4EgressPort(ctx *SearchContext, endpoints []api.EndpointSelector, r a
 	// Handle cases where filter we are merging new rule with, new rule itself
 	// allows all traffic on L3, or both rules allow all traffic on L3.
 	//
-	// Case 1: Both filters select all endpoints
-	if existingFilter.AllowsAllAtL3() && filterToMerge.AllowsAllAtL3() ||
-		existingFilter.AllowsAllAtL3() && !filterToMerge.AllowsAllAtL3() ||
-		!existingFilter.AllowsAllAtL3() && filterToMerge.AllowsAllAtL3() {
+	// Case 1: either filter selects all endpoints, which means that this filter
+	// can now simply select all endpoints.
+	if existingFilter.AllowsAllAtL3() || filterToMerge.AllowsAllAtL3() {
 		existingFilter.Endpoints = api.EndpointSelectorSlice{api.WildcardEndpointSelector}
 	} else {
-		// Case 4: no wildcard endpoint selectors in existing filter or in filter
+		// Case 2: no wildcard endpoint selectors in existing filter or in filter
 		// to merge, so just append endpoints.
 		existingFilter.Endpoints = append(existingFilter.Endpoints, endpoints...)
 	}
