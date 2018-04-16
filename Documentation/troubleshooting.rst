@@ -180,6 +180,35 @@ both to the node itself and to an endpoint on that node. The latency specified
 is a snapshot at the last time a probe was run, which is typically once per
 minute.
 
+Kubernetes
+==========
+
+Pod not managed by Cilium
+-------------------------
+
+In some situations, Cilium is not managing networking of a pod. These
+situations are:
+
+* The pod is running in host networking and will use the host's IP address
+  directly. Such pods have full network connectivity but Cilium will not
+  provide security policy enforcement for such pods.
+
+* The pod was started before Cilium was deployed. Cilium only manages pods
+  that have been deployed after Cilium itself was started. Cilium will not
+  provide security policy enforcement for such pods.
+
+You can run the following script to list the pods which are *not* managed by
+Cilium:
+
+.. code:: bash
+
+    $ ./contrib/k8s/k8s-unmanaged.sh
+    kube-system/cilium-hqpk7
+    kube-system/kube-addon-manager-minikube
+    kube-system/kube-dns-54cccfbdf8-zmv2c
+    kube-system/kubernetes-dashboard-77d8b98585-g52k5
+    kube-system/storage-provisioner
+
 Monitoring Packet Drops
 =======================
 
