@@ -226,4 +226,7 @@ const (
 
 	// BPFMapName is the name of a BPF map.
 	BPFMapName = "bpfMapName"
+
+	// BPFHeaderHash is the hash of the BPF header.
+	BPFHeaderfileHash = "bpfHeaderfileHash"
 )
