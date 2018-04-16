@@ -254,3 +254,14 @@ func (c *Cache) GetResources(ctx context.Context, typeURL string, lastVersion *u
 	cacheLog.Debugf("returning %d resources out of %d requested", len(res.Resources), len(resourceNames))
 	return res, nil
 }
+
+// Lookup finds the resource corresponding to the specified typeURL and resourceName,
+// if available, and returns it. Otherwise, returns nil. If an error occurs while
+// fetching the resource, also returns the error.
+func (c *Cache) Lookup(typeURL string, resourceName string) (proto.Message, error) {
+	res, err := c.GetResources(context.Background(), typeURL, nil, nil, []string{resourceName})
+	if err != nil || res == nil || len(res.Resources) == 0 {
+		return nil, err
+	}
+	return res.Resources[0], nil
+}
