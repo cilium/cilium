@@ -47,4 +47,17 @@ static inline int ipv4_hdrlen(struct iphdr *ip4)
 	return ip4->ihl * 4;
 }
 
+static inline bool ipv4_is_fragment(struct iphdr *ip4)
+{
+	// The frag_off portion of the header consists of:
+	//
+	// +----+----+----+----------------------------------+
+	// | RS | DF | MF | ...13 bits of fragment offset... |
+	// +----+----+----+----------------------------------+
+	//
+	// If "More fragments" or the offset is nonzero, then this is an IP
+	// fragment. The evil bit must be set to 0 (RFC791, RFC3514).
+	return ip4->frag_off & bpf_htons(0xBFFF);
+}
+
 #endif /* __LIB_IPV4__ */

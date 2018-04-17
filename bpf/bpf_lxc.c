@@ -870,6 +870,17 @@ __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV6_TO_LXC) int tail_ipv6_policy(s
 	return ret;
 }
 
+/* Check whether the packet should be allowed despite unhandled IP fragments.
+ * Returns true if the packet should pass, false if it should be dropped. */
+static bool check_ip4_fragments(struct iphdr *ip4)
+{
+#ifdef POLICY_INGRESS
+	return !ipv4_is_fragment(ip4);
+#else
+	return true;
+#endif
+}
+
 #ifdef LXC_IPV4
 static inline int __inline__
 ipv4_policy(struct __sk_buff *skb, int ifindex, __u32 src_label, int *forwarding_reason)
@@ -886,6 +897,9 @@ ipv4_policy(struct __sk_buff *skb, int ifindex, __u32 src_label, int *forwarding
 
 	if (!revalidate_data(skb, &data, &data_end, &ip4))
 		return DROP_INVALID;
+
+	if (!check_ip4_fragments(ip4))
+		return DROP_FRAG_NOSUPPORT;
 
 	policy_clear_mark(skb);
 	tuple.nexthdr = ip4->protocol;
