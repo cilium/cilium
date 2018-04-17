@@ -53,6 +53,7 @@ public:
 		Stats::Scope &scope, ThreadLocal::SlotAllocator& tls);
   PolicyHostMap(std::unique_ptr<Envoy::Config::Subscription<cilium::NetworkPolicyHosts>>&& subscription,
 		ThreadLocal::SlotAllocator& tls);
+  PolicyHostMap(ThreadLocal::SlotAllocator& tls);
   ~PolicyHostMap() {}
 
   // A shared pointer to a immutable copy is held by each thread. Changes are done by

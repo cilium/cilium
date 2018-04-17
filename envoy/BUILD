@@ -206,8 +206,6 @@ envoy_cc_test(
     srcs = ["cilium_integration_test.cc"],
     data = [
         "cilium_proxy_test.json",
-        "cilium_network_policy_test.yaml",
-        "cilium_network_policy_test_dup_port.yaml",
     ],
     repository = "@envoy",
     deps = [
