@@ -97,6 +97,11 @@ __policy_can_access(void *map, struct __sk_buff *skb, __u32 identity,
 	if (skb->cb[CB_POLICY])
 		goto allow;
 
+	/* Check whether the packet is a fragment; if it is, then it hasn't
+	 * been allowed by L3 policy above so it should be dropped. Make the
+	 * reason more explicit by returning a fragment-related error. */
+	if (ipv4_is_fragment(ip4))
+		return DROP_FRAG_NOSUPPORT;
 	return DROP_POLICY;
 #ifdef HAVE_L4_POLICY
 get_proxy_port:
