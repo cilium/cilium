@@ -170,7 +170,7 @@ echo -e "PRs for stable backporting: ${#stable_prs[@]}\n"
 if [[ ${#stable_prs[@]} > 0 ]]; then
   for pr in "${stable_prs[@]}"; do
     title=$(extract_pr_title "$pr")
-    echo " * PR: $pr -- $title"
+    echo " * PR: $pr -- $title -- https://github.com/cilium/cilium/pull/$pr"
     generate_commit_list_for_pr $pr
     echo ""
   done
