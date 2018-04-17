@@ -54,14 +54,13 @@ import (
 const (
 	k8sErrLogTimeout = time.Minute
 
-	k8sAPIGroupCRD               = "CustomResourceDefinition"
-	k8sAPIGroupNodeV1Core        = "core/v1::Node"
-	k8sAPIGroupServiceV1Core     = "core/v1::Service"
-	k8sAPIGroupEndpointV1Core    = "core/v1::Endpoint"
-	k8sAPIGroupNetworkingV1Core  = "networking.k8s.io/v1::NetworkPolicy"
-	k8sAPIGroupNetworkingV1Beta1 = "extensions/v1beta1::NetworkPolicy"
-	k8sAPIGroupIngressV1Beta1    = "extensions/v1beta1::Ingress"
-	k8sAPIGroupCiliumV2          = "cilium/v2::CiliumNetworkPolicy"
+	k8sAPIGroupCRD              = "CustomResourceDefinition"
+	k8sAPIGroupNodeV1Core       = "core/v1::Node"
+	k8sAPIGroupServiceV1Core    = "core/v1::Service"
+	k8sAPIGroupEndpointV1Core   = "core/v1::Endpoint"
+	k8sAPIGroupNetworkingV1Core = "networking.k8s.io/v1::NetworkPolicy"
+	k8sAPIGroupIngressV1Beta1   = "extensions/v1beta1::Ingress"
+	k8sAPIGroupCiliumV2         = "cilium/v2::CiliumNetworkPolicy"
 )
 
 var (
@@ -70,12 +69,9 @@ var (
 	k8sErrMsgMU lock.Mutex
 	k8sErrMsg   = map[string]time.Time{}
 
-	stopNetworkingV1PolicyController = make(chan struct{})
-
 	ciliumNPClient clientset.Interface
 
-	networkPolicyV1beta1VerConstr, _ = go_version.NewConstraint("< 1.7.0")
-	networkPolicyV1VerConstr, _      = go_version.NewConstraint(">= 1.7.0")
+	networkPolicyV1VerConstr, _ = go_version.NewConstraint(">= 1.7.0")
 
 	ciliumv2VerConstr, _ = go_version.NewConstraint(">= 1.7.0")
 
@@ -238,47 +234,6 @@ func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 	serNodes := serializer.NewFunctionQueue(20)
 
 	switch {
-	case networkPolicyV1beta1VerConstr.Check(sv):
-		_, policyControllerDeprecated := cache.NewInformer(
-			cache.NewListWatchFromClient(k8s.Client().ExtensionsV1beta1().RESTClient(),
-				"networkpolicies", v1.NamespaceAll, fields.Everything()),
-			&v1beta1.NetworkPolicy{},
-			reSyncPeriod,
-			cache.ResourceEventHandlerFuncs{
-				AddFunc: func(obj interface{}) {
-					metrics.SetTSValue(metrics.EventTSK8s, time.Now())
-					if k8sNP := copyObjToV1beta1NetworkPolicy(obj); k8sNP != nil {
-						serKNPs.Enqueue(func() error {
-							d.addK8sNetworkPolicyV1beta1(k8sNP)
-							return nil
-						}, serializer.NoRetry)
-					}
-				},
-				UpdateFunc: func(oldObj, newObj interface{}) {
-					metrics.SetTSValue(metrics.EventTSK8s, time.Now())
-					if oldK8sNP := copyObjToV1beta1NetworkPolicy(oldObj); oldK8sNP != nil {
-						if newK8sNP := copyObjToV1beta1NetworkPolicy(newObj); newK8sNP != nil {
-							serKNPs.Enqueue(func() error {
-								d.updateK8sNetworkPolicyV1beta1(oldK8sNP, newK8sNP)
-								return nil
-							}, serializer.NoRetry)
-						}
-					}
-				},
-				DeleteFunc: func(obj interface{}) {
-					metrics.SetTSValue(metrics.EventTSK8s, time.Now())
-					if k8sNP := copyObjToV1beta1NetworkPolicy(obj); k8sNP != nil {
-						serKNPs.Enqueue(func() error {
-							d.deleteK8sNetworkPolicyV1beta1(k8sNP)
-							return nil
-						}, serializer.NoRetry)
-					}
-				},
-			},
-		)
-		go policyControllerDeprecated.Run(wait.NeverStop)
-		d.k8sAPIGroups.addAPI(k8sAPIGroupNetworkingV1Beta1)
-
 	case networkPolicyV1VerConstr.Check(sv):
 		_, policyController := cache.NewInformer(
 			cache.NewListWatchFromClient(k8s.Client().NetworkingV1().RESTClient(),
@@ -644,60 +599,6 @@ func (d *Daemon) deleteK8sNetworkPolicyV1(k8sNP *networkingv1.NetworkPolicy) {
 		logfields.K8sAPIVersion:        k8sNP.TypeMeta.APIVersion,
 		logfields.Labels:               logfields.Repr(labels),
 	})
-	if _, err := d.PolicyDelete(labels); err != nil {
-		scopedLog.WithError(err).Error("Error while deleting k8s NetworkPolicy")
-	} else {
-		scopedLog.Info("NetworkPolicy successfully removed")
-	}
-}
-
-// addK8sNetworkPolicyV1beta1
-// FIXME remove when we drop support to k8s Network Policy extensions/v1beta1
-func (d *Daemon) addK8sNetworkPolicyV1beta1(k8sNP *v1beta1.NetworkPolicy) {
-	scopedLog := log.WithField(logfields.K8sAPIVersion, k8sNP.TypeMeta.APIVersion)
-	rules, err := k8s.ParseNetworkPolicyV1beta1(k8sNP)
-	if err != nil {
-		scopedLog.WithError(err).WithField(logfields.Object, logfields.Repr(k8sNP)).Error("Error while parsing k8s NetworkPolicy")
-		return
-	}
-
-	scopedLog = scopedLog.WithField(logfields.K8sNetworkPolicyName, k8sNP.ObjectMeta.Name)
-
-	opts := AddOptions{Replace: true}
-	if _, err := d.PolicyAdd(rules, &opts); err != nil {
-		scopedLog.WithField(logfields.Object, logfields.Repr(rules)).Error("Error while parsing k8s NetworkPolicy")
-		return
-	}
-
-	scopedLog.Info("NetworkPolicy successfully added")
-}
-
-// updateK8sNetworkPolicyV1beta1
-// FIXME remove when we drop support to k8s Network Policy extensions/v1beta1
-func (d *Daemon) updateK8sNetworkPolicyV1beta1(oldk8sNP, newk8sNP *v1beta1.NetworkPolicy) {
-	log.WithFields(logrus.Fields{
-		logfields.K8sAPIVersion:                 oldk8sNP.TypeMeta.APIVersion,
-		logfields.K8sNetworkPolicyName + ".old": oldk8sNP.ObjectMeta.Name,
-		logfields.K8sNamespace + ".old":         oldk8sNP.ObjectMeta.Namespace,
-		logfields.K8sNetworkPolicyName + ".new": newk8sNP.ObjectMeta.Name,
-		logfields.K8sNamespace + ".new":         newk8sNP.ObjectMeta.Namespace,
-	}).Debug("Received policy update")
-
-	d.addK8sNetworkPolicyV1beta1(newk8sNP)
-}
-
-// deleteK8sNetworkPolicyV1beta1
-// FIXME remove when we drop support to k8s Network Policy extensions/v1beta1
-func (d *Daemon) deleteK8sNetworkPolicyV1beta1(k8sNP *v1beta1.NetworkPolicy) {
-	labels := k8s.GetPolicyLabelsv1beta1(k8sNP)
-
-	scopedLog := log.WithFields(logrus.Fields{
-		logfields.K8sNetworkPolicyName: k8sNP.ObjectMeta.Name,
-		logfields.K8sNamespace:         k8sNP.ObjectMeta.Namespace,
-		logfields.K8sAPIVersion:        k8sNP.TypeMeta.APIVersion,
-		logfields.Labels:               logfields.Repr(labels),
-	})
-
 	if _, err := d.PolicyDelete(labels); err != nil {
 		scopedLog.WithError(err).Error("Error while deleting k8s NetworkPolicy")
 	} else {
