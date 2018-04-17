@@ -37,7 +37,7 @@ COPY plugins/cilium-cni/cni-uninstall.sh /cni-uninstall.sh
 WORKDIR /root
 RUN groupadd -f cilium \
 	&& echo ". /etc/profile.d/bash_completion.sh" >> /root/.bashrc \
-	&& cilium completion bash >> /root/.bashrc
+    && cilium completion bash >> /root/.bashrc \
+    && sysctl -w kernel.core_pattern=/tmp/core.%e.%p.%t
 ENV INITSYSTEM="SYSTEMD"
-
 CMD ["/usr/bin/cilium"]
