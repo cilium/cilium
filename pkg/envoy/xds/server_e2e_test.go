@@ -22,6 +22,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cilium/cilium/pkg/comparator"
 	"github.com/cilium/cilium/pkg/completion"
 	envoy_api_v2 "github.com/cilium/cilium/pkg/envoy/envoy/api/v2"
 
@@ -533,6 +534,16 @@ func (s *ServerSuite) TestRequestSomeResources(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(resp, ResponseMatches, "5", []proto.Message{resources[2]}, false, typeURL)
 	c.Assert(resp.Nonce, Not(Equals), "")
+
+	// Resource 1 has been deleted; Resource 2 exists. Confirm using Lookup().
+	rsrc, err := cache.Lookup(typeURL, resources[1].Name)
+	c.Assert(err, IsNil)
+	c.Assert(rsrc, IsNil)
+
+	rsrc, err = cache.Lookup(typeURL, resources[2].Name)
+	c.Assert(err, IsNil)
+	c.Assert(rsrc, Not(IsNil))
+	c.Assert(rsrc.(*envoy_api_v2.RouteConfiguration), comparator.DeepEquals, resources[2])
 
 	// Close the stream.
 	closeStream()
