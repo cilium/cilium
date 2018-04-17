@@ -16,6 +16,7 @@
 #include "server/config/network/http_connection_manager.h"
 
 #include "test/integration/http_integration.h"
+#include "test/test_common/network_utility.h"
 
 #include "cilium_bpf_metadata.h"
 #include "cilium_l7policy.h"
@@ -234,7 +235,11 @@ public:
   void initialize() override {
     HttpIntegrationTest::initialize();
     // Pass the fake upstream address to the cilium bpf filter that will set it as an "original destination address".
-    original_dst_address = fake_upstreams_.back()->localAddress();
+    if (GetParam() == Network::Address::IpVersion::v4) {
+      original_dst_address = std::make_shared<Network::Address::Ipv4Instance>(Network::Test::getLoopbackAddressString(GetParam()), fake_upstreams_.back()->localAddress()->ip()->port());
+    } else {
+      original_dst_address = std::make_shared<Network::Address::Ipv6Instance>(Network::Test::getLoopbackAddressString(GetParam()), fake_upstreams_.back()->localAddress()->ip()->port());
+    }
   }
 
   void Denied(Http::TestHeaderMapImpl headers) {
