@@ -102,10 +102,9 @@ func getAdminOption() serverPkg.AdminOption {
 
 // initConfig reads in config file and ENV variables if set.
 func initConfig() {
-	viper.SetEnvPrefix("cilium-health")
+	viper.SetEnvPrefix("cilium")
 	viper.SetConfigName(".cilium-health") // name of config file (without extension)
 	viper.AddConfigPath("$HOME")          // adding home directory as first search path
-	viper.AutomaticEnv()                  // read in environment variables that match
 
 	if viper.GetBool("debug") {
 		log.Level = logrus.DebugLevel
