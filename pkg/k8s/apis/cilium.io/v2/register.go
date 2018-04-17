@@ -446,7 +446,7 @@ var (
 			"toEntities": {
 				Description: "ToEntities is a list of special entities to which the endpoint " +
 					"subject to the rule is allowed to initiate connections. Supported " +
-					"entities are `world` and `host`",
+					"entities are `world`, `cluster` and `host`",
 				Type: "array",
 				Items: &apiextensionsv1beta1.JSONSchemaPropsOrArray{
 					Schema: &apiextensionsv1beta1.JSONSchemaProps{
@@ -561,7 +561,7 @@ var (
 			"fromEntities": {
 				Description: "FromEntities is a list of special entities which the endpoint " +
 					"subject to the rule is allowed to receive connections from. Supported " +
-					"entities are `world` and `host`",
+					"entities are `world`, `cluster` and `host`",
 				Type: "array",
 				Items: &apiextensionsv1beta1.JSONSchemaPropsOrArray{
 					Schema: &apiextensionsv1beta1.JSONSchemaProps{
