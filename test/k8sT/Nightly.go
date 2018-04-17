@@ -43,7 +43,6 @@ var _ = Describe("NightlyEpsMeasurement", func() {
 	var kubectl *helpers.Kubectl
 	var logger *logrus.Entry
 	var once sync.Once
-	var ciliumPath string
 
 	endpointCount := 45
 	endpointsTimeout := endpointTimeout * time.Duration(endpointCount)
@@ -58,10 +57,7 @@ var _ = Describe("NightlyEpsMeasurement", func() {
 
 		kubectl = helpers.CreateKubectl(helpers.K8s1VMName(), logger)
 
-		ciliumPath = kubectl.ManifestGet("cilium_ds.yaml")
-		kubectl.Apply(ciliumPath)
-
-		_, err := kubectl.WaitforPods(helpers.KubeSystemNamespace, "-l k8s-app=cilium", 600)
+		err := kubectl.DeployCiliumDS(helpers.DefaultK8sTCiliumOpts())
 		Expect(err).Should(BeNil())
 
 		err = kubectl.WaitKubeDNS()
@@ -443,8 +439,8 @@ var _ = Describe("NightlyExamples", func() {
 
 		It("GRPC example", func() {
 
-			AppManifest := helpers.GetFilePath(GRPCManifest)
-			PolicyManifest := helpers.GetFilePath(GRPCPolicy)
+			AppManifest := kubectl.GetFilePath(GRPCManifest)
+			PolicyManifest := kubectl.GetFilePath(GRPCPolicy)
 			clientPod := "terminal-87"
 
 			defer func() {

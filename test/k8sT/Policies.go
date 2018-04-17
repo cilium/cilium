@@ -41,7 +41,6 @@ var _ = Describe("K8sValidatedPolicyTest", func() {
 		l3Policy, l7Policy, knpDenyIngress, knpDenyEgress string
 		cnpDenyIngress, cnpDenyEgress                     string
 		logger                                            *logrus.Entry
-		path                                              string
 		podFilter                                         string
 		apps                                              []string
 		service                                           *v1.Service
@@ -70,10 +69,7 @@ var _ = Describe("K8sValidatedPolicyTest", func() {
 		// App pods
 		apps = []string{helpers.App1, helpers.App2, helpers.App3}
 
-		path = kubectl.ManifestGet("cilium_ds.yaml")
-		kubectl.Apply(path)
-		status, err := kubectl.WaitforPods(helpers.KubeSystemNamespace, "-l k8s-app=cilium", 300)
-		Expect(status).Should(BeTrue())
+		err := kubectl.DeployCiliumDS(helpers.DefaultK8sTCiliumOpts())
 		Expect(err).Should(BeNil())
 		err = kubectl.WaitKubeDNS()
 		Expect(err).Should(BeNil())
@@ -793,12 +789,9 @@ var _ = Describe("K8sValidatedPolicyTestAcrossNamespaces", func() {
 		cnpL7Stresstest = kubectl.ManifestGet("cnp-l7-stresstest.yaml")
 		cnpAnyNamespace = kubectl.ManifestGet("cnp-any-namespace.yaml")
 
-		_ = kubectl.Apply(ciliumDaemonSetPath)
-		status, err := kubectl.WaitforPods(helpers.KubeSystemNamespace, "-l k8s-app=cilium", 300)
-		Expect(status).Should(BeTrue())
-		Expect(err).Should(BeNil())
+		kubectl.Apply(ciliumDaemonSetPath)
 
-		err = kubectl.WaitKubeDNS()
+		err := kubectl.WaitKubeDNS()
 		Expect(err).Should(BeNil())
 	}
 

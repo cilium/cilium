@@ -24,7 +24,7 @@ var _ = Describe("RuntimeValidatedConnectivityTest", func() {
 	initialize := func() {
 		logger = log.WithFields(logrus.Fields{"test": "RuntimeConnectivityTest"})
 		logger.Info("Starting")
-		vm = helpers.CreateNewRuntimeHelper(helpers.Runtime, logger)
+		vm = helpers.CreateNewRuntimeHelper(helpers.RuntimeVM, logger)
 	}
 
 	BeforeEach(func() {
@@ -105,7 +105,7 @@ var _ = Describe("RuntimeValidatedConnectivityTest", func() {
 
 		It("Test connectivity between containers with policy imported", func() {
 			policyID, err := vm.PolicyImportAndWait(
-				fmt.Sprintf("%s/test.policy", vm.ManifestsPath()), 150)
+				filepath.Join(vm.ManifestsPath(), "test.policy"), 150)
 			Expect(err).Should(BeNil())
 			logger.Debug("New policy created with id '%d'", policyID)
 
@@ -229,11 +229,11 @@ var _ = Describe("RuntimeValidatedConnectivityTest", func() {
 				"type": "cilium-cni",
 				"mtu": 1450}`
 
-			err := helpers.RenderTemplateToFile(filename, cniConf, os.ModePerm)
+			err := helpers.RenderTemplateToFile(filename, cniConf, nil, os.ModePerm)
 			Expect(err).To(BeNil())
 
 			cmd := vm.Exec(fmt.Sprintf("cat %s > %s/%s",
-				helpers.GetFilePath(filename), netDPath, filename))
+				vm.GetFilePath(filename), netDPath, filename))
 			cmd.ExpectSuccess()
 			script := fmt.Sprintf(`
 				cd %s && \
@@ -256,9 +256,9 @@ var _ = Describe("RuntimeValidatedConnectivityTest", func() {
 					]
 					}]
 				}]`
-			err = helpers.RenderTemplateToFile(policyFileName, policy, os.ModePerm)
+			err = helpers.RenderTemplateToFile(policyFileName, policy, nil, os.ModePerm)
 			Expect(err).Should(BeNil())
-			_, err = vm.PolicyImportAndWait(helpers.GetFilePath(policyFileName), helpers.HelperTimeout)
+			_, err = vm.PolicyImportAndWait(vm.GetFilePath(policyFileName), helpers.HelperTimeout)
 
 			By("Adding containers")
 
@@ -304,7 +304,7 @@ var _ = Describe("RuntimeValidatedConntrackTest", func() {
 	initialize := func() {
 		logger = log.WithFields(logrus.Fields{"test": "RunConntrackTest"})
 		logger.Info("Starting")
-		vm = helpers.CreateNewRuntimeHelper(helpers.Runtime, logger)
+		vm = helpers.CreateNewRuntimeHelper(helpers.RuntimeVM, logger)
 
 		res := vm.SetPolicyEnforcement(helpers.PolicyEnforcementAlways)
 		res.ExpectSuccess(fmt.Sprintf("Unable to set PolicyEnforcement to %s", helpers.PolicyEnforcementAlways))

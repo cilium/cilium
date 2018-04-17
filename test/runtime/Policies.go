@@ -58,7 +58,7 @@ var _ = Describe("RuntimeValidatedPolicyEnforcement", func() {
 	BeforeAll(func() {
 		logger = log.WithFields(logrus.Fields{"testName": "RuntimePolicyEnforcement"})
 		logger.Info("Starting")
-		vm = helpers.CreateNewRuntimeHelper(helpers.Runtime, logger)
+		vm = helpers.CreateNewRuntimeHelper(helpers.RuntimeVM, logger)
 		vm.ContainerCreate("app", "cilium/demo-httpd", helpers.CiliumDockerNetwork, "-l id.app")
 		areEndpointsReady := vm.WaitEndpointsReady()
 		Expect(areEndpointsReady).Should(BeTrue(), "Endpoints are not ready after timeout")
@@ -412,7 +412,7 @@ var _ = Describe("RuntimeValidatedPolicies", func() {
 	BeforeAll(func() {
 		logger = log.WithFields(logrus.Fields{"test": "RunPolicies"})
 		logger.Info("Starting")
-		vm = helpers.CreateNewRuntimeHelper(helpers.Runtime, logger)
+		vm = helpers.CreateNewRuntimeHelper(helpers.RuntimeVM, logger)
 
 		vm.SampleContainersActions(helpers.Create, helpers.CiliumDockerNetwork)
 		vm.PolicyDelAll()
@@ -1083,10 +1083,10 @@ var _ = Describe("RuntimeValidatedPolicyImportTests", func() {
 	It("Invalid Policies", func() {
 
 		testInvalidPolicy := func(data string) {
-			err := helpers.RenderTemplateToFile(invalidJSON, data, 0777)
+			err := helpers.RenderTemplateToFile(invalidJSON, data, nil, 0777)
 			Expect(err).Should(BeNil())
 
-			path := helpers.GetFilePath(invalidJSON)
+			path := vm.GetFilePath(invalidJSON)
 			_, err = vm.PolicyImportAndWait(path, helpers.HelperTimeout)
 			Expect(err).Should(HaveOccurred())
 			defer os.Remove(invalidJSON)
@@ -1145,10 +1145,10 @@ var _ = Describe("RuntimeValidatedPolicyImportTests", func() {
 			"labels": ["key3"]
 		}]`
 
-		err := helpers.RenderTemplateToFile(policyJSON, policy, 0777)
+		err := helpers.RenderTemplateToFile(policyJSON, policy, nil, 0777)
 		Expect(err).Should(BeNil())
 
-		path := helpers.GetFilePath(policyJSON)
+		path := vm.GetFilePath(policyJSON)
 		_, err = vm.PolicyImportAndWait(path, helpers.HelperTimeout)
 		Expect(err).Should(BeNil())
 		defer os.Remove(policyJSON)

@@ -21,6 +21,7 @@ type CiliumTestConfigType struct {
 	Reprovision     bool
 	HoldEnvironment bool
 	SSHConfig       string
+	Developer       bool
 	ShowCommands    bool
 }
 
@@ -34,6 +35,9 @@ func (c *CiliumTestConfigType) ParseFlags() {
 		"Provision Vagrant boxes and Cilium before running test")
 	flag.BoolVar(&c.HoldEnvironment, "cilium.holdEnvironment", false,
 		"On failure, hold the environment in its current state")
+	flag.BoolVar(&c.Developer, "cilium.developer", false,
+		"Is set with true, `holdEnvironment` will also be true and the VMs won't "+
+			"be provisioned. But they will be configured")
 	flag.StringVar(&c.SSHConfig, "cilium.SSHConfig", "",
 		"Specify a custom command to fetch SSH configuration (eg: 'vagrant ssh-config')")
 	flag.BoolVar(&c.ShowCommands, "cilium.showCommands", false,

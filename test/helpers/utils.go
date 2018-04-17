@@ -81,22 +81,18 @@ func MakeUID() string {
 // RenderTemplateToFile renders a text/template string into a target filename
 // with specific persmisions. Returns eturn an error if the template cannot be
 // validated or the file cannot be created.
-func RenderTemplateToFile(filename string, tmplt string, perm os.FileMode) error {
+func RenderTemplateToFile(filename string, tmplt string, data interface{}, perm os.FileMode) error {
 	t, err := template.New("").Parse(tmplt)
 	if err != nil {
 		return err
 	}
 	content := new(bytes.Buffer)
-	err = t.Execute(content, nil)
+	err = t.Execute(content, data)
 	if err != nil {
 		return err
 	}
 
-	err = ioutil.WriteFile(filename, content.Bytes(), perm)
-	if err != nil {
-		return err
-	}
-	return nil
+	return ioutil.WriteFile(filename, content.Bytes(), perm)
 }
 
 // TimeoutConfig represents the configuration for the timeout of a command.
@@ -189,7 +185,7 @@ func InstallExampleCilium(kubectl *Kubectl) {
 
 	fmt.Fprint(fp, result.String())
 
-	kubectl.Apply(GetFilePath(newCiliumDSName)).ExpectSuccess(
+	kubectl.Apply(kubectl.GetFilePath(newCiliumDSName)).ExpectSuccess(
 		"cannot apply cilium example daemonset")
 
 	status, err := kubectl.WaitforPods(

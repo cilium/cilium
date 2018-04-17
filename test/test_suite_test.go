@@ -149,15 +149,18 @@ var _ = BeforeAll(func() {
 
 	switch ginkgoext.GetScope() {
 	case helpers.Runtime:
-		err = helpers.CreateVM(helpers.Runtime)
-		if err != nil {
-			log.WithError(err).Error("Error starting VM")
-			Fail(fmt.Sprintf("error starting VM %q: %s", helpers.Runtime, err))
+		if config.CiliumTestConfig.Developer {
+			helpers.RuntimeVM = "runtime1"
+		} else {
+			err = helpers.CreateVM(helpers.RuntimeVM)
+			if err != nil {
+				log.WithError(err).Error("Error starting VM")
+			}
 		}
 
-		vm := helpers.InitRuntimeHelper(helpers.Runtime, log.WithFields(
+		vm := helpers.InitRuntimeHelper(helpers.RuntimeVM, log.WithFields(
 			logrus.Fields{"testName": "BeforeSuite"}))
-		err = vm.SetUpCilium()
+		err = vm.SetUpCilium(helpers.DefaultRuntimeCiliumOpts())
 
 		if err != nil {
 			// AfterFailed function is not defined in this scope, fired the
@@ -177,28 +180,33 @@ var _ = BeforeAll(func() {
 
 		// Name for K8s VMs depends on K8s version that is running.
 
-		err = helpers.CreateVM(helpers.K8s1VMName())
-		if err != nil {
-			Fail(fmt.Sprintf("error starting VM %q: %s", helpers.K8s1VMName(), err))
-		}
-
-		err = helpers.CreateVM(helpers.K8s2VMName())
-
-		if err != nil {
-			Fail(fmt.Sprintf("error starting VM %q: %s", helpers.K8s2VMName(), err))
-		}
-		// For Nightly test we need to have more than two kubernetes nodes. If
-		// the env variable K8S_NODES is present, more nodes will be created.
-		if nodes := os.Getenv(k8sNodesEnv); nodes != "" {
-			nodesInt, err := strconv.Atoi(nodes)
+		if config.CiliumTestConfig.Developer {
+			helpers.K8s1 = "k8s1"
+			helpers.K8s2 = "k8s2"
+		} else {
+			err = helpers.CreateVM(helpers.K8s1VMName())
 			if err != nil {
-				Fail(fmt.Sprintf("%s value is not a number %q", k8sNodesEnv, nodes))
+				Fail(fmt.Sprintf("error starting VM %q: %s", helpers.K8s1VMName(), err))
 			}
-			for i := 3; i <= nodesInt; i++ {
-				vmName := fmt.Sprintf("%s%d-%s", helpers.K8s, i, helpers.GetCurrentK8SEnv())
-				err = helpers.CreateVM(vmName)
+
+			err = helpers.CreateVM(helpers.K8s2VMName())
+
+			if err != nil {
+				Fail(fmt.Sprintf("error starting VM %q: %s", helpers.K8s2VMName(), err))
+			}
+			// For Nightly test we need to have more than two kubernetes nodes. If
+			// the env variable K8S_NODES is present, more nodes will be created.
+			if nodes := os.Getenv(k8sNodesEnv); nodes != "" {
+				nodesInt, err := strconv.Atoi(nodes)
 				if err != nil {
-					Fail(fmt.Sprintf("error starting VM %q: %s", vmName, err))
+					Fail(fmt.Sprintf("%s value is not a number %q", k8sNodesEnv, nodes))
+				}
+				for i := 3; i <= nodesInt; i++ {
+					vmName := fmt.Sprintf("%s%d-%s", helpers.K8s, i, helpers.GetCurrentK8SEnv())
+					err = helpers.CreateVM(vmName)
+					if err != nil {
+						Fail(fmt.Sprintf("error starting VM %q: %s", vmName, err))
+					}
 				}
 			}
 		}
@@ -216,7 +224,7 @@ var _ = AfterAll(func() {
 	log.Infof("cleaning up VMs started for %s tests", scope)
 	switch scope {
 	case helpers.Runtime:
-		helpers.DestroyVM(helpers.Runtime)
+		helpers.DestroyVM(helpers.RuntimeVM)
 	case helpers.K8s:
 		helpers.DestroyVM(helpers.K8s1VMName())
 		helpers.DestroyVM(helpers.K8s2VMName())
