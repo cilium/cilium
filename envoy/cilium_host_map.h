@@ -7,6 +7,7 @@
 #include "envoy/event/dispatcher.h"
 
 #include "common/common/logger.h"
+#include "common/network/utility.h"
 #include "envoy/config/subscription.h"
 #include "envoy/singleton/instance.h"
 #include "envoy/thread_local/thread_local.h"
@@ -15,6 +16,7 @@
 
 #include "absl/numeric/int128.h"
 
+// std::hash specialization for Abseil uint128, needed for unordered_map key.
 namespace std {
   template <> struct hash<absl::uint128>
   {
@@ -27,6 +29,18 @@ namespace std {
 
 namespace Envoy {
 namespace Cilium {
+
+template <typename I> I ntoh(I);
+template <> inline uint32_t ntoh(uint32_t addr) { return ntohl(addr); }
+template <> inline absl::uint128 ntoh(absl::uint128 addr) { return Network::Utility::Ip6ntohl(addr); }
+template <typename I> I hton(I);
+template <> inline uint32_t hton(uint32_t addr) { return htonl(addr); }
+template <> inline absl::uint128 hton(absl::uint128 addr) { return Network::Utility::Ip6htonl(addr); }
+
+template <typename I> I masked(I addr, unsigned int plen) {
+  const unsigned int PLEN_MAX = sizeof(I)*8;
+  return addr & ~hton((I(1) << (PLEN_MAX - plen)) - 1);
+};
 
 enum ID : uint64_t { UNKNOWN = 0, WORLD = 2 };
 
@@ -41,57 +55,42 @@ public:
 		ThreadLocal::SlotAllocator& tls);
   ~PolicyHostMap() {}
 
+  // A shared pointer to a immutable copy is held by each thread. Changes are done by
+  // creating a new version and assigning the new shared pointer to the thread local
+  // slot on each thread.
   struct ThreadLocalHostMap : public ThreadLocal::ThreadLocalObject {
   public:
-    void insert(const cilium::NetworkPolicyHosts& proto) {
-      uint64_t policy = proto.policy();
-      const auto& hosts = proto.host_addresses();
-
-      for (const auto& host: hosts) {
-	uint32_t addr4;
-	int rc = inet_pton(AF_INET, host.c_str(), &addr4);
-	if (rc == 1) {
-	  auto pair = ipv4_to_policy_.emplace(std::make_pair(addr4, policy));
-	  if (pair.second == false) {
-	    throw EnvoyException(fmt::format("NetworkPolicyHosts: Duplicate host entry {}:{}", host, policy));
-	  }
-	  continue;
-	}
-	absl::uint128 addr6;
-	rc = inet_pton(AF_INET6, host.c_str(), &addr6);
-	if (rc == 1) {
-	  auto pair = ipv6_to_policy_.emplace(std::make_pair(addr6, policy));
-	  if (pair.second == false) {
-	    throw EnvoyException(fmt::format("NetworkPolicyHosts: Duplicate host entry {}:{}", host, policy));
-	  }
-	  continue;
-	}
-	throw EnvoyException(fmt::format("NetworkPolicyHosts: Invalid host entry {}:{}", host, policy));
-      }
-    }
-
+    // Find the longest prefix match of the addr, return the matching policy id,
+    // or ID::WORLD if there is no match.
     uint64_t resolve(const Network::Address::Ip* addr) const {
       auto* ipv4 = addr->ipv4();
       if (ipv4) {
-	auto it = ipv4_to_policy_.find(ipv4->address());
-	if (it != ipv4_to_policy_.end()) {
-	  return it->second;
+	for (const auto& pair: ipv4_to_policy_) {
+	  auto it = pair.second.find(masked(ipv4->address(), pair.first));
+	  if (it != pair.second.end()) {
+	    return it->second;
+	  }
 	}
       } else {
 	auto* ipv6 = addr->ipv6();
 	if (ipv6) {
-	  auto it = ipv6_to_policy_.find(ipv6->address());
-	  if (it != ipv6_to_policy_.end()) {
-	    return it->second;
+	  for (const auto& pair: ipv6_to_policy_) {
+	    auto it = pair.second.find(masked(ipv6->address(), pair.first));
+	    if (it != pair.second.end()) {
+	      return it->second;
+	    }
 	  }
 	}
       }
       return ID::WORLD;
     }
 
-  private:
-    std::unordered_map<uint32_t, uint64_t> ipv4_to_policy_;
-    std::unordered_map<absl::uint128, uint64_t> ipv6_to_policy_;
+  protected:
+    // Vectors of <prefix-len>, <address-map> pairs, ordered in the decreasing prefix length,
+    // where map keys are addresses of the given prefix length. Address bits outside of the
+    // prefix are zeroes.
+    std::vector<std::pair<unsigned int, std::unordered_map<uint32_t, uint64_t>>> ipv4_to_policy_;
+    std::vector<std::pair<unsigned int, std::unordered_map<absl::uint128, uint64_t>>> ipv6_to_policy_;
   };
   typedef std::shared_ptr<ThreadLocalHostMap> ThreadLocalHostMapSharedPtr;
 
