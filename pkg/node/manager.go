@@ -25,6 +25,7 @@ import (
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/tunnel"
+	"github.com/cilium/cilium/pkg/mtu"
 
 	"github.com/sirupsen/logrus"
 	"github.com/vishvananda/netlink"
@@ -191,6 +192,12 @@ func replaceNodeRoute(ip *net.IPNet) {
 	}
 
 	route := netlink.Route{LinkIndex: link.Attrs().Index, Dst: ip, Gw: via, Src: local}
+	// If the route includes the local address, then the route is for
+	// local containers and we can use a high MTU for transmit. Otherwise,
+	// it needs to be able to fit within the MTU of tunnel devices.
+	if !ip.Contains(local) {
+		route.MTU = mtu.TunnelMTU
+	}
 	scopedLog := log.WithField(logfields.Route, route)
 
 	if err := netlink.RouteReplace(&route); err != nil {
