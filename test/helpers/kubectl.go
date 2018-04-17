@@ -1008,6 +1008,37 @@ func (kub *Kubectl) CheckLogsForDeadlock() {
 	}
 }
 
+// GatherCiliumCoreDumps copies core dumps if are present in the /tmp folder
+// into the test report folder for further analysis.
+func (kub *Kubectl) GatherCiliumCoreDumps(ciliumPod string) {
+	log := kub.logger.WithField("pod", ciliumPod)
+
+	cores := kub.CiliumExec(ciliumPod, "ls /tmp/ | grep core")
+	if !cores.WasSuccessful() {
+		log.Debug("There is no core dumps in the pod")
+		return
+	}
+
+	testPath, err := CreateReportDirectory()
+	if err != nil {
+		log.WithError(err).Errorf("cannot create test result path '%s'", testPath)
+		return
+	}
+	resultPath := filepath.Join(BasePath, testPath)
+
+	for _, core := range cores.ByLines() {
+		dst := filepath.Join(resultPath, core)
+		src := filepath.Join("/tmp/", core)
+		cmd := fmt.Sprintf("%s -n %s cp %s:%s %s",
+			KubectlCmd, KubeSystemNamespace,
+			ciliumPod, src, dst)
+		res := kub.Exec(cmd, ExecOptions{SkipLog: true})
+		if !res.WasSuccessful() {
+			log.WithField("output", res.CombineOutput()).Error("Cannot get core from pod")
+		}
+	}
+}
+
 // DumpCiliumCommandOutput runs a variety of commands (CiliumKubCLICommands) and writes the results to
 // TestResultsPath
 func (kub *Kubectl) DumpCiliumCommandOutput(namespace string) {
@@ -1071,6 +1102,7 @@ func (kub *Kubectl) DumpCiliumCommandOutput(namespace string) {
 	}
 	for _, pod := range pods {
 		ReportOnPod(pod)
+		kub.GatherCiliumCoreDumps(pod)
 	}
 }
 
