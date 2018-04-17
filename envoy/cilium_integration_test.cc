@@ -57,6 +57,21 @@ resources:
       http_rules:
         http_rules:
         - headers: [ { name: ':path', value: '/only-2-allowed', regex: false } ]
+  egress_per_port_policies:
+  - port: 80
+    rules:
+    - remote_policies: [ 1 ]
+      http_rules:
+        http_rules:
+        - headers: [ { name: ':path', value: '/allowed', regex: false } ]
+        - headers: [ { name: ':path', value: '.*public$', regex: true } ]
+        - headers: [ { name: ':authority', value: 'allowedHOST', regex: false } ]
+        - headers: [ { name: ':authority', value: '.*REGEX.*', regex: true } ]
+        - headers: [ { name: ':method', value: 'PUT', regex: false }, { name: ':path', value: '/public/opinions', regex: false } ]
+    - remote_policies: [ 2 ]
+      http_rules:
+        http_rules:
+        - headers: [ { name: ':path', value: '/only-2-allowed', regex: false } ]
 )EOF";
   
 namespace Filter {
@@ -71,7 +86,11 @@ public:
     // fake setting the local address. It remains the same as required by the test infra, but it will be marked as restored
     // as required by the original_dst cluster.
     socket.setLocalAddress(original_dst_address, true);
-    socket.addOption(std::make_unique<Cilium::SocketOption>(maps_, 1, 173, true, 80, 10000));
+    if (is_ingress_) {
+      socket.addOption(std::make_unique<Cilium::SocketOption>(maps_, 1, 173, true, 80, 10000));
+    } else {
+      socket.addOption(std::make_unique<Cilium::SocketOption>(maps_, 173, hosts_->resolve(socket.localAddress()->ip()), false, 80, 10001));
+    }
     return true;
   }
 };
@@ -210,8 +229,9 @@ static Registry::RegisterFactory<
     register_;
 
 } // namespace Cilium
-  
-const std::string cilium_proxy_config = R"EOF(
+
+// params: is_ingress ("true", "false")
+const std::string cilium_proxy_config_fmt = R"EOF(
 admin:
   access_log_path: /dev/null
   address:
@@ -230,10 +250,11 @@ static_resources:
         address: 127.0.0.1
         port_value: 0
   - name: xds-grpc-cilium
-    connect_timeout: { seconds: 5 }
+    connect_timeout:
+      seconds: 5
     type: STATIC
     lb_policy: ROUND_ROBIN
-    http2_protocol_options: {}
+    http2_protocol_options:
     hosts:
     - pipe:
         path: /var/run/cilium/xds.sock
@@ -246,7 +267,7 @@ static_resources:
     listener_filters:
       name: test_bpf_metadata
       config:
-        is_ingress: true
+        is_ingress: {0}
     filter_chains:
       filters:
       - name: cilium.network
@@ -266,24 +287,26 @@ static_resources:
               name: integration
               domains: "*"
               routes:
-              - route: { cluster: cluster1 }
-                match: { prefix: "/" }
+              - route:
+                  cluster: cluster1
+                match:
+                  prefix: "/"
 )EOF";
 
-class CiliumIntegrationTest
-    : public HttpIntegrationTest,
-      public testing::TestWithParam<Network::Address::IpVersion> {
+class CiliumIntegrationTestBase
+  : public HttpIntegrationTest,
+    public testing::TestWithParam<Network::Address::IpVersion> {
 
 public:
-  CiliumIntegrationTest()
-    : HttpIntegrationTest(Http::CodecClient::Type::HTTP1, GetParam(), cilium_proxy_config) {
+  CiliumIntegrationTestBase(const std::string& config)
+    : HttpIntegrationTest(Http::CodecClient::Type::HTTP1, GetParam(), config) {
     // Undo legacy compat rename done by HttpIntegrationTest constructor.
     // config_helper_.renameListener("cilium");
     for (const Logger::Logger& logger : Logger::Registry::loggers()) {
       logger.setLevel(static_cast<spdlog::level::level_enum>(0));
     }
   }
-  ~CiliumIntegrationTest() {
+  ~CiliumIntegrationTestBase() {
     npmap = nullptr;
     hostmap = nullptr;
   }  
@@ -331,6 +354,12 @@ public:
     EXPECT_THROW_WITH_MESSAGE(hmap.onConfigUpdate(typed_resources), EnvoyException, exmsg);
     tls.shutdownGlobalThreading();
   }
+};
+
+class CiliumIntegrationTest : public CiliumIntegrationTestBase {
+public:
+  CiliumIntegrationTest()
+    : CiliumIntegrationTestBase(fmt::format(cilium_proxy_config_fmt, "true")) {}
 };
 
 INSTANTIATE_TEST_CASE_P(
@@ -558,44 +587,31 @@ TEST_P(CiliumIntegrationTest, AllowedPathPrefix) {
 }
 
 TEST_P(CiliumIntegrationTest, AllowedPathRegex) {
-  Accepted(
-      {{":method", "GET"}, {":path", "/maybe/public"}, {":authority", "host"}});
+  Accepted({{":method", "GET"}, {":path", "/maybe/public"}, {":authority", "host"}});
 }
 
 TEST_P(CiliumIntegrationTest, DeniedPath) {
-  Denied({{":method", "GET"},
-          {":path", "/maybe/private"},
-          {":authority", "host"}});
+  Denied({{":method", "GET"}, {":path", "/maybe/private"}, {":authority", "host"}});
 }
 
 TEST_P(CiliumIntegrationTest, AllowedHostString) {
-  Accepted({{":method", "GET"},
-            {":path", "/maybe/private"},
-            {":authority", "allowedHOST"}});
+  Accepted({{":method", "GET"}, {":path", "/maybe/private"}, {":authority", "allowedHOST"}});
 }
 
 TEST_P(CiliumIntegrationTest, AllowedHostRegex) {
-  Accepted({{":method", "GET"},
-            {":path", "/maybe/private"},
-            {":authority", "hostREGEXname"}});
+  Accepted({{":method", "GET"}, {":path", "/maybe/private"}, {":authority", "hostREGEXname"}});
 }
 
 TEST_P(CiliumIntegrationTest, DeniedMethod) {
-  Denied({{":method", "POST"},
-          {":path", "/maybe/private"},
-          {":authority", "host"}});
+  Denied({{":method", "POST"}, {":path", "/maybe/private"}, {":authority", "host"}});
 }
 
 TEST_P(CiliumIntegrationTest, AcceptedMethod) {
-  Accepted({{":method", "PUT"},
-            {":path", "/public/opinions"},
-            {":authority", "host"}});
+  Accepted({{":method", "PUT"}, {":path", "/public/opinions"}, {":authority", "host"}});
 }
 
 TEST_P(CiliumIntegrationTest, L3DeniedPath) {
-  Denied({{":method", "GET"},
-          {":path", "/only-2-allowed"},
-          {":authority", "host"}});
+  Denied({{":method", "GET"}, {":path", "/only-2-allowed"}, {":authority", "host"}});
 }
 
 TEST_P(CiliumIntegrationTest, DuplicatePort) {
@@ -618,5 +634,63 @@ TEST_P(CiliumIntegrationTest, DuplicatePort) {
 
   EXPECT_STREQ("403", response_->headers().Status()->value().c_str());
 }
+
+class CiliumIntegrationEgressTest : public CiliumIntegrationTestBase {
+public:
+  CiliumIntegrationEgressTest()
+    : CiliumIntegrationTestBase(fmt::format(cilium_proxy_config_fmt, "false")) {
+    host_map_config = R"EOF(version_info: "0"
+resources:
+- "@type": type.googleapis.com/cilium.NetworkPolicyHosts
+  policy: 173
+  host_addresses: [ "192.168.0.1", "f00d::1" ]
+- "@type": type.googleapis.com/cilium.NetworkPolicyHosts
+  policy: 1
+  host_addresses: [ "127.0.0.0/8", "::/104" ]
+)EOF";
+
+  }
+};
+
+INSTANTIATE_TEST_CASE_P(
+    IpVersions, CiliumIntegrationEgressTest,
+    testing::ValuesIn(TestEnvironment::getIpVersionsForTest()));
+
+TEST_P(CiliumIntegrationEgressTest, DeniedPathPrefix) {
+  Denied({{":method", "GET"}, {":path", "/prefix"}, {":authority", "host"}});
+}
+
+TEST_P(CiliumIntegrationEgressTest, AllowedPathPrefix) {
+  Accepted({{":method", "GET"}, {":path", "/allowed"}, {":authority", "host"}});
+}
+
+TEST_P(CiliumIntegrationEgressTest, AllowedPathRegex) {
+  Accepted({{":method", "GET"}, {":path", "/maybe/public"}, {":authority", "host"}});
+}
+
+TEST_P(CiliumIntegrationEgressTest, DeniedPath) {
+  Denied({{":method", "GET"}, {":path", "/maybe/private"}, {":authority", "host"}});
+}
+
+TEST_P(CiliumIntegrationEgressTest, AllowedHostString) {
+  Accepted({{":method", "GET"}, {":path", "/maybe/private"}, {":authority", "allowedHOST"}});
+}
+
+TEST_P(CiliumIntegrationEgressTest, AllowedHostRegex) {
+  Accepted({{":method", "GET"}, {":path", "/maybe/private"}, {":authority", "hostREGEXname"}});
+}
+
+TEST_P(CiliumIntegrationEgressTest, DeniedMethod) {
+  Denied({{":method", "POST"}, {":path", "/maybe/private"}, {":authority", "host"}});
+}
+
+TEST_P(CiliumIntegrationEgressTest, AcceptedMethod) {
+  Accepted({{":method", "PUT"}, {":path", "/public/opinions"}, {":authority", "host"}});
+}
+
+TEST_P(CiliumIntegrationEgressTest, L3DeniedPath) {
+  Denied({{":method", "GET"}, {":path", "/only-2-allowed"}, {":authority", "host"}});
+}
+
 
 } // namespace Envoy
