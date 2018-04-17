@@ -94,7 +94,7 @@ Config::Config(const ::cilium::BpfMetadata &config, Server::Configuration::Liste
 }
 
 bool Config::getMetadata(Network::ConnectionSocket& socket) {
-  uint32_t source_identity, destination_identity = 2 /* WORLD */;
+  uint32_t source_identity, destination_identity = Cilium::ID::WORLD;
   uint16_t orig_dport, proxy_port;
   bool ok = false;
 
@@ -102,7 +102,7 @@ bool Config::getMetadata(Network::ConnectionSocket& socket) {
     ok = maps_->getBpfMetadata(socket, &source_identity, &orig_dport, &proxy_port);
   } else if (hosts_ && socket.remoteAddress()->ip() && socket.localAddress()->ip()) {
     // Resolve the source security ID
-    source_identity = hosts_->resolve(socket.remoteAddress()->ip()->addressAsString());
+    source_identity = hosts_->resolve(socket.remoteAddress()->ip());
     orig_dport = socket.localAddress()->ip()->port();
     proxy_port = 0; // no proxy_port when no bpf.
     ok = true;
@@ -110,7 +110,7 @@ bool Config::getMetadata(Network::ConnectionSocket& socket) {
   if (ok) {
     // Resolve the destination security ID
     if (hosts_ && socket.localAddress()->ip()) {
-      destination_identity = hosts_->resolve(socket.localAddress()->ip()->addressAsString());
+      destination_identity = hosts_->resolve(socket.localAddress()->ip());
     }
     socket.addOption(std::make_unique<Cilium::SocketOption>(maps_, source_identity, destination_identity, is_ingress_, orig_dport, proxy_port));
   }
