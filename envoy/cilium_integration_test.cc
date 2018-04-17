@@ -13,9 +13,11 @@
 #include "common/config/utility.h"
 #include "common/filesystem/filesystem_impl.h"
 #include "common/protobuf/protobuf.h"
+#include "common/thread_local/thread_local_impl.h"
 #include "server/config/network/http_connection_manager.h"
 
 #include "test/integration/http_integration.h"
+#include "test/test_common/environment.h"
 #include "test/test_common/network_utility.h"
 
 #include "cilium_bpf_metadata.h"
@@ -27,9 +29,35 @@
 
 namespace Envoy {
 
+std::string host_map_config;
+std::shared_ptr<const Cilium::PolicyHostMap> hostmap{nullptr};
+
 Network::Address::InstanceConstSharedPtr original_dst_address;
-std::string policy_path;
-std::shared_ptr<const Cilium::NetworkPolicyMap> npmap;
+std::shared_ptr<const Cilium::NetworkPolicyMap> npmap{nullptr};
+
+std::string policy_config;
+
+const std::string BASIC_POLICY = R"EOF(version_info: "0"
+resources:
+- "@type": type.googleapis.com/cilium.NetworkPolicy
+  name: '173'
+  policy: 3
+  ingress_per_port_policies:
+  - port: 80
+    rules:
+    - remote_policies: [ 1 ]
+      http_rules:
+        http_rules:
+        - headers: [ { name: ':path', value: '/allowed', regex: false } ]
+        - headers: [ { name: ':path', value: '.*public$', regex: true } ]
+        - headers: [ { name: ':authority', value: 'allowedHOST', regex: false } ]
+        - headers: [ { name: ':authority', value: '.*REGEX.*', regex: true } ]
+        - headers: [ { name: ':method', value: 'PUT', regex: false }, { name: ':path', value: '/public/opinions', regex: false } ]
+    - remote_policies: [ 2 ]
+      http_rules:
+        http_rules:
+        - headers: [ { name: ':path', value: '/only-2-allowed', regex: false } ]
+)EOF";
   
 namespace Filter {
 namespace BpfMetadata {
@@ -61,6 +89,30 @@ public:
 namespace Server {
 namespace Configuration {
 
+namespace {
+
+std::shared_ptr<const Cilium::PolicyHostMap>
+createHostMap(const std::string& config, Server::Configuration::ListenerFactoryContext& context) {
+  return context.singletonManager().getTyped<const Cilium::PolicyHostMap>(
+      "cilium_host_map_singleton", [&config, &context] {
+	std::string path = TestEnvironment::writeStringToFileForTest("host_map.yaml", config);
+	ENVOY_LOG_MISC(debug, "Loading Cilium Host Map from file \'{}\' instead of using gRPC",
+		       path);
+
+        Envoy::Config::Utility::checkFilesystemSubscriptionBackingPath(path);
+        Envoy::Config::SubscriptionStats stats =
+	  Envoy::Config::Utility::generateStats(context.scope());
+        auto subscription =
+	  std::make_unique<Envoy::Config::FilesystemSubscriptionImpl<cilium::NetworkPolicyHosts>>(
+              context.dispatcher(), path, stats);
+       
+        return std::make_shared<Cilium::PolicyHostMap>(std::move(subscription),
+						       context.threadLocal());
+    });
+}
+
+} // namespace
+
 /**
  * Config registration for the bpf metadata filter. @see
  * NamedNetworkFilterConfigFactory.
@@ -70,7 +122,11 @@ public:
   // NamedListenerFilterConfigFactory
   ListenerFilterFactoryCb
   createFilterFactoryFromProto(const Protobuf::Message& proto_config,
-                      ListenerFactoryContext &context) override {
+			       ListenerFactoryContext &context) override {
+    // Create the file-based policy map before the filter is created, so that the singleton
+    // is set before the gRPC subscription is attempted.
+    hostmap = createHostMap(host_map_config, context);
+
     auto config = std::make_shared<Filter::BpfMetadata::TestConfig>(MessageUtil::downcastAndValidate<const ::cilium::BpfMetadata&>(proto_config), context);
 
     return [config](
@@ -100,10 +156,11 @@ static Registry::RegisterFactory<TestBpfMetadataConfigFactory,
 namespace Cilium {
 
 std::shared_ptr<const Cilium::NetworkPolicyMap>
-createPolicyMap(const std::string& path, Server::Configuration::FactoryContext& context) {
+createPolicyMap(const std::string& config, Server::Configuration::FactoryContext& context) {
   return context.singletonManager().getTyped<const Cilium::NetworkPolicyMap>(
-      "cilium_network_policy_singleton", [&path, &context] {
+      "cilium_network_policy_singleton", [&config, &context] {
         // File subscription.
+	std::string path = TestEnvironment::writeStringToFileForTest("network_policy.yaml", config);
 	ENVOY_LOG_MISC(debug, "Loading Cilium Network Policy from file \'{}\' instead of using gRPC", path);
         Envoy::Config::Utility::checkFilesystemSubscriptionBackingPath(path);
         Envoy::Config::SubscriptionStats stats = Envoy::Config::Utility::generateStats(context.scope());
@@ -128,7 +185,7 @@ public:
                                Server::Configuration::FactoryContext& context) override {
     // Create the file-based policy map before the filter is created, so that the singleton
     // is set before the gRPC subscription is attempted.
-    npmap = createPolicyMap(policy_path, context);
+    npmap = createPolicyMap(policy_config, context);
 
     auto config = std::make_shared<Cilium::Config>(
         MessageUtil::downcastAndValidate<const ::cilium::L7Policy&>(proto_config), context);
@@ -228,6 +285,7 @@ public:
   }
   ~CiliumIntegrationTest() {
     npmap = nullptr;
+    hostmap = nullptr;
   }  
   /**
    * Initializer for an individual integration test.
@@ -243,7 +301,7 @@ public:
   }
 
   void Denied(Http::TestHeaderMapImpl headers) {
-    policy_path = "./cilium_network_policy_test.yaml";
+    policy_config = BASIC_POLICY;
     initialize();
     codec_client_ = makeHttpConnection(lookupPort("http"));
     codec_client_->makeHeaderOnlyRequest(headers, *response_);
@@ -253,18 +311,243 @@ public:
   }
 
   void Accepted(Http::TestHeaderMapImpl headers) {
-    policy_path = "./cilium_network_policy_test.yaml";
+    policy_config = BASIC_POLICY;
     initialize();
     codec_client_ = makeHttpConnection(lookupPort("http"));
     sendRequestAndWaitForResponse(headers, 0, default_response_headers_, 0);
 
     EXPECT_STREQ("200", response_->headers().Status()->value().c_str());
   }
+
+  void InvalidHostMap(const std::string& config, const char* exmsg) {
+    std::string path = TestEnvironment::writeStringToFileForTest("host_map_fail.yaml", config);
+    envoy::api::v2::DiscoveryResponse message;
+    ThreadLocal::InstanceImpl tls;
+
+    MessageUtil::loadFromFile(path, message);
+    const auto typed_resources = Config::Utility::getTypedResources<cilium::NetworkPolicyHosts>(message);
+    Envoy::Cilium::PolicyHostMap hmap(tls);
+
+    EXPECT_THROW_WITH_MESSAGE(hmap.onConfigUpdate(typed_resources), EnvoyException, exmsg);
+    tls.shutdownGlobalThreading();
+  }
 };
 
 INSTANTIATE_TEST_CASE_P(
     IpVersions, CiliumIntegrationTest,
     testing::ValuesIn(TestEnvironment::getIpVersionsForTest()));
+
+TEST_P(CiliumIntegrationTest, HostMapValid) {
+  std::string config = R"EOF(version_info: "0"
+resources:
+- "@type": type.googleapis.com/cilium.NetworkPolicyHosts
+  policy: 173
+  host_addresses: [ "192.168.0.1", "f00d::1" ]
+- "@type": type.googleapis.com/cilium.NetworkPolicyHosts
+  policy: 1
+  host_addresses: [ "127.0.0.1/32", "::1/128" ]
+- "@type": type.googleapis.com/cilium.NetworkPolicyHosts
+  policy: 11
+  host_addresses: [ "127.0.0.0/8", "beef::/63" ]
+- "@type": type.googleapis.com/cilium.NetworkPolicyHosts
+  policy: 2
+  host_addresses: [ "0.0.0.0/0", "::/0" ]
+)EOF";
+
+  std::string path = TestEnvironment::writeStringToFileForTest("host_map_fail.yaml", config);
+  envoy::api::v2::DiscoveryResponse message;
+  ThreadLocal::InstanceImpl tls;
+
+  MessageUtil::loadFromFile(path, message);
+  const auto typed_resources = Config::Utility::getTypedResources<cilium::NetworkPolicyHosts>(message);
+  Envoy::Cilium::PolicyHostMap hmap(tls);
+
+  VERBOSE_EXPECT_NO_THROW(hmap.onConfigUpdate(typed_resources));
+
+  EXPECT_EQ(hmap.resolve(Network::Address::Ipv4Instance("192.168.0.1").ip()), 173);
+  EXPECT_EQ(hmap.resolve(Network::Address::Ipv4Instance("192.168.0.0").ip()), 2);
+  EXPECT_EQ(hmap.resolve(Network::Address::Ipv4Instance("192.168.0.2").ip()), 2);
+  EXPECT_EQ(hmap.resolve(Network::Address::Ipv4Instance("127.0.0.1").ip()), 1);
+  EXPECT_EQ(hmap.resolve(Network::Address::Ipv4Instance("127.0.0.2").ip()), 11);
+  EXPECT_EQ(hmap.resolve(Network::Address::Ipv4Instance("126.0.0.2").ip()), 2);
+  EXPECT_EQ(hmap.resolve(Network::Address::Ipv4Instance("128.0.0.0").ip()), 2);
+  EXPECT_EQ(hmap.resolve(Network::Address::Ipv6Instance("::1").ip()), 1);
+  EXPECT_EQ(hmap.resolve(Network::Address::Ipv6Instance("::").ip()), 2);
+  EXPECT_EQ(hmap.resolve(Network::Address::Ipv6Instance("f00d::1").ip()), 173);
+  EXPECT_EQ(hmap.resolve(Network::Address::Ipv6Instance("f00d::").ip()), 2);
+  EXPECT_EQ(hmap.resolve(Network::Address::Ipv6Instance("beef::1.2.3.4").ip()), 11);
+  EXPECT_EQ(hmap.resolve(Network::Address::Ipv6Instance("beef:0:0:1::").ip()), 11);
+  EXPECT_EQ(hmap.resolve(Network::Address::Ipv6Instance("beef:0:0:1::42").ip()), 11);
+  EXPECT_EQ(hmap.resolve(Network::Address::Ipv6Instance("beef:0:0:2::").ip()), 2);
+
+  tls.shutdownGlobalThreading();
+}
+
+TEST_P(CiliumIntegrationTest, HostMapInvalidNonCIDRBits) {
+  if (GetParam() == Network::Address::IpVersion::v4) {
+    InvalidHostMap(R"EOF(version_info: "0"
+resources:
+- "@type": type.googleapis.com/cilium.NetworkPolicyHosts
+  policy: 11
+  host_addresses: [ "127.0.0.1/32", "127.0.0.1/31" ]
+)EOF",
+		   "NetworkPolicyHosts: Non-prefix bits set in '127.0.0.1/31'");
+  } else {
+    InvalidHostMap(R"EOF(version_info: "0"
+resources:
+- "@type": type.googleapis.com/cilium.NetworkPolicyHosts
+  policy: 11
+  host_addresses: [ "::1/128", "::1/63" ]
+)EOF",
+		   "NetworkPolicyHosts: Non-prefix bits set in '::1/63'");
+  }
+}
+
+TEST_P(CiliumIntegrationTest, HostMapInvalidPrefixLengths) {
+  if (GetParam() == Network::Address::IpVersion::v4) {
+    InvalidHostMap(R"EOF(version_info: "0"
+resources:
+- "@type": type.googleapis.com/cilium.NetworkPolicyHosts
+  policy: 11
+  host_addresses: [ "127.0.0.1", "127.0.0.0/8", "127.0.0.1/33" ]
+)EOF",
+		   "NetworkPolicyHosts: Invalid prefix length in '127.0.0.1/33'");
+  } else {
+    InvalidHostMap(R"EOF(version_info: "0"
+resources:
+- "@type": type.googleapis.com/cilium.NetworkPolicyHosts
+  policy: 11
+  host_addresses: [ "::1/128", "f00f::/65", "::3/129" ]
+)EOF",
+		   "NetworkPolicyHosts: Invalid prefix length in '::3/129'");
+  }
+}
+
+TEST_P(CiliumIntegrationTest, HostMapInvalidPrefixLengths2) {
+  if (GetParam() == Network::Address::IpVersion::v4) {
+    InvalidHostMap(R"EOF(version_info: "0"
+resources:
+- "@type": type.googleapis.com/cilium.NetworkPolicyHosts
+  policy: 11
+  host_addresses: [ "127.0.0.1", "127.0.0.0/8", "127.0.0.1/32a" ]
+)EOF",
+		   "NetworkPolicyHosts: Invalid prefix length in '127.0.0.1/32a'");
+  } else {
+    InvalidHostMap(R"EOF(version_info: "0"
+resources:
+- "@type": type.googleapis.com/cilium.NetworkPolicyHosts
+  policy: 11
+  host_addresses: [ "::1/128", "f00f::/65", "::3/" ]
+)EOF",
+		   "NetworkPolicyHosts: Invalid prefix length in '::3/'");
+  }
+}
+
+TEST_P(CiliumIntegrationTest, HostMapInvalidPrefixLengths3) {
+  if (GetParam() == Network::Address::IpVersion::v4) {
+    InvalidHostMap(R"EOF(version_info: "0"
+resources:
+- "@type": type.googleapis.com/cilium.NetworkPolicyHosts
+  policy: 11
+  host_addresses: [ "127.0.0.1", "127.0.0.0/8", "127.0.0.1/ 32" ]
+)EOF",
+		   "NetworkPolicyHosts: Invalid prefix length in '127.0.0.1/ 32'");
+  } else {
+    InvalidHostMap(R"EOF(version_info: "0"
+resources:
+- "@type": type.googleapis.com/cilium.NetworkPolicyHosts
+  policy: 11
+  host_addresses: [ "::1/128", "f00f::/65", "::3/128 " ]
+)EOF",
+		   "NetworkPolicyHosts: Invalid prefix length in '::3/128 '");
+  }
+}
+
+TEST_P(CiliumIntegrationTest, HostMapDuplicateEntry) {
+  if (GetParam() == Network::Address::IpVersion::v4) {
+    InvalidHostMap(R"EOF(version_info: "0"
+resources:
+- "@type": type.googleapis.com/cilium.NetworkPolicyHosts
+  policy: 11
+  host_addresses: [ "127.0.0.0/16", "127.0.0.1/32", "127.0.0.1" ]
+)EOF",
+		   "NetworkPolicyHosts: Duplicate host entry '127.0.0.1' for policy 11");
+  } else {
+    InvalidHostMap(R"EOF(version_info: "0"
+resources:
+- "@type": type.googleapis.com/cilium.NetworkPolicyHosts
+  policy: 11
+  host_addresses: [ "::1/128", "f00f::/65", "::1" ]
+)EOF",
+		   "NetworkPolicyHosts: Duplicate host entry '::1' for policy 11");
+  }
+}
+
+TEST_P(CiliumIntegrationTest, HostMapDuplicateEntry2) {
+  if (GetParam() == Network::Address::IpVersion::v4) {
+    InvalidHostMap(R"EOF(version_info: "0"
+resources:
+- "@type": type.googleapis.com/cilium.NetworkPolicyHosts
+  policy: 11
+  host_addresses: [ "127.0.0.0/16", "127.0.0.1/32" ]
+- "@type": type.googleapis.com/cilium.NetworkPolicyHosts
+  policy: 12
+  host_addresses: [ "127.0.0.0/8", "127.0.0.1" ]
+)EOF",
+		   "NetworkPolicyHosts: Duplicate host entry '127.0.0.1' for policy 12");
+  } else {
+    InvalidHostMap(R"EOF(version_info: "0"
+resources:
+- "@type": type.googleapis.com/cilium.NetworkPolicyHosts
+  policy: 11
+  host_addresses: [ "::1/128", "f00f::/65" ]
+- "@type": type.googleapis.com/cilium.NetworkPolicyHosts
+  policy: 12
+  host_addresses: [ "f00f::/16", "::1" ]
+)EOF",
+		   "NetworkPolicyHosts: Duplicate host entry '::1' for policy 12");
+  }
+}
+
+TEST_P(CiliumIntegrationTest, HostMapInvalidAddress) {
+  if (GetParam() == Network::Address::IpVersion::v4) {
+    InvalidHostMap(R"EOF(version_info: "0"
+resources:
+- "@type": type.googleapis.com/cilium.NetworkPolicyHosts
+  policy: 11
+  host_addresses: [ "127.0.0.0/16", "127.0.0.1/32", "255.256.0.0" ]
+)EOF",
+		   "NetworkPolicyHosts: Invalid host entry '255.256.0.0' for policy 11");
+  } else {
+    InvalidHostMap(R"EOF(version_info: "0"
+resources:
+- "@type": type.googleapis.com/cilium.NetworkPolicyHosts
+  policy: 11
+  host_addresses: [ "::1/128", "f00f::/65", "fOOd::1" ]
+)EOF",
+		   "NetworkPolicyHosts: Invalid host entry 'fOOd::1' for policy 11");
+  }
+}
+
+TEST_P(CiliumIntegrationTest, HostMapInvalidAddress2) {
+  if (GetParam() == Network::Address::IpVersion::v4) {
+    InvalidHostMap(R"EOF(version_info: "0"
+resources:
+- "@type": type.googleapis.com/cilium.NetworkPolicyHosts
+  policy: 11
+  host_addresses: [ "127.0.0.0/16", "127.0.0.1/32", "255.255.0.0 " ]
+)EOF",
+		   "NetworkPolicyHosts: Invalid host entry '255.255.0.0 ' for policy 11");
+  } else {
+    InvalidHostMap(R"EOF(version_info: "0"
+resources:
+- "@type": type.googleapis.com/cilium.NetworkPolicyHosts
+  policy: 11
+  host_addresses: [ "::1/128", "f00f::/65", "f00d:: 1" ]
+)EOF",
+		   "NetworkPolicyHosts: Invalid host entry 'f00d:: 1' for policy 11");
+  }
+}
 
 TEST_P(CiliumIntegrationTest, DeniedPathPrefix) {
   Denied({{":method", "GET"}, {":path", "/prefix"}, {":authority", "host"}});
@@ -317,7 +600,13 @@ TEST_P(CiliumIntegrationTest, L3DeniedPath) {
 
 TEST_P(CiliumIntegrationTest, DuplicatePort) {
   // This policy has a duplicate port number, and will be rejected.
-  policy_path = "./cilium_network_policy_test_dup_port.yaml";
+  policy_config = BASIC_POLICY + R"EOF(  - port: 80
+    rules:
+    - remote_policies: [ 2 ]
+      http_rules:
+        http_rules:
+        - headers: [ { name: ':path', value: '/only-2-allowed', regex: false } ]
+)EOF";
 
   // This would normally be allowed, but since the policy fails, everything will be rejected.
   Http::TestHeaderMapImpl headers =
