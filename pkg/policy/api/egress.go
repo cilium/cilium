@@ -93,7 +93,7 @@ type EgressRule struct {
 
 	// ToEntities is a list of special entities to which the endpoint subject
 	// to the rule is allowed to initiate connections. Supported entities are
-	// `world` and `host`
+	// `world`, `cluster` and `host`
 	//
 	// +optional
 	ToEntities EntitySlice `json:"toEntities,omitempty"`
