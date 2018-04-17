@@ -23,14 +23,24 @@ import (
 func (s *PolicyAPITestSuite) TestEntityMatches(c *C) {
 	c.Assert(EntityHost.Matches(labels.ParseLabelArray("reserved:host")), Equals, true)
 	c.Assert(EntityHost.Matches(labels.ParseLabelArray("reserved:host", "id:foo")), Equals, true)
+	c.Assert(EntityHost.Matches(labels.ParseLabelArray("reserved:cluster")), Equals, false)
 	c.Assert(EntityHost.Matches(labels.ParseLabelArray("reserved:world")), Equals, false)
 	c.Assert(EntityHost.Matches(labels.ParseLabelArray("id=foo")), Equals, false)
 
 	c.Assert(EntityAll.Matches(labels.ParseLabelArray("reserved:host")), Equals, true)
+	c.Assert(EntityAll.Matches(labels.ParseLabelArray("reserved:cluster")), Equals, true)
 	c.Assert(EntityAll.Matches(labels.ParseLabelArray("reserved:world")), Equals, true)
 	c.Assert(EntityAll.Matches(labels.ParseLabelArray("id=foo")), Equals, true)
 
+	// EntityCluster doesn't select host, as EndpointSelector can't express OR relationships.
+	c.Assert(EntityCluster.Matches(labels.ParseLabelArray("reserved:host")), Equals, false)
+	c.Assert(EntityCluster.Matches(labels.ParseLabelArray("reserved:cluster")), Equals, true)
+	c.Assert(EntityCluster.Matches(labels.ParseLabelArray("reserved:world")), Equals, false)
+	c.Assert(EntityCluster.Matches(labels.ParseLabelArray("id=foo")), Equals, false)
+	c.Assert(EntityCluster.Matches(labels.ParseLabelArray("id=foo", "id=bar")), Equals, false)
+
 	c.Assert(EntityWorld.Matches(labels.ParseLabelArray("reserved:host")), Equals, false)
+	c.Assert(EntityWorld.Matches(labels.ParseLabelArray("reserved:cluster")), Equals, false)
 	c.Assert(EntityWorld.Matches(labels.ParseLabelArray("reserved:world")), Equals, true)
 	c.Assert(EntityWorld.Matches(labels.ParseLabelArray("id=foo")), Equals, false)
 	c.Assert(EntityWorld.Matches(labels.ParseLabelArray("id=foo", "id=bar")), Equals, false)
