@@ -100,7 +100,7 @@ type IngressRule struct {
 
 	// FromEntities is a list of special entities which the endpoint subject
 	// to the rule is allowed to receive connections from. Supported entities are
-	// `world` and `host`
+	// `world`, `cluster` and `host`
 	//
 	// +optional
 	FromEntities EntitySlice `json:"fromEntities,omitempty"`

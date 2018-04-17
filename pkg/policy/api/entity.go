@@ -31,6 +31,10 @@ const (
 	// endpoint's cluster
 	EntityWorld Entity = "world"
 
+	// EntityCluster is an entity that represents traffic within the
+	// endpoint's cluster, to endpoints not managed by cilium
+	EntityCluster Entity = "cluster"
+
 	// EntityHost is an entity that represents traffic within endpoint host
 	EntityHost Entity = "host"
 )
@@ -41,6 +45,11 @@ var EntitySelectorMapping = map[Entity]EndpointSelector{
 	EntityAll: WildcardEndpointSelector,
 	EntityWorld: NewESFromLabels(&labels.Label{
 		Key:    labels.IDNameWorld,
+		Value:  "",
+		Source: labels.LabelSourceReserved,
+	}),
+	EntityCluster: NewESFromLabels(&labels.Label{
+		Key:    labels.IDNameCluster,
 		Value:  "",
 		Source: labels.LabelSourceReserved,
 	}),

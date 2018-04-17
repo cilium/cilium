@@ -1106,6 +1106,11 @@ func (ds *PolicyTestSuite) TestRuleCanReachFromEntity(c *C) {
 		To:   labels.ParseSelectLabelArray("bar"),
 	}
 
+	fromCluster := &SearchContext{
+		From: labels.ParseSelectLabelArray("reserved:cluster"),
+		To:   labels.ParseSelectLabelArray("bar"),
+	}
+
 	notFromWorld := &SearchContext{
 		From: labels.ParseSelectLabelArray("foo"),
 		To:   labels.ParseSelectLabelArray("bar"),
@@ -1116,7 +1121,10 @@ func (ds *PolicyTestSuite) TestRuleCanReachFromEntity(c *C) {
 			EndpointSelector: api.NewESFromLabels(labels.ParseSelectLabel("bar")),
 			Ingress: []api.IngressRule{
 				{
-					FromEntities: []api.Entity{api.EntityWorld},
+					FromEntities: []api.Entity{
+						api.EntityWorld,
+						api.EntityCluster,
+					},
 				},
 			},
 		},
@@ -1126,6 +1134,10 @@ func (ds *PolicyTestSuite) TestRuleCanReachFromEntity(c *C) {
 
 	state := traceState{}
 	c.Assert(rule1.canReachIngress(fromWorld, &state), Equals, api.Allowed)
+	c.Assert(state.selectedRules, Equals, 1)
+	c.Assert(state.matchedRules, Equals, 1)
+	state = traceState{}
+	c.Assert(rule1.canReachIngress(fromCluster, &state), Equals, api.Allowed)
 	c.Assert(state.selectedRules, Equals, 1)
 	c.Assert(state.matchedRules, Equals, 1)
 	state = traceState{}
@@ -1140,6 +1152,11 @@ func (ds *PolicyTestSuite) TestRuleCanReachEntity(c *C) {
 		To:   labels.ParseSelectLabelArray("reserved:world"),
 	}
 
+	toCluster := &SearchContext{
+		From: labels.ParseSelectLabelArray("bar"),
+		To:   labels.ParseSelectLabelArray("reserved:cluster"),
+	}
+
 	notToWorld := &SearchContext{
 		From: labels.ParseSelectLabelArray("bar"),
 		To:   labels.ParseSelectLabelArray("foo"),
@@ -1150,7 +1167,10 @@ func (ds *PolicyTestSuite) TestRuleCanReachEntity(c *C) {
 			EndpointSelector: api.NewESFromLabels(labels.ParseSelectLabel("bar")),
 			Egress: []api.EgressRule{
 				{
-					ToEntities: []api.Entity{api.EntityWorld},
+					ToEntities: []api.Entity{
+						api.EntityWorld,
+						api.EntityCluster,
+					},
 				},
 			},
 		},
@@ -1160,6 +1180,10 @@ func (ds *PolicyTestSuite) TestRuleCanReachEntity(c *C) {
 
 	state := traceState{}
 	c.Assert(rule1.canReachEgress(toWorld, &state), Equals, api.Allowed)
+	c.Assert(state.selectedRules, Equals, 1)
+	c.Assert(state.matchedRules, Equals, 1)
+	state = traceState{}
+	c.Assert(rule1.canReachEgress(toCluster, &state), Equals, api.Allowed)
 	c.Assert(state.selectedRules, Equals, 1)
 	c.Assert(state.matchedRules, Equals, 1)
 	state = traceState{}
