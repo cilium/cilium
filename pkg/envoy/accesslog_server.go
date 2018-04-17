@@ -165,12 +165,6 @@ func (s *accessLogServer) logRecord(localEndpoint logger.EndpointUpdater, pblog 
 
 	// Update stats for the endpoint.
 	ingress := r.ObservationPoint == accesslog.Ingress
-	var port uint16
-	if ingress {
-		port = r.DestinationEndpoint.Port
-	} else {
-		port = r.SourceEndpoint.Port
-	}
 	request := r.Type == accesslog.TypeRequest
-	localEndpoint.UpdateProxyStatistics("http", port, ingress, request, r.Verdict)
+	localEndpoint.UpdateProxyStatistics("http", r.DestinationEndpoint.Port, ingress, request, r.Verdict)
 }
