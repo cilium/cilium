@@ -47,4 +47,9 @@ static inline int ipv4_hdrlen(struct iphdr *ip4)
 	return ip4->ihl * 4;
 }
 
+static inline bool ipv4_is_fragment(struct iphdr *ip4)
+{
+	return ip4->frag_off & bpf_htons(0x3FFFFFFF);
+}
+
 #endif /* __LIB_IPV4__ */
