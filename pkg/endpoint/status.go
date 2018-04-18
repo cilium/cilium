@@ -44,6 +44,8 @@ const (
 	BPF    StatusType = 200
 	Policy StatusType = 100
 	Other  StatusType = 0
+
+	maxLogs = 256
 )
 
 type Status struct {

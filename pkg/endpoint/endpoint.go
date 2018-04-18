@@ -63,8 +63,6 @@ const (
 	AlwaysEnforce             = "always"
 	NeverEnforce              = "never"
 	DefaultEnforcement        = "default"
-
-	maxLogs = 256
 )
 
 var (
