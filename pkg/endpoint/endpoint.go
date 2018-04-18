@@ -407,10 +407,6 @@ func (e *Endpoint) StringID() string {
 	return strconv.Itoa(int(e.ID))
 }
 
-func (e *Endpoint) directoryPath() string {
-	return filepath.Join(".", fmt.Sprintf("%d", e.ID))
-}
-
 func (e *Endpoint) Allows(id identityPkg.NumericIdentity) bool {
 	e.Mutex.RLock()
 	defer e.Mutex.RUnlock()
