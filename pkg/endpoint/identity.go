@@ -199,3 +199,15 @@ func (e *Endpoint) ModifyIdentityLabels(owner Owner, addLabels, delLabels labels
 
 	return nil
 }
+
+func (e *Endpoint) getIDandLabels() string {
+	e.Mutex.RLock()
+	defer e.Mutex.RUnlock()
+
+	labels := ""
+	if e.SecurityIdentity != nil {
+		labels = e.SecurityIdentity.Labels.String()
+	}
+
+	return fmt.Sprintf("%d (%s)", e.ID, labels)
+}
