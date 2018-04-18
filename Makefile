@@ -80,8 +80,8 @@ unit-tests: start-kvstores
 	$(QUIET) $(MAKE) -C daemon/ check-bindata
 	$(QUIET) echo "mode: count" > coverage-all.out
 	$(QUIET) echo "mode: count" > coverage.out
-	$(foreach pkg,$(TESTPKGS),\
-	$(QUIET) go test \
+	$(QUIET)$(foreach pkg,$(TESTPKGS),\
+	go test \
             -timeout 360s -coverprofile=coverage.out -covermode=count $(pkg) $(GOTEST_OPTS) || exit 1;\
             tail -n +2 coverage.out >> coverage-all.out;)
 	$(GO) tool cover -html=coverage-all.out -o=coverage-all.html
