@@ -689,29 +689,6 @@ func (e *Endpoint) Update(owner Owner, cfg *models.EndpointConfigurationSpec) er
 	return nil
 }
 
-// HasLabels returns whether endpoint e contains all labels l. Will return 'false'
-// if any label in l is not in the endpoint's labels.
-func (e *Endpoint) HasLabels(l pkgLabels.Labels) bool {
-	e.Mutex.RLock()
-	defer e.Mutex.RUnlock()
-	allEpLabels := e.OpLabels.AllLabels()
-
-	for _, v := range l {
-		found := false
-		for _, j := range allEpLabels {
-			if j.Equals(v) {
-				found = true
-				break
-			}
-		}
-		if !found {
-			return false
-		}
-	}
-
-	return true
-}
-
 func (e *Endpoint) replaceInformationLabels(l pkgLabels.Labels) {
 	e.Mutex.Lock()
 	e.OpLabels.OrchestrationInfo.MarkAllForDeletion()
