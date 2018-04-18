@@ -90,23 +90,53 @@ func (ipc *IPCache) RUnlock() {
 	ipc.mutex.RUnlock()
 }
 
-// Upsert adds / updates the provided IP and identity into both caches contained
-// within ipc.
-func (ipc *IPCache) Upsert(endpointIP string, identity identity.NumericIdentity) {
+// UpsertIPToKVStore updates / inserts the provided IP->Identity mapping into the
+// kvstore, which will subsequently trigger an event in ipIdentityWatcher().
+func UpsertIPToKVStore(IP net.IP, ID identity.NumericIdentity, metadata string) error {
+	ipKey := path.Join(IPIdentitiesPath, AddressSpace, IP.String())
+	ipIDPair := identity.IPIdentityPair{
+		IP:       IP,
+		ID:       ID,
+		Metadata: metadata,
+	}
+
+	marshaledIPIDPair, err := json.Marshal(ipIDPair)
+	if err != nil {
+		return err
+	}
+
+	log.WithFields(logrus.Fields{
+		logfields.IPAddr:       ipIDPair.IP,
+		logfields.Identity:     ipIDPair.ID,
+		logfields.Modification: Upsert,
+	}).Debug("upserting IP->ID mapping to kvstore")
+
+	return kvstore.Update(ipKey, marshaledIPIDPair, true)
+}
+
+// DeleteIPFromKVStore removes the IP->Identity mapping for the specified ip from the
+// kvstore, which will subsequently trigger an event in ipIdentityWatcher().
+func DeleteIPFromKVStore(ip string) error {
+	ipKey := path.Join(IPIdentitiesPath, AddressSpace, ip)
+	return kvstore.Delete(ipKey)
+}
+
+// Upsert adds / updates the provided IP<->identity mapping into the IPCache.
+func (ipc *IPCache) Upsert(IP string, identity identity.NumericIdentity) {
 	ipc.mutex.Lock()
 	defer ipc.mutex.Unlock()
 
 	// An update is treated as a deletion and then an insert.
-	ipc.deleteLocked(endpointIP)
+	ipc.deleteLocked(IP)
 
 	// Update both maps.
-	ipc.ipToIdentityCache[endpointIP] = identity
+	ipc.ipToIdentityCache[IP] = identity
 
 	_, found := ipc.identityToIPCache[identity]
 	if !found {
 		ipc.identityToIPCache[identity] = map[string]struct{}{}
 	}
-	ipc.identityToIPCache[identity][endpointIP] = struct{}{}
+	ipc.identityToIPCache[identity][IP] = struct{}{}
 }
 
 // deleteLocked removes removes the provided IP-to-security-identity mapping
