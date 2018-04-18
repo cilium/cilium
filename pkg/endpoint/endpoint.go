@@ -317,11 +317,6 @@ func (e *Endpoint) String() string {
 	return string(b)
 }
 
-// optionChanged is a callback used with pkg/option to apply the options to an
-// endpoint.  Not used for anything at the moment.
-func optionChanged(key string, value bool, data interface{}) {
-}
-
 // ForcePolicyCompute marks the endpoint for forced bpf regeneration.
 func (e *Endpoint) ForcePolicyCompute() {
 	e.forcePolicyCompute = true

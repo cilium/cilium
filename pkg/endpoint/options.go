@@ -132,3 +132,8 @@ func (e *Endpoint) SetDefaultOpts(opts *option.BoolOptions) {
 func (e *Endpoint) applyOptsLocked(opts map[string]string) bool {
 	return e.Opts.Apply(opts, optionChanged, e) > 0
 }
+
+// optionChanged is a callback used with pkg/option to apply the options to an
+// endpoint.  Not used for anything at the moment.
+func optionChanged(key string, value bool, data interface{}) {
+}
