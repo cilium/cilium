@@ -120,3 +120,19 @@ func AllocateIdentity(lbls labels.Labels) (*Identity, bool, error) {
 func (id *Identity) Release() error {
 	return identityAllocator.Release(globalIdentity{id.Labels})
 }
+
+// ReleaseSlice attempts to release a set of identities. It is a helper
+// function that may be useful for cleaning up multiple identities in paths
+// where several identities may be allocated and another error means that they
+// should all be released.
+func ReleaseSlice(identities []*Identity) error {
+	var err error
+	for _, id := range identities {
+		if err = id.Release(); err != nil {
+			log.WithFields(logrus.Fields{
+				logfields.Identity: id,
+			}).Error("Failed to release identity")
+		}
+	}
+	return err
+}

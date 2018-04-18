@@ -98,6 +98,22 @@ func (ipc *IPCache) RUnlock() {
 	ipc.mutex.RUnlock()
 }
 
+func upsertToKVStore(ipKey string, ipIDPair identity.IPIdentityPair) error {
+	marshaledIPIDPair, err := json.Marshal(ipIDPair)
+	if err != nil {
+		return err
+	}
+
+	log.WithFields(logrus.Fields{
+		logfields.IPAddr:       ipIDPair.IP,
+		logfields.IPMask:       ipIDPair.Mask,
+		logfields.Identity:     ipIDPair.ID,
+		logfields.Modification: Upsert,
+	}).Debug("upserting IP->ID mapping to kvstore")
+
+	return kvstore.Update(ipKey, marshaledIPIDPair, true)
+}
+
 // UpsertIPToKVStore updates / inserts the provided IP->Identity mapping into the
 // kvstore, which will subsequently trigger an event in ipIdentityWatcher().
 func UpsertIPToKVStore(IP net.IP, ID identity.NumericIdentity, metadata string) error {
@@ -108,18 +124,50 @@ func UpsertIPToKVStore(IP net.IP, ID identity.NumericIdentity, metadata string) 
 		Metadata: metadata,
 	}
 
-	marshaledIPIDPair, err := json.Marshal(ipIDPair)
-	if err != nil {
-		return err
+	return upsertToKVStore(ipKey, ipIDPair)
+}
+
+// UpsertIPNetToKVStore updates / inserts the provided CIDR->Identity mapping
+// into the kvstore, which will subsequently trigger an event in
+// ipIdentityWatcher().
+func UpsertIPNetToKVStore(prefix *net.IPNet, ID *identity.Identity) error {
+	ipKey := path.Join(IPIdentitiesPath, AddressSpace, prefix.String())
+	ipIDPair := identity.IPIdentityPair{
+		IP:       prefix.IP,
+		Mask:     prefix.Mask,
+		ID:       ID.ID,
+		Metadata: AddressSpace, // XXX: Should we associate more metadata?
 	}
 
-	log.WithFields(logrus.Fields{
-		logfields.IPAddr:       ipIDPair.IP,
-		logfields.Identity:     ipIDPair.ID,
-		logfields.Modification: Upsert,
-	}).Debug("upserting IP->ID mapping to kvstore")
+	return upsertToKVStore(ipKey, ipIDPair)
+}
 
-	return kvstore.Update(ipKey, marshaledIPIDPair, true)
+// UpsertIPNetsToKVStore inserts a CIDR->Identity mapping into the kvstore
+// ipcache for each of the specified prefixes and identities. That is to say,
+// prefixes[0] is mapped to identities[0].
+//
+// If any Prefix->Identity mapping cannot be created, it will not create any
+// of the mappings and returns an error.
+func UpsertIPNetsToKVStore(prefixes []*net.IPNet, identities []*identity.Identity) (err error) {
+	if len(prefixes) != len(identities) {
+		return fmt.Errorf("Invalid []Prefix->[]Identity ipcache mapping requested: prefixes=%d identities=%d", len(prefixes), len(identities))
+	}
+	for i, prefix := range prefixes {
+		id := identities[i]
+		err = UpsertIPNetToKVStore(prefix, id)
+		if err != nil {
+			for j := 0; j < i; j++ {
+				err2 := DeleteIPFromKVStore(prefix.String())
+				if err2 != nil {
+					log.WithFields(logrus.Fields{
+						"prefix": prefix.String(),
+					}).Error("Failed to clean up CIDR->ID mappings")
+				}
+			}
+		}
+	}
+
+	return err
 }
 
 // DeleteIPFromKVStore removes the IP->Identity mapping for the specified ip from the
@@ -127,6 +175,22 @@ func UpsertIPToKVStore(IP net.IP, ID identity.NumericIdentity, metadata string) 
 func DeleteIPFromKVStore(ip string) error {
 	ipKey := path.Join(IPIdentitiesPath, AddressSpace, ip)
 	return kvstore.Delete(ipKey)
+}
+
+// DeleteIPNetsFromKVStore removes the Prefix->Identity mappings for the
+// specified slice of prefixes from the kvstore, which will subsequently
+// trigger an event in ipIdentityWatcher().
+func DeleteIPNetsFromKVStore(prefixes []*net.IPNet) (err error) {
+	for _, prefix := range prefixes {
+		if err2 := DeleteIPFromKVStore(prefix.String()); err2 != nil {
+			err = err2
+			log.WithFields(logrus.Fields{
+				"prefix": prefix.String(),
+			}).Error("Failed to delete CIDR->ID mappings")
+		}
+	}
+
+	return
 }
 
 // refPrefixLength adds one reference to the prefix length in the map.

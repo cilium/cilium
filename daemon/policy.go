@@ -1,4 +1,4 @@
-// Copyright 2016-2017 Authors of Cilium
+// Copyright 2016-2018 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -25,6 +25,8 @@ import (
 	"github.com/cilium/cilium/pkg/apierror"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/endpointmanager"
+	"github.com/cilium/cilium/pkg/identity"
+	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
@@ -33,6 +35,7 @@ import (
 
 	"github.com/go-openapi/runtime/middleware"
 	"github.com/op/go-logging"
+	"github.com/sirupsen/logrus"
 )
 
 // TriggerPolicyUpdates triggers policy updates for every daemon's endpoint.
@@ -222,8 +225,28 @@ func (d *Daemon) policyAdd(rules api.Rules, opts *AddOptions) (uint64, error) {
 func (d *Daemon) PolicyAdd(rules api.Rules, opts *AddOptions) (uint64, error) {
 	log.WithField(logfields.CiliumNetworkPolicy, logfields.Repr(rules)).Debug("Policy Add Request")
 
+	prefixes := policy.GetCIDRPrefixes(rules)
+	log.WithField("prefixes", prefixes).Debug("Policy imported via API, found CIDR prefixes...")
+
+	prefixIdentities, err := identity.AllocateCIDRIdentities(prefixes)
+	if err != nil {
+		metrics.PolicyImportErrors.Inc()
+		return d.policy.GetRevision(), err
+	}
+
+	if err = ipcache.UpsertIPNetsToKVStore(prefixes, prefixIdentities); err != nil {
+		metrics.PolicyImportErrors.Inc()
+
+		// Failed to update Prefix->ID mappings; don't leak identities
+		identity.ReleaseSlice(prefixIdentities)
+		return d.policy.GetRevision(), err
+	}
+
 	rev, err := d.policyAdd(rules, opts)
 	if err != nil {
+		// Don't leak identities allocated above.
+		identity.ReleaseSlice(prefixIdentities)
+
 		return 0, apierror.Error(PutPolicyFailureCode, err)
 	}
 
@@ -243,12 +266,49 @@ func (d *Daemon) PolicyAdd(rules api.Rules, opts *AddOptions) (uint64, error) {
 func (d *Daemon) PolicyDelete(labels labels.LabelArray) (uint64, error) {
 	log.WithField(logfields.IdentityLabels, logfields.Repr(labels)).Debug("Policy Delete Request")
 
-	// An error is only returned if a label filter was provided and then
-	// not found. A deletion request for all policy entries should not fail
-	// if no policies are loaded.
-	rev, deleted := d.policy.DeleteByLabels(labels)
-	if deleted == 0 && len(labels) != 0 {
+	d.policy.Mutex.Lock()
+
+	// First, find rules by the label. We'll use this set of rules to
+	// determine which CIDR identities that we need to release.
+	rules := d.policy.SearchRLocked(labels)
+
+	// Return an error if a label filter was provided and there are no
+	// rules matching it. A deletion request for all policy entries should
+	// not fail if no policies are loaded.
+	if len(rules) == 0 && len(labels) != 0 {
+		rev := d.policy.GetRevision()
+		d.policy.Mutex.Unlock()
 		return rev, apierror.New(DeletePolicyNotFoundCode, "policy not found")
+	}
+	rev, _ := d.policy.DeleteByLabelsLocked(labels)
+	d.policy.Mutex.Unlock()
+
+	// Now that the policies are deleted, we can also attempt to remove
+	// all CIDR identities referenced by the deleted rules.
+	//
+	// We don't treat failures to clean up identities as API failures,
+	// because the policy can still successfully be updated. We're just
+	// not appropriately performing garbage collection.
+	prefixes := policy.GetCIDRPrefixes(rules)
+	log.WithField("prefixes", prefixes).Debug("Policy deleted via API, found prefixes...")
+
+	prefixIdentities, err := identity.LookupCIDRIdentities(prefixes)
+	if err == nil {
+		if err = identity.ReleaseSlice(prefixIdentities); err != nil {
+			log.WithError(err).WithFields(logrus.Fields{
+				logfields.Labels: labels,
+			}).Debug("Cannot delete identities for CIDR prefixes by labels")
+		}
+
+		if err = ipcache.DeleteIPNetsFromKVStore(prefixes); err != nil {
+			log.WithError(err).WithFields(logrus.Fields{
+				logfields.Labels: labels,
+			}).Debug("Could not delete prefix->Identity mappings during policy delete")
+		}
+	} else {
+		log.WithError(err).WithFields(logrus.Fields{
+			logfields.Labels: labels,
+		}).Debug("Cannot find identities for CIDR prefixes by labels")
 	}
 
 	d.TriggerPolicyUpdates(false)
