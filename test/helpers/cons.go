@@ -131,7 +131,10 @@ const (
 	StateRunning     = "Running"
 
 	PingCount          = 5
-	CurlConnectTimeout = 5
+	CurlMaxTimeout     = 5
+	CurlConnectTimeout = 2
+	CurlRetryAttempts  = 2
+	CurlRetryDelay     = 1
 
 	DefaultNamespace    = "default"
 	KubeSystemNamespace = "kube-system"
