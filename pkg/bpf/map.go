@@ -147,7 +147,6 @@ func NewMap(name string, mapType MapType, keySize int, valueSize int, maxEntries
 		name:       path.Base(name),
 		dumpParser: dumpParser,
 	}
-	m.setPathIfUnset()
 	return m
 }
 

@@ -16,7 +16,6 @@ package tunnel
 
 import (
 	"net"
-	"os"
 	"unsafe"
 
 	"github.com/cilium/cilium/pkg/bpf"
@@ -60,7 +59,7 @@ func init() {
 	bpf.OpenAfterMount(TunnelMap)
 
 	// Remove old map and ignore errors; this is the "normal" case.
-	_ = os.Remove(bpf.MapPath(oldMapName))
+	bpf.RemoveAfterMount(oldMapName)
 }
 
 type tunnelEndpoint struct {
