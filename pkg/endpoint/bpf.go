@@ -33,6 +33,7 @@ import (
 	"time"
 
 	"github.com/cilium/cilium/common"
+	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/identity"
@@ -368,7 +369,9 @@ func (e *Endpoint) runInit(libdir, rundir, epdir, ifName, debug string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), ExecTimeout)
 	defer cancel()
 
-	out, err := exec.CommandContext(ctx, prog, args...).CombinedOutput()
+	joinEpCmd := exec.CommandContext(ctx, prog, args...)
+	joinEpCmd.Env = bpf.TcEnvironment()
+	out, err := joinEpCmd.CombinedOutput()
 
 	cmd := fmt.Sprintf("%s %s", prog, strings.Join(args, " "))
 	scopedLog = scopedLog.WithField("cmd", cmd)
