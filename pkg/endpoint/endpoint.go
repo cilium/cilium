@@ -32,7 +32,6 @@ import (
 	"github.com/cilium/cilium/pkg/controller"
 	identityPkg "github.com/cilium/cilium/pkg/identity"
 	clientset "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned"
-	"github.com/cilium/cilium/pkg/labels"
 	pkgLabels "github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -968,29 +967,6 @@ func (e *Endpoint) getIDandLabels() string {
 	}
 
 	return fmt.Sprintf("%d (%s)", e.ID, labels)
-}
-
-// UpdateLabels is called to update the labels of an endpoint. Calls to this
-// function do not necessarily mean that the labels actually changed. The
-// container runtime layer will periodically synchronize labels.
-//
-// If a net label changed was performed, the endpoint will receive a new
-// identity and will be regenerated. Both of these operations will happen in
-// the background.
-func (e *Endpoint) UpdateLabels(owner Owner, identityLabels, infoLabels labels.Labels) {
-	log.WithFields(logrus.Fields{
-		logfields.ContainerID:    e.GetShortContainerID(),
-		logfields.EndpointID:     e.StringID(),
-		logfields.IdentityLabels: identityLabels.String(),
-		logfields.InfoLabels:     infoLabels.String(),
-	}).Debug("Refreshing labels of endpoint")
-
-	e.replaceInformationLabels(infoLabels)
-
-	// replace identity labels and update the identity if labels have changed
-	if rev := e.replaceIdentityLabels(identityLabels); rev != 0 {
-		e.runLabelsResolver(owner, rev)
-	}
 }
 
 // IPs returns the slice of valid IPs for this endpoint.
