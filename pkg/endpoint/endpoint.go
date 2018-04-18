@@ -15,12 +15,9 @@
 package endpoint
 
 import (
-	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"net"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/cilium/cilium/api/v1/models"
@@ -282,16 +279,6 @@ func (e *Endpoint) Unlock() {
 	e.Mutex.Unlock()
 }
 
-// GetIPv4Address returns the IPv4 address of the endpoint
-func (e *Endpoint) GetIPv4Address() string {
-	return e.IPv4.String()
-}
-
-// GetIPv6Address returns the IPv6 address of the endpoint
-func (e *Endpoint) GetIPv6Address() string {
-	return e.IPv6.String()
-}
-
 // StringID returns the endpoint's ID in a string.
 func (e *Endpoint) StringID() string {
 	return strconv.Itoa(int(e.ID))
@@ -542,16 +529,4 @@ func APICanModify(e *Endpoint) error {
 		return fmt.Errorf("Endpoint cannot be modified by API call")
 	}
 	return nil
-}
-
-// IPs returns the slice of valid IPs for this endpoint.
-func (e *Endpoint) IPs() []net.IP {
-	ips := []net.IP{}
-	if e.IPv4 != nil {
-		ips = append(ips, e.IPv4.IP())
-	}
-	if e.IPv6 != nil {
-		ips = append(ips, e.IPv6.IP())
-	}
-	return ips
 }
