@@ -153,6 +153,7 @@ spec:
           secret:
             secretName: cilium-etcd-secrets
       tolerations:
+      restartPolicy: Always
       - effect: NoSchedule
         key: node-role.kubernetes.io/master
       - effect: NoSchedule
