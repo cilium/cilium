@@ -255,3 +255,17 @@ func (e *EndpointStatus) CurrentStatus() StatusCode {
 func (e *EndpointStatus) String() string {
 	return e.CurrentStatus().String()
 }
+
+func (e *Endpoint) LogStatus(typ StatusType, code StatusCode, msg string) {
+	e.Mutex.Lock()
+	defer e.Mutex.Unlock()
+	// FIXME GH2323 instead of a mutex we could use a channel to send the status
+	// log message to a single writer?
+	e.Status.indexMU.Lock()
+	defer e.Status.indexMU.Unlock()
+	e.logStatusLocked(typ, code, msg)
+}
+
+func (e *Endpoint) LogStatusOK(typ StatusType, msg string) {
+	e.LogStatus(typ, OK, msg)
+}
