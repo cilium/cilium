@@ -284,15 +284,6 @@ func (e *Endpoint) StringID() string {
 	return strconv.Itoa(int(e.ID))
 }
 
-func (e *Endpoint) Allows(id identityPkg.NumericIdentity) bool {
-	e.Mutex.RLock()
-	defer e.Mutex.RUnlock()
-	if e.Consumable != nil {
-		return e.Consumable.AllowsIngress(id)
-	}
-	return false
-}
-
 // String returns endpoint on a JSON format.
 func (e *Endpoint) String() string {
 	e.Mutex.RLock()

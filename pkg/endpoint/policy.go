@@ -1192,3 +1192,12 @@ func (e *Endpoint) SetIdentity(identity *identityPkg.Identity) {
 	}).Debug("Set identity and consumable of EP")
 	e.Consumable.Mutex.RUnlock()
 }
+
+func (e *Endpoint) Allows(id identityPkg.NumericIdentity) bool {
+	e.Mutex.RLock()
+	defer e.Mutex.RUnlock()
+	if e.Consumable != nil {
+		return e.Consumable.AllowsIngress(id)
+	}
+	return false
+}
