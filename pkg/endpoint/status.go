@@ -22,6 +22,9 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/logging/logfields"
+
+	"github.com/sirupsen/logrus"
 )
 
 type StatusCode int
@@ -268,4 +271,31 @@ func (e *Endpoint) LogStatus(typ StatusType, code StatusCode, msg string) {
 
 func (e *Endpoint) LogStatusOK(typ StatusType, msg string) {
 	e.LogStatus(typ, OK, msg)
+}
+
+// LogStatusOKLocked will log an OK message of the given status type with the
+// given msg string.
+// must be called with endpoint.Mutex held
+func (e *Endpoint) LogStatusOKLocked(typ StatusType, msg string) {
+	e.Status.indexMU.Lock()
+	defer e.Status.indexMU.Unlock()
+	e.logStatusLocked(typ, OK, msg)
+}
+
+func (e *Endpoint) logStatusLocked(typ StatusType, code StatusCode, msg string) {
+	sts := &statusLogMsg{
+		Status: Status{
+			Code:  code,
+			Msg:   msg,
+			Type:  typ,
+			State: e.state,
+		},
+		Timestamp: time.Now().UTC(),
+	}
+	e.Status.addStatusLog(sts)
+	e.getLogger().WithFields(logrus.Fields{
+		"code":                  sts.Status.Code,
+		"type":                  sts.Status.Type,
+		logfields.EndpointState: sts.Status.State,
+	}).Debug(msg)
 }
