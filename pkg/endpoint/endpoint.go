@@ -15,7 +15,6 @@
 package endpoint
 
 import (
-	"context"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -1015,23 +1014,6 @@ func (e *Endpoint) UpdateLabels(owner Owner, identityLabels, infoLabels labels.L
 	// replace identity labels and update the identity if labels have changed
 	if rev := e.replaceIdentityLabels(identityLabels); rev != 0 {
 		e.runLabelsResolver(owner, rev)
-	}
-}
-
-// setPolicyRevision sets the policy wantedRev with the given revision.
-func (e *Endpoint) setPolicyRevision(rev uint64) {
-	e.policyRevision = rev
-	for ps := range e.policyRevisionSignals {
-		select {
-		case <-ps.ctx.Done():
-			close(ps.ch)
-			delete(e.policyRevisionSignals, ps)
-		default:
-			if rev >= ps.wantedRev {
-				close(ps.ch)
-				delete(e.policyRevisionSignals, ps)
-			}
-		}
 	}
 }
 

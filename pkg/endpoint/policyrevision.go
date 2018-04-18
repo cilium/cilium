@@ -57,3 +57,20 @@ type policySignal struct {
 	// ctx is the context for the policy signal request.
 	ctx context.Context
 }
+
+// setPolicyRevision sets the policy wantedRev with the given revision.
+func (e *Endpoint) setPolicyRevision(rev uint64) {
+	e.policyRevision = rev
+	for ps := range e.policyRevisionSignals {
+		select {
+		case <-ps.ctx.Done():
+			close(ps.ch)
+			delete(e.policyRevisionSignals, ps)
+		default:
+			if rev >= ps.wantedRev {
+				close(ps.ch)
+				delete(e.policyRevisionSignals, ps)
+			}
+		}
+	}
+}
