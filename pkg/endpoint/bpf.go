@@ -334,7 +334,7 @@ func (e *Endpoint) writeHeaderfile(prefix string, owner Owner) error {
 // hashHeaderfile returns the MD5 hash of the BPF headerfile with the given prefix.
 // This ignores all lines that don't start with "#", incl. all comments, since
 // they have no effect on the BPF compilation.
-func (e *Endpoint) hashHeaderfile(prefix string) (string, error) {
+func hashHeaderfile(prefix string) (string, error) {
 	headerPath := filepath.Join(prefix, common.CHeaderFileName)
 	file, err := os.Open(headerPath)
 	if err != nil {
@@ -342,16 +342,29 @@ func (e *Endpoint) hashHeaderfile(prefix string) (string, error) {
 	}
 	defer file.Close()
 
-	scanner := bufio.NewScanner(file)
 	hashWriter := md5.New()
-	for scanner.Scan() {
-		line := scanner.Text()
-		if strings.HasPrefix(line, "#") {
-			io.WriteString(hashWriter, line)
+	reader := bufio.NewReader(file)
+	firstFragmentOfLine := true
+	lineToHash := false
+	for {
+		fragment, isPrefix, err := reader.ReadLine()
+		if err != nil {
+			if err == io.EOF {
+				break
+			}
+			return "", err
 		}
-	}
-	if err := scanner.Err(); err != nil {
-		return "", err
+		if firstFragmentOfLine && len(fragment) > 0 && fragment[0] == '#' {
+			lineToHash = true
+		}
+		if lineToHash {
+			hashWriter.Write(fragment)
+		}
+		firstFragmentOfLine = !isPrefix
+		if firstFragmentOfLine {
+			// The next fragment is the beginning of a new line.
+			lineToHash = false
+		}
 	}
 
 	hash := hashWriter.Sum(nil)
@@ -765,7 +778,7 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir, reason string) (uint64, err
 	}
 
 	// Avoid BPF program compilation and installation if the headerfile hasn't changed.
-	bpfHeaderfileHash, err := e.hashHeaderfile(epdir)
+	bpfHeaderfileHash, err := hashHeaderfile(epdir)
 	var bpfHeaderfileChanged bool
 	if err != nil {
 		e.getLogger().WithError(err).Warn("Unable to hash header file")
