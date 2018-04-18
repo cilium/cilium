@@ -26,6 +26,14 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+func (e *Endpoint) GetIdentity() identityPkg.NumericIdentity {
+	if e.SecurityIdentity != nil {
+		return e.SecurityIdentity.ID
+	}
+
+	return identityPkg.InvalidIdentity
+}
+
 func (e *Endpoint) identityResolutionIsObsolete(myChangeRev int) bool {
 	// If in disconnected state, skip as well as this operation is no
 	// longer required.

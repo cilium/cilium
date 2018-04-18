@@ -425,14 +425,6 @@ func (e *Endpoint) StringID() string {
 	return strconv.Itoa(int(e.ID))
 }
 
-func (e *Endpoint) GetIdentity() identityPkg.NumericIdentity {
-	if e.SecurityIdentity != nil {
-		return e.SecurityIdentity.ID
-	}
-
-	return identityPkg.InvalidIdentity
-}
-
 func (e *Endpoint) directoryPath() string {
 	return filepath.Join(".", fmt.Sprintf("%d", e.ID))
 }
