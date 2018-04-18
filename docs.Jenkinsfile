@@ -4,11 +4,15 @@ pipeline {
     }
 
     options {
-        timeout(time: 10, unit: 'MINUTES')
+        timeout(time: 100, unit: 'MINUTES')
         timestamps()
     }
+
     stages {
         stage('Docs') {
+            options {
+                timeout(time: 10, unit: 'MINUTES')
+            }
             steps {
                 checkout scm
                 sh "make test-docs"
