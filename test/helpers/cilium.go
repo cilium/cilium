@@ -445,8 +445,9 @@ func (s *SSHMeta) PolicyGetRevision() (int, error) {
 	return rev.IntOutput()
 }
 
-// PolicyImportAndWait imports a new policy into Cilium and waits until the policy
-// revision number increments.
+// PolicyImportAndWait validates and imports a new policy into Cilium and waits
+// until the policy revision number increments. Returns an error if the policy
+// is invalid or could not be imported.
 func (s *SSHMeta) PolicyImportAndWait(path string, timeout time.Duration) (int, error) {
 	ginkgo.By(fmt.Sprintf("Setting up policy: %s", path))
 
@@ -456,8 +457,20 @@ func (s *SSHMeta) PolicyImportAndWait(path string, timeout time.Duration) (int, 
 	}
 	s.logger.WithFields(logrus.Fields{
 		logfields.Path:           path,
-		logfields.PolicyRevision: revision}).Infof("before importing policy")
-	res := s.ExecCilium(fmt.Sprintf("policy import %s", path))
+		logfields.PolicyRevision: revision}).Info("before importing policy")
+
+	s.logger.WithFields(logrus.Fields{
+		logfields.Path: path}).Info("validating policy before importing")
+
+	res := s.ExecCilium(fmt.Sprintf("policy validate %s", path))
+	if res.WasSuccessful() == false {
+		s.logger.WithFields(logrus.Fields{
+			logfields.Path: path,
+		}).Errorf("could not validate policy %s: %s", path, res.CombineOutput())
+		return -1, fmt.Errorf("could not validate policy %s: %s", path, res.CombineOutput())
+	}
+
+	res = s.ExecCilium(fmt.Sprintf("policy import %s", path))
 	if res.WasSuccessful() == false {
 		s.logger.WithFields(logrus.Fields{
 			logfields.Path: path,
