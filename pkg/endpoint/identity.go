@@ -254,3 +254,21 @@ func (e *Endpoint) replaceIdentityLabels(l labels.Labels) int {
 
 	return rev
 }
+
+// GetLabels returns the labels as slice
+func (e *Endpoint) GetLabels() []string {
+	if e.SecurityIdentity == nil {
+		return []string{}
+	}
+
+	return e.SecurityIdentity.Labels.GetModel()
+}
+
+// GetLabelsSHA returns the SHA of labels
+func (e *Endpoint) GetLabelsSHA() string {
+	if e.SecurityIdentity == nil {
+		return ""
+	}
+
+	return e.SecurityIdentity.GetLabelsSHA256()
+}

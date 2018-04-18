@@ -392,24 +392,6 @@ func (e *Endpoint) Unlock() {
 	e.Mutex.Unlock()
 }
 
-// GetLabels returns the labels as slice
-func (e *Endpoint) GetLabels() []string {
-	if e.SecurityIdentity == nil {
-		return []string{}
-	}
-
-	return e.SecurityIdentity.Labels.GetModel()
-}
-
-// GetLabelsSHA returns the SHA of labels
-func (e *Endpoint) GetLabelsSHA() string {
-	if e.SecurityIdentity == nil {
-		return ""
-	}
-
-	return e.SecurityIdentity.GetLabelsSHA256()
-}
-
 // GetIPv4Address returns the IPv4 address of the endpoint
 func (e *Endpoint) GetIPv4Address() string {
 	return e.IPv4.String()
