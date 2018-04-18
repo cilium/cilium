@@ -17,6 +17,8 @@ package proxy
 import (
 	"encoding/json"
 	"fmt"
+	"io"
+	"net"
 	"time"
 
 	"github.com/cilium/cilium/pkg/completion"
@@ -31,7 +33,6 @@ import (
 
 	"github.com/optiopay/kafka/proto"
 	"github.com/sirupsen/logrus"
-	"net"
 )
 
 const (
@@ -346,7 +347,9 @@ func (k *kafkaRedirect) handleRequests(done <-chan struct{}, pair *connectionPai
 		}
 
 		if err != nil {
-			scopedLog.WithError(err).Error("Unable to parse Kafka request; closing Kafka request connection")
+			if err != io.ErrUnexpectedEOF && err != io.EOF {
+				scopedLog.WithError(err).Error("Unable to parse Kafka request; closing Kafka request connection")
+			}
 			return
 		}
 
