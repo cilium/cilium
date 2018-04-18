@@ -15,10 +15,8 @@
 package endpoint
 
 import (
-	"encoding/json"
 	"fmt"
 	"os"
-	"path"
 	"path/filepath"
 	"reflect"
 	"strconv"
@@ -33,7 +31,6 @@ import (
 	identityPkg "github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/k8s"
-	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/policymap"
 	"github.com/cilium/cilium/pkg/metrics"
@@ -1079,7 +1076,6 @@ func (e *Endpoint) runIPIdentitySync(endpointIP addressing.CiliumIP) {
 	}
 
 	addressFamily := endpointIP.GetFamilyString()
-	ipKey := path.Join(ipcache.IPIdentitiesPath, ipcache.AddressSpace, endpointIP.String())
 
 	e.controllers.UpdateController(fmt.Sprintf("sync-%s-identity-mapping (%d)", addressFamily, e.ID),
 		controller.ControllerParams{
@@ -1098,30 +1094,24 @@ func (e *Endpoint) runIPIdentitySync(endpointIP addressing.CiliumIP) {
 					e.Mutex.RUnlock()
 					return nil
 				}
-				//identityValue := e.SecurityIdentity.ID.StringID()
-				ipIDPair := identityPkg.IPIdentityPair{
-					IP:       endpointIP.IP(),
-					ID:       e.SecurityIdentity.ID,
-					Metadata: e.FormatGlobalEndpointID(),
-				}
+
+				IP := endpointIP.IP()
+				ID := e.SecurityIdentity.ID
+				metadata := e.FormatGlobalEndpointID()
 
 				// Release lock as we do not want to have long-lasting key-value
 				// store operations resulting in lock being held for a long time.
 				e.Mutex.RUnlock()
 
-				marshaledIPIDPair, err := json.Marshal(ipIDPair)
-				if err != nil {
-					return err
-				}
-
-				if err := kvstore.Update(ipKey, marshaledIPIDPair, true); err != nil {
-					return fmt.Errorf("unable to add endpoint IP '%s' to identity '%s': %s", ipKey, marshaledIPIDPair, err)
+				if err := ipcache.UpsertIPToKVStore(IP, ID, metadata); err != nil {
+					return fmt.Errorf("unable to add endpoint IP mapping '%s'->'%d': %s", IP.String(), ID, err)
 				}
 				return nil
 			},
 			StopFunc: func() error {
-				if err := kvstore.Delete(ipKey); err != nil {
-					return fmt.Errorf("unable to delete endpoint IP '%s': %s", ipKey, err)
+				ip := endpointIP.String()
+				if err := ipcache.DeleteIPFromKVStore(ip); err != nil {
+					return fmt.Errorf("unable to delete endpoint IP '%s' from ipcache: %s", ip, err)
 				}
 				return nil
 			},
