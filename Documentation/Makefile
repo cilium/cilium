@@ -13,6 +13,7 @@ CILIUMDIR     = ../cilium
 AGENTDIR      = ../daemon
 BUGTOOLDIR    = ../bugtool
 HEALTHDIR     = ../cilium-health
+SPELLING_LIST = spelling_wordlist.txt
 
 # Put it first so that "make" without argument is like "make help".
 help:
@@ -47,9 +48,9 @@ spellcheck: check-requirements
 	@$(ECHO_CHECK) documentation spelling...
 	$(SPHINXBUILD) -b spelling -d "$(BUILDDIR)/doctrees" "$(SOURCEDIR)" "$(BUILDDIR)/spelling" $(SPHINXOPTS)
 	@if [ "$$(wc -l < "$(BUILDDIR)/spelling/output.txt")" -ne "0" ]; then \
-		echo " See Documentation/$(BUILDDIR)/spelling/output.txt for misspelled words."; \
-		echo " Please fix the spelling, or if they are not misspelled,"; \
-		echo " add them to Documentation/spelling_wordlist.txt"; \
+		echo "Please fix the following spelling mistakes:"; \
+		sed 's/^/* Documentation\//' $(BUILDDIR)/spelling/output.txt; \
+		echo "If the words are not misspelled, add them to Documentation/$(SPELLING_LIST)."; \
 		exit 1; \
 	fi
 
