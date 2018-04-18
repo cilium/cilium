@@ -16,7 +16,9 @@ package endpoint
 
 import (
 	"fmt"
+	"os"
 	"path/filepath"
+	"strconv"
 )
 
 func (e *Endpoint) directoryPath() string {
@@ -34,4 +36,25 @@ func FilterEPDir(dirFiles []os.FileInfo) []string {
 		}
 	}
 	return eptsID
+}
+
+func (e *Endpoint) removeDirectory() {
+	os.RemoveAll(e.directoryPath())
+}
+
+func (e *Endpoint) RemoveDirectory() {
+	e.Mutex.Lock()
+	defer e.Mutex.Unlock()
+	e.removeDirectory()
+}
+
+func (e *Endpoint) CreateDirectory() error {
+	e.Mutex.Lock()
+	defer e.Mutex.Unlock()
+	lxcDir := e.directoryPath()
+	if err := os.MkdirAll(lxcDir, 0777); err != nil {
+		return fmt.Errorf("unable to create endpoint directory: %s", err)
+	}
+
+	return nil
 }
