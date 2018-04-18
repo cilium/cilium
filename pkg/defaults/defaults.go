@@ -73,4 +73,7 @@ const (
 	// DefaultMapRootFallback is the path which is used when /sys/fs/bpf has
 	// a mount, but with the other filesystem than BPFFS.
 	DefaultMapRootFallback = "/run/cilium/bpffs"
+
+	// DefaultMapPrefix is the default prefix for all BPF maps.
+	DefaultMapPrefix = "tc/globals"
 )
