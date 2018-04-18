@@ -20,7 +20,6 @@ import (
 	"fmt"
 	"net"
 	"os"
-	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
@@ -484,19 +483,6 @@ func parseBase64ToEndpoint(str string, ep *Endpoint) error {
 		return err
 	}
 	return json.Unmarshal(jsonBytes, ep)
-}
-
-// FilterEPDir returns a list of directories' names that possible belong to an endpoint.
-func FilterEPDir(dirFiles []os.FileInfo) []string {
-	eptsID := []string{}
-	for _, file := range dirFiles {
-		if file.IsDir() {
-			if _, err := strconv.ParseUint(file.Name(), 10, 16); err == nil {
-				eptsID = append(eptsID, file.Name())
-			}
-		}
-	}
-	return eptsID
 }
 
 // ParseEndpoint parses the given strEp which is in the form of:
