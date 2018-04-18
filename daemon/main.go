@@ -607,11 +607,7 @@ func initEnv(cmd *cobra.Command) {
 	// the path to an already mounted filesystem instead. This is
 	// useful if the daemon is being round inside a namespace and the
 	// BPF filesystem is mapped into the slave namespace.
-	if bpfRoot != "" {
-		bpf.SetMapRoot(bpfRoot)
-	}
-
-	bpf.MountFS()
+	bpf.CheckOrMountFS(bpfRoot)
 
 	logging.DefaultLogLevel = defaults.DefaultLogLevel
 	option.Config.Opts.Set(option.Debug, viper.GetBool("debug"))
