@@ -16,12 +16,14 @@ package endpoint
 
 import (
 	"fmt"
+	"time"
+
 	"github.com/cilium/cilium/pkg/controller"
+	"github.com/cilium/cilium/pkg/labels"
 
 	identityPkg "github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/sirupsen/logrus"
-	"time"
 )
 
 func (e *Endpoint) identityResolutionIsObsolete(myChangeRev int) bool {
@@ -130,6 +132,70 @@ func (e *Endpoint) identityLabelsChanged(owner Owner, myChangeRev int) error {
 	if ready {
 		e.Regenerate(owner, "updated security labels")
 	}
+
+	return nil
+}
+
+// ModifyIdentityLabels changes the identity relevant labels of an endpoint.
+// labels can be added or deleted. If a net label changed is performed, the
+// endpoint will receive a new identity and will be regenerated. Both of these
+// operations will happen in the background.
+func (e *Endpoint) ModifyIdentityLabels(owner Owner, addLabels, delLabels labels.Labels) error {
+	e.Mutex.Lock()
+	defer e.Mutex.Unlock()
+
+	newLabels := e.OpLabels.DeepCopy()
+
+	if len(delLabels) > 0 {
+		for k := range delLabels {
+			// The change request is accepted if the label is on
+			// any of the lists. If the label is already disabled,
+			// we will simply ignore that change.
+			if newLabels.OrchestrationIdentity[k] != nil ||
+				newLabels.Custom[k] != nil ||
+				newLabels.Disabled[k] != nil {
+				break
+			}
+
+			return fmt.Errorf("label %s not found", k)
+		}
+	}
+
+	if len(delLabels) > 0 {
+		for k, v := range delLabels {
+			if newLabels.OrchestrationIdentity[k] != nil {
+				delete(newLabels.OrchestrationIdentity, k)
+				newLabels.Disabled[k] = v
+			}
+
+			if newLabels.Custom[k] != nil {
+				delete(newLabels.Custom, k)
+			}
+		}
+	}
+
+	if len(addLabels) > 0 {
+		for k, v := range addLabels {
+			if newLabels.Disabled[k] != nil {
+				delete(newLabels.Disabled, k)
+				newLabels.OrchestrationIdentity[k] = v
+			} else if newLabels.OrchestrationIdentity[k] == nil {
+				newLabels.Custom[k] = v
+			}
+		}
+	}
+
+	e.OpLabels = *newLabels
+
+	// Mark with StateWaitingForIdentity, it will be set to
+	// StateWaitingToRegenerate after the identity resolution has been
+	// completed
+	e.SetStateLocked(StateWaitingForIdentity, "Triggering identity resolution due to updated security labels")
+
+	e.identityRevision++
+	rev := e.identityRevision
+
+	e.runLabelsResolver(owner, rev)
 
 	return nil
 }
