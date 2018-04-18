@@ -952,16 +952,6 @@ func (e *Endpoint) GetDockerNetworkID() string {
 	return id
 }
 
-// bumpPolicyRevision marks the endpoint to be running the next scheduled
-// policy revision as setup by e.regenerate(). endpoint.Mutex should not be held.
-func (e *Endpoint) bumpPolicyRevision(revision uint64) {
-	e.Mutex.Lock()
-	if revision > e.policyRevision {
-		e.setPolicyRevision(revision)
-	}
-	e.Mutex.Unlock()
-}
-
 // OnProxyPolicyUpdate is a callback used to update the Endpoint's
 // proxyPolicyRevision when the specified revision has been applied in the
 // proxy.

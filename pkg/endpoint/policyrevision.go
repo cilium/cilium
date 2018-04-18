@@ -74,3 +74,13 @@ func (e *Endpoint) setPolicyRevision(rev uint64) {
 		}
 	}
 }
+
+// bumpPolicyRevision marks the endpoint to be running the next scheduled
+// policy revision as setup by e.regenerate(). endpoint.Mutex should not be held.
+func (e *Endpoint) bumpPolicyRevision(revision uint64) {
+	e.Mutex.Lock()
+	if revision > e.policyRevision {
+		e.setPolicyRevision(revision)
+	}
+	e.Mutex.Unlock()
+}
