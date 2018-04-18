@@ -205,8 +205,8 @@ This box will need to be updated when a new developer needs a new dependency
 that is not installed in the current version of the box, or if a dependency that
 is cached within the box becomes stale.
 
-Testing
--------
+Unit Testing
+------------
 
 Cilium uses the standard `go test <https://golang.org/pkg/testing/>`__ framework
 in combination with `gocheck <http://labix.org/gocheck>`__ for richer testing
@@ -220,14 +220,14 @@ project root directory:
 
 ::
 
-    $ make tests
+    $ make unit-tests
 
 .. Warning::
 
- Make tests executes envoy tests. This can sometimes cause the developer VM to
- run out of memory. This pressure can be alleviated by shutting down the bazel
- caching daemon left by these tests. Run ``(cd envoy; bazel shutdown)`` after
- a build to do this.
+ Running envoy unit tests  can sometimes cause the developer VM to run out of
+ memory. This pressure can be alleviated by shutting down the bazel caching
+ daemon left by these tests. Run ``(cd envoy; bazel shutdown)`` after a build to
+ do this.
 
 Testing individual packages
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -285,19 +285,20 @@ run this in a terminal next to your editor:
 This shell script depends on the ``inotify-tools`` package on Linux.
 
 
-Development Cycle (Bash Script Framework)
+Testing Cilium Locally Using Developer VM
 -----------------------------------------
 
-The Vagrantfile in the Cilium repo root (hereon just ``Vagrantfile``),
-always provisions Cilium build and install when the VM is started.
+The Vagrantfile in the Cilium repo root (hereon just ``Vagrantfile``), exists
+specifically for the ease of provisioning and testing Cilium locally for
+developers. When the VM is started, it builds and installs Cilium.
 After the initial build and install you can do further building and
 testing incrementally inside the VM. ``vagrant ssh`` takes you to the
 Cilium source tree directory
 (``/home/vagrant/go/src/github.com/cilium/cilium``) by default, and the
-following commands assume that being your current directory.
+following commands assume that you are working within that directory.
 
-Build
-~~~~~
+Build Cilium
+~~~~~~~~~~~~
 
 Assuming you have synced (rsync) the source tree after you have made
 changes, or the tree is automatically in sync via NFS or guest
@@ -311,10 +312,10 @@ A successful build should be followed by running the unit tests:
 
 ::
 
-    $ make tests
+    $ make unit-tests
 
-Install
-~~~~~~~
+Install Cilium
+~~~~~~~~~~~~~~
 
 After a successful build and test you can re-install Cilium by:
 
@@ -339,38 +340,16 @@ commands, respectively:
     $ sudo systemctl status cilium
     $ cilium status
 
-.. _testsuite:
-
-Runtime Tests
-~~~~~~~~~~~~~
-
-.. Warning::
-
-  Running the testsuite will modify the host environment. If you are using the
-  default VM that might not be an issue, but if you are running bare-metal or a
-  different VM the tests might fail or worst case remove possibly important
-  configuration. Specifically, they are modifying the state and configuration of
-  the system including, changes to ``iptables`` configuration, kernel
-  configuration via ``sysctl``, adding and removing networking devices, routes,
-  etc. via ``iproute2``. Please note this is not meant to be a complete summary,
-  but a heads-up if you are planning to run the testsuite somewhere else than in
-  the developer VM.
-
-After the new version of Cilium is running, you should run the runtime tests:
-
-::
-
-    $ sudo make runtime-tests
-
-Development Cycle (Ginkgo Framework)
-------------------------------------
+End-To-End Testing Framework
+----------------------------
 
 Introduction
 ~~~~~~~~~~~~
 
-There is ongoing progress to move over to a more robust testing framework than
-a collection of Bash scripts for testing Cilium. `Ginkgo <https://onsi.github.io/ginkgo>`_
-has been chosen as this testing framework
+Cilium uses `Ginkgo <https://onsi.github.io/ginkgo>`_ as a testing framework for
+writing end-to-end tests which test Cilium all the way from the API level (e.g. 
+importing policies, CLI) to the datapath (i.e, whether policy that is imported
+is enforced accordingly in the datapath).
 The tests in the ``test`` directory are built on top of Ginkgo. Ginkgo provides
 a rich framework for developing tests alongside the benefits of Golang
 (compilation-time checks, types, etc.). To get accustomed to the basics of
@@ -389,8 +368,8 @@ determine which VMs are necessary to run particular tests. All test names
   features beyond a single host, and for testing kubernetes-specific features.
 * ``Nightly``: sets up a multinode Kubernetes cluster to run scale, performance, and chaos testing for Cilium.
 
-Running Tests
-~~~~~~~~~~~~~
+Running End-To-End Tests
+~~~~~~~~~~~~~~~~~~~~~~~~
 
 Running All Tests
 ^^^^^^^^^^^^^^^^^
@@ -738,10 +717,10 @@ Example how to run ginkgo using ``dlv``:
 	dlv test . -- --ginkgo.focus="Runtime" -ginkgo.v=true --cilium.provision=false
 
 
-Running test in other VMs
-~~~~~~~~~~~~~~~~~~~~~~~~~
+Running End-To-End Tests In Other Environments
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-If you want to run test in a different VM, you can use ``--cilium.SSHConfig`` to
+If you want to run tests in a different VM, you can use ``--cilium.SSHConfig`` to
 provide the SSH configuration of the endpoint on which tests will be ran. The
 tests presume the following on the remote instance:
 
