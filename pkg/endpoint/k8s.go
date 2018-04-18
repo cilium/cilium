@@ -16,6 +16,8 @@ package endpoint
 
 import (
 	"errors"
+	"sync"
+
 	"github.com/cilium/cilium/pkg/k8s"
 	cilium_client_v2 "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/cilium.io/v2"
 	"k8s.io/client-go/rest"
@@ -38,6 +40,8 @@ import (
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+
+	go_version "github.com/hashicorp/go-version"
 )
 
 const (
@@ -47,6 +51,18 @@ const (
 
 	// HealthCEPPrefix is the prefix used to name the cilium health endpoints' CEP
 	HealthCEPPrefix = "cilium-health-"
+)
+
+var (
+	// ciliumEPControllerLimit is the range of k8s versions with which we are
+	// willing to run the EndpointCRD controllers
+	ciliumEPControllerLimit, _ = go_version.NewConstraint("> 1.6")
+
+	// ciliumEndpointSyncControllerK8sClient is a k8s client shared by the
+	// RunK8sCiliumEndpointSync and RunK8sCiliumEndpointSyncGC. They obtain the
+	// controller via getCiliumClient and the sync.Once is used to avoid race.
+	ciliumEndpointSyncControllerOnce      sync.Once
+	ciliumEndpointSyncControllerK8sClient clientset.Interface
 )
 
 // GetK8sNamespace returns the name of the pod if the endpoint represents a

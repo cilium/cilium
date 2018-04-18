@@ -19,10 +19,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"net"
-	"os"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/cilium/cilium/api/v1/models"
@@ -30,15 +28,12 @@ import (
 	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/controller"
 	identityPkg "github.com/cilium/cilium/pkg/identity"
-	clientset "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned"
 	pkgLabels "github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/mac"
 	"github.com/cilium/cilium/pkg/maps/policymap"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
-	go_version "github.com/hashicorp/go-version"
-
 	"github.com/sirupsen/logrus"
 )
 
@@ -146,16 +141,6 @@ var (
 	}
 
 	EndpointOptionLibrary = option.OptionLibrary{}
-
-	// ciliumEPControllerLimit is the range of k8s versions with which we are
-	// willing to run the EndpointCRD controllers
-	ciliumEPControllerLimit, _ = go_version.NewConstraint("> 1.6")
-
-	// ciliumEndpointSyncControllerK8sClient is a k8s client shared by the
-	// RunK8sCiliumEndpointSync and RunK8sCiliumEndpointSyncGC. They obtain the
-	// controller via getCiliumClient and the sync.Once is used to avoid race.
-	ciliumEndpointSyncControllerOnce      sync.Once
-	ciliumEndpointSyncControllerK8sClient clientset.Interface
 )
 
 func init() {
