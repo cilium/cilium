@@ -1011,33 +1011,6 @@ func (e *Endpoint) getProxyStatisticsLocked(l7Protocol string, port uint16, ingr
 	return proxyStats
 }
 
-// UpdateProxyStatistics updates the Endpoint's proxy  statistics to account
-// for a new observed flow with the given characteristics.
-func (e *Endpoint) UpdateProxyStatistics(l7Protocol string, port uint16, ingress, request bool, verdict accesslog.FlowVerdict) {
-	e.proxyStatisticsMutex.Lock()
-	defer e.proxyStatisticsMutex.Unlock()
-
-	proxyStats := e.getProxyStatisticsLocked(l7Protocol, port, ingress)
-
-	var stats *models.MessageForwardingStatistics
-	if request {
-		stats = proxyStats.Statistics.Requests
-	} else {
-		stats = proxyStats.Statistics.Responses
-	}
-
-	stats.Received++
-
-	switch verdict {
-	case accesslog.VerdictForwarded:
-		stats.Forwarded++
-	case accesslog.VerdictDenied:
-		stats.Denied++
-	case accesslog.VerdictError:
-		stats.Error++
-	}
-}
-
 // APICanModify determines whether API requests from a user are allowed to
 // modify this endpoint.
 func APICanModify(e *Endpoint) error {
