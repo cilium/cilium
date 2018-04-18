@@ -23,7 +23,7 @@ var policiesTestSuite = PolicyTestSuite{
 				"fromEndpoints": `[{}]`,
 			},
 		},
-		{
+		/*{
 			name:  "Ingress Label",
 			kind:  ingress,
 			tests: ConnResultAllOK,
@@ -38,7 +38,7 @@ var policiesTestSuite = PolicyTestSuite{
 			template: map[string]string{
 				"fromEndpoints": `[{"matchLabels": { "id": "{{.SrcPod}}Invalid"}}]`,
 			},
-		},
+		},*/
 		{
 			name:  "Egress Label",
 			kind:  egress,
