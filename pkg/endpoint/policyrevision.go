@@ -39,3 +39,21 @@ func (e *Endpoint) WaitForPolicyRevision(ctx context.Context, rev uint64) <-chan
 	e.policyRevisionSignals[ps] = true
 	return ch
 }
+
+// cleanPolicySignals closes and removes all policy revision signals.
+func (e *Endpoint) cleanPolicySignals() {
+	for w := range e.policyRevisionSignals {
+		close(w.ch)
+	}
+	e.policyRevisionSignals = map[policySignal]bool{}
+}
+
+// policySignal is used to mark when a wanted policy wantedRev is reached
+type policySignal struct {
+	// wantedRev specifies which policy revision the signal wants.
+	wantedRev uint64
+	// ch is the channel that signalizes once the policy revision wanted is reached.
+	ch chan struct{}
+	// ctx is the context for the policy signal request.
+	ctx context.Context
+}

@@ -22,7 +22,6 @@ import (
 	"net"
 	"os"
 	"path/filepath"
-	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -42,8 +41,6 @@ import (
 	"github.com/cilium/cilium/pkg/maps/policymap"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
-	"github.com/cilium/cilium/pkg/proxy/accesslog"
-
 	go_version "github.com/hashicorp/go-version"
 
 	"github.com/sirupsen/logrus"
@@ -1036,24 +1033,6 @@ func (e *Endpoint) setPolicyRevision(rev uint64) {
 			}
 		}
 	}
-}
-
-// cleanPolicySignals closes and removes all policy revision signals.
-func (e *Endpoint) cleanPolicySignals() {
-	for w := range e.policyRevisionSignals {
-		close(w.ch)
-	}
-	e.policyRevisionSignals = map[policySignal]bool{}
-}
-
-// policySignal is used to mark when a wanted policy wantedRev is reached
-type policySignal struct {
-	// wantedRev specifies which policy revision the signal wants.
-	wantedRev uint64
-	// ch is the channel that signalizes once the policy revision wanted is reached.
-	ch chan struct{}
-	// ctx is the context for the policy signal request.
-	ctx context.Context
 }
 
 // IPs returns the slice of valid IPs for this endpoint.
