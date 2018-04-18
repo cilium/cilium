@@ -162,8 +162,6 @@ spec:
           initialDelaySeconds: 5
           periodSeconds: 5
         volumeMounts:
-          - name: bpf-maps
-            mountPath: /sys/fs/bpf
           - name: cilium-run
             mountPath: /var/run/cilium
           - name: cni-path
@@ -183,6 +181,7 @@ spec:
           capabilities:
             add:
               - "NET_ADMIN"
+              - "SYS_ADMIN"
           privileged: true
       hostNetwork: true
       volumes:
@@ -190,10 +189,6 @@ spec:
         - name: cilium-run
           hostPath:
             path: /var/run/cilium
-          # To keep state between restarts / upgrades
-        - name: bpf-maps
-          hostPath:
-            path: /sys/fs/bpf
           # To read docker events from the node
         - name: docker-socket
           hostPath:
