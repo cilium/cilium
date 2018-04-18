@@ -689,19 +689,6 @@ func (e *Endpoint) Update(owner Owner, cfg *models.EndpointConfigurationSpec) er
 	return nil
 }
 
-func (e *Endpoint) replaceInformationLabels(l pkgLabels.Labels) {
-	e.Mutex.Lock()
-	e.OpLabels.OrchestrationInfo.MarkAllForDeletion()
-
-	for _, v := range l {
-		if e.OpLabels.OrchestrationInfo.UpsertLabel(v) {
-			e.getLogger().WithField(logfields.Labels, logfields.Repr(v)).Debug("Assigning information label")
-		}
-	}
-	e.OpLabels.OrchestrationInfo.DeleteMarked()
-	e.Mutex.Unlock()
-}
-
 // LeaveLocked removes the endpoint's directory from the system. Must be called
 // with Endpoint's mutex AND BuildMutex locked.
 func (e *Endpoint) LeaveLocked(owner Owner) []error {

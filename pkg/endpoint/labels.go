@@ -21,6 +21,19 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+func (e *Endpoint) replaceInformationLabels(l labels.Labels) {
+	e.Mutex.Lock()
+	e.OpLabels.OrchestrationInfo.MarkAllForDeletion()
+
+	for _, v := range l {
+		if e.OpLabels.OrchestrationInfo.UpsertLabel(v) {
+			e.getLogger().WithField(logfields.Labels, logfields.Repr(v)).Debug("Assigning information label")
+		}
+	}
+	e.OpLabels.OrchestrationInfo.DeleteMarked()
+	e.Mutex.Unlock()
+}
+
 // UpdateLabels is called to update the labels of an endpoint. Calls to this
 // function do not necessarily mean that the labels actually changed. The
 // container runtime layer will periodically synchronize labels.
