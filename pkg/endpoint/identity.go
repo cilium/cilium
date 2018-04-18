@@ -211,3 +211,38 @@ func (e *Endpoint) getIDandLabels() string {
 
 	return fmt.Sprintf("%d (%s)", e.ID, labels)
 }
+
+// replaceIdentityLabels replaces the identity labels of an endpoint. If a net
+// changed occurred, the identityRevision is bumped and return, otherwise 0 is
+// returned.
+func (e *Endpoint) replaceIdentityLabels(l labels.Labels) int {
+	e.Mutex.Lock()
+	changed := false
+
+	e.OpLabels.OrchestrationIdentity.MarkAllForDeletion()
+	e.OpLabels.Disabled.MarkAllForDeletion()
+
+	for k, v := range l {
+		// A disabled identity label stays disabled without value updates
+		if e.OpLabels.Disabled[k] != nil {
+			e.OpLabels.Disabled[k].ClearDeletionMark()
+		} else if e.OpLabels.OrchestrationIdentity.UpsertLabel(v) {
+			e.getLogger().WithField(logfields.Labels, logfields.Repr(v)).Debug("Assigning security relevant label")
+			changed = true
+		}
+	}
+
+	if e.OpLabels.OrchestrationIdentity.DeleteMarked() || e.OpLabels.Disabled.DeleteMarked() {
+		changed = true
+	}
+
+	rev := 0
+	if changed {
+		e.identityRevision++
+		rev = e.identityRevision
+	}
+
+	e.Mutex.Unlock()
+
+	return rev
+}
