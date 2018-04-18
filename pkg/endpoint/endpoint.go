@@ -1056,30 +1056,6 @@ type policySignal struct {
 	ctx context.Context
 }
 
-// WaitForPolicyRevision returns a channel that is closed when one or more of
-// the following conditions have met:
-//  - the endpoint is disconnected state
-//  - the endpoint's policy revision reaches the wanted revision
-func (e *Endpoint) WaitForPolicyRevision(ctx context.Context, rev uint64) <-chan struct{} {
-	e.Mutex.Lock()
-	defer e.Mutex.Unlock()
-	ch := make(chan struct{})
-	if e.policyRevision >= rev || e.state == StateDisconnected {
-		close(ch)
-		return ch
-	}
-	ps := policySignal{
-		wantedRev: rev,
-		ctx:       ctx,
-		ch:        ch,
-	}
-	if e.policyRevisionSignals == nil {
-		e.policyRevisionSignals = map[policySignal]bool{}
-	}
-	e.policyRevisionSignals[ps] = true
-	return ch
-}
-
 // IPs returns the slice of valid IPs for this endpoint.
 func (e *Endpoint) IPs() []net.IP {
 	ips := []net.IP{}
