@@ -295,11 +295,6 @@ func (e *Endpoint) String() string {
 	return string(b)
 }
 
-// ForcePolicyCompute marks the endpoint for forced bpf regeneration.
-func (e *Endpoint) ForcePolicyCompute() {
-	e.forcePolicyCompute = true
-}
-
 // Update modifies the endpoint options and *always* tries to regenerate the
 // endpoint's program. Returns an error if the provided options are not valid,
 // if there was an issue triggering policy updates for the given endpoint,
