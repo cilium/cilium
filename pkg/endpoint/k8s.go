@@ -49,6 +49,44 @@ const (
 	HealthCEPPrefix = "cilium-health-"
 )
 
+// GetK8sNamespace returns the name of the pod if the endpoint represents a
+// Kubernetes pod
+func (e *Endpoint) GetK8sNamespace() string {
+	e.Mutex.RLock()
+	defer e.Mutex.RUnlock()
+
+	return e.k8sNamespace
+}
+
+// SetK8sNamespace modifies the endpoint's pod name
+func (e *Endpoint) SetK8sNamespace(name string) {
+	e.Mutex.Lock()
+	e.k8sNamespace = name
+	e.Mutex.Unlock()
+}
+
+// GetK8sPodName returns the name of the pod if the endpoint represents a
+// Kubernetes pod
+func (e *Endpoint) GetK8sPodName() string {
+	e.Mutex.RLock()
+	defer e.Mutex.RUnlock()
+
+	return e.k8sPodName
+}
+
+// GetK8sNamespaceAndPodNameLocked returns the namespace and pod name.  This
+// function requires e.Mutex to be held.
+func (e *Endpoint) GetK8sNamespaceAndPodNameLocked() string {
+	return e.k8sNamespace + ":" + e.k8sPodName
+}
+
+// SetK8sPodName modifies the endpoint's pod name
+func (e *Endpoint) SetK8sPodName(name string) {
+	e.Mutex.Lock()
+	e.k8sPodName = name
+	e.Mutex.Unlock()
+}
+
 // getCiliumClient builds and returns a k8s auto-generated client for cilium
 // objects
 func getCiliumClient() (ciliumClient cilium_client_v2.CiliumV2Interface, err error) {
