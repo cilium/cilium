@@ -196,7 +196,7 @@ policy_can_egress(struct __sk_buff *skb, __u16 identity, __u16 dport, __u8 proto
 	if (ret >= 0)
 		return ret;
 
-	cilium_dbg(skb, DBG_POLICY_DENIED, identity, SECLABEL);
+	cilium_dbg(skb, DBG_POLICY_DENIED, SECLABEL, identity);
 #ifndef IGNORE_DROP
 	return DROP_POLICY;
 #endif
