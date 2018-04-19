@@ -129,7 +129,6 @@ PolicyHostMap::PolicyHostMap(std::unique_ptr<Envoy::Config::Subscription<cilium:
 			     ThreadLocal::SlotAllocator& tls)
   : PolicyHostMap(tls) {
   subscription_ = std::move(subscription);
-  subscription_->start({}, *this);
 }
 
 PolicyHostMap::PolicyHostMap(const envoy::api::v2::core::Node& node, Upstream::ClusterManager& cm,
@@ -154,8 +153,16 @@ void PolicyHostMap::onConfigUpdate(const ResourceVector& resources) {
     newmap->insert(config);
   }
 
+  // Force 'this' to be not deleted for as long as the lambda stays
+  // alive.  Note that generally capturing a shared pointer is
+  // dangerous as it may happen that there is a circular reference
+  // from 'this' to itself via the lambda capture, leading to 'this'
+  // never being released. It should happen in this case, though.
+  std::shared_ptr<PolicyHostMap> shared_this = shared_from_this();
+
   // Assign the new map to all threads.
-  tls_->set([newmap](Event::Dispatcher&) -> ThreadLocal::ThreadLocalObjectSharedPtr {
+  tls_->set([shared_this, newmap](Event::Dispatcher&) -> ThreadLocal::ThreadLocalObjectSharedPtr {
+      UNREFERENCED_PARAMETER(shared_this);
       return newmap;
   });
 }

@@ -125,8 +125,10 @@ createHostMap(const std::string& config, Server::Configuration::ListenerFactoryC
 	  std::make_unique<Envoy::Config::FilesystemSubscriptionImpl<cilium::NetworkPolicyHosts>>(
               context.dispatcher(), path, stats);
        
-        return std::make_shared<Cilium::PolicyHostMap>(std::move(subscription),
-						       context.threadLocal());
+        auto map = std::make_shared<Cilium::PolicyHostMap>(std::move(subscription),
+							   context.threadLocal());
+        map->startSubscription();
+        return map;
     });
 }
 
@@ -185,7 +187,9 @@ createPolicyMap(const std::string& config, Server::Configuration::FactoryContext
         Envoy::Config::SubscriptionStats stats = Envoy::Config::Utility::generateStats(context.scope());
         auto subscription = std::make_unique<Envoy::Config::FilesystemSubscriptionImpl<cilium::NetworkPolicy>>(context.dispatcher(), path, stats);
        
-        return std::make_shared<Cilium::NetworkPolicyMap>(std::move(subscription), context.threadLocal());
+        auto map = std::make_shared<Cilium::NetworkPolicyMap>(std::move(subscription), context.threadLocal());
+	map->startSubscription();
+	return map;
       });
 }
 
@@ -383,31 +387,31 @@ resources:
   host_addresses: [ "0.0.0.0/0", "::/0" ]
 )EOF";
 
-  std::string path = TestEnvironment::writeStringToFileForTest("host_map_fail.yaml", config);
+  std::string path = TestEnvironment::writeStringToFileForTest("host_map_success.yaml", config);
   envoy::api::v2::DiscoveryResponse message;
   ThreadLocal::InstanceImpl tls;
 
   MessageUtil::loadFromFile(path, message);
   const auto typed_resources = Config::Utility::getTypedResources<cilium::NetworkPolicyHosts>(message);
-  Envoy::Cilium::PolicyHostMap hmap(tls);
+  auto hmap = std::make_shared<Envoy::Cilium::PolicyHostMap>(tls);
 
-  VERBOSE_EXPECT_NO_THROW(hmap.onConfigUpdate(typed_resources));
+  VERBOSE_EXPECT_NO_THROW(hmap->onConfigUpdate(typed_resources));
 
-  EXPECT_EQ(hmap.resolve(Network::Address::Ipv4Instance("192.168.0.1").ip()), 173);
-  EXPECT_EQ(hmap.resolve(Network::Address::Ipv4Instance("192.168.0.0").ip()), 2);
-  EXPECT_EQ(hmap.resolve(Network::Address::Ipv4Instance("192.168.0.2").ip()), 2);
-  EXPECT_EQ(hmap.resolve(Network::Address::Ipv4Instance("127.0.0.1").ip()), 1);
-  EXPECT_EQ(hmap.resolve(Network::Address::Ipv4Instance("127.0.0.2").ip()), 11);
-  EXPECT_EQ(hmap.resolve(Network::Address::Ipv4Instance("126.0.0.2").ip()), 2);
-  EXPECT_EQ(hmap.resolve(Network::Address::Ipv4Instance("128.0.0.0").ip()), 2);
-  EXPECT_EQ(hmap.resolve(Network::Address::Ipv6Instance("::1").ip()), 1);
-  EXPECT_EQ(hmap.resolve(Network::Address::Ipv6Instance("::").ip()), 2);
-  EXPECT_EQ(hmap.resolve(Network::Address::Ipv6Instance("f00d::1").ip()), 173);
-  EXPECT_EQ(hmap.resolve(Network::Address::Ipv6Instance("f00d::").ip()), 2);
-  EXPECT_EQ(hmap.resolve(Network::Address::Ipv6Instance("beef::1.2.3.4").ip()), 11);
-  EXPECT_EQ(hmap.resolve(Network::Address::Ipv6Instance("beef:0:0:1::").ip()), 11);
-  EXPECT_EQ(hmap.resolve(Network::Address::Ipv6Instance("beef:0:0:1::42").ip()), 11);
-  EXPECT_EQ(hmap.resolve(Network::Address::Ipv6Instance("beef:0:0:2::").ip()), 2);
+  EXPECT_EQ(hmap->resolve(Network::Address::Ipv4Instance("192.168.0.1").ip()), 173);
+  EXPECT_EQ(hmap->resolve(Network::Address::Ipv4Instance("192.168.0.0").ip()), 2);
+  EXPECT_EQ(hmap->resolve(Network::Address::Ipv4Instance("192.168.0.2").ip()), 2);
+  EXPECT_EQ(hmap->resolve(Network::Address::Ipv4Instance("127.0.0.1").ip()), 1);
+  EXPECT_EQ(hmap->resolve(Network::Address::Ipv4Instance("127.0.0.2").ip()), 11);
+  EXPECT_EQ(hmap->resolve(Network::Address::Ipv4Instance("126.0.0.2").ip()), 2);
+  EXPECT_EQ(hmap->resolve(Network::Address::Ipv4Instance("128.0.0.0").ip()), 2);
+  EXPECT_EQ(hmap->resolve(Network::Address::Ipv6Instance("::1").ip()), 1);
+  EXPECT_EQ(hmap->resolve(Network::Address::Ipv6Instance("::").ip()), 2);
+  EXPECT_EQ(hmap->resolve(Network::Address::Ipv6Instance("f00d::1").ip()), 173);
+  EXPECT_EQ(hmap->resolve(Network::Address::Ipv6Instance("f00d::").ip()), 2);
+  EXPECT_EQ(hmap->resolve(Network::Address::Ipv6Instance("beef::1.2.3.4").ip()), 11);
+  EXPECT_EQ(hmap->resolve(Network::Address::Ipv6Instance("beef:0:0:1::").ip()), 11);
+  EXPECT_EQ(hmap->resolve(Network::Address::Ipv6Instance("beef:0:0:1::42").ip()), 11);
+  EXPECT_EQ(hmap->resolve(Network::Address::Ipv6Instance("beef:0:0:2::").ip()), 2);
 
   tls.shutdownGlobalThreading();
 }
