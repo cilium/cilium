@@ -60,6 +60,7 @@ import (
 	"github.com/cilium/cilium/pkg/maps/proxymap"
 	"github.com/cilium/cilium/pkg/maps/tunnel"
 	"github.com/cilium/cilium/pkg/monitor"
+	"github.com/cilium/cilium/pkg/mtu"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/proxy"
@@ -695,6 +696,7 @@ func (d *Daemon) compileBase() error {
 		}
 
 		args[initArgMode] = d.conf.Tunnel
+		mtu.UseMTU(mtu.TunnelMTU)
 	}
 
 	prog := filepath.Join(d.conf.BpfDir, "init.sh")
