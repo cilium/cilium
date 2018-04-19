@@ -62,7 +62,7 @@ pipeline {
             steps {
                 parallel(
                     "Nightly":{
-                        sh 'cd ${TESTDIR}; ginkgo --focus="Nightly*" -v --timeout 390m --failFast=${FAILFAST}'
+                        sh 'cd ${TESTDIR}; ginkgo --focus="Nightly*" -v --timeout 390m --failFast=true'
                     },
                 )
             }
@@ -77,36 +77,36 @@ pipeline {
             }
         }
 
-        stage('Kubernetes tests') {
-            steps {
-                parallel(
-                    "K8s-1.7":{
-                        sh 'cd ${TESTDIR}; K8S_VERSION=1.7 ginkgo --focus=" K8s*" -v'
-                    },
-                   "K8s-1.8":{
-                        sh 'cd ${TESTDIR}; K8S_VERSION=1.8 ginkgo --focus=" K8s*" -v'
-                    }
-                )
-            }
-            post {
-                always {
-                    sh 'cd ${TEST_DIR}; ./archive_test_results.sh || true'
-                    archiveArtifacts artifacts: "test_results_k8s_${JOB_BASE_NAME}_${BUILD_NUMBER}.zip", allowEmptyArchive: true
-                    junit 'test/*.xml'
-                }
-            }
-        }
-        stage('Envoy Tests') {
-            steps {
-                 sh 'cd ${TESTDIR}; vagrant up runtime --no-provision'
-                 sh 'cd ${TESTDIR}; ./run-envoy-unit-tests.sh'
-            }
-            post {
-                always {
-                    sh "cd ${TESTDIR}; vagrant destroy -f || true"
-                }
-            }
-        }
+//        stage('Kubernetes tests') {
+//            steps {
+//                parallel(
+//                    "K8s-1.7":{
+//                        sh 'cd ${TESTDIR}; K8S_VERSION=1.7 ginkgo --focus=" K8s*" -v'
+//                    },
+//                   "K8s-1.8":{
+//                        sh 'cd ${TESTDIR}; K8S_VERSION=1.8 ginkgo --focus=" K8s*" -v'
+//                    }
+//                )
+//            }
+//            post {
+//                always {
+//                    sh 'cd ${TEST_DIR}; ./archive_test_results.sh || true'
+//                    archiveArtifacts artifacts: "test_results_k8s_${JOB_BASE_NAME}_${BUILD_NUMBER}.zip", allowEmptyArchive: true
+//                    junit 'test/*.xml'
+//                }
+//            }
+//        }
+//        stage('Envoy Tests') {
+//            steps {
+//                 sh 'cd ${TESTDIR}; vagrant up runtime --no-provision'
+//                 sh 'cd ${TESTDIR}; ./run-envoy-unit-tests.sh'
+//            }
+//            post {
+//                always {
+//                    sh "cd ${TESTDIR}; vagrant destroy -f || true"
+//                }
+//            }
+//        }
     }
     post {
         always {
