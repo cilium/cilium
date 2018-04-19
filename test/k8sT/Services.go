@@ -155,11 +155,23 @@ var _ = Describe("K8sValidatedServicesTest", func() {
 	})
 
 	Context("Checks service across nodes", func() {
-		It("Checks ClusterIP Connectivity", func() {
-			demoDSPath := kubectl.ManifestGet("demo_ds.yaml")
-			kubectl.Apply(demoDSPath)
-			defer kubectl.Delete(demoDSPath)
 
+		var (
+			demoYAML = kubectl.ManifestGet("demo_ds.yaml")
+		)
+
+		BeforeEach(func() {
+			res := kubectl.Apply(demoYAML)
+			res.ExpectSuccess("unable to apply %s: %s", demoYAML, res.CombineOutput())
+		})
+
+		AfterEach(func() {
+			// Explicitly ignore result of deletion of resources to avoid incomplete
+			// teardown if any step fails.
+			_ = kubectl.Delete(demoYAML)
+		})
+
+		It("Checks ClusterIP Connectivity", func() {
 			waitPodsDs()
 
 			svcIP, err := kubectl.Get(
