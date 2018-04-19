@@ -18,6 +18,7 @@ import (
 	"net"
 
 	"github.com/cilium/cilium/pkg/ip"
+	"github.com/cilium/cilium/pkg/labels"
 )
 
 // CIDR specifies a block of IP addresses.
@@ -54,10 +55,29 @@ type CIDRRule struct {
 // EndpointSelectorSlice.
 type CIDRSlice []CIDR
 
+// GetAsEndpointSelectors returns the provided CIDR slice as a slice of
+// endpoint selectors
+func (s CIDRSlice) GetAsEndpointSelectors() EndpointSelectorSlice {
+	slice := EndpointSelectorSlice{}
+	for _, cidr := range s {
+		lbl := labels.IPStringToLabel(string(cidr))
+		slice = append(slice, NewESFromLabels(lbl))
+	}
+
+	return slice
+}
+
 // CIDRRuleSlice is a slice of CIDRRules. It allows receiver methods to be
 // defined for transforming the slice into other convenient forms such as
 // EndpointSelectorSlice.
 type CIDRRuleSlice []CIDRRule
+
+// GetAsEndpointSelectors returns the provided CIDRRule slice as a slice of
+// endpoint selectors
+func (s CIDRRuleSlice) GetAsEndpointSelectors() EndpointSelectorSlice {
+	cidrs := ComputeResultantCIDRSet(s)
+	return cidrs.GetAsEndpointSelectors()
+}
 
 // ComputeResultantCIDRSet converts a slice of CIDRRules into a slice of
 // individual CIDRs. This expands the cidr defined by each CIDRRule, applies

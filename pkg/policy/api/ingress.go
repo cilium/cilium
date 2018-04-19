@@ -109,7 +109,9 @@ type IngressRule struct {
 // GetSourceEndpointSelectors returns a slice of endpoints selectors covering
 // all L3 source selectors of the ingress rule
 func (i *IngressRule) GetSourceEndpointSelectors() EndpointSelectorSlice {
-	return append(i.FromEndpoints, i.FromEntities.GetAsEndpointSelectors()...)
+	res := append(i.FromEndpoints, i.FromEntities.GetAsEndpointSelectors()...)
+	res = append(res, i.FromCIDR.GetAsEndpointSelectors()...)
+	return append(res, i.FromCIDRSet.GetAsEndpointSelectors()...)
 }
 
 // IsLabelBased returns true whether the L3 source endpoints are selected based

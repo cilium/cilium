@@ -111,7 +111,9 @@ type EgressRule struct {
 // GetDestinationEndpointSelectors returns a slice of endpoints selectors
 // covering all L3 destination selectors of the egress rule
 func (e *EgressRule) GetDestinationEndpointSelectors() EndpointSelectorSlice {
-	return append(e.ToEndpoints, e.ToEntities.GetAsEndpointSelectors()...)
+	res := append(e.ToEndpoints, e.ToEntities.GetAsEndpointSelectors()...)
+	res = append(res, e.ToCIDR.GetAsEndpointSelectors()...)
+	return append(res, e.ToCIDRSet.GetAsEndpointSelectors()...)
 }
 
 // IsLabelBased returns true whether the L3 destination endpoints are selected
