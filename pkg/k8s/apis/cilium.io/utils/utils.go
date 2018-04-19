@@ -1,4 +1,4 @@
-// Copyright 2017 Authors of Cilium
+// Copyright 2017-2018 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -161,7 +161,7 @@ func parseToCiliumEgressRule(namespace string, inRule, retRule *api.Rule) {
 			}
 
 			if egr.ToCIDRSet != nil {
-				retRule.Egress[i].ToCIDRSet = make([]api.CIDRRule, len(egr.ToCIDRSet))
+				retRule.Egress[i].ToCIDRSet = make(api.CIDRRuleSlice, len(egr.ToCIDRSet))
 				copy(retRule.Egress[i].ToCIDRSet, egr.ToCIDRSet)
 			}
 

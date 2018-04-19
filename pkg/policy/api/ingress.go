@@ -1,4 +1,4 @@
-// Copyright 2016-2017 Authors of Cilium
+// Copyright 2016-2018 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -81,7 +81,7 @@ type IngressRule struct {
 	// connections from 10.3.9.1
 	//
 	// +optional
-	FromCIDR []CIDR `json:"fromCIDR,omitempty"`
+	FromCIDR CIDRSlice `json:"fromCIDR,omitempty"`
 
 	// FromCIDRSet is a list of IP blocks which the endpoint subject to the
 	// rule is allowed to receive connections from in addition to FromEndpoints,
@@ -96,7 +96,7 @@ type IngressRule struct {
 	// connections from 10.0.0.0/8 except from IPs in subnet 10.96.0.0/12.
 	//
 	// +optional
-	FromCIDRSet []CIDRRule `json:"fromCIDRSet,omitempty"`
+	FromCIDRSet CIDRRuleSlice `json:"fromCIDRSet,omitempty"`
 
 	// FromEntities is a list of special entities which the endpoint subject
 	// to the rule is allowed to receive connections from. Supported entities are

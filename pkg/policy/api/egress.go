@@ -1,4 +1,4 @@
-// Copyright 2016-2017 Authors of Cilium
+// Copyright 2016-2018 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -73,7 +73,7 @@ type EgressRule struct {
 	// initiate connections to 10.2.3.0/24
 	//
 	// +optional
-	ToCIDR []CIDR `json:"toCIDR,omitempty"`
+	ToCIDR CIDRSlice `json:"toCIDR,omitempty"`
 
 	// ToCIDRSet is a list of IP blocks which the endpoint subject to the rule
 	// is allowed to initiate connections to in addition to connections
@@ -89,7 +89,7 @@ type EgressRule struct {
 	// initiate connections to 10.2.3.0/24 except from IPs in subnet 10.2.3.0/28.
 	//
 	// +optional
-	ToCIDRSet []CIDRRule `json:"toCIDRSet,omitempty"`
+	ToCIDRSet CIDRRuleSlice `json:"toCIDRSet,omitempty"`
 
 	// ToEntities is a list of special entities to which the endpoint subject
 	// to the rule is allowed to initiate connections. Supported entities are

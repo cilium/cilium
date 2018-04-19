@@ -16,6 +16,8 @@ package api
 
 import (
 	"net"
+
+	"github.com/cilium/cilium/pkg/ip"
 )
 
 // CIDR specifies a block of IP addresses.
@@ -47,12 +49,22 @@ type CIDRRule struct {
 	Generated bool `json:"-"`
 }
 
+// CIDRSlice is a slice of CIDRs. It allows receiver methods to be defined for
+// transforming the slice into other convenient forms such as
+// EndpointSelectorSlice.
+type CIDRSlice []CIDR
+
+// CIDRRuleSlice is a slice of CIDRRules. It allows receiver methods to be
+// defined for transforming the slice into other convenient forms such as
+// EndpointSelectorSlice.
+type CIDRRuleSlice []CIDRRule
+
 // ComputeResultantCIDRSet converts a slice of CIDRRules into a slice of
 // individual CIDRs. This expands the cidr defined by each CIDRRule, applies
 // the CIDR exceptions defined in "ExceptCIDRs", and forms a minimal set of
 // CIDRs that cover all of the CIDRRules.
-func ComputeResultantCIDRSet(cidrs []CIDRRule) []CIDR {
-	var allResultantAllowedCIDRs []CIDR
+func ComputeResultantCIDRSet(cidrs CIDRRuleSlice) CIDRSlice {
+	var allResultantAllowedCIDRs CIDRSlice
 	for _, s := range cidrs {
 		// No need for error checking, as CIDRRule.Sanitize() already does.
 		_, allowNet, _ := net.ParseCIDR(string(s.Cidr))
