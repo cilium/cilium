@@ -1,5 +1,5 @@
 def failFast = { String branch ->
-  if (branch == "origin/master" || branch == "master") {
+  if (branch == "v1.0") {
     return '--failFast=false'
   } else {
     return '--failFast=true'
