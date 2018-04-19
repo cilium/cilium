@@ -240,6 +240,12 @@ func (r *rule) resolveCIDRPolicy(ctx *SearchContext, state *traceState, result *
 		allCIDRs = append(allCIDRs, ingressRule.FromCIDR...)
 		allCIDRs = append(allCIDRs, api.ComputeResultantCIDRSet(ingressRule.FromCIDRSet)...)
 
+		// CIDR + L4 rules are handled via mergeL4Ingress(),
+		// skip them here.
+		if len(allCIDRs) > 0 && len(ingressRule.ToPorts) > 0 {
+			continue
+		}
+
 		if cnt := mergeCIDR(ctx, "Ingress", allCIDRs, r.Labels, &result.Ingress); cnt > 0 {
 			found += cnt
 		}
@@ -250,6 +256,12 @@ func (r *rule) resolveCIDRPolicy(ctx *SearchContext, state *traceState, result *
 		var allCIDRs []api.CIDR
 		allCIDRs = append(allCIDRs, egressRule.ToCIDR...)
 		allCIDRs = append(allCIDRs, api.ComputeResultantCIDRSet(egressRule.ToCIDRSet)...)
+
+		// CIDR + L4 rules are handled via mergeL4Egress(),
+		// skip them here.
+		if len(allCIDRs) > 0 && len(egressRule.ToPorts) > 0 {
+			continue
+		}
 
 		if cnt := mergeCIDR(ctx, "Egress", allCIDRs, r.Labels, &result.Egress); cnt > 0 {
 			found += cnt

@@ -88,6 +88,8 @@ type L4Filter struct {
 	// U8Proto is the Protocol in numeric format, or 0 for NONE
 	U8Proto u8proto.U8proto `json:"-"`
 	// Endpoints limits the labels for allowing traffic (to / from).
+	// This includes selectors for destinations affected by entity-based
+	// and CIDR-based policy.
 	Endpoints api.EndpointSelectorSlice `json:"-"`
 	// L7Parser specifies the L7 protocol parser (optional). If specified as
 	// an empty string, then means that no L7 proxy redirect is performed.
