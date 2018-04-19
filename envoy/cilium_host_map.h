@@ -46,6 +46,7 @@ enum ID : uint64_t { UNKNOWN = 0, WORLD = 2 };
 
 class PolicyHostMap : public Singleton::Instance,
                       Config::SubscriptionCallbacks<cilium::NetworkPolicyHosts>,
+                      public std::enable_shared_from_this<PolicyHostMap>,
                       public Logger::Loggable<Logger::Id::config> {
 public:
   PolicyHostMap(const envoy::api::v2::core::Node& node,
@@ -55,6 +56,8 @@ public:
 		ThreadLocal::SlotAllocator& tls);
   PolicyHostMap(ThreadLocal::SlotAllocator& tls);
   ~PolicyHostMap() {}
+
+  void startSubscription() { subscription_->start({}, *this); }
 
   // A shared pointer to a immutable copy is held by each thread. Changes are done by
   // creating a new version and assigning the new shared pointer to the thread local
