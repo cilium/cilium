@@ -114,7 +114,7 @@ EOF
     fi
 
     cat <<EOF >> "${filename}"
-echo "${worker_ipv6} k8s${node_index}" >> /etc/hosts
+echo "${worker_ipv6} ${VM_BASENAME}${node_index}" >> /etc/hosts
 
 EOF
 }
@@ -147,7 +147,7 @@ EOF
         fi
 
         cat <<EOF >> "${filename}"
-echo "${worker_internal_ipv6} k8s${index}" >> /etc/hosts
+echo "${worker_internal_ipv6} ${VM_BASENAME}${index}" >> /etc/hosts
 EOF
     done
 
