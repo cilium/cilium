@@ -329,6 +329,34 @@ func (ipc *IPCache) LookupByIPRLocked(IP string) (identity.NumericIdentity, bool
 	return identity, exists
 }
 
+// LookupByPrefixRLocked looks for either the specified CIDR prefix, or if the
+// prefix is fully specified (ie, w.x.y.z/32 for IPv4), find the host for the
+// identity in the provided IPCache, and returns the corresponding security
+// identity as well as whether the entry exists in the IPCache.
+func (ipc *IPCache) LookupByPrefixRLocked(prefix string) (identity identity.NumericIdentity, exists bool) {
+	if _, cidr, err := net.ParseCIDR(prefix); err == nil {
+		// If it's a fully specfied prefix, attempt to find the host
+		ones, bits := cidr.Mask.Size()
+		if ones == bits {
+			identity, exists = ipc.ipToIdentityCache[cidr.IP.String()]
+			if exists {
+				return
+			}
+		}
+	}
+	identity, exists = ipc.ipToIdentityCache[prefix]
+	return
+}
+
+// LookupByPrefix returns the corresponding security identity that endpoint IP
+// maps to within the provided IPCache, as well as if the corresponding entry
+// exists in the IPCache.
+func (ipc *IPCache) LookupByPrefix(IP string) (identity.NumericIdentity, bool) {
+	ipc.mutex.RLock()
+	defer ipc.mutex.RUnlock()
+	return ipc.LookupByPrefixRLocked(IP)
+}
+
 // LookupByIdentity returns the set of IPs (endpoint or CIDR prefix) that have
 // security identity ID, as well as whether the corresponding entry exists in
 // the IPCache.
