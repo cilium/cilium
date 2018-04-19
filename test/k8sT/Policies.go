@@ -778,6 +778,12 @@ EOF`, k, v)
 	})
 
 	Context("KubernetesNetworkPolicy between server and client", func() {
+
+		var (
+			policy *networkingv1.NetworkPolicy
+			err    error
+		)
+
 		BeforeEach(func() {
 			By("Creating the namespace that will be used for the pods")
 			_, err := kubectl.CoreV1().Namespaces().Create(&v1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: namespace}})
@@ -799,6 +805,7 @@ EOF`, k, v)
 		})
 
 		AfterEach(func() {
+			cleanupNetworkPolicy(kubectl, policy)
 			cleanupServerPodAndService(kubectl, podServer, service)
 			By("Deleting the namespace that was used for the pods")
 			err := kubectl.CoreV1().Namespaces().Delete(namespace, &metav1.DeleteOptions{})
@@ -806,7 +813,7 @@ EOF`, k, v)
 		})
 
 		It("should enforce policy based on NamespaceSelector", func() {
-			policy := &networkingv1.NetworkPolicy{
+			policyBeforeCreate := &networkingv1.NetworkPolicy{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "allow-ns-b-via-namespace-selector",
 				},
@@ -829,9 +836,8 @@ EOF`, k, v)
 					}},
 				},
 			}
-			policy, err := kubectl.NetworkingV1().NetworkPolicies(namespace).Create(policy)
+			policy, err = kubectl.NetworkingV1().NetworkPolicies(namespace).Create(policyBeforeCreate)
 			Expect(err).NotTo(HaveOccurred())
-			defer cleanupNetworkPolicy(kubectl, policy)
 
 			// Create a pod with name 'client-cannot-connect', which will attempt to communicate with the server,
 			// but should not be able to now that isolation is on.
