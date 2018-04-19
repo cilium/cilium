@@ -72,14 +72,17 @@ void NetworkPolicyMap::onConfigUpdate(const ResourceVector& resources) {
       if (shared_this && shared_this->tls_->get().get() != nullptr) {
 	ENVOY_LOG(debug, "Cilium L7 NetworkPolicyMap::onConfigUpdate(): Starting updates on the next thread");
 	auto& npmap = shared_this->tls_->getTyped<ThreadLocalPolicyMap>().policies_;
+	ENVOY_LOG(debug, "Cilium L7 NetworkPolicyMap::onConfigUpdate(): Checking for deletions...");
 	for (const auto& policy_name: *to_be_deleted) {
 	  ENVOY_LOG(debug, "Cilium deleting removed network policy for endpoint {}", policy_name);
 	  npmap.erase(policy_name);
 	}
+	ENVOY_LOG(debug, "Cilium L7 NetworkPolicyMap::onConfigUpdate(): Checking for additions...");
 	for (const auto& new_policy: *to_be_added) {
 	  ENVOY_LOG(debug, "Cilium updating network policy for endpoint {}", new_policy->policy_proto_.name());
 	  npmap[new_policy->policy_proto_.name()] = new_policy;
 	}
+	ENVOY_LOG(debug, "Cilium L7 NetworkPolicyMap::onConfigUpdate(): Done!");
       } else {
 	// Keep this at info level for now to see if this happens in the wild
 	ENVOY_LOG(warn, "Skipping stale network policy update");
