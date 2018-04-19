@@ -112,31 +112,34 @@ var _ = Describe("K8sValidatedServicesTest", func() {
 		}
 	}
 
-	It("Check Service", func() {
-		demoDSPath := kubectl.ManifestGet("demo.yaml")
-		kubectl.Apply(demoDSPath)
-		defer kubectl.Delete(demoDSPath)
+	Context("Checks ClusterIP Connectivity", func() {
 
-		pods, err := kubectl.WaitforPods(helpers.DefaultNamespace, "-l zgroup=testapp", 300)
-		Expect(pods).Should(BeTrue())
-		Expect(err).Should(BeNil())
+		It("Checks Service", func() {
+			demoDSPath := kubectl.ManifestGet("demo.yaml")
+			kubectl.Apply(demoDSPath)
+			defer kubectl.Delete(demoDSPath)
 
-		svcIP, err := kubectl.Get(
-			helpers.DefaultNamespace, fmt.Sprintf("service %s", serviceName)).Filter("{.spec.clusterIP}")
-		Expect(err).Should(BeNil())
-		Expect(govalidator.IsIP(svcIP.String())).Should(BeTrue())
+			pods, err := kubectl.WaitforPods(helpers.DefaultNamespace, "-l zgroup=testapp", 300)
+			Expect(pods).Should(BeTrue())
+			Expect(err).Should(BeNil())
 
-		status := kubectl.Exec(fmt.Sprintf("curl http://%s/", svcIP))
-		status.ExpectSuccess()
+			svcIP, err := kubectl.Get(
+				helpers.DefaultNamespace, fmt.Sprintf("service %s", serviceName)).Filter("{.spec.clusterIP}")
+			Expect(err).Should(BeNil())
+			Expect(govalidator.IsIP(svcIP.String())).Should(BeTrue())
 
-		ciliumPod, err := kubectl.GetCiliumPodOnNode(helpers.KubeSystemNamespace, helpers.K8s1)
-		Expect(err).Should(BeNil())
+			status := kubectl.Exec(fmt.Sprintf("curl http://%s/", svcIP))
+			status.ExpectSuccess()
 
-		service := kubectl.CiliumExec(ciliumPod, "cilium service list")
-		Expect(service.Output()).Should(ContainSubstring(svcIP.String()))
-		service.ExpectSuccess()
+			ciliumPod, err := kubectl.GetCiliumPodOnNode(helpers.KubeSystemNamespace, helpers.K8s1)
+			Expect(err).Should(BeNil())
 
-	}, 300)
+			service := kubectl.CiliumExec(ciliumPod, "cilium service list")
+			Expect(service.Output()).Should(ContainSubstring(svcIP.String()))
+			service.ExpectSuccess()
+
+		}, 300)
+	})
 
 	It("Check Service with cross-node", func() {
 		demoDSPath := kubectl.ManifestGet("demo_ds.yaml")
