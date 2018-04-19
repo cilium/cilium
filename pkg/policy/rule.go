@@ -1,4 +1,4 @@
-// Copyright 2016-2017 Authors of Cilium
+// Copyright 2016-2018 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -16,9 +16,7 @@ package policy
 
 import (
 	"fmt"
-	"net"
 
-	"github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/maps/policymap"
 	"github.com/cilium/cilium/pkg/policy/api"
@@ -222,30 +220,6 @@ func mergeCIDR(ctx *SearchContext, dir string, ipRules []api.CIDR, ruleLabels la
 	return found
 }
 
-func computeResultantCIDRSet(cidrs []api.CIDRRule) []api.CIDR {
-	var allResultantAllowedCIDRs []api.CIDR
-	for _, s := range cidrs {
-		// No need for error checking, as api.CIDRRule.Sanitize() already does.
-		_, allowNet, _ := net.ParseCIDR(string(s.Cidr))
-
-		var removeSubnets []*net.IPNet
-		for _, t := range s.ExceptCIDRs {
-			// No need for error checking, as api.CIDRRule.Sanitize() already
-			// does.
-			_, removeSubnet, _ := net.ParseCIDR(string(t))
-			removeSubnets = append(removeSubnets, removeSubnet)
-		}
-		// No need for error checking, as have already validated that none of
-		// the possible error cases can occur in ip.RemoveCIDRs
-		resultantAllowedCIDRs, _ := ip.RemoveCIDRs([]*net.IPNet{allowNet}, removeSubnets)
-
-		for _, u := range resultantAllowedCIDRs {
-			allResultantAllowedCIDRs = append(allResultantAllowedCIDRs, api.CIDR(u.String()))
-		}
-	}
-	return allResultantAllowedCIDRs
-}
-
 // resolveCIDRPolicy inserts the CIDRs from the specified rule into result if
 // the rule corresponds to the current SearchContext. It returns the resultant
 // CIDRPolicy containing the added ingress and egress CIDRs. If no CIDRs are
@@ -264,7 +238,7 @@ func (r *rule) resolveCIDRPolicy(ctx *SearchContext, state *traceState, result *
 		// TODO (ianvernon): GH-1658
 		var allCIDRs []api.CIDR
 		allCIDRs = append(allCIDRs, ingressRule.FromCIDR...)
-		allCIDRs = append(allCIDRs, computeResultantCIDRSet(ingressRule.FromCIDRSet)...)
+		allCIDRs = append(allCIDRs, api.ComputeResultantCIDRSet(ingressRule.FromCIDRSet)...)
 
 		if cnt := mergeCIDR(ctx, "Ingress", allCIDRs, r.Labels, &result.Ingress); cnt > 0 {
 			found += cnt
@@ -275,7 +249,7 @@ func (r *rule) resolveCIDRPolicy(ctx *SearchContext, state *traceState, result *
 		// TODO(ianvernon): GH-1658
 		var allCIDRs []api.CIDR
 		allCIDRs = append(allCIDRs, egressRule.ToCIDR...)
-		allCIDRs = append(allCIDRs, computeResultantCIDRSet(egressRule.ToCIDRSet)...)
+		allCIDRs = append(allCIDRs, api.ComputeResultantCIDRSet(egressRule.ToCIDRSet)...)
 
 		if cnt := mergeCIDR(ctx, "Egress", allCIDRs, r.Labels, &result.Egress); cnt > 0 {
 			found += cnt
