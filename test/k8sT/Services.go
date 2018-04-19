@@ -35,7 +35,7 @@ var _ = Describe("K8sValidatedServicesTest", func() {
 	var kubectl *helpers.Kubectl
 	var logger *logrus.Entry
 	var once sync.Once
-	var serviceName string = "app1-service"
+	var serviceName = "app1-service"
 	var microscopeErr error
 	var microscopeCancel func() error
 
@@ -114,19 +114,32 @@ var _ = Describe("K8sValidatedServicesTest", func() {
 
 	Context("Checks ClusterIP Connectivity", func() {
 
-		It("Checks Service", func() {
-			demoDSPath := kubectl.ManifestGet("demo.yaml")
-			kubectl.Apply(demoDSPath)
-			defer kubectl.Delete(demoDSPath)
+		var (
+			demoYAML = kubectl.ManifestGet("demo.yaml")
+		)
 
+		BeforeEach(func() {
+			res := kubectl.Apply(demoYAML)
+			res.ExpectSuccess("unable to apply %s: %s", demoYAML, res.CombineOutput())
+		})
+
+		AfterEach(func() {
+			// Explicitly ignore result of deletion of resources to avoid incomplete
+			// teardown if any step fails.
+			_ = kubectl.Delete(demoYAML)
+		})
+
+		It("Checks service on same node", func() {
 			pods, err := kubectl.WaitforPods(helpers.DefaultNamespace, "-l zgroup=testapp", 300)
 			Expect(pods).Should(BeTrue())
 			Expect(err).Should(BeNil())
 
-			svcIP, err := kubectl.Get(
+			res, err := kubectl.Get(
 				helpers.DefaultNamespace, fmt.Sprintf("service %s", serviceName)).Filter("{.spec.clusterIP}")
 			Expect(err).Should(BeNil())
-			Expect(govalidator.IsIP(svcIP.String())).Should(BeTrue())
+			Expect(govalidator.IsIP(res.String())).Should(BeTrue())
+
+			svcIP := res.String()
 
 			status := kubectl.Exec(fmt.Sprintf("curl http://%s/", svcIP))
 			status.ExpectSuccess()
@@ -135,13 +148,13 @@ var _ = Describe("K8sValidatedServicesTest", func() {
 			Expect(err).Should(BeNil())
 
 			service := kubectl.CiliumExec(ciliumPod, "cilium service list")
-			Expect(service.Output()).Should(ContainSubstring(svcIP.String()))
+			Expect(service.Output()).Should(ContainSubstring(svcIP))
 			service.ExpectSuccess()
 
 		}, 300)
 	})
 
-	It("Check Service with cross-node", func() {
+	It("Checks service across nodes", func() {
 		demoDSPath := kubectl.ManifestGet("demo_ds.yaml")
 		kubectl.Apply(demoDSPath)
 		defer kubectl.Delete(demoDSPath)
@@ -185,13 +198,15 @@ var _ = Describe("K8sValidatedServicesTest", func() {
 
 	Context("External services", func() {
 
-		var endpointPath string
-		var expectedCIDR string = "198.49.23.144/32"
-		var podName string = "toservices"
-		var podPath string
-		var policyPath string
-		var policyLabeledPath string
-		var servicePath string
+		var (
+			endpointPath      string
+			expectedCIDR      = "198.49.23.144/32"
+			podName           = "toservices"
+			podPath           string
+			policyPath        string
+			policyLabeledPath string
+			servicePath       string
+		)
 
 		BeforeEach(func() {
 			servicePath = kubectl.ManifestGet("external_service.yaml")
