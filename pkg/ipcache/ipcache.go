@@ -286,7 +286,7 @@ func ipIdentityWatcher(listeners []IPIdentityMappingListener) {
 
 				// Callback upon cache updates.
 				for _, listener := range listeners {
-					if ipIDPair.ID != cachedIdentity {
+					if cachedIdentity != 0 && ipIDPair.ID != cachedIdentity {
 						cachedPair := ipIDPair
 						cachedPair.ID = cachedIdentity
 						listener.OnIPIdentityCacheChange(Delete, cachedPair)
