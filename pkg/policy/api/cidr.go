@@ -1,4 +1,4 @@
-// Copyright 2016-2017 Authors of Cilium
+// Copyright 2016-2018 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -13,6 +13,10 @@
 // limitations under the License.
 
 package api
+
+import (
+	"net"
+)
 
 // CIDR specifies a block of IP addresses.
 // Example: 192.0.2.1/32
@@ -41,4 +45,32 @@ type CIDRRule struct {
 	// Generated indicates whether the rule was generated based on other rules
 	// or provided by user
 	Generated bool `json:"-"`
+}
+
+// ComputeResultantCIDRSet converts a slice of CIDRRules into a slice of
+// individual CIDRs. This expands the cidr defined by each CIDRRule, applies
+// the CIDR exceptions defined in "ExceptCIDRs", and forms a minimal set of
+// CIDRs that cover all of the CIDRRules.
+func ComputeResultantCIDRSet(cidrs []CIDRRule) []CIDR {
+	var allResultantAllowedCIDRs []CIDR
+	for _, s := range cidrs {
+		// No need for error checking, as CIDRRule.Sanitize() already does.
+		_, allowNet, _ := net.ParseCIDR(string(s.Cidr))
+
+		var removeSubnets []*net.IPNet
+		for _, t := range s.ExceptCIDRs {
+			// No need for error checking, as CIDRRule.Sanitize() already
+			// does.
+			_, removeSubnet, _ := net.ParseCIDR(string(t))
+			removeSubnets = append(removeSubnets, removeSubnet)
+		}
+		// No need for error checking, as have already validated that none of
+		// the possible error cases can occur in ip.RemoveCIDRs
+		resultantAllowedCIDRs, _ := ip.RemoveCIDRs([]*net.IPNet{allowNet}, removeSubnets)
+
+		for _, u := range resultantAllowedCIDRs {
+			allResultantAllowedCIDRs = append(allResultantAllowedCIDRs, CIDR(u.String()))
+		}
+	}
+	return allResultantAllowedCIDRs
 }
