@@ -69,9 +69,11 @@ std::shared_ptr<const Cilium::PolicyHostMap>
 createHostMap(Server::Configuration::ListenerFactoryContext& context) {
   return context.singletonManager().getTyped<const Cilium::PolicyHostMap>(
     SINGLETON_MANAGER_REGISTERED_NAME(cilium_host_map), [&context] {
-      return std::make_shared<Cilium::PolicyHostMap>(
-        context.localInfo().node(), context.clusterManager(),
-	context.dispatcher(), context.scope(), context.threadLocal());
+      auto map = std::make_shared<Cilium::PolicyHostMap>(
+          context.localInfo().node(), context.clusterManager(),
+	  context.dispatcher(), context.scope(), context.threadLocal());
+      map->startSubscription();
+      return map;
     });
 }
 

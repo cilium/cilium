@@ -18,7 +18,6 @@ NetworkPolicyMap::NetworkPolicyMap(std::unique_ptr<Envoy::Config::Subscription<c
   tls_->set([&](Event::Dispatcher&) -> ThreadLocal::ThreadLocalObjectSharedPtr {
       return std::make_shared<ThreadLocalPolicyMap>();
   });
-  subscription_->start({}, *this);
 }
 
 NetworkPolicyMap::NetworkPolicyMap(const envoy::api::v2::core::Node& node,
@@ -60,20 +59,30 @@ void NetworkPolicyMap::onConfigUpdate(const ResourceVector& resources) {
     }
   }
 
+  // 'this' may be already deleted when the worker threads get to execute the updates.
+  // Manage this by taking a weak_ptr on 'this' and then, when the worker thread gets
+  // to execute the posted lambda, try to convert the weak_ptr to a temporary shared_ptr.
+  // If that succeeds then this NetworkPolicyMap is still alive and the policy
+  // should be updated.
+  std::weak_ptr<NetworkPolicyMap> weak_this = shared_from_this();
+
   // Execute changes on all threads.
-  tls_->runOnAllThreads([this, to_be_added, to_be_deleted]() -> void {
-      if (tls_->get().get() == nullptr) {
-	ENVOY_LOG(warn, "Cilium L7 NetworkPolicyMap::onConfigUpdate(): NULL TLS object!");
-	return;
-      }
-      auto& npmap = tls_->getTyped<ThreadLocalPolicyMap>().policies_;
-      for (const auto& policy_name: *to_be_deleted) {
-	ENVOY_LOG(debug, "Cilium deleting removed network policy for endpoint {}", policy_name);
-	npmap.erase(policy_name);
-      }
-      for (const auto& new_policy: *to_be_added) {
-	ENVOY_LOG(debug, "Cilium updating network policy for endpoint {}", new_policy->policy_proto_.name());
-	npmap[new_policy->policy_proto_.name()] = new_policy;
+  tls_->runOnAllThreads([weak_this, to_be_added, to_be_deleted]() -> void {
+      std::shared_ptr<NetworkPolicyMap> shared_this = weak_this.lock();
+      if (shared_this && shared_this->tls_->get().get() != nullptr) {
+	ENVOY_LOG(debug, "Cilium L7 NetworkPolicyMap::onConfigUpdate(): Starting updates on the next thread");
+	auto& npmap = shared_this->tls_->getTyped<ThreadLocalPolicyMap>().policies_;
+	for (const auto& policy_name: *to_be_deleted) {
+	  ENVOY_LOG(debug, "Cilium deleting removed network policy for endpoint {}", policy_name);
+	  npmap.erase(policy_name);
+	}
+	for (const auto& new_policy: *to_be_added) {
+	  ENVOY_LOG(debug, "Cilium updating network policy for endpoint {}", new_policy->policy_proto_.name());
+	  npmap[new_policy->policy_proto_.name()] = new_policy;
+	}
+      } else {
+	// Keep this at info level for now to see if this happens in the wild
+	ENVOY_LOG(warn, "Skipping stale network policy update");
       }
     });
 }

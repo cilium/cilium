@@ -18,6 +18,7 @@ namespace Cilium {
 
 class NetworkPolicyMap : public Singleton::Instance,
                          Config::SubscriptionCallbacks<cilium::NetworkPolicy>,
+                         public std::enable_shared_from_this<NetworkPolicyMap>,
                          public Logger::Loggable<Logger::Id::config> {
 public:
   NetworkPolicyMap(const envoy::api::v2::core::Node& node, Upstream::ClusterManager& cm,
@@ -25,8 +26,16 @@ public:
 		   ThreadLocal::SlotAllocator& tls);
   NetworkPolicyMap(std::unique_ptr<Envoy::Config::Subscription<cilium::NetworkPolicy>>&& subscription,
 		   ThreadLocal::SlotAllocator& tls);
-  ~NetworkPolicyMap() {}
+  ~NetworkPolicyMap() {
+    ENVOY_LOG(debug, "Cilium L7 NetworkPolicyMap: NetworkPolicyMap is deleted NOW!");
+  }
 
+  // subscription_->start() calls onConfigUpdate(), which uses
+  // shared_from_this(), which cannot be called before a shared
+  // pointer is formed by the caller of the constructor, hence this
+  // can't be called from the constructor!
+  void startSubscription() { subscription_->start({}, *this); }
+  
   class PolicyInstance {
   public:
     PolicyInstance(uint64_t hash, const cilium::NetworkPolicy& proto)
