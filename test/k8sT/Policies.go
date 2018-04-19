@@ -315,19 +315,28 @@ var _ = Describe("K8sValidatedPolicyTest", func() {
 		}, 500)
 
 		Context("Different namespaces", func() {
+
+			var (
+				namespace    = "second"
+				policy       = fmt.Sprintf("%s -n %s", l3Policy, namespace)
+				demoManifest = fmt.Sprintf("%s -n %s", demoPath, namespace)
+			)
+
+			BeforeEach(func() {
+				res := kubectl.NamespaceCreate(namespace)
+				res.ExpectSuccess("unable to create namespace %s: %s", namespace, res.CombineOutput())
+				res = kubectl.Apply(demoManifest)
+				res.ExpectSuccess("unable to apply manifest %s: %s", demoManifest, res.CombineOutput())
+			})
+
+			AfterEach(func() {
+				// Explicitly do not check results to avoid incomplete teardown of test.
+				_ = kubectl.Delete(demoManifest).ExpectSuccess()
+				_ = kubectl.Delete(policy).ExpectSuccess()
+				_ = kubectl.NamespaceDelete(namespace).ExpectSuccess()
+			})
+
 			It("Tests the same Policy in the different namespaces", func() {
-				namespace := "second"
-				policy := fmt.Sprintf("%s -n %s", l3Policy, namespace)
-				demoManifest := fmt.Sprintf("%s -n %s", demoPath, namespace)
-				kubectl.NamespaceCreate(namespace)
-				kubectl.Apply(demoManifest)
-				defer func() {
-					kubectl.Delete(demoManifest).ExpectSuccess()
-					kubectl.Delete(policy).ExpectSuccess()
-					kubectl.NamespaceDelete(namespace).ExpectSuccess()
-
-				}()
-
 				pods, err := kubectl.WaitforPods(
 					namespace,
 					"-l zgroup=testapp", 300)
