@@ -303,8 +303,42 @@ var _ = Describe("K8sValidatedServicesTest", func() {
 		})
 	})
 
-	Context("CNP Specs Test", func() {
-		It("CNP Specs Test", func() {
+	Context("Bookinfo Demo", func() {
+
+		var (
+			bookinfoV1YAML, bookinfoV2YAML string
+			resourceYAMLs                  []string
+			policyPath                     string
+		)
+
+		BeforeEach(func() {
+
+			bookinfoV1YAML = kubectl.ManifestGet("bookinfo-v1.yaml")
+			bookinfoV2YAML = kubectl.ManifestGet("bookinfo-v2.yaml")
+			policyPath = kubectl.ManifestGet("cnp-specs.yaml")
+
+			resourceYAMLs = []string{bookinfoV1YAML, bookinfoV2YAML}
+
+			for _, resourcePath := range resourceYAMLs {
+				By(fmt.Sprintf("Creating objects in file %s", resourcePath))
+				res := kubectl.Create(resourcePath)
+				res.ExpectSuccess("unable to create resource %s: %s", resourcePath, res.CombineOutput())
+			}
+		})
+
+		AfterEach(func() {
+
+			// Explicitly do not check result to avoid having assertions in AfterEach.
+			_, _ = kubectl.CiliumPolicyAction(helpers.KubeSystemNamespace, policyPath, helpers.KubectlDelete, helpers.HelperTimeout)
+
+			for _, resourcePath := range resourceYAMLs {
+				By(fmt.Sprintf("Deleting resource %s", resourcePath))
+				// Explicitly do not check result to avoid having assertions in AfterEach.
+				_ = kubectl.Delete(resourcePath)
+			}
+		})
+
+		It("Tests bookinfo demo", func() {
 
 			// Various constants used in this test
 			wgetCommand := "%s exec -t %s wget -- --tries=2 --connect-timeout 10 %s"
@@ -319,7 +353,6 @@ var _ = Describe("K8sValidatedServicesTest", func() {
 			details := "details"
 			dnsChecks := []string{productPage, reviews, ratings, details}
 			app := "app"
-			resourceYamls := []string{"bookinfo-v1.yaml", "bookinfo-v2.yaml"}
 			health := "health"
 
 			apiPort := "9080"
@@ -375,19 +408,6 @@ var _ = Describe("K8sValidatedServicesTest", func() {
 			_, err = kubectl.GetCiliumPodOnNode(helpers.KubeSystemNamespace, helpers.K8s2)
 
 			Expect(err).Should(BeNil())
-
-			for _, resource := range resourceYamls {
-				resourcePath := kubectl.ManifestGet(resource)
-				By(fmt.Sprintf("Creating objects in file %s", resourcePath))
-				res := kubectl.Create(resourcePath)
-				defer func(resource string) {
-					By(fmt.Sprintf("Deleting resource %s", resourcePath))
-					// Can just delete without having to wait for policy revision,
-					// as the policies themselves are already deleted by this point.
-					kubectl.Delete(resourcePath)
-				}(resource)
-				res.ExpectSuccess()
-			}
 
 			By("Waiting for v1 pods to be ready")
 			pods, err := kubectl.WaitforPods(helpers.DefaultNamespace, formatLabelArgument(version, v1), helpers.HelperTimeout)
@@ -446,27 +466,12 @@ var _ = Describe("K8sValidatedServicesTest", func() {
 			shouldConnect(productpagePodV1.String(), formatAPI(ratings, apiPort, health))
 			shouldConnect(productpagePodV1.String(), formatAPI(ratings, apiPort, ""))
 
-			var policyPath string
-			var policyCmd string
-
-			policyPath = kubectl.ManifestGet("cnp-specs.yaml")
-			policyCmd = "cilium policy get io.cilium.k8s.policy.name=multi-rules"
+			policyCmd := "cilium policy get io.cilium.k8s.policy.name=multi-rules"
 
 			By("Importing policy")
 
 			_, err = kubectl.CiliumPolicyAction(helpers.KubeSystemNamespace, policyPath, helpers.KubectlCreate, helpers.HelperTimeout)
 			Expect(err).Should(BeNil(), fmt.Sprintf("Error creating resource %s: %s", policyPath, err))
-
-			defer func() {
-
-				_, err := kubectl.CiliumPolicyAction(helpers.KubeSystemNamespace, policyPath, helpers.KubectlDelete, helpers.HelperTimeout)
-				Expect(err).Should(BeNil(), fmt.Sprintf("Error deleting resource %s: %s", policyPath, err))
-
-				By("Checking that all policies were deleted in Cilium")
-				res := kubectl.ExecPodCmd(helpers.KubeSystemNamespace, ciliumPodK8s1, policyCmd)
-				res.ExpectFail("policies should be deleted from Cilium: %s", res.CombineOutput())
-
-			}()
 
 			By("Checking that policies were correctly imported into Cilium")
 			res := kubectl.ExecPodCmd(helpers.KubeSystemNamespace, ciliumPodK8s1, policyCmd)
