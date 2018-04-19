@@ -154,21 +154,23 @@ var _ = Describe("K8sValidatedServicesTest", func() {
 		}, 300)
 	})
 
-	It("Checks service across nodes", func() {
-		demoDSPath := kubectl.ManifestGet("demo_ds.yaml")
-		kubectl.Apply(demoDSPath)
-		defer kubectl.Delete(demoDSPath)
+	Context("Checks service across nodes", func() {
+		It("Checks ClusterIP Connectivity", func() {
+			demoDSPath := kubectl.ManifestGet("demo_ds.yaml")
+			kubectl.Apply(demoDSPath)
+			defer kubectl.Delete(demoDSPath)
 
-		waitPodsDs()
+			waitPodsDs()
 
-		svcIP, err := kubectl.Get(
-			helpers.DefaultNamespace, "service testds-service").Filter("{.spec.clusterIP}")
-		Expect(err).Should(BeNil())
-		log.Debugf("svcIP: %s", svcIP.String())
-		Expect(govalidator.IsIP(svcIP.String())).Should(BeTrue())
+			svcIP, err := kubectl.Get(
+				helpers.DefaultNamespace, "service testds-service").Filter("{.spec.clusterIP}")
+			Expect(err).Should(BeNil())
+			log.Debugf("svcIP: %s", svcIP.String())
+			Expect(govalidator.IsIP(svcIP.String())).Should(BeTrue())
 
-		url := fmt.Sprintf("http://%s/", svcIP)
-		testHTTPRequest(url)
+			url := fmt.Sprintf("http://%s/", svcIP)
+			testHTTPRequest(url)
+		})
 	})
 
 	//TODO: Check service with IPV6
