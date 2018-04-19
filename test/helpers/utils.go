@@ -161,14 +161,14 @@ func InstallExampleCilium(kubectl *Kubectl) {
 	newCiliumDSName := fmt.Sprintf("cilium_ds_%s.json", MakeUID())
 
 	objects, err := DecodeYAMLOrJSON(path)
-	Expect(err).To(BeNil())
+	ExpectWithOffset(1, err).To(BeNil())
 
 	for _, object := range objects {
 		data, err := json.Marshal(object)
-		Expect(err).To(BeNil())
+		ExpectWithOffset(1, err).To(BeNil())
 
 		jsonObj, err := gabs.ParseJSON(data)
-		Expect(err).To(BeNil())
+		ExpectWithOffset(1, err).To(BeNil())
 
 		value, _ := jsonObj.Path("kind").Data().(string)
 		if value == configMap {
@@ -185,7 +185,7 @@ func InstallExampleCilium(kubectl *Kubectl) {
 
 	fp, err := os.Create(newCiliumDSName)
 	defer fp.Close()
-	Expect(err).To(BeNil())
+	ExpectWithOffset(1, err).To(BeNil())
 
 	fmt.Fprint(fp, result.String())
 
@@ -216,8 +216,8 @@ func GetAppPods(apps []string, namespace string, kubectl *Kubectl, appFmt string
 	appPods := make(map[string]string)
 	for _, v := range apps {
 		res, err := kubectl.GetPodNames(namespace, fmt.Sprintf("%s=%s", appFmt, v))
-		Expect(err).Should(BeNil())
-		Expect(res).Should(Not(BeNil()))
+		ExpectWithOffset(1, err).Should(BeNil())
+		ExpectWithOffset(1, res).Should(Not(BeNil()))
 		appPods[v] = res[0]
 		log.Infof("GetAppPods: pod=%q assigned to %q", res[0], v)
 	}
@@ -228,10 +228,11 @@ func GetAppPods(apps []string, namespace string, kubectl *Kubectl, appFmt string
 // and waits for all the endpoints of that node to be ready.
 func (kubectl *Kubectl) WaitCiliumEndpointReady(podFilter string, k8sNode string) (string, EndpointMap) {
 	ciliumPod, err := kubectl.GetCiliumPodOnNode(KubeSystemNamespace, k8sNode)
-	Expect(err).Should(BeNil())
+	ExpectWithOffset(1, err).Should(BeNil(), "unable to get Cilium pods on node %s", k8sNode)
 
 	status := kubectl.CiliumExec(ciliumPod, fmt.Sprintf("cilium config %s=%s", PolicyEnforcement, PolicyEnforcementDefault))
-	status.ExpectSuccess()
+	ExpectWithOffset(1, status.WasSuccessful()).Should(
+		BeTrue(), "Unable to set %s=%s for cilium", PolicyEnforcement, PolicyEnforcementDefault)
 
 	kubectl.CiliumEndpointWait(ciliumPod)
 
@@ -242,12 +243,12 @@ func (kubectl *Kubectl) WaitCiliumEndpointReady(podFilter string, k8sNode string
 		}
 		return endpoints.AreReady()
 	}, "Could not get endpoints", &TimeoutConfig{Timeout: 100})
-	Expect(epsStatus).Should(BeNil())
+	ExpectWithOffset(1, epsStatus).Should(BeNil(), "could not get endpoints")
 
 	endpoints, err := kubectl.CiliumEndpointsListByLabel(ciliumPod, podFilter)
-	Expect(err).Should(BeNil())
+	ExpectWithOffset(1, err).Should(BeNil(), "unable to list endpoints by label")
 
-	Expect(endpoints.AreReady()).Should(BeTrue())
+	ExpectWithOffset(1, endpoints.AreReady()).Should(BeTrue(), "endpoints are not ready")
 	return ciliumPod, endpoints
 }
 
