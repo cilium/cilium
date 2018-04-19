@@ -673,6 +673,8 @@ func (e *etcdClient) statusChecker() error {
 		// Only mark the etcd health as unstable if no etcd endpoints can be reached
 		if len(endpoints) > 0 && ok == 0 {
 			latestErrorStatus = fmt.Errorf("Not able to connect to any etcd endpoints")
+		} else {
+			latestErrorStatus = nil
 		}
 
 		statusLock.Unlock()
