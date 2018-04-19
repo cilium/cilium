@@ -183,32 +183,28 @@ var _ = Describe("K8sValidatedServicesTest", func() {
 			url := fmt.Sprintf("http://%s/", svcIP)
 			testHTTPRequest(url)
 		})
+
+		It("Tests NodePort", func() {
+			waitPodsDs()
+
+			var data v1.Service
+			err := kubectl.Get("default", "service test-nodeport").Unmarshal(&data)
+			Expect(err).Should(BeNil(), "Can not retrieve service")
+			url := fmt.Sprintf("http://%s",
+				net.JoinHostPort(data.Spec.ClusterIP, fmt.Sprintf("%d", data.Spec.Ports[0].Port)))
+			testHTTPRequest(url)
+
+			url = fmt.Sprintf("http://%s",
+				net.JoinHostPort(helpers.K8s1Ip, fmt.Sprintf("%d", data.Spec.Ports[0].NodePort)))
+			testHTTPRequest(url)
+
+			url = fmt.Sprintf("http://%s",
+				net.JoinHostPort(helpers.K8s2Ip, fmt.Sprintf("%d", data.Spec.Ports[0].NodePort)))
+			testHTTPRequest(url)
+		})
 	})
 
 	//TODO: Check service with IPV6
-
-	It("Check NodePort", func() {
-		demoDSPath := kubectl.ManifestGet("demo_ds.yaml")
-		kubectl.Apply(demoDSPath)
-		defer kubectl.Delete(demoDSPath)
-
-		waitPodsDs()
-
-		var data v1.Service
-		err := kubectl.Get("default", "service test-nodeport").Unmarshal(&data)
-		Expect(err).Should(BeNil(), "Can not retrieve service")
-		url := fmt.Sprintf("http://%s",
-			net.JoinHostPort(data.Spec.ClusterIP, fmt.Sprintf("%d", data.Spec.Ports[0].Port)))
-		testHTTPRequest(url)
-
-		url = fmt.Sprintf("http://%s",
-			net.JoinHostPort(helpers.K8s1Ip, fmt.Sprintf("%d", data.Spec.Ports[0].NodePort)))
-		testHTTPRequest(url)
-
-		url = fmt.Sprintf("http://%s",
-			net.JoinHostPort(helpers.K8s2Ip, fmt.Sprintf("%d", data.Spec.Ports[0].NodePort)))
-		testHTTPRequest(url)
-	})
 
 	Context("External services", func() {
 
