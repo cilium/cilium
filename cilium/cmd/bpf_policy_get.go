@@ -133,7 +133,7 @@ func formatMap(w io.Writer, statsMap []policymap.PolicyEntryDump) {
 			fmt.Fprintf(w, "%s\t%d\t%s\t%d\t%d\t\n", trafficDirectionString, id, port, stat.Bytes, stat.Packets)
 		} else if lbls := labelsID[id]; lbls != nil && len(lbls.Labels) > 0 {
 			first := true
-			for _, lbl := range lbls.Labels {
+			for _, lbl := range lbls.Labels.GetPrintableModel() {
 				if first {
 					fmt.Fprintf(w, "%s\t%s\t%s\t%d\t%d\t\n", trafficDirectionString, lbl, port, stat.Bytes, stat.Packets)
 					first = false
