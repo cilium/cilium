@@ -129,6 +129,11 @@ func (ipc *IPCache) Upsert(IP string, identity identity.NumericIdentity) {
 	// An update is treated as a deletion and then an insert.
 	ipc.deleteLocked(IP)
 
+	log.WithFields(logrus.Fields{
+		logfields.IPAddr:   IP,
+		logfields.Identity: identity,
+	}).Debug("Upserting into ipcache layer")
+
 	// Update both maps.
 	ipc.ipToIdentityCache[IP] = identity
 
@@ -140,13 +145,16 @@ func (ipc *IPCache) Upsert(IP string, identity identity.NumericIdentity) {
 }
 
 // deleteLocked removes removes the provided IP-to-security-identity mapping
-// from both caches within ipc with the assumption that ipc's mutex is held.
-func (ipc *IPCache) deleteLocked(endpointIP string) {
+// from ipc with the assumption that the IPCache's mutex is held.
+func (ipc *IPCache) deleteLocked(IP string) {
+	log.WithFields(logrus.Fields{
+		logfields.IPAddr: IP,
+	}).Debug("Removing from ipcache layer")
 
-	identity, found := ipc.ipToIdentityCache[endpointIP]
+	identity, found := ipc.ipToIdentityCache[IP]
 	if found {
-		delete(ipc.ipToIdentityCache, endpointIP)
-		delete(ipc.identityToIPCache[identity], endpointIP)
+		delete(ipc.ipToIdentityCache, IP)
+		delete(ipc.identityToIPCache[identity], IP)
 		if len(ipc.identityToIPCache[identity]) == 0 {
 			delete(ipc.identityToIPCache, identity)
 		}
