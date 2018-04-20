@@ -32,3 +32,12 @@ func ExpectPolicyEnforcementUpdated(vm *helpers.SSHMeta, policyEnforcementType s
 	areEndpointsReady := vm.SetPolicyEnforcementAndWait(policyEnforcementType)
 	ExpectWithOffset(1, areEndpointsReady).Should(BeTrue(), "unable to set PolicyEnforcement=%s", policyEnforcementType)
 }
+
+// ExpectEndpointSummary asserts whether the amount of endpoints managed by
+// Cilium running on vm with PolicyEnforcement equal to policyEnforcementType
+// is equal to numWithPolicyEnforcementType.
+func ExpectEndpointSummary(vm *helpers.SSHMeta, policyEnforcementType string, numWithPolicyEnforcementType int) {
+	endpoints, err := vm.PolicyEndpointsSummary()
+	ExpectWithOffset(1, err).Should(BeNil(), "error getting endpoint summary")
+	ExpectWithOffset(1, endpoints[policyEnforcementType]).To(Equal(numWithPolicyEnforcementType), "number of endpoints with %s=%s does not match", helpers.PolicyEnforcement, policyEnforcementType)
+}

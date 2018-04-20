@@ -53,21 +53,22 @@ const (
 var _ = Describe("RuntimeValidatedPolicyEnforcement", func() {
 
 	var (
-		logger *logrus.Entry
-		vm     *helpers.SSHMeta
+		logger           *logrus.Entry
+		vm               *helpers.SSHMeta
+		appContainerName = "app"
 	)
 
 	BeforeAll(func() {
 		logger = log.WithFields(logrus.Fields{"testName": "RuntimePolicyEnforcement"})
 		logger.Info("Starting")
 		vm = helpers.CreateNewRuntimeHelper(helpers.Runtime, logger)
-		vm.ContainerCreate("app", "cilium/demo-httpd", helpers.CiliumDockerNetwork, "-l id.app")
+		vm.ContainerCreate(appContainerName, helpers.HttpdImage, helpers.CiliumDockerNetwork, "-l id.app")
 		areEndpointsReady := vm.WaitEndpointsReady()
 		Expect(areEndpointsReady).Should(BeTrue(), "Endpoints are not ready after timeout")
 	})
 
 	AfterAll(func() {
-		vm.ContainerRm("app")
+		vm.ContainerRm(appContainerName)
 	})
 
 	BeforeEach(func() {
@@ -94,99 +95,52 @@ var _ = Describe("RuntimeValidatedPolicyEnforcement", func() {
 		It("Default values", func() {
 
 			By("Policy Enforcement should be disabled for containers", func() {
-				endPoints, err := vm.PolicyEndpointsSummary()
-				Expect(err).Should(BeNil())
-				Expect(endPoints[helpers.Disabled]).To(Equal(1))
+				ExpectEndpointSummary(vm, helpers.Disabled, 1)
 			})
 
 			By("Apply a new sample policy")
 			_, err := vm.PolicyImportAndWait(vm.GetFullPath(sampleJSON), helpers.HelperTimeout)
 			Expect(err).Should(BeNil())
-
-			endPoints, err := vm.PolicyEndpointsSummary()
-			Expect(err).Should(BeNil())
-			Expect(endPoints[helpers.Enabled]).To(Equal(1))
+			ExpectEndpointSummary(vm, helpers.Enabled, 1)
 		})
 
 		It("Default to Always without policy", func() {
 			By("Check no policy enforcement")
-			endPoints, err := vm.PolicyEndpointsSummary()
-			Expect(err).Should(BeNil())
-			Expect(endPoints[helpers.Disabled]).To(Equal(1))
+			ExpectEndpointSummary(vm, helpers.Disabled, 1)
 
 			By("Setting to Always")
-
 			ExpectPolicyEnforcementUpdated(vm, helpers.PolicyEnforcementAlways)
-
-			endPoints, err = vm.PolicyEndpointsSummary()
-			Expect(err).Should(BeNil())
-			Expect(endPoints[helpers.Enabled]).To(Equal(1))
+			ExpectEndpointSummary(vm, helpers.Enabled, 1)
 
 			By("Setting to default from Always")
 			ExpectPolicyEnforcementUpdated(vm, helpers.PolicyEnforcementDefault)
-
-			endPoints, err = vm.PolicyEndpointsSummary()
-			Expect(err).Should(BeNil())
-			Expect(endPoints[helpers.Disabled]).To(Equal(1))
+			ExpectEndpointSummary(vm, helpers.Disabled, 1)
 		})
 
 		It("Default to Always with policy", func() {
 			_, err := vm.PolicyImportAndWait(vm.GetFullPath(sampleJSON), helpers.HelperTimeout)
 			Expect(err).Should(BeNil())
-
-			endPoints, err := vm.PolicyEndpointsSummary()
-			Expect(err).Should(BeNil())
-			Expect(endPoints[helpers.Enabled]).To(Equal(1))
-
+			ExpectEndpointSummary(vm, helpers.Enabled, 1)
 			ExpectPolicyEnforcementUpdated(vm, helpers.PolicyEnforcementAlways)
-
-			endPoints, err = vm.PolicyEndpointsSummary()
-			Expect(err).Should(BeNil())
-			Expect(endPoints[helpers.Enabled]).To(Equal(1))
-
+			ExpectEndpointSummary(vm, helpers.Enabled, 1)
 			ExpectPolicyEnforcementUpdated(vm, helpers.PolicyEnforcementDefault)
-
-			endPoints, err = vm.PolicyEndpointsSummary()
-			Expect(err).Should(BeNil())
-			Expect(endPoints[helpers.Enabled]).To(Equal(1))
+			ExpectEndpointSummary(vm, helpers.Enabled, 1)
 		})
 
 		It("Default to Never without policy", func() {
-			endPoints, err := vm.PolicyEndpointsSummary()
-			Expect(err).Should(BeNil())
-			Expect(endPoints[helpers.Disabled]).To(Equal(1))
-
+			ExpectEndpointSummary(vm, helpers.Disabled, 1)
 			ExpectPolicyEnforcementUpdated(vm, helpers.PolicyEnforcementNever)
-
-			endPoints, err = vm.PolicyEndpointsSummary()
-			Expect(err).Should(BeNil())
-			Expect(endPoints[helpers.Disabled]).To(Equal(1))
-
-			endPoints, err = vm.PolicyEndpointsSummary()
-			Expect(err).Should(BeNil())
-			Expect(endPoints[helpers.Disabled]).To(Equal(1))
+			ExpectEndpointSummary(vm, helpers.Disabled, 1)
 		})
 
 		It("Default to Never with policy", func() {
-
 			_, err := vm.PolicyImportAndWait(vm.GetFullPath(sampleJSON), helpers.HelperTimeout)
 			Expect(err).Should(BeNil())
-
-			endPoints, err := vm.PolicyEndpointsSummary()
-			Expect(err).Should(BeNil())
-			Expect(endPoints[helpers.Enabled]).To(Equal(1))
-
+			ExpectEndpointSummary(vm, helpers.Enabled, 1)
 			ExpectPolicyEnforcementUpdated(vm, helpers.PolicyEnforcementNever)
-
-			endPoints, err = vm.PolicyEndpointsSummary()
-			Expect(err).Should(BeNil())
-			Expect(endPoints[helpers.Enabled]).To(Equal(0))
-
+			ExpectEndpointSummary(vm, helpers.Enabled, 0)
 			ExpectPolicyEnforcementUpdated(vm, helpers.PolicyEnforcementDefault)
-
-			endPoints, err = vm.PolicyEndpointsSummary()
-			Expect(err).Should(BeNil())
-			Expect(endPoints[helpers.Enabled]).To(Equal(1))
+			ExpectEndpointSummary(vm, helpers.Enabled, 1)
 		})
 	})
 
@@ -198,65 +152,39 @@ var _ = Describe("RuntimeValidatedPolicyEnforcement", func() {
 
 		It("Container creation", func() {
 			//Check default containers are in place.
-			endPoints, err := vm.PolicyEndpointsSummary()
-			Expect(err).Should(BeNil())
-			Expect(endPoints[helpers.Enabled]).To(Equal(1))
-			Expect(endPoints[helpers.Disabled]).To(Equal(0))
+			ExpectEndpointSummary(vm, helpers.Enabled, 1)
+			ExpectEndpointSummary(vm, helpers.Disabled, 0)
 
 			By("Create a new container")
 			vm.ContainerCreate("new", "cilium/demo-httpd", helpers.CiliumDockerNetwork, "-l id.new")
-			endPoints, err = vm.PolicyEndpointsSummary()
-			Expect(err).Should(BeNil())
-			Expect(endPoints[helpers.Enabled]).To(Equal(2))
-			Expect(endPoints[helpers.Disabled]).To(Equal(0))
+			ExpectEndpointSummary(vm, helpers.Enabled, 2)
+			ExpectEndpointSummary(vm, helpers.Disabled, 0)
 			vm.ContainerRm("new")
 		}, 300)
 
 		It("Always to Never with policy", func() {
-			endPoints, err := vm.PolicyEndpointsSummary()
-			Expect(err).Should(BeNil())
-			Expect(endPoints[helpers.Enabled]).To(Equal(1))
-			Expect(endPoints[helpers.Disabled]).To(Equal(0))
+			ExpectEndpointSummary(vm, helpers.Enabled, 1)
+			ExpectEndpointSummary(vm, helpers.Disabled, 0)
 
-			_, err = vm.PolicyImportAndWait(vm.GetFullPath(sampleJSON), helpers.HelperTimeout)
+			_, err := vm.PolicyImportAndWait(vm.GetFullPath(sampleJSON), helpers.HelperTimeout)
 			Expect(err).Should(BeNil())
 
-			endPoints, err = vm.PolicyEndpointsSummary()
-			Expect(err).Should(BeNil())
-			Expect(endPoints[helpers.Enabled]).To(Equal(1))
-			Expect(endPoints[helpers.Disabled]).To(Equal(0))
-
+			ExpectEndpointSummary(vm, helpers.Enabled, 1)
+			ExpectEndpointSummary(vm, helpers.Disabled, 0)
 			ExpectPolicyEnforcementUpdated(vm, helpers.PolicyEnforcementNever)
-
-			endPoints, err = vm.PolicyEndpointsSummary()
-			Expect(err).Should(BeNil())
-			Expect(endPoints[helpers.Enabled]).To(Equal(0))
-
+			ExpectEndpointSummary(vm, helpers.Enabled, 0)
 			ExpectPolicyEnforcementUpdated(vm, helpers.PolicyEnforcementAlways)
-
-			endPoints, err = vm.PolicyEndpointsSummary()
-			Expect(err).Should(BeNil())
-			Expect(endPoints[helpers.Enabled]).To(Equal(1))
+			ExpectEndpointSummary(vm, helpers.Enabled, 1)
 		})
 
 		It("Always to Never without policy", func() {
-			endPoints, err := vm.PolicyEndpointsSummary()
-			Expect(err).Should(BeNil())
-			Expect(endPoints[helpers.Enabled]).To(Equal(1))
-			Expect(endPoints[helpers.Disabled]).To(Equal(0))
-
+			ExpectEndpointSummary(vm, helpers.Enabled, 1)
+			ExpectEndpointSummary(vm, helpers.Disabled, 0)
 			ExpectPolicyEnforcementUpdated(vm, helpers.PolicyEnforcementNever)
-
-			endPoints, err = vm.PolicyEndpointsSummary()
-			Expect(err).Should(BeNil())
-			Expect(endPoints[helpers.Enabled]).To(Equal(0))
-			Expect(endPoints[helpers.Disabled]).To(Equal(1))
-
+			ExpectEndpointSummary(vm, helpers.Enabled, 0)
+			ExpectEndpointSummary(vm, helpers.Disabled, 1)
 			ExpectPolicyEnforcementUpdated(vm, helpers.PolicyEnforcementAlways)
-
-			endPoints, err = vm.PolicyEndpointsSummary()
-			Expect(err).Should(BeNil())
-			Expect(endPoints[helpers.Enabled]).To(Equal(1))
+			ExpectEndpointSummary(vm, helpers.Enabled, 1)
 		})
 
 	})
@@ -269,69 +197,43 @@ var _ = Describe("RuntimeValidatedPolicyEnforcement", func() {
 
 		It("Container creation", func() {
 			//Check default containers are in place.
-			endPoints, err := vm.PolicyEndpointsSummary()
-			Expect(err).Should(BeNil())
-			Expect(endPoints[helpers.Enabled]).To(Equal(0))
-			Expect(endPoints[helpers.Disabled]).To(Equal(1))
+			ExpectEndpointSummary(vm, helpers.Enabled, 0)
+			ExpectEndpointSummary(vm, helpers.Disabled, 1)
 
 			vm.ContainerCreate("new", "cilium/demo-httpd", helpers.CiliumDockerNetwork, "-l id.new")
 			vm.WaitEndpointsReady()
-			endPoints, err = vm.PolicyEndpointsSummary()
 
-			Expect(err).Should(BeNil())
-			Expect(endPoints[helpers.Enabled]).To(Equal(0))
-			Expect(endPoints[helpers.Disabled]).To(Equal(2))
+			ExpectEndpointSummary(vm, helpers.Enabled, 0)
+			ExpectEndpointSummary(vm, helpers.Disabled, 2)
 			vm.ContainerRm("new")
 		}, 300)
 
 		It("Never to default with policy", func() {
-			endPoints, err := vm.PolicyEndpointsSummary()
-			Expect(err).Should(BeNil())
-			Expect(endPoints[helpers.Enabled]).To(Equal(0))
-			Expect(endPoints[helpers.Disabled]).To(Equal(1))
+			ExpectEndpointSummary(vm, helpers.Enabled, 0)
+			ExpectEndpointSummary(vm, helpers.Disabled, 1)
 
-			_, err = vm.PolicyImportAndWait(vm.GetFullPath(sampleJSON), helpers.HelperTimeout)
+			_, err := vm.PolicyImportAndWait(vm.GetFullPath(sampleJSON), helpers.HelperTimeout)
 			Expect(err).Should(BeNil())
 
-			endPoints, err = vm.PolicyEndpointsSummary()
-			Expect(err).Should(BeNil())
-			Expect(endPoints[helpers.Enabled]).To(Equal(0))
-			Expect(endPoints[helpers.Disabled]).To(Equal(1))
-
+			ExpectEndpointSummary(vm, helpers.Enabled, 0)
+			ExpectEndpointSummary(vm, helpers.Disabled, 1)
 			ExpectPolicyEnforcementUpdated(vm, helpers.PolicyEnforcementDefault)
-
-			endPoints, err = vm.PolicyEndpointsSummary()
-			Expect(err).Should(BeNil())
-			Expect(endPoints[helpers.Enabled]).To(Equal(1))
-			Expect(endPoints[helpers.Disabled]).To(Equal(0))
-
+			ExpectEndpointSummary(vm, helpers.Enabled, 1)
+			ExpectEndpointSummary(vm, helpers.Disabled, 0)
 			ExpectPolicyEnforcementUpdated(vm, helpers.PolicyEnforcementNever)
-
-			endPoints, err = vm.PolicyEndpointsSummary()
-			Expect(err).Should(BeNil())
-			Expect(endPoints[helpers.Enabled]).To(Equal(0))
-			Expect(endPoints[helpers.Disabled]).To(Equal(1))
+			ExpectEndpointSummary(vm, helpers.Enabled, 0)
+			ExpectEndpointSummary(vm, helpers.Disabled, 1)
 		})
 
 		It("Never to default without policy", func() {
-			endPoints, err := vm.PolicyEndpointsSummary()
-			Expect(err).Should(BeNil())
-			Expect(endPoints[helpers.Enabled]).To(Equal(0))
-			Expect(endPoints[helpers.Disabled]).To(Equal(1))
-
+			ExpectEndpointSummary(vm, helpers.Enabled, 0)
+			ExpectEndpointSummary(vm, helpers.Disabled, 1)
 			ExpectPolicyEnforcementUpdated(vm, helpers.PolicyEnforcementDefault)
-
-			endPoints, err = vm.PolicyEndpointsSummary()
-			Expect(err).Should(BeNil())
-			Expect(endPoints[helpers.Enabled]).To(Equal(0))
-			Expect(endPoints[helpers.Disabled]).To(Equal(1))
-
+			ExpectEndpointSummary(vm, helpers.Enabled, 0)
+			ExpectEndpointSummary(vm, helpers.Disabled, 1)
 			ExpectPolicyEnforcementUpdated(vm, helpers.PolicyEnforcementNever)
-
-			endPoints, err = vm.PolicyEndpointsSummary()
-			Expect(err).Should(BeNil())
-			Expect(endPoints[helpers.Enabled]).To(Equal(0))
-			Expect(endPoints[helpers.Disabled]).To(Equal(1))
+			ExpectEndpointSummary(vm, helpers.Enabled, 0)
+			ExpectEndpointSummary(vm, helpers.Disabled, 1)
 		})
 	})
 })
