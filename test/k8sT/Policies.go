@@ -331,9 +331,9 @@ var _ = Describe("K8sValidatedPolicyTest", func() {
 
 			AfterEach(func() {
 				// Explicitly do not check results to avoid incomplete teardown of test.
-				_ = kubectl.Delete(demoManifest).ExpectSuccess()
-				_ = kubectl.Delete(policy).ExpectSuccess()
-				_ = kubectl.NamespaceDelete(namespace).ExpectSuccess()
+				_ = kubectl.Delete(demoManifest)
+				_ = kubectl.Delete(policy)
+				_ = kubectl.NamespaceDelete(namespace)
 			})
 
 			It("Tests the same Policy in the different namespaces", func() {
