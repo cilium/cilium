@@ -447,6 +447,8 @@ parsing network headers could be structured through tail calls. During runtime,
 functionality can be added or replaced atomically, and thus altering the BPF
 program's execution behavior.
 
+.. _bpf_to_bpf_calls:
+
 BPF to BPF Calls
 ----------------
 
@@ -835,10 +837,13 @@ failures:
 
     Summary: 847 PASSED, 0 SKIPPED, 0 FAILED
 
-.. note:: Since Kernel Release 4.16 the bpf selftests has a dependency on LLVM >= 6.0
-          More info available on some mailing lists. (https://lwn.net/Articles/741773/)
-          Maybe you need to compile LLVM in the current version. More info at
-          http://llvm.org/docs/GettingStarted.html
+.. note:: For Kernel Releases 4.16+ the BPF selftest has a dependency on LLVM 6.0+
+          caused by the BPF function calls which doesn't need to be inlined anymore.
+          See section :ref:`bpf_to_bpf_calls` or the mail 
+          (https://lwn.net/Articles/741773/) for more information. 
+          Not every BPF program has a dependency on LLVM 6.0+.
+          If your distribution doesn't provide LLVM 6.0+ you may compile it by
+          following the LLVM documentation (http://llvm.org/docs/GettingStarted.html).
 
 In order to run through all BPF selftests, the following command is needed:
 
