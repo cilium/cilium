@@ -241,14 +241,17 @@ func handleCreateContainer(id string, retry bool) {
 	scopedLog := log.WithFields(logrus.Fields{
 		logfields.ContainerID: shortContainerID(id),
 		fieldMaxRetry:         workloads.EndpointCorrelationMaxRetries,
+		"willRetry":           retry,
 	})
 
 	for try := 1; try <= workloads.EndpointCorrelationMaxRetries; try++ {
 		var ciliumID uint16
 
+		retryLog := scopedLog.WithField("retry", try)
+
 		if try > 1 {
 			if retry {
-				scopedLog.WithField("retry", try).Debug("Waiting for endpoint representing container to appear")
+				retryLog.Debug("Waiting for endpoint representing container to appear")
 				time.Sleep(workloads.EndpointCorrelationSleepTime(try))
 			} else {
 				break
@@ -257,13 +260,13 @@ func handleCreateContainer(id string, retry bool) {
 
 		dockerContainer, identityLabels, informationLabels, err := retrieveDockerLabels(id)
 		if err != nil {
-			scopedLog.WithError(err).WithField("retry", try).Warn("Unable to inspect container, retrying...")
+			retryLog.WithError(err).Debug("Unable to inspect container after container create event")
 			continue
 		}
 
 		containerName := dockerContainer.Name
 		if containerName == "" {
-			scopedLog.WithField("retry", try).Warn("Container name not set in event from containerd")
+			retryLog.Warn("Container name not set in event from containerd")
 		}
 
 		ep := endpointmanager.LookupDockerID(id)
@@ -276,9 +279,8 @@ func handleCreateContainer(id string, retry bool) {
 			}
 		}
 
-		scopedLog.WithFields(logrus.Fields{
+		retryLog.WithFields(logrus.Fields{
 			logfields.EndpointID:     ciliumID,
-			"retry":                  try,
 			"containerName":          containerName,
 			logfields.IdentityLabels: identityLabels,
 		}).Debug("Trying to associate container with existing endpoint")
@@ -289,6 +291,7 @@ func handleCreateContainer(id string, retry bool) {
 			// networking for this container yet (or never will).
 			// We will retry a couple of times to wait for this to
 			// happen.
+			retryLog.Debug("Matching cilium endpoint for container create event does not exist yet")
 			continue
 		}
 
