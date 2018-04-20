@@ -5,7 +5,6 @@
 #include <string>
 #include <unordered_set>
 
-#include "common/config/grpc_subscription_impl.h"
 #include "common/config/utility.h"
 #include "common/protobuf/protobuf.h"
 
