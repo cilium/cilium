@@ -120,8 +120,9 @@ protected:
 };
 
 PolicyHostMap::PolicyHostMap(ThreadLocal::SlotAllocator& tls) : tls_(tls.allocateSlot()) {
-  tls_->set([&](Event::Dispatcher&) -> ThreadLocal::ThreadLocalObjectSharedPtr {
-      return null_hostmap_;
+  auto empty_map = std::make_shared<ThreadLocalHostMapInitializer>();
+  tls_->set([empty_map](Event::Dispatcher&) -> ThreadLocal::ThreadLocalObjectSharedPtr {
+      return empty_map;
   });
 }
 
