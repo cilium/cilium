@@ -124,6 +124,9 @@ type Daemon struct {
 	// Used to synchronize generation of daemon's BPF programs and endpoint BPF
 	// programs.
 	compilationMutex *lock.RWMutex
+
+	// ipcacheListeners lists all parties interested in IP -> ID mappings.
+	ipcacheListeners []ipcache.IPIdentityMappingListener
 }
 
 // UpdateProxyRedirect updates the redirect rules in the proxy for a particular
@@ -833,6 +836,10 @@ func (d *Daemon) init() error {
 			return err
 		}
 
+		// Set up the list of IPCache listeners in the daemon, to be
+		// used by syncLXCMap().
+		d.ipcacheListeners = []ipcache.IPIdentityMappingListener{d, &envoy.NetworkPolicyHostsCache}
+
 		// Insert local host entries to bpf maps
 		if err := d.syncLXCMap(); err != nil {
 			return err
@@ -907,31 +914,47 @@ func (d *Daemon) syncLXCMap() error {
 	// TODO: Update addresses first, in case node addressing has changed.
 	// TODO: Once these start changing on runtime, figure out the locking strategy.
 	// TODO: Delete stale host entries from the lxcmap.
-	localIPs := []net.IP{
-		node.GetInternalIPv4(),
-		node.GetExternalIPv4(),
-		node.GetIPv6(),
-		node.GetIPv6Router(),
+	specialIdentities := []identity.IPIdentityPair{
+		{
+			IP: node.GetInternalIPv4(),
+			ID: identity.ReservedIdentityHost,
+		},
+		{
+			IP: node.GetExternalIPv4(),
+			ID: identity.ReservedIdentityHost,
+		},
+		{
+			IP: node.GetIPv6(),
+			ID: identity.ReservedIdentityHost,
+		},
+		{
+			IP: node.GetIPv6Router(),
+			ID: identity.ReservedIdentityHost,
+		},
 	}
 
-	for _, ip := range localIPs {
-		added, err := lxcmap.SyncHostEntry(ip)
-		if err != nil {
-			return fmt.Errorf("Unable to add host entry to endpoint map: %s", err)
+	for _, pair := range specialIdentities {
+		isHost := pair.ID == identity.ReservedIdentityHost
+		if isHost {
+			added, err := lxcmap.SyncHostEntry(pair.IP)
+			if err != nil {
+				return fmt.Errorf("Unable to add host entry to endpoint map: %s", err)
+			}
+			if added {
+				log.WithField(logfields.IPAddr, pair.IP).Debugf("Added local ip to endpoint map")
+			}
 		}
-		if added {
-			log.WithField(logfields.IPAddr, ip).Debugf("Adding local ip to endpoint map")
-		}
-		id, exists := ipcache.IPIdentityCache.LookupByIP(ip.String())
-		if !exists || id != identity.ReservedIdentityHost {
-			// Upsert will not propagate (reserved:host->ID) mappings across the cluster.
+		prefix := pair.PrefixString(isHost)
+		id, exists := ipcache.IPIdentityCache.LookupByIP(prefix)
+		if !exists || id != pair.ID {
+			// Upsert will not propagate (reserved:foo->ID) mappings across the cluster,
+			// and we specifically don't want to do so.
 			// Manually push it into each IPIdentityMappingListener.
-			log.WithField(logfields.IPAddr, ip).Debug("Adding local ip to ipcache")
-			ipcache.IPIdentityCache.Upsert(ip.String(), identity.ReservedIdentityHost)
-
-			localIPIDPair := identity.IPIdentityPair{IP: ip, ID: identity.ReservedIdentityHost}
-			d.OnIPIdentityCacheChange(ipcache.Upsert, localIPIDPair)
-			envoy.NetworkPolicyHostsCache.OnIPIdentityCacheChange(ipcache.Upsert, localIPIDPair)
+			log.WithField(logfields.IPAddr, prefix).Debug("Adding special identity to ipcache")
+			ipcache.IPIdentityCache.Upsert(prefix, pair.ID)
+			for _, listener := range d.ipcacheListeners {
+				listener.OnIPIdentityCacheChange(ipcache.Upsert, pair)
+			}
 		}
 	}
 	return nil
@@ -1114,8 +1137,7 @@ func NewDaemon(c *Config) (*Daemon, error) {
 	// Start watcher for endpoint IP --> identity mappings in key-value store.
 	// this needs to be done *after* init() for the daemon in that function,
 	// we populate the IPCache with the host's IP(s).
-	ipcacheListeners := []ipcache.IPIdentityMappingListener{&d, &envoy.NetworkPolicyHostsCache}
-	ipcache.InitIPIdentityWatcher(ipcacheListeners)
+	ipcache.InitIPIdentityWatcher(d.ipcacheListeners)
 
 	// FIXME: Make the port range configurable.
 	d.l7Proxy = proxy.StartProxySupport(10000, 20000, d.conf.RunDir,
