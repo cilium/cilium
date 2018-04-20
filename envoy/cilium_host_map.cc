@@ -14,8 +14,9 @@ namespace Cilium {
 PolicyHostMap::PolicyHostMap(std::unique_ptr<Envoy::Config::Subscription<cilium::NetworkPolicyHosts>>&& subscription,
 				   ThreadLocal::SlotAllocator& tls)
   : tls_(tls.allocateSlot()), subscription_(std::move(subscription)) {
-  tls_->set([&](Event::Dispatcher&) -> ThreadLocal::ThreadLocalObjectSharedPtr {
-      return null_hostmap_;
+  auto empty_map = std::make_shared<ThreadLocalHostMap>();
+  tls_->set([empty_map](Event::Dispatcher&) -> ThreadLocal::ThreadLocalObjectSharedPtr {
+      return empty_map;
   });
 }
 
