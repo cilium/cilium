@@ -44,8 +44,6 @@ const (
 	policyJSON                      = "policy.json"
 	invalidJSON                     = "invalid.json"
 	sampleJSON                      = "sample_policy.json"
-	ingressJSON                     = "ingress.json"
-	egressJSON                      = "egress.json"
 	multL7PoliciesJSON              = "Policies-l7-multiple.json"
 	policiesL7JSON                  = "Policies-l7-simple.json"
 	policiesL3JSON                  = "Policies-l3-policy.json"
