@@ -186,10 +186,10 @@ The instruction format is modeled as two operand instructions, which helps mappi
 BPF instructions to native instructions during JIT phase. The instruction set is
 of fixed size, meaning every instruction has 64 bit encoding. Currently, 87 instructions
 have been implemented and the encoding also allows to extend the set with further
-instructions when needed. The instruction encoding of a single 64 bit instruction is
-defined as a bit sequence from most significant bit (MSB) to least significant bit (LSB)
-of ``op:8``, ``dst_reg:4``, ``src_reg:4``, ``off:16``, ``imm:32``. ``off`` and
-``imm`` is of signed type. The encodings are part of the kernel headers and
+instructions when needed. The instruction encoding of a single 64 bit instruction on a
+big-endian machine is defined as a bit sequence from most significant bit (MSB) to least
+significant bit (LSB) of ``op:8``, ``dst_reg:4``, ``src_reg:4``, ``off:16``,``imm:32``.
+``off`` and ``imm`` is of signed type. The encodings are part of the kernel headers and
 defined in ``linux/bpf.h`` header, which also includes ``linux/bpf_common.h``.
 
 ``op`` defines the actual operation to be performed. Most of the encoding for ``op``
