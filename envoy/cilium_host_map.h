@@ -99,7 +99,7 @@ public:
   typedef std::shared_ptr<ThreadLocalHostMap> ThreadLocalHostMapSharedPtr;
 
   const ThreadLocalHostMap* getHostMap() const {
-    return &tls_->getTyped<ThreadLocalHostMap>();
+    return tls_->get().get() ? &tls_->getTyped<ThreadLocalHostMap>() : nullptr;
   }
 
   uint64_t resolve(const Network::Address::Ip* addr) const {
@@ -117,7 +117,6 @@ public:
 private:
   ThreadLocal::SlotPtr tls_;
   std::unique_ptr<Envoy::Config::Subscription<cilium::NetworkPolicyHosts>> subscription_;
-  const ThreadLocalHostMapSharedPtr null_hostmap_{nullptr};
 };
 
 } // namespace Cilium
