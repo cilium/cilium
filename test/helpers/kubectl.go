@@ -849,7 +849,8 @@ func (kub *Kubectl) CiliumReport(namespace string, commands ...[]string) {
 	}
 
 	wr := kub.logger.Logger.Out
-	fmt.Fprint(wr, "StackTrace Begin\n")
+	fmt.Println("===================== TEST FAILED =====================")
+	fmt.Fprint(wr, "===================== TEST FAILED =====================\n")
 
 	data := kub.Exec(fmt.Sprintf("%s get pods -o wide", KubectlCmd))
 	fmt.Fprintln(wr, data.Output())
@@ -864,10 +865,11 @@ func (kub *Kubectl) CiliumReport(namespace string, commands ...[]string) {
 			fmt.Fprintln(wr, out.CombineOutput())
 		}
 	}
-	fmt.Fprint(wr, "StackTrace Ends\n")
 	kub.DumpCiliumCommandOutput(namespace)
 	kub.GatherLogs()
 	kub.CheckLogsForDeadlock()
+	fmt.Fprint(wr, "===================== EXITING REPORT GENERATION =====================")
+	fmt.Println("===================== EXITING REPORT GENERATION =====================")
 
 }
 

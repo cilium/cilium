@@ -574,6 +574,9 @@ func (s *SSHMeta) PolicyWait(revisionNum int) *CmdRes {
 // purposes.
 func (s *SSHMeta) ReportFailed(commands ...string) {
 	wr := s.logger.Logger.Out
+	// Log the following line to both the log file, and to console to delineate
+	// when log gathering begins.
+	fmt.Println("===================== TEST FAILED =====================")
 	fmt.Fprint(wr, "===================== TEST FAILED =====================\n")
 	fmt.Fprint(wr, "Gathering Logs and Cilium CLI Output\n")
 	res := s.ExecCilium("endpoint list")
@@ -589,7 +592,10 @@ func (s *SSHMeta) ReportFailed(commands ...string) {
 	s.GatherLogs()
 	s.GatherDockerLogs()
 	s.CheckLogsForDeadlock()
+	// Log the following line to both the log file, and to console to delineate
+	// when log gathering begins.
 	fmt.Fprint(wr, "===================== EXITING REPORT GENERATION =====================\n")
+	fmt.Println("===================== EXITING REPORT GENERATION =====================")
 }
 
 // ValidateNoErrorsOnLogs checks in cilium logs since the given duration (By
