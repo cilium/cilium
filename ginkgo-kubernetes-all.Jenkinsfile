@@ -43,7 +43,7 @@ pipeline {
                 FAILFAST = failFast(env.GIT_BRANCH)
             }
             options {
-                timeout(time: 60, unit: 'MINUTES')
+                timeout(time: 120, unit: 'MINUTES')
             }
             steps {
                 parallel(
@@ -78,7 +78,7 @@ pipeline {
                 FAILFAST = failFast(env.GIT_BRANCH)
             }
             options {
-                timeout(time: 60, unit: 'MINUTES')
+                timeout(time: 120, unit: 'MINUTES')
             }
             steps {
                 parallel(
