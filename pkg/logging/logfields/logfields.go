@@ -175,6 +175,9 @@ const (
 	// XDSClientNode is the ID of an XDS client, e.g. an Envoy node.
 	XDSClientNode = "xdsClientNode"
 
+	// XDSResource is an xDS resource message.
+	XDSResource = "xdsResource"
+
 	// K8s-specific
 
 	// K8sNodeID is the k8s ID of a K8sNode

@@ -64,14 +64,15 @@ func (cache *NPHDSCache) OnIPIdentityCacheGC() {
 func (cache *NPHDSCache) OnIPIdentityCacheChange(
 	modType ipcache.CacheModification, ipIDPair identity.IPIdentityPair) {
 
+	scopedLog := log.WithFields(logrus.Fields{
+		logfields.IPAddr:       ipIDPair.IP,
+		logfields.Identity:     ipIDPair.ID,
+		logfields.Modification: modType,
+	})
 	// Look up the current resources for the specified Identity.
 	msg, err := cache.Lookup(NetworkPolicyHostsTypeURL, ipIDPair.ID.StringID())
 	if err != nil {
-		log.WithError(err).WithFields(logrus.Fields{
-			logfields.IPAddr:       ipIDPair.IP,
-			logfields.Identity:     ipIDPair.ID,
-			logfields.Modification: modType,
-		}).Warning("Can't lookup NPHDS cache")
+		scopedLog.WithError(err).Warning("Can't lookup NPHDS cache")
 		return
 	}
 
@@ -85,6 +86,12 @@ func (cache *NPHDSCache) OnIPIdentityCacheChange(
 		}
 		npHost.HostAddresses = append(npHost.HostAddresses, ipIDPair.IP.String())
 		sort.Strings(npHost.HostAddresses)
+		if err := npHost.Validate(); err != nil {
+			scopedLog.WithError(err).WithFields(logrus.Fields{
+				logfields.XDSResource: npHost,
+			}).Warning("Could not validate NPHDS resource update on upsert")
+			return
+		}
 		cache.Upsert(NetworkPolicyHostsTypeURL, ipIDPair.ID.StringID(), npHost, false)
 	case ipcache.Delete:
 		if msg == nil {
@@ -98,6 +105,12 @@ func (cache *NPHDSCache) OnIPIdentityCacheChange(
 // handleIPUpsert deletes elements from the NPHDS cache with the specified peer IP->ID mapping.
 func (cache *NPHDSCache) handleIPDelete(npHost *envoyAPI.NetworkPolicyHosts, peerIdentity, peerIP string) {
 	targetIndex := -1
+
+	scopedLog := log.WithFields(logrus.Fields{
+		logfields.IPAddr:       peerIP,
+		logfields.Identity:     peerIdentity,
+		logfields.Modification: ipcache.Delete,
+	})
 	for i, endpointIP := range npHost.HostAddresses {
 		if endpointIP == peerIP {
 			targetIndex = i
@@ -105,11 +118,7 @@ func (cache *NPHDSCache) handleIPDelete(npHost *envoyAPI.NetworkPolicyHosts, pee
 		}
 	}
 	if targetIndex < 0 {
-		log.WithFields(logrus.Fields{
-			logfields.IPAddr:       peerIP,
-			logfields.Identity:     peerIdentity,
-			logfields.Modification: ipcache.Delete,
-		}).Warning("Can't find IP in NPHDS cache")
+		scopedLog.Warning("Can't find IP in NPHDS cache")
 		return
 	}
 
@@ -122,6 +131,10 @@ func (cache *NPHDSCache) handleIPDelete(npHost *envoyAPI.NetworkPolicyHosts, pee
 			npHost.HostAddresses = npHost.HostAddresses[0:targetIndex]
 		} else {
 			npHost.HostAddresses = append(npHost.HostAddresses[0:targetIndex], npHost.HostAddresses[targetIndex+1:]...)
+		}
+		if err := npHost.Validate(); err != nil {
+			scopedLog.WithError(err).Warning("Could not validate NPHDS resource update on delete")
+			return
 		}
 		cache.Upsert(NetworkPolicyHostsTypeURL, peerIdentity, npHost, false)
 	}
