@@ -55,7 +55,9 @@ public:
   PolicyHostMap(std::unique_ptr<Envoy::Config::Subscription<cilium::NetworkPolicyHosts>>&& subscription,
 		ThreadLocal::SlotAllocator& tls);
   PolicyHostMap(ThreadLocal::SlotAllocator& tls);
-  ~PolicyHostMap() {}
+  ~PolicyHostMap() {
+    ENVOY_LOG(debug, "Cilium PolicyHostMap({}): PolicyHostMap is deleted NOW!", name_);
+  }
 
   void startSubscription() { subscription_->start({}, *this); }
 
@@ -116,7 +118,10 @@ public:
 
 private:
   ThreadLocal::SlotPtr tls_;
+  Stats::ScopePtr scope_;
   std::unique_ptr<Envoy::Config::Subscription<cilium::NetworkPolicyHosts>> subscription_;
+  static uint64_t instance_id_;
+  std::string name_;
 };
 
 } // namespace Cilium

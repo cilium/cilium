@@ -21,13 +21,14 @@ class NetworkPolicyMap : public Singleton::Instance,
                          public std::enable_shared_from_this<NetworkPolicyMap>,
                          public Logger::Loggable<Logger::Id::config> {
 public:
+  NetworkPolicyMap(ThreadLocal::SlotAllocator& tls);
   NetworkPolicyMap(const envoy::api::v2::core::Node& node, Upstream::ClusterManager& cm,
 		   Event::Dispatcher& dispatcher, Stats::Scope &scope,
 		   ThreadLocal::SlotAllocator& tls);
   NetworkPolicyMap(std::unique_ptr<Envoy::Config::Subscription<cilium::NetworkPolicy>>&& subscription,
 		   ThreadLocal::SlotAllocator& tls);
   ~NetworkPolicyMap() {
-    ENVOY_LOG(debug, "Cilium L7 NetworkPolicyMap: NetworkPolicyMap is deleted NOW!");
+    ENVOY_LOG(debug, "Cilium L7 NetworkPolicyMap({}): NetworkPolicyMap is deleted NOW!", name_);
   }
 
   // subscription_->start() calls onConfigUpdate(), which uses
@@ -244,8 +245,11 @@ public:
 
 private:
   ThreadLocal::SlotPtr tls_;
+  Stats::ScopePtr scope_;
   std::unique_ptr<Envoy::Config::Subscription<cilium::NetworkPolicy>> subscription_;
   const std::shared_ptr<const PolicyInstance> null_instance_{nullptr};
+  static uint64_t instance_id_;
+  std::string name_;
 };
 
 } // namespace Cilium
