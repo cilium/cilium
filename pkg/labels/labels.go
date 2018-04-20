@@ -19,6 +19,7 @@ import (
 	"crypto/sha512"
 	"encoding/json"
 	"fmt"
+	"net"
 	"sort"
 	"strings"
 
@@ -154,17 +155,37 @@ type Label struct {
 // Labels is a map of labels where the map's key is the same as the label's key.
 type Labels map[string]*Label
 
-// String returns the map of labels as human readable string
-func (l Labels) String() string {
-	str := ""
+// GetPrintableModel turns the Labels into a sorted list of strings
+// representing the labels, with CIDRs deduplicated (ie, only provide the most
+// specific CIDR).
+func (l Labels) GetPrintableModel() (res []string) {
+	cidr := ""
+	prefixLength := 0
 	for _, v := range l {
-		if str != "" {
-			str += ","
+		if v.Source == LabelSourceCIDR {
+			vStr := strings.Replace(v.String(), "-", ":", -1)
+			prefix := strings.Replace(v.Key, "-", ":", -1)
+			_, ipnet, _ := net.ParseCIDR(prefix)
+			ones, _ := ipnet.Mask.Size()
+			if ones > prefixLength {
+				cidr = vStr
+				prefixLength = ones
+			}
+			continue
 		}
-		str += v.String()
+		res = append(res, v.String())
+	}
+	if cidr != "" {
+		res = append(res, cidr)
 	}
 
-	return str
+	sort.Strings(res)
+	return res
+}
+
+// String returns the map of labels as human readable string
+func (l Labels) String() string {
+	return strings.Join(l.GetPrintableModel(), ",")
 }
 
 // MarkAllForDeletion marks all the labels with the deletionMark.
