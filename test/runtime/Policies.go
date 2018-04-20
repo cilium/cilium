@@ -20,7 +20,6 @@ import (
 	"os"
 	"sort"
 	"strings"
-	"sync"
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/policy/api"
@@ -1114,37 +1113,41 @@ var _ = Describe("RuntimeValidatedPolicies", func() {
 })
 
 var _ = Describe("RuntimeValidatedPolicyImportTests", func() {
-	var once sync.Once
-	var logger *logrus.Entry
-	var vm *helpers.SSHMeta
+	var (
+		logger *logrus.Entry
+		vm     *helpers.SSHMeta
+	)
 
-	initialize := func() {
+	BeforeAll(func() {
 		logger = log.WithFields(logrus.Fields{"test": "RuntimeValidatedPoliciesImportTests"})
 		logger.Info("Starting")
 		vm = helpers.CreateNewRuntimeHelper(helpers.Runtime, logger)
-		areEndpointsReady := vm.WaitEndpointsReady()
-		Expect(areEndpointsReady).Should(BeTrue())
-	}
-
-	BeforeEach(func() {
-		once.Do(initialize)
-		vm.PolicyDelAll()
 
 		vm.SampleContainersActions(helpers.Create, helpers.CiliumDockerNetwork)
-		areEndpointsReady := vm.WaitEndpointsReady()
-		Expect(areEndpointsReady).Should(BeTrue(), "Timed out waiting for endpoints to be ready")
 
+		areEndpointsReady := vm.WaitEndpointsReady()
+		Expect(areEndpointsReady).Should(BeTrue())
+	})
+
+	BeforeEach(func() {
+		ExpectPolicyEnforcementUpdated(vm, helpers.PolicyEnforcementDefault)
 	})
 
 	AfterEach(func() {
-		vm.ValidateNoErrorsOnLogs(CurrentGinkgoTestDescription().Duration)
-		if CurrentGinkgoTestDescription().Failed {
-			vm.ReportFailed()
-		}
+		_ = vm.PolicyDelAll()
+	})
 
+	JustAfterEach(func() {
+		vm.ValidateNoErrorsOnLogs(CurrentGinkgoTestDescription().Duration)
+	})
+
+	AfterFailed(func() {
+		vm.ReportFailed()
+	})
+
+	AfterAll(func() {
+		vm.PolicyDelAll().ExpectSuccess("Unable to delete all policies")
 		vm.SampleContainersActions(helpers.Delete, helpers.CiliumDockerNetwork)
-		allEndpointsDeleted := vm.WaitEndpointsDeleted()
-		Expect(allEndpointsDeleted).Should(BeTrue(), "Not all endpoints were able to be deleted")
 	})
 
 	It("Invalid Policies", func() {
@@ -1274,6 +1277,8 @@ var _ = Describe("RuntimeValidatedPolicyImportTests", func() {
 		By("Checking that all policy maps for endpoints have been deleted")
 		Expect(strings.TrimSpace(policyMapsInVM.GetStdOut())).To(Equal(expected), "Only %s PolicyMap should be present", expected)
 
+		By("Creating endpoints after deleting them to restore test state")
+		vm.SampleContainersActions(helpers.Create, helpers.CiliumDockerNetwork)
 	})
 
 	It("checks policy trace output", func() {
