@@ -63,9 +63,7 @@ $(ENVOY_BIN) envoy-release: force
 
 envoy-debug: force-non-root
 	-rm -f bazel-out/k8-dbg/bin/_objs/envoy/external/envoy/source/common/common/version_linkstamp.o
-	$(BAZEL) $(BAZEL_OPTS) build $(BAZEL_BUILD_OPTS) -c dbg --cxxopt="-fno-omit-frame-pointer" --cxxopt="-D_GLIBCXX_ASSERTIONS" //:envoy
-
-#  --config=clang-asan
+	$(BAZEL) $(BAZEL_OPTS) build $(BAZEL_BUILD_OPTS) -c dbg --config=clang-asan --cxxopt="-fno-omit-frame-pointer" --cxxopt="-D_GLIBCXX_ASSERTIONS" //:envoy
 
 $(CHECK_FORMAT): force-non-root
 	$(BAZEL) $(BAZEL_OPTS) build $(BAZEL_BUILD_OPTS) //:check_format.py
