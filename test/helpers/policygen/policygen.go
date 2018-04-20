@@ -63,14 +63,14 @@ var policiesTestSuite = PolicyTestSuite{
 			tests:    ConnResultAllOK,
 			template: map[string]string{},
 		},
-		{
+		/*{
 			name:  "Ingress Port 80 No protocol",
 			kind:  ingress,
 			tests: ConnResultOnlyHTTP,
 			template: map[string]string{
 				"ports": `[{"port": "80"}]`,
 			},
-		},
+		},*/
 		{
 			name:  "Egress Port 80 No protocol",
 			kind:  egress,
@@ -79,22 +79,22 @@ var policiesTestSuite = PolicyTestSuite{
 				"ports": `[{"port": "80"}]`,
 			},
 		},
-		{
+		/*{
 			name:  "Ingress Port 80 TCP",
 			kind:  ingress,
 			tests: ConnResultOnlyHTTP,
 			template: map[string]string{
 				"ports": `[{"port": "80", "protocol": "TCP"}]`,
 			},
-		},
-		{
+		},*/
+		/*{
 			name:  "Ingress Port 80 UDP",
 			kind:  ingress,
 			tests: ConnResultAllTimeout,
 			template: map[string]string{
 				"ports": `[{"port": "80", "protocol": "UDP"}]`,
 			},
-		},
+		},*/
 		{
 			name:  "Egress Port 80 TCP",
 			kind:  egress,
@@ -119,7 +119,7 @@ var policiesTestSuite = PolicyTestSuite{
 			tests:    ConnResultAllOK,
 			template: map[string]string{},
 		},
-		{
+		/*{
 			name:  "Ingress policy /private/",
 			kind:  ingress,
 			tests: ConnResultOnlyHTTPPrivate,
@@ -132,6 +132,7 @@ var policiesTestSuite = PolicyTestSuite{
 				"L4:Ingress Port 80 No protocol",
 			},
 		},
+		},*/
 		{
 			name:  "Egress policy to /private/",
 			kind:  egress,
