@@ -525,13 +525,6 @@ func (s *XDSServer) UpdateNetworkPolicy(ep logger.EndpointUpdater, policy *polic
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
-	// If there are no listeners configured, the local node's Envoy proxy won't
-	// query for network policies and therefore will never ACK them, and we'd
-	// wait forever.
-	if !viper.GetBool("sidecar-http-proxy") && len(s.listeners) == 0 {
-		wg = nil
-	}
-
 	// First, validate all policies
 	ips := []string{
 		ep.GetIPv6Address(),
@@ -549,6 +542,44 @@ func (s *XDSServer) UpdateNetworkPolicy(ep logger.EndpointUpdater, policy *polic
 			return fmt.Errorf("error validating generated NetworkPolicy for %s: %s", ip, err)
 		}
 		policies = append(policies, networkPolicy)
+	}
+
+	if viper.GetBool("sidecar-http-proxy") { // Sidecar proxy.
+		// If there are no L7 rules, we expect Envoy to NOT be configured with
+		// an L7 filter, in which case we'd never receive an ACK for the policy,
+		// and we'd wait forever.
+		// TODO: Remove this when we implement and inject an Envoy network filter
+		// into every Envoy listener to filter at L3/L4.
+		var hasL7Rules bool
+	Policies:
+		for _, p := range policies {
+			for _, pnp := range p.IngressPerPortPolicies {
+				for _, r := range pnp.Rules {
+					if r.L7Rules != nil {
+						hasL7Rules = true
+						break Policies
+					}
+				}
+			}
+			for _, pnp := range p.EgressPerPortPolicies {
+				for _, r := range pnp.Rules {
+					if r.L7Rules != nil {
+						hasL7Rules = true
+						break Policies
+					}
+				}
+			}
+		}
+		if !hasL7Rules {
+			wg = nil
+		}
+	} else { // Node proxy.
+		// If there are no listeners configured, the local node's Envoy proxy won't
+		// query for network policies and therefore will never ACK them, and we'd
+		// wait forever.
+		if len(s.listeners) == 0 {
+			wg = nil
+		}
 	}
 
 	// When successful, push them into the cache.
