@@ -20,8 +20,6 @@ subscribe(const std::string& grpc_method, const envoy::api::v2::core::Node& node
   api_config_source.add_cluster_names("xds-grpc-cilium");
 
   Config::Utility::checkApiConfigSourceSubscriptionBackingCluster(cm.clusters(), api_config_source);
-  Config::SubscriptionStats stats = Config::Utility::generateStats(scope);
-
   const auto* method = Protobuf::DescriptorPool::generated_pool()->FindMethodByName(grpc_method);
 
   if (method == nullptr) {
@@ -33,7 +31,7 @@ subscribe(const std::string& grpc_method, const envoy::api::v2::core::Node& node
 		Config::Utility::factoryForApiConfigSource(cm.grpcAsyncClientManager(),
 							   api_config_source,
 							   scope)->create(),
-		dispatcher, *method, stats);
+		dispatcher, *method, Config::Utility::generateStats(scope));
 }
 
 } // namespace Cilium
