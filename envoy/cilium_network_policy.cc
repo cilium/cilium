@@ -11,21 +11,36 @@
 namespace Envoy {
 namespace Cilium {
 
-NetworkPolicyMap::NetworkPolicyMap(std::unique_ptr<Envoy::Config::Subscription<cilium::NetworkPolicy>>&& subscription,
-				   ThreadLocal::SlotAllocator& tls)
-  : tls_(tls.allocateSlot()), subscription_(std::move(subscription)) {
+uint64_t NetworkPolicyMap::instance_id_ = 0;
+
+NetworkPolicyMap::NetworkPolicyMap(ThreadLocal::SlotAllocator& tls) : tls_(tls.allocateSlot()) {
+  instance_id_++;
+  name_ = "cilium.policymap." + fmt::format("{}", instance_id_) + ".";
+  ENVOY_LOG(debug, "NetworkPolicyMap({}) created.", name_);  
+
   tls_->set([&](Event::Dispatcher&) -> ThreadLocal::ThreadLocalObjectSharedPtr {
       return std::make_shared<ThreadLocalPolicyMap>();
   });
 }
 
+// This is used for testing with a file-based subscription
+NetworkPolicyMap::NetworkPolicyMap(std::unique_ptr<Envoy::Config::Subscription<cilium::NetworkPolicy>>&& subscription,
+				   ThreadLocal::SlotAllocator& tls)
+  : NetworkPolicyMap(tls) {
+  subscription_ = std::move(subscription);
+}
+
+// This is used in production
 NetworkPolicyMap::NetworkPolicyMap(const envoy::api::v2::core::Node& node,
 				   Upstream::ClusterManager& cm, Event::Dispatcher& dispatcher,
 				   Stats::Scope &scope, ThreadLocal::SlotAllocator& tls)
-  : NetworkPolicyMap(subscribe<cilium::NetworkPolicy>("cilium.NetworkPolicyDiscoveryService.StreamNetworkPolicies", node, cm, dispatcher, scope), tls) {}
+  : NetworkPolicyMap(tls) {
+  scope_ = scope.createScope(name_);
+  subscription_ = subscribe<cilium::NetworkPolicy>("cilium.NetworkPolicyDiscoveryService.StreamNetworkPolicies", node, cm, dispatcher, *scope_);
+}
 
 void NetworkPolicyMap::onConfigUpdate(const ResourceVector& resources) {
-  ENVOY_LOG(debug, "NetworkPolicyMap::onConfigUpdate({}), version: {}", resources.size(), subscription_->versionInfo());
+  ENVOY_LOG(debug, "NetworkPolicyMap::onConfigUpdate({}), {} resources, current version: {}", name_, resources.size(), subscription_->versionInfo());
 
   std::unordered_set<std::string> keeps;
 
