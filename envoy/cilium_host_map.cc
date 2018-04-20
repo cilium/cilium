@@ -119,30 +119,41 @@ protected:
   }
 };
 
+uint64_t PolicyHostMap::instance_id_ = 0;
+
 PolicyHostMap::PolicyHostMap(ThreadLocal::SlotAllocator& tls) : tls_(tls.allocateSlot()) {
+  instance_id_++;
+  name_ = "cilium.hostmap." + fmt::format("{}", instance_id_) + ".";
+  ENVOY_LOG(debug, "PolicyHostMap({}) created.", name_);  
+
   auto empty_map = std::make_shared<ThreadLocalHostMapInitializer>();
   tls_->set([empty_map](Event::Dispatcher&) -> ThreadLocal::ThreadLocalObjectSharedPtr {
       return empty_map;
   });
 }
 
+// This is used for testing with a file-based subscription
 PolicyHostMap::PolicyHostMap(std::unique_ptr<Envoy::Config::Subscription<cilium::NetworkPolicyHosts>>&& subscription,
 			     ThreadLocal::SlotAllocator& tls)
   : PolicyHostMap(tls) {
   subscription_ = std::move(subscription);
 }
 
+// This is used in production
 PolicyHostMap::PolicyHostMap(const envoy::api::v2::core::Node& node, Upstream::ClusterManager& cm,
 			     Event::Dispatcher& dispatcher, Stats::Scope &scope,
 			     ThreadLocal::SlotAllocator& tls)
-  : PolicyHostMap(subscribe<cilium::NetworkPolicyHosts>("cilium.NetworkPolicyHostsDiscoveryService.StreamNetworkPolicyHosts", node, cm, dispatcher, scope), tls) {}
+  : PolicyHostMap(tls) {
+  scope_ = scope.createScope(name_);
+  subscription_ = subscribe<cilium::NetworkPolicyHosts>("cilium.NetworkPolicyHostsDiscoveryService.StreamNetworkPolicyHosts", node, cm, dispatcher, *scope_);
+}
 
 void PolicyHostMap::onConfigUpdate(const ResourceVector& resources) {
   std::string version;
   if (subscription_) {
     version = subscription_->versionInfo();
   }
-  ENVOY_LOG(debug, "PolicyHostMap::onConfigUpdate({}), version: {}", resources.size(), version);
+  ENVOY_LOG(debug, "PolicyHostMap::onConfigUpdate({}), {} resources, current version: {}", name_, resources.size(), version);
 
   auto newmap = std::make_shared<ThreadLocalHostMapInitializer>();
   
