@@ -75,6 +75,9 @@ var _ = Describe("K8sValidatedUpdates", func() {
 		// because maybe is not present
 		kubectl.DeleteResource("ds", fmt.Sprintf("-n %s cilium", helpers.KubeSystemNamespace))
 		helpers.InstallExampleCilium(kubectl)
+
+		err := kubectl.WaitKubeDNS()
+		Expect(err).Should(BeNil(), "DNS is not ready after timeout")
 	})
 
 	validatedImage := func(image string) {
