@@ -17,7 +17,6 @@ package RuntimeTest
 import (
 	"crypto/md5"
 	"fmt"
-	"sync"
 
 	. "github.com/cilium/cilium/test/ginkgo-ext"
 	"github.com/cilium/cilium/test/helpers"
@@ -29,24 +28,21 @@ import (
 var _ = Describe("RuntimeValidatedChaos", func() {
 
 	var vm *helpers.SSHMeta
-	var once sync.Once
 
-	initialize := func() {
+	BeforeAll(func() {
 		logger := log.WithFields(logrus.Fields{"testName": "RuntimeValidatedChaos"})
 		logger.Info("Starting")
 		vm = helpers.CreateNewRuntimeHelper(helpers.Runtime, logger)
-	}
 
-	BeforeEach(func() {
-		once.Do(initialize)
 		vm.ContainerCreate(helpers.Client, helpers.NetperfImage, helpers.CiliumDockerNetwork, "-l id.client")
 		vm.ContainerCreate(helpers.Server, helpers.NetperfImage, helpers.CiliumDockerNetwork, "-l id.server")
-
-		areEndpointsReady := vm.WaitEndpointsReady()
-		Expect(areEndpointsReady).Should(BeTrue())
 	})
 
-	AfterEach(func() {
+	BeforeEach(func() {
+		Expect(vm.WaitEndpointsReady()).Should(BeTrue(), "Endpoints are not ready after timeout")
+	})
+
+	AfterAll(func() {
 		vm.ContainerRm(helpers.Client)
 		vm.ContainerRm(helpers.Server)
 	})
