@@ -35,7 +35,6 @@ func (s *SSHMeta) ContainerExec(name string, cmd string, optionalArgs ...string)
 func (s *SSHMeta) ContainerCreate(name, image, net, options string) *CmdRes {
 	cmd := fmt.Sprintf(
 		"docker run -d --name %s --net %s %s %s", name, net, options, image)
-	log.Debugf("spinning up container with command '%v'", cmd)
 	return s.ExecWithSudo(cmd)
 }
 
@@ -43,7 +42,6 @@ func (s *SSHMeta) ContainerCreate(name, image, net, options string) *CmdRes {
 // Docker container of the provided name.
 func (s *SSHMeta) ContainerRm(name string) *CmdRes {
 	cmd := fmt.Sprintf("docker rm -f %s", name)
-	log.Debugf("removing container with command '%v'", cmd)
 	return s.ExecWithSudo(cmd)
 }
 
