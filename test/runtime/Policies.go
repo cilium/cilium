@@ -90,11 +90,7 @@ var _ = Describe("RuntimeValidatedPolicyEnforcement", func() {
 	Context("Policy Enforcement Default", func() {
 
 		BeforeEach(func() {
-			res := vm.SetPolicyEnforcement(helpers.PolicyEnforcementDefault)
-			res.ExpectSuccess()
-
-			areEndpointsReady := vm.WaitEndpointsReady()
-			Expect(areEndpointsReady).Should(BeTrue())
+			ExpectPolicyEnforcementUpdated(vm, helpers.PolicyEnforcementDefault)
 		})
 
 		It("Default values", func() {
@@ -122,22 +118,14 @@ var _ = Describe("RuntimeValidatedPolicyEnforcement", func() {
 
 			By("Setting to Always")
 
-			res := vm.SetPolicyEnforcement(helpers.PolicyEnforcementAlways)
-			res.ExpectSuccess()
-
-			areEndpointsReady := vm.WaitEndpointsReady()
-			Expect(areEndpointsReady).Should(BeTrue())
+			ExpectPolicyEnforcementUpdated(vm, helpers.PolicyEnforcementAlways)
 
 			endPoints, err = vm.PolicyEndpointsSummary()
 			Expect(err).Should(BeNil())
 			Expect(endPoints[helpers.Enabled]).To(Equal(1))
 
 			By("Setting to default from Always")
-			res = vm.SetPolicyEnforcement(helpers.PolicyEnforcementDefault)
-			res.ExpectSuccess()
-
-			areEndpointsReady = vm.WaitEndpointsReady()
-			Expect(areEndpointsReady).Should(BeTrue())
+			ExpectPolicyEnforcementUpdated(vm, helpers.PolicyEnforcementDefault)
 
 			endPoints, err = vm.PolicyEndpointsSummary()
 			Expect(err).Should(BeNil())
@@ -151,23 +139,14 @@ var _ = Describe("RuntimeValidatedPolicyEnforcement", func() {
 			endPoints, err := vm.PolicyEndpointsSummary()
 			Expect(err).Should(BeNil())
 			Expect(endPoints[helpers.Enabled]).To(Equal(1))
-			//DEfault =APP with PolicyEnforcement
 
-			res := vm.SetPolicyEnforcement(helpers.PolicyEnforcementAlways)
-			res.ExpectSuccess()
-
-			areEndpointsReady := vm.WaitEndpointsReady()
-			Expect(areEndpointsReady).Should(BeTrue())
+			ExpectPolicyEnforcementUpdated(vm, helpers.PolicyEnforcementAlways)
 
 			endPoints, err = vm.PolicyEndpointsSummary()
 			Expect(err).Should(BeNil())
 			Expect(endPoints[helpers.Enabled]).To(Equal(1))
 
-			res = vm.SetPolicyEnforcement(helpers.PolicyEnforcementDefault)
-			res.ExpectSuccess()
-
-			areEndpointsReady = vm.WaitEndpointsReady()
-			Expect(areEndpointsReady).Should(BeTrue())
+			ExpectPolicyEnforcementUpdated(vm, helpers.PolicyEnforcementDefault)
 
 			endPoints, err = vm.PolicyEndpointsSummary()
 			Expect(err).Should(BeNil())
@@ -179,11 +158,7 @@ var _ = Describe("RuntimeValidatedPolicyEnforcement", func() {
 			Expect(err).Should(BeNil())
 			Expect(endPoints[helpers.Disabled]).To(Equal(1))
 
-			res := vm.SetPolicyEnforcement(helpers.PolicyEnforcementNever)
-			res.ExpectSuccess()
-
-			areEndpointsReady := vm.WaitEndpointsReady()
-			Expect(areEndpointsReady).Should(BeTrue())
+			ExpectPolicyEnforcementUpdated(vm, helpers.PolicyEnforcementNever)
 
 			endPoints, err = vm.PolicyEndpointsSummary()
 			Expect(err).Should(BeNil())
@@ -203,21 +178,13 @@ var _ = Describe("RuntimeValidatedPolicyEnforcement", func() {
 			Expect(err).Should(BeNil())
 			Expect(endPoints[helpers.Enabled]).To(Equal(1))
 
-			res := vm.SetPolicyEnforcement(helpers.PolicyEnforcementNever)
-			res.ExpectSuccess()
-
-			areEndpointsReady := vm.WaitEndpointsReady()
-			Expect(areEndpointsReady).Should(BeTrue())
+			ExpectPolicyEnforcementUpdated(vm, helpers.PolicyEnforcementNever)
 
 			endPoints, err = vm.PolicyEndpointsSummary()
 			Expect(err).Should(BeNil())
 			Expect(endPoints[helpers.Enabled]).To(Equal(0))
 
-			res = vm.SetPolicyEnforcement(helpers.PolicyEnforcementDefault)
-			res.ExpectSuccess()
-
-			areEndpointsReady = vm.WaitEndpointsReady()
-			Expect(areEndpointsReady).Should(BeTrue())
+			ExpectPolicyEnforcementUpdated(vm, helpers.PolicyEnforcementDefault)
 
 			endPoints, err = vm.PolicyEndpointsSummary()
 			Expect(err).Should(BeNil())
@@ -228,11 +195,7 @@ var _ = Describe("RuntimeValidatedPolicyEnforcement", func() {
 	Context("Policy Enforcement Always", func() {
 		//The test Always to Default is already tested in from default-always
 		BeforeEach(func() {
-			res := vm.SetPolicyEnforcement(helpers.PolicyEnforcementAlways)
-			res.ExpectSuccess()
-
-			areEndpointsReady := vm.WaitEndpointsReady()
-			Expect(areEndpointsReady).Should(BeTrue())
+			ExpectPolicyEnforcementUpdated(vm, helpers.PolicyEnforcementAlways)
 		})
 
 		It("Container creation", func() {
@@ -265,21 +228,13 @@ var _ = Describe("RuntimeValidatedPolicyEnforcement", func() {
 			Expect(endPoints[helpers.Enabled]).To(Equal(1))
 			Expect(endPoints[helpers.Disabled]).To(Equal(0))
 
-			res := vm.SetPolicyEnforcement(helpers.PolicyEnforcementNever)
-			res.ExpectSuccess()
-
-			areEndpointsReady := vm.WaitEndpointsReady()
-			Expect(areEndpointsReady).Should(BeTrue())
+			ExpectPolicyEnforcementUpdated(vm, helpers.PolicyEnforcementNever)
 
 			endPoints, err = vm.PolicyEndpointsSummary()
 			Expect(err).Should(BeNil())
 			Expect(endPoints[helpers.Enabled]).To(Equal(0))
 
-			res = vm.SetPolicyEnforcement(helpers.PolicyEnforcementAlways)
-			res.ExpectSuccess()
-
-			areEndpointsReady = vm.WaitEndpointsReady()
-			Expect(areEndpointsReady).Should(BeTrue())
+			ExpectPolicyEnforcementUpdated(vm, helpers.PolicyEnforcementAlways)
 
 			endPoints, err = vm.PolicyEndpointsSummary()
 			Expect(err).Should(BeNil())
@@ -292,22 +247,14 @@ var _ = Describe("RuntimeValidatedPolicyEnforcement", func() {
 			Expect(endPoints[helpers.Enabled]).To(Equal(1))
 			Expect(endPoints[helpers.Disabled]).To(Equal(0))
 
-			res := vm.SetPolicyEnforcement(helpers.PolicyEnforcementNever)
-			res.ExpectSuccess()
-
-			areEndpointsReady := vm.WaitEndpointsReady()
-			Expect(areEndpointsReady).Should(BeTrue())
+			ExpectPolicyEnforcementUpdated(vm, helpers.PolicyEnforcementNever)
 
 			endPoints, err = vm.PolicyEndpointsSummary()
 			Expect(err).Should(BeNil())
 			Expect(endPoints[helpers.Enabled]).To(Equal(0))
 			Expect(endPoints[helpers.Disabled]).To(Equal(1))
 
-			res = vm.SetPolicyEnforcement(helpers.PolicyEnforcementAlways)
-			res.ExpectSuccess()
-
-			areEndpointsReady = vm.WaitEndpointsReady()
-			Expect(areEndpointsReady).Should(BeTrue())
+			ExpectPolicyEnforcementUpdated(vm, helpers.PolicyEnforcementAlways)
 
 			endPoints, err = vm.PolicyEndpointsSummary()
 			Expect(err).Should(BeNil())
@@ -319,8 +266,7 @@ var _ = Describe("RuntimeValidatedPolicyEnforcement", func() {
 	Context("Policy Enforcement Never", func() {
 		//The test Always to Default is already tested in from default-always
 		BeforeEach(func() {
-			res := vm.SetPolicyEnforcement(helpers.PolicyEnforcementNever)
-			res.ExpectSuccess()
+			ExpectPolicyEnforcementUpdated(vm, helpers.PolicyEnforcementNever)
 		})
 
 		It("Container creation", func() {
@@ -354,22 +300,14 @@ var _ = Describe("RuntimeValidatedPolicyEnforcement", func() {
 			Expect(endPoints[helpers.Enabled]).To(Equal(0))
 			Expect(endPoints[helpers.Disabled]).To(Equal(1))
 
-			res := vm.SetPolicyEnforcement(helpers.PolicyEnforcementDefault)
-			res.ExpectSuccess()
-
-			areEndpointsReady := vm.WaitEndpointsReady()
-			Expect(areEndpointsReady).Should(BeTrue())
+			ExpectPolicyEnforcementUpdated(vm, helpers.PolicyEnforcementDefault)
 
 			endPoints, err = vm.PolicyEndpointsSummary()
 			Expect(err).Should(BeNil())
 			Expect(endPoints[helpers.Enabled]).To(Equal(1))
 			Expect(endPoints[helpers.Disabled]).To(Equal(0))
 
-			res = vm.SetPolicyEnforcement(helpers.PolicyEnforcementNever)
-			res.ExpectSuccess()
-
-			areEndpointsReady = vm.WaitEndpointsReady()
-			Expect(areEndpointsReady).Should(BeTrue())
+			ExpectPolicyEnforcementUpdated(vm, helpers.PolicyEnforcementNever)
 
 			endPoints, err = vm.PolicyEndpointsSummary()
 			Expect(err).Should(BeNil())
@@ -383,22 +321,14 @@ var _ = Describe("RuntimeValidatedPolicyEnforcement", func() {
 			Expect(endPoints[helpers.Enabled]).To(Equal(0))
 			Expect(endPoints[helpers.Disabled]).To(Equal(1))
 
-			res := vm.SetPolicyEnforcement(helpers.PolicyEnforcementDefault)
-			res.ExpectSuccess()
-
-			areEndpointsReady := vm.WaitEndpointsReady()
-			Expect(areEndpointsReady).Should(BeTrue())
+			ExpectPolicyEnforcementUpdated(vm, helpers.PolicyEnforcementDefault)
 
 			endPoints, err = vm.PolicyEndpointsSummary()
 			Expect(err).Should(BeNil())
 			Expect(endPoints[helpers.Enabled]).To(Equal(0))
 			Expect(endPoints[helpers.Disabled]).To(Equal(1))
 
-			res = vm.SetPolicyEnforcement(helpers.PolicyEnforcementNever)
-			res.ExpectSuccess()
-
-			areEndpointsReady = vm.WaitEndpointsReady()
-			Expect(areEndpointsReady).Should(BeTrue())
+			ExpectPolicyEnforcementUpdated(vm, helpers.PolicyEnforcementNever)
 
 			endPoints, err = vm.PolicyEndpointsSummary()
 			Expect(err).Should(BeNil())
@@ -429,11 +359,7 @@ var _ = Describe("RuntimeValidatedPolicies", func() {
 	})
 
 	BeforeEach(func() {
-		res := vm.SetPolicyEnforcement(helpers.PolicyEnforcementDefault)
-		res.ExpectSuccess()
-
-		areEndpointsReady := vm.WaitEndpointsReady()
-		Expect(areEndpointsReady).Should(BeTrue(), "Endpoints are not ready after timeout")
+		ExpectPolicyEnforcementUpdated(vm, helpers.PolicyEnforcementDefault)
 	})
 
 	AfterEach(func() {
@@ -760,11 +686,7 @@ var _ = Describe("RuntimeValidatedPolicies", func() {
 		By(fmt.Sprintf("IPV4 Prefix Except: %s", ipv4PrefixExcept))
 
 		By("Setting PolicyEnforcement to always enforce (default-deny)")
-		res := vm.SetPolicyEnforcement(helpers.PolicyEnforcementAlways)
-		res.ExpectSuccess("Unable to set PolicyEnforcement to %s", helpers.PolicyEnforcementAlways)
-
-		areEndpointsReady := vm.WaitEndpointsReady()
-		Expect(areEndpointsReady).To(BeTrue())
+		ExpectPolicyEnforcementUpdated(vm, helpers.PolicyEnforcementAlways)
 
 		// Delete the pseudo-host IPs that we added to localhost after test
 		// finishes. Don't care about success; this is best-effort.
@@ -781,7 +703,7 @@ var _ = Describe("RuntimeValidatedPolicies", func() {
 
 		By("Pinging host IPv4 from httpd2 (should NOT work due to default-deny PolicyEnforcement mode)")
 
-		res = vm.ContainerExec(helpers.Httpd2, helpers.Ping(helpers.IPv4Host))
+		res := vm.ContainerExec(helpers.Httpd2, helpers.Ping(helpers.IPv4Host))
 		res.ExpectFail("Unexpected success pinging host (%s) from %s: %s", helpers.IPv4Host, helpers.Httpd2, res.CombineOutput().String())
 
 		By(fmt.Sprintf("Importing L3 CIDR Policy for IPv4 Egress Allowing Egress to %s, %s from %s", ipv4OtherHost, ipv4OtherHost, httpd2Label))
@@ -1076,11 +998,7 @@ var _ = Describe("RuntimeValidatedPolicies", func() {
 
 		// Set policy enforcement to default deny so that we can do negative tests
 		// before importing policy
-		res := vm.SetPolicyEnforcement(helpers.PolicyEnforcementAlways)
-		res.ExpectSuccess()
-
-		areEndpointsReady := vm.WaitEndpointsReady()
-		Expect(areEndpointsReady).Should(BeTrue(), "Endpoints are not ready after timeout")
+		ExpectPolicyEnforcementUpdated(vm, helpers.PolicyEnforcementAlways)
 
 		failedPing := vm.ContainerExec(helpers.App1, helpers.Ping(googleDNS))
 		failedPing.ExpectFail("unexpectedly able to ping %s", googleDNS)
@@ -1467,11 +1385,7 @@ var _ = Describe("RuntimeValidatedPolicyImportTests", func() {
 		res = vm.PolicyDelAll()
 		res.ExpectSuccess("Unable to delete all policies")
 
-		res = vm.SetPolicyEnforcement(helpers.PolicyEnforcementDefault)
-		res.ExpectSuccess("Unable to change PolicyEnforcement configuration")
-
-		areEndpointsReady := vm.WaitEndpointsReady()
-		Expect(areEndpointsReady).Should(BeTrue())
+		ExpectPolicyEnforcementUpdated(vm, helpers.PolicyEnforcementDefault)
 
 		By("Checking that policy trace returns allowed verdict without any policies imported")
 		res = vm.Exec(fmt.Sprintf(`cilium policy trace --src-endpoint %s --dst-endpoint %s`, httpd2EndpointID, httpd1EndpointID))
