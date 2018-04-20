@@ -317,12 +317,18 @@ var _ = Describe("K8sValidatedPolicyTest", func() {
 		Context("Different namespaces", func() {
 
 			var (
-				namespace    = "second"
-				policy       = fmt.Sprintf("%s -n %s", l3Policy, namespace)
-				demoManifest = fmt.Sprintf("%s -n %s", demoPath, namespace)
+				namespace            = "second"
+				policy, demoManifest string
 			)
 
 			BeforeEach(func() {
+
+				demoPath = kubectl.ManifestGet("demo.yaml")
+				l3Policy = kubectl.ManifestGet("l3_l4_policy.yaml")
+
+				policy = fmt.Sprintf("%s -n %s", l3Policy, namespace)
+				demoManifest = fmt.Sprintf("%s -n %s", demoPath, namespace)
+
 				res := kubectl.NamespaceCreate(namespace)
 				res.ExpectSuccess("unable to create namespace %s: %s", namespace, res.CombineOutput())
 				res = kubectl.Apply(demoManifest)
