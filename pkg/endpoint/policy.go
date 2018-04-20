@@ -611,6 +611,15 @@ func (e *Endpoint) IngressOrEgressIsEnforced() bool {
 }
 
 func (e *Endpoint) updateNetworkPolicy(owner Owner) error {
+	// Skip updating the NetworkPolicy if no policy has been calculated.
+	// This breaks a circular dependency between configuring NetworkPolicies in
+	// sidecar Envoy proxies and those proxies needing network connectivity
+	// to get their initial configuration, which is required for them to ACK
+	// the NetworkPolicies.
+	if !e.PolicyCalculated {
+		return nil
+	}
+
 	// Compute the set of identities explicitly denied by policy.
 	// This loop is similar to the one in regenerateConsumable called
 	// above, but this set only contains the identities with "Denied" verdicts.
