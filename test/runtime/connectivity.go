@@ -313,8 +313,7 @@ var _ = Describe("RuntimeValidatedConntrackTest", func() {
 		logger.Info("Starting")
 		vm = helpers.CreateNewRuntimeHelper(helpers.Runtime, logger)
 
-		res := vm.SetPolicyEnforcement(helpers.PolicyEnforcementAlways)
-		res.ExpectSuccess(fmt.Sprintf("Unable to set PolicyEnforcement to %s", helpers.PolicyEnforcementAlways))
+		ExpectPolicyEnforcementUpdated(vm, helpers.PolicyEnforcementAlways)
 	}
 
 	clientServerConnectivity := func() {
@@ -641,8 +640,7 @@ var _ = Describe("RuntimeValidatedConntrackTest", func() {
 		}
 		vm.PolicyDelAll().ExpectSuccess("Policies cannot be deleted")
 
-		res := vm.SetPolicyEnforcement(helpers.PolicyEnforcementDefault)
-		res.ExpectSuccess("Cannot set policy enforcement to default mode")
+		ExpectPolicyEnforcementUpdated(vm, helpers.PolicyEnforcementDefault)
 	})
 
 	JustAfterEach(func() {

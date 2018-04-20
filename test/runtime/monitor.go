@@ -63,8 +63,7 @@ var _ = Describe("RuntimeValidatedMonitorTest", func() {
 	})
 
 	BeforeEach(func() {
-		res := vm.SetPolicyEnforcement(helpers.PolicyEnforcementDefault)
-		res.ExpectSuccess("cannot change policy enforcement to Default")
+		ExpectPolicyEnforcementUpdated(vm, helpers.PolicyEnforcementDefault)
 	})
 
 	Context("With Sample Containers", func() {
@@ -277,11 +276,7 @@ var _ = Describe("RuntimeValidatedMonitorTest", func() {
 		It("checks container ids match monitor output", func() {
 			res := vm.ExecCilium(fmt.Sprintf("config %s=true", MonitorDebug))
 			res.ExpectSuccess()
-			res = vm.SetPolicyEnforcement(helpers.PolicyEnforcementAlways)
-			res.ExpectSuccess()
-
-			areEndpointsReady := vm.WaitEndpointsReady()
-			Expect(areEndpointsReady).Should(BeTrue(), "Endpoints are not ready after timeout")
+			ExpectPolicyEnforcementUpdated(vm, helpers.PolicyEnforcementAlways)
 
 			ctx, cancel := context.WithCancel(context.Background())
 			res = vm.ExecContext(ctx, "cilium monitor -v")
