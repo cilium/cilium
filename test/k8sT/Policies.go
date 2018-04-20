@@ -35,21 +35,21 @@ import (
 var _ = Describe("K8sValidatedPolicyTest", func() {
 
 	var (
-		demoPath                                          string
-		once                                              sync.Once
-		kubectl                                           *helpers.Kubectl
-		l3Policy, l7Policy, knpDenyIngress, knpDenyEgress string
-		cnpDenyIngress, cnpDenyEgress                     string
-		logger                                            *logrus.Entry
-		path                                              string
-		podFilter                                         string
-		apps                                              []string
-		service                                           *v1.Service
-		podServer                                         *v1.Pod
-		namespace                                         string
-		app1Service                                       string = "app1-service"
-		microscopeErr                                     error
-		microscopeCancel                                  func() error
+		demoPath                                                                string
+		once                                                                    sync.Once
+		kubectl                                                                 *helpers.Kubectl
+		l3Policy, l7Policy, knpDenyIngress, knpDenyEgress, knpDenyIngressEgress string
+		cnpDenyIngress, cnpDenyEgress                                           string
+		logger                                                                  *logrus.Entry
+		path                                                                    string
+		podFilter                                                               string
+		apps                                                                    []string
+		service                                                                 *v1.Service
+		podServer                                                               *v1.Pod
+		namespace                                                               string
+		app1Service                                                             string = "app1-service"
+		microscopeErr                                                           error
+		microscopeCancel                                                        func() error
 	)
 
 	initialize := func() {
@@ -65,6 +65,7 @@ var _ = Describe("K8sValidatedPolicyTest", func() {
 		l3Policy = kubectl.ManifestGet("l3_l4_policy.yaml")
 		knpDenyIngress = kubectl.ManifestGet("knp-default-deny-ingress.yaml")
 		knpDenyEgress = kubectl.ManifestGet("knp-default-deny-egress.yaml")
+		knpDenyIngressEgress = kubectl.ManifestGet("knp-default-deny-ingress-egress.yaml")
 		l7Policy = kubectl.ManifestGet("l7_policy.yaml")
 		cnpDenyIngress = kubectl.ManifestGet("cnp-default-deny-ingress.yaml")
 		cnpDenyEgress = kubectl.ManifestGet("cnp-default-deny-egress.yaml")
@@ -154,6 +155,7 @@ var _ = Describe("K8sValidatedPolicyTest", func() {
 			kubectl.Delete(l7Policy)
 			kubectl.Delete(knpDenyIngress)
 			kubectl.Delete(knpDenyEgress)
+			kubectl.Delete(knpDenyIngressEgress)
 			kubectl.Delete(cnpDenyIngress)
 			kubectl.Delete(cnpDenyEgress)
 		})
@@ -460,6 +462,67 @@ var _ = Describe("K8sValidatedPolicyTest", func() {
 					"host www.google.com")
 				res.ExpectFail("Egress DNS connectivity should be denied for pod %q", pod)
 			}
+		})
+
+		It("Denies traffic with k8s default-deny ingress-egress policy", func() {
+			if helpers.GetCurrentK8SEnv() == "1.7" {
+				log.Info("K8s 1.7 doesn't offer a default deny for egress")
+				return
+			}
+
+			By("Installing knp ingress-egress default-deny")
+
+			_, err := kubectl.CiliumPolicyAction(
+				helpers.KubeSystemNamespace, knpDenyIngressEgress, helpers.KubectlApply, 300)
+			Expect(err).Should(BeNil(),
+				"L3 deny-ingress-egress policy cannot be applied in %q namespace", helpers.DefaultNamespace)
+
+			By("Testing if egress policy enforcement is enabled on the endpoint")
+
+			var epList []models.Endpoint
+			err = kubectl.CiliumEndpointsList(ciliumPod).Unmarshal(&epList)
+			Expect(err).To(BeNil(), "Getting a list of endpoints from %s", ciliumPod)
+
+			epsWithEgress := 0
+			for _, ep := range epList {
+				for _, lbls := range ep.Status.Labels.SecurityRelevant {
+					if lbls == "k8s:io.kubernetes.pod.namespace="+helpers.DefaultNamespace {
+						switch ep.Status.Policy.Realized.PolicyEnabled {
+						case models.EndpointPolicyEnabledBoth, models.EndpointPolicyEnabledEgress:
+							epsWithEgress++
+						}
+					}
+				}
+			}
+			Expect(epsWithEgress).To(Equal(4), "All endpoints should have egress policy enabled")
+			for _, pod := range []string{appPods[helpers.App2], appPods[helpers.App3]} {
+				res := kubectl.ExecPodCmd(
+					helpers.DefaultNamespace, pod,
+					helpers.CurlFail("http://www.google.com/"))
+				res.ExpectFail("Egress connectivity should be denied for pod %q", pod)
+
+				res = kubectl.ExecPodCmd(
+					helpers.DefaultNamespace, pod,
+					helpers.Ping("8.8.8.8"))
+				res.ExpectFail("Egress ping connectivity should be denied for pod %q", pod)
+
+				res = kubectl.ExecPodCmd(
+					helpers.DefaultNamespace, pod,
+					"host www.google.com")
+				res.ExpectFail("Egress DNS connectivity should be denied for pod %q", pod)
+			}
+
+			By("Testing ingress connectivity with default-deny policy loaded")
+
+			res := kubectl.ExecPodCmd(
+				helpers.DefaultNamespace, appPods[helpers.App2],
+				helpers.CurlFail(fmt.Sprintf("http://%s/public", clusterIP)))
+			res.ExpectFail("Ingress connectivity should be denied by policy")
+
+			res = kubectl.ExecPodCmd(
+				helpers.DefaultNamespace, appPods[helpers.App3],
+				helpers.CurlFail(fmt.Sprintf("http://%s/public", clusterIP)))
+			res.ExpectFail("Ingress connectivity should be denied by policy")
 		})
 
 		It("Denies traffic with cnp default-deny ingress policy", func() {
