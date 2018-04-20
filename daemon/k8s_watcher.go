@@ -356,45 +356,47 @@ func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 	go endpointController.Run(wait.NeverStop)
 	d.k8sAPIGroups.addAPI(k8sAPIGroupEndpointV1Core)
 
-	_, ingressController := cache.NewInformer(
-		cache.NewListWatchFromClient(k8s.Client().ExtensionsV1beta1().RESTClient(),
-			"ingresses", v1.NamespaceAll, fields.Everything()),
-		&v1beta1.Ingress{},
-		reSyncPeriod,
-		cache.ResourceEventHandlerFuncs{
-			AddFunc: func(obj interface{}) {
-				metrics.SetTSValue(metrics.EventTSK8s, time.Now())
-				if ing := copyObjToV1beta1Ingress(obj); ing != nil {
-					serEps.Enqueue(func() error {
-						d.addIngressV1beta1(ing)
-						return nil
-					}, serializer.NoRetry)
-				}
-			},
-			UpdateFunc: func(oldObj, newObj interface{}) {
-				metrics.SetTSValue(metrics.EventTSK8s, time.Now())
-				if oldIng := copyObjToV1beta1Ingress(oldObj); oldIng != nil {
-					if newIng := copyObjToV1beta1Ingress(newObj); newIng != nil {
+	if d.conf.IsLBEnabled() {
+		_, ingressController := cache.NewInformer(
+			cache.NewListWatchFromClient(k8s.Client().ExtensionsV1beta1().RESTClient(),
+				"ingresses", v1.NamespaceAll, fields.Everything()),
+			&v1beta1.Ingress{},
+			reSyncPeriod,
+			cache.ResourceEventHandlerFuncs{
+				AddFunc: func(obj interface{}) {
+					metrics.SetTSValue(metrics.EventTSK8s, time.Now())
+					if ing := copyObjToV1beta1Ingress(obj); ing != nil {
 						serEps.Enqueue(func() error {
-							d.updateIngressV1beta1(oldIng, newIng)
+							d.addIngressV1beta1(ing)
 							return nil
 						}, serializer.NoRetry)
 					}
-				}
+				},
+				UpdateFunc: func(oldObj, newObj interface{}) {
+					metrics.SetTSValue(metrics.EventTSK8s, time.Now())
+					if oldIng := copyObjToV1beta1Ingress(oldObj); oldIng != nil {
+						if newIng := copyObjToV1beta1Ingress(newObj); newIng != nil {
+							serEps.Enqueue(func() error {
+								d.updateIngressV1beta1(oldIng, newIng)
+								return nil
+							}, serializer.NoRetry)
+						}
+					}
+				},
+				DeleteFunc: func(obj interface{}) {
+					metrics.SetTSValue(metrics.EventTSK8s, time.Now())
+					if ing := copyObjToV1beta1Ingress(obj); ing != nil {
+						serEps.Enqueue(func() error {
+							d.deleteIngressV1beta1(ing)
+							return nil
+						}, serializer.NoRetry)
+					}
+				},
 			},
-			DeleteFunc: func(obj interface{}) {
-				metrics.SetTSValue(metrics.EventTSK8s, time.Now())
-				if ing := copyObjToV1beta1Ingress(obj); ing != nil {
-					serEps.Enqueue(func() error {
-						d.deleteIngressV1beta1(ing)
-						return nil
-					}, serializer.NoRetry)
-				}
-			},
-		},
-	)
-	go ingressController.Run(wait.NeverStop)
-	d.k8sAPIGroups.addAPI(k8sAPIGroupIngressV1Beta1)
+		)
+		go ingressController.Run(wait.NeverStop)
+		d.k8sAPIGroups.addAPI(k8sAPIGroupIngressV1Beta1)
+	}
 
 	si := informer.NewSharedInformerFactory(ciliumNPClient, reSyncPeriod)
 
@@ -1044,10 +1046,6 @@ func (d *Daemon) syncLB(newSN, modSN, delSN *types.K8sServiceNamespace) {
 }
 
 func (d *Daemon) addIngressV1beta1(ingress *v1beta1.Ingress) {
-	if !d.conf.IsLBEnabled() {
-		// Add operations don't matter to non-LB nodes.
-		return
-	}
 	scopedLog := log.WithFields(logrus.Fields{
 		logfields.K8sIngressName: ingress.ObjectMeta.Name,
 		logfields.K8sAPIVersion:  ingress.TypeMeta.APIVersion,
