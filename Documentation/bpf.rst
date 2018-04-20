@@ -750,7 +750,7 @@ The following applies to Fedora 25 or later:
 ::
 
     $ sudo dnf install -y git gcc ncurses-devel elfutils-libelf-devel bc \
-      openssl-devel libcap-devel clang llvm graphviz
+      openssl-devel libcap-devel clang llvm graphviz bison flex glibc-static
 
 .. note:: If you are running some other Fedora derivative and ``dnf`` is missing,
           try using ``yum`` instead.
@@ -833,7 +833,12 @@ failures:
 
 ::
 
-    Summary: 418 PASSED, 0 FAILED
+    Summary: 847 PASSED, 0 SKIPPED, 0 FAILED
+
+.. note:: Since Kernel Release 4.16 the bpf selftests has a dependency on LLVM >= 6.0
+          More info available on some mailing lists. (https://lwn.net/Articles/741773/)
+          Maybe you need to compile LLVM in the current version. More info at
+          http://llvm.org/docs/GettingStarted.html
 
 In order to run through all BPF selftests, the following command is needed:
 
