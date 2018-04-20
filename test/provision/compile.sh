@@ -25,7 +25,8 @@ then
         echo "Not on master K8S node; no need to compile Cilium container"
     fi
 else
-    sudo -u vagrant -H -E make PKG_BUILD=1 LOCKDEBUG=1
+    sudo -u vagrant -H -E make -C envoy debug PKG_BUILD=1 LOCKDEBUG=1
+    sudo -u vagrant -H -E make PKG_BUILD=1 LOCKDEBUG=1 CILIUM_DISABLE_ENVOY_BUILD=1
     make install
     mkdir -p /etc/sysconfig/
     cp -f contrib/systemd/cilium /etc/sysconfig/cilium
