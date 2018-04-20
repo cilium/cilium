@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"os"
 	"syscall"
 	"time"
 
@@ -193,6 +194,17 @@ func (ml *monitorListener) drainQueue() {
 		if _, err := ml.conn.Write(msgBuf); err != nil {
 			ml.conn.Close()
 			ml.remove()
+
+			if op, ok := err.(*net.OpError); ok {
+				if syscerr, ok := op.Err.(*os.SyscallError); ok {
+					if errn, ok := syscerr.Err.(syscall.Errno); ok {
+						if errn == syscall.EPIPE {
+							log.Info("Monitor client disconnected")
+							return
+						}
+					}
+				}
+			}
 			log.WithError(err).Warn("Monitor removed due to write failure")
 			return
 		}
