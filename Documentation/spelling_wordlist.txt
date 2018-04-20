@@ -140,6 +140,7 @@ Gospodarek
 Graf
 grep
 gRPC
+gsg
 Gunawardena
 hadn
 hairpinned
@@ -159,6 +160,7 @@ hunderx
 Hypercalls
 hypervisors
 ie
+imm
 incrementing
 init
 inline
@@ -359,6 +361,7 @@ Suchakra
 superset
 Suricata
 Suricate
+sw
 syscall
 Syscall
 sysctl
@@ -426,12 +429,14 @@ workflow
 workflows
 wouldn
 writeable
+tiefighter
 xdp
 XDP
 Xenial
 xml
 xor
 xoring
+xwing
 Yan
 Yunsong
 Zannoni

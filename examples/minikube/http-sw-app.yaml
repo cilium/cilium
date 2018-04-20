@@ -1,0 +1,72 @@
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: deathstar
+spec:
+  type: ClusterIP
+  ports:
+  - port: 80
+  selector:
+    org: empire
+    class: deathstar
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: deathstar
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      org: empire
+      class: deathstar
+  template:
+    metadata:
+      labels:
+        org: empire
+        class: deathstar
+    spec:
+      containers:
+      - name: deathstar
+        image: cilium/starwars
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: tiefighter
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      org: empire
+      class: tiefighter
+  template:
+    metadata:
+      labels:
+        org: empire
+        class: tiefighter
+    spec:
+      containers:
+      - name: spaceship
+        image: tgraf/netperf
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: xwing
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      org: alliance
+      class: xwing
+  template:
+    metadata:
+      labels:
+        org: alliance
+        class: xwing
+    spec:
+      containers:
+      - name: spaceship
+        image: tgraf/netperf

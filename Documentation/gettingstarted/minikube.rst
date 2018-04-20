@@ -110,32 +110,29 @@ move forward with the ``READY`` status as 0.
 Step 2: Deploy the Demo Application
 ===================================
 
-Now that we have Cilium deployed and ``kube-dns`` operating correctly we can
-deploy our demo application.
+Now that we have Cilium deployed and ``kube-dns`` operating correctly we can deploy our demo application.
 
-In our simple example, there are three microservices applications: *app1*, *app2*, and *app3*.
-*App1* runs an HTTP webservice on port 80, which is exposed as a `Kubernetes Service <https://kubernetes.io/docs/concepts/services-networking/service/>`_
-that load-balances requests to *app1* to be across two pod replicas.
-
-*App2* and *app3* exist so that we can test different security policies for allowing applications
-to access *app1*.
+In our Star Wars inspired, simple example, there are three microservices applications: *deathstar*, *tiefighter*, and *xwing*. *deathstar* runs an HTTP webservice on port 80, which is exposed as a `Kubernetes Service <https://kubernetes.io/docs/concepts/services-networking/service/>`_ that load-balances requests to *deathstar* across two pod replicas. The *deathstar* service provides landing services to the empire's spaceships so that they can request a landing port. *tiefighter* represents a landing-request client service on a typical empire ship and *xwing* represents a similar service on an alliance ship. They exist so that we can test different security policies for access control to *deathstar* landing services.
 
 **Application Topology for Cilium and Kubernetes**
 
-.. image:: images/cilium_k8s_demo-150817.png
+.. image:: images/cilium_http_gsg.png
+   :height: 250px
+   :width: 750px
+   :scale: 50 %
 
-The file ``demo.yaml`` contains a `Kubernetes Deployment <https://kubernetes.io/docs/concepts/workloads/controllers/deployment/>`_ for each of the three applications,
-with each deployment identified using the Kubernetes labels id=app1, id=app2,
-and id=app3.
-It also include a app1-service, which load-balances traffic to all pods with label id=app1.
+The file ``http-sw-app.yaml`` contains a `Kubernetes Deployment <https://kubernetes.io/docs/concepts/workloads/controllers/deployment/>`_ for each of the three services.
+Each deployment is identified using the Kubernetes labels (org=empire, class=deathstar), (org=empire, class=tiefighter),
+and (org=alliance, class=xwing).
+It also includes a deathstar-service, which load-balances traffic to all pods with label (org=empire, class=deathstar).
 
 .. parsed-literal::
 
-    $ kubectl create -f \ |SCM_WEB|\/examples/minikube/demo.yaml
-    service "app1-service" created
-    deployment "app1" created
-    pod "app2" created
-    pod "app3" created
+    $ kubectl create -f \ |SCM_WEB|\/examples/minikube/http-sw-app.yaml
+    service "deathstar" created
+    deployment "deathstar" created
+    deployment "tiefighter" created
+    deployment "xwing" created
 
 
 Kubernetes will deploy the pods and service in the background.  Running
@@ -146,15 +143,15 @@ point the pod is ready.
 ::
 
     $ kubectl get pods,svc
-    NAME                       READY     STATUS    RESTARTS   AGE
-    po/app1-3720119688-1h7c5   1/1       Running   0          37s
-    po/app1-3720119688-jzqx2   1/1       Running   0          37s
-    po/app2                    1/1       Running   0          37s
-    po/app3                    1/1       Running   0          37s
+    NAME                             READY     STATUS    RESTARTS   AGE
+    po/deathstar-76995f4687-2mxb2    1/1       Running   0          1m
+    po/deathstar-76995f4687-xbgnl    1/1       Running   0          1m
+    po/tiefighter-68c6cb4b4b-rxcb2   1/1       Running   0          1m
+    po/xwing-cc65988f5-7cvn8         1/1       Running   0          1m
 
-    NAME               CLUSTER-IP   EXTERNAL-IP   PORT(S)   AGE
-    svc/app1-service   10.0.0.199   <none>        80/TCP    37s
-    svc/kubernetes     10.0.0.1     <none>        443/TCP   27m
+    NAME             TYPE        CLUSTER-IP       EXTERNAL-IP   PORT(S)   AGE
+    svc/deathstar    ClusterIP   10.109.254.198   <none>        80/TCP    3h
+    svc/kubernetes   ClusterIP   10.96.0.1        <none>        443/TCP   3h
 
 Each pod will be represented in Cilium as an :ref:`endpoint`. We can invoke the
 ``cilium`` tool inside the Cilium pod to list them:
@@ -166,34 +163,44 @@ Each pod will be represented in Cilium as an :ref:`endpoint`. We can invoke the
     cilium-1c2cz   1/1       Running   0          26m
 
     $ kubectl -n kube-system exec cilium-1c2cz cilium endpoint list
-    ENDPOINT   POLICY (ingress)   POLICY (egress)   IDENTITY   LABELS (source:key[=value])               IPv6                 IPv4            STATUS   
-               ENFORCEMENT        ENFORCEMENT                                                                                                 
-    250        Disabled           Disabled          262        k8s:id=app2                               f00d::a0f:0:0:fa     10.15.132.130   ready   
-                                                               k8s:io.kubernetes.pod.namespace=default                                                
-    4698       Disabled           Disabled          264        k8s:id=app3                               f00d::a0f:0:0:125a   10.15.86.236    ready   
-                                                               k8s:io.kubernetes.pod.namespace=default                                                
-    28950      Disabled           Disabled          263        k8s:id=app1                               f00d::a0f:0:0:7116   10.15.51.177    ready   
-                                                               k8s:io.kubernetes.pod.namespace=default                                                
-    32138      Disabled           Disabled          263        k8s:id=app1                               f00d::a0f:0:0:7d8a   10.15.150.193   ready   
-                                                               k8s:io.kubernetes.pod.namespace=default 
-
+    ENDPOINT   POLICY (ingress)   POLICY (egress)   IDENTITY   LABELS (source:key[=value])                   IPv6                 IPv4            STATUS   
+               ENFORCEMENT        ENFORCEMENT                                                                                                     
+    7624       Disabled            Disabled          9919       k8s:class=deathstar                           f00d::a0f:0:0:1dc8   10.15.185.9     ready   
+                                                               k8s:io.kubernetes.pod.namespace=default                                                    
+                                                               k8s:org=empire                                                                             
+    10900      Disabled           Disabled          32353      k8s:class=xwing                               f00d::a0f:0:0:2a94   10.15.92.254    ready   
+                                                               k8s:io.kubernetes.pod.namespace=default                                                    
+                                                               k8s:org=alliance                                                                           
+    11010      Disabled            Disabled          9919       k8s:class=deathstar                           f00d::a0f:0:0:2b02   10.15.197.34    ready   
+                                                               k8s:io.kubernetes.pod.namespace=default                                                    
+                                                               k8s:org=empire                                                                                                                            
+    50240      Disabled           Disabled          12904      k8s:class=tiefighter                          f00d::a0f:0:0:c440   10.15.28.62     ready   
+                                                               k8s:io.kubernetes.pod.namespace=default                                                    
+                                                               k8s:org=empire 
+                                                           
 Both ingress and egress policy enforcement is still disabled on all of these pods because no network
 policy has been imported yet which select any of the pods.
 
+Step 3: Checking Current Access 
+===============================
+From the perspective of *deathstar* service providers only the ships with label *org=empire* should be able to connect to the service and request landing. But right now we don't have any rules enforced. So both *xwing* and *tiefighter* will be able to request landing. To test this use below commands by **replacing the xwing and tiefighter podnames** with the ones in your deployment.
 
-Step 3: Apply an L3/L4 Policy
+.. parsed-literal::
+
+    $ kubectl exec xwing-cc65988f5-7cvn8 -- curl -s -XPOST 10.109.254.198/v1/request-landing
+    Ship landed
+    $ kubectl exec  tiefighter-68c6cb4b4b-rxcb2  -- curl -s -XPOST 10.109.254.198/v1/request-landing
+    Ship landed
+
+Step 4: Apply an L3/L4 Policy
 =============================
 
 When using Cilium, endpoint IP addresses are irrelevant when defining security
-policies.  Instead, you can use the labels assigned to the VM to define
-security policies, which are automatically applied to any container with that
-label, no matter where or when it is run within a container cluster.
+policies.  Instead, you can use the labels assigned to the pods to define
+security policies. The policies will be applied to the right pods based on the labels irrespective of where or when it is running within the cluster. 
 
-We'll start with a simple example where we allow *app2* to reach *app1* on port 80, but
-disallow the same connectivity from *app3* to *app1*.
-This is a simple policy that filters only on IP protocol (network layer
-3) and TCP protocol (network layer 4), so it is often referred to as an L3/L4
-network security policy.
+We'll start with the basic policy restricting deathstar landing requests to only the ships that have label (org=empire). This will not allow any ships that don't have the org=empire label to even connect with the deathstar service. 
+This is a simple policy that filters only on IP protocol (network layer 3) and TCP protocol (network layer 4), so it is often referred to as an L3/L4 network security policy.
 
 Note: Cilium performs stateful *connection tracking*, meaning that if policy allows
 the frontend to reach backend, it will automatically allow all required reply
@@ -202,66 +209,63 @@ same TCP/UDP connection.
 
 **L4 Policy with Cilium and Kubernetes**
 
-.. image:: images/cilium_k8s_demo_l3-l4-policy-170817.png
+.. image:: images/cilium_http_l3_l4_gsg.png
+   :height: 250px
+   :width: 750px
+   :scale: 50 %
 
 We can achieve that with the following CiliumNetworkPolicy:
 
-.. literalinclude:: ../../examples/minikube/l3_l4_policy.yaml
+.. literalinclude:: ../../examples/minikube/sw_l3_l4_policy.yaml
 
 CiliumNetworkPolicies match on pod labels using "endpointSelector" to
 identify the sources and destinations to which the policy applies.
-The above policy whitelists traffic sent from *app2* pods to *app1* pods
-on TCP port 80.
+The above policy whitelists traffic sent from any pods with label (org=empire) to *deathstar* pods with label (org=empire, class=deathstar) on TCP port 80.
 
 To apply this L3/L4 policy, run:
 
 .. parsed-literal::
 
-    $ kubectl create -f \ |SCM_WEB|\/examples/minikube/l3_l4_policy.yaml
+    $ kubectl create -f \ |SCM_WEB|\/examples/minikube/sw_l3_l4_policy.yaml
 
-If we run ``cilium endpoint list`` again we will see that the pods with the
-label ``id=app1`` now have ingress policy enforcement enabled inline with the policy above.
+Now if we run the landing requests again, only the *tiefighter* pods with the label *org=empire* will succeed. The *xwing* pods will be blocked!
+
+.. parsed-literal::
+    $ kubectl exec  tiefighter-68c6cb4b4b-rxcb2  -- curl -s -XPOST 10.109.254.198/v1/request-landing
+    Ship landed
+
+This works as expected.   Now the same request run from an *xwing* pod will fail:
+
+.. parsed-literal::
+    $ kubectl exec xwing-cc65988f5-7cvn8 -- curl -s -XPOST 10.109.254.198/v1/request-landing
+    
+This request will hang, so press Control-C to kill the curl request, or wait for it
+to time out.
+
+Step 5: Inspecting the Policy 
+=============================
+
+If we run ``cilium endpoint list`` again we will see that the pods with the label ``org=empire and class=deathstar`` now have ingress policy enforcement enabled inline with the policy above.
 
 ::
 
     $ kubectl -n kube-system exec cilium-1c2cz cilium endpoint list
-    ENDPOINT   POLICY (ingress)   POLICY (egress)   IDENTITY   LABELS (source:key[=value])               IPv6                 IPv4            STATUS
-               ENFORCEMENT        ENFORCEMENT
-    250        Disabled           Disabled          262        k8s:id=app2                               f00d::a0f:0:0:fa     10.15.132.130   ready
-                                                               k8s:io.kubernetes.pod.namespace=default
-    4698       Disabled           Disabled          264        k8s:id=app3                               f00d::a0f:0:0:125a   10.15.86.236    ready
-                                                               k8s:io.kubernetes.pod.namespace=default
-    28950      Enabled            Disabled          263        k8s:id=app1                               f00d::a0f:0:0:7116   10.15.51.177    ready
-                                                               k8s:io.kubernetes.pod.namespace=default
-    32138      Enabled            Disabled          263        k8s:id=app1                               f00d::a0f:0:0:7d8a   10.15.150.193   ready
-                                                               k8s:io.kubernetes.pod.namespace=default
+    ENDPOINT   POLICY (ingress)   POLICY (egress)   IDENTITY   LABELS (source:key[=value])                   IPv6                 IPv4            STATUS   
+               ENFORCEMENT        ENFORCEMENT                                                                                                     
+    7624       Enabled            Disabled          9919       k8s:class=deathstar                           f00d::a0f:0:0:1dc8   10.15.185.9     ready   
+                                                               k8s:io.kubernetes.pod.namespace=default                                                    
+                                                               k8s:org=empire                                                                             
+    10900      Disabled           Disabled          32353      k8s:class=xwing                               f00d::a0f:0:0:2a94   10.15.92.254    ready   
+                                                               k8s:io.kubernetes.pod.namespace=default                                                    
+                                                               k8s:org=alliance                                                                                                                         
+    11010      Enabled            Disabled          9919       k8s:class=deathstar                           f00d::a0f:0:0:2b02   10.15.197.34    ready   
+                                                               k8s:io.kubernetes.pod.namespace=default                                                    
+                                                               k8s:org=empire                                                                                                                            
+    50240      Disabled           Disabled          12904      k8s:class=tiefighter                          f00d::a0f:0:0:c440   10.15.28.62     ready   
+                                                               k8s:io.kubernetes.pod.namespace=default                                                    
+                                                               k8s:org=empire 
 
-Step 4: Test L3/L4 Policy
-=========================
-
-We can now verify the network policy that was imported.
-You can now launch additional containers that represent other services attempting to
-access backend. Any new container with label ``id=app2`` will be
-allowed to access the *app1* on port 80, otherwise the network request will be
-dropped.
-
-To test this out, we'll make an HTTP request to app1 from both *app2* and *app3* pods:
-
-::
-
-    $ kubectl exec app2 -- curl -s app1-service.default.svc.cluster.local
-    <html><body><h1>It works!</h1></body></html>
-
-This works as expected.   Now the same request run from an *app3* pod will fail:
-
-::
-
-    $ kubectl exec app3 -- curl -s app1-service.default.svc.cluster.local
-
-This request will hang, so press Control-C to kill the curl request, or wait for it
-to time out.
-
-You can observe the policy via ``kubectl``
+You can also inspect the policy details via ``kubectl``
 
 ::
 
@@ -273,25 +277,25 @@ You can observe the policy via ``kubectl``
     Name:         rule1
     Namespace:    default
     Labels:       <none>
-    Annotations:  <none>
+    Annotations:  kubectl.kubernetes.io/last-applied-configuration={"apiVersion":"cilium.io/v2","description":"L3-L4 policy to restrict deathstar access to empire ships only","kind":"CiliumNetworkPolicy","metadata":{"a...
     API Version:  cilium.io/v2
     Kind:         CiliumNetworkPolicy
     Metadata:
       Cluster Name:        
-      Creation Timestamp:  2018-04-04T22:46:16Z
+      Creation Timestamp:  2018-04-14T07:38:51Z
       Generation:          0
-      Initializers:        <nil>
-      Resource Version:    17204
+      Resource Version:    24334
       Self Link:           /apis/cilium.io/v2/namespaces/default/ciliumnetworkpolicies/rule1
-      UID:                 fc04f184-3859-11e8-9fba-08002792155c
+      UID:                 e025de8b-3fb6-11e8-ab5f-08002737c671
     Spec:
       Endpoint Selector:
         Match Labels:
-          Any : Id:  app1
+          Any : Class:  deathstar
+          Any : Org:    empire
       Ingress:
         From Endpoints:
           Match Labels:
-            Any : Id:  app2
+            Any : Org:  empire
         To Ports:
           Ports:
             Port:      80
@@ -300,79 +304,78 @@ You can observe the policy via ``kubectl``
       Nodes:
         Minikube:
           Enforcing:              true
-          Last Updated:           2018-04-04T22:46:20.462630226Z
-          Local Policy Revision:  6
+          Last Updated:           2018-04-14T07:38:55.174693943Z
+          Local Policy Revision:  87
           Ok:                     true
     Events:                       <none>
 
 
-Step 5:  Apply and Test HTTP-aware L7 Policy
+
+Step 6:  Apply and Test HTTP-aware L7 Policy
 ============================================
 
-In the simple scenario above, it was sufficient to either give *app2* /
-*app3* full access to *app1's* API or no access at all.   But to
+In the simple scenario above, it was sufficient to either give *tiefighter* /
+*xwing* full access to *deathstar's* API or no access at all.   But to
 provide the strongest security (i.e., enforce least-privilege isolation)
-between microservices, each service that calls *app1's* API should be
+between microservices, each service that calls *deathstar's* API should be
 limited to making only the set of HTTP requests it requires for legitimate
 operation.
 
-For example, consider an extremely simple scenario where *app1* has only two API calls:
- * GET /public
- * GET /private
-
-Continuing with the example from above, if *app2* requires access only to
-the GET /public API call, the L3/L4 policy along has no visibility into the
-HTTP requests, and therefore would allow any HTTP request from *app2*
-(since all HTTP is over port 80).
-
-To see this, run:
-
+For example, consider that the *deathstar* service exposes some maintenance APIs which should not be called by random empire ships. To see this run:
 ::
 
-    $ kubectl exec app2 -- curl -s app1-service.default.svc.cluster.local/public
-    { 'val': 'this is public' }
+    $ kubectl exec tiefighter-68c6cb4b4b-rxcb2 -- curl -s -XPUT 10.109.254.198/v1/exhaust-port
+    Panic: deathstar exploded
 
-and
+    goroutine 1 [running]:
+    main.HandleGarbage(0x2080c3f50, 0x2, 0x4, 0x425c0, 0x5, 0xa)
+            /code/src/github.com/empire/deathstar/
+            temp/main.go:9 +0x64
+    main.main()
+            /code/src/github.com/empire/deathstar/
+            temp/main.go:5 +0x85
 
-::
 
-    $ kubectl exec app2 -- curl -s app1-service.default.svc.cluster.local/private
-    { 'val': 'this is private' }
+While this is an illustrative example, unauthorized access such as above can have adverse security repercussions. 
 
 **L7 Policy with Cilium and Kubernetes**
 
-.. image:: images/cilium_k8s_demo_l7-policy-230817.png
+.. image:: images/cilium_http_l3_l4_l7_gsg.png
+   :height: 250px
+   :width: 750px
+   :scale: 50 %
 
 Cilium is capable of enforcing HTTP-layer (i.e., L7) policies to limit what
-URLs *app2* is allowed to reach.  Here is an example policy file that
-extends our original policy by limiting *app2* to making only a GET /public
-API call, but disallowing all other calls (including GET /private).
+URLs *tiefighter* is allowed to reach.  Here is an example policy file that
+extends our original policy by limiting *tiefighter* to making only a POST /v1/request-landing
+API call, but disallowing all other calls (including PUT /v1/exhaust-port).
 
-.. literalinclude:: ../../examples/minikube/l3_l4_l7_policy.yaml
+.. literalinclude:: ../../examples/minikube/sw_l3_l4_l7_policy.yaml
 
 Update the existing rule to apply L7-aware policy to protect *app1* using:
 
 .. parsed-literal::
 
-  $ kubectl apply -f \ |SCM_WEB|\/examples/minikube/l3_l4_l7_policy.yaml
+  $ kubectl apply -f \ |SCM_WEB|\/examples/minikube/sw_l3_l4_l7_policy.yaml
 
 
 We can now re-run the same test as above, but we will see a different outcome:
 
 ::
 
-    $ kubectl exec app2 -- curl -s app1-service.default.svc.cluster.local/public
-    { 'val': 'this is public' }
+    $ kubectl exec tiefighter-68c6cb4b4b-rxcb2 -- curl -s -XPOST 10.109.254.198/v1/request-landing
+    Ship landed
+
 
 and
 
 ::
 
-    $ kubectl exec app2 -- curl -s app1-service.default.svc.cluster.local/private
+    $ kubectl exec tiefighter-68c6cb4b4b-rxcb2 -- curl -s -XPUT 10.109.254.198/v1/exhaust-port
     Access denied
 
 As you can see, with Cilium L7 security policies, we are able to permit
-*app2* to access only the required API resources on *app1*, thereby
+*tiefighter* to access only the required API resources on *deathstar*, thereby
 implementing a "least privilege" security approach for communication between
 microservices.
 
@@ -381,48 +384,46 @@ You can observe the L7 policy via ``kubectl``:
 ::
 
     $ kubectl get ciliumnetworkpolicies
-    NAME      AGE
-    rule1     4m 
-    $ kubectl describe ciliumnetworkpolicies rule1
     Name:         rule1
     Namespace:    default
     Labels:       <none>
-    Annotations:  kubectl.kubernetes.io/last-applied-configuration={"apiVersion":"cilium.io/v2","description":"L7 policy for getting started using Kubernetes guide","kind":"CiliumNetworkPolicy","metadata":{"annotations...
+    Annotations:  kubectl.kubernetes.io/last-applied-configuration={"apiVersion":"cilium.io/v2","description":"L3-L4 policy to restrict deathstar access to empire ships only","kind":"CiliumNetworkPolicy","metadata":{"a...
     API Version:  cilium.io/v2
     Kind:         CiliumNetworkPolicy
     Metadata:
       Cluster Name:        
-      Creation Timestamp:  2018-04-04T22:46:16Z
+      Creation Timestamp:  2018-04-14T07:38:51Z
       Generation:          0
-      Initializers:        <nil>
-      Resource Version:    17527
+      Resource Version:    26083
       Self Link:           /apis/cilium.io/v2/namespaces/default/ciliumnetworkpolicies/rule1
-      UID:                 fc04f184-3859-11e8-9fba-08002792155c
+      UID:                 e025de8b-3fb6-11e8-ab5f-08002737c671
     Spec:
       Endpoint Selector:
         Match Labels:
-          Any : Id:  app1
+          Any : Class:  deathstar
+          Any : Org:    empire
       Ingress:
         From Endpoints:
           Match Labels:
-            Any : Id:  app2
+            Any : Org:  empire
         To Ports:
           Ports:
             Port:      80
             Protocol:  TCP
           Rules:
             Http:
-              Method:  GET
-              Path:    /public
+              Method:  POST
+              Path:    /v1/request-landing
     Status:
       Nodes:
         Minikube:
           Enforcing:              true
-          Last Updated:           2018-04-04T22:49:34.744363299Z
-          Local Policy Revision:  9
+          Last Updated:           2018-04-14T08:13:12.094961363Z
+          Local Policy Revision:  93
           Ok:                     true
     Events:                       <none>
      
+
 and ``cilium`` CLI:
 
 ::
@@ -432,7 +433,8 @@ and ``cilium`` CLI:
       {
         "endpointSelector": {
           "matchLabels": {
-            "any:id": "app1",
+            "any:class": "deathstar",
+            "any:org": "empire",
             "k8s:io.kubernetes.pod.namespace": "default"
           }
         },
@@ -441,7 +443,7 @@ and ``cilium`` CLI:
             "fromEndpoints": [
               {
                 "matchLabels": {
-                  "any:id": "app2",
+                  "any:org": "empire",
                   "k8s:io.kubernetes.pod.namespace": "default"
                 }
               }
@@ -457,8 +459,8 @@ and ``cilium`` CLI:
                 "rules": {
                   "http": [
                     {
-                      "path": "/public",
-                      "method": "GET"
+                      "path": "/v1/request-landing",
+                      "method": "POST"
                     }
                   ]
                 }
@@ -487,7 +489,7 @@ We hope you enjoyed the tutorial.  Feel free to play more with the setup, read
 the rest of the documentation, and reach out to us on the `Cilium
 Slack channel <https://cilium.herokuapp.com>`_ with any questions!
 
-Step 6:  Clean-Up
+Step 7:  Clean-Up
 =================
 
 You have now installed Cilium, deployed a demo app, and tested both
@@ -549,5 +551,6 @@ prometheus configuration. Navigate to the web ui with:
 ::
 
    $ minikube service prometheus -n prometheus
+
 
 
