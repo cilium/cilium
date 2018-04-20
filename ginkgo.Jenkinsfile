@@ -6,6 +6,10 @@ def failFast = { String branch ->
   }
 }
 
+def myparams = params.collect{
+    string(name: it.key, value: it.value)
+}
+
 pipeline {
     agent {
         label 'baremetal'
@@ -27,16 +31,7 @@ pipeline {
                 sh 'rm -rf src; mkdir -p src/github.com/cilium'
                 sh 'ln -s $WORKSPACE src/github.com/cilium/cilium'
                 checkout scm
-                build job: 'Cilium-PR-Ginkgo-Tests-K8s', parameters: [
-                    [
-                        $class: 'StringParameterValue',
-                        name: 'commit',
-                        value: "99999"
-                    ], [
-                        $class: 'StringParameterValue',
-                        name: 'GIT_BRANCH',
-                        value: "9999"
-                    ]]
+                build job: 'Test_projects/eloy-test', parameters: myparams
             }
         }
         stage('UnitTesting') {
