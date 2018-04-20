@@ -496,6 +496,33 @@ endpoints with the label ``role=frontend`` will not be able to communicate with
 
         .. literalinclude:: ../../examples/policies/l4/l3_l4_combined.json
 
+CIDR-dependent Layer 4 Rule
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+This example enables all endpoints with the label ``role=crawler`` to
+communicate with all remote destinations inside the CIDR ``192.0.2.0/24``, but
+they must communicate using TCP on port 80. The policy does not allow Endpoints
+without the label ``role=crawler`` to communicate with destinations in the CIDR
+``192.0.2.0/24``. Furthermore, endpoints with the label ``role=crawler`` will
+not be able to communicate with destinations in the CIDR ``192.0.2.0/24`` on
+ports other than port 80.
+
+.. only:: html
+
+   .. tabs::
+     .. group-tab:: k8s YAML
+
+        .. literalinclude:: ../../examples/policies/l4/cidr_l4_combined.yaml
+     .. group-tab:: JSON
+
+        .. literalinclude:: ../../examples/policies/l4/cidr_l4_combined.json
+
+.. only:: epub or latex
+
+        .. literalinclude:: ../../examples/policies/l4/cidr_l4_combined.json
+
+
+
 Layer 7 Examples
 ================
 

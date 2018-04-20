@@ -1,4 +1,4 @@
-// Copyright 2016-2017 Authors of Cilium
+// Copyright 2016-2018 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -1071,32 +1071,6 @@ func (ds *PolicyTestSuite) TestEgressRuleRestrictions(c *C) {
 	}
 
 	err := apiRule1.Sanitize()
-	c.Assert(err, Not(IsNil))
-
-	// Cannot combine ToCIDR and ToPorts. See GH-1684.
-	apiRule1 = api.Rule{
-		EndpointSelector: api.NewESFromLabels(labels.ParseSelectLabel("bar")),
-		Egress: []api.EgressRule{
-			{
-				ToCIDR: []api.CIDR{
-					"10.1.0.0/16",
-					"2001:dbf::/64",
-				},
-				ToPorts: []api.PortRule{{
-					Ports: []api.PortProtocol{
-						{Port: "80", Protocol: api.ProtoTCP},
-					},
-					Rules: &api.L7Rules{
-						Kafka: []api.PortRuleKafka{
-							{Topic: "foo"},
-						},
-					},
-				}},
-			},
-		},
-	}
-
-	err = apiRule1.Sanitize()
 	c.Assert(err, Not(IsNil))
 }
 
