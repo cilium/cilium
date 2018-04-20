@@ -1,4 +1,4 @@
-// Copyright 2016-2017 Authors of Cilium
+// Copyright 2016-2018 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -127,8 +127,8 @@ func (e *EgressRule) sanitize() error {
 		"ToServices":  len(e.ToServices),
 	}
 	l3DependentL4Support := map[interface{}]bool{
-		"ToCIDR":      false,
-		"ToCIDRSet":   false,
+		"ToCIDR":      true,
+		"ToCIDRSet":   true,
 		"ToEndpoints": true,
 		"ToEntities":  true,
 		"ToServices":  false,
