@@ -4,13 +4,12 @@
 #include <string>
 
 #include "envoy/registry/registry.h"
+#include "envoy/singleton/manager.h"
 
+#include "common/buffer/buffer_impl.h"
 #include "common/common/enum_to_int.h"
 #include "common/config/utility.h"
-
-#include "server/config/network/http_connection_manager.h"
-
-#include "envoy/singleton/manager.h"
+#include "common/http/header_map_impl.h"
 
 #include "cilium_network_policy.h"
 #include "cilium_socket_option.h"

@@ -3,10 +3,9 @@
 #include <string>
 
 #include "envoy/stats/stats_macros.h"
+#include "envoy/server/filter_config.h"
 
 #include "common/common/logger.h"
-
-#include "server/config/network/http_connection_manager.h"
 
 #include "accesslog.h"
 #include "cilium/cilium_l7policy.pb.h"
