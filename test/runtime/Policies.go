@@ -946,8 +946,8 @@ var _ = Describe("RuntimeValidatedPolicies", func() {
 	})
 
 	Context("TestsEgressToHost", func() {
-
 		hostDockerContainer := "hostDockerContainer"
+		hostIP := "10.0.2.15"
 
 		BeforeAll(func() {
 			By("Starting httpd server using host networking")
@@ -959,11 +959,7 @@ var _ = Describe("RuntimeValidatedPolicies", func() {
 			vm.ContainerRm(hostDockerContainer)
 		})
 
-		It("Tests Egress To Host", func() {
-
-			app1Label := "id.app1"
-			hostIP := "10.0.2.15"
-
+		BeforeEach(func() {
 			By(fmt.Sprintf("Pinging %s from %s before importing policy (should work)", api.EntityHost, helpers.App1))
 			failedPing := vm.ContainerExec(helpers.App1, helpers.Ping(hostIP))
 			failedPing.ExpectSuccess("unable able to ping %s", hostIP)
@@ -972,6 +968,14 @@ var _ = Describe("RuntimeValidatedPolicies", func() {
 			// is still to be completed (GH-3393).
 			By(fmt.Sprintf("Flushing global connection tracking table before importing policy"))
 			vm.FlushGlobalConntrackTable().ExpectSuccess("Unable to flush global conntrack table")
+		})
+
+		AfterEach(func() {
+			vm.PolicyDelAll().ExpectSuccess("Failed to clear policy after egress test")
+		})
+
+		It("Tests Egress To Host", func() {
+			app1Label := "id.app1"
 
 			By(fmt.Sprintf("Importing policy which allows egress to %s entity from %s", api.EntityHost, helpers.App1))
 			policy := fmt.Sprintf(`
@@ -1007,7 +1011,6 @@ var _ = Describe("RuntimeValidatedPolicies", func() {
 			By(fmt.Sprintf("Accessing /public in %s from %s (shouldn't work)", helpers.App2, helpers.App1))
 			failCurl := vm.ContainerExec(helpers.App1, helpers.CurlFail("http://%s/public", httpd2[helpers.IPv4]))
 			failCurl.ExpectFail("unexpectedly able to access %s when access should only be allowed to host", helpers.Httpd2)
-
 		})
 	})
 })
