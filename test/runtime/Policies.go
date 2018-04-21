@@ -545,7 +545,7 @@ var _ = Describe("RuntimeValidatedPolicies", func() {
 		// allowing connectivity via http / http6.
 		checkProxyStatistics(app3EndpointID, 6, 8, 2, 6, 6)
 	})
-	It("Checks CIDR Policy", func() {
+	It("Checks CIDR L3 Policy", func() {
 
 		ipv4OtherHost := "192.168.254.111"
 		ipv4OtherNet := "99.11.0.0/16"
@@ -951,11 +951,25 @@ var _ = Describe("RuntimeValidatedPolicies", func() {
 	Context("TestsEgressToHost", func() {
 		hostDockerContainer := "hostDockerContainer"
 		hostIP := "10.0.2.15"
+		otherHostIP := ""
 
 		BeforeAll(func() {
 			By("Starting httpd server using host networking")
 			res := vm.ContainerCreate(hostDockerContainer, helpers.HttpdImage, helpers.HostDockerNetwork, "-l id.hostDockerContainer")
 			res.ExpectSuccess("unable to start Docker container with host networking")
+
+			By("Detecting host IP in world CIDR")
+
+			// docker network inspect bridge | jq -r '.[0]."IPAM"."Config"[0]."Gateway"'
+			res = vm.NetworkGet("bridge")
+			res.ExpectSuccess("No docker bridge available for testing egress CIDR within host")
+			filter := fmt.Sprintf(`{ [0].IPAM.Config[0].Gateway }`)
+			obj, err := res.FindResults(filter)
+			Expect(err).NotTo(HaveOccurred(), "Error occurred while finding docker bridge IP")
+			Expect(obj).To(HaveLen(1), "Unexpectedly found more than one IPAM config element for docker bridge")
+			otherHostIP = obj[0].Interface().(string)
+			Expect(otherHostIP).Should(MatchRegexp("^[.:0-9a-f][.:0-9a-f]*$"), "docker bridge IP is in unexpected format")
+			By(fmt.Sprintf("Using %q for world CIDR IP", otherHostIP))
 		})
 
 		AfterAll(func() {
@@ -963,9 +977,13 @@ var _ = Describe("RuntimeValidatedPolicies", func() {
 		})
 
 		BeforeEach(func() {
-			By(fmt.Sprintf("Pinging %s from %s before importing policy (should work)", api.EntityHost, helpers.App1))
+			By(fmt.Sprintf("Pinging %q from %q before importing policy (should work)", hostIP, helpers.App1))
 			failedPing := vm.ContainerExec(helpers.App1, helpers.Ping(hostIP))
-			failedPing.ExpectSuccess("unable able to ping %s", hostIP)
+			failedPing.ExpectSuccess("unable able to ping %q", hostIP)
+
+			By(fmt.Sprintf("Pinging %q from %q before importing policy (should work)", otherHostIP, helpers.App1))
+			failedPing = vm.ContainerExec(helpers.App1, helpers.Ping(otherHostIP))
+			failedPing.ExpectSuccess("unable able to ping %q", otherHostIP)
 
 			// Flush global conntrack table to be safe because egress conntrack cleanup
 			// is still to be completed (GH-3393).
@@ -978,18 +996,16 @@ var _ = Describe("RuntimeValidatedPolicies", func() {
 		})
 
 		It("Tests Egress To Host", func() {
-			app1Label := "id.app1"
-
 			By(fmt.Sprintf("Importing policy which allows egress to %s entity from %s", api.EntityHost, helpers.App1))
 			policy := fmt.Sprintf(`
 			[{
-				"endpointSelector": {"matchLabels":{"%s":""}},
+				"endpointSelector": {"matchLabels":{"id.%s":""}},
 				"egress": [{
 					"toEntities": [
 						"%s"
 					]
 				}]
-			}]`, app1Label, api.EntityHost)
+			}]`, helpers.App1, api.EntityHost)
 
 			_, err := vm.PolicyRenderAndImport(policy)
 			Expect(err).To(BeNil(), "Unable to import policy: %s", err)
@@ -1015,7 +1031,120 @@ var _ = Describe("RuntimeValidatedPolicies", func() {
 			failCurl := vm.ContainerExec(helpers.App1, helpers.CurlFail("http://%s/public", httpd2[helpers.IPv4]))
 			failCurl.ExpectFail("unexpectedly able to access %s when access should only be allowed to host", helpers.Httpd2)
 		})
+
+		// In this test we rely on the hostDockerContainer serving on a
+		// secondary IP, which is otherwise not bound to an identity to
+		// begin with; it would otherwise be part of the cluster. When
+		// we define CIDR policy on it, Cilium allocates an identity
+		// for it.
+		testCIDRL4Policy := func(policy, dstIP, proto string) {
+			_, err := vm.PolicyRenderAndImport(policy)
+			ExpectWithOffset(1, err).To(BeNil(), "Unable to import policy")
+
+			By(fmt.Sprintf("Pinging %q from %q (should not work)", api.EntityHost, helpers.App1))
+			res := vm.ContainerExec(helpers.App1, helpers.Ping(dstIP))
+			ExpectWithOffset(1, res.WasSuccessful()).Should(BeFalse(),
+				"expected ping to %q to fail", dstIP)
+
+			// Docker container running with host networking is accessible via
+			// the docker bridge's IP address. See https://docs.docker.com/network/host/.
+			By(fmt.Sprintf("Accessing index.html using Docker container using host networking from %q (should work)", helpers.App1))
+			res = vm.ContainerExec(helpers.App1, helpers.CurlWithHTTPCode("%s://%s/index.html", proto, dstIP))
+			ExpectWithOffset(1, res.Output().String()).To(ContainSubstring("200"),
+				"Expected to be able to access /public in host Docker container")
+
+			By(fmt.Sprintf("Accessing %q on wrong port from %q should fail", dstIP, helpers.App1))
+			res = vm.ContainerExec(helpers.App1, helpers.CurlWithHTTPCode("http://%s:8080/public", dstIP))
+			ExpectWithOffset(1, res.WasSuccessful()).Should(BeFalse(),
+				"unexpectedly able to access %q when access should only be allowed to CIDR", dstIP)
+
+			By(fmt.Sprintf("Accessing port 80 on wrong destination from %q should fail", helpers.App1))
+			res = vm.ContainerExec(helpers.App1, helpers.CurlWithHTTPCode("%s://%s/public", proto, hostIP))
+			ExpectWithOffset(1, res.WasSuccessful()).Should(BeFalse(),
+				"unexpectedly able to access %q when access should only be allowed to CIDR", hostIP)
+
+			By(fmt.Sprintf("Pinging %q from %q (shouldn't work)", helpers.App2, helpers.App1))
+			res = vm.ContainerExec(helpers.App1, helpers.Ping(helpers.App2))
+			ExpectWithOffset(1, res.WasSuccessful()).Should(BeFalse(),
+				"expected ping to %q to fail", helpers.App2)
+
+			httpd2, err := vm.ContainerInspectNet(helpers.Httpd2)
+			ExpectWithOffset(1, err).Should(BeNil(),
+				"Unable to get networking information for container %q", helpers.Httpd2)
+
+			By(fmt.Sprintf("Accessing /index.html in %q from %q (shouldn't work)", helpers.App2, helpers.App1))
+			res = vm.ContainerExec(helpers.App1, helpers.CurlFail("%s://%s/index.html", proto, httpd2[helpers.IPv4]))
+			ExpectWithOffset(1, res.WasSuccessful()).Should(BeFalse(),
+				"unexpectedly able to access %q when access should only be allowed to CIDR", helpers.Httpd2)
+		}
+
+		It("Tests egress with CIDR+L4 policy", func() {
+			By(fmt.Sprintf("Importing policy which allows egress to %q from %q", otherHostIP, helpers.App1))
+			policy := fmt.Sprintf(`
+			[{
+				"endpointSelector": {"matchLabels":{"id.%s":""}},
+				"egress": [{
+					"toCIDR": [
+						"%s"
+					],
+					"toPorts": [
+						{"ports":[{"port": "80", "protocol": "TCP"}]}
+					]
+				}]
+			}]`, helpers.App1, otherHostIP)
+
+			testCIDRL4Policy(policy, otherHostIP, "http")
+		})
+
+		It("Tests egress with CIDR+L4 policy to external https service", func() {
+			cloudFlare := "1.1.1.1"
+
+			By(fmt.Sprintf("Importing policy which allows egress to %q from %q", otherHostIP, helpers.App1))
+			policy := fmt.Sprintf(`
+			[{
+				"endpointSelector": {"matchLabels":{"id.%s":""}},
+				"egress": [{
+					"toCIDR": [
+						"%s/30"
+					],
+					"toPorts": [
+						{"ports":[{"port": "443", "protocol": "TCP"}]}
+					]
+				}]
+			}]`, helpers.App1, cloudFlare)
+
+			testCIDRL4Policy(policy, cloudFlare, "https")
+		})
+
+		It("Tests egress with CIDR+L7 policy", func() {
+			By(fmt.Sprintf("Importing policy which allows egress to %q from %q", otherHostIP, helpers.App1))
+			policy := fmt.Sprintf(`
+			[{
+				"endpointSelector": {"matchLabels":{"id.%s":""}},
+				"egress": [{
+					"toCIDR": [
+						"%s/32"
+					],
+					"toPorts": [{
+						"ports":[{"port": "80", "protocol": "TCP"}],
+						"rules": {
+							"HTTP": [{
+							  "method": "GET",
+							  "path": "/index.html"
+							}]
+						}
+					}]
+				}]
+			}]`, helpers.App1, otherHostIP)
+
+			testCIDRL4Policy(policy, otherHostIP, "http")
+
+			By(fmt.Sprintf("Accessing /private on %q from %q should fail", otherHostIP, helpers.App1))
+			res := vm.ContainerExec(helpers.App1, helpers.CurlWithHTTPCode("http://%s/private", otherHostIP))
+			res.ExpectContains("403", "unexpectedly able to access http://%q:80/private when access should only be allowed to /index.html", otherHostIP)
+		})
 	})
+
 	Context("DROP_ALL Policy test", func() {
 		BeforeEach(func() {
 			// Install a policy that will not apply to any endpoints in this test. If we don't install any policy
