@@ -68,9 +68,26 @@ var _ = Describe("K8sValidatedTunnelTest", func() {
 	})
 
 	Context("VXLan", func() {
+
+		var (
+			vxlanDSPath string
+		)
+
+		BeforeEach(func() {
+			vxlanDSPath = kubectl.ManifestGet("cilium_ds.yaml")
+		})
+
+		AfterEach(func() {
+			// Do not assert on success in AfterEach intentionally to avoid
+			// incomplete teardown.
+			_ = kubectl.Delete(vxlanDSPath)
+			waitToDeleteCilium(kubectl, logger)
+		})
+
 		It("Check VXLAN mode", func() {
-			path := kubectl.ManifestGet("cilium_ds.yaml")
-			kubectl.Apply(path)
+			res := kubectl.Apply(vxlanDSPath)
+			res.ExpectSuccess("Unable to apply %s: %s", vxlanDSPath, res.CombineOutput())
+
 			_, err := kubectl.WaitforPods(helpers.KubeSystemNamespace, "-l k8s-app=cilium", 500)
 			Expect(err).Should(BeNil())
 
@@ -79,8 +96,6 @@ var _ = Describe("K8sValidatedTunnelTest", func() {
 
 			_, err = kubectl.CiliumNodesWait()
 			Expect(err).Should(BeNil())
-			//Make sure that we delete the ds in case of fail
-			defer kubectl.Delete(path)
 
 			By("Checking that BPF tunnels are in place")
 			status := kubectl.CiliumExec(ciliumPod, "cilium bpf tunnel list | wc -l")
@@ -97,8 +112,6 @@ var _ = Describe("K8sValidatedTunnelTest", func() {
 			By("Checking that BPF tunnels are working correctly")
 			tunnStatus := isNodeNetworkingWorking(kubectl, "zgroup=testDS")
 			Expect(tunnStatus).Should(BeTrue())
-			kubectl.Delete(path)
-			waitToDeleteCilium(kubectl, logger)
 		}, 600)
 	})
 
