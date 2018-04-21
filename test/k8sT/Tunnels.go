@@ -67,38 +67,40 @@ var _ = Describe("K8sValidatedTunnelTest", func() {
 		Expect(err).To(BeNil(), "Terminating containers are not deleted after timeout")
 	})
 
-	It("Check VXLAN mode", func() {
-		path := kubectl.ManifestGet("cilium_ds.yaml")
-		kubectl.Apply(path)
-		_, err := kubectl.WaitforPods(helpers.KubeSystemNamespace, "-l k8s-app=cilium", 500)
-		Expect(err).Should(BeNil())
+	Context("VXLan", func() {
+		It("Check VXLAN mode", func() {
+			path := kubectl.ManifestGet("cilium_ds.yaml")
+			kubectl.Apply(path)
+			_, err := kubectl.WaitforPods(helpers.KubeSystemNamespace, "-l k8s-app=cilium", 500)
+			Expect(err).Should(BeNil())
 
-		ciliumPod, err := kubectl.GetCiliumPodOnNode(helpers.KubeSystemNamespace, helpers.K8s1)
-		Expect(err).Should(BeNil())
+			ciliumPod, err := kubectl.GetCiliumPodOnNode(helpers.KubeSystemNamespace, helpers.K8s1)
+			Expect(err).Should(BeNil())
 
-		_, err = kubectl.CiliumNodesWait()
-		Expect(err).Should(BeNil())
-		//Make sure that we delete the ds in case of fail
-		defer kubectl.Delete(path)
+			_, err = kubectl.CiliumNodesWait()
+			Expect(err).Should(BeNil())
+			//Make sure that we delete the ds in case of fail
+			defer kubectl.Delete(path)
 
-		By("Checking that BPF tunnels are in place")
-		status := kubectl.CiliumExec(ciliumPod, "cilium bpf tunnel list | wc -l")
-		if tunnels, _ := status.IntOutput(); tunnels != 4 {
-			cmds := []string{
-				"cilium bpf tunnel list",
+			By("Checking that BPF tunnels are in place")
+			status := kubectl.CiliumExec(ciliumPod, "cilium bpf tunnel list | wc -l")
+			if tunnels, _ := status.IntOutput(); tunnels != 4 {
+				cmds := []string{
+					"cilium bpf tunnel list",
+				}
+				kubectl.CiliumReport(helpers.KubeSystemNamespace, cmds)
 			}
-			kubectl.CiliumReport(helpers.KubeSystemNamespace, cmds)
-		}
 
-		status.ExpectSuccess()
-		Expect(status.IntOutput()).Should(Equal(5))
+			status.ExpectSuccess()
+			Expect(status.IntOutput()).Should(Equal(5))
 
-		By("Checking that BPF tunnels are working correctly")
-		tunnStatus := isNodeNetworkingWorking(kubectl, "zgroup=testDS")
-		Expect(tunnStatus).Should(BeTrue())
-		kubectl.Delete(path)
-		waitToDeleteCilium(kubectl, logger)
-	}, 600)
+			By("Checking that BPF tunnels are working correctly")
+			tunnStatus := isNodeNetworkingWorking(kubectl, "zgroup=testDS")
+			Expect(tunnStatus).Should(BeTrue())
+			kubectl.Delete(path)
+			waitToDeleteCilium(kubectl, logger)
+		}, 600)
+	})
 
 	Context("Geneve", func() {
 
