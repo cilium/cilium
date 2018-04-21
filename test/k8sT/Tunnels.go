@@ -101,9 +101,25 @@ var _ = Describe("K8sValidatedTunnelTest", func() {
 	}, 600)
 
 	Context("Geneve", func() {
+
+		var (
+			geneveDSPath string
+		)
+
+		BeforeEach(func() {
+			geneveDSPath = kubectl.ManifestGet("cilium_ds_geneve.yaml")
+		})
+
+		AfterEach(func() {
+			// Do not assert on success in AfterEach intentionally to avoid
+			// incomplete teardown.
+			_ = kubectl.Delete(geneveDSPath)
+			waitToDeleteCilium(kubectl, logger)
+		})
+
 		It("Check Geneve mode", func() {
-			path := kubectl.ManifestGet("cilium_ds_geneve.yaml")
-			kubectl.Apply(path)
+			res := kubectl.Apply(geneveDSPath)
+			res.ExpectSuccess("unable to apply %s: %s", geneveDSPath, res.CombineOutput())
 			_, err := kubectl.WaitforPods(helpers.KubeSystemNamespace, "-l k8s-app=cilium", 500)
 			Expect(err).Should(BeNil())
 
@@ -112,9 +128,6 @@ var _ = Describe("K8sValidatedTunnelTest", func() {
 
 			_, err = kubectl.CiliumNodesWait()
 			Expect(err).Should(BeNil())
-
-			//Make sure that we delete the ds in case of fail
-			defer kubectl.Delete(path)
 
 			//Check that cilium detects a
 			By("Checking that BPF tunnels are in place")
@@ -132,8 +145,6 @@ var _ = Describe("K8sValidatedTunnelTest", func() {
 			tunnStatus := isNodeNetworkingWorking(kubectl, "zgroup=testDS")
 			Expect(tunnStatus).Should(BeTrue())
 			//FIXME: Maybe added here a cilium bpf tunnel status?
-			kubectl.Delete(path)
-			waitToDeleteCilium(kubectl, logger)
 		}, 600)
 
 	})
