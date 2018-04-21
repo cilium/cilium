@@ -736,15 +736,12 @@ well.  However, ``B`` is not automatically allowed to initiate connections to
 ``A``. If that outcome is desired, then both directions must be explicitly
 allowed.
 
-Security policies are primarily enforced at *ingress* which means that each
-cluster node verifies all incoming packets and determines whether the packet is
-allowed to be transmitted to the intended endpoint. Policy enforcement also
-occurs at *egress* if required by the specific policy, e.g. a Layer 7 policy
-restricting outgoing API calls.
-
-Layer 3 policies are currently not enforced at *egress* to avoid the complexity
-of resolving the destination endpoint identity before sending out the packet.
-Instead, the identity of the source endpoint is embedded into the packet.
+Security policies are may be enforced at *ingress* or *egress*. For *ingress*,
+this means that each cluster node verifies all incoming packets and determines
+whether the packet is allowed to be transmitted to the intended endpoint.
+Correspondingly, for *egress* each cluster node verifies outgoing packets and
+determines whether the packet is allowed to be transmitted to its intended
+destination.
 
 In order to enforce identity based security in a multi host cluster, the
 identity of the transmitting endpoint is embedded into every network packet
