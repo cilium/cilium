@@ -2,6 +2,30 @@
 NEWS
 ******
 
+v1.0.0-rc14
+===========
+
+:date: 2018-04-23
+:commit: b4cb0caf72937aeb5dfdedcd8277522901e485a8
+
+Bugfixes
+--------
+
+* Unconditionally open the BPF ipcache from the datapath to avoid issues with delayed opening of maps in Minikube (3567_, @ianvernon)
+* pkg/envoy: always use dport in proxy statistics (3778_, @ianvernon)
+* Only watch for kuberntes Ingress changes if LB mode is set  (3833_, @aanm)
+* envoy: Manage life-cycles of singleton maps properly (3791_, @jrajahalme)
+* Use distinct stats prefixes in Envoy (3846_, @jrajahalme)
+* Add reserved IPs to ipcache in XDS (3752_, @joestringer)
+* Fix byteorder of ports in verbose monitor output (3774_, @joestringer)
+* policy: Support reserved:cluster entity (3783_, @joestringer)
+* ipcache: Avoid issuing delete for identity=0 (3818_, @joestringer)
+* xds: Validate NPHDS updates before upserting (3841_, @joestringer)
+* Kafka: remove noise from logging EOF messages in Kafka parser (3793_, @manalibhutiyani)
+* Restart cilium pod in case of failure and download cilium images only if not present (kubernetes environment) (3810_, @aanm)
+* npds: Don't wait for ACKs from sidecar proxy when no HTTP filter should be configured (3842_, @rlenglet)
+* workloads: Silence noisy harmless container inspect warning (3834_, @tgraf)
+
 v1.0.0-rc13
 ===========
 
@@ -1494,3 +1518,17 @@ Fixes
 .. _3601: https://github.com/cilium/cilium/pull/3601
 .. _3565: https://github.com/cilium/cilium/pull/3565
 .. _3525: https://github.com/cilium/cilium/pull/3525
+.. _3567: https://github.com/cilium/cilium/pull/3567
+.. _3778: https://github.com/cilium/cilium/pull/3778
+.. _3833: https://github.com/cilium/cilium/pull/3833
+.. _3791: https://github.com/cilium/cilium/pull/3791
+.. _3846: https://github.com/cilium/cilium/pull/3846
+.. _3752: https://github.com/cilium/cilium/pull/3752
+.. _3774: https://github.com/cilium/cilium/pull/3774
+.. _3783: https://github.com/cilium/cilium/pull/3783
+.. _3818: https://github.com/cilium/cilium/pull/3818
+.. _3841: https://github.com/cilium/cilium/pull/3841
+.. _3793: https://github.com/cilium/cilium/pull/3793
+.. _3810: https://github.com/cilium/cilium/pull/3810
+.. _3842: https://github.com/cilium/cilium/pull/3842
+.. _3834: https://github.com/cilium/cilium/pull/3834
