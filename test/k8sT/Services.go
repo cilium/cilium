@@ -160,12 +160,12 @@ var _ = Describe("K8sValidatedServicesTest", func() {
 			demoYAML = kubectl.ManifestGet("demo_ds.yaml")
 		)
 
-		BeforeEach(func() {
+		BeforeAll(func() {
 			res := kubectl.Apply(demoYAML)
 			res.ExpectSuccess("unable to apply %s: %s", demoYAML, res.CombineOutput())
 		})
 
-		AfterEach(func() {
+		AfterAll(func() {
 			// Explicitly ignore result of deletion of resources to avoid incomplete
 			// teardown if any step fails.
 			_ = kubectl.Delete(demoYAML)
