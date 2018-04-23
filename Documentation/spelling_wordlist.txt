@@ -133,8 +133,10 @@ browsable
 bugfixes
 bugtool
 bytecode
-cBPF
 callee
+cBPF
+CEP
+CiliumEndpoint
 cgroup
 ci
 cloudcity

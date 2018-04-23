@@ -22,4 +22,5 @@ The following sections describe the Kubernetes integration in detail:
    intro
    install
    policy
+   ciliumendpoint
    troubleshooting
