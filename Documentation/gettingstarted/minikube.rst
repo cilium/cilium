@@ -183,7 +183,7 @@ policy has been imported yet which select any of the pods.
 
 Step 3: Checking Current Access 
 ===============================
-From the perspective of *deathstar* service providers only the ships with label *org=empire* should be able to connect to the service and request landing. But right now we don't have any rules enforced. So both *xwing* and *tiefighter* will be able to request landing. To test this use below commands by **replacing the xwing and tiefighter podnames** with the ones in your deployment.
+From the perspective of *deathstar* service providers only the ships with label *org=empire* are allowed to connect and request landing. Since we have no rules enforced, both *xwing* and *tiefighter* will be able to request landing. To test this use below commands by **replacing the xwing and tiefighter podnames** with the ones in your deployment.
 
 .. parsed-literal::
 
@@ -196,7 +196,7 @@ Step 4: Apply an L3/L4 Policy
 =============================
 
 When using Cilium, endpoint IP addresses are irrelevant when defining security
-policies.  Instead, you can use the labels assigned to the pods to define
+policies. Instead, you can use the labels assigned to the pods to define
 security policies. The policies will be applied to the right pods based on the labels irrespective of where or when it is running within the cluster. 
 
 We'll start with the basic policy restricting deathstar landing requests to only the ships that have label (org=empire). This will not allow any ships that don't have the org=empire label to even connect with the deathstar service. 
@@ -234,7 +234,7 @@ Now if we run the landing requests again, only the *tiefighter* pods with the la
     $ kubectl exec  tiefighter-68c6cb4b4b-rxcb2  -- curl -s -XPOST 10.109.254.198/v1/request-landing
     Ship landed
 
-This works as expected.   Now the same request run from an *xwing* pod will fail:
+This works as expected. Now the same request run from an *xwing* pod will fail:
 
 .. parsed-literal::
     $ kubectl exec xwing-cc65988f5-7cvn8 -- curl -s -XPOST 10.109.254.198/v1/request-landing
@@ -315,7 +315,7 @@ Step 6:  Apply and Test HTTP-aware L7 Policy
 ============================================
 
 In the simple scenario above, it was sufficient to either give *tiefighter* /
-*xwing* full access to *deathstar's* API or no access at all.   But to
+*xwing* full access to *deathstar's* API or no access at all. But to
 provide the strongest security (i.e., enforce least-privilege isolation)
 between microservices, each service that calls *deathstar's* API should be
 limited to making only the set of HTTP requests it requires for legitimate
@@ -551,6 +551,4 @@ prometheus configuration. Navigate to the web ui with:
 ::
 
    $ minikube service prometheus -n prometheus
-
-
 
