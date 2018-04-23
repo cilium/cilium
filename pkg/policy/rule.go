@@ -251,8 +251,9 @@ func (r *rule) resolveCIDRPolicy(ctx *SearchContext, state *traceState, result *
 		}
 	}
 
+	// CIDR egress policy is purely used for visibility of desired state in
+	// the API, it is not plumbed down into the datapath for policy!
 	for _, egressRule := range r.Egress {
-		// TODO(ianvernon): GH-1658
 		var allCIDRs []api.CIDR
 		allCIDRs = append(allCIDRs, egressRule.ToCIDR...)
 		allCIDRs = append(allCIDRs, api.ComputeResultantCIDRSet(egressRule.ToCIDRSet)...)

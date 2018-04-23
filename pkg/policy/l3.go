@@ -1,4 +1,4 @@
-// Copyright 2016-2017 Authors of Cilium
+// Copyright 2016-2018 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -126,10 +126,13 @@ func (m *CIDRPolicyMap) PopulateBPF(cidrmap *cidrmap.CIDRMap) error {
 	return nil
 }
 
-// CIDRPolicy contains L3 (CIDR) policy maps for ingress and egress.
+// CIDRPolicy contains L3 (CIDR) policy maps for ingress.
 type CIDRPolicy struct {
 	Ingress CIDRPolicyMap
-	Egress  CIDRPolicyMap
+
+	// Egress is not used for policy generation; this is only used as a way
+	// to reflect desired state in the API.
+	Egress CIDRPolicyMap
 }
 
 // NewCIDRPolicy creates a new CIDRPolicy.
@@ -180,9 +183,6 @@ func (cp *CIDRPolicy) GetModel() *models.CIDRPolicy {
 func (cp *CIDRPolicy) Validate() error {
 	if cp == nil {
 		return nil
-	}
-	if l := len(cp.Egress.IPv6PrefixCount); l > api.MaxCIDRPrefixLengths {
-		return fmt.Errorf("too many egress CIDR prefix lengths %d/%d", l, api.MaxCIDRPrefixLengths)
 	}
 	if l := len(cp.Ingress.IPv6PrefixCount); l > api.MaxCIDRPrefixLengths {
 		return fmt.Errorf("too many ingress CIDR prefix lengths %d/%d", l, api.MaxCIDRPrefixLengths)
