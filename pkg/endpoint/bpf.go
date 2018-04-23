@@ -247,14 +247,8 @@ func (e *Endpoint) writeHeaderfile(prefix string, owner Owner) error {
 		if len(e.L3Policy.Ingress.IPv6PrefixCount) > 0 {
 			fmt.Fprintf(fw, "#define CIDR6_INGRESS_MAP %s\n", path.Base(e.IPv6IngressMapPathLocked()))
 		}
-		if len(e.L3Policy.Egress.IPv6PrefixCount) > 0 {
-			fmt.Fprintf(fw, "#define CIDR6_EGRESS_MAP %s\n", path.Base(e.IPv6EgressMapPathLocked()))
-		}
 		if len(e.L3Policy.Ingress.IPv4PrefixCount) > 0 {
 			fmt.Fprintf(fw, "#define CIDR4_INGRESS_MAP %s\n", path.Base(e.IPv4IngressMapPathLocked()))
-		}
-		if len(e.L3Policy.Egress.IPv4PrefixCount) > 0 {
-			fmt.Fprintf(fw, "#define CIDR4_EGRESS_MAP %s\n", path.Base(e.IPv4EgressMapPathLocked()))
 		}
 	}
 	fmt.Fprintf(fw, "#define CALLS_MAP %s\n", path.Base(e.CallsMapPathLocked()))
@@ -281,7 +275,6 @@ func (e *Endpoint) writeHeaderfile(prefix string, owner Owner) error {
 
 	if e.L3Policy != nil {
 		ipv6Ingress, ipv4Ingress := e.L3Policy.Ingress.ToBPFData()
-		ipv6Egress, ipv4Egress := e.L3Policy.Egress.ToBPFData()
 
 		if len(ipv6Ingress) > 0 {
 			fw.WriteString("#define CIDR6_INGRESS_PREFIXES ")
@@ -290,23 +283,9 @@ func (e *Endpoint) writeHeaderfile(prefix string, owner Owner) error {
 			}
 			fw.WriteString("\n")
 		}
-		if len(ipv6Egress) > 0 {
-			fw.WriteString("#define CIDR6_EGRESS_PREFIXES ")
-			for _, m := range ipv6Egress {
-				fmt.Fprintf(fw, "%d,", m)
-			}
-			fw.WriteString("\n")
-		}
 		if len(ipv4Ingress) > 0 {
 			fw.WriteString("#define CIDR4_INGRESS_PREFIXES ")
 			for _, m := range ipv4Ingress {
-				fmt.Fprintf(fw, "%d,", m)
-			}
-			fw.WriteString("\n")
-		}
-		if len(ipv4Egress) > 0 {
-			fw.WriteString("#define CIDR4_EGRESS_PREFIXES ")
-			for _, m := range ipv4Egress {
 				fmt.Fprintf(fw, "%d,", m)
 			}
 			fw.WriteString("\n")
@@ -765,14 +744,6 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir, reason string) (uint64, err
 		} else {
 			e.L3Maps.DestroyBpfMap(IPv6Ingress, e.IPv6IngressMapPathLocked())
 		}
-		if len(e.L3Policy.Egress.IPv6PrefixCount) > 0 &&
-			e.L3Maps.ResetBpfMap(IPv6Egress, e.IPv6EgressMapPathLocked()) == nil {
-			createdIPv6EgressMap = true
-			e.L3Policy.Egress.PopulateBPF(e.L3Maps[IPv6Egress])
-		} else {
-			e.L3Maps.DestroyBpfMap(IPv6Egress, e.IPv6EgressMapPathLocked())
-		}
-
 		if len(e.L3Policy.Ingress.IPv4PrefixCount) > 0 &&
 			e.L3Maps.ResetBpfMap(IPv4Ingress, e.IPv4IngressMapPathLocked()) == nil {
 			createdIPv4IngressMap = true
@@ -780,13 +751,9 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir, reason string) (uint64, err
 		} else {
 			e.L3Maps.DestroyBpfMap(IPv4Ingress, e.IPv4IngressMapPathLocked())
 		}
-		if len(e.L3Policy.Egress.IPv4PrefixCount) > 0 &&
-			e.L3Maps.ResetBpfMap(IPv4Egress, e.IPv4EgressMapPathLocked()) == nil {
-			createdIPv4EgressMap = true
-			e.L3Policy.Egress.PopulateBPF(e.L3Maps[IPv4Egress])
-		} else {
-			e.L3Maps.DestroyBpfMap(IPv4Egress, e.IPv4EgressMapPathLocked())
-		}
+		// TODO: In Cilium v1.4 or later cycle, remove this.
+		e.L3Maps.DestroyBpfMap(IPv6Egress, e.IPv6EgressMapPathLocked())
+		e.L3Maps.DestroyBpfMap(IPv4Egress, e.IPv4EgressMapPathLocked())
 	}
 
 	e.Mutex.Unlock()
