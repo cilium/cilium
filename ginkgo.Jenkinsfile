@@ -31,7 +31,8 @@ pipeline {
                 sh 'rm -rf src; mkdir -p src/github.com/cilium'
                 sh 'ln -s $WORKSPACE src/github.com/cilium/cilium'
                 checkout scm
-                build job: 'Test_projects/eloy-test'
+                sh 'echo ${myparams}'
+                build job: 'Test_projects/eloy-test', parameters: myparams
             }
         }
         stage('UnitTesting') {
