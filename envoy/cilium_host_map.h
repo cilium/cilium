@@ -39,7 +39,7 @@ template <> inline absl::uint128 hton(absl::uint128 addr) { return Network::Util
 
 template <typename I> I masked(I addr, unsigned int plen) {
   const unsigned int PLEN_MAX = sizeof(I)*8;
-  return addr & ~hton((I(1) << (PLEN_MAX - plen)) - 1);
+  return plen == 0 ? I(0) : addr & ~hton((I(1) << (PLEN_MAX - plen)) - 1);
 };
 
 enum ID : uint64_t { UNKNOWN = 0, WORLD = 2 };

@@ -383,7 +383,7 @@ resources:
   policy: 11
   host_addresses: [ "127.0.0.0/8", "beef::/63" ]
 - "@type": type.googleapis.com/cilium.NetworkPolicyHosts
-  policy: 2
+  policy: 12
   host_addresses: [ "0.0.0.0/0", "::/0" ]
 )EOF";
 
@@ -398,20 +398,20 @@ resources:
   VERBOSE_EXPECT_NO_THROW(hmap->onConfigUpdate(typed_resources));
 
   EXPECT_EQ(hmap->resolve(Network::Address::Ipv4Instance("192.168.0.1").ip()), 173);
-  EXPECT_EQ(hmap->resolve(Network::Address::Ipv4Instance("192.168.0.0").ip()), 2);
-  EXPECT_EQ(hmap->resolve(Network::Address::Ipv4Instance("192.168.0.2").ip()), 2);
+  EXPECT_EQ(hmap->resolve(Network::Address::Ipv4Instance("192.168.0.0").ip()), 12);
+  EXPECT_EQ(hmap->resolve(Network::Address::Ipv4Instance("192.168.0.2").ip()), 12);
   EXPECT_EQ(hmap->resolve(Network::Address::Ipv4Instance("127.0.0.1").ip()), 1);
   EXPECT_EQ(hmap->resolve(Network::Address::Ipv4Instance("127.0.0.2").ip()), 11);
-  EXPECT_EQ(hmap->resolve(Network::Address::Ipv4Instance("126.0.0.2").ip()), 2);
-  EXPECT_EQ(hmap->resolve(Network::Address::Ipv4Instance("128.0.0.0").ip()), 2);
+  EXPECT_EQ(hmap->resolve(Network::Address::Ipv4Instance("126.0.0.2").ip()), 12);
+  EXPECT_EQ(hmap->resolve(Network::Address::Ipv4Instance("128.0.0.0").ip()), 12);
   EXPECT_EQ(hmap->resolve(Network::Address::Ipv6Instance("::1").ip()), 1);
-  EXPECT_EQ(hmap->resolve(Network::Address::Ipv6Instance("::").ip()), 2);
+  EXPECT_EQ(hmap->resolve(Network::Address::Ipv6Instance("::").ip()), 12);
   EXPECT_EQ(hmap->resolve(Network::Address::Ipv6Instance("f00d::1").ip()), 173);
-  EXPECT_EQ(hmap->resolve(Network::Address::Ipv6Instance("f00d::").ip()), 2);
+  EXPECT_EQ(hmap->resolve(Network::Address::Ipv6Instance("f00d::").ip()), 12);
   EXPECT_EQ(hmap->resolve(Network::Address::Ipv6Instance("beef::1.2.3.4").ip()), 11);
   EXPECT_EQ(hmap->resolve(Network::Address::Ipv6Instance("beef:0:0:1::").ip()), 11);
   EXPECT_EQ(hmap->resolve(Network::Address::Ipv6Instance("beef:0:0:1::42").ip()), 11);
-  EXPECT_EQ(hmap->resolve(Network::Address::Ipv6Instance("beef:0:0:2::").ip()), 2);
+  EXPECT_EQ(hmap->resolve(Network::Address::Ipv6Instance("beef:0:0:2::").ip()), 12);
 
   tls.shutdownGlobalThreading();
 }
@@ -579,6 +579,26 @@ resources:
   host_addresses: [ "::1/128", "f00f::/65", "f00d:: 1" ]
 )EOF",
 		   "NetworkPolicyHosts: Invalid host entry 'f00d:: 1' for policy 11");
+  }
+}
+
+TEST_P(CiliumIntegrationTest, HostMapInvalidDefaults) {
+  if (GetParam() == Network::Address::IpVersion::v4) {
+    InvalidHostMap(R"EOF(version_info: "0"
+resources:
+- "@type": type.googleapis.com/cilium.NetworkPolicyHosts
+  policy: 11
+  host_addresses: [ "0.0.0.0/0", "128.0.0.0/0" ]
+)EOF",
+		   "NetworkPolicyHosts: Non-prefix bits set in '128.0.0.0/0'");
+  } else {
+    InvalidHostMap(R"EOF(version_info: "0"
+resources:
+- "@type": type.googleapis.com/cilium.NetworkPolicyHosts
+  policy: 11
+  host_addresses: [ "::/0", "8000::/0" ]
+)EOF",
+		   "NetworkPolicyHosts: Non-prefix bits set in '8000::/0'");
   }
 }
 

@@ -12,17 +12,16 @@ namespace Envoy {
 namespace Cilium {
 
 template <typename T>
-unsigned int checkPrefix(T addr, unsigned int plen, absl::string_view host) {
+unsigned int checkPrefix(T addr, bool have_prefix, unsigned int plen, absl::string_view host) {
   const unsigned int PLEN_MAX = sizeof(T)*8;
+  if (!have_prefix) {
+    return PLEN_MAX;
+  }
   if (plen > PLEN_MAX) {
     throw EnvoyException(fmt::format("NetworkPolicyHosts: Invalid prefix length in \'{}\'", host));
   }
-  if (plen == 0) {
-    return PLEN_MAX;
-  }
   // Check for 1-bits after the prefix
-  T mask = (T(1) << (PLEN_MAX - plen)) - 1;
-  if (addr & ntoh(mask)) {
+  if ((plen == 0 && addr) || (plen > 0 && addr & ntoh((T(1) << (PLEN_MAX - plen)) - 1))) {
     throw EnvoyException(fmt::format("NetworkPolicyHosts: Non-prefix bits set in \'{}\'", host));
   }
   return plen;
@@ -77,7 +76,8 @@ protected:
 
       // Find the prefix length if any
       const char *slash = strchr(addr, '/');
-      if (slash != nullptr) {
+      bool have_prefix = (slash != nullptr);
+      if (have_prefix) {
 	const char *pstr = slash + 1;
 	// Must start with a digit and have nothing after a zero.
 	if (*pstr < '0' || *pstr > '9' || (*pstr == '0' && *(pstr + 1) != '\0')) {
@@ -99,7 +99,7 @@ protected:
       uint32_t addr4;
       int rc = inet_pton(AF_INET, addr, &addr4);
       if (rc == 1) {
-	plen = checkPrefix(addr4, plen, host);
+	plen = checkPrefix(addr4, have_prefix, plen, host);
 	if (!insert(addr4, plen, policy)) {
 	  throw EnvoyException(fmt::format("NetworkPolicyHosts: Duplicate host entry \'{}\' for policy {}", host, policy));
 	}
@@ -108,7 +108,7 @@ protected:
       absl::uint128 addr6;
       rc = inet_pton(AF_INET6, addr, &addr6);
       if (rc == 1) {
-	plen = checkPrefix(addr6, plen, host);
+	plen = checkPrefix(addr6, have_prefix, plen, host);
 	if (!insert(addr6, plen, policy)) {
 	  throw EnvoyException(fmt::format("NetworkPolicyHosts: Duplicate host entry \'{}\' for policy {}", host, policy));
 	}
