@@ -223,6 +223,7 @@ func ipIdentityWatcher(listeners []IPIdentityMappingListener) {
 				cacheModification CacheModification
 				ipIDPair          identity.IPIdentityPair
 				cachedIdentity    identity.NumericIdentity
+				ipIsInCache       bool
 			)
 
 			switch event.Typ {
@@ -240,10 +241,10 @@ func ipIdentityWatcher(listeners []IPIdentityMappingListener) {
 
 				ipStr := ipIDPair.IP.String()
 
-				cachedIdentity, ipExists := IPIdentityCache.LookupByIP(ipStr)
+				cachedIdentity, ipIsInCache = IPIdentityCache.LookupByIP(ipStr)
 
 				// Need to add or update entry.
-				if !ipExists || cachedIdentity != ipIDPair.ID {
+				if !ipIsInCache || cachedIdentity != ipIDPair.ID {
 					IPIdentityCache.Upsert(ipStr, ipIDPair.ID)
 					cacheChanged = true
 					cacheModification = Upsert
@@ -264,9 +265,9 @@ func ipIdentityWatcher(listeners []IPIdentityMappingListener) {
 				ipIDPair.IP = keyIP
 				ipStr := keyIP.String()
 
-				cachedIdentity, isIPInCache := IPIdentityCache.LookupByIP(ipStr)
+				cachedIdentity, ipIsInCache = IPIdentityCache.LookupByIP(ipStr)
 
-				if isIPInCache {
+				if ipIsInCache {
 					// Set value of ipIDPair.ID for logging purposes and owner callback.
 					ipIDPair.ID = cachedIdentity
 
@@ -286,7 +287,9 @@ func ipIdentityWatcher(listeners []IPIdentityMappingListener) {
 
 				// Callback upon cache updates.
 				for _, listener := range listeners {
-					if cachedIdentity != 0 && ipIDPair.ID != cachedIdentity {
+					// In the case the mapping for an IP is updated (vs.
+					// inserted), first delete the mapping to the old ID.
+					if ipIsInCache && cacheModification == Upsert {
 						cachedPair := ipIDPair
 						cachedPair.ID = cachedIdentity
 						listener.OnIPIdentityCacheChange(Delete, cachedPair)
