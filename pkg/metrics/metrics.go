@@ -53,8 +53,8 @@ var (
 	// LabelEventSourceK8s marks event-related metrics that come from k8s
 	LabelEventSourceK8s = "k8s"
 
-	// LabelEventSourceContainerd marks event-related metrics that come from containerd
-	LabelEventSourceContainerd = "containerd"
+	// LabelEventSourceContainerd marks event-related metrics that come from docker
+	LabelEventSourceContainerd = "docker"
 
 	// Endpoint
 
@@ -105,7 +105,7 @@ var (
 
 	// EventTS*is the time in seconds since epoch that we last received an
 	// event that we will handle
-	// source is one of k8s, containerd or apia
+	// source is one of k8s, docker or apia
 
 	// EventTSK8s is the timestamp of k8s events
 	EventTSK8s = prometheus.NewGauge(prometheus.GaugeOpts{
@@ -115,7 +115,7 @@ var (
 		ConstLabels: prometheus.Labels{"source": LabelEventSourceK8s},
 	})
 
-	// EventTSContainerd is the timestamp of containerd events
+	// EventTSContainerd is the timestamp of docker events
 	EventTSContainerd = prometheus.NewGauge(prometheus.GaugeOpts{
 		Namespace:   Namespace,
 		Name:        "event_ts",
@@ -123,7 +123,7 @@ var (
 		ConstLabels: prometheus.Labels{"source": LabelEventSourceContainerd},
 	})
 
-	// EventTSAPI is the timestamp of containerd events
+	// EventTSAPI is the timestamp of docker events
 	EventTSAPI = prometheus.NewGauge(prometheus.GaugeOpts{
 		Namespace:   Namespace,
 		Name:        "event_ts",

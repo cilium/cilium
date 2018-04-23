@@ -142,7 +142,7 @@ func (d *Daemon) getStatus() models.StatusResponse {
 		sr.Kvstore = &models.Status{State: models.StatusStateOk, Msg: info}
 	}
 
-	sr.ContainerRuntime = containerd.Status()
+	sr.ContainerRuntime = docker.Status()
 
 	sr.Kubernetes = d.getK8sStatus()
 

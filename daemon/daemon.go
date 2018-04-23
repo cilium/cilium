@@ -68,7 +68,7 @@ import (
 	"github.com/cilium/cilium/pkg/proxy/logger"
 	"github.com/cilium/cilium/pkg/u8proto"
 	"github.com/cilium/cilium/pkg/workloads"
-	"github.com/cilium/cilium/pkg/workloads/containerd"
+	"github.com/cilium/cilium/pkg/workloads/docker"
 
 	"github.com/go-openapi/runtime/middleware"
 	"github.com/mattn/go-shellwords"
@@ -1019,7 +1019,7 @@ func (d *Daemon) syncLXCMap() error {
 // NewDaemon creates and returns a new Daemon with the parameters set in c.
 func NewDaemon() (*Daemon, error) {
 	if opts := workloads.GetRuntimeOpt(workloads.Docker); opts != nil {
-		if err := containerd.Init(dockerEndpoint); err != nil {
+		if err := docker.Init(dockerEndpoint); err != nil {
 			return nil, err
 		}
 	}
@@ -1229,7 +1229,7 @@ func NewDaemon() (*Daemon, error) {
 		// We need to read all docker containers so we know we won't
 		// going to allocate the same IP addresses and we will ignore
 		// these containers from reading.
-		containerd.IgnoreRunningContainers()
+		docker.IgnoreRunningContainers()
 	}
 
 	d.collectStaleMapGarbage()

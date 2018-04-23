@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package containerd
+package docker
 
 import (
 	"bufio"
@@ -60,10 +60,10 @@ func shortContainerID(id string) string {
 // containers started or dead.
 func EnableEventListener() error {
 	if dockerClient == nil {
-		log.Debug("Not enabling docker/containerd event listener because dockerClient is nil")
+		log.Debug("Not enabling docker event listener because dockerClient is nil")
 		return nil
 	}
-	log.Info("Enabling docker/containerd event listener")
+	log.Info("Enabling docker event listener")
 
 	ws := newWatcherState(eventQueueBufferSize)
 	// start a go routine which periodically synchronizes containers
@@ -88,7 +88,7 @@ func EnableEventListener() error {
 
 	go listenForDockerEvents(ws, r)
 
-	log.Debug("Started to listen for containerd events")
+	log.Debug("Started to listen for docker events")
 	return nil
 }
 
@@ -266,7 +266,7 @@ func handleCreateContainer(id string, retry bool) {
 
 		containerName := dockerContainer.Name
 		if containerName == "" {
-			retryLog.Warn("Container name not set in event from containerd")
+			retryLog.Warn("Container name not set in event from docker")
 		}
 
 		ep := endpointmanager.LookupDockerID(id)

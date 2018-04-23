@@ -12,33 +12,25 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package containerd
+package docker
 
 import (
-	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/logging"
+	"github.com/cilium/cilium/pkg/logging/logfields"
+)
+
+// logging field definitions
+const (
+	// fieldRetry is the current retry attempt
+	fieldRetry = "retry"
+
+	// fieldMaxRetry is the maximum number of retries
+	fieldMaxRetry = "maxRetry"
+
+	// fieldSubsys is the value for logfields.LogSubsys
+	fieldSubsys = "docker-watcher"
 )
 
 var (
-	ignoredMutex      lock.RWMutex
-	ignoredContainers = make(map[string]int)
+	log = logging.DefaultLogger.WithField(logfields.LogSubsys, fieldSubsys)
 )
-
-func ignoredContainer(id string) bool {
-	ignoredMutex.RLock()
-	_, ok := ignoredContainers[id]
-	ignoredMutex.RUnlock()
-
-	return ok
-}
-
-func startIgnoringContainer(id string) {
-	ignoredMutex.Lock()
-	ignoredContainers[id]++
-	ignoredMutex.Unlock()
-}
-
-func stopIgnoringContainer(id string) {
-	ignoredMutex.Lock()
-	delete(ignoredContainers, id)
-	ignoredMutex.Unlock()
-}

@@ -49,7 +49,7 @@ import (
 	"github.com/cilium/cilium/pkg/pprof"
 	"github.com/cilium/cilium/pkg/version"
 	"github.com/cilium/cilium/pkg/workloads"
-	"github.com/cilium/cilium/pkg/workloads/containerd"
+	"github.com/cilium/cilium/pkg/workloads/docker"
 
 	"github.com/go-openapi/loads"
 	gops "github.com/google/gops/agent"
@@ -717,8 +717,8 @@ func runDaemon() {
 	cancelHealth := health.LaunchAsEndpoint(d, addressing, option.Config.Opts)
 	defer cancelHealth()
 
-	if err := containerd.EnableEventListener(); err != nil {
-		log.WithError(err).Fatal("Error while enabling containerd event watcher")
+	if err := docker.EnableEventListener(); err != nil {
+		log.WithError(err).Fatal("Error while enabling docker event watcher")
 	}
 
 	if err := d.EnableK8sWatcher(5 * time.Minute); err != nil {
