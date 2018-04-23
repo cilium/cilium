@@ -51,6 +51,10 @@ rm -fr ~/go/bin/cilium*
 SCRIPT
 
 $install = <<SCRIPT
+sudo systemctl disable apport.service
+sudo sysctl -w kernel.core_pattern=/tmp/core.%e.%p.%t
+sudo sh -c 'sysctl kernel.core_pattern > /etc/sysctl.d/66-core-pattern.conf'
+
 sudo -E make -C /home/vagrant/go/src/github.com/cilium/cilium/ install
 
 sudo mkdir -p /etc/sysconfig

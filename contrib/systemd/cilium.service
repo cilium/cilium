@@ -5,6 +5,7 @@ Requires=docker.service cilium-consul.service cilium-docker.service
 
 [Service]
 Type=simple
+LimitCORE=infinity
 EnvironmentFile=-/etc/sysconfig/cilium
 ExecStart=/usr/bin/cilium-agent $CILIUM_OPTS
 Restart=on-failure

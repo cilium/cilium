@@ -63,7 +63,7 @@ $(ENVOY_BIN) envoy-release: force
 
 envoy-debug: force-non-root
 	-rm -f bazel-out/k8-dbg/bin/_objs/envoy/external/envoy/source/common/common/version_linkstamp.o
-	$(BAZEL) $(BAZEL_OPTS) build $(BAZEL_BUILD_OPTS) -c dbg //:envoy
+	$(BAZEL) $(BAZEL_OPTS) build $(BAZEL_BUILD_OPTS) -c dbg --config=clang-asan --cxxopt="-fno-omit-frame-pointer" --cxxopt="-D_GLIBCXX_ASSERTIONS" //:envoy
 
 $(CHECK_FORMAT): force-non-root
 	$(BAZEL) $(BAZEL_OPTS) build $(BAZEL_BUILD_OPTS) //:check_format.py
@@ -71,10 +71,9 @@ $(CHECK_FORMAT): force-non-root
 install: force-root
 	$(INSTALL) -m 0755 -d $(DESTDIR)$(BINDIR)
 	$(INSTALL) -m 0755 -T $(ENVOY_BIN) $(DESTDIR)$(BINDIR)/cilium-envoy
-# Strip only non-debug builds
-ifeq "$(findstring -dbg,$(realpath bazel-bin))" ""
+
+strip-install: install
 	$(STRIP) $(DESTDIR)$(BINDIR)/cilium-envoy
-endif
 
 bazel-archive: force-non-root tests clean-bins
 	-sudo rm -f $(BAZEL_ARCHIVE)
