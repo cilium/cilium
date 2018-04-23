@@ -13,6 +13,12 @@
   version = "v0.4.7"
 
 [[projects]]
+  name = "github.com/Microsoft/hcsshim"
+  packages = ["."]
+  revision = "8fccb44c85288f54389c412b2ec466e4481fd252"
+  version = "v0.6.9"
+
+[[projects]]
   name = "github.com/PuerkitoBio/purell"
   packages = ["."]
   revision = "0bcb03f4b4d0a9428594752bd2a3b9aa0a9d4bd4"
@@ -39,6 +45,80 @@
   name = "github.com/c9s/goprocinfo"
   packages = ["linux"]
   revision = "0010a05ce49fde7f50669bc7ecda7d41dd6ab824"
+
+[[projects]]
+  name = "github.com/containerd/containerd"
+  packages = [
+    ".",
+    "api/events",
+    "api/services/containers/v1",
+    "api/services/content/v1",
+    "api/services/diff/v1",
+    "api/services/events/v1",
+    "api/services/images/v1",
+    "api/services/introspection/v1",
+    "api/services/leases/v1",
+    "api/services/namespaces/v1",
+    "api/services/snapshots/v1",
+    "api/services/tasks/v1",
+    "api/services/version/v1",
+    "api/types",
+    "api/types/task",
+    "cio",
+    "containers",
+    "content",
+    "defaults",
+    "dialer",
+    "diff",
+    "errdefs",
+    "events",
+    "events/exchange",
+    "filters",
+    "identifiers",
+    "images",
+    "leases",
+    "linux/runctypes",
+    "log",
+    "mount",
+    "namespaces",
+    "oci",
+    "platforms",
+    "plugin",
+    "reference",
+    "remotes",
+    "remotes/docker",
+    "remotes/docker/schema1",
+    "rootfs",
+    "snapshots"
+  ]
+  revision = "v1.1.0"
+
+[[projects]]
+  branch = "master"
+  name = "github.com/containerd/continuity"
+  packages = [
+    "fs",
+    "sysx"
+  ]
+  revision = "c6cef34830231743494fe2969284df7b82cc0ad0"
+
+[[projects]]
+  name = "github.com/containerd/cri"
+  packages = ["pkg/store"]
+  revision = "906ea173e57deaefca60ef5b27d4e9ff8ade8035"
+  version = "v1.0.0"
+
+[[projects]]
+  branch = "master"
+  name = "github.com/containerd/fifo"
+  packages = ["."]
+  revision = "3d5202aec260678c48179c56f40e6f38a095738c"
+
+[[projects]]
+  branch = "master"
+  name = "github.com/containerd/typeurl"
+  packages = ["."]
+  revision = "f6943554a7e7e88b3c14aad190bf05932da84788"
 
 [[projects]]
   name = "github.com/containernetworking/cni"
@@ -128,6 +208,12 @@
   ]
   revision = "3ede32e2033de7505e6500d6c868c2b9ed9f169d"
   version = "v0.3.0"
+
+[[projects]]
+  branch = "master"
+  name = "github.com/docker/go-events"
+  packages = ["."]
+  revision = "9461782956ad83b30282bf90e31fa6a70c255ba9"
 
 [[projects]]
   name = "github.com/docker/go-units"
@@ -240,12 +326,19 @@
   revision = "b11dbf889b64cf815a7e2667412df313f4a3f17b"
 
 [[projects]]
+  name = "github.com/gogo/googleapis"
+  packages = ["google/rpc"]
+  revision = "08a7655d27152912db7aaf4f983275eaf8d128ef"
+  version = "v1.0.0"
+
+[[projects]]
   name = "github.com/gogo/protobuf"
   packages = [
     "gogoproto",
     "proto",
     "protoc-gen-gogo/descriptor",
-    "sortkeys"
+    "sortkeys",
+    "types"
   ]
   revision = "v0.4-3-gc0656ed"
 
@@ -532,6 +625,34 @@
   revision = "0882c9abce533ab4afbab5677fcef7434dd36d5a"
 
 [[projects]]
+  name = "github.com/opencontainers/go-digest"
+  packages = ["."]
+  revision = "279bed98673dd5bef374d3b6e4b09e2af76183bf"
+  version = "v1.0.0-rc1"
+
+[[projects]]
+  name = "github.com/opencontainers/image-spec"
+  packages = [
+    "identity",
+    "specs-go",
+    "specs-go/v1"
+  ]
+  revision = "d60099175f88c47cd379c4738d158884749ed235"
+  version = "v1.0.1"
+
+[[projects]]
+  name = "github.com/opencontainers/runc"
+  packages = ["libcontainer/user"]
+  revision = "baf6536d6259209c3edfa2b22237af82942d3dfa"
+  version = "v0.1.1"
+
+[[projects]]
+  name = "github.com/opencontainers/runtime-spec"
+  packages = ["specs-go"]
+  revision = "4e3b9264a330d094b0386c3703c5f379119711e8"
+  version = "v1.0.1"
+
+[[projects]]
   name = "github.com/optiopay/kafka"
   packages = [
     ".",
@@ -678,6 +799,12 @@
   revision = "7538d73b4eb9511d85a9f1dfef202eeb8ac260f4"
 
 [[projects]]
+  branch = "master"
+  name = "github.com/syndtr/gocapability"
+  packages = ["capability"]
+  revision = "33e07d32887e1e06b7c025f27ce52f62c7990bc0"
+
+[[projects]]
   name = "github.com/tinylib/msgp"
   packages = ["msgp"]
   revision = "b2b6a672cf1e5b90748f79b8b81fc8c5cf0571a1"
@@ -737,6 +864,12 @@
     "trace"
   ]
   revision = "0744d001aa8470aaa53df28d32e5ceeb8af9bd70"
+
+[[projects]]
+  branch = "master"
+  name = "golang.org/x/sync"
+  packages = ["errgroup"]
+  revision = "1d60e4601c6fd243af51cc01ddf169918a5407ca"
 
 [[projects]]
   name = "golang.org/x/sys"
@@ -1004,7 +1137,9 @@
   name = "k8s.io/kubernetes"
   packages = [
     "pkg/apis/core",
+    "pkg/kubelet/apis/cri/runtime/v1alpha2",
     "pkg/kubelet/types",
+    "pkg/kubelet/util",
     "pkg/registry/core/service/allocator",
     "pkg/registry/core/service/ipallocator",
     "pkg/scheduler/api"
@@ -1014,6 +1149,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "c627278c870c740185d159226c4f160a93420ac6131cadbeb632d68880a7fe4c"
+  inputs-digest = "010892c675cbeabb9105886086baa98e5613fa8b895c9f111d9c510cc7902977"
   solver-name = "gps-cdcl"
   solver-version = 1
