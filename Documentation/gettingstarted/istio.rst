@@ -174,31 +174,37 @@ like above (a ``READY`` value of ``0`` is OK for this tutorial).
 Step 2: Install Istio
 =====================
 
-Download `Istio version 0.7.0
-<https://github.com/istio/istio/releases/tag/0.7.0>`_:
+Download `Istio version 0.6.0
+<https://github.com/istio/istio/releases/tag/0.6.0>`_:
 
 ::
 
-    $ export ISTIO_VERSION=0.7.0
+    $ export ISTIO_VERSION=0.6.0
     $ curl -L https://git.io/getLatestIstio | sh -
     $ export ISTIO_HOME=`pwd`/istio-${ISTIO_VERSION}
     $ export PATH="$PATH:${ISTIO_HOME}/bin"
 
-Deploy Istio on Kubernetes, with a Cilium-specific variant of Pilot which
-injects the Cilium network policy filters into each Istio sidecar proxy:
+Deploy Istio on Kubernetes:
 
 ::
 
-    $ sed -e 's,docker\.io/istio/pilot:,docker.io/cilium/istio_pilot:,' \
-          < ${ISTIO_HOME}/install/kubernetes/istio.yaml | \
-          kubectl create -f -
+    $ kubectl create -f ${ISTIO_HOME}/install/kubernetes/istio.yaml
+
+.. TODO:
+   Rewrite istio.yaml to replace the proxy and proxy_init images with
+   Cilium's images.
 
 Configure Istio's sidecar injection to use Cilium's Docker images for the
 sidecar proxies:
 
-.. parsed-literal::
+::
 
-    $ kubectl create -f \ |SCM_WEB|\/examples/kubernetes-istio/istio-sidecar-injector-configmap-release.yaml
+    $ sed -e 's,istio/proxy_init:0.6.0,cilium/istio_proxy_init:0.6.0,' \
+          -e 's,istio/proxy:0.6.0,cilium/istio_proxy:0.6.0,' \
+          -e 's,istio/proxy_debug:0.6.0,cilium/istio_proxy_debug:0.6.0,' \
+          -e 's/imagePullPolicy:.*$/imagePullPolicy: Always/' \
+          < ${ISTIO_HOME}/install/kubernetes/istio-sidecar-injector-configmap-release.yaml | \
+          kubectl create -f -
 
 Check the progress of the deployment (every service should have an
 ``AVAILABLE`` count of ``1``):
@@ -247,14 +253,7 @@ into Kubernetes using separate YAML files which define:
 
 Each Deployment must be packaged with Istio's Envoy sidecar proxy in
 order to be managed by Istio, by running the ``istioctl kube-inject``
-command on each YAML file.  The resulting YAML files must then be
-adapted to mount Cilium's API Unix domain sockets into the sidecar to
-allow Cilium's Envoy filters to query the Cilium agent.  This
-adaptation can be done with the ``cilium-kube-inject.sed`` script:
-
-.. parsed-literal::
-
-    $ curl -s \ |SCM_WEB|\/examples/kubernetes-istio/cilium-kube-inject.sed > ./cilium-kube-inject.sed
+command on each YAML file.
 
 To package the Istio sidecar proxy and generate final YAML
 specifications, run:
@@ -264,7 +263,6 @@ specifications, run:
     $ for service in productpage-service productpage-v1 details-v1 reviews-v1; do \\
           curl -s \ |SCM_WEB|\/examples/kubernetes-istio/bookinfo-${service}.yaml | \\
           istioctl kube-inject --injectConfigMapName istio-inject -f - | \\
-          sed -f ./cilium-kube-inject.sed | \\
           kubectl create -f - ; done
     service "productpage" created
     ciliumnetworkpolicy "productpage-v1" created
@@ -333,7 +331,6 @@ Deploy the ``ratings v1`` and ``reviews v2`` services:
     $ for service in ratings-v1 reviews-v2; do \\
           curl -s \ |SCM_WEB|\/examples/kubernetes-istio/bookinfo-${service}.yaml | \\
           istioctl kube-inject --injectConfigMapName istio-inject -f - | \\
-          sed -f ./cilium-kube-inject.sed | \\
           kubectl create -f - ; done
     service "ratings" created
     ciliumnetworkpolicy "ratings-v1" created
@@ -448,7 +445,6 @@ deploy a Kafka broker:
 
     $ curl -s \ |SCM_WEB|\/examples/kubernetes-istio/kafka-v1.yaml | \\
           istioctl kube-inject --injectConfigMapName istio-inject -f - | \\
-          sed -f ./cilium-kube-inject.sed | \\
           kubectl create -f -
     service "kafka" created
     ciliumnetworkpolicy "kafka-authaudit" created
@@ -515,7 +511,6 @@ CiliumNetworkPolicy and delete ``productpage v1``:
 
     $ curl -s \ |SCM_WEB|\/examples/kubernetes-istio/bookinfo-productpage-v2.yaml | \\
           istioctl kube-inject --injectConfigMapName istio-inject -f - | \\
-          sed -f ./cilium-kube-inject.sed | \\
           kubectl create -f -
     ciliumnetworkpolicy "productpage-v2" created
     deployment "productpage-v2" created
@@ -575,7 +570,6 @@ this service:
 
     $ curl -s \ |SCM_WEB|\/examples/kubernetes-istio/authaudit-logger-v1.yaml | \\
           istioctl kube-inject --injectConfigMapName istio-inject -f - | \\
-          sed -f ./cilium-kube-inject.sed | \\
           kubectl apply -f -
 
 Check the progress of the deployment (every service should have an
