@@ -10,7 +10,9 @@ dir=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
 
 source "${dir}/helpers.bash"
 
-cache_dir="${dir}/../../../hack/cache/k8s/${k8s_version}"
+cache_dir="${dir}/../../../hack/cache"
+
+k8s_cache_dir="${cache_dir}/k8s/${k8s_version}"
 
 log "Installing kubernetes worker components..."
 
@@ -18,22 +20,29 @@ certs_dir="${dir}/certs"
 
 set -e
 
-sudo mkdir -p /opt/cni
+sudo mkdir -p /opt/cni/bin
 
 if [ -n "${INSTALL}" ]; then
     for component in kubectl kubelet kube-proxy; do
-        download_to "${cache_dir}" "${component}" \
+        download_to "${k8s_cache_dir}" "${component}" \
             "https://dl.k8s.io/release/${k8s_version}/bin/linux/amd64/${component}"
 
-        cp "${cache_dir}/${component}" .
+        cp "${k8s_cache_dir}/${component}" .
     done
 
-    download_to "${cache_dir}" "cni-amd64-0799f5732f2a11b329d9e3d51b9c8f2e3759f2ff.tar.gz" \
-        "https://dl.k8s.io/network-plugins/cni-amd64-0799f5732f2a11b329d9e3d51b9c8f2e3759f2ff.tar.gz"
+    download_to "${cache_dir}/cni" "cni-plugins-amd64-v0.6.0.tgz" \
+        "https://github.com/containernetworking/plugins/releases/download/v0.6.0/cni-plugins-amd64-v0.6.0.tgz"
 
-    cp "${cache_dir}/cni-amd64-0799f5732f2a11b329d9e3d51b9c8f2e3759f2ff.tar.gz" .
+    cp "${cache_dir}/cni/cni-plugins-amd64-v0.6.0.tgz" .
 
-    sudo tar -xvf cni-amd64-0799f5732f2a11b329d9e3d51b9c8f2e3759f2ff.tar.gz -C /opt/cni
+    sudo tar -xvf cni-plugins-amd64-v0.6.0.tgz -C /opt/cni/bin
+
+    download_to "${cache_dir}/containerd" "cri-containerd-1.1.0.linux-amd64.tar.gz" \
+        "https://storage.googleapis.com/cri-containerd-release/cri-containerd-1.1.0.linux-amd64.tar.gz"
+
+    cp "${cache_dir}/containerd/cri-containerd-1.1.0.linux-amd64.tar.gz" .
+
+    sudo tar -xvf cri-containerd-1.1.0.linux-amd64.tar.gz -C / --no-same-owner
 
     chmod +x kubelet kubectl kube-proxy
 
@@ -195,8 +204,8 @@ sudo tee /etc/systemd/system/kube-proxy.service <<EOF
 [Unit]
 Description=Kubernetes kube-proxy
 Documentation=https://kubernetes.io/docs/home
-After=docker.service
-Requires=docker.service
+After=containerd.service
+Requires=containerd.service
 
 [Service]
 ExecStart=/usr/bin/kube-proxy \\
@@ -222,8 +231,8 @@ sudo tee /etc/systemd/system/kubelet.service <<EOF
 [Unit]
 Description=Kubernetes Kubelet
 Documentation=https://kubernetes.io/docs/home
-After=docker.service
-Requires=docker.service
+After=${container_runtime_name}.service
+Requires=${container_runtime_name}.service
 
 [Service]
 # Mount BPF fs for cilium
@@ -237,8 +246,8 @@ ExecStart=/usr/bin/kubelet \\
   --cloud-provider= \\
   --cluster-dns=${cluster_dns_ip} \\
   --cluster-domain=cluster.local \\
-  --container-runtime=docker \\
-  --docker=unix:///var/run/docker.sock \\
+  --container-runtime=${container_runtime_kubelet} \\
+  --container-runtime-endpoint=${container_runtime_endpoint} \\
   --kubeconfig=/var/lib/kubelet/kubelet.kubeconfig \\
   --fail-swap-on=false \\
   --make-iptables-util-chains=false \\
