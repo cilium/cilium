@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package containerd
+package docker
 
 import (
 	"bytes"
@@ -33,7 +33,7 @@ var (
 	dockerClient *client.Client
 )
 
-// Init initializes the containerd package
+// Init initializes the docker package
 func Init(endpoint string) error {
 	defaultHeaders := map[string]string{"User-Agent": "cilium"}
 	c, err := client.NewClient(endpoint, "v1.21", nil, defaultHeaders)
@@ -46,7 +46,7 @@ func Init(endpoint string) error {
 	return nil
 }
 
-// InitMock initializes the containerd packged with a mocked runtime
+// InitMock initializes the docker packged with a mocked runtime
 func InitMock() error {
 	mwc := newMockClient(networksMock())
 	c, err := client.NewClient("http://127.0.0.1:2375", "v1.21", mwc, nil)

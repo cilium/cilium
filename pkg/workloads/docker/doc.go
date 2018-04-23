@@ -12,5 +12,5 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package containerd abstracts all containerd specific behaviour
-package containerd
+// Package docker abstracts all docker specific behaviour
+package docker

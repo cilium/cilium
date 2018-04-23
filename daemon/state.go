@@ -28,7 +28,7 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
-	"github.com/cilium/cilium/pkg/workloads/containerd"
+	"github.com/cilium/cilium/pkg/workloads/docker"
 
 	"github.com/sirupsen/logrus"
 	"github.com/vishvananda/netlink"
@@ -71,7 +71,7 @@ func (d *Daemon) SyncState(dir string, clean bool) error {
 			if _, err := netlink.LinkByName(ep.IfName); err != nil {
 				scopedLog.Infof("Interface %s could not be found for endpoint being restored, ignoring", ep.IfName)
 				skipRestore = true
-			} else if !containerd.IsRunning(ep) {
+			} else if !workloads.IsRunning(ep) {
 				scopedLog.Info("No workload could be associated with endpoint being restored, ignoring")
 				skipRestore = true
 			}
