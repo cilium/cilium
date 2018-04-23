@@ -91,69 +91,18 @@ both the Cilium agent and the Cilium CNI plugin.
 
 To deploy Cilium, run:
 
-.. tabs::
-  .. group-tab:: K8s 1.7
+.. parsed-literal::
 
-    .. parsed-literal::
-
-      $ kubectl create -f \ |SCM_WEB|\/examples/kubernetes/1.7/cilium-sidecar.yaml
-      configmap "cilium-config" created
-      secret "cilium-etcd-secrets" created
-      daemonset.extensions "cilium" created
-      clusterrolebinding.rbac.authorization.k8s.io "cilium" created
-      clusterrole.rbac.authorization.k8s.io "cilium" created
-      serviceaccount "cilium" created
-
-  .. group-tab:: K8s 1.8
-
-    .. parsed-literal::
-
-      $ kubectl create -f \ |SCM_WEB|\/examples/kubernetes/1.8/cilium-sidecar.yaml
-      configmap "cilium-config" created
-      secret "cilium-etcd-secrets" created
-      daemonset.extensions "cilium" created
-      clusterrolebinding.rbac.authorization.k8s.io "cilium" created
-      clusterrole.rbac.authorization.k8s.io "cilium" created
-      serviceaccount "cilium" created
-
-  .. group-tab:: K8s 1.9
-
-    .. parsed-literal::
-
-      $ kubectl create -f \ |SCM_WEB|\/examples/kubernetes/1.9/cilium-sidecar.yaml
-      configmap "cilium-config" created
-      secret "cilium-etcd-secrets" created
-      daemonset.extensions "cilium" created
-      clusterrolebinding.rbac.authorization.k8s.io "cilium" created
-      clusterrole.rbac.authorization.k8s.io "cilium" created
-      serviceaccount "cilium" created
-
-  .. group-tab:: K8s 1.10
-
-    .. parsed-literal::
-
-      $ kubectl create -f \ |SCM_WEB|\/examples/kubernetes/1.10/cilium-sidecar.yaml
-      configmap "cilium-config" created
-      secret "cilium-etcd-secrets" created
-      daemonset.extensions "cilium" created
-      clusterrolebinding.rbac.authorization.k8s.io "cilium" created
-      clusterrole.rbac.authorization.k8s.io "cilium" created
-      serviceaccount "cilium" created
-
-  .. group-tab:: K8s 1.11
-
-    .. parsed-literal::
-
-      $ kubectl create -f \ |SCM_WEB|\/examples/kubernetes/1.11/cilium-sidecar.yaml
-      configmap "cilium-config" created
-      secret "cilium-etcd-secrets" created
-      daemonset.extensions "cilium" created
-      clusterrolebinding.rbac.authorization.k8s.io "cilium" created
-      clusterrole.rbac.authorization.k8s.io "cilium" created
-      serviceaccount "cilium" created
+    $ kubectl create -f \ |SCM_WEB|\/examples/kubernetes/cilium-sidecar.yaml
+    configmap "cilium-config" created
+    secret "cilium-etcd-secrets" created
+    serviceaccount "cilium" created
+    clusterrolebinding "cilium" created
+    daemonset "cilium" created
+    clusterrole "cilium" created
 
 Kubernetes is now deploying Cilium with its RBAC settings, ConfigMap
-and DaemonSet as a pod on minikube. This operation is performed in the
+and DaemonSet as a pod on minkube. This operation is performed in the
 background.
 
 Note that this Cilium configuration requires deploying Istio with
