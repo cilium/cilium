@@ -34,7 +34,19 @@ Labels Based
 ------------
 
 Label-based L3 policy is used to establish policy between endpoints inside the
-cluster managed by Cilium.
+cluster managed by Cilium. Label-based L3 policies are defined by using an
+`EndpointSelector` inside a rule to choose what kind of traffic that can be
+received (on ingress), or sent (on egress). An empty `EndpointSelector` allows
+all traffic. The examples below demonstrate this in further detail.
+
+When Cilium is running with Kubernetes as an orchestrator, Cilium Network
+Policies are enforced by ``Namespace``. If an explicit namespace selector is
+not defined in the rule's `EndpointSelector`, then an implicit selector will be
+added to the rule which matches on the namespace where the policy is installed.
+A special case for this is that empty `EndpointSelector` only allows *endpoints
+managed by Cilium within the namespace where the policy is installed* to
+send/receive traffic, rather than allowing the endpoint to send/receive *all*
+traffic.
 
 Ingress
 ~~~~~~~
