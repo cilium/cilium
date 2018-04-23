@@ -92,7 +92,7 @@ docker-istio-proxy-debug: Dockerfile.istio_proxy_debug $(ISTIO_ENVOY_RELEASE_BIN
 envoy-debug: force-non-root
 	@$(ECHO_BAZEL)
 	-rm -f bazel-out/k8-dbg/bin/_objs/envoy/external/envoy/source/common/common/version_linkstamp.o
-	$(BAZEL) $(BAZEL_OPTS) build $(BAZEL_BUILD_OPTS) -c dbg //:envoy
+	$(BAZEL) $(BAZEL_OPTS) build $(BAZEL_BUILD_OPTS) -c dbg --config=clang-asan --cxxopt="-fno-omit-frame-pointer" --cxxopt="-D_GLIBCXX_ASSERTIONS" //:envoy
 
 $(CHECK_FORMAT): force-non-root
 	$(BAZEL) $(BAZEL_OPTS) build $(BAZEL_BUILD_OPTS) //:check_format.py
