@@ -118,7 +118,7 @@ func (cache *NPHDSCache) handleIPDelete(npHost *envoyAPI.NetworkPolicyHosts, pee
 		}
 	}
 	if targetIndex < 0 {
-		scopedLog.Warning("Can't find IP in NPHDS cache")
+		scopedLog.Fatal("Can't find IP in NPHDS cache")
 		return
 	}
 
