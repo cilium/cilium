@@ -837,13 +837,14 @@ failures:
 
     Summary: 847 PASSED, 0 SKIPPED, 0 FAILED
 
-.. note:: For Kernel Releases 4.16+ the BPF selftest has a dependency on LLVM 6.0+
-          caused by the BPF function calls which doesn't need to be inlined anymore.
-          See section :ref:`bpf_to_bpf_calls` or the mail 
-          (https://lwn.net/Articles/741773/) for more information. 
-          Not every BPF program has a dependency on LLVM 6.0+.
-          If your distribution doesn't provide LLVM 6.0+ you may compile it by
-          following the LLVM documentation (http://llvm.org/docs/GettingStarted.html).
+.. note:: For kernel releases 4.16+ the BPF selftest has a dependency on LLVM 6.0+
+          caused by the BPF function calls which does not need to be inlined
+          anymore. See section :ref:`bpf_to_bpf_calls` or the mail
+          (https://lwn.net/Articles/741773/) for more information.
+          Not every BPF program has a dependency on LLVM 6.0+ if it does not
+          use this new feature. If your distribution does not provide LLVM 6.0+
+          you may compile it by following the instruction in the LLVM
+          section :ref:`tooling_llvm`.
 
 In order to run through all BPF selftests, the following command is needed:
 
@@ -944,6 +945,8 @@ earlier. In order to build and install bpftool, the following steps are required
     make[1]: Leaving directory '/home/foo/trees/bpf/tools/lib/bpf'
       LINK     bpftool
     $ sudo make install
+
+.. _tooling_llvm:
 
 LLVM
 ----
@@ -3366,7 +3369,7 @@ tc (traffic control)
 
 Aside from other program types such as XDP, BPF can also be used out of the
 kernel's tc (traffic control) layer in the networking data path. On a high-level
-there are three major differences when comparing BPF XDP programs to tc BPF
+there are three major differences when comparing XDP BPF programs to tc BPF
 ones:
 
 * The BPF input context is a ``sk_buff`` not a ``xdp_buff``. When the kernel's
@@ -3402,7 +3405,7 @@ ones:
   has not even allocated an ``sk_buff`` yet, thus packet rewrites of any
   kind can be realized trivially. However, the ``xdp_buff`` case has the
   disadvantage that ``sk_buff`` metadata is not available for mangling
-  at this time. The latter is overcome by passing custom metadata from
+  at this stage. The latter is overcome by passing custom metadata from
   XDP BPF to tc BPF, though. In this way, the limitations of each program
   type can be overcome by operating complementary programs of both types
   as the use case requires.
@@ -3410,13 +3413,13 @@ ones:
 ..
 
 * Compared to XDP, tc BPF programs can be triggered out of ingress and also
-  egress points in the networking data path as opposed to ingress only in case
-  of XDP.
+  egress points in the networking data path as opposed to ingress only in
+  the case of XDP.
 
   The two hook points ``sch_handle_ingress()`` and ``sch_handle_egress()`` in
   the kernel are triggered out of ``__netif_receive_skb_core()`` and
   ``__dev_queue_xmit()``, respectively. The latter two are the main receive
-  and transmit functions in the data path that, taking XDP aside, are triggered
+  and transmit functions in the data path that, setting XDP aside, are triggered
   for every network packet going in or coming out of the node allowing for
   full visibility for tc BPF programs at these hook points.
 
