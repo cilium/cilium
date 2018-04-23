@@ -5,13 +5,17 @@ package restful
 // that can be found in the LICENSE file.
 
 import (
-	"bytes"
 	"net/http"
 	"strings"
 )
 
 // RouteFunction declares the signature of a function that can be bound to a Route.
 type RouteFunction func(*Request, *Response)
+
+// RouteSelectionConditionFunction declares the signature of a function that
+// can be used to add extra conditional logic when selecting whether the route
+// matches the HTTP request.
+type RouteSelectionConditionFunction func(httpRequest *http.Request) bool
 
 // Route binds a HTTP Method,Path,Consumes combination to a RouteFunction.
 type Route struct {
@@ -21,6 +25,7 @@ type Route struct {
 	Path     string // webservice root path + described path
 	Function RouteFunction
 	Filters  []FilterFunction
+	If       []RouteSelectionConditionFunction
 
 	// cached values for dispatching
 	relativePath string
@@ -34,6 +39,12 @@ type Route struct {
 	ParameterDocs           []*Parameter
 	ResponseErrors          map[int]ResponseError
 	ReadSample, WriteSample interface{} // structs that model an example request or response payload
+
+	// Extra information used to store custom information about the route.
+	Metadata map[string]interface{}
+
+	// marks a route as deprecated
+	Deprecated bool
 }
 
 // Initialize for Route
@@ -42,10 +53,9 @@ func (r *Route) postBuild() {
 }
 
 // Create Request and Response from their http versions
-func (r *Route) wrapRequestResponse(httpWriter http.ResponseWriter, httpRequest *http.Request) (*Request, *Response) {
-	params := r.extractParameters(httpRequest.URL.Path)
+func (r *Route) wrapRequestResponse(httpWriter http.ResponseWriter, httpRequest *http.Request, pathParams map[string]string) (*Request, *Response) {
 	wrappedRequest := NewRequest(httpRequest)
-	wrappedRequest.pathParameters = params
+	wrappedRequest.pathParameters = pathParams
 	wrappedRequest.selectedRoutePath = r.Path
 	wrappedResponse := NewResponse(httpWriter)
 	wrappedResponse.requestAccept = httpRequest.Header.Get(HEADER_Accept)
@@ -97,7 +107,7 @@ func (r Route) matchesContentType(mimeTypes string) bool {
 	}
 
 	if len(mimeTypes) == 0 {
-		// idempotent methods with (most-likely or garanteed) empty content match missing Content-Type
+		// idempotent methods with (most-likely or guaranteed) empty content match missing Content-Type
 		m := r.Method
 		if m == "GET" || m == "HEAD" || m == "OPTIONS" || m == "DELETE" || m == "TRACE" {
 			return true
@@ -123,50 +133,6 @@ func (r Route) matchesContentType(mimeTypes string) bool {
 		}
 	}
 	return false
-}
-
-// Extract the parameters from the request url path
-func (r Route) extractParameters(urlPath string) map[string]string {
-	urlParts := tokenizePath(urlPath)
-	pathParameters := map[string]string{}
-	for i, key := range r.pathParts {
-		var value string
-		if i >= len(urlParts) {
-			value = ""
-		} else {
-			value = urlParts[i]
-		}
-		if strings.HasPrefix(key, "{") { // path-parameter
-			if colon := strings.Index(key, ":"); colon != -1 {
-				// extract by regex
-				regPart := key[colon+1 : len(key)-1]
-				keyPart := key[1:colon]
-				if regPart == "*" {
-					pathParameters[keyPart] = untokenizePath(i, urlParts)
-					break
-				} else {
-					pathParameters[keyPart] = value
-				}
-			} else {
-				// without enclosing {}
-				pathParameters[key[1:len(key)-1]] = value
-			}
-		}
-	}
-	return pathParameters
-}
-
-// Untokenize back into an URL path using the slash separator
-func untokenizePath(offset int, parts []string) string {
-	var buffer bytes.Buffer
-	for p := offset; p < len(parts); p++ {
-		buffer.WriteString(parts[p])
-		// do not end
-		if p < len(parts)-1 {
-			buffer.WriteString("/")
-		}
-	}
-	return buffer.String()
 }
 
 // Tokenize an URL path using the slash separator ; the result does not have empty tokens

@@ -39,11 +39,56 @@ func (r RouterJSR311) SelectRoute(
 	return dispatcher, route, ok
 }
 
+// ExtractParameters is used to obtain the path parameters from the route using the same matching
+// engine as the JSR 311 router.
+func (r RouterJSR311) ExtractParameters(route *Route, webService *WebService, urlPath string) map[string]string {
+	webServiceExpr := webService.pathExpr
+	webServiceMatches := webServiceExpr.Matcher.FindStringSubmatch(urlPath)
+	pathParameters := r.extractParams(webServiceExpr, webServiceMatches)
+	routeExpr := route.pathExpr
+	routeMatches := routeExpr.Matcher.FindStringSubmatch(webServiceMatches[len(webServiceMatches)-1])
+	routeParams := r.extractParams(routeExpr, routeMatches)
+	for key, value := range routeParams {
+		pathParameters[key] = value
+	}
+	return pathParameters
+}
+
+func (RouterJSR311) extractParams(pathExpr *pathExpression, matches []string) map[string]string {
+	params := map[string]string{}
+	for i := 1; i < len(matches); i++ {
+		if len(pathExpr.VarNames) >= i {
+			params[pathExpr.VarNames[i-1]] = matches[i]
+		}
+	}
+	return params
+}
+
 // http://jsr311.java.net/nonav/releases/1.1/spec/spec3.html#x3-360003.7.2
 func (r RouterJSR311) detectRoute(routes []Route, httpRequest *http.Request) (*Route, error) {
+	ifOk := []Route{}
+	for _, each := range routes {
+		ok := true
+		for _, fn := range each.If {
+			if !fn(httpRequest) {
+				ok = false
+				break
+			}
+		}
+		if ok {
+			ifOk = append(ifOk, each)
+		}
+	}
+	if len(ifOk) == 0 {
+		if trace {
+			traceLogger.Printf("no Route found (from %d) that passes conditional checks", len(routes))
+		}
+		return nil, NewError(http.StatusNotFound, "404: Not Found")
+	}
+
 	// http method
 	methodOk := []Route{}
-	for _, each := range routes {
+	for _, each := range ifOk {
 		if httpRequest.Method == each.Method {
 			methodOk = append(methodOk, each)
 		}
@@ -74,7 +119,7 @@ func (r RouterJSR311) detectRoute(routes []Route, httpRequest *http.Request) (*R
 	// accept
 	outputMediaOk := []Route{}
 	accept := httpRequest.Header.Get(HEADER_Accept)
-	if accept == "" {
+	if len(accept) == 0 {
 		accept = "*/*"
 	}
 	for _, each := range inputMediaOk {
@@ -88,7 +133,8 @@ func (r RouterJSR311) detectRoute(routes []Route, httpRequest *http.Request) (*R
 		}
 		return nil, NewError(http.StatusNotAcceptable, "406: Not Acceptable")
 	}
-	return r.bestMatchByMedia(outputMediaOk, contentType, accept), nil
+	// return r.bestMatchByMedia(outputMediaOk, contentType, accept), nil
+	return &outputMediaOk[0], nil
 }
 
 // http://jsr311.java.net/nonav/releases/1.1/spec/spec3.html#x3-360003.7.2
