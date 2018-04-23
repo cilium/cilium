@@ -46,6 +46,8 @@ Bugtool
 bytecode
 callee
 cBPF
+CEP
+CiliumEndpoint
 cgroup
 Cheatsheet
 Cheng
