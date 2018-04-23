@@ -838,13 +838,13 @@ failures:
     Summary: 847 PASSED, 0 SKIPPED, 0 FAILED
 
 .. note:: For kernel releases 4.16+ the BPF selftest has a dependency on LLVM 6.0+
-          caused by the BPF function calls which does not need to be inlined
-          anymore. See section :ref:`bpf_to_bpf_calls` or the mail
-          (https://lwn.net/Articles/741773/) for more information.
+          caused by the BPF function calls which do not need to be inlined
+          anymore. See section :ref:`bpf_to_bpf_calls` or the cover letter mail
+          from the kernel patch (https://lwn.net/Articles/741773/) for more information.
           Not every BPF program has a dependency on LLVM 6.0+ if it does not
           use this new feature. If your distribution does not provide LLVM 6.0+
-          you may compile it by following the instruction in the LLVM
-          section :ref:`tooling_llvm`.
+          you may compile it by following the instruction in the :ref:`tooling_llvm`
+          section.
 
 In order to run through all BPF selftests, the following command is needed:
 
