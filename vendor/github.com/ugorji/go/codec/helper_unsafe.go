@@ -16,7 +16,7 @@ type unsafeString struct {
 	Len  int
 }
 
-type unsafeSlice struct {
+type unsafeBytes struct {
 	Data uintptr
 	Len  int
 	Cap  int
@@ -29,10 +29,8 @@ func stringView(v []byte) string {
 	if len(v) == 0 {
 		return ""
 	}
-
-	bx := (*unsafeSlice)(unsafe.Pointer(&v))
-	sx := unsafeString{bx.Data, bx.Len}
-	return *(*string)(unsafe.Pointer(&sx))
+	x := unsafeString{uintptr(unsafe.Pointer(&v[0])), len(v)}
+	return *(*string)(unsafe.Pointer(&x))
 }
 
 // bytesView returns a view of the string as a []byte.
@@ -42,8 +40,6 @@ func bytesView(v string) []byte {
 	if len(v) == 0 {
 		return zeroByteSlice
 	}
-
-	sx := (*unsafeString)(unsafe.Pointer(&v))
-	bx := unsafeSlice{sx.Data, sx.Len, sx.Len}
-	return *(*[]byte)(unsafe.Pointer(&bx))
+	x := unsafeBytes{uintptr(unsafe.Pointer(&v)), len(v), len(v)}
+	return *(*[]byte)(unsafe.Pointer(&x))
 }

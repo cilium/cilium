@@ -19,6 +19,8 @@ var SYS_SETNS = map[string]uintptr{
 	"amd64":   308,
 	"arm64":   268,
 	"arm":     375,
+	"mips":    4344,
+	"mipsle":  4344,
 	"ppc64":   350,
 	"ppc64le": 350,
 	"s390x":   339,
@@ -136,7 +138,9 @@ func getThisCgroup(cgroupType string) (string, error) {
 		return "", fmt.Errorf("docker pid not found in /var/run/docker.pid")
 	}
 	pid, err := strconv.Atoi(result[0])
-
+	if err != nil {
+		return "", err
+	}
 	output, err := ioutil.ReadFile(fmt.Sprintf("/proc/%d/cgroup", pid))
 	if err != nil {
 		return "", err
@@ -184,6 +188,8 @@ func getPidForContainer(id string) (int, error) {
 		filepath.Join(cgroupRoot, "system.slice", "docker-"+id+".scope", "tasks"),
 		// Even more recent docker versions under cgroup/systemd/docker/<id>/
 		filepath.Join(cgroupRoot, "..", "systemd", "docker", id, "tasks"),
+		// Kubernetes with docker and CNI is even more different
+		filepath.Join(cgroupRoot, "..", "systemd", "kubepods", "*", "pod*", id, "tasks"),
 	}
 
 	var filename string

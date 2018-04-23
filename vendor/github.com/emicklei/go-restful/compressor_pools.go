@@ -38,6 +38,7 @@ func (s *SyncPoolCompessors) AcquireGzipWriter() *gzip.Writer {
 }
 
 func (s *SyncPoolCompessors) ReleaseGzipWriter(w *gzip.Writer) {
+	s.GzipWriterPool.Put(w)
 }
 
 func (s *SyncPoolCompessors) AcquireGzipReader() *gzip.Reader {
@@ -45,6 +46,7 @@ func (s *SyncPoolCompessors) AcquireGzipReader() *gzip.Reader {
 }
 
 func (s *SyncPoolCompessors) ReleaseGzipReader(r *gzip.Reader) {
+	s.GzipReaderPool.Put(r)
 }
 
 func (s *SyncPoolCompessors) AcquireZlibWriter() *zlib.Writer {
@@ -52,6 +54,7 @@ func (s *SyncPoolCompessors) AcquireZlibWriter() *zlib.Writer {
 }
 
 func (s *SyncPoolCompessors) ReleaseZlibWriter(w *zlib.Writer) {
+	s.ZlibWriterPool.Put(w)
 }
 
 func newGzipWriter() *gzip.Writer {

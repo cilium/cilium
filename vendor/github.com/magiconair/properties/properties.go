@@ -19,6 +19,8 @@ import (
 	"unicode/utf8"
 )
 
+const maxExpansionDepth = 64
+
 // ErrorHandlerFunc defines the type of function which handles failures
 // of the MustXXX() functions. An error handler function must exit
 // the application after handling the error.
@@ -92,7 +94,7 @@ func (p *Properties) Get(key string) (value string, ok bool) {
 		return "", false
 	}
 
-	expanded, err := p.expand(v)
+	expanded, err := p.expand(key, v)
 
 	// we guarantee that the expanded value is free of
 	// circular references and malformed expressions
@@ -511,6 +513,9 @@ func (p *Properties) Set(key, value string) (prev string, ok bool, err error) {
 	if p.DisableExpansion {
 		prev, ok = p.Get(key)
 		p.m[key] = value
+		if !ok {
+			p.k = append(p.k, key)
+		}
 		return prev, ok, nil
 	}
 
@@ -522,7 +527,7 @@ func (p *Properties) Set(key, value string) (prev string, ok bool, err error) {
 	p.m[key] = value
 
 	// now check for a circular reference
-	_, err = p.expand(value)
+	_, err = p.expand(key, value)
 	if err != nil {
 
 		// revert to the previous state
@@ -540,6 +545,13 @@ func (p *Properties) Set(key, value string) (prev string, ok bool, err error) {
 	}
 
 	return prev, ok, nil
+}
+
+// SetValue sets property key to the default string value
+// as defined by fmt.Sprintf("%v").
+func (p *Properties) SetValue(key string, value interface{}) error {
+	_, _, err := p.Set(key, fmt.Sprintf("%v", value))
+	return err
 }
 
 // MustSet sets the property key to the corresponding value.
@@ -622,6 +634,30 @@ func (p *Properties) WriteComment(w io.Writer, prefix string, enc Encoding) (n i
 	return
 }
 
+// Map returns a copy of the properties as a map.
+func (p *Properties) Map() map[string]string {
+	m := make(map[string]string)
+	for k, v := range p.m {
+		m[k] = v
+	}
+	return m
+}
+
+// FilterFunc returns a copy of the properties which includes the values which passed all filters.
+func (p *Properties) FilterFunc(filters ...func(k, v string) bool) *Properties {
+	pp := NewProperties()
+outer:
+	for k, v := range p.m {
+		for _, f := range filters {
+			if !f(k, v) {
+				continue outer
+			}
+			pp.Set(k, v)
+		}
+	}
+	return pp
+}
+
 // ----------------------------------------------------------------------------
 
 // Delete removes the key and its comments.
@@ -662,56 +698,65 @@ outer:
 // check expands all values and returns an error if a circular reference or
 // a malformed expression was found.
 func (p *Properties) check() error {
-	for _, value := range p.m {
-		if _, err := p.expand(value); err != nil {
+	for key, value := range p.m {
+		if _, err := p.expand(key, value); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func (p *Properties) expand(input string) (string, error) {
+func (p *Properties) expand(key, input string) (string, error) {
 	// no pre/postfix -> nothing to expand
 	if p.Prefix == "" && p.Postfix == "" {
 		return input, nil
 	}
 
-	return expand(input, make(map[string]bool), p.Prefix, p.Postfix, p.m)
+	return expand(input, []string{key}, p.Prefix, p.Postfix, p.m)
 }
 
 // expand recursively expands expressions of '(prefix)key(postfix)' to their corresponding values.
 // The function keeps track of the keys that were already expanded and stops if it
 // detects a circular reference or a malformed expression of the form '(prefix)key'.
-func expand(s string, keys map[string]bool, prefix, postfix string, values map[string]string) (string, error) {
-	start := strings.Index(s, prefix)
-	if start == -1 {
-		return s, nil
+func expand(s string, keys []string, prefix, postfix string, values map[string]string) (string, error) {
+	if len(keys) > maxExpansionDepth {
+		return "", fmt.Errorf("expansion too deep")
 	}
 
-	keyStart := start + len(prefix)
-	keyLen := strings.Index(s[keyStart:], postfix)
-	if keyLen == -1 {
-		return "", fmt.Errorf("malformed expression")
+	for {
+		start := strings.Index(s, prefix)
+		if start == -1 {
+			return s, nil
+		}
+
+		keyStart := start + len(prefix)
+		keyLen := strings.Index(s[keyStart:], postfix)
+		if keyLen == -1 {
+			return "", fmt.Errorf("malformed expression")
+		}
+
+		end := keyStart + keyLen + len(postfix) - 1
+		key := s[keyStart : keyStart+keyLen]
+
+		// fmt.Printf("s:%q pp:%q start:%d end:%d keyStart:%d keyLen:%d key:%q\n", s, prefix + "..." + postfix, start, end, keyStart, keyLen, key)
+
+		for _, k := range keys {
+			if key == k {
+				return "", fmt.Errorf("circular reference")
+			}
+		}
+
+		val, ok := values[key]
+		if !ok {
+			val = os.Getenv(key)
+		}
+		new_val, err := expand(val, append(keys, key), prefix, postfix, values)
+		if err != nil {
+			return "", err
+		}
+		s = s[:start] + new_val + s[end+1:]
 	}
-
-	end := keyStart + keyLen + len(postfix) - 1
-	key := s[keyStart : keyStart+keyLen]
-
-	// fmt.Printf("s:%q pp:%q start:%d end:%d keyStart:%d keyLen:%d key:%q\n", s, prefix + "..." + postfix, start, end, keyStart, keyLen, key)
-
-	if _, ok := keys[key]; ok {
-		return "", fmt.Errorf("circular reference")
-	}
-
-	val, ok := values[key]
-	if !ok {
-		val = os.Getenv(key)
-	}
-
-	// remember that we've seen the key
-	keys[key] = true
-
-	return expand(s[:start]+val+s[end+1:], keys, prefix, postfix, values)
+	return s, nil
 }
 
 // encode encodes a UTF-8 string to ISO-8859-1 and escapes some characters.

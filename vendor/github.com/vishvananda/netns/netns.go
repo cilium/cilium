@@ -19,7 +19,7 @@ type NsHandle int
 
 // Equal determines if two network handles refer to the same network
 // namespace. This is done by comparing the device and inode that the
-// file descripors point to.
+// file descriptors point to.
 func (ns NsHandle) Equal(other NsHandle) bool {
 	if ns == other {
 		return true

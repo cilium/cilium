@@ -583,16 +583,14 @@ func (f *decFnInfo) kInterfaceNaked() (rvn reflect.Value) {
 		if d.mtid == 0 || d.mtid == mapIntfIntfTypId {
 			l := len(n.ms)
 			n.ms = append(n.ms, nil)
-			var v2 interface{} = &n.ms[l]
-			d.decode(v2)
-			rvn = reflect.ValueOf(v2).Elem()
+			d.decode(&n.ms[l])
+			rvn = reflect.ValueOf(&n.ms[l]).Elem()
 			n.ms = n.ms[:l]
 		} else if d.mtid == mapStrIntfTypId { // for json performance
 			l := len(n.ns)
 			n.ns = append(n.ns, nil)
-			var v2 interface{} = &n.ns[l]
-			d.decode(v2)
-			rvn = reflect.ValueOf(v2).Elem()
+			d.decode(&n.ns[l])
+			rvn = reflect.ValueOf(&n.ns[l]).Elem()
 			n.ns = n.ns[:l]
 		} else {
 			rvn = reflect.New(d.h.MapType).Elem()
@@ -603,9 +601,8 @@ func (f *decFnInfo) kInterfaceNaked() (rvn reflect.Value) {
 		if d.stid == 0 || d.stid == intfSliceTypId {
 			l := len(n.ss)
 			n.ss = append(n.ss, nil)
-			var v2 interface{} = &n.ss[l]
-			d.decode(v2)
-			rvn = reflect.ValueOf(v2).Elem()
+			d.decode(&n.ss[l])
+			rvn = reflect.ValueOf(&n.ss[l]).Elem()
 			n.ss = n.ss[:l]
 		} else {
 			rvn = reflect.New(d.h.SliceType).Elem()
@@ -618,9 +615,9 @@ func (f *decFnInfo) kInterfaceNaked() (rvn reflect.Value) {
 			l := len(n.is)
 			n.is = append(n.is, nil)
 			v2 := &n.is[l]
+			n.is = n.is[:l]
 			d.decode(v2)
 			v = *v2
-			n.is = n.is[:l]
 		}
 		bfn := d.h.getExtForTag(tag)
 		if bfn == nil {
@@ -1456,8 +1453,8 @@ func (d *Decoder) swallow() {
 			l := len(n.is)
 			n.is = append(n.is, nil)
 			v2 := &n.is[l]
-			d.decode(v2)
 			n.is = n.is[:l]
+			d.decode(v2)
 		}
 	}
 }
@@ -1546,6 +1543,7 @@ func (d *Decoder) decode(iv interface{}) {
 		d.decodeValueNotNil(v.Elem(), nil)
 
 	case *string:
+
 		*v = d.d.DecodeString()
 	case *bool:
 		*v = d.d.DecodeBool()
@@ -1795,13 +1793,12 @@ func (d *Decoder) getDecFn(rt reflect.Type, checkFastpath, checkCodecSelfer bool
 }
 
 func (d *Decoder) structFieldNotFound(index int, rvkencname string) {
-	// NOTE: rvkencname may be a stringView, so don't pass it to another function.
 	if d.h.ErrorIfNoField {
 		if index >= 0 {
 			d.errorf("no matching struct field found when decoding stream array at index %v", index)
 			return
 		} else if rvkencname != "" {
-			d.errorf("no matching struct field found when decoding stream map with key " + rvkencname)
+			d.errorf("no matching struct field found when decoding stream map with key %s", rvkencname)
 			return
 		}
 	}
@@ -1865,7 +1862,6 @@ func (d *Decoder) intern(s string) {
 	}
 }
 
-// nextValueBytes returns the next value in the stream as a set of bytes.
 func (d *Decoder) nextValueBytes() []byte {
 	d.d.uncacheRead()
 	d.r.track()

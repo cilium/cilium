@@ -1,35 +1,22 @@
 /*
  *
- * Copyright 2016, Google Inc.
- * All rights reserved.
+ * Copyright 2016 gRPC authors.
  *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions are
- * met:
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- *     * Redistributions of source code must retain the above copyright
- * notice, this list of conditions and the following disclaimer.
- *     * Redistributions in binary form must reproduce the above
- * copyright notice, this list of conditions and the following disclaimer
- * in the documentation and/or other materials provided with the
- * distribution.
- *     * Neither the name of Google Inc. nor the names of its
- * contributors may be used to endorse or promote products derived from
- * this software without specific prior written permission.
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
- * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
- * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
- * A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
- * OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
- * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
- * LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
- * DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
- * THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
- * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
- * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  *
  */
+
+//go:generate protoc --go_out=plugins=grpc:. grpc_reflection_v1alpha/reflection.proto
 
 /*
 Package reflection implements server reflection service.
@@ -58,19 +45,23 @@ import (
 	"io"
 	"io/ioutil"
 	"reflect"
-	"strings"
+	"sort"
+	"sync"
 
 	"github.com/golang/protobuf/proto"
 	dpb "github.com/golang/protobuf/protoc-gen-go/descriptor"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	rpb "google.golang.org/grpc/reflection/grpc_reflection_v1alpha"
+	"google.golang.org/grpc/status"
 )
 
 type serverReflectionServer struct {
 	s *grpc.Server
-	// TODO add more cache if necessary
-	serviceInfo map[string]grpc.ServiceInfo // cache for s.GetServiceInfo()
+
+	initSymbols  sync.Once
+	serviceNames []string
+	symbols      map[string]*dpb.FileDescriptorProto // map of fully-qualified names to files
 }
 
 // Register registers the server reflection service on the given gRPC server.
@@ -88,6 +79,112 @@ type protoMessage interface {
 	Descriptor() ([]byte, []int)
 }
 
+func (s *serverReflectionServer) getSymbols() (svcNames []string, symbolIndex map[string]*dpb.FileDescriptorProto) {
+	s.initSymbols.Do(func() {
+		serviceInfo := s.s.GetServiceInfo()
+
+		s.symbols = map[string]*dpb.FileDescriptorProto{}
+		s.serviceNames = make([]string, 0, len(serviceInfo))
+		processed := map[string]struct{}{}
+		for svc, info := range serviceInfo {
+			s.serviceNames = append(s.serviceNames, svc)
+			fdenc, ok := parseMetadata(info.Metadata)
+			if !ok {
+				continue
+			}
+			fd, err := decodeFileDesc(fdenc)
+			if err != nil {
+				continue
+			}
+			s.processFile(fd, processed)
+		}
+		sort.Strings(s.serviceNames)
+	})
+
+	return s.serviceNames, s.symbols
+}
+
+func (s *serverReflectionServer) processFile(fd *dpb.FileDescriptorProto, processed map[string]struct{}) {
+	filename := fd.GetName()
+	if _, ok := processed[filename]; ok {
+		return
+	}
+	processed[filename] = struct{}{}
+
+	prefix := fd.GetPackage()
+
+	for _, msg := range fd.MessageType {
+		s.processMessage(fd, prefix, msg)
+	}
+	for _, en := range fd.EnumType {
+		s.processEnum(fd, prefix, en)
+	}
+	for _, ext := range fd.Extension {
+		s.processField(fd, prefix, ext)
+	}
+	for _, svc := range fd.Service {
+		svcName := fqn(prefix, svc.GetName())
+		s.symbols[svcName] = fd
+		for _, meth := range svc.Method {
+			name := fqn(svcName, meth.GetName())
+			s.symbols[name] = fd
+		}
+	}
+
+	for _, dep := range fd.Dependency {
+		fdenc := proto.FileDescriptor(dep)
+		fdDep, err := decodeFileDesc(fdenc)
+		if err != nil {
+			continue
+		}
+		s.processFile(fdDep, processed)
+	}
+}
+
+func (s *serverReflectionServer) processMessage(fd *dpb.FileDescriptorProto, prefix string, msg *dpb.DescriptorProto) {
+	msgName := fqn(prefix, msg.GetName())
+	s.symbols[msgName] = fd
+
+	for _, nested := range msg.NestedType {
+		s.processMessage(fd, msgName, nested)
+	}
+	for _, en := range msg.EnumType {
+		s.processEnum(fd, msgName, en)
+	}
+	for _, ext := range msg.Extension {
+		s.processField(fd, msgName, ext)
+	}
+	for _, fld := range msg.Field {
+		s.processField(fd, msgName, fld)
+	}
+	for _, oneof := range msg.OneofDecl {
+		oneofName := fqn(msgName, oneof.GetName())
+		s.symbols[oneofName] = fd
+	}
+}
+
+func (s *serverReflectionServer) processEnum(fd *dpb.FileDescriptorProto, prefix string, en *dpb.EnumDescriptorProto) {
+	enName := fqn(prefix, en.GetName())
+	s.symbols[enName] = fd
+
+	for _, val := range en.Value {
+		valName := fqn(enName, val.GetName())
+		s.symbols[valName] = fd
+	}
+}
+
+func (s *serverReflectionServer) processField(fd *dpb.FileDescriptorProto, prefix string, fld *dpb.FieldDescriptorProto) {
+	fldName := fqn(prefix, fld.GetName())
+	s.symbols[fldName] = fd
+}
+
+func fqn(prefix, name string) string {
+	if prefix == "" {
+		return name
+	}
+	return prefix + "." + name
+}
+
 // fileDescForType gets the file descriptor for the given type.
 // The given type should be a proto message.
 func (s *serverReflectionServer) fileDescForType(st reflect.Type) (*dpb.FileDescriptorProto, error) {
@@ -97,12 +194,12 @@ func (s *serverReflectionServer) fileDescForType(st reflect.Type) (*dpb.FileDesc
 	}
 	enc, _ := m.Descriptor()
 
-	return s.decodeFileDesc(enc)
+	return decodeFileDesc(enc)
 }
 
 // decodeFileDesc does decompression and unmarshalling on the given
 // file descriptor byte slice.
-func (s *serverReflectionServer) decodeFileDesc(enc []byte) (*dpb.FileDescriptorProto, error) {
+func decodeFileDesc(enc []byte) (*dpb.FileDescriptorProto, error) {
 	raw, err := decompress(enc)
 	if err != nil {
 		return nil, fmt.Errorf("failed to decompress enc: %v", err)
@@ -128,7 +225,7 @@ func decompress(b []byte) ([]byte, error) {
 	return out, nil
 }
 
-func (s *serverReflectionServer) typeForName(name string) (reflect.Type, error) {
+func typeForName(name string) (reflect.Type, error) {
 	pt := proto.MessageType(name)
 	if pt == nil {
 		return nil, fmt.Errorf("unknown type: %q", name)
@@ -138,7 +235,7 @@ func (s *serverReflectionServer) typeForName(name string) (reflect.Type, error) 
 	return st, nil
 }
 
-func (s *serverReflectionServer) fileDescContainingExtension(st reflect.Type, ext int32) (*dpb.FileDescriptorProto, error) {
+func fileDescContainingExtension(st reflect.Type, ext int32) (*dpb.FileDescriptorProto, error) {
 	m, ok := reflect.Zero(reflect.PtrTo(st)).Interface().(proto.Message)
 	if !ok {
 		return nil, fmt.Errorf("failed to create message from type: %v", st)
@@ -156,9 +253,7 @@ func (s *serverReflectionServer) fileDescContainingExtension(st reflect.Type, ex
 		return nil, fmt.Errorf("failed to find registered extension for extension number %v", ext)
 	}
 
-	extT := reflect.TypeOf(extDesc.ExtensionType).Elem()
-
-	return s.fileDescForType(extT)
+	return decodeFileDesc(proto.FileDescriptor(extDesc.Filename))
 }
 
 func (s *serverReflectionServer) allExtensionNumbersForType(st reflect.Type) ([]int32, error) {
@@ -182,85 +277,50 @@ func (s *serverReflectionServer) fileDescEncodingByFilename(name string) ([]byte
 	if enc == nil {
 		return nil, fmt.Errorf("unknown file: %v", name)
 	}
-	fd, err := s.decodeFileDesc(enc)
+	fd, err := decodeFileDesc(enc)
 	if err != nil {
 		return nil, err
 	}
 	return proto.Marshal(fd)
 }
 
-// serviceMetadataForSymbol finds the metadata for name in s.serviceInfo.
-// name should be a service name or a method name.
-func (s *serverReflectionServer) serviceMetadataForSymbol(name string) (interface{}, error) {
-	if s.serviceInfo == nil {
-		s.serviceInfo = s.s.GetServiceInfo()
+// parseMetadata finds the file descriptor bytes specified meta.
+// For SupportPackageIsVersion4, m is the name of the proto file, we
+// call proto.FileDescriptor to get the byte slice.
+// For SupportPackageIsVersion3, m is a byte slice itself.
+func parseMetadata(meta interface{}) ([]byte, bool) {
+	// Check if meta is the file name.
+	if fileNameForMeta, ok := meta.(string); ok {
+		return proto.FileDescriptor(fileNameForMeta), true
 	}
 
-	// Check if it's a service name.
-	if info, ok := s.serviceInfo[name]; ok {
-		return info.Metadata, nil
+	// Check if meta is the byte slice.
+	if enc, ok := meta.([]byte); ok {
+		return enc, true
 	}
 
-	// Check if it's a method name.
-	pos := strings.LastIndex(name, ".")
-	// Not a valid method name.
-	if pos == -1 {
-		return nil, fmt.Errorf("unknown symbol: %v", name)
-	}
-
-	info, ok := s.serviceInfo[name[:pos]]
-	// Substring before last "." is not a service name.
-	if !ok {
-		return nil, fmt.Errorf("unknown symbol: %v", name)
-	}
-
-	// Search the method name in info.Methods.
-	var found bool
-	for _, m := range info.Methods {
-		if m.Name == name[pos+1:] {
-			found = true
-			break
-		}
-	}
-	if found {
-		return info.Metadata, nil
-	}
-
-	return nil, fmt.Errorf("unknown symbol: %v", name)
+	return nil, false
 }
 
 // fileDescEncodingContainingSymbol finds the file descriptor containing the given symbol,
 // does marshalling on it and returns the marshalled result.
 // The given symbol can be a type, a service or a method.
 func (s *serverReflectionServer) fileDescEncodingContainingSymbol(name string) ([]byte, error) {
-	var (
-		fd *dpb.FileDescriptorProto
-	)
-	// Check if it's a type name.
-	if st, err := s.typeForName(name); err == nil {
-		fd, err = s.fileDescForType(st)
-		if err != nil {
-			return nil, err
+	_, symbols := s.getSymbols()
+	fd := symbols[name]
+	if fd == nil {
+		// Check if it's a type name that was not present in the
+		// transitive dependencies of the registered services.
+		if st, err := typeForName(name); err == nil {
+			fd, err = s.fileDescForType(st)
+			if err != nil {
+				return nil, err
+			}
 		}
-	} else { // Check if it's a service name or a method name.
-		meta, err := s.serviceMetadataForSymbol(name)
+	}
 
-		// Metadata not found.
-		if err != nil {
-			return nil, err
-		}
-
-		// Metadata not valid.
-		fileNameForMeta, ok := meta.(string)
-		if !ok {
-			return nil, fmt.Errorf("invalid file descriptor for symbol: %v", name)
-		}
-
-		enc := proto.FileDescriptor(fileNameForMeta)
-		fd, err = s.decodeFileDesc(enc)
-		if err != nil {
-			return nil, err
-		}
+	if fd == nil {
+		return nil, fmt.Errorf("unknown symbol: %v", name)
 	}
 
 	return proto.Marshal(fd)
@@ -269,11 +329,11 @@ func (s *serverReflectionServer) fileDescEncodingContainingSymbol(name string) (
 // fileDescEncodingContainingExtension finds the file descriptor containing given extension,
 // does marshalling on it and returns the marshalled result.
 func (s *serverReflectionServer) fileDescEncodingContainingExtension(typeName string, extNum int32) ([]byte, error) {
-	st, err := s.typeForName(typeName)
+	st, err := typeForName(typeName)
 	if err != nil {
 		return nil, err
 	}
-	fd, err := s.fileDescContainingExtension(st, extNum)
+	fd, err := fileDescContainingExtension(st, extNum)
 	if err != nil {
 		return nil, err
 	}
@@ -282,7 +342,7 @@ func (s *serverReflectionServer) fileDescEncodingContainingExtension(typeName st
 
 // allExtensionNumbersForTypeName returns all extension numbers for the given type.
 func (s *serverReflectionServer) allExtensionNumbersForTypeName(name string) ([]int32, error) {
-	st, err := s.typeForName(name)
+	st, err := typeForName(name)
 	if err != nil {
 		return nil, err
 	}
@@ -371,14 +431,12 @@ func (s *serverReflectionServer) ServerReflectionInfo(stream rpb.ServerReflectio
 				}
 			}
 		case *rpb.ServerReflectionRequest_ListServices:
-			if s.serviceInfo == nil {
-				s.serviceInfo = s.s.GetServiceInfo()
-			}
-			serviceResponses := make([]*rpb.ServiceResponse, 0, len(s.serviceInfo))
-			for n := range s.serviceInfo {
-				serviceResponses = append(serviceResponses, &rpb.ServiceResponse{
+			svcNames, _ := s.getSymbols()
+			serviceResponses := make([]*rpb.ServiceResponse, len(svcNames))
+			for i, n := range svcNames {
+				serviceResponses[i] = &rpb.ServiceResponse{
 					Name: n,
-				})
+				}
 			}
 			out.MessageResponse = &rpb.ServerReflectionResponse_ListServicesResponse{
 				ListServicesResponse: &rpb.ListServiceResponse{
@@ -386,7 +444,7 @@ func (s *serverReflectionServer) ServerReflectionInfo(stream rpb.ServerReflectio
 				},
 			}
 		default:
-			return grpc.Errorf(codes.InvalidArgument, "invalid MessageRequest: %v", in.MessageRequest)
+			return status.Errorf(codes.InvalidArgument, "invalid MessageRequest: %v", in.MessageRequest)
 		}
 
 		if err := stream.Send(out); err != nil {

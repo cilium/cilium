@@ -33,6 +33,15 @@ func LoadString(s string) (*Properties, error) {
 	return loadBuf([]byte(s), UTF8)
 }
 
+// LoadMap creates a new Properties struct from a string map.
+func LoadMap(m map[string]string) *Properties {
+	p := NewProperties()
+	for k, v := range m {
+		p.Set(k, v)
+	}
+	return p
+}
+
 // LoadFile reads a file into a Properties struct.
 func LoadFile(filename string, enc Encoding) (*Properties, error) {
 	return loadAll([]string{filename}, enc, false)
@@ -209,7 +218,7 @@ func must(p *Properties, err error) *Properties {
 // with an empty string. Malformed expressions like "${ENV_VAR" will
 // be reported as error.
 func expandName(name string) (string, error) {
-	return expand(name, make(map[string]bool), "${", "}", make(map[string]string))
+	return expand(name, []string{}, "${", "}", make(map[string]string))
 }
 
 // Interprets a byte buffer either as an ISO-8859-1 or UTF-8 encoded string.
