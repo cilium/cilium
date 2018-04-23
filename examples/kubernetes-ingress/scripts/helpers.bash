@@ -31,6 +31,20 @@ else
     dns_probes_ips=( "127.0.0.1" "127.0.0.1" )
 fi
 
+# container runtime options
+case "${RUNTIME}" in
+    "containerd" | "containerD")
+        container_runtime_name="containerd"
+        container_runtime_kubelet="remote"
+        container_runtime_endpoint="unix:///var/run/containerd/containerd.sock"
+        ;;
+    *)
+        container_runtime_name="docker"
+        container_runtime_kubelet="docker"
+        container_runtime_endpoint="unix:///var/run/docker.sock"
+        ;;
+esac
+
 kubernetes_master="${controllers_ips[0]}"
 
 # Default values for IPv4
@@ -55,7 +69,7 @@ cluster_api_server_ip=${K8S_CLUSTER_API_SERVER_IP:-"172.20.0.1"}
 #cluster_dns_ip=${K8S_CLUSTER_DNS_IP:-"FD03::A"}
 #cluster_api_server_ip=${K8S_CLUSTER_API_SERVER_IP:-"FD03::1"}
 
-k8s_version="v1.9.3"
+k8s_version="v1.10.2"
 etcd_version="v3.2.7"
 
 function restore_flag {
@@ -77,9 +91,9 @@ function check_num_params {
 }
 
 function download_to {
-    cache_dir="${1}"
-    component="${2}"
-    url="${3}"
+    local cache_dir="${1}"
+    local component="${2}"
+    local url="${3}"
 
     mkdir -p "${cache_dir}"
     if [ ! -f "${cache_dir}/${component}" ]; then
