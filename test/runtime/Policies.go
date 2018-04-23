@@ -15,6 +15,7 @@
 package RuntimeTest
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"sort"
@@ -1476,5 +1477,121 @@ var _ = Describe("RuntimeValidatedPolicyImportTests", func() {
 		By("Checking that policy trace returns allowed verdict without any policies imported")
 		res = vm.Exec(fmt.Sprintf(`cilium policy trace --src-endpoint %s --dst-endpoint %s`, httpd2EndpointID, httpd1EndpointID))
 		Expect(res.Output().String()).Should(ContainSubstring(allowedVerdict), "Policy trace did not contain %s", allowedVerdict)
+	})
+})
+
+var _ = Describe("RuntimeValidatedPolicyDropAllTests", func() {
+	var (
+		logger           *logrus.Entry
+		vm               *helpers.SSHMeta
+		dropAllContainer string
+		monitorStop      func() error
+	)
+
+	BeforeAll(func() {
+		logger = log.WithFields(logrus.Fields{"test": "RuntimeValidatedPolicyDropAllTests"})
+		logger.Info("Starting")
+		vm = helpers.CreateNewRuntimeHelper(helpers.Runtime, logger)
+		dropAllContainer = "dropAllContainer"
+		res := vm.SetPolicyEnforcement(helpers.PolicyEnforcementDefault)
+		res.ExpectSuccess("Setting policyEnforcement to default")
+		areEndpointsReady := vm.WaitEndpointsReady()
+		Expect(areEndpointsReady).Should(BeTrue())
+	})
+
+	JustBeforeEach(func() {
+		monitorStop = vm.MonitorStart()
+	})
+
+	JustAfterEach(func() {
+		vm.ValidateNoErrorsOnLogs(CurrentGinkgoTestDescription().Duration)
+		Expect(monitorStop()).To(BeNil(), "cannot stop monitor command")
+	})
+
+	AfterFailed(func() {
+		vm.ReportFailed()
+	})
+
+	AfterEach(func() {
+		vm.ContainerRm(dropAllContainer).ExpectSuccess("Container dropAllContainer cannot be deleted")
+	})
+
+	Context("DROP_ALL Ingress Policy test", func() {
+
+		BeforeEach(func() {
+			By("Create an endpoint with no labels to test DROP_ALL")
+			res := vm.ContainerCreate(dropAllContainer, "tgraf/netperf", helpers.CiliumDockerNetwork, "")
+			res.ExpectSuccess("Failed to create containter with no labels.")
+		})
+
+		It("DROP_ALL Ingress Policy test", func() {
+			By("Starting cilium monitor in background to filter DROP requests")
+			ctx, cancel := context.WithCancel(context.Background())
+			dropRes := vm.ExecContext(ctx, "cilium monitor --type drop")
+			defer cancel()
+
+			endpoints, err := vm.GetAllEndpointsIds()
+			Expect(err).Should(BeNil(), "Unable to get IDs of endpoints")
+			endpointID, exists := endpoints[dropAllContainer]
+			Expect(exists).To(BeTrue(), "Expected endpoint ID to exist for %s", dropAllContainer)
+			ingressEpModel := vm.EndpointGet(endpointID)
+			Expect(ingressEpModel).To(Not(BeNil()), "nil model returned for endpoint %s", endpointID)
+			Expect(ingressEpModel.Status.State).To(BeEquivalentTo(models.EndpointStateWaitingForIdentity), "endpoint %s not in waiting for identity state", endpointID)
+
+			endpointIP := ingressEpModel.Status.Networking.Addressing[0]
+
+			By("Testing endpoint lxc_config.h for DROP_ALL")
+
+			lxcCmd := fmt.Sprintf("cat /var/run/cilium/state/%s/lxc_config.h | grep 'DROP_ALL'", endpointID)
+
+			res := vm.ExecWithSudo(lxcCmd)
+			res.ExpectSuccess("Cannot get lxc_config")
+			res.ExpectContains("#define DROP_ALL", "DROP_ALL is not defined in lxc_config.h for endpoint %s", endpointID)
+
+			By("Testing ingress with ping from localhost to endpoint with no labels")
+			res = vm.Exec(helpers.Ping(endpointIP.IPV4))
+			res.ExpectFail("Unexpectedly able to ping endpoint with DROP_ALL ingress policy")
+
+			By("Testing cilium monitor drop")
+			err = dropRes.WaitUntilMatch("drop (Policy denied (L3))")
+			Expect(err).To(BeNil(), "DROP all on ingress failed.")
+
+		})
+	})
+
+	Context("DROP_ALL Egress Policy test", func() {
+		BeforeEach(func() {
+			By("Create an endpoint with no labels to test DROP_ALL")
+			res := vm.ContainerCreate(dropAllContainer, "tgraf/netperf", helpers.CiliumDockerNetwork, "", "ping 8.8.8.8")
+			res.ExpectSuccess("Failed to create container with no labels.")
+		})
+
+		It("DROP_ALL Egress Policy test", func() {
+			By("Starting cilium monitor in background to filter DROP requests")
+			ctx, cancel := context.WithCancel(context.Background())
+			dropRes := vm.ExecContext(ctx, "cilium monitor --type drop")
+			defer cancel()
+
+			endpoints, err := vm.GetAllEndpointsIds()
+			Expect(err).To(BeNil(), "Unable to get IDs of endpoints")
+			endpointID, exists := endpoints[dropAllContainer]
+			Expect(exists).To(BeTrue(), "Expected endpoint ID to exist for %s", dropAllContainer)
+			ingressEpModel := vm.EndpointGet(endpointID)
+			Expect(ingressEpModel).To(Not(BeNil()), "nil model returned for endpoint %s", endpointID)
+
+			Expect(ingressEpModel.Status.State).To(BeEquivalentTo(models.EndpointStateWaitingForIdentity), "endpoint %s not in waiting for identity state", endpointID)
+
+			By("Testing endpoint lxc_config.h for DROP_ALL")
+
+			lxcCmd := fmt.Sprintf("cat /var/run/cilium/state/%s/lxc_config.h | grep 'DROP_ALL'", endpointID)
+
+			res := vm.ExecWithSudo(lxcCmd)
+			res.ExpectSuccess("Cannot get lxc_config")
+			res.ExpectContains("#define DROP_ALL", "DROP_ALL is not defined in lxc_config.h for endpoint %s", endpointID)
+
+			By("Testing cilium monitor drop")
+			err = dropRes.WaitUntilMatch("drop (Policy denied (L3))")
+			Expect(err).To(BeNil(), "DROP all on egress failed.")
+		})
 	})
 })
