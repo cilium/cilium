@@ -32,7 +32,7 @@ public:
     // Set the socket mark option for the listen socket.
     // Can use identity 0 on the listen socket option, as the bpf datapath is only interested
     // in whether the proxy is ingress, egress, or if there is no proxy at all.
-    context.addListenSocketOption(std::make_unique<Cilium::SocketMarkOption>(0, config->is_ingress_));
+    context.addListenSocketOption(std::make_shared<Cilium::SocketMarkOption>(0, config->is_ingress_));
 
     return [config](Network::ListenerFilterManager &filter_manager) mutable -> void {
       filter_manager.addAcceptFilter(std::make_unique<Filter::BpfMetadata::Instance>(config));
@@ -114,7 +114,7 @@ bool Config::getMetadata(Network::ConnectionSocket& socket) {
     if (hosts_ && socket.localAddress()->ip()) {
       destination_identity = hosts_->resolve(socket.localAddress()->ip());
     }
-    socket.addOption(std::make_unique<Cilium::SocketOption>(maps_, source_identity, destination_identity, is_ingress_, orig_dport, proxy_port));
+    socket.addOption(std::make_shared<Cilium::SocketOption>(maps_, source_identity, destination_identity, is_ingress_, orig_dport, proxy_port));
   }
   return ok;
 }
