@@ -36,12 +36,12 @@ case "${RUNTIME}" in
     "containerd" | "containerD")
         container_runtime_name="containerd"
         container_runtime_kubelet="remote"
-        container_runtime_endpoint="unix:///var/run/containerd/containerd.sock"
+        container_runtime_endpoint="--container-runtime-endpoint=unix:///var/run/containerd/containerd.sock"
         ;;
     *)
         container_runtime_name="docker"
         container_runtime_kubelet="docker"
-        container_runtime_endpoint="unix:///var/run/docker.sock"
+        container_runtime_endpoint="--docker-endpoint=unix:///var/run/docker.sock"
         ;;
 esac
 

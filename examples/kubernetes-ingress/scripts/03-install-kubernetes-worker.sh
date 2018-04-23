@@ -247,7 +247,7 @@ ExecStart=/usr/bin/kubelet \\
   --cluster-dns=${cluster_dns_ip} \\
   --cluster-domain=cluster.local \\
   --container-runtime=${container_runtime_kubelet} \\
-  --container-runtime-endpoint=${container_runtime_endpoint} \\
+  ${container_runtime_endpoint} \\
   --kubeconfig=/var/lib/kubelet/kubelet.kubeconfig \\
   --fail-swap-on=false \\
   --make-iptables-util-chains=false \\
