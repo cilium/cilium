@@ -189,7 +189,7 @@ in the `packer-ci-build <https://github.com/cilium/packer-ci-build>`_ GitHub
 repository.
 
 New versions of this box can be created via `Jenkins
-<https://jenkins.cilium.io/job/cilium/job/packer-ci-build/job/master/>`_, where
+<https://jenkins.cilium.io/job/Vagrant-Master-Boxes-Packer-Build/>`_, where
 new builds of the image will be pushed to  `Vagrant Cloud
 <https://app.vagrantup.com/cilium>`_ . The version of the image corresponds to
 the `BUILD_ID <https://qa.nuxeo.org/jenkins/pipeline-syntax/globals#env>`_
@@ -199,7 +199,11 @@ environment variable in the Jenkins job. That version ID will be used in Cilium
 
 Changes to this image are made via contributions to the packer-ci-build
 repository. Authorized GitHub users can trigger builds with a GitHub comment on
-the PR containing the trigger phrase ``build-me-please``.
+the PR containing the trigger phrase ``build-me-please``. In case that a new box
+needs to be rebased with a different branch than master, authorized developers
+can run the build with custom parameters. To use a different Cilium branch in
+the `job <https://jenkins.cilium.io/job/Vagrant-Master-Boxes-Packer-Build/>`_ go
+to *Build with parameters* and a base branch can be set as the user needs.
 
 This box will need to be updated when a new developer needs a new dependency
 that is not installed in the current version of the box, or if a dependency that
@@ -347,7 +351,7 @@ Introduction
 ~~~~~~~~~~~~
 
 Cilium uses `Ginkgo <https://onsi.github.io/ginkgo>`_ as a testing framework for
-writing end-to-end tests which test Cilium all the way from the API level (e.g. 
+writing end-to-end tests which test Cilium all the way from the API level (e.g.
 importing policies, CLI) to the datapath (i.e, whether policy that is imported
 is enforced accordingly in the datapath).
 The tests in the ``test`` directory are built on top of Ginkgo. Ginkgo provides
