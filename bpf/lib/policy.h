@@ -1,5 +1,5 @@
 /*
- *  Copyright (C) 2016-2017 Authors of Cilium
+ *  Copyright (C) 2016-2018 Authors of Cilium
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -214,7 +214,6 @@ static inline int policy_can_egress6(struct __sk_buff *skb,
 #else
 	struct remote_endpoint_info *info;
 	__u16 identity = default_identity;
-	int verdict;
 
 	info = lookup_ip6_remote_endpoint(daddr);
 	if (info)
@@ -222,15 +221,7 @@ static inline int policy_can_egress6(struct __sk_buff *skb,
 	cilium_dbg(skb, info ? DBG_IP_ID_MAP_SUCCEED6 : DBG_IP_ID_MAP_FAILED6,
 		   daddr->p4, identity);
 
-	verdict = policy_can_egress(skb, identity, tuple->dport, tuple->nexthdr);
-	if (identity_is_reserved(identity) && verdict < 0) {
-		if (unlikely(!lpm6_egress_lookup(daddr)))
-			verdict = DROP_POLICY_CIDR;
-		else
-			verdict = 0;
-	}
-
-	return verdict;
+	return policy_can_egress(skb, identity, tuple->dport, tuple->nexthdr);
 #endif /* DROP_ALL */
 }
 
@@ -243,7 +234,6 @@ static inline int policy_can_egress4(struct __sk_buff *skb,
 #else
 	struct remote_endpoint_info *info;
 	__u16 identity = default_identity;
-	int verdict;
 
 	info = lookup_ip4_remote_endpoint(daddr);
 	if (info)
@@ -251,15 +241,7 @@ static inline int policy_can_egress4(struct __sk_buff *skb,
 	cilium_dbg(skb, info ? DBG_IP_ID_MAP_SUCCEED4 : DBG_IP_ID_MAP_FAILED4,
 		   daddr, identity);
 
-	verdict = policy_can_egress(skb, identity, tuple->dport, tuple->nexthdr);
-	if (identity_is_reserved(identity) && verdict < 0) {
-		if (unlikely(!lpm4_egress_lookup(daddr)))
-			verdict = DROP_POLICY_CIDR;
-		else
-			verdict = 0;
-	}
-
-	return verdict;
+	return policy_can_egress(skb, identity, tuple->dport, tuple->nexthdr);
 #endif /* DROP_ALL */
 }
 
