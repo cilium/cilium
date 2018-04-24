@@ -51,6 +51,17 @@ var (
 	// computed. It is determined by the orchestration system / runtime.
 	AddressSpace = DefaultAddressSpace
 
+	// MaxPrefixLengths is an approximation of how many different CIDR
+	// prefix lengths may be supported by the BPF datapath without causing
+	// BPF code generation to exceed the verifier instruction limit.
+	//
+	// This was manually determined by setting up an egress policy with a
+	// CIDRSet containing an exception. Reserved 'world' (/0) and 'cluster'
+	// (/8) will always be inserted, which is what the first parameter
+	// denotes. The CIDR for the CIDRSet is the third parameter, and the
+	// exception is the second parameter.
+	MaxPrefixLengths = 2 + 32 - 20
+
 	setupIPIdentityWatcher sync.Once
 )
 
@@ -142,6 +153,42 @@ func UpsertIPNetToKVStore(prefix *net.IPNet, ID *identity.Identity) error {
 	return upsertToKVStore(ipKey, ipIDPair)
 }
 
+func checkPrefixLengthsAgainstMap(prefixes []*net.IPNet, existingPrefixes map[int]int) error {
+	prefixLengths := make(map[int]struct{})
+
+	for i := range existingPrefixes {
+		prefixLengths[i] = struct{}{}
+	}
+
+	for _, prefix := range prefixes {
+		ones, _ := prefix.Mask.Size()
+		if _, ok := prefixLengths[ones]; !ok {
+			prefixLengths[ones] = struct{}{}
+		}
+	}
+
+	if len(prefixLengths) > MaxPrefixLengths {
+		existingPrefixLengths := len(existingPrefixes)
+		return fmt.Errorf("Adding specified CIDR prefixes would result in too many prefix lengths (current: %d, result: %d, max: %d)",
+			existingPrefixLengths, len(prefixLengths), MaxPrefixLengths)
+	}
+	return nil
+}
+
+// checkPrefixLengths ensures that we will reject rules if the import of those
+// rules would cause the ipcache to contain more than the supported number of
+// CIDR prefix lengths.
+func checkPrefixLengths(prefixes []*net.IPNet) (err error) {
+	IPIdentityCache.RLock()
+	defer IPIdentityCache.RUnlock()
+
+	if err = checkPrefixLengthsAgainstMap(prefixes, IPIdentityCache.v4PrefixLengths); err != nil {
+		return
+	}
+
+	return checkPrefixLengthsAgainstMap(prefixes, IPIdentityCache.v6PrefixLengths)
+}
+
 // UpsertIPNetsToKVStore inserts a CIDR->Identity mapping into the kvstore
 // ipcache for each of the specified prefixes and identities. That is to say,
 // prefixes[0] is mapped to identities[0].
@@ -151,6 +198,9 @@ func UpsertIPNetToKVStore(prefix *net.IPNet, ID *identity.Identity) error {
 func UpsertIPNetsToKVStore(prefixes []*net.IPNet, identities []*identity.Identity) (err error) {
 	if len(prefixes) != len(identities) {
 		return fmt.Errorf("Invalid []Prefix->[]Identity ipcache mapping requested: prefixes=%d identities=%d", len(prefixes), len(identities))
+	}
+	if err = checkPrefixLengths(prefixes); err != nil {
+		return
 	}
 	for i, prefix := range prefixes {
 		id := identities[i]
@@ -167,7 +217,7 @@ func UpsertIPNetsToKVStore(prefixes []*net.IPNet, identities []*identity.Identit
 		}
 	}
 
-	return err
+	return
 }
 
 // DeleteIPFromKVStore removes the IP->Identity mapping for the specified ip from the
