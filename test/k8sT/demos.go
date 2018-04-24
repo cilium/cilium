@@ -183,6 +183,7 @@ var _ = Describe(demoTestName, func() {
 		res.ExpectContains("403", "able to access %s when policy disallows it; %s", exhaustPortPath, res.CombineOutput())
 
 		By(fmt.Sprintf("Showing how alliance can access %s with force header in API request to attack the deathstar", exhaustPortPath))
+		By(fmt.Sprintf("curl command is " + helpers.CurlWithHTTPCode("-X PUT -H 'X-Has-Force: True' http://%s", exhaustPortPath)))
 		res = kubectl.ExecPodCmd(helpers.DefaultNamespace, xwingPod,
 			helpers.CurlWithHTTPCode("-X PUT -H 'X-Has-Force: True' http://%s", exhaustPortPath))
 		By("Expecting 503 to be returned when using force header to attack the deathstar")

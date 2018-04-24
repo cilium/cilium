@@ -62,7 +62,7 @@ func CurlWithHTTPCode(endpoint string, optionalValues ...interface{}) string {
 		endpoint = fmt.Sprintf(endpoint, optionalValues...)
 	}
 
-	return fmt.Sprintf(`curl -s --output /dev/stderr -w '%%{http_code}' --retry %[1]d --retry-delay %[2]d --retry-max-time %[3]d --connect-timeout %[4]d --max-time %[3]d %[5]s`,
+	return fmt.Sprintf(`curl -vvv --output /dev/stderr -w '%%{http_code}' --retry %[1]d --retry-delay %[2]d --retry-max-time %[3]d --connect-timeout %[4]d --max-time %[3]d %[5]s`,
 		CurlRetryAttempts, CurlRetryDelay, CurlMaxTimeout, CurlConnectTimeout, endpoint)
 }
 
