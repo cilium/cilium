@@ -703,8 +703,26 @@ func (kub *Kubectl) CiliumEndpointPolicyVersion(pod string) map[string]int64 {
 
 // CiliumExec runs cmd in the specified Cilium pod.
 func (kub *Kubectl) CiliumExec(pod string, cmd string) *CmdRes {
-	cmd = fmt.Sprintf("%s exec -n kube-system %s -- %s", KubectlCmd, pod, cmd)
-	return kub.Exec(cmd)
+	limitTimes := 5
+	execute := func() *CmdRes {
+		cmd = fmt.Sprintf("%s exec -n kube-system %s -- %s", KubectlCmd, pod, cmd)
+
+		return kub.Exec(cmd)
+	}
+	var res *CmdRes
+	// Sometimes Kubectl returns 126 exit code, It use to happen in Nightly
+	// tests when a lot of exec are in place (Cgroups issue). The upstream
+	// changes did not fix the isse, and we need to make this workaround to
+	// avoid Kubectl issue.
+	// https://github.com/openshift/origin/issues/16246
+	for i := 0; i < limitTimes; i++ {
+		res = execute()
+		if res.GetExitCode() != 126 {
+			break
+		}
+		time.Sleep(200 * time.Millisecond)
+	}
+	return res
 }
 
 // CiliumNodesWait waits until all nodes in the Kubernetes cluster are annotated
