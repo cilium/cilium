@@ -66,7 +66,7 @@ author = u'Cilium Authors'
 release = open("../VERSION", "r").read().strip()
 
 # Asume the current branch is master but check with VERSION file.
-branch = 'v1.0'
+branch = 'doc-1.0'
 githubusercontent = 'https://raw.githubusercontent.com/cilium/cilium/'
 scm_web = githubusercontent + branch
 
