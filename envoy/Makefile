@@ -14,8 +14,14 @@
 
 include ../Makefile.defs
 
-ENVOY_BIN = ./bazel-bin/envoy
-ENVOY_BINS = $(ENVOY_BIN) ./bazel-bin/cilium_integration_test
+CILIUM_ENVOY_BIN = ./bazel-bin/envoy
+ISTIO_ENVOY_BIN = ./bazel-bin/istio-envoy
+ISTIO_ENVOY_RELEASE_BIN = ./istio-envoy
+ENVOY_BINS = \
+	$(CILIUM_ENVOY_BIN) \
+	$(ISTIO_ENVOY_BIN) \
+	$(ISTIO_ENVOY_RELEASE_BIN) \
+	./bazel-bin/cilium_integration_test
 CHECK_FORMAT ?= ./bazel-bin/check_format.py.runfiles/envoy/tools/check_format.py
 
 BAZEL ?= $(QUIET) bazel
@@ -25,7 +31,13 @@ BAZEL_ARCHIVE ?= ~/bazel-cache.tar.bz2
 CLANG ?= clang
 CLANG_FORMAT ?= clang-format
 BUILDIFIER ?= buildifier
-STRIP ?= strip
+STRIP ?= $(QUIET) strip
+
+# Use a pre-release of Istio 0.8.0, until it's officially released.
+# https://github.com/istio/istio/tree/master/release#daily-releases
+# https://gcsweb.istio.io/gcs/istio-prerelease/daily-build/
+# TODO: Update to "0.8.0" when it's released.
+ISTIO_VERSION = 0.8.0-pre20180421-09-15
 
 ifdef CILIUM_DISABLE_ENVOY_BUILD
 all install clean:
@@ -40,8 +52,7 @@ all: clean-bins release
 else
 BAZEL_OPTS ?=
 BAZEL_BUILD_OPTS = --experimental_strict_action_env
-
-all: clean-bins envoy api
+all: clean-bins envoy-default api
 endif
 
 debug: envoy-debug api
@@ -51,17 +62,35 @@ release: envoy-release api
 api: force-non-root Makefile.api
 	$(MAKE) -f Makefile.api all
 
-envoy: force-non-root
+envoy-default: force-non-root
 	@$(ECHO_BAZEL)
 	-rm -f bazel-out/k8-fastbuild/bin/_objs/envoy/external/envoy/source/common/common/version_linkstamp.o
 	$(BAZEL) $(BAZEL_OPTS) build $(BAZEL_BUILD_OPTS) //:envoy
 
 # Allow root build for release
-$(ENVOY_BIN) envoy-release: force
+$(CILIUM_ENVOY_BIN) envoy-release: force
+	@$(ECHO_BAZEL)
 	-rm -f bazel-out/k8-opt/bin/_objs/envoy/external/envoy/source/common/common/version_linkstamp.o
 	$(BAZEL) $(BAZEL_OPTS) build $(BAZEL_BUILD_OPTS) -c opt //:envoy
 
+# Allow root build for release
+$(ISTIO_ENVOY_BIN) $(ISTIO_ENVOY_RELEASE_BIN): force
+	@$(ECHO_BAZEL)
+	-rm -f bazel-out/k8-opt/bin/_objs/istio-envoy/external/envoy/source/common/common/version_linkstamp.o
+	$(BAZEL) $(BAZEL_OPTS) build $(BAZEL_BUILD_OPTS) -c opt //:istio-envoy
+	$(STRIP) -o $(ISTIO_ENVOY_RELEASE_BIN) $(ISTIO_ENVOY_BIN)
+
+Dockerfile.%: Dockerfile.%.in
+	-sed "s/@ISTIO_VERSION@/$(ISTIO_VERSION)/" <$< >$@
+
+docker-istio-proxy: Dockerfile.istio_proxy $(ISTIO_ENVOY_RELEASE_BIN) envoy_bootstrap_tmpl.json
+	-docker build -f $< -t cilium/istio_proxy:$(ISTIO_VERSION) .
+
+docker-istio-proxy-debug: Dockerfile.istio_proxy_debug $(ISTIO_ENVOY_RELEASE_BIN) envoy_bootstrap_tmpl.json
+	-docker build -f $< -t cilium/istio_proxy_debug:$(ISTIO_VERSION) .
+
 envoy-debug: force-non-root
+	@$(ECHO_BAZEL)
 	-rm -f bazel-out/k8-dbg/bin/_objs/envoy/external/envoy/source/common/common/version_linkstamp.o
 	$(BAZEL) $(BAZEL_OPTS) build $(BAZEL_BUILD_OPTS) -c dbg //:envoy
 
@@ -70,7 +99,7 @@ $(CHECK_FORMAT): force-non-root
 
 install: force-root
 	$(INSTALL) -m 0755 -d $(DESTDIR)$(BINDIR)
-	$(INSTALL) -m 0755 -T $(ENVOY_BIN) $(DESTDIR)$(BINDIR)/cilium-envoy
+	$(INSTALL) -m 0755 -T $(CILIUM_ENVOY_BIN) $(DESTDIR)$(BINDIR)/cilium-envoy
 # Strip only non-debug builds
 ifeq "$(findstring -dbg,$(realpath bazel-bin))" ""
 	$(STRIP) $(DESTDIR)$(BINDIR)/cilium-envoy
@@ -92,13 +121,15 @@ bazel-restore: $(BAZEL_ARCHIVE)
 # Remove the binaries to get fresh version SHA
 clean-bins: force
 	@$(ECHO_CLEAN) $(notdir $(shell pwd))
-	-$(QUIET) rm -f $(ENVOY_BINS)
+	-$(QUIET) rm -f $(ENVOY_BINS) \
+		Dockerfile.istio_proxy \
+		Dockerfile.istio_proxy_debug
 
-clean: force
+clean: force clean-bins
 	@$(ECHO_CLEAN) $(notdir $(shell pwd))
 	@echo "Bazel clean skipped, try 'make veryclean' instead."
 
-veryclean: force
+veryclean: force clean-bins
 	-sudo $(BAZEL) $(BAZEL_OPTS) clean
 	-sudo rm -Rf $(BAZEL_CACHE)
 
@@ -117,7 +148,15 @@ debug-tests: force-non-root
 	$(BAZEL) $(BAZEL_OPTS) test $(BAZEL_BUILD_OPTS) -c debug $(BAZEL_TEST_OPTS) //:envoy_binary_test
 	$(BAZEL) $(BAZEL_OPTS) test $(BAZEL_BUILD_OPTS) -c debug $(BAZEL_TEST_OPTS) //:cilium_integration_test
 
-.PHONY: force force-root force-non-root
+.PHONY: \
+	bazel-restore \
+	docker-istio-proxy \
+	docker-istio-proxy-debug \
+	docker-istio-proxy-init \
+	force \
+	force-non-root \
+	force-root
+
 force :;
 
 force-root:

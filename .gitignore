@@ -53,6 +53,9 @@ man/
 
 # Bazel symlinks
 bazel-*
+envoy/istio-envoy
+envoy/Dockerfile.istio_proxy
+envoy/Dockerfile.istio_proxy_debug
 
 test/tmp.yaml
 test/*_service_manifest.json

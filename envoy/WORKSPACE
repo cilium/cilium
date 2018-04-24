@@ -38,3 +38,25 @@ load("@com_lyft_protoc_gen_validate//bazel:go_proto_library.bzl", "go_proto_repo
 go_proto_repositories(shared=0)
 go_rules_dependencies()
 go_register_toolchains()
+load("@io_bazel_rules_go//proto:def.bzl", "proto_register_toolchains")
+proto_register_toolchains()
+
+
+# Dependencies for Istio filters.
+# Cf. https://github.com/istio/proxy.
+
+ISTIO_PROXY_SHA = "410899cd5a4614c1965778f9856769b744c1d522"
+
+http_archive(
+    name = "istio_proxy",
+    url = "https://github.com/istio/proxy/archive/" + ISTIO_PROXY_SHA + ".zip",
+    strip_prefix = "proxy-" + ISTIO_PROXY_SHA,
+)
+
+load("@istio_proxy//:repositories.bzl", "mixerapi_dependencies")
+mixerapi_dependencies()
+
+bind(
+    name = "boringssl_crypto",
+    actual = "//external:ssl",
+)
