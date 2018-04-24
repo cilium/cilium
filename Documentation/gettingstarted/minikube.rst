@@ -187,9 +187,9 @@ From the perspective of *deathstar* service providers only the ships with label 
 
 .. parsed-literal::
 
-    $ kubectl exec xwing-cc65988f5-7cvn8 -- curl -s -XPOST 10.109.254.198/v1/request-landing
+    $ kubectl exec xwing-cc65988f5-7cvn8 -- curl -s -XPOST deathstar.default.svc.cluster.local/v1/request-landing
     Ship landed
-    $ kubectl exec  tiefighter-68c6cb4b4b-rxcb2  -- curl -s -XPOST 10.109.254.198/v1/request-landing
+    $ kubectl exec  tiefighter-68c6cb4b4b-rxcb2  -- curl -s -XPOST deathstar.default.svc.cluster.local/v1/request-landing
     Ship landed
 
 Step 4: Apply an L3/L4 Policy
@@ -231,13 +231,13 @@ To apply this L3/L4 policy, run:
 Now if we run the landing requests again, only the *tiefighter* pods with the label *org=empire* will succeed. The *xwing* pods will be blocked!
 
 .. parsed-literal::
-    $ kubectl exec  tiefighter-68c6cb4b4b-rxcb2  -- curl -s -XPOST 10.109.254.198/v1/request-landing
+    $ kubectl exec  tiefighter-68c6cb4b4b-rxcb2  -- curl -s -XPOST deathstar.default.svc.cluster.local/v1/request-landing
     Ship landed
 
 This works as expected. Now the same request run from an *xwing* pod will fail:
 
 .. parsed-literal::
-    $ kubectl exec xwing-cc65988f5-7cvn8 -- curl -s -XPOST 10.109.254.198/v1/request-landing
+    $ kubectl exec xwing-cc65988f5-7cvn8 -- curl -s -XPOST deathstar.default.svc.cluster.local/v1/request-landing
     
 This request will hang, so press Control-C to kill the curl request, or wait for it
 to time out.
@@ -324,7 +324,7 @@ operation.
 For example, consider that the *deathstar* service exposes some maintenance APIs which should not be called by random empire ships. To see this run:
 ::
 
-    $ kubectl exec tiefighter-68c6cb4b4b-rxcb2 -- curl -s -XPUT 10.109.254.198/v1/exhaust-port
+    $ kubectl exec tiefighter-68c6cb4b4b-rxcb2 -- curl -s -XPUT deathstar.default.svc.cluster.local/v1/exhaust-port
     Panic: deathstar exploded
 
     goroutine 1 [running]:
@@ -363,7 +363,7 @@ We can now re-run the same test as above, but we will see a different outcome:
 
 ::
 
-    $ kubectl exec tiefighter-68c6cb4b4b-rxcb2 -- curl -s -XPOST 10.109.254.198/v1/request-landing
+    $ kubectl exec tiefighter-68c6cb4b4b-rxcb2 -- curl -s -XPOST deathstar.default.svc.cluster.local/v1/request-landing
     Ship landed
 
 
@@ -371,7 +371,7 @@ and
 
 ::
 
-    $ kubectl exec tiefighter-68c6cb4b4b-rxcb2 -- curl -s -XPUT 10.109.254.198/v1/exhaust-port
+    $ kubectl exec tiefighter-68c6cb4b4b-rxcb2 -- curl -s -XPUT deathstar.default.svc.cluster.local/v1/exhaust-port
     Access denied
 
 As you can see, with Cilium L7 security policies, we are able to permit
