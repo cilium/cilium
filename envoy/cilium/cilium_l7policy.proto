@@ -3,6 +3,8 @@ syntax = "proto3";
 package cilium;
 option go_package = "cilium";
 
+import "google/protobuf/wrappers.proto";
+
 message L7Policy {
   // Path to the unix domain socket for the cilium access log.
   string access_log_path = 1;
@@ -13,4 +15,8 @@ message L7Policy {
   // HTTP response body message for 403 status code.
   // If empty, "Access denied" will be used.
   string denied_403_body = 3;
+
+  // 'true' if the filter is on ingress listener, 'false' for egress listener.
+  // Value from the listener filter will be used if not specified here.
+  google.protobuf.BoolValue is_ingress = 4;
 }
