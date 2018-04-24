@@ -33,7 +33,7 @@ spec:
     spec:
       serviceAccountName: cilium
       containers:
-      - image: cilium/cilium:v1.0.0-rc14
+      - image: cilium/cilium:v1.0.0
         imagePullPolicy: IfNotPresent
         name: cilium-agent
         command: [ "cilium-agent" ]
