@@ -79,7 +79,7 @@ spec:
       serviceAccountName: cilium
       containers:
       - image: cilium/cilium:v1.0.0
-        imagePullPolicy: Always
+        imagePullPolicy: IfNotPresent
         name: cilium-agent
         command: [ "cilium-agent" ]
         args:
