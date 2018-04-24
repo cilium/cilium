@@ -75,9 +75,11 @@ createPolicyMap(Server::Configuration::FactoryContext& context) {
 } // namespace
 
 Config::Config(const std::string& policy_name, const std::string& access_log_path,
-	       const std::string& denied_403_body, Server::Configuration::FactoryContext& context)
+	       const std::string& denied_403_body, const absl::optional<bool>& is_ingress,
+	       Server::Configuration::FactoryContext& context)
     : stats_{ALL_CILIUM_STATS(POOL_COUNTER_PREFIX(context.scope(), "cilium"))},
-      policy_name_(policy_name), denied_403_body_(denied_403_body), access_log_(nullptr) {
+      policy_name_(policy_name), denied_403_body_(denied_403_body), is_ingress_(is_ingress),
+      access_log_(nullptr) {
   if (access_log_path.length()) {
     access_log_ = AccessLog::Open(access_log_path);
     if (!access_log_) {
@@ -98,10 +100,14 @@ Config::Config(const std::string& policy_name, const std::string& access_log_pat
 }
 
 Config::Config(const Json::Object &config, Server::Configuration::FactoryContext& context)
-    : Config(config.getString("policy_name"), config.getString("access_log_path"), config.getString("denied_403_body"), context) {}
+    : Config(config.getString("policy_name"), config.getString("access_log_path"), config.getString("denied_403_body"),
+	     config.hasObject("is_ingress") ? config.getBoolean("is_ingress") : absl::optional<bool>{},
+	     context) {}
 
 Config::Config(const ::cilium::L7Policy &config, Server::Configuration::FactoryContext& context)
-    : Config(config.policy_name(), config.access_log_path(), config.denied_403_body(), context) {}
+    : Config(config.policy_name(), config.access_log_path(), config.denied_403_body(),
+	     PROTOBUF_GET_WRAPPED_OR_DEFAULT(config, is_ingress, absl::optional<bool>{}),
+	     context) {}
 
 Config::~Config() {
   if (access_log_) {
@@ -128,7 +134,11 @@ Http::FilterHeadersStatus AccessFilter::decodeHeaders(Http::HeaderMap& headers, 
       for (const auto& option_: *options_) {
 	option = dynamic_cast<const Cilium::SocketOption*>(option_.get());
 	if (option) {
-	  ingress = option->ingress_;
+	  if (config_->is_ingress_) {
+	    ingress = config_->is_ingress_.value();
+	  } else {
+	    ingress = option->ingress_;
+	  }
 	  if (ingress) {
 	    allowed = config_->npmap_->Allowed(config_->policy_name_, ingress, option->port_,
 					       option->identity_, headers);
