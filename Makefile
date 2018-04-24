@@ -132,8 +132,6 @@ docker-image-runtime:
 
 docker-image-builder:
 	cd envoy && docker build -t "quay.io/cilium/cilium-builder:$(UTC_DATE)" .
-	@echo "Push like this when ready:"
-	@echo "docker push quay.io/cilium/cilium-builder:$(UTC_DATE)"
 
 build-deb:
 	$(MAKE) -C ./contrib/packaging/deb
