@@ -66,7 +66,7 @@ author = u'Cilium Authors'
 release = open("../VERSION", "r").read().strip()
 
 # Asume the current branch is master but check with VERSION file.
-branch = subprocess.check_output("git describe --tags --exact-match 2>/dev/null || git rev-parse --abbrev-ref HEAD", shell=True)
+branch = 'v1.0'
 githubusercontent = 'https://raw.githubusercontent.com/cilium/cilium/'
 scm_web = githubusercontent + branch
 
