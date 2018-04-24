@@ -16,7 +16,7 @@ dependency.
 
 ::
 
-    $ minikube start --network-plugin=cni --extra-config=kubelet.network-plugin=cni --memory=4096
+    $ minikube start --network-plugin=cni --extra-config=kubelet.network-plugin=cni --memory=5120
 
 After minikube has finished setting up your new Kubernetes cluster, you can
 check the status of the cluster by running ``kubectl get cs``:
