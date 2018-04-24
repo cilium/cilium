@@ -1,7 +1,7 @@
 include ../../Makefile.defs
 
 ifeq ($(CILIUM_VERSION),)
-    CILIUM_VERSION = "$(shell cat ../../VERSION)"
+    CILIUM_VERSION = "v$(shell cat ../../VERSION)"
 endif
 
 K8S_VERSIONS = 1.7 1.8 1.9 1.10 1.11
