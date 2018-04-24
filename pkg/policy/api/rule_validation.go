@@ -255,6 +255,9 @@ func (pr *PortRule) sanitize() error {
 		if err := pr.Ports[i].sanitize(); err != nil {
 			return err
 		}
+		if pr.Rules != nil && pr.Ports[i].Protocol != ProtoTCP {
+			return fmt.Errorf("L7 rules can only apply exclusively to TCP, not %s", pr.Ports[i].Protocol)
+		}
 	}
 
 	// Sanitize L7 rules
