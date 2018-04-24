@@ -2,6 +2,19 @@
 NEWS
 ******
 
+v1.0.0
+======
+
+:date: 2018-04-24
+:commit: 5d23ebd8b41747eabef3a7b42832935001933e5d
+
+Bugfixes
+--------
+
+* etcd: Clear the etcd status error when connectivity is OK (3824_, @rlenglet)
+* ipcache: Fix ipcache deletion of old identities on update (3865_, @rlenglet)
+* bpf: Fix tracing message for egress policy (3806_, @joestringer)
+
 v1.0.0-rc14
 ===========
 
@@ -1532,3 +1545,6 @@ Fixes
 .. _3810: https://github.com/cilium/cilium/pull/3810
 .. _3842: https://github.com/cilium/cilium/pull/3842
 .. _3834: https://github.com/cilium/cilium/pull/3834
+.. _3824: https://github.com/cilium/cilium/pull/3824
+.. _3865: https://github.com/cilium/cilium/pull/3865
+.. _3806: https://github.com/cilium/cilium/pull/3806
