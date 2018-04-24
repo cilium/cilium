@@ -121,31 +121,63 @@ like above (a ``READY`` value of ``0`` is OK for this tutorial).
 Step 2: Install Istio
 =====================
 
-Download `Istio version 0.7.0
-<https://github.com/istio/istio/releases/tag/0.7.0>`_:
+Download `Istio version 0.8.0 RC (release-0.8-20180521-15-16)
+<https://github.com/istio/istio/releases/>`_:
 
-::
+.. TODO: Update the ISTIO_VERSION to 0.8.0 once released.
+   $ export ISTIO_VERSION=0.8.0
+   $ curl -L https://git.io/getLatestIstio | sh -
+   $ export ISTIO_HOME=`pwd`/istio-${ISTIO_VERSION}
+   $ export PATH="$PATH:${ISTIO_HOME}/bin"
 
-    $ export ISTIO_VERSION=0.7.0
-    $ curl -L https://git.io/getLatestIstio | sh -
-    $ export ISTIO_HOME=`pwd`/istio-${ISTIO_VERSION}
-    $ export PATH="$PATH:${ISTIO_HOME}/bin"
+.. tabs::
+  .. group-tab:: Linux
+
+    ::
+
+      $ export ISTIO_VERSION=release-0.8-20180521-15-16
+      $ curl -L https://storage.googleapis.com/istio-prerelease/daily-build/${ISTIO_VERSION}/istio-${ISTIO_VERSION}-linux.tar.gz | tar xz
+      $ export ISTIO_HOME=`pwd`/istio-${ISTIO_VERSION}
+      $ export PATH="${ISTIO_HOME}/bin:${PATH}"
+
+  .. group-tab:: macOS
+
+    ::
+
+      $ export ISTIO_VERSION=release-0.8-20180521-15-16
+      $ curl -L https://storage.googleapis.com/istio-prerelease/daily-build/${ISTIO_VERSION}/istio-${ISTIO_VERSION}-osx.tar.gz | tar xz
+      $ export ISTIO_HOME=`pwd`/istio-${ISTIO_VERSION}
+      $ export PATH="${ISTIO_HOME}/bin:${PATH}"
 
 Deploy Istio on Kubernetes, with a Cilium-specific variant of Pilot which
-injects the Cilium network policy filters into each Istio sidecar proxy:
+injects the Cilium network policy filters into each Istio sidecar proxy, and
+with Istio's sidecar injection configured to setup the transparent proxy mode
+(TPROXY) as required by Cilium's proxy filters:
 
 ::
 
-    $ sed -e 's,docker\.io/istio/pilot:,docker.io/cilium/istio_pilot:,' \
-          < ${ISTIO_HOME}/install/kubernetes/istio.yaml | \
+    $ sed -e 's,image: ".*/pilot:,image: "docker.io/cilium/istio_pilot:,' \
+          -e 's,#interceptionMode: .*,interceptionMode: TPROXY,' \
+          -e 's/mtlsExcludedServices: \[\(.*\)\]/mtlsExcludedServices: [\1, "kafka.default.svc.cluster.local"]/' \
+          < ${ISTIO_HOME}/install/kubernetes/istio-demo-auth.yaml | \
           kubectl create -f -
 
-Configure Istio's sidecar injection to use Cilium's Docker images for the
-sidecar proxies:
+Generate an Istio injection template file named ``istio-inject-config.yaml``
+that we will use to configure ``istioctl kube-inject`` when injecting sidecar
+proxy containers into application pods.
+This template file uses Cilium's proxy Docker images and mounts Cilium's API
+Unix domain sockets into each sidecar to allow Cilium's Envoy filters to query
+the Cilium agent for policy configuration:
 
 .. parsed-literal::
 
-    $ kubectl create -f \ |SCM_WEB|\/examples/kubernetes-istio/istio-sidecar-injector-configmap-release.yaml
+    $ curl -s \ |SCM_WEB|\/examples/kubernetes-istio/cilium-kube-inject.awk > cilium-kube-inject.awk
+
+::
+
+    $ istioctl kube-inject --emitTemplate --debug --imagePullPolicy=IfNotPresent | \
+          awk -f cilium-kube-inject.awk \
+          > istio-inject-config.yaml
 
 Check the progress of the deployment (every service should have an
 ``AVAILABLE`` count of ``1``):
@@ -153,11 +185,14 @@ Check the progress of the deployment (every service should have an
 ::
 
     $ kubectl get deployments -n istio-system
-    NAME            DESIRED   CURRENT   UP-TO-DATE   AVAILABLE   AGE
-    istio-ca        1         1         1            1           2m
-    istio-ingress   1         1         1            1           2m
-    istio-mixer     1         1         1            1           2m
-    istio-pilot     1         1         1            1           2m
+    NAME                       DESIRED   CURRENT   UP-TO-DATE   AVAILABLE   AGE
+    istio-citadel              1         1         1            1           2m
+    istio-ingress              1         1         1            1           2m
+    istio-pilot                1         1         1            1           2m
+    istio-policy               1         1         1            1           2m
+    istio-statsd-prom-bridge   1         1         1            1           2m
+    istio-telemetry            1         1         1            1           2m
+    prometheus                 1         1         1            1           2m
 
 Once all Istio pods are ready, we are ready to install the demo
 application.
@@ -192,26 +227,29 @@ into Kubernetes using separate YAML files which define:
    :scale: 75 %
    :align: center
 
-Each Deployment must be packaged with Istio's Envoy sidecar proxy in
-order to be managed by Istio, by running the ``istioctl kube-inject``
-command on each YAML file.  The resulting YAML files must then be
-adapted to mount Cilium's API Unix domain sockets into the sidecar to
-allow Cilium's Envoy filters to query the Cilium agent.  This
-adaptation can be done with the ``cilium-kube-inject.sed`` script:
+First create a policy to explicitly allow the sidecar proxies to access
+the Istio services while the pods are initializing:
 
 .. parsed-literal::
 
-    $ curl -s \ |SCM_WEB|\/examples/kubernetes-istio/cilium-kube-inject.sed > ./cilium-kube-inject.sed
+    $ kubectl create -f \ |SCM_WEB|\/examples/kubernetes-istio/istio-sidecar-init-policy.yaml
+    ciliumnetworkpolicy "istio-sidecar" created
+
+Create an Istio ingress gateway for the productpage service:
+
+.. parsed-literal::
+
+    $ curl -s \ |SCM_WEB|\/examples/kubernetes-istio/bookinfo-productpage-ingress.yaml | \\
+          istioctl create -f -
+    Created config gateway/default/productpage at revision ...
+    Created config virtual-service/default/productpage at revision ...
 
 To package the Istio sidecar proxy and generate final YAML
 specifications, run:
 
-.. parsed-literal::
-
     $ for service in productpage-service productpage-v1 details-v1 reviews-v1; do \\
           curl -s \ |SCM_WEB|\/examples/kubernetes-istio/bookinfo-${service}.yaml | \\
-          istioctl kube-inject --injectConfigMapName istio-inject -f - | \\
-          sed -f ./cilium-kube-inject.sed | \\
+          istioctl kube-inject --injectConfigFile istio-inject-config.yaml -f - | \\
           kubectl create -f - ; done
     service "productpage" created
     ciliumnetworkpolicy "productpage-v1" created
@@ -238,11 +276,13 @@ To obtain the URL to the frontend productpage service, run:
 
 ::
 
-    $ export PRODUCTPAGE=`minikube service productpage -n default --url`
+    $ export PRODUCTPAGE=`minikube service istio-ingressgateway -n istio-system --url | head -n 1`
     $ echo "Open URL: ${PRODUCTPAGE}/productpage"
 
 Open that URL in your web browser and check that the application has
-been successfully deployed.
+been successfully deployed.  It may take several seconds before all
+services become accessible in the Istio service mesh, so you may have
+have to reload the page.
 
 Step 4: Canary and Deploy the Reviews Service V2
 ================================================
@@ -270,17 +310,18 @@ Apply this route rule:
 
 .. parsed-literal::
 
-    $ kubectl apply -f \ |SCM_WEB|\/examples/kubernetes-istio/route-rule-reviews-v1.yaml
-    routerule "reviews-default" created
-    
+    $ curl -s \ |SCM_WEB|\/examples/kubernetes-istio/route-rule-reviews-v1.yaml | \\
+          istioctl create -f -
+    Created config virtual-service/default/reviews at revision ...
+    Created config destination-rule/default/reviews at revision ...
+
 Deploy the ``ratings v1`` and ``reviews v2`` services:
 
 .. parsed-literal::
 
     $ for service in ratings-v1 reviews-v2; do \\
           curl -s \ |SCM_WEB|\/examples/kubernetes-istio/bookinfo-${service}.yaml | \\
-          istioctl kube-inject --injectConfigMapName istio-inject -f - | \\
-          sed -f ./cilium-kube-inject.sed | \\
+          istioctl kube-inject --injectConfigFile istio-inject-config.yaml -f - | \\
           kubectl create -f - ; done
     service "ratings" created
     ciliumnetworkpolicy "ratings-v1" created
@@ -326,7 +367,7 @@ running ``curl`` from within the pod:
       % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
                                  Dload  Upload   Total   Spent    Left  Speed
       0     0    0     0    0     0      0      0 --:--:--  0:00:05 --:--:--     0
-    curl: (28) Connection timed out after 5000 milliseconds
+    upstream connect error or disconnect/reset before headers
 
 Update the Istio route rule to send 50% of ``reviews`` traffic to
 ``v1`` and 50% to ``v2``:
@@ -341,8 +382,9 @@ Apply this route rule:
 		    
 .. parsed-literal::
 
-    $ kubectl apply -f \ |SCM_WEB|\/examples/kubernetes-istio/route-rule-reviews-v1-v2.yaml
-    routerule "reviews-default" configured
+    $ curl -s \ |SCM_WEB|\/examples/kubernetes-istio/route-rule-reviews-v1-v2.yaml | \\
+          istioctl replace -f -
+    Updated config virtual-service/default/reviews to revision ...
 
 Check in your web browser that stars are appearing in the Book Reviews
 roughly 50% of the time.  This may require refreshing the page for a
@@ -366,8 +408,9 @@ Apply this route rule:
 
 .. parsed-literal::
 
-    $ kubectl apply -f \ |SCM_WEB|\/examples/kubernetes-istio/route-rule-reviews-v2.yaml
-    routerule "reviews-default" configured
+    $ curl -s \ |SCM_WEB|\/examples/kubernetes-istio/route-rule-reviews-v2.yaml | \\
+          istioctl replace -f -
+    Updated config virtual-service/default/reviews to revision ...
 
 Refresh the product page in your web browser several times to verify
 that stars are now appearing in the Book Reviews on every page
@@ -387,38 +430,6 @@ which brings two changes:
 .. image:: images/istio-bookinfo-productpage-v2-kafka.png
    :scale: 75 %
    :align: center
-  
-Because ``productpage v2`` sends messages into Kafka, we must first
-deploy a Kafka broker:
-
-.. parsed-literal::
-
-    $ curl -s \ |SCM_WEB|\/examples/kubernetes-istio/kafka-v1.yaml | \\
-          istioctl kube-inject --injectConfigMapName istio-inject -f - | \\
-          sed -f ./cilium-kube-inject.sed | \\
-          kubectl create -f -
-    service "kafka" created
-    ciliumnetworkpolicy "kafka-authaudit" created
-    statefulset "kafka-v1" created
-
-Wait until the ``kafka-v1-0`` pod is ready, i.e. until it has a
-``READY`` count of ``2/2``:
-
-::
-
-    $ kubectl get pods -n default -l app=kafka
-    NAME         READY     STATUS    RESTARTS   AGE
-    kafka-v1-0   2/2       Running   0          21m
-
-Create the ``authaudit`` Kafka topic, which will be used by
-``productpage v2``:
-
-::
-
-    $ kubectl exec kafka-v1-0 -c kafka -- bash -c '/opt/kafka_2.11-0.10.1.0/bin/kafka-topics.sh --zookeeper localhost:2181/kafka --create --topic authaudit --partitions 1 --replication-factor 1'
-    Created topic "authaudit".
-
-We are now ready to deploy ``productpage v2``.
 
 The policy for ``v1`` currently allows read access to the full HTTP
 REST API, under the ``/api/v1`` HTTP URI path:
@@ -435,9 +446,9 @@ returns valid JSON data:
 
 ::
 
-    $ export PRODUCTPAGE=`minikube service productpage -n default --url`
+    $ export PRODUCTPAGE=`minikube service istio-ingressgateway -n istio-system --url | head -n 1`
     $ for APIPATH in /api/v1/products /api/v1/products/0 /api/v1/products/0/reviews /api/v1/products/0/ratings; do echo ; curl -s -S "${PRODUCTPAGE}${APIPATH}" ; echo ; done
-    
+
     [{"descriptionHtml": "<a href=\"https://en.wikipedia.org/wiki/The_Comedy_of_Errors\">Wikipedia Summary</a>: The Comedy of Errors is one of <b>William Shakespeare's</b> early plays. It is his shortest and one of his most farcical comedies, with a major part of the humour coming from slapstick and mistaken identity, in addition to puns and word play.", "id": 0, "title": "The Comedy of Errors"}]
 
     {"publisher": "PublisherA", "language": "English", "author": "William Shakespeare", "id": 0, "ISBN-10": "1234567890", "ISBN-13": "123-1234567890", "year": 1595, "type": "paperback", "pages": 200}
@@ -455,56 +466,57 @@ whitelisted:
 
 .. literalinclude:: ../../examples/kubernetes-istio/bookinfo-productpage-v2-policy.yaml
 
+Because ``productpage v2`` sends messages into Kafka, we must first
+deploy a Kafka broker:
+
+.. TODO: Re-enable sidecar injection after we support Kafka with mTLS.
+    $ curl -s \ |SCM_WEB|\/examples/kubernetes-istio/kafka-v1.yaml | \\
+          istioctl kube-inject --injectConfigFile istio-inject-config.yaml -f - | \\
+          kubectl create -f -
+
+.. parsed-literal::
+
+    $ kubectl create -f \ |SCM_WEB|\/examples/kubernetes-istio/kafka-v1.yaml
+    service "kafka" created
+    ciliumnetworkpolicy "kafka-authaudit" created
+    statefulset "kafka-v1" created
+    ciliumnetworkpolicy "kafka-from-init" created
+
+Wait until the ``kafka-v1-0`` pod is ready, i.e. until it has a
+``READY`` count of ``1/1``:
+
+::
+
+    $ kubectl get pods -n default -l app=kafka
+    NAME         READY     STATUS    RESTARTS   AGE
+    kafka-v1-0   1/1       Running   0          21m
+
+Create the ``authaudit`` Kafka topic, which will be used by
+``productpage v2``:
+
+::
+
+    $ kubectl exec kafka-v1-0 -c kafka -- bash -c '/opt/kafka_2.11-0.10.1.0/bin/kafka-topics.sh --zookeeper localhost:2181/kafka --create --topic authaudit --partitions 1 --replication-factor 1'
+    Created topic "authaudit".
+
+We are now ready to deploy ``productpage v2``.
+
 Create the ``productpage v2`` service and its updated
 CiliumNetworkPolicy and delete ``productpage v1``:
 
 .. parsed-literal::
 
     $ curl -s \ |SCM_WEB|\/examples/kubernetes-istio/bookinfo-productpage-v2.yaml | \\
-          istioctl kube-inject --injectConfigMapName istio-inject -f - | \\
-          sed -f ./cilium-kube-inject.sed | \\
+          istioctl kube-inject --injectConfigFile istio-inject-config.yaml -f - | \\
           kubectl create -f -
     ciliumnetworkpolicy "productpage-v2" created
     deployment "productpage-v2" created
 
     $ kubectl delete -f \ |SCM_WEB|\/examples/kubernetes-istio/bookinfo-productpage-v1.yaml
+    ciliumnetworkpolicy "productpage-v1" deleted
+    deployment "productpage-v1" deleted
 
-Check the progress of the deployment (every service should have an
-``AVAILABLE`` count of ``1``):
-
-::
-
-    $ kubectl get deployments -n default
-    NAME             DESIRED   CURRENT   UP-TO-DATE   AVAILABLE   AGE
-    details-v1       1         1         1            1           15m
-    productpage-v2   1         1         1            1           1m
-    ratings-v1       1         1         1            1           10m
-    reviews-v1       1         1         1            1           15m
-    reviews-v2       1         1         1            1           10m
-
-Check that the product REST API is still accessible, and that Cilium
-now denies at Layer-7 any access to the reviews and ratings REST API:
-
-::
-
-    $ export PRODUCTPAGE=`minikube service productpage -n default --url`
-    $ for APIPATH in /api/v1/products /api/v1/products/0 /api/v1/products/0/reviews /api/v1/products/0/ratings; do echo ; curl -s -S "${PRODUCTPAGE}${APIPATH}" ; echo ; done
-
-    [{"descriptionHtml": "<a href=\"https://en.wikipedia.org/wiki/The_Comedy_of_Errors\">Wikipedia Summary</a>: The Comedy of Errors is one of <b>William Shakespeare's</b> early plays. It is his shortest and one of his most farcical comedies, with a major part of the humour coming from slapstick and mistaken identity, in addition to puns and word play.", "id": 0, "title": "The Comedy of Errors"}]
-
-    {"publisher": "PublisherA", "language": "English", "author": "William Shakespeare", "id": 0, "ISBN-10": "1234567890", "ISBN-13": "123-1234567890", "year": 1595, "type": "paperback", "pages": 200}
-
-    Access denied
-
-
-    Access denied
-
-This demonstrated that requests to the
-``/api/v1/products/<id>/reviews`` and
-``/api/v1/products/<id>/ratings`` URIs now result in Cilium returning
-``HTTP 403 Forbidden`` HTTP responses.
-
-``productpage v2`` also implements an authorization audit logging.  On
+``productpage v2`` implements an authorization audit logging.  On
 every user login or logout, it produces into Kafka topic ``authaudit``
 a JSON-formatted message which contains the following information:
 
@@ -521,9 +533,9 @@ this service:
 .. parsed-literal::
 
     $ curl -s \ |SCM_WEB|\/examples/kubernetes-istio/authaudit-logger-v1.yaml | \\
-          istioctl kube-inject --injectConfigMapName istio-inject -f - | \\
-          sed -f ./cilium-kube-inject.sed | \\
+          istioctl kube-inject --injectConfigFile istio-inject-config.yaml -f - | \\
           kubectl apply -f -
+    deployment "authaudit-logger-v1" created
 
 Check the progress of the deployment (every service should have an
 ``AVAILABLE`` count of ``1``):
@@ -532,12 +544,34 @@ Check the progress of the deployment (every service should have an
 
     $ kubectl get deployments -n default
     NAME                  DESIRED   CURRENT   UP-TO-DATE   AVAILABLE   AGE
-    authaudit-logger-v1   1         1         1            1           23s
-    details-v1            1         1         1            1           16m
-    productpage-v2        1         1         1            1           2m
-    ratings-v1            1         1         1            1           11m
-    reviews-v1            1         1         1            1           16m
-    reviews-v2            1         1         1            1           11m
+    authaudit-logger-v1   1         1         1            1           20s
+    details-v1            1         1         1            1           22m
+    productpage-v2        1         1         1            1           4m
+    ratings-v1            1         1         1            1           19m
+    reviews-v1            1         1         1            1           22m
+    reviews-v2            1         1         1            1           19m
+
+Check that the product REST API is still accessible, and that Cilium
+now denies at Layer-7 any access to the reviews and ratings REST API:
+
+::
+
+    $ export PRODUCTPAGE=`minikube service istio-ingressgateway -n istio-system --url | head -n 1`
+    $ for APIPATH in /api/v1/products /api/v1/products/0 /api/v1/products/0/reviews /api/v1/products/0/ratings; do echo ; curl -s -S "${PRODUCTPAGE}${APIPATH}" ; echo ; done
+
+    [{"descriptionHtml": "<a href=\"https://en.wikipedia.org/wiki/The_Comedy_of_Errors\">Wikipedia Summary</a>: The Comedy of Errors is one of <b>William Shakespeare's</b> early plays. It is his shortest and one of his most farcical comedies, with a major part of the humour coming from slapstick and mistaken identity, in addition to puns and word play.", "id": 0, "title": "The Comedy of Errors"}]
+
+    {"publisher": "PublisherA", "language": "English", "author": "William Shakespeare", "id": 0, "ISBN-10": "1234567890", "ISBN-13": "123-1234567890", "year": 1595, "type": "paperback", "pages": 200}
+
+    Access denied
+
+
+    Access denied
+
+This demonstrated that requests to the
+``/api/v1/products/<id>/reviews`` and
+``/api/v1/products/<id>/ratings`` URIs now result in Cilium returning
+``HTTP 403 Forbidden`` HTTP responses.
 
 Every login and logout on the product page will result in a line in
 this service's log:

@@ -93,3 +93,36 @@ spec:
           value: "1"
         - name: AUTO_CREATE_TOPICS
           value: "true"
+---
+# TODO: This network policy allows traffic between productpage-v2 and kafka.
+# This is a workaround a bug in productpage-v2, which tries to connect to Kafka
+# immediately after starting, fails to do so, and then never retries.
+apiVersion: "cilium.io/v2"
+kind: CiliumNetworkPolicy
+metadata:
+  name: kafka-from-init
+specs:
+  - endpointSelector:
+      matchLabels:
+        "k8s:app": kafka
+    ingress:
+    - fromEntities:
+      - init
+      toPorts:
+      - ports:
+        - port: "9092"
+          protocol: TCP
+        rules:
+          kafka:
+          - apiKey: "produce"
+            topic: "authaudit"
+          - apiKey: "apiversions"
+          - apiKey: "metadata"
+          - apiKey: "heartbeat"
+  - endpointSelector:
+      matchLabels:
+        "reserved:init": ""
+    egress:
+    - toEndpoints:
+      - matchLabels:
+          "k8s:app": kafka

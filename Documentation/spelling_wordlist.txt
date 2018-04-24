@@ -31,6 +31,7 @@ bgpd
 bindata
 Blanco
 bnxt
+bookinfo
 Bookinfo
 bootstrapper
 Borkmann
@@ -47,6 +48,7 @@ bugtool
 Bugtool
 bytecode
 callee
+ciliumnetworkpolicy
 cBPF
 CEP
 CiliumEndpoint
@@ -143,6 +145,7 @@ Gartrell
 gcc
 Geneve
 github
+githubusercontent
 Github
 gluecon
 gobpf
@@ -156,6 +159,7 @@ grep
 gRPC
 gsg
 Gunawardena
+gz
 hadn
 hairpinned
 hardcode
@@ -179,6 +183,7 @@ ImageLocation
 imm
 incrementing
 init
+injectConfigFile
 inline
 inlined
 inlines
@@ -196,10 +201,13 @@ iproute
 iptables
 IPv
 isn
+istio
+istioctl
 Istio
 ixgbe
 ixgbevf
 Jakub
+Jenkinsfiles
 jeq
 Jenkinsfiles
 Jesper
@@ -308,6 +316,7 @@ oolchain
 opcodes
 orchestrator
 org
+osx
 pc
 pem
 Pepelnjak
@@ -359,6 +368,7 @@ sandboxing
 scalability
 scalable
 seccomp
+sed
 selftest
 selftests
 Sep
@@ -470,6 +480,8 @@ xml
 xor
 xoring
 xwing
+xz
+yaml
 Yan
 Yunsong
 Zannoni
