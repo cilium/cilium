@@ -931,6 +931,26 @@ func (d *Daemon) syncLXCMap() error {
 			IP: node.GetIPv6Router(),
 			ID: identity.ReservedIdentityHost,
 		},
+		{
+			IP:   node.GetIPv6ClusterRange().IP,
+			Mask: node.GetIPv6ClusterRange().Mask,
+			ID:   identity.ReservedIdentityCluster,
+		},
+		{
+			IP:   node.GetIPv4ClusterRange().IP,
+			Mask: node.GetIPv4ClusterRange().Mask,
+			ID:   identity.ReservedIdentityCluster,
+		},
+		{
+			IP:   net.IPv4zero,
+			Mask: net.CIDRMask(0, net.IPv4len*8),
+			ID:   identity.ReservedIdentityWorld,
+		},
+		{
+			IP:   net.IPv6zero,
+			Mask: net.CIDRMask(0, net.IPv6len*8),
+			ID:   identity.ReservedIdentityWorld,
+		},
 	}
 
 	for _, pair := range specialIdentities {
