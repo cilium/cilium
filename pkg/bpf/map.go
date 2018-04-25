@@ -272,7 +272,17 @@ func (m *Map) OpenOrCreate() (bool, error) {
 		os.Remove(m.path)
 	}
 
+retry:
 	fd, isNew, err := OpenOrCreateMap(m.path, int(m.MapType), m.KeySize, m.ValueSize, m.MaxEntries, m.Flags)
+	if err != nil && m.MapType == BPF_MAP_TYPE_LPM_TRIE {
+		// If the map type is an LPM, then we can typically fall back
+		// to a hash map. Note that this requires datapath support,
+		// such as an unrolled loop performing repeated lookups with
+		// a defined set of prefixes.
+		log.WithError(err).Debugf("Kernel does not support LPM maps, creating hash table for %s instead.", m.name)
+		m.MapType = BPF_MAP_TYPE_HASH
+		goto retry
+	}
 	if err != nil {
 		return false, err
 	}

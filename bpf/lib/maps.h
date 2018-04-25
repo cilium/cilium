@@ -93,6 +93,12 @@ struct bpf_elf_map __section_maps cilium_tunnel_map = {
 
 #endif
 
+#ifdef HAVE_LPM_MAP_TYPE
+#define LPM_MAP_TYPE BPF_MAP_TYPE_LPM_TRIE
+#else
+#define LPM_MAP_TYPE BPF_MAP_TYPE_HASH
+#endif
+
 #if defined POLICY_INGRESS || defined POLICY_EGRESS
 
 #ifndef LPM_MAP_SIZE
@@ -101,12 +107,6 @@ struct bpf_elf_map __section_maps cilium_tunnel_map = {
 
 #ifndef LPM_MAP_VALUE_SIZE
 #define LPM_MAP_VALUE_SIZE 1
-#endif
-
-#ifdef HAVE_LPM_MAP_TYPE
-#define LPM_MAP_TYPE BPF_MAP_TYPE_LPM_TRIE
-#else
-#define LPM_MAP_TYPE BPF_MAP_TYPE_HASH
 #endif
 
 struct bpf_lpm_trie_key6 {
@@ -292,11 +292,12 @@ struct ipcache_key {
 
 /* Global IP -> Identity map for applying egress label-based policy */
 struct bpf_elf_map __section_maps cilium_ipcache = {
-	.type		= BPF_MAP_TYPE_HASH,
+	.type		= LPM_MAP_TYPE,
 	.size_key	= sizeof(struct ipcache_key),
 	.size_value	= sizeof(struct remote_endpoint_info),
 	.pinning	= PIN_GLOBAL_NS,
 	.max_elem	= IPCACHE_MAP_SIZE,
+	.flags		= BPF_F_NO_PREALLOC,
 };
 
 #ifndef SKIP_CALLS_MAP
