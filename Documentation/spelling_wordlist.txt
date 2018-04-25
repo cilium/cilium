@@ -91,6 +91,7 @@ deserialization
 dev
 Devel
 Dinan
+disassembly
 distros
 DMA
 dns
@@ -113,6 +114,7 @@ eXpress
 extensibility
 Facebook
 Fastabend
+filename
 filesystem
 filesystems
 firewalling
@@ -237,6 +239,7 @@ loadbalancing
 Loadbalancing
 lockless
 logfile
+logout
 lookups
 loopback
 Lund
@@ -259,6 +262,8 @@ Monnet
 mountd
 mov
 mul
+Multi
+multi
 multicore
 multinode
 Mythbusters
@@ -282,6 +287,7 @@ nodeX
 ons
 onwards
 oolchain
+opcodes
 orchestrator
 pc
 pem
@@ -314,6 +320,7 @@ qdisc
 qdiscs
 qede
 queueing
+rebased
 recompiles
 regenerations
 regex
@@ -346,6 +353,7 @@ Spectre
 stap
 stapbpf
 Starovoitov
+startup
 stateful
 Stateful
 statsd
@@ -409,6 +417,7 @@ verifier
 Verifier
 versioned
 veth
+versa
 Viljoen
 virtio
 virtualbox
