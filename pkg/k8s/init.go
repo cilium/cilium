@@ -57,13 +57,11 @@ func Init() error {
 		}
 
 		n := ParseNode(k8sNode)
-		log.WithField(logfields.NodeName, n.Name).Info("Retrieved node information from kubernetes")
-
 		log.WithFields(logrus.Fields{
 			logfields.NodeName:         n.Name,
 			logfields.IPAddr + ".ipv4": n.GetNodeIP(false),
 			logfields.IPAddr + ".ipv6": n.GetNodeIP(true),
-		}).Info("Received own node information from API server")
+		}).Info("Received own node information from Kubernetes API server")
 
 		if err := node.UseNodeCIDR(n); err != nil {
 			return fmt.Errorf("unable to retrieve k8s node CIDR: %s", err)
