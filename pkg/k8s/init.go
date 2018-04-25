@@ -53,8 +53,7 @@ func Init() error {
 
 		k8sNode, err := GetNode(Client(), nodeName)
 		if err != nil {
-			log.WithError(err).Warning("Unable to retrieve k8s node information, skipping...")
-			return nil
+			return fmt.Errorf("unable to retrieve own node resource")
 		}
 
 		n := ParseNode(k8sNode)
