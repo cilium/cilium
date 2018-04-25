@@ -11,7 +11,7 @@
 FROM quay.io/cilium/cilium-builder:2018-04-23 as builder
 LABEL maintainer="maintainer@cilium.io"
 WORKDIR /go/src/github.com/cilium/cilium
-ADD . ./
+COPY . ./
 ARG LOCKDEBUG
 #
 # Please do not add any dependency updates before the 'make install' here,
@@ -32,12 +32,12 @@ RUN make LOCKDEBUG=$LOCKDEBUG PKG_BUILD=1 DESTDIR=/tmp/install clean-container b
 FROM quay.io/cilium/cilium-runtime:2018-04-10
 LABEL maintainer="maintainer@cilium.io"
 COPY --from=builder /tmp/install /
-ADD plugins/cilium-cni/cni-install.sh /cni-install.sh
-ADD plugins/cilium-cni/cni-uninstall.sh /cni-uninstall.sh
+COPY plugins/cilium-cni/cni-install.sh /cni-install.sh
+COPY plugins/cilium-cni/cni-uninstall.sh /cni-uninstall.sh
 WORKDIR /root
-RUN groupadd -f cilium && \
-echo ". /etc/profile.d/bash_completion.sh" >> /root/.bashrc && \
-cilium completion bash >> /root/.bashrc
+RUN groupadd -f cilium \
+	&& echo ". /etc/profile.d/bash_completion.sh" >> /root/.bashrc \
+	&& cilium completion bash >> /root/.bashrc
 ENV INITSYSTEM="SYSTEMD"
 
 CMD ["/usr/bin/cilium"]
