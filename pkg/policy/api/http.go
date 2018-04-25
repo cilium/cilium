@@ -14,6 +14,8 @@
 
 package api
 
+import "regexp"
+
 // PortRuleHTTP is a list of HTTP protocol constraints. All fields are
 // optional, if all fields are empty or missing, the rule does not have any
 // effect.
@@ -55,4 +57,28 @@ type PortRuleHTTP struct {
 	//
 	// +optional
 	Headers []string `json:"headers,omitempty"`
+}
+
+// Sanitize sanitizes HTTP rules. It ensures that the path and method fields
+// are valid regular expressions. Note that the proxy may support a wider-range
+// of regular expressions (e.g. that specified by ECMAScript), so this function
+// may return some false positives. If the rule is invalid, returns an error.
+func (h *PortRuleHTTP) Sanitize() error {
+
+	if h.Path != "" {
+		_, err := regexp.Compile(h.Path)
+		if err != nil {
+			return err
+		}
+	}
+
+	if h.Method != "" {
+		_, err := regexp.Compile(h.Method)
+		if err != nil {
+			return err
+		}
+	}
+
+	// Headers are not sanitized.
+	return nil
 }

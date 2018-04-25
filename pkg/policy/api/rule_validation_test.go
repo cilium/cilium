@@ -145,3 +145,54 @@ func (s *PolicyAPITestSuite) TestL7RulesWithNonTCPProtocols(c *C) {
 	c.Assert(err.Error(), Equals, "L7 rules can only apply exclusively to TCP, not UDP")
 
 }
+
+// This test ensures that PortRules using the HTTP protocol have valid regular
+// expressions for the method and path fields.
+func (s *PolicyAPITestSuite) TestHTTPRuleRegexes(c *C) {
+
+	invalidHTTPRegexPathRule := Rule{
+		EndpointSelector: WildcardEndpointSelector,
+		Ingress: []IngressRule{
+			{
+				FromEndpoints: []EndpointSelector{WildcardEndpointSelector},
+				ToPorts: []PortRule{{
+					Ports: []PortProtocol{
+						{Port: "80", Protocol: ProtoTCP},
+						{Port: "81", Protocol: ProtoTCP},
+					},
+					Rules: &L7Rules{
+						HTTP: []PortRuleHTTP{
+							{Method: "GET", Path: "*"},
+						},
+					},
+				}},
+			},
+		},
+	}
+
+	err := invalidHTTPRegexPathRule.Sanitize()
+	c.Assert(err, Not(IsNil))
+
+	invalidHTTPRegexMethodRule := Rule{
+		EndpointSelector: WildcardEndpointSelector,
+		Ingress: []IngressRule{
+			{
+				FromEndpoints: []EndpointSelector{WildcardEndpointSelector},
+				ToPorts: []PortRule{{
+					Ports: []PortProtocol{
+						{Port: "80", Protocol: ProtoTCP},
+						{Port: "81", Protocol: ProtoTCP},
+					},
+					Rules: &L7Rules{
+						HTTP: []PortRuleHTTP{
+							{Method: "*", Path: "/"},
+						},
+					},
+				}},
+			},
+		},
+	}
+
+	err = invalidHTTPRegexMethodRule.Sanitize()
+	c.Assert(err, Not(IsNil))
+}
