@@ -237,6 +237,14 @@ func (pr *L7Rules) sanitize() error {
 		return fmt.Errorf("multiple L7 protocol rule types specified in single rule")
 	}
 
+	if pr.HTTP != nil {
+		for i := range pr.HTTP {
+			if err := pr.HTTP[i].Sanitize(); err != nil {
+				return err
+			}
+		}
+	}
+
 	if pr.Kafka != nil {
 		for i := range pr.Kafka {
 			if err := pr.Kafka[i].Sanitize(); err != nil {
