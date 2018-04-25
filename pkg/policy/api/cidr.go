@@ -63,21 +63,18 @@ type CIDRRuleSlice []CIDRRule
 // individual CIDRs. This expands the cidr defined by each CIDRRule, applies
 // the CIDR exceptions defined in "ExceptCIDRs", and forms a minimal set of
 // CIDRs that cover all of the CIDRRules.
+//
+// Assumes no error checking is necessary as CIDRRule.Sanitize already does this.
 func ComputeResultantCIDRSet(cidrs CIDRRuleSlice) CIDRSlice {
 	var allResultantAllowedCIDRs CIDRSlice
 	for _, s := range cidrs {
-		// No need for error checking, as CIDRRule.Sanitize() already does.
 		_, allowNet, _ := net.ParseCIDR(string(s.Cidr))
 
 		var removeSubnets []*net.IPNet
 		for _, t := range s.ExceptCIDRs {
-			// No need for error checking, as CIDRRule.Sanitize() already
-			// does.
 			_, removeSubnet, _ := net.ParseCIDR(string(t))
 			removeSubnets = append(removeSubnets, removeSubnet)
 		}
-		// No need for error checking, as have already validated that none of
-		// the possible error cases can occur in ip.RemoveCIDRs
 		resultantAllowedCIDRs, _ := ip.RemoveCIDRs([]*net.IPNet{allowNet}, removeSubnets)
 
 		for _, u := range resultantAllowedCIDRs {
