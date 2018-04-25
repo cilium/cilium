@@ -21,7 +21,6 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/cilium/cilium/api/v1/models"
@@ -869,21 +868,20 @@ func (e *Endpoint) Regenerate(owner Owner, reason string) <-chan bool {
 // state to reflect new policy.
 //
 // Returns true if policy was changed and the endpoint needs to be rebuilt
-func (e *Endpoint) TriggerPolicyUpdatesLocked(owner Owner, opts models.ConfigurationMap) (bool, *sync.WaitGroup, error) {
-	ctCleaned := &sync.WaitGroup{}
+func (e *Endpoint) TriggerPolicyUpdatesLocked(owner Owner, opts models.ConfigurationMap) (bool, error) {
 
 	if e.Consumable == nil {
-		return false, ctCleaned, nil
+		return false, nil
 	}
 
 	needToRegenerateBPF, err := e.regeneratePolicy(owner, opts)
 	if err != nil {
-		return false, ctCleaned, fmt.Errorf("%s: %s", e.StringID(), err)
+		return false, fmt.Errorf("%s: %s", e.StringID(), err)
 	}
 
 	e.getLogger().Debugf("TriggerPolicyUpdatesLocked: changed: %t", needToRegenerateBPF)
 
-	return needToRegenerateBPF, ctCleaned, nil
+	return needToRegenerateBPF, nil
 }
 
 func (e *Endpoint) runIdentityToK8sPodSync() {

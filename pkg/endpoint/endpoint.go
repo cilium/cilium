@@ -1588,10 +1588,9 @@ func (e *Endpoint) Update(owner Owner, cfg *models.EndpointConfigurationSpec) er
 
 	// Option changes may be overridden by the policy configuration.
 	// Currently we return all-OK even in that case.
-	needToRegenerate, ctCleaned, err := e.TriggerPolicyUpdatesLocked(owner, cfg.Options)
+	needToRegenerate, err := e.TriggerPolicyUpdatesLocked(owner, cfg.Options)
 	if err != nil {
 		e.Mutex.Unlock()
-		ctCleaned.Wait()
 		return UpdateCompilationError{err.Error()}
 	}
 
@@ -1635,7 +1634,6 @@ func (e *Endpoint) Update(owner Owner, cfg *models.EndpointConfigurationSpec) er
 				stateTransitionSucceeded := e.SetStateLocked(StateWaitingToRegenerate, reason)
 				if stateTransitionSucceeded {
 					e.Mutex.Unlock()
-					ctCleaned.Wait()
 					e.Regenerate(owner, reason)
 					return nil
 				}
@@ -1644,7 +1642,6 @@ func (e *Endpoint) Update(owner Owner, cfg *models.EndpointConfigurationSpec) er
 				e.Mutex.Lock()
 				e.getLogger().Warningf("timed out waiting for endpoint state to change")
 				e.Mutex.Unlock()
-				ctCleaned.Wait()
 				return UpdateStateChangeError{fmt.Sprintf("unable to regenerate endpoint program because state transition to %s was unsuccessful; check `cilium endpoint log %d` for more information", StateWaitingToRegenerate, e.ID)}
 			}
 		}
@@ -1652,7 +1649,6 @@ func (e *Endpoint) Update(owner Owner, cfg *models.EndpointConfigurationSpec) er
 	}
 
 	e.Mutex.Unlock()
-	ctCleaned.Wait()
 
 	return nil
 }
