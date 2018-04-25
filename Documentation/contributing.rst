@@ -356,14 +356,15 @@ Introduction
 Cilium uses `Ginkgo <https://onsi.github.io/ginkgo>`_ as a testing framework for
 writing end-to-end tests which test Cilium all the way from the API level (e.g.
 importing policies, CLI) to the datapath (i.e, whether policy that is imported
-is enforced accordingly in the datapath).
-The tests in the ``test`` directory are built on top of Ginkgo. Ginkgo provides
-a rich framework for developing tests alongside the benefits of Golang
-(compilation-time checks, types, etc.). To get accustomed to the basics of
-Ginkgo, we recommend reading the
-`Ginkgo Getting-Started Guide <https://onsi.github.io/ginkgo/#getting-started-writing-your-first-test>`_ ,
-as well as running `example tests <https://github.com/onsi/composition-ginkgo-example>`_
-to get a feel for the Ginkgo workflow.
+is enforced accordingly in the datapath).  The tests in the ``test`` directory
+are built on top of Ginkgo. Ginkgo provides a rich framework for developing
+tests alongside the benefits of Golang (compilation-time checks, types, etc.).
+To get accustomed to the basics of Ginkgo, we recommend reading the `Ginkgo
+Getting-Started Guide
+<https://onsi.github.io/ginkgo/#getting-started-writing-your-first-test>`_ , as
+well as running `example tests
+<https://github.com/onsi/composition-ginkgo-example>`_ to get a feel for the
+Ginkgo workflow.
 
 These test scripts will invoke ``vagrant`` to create virtual machine(s) to
 run the tests. The tests make heavy use of the Ginkgo `focus <https://onsi.github.io/ginkgo/#focused-specs>`_ concept to
@@ -1135,6 +1136,21 @@ Logging into VM running tests
 .. code:: bash
 
     $ JOB_BASE_NAME=PR-1588 BUILD_NUMBER=6 vagrant ssh 6e68c6c
+
+
+Jenkinsfiles Extensions
+------------------------
+Cilium uses a custom `Jenkins helper library
+<https://github.com/cilium/Jenkins-library>`_ to gather metadata from PRs and
+simplify our Jenkinsfiles. The exported methods are:
+
+- **ispr()**: return true if the current build is a PR.
+- **setIfPr(string, string)**: return the first argument in case of a PR, if not
+  a PR return the second one.
+- **BuildIfLabel(String label, String Job)**: trigger a new Job if the PR has
+  that specific Label.
+- **Status(String status, String context)**: set pull request check status on
+  the given context, example `Status("SUCCESS", "$JOB_BASE_NAME"`
 
 
 Release Process
