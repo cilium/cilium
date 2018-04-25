@@ -724,6 +724,21 @@ func (kub *Kubectl) CiliumExec(pod string, cmd string) *CmdRes {
 	return res
 }
 
+// CiliumExecUntilMatch executes the specified command repeatedly for the
+// specified Cilium pod until the given substring is present in stdout.
+// If the timeout is reached it will return an error.
+func (kub *Kubectl) CiliumExecUntilMatch(pod, cmd, substr string) error {
+	body := func() bool {
+		res := kub.CiliumExec(pod, cmd)
+		return strings.Contains(res.Output().String(), substr)
+	}
+
+	return WithTimeout(
+		body,
+		fmt.Sprintf("%s is not in the output after timeout", substr),
+		&TimeoutConfig{Timeout: HelperTimeout})
+}
+
 // CiliumNodesWait waits until all nodes in the Kubernetes cluster are annotated
 // with Cilium annotations. Its runtime is bounded by a maximum of `HelperTimeout`.
 // When a node is annotated with said annotations, it indicates
