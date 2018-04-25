@@ -79,9 +79,9 @@ var _ = Describe(testName, func() {
 	checkIP := func(pod, ip string) {
 		jsonpath := fmt.Sprintf("{.cluster.nodes[*].primary-address.*}")
 		ciliumCmd := fmt.Sprintf("cilium status -o jsonpath='%s'", jsonpath)
-		status := kubectl.CiliumExec(pod, ciliumCmd)
-		Expect(status.Output().String()).Should(ContainSubstring(ip))
-		status.ExpectSuccess()
+
+		err := kubectl.CiliumExecUntilMatch(pod, ciliumCmd, ip)
+		ExpectWithOffset(1, err).NotTo(HaveOccurred(), "Never saw cilium-health ip %s in pod %s", ip, pod)
 	}
 
 	It("checks cilium-health status between nodes", func() {
