@@ -139,11 +139,11 @@ func NewMap() *Map {
 	return &Map{
 		Map: *bpf.NewMap(
 			"cilium_ipcache",
-			bpf.BPF_MAP_TYPE_HASH,
+			bpf.BPF_MAP_TYPE_LPM_TRIE,
 			int(unsafe.Sizeof(Key{})),
 			int(unsafe.Sizeof(RemoteEndpointInfo{})),
 			MaxEntries,
-			0,
+			bpf.BPF_F_NO_PREALLOC,
 			func(key []byte, value []byte) (bpf.MapKey, bpf.MapValue, error) {
 				k, v := Key{}, RemoteEndpointInfo{}
 
@@ -159,6 +159,9 @@ func NewMap() *Map {
 // GetMaxPrefixLengths determines how many unique prefix lengths are supported
 // simultaneously based on the underlying BPF map type in use.
 func (m *Map) GetMaxPrefixLengths() (count int) {
+	if IPCache.MapType == bpf.BPF_MAP_TYPE_LPM_TRIE {
+		return net.IPv6len * 8
+	}
 	return maxPrefixLengths
 }
 
