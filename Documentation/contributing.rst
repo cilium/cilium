@@ -344,6 +344,8 @@ commands, respectively:
     $ sudo systemctl status cilium
     $ cilium status
 
+.. _testsuite:
+
 End-To-End Testing Framework
 ----------------------------
 
