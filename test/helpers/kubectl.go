@@ -705,9 +705,8 @@ func (kub *Kubectl) CiliumEndpointPolicyVersion(pod string) map[string]int64 {
 func (kub *Kubectl) CiliumExec(pod string, cmd string) *CmdRes {
 	limitTimes := 5
 	execute := func() *CmdRes {
-		cmd = fmt.Sprintf("%s exec -n kube-system %s -- %s", KubectlCmd, pod, cmd)
-
-		return kub.Exec(cmd)
+		command := fmt.Sprintf("%s exec -n kube-system %s -- %s", KubectlCmd, pod, cmd)
+		return kub.Exec(command)
 	}
 	var res *CmdRes
 	// Sometimes Kubectl returns 126 exit code, It use to happen in Nightly
