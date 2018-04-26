@@ -169,7 +169,7 @@ func ctCreate4Info(n *DebugMsg) string {
 }
 
 func ctLookup6Info1(n *DebugMsg) string {
-	return fmt.Sprintf("src=[::%x]:%d dst=[::%x]:%d", ip6Str(n.Arg1),
+	return fmt.Sprintf("src=[::%s]:%d dst=[::%s]:%d", ip6Str(n.Arg1),
 		n.Arg3&0xFFFF, ip6Str(n.Arg2), n.Arg3>>16)
 }
 
@@ -204,7 +204,8 @@ func ip4Str(arg1 uint32) string {
 }
 
 func ip6Str(arg1 uint32) string {
-	return fmt.Sprintf("%x:%x", arg1&0xFFFF, arg1>>16)
+	ip6 := byteorder.NetworkToHost(arg1).(uint32)
+	return fmt.Sprintf("%x:%x", ip6>>16, ip6&0xFFFF)
 }
 
 // DebugMsg is the message format of the debug message found in the BPF ring buffer
