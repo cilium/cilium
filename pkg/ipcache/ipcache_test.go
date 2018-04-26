@@ -209,3 +209,21 @@ func (s *IPCacheTestSuite) TestKeyToIPNet(c *C) {
 	c.Assert(err, Not(IsNil))
 	c.Assert(isHost, Equals, false)
 }
+
+func (s *IPCacheTestSuite) TestToBPFData(c *C) {
+	identityOffset := 2000
+	prefixes := []string{
+		"192.0.2.0/24",
+		"192.0.64.0/20",
+	}
+
+	ipc := NewIPCache()
+	for i, prefix := range prefixes {
+		id := identityPkg.NumericIdentity(i + identityOffset)
+		ipc.Upsert(prefix, id)
+	}
+
+	s6, s4 := ipc.ToBPFData()
+	c.Assert(s6, comparator.DeepEquals, []int{128})
+	c.Assert(s4, comparator.DeepEquals, []int{32, 24, 20})
+}

@@ -58,26 +58,44 @@ func getStaticPrefixBits() uint32 {
 }
 
 func (k Key) String() string {
+	prefixLen := k.Prefixlen - getStaticPrefixBits()
 	switch k.Family {
 	case bpf.EndpointKeyIPv4:
-		return net.IP(k.IP[:net.IPv4len]).String()
+		ipStr := net.IP(k.IP[:net.IPv4len]).String()
+		return fmt.Sprintf("%s/%d", ipStr, prefixLen)
 	case bpf.EndpointKeyIPv6:
-		return k.IP.String()
+		ipStr := k.IP.String()
+		return fmt.Sprintf("%s/%d", ipStr, prefixLen)
 	}
-	return fmt.Sprintf("<unknown> %#v", k)
+	return fmt.Sprintf("<unknown>")
 }
 
-// NewKey returns an Key based on the provided IP address. The
-// address family is automatically detected
-func NewKey(ip net.IP) Key {
+// getPrefixLen determines the length that should be set inside the Key so that
+// the lookup prefix is correct in the BPF map key. The specified 'prefixBits'
+// indicates the number of bits in the IP that must match to match the entry in
+// the BPF ipcache.
+func getPrefixLen(prefixBits int) uint32 {
+	return getStaticPrefixBits() + uint32(prefixBits)
+}
+
+// NewKey returns an Key based on the provided IP address and mask. The address
+// family is automatically detected
+func NewKey(ip net.IP, mask net.IPMask) Key {
 	result := Key{}
 
+	ones, _ := mask.Size()
 	if ip4 := ip.To4(); ip4 != nil {
-		result.Prefixlen = net.IPv4len*8 + getStaticPrefixBits()
+		if mask == nil {
+			ones = net.IPv4len * 8
+		}
+		result.Prefixlen = getPrefixLen(ones)
 		result.Family = bpf.EndpointKeyIPv4
 		copy(result.IP[:], ip4)
 	} else {
-		result.Prefixlen = net.IPv6len*8 + getStaticPrefixBits()
+		if mask == nil {
+			ones = net.IPv6len * 8
+		}
+		result.Prefixlen = getPrefixLen(ones)
 		result.Family = bpf.EndpointKeyIPv6
 		copy(result.IP[:], ip)
 	}

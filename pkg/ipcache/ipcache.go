@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"net"
 	"path"
+	"sort"
 	"strings"
 	"sync"
 
@@ -59,6 +60,11 @@ type IPCache struct {
 	mutex             lock.RWMutex
 	ipToIdentityCache map[string]identity.NumericIdentity
 	identityToIPCache map[identity.NumericIdentity]map[string]struct{}
+
+	// prefixLengths reference-count the number of CIDRs that use
+	// particular prefix lengths for the mask.
+	v4PrefixLengths map[int]int
+	v6PrefixLengths map[int]int
 }
 
 // NewIPCache returns a new IPCache with the mappings of endpoint IP to security
@@ -67,6 +73,8 @@ func NewIPCache() *IPCache {
 	return &IPCache{
 		ipToIdentityCache: map[string]identity.NumericIdentity{},
 		identityToIPCache: map[identity.NumericIdentity]map[string]struct{}{},
+		v4PrefixLengths:   map[int]int{},
+		v6PrefixLengths:   map[int]int{},
 	}
 }
 
@@ -121,6 +129,25 @@ func DeleteIPFromKVStore(ip string) error {
 	return kvstore.Delete(ipKey)
 }
 
+// refPrefixLength adds one reference to the prefix length in the map.
+func refPrefixLength(prefixLengths map[int]int, length int) {
+	if _, ok := prefixLengths[length]; ok {
+		prefixLengths[length]++
+	} else {
+		prefixLengths[length] = 1
+	}
+}
+
+// refPrefixLength removes one reference from the prefix length in the map.
+func unrefPrefixLength(prefixLengths map[int]int, length int) {
+	value, _ := prefixLengths[length]
+	if value <= 1 {
+		delete(prefixLengths, length)
+	} else {
+		prefixLengths[length]--
+	}
+}
+
 // Upsert adds / updates the provided IP (endpoint or CIDR prefix) and identity
 // into the IPCache.
 func (ipc *IPCache) Upsert(IP string, identity identity.NumericIdentity) {
@@ -143,6 +170,17 @@ func (ipc *IPCache) Upsert(IP string, identity identity.NumericIdentity) {
 		ipc.identityToIPCache[identity] = map[string]struct{}{}
 	}
 	ipc.identityToIPCache[identity][IP] = struct{}{}
+
+	// Add a reference for the prefix length if this is a CIDR.
+	if _, cidr, err := net.ParseCIDR(IP); err == nil {
+		pl, bits := cidr.Mask.Size()
+		switch bits {
+		case net.IPv6len * 8:
+			refPrefixLength(ipc.v6PrefixLengths, pl)
+		case net.IPv4len * 8:
+			refPrefixLength(ipc.v4PrefixLengths, pl)
+		}
+	}
 }
 
 // deleteLocked removes removes the provided IP-to-security-identity mapping
@@ -159,7 +197,47 @@ func (ipc *IPCache) deleteLocked(IP string) {
 		if len(ipc.identityToIPCache[identity]) == 0 {
 			delete(ipc.identityToIPCache, identity)
 		}
+
+		// Remove a reference for the prefix length if this is a CIDR.
+		if _, cidr, err := net.ParseCIDR(IP); err == nil {
+			pl, bits := cidr.Mask.Size()
+			switch bits {
+			case net.IPv6len * 8:
+				unrefPrefixLength(ipc.v6PrefixLengths, pl)
+			case net.IPv4len * 8:
+				unrefPrefixLength(ipc.v4PrefixLengths, pl)
+			}
+		}
 	}
+}
+
+// ToBPFData renders the ipcache into the relevant set of CIDR prefixes for
+// the BPF datapath to use for lookup.
+func (ipc *IPCache) ToBPFData() (s6, s4 []int) {
+	ipc.mutex.RLock()
+	defer ipc.mutex.RUnlock()
+	s6 = make([]int, 0, len(ipc.v6PrefixLengths))
+	s4 = make([]int, 0, len(ipc.v4PrefixLengths))
+
+	// Always include host prefix
+	s6 = append(s6, net.IPv6len*8)
+	for prefix := range ipc.v6PrefixLengths {
+		if prefix != net.IPv6len*8 {
+			s6 = append(s6, prefix)
+		}
+	}
+	sort.Sort(sort.Reverse(sort.IntSlice(s6)))
+
+	// Always include host prefix
+	s4 = append(s4, net.IPv4len*8)
+	for prefix := range ipc.v4PrefixLengths {
+		if prefix != net.IPv4len*8 {
+			s4 = append(s4, prefix)
+		}
+	}
+	sort.Sort(sort.Reverse(sort.IntSlice(s4)))
+
+	return
 }
 
 // delete removes the provided IP-to-security-identity mapping from the IPCache.
