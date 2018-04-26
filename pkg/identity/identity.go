@@ -30,6 +30,8 @@ type Identity struct {
 	Labels labels.Labels `json:"labels"`
 	// SHA256 of labels.
 	LabelsSHA256 string `json:"labelsSHA256"`
+
+	LabelArray labels.LabelArray `json:"-""`
 }
 
 // IPIdentityPair is a pairing of an IP and the security identity to which that
@@ -50,13 +52,16 @@ func NewIdentityFromModel(base *models.Identity) *Identity {
 	}
 
 	id := &Identity{
-		ID:     NumericIdentity(base.ID),
-		Labels: make(labels.Labels),
+		ID:         NumericIdentity(base.ID),
+		Labels:     make(labels.Labels),
+		LabelArray: make(labels.LabelArray, len(base.Labels)),
 	}
 	for _, v := range base.Labels {
 		lbl := labels.ParseLabel(v)
 		id.Labels[lbl.Key] = lbl
 	}
+
+	id.LabelArray = id.Labels.ToSlice()
 
 	return id
 }
@@ -96,5 +101,5 @@ func (id *Identity) GetModel() *models.Identity {
 
 // NewIdentity creates a new identity
 func NewIdentity(id NumericIdentity, lbls labels.Labels) *Identity {
-	return &Identity{ID: id, Labels: lbls}
+	return &Identity{ID: id, Labels: lbls, LabelArray: lbls.ToSlice()}
 }

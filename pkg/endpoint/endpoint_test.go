@@ -334,7 +334,7 @@ func (s *EndpointSuite) TestEndpointState(c *C) {
 }
 
 func (s *EndpointSuite) TestWaitForPolicyRevision(c *C) {
-	e := &Endpoint{policyRevision: 0}
+	e := &Endpoint{realizedPolicyRevision: 0}
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(1*time.Second))
 
@@ -344,7 +344,7 @@ func (s *EndpointSuite) TestWaitForPolicyRevision(c *C) {
 
 	cancel()
 
-	e.policyRevision = 1
+	e.realizedPolicyRevision = 1
 
 	ctx, cancel = context.WithTimeout(context.Background(), time.Duration(1*time.Second))
 
@@ -354,7 +354,7 @@ func (s *EndpointSuite) TestWaitForPolicyRevision(c *C) {
 
 	cancel()
 
-	e.policyRevision = 1
+	e.realizedPolicyRevision = 1
 
 	ctx, cancel = context.WithCancel(context.Background())
 
@@ -406,7 +406,7 @@ func (s *EndpointSuite) TestWaitForPolicyRevision(c *C) {
 }
 
 func (s *EndpointSuite) TestProxyID(c *C) {
-	e := &Endpoint{ID: 123, policyRevision: 0}
+	e := &Endpoint{ID: 123, realizedPolicyRevision: 0}
 
 	id := e.ProxyID(&policy.L4Filter{Port: 8080, Protocol: api.ProtoTCP, Ingress: true})
 	endpointID, ingress, protocol, port, err := policy.ParseProxyID(id)

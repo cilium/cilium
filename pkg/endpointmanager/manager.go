@@ -284,7 +284,7 @@ func HasGlobalCT() bool {
 	eps := GetEndpoints()
 	for _, e := range eps {
 		e.RLock()
-		globalCT := e.Consumable != nil && !e.Opts.IsEnabled(endpoint.OptionConntrackLocal)
+		globalCT := e.SecurityIdentity != nil && !e.Opts.IsEnabled(endpoint.OptionConntrackLocal)
 		e.RUnlock()
 		if globalCT {
 			return true

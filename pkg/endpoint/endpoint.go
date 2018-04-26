@@ -427,35 +427,27 @@ type Endpoint struct {
 	// the endpoint's labels.
 	SecurityIdentity *identityPkg.Identity `json:"SecLabel"`
 
-	// LabelsHash is a SHA256 hash over the SecurityIdentity labels
-	LabelsHash string
-
-	// LabelsMap is the Set of all security labels used in the last policy computation
-	LabelsMap *identityPkg.IdentityCache
+	// IdentityCache is the the cached set of all security identities used in the last
+	// policy computation for this endpoint.
+	IdentityCache *identityPkg.IdentityCache
 
 	// PortMap is port mapping configuration of the endpoint
-	PortMap []PortMap // Port mapping used for this endpoint.
+	PortMap []PortMap
 
-	// Consumable represents the security-identity-based policy for this endpoint.
-	Consumable *policy.Consumable `json:"-"`
+	// RealizedL4Policy is the L4Policy in effect for the endpoint.
+	RealizedL4Policy *policy.L4Policy `json:"-"`
 
-	// L4Policy is the L4Policy in effect for the
-	// endpoint. Outside of policy recalculation, it is the same as the
-	// Consumable's L4Policy, but this is needed during policy recalculation to
-	// be able to clean up PolicyMap after the endpoint's consumable has already
-	// been updated.
-	L4Policy *policy.L4Policy `json:"-"`
+	// DesiredL4Policy is the desired L4Policy in effect for the endpoint.
+	DesiredL4Policy *policy.L4Policy `json:"-"`
 
 	// PolicyMap is the policy related state of the datapath including
 	// reference to all policy related BPF
 	PolicyMap *policymap.PolicyMap `json:"-"`
 
-	// CIDRPolicy is the CIDR based policy configuration of the endpoint. This
-	// is not contained within the Consumable for this endpoint because the
-	// Consumable only contains identity-based policy information.
+	// CIDRPolicy is the CIDR based policy configuration of the endpoint.
 	L3Policy *policy.CIDRPolicy `json:"-"`
 
-	// L3Maps is the datapath representation of CIDRPolicy
+	// L3Maps is the datapath representation of CIDRPolicy.
 	L3Maps L3Maps `json:"-"`
 
 	// Opts are configurable boolean options
@@ -467,11 +459,11 @@ type Endpoint struct {
 	// state is the state the endpoint is in. See SetStateLocked()
 	state string
 
-	// PolicyCalculated is true as soon as the policy has been calculated
+	// policyCalculated is true as soon as the policy has been calculated
 	// for the first time. As long as this value is false, all packets sent
 	// by the endpoint will be dropped to ensure that the endpoint cannot
 	// bypass policy while it is still being resolved.
-	PolicyCalculated bool `json:"-"`
+	policyCalculated bool `json:"-"`
 
 	// bpfHeaderfileHash is the hash of the last BPF headerfile that has been
 	// compiled and installed.
@@ -480,12 +472,12 @@ type Endpoint struct {
 	k8sPodName   string
 	k8sNamespace string
 
-	// policyRevision is the policy revision this endpoint is currently on
+	// realizedPolicyRevision is the current policy revision for the endpoint.
 	// to modify this field please use endpoint.setPolicyRevision instead
-	policyRevision uint64
+	realizedPolicyRevision uint64
 
 	// policyRevisionSignals contains a map of PolicyRevision signals that
-	// should be triggered once the policyRevision reaches the wanted wantedRev.
+	// should be triggered once the realizedPolicyRevision reaches the wanted wantedRev.
 	policyRevisionSignals map[policySignal]bool
 
 	// proxyPolicyRevision is the policy revision that has been applied to
@@ -535,6 +527,10 @@ type Endpoint struct {
 	// ProxyWaitGroup waits for pending proxy changes to complete.
 	// You must hold Endpoint.BuildMutex to read or write it.
 	ProxyWaitGroup *completion.WaitGroup `json:"-"`
+
+	realizedMapState map[PolicyKeyMeta]struct{}
+
+	desiredMapState map[PolicyKeyMeta]struct{}
 }
 
 // WaitForProxyCompletions blocks until all proxy changes have been completed.
@@ -942,21 +938,35 @@ func (e *Endpoint) GetPolicyModel() *models.EndpointPolicyStatus {
 		return nil
 	}
 
-	if e.Consumable == nil {
+	if e.SecurityIdentity == nil {
 		return nil
 	}
 
-	e.Consumable.Mutex.RLock()
-	defer e.Consumable.Mutex.RUnlock()
+	realizedIngressIdentities := make([]int64, 0)
+	realizedEgressIdentities := make([]int64, 0)
+	for policyKeyMeta := range e.realizedMapState {
+		if policyKeyMeta.DPort == 0 {
+			if policyKeyMeta.TrafficDirection == policymap.Ingress {
+				realizedIngressIdentities = append(realizedIngressIdentities, int64(policyKeyMeta.ID))
+			} else {
+				realizedEgressIdentities = append(realizedEgressIdentities, int64(policyKeyMeta.ID))
+			}
 
-	ingressIdentities := make([]int64, 0, len(e.Consumable.IngressIdentities))
-	for ingressIdentity := range e.Consumable.IngressIdentities {
-		ingressIdentities = append(ingressIdentities, int64(ingressIdentity))
+		}
 	}
 
-	egressIdentities := make([]int64, 0, len(e.Consumable.EgressIdentities))
-	for egressIdentity := range e.Consumable.EgressIdentities {
-		egressIdentities = append(egressIdentities, int64(egressIdentity))
+	desiredIngressIdentities := make([]int64, 0)
+	desiredEgressIdentities := make([]int64, 0)
+
+	for policyKeyMeta := range e.desiredMapState {
+		if policyKeyMeta.DPort == 0 {
+			if policyKeyMeta.TrafficDirection == policymap.Ingress {
+				desiredIngressIdentities = append(desiredIngressIdentities, int64(policyKeyMeta.ID))
+			} else {
+				desiredEgressIdentities = append(desiredEgressIdentities, int64(policyKeyMeta.ID))
+			}
+
+		}
 	}
 
 	policyIngressEnabled := e.Opts.IsEnabled(OptionIngressPolicy)
@@ -982,21 +992,33 @@ func (e *Endpoint) GetPolicyModel() *models.EndpointPolicyStatus {
 	e.proxyStatisticsMutex.RUnlock()
 	sortProxyStats(proxyStats)
 
-	mdl := &models.EndpointPolicy{
-		ID:                       int64(e.Consumable.ID),
-		Build:                    int64(e.Consumable.Iteration),
-		PolicyRevision:           int64(e.policyRevision),
-		AllowedIngressIdentities: ingressIdentities,
-		AllowedEgressIdentities:  egressIdentities,
+	realizedModel := &models.EndpointPolicy{
+		ID:                       int64(e.SecurityIdentity.ID),
+		Build:                    int64(e.realizedPolicyRevision),
+		PolicyRevision:           int64(e.realizedPolicyRevision),
+		AllowedIngressIdentities: realizedIngressIdentities,
+		AllowedEgressIdentities:  realizedEgressIdentities,
 		CidrPolicy:               e.L3Policy.GetModel(),
-		L4:                       e.Consumable.L4Policy.GetModel(),
+		L4:                       e.RealizedL4Policy.GetModel(),
 		PolicyEnabled:            policyEnabled,
 	}
+
+	desiredModel := &models.EndpointPolicy{
+		ID:                       int64(e.SecurityIdentity.ID),
+		Build:                    int64(e.nextPolicyRevision),
+		PolicyRevision:           int64(e.nextPolicyRevision),
+		AllowedIngressIdentities: desiredIngressIdentities,
+		AllowedEgressIdentities:  desiredEgressIdentities,
+		CidrPolicy:               e.L3Policy.GetModel(),
+		L4:                       e.DesiredL4Policy.GetModel(),
+		PolicyEnabled:            policyEnabled,
+	}
+
 	// FIXME GH-3280 Once we start returning revisions Realized should be the
 	// policy implemented in the data path
 	return &models.EndpointPolicyStatus{
-		Spec:                mdl,
-		Realized:            mdl,
+		Spec:                desiredModel,
+		Realized:            realizedModel,
 		ProxyPolicyRevision: int64(e.proxyPolicyRevision),
 		ProxyStatistics:     proxyStats,
 	}
@@ -1230,15 +1252,6 @@ func (e *Endpoint) directoryPath() string {
 	return filepath.Join(".", fmt.Sprintf("%d", e.ID))
 }
 
-func (e *Endpoint) Allows(id identityPkg.NumericIdentity) bool {
-	e.Mutex.RLock()
-	defer e.Mutex.RUnlock()
-	if e.Consumable != nil {
-		return e.Consumable.AllowsIngress(id)
-	}
-	return false
-}
-
 // String returns endpoint on a JSON format.
 func (e *Endpoint) String() string {
 	e.Mutex.RLock()
@@ -1322,10 +1335,8 @@ func (e *Endpoint) base64() (string, error) {
 		jsonBytes []byte
 		err       error
 	)
-	if e.Consumable != nil {
-		e.Consumable.Mutex.RLock()
+	if e.SecurityIdentity != nil {
 		jsonBytes, err = json.Marshal(e)
-		e.Consumable.Mutex.RUnlock()
 	} else {
 		jsonBytes, err = json.Marshal(e)
 	}
@@ -1389,8 +1400,8 @@ func (e *Endpoint) RemoveFromGlobalPolicyMap() error {
 	if err == nil {
 		// We need to remove ourselves from global map, so that
 		// resources (prog/map reference counts) can be released.
-		gpm.DeleteIdentity(uint32(e.ID), policymap.Ingress)
-		gpm.DeleteIdentity(uint32(e.ID), policymap.Egress)
+		gpm.Delete(uint32(e.ID), 0, 0, policymap.Ingress)
+		gpm.Delete(uint32(e.ID), 0, 0, policymap.Egress)
 		gpm.Close()
 	}
 
@@ -1725,13 +1736,9 @@ func (e *Endpoint) LeaveLocked(owner Owner) []error {
 	errors := []error{}
 
 	owner.RemoveFromEndpointQueue(uint64(e.ID))
-	if c := e.Consumable; c != nil {
-		c.Mutex.Lock()
-		if e.L4Policy != nil {
-			// Passing a new map of nil will purge all redirects
-			e.removeOldRedirects(owner, nil)
-		}
-		c.Mutex.Unlock()
+	if e.RealizedL4Policy != nil {
+		// Passing a new map of nil will purge all redirects
+		e.removeOldRedirects(owner, nil)
 	}
 
 	if e.PolicyMap != nil {
@@ -2031,7 +2038,7 @@ OKState:
 // policy revision as setup by e.regenerate(). endpoint.Mutex should not be held.
 func (e *Endpoint) bumpPolicyRevision(revision uint64) {
 	e.Mutex.Lock()
-	if revision > e.policyRevision {
+	if revision > e.realizedPolicyRevision {
 		e.setPolicyRevision(revision)
 	}
 	e.Mutex.Unlock()
@@ -2329,7 +2336,7 @@ func (e *Endpoint) identityLabelsChanged(owner Owner, myChangeRev int) error {
 
 // setPolicyRevision sets the policy wantedRev with the given revision.
 func (e *Endpoint) setPolicyRevision(rev uint64) {
-	e.policyRevision = rev
+	e.realizedPolicyRevision = rev
 	for ps := range e.policyRevisionSignals {
 		select {
 		case <-ps.ctx.Done():
@@ -2370,7 +2377,7 @@ func (e *Endpoint) WaitForPolicyRevision(ctx context.Context, rev uint64) <-chan
 	e.Mutex.Lock()
 	defer e.Mutex.Unlock()
 	ch := make(chan struct{})
-	if e.policyRevision >= rev || e.state == StateDisconnected {
+	if e.realizedPolicyRevision >= rev || e.state == StateDisconnected {
 		close(ch)
 		return ch
 	}
@@ -2396,4 +2403,64 @@ func (e *Endpoint) IPs() []net.IP {
 		ips = append(ips, e.IPv6.IP())
 	}
 	return ips
+}
+
+func (e *Endpoint) syncPolicyWithDatapath() {
+	ctrlName := fmt.Sprintf("sync-policymap-%d", e.ID)
+	e.controllers.UpdateController(ctrlName,
+		controller.ControllerParams{
+			DoFunc: func() error {
+				e.Mutex.Lock()
+				defer e.Mutex.Unlock()
+
+				if e.realizedMapState == nil {
+					e.realizedMapState = make(map[PolicyKeyMeta]struct{})
+				}
+
+				currentMapContents, err := e.PolicyMap.DumpToSlice()
+
+				if err != nil {
+					return fmt.Errorf("unable to dump PolicyMap for endpoint: %s", err)
+				}
+
+				for _, entry := range currentMapContents {
+					keyToAnalyze := PolicyKeyMeta{
+						ID:               entry.Key.GetIdentity(),
+						DPort:            entry.Key.GetPort(),
+						Proto:            entry.Key.GetProto(),
+						TrafficDirection: policymap.TrafficDirection(entry.Key.GetDirection()),
+					}
+
+					// If key that is in policy map is not in desired state, just remove it.
+					if _, ok := e.desiredMapState[keyToAnalyze]; !ok {
+						err := e.PolicyMap.Delete(keyToAnalyze.ID, keyToAnalyze.DPort, keyToAnalyze.Proto, keyToAnalyze.TrafficDirection)
+						if err != nil {
+							return err
+						}
+						// Remove from realized state
+						delete(e.realizedMapState, keyToAnalyze)
+					}
+				}
+
+				for keyToAdd := range e.desiredMapState {
+					if _, ok := e.realizedMapState[keyToAdd]; !ok {
+						err := e.PolicyMap.Allow(keyToAdd.ID, keyToAdd.DPort, keyToAdd.Proto, keyToAdd.TrafficDirection)
+						if err != nil {
+							return err
+						}
+						e.realizedMapState[keyToAdd] = struct{}{}
+					}
+				}
+
+				// TODO: this is only done once unfortunately because the way
+				// L4Policy is calculated makes it hard to map it directly to
+				// policy map updates.
+				e.RealizedL4Policy = e.DesiredL4Policy
+				e.setPolicyRevision(e.nextPolicyRevision)
+
+				return nil
+			},
+			RunInterval: time.Duration(1) * time.Minute,
+		},
+	)
 }

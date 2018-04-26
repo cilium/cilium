@@ -18,14 +18,11 @@ import (
 	"encoding/json"
 	"net"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/cilium/cilium/pkg/endpointmanager"
-	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/policymap"
-	"github.com/cilium/cilium/pkg/policy"
 )
 
 // LogstashStat is used to collect stats from the policy dumps.
@@ -101,7 +98,7 @@ func EnableLogstash(LogstashAddr string, refreshTime int) {
 	}
 }
 
-func getInlineLabelStr(id identity.NumericIdentity) string {
+/*func getInlineLabelStr(id identity.NumericIdentity) string {
 	l := policy.ResolveIdentityLabels(id)
 	if l == nil {
 		return ""
@@ -111,7 +108,7 @@ func getInlineLabelStr(id identity.NumericIdentity) string {
 		inlineLblSlice = append(inlineLblSlice, lbl.String())
 	}
 	return strings.Join(inlineLblSlice, "\n")
-}
+}*/
 
 func processStats(allPes map[uint16][]policymap.PolicyEntryDump) []LogstashStat {
 	lss := []LogstashStat{}
@@ -121,8 +118,8 @@ func processStats(allPes map[uint16][]policymap.PolicyEntryDump) []LogstashStat 
 		}
 		for _, stat := range v {
 			lss = append(lss, LogstashStat{
-				FromID:  stat.Key.Identity,
-				From:    getInlineLabelStr(identity.NumericIdentity(stat.Key.Identity)),
+				FromID: stat.Key.Identity,
+				//From:    getInlineLabelStr(identity.NumericIdentity(stat.Key.Identity)),
 				ToID:    strconv.FormatUint(uint64(k), 10),
 				Bytes:   stat.Bytes,
 				Packets: stat.Packets,

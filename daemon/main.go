@@ -707,7 +707,7 @@ func runDaemon() {
 		return
 	}
 
-	policy.InitReserved()
+	//policy.InitReserved()
 
 	log.Info("Starting connection tracking garbage collector")
 	endpointmanager.EnableConntrackGC(!d.conf.IPv4Disabled, true)

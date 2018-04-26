@@ -269,11 +269,11 @@ func updatePolicyKey(cmd *cobra.Command, args []string, add bool) {
 		u8p := u8proto.U8proto(proto)
 		entry := fmt.Sprintf("%d %d/%s", label, port, u8p.String())
 		if add == true {
-			if err := policyMap.AllowL4(label, port, proto, parsedTd); err != nil {
+			if err := policyMap.Allow(label, port, proto, parsedTd); err != nil {
 				Fatalf("Cannot add policy key '%s': %s\n", entry, err)
 			}
 		} else {
-			if err := policyMap.DeleteL4(label, port, proto, parsedTd); err != nil {
+			if err := policyMap.Delete(label, port, proto, parsedTd); err != nil {
 				Fatalf("Cannot delete policy key '%s': %s\n", entry, err)
 			}
 		}

@@ -30,6 +30,10 @@ var (
 // IdentityCache is a cache of identity to labels mapping
 type IdentityCache map[NumericIdentity]labels.LabelArray
 
+func GetReservedIdentities() map[NumericIdentity]*Identity {
+	return reservedIdentityCache
+}
+
 // GetIdentityCache returns a cache of all known identities
 func GetIdentityCache() IdentityCache {
 	cache := IdentityCache{}
