@@ -656,23 +656,6 @@ var _ = Describe("K8sValidatedPolicyTest", func() {
 				helpers.KubectlPolicyNameSpaceLabel, helpers.DefaultNamespace)
 		}
 
-		waitUntilDelete := func() {
-			By("Waiting until pods are deleted")
-			body := func() bool {
-				pods, err := kubectl.GetPodNames(helpers.DefaultNamespace, groupLabel)
-				status := len(pods)
-				if status == 0 {
-					return true
-				}
-				logger.WithError(err).Infof("Pods are not deleted, pods running '%d'", status)
-				return false
-			}
-
-			err := helpers.WithTimeout(body, "Pods were not able to be deleted",
-				&helpers.TimeoutConfig{Timeout: helpers.HelperTimeout})
-			Expect(err).To(BeNil(), "Pods didn't terminate correctly")
-		}
-
 		AfterEach(func() {
 
 			kubectl.Delete(kubectl.ManifestGet(webPolicy)).ExpectSuccess(
@@ -690,7 +673,9 @@ var _ = Describe("K8sValidatedPolicyTest", func() {
 				BeFalse(), "WebPolicy is not deleted")
 			Expect(kubectl.CiliumIsPolicyLoaded(ciliumPod, getPolicyCmd(redisPolicyName))).To(
 				BeFalse(), "RedisPolicyName is not deleted")
-			waitUntilDelete()
+
+			err := kubectl.WaitCleanAllTerminatingPods()
+			Expect(err).To(BeNil(), "Terminating containers are not deleted after timeout")
 		})
 
 		waitforPods := func() {
@@ -797,11 +782,10 @@ EOF`, k, v)
 	Context("KubernetesNetworkPolicy between server and client", func() {
 
 		var (
-			policy *networkingv1.NetworkPolicy
-			err    error
+			policy = "allow-ns-b-via-namespace-selector"
 		)
 
-		BeforeEach(func() {
+		BeforeAll(func() {
 			By("Creating the namespace that will be used for the pods")
 			_, err := kubectl.CoreV1().Namespaces().Create(&v1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: namespace}})
 			Expect(err).NotTo(HaveOccurred())
@@ -815,24 +799,28 @@ EOF`, k, v)
 				err := kubectl.WaitForPodReady(ctx, namespace, podServer.Name)
 				Expect(err).NotTo(HaveOccurred())
 			})
-
-			By("Testing pods can connect to both ports when no policy is present.")
-			testCanConnect(kubectl, namespace, "client-can-connect-80", service, 80, true)
-			testCanConnect(kubectl, namespace, "client-can-connect-81", service, 81, true)
 		})
 
 		AfterEach(func() {
-			cleanupNetworkPolicy(kubectl, policy)
+			_ = kubectl.DeleteResource("netpol", fmt.Sprintf("%s -n%s", policy, namespace))
 			cleanupServerPodAndService(kubectl, podServer, service)
+		})
+
+		AfterAll(func() {
 			By("Deleting the namespace that was used for the pods")
 			err := kubectl.CoreV1().Namespaces().Delete(namespace, &metav1.DeleteOptions{})
-			Expect(err).NotTo(HaveOccurred())
+			Expect(err).NotTo(HaveOccurred(), "cannot delete %q namespace", namespace)
 		})
 
 		It("should enforce policy based on NamespaceSelector", func() {
+			By("Testing pods can connect to both ports when no policy is present.")
+			testCanConnect(kubectl, namespace, "client-can-connect-80", service, 80, true)
+			testCanConnect(kubectl, namespace, "client-can-connect-81", service, 81, true)
+
+			By("Apply the network policy")
 			policyBeforeCreate := &networkingv1.NetworkPolicy{
 				ObjectMeta: metav1.ObjectMeta{
-					Name: "allow-ns-b-via-namespace-selector",
+					Name: policy,
 				},
 				Spec: networkingv1.NetworkPolicySpec{
 					// Apply to server
@@ -853,8 +841,9 @@ EOF`, k, v)
 					}},
 				},
 			}
-			policy, err = kubectl.NetworkingV1().NetworkPolicies(namespace).Create(policyBeforeCreate)
-			Expect(err).NotTo(HaveOccurred())
+
+			err := kubectl.ApplyNetworkPolicyUsingAPI(namespace, policyBeforeCreate)
+			Expect(err).To(BeNil(), "cannot apply network policy")
 
 			// Create a pod with name 'client-cannot-connect', which will attempt to communicate with the server,
 			// but should not be able to now that isolation is on.
@@ -1205,10 +1194,4 @@ func testCanConnect(k *helpers.Kubectl, ns, podName string, service *v1.Service,
 		ExpectWithOffset(1, err).To(HaveOccurred(), "Pod did not finish as expected.")
 		ExpectWithOffset(1, success).To(BeFalse(), "Able to connect to service %s on port %d. (It shouldn't)", service.String(), dPort)
 	}
-}
-
-func cleanupNetworkPolicy(k *helpers.Kubectl, policy *networkingv1.NetworkPolicy) {
-	By(fmt.Sprintf("Cleaning up the policy %s/%s", policy.Namespace, policy.Name))
-	err := k.NetworkingV1().NetworkPolicies(policy.Namespace).Delete(policy.Name, nil)
-	ExpectWithOffset(1, err).NotTo(HaveOccurred(), "Unable to clean up policy %s/%s", policy.Namespace, policy.Name)
 }
