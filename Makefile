@@ -63,6 +63,7 @@ start-kvstores:
         etcd -name etcd0 \
         -advertise-client-urls http://0.0.0.0:4001 \
         -listen-client-urls http://0.0.0.0:4001 \
+        -listen-peer-urls http://0.0.0.0:2380 \
         -initial-cluster-token etcd-cluster-1 \
         -initial-cluster-state new
 	@docker rm -f "cilium-consul-test-container" 2> /dev/null || true
