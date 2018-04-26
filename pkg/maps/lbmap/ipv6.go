@@ -74,7 +74,7 @@ var (
 				return nil, nil, err
 			}
 
-			return svcKey.ToNetwork(), svcVal, nil
+			return svcKey.ToNetwork(), &svcVal, nil
 		})
 )
 

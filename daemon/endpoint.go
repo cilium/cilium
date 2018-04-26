@@ -789,7 +789,7 @@ func (d *Daemon) OnIPIdentityCacheChange(modType ipcache.CacheModification, ipID
 	switch modType {
 	case ipcache.Upsert:
 		value := ipCacheBPF.RemoteEndpointInfo{SecurityIdentity: uint16(ipIDPair.ID)}
-		err := ipCacheBPF.IPCache.Update(key, value)
+		err := ipCacheBPF.IPCache.Update(key, &value)
 		if err != nil {
 			log.WithError(err).WithFields(logrus.Fields{"key": key.String(),
 				"value": value.String()}).
