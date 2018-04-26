@@ -58,12 +58,12 @@ type RemoteEndpointInfo struct {
 	Pad              [3]uint16
 }
 
-func (v RemoteEndpointInfo) String() string {
+func (v *RemoteEndpointInfo) String() string {
 	return fmt.Sprintf("%d", v.SecurityIdentity)
 }
 
 // GetValuePtr returns the unsafe pointer to the BPF value.
-func (v RemoteEndpointInfo) GetValuePtr() unsafe.Pointer { return unsafe.Pointer(&v) }
+func (v *RemoteEndpointInfo) GetValuePtr() unsafe.Pointer { return unsafe.Pointer(v) }
 
 var (
 	// IPCache is a mapping of all endpoint IPs in the cluster which this
@@ -82,7 +82,7 @@ var (
 			if err := bpf.ConvertKeyValue(key, value, &k, &v); err != nil {
 				return nil, nil, err
 			}
-			return k, v, nil
+			return k, &v, nil
 		},
 	)
 )
