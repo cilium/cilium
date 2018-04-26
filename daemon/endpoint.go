@@ -776,6 +776,7 @@ func (d *Daemon) OnIPIdentityCacheChange(modType ipcache.CacheModification, ipID
 
 	log.WithFields(logrus.Fields{logfields.Modification: modType,
 		logfields.IPAddr:   ipIDPair.IP,
+		logfields.IPMask:   ipIDPair.Mask,
 		logfields.Identity: ipIDPair.ID}).
 		Debug("daemon notified of IP-Identity cache state change")
 
@@ -784,7 +785,7 @@ func (d *Daemon) OnIPIdentityCacheChange(modType ipcache.CacheModification, ipID
 	// logically located.
 
 	// Update BPF Maps.
-	key := ipCacheBPF.NewKey(ipIDPair.IP)
+	key := ipCacheBPF.NewKey(ipIDPair.IP, ipIDPair.Mask)
 
 	switch modType {
 	case ipcache.Upsert:

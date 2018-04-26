@@ -36,6 +36,7 @@ import (
 	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/geneve"
 	"github.com/cilium/cilium/pkg/identity"
+	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/cidrmap"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
@@ -313,8 +314,17 @@ func (e *Endpoint) writeHeaderfile(prefix string, owner Owner) error {
 	}
 
 	// IPCache only supports hosts at the moment, only set host prefix
-	fw.WriteString("#define IPCACHE6_PREFIXES 128\n") // bits
-	fw.WriteString("#define IPCACHE4_PREFIXES 32\n")  // bits
+	ipcachePrefixes6, ipcachePrefixes4 := ipcache.IPIdentityCache.ToBPFData()
+	fw.WriteString("#define IPCACHE6_PREFIXES ")
+	for _, prefix := range ipcachePrefixes6 {
+		fmt.Fprintf(fw, "%d,", prefix)
+	}
+	fw.WriteString("\n")
+	fw.WriteString("#define IPCACHE4_PREFIXES ")
+	for _, prefix := range ipcachePrefixes4 {
+		fmt.Fprintf(fw, "%d,", prefix)
+	}
+	fw.WriteString("\n")
 
 	return fw.Flush()
 }
