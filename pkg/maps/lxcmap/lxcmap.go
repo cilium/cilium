@@ -196,6 +196,20 @@ func AddHostEntry(ip net.IP) error {
 	return LXCMap.Update(key, ep)
 }
 
+// SyncHostEntry checks if a host entry exists in the lxcmap and adds one if needed.
+// Returns boolean indicating if a new entry was added and an error.
+func SyncHostEntry(ip net.IP) (bool, error) {
+	key := NewEndpointKey(ip)
+	value, err := LXCMap.Lookup(key)
+	if err != nil || value.(*EndpointInfo).Flags&EndpointFlagHost == 0 {
+		err = AddHostEntry(ip)
+		if err == nil {
+			return true, nil
+		}
+	}
+	return false, err
+}
+
 // DeleteEntry deletes a single map entry
 func DeleteEntry(ip net.IP) error {
 	return LXCMap.Delete(NewEndpointKey(ip))
