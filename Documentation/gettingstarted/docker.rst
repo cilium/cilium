@@ -151,7 +151,7 @@ filters only on IP address (network layer 3) and TCP port (network layer 4), so
 it is often referred to as an L3/L4 network security policy.
 
 Cilium performs stateful ''connection tracking'', meaning that if policy allows
-the *app2* to contact *app3*, it will automatically allow return
+the *app2* to contact *app1*, it will automatically allow return
 packets that are part of *app1* replying to *app2* within the context
 of the same TCP/UDP connection.
 
