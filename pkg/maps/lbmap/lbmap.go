@@ -112,9 +112,9 @@ type RRSeqValue struct {
 	Idx [MaxSeq]uint16
 }
 
-func (s RRSeqValue) GetValuePtr() unsafe.Pointer { return unsafe.Pointer(&s) }
+func (s *RRSeqValue) GetValuePtr() unsafe.Pointer { return unsafe.Pointer(s) }
 
-func (s RRSeqValue) String() string {
+func (s *RRSeqValue) String() string {
 	return fmt.Sprintf("count=%d idx=%v", s.Count, s.Idx)
 }
 

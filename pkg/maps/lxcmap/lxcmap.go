@@ -52,7 +52,7 @@ var (
 				return nil, nil, err
 			}
 
-			return k, v, nil
+			return k, &v, nil
 		},
 	)
 )
@@ -128,7 +128,7 @@ type EndpointInfo struct {
 }
 
 // GetValuePtr returns the unsafe pointer to the BPF value
-func (v EndpointInfo) GetValuePtr() unsafe.Pointer { return unsafe.Pointer(&v) }
+func (v *EndpointInfo) GetValuePtr() unsafe.Pointer { return unsafe.Pointer(v) }
 
 type EndpointKey struct {
 	bpf.EndpointKey
@@ -147,7 +147,7 @@ func NewEndpointKey(ip net.IP) EndpointKey {
 }
 
 // String returns the human readable representation of an EndpointInfo
-func (v EndpointInfo) String() string {
+func (v *EndpointInfo) String() string {
 	if v.Flags&EndpointFlagHost != 0 {
 		return fmt.Sprintf("(localhost)")
 	}
@@ -181,7 +181,7 @@ func WriteEndpoint(f EndpointFrontend) error {
 
 	// FIXME: Revert on failure
 	for _, k := range f.GetBPFKeys() {
-		if err := LXCMap.Update(k, *info); err != nil {
+		if err := LXCMap.Update(k, info); err != nil {
 			return err
 		}
 	}
@@ -192,7 +192,7 @@ func WriteEndpoint(f EndpointFrontend) error {
 // AddHostEntry adds a special endpoint which represents the local host
 func AddHostEntry(ip net.IP) error {
 	key := NewEndpointKey(ip)
-	ep := EndpointInfo{Flags: EndpointFlagHost}
+	ep := &EndpointInfo{Flags: EndpointFlagHost}
 	return LXCMap.Update(key, ep)
 }
 
