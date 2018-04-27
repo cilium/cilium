@@ -273,17 +273,18 @@ enum {
 #define METRIC_INGRESS  1
 #define METRIC_EGRESS   2
 
-/* Magic skb->mark markers which identify packets originating from the proxy
+/* Magic skb->mark markers which identify packets originating from the host
  *
  * The upper 16 bits contain the magic marker values which indicate whether
- * the packet is coming from an ingress or egress proxy.
+ * the packet is coming from an ingress or egress proxy, or a local process.
  *
  * The lower 16 bits may contain the security identity of the original source
  * endpoint.
  */
-#define MARK_MAGIC_PROXY_MASK		0xFFF
+#define MARK_MAGIC_HOST_MASK		0xFFF
 #define MARK_MAGIC_PROXY_INGRESS	0xFEA
 #define MARK_MAGIC_PROXY_EGRESS		0xFEB
+#define MARK_MAGIC_HOST			0xFEC
 #define MARK_IDENTITY_MASK		(0xFFFF << 16)
 
 #define SOURCE_INGRESS_PROXY 1

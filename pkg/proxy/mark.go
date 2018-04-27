@@ -16,12 +16,13 @@ package proxy
 
 // Magic markers are attached to each packet. The lower 16 bits are used to
 // identify packets which have gone through the proxy and to determine whether
-// the packet is coming from a proxy at ingress or egress. The marking is
-// compatible with Kubernetes's use of the packet mark.  The upper 16 bits can
-// be used to carry the security identity.
+// the packet is coming from a proxy at ingress or egress, or from the host.
+// The marking is compatible with Kubernetes's use of the packet mark.  The
+// upper 16 bits can be used to carry the security identity.
 const (
 	magicMarkIngress int = 0x0FEA
 	magicMarkEgress  int = 0x0FEB
+	magicMarkHost    int = 0x0FEC
 	magicMarkK8sMasq int = 0x4000
 	magicMarkK8sDrop int = 0x8000
 )
