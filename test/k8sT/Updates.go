@@ -126,6 +126,11 @@ var _ = Describe("K8sValidatedUpdates", func() {
 			helpers.CurlFail("http://%s/public", app1Service))
 		res.ExpectSuccess("Cannot curl app1-service")
 
+		res = kubectl.ExecPodCmd(
+			helpers.DefaultNamespace, appPods[helpers.App2],
+			helpers.CurlWithHTTPCode("http://%s/private", app1Service))
+		res.ExpectContains("403", "Expect 403 in the result")
+
 		By("Updating cilium to master image")
 
 		localImage := "k8s1:5000/cilium/cilium-dev:latest"
@@ -177,5 +182,10 @@ var _ = Describe("K8sValidatedUpdates", func() {
 			helpers.DefaultNamespace, appPods[helpers.App2],
 			helpers.CurlFail("http://%s/public", app1Service))
 		res.ExpectSuccess("Cannot curl app1-service")
+
+		res = kubectl.ExecPodCmd(
+			helpers.DefaultNamespace, appPods[helpers.App2],
+			helpers.CurlWithHTTPCode("http://%s/private", app1Service))
+		res.ExpectContains("403", "Expect 403 in the result")
 	})
 })
