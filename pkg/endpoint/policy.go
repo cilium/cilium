@@ -991,6 +991,11 @@ func (e *Endpoint) SetIdentity(identity *identityPkg.Identity) {
 		cache.Remove(e.Consumable)
 	}
 
+	oldIdentity := "no identity"
+	if e.SecurityIdentity != nil {
+		oldIdentity = e.SecurityIdentity.StringID()
+	}
+
 	e.SecurityIdentity = identity
 	e.Consumable = cache.GetOrCreate(identity.ID, identity)
 
@@ -1008,8 +1013,9 @@ func (e *Endpoint) SetIdentity(identity *identityPkg.Identity) {
 
 	e.Consumable.Mutex.RLock()
 	e.getLogger().WithFields(logrus.Fields{
-		logfields.Identity: identity,
-		"consumable":       e.Consumable,
-	}).Debug("Set identity and consumable of EP")
+		logfields.Identity:       identity.StringID(),
+		logfields.OldIdentity:    oldIdentity,
+		logfields.IdentityLabels: identity.Labels.String(),
+	}).Info("Identity of endpoint changed")
 	e.Consumable.Mutex.RUnlock()
 }
