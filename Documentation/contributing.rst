@@ -410,7 +410,7 @@ here is an example showing what tests will be ran using Ginkgo's dryRun option:
 
 ::
 
-    $ ginkgo --focus="Runtime*" -noColor -dryRun
+    $ ginkgo --focus="Runtime*" -noColor -v -dryRun
     Running Suite: runtime
     ======================
     Random Seed: 1516125117
