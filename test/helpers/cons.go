@@ -156,7 +156,7 @@ const (
 	KubectlPolicyNameLabel      = k8sConst.PolicyLabelName
 	KubectlPolicyNameSpaceLabel = k8sConst.PolicyLabelNamespace
 
-	StableImage = "cilium/cilium:stable"
+	StableImage = "cilium/cilium:v1.0.0"
 	configMap   = "ConfigMap"
 	daemonSet   = "DaemonSet"
 
