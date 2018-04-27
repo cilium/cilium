@@ -599,6 +599,15 @@ func (p *Repository) GetRevision() uint64 {
 	return p.revision
 }
 
+// Empty returns 'true' if repository has no rules, 'false' otherwise.
+//
+// Must be called without p.Mutex held
+func (p *Repository) Empty() bool {
+	p.Mutex.Lock()
+	defer p.Mutex.Unlock()
+	return p.NumRules() == 0
+}
+
 // TranslateRules traverses rules and applies provided translator to rules
 func (p *Repository) TranslateRules(translator Translator) error {
 	p.Mutex.Lock()
