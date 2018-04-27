@@ -206,8 +206,14 @@ func (e *Endpoint) writeHeaderfile(prefix string, owner Owner) error {
 	fw.WriteString(" */\n\n")
 
 	// If policy has not been derived or calculated yet, all packets must
-	// be dropped until the policy of the endpoint has been determined.
-	if !e.PolicyCalculated && owner.PolicyEnforcement() != NeverEnforce {
+	// be dropped until the policy of the endpoint has been determined,
+	// except when it is known that the current policy will not drop anything,
+	// which is true when:
+	// - policy enforcement mode is "never"
+	// - policy enforcement mode is "default" and no policies are loaded
+	if !e.PolicyCalculated &&
+		!(owner.PolicyEnforcement() == NeverEnforce) &&
+		!(owner.PolicyEnforcement() == DefaultEnforcement && owner.GetPolicyRepository().Empty()) {
 		fw.WriteString("#define DROP_ALL\n")
 	}
 
