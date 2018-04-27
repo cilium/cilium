@@ -11,7 +11,7 @@ spec:
     org: empire
     class: deathstar
 ---
-apiVersion: apps/v1
+apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
   name: deathstar
@@ -31,7 +31,7 @@ spec:
       - name: deathstar
         image: cilium/starwars
 ---
-apiVersion: apps/v1
+apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
   name: tiefighter
@@ -51,7 +51,7 @@ spec:
       - name: spaceship
         image: tgraf/netperf
 ---
-apiVersion: apps/v1
+apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
   name: xwing
