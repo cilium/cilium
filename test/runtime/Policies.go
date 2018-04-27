@@ -1016,7 +1016,14 @@ var _ = Describe("RuntimeValidatedPolicies", func() {
 			failCurl.ExpectFail("unexpectedly able to access %s when access should only be allowed to host", helpers.Httpd2)
 		})
 	})
-	Context("DROP_ALL  Policy test", func() {
+	Context("DROP_ALL Policy test", func() {
+		BeforeEach(func() {
+			// Install a policy that will not apply to any endpoints in this test. If we don't install any policy
+			// DROP_ALL mode will not be turned on in the "default" policy enforcement mode.
+			_, err := vm.PolicyImportAndWait(vm.GetFullPath(sampleJSON), helpers.HelperTimeout)
+			Expect(err).Should(BeNil(), "Dummy policy import failed")
+		})
+
 		AfterEach(func() {
 			vm.ContainerRm(dropAllContainer).ExpectSuccess("Container dropAllContainer cannot be deleted")
 		})
