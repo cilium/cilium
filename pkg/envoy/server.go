@@ -351,8 +351,16 @@ func createBootstrap(filePath string, name, cluster, version string, xdsSock, en
 			LdsConfig: &envoy_api_v2_core.ConfigSource{
 				ConfigSourceSpecifier: &envoy_api_v2_core.ConfigSource_ApiConfigSource{
 					ApiConfigSource: &envoy_api_v2_core.ApiConfigSource{
-						ApiType:      envoy_api_v2_core.ApiConfigSource_GRPC,
-						ClusterNames: []string{"xds-grpc-cilium"},
+						ApiType: envoy_api_v2_core.ApiConfigSource_GRPC,
+						GrpcServices: []*envoy_api_v2_core.GrpcService{
+							{
+								TargetSpecifier: &envoy_api_v2_core.GrpcService_EnvoyGrpc_{
+									EnvoyGrpc: &envoy_api_v2_core.GrpcService_EnvoyGrpc{
+										ClusterName: "xds-grpc-cilium",
+									},
+								},
+							},
+						},
 					},
 				},
 			},
