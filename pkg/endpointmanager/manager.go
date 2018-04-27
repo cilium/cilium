@@ -342,6 +342,7 @@ func AddEndpoint(owner endpoint.Owner, ep *endpoint.Endpoint, reason string) err
 
 	ep.Mutex.RLock()
 	Insert(ep)
+	ep.InsertEvent()
 	ep.Mutex.RUnlock()
 
 	return nil

@@ -564,7 +564,17 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir, reason string) (uint64, err
 	owner.GetCompilationLock().RLock()
 	defer owner.GetCompilationLock().RUnlock()
 
+	buildStart := time.Now()
+
 	e.Mutex.Lock()
+
+	e.getLogger().WithField(logfields.StartTime, time.Now()).Info("Regenerating BPF program")
+	defer func() {
+		e.Mutex.RLock()
+		e.getLogger().WithField(logfields.BuildDuration, time.Since(buildStart).String()).
+			Info("Regeneration of BPF program has completed")
+		e.Mutex.RUnlock()
+	}()
 
 	// If endpoint was marked as disconnected then
 	// it won't be regenerated.

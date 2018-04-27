@@ -37,6 +37,8 @@ func (e *Endpoint) getLogger() *logrus.Entry {
 func (e *Endpoint) updateLogger() {
 	containerID := e.getShortContainerID()
 
+	podName := e.GetK8sNamespaceAndPodNameLocked()
+
 	// We need to update if
 	// - e.logger is nil (this happens on the first ever call to updateLogger via
 	//   getLogger above). This clause has to come first to guard the others.
@@ -48,6 +50,9 @@ func (e *Endpoint) updateLogger() {
 		e.logger.Data[logfields.EndpointID] != e.ID ||
 		e.logger.Data[logfields.ContainerID] != containerID ||
 		e.logger.Data[logfields.PolicyRevision] != e.policyRevision ||
+		e.logger.Data[logfields.IPv4] != e.IPv4.String() ||
+		e.logger.Data[logfields.IPv6] != e.IPv6.String() ||
+		e.logger.Data[logfields.K8sPodName] != podName ||
 		e.Opts.IsEnabled("Debug") != (e.logger.Level == logrus.DebugLevel)
 
 	// do nothing if we do not need an update
@@ -72,5 +77,8 @@ func (e *Endpoint) updateLogger() {
 		logfields.EndpointID:     e.ID,
 		logfields.ContainerID:    containerID,
 		logfields.PolicyRevision: e.policyRevision,
+		logfields.IPv4:           e.IPv4.String(),
+		logfields.IPv6:           e.IPv6.String(),
+		logfields.K8sPodName:     podName,
 	})
 }

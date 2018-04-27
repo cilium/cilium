@@ -1761,6 +1761,8 @@ func (e *Endpoint) LeaveLocked(owner Owner) []error {
 
 	e.SetStateLocked(StateDisconnected, "Endpoint removed")
 
+	e.getLogger().Info("Removed endpoint")
+
 	return errors
 }
 
@@ -2400,4 +2402,10 @@ func (e *Endpoint) IPs() []net.IP {
 		ips = append(ips, e.IPv6.IP())
 	}
 	return ips
+}
+
+// InsertEvent is called when the endpoint is inserted into the endpoint
+// manager. The endpoint must be read locked.
+func (e *Endpoint) InsertEvent() {
+	e.getLogger().Info("New endpoint")
 }
