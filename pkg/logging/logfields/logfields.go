@@ -47,6 +47,9 @@ const (
 	// Identity is the identifier of a security identity
 	Identity = "identity"
 
+	// OldIdentity is a previously used security identity
+	OldIdentity = "oldIdentity"
+
 	// PolicyRevision is the revision of the policy in the repository or of
 	// the object in question
 	PolicyRevision = "policyRevision"
@@ -62,6 +65,18 @@ const (
 
 	// IPAddr is an IPV4 or IPv6 address
 	IPAddr = "ipAddr"
+
+	// IPv4 is an IPv4 address
+	IPv4 = "ipv4"
+
+	// IPv6 is an IPv6 address
+	IPv6 = "ipv6"
+
+	// BuildDuration is the time elapsed to build a BPF program
+	BuildDuration = "buildDuration"
+
+	// StartTime is the start time of an event
+	StartTime = "startTime"
 
 	// V4HealthIP is an address used to contact the cilium-health endpoint
 	V4HealthIP = "v4healthIP.IPv4"
