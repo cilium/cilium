@@ -49,7 +49,7 @@ spec:
                   optional: true
                   key: clean-cilium-state
       containers:
-      - image: cilium/cilium:v1.0.0
+      - image: cilium/cilium:v1.0.1
         imagePullPolicy: IfNotPresent
         name: cilium-agent
         command: [ "cilium-agent" ]
