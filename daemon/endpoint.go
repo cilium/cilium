@@ -387,10 +387,6 @@ func (d *Daemon) deleteEndpointQuiet(ep *endpoint.Endpoint) []error {
 			errors = append(errors, fmt.Errorf("unable to delete element %d from map %s: %s", ep.ID, ep.PolicyMapPathLocked(), err))
 		}
 
-		if ep.Consumable != nil {
-			ep.Consumable.RemovePolicyMap(ep.PolicyMap)
-		}
-
 		// Remove policy BPF map
 		if err := os.RemoveAll(ep.PolicyMapPathLocked()); err != nil {
 			errors = append(errors, fmt.Errorf("unable to remove policy map file %s: %s", ep.PolicyMapPathLocked(), err))

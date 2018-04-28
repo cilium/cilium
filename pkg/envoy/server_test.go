@@ -365,7 +365,7 @@ func (s *ServerSuite) TestGetDirectionNetworkPolicy(c *C) {
 }
 
 func (s *ServerSuite) TestGetNetworkPolicy(c *C) {
-	obtained := getNetworkPolicy(IPv4Addr, Identity, L4Policy1, true, true, IdentityCache, DeniedIdentitiesNone, DeniedIdentitiesNone)
+	obtained := GetNetworkPolicy(IPv4Addr, Identity, L4Policy1, true, true, IdentityCache, DeniedIdentitiesNone, DeniedIdentitiesNone)
 	expected := &cilium.NetworkPolicy{
 		Name:                   IPv4Addr,
 		Policy:                 uint64(Identity),
@@ -376,7 +376,7 @@ func (s *ServerSuite) TestGetNetworkPolicy(c *C) {
 }
 
 func (s *ServerSuite) TestGetNetworkPolicyWildcard(c *C) {
-	obtained := getNetworkPolicy(IPv4Addr, Identity, L4Policy2, true, true, IdentityCache, DeniedIdentitiesNone, DeniedIdentitiesNone)
+	obtained := GetNetworkPolicy(IPv4Addr, Identity, L4Policy2, true, true, IdentityCache, DeniedIdentitiesNone, DeniedIdentitiesNone)
 	expected := &cilium.NetworkPolicy{
 		Name:                   IPv4Addr,
 		Policy:                 uint64(Identity),
@@ -387,7 +387,7 @@ func (s *ServerSuite) TestGetNetworkPolicyWildcard(c *C) {
 }
 
 func (s *ServerSuite) TestGetNetworkPolicyDeny(c *C) {
-	obtained := getNetworkPolicy(IPv4Addr, Identity, L4Policy1, true, true, IdentityCache, DeniedIdentities1001, DeniedIdentitiesNone)
+	obtained := GetNetworkPolicy(IPv4Addr, Identity, L4Policy1, true, true, IdentityCache, DeniedIdentities1001, DeniedIdentitiesNone)
 	expected := &cilium.NetworkPolicy{
 		Name:                   IPv4Addr,
 		Policy:                 uint64(Identity),
@@ -398,7 +398,7 @@ func (s *ServerSuite) TestGetNetworkPolicyDeny(c *C) {
 }
 
 func (s *ServerSuite) TestGetNetworkPolicyWildcardDeny(c *C) {
-	obtained := getNetworkPolicy(IPv4Addr, Identity, L4Policy2, true, true, IdentityCache, DeniedIdentities1001, DeniedIdentitiesNone)
+	obtained := GetNetworkPolicy(IPv4Addr, Identity, L4Policy2, true, true, IdentityCache, DeniedIdentities1001, DeniedIdentitiesNone)
 	expected := &cilium.NetworkPolicy{
 		Name:                   IPv4Addr,
 		Policy:                 uint64(Identity),
@@ -409,7 +409,7 @@ func (s *ServerSuite) TestGetNetworkPolicyWildcardDeny(c *C) {
 }
 
 func (s *ServerSuite) TestGetNetworkPolicyNil(c *C) {
-	obtained := getNetworkPolicy(IPv4Addr, Identity, nil, true, true, IdentityCache, DeniedIdentities1001, DeniedIdentitiesNone)
+	obtained := GetNetworkPolicy(IPv4Addr, Identity, nil, true, true, IdentityCache, DeniedIdentities1001, DeniedIdentitiesNone)
 	expected := &cilium.NetworkPolicy{
 		Name:                   IPv4Addr,
 		Policy:                 uint64(Identity),
@@ -420,7 +420,7 @@ func (s *ServerSuite) TestGetNetworkPolicyNil(c *C) {
 }
 
 func (s *ServerSuite) TestGetNetworkPolicyIngressNotEnforced(c *C) {
-	obtained := getNetworkPolicy(IPv4Addr, Identity, L4Policy2, false, true, IdentityCache, DeniedIdentities1001, DeniedIdentitiesNone)
+	obtained := GetNetworkPolicy(IPv4Addr, Identity, L4Policy2, false, true, IdentityCache, DeniedIdentities1001, DeniedIdentitiesNone)
 	expected := &cilium.NetworkPolicy{
 		Name:                   IPv4Addr,
 		Policy:                 uint64(Identity),
@@ -431,7 +431,7 @@ func (s *ServerSuite) TestGetNetworkPolicyIngressNotEnforced(c *C) {
 }
 
 func (s *ServerSuite) TestGetNetworkPolicyEgressNotEnforced(c *C) {
-	obtained := getNetworkPolicy(IPv4Addr, Identity, L4Policy2, true, false, IdentityCache, DeniedIdentities1001, DeniedIdentitiesNone)
+	obtained := GetNetworkPolicy(IPv4Addr, Identity, L4Policy2, true, false, IdentityCache, DeniedIdentities1001, DeniedIdentitiesNone)
 	expected := &cilium.NetworkPolicy{
 		Name:                   IPv4Addr,
 		Policy:                 uint64(Identity),

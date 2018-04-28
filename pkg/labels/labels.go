@@ -499,7 +499,7 @@ func (l Labels) SortedList() []byte {
 }
 
 // ToSlice returns a slice of label with the values of the given Labels' map.
-func (l Labels) ToSlice() []*Label {
+func (l Labels) ToSlice() LabelArray {
 	labels := []*Label{}
 	for _, v := range l {
 		labels = append(labels, v.DeepCopy())

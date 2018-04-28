@@ -253,7 +253,7 @@ func TriggerPolicyUpdates(owner endpoint.Owner) *sync.WaitGroup {
 	for _, ep := range eps {
 		go func(ep *endpoint.Endpoint, wg *sync.WaitGroup) {
 			ep.Mutex.Lock()
-			policyChanges, ctCleaned, err := ep.TriggerPolicyUpdatesLocked(owner, nil)
+			policyChanges, err := ep.TriggerPolicyUpdatesLocked(owner, nil)
 			regen := false
 			if err == nil && policyChanges {
 				// Regenerate only if state transition succeeds
@@ -265,9 +265,6 @@ func TriggerPolicyUpdates(owner endpoint.Owner) *sync.WaitGroup {
 				log.WithError(err).Warn("Error while handling policy updates for endpoint")
 				ep.LogStatus(endpoint.Policy, endpoint.Failure, "Error while handling policy updates for endpoint: "+err.Error())
 			} else {
-				// Wait for endpoint CT clean has complete before
-				// regenerating endpoint.
-				ctCleaned.Wait()
 				if !policyChanges {
 					ep.LogStatusOK(endpoint.Policy, "Endpoint policy update skipped because no changes were needed")
 				} else if regen {
@@ -287,7 +284,7 @@ func HasGlobalCT() bool {
 	eps := GetEndpoints()
 	for _, e := range eps {
 		e.RLock()
-		globalCT := e.Consumable != nil && !e.Opts.IsEnabled(endpoint.OptionConntrackLocal)
+		globalCT := e.SecurityIdentity != nil && !e.Opts.IsEnabled(endpoint.OptionConntrackLocal)
 		e.RUnlock()
 		if globalCT {
 			return true

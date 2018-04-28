@@ -21,7 +21,6 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/cilium/cilium/api/v1/models"
@@ -49,18 +48,6 @@ const (
 	optionDisabled = "disabled"
 )
 
-// allowIngressIdentity must be called with global endpoint.Mutex held
-func (e *Endpoint) allowIngressIdentity(id identityPkg.NumericIdentity) bool {
-	return e.Consumable.AllowIngressIdentityLocked(id)
-}
-
-// allowEgressIdentity allows security identity id to be communicated to by
-// this endpoint by updating the endpoint's Consumable.
-// Must be called with global endpoint.Mutex held.
-func (e *Endpoint) allowEgressIdentity(id identityPkg.NumericIdentity) bool {
-	return e.Consumable.AllowEgressIdentityLocked(id)
-}
-
 // ProxyID returns a unique string to identify a proxy mapping.
 func (e *Endpoint) ProxyID(l4 *policy.L4Filter) string {
 	return policy.ProxyID(e.ID, l4.Ingress, string(l4.Protocol), uint16(l4.Port))
@@ -81,167 +68,92 @@ func getSecurityIdentities(labelsMap *identityPkg.IdentityCache, selector *api.E
 	return identities
 }
 
-func (e *Endpoint) sweepFilters(oldPolicy *policy.L4Policy,
-	identities *identityPkg.IdentityCache) (errors int) {
+type PolicyKeyMeta struct {
+	ID               uint32
+	DPort            uint16
+	Proto            uint8
+	TrafficDirection policymap.TrafficDirection
+}
 
-	oldEntries, err := e.PolicyMap.DumpToSlice()
-	if err != nil {
-		e.getLogger().WithError(err).WithFields(logrus.Fields{
-			logfields.PolicyRevision: oldPolicy.Revision,
-		}).Warning("Delete stale l4 policy failed")
-		errors++
+// convertL4FilterToPolicyMapKeys adds the given l4 filter to the endpoint.
+// Returns the number of errors that occurred while when applying the
+// policy.
+// Applies for L3-dependent L4, and not for L4-only policy.
+func (e *Endpoint) convertL4FilterToPolicyMapKeys(identities *identityPkg.IdentityCache,
+	filter *policy.L4Filter, direction policymap.TrafficDirection) []PolicyKeyMeta {
+
+	keysToAdd := []PolicyKeyMeta{}
+
+	port := uint16(filter.Port)
+	proto := uint8(filter.U8Proto)
+
+	for _, sel := range filter.Endpoints {
+		for _, id := range getSecurityIdentities(identities, &sel) {
+			srcID := id.Uint32()
+			keyToAdd := PolicyKeyMeta{
+				ID:               srcID,
+				DPort:            port,
+				Proto:            proto,
+				TrafficDirection: direction,
+			}
+			keysToAdd = append(keysToAdd, keyToAdd)
+		}
+	}
+	return keysToAdd
+}
+
+func (e *Endpoint) computeDesiredL4PolicyMapEntries(desiredL4Policy *policy.L4Policy) (keysToAdd map[PolicyKeyMeta]struct{}) {
+
+	keysToAdd = map[PolicyKeyMeta]struct{}{}
+
+	if desiredL4Policy == nil {
 		return
 	}
-	for _, entry := range oldEntries {
-		id := identityPkg.NumericIdentity(entry.Key.GetIdentity())
-		if _, ok := (*identities)[id]; !ok {
-			if err := e.PolicyMap.DeleteEntry(&entry); err != nil {
-				e.getLogger().WithError(err).WithFields(logrus.Fields{
-					logfields.PolicyRevision: oldPolicy.Revision,
-					logfields.Identity:       id,
-				}).Warning("Delete stale l4 policy failed")
-				errors++
-			}
+
+	for _, filter := range desiredL4Policy.Ingress {
+		keysFromFilter := e.convertL4FilterToPolicyMapKeys(e.IdentityCache, &filter, policymap.Ingress)
+		for _, keyFromFilter := range keysFromFilter {
+			keysToAdd[keyFromFilter] = struct{}{}
+		}
+	}
+
+	for _, filter := range desiredL4Policy.Egress {
+		keysFromFilter := e.convertL4FilterToPolicyMapKeys(e.IdentityCache, &filter, policymap.Egress)
+		for _, keyFromFilter := range keysFromFilter {
+			keysToAdd[keyFromFilter] = struct{}{}
 		}
 	}
 
 	return
 }
 
-// removeOldFilter removes the old l4 filter from the endpoint.
-// Returns a map that represents all policies that were attempted to be removed;
-// it maps to whether they were removed successfully (true or false)
-func (e *Endpoint) removeOldFilter(identities *identityPkg.IdentityCache,
-	filter *policy.L4Filter, direction policymap.TrafficDirection) {
-
-	port := uint16(filter.Port)
-	proto := uint8(filter.U8Proto)
-
-	for _, sel := range filter.Endpoints {
-		for _, id := range getSecurityIdentities(identities, &sel) {
-			srcID := id.Uint32()
-			if err := e.PolicyMap.DeleteL4(srcID, port, proto, direction); err != nil {
-				// This happens when the policy would add
-				// multiple copies of the same L4 policy. Only
-				// one of them is actually added, but we'll
-				// still try to remove it multiple times.
-				e.getLogger().WithError(err).WithFields(logrus.Fields{
-					logfields.L4PolicyID:       srcID,
-					logfields.TrafficDirection: direction,
-				}).Debug("deletion of old L4 policy failed")
-
-			}
-		}
-	}
-}
-
-// applyNewFilter adds the given l4 filter to the endpoint.
-// Returns the number of errors that occurred while when applying the
-// policy.
-// Applies for L3-dependent L4, and not for L4-only policy.
-func (e *Endpoint) applyNewFilter(identities *identityPkg.IdentityCache,
-	filter *policy.L4Filter, direction policymap.TrafficDirection) int {
-
-	port := uint16(filter.Port)
-	proto := uint8(filter.U8Proto)
-
-	errors := 0
-	for _, sel := range filter.Endpoints {
-		for _, id := range getSecurityIdentities(identities, &sel) {
-			srcID := id.Uint32()
-			if e.PolicyMap.L4Exists(srcID, port, proto, direction) {
-				e.getLogger().WithField("l4Filter", filter).Debug("L4 filter exists")
-				continue
-			}
-			if err := e.PolicyMap.AllowL4(srcID, port, proto, direction); err != nil {
-				e.getLogger().WithFields(logrus.Fields{
-					logfields.PolicyID: srcID,
-					logfields.Port:     port,
-					logfields.Protocol: proto}).WithError(err).Warn(
-					"Update of l4 policy map failed")
-				errors++
-			}
-		}
-	}
-	return errors
-}
-
-// Looks for mismatches between 'oldPolicy' and 'newPolicy', and fixes up
-// this Endpoint's BPF PolicyMap to reflect the new L3+L4 combined policy.
-// Returns a map that represents all L3-dependent L4 PolicyMap entries that were attempted
-// to be added;
-// and a map that represents all L3-dependent L4 PolicyMap entries that were attempted
-// to be removed;
-// it maps to whether they were removed successfully (true or false)
-// TODO (it maps to rule contexts); 'whether they were removed successfully' doesn't
-// make sense - is this what L4Installed means?
-func (e *Endpoint) applyL4PolicyLocked(oldIdentities, newIdentities *identityPkg.IdentityCache,
-	oldL4Policy, newL4Policy *policy.L4Policy) (err error) {
-
-	var errors = 0
-
-	// Need to iterate through old L3-L4 policy and remove all PolicyMap entries
-	// for both ingress and egress.
-	if oldL4Policy != nil {
-		for _, filter := range oldL4Policy.Ingress {
-			e.removeOldFilter(oldIdentities, &filter, policymap.Ingress)
-		}
-
-		for _, filter := range oldL4Policy.Egress {
-			e.removeOldFilter(oldIdentities, &filter, policymap.Egress)
-		}
-		errors += e.sweepFilters(oldL4Policy, newIdentities)
-	}
-
-	// No new entries to add to PolicyMap, so simply return.
-	if newL4Policy == nil {
-		return nil
-	}
-
-	// Need to iterate through new L3-L4 policy and insert new PolicyMap entries
-	// for both ingress and egress.
-	for _, filter := range newL4Policy.Ingress {
-		var errs int
-		errs = e.applyNewFilter(newIdentities, &filter, policymap.Ingress)
-		errors += errs
-	}
-
-	for _, filter := range newL4Policy.Egress {
-		errs := e.applyNewFilter(newIdentities, &filter, policymap.Egress)
-		errors += errs
-	}
-
-	if errors > 0 {
-		return fmt.Errorf("Some Label+L4 policy updates failed.")
-	}
-	return nil
-}
-
-func getLabelsMap() (*identityPkg.IdentityCache, error) {
+func getIdentityCache() (*identityPkg.IdentityCache, error) {
 	labelsMap := identityPkg.GetIdentityCache()
 
-	reservedIDs := policy.GetConsumableCache().GetReservedIDs()
-	var idx identityPkg.NumericIdentity
-	for _, idx = range reservedIDs {
-		lbls := policy.ResolveIdentityLabels(idx)
+	reservedIDs := identityPkg.GetReservedIdentities()
+	//reservedIDs := policy.GetReservedIDs()
+	var k identityPkg.NumericIdentity
+	var v *identityPkg.Identity
+	for k, v = range reservedIDs {
+		lbls := v.Labels.ToSlice()
 		if lbls == nil || len(lbls) == 0 {
 			return nil, fmt.Errorf("unable to resolve reserved identity")
 		}
-		labelsMap[idx] = lbls
+		labelsMap[k] = lbls
 	}
 
 	return &labelsMap, nil
 }
 
 // Must be called with global endpoint.Mutex held
-func (e *Endpoint) resolveL4Policy(owner Owner, repo *policy.Repository, c *policy.Consumable) error {
+func (e *Endpoint) resolveL4Policy(owner Owner, repo *policy.Repository) error {
 
 	ingressCtx := policy.SearchContext{
-		To: c.LabelArray,
+		To: e.SecurityIdentity.Labels.ToSlice(),
 	}
 
 	egressCtx := policy.SearchContext{
-		From: c.LabelArray,
+		From: e.SecurityIdentity.Labels.ToSlice(),
 	}
 
 	if owner.TracingEnabled() {
@@ -262,68 +174,40 @@ func (e *Endpoint) resolveL4Policy(owner Owner, repo *policy.Repository, c *poli
 	newL4Policy := &policy.L4Policy{Ingress: *newL4IngressPolicy,
 		Egress: *newL4EgressPolicy}
 
-	if reflect.DeepEqual(c.L4Policy, newL4Policy) {
+	if reflect.DeepEqual(e.RealizedL4Policy, newL4Policy) {
 		return nil
 	}
 
-	c.L4Policy = newL4Policy
+	e.DesiredL4Policy = newL4Policy
+
 	return nil
 }
 
 // Must be called with global endpoint.Mutex held
 // Returns a boolean to signalize if the policy was changed;
-// and a map matching which rules were successfully added/modified;
-// and a map matching which rules were successfully removed.
-// Must be called with Consumable mutex held.
-func (e *Endpoint) regenerateConsumable(owner Owner, labelsMap *identityPkg.IdentityCache,
-	repo *policy.Repository, c *policy.Consumable) (changed bool, err error) {
+// and a set of entries to add to the BPF map for this endpoint
+func (e *Endpoint) calculateDesiredPolicyMapState(owner Owner, repo *policy.Repository) (changed bool) {
 
-	// Mark all entries unused by denying them
-	for ingressIdentity := range c.IngressIdentities {
-		// Mark as false indicates denying
-		c.IngressIdentities[ingressIdentity] = false
+	if e.desiredMapState == nil {
+		e.desiredMapState = make(map[PolicyKeyMeta]struct{})
 	}
 
-	for egressIdentity := range c.EgressIdentities {
-		c.EgressIdentities[egressIdentity] = false
-	}
+	desiredPolicyKeys := e.computeDesiredL4PolicyMapEntries(e.DesiredL4Policy)
 
-	// L4 policy needs to be applied on two conditions
-	// 1. The L4 policy has changed
-	// 2. The set of applicable security identities has changed.
-	if e.L4Policy != c.L4Policy || e.LabelsMap != labelsMap {
-		e.getLogger().Debug("policy changed to L4Policy or LabelsMap having changed")
-		changed = true
-
-		// PolicyMap can't be created in dry mode.
-		if !owner.DryModeEnabled() {
-			// Collect unused redirects.
-			err = e.applyL4PolicyLocked(e.LabelsMap, labelsMap, e.L4Policy, c.L4Policy)
-			if err != nil {
-				// This should not happen, and we can't fail at this stage anyway.
-				e.getLogger().WithError(err).Error("L4 Policy application failed")
-				return
-			}
+	// Determine if we have to allow traffic to the host identity.
+	if owner.AlwaysAllowLocalhost() || e.DesiredL4Policy.HasRedirect() {
+		keyToAdd := PolicyKeyMeta{
+			ID:               identityPkg.ReservedIdentityHost.Uint32(),
+			TrafficDirection: policymap.Ingress,
 		}
-		// Reuse the common policy, will be used in lxc_config.h (CFG_CIDRL4_INGRESS and CFG_CIDRL4_EGRESS)
-		e.L4Policy = c.L4Policy
-		e.LabelsMap = labelsMap // Remember the set of labels used
-	}
-
-	if owner.AlwaysAllowLocalhost() || c.L4Policy.HasRedirect() {
-		if e.allowIngressIdentity(identityPkg.ReservedIdentityHost) {
-			e.getLogger().WithFields(logrus.Fields{
-				logfields.PolicyID: identityPkg.ReservedIdentityHost,
-			}).Debug("policy changed due to allowing host identity when it previously was not allowed")
-			changed = true
-		}
+		desiredPolicyKeys[keyToAdd] = struct{}{}
 	}
 
 	ingressCtx := policy.SearchContext{
-		To: c.LabelArray,
+		To: e.SecurityIdentity.Labels.ToSlice(),
 	}
 	egressCtx := policy.SearchContext{
-		From: c.LabelArray,
+		From: e.SecurityIdentity.Labels.ToSlice(),
 	}
 
 	if owner.TracingEnabled() {
@@ -331,89 +215,57 @@ func (e *Endpoint) regenerateConsumable(owner Owner, labelsMap *identityPkg.Iden
 		egressCtx.Trace = policy.TRACE_ENABLED
 	}
 
-	// Only L3 (label-based) policy apply.
-	// Complexity increases linearly by the number of identities in the map.
-	for identity, labels := range *labelsMap {
+	// Determine whether this identity can reach other identities on ingress
+	// and egress via L3 only.
+	for identity, labels := range *e.IdentityCache {
 		ingressCtx.From = labels
 		egressCtx.To = labels
 
-		e.getLogger().WithFields(logrus.Fields{
-			logfields.PolicyID: identity,
-			"ingress_context":  ingressCtx,
-		}).Debug("Evaluating ingress context for source PolicyID")
-
 		ingressAccess := repo.AllowsIngressLabelAccess(&ingressCtx)
 		if ingressAccess == api.Allowed {
-			if e.allowIngressIdentity(identity) {
-				e.getLogger().WithFields(logrus.Fields{
-					logfields.PolicyID: identity,
-				}).Debug("policy changed due to allowing previously disallowed identity on ingress")
-				changed = true
+			keyToAdd := PolicyKeyMeta{
+				ID:               identity.Uint32(),
+				TrafficDirection: policymap.Ingress,
 			}
+			desiredPolicyKeys[keyToAdd] = struct{}{}
 		}
-
-		e.getLogger().WithFields(logrus.Fields{
-			logfields.PolicyID: identity,
-			"egress_context":   egressCtx,
-		}).Debug("Evaluating egress context for source PolicyID")
 
 		egressAccess := repo.AllowsEgressLabelAccess(&egressCtx)
-
-		log.WithFields(logrus.Fields{
-			logfields.PolicyID:   identity,
-			logfields.EndpointID: e.ID,
-			"labels":             labels,
-		}).Debugf("egress verdict: %v", egressAccess)
-
 		if egressAccess == api.Allowed {
-			e.getLogger().WithFields(logrus.Fields{
-				logfields.PolicyID: identity,
-				"ctx":              ingressCtx}).Debug("egress allowed")
-			if e.allowEgressIdentity(identity) {
-				e.getLogger().WithFields(logrus.Fields{
-					logfields.PolicyID: identity,
-				}).Debug("policy changed due to allowing previously disallowed identity on egress")
-				changed = true
+			keyToAdd := PolicyKeyMeta{
+				ID:               identity.Uint32(),
+				TrafficDirection: policymap.Egress,
 			}
+			desiredPolicyKeys[keyToAdd] = struct{}{}
 		}
 	}
 
-	// Garbage collect all unused entries for both ingress and egress.
-	for ingressIdentity, keepIdentity := range c.IngressIdentities {
-		if !keepIdentity {
-
-			e.getLogger().WithFields(logrus.Fields{
-				logfields.PolicyID: ingressIdentity,
-			}).Debug("policy changed due to disallowing previously allowed identity on ingress")
-
-			c.RemoveIngressIdentityLocked(ingressIdentity)
+	// Determine whether state necessitates change from policymap perspective.
+	// If any policy key in the list of desired keys to add is not in the
+	// list of keys that were previously computed for this endpoint, that means
+	// that there was a policy change.
+	for k := range desiredPolicyKeys {
+		if _, ok := e.desiredMapState[k]; !ok {
 			changed = true
+			break
 		}
 	}
 
-	for egressIdentity, keepIdentity := range c.EgressIdentities {
-		if !keepIdentity {
-			e.getLogger().WithFields(logrus.Fields{
-				logfields.PolicyID: egressIdentity,
-			}).Debug("policy changed due to disallowing previously allowed identity on egress")
-			c.RemoveEgressIdentityLocked(egressIdentity)
-			changed = true
-		}
+	// Set new desired state now that we have calculated whether there was a change
+	// or not.
+	e.desiredMapState = make(map[PolicyKeyMeta]struct{})
+	for k, v := range desiredPolicyKeys {
+		e.desiredMapState[k] = v
 	}
 
-	e.getLogger().WithFields(logrus.Fields{
-		logfields.Identity:          c.ID,
-		"ingressSecurityIdentities": logfields.Repr(c.IngressIdentities),
-		"egressSecurityIdentities":  logfields.Repr(c.EgressIdentities),
-	}).Debug("consumable regenerated")
-	return changed, nil
+	return
 }
 
-// Must be called with global repo.Mutrex, e.Mutex, and c.Mutex held
-func (e *Endpoint) regenerateL3Policy(owner Owner, repo *policy.Repository, revision uint64, c *policy.Consumable) (bool, error) {
+// Must be called with global repo.Mutex, e.Mutex, and c.Mutex held
+func (e *Endpoint) regenerateL3CIDRPolicy(owner Owner, repo *policy.Repository, revision uint64) (bool, error) {
 
 	ctx := policy.SearchContext{
-		To: c.LabelArray, // keep c.Mutex taken to protect this.
+		To: e.SecurityIdentity.Labels.ToSlice(),
 	}
 	if owner.TracingEnabled() {
 		ctx.Trace = policy.TRACE_ENABLED
@@ -448,63 +300,54 @@ func (e *Endpoint) updateNetworkPolicy(owner Owner) error {
 	// sidecar Envoy proxies and those proxies needing network connectivity
 	// to get their initial configuration, which is required for them to ACK
 	// the NetworkPolicies.
-	if !e.PolicyCalculated {
+	if !e.policyCalculated {
 		return nil
 	}
 
 	// Compute the set of identities explicitly denied by policy.
-	// This loop is similar to the one in regenerateConsumable called
+	// This loop is similar to the one in calculateDesiredPolicyMapState called
 	// above, but this set only contains the identities with "Denied" verdicts.
-	c := e.Consumable
 	ctx := policy.SearchContext{
-		To: c.LabelArray,
+		To: e.SecurityIdentity.Labels.ToSlice(),
 	}
 	if owner.TracingEnabled() {
 		ctx.Trace = policy.TRACE_ENABLED
 	}
 	deniedIngressIdentities := make(map[identityPkg.NumericIdentity]bool)
-	for srcID, srcLabels := range *e.LabelsMap {
-		if c.IngressIdentities[srcID] {
-			// Already allowed for L3-only.
-		} else {
-			ctx.From = srcLabels
-			e.getLogger().WithFields(logrus.Fields{
-				logfields.PolicyID: srcID,
-				"ctx":              ctx,
-			}).Debug("Evaluating context for source PolicyID")
-			repo := owner.GetPolicyRepository()
-			if repo.CanReachIngressRLocked(&ctx) == api.Denied {
-				// Denied explicitly by fromRequires clause.
-				deniedIngressIdentities[srcID] = true
-			}
+	for srcID, srcLabels := range *e.IdentityCache {
+		ctx.From = srcLabels
+		e.getLogger().WithFields(logrus.Fields{
+			logfields.PolicyID: srcID,
+			"ctx":              ctx,
+		}).Debug("Evaluating context for source PolicyID")
+		repo := owner.GetPolicyRepository()
+		if repo.CanReachIngressRLocked(&ctx) == api.Denied {
+			// Denied explicitly by fromRequires clause.
+			deniedIngressIdentities[srcID] = true
 		}
 	}
 
 	// Reset SearchContext to reflect change in directionality.
 	ctx = policy.SearchContext{
-		From: c.LabelArray,
+		From: e.SecurityIdentity.Labels.ToSlice(),
 	}
 
 	deniedEgressIdentities := make(map[identityPkg.NumericIdentity]bool)
-	for dstID, dstLabels := range *e.LabelsMap {
-		if c.EgressIdentities[dstID] {
-			// Already allowed for L3-only.
-		} else {
-			ctx.To = dstLabels
-			e.getLogger().WithFields(logrus.Fields{
-				logfields.PolicyID: dstID,
-				"ctx":              ctx,
-			}).Debug("Evaluating context for destination PolicyID")
-			repo := owner.GetPolicyRepository()
-			if repo.CanReachEgressRLocked(&ctx) == api.Denied {
-				// Denied explicitly by toRequires clause.
-				deniedEgressIdentities[dstID] = true
-			}
+	for dstID, dstLabels := range *e.IdentityCache {
+		ctx.To = dstLabels
+		e.getLogger().WithFields(logrus.Fields{
+			logfields.PolicyID: dstID,
+			"ctx":              ctx,
+		}).Debug("Evaluating context for destination PolicyID")
+		repo := owner.GetPolicyRepository()
+		if repo.CanReachEgressRLocked(&ctx) == api.Denied {
+			// Denied explicitly by toRequires clause.
+			deniedEgressIdentities[dstID] = true
 		}
 	}
 
 	// Publish the updated policy to L7 proxies.
-	err := owner.UpdateNetworkPolicy(e, c.L4Policy, *e.LabelsMap, deniedIngressIdentities, deniedEgressIdentities)
+	err := owner.UpdateNetworkPolicy(e, e.DesiredL4Policy, *e.IdentityCache, deniedIngressIdentities, deniedEgressIdentities)
 	if err != nil {
 		return err
 	}
@@ -559,23 +402,21 @@ func (e *Endpoint) regeneratePolicy(owner Owner, opts models.ConfigurationMap) (
 		return true, nil
 	}
 
-	e.getLogger().Debug("Starting regenerate...")
+	e.getLogger().Debug("Starting regeneration of policy for endpoint...")
 
 	// Collect label arrays before policy computation, as this can fail.
-	// GH-1128 should allow optimizing this away, but currently we can't
-	// reliably know if the KV-store has changed or not, so we must scan
-	// through it each time.
-	labelsMap, err := getLabelsMap()
+	identityCache, err := getIdentityCache()
 	if err != nil {
 		e.getLogger().WithError(err).Debug("Received error while evaluating policy")
 		return false, err
 	}
-	// Use the old labelsMap instance if the new one is still the same.
+	// Use the old identityCache instance if the new one is still the same.
 	// Later we can compare the pointers to figure out if labels have changed or not.
-	if reflect.DeepEqual(e.LabelsMap, labelsMap) {
-		labelsMap = e.LabelsMap
+	if reflect.DeepEqual(e.IdentityCache, identityCache) {
+		identityCache = e.IdentityCache
 	}
 
+	// Determine policy for endpoint based off of all rules in policy repository.
 	repo := owner.GetPolicyRepository()
 	repo.Mutex.RLock()
 	revision := repo.GetRevision()
@@ -584,67 +425,99 @@ func (e *Endpoint) regeneratePolicy(owner Owner, opts models.ConfigurationMap) (
 	// Recompute policy for this endpoint only if not already done for this revision.
 	// Must recompute if labels have changed or option changes are requested.
 	if !e.forcePolicyCompute && e.nextPolicyRevision >= revision &&
-		labelsMap == e.LabelsMap && opts == nil {
+		identityCache == e.IdentityCache && opts == nil {
 
 		e.getLogger().WithFields(logrus.Fields{
-			"policyRevision.next": e.nextPolicyRevision,
-			"policyRevision.repo": revision,
-			"policyChanged":       e.nextPolicyRevision > e.policyRevision,
+			"policyRevision.next":        e.nextPolicyRevision,
+			"policyRevision.repo":        revision,
+			"nextRevGreaterThanRealized": e.nextPolicyRevision > e.realizedPolicyRevision,
 		}).Debug("skipping policy recalculation")
 		// This revision already computed, but may still need to be applied to BPF
-		return e.nextPolicyRevision > e.policyRevision, nil
+		return e.nextPolicyRevision > e.realizedPolicyRevision, nil
 	}
 
-	if opts == nil {
-		opts = make(models.ConfigurationMap)
-	}
-
-	c := e.Consumable
-
-	// We may update the consumable, serialize access between endpoints sharing it
-	c.Mutex.Lock()
-	defer c.Mutex.Unlock()
-
-	// Containers without a security identity are not accessible
-	if c.ID == 0 {
+	// Endpoints without a security identity are not accessible.
+	if e.SecurityIdentity.ID == 0 {
 		e.getLogger().Warn("Endpoint lacks identity, skipping policy calculation")
 		return false, nil
 	}
 
-	// Skip L4 policy recomputation for this consumable if already valid.
-	// Rest of the policy computation still needs to be done for each endpoint
-	// separately even though the consumable may be shared between them.
-	if c.Iteration != revision {
-		err = e.resolveL4Policy(owner, repo, c)
-		if err != nil {
-			return false, err
-		}
-		// Result is valid until cache iteration advances
-		c.Iteration = revision
-	} else {
-		e.getLogger().WithField(logfields.Identity, c.ID).Debug("Reusing cached L4 policy")
-	}
-
-	// Calculate L3 (CIDR) policy.
-	var policyChanged bool
-	if policyChanged, err = e.regenerateL3Policy(owner, repo, revision, c); err != nil {
+	err = e.resolveL4Policy(owner, repo)
+	if err != nil {
 		return false, err
 	}
 
-	if policyChanged {
-		e.getLogger().Debug("regeneration of L3 (CIDR) policy caused policy change")
+	// Calculate L3 (CIDR) policy.
+	var cidrPolicyChanged bool
+	if cidrPolicyChanged, err = e.regenerateL3CIDRPolicy(owner, repo, revision); err != nil {
+		return false, err
 	}
 
-	// no failures after this point
+	optsChanged := e.applyConfiguration(owner, opts)
+
+	// Determines changes needed for this endpoint's BPF PolicyMap
+
+	e.IdentityCache = identityCache
+	policyMapDesiredStateChanged := e.calculateDesiredPolicyMapState(owner, repo)
+
+	var forcedPolicyChange bool
+
+	// If we are in this function, then policy has been calculated.
+	if !e.policyCalculated {
+		e.getLogger().Debug("setting policyCalculated to true for endpoint")
+		e.policyCalculated = true
+		// Always trigger a regenerate after the first policy
+		// calculation has been performed
+		forcedPolicyChange = true
+	}
+
+	if e.forcePolicyCompute {
+		forcedPolicyChange = true    // Options were changed by the caller.
+		e.forcePolicyCompute = false // Policies just computed
+		e.getLogger().Debug("Forced policy recalculation")
+	}
+
+	e.nextPolicyRevision = revision
+
+	if !owner.DryModeEnabled() {
+		e.syncPolicyWithDatapath()
+	}
+
+	// If no policy or options change occurred for this endpoint then the endpoint is
+	// already running the latest revision, otherwise we have to wait for
+	// the regeneration of the endpoint to complete.
+	if !cidrPolicyChanged && !optsChanged && !policyMapDesiredStateChanged {
+		e.setPolicyRevision(revision)
+	}
+
+	e.getLogger().WithFields(logrus.Fields{
+		"cidrPolicyChanged":            cidrPolicyChanged,
+		"optsChanged":                  optsChanged,
+		"realizedPolicyRevision":       e.realizedPolicyRevision,
+		"nextPolicyRevision":           e.nextPolicyRevision,
+		"policyMapDesiredStateChanged": policyMapDesiredStateChanged,
+		"forcedPolicyChange":           forcedPolicyChange,
+	}).Debug("Done recomputing policy for this endpoint")
+
+	changeInPolicy := optsChanged || cidrPolicyChanged || e.nextPolicyRevision > e.realizedPolicyRevision || forcedPolicyChange
+
+	return changeInPolicy, nil
+}
+
+func (e *Endpoint) applyConfiguration(owner Owner, opts models.ConfigurationMap) (optionsChanged bool) {
+	if opts == nil {
+		opts = make(models.ConfigurationMap)
+	}
 
 	// Apply possible option changes before regenerating maps, as map regeneration
 	// depends on the conntrack options
-	if c.L4Policy != nil {
-		if c.L4Policy.RequiresConntrack() {
+	if e.DesiredL4Policy != nil {
+		if e.DesiredL4Policy.RequiresConntrack() {
 			opts[OptionConntrack] = optionEnabled
 		}
 	}
 
+	// Policy enforcement mode configuration.
 	ingress, egress := owner.EnableEndpointPolicyEnforcement(e)
 
 	opts[OptionIngressPolicy] = optionDisabled
@@ -666,52 +539,7 @@ func (e *Endpoint) regeneratePolicy(owner Owner, opts models.ConfigurationMap) (
 		}
 	}
 
-	optsChanged := e.applyOptsLocked(opts)
-
-	// Determines all security-identity based policy.
-	// Updates e.LabelsMap to labelsMap if changed
-	policyChanged2, err := e.regenerateConsumable(owner, labelsMap, repo, c)
-	if err != nil {
-		return false, err
-	}
-	if policyChanged2 {
-		e.getLogger().Debug("consumable regeneration resulted in policy change")
-		policyChanged = true
-	}
-
-	// If we are in this function, then policy has been calculated.
-	if !e.PolicyCalculated {
-		e.getLogger().Debug("setting PolicyCalculated to true for endpoint")
-		e.PolicyCalculated = true
-		// Always trigger a regenerate after the first policy
-		// calculation has been performed
-		optsChanged = true
-	}
-
-	if e.forcePolicyCompute {
-		optsChanged = true           // Options were changed by the caller.
-		e.forcePolicyCompute = false // Policies just computed
-		e.getLogger().Debug("Forced policy recalculation")
-	}
-
-	e.nextPolicyRevision = revision
-
-	// If no policy or options change occurred for this endpoint then the endpoint is
-	// already running the latest revision, otherwise we have to wait for
-	// the regeneration of the endpoint to complete.
-	if !policyChanged && !optsChanged {
-		e.setPolicyRevision(revision)
-	}
-
-	e.getLogger().WithFields(logrus.Fields{
-		"policyChanged":       policyChanged,
-		"optsChanged":         optsChanged,
-		"policyRevision.next": e.nextPolicyRevision,
-	}).Debug("Done regenerating")
-
-	needToRegenerateBPF := optsChanged || policyChanged || e.nextPolicyRevision > e.policyRevision
-
-	return needToRegenerateBPF, nil
+	return e.applyOptsLocked(opts)
 }
 
 // Called with e.Mutex UNlocked
@@ -866,21 +694,20 @@ func (e *Endpoint) Regenerate(owner Owner, reason string) <-chan bool {
 // state to reflect new policy.
 //
 // Returns true if policy was changed and the endpoint needs to be rebuilt
-func (e *Endpoint) TriggerPolicyUpdatesLocked(owner Owner, opts models.ConfigurationMap) (bool, *sync.WaitGroup, error) {
-	ctCleaned := &sync.WaitGroup{}
+func (e *Endpoint) TriggerPolicyUpdatesLocked(owner Owner, opts models.ConfigurationMap) (bool, error) {
 
-	if e.Consumable == nil {
-		return false, ctCleaned, nil
+	if e.SecurityIdentity == nil {
+		return false, nil
 	}
 
 	needToRegenerateBPF, err := e.regeneratePolicy(owner, opts)
 	if err != nil {
-		return false, ctCleaned, fmt.Errorf("%s: %s", e.StringID(), err)
+		return false, fmt.Errorf("%s: %s", e.StringID(), err)
 	}
 
 	e.getLogger().Debugf("TriggerPolicyUpdatesLocked: changed: %t", needToRegenerateBPF)
 
-	return needToRegenerateBPF, ctCleaned, nil
+	return needToRegenerateBPF, nil
 }
 
 func (e *Endpoint) runIdentityToK8sPodSync() {
@@ -971,28 +798,8 @@ func (e *Endpoint) runIPIdentitySync(endpointIP addressing.CiliumIP) {
 // Caller triggers policy regeneration if needed.
 // Called with e.Mutex Locked
 func (e *Endpoint) SetIdentity(identity *identityPkg.Identity) {
-	cache := policy.GetConsumableCache()
-
-	if e.Consumable != nil {
-		if e.SecurityIdentity != nil && identity.ID == e.Consumable.ID {
-			// Even if the numeric identity is the same, the order in which the
-			// labels are represented may change.
-			e.SecurityIdentity = identity
-			e.Consumable.Mutex.Lock()
-			e.Consumable.Labels = identity
-			e.Consumable.LabelArray = identity.Labels.ToSlice()
-			e.Consumable.Mutex.Unlock()
-			return
-		}
-		// TODO: This removes the consumable from the cache even if other endpoints
-		// would still point to it. Consumable should be removed from the cache
-		// only when no endpoint refers to it. Fix by implementing explicit reference
-		// counting via the cache?
-		cache.Remove(e.Consumable)
-	}
 
 	e.SecurityIdentity = identity
-	e.Consumable = cache.GetOrCreate(identity.ID, identity)
 
 	// Sets endpoint state to ready if was waiting for identity
 	if e.GetStateLocked() == StateWaitingForIdentity {
@@ -1006,10 +813,7 @@ func (e *Endpoint) SetIdentity(identity *identityPkg.Identity) {
 	e.runIPIdentitySync(e.IPv4)
 	e.runIPIdentitySync(e.IPv6)
 
-	e.Consumable.Mutex.RLock()
 	e.getLogger().WithFields(logrus.Fields{
 		logfields.Identity: identity,
-		"consumable":       e.Consumable,
-	}).Debug("Set identity and consumable of EP")
-	e.Consumable.Mutex.RUnlock()
+	}).Debug("Set identity of endpoint")
 }

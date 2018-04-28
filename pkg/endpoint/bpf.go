@@ -119,16 +119,15 @@ func (e *Endpoint) writeL4Map(fw *bufio.Writer, m policy.L4PolicyMap, configL4, 
 }
 
 func (e *Endpoint) writeL4Policy(fw *bufio.Writer) error {
-	if e.Consumable == nil {
-		return nil
-	}
-	e.Consumable.Mutex.RLock()
-	defer e.Consumable.Mutex.RUnlock()
-	if e.Consumable.L4Policy == nil {
+	if e.SecurityIdentity == nil {
 		return nil
 	}
 
-	l4policy := e.Consumable.L4Policy
+	if e.DesiredL4Policy == nil {
+		return nil
+	}
+
+	l4policy := e.DesiredL4Policy
 
 	fmt.Fprintf(fw, "#define HAVE_L4_POLICY\n")
 
@@ -211,7 +210,7 @@ func (e *Endpoint) writeHeaderfile(prefix string, owner Owner) error {
 	// which is true when:
 	// - policy enforcement mode is "never"
 	// - policy enforcement mode is "default" and no policies are loaded
-	if !e.PolicyCalculated &&
+	if !e.policyCalculated &&
 		!(owner.PolicyEnforcement() == NeverEnforce) &&
 		!(owner.PolicyEnforcement() == DefaultEnforcement && owner.GetPolicyRepository().Empty()) {
 		fw.WriteString("#define DROP_ALL\n")
@@ -277,7 +276,7 @@ func (e *Endpoint) writeHeaderfile(prefix string, owner Owner) error {
 	fw.WriteString("#define LXC_PORT_MAPPINGS ")
 	for _, m := range e.PortMap {
 		// Write mappings directly in network byte order so we don't have
-		// to convert it in the fast path
+		// to convert it in the fast path.
 		fmt.Fprintf(fw, "{%#x,%#x},", byteorder.HostToNetwork(m.From), byteorder.HostToNetwork(m.To))
 	}
 	fw.WriteString("\n")
@@ -591,13 +590,10 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir, reason string) (uint64, err
 
 		// Dry mode needs Network Policy Updates, but e.ProxyWaitGroup must not
 		// be initialized, as there is no proxy ACKing the changes.
-		if e.Consumable != nil {
-			e.Consumable.Mutex.Lock()
+		if e.SecurityIdentity != nil {
 			if err = e.updateNetworkPolicy(owner); err != nil {
-				e.Consumable.Mutex.Unlock()
 				return 0, err
 			}
-			e.Consumable.Mutex.Unlock()
 		}
 
 		if err = e.writeHeaderfile(epdir, owner); err != nil {
@@ -630,7 +626,7 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir, reason string) (uint64, err
 	// Endpoint's identity can be changed while we are compiling
 	// bpf. To be able to undo changes in case of an error we need
 	// to keep a local reference to the current consumable.
-	c := e.Consumable
+	//c := e.Consumable
 
 	defer func() {
 		if err != nil {
@@ -638,9 +634,6 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir, reason string) (uint64, err
 			if createdPolicyMap {
 				// Remove policy map file only if it was created
 				// in this update cycle
-				if c != nil {
-					c.RemovePolicyMap(e.PolicyMap)
-				}
 
 				os.RemoveAll(e.PolicyMapPathLocked())
 				e.PolicyMap = nil
@@ -680,8 +673,7 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir, reason string) (uint64, err
 
 	// Only generate & populate policy map if a security identity is set up for
 	// this endpoint.
-	if c != nil {
-		c.AddMap(e.PolicyMap)
+	if e.SecurityIdentity != nil {
 
 		// Regenerate policy and apply any options resulting in the
 		// policy change.
@@ -695,11 +687,9 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir, reason string) (uint64, err
 		// Walk the L4Policy for ports that require
 		// an L7 redirect and add them to the endpoint; update the L4PolicyMap
 		// with the redirects.
-		c.Mutex.Lock()
-		if c.L4Policy != nil {
-			desiredRedirects, err = e.addNewRedirects(owner, c.L4Policy)
+		if e.DesiredL4Policy != nil {
+			desiredRedirects, err = e.addNewRedirects(owner, e.DesiredL4Policy)
 			if err != nil {
-				c.Mutex.Unlock()
 				e.Mutex.Unlock()
 				return 0, err
 			}
@@ -707,11 +697,9 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir, reason string) (uint64, err
 		// Update policies after adding redirects, otherwise we will not wait for
 		// acks for the first policy upates for the first added redirects.
 		if err = e.updateNetworkPolicy(owner); err != nil {
-			c.Mutex.Unlock()
 			e.Mutex.Unlock()
 			return 0, err
 		}
-		c.Mutex.Unlock()
 	}
 
 	// Generate header file specific to this endpoint for use in compiling

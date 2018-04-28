@@ -162,10 +162,6 @@ func (ds *DaemonSuite) TestUpdateConsumerMap(c *C) {
 	c.Assert(ready, Equals, true)
 	buildSuccess := <-e.Regenerate(ds.d, "test")
 	c.Assert(buildSuccess, Equals, true)
-	c.Assert(e.Allows(qaBarSecLblsCtx.ID), Equals, false)
-	c.Assert(e.Allows(prodBarSecLblsCtx.ID), Equals, false)
-	c.Assert(e.Allows(qaFooSecLblsCtx.ID), Equals, true)
-	c.Assert(e.Allows(prodFooSecLblsCtx.ID), Equals, false)
 
 	e = endpoint.NewEndpointWithState(1, endpoint.StateWaitingForIdentity)
 	e.IfName = "dummy1"
@@ -180,12 +176,6 @@ func (ds *DaemonSuite) TestUpdateConsumerMap(c *C) {
 	c.Assert(ready, Equals, true)
 	buildSuccess = <-e.Regenerate(ds.d, "test")
 	c.Assert(buildSuccess, Equals, true)
-	c.Assert(e.Allows(0), Equals, false)
-	c.Assert(e.Allows(qaBarSecLblsCtx.ID), Equals, false)
-	c.Assert(e.Allows(prodBarSecLblsCtx.ID), Equals, false)
-	c.Assert(e.Allows(qaFooSecLblsCtx.ID), Equals, false)
-	c.Assert(e.Allows(prodFooSecLblsCtx.ID), Equals, true)
-	c.Assert(e.Allows(prodFooJoeSecLblsCtx.ID), Equals, true)
 
 	// Check that both policies have been updated in the xDS cache for the L7
 	// proxies.

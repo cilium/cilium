@@ -40,14 +40,14 @@ func (e *Endpoint) updateLogger() {
 	// We need to update if
 	// - e.logger is nil (this happens on the first ever call to updateLogger via
 	//   getLogger above). This clause has to come first to guard the others.
-	// - If any of EndpointID, ContainerID or policyRevision are different on the
+	// - If any of EndpointID, ContainerID or realizedPolicyRevision are different on the
 	//   endpoint from the logger.
 	// - The debug option on the endpoint is true, and the logger is not debug,
 	//   or vice versa.
 	shouldUpdate := e.logger == nil ||
 		e.logger.Data[logfields.EndpointID] != e.ID ||
 		e.logger.Data[logfields.ContainerID] != containerID ||
-		e.logger.Data[logfields.PolicyRevision] != e.policyRevision ||
+		e.logger.Data[logfields.PolicyRevision] != e.realizedPolicyRevision ||
 		e.Opts.IsEnabled("Debug") != (e.logger.Level == logrus.DebugLevel)
 
 	// do nothing if we do not need an update
@@ -71,6 +71,6 @@ func (e *Endpoint) updateLogger() {
 	e.logger = baseLogger.WithFields(logrus.Fields{
 		logfields.EndpointID:     e.ID,
 		logfields.ContainerID:    containerID,
-		logfields.PolicyRevision: e.policyRevision,
+		logfields.PolicyRevision: e.realizedPolicyRevision,
 	})
 }

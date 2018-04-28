@@ -94,56 +94,40 @@ func (key *policyKey) GetIdentity() uint32 {
 	return key.Identity
 }
 
-// AllowIdentity adds an entry into the PolicyMap for security identity ID.
-// Inserting an entry into the map for a given identity for the specified
-// trafficDirection allows traffic in the specified direction in reference to
-// the specified security identity. Returns an error if the addition into the map
-// did not complete successfully.
-func (pm *PolicyMap) AllowIdentity(id uint32, trafficDirection TrafficDirection) error {
-	key := policyKey{Identity: id, TrafficDirection: trafficDirection.Uint8()}
-	entry := PolicyEntry{}
-	return bpf.UpdateElement(pm.Fd, unsafe.Pointer(&key), unsafe.Pointer(&entry), 0)
+func (key *policyKey) GetPort() uint16 {
+	return key.DestPort
 }
 
-// AllowL4 pushes an entry into the PolicyMap to allow traffic in the given
+func (key *policyKey) GetProto() uint8 {
+	return key.Nexthdr
+}
+
+func (key *policyKey) GetDirection() uint8 {
+	return key.TrafficDirection
+}
+
+// Allow pushes an entry into the PolicyMap to allow traffic in the given
 // `trafficDirection` for identity `id` with destination port `dport` over
 // protocol `proto`.
-func (pm *PolicyMap) AllowL4(id uint32, dport uint16, proto uint8, trafficDirection TrafficDirection) error {
+func (pm *PolicyMap) Allow(id uint32, dport uint16, proto uint8, trafficDirection TrafficDirection) error {
 	key := policyKey{Identity: id, DestPort: byteorder.HostToNetwork(dport).(uint16), Nexthdr: proto, TrafficDirection: trafficDirection.Uint8()}
 	entry := PolicyEntry{}
 	return bpf.UpdateElement(pm.Fd, unsafe.Pointer(&key), unsafe.Pointer(&entry), 0)
 }
 
-// IdentityExists returns whether traffic is allowed in the specified
-// trafficDirection for the given security identity (id).
-func (pm *PolicyMap) IdentityExists(id uint32, trafficDirection TrafficDirection) bool {
-	key := policyKey{Identity: id, TrafficDirection: trafficDirection.Uint8()}
-	var entry PolicyEntry
-	return bpf.LookupElement(pm.Fd, unsafe.Pointer(&key), unsafe.Pointer(&entry)) == nil
-}
-
-// L4Exists determines whether PolicyMap currently contains an entry that
+// Exists determines whether PolicyMap currently contains an entry that
 // allows traffic in `trafficDirection` for identity `id` with destination port
 // `dport`over protocol `proto`.
-func (pm *PolicyMap) L4Exists(id uint32, dport uint16, proto uint8, trafficDirection TrafficDirection) bool {
+func (pm *PolicyMap) Exists(id uint32, dport uint16, proto uint8, trafficDirection TrafficDirection) bool {
 	key := policyKey{Identity: id, DestPort: byteorder.HostToNetwork(dport).(uint16), Nexthdr: proto, TrafficDirection: trafficDirection.Uint8()}
 	var entry PolicyEntry
 	return bpf.LookupElement(pm.Fd, unsafe.Pointer(&key), unsafe.Pointer(&entry)) == nil
 }
 
-// DeleteIdentity deletes id from the PolicyMap in the specified
-// trafficDirection. This means that traffic in the specified direction is no
-// longer allowed for the specified identity. Returns an error if the deletion
-// did not succeed.
-func (pm *PolicyMap) DeleteIdentity(id uint32, trafficDirection TrafficDirection) error {
-	key := policyKey{Identity: id, TrafficDirection: trafficDirection.Uint8()}
-	return bpf.DeleteElement(pm.Fd, unsafe.Pointer(&key))
-}
-
-// DeleteL4 removes an entry from the PolicyMap for identity `id`
+// Delete removes an entry from the PolicyMap for identity `id`
 // sending traffic in direction `trafficDirection` with destination port `dport`
 // over protocol `proto`. Returns an error if the deletion did not succeed.
-func (pm *PolicyMap) DeleteL4(id uint32, dport uint16, proto uint8, trafficDirection TrafficDirection) error {
+func (pm *PolicyMap) Delete(id uint32, dport uint16, proto uint8, trafficDirection TrafficDirection) error {
 	key := policyKey{Identity: id, DestPort: byteorder.HostToNetwork(dport).(uint16), Nexthdr: proto, TrafficDirection: trafficDirection.Uint8()}
 	return bpf.DeleteElement(pm.Fd, unsafe.Pointer(&key))
 }
