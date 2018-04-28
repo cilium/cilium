@@ -2,6 +2,29 @@
 NEWS
 ******
 
+v1.0.1
+======
+
+Amey Bhide (1):
+      Adds flag to clean up cilium state before startup
+
+Ian Vernon (1):
+      Documentation: remove bash-test framework references
+
+Jarno Rajahalme (3):
+      daemon: Sync local IPs to lxcmap periodically.
+      maps: Use pointer receivers for MapValue types.
+      policy: Do not enable DROP_ALL mode if not needed.
+
+Joe Stringer (1):
+      monitor: Fix IPv6 string formatting in CT messages
+
+Ray Bejjani (1):
+      doc: Add a section about CiliumEndpoint CRDs
+
+Thomas Graf (1):
+      endpoint: Improve logging of endpoint lifecycle events
+
 v1.0.0
 ======
 
