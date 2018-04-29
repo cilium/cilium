@@ -185,7 +185,8 @@ Packer-CI-Build
 As part of Cilium development, we use a custom base box with a bunch of
 pre-installed libraries and tools that we need to enhance our daily workflow.
 That base box is built with `Packer <https://www.packer.io/>`_ and it is hosted
-in the `packer-ci-build <https://github.com/cilium/packer-ci-build>`_ GitHub
+in the `packer-ci-build
+<https://jenkins.cilium.io/job/Vagrant-Master-Boxes-Packer-Build/>`_ GitHub
 repository.
 
 New versions of this box can be created via `Jenkins
