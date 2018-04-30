@@ -107,3 +107,12 @@ func (id NumericIdentity) IsReservedIdentity() bool {
 	_, isReservedIdentity := ReservedIdentityNames[id]
 	return isReservedIdentity
 }
+
+// GetAllReservedIdentities returns a list of all reserved numeric identities.
+func GetAllReservedIdentities() []NumericIdentity {
+	identities := []NumericIdentity{}
+	for _, id := range ReservedIdentities {
+		identities = append(identities, id)
+	}
+	return identities
+}
