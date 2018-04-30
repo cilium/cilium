@@ -225,21 +225,40 @@ func dumpToSlice(m *bpf.Map, mapType string) ([]CtEntryDump, error) {
 // filter.
 func doGC6(m *bpf.Map, filter *GCFilter) int {
 	var (
-		action, deleted int
-		nextKey, tmpKey CtKey6Global
+		action, deleted              int
+		prevKey, currentKey, nextKey CtKey6Global
 	)
 
-	err := m.GetNextKey(&tmpKey, &nextKey)
+	// prevKey is initially invalid, causing GetNextKey to return the first key in the map as currentKey.
+	prevKeyValid := false
+	err := m.GetNextKey(&prevKey, &currentKey)
 	if err != nil {
+		// Map is empty, nothing to clean up.
 		return 0
 	}
 
-	for {
-		nextKeyValid := m.GetNextKey(&nextKey, &tmpKey)
-		entryMap, err := m.Lookup(&nextKey)
+	var count uint32
+	for count = 1; count <= m.MapInfo.MaxEntries; count++ {
+		// currentKey was returned by GetNextKey() so we know it existed in the map, but it may have been
+		// deleted by a concurrent map operation. If currentKey is no longer in the map, nextKey will be
+		// the first key in the map again. Use the nextKey only if we still find currentKey in the Lookup()
+		// after the GetNextKey() call, this way we know nextKey is NOT the first key in the map.
+		nextKeyValid := m.GetNextKey(&currentKey, &nextKey)
+		entryMap, err := m.Lookup(&currentKey)
 		if err != nil {
-			log.WithError(err).Error("error during map Lookup")
-			break
+			// Restarting from a invalid key starts the iteration again from the beginning.
+			// If we have a previously found key, try to restart from there instead
+			if prevKeyValid {
+				currentKey = prevKey
+				// Restart from a given previous key only once, otherwise if the prevKey is
+				// concurrently deleted we might loop forever trying to look it up.
+				prevKeyValid = false
+			} else {
+				// Depending on exactly when currentKey was deleted from the map, nextKey may be the actual
+				// keyelement after the deleted one, or the first element in the map.
+				currentKey = nextKey
+			}
+			continue
 		}
 
 		entry := entryMap.(*CtEntry)
@@ -247,13 +266,14 @@ func doGC6(m *bpf.Map, filter *GCFilter) int {
 		// In CT entries, the source address of the conntrack entry (`saddr`) is
 		// the destination of the packet received, therefore it's the packet's
 		// destination IP
-		action = filter.doFiltering(nextKey.daddr.IP(), nextKey.saddr.IP(), nextKey.sport, uint8(nextKey.nexthdr), nextKey.flags, entry)
+		action = filter.doFiltering(currentKey.daddr.IP(), currentKey.saddr.IP(), currentKey.sport,
+			uint8(currentKey.nexthdr), currentKey.flags, entry)
 
 		switch action {
 		case deleteEntry:
-			err := m.Delete(&nextKey)
+			err := m.Delete(&currentKey)
 			if err != nil {
-				log.WithError(err).Errorf("Unable to delete CT entry %s", nextKey.String())
+				log.WithError(err).Errorf("Unable to delete CT entry %s", currentKey.String())
 			} else {
 				deleted++
 			}
@@ -262,8 +282,18 @@ func doGC6(m *bpf.Map, filter *GCFilter) int {
 		if nextKeyValid != nil {
 			break
 		}
-		nextKey = tmpKey
+		// remember the last found key
+		prevKey = currentKey
+		prevKeyValid = true
+		// continue from the next key
+		currentKey = nextKey
 	}
+
+	if count > m.MapInfo.MaxEntries {
+		// TODO Add a metric we can bump and observe here.
+		log.WithError(err).Warning("Garbage collection on IPv6 CT map failed to finish")
+	}
+
 	return deleted
 }
 
@@ -271,21 +301,40 @@ func doGC6(m *bpf.Map, filter *GCFilter) int {
 // filter.
 func doGC4(m *bpf.Map, filter *GCFilter) int {
 	var (
-		action, deleted int
-		nextKey, tmpKey CtKey4Global
+		action, deleted              int
+		prevKey, currentKey, nextKey CtKey4Global
 	)
 
-	err := m.GetNextKey(&tmpKey, &nextKey)
+	// prevKey is initially invalid, causing GetNextKey to return the first key in the map as currentKey.
+	prevKeyValid := false
+	err := m.GetNextKey(&prevKey, &currentKey)
 	if err != nil {
+		// Map is empty, nothing to clean up.
 		return 0
 	}
 
-	for true {
-		nextKeyValid := m.GetNextKey(&nextKey, &tmpKey)
-		entryMap, err := m.Lookup(&nextKey)
+	var count uint32
+	for count = 1; count <= m.MapInfo.MaxEntries; count++ {
+		// currentKey was returned by GetNextKey() so we know it existed in the map, but it may have been
+		// deleted by a concurrent map operation. If currentKey is no longer in the map, nextKey will be
+		// the first key in the map again. Use the nextKey only if we still find currentKey in the Lookup()
+		// after the GetNextKey() call, this way we know nextKey is NOT the first key in the map.
+		nextKeyValid := m.GetNextKey(&currentKey, &nextKey)
+		entryMap, err := m.Lookup(&currentKey)
 		if err != nil {
-			log.WithError(err).Error("error during map Lookup")
-			break
+			// Restarting from a invalid key starts the iteration again from the beginning.
+			// If we have a previously found key, try to restart from there instead
+			if prevKeyValid {
+				currentKey = prevKey
+				// Restart from a given previous key only once, otherwise if the prevKey is
+				// concurrently deleted we might loop forever trying to look it up.
+				prevKeyValid = false
+			} else {
+				// Depending on exactly when currentKey was deleted from the map, nextKey may be the actual
+				// keyelement after the deleted one, or the first element in the map.
+				currentKey = nextKey
+			}
+			continue
 		}
 
 		entry := entryMap.(*CtEntry)
@@ -293,13 +342,14 @@ func doGC4(m *bpf.Map, filter *GCFilter) int {
 		// In CT entries, the source address of the conntrack entry (`saddr`) is
 		// the destination of the packet received, therefore it's the packet's
 		// destination IP
-		action = filter.doFiltering(nextKey.daddr.IP(), nextKey.saddr.IP(), nextKey.sport, uint8(nextKey.nexthdr), nextKey.flags, entry)
+		action = filter.doFiltering(currentKey.daddr.IP(), currentKey.saddr.IP(), currentKey.sport,
+			uint8(currentKey.nexthdr), currentKey.flags, entry)
 
 		switch action {
 		case deleteEntry:
-			err := m.Delete(&nextKey)
+			err := m.Delete(&currentKey)
 			if err != nil {
-				log.WithError(err).Errorf("Unable to delete CT entry %s", nextKey.String())
+				log.WithError(err).Errorf("Unable to delete CT entry %s", currentKey.String())
 			} else {
 				deleted++
 			}
@@ -308,8 +358,18 @@ func doGC4(m *bpf.Map, filter *GCFilter) int {
 		if nextKeyValid != nil {
 			break
 		}
-		nextKey = tmpKey
+		// remember the last found key
+		prevKey = currentKey
+		prevKeyValid = true
+		// continue from the next key
+		currentKey = nextKey
 	}
+
+	if count > m.MapInfo.MaxEntries {
+		// TODO Add a metric we can bump and observe here.
+		log.WithError(err).Warning("Garbage collection on IPv4 CT map failed to finish")
+	}
+
 	return deleted
 }
 
