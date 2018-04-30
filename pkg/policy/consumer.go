@@ -161,7 +161,7 @@ func (c *Consumable) RemovePolicyMap(m *policymap.PolicyMap) {
 
 func (c *Consumable) addToPolicyMaps(id identity.NumericIdentity, trafficDirection policymap.TrafficDirection) {
 	for _, m := range c.PolicyMaps {
-		if m.IdentityExists(id.Uint32(), trafficDirection) {
+		if m.Exists(id.Uint32(), policymap.AllPorts, u8proto.All, trafficDirection) {
 			continue
 		}
 
