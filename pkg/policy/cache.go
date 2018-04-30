@@ -45,17 +45,6 @@ func newConsumableCache() *ConsumableCache {
 	}
 }
 
-func (c *ConsumableCache) GetOrCreate(id identity.NumericIdentity, lbls *identity.Identity) *Consumable {
-	c.cacheMU.Lock()
-	defer c.cacheMU.Unlock()
-	if cons, ok := c.cache[id]; ok {
-		return cons
-	}
-
-	c.cache[id] = NewConsumable(id, lbls, c)
-	return c.cache[id]
-}
-
 func (c *ConsumableCache) Lookup(id identity.NumericIdentity) *Consumable {
 	c.cacheMU.RLock()
 	v, _ := c.cache[id]
@@ -116,11 +105,7 @@ func InitReserved() {
 			key: labels.NewLabel(val.String(), "", labels.LabelSourceReserved),
 		})
 
-		cache := GetConsumableCache()
-		if c := cache.GetOrCreate(val, identity); c != nil {
-			GetConsumableCache().addReserved(c)
-		} else {
-			log.WithField(logfields.Identity, identity).Fatal("Unable to initialize consumable")
-		}
+		c := NewConsumable(val, identity)
+		GetConsumableCache().addReserved(c)
 	}
 }
