@@ -109,19 +109,11 @@ func (pm *PolicyMap) Allow(id uint32, dport uint16, proto u8proto.U8proto, traff
 	return bpf.UpdateElement(pm.Fd, unsafe.Pointer(&key), unsafe.Pointer(&entry), 0)
 }
 
-// IdentityExists returns whether traffic is allowed in the specified
-// trafficDirection for the given security identity (id).
-func (pm *PolicyMap) IdentityExists(id uint32, trafficDirection TrafficDirection) bool {
-	key := policyKey{Identity: id, TrafficDirection: trafficDirection.Uint8()}
-	var entry PolicyEntry
-	return bpf.LookupElement(pm.Fd, unsafe.Pointer(&key), unsafe.Pointer(&entry)) == nil
-}
-
-// L4Exists determines whether PolicyMap currently contains an entry that
+// Exists determines whether PolicyMap currently contains an entry that
 // allows traffic in `trafficDirection` for identity `id` with destination port
 // `dport`over protocol `proto`.
-func (pm *PolicyMap) L4Exists(id uint32, dport uint16, proto uint8, trafficDirection TrafficDirection) bool {
-	key := policyKey{Identity: id, DestPort: byteorder.HostToNetwork(dport).(uint16), Nexthdr: proto, TrafficDirection: trafficDirection.Uint8()}
+func (pm *PolicyMap) Exists(id uint32, dport uint16, proto u8proto.U8proto, trafficDirection TrafficDirection) bool {
+	key := policyKey{Identity: id, DestPort: byteorder.HostToNetwork(dport).(uint16), Nexthdr: uint8(proto), TrafficDirection: trafficDirection.Uint8()}
 	var entry PolicyEntry
 	return bpf.LookupElement(pm.Fd, unsafe.Pointer(&key), unsafe.Pointer(&entry)) == nil
 }

@@ -149,7 +149,7 @@ func (e *Endpoint) applyNewFilter(identities *identityPkg.IdentityCache,
 	for _, sel := range filter.Endpoints {
 		for _, id := range getSecurityIdentities(identities, &sel) {
 			srcID := id.Uint32()
-			if e.PolicyMap.L4Exists(srcID, port, proto, direction) {
+			if e.PolicyMap.Exists(srcID, port, filter.U8Proto, direction) {
 				e.getLogger().WithField("l4Filter", filter).Debug("L4 filter exists")
 				continue
 			}
