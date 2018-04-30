@@ -49,8 +49,8 @@ func CurlFail(endpoint string, optionalValues ...interface{}) string {
 	if len(optionalValues) > 0 {
 		endpoint = fmt.Sprintf(endpoint, optionalValues...)
 	}
-	return fmt.Sprintf("curl -s --fail --connect-timeout %[1]d --max-time %[1]d %[2]s",
-		CurlConnectTimeout, endpoint)
+	return fmt.Sprintf("curl -s --fail --retry %[1]d --retry-delay %[2]d --retry-max-time %[3]d --connect-timeout %[4]d --max-time %[3]d %[5]s",
+		CurlRetryAttempts, CurlRetryDelay, CurlMaxTimeout, CurlConnectTimeout, endpoint)
 }
 
 // CurlWithHTTPCode retunrs the string representation of the curl command which
@@ -62,8 +62,8 @@ func CurlWithHTTPCode(endpoint string, optionalValues ...interface{}) string {
 		endpoint = fmt.Sprintf(endpoint, optionalValues...)
 	}
 
-	return fmt.Sprintf(`curl -s --output /dev/stderr -w '%%{http_code}' --connect-timeout %d %s`,
-		CurlConnectTimeout, endpoint)
+	return fmt.Sprintf(`curl -vvv --output /dev/stderr -w '%%{http_code}' --retry %[1]d --retry-delay %[2]d --retry-max-time %[3]d --connect-timeout %[4]d --max-time %[3]d %[5]s`,
+		CurlRetryAttempts, CurlRetryDelay, CurlMaxTimeout, CurlConnectTimeout, endpoint)
 }
 
 // Netperf returns the string representing the netperf command to use when testing
