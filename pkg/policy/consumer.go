@@ -195,7 +195,7 @@ func (c *Consumable) removeFromMaps(id identity.NumericIdentity, trafficDirectio
 		})
 
 		scopedLog.Debug("Updating policy BPF map: denying Identity")
-		if err := m.DeleteIdentity(id.Uint32(), trafficDirection); err != nil {
+		if err := m.Delete(id.Uint32(), policymap.AllPorts, u8proto.All, trafficDirection); err != nil {
 			scopedLog.WithError(err).Warn("Update of policy map failed")
 		}
 	}

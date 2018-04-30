@@ -56,6 +56,7 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/proxy/accesslog"
+	"github.com/cilium/cilium/pkg/u8proto"
 
 	go_version "github.com/hashicorp/go-version"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -1393,8 +1394,8 @@ func (e *Endpoint) RemoveFromGlobalPolicyMap() error {
 	if err == nil {
 		// We need to remove ourselves from global map, so that
 		// resources (prog/map reference counts) can be released.
-		gpm.DeleteIdentity(uint32(e.ID), policymap.Ingress)
-		gpm.DeleteIdentity(uint32(e.ID), policymap.Egress)
+		gpm.Delete(uint32(e.ID), policymap.AllPorts, u8proto.All, policymap.Ingress)
+		gpm.Delete(uint32(e.ID), policymap.AllPorts, u8proto.All, policymap.Egress)
 		gpm.Close()
 	}
 
