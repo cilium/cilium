@@ -220,11 +220,15 @@ func (e *Endpoint) applyL4PolicyLocked(oldIdentities, newIdentities *identityPkg
 func getLabelsMap() (*identityPkg.IdentityCache, error) {
 	labelsMap := identityPkg.GetIdentityCache()
 
-	reservedIDs := policy.GetConsumableCache().GetReservedIDs()
+	reservedIDs := identityPkg.GetAllReservedIdentities()
 	var idx identityPkg.NumericIdentity
 	for _, idx = range reservedIDs {
-		lbls := policy.ResolveIdentityLabels(idx)
-		if lbls == nil || len(lbls) == 0 {
+		identity := identityPkg.LookupIdentityByID(idx)
+		if identity == nil {
+			return nil, fmt.Errorf("unable to resolve reserved identity")
+		}
+		lbls := identity.Labels.ToSlice()
+		if len(lbls) == 0 {
 			return nil, fmt.Errorf("unable to resolve reserved identity")
 		}
 		labelsMap[idx] = lbls
