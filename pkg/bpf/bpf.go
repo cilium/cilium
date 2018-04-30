@@ -50,32 +50,48 @@ const (
 	BPF_MAP_TYPE_ARRAY_OF_MAPS    = 12
 	BPF_MAP_TYPE_HASH_OF_MAPS     = 13
 	BPF_MAP_TYPE_DEVMAP           = 14
+	BPF_MAP_TYPE_SOCKMAP          = 15
+	BPF_MAP_TYPE_CPUMAP           = 16
 
 	// BPF syscall command constants. Must match enum bpf_cmd from linux/bpf.h
-	BPF_MAP_CREATE         = 0
-	BPF_MAP_LOOKUP_ELEM    = 1
-	BPF_MAP_UPDATE_ELEM    = 2
-	BPF_MAP_DELETE_ELEM    = 3
-	BPF_MAP_GET_NEXT_KEY   = 4
-	BPF_PROG_LOAD          = 5
-	BPF_OBJ_PIN            = 6
-	BPF_OBJ_GET            = 7
-	BPF_PROG_ATTACH        = 8
-	BPF_PROG_DETACH        = 9
-	BPF_PROG_TEST_RUN      = 10
-	BPF_PROG_GET_NEXT_ID   = 11
-	BPF_MAP_GET_NEXT_ID    = 12
-	BPF_PROG_GET_FD_BY_ID  = 13
-	BPF_MAP_GET_FD_BY_ID   = 14
-	BPF_OBJ_GET_INFO_BY_FD = 15
+	BPF_MAP_CREATE          = 0
+	BPF_MAP_LOOKUP_ELEM     = 1
+	BPF_MAP_UPDATE_ELEM     = 2
+	BPF_MAP_DELETE_ELEM     = 3
+	BPF_MAP_GET_NEXT_KEY    = 4
+	BPF_PROG_LOAD           = 5
+	BPF_OBJ_PIN             = 6
+	BPF_OBJ_GET             = 7
+	BPF_PROG_ATTACH         = 8
+	BPF_PROG_DETACH         = 9
+	BPF_PROG_TEST_RUN       = 10
+	BPF_PROG_GET_NEXT_ID    = 11
+	BPF_MAP_GET_NEXT_ID     = 12
+	BPF_PROG_GET_FD_BY_ID   = 13
+	BPF_MAP_GET_FD_BY_ID    = 14
+	BPF_OBJ_GET_INFO_BY_FD  = 15
+	BPF_PROG_QUERY          = 16
+	BPF_RAW_TRACEPOINT_OPEN = 17
 
 	// Flags for BPF_MAP_UPDATE_ELEM. Must match values from linux/bpf.h
 	BPF_ANY     = 0
 	BPF_NOEXIST = 1
 	BPF_EXIST   = 2
 
+	// Flags for BPF_MAP_CREATE. Must match values from linux/bpf.h
 	BPF_F_NO_PREALLOC   = 1 << 0
 	BPF_F_NO_COMMON_LRU = 1 << 1
+	BPF_F_NUMA_NODE     = 1 << 2
+
+	// Flags for BPF_PROG_QUERY
+	BPF_F_QUERY_EFFECTVE = 1 << 0
+
+	// Flags for accessing BPF object
+	BPF_F_RDONLY = 1 << 3
+	BPF_F_WRONLY = 1 << 4
+
+	// Flag for stack_map, store build_id+offset instead of pointer
+	BPF_F_STACK_BUILD_ID = 1 << 5
 )
 
 // CreateMap creates a Map of type mapType, with key size keySize, a value size of
