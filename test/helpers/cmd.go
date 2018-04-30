@@ -100,7 +100,8 @@ func (res *CmdRes) CountLines() int {
 
 // CombineOutput returns the combined output of stdout and stderr for res.
 func (res *CmdRes) CombineOutput() *bytes.Buffer {
-	result := res.stdout
+	result := new(bytes.Buffer)
+	result.WriteString(res.stdout.String())
 	result.WriteString(res.stderr.String())
 	return result
 }
