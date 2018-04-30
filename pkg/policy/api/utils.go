@@ -98,3 +98,18 @@ func ParseL4Proto(proto string) (L4Proto, error) {
 	p := L4Proto(strings.ToUpper(proto))
 	return p, p.Validate()
 }
+
+// MonitorRepresentation returns string representation
+// sent as notification to monitor
+func (rules Rules) MonitorRepresentation() string {
+	result := "labels: %s, descriptions: %s"
+
+	labels := make([]string, 0, len(rules))
+	descriptions := make([]string, 0, len(rules))
+	for _, r := range rules {
+		labels = append(labels, r.Labels.GetModel()...)
+		descriptions = append(descriptions, r.Description)
+	}
+
+	return fmt.Sprintf(result, labels, descriptions)
+}

@@ -33,6 +33,8 @@ const (
 	AgentNotifyStart
 	AgentNotifyEndpointRegenerateSuccess
 	AgentNotifyEndpointRegenerateFail
+	AgentNotifyPolicyUpdated
+	AgentNotifyPolicyDeleted
 )
 
 var notifyTable = map[AgentNotification]string{
@@ -41,6 +43,8 @@ var notifyTable = map[AgentNotification]string{
 	AgentNotifyStart:                     "Cilium agent started",
 	AgentNotifyEndpointRegenerateSuccess: "Endpoint regenerated",
 	AgentNotifyEndpointRegenerateFail:    "Failed endpoint regeneration",
+	AgentNotifyPolicyUpdated:             "Policy updated",
+	AgentNotifyPolicyDeleted:             "Policy deleted",
 }
 
 func resolveAgentType(t AgentNotification) string {
