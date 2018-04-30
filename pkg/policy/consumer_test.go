@@ -26,22 +26,8 @@ const (
 	ID3 = identity.NumericIdentity(30)
 )
 
-func (s *PolicyTestSuite) TestGetConsumable(c *C) {
-	cache := newConsumableCache()
-
-	c1 := cache.GetOrCreate(ID1, nil)
-	c.Assert(c1.Iteration, Equals, uint64(0))
-	c2 := cache.GetOrCreate(ID1, nil)
-	c.Assert(c1, Equals, c2)
-
-	c3 := cache.GetOrCreate(ID2, nil)
-	c.Assert(c1, Not(Equals), c3)
-}
-
 func (s *PolicyTestSuite) TestIngressIdentityAllowed(c *C) {
-	cache := newConsumableCache()
-
-	c1 := cache.GetOrCreate(ID1, nil)
+	c1 := NewConsumable(ID1, nil)
 	c.Assert(c1.AllowsIngress(ID2), Equals, false)
 	c.Assert(c1.AllowsIngress(ID3), Equals, false)
 
@@ -72,9 +58,7 @@ func (s *PolicyTestSuite) TestIngressIdentityAllowed(c *C) {
 }
 
 func (s *PolicyTestSuite) TestEgressIdentityAllowed(c *C) {
-	cache := newConsumableCache()
-
-	c1 := cache.GetOrCreate(ID1, nil)
+	c1 := NewConsumable(ID1, nil)
 	c.Assert(c1.AllowsEgress(ID2), Equals, false)
 	c.Assert(c1.AllowsEgress(ID3), Equals, false)
 

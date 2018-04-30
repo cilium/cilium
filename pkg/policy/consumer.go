@@ -66,12 +66,10 @@ type Consumable struct {
 	// L4Policy contains the desired L4-related policy of this consumable
 	// (label-dependent L4, and L4-dependent L7 policy).
 	L4Policy *L4Policy `json:"l4-policy"`
-
-	cache *ConsumableCache
 }
 
 // NewConsumable creates a new consumable
-func NewConsumable(id identity.NumericIdentity, lbls *identity.Identity, cache *ConsumableCache) *Consumable {
+func NewConsumable(id identity.NumericIdentity, lbls *identity.Identity) *Consumable {
 	consumable := &Consumable{
 		ID:                id,
 		Iteration:         0,
@@ -79,7 +77,6 @@ func NewConsumable(id identity.NumericIdentity, lbls *identity.Identity, cache *
 		PolicyMaps:        map[int]*policymap.PolicyMap{},
 		IngressIdentities: map[identity.NumericIdentity]bool{},
 		EgressIdentities:  map[identity.NumericIdentity]bool{},
-		cache:             cache,
 	}
 	if lbls != nil {
 		consumable.LabelArray = lbls.Labels.ToSlice()
@@ -135,10 +132,6 @@ func (c *Consumable) delete() {
 		// FIXME: This explicit removal could be removed eventually to
 		// speed things up as the policy map should get deleted anyway.
 		c.removeFromMaps(egressIdentity, policymap.Egress)
-	}
-
-	if c.cache != nil {
-		c.cache.Remove(c)
 	}
 }
 

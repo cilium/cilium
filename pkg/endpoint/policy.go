@@ -971,7 +971,6 @@ func (e *Endpoint) runIPIdentitySync(endpointIP addressing.CiliumIP) {
 // Caller triggers policy regeneration if needed.
 // Called with e.Mutex Locked
 func (e *Endpoint) SetIdentity(identity *identityPkg.Identity) {
-	cache := policy.GetConsumableCache()
 
 	if e.Consumable != nil {
 		if e.SecurityIdentity != nil && identity.ID == e.Consumable.ID {
@@ -984,11 +983,6 @@ func (e *Endpoint) SetIdentity(identity *identityPkg.Identity) {
 			e.Consumable.Mutex.Unlock()
 			return
 		}
-		// TODO: This removes the consumable from the cache even if other endpoints
-		// would still point to it. Consumable should be removed from the cache
-		// only when no endpoint refers to it. Fix by implementing explicit reference
-		// counting via the cache?
-		cache.Remove(e.Consumable)
 	}
 
 	oldIdentity := "no identity"
@@ -997,7 +991,7 @@ func (e *Endpoint) SetIdentity(identity *identityPkg.Identity) {
 	}
 
 	e.SecurityIdentity = identity
-	e.Consumable = cache.GetOrCreate(identity.ID, identity)
+	e.Consumable = policy.NewConsumable(identity.ID, identity)
 
 	// Sets endpoint state to ready if was waiting for identity
 	if e.GetStateLocked() == StateWaitingForIdentity {
