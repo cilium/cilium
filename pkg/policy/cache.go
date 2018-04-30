@@ -52,12 +52,6 @@ func (c *ConsumableCache) Lookup(id identity.NumericIdentity) *Consumable {
 	return v
 }
 
-func (c *ConsumableCache) Remove(elem *Consumable) {
-	c.cacheMU.Lock()
-	delete(c.cache, elem.ID)
-	c.cacheMU.Unlock()
-}
-
 func (c *ConsumableCache) addReserved(elem *Consumable) {
 	c.cacheMU.Lock()
 	c.reserved = append(c.reserved, elem)
