@@ -70,7 +70,7 @@ pkg/completion/ @cilium/proxy
 pkg/endpoint/ @cilium/endpoint
 pkg/envoy/ @cilium/proxy
 pkg/health/ @cilium/health
-pkg/ipcache/ @ianvernon
+pkg/ipcache/ @cilium/ipcache
 pkg/k8s/ @cilium/kubernetes
 pkg/kafka/ @cilium/proxy
 pkg/kvstore/ @cilium/kvstore
