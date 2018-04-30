@@ -273,7 +273,7 @@ func updatePolicyKey(cmd *cobra.Command, args []string, add bool) {
 				Fatalf("Cannot add policy key '%s': %s\n", entry, err)
 			}
 		} else {
-			if err := policyMap.DeleteL4(label, port, proto, parsedTd); err != nil {
+			if err := policyMap.Delete(label, port, u8p, parsedTd); err != nil {
 				Fatalf("Cannot delete policy key '%s': %s\n", entry, err)
 			}
 		}

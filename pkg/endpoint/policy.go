@@ -115,12 +115,11 @@ func (e *Endpoint) removeOldFilter(identities *identityPkg.IdentityCache,
 	filter *policy.L4Filter, direction policymap.TrafficDirection) {
 
 	port := uint16(filter.Port)
-	proto := uint8(filter.U8Proto)
 
 	for _, sel := range filter.Endpoints {
 		for _, id := range getSecurityIdentities(identities, &sel) {
 			srcID := id.Uint32()
-			if err := e.PolicyMap.DeleteL4(srcID, port, proto, direction); err != nil {
+			if err := e.PolicyMap.Delete(srcID, port, filter.U8Proto, direction); err != nil {
 				// This happens when the policy would add
 				// multiple copies of the same L4 policy. Only
 				// one of them is actually added, but we'll

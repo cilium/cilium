@@ -118,20 +118,11 @@ func (pm *PolicyMap) Exists(id uint32, dport uint16, proto u8proto.U8proto, traf
 	return bpf.LookupElement(pm.Fd, unsafe.Pointer(&key), unsafe.Pointer(&entry)) == nil
 }
 
-// DeleteIdentity deletes id from the PolicyMap in the specified
-// trafficDirection. This means that traffic in the specified direction is no
-// longer allowed for the specified identity. Returns an error if the deletion
-// did not succeed.
-func (pm *PolicyMap) DeleteIdentity(id uint32, trafficDirection TrafficDirection) error {
-	key := policyKey{Identity: id, TrafficDirection: trafficDirection.Uint8()}
-	return bpf.DeleteElement(pm.Fd, unsafe.Pointer(&key))
-}
-
-// DeleteL4 removes an entry from the PolicyMap for identity `id`
+// Delete removes an entry from the PolicyMap for identity `id`
 // sending traffic in direction `trafficDirection` with destination port `dport`
 // over protocol `proto`. Returns an error if the deletion did not succeed.
-func (pm *PolicyMap) DeleteL4(id uint32, dport uint16, proto uint8, trafficDirection TrafficDirection) error {
-	key := policyKey{Identity: id, DestPort: byteorder.HostToNetwork(dport).(uint16), Nexthdr: proto, TrafficDirection: trafficDirection.Uint8()}
+func (pm *PolicyMap) Delete(id uint32, dport uint16, proto u8proto.U8proto, trafficDirection TrafficDirection) error {
+	key := policyKey{Identity: id, DestPort: byteorder.HostToNetwork(dport).(uint16), Nexthdr: uint8(proto), TrafficDirection: trafficDirection.Uint8()}
 	return bpf.DeleteElement(pm.Fd, unsafe.Pointer(&key))
 }
 
