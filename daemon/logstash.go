@@ -25,7 +25,6 @@ import (
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/policymap"
-	"github.com/cilium/cilium/pkg/policy"
 )
 
 // LogstashStat is used to collect stats from the policy dumps.
@@ -102,10 +101,11 @@ func EnableLogstash(LogstashAddr string, refreshTime int) {
 }
 
 func getInlineLabelStr(id identity.NumericIdentity) string {
-	l := policy.ResolveIdentityLabels(id)
-	if l == nil {
+	lbls := identity.LookupIdentityByID(id)
+	if lbls == nil {
 		return ""
 	}
+	l := lbls.Labels.ToSlice()
 	inlineLblSlice := []string{}
 	for _, lbl := range l {
 		inlineLblSlice = append(inlineLblSlice, lbl.String())
