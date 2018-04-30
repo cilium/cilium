@@ -30,6 +30,7 @@ import (
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
+	"github.com/cilium/cilium/pkg/monitor"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
 
@@ -252,6 +253,9 @@ func (d *Daemon) PolicyAdd(rules api.Rules, opts *AddOptions) (uint64, error) {
 
 	log.WithField(logfields.PolicyRevision, rev).Info("Policy imported via API, recalculating...")
 
+	d.SendNotification(monitor.AgentNotifyPolicyUpdated,
+		fmt.Sprintf("Updated policy: %s", rules.MonitorRepresentation()))
+
 	d.TriggerPolicyUpdates(false)
 
 	return rev, nil
@@ -310,6 +314,9 @@ func (d *Daemon) PolicyDelete(labels labels.LabelArray) (uint64, error) {
 			logfields.Labels: labels,
 		}).Debug("Cannot find identities for CIDR prefixes by labels")
 	}
+
+	d.SendNotification(monitor.AgentNotifyPolicyDeleted,
+		fmt.Sprintf("Deleted %d policy rule(s) by labels %s", deleted, labels.GetModel()))
 
 	d.TriggerPolicyUpdates(false)
 
