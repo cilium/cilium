@@ -30,6 +30,7 @@ import (
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/annotation"
+	cnpv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 
 	"github.com/asaskevich/govalidator"
 	"github.com/onsi/ginkgo"
@@ -206,6 +207,29 @@ func (kub *Kubectl) ExecPodCmdContext(ctx context.Context, namespace string, pod
 func (kub *Kubectl) Get(namespace string, command string) *CmdRes {
 	return kub.Exec(fmt.Sprintf(
 		"%s -n %s get %s -o json", KubectlCmd, namespace, command))
+}
+
+// GetCNP retrieves the output of `kubectl get cnp` in the given namespace for
+// the given CNP and return a CNP struct. If the CNP does not exists or cannot
+// unmarshal the Json output will return nil.
+func (kub *Kubectl) GetCNP(namespace string, cnp string) *cnpv2.CiliumNetworkPolicy {
+	log := kub.logger.WithFields(logrus.Fields{
+		"fn":  "GetCNP",
+		"cnp": cnp,
+		"ns":  namespace,
+	})
+	res := kub.Get(namespace, fmt.Sprintf("cnp %s", cnp))
+	if !res.WasSuccessful() {
+		log.WithField("error", res.CombineOutput()).Info("cannot get CNP")
+		return nil
+	}
+	var result cnpv2.CiliumNetworkPolicy
+	err := res.Unmarshal(&result)
+	if err != nil {
+		log.WithError(err).Errorf("cannot unmarshal CNP output")
+		return nil
+	}
+	return &result
 }
 
 // GetPods gets all of the pods in the given namespace that match the provided

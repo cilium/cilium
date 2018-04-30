@@ -111,6 +111,10 @@ var policiesTestSuite = PolicyTestSuite{
 				"rules": `{"http": [{"method": "GET", "path": "/private"}]}`,
 				"ports": `[{"port": "80", "protocol": "TCP"}]`,
 			},
+			exclude: []string{
+				"L4:Ingress Port 80 UDP",
+				"L4:Ingress Port 80 No protocol",
+			},
 		},
 		{
 			name:  "Egress policy to /private/",
@@ -119,6 +123,10 @@ var policiesTestSuite = PolicyTestSuite{
 			template: map[string]string{
 				"rules": `{"http": [{"method": "GET", "path": "/private"}]}`,
 				"ports": `[{"port": "80", "protocol": "TCP"}]`,
+			},
+			exclude: []string{
+				"L4:Egress Port 80 UDP",
+				"L4:Egress Port 80 No protocol",
 			},
 		},
 	},

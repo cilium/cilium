@@ -22,17 +22,19 @@ import (
 	"io/ioutil"
 	"net"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
 
+	cnpv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/test/helpers"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/onsi/ginkgo"
 	"github.com/onsi/gomega"
 	log "github.com/sirupsen/logrus"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // ConnTestSpec Connectivity Test Specification. This structs contains the
@@ -70,6 +72,7 @@ type PolicyTestKind struct {
 	kind     string //Egress/ingress
 	tests    ConnTestSpec
 	template map[string]string
+	exclude  []string
 }
 
 // SetTemplate renders the template field from the PolicyTest struct using go
@@ -329,6 +332,7 @@ func (t TestSpec) String() string {
 // with the expected results within the test specification
 func (t *TestSpec) RunTest(kub *helpers.Kubectl) {
 	defer func() { go t.Destroy(destroyDelay) }()
+
 	t.Kub = kub
 	err := t.CreateManifests()
 	gomega.Expect(err).To(gomega.BeNil(), "cannot create pods manifest for %s", t.Prefix)
@@ -340,11 +344,43 @@ func (t *TestSpec) RunTest(kub *helpers.Kubectl) {
 	err = t.Destination.CreateApplyManifest(t)
 	gomega.Expect(err).To(gomega.BeNil(), "cannot apply destination for %s", t.Prefix)
 
+	if t.IsPolicyInvalid() {
+		// Some policies cannot be applied correctly because of different
+		// rules. This code makes sure that the status of the policy has a error
+		// in the status.
+		cnp, err := t.InvalidNetworkPolicyApply()
+		gomega.Expect(err).To(gomega.BeNil(), "Cannot apply network policy")
+		gomega.Expect(cnp).NotTo(gomega.BeNil(), "CNP is not a valid struct")
+		gomega.Expect(cnp.Status.Nodes).NotTo(gomega.BeEmpty(), "CNP Status is empty")
+
+		for node, status := range cnp.Status.Nodes {
+			gomega.Expect(status.Error).NotTo(gomega.BeEmpty(),
+				"Node %q applied invalid policy and do not raise an error", node)
+		}
+		return
+	}
+
 	err = t.NetworkPolicyApply()
 	gomega.Expect(err).To(gomega.BeNil(), "cannot apply network policy for %s", t.Prefix)
 
 	err = t.ExecTest()
 	gomega.Expect(err).To(gomega.BeNil(), "cannot execute test for %s", t.Prefix)
+}
+
+// IsPolicyInvalid validates that the policy combination does not match with
+// testSpec.exclude information. That means that if a policy cannot be
+// installed we know that the combination is invalid.
+func (t *TestSpec) IsPolicyInvalid() bool {
+	var exclude []string
+	exclude = append(t.l3.exclude, t.l4.exclude...)
+	exclude = append(exclude, t.l7.exclude...)
+
+	for _, value := range exclude {
+		if strings.Contains(t.String(), value) {
+			return true
+		}
+	}
+	return false
 }
 
 // Destroy deletes the pods, CiliumNetworkPolicies and Destinations created by
@@ -627,6 +663,47 @@ func (t *TestSpec) NetworkPolicyApply() error {
 		return fmt.Errorf("Network policy cannot be imported prefix=%s: %s", t.Prefix, err)
 	}
 	return nil
+}
+
+// InvalidNetworkPolicyApply it writes the policy and applies to Kubernetes,
+// but instead of apply the policy, this return the CNP status for the TestSpec
+// policy. This function is only used when a invalid combination of policies
+// are created, where we need to test that the error is present.
+func (t *TestSpec) InvalidNetworkPolicyApply() (*cnpv2.CiliumNetworkPolicy, error) {
+	policy, err := t.CreateCiliumNetworkPolicy()
+	if err != nil {
+		return nil, fmt.Errorf("Network policy cannot be created prefix=%s: %s", t.Prefix, err)
+	}
+
+	err = ioutil.WriteFile(t.NetworkPolicyName(), []byte(policy), os.ModePerm)
+	if err != nil {
+		return nil, fmt.Errorf("Network policy cannot be written prefix=%s: %s", t.Prefix, err)
+	}
+
+	res := t.Kub.Apply(filepath.Join(helpers.BasePath, t.NetworkPolicyName()))
+	if !res.WasSuccessful() {
+		return nil, fmt.Errorf("%s", res.CombineOutput())
+	}
+	body := func() bool {
+		cnp := t.Kub.GetCNP(helpers.DefaultNamespace, t.Prefix)
+		if cnp != nil {
+			return true
+		}
+		return false
+	}
+	err = helpers.WithTimeout(
+		body,
+		fmt.Sprintf("CNP %q is not ready after timeout", t.Prefix),
+		&helpers.TimeoutConfig{Timeout: 100})
+	if err != nil {
+		return nil, err
+	}
+	cnp := t.Kub.GetCNP(helpers.DefaultNamespace, t.Prefix)
+	if cnp == nil {
+		return nil, fmt.Errorf("Cannot get cnp '%s'", t.Prefix)
+	}
+
+	return cnp, nil
 }
 
 type connTestResultType struct {
