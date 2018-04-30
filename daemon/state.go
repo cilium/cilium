@@ -30,6 +30,7 @@ import (
 	"github.com/cilium/cilium/pkg/workloads/containerd"
 
 	"github.com/sirupsen/logrus"
+	"github.com/vishvananda/netlink"
 )
 
 // SyncState syncs cilium state against the containers running in the host. dir is the
@@ -63,8 +64,12 @@ func (d *Daemon) SyncState(dir string, clean bool) error {
 	epRegenerated := make(chan bool, nEndpoints)
 
 	for _, ep := range possibleEPs {
+		scopedLog := log.WithField(logfields.EndpointID, ep.ID)
+		if _, err := netlink.LinkByName(ep.IfName); err != nil {
+			scopedLog.Info("Interface %s could not be found for endpoint being restored, ignoring")
+			continue
+		}
 		go func(ep *endpoint.Endpoint, epRestored, epRegenerated chan<- bool) {
-			scopedLog := log.WithField(logfields.EndpointID, ep.ID)
 			if clean && !containerd.IsRunning(ep) {
 				scopedLog.Info("No workload could be associated with endpoint being restored, ignoring")
 				d.deleteEndpointQuiet(ep)
