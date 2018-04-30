@@ -25,6 +25,7 @@ import (
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/u8proto"
 )
 
 const (
@@ -39,6 +40,11 @@ const (
 	// programs. This number *MUST* be identical to the maximum number of
 	// allowed identities.
 	ProgArrayMaxEntries = identity.MaxIdentity
+
+	// AllPorts is used to ignore the L4 ports in PolicyMap lookups; all ports
+	// are allowed. In the datapath, this is represented with the value 0 in the
+	// port field of map elements.
+	AllPorts = uint16(0)
 )
 
 var (
@@ -94,22 +100,11 @@ func (key *policyKey) GetIdentity() uint32 {
 	return key.Identity
 }
 
-// AllowIdentity adds an entry into the PolicyMap for security identity ID.
-// Inserting an entry into the map for a given identity for the specified
-// trafficDirection allows traffic in the specified direction in reference to
-// the specified security identity. Returns an error if the addition into the map
-// did not complete successfully.
-func (pm *PolicyMap) AllowIdentity(id uint32, trafficDirection TrafficDirection) error {
-	key := policyKey{Identity: id, TrafficDirection: trafficDirection.Uint8()}
-	entry := PolicyEntry{}
-	return bpf.UpdateElement(pm.Fd, unsafe.Pointer(&key), unsafe.Pointer(&entry), 0)
-}
-
-// AllowL4 pushes an entry into the PolicyMap to allow traffic in the given
+// Allow pushes an entry into the PolicyMap to allow traffic in the given
 // `trafficDirection` for identity `id` with destination port `dport` over
 // protocol `proto`.
-func (pm *PolicyMap) AllowL4(id uint32, dport uint16, proto uint8, trafficDirection TrafficDirection) error {
-	key := policyKey{Identity: id, DestPort: byteorder.HostToNetwork(dport).(uint16), Nexthdr: proto, TrafficDirection: trafficDirection.Uint8()}
+func (pm *PolicyMap) Allow(id uint32, dport uint16, proto u8proto.U8proto, trafficDirection TrafficDirection) error {
+	key := policyKey{Identity: id, DestPort: byteorder.HostToNetwork(dport).(uint16), Nexthdr: uint8(proto), TrafficDirection: trafficDirection.Uint8()}
 	entry := PolicyEntry{}
 	return bpf.UpdateElement(pm.Fd, unsafe.Pointer(&key), unsafe.Pointer(&entry), 0)
 }

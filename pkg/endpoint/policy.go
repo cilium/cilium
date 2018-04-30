@@ -153,7 +153,7 @@ func (e *Endpoint) applyNewFilter(identities *identityPkg.IdentityCache,
 				e.getLogger().WithField("l4Filter", filter).Debug("L4 filter exists")
 				continue
 			}
-			if err := e.PolicyMap.AllowL4(srcID, port, proto, direction); err != nil {
+			if err := e.PolicyMap.Allow(srcID, port, filter.U8Proto, direction); err != nil {
 				e.getLogger().WithFields(logrus.Fields{
 					logfields.PolicyID: srcID,
 					logfields.Port:     port,
