@@ -20,6 +20,7 @@ import (
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/policymap"
+	"github.com/cilium/cilium/pkg/u8proto"
 
 	"github.com/sirupsen/logrus"
 )
@@ -108,13 +109,13 @@ func (c *Consumable) AddMap(m *policymap.PolicyMap) {
 	// Populate the new map with the already established allowed identities from
 	// which ingress traffic is allowed.
 	for ingressIdentity := range c.IngressIdentities {
-		if err := m.AllowIdentity(ingressIdentity.Uint32(), policymap.Ingress); err != nil {
+		if err := m.Allow(ingressIdentity.Uint32(), policymap.AllPorts, u8proto.All, policymap.Ingress); err != nil {
 			log.WithError(err).Warn("Update of policy map failed")
 		}
 	}
 
 	for egressIdentity := range c.EgressIdentities {
-		if err := m.AllowIdentity(egressIdentity.Uint32(), policymap.Egress); err != nil {
+		if err := m.Allow(egressIdentity.Uint32(), policymap.AllPorts, u8proto.All, policymap.Egress); err != nil {
 			log.WithError(err).Warn("Update of policy map failed")
 		}
 	}
@@ -171,7 +172,7 @@ func (c *Consumable) addToPolicyMaps(id identity.NumericIdentity, trafficDirecti
 		})
 
 		scopedLog.Debug("Updating policy BPF map: allowing Identity")
-		if err := m.AllowIdentity(id.Uint32(), trafficDirection); err != nil {
+		if err := m.Allow(id.Uint32(), policymap.AllPorts, u8proto.All, trafficDirection); err != nil {
 			scopedLog.WithError(err).Warn("Update of policy map failed")
 		}
 	}
