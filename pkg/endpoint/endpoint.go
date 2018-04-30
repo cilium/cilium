@@ -1230,6 +1230,10 @@ func (e *Endpoint) directoryPath() string {
 	return filepath.Join(".", fmt.Sprintf("%d", e.ID))
 }
 
+func (e *Endpoint) failedDirectoryPath() string {
+	return filepath.Join(".", fmt.Sprintf("%d%s", e.ID, "_next_fail"))
+}
+
 func (e *Endpoint) Allows(id identityPkg.NumericIdentity) bool {
 	e.Mutex.RLock()
 	defer e.Mutex.RUnlock()
@@ -1756,6 +1760,7 @@ func (e *Endpoint) LeaveLocked(owner Owner) []error {
 
 	e.L3Maps.Close()
 	e.removeDirectory()
+	e.removeFailedDirectory()
 	e.controllers.RemoveAll()
 	e.cleanPolicySignals()
 
@@ -1768,6 +1773,10 @@ func (e *Endpoint) LeaveLocked(owner Owner) []error {
 
 func (e *Endpoint) removeDirectory() {
 	os.RemoveAll(e.directoryPath())
+}
+
+func (e *Endpoint) removeFailedDirectory() {
+	os.RemoveAll(e.failedDirectoryPath())
 }
 
 func (e *Endpoint) RemoveDirectory() {

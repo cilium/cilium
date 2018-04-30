@@ -760,8 +760,8 @@ func (e *Endpoint) regenerate(owner Owner, reason string) (retErr error) {
 	revision, err := e.regenerateBPF(owner, tmpDir, reason)
 
 	// If generation fails, keep the directory around. If it ever succeeds
-	// again, clean up this copy.
-	failDir := tmpDir + "_fail"
+	// again, clean up the XXX_next_fail copy.
+	failDir := e.failedDirectoryPath()
 	os.RemoveAll(failDir) // Most likely will not exist; ignore failure.
 	if err != nil {
 		e.getLogger().WithFields(logrus.Fields{
