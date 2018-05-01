@@ -964,36 +964,29 @@ func (kub *Kubectl) CiliumPolicyAction(namespace, filepath string, action Resour
 
 // CiliumReport report the cilium pod to the log and appends the logs for the
 // given commands.
-func (kub *Kubectl) CiliumReport(namespace string, commands ...[]string) {
+func (kub *Kubectl) CiliumReport(namespace string, commands ...string) {
 	pods, err := kub.GetCiliumPods(namespace)
 	if err != nil {
 		kub.logger.WithError(err).Error("cannot retrieve cilium pods on ReportDump")
 		return
 	}
 
-	wr := kub.logger.Logger.Out
-	fmt.Println("===================== TEST FAILED =====================")
-	fmt.Fprint(wr, "===================== TEST FAILED =====================\n")
+	fmt.Fprintln(ginkgo.GinkgoWriter, "===================== TEST FAILED =====================")
 
-	data := kub.Exec(fmt.Sprintf("%s get pods -o wide", KubectlCmd))
-	fmt.Fprintln(wr, data.Output())
+	// Dump a human readable view of pods in the test-output log
+	_ = kub.Exec(fmt.Sprintf("%s get pods -o wide --all-namespaces", KubectlCmd))
 
 	for _, pod := range pods {
-		res := kub.Logs(namespace, pod)
-		fmt.Fprintln(wr, res.Output())
-
 		for _, cmd := range commands {
 			command := fmt.Sprintf("%s exec -n %s %s -- %s", KubectlCmd, namespace, pod, cmd)
-			out := kub.Exec(command)
-			fmt.Fprintln(wr, out.CombineOutput())
+			_ = kub.Exec(command)
 		}
 	}
+
 	kub.DumpCiliumCommandOutput(namespace)
 	kub.GatherLogs()
 	kub.CheckLogsForDeadlock()
-	fmt.Fprint(wr, "===================== EXITING REPORT GENERATION =====================")
-	fmt.Println("===================== EXITING REPORT GENERATION =====================")
-
+	fmt.Fprintln(ginkgo.GinkgoWriter, "===================== EXITING REPORT GENERATION =====================")
 }
 
 // ValidateNoErrorsOnLogs checks in cilium logs since the given duration (By
@@ -1138,6 +1131,7 @@ func (kub *Kubectl) GatherLogs() {
 		"kubectl get services --all-namespaces -o json":                "svc.txt",
 		"kubectl get ds --all-namespaces -o json":                      "ds.txt",
 		"kubectl get cnp --all-namespaces -o json":                     "cnp.txt",
+		"kubectl get netpol --all-namespaces -o json":                  "netpol.txt",
 		"kubectl describe pods --all-namespaces":                       "pods_status.txt",
 		"kubectl get replicationcontroller --all-namespaces -o json":   "replicationcontroller.txt",
 		"kubectl get deployment --all-namespaces -o json":              "deployment.txt",

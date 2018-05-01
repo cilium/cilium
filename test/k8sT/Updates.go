@@ -47,8 +47,7 @@ var _ = Describe("K8sValidatedUpdates", func() {
 	})
 
 	AfterFailed(func() {
-		kubectl.CiliumReport(helpers.KubeSystemNamespace, []string{
-			"cilium endpoint list"})
+		kubectl.CiliumReport(helpers.KubeSystemNamespace, "cilium endpoint list")
 	})
 
 	JustAfterEach(func() {

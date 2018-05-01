@@ -52,9 +52,9 @@ var _ = Describe("K8sValidatedTunnelTest", func() {
 	}, 600)
 
 	AfterFailed(func() {
-		kubectl.CiliumReport(helpers.KubeSystemNamespace, []string{
+		kubectl.CiliumReport(helpers.KubeSystemNamespace,
 			"cilium bpf tunnel list",
-			"cilium endpoint list"})
+			"cilium endpoint list")
 	})
 
 	JustAfterEach(func() {
@@ -99,13 +99,6 @@ var _ = Describe("K8sValidatedTunnelTest", func() {
 
 			By("Checking that BPF tunnels are in place")
 			status := kubectl.CiliumExec(ciliumPod, "cilium bpf tunnel list | wc -l")
-			if tunnels, _ := status.IntOutput(); tunnels != 4 {
-				cmds := []string{
-					"cilium bpf tunnel list",
-				}
-				kubectl.CiliumReport(helpers.KubeSystemNamespace, cmds)
-			}
-
 			status.ExpectSuccess()
 			Expect(status.IntOutput()).Should(Equal(5))
 
@@ -148,12 +141,6 @@ var _ = Describe("K8sValidatedTunnelTest", func() {
 			By("Checking that BPF tunnels are in place")
 			status := kubectl.CiliumExec(ciliumPod, "cilium bpf tunnel list | wc -l")
 			status.ExpectSuccess()
-			if tunnels, _ := status.IntOutput(); tunnels != 4 {
-				cmds := []string{
-					"cilium bpf tunnel list",
-				}
-				kubectl.CiliumReport(helpers.KubeSystemNamespace, cmds)
-			}
 			Expect(status.IntOutput()).Should(Equal(5))
 
 			By("Checking that BPF tunnels are working correctly")

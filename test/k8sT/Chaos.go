@@ -62,9 +62,9 @@ var _ = Describe("K8sValidatedChaosTest", func() {
 	})
 
 	AfterFailed(func() {
-		kubectl.CiliumReport(helpers.KubeSystemNamespace, []string{
+		kubectl.CiliumReport(helpers.KubeSystemNamespace,
 			"cilium service list",
-			"cilium endpoint list"})
+			"cilium endpoint list")
 	})
 
 	JustAfterEach(func() {

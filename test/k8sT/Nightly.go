@@ -81,9 +81,9 @@ var _ = Describe("NightlyEpsMeasurement", func() {
 	})
 
 	AfterFailed(func() {
-		kubectl.CiliumReport(helpers.KubeSystemNamespace, []string{
+		kubectl.CiliumReport(helpers.KubeSystemNamespace,
 			"cilium service list",
-			"cilium endpoint list"})
+			"cilium endpoint list")
 	})
 
 	JustAfterEach(func() {
@@ -357,9 +357,9 @@ var _ = Describe("NightlyExamples", func() {
 	})
 
 	AfterFailed(func() {
-		kubectl.CiliumReport(helpers.KubeSystemNamespace, []string{
+		kubectl.CiliumReport(helpers.KubeSystemNamespace,
 			"cilium service list",
-			"cilium endpoint list"})
+			"cilium endpoint list")
 	})
 
 	JustAfterEach(func() {

@@ -92,9 +92,9 @@ var _ = Describe("K8sValidatedPolicyTest", func() {
 	})
 
 	AfterFailed(func() {
-		kubectl.CiliumReport(helpers.KubeSystemNamespace, []string{
+		kubectl.CiliumReport(helpers.KubeSystemNamespace,
 			"cilium service list",
-			"cilium endpoint list"})
+			"cilium endpoint list")
 	})
 
 	JustBeforeEach(func() {
@@ -912,9 +912,9 @@ var _ = Describe("K8sValidatedPolicyTestAcrossNamespaces", func() {
 	})
 
 	AfterFailed(func() {
-		kubectl.CiliumReport(helpers.KubeSystemNamespace, []string{
+		kubectl.CiliumReport(helpers.KubeSystemNamespace,
 			"cilium service list",
-			"cilium endpoint list"})
+			"cilium endpoint list")
 	})
 
 	JustBeforeEach(func() {

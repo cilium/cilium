@@ -98,10 +98,10 @@ var _ = Describe("K8sValidatedKafkaPolicyTest", func() {
 	})
 
 	AfterFailed(func() {
-		kubectl.CiliumReport(helpers.KubeSystemNamespace, []string{
+		kubectl.CiliumReport(helpers.KubeSystemNamespace,
 			"cilium service list",
 			"cilium policy get",
-			"cilium endpoint list"})
+			"cilium endpoint list")
 	})
 
 	JustBeforeEach(func() {
