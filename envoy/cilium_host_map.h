@@ -64,29 +64,69 @@ public:
   // A shared pointer to a immutable copy is held by each thread. Changes are done by
   // creating a new version and assigning the new shared pointer to the thread local
   // slot on each thread.
-  struct ThreadLocalHostMap : public ThreadLocal::ThreadLocalObject {
+  struct ThreadLocalHostMap : public ThreadLocal::ThreadLocalObject,
+                              public Logger::Loggable<Logger::Id::config> {
   public:
+    void logmaps(const std::string& msg) const {
+      char buf[INET6_ADDRSTRLEN];
+      std::string ip4, ip6, prefix;
+      bool first = true;
+      for (const auto& mask: ipv4_to_policy_) {
+	std::string prefix = fmt::format("{}", mask.first);
+        for (const auto& pair: mask.second) {
+	  if (!first) {
+	    ip4 += ", ";
+	  }
+	  first = false;
+	  ip4 += fmt::format("{}/{}->{}", inet_ntop(AF_INET, &pair.first, buf, sizeof(buf)),
+			     prefix, pair.second);
+	}
+      }
+      first = true;
+      for (const auto& mask: ipv6_to_policy_) {
+	std::string prefix = fmt::format("{}", mask.first);
+        for (const auto& pair: mask.second) {
+	  if (!first) {
+	    ip6 += ", ";
+	  }
+	  first = false;
+	  ip6 += fmt::format("{}/{}->{}", inet_ntop(AF_INET6, &pair.first, buf, sizeof(buf)),
+			     prefix, pair.second);
+	}
+      }
+      ENVOY_LOG(debug, "PolicyHostMap::{}: IPv4: [{}], IPv6: [{}]", msg, ip4, ip6);
+    }
+
     // Find the longest prefix match of the addr, return the matching policy id,
     // or ID::WORLD if there is no match.
+    uint64_t resolve(uint32_t addr4) const {
+      for (const auto& pair: ipv4_to_policy_) {
+	auto it = pair.second.find(masked(addr4, pair.first));
+	if (it != pair.second.end()) {
+	  return it->second;
+	}
+      }
+      return ID::UNKNOWN;
+    }
+
+    uint64_t resolve(absl::uint128 addr6) const {
+      for (const auto& pair: ipv6_to_policy_) {
+	auto it = pair.second.find(masked(addr6, pair.first));
+	if (it != pair.second.end()) {
+	  return it->second;
+	}
+      }
+      return ID::UNKNOWN;
+    }
+	  
     uint64_t resolve(const Network::Address::Ip* addr) const {
       auto* ipv4 = addr->ipv4();
       if (ipv4) {
-	for (const auto& pair: ipv4_to_policy_) {
-	  auto it = pair.second.find(masked(ipv4->address(), pair.first));
-	  if (it != pair.second.end()) {
-	    return it->second;
-	  }
-	}
-      } else {
-	auto* ipv6 = addr->ipv6();
-	if (ipv6) {
-	  for (const auto& pair: ipv6_to_policy_) {
-	    auto it = pair.second.find(masked(ipv6->address(), pair.first));
-	    if (it != pair.second.end()) {
-	      return it->second;
-	    }
-	  }
-	}
+	return resolve(ipv4->address());
+      }
+      auto* ipv6 = addr->ipv6();
+      if (ipv6) {
+	return resolve(ipv6->address());
       }
       return ID::WORLD;
     }
@@ -107,6 +147,17 @@ public:
   uint64_t resolve(const Network::Address::Ip* addr) const {
     const ThreadLocalHostMap* hostmap = getHostMap();
     return (hostmap != nullptr) ? hostmap->resolve(addr) : ID::UNKNOWN;
+  }
+
+  void logmaps(const std::string& msg) {
+    if (ENVOY_LOG_CHECK_LEVEL(debug)) {
+      auto tlsmap = getHostMap();
+      if (tlsmap) {
+	tlsmap->logmaps(msg);
+      } else {
+	ENVOY_LOG(debug, "PolicyHostMap::{}: Error getting thread local map", msg);
+      }
+    }
   }
 
   // Config::SubscriptionCallbacks
