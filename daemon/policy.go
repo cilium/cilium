@@ -64,7 +64,7 @@ func (d *Daemon) EnableEndpointPolicyEnforcement(e *endpoint.Endpoint) (ingress 
 		// Default mode means that if rules contain labels that match this endpoint,
 		// then enable policy enforcement for this endpoint.
 		// GH-1676: Could check e.Consumable instead? Would be much cheaper.
-		return d.GetPolicyRepository().GetRulesMatching(e.Consumable.LabelArray)
+		return d.GetPolicyRepository().GetRulesMatching(e.SecurityIdentity.LabelArray)
 	default:
 		// If policy enforcement isn't enabled for the daemon we do not enable
 		// policy enforcement for the endpoint.
