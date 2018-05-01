@@ -39,6 +39,7 @@ spec:
       labels:
         app: ratings
         version: v1
+        zgroup: bookinfo
     spec:
       containers:
       - name: ratings
@@ -61,6 +62,7 @@ spec:
       labels:
         app: reviews
         version: v2
+        zgroup: bookinfo
     spec:
       containers:
       - name: reviews
