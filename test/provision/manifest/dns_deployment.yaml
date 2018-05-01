@@ -93,7 +93,7 @@ spec:
           optional: true
       containers:
       - name: kubedns
-        image: k8s.gcr.io/k8s-dns-kube-dns-amd64:1.14.9
+        image: k8s.gcr.io/k8s-dns-kube-dns-amd64:1.14.10
         resources:
           # TODO: Set memory limits when we've profiled the container for large
           # clusters, then set request = limit to keep this container in
@@ -126,7 +126,7 @@ spec:
         - --domain=cluster.local.
         - --dns-port=10053
         - --config-dir=/kube-dns-config
-        - --v=2
+        - --v=5
         env:
         - name: PROMETHEUS_PORT
           value: "10055"
@@ -144,7 +144,7 @@ spec:
         - name: kube-dns-config
           mountPath: /kube-dns-config
       - name: dnsmasq
-        image: k8s.gcr.io/k8s-dns-dnsmasq-nanny-amd64:1.14.9
+        image: k8s.gcr.io/k8s-dns-dnsmasq-nanny-amd64:1.14.10
         livenessProbe:
           httpGet:
             path: /healthcheck/dnsmasq
@@ -155,7 +155,7 @@ spec:
           successThreshold: 1
           failureThreshold: 5
         args:
-        - -v=2
+        - -v=5
         - -logtostderr
         - -configDir=/etc/k8s/dns/dnsmasq-nanny
         - -restartDnsmasq=true
@@ -183,7 +183,7 @@ spec:
         - name: kube-dns-config
           mountPath: /etc/k8s/dns/dnsmasq-nanny
       - name: sidecar
-        image: k8s.gcr.io/k8s-dns-sidecar-amd64:1.14.9
+        image: k8s.gcr.io/k8s-dns-sidecar-amd64:1.14.10
         livenessProbe:
           httpGet:
             path: /metrics
