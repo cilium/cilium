@@ -239,11 +239,11 @@ func getLabelsMap() (*identityPkg.IdentityCache, error) {
 func (e *Endpoint) resolveL4Policy(owner Owner, repo *policy.Repository, c *policy.Consumable) error {
 
 	ingressCtx := policy.SearchContext{
-		To: c.LabelArray,
+		To: e.SecurityIdentity.LabelArray,
 	}
 
 	egressCtx := policy.SearchContext{
-		From: c.LabelArray,
+		From: e.SecurityIdentity.LabelArray,
 	}
 
 	if owner.TracingEnabled() {
@@ -322,10 +322,10 @@ func (e *Endpoint) regenerateConsumable(owner Owner, labelsMap *identityPkg.Iden
 	}
 
 	ingressCtx := policy.SearchContext{
-		To: c.LabelArray,
+		To: e.SecurityIdentity.LabelArray,
 	}
 	egressCtx := policy.SearchContext{
-		From: c.LabelArray,
+		From: e.SecurityIdentity.LabelArray,
 	}
 
 	if owner.TracingEnabled() {
@@ -415,7 +415,7 @@ func (e *Endpoint) regenerateConsumable(owner Owner, labelsMap *identityPkg.Iden
 func (e *Endpoint) regenerateL3Policy(owner Owner, repo *policy.Repository, revision uint64, c *policy.Consumable) (bool, error) {
 
 	ctx := policy.SearchContext{
-		To: c.LabelArray, // keep c.Mutex taken to protect this.
+		To: e.SecurityIdentity.LabelArray, // keep c.Mutex taken to protect this.
 	}
 	if owner.TracingEnabled() {
 		ctx.Trace = policy.TRACE_ENABLED
@@ -459,7 +459,7 @@ func (e *Endpoint) updateNetworkPolicy(owner Owner) error {
 	// above, but this set only contains the identities with "Denied" verdicts.
 	c := e.Consumable
 	ctx := policy.SearchContext{
-		To: c.LabelArray,
+		To: e.SecurityIdentity.LabelArray,
 	}
 	if owner.TracingEnabled() {
 		ctx.Trace = policy.TRACE_ENABLED
@@ -484,7 +484,7 @@ func (e *Endpoint) updateNetworkPolicy(owner Owner) error {
 
 	// Reset SearchContext to reflect change in directionality.
 	ctx = policy.SearchContext{
-		From: c.LabelArray,
+		From: e.SecurityIdentity.LabelArray,
 	}
 
 	deniedEgressIdentities := make(map[identityPkg.NumericIdentity]bool)
@@ -978,10 +978,6 @@ func (e *Endpoint) SetIdentity(identity *identityPkg.Identity) {
 			// Even if the numeric identity is the same, the order in which the
 			// labels are represented may change.
 			e.SecurityIdentity = identity
-			e.Consumable.Mutex.Lock()
-			e.Consumable.Labels = identity
-			e.Consumable.LabelArray = identity.Labels.ToSlice()
-			e.Consumable.Mutex.Unlock()
 			return
 		}
 	}
@@ -1006,11 +1002,9 @@ func (e *Endpoint) SetIdentity(identity *identityPkg.Identity) {
 	e.runIPIdentitySync(e.IPv4)
 	e.runIPIdentitySync(e.IPv6)
 
-	e.Consumable.Mutex.RLock()
 	e.getLogger().WithFields(logrus.Fields{
 		logfields.Identity:       identity.StringID(),
 		logfields.OldIdentity:    oldIdentity,
 		logfields.IdentityLabels: identity.Labels.String(),
 	}).Info("Identity of endpoint changed")
-	e.Consumable.Mutex.RUnlock()
 }

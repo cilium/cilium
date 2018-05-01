@@ -16,7 +16,6 @@ package policy
 
 import (
 	"github.com/cilium/cilium/pkg/identity"
-	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/policymap"
@@ -34,12 +33,6 @@ type Consumable struct {
 	ID identity.NumericIdentity `json:"id"`
 	// Mutex protects all variables from this structure below this line
 	Mutex lock.RWMutex
-
-	// Labels are the SecurityIdentity of this consumable
-	Labels *identity.Identity `json:"labels"`
-
-	// LabelArray contains the same labels from identity in a form of a list, used for faster lookup
-	LabelArray labels.LabelArray `json:"-"`
 
 	// Iteration policy of the Consumable
 	Iteration uint64 `json:"-"`
@@ -74,13 +67,9 @@ func NewConsumable(id identity.NumericIdentity, lbls *identity.Identity) *Consum
 	consumable := &Consumable{
 		ID:                id,
 		Iteration:         0,
-		Labels:            lbls,
 		PolicyMaps:        map[int]*policymap.PolicyMap{},
 		IngressIdentities: map[identity.NumericIdentity]bool{},
 		EgressIdentities:  map[identity.NumericIdentity]bool{},
-	}
-	if lbls != nil {
-		consumable.LabelArray = lbls.Labels.ToSlice()
 	}
 
 	return consumable

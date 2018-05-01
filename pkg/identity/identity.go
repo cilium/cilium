@@ -30,6 +30,10 @@ type Identity struct {
 	Labels labels.Labels `json:"labels"`
 	// SHA256 of labels.
 	LabelsSHA256 string `json:"labelsSHA256"`
+
+	// LabelArray contains the same labels as Labels in a form of a list, used
+	// for faster lookup.
+	LabelArray labels.LabelArray `json:"-"`
 }
 
 // IPIdentityPair is a pairing of an IP and the security identity to which that
@@ -56,6 +60,10 @@ func NewIdentityFromModel(base *models.Identity) *Identity {
 	for _, v := range base.Labels {
 		lbl := labels.ParseLabel(v)
 		id.Labels[lbl.Key] = lbl
+	}
+
+	if id.Labels != nil {
+		id.LabelArray = id.Labels.ToSlice()
 	}
 
 	return id
@@ -96,5 +104,10 @@ func (id *Identity) GetModel() *models.Identity {
 
 // NewIdentity creates a new identity
 func NewIdentity(id NumericIdentity, lbls labels.Labels) *Identity {
-	return &Identity{ID: id, Labels: lbls}
+	var lblArray labels.LabelArray
+
+	if lbls != nil {
+		lblArray = lbls.ToSlice()
+	}
+	return &Identity{ID: id, Labels: lbls, LabelArray: lblArray}
 }

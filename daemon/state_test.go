@@ -77,14 +77,8 @@ func endpointCreator(id uint16, secID identity.NumericIdentity) *e.Endpoint {
 		},
 	}
 	ep.Consumable = &policy.Consumable{
-		ID:        secID,
-		Iteration: 0,
-		Labels: &identity.Identity{
-			ID: secID,
-			Labels: labels.Labels{
-				"foo" + strID: labels.NewLabel("foo"+strID, "", ""),
-			},
-		},
+		ID:                secID,
+		Iteration:         0,
 		PolicyMaps:        map[int]*policymap.PolicyMap{},
 		IngressIdentities: map[identity.NumericIdentity]bool{},
 	}
