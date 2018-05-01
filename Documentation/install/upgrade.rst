@@ -20,35 +20,35 @@ Both files are dedicated to "\ |SCM_BRANCH|" for each Kubernetes version.
 
     .. parsed-literal::
 
-      $ kubectl apply -f \ |SCM_WEB|\/examples/kubernetes/1.7/rbac.yaml
+      $ kubectl apply -f \ |SCM_WEB|\/examples/kubernetes/1.7/cilium-rbac.yaml
       $ kubectl apply -f \ |SCM_WEB|\/examples/kubernetes/1.7/cilium-ds.yaml
 
   .. group-tab:: K8s 1.8
 
     .. parsed-literal::
 
-      $ kubectl apply -f \ |SCM_WEB|\/examples/kubernetes/1.8/rbac.yaml
+      $ kubectl apply -f \ |SCM_WEB|\/examples/kubernetes/1.8/cilium-rbac.yaml
       $ kubectl apply -f \ |SCM_WEB|\/examples/kubernetes/1.8/cilium-ds.yaml
 
   .. group-tab:: K8s 1.9
 
     .. parsed-literal::
 
-      $ kubectl apply -f \ |SCM_WEB|\/examples/kubernetes/1.9/rbac.yaml
+      $ kubectl apply -f \ |SCM_WEB|\/examples/kubernetes/1.9/cilium-rbac.yaml
       $ kubectl apply -f \ |SCM_WEB|\/examples/kubernetes/1.9/cilium-ds.yaml
 
   .. group-tab:: K8s 1.10
 
     .. parsed-literal::
 
-      $ kubectl apply -f \ |SCM_WEB|\/examples/kubernetes/1.10/rbac.yaml
+      $ kubectl apply -f \ |SCM_WEB|\/examples/kubernetes/1.10/cilium-rbac.yaml
       $ kubectl apply -f \ |SCM_WEB|\/examples/kubernetes/1.10/cilium-ds.yaml
 
   .. group-tab:: K8s 1.11
 
     .. parsed-literal::
 
-      $ kubectl apply -f \ |SCM_WEB|\/examples/kubernetes/1.11/rbac.yaml
+      $ kubectl apply -f \ |SCM_WEB|\/examples/kubernetes/1.11/cilium-rbac.yaml
       $ kubectl apply -f \ |SCM_WEB|\/examples/kubernetes/1.11/cilium-ds.yaml
 
 
