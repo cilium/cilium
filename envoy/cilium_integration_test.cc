@@ -504,7 +504,7 @@ resources:
   policy: 11
   host_addresses: [ "127.0.0.0/16", "127.0.0.1/32", "127.0.0.1" ]
 )EOF",
-		   "NetworkPolicyHosts: Duplicate host entry '127.0.0.1' for policy 11");
+		   "NetworkPolicyHosts: Duplicate host entry '127.0.0.1' for policy 11, already mapped to 11");
   } else {
     InvalidHostMap(R"EOF(version_info: "0"
 resources:
@@ -512,7 +512,7 @@ resources:
   policy: 11
   host_addresses: [ "::1/128", "f00f::/65", "::1" ]
 )EOF",
-		   "NetworkPolicyHosts: Duplicate host entry '::1' for policy 11");
+		   "NetworkPolicyHosts: Duplicate host entry '::1' for policy 11, already mapped to 11");
   }
 }
 
@@ -527,7 +527,7 @@ resources:
   policy: 12
   host_addresses: [ "127.0.0.0/8", "127.0.0.1" ]
 )EOF",
-		   "NetworkPolicyHosts: Duplicate host entry '127.0.0.1' for policy 12");
+		   "NetworkPolicyHosts: Duplicate host entry '127.0.0.1' for policy 12, already mapped to 11");
   } else {
     InvalidHostMap(R"EOF(version_info: "0"
 resources:
@@ -538,7 +538,7 @@ resources:
   policy: 12
   host_addresses: [ "f00f::/16", "::1" ]
 )EOF",
-		   "NetworkPolicyHosts: Duplicate host entry '::1' for policy 12");
+		   "NetworkPolicyHosts: Duplicate host entry '::1' for policy 12, already mapped to 11");
   }
 }
 
