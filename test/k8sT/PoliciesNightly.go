@@ -45,10 +45,10 @@ var _ = Describe("NightlyPolicies", func() {
 	})
 
 	AfterFailed(func() {
-		kubectl.CiliumReport(helpers.KubeSystemNamespace, []string{
+		kubectl.CiliumReport(helpers.KubeSystemNamespace,
 			"cilium policy get",
 			"cilium endpoint list",
-			"cilium service list"})
+			"cilium service list")
 	})
 
 	JustAfterEach(func() {

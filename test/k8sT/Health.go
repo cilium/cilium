@@ -48,10 +48,10 @@ var _ = Describe(testName, func() {
 	})
 
 	AfterFailed(func() {
-		kubectl.CiliumReport(helpers.KubeSystemNamespace, []string{
+		kubectl.CiliumReport(helpers.KubeSystemNamespace,
 			"cilium service list",
 			"cilium endpoint list",
-			"cilium policy get"})
+			"cilium policy get")
 	})
 
 	JustAfterEach(func() {
