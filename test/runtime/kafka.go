@@ -169,9 +169,10 @@ var _ = Describe("RuntimeValidatedKafka", func() {
 		By("Sending consume request on kafka topic `allowedTopic`")
 		res := consumer(allowedTopic, MaxMessages)
 		res.ExpectSuccess("Failed to consume messages from kafka topic `allowedTopic`")
+		Expect(res.CombineOutput().String()).
+			Should(ContainSubstring("Processed a total of %d messages", MaxMessages),
+				"Kafka did not process the expected number of messages")
 
-		Expect(res.Output().String()).Should(ContainSubstring(
-			"Processed a total of %d messages", MaxMessages))
 		By("Disable topic")
 		res = consumer(disallowTopic, MaxMessages)
 		res.ExpectFail("Kafka consumer can access to disallowTopic")
@@ -200,9 +201,9 @@ var _ = Describe("RuntimeValidatedKafka", func() {
 		By("Sending consume request on kafka topic `allowedTopic`")
 		res := consumer(allowedTopic, MaxMessages)
 		res.ExpectSuccess("Failed to consume messages from kafka topic `allowedTopic`")
-
-		Expect(res.Output().String()).Should(ContainSubstring(
-			"Processed a total of %d messages", MaxMessages))
+		Expect(res.CombineOutput().String()).
+			Should(ContainSubstring("Processed a total of %d messages", MaxMessages),
+				"Kafka did not process the expected number of messages")
 
 		By("Disable topic")
 		// Consumer timeout didn't work correctly, so make sure that AUTH is present in the reply
