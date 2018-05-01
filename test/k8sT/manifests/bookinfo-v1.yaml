@@ -40,6 +40,7 @@ spec:
         app: details
         version: v1
         track: stable
+        zgroup: bookinfo
     spec:
       containers:
       - name: details
@@ -76,6 +77,7 @@ spec:
         app: reviews
         version: v1
         track: stable
+        zgroup: bookinfo
     spec:
       containers:
       - name: reviews
@@ -112,6 +114,7 @@ spec:
         app: productpage
         version: v1
         track: stable
+        zgroup: bookinfo
     spec:
       containers:
       - name: productpage
