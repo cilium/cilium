@@ -132,13 +132,6 @@ static inline bool __revalidate_data(struct __sk_buff *skb, void **data_,
  * BPF_V6_16(my_dst, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15)
  */
 
-#define PORTMAP_MAX 16
-
-struct portmap {
-	__be16 from;
-	__be16 to;
-};
-
 #define ENDPOINT_KEY_IPV4 1
 #define ENDPOINT_KEY_IPV6 2
 
@@ -173,7 +166,6 @@ struct endpoint_info {
 	mac_t		mac;
 	mac_t		node_mac;
 	__u32		pad[4];
-	struct portmap  portmap[PORTMAP_MAX];
 };
 
 struct remote_endpoint_info {

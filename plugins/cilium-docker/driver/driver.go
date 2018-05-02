@@ -283,38 +283,6 @@ func (driver *driver) createEndpoint(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	//	maps := make([]endpoint.PortMap, 0, 32)
-	//
-	//	for key, val := range create.Options {
-	//		switch key {
-	//		case "com.docker.network.portmap":
-	//			var portmap []lnTypes.PortBinding
-	//			if err := json.Unmarshal(val, &portmap); err != nil {
-	//				sendError(w, "Unable to decode JSON payload: "+err.Error(), http.StatusBadRequest)
-	//				return
-	//			}
-	//			log.WithField(logfields.Object, logfields.Repr(portmap)).Debug("PortBinding:")
-	//
-	//			// FIXME: Host IP is ignored for now
-	//			for _, m := range portmap {
-	//				maps = append(maps, endpoint.PortMap{
-	//					From:  m.HostPort,
-	//					To:    m.Port,
-	//					Proto: uint8(m.Proto),
-	//				})
-	//			}
-	//
-	//		case "com.docker.network.endpoint.exposedports":
-	//			var tp []lnTypes.TransportPort
-	//			if err := json.Unmarshal(val, &tp); err != nil {
-	//				sendError(w, "Unable to decode JSON payload: "+err.Error(), http.StatusBadRequest)
-	//				return
-	//			}
-	//			log.WithField(logfields.Object, logfields.Repr(&tp)).Debug("ExposedPorts")
-	//			// TODO: handle exposed ports
-	//		}
-	//	}
-
 	_, err := driver.client.EndpointGet(endpointID(create.EndpointID))
 	if err != nil {
 		switch err.(type) {
