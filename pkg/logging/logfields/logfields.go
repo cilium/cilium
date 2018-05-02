@@ -20,6 +20,9 @@ const (
 	// LogSubsys is the field denoting the subsystem when logging
 	LogSubsys = "subsys"
 
+	// Signal is the field to print os signals on exit etc.
+	Signal = "signal"
+
 	// Node is a host machine in the cluster, running cilium
 	Node = "node"
 
