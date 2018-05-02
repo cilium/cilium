@@ -964,7 +964,7 @@ func (d *Daemon) syncLXCMap() error {
 				log.WithField(logfields.IPAddr, pair.IP).Debugf("Added local ip to endpoint map")
 			}
 		}
-		prefix := pair.PrefixString(isHost)
+		prefix := pair.PrefixString()
 		id, exists := ipcache.IPIdentityCache.LookupByIP(prefix)
 		if !exists || id != pair.ID {
 			// Upsert will not propagate (reserved:foo->ID) mappings across the cluster,

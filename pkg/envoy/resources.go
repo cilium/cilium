@@ -76,7 +76,6 @@ func (cache *NPHDSCache) OnIPIdentityCacheChange(
 		return
 	}
 
-	isHost := ipIDPair.Mask == nil
 	switch modType {
 	case ipcache.Upsert:
 		var npHost *envoyAPI.NetworkPolicyHosts
@@ -85,7 +84,7 @@ func (cache *NPHDSCache) OnIPIdentityCacheChange(
 		} else {
 			npHost = msg.(*envoyAPI.NetworkPolicyHosts)
 		}
-		npHost.HostAddresses = append(npHost.HostAddresses, ipIDPair.PrefixString(isHost))
+		npHost.HostAddresses = append(npHost.HostAddresses, ipIDPair.PrefixString())
 		sort.Strings(npHost.HostAddresses)
 		if err := npHost.Validate(); err != nil {
 			scopedLog.WithError(err).WithFields(logrus.Fields{
@@ -99,7 +98,7 @@ func (cache *NPHDSCache) OnIPIdentityCacheChange(
 			// Doesn't exist; already deleted.
 			return
 		}
-		cache.handleIPDelete(msg.(*envoyAPI.NetworkPolicyHosts), ipIDPair.ID.StringID(), ipIDPair.PrefixString(isHost))
+		cache.handleIPDelete(msg.(*envoyAPI.NetworkPolicyHosts), ipIDPair.ID.StringID(), ipIDPair.PrefixString())
 	}
 }
 
