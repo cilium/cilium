@@ -278,7 +278,7 @@ func (e *Endpoint) resolveL4Policy(owner Owner, repo *policy.Repository, c *poli
 // and a map matching which rules were successfully removed.
 // Must be called with Consumable mutex held.
 func (e *Endpoint) regenerateConsumable(owner Owner, labelsMap *identityPkg.IdentityCache,
-	repo *policy.Repository, c *policy.Consumable) (changed bool, err error) {
+	repo *policy.Repository, c *policy.Consumable) (err error) {
 
 	// Mark all entries unused by denying them
 	for ingressIdentity := range c.IngressIdentities {
@@ -294,8 +294,6 @@ func (e *Endpoint) regenerateConsumable(owner Owner, labelsMap *identityPkg.Iden
 	// 1. The L4 policy has changed
 	// 2. The set of applicable security identities has changed.
 	if e.L4Policy != c.L4Policy || e.LabelsMap != labelsMap {
-		e.getLogger().Debug("policy changed to L4Policy or LabelsMap having changed")
-		changed = true
 
 		// PolicyMap can't be created in dry mode.
 		if !owner.DryModeEnabled() {
@@ -313,12 +311,7 @@ func (e *Endpoint) regenerateConsumable(owner Owner, labelsMap *identityPkg.Iden
 	}
 
 	if owner.AlwaysAllowLocalhost() || c.L4Policy.HasRedirect() {
-		if e.allowIngressIdentity(identityPkg.ReservedIdentityHost) {
-			e.getLogger().WithFields(logrus.Fields{
-				logfields.PolicyID: identityPkg.ReservedIdentityHost,
-			}).Debug("policy changed due to allowing host identity when it previously was not allowed")
-			changed = true
-		}
+		_ = e.allowIngressIdentity(identityPkg.ReservedIdentityHost)
 	}
 
 	ingressCtx := policy.SearchContext{
@@ -346,12 +339,7 @@ func (e *Endpoint) regenerateConsumable(owner Owner, labelsMap *identityPkg.Iden
 
 		ingressAccess := repo.AllowsIngressLabelAccess(&ingressCtx)
 		if ingressAccess == api.Allowed {
-			if e.allowIngressIdentity(identity) {
-				e.getLogger().WithFields(logrus.Fields{
-					logfields.PolicyID: identity,
-				}).Debug("policy changed due to allowing previously disallowed identity on ingress")
-				changed = true
-			}
+			_ = e.allowIngressIdentity(identity)
 		}
 
 		e.getLogger().WithFields(logrus.Fields{
@@ -371,35 +359,20 @@ func (e *Endpoint) regenerateConsumable(owner Owner, labelsMap *identityPkg.Iden
 			e.getLogger().WithFields(logrus.Fields{
 				logfields.PolicyID: identity,
 				"ctx":              ingressCtx}).Debug("egress allowed")
-			if e.allowEgressIdentity(identity) {
-				e.getLogger().WithFields(logrus.Fields{
-					logfields.PolicyID: identity,
-				}).Debug("policy changed due to allowing previously disallowed identity on egress")
-				changed = true
-			}
+			_ = e.allowEgressIdentity(identity)
 		}
 	}
 
 	// Garbage collect all unused entries for both ingress and egress.
 	for ingressIdentity, keepIdentity := range c.IngressIdentities {
 		if !keepIdentity {
-
-			e.getLogger().WithFields(logrus.Fields{
-				logfields.PolicyID: ingressIdentity,
-			}).Debug("policy changed due to disallowing previously allowed identity on ingress")
-
 			c.RemoveIngressIdentityLocked(ingressIdentity)
-			changed = true
 		}
 	}
 
 	for egressIdentity, keepIdentity := range c.EgressIdentities {
 		if !keepIdentity {
-			e.getLogger().WithFields(logrus.Fields{
-				logfields.PolicyID: egressIdentity,
-			}).Debug("policy changed due to disallowing previously allowed identity on egress")
 			c.RemoveEgressIdentityLocked(egressIdentity)
-			changed = true
 		}
 	}
 
@@ -408,7 +381,7 @@ func (e *Endpoint) regenerateConsumable(owner Owner, labelsMap *identityPkg.Iden
 		"ingressSecurityIdentities": logfields.Repr(c.IngressIdentities),
 		"egressSecurityIdentities":  logfields.Repr(c.EgressIdentities),
 	}).Debug("consumable regenerated")
-	return changed, nil
+	return nil
 }
 
 // Must be called with global repo.Mutrex, e.Mutex, and c.Mutex held
@@ -672,13 +645,9 @@ func (e *Endpoint) regeneratePolicy(owner Owner, opts models.ConfigurationMap) (
 
 	// Determines all security-identity based policy.
 	// Updates e.LabelsMap to labelsMap if changed
-	policyChanged2, err := e.regenerateConsumable(owner, labelsMap, repo, c)
+	err = e.regenerateConsumable(owner, labelsMap, repo, c)
 	if err != nil {
 		return false, err
-	}
-	if policyChanged2 {
-		e.getLogger().Debug("consumable regeneration resulted in policy change")
-		policyChanged = true
 	}
 
 	// If we are in this function, then policy has been calculated.
