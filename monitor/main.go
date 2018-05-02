@@ -32,7 +32,10 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var log = logging.DefaultLogger
+var (
+	log              = logging.DefaultLogger
+	monitorSingleton *Monitor
+)
 
 const targetName = "cilium-node-monitor"
 
@@ -69,7 +72,7 @@ func runNodeMonitor() {
 	if err != nil {
 		log.WithError(err).Fatalf("Unable to open named pipe %s for reading", eventSockPath)
 	}
-	defer pipe.Close() // stop recieving agent events
+	defer pipe.Close() // stop receiving agent events
 
 	scopedLog := log.WithField(logfields.Path, defaults.MonitorSockPath)
 	// Open socket for using gops to get stacktraces of the agent.
@@ -96,8 +99,8 @@ func runNodeMonitor() {
 	mainCtx, mainCtxCancel := context.WithCancel(context.Background())
 	defer mainCtxCancel() // Signal a shutdown to spawned goroutines
 
-	m := Monitor{}
-	if err := m.Init(mainCtx, npages, pipe, server); err != nil {
+	monitorSingleton, err = NewMonitor(mainCtx, npages, pipe, server)
+	if err != nil {
 		log.WithError(err).Fatal("Error initialising monitor handlers")
 	}
 
