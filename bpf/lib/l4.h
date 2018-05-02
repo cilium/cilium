@@ -59,64 +59,6 @@ static inline int l4_modify_port(struct __sk_buff *skb, int l4_off, int off,
 	return 0;
 }
 
-/**
- * Apply a port mapping for incoming packets
- * @arg skb:      packet
- * @arg l4_off:   offset to L4 header
- * @arg csum_off: offset to 16bit checksum field in L4 header
- * @arg map:      port mapping entry
- * @arg dport:    Current L4 destination port
- *
- * Checks if the packet needs to be port mapped and applies the mapping
- * if necessary.
- *
- * NOTE: Calling this function will invalidate any pkt context offset
- * validation for direct packet access.
- *
- * Return 0 on success or a negative DROP_* reason
- */
-static inline int l4_port_map_in(struct __sk_buff *skb, int l4_off,
-				 struct csum_offset *csum_off,
-				 struct portmap *map, __be16 dport)
-{
-	cilium_dbg(skb, DBG_PORT_MAP, bpf_ntohs(map->from), bpf_ntohs(map->to));
-
-	if (likely(map->from != dport))
-		return 0;
-
-	/* Port offsets for UDP and TCP are the same */
-	return l4_modify_port(skb, l4_off, TCP_DPORT_OFF, csum_off, map->to, dport);
-}
-
-/**
- * Apply a port mapping for outgoing packets
- * @arg skb:      packet
- * @arg l4_off:   offset to L4 header
- * @arg csum_off: offset to 16bit checksum field in L4 header
- * @arg map:      port mapping entry
- * @arg sport:    Current L4 source port
- *
- * Checks if the packet needs to be port mapped and applies the mapping
- * if necessary.
- *
- * NOTE: Calling this function will invalidate any pkt context offset
- * validation for direct packet access.
- *
- * Return 0 on success or a negative DROP_* reason
- */
-static inline int l4_port_map_out(struct __sk_buff *skb, int l4_off,
-				  struct csum_offset *csum_off,
-				  struct portmap *map, __be16 sport)
-{
-	cilium_dbg(skb, DBG_PORT_MAP, bpf_ntohs(map->to), bpf_ntohs(map->from));
-
-	if (likely(map->to != sport))
-		return 0;
-
-	/* Port offsets for UDP and TCP are the same */
-	return l4_modify_port(skb, l4_off, TCP_SPORT_OFF, csum_off, map->from, sport);
-}
-
 static inline int l4_load_port(struct __sk_buff *skb, int off, __be16 *port)
 {
         return skb_load_bytes(skb, off, port, sizeof(__be16));

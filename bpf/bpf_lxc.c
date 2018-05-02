@@ -74,44 +74,6 @@ struct bpf_elf_map __section_maps CT_MAP4 = {
 	.max_elem	= CT_MAP_SIZE,
 };
 
-#if !defined DISABLE_PORT_MAP && defined LXC_PORT_MAPPINGS
-static inline int map_lxc_out(struct __sk_buff *skb, int l4_off, __u8 nexthdr)
-{
-	struct csum_offset off = {};
-	uint16_t sport;
-	int i, ret;
-	struct portmap local_map[] = {
-		LXC_PORT_MAPPINGS
-	};
-
-	/* Ignore unknown L4 protocols */
-	if (nexthdr != IPPROTO_TCP && nexthdr != IPPROTO_UDP)
-		return 0;
-
-	/* Port offsets for TCP and UDP are the same */
-	if (skb_load_bytes(skb, l4_off + TCP_SPORT_OFF, &sport, sizeof(sport)) < 0)
-		return DROP_INVALID;
-
-	csum_l4_offset_and_flags(nexthdr, &off);
-
-#define NR_PORTMAPS (sizeof(local_map) / sizeof(local_map[0]))
-
-#pragma unroll
-	for (i = 0; i < NR_PORTMAPS; i++) {
-		ret = l4_port_map_out(skb, l4_off, &off, &local_map[i], sport);
-		if (IS_ERR(ret))
-			return ret;
-	}
-
-	return 0;
-}
-#else
-static inline int map_lxc_out(struct __sk_buff *skb, int l4_off, __u8 nexthdr)
-{
-	return 0;
-}
-#endif /* DISABLE_PORT_MAP */
-
 static inline bool redirect_to_proxy(int verdict)
 {
 	return verdict > 0;
@@ -180,10 +142,7 @@ skip_service_lookup:
 	 */
 	ipv6_addr_copy(&orig_dip, (union v6addr *) &tuple->daddr);
 
-	/* Port reverse mapping can never happen when we balanced to a service */
-	ret = map_lxc_out(skb, l4_off, tuple->nexthdr);
-	if (IS_ERR(ret))
-		return ret;
+
 	/* WARNING: eth and ip6 offset check invalidated, revalidate before use */
 
 	/* Pass all outgoing packets through conntrack. This will create an
@@ -487,10 +446,6 @@ skip_service_lookup:
 	 * should be OK to move above goto label.
 	 */
 	orig_dip = tuple.daddr;
-
-	ret = map_lxc_out(skb, l4_off, tuple.nexthdr);
-	if (IS_ERR(ret))
-		return ret;
 
 	/* WARNING: eth and ip4 offset check invalidated, revalidate before use */
 

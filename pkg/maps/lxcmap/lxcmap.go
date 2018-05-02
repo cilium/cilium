@@ -17,7 +17,6 @@ package lxcmap
 import (
 	"fmt"
 	"net"
-	"strings"
 	"unsafe"
 
 	"github.com/cilium/cilium/pkg/bpf"
@@ -88,16 +87,6 @@ func ParseMAC(s string) (MAC, error) {
 		MAC(ha[2])<<16 | MAC(ha[1])<<8 | MAC(ha[0]), nil
 }
 
-// PortMap represents a port mapping from the host to the LXC.
-type PortMap struct {
-	From uint16
-	To   uint16
-}
-
-func (pm PortMap) String() string {
-	return fmt.Sprintf("%d:%d", byteorder.HostToNetwork(pm.From), byteorder.HostToNetwork(pm.To))
-}
-
 const (
 	// EndpointFlagHost indicates that this endpoint represents the host
 	EndpointFlagHost = 1
@@ -124,7 +113,6 @@ type EndpointInfo struct {
 	MAC        MAC
 	NodeMAC    MAC
 	Pad        [4]uint32
-	PortMap    [PortMapMax]PortMap
 }
 
 // GetValuePtr returns the unsafe pointer to the BPF value
@@ -152,22 +140,12 @@ func (v *EndpointInfo) String() string {
 		return fmt.Sprintf("(localhost)")
 	}
 
-	var portMaps []string
-	for _, port := range v.PortMap {
-		if pStr := port.String(); pStr != "0:0" {
-			portMaps = append(portMaps, pStr)
-		}
-	}
-	if len(portMaps) == 0 {
-		portMaps = append(portMaps, "(empty)")
-	}
-	return fmt.Sprintf("id=%-5d ifindex=%-3d mac=%s nodemac=%s seclabel=%#-4x portMaps=%s",
+	return fmt.Sprintf("id=%-5d ifindex=%-3d mac=%s nodemac=%s seclabel=%#-4x",
 		v.LxcID,
 		v.IfIndex,
 		v.MAC,
 		v.NodeMAC,
 		byteorder.HostToNetwork(v.SecLabelID),
-		strings.Join(portMaps, " "),
 	)
 }
 

@@ -71,13 +71,6 @@ var (
 	IPv4Enabled = true
 )
 
-// PortMap is the port mapping representation for a particular endpoint.
-type PortMap struct {
-	From  uint16 `json:"from"`
-	To    uint16 `json:"to"`
-	Proto uint8  `json:"proto"`
-}
-
 const (
 	OptionConntrackAccounting = "ConntrackAccounting"
 	OptionConntrackLocal      = "ConntrackLocal"
@@ -433,9 +426,6 @@ type Endpoint struct {
 
 	// LabelsMap is the Set of all security labels used in the last policy computation
 	LabelsMap *identityPkg.IdentityCache
-
-	// PortMap is port mapping configuration of the endpoint
-	PortMap []PortMap // Port mapping used for this endpoint.
 
 	// Consumable represents the security-identity-based policy for this endpoint.
 	Consumable *policy.Consumable `json:"-"`
@@ -1437,13 +1427,6 @@ func (e *Endpoint) GetBPFValue() (*lxcmap.EndpointInfo, error) {
 		LxcID:      e.ID,
 		MAC:        lxcmap.MAC(mac),
 		NodeMAC:    lxcmap.MAC(nodeMAC),
-	}
-
-	for i, pM := range e.PortMap {
-		info.PortMap[i] = lxcmap.PortMap{
-			From: byteorder.HostToNetwork(pM.From).(uint16),
-			To:   byteorder.HostToNetwork(pM.To).(uint16),
-		}
 	}
 
 	return info, nil

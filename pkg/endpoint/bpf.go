@@ -274,14 +274,6 @@ func (e *Endpoint) writeHeaderfile(prefix string, owner Owner) error {
 	// Endpoint options
 	fw.WriteString(e.Opts.GetFmtList())
 
-	fw.WriteString("#define LXC_PORT_MAPPINGS ")
-	for _, m := range e.PortMap {
-		// Write mappings directly in network byte order so we don't have
-		// to convert it in the fast path
-		fmt.Fprintf(fw, "{%#x,%#x},", byteorder.HostToNetwork(m.From), byteorder.HostToNetwork(m.To))
-	}
-	fw.WriteString("\n")
-
 	if err := e.writeL4Policy(fw); err != nil {
 		return err
 	}
