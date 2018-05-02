@@ -253,10 +253,14 @@ func (d *Daemon) PolicyAdd(rules api.Rules, opts *AddOptions) (uint64, error) {
 
 	log.WithField(logfields.PolicyRevision, rev).Info("Policy imported via API, recalculating...")
 
-	d.SendNotification(monitor.AgentNotifyPolicyUpdated,
-		fmt.Sprintf("Updated policy: %s", rules.MonitorRepresentation()))
-
 	d.TriggerPolicyUpdates(false)
+
+	repr, err := monitor.PolicyUpdateRepr(rules, rev)
+	if err != nil {
+		log.WithField(logfields.PolicyRevision, rev).Warn("Failed to represent policy update as monitor notification")
+	} else {
+		d.SendNotification(monitor.AgentNotifyPolicyUpdated, repr)
+	}
 
 	return rev, nil
 }
@@ -315,10 +319,14 @@ func (d *Daemon) PolicyDelete(labels labels.LabelArray) (uint64, error) {
 		}).Debug("Cannot find identities for CIDR prefixes by labels")
 	}
 
-	d.SendNotification(monitor.AgentNotifyPolicyDeleted,
-		fmt.Sprintf("Deleted %d policy rule(s) by labels %s", deleted, labels.GetModel()))
-
 	d.TriggerPolicyUpdates(false)
+
+	repr, err := monitor.PolicyDeleteRepr(deleted, labels.GetModel(), rev)
+	if err != nil {
+		log.WithField(logfields.PolicyRevision, rev).Warn("Failed to represent policy update as monitor notification")
+	} else {
+		d.SendNotification(monitor.AgentNotifyPolicyDeleted, repr)
+	}
 
 	return rev, nil
 }

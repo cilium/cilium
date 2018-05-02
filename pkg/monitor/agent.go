@@ -15,7 +15,10 @@
 package monitor
 
 import (
+	"encoding/json"
 	"fmt"
+
+	"github.com/cilium/cilium/pkg/policy/api"
 )
 
 // AgentNotify is a notification from the agent
@@ -58,4 +61,46 @@ func resolveAgentType(t AgentNotification) string {
 // DumpInfo dumps an agent notification
 func (n *AgentNotify) DumpInfo() {
 	fmt.Printf(">> %s: %s\n", resolveAgentType(n.Type), n.Text)
+}
+
+type PolicyUpdateNotification struct {
+	Labels    []string `json:"labels,omitempty"`
+	Revision  uint64   `json:"revision,omitempty"`
+	RuleCount int      `json:"rule_count"`
+}
+
+func PolicyUpdateRepr(rules api.Rules, revision uint64) (string, error) {
+	labels := make([]string, 0, len(rules))
+	for _, r := range rules {
+		labels = append(labels, r.Labels.GetModel()...)
+	}
+
+	notification := PolicyUpdateNotification{
+		Labels:    labels,
+		Revision:  revision,
+		RuleCount: len(rules),
+	}
+
+	resp, err := json.Marshal(notification)
+
+	if err != nil {
+		return "", err
+	}
+
+	return string(resp), nil
+}
+
+func PolicyDeleteRepr(deleted int, labels []string, revision uint64) (string, error) {
+	notification := PolicyUpdateNotification{
+		Labels:    labels,
+		Revision:  revision,
+		RuleCount: deleted,
+	}
+	resp, err := json.Marshal(notification)
+
+	if err != nil {
+		return "", err
+	}
+
+	return string(resp), nil
 }
