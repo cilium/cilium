@@ -115,12 +115,18 @@ func NewIdentity(id NumericIdentity, lbls labels.Labels) *Identity {
 	return &Identity{ID: id, Labels: lbls, LabelArray: lblArray}
 }
 
+// IsHost determines whether the IP in the pair represents a host (true) or a
+// CIDR prefix (false)
+func (pair *IPIdentityPair) IsHost() bool {
+	return pair.Mask == nil
+}
+
 // PrefixString returns the IPIdentityPair's IP as either a host IP in the
 // format w.x.y.z if 'host' is true, or as a prefix in the format the w.x.y.z/N
 // if 'host' is false.
-func (pair *IPIdentityPair) PrefixString(host bool) string {
+func (pair *IPIdentityPair) PrefixString() string {
 	var suffix string
-	if !host {
+	if !pair.IsHost() {
 		ones := net.IPv6len
 		if pair.Mask == nil && pair.IP.To4() != nil {
 			ones = net.IPv4len

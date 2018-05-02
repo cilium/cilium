@@ -483,12 +483,17 @@ func keyToIPNet(key string) (parsedPrefix *net.IPNet, host bool, err error) {
 
 // findShadowedCIDR attempts to search for a CIDR with a full prefix (eg, /32
 // for IPv4) which matches the IP in the specified pair. Only performs the
-// search if 'isHost' is true. Returns the identity and whether the IP was found.
-func findShadowedCIDR(pair *identity.IPIdentityPair, isHost bool) (identity.NumericIdentity, bool) {
-	if !isHost {
+// search if the pair's IP represents a host IP.
+// Returns the identity and whether the IP was found.
+func findShadowedCIDR(pair *identity.IPIdentityPair) (identity.NumericIdentity, bool) {
+	if !pair.IsHost() {
 		return identity.InvalidIdentity, false
 	}
-	cidrStr := pair.PrefixString(false)
+	bits := net.IPv6len * 8
+	if pair.IP.To4() != nil {
+		bits = net.IPv4len * 8
+	}
+	cidrStr := fmt.Sprintf("%s/%d", pair.PrefixString(), bits)
 	return IPIdentityCache.LookupByIP(cidrStr)
 }
 
@@ -543,15 +548,14 @@ func ipIdentityWatcher(listeners []IPIdentityMappingListener) {
 					continue
 				}
 
-				isHost := ipIDPair.Mask == nil
-				ipStr := ipIDPair.PrefixString(isHost)
+				ipStr := ipIDPair.PrefixString()
 				cachedIdentity, ipIsInCache = IPIdentityCache.LookupByIP(ipStr)
 
 				// Host IP identities take precedence over CIDR
 				// identities, so if this event is for a full
 				// CIDR prefix and there's an existing entry
 				// with a different ID, then break out.
-				if !isHost {
+				if !ipIDPair.IsHost() {
 					ones, bits := ipIDPair.Mask.Size()
 					if ipIsInCache && ones == bits {
 						if cachedIdentity != ipIDPair.ID {
@@ -584,7 +588,7 @@ func ipIdentityWatcher(listeners []IPIdentityMappingListener) {
 				} else {
 					ipIDPair.Mask = ipnet.Mask
 				}
-				ipStr := ipIDPair.PrefixString(isHost)
+				ipStr := ipIDPair.PrefixString()
 				cachedIdentity, ipIsInCache = IPIdentityCache.LookupByIP(ipStr)
 
 				if ipIsInCache {
@@ -592,7 +596,7 @@ func ipIdentityWatcher(listeners []IPIdentityMappingListener) {
 					IPIdentityCache.delete(ipStr)
 
 					// Set up the IPIDPair and cacheModification for listener callbacks
-					prefixIdentity, shadowedCIDR := findShadowedCIDR(&ipIDPair, isHost)
+					prefixIdentity, shadowedCIDR := findShadowedCIDR(&ipIDPair)
 					if shadowedCIDR {
 						scopedLog.WithField(logfields.IPAddr, ipIDPair.IP).
 							Infof("Received KVstore deletion for endpoint IP shadowing CIDR, restoring CIDR.")
