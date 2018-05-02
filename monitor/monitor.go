@@ -76,7 +76,7 @@ func (m *Monitor) agentPipeReader(agentPipe io.Reader, stop chan struct{}) {
 				log.WithError(err).Panic("Unable to read from agent pipe")
 			}
 
-			m.send(p)
+			m.send(&p)
 
 		case <-stop:
 			return
@@ -157,7 +157,7 @@ func (m *Monitor) handleConnection(server net.Listener) {
 
 // send writes the payload.Meta and the actual payload to the active
 // connections.
-func (m *Monitor) send(pl payload.Payload) {
+func (m *Monitor) send(pl *payload.Payload) {
 	mutex.Lock()
 	defer mutex.Unlock()
 	if len(listeners) == 0 {
@@ -213,10 +213,10 @@ func (ml *monitorListener) drainQueue() {
 
 func (m *Monitor) receiveEvent(es *bpf.PerfEventSample, c int) {
 	pl := payload.Payload{Data: es.DataCopy(), CPU: c, Lost: 0, Type: payload.EventSample}
-	m.send(pl)
+	m.send(&pl)
 }
 
 func (m *Monitor) lostEvent(el *bpf.PerfEventLost, c int) {
 	pl := payload.Payload{Data: []byte{}, CPU: c, Lost: el.Lost, Type: payload.RecordLost}
-	m.send(pl)
+	m.send(&pl)
 }
