@@ -397,6 +397,7 @@ func runProg(prog string, args []string, quiet bool) error {
 }
 
 const (
+	ciliumOutputChain     = "CILIUM_OUTPUT"
 	ciliumPostNatChain    = "CILIUM_POST"
 	ciliumPostMangleChain = "CILIUM_POST_mangle"
 	ciliumForwardChain    = "CILIUM_FORWARD"
@@ -497,6 +498,12 @@ func (c *customChain) installFeeder() error {
 // flushing and removing the custom chains will fail.
 var ciliumChains = []customChain{
 	{
+		name:       ciliumOutputChain,
+		table:      "filter",
+		hook:       "OUTPUT",
+		feederArgs: []string{""},
+	},
+	{
 		name:       ciliumPostNatChain,
 		table:      "nat",
 		hook:       "POSTROUTING",
@@ -571,6 +578,20 @@ func (d *Daemon) installIptablesRules() error {
 		"-s", node.GetIPv4ClusterRange().String(),
 		"-m", "comment", "--comment", "cilium: cluster->any forward accept",
 		"-j", "ACCEPT"}, false); err != nil {
+		return err
+	}
+
+	// Mark all packets sourced from the host with a special marker so that
+	// we can differentiate traffic sourced from a local process vs.
+	// traffic from the outside world that was masqueraded to appear like
+	// it's from the host.
+	if err := runProg("iptables", []string{
+		"-t", "filter",
+		"-A", ciliumOutputChain,
+		"-m", "mark", "!", "--mark", "0x0FEA/0x0FFE", // Don't match proxy traffic
+		"-o", "cilium_host",
+		"-m", "comment", "--comment", "cilium: host->any mark as from host",
+		"-j", "MARK", "--set-xmark", "0x0FEC/0x0FFF"}, false); err != nil {
 		return err
 	}
 
