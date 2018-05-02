@@ -545,12 +545,13 @@ func (d *Daemon) installIptablesRules() error {
 	// performed by kube-proxy for all packets destined for Cilium. Cilium
 	// installs a dedicated rule which does the source PAT to the right
 	// source IP.
+	clearMasqBit := fmt.Sprintf("%#04x/%#04x", 0, proxy.MagicMarkK8sMasq)
 	if err := runProg("iptables", []string{
 		"-t", "mangle",
 		"-A", ciliumPostMangleChain,
 		"-o", "cilium_host",
 		"-m", "comment", "--comment", "cilium: clear masq bit for pkts to cilium_host",
-		"-j", "MARK", "--set-xmark", "0x0000/0x4000"}, false); err != nil {
+		"-j", "MARK", "--set-xmark", clearMasqBit}, false); err != nil {
 		return err
 	}
 
@@ -581,17 +582,19 @@ func (d *Daemon) installIptablesRules() error {
 		return err
 	}
 
-	// Mark all packets sourced from the host with a special marker so that
-	// we can differentiate traffic sourced from a local process vs.
-	// traffic from the outside world that was masqueraded to appear like
-	// it's from the host.
+	// Mark all packets sourced from processes running on the host with a
+	// special marker so that we can differentiate traffic sourced locally
+	// vs. traffic from the outside world that was masqueraded to appear
+	// like it's from the host.
+	matchFromProxy := fmt.Sprintf("%#04x/%#04x", proxy.MagicMarkIsProxy, proxy.MagicMarkProxyMask)
+	markAsFromHost := fmt.Sprintf("%#04x/%#04x", proxy.MagicMarkHost, proxy.MagicMarkHostMask)
 	if err := runProg("iptables", []string{
 		"-t", "filter",
 		"-A", ciliumOutputChain,
-		"-m", "mark", "!", "--mark", "0x0FEA/0x0FFE", // Don't match proxy traffic
+		"-m", "mark", "!", "--mark", matchFromProxy, // Don't match proxy traffic
 		"-o", "cilium_host",
 		"-m", "comment", "--comment", "cilium: host->any mark as from host",
-		"-j", "MARK", "--set-xmark", "0x0FEC/0x0FFF"}, false); err != nil {
+		"-j", "MARK", "--set-xmark", markAsFromHost}, false); err != nil {
 		return err
 	}
 
