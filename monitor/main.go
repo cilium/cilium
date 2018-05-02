@@ -15,9 +15,12 @@
 package main
 
 import (
+	"context"
 	"net"
 	"os"
+	"os/signal"
 	"path"
+	"syscall"
 
 	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/daemon/defaults"
@@ -66,7 +69,7 @@ func runNodeMonitor() {
 	if err != nil {
 		log.WithError(err).Fatalf("Unable to open named pipe %s for reading", eventSockPath)
 	}
-	defer pipe.Close()
+	defer pipe.Close() // stop recieving agent events
 
 	scopedLog := log.WithField(logfields.Path, defaults.MonitorSockPath)
 	// Open socket for using gops to get stacktraces of the agent.
@@ -80,6 +83,7 @@ func runNodeMonitor() {
 	if err != nil {
 		scopedLog.WithError(err).Fatal("Cannot listen on socket")
 	}
+	defer server.Close() // Do not accept new connections
 
 	if os.Getuid() == 0 {
 		err := apisocket.SetDefaultPermissions(defaults.MonitorSockPath)
@@ -89,8 +93,16 @@ func runNodeMonitor() {
 	}
 	log.Infof("Serving cilium node monitor at unix://%s", defaults.MonitorSockPath)
 
-	m := Monitor{}
-	go m.handleConnection(server)
+	mainCtx, mainCtxCancel := context.WithCancel(context.Background())
+	defer mainCtxCancel() // Signal a shutdown to spawned goroutines
 
-	m.Run(npages, pipe)
+	m := Monitor{}
+	if err := m.Init(mainCtx, npages, pipe, server); err != nil {
+		log.WithError(err).Fatal("Error initialising monitor handlers")
+	}
+
+	shutdownChan := make(chan os.Signal)
+	signal.Notify(shutdownChan, syscall.SIGQUIT, syscall.SIGINT, syscall.SIGTERM, syscall.SIGINT)
+	sig := <-shutdownChan
+	log.WithField(logfields.Signal, sig).Info("Exiting due to signal")
 }
