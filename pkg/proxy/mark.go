@@ -20,11 +20,32 @@ package proxy
 // The marking is compatible with Kubernetes's use of the packet mark.  The
 // upper 16 bits can be used to carry the security identity.
 const (
-	magicMarkIngress int = 0x0FEA
-	magicMarkEgress  int = 0x0FEB
-	magicMarkHost    int = 0x0FEC
-	magicMarkK8sMasq int = 0x4000
-	magicMarkK8sDrop int = 0x8000
+	// MagicMarkHostMask can be used to fetch the host/proxy-relevant magic
+	// bits from a mark.
+	MagicMarkHostMask int = 0x0FFF
+	// MagicMarkProxyMask can be used to fetch the proxy-relevant magic
+	// bits from a mark.
+	MagicMarkProxyMask int = 0x0FFE
+	// MagicMarkIsProxy can be used in conjunction with MagicMarkProxyMask
+	// to determine whether the mark is indicating that traffic is peering
+	// with a proxy.
+	MagicMarkIsProxy int = 0x0FEA
+
+	// MagicMarkIngress determines that the traffic is sourced from the
+	// proxy which is applying Ingress policy
+	MagicMarkIngress int = 0x0FEA
+	// MagicMarkEgress determines that the traffic is sourced from the
+	// proxy which is applying Egress policy
+	MagicMarkEgress int = 0x0FEB
+	// MagicMarkHost determines that the traffic is sourced from the local
+	// host and not from a proxy.
+	MagicMarkHost int = 0x0FEC
+	// MagicMarkK8sMasq determines that the traffic should be masqueraded
+	// by kube-proxy in kubernetes environments.
+	MagicMarkK8sMasq int = 0x4000
+	// MagicMarkK8sDrop determines that the traffic should be dropped in
+	// kubernetes environments.
+	MagicMarkK8sDrop int = 0x8000
 )
 
 // getMagicMark returns the magic marker with which each packet must be marked.
@@ -34,9 +55,9 @@ func getMagicMark(isIngress bool, identity int) int {
 	mark := 0
 
 	if isIngress {
-		mark = magicMarkIngress
+		mark = MagicMarkIngress
 	} else {
-		mark = magicMarkEgress
+		mark = MagicMarkEgress
 	}
 
 	if identity != 0 {
