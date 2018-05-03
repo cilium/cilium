@@ -433,6 +433,17 @@ type Endpoint struct {
 	// ProxyWaitGroup waits for pending proxy changes to complete.
 	// You must hold Endpoint.BuildMutex to read or write it.
 	ProxyWaitGroup *completion.WaitGroup `json:"-"`
+
+	// realizedMapState contains the current set of PolicyKeys which are presently
+	// inserted (realized) in the endpoint's BPF PolicyMap.
+	// All fields within the PolicyKey should be in host byte-order.
+	realizedMapState map[policymap.PolicyKey]struct{}
+
+	// desiredMapState contains the set of PolicyKeys which should be synched
+	// with, but may not yet be synched with, the endpoint's BPF PolicyMap.
+	// This set of keys is updated upon regeneration of policy for an endpoint.
+	// All fields within the PolicyKey should be in host byte-order.
+	desiredMapState map[policymap.PolicyKey]struct{}
 }
 
 // WaitForProxyCompletions blocks until all proxy changes have been completed.
@@ -847,14 +858,48 @@ func (e *Endpoint) GetPolicyModel() *models.EndpointPolicyStatus {
 	e.Consumable.Mutex.RLock()
 	defer e.Consumable.Mutex.RUnlock()
 
-	ingressIdentities := make([]int64, 0, len(e.Consumable.IngressIdentities))
-	for ingressIdentity := range e.Consumable.IngressIdentities {
-		ingressIdentities = append(ingressIdentities, int64(ingressIdentity))
+	realizedIngressIdentities := make([]int64, 0)
+	realizedEgressIdentities := make([]int64, 0)
+
+	for policyMapKey := range e.realizedMapState {
+		if policyMapKey.DestPort != 0 {
+			// If the port is non-zero, then the PolicyKey no longer only applies
+			// at L3. AllowedIngressIdentities and AllowedEgressIdentities
+			// contain sets of which identities (i.e., label-based L3 only)
+			// are allowed, so anything which contains L4-related policy should
+			// not be added to these sets.
+			continue
+		}
+		switch policymap.TrafficDirection(policyMapKey.TrafficDirection) {
+		case policymap.Ingress:
+			realizedIngressIdentities = append(realizedIngressIdentities, int64(policyMapKey.Identity))
+		case policymap.Egress:
+			realizedEgressIdentities = append(realizedEgressIdentities, int64(policyMapKey.Identity))
+		default:
+			log.WithField(logfields.TrafficDirection, policymap.TrafficDirection(policyMapKey.TrafficDirection)).Error("Unexpected traffic direction present in realized PolicyMap state for endpoint")
+		}
 	}
 
-	egressIdentities := make([]int64, 0, len(e.Consumable.EgressIdentities))
-	for egressIdentity := range e.Consumable.EgressIdentities {
-		egressIdentities = append(egressIdentities, int64(egressIdentity))
+	desiredIngressIdentities := make([]int64, 0)
+	desiredEgressIdentities := make([]int64, 0)
+
+	for policyMapKey := range e.desiredMapState {
+		if policyMapKey.DestPort != 0 {
+			// If the port is non-zero, then the PolicyKey no longer only applies
+			// at L3. AllowedIngressIdentities and AllowedEgressIdentities
+			// contain sets of which identities (i.e., label-based L3 only)
+			// are allowed, so anything which contains L4-related policy should
+			// not be added to these sets.
+			continue
+		}
+		switch policymap.TrafficDirection(policyMapKey.TrafficDirection) {
+		case policymap.Ingress:
+			desiredIngressIdentities = append(desiredIngressIdentities, int64(policyMapKey.Identity))
+		case policymap.Egress:
+			desiredEgressIdentities = append(desiredEgressIdentities, int64(policyMapKey.Identity))
+		default:
+			log.WithField(logfields.TrafficDirection, policymap.TrafficDirection(policyMapKey.TrafficDirection)).Error("Unexpected traffic direction present in desired PolicyMap state for endpoint")
+		}
 	}
 
 	policyIngressEnabled := e.Opts.IsEnabled(option.IngressPolicy)
@@ -884,8 +929,19 @@ func (e *Endpoint) GetPolicyModel() *models.EndpointPolicyStatus {
 		ID:                       int64(e.Consumable.ID),
 		Build:                    int64(e.Consumable.Iteration),
 		PolicyRevision:           int64(e.policyRevision),
-		AllowedIngressIdentities: ingressIdentities,
-		AllowedEgressIdentities:  egressIdentities,
+		AllowedIngressIdentities: realizedIngressIdentities,
+		AllowedEgressIdentities:  realizedEgressIdentities,
+		CidrPolicy:               e.L3Policy.GetModel(),
+		L4:                       e.Consumable.L4Policy.GetModel(),
+		PolicyEnabled:            policyEnabled,
+	}
+
+	desiredMdl := &models.EndpointPolicy{
+		ID:                       int64(e.Consumable.ID),
+		Build:                    int64(e.Consumable.Iteration),
+		PolicyRevision:           int64(e.nextPolicyRevision),
+		AllowedIngressIdentities: desiredIngressIdentities,
+		AllowedEgressIdentities:  desiredEgressIdentities,
 		CidrPolicy:               e.L3Policy.GetModel(),
 		L4:                       e.Consumable.L4Policy.GetModel(),
 		PolicyEnabled:            policyEnabled,
@@ -893,7 +949,7 @@ func (e *Endpoint) GetPolicyModel() *models.EndpointPolicyStatus {
 	// FIXME GH-3280 Once we start returning revisions Realized should be the
 	// policy implemented in the data path
 	return &models.EndpointPolicyStatus{
-		Spec:                mdl,
+		Spec:                desiredMdl,
 		Realized:            mdl,
 		ProxyPolicyRevision: int64(e.proxyPolicyRevision),
 		ProxyStatistics:     proxyStats,
@@ -1142,10 +1198,14 @@ func (e *Endpoint) failedDirectoryPath() string {
 func (e *Endpoint) Allows(id identityPkg.NumericIdentity) bool {
 	e.Mutex.RLock()
 	defer e.Mutex.RUnlock()
-	if e.Consumable != nil {
-		return e.Consumable.AllowsIngress(id)
+
+	keyToLookup := policymap.PolicyKey{
+		Identity:         uint32(id),
+		TrafficDirection: policymap.Ingress.Uint8(),
 	}
-	return false
+
+	_, ok := e.desiredMapState[keyToLookup]
+	return ok
 }
 
 // String returns endpoint on a JSON format.
@@ -2316,4 +2376,80 @@ func (e *Endpoint) IPs() []net.IP {
 // manager. The endpoint must be read locked.
 func (e *Endpoint) InsertEvent() {
 	e.getLogger().Info("New endpoint")
+}
+
+// syncPolicyMap attempts to synchronize the PolicyMap for this endpoint to
+// contain the set of PolicyKeys represented by the endpoint's desiredMapState.
+// It checks the current contents of the endpoint's PolicyMap and deletes any
+// PolicyKeys that are not present in the endpoint's desiredMapState. It then
+// adds any keys that are not present in the map. When a key from desiredMapState
+// is inserted successfully to the endpoint's BPF PolicyMap, it is added to the
+// endpoint's realizedMapState field. Returns an error if the endpoint's BPF
+// PolicyMap is unable to be dumped, or any update operation to the map fails.
+// Must be called with e.Mutex locked.
+func (e *Endpoint) syncPolicyMap() error {
+
+	if e.realizedMapState == nil {
+		e.realizedMapState = make(map[policymap.PolicyKey]struct{})
+	}
+
+	currentMapContents, err := e.PolicyMap.DumpToSlice()
+
+	if err != nil {
+		return fmt.Errorf("unable to dump PolicyMap for endpoint: %s", err)
+	}
+
+	errors := []error{}
+
+	for _, entry := range currentMapContents {
+		// Convert key to host-byte order for lookup in the desiredMapState.
+		keyHostOrder := entry.Key.ToHost()
+
+		// If key that is in policy map is not in desired state, just remove it.
+		if _, ok := e.desiredMapState[keyHostOrder]; !ok {
+			// Can pass key with host byte-order fields, as it will get
+			// converted to network byte-order.
+			err := e.PolicyMap.DeleteKey(keyHostOrder)
+			if err != nil {
+				log.Errorf("failed to delete key %s: %s", entry.Key, err)
+				errors = append(errors, err)
+			} else {
+				// Operation was successful, remove from realized state.
+				delete(e.realizedMapState, keyHostOrder)
+			}
+		}
+	}
+
+	for keyToAdd := range e.desiredMapState {
+		if _, ok := e.realizedMapState[keyToAdd]; !ok {
+			err := e.PolicyMap.AllowKey(keyToAdd)
+			if err != nil {
+				log.Errorf("failed to add key %s: %s", keyToAdd, err)
+				errors = append(errors, err)
+			} else {
+				// Operation was successful, add to realized state.
+				e.realizedMapState[keyToAdd] = struct{}{}
+			}
+		}
+	}
+
+	if len(errors) > 0 {
+		return fmt.Errorf("synchronizing desired PolicyMap state failed: %s", errors)
+	}
+
+	return nil
+}
+
+func (e *Endpoint) syncPolicyMapController() {
+	ctrlName := fmt.Sprintf("sync-policymap-%d", e.ID)
+	e.controllers.UpdateController(ctrlName,
+		controller.ControllerParams{
+			DoFunc: func() error {
+				e.Mutex.Lock()
+				defer e.Mutex.Unlock()
+				return e.syncPolicyMap()
+			},
+			RunInterval: 1 * time.Minute,
+		},
+	)
 }

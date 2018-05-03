@@ -598,12 +598,6 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir, reason string) (uint64, err
 		if err != nil {
 			e.Mutex.Lock()
 			if createdPolicyMap {
-				// Remove policy map file only if it was created
-				// in this update cycle
-				if c != nil {
-					c.RemovePolicyMap(e.PolicyMap)
-				}
-
 				os.RemoveAll(e.PolicyMapPathLocked())
 				e.PolicyMap = nil
 			}
@@ -643,7 +637,6 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir, reason string) (uint64, err
 	// Only generate & populate policy map if a security identity is set up for
 	// this endpoint.
 	if c != nil {
-		c.AddMap(e.PolicyMap)
 
 		// Regenerate policy and apply any options resulting in the
 		// policy change.
@@ -652,6 +645,17 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir, reason string) (uint64, err
 		if err != nil {
 			e.Mutex.Unlock()
 			return 0, fmt.Errorf("unable to regenerate policy for '%s': %s", e.PolicyMap.String(), err)
+		}
+
+		// Synchronously try to update PolicyMap for this endpoint. If any
+		// part of updating the PolicyMap fails, bail out and do not generate
+		// BPF. Unfortunately, this means that the map will be in an inconsistent
+		// state with the current program (if it exists) for this endpoint.
+		// GH-3897 would fix this by creating a new map to do an atomic swap
+		// with the old one.
+		err := e.syncPolicyMap()
+		if err != nil {
+			return 0, fmt.Errorf("unable to regenerate policy because PolicyMap synchronization failed: %s", err)
 		}
 
 		// Walk the L4Policy for ports that require
