@@ -206,6 +206,20 @@ func (e *Endpoint) regenerateConsumable(owner Owner, labelsMap *identityPkg.Iden
 		desiredPolicyKeys[keyToAdd] = struct{}{}
 	}
 
+	e.computeDesiredL3PolicyMapEntries(owner, labelsMap, repo, desiredPolicyKeys)
+
+	// Set new desired state for policymap for this endpoint.
+	e.desiredMapState = desiredPolicyKeys
+
+	return nil
+}
+
+func (e *Endpoint) computeDesiredL3PolicyMapEntries(owner Owner, identityCache *identityPkg.IdentityCache, repo *policy.Repository, desiredPolicyKeys map[policymap.PolicyKey]struct{}) {
+
+	if desiredPolicyKeys == nil {
+		desiredPolicyKeys = map[policymap.PolicyKey]struct{}{}
+	}
+
 	ingressCtx := policy.SearchContext{
 		To: e.SecurityIdentity.LabelArray,
 	}
@@ -220,14 +234,9 @@ func (e *Endpoint) regenerateConsumable(owner Owner, labelsMap *identityPkg.Iden
 
 	// Only L3 (label-based) policy apply.
 	// Complexity increases linearly by the number of identities in the map.
-	for identity, labels := range *labelsMap {
+	for identity, labels := range *identityCache {
 		ingressCtx.From = labels
 		egressCtx.To = labels
-
-		e.getLogger().WithFields(logrus.Fields{
-			logfields.PolicyID: identity,
-			"ingress_context":  ingressCtx,
-		}).Debug("Evaluating ingress context for source PolicyID")
 
 		ingressAccess := repo.AllowsIngressLabelAccess(&ingressCtx)
 		if ingressAccess == api.Allowed {
@@ -235,39 +244,18 @@ func (e *Endpoint) regenerateConsumable(owner Owner, labelsMap *identityPkg.Iden
 				Identity:         identity.Uint32(),
 				TrafficDirection: policymap.Ingress.Uint8(),
 			}
-
 			desiredPolicyKeys[keyToAdd] = struct{}{}
 		}
 
-		e.getLogger().WithFields(logrus.Fields{
-			logfields.PolicyID: identity,
-			"egress_context":   egressCtx,
-		}).Debug("Evaluating egress context for source PolicyID")
-
 		egressAccess := repo.AllowsEgressLabelAccess(&egressCtx)
-
-		log.WithFields(logrus.Fields{
-			logfields.PolicyID:   identity,
-			logfields.EndpointID: e.ID,
-			"labels":             labels,
-		}).Debugf("egress verdict: %v", egressAccess)
-
 		if egressAccess == api.Allowed {
 			keyToAdd := policymap.PolicyKey{
 				Identity:         identity.Uint32(),
 				TrafficDirection: policymap.Egress.Uint8(),
 			}
-
 			desiredPolicyKeys[keyToAdd] = struct{}{}
 		}
 	}
-
-	e.desiredMapState = desiredPolicyKeys
-
-	e.getLogger().WithFields(logrus.Fields{
-		logfields.Identity: c.ID,
-	}).Debug("consumable regenerated")
-	return nil
 }
 
 // Must be called with global repo.Mutrex, e.Mutex, and c.Mutex held
