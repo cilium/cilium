@@ -166,7 +166,7 @@ func copyConfigCommands(confDir string, k8sPods []string) []string {
 	// them to be one block is the pod prefix and namespace used in the
 	// path. This should be refactored.
 	if len(k8sPods) == 0 {
-		kernel, _ := execCommand("uname", "-r")
+		kernel, _ := execCommand("uname -r")
 		kernel = strings.TrimSpace(kernel)
 		// Append the boot config for the current kernel
 		l := Location{fmt.Sprintf("/boot/config-%s", kernel),
@@ -185,8 +185,7 @@ func copyConfigCommands(confDir string, k8sPods []string) []string {
 		// configs. Therefore we need copy commands for all the pods.
 		for _, pod := range k8sPods {
 			prompt := podPrefix(pod, "uname -r")
-			cmd, args := split(prompt)
-			kernel, _ := execCommand(cmd, args...)
+			kernel, _ := execCommand(prompt)
 			kernel = strings.TrimSpace(kernel)
 			l := Location{fmt.Sprintf("/boot/config-%s", kernel),
 				fmt.Sprintf("%s/kernel-config-%s", confDir, kernel)}

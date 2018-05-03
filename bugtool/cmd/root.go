@@ -309,11 +309,10 @@ func runAll(commands []string, cmdDir string, k8sPods []string) {
 	wg.Wait()
 }
 
-func execCommand(cmd string, args ...string) (string, error) {
-	fmt.Printf("exec: %s %s\n", cmd, args)
+func execCommand(prompt string) (string, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), execTimeout)
 	defer cancel()
-	output, err := exec.CommandContext(ctx, cmd, args...).CombinedOutput()
+	output, err := exec.CommandContext(ctx, "bash", "-c", prompt).CombinedOutput()
 	if ctx.Err() == context.DeadlineExceeded {
 		return "", fmt.Errorf("exec timeout")
 	}
@@ -353,7 +352,7 @@ func writeCmdToFile(cmdDir, prompt string, k8sPods []string) {
 		}
 	}
 	// Write prompt as header and the output as body, and / or error but delete empty output.
-	output, err := execCommand(cmd, args...)
+	output, err := execCommand(prompt)
 	if err != nil {
 		fmt.Fprintf(f, fmt.Sprintf("> Error while running '%s':  %s\n\n", prompt, err))
 	}
@@ -386,7 +385,7 @@ func split(prompt string) (string, []string) {
 }
 
 func getCiliumPods(namespace, label string) ([]string, error) {
-	output, err := execCommand("kubectl", "-n", namespace, "get", "pods", "-l", label)
+	output, err := execCommand(fmt.Sprintf("kubectl -n %s get pods -l %s", namespace, label))
 	if err != nil {
 		return nil, err
 	}
