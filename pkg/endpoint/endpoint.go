@@ -337,12 +337,12 @@ type Endpoint struct {
 	// Consumable represents the security-identity-based policy for this endpoint.
 	Consumable *policy.Consumable `json:"-"`
 
-	// L4Policy is the L4Policy in effect for the
+	// RealizedL4Policy is the L4Policy in effect for the
 	// endpoint. Outside of policy recalculation, it is the same as the
-	// Consumable's L4Policy, but this is needed during policy recalculation to
+	// Consumable's RealizedL4Policy, but this is needed during policy recalculation to
 	// be able to clean up PolicyMap after the endpoint's consumable has already
 	// been updated.
-	L4Policy *policy.L4Policy `json:"-"`
+	RealizedL4Policy *policy.L4Policy `json:"-"`
 
 	// PolicyMap is the policy related state of the datapath including
 	// reference to all policy related BPF
@@ -1690,7 +1690,7 @@ func (e *Endpoint) LeaveLocked(owner Owner) []error {
 	owner.RemoveFromEndpointQueue(uint64(e.ID))
 	if c := e.Consumable; c != nil {
 		c.Mutex.Lock()
-		if e.L4Policy != nil {
+		if e.RealizedL4Policy != nil {
 			// Passing a new map of nil will purge all redirects
 			e.removeOldRedirects(owner, nil)
 		}

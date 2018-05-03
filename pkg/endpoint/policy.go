@@ -190,11 +190,11 @@ func (e *Endpoint) regenerateConsumable(owner Owner, labelsMap *identityPkg.Iden
 	// L4 policy needs to be applied on two conditions
 	// 1. The L4 policy has changed
 	// 2. The set of applicable security identities has changed.
-	if e.L4Policy != c.L4Policy || e.LabelsMap != labelsMap {
+	if e.RealizedL4Policy != c.L4Policy || e.LabelsMap != labelsMap {
 
 		desiredPolicyKeys = e.computeDesiredL4PolicyMapEntries(*labelsMap, c.L4Policy)
 		// Reuse the common policy, will be used in lxc_config.h (CFG_CIDRL4_INGRESS and CFG_CIDRL4_EGRESS)
-		e.L4Policy = c.L4Policy
+		e.RealizedL4Policy = c.L4Policy
 		e.LabelsMap = labelsMap // Remember the set of labels used
 	}
 
