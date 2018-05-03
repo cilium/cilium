@@ -810,13 +810,11 @@ func (e *Endpoint) runIPIdentitySync(endpointIP addressing.CiliumIP) {
 // Called with e.Mutex Locked
 func (e *Endpoint) SetIdentity(identity *identityPkg.Identity) {
 
-	if e.Consumable != nil {
-		if e.SecurityIdentity != nil && identity.ID == e.Consumable.ID {
-			// Even if the numeric identity is the same, the order in which the
-			// labels are represented may change.
-			e.SecurityIdentity = identity
-			return
-		}
+	if e.SecurityIdentity != nil && identity.ID == e.SecurityIdentity.ID {
+		// Even if the numeric identity is the same, the order in which the
+		// labels are represented may change.
+		e.SecurityIdentity = identity
+		return
 	}
 
 	oldIdentity := "no identity"
