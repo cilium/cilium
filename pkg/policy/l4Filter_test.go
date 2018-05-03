@@ -16,10 +16,10 @@ package policy
 
 import (
 	"bytes"
+
 	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/op/go-logging"
 
-	"fmt"
 	"github.com/cilium/cilium/pkg/comparator"
 	"github.com/cilium/cilium/pkg/labels"
 	. "gopkg.in/check.v1"
@@ -605,13 +605,6 @@ func (ds *PolicyTestSuite) TestL3RuleShadowedByL3AllowAll(c *C) {
 // which restricts on L7. Should resolve to just allowing all on L3/L7 (first rule
 // shadows the second), but setting traffic to the HTTP proxy.
 func (ds *PolicyTestSuite) TestL3RuleWithL7RulePartiallyShadowedByL3AllowAll(c *C) {
-
-	fmt.Println("TestL3RuleWithL7RulePartiallyShadowedByL3AllowAll")
-	fmt.Println("TestL3RuleWithL7RulePartiallyShadowedByL3AllowAll")
-	fmt.Println("TestL3RuleWithL7RulePartiallyShadowedByL3AllowAll")
-	fmt.Println("TestL3RuleWithL7RulePartiallyShadowedByL3AllowAll")
-	fmt.Println("TestL3RuleWithL7RulePartiallyShadowedByL3AllowAll")
-
 	// Case 7A: selects specific endpoint with L7 restrictions rule first, then
 	// rule which selects all endpoints and allows all on L7. Net result sets
 	// parser type to whatever is in first rule, but without the restriction
