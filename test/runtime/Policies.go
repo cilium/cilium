@@ -876,6 +876,7 @@ var _ = Describe("RuntimeValidatedPolicies", func() {
 		googleHTTP := "google.com"
 		checkEgressToWorld := func() {
 			By("Testing egress access to the world")
+
 			res := vm.ContainerExec(helpers.App1, helpers.Ping(googleDNS))
 			ExpectWithOffset(2, res.WasSuccessful()).Should(
 				BeTrue(), "not able to ping %s", googleDNS)
@@ -886,7 +887,7 @@ var _ = Describe("RuntimeValidatedPolicies", func() {
 
 			res = vm.ContainerExec(helpers.App1, helpers.CurlFail("-4 http://%s", googleHTTP))
 			ExpectWithOffset(2, res.WasSuccessful()).Should(
-				BeTrue(), "not able to curl %s", googleHTTP)
+				BeTrue(), "not able to curl %s: %s", googleHTTP, res.CombineOutput())
 		}
 
 		setupPolicyAndTestEgressToWorld := func(policy string) {
@@ -943,6 +944,7 @@ var _ = Describe("RuntimeValidatedPolicies", func() {
 				}]
 			}]
 		}]`, app1Label, api.EntityWorld, app2Label)
+
 		setupPolicyAndTestEgressToWorld(policy)
 
 		vm.PolicyDelAll().ExpectSuccess("Unable to delete all policies")
