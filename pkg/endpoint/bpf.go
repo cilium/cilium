@@ -659,8 +659,7 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir, reason string) (uint64, err
 		}
 
 		// Walk the L4Policy for ports that require
-		// an L7 redirect and add them to the endpoint; update the L4PolicyMap
-		// with the redirects.
+		// an L7 redirect and add them to the endpoint.
 		c.Mutex.Lock()
 		if c.L4Policy != nil {
 			desiredRedirects, err = e.addNewRedirects(owner, c.L4Policy)
