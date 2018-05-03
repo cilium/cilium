@@ -823,7 +823,6 @@ func (e *Endpoint) SetIdentity(identity *identityPkg.Identity) {
 	}
 
 	e.SecurityIdentity = identity
-	e.Consumable = policy.NewConsumable(identity.ID, identity)
 
 	// Sets endpoint state to ready if was waiting for identity
 	if e.GetStateLocked() == StateWaitingForIdentity {

@@ -75,10 +75,6 @@ func endpointCreator(id uint16, secID identity.NumericIdentity) *e.Endpoint {
 			"foo" + strID: labels.NewLabel("foo"+strID, "", ""),
 		},
 	}
-	ep.Consumable = &policy.Consumable{
-		ID:        secID,
-		Iteration: 0,
-	}
 	return ep
 }
 
