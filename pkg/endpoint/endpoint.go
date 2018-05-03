@@ -337,6 +337,11 @@ type Endpoint struct {
 	// Consumable represents the security-identity-based policy for this endpoint.
 	Consumable *policy.Consumable `json:"-"`
 
+	// Iteration policy of the Endpoint
+	// TODO: this was moved from Consumable to Endpoint. This documentation is
+	// not clear, and needs to be more specific.
+	Iteration uint64 `json:"-"`
+
 	// RealizedL4Policy is the L4Policy in effect for the
 	// endpoint. Outside of policy recalculation, it is the same as the
 	// Consumable's RealizedL4Policy, but this is needed during policy recalculation to
