@@ -579,11 +579,6 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir, reason string) (uint64, err
 	createdIPv4IngressMap := false
 	createdIPv4EgressMap := false
 
-	// Endpoint's identity can be changed while we are compiling
-	// bpf. To be able to undo changes in case of an error we need
-	// to keep a local reference to the current consumable.
-	c := e.Consumable
-
 	defer func() {
 		if err != nil {
 			e.Mutex.Lock()
@@ -626,7 +621,7 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir, reason string) (uint64, err
 
 	// Only generate & populate policy map if a security identity is set up for
 	// this endpoint.
-	if c != nil {
+	if e.SecurityIdentity != nil {
 
 		// Regenerate policy and apply any options resulting in the
 		// policy change.
@@ -650,11 +645,9 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir, reason string) (uint64, err
 
 		// Walk the L4Policy for ports that require
 		// an L7 redirect and add them to the endpoint.
-		c.Mutex.Lock()
 		if e.DesiredL4Policy != nil {
 			desiredRedirects, err = e.addNewRedirects(owner, e.DesiredL4Policy)
 			if err != nil {
-				c.Mutex.Unlock()
 				e.Mutex.Unlock()
 				return 0, err
 			}
@@ -662,11 +655,9 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir, reason string) (uint64, err
 		// Update policies after adding redirects, otherwise we will not wait for
 		// acks for the first policy upates for the first added redirects.
 		if err = e.updateNetworkPolicy(owner); err != nil {
-			c.Mutex.Unlock()
 			e.Mutex.Unlock()
 			return 0, err
 		}
-		c.Mutex.Unlock()
 	}
 
 	// Generate header file specific to this endpoint for use in compiling
