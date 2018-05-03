@@ -120,11 +120,6 @@ func (e *Endpoint) writeL4Map(fw *bufio.Writer, m policy.L4PolicyMap, configL4, 
 }
 
 func (e *Endpoint) writeL4Policy(fw *bufio.Writer) error {
-	if e.Consumable == nil {
-		return nil
-	}
-	e.Consumable.Mutex.RLock()
-	defer e.Consumable.Mutex.RUnlock()
 	if e.DesiredL4Policy == nil {
 		return nil
 	}
@@ -553,13 +548,8 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir, reason string) (uint64, err
 
 		// Dry mode needs Network Policy Updates, but e.ProxyWaitGroup must not
 		// be initialized, as there is no proxy ACKing the changes.
-		if e.Consumable != nil {
-			e.Consumable.Mutex.Lock()
-			if err = e.updateNetworkPolicy(owner); err != nil {
-				e.Consumable.Mutex.Unlock()
-				return 0, err
-			}
-			e.Consumable.Mutex.Unlock()
+		if err = e.updateNetworkPolicy(owner); err != nil {
+			return 0, err
 		}
 
 		if err = e.writeHeaderfile(epdir, owner); err != nil {

@@ -91,7 +91,7 @@ func EnableConntrackGC(ipv4, ipv6 bool) {
 			for _, e := range eps {
 				e.Mutex.RLock()
 
-				if e.Consumable == nil {
+				if e.SecurityIdentity == nil {
 					e.Mutex.RUnlock()
 					continue
 				}
