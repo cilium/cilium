@@ -125,11 +125,11 @@ func (e *Endpoint) writeL4Policy(fw *bufio.Writer) error {
 	}
 	e.Consumable.Mutex.RLock()
 	defer e.Consumable.Mutex.RUnlock()
-	if e.Consumable.L4Policy == nil {
+	if e.DesiredL4Policy == nil {
 		return nil
 	}
 
-	l4policy := e.Consumable.L4Policy
+	l4policy := e.DesiredL4Policy
 
 	fmt.Fprintf(fw, "#define HAVE_L4_POLICY\n")
 
@@ -661,8 +661,8 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir, reason string) (uint64, err
 		// Walk the L4Policy for ports that require
 		// an L7 redirect and add them to the endpoint.
 		c.Mutex.Lock()
-		if c.L4Policy != nil {
-			desiredRedirects, err = e.addNewRedirects(owner, c.L4Policy)
+		if e.DesiredL4Policy != nil {
+			desiredRedirects, err = e.addNewRedirects(owner, e.DesiredL4Policy)
 			if err != nil {
 				c.Mutex.Unlock()
 				e.Mutex.Unlock()
@@ -777,5 +777,6 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir, reason string) (uint64, err
 	if err != nil {
 		log.WithField(logfields.EndpointID, e.ID).WithError(err).Error("Exposing new bpf failed")
 	}
+
 	return epInfoCache.revision, err
 }

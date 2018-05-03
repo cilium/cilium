@@ -344,6 +344,10 @@ type Endpoint struct {
 	// been updated.
 	RealizedL4Policy *policy.L4Policy `json:"-"`
 
+	// DesiredL4Policy is the desired L4Policy for the endpoint. It is populated
+	// when the policy for this endpoint is generated.
+	DesiredL4Policy *policy.L4Policy `json:"-"`
+
 	// PolicyMap is the policy related state of the datapath including
 	// reference to all policy related BPF
 	PolicyMap *policymap.PolicyMap `json:"-"`
@@ -932,7 +936,7 @@ func (e *Endpoint) GetPolicyModel() *models.EndpointPolicyStatus {
 		AllowedIngressIdentities: realizedIngressIdentities,
 		AllowedEgressIdentities:  realizedEgressIdentities,
 		CidrPolicy:               e.L3Policy.GetModel(),
-		L4:                       e.Consumable.L4Policy.GetModel(),
+		L4:                       e.RealizedL4Policy.GetModel(),
 		PolicyEnabled:            policyEnabled,
 	}
 
@@ -943,7 +947,7 @@ func (e *Endpoint) GetPolicyModel() *models.EndpointPolicyStatus {
 		AllowedIngressIdentities: desiredIngressIdentities,
 		AllowedEgressIdentities:  desiredEgressIdentities,
 		CidrPolicy:               e.L3Policy.GetModel(),
-		L4:                       e.Consumable.L4Policy.GetModel(),
+		L4:                       e.DesiredL4Policy.GetModel(),
 		PolicyEnabled:            policyEnabled,
 	}
 	// FIXME GH-3280 Once we start returning revisions Realized should be the
