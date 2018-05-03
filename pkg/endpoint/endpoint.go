@@ -1296,13 +1296,8 @@ func (e *Endpoint) base64() (string, error) {
 		jsonBytes []byte
 		err       error
 	)
-	if e.Consumable != nil {
-		e.Consumable.Mutex.RLock()
-		jsonBytes, err = json.Marshal(e)
-		e.Consumable.Mutex.RUnlock()
-	} else {
-		jsonBytes, err = json.Marshal(e)
-	}
+
+	jsonBytes, err = json.Marshal(e)
 	if err != nil {
 		return "", err
 	}
@@ -1692,13 +1687,9 @@ func (e *Endpoint) LeaveLocked(owner Owner) []error {
 	errors := []error{}
 
 	owner.RemoveFromEndpointQueue(uint64(e.ID))
-	if c := e.Consumable; c != nil {
-		c.Mutex.Lock()
-		if e.RealizedL4Policy != nil {
-			// Passing a new map of nil will purge all redirects
-			e.removeOldRedirects(owner, nil)
-		}
-		c.Mutex.Unlock()
+	if e.SecurityIdentity != nil && e.RealizedL4Policy != nil {
+		// Passing a new map of nil will purge all redirects
+		e.removeOldRedirects(owner, nil)
 	}
 
 	if e.PolicyMap != nil {

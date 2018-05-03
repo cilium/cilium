@@ -290,7 +290,7 @@ func (e *Endpoint) updateNetworkPolicy(owner Owner) error {
 	// sidecar Envoy proxies and those proxies needing network connectivity
 	// to get their initial configuration, which is required for them to ACK
 	// the NetworkPolicies.
-	if !e.PolicyCalculated {
+	if !e.PolicyCalculated || e.SecurityIdentity == nil {
 		return nil
 	}
 
