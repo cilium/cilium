@@ -20,7 +20,7 @@ import (
 )
 
 // Consumable holds all of the policies relevant to this security identity,
-// including label-based policies, L4Policy, and L7 policy. A Consumable is
+// including label-based policies, RealizedL4Policy, and L7 policy. A Consumable is
 // shared amongst all endpoints on the same node which possess the same security
 // identity.
 type Consumable struct {
@@ -32,7 +32,7 @@ type Consumable struct {
 	// Iteration policy of the Consumable
 	Iteration uint64 `json:"-"`
 
-	// L4Policy contains the desired L4-related policy of this consumable
+	// RealizedL4Policy contains the desired L4-related policy of this consumable
 	// (label-dependent L4, and L4-dependent L7 policy).
 	L4Policy *L4Policy `json:"l4-policy"`
 }

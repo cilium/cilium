@@ -323,13 +323,13 @@ func NewL4Policy() *L4Policy {
 	}
 }
 
-// IngressCoversContext checks if the receiver's ingress `L4Policy` contains
+// IngressCoversContext checks if the receiver's ingress L4Policy contains
 // all `dPorts` and `labels`.
 func (l4 *L4PolicyMap) IngressCoversContext(ctx *SearchContext) api.Decision {
 	return l4.containsAllL3L4(ctx.From, ctx.DPorts)
 }
 
-// EgressCoversContext checks if the receiver's egress `L4Policy` contains
+// EgressCoversContext checks if the receiver's egress L4Policy contains
 // all `dPorts` and `labels`.
 func (l4 *L4PolicyMap) EgressCoversContext(ctx *SearchContext) api.Decision {
 	return l4.containsAllL3L4(ctx.To, ctx.DPorts)
