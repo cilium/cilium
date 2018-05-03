@@ -31,10 +31,6 @@ type Consumable struct {
 
 	// Iteration policy of the Consumable
 	Iteration uint64 `json:"-"`
-
-	// RealizedL4Policy contains the desired L4-related policy of this consumable
-	// (label-dependent L4, and L4-dependent L7 policy).
-	L4Policy *L4Policy `json:"l4-policy"`
 }
 
 // NewConsumable creates a new consumable
