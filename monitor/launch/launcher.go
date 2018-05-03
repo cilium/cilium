@@ -38,6 +38,9 @@ const (
 
 	// queueSize is the size of the message queue
 	queueSize = 524288
+
+	// restartInterval is the delay between attempts to restart node-monitor
+	restartInterval = time.Second
 )
 
 // NodeMonitor is used to wrap the node executable binary.
@@ -95,7 +98,7 @@ func (nm *NodeMonitor) Run(sockPath string) {
 
 		r := bufio.NewReader(nm.GetStdout())
 		for nm.GetProcess() != nil {
-			l, _ := r.ReadBytes('\n')
+			l, _ := r.ReadBytes('\n') // this is a blocking read
 			var tmp *models.MonitorStatus
 			if err := json.Unmarshal(l, &tmp); err != nil {
 				continue
@@ -104,6 +107,9 @@ func (nm *NodeMonitor) Run(sockPath string) {
 		}
 
 		pipe.Close()
+
+		// throttle breakage loops
+		time.Sleep(restartInterval)
 	}
 }
 
