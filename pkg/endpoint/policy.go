@@ -714,7 +714,7 @@ func (e *Endpoint) Regenerate(owner Owner, reason string) <-chan bool {
 // Returns true if policy was changed and the endpoint needs to be rebuilt
 func (e *Endpoint) TriggerPolicyUpdatesLocked(owner Owner, opts models.ConfigurationMap) (bool, error) {
 
-	if e.Consumable == nil {
+	if e.SecurityIdentity == nil {
 		return false, nil
 	}
 
