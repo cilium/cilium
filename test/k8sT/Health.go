@@ -29,9 +29,12 @@ var testName = "K8sValidatedHealthTest"
 
 var _ = Describe(testName, func() {
 
-	var kubectl *helpers.Kubectl
-	var logger *logrus.Entry
-	var once sync.Once
+	var (
+		kubectl *helpers.Kubectl
+		logger  *logrus.Entry
+		once    sync.Once
+	)
+
 	initialize := func() {
 		logger = log.WithFields(logrus.Fields{"testName": testName})
 		logger.Info("Starting")
