@@ -59,8 +59,7 @@ var _ = Describe(testName, func() {
 	})
 
 	AfterEach(func() {
-		err := kubectl.WaitCleanAllTerminatingPods()
-		Expect(err).To(BeNil(), "Terminating containers are not deleted after timeout")
+		ExpectAllPodsTerminated(kubectl)
 	})
 
 	getCilium := func(node string) (pod, ip string) {

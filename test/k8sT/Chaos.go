@@ -64,8 +64,7 @@ var _ = Describe("K8sValidatedChaosTest", func() {
 	AfterEach(func() {
 		kubectl.Delete(demoDSPath).ExpectSuccess(
 			"%s deployment cannot be deleted", demoDSPath)
-		err := kubectl.WaitCleanAllTerminatingPods()
-		Expect(err).To(BeNil(), "Terminating containers are not deleted after timeout")
+		ExpectAllPodsTerminated(kubectl)
 
 	})
 
@@ -119,8 +118,7 @@ var _ = Describe("K8sValidatedChaosTest", func() {
 		res = kubectl.Delete(ciliumPath)
 		res.ExpectSuccess(res.GetDebugMessage())
 
-		err = kubectl.WaitCleanAllTerminatingPods()
-		Expect(err).To(BeNil(), "Terminating containers are not deleted after timeout")
+		ExpectAllPodsTerminated(kubectl)
 
 		PingService()
 

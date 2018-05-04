@@ -56,8 +56,7 @@ var _ = Describe("NightlyPolicies", func() {
 	})
 
 	AfterEach(func() {
-		err := kubectl.WaitCleanAllTerminatingPods()
-		Expect(err).To(BeNil(), "Terminating containers are not deleted after timeout")
+		ExpectAllPodsTerminated(kubectl)
 	})
 
 	AfterAll(func() {
@@ -65,8 +64,7 @@ var _ = Describe("NightlyPolicies", func() {
 		kubectl.Exec(fmt.Sprintf(
 			"%s delete --all pods,svc,cnp -n %s", helpers.KubectlCmd, helpers.DefaultNamespace))
 
-		err := kubectl.WaitCleanAllTerminatingPods()
-		Expect(err).To(BeNil(), "Terminating containers are not deleted after timeout")
+		ExpectAllPodsTerminated(kubectl)
 	})
 	Context("PolicyEnforcement default", func() {
 		createTests := func() {

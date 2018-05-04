@@ -78,8 +78,7 @@ var _ = Describe("K8sValidatedServicesTest", func() {
 	})
 
 	AfterEach(func() {
-		err := kubectl.WaitCleanAllTerminatingPods()
-		Expect(err).To(BeNil(), "Terminating containers are not deleted after timeout")
+		ExpectAllPodsTerminated(kubectl)
 	})
 
 	testHTTPRequest := func(url string) {

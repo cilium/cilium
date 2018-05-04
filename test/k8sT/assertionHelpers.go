@@ -33,3 +33,10 @@ func ExpectCiliumReady(vm *helpers.Kubectl) {
 	_, err := vm.WaitforPods(helpers.KubeSystemNamespace, "-l k8s-app=cilium", 600)
 	ExpectWithOffset(1, err).Should(BeNil(), "cilium was not able to get into ready state")
 }
+
+// ExpectAllPodsTerminated is a wrapper around helpers/WaitCleanAllTerminatingPods.
+// It asserts that the error returned by that function is nil.
+func ExpectAllPodsTerminated(vm *helpers.Kubectl) {
+	err := vm.WaitCleanAllTerminatingPods()
+	ExpectWithOffset(1, err).To(BeNil(), "terminating containers are not deleted after timeout")
+}

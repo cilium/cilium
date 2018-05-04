@@ -100,8 +100,7 @@ var _ = Describe(demoTestName, func() {
 		kubectl.Delete(xwingYAMLLink)
 
 		By("Waiting for all pods to finish terminating")
-		err := kubectl.WaitCleanAllTerminatingPods()
-		Expect(err).To(BeNil(), "Terminating pods are not deleted after timeout")
+		ExpectAllPodsTerminated(kubectl)
 	})
 
 	It("Tests Star Wars Demo", func() {
