@@ -656,15 +656,13 @@ var _ = Describe("K8sValidatedPolicyTest", func() {
 
 		waitforPods := func() {
 			port := "6379"
-			pods, err := kubectl.WaitForServiceEndpoints(
+			err := kubectl.WaitForServiceEndpoints(
 				helpers.DefaultNamespace, "", "redis-master", port, helpers.HelperTimeout)
 			Expect(err).Should(BeNil(), "error waiting for redis-master service to be ready on port %s", port)
-			Expect(pods).Should(BeTrue(), "timed out waiting for redis-master service to be ready")
 
-			pods, err = kubectl.WaitForServiceEndpoints(
+			err = kubectl.WaitForServiceEndpoints(
 				helpers.DefaultNamespace, "", "redis-slave", port, helpers.HelperTimeout)
 			Expect(err).Should(BeNil(), "error waiting for redis-slave service to be ready on port %s", port)
-			Expect(pods).Should(BeTrue(), "timed out waiting for redis-slave service to be ready")
 
 			err = kubectl.WaitforPods(
 				helpers.DefaultNamespace,
@@ -963,10 +961,9 @@ var _ = Describe("K8sValidatedPolicyTestAcrossNamespaces", func() {
 		areEndpointsReady := kubectl.CiliumEndpointWait(ciliumPodK8s2)
 		Expect(areEndpointsReady).Should(BeTrue())
 
-		pods, err := kubectl.WaitForServiceEndpoints(
+		err = kubectl.WaitForServiceEndpoints(
 			developmentNs, "", "backend", "80", helpers.HelperTimeout)
 		Expect(err).Should(BeNil())
-		Expect(pods).Should(BeTrue())
 
 		frontendPod, err := kubectl.GetPods(qaNs, "-l id=client").Filter(podNameFilter)
 		Expect(err).Should(BeNil())
