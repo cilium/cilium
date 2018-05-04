@@ -27,12 +27,14 @@ import (
 
 var _ = Describe("K8sValidatedChaosTest", func() {
 
-	var kubectl *helpers.Kubectl
-	var logger *logrus.Entry
-	var once sync.Once
-	var demoDSPath string
-	var ciliumPath string
-	var testDSService string = "testds-service.default.svc.cluster.local"
+	var (
+		kubectl       *helpers.Kubectl
+		logger        *logrus.Entry
+		once          sync.Once
+		demoDSPath    string
+		ciliumPath    string
+		testDSService string = "testds-service.default.svc.cluster.local"
+	)
 
 	initialize := func() {
 		logger = log.WithFields(logrus.Fields{"testName": "K8sChaosTest"})
