@@ -192,9 +192,8 @@ func InstallExampleCilium(kubectl *Kubectl) {
 	kubectl.Apply(GetFilePath(newCiliumDSName)).ExpectSuccess(
 		"cannot apply cilium example daemonset")
 
-	status, err := kubectl.WaitforPods(
+	err = kubectl.WaitforPods(
 		KubeSystemNamespace, "-l k8s-app=cilium", timeout)
-	ExpectWithOffset(1, status).Should(BeTrue(), "Cilium is not ready after timeout")
 	ExpectWithOffset(1, err).Should(BeNil(), "Cilium is not ready after timeout")
 
 	ginkgo.By(fmt.Sprintf("Checking that installed image is %q", StableImage))

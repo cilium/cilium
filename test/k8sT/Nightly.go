@@ -61,7 +61,7 @@ var _ = Describe("NightlyEpsMeasurement", func() {
 		ciliumPath = helpers.ManifestGet("cilium_ds.yaml")
 		kubectl.Apply(ciliumPath)
 
-		_, err := kubectl.WaitforPods(helpers.KubeSystemNamespace, "-l k8s-app=cilium", 600)
+		err := kubectl.WaitforPods(helpers.KubeSystemNamespace, "-l k8s-app=cilium", 600)
 		Expect(err).Should(BeNil())
 
 		ExpectKubeDNSReady(kubectl)
@@ -123,10 +123,9 @@ var _ = Describe("NightlyEpsMeasurement", func() {
 
 		deployEndpoints()
 		waitForPodsTime := b.Time("Wait for pods", func() {
-			pods, err := kubectl.WaitforPods(helpers.DefaultNamespace, "-l zgroup=testapp", endpointTimeout)
+			err := kubectl.WaitforPods(helpers.DefaultNamespace, "-l zgroup=testapp", endpointTimeout)
 			Expect(err).Should(BeNil(),
 				"Cannot retrieve %d pods in %d seconds", endpointCount, endpointsTimeout)
-			Expect(pods).Should(BeTrue())
 		})
 
 		log.WithFields(logrus.Fields{"pod creation time": waitForPodsTime}).Info("")
@@ -252,7 +251,7 @@ var _ = Describe("NightlyEpsMeasurement", func() {
 			pipePath := "/tmp/nc_pipe.txt"
 			listeningString := "listening on [::]:8888"
 
-			_, err := kubectl.WaitforPods(helpers.DefaultNamespace, "-l zgroup=netcatds", 600)
+			err := kubectl.WaitforPods(helpers.DefaultNamespace, "-l zgroup=netcatds", 600)
 			Expect(err).To(BeNil(), "Pods are not ready after timeout")
 
 			netcatPods, err := kubectl.GetPodNames(helpers.DefaultNamespace, "zgroup=netcatds")
@@ -387,7 +386,7 @@ var _ = Describe("NightlyExamples", func() {
 
 		It("Check Kubernetes Example is working correctly", func() {
 			kubectl.Apply(demoPath).ExpectSuccess()
-			_, err := kubectl.WaitforPods(helpers.DefaultNamespace, "-l zgroup=testapp", timeout)
+			err := kubectl.WaitforPods(helpers.DefaultNamespace, "-l zgroup=testapp", timeout)
 			Expect(err).Should(BeNil())
 
 			_, err = kubectl.CiliumPolicyAction(
@@ -424,7 +423,7 @@ var _ = Describe("NightlyExamples", func() {
 		BeforeEach(func() {
 			path := helpers.ManifestGet("cilium_ds.yaml")
 			kubectl.Apply(path)
-			_, err := kubectl.WaitforPods(helpers.KubeSystemNamespace, "-l k8s-app=cilium", 600)
+			err := kubectl.WaitforPods(helpers.KubeSystemNamespace, "-l k8s-app=cilium", 600)
 			Expect(err).Should(BeNil())
 
 			ExpectKubeDNSReady(kubectl)
@@ -448,7 +447,7 @@ var _ = Describe("NightlyExamples", func() {
 			By("Testing the example config")
 			kubectl.Apply(AppManifest).ExpectSuccess("cannot install the GRPC application")
 
-			_, err := kubectl.WaitforPods(helpers.DefaultNamespace, "-l zgroup=grpcExample", 300)
+			err := kubectl.WaitforPods(helpers.DefaultNamespace, "-l zgroup=grpcExample", 300)
 			Expect(err).Should(BeNil(), "Pods are not ready after timeout")
 
 			res := kubectl.ExecPodCmd(

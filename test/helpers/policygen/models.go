@@ -475,11 +475,11 @@ func (t *TestSpec) ApplyManifest() (string, error) {
 	if !res.WasSuccessful() {
 		return "", fmt.Errorf("%s", res.CombineOutput())
 	}
-	status, err := t.Kub.WaitforPods(
+	err = t.Kub.WaitforPods(
 		helpers.DefaultNamespace,
 		fmt.Sprintf("-l zgroup=%s", t.Prefix),
 		600)
-	if err != nil || !status {
+	if err != nil {
 		return "", err
 	}
 	return t.GetManifestName(), nil

@@ -102,7 +102,7 @@ var _ = Describe("K8sValidatedUpdates", func() {
 		By("Creating some endpoints and L7 policy")
 		kubectl.Apply(demoPath).ExpectSuccess()
 
-		_, err := kubectl.WaitforPods(helpers.DefaultNamespace, "-l zgroup=testapp", timeout)
+		err := kubectl.WaitforPods(helpers.DefaultNamespace, "-l zgroup=testapp", timeout)
 		Expect(err).Should(BeNil())
 
 		_, err = kubectl.CiliumPolicyAction(
@@ -163,9 +163,8 @@ var _ = Describe("K8sValidatedUpdates", func() {
 			&helpers.TimeoutConfig{Timeout: timeout})
 		Expect(err).To(BeNil(), "Pods are not updating")
 
-		status, err := kubectl.WaitforPods(
+		err = kubectl.WaitforPods(
 			helpers.KubeSystemNamespace, "-l k8s-app=cilium", timeout)
-		Expect(status).Should(BeTrue(), "Cilium is not ready after timeout")
 		Expect(err).Should(BeNil(), "Cilium is not ready after timeout")
 
 		validatedImage(localImage)

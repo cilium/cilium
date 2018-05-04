@@ -50,7 +50,7 @@ var _ = Describe("K8sValidatedServicesTest", func() {
 		kubectl = helpers.CreateKubectl(helpers.K8s1VMName(), logger)
 		path := helpers.ManifestGet("cilium_ds.yaml")
 		kubectl.Apply(path)
-		_, err := kubectl.WaitforPods(helpers.KubeSystemNamespace, "-l k8s-app=cilium", 600)
+		err := kubectl.WaitforPods(helpers.KubeSystemNamespace, "-l k8s-app=cilium", 600)
 		Expect(err).Should(BeNil())
 
 		ExpectKubeDNSReady(kubectl)
@@ -102,8 +102,7 @@ var _ = Describe("K8sValidatedServicesTest", func() {
 	waitPodsDs := func() {
 		groups := []string{"zgroup=testDS", "zgroup=testDSClient"}
 		for _, pod := range groups {
-			pods, err := kubectl.WaitforPods(helpers.DefaultNamespace, fmt.Sprintf("-l %s", pod), 300)
-			ExpectWithOffset(1, pods).Should(BeTrue())
+			err := kubectl.WaitforPods(helpers.DefaultNamespace, fmt.Sprintf("-l %s", pod), 300)
 			ExpectWithOffset(1, err).Should(BeNil())
 		}
 	}
@@ -126,8 +125,7 @@ var _ = Describe("K8sValidatedServicesTest", func() {
 		})
 
 		It("Checks service on same node", func() {
-			pods, err := kubectl.WaitforPods(helpers.DefaultNamespace, "-l zgroup=testapp", 300)
-			Expect(pods).Should(BeTrue())
+			err := kubectl.WaitforPods(helpers.DefaultNamespace, "-l zgroup=testapp", 300)
 			Expect(err).Should(BeNil())
 
 			res, err := kubectl.Get(
@@ -427,7 +425,7 @@ var _ = Describe("K8sValidatedServicesTest", func() {
 			}
 
 			By("Waiting for pods to be ready")
-			_, err := kubectl.WaitforPods(helpers.DefaultNamespace, "-l zgroup=bookinfo", helpers.HelperTimeout)
+			err := kubectl.WaitforPods(helpers.DefaultNamespace, "-l zgroup=bookinfo", helpers.HelperTimeout)
 			Expect(err).Should(BeNil(), "Pods are not ready after timeout")
 
 			By("Waiting for services to be ready")

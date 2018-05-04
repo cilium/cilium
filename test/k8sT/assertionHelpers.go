@@ -30,7 +30,7 @@ func ExpectKubeDNSReady(vm *helpers.Kubectl) {
 // ExpectCiliumReady is a wrapper around helpers/WaitForPods. It asserts that
 // the error returned by that function is nil.
 func ExpectCiliumReady(vm *helpers.Kubectl) {
-	_, err := vm.WaitforPods(helpers.KubeSystemNamespace, "-l k8s-app=cilium", 600)
+	err := vm.WaitforPods(helpers.KubeSystemNamespace, "-l k8s-app=cilium", 600)
 	ExpectWithOffset(1, err).Should(BeNil(), "cilium was not able to get into ready state")
 }
 

@@ -68,7 +68,7 @@ var _ = Describe("K8sValidatedPolicyTest", func() {
 		cnpDenyEgress = helpers.ManifestGet("cnp-default-deny-egress.yaml")
 
 		_ = kubectl.Apply(helpers.ManifestGet("cilium_ds.yaml"))
-		_, err := kubectl.WaitforPods(helpers.KubeSystemNamespace, "-l k8s-app=cilium", 300)
+		err := kubectl.WaitforPods(helpers.KubeSystemNamespace, "-l k8s-app=cilium", 300)
 		Expect(err).Should(BeNil(), "Cannot install cilium correctly")
 		ExpectKubeDNSReady(kubectl)
 	})
@@ -103,7 +103,7 @@ var _ = Describe("K8sValidatedPolicyTest", func() {
 		BeforeAll(func() {
 			kubectl.Apply(demoPath)
 
-			_, err := kubectl.WaitforPods(helpers.DefaultNamespace, "-l zgroup=testapp", 300)
+			err := kubectl.WaitforPods(helpers.DefaultNamespace, "-l zgroup=testapp", 300)
 			Expect(err).Should(BeNil(), "Test pods are not ready after timeout")
 
 			ciliumPod, err = kubectl.GetCiliumPodOnNode(helpers.KubeSystemNamespace, helpers.K8s1)
@@ -130,7 +130,7 @@ var _ = Describe("K8sValidatedPolicyTest", func() {
 			status.ExpectSuccess()
 			kubectl.CiliumEndpointWait(ciliumPod)
 
-			_, err := kubectl.WaitforPods(helpers.DefaultNamespace, "-l zgroup=testapp", 300)
+			err := kubectl.WaitforPods(helpers.DefaultNamespace, "-l zgroup=testapp", 300)
 			Expect(err).Should(BeNil())
 
 		})
@@ -322,10 +322,9 @@ var _ = Describe("K8sValidatedPolicyTest", func() {
 			})
 
 			It("Tests the same Policy in the different namespaces", func() {
-				pods, err := kubectl.WaitforPods(
+				err := kubectl.WaitforPods(
 					namespace,
 					"-l zgroup=testapp", 300)
-				Expect(pods).To(BeTrue(), "testapp pods are not ready after timeout")
 				Expect(err).To(BeNil(), "testapp pods are not ready after timeout")
 
 				By("Applying Policy in namespace")
@@ -668,10 +667,9 @@ var _ = Describe("K8sValidatedPolicyTest", func() {
 			Expect(err).Should(BeNil(), "error waiting for redis-slave service to be ready on port %s", port)
 			Expect(pods).Should(BeTrue(), "timed out waiting for redis-slave service to be ready")
 
-			pods, err = kubectl.WaitforPods(
+			err = kubectl.WaitforPods(
 				helpers.DefaultNamespace,
 				fmt.Sprintf("-l %s", groupLabel), 300)
-			ExpectWithOffset(1, pods).Should(BeTrue())
 			ExpectWithOffset(1, err).Should(BeNil())
 		}
 
@@ -857,8 +855,7 @@ var _ = Describe("K8sValidatedPolicyTestAcrossNamespaces", func() {
 		cnpAnyNamespace = helpers.ManifestGet("cnp-any-namespace.yaml")
 
 		_ = kubectl.Apply(ciliumDaemonSetPath)
-		status, err := kubectl.WaitforPods(helpers.KubeSystemNamespace, "-l k8s-app=cilium", 300)
-		Expect(status).Should(BeTrue())
+		err := kubectl.WaitforPods(helpers.KubeSystemNamespace, "-l k8s-app=cilium", 300)
 		Expect(err).Should(BeNil())
 
 		ExpectKubeDNSReady(kubectl)
