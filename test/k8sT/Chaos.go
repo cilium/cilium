@@ -39,11 +39,8 @@ var _ = Describe("K8sValidatedChaosTest", func() {
 		kubectl = helpers.CreateKubectl(helpers.K8s1VMName(), logger)
 		kubectl.Apply(ciliumPath)
 
-		_, err := kubectl.WaitforPods(helpers.KubeSystemNamespace, "-l k8s-app=cilium", 600)
-		Expect(err).Should(BeNil())
-
-		err = kubectl.WaitKubeDNS()
-		Expect(err).Should(BeNil())
+		ExpectCiliumReady(kubectl)
+		ExpectKubeDNSReady(kubectl)
 	})
 
 	BeforeEach(func() {
