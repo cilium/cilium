@@ -40,7 +40,6 @@ func getStarWarsResourceLink(file string) string {
 var _ = Describe(demoTestName, func() {
 
 	var (
-		demoPath         string
 		once             sync.Once
 		kubectl          *helpers.Kubectl
 		logger           *logrus.Entry
@@ -58,9 +57,6 @@ var _ = Describe(demoTestName, func() {
 		logger = log.WithFields(logrus.Fields{"testName": demoTestName})
 		logger.Info("Starting")
 		kubectl = helpers.CreateKubectl(helpers.K8s1VMName(), logger)
-
-		//Manifest paths
-		demoPath = helpers.ManifestGet("demo.yaml")
 
 		// TODO (ianvernon) - factor this code out into separate functions as it's
 		// boilerplate for most K8s test setup.
