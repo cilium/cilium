@@ -471,7 +471,7 @@ func (kub *Kubectl) WaitforPods(namespace string, filter string, timeout time.Du
 // to have their port equal to the provided port. Returns true if all pods achieve
 // the aforementioned desired state within timeout seconds. Returns false and
 // an error if the command failed or the timeout was exceeded.
-func (kub *Kubectl) WaitForServiceEndpoints(namespace string, filter string, service string, port string, timeout time.Duration) (bool, error) {
+func (kub *Kubectl) WaitForServiceEndpoints(namespace string, filter string, service string, port string, timeout time.Duration) error {
 	body := func() bool {
 		var jsonPath = fmt.Sprintf("{.items[?(@.metadata.name =='%s')].subsets[0].ports[0].port}", service)
 		data, err := kub.GetEndpoints(namespace, filter).Filter(jsonPath)
@@ -495,11 +495,7 @@ func (kub *Kubectl) WaitForServiceEndpoints(namespace string, filter string, ser
 		return false
 	}
 
-	err := WithTimeout(body, "could not get service endpoints", &TimeoutConfig{Timeout: timeout})
-	if err != nil {
-		return false, err
-	}
-	return true, nil
+	return WithTimeout(body, "could not get service endpoints", &TimeoutConfig{Timeout: timeout})
 }
 
 // Action performs the specified ResourceLifeCycleAction on the Kubernetes

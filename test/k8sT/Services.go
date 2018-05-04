@@ -431,7 +431,7 @@ var _ = Describe("K8sValidatedServicesTest", func() {
 
 			By("Waiting for services to be ready")
 			for _, service := range []string{details, ratings, reviews, productPage} {
-				_, err = kubectl.WaitForServiceEndpoints(
+				err = kubectl.WaitForServiceEndpoints(
 					helpers.DefaultNamespace, "", service,
 					apiPort, helpers.HelperTimeout)
 				Expect(err).Should(BeNil(), "Service %q is not ready after timeout", service)
