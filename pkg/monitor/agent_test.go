@@ -15,7 +15,9 @@
 package monitor
 
 import (
+	"fmt"
 	"testing"
+	"time"
 
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/policy/api"
@@ -120,4 +122,13 @@ func (s *MonitorSuite) TestEndpointRegenRepr(c *C) {
 	repr, err = EndpointRegenRepr(e, nil)
 	c.Assert(err, IsNil)
 	c.Assert(repr, Equals, "{\"id\":10,\"labels\":[\"unspec:key1=value1\",\"unspec:key2=value2\"]}")
+}
+
+func (s *MonitorSuite) TestTimeRepr(c *C) {
+	t := time.Now()
+
+	repr, err := TimeRepr(t)
+
+	c.Assert(err, IsNil)
+	c.Assert(repr, Equals, fmt.Sprintf("{\"time\":\"%s\"}", t.String()))
 }
