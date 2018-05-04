@@ -70,8 +70,7 @@ var _ = Describe(demoTestName, func() {
 		status, err := kubectl.WaitforPods(helpers.KubeSystemNamespace, "-l k8s-app=cilium", 300)
 		Expect(status).Should(BeTrue())
 		Expect(err).Should(BeNil())
-		err = kubectl.WaitKubeDNS()
-		Expect(err).Should(BeNil())
+		ExpectKubeDNSReady(kubectl)
 	}
 
 	BeforeEach(func() {

@@ -53,8 +53,7 @@ var _ = Describe("K8sValidatedServicesTest", func() {
 		_, err := kubectl.WaitforPods(helpers.KubeSystemNamespace, "-l k8s-app=cilium", 600)
 		Expect(err).Should(BeNil())
 
-		err = kubectl.WaitKubeDNS()
-		Expect(err).Should(BeNil())
+		ExpectKubeDNSReady(kubectl)
 
 		ciliumPodK8s1, err = kubectl.GetCiliumPodOnNode(helpers.KubeSystemNamespace, helpers.K8s1)
 		Expect(err).Should(BeNil(), "Cannot get cilium pod on k8s1")
