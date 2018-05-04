@@ -67,8 +67,7 @@ var _ = Describe(demoTestName, func() {
 		ciliumYAML = helpers.ManifestGet("cilium_ds.yaml")
 		res := kubectl.Apply(ciliumYAML)
 		res.ExpectSuccess("unable to apply %s: %s", ciliumYAML, res.CombineOutput())
-		err := kubectl.WaitforPods(helpers.KubeSystemNamespace, "-l k8s-app=cilium", 300)
-		Expect(err).Should(BeNil())
+		ExpectCiliumReady(kubectl)
 		ExpectKubeDNSReady(kubectl)
 	}
 

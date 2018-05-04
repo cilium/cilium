@@ -44,14 +44,15 @@ var _ = Describe("K8sValidatedServicesTest", func() {
 	}
 
 	BeforeAll(func() {
+		var err error
+
 		logger = log.WithFields(logrus.Fields{"testName": "K8sServiceTest"})
 		logger.Info("Starting")
 
 		kubectl = helpers.CreateKubectl(helpers.K8s1VMName(), logger)
 		path := helpers.ManifestGet("cilium_ds.yaml")
 		kubectl.Apply(path)
-		err := kubectl.WaitforPods(helpers.KubeSystemNamespace, "-l k8s-app=cilium", 600)
-		Expect(err).Should(BeNil())
+		ExpectCiliumReady(kubectl)
 
 		ExpectKubeDNSReady(kubectl)
 

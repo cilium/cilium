@@ -61,9 +61,7 @@ var _ = Describe("NightlyEpsMeasurement", func() {
 		ciliumPath = helpers.ManifestGet("cilium_ds.yaml")
 		kubectl.Apply(ciliumPath)
 
-		err := kubectl.WaitforPods(helpers.KubeSystemNamespace, "-l k8s-app=cilium", 600)
-		Expect(err).Should(BeNil())
-
+		ExpectCiliumReady(kubectl)
 		ExpectKubeDNSReady(kubectl)
 
 		// Sometimes PolicyGen has a lot of pods running around without delete
@@ -423,8 +421,7 @@ var _ = Describe("NightlyExamples", func() {
 		BeforeEach(func() {
 			path := helpers.ManifestGet("cilium_ds.yaml")
 			kubectl.Apply(path)
-			err := kubectl.WaitforPods(helpers.KubeSystemNamespace, "-l k8s-app=cilium", 600)
-			Expect(err).Should(BeNil())
+			ExpectCiliumReady(kubectl)
 
 			ExpectKubeDNSReady(kubectl)
 		})

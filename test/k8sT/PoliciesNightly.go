@@ -21,7 +21,6 @@ import (
 	"github.com/cilium/cilium/test/helpers"
 	"github.com/cilium/cilium/test/helpers/policygen"
 
-	. "github.com/onsi/gomega"
 	"github.com/sirupsen/logrus"
 )
 
@@ -37,9 +36,7 @@ var _ = Describe("NightlyPolicies", func() {
 		kubectl = helpers.CreateKubectl(helpers.K8s1VMName(), logger)
 		ciliumPath := helpers.ManifestGet("cilium_ds.yaml")
 		kubectl.Apply(ciliumPath)
-		err := kubectl.WaitforPods(helpers.KubeSystemNamespace, "-l k8s-app=cilium", 600)
-		Expect(err).Should(BeNil())
-
+		ExpectCiliumReady(kubectl)
 		ExpectKubeDNSReady(kubectl)
 	})
 
