@@ -21,6 +21,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"sort"
 	"strings"
 	"text/tabwriter"
 	"time"
@@ -274,6 +275,7 @@ func FormatStatusResponse(w io.Writer, sr *models.StatusResponse, allAddresses, 
 		fmt.Fprintf(w, "Controller Status:\t%d/%d healthy\n", nOK, len(sr.Controllers))
 		if len(out) > 1 {
 			tab := tabwriter.NewWriter(w, 0, 0, 3, ' ', 0)
+			sort.Strings(out)
 			for _, s := range out {
 				fmt.Fprint(tab, s)
 			}
