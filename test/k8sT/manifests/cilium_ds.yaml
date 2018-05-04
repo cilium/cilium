@@ -23,7 +23,7 @@ data:
     #cert-file: '/var/lib/etcd-secrets/etcd-client-crt'
 
   # If you want to run cilium in debug mode change this value to true
-  debug: "false"
+  debug: "true"
   disable-ipv4: "false"
 ---
 # The etcd secrets can be populated in kubernetes.
@@ -93,6 +93,7 @@ spec:
         command: [ "cilium-agent" ]
         args:
           - "--debug=$(CILIUM_DEBUG)"
+          - "--debug-verbose=flow"
           - "-t"
           - "vxlan"
           - "--kvstore"
