@@ -70,8 +70,7 @@ var _ = Describe("K8sValidatedPolicyTest", func() {
 		_ = kubectl.Apply(helpers.ManifestGet("cilium_ds.yaml"))
 		_, err := kubectl.WaitforPods(helpers.KubeSystemNamespace, "-l k8s-app=cilium", 300)
 		Expect(err).Should(BeNil(), "Cannot install cilium correctly")
-		err = kubectl.WaitKubeDNS()
-		Expect(err).Should(BeNil(), "Kubedns is not ready after timeout")
+		ExpectKubeDNSReady(kubectl)
 	})
 
 	AfterEach(func() {
@@ -862,8 +861,7 @@ var _ = Describe("K8sValidatedPolicyTestAcrossNamespaces", func() {
 		Expect(status).Should(BeTrue())
 		Expect(err).Should(BeNil())
 
-		err = kubectl.WaitKubeDNS()
-		Expect(err).Should(BeNil())
+		ExpectKubeDNSReady(kubectl)
 	}
 
 	namespaceAction := func(ns string, action string) {

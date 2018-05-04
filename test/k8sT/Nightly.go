@@ -64,8 +64,7 @@ var _ = Describe("NightlyEpsMeasurement", func() {
 		_, err := kubectl.WaitforPods(helpers.KubeSystemNamespace, "-l k8s-app=cilium", 600)
 		Expect(err).Should(BeNil())
 
-		err = kubectl.WaitKubeDNS()
-		Expect(err).Should(BeNil())
+		ExpectKubeDNSReady(kubectl)
 
 		// Sometimes PolicyGen has a lot of pods running around without delete
 		// it. Using this we are sure that we delete before this test start
@@ -428,8 +427,7 @@ var _ = Describe("NightlyExamples", func() {
 			_, err := kubectl.WaitforPods(helpers.KubeSystemNamespace, "-l k8s-app=cilium", 600)
 			Expect(err).Should(BeNil())
 
-			err = kubectl.WaitKubeDNS()
-			Expect(err).Should(BeNil())
+			ExpectKubeDNSReady(kubectl)
 		})
 
 		AfterEach(func() {

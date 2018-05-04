@@ -40,8 +40,7 @@ var _ = Describe("NightlyPolicies", func() {
 		_, err := kubectl.WaitforPods(helpers.KubeSystemNamespace, "-l k8s-app=cilium", 600)
 		Expect(err).Should(BeNil())
 
-		err = kubectl.WaitKubeDNS()
-		Expect(err).Should(BeNil())
+		ExpectKubeDNSReady(kubectl)
 	})
 
 	AfterFailed(func() {
