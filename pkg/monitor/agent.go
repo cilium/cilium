@@ -17,6 +17,7 @@ package monitor
 import (
 	"encoding/json"
 	"fmt"
+	"time"
 
 	"github.com/cilium/cilium/pkg/endpoint/getter"
 	"github.com/cilium/cilium/pkg/policy/api"
@@ -82,9 +83,9 @@ func PolicyUpdateRepr(rules api.Rules, revision uint64) (string, error) {
 		RuleCount: len(rules),
 	}
 
-	resp, err := json.Marshal(notification)
+	repr, err := json.Marshal(notification)
 
-	return string(resp), err
+	return string(repr), err
 }
 
 func PolicyDeleteRepr(deleted int, labels []string, revision uint64) (string, error) {
@@ -93,9 +94,9 @@ func PolicyDeleteRepr(deleted int, labels []string, revision uint64) (string, er
 		Revision:  revision,
 		RuleCount: deleted,
 	}
-	resp, err := json.Marshal(notification)
+	repr, err := json.Marshal(notification)
 
-	return string(resp), err
+	return string(repr), err
 }
 
 type EndpointRegenNotification struct {
@@ -114,7 +115,19 @@ func EndpointRegenRepr(e getter.EndpointGetter, err error) (string, error) {
 		notification.Error = err.Error()
 	}
 
-	resp, err := json.Marshal(notification)
+	repr, err := json.Marshal(notification)
 
-	return string(resp), err
+	return string(repr), err
+}
+
+type TimeNotification struct {
+	Time string `json:"time"`
+}
+
+func TimeRepr(t time.Time) (string, error) {
+	notification := TimeNotification{
+		Time: t.String(),
+	}
+	repr, err := json.Marshal(notification)
+	return string(repr), err
 }

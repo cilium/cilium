@@ -833,7 +833,11 @@ func runDaemon() {
 
 	server.ConfigureAPI()
 
-	d.SendNotification(monitor.AgentNotifyStart, time.Now().String())
+	repr, err := monitor.TimeRepr(time.Now())
+	if err != nil {
+		log.WithError(err).Warn("Failed to notify monitor about agent start")
+	}
+	d.SendNotification(monitor.AgentNotifyStart, repr)
 
 	log.Info("Daemon initialization completed")
 
