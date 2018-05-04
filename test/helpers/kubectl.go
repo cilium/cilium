@@ -1024,12 +1024,10 @@ func (kub *Kubectl) ValidateNoErrorsOnLogs(duration time.Duration) {
 		res = kub.Exec(cmd)
 	}
 	logs := res.Output().String()
-	gomega.ExpectWithOffset(1, logs).ToNot(gomega.ContainSubstring("panic: "),
-		"Found a panic in Cilium logs")
-	gomega.ExpectWithOffset(1, logs).ToNot(gomega.ContainSubstring(deadLockHeader),
-		"Found a deadlock in Cilium logs")
-	gomega.ExpectWithOffset(1, logs).ToNot(gomega.ContainSubstring(segmentationFault),
-		"Found a %q in Cilium logs", segmentationFault)
+	for _, message := range checkLogsMessages {
+		gomega.ExpectWithOffset(1, logs).ToNot(gomega.ContainSubstring(message),
+			"Found a %q in Cilium logs", message)
+	}
 }
 
 // CheckLogsForDeadlock checks if the logs for Cilium log messages that signify
