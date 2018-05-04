@@ -35,16 +35,21 @@ import (
 var _ = Describe("K8sValidatedPolicyTest", func() {
 
 	var (
-		demoPath                                                                string
-		kubectl                                                                 *helpers.Kubectl
-		l3Policy, l7Policy, knpDenyIngress, knpDenyEgress, knpDenyIngressEgress string
-		cnpDenyIngress, cnpDenyEgress                                           string
-		logger                                                                  *logrus.Entry
-		service                                                                 *v1.Service
-		podServer                                                               *v1.Pod
-		app1Service                                                             string = "app1-service"
-		microscopeErr                                                           error
-		microscopeCancel                                                        func() error
+		kubectl              *helpers.Kubectl
+		demoPath             = helpers.ManifestGet("demo.yaml")
+		l3Policy             = helpers.ManifestGet("l3_l4_policy.yaml")
+		l7Policy             = helpers.ManifestGet("l7_policy.yaml")
+		knpDenyIngress       = helpers.ManifestGet("knp-default-deny-ingress.yaml")
+		knpDenyEgress        = helpers.ManifestGet("knp-default-deny-egress.yaml")
+		knpDenyIngressEgress = helpers.ManifestGet("knp-default-deny-ingress-egress.yaml")
+		cnpDenyIngress       = helpers.ManifestGet("cnp-default-deny-ingress.yaml")
+		cnpDenyEgress        = helpers.ManifestGet("cnp-default-deny-egress.yaml")
+		logger               *logrus.Entry
+		service              *v1.Service
+		podServer            *v1.Pod
+		app1Service          = "app1-service"
+		microscopeErr        error
+		microscopeCancel     func() error
 
 		namespace string   = "namespace-selector-test"
 		podFilter string   = "k8s:zgroup=testapp"
@@ -56,16 +61,6 @@ var _ = Describe("K8sValidatedPolicyTest", func() {
 		logger = log.WithFields(logrus.Fields{"testName": "K8sPolicyTest"})
 		logger.Info("Starting")
 		kubectl = helpers.CreateKubectl(helpers.K8s1VMName(), logger)
-
-		//Manifest paths
-		demoPath = helpers.ManifestGet("demo.yaml")
-		l3Policy = helpers.ManifestGet("l3_l4_policy.yaml")
-		knpDenyIngress = helpers.ManifestGet("knp-default-deny-ingress.yaml")
-		knpDenyEgress = helpers.ManifestGet("knp-default-deny-egress.yaml")
-		knpDenyIngressEgress = helpers.ManifestGet("knp-default-deny-ingress-egress.yaml")
-		l7Policy = helpers.ManifestGet("l7_policy.yaml")
-		cnpDenyIngress = helpers.ManifestGet("cnp-default-deny-ingress.yaml")
-		cnpDenyEgress = helpers.ManifestGet("cnp-default-deny-egress.yaml")
 
 		_ = kubectl.Apply(helpers.ManifestGet("cilium_ds.yaml"))
 		ExpectCiliumReady(kubectl)
