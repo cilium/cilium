@@ -16,7 +16,6 @@ package k8sTest
 
 import (
 	"fmt"
-	"sync"
 
 	. "github.com/cilium/cilium/test/ginkgo-ext"
 	"github.com/cilium/cilium/test/helpers"
@@ -29,14 +28,13 @@ var _ = Describe("K8sValidatedChaosTest", func() {
 
 	var (
 		kubectl       *helpers.Kubectl
-		once          sync.Once
 		logger        = log.WithFields(logrus.Fields{"testName": "K8sChaosTest"})
 		demoDSPath    = helpers.ManifestGet("demo_ds.yaml")
 		ciliumPath    = helpers.ManifestGet("cilium_ds.yaml")
 		testDSService = "testds-service.default.svc.cluster.local"
 	)
 
-	initialize := func() {
+	BeforeAll(func() {
 		logger.Info("Starting")
 		kubectl = helpers.CreateKubectl(helpers.K8s1VMName(), logger)
 		kubectl.Apply(ciliumPath)
@@ -46,10 +44,9 @@ var _ = Describe("K8sValidatedChaosTest", func() {
 
 		err = kubectl.WaitKubeDNS()
 		Expect(err).Should(BeNil())
-	}
+	})
 
 	BeforeEach(func() {
-		once.Do(initialize)
 		kubectl.Apply(demoDSPath).ExpectSuccess("DS deployment cannot be applied")
 
 		_, err := kubectl.WaitforPods(
