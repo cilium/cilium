@@ -356,38 +356,45 @@ func (kub *Kubectl) ManifestGet(manifestFilename string) string {
 // a timeout. Also it returns a callback function to stop the monitor and save
 // the output to `helpers.monitorLogFileName` file.
 func (kub *Kubectl) MicroscopeStart() (error, func() error) {
-	microscope := "microscope"
-	cmd := fmt.Sprintf("%[1]s -n %[2]s exec %[3]s -- %[3]s",
-		KubectlCmd, KubeSystemNamespace, microscope)
-	_ = kub.Apply(microscopeManifest)
+	/*
+		TODO: re-enable microscope in CI. See GH-4011.
+		microscope := "microscope"
+		cmd := fmt.Sprintf("%[1]s -n %[2]s exec %[3]s -- %[3]s",
+			KubectlCmd, KubeSystemNamespace, microscope)
+		_ = kub.Apply(microscopeManifest)
 
-	_, err := kub.WaitforPods(
-		KubeSystemNamespace,
-		fmt.Sprintf("-l k8s-app=%s", microscope),
-		300)
-	if err != nil {
-		return err, nil
-	}
+		_, err := kub.WaitforPods(
+			KubeSystemNamespace,
+			fmt.Sprintf("-l k8s-app=%s", microscope),
+			300)
+		if err != nil {
+			return err, nil
+		}
 
-	ctx, cancel := context.WithCancel(context.Background())
-	res := kub.ExecContext(ctx, cmd, ExecOptions{SkipLog: true})
+		ctx, cancel := context.WithCancel(context.Background())
+		res := kub.ExecContext(ctx, cmd, ExecOptions{SkipLog: true})
+
+		cb := func() error {
+			cancel()
+			testPath, err := CreateReportDirectory()
+			if err != nil {
+				kub.logger.WithError(err).Errorf(
+					"cannot create test results path '%s'", testPath)
+				return err
+			}
+
+			err = ioutil.WriteFile(
+				filepath.Join(testPath, monitorLogFileName),
+				res.CombineOutput().Bytes(),
+				LogPerm)
+			if err != nil {
+				log.WithError(err).Errorf("cannot create monitor log file")
+			}
+			return nil
+		}
+	*/
 
 	cb := func() error {
-		cancel()
-		testPath, err := CreateReportDirectory()
-		if err != nil {
-			kub.logger.WithError(err).Errorf(
-				"cannot create test results path '%s'", testPath)
-			return err
-		}
-
-		err = ioutil.WriteFile(
-			filepath.Join(testPath, monitorLogFileName),
-			res.CombineOutput().Bytes(),
-			LogPerm)
-		if err != nil {
-			log.WithError(err).Errorf("cannot create monitor log file")
-		}
 		return nil
 	}
 	return nil, cb
