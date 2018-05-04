@@ -93,8 +93,7 @@ var _ = Describe("K8sValidatedKafkaPolicyTest", func() {
 		_ = kubectl.Delete(demoPath)
 		_ = kubectl.Delete(l7Policy)
 
-		err := kubectl.WaitCleanAllTerminatingPods()
-		Expect(err).To(BeNil(), "Terminating containers are not deleted after timeout")
+		ExpectAllPodsTerminated(kubectl)
 
 	})
 

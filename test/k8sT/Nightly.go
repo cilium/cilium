@@ -72,8 +72,7 @@ var _ = Describe("NightlyEpsMeasurement", func() {
 		kubectl.Exec(fmt.Sprintf(
 			"%s delete --all pods,svc,cnp -n %s", helpers.KubectlCmd, helpers.DefaultNamespace))
 
-		err = kubectl.WaitCleanAllTerminatingPods()
-		Expect(err).To(BeNil(), "Terminating containers are not deleted after timeout")
+		ExpectAllPodsTerminated(kubectl)
 	}
 
 	BeforeEach(func() {
@@ -91,11 +90,10 @@ var _ = Describe("NightlyEpsMeasurement", func() {
 	})
 
 	AfterEach(func() {
-		err := kubectl.WaitCleanAllTerminatingPods()
-		Expect(err).To(BeNil(), "Terminating containers are not deleted after timeout")
+		ExpectAllPodsTerminated(kubectl)
 
 		kubectl.Delete(vagrantManifestPath)
-		kubectl.WaitCleanAllTerminatingPods()
+		ExpectAllPodsTerminated(kubectl)
 	})
 
 	deployEndpoints := func() {
@@ -348,8 +346,7 @@ var _ = Describe("NightlyExamples", func() {
 		kubectl.Exec(fmt.Sprintf(
 			"%s delete --all pods,svc,cnp -n %s", helpers.KubectlCmd, helpers.DefaultNamespace))
 
-		err := kubectl.WaitCleanAllTerminatingPods()
-		Expect(err).To(BeNil(), "Terminating containers are not deleted after timeout")
+		ExpectAllPodsTerminated(kubectl)
 	}
 
 	BeforeEach(func() {
@@ -371,8 +368,7 @@ var _ = Describe("NightlyExamples", func() {
 		kubectl.Delete(l3Policy)
 		kubectl.Delete(l7Policy)
 
-		err := kubectl.WaitCleanAllTerminatingPods()
-		Expect(err).To(BeNil(), "Terminating containers are not deleted after timeout")
+		ExpectAllPodsTerminated(kubectl)
 	})
 
 	Context("Cilium DaemonSet from example", func() {
@@ -437,8 +433,7 @@ var _ = Describe("NightlyExamples", func() {
 		})
 
 		AfterEach(func() {
-			err := kubectl.WaitCleanAllTerminatingPods()
-			Expect(err).To(BeNil(), "cannot clean all terminating pods")
+			ExpectAllPodsTerminated(kubectl)
 		})
 
 		It("GRPC example", func() {

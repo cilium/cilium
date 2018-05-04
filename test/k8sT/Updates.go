@@ -41,9 +41,7 @@ var _ = Describe("K8sValidatedUpdates", func() {
 		kubectl.Exec(fmt.Sprintf(
 			"%s delete --all pods,svc,cnp -n %s", helpers.KubectlCmd, helpers.DefaultNamespace))
 
-		err := kubectl.WaitCleanAllTerminatingPods()
-		Expect(err).To(BeNil(), "Terminating containers are not deleted after timeout")
-
+		ExpectAllPodsTerminated(kubectl)
 	})
 
 	AfterFailed(func() {
@@ -64,8 +62,7 @@ var _ = Describe("K8sValidatedUpdates", func() {
 			"ds", fmt.Sprintf("-n %s cilium", helpers.KubeSystemNamespace))
 		res.ExpectSuccess("Cilium DS cannot be deleted")
 
-		err := kubectl.WaitCleanAllTerminatingPods()
-		Expect(err).To(BeNil(), "Terminating containers are not deleted after timeout")
+		ExpectAllPodsTerminated(kubectl)
 	})
 
 	BeforeEach(func() {

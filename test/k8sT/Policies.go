@@ -75,8 +75,7 @@ var _ = Describe("K8sValidatedPolicyTest", func() {
 	})
 
 	AfterEach(func() {
-		err := kubectl.WaitCleanAllTerminatingPods()
-		Expect(err).To(BeNil(), "Terminating containers are not deleted after timeout")
+		ExpectAllPodsTerminated(kubectl)
 	})
 
 	AfterFailed(func() {
@@ -655,8 +654,7 @@ var _ = Describe("K8sValidatedPolicyTest", func() {
 			Expect(kubectl.CiliumIsPolicyLoaded(ciliumPod, getPolicyCmd(redisPolicyName))).To(
 				BeFalse(), "RedisPolicyName is not deleted")
 
-			err := kubectl.WaitCleanAllTerminatingPods()
-			Expect(err).To(BeNil(), "Terminating containers are not deleted after timeout")
+			ExpectAllPodsTerminated(kubectl)
 		})
 
 		waitforPods := func() {
@@ -922,8 +920,7 @@ var _ = Describe("K8sValidatedPolicyTestAcrossNamespaces", func() {
 		namespaceAction(qaNs, helpers.Delete)
 		namespaceAction(developmentNs, helpers.Delete)
 
-		err := kubectl.WaitCleanAllTerminatingPods()
-		Expect(err).To(BeNil(), "Terminating containers are not deleted after timeout")
+		ExpectAllPodsTerminated(kubectl)
 	})
 
 	checkCiliumPoliciesDeleted := func(ciliumPod, policyCmd string) {
