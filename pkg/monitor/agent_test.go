@@ -87,17 +87,17 @@ func (s *MonitorSuite) TestPolicyDeleteRepr(c *C) {
 
 type RegenError struct{}
 
-func (_ RegenError) Error() string {
+func (RegenError) Error() string {
 	return "RegenError"
 }
 
 type MockEndpoint struct{}
 
-func (_ MockEndpoint) GetID() uint64 {
+func (MockEndpoint) GetID() uint64 {
 	return 10
 }
 
-func (_ MockEndpoint) GetLabels() []string {
+func (MockEndpoint) GetLabels() []string {
 	return labels.Labels{"label": &labels.Label{
 		Key:    "key1",
 		Value:  "value1",
