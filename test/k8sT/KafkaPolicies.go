@@ -29,36 +29,32 @@ var _ = Describe("K8sValidatedKafkaPolicyTest", func() {
 
 	var microscopeErr error
 	var microscopeCancel func() error
-	var demoPath string
 	var kubectl *helpers.Kubectl
-	var l7Policy string
-	var logger *logrus.Entry
 	var ciliumPod string
 
 	var (
-		kafkaApp    string            = "kafka"
-		zookApp     string            = "zook"
-		backupApp   string            = "empire-backup"
-		empireHqApp string            = "empire-hq"
-		outpostApp  string            = "empire-outpost"
-		apps        []string          = []string{kafkaApp, zookApp, backupApp, empireHqApp, outpostApp}
-		appPods     map[string]string = map[string]string{}
+		logger      = log.WithFields(logrus.Fields{"testName": "K8sValidatedKafkaPolicyTest"})
+		l7Policy    = helpers.ManifestGet("kafka-sw-security-policy.yaml")
+		demoPath    = helpers.ManifestGet("kafka-sw-app.yaml")
+		kafkaApp    = "kafka"
+		zookApp     = "zook"
+		backupApp   = "empire-backup"
+		empireHqApp = "empire-hq"
+		outpostApp  = "empire-outpost"
+		apps        = []string{kafkaApp, zookApp, backupApp, empireHqApp, outpostApp}
+		appPods     = map[string]string{}
 
-		prodHqAnnounce    string = `-c "echo 'Happy 40th Birthday to General Tagge' | ./kafka-produce.sh --topic empire-announce"`
-		conOutpostAnnoune string = `-c "./kafka-consume.sh --topic empire-announce --from-beginning --max-messages 1"`
-		prodHqDeathStar   string = `-c "echo 'deathstar reactor design v3' | ./kafka-produce.sh --topic deathstar-plans"`
-		conOutDeathStar   string = `-c "./kafka-consume.sh --topic deathstar-plans --from-beginning --max-messages 1"`
-		prodBackAnnounce  string = `-c "echo 'Happy 40th Birthday to General Tagge' | ./kafka-produce.sh --topic empire-announce"`
-		prodOutAnnounce   string = `-c "echo 'Vader Booed at Empire Karaoke Party' | ./kafka-produce.sh --topic empire-announce"`
+		prodHqAnnounce    = `-c "echo 'Happy 40th Birthday to General Tagge' | ./kafka-produce.sh --topic empire-announce"`
+		conOutpostAnnoune = `-c "./kafka-consume.sh --topic empire-announce --from-beginning --max-messages 1"`
+		prodHqDeathStar   = `-c "echo 'deathstar reactor design v3' | ./kafka-produce.sh --topic deathstar-plans"`
+		conOutDeathStar   = `-c "./kafka-consume.sh --topic deathstar-plans --from-beginning --max-messages 1"`
+		prodBackAnnounce  = `-c "echo 'Happy 40th Birthday to General Tagge' | ./kafka-produce.sh --topic empire-announce"`
+		prodOutAnnounce   = `-c "echo 'Vader Booed at Empire Karaoke Party' | ./kafka-produce.sh --topic empire-announce"`
 	)
 
 	BeforeAll(func() {
 		logger = log.WithFields(logrus.Fields{"testName": "K8sValidatedKafkaPolicyTest"})
 		kubectl = helpers.CreateKubectl(helpers.K8s1VMName(), logger)
-
-		//Manifest paths
-		demoPath = helpers.ManifestGet("kafka-sw-app.yaml")
-		l7Policy = helpers.ManifestGet("kafka-sw-security-policy.yaml")
 
 		kubectl.Apply(helpers.ManifestGet("cilium_ds.yaml"))
 		status, err := kubectl.WaitforPods(helpers.KubeSystemNamespace, "-l k8s-app=cilium", 300)
