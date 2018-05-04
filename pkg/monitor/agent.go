@@ -18,6 +18,7 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"github.com/cilium/cilium/pkg/endpoint/getter"
 	"github.com/cilium/cilium/pkg/policy/api"
 )
 
@@ -83,11 +84,7 @@ func PolicyUpdateRepr(rules api.Rules, revision uint64) (string, error) {
 
 	resp, err := json.Marshal(notification)
 
-	if err != nil {
-		return "", err
-	}
-
-	return string(resp), nil
+	return string(resp), err
 }
 
 func PolicyDeleteRepr(deleted int, labels []string, revision uint64) (string, error) {
@@ -98,9 +95,26 @@ func PolicyDeleteRepr(deleted int, labels []string, revision uint64) (string, er
 	}
 	resp, err := json.Marshal(notification)
 
-	if err != nil {
-		return "", err
+	return string(resp), err
+}
+
+type EndpointRegenNotification struct {
+	ID     uint64   `json:"id,omitempty"`
+	Labels []string `json:"labels,omitempty"`
+	Error  string   `json:"error,omitempty"`
+}
+
+func EndpointRegenRepr(e getter.EndpointGetter, err error) (string, error) {
+	notification := EndpointRegenNotification{
+		ID:     e.GetID(),
+		Labels: e.GetLabels(),
 	}
 
-	return string(resp), nil
+	if err != nil {
+		notification.Error = err.Error()
+	}
+
+	resp, err := json.Marshal(notification)
+
+	return string(resp), err
 }

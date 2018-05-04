@@ -38,12 +38,12 @@ import (
 	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/controller"
+	"github.com/cilium/cilium/pkg/endpoint/getter"
 	identityPkg "github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/k8s"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	clientset "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned"
 	cilium_client_v2 "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/cilium.io/v2"
-	"github.com/cilium/cilium/pkg/labels"
 	pkgLabels "github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -353,6 +353,8 @@ const (
 	HealthCEPPrefix = "cilium-health-"
 )
 
+var _ getter.EndpointGetter = &Endpoint{}
+
 // Endpoint represents a container or similar which can be individually
 // addresses on L3 with its own IP addresses. This structured is managed by the
 // endpoint manager in pkg/endpointmanager.
@@ -550,7 +552,7 @@ func (e *Endpoint) RunK8sCiliumEndpointSync() {
 		endpointID     = e.ID
 		controllerName = fmt.Sprintf("sync-to-k8s-ciliumendpoint (%v)", endpointID)
 		scopedLog      = e.getLogger().WithField("controller", controllerName)
-		healthLbls     = labels.Labels{labels.IDNameHealth: labels.NewLabel(labels.IDNameHealth, "", labels.LabelSourceReserved)}
+		healthLbls     = pkgLabels.Labels{pkgLabels.IDNameHealth: pkgLabels.NewLabel(pkgLabels.IDNameHealth, "", pkgLabels.LabelSourceReserved)}
 	)
 
 	if !k8s.IsEnabled() {
@@ -2134,7 +2136,7 @@ func (e *Endpoint) getIDandLabels() string {
 // labels can be added or deleted. If a net label changed is performed, the
 // endpoint will receive a new identity and will be regenerated. Both of these
 // operations will happen in the background.
-func (e *Endpoint) ModifyIdentityLabels(owner Owner, addLabels, delLabels labels.Labels) error {
+func (e *Endpoint) ModifyIdentityLabels(owner Owner, addLabels, delLabels pkgLabels.Labels) error {
 	e.Mutex.Lock()
 	defer e.Mutex.Unlock()
 
@@ -2201,7 +2203,7 @@ func (e *Endpoint) ModifyIdentityLabels(owner Owner, addLabels, delLabels labels
 // If a net label changed was performed, the endpoint will receive a new
 // identity and will be regenerated. Both of these operations will happen in
 // the background.
-func (e *Endpoint) UpdateLabels(owner Owner, identityLabels, infoLabels labels.Labels) {
+func (e *Endpoint) UpdateLabels(owner Owner, identityLabels, infoLabels pkgLabels.Labels) {
 	log.WithFields(logrus.Fields{
 		logfields.ContainerID:    e.GetShortContainerID(),
 		logfields.EndpointID:     e.StringID(),
