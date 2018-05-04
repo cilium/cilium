@@ -803,16 +803,26 @@ func (e *Endpoint) Regenerate(owner Owner, reason string) <-chan bool {
 		if isMyTurnChanOK && isMyTurn {
 			scopedLog.Debug("Dequeued endpoint from build queue")
 
-			if err := e.regenerate(owner, reason); err != nil {
+			err := e.regenerate(owner, reason)
+			repr, reprerr := monitor.EndpointRegenRepr(e, err)
+			if reprerr != nil {
+				scopedLog.WithError(reprerr).Warn("Notifying monitor about endpoint regeneration failed")
+			}
+
+			if err != nil {
 				buildSuccess = false
 				scopedLog.WithError(err).Warn("Regeneration of endpoint program failed")
 				e.LogStatus(BPF, Failure, "Error regenerating endpoint: "+err.Error())
-				owner.SendNotification(monitor.AgentNotifyEndpointRegenerateFail,
-					e.getIDandLabels()+": "+err.Error())
+				if reprerr == nil {
+					owner.SendNotification(monitor.AgentNotifyEndpointRegenerateFail,
+						repr)
+				}
 			} else {
 				buildSuccess = true
 				e.LogStatusOK(BPF, "Successfully regenerated endpoint program due to "+reason)
-				owner.SendNotification(monitor.AgentNotifyEndpointRegenerateSuccess, e.getIDandLabels())
+				if reprerr == nil {
+					owner.SendNotification(monitor.AgentNotifyEndpointRegenerateSuccess, repr)
+				}
 			}
 
 			req.Done <- buildSuccess
