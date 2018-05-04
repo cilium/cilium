@@ -341,7 +341,7 @@ func (kub *Kubectl) Logs(namespace string, pod string) *CmdRes {
 // ManifestGet returns the full path of the given manifest corresponding to the
 // Kubernetes version being tested, if such a manifest exists, if not it
 // returns the global manifest file.
-func (kub *Kubectl) ManifestGet(manifestFilename string) string {
+func ManifestGet(manifestFilename string) string {
 	fullPath := filepath.Join(manifestsPath, GetCurrentK8SEnv(), manifestFilename)
 	_, err := os.Stat(fullPath)
 	if err == nil {

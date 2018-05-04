@@ -60,11 +60,11 @@ var _ = Describe(demoTestName, func() {
 		kubectl = helpers.CreateKubectl(helpers.K8s1VMName(), logger)
 
 		//Manifest paths
-		demoPath = kubectl.ManifestGet("demo.yaml")
+		demoPath = helpers.ManifestGet("demo.yaml")
 
 		// TODO (ianvernon) - factor this code out into separate functions as it's
 		// boilerplate for most K8s test setup.
-		ciliumYAML = kubectl.ManifestGet("cilium_ds.yaml")
+		ciliumYAML = helpers.ManifestGet("cilium_ds.yaml")
 		res := kubectl.Apply(ciliumYAML)
 		res.ExpectSuccess("unable to apply %s: %s", ciliumYAML, res.CombineOutput())
 		status, err := kubectl.WaitforPods(helpers.KubeSystemNamespace, "-l k8s-app=cilium", 300)

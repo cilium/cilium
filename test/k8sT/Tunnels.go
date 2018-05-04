@@ -38,7 +38,7 @@ var _ = Describe("K8sValidatedTunnelTest", func() {
 		logger.Info("Starting")
 
 		kubectl = helpers.CreateKubectl(helpers.K8s1VMName(), logger)
-		demoDSPath = kubectl.ManifestGet("demo_ds.yaml")
+		demoDSPath = helpers.ManifestGet("demo_ds.yaml")
 		kubectl.Exec("kubectl -n kube-system delete ds cilium")
 		// Expect(res.Correct()).Should(BeTrue())
 
@@ -74,7 +74,7 @@ var _ = Describe("K8sValidatedTunnelTest", func() {
 		)
 
 		BeforeEach(func() {
-			vxlanDSPath = kubectl.ManifestGet("cilium_ds.yaml")
+			vxlanDSPath = helpers.ManifestGet("cilium_ds.yaml")
 		})
 
 		AfterEach(func() {
@@ -115,7 +115,7 @@ var _ = Describe("K8sValidatedTunnelTest", func() {
 		)
 
 		BeforeEach(func() {
-			geneveDSPath = kubectl.ManifestGet("cilium_ds_geneve.yaml")
+			geneveDSPath = helpers.ManifestGet("cilium_ds_geneve.yaml")
 		})
 
 		AfterEach(func() {
