@@ -169,9 +169,15 @@ const (
 	// IPv6Host is an IP which is used in some datapath tests for simulating external IPv6 connectivity.
 	IPv6Host = "fdff::ff"
 
-	deadLockHeader    = "POTENTIAL DEADLOCK:" // from github.com/sasha-s/go-deadlock/deadlock.go:header
-	segmentationFault = "segmentation fault"  // from https://github.com/cilium/cilium/issues/3233
+	// Logs messages that should not be in the cilium logs.
+	panicMessage      = "panic:"
+	deadLockHeader    = "POTENTIAL DEADLOCK:"       // from github.com/sasha-s/go-deadlock/deadlock.go:header
+	segmentationFault = "segmentation fault"        // from https://github.com/cilium/cilium/issues/3233
+	NACKreceived      = "NACK received for version" // from https://github.com/cilium/cilium/issues/4003
+
 )
+
+var checkLogsMessages = []string{panicMessage, deadLockHeader, segmentationFault, NACKreceived}
 
 var ciliumCLICommands = map[string]string{
 	"cilium endpoint list -o json":          "endpoint_list.txt",
