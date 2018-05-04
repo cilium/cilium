@@ -17,7 +17,6 @@ package k8sTest
 import (
 	"context"
 	"fmt"
-	"sync"
 	"time"
 
 	"github.com/cilium/cilium/api/v1/models"
@@ -829,23 +828,12 @@ var _ = Describe("K8sValidatedPolicyTestAcrossNamespaces", func() {
 		resources           = []string{"1-frontend.json", "2-backend-server.json", "3-backend.json"}
 		kubectl             *helpers.Kubectl
 		logger              *logrus.Entry
-		once                sync.Once
 		ciliumDaemonSetPath = helpers.ManifestGet("cilium_ds.yaml")
 		cnpL7Stresstest     = helpers.ManifestGet("cnp-l7-stresstest.yaml")
 		cnpAnyNamespace     = helpers.ManifestGet("cnp-any-namespace.yaml")
 		microscopeErr       error
 		microscopeCancel    func() error
 	)
-
-	initialize := func() {
-		logger = log.WithFields(logrus.Fields{"testName": "K8sPolicyTestAcrossNamespaces"})
-		logger.Info("Starting")
-		kubectl = helpers.CreateKubectl(helpers.K8s1VMName(), logger)
-
-		_ = kubectl.Apply(ciliumDaemonSetPath)
-		ExpectCiliumReady(kubectl)
-		ExpectKubeDNSReady(kubectl)
-	}
 
 	namespaceAction := func(ns string, action string) {
 		switch action {
@@ -859,8 +847,17 @@ var _ = Describe("K8sValidatedPolicyTestAcrossNamespaces", func() {
 		}
 	}
 
+	BeforeAll(func() {
+		logger = log.WithFields(logrus.Fields{"testName": "K8sPolicyTestAcrossNamespaces"})
+		logger.Info("Starting")
+		kubectl = helpers.CreateKubectl(helpers.K8s1VMName(), logger)
+
+		_ = kubectl.Apply(ciliumDaemonSetPath)
+		ExpectCiliumReady(kubectl)
+		ExpectKubeDNSReady(kubectl)
+	})
+
 	BeforeEach(func() {
-		once.Do(initialize)
 		namespaceAction(qaNs, helpers.Create)
 		namespaceAction(developmentNs, helpers.Create)
 
