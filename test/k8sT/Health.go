@@ -39,8 +39,7 @@ var _ = Describe(testName, func() {
 		kubectl = helpers.CreateKubectl(helpers.K8s1VMName(), logger)
 		path := helpers.ManifestGet("cilium_ds.yaml")
 		kubectl.Apply(path)
-		err := kubectl.WaitforPods(helpers.KubeSystemNamespace, "-l k8s-app=cilium", 600)
-		Expect(err).Should(BeNil())
+		ExpectCiliumReady(kubectl)
 	}
 
 	BeforeEach(func() {

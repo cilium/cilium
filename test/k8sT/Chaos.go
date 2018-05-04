@@ -109,8 +109,7 @@ var _ = Describe("K8sValidatedChaosTest", func() {
 			helpers.KubectlCmd, helpers.KubeSystemNamespace))
 		res.ExpectSuccess()
 
-		err = kubectl.WaitforPods(helpers.KubeSystemNamespace, "-l k8s-app=cilium", 600)
-		Expect(err).Should(BeNil(), "Cilium is not ready after deleting some pods")
+		ExpectCiliumReady(kubectl)
 
 		PingService()
 
@@ -126,8 +125,7 @@ var _ = Describe("K8sValidatedChaosTest", func() {
 		res = kubectl.Apply(ciliumPath)
 		res.ExpectSuccess(res.GetDebugMessage())
 
-		err = kubectl.WaitforPods(helpers.KubeSystemNamespace, "-l k8s-app=cilium", 600)
-		Expect(err).Should(BeNil(), "Cilium is not ready after deleting some pods")
+		ExpectCiliumReady(kubectl)
 
 		PingService()
 	})

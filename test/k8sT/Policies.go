@@ -68,8 +68,7 @@ var _ = Describe("K8sValidatedPolicyTest", func() {
 		cnpDenyEgress = helpers.ManifestGet("cnp-default-deny-egress.yaml")
 
 		_ = kubectl.Apply(helpers.ManifestGet("cilium_ds.yaml"))
-		err := kubectl.WaitforPods(helpers.KubeSystemNamespace, "-l k8s-app=cilium", 300)
-		Expect(err).Should(BeNil(), "Cannot install cilium correctly")
+		ExpectCiliumReady(kubectl)
 		ExpectKubeDNSReady(kubectl)
 	})
 
@@ -855,9 +854,7 @@ var _ = Describe("K8sValidatedPolicyTestAcrossNamespaces", func() {
 		cnpAnyNamespace = helpers.ManifestGet("cnp-any-namespace.yaml")
 
 		_ = kubectl.Apply(ciliumDaemonSetPath)
-		err := kubectl.WaitforPods(helpers.KubeSystemNamespace, "-l k8s-app=cilium", 300)
-		Expect(err).Should(BeNil())
-
+		ExpectCiliumReady(kubectl)
 		ExpectKubeDNSReady(kubectl)
 	}
 

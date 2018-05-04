@@ -87,8 +87,7 @@ var _ = Describe("K8sValidatedTunnelTest", func() {
 			res := kubectl.Apply(vxlanDSPath)
 			res.ExpectSuccess("Unable to apply %s: %s", vxlanDSPath, res.CombineOutput())
 
-			err := kubectl.WaitforPods(helpers.KubeSystemNamespace, "-l k8s-app=cilium", 500)
-			Expect(err).Should(BeNil())
+			ExpectCiliumReady(kubectl)
 
 			ciliumPod, err := kubectl.GetCiliumPodOnNode(helpers.KubeSystemNamespace, helpers.K8s1)
 			Expect(err).Should(BeNil())
@@ -127,8 +126,7 @@ var _ = Describe("K8sValidatedTunnelTest", func() {
 		It("Check Geneve mode", func() {
 			res := kubectl.Apply(geneveDSPath)
 			res.ExpectSuccess("unable to apply %s: %s", geneveDSPath, res.CombineOutput())
-			err := kubectl.WaitforPods(helpers.KubeSystemNamespace, "-l k8s-app=cilium", 500)
-			Expect(err).Should(BeNil())
+			ExpectCiliumReady(kubectl)
 
 			ciliumPod, err := kubectl.GetCiliumPodOnNode(helpers.KubeSystemNamespace, helpers.K8s1)
 			Expect(err).Should(BeNil())
