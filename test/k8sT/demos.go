@@ -17,7 +17,6 @@ package k8sTest
 import (
 	"fmt"
 	"path/filepath"
-	"sync"
 
 	. "github.com/cilium/cilium/test/ginkgo-ext"
 	"github.com/cilium/cilium/test/helpers"
@@ -40,7 +39,6 @@ func getStarWarsResourceLink(file string) string {
 var _ = Describe(demoTestName, func() {
 
 	var (
-		once             sync.Once
 		kubectl          *helpers.Kubectl
 		logger           *logrus.Entry
 		ciliumYAML       = helpers.ManifestGet("cilium_ds.yaml")
@@ -53,7 +51,7 @@ var _ = Describe(demoTestName, func() {
 		l7PolicyYAMLLink  = getStarWarsResourceLink("policy/l7_policy.yaml")
 	)
 
-	initialize := func() {
+	BeforeAll(func() {
 		logger = log.WithFields(logrus.Fields{"testName": demoTestName})
 		logger.Info("Starting")
 		kubectl = helpers.CreateKubectl(helpers.K8s1VMName(), logger)
@@ -64,10 +62,6 @@ var _ = Describe(demoTestName, func() {
 		res.ExpectSuccess("unable to apply %s: %s", ciliumYAML, res.CombineOutput())
 		ExpectCiliumReady(kubectl)
 		ExpectKubeDNSReady(kubectl)
-	}
-
-	BeforeEach(func() {
-		once.Do(initialize)
 	})
 
 	AfterFailed(func() {
