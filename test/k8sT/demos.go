@@ -43,7 +43,7 @@ var _ = Describe(demoTestName, func() {
 		once             sync.Once
 		kubectl          *helpers.Kubectl
 		logger           *logrus.Entry
-		ciliumYAML       string
+		ciliumYAML       = helpers.ManifestGet("cilium_ds.yaml")
 		microscopeErr    error
 		microscopeCancel func() error
 
@@ -60,7 +60,6 @@ var _ = Describe(demoTestName, func() {
 
 		// TODO (ianvernon) - factor this code out into separate functions as it's
 		// boilerplate for most K8s test setup.
-		ciliumYAML = helpers.ManifestGet("cilium_ds.yaml")
 		res := kubectl.Apply(ciliumYAML)
 		res.ExpectSuccess("unable to apply %s: %s", ciliumYAML, res.CombineOutput())
 		ExpectCiliumReady(kubectl)
