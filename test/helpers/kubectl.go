@@ -436,7 +436,7 @@ func (kub *Kubectl) NamespaceDelete(name string) *CmdRes {
 // containterStatuses equal to "ready". Returns true if all pods achieve
 // the aforementioned desired state within timeout seconds. Returns false and
 // an error if the command failed or the timeout was exceeded.
-func (kub *Kubectl) WaitforPods(namespace string, filter string, timeout time.Duration) (bool, error) {
+func (kub *Kubectl) WaitforPods(namespace string, filter string, timeout time.Duration) error {
 	body := func() bool {
 		var jsonPath = "{.items[*].status.containerStatuses[*].ready}"
 		data, err := kub.GetPods(namespace, filter).Filter(jsonPath)
@@ -463,11 +463,7 @@ func (kub *Kubectl) WaitforPods(namespace string, filter string, timeout time.Du
 		}).Info("WaitforPods: pods are not ready")
 		return false
 	}
-	err := WithTimeout(body, "could not get Pods", &TimeoutConfig{Timeout: timeout})
-	if err != nil {
-		return false, err
-	}
-	return true, nil
+	return WithTimeout(body, "could not get Pods", &TimeoutConfig{Timeout: timeout})
 }
 
 // WaitForServiceEndpoints waits up until timeout seconds have elapsed for all
@@ -551,16 +547,7 @@ func (kub *Kubectl) Delete(filePath string) *CmdRes {
 // WaitKubeDNS waits until the kubeDNS pods are ready. In case of exceeding the
 // default timeout it returns an error.
 func (kub *Kubectl) WaitKubeDNS() error {
-	body := func() bool {
-		status, err := kub.WaitforPods(KubeSystemNamespace, fmt.Sprintf("-l %s", kubeDNSLabel), 300)
-		if status {
-			return true
-		}
-		kub.logger.WithError(err).Debug("KubeDNS is not ready yet")
-		return false
-	}
-	err := WithTimeout(body, "KubeDNS pods are not ready", &TimeoutConfig{Timeout: HelperTimeout})
-	return err
+	return kub.WaitforPods(KubeSystemNamespace, fmt.Sprintf("-l %s", kubeDNSLabel), 300)
 }
 
 // WaitForKubeDNSEntry waits until the given DNS entry is ready in kube-dns

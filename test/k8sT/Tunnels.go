@@ -87,7 +87,7 @@ var _ = Describe("K8sValidatedTunnelTest", func() {
 			res := kubectl.Apply(vxlanDSPath)
 			res.ExpectSuccess("Unable to apply %s: %s", vxlanDSPath, res.CombineOutput())
 
-			_, err := kubectl.WaitforPods(helpers.KubeSystemNamespace, "-l k8s-app=cilium", 500)
+			err := kubectl.WaitforPods(helpers.KubeSystemNamespace, "-l k8s-app=cilium", 500)
 			Expect(err).Should(BeNil())
 
 			ciliumPod, err := kubectl.GetCiliumPodOnNode(helpers.KubeSystemNamespace, helpers.K8s1)
@@ -127,7 +127,7 @@ var _ = Describe("K8sValidatedTunnelTest", func() {
 		It("Check Geneve mode", func() {
 			res := kubectl.Apply(geneveDSPath)
 			res.ExpectSuccess("unable to apply %s: %s", geneveDSPath, res.CombineOutput())
-			_, err := kubectl.WaitforPods(helpers.KubeSystemNamespace, "-l k8s-app=cilium", 500)
+			err := kubectl.WaitforPods(helpers.KubeSystemNamespace, "-l k8s-app=cilium", 500)
 			Expect(err).Should(BeNil())
 
 			ciliumPod, err := kubectl.GetCiliumPodOnNode(helpers.KubeSystemNamespace, helpers.K8s1)
@@ -153,8 +153,8 @@ var _ = Describe("K8sValidatedTunnelTest", func() {
 })
 
 func isNodeNetworkingWorking(kubectl *helpers.Kubectl, filter string) bool {
-	waitReady, _ := kubectl.WaitforPods(helpers.DefaultNamespace, fmt.Sprintf("-l %s", filter), 3000)
-	Expect(waitReady).Should(BeTrue())
+	err := kubectl.WaitforPods(helpers.DefaultNamespace, fmt.Sprintf("-l %s", filter), 3000)
+	Expect(err).Should(BeNil())
 	pods, err := kubectl.GetPodNames(helpers.DefaultNamespace, filter)
 	Expect(err).Should(BeNil())
 	podIP, err := kubectl.Get(

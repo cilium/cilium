@@ -67,8 +67,7 @@ var _ = Describe(demoTestName, func() {
 		ciliumYAML = helpers.ManifestGet("cilium_ds.yaml")
 		res := kubectl.Apply(ciliumYAML)
 		res.ExpectSuccess("unable to apply %s: %s", ciliumYAML, res.CombineOutput())
-		status, err := kubectl.WaitforPods(helpers.KubeSystemNamespace, "-l k8s-app=cilium", 300)
-		Expect(status).Should(BeTrue())
+		err := kubectl.WaitforPods(helpers.KubeSystemNamespace, "-l k8s-app=cilium", 300)
 		Expect(err).Should(BeNil())
 		ExpectKubeDNSReady(kubectl)
 	}
@@ -130,7 +129,7 @@ var _ = Describe(demoTestName, func() {
 		res.ExpectSuccess("unable to apply %s: %s", deathStarYAMLLink, res.CombineOutput())
 
 		By("Waiting for deathstar deployment pods to be ready")
-		_, err = kubectl.WaitforPods(helpers.DefaultNamespace, fmt.Sprintf("-l %s", empireLabel), 300)
+		err = kubectl.WaitforPods(helpers.DefaultNamespace, fmt.Sprintf("-l %s", empireLabel), 300)
 		Expect(err).Should(BeNil(), "Empire pods are not ready after timeout")
 
 		By("Applying policy and waiting for policy revision to increase in Cilium pods")
@@ -142,7 +141,7 @@ var _ = Describe(demoTestName, func() {
 		res.ExpectSuccess("unable to apply %s: %s", xwingYAMLLink, res.CombineOutput())
 
 		By("Waiting for alliance pods to be ready")
-		_, err = kubectl.WaitforPods(helpers.DefaultNamespace, fmt.Sprintf("-l %s", allianceLabel), 300)
+		err = kubectl.WaitforPods(helpers.DefaultNamespace, fmt.Sprintf("-l %s", allianceLabel), 300)
 		Expect(err).Should(BeNil(), "Alliance pods are not ready after timeout")
 
 		By("Getting xwing pod names")

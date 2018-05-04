@@ -61,7 +61,7 @@ var _ = Describe("K8sValidatedKafkaPolicyTest", func() {
 		ExpectKubeDNSReady(kubectl)
 
 		kubectl.Apply(demoPath)
-		_, err := kubectl.WaitforPods(helpers.DefaultNamespace, "-l zgroup=kafkaTestApp", 300)
+		err := kubectl.WaitforPods(helpers.DefaultNamespace, "-l zgroup=kafkaTestApp", 300)
 		Expect(err).Should(BeNil(), "Kafka Pods are not ready after timeout")
 
 		appPods = helpers.GetAppPods(apps, helpers.DefaultNamespace, kubectl, "app")
