@@ -29,20 +29,16 @@ var _ = Describe("K8sValidatedChaosTest", func() {
 
 	var (
 		kubectl       *helpers.Kubectl
-		logger        *logrus.Entry
 		once          sync.Once
-		demoDSPath    string
-		ciliumPath    string
-		testDSService string = "testds-service.default.svc.cluster.local"
+		logger        = log.WithFields(logrus.Fields{"testName": "K8sChaosTest"})
+		demoDSPath    = helpers.ManifestGet("demo_ds.yaml")
+		ciliumPath    = helpers.ManifestGet("cilium_ds.yaml")
+		testDSService = "testds-service.default.svc.cluster.local"
 	)
 
 	initialize := func() {
-		logger = log.WithFields(logrus.Fields{"testName": "K8sChaosTest"})
 		logger.Info("Starting")
-
 		kubectl = helpers.CreateKubectl(helpers.K8s1VMName(), logger)
-
-		ciliumPath = helpers.ManifestGet("cilium_ds.yaml")
 		kubectl.Apply(ciliumPath)
 
 		_, err := kubectl.WaitforPods(helpers.KubeSystemNamespace, "-l k8s-app=cilium", 600)
@@ -50,8 +46,6 @@ var _ = Describe("K8sValidatedChaosTest", func() {
 
 		err = kubectl.WaitKubeDNS()
 		Expect(err).Should(BeNil())
-
-		demoDSPath = helpers.ManifestGet("demo_ds.yaml")
 	}
 
 	BeforeEach(func() {
