@@ -58,16 +58,16 @@ var _ = Describe("K8sValidatedPolicyTest", func() {
 		kubectl = helpers.CreateKubectl(helpers.K8s1VMName(), logger)
 
 		//Manifest paths
-		demoPath = kubectl.ManifestGet("demo.yaml")
-		l3Policy = kubectl.ManifestGet("l3_l4_policy.yaml")
-		knpDenyIngress = kubectl.ManifestGet("knp-default-deny-ingress.yaml")
-		knpDenyEgress = kubectl.ManifestGet("knp-default-deny-egress.yaml")
-		knpDenyIngressEgress = kubectl.ManifestGet("knp-default-deny-ingress-egress.yaml")
-		l7Policy = kubectl.ManifestGet("l7_policy.yaml")
-		cnpDenyIngress = kubectl.ManifestGet("cnp-default-deny-ingress.yaml")
-		cnpDenyEgress = kubectl.ManifestGet("cnp-default-deny-egress.yaml")
+		demoPath = helpers.ManifestGet("demo.yaml")
+		l3Policy = helpers.ManifestGet("l3_l4_policy.yaml")
+		knpDenyIngress = helpers.ManifestGet("knp-default-deny-ingress.yaml")
+		knpDenyEgress = helpers.ManifestGet("knp-default-deny-egress.yaml")
+		knpDenyIngressEgress = helpers.ManifestGet("knp-default-deny-ingress-egress.yaml")
+		l7Policy = helpers.ManifestGet("l7_policy.yaml")
+		cnpDenyIngress = helpers.ManifestGet("cnp-default-deny-ingress.yaml")
+		cnpDenyEgress = helpers.ManifestGet("cnp-default-deny-egress.yaml")
 
-		_ = kubectl.Apply(kubectl.ManifestGet("cilium_ds.yaml"))
+		_ = kubectl.Apply(helpers.ManifestGet("cilium_ds.yaml"))
 		_, err := kubectl.WaitforPods(helpers.KubeSystemNamespace, "-l k8s-app=cilium", 300)
 		Expect(err).Should(BeNil(), "Cannot install cilium correctly")
 		err = kubectl.WaitKubeDNS()
@@ -304,8 +304,8 @@ var _ = Describe("K8sValidatedPolicyTest", func() {
 
 			BeforeEach(func() {
 
-				demoPath = kubectl.ManifestGet("demo.yaml")
-				l3Policy = kubectl.ManifestGet("l3_l4_policy.yaml")
+				demoPath = helpers.ManifestGet("demo.yaml")
+				l3Policy = helpers.ManifestGet("l3_l4_policy.yaml")
 
 				policy = fmt.Sprintf("%s -n %s", l3Policy, namespace)
 				demoManifest = fmt.Sprintf("%s -n %s", demoPath, namespace)
@@ -622,7 +622,7 @@ var _ = Describe("K8sValidatedPolicyTest", func() {
 		var err error
 
 		BeforeEach(func() {
-			kubectl.Apply(kubectl.ManifestGet(deployment))
+			kubectl.Apply(helpers.ManifestGet(deployment))
 
 			ciliumPod, err = kubectl.GetCiliumPodOnNode(helpers.KubeSystemNamespace, helpers.K8s1)
 			Expect(err).Should(BeNil())
@@ -639,16 +639,16 @@ var _ = Describe("K8sValidatedPolicyTest", func() {
 
 		AfterEach(func() {
 
-			kubectl.Delete(kubectl.ManifestGet(webPolicy)).ExpectSuccess(
+			kubectl.Delete(helpers.ManifestGet(webPolicy)).ExpectSuccess(
 				"Web policy cannot be deleted")
-			kubectl.Delete(kubectl.ManifestGet(redisPolicyDeprecated)).ExpectSuccess(
+			kubectl.Delete(helpers.ManifestGet(redisPolicyDeprecated)).ExpectSuccess(
 				"Redis deprecated policy cannot be deleted")
-			kubectl.Delete(kubectl.ManifestGet(deployment)).ExpectSuccess(
+			kubectl.Delete(helpers.ManifestGet(deployment)).ExpectSuccess(
 				"Guestbook deployment cannot be deleted")
 
 			// This policy shouldn't be there, but test can fail before delete
 			// the policy and we want to make sure that it's deleted
-			kubectl.Delete(kubectl.ManifestGet(redisPolicy))
+			kubectl.Delete(helpers.ManifestGet(redisPolicy))
 
 			Expect(kubectl.CiliumIsPolicyLoaded(ciliumPod, getPolicyCmd(webPolicyName))).To(
 				BeFalse(), "WebPolicy is not deleted")
@@ -707,7 +707,7 @@ EOF`, k, v)
 
 			By("Apply policy to web")
 			_, err = kubectl.CiliumPolicyAction(
-				helpers.KubeSystemNamespace, kubectl.ManifestGet(webPolicy),
+				helpers.KubeSystemNamespace, helpers.ManifestGet(webPolicy),
 				helpers.KubectlApply, 300)
 			Expect(err).Should(BeNil(), "Cannot apply web-policy")
 
@@ -721,7 +721,7 @@ EOF`, k, v)
 
 			By("Apply policy to Redis")
 			_, err = kubectl.CiliumPolicyAction(
-				helpers.KubeSystemNamespace, kubectl.ManifestGet(redisPolicy),
+				helpers.KubeSystemNamespace, helpers.ManifestGet(redisPolicy),
 				helpers.KubectlApply, 300)
 
 			Expect(err).Should(BeNil(), "Cannot apply redis policy")
@@ -737,14 +737,14 @@ EOF`, k, v)
 			testConnectivitytoRedis()
 
 			_, err = kubectl.CiliumPolicyAction(
-				helpers.KubeSystemNamespace, kubectl.ManifestGet(redisPolicy),
+				helpers.KubeSystemNamespace, helpers.ManifestGet(redisPolicy),
 				helpers.KubectlDelete, 300)
 			Expect(err).Should(BeNil(), "Cannot apply redis policy")
 
 			By("Apply deprecated policy to Redis")
 
 			_, err = kubectl.CiliumPolicyAction(
-				helpers.KubeSystemNamespace, kubectl.ManifestGet(redisPolicyDeprecated),
+				helpers.KubeSystemNamespace, helpers.ManifestGet(redisPolicyDeprecated),
 				helpers.KubectlApply, 300)
 			Expect(err).Should(BeNil(), "Cannot apply redis deprecated policy err: %q", err)
 
@@ -855,9 +855,9 @@ var _ = Describe("K8sValidatedPolicyTestAcrossNamespaces", func() {
 		logger.Info("Starting")
 		kubectl = helpers.CreateKubectl(helpers.K8s1VMName(), logger)
 
-		ciliumDaemonSetPath = kubectl.ManifestGet("cilium_ds.yaml")
-		cnpL7Stresstest = kubectl.ManifestGet("cnp-l7-stresstest.yaml")
-		cnpAnyNamespace = kubectl.ManifestGet("cnp-any-namespace.yaml")
+		ciliumDaemonSetPath = helpers.ManifestGet("cilium_ds.yaml")
+		cnpL7Stresstest = helpers.ManifestGet("cnp-l7-stresstest.yaml")
+		cnpAnyNamespace = helpers.ManifestGet("cnp-any-namespace.yaml")
 
 		_ = kubectl.Apply(ciliumDaemonSetPath)
 		status, err := kubectl.WaitforPods(helpers.KubeSystemNamespace, "-l k8s-app=cilium", 300)
@@ -886,7 +886,7 @@ var _ = Describe("K8sValidatedPolicyTestAcrossNamespaces", func() {
 		namespaceAction(developmentNs, helpers.Create)
 
 		for _, resource := range resources {
-			resourcePath := kubectl.ManifestGet(resource)
+			resourcePath := helpers.ManifestGet(resource)
 			res := kubectl.Create(resourcePath)
 			res.ExpectSuccess()
 		}
@@ -910,7 +910,7 @@ var _ = Describe("K8sValidatedPolicyTestAcrossNamespaces", func() {
 
 	AfterEach(func() {
 		for _, resource := range resources {
-			resourcePath := kubectl.ManifestGet(resource)
+			resourcePath := helpers.ManifestGet(resource)
 			// Do not check result of deletion of resources because we do not
 			// want to perform assertions in AfterEach.
 			_ = kubectl.Delete(resourcePath)

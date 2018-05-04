@@ -48,7 +48,7 @@ var _ = Describe("K8sValidatedServicesTest", func() {
 		logger.Info("Starting")
 
 		kubectl = helpers.CreateKubectl(helpers.K8s1VMName(), logger)
-		path := kubectl.ManifestGet("cilium_ds.yaml")
+		path := helpers.ManifestGet("cilium_ds.yaml")
 		kubectl.Apply(path)
 		_, err := kubectl.WaitforPods(helpers.KubeSystemNamespace, "-l k8s-app=cilium", 600)
 		Expect(err).Should(BeNil())
@@ -113,7 +113,7 @@ var _ = Describe("K8sValidatedServicesTest", func() {
 	Context("Checks ClusterIP Connectivity", func() {
 
 		var (
-			demoYAML = kubectl.ManifestGet("demo.yaml")
+			demoYAML = helpers.ManifestGet("demo.yaml")
 		)
 
 		BeforeEach(func() {
@@ -155,7 +155,7 @@ var _ = Describe("K8sValidatedServicesTest", func() {
 	Context("Checks service across nodes", func() {
 
 		var (
-			demoYAML = kubectl.ManifestGet("demo_ds.yaml")
+			demoYAML = helpers.ManifestGet("demo_ds.yaml")
 		)
 
 		BeforeAll(func() {
@@ -217,14 +217,14 @@ var _ = Describe("K8sValidatedServicesTest", func() {
 		)
 
 		BeforeEach(func() {
-			servicePath = kubectl.ManifestGet("external_service.yaml")
+			servicePath = helpers.ManifestGet("external_service.yaml")
 			res := kubectl.Apply(servicePath)
 			res.ExpectSuccess(res.GetDebugMessage())
 
-			endpointPath = kubectl.ManifestGet("external_endpoint.yaml")
-			podPath = kubectl.ManifestGet("external_pod.yaml")
-			policyPath = kubectl.ManifestGet("external_policy.yaml")
-			policyLabeledPath = kubectl.ManifestGet("external_policy_labeled.yaml")
+			endpointPath = helpers.ManifestGet("external_endpoint.yaml")
+			podPath = helpers.ManifestGet("external_pod.yaml")
+			policyPath = helpers.ManifestGet("external_policy.yaml")
+			policyLabeledPath = helpers.ManifestGet("external_policy_labeled.yaml")
 
 			res = kubectl.Apply(podPath)
 			res.ExpectSuccess()
@@ -339,9 +339,9 @@ var _ = Describe("K8sValidatedServicesTest", func() {
 
 		BeforeEach(func() {
 
-			bookinfoV1YAML = kubectl.ManifestGet("bookinfo-v1.yaml")
-			bookinfoV2YAML = kubectl.ManifestGet("bookinfo-v2.yaml")
-			policyPath = kubectl.ManifestGet("cnp-specs.yaml")
+			bookinfoV1YAML = helpers.ManifestGet("bookinfo-v1.yaml")
+			bookinfoV2YAML = helpers.ManifestGet("bookinfo-v2.yaml")
+			policyPath = helpers.ManifestGet("cnp-specs.yaml")
 
 			resourceYAMLs = []string{bookinfoV1YAML, bookinfoV2YAML}
 

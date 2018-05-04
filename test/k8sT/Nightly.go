@@ -58,7 +58,7 @@ var _ = Describe("NightlyEpsMeasurement", func() {
 
 		kubectl = helpers.CreateKubectl(helpers.K8s1VMName(), logger)
 
-		ciliumPath = kubectl.ManifestGet("cilium_ds.yaml")
+		ciliumPath = helpers.ManifestGet("cilium_ds.yaml")
 		kubectl.Apply(ciliumPath)
 
 		_, err := kubectl.WaitforPods(helpers.KubeSystemNamespace, "-l k8s-app=cilium", 600)
@@ -300,14 +300,14 @@ var _ = Describe("NightlyEpsMeasurement", func() {
 
 		It("Test TCP Keepalive with L7 Policy", func() {
 			kubectl.ValidateNoErrorsOnLogs(CurrentGinkgoTestDescription().Duration)
-			manifest := kubectl.ManifestGet(netcatDsManifest)
+			manifest := helpers.ManifestGet(netcatDsManifest)
 			kubectl.Apply(manifest).ExpectSuccess("Cannot apply netcat ds")
 			defer kubectl.Delete(manifest)
 			testConnectivity()
 		})
 
 		It("Test TCP Keepalive without L7 Policy", func() {
-			manifest := kubectl.ManifestGet(netcatDsManifest)
+			manifest := helpers.ManifestGet(netcatDsManifest)
 			kubectl.Apply(manifest).ExpectSuccess("Cannot apply netcat ds")
 			defer kubectl.Delete(manifest)
 			kubectl.Exec(fmt.Sprintf(
@@ -334,14 +334,14 @@ var _ = Describe("NightlyExamples", func() {
 
 		kubectl = helpers.CreateKubectl(helpers.K8s1VMName(), logger)
 
-		ciliumPath = kubectl.ManifestGet("cilium_ds.yaml")
+		ciliumPath = helpers.ManifestGet("cilium_ds.yaml")
 		kubectl.Delete(ciliumPath)
 
 		apps = []string{helpers.App1, helpers.App2, helpers.App3}
 
-		demoPath = kubectl.ManifestGet("demo.yaml")
-		l3Policy = kubectl.ManifestGet("l3_l4_policy.yaml")
-		l7Policy = kubectl.ManifestGet("l7_policy.yaml")
+		demoPath = helpers.ManifestGet("demo.yaml")
+		l3Policy = helpers.ManifestGet("l3_l4_policy.yaml")
+		l7Policy = helpers.ManifestGet("l7_policy.yaml")
 
 		// Sometimes PolicyGen has a lot of pods running around without delete
 		// it. Using this we are sure that we delete before this test start
@@ -427,7 +427,7 @@ var _ = Describe("NightlyExamples", func() {
 		)
 
 		BeforeEach(func() {
-			path := kubectl.ManifestGet("cilium_ds.yaml")
+			path := helpers.ManifestGet("cilium_ds.yaml")
 			kubectl.Apply(path)
 			_, err := kubectl.WaitforPods(helpers.KubeSystemNamespace, "-l k8s-app=cilium", 600)
 			Expect(err).Should(BeNil())

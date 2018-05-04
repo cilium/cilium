@@ -27,14 +27,14 @@ var _ = Describe("K8sValidatedUpdates", func() {
 
 		kubectl = helpers.CreateKubectl(helpers.K8s1VMName(), logger)
 
-		ciliumPath = kubectl.ManifestGet("cilium_ds.yaml")
+		ciliumPath = helpers.ManifestGet("cilium_ds.yaml")
 		kubectl.Delete(ciliumPath)
 
 		apps = []string{helpers.App1, helpers.App2, helpers.App3}
 
-		demoPath = kubectl.ManifestGet("demo.yaml")
-		l3Policy = kubectl.ManifestGet("l3_l4_policy.yaml")
-		l7Policy = kubectl.ManifestGet("l7_policy.yaml")
+		demoPath = helpers.ManifestGet("demo.yaml")
+		l3Policy = helpers.ManifestGet("l3_l4_policy.yaml")
+		l7Policy = helpers.ManifestGet("l7_policy.yaml")
 
 		// Sometimes PolicyGen has a lot of pods running around without delete
 		// it. Using this we are sure that we delete before this test start
