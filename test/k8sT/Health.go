@@ -16,7 +16,6 @@ package k8sTest
 
 import (
 	"fmt"
-	"sync"
 
 	. "github.com/cilium/cilium/test/ginkgo-ext"
 	"github.com/cilium/cilium/test/helpers"
@@ -31,22 +30,16 @@ var _ = Describe(testName, func() {
 
 	var (
 		kubectl *helpers.Kubectl
-		logger  *logrus.Entry
-		once    sync.Once
+		logger  = log.WithFields(logrus.Fields{"testName": testName})
 	)
 
-	initialize := func() {
-		logger = log.WithFields(logrus.Fields{"testName": testName})
+	BeforeAll(func() {
 		logger.Info("Starting")
 
 		kubectl = helpers.CreateKubectl(helpers.K8s1VMName(), logger)
-		path := helpers.ManifestGet("cilium_ds.yaml")
-		kubectl.Apply(path)
+		ciliumYAML := helpers.ManifestGet("cilium_ds.yaml")
+		kubectl.Apply(ciliumYAML)
 		ExpectCiliumReady(kubectl)
-	}
-
-	BeforeEach(func() {
-		once.Do(initialize)
 	})
 
 	AfterFailed(func() {
