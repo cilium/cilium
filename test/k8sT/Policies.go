@@ -51,9 +51,9 @@ var _ = Describe("K8sValidatedPolicyTest", func() {
 		microscopeErr        error
 		microscopeCancel     func() error
 
-		namespace string   = "namespace-selector-test"
-		podFilter string   = "k8s:zgroup=testapp"
-		apps      []string = []string{helpers.App1, helpers.App2, helpers.App3}
+		namespace = "namespace-selector-test"
+		podFilter = "k8s:zgroup=testapp"
+		apps      = []string{helpers.App1, helpers.App2, helpers.App3}
 	)
 
 	BeforeAll(func() {
