@@ -830,9 +830,9 @@ var _ = Describe("K8sValidatedPolicyTestAcrossNamespaces", func() {
 		kubectl             *helpers.Kubectl
 		logger              *logrus.Entry
 		once                sync.Once
-		ciliumDaemonSetPath string
-		cnpL7Stresstest     string
-		cnpAnyNamespace     string
+		ciliumDaemonSetPath = helpers.ManifestGet("cilium_ds.yaml")
+		cnpL7Stresstest     = helpers.ManifestGet("cnp-l7-stresstest.yaml")
+		cnpAnyNamespace     = helpers.ManifestGet("cnp-any-namespace.yaml")
 		microscopeErr       error
 		microscopeCancel    func() error
 	)
@@ -841,10 +841,6 @@ var _ = Describe("K8sValidatedPolicyTestAcrossNamespaces", func() {
 		logger = log.WithFields(logrus.Fields{"testName": "K8sPolicyTestAcrossNamespaces"})
 		logger.Info("Starting")
 		kubectl = helpers.CreateKubectl(helpers.K8s1VMName(), logger)
-
-		ciliumDaemonSetPath = helpers.ManifestGet("cilium_ds.yaml")
-		cnpL7Stresstest = helpers.ManifestGet("cnp-l7-stresstest.yaml")
-		cnpAnyNamespace = helpers.ManifestGet("cnp-any-namespace.yaml")
 
 		_ = kubectl.Apply(ciliumDaemonSetPath)
 		ExpectCiliumReady(kubectl)
