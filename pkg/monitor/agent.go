@@ -65,12 +65,14 @@ func (n *AgentNotify) DumpInfo() {
 	fmt.Printf(">> %s: %s\n", resolveAgentType(n.Type), n.Text)
 }
 
+// PolicyUpdateNotification structures update notification
 type PolicyUpdateNotification struct {
 	Labels    []string `json:"labels,omitempty"`
 	Revision  uint64   `json:"revision,omitempty"`
 	RuleCount int      `json:"rule_count"`
 }
 
+// PolicyUpdateRepr returns string representation of monitor notification
 func PolicyUpdateRepr(rules api.Rules, revision uint64) (string, error) {
 	labels := make([]string, 0, len(rules))
 	for _, r := range rules {
@@ -88,6 +90,7 @@ func PolicyUpdateRepr(rules api.Rules, revision uint64) (string, error) {
 	return string(repr), err
 }
 
+// PolicyDeleteRepr returns string representation of monitor notification
 func PolicyDeleteRepr(deleted int, labels []string, revision uint64) (string, error) {
 	notification := PolicyUpdateNotification{
 		Labels:    labels,
@@ -99,12 +102,14 @@ func PolicyDeleteRepr(deleted int, labels []string, revision uint64) (string, er
 	return string(repr), err
 }
 
+// EndpointRegenNotification structures regeneration notification
 type EndpointRegenNotification struct {
 	ID     uint64   `json:"id,omitempty"`
 	Labels []string `json:"labels,omitempty"`
 	Error  string   `json:"error,omitempty"`
 }
 
+// EndpointRegenRepr returns string representation of monitor notification
 func EndpointRegenRepr(e getter.EndpointGetter, err error) (string, error) {
 	notification := EndpointRegenNotification{
 		ID:     e.GetID(),
@@ -120,10 +125,12 @@ func EndpointRegenRepr(e getter.EndpointGetter, err error) (string, error) {
 	return string(repr), err
 }
 
+// TimeNotification structures agent start notification
 type TimeNotification struct {
 	Time string `json:"time"`
 }
 
+// TimeRepr returns string representation of monitor notification
 func TimeRepr(t time.Time) (string, error) {
 	notification := TimeNotification{
 		Time: t.String(),
