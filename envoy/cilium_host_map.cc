@@ -27,7 +27,8 @@ unsigned int checkPrefix(T addr, bool have_prefix, unsigned int plen, absl::stri
   return plen;
 }
 
-struct ThreadLocalHostMapInitializer : public PolicyHostMap::ThreadLocalHostMap {
+struct ThreadLocalHostMapInitializer : public PolicyHostMap::ThreadLocalHostMap,
+				       public Logger::Loggable<Logger::Id::config> {
 protected:
   friend class PolicyHostMap; // PolicyHostMap can insert();
 
@@ -73,8 +74,6 @@ protected:
       const char *addr = host.c_str();
       unsigned int plen = 0;
 
-      ENVOY_LOG(trace, "NetworkPolicyHosts: Inserting CIDR->ID mapping {}->{}...", host, policy);
-
       // Find the prefix length if any
       const char *slash = strchr(addr, '/');
       bool have_prefix = (slash != nullptr);
@@ -102,8 +101,7 @@ protected:
       if (rc == 1) {
 	plen = checkPrefix(addr4, have_prefix, plen, host);
 	if (!insert(addr4, plen, policy)) {
-	  uint64_t existing_policy = resolve(addr4);
-	  throw EnvoyException(fmt::format("NetworkPolicyHosts: Duplicate host entry \'{}\' for policy {}, already mapped to {}", host, policy, existing_policy));
+	  throw EnvoyException(fmt::format("NetworkPolicyHosts: Duplicate host entry \'{}\' for policy {}", host, policy));
 	}
 	continue;
       }
@@ -112,8 +110,7 @@ protected:
       if (rc == 1) {
 	plen = checkPrefix(addr6, have_prefix, plen, host);
 	if (!insert(addr6, plen, policy)) {
-	  uint64_t existing_policy = resolve(addr6);
-	  throw EnvoyException(fmt::format("NetworkPolicyHosts: Duplicate host entry \'{}\' for policy {}, already mapped to {}", host, policy, existing_policy));
+	  throw EnvoyException(fmt::format("NetworkPolicyHosts: Duplicate host entry \'{}\' for policy {}", host, policy));
 	}
 	continue;
       }
@@ -161,7 +158,7 @@ void PolicyHostMap::onConfigUpdate(const ResourceVector& resources) {
   auto newmap = std::make_shared<ThreadLocalHostMapInitializer>();
   
   for (const auto& config: resources) {
-    ENVOY_LOG(trace, "Received NetworkPolicyHosts for policy {} in onConfigUpdate() version {}", config.policy(), version);
+    ENVOY_LOG(debug, "Received NetworkPolicyHosts for policy {} in onConfigUpdate() version {}", config.policy(), version);
 
     MessageUtil::validate(config);
 
@@ -178,17 +175,14 @@ void PolicyHostMap::onConfigUpdate(const ResourceVector& resources) {
   // Assign the new map to all threads.
   tls_->set([shared_this, newmap](Event::Dispatcher&) -> ThreadLocal::ThreadLocalObjectSharedPtr {
       UNREFERENCED_PARAMETER(shared_this);
-      ENVOY_LOG(trace, "PolicyHostMap: Assigning new map");
       return newmap;
   });
-  logmaps("onConfigUpdate");
 }
 
 void PolicyHostMap::onConfigUpdateFailed(const EnvoyException*) {
   // We need to allow server startup to continue, even if we have a bad
   // config.
   ENVOY_LOG(warn, "Bad NetworkPolicyHosts Configuration");
-  logmaps("onConfigUpdateFailed(): keeping old config");
 }
 
 } // namespace Cilium
