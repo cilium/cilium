@@ -23,9 +23,9 @@ data:
     #cert-file: '/var/lib/etcd-secrets/etcd-client-crt'
 
   # If you want to run cilium in debug mode change this value to true
-  debug: "true"
+  debug: "false"
   disable-ipv4: "false"
-  sidecar-http-proxy: "false"
+  sidecar-http-proxy: "true"
   # If you want to clean cilium state; change this value to true
   clean-cilium-state: "false"
 ---
@@ -102,13 +102,10 @@ spec:
         command: [ "cilium-agent" ]
         args:
           - "--debug=$(CILIUM_DEBUG)"
-          - "--debug-verbose=flow"
-          - "-t"
-          - "vxlan"
-          - "--kvstore"
-          - "etcd"
-          - "--kvstore-opt"
-          - "etcd.config=/var/lib/etcd-config/etcd.config"
+          - "-t=vxlan"
+          - "--kvstore=etcd"
+          - "--kvstore-opt=etcd.config=/var/lib/etcd-config/etcd.config"
+          - "--disable-ipv4=$(DISABLE_IPV4)"
         ports:
           - name: prometheus
             containerPort: 9090

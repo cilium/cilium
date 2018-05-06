@@ -1,5 +1,5 @@
-kind: ConfigMap
 apiVersion: v1
+kind: ConfigMap
 metadata:
   name: cilium-config
   namespace: kube-system
@@ -11,7 +11,7 @@ data:
   etcd-config: |-
     ---
     endpoints:
-    - "http://k8s1:9732"
+      - http://k8s1:9732
     #
     # In case you want to use TLS in etcd, uncomment the following line
     # and add the certificate as explained in the comment labeled "ETCD-CERT"
@@ -25,11 +25,14 @@ data:
   # If you want to run cilium in debug mode change this value to true
   debug: "true"
   disable-ipv4: "false"
+  sidecar-http-proxy: "false"
+  # If you want to clean cilium state; change this value to true
+  clean-cilium-state: "false"
 ---
 # The etcd secrets can be populated in kubernetes.
 # For more information see: https://kubernetes.io/docs/concepts/configuration/secret
-apiVersion: v1
 kind: Secret
+apiVersion: v1
 type: Opaque
 metadata:
   name: cilium-etcd-secrets
@@ -42,33 +45,23 @@ data:
   etcd-client-key: ""
   etcd-client-crt: ""
 ---
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  name: cilium
-  namespace: kube-system
----
-kind: ClusterRoleBinding
-apiVersion: rbac.authorization.k8s.io/v1beta1
-metadata:
-  name: cilium
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: ClusterRole
-  name: cilium
-subjects:
-- kind: ServiceAccount
-  name: cilium
-  namespace: kube-system
-- kind: Group
-  name: system:nodes
----
-apiVersion: extensions/v1beta1
 kind: DaemonSet
+apiVersion: apps/v1
 metadata:
   name: cilium
   namespace: kube-system
 spec:
+  updateStrategy:
+    type: "RollingUpdate"
+    rollingUpdate:
+      # Specifies the maximum number of Pods that can be unavailable during the update process.
+      # The current default value is 1 or 100% for daemonsets; Adding an explicit value here
+      # to avoid confusion, as the default value is specific to the type (daemonset/deployment).
+      maxUnavailable: "100%"
+  selector:
+    matchLabels:
+      k8s-app: cilium
+      kubernetes.io/cluster-service: "true"
   template:
     metadata:
       labels:
@@ -86,6 +79,22 @@ spec:
         prometheus.io/port: "9090"
     spec:
       serviceAccountName: cilium
+      initContainers:
+      - name: clean-cilium-state
+        image: busybox
+        command: ['sh', '-c', 'if [ "${CLEAN_CILIUM_STATE}" = "true" ]; then rm -rf /var/run/cilium/state; rm -rf /sys/fs/bpf/tc/globals/cilium_*; fi']
+        volumeMounts:
+          - name: bpf-maps
+            mountPath: /sys/fs/bpf
+          - name: cilium-run
+            mountPath: /var/run/cilium
+        env:
+          - name: "CLEAN_CILIUM_STATE"
+            valueFrom:
+                configMapKeyRef:
+                  name: cilium-config
+                  optional: true
+                  key: clean-cilium-state
       containers:
       - image: k8s1:5000/cilium/cilium-dev:latest
         imagePullPolicy: Always
@@ -100,9 +109,6 @@ spec:
           - "etcd"
           - "--kvstore-opt"
           - "etcd.config=/var/lib/etcd-config/etcd.config"
-          - "--disable-ipv4=$(DISABLE_IPV4)"
-          - "-t"
-          - "geneve"
         ports:
           - name: prometheus
             containerPort: 9090
@@ -130,6 +136,12 @@ spec:
               configMapKeyRef:
                 name: cilium-config
                 key: disable-ipv4
+          - name: "CILIUM_SIDECAR_HTTP_PROXY"
+            valueFrom:
+              configMapKeyRef:
+                name: cilium-config
+                key: sidecar-http-proxy
+                optional: true
           # Note: this variable is a no-op if not defined, and is used in the
           # prometheus examples.
           - name: "CILIUM_PROMETHEUS_SERVE_ADDR"
@@ -212,6 +224,7 @@ spec:
         - name: etcd-secrets
           secret:
             secretName: cilium-etcd-secrets
+      restartPolicy: Always
       tolerations:
       - effect: NoSchedule
         key: node-role.kubernetes.io/master
@@ -222,8 +235,23 @@ spec:
       - key: CriticalAddonsOnly
         operator: "Exists"
 ---
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: cilium
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: cilium
+subjects:
+- kind: ServiceAccount
+  name: cilium
+  namespace: kube-system
+- kind: Group
+  name: system:nodes
+---
 kind: ClusterRole
-apiVersion: rbac.authorization.k8s.io/v1beta1
+apiVersion: rbac.authorization.k8s.io/v1
 metadata:
   name: cilium
 rules:
@@ -285,3 +313,10 @@ rules:
   - ciliumendpoints
   verbs:
   - "*"
+---
+kind: ServiceAccount
+apiVersion: v1
+metadata:
+  name: cilium
+  namespace: kube-system
+---

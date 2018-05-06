@@ -147,6 +147,11 @@ sudo rm -rfv /var/lib/kubelet
 # Allow iptables forwarding so kube-dns can function.
 sudo iptables --policy FORWARD ACCEPT
 
+# Istio configurations
+
+sudo mkdir -p /etc/certs
+sudo chmod 777 /etc/certs
+
 #check hostname to know if is kubernetes or runtime test
 if [[ "${HOST}" == "k8s1" ]]; then
 

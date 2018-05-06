@@ -1,0 +1,37 @@
+---
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: L7 Policy
+  namespace: default
+specs:
+  - endpointSelector:
+      matchLabels:
+        id: httpd1
+    ingress:
+    - toPorts:
+      - ports:
+        - port: "80"
+          protocol: TCP
+        rules:
+          http:
+          - method: GET
+            path: "/public"
+---
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: L3+L4 Policy
+  namespace: default
+specs:
+  - endpointSelector:
+      matchLabels:
+        id: httpd2
+    fromEndpoints:
+			matchLabels:
+        id: app2
+    ingress:
+    - toPorts:
+      - ports:
+        - port: "80"
+          protocol: TCP
