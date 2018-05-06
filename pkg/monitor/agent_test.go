@@ -15,10 +15,12 @@
 package monitor
 
 import (
+	"encoding/json"
 	"fmt"
 	"testing"
 	"time"
 
+	"github.com/cilium/cilium/pkg/comparator"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/policy/api"
 
@@ -33,6 +35,28 @@ func Test(t *testing.T) {
 type MonitorSuite struct{}
 
 var _ = Suite(&MonitorSuite{})
+
+func testEqualityRules(got, expected string, c *C) {
+	gotStruct := &PolicyUpdateNotification{}
+	expectedStruct := &PolicyUpdateNotification{}
+
+	err := json.Unmarshal([]byte(got), gotStruct)
+	c.Assert(err, IsNil)
+	err = json.Unmarshal([]byte(expected), expectedStruct)
+	c.Assert(err, IsNil)
+	c.Assert(gotStruct, comparator.DeepEquals, expectedStruct)
+}
+
+func testEqualityEndpoint(got, expected string, c *C) {
+	gotStruct := &EndpointRegenNotification{}
+	expectedStruct := &EndpointRegenNotification{}
+
+	err := json.Unmarshal([]byte(got), gotStruct)
+	c.Assert(err, IsNil)
+	err = json.Unmarshal([]byte(expected), expectedStruct)
+	c.Assert(err, IsNil)
+	c.Assert(gotStruct, comparator.DeepEquals, expectedStruct)
+}
 
 func (s *MonitorSuite) TestRulesRepr(c *C) {
 	rules := api.Rules{
@@ -59,7 +83,7 @@ func (s *MonitorSuite) TestRulesRepr(c *C) {
 	repr, err := PolicyUpdateRepr(rules, 1)
 
 	c.Assert(err, IsNil)
-	c.Assert(repr, Equals, "{\"labels\":[\"unspec:key1=value1\",\"unspec:key2=value2\"],\"revision\":1,\"rule_count\":2}")
+	testEqualityRules(repr, "{\"labels\":[\"unspec:key1=value1\",\"unspec:key2=value2\"],\"revision\":1,\"rule_count\":2}", c)
 }
 
 func (s *MonitorSuite) TestRulesReprEmpty(c *C) {
@@ -68,7 +92,7 @@ func (s *MonitorSuite) TestRulesReprEmpty(c *C) {
 	repr, err := PolicyUpdateRepr(rules, 1)
 
 	c.Assert(err, IsNil)
-	c.Assert(repr, Equals, "{\"revision\":1,\"rule_count\":0}")
+	testEqualityRules(repr, "{\"revision\":1,\"rule_count\":0}", c)
 }
 
 func (s *MonitorSuite) TestPolicyDeleteRepr(c *C) {
@@ -82,7 +106,7 @@ func (s *MonitorSuite) TestPolicyDeleteRepr(c *C) {
 
 	repr, err := PolicyDeleteRepr(1, lab.GetModel(), 2)
 	c.Assert(err, IsNil)
-	c.Assert(repr, Equals, "{\"labels\":[\"unspec:key1=value1\"],\"revision\":2,\"rule_count\":1}")
+	testEqualityRules(repr, "{\"labels\":[\"unspec:key1=value1\"],\"revision\":2,\"rule_count\":1}", c)
 }
 
 type RegenError struct{}
@@ -117,11 +141,11 @@ func (s *MonitorSuite) TestEndpointRegenRepr(c *C) {
 
 	repr, err := EndpointRegenRepr(e, rerr)
 	c.Assert(err, IsNil)
-	c.Assert(repr, Equals, "{\"id\":10,\"labels\":[\"unspec:key1=value1\",\"unspec:key2=value2\"],\"error\":\"RegenError\"}")
+	testEqualityEndpoint(repr, "{\"id\":10,\"labels\":[\"unspec:key1=value1\",\"unspec:key2=value2\"],\"error\":\"RegenError\"}", c)
 
 	repr, err = EndpointRegenRepr(e, nil)
 	c.Assert(err, IsNil)
-	c.Assert(repr, Equals, "{\"id\":10,\"labels\":[\"unspec:key1=value1\",\"unspec:key2=value2\"]}")
+	testEqualityEndpoint(repr, "{\"id\":10,\"labels\":[\"unspec:key1=value1\",\"unspec:key2=value2\"]}", c)
 }
 
 func (s *MonitorSuite) TestTimeRepr(c *C) {
