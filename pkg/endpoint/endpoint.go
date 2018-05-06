@@ -1039,6 +1039,11 @@ func (e *Endpoint) GetLabelsSHA() string {
 	return e.SecurityIdentity.GetLabelsSHA256()
 }
 
+// GetOpLabels returns the labels as slice
+func (e *Endpoint) GetOpLabels() []string {
+	return e.OpLabels.IdentityLabels().GetModel()
+}
+
 // GetIPv4Address returns the IPv4 address of the endpoint
 func (e *Endpoint) GetIPv4Address() string {
 	return e.IPv4.String()

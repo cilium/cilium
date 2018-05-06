@@ -113,7 +113,7 @@ type EndpointRegenNotification struct {
 func EndpointRegenRepr(e getter.EndpointGetter, err error) (string, error) {
 	notification := EndpointRegenNotification{
 		ID:     e.GetID(),
-		Labels: e.GetLabels(),
+		Labels: e.GetOpLabels(),
 	}
 
 	if err != nil {
