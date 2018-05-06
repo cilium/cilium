@@ -836,8 +836,9 @@ func runDaemon() {
 	repr, err := monitor.TimeRepr(time.Now())
 	if err != nil {
 		log.WithError(err).Warn("Failed to notify monitor about agent start")
+	} else {
+		d.SendNotification(monitor.AgentNotifyStart, repr)
 	}
-	d.SendNotification(monitor.AgentNotifyStart, repr)
 
 	log.Info("Daemon initialization completed")
 

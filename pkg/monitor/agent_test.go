@@ -97,7 +97,7 @@ func (MockEndpoint) GetID() uint64 {
 	return 10
 }
 
-func (MockEndpoint) GetLabels() []string {
+func (MockEndpoint) GetOpLabels() []string {
 	return labels.Labels{"label": &labels.Label{
 		Key:    "key1",
 		Value:  "value1",
