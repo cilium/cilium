@@ -1,0 +1,125 @@
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: httpd1-service
+spec:
+  ports:
+  - port: 80
+  selector:
+    id: httpd1
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: httpd2-service
+spec:
+  ports:
+  - port: 80
+  selector:
+    id: httpd2
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: httpd-meta
+spec:
+  ports:
+  - port: 80
+  selector:
+    httpdType: meta
+---
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: httpd1
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        id: httpd1
+        zgroup: testapp
+        httpdType: meta
+    spec:
+      containers:
+        - name: web
+          image: cilium/demo-httpd
+          ports:
+          - containerPort: 80
+---
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: httpd2
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        id: httpd2
+        zgroup: testapp
+        httpdType: meta
+    spec:
+      containers:
+        - name: web
+          image: cilium/demo-httpd
+          ports:
+          - containerPort: 80
+---
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: app1
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        id: app1
+        zgroup: testapp
+    spec:
+      containers:
+      - name: app-frontend
+        image: cilium/demo-client
+        command: [ "sleep" ]
+        args:
+          - "1000h"
+---
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: app2
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        id: app2
+        zgroup: testapp
+    spec:
+      containers:
+      - name: app-frontend
+        image: cilium/demo-client
+        command: [ "sleep" ]
+        args:
+          - "1000h"
+---
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: app3
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        id: app3
+        zgroup: testapp
+    spec:
+      containers:
+      - name: app-frontend
+        image: cilium/demo-client
+        command: [ "sleep" ]
+        args:
+          - "1000h"
