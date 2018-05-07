@@ -35,7 +35,10 @@ func getPrefixesFromCIDR(cidrs api.CIDRSlice) []*net.IPNet {
 					ip = ip.To4()
 					bits = net.IPv4len * 8
 				}
-				prefix = &net.IPNet{ip, net.CIDRMask(bits, bits)}
+				prefix = &net.IPNet{
+					IP:   ip,
+					Mask: net.CIDRMask(bits, bits),
+				}
 			}
 		}
 		if prefix != nil {
