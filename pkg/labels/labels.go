@@ -149,7 +149,7 @@ type Label struct {
 	// Source can be one of the values present in const.go (e.g.: LabelSourceContainer)
 	Source string `json:"source"`
 	// Mark element to be used to find unused labels in lists
-	deletionMark bool `json:"-"`
+	deletionMark bool
 }
 
 // Labels is a map of labels where the map's key is the same as the label's key.
