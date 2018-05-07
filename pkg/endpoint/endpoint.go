@@ -38,7 +38,6 @@ import (
 	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/controller"
-	"github.com/cilium/cilium/pkg/endpoint/getter"
 	identityPkg "github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/k8s"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
@@ -53,6 +52,7 @@ import (
 	"github.com/cilium/cilium/pkg/maps/lxcmap"
 	"github.com/cilium/cilium/pkg/maps/policymap"
 	"github.com/cilium/cilium/pkg/metrics"
+	"github.com/cilium/cilium/pkg/monitor/notifications"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
@@ -353,7 +353,8 @@ const (
 	HealthCEPPrefix = "cilium-health-"
 )
 
-var _ getter.EndpointGetter = &Endpoint{}
+// compile time interface check
+var _ notifications.RegenNotificationInfo = &Endpoint{}
 
 // Endpoint represents a container or similar which can be individually
 // addresses on L3 with its own IP addresses. This structured is managed by the
@@ -1041,6 +1042,8 @@ func (e *Endpoint) GetLabelsSHA() string {
 
 // GetOpLabels returns the labels as slice
 func (e *Endpoint) GetOpLabels() []string {
+	e.Mutex.RLock()
+	defer e.Mutex.RUnlock()
 	return e.OpLabels.IdentityLabels().GetModel()
 }
 

@@ -12,11 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package getter
+package notifications
 
-// EndpointGetter should be implemented by Endpoint so you don't
-// have to use pkg/endpoint if you only want to read Endpoint data in other package
-type EndpointGetter interface {
+// RegenNotificationInfo provides information about endpoint regeneration
+type RegenNotificationInfo interface {
 	GetID() uint64
 	GetOpLabels() []string
 }
