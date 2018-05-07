@@ -814,8 +814,7 @@ func (e *Endpoint) Regenerate(owner Owner, reason string) <-chan bool {
 				scopedLog.WithError(err).Warn("Regeneration of endpoint program failed")
 				e.LogStatus(BPF, Failure, "Error regenerating endpoint: "+err.Error())
 				if reprerr == nil {
-					owner.SendNotification(monitor.AgentNotifyEndpointRegenerateFail,
-						repr)
+					owner.SendNotification(monitor.AgentNotifyEndpointRegenerateFail, repr)
 				}
 			} else {
 				buildSuccess = true

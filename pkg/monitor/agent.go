@@ -19,7 +19,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/cilium/cilium/pkg/endpoint/getter"
+	"github.com/cilium/cilium/pkg/monitor/notifications"
 	"github.com/cilium/cilium/pkg/policy/api"
 )
 
@@ -110,7 +110,7 @@ type EndpointRegenNotification struct {
 }
 
 // EndpointRegenRepr returns string representation of monitor notification
-func EndpointRegenRepr(e getter.EndpointGetter, err error) (string, error) {
+func EndpointRegenRepr(e notifications.RegenNotificationInfo, err error) (string, error) {
 	notification := EndpointRegenNotification{
 		ID:     e.GetID(),
 		Labels: e.GetOpLabels(),

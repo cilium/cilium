@@ -288,7 +288,7 @@ func (d *Daemon) PolicyDelete(labels labels.LabelArray) (uint64, error) {
 		d.policy.Mutex.Unlock()
 		return rev, apierror.New(DeletePolicyNotFoundCode, "policy not found")
 	}
-	rev, _ := d.policy.DeleteByLabelsLocked(labels)
+	rev, deleted := d.policy.DeleteByLabelsLocked(labels)
 	d.policy.Mutex.Unlock()
 
 	// Now that the policies are deleted, we can also attempt to remove
