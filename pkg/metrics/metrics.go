@@ -205,6 +205,8 @@ func init() {
 
 	MustRegister(DropCount)
 	MustRegister(ForwardCount)
+
+	MustRegister(newStatusCollector())
 }
 
 // MustRegister adds the collector to the registry, exposing this metric to

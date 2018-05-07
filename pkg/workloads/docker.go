@@ -346,7 +346,7 @@ func (d *dockerClient) processEvent(m EventMessage) {
 		stopIgnoringContainer(m.WorkloadID)
 		d.handleCreateWorkload(m.WorkloadID, true)
 	case EventTypeDelete:
-		Owner().DeleteEndpoint(endpointid.NewID(endpoint.ContainerIdPrefix, m.WorkloadID))
+		Owner().DeleteEndpoint(endpointid.NewID(endpointid.ContainerIdPrefix, m.WorkloadID))
 	}
 }
 
