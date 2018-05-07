@@ -126,7 +126,7 @@ spec:
         - --domain=cluster.local.
         - --dns-port=10053
         - --config-dir=/kube-dns-config
-        - --v=5
+        - --v=2
         env:
         - name: PROMETHEUS_PORT
           value: "10055"
@@ -155,7 +155,7 @@ spec:
           successThreshold: 1
           failureThreshold: 5
         args:
-        - -v=5
+        - -v=2
         - -logtostderr
         - -configDir=/etc/k8s/dns/dnsmasq-nanny
         - -restartDnsmasq=true
