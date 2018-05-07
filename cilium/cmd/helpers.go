@@ -139,7 +139,7 @@ func expandNestedJSON(result bytes.Buffer) (bytes.Buffer, error) {
 			if resBytes[idx] != ' ' {
 				break
 			}
-			indent = fmt.Sprintf("%s ", indent)
+			indent = fmt.Sprintf("\t%s\t", indent)
 		}
 
 		stringStart := loc[0]
