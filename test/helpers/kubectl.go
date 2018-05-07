@@ -1163,17 +1163,20 @@ func (kub *Kubectl) DumpCiliumCommandOutput(namespace string) {
 // directory
 func (kub *Kubectl) GatherLogs() {
 	reportCmds := map[string]string{
-		"kubectl get pods --all-namespaces -o json":                    "pods.txt",
-		"kubectl get services --all-namespaces -o json":                "svc.txt",
-		"kubectl get ds --all-namespaces -o json":                      "ds.txt",
-		"kubectl get cnp --all-namespaces -o json":                     "cnp.txt",
-		"kubectl get netpol --all-namespaces -o json":                  "netpol.txt",
-		"kubectl describe pods --all-namespaces":                       "pods_status.txt",
-		"kubectl get replicationcontroller --all-namespaces -o json":   "replicationcontroller.txt",
-		"kubectl get deployment --all-namespaces -o json":              "deployment.txt",
-		"kubectl -n kube-system logs -l k8s-app='kube-dns' -c kubedns": "kubedns.log",
-		"kubectl -n kube-system logs -l k8s-app='kube-dns' -c dnsmasq": "dnsmasq.log",
-		"kubectl -n kube-system logs -l k8s-app='kube-dns' -c sidecar": "kubedns-sidecar.log",
+		"kubectl get pods --all-namespaces -o json":                               "pods.txt",
+		"kubectl get services --all-namespaces -o json":                           "svc.txt",
+		"kubectl get ds --all-namespaces -o json":                                 "ds.txt",
+		"kubectl get cnp --all-namespaces -o json":                                "cnp.txt",
+		"kubectl get netpol --all-namespaces -o json":                             "netpol.txt",
+		"kubectl describe pods --all-namespaces":                                  "pods_status.txt",
+		"kubectl get replicationcontroller --all-namespaces -o json":              "replicationcontroller.txt",
+		"kubectl get deployment --all-namespaces -o json":                         "deployment.txt",
+		"kubectl -n kube-system logs -l k8s-app='kube-dns' -c kubedns":            "kubedns.log",
+		"kubectl -n kube-system logs -l k8s-app='kube-dns' -c dnsmasq":            "dnsmasq.log",
+		"kubectl -n kube-system logs -l k8s-app='kube-dns' -c sidecar":            "kubedns-sidecar.log",
+		"kubectl -n kube-system logs -l k8s-app='kube-dns' -c kubedns --previous": "kubedns.log",
+		"kubectl -n kube-system logs -l k8s-app='kube-dns' -c dnsmasq --previous": "dnsmasq.log",
+		"kubectl -n kube-system logs -l k8s-app='kube-dns' -c sidecar --previous": "kubedns-sidecar.log",
 	}
 
 	ciliumPods, err := kub.GetCiliumPods(KubeSystemNamespace)
