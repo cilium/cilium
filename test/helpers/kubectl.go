@@ -550,16 +550,24 @@ func (kub *Kubectl) Delete(filePath string) *CmdRes {
 
 // WaitKubeDNS waits until the kubeDNS pods are ready. In case of exceeding the
 // default timeout it returns an error.
-func (kub *Kubectl) WaitKubeDNS() error {
+func (kub *Kubectl) WaitKubeDNS() (err error) {
+	defer func() {
+		if err != nil {
+			res := kub.Exec(fmt.Sprintf("%s get pods --all-namespaces -o wide", KubectlCmd))
+			fmt.Fprintf(ginkgo.GinkgoWriter, res.CombineOutput().String())
+		}
+	}()
+
 	body := func() bool {
-		status, err := kub.WaitforPods(KubeSystemNamespace, fmt.Sprintf("-l %s", kubeDNSLabel), 300)
+		var status bool
+		status, err = kub.WaitforPods(KubeSystemNamespace, fmt.Sprintf("-l %s", kubeDNSLabel), 300)
 		if status {
 			return true
 		}
 		kub.logger.WithError(err).Debug("KubeDNS is not ready yet")
 		return false
 	}
-	err := WithTimeout(body, "KubeDNS pods are not ready", &TimeoutConfig{Timeout: HelperTimeout})
+	err = WithTimeout(body, "KubeDNS pods are not ready", &TimeoutConfig{Timeout: HelperTimeout})
 	return err
 }
 
