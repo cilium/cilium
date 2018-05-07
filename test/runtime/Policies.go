@@ -729,11 +729,11 @@ var _ = Describe("RuntimeValidatedPolicies", func() {
 		res = vm.ContainerExec(helpers.Httpd2, helpers.Ping6(httpd1DockerNetworking[helpers.IPv6]))
 		res.ExpectSuccess("Unexpected failure pinging %s (%s) from %s: %s", helpers.Httpd1, httpd1DockerNetworking[helpers.IPv6], helpers.Httpd2, res.CombineOutput().String())
 
-		By(fmt.Sprintf("Pinging httpd1 IPv4 from app3 (shouldn't work because CIDR policies don't apply to endpoint-endpoint communication)", ipv4Prefix))
+		By(fmt.Sprintf("Pinging httpd1 IPv4 %q from app3 (shouldn't work because CIDR policies don't apply to endpoint-endpoint communication)", ipv4Prefix))
 		res = vm.ContainerExec(helpers.App3, helpers.Ping(helpers.Httpd1))
 		res.ExpectFail("Unexpected success pinging %s IPv4 from %s: %s", helpers.Httpd1, helpers.App3, res.CombineOutput().String())
 
-		By(fmt.Sprintf("Pinging httpd1 IPv6 from app3 (shouldn't work because CIDR policies don't apply to endpoint-endpoint communication)", ipv6Prefix))
+		By(fmt.Sprintf("Pinging httpd1 IPv6 %q from app3 (shouldn't work because CIDR policies don't apply to endpoint-endpoint communication)", ipv6Prefix))
 		res = vm.ContainerExec(helpers.App3, helpers.Ping6(helpers.Httpd1))
 		res.ExpectFail("Unexpected success pinging %s IPv6 from %s: %s", helpers.Httpd1, helpers.App3, res.CombineOutput().String())
 
