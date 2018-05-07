@@ -168,29 +168,6 @@ func CreateKubectl(vmName string, log *logrus.Entry) *Kubectl {
 	}
 }
 
-// CepGet returns the endpoint model for the given pod name in the specified
-// namespaces. If the pod is not present it returns nil
-func (kub *Kubectl) CepGet(namespace string, pod string) *models.Endpoint {
-	log := kub.logger.WithFields(logrus.Fields{
-		"cep":       pod,
-		"namespace": namespace})
-
-	cmd := fmt.Sprintf("%s -n %s get cep %s -o json | jq '.status'", KubectlCmd, namespace, pod)
-	res := kub.Exec(cmd)
-	if !res.WasSuccessful() {
-		log.Debug("cep is not present")
-		return nil
-	}
-
-	var data *models.Endpoint
-	err := res.Unmarshal(&data)
-	if err != nil {
-		log.WithError(err).Error("cannot Unmarshal json")
-		return nil
-	}
-	return data
-}
-
 // ExecKafkaPodCmd executes shell command with arguments arg in the specified pod residing in the specified
 // namespace. It returns the stdout of the command that was executed.
 // The kafka producer and consumer scripts do not return error if command
@@ -1031,10 +1008,12 @@ func (kub *Kubectl) ValidateNoErrorsOnLogs(duration time.Duration) {
 		res = kub.Exec(cmd)
 	}
 	logs := res.Output().String()
-	for _, message := range checkLogsMessages {
-		gomega.ExpectWithOffset(1, logs).ToNot(gomega.ContainSubstring(message),
-			"Found a %q in Cilium logs", message)
-	}
+	gomega.ExpectWithOffset(1, logs).ToNot(gomega.ContainSubstring("panic: "),
+		"Found a panic in Cilium logs")
+	gomega.ExpectWithOffset(1, logs).ToNot(gomega.ContainSubstring(deadLockHeader),
+		"Found a deadlock in Cilium logs")
+	gomega.ExpectWithOffset(1, logs).ToNot(gomega.ContainSubstring(segmentationFault),
+		"Found a %q in Cilium logs", segmentationFault)
 }
 
 // CheckLogsForDeadlock checks if the logs for Cilium log messages that signify
