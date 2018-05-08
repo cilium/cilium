@@ -297,7 +297,7 @@ var _ = Describe("K8sValidatedServicesTest", func() {
 
 	It("CNP Specs Test", func() {
 
-		// Various constants used in this test
+		// We use wget in this test because the Istio apps do not provide curl.
 		wgetCommand := "%s exec -t %s wget -- --tries=2 --connect-timeout 10 %s"
 
 		version := "version"
@@ -311,6 +311,7 @@ var _ = Describe("K8sValidatedServicesTest", func() {
 		app := "app"
 		resourceYamls := []string{"bookinfo-v1.yaml", "bookinfo-v2.yaml"}
 		health := "health"
+		ratingsPath := "ratings/0"
 
 		apiPort := "9080"
 
@@ -421,12 +422,12 @@ var _ = Describe("K8sValidatedServicesTest", func() {
 
 		By("Before policy import; all pods should be able to connect")
 		shouldConnect(reviewsPodV1.String(), formatAPI(ratings, apiPort, health))
-		shouldConnect(reviewsPodV1.String(), formatAPI(ratings, apiPort, ""))
+		shouldConnect(reviewsPodV1.String(), formatAPI(ratings, apiPort, ratingsPath))
 
 		shouldConnect(productpagePodV1.String(), formatAPI(details, apiPort, health))
 		shouldConnect(productpagePodV1.String(), formatAPI(details, apiPort, ""))
 		shouldConnect(productpagePodV1.String(), formatAPI(ratings, apiPort, health))
-		shouldConnect(productpagePodV1.String(), formatAPI(ratings, apiPort, ""))
+		shouldConnect(productpagePodV1.String(), formatAPI(ratings, apiPort, ratingsPath))
 
 		var policyPath string
 		var policyCmd string
@@ -456,12 +457,12 @@ var _ = Describe("K8sValidatedServicesTest", func() {
 
 		By("After policy import")
 		shouldConnect(reviewsPodV1.String(), formatAPI(ratings, apiPort, health))
-		shouldNotConnect(reviewsPodV1.String(), formatAPI(ratings, apiPort, ""))
+		shouldNotConnect(reviewsPodV1.String(), formatAPI(ratings, apiPort, ratingsPath))
 
 		shouldConnect(productpagePodV1.String(), formatAPI(details, apiPort, health))
 		shouldConnect(productpagePodV1.String(), formatAPI(details, apiPort, ""))
 
 		shouldNotConnect(productpagePodV1.String(), formatAPI(ratings, apiPort, health))
-		shouldNotConnect(productpagePodV1.String(), formatAPI(ratings, apiPort, ""))
+		shouldNotConnect(productpagePodV1.String(), formatAPI(ratings, apiPort, ratingsPath))
 	})
 })
