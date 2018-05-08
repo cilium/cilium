@@ -9,7 +9,6 @@ import (
 	. "github.com/cilium/cilium/test/ginkgo-ext"
 	"github.com/cilium/cilium/test/helpers"
 
-	"github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/types"
 	"github.com/sirupsen/logrus"
@@ -37,7 +36,7 @@ var _ = Describe("RuntimeValidatedConnectivityTest", func() {
 	})
 
 	removeContainer := func(containerName string) {
-		By(fmt.Sprintf("removing container %s", containerName))
+		By("removing container %s", containerName)
 		res := vm.ContainerRm(containerName)
 		ExpectWithOffset(1, res).To(helpers.CMDSuccess(), "cannot delete container")
 	}
@@ -82,26 +81,26 @@ var _ = Describe("RuntimeValidatedConnectivityTest", func() {
 		It("Test connectivity between containers without policies imported", func() {
 			// TODO: this code is duplicated in the next "It" in this file. refactor it into a function.
 			// See if we can make the "Filter" strings for getting IPv4 and IPv6 addresses into constants.
-			By(fmt.Sprintf("inspecting container %s", helpers.Server))
+			By("inspecting container %s", helpers.Server)
 			serverData := vm.ContainerInspect(helpers.Server)
 			serverIP, err := serverData.Filter(fmt.Sprintf("{[0].NetworkSettings.Networks.%s.IPAddress}", helpers.CiliumDockerNetwork))
 			Expect(err).Should(BeNil())
 
-			By(fmt.Sprintf("serverIP: %s", serverIP))
+			By("serverIP: %q", serverIP)
 			serverIPv6, err := serverData.Filter(fmt.Sprintf("{[0].NetworkSettings.Networks.%s.GlobalIPv6Address}", helpers.CiliumDockerNetwork))
-			By(fmt.Sprintf("serverIPv6: %s", serverIPv6))
+			By("serverIPv6: %q", serverIPv6)
 			Expect(err).Should(BeNil())
 
-			By(fmt.Sprintf("checking %s can ping to %s IPv6", helpers.Client, helpers.Server))
+			By("checking %q can ping to %q IPv6", helpers.Client, helpers.Server)
 			res := vm.ContainerExec(helpers.Client, helpers.Ping6(serverIPv6.String()))
 			res.ExpectSuccess()
 
-			By(fmt.Sprintf("checking %s can ping to %s IPv4", helpers.Client, helpers.Server))
+			By("checking %q can ping to %q IPv4", helpers.Client, helpers.Server)
 			res = vm.ContainerExec(helpers.Client, helpers.Ping(serverIP.String()))
 			res.ExpectSuccess()
 
 			// TODO: remove this hardcoding ; it is not clean. Have command wrappers that take maps of strings.
-			By(fmt.Sprintf("netperf to %s from %s IPv6", helpers.Server, helpers.Client))
+			By("netperf to %q from %q IPv6", helpers.Server, helpers.Client)
 			cmd := fmt.Sprintf(
 				"netperf -c -C -t TCP_SENDFILE -H %s", serverIPv6)
 
@@ -118,37 +117,37 @@ var _ = Describe("RuntimeValidatedConnectivityTest", func() {
 			serverData := vm.ContainerInspect(helpers.Server)
 			serverIP, err := serverData.Filter(fmt.Sprintf("{[0].NetworkSettings.Networks.%s.IPAddress}", helpers.CiliumDockerNetwork))
 			Expect(err).Should(BeNil())
-			By(fmt.Sprintf("serverIP: %s", serverIP))
+			By("serverIP: %q", serverIP)
 			serverIPv6, err := serverData.Filter(fmt.Sprintf("{[0].NetworkSettings.Networks.%s.GlobalIPv6Address}", helpers.CiliumDockerNetwork))
-			By(fmt.Sprintf("serverIPv6: %s", serverIPv6))
+			By("serverIPv6: %q", serverIPv6)
 			Expect(err).Should(BeNil())
 
-			By(fmt.Sprintf("%s can ping to %s IPV6", helpers.Client, helpers.Server))
+			By("%q can ping to %q IPV6", helpers.Client, helpers.Server)
 			res := vm.ContainerExec(helpers.Client, helpers.Ping6(serverIPv6.String()))
 			res.ExpectSuccess()
 
-			By(fmt.Sprintf("%s can ping to %s IPv4", helpers.Client, helpers.Server))
+			By("%s can ping to %s IPv4", helpers.Client, helpers.Server)
 			res = vm.ContainerExec(helpers.Client, helpers.Ping(serverIP.String()))
 			res.ExpectSuccess()
 
-			By(fmt.Sprintf("netperf to %s from %s (should succeed)", helpers.Server, helpers.Client))
+			By("netperf to %q from %q (should succeed)", helpers.Server, helpers.Client)
 			cmd := fmt.Sprintf("netperf -c -C -H %s", serverIP)
 			res = vm.ContainerExec(helpers.Client, cmd)
 
 			// TODO: remove this hardcoding ; it is not clean. Have command wrappers that take maps of strings.
-			By(fmt.Sprintf("netperf to %s from %s IPv6 with -t TCP_SENDFILE", helpers.Server, helpers.Client))
+			By("netperf to %q from %q IPv6 with -t TCP_SENDFILE", helpers.Server, helpers.Client)
 			cmd = fmt.Sprintf(
 				"netperf -c -C -t TCP_SENDFILE -H %s", serverIPv6)
 
 			res = vm.ContainerExec(helpers.Client, cmd)
 			res.ExpectSuccess()
 
-			By(fmt.Sprintf("super_netperf to %s from %s (should succeed)", helpers.Server, helpers.Client))
+			By("super_netperf to %q from %q (should succeed)", helpers.Server, helpers.Client)
 			cmd = fmt.Sprintf("super_netperf 10 -c -C -t TCP_SENDFILE -H %s", serverIP)
 			res = vm.ContainerExec(helpers.Client, cmd)
 			res.ExpectSuccess()
 
-			By(fmt.Sprintf("ping from %s to %s", helpers.Host, helpers.Server))
+			By("ping from %q to %q", helpers.Host, helpers.Server)
 			res = vm.Exec(helpers.Ping(serverIP.String()))
 			res.ExpectSuccess()
 		}, 300)
@@ -160,11 +159,11 @@ var _ = Describe("RuntimeValidatedConnectivityTest", func() {
 
 			server, err := vm.ContainerInspectNet(helpers.Server)
 			Expect(err).Should(BeNil())
-			By(fmt.Sprintf("server: %s", server))
+			By("server: %q", server)
 
 			client, err := vm.ContainerInspectNet(helpers.Client)
 			Expect(err).Should(BeNil())
-			By(fmt.Sprintf("client: %s", client))
+			By("client: %q", client)
 
 			status := vm.EndpointSetConfig(endpoints[helpers.Client], "NAT46", helpers.OptionEnabled)
 			Expect(status).Should(BeTrue())
@@ -323,36 +322,36 @@ var _ = Describe("RuntimeValidatedConntrackTest", func() {
 		clientDockerNetworking, err := vm.ContainerInspectNet(helpers.Client)
 		ExpectWithOffset(1, err).Should(BeNil(),
 			"could not get metadata for container %q", helpers.Client)
-		By(fmt.Sprintf("client container Docker networking: %s", clientDockerNetworking))
+		By("client container Docker networking: %q", clientDockerNetworking)
 
 		serverDockerNetworking, err := vm.ContainerInspectNet(helpers.Server)
 		ExpectWithOffset(1, err).Should(BeNil(),
 			"could not get metadata for container %q", helpers.Server)
-		By(fmt.Sprintf("server container Docker networking: %s", serverDockerNetworking))
+		By("server container Docker networking: %q", serverDockerNetworking)
 
 		httpdDockerNetworking, err := vm.ContainerInspectNet(helpers.Httpd1)
 		ExpectWithOffset(1, err).Should(BeNil(),
 			"could not get metadata for container %q", helpers.Httpd1)
-		By(fmt.Sprintf("httpd1 container Docker networking: %s", httpdDockerNetworking))
+		By("httpd1 container Docker networking: %q", httpdDockerNetworking)
 
 		httpd2DockerNetworking, err := vm.ContainerInspectNet(helpers.Httpd2)
 		ExpectWithOffset(1, err).Should(BeNil(),
 			"could not get metadata for container %q", helpers.Httpd2)
-		By(fmt.Sprintf("httpd2 container Docker networking: %s", httpd2DockerNetworking))
+		By("httpd2 container Docker networking: %q", httpd2DockerNetworking)
 
 		curl1DockerNetworking, err := vm.ContainerInspectNet(curl1ContainerName)
 		ExpectWithOffset(1, err).Should(BeNil(),
 			"could not get metadata for container %q", curl1ContainerName)
-		By(fmt.Sprintf("curl1 container Docker networking: %s", curl1DockerNetworking))
+		By("curl1 container Docker networking: %q", curl1DockerNetworking)
 
 		curl2DockerNetworking, err := vm.ContainerInspectNet(curl2ContainerName)
 		ExpectWithOffset(1, err).Should(BeNil(),
 			"could not get metadata for container %q", curl2ContainerName)
-		By(fmt.Sprintf("httpd1 container Docker networking: %s", curl2DockerNetworking))
+		By("httpd1 container Docker networking: %q", curl2DockerNetworking)
 
 		By("Showing policies imported to Cilium")
 		res := vm.PolicyGetAll()
-		fmt.Fprintln(ginkgo.GinkgoWriter, res.CombineOutput())
+		GinkgoPrint(res.CombineOutput().String())
 
 		testCases := []conntestCases{
 			{
@@ -455,7 +454,7 @@ var _ = Describe("RuntimeValidatedConntrackTest", func() {
 		}
 
 		for _, test := range testCases {
-			By(fmt.Sprintf("Container %q test connectivity to %q", test.from, test.destination))
+			By("Container %q test connectivity to %q", test.from, test.destination)
 			res = vm.ContainerExec(test.from, test.to)
 			ExpectWithOffset(1, res.WasSuccessful()).To(test.assert(),
 				"The result of %q from container %q to %s does not match", test.to, test.from, test.destination)
@@ -463,12 +462,12 @@ var _ = Describe("RuntimeValidatedConntrackTest", func() {
 
 		By("Testing bidirectional connectivity from client to server")
 
-		By(fmt.Sprintf("container %s pinging %s IPv6 (should NOT work)", helpers.Server, helpers.Client))
+		By("container %s pinging %s IPv6 (should NOT work)", helpers.Server, helpers.Client)
 		res = vm.ContainerExec(helpers.Server, helpers.Ping6(clientDockerNetworking[helpers.IPv6]))
 		ExpectWithOffset(1, res).ShouldNot(helpers.CMDSuccess(),
 			"container %q unexpectedly was able to ping to %q IP:%q", helpers.Server, helpers.Client, clientDockerNetworking[helpers.IPv6])
 
-		By(fmt.Sprintf("container %s pinging %s IPv4 (should NOT work)", helpers.Server, helpers.Client))
+		By("container %s pinging %s IPv4 (should NOT work)", helpers.Server, helpers.Client)
 		res = vm.ContainerExec(helpers.Server, helpers.Ping(clientDockerNetworking[helpers.IPv4]))
 		ExpectWithOffset(1, res).ShouldNot(helpers.CMDSuccess(),
 			"%q was unexpectedly able to ping to %q IP:%q", helpers.Server, helpers.Client, clientDockerNetworking[helpers.IPv4])
@@ -483,36 +482,36 @@ var _ = Describe("RuntimeValidatedConntrackTest", func() {
 		clientDockerNetworking, err := vm.ContainerInspectNet(helpers.Client)
 		ExpectWithOffset(1, err).Should(BeNil(),
 			"could not get metadata for container %q", helpers.Client)
-		By(fmt.Sprintf("client container Docker networking: %s", clientDockerNetworking))
+		By("client container Docker networking: %s", clientDockerNetworking)
 
 		serverDockerNetworking, err := vm.ContainerInspectNet(helpers.Server)
 		ExpectWithOffset(1, err).Should(BeNil(),
 			"could not get metadata for container %q", helpers.Server)
-		By(fmt.Sprintf("server container Docker networking: %s", serverDockerNetworking))
+		By("server container Docker networking: %s", serverDockerNetworking)
 
 		httpdDockerNetworking, err := vm.ContainerInspectNet(helpers.Httpd1)
 		ExpectWithOffset(1, err).Should(BeNil(),
 			"could not get metadata for container %q", helpers.Httpd1)
-		By(fmt.Sprintf("httpd1 container Docker networking: %s", httpdDockerNetworking))
+		By("httpd1 container Docker networking: %s", httpdDockerNetworking)
 
 		httpd2DockerNetworking, err := vm.ContainerInspectNet(helpers.Httpd2)
 		ExpectWithOffset(1, err).Should(BeNil(),
 			"could not get metadata for container %q", helpers.Httpd2)
-		By(fmt.Sprintf("httpd2 container Docker networking: %s", httpd2DockerNetworking))
+		By("httpd2 container Docker networking: %s", httpd2DockerNetworking)
 
 		curl1DockerNetworking, err := vm.ContainerInspectNet(curl1ContainerName)
 		ExpectWithOffset(1, err).Should(BeNil(),
 			"could not get metadata for container %q", curl1ContainerName)
-		By(fmt.Sprintf("curl1 container Docker networking: %s", curl1DockerNetworking))
+		By("curl1 container Docker networking: %s", curl1DockerNetworking)
 
 		curl2DockerNetworking, err := vm.ContainerInspectNet(curl2ContainerName)
 		ExpectWithOffset(1, err).Should(BeNil(),
 			"could not get metadata for container %q", curl2ContainerName)
-		By(fmt.Sprintf("httpd1 container Docker networking: %s", curl2DockerNetworking))
+		By("httpd1 container Docker networking: %s", curl2DockerNetworking)
 
 		By("Showing policies imported to Cilium")
 		res := vm.PolicyGetAll()
-		fmt.Fprintln(ginkgo.GinkgoWriter, res.CombineOutput())
+		GinkgoPrint(res.CombineOutput().String())
 
 		testCases := []conntestCases{
 			{
@@ -602,7 +601,7 @@ var _ = Describe("RuntimeValidatedConntrackTest", func() {
 		}
 
 		for _, test := range testCases {
-			By(fmt.Sprintf("Container %q test connectivity to %q", test.from, test.destination))
+			By("Container %q test connectivity to %q", test.from, test.destination)
 			res = vm.ContainerExec(test.from, test.to)
 			ExpectWithOffset(1, res.WasSuccessful()).To(test.assert(),
 				"The result of %q from container %q to %s does not match", test.to, test.from, test.destination)
@@ -661,7 +660,7 @@ var _ = Describe("RuntimeValidatedConntrackTest", func() {
 		for _, endpointName := range []string{helpers.Server, helpers.Client} {
 			_, exists := endpoints[endpointName]
 			Expect(exists).To(BeTrue(), "unable to retrieve endpoint ID for endpoint %s", endpointName)
-			By(fmt.Sprintf("Endpoint ID for %s = %s", endpointName, endpoints[endpointName]))
+			By("Endpoint ID for %q = %q", endpointName, endpoints[endpointName])
 
 		}
 
@@ -672,7 +671,7 @@ var _ = Describe("RuntimeValidatedConntrackTest", func() {
 		// what was performed, and then run connectivity test with endpoints.
 		conntrackLocalOptionModes := []string{helpers.OptionDisabled, helpers.OptionEnabled}
 		for _, conntrackLocalOptionMode := range conntrackLocalOptionModes {
-			By(fmt.Sprintf("Testing with endpoint configuration option: ConntrackLocal=%s", conntrackLocalOptionMode))
+			By("Testing with endpoint configuration option: ConntrackLocal=%s", conntrackLocalOptionMode)
 
 			for _, endpointToConfigure := range endpointsToConfigure {
 				err := vm.SetAndWaitForEndpointConfiguration(

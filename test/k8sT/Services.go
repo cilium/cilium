@@ -343,7 +343,7 @@ var _ = Describe("K8sValidatedServicesTest", func() {
 			resourceYAMLs = []string{bookinfoV1YAML, bookinfoV2YAML}
 
 			for _, resourcePath := range resourceYAMLs {
-				By(fmt.Sprintf("Creating objects in file %q", resourcePath))
+				By("Creating objects in file %q", resourcePath)
 				res := kubectl.Create(resourcePath)
 				res.ExpectSuccess("unable to create resource %q: %s", resourcePath, res.CombineOutput())
 			}
@@ -355,7 +355,7 @@ var _ = Describe("K8sValidatedServicesTest", func() {
 			_ = kubectl.Delete(policyPath)
 
 			for _, resourcePath := range resourceYAMLs {
-				By(fmt.Sprintf("Deleting resource %s", resourcePath))
+				By("Deleting resource %s", resourcePath)
 				// Explicitly do not check result to avoid having assertions in AfterEach.
 				_ = kubectl.Delete(resourcePath)
 			}
@@ -384,7 +384,7 @@ var _ = Describe("K8sValidatedServicesTest", func() {
 
 			// shouldConnect asserts that srcPod can connect to dst.
 			shouldConnect := func(srcPod, dst string) {
-				By(fmt.Sprintf("Checking that %s can connect to %s", srcPod, dst))
+				By("Checking that %q can connect to %q", srcPod, dst)
 				res := kubectl.ExecPodCmd(
 					helpers.DefaultNamespace, srcPod, fmt.Sprintf("%s %s", wgetCommand, dst))
 				res.ExpectSuccess("Unable to connect from %q to %q: %s", srcPod, dst, res.CombineOutput())
@@ -392,7 +392,7 @@ var _ = Describe("K8sValidatedServicesTest", func() {
 
 			// shouldNotConnect asserts that srcPod cannot connect to dst.
 			shouldNotConnect := func(srcPod, dst string) {
-				By(fmt.Sprintf("Checking that %s cannot connect to %s", srcPod, dst))
+				By("Checking that %q cannot connect to %q", srcPod, dst)
 				res := kubectl.ExecPodCmd(
 					helpers.DefaultNamespace, srcPod, fmt.Sprintf("%s %s", wgetCommand, dst))
 				res.ExpectFail("Was able to connect from %q to %q, but expected no connection: %s", srcPod, dst, res.CombineOutput())

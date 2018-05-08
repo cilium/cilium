@@ -74,8 +74,8 @@ var _ = Describe("RuntimeValidatedChaos", func() {
 		Expect(originalIps.Output().String()).To(Equal(ips.Output().String()))
 
 		EndpointList := vm.Exec(endpointListCmd)
-		By(fmt.Sprintf("original: %s", originalEndpointList.Output().String()))
-		By(fmt.Sprintf("new: %s", EndpointList.Output().String()))
+		By("original: %s", originalEndpointList.Output().String())
+		By("new: %s", EndpointList.Output().String())
 		Expect(EndpointList.Output().String()).To(Equal(originalEndpointList.Output().String()))
 		Expect(hasher.Sum(EndpointList.Output().Bytes())).To(
 			Equal(hasher.Sum(originalEndpointList.Output().Bytes())))

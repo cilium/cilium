@@ -22,8 +22,8 @@ import (
 	"strings"
 
 	"github.com/cilium/cilium/test/config"
+	ginkgo "github.com/cilium/cilium/test/ginkgo-ext"
 
-	"github.com/onsi/ginkgo"
 	"github.com/sirupsen/logrus"
 )
 

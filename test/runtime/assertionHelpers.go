@@ -15,8 +15,6 @@
 package RuntimeTest
 
 import (
-	"fmt"
-
 	. "github.com/cilium/cilium/test/ginkgo-ext"
 	"github.com/cilium/cilium/test/helpers"
 
@@ -28,7 +26,7 @@ import (
 // be in 'ready' state. It asserts whether the configuration update was successful,
 // and if the endpoints are ready.
 func ExpectPolicyEnforcementUpdated(vm *helpers.SSHMeta, policyEnforcementType string) {
-	By(fmt.Sprintf("Setting PolicyEnforcement=%s", policyEnforcementType))
+	By("Setting PolicyEnforcement=%s", policyEnforcementType)
 	areEndpointsReady := vm.SetPolicyEnforcementAndWait(policyEnforcementType)
 	ExpectWithOffset(1, areEndpointsReady).Should(BeTrue(), "unable to set PolicyEnforcement=%s", policyEnforcementType)
 }

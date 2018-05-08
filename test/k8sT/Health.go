@@ -82,13 +82,13 @@ var _ = Describe(testName, func() {
 		cilium1, cilium1IP := getCilium(helpers.K8s1)
 		cilium2, cilium2IP := getCilium(helpers.K8s2)
 
-		By(fmt.Sprintf("checking that cilium API exposes health instances"))
+		By("checking that cilium API exposes health instances")
 		checkIP(cilium1, cilium1IP)
 		checkIP(cilium1, cilium2IP)
 		checkIP(cilium2, cilium1IP)
 		checkIP(cilium2, cilium2IP)
 
-		By(fmt.Sprintf("checking that `cilium-health --probe` succeeds"))
+		By("checking that `cilium-health --probe` succeeds")
 		healthCmd := fmt.Sprintf("cilium-health status --probe -o json")
 		status := kubectl.CiliumExec(cilium1, healthCmd)
 		Expect(status.Output()).ShouldNot(ContainSubstring("error"))
@@ -103,7 +103,7 @@ var _ = Describe(testName, func() {
 		for node := 0; node <= 1; node++ {
 			for _, path := range apiPaths {
 				jqArg := fmt.Sprintf(".nodes[%d].%s.status", node, path)
-				By(fmt.Sprintf("checking API response for '%s'", jqArg))
+				By("checking API response for '%s'", jqArg)
 				healthCmd := fmt.Sprintf("cilium-health status -o json | jq '%s'", jqArg)
 				status := kubectl.CiliumExec(cilium1, healthCmd)
 				Expect(status.Output().String()).Should(ContainSubstring("null"))

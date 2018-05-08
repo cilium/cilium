@@ -338,7 +338,7 @@ var _ = Describe("K8sValidatedPolicyTest", func() {
 				err = helpers.WaitUntilEndpointUpdates(ciliumPod, eps, 4, kubectl)
 				Expect(err).Should(BeNil(), "Endpoints timeout on namespaces %q", helpers.DefaultNamespace)
 
-				By(fmt.Sprintf("Testing %s namespace", namespace))
+				By("Testing %q namespace", namespace)
 				clusterIPSecondNs, _, err := kubectl.GetServiceHostPort(namespace, app1Service)
 				Expect(err).To(BeNil(), "Cannot get service on %q namespace", namespace)
 				appPodsSecondNS := helpers.GetAppPods(apps, namespace, kubectl, "id")
@@ -903,7 +903,7 @@ var _ = Describe("K8sValidatedPolicyTestAcrossNamespaces", func() {
 	})
 
 	checkCiliumPoliciesDeleted := func(ciliumPod, policyCmd string) {
-		By(fmt.Sprintf("Checking that all policies were deleted in Cilium pod %s", ciliumPod))
+		By("Checking that all policies were deleted in Cilium pod %q", ciliumPod)
 		ExpectWithOffset(1, kubectl.CiliumIsPolicyLoaded(ciliumPod, policyCmd)).To(BeFalse(),
 			"policies should be deleted from Cilium: policies found: %s", policyCmd)
 	}
@@ -923,17 +923,17 @@ var _ = Describe("K8sValidatedPolicyTestAcrossNamespaces", func() {
 		}
 
 		testConnectivity := func(frontendPod, backendIP string) {
-			By(fmt.Sprintf("Testing connectivity from %s to %s", frontendPod, backendIP))
+			By("Testing connectivity from %q to %q", frontendPod, backendIP)
 
 			kubectl.Exec("netstat -ltn") // To keep the info in the log
 
-			By(fmt.Sprintf("running curl %s:80 from pod %s (should work)", backendIP, frontendPod))
+			By("running curl '%s:80' from pod %q (should work)", backendIP, frontendPod)
 
 			res := kubectl.ExecPodCmd(
 				qaNs, frontendPod, helpers.CurlFail("http://%s:80", backendIP))
 			res.ExpectSuccess("Unable to connect between front and backend:80/")
 
-			By(fmt.Sprintf("running curl %s:80/health from pod %s (shouldn't work)", backendIP, frontendPod))
+			By("running curl '%s:80/health' from pod %s (shouldn't work)", backendIP, frontendPod)
 
 			res = kubectl.ExecPodCmd(
 				qaNs, frontendPod, helpers.CurlWithHTTPCode("http://%s:80/health", backendIP))
@@ -962,7 +962,7 @@ var _ = Describe("K8sValidatedPolicyTestAcrossNamespaces", func() {
 
 		By("Running tests WITHOUT Policy / Proxy loaded")
 
-		By(fmt.Sprintf("running curl %s:80 from pod %s (should work)", backendSvcIP, frontendPod))
+		By("running curl '%s:80' from pod %q (should work)", backendSvcIP, frontendPod)
 		res := kubectl.ExecPodCmd(
 			qaNs, frontendPod.String(),
 			helpers.CurlFail("http://%s:80/", backendSvcIP))
@@ -1042,7 +1042,7 @@ func createServerPodAndService(k *helpers.Kubectl, namespace, podName string, po
 		})
 	}
 
-	By(fmt.Sprintf("Creating a server pod %s in namespace %s", podName, namespace))
+	By("Creating a server pod %q in namespace %q", podName, namespace)
 	pod, err := k.CoreV1().Pods(namespace).Create(&v1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: podName,
@@ -1058,7 +1058,7 @@ func createServerPodAndService(k *helpers.Kubectl, namespace, podName string, po
 	ExpectWithOffset(1, err).NotTo(HaveOccurred(), "Unable to create pod %s/%s", namespace, podName)
 
 	svcName := fmt.Sprintf("svc-%s", podName)
-	By(fmt.Sprintf("Creating a service %s for pod %s in namespace %s", svcName, podName, namespace))
+	By("Creating a service %q for pod %q in namespace %q", svcName, podName, namespace)
 	svc, err := k.CoreV1().Services(namespace).Create(&v1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: svcName,
@@ -1076,11 +1076,11 @@ func createServerPodAndService(k *helpers.Kubectl, namespace, podName string, po
 }
 
 func cleanupServerPodAndService(k *helpers.Kubectl, pod *v1.Pod, service *v1.Service) {
-	By(fmt.Sprintf("Cleaning up the server %s/%s", pod.Namespace, pod.Name))
+	By("Cleaning up the server '%s/%s'", pod.Namespace, pod.Name)
 	err := k.CoreV1().Pods(pod.Namespace).Delete(pod.Name, nil)
 	ExpectWithOffset(1, err).To(BeNil(), "Terminating containers are not deleted after timeout")
 
-	By(fmt.Sprintf("Cleaning up the server's service %s/%s", service.Namespace, service.Name))
+	By("Cleaning up the server's service '%s/%s'", service.Namespace, service.Name)
 	err = k.CoreV1().Services(service.Namespace).Delete(service.Name, nil)
 	ExpectWithOffset(1, err).To(BeNil(), "Terminating containers are not deleted after timeout")
 }
@@ -1121,7 +1121,7 @@ func createNetworkClientPod(k *helpers.Kubectl, ns, podName string, targetServic
 func testCanConnect(k *helpers.Kubectl, ns, podName string, service *v1.Service, dPort int, canConnect bool) {
 	pod := createNetworkClientPod(k, ns, podName, service, dPort)
 	defer func() {
-		By(fmt.Sprintf("Cleaning up the pod %s", podName))
+		By("Cleaning up the pod %q", podName)
 		err := k.CoreV1().Pods(ns).Delete(pod.Name, nil)
 		ExpectWithOffset(2, err).NotTo(HaveOccurred(), "Pod %q should have been deleted", pod.Name)
 	}()

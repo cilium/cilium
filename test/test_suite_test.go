@@ -68,6 +68,8 @@ func configLogsOutput() {
 	logrus.SetFormatter(&config.Formatter)
 	log.Formatter = &config.Formatter
 	log.Hooks.Add(&config.LogHook{})
+
+	ginkgoext.GinkgoWriter = NewWriter(log.Out)
 }
 
 func ShowCommands() {
@@ -75,7 +77,7 @@ func ShowCommands() {
 		return
 	}
 
-	helpers.SSHMetaLogs = helpers.NewWriter(os.Stdout)
+	helpers.SSHMetaLogs = ginkgoext.NewWriter(os.Stdout)
 }
 
 func TestTest(t *testing.T) {
@@ -88,9 +90,9 @@ func TestTest(t *testing.T) {
 		RegisterFailHandler(Fail)
 	}
 	junitReporter := reporters.NewJUnitReporter(fmt.Sprintf(
-		"%s.xml", ginkgoext.GetScopeWithVersion()))
+		"%s.xml", helpers.GetScopeWithVersion()))
 	RunSpecsWithDefaultAndCustomReporters(
-		t, ginkgoext.GetScopeWithVersion(), []ginkgo.Reporter{junitReporter})
+		t, helpers.GetScopeWithVersion(), []ginkgo.Reporter{junitReporter})
 }
 
 func goReportVagrantStatus() chan bool {
@@ -147,7 +149,7 @@ var _ = BeforeAll(func() {
 		defer func() { progressChan <- err == nil }()
 	}
 
-	switch ginkgoext.GetScope() {
+	switch helpers.GetScope() {
 	case helpers.Runtime:
 		err = helpers.CreateVM(helpers.Runtime)
 		if err != nil {
@@ -212,7 +214,7 @@ var _ = AfterAll(func() {
 		return
 	}
 
-	scope := ginkgoext.GetScope()
+	scope := helpers.GetScope()
 	log.Infof("cleaning up VMs started for %s tests", scope)
 	switch scope {
 	case helpers.Runtime:

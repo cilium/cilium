@@ -24,6 +24,7 @@ import (
 	"strings"
 
 	"github.com/cilium/cilium/test/config"
+	ginkgoext "github.com/cilium/cilium/test/ginkgo-ext"
 
 	"github.com/sirupsen/logrus"
 	"golang.org/x/crypto/ssh"
@@ -31,7 +32,7 @@ import (
 
 var (
 	//SSHMetaLogs is a buffer where all commands sent over ssh are saved.
-	SSHMetaLogs = NewWriter(new(bytes.Buffer))
+	SSHMetaLogs = ginkgoext.NewWriter(new(bytes.Buffer))
 )
 
 // SSHMeta contains metadata to SSH into a remote location to run tests

@@ -76,7 +76,7 @@ var _ = Describe("K8sValidatedUpdates", func() {
 	})
 
 	validatedImage := func(image string) {
-		By(fmt.Sprintf("Checking that installed image is %q", image))
+		By("Checking that installed image is %q", image)
 
 		filter := `{.items[*].status.containerStatuses[0].image}`
 		data, err := kubectl.GetPods(

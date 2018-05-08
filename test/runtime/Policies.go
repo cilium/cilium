@@ -336,7 +336,7 @@ var _ = Describe("RuntimeValidatedPolicies", func() {
 			} else {
 				resultName = "fail"
 			}
-			By(fmt.Sprintf("Client %q attempting to %s %s", client, commandName, server))
+			By("Client %q attempting to %q %q", client, commandName, server)
 			res := vm.ContainerExec(client, command)
 			ExpectWithOffset(1, res.WasSuccessful()).Should(assertFn(),
 				fmt.Sprintf("%q expects %s %s (%s) to %s", client, commandName, server, dst, resultName))
@@ -582,10 +582,10 @@ var _ = Describe("RuntimeValidatedPolicies", func() {
 		getIpv4PrefixExcept := vm.Exec(fmt.Sprintf(`expr %s : '\([0-9]*\.[0-9]*\.\)'`, ipv4Address)).SingleOut()
 		ipv4PrefixExcept := fmt.Sprintf(`%s0.0/18`, getIpv4PrefixExcept)
 
-		By(fmt.Sprintf("IPV6 Prefix: %s", ipv6Prefix))
-		By(fmt.Sprintf("IPV4 Address Endpoint: %s", ipv4Address))
-		By(fmt.Sprintf("IPV4 Prefix: %s", ipv4Prefix))
-		By(fmt.Sprintf("IPV4 Prefix Except: %s", ipv4PrefixExcept))
+		By("IPV6 Prefix: %q", ipv6Prefix)
+		By("IPV4 Address Endpoint: %q", ipv4Address)
+		By("IPV4 Prefix: %q", ipv4Prefix)
+		By("IPV4 Prefix Except: %q", ipv4PrefixExcept)
 
 		By("Setting PolicyEnforcement to always enforce (default-deny)")
 		ExpectPolicyEnforcementUpdated(vm, helpers.PolicyEnforcementAlways)
@@ -608,7 +608,7 @@ var _ = Describe("RuntimeValidatedPolicies", func() {
 		res := vm.ContainerExec(helpers.Httpd2, helpers.Ping(helpers.IPv4Host))
 		res.ExpectFail("Unexpected success pinging host (%s) from %s", helpers.IPv4Host, helpers.Httpd2)
 
-		By(fmt.Sprintf("Importing L3 CIDR Policy for IPv4 Egress Allowing Egress to %s, %s from %s", ipv4OtherHost, ipv4OtherHost, httpd2Label))
+		By("Importing L3 CIDR Policy for IPv4 Egress Allowing Egress to %q, %q from %q", ipv4OtherHost, ipv4OtherHost, httpd2Label)
 		script := fmt.Sprintf(`
 		[{
 			"endpointSelector": {"matchLabels":{"%s":""}},
@@ -644,7 +644,7 @@ var _ = Describe("RuntimeValidatedPolicies", func() {
 		_, err = vm.PolicyRenderAndImport(script)
 		Expect(err).To(BeNil(), "Unable to import policy: %s", err)
 
-		By(fmt.Sprintf("Pinging host IPv6 from httpd2 (should work because policy allows IPv6 CIDR %s)", helpers.IPv6Host))
+		By("Pinging host IPv6 from httpd2 (should work because policy allows IPv6 CIDR %q)", helpers.IPv6Host)
 		res = vm.ContainerExec(helpers.Httpd2, helpers.Ping6(helpers.IPv6Host))
 		res.ExpectSuccess("Unexpected failure pinging host (%s) from %s", helpers.IPv6Host, helpers.Httpd2)
 		vm.PolicyDelAll().ExpectSuccess("Unable to delete all policies")
@@ -687,7 +687,7 @@ var _ = Describe("RuntimeValidatedPolicies", func() {
 		vm.PolicyDelAll().ExpectSuccess("Unable to delete all policies")
 
 		// Checking combined policy allowing traffic from IPv4 and IPv6 CIDR ranges.
-		By(fmt.Sprintf("Importing Policy Allowing Ingress From %s --> %s And From CIDRs %s, %s", helpers.Httpd2, helpers.Httpd1, ipv4Prefix, ipv6Prefix))
+		By("Importing Policy Allowing Ingress From %q --> %q And From CIDRs %q, %q", helpers.Httpd2, helpers.Httpd1, ipv4Prefix, ipv6Prefix)
 		script = fmt.Sprintf(`
 		[{
 			"endpointSelector": {"matchLabels":{"%[1]s":""}},
@@ -722,18 +722,18 @@ var _ = Describe("RuntimeValidatedPolicies", func() {
 		res = vm.ContainerExec(helpers.Httpd2, helpers.Ping6(httpd1DockerNetworking[helpers.IPv6]))
 		res.ExpectSuccess("Unexpected failure pinging %s (%s) from %s", helpers.Httpd1, httpd1DockerNetworking[helpers.IPv6], helpers.Httpd2)
 
-		By(fmt.Sprintf("Pinging httpd1 IPv4 %q from app3 (shouldn't work because CIDR policies don't apply to endpoint-endpoint communication)", ipv4Prefix))
+		By("Pinging httpd1 IPv4 %q from app3 (shouldn't work because CIDR policies don't apply to endpoint-endpoint communication)", ipv4Prefix)
 		res = vm.ContainerExec(helpers.App3, helpers.Ping(helpers.Httpd1))
 		res.ExpectFail("Unexpected success pinging %s IPv4 from %s", helpers.Httpd1, helpers.App3)
 
-		By(fmt.Sprintf("Pinging httpd1 IPv6 %q from app3 (shouldn't work because CIDR policies don't apply to endpoint-endpoint communication)", ipv6Prefix))
+		By("Pinging httpd1 IPv6 %q from app3 (shouldn't work because CIDR policies don't apply to endpoint-endpoint communication)", ipv6Prefix)
 		res = vm.ContainerExec(helpers.App3, helpers.Ping6(helpers.Httpd1))
 		res.ExpectFail("Unexpected success pinging %s IPv6 from %s", helpers.Httpd1, helpers.App3)
 
 		vm.PolicyDelAll().ExpectSuccess("Unable to delete all policies")
 
 		// Make sure that combined label-based and CIDR-based policy works.
-		By(fmt.Sprintf("Importing Policy Allowing Ingress From %s --> %s And From CIDRs %s", helpers.Httpd2, helpers.Httpd1, ipv4OtherNet))
+		By("Importing Policy Allowing Ingress From %s --> %s And From CIDRs %s", helpers.Httpd2, helpers.Httpd1, ipv4OtherNet)
 		script = fmt.Sprintf(`
 		[{
 			"endpointSelector": {"matchLabels":{"%[1]s":""}},
@@ -758,18 +758,18 @@ var _ = Describe("RuntimeValidatedPolicies", func() {
 		_, err = vm.PolicyRenderAndImport(script)
 		Expect(err).To(BeNil(), "Unable to import policy: %s", err)
 
-		By(fmt.Sprintf("Pinging httpd1 IPv4 from app3 (should NOT work because we only allow traffic from %s to %s)", httpd2Label, httpd1Label))
+		By("Pinging httpd1 IPv4 from app3 (should NOT work because we only allow traffic from %q to %q)", httpd2Label, httpd1Label)
 		res = vm.ContainerExec(helpers.App3, helpers.Ping(helpers.Httpd1))
 		res.ExpectFail("Unexpected success pinging %s IPv4 from %s", helpers.Httpd1, helpers.App3)
 
-		By(fmt.Sprintf("Pinging httpd1 IPv6 from app3 (should NOT work because we only allow traffic from %s to %s)", httpd2Label, httpd1Label))
+		By("Pinging httpd1 IPv6 from app3 (should NOT work because we only allow traffic from %q to %q)", httpd2Label, httpd1Label)
 		res = vm.ContainerExec(helpers.App3, helpers.Ping6(helpers.Httpd1))
 		res.ExpectFail("Unexpected success pinging %s IPv6 from %s", helpers.Httpd1, helpers.App3)
 
 		vm.PolicyDelAll().ExpectSuccess("Unable to delete all policies")
 
 		By("Testing CIDR Exceptions in Cilium Policy")
-		By(fmt.Sprintf("Importing Policy Allowing Ingress From %s --> %s And From CIDRs %s Except %s", helpers.Httpd2, helpers.Httpd1, ipv4Prefix, ipv4PrefixExcept))
+		By("Importing Policy Allowing Ingress From %q --> %q And From CIDRs %q Except %q", helpers.Httpd2, helpers.Httpd1, ipv4Prefix, ipv4PrefixExcept)
 		script = fmt.Sprintf(`
 		[{
 			"endpointSelector": {"matchLabels":{"%s":""}},
@@ -859,7 +859,7 @@ var _ = Describe("RuntimeValidatedPolicies", func() {
 		}
 
 		for _, method := range httpMethods {
-			By(fmt.Sprintf("Testing method %s", method))
+			By("Testing method %q", method)
 			TestMethodPolicy(method)
 		}
 	})
@@ -964,7 +964,7 @@ var _ = Describe("RuntimeValidatedPolicies", func() {
 			Expect(obj).To(HaveLen(1), "Unexpectedly found more than one IPAM config element for docker bridge")
 			otherHostIP = obj[0].Interface().(string)
 			Expect(otherHostIP).Should(MatchRegexp("^[.:0-9a-f][.:0-9a-f]*$"), "docker bridge IP is in unexpected format")
-			By(fmt.Sprintf("Using %q for world CIDR IP", otherHostIP))
+			By("Using %q for world CIDR IP", otherHostIP)
 		})
 
 		AfterAll(func() {
@@ -972,17 +972,17 @@ var _ = Describe("RuntimeValidatedPolicies", func() {
 		})
 
 		BeforeEach(func() {
-			By(fmt.Sprintf("Pinging %q from %q before importing policy (should work)", hostIP, helpers.App1))
+			By("Pinging %q from %q before importing policy (should work)", hostIP, helpers.App1)
 			failedPing := vm.ContainerExec(helpers.App1, helpers.Ping(hostIP))
 			failedPing.ExpectSuccess("unable able to ping %q", hostIP)
 
-			By(fmt.Sprintf("Pinging %q from %q before importing policy (should work)", otherHostIP, helpers.App1))
+			By("Pinging %q from %q before importing policy (should work)", otherHostIP, helpers.App1)
 			failedPing = vm.ContainerExec(helpers.App1, helpers.Ping(otherHostIP))
 			failedPing.ExpectSuccess("unable able to ping %q", otherHostIP)
 
 			// Flush global conntrack table to be safe because egress conntrack cleanup
 			// is still to be completed (GH-3393).
-			By(fmt.Sprintf("Flushing global connection tracking table before importing policy"))
+			By("Flushing global connection tracking table before importing policy")
 			vm.FlushGlobalConntrackTable().ExpectSuccess("Unable to flush global conntrack table")
 		})
 
@@ -991,7 +991,7 @@ var _ = Describe("RuntimeValidatedPolicies", func() {
 		})
 
 		It("Tests Egress To Host", func() {
-			By(fmt.Sprintf("Importing policy which allows egress to %s entity from %s", api.EntityHost, helpers.App1))
+			By("Importing policy which allows egress to %q entity from %q", api.EntityHost, helpers.App1)
 			policy := fmt.Sprintf(`
 			[{
 				"endpointSelector": {"matchLabels":{"id.%s":""}},
@@ -1005,24 +1005,24 @@ var _ = Describe("RuntimeValidatedPolicies", func() {
 			_, err := vm.PolicyRenderAndImport(policy)
 			Expect(err).To(BeNil(), "Unable to import policy: %s", err)
 
-			By(fmt.Sprintf("Pinging %s from %s (should work)", api.EntityHost, helpers.App1))
+			By("Pinging %s from %s (should work)", api.EntityHost, helpers.App1)
 			successPing := vm.ContainerExec(helpers.App1, helpers.Ping(hostIP))
 			successPing.ExpectSuccess("not able to ping %s", hostIP)
 
 			// Docker container running with host networking is accessible via
 			// the host's IP address. See https://docs.docker.com/network/host/.
-			By(fmt.Sprintf("Accessing /public using Docker container using host networking from %s (should work)", helpers.App1))
+			By("Accessing /public using Docker container using host networking from %q (should work)", helpers.App1)
 			successCurl := vm.ContainerExec(helpers.App1, helpers.CurlWithHTTPCode("http://%s/public", hostIP))
 			successCurl.ExpectContains("200", "Expected to be able to access /public in host Docker container")
 
-			By(fmt.Sprintf("Pinging %s from %s (shouldn't work)", helpers.App2, helpers.App1))
+			By("Pinging %s from %s (shouldn't work)", helpers.App2, helpers.App1)
 			failPing := vm.ContainerExec(helpers.App1, helpers.Ping(helpers.App2))
 			failPing.ExpectFail("not able to ping %s", helpers.App2)
 
 			httpd2, err := vm.ContainerInspectNet(helpers.Httpd2)
-			Expect(err).Should(BeNil(), fmt.Sprintf("Unable to get networking information for container %s", helpers.Httpd2))
+			Expect(err).Should(BeNil(), "Unable to get networking information for container %q", helpers.Httpd2)
 
-			By(fmt.Sprintf("Accessing /public in %s from %s (shouldn't work)", helpers.App2, helpers.App1))
+			By("Accessing /public in %q from %q (shouldn't work)", helpers.App2, helpers.App1)
 			failCurl := vm.ContainerExec(helpers.App1, helpers.CurlFail("http://%s/public", httpd2[helpers.IPv4]))
 			failCurl.ExpectFail("unexpectedly able to access %s when access should only be allowed to host", helpers.Httpd2)
 		})
@@ -1036,29 +1036,29 @@ var _ = Describe("RuntimeValidatedPolicies", func() {
 			_, err := vm.PolicyRenderAndImport(policy)
 			ExpectWithOffset(1, err).To(BeNil(), "Unable to import policy")
 
-			By(fmt.Sprintf("Pinging %q from %q (should not work)", api.EntityHost, helpers.App1))
+			By("Pinging %q from %q (should not work)", api.EntityHost, helpers.App1)
 			res := vm.ContainerExec(helpers.App1, helpers.Ping(dstIP))
 			ExpectWithOffset(1, res).ShouldNot(helpers.CMDSuccess(),
 				"expected ping to %q to fail", dstIP)
 
 			// Docker container running with host networking is accessible via
 			// the docker bridge's IP address. See https://docs.docker.com/network/host/.
-			By(fmt.Sprintf("Accessing index.html using Docker container using host networking from %q (should work)", helpers.App1))
+			By("Accessing index.html using Docker container using host networking from %q (should work)", helpers.App1)
 			res = vm.ContainerExec(helpers.App1, helpers.CurlWithHTTPCode("%s://%s/index.html", proto, dstIP))
 			ExpectWithOffset(1, res.Output().String()).To(ContainSubstring("200"),
 				"Expected to be able to access /public in host Docker container")
 
-			By(fmt.Sprintf("Accessing %q on wrong port from %q should fail", dstIP, helpers.App1))
+			By("Accessing %q on wrong port from %q should fail", dstIP, helpers.App1)
 			res = vm.ContainerExec(helpers.App1, helpers.CurlWithHTTPCode("http://%s:8080/public", dstIP))
 			ExpectWithOffset(1, res).ShouldNot(helpers.CMDSuccess(),
 				"unexpectedly able to access %q when access should only be allowed to CIDR", dstIP)
 
-			By(fmt.Sprintf("Accessing port 80 on wrong destination from %q should fail", helpers.App1))
+			By("Accessing port 80 on wrong destination from %q should fail", helpers.App1)
 			res = vm.ContainerExec(helpers.App1, helpers.CurlWithHTTPCode("%s://%s/public", proto, hostIP))
 			ExpectWithOffset(1, res).ShouldNot(helpers.CMDSuccess(),
 				"unexpectedly able to access %q when access should only be allowed to CIDR", hostIP)
 
-			By(fmt.Sprintf("Pinging %q from %q (shouldn't work)", helpers.App2, helpers.App1))
+			By("Pinging %q from %q (shouldn't work)", helpers.App2, helpers.App1)
 			res = vm.ContainerExec(helpers.App1, helpers.Ping(helpers.App2))
 			ExpectWithOffset(1, res).ShouldNot(helpers.CMDSuccess(),
 				"expected ping to %q to fail", helpers.App2)
@@ -1067,14 +1067,14 @@ var _ = Describe("RuntimeValidatedPolicies", func() {
 			ExpectWithOffset(1, err).Should(BeNil(),
 				"Unable to get networking information for container %q", helpers.Httpd2)
 
-			By(fmt.Sprintf("Accessing /index.html in %q from %q (shouldn't work)", helpers.App2, helpers.App1))
+			By("Accessing /index.html in %q from %q (shouldn't work)", helpers.App2, helpers.App1)
 			res = vm.ContainerExec(helpers.App1, helpers.CurlFail("%s://%s/index.html", proto, httpd2[helpers.IPv4]))
 			ExpectWithOffset(1, res).ShouldNot(helpers.CMDSuccess(),
 				"unexpectedly able to access %q when access should only be allowed to CIDR", helpers.Httpd2)
 		}
 
 		It("Tests egress with CIDR+L4 policy", func() {
-			By(fmt.Sprintf("Importing policy which allows egress to %q from %q", otherHostIP, helpers.App1))
+			By("Importing policy which allows egress to %q from %q", otherHostIP, helpers.App1)
 			policy := fmt.Sprintf(`
 			[{
 				"endpointSelector": {"matchLabels":{"id.%s":""}},
@@ -1094,7 +1094,7 @@ var _ = Describe("RuntimeValidatedPolicies", func() {
 		It("Tests egress with CIDR+L4 policy to external https service", func() {
 			cloudFlare := "1.1.1.1"
 
-			By(fmt.Sprintf("Importing policy which allows egress to %q from %q", otherHostIP, helpers.App1))
+			By("Importing policy which allows egress to %q from %q", otherHostIP, helpers.App1)
 			policy := fmt.Sprintf(`
 			[{
 				"endpointSelector": {"matchLabels":{"id.%s":""}},
@@ -1112,7 +1112,7 @@ var _ = Describe("RuntimeValidatedPolicies", func() {
 		})
 
 		It("Tests egress with CIDR+L7 policy", func() {
-			By(fmt.Sprintf("Importing policy which allows egress to %q from %q", otherHostIP, helpers.App1))
+			By("Importing policy which allows egress to %q from %q", otherHostIP, helpers.App1)
 			policy := fmt.Sprintf(`
 			[{
 				"endpointSelector": {"matchLabels":{"id.%s":""}},
@@ -1134,7 +1134,7 @@ var _ = Describe("RuntimeValidatedPolicies", func() {
 
 			testCIDRL4Policy(policy, otherHostIP, "http")
 
-			By(fmt.Sprintf("Accessing /private on %q from %q should fail", otherHostIP, helpers.App1))
+			By("Accessing /private on %q from %q should fail", otherHostIP, helpers.App1)
 			res := vm.ContainerExec(helpers.App1, helpers.CurlWithHTTPCode("http://%s/private", otherHostIP))
 			res.ExpectContains("403", "unexpectedly able to access http://%q:80/private when access should only be allowed to /index.html", otherHostIP)
 		})
@@ -1363,7 +1363,7 @@ var _ = Describe("RuntimeValidatedPolicyImportTests", func() {
 		Expect(err).Should(BeNil(), "Unable to get endpoint IDs")
 
 		for _, endpointID := range endpointIDMap {
-			By(fmt.Sprintf("Checking that endpoint policy map exists for endpoint %s", endpointID))
+			By("Checking that endpoint policy map exists for endpoint %s", endpointID)
 			epPolicyMap := fmt.Sprintf("/sys/fs/bpf/tc/globals/cilium_policy_%s", endpointID)
 			vm.Exec(fmt.Sprintf("test -f %s", epPolicyMap)).ExpectSuccess(fmt.Sprintf("Endpoint policy map %s does not exist", epPolicyMap))
 		}
@@ -1398,7 +1398,7 @@ var _ = Describe("RuntimeValidatedPolicyImportTests", func() {
 
 		By("Checking policy trace by labels")
 
-		By(fmt.Sprintf("Importing policy that allows ingress to %s from the host and %s", httpd1Label, httpd2Label))
+		By("Importing policy that allows ingress to %q from the host and %q", httpd1Label, httpd2Label)
 
 		allowHttpd1IngressHostHttpd2 := fmt.Sprintf(`
 			[{
@@ -1414,7 +1414,7 @@ var _ = Describe("RuntimeValidatedPolicyImportTests", func() {
 		_, err := vm.PolicyRenderAndImport(allowHttpd1IngressHostHttpd2)
 		Expect(err).Should(BeNil(), "Error importing policy: %s", err)
 
-		By(fmt.Sprintf("Verifying that trace says that %s can reach %s", httpd2Label, httpd1Label))
+		By("Verifying that trace says that %q can reach %q", httpd2Label, httpd1Label)
 
 		res := vm.Exec(fmt.Sprintf(`cilium policy trace -s %s -d %s`, httpd2Label, httpd1Label))
 		Expect(res.Output().String()).Should(ContainSubstring(allowedVerdict), "Policy trace did not contain %s", allowedVerdict)
@@ -1442,7 +1442,7 @@ var _ = Describe("RuntimeValidatedPolicyImportTests", func() {
 		httpd2SecurityIdentity := httpd2EndpointModel.Status.Identity.ID
 
 		// TODO - remove hardcoding of host identity.
-		By(fmt.Sprintf("Verifying allowed identities for ingress traffic to %s", helpers.Httpd1))
+		By("Verifying allowed identities for ingress traffic to %q", helpers.Httpd1)
 		expectedIngressIdentitiesHttpd1 := []int64{1, httpd2SecurityIdentity}
 
 		actualIngressIdentitiesHttpd1 := httpd1EndpointModel.Status.Policy.Realized.AllowedIngressIdentities
@@ -1492,7 +1492,7 @@ var _ = Describe("RuntimeValidatedPolicyImportTests", func() {
 		httpd1SecurityIdentity = httpd1EndpointModel.Status.Identity.ID
 		httpd2SecurityIdentity = httpd2EndpointModel.Status.Identity.ID
 
-		By(fmt.Sprintf("Verifying allowed identities for ingress traffic to %s", helpers.Httpd1))
+		By("Verifying allowed identities for ingress traffic to %q", helpers.Httpd1)
 		expectedIngressIdentitiesHttpd1 = []int64{httpd2SecurityIdentity}
 		actualIngressIdentitiesHttpd1 = httpd1EndpointModel.Status.Policy.Realized.AllowedIngressIdentities
 		Expect(expectedIngressIdentitiesHttpd1).Should(Equal(actualIngressIdentitiesHttpd1), "Expected allowed identities %v, but instead got %v", expectedIngressIdentitiesHttpd1, actualIngressIdentitiesHttpd1)
