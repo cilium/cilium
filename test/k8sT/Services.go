@@ -425,7 +425,6 @@ var _ = Describe("K8sValidatedServicesTest", func() {
 		shouldConnect(reviewsPodV1.String(), formatAPI(ratings, apiPort, ratingsPath))
 
 		shouldConnect(productpagePodV1.String(), formatAPI(details, apiPort, health))
-		shouldConnect(productpagePodV1.String(), formatAPI(details, apiPort, ""))
 		shouldConnect(productpagePodV1.String(), formatAPI(ratings, apiPort, health))
 		shouldConnect(productpagePodV1.String(), formatAPI(ratings, apiPort, ratingsPath))
 
@@ -460,7 +459,6 @@ var _ = Describe("K8sValidatedServicesTest", func() {
 		shouldNotConnect(reviewsPodV1.String(), formatAPI(ratings, apiPort, ratingsPath))
 
 		shouldConnect(productpagePodV1.String(), formatAPI(details, apiPort, health))
-		shouldConnect(productpagePodV1.String(), formatAPI(details, apiPort, ""))
 
 		shouldNotConnect(productpagePodV1.String(), formatAPI(ratings, apiPort, health))
 		shouldNotConnect(productpagePodV1.String(), formatAPI(ratings, apiPort, ratingsPath))
