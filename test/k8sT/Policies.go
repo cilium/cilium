@@ -794,15 +794,6 @@ var _ = Describe("K8sValidatedPolicyTestAcrossNamespaces", func() {
 		ciliumPods, err := kubectl.GetCiliumPods(helpers.KubeSystemNamespace)
 		Expect(err).To(BeNil(), "cannot get cilium pods")
 
-		// Set debug mode to false for both cilium pods.
-		for _, ciliumPod := range ciliumPods {
-			res := kubectl.ExecPodCmd(
-				helpers.KubeSystemNamespace, ciliumPod, "cilium config Debug=false")
-			res.ExpectSuccess(
-				"error disabling debug mode for cilium pod %s: %s",
-				ciliumPod, res.CombineOutput())
-		}
-
 		resources := []string{"1-frontend.json", "2-backend-server.json", "3-backend.json"}
 		for _, resource := range resources {
 			resourcePath := kubectl.ManifestGet(resource)
