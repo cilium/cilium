@@ -512,35 +512,35 @@ To try out the metrics exported by cilium, simply install the example prometheus
 
     .. parsed-literal::
 
-      $ kubectl create -f \ |SCM_WEB|\/examples/kubernetes/plugins/prometheus/prometheus.yaml
+      $ kubectl create -f \ |SCM_WEB|\/examples/kubernetes/addons/prometheus/prometheus.yaml
       $ kubectl replace --force -f \ |SCM_WEB|\/examples/kubernetes/1.7/cilium.yaml
 
   .. group-tab:: K8s 1.8
 
     .. parsed-literal::
 
-      $ kubectl create -f \ |SCM_WEB|\/examples/kubernetes/plugins/prometheus/prometheus.yaml
+      $ kubectl create -f \ |SCM_WEB|\/examples/kubernetes/addons/prometheus/prometheus.yaml
       $ kubectl replace --force -f \ |SCM_WEB|\/examples/kubernetes/1.8/cilium.yaml
 
   .. group-tab:: K8s 1.9
 
     .. parsed-literal::
 
-      $ kubectl create -f \ |SCM_WEB|\/examples/kubernetes/plugins/prometheus/prometheus.yaml
+      $ kubectl create -f \ |SCM_WEB|\/examples/kubernetes/addons/prometheus/prometheus.yaml
       $ kubectl replace --force -f \ |SCM_WEB|\/examples/kubernetes/1.9/cilium.yaml
 
   .. group-tab:: K8s 1.10
 
     .. parsed-literal::
 
-      $ kubectl create -f \ |SCM_WEB|\/examples/kubernetes/plugins/prometheus/prometheus.yaml
+      $ kubectl create -f \ |SCM_WEB|\/examples/kubernetes/addons/prometheus/prometheus.yaml
       $ kubectl replace --force -f \ |SCM_WEB|\/examples/kubernetes/1.10/cilium.yaml
 
   .. group-tab:: K8s 1.11
 
     .. parsed-literal::
 
-      $ kubectl create -f \ |SCM_WEB|\/examples/kubernetes/plugins/prometheus/prometheus.yaml
+      $ kubectl create -f \ |SCM_WEB|\/examples/kubernetes/addons/prometheus/prometheus.yaml
       $ kubectl replace --force -f \ |SCM_WEB|\/examples/kubernetes/1.11/cilium.yaml
 
 
