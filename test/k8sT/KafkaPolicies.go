@@ -136,6 +136,8 @@ var _ = Describe("K8sValidatedKafkaPolicyTest", func() {
 			helpers.DefaultNamespace, appPods[outpostApp], fmt.Sprintf(prodOutAnnounce))
 		Expect(err).Should(BeNil(), "Failed to produce to outpost on topic empire-announce")
 
+		By("Getting policy revision number for each endpoint")
+
 		By("Apply L7 kafka policy and wait")
 
 		_, err = kubectl.CiliumPolicyAction(
@@ -145,7 +147,7 @@ var _ = Describe("K8sValidatedKafkaPolicyTest", func() {
 
 		By("validate that the pods have the correct policy")
 
-		policyStatus := map[string]models.EndpointPolicyEnabled{
+		desiredPolicyStatus := map[string]models.EndpointPolicyEnabled{
 			backupApp:   models.EndpointPolicyEnabledNone,
 			empireHqApp: models.EndpointPolicyEnabledNone,
 			kafkaApp:    models.EndpointPolicyEnabledIngress,
@@ -153,7 +155,7 @@ var _ = Describe("K8sValidatedKafkaPolicyTest", func() {
 			zookApp:     models.EndpointPolicyEnabledNone,
 		}
 
-		for app, policy := range policyStatus {
+		for app, policy := range desiredPolicyStatus {
 			cep := kubectl.CepGet(helpers.DefaultNamespace, appPods[app])
 			Expect(cep).ToNot(BeNil(), "cannot get cep for app %q and pod %s", app, appPods[app])
 			Expect(cep.Status.Policy.Spec.PolicyEnabled).To(Equal(policy), "Policy for %q mismatch", app)
