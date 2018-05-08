@@ -138,6 +138,10 @@ var _ = Describe("K8sValidatedKafkaPolicyTest", func() {
 
 		By("Getting policy revision number for each endpoint")
 
+		cep := kubectl.CepGet(helpers.DefaultNamespace, appPods[kafkaApp])
+		Expect(cep).ToNot(BeNil(), "cannot get cep for app %q and pod %s", kafkaApp, appPods[kafkaApp])
+		kafkaRevBeforeUpdate := cep.Status.Policy.Realized.PolicyRevision
+
 		By("Apply L7 kafka policy and wait")
 
 		_, err = kubectl.CiliumPolicyAction(
@@ -146,6 +150,8 @@ var _ = Describe("K8sValidatedKafkaPolicyTest", func() {
 		Expect(err).To(BeNil(), "L7 policy cannot be imported correctly")
 
 		By("validate that the pods have the correct policy")
+
+		err = kubectl.WaitCEPRevisionIncrease(appPods[kafkaApp], helpers.DefaultNamespace, kafkaRevBeforeUpdate)
 
 		desiredPolicyStatus := map[string]models.EndpointPolicyEnabled{
 			backupApp:   models.EndpointPolicyEnabledNone,

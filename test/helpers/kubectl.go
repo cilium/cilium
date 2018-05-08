@@ -1324,3 +1324,22 @@ func (epMap *EndpointMap) AreReady() bool {
 	}
 	return true
 }
+
+// WaitCEPRevisionIncrease waits for the policy revision number for pod with name
+// podName in namespace podNamespace to increase past oldRev. Returns an error
+// if the revision number does not increase after a specified timeout.
+func (kub *Kubectl) WaitCEPRevisionIncrease(podName, podNamespace string, oldRev int64) error {
+
+	body := func() bool {
+		cep := kub.CepGet(podNamespace, podName)
+
+		if cep.Status.Policy.Realized.PolicyRevision <= oldRev {
+			log.Debugf("CEP revision has not updated: waiting for revision to be greater than %d", oldRev)
+			return false
+		}
+		return true
+	}
+
+	return WithTimeout(body, "CEP revision did not increase after specified timeout", &TimeoutConfig{Timeout: HelperTimeout})
+
+}
