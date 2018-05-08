@@ -366,7 +366,7 @@ var _ = Describe("K8sValidatedServicesTest", func() {
 
 		It("Tests bookinfo demo", func() {
 
-			// Various constants used in this test
+			// We use wget in this test because the Istio apps do not provide curl.
 			wgetCommand := fmt.Sprintf("wget --tries=2 --connect-timeout %d", helpers.CurlConnectTimeout)
 
 			version := "version"
@@ -379,6 +379,7 @@ var _ = Describe("K8sValidatedServicesTest", func() {
 			dnsChecks := []string{productPage, reviews, ratings, details}
 			app := "app"
 			health := "health"
+			ratingsPath := "ratings/0"
 
 			apiPort := "9080"
 
@@ -452,12 +453,12 @@ var _ = Describe("K8sValidatedServicesTest", func() {
 			Expect(err).Should(BeNil(), "cannot get productpageV1 pods")
 
 			shouldConnect(reviewsPodV1.String(), formatAPI(ratings, apiPort, health))
-			shouldConnect(reviewsPodV1.String(), formatAPI(ratings, apiPort, ""))
+			shouldConnect(reviewsPodV1.String(), formatAPI(ratings, apiPort, ratingsPath))
 
 			shouldConnect(productpagePodV1.String(), formatAPI(details, apiPort, health))
 			shouldConnect(productpagePodV1.String(), formatAPI(details, apiPort, ""))
 			shouldConnect(productpagePodV1.String(), formatAPI(ratings, apiPort, health))
-			shouldConnect(productpagePodV1.String(), formatAPI(ratings, apiPort, ""))
+			shouldConnect(productpagePodV1.String(), formatAPI(ratings, apiPort, ratingsPath))
 
 			policyCmd := "cilium policy get io.cilium.k8s.policy.name=multi-rules"
 
@@ -478,13 +479,13 @@ var _ = Describe("K8sValidatedServicesTest", func() {
 
 			By("After policy import")
 			shouldConnect(reviewsPodV1.String(), formatAPI(ratings, apiPort, health))
-			shouldNotConnect(reviewsPodV1.String(), formatAPI(ratings, apiPort, ""))
+			shouldNotConnect(reviewsPodV1.String(), formatAPI(ratings, apiPort, ratingsPath))
 
 			shouldConnect(productpagePodV1.String(), formatAPI(details, apiPort, health))
 			shouldConnect(productpagePodV1.String(), formatAPI(details, apiPort, ""))
 
 			shouldNotConnect(productpagePodV1.String(), formatAPI(ratings, apiPort, health))
-			shouldNotConnect(productpagePodV1.String(), formatAPI(ratings, apiPort, ""))
+			shouldNotConnect(productpagePodV1.String(), formatAPI(ratings, apiPort, ratingsPath))
 		})
 	})
 })
