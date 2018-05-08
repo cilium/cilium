@@ -31,6 +31,7 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/annotation"
 	cnpv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	ginkgoext "github.com/cilium/cilium/test/ginkgo-ext"
 
 	"github.com/asaskevich/govalidator"
 	"github.com/onsi/ginkgo"
@@ -971,9 +972,7 @@ func (kub *Kubectl) CiliumReport(namespace string, commands ...string) {
 		kub.logger.WithError(err).Error("cannot retrieve cilium pods on ReportDump")
 		return
 	}
-
-	fmt.Fprintln(ginkgo.GinkgoWriter, "===================== TEST FAILED =====================")
-
+	ginkgoext.GinkgoPrint("===================== TEST FAILED =====================")
 	// Dump a human readable view of pods in the test-output log
 	_ = kub.Exec(fmt.Sprintf("%s get pods -o wide --all-namespaces", KubectlCmd))
 
@@ -987,7 +986,7 @@ func (kub *Kubectl) CiliumReport(namespace string, commands ...string) {
 	kub.DumpCiliumCommandOutput(namespace)
 	kub.GatherLogs()
 	kub.CheckLogsForDeadlock()
-	fmt.Fprintln(ginkgo.GinkgoWriter, "===================== EXITING REPORT GENERATION =====================")
+	ginkgoext.GinkgoPrint("===================== EXITING REPORT GENERATION =====================")
 }
 
 // ValidateNoErrorsOnLogs checks in cilium logs since the given duration (By

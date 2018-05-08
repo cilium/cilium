@@ -108,7 +108,7 @@ var _ = Describe("RuntimeValidatedCLI", func() {
 			reservedIdentities := []string{"health", "cluster", "host", "world"}
 
 			for _, id := range reservedIdentities {
-				By(fmt.Sprintf("checking that reserved identity '%s' is in 'cilium identity list' output", id))
+				By("checking that reserved identity '%s' is in 'cilium identity list' output", id)
 				containsReservedIdentity := strings.Contains(resSingleOut, id)
 				Expect(containsReservedIdentity).To(BeTrue(), "reserved identity '%s' not in 'cilium identity list' output", id)
 			}

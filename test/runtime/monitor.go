@@ -125,7 +125,7 @@ var _ = Describe("RuntimeValidatedMonitorTest", func() {
 			}
 
 			for k, v := range eventTypes {
-				By(fmt.Sprintf("Type %s", k))
+				By("Type %s", k)
 
 				ctx, cancel := context.WithCancel(context.Background())
 				defer cancel()
@@ -310,8 +310,7 @@ var _ = Describe("RuntimeValidatedMonitorTest", func() {
 				if fromID == "" || toID == "" {
 					continue
 				}
-				By(fmt.Sprintf("checking endpoints in monitor line:\n%s",
-					line))
+				By("checking endpoints in monitor line:\n%q", line)
 
 				Expect(toID).Should(Not(Equal(fromID)))
 				Expect(endpoints[toID]).Should(Not(BeNil()))

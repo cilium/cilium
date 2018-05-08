@@ -27,6 +27,7 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	ginkgoext "github.com/cilium/cilium/test/ginkgo-ext"
 
 	"github.com/onsi/ginkgo"
 	"github.com/onsi/gomega"
@@ -599,19 +600,14 @@ func (s *SSHMeta) PolicyWait(revisionNum int) *CmdRes {
 // ReportFailed gathers relevant Cilium runtime data and logs for debugging
 // purposes.
 func (s *SSHMeta) ReportFailed(commands ...string) {
-	wr := s.logger.Logger.Out
 	// Log the following line to both the log file, and to console to delineate
 	// when log gathering begins.
-	fmt.Println("===================== TEST FAILED =====================")
-	fmt.Fprint(wr, "===================== TEST FAILED =====================\n")
-	fmt.Fprint(wr, "Gathering Logs and Cilium CLI Output\n")
-	res := s.ExecCilium("endpoint list")
-	fmt.Fprint(wr, res.Output())
+
+	ginkgoext.GinkgoPrint("===================== TEST FAILED =====================")
+	_ = s.ExecCilium("endpoint list") // save the output in the logs
 
 	for _, cmd := range commands {
-		fmt.Fprintf(wr, "\nOutput of command '%s': \n", cmd)
-		res = s.Exec(fmt.Sprintf("%s", cmd))
-		fmt.Fprint(wr, res.Output())
+		_ = s.Exec(fmt.Sprintf("%s", cmd))
 	}
 
 	s.DumpCiliumCommandOutput()
@@ -620,8 +616,7 @@ func (s *SSHMeta) ReportFailed(commands ...string) {
 	s.CheckLogsForDeadlock()
 	// Log the following line to both the log file, and to console to delineate
 	// when log gathering begins.
-	fmt.Fprint(wr, "===================== EXITING REPORT GENERATION =====================\n")
-	fmt.Println("===================== EXITING REPORT GENERATION =====================")
+	ginkgoext.GinkgoPrint("===================== EXITING REPORT GENERATION =====================")
 }
 
 // ValidateNoErrorsOnLogs checks in cilium logs since the given duration (By

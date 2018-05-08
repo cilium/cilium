@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package helpers
+package ginkgoext
 
 import (
 	"bytes"
@@ -22,7 +22,7 @@ import (
 // A Writer is a struct that has a variable-sized `bytes.Buffer` and one
 // outWriter(`io.writer`) to stream data
 type Writer struct {
-	buffer    *bytes.Buffer
+	Buffer    *bytes.Buffer
 	outWriter io.Writer
 }
 
@@ -30,7 +30,7 @@ type Writer struct {
 // outWriter
 func NewWriter(outWriter io.Writer) *Writer {
 	return &Writer{
-		buffer:    &bytes.Buffer{},
+		Buffer:    &bytes.Buffer{},
 		outWriter: outWriter,
 	}
 }
@@ -39,7 +39,7 @@ func NewWriter(outWriter io.Writer) *Writer {
 // buffer as needed. The return value n is the length of p; err is always nil.
 // If the buffer becomes too large, Write will panic with ErrTooLarge.
 func (w *Writer) Write(b []byte) (n int, err error) {
-	n, err = w.buffer.Write(b)
+	n, err = w.Buffer.Write(b)
 	if err != nil {
 		return n, err
 	}
@@ -48,10 +48,10 @@ func (w *Writer) Write(b []byte) (n int, err error) {
 
 // Reset resets the buffer to be empty,
 func (w *Writer) Reset() {
-	w.buffer.Reset()
+	w.Buffer.Reset()
 }
 
 // Bytes returns a slice based on buffer.Bytes()
 func (w *Writer) Bytes() []byte {
-	return w.buffer.Bytes()
+	return w.Buffer.Bytes()
 }

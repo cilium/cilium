@@ -97,16 +97,16 @@ var _ = Describe(demoTestName, func() {
 
 		exhaustPortPath := filepath.Join(deathstarServiceName, "/v1/exhaust-port")
 
-		By(fmt.Sprintf("Getting Cilium Pod on node %s", helpers.K8s2))
+		By("Getting Cilium Pod on node %s", helpers.K8s2)
 		ciliumPod2, err := kubectl.GetCiliumPodOnNode(helpers.KubeSystemNamespace, helpers.K8s2)
 		Expect(err).Should(BeNil(), "unable to get Cilium pod on node %s", helpers.K8s2)
 
 		// Taint the node instead of adding a nodeselector in the file so that we
 		// don't have to customize the YAML for this test.
-		By(fmt.Sprintf("Tainting %s so that all pods run on %s", helpers.K8s1, helpers.K8s2))
+		By("Tainting %s so that all pods run on %s", helpers.K8s1, helpers.K8s2)
 		res := kubectl.Exec(fmt.Sprintf("kubectl taint nodes %s demo=false:NoSchedule", helpers.K8s1))
 		defer func() {
-			By(fmt.Sprintf("Removing taint from %s after test finished", helpers.K8s1))
+			By("Removing taint from %s after test finished", helpers.K8s1)
 			res := kubectl.Exec(fmt.Sprintf("kubectl taint nodes %s demo:NoSchedule-", helpers.K8s1))
 			res.ExpectSuccess("Unable to remove taint from k8s1: %s", res.CombineOutput())
 		}()
@@ -153,7 +153,7 @@ var _ = Describe(demoTestName, func() {
 			helpers.CurlWithHTTPCode("http://%s/v1", deathstarServiceName))
 		res.ExpectContains("200", "unable to curl %s/v1: %s", deathstarServiceName, res.Output())
 
-		By(fmt.Sprintf("Importing L7 Policy which restricts access to %s", exhaustPortPath))
+		By("Importing L7 Policy which restricts access to %q", exhaustPortPath)
 		kubectl.Delete(l4PolicyYAMLLink)
 		res = kubectl.Apply(l7PolicyYAMLLink)
 		res.ExpectSuccess("unable to apply %s: %s", l7PolicyYAMLLink, res.CombineOutput())
@@ -162,12 +162,12 @@ var _ = Describe(demoTestName, func() {
 		arePodsReady = kubectl.CiliumEndpointWait(ciliumPod2)
 		Expect(arePodsReady).To(BeTrue(), "pods running on k8s2 are not ready")
 
-		By(fmt.Sprintf("Showing how alliance cannot access %s without force header in API request after importing L7 Policy", exhaustPortPath))
+		By("Showing how alliance cannot access %q without force header in API request after importing L7 Policy", exhaustPortPath)
 		res = kubectl.ExecPodCmd(helpers.DefaultNamespace, xwingPod,
 			helpers.CurlWithHTTPCode("-X PUT http://%s", exhaustPortPath))
 		res.ExpectContains("403", "able to access %s when policy disallows it; %s", exhaustPortPath, res.Output())
 
-		By(fmt.Sprintf("Showing how alliance can access %s with force header in API request to attack the deathstar", exhaustPortPath))
+		By("Showing how alliance can access %q with force header in API request to attack the deathstar", exhaustPortPath)
 		res = kubectl.ExecPodCmd(helpers.DefaultNamespace, xwingPod,
 			helpers.CurlWithHTTPCode("-X PUT -H 'X-Has-Force: True' http://%s", exhaustPortPath))
 		By("Expecting 503 to be returned when using force header to attack the deathstar")

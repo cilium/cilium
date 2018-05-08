@@ -88,7 +88,6 @@ var _ = Describe("RuntimeValidatedLB", func() {
 	}, 500)
 
 	It("validates basic service management functionality", func() {
-		By("Creating a valid IPv6 service with id 1")
 
 		result := vm.ServiceAdd(1, "[::]:80", []string{"[::1]:90", "[::2]:91"})
 		result.ExpectSuccess("unexpected failure to add service")
@@ -169,7 +168,7 @@ var _ = Describe("RuntimeValidatedLB", func() {
 			httpd2, err := vm.ContainerInspectNet(helpers.Httpd2)
 			Expect(err).Should(BeNil())
 
-			By(fmt.Sprintf("Creating services"))
+			By("Creating services")
 
 			services := map[string][]string{
 				"2.2.2.2:0": {
@@ -250,7 +249,7 @@ var _ = Describe("RuntimeValidatedLB", func() {
 			httpd2, err := vm.ContainerInspectNet(helpers.Httpd2)
 			Expect(err).Should(BeNil())
 
-			By(fmt.Sprintf("Creating services"))
+			By("Creating services")
 
 			services := map[string][]string{
 				"2.2.2.2:80": {

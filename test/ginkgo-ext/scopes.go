@@ -19,6 +19,7 @@ package ginkgoext
 import (
 	"bytes"
 	"flag"
+	"fmt"
 	"os"
 	"reflect"
 	"regexp"
@@ -63,7 +64,6 @@ var (
 	PIt                                   = ginkgo.PIt
 	XIt                                   = ginkgo.XIt
 	Measure                               = ginkgo.Measure
-	By                                    = ginkgo.By
 	JustBeforeEach                        = ginkgo.JustBeforeEach
 	BeforeSuite                           = ginkgo.BeforeSuite
 	AfterSuite                            = ginkgo.AfterSuite
@@ -75,12 +75,12 @@ var (
 	RunSpecs                              = ginkgo.RunSpecs
 	RunSpecsWithCustomReporters           = ginkgo.RunSpecsWithCustomReporters
 	RunSpecsWithDefaultAndCustomReporters = ginkgo.RunSpecsWithDefaultAndCustomReporters
+	GinkgoWriter                          = NewWriter(ginkgo.GinkgoWriter)
 )
 
 type Done ginkgo.Done
 
 func init() {
-
 	// Only use the Ginkgo options and discard all other options
 	args := []string{}
 	for _, arg := range os.Args[1:] {
@@ -95,6 +95,32 @@ func init() {
 
 	config.Flags(commandFlags, "ginkgo", true)
 	commandFlags.Parse(args)
+}
+
+// By allows you to better document large Its.
+//
+// Generally you should try to keep your Its short and to the point.  This is
+// not always possible, however, especially in the context of integration tests
+// that capture a particular workflow.
+//
+// By allows you to document such flows.  By must be called within a runnable
+// node (It, BeforeEach, Measure, etc...)
+// By will simply log the passed in text to the GinkgoWriter.
+func By(message string, optionalValues ...interface{}) {
+	if len(optionalValues) > 0 {
+		message = fmt.Sprintf(message, optionalValues...)
+	}
+	fullmessage := fmt.Sprintf("STEP: %s", message)
+	GinkgoPrint(fullmessage)
+}
+
+// GinkgoPrint send the given message to the test writers to store it.
+func GinkgoPrint(message string, optionalValues ...interface{}) {
+	if len(optionalValues) > 0 {
+		message = fmt.Sprintf(message, optionalValues...)
+	}
+	fmt.Fprintln(GinkgoWriter, message)
+	fmt.Fprintln(ginkgo.GinkgoWriter, message)
 }
 
 // BeforeAll runs the function once before any test in context
