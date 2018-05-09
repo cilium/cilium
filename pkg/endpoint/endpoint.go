@@ -1383,12 +1383,12 @@ func (e *Endpoint) GetBPFKeys() []lxcmap.EndpointKey {
 func (e *Endpoint) GetBPFValue() (*lxcmap.EndpointInfo, error) {
 	mac, err := e.LXCMAC.Uint64()
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("invalid LXC MAC: %v", err)
 	}
 
 	nodeMAC, err := e.NodeMAC.Uint64()
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("invalid node MAC: %v", err)
 	}
 
 	info := &lxcmap.EndpointInfo{
