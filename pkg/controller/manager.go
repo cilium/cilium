@@ -62,14 +62,15 @@ func (m *Manager) UpdateController(name string, params ControllerParams) *Contro
 	}
 
 	if oldCtrl, ok := m.controllers[name]; ok {
-		m.removeController(oldCtrl)
+		m.removeController(oldCtrl, true)
 	}
 
 	ctrl := &Controller{
-		name:   name,
-		params: params,
-		uuid:   uuid.NewUUID().String(),
-		stop:   make(chan struct{}, 0),
+		name:          name,
+		params:        params,
+		uuid:          uuid.NewUUID().String(),
+		stop:          make(chan struct{}, 0),
+		stopForUpdate: make(chan struct{}, 0),
 	}
 
 	m.controllers[ctrl.name] = ctrl
@@ -85,8 +86,8 @@ func (m *Manager) UpdateController(name string, params ControllerParams) *Contro
 	return ctrl
 }
 
-func (m *Manager) removeController(ctrl *Controller) {
-	ctrl.stopController()
+func (m *Manager) removeController(ctrl *Controller, forUpdate bool) {
+	ctrl.stopController(forUpdate)
 	delete(m.controllers, ctrl.name)
 
 	globalStatus.mutex.Lock()
@@ -111,7 +112,7 @@ func (m *Manager) RemoveController(name string) error {
 		return fmt.Errorf("unable to find controller %s", name)
 	}
 
-	m.removeController(oldCtrl)
+	m.removeController(oldCtrl, false)
 
 	return nil
 }
@@ -126,7 +127,7 @@ func (m *Manager) RemoveAll() {
 	}
 
 	for _, ctrl := range m.controllers {
-		m.removeController(ctrl)
+		m.removeController(ctrl, false)
 	}
 }
 
