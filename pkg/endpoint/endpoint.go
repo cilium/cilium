@@ -624,7 +624,7 @@ func NewEndpointWithState(ID uint16, state string) *Endpoint {
 }
 
 // NewEndpointFromChangeModel creates a new endpoint from a request
-func NewEndpointFromChangeModel(base *models.EndpointChangeRequest, l pkgLabels.Labels) (*Endpoint, error) {
+func NewEndpointFromChangeModel(base *models.EndpointChangeRequest) (*Endpoint, error) {
 	if base == nil {
 		return nil, nil
 	}
@@ -640,7 +640,7 @@ func NewEndpointFromChangeModel(base *models.EndpointChangeRequest, l pkgLabels.
 		OpLabels: pkgLabels.OpLabels{
 			Custom:                pkgLabels.Labels{},
 			Disabled:              pkgLabels.Labels{},
-			OrchestrationIdentity: l.DeepCopy(),
+			OrchestrationIdentity: pkgLabels.Labels{},
 			OrchestrationInfo:     pkgLabels.Labels{},
 		},
 		state:  string(base.State),
@@ -1632,8 +1632,9 @@ func (e *Endpoint) HasLabels(l pkgLabels.Labels) bool {
 	return true
 }
 
+// replaceInformationLabels replaces the information labels of the endpoint.
+// Must be called with e.Mutex.Lock().
 func (e *Endpoint) replaceInformationLabels(l pkgLabels.Labels) {
-	e.Mutex.Lock()
 	e.OpLabels.OrchestrationInfo.MarkAllForDeletion()
 
 	for _, v := range l {
@@ -1642,14 +1643,13 @@ func (e *Endpoint) replaceInformationLabels(l pkgLabels.Labels) {
 		}
 	}
 	e.OpLabels.OrchestrationInfo.DeleteMarked()
-	e.Mutex.Unlock()
 }
 
-// replaceIdentityLabels replaces the identity labels of an endpoint. If a net
-// changed occurred, the identityRevision is bumped and return, otherwise 0 is
+// replaceIdentityLabels replaces the identity labels of the endpoint. If a net
+// changed occurred, the identityRevision is bumped and returned, otherwise 0 is
 // returned.
+// Must be called with e.Mutex.Lock().
 func (e *Endpoint) replaceIdentityLabels(l pkgLabels.Labels) int {
-	e.Mutex.Lock()
 	changed := false
 
 	e.OpLabels.OrchestrationIdentity.MarkAllForDeletion()
@@ -1674,8 +1674,6 @@ func (e *Endpoint) replaceIdentityLabels(l pkgLabels.Labels) int {
 		e.identityRevision++
 		rev = e.identityRevision
 	}
-
-	e.Mutex.Unlock()
 
 	return rev
 }
@@ -2080,6 +2078,9 @@ func (e *Endpoint) UpdateProxyStatistics(l7Protocol string, port uint16, ingress
 // APICanModify determines whether API requests from a user are allowed to
 // modify this endpoint.
 func APICanModify(e *Endpoint) error {
+	if e.IsInit() {
+		return nil
+	}
 	if lbls := e.OpLabels.OrchestrationIdentity.FindReserved(); lbls != nil {
 		return fmt.Errorf("Endpoint cannot be modified by API call")
 	}
@@ -2098,8 +2099,21 @@ func (e *Endpoint) getIDandLabels() string {
 	return fmt.Sprintf("%d (%s)", e.ID, labels)
 }
 
-// ModifyIdentityLabels changes the identity relevant labels of an endpoint.
-// labels can be added or deleted. If a net label changed is performed, the
+// SetIdentityLabels resets the identity labels of an endpoint.
+// If a label change is performed, the endpoint will receive a new identity and will be regenerated.
+// Both of these operations will happen in the background.
+func (e *Endpoint) SetIdentityLabels(owner Owner, l pkgLabels.Labels) {
+	e.Mutex.Lock()
+	rev := e.replaceIdentityLabels(l)
+	e.Mutex.Unlock()
+
+	if rev != 0 {
+		e.runLabelsResolver(owner, rev)
+	}
+}
+
+// ModifyIdentityLabels changes the custom and orchestration identity labels of an endpoint.
+// Labels can be added or deleted. If a label change is performed, the
 // endpoint will receive a new identity and will be regenerated. Both of these
 // operations will happen in the background.
 func (e *Endpoint) ModifyIdentityLabels(owner Owner, addLabels, delLabels pkgLabels.Labels) error {
@@ -2107,43 +2121,33 @@ func (e *Endpoint) ModifyIdentityLabels(owner Owner, addLabels, delLabels pkgLab
 
 	newLabels := e.OpLabels.DeepCopy()
 
-	if len(delLabels) > 0 {
-		for k := range delLabels {
-			// The change request is accepted if the label is on
-			// any of the lists. If the label is already disabled,
-			// we will simply ignore that change.
-			if newLabels.OrchestrationIdentity[k] != nil ||
-				newLabels.Custom[k] != nil ||
-				newLabels.Disabled[k] != nil {
-				break
-			}
-
+	for k := range delLabels {
+		// The change request is accepted if the label is on
+		// any of the lists. If the label is already disabled,
+		// we will simply ignore that change.
+		if newLabels.Custom[k] == nil && newLabels.OrchestrationIdentity[k] == nil && newLabels.Disabled[k] == nil {
 			e.Mutex.Unlock()
 			return fmt.Errorf("label %s not found", k)
 		}
-	}
 
-	if len(delLabels) > 0 {
-		for k, v := range delLabels {
-			if newLabels.OrchestrationIdentity[k] != nil {
-				delete(newLabels.OrchestrationIdentity, k)
-				newLabels.Disabled[k] = v
-			}
+		if v := newLabels.OrchestrationIdentity[k]; v != nil {
+			delete(newLabels.OrchestrationIdentity, k)
+			newLabels.Disabled[k] = v
+		}
 
-			if newLabels.Custom[k] != nil {
-				delete(newLabels.Custom, k)
-			}
+		if newLabels.Custom[k] != nil {
+			delete(newLabels.Custom, k)
 		}
 	}
 
-	if len(addLabels) > 0 {
-		for k, v := range addLabels {
-			if newLabels.Disabled[k] != nil {
-				delete(newLabels.Disabled, k)
-				newLabels.OrchestrationIdentity[k] = v
-			} else if newLabels.OrchestrationIdentity[k] == nil {
-				newLabels.Custom[k] = v
-			}
+	for k, v := range addLabels {
+		if newLabels.Disabled[k] != nil { // Restore label.
+			delete(newLabels.Disabled, k)
+			newLabels.OrchestrationIdentity[k] = v
+		} else if newLabels.OrchestrationIdentity[k] != nil { // Replace label's source and value.
+			newLabels.OrchestrationIdentity[k] = v
+		} else {
+			newLabels.Custom[k] = v
 		}
 	}
 
@@ -2152,7 +2156,7 @@ func (e *Endpoint) ModifyIdentityLabels(owner Owner, addLabels, delLabels pkgLab
 	// Mark with StateWaitingForIdentity, it will be set to
 	// StateWaitingToRegenerate after the identity resolution has been
 	// completed
-	e.SetStateLocked(StateWaitingForIdentity, "Triggering identity resolution due to updated security labels")
+	e.SetStateLocked(StateWaitingForIdentity, "Triggering identity resolution due to updated identity labels")
 
 	e.identityRevision++
 	rev := e.identityRevision
@@ -2187,10 +2191,12 @@ func (e *Endpoint) UpdateLabels(owner Owner, identityLabels, infoLabels pkgLabel
 		logfields.InfoLabels:     infoLabels.String(),
 	}).Debug("Refreshing labels of endpoint")
 
+	e.Mutex.Lock()
 	e.replaceInformationLabels(infoLabels)
-
 	// replace identity labels and update the identity if labels have changed
-	if rev := e.replaceIdentityLabels(identityLabels); rev != 0 {
+	rev := e.replaceIdentityLabels(identityLabels)
+	e.Mutex.Unlock()
+	if rev != 0 {
 		e.runLabelsResolver(owner, rev)
 	}
 }
@@ -2255,9 +2261,7 @@ func (e *Endpoint) identityLabelsChanged(owner Owner, myChangeRev int) error {
 		return nil
 	}
 
-	if e.SecurityIdentity != nil &&
-		string(e.SecurityIdentity.Labels.SortedList()) == string(newLabels.SortedList()) {
-
+	if e.SecurityIdentity != nil && e.SecurityIdentity.Labels.Equals(newLabels) {
 		e.Mutex.RUnlock()
 		elog.Debug("Endpoint labels unchanged, skipping resolution of identity")
 		return nil

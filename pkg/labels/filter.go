@@ -219,6 +219,10 @@ func readLabelPrefixCfgFrom(fileName string) (*labelPrefixCfg, error) {
 }
 
 func (cfg *labelPrefixCfg) filterLabels(lbls Labels) (identityLabels, informationLabels Labels) {
+	if lbls == nil {
+		return nil, nil
+	}
+
 	validLabelPrefixesMU.RLock()
 	defer validLabelPrefixesMU.RUnlock()
 

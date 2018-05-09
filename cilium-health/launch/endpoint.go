@@ -171,8 +171,7 @@ func LaunchAsEndpoint(owner endpoint.Owner, hostAddressing *models.NodeAddressin
 	}
 
 	// Create the endpoint
-	lbl := labels.Labels{labels.IDNameHealth: labels.NewLabel(labels.IDNameHealth, "", labels.LabelSourceReserved)}
-	ep, err := endpoint.NewEndpointFromChangeModel(info, lbl)
+	ep, err := endpoint.NewEndpointFromChangeModel(info)
 	if err != nil {
 		log.WithError(err).Fatal("Error while creating cilium-health endpoint")
 	}
@@ -184,9 +183,8 @@ func LaunchAsEndpoint(owner endpoint.Owner, hostAddressing *models.NodeAddressin
 	}
 
 	// Give the endpoint a security identity
-	if errLabelsAdd := ep.ModifyIdentityLabels(owner, lbl, labels.Labels{}); errLabelsAdd != nil {
-		log.WithError(errLabelsAdd).Fatal("Failed to set labels on cilium-health endpoint")
-	}
+	lbls := labels.Labels{labels.IDNameHealth: labels.NewLabel(labels.IDNameHealth, "", labels.LabelSourceReserved)}
+	ep.SetIdentityLabels(owner, lbls)
 
 	// Wait until the cilium-health endpoint is running before setting up routes
 	deadline := time.Now().Add(5 * time.Second)
