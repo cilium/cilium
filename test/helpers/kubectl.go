@@ -1333,7 +1333,7 @@ func (kub *Kubectl) WaitCEPRevisionIncrease(podName, podNamespace string, oldRev
 	body := func() bool {
 		cep := kub.CepGet(podNamespace, podName)
 
-		if cep.Status.Policy.Realized.PolicyRevision <= oldRev {
+		if cep == nil || cep.Status.Policy.Realized.PolicyRevision <= oldRev {
 			log.Debugf("CEP revision has not updated: waiting for revision to be greater than %d", oldRev)
 			return false
 		}
