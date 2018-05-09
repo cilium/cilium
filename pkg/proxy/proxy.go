@@ -45,8 +45,8 @@ const (
 	fieldFd              = "fd"
 	fieldProxyRedirectID = "id"
 
-	// portReleaseDelay is the delay until a port is being released
-	portReleaseDelay = time.Duration(5) * time.Minute
+	// portReuseDelay is the delay until a port is being reused
+	portReuseDelay = 5 * time.Minute
 
 	// redirectCreationAttempts is the number of attempts to create a redirect
 	redirectCreationAttempts = 5
@@ -73,7 +73,7 @@ type Proxy struct {
 
 	// allocatedPorts is a map of all allocated proxy ports pointing
 	// to the redirect rules attached to that port
-	allocatedPorts map[uint16]*Redirect
+	allocatedPorts map[uint16]struct{}
 
 	// redirects is a map of all redirect configurations indexed by
 	// the redirect identifier. Redirects may be implemented by different
@@ -110,7 +110,7 @@ func StartProxySupport(minPort uint16, maxPort uint16, stateDir string,
 		rangeMin:       minPort,
 		rangeMax:       maxPort,
 		redirects:      make(map[string]*Redirect),
-		allocatedPorts: make(map[uint16]*Redirect),
+		allocatedPorts: make(map[uint16]struct{}),
 	}
 }
 
@@ -226,7 +226,7 @@ retryCreatePort:
 			scopedLog.WithField(logfields.Object, logfields.Repr(redir)).
 				Debug("Created new ", l4.L7Parser, " proxy instance")
 
-			p.allocatedPorts[to] = redir
+			p.allocatedPorts[to] = struct{}{}
 			p.redirects[id] = redir
 
 			break retryCreatePort
@@ -263,7 +263,7 @@ func (p *Proxy) RemoveRedirect(id string, wg *completion.WaitGroup) error {
 	// delay the release and reuse of the port number so it is guaranteed
 	// to be safe to listen on the port again
 	go func() {
-		time.Sleep(portReleaseDelay)
+		time.Sleep(portReuseDelay)
 
 		// The cleanup of the proxymap is delayed a bit to ensure that
 		// the datapath has implemented the redirect change and we
