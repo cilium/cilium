@@ -16,6 +16,7 @@ package main
 
 import (
 	"strconv"
+	"time"
 
 	"github.com/cilium/cilium/api/v1/models"
 	apiEndpoint "github.com/cilium/cilium/api/v1/server/restapi/endpoint"
@@ -23,6 +24,7 @@ import (
 	"github.com/cilium/cilium/pkg/comparator"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/endpointmanager"
+	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/ipam"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/option"
@@ -95,6 +97,30 @@ func (ds *DaemonSuite) TestEndpointAddNoLabels(c *C) {
 	ingress, egress = ds.d.EnableEndpointPolicyEnforcement(ep)
 	c.Assert(ingress, Equals, false)
 	c.Assert(egress, Equals, false)
+
+	// Check that the endpoint received the reserved identity for the
+	// reserved:init entities.
+	timeout := time.NewTimer(3 * time.Second)
+	defer timeout.Stop()
+	tick := time.NewTicker(200 * time.Millisecond)
+	defer tick.Stop()
+	var secID *identity.Identity
+Loop:
+	for {
+		select {
+		case <-timeout.C:
+			break Loop
+		case <-tick.C:
+			ep.Mutex.RLock()
+			secID = ep.SecurityIdentity
+			ep.Mutex.RUnlock()
+			if secID != nil {
+				break Loop
+			}
+		}
+	}
+	c.Assert(secID, Not(IsNil))
+	c.Assert(secID.ID, Equals, identity.ReservedIdentityInit)
 }
 
 func (ds *DaemonSuite) TestUpdateSecLabels(c *C) {

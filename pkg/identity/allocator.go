@@ -91,6 +91,18 @@ func InitIdentityAllocator(owner IdentityAllocatorOwner) {
 	})
 }
 
+// IdentityAllocationIsLocal returns true if a call to AllocateIdentity with
+// the given labels would not require accessing the KV store to allocate the
+// identity.
+// Currently, this function returns true only if the labels are those of a
+// reserved identity, i.e. if the slice contains a single reserved
+// "reserved:*" label.
+func IdentityAllocationIsLocal(lbls labels.Labels) bool {
+	// If there is only one label with the "reserved" source and a well-known
+	// key, the well-known identity for it can be allocated locally.
+	return LookupReservedIdentity(lbls) != nil
+}
+
 // AllocateIdentity allocates an identity described by the specified labels. If
 // an identity for the specified set of labels already exist, the identity is
 // re-used and reference counting is performed, otherwise a new identity is
@@ -99,6 +111,17 @@ func AllocateIdentity(lbls labels.Labels) (*Identity, bool, error) {
 	log.WithFields(logrus.Fields{
 		logfields.IdentityLabels: lbls.String(),
 	}).Debug("Resolving identity")
+
+	// If there is only one label with the "reserved" source and a well-known
+	// key, use the well-known identity for that key.
+	if reservedIdentity := LookupReservedIdentity(lbls); reservedIdentity != nil {
+		log.WithFields(logrus.Fields{
+			logfields.Identity:       reservedIdentity.ID,
+			logfields.IdentityLabels: lbls.String(),
+			"isNew":                  false,
+		}).Debug("Resolved reserved identity")
+		return reservedIdentity, false, nil
+	}
 
 	id, isNew, err := identityAllocator.Allocate(globalIdentity{lbls})
 	if err != nil {
@@ -118,6 +141,10 @@ func AllocateIdentity(lbls labels.Labels) (*Identity, bool, error) {
 // identity again. This function may result in kvstore operations.
 // After the last user has released the ID, the returned lastUse value is true.
 func (id *Identity) Release() error {
+	// Ignore reserved identities.
+	if reservedIdentityCache[id.ID] != nil {
+		return nil
+	}
 	return identityAllocator.Release(globalIdentity{id.Labels})
 }
 
