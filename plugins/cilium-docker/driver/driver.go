@@ -315,6 +315,19 @@ func (driver *driver) createEndpoint(w http.ResponseWriter, r *http.Request) {
 		},
 	}
 
+	veth, _, _, err := plugins.SetupVeth(create.EndpointID, 1450, endpoint)
+	if err != nil {
+		sendError(w, "Error while setting up veth pair: "+err.Error(), http.StatusBadRequest)
+		return
+	}
+	defer func() {
+		if err != nil {
+			if err = netlink.LinkDel(veth); err != nil {
+				log.WithError(err).WithField(logfields.Veth, veth.Name).Warn("failed to clean up veth")
+			}
+		}
+	}()
+
 	// FIXME: Translate port mappings to RuleL4 policy elements
 
 	if err = driver.client.EndpointCreate(endpoint); err != nil {
@@ -390,19 +403,6 @@ func (driver *driver) joinEndpoint(w http.ResponseWriter, r *http.Request) {
 		State: models.EndpointStateWaitingForIdentity,
 	}
 
-	veth, _, tmpIfName, err := plugins.SetupVeth(j.EndpointID, 1450, ep)
-	if err != nil {
-		sendError(w, "Error while setting up veth pair: "+err.Error(), http.StatusBadRequest)
-		return
-	}
-	defer func() {
-		if err != nil {
-			if err = netlink.LinkDel(veth); err != nil {
-				log.WithError(err).WithField(logfields.Veth, veth.Name).Warn("failed to clean up veth")
-			}
-		}
-	}()
-
 	if err = driver.client.EndpointPatch(endpointPkg.NewCiliumID(old.ID), ep); err != nil {
 		log.WithError(err).Error("Joining endpoint failed")
 		sendError(w, "Unable to connect endpoint to network: "+err.Error(),
@@ -411,7 +411,7 @@ func (driver *driver) joinEndpoint(w http.ResponseWriter, r *http.Request) {
 
 	res := &api.JoinResponse{
 		InterfaceName: &api.InterfaceName{
-			SrcName:   tmpIfName,
+			SrcName:   plugins.Endpoint2TempIfName(j.EndpointID),
 			DstPrefix: ContainerInterfacePrefix,
 		},
 		StaticRoutes:          driver.routes,
