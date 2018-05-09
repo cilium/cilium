@@ -103,6 +103,8 @@ const (
 	// VERBOSE is the level of verbosity in which the most information possible
 	// about packets is printed out. Currently is not utilized.
 	VERBOSE
+	// JSON is the level of verbosity in which event information is printed out in json format
+	JSON
 )
 
 func init() {
@@ -113,6 +115,7 @@ func init() {
 	monitorCmd.Flags().Var(&toDst, "to", "Filter by destination endpoint id")
 	monitorCmd.Flags().Var(&related, "related-to", "Filter by either source or destination endpoint id")
 	monitorCmd.Flags().BoolVarP(&verboseMonitor, "verbose", "v", false, "Enable verbose output")
+	monitorCmd.Flags().BoolVarP(&jsonOutput, "json", "j", false, "Enable json output. Shadows -v flag")
 }
 
 var (
@@ -122,11 +125,14 @@ var (
 	toDst          = uint16Flags{}
 	related        = uint16Flags{}
 	verboseMonitor = false
+	jsonOutput     = false
 	verbosity      = INFO
 )
 
 func setVerbosity() {
-	if verboseMonitor {
+	if jsonOutput {
+		verbosity = JSON
+	} else if verboseMonitor {
 		verbosity = DEBUG
 	} else {
 		verbosity = INFO
@@ -163,9 +169,12 @@ func dropEvents(prefix string, data []byte) {
 		fmt.Printf("Error while parsing drop notification message: %s\n", err)
 	}
 	if match(monitor.MessageTypeDrop, dn.Source, uint16(dn.DstID)) {
-		if verbosity == INFO {
+		switch verbosity {
+		case INFO:
 			dn.DumpInfo(data)
-		} else {
+		case JSON:
+			dn.DumpJSON(data, prefix)
+		default:
 			fmt.Println(msgSeparator)
 			dn.DumpVerbose(!hex, data, prefix)
 		}
@@ -180,9 +189,12 @@ func traceEvents(prefix string, data []byte) {
 		fmt.Printf("Error while parsing trace notification message: %s\n", err)
 	}
 	if match(monitor.MessageTypeTrace, tn.Source, tn.DstID) {
-		if verbosity == INFO {
+		switch verbosity {
+		case INFO:
 			tn.DumpInfo(data)
-		} else {
+		case JSON:
+			tn.DumpJSON(data, prefix)
+		default:
 			fmt.Println(msgSeparator)
 			tn.DumpVerbose(!hex, data, prefix)
 		}
@@ -197,10 +209,13 @@ func debugEvents(prefix string, data []byte) {
 		fmt.Printf("Error while parsing debug message: %s\n", err)
 	}
 	if match(monitor.MessageTypeDebug, dm.Source, 0) {
-		if verbosity == INFO {
+		switch verbosity {
+		case INFO:
 			dm.DumpInfo(data)
-		} else {
-			dm.Dump(data, prefix)
+		case JSON:
+			dm.DumpJSON(prefix)
+		default:
+			dm.Dump(prefix)
 		}
 	}
 }
@@ -213,9 +228,12 @@ func captureEvents(prefix string, data []byte) {
 		fmt.Printf("Error while parsing debug capture message: %s\n", err)
 	}
 	if match(monitor.MessageTypeCapture, dc.Source, 0) {
-		if verbosity == INFO {
+		switch verbosity {
+		case INFO:
 			dc.DumpInfo(data)
-		} else {
+		case JSON:
+			dc.DumpJSON(data, prefix)
+		default:
 			fmt.Println(msgSeparator)
 			dc.DumpVerbose(!hex, data, prefix)
 		}
@@ -233,7 +251,11 @@ func logRecordEvents(prefix string, data []byte) {
 	}
 
 	if match(monitor.MessageTypeAccessLog, uint16(lr.SourceEndpoint.ID), uint16(lr.DestinationEndpoint.ID)) {
-		lr.DumpInfo()
+		if verbosity == JSON {
+			lr.DumpJSON()
+		} else {
+			lr.DumpInfo()
+		}
 	}
 }
 
@@ -248,7 +270,11 @@ func agentEvents(prefix string, data []byte) {
 	}
 
 	if match(monitor.MessageTypeAgent, 0, 0) {
-		an.DumpInfo()
+		if verbosity == JSON {
+			an.DumpJSON()
+		} else {
+			an.DumpInfo()
+		}
 	}
 }
 

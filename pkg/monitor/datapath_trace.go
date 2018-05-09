@@ -15,6 +15,7 @@
 package monitor
 
 import (
+	"encoding/json"
 	"fmt"
 )
 
@@ -151,5 +152,60 @@ func (n *TraceNotify) DumpVerbose(dissect bool, data []byte, prefix string) {
 
 	if n.CapLen > 0 && len(data) > TraceNotifyLen {
 		Dissect(dissect, data[TraceNotifyLen:])
+	}
+}
+
+func (n *TraceNotify) getJSON(data []byte, cpuPrefix string) (string, error) {
+	v := TraceNotifyToVerbose(n)
+	v.CPUPrefix = cpuPrefix
+	if n.CapLen > 0 && len(data) > TraceNotifyLen {
+		v.Summary = GetDissectSummary(data[TraceNotifyLen:])
+	}
+
+	ret, err := json.Marshal(v)
+	return string(ret), err
+}
+
+// DumpJSON prints notification in json format
+func (n *TraceNotify) DumpJSON(data []byte, cpuPrefix string) {
+	resp, err := n.getJSON(data, cpuPrefix)
+	if err == nil {
+		fmt.Println(resp)
+	}
+}
+
+// TraceNotifyVerbose represents a json notification printed by monitor
+type TraceNotifyVerbose struct {
+	CPUPrefix        string `json:"cpu,omitempty"`
+	Type             string `json:"type,omitempty"`
+	Mark             string `json:"mark,omitempty"`
+	Ifindex          string `json:"ifindex,omitempty"`
+	State            string `json:"state,omitempty"`
+	ObservationPoint string `json:"observationPoint"`
+	TraceSummary     string `json:"traceSummary"`
+
+	Source   uint16 `json:"source"`
+	Bytes    uint32 `json:"bytes"`
+	SrcLabel uint32 `json:"srcLabel"`
+	DstLabel uint32 `json:"dstLabel"`
+	DstID    uint16 `json:"dstID"`
+
+	Summary *DissectSummary `json:"summary,omitempty"`
+}
+
+// TraceNotifyToVerbose creates verbose notification from base TraceNotify
+func TraceNotifyToVerbose(n *TraceNotify) TraceNotifyVerbose {
+	return TraceNotifyVerbose{
+		Type:             "trace",
+		Mark:             fmt.Sprintf("%#x", n.Hash),
+		Ifindex:          ifname(int(n.Ifindex)),
+		State:            connState(n.Reason),
+		ObservationPoint: obsPoint(n.ObsPoint),
+		TraceSummary:     n.traceSummary(),
+		Source:           n.Source,
+		Bytes:            n.OrigLen,
+		SrcLabel:         n.SrcLabel,
+		DstLabel:         n.DstLabel,
+		DstID:            n.DstID,
 	}
 }

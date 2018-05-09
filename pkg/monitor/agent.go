@@ -65,6 +65,15 @@ func (n *AgentNotify) DumpInfo() {
 	fmt.Printf(">> %s: %s\n", resolveAgentType(n.Type), n.Text)
 }
 
+func (n *AgentNotify) getJSON() string {
+	return fmt.Sprintf(`{"type":"agent","subtype":"%s","message":%s}`, resolveAgentType(n.Type), n.Text)
+}
+
+// DumpJSON prints notification in json format
+func (n *AgentNotify) DumpJSON() {
+	fmt.Println(n.getJSON())
+}
+
 // PolicyUpdateNotification structures update notification
 type PolicyUpdateNotification struct {
 	Labels    []string `json:"labels,omitempty"`
