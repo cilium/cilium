@@ -173,7 +173,8 @@ func (s *SSHMeta) WaitEndpointRegenerated(id string) bool {
 
 	epState := endpoint.Status.State
 
-	for ; epState != desiredState && counter < MaxRetries; counter++ {
+	// Consider an endpoint with reserved identity 5 (reserved:init) as not ready.
+	for ; (epState != desiredState || endpoint.Status.Identity.ID == 5) && counter < MaxRetries; counter++ {
 
 		logger.WithFields(logrus.Fields{
 			"endpointState": epState,
@@ -232,7 +233,7 @@ func (s *SSHMeta) WaitEndpointsReady() bool {
 	logger := s.logger.WithFields(logrus.Fields{"functionName": "WaitEndpointsReady"})
 	desiredState := string(models.EndpointStateReady)
 	body := func() bool {
-		filter := `{range [*]}{@.status.external-identifiers.container-name}{"="}{@.status.state}{"\n"}{end}`
+		filter := `{range [*]}{@.status.external-identifiers.container-name}{"="}{@.status.state},{@.status.identity.id}{"\n"}{end}`
 		cmd := fmt.Sprintf(`cilium endpoint list -o jsonpath='%s'`, filter)
 
 		res := s.Exec(cmd)
@@ -245,7 +246,14 @@ func (s *SSHMeta) WaitEndpointsReady() bool {
 
 		result := map[string]int{}
 		for _, status := range values {
-			result[status]++
+			fields := strings.Split(status, ",")
+			state := fields[0]
+			secID := fields[1]
+			// Consider an endpoint with reserved identity 5 (reserved:init) as not ready.
+			if secID == "5" {
+				state = state + "+init"
+			}
+			result[state]++
 		}
 
 		logger.WithField("status", result).Infof(

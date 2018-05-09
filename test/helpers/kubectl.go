@@ -747,14 +747,18 @@ func (kub *Kubectl) CiliumEndpointsListByLabel(pod, label string) (EndpointMap, 
 func (kub *Kubectl) CiliumEndpointWait(pod string) bool {
 
 	body := func() bool {
-		status, err := kub.CiliumEndpointsList(pod).Filter("{[*].status.state}")
+		status, err := kub.CiliumEndpointsList(pod).Filter("{range [*]}{.status.state},{.status.identity.id} {end}")
 		if err != nil {
 			return false
 		}
 
 		var valid, invalid int
-		for _, endpoint := range strings.Split(status.String(), " ") {
-			if endpoint != "ready" {
+		for _, endpoint := range strings.Split(strings.TrimRight(status.String(), " "), " ") {
+			fields := strings.Split(endpoint, ",")
+			state := fields[0]
+			secID := fields[1]
+			// Consider an endpoint with reserved identity 5 (reserved:init) as not ready.
+			if state != "ready" || secID == "5" {
 				invalid++
 			} else {
 				valid++
@@ -1217,6 +1221,10 @@ func (kub *Kubectl) isPodReady(ns, podName string) (bool, error) {
 	case v1.PodFailed, v1.PodSucceeded:
 		return false, errors.New("Pod is not running")
 	case v1.PodRunning:
+		// Consider an endpoint with reserved identity 5 / "init" (reserved:init) as not ready.
+		if pod.Annotations["cilium.io/identity"] == "init" {
+			return false, nil
+		}
 		for _, cond := range pod.Status.Conditions {
 			if cond.Type == v1.PodReady && cond.Status == v1.ConditionTrue {
 				return true, nil
@@ -1292,10 +1300,12 @@ func (epMap *EndpointMap) GetPolicyStatus() map[models.EndpointPolicyEnabled]int
 	return result
 }
 
-// AreReady returns true if all Cilium endpoints are in 'ready' state
+// AreReady returns true if all Cilium endpoints are in 'ready' state and have
+// an identity different from 'reserved:init'.
 func (epMap *EndpointMap) AreReady() bool {
 	for _, ep := range *epMap {
-		if ep.Status.State != models.EndpointStateReady {
+		// Consider an endpoint with reserved identity 5 (reserved:init) as not ready.
+		if ep.Status.State != models.EndpointStateReady || ep.Status.Identity.ID == 5 {
 			return false
 		}
 	}
