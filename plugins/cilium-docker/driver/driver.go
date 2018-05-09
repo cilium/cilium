@@ -306,7 +306,7 @@ func (driver *driver) createEndpoint(w http.ResponseWriter, r *http.Request) {
 
 	endpoint := &models.EndpointChangeRequest{
 		ID:               int64(ip6.EndpointID()),
-		State:            models.EndpointStateCreating,
+		State:            models.EndpointStateWaitingForIdentity,
 		DockerEndpointID: create.EndpointID,
 		DockerNetworkID:  create.NetworkID,
 		Addressing: &models.AddressPair{
@@ -398,16 +398,6 @@ func (driver *driver) joinEndpoint(w http.ResponseWriter, r *http.Request) {
 	}
 
 	log.WithField(logfields.Object, old).Debug("Existing endpoint")
-
-	ep := &models.EndpointChangeRequest{
-		State: models.EndpointStateWaitingForIdentity,
-	}
-
-	if err = driver.client.EndpointPatch(endpointPkg.NewCiliumID(old.ID), ep); err != nil {
-		log.WithError(err).Error("Joining endpoint failed")
-		sendError(w, "Unable to connect endpoint to network: "+err.Error(),
-			http.StatusInternalServerError)
-	}
 
 	res := &api.JoinResponse{
 		InterfaceName: &api.InterfaceName{
