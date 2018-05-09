@@ -130,6 +130,7 @@ type Controller struct {
 	lastErrorStamp    time.Time
 	uuid              string
 	stop              chan struct{}
+	stopForUpdate     chan struct{}
 }
 
 // GetSuccessCount returns the number of successful controller runs
@@ -219,6 +220,8 @@ func (c *Controller) runController() {
 		}
 
 		select {
+		case <-c.stopForUpdate:
+			goto shutdownForUpdate
 		case <-c.stop:
 			goto shutdown
 
@@ -227,8 +230,14 @@ func (c *Controller) runController() {
 
 	}
 
+shutdownForUpdate:
+	c.getLogger().Debug("Shutting down controller for stopForUpdate; skipping stop function")
+	close(c.stop)
+	return
+
 shutdown:
 	c.getLogger().Debug("Shutting down controller")
+	close(c.stopForUpdate)
 
 	if err := c.params.StopFunc(); err != nil {
 		c.recordError(err)
@@ -237,8 +246,12 @@ shutdown:
 	}
 }
 
-func (c *Controller) stopController() {
-	close(c.stop)
+func (c *Controller) stopController(forUpdate bool) {
+	if forUpdate {
+		close(c.stopForUpdate)
+	} else {
+		close(c.stop)
+	}
 }
 
 // logger returns a logrus object with controllerName and UUID fields.
