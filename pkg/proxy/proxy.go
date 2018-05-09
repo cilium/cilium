@@ -119,6 +119,16 @@ var (
 	portRandomizerMutex lock.Mutex
 )
 
+func isPortBindable(port uint16) bool {
+	socket, err := listenSocket(fmt.Sprintf(":%d", port), 0)
+	if err != nil {
+		log.WithError(err).Infof("Skipping port %d already in use", port)
+		return false
+	}
+	socket.Close()
+	return true
+}
+
 func (p *Proxy) allocatePort() (uint16, error) {
 	portRandomizerMutex.Lock()
 	defer portRandomizerMutex.Unlock()
@@ -127,7 +137,9 @@ func (p *Proxy) allocatePort() (uint16, error) {
 		resPort := uint16(r) + p.rangeMin
 
 		if _, ok := p.allocatedPorts[resPort]; !ok {
-			return resPort, nil
+			if isPortBindable(resPort) {
+				return resPort, nil
+			}
 		}
 
 	}
