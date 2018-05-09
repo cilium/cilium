@@ -15,8 +15,6 @@
 package identity
 
 import (
-	"reflect"
-
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/kvstore/allocator"
@@ -75,10 +73,8 @@ func identityWatcher(owner IdentityAllocatorOwner) {
 // This function will first search through the local cache and fall back to
 // querying the kvstore.
 func LookupIdentity(lbls labels.Labels) *Identity {
-	for _, identity := range reservedIdentityCache {
-		if reflect.DeepEqual(identity.Labels, lbls) {
-			return identity
-		}
+	if reservedIdentity := LookupReservedIdentity(lbls); reservedIdentity != nil {
+		return reservedIdentity
 	}
 
 	if identityAllocator == nil {
@@ -95,6 +91,25 @@ func LookupIdentity(lbls labels.Labels) *Identity {
 	}
 
 	return NewIdentity(NumericIdentity(id), lbls)
+}
+
+// LookupReservedIdentity looks up a reserved identity by its labels and
+// returns it if found. Returns nil if not found.
+func LookupReservedIdentity(lbls labels.Labels) *Identity {
+	// If there is only one label with the "reserved" source and a well-known
+	// key, return the well-known identity for that key.
+	if len(lbls) != 1 {
+		return nil
+	}
+	for _, lbl := range lbls {
+		if lbl.Source != labels.LabelSourceReserved {
+			return nil
+		}
+		if id, ok := ReservedIdentities[lbl.Key]; ok {
+			return reservedIdentityCache[id]
+		}
+	}
+	return nil
 }
 
 // LookupIdentityByID returns the identity by ID. This function will first
@@ -122,7 +137,9 @@ func LookupIdentityByID(id NumericIdentity) *Identity {
 
 func init() {
 	for key, val := range ReservedIdentities {
-		identity := NewIdentity(val, labels.Labels{key: labels.NewLabel(val.String(), "", labels.LabelSourceReserved)})
+		identity := NewIdentity(val, labels.Labels{key: labels.NewLabel(key, "", labels.LabelSourceReserved)})
+		// Pre-calculate the SHA256 hash.
+		identity.GetLabelsSHA256()
 		reservedIdentityCache[val] = identity
 	}
 }

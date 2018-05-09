@@ -2104,7 +2104,6 @@ func (e *Endpoint) getIDandLabels() string {
 // operations will happen in the background.
 func (e *Endpoint) ModifyIdentityLabels(owner Owner, addLabels, delLabels pkgLabels.Labels) error {
 	e.Mutex.Lock()
-	defer e.Mutex.Unlock()
 
 	newLabels := e.OpLabels.DeepCopy()
 
@@ -2119,6 +2118,7 @@ func (e *Endpoint) ModifyIdentityLabels(owner Owner, addLabels, delLabels pkgLab
 				break
 			}
 
+			e.Mutex.Unlock()
 			return fmt.Errorf("label %s not found", k)
 		}
 	}
@@ -2156,6 +2156,8 @@ func (e *Endpoint) ModifyIdentityLabels(owner Owner, addLabels, delLabels pkgLab
 
 	e.identityRevision++
 	rev := e.identityRevision
+
+	e.Mutex.Unlock()
 
 	e.runLabelsResolver(owner, rev)
 
@@ -2209,14 +2211,31 @@ func (e *Endpoint) identityResolutionIsObsolete(myChangeRev int) bool {
 	return false
 }
 
+// Must be called with e.Mutex NOT held.
 func (e *Endpoint) runLabelsResolver(owner Owner, myChangeRev int) {
+	e.Mutex.Lock()
+	newLabels := e.OpLabels.IdentityLabels()
+	scopedLog := e.getLogger().WithField(logfields.IdentityLabels, newLabels)
+	e.Mutex.Unlock()
+
+	// If we are certain we can resolve the identity without accessing the KV
+	// store, do it first synchronously right now. This can reduce the number
+	// of regenerations for the endpoint during its initialization.
+	if identityPkg.IdentityAllocationIsLocal(newLabels) {
+		scopedLog.Debug("Endpoint has reserved identity, changing synchronously")
+		err := e.identityLabelsChanged(owner, myChangeRev)
+		if err != nil {
+			scopedLog.WithError(err).Warn("Error changing endpoint identity")
+		}
+	}
+
 	ctrlName := fmt.Sprintf("resolve-identity-%d", e.ID)
 	e.controllers.UpdateController(ctrlName,
 		controller.ControllerParams{
 			DoFunc: func() error {
 				return e.identityLabelsChanged(owner, myChangeRev)
 			},
-			RunInterval: time.Duration(5) * time.Minute,
+			RunInterval: 5 * time.Minute,
 		},
 	)
 }
@@ -2224,7 +2243,7 @@ func (e *Endpoint) runLabelsResolver(owner Owner, myChangeRev int) {
 func (e *Endpoint) identityLabelsChanged(owner Owner, myChangeRev int) error {
 	e.Mutex.RLock()
 	newLabels := e.OpLabels.IdentityLabels()
-	elog := log.WithFields(logrus.Fields{
+	elog := e.getLogger().WithFields(logrus.Fields{
 		logfields.EndpointID:     e.ID,
 		logfields.IdentityLabels: newLabels,
 	})
