@@ -52,15 +52,18 @@ func getEPTemplate(c *C) *models.EndpointChangeRequest {
 	}
 }
 
-func (ds *DaemonSuite) TestEndpointAdd(c *C) {
+func (ds *DaemonSuite) TestEndpointAddReservedLabel(c *C) {
 	epTemplate := getEPTemplate(c)
 	lbls := []string{"reserved:world"}
 	code, err := ds.d.createEndpoint(epTemplate, strconv.FormatInt(epTemplate.ID, 10), lbls)
 	c.Assert(err, Not(IsNil))
 	c.Assert(code, Equals, apiEndpoint.PutEndpointIDInvalidCode)
+}
 
-	lbls = []string{"reserved:foo"}
-	code, err = ds.d.createEndpoint(epTemplate, strconv.FormatInt(epTemplate.ID, 10), lbls)
+func (ds *DaemonSuite) TestEndpointAddInvalidLabel(c *C) {
+	epTemplate := getEPTemplate(c)
+	lbls := []string{"reserved:foo"}
+	code, err := ds.d.createEndpoint(epTemplate, strconv.FormatInt(epTemplate.ID, 10), lbls)
 	c.Assert(err, Not(IsNil))
 	c.Assert(code, Equals, apiEndpoint.PutEndpointIDInvalidCode)
 }
@@ -125,7 +128,7 @@ Loop:
 
 func (ds *DaemonSuite) TestUpdateSecLabels(c *C) {
 	lbls := labels.NewLabelsFromModel([]string{"reserved:world"})
-	code, err := ds.d.updateEndpointLabelsFromAPI("1", lbls, nil)
+	code, err := ds.d.modifyEndpointIdentityLabelsFromAPI("1", lbls, nil)
 	c.Assert(err, Not(IsNil))
 	c.Assert(code, Equals, apiEndpoint.PatchEndpointIDLabelsUpdateFailedCode)
 }
