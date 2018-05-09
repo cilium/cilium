@@ -317,8 +317,10 @@ func (h *patchEndpointID) Handle(params PatchEndpointIDParams) middleware.Respon
 	}
 
 	// If desired state is waiting-for-identity but identity is already
-	// known, bump it to ready state immediately to force re-generation
-	if ep.GetStateLocked() == endpoint.StateWaitingForIdentity && ep.SecurityIdentity != nil {
+	// known and hasn't changed, bump it to ready state immediately to force
+	// re-generation.
+	if ep.GetStateLocked() == endpoint.StateWaitingForIdentity &&
+		ep.SecurityIdentity != nil && ep.SecurityIdentity.Labels.Equals(addLabels) {
 		ep.SetStateLocked(endpoint.StateReady, "Preparing to force endpoint regeneration because identity is known while handling API PATCH")
 		changed = true
 	}

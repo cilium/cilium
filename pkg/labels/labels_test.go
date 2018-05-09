@@ -221,3 +221,27 @@ func (s *LabelsSuite) TestLabelParseKey(c *C) {
 		c.Assert(lbl, comparator.DeepEquals, test.out)
 	}
 }
+
+func (s *LabelsSuite) TestLabelsCompare(c *C) {
+	la11 := NewLabel("a", "1", "src1")
+	la12 := NewLabel("a", "1", "src2")
+	la22 := NewLabel("a", "2", "src2")
+	lb22 := NewLabel("b", "2", "src2")
+
+	lblsAll := Labels{la11.Key: la11, la12.Key: la12, la22.Key: la22, lb22.Key: lb22}
+	lblsFewer := Labels{la11.Key: la11, la12.Key: la12, la22.Key: la22}
+	lblsLa11 := Labels{la11.Key: la11}
+	lblsLa12 := Labels{la12.Key: la12}
+	lblsLa22 := Labels{la22.Key: la22}
+	lblsLb22 := Labels{lb22.Key: lb22}
+
+	c.Assert(lblsAll.Equals(lblsAll), Equals, true)
+	c.Assert(lblsAll.Equals(lblsFewer), Equals, false)
+	c.Assert(lblsFewer.Equals(lblsAll), Equals, false)
+	c.Assert(lblsLa11.Equals(lblsLa12), Equals, false)
+	c.Assert(lblsLa12.Equals(lblsLa11), Equals, false)
+	c.Assert(lblsLa12.Equals(lblsLa22), Equals, false)
+	c.Assert(lblsLa22.Equals(lblsLa12), Equals, false)
+	c.Assert(lblsLa22.Equals(lblsLb22), Equals, false)
+	c.Assert(lblsLb22.Equals(lblsLa22), Equals, false)
+}

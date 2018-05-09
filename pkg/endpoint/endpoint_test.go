@@ -245,7 +245,8 @@ func (s *EndpointSuite) TestEndpointState(c *C) {
 
 	e.state = StateReady
 	c.Assert(e.SetStateLocked(StateCreating, "test"), Equals, false)
-	c.Assert(e.SetStateLocked(StateWaitingForIdentity, "test"), Equals, false)
+	c.Assert(e.SetStateLocked(StateWaitingForIdentity, "test"), Equals, true)
+	e.state = StateReady
 	c.Assert(e.SetStateLocked(StateReady, "test"), Equals, false)
 	c.Assert(e.SetStateLocked(StateWaitingToRegenerate, "test"), Equals, true)
 	e.state = StateReady
@@ -256,7 +257,8 @@ func (s *EndpointSuite) TestEndpointState(c *C) {
 
 	e.state = StateWaitingToRegenerate
 	c.Assert(e.SetStateLocked(StateCreating, "test"), Equals, false)
-	c.Assert(e.SetStateLocked(StateWaitingForIdentity, "test"), Equals, false)
+	c.Assert(e.SetStateLocked(StateWaitingForIdentity, "test"), Equals, true)
+	e.state = StateWaitingToRegenerate
 	c.Assert(e.SetStateLocked(StateReady, "test"), Equals, false)
 	c.Assert(e.SetStateLocked(StateWaitingToRegenerate, "test"), Equals, false)
 	c.Assert(e.SetStateLocked(StateRegenerating, "test"), Equals, false)
@@ -266,7 +268,8 @@ func (s *EndpointSuite) TestEndpointState(c *C) {
 
 	e.state = StateRegenerating
 	c.Assert(e.SetStateLocked(StateCreating, "test"), Equals, false)
-	c.Assert(e.SetStateLocked(StateWaitingForIdentity, "test"), Equals, false)
+	c.Assert(e.SetStateLocked(StateWaitingForIdentity, "test"), Equals, true)
+	e.state = StateRegenerating
 	c.Assert(e.SetStateLocked(StateReady, "test"), Equals, false)
 	c.Assert(e.SetStateLocked(StateWaitingToRegenerate, "test"), Equals, true)
 	e.state = StateRegenerating
