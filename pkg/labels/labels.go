@@ -43,6 +43,10 @@ const (
 
 	// IDNameHealth is the label used for the local cilium-health endpoint
 	IDNameHealth = "health"
+
+	// IDNameInit is the label used to identify any endpoint that has not
+	// received any labels yet.
+	IDNameInit = "init"
 )
 
 // OpLabels represents the the possible types.

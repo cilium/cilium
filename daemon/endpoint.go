@@ -161,17 +161,23 @@ func (d *Daemon) createEndpoint(epTemplate *models.EndpointChangeRequest, id str
 		return PutEndpointIDFailedCode, err
 	}
 
-	if len(addLabels) > 0 {
-		code, errLabelsAdd := d.updateEndpointLabels(id, addLabels, labels.Labels{})
-		if errLabelsAdd != nil {
-			// XXX: Why should the endpoint remain in this case?
-			log.WithFields(logrus.Fields{
-				logfields.EndpointID:              id,
-				logfields.IdentityLabels:          logfields.Repr(addLabels),
-				logfields.IdentityLabels + ".bad": errLabelsAdd,
-			}).Error("Could not add labels while creating an ep due to bad labels")
-			return code, errLabelsAdd
+	// If the endpoint has no labels, give the endpoint a special identity with
+	// label reserved:init so we can generate a custom policy for it until we
+	// get its actual identity.
+	if len(addLabels) == 0 {
+		addLabels = labels.Labels{
+			labels.IDNameInit: labels.NewLabel(labels.IDNameInit, "", labels.LabelSourceReserved),
 		}
+	}
+
+	code, err := d.updateEndpointLabels(id, addLabels, labels.Labels{})
+	if err != nil {
+		// XXX: Why should the endpoint remain in this case?
+		log.WithFields(logrus.Fields{
+			logfields.EndpointID:     id,
+			logfields.IdentityLabels: logfields.Repr(addLabels),
+		}).WithError(err).Error("Could not add labels while creating an ep")
+		return code, err
 	}
 
 	return PutEndpointIDCreatedCode, nil

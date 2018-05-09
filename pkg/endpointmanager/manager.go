@@ -169,6 +169,14 @@ func Remove(ep *endpoint.Endpoint) {
 	}
 }
 
+// RemoveAll removes all endpoints from the global maps.
+func RemoveAll() {
+	mutex.Lock()
+	defer mutex.Unlock()
+	endpoints = map[uint16]*endpoint.Endpoint{}
+	endpointsAux = map[string]*endpoint.Endpoint{}
+}
+
 // lookupCiliumID looks up endpoint by endpoint ID
 func lookupCiliumID(id uint16) *endpoint.Endpoint {
 	if ep, ok := endpoints[id]; ok {

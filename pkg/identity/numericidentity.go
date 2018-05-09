@@ -16,14 +16,11 @@ package identity
 
 import (
 	"strconv"
-	"time"
 
 	"github.com/cilium/cilium/pkg/labels"
 )
 
 const (
-	secLabelTimeout = 120 * time.Second
-
 	// MinimalNumericIdentity represents the minimal numeric identity not
 	// used for reserved purposes.
 	MinimalNumericIdentity = NumericIdentity(256)
@@ -49,6 +46,10 @@ const (
 
 	// ReservedIdentityHealth represents the local cilium-health endpoint
 	ReservedIdentityHealth
+
+	// ReservedIdentityInit is the identity given to endpoints that have not
+	// received any labels yet.
+	ReservedIdentityInit
 )
 
 var (
@@ -57,12 +58,14 @@ var (
 		labels.IDNameWorld:   ReservedIdentityWorld,
 		labels.IDNameHealth:  ReservedIdentityHealth,
 		labels.IDNameCluster: ReservedIdentityCluster,
+		labels.IDNameInit:    ReservedIdentityInit,
 	}
 	ReservedIdentityNames = map[NumericIdentity]string{
 		ReservedIdentityHost:    labels.IDNameHost,
 		ReservedIdentityWorld:   labels.IDNameWorld,
 		ReservedIdentityHealth:  labels.IDNameHealth,
 		ReservedIdentityCluster: labels.IDNameCluster,
+		ReservedIdentityInit:    labels.IDNameInit,
 	}
 )
 

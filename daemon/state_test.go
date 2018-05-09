@@ -29,6 +29,7 @@ import (
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/mac"
 	"github.com/cilium/cilium/pkg/monitor"
+	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
 
 	. "gopkg.in/check.v1"
@@ -130,6 +131,10 @@ func (ds *DaemonSuite) generateEPs(baseDir string, epsWanted []*e.Endpoint, epsM
 	}
 
 	ds.OnRemoveNetworkPolicy = func(e *e.Endpoint) {}
+
+	ds.OnPolicyEnforcement = func() string {
+		return option.DefaultEnforcement
+	}
 
 	// Since all owner's funcs are implemented we can regenerate every endpoint.
 	epsNames := []string{}
