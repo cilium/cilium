@@ -1343,3 +1343,18 @@ func (kub *Kubectl) WaitCEPRevisionIncrease(podName, podNamespace string, oldRev
 	return WithTimeout(body, "CEP revision did not increase after specified timeout", &TimeoutConfig{Timeout: HelperTimeout})
 
 }
+
+// WaitForCEPToExist waits for the endpoint model representing the CiliumEndpoint
+// for pod podName in the specified namespace podNamespace to be non-nil. If it
+// is still nil after a specified timeout, returns an error.
+func (kub *Kubectl) WaitForCEPToExist(podName, podNamespace string) error {
+	body := func() bool {
+		cep := kub.CepGet(podNamespace, podName)
+		if cep == nil {
+			return false
+		}
+		return true
+	}
+
+	return WithTimeout(body, "CEP was still nil after specified timeout", &TimeoutConfig{Timeout: HelperTimeout})
+}
