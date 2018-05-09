@@ -15,10 +15,14 @@
 package main
 
 import (
+	"strconv"
+
 	"github.com/cilium/cilium/api/v1/models"
 	apiEndpoint "github.com/cilium/cilium/api/v1/server/restapi/endpoint"
 	"github.com/cilium/cilium/common/addressing"
+	"github.com/cilium/cilium/pkg/comparator"
 	"github.com/cilium/cilium/pkg/endpoint"
+	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/ipam"
 	"github.com/cilium/cilium/pkg/labels"
 
@@ -47,14 +51,28 @@ func getEPTemplate(c *C) *models.EndpointChangeRequest {
 func (ds *DaemonSuite) TestEndpointAdd(c *C) {
 	epTemplate := getEPTemplate(c)
 	lbls := []string{"reserved:world"}
-	code, err := ds.d.createEndpoint(epTemplate, "1", lbls)
+	code, err := ds.d.createEndpoint(epTemplate, strconv.FormatInt(epTemplate.ID, 10), lbls)
 	c.Assert(err, Not(IsNil))
 	c.Assert(code, Equals, apiEndpoint.PutEndpointIDInvalidCode)
 
 	lbls = []string{"reserved:foo"}
-	code, err = ds.d.createEndpoint(epTemplate, "1", lbls)
+	code, err = ds.d.createEndpoint(epTemplate, strconv.FormatInt(epTemplate.ID, 10), lbls)
 	c.Assert(err, Not(IsNil))
 	c.Assert(code, Equals, apiEndpoint.PutEndpointIDInvalidCode)
+}
+
+func (ds *DaemonSuite) TestEndpointAddNoLabels(c *C) {
+	epTemplate := getEPTemplate(c)
+	code, err := ds.d.createEndpoint(epTemplate, strconv.FormatInt(epTemplate.ID, 10), nil)
+	c.Assert(err, IsNil)
+	c.Assert(code, Equals, apiEndpoint.PutEndpointIDCreatedCode)
+
+	ep, err := endpointmanager.Lookup(strconv.FormatInt(epTemplate.ID, 10))
+	c.Assert(err, IsNil)
+	expectedLabels := labels.Labels{
+		labels.IDNameInit: labels.NewLabel(labels.IDNameInit, "", labels.LabelSourceReserved),
+	}
+	c.Assert(ep.OpLabels.IdentityLabels(), comparator.DeepEquals, expectedLabels)
 }
 
 func (ds *DaemonSuite) TestUpdateSecLabels(c *C) {
