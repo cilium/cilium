@@ -385,10 +385,6 @@ func (driver *driver) joinEndpoint(w http.ResponseWriter, r *http.Request) {
 	}
 
 	log.WithField(logfields.Object, old).Debug("Existing endpoint")
-	if old.Status.State != models.EndpointStateCreating {
-		sendError(w, "Error: endpoint not in creating state", http.StatusBadRequest)
-		return
-	}
 
 	ep := &models.EndpointChangeRequest{
 		State: models.EndpointStateWaitingForIdentity,
