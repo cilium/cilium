@@ -127,8 +127,7 @@ function policy_many_egress {
 	"toPorts": [{
 	    "ports": [{"port": "8000", "protocol": "tcp"},
 		      {"port": "80",   "protocol": "tcp"},
-		      {"port": "8080", "protocol": "tcp"},
-		      {"port": "8080", "protocol": "udp"}],
+		      {"port": "8080", "protocol": "tcp"}],
 	    "rules": {
                 "HTTP": [{
 		    "method": "GET",
@@ -177,9 +176,7 @@ function policy_many_ingress {
 	],
 	"toPorts": [{
 	    "ports": [{"port": "80", "protocol": "tcp"},
-		      {"port": "8080", "protool": "tcp"},
-		      {"port": "8080", "protocol": "udp"},
-		      {"port": "8000", "protocol": "udp"}],
+		      {"port": "8080", "protocol": "tcp"}],
 	    "rules": {
                 "HTTP": [{
 		    "method": "GET",
@@ -249,8 +246,7 @@ function policy_egress_and_ingress {
 	"toPorts": [{
 	    "ports": [{"port": "8000", "protocol": "tcp"},
 		      {"port": "80",   "protocol": "tcp"},
-		      {"port": "8080", "protocol": "tcp"},
-		      {"port": "8080", "protocol": "udp"}],
+		      {"port": "8080", "protocol": "tcp"}],
 	    "rules": {
                 "HTTP": [{
 		    "method": "GET",
