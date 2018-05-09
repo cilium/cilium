@@ -37,6 +37,9 @@ const (
 
 	// EntityHost is an entity that represents traffic within endpoint host
 	EntityHost Entity = "host"
+
+	// EntityInit is an entity that represents an initializing endpoint
+	EntityInit Entity = "init"
 )
 
 // EntitySelectorMapping maps special entity names that come in policies to
@@ -55,6 +58,11 @@ var EntitySelectorMapping = map[Entity]EndpointSelector{
 	}),
 	EntityHost: NewESFromLabels(&labels.Label{
 		Key:    labels.IDNameHost,
+		Value:  "",
+		Source: labels.LabelSourceReserved,
+	}),
+	EntityInit: NewESFromLabels(&labels.Label{
+		Key:    labels.IDNameInit,
 		Value:  "",
 		Source: labels.LabelSourceReserved,
 	}),
