@@ -31,7 +31,7 @@ if [ -n "${INSTALL}" ]; then
     download_to "${cache_dir}" "cni-amd64-0799f5732f2a11b329d9e3d51b9c8f2e3759f2ff.tar.gz" \
         "https://dl.k8s.io/network-plugins/cni-amd64-0799f5732f2a11b329d9e3d51b9c8f2e3759f2ff.tar.gz"
 
-    cp "${cache_dir}/../cni-amd64-0799f5732f2a11b329d9e3d51b9c8f2e3759f2ff.tar.gz" .
+    cp "${cache_dir}/cni-amd64-0799f5732f2a11b329d9e3d51b9c8f2e3759f2ff.tar.gz" .
 
     sudo tar -xvf cni-amd64-0799f5732f2a11b329d9e3d51b9c8f2e3759f2ff.tar.gz -C /opt/cni
 
