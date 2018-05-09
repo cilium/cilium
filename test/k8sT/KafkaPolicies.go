@@ -136,8 +136,11 @@ var _ = Describe("K8sValidatedKafkaPolicyTest", func() {
 			helpers.DefaultNamespace, appPods[outpostApp], fmt.Sprintf(prodOutAnnounce))
 		Expect(err).Should(BeNil(), "Failed to produce to outpost on topic empire-announce")
 
-		By("Getting policy revision number for each endpoint")
+		By(fmt.Sprintf("Waiting for CEP to exist for %s", appPods[kafkaApp]))
+		err = kubectl.WaitForCEPToExist(appPods[kafkaApp], helpers.DefaultNamespace)
+		Expect(err).To(BeNil(), "CEP did not get created for %s", appPods[kafkaApp])
 
+		By("Getting policy revision number for each endpoint")
 		cep := kubectl.CepGet(helpers.DefaultNamespace, appPods[kafkaApp])
 		Expect(cep).ToNot(BeNil(), "cannot get cep for app %q and pod %s", kafkaApp, appPods[kafkaApp])
 		kafkaRevBeforeUpdate := cep.Status.Policy.Realized.PolicyRevision
