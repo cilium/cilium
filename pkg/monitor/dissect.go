@@ -168,3 +168,44 @@ func Dissect(dissect bool, data []byte) {
 		fmt.Print(hex.Dump(data))
 	}
 }
+
+// DissectSummary bundles decoded layers into json-marshallable message
+type DissectSummary struct {
+	Ethernet string `json:"ethernet,omitempty"`
+	IPv4     string `json:"ipv4,omitempty"`
+	IPv6     string `json:"ipv6,omitempty"`
+	TCP      string `json:"tcp,omitempty"`
+	UDP      string `json:"udp,omitempty"`
+	ICMPv4   string `json:"icmpv4,omitempty"`
+	ICMPv6   string `json:"icmpv4,omitempty"`
+}
+
+// GetDissectSummary returns DissectSummary created from data
+func GetDissectSummary(data []byte) *DissectSummary {
+	dissectLock.Lock()
+	defer dissectLock.Unlock()
+
+	parser.DecodeLayers(data, &decoded)
+
+	ret := &DissectSummary{}
+
+	for _, typ := range decoded {
+		switch typ {
+		case layers.LayerTypeEthernet:
+			ret.Ethernet = gopacket.LayerString(&eth)
+		case layers.LayerTypeIPv4:
+			ret.IPv4 = gopacket.LayerString(&ip4)
+		case layers.LayerTypeIPv6:
+			ret.IPv6 = gopacket.LayerString(&ip6)
+		case layers.LayerTypeTCP:
+			ret.TCP = gopacket.LayerString(&tcp)
+		case layers.LayerTypeUDP:
+			ret.UDP = gopacket.LayerString(&udp)
+		case layers.LayerTypeICMPv4:
+			ret.ICMPv4 = gopacket.LayerString(&icmp4)
+		case layers.LayerTypeICMPv6:
+			ret.ICMPv6 = gopacket.LayerString(&icmp6)
+		}
+	}
+	return ret
+}

@@ -15,6 +15,7 @@
 package monitor
 
 import (
+	"encoding/json"
 	"fmt"
 
 	"github.com/cilium/cilium/pkg/proxy/accesslog"
@@ -67,5 +68,56 @@ func (l *LogRecordNotify) DumpInfo() {
 
 	if kafka := l.Kafka; kafka != nil {
 		fmt.Printf(" %s topic %s => %d\n", kafka.APIKey, kafka.Topic.Topic, kafka.ErrorCode)
+	}
+}
+
+func (l *LogRecordNotify) getJSON() (string, error) {
+	v := LogRecordNotifyToVerbose(l)
+
+	ret, err := json.Marshal(v)
+	return string(ret), err
+}
+
+// DumpJSON prints notification in json format
+func (l *LogRecordNotify) DumpJSON() {
+	resp, err := l.getJSON()
+	if err == nil {
+		fmt.Println(resp)
+	}
+}
+
+// LogRecordNotifyVerbose represents a json notification printed by monitor
+type LogRecordNotifyVerbose struct {
+	Type             string                     `json:"type"`
+	ObservationPoint accesslog.ObservationPoint `json:"observationPoint"`
+	FlowType         accesslog.FlowType         `json:"flowType"`
+	L7Proto          string                     `json:"l7Proto"`
+	SrcEpID          uint64                     `json:"srcEpID"`
+	SrcEpLabels      []string                   `json:"srcEpLabels"`
+	SrcIdentity      uint64                     `json:"srcIdentity"`
+	DstEpID          uint64                     `json:"dstEpID"`
+	DstEpLabels      []string                   `json:"dstEpLabels"`
+	DstIdentity      uint64                     `json:dstIdentity`
+	Verdict          accesslog.FlowVerdict      `json:"verdict"`
+	HTTP             *accesslog.LogRecordHTTP   `json:"http,omitempty"`
+	Kafka            *accesslog.LogRecordKafka  `json:"kafka,omitempty"`
+}
+
+// LogRecordNotifyToVerbose turns LogRecordNotify into json-friendly Verbose structure
+func LogRecordNotifyToVerbose(n *LogRecordNotify) LogRecordNotifyVerbose {
+	return LogRecordNotifyVerbose{
+		Type:             "logRecord",
+		ObservationPoint: n.ObservationPoint,
+		FlowType:         n.Type,
+		L7Proto:          n.l7Proto(),
+		SrcEpID:          n.SourceEndpoint.ID,
+		SrcEpLabels:      n.SourceEndpoint.Labels,
+		SrcIdentity:      n.SourceEndpoint.Identity,
+		DstEpID:          n.DestinationEndpoint.ID,
+		DstEpLabels:      n.DestinationEndpoint.Labels,
+		DstIdentity:      n.DestinationEndpoint.Identity,
+		Verdict:          n.Verdict,
+		HTTP:             n.HTTP,
+		Kafka:            n.Kafka,
 	}
 }

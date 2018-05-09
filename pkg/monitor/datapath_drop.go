@@ -15,6 +15,7 @@
 package monitor
 
 import (
+	"encoding/json"
 	"fmt"
 )
 
@@ -107,5 +108,57 @@ func (n *DropNotify) DumpVerbose(dissect bool, data []byte, prefix string) {
 
 	if n.CapLen > 0 && len(data) > DropNotifyLen {
 		Dissect(dissect, data[DropNotifyLen:])
+	}
+}
+
+func (n *DropNotify) getJSON(data []byte, cpuPrefix string) (string, error) {
+
+	v := DropNotifyToVerbose(n)
+	v.CPUPrefix = cpuPrefix
+	if n.CapLen > 0 && len(data) > DropNotifyLen {
+		v.Summary = GetDissectSummary(data[DropNotifyLen:])
+	}
+
+	ret, err := json.Marshal(v)
+	return string(ret), err
+}
+
+// DumpJSON prints notification in json format
+func (n *DropNotify) DumpJSON(data []byte, cpuPrefix string) {
+	resp, err := n.getJSON(data, cpuPrefix)
+	if err == nil {
+		fmt.Println(resp)
+	}
+}
+
+// DropNotifyVerbose represents a json notification printed by monitor
+type DropNotifyVerbose struct {
+	CPUPrefix string `json:"cpu,omitempty"`
+	Type      string `json:"type,omitempty"`
+	Mark      string `json:"mark,omitempty"`
+	Ifindex   string `json:"ifindex,omitempty"`
+	Reason    string `json:"reason,omitempty"`
+
+	Source   uint16 `json:"source"`
+	Bytes    uint32 `json:"bytes"`
+	SrcLabel uint32 `json:"srcLabel"`
+	DstLabel uint32 `json:"dstLabel"`
+	DstID    uint32 `json:"dstID"`
+
+	Summary *DissectSummary `json:"summary,omitempty"`
+}
+
+//DropNotifyToVerbose creates verbose notification from DropNotify
+func DropNotifyToVerbose(n *DropNotify) DropNotifyVerbose {
+	return DropNotifyVerbose{
+		Type:     "drop",
+		Mark:     fmt.Sprintf("%#x", n.Hash),
+		Ifindex:  ifname(int(n.Ifindex)),
+		Reason:   dropReason(n.SubType),
+		Source:   n.Source,
+		Bytes:    n.OrigLen,
+		SrcLabel: n.SrcLabel,
+		DstLabel: n.DstLabel,
+		DstID:    n.DstID,
 	}
 }

@@ -15,6 +15,7 @@
 package monitor
 
 import (
+	"encoding/json"
 	"fmt"
 	"net"
 
@@ -225,124 +226,137 @@ func (n *DebugMsg) DumpInfo(data []byte) {
 }
 
 // Dump prints the debug message in a human readable format.
-func (n *DebugMsg) Dump(data []byte, prefix string) {
-	fmt.Printf("%s MARK %#x FROM %d DEBUG: ", prefix, n.Hash, n.Source)
+func (n *DebugMsg) Dump(prefix string) {
+	fmt.Printf("%s MARK %#x FROM %d DEBUG: %s\n", prefix, n.Hash, n.Source, n.subTypeString())
+}
+
+func (n *DebugMsg) subTypeString() string {
 	switch n.SubType {
 	case DbgGeneric:
-		fmt.Printf("No message, arg1=%d (%#x) arg2=%d (%#x)\n", n.Arg1, n.Arg1, n.Arg2, n.Arg2)
+		return fmt.Sprintf("No message, arg1=%d (%#x) arg2=%d (%#x)", n.Arg1, n.Arg1, n.Arg2, n.Arg2)
 	case DbgLocalDelivery:
-		fmt.Printf("Attempting local delivery for container id %d from seclabel %d\n", n.Arg1, n.Arg2)
+		return fmt.Sprintf("Attempting local delivery for container id %d from seclabel %d", n.Arg1, n.Arg2)
 	case DbgEncap:
-		fmt.Printf("Encapsulating to node %d (%#x) from seclabel %d\n", n.Arg1, n.Arg1, n.Arg2)
+		return fmt.Sprintf("Encapsulating to node %d (%#x) from seclabel %d", n.Arg1, n.Arg1, n.Arg2)
 	case DbgLxcFound:
-		fmt.Printf("Local container found ifindex %s seclabel %d\n", ifname(int(n.Arg1)), byteorder.NetworkToHost(uint16(n.Arg2)))
+		return fmt.Sprintf("Local container found ifindex %s seclabel %d", ifname(int(n.Arg1)), byteorder.NetworkToHost(uint16(n.Arg2)))
 	case DbgPolicyDenied:
-		fmt.Printf("Policy evaluation would deny packet from %d to %d\n", n.Arg1, n.Arg2)
+		return fmt.Sprintf("Policy evaluation would deny packet from %d to %d", n.Arg1, n.Arg2)
 	case DbgCtLookup:
-		fmt.Printf("CT lookup: %s\n", ctInfo(n.Arg1, n.Arg2))
+		return fmt.Sprintf("CT lookup: %s", ctInfo(n.Arg1, n.Arg2))
 	case DbgCtLookupRev:
-		fmt.Printf("CT reverse lookup: %s\n", ctInfo(n.Arg1, n.Arg2))
+		return fmt.Sprintf("CT reverse lookup: %s", ctInfo(n.Arg1, n.Arg2))
 	case DbgCtLookup4:
-		fmt.Printf("CT lookup address: %s\n", ip4Str(n.Arg1))
+		return fmt.Sprintf("CT lookup address: %s", ip4Str(n.Arg1))
 	case DbgCtMatch:
-		fmt.Printf("CT entry found lifetime=%d, %s\n", n.Arg1,
+		return fmt.Sprintf("CT entry found lifetime=%d, %s", n.Arg1,
 			verdictInfo(n.Arg2))
 	case DbgCtCreated:
-		fmt.Printf("CT created 1/2: %s %s\n",
+		return fmt.Sprintf("CT created 1/2: %s %s",
 			ctInfo(n.Arg1, n.Arg2), verdictInfo(n.Arg3))
 	case DbgCtCreated2:
-		fmt.Printf("CT created 2/2: %s revnat=%d\n", ip4Str(n.Arg1), byteorder.NetworkToHost(uint16(n.Arg2)))
+		return fmt.Sprintf("CT created 2/2: %s revnat=%d", ip4Str(n.Arg1), byteorder.NetworkToHost(uint16(n.Arg2)))
 	case DbgCtVerdict:
-		fmt.Printf("CT verdict: %s, %s\n",
+		return fmt.Sprintf("CT verdict: %s, %s",
 			ctState(n.Arg1), verdictInfo(n.Arg2))
 	case DbgIcmp6Handle:
-		fmt.Printf("Handling ICMPv6 type=%d\n", n.Arg1)
+		return fmt.Sprintf("Handling ICMPv6 type=%d", n.Arg1)
 	case DbgIcmp6Request:
-		fmt.Printf("ICMPv6 echo request for router offset=%d\n", n.Arg1)
+		return fmt.Sprintf("ICMPv6 echo request for router offset=%d", n.Arg1)
 	case DbgIcmp6Ns:
-		fmt.Printf("ICMPv6 neighbour soliciation for address %x:%x\n", n.Arg1, n.Arg2)
+		return fmt.Sprintf("ICMPv6 neighbour soliciation for address %x:%x", n.Arg1, n.Arg2)
 	case DbgIcmp6TimeExceeded:
-		fmt.Printf("Sending ICMPv6 time exceeded\n")
+		return fmt.Sprintf("Sending ICMPv6 time exceeded")
 	case DbgDecap:
-		fmt.Printf("Tunnel decap: id=%d flowlabel=%x\n", n.Arg1, n.Arg2)
+		return fmt.Sprintf("Tunnel decap: id=%d flowlabel=%x", n.Arg1, n.Arg2)
 	case DbgPortMap:
-		fmt.Printf("Mapping port from=%d to=%d\n", n.Arg1, n.Arg2)
+		return fmt.Sprintf("Mapping port from=%d to=%d", n.Arg1, n.Arg2)
 	case DbgErrorRet:
-		fmt.Printf("BPF function %d returned error %d\n", n.Arg1, n.Arg2)
+		return fmt.Sprintf("BPF function %d returned error %d", n.Arg1, n.Arg2)
 	case DbgToHost:
-		fmt.Printf("Going to host, policy-skip=%d\n", n.Arg1)
+		return fmt.Sprintf("Going to host, policy-skip=%d", n.Arg1)
 	case DbgToStack:
-		fmt.Printf("Going to the stack, policy-skip=%d\n", n.Arg1)
+		return fmt.Sprintf("Going to the stack, policy-skip=%d", n.Arg1)
 	case DbgPktHash:
-		fmt.Printf("Packet hash=%d (%#x), selected_service=%d\n", n.Arg1, n.Arg1, n.Arg2)
+		return fmt.Sprintf("Packet hash=%d (%#x), selected_service=%d", n.Arg1, n.Arg1, n.Arg2)
 	case DbgRRSlaveSel:
-		fmt.Printf("RR slave selection hash=%d (%#x), selected_service=%d\n", n.Arg1, n.Arg1, n.Arg2)
+		return fmt.Sprintf("RR slave selection hash=%d (%#x), selected_service=%d", n.Arg1, n.Arg1, n.Arg2)
 	case DbgLb6LookupMaster:
-		fmt.Printf("Master service lookup, addr.p4=%x key.dport=%d\n", n.Arg1, byteorder.NetworkToHost(uint16(n.Arg2)))
+		return fmt.Sprintf("Master service lookup, addr.p4=%x key.dport=%d", n.Arg1, byteorder.NetworkToHost(uint16(n.Arg2)))
 	case DbgLb6LookupMasterFail:
-		fmt.Printf("Master service lookup failed, addr.p2=%x addr.p3=%x\n", n.Arg1, n.Arg2)
+		return fmt.Sprintf("Master service lookup failed, addr.p2=%x addr.p3=%x", n.Arg1, n.Arg2)
 	case DbgLb6LookupSlave, DbgLb4LookupSlave:
-		fmt.Printf("Slave service lookup: slave=%d, dport=%d\n", n.Arg1, byteorder.NetworkToHost(uint16(n.Arg2)))
+		return fmt.Sprintf("Slave service lookup: slave=%d, dport=%d", n.Arg1, byteorder.NetworkToHost(uint16(n.Arg2)))
 	case DbgLb6LookupSlaveSuccess:
-		fmt.Printf("Slave service lookup result: target.p4=%x port=%d\n", n.Arg1, byteorder.NetworkToHost(uint16(n.Arg2)))
+		return fmt.Sprintf("Slave service lookup result: target.p4=%x port=%d", n.Arg1, byteorder.NetworkToHost(uint16(n.Arg2)))
 	case DbgLb6ReverseNatLookup, DbgLb4ReverseNatLookup:
-		fmt.Printf("Reverse NAT lookup, index=%d\n", byteorder.NetworkToHost(uint16(n.Arg1)))
+		return fmt.Sprintf("Reverse NAT lookup, index=%d", byteorder.NetworkToHost(uint16(n.Arg1)))
 	case DbgLb6ReverseNat:
-		fmt.Printf("Performing reverse NAT, address.p4=%x port=%d\n", n.Arg1, byteorder.NetworkToHost(uint16(n.Arg2)))
+		return fmt.Sprintf("Performing reverse NAT, address.p4=%x port=%d", n.Arg1, byteorder.NetworkToHost(uint16(n.Arg2)))
 	case DbgLb4LookupMaster:
-		fmt.Printf("Master service lookup, addr=%s key.dport=%d\n", ip4Str(n.Arg1), byteorder.NetworkToHost(uint16(n.Arg2)))
+		return fmt.Sprintf("Master service lookup, addr=%s key.dport=%d", ip4Str(n.Arg1), byteorder.NetworkToHost(uint16(n.Arg2)))
 	case DbgLb4LookupMasterFail:
-		fmt.Printf("Master service lookup failed\n")
+		return fmt.Sprintf("Master service lookup failed")
 	case DbgLb4LookupSlaveSuccess:
-		fmt.Printf("Slave service lookup result: target=%s port=%d\n", ip4Str(n.Arg1), byteorder.NetworkToHost(uint16(n.Arg2)))
+		return fmt.Sprintf("Slave service lookup result: target=%s port=%d", ip4Str(n.Arg1), byteorder.NetworkToHost(uint16(n.Arg2)))
 	case DbgLb4ReverseNat:
-		fmt.Printf("Performing reverse NAT, address=%s port=%d\n", ip4Str(n.Arg1), byteorder.NetworkToHost(uint16(n.Arg2)))
+		return fmt.Sprintf("Performing reverse NAT, address=%s port=%d", ip4Str(n.Arg1), byteorder.NetworkToHost(uint16(n.Arg2)))
 	case DbgLb4LoopbackSnat:
-		fmt.Printf("Loopback SNAT from=%s to=%s\n", ip4Str(n.Arg1), ip4Str(n.Arg2))
+		return fmt.Sprintf("Loopback SNAT from=%s to=%s", ip4Str(n.Arg1), ip4Str(n.Arg2))
 	case DbgLb4LoopbackSnatRev:
-		fmt.Printf("Loopback reverse SNAT from=%s to=%s\n", ip4Str(n.Arg1), ip4Str(n.Arg2))
+		return fmt.Sprintf("Loopback reverse SNAT from=%s to=%s", ip4Str(n.Arg1), ip4Str(n.Arg2))
 	case DbgRevProxyLookup:
-		fmt.Printf("Reverse proxy lookup %s nexthdr=%d\n",
+		return fmt.Sprintf("Reverse proxy lookup %s nexthdr=%d",
 			proxyInfo(n.Arg1, n.Arg2), n.Arg3)
 	case DbgRevProxyFound:
-		fmt.Printf("Reverse proxy entry found, orig-daddr=%s orig-dport=%d\n", ip4Str(n.Arg1), n.Arg2)
+		return fmt.Sprintf("Reverse proxy entry found, orig-daddr=%s orig-dport=%d", ip4Str(n.Arg1), n.Arg2)
 	case DbgRevProxyUpdate:
-		fmt.Printf("Reverse proxy updated %s nexthdr=%d\n",
+		return fmt.Sprintf("Reverse proxy updated %s nexthdr=%d",
 			proxyInfo(n.Arg1, n.Arg2), n.Arg3)
 	case DbgL4Policy:
-		fmt.Printf("Resolved L4 policy to: %d / %s\n",
+		return fmt.Sprintf("Resolved L4 policy to: %d / %s",
 			byteorder.NetworkToHost(uint16(n.Arg1)), ctDirection[int(n.Arg2)])
 	case DbgNetdevInCluster:
-		fmt.Printf("Destination is inside cluster prefix, source identity: %d\n", n.Arg1)
+		return fmt.Sprintf("Destination is inside cluster prefix, source identity: %d", n.Arg1)
 	case DbgNetdevEncap4:
-		fmt.Printf("Attempting encapsulation, lookup key: %s, identity: %d\n", ip4Str(n.Arg1), n.Arg2)
+		return fmt.Sprintf("Attempting encapsulation, lookup key: %s, identity: %d", ip4Str(n.Arg1), n.Arg2)
 	case DbgCTLookup41:
-		fmt.Printf("Conntrack lookup 1/2: %s\n", ctLookup4Info1(n))
+		return fmt.Sprintf("Conntrack lookup 1/2: %s", ctLookup4Info1(n))
 	case DbgCTLookup42:
-		fmt.Printf("Conntrack lookup 2/2: %s\n", ctLookup4Info2(n))
+		return fmt.Sprintf("Conntrack lookup 2/2: %s", ctLookup4Info2(n))
 	case DbgCTCreated4:
-		fmt.Printf("Conntrack create: %s\n", ctCreate4Info(n))
+		return fmt.Sprintf("Conntrack create: %s", ctCreate4Info(n))
 	case DbgCTLookup61:
-		fmt.Printf("Conntrack lookup 1/2: %s\n", ctLookup6Info1(n))
+		return fmt.Sprintf("Conntrack lookup 1/2: %s", ctLookup6Info1(n))
 	case DbgCTLookup62:
-		fmt.Printf("Conntrack lookup 2/2: %s\n", ctLookup4Info2(n))
+		return fmt.Sprintf("Conntrack lookup 2/2: %s", ctLookup4Info2(n))
 	case DbgCTCreated6:
-		fmt.Printf("Conntrack create: %s\n", ctCreate6Info(n))
+		return fmt.Sprintf("Conntrack create: %s", ctCreate6Info(n))
 	case DbgSkipProxy:
-		fmt.Printf("Skipping proxy, tc_index is set=%x", n.Arg1)
+		return fmt.Sprintf("Skipping proxy, tc_index is set=%x", n.Arg1)
 	case DbgL4Create:
-		fmt.Printf("Matched L4 policy; creating conntrack %s\n", l4CreateInfo(n))
+		return fmt.Sprintf("Matched L4 policy; creating conntrack %s", l4CreateInfo(n))
 	case DbgIPIDMapFailed4:
-		fmt.Printf("Failed to map daddr=%s to identity\n", ip4Str(n.Arg1))
+		return fmt.Sprintf("Failed to map daddr=%s to identity", ip4Str(n.Arg1))
 	case DbgIPIDMapFailed6:
-		fmt.Printf("Failed to map daddr.p4=[::%s] to identity\n", ip6Str(n.Arg1))
+		return fmt.Sprintf("Failed to map daddr.p4=[::%s] to identity", ip6Str(n.Arg1))
 	case DbgIPIDMapSucceed4:
-		fmt.Printf("Successfully mapped daddr=%s to identity=%d\n", ip4Str(n.Arg1), n.Arg2)
+		return fmt.Sprintf("Successfully mapped daddr=%s to identity=%d", ip4Str(n.Arg1), n.Arg2)
 	case DbgIPIDMapSucceed6:
-		fmt.Printf("Successfully mapped daddr.p4=[::%s] to identity=%d\n", ip6Str(n.Arg1), n.Arg2)
+		return fmt.Sprintf("Successfully mapped daddr.p4=[::%s] to identity=%d", ip6Str(n.Arg1), n.Arg2)
 	default:
-		fmt.Printf("Unknown message type=%d arg1=%d arg2=%d\n", n.SubType, n.Arg1, n.Arg2)
+		return fmt.Sprintf("Unknown message type=%d arg1=%d arg2=%d", n.SubType, n.Arg1, n.Arg2)
 	}
+}
+
+func (n *DebugMsg) getJSON(cpuPrefix string) string {
+	return fmt.Sprintf(`{"cpu":%q,"type":"debug","message":%q}`,
+		cpuPrefix, n.subTypeString())
+}
+
+// DumpJSON prints notification in json format
+func (n *DebugMsg) DumpJSON(cpuPrefix string) {
+	fmt.Println(n.getJSON(cpuPrefix))
 }
 
 const (
@@ -371,50 +385,105 @@ type endpointInfo struct {
 
 // DumpInfo prints a summary of the capture messages.
 func (n *DebugCapture) DumpInfo(data []byte) {
+	prefix := n.infoPrefix()
+
+	if len(prefix) > 0 {
+		fmt.Printf("%s: %s\n", prefix, GetConnectionSummary(data[DebugCaptureLen:]))
+	}
+}
+
+func (n *DebugCapture) infoPrefix() string {
 	switch n.SubType {
 	case DbgCaptureDelivery:
-		fmt.Printf("-> %s", ifname(int(n.Arg1)))
+		return fmt.Sprintf("-> %s", ifname(int(n.Arg1)))
 
 	case DbgCaptureFromLb:
-		fmt.Printf("<- load-balancer %s", ifname(int(n.Arg1)))
+		return fmt.Sprintf("<- load-balancer %s", ifname(int(n.Arg1)))
 
 	case DbgCaptureAfterV46:
-		fmt.Printf("== v4->v6 %d", n.Arg1)
+		return fmt.Sprintf("== v4->v6 %d", n.Arg1)
 
 	case DbgCaptureAfterV64:
-		fmt.Printf("== v6->v4 %d", n.Arg1)
+		return fmt.Sprintf("== v6->v4 %d", n.Arg1)
 
 	case DbgCaptureProxyPost:
-		fmt.Printf("-> proxy port %d", byteorder.NetworkToHost(uint16(n.Arg1)))
+		return fmt.Sprintf("-> proxy port %d", byteorder.NetworkToHost(uint16(n.Arg1)))
 	default:
-		return
+		return ""
 	}
-
-	fmt.Printf(": %s\n", GetConnectionSummary(data[DebugCaptureLen:]))
-
 }
 
 // DumpVerbose prints the captured packet in human readable format
 func (n *DebugCapture) DumpVerbose(dissect bool, data []byte, prefix string) {
 	fmt.Printf("%s MARK %#x FROM %d DEBUG: %d bytes, ", prefix, n.Hash, n.Source, n.Len)
-	switch n.SubType {
-	case DbgCaptureDelivery:
-		fmt.Printf("Delivery to ifindex %d\n", n.Arg1)
-	case DbgCaptureFromLb:
-		fmt.Printf("Incoming packet to load balancer on ifindex %d\n", n.Arg1)
-	case DbgCaptureAfterV46:
-		fmt.Printf("Packet after nat46 ifindex %d\n", n.Arg1)
-	case DbgCaptureAfterV64:
-		fmt.Printf("Packet after nat64 ifindex %d\n", n.Arg1)
-	case DbgCaptureProxyPre:
-		fmt.Printf("Packet to proxy port %d (Pre)\n", byteorder.NetworkToHost(uint16(n.Arg1)))
-	case DbgCaptureProxyPost:
-		fmt.Printf("Packet to proxy port %d (Post)\n", byteorder.NetworkToHost(uint16(n.Arg1)))
-	default:
-		fmt.Printf("Unknown message type=%d arg1=%d\n", n.SubType, n.Arg1)
-	}
+	fmt.Println(n.subTypeString())
 
 	if n.Len > 0 && len(data) > DebugCaptureLen {
 		Dissect(dissect, data[DebugCaptureLen:])
+	}
+}
+
+func (n *DebugCapture) subTypeString() string {
+	switch n.SubType {
+	case DbgCaptureDelivery:
+		return fmt.Sprintf("Delivery to ifindex %d", n.Arg1)
+	case DbgCaptureFromLb:
+		return fmt.Sprintf("Incoming packet to load balancer on ifindex %d", n.Arg1)
+	case DbgCaptureAfterV46:
+		return fmt.Sprintf("Packet after nat46 ifindex %d", n.Arg1)
+	case DbgCaptureAfterV64:
+		return fmt.Sprintf("Packet after nat64 ifindex %d", n.Arg1)
+	case DbgCaptureProxyPre:
+		return fmt.Sprintf("Packet to proxy port %d (Pre)", byteorder.NetworkToHost(uint16(n.Arg1)))
+	case DbgCaptureProxyPost:
+		return fmt.Sprintf("Packet to proxy port %d (Post)", byteorder.NetworkToHost(uint16(n.Arg1)))
+	default:
+		return fmt.Sprintf("Unknown message type=%d arg1=%d", n.SubType, n.Arg1)
+	}
+}
+
+func (n *DebugCapture) getJSON(data []byte, cpuPrefix string) (string, error) {
+
+	v := DebugCaptureToVerbose(n)
+	v.CPUPrefix = cpuPrefix
+	v.Summary = GetConnectionSummary(data[DebugCaptureLen:])
+
+	ret, err := json.Marshal(v)
+	return string(ret), err
+}
+
+// DumpJSON prints notification in json format
+func (n *DebugCapture) DumpJSON(data []byte, cpuPrefix string) {
+	resp, err := n.getJSON(data, cpuPrefix)
+	if err != nil {
+		fmt.Println(fmt.Sprintf(`{"type":"debug_capture_error","message":%q}`, err.Error()))
+		return
+	}
+	fmt.Println(resp)
+}
+
+// DebugCaptureVerbose represents a json notification printed by monitor
+type DebugCaptureVerbose struct {
+	CPUPrefix string `json:"cpu,omitempty"`
+	Type      string `json:"type,omitempty"`
+	Mark      string `json:"mark,omitempty"`
+	Message   string `json:"message,omitempty"`
+	Prefix    string `json:"prefix,omitempty"`
+
+	Source uint16 `json:"source"`
+	Bytes  uint32 `json:"bytes"`
+
+	Summary string `json:"summary,omitempty"`
+}
+
+// DebugCaptureToVerbose creates verbose notification from base TraceNotify
+func DebugCaptureToVerbose(n *DebugCapture) DebugCaptureVerbose {
+	return DebugCaptureVerbose{
+		Type:    "capture",
+		Mark:    fmt.Sprintf("%#x", n.Hash),
+		Source:  n.Source,
+		Bytes:   n.Len,
+		Message: n.subTypeString(),
+		Prefix:  n.infoPrefix(),
 	}
 }
