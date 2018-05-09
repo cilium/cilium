@@ -41,7 +41,7 @@ const (
 
 	// CustomResourceDefinitionSchemaVersion is semver-conformant version of CRD schema
 	// Used to determine if CRD needs to be updated in cluster
-	CustomResourceDefinitionSchemaVersion = "1.7"
+	CustomResourceDefinitionSchemaVersion = "1.8"
 
 	// CustomResourceDefinitionSchemaVersionKey is key to label which holds the CRD schema version
 	CustomResourceDefinitionSchemaVersionKey = "io.cilium.k8s.crd.schema.version"
@@ -555,7 +555,7 @@ var (
 			"fromEntities": {
 				Description: "FromEntities is a list of special entities which the endpoint " +
 					"subject to the rule is allowed to receive connections from. Supported " +
-					"entities are `world`, `cluster` and `host`",
+					"entities are `world`, `cluster`, `host`, and `init`",
 				Type: "array",
 				Items: &apiextensionsv1beta1.JSONSchemaPropsOrArray{
 					Schema: &apiextensionsv1beta1.JSONSchemaProps{
