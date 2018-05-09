@@ -138,7 +138,7 @@ func NewPutEndpointIDHandler(d *Daemon) PutEndpointIDHandler {
 // request that was specified. Returns an HTTP code response code and an
 // error msg (or nil on success).
 func (d *Daemon) createEndpoint(epTemplate *models.EndpointChangeRequest, id string, lbls []string) (int, error) {
-	addLabels := labels.ParseStringLabels(lbls)
+	addLabels := labels.NewLabelsFromModel(lbls)
 	ep, err := endpoint.NewEndpointFromChangeModel(epTemplate, addLabels)
 	if err != nil {
 		return PutEndpointIDInvalidCode, err
@@ -160,15 +160,13 @@ func (d *Daemon) createEndpoint(epTemplate *models.EndpointChangeRequest, id str
 		return PutEndpointIDFailedCode, err
 	}
 
-	add := labels.NewLabelsFromModel(lbls)
-
-	if len(add) > 0 {
-		code, errLabelsAdd := d.updateEndpointLabels(id, add, labels.Labels{})
+	if len(addLabels) > 0 {
+		code, errLabelsAdd := d.updateEndpointLabels(id, addLabels, labels.Labels{})
 		if errLabelsAdd != nil {
 			// XXX: Why should the endpoint remain in this case?
 			log.WithFields(logrus.Fields{
 				logfields.EndpointID:              id,
-				logfields.IdentityLabels:          logfields.Repr(add),
+				logfields.IdentityLabels:          logfields.Repr(addLabels),
 				logfields.IdentityLabels + ".bad": errLabelsAdd,
 			}).Error("Could not add labels while creating an ep due to bad labels")
 			return code, errLabelsAdd
@@ -223,7 +221,7 @@ func (h *patchEndpointID) Handle(params PatchEndpointIDParams) middleware.Respon
 
 	// Validate the template. Assignment afterwards is atomic.
 	// Note: newEp's labels are ignored.
-	addLabels := labels.ParseStringLabels(params.Endpoint.Labels)
+	addLabels := labels.NewLabelsFromModel(params.Endpoint.Labels)
 	newEp, err2 := endpoint.NewEndpointFromChangeModel(epTemplate, addLabels)
 	if err2 != nil {
 		return apierror.Error(PutEndpointIDInvalidCode, err2)

@@ -421,7 +421,7 @@ func (l Labels) DeepCopy() Labels {
 
 // NewLabelsFromModel creates labels from string array.
 func NewLabelsFromModel(base []string) Labels {
-	lbls := Labels{}
+	lbls := make(Labels, len(base))
 	for _, v := range base {
 		if lbl := ParseLabel(v); lbl.Key != "" {
 			lbls[lbl.Key] = lbl
@@ -439,7 +439,7 @@ func NewLabelsFromSortedList(list string) Labels {
 // NewSelectLabelArrayFromModel parses a slice of strings and converts them
 // into an array of selecting labels.
 func NewSelectLabelArrayFromModel(base []string) LabelArray {
-	lbls := LabelArray{}
+	lbls := make(LabelArray, 0, len(base))
 	for _, v := range base {
 		lbls = append(lbls, ParseSelectLabel(v))
 	}
@@ -593,17 +593,6 @@ func ParseSelectLabel(str string) *Label {
 	}
 
 	return lbl
-}
-
-// ParseStringLabels returns label representations from strings.
-func ParseStringLabels(strLbls []string) Labels {
-	lbls := Labels{}
-	for _, l := range strLbls {
-		lbl := ParseLabel(l)
-		lbls[lbl.Key] = lbl
-	}
-
-	return lbls
 }
 
 // generateLabelString generates the string representation of a label with

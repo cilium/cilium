@@ -39,9 +39,9 @@ var endpointLabelsCmd = &cobra.Command{
 	PreRun: requireEndpointID,
 	Run: func(cmd *cobra.Command, args []string) {
 		_, id, _ := endpoint.ValidateID(args[0])
-		addLabels := labels.ParseStringLabels(toAdd).GetModel()
+		addLabels := labels.NewLabelsFromModel(toAdd).GetModel()
 
-		deleteLabels := labels.ParseStringLabels(toDelete).GetModel()
+		deleteLabels := labels.NewLabelsFromModel(toDelete).GetModel()
 
 		if len(addLabels) > 0 || len(deleteLabels) > 0 {
 			if err := client.EndpointLabelsPatch(id, addLabels, deleteLabels); err != nil {
