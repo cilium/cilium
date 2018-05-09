@@ -2162,6 +2162,14 @@ func (e *Endpoint) ModifyIdentityLabels(owner Owner, addLabels, delLabels pkgLab
 	return nil
 }
 
+// IsInit returns true if the endpoint still hasn't received identity labels,
+// i.e. has the special identity with label reserved:init.
+func (e *Endpoint) IsInit() bool {
+	lbls := e.OpLabels.IdentityLabels()
+	init := lbls[pkgLabels.IDNameInit]
+	return init != nil && init.Source == pkgLabels.LabelSourceReserved
+}
+
 // UpdateLabels is called to update the labels of an endpoint. Calls to this
 // function do not necessarily mean that the labels actually changed. The
 // container runtime layer will periodically synchronize labels.

@@ -25,6 +25,8 @@ import (
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/ipam"
 	"github.com/cilium/cilium/pkg/labels"
+	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/policy"
 
 	. "gopkg.in/check.v1"
 )
@@ -62,17 +64,37 @@ func (ds *DaemonSuite) TestEndpointAdd(c *C) {
 }
 
 func (ds *DaemonSuite) TestEndpointAddNoLabels(c *C) {
+	// Create the endpoint without any labels.
 	epTemplate := getEPTemplate(c)
 	code, err := ds.d.createEndpoint(epTemplate, strconv.FormatInt(epTemplate.ID, 10), nil)
 	c.Assert(err, IsNil)
 	c.Assert(code, Equals, apiEndpoint.PutEndpointIDCreatedCode)
 
+	// Check that the endpoint has the reserved:init label.
 	ep, err := endpointmanager.Lookup(strconv.FormatInt(epTemplate.ID, 10))
 	c.Assert(err, IsNil)
 	expectedLabels := labels.Labels{
 		labels.IDNameInit: labels.NewLabel(labels.IDNameInit, "", labels.LabelSourceReserved),
 	}
 	c.Assert(ep.OpLabels.IdentityLabels(), comparator.DeepEquals, expectedLabels)
+
+	// If the mode is "default", check that the policy is always enforced for
+	// endpoints with the reserved:init label. If no policy rules match
+	// reserved:init, this drops all ingress and egress traffic.
+	policy.SetPolicyEnabled(option.DefaultEnforcement)
+	ingress, egress := ds.d.EnableEndpointPolicyEnforcement(ep)
+	c.Assert(ingress, Equals, true)
+	c.Assert(egress, Equals, true)
+
+	// Check that the "always" and "never" modes are not affected.
+	policy.SetPolicyEnabled(option.AlwaysEnforce)
+	ingress, egress = ds.d.EnableEndpointPolicyEnforcement(ep)
+	c.Assert(ingress, Equals, true)
+	c.Assert(egress, Equals, true)
+	policy.SetPolicyEnabled(option.NeverEnforce)
+	ingress, egress = ds.d.EnableEndpointPolicyEnforcement(ep)
+	c.Assert(ingress, Equals, false)
+	c.Assert(egress, Equals, false)
 }
 
 func (ds *DaemonSuite) TestUpdateSecLabels(c *C) {
