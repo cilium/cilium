@@ -124,6 +124,8 @@ func (e *Endpoint) writeL4Policy(fw *bufio.Writer) error {
 		return nil
 	}
 
+	// Out of caution, make a local copy of the DesiredL4Policy in case
+	// enpdoint's DesiredL4Policy gets updated elsewhere.
 	l4policy := e.DesiredL4Policy
 
 	fmt.Fprintf(fw, "#define HAVE_L4_POLICY\n")
