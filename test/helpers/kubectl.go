@@ -550,16 +550,24 @@ func (kub *Kubectl) Delete(filePath string) *CmdRes {
 
 // WaitKubeDNS waits until the kubeDNS pods are ready. In case of exceeding the
 // default timeout it returns an error.
-func (kub *Kubectl) WaitKubeDNS() error {
+func (kub *Kubectl) WaitKubeDNS() (err error) {
+	defer func() {
+		if err != nil {
+			res := kub.Exec(fmt.Sprintf("%s get pods --all-namespaces -o wide", KubectlCmd))
+			fmt.Fprintf(ginkgo.GinkgoWriter, res.CombineOutput().String())
+		}
+	}()
+
 	body := func() bool {
-		status, err := kub.WaitforPods(KubeSystemNamespace, fmt.Sprintf("-l %s", kubeDNSLabel), 300)
+		var status bool
+		status, err = kub.WaitforPods(KubeSystemNamespace, fmt.Sprintf("-l %s", kubeDNSLabel), 300)
 		if status {
 			return true
 		}
 		kub.logger.WithError(err).Debug("KubeDNS is not ready yet")
 		return false
 	}
-	err := WithTimeout(body, "KubeDNS pods are not ready", &TimeoutConfig{Timeout: HelperTimeout})
+	err = WithTimeout(body, "KubeDNS pods are not ready", &TimeoutConfig{Timeout: HelperTimeout})
 	return err
 }
 
@@ -1155,17 +1163,20 @@ func (kub *Kubectl) DumpCiliumCommandOutput(namespace string) {
 // directory
 func (kub *Kubectl) GatherLogs() {
 	reportCmds := map[string]string{
-		"kubectl get pods --all-namespaces -o json":                    "pods.txt",
-		"kubectl get services --all-namespaces -o json":                "svc.txt",
-		"kubectl get ds --all-namespaces -o json":                      "ds.txt",
-		"kubectl get cnp --all-namespaces -o json":                     "cnp.txt",
-		"kubectl get netpol --all-namespaces -o json":                  "netpol.txt",
-		"kubectl describe pods --all-namespaces":                       "pods_status.txt",
-		"kubectl get replicationcontroller --all-namespaces -o json":   "replicationcontroller.txt",
-		"kubectl get deployment --all-namespaces -o json":              "deployment.txt",
-		"kubectl -n kube-system logs -l k8s-app='kube-dns' -c kubedns": "kubedns.log",
-		"kubectl -n kube-system logs -l k8s-app='kube-dns' -c dnsmasq": "dnsmasq.log",
-		"kubectl -n kube-system logs -l k8s-app='kube-dns' -c sidecar": "kubedns-sidecar.log",
+		"kubectl get pods --all-namespaces -o json":                               "pods.txt",
+		"kubectl get services --all-namespaces -o json":                           "svc.txt",
+		"kubectl get ds --all-namespaces -o json":                                 "ds.txt",
+		"kubectl get cnp --all-namespaces -o json":                                "cnp.txt",
+		"kubectl get netpol --all-namespaces -o json":                             "netpol.txt",
+		"kubectl describe pods --all-namespaces":                                  "pods_status.txt",
+		"kubectl get replicationcontroller --all-namespaces -o json":              "replicationcontroller.txt",
+		"kubectl get deployment --all-namespaces -o json":                         "deployment.txt",
+		"kubectl -n kube-system logs -l k8s-app='kube-dns' -c kubedns":            "kubedns.log",
+		"kubectl -n kube-system logs -l k8s-app='kube-dns' -c dnsmasq":            "dnsmasq.log",
+		"kubectl -n kube-system logs -l k8s-app='kube-dns' -c sidecar":            "kubedns-sidecar.log",
+		"kubectl -n kube-system logs -l k8s-app='kube-dns' -c kubedns --previous": "kubedns.log",
+		"kubectl -n kube-system logs -l k8s-app='kube-dns' -c dnsmasq --previous": "dnsmasq.log",
+		"kubectl -n kube-system logs -l k8s-app='kube-dns' -c sidecar --previous": "kubedns-sidecar.log",
 	}
 
 	ciliumPods, err := kub.GetCiliumPods(KubeSystemNamespace)
