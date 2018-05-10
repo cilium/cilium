@@ -338,18 +338,6 @@ func (kub *Kubectl) Logs(namespace string, pod string) *CmdRes {
 		fmt.Sprintf("%s -n %s logs %s", KubectlCmd, namespace, pod))
 }
 
-// ManifestGet returns the full path of the given manifest corresponding to the
-// Kubernetes version being tested, if such a manifest exists, if not it
-// returns the global manifest file.
-func ManifestGet(manifestFilename string) string {
-	fullPath := filepath.Join(manifestsPath, GetCurrentK8SEnv(), manifestFilename)
-	_, err := os.Stat(fullPath)
-	if err == nil {
-		return filepath.Join(BasePath, fullPath)
-	}
-	return filepath.Join(BasePath, "k8sT", "manifests", manifestFilename)
-}
-
 // MicroscopeStart installs (if it is not installed) a new microscope pod,
 // waits until pod is ready, and runs microscope in background. It returns an
 // error in the case where microscope cannot be installed, or it is not ready after
