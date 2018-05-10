@@ -106,6 +106,7 @@ if [[ "${HOST}" == "k8s1" ]]; then
     sudo kubeadm init --token=$TOKEN \
         --apiserver-advertise-address="192.168.36.11" \
         --pod-network-cidr=10.10.0.0/16 \
+        --feature-gates CoreDNS=true \
         ${KUBEADM_OPTIONS}
 
     mkdir -p /root/.kube
@@ -120,9 +121,6 @@ if [[ "${HOST}" == "k8s1" ]]; then
     kubectl taint nodes --all node-role.kubernetes.io/master-
 
     sudo systemctl start etcd
-
-    kubectl -n kube-system delete svc,deployment,sa,cm kube-dns || true
-    kubectl -n kube-system apply -f ${PROVISIONSRC}/manifest/dns_deployment.yaml
 
     $PROVISIONSRC/compile.sh
 else

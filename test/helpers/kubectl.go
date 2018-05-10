@@ -49,7 +49,7 @@ const (
 	// KubectlCmd Kubernetes controller command
 	KubectlCmd    = "kubectl"
 	manifestsPath = "k8sT/manifests/"
-	kubeDNSLabel  = "k8s-app=kube-dns"
+	kubeDNSLabel  = "k8s-app=coredns"
 )
 
 // GetCurrentK8SEnv returns the value of K8S_VERSION from the OS environment.
