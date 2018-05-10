@@ -370,3 +370,15 @@ func DecodeYAMLOrJSON(path string) ([]interface{}, error) {
 	}
 	return result, nil
 }
+
+// ManifestGet returns the full path of the given manifest corresponding to the
+// Kubernetes version being tested, if such a manifest exists, if not it
+// returns the global manifest file.
+func ManifestGet(manifestFilename string) string {
+	fullPath := filepath.Join(manifestsPath, GetCurrentK8SEnv(), manifestFilename)
+	_, err := os.Stat(fullPath)
+	if err == nil {
+		return filepath.Join(BasePath, fullPath)
+	}
+	return filepath.Join(BasePath, "k8sT", "manifests", manifestFilename)
+}
