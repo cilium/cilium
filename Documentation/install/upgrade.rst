@@ -78,3 +78,23 @@ the upgrade rollout.   However, because the L7 proxies implementing HTTP, gRPC, 
 same Pod as Cilium, they are removed and re-installed as part of the rollout.   As a result, any proxied connections will be lost and 
 clients must reconnect.   
 
+Downgrade
+=========
+
+Occasionally, when encountering issues with a particular version of Cilium, it
+may be useful to alternatively downgrade an instance or deployment. The above
+instructions may be used, replacing the "\ |SCM_BRANCH|" version with the
+desired version.
+
+Particular versions of Cilium may introduce new features, however, so if Cilium
+is configured with the newer feature, and a downgrade is performed, then the
+downgrade may leave Cilium in a bad state. Below is a table of features which
+have been introduced in later versions of Cilium. If you are using a feature
+in the below table, then a downgrade cannot be safely implemented unless you
+also disable the usage of the feature.
+
++----------------------------------------------+-------------------+----------------------------------------------+-----------------------------------------------------------+
+| Feature                                      | Minimum version   | Mitigation                                   | Feature Link                                              |
++==============================================+===================+==============================================+===========================================================+
+| CIDR policies matching on IPv6 prefix ranges | ``v1.0.2``        | Remove policies that contain IPv6 CIDR rules | `Github PR <https://github.com/cilium/cilium/pull/4004>`_ |
++----------------------------------------------+-------------------+----------------------------------------------+-----------------------------------------------------------+
