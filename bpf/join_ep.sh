@@ -59,5 +59,9 @@ fi
 bpf_compile bpf_lxc.c bpf_lxc.o obj
 tc qdisc replace dev $IFNAME clsact || true
 cilium-map-migrate -s $EPDIR/bpf_lxc.o
+set +e
 tc filter replace dev $IFNAME ingress prio 1 handle 1 bpf da obj $EPDIR/bpf_lxc.o sec from-container
-cilium-map-migrate -e $EPDIR/bpf_lxc.o -r $?
+RETCODE=$?
+set -e
+cilium-map-migrate -e $EPDIR/bpf_lxc.o -r $RETCODE
+exit $RETCODE
