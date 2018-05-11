@@ -716,6 +716,13 @@ func (e *Endpoint) TriggerPolicyUpdatesLocked(owner Owner, opts models.Configura
 		return false, fmt.Errorf("%s: %s", e.StringID(), err)
 	}
 
+	// CurrentStatus will be not OK when we have an uncleared error in BPF,
+	// policy or Other. We should keep trying to regenerate in the hopes of
+	// suceeding.
+	// Note: This "retry" behaviour is better suited to a controller, and can be
+	// moved there once we have an endpoint regeneration controller.
+	needToRegenerateBPF = needToRegenerateBPF || (e.Status.CurrentStatus() != OK)
+
 	e.getLogger().Debugf("TriggerPolicyUpdatesLocked: changed: %t", needToRegenerateBPF)
 
 	return needToRegenerateBPF, nil
