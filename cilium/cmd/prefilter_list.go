@@ -25,8 +25,9 @@ import (
 )
 
 var preFilterListCmd = &cobra.Command{
-	Use:   "list",
-	Short: "List CIDR filters",
+	Use:     "list",
+	Aliases: []string{"ls"},
+	Short:   "List CIDR filters",
 	Run: func(cmd *cobra.Command, args []string) {
 		listFilters(cmd, args)
 	},

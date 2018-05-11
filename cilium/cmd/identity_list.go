@@ -27,8 +27,9 @@ import (
 
 // identityListCmd represents the identity_list command
 var identityListCmd = &cobra.Command{
-	Use:   "list [LABELS]",
-	Short: "List identities",
+	Use:     "list [LABELS]",
+	Aliases: []string{"ls"},
+	Short:   "List identities",
 	Run: func(cmd *cobra.Command, args []string) {
 		listIdentities(args)
 	},

@@ -29,8 +29,9 @@ const (
 )
 
 var bpfTunnelListCmd = &cobra.Command{
-	Use:   "list",
-	Short: "List tunnel endpoint entries",
+	Use:     "list",
+	Aliases: []string{"ls"},
+	Short:   "List tunnel endpoint entries",
 	Run: func(cmd *cobra.Command, args []string) {
 		common.RequireRootPrivilege("cilium bpf tunnel list")
 

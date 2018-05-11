@@ -30,8 +30,9 @@ const (
 
 // bpfProxyListCmd represents the bpf_proxy_list command
 var bpfProxyListCmd = &cobra.Command{
-	Use:   "list",
-	Short: "List proxy configuration",
+	Use:     "list",
+	Aliases: []string{"ls"},
+	Short:   "List proxy configuration",
 	Run: func(cmd *cobra.Command, args []string) {
 		common.RequireRootPrivilege("cilium bpf proxy list")
 

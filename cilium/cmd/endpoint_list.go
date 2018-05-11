@@ -38,8 +38,9 @@ var noHeaders bool
 
 // endpointListCmd represents the endpoint_list command
 var endpointListCmd = &cobra.Command{
-	Use:   "list",
-	Short: "List all endpoints",
+	Use:     "list",
+	Aliases: []string{"ls"},
+	Short:   "List all endpoints",
 	Run: func(cmd *cobra.Command, args []string) {
 		listEndpoints()
 	},

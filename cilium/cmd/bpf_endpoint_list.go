@@ -30,8 +30,9 @@ const (
 )
 
 var bpfEndpointListCmd = &cobra.Command{
-	Use:   "list",
-	Short: "List local endpoint entries",
+	Use:     "list",
+	Aliases: []string{"ls"},
+	Short:   "List local endpoint entries",
 	Run: func(cmd *cobra.Command, args []string) {
 		common.RequireRootPrivilege("cilium bpf endpoint list")
 
