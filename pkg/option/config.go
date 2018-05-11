@@ -59,6 +59,7 @@ type daemonConfig struct {
 	HostV6Addr      net.IP     // Host v6 address of the snooping device
 	IPv4Disabled    bool       // Disable IPv4 allocation
 	LBInterface     string     // Set with name of the interface to loadbalance packets from
+	Workloads       []string   // List of Workloads set by the user to used by cilium.
 
 	Tunnel string // Tunnel mode
 

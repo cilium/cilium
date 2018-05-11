@@ -28,7 +28,7 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
-	"github.com/cilium/cilium/pkg/workloads/docker"
+	"github.com/cilium/cilium/pkg/workloads"
 
 	"github.com/sirupsen/logrus"
 	"github.com/vishvananda/netlink"
