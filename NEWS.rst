@@ -2,6 +2,53 @@
 NEWS
 ******
 
+v1.0.2
+======
+
+Eloy Coto (2):
+      Bugtool: Fix gops commands
+      Test/K8s: Added debug logs in cilium DS
+
+Ian Vernon (2):
+      test/k8sT: do not set Debug=False during tests
+      vagrant: configure journald to allow for large amounts of logs
+
+Jarno Rajahalme (3):
+      docs: Fix ginkgo command line.
+      ctmap: Make GC bpf map dumps more robust.
+      proxy: Test if port is available before allocating it for a proxy.
+
+Joe Stringer (10):
+      daemon: Check if device exists on endpoint restore
+      k8sT/Services: Fix URL for bookinfo tests
+      k8sT/Services: Remove fetch http://details:9080/
+      manifests: Pin bookinfo container image versions
+      k8s: Support IPv6 addresses in CIDR policy
+      k8s: Add CRD IP address validation unit tests
+      docs: Describe downgrade impact of IPv6 CRD validation
+      k8s: CIDR: Expand v6 regex to make it more readable
+      k8s: CIDR: Disallow IPv4-mapped IPv6 addresses
+      k8s: CIDR: Format IPv6 CIDR regex
+
+Maciej Kwiek (1):
+      Log monitor client disconnect nicely
+
+Manali Bhutiyani (1):
+      endpoint: Remove endpoint state directories left behind after build failure
+
+Ray Bejjani (8):
+      docs: Correct RBAC urls in upgrade guide
+      test: CmdRes.CombineOutput does not clobber stdout
+      test: Switch Kafka runtime test to use CombineOutput
+      test: Star Wars demo checks HTTP status in stdout
+      monitor: Don't spinloop on node-monitor crashes
+      monitor: pass payload objects by reference
+      monitor: only read perf buffer on listener connect
+      monitor: refactor globals into an object
+
+Shantanu Deshpande (1):
+      Fix weird indentation for rules*
+
 v1.0.1
 ======
 
