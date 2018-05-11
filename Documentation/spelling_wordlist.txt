@@ -2,6 +2,7 @@
 admin
 Alemayhu
 allocators
+ami
 analytics
 api
 apiKeys
@@ -12,6 +13,7 @@ arithmetics
 asm
 au
 awk
+aws
 backend
 backport
 backported
@@ -58,6 +60,7 @@ CIDR
 CIDRs
 classful
 classid
+cli
 cloudcity
 Cloudflare
 cls
@@ -68,9 +71,11 @@ conf
 config
 containerd
 contributing
+CoreOS
 cpuma
 cpumap
 createtopic
+CreationDate
 daemonset
 Dangaard
 datacenter
@@ -103,13 +108,16 @@ dryRun
 DTrace
 ebpf
 eBPF
+ec
 endian
 endianness
 endpointSelector
 enum
 etcd
+etcdClusters
 ethernet
 ethtool
+eu
 eXpress
 extensibility
 Facebook
@@ -159,9 +167,11 @@ https
 Huapeng
 hugepages
 hunderx
+hvm
 Hypercalls
 hypervisors
 ie
+ImageLocation
 imm
 incrementing
 init
@@ -205,6 +215,7 @@ JUnit
 kafka
 kallsyms
 Kicinski
+kops
 kprobes
 kretprobes
 kube
