@@ -29,6 +29,7 @@ import (
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	bpfIPCache "github.com/cilium/cilium/pkg/maps/ipcache"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/monitor"
 	"github.com/cilium/cilium/pkg/option"
@@ -236,7 +237,10 @@ func (d *Daemon) PolicyAdd(rules api.Rules, opts *AddOptions) (uint64, error) {
 		return d.policy.GetRevision(), err
 	}
 
-	if err = ipcache.UpsertIPNetsToKVStore(prefixes, prefixIdentities); err != nil {
+	if err = ipcache.CheckPrefixes(bpfIPCache.IPCache, prefixes); err == nil {
+		err = ipcache.UpsertIPNetsToKVStore(prefixes, prefixIdentities)
+	}
+	if err != nil {
 		metrics.PolicyImportErrors.Inc()
 
 		// Failed to update Prefix->ID mappings; don't leak identities
