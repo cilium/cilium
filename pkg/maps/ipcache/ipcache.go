@@ -30,6 +30,18 @@ const (
 	// MaxEntries is the maximum number of keys that can be present in the
 	// RemoteEndpointMap.
 	MaxEntries = 512000
+
+	// maxPrefixLengths is an approximation of how many different CIDR
+	// prefix lengths may be supported by the BPF datapath without causing
+	// BPF code generation to exceed the verifier instruction limit.
+	// It applies to Linux versions that lack support for LPM, ie < v4.11.
+	//
+	// This was manually determined by setting up an egress policy with a
+	// CIDRSet containing an exception. Reserved 'world' (/0) and 'cluster'
+	// (/8) will always be inserted, which is what the first parameter
+	// denotes. The CIDR for the CIDRSet is the third parameter, and the
+	// exception is the second parameter.
+	maxPrefixLengths = 2 + 32 - 20
 )
 
 // Key implements the bpf.MapKey interface.
@@ -117,30 +129,48 @@ func (v *RemoteEndpointInfo) String() string {
 // GetValuePtr returns the unsafe pointer to the BPF value.
 func (v *RemoteEndpointInfo) GetValuePtr() unsafe.Pointer { return unsafe.Pointer(v) }
 
+// Map represents an IPCache BPF map.
+type Map struct {
+	bpf.Map
+}
+
+// NewMap instantiates a Map.
+func NewMap() *Map {
+	return &Map{
+		Map: *bpf.NewMap(
+			"cilium_ipcache",
+			bpf.BPF_MAP_TYPE_HASH,
+			int(unsafe.Sizeof(Key{})),
+			int(unsafe.Sizeof(RemoteEndpointInfo{})),
+			MaxEntries,
+			0,
+			func(key []byte, value []byte) (bpf.MapKey, bpf.MapValue, error) {
+				k, v := Key{}, RemoteEndpointInfo{}
+
+				if err := bpf.ConvertKeyValue(key, value, &k, &v); err != nil {
+					return nil, nil, err
+				}
+				return k, &v, nil
+			},
+		),
+	}
+}
+
+// GetMaxPrefixLengths determines how many unique prefix lengths are supported
+// simultaneously based on the underlying BPF map type in use.
+func (m *Map) GetMaxPrefixLengths() (count int) {
+	return maxPrefixLengths
+}
+
 var (
 	// IPCache is a mapping of all endpoint IPs in the cluster which this
 	// Cilium agent is a part of to their corresponding security identities.
 	// It is a singleton; there is only one such map per agent.
-	IPCache = bpf.NewMap(
-		"cilium_ipcache",
-		bpf.BPF_MAP_TYPE_HASH,
-		int(unsafe.Sizeof(Key{})),
-		int(unsafe.Sizeof(RemoteEndpointInfo{})),
-		MaxEntries,
-		0,
-		func(key []byte, value []byte) (bpf.MapKey, bpf.MapValue, error) {
-			k, v := Key{}, RemoteEndpointInfo{}
-
-			if err := bpf.ConvertKeyValue(key, value, &k, &v); err != nil {
-				return nil, nil, err
-			}
-			return k, &v, nil
-		},
-	)
+	IPCache = NewMap()
 )
 
 func init() {
-	err := bpf.OpenAfterMount(IPCache)
+	err := bpf.OpenAfterMount(&IPCache.Map)
 	if err != nil {
 		log.WithError(err).Error("unable to open map")
 	}
