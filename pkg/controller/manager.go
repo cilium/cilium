@@ -62,7 +62,7 @@ func (m *Manager) UpdateController(name string, params ControllerParams) *Contro
 	}
 
 	if oldCtrl, ok := m.controllers[name]; ok {
-		oldCtrl.stopController()
+		m.removeController(oldCtrl)
 	}
 
 	ctrl := &Controller{
