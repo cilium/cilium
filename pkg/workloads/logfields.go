@@ -1,4 +1,4 @@
-// Copyright 2017 Authors of Cilium
+// Copyright 2017-2018 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,33 +12,25 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package docker
+package workloads
 
 import (
-	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/logging"
+	"github.com/cilium/cilium/pkg/logging/logfields"
+)
+
+// logging field definitions
+const (
+	// fieldRetry is the current retry attempt
+	fieldRetry = "retry"
+
+	// fieldMaxRetry is the maximum number of retries
+	fieldMaxRetry = "maxRetry"
+
+	// fieldSubsys is the value for logfields.LogSubsys
+	fieldSubsys = "workload-watcher"
 )
 
 var (
-	ignoredMutex      lock.RWMutex
-	ignoredContainers = make(map[string]int)
+	log = logging.DefaultLogger.WithField(logfields.LogSubsys, fieldSubsys)
 )
-
-func ignoredContainer(id string) bool {
-	ignoredMutex.RLock()
-	_, ok := ignoredContainers[id]
-	ignoredMutex.RUnlock()
-
-	return ok
-}
-
-func startIgnoringContainer(id string) {
-	ignoredMutex.Lock()
-	ignoredContainers[id]++
-	ignoredMutex.Unlock()
-}
-
-func stopIgnoringContainer(id string) {
-	ignoredMutex.Lock()
-	delete(ignoredContainers, id)
-	ignoredMutex.Unlock()
-}

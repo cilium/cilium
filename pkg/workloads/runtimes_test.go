@@ -1,4 +1,4 @@
-// Copyright 2018 Authors of Cilium
+// Copyright 2017-2018 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,48 +15,304 @@
 package workloads
 
 import (
+	"reflect"
 	"testing"
-
-	. "gopkg.in/check.v1"
 )
 
-// Hook up gocheck into the "go test" runner.
-func Test(t *testing.T) {
-	TestingT(t)
+func TestParseConfigEndpoint(t *testing.T) {
+	// backup registered workload since None will unregister them all
+	bakRegisteredWorkloads := map[workloadRuntimeType]workloadModule{}
+	for k, v := range registeredWorkloads {
+		bakRegisteredWorkloads[k] = v
+	}
+	defer func() {
+		registeredWorkloads = bakRegisteredWorkloads
+	}()
+
+	containerDOpts := map[string]string{
+		epOpt: "unix:///foo.sock",
+	}
+	dockerOpts := map[string]string{
+		epOpt: "unix:///docker.sock",
+	}
+
+	type args struct {
+		containerRuntimes       []string
+		containerRuntimesEPOpts map[string]string
+	}
+	tests := []struct {
+		name    string
+		args    args
+		wantErr bool
+	}{
+		{
+			name: "Do not use any container runtime",
+			args: args{
+				containerRuntimes: []string{string(ContainerD), string(Docker)},
+				containerRuntimesEPOpts: map[string]string{
+					string(ContainerD): containerDOpts[epOpt],
+					string(Docker):     dockerOpts[epOpt],
+				},
+			},
+			wantErr: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if err := ParseConfigEndpoint(tt.args.containerRuntimes, tt.args.containerRuntimesEPOpts); (err != nil) != tt.wantErr {
+				t.Errorf("ParseConfigEndpoint() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+
+	if !reflect.DeepEqual(getWorkload(ContainerD).getConfig(), containerDOpts) {
+		t.Errorf("ParseConfigEndpoint() = %v, want %v", getWorkload(ContainerD).getConfig(), containerDOpts)
+	}
+	if !reflect.DeepEqual(getWorkload(Docker).getConfig(), dockerOpts) {
+		t.Errorf("ParseConfigEndpoint() = %v, want %v", getWorkload(Docker).getConfig(), dockerOpts)
+	}
+
+	// Since None will unregister the backends we need to execute it on a
+	// different set of tests
+	tests = []struct {
+		name    string
+		args    args
+		wantErr bool
+	}{
+		{
+			name: "Do not use any container runtime",
+			args: args{
+				containerRuntimes: []string{string(ContainerD), string(None)},
+				containerRuntimesEPOpts: map[string]string{
+					string(ContainerD): epOpt + "=unix:///foo.sock",
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name: "Do not use any container runtime",
+			args: args{
+				containerRuntimes: []string{"does-not-exist", string(None)},
+			},
+			wantErr: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if err := ParseConfigEndpoint(tt.args.containerRuntimes, tt.args.containerRuntimesEPOpts); (err != nil) != tt.wantErr {
+				t.Errorf("ParseConfigEndpoint() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
 }
 
-type WorkloadsTestSuite struct{}
+func Test_parseRuntimeType(t *testing.T) {
+	type args struct {
+		str string
+	}
+	tests := []struct {
+		name    string
+		args    args
+		want    workloadRuntimeType
+		wantErr bool
+	}{
+		{
+			name: "containerd",
+			args: args{
+				str: "containerd",
+			},
+			want:    ContainerD,
+			wantErr: false,
+		},
+		{
+			name: "containerD",
+			args: args{
+				str: "containerD",
+			},
+			want:    ContainerD,
+			wantErr: false,
+		},
+		{
+			name: "docker",
+			args: args{
+				str: "docker",
+			},
+			want:    Docker,
+			wantErr: false,
+		},
+		{
+			name: "cri",
+			args: args{
+				str: "cri",
+			},
+			want:    None,
+			wantErr: true,
+		},
+		{
+			name: "none",
+			args: args{
+				str: "none",
+			},
+			want:    None,
+			wantErr: false,
+		},
+		{
+			name: "auto",
+			args: args{
+				str: "auto",
+			},
+			want:    Auto,
+			wantErr: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := parseRuntimeType(tt.args.str)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("parseRuntimeType() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if got != tt.want {
+				t.Errorf("parseRuntimeType() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
 
-var _ = Suite(&WorkloadsTestSuite{})
+func Test_unregisterWorkloads(t *testing.T) {
+	// backup registered workloads since they will unregistered
+	bakRegisteredWorkloads := map[workloadRuntimeType]workloadModule{}
+	for k, v := range registeredWorkloads {
+		bakRegisteredWorkloads[k] = v
+	}
+	defer func() {
+		registeredWorkloads = bakRegisteredWorkloads
+	}()
 
-func (w *WorkloadsTestSuite) TestParseConfig(c *C) {
-	// Test if user options overwrites defaults values
-	err := ParseConfig([]string{string(Auto)}, map[string]string{string(Docker): "foo"})
-	c.Assert(err, IsNil)
+	tests := []struct {
+		name string
+	}{
+		{
+			name: "unregister backends",
+		},
+	}
 
-	opts := GetRuntimeOpt(Docker)
-	c.Assert(opts, Not(IsNil))
-	c.Assert(opts.Endpoint, Equals, "foo")
+	if len(registeredWorkloads) == 0 {
+		t.Errorf("number of registeredWorkloads should not be 0")
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			unregisterWorkloads()
+		})
+	}
+	if len(registeredWorkloads) != 0 {
+		t.Errorf("number of registeredWorkloads should be 0")
+	}
+}
 
-	// Test if default options are set
-	containerRuntimes = make(map[containerRuntimeType]containerRuntimeOpts)
-	err = ParseConfig([]string{string(Auto)}, map[string]string{})
-	c.Assert(err, IsNil)
+func Test_getWorkload(t *testing.T) {
+	type args struct {
+		name workloadRuntimeType
+	}
+	tests := []struct {
+		name string
+		args args
+		want workloadModule
+	}{
+		{
+			name: "containerD",
+			args: args{
+				name: ContainerD,
+			},
+			want: registeredWorkloads[ContainerD],
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := getWorkload(tt.args.name); !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("getWorkload() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
 
-	opts = GetRuntimeOpt(Docker)
-	c.Assert(opts, Not(IsNil))
-	c.Assert(opts.Endpoint, Equals, GetRuntimeDefaultOpt(Docker).Endpoint)
+func TestGetRuntimeDefaultOpt(t *testing.T) {
+	type args struct {
+		crt workloadRuntimeType
+		opt string
+	}
+	tests := []struct {
+		name string
+		args args
+		want string
+	}{
+		{
+			name: "containerd",
+			args: args{
+				crt: ContainerD,
+				opt: epOpt + "=" + containerDInstance.opts[epOpt].value,
+			},
+		},
+		{
+			name: "docker",
+			args: args{
+				crt: Docker,
+				opt: epOpt + "=" + dockerInstance.opts[epOpt].value,
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := GetRuntimeDefaultOpt(tt.args.crt, tt.args.opt); got != tt.want {
+				t.Errorf("GetRuntimeDefaultOpt() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
 
-	// Test if with none any options are set
-	containerRuntimes = make(map[containerRuntimeType]containerRuntimeOpts)
-	err = ParseConfig([]string{string(None), string(Auto)}, map[string]string{string(Docker): "foo"})
-	c.Assert(err, IsNil)
+func TestGetRuntimeOptions(t *testing.T) {
+	tests := []struct {
+		name string
+		want string
+	}{
+		{
+			name: "default options",
+			want: epOpt + "=" + containerDInstance.opts[epOpt].value + "," +
+				epOpt + "=" + dockerInstance.opts[epOpt].value,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := GetRuntimeOptions(); got != tt.want {
+				t.Errorf("GetRuntimeOptions() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
 
-	opts = GetRuntimeOpt(Docker)
-	c.Assert(opts, IsNil)
-
-	// Test invalid runtime
-	containerRuntimes = make(map[containerRuntimeType]containerRuntimeOpts)
-	err = ParseConfig([]string{"foo"}, map[string]string{"foo": "foo"})
-	c.Assert(err, Not(IsNil))
+func TestGetDefaultEPOptsStringWithPrefix(t *testing.T) {
+	type args struct {
+		prefix string
+	}
+	tests := []struct {
+		name string
+		args args
+		want string
+	}{
+		{
+			name: "default ep options",
+			args: args{
+				prefix: "--container-runtime-endpoint=",
+			},
+			want: `--container-runtime-endpoint=` + string(ContainerD) + "=" + containerDInstance.opts[epOpt].value + ", " +
+				`--container-runtime-endpoint=` + string(Docker) + "=" + dockerInstance.opts[epOpt].value,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := GetDefaultEPOptsStringWithPrefix(tt.args.prefix); got != tt.want {
+				t.Errorf("GetDefaultEPOptsStringWithPrefix() = %v, want %v", got, tt.want)
+			}
+		})
+	}
 }

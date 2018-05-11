@@ -1,4 +1,4 @@
-// Copyright 2017 Authors of Cilium
+// Copyright 2017-2018 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package docker
+package workloads
 
 import (
 	ctx "context"
@@ -22,10 +22,20 @@ import (
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 
-	dTypes "github.com/docker/engine-api/types"
-	dTypesEvents "github.com/docker/engine-api/types/events"
 	"github.com/sirupsen/logrus"
 )
+
+type eventType string
+
+const (
+	eventTypeStart  eventType = "start"
+	eventTypeDelete eventType = "delete"
+)
+
+type message struct {
+	workloadID string
+	eventType  eventType
+}
 
 // watcherState holds global close flag, per-container queues for events and
 // ignore toggles
@@ -33,13 +43,13 @@ type watcherState struct {
 	lock.Mutex
 
 	eventQueueBufferSize int
-	events               map[string]chan dTypesEvents.Message
+	events               map[string]chan message
 }
 
 func newWatcherState(eventQueueBufferSize int) *watcherState {
 	return &watcherState{
 		eventQueueBufferSize: eventQueueBufferSize,
-		events:               make(map[string]chan dTypesEvents.Message),
+		events:               make(map[string]chan message),
 	}
 }
 
@@ -50,14 +60,14 @@ func newWatcherState(eventQueueBufferSize int) *watcherState {
 // This parallelism is desirable to respond to events faster; each event might
 // require talking to an outside daemon (docker) and a single noisy container
 // might starve others.
-func (ws *watcherState) enqueueByContainerID(containerID string, e *dTypesEvents.Message) {
+func (ws *watcherState) enqueueByContainerID(containerID string, e *message) {
 	ws.Lock()
 	defer ws.Unlock()
 
 	if _, found := ws.events[containerID]; !found {
-		q := make(chan dTypesEvents.Message, eventQueueBufferSize)
+		q := make(chan message, eventQueueBufferSize)
 		ws.events[containerID] = q
-		go processContainerEvents(q)
+		go Client().processEvents(q)
 	}
 
 	if e != nil {
@@ -98,27 +108,27 @@ func (ws *watcherState) syncWithRuntime() {
 	timeoutCtx, cancel := ctx.WithTimeout(ctx.Background(), 10*time.Second)
 	defer cancel()
 
-	cList, err := dockerClient.ContainerList(timeoutCtx, dTypes.ContainerListOptions{All: false})
+	cList, err := Client().workloadIDsList(timeoutCtx)
 	if err != nil {
 		log.WithError(err).Error("Failed to retrieve the container list")
 		return
 	}
-	for _, cont := range cList {
-		if ignoredContainer(cont.ID) {
+	for _, contID := range cList {
+		if ignoredContainer(contID) {
 			continue
 		}
 
-		if alreadyHandled := ws.handlingContainerID(cont.ID); !alreadyHandled {
+		if alreadyHandled := ws.handlingContainerID(contID); !alreadyHandled {
 			log.WithFields(logrus.Fields{
-				logfields.ContainerID: shortContainerID(cont.ID),
+				logfields.ContainerID: shortContainerID(contID),
 			}).Debug("Found unwatched container")
 
 			wg.Add(1)
 			go func(wg *sync.WaitGroup, id string) {
 				defer wg.Done()
 				ws.enqueueByContainerID(id, nil) // ensure a handler is running for future events
-				handleCreateContainer(id, false)
-			}(&wg, cont.ID)
+				go Client().handleCreateWorkload(id, false)
+			}(&wg, contID)
 		}
 	}
 

@@ -1,4 +1,4 @@
-// Copyright 2018 Authors of Cilium
+// Copyright 2017-2018 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,94 +15,100 @@
 package workloads
 
 import (
+	"context"
 	"fmt"
+	"sort"
 	"strings"
 
-	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/api/v1/models"
+	"github.com/cilium/cilium/pkg/endpoint"
 )
 
-func init() {
-	containerRuntimes = make(map[containerRuntimeType]containerRuntimeOpts)
-	runtimeDefaultsOpts = map[containerRuntimeType]containerRuntimeOpts{
-		Docker: {
-			Endpoint: "unix:///var/run/docker.sock",
-		},
-	}
+// WorkloadOwner is the interface that the owner of workloads must implement.
+type WorkloadOwner interface {
+	endpoint.Owner
 
+	// DeleteEndpoint is called when the underlying workload has died
+	DeleteEndpoint(id string) (int, error)
+}
+
+var (
+	owner WorkloadOwner
+)
+
+// Owner returns the owner instance of all workloads
+func Owner() WorkloadOwner {
+	return owner
+}
+
+// Init initializes the workloads package
+func Init(o WorkloadOwner) {
+	owner = o
 }
 
 const (
-	None   containerRuntimeType = "none"
-	Auto   containerRuntimeType = "auto"
-	Docker containerRuntimeType = "docker"
+	None workloadRuntimeType = "none"
+	Auto workloadRuntimeType = "auto"
 )
+
+const (
+	epOpt = "endpoint"
+)
+
+type workloadRuntimeOpt struct {
+	// description is the description of the option
+	description string
+
+	// value is the value the option has been configured to
+	value string
+
+	// validate, if set, is called to validate the value before assignment
+	validate func(value string) error
+}
+
+type workloadRuntimeOpts map[string]*workloadRuntimeOpt
+
+// workloadModule is the interface that each workload module has to implement.
+type workloadModule interface {
+	// getName must return the name of the workload
+	getName() string
+
+	// setConfig must configure the workload with the specified options.
+	// This function is called once before newClient().
+	setConfig(opts map[string]string) error
+
+	// setConfigDummy must configure the workload with dummy configuration
+	// for testing purposes. This is a replacement for setConfig().
+	setConfigDummy()
+
+	// getConfig must return the workload configuration.
+	getConfig() map[string]string
+
+	// newClient must initializes the workload and create a new kvstore
+	// client which implements the WorkloadRuntime interface
+	newClient() (WorkloadRuntime, error)
+}
+
+type workloadRuntimeType string
 
 var (
-	runtimeDefaultsOpts    map[containerRuntimeType]containerRuntimeOpts
-	containerRuntimesMutex lock.Mutex
-	containerRuntimes      map[containerRuntimeType]containerRuntimeOpts
+	// registeredWorkloads is a slice of all workloads that have registered
+	// itself via registerWorkload()
+	registeredWorkloads = map[workloadRuntimeType]workloadModule{}
 )
 
-type containerRuntimeType string
-
-type containerRuntimeOpts struct {
-	Endpoint string
+func unregisterWorkloads() {
+	registeredWorkloads = map[workloadRuntimeType]workloadModule{}
 }
 
-// GetRuntimeOpt returns the options for the given container runtime.
-func GetRuntimeOpt(crt containerRuntimeType) *containerRuntimeOpts {
-	containerRuntimesMutex.Lock()
-	defer containerRuntimesMutex.Unlock()
-	if opts, ok := containerRuntimes[crt]; ok {
-		return &opts
-	}
-	return nil
-}
-
-// GetRuntimeDefaultOpt returns the default options for the given container
-// runtime.
-func GetRuntimeDefaultOpt(crt containerRuntimeType) *containerRuntimeOpts {
-	if opts, ok := runtimeDefaultsOpts[crt]; ok {
-		return &opts
-	}
-	return nil
-}
-
-// GetRuntimesString returns a string representation of the container runtimes
-// stored and the list of options for each container runtime.
-func GetRuntimesString() string {
-	containerRuntimesMutex.Lock()
-	defer containerRuntimesMutex.Unlock()
-	crtStr := make([]string, 0, len(containerRuntimes))
-	for k, v := range containerRuntimes {
-		crtStr = append(crtStr, fmt.Sprintf("%q on endpoint %q", k, v.Endpoint))
-	}
-	return strings.Join(crtStr, ",")
-}
-
-func addRuntime(crt containerRuntimeType, opts containerRuntimeOpts) {
-	containerRuntimesMutex.Lock()
-	defer containerRuntimesMutex.Unlock()
-	containerRuntimes[crt] = opts
-}
-
-func parseRuntimeType(str string) (containerRuntimeType, error) {
-	switch crt := containerRuntimeType(strings.ToLower(str)); crt {
-	case None, Auto, Docker:
-		return crt, nil
-	default:
-		return None, fmt.Errorf("ContainerRuntime %s is not available", crt)
-	}
-}
-
-// ParseConfig parses the containerRuntimes and the containerRuntime options
-// and adds them to the internal containerRuntime maps.
+// ParseConfigEndpoint parses the containerRuntimes and the containerRuntime
+// options and adds them to the internal containerRuntime maps.
 // In case any containeRuntime does not exist an error is returned.
 // If `auto` is set in containerRuntimes, the default options of each container
 // runtime will be set. The user defined options of each particular runtime
 // will overwrite defaults.
 // If `none` is set, all containerRuntimes will be ignored.
-func ParseConfig(containerRuntimes []string, containerRuntimesOpts map[string]string) error {
+func ParseConfigEndpoint(containerRuntimes []string, containerRuntimesEPOpts map[string]string) error {
 	for _, runtime := range containerRuntimes {
 		crt, err := parseRuntimeType(runtime)
 		if err != nil {
@@ -110,31 +116,112 @@ func ParseConfig(containerRuntimes []string, containerRuntimesOpts map[string]st
 		}
 		switch crt {
 		case None:
+			unregisterWorkloads()
 			return nil
-		case Auto:
-			for crt, opt := range runtimeDefaultsOpts {
-				addRuntime(crt, opt)
-			}
 		}
 	}
 
-	for runtime, opts := range containerRuntimesOpts {
-		crt, err := parseRuntimeType(runtime)
-		if err != nil {
-			return err
-		}
+	for runtime, epOpts := range containerRuntimesEPOpts {
+		crt, _ := parseRuntimeType(runtime)
 		switch crt {
 		case None, Auto:
 		default:
-			if opts == "" {
-				addRuntime(crt, runtimeDefaultsOpts[crt])
-			} else {
-				crtOpts := containerRuntimeOpts{
-					Endpoint: opts,
-				}
-				addRuntime(crt, crtOpts)
-			}
+			registeredWorkloads[crt].setConfig(map[string]string{
+				epOpt: epOpts,
+			})
 		}
 	}
 	return nil
+}
+
+func parseRuntimeType(str string) (workloadRuntimeType, error) {
+	switch crt := workloadRuntimeType(strings.ToLower(str)); crt {
+	case None, Auto:
+		return crt, nil
+	default:
+		_, ok := registeredWorkloads[crt]
+		if !ok {
+			return None, fmt.Errorf("runtime '%s' is not available", crt)
+		}
+		return crt, nil
+	}
+}
+
+// registerWorkload must be called by container runtimes to register themselves
+func registerWorkload(name workloadRuntimeType, module workloadModule) {
+	if _, ok := registeredWorkloads[name]; ok {
+		log.Panicf("workload with name '%s' already registered", name)
+	}
+
+	registeredWorkloads[name] = module
+}
+
+// getWorkload finds a registered workload by name
+func getWorkload(name workloadRuntimeType) workloadModule {
+	if workload, ok := registeredWorkloads[name]; ok {
+		return workload
+	}
+
+	return nil
+}
+
+// GetRuntimeDefaultOpt returns the default options for the given container
+// runtime.
+func GetRuntimeDefaultOpt(crt workloadRuntimeType, opt string) string {
+	opts, ok := registeredWorkloads[crt]
+	if !ok {
+		return ""
+	}
+	return opts.getConfig()[opt]
+}
+
+// GetRuntimeOptions returns a string representation of the container runtimes
+// stored and the list of options for each container runtime.
+func GetRuntimeOptions() string {
+	var crtStr []string
+
+	crs := make([]string, 0, len(registeredWorkloads))
+	for k := range registeredWorkloads {
+		crs = append(crs, string(k))
+	}
+	sort.Strings(crs)
+
+	for _, cr := range crs {
+		rb := registeredWorkloads[workloadRuntimeType(cr)]
+		for k, v := range rb.getConfig() {
+			crtStr = append(crtStr, fmt.Sprintf("%s=%s", k, v))
+		}
+	}
+	return strings.Join(crtStr, ",")
+}
+
+// GetDefaultEPOptsStringWithPrefix returns the defaults options for each
+// runtime with the given prefix.
+func GetDefaultEPOptsStringWithPrefix(prefix string) string {
+	strs := make([]string, 0, len(registeredWorkloads))
+	crs := make([]string, 0, len(registeredWorkloads))
+
+	for k := range registeredWorkloads {
+		crs = append(crs, string(k))
+	}
+	sort.Strings(crs)
+
+	for _, cr := range crs {
+		v := registeredWorkloads[workloadRuntimeType(cr)].getConfig()
+		strs = append(strs, fmt.Sprintf("%s%s=%s", prefix, cr, v[epOpt]))
+	}
+
+	return strings.Join(strs, ", ")
+}
+
+// WorkloadRuntime are the individual workload runtime operations that each
+// workload must implement.
+type WorkloadRuntime interface {
+	EnableEventListener() error
+	Status() *models.Status
+	IsRunning(ep *endpoint.Endpoint) bool
+	IgnoreRunningWorkloads()
+	processEvents(events chan message)
+	handleCreateWorkload(id string, retry bool)
+	workloadIDsList(ctx context.Context) ([]string, error)
 }

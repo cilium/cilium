@@ -1,4 +1,4 @@
-// Copyright 2017 Authors of Cilium
+// Copyright 2017-2018 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,27 +15,30 @@
 package workloads
 
 import (
-	"github.com/cilium/cilium/pkg/endpoint"
+	"github.com/cilium/cilium/pkg/lock"
 )
-
-// WorkloadOwner is the interface that the owner of workloads must implement.
-type WorkloadOwner interface {
-	endpoint.Owner
-
-	// DeleteEndpoint is called when the underlying workload has died
-	DeleteEndpoint(id string) (int, error)
-}
 
 var (
-	owner WorkloadOwner
+	ignoredMutex      lock.RWMutex
+	ignoredContainers = make(map[string]int)
 )
 
-// Owner returns the owner instance of all workloads
-func Owner() WorkloadOwner {
-	return owner
+func ignoredContainer(id string) bool {
+	ignoredMutex.RLock()
+	_, ok := ignoredContainers[id]
+	ignoredMutex.RUnlock()
+
+	return ok
 }
 
-// Init initializes the workloads package
-func Init(o WorkloadOwner) {
-	owner = o
+func startIgnoringContainer(id string) {
+	ignoredMutex.Lock()
+	ignoredContainers[id]++
+	ignoredMutex.Unlock()
+}
+
+func stopIgnoringContainer(id string) {
+	ignoredMutex.Lock()
+	delete(ignoredContainers, id)
+	ignoredMutex.Unlock()
 }
