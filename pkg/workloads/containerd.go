@@ -124,7 +124,9 @@ func (c *containerDClient) Status() *models.Status {
 	criStatus := c.cri.Status()
 	criStatusMsg := fmt.Sprintf("cri-containerd client: %s - %s", criStatus.State, criStatus.Msg)
 
-	if _, err := c.Client.Version(context.Background()); err != nil {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	if _, err := c.Client.Version(ctx); err != nil {
 		return &models.Status{
 			State: models.StatusStateFailure,
 			Msg: fmt.Sprintf(
