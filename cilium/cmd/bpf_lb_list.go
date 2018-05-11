@@ -34,8 +34,9 @@ var listRevNAT bool
 
 // bpfCtListCmd represents the bpf_ct_list command
 var bpfLBListCmd = &cobra.Command{
-	Use:   "list",
-	Short: "List load-balancing configuration",
+	Use:     "list",
+	Aliases: []string{"ls"},
+	Short:   "List load-balancing configuration",
 	Run: func(cmd *cobra.Command, args []string) {
 		common.RequireRootPrivilege("cilium bpf lb list")
 

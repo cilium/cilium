@@ -21,6 +21,7 @@ import (
 	"github.com/cilium/cilium/pkg/command"
 
 	"fmt"
+
 	"github.com/cilium/cilium/pkg/maps/ipcache"
 	"github.com/spf13/cobra"
 )
@@ -31,8 +32,9 @@ const (
 )
 
 var bpfIPCacheListCmd = &cobra.Command{
-	Use:   "ipcache list",
-	Short: "List endpoint IPs (local and remote) and their corresponding security identities",
+	Use:     "ipcache list",
+	Aliases: []string{"ls"},
+	Short:   "List endpoint IPs (local and remote) and their corresponding security identities",
 	Run: func(cmd *cobra.Command, args []string) {
 		common.RequireRootPrivilege("cilium bpf ipcache list")
 

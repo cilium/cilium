@@ -29,8 +29,9 @@ import (
 
 // serviceListCmd represents the service_list command
 var serviceListCmd = &cobra.Command{
-	Use:   "list",
-	Short: "List services",
+	Use:     "list",
+	Aliases: []string{"ls"},
+	Short:   "List services",
 	Run: func(cmd *cobra.Command, args []string) {
 		listServices(cmd, args)
 	},

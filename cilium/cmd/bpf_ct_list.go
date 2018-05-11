@@ -28,9 +28,10 @@ import (
 
 // bpfCtListCmd represents the bpf_ct_list command
 var bpfCtListCmd = &cobra.Command{
-	Use:    "list ( <endpoint identifier> | global )",
-	Short:  "List connection tracking entries",
-	PreRun: requireEndpointIDorGlobal,
+	Use:     "list ( <endpoint identifier> | global )",
+	Aliases: []string{"ls"},
+	Short:   "List connection tracking entries",
+	PreRun:  requireEndpointIDorGlobal,
 	Run: func(cmd *cobra.Command, args []string) {
 		common.RequireRootPrivilege("cilium bpf ct list")
 		if args[0] == "global" {
