@@ -25,7 +25,7 @@ import (
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
-	"github.com/cilium/cilium/pkg/workloads/containerd"
+	"github.com/cilium/cilium/pkg/workloads"
 
 	"github.com/go-openapi/runtime/middleware"
 	k8sTypes "k8s.io/api/core/v1"
@@ -142,7 +142,7 @@ func (d *Daemon) getStatus() models.StatusResponse {
 		sr.Kvstore = &models.Status{State: models.StatusStateOk, Msg: info}
 	}
 
-	sr.ContainerRuntime = docker.Status()
+	sr.ContainerRuntime = workloads.Status()
 
 	sr.Kubernetes = d.getK8sStatus()
 
