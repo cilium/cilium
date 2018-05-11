@@ -2,16 +2,27 @@
 
 set -e
 HOST=$(hostname)
-TOKEN="258062.5d84c017c9b2796c"
-CILIUM_CONFIG_DIR="/opt/cilium"
-PROVISIONSRC="/tmp/provision/"
-SRC_FOLDER="/home/vagrant/go/src/github.com/cilium/cilium"
-SYSTEMD_SERVICES="$SRC_FOLDER/contrib/systemd"
+export TOKEN="258062.5d84c017c9b2796c"
+export CILIUM_CONFIG_DIR="/opt/cilium"
+export PROVISIONSRC="/tmp/provision/"
+export SRC_FOLDER="/home/vagrant/go/src/github.com/cilium/cilium"
+export SYSTEMD_SERVICES="$SRC_FOLDER/contrib/systemd"
 MOUNT_SYSTEMD="sys-fs-bpf.mount"
 
 NODE=$1
 IP=$2
 K8S_VERSION=$3
+IPv6=$4
+CONTAINER_RUNTIME=$5
+
+# Kubeadm default parameters
+export KUBEADM_ADDR='192.168.36.11'
+export KUBEADM_POD_NETWORK='10.10.0.0'
+export KUBEADM_POD_CIDR='16'
+export KUBEADM_CRI_SOCKET="unix:///var/run/docker.sock"
+export KUBEADM_SLAVE_OPTIONS=""
+export KUBEADM_OPTIONS=""
+export K8S_FULL_VERSION=""
 
 source ${PROVISIONSRC}/helpers.bash
 
@@ -23,6 +34,9 @@ if [[ -f  "/etc/provision_finished" ]]; then
     /tmp/provision/compile.sh
     exit 0
 fi
+
+go get github.com/subfuzion/envtpl
+mv ~/go/bin/envtpl /usr/local/bin/
 
 $PROVISIONSRC/dns.sh
 
@@ -47,9 +61,24 @@ sudo rm /var/lib/apt/lists/lock || true
 retry_function "wget https://packages.cloud.google.com/apt/doc/apt-key.gpg"
 apt-key add apt-key.gpg
 
-KUBEADM_SLAVE_OPTIONS=""
-KUBEADM_OPTIONS=""
+KUBEADM_CONFIG=$(cat <<-EOF
+apiVersion: kubeadm.k8s.io/v1alpha1
+kind: MasterConfiguration
+api:
+  advertiseAddress: "{{ .KUBEADM_ADDR }}"
+criSocket: "{{ .KUBEADM_CRI_SOCKET }}"
+kubernetesVersion: "v{{ .K8S_FULL_VERSION }}"
+token: "{{ .TOKEN }}"
+controllerManagerExtraArgs:
+  allocate-node-cidrs: "true"
+  cluster-cidr: "{{ .KUBEADM_POD_NETWORK }}/{{ .KUBEADM_POD_CIDR}}"
+  node-cidr-mask-size: "{{ .KUBEADM_POD_CIDR }}"
+EOF
+)
 
+# Around the `--ignore-preflight-errors=cri` is used because
+# /var/run/dockershim.sock is not present (because base image has containerid)
+# so with that option Kubeadm fallbacks to /var/run/docker.sock
 case $K8S_VERSION in
     "1.7")
         KUBERNETES_CNI_VERSION="0.5.1-00"
@@ -62,18 +91,19 @@ case $K8S_VERSION in
     "1.9")
         KUBERNETES_CNI_VERSION="0.6.0-00"
         K8S_FULL_VERSION="1.9.7"
-        KUBEADM_SLAVE_OPTIONS="--discovery-token-unsafe-skip-ca-verification"
+        KUBEADM_SLAVE_OPTIONS="--discovery-token-unsafe-skip-ca-verification --ignore-preflight-errors=cri"
+        KUBEADM_OPTIONS="--ignore-preflight-errors=cri"
         ;;
     "1.10")
         KUBERNETES_CNI_VERSION="0.6.0-00"
         K8S_FULL_VERSION="1.10.1"
-        KUBEADM_SLAVE_OPTIONS="--discovery-token-unsafe-skip-ca-verification"
+        KUBEADM_SLAVE_OPTIONS="--discovery-token-unsafe-skip-ca-verification --ignore-preflight-errors=cri"
         ;;
     "1.11")
         KUBERNETES_CNI_VERSION="v0.6.0"
         K8S_FULL_VERSION="1.11.0-alpha.1"
-        KUBEADM_OPTIONS="--kubernetes-version=v${K8S_FULL_VERSION}"
-        KUBEADM_SLAVE_OPTIONS="--discovery-token-unsafe-skip-ca-verification"
+        KUBEADM_OPTIONS="--ignore-preflight-errors=cri"
+        KUBEADM_SLAVE_OPTIONS="--discovery-token-unsafe-skip-ca-verification --ignore-preflight-errors=cri"
         ;;
 esac
 
@@ -91,6 +121,22 @@ case $K8S_VERSION in
         ;;
 esac
 
+case $CONTAINER_RUNTIME in
+    "docker")
+        ;;
+    "containerd")
+        KUBEADM_CRI_SOCKET="unix:///var/run/cri-containerd.sock"
+        ;;
+    *)
+        echo "Invalid container runtime '${CONTAINER_RUNTIME}'"
+esac
+
+if [ "${IPv6}" -eq "1" ]; then
+    KUBEADM_ADDR='[fd04::11]'
+    KUBEADM_POD_NETWORK="fd02::"
+    KUBEADM_POD_CIDR="112"
+fi
+
 sudo mkdir -p ${CILIUM_CONFIG_DIR}
 
 sudo cp "$SYSTEMD_SERVICES/$MOUNT_SYSTEMD" /etc/systemd/system/
@@ -103,20 +149,19 @@ sudo iptables --policy FORWARD ACCEPT
 
 #check hostname to know if is kubernetes or runtime test
 if [[ "${HOST}" == "k8s1" ]]; then
-    sudo kubeadm init --token=$TOKEN \
-        --apiserver-advertise-address="192.168.36.11" \
-        --pod-network-cidr=10.10.0.0/16 \
-        ${KUBEADM_OPTIONS}
+
+    echo "${KUBEADM_CONFIG}" | envtpl > /tmp/config.yaml
+    sudo kubeadm init  --config /tmp/config.yaml $KUBEADM_OPTIONS
 
     mkdir -p /root/.kube
     sudo cp -i /etc/kubernetes/admin.conf /root/.kube/config
     sudo chown root:root /root/.kube/config
 
     sudo -u vagrant mkdir -p /home/vagrant/.kube
-    sudo cp -i /etc/kubernetes/admin.conf /home/vagrant/.kube/config
+    sudo cp -fi /etc/kubernetes/admin.conf /home/vagrant/.kube/config
     sudo chown vagrant:vagrant /home/vagrant/.kube/config
 
-    sudo cp /etc/kubernetes/admin.conf ${CILIUM_CONFIG_DIR}/kubeconfig
+    sudo cp -f /etc/kubernetes/admin.conf ${CILIUM_CONFIG_DIR}/kubeconfig
     kubectl taint nodes --all node-role.kubernetes.io/master-
 
     sudo systemctl start etcd
@@ -126,7 +171,7 @@ if [[ "${HOST}" == "k8s1" ]]; then
 
     $PROVISIONSRC/compile.sh
 else
-    kubeadm join --token=$TOKEN 192.168.36.11:6443 \
+    kubeadm join --token=$TOKEN ${KUBEADM_ADDR}:6443 \
         ${KUBEADM_SLAVE_OPTIONS}
     sudo systemctl stop etcd
     docker pull k8s1:5000/cilium/cilium-dev:latest
