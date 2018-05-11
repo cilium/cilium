@@ -155,24 +155,16 @@ func (d *Daemon) createEndpoint(epTemplate *models.EndpointChangeRequest, id str
 		return PutEndpointIDInvalidCode, err
 	}
 
+	identityLabels, _, _ := checkLabels(labels.NewLabelsFromModel(lbls), labels.Labels{})
+	if len(identityLabels) > 0 {
+		// This will transition the endpoint into state
+		// `waiting-for-identity` and trigger identity resolution.
+		ep.AddIdentityLabels(d, identityLabels)
+	}
+
 	if err := endpointmanager.AddEndpoint(d, ep, "Create endpoint from API PUT"); err != nil {
 		log.WithError(err).Warn("Aborting endpoint join")
 		return PutEndpointIDFailedCode, err
-	}
-
-	add := labels.NewLabelsFromModel(lbls)
-
-	if len(add) > 0 {
-		code, errLabelsAdd := d.updateEndpointLabels(id, add, labels.Labels{})
-		if errLabelsAdd != nil {
-			// XXX: Why should the endpoint remain in this case?
-			log.WithFields(logrus.Fields{
-				logfields.EndpointID:              id,
-				logfields.IdentityLabels:          logfields.Repr(add),
-				logfields.IdentityLabels + ".bad": errLabelsAdd,
-			}).Error("Could not add labels while creating an ep due to bad labels")
-			return code, errLabelsAdd
-		}
 	}
 
 	return PutEndpointIDCreatedCode, nil
@@ -653,34 +645,6 @@ func checkLabels(add, del labels.Labels) (addLabels, delLabels labels.Labels, ok
 		return nil, nil, false
 	}
 	return addLabels, delLabels, true
-}
-
-// updateEndpointLabels add and deletes the given labels on given endpoint ID.
-// The received `add` and `del` labels will be filtered with the valid label
-// prefixes.
-// The `add` labels take precedence over `del` labels, this means if the same
-// label is set on both `add` and `del`, that specific label will exist in the
-// endpoint's labels.
-// Returns an HTTP response code and an error msg (or nil on success).
-func (d *Daemon) updateEndpointLabels(id string, add, del labels.Labels) (int, error) {
-	addLabels, delLabels, ok := checkLabels(add, del)
-	if !ok {
-		return 0, nil
-	}
-
-	ep, err := endpointmanager.Lookup(id)
-	if err != nil {
-		return GetEndpointIDInvalidCode, err
-	}
-	if ep == nil {
-		return PatchEndpointIDLabelsNotFoundCode, fmt.Errorf("Endpoint ID %s not found", id)
-	}
-
-	if err := ep.ModifyIdentityLabels(d, addLabels, delLabels); err != nil {
-		return PatchEndpointIDLabelsNotFoundCode, err
-	}
-
-	return PatchEndpointIDLabelsOKCode, nil
 }
 
 // updateEndpointLabelsFromAPI is the same as updateEndpointLabels(), but also

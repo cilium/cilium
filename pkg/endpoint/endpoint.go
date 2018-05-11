@@ -2134,6 +2134,9 @@ func (e *Endpoint) getIDandLabels() string {
 // labels can be added or deleted. If a net label changed is performed, the
 // endpoint will receive a new identity and will be regenerated. Both of these
 // operations will happen in the background.
+//
+// This function can only fail if labels are attempted to be deleted. Use
+// AddIdentityLabels() if no labels are being deleted.
 func (e *Endpoint) ModifyIdentityLabels(owner Owner, addLabels, delLabels labels.Labels) error {
 	e.Mutex.Lock()
 	defer e.Mutex.Unlock()
@@ -2192,6 +2195,13 @@ func (e *Endpoint) ModifyIdentityLabels(owner Owner, addLabels, delLabels labels
 	e.runLabelsResolver(owner, rev)
 
 	return nil
+}
+
+// AddIdentityLabels is identical to ModifyIdentityLabels and to be used if no
+// labels need to be deleted.
+func (e *Endpoint) AddIdentityLabels(owner Owner, labels labels.Labels) {
+	// ModifyIdentityLabels cannot fail if no labels are being deleted
+	e.ModifyIdentityLabels(owner, labels, labels.Labels{})
 }
 
 // UpdateLabels is called to update the labels of an endpoint. Calls to this
