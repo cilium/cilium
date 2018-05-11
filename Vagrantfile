@@ -126,7 +126,7 @@ Vagrant.configure(2) do |config|
         vb.customize ["modifyvm", :id, "--natdnshostresolver1", "on"]
         vb.customize ["modifyvm", :id, "--natdnsproxy1", "on"]
         config.vm.box = "cilium/ubuntu"
-        config.vm.box_version = "69"
+        config.vm.box_version = "70"
         vb.memory = ENV['VM_MEMORY'].to_i
         vb.cpus = ENV['VM_CPUS'].to_i
         if ENV["NFS"] then
