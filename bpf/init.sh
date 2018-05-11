@@ -197,8 +197,12 @@ function xdp_load()
 	ip link set dev $DEV $MODE off
 	rm -f "/sys/fs/bpf/xdp/globals/$CIDR_MAP" 2> /dev/null || true
 	cilium-map-migrate -s $OUT
+	set +e
 	ip link set dev $DEV $MODE obj $OUT sec $SEC
-	cilium-map-migrate -e $OUT -r $?
+	RETCODE=$?
+	set -e
+	cilium-map-migrate -e $OUT -r $RETCODE
+	return $RETCODE
 }
 
 function bpf_load()
@@ -220,8 +224,12 @@ function bpf_load()
 	tc qdisc del dev $DEV clsact 2> /dev/null || true
 	tc qdisc add dev $DEV clsact
 	cilium-map-migrate -s $OUT
+	set +e
 	tc filter add dev $DEV $WHERE prio 1 handle 1 bpf da obj $OUT sec $SEC
-	cilium-map-migrate -e $OUT -r $?
+	RETCODE=$?
+	set -e
+	cilium-map-migrate -e $OUT -r $RETCODE
+	return $RETCODE
 }
 
 function encap_fail()
