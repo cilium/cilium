@@ -112,7 +112,7 @@ func parseToCiliumIngressRule(namespace string, inRule, retRule *api.Rule) {
 					// The user can explicitly specify the namespace in the
 					// FromEndpoints selector. If omitted, we limit the
 					// scope to the namespace the policy lives in.
-					if _, ok := retRule.Ingress[i].FromRequires[j].MatchLabels[podPrefixLbl]; !ok {
+					if !retRule.Ingress[i].FromRequires[j].HasKey(podPrefixLbl) {
 						retRule.Ingress[i].FromRequires[j].MatchLabels[podPrefixLbl] = namespace
 					}
 				}
@@ -175,7 +175,7 @@ func parseToCiliumEgressRule(namespace string, inRule, retRule *api.Rule) {
 					// The user can explicitly specify the namespace in the
 					// ToEndpoints selector. If omitted, we limit the
 					// scope to the namespace the policy lives in.
-					if _, ok := retRule.Egress[i].ToRequires[j].MatchLabels[podPrefixLbl]; !ok {
+					if !retRule.Egress[i].ToRequires[j].HasKey(podPrefixLbl) {
 						retRule.Egress[i].ToRequires[j].MatchLabels[podPrefixLbl] = namespace
 					}
 				}
