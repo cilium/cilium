@@ -1,0 +1,429 @@
+// Copyright 2018 Authors of Cilium
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+package store
+
+import (
+	"fmt"
+	"path"
+	"strings"
+	"time"
+
+	"github.com/cilium/cilium/pkg/controller"
+	"github.com/cilium/cilium/pkg/kvstore"
+	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/logging"
+	"github.com/cilium/cilium/pkg/logging/logfields"
+
+	"github.com/sirupsen/logrus"
+)
+
+const (
+	// listTimeoutDefault is the default timeout to wait while performing
+	// the initial list operation of objects from the kvstore
+	listTimeoutDefault = 30 * time.Second
+
+	// synchronizationIntervalDefault is the default interval to
+	// synchronize keys with the kvstore
+	synchronizationIntervalDefault = time.Minute
+
+	// watcherChanSize is the size of the channel to buffer kvstore events
+	watcherChanSize = 100
+)
+
+var (
+	controllers controller.Manager
+
+	log = logging.DefaultLogger.WithField(logfields.LogSubsys, "shared-store")
+)
+
+// KeyCreator is the function to create a new empty Key instances. Store
+// collaborators must implement this interface and provide the implementation
+// in the Configuration structure.
+type KeyCreator func() Key
+
+// Configuration is the set of configuration parameters of a shared store.
+type Configuration struct {
+	// Prefix is the key prefix of the store shared by all keys. The prefix
+	// is the unique identification of the store. Multiple collaborators
+	// connected to the same kvstore cluster configuring stores with
+	// matching prefixes will automatically form a shared store. This
+	// parameter is required.
+	Prefix string
+
+	// SynchronizationInterval is the interval in which locally owned keys
+	// are synchronized with the kvstore. This parameter is optional.
+	SynchronizationInterval time.Duration
+
+	// KeyCreator is called to allocate a Key instance when a new shared
+	// key is discovered. This parameter is required.
+	KeyCreator KeyCreator
+}
+
+// validate is invoked by JoinSharedStore to validate and complete the
+// configuration. It returns nil when the configuration is valid.
+func (c *Configuration) validate() error {
+	if c.Prefix == "" {
+		return fmt.Errorf("Prefix must be specified")
+	}
+
+	if c.KeyCreator == nil {
+		return fmt.Errorf("KeyCreator must be specified")
+	}
+
+	if c.SynchronizationInterval == 0 {
+		c.SynchronizationInterval = synchronizationIntervalDefault
+	}
+
+	return nil
+}
+
+// SharedStore is an instance of a shared store. It is created with
+// JoinSharedStore() and released with the SharedStore.Close() function.
+type SharedStore struct {
+	// conf is a copy of the store configuration. This field is never
+	// mutated after JoinSharedStore() so it is safe to access this without
+	// a lock.
+	conf Configuration
+
+	// name is the name of the shared store. It is derived from the kvstore
+	// prefix.
+	name string
+
+	// controllerName is the name of the controller used to synchronize
+	// with the kvstore. It is derived from the name.
+	controllerName string
+
+	// mutex protects mutations to localKeys and sharedKeys
+	mutex lock.RWMutex
+
+	// localKeys is a map of keys that are owned by the local instance. All
+	// local keys are synchronized with the kvstore. This map can be
+	// modified with UpdateLocalKey() and DeleteLocalKey().
+	localKeys map[string]LocalKey
+
+	// sharedKeys is a map of all keys that either have been discovered
+	// from remote collaborators or successfully shared local keys. This
+	// map represents the state in the kvstore and is updated based on
+	// kvstore events.
+	sharedKeys map[string]Key
+
+	kvstoreWatcher *kvstore.Watcher
+}
+
+// Key is the interface that a data structure must implement in order to be
+// stored and shared as a key in a SharedStore.
+type Key interface {
+	// GetKeyName must return the name of the key. The name of the key must
+	// be unique within the store and stable for a particular key. The name
+	// of the key must be identical across agent restarts as the keys
+	// remain in the kvstore.
+	GetKeyName() string
+
+	// OnDelete is called when the key has been deleted from the shared store
+	OnDelete()
+
+	// OnUpdate is called whenever a change has occurred in the data
+	// structure represented by the key
+	OnUpdate()
+
+	// Marshal is called to retrieve the byte slice representation of the
+	// data represented by the key to store it in the kvstore. The function
+	// must ensure that the underlying datatype is properly locked. It is
+	// typically a good idea to use json.Marshal to implement this
+	// function.
+	Marshal() ([]byte, error)
+
+	// Unmarshal is called when an update from the kvstore is received. The
+	// byte slice passed to the function is coming from the Marshal
+	// function from another collaborator. The function must unmarshal and
+	// update the underlying data type. It is typically a good idea to use
+	// json.Unmarshal to implement this function.
+	Unmarshal(data []byte) error
+}
+
+// LocalKey is a Key owned by the local store instance
+type LocalKey Key
+
+// JoinSharedStore creates a new shared store based on the provided
+// configuration. An error is returned if the configuration is invalid. The
+// store is initialized with the contents of the kvstore. An error is returned
+// if the contents cannot be retrieved synchronously from the kvstore. Starts a
+// controller to continuously synchronize the store with the kvstore.
+func JoinSharedStore(c Configuration) (*SharedStore, error) {
+	if err := c.validate(); err != nil {
+		return nil, err
+	}
+
+	s := &SharedStore{
+		conf:       c,
+		localKeys:  map[string]LocalKey{},
+		sharedKeys: map[string]Key{},
+	}
+
+	s.name = "store-" + s.conf.Prefix
+	s.controllerName = "kvstore-sync-" + s.name
+
+	if err := s.listAndStartWatcher(); err != nil {
+		return nil, err
+	}
+
+	controllers.UpdateController(s.controllerName,
+		controller.ControllerParams{
+			DoFunc: func() error {
+				return s.syncLocalKeys()
+			},
+			RunInterval: s.conf.SynchronizationInterval,
+		},
+	)
+
+	return s, nil
+}
+
+// Close stops participation with a shared store. This stops the controller
+// started by JoinSharedStore().
+func (s *SharedStore) Close() {
+	// Wait for all write operations to complete and then block all further
+	// operations
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+
+	if s.kvstoreWatcher != nil {
+		s.kvstoreWatcher.Stop()
+	}
+
+	controllers.RemoveController(s.controllerName)
+
+	for name, key := range s.localKeys {
+		if err := kvstore.Delete(s.keyPath(key)); err != nil {
+			s.getLogger().WithError(err).Warning("Unable to delete key in kvstore")
+		}
+
+		delete(s.localKeys, name)
+		key.OnDelete()
+	}
+}
+
+// keyPath returns the absolute kvstore path of a key
+func (s *SharedStore) keyPath(key Key) string {
+	// WARNING - STABLE API: The composition of the absolute key path
+	// cannot be changed without breaking up and downgrades.
+	return path.Join(s.conf.Prefix, key.GetKeyName())
+}
+
+// syncLocalKey synchronizes a key to the kvstore
+func (s *SharedStore) syncLocalKey(key LocalKey) error {
+	jsonValue, err := key.Marshal()
+	if err != nil {
+		return err
+	}
+
+	// Update key in kvstore, overwrite an eventual existing key, attach
+	// lease to expire entry when agent dies and never comes back up.
+	if err := kvstore.Update(s.keyPath(key), jsonValue, true); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// syncLocalKeys synchronizes all local keys with the kvstore
+func (s *SharedStore) syncLocalKeys() error {
+	// Create a copy of all local keys so we can unlock and sync to kvstore
+	// without holding the lock
+	s.mutex.RLock()
+	keys := []LocalKey{}
+	for _, key := range s.localKeys {
+		keys = append(keys, key)
+	}
+	s.mutex.RUnlock()
+
+	for _, key := range keys {
+		if err := s.syncLocalKey(key); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// UpdateLocalKey adds a key to be synchronized with the kvstore
+func (s *SharedStore) UpdateLocalKey(key LocalKey) {
+	s.mutex.Lock()
+	s.localKeys[key.GetKeyName()] = key
+	s.mutex.Unlock()
+}
+
+// UpdateLocalKeySync synchronously synchronizes a local key with the kvstore
+// and adds it to the list of local keys to be synchronized if the initial
+// synchronous synchronization was successful
+func (s *SharedStore) UpdateLocalKeySync(key LocalKey) error {
+	s.UpdateLocalKey(key)
+
+	if err := s.syncLocalKey(key); err != nil {
+		s.DeleteLocalKey(key)
+		return err
+	}
+
+	return nil
+}
+
+// DeleteLocalKey removes a key from being synchronized with the kvstore
+func (s *SharedStore) DeleteLocalKey(key LocalKey) {
+	err := kvstore.Delete(s.keyPath(key))
+	name := key.GetKeyName()
+
+	s.mutex.Lock()
+	_, ok := s.localKeys[name]
+	delete(s.localKeys, name)
+	s.mutex.Unlock()
+
+	if ok {
+		if err != nil {
+			s.getLogger().WithError(err).Warning("Unable to delete key in kvstore")
+		}
+
+		key.OnDelete()
+	}
+}
+
+// getLocalKeys returns all local keys
+func (s *SharedStore) getLocalKeys() []Key {
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+
+	keys := make([]Key, len(s.localKeys))
+	idx := 0
+	for _, key := range s.localKeys {
+		keys[idx] = key
+		idx++
+	}
+
+	return keys
+}
+
+// getSharedKeys returns all shared keys
+func (s *SharedStore) getSharedKeys() []Key {
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+
+	keys := make([]Key, len(s.sharedKeys))
+	idx := 0
+	for _, key := range s.sharedKeys {
+		keys[idx] = key
+		idx++
+	}
+
+	return keys
+}
+
+func (s *SharedStore) getLogger() *logrus.Entry {
+	return log.WithFields(logrus.Fields{
+		"storeName": s.name,
+	})
+}
+
+func (s *SharedStore) updateKey(name string, value []byte) error {
+	s.mutex.Lock()
+	key, ok := s.sharedKeys[name]
+
+	// shared key is seen for the first time
+	if !ok {
+		if s.localKeys[name] != nil {
+			// if local key, reuse key instance
+			s.sharedKeys[name] = s.localKeys[name]
+		} else {
+			// allocate key for keys from collaborators
+			s.sharedKeys[name] = s.conf.KeyCreator()
+		}
+		key = s.sharedKeys[name]
+	}
+	s.mutex.Unlock()
+
+	if err := key.Unmarshal(value); err != nil {
+		return err
+	}
+
+	key.OnUpdate()
+	return nil
+}
+
+func (s *SharedStore) deleteKey(name string) {
+	s.mutex.Lock()
+	existingKey, ok := s.sharedKeys[name]
+	delete(s.sharedKeys, name)
+	s.mutex.Unlock()
+
+	if ok {
+		existingKey.OnDelete()
+	} else {
+		s.getLogger().WithField("key", name).
+			Warning("Unable to find deleted key in local state")
+	}
+}
+
+func (s *SharedStore) listAndStartWatcher() error {
+	listDone := make(chan bool)
+
+	go s.watcher(listDone)
+
+	select {
+	case <-listDone:
+	case <-time.After(listTimeoutDefault):
+		return fmt.Errorf("Time out while retrieving initial list of objects from kvstore")
+	}
+
+	return nil
+}
+
+func (s *SharedStore) watcher(listDone chan bool) {
+	s.kvstoreWatcher = kvstore.ListAndWatch(s.name+"-watcher", s.conf.Prefix, watcherChanSize)
+
+	for {
+		select {
+		case event, ok := <-s.kvstoreWatcher.Events:
+			if !ok {
+				return
+			}
+
+			if event.Typ == kvstore.EventTypeListDone {
+				s.getLogger().Debug("Initial list of objects received from kvstore")
+				close(listDone)
+				continue
+			}
+
+			logger := s.getLogger().WithFields(logrus.Fields{
+				"key":       event.Key,
+				"eventType": event.Typ,
+			})
+
+			logger.Infof("Received key update via kvstore [value %s]", event.Value)
+
+			keyName := strings.TrimPrefix(event.Key, s.conf.Prefix)
+			if keyName[0] == '/' {
+				keyName = keyName[1:]
+			}
+
+			switch event.Typ {
+			case kvstore.EventTypeCreate, kvstore.EventTypeModify:
+				if err := s.updateKey(keyName, event.Value); err != nil {
+					logger.WithError(err).Warningf("Unable to unmarshal store value: %s", event.Value)
+				}
+
+			case kvstore.EventTypeDelete:
+				s.deleteKey(keyName)
+			}
+		}
+	}
+}
