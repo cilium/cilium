@@ -16,12 +16,11 @@ package allocator
 
 import (
 	"fmt"
-	"math/rand"
 	"path"
 	"testing"
-	"time"
 
 	"github.com/cilium/cilium/pkg/kvstore"
+	"github.com/cilium/cilium/pkg/testutils"
 
 	. "gopkg.in/check.v1"
 )
@@ -74,24 +73,12 @@ func (t TestType) PutKey(v string) (AllocatorKey, error) {
 	return TestType(v), nil
 }
 
-// Stolen from:
-// https://stackoverflow.com/questions/22892120/how-to-generate-a-random-string-of-a-fixed-length-in-golang
-func init() {
-	rand.Seed(time.Now().UnixNano())
-}
-
-var letterRunes = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
-
-func randStringRunes(n int) string {
-	b := make([]rune, n)
-	for i := range b {
-		b[i] = letterRunes[rand.Intn(len(letterRunes))]
-	}
-	return testPrefix + string(b)
+func randomTestName() string {
+	return testutils.RandomRuneWithPrefix(testPrefix, 12)
 }
 
 func (s *AllocatorSuite) TestSelectID(c *C) {
-	allocatorName := randStringRunes(12)
+	allocatorName := randomTestName()
 	minID, maxID := ID(1), ID(5)
 	a, err := NewAllocator(allocatorName, TestType(""), WithMin(minID), WithMax(maxID), WithSuffix("a"))
 	c.Assert(err, IsNil)
@@ -112,7 +99,7 @@ func (s *AllocatorSuite) TestSelectID(c *C) {
 }
 
 func (s *AllocatorSuite) BenchmarkAllocate(c *C) {
-	allocatorName := randStringRunes(12)
+	allocatorName := randomTestName()
 	maxID := ID(c.N)
 	allocator, err := NewAllocator(allocatorName, TestType(""), WithMax(maxID), WithSuffix("a"))
 	c.Assert(err, IsNil)
@@ -228,11 +215,11 @@ func testAllocator(c *C, maxID ID, allocatorName string, suffix string) {
 }
 
 func (s *AllocatorSuite) TestAllocateCached(c *C) {
-	testAllocator(c, ID(256), randStringRunes(12), "a") // enable use of local cache
+	testAllocator(c, ID(256), randomTestName(), "a") // enable use of local cache
 }
 
 func (s *AllocatorSuite) TestKeyToID(c *C) {
-	allocatorName := randStringRunes(12)
+	allocatorName := randomTestName()
 	a, err := NewAllocator(allocatorName, TestType(""), WithSuffix("a"))
 	c.Assert(err, IsNil)
 	c.Assert(a, Not(IsNil))
@@ -304,7 +291,7 @@ func (s *AllocatorSuite) TestKeyToID(c *C) {
 //func (s *AllocatorSuite) TestParallelAllocation(c *C) {
 //	var (
 //		wg            sync.WaitGroup
-//		allocatorName = randStringRunes(12)
+//		allocatorName = randomTestName()
 //	)
 //
 //	// create dummy allocator to delete all keys
