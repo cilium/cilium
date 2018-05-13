@@ -35,7 +35,7 @@ import (
 	"github.com/Jeffail/gabs"
 	"github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"k8s.io/kubernetes/pkg/util/yaml"
+	"k8s.io/apimachinery/pkg/util/yaml"
 )
 
 // IsRunningOnJenkins detects if the currently running Ginkgo application is

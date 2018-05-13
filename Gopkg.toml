@@ -104,12 +104,7 @@
 
 [[constraint]]
   name = "k8s.io/kubernetes"
-  revision = "v1.5.1"
-
-# Once we update "k8s.io/kubernetes" we can remove this override
-[[override]]
-  name = "github.com/ugorji/go"
-  revision = "f1f1a805ed361a0e078bb537e4ea78cd37dcf065"
+  revision = "v1.10.2"
 
 [[constraint]]
   name = "github.com/Jeffail/gabs"
