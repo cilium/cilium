@@ -1,4 +1,4 @@
-// Copyright 2016-2017 Authors of Cilium
+// Copyright 2016-2018 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -20,6 +20,8 @@ import (
 	"unsafe"
 
 	"github.com/cilium/cilium/pkg/bpf"
+
+	"github.com/sirupsen/logrus"
 )
 
 const (
@@ -76,10 +78,17 @@ func (v tunnelEndpoint) NewValue() bpf.MapValue { return &tunnelEndpoint{} }
 // SetTunnelEndpoint adds/replaces a prefix => tunnel-endpoint mapping
 func SetTunnelEndpoint(prefix net.IP, endpoint net.IP) error {
 	key, val := newTunnelEndpoint(prefix), newTunnelEndpoint(endpoint)
+
+	log.WithFields(logrus.Fields{
+		fieldPrefix:   prefix,
+		fieldEndpoint: endpoint,
+	}).Debug("Updating tunnel map entry")
+
 	return TunnelMap.Update(key, &val)
 }
 
 // DeleteTunnelEndpoint removes a prefix => tunnel-endpoint mapping
 func DeleteTunnelEndpoint(prefix net.IP) error {
+	log.WithField(fieldPrefix, prefix).Debug("Deleting tunnel map entry")
 	return TunnelMap.Delete(newTunnelEndpoint(prefix))
 }
