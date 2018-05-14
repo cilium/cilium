@@ -74,7 +74,7 @@ type DaemonSuite struct {
 
 func (ds *DaemonSuite) SetUpTest(c *C) {
 	ds.oldPolicyEnabled = policy.GetPolicyEnabled()
-	policy.SetPolicyEnabled(e.DefaultEnforcement)
+	policy.SetPolicyEnabled(option.DefaultEnforcement)
 
 	// kvstore is initialized before generic SetUpTest so it must have been completed
 	ds.kvstoreInit = true
@@ -97,8 +97,8 @@ func (ds *DaemonSuite) SetUpTest(c *C) {
 	// Get the default labels prefix filter
 	err = labels.ParseLabelPrefixCfg(nil, "")
 	c.Assert(err, IsNil)
-	daemonConf.Opts.Set(e.OptionDropNotify, true)
-	daemonConf.Opts.Set(e.OptionTraceNotify, true)
+	daemonConf.Opts.Set(option.DropNotify, true)
+	daemonConf.Opts.Set(option.TraceNotify, true)
 
 	d, err := NewDaemon(daemonConf)
 	c.Assert(err, IsNil)

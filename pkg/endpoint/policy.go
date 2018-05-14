@@ -35,6 +35,7 @@ import (
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/monitor"
 	"github.com/cilium/cilium/pkg/node"
+	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
 
@@ -412,9 +413,9 @@ func (e *Endpoint) regenerateL3Policy(owner Owner, repo *policy.Repository, revi
 // IngressOrEgressIsEnforced returns true if either ingress or egress is in
 // enforcement mode or if the global policy enforcement is enabled.
 func (e *Endpoint) IngressOrEgressIsEnforced() bool {
-	return policy.GetPolicyEnabled() == AlwaysEnforce ||
-		e.Opts.IsEnabled(OptionIngressPolicy) ||
-		e.Opts.IsEnabled(OptionEgressPolicy)
+	return policy.GetPolicyEnabled() == option.AlwaysEnforce ||
+		e.Opts.IsEnabled(option.IngressPolicy) ||
+		e.Opts.IsEnabled(option.EgressPolicy)
 }
 
 func (e *Endpoint) updateNetworkPolicy(owner Owner) error {
@@ -616,28 +617,28 @@ func (e *Endpoint) regeneratePolicy(owner Owner, opts models.ConfigurationMap) (
 	// depends on the conntrack options
 	if c.L4Policy != nil {
 		if c.L4Policy.RequiresConntrack() {
-			opts[OptionConntrack] = optionEnabled
+			opts[option.Conntrack] = optionEnabled
 		}
 	}
 
 	ingress, egress := owner.EnableEndpointPolicyEnforcement(e)
 
-	opts[OptionIngressPolicy] = optionDisabled
-	opts[OptionEgressPolicy] = optionDisabled
+	opts[option.IngressPolicy] = optionDisabled
+	opts[option.EgressPolicy] = optionDisabled
 
 	if !ingress && !egress {
 		e.getLogger().Debug("ingress and egress policy enforcement not enabled")
 	} else {
 		if ingress && egress {
 			e.getLogger().Debug("policy enforcement for ingress and egress enabled")
-			opts[OptionIngressPolicy] = optionEnabled
-			opts[OptionEgressPolicy] = optionEnabled
+			opts[option.IngressPolicy] = optionEnabled
+			opts[option.EgressPolicy] = optionEnabled
 		} else if ingress {
 			e.getLogger().Debug("policy enforcement for ingress enabled")
-			opts[OptionIngressPolicy] = optionEnabled
+			opts[option.IngressPolicy] = optionEnabled
 		} else {
 			e.getLogger().Debug("policy enforcement for egress enabled")
-			opts[OptionEgressPolicy] = optionEnabled
+			opts[option.EgressPolicy] = optionEnabled
 		}
 	}
 

@@ -41,6 +41,7 @@ import (
 	"github.com/cilium/cilium/pkg/maps/ctmap"
 	"github.com/cilium/cilium/pkg/maps/lxcmap"
 	"github.com/cilium/cilium/pkg/maps/policymap"
+	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/u8proto"
 	"github.com/cilium/cilium/pkg/version"
@@ -212,8 +213,8 @@ func (e *Endpoint) writeHeaderfile(prefix string, owner Owner) error {
 	// - policy enforcement mode is "never"
 	// - policy enforcement mode is "default" and no policies are loaded
 	if !e.PolicyCalculated &&
-		!(owner.PolicyEnforcement() == NeverEnforce) &&
-		!(owner.PolicyEnforcement() == DefaultEnforcement && owner.GetPolicyRepository().Empty()) {
+		!(owner.PolicyEnforcement() == option.NeverEnforce) &&
+		!(owner.PolicyEnforcement() == option.DefaultEnforcement && owner.GetPolicyRepository().Empty()) {
 		fw.WriteString("#define DROP_ALL\n")
 	}
 
@@ -244,7 +245,7 @@ func (e *Endpoint) writeHeaderfile(prefix string, owner Owner) error {
 		}
 	}
 	fmt.Fprintf(fw, "#define CALLS_MAP %s\n", path.Base(e.CallsMapPathLocked()))
-	if e.Opts.IsEnabled(OptionConntrackLocal) {
+	if e.Opts.IsEnabled(option.ConntrackLocal) {
 		fmt.Fprintf(fw, "#define CT_MAP_SIZE %s\n", strconv.Itoa(ctmap.MapNumEntriesLocal))
 		fmt.Fprintf(fw, "#define CT_MAP6 %s\n", ctmap.MapName6+strconv.Itoa(int(e.ID)))
 		fmt.Fprintf(fw, "#define CT_MAP4 %s\n", ctmap.MapName4+strconv.Itoa(int(e.ID)))

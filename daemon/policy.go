@@ -31,6 +31,7 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/monitor"
+	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
 
@@ -60,11 +61,11 @@ func (d *Daemon) TriggerPolicyUpdates(force bool) *sync.WaitGroup {
 func (d *Daemon) EnableEndpointPolicyEnforcement(e *endpoint.Endpoint) (ingress bool, egress bool) {
 	// First check if policy enforcement should be enabled at the daemon level.
 	switch policy.GetPolicyEnabled() {
-	case endpoint.AlwaysEnforce:
+	case option.AlwaysEnforce:
 		// If policy enforcement is enabled for the daemon, then it has to be
 		// enabled for the endpoint.
 		return true, true
-	case endpoint.DefaultEnforcement:
+	case option.DefaultEnforcement:
 		// Default mode means that if rules contain labels that match this endpoint,
 		// then enable policy enforcement for this endpoint.
 		// GH-1676: Could check e.Consumable instead? Would be much cheaper.
@@ -97,10 +98,10 @@ func (h *getPolicyResolve) Handle(params GetPolicyResolveParams) middleware.Resp
 	d.policy.Mutex.RLock()
 
 	// If policy enforcement isn't enabled, then traffic is allowed.
-	if policy.GetPolicyEnabled() == endpoint.NeverEnforce {
+	if policy.GetPolicyEnabled() == option.NeverEnforce {
 		policyEnforcementMsg = "Policy enforcement is disabled for the daemon."
 		isPolicyEnforcementEnabled = false
-	} else if policy.GetPolicyEnabled() == endpoint.DefaultEnforcement {
+	} else if policy.GetPolicyEnabled() == option.DefaultEnforcement {
 		// If there are no rules matching the set of from / to labels provided in
 		// the API request, that means that policy enforcement is not enabled
 		// for the endpoints corresponding to said sets of labels; thus, we allow
