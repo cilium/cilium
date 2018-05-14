@@ -23,6 +23,7 @@ import (
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/metrics"
+	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -284,7 +285,7 @@ func HasGlobalCT() bool {
 	eps := GetEndpoints()
 	for _, e := range eps {
 		e.RLock()
-		globalCT := e.Consumable != nil && !e.Opts.IsEnabled(endpoint.OptionConntrackLocal)
+		globalCT := e.Consumable != nil && !e.Opts.IsEnabled(option.ConntrackLocal)
 		e.RUnlock()
 		if globalCT {
 			return true
@@ -306,9 +307,9 @@ func GetEndpoints() []*endpoint.Endpoint {
 
 // AddEndpoint takes the prepared endpoint object and starts managing it.
 func AddEndpoint(owner endpoint.Owner, ep *endpoint.Endpoint, reason string) error {
-	alwaysEnforce := policy.GetPolicyEnabled() == endpoint.AlwaysEnforce
-	ep.Opts.Set(endpoint.OptionIngressPolicy, alwaysEnforce)
-	ep.Opts.Set(endpoint.OptionEgressPolicy, alwaysEnforce)
+	alwaysEnforce := policy.GetPolicyEnabled() == option.AlwaysEnforce
+	ep.Opts.Set(option.IngressPolicy, alwaysEnforce)
+	ep.Opts.Set(option.EgressPolicy, alwaysEnforce)
 
 	if err := ep.CreateDirectory(); err != nil {
 		return err

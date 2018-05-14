@@ -62,6 +62,7 @@ import (
 	"github.com/cilium/cilium/pkg/maps/tunnel"
 	"github.com/cilium/cilium/pkg/monitor"
 	"github.com/cilium/cilium/pkg/node"
+	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/proxy"
 	"github.com/cilium/cilium/pkg/proxy/logger"
@@ -283,7 +284,7 @@ func (d *Daemon) PolicyEnforcement() string {
 
 // DebugEnabled returns if debug mode is enabled.
 func (d *Daemon) DebugEnabled() bool {
-	return d.conf.Opts.IsEnabled(endpoint.OptionDebug)
+	return d.conf.Opts.IsEnabled(option.Debug)
 }
 
 func (d *Daemon) writeNetdevHeader(dir string) error {
@@ -309,18 +310,18 @@ func (d *Daemon) writeNetdevHeader(dir string) error {
 
 // returns #define for PolicyIngress based on the configuration of the daemon.
 func (d *Daemon) fmtPolicyEnforcementIngress() string {
-	if policy.GetPolicyEnabled() == endpoint.AlwaysEnforce {
-		return fmt.Sprintf("#define %s\n", endpoint.OptionIngressSpecPolicy.Define)
+	if policy.GetPolicyEnabled() == option.AlwaysEnforce {
+		return fmt.Sprintf("#define %s\n", option.IngressSpecPolicy.Define)
 	}
-	return fmt.Sprintf("#undef %s\n", endpoint.OptionIngressSpecPolicy.Define)
+	return fmt.Sprintf("#undef %s\n", option.IngressSpecPolicy.Define)
 }
 
 // returns #define for PolicyEgress based on the configuration of the daemon.
 func (d *Daemon) fmtPolicyEnforcementEgress() string {
-	if policy.GetPolicyEnabled() == endpoint.AlwaysEnforce {
-		return fmt.Sprintf("#define %s\n", endpoint.OptionEgressSpecPolicy.Define)
+	if policy.GetPolicyEnabled() == option.AlwaysEnforce {
+		return fmt.Sprintf("#define %s\n", option.EgressSpecPolicy.Define)
 	}
-	return fmt.Sprintf("#undef %s\n", endpoint.OptionEgressSpecPolicy.Define)
+	return fmt.Sprintf("#undef %s\n", option.EgressSpecPolicy.Define)
 }
 
 // Must be called with d.conf.EnablePolicyMU locked.
@@ -1303,7 +1304,7 @@ func mapValidateWalker(path string) error {
 
 func changedOption(key string, value bool, data interface{}) {
 	d := data.(*Daemon)
-	if key == endpoint.OptionDebug {
+	if key == option.Debug {
 		// Set the debug toggle (this can be a no-op)
 		logging.ToggleDebugLogs(d.DebugEnabled())
 		// Reflect log level change to proxies
@@ -1351,7 +1352,7 @@ func (h *patchConfig) Handle(params PatchConfigParams) middleware.Responder {
 	// Only update if value provided for PolicyEnforcement.
 	if enforcement := cfgSpec.PolicyEnforcement; enforcement != "" {
 		switch enforcement {
-		case endpoint.NeverEnforce, endpoint.DefaultEnforcement, endpoint.AlwaysEnforce:
+		case option.NeverEnforce, option.DefaultEnforcement, option.AlwaysEnforce:
 			// Update policy enforcement configuration if needed.
 			oldEnforcementValue := policy.GetPolicyEnabled()
 

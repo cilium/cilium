@@ -67,103 +67,25 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-var (
-	//IPv4Enabled can be set to false to indicate IPv6 only operation
-	IPv4Enabled = true
-)
-
 const (
-	OptionConntrackAccounting = "ConntrackAccounting"
-	OptionConntrackLocal      = "ConntrackLocal"
-	OptionConntrack           = "Conntrack"
-	OptionDebug               = "Debug"
-	OptionDebugLB             = "DebugLB"
-	OptionDropNotify          = "DropNotification"
-	OptionTraceNotify         = "TraceNotification"
-	OptionNAT46               = "NAT46"
-	OptionIngressPolicy       = "IngressPolicy"
-	OptionEgressPolicy        = "EgressPolicy"
-	AlwaysEnforce             = "always"
-	NeverEnforce              = "never"
-	DefaultEnforcement        = "default"
-
 	maxLogs = 256
 )
 
 var (
-	OptionSpecConntrackAccounting = option.Option{
-		Define:      "CONNTRACK_ACCOUNTING",
-		Description: "Enable per flow (conntrack) statistics",
-		Requires:    []string{OptionConntrack},
-	}
-
-	OptionSpecConntrackLocal = option.Option{
-		Define:      "CONNTRACK_LOCAL",
-		Description: "Use endpoint dedicated tracking table instead of global one",
-		Requires:    []string{OptionConntrack},
-	}
-
-	OptionSpecConntrack = option.Option{
-		Define:      "CONNTRACK",
-		Description: "Enable stateful connection tracking",
-	}
-
-	OptionSpecDebug = option.Option{
-		Define:      "DEBUG",
-		Description: "Enable debugging trace statements",
-	}
-
-	OptionSpecDebugLB = option.Option{
-		Define:      "LB_DEBUG",
-		Description: "Enable debugging trace statements for load balancer",
-	}
-
-	OptionSpecDropNotify = option.Option{
-		Define:      "DROP_NOTIFY",
-		Description: "Enable drop notifications",
-	}
-
-	OptionSpecTraceNotify = option.Option{
-		Define:      "TRACE_NOTIFY",
-		Description: "Enable trace notifications",
-	}
-
-	OptionSpecNAT46 = option.Option{
-		Define:      "ENABLE_NAT46",
-		Description: "Enable automatic NAT46 translation",
-		Requires:    []string{OptionConntrack},
-		Verify: func(key string, val bool) error {
-			if !IPv4Enabled {
-				return fmt.Errorf("NAT46 requires IPv4 to be enabled")
-			}
-			return nil
-		},
-	}
-
-	OptionIngressSpecPolicy = option.Option{
-		Define:      "POLICY_INGRESS",
-		Description: "Enable ingress policy enforcement",
-	}
-
-	OptionEgressSpecPolicy = option.Option{
-		Define:      "POLICY_EGRESS",
-		Description: "Enable egress policy enforcement",
-	}
+	EndpointOptionLibrary = option.OptionLibrary{}
 
 	EndpointMutableOptionLibrary = option.OptionLibrary{
-		OptionConntrackAccounting: &OptionSpecConntrackAccounting,
-		OptionConntrackLocal:      &OptionSpecConntrackLocal,
-		OptionConntrack:           &OptionSpecConntrack,
-		OptionDebug:               &OptionSpecDebug,
-		OptionDebugLB:             &OptionSpecDebugLB,
-		OptionDropNotify:          &OptionSpecDropNotify,
-		OptionTraceNotify:         &OptionSpecTraceNotify,
-		OptionNAT46:               &OptionSpecNAT46,
-		OptionIngressPolicy:       &OptionIngressSpecPolicy,
-		OptionEgressPolicy:        &OptionEgressSpecPolicy,
+		option.ConntrackAccounting: &option.SpecConntrackAccounting,
+		option.ConntrackLocal:      &option.SpecConntrackLocal,
+		option.Conntrack:           &option.SpecConntrack,
+		option.Debug:               &option.SpecDebug,
+		option.DebugLB:             &option.SpecDebugLB,
+		option.DropNotify:          &option.SpecDropNotify,
+		option.TraceNotify:         &option.SpecTraceNotify,
+		option.NAT46:               &option.SpecNAT46,
+		option.IngressPolicy:       &option.IngressSpecPolicy,
+		option.EgressPolicy:        &option.EgressSpecPolicy,
 	}
-
-	EndpointOptionLibrary = option.OptionLibrary{}
 
 	// ciliumEPControllerLimit is the range of k8s versions with which we are
 	// willing to run the EndpointCRD controllers
@@ -954,8 +876,8 @@ func (e *Endpoint) GetPolicyModel() *models.EndpointPolicyStatus {
 		egressIdentities = append(egressIdentities, int64(egressIdentity))
 	}
 
-	policyIngressEnabled := e.Opts.IsEnabled(OptionIngressPolicy)
-	policyEgressEnabled := e.Opts.IsEnabled(OptionEgressPolicy)
+	policyIngressEnabled := e.Opts.IsEnabled(option.IngressPolicy)
+	policyEgressEnabled := e.Opts.IsEnabled(option.EgressPolicy)
 
 	policyEnabled := models.EndpointPolicyEnabledNone
 	switch {
