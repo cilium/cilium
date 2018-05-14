@@ -253,7 +253,7 @@ func ObjPin(fd int, pathname string) error {
 	)
 
 	if ret != 0 || err != 0 {
-		return fmt.Errorf("Unable to pin object: %s", err)
+		return fmt.Errorf("Unable to pin object to %s: %s", pathname, err)
 	}
 
 	return nil
@@ -301,7 +301,7 @@ func objCheck(fd int, path string, mapType int, keySize, valueSize, maxEntries, 
 	if int(info.MapType) != mapType {
 		scopedLog.WithFields(logrus.Fields{
 			"old": info.MapType,
-			"new": mapType,
+			"new": MapType(mapType),
 		}).Info("Map type mismatch for BPF map")
 		mismatch = true
 	}
@@ -342,9 +342,7 @@ func objCheck(fd int, path string, mapType int, keySize, valueSize, maxEntries, 
 			return false
 		}
 
-		scopedLog.WithFields(logrus.Fields{
-			"map": path,
-		}).Info("Removing map to allow for property upgrade (expect map data loss)")
+		scopedLog.Info("Removing map to allow for property upgrade (expect map data loss)")
 
 		// Kernel still holds map reference count via attached prog.
 		// Only exception is prog array, but that is already resolved
