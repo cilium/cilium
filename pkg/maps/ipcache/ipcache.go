@@ -39,9 +39,9 @@ const (
 	// This was manually determined by setting up an egress policy with a
 	// CIDRSet containing an exception. Reserved 'world' (/0) and 'cluster'
 	// (/8) will always be inserted, which is what the first parameter
-	// denotes. The CIDR for the CIDRSet is the third parameter, and the
-	// exception is the second parameter.
-	maxPrefixLengths = 2 + 32 - 20
+	// denotes. The CIDR for the CIDRSet is the second parameter, and the
+	// exception is the third parameter.
+	maxPrefixLengths = 2 - 8 + 32
 )
 
 // Key implements the bpf.MapKey interface.
