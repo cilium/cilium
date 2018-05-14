@@ -37,7 +37,9 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/node"
+	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/serializer"
+
 	go_version "github.com/hashicorp/go-version"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
@@ -356,7 +358,7 @@ func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 	go endpointController.Run(wait.NeverStop)
 	d.k8sAPIGroups.addAPI(k8sAPIGroupEndpointV1Core)
 
-	if d.conf.IsLBEnabled() {
+	if option.Config.IsLBEnabled() {
 		_, ingressController := cache.NewInformer(
 			cache.NewListWatchFromClient(k8s.Client().ExtensionsV1beta1().RESTClient(),
 				"ingresses", v1.NamespaceAll, fields.Everything()),
@@ -734,7 +736,7 @@ func (d *Daemon) addK8sEndpointV1(ep *v1.Endpoints) {
 
 	d.syncLB(&svcns, nil, nil)
 
-	if d.conf.IsLBEnabled() {
+	if option.Config.IsLBEnabled() {
 		if err := d.syncExternalLB(&svcns, nil, nil); err != nil {
 			scopedLog.WithError(err).Error("Unable to add endpoints on ingress service")
 			return
@@ -796,7 +798,7 @@ func (d *Daemon) deleteK8sEndpointV1(ep *v1.Endpoints) {
 	}
 
 	d.syncLB(nil, nil, &svcns)
-	if d.conf.IsLBEnabled() {
+	if option.Config.IsLBEnabled() {
 		if err := d.syncExternalLB(nil, nil, &svcns); err != nil {
 			scopedLog.WithError(err).Error("Unable to remove endpoints on ingress service")
 			return
@@ -852,7 +854,7 @@ func (d *Daemon) delK8sSVCs(svc types.K8sServiceNamespace, svcInfo *types.K8sSer
 	}
 
 	isSvcIPv4 := svcInfo.FEIP.To4() != nil
-	if err := areIPsConsistent(!d.conf.IPv4Disabled, isSvcIPv4, svc, se); err != nil {
+	if err := areIPsConsistent(!option.Config.IPv4Disabled, isSvcIPv4, svc, se); err != nil {
 		return err
 	}
 
@@ -916,7 +918,7 @@ func (d *Daemon) addK8sSVCs(svc types.K8sServiceNamespace, svcInfo *types.K8sSer
 	})
 
 	isSvcIPv4 := svcInfo.FEIP.To4() != nil
-	if err := areIPsConsistent(!d.conf.IPv4Disabled, isSvcIPv4, svc, se); err != nil {
+	if err := areIPsConsistent(!option.Config.IPv4Disabled, isSvcIPv4, svc, se); err != nil {
 		return err
 	}
 
@@ -1070,10 +1072,10 @@ func (d *Daemon) addIngressV1beta1(ingress *v1beta1.Ingress) {
 	}
 
 	var host net.IP
-	if d.conf.IPv4Disabled {
-		host = d.conf.HostV6Addr
+	if option.Config.IPv4Disabled {
+		host = option.Config.HostV6Addr
 	} else {
-		host = d.conf.HostV4Addr
+		host = option.Config.HostV4Addr
 	}
 	ingressSvcInfo := types.NewK8sServiceInfo(host, false, nil, nil)
 	ingressSvcInfo.Ports[types.FEPortName(ingress.Spec.Backend.ServicePort.StrVal)] = fePort
@@ -1131,7 +1133,7 @@ func (d *Daemon) updateIngressV1beta1(oldIngress, newIngress *v1beta1.Ingress) {
 
 	// Add RevNAT to the BPF Map for non-LB nodes when a LB node update the
 	// ingress status with its address.
-	if !d.conf.IsLBEnabled() {
+	if !option.Config.IsLBEnabled() {
 		port := newIngress.Spec.Backend.ServicePort.IntValue()
 		for _, loadbalancer := range newIngress.Status.LoadBalancer.Ingress {
 			ingressIP := net.ParseIP(loadbalancer.IP)
@@ -1191,7 +1193,7 @@ func (d *Daemon) deleteIngressV1beta1(ingress *v1beta1.Ingress) {
 	}
 
 	// Remove RevNAT from the BPF Map for non-LB nodes.
-	if !d.conf.IsLBEnabled() {
+	if !option.Config.IsLBEnabled() {
 		port := ingress.Spec.Backend.ServicePort.IntValue()
 		for _, loadbalancer := range ingress.Status.LoadBalancer.Ingress {
 			ingressIP := net.ParseIP(loadbalancer.IP)
@@ -1468,7 +1470,7 @@ func (d *Daemon) addK8sNodeV1(k8sNode *v1.Node) {
 	// Add IPv6 routing only in non encap. With encap we do it with bpf tunnel
 	// FIXME create a function to know on which mode is the daemon running on
 	var ownAddr net.IP
-	if autoIPv6NodeRoutes && d.conf.Device != "undefined" {
+	if autoIPv6NodeRoutes && option.Config.Device != "undefined" {
 		// ignore own node
 		if n.Name != node.GetName() {
 			ownAddr = node.GetIPv6()
@@ -1500,7 +1502,7 @@ func (d *Daemon) updateK8sNodeV1(_, k8sNode *v1.Node) {
 	routeTypes := node.TunnelRoute
 	// Always re-add the routing tables as they might be accidentally removed
 	var ownAddr net.IP
-	if autoIPv6NodeRoutes && d.conf.Device != "undefined" {
+	if autoIPv6NodeRoutes && option.Config.Device != "undefined" {
 		// ignore own node
 		if newNode.Name != node.GetName() {
 			ownAddr = node.GetIPv6()

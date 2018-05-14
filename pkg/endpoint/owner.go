@@ -36,10 +36,6 @@ type Owner interface {
 	// GetPolicyEnforcementType returns the type of policy enforcement for the Owner.
 	PolicyEnforcement() string
 
-	// AlwaysAllowLocalhost returns true if localhost is always allowed to
-	// reach local endpoints
-	AlwaysAllowLocalhost() bool
-
 	// Must return the policy repository
 	GetPolicyRepository() *policy.Repository
 

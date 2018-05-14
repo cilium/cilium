@@ -46,6 +46,9 @@ const (
 	// PathDelimiter is the delimiter used in the labels paths.
 	PathDelimiter = "."
 
+	// NodeConfigFile is the name of the C header which contains the node's
+	// network parameters.
+	NodeConfigFile = "node_config.h"
 	// CHeaderFileName is the name of the C header file for BPF programs for a
 	// particular endpoint.
 	CHeaderFileName = "lxc_config.h"
