@@ -62,7 +62,7 @@ var _ = Describe("RuntimeValidatedCLI", func() {
 			for _, set := range namesLabels {
 				res := vm.ContainerCreate(set[0], helpers.NetperfImage, helpers.CiliumDockerNetwork, fmt.Sprintf("-l %s", set[1]))
 				defer vm.ContainerRm(set[0])
-				res.ExpectSuccess("Unable to create container: %s", res.CombineOutput())
+				res.ExpectSuccess("Unable to create container")
 			}
 			areEndpointsReady := vm.WaitEndpointsReady()
 			Expect(areEndpointsReady).Should(BeTrue(), "endpoints not ready")
@@ -86,7 +86,7 @@ var _ = Describe("RuntimeValidatedCLI", func() {
 			for _, set := range namesLabels {
 				res := vm.ContainerCreate(set[0], helpers.NetperfImage, helpers.CiliumDockerNetwork, fmt.Sprintf("-l %s", set[1]))
 				defer vm.ContainerRm(set[0])
-				res.ExpectSuccess("Unable to create container: %s", res.CombineOutput())
+				res.ExpectSuccess("Unable to create container")
 			}
 
 			epModel := vm.EndpointGet(fmt.Sprintf("-l container:%s", fooID))
