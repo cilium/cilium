@@ -37,6 +37,7 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	ipCacheBPF "github.com/cilium/cilium/pkg/maps/ipcache"
 	"github.com/cilium/cilium/pkg/maps/lxcmap"
+	"github.com/cilium/cilium/pkg/option"
 
 	"github.com/go-openapi/runtime/middleware"
 	"github.com/sirupsen/logrus"
@@ -143,7 +144,7 @@ func (d *Daemon) createEndpoint(epTemplate *models.EndpointChangeRequest, id str
 	if err != nil {
 		return PutEndpointIDInvalidCode, err
 	}
-	ep.SetDefaultOpts(d.conf.Opts)
+	ep.SetDefaultOpts(option.Config.Opts)
 
 	oldEp, err2 := endpointmanager.Lookup(id)
 	if err2 != nil {
@@ -415,7 +416,7 @@ func (d *Daemon) deleteEndpointQuiet(ep *endpoint.Endpoint) []error {
 		}
 	}
 
-	if !d.conf.IPv4Disabled {
+	if !option.Config.IPv4Disabled {
 		if err := ipam.ReleaseIP(ep.IPv4.IP()); err != nil {
 			errors = append(errors, fmt.Errorf("unable to release ipv4 address: %s", err))
 		}

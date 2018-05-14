@@ -84,22 +84,20 @@ func (ds *DaemonSuite) SetUpTest(c *C) {
 	err = os.Mkdir(filepath.Join(tempRunDir, "globals"), 0777)
 	c.Assert(err, IsNil)
 
-	daemonConf := &Config{
-		DryMode:   true,
-		Opts:      option.NewBoolOptions(&option.DaemonMutableOptionLibrary),
-		Device:    "undefined",
-		RunDir:    tempRunDir,
-		StateDir:  tempRunDir,
-		AccessLog: filepath.Join(tempRunDir, "cilium-access.log"),
-	}
+	option.Config.DryMode = true
+	option.Config.Opts = option.NewBoolOptions(&option.DaemonMutableOptionLibrary)
+	option.Config.Device = "undefined"
+	option.Config.RunDir = tempRunDir
+	option.Config.StateDir = tempRunDir
+	option.Config.AccessLog = filepath.Join(tempRunDir, "cilium-access.log")
 
-	// Get the default labels prefix filter
+	// GetConfig the default labels prefix filter
 	err = labels.ParseLabelPrefixCfg(nil, "")
 	c.Assert(err, IsNil)
-	daemonConf.Opts.Set(option.DropNotify, true)
-	daemonConf.Opts.Set(option.TraceNotify, true)
+	option.Config.Opts.Set(option.DropNotify, true)
+	option.Config.Opts.Set(option.TraceNotify, true)
 
-	d, err := NewDaemon(daemonConf)
+	d, err := NewDaemon()
 	c.Assert(err, IsNil)
 	ds.d = d
 
@@ -132,7 +130,7 @@ func (ds *DaemonSuite) SetUpTest(c *C) {
 
 func (ds *DaemonSuite) TearDownTest(c *C) {
 	if ds.d != nil {
-		os.RemoveAll(ds.d.conf.RunDir)
+		os.RemoveAll(option.Config.RunDir)
 	}
 
 	if ds.kvstoreInit {

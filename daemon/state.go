@@ -96,10 +96,10 @@ func (d *Daemon) SyncState(dir string, clean bool) error {
 				return
 			}
 
-			if d.conf.KeepConfig {
+			if option.Config.KeepConfig {
 				ep.SetDefaultOpts(nil)
 			} else {
-				ep.SetDefaultOpts(d.conf.Opts)
+				ep.SetDefaultOpts(option.Config.Opts)
 				alwaysEnforce := policy.GetPolicyEnabled() == option.AlwaysEnforce
 				ep.Opts.Set(option.IngressPolicy, alwaysEnforce)
 				ep.Opts.Set(option.EgressPolicy, alwaysEnforce)
@@ -192,7 +192,7 @@ func (d *Daemon) allocateIPsLocked(ep *endpoint.Endpoint) error {
 		}
 	}(ep)
 
-	if !d.conf.IPv4Disabled {
+	if !option.Config.IPv4Disabled {
 		if ep.IPv4 != nil {
 			if err = ipam.AllocateIP(ep.IPv4.IP()); err != nil {
 				return fmt.Errorf("unable to reallocate IPv4 address: %s", err)

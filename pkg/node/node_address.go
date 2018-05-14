@@ -21,14 +21,12 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 
+	"github.com/cilium/cilium/pkg/option"
 	"github.com/vishvananda/netlink"
 	"golang.org/x/sys/unix"
 )
 
 var (
-	// EnableIPv4 can be set to false to disable Ipv4
-	EnableIPv4 = true
-
 	ipv4ClusterCidrMaskSize = DefaultIPv4ClusterPrefixLen
 
 	ipv4ExternalAddress net.IP
@@ -267,7 +265,7 @@ func ValidatePostInit() error {
 		return fmt.Errorf("External IPv4 node address could not be derived, please configure via --ipv4-node")
 	}
 
-	if EnableIPv4 {
+	if !option.Config.IPv4Disabled {
 		if ipv4InternalAddress == nil {
 			return fmt.Errorf("BUG: Internal IPv4 node address was not configured")
 		}

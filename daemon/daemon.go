@@ -99,7 +99,6 @@ const (
 // monitoring when a LXC starts.
 type Daemon struct {
 	buildEndpointChan chan *endpoint.Request
-	conf              *Config
 	l7Proxy           *proxy.Proxy
 	loadBalancer      *types.LoadBalancer
 	loopbackIPv4      net.IP
@@ -245,16 +244,16 @@ func (d *Daemon) StartEndpointBuilders(nRoutines int) {
 
 // GetTunnelMode returns the path to the state directory
 func (d *Daemon) GetTunnelMode() string {
-	return d.conf.Tunnel
+	return option.Config.Tunnel
 }
 
 // GetStateDir returns the path to the state directory
 func (d *Daemon) GetStateDir() string {
-	return d.conf.StateDir
+	return option.Config.StateDir
 }
 
 func (d *Daemon) GetBpfDir() string {
-	return d.conf.BpfDir
+	return option.Config.BpfDir
 }
 
 // GetPolicyRepository returns the policy repository of the daemon
@@ -263,17 +262,11 @@ func (d *Daemon) GetPolicyRepository() *policy.Repository {
 }
 
 func (d *Daemon) TracingEnabled() bool {
-	return d.conf.Opts.IsEnabled(option.PolicyTracing)
+	return option.Config.Opts.IsEnabled(option.PolicyTracing)
 }
 
 func (d *Daemon) DryModeEnabled() bool {
-	return d.conf.DryMode
-}
-
-// AlwaysAllowLocalhost returns true if the daemon has the option set that
-// localhost can always reach local endpoints
-func (d *Daemon) AlwaysAllowLocalhost() bool {
-	return d.conf.alwaysAllowLocalhost
+	return option.Config.DryMode
 }
 
 // PolicyEnforcement returns the type of policy enforcement for the daemon.
@@ -283,7 +276,7 @@ func (d *Daemon) PolicyEnforcement() string {
 
 // DebugEnabled returns if debug mode is enabled.
 func (d *Daemon) DebugEnabled() bool {
-	return d.conf.Opts.IsEnabled(option.Debug)
+	return option.Config.Opts.IsEnabled(option.Debug)
 }
 
 func (d *Daemon) writeNetdevHeader(dir string) error {
@@ -300,7 +293,7 @@ func (d *Daemon) writeNetdevHeader(dir string) error {
 	defer f.Close()
 
 	fw := bufio.NewWriter(f)
-	fw.WriteString(d.conf.Opts.GetFmtList())
+	fw.WriteString(option.Config.Opts.GetFmtList())
 	fw.WriteString(d.fmtPolicyEnforcementIngress())
 	fw.WriteString(d.fmtPolicyEnforcementEgress())
 
@@ -323,7 +316,7 @@ func (d *Daemon) fmtPolicyEnforcementEgress() string {
 	return fmt.Sprintf("#undef %s\n", option.EgressSpecPolicy.Define)
 }
 
-// Must be called with d.conf.EnablePolicyMU locked.
+// Must be called with option.Config.EnablePolicyMU locked.
 func (d *Daemon) writePreFilterHeader(dir string) error {
 	headerPath := filepath.Join(dir, common.PreFilterHeaderFileName)
 	log.WithField(logfields.Path, headerPath).Debug("writing configuration")
@@ -335,23 +328,23 @@ func (d *Daemon) writePreFilterHeader(dir string) error {
 	defer f.Close()
 	fw := bufio.NewWriter(f)
 	fmt.Fprint(fw, "/*\n")
-	fmt.Fprintf(fw, " * XDP device: %s\n", d.conf.DevicePreFilter)
-	fmt.Fprintf(fw, " * XDP mode: %s\n", d.conf.ModePreFilter)
+	fmt.Fprintf(fw, " * XDP device: %s\n", option.Config.DevicePreFilter)
+	fmt.Fprintf(fw, " * XDP mode: %s\n", option.Config.ModePreFilter)
 	fmt.Fprint(fw, " */\n\n")
 	d.preFilter.WriteConfig(fw)
 	return fw.Flush()
 }
 
 func (d *Daemon) setHostAddresses() error {
-	l, err := netlink.LinkByName(d.conf.LBInterface)
+	l, err := netlink.LinkByName(option.Config.LBInterface)
 	if err != nil {
-		return fmt.Errorf("unable to get network device %s: %s", d.conf.Device, err)
+		return fmt.Errorf("unable to get network device %s: %s", option.Config.Device, err)
 	}
 
 	getAddr := func(netLinkFamily int) (net.IP, error) {
 		addrs, err := netlink.AddrList(l, netLinkFamily)
 		if err != nil {
-			return nil, fmt.Errorf("error while getting %s's addresses: %s", d.conf.Device, err)
+			return nil, fmt.Errorf("error while getting %s's addresses: %s", option.Config.Device, err)
 		}
 		for _, possibleAddr := range addrs {
 			if netlink.Scope(possibleAddr.Scope) == netlink.SCOPE_UNIVERSE {
@@ -361,14 +354,14 @@ func (d *Daemon) setHostAddresses() error {
 		return nil, nil
 	}
 
-	if !d.conf.IPv4Disabled {
+	if !option.Config.IPv4Disabled {
 		hostV4Addr, err := getAddr(netlink.FAMILY_V4)
 		if err != nil {
 			return err
 		}
 		if hostV4Addr != nil {
-			d.conf.HostV4Addr = hostV4Addr
-			log.Infof("Using IPv4 host address: %s", d.conf.HostV4Addr)
+			option.Config.HostV4Addr = hostV4Addr
+			log.Infof("Using IPv4 host address: %s", option.Config.HostV4Addr)
 		}
 	}
 	hostV6Addr, err := getAddr(netlink.FAMILY_V6)
@@ -376,8 +369,8 @@ func (d *Daemon) setHostAddresses() error {
 		return err
 	}
 	if hostV6Addr != nil {
-		d.conf.HostV6Addr = hostV6Addr
-		log.Infof("Using IPv6 host address: %s", d.conf.HostV6Addr)
+		option.Config.HostV6Addr = hostV6Addr
+		log.Infof("Using IPv6 host address: %s", option.Config.HostV6Addr)
 	}
 	return nil
 }
@@ -642,14 +635,14 @@ func (d *Daemon) compileBase() error {
 		return err
 	}
 
-	scopedLog := log.WithField(logfields.XDPDevice, d.conf.DevicePreFilter)
-	if d.conf.DevicePreFilter != "undefined" {
-		if err := policy.ProbePreFilter(d.conf.DevicePreFilter, d.conf.ModePreFilter); err != nil {
+	scopedLog := log.WithField(logfields.XDPDevice, option.Config.DevicePreFilter)
+	if option.Config.DevicePreFilter != "undefined" {
+		if err := policy.ProbePreFilter(option.Config.DevicePreFilter, option.Config.ModePreFilter); err != nil {
 			scopedLog.WithError(err).Warn("Turning off prefilter")
-			d.conf.DevicePreFilter = "undefined"
+			option.Config.DevicePreFilter = "undefined"
 		}
 	}
-	if d.conf.DevicePreFilter != "undefined" {
+	if option.Config.DevicePreFilter != "undefined" {
 		if d.preFilter, ret = policy.NewPreFilter(); ret != nil {
 			scopedLog.WithError(ret).Warn("Unable to init prefilter")
 			return ret
@@ -660,24 +653,24 @@ func (d *Daemon) compileBase() error {
 			return err
 		}
 
-		args[initArgDevicePreFilter] = d.conf.DevicePreFilter
-		args[initArgModePreFilter] = d.conf.ModePreFilter
+		args[initArgDevicePreFilter] = option.Config.DevicePreFilter
+		args[initArgModePreFilter] = option.Config.ModePreFilter
 	}
 
-	args[initArgLib] = d.conf.BpfDir
-	args[initArgRundir] = d.conf.StateDir
+	args[initArgLib] = option.Config.BpfDir
+	args[initArgRundir] = option.Config.StateDir
 	args[initArgIPv4NodeIP] = node.GetInternalIPv4().String()
 	args[initArgIPv6NodeIP] = node.GetIPv6().String()
 
-	if d.conf.Device != "undefined" {
-		_, err := netlink.LinkByName(d.conf.Device)
+	if option.Config.Device != "undefined" {
+		_, err := netlink.LinkByName(option.Config.Device)
 		if err != nil {
-			log.WithError(err).WithField("device", d.conf.Device).Warn("Link does not exist")
+			log.WithError(err).WithField("device", option.Config.Device).Warn("Link does not exist")
 			return err
 		}
 
-		if d.conf.IsLBEnabled() {
-			if d.conf.Device != d.conf.LBInterface {
+		if option.Config.IsLBEnabled() {
+			if option.Config.Device != option.Config.LBInterface {
 				//FIXME: allow different interfaces
 				return fmt.Errorf("Unable to have an interface for LB mode different than snooping interface")
 			}
@@ -690,19 +683,19 @@ func (d *Daemon) compileBase() error {
 		}
 
 		args[initArgMode] = mode
-		args[initArgDevice] = d.conf.Device
+		args[initArgDevice] = option.Config.Device
 
-		args = append(args, d.conf.Device)
+		args = append(args, option.Config.Device)
 	} else {
-		if d.conf.IsLBEnabled() {
+		if option.Config.IsLBEnabled() {
 			//FIXME: allow LBMode in tunnel
 			return fmt.Errorf("Unable to run LB mode with tunnel mode")
 		}
 
-		args[initArgMode] = d.conf.Tunnel
+		args[initArgMode] = option.Config.Tunnel
 	}
 
-	prog := filepath.Join(d.conf.BpfDir, "init.sh")
+	prog := filepath.Join(option.Config.BpfDir, "init.sh")
 	ctx, cancel := context.WithTimeout(context.Background(), ExecTimeout)
 	defer cancel()
 	out, err := exec.CommandContext(ctx, prog, args...).CombinedOutput()
@@ -725,7 +718,7 @@ func (d *Daemon) compileBase() error {
 	ipam.ReserveLocalRoutes()
 	node.InstallHostRoutes()
 
-	if !d.conf.IPv4Disabled {
+	if !option.Config.IPv4Disabled {
 		// Always remove masquerade rule and then re-add it if required
 		d.removeIptablesRules()
 		if err := d.installIptablesRules(); err != nil {
@@ -741,16 +734,16 @@ func (d *Daemon) compileBase() error {
 }
 
 func (d *Daemon) init() error {
-	globalsDir := filepath.Join(d.conf.StateDir, "globals")
+	globalsDir := option.Config.GetGlobalsDir()
 	if err := os.MkdirAll(globalsDir, defaults.RuntimePathRights); err != nil {
 		log.WithError(err).WithField(logfields.Path, globalsDir).Fatal("Could not create runtime directory")
 	}
 
-	if err := os.Chdir(d.conf.StateDir); err != nil {
-		log.WithError(err).WithField(logfields.Path, d.conf.StateDir).Fatal("Could not change to runtime directory")
+	if err := os.Chdir(option.Config.StateDir); err != nil {
+		log.WithError(err).WithField(logfields.Path, option.Config.StateDir).Fatal("Could not change to runtime directory")
 	}
 
-	nodeConfigPath := "./globals/node_config.h"
+	nodeConfigPath := option.Config.GetNodeConfigPath()
 	f, err := os.Create(nodeConfigPath)
 	if err != nil {
 		log.WithError(err).WithField(logfields.Path, nodeConfigPath).Fatal("Failed to create node configuration file")
@@ -768,7 +761,7 @@ func (d *Daemon) init() error {
 		" * Router-IPv6: %s\n",
 		hostIP.String(), routerIP.String())
 
-	if d.conf.IPv4Disabled {
+	if option.Config.IPv4Disabled {
 		fw.WriteString(" */\n\n")
 	} else {
 		fmt.Fprintf(fw, ""+
@@ -780,7 +773,7 @@ func (d *Daemon) init() error {
 
 	fw.WriteString(common.FmtDefineComma("ROUTER_IP", routerIP))
 
-	if !d.conf.IPv4Disabled {
+	if !option.Config.IPv4Disabled {
 		ipv4GW := node.GetInternalIPv4()
 		fmt.Fprintf(fw, "#define IPV4_GATEWAY %#x\n", byteorder.HostSliceToNetwork(ipv4GW, reflect.Uint32).(uint32))
 		fmt.Fprintf(fw, "#define IPV4_LOOPBACK %#x\n", byteorder.HostSliceToNetwork(d.loopbackIPv4, reflect.Uint32).(uint32))
@@ -797,7 +790,7 @@ func (d *Daemon) init() error {
 	fmt.Fprintf(fw, "#define IPV4_CLUSTER_RANGE %#x\n", byteorder.HostSliceToNetwork(ipv4ClusterRange.IP, reflect.Uint32).(uint32))
 	fmt.Fprintf(fw, "#define IPV4_CLUSTER_MASK %#x\n", byteorder.HostSliceToNetwork(ipv4ClusterRange.Mask, reflect.Uint32).(uint32))
 
-	if nat46Range := d.conf.NAT46Prefix; nat46Range != nil {
+	if nat46Range := option.Config.NAT46Prefix; nat46Range != nil {
 		fw.WriteString(common.FmtDefineAddress("NAT46_PREFIX", nat46Range.IP))
 	}
 
@@ -865,7 +858,7 @@ func (d *Daemon) init() error {
 		if _, err := lbmap.RRSeq6Map.OpenOrCreate(); err != nil {
 			return err
 		}
-		if !d.conf.IPv4Disabled {
+		if !option.Config.IPv4Disabled {
 			if _, err := lbmap.Service4Map.OpenOrCreate(); err != nil {
 				return err
 			}
@@ -877,7 +870,7 @@ func (d *Daemon) init() error {
 			}
 		}
 		// Clean all lb entries
-		if !d.conf.RestoreState {
+		if !option.Config.RestoreState {
 			log.Debug("cleaning up all BPF LB maps")
 
 			d.loadBalancer.BPFMapMU.Lock()
@@ -893,7 +886,7 @@ func (d *Daemon) init() error {
 				return err
 			}
 
-			if !d.conf.IPv4Disabled {
+			if !option.Config.IPv4Disabled {
 				if err := lbmap.Service4Map.DeleteAll(); err != nil {
 					return err
 				}
@@ -981,11 +974,7 @@ func (d *Daemon) syncLXCMap() error {
 }
 
 // NewDaemon creates and returns a new Daemon with the parameters set in c.
-func NewDaemon(c *Config) (*Daemon, error) {
-	if c == nil {
-		return nil, fmt.Errorf("Configuration is nil")
-	}
-
+func NewDaemon() (*Daemon, error) {
 	if opts := workloads.GetRuntimeOpt(workloads.Docker); opts != nil {
 		if err := containerd.Init(dockerEndpoint); err != nil {
 			return nil, err
@@ -995,7 +984,6 @@ func NewDaemon(c *Config) (*Daemon, error) {
 	lb := types.NewLoadBalancer()
 
 	d := Daemon{
-		conf:         c,
 		loadBalancer: lb,
 		policy:       policy.NewPolicyRepository(),
 		uniqueID:     map[uint64]bool{},
@@ -1032,9 +1020,8 @@ func NewDaemon(c *Config) (*Daemon, error) {
 		// pods. Therefore unless the AllowLocalhost policy is set to a
 		// specific mode, always allow localhost to reach local
 		// endpoints.
-		if d.conf.AllowLocalhost == AllowLocalhostAuto {
+		if option.Config.AlwaysAllowLocalhost() {
 			log.Info("k8s mode: Allowing localhost to reach local endpoints")
-			config.alwaysAllowLocalhost = true
 		}
 
 		if !singleClusterRoute {
@@ -1051,7 +1038,7 @@ func NewDaemon(c *Config) (*Daemon, error) {
 	// Then, we will calculate the IPv4 or IPv6 alloc prefix based on the IPv6
 	// or IPv4 alloc prefix, respectively, retrieved by k8s node annotations.
 	log.Info("Initializing node addressing")
-	if config.Device == "undefined" {
+	if option.Config.Device == "undefined" {
 		node.InitDefaultPrefix("")
 	}
 
@@ -1130,7 +1117,7 @@ func NewDaemon(c *Config) (*Daemon, error) {
 	log.Infof("  IPv4 allocation prefix: %s", node.GetIPv4AllocRange())
 	log.Infof("  IPv6 router address: %s", node.GetIPv6Router())
 
-	if !d.conf.IPv4Disabled {
+	if !option.Config.IPv4Disabled {
 		// Allocate IPv4 service loopback IP
 		loopbackIPv4, _, err := ipam.AllocateNext("ipv4")
 		if err != nil {
@@ -1160,12 +1147,12 @@ func NewDaemon(c *Config) (*Daemon, error) {
 	ipcache.InitIPIdentityWatcher(d.ipcacheListeners)
 
 	// FIXME: Make the port range configurable.
-	d.l7Proxy = proxy.StartProxySupport(10000, 20000, d.conf.RunDir,
-		d.conf.AccessLog, &d, d.conf.AgentLabels)
+	d.l7Proxy = proxy.StartProxySupport(10000, 20000, option.Config.RunDir,
+		option.Config.AccessLog, &d, option.Config.AgentLabels)
 
-	if c.RestoreState {
+	if option.Config.RestoreState {
 		log.Info("Restoring state...")
-		if err := d.SyncState(d.conf.StateDir, true); err != nil {
+		if err := d.SyncState(option.Config.StateDir, true); err != nil {
 			log.WithError(err).Warn("Error while recovering endpoints")
 		}
 		go func() {
@@ -1326,8 +1313,8 @@ func (h *patchConfig) Handle(params PatchConfigParams) middleware.Responder {
 	d := h.daemon
 
 	// Serialize configuration updates to the daemon.
-	d.conf.ConfigPatchMutex.Lock()
-	defer d.conf.ConfigPatchMutex.Unlock()
+	option.Config.ConfigPatchMutex.Lock()
+	defer option.Config.ConfigPatchMutex.Unlock()
 
 	cfgSpec := params.Configuration
 	nmArgs := d.nodeMonitor.GetArgs()
@@ -1341,7 +1328,7 @@ func (h *patchConfig) Handle(params PatchConfigParams) middleware.Responder {
 		}
 		delete(cfgSpec.Options, "MonitorNumPages")
 	}
-	if err := d.conf.Opts.Validate(cfgSpec.Options); err != nil {
+	if err := option.Config.Opts.Validate(cfgSpec.Options); err != nil {
 		return apierror.Error(PatchConfigBadRequestCode, err)
 	}
 
@@ -1372,7 +1359,7 @@ func (h *patchConfig) Handle(params PatchConfigParams) middleware.Responder {
 		log.Debug("finished configuring PolicyEnforcement for daemon")
 	}
 
-	changes += d.conf.Opts.Apply(cfgSpec.Options, changedOption, d)
+	changes += option.Config.Opts.Apply(cfgSpec.Options, changedOption, d)
 
 	log.WithField("count", changes).Debug("Applied changes to daemon's configuration")
 
@@ -1390,7 +1377,7 @@ func (h *patchConfig) Handle(params PatchConfigParams) middleware.Responder {
 }
 
 func (d *Daemon) getNodeAddressing() *models.NodeAddressing {
-	return node.GetNodeAddressing(!d.conf.IPv4Disabled)
+	return node.GetNodeAddressing(!option.Config.IPv4Disabled)
 }
 
 type getConfig struct {
@@ -1407,7 +1394,7 @@ func (h *getConfig) Handle(params GetConfigParams) middleware.Responder {
 	d := h.daemon
 
 	spec := &models.DaemonConfigurationSpec{
-		Options:           *d.conf.Opts.GetMutableModel(),
+		Options:           *option.Config.Opts.GetMutableModel(),
 		PolicyEnforcement: policy.GetPolicyEnabled(),
 	}
 

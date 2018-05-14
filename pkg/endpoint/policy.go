@@ -311,7 +311,7 @@ func (e *Endpoint) regenerateConsumable(owner Owner, labelsMap *identityPkg.Iden
 		e.LabelsMap = labelsMap // Remember the set of labels used
 	}
 
-	if owner.AlwaysAllowLocalhost() || c.L4Policy.HasRedirect() {
+	if option.Config.AlwaysAllowLocalhost() || c.L4Policy.HasRedirect() {
 		_ = e.allowIngressIdentity(identityPkg.ReservedIdentityHost)
 	}
 

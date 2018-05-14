@@ -23,6 +23,7 @@ import (
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/lbmap"
+	"github.com/cilium/cilium/pkg/option"
 
 	"github.com/go-openapi/runtime/middleware"
 	"github.com/sirupsen/logrus"
@@ -393,7 +394,7 @@ func (d *Daemon) RevNATDelete(id types.ServiceID) error {
 // Must be called with d.loadBalancer.BPFMapMU locked.
 func (d *Daemon) RevNATDeleteAll() error {
 
-	if !d.conf.IPv4Disabled {
+	if !option.Config.IPv4Disabled {
 		if err := lbmap.RevNat4Map.DeleteAll(); err != nil {
 			return err
 		}
@@ -542,7 +543,7 @@ func (d *Daemon) SyncLBMap() error {
 		newRevNATMap[fe.ID] = fe.L3n4Addr
 	}
 
-	if !d.conf.IPv4Disabled {
+	if !option.Config.IPv4Disabled {
 		// lbmap.RRSeq4Map is updated as part of Service4Map and does
 		// not need separate dump.
 		if err := lbmap.Service4Map.DumpWithCallback(parseSVCEntries); err != nil {

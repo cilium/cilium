@@ -24,6 +24,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/node"
+	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/workloads/containerd"
 
 	"github.com/go-openapi/runtime/middleware"
@@ -84,15 +85,15 @@ func checkLocks(d *Daemon) {
 	// Try to acquire a couple of global locks to have the status API fail
 	// in case of a deadlock on these locks
 
-	d.conf.ConfigPatchMutex.Lock()
-	d.conf.ConfigPatchMutex.Unlock()
+	option.Config.ConfigPatchMutex.Lock()
+	option.Config.ConfigPatchMutex.Unlock()
 
 	d.GetCompilationLock().Lock()
 	d.GetCompilationLock().Unlock()
 }
 
 func (d *Daemon) getNodeStatus() *models.ClusterStatus {
-	ipv4 := !d.conf.IPv4Disabled
+	ipv4 := !option.Config.IPv4Disabled
 
 	local, _ := node.GetLocalNode()
 	clusterStatus := models.ClusterStatus{

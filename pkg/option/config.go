@@ -1,4 +1,4 @@
-// Copyright 2016-2017 Authors of Cilium
+// Copyright 2016-2018 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,16 +12,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package main
+package option
 
 import (
 	"net"
 	"os"
+	"path/filepath"
 	"runtime"
 
 	"github.com/cilium/cilium/api/v1/models"
+	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/pkg/lock"
-	"github.com/cilium/cilium/pkg/option"
 )
 
 const (
@@ -45,8 +46,8 @@ const (
 	ModePreFilterGeneric = "generic"
 )
 
-// Config is the configuration used by Daemon.
-type Config struct {
+// daemonConfig is the configuration used by Daemon.
+type daemonConfig struct {
 	BpfDir          string     // BPF template files directory
 	LibDir          string     // Cilium library files directory
 	RunDir          string     // Cilium runtime directory
@@ -70,16 +71,11 @@ type Config struct {
 	// values: { auto | always | policy }
 	AllowLocalhost string
 
-	// alwaysAllowLocalhost is set based on the value of AllowLocalhost and
-	// is either set to true when localhost can always reach local
-	// endpoints or false when policy should be evaluated
-	alwaysAllowLocalhost bool
-
 	// StateDir is the directory where runtime state of endpoints is stored
 	StateDir string
 
 	// Options changeable at runtime
-	Opts *option.BoolOptions
+	Opts *BoolOptions
 
 	// Mutex for serializing configuration updates to the daemon.
 	ConfigPatchMutex lock.RWMutex
@@ -94,13 +90,36 @@ type Config struct {
 	AgentLabels []string
 }
 
-func NewConfig() *Config {
-	return &Config{
-		Opts:    option.NewBoolOptions(&option.DaemonMutableOptionLibrary),
+var (
+	Config = &daemonConfig{
+		Opts:    NewBoolOptions(&daemonLibrary),
 		Monitor: &models.MonitorStatus{Cpus: int64(runtime.NumCPU()), Npages: 64, Pagesize: int64(os.Getpagesize()), Lost: 0, Unknown: 0},
 	}
+)
+
+func (c *daemonConfig) IsLBEnabled() bool {
+	return c.LBInterface != ""
 }
 
-func (c *Config) IsLBEnabled() bool {
-	return c.LBInterface != ""
+// GetNodeConfigPath returns the full path of the NodeConfigFile.
+func (c *daemonConfig) GetNodeConfigPath() string {
+	return filepath.Join(c.GetGlobalsDir(), common.NodeConfigFile)
+}
+
+// GetGlobalsDir returns the path for the globals directory.
+func (c *daemonConfig) GetGlobalsDir() string {
+	return filepath.Join(c.StateDir, "globals")
+}
+
+// AlwaysAllowLocalhost returns true if the daemon has the option set that
+// localhost can always reach local endpoints
+func (c *daemonConfig) AlwaysAllowLocalhost() bool {
+	switch c.AllowLocalhost {
+	case AllowLocalhostAlways:
+		return true
+	case AllowLocalhostAuto, AllowLocalhostPolicy:
+		return false
+	default:
+		return false
+	}
 }
