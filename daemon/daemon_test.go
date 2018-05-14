@@ -23,7 +23,6 @@ import (
 	"time"
 
 	"github.com/cilium/cilium/common"
-	"github.com/cilium/cilium/daemon/options"
 	e "github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/kvstore"
@@ -87,7 +86,7 @@ func (ds *DaemonSuite) SetUpTest(c *C) {
 
 	daemonConf := &Config{
 		DryMode:   true,
-		Opts:      option.NewBoolOptions(&options.Library),
+		Opts:      option.NewBoolOptions(&option.DaemonMutableOptionLibrary),
 		Device:    "undefined",
 		RunDir:    tempRunDir,
 		StateDir:  tempRunDir,

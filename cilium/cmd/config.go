@@ -21,8 +21,8 @@ import (
 	"strings"
 
 	"github.com/cilium/cilium/api/v1/models"
-	"github.com/cilium/cilium/daemon/options"
 	"github.com/cilium/cilium/pkg/command"
+	"github.com/cilium/cilium/pkg/option"
 
 	"github.com/spf13/cobra"
 )
@@ -35,7 +35,7 @@ var configCmd = &cobra.Command{
 	Short: "Cilium configuration options",
 	Run: func(cmd *cobra.Command, args []string) {
 		if listOptions {
-			for k, s := range options.Library {
+			for k, s := range option.DaemonMutableOptionLibrary {
 				fmt.Printf("%-24s %s\n", k, s.Description)
 			}
 			return
@@ -101,7 +101,7 @@ func configDaemon(cmd *cobra.Command, opts []string) {
 			continue
 		}
 
-		name, value, err := options.Parse(opts[k])
+		name, value, err := option.ParseDaemonOption(opts[k])
 		if err != nil {
 			fmt.Printf("%s\n", err)
 			os.Exit(1)

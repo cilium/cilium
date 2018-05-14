@@ -20,7 +20,6 @@ import (
 	"runtime"
 
 	"github.com/cilium/cilium/api/v1/models"
-	"github.com/cilium/cilium/daemon/options"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/option"
 )
@@ -97,7 +96,7 @@ type Config struct {
 
 func NewConfig() *Config {
 	return &Config{
-		Opts:    option.NewBoolOptions(&options.Library),
+		Opts:    option.NewBoolOptions(&option.DaemonMutableOptionLibrary),
 		Monitor: &models.MonitorStatus{Cpus: int64(runtime.NumCPU()), Npages: 64, Pagesize: int64(os.Getpagesize()), Lost: 0, Unknown: 0},
 	}
 }

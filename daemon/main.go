@@ -31,7 +31,6 @@ import (
 	health "github.com/cilium/cilium/cilium-health/launch"
 	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/daemon/defaults"
-	"github.com/cilium/cilium/daemon/options"
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/envoy"
@@ -626,7 +625,7 @@ func initEnv(cmd *cobra.Command) {
 
 	config.Opts.Set(option.DropNotify, true)
 	config.Opts.Set(option.TraceNotify, true)
-	config.Opts.Set(options.PolicyTracing, enableTracing)
+	config.Opts.Set(option.PolicyTracing, enableTracing)
 	config.Opts.Set(option.Conntrack, !disableConntrack)
 	config.Opts.Set(option.ConntrackAccounting, !disableConntrack)
 	config.Opts.Set(option.ConntrackLocal, false)
