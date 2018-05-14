@@ -94,7 +94,7 @@ var _ = Describe("K8sValidatedServicesTest", func() {
 				res := kubectl.ExecPodCmd(
 					helpers.DefaultNamespace, pod,
 					helpers.CurlFail(url))
-				ExpectWithOffset(1, res.WasSuccessful()).Should(BeTrue(),
+				ExpectWithOffset(1, res).Should(helpers.CMDSuccess(),
 					"Pod %q can not connect to service %q", pod, url)
 			}
 		}

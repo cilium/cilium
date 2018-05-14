@@ -39,7 +39,7 @@ var _ = Describe("RuntimeValidatedConnectivityTest", func() {
 	removeContainer := func(containerName string) {
 		By(fmt.Sprintf("removing container %s", containerName))
 		res := vm.ContainerRm(containerName)
-		Expect(res.WasSuccessful()).Should(BeTrue())
+		ExpectWithOffset(1, res).To(helpers.CMDSuccess(), "cannot delete container")
 	}
 
 	AfterEach(func() {
@@ -465,13 +465,13 @@ var _ = Describe("RuntimeValidatedConntrackTest", func() {
 
 		By(fmt.Sprintf("container %s pinging %s IPv6 (should NOT work)", helpers.Server, helpers.Client))
 		res = vm.ContainerExec(helpers.Server, helpers.Ping6(clientDockerNetworking[helpers.IPv6]))
-		ExpectWithOffset(1, res.WasSuccessful()).Should(BeFalse(), fmt.Sprintf(
-			"container %s unexpectedly was able to ping to %s %s", helpers.Server, helpers.Client, clientDockerNetworking[helpers.IPv6]))
+		ExpectWithOffset(1, res).ShouldNot(helpers.CMDSuccess(),
+			"container %q unexpectedly was able to ping to %q IP:%q", helpers.Server, helpers.Client, clientDockerNetworking[helpers.IPv6])
 
 		By(fmt.Sprintf("container %s pinging %s IPv4 (should NOT work)", helpers.Server, helpers.Client))
 		res = vm.ContainerExec(helpers.Server, helpers.Ping(clientDockerNetworking[helpers.IPv4]))
-		ExpectWithOffset(1, res.WasSuccessful()).Should(BeFalse(), fmt.Sprintf(
-			"%s was unexpectedly able to ping to %s %s", helpers.Server, helpers.Client, clientDockerNetworking[helpers.IPv4]))
+		ExpectWithOffset(1, res).ShouldNot(helpers.CMDSuccess(),
+			"%q was unexpectedly able to ping to %q IP:%q", helpers.Server, helpers.Client, clientDockerNetworking[helpers.IPv4])
 
 		By("============= Finished Connectivity Test ============= ")
 	}

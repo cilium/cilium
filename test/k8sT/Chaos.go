@@ -82,7 +82,7 @@ var _ = Describe("K8sValidatedChaosTest", func() {
 				res := kubectl.ExecPodCmd(
 					helpers.DefaultNamespace, pod, helpers.Ping(ip))
 				log.Debugf("Pod %s ping %v", pod, ip)
-				ExpectWithOffset(1, res.WasSuccessful()).To(BeTrue(),
+				ExpectWithOffset(1, res).To(helpers.CMDSuccess(),
 					"Cannot ping from %q to %q", pod, ip)
 
 				err = kubectl.WaitForKubeDNSEntry(testDSService)
@@ -90,7 +90,7 @@ var _ = Describe("K8sValidatedChaosTest", func() {
 
 				res = kubectl.ExecPodCmd(
 					helpers.DefaultNamespace, pod, helpers.CurlFail("http://%s:80/", testDSService))
-				ExpectWithOffset(1, res.WasSuccessful()).To(BeTrue(),
+				ExpectWithOffset(1, res).To(helpers.CMDSuccess(),
 					"Cannot curl from %q to testds-service", pod)
 			}
 		}

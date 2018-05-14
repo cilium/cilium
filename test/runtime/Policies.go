@@ -412,8 +412,7 @@ var _ = Describe("RuntimeValidatedPolicies", func() {
 
 		By("Disabling all the policies. All should work")
 
-		status := vm.PolicyDelAll()
-		Expect(status.WasSuccessful()).Should(BeTrue())
+		vm.PolicyDelAll().ExpectSuccess("cannot delete the policy")
 
 		vm.WaitEndpointsReady()
 
@@ -878,16 +877,16 @@ var _ = Describe("RuntimeValidatedPolicies", func() {
 			By("Testing egress access to the world")
 
 			res := vm.ContainerExec(helpers.App1, helpers.Ping(googleDNS))
-			ExpectWithOffset(2, res.WasSuccessful()).Should(
-				BeTrue(), "not able to ping %s", googleDNS)
+			ExpectWithOffset(2, res).Should(helpers.CMDSuccess(),
+				"not able to ping %q", googleDNS)
 
 			res = vm.ContainerExec(helpers.App1, helpers.Ping(helpers.App2))
-			ExpectWithOffset(2, res.WasSuccessful()).Should(
-				BeFalse(), "unexpectedly able to ping %s", helpers.App2)
+			ExpectWithOffset(2, res).ShouldNot(helpers.CMDSuccess(),
+				"unexpectedly able to ping %q", helpers.App2)
 
 			res = vm.ContainerExec(helpers.App1, helpers.CurlFail("-4 http://%s", googleHTTP))
-			ExpectWithOffset(2, res.WasSuccessful()).Should(
-				BeTrue(), "not able to curl %s: %s", googleHTTP, res.CombineOutput())
+			ExpectWithOffset(2, res).Should(helpers.CMDSuccess(),
+				"not able to curl %s", googleHTTP)
 		}
 
 		setupPolicyAndTestEgressToWorld := func(policy string) {
@@ -1045,7 +1044,7 @@ var _ = Describe("RuntimeValidatedPolicies", func() {
 
 			By(fmt.Sprintf("Pinging %q from %q (should not work)", api.EntityHost, helpers.App1))
 			res := vm.ContainerExec(helpers.App1, helpers.Ping(dstIP))
-			ExpectWithOffset(1, res.WasSuccessful()).Should(BeFalse(),
+			ExpectWithOffset(1, res).ShouldNot(helpers.CMDSuccess(),
 				"expected ping to %q to fail", dstIP)
 
 			// Docker container running with host networking is accessible via
@@ -1057,17 +1056,17 @@ var _ = Describe("RuntimeValidatedPolicies", func() {
 
 			By(fmt.Sprintf("Accessing %q on wrong port from %q should fail", dstIP, helpers.App1))
 			res = vm.ContainerExec(helpers.App1, helpers.CurlWithHTTPCode("http://%s:8080/public", dstIP))
-			ExpectWithOffset(1, res.WasSuccessful()).Should(BeFalse(),
+			ExpectWithOffset(1, res).ShouldNot(helpers.CMDSuccess(),
 				"unexpectedly able to access %q when access should only be allowed to CIDR", dstIP)
 
 			By(fmt.Sprintf("Accessing port 80 on wrong destination from %q should fail", helpers.App1))
 			res = vm.ContainerExec(helpers.App1, helpers.CurlWithHTTPCode("%s://%s/public", proto, hostIP))
-			ExpectWithOffset(1, res.WasSuccessful()).Should(BeFalse(),
+			ExpectWithOffset(1, res).ShouldNot(helpers.CMDSuccess(),
 				"unexpectedly able to access %q when access should only be allowed to CIDR", hostIP)
 
 			By(fmt.Sprintf("Pinging %q from %q (shouldn't work)", helpers.App2, helpers.App1))
 			res = vm.ContainerExec(helpers.App1, helpers.Ping(helpers.App2))
-			ExpectWithOffset(1, res.WasSuccessful()).Should(BeFalse(),
+			ExpectWithOffset(1, res).ShouldNot(helpers.CMDSuccess(),
 				"expected ping to %q to fail", helpers.App2)
 
 			httpd2, err := vm.ContainerInspectNet(helpers.Httpd2)
@@ -1076,7 +1075,7 @@ var _ = Describe("RuntimeValidatedPolicies", func() {
 
 			By(fmt.Sprintf("Accessing /index.html in %q from %q (shouldn't work)", helpers.App2, helpers.App1))
 			res = vm.ContainerExec(helpers.App1, helpers.CurlFail("%s://%s/index.html", proto, httpd2[helpers.IPv4]))
-			ExpectWithOffset(1, res.WasSuccessful()).Should(BeFalse(),
+			ExpectWithOffset(1, res).ShouldNot(helpers.CMDSuccess(),
 				"unexpectedly able to access %q when access should only be allowed to CIDR", helpers.Httpd2)
 		}
 

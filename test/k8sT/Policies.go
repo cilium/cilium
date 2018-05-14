@@ -74,6 +74,7 @@ var _ = Describe("K8sValidatedPolicyTest", func() {
 		kubectl.CiliumReport(helpers.KubeSystemNamespace,
 			"cilium service list",
 			"cilium endpoint list")
+
 	})
 
 	JustBeforeEach(func() {
@@ -682,7 +683,7 @@ var _ = Describe("K8sValidatedPolicyTest", func() {
 PING
 EOF`, k, v)
 					res := kubectl.ExecPodCmd(helpers.DefaultNamespace, pod, command)
-					ExpectWithOffset(1, res.WasSuccessful()).To(BeTrue(),
+					ExpectWithOffset(1, res).To(helpers.CMDSuccess(),
 						"Web pod %q cannot connect to redis-master on '%s:%d'", pod, k, v)
 				}
 			}
