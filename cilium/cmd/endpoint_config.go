@@ -50,7 +50,7 @@ func init() {
 }
 
 func listEndpointOptions() {
-	for k, s := range endpoint.EndpointOptionLibrary {
+	for k, s := range endpoint.EndpointMutableOptionLibrary {
 		fmt.Printf("%-24s %s\n", k, s.Description)
 	}
 }
@@ -79,7 +79,7 @@ func configEndpoint(cmd *cobra.Command, args []string) {
 	// modify the configuration we fetched directly since we don't need it
 	modifiedOptsCfg := cfg.Realized
 	for k := range opts {
-		name, value, err := option.ParseOption(opts[k], &endpoint.EndpointOptionLibrary)
+		name, value, err := option.ParseOption(opts[k], &endpoint.EndpointMutableOptionLibrary)
 		if err != nil {
 			Fatalf("Cannot parse option %s: %s", opts[k], err)
 		}

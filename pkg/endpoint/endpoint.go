@@ -72,20 +72,7 @@ const (
 )
 
 var (
-	EndpointOptionLibrary = option.OptionLibrary{}
-
-	EndpointMutableOptionLibrary = option.OptionLibrary{
-		option.ConntrackAccounting: &option.SpecConntrackAccounting,
-		option.ConntrackLocal:      &option.SpecConntrackLocal,
-		option.Conntrack:           &option.SpecConntrack,
-		option.Debug:               &option.SpecDebug,
-		option.DebugLB:             &option.SpecDebugLB,
-		option.DropNotify:          &option.SpecDropNotify,
-		option.TraceNotify:         &option.SpecTraceNotify,
-		option.NAT46:               &option.SpecNAT46,
-		option.IngressPolicy:       &option.IngressSpecPolicy,
-		option.EgressPolicy:        &option.EgressSpecPolicy,
-	}
+	EndpointMutableOptionLibrary = option.GetEndpointMutableOptionLibrary()
 
 	// ciliumEPControllerLimit is the range of k8s versions with which we are
 	// willing to run the EndpointCRD controllers
@@ -97,12 +84,6 @@ var (
 	ciliumEndpointSyncControllerOnce      sync.Once
 	ciliumEndpointSyncControllerK8sClient clientset.Interface
 )
-
-func init() {
-	for k, v := range EndpointMutableOptionLibrary {
-		EndpointOptionLibrary[k] = v
-	}
-}
 
 // getCiliumClient builds and returns a k8s auto-generated client for cilium
 // objects
@@ -619,7 +600,7 @@ func (e *Endpoint) RunK8sCiliumEndpointSync() {
 func NewEndpointWithState(ID uint16, state string) *Endpoint {
 	return &Endpoint{
 		ID:     ID,
-		Opts:   option.NewBoolOptions(&EndpointOptionLibrary),
+		Opts:   option.NewBoolOptions(&EndpointMutableOptionLibrary),
 		Status: NewEndpointStatus(),
 		state:  state,
 	}
@@ -1196,14 +1177,15 @@ func (e *Endpoint) ForcePolicyCompute() {
 
 func (e *Endpoint) SetDefaultOpts(opts *option.BoolOptions) {
 	if e.Opts == nil {
-		e.Opts = option.NewBoolOptions(&EndpointOptionLibrary)
+		e.Opts = option.NewBoolOptions(&EndpointMutableOptionLibrary)
 	}
 	if e.Opts.Library == nil {
-		e.Opts.Library = &EndpointOptionLibrary
+		e.Opts.Library = &EndpointMutableOptionLibrary
 	}
 
 	if opts != nil {
-		for k := range EndpointMutableOptionLibrary {
+		epOptLib := option.GetEndpointMutableOptionLibrary()
+		for k := range epOptLib {
 			e.Opts.Set(k, opts.IsEnabled(k))
 		}
 	}

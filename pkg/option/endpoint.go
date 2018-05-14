@@ -1,4 +1,4 @@
-// Copyright 2016-2018 Authors of Cilium
+// Copyright 2018 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,15 +15,7 @@
 package option
 
 var (
-	specPolicyTracing = Option{
-		Description: "Enable tracing when resolving policy (Debug)",
-	}
-
-	daemonLibrary = OptionLibrary{
-		PolicyTracing: &specPolicyTracing,
-	}
-
-	DaemonMutableOptionLibrary = OptionLibrary{
+	endpointMutableOptionLibrary = OptionLibrary{
 		ConntrackAccounting: &specConntrackAccounting,
 		ConntrackLocal:      &specConntrackLocal,
 		Conntrack:           &specConntrack,
@@ -32,16 +24,15 @@ var (
 		DropNotify:          &specDropNotify,
 		TraceNotify:         &specTraceNotify,
 		NAT46:               &specNAT46,
+		IngressPolicy:       &IngressSpecPolicy,
+		EgressPolicy:        &EgressSpecPolicy,
 	}
 )
 
-func init() {
-	for k, v := range DaemonMutableOptionLibrary {
-		daemonLibrary[k] = v
+func GetEndpointMutableOptionLibrary() OptionLibrary {
+	opt := OptionLibrary{}
+	for k, v := range endpointMutableOptionLibrary {
+		opt[k] = v
 	}
-}
-
-// ParseDaemonOption parses a string as daemon option
-func ParseDaemonOption(opt string) (string, bool, error) {
-	return ParseOption(opt, &daemonLibrary)
+	return opt
 }

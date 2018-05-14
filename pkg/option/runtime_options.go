@@ -41,44 +41,44 @@ var (
 )
 
 var (
-	SpecConntrackAccounting = Option{
+	specConntrackAccounting = Option{
 		Define:      "CONNTRACK_ACCOUNTING",
 		Description: "Enable per flow (conntrack) statistics",
 		Requires:    []string{Conntrack},
 	}
 
-	SpecConntrackLocal = Option{
+	specConntrackLocal = Option{
 		Define:      "CONNTRACK_LOCAL",
 		Description: "Use endpoint dedicated tracking table instead of global one",
 		Requires:    []string{Conntrack},
 	}
 
-	SpecConntrack = Option{
+	specConntrack = Option{
 		Define:      "CONNTRACK",
 		Description: "Enable stateful connection tracking",
 	}
 
-	SpecDebug = Option{
+	specDebug = Option{
 		Define:      "DEBUG",
 		Description: "Enable debugging trace statements",
 	}
 
-	SpecDebugLB = Option{
+	specDebugLB = Option{
 		Define:      "LB_DEBUG",
 		Description: "Enable debugging trace statements for load balancer",
 	}
 
-	SpecDropNotify = Option{
+	specDropNotify = Option{
 		Define:      "DROP_NOTIFY",
 		Description: "Enable drop notifications",
 	}
 
-	SpecTraceNotify = Option{
+	specTraceNotify = Option{
 		Define:      "TRACE_NOTIFY",
 		Description: "Enable trace notifications",
 	}
 
-	SpecNAT46 = Option{
+	specNAT46 = Option{
 		Define:      "ENABLE_NAT46",
 		Description: "Enable automatic NAT46 translation",
 		Requires:    []string{Conntrack},
