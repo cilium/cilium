@@ -35,7 +35,6 @@ import (
 	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/common/types"
 	"github.com/cilium/cilium/daemon/defaults"
-	"github.com/cilium/cilium/daemon/options"
 	monitorLaunch "github.com/cilium/cilium/monitor/launch"
 	"github.com/cilium/cilium/pkg/apierror"
 	"github.com/cilium/cilium/pkg/bpf"
@@ -264,7 +263,7 @@ func (d *Daemon) GetPolicyRepository() *policy.Repository {
 }
 
 func (d *Daemon) TracingEnabled() bool {
-	return d.conf.Opts.IsEnabled(options.PolicyTracing)
+	return d.conf.Opts.IsEnabled(option.PolicyTracing)
 }
 
 func (d *Daemon) DryModeEnabled() bool {
