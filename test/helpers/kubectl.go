@@ -974,12 +974,14 @@ func (kub *Kubectl) CiliumReport(namespace string, commands ...string) {
 	}
 	ginkgoext.GinkgoPrint("===================== TEST FAILED =====================")
 	// Dump a human readable view of pods in the test-output log
-	_ = kub.Exec(fmt.Sprintf("%s get pods -o wide --all-namespaces", KubectlCmd))
+	res := kub.Exec(fmt.Sprintf("%s get pods -o wide --all-namespaces", KubectlCmd))
+	ginkgoext.GinkgoPrint(res.GetDebugMessage())
 
 	for _, pod := range pods {
 		for _, cmd := range commands {
 			command := fmt.Sprintf("%s exec -n %s %s -- %s", KubectlCmd, namespace, pod, cmd)
-			_ = kub.Exec(command)
+			res = kub.Exec(command)
+			ginkgoext.GinkgoPrint(res.GetDebugMessage())
 		}
 	}
 

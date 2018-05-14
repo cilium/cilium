@@ -604,10 +604,12 @@ func (s *SSHMeta) ReportFailed(commands ...string) {
 	// when log gathering begins.
 
 	ginkgoext.GinkgoPrint("===================== TEST FAILED =====================")
-	_ = s.ExecCilium("endpoint list") // save the output in the logs
+	res := s.ExecCilium("endpoint list") // save the output in the logs
+	ginkgoext.GinkgoPrint(res.GetDebugMessage())
 
 	for _, cmd := range commands {
-		_ = s.Exec(fmt.Sprintf("%s", cmd))
+		res = s.Exec(fmt.Sprintf("%s", cmd))
+		ginkgoext.GinkgoPrint(res.GetDebugMessage())
 	}
 
 	s.DumpCiliumCommandOutput()
