@@ -79,7 +79,7 @@ var _ = Describe("RuntimeValidatedKafka", func() {
 		res := vm.ContainerExec(client, fmt.Sprintf(
 			"/opt/kafka/bin/kafka-topics.sh --create --zookeeper zook:2181 "+
 				"--replication-factor 1 --partitions 1 --topic %s", name))
-		res.ExpectSuccess("Unable to create topic  %s: %s", name, res.CombineOutput())
+		res.ExpectSuccess("Unable to create topic  %s", name)
 	}
 	consumerCmd := func(topic string, maxMsg int) string {
 		return fmt.Sprintf("/opt/kafka/bin/kafka-console-consumer.sh --bootstrap-server "+

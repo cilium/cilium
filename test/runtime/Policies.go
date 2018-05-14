@@ -606,7 +606,7 @@ var _ = Describe("RuntimeValidatedPolicies", func() {
 		By("Pinging host IPv4 from httpd2 (should NOT work due to default-deny PolicyEnforcement mode)")
 
 		res := vm.ContainerExec(helpers.Httpd2, helpers.Ping(helpers.IPv4Host))
-		res.ExpectFail("Unexpected success pinging host (%s) from %s: %s", helpers.IPv4Host, helpers.Httpd2, res.CombineOutput().String())
+		res.ExpectFail("Unexpected success pinging host (%s) from %s", helpers.IPv4Host, helpers.Httpd2)
 
 		By(fmt.Sprintf("Importing L3 CIDR Policy for IPv4 Egress Allowing Egress to %s, %s from %s", ipv4OtherHost, ipv4OtherHost, httpd2Label))
 		script := fmt.Sprintf(`
@@ -624,8 +624,7 @@ var _ = Describe("RuntimeValidatedPolicies", func() {
 		Expect(err).To(BeNil(), "Unable to import policy: %s", err)
 
 		res = vm.ContainerExec(helpers.Httpd2, helpers.Ping(helpers.IPv4Host))
-		res.ExpectSuccess("Unexpected failure pinging host (%s) from %s: %s", helpers.IPv4Host, helpers.Httpd2, res.CombineOutput().String())
-
+		res.ExpectSuccess("Unexpected failure pinging host (%s) from %s", helpers.IPv4Host, helpers.Httpd2)
 		vm.PolicyDelAll().ExpectSuccess("Unable to delete all policies")
 
 		By("Pinging host IPv6 from httpd2 (should NOT work because we did not specify IPv6 CIDR of host as part of previously imported policy)")
@@ -647,8 +646,7 @@ var _ = Describe("RuntimeValidatedPolicies", func() {
 
 		By(fmt.Sprintf("Pinging host IPv6 from httpd2 (should work because policy allows IPv6 CIDR %s)", helpers.IPv6Host))
 		res = vm.ContainerExec(helpers.Httpd2, helpers.Ping6(helpers.IPv6Host))
-		res.ExpectSuccess("Unexpected failure pinging host (%s) from %s: %s", helpers.IPv6Host, helpers.Httpd2, res.CombineOutput().String())
-
+		res.ExpectSuccess("Unexpected failure pinging host (%s) from %s", helpers.IPv6Host, helpers.Httpd2)
 		vm.PolicyDelAll().ExpectSuccess("Unable to delete all policies")
 
 		// This test case checks that ping works even without explicit CIDR policies
@@ -676,20 +674,16 @@ var _ = Describe("RuntimeValidatedPolicies", func() {
 
 		By("Pinging httpd1 IPV4 from httpd2 (should work because we allowed traffic to httpd1 labels from httpd2 labels)")
 		res = vm.ContainerExec(helpers.Httpd2, helpers.Ping(httpd1DockerNetworking[helpers.IPv4]))
-		res.ExpectSuccess("Unexpected failure pinging %s (%s) from %s: %s", helpers.Httpd1, httpd1DockerNetworking[helpers.IPv4], helpers.Httpd2, res.CombineOutput().String())
-
+		res.ExpectSuccess("Unexpected failure pinging %s (%s) from %s", helpers.Httpd1, httpd1DockerNetworking[helpers.IPv4], helpers.Httpd2)
 		By("Pinging httpd1 IPv6 from httpd2 (should work because we allowed traffic to httpd1 labels from httpd2 labels)")
 		res = vm.ContainerExec(helpers.Httpd2, helpers.Ping6(httpd1DockerNetworking[helpers.IPv6]))
-		res.ExpectSuccess("Unexpected failure pinging %s (%s) from %s: %s", helpers.Httpd1, httpd1DockerNetworking[helpers.IPv6], helpers.Httpd2, res.CombineOutput().String())
-
+		res.ExpectSuccess("Unexpected failure pinging %s (%s) from %s", helpers.Httpd1, httpd1DockerNetworking[helpers.IPv6], helpers.Httpd2)
 		By("Pinging httpd1 IPv4 from app3 (should NOT work because app3 hasn't been whitelisted to communicate with httpd1)")
 		res = vm.ContainerExec(helpers.App3, helpers.Ping(helpers.Httpd1))
-		res.ExpectFail("Unexpected success pinging %s IPv4 from %s: %s", helpers.Httpd1, helpers.App3, res.CombineOutput().String())
-
+		res.ExpectFail("Unexpected success pinging %s IPv4 from %s", helpers.Httpd1, helpers.App3)
 		By("Pinging httpd1 IPv6 from app3 (should NOT work because app3 hasn't been whitelisted to communicate with httpd1)")
 		res = vm.ContainerExec(helpers.App3, helpers.Ping6(helpers.Httpd1))
-		res.ExpectFail("Unexpected success pinging %s IPv6 from %s: %s", helpers.Httpd1, helpers.App3, res.CombineOutput().String())
-
+		res.ExpectFail("Unexpected success pinging %s IPv6 from %s", helpers.Httpd1, helpers.App3)
 		vm.PolicyDelAll().ExpectSuccess("Unable to delete all policies")
 
 		// Checking combined policy allowing traffic from IPv4 and IPv6 CIDR ranges.
@@ -722,19 +716,19 @@ var _ = Describe("RuntimeValidatedPolicies", func() {
 
 		By("Pinging httpd1 IPV4 from httpd2 (should work because we allowed traffic to httpd1 labels from httpd2 labels)")
 		res = vm.ContainerExec(helpers.Httpd2, helpers.Ping(httpd1DockerNetworking[helpers.IPv4]))
-		res.ExpectSuccess("Unexpected failure pinging %s (%s) from %s: %s", helpers.Httpd1, httpd1DockerNetworking[helpers.IPv4], helpers.Httpd2, res.CombineOutput().String())
+		res.ExpectSuccess("Unexpected failure pinging %s (%s) from %s", helpers.Httpd1, httpd1DockerNetworking[helpers.IPv4], helpers.Httpd2)
 
 		By("Pinging httpd1 IPv6 from httpd2 (should work because we allowed traffic to httpd1 labels from httpd2 labels)")
 		res = vm.ContainerExec(helpers.Httpd2, helpers.Ping6(httpd1DockerNetworking[helpers.IPv6]))
-		res.ExpectSuccess("Unexpected failure pinging %s (%s) from %s: %s", helpers.Httpd1, httpd1DockerNetworking[helpers.IPv6], helpers.Httpd2, res.CombineOutput().String())
+		res.ExpectSuccess("Unexpected failure pinging %s (%s) from %s", helpers.Httpd1, httpd1DockerNetworking[helpers.IPv6], helpers.Httpd2)
 
 		By(fmt.Sprintf("Pinging httpd1 IPv4 %q from app3 (shouldn't work because CIDR policies don't apply to endpoint-endpoint communication)", ipv4Prefix))
 		res = vm.ContainerExec(helpers.App3, helpers.Ping(helpers.Httpd1))
-		res.ExpectFail("Unexpected success pinging %s IPv4 from %s: %s", helpers.Httpd1, helpers.App3, res.CombineOutput().String())
+		res.ExpectFail("Unexpected success pinging %s IPv4 from %s", helpers.Httpd1, helpers.App3)
 
 		By(fmt.Sprintf("Pinging httpd1 IPv6 %q from app3 (shouldn't work because CIDR policies don't apply to endpoint-endpoint communication)", ipv6Prefix))
 		res = vm.ContainerExec(helpers.App3, helpers.Ping6(helpers.Httpd1))
-		res.ExpectFail("Unexpected success pinging %s IPv6 from %s: %s", helpers.Httpd1, helpers.App3, res.CombineOutput().String())
+		res.ExpectFail("Unexpected success pinging %s IPv6 from %s", helpers.Httpd1, helpers.App3)
 
 		vm.PolicyDelAll().ExpectSuccess("Unable to delete all policies")
 
@@ -766,11 +760,11 @@ var _ = Describe("RuntimeValidatedPolicies", func() {
 
 		By(fmt.Sprintf("Pinging httpd1 IPv4 from app3 (should NOT work because we only allow traffic from %s to %s)", httpd2Label, httpd1Label))
 		res = vm.ContainerExec(helpers.App3, helpers.Ping(helpers.Httpd1))
-		res.ExpectFail("Unexpected success pinging %s IPv4 from %s: %s", helpers.Httpd1, helpers.App3, res.CombineOutput().String())
+		res.ExpectFail("Unexpected success pinging %s IPv4 from %s", helpers.Httpd1, helpers.App3)
 
 		By(fmt.Sprintf("Pinging httpd1 IPv6 from app3 (should NOT work because we only allow traffic from %s to %s)", httpd2Label, httpd1Label))
 		res = vm.ContainerExec(helpers.App3, helpers.Ping6(helpers.Httpd1))
-		res.ExpectFail("Unexpected success pinging %s IPv6 from %s: %s", helpers.Httpd1, helpers.App3, res.CombineOutput().String())
+		res.ExpectFail("Unexpected success pinging %s IPv6 from %s", helpers.Httpd1, helpers.App3)
 
 		vm.PolicyDelAll().ExpectSuccess("Unable to delete all policies")
 

@@ -83,17 +83,17 @@ var _ = Describe("DisabledRuntimeValidatedConntrackTable", func() {
 		case helpers.Create:
 			for k, v := range images {
 				res := vm.ContainerCreate(k, v, helpers.CiliumDockerNetwork, fmt.Sprintf("-l id.%s", k))
-				res.ExpectSuccess(fmt.Sprintf("Creating container %q. Error: %s", k, res.CombineOutput().String()))
+				res.ExpectSuccess("Creating container %q.", k)
 			}
 			cmdStr := "docker run -dt --name netcat --net %s -l id.server-4 busybox:1.28.0 sleep 30000s"
 			vm.Exec(fmt.Sprintf(cmdStr, helpers.CiliumDockerNetwork)).ExpectSuccess()
 
 			cmdStr = "docker run -dt -v %s:/nc.py --net=%s --name client -l id.client python:2.7.14"
 			res := vm.Exec(fmt.Sprintf(cmdStr, vm.GetFullPath(ctCleanUpNC), helpers.CiliumDockerNetwork))
-			res.ExpectSuccess(fmt.Sprintf("Creating container %q. Error: %s", client, res.CombineOutput().String()))
+			res.ExpectSuccess("Creating container %q.", client)
 
 			res = vm.ContainerCreate(client2, helpers.NetperfImage, helpers.CiliumDockerNetwork, "-l id.client")
-			res.ExpectSuccess(fmt.Sprintf("Creating container %q. Error: %s", client2, res.CombineOutput().String()))
+			res.ExpectSuccess("Creating container %q", client2)
 
 		case helpers.Delete:
 			for _, x := range containersNames {
@@ -613,7 +613,7 @@ var _ = Describe("DisabledRuntimeValidatedConntrackTable", func() {
 
 		By("Removing policy with labels `l3-l4-l7-policy-server-3`")
 		res := vm.PolicyDel("l3-l4-l7-policy-server-3")
-		res.ExpectSuccess("Deleting policy `l3-l4-l7-policy-server-3`: %s", res.CombineOutput())
+		res.ExpectSuccess("Deleting policy `l3-l4-l7-policy-server-3`")
 
 		By("Testing connectivity to confirm policy enforcement without going through the proxy")
 		for _, testCase := range testCombinations {

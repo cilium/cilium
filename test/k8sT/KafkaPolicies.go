@@ -165,19 +165,19 @@ var _ = Describe("K8sValidatedKafkaPolicyTest", func() {
 		trace := kubectl.CiliumExec(ciliumPod, fmt.Sprintf(
 			"cilium policy trace --src-k8s-pod default:%s --dst-k8s-pod default:%s --dport 9092",
 			appPods[empireHqApp], appPods[kafkaApp]))
-		trace.ExpectSuccess(trace.CombineOutput().String())
+		trace.ExpectSuccess("Cilium policy trace failed")
 		trace.ExpectContains("Final verdict: ALLOWED")
 
 		trace = kubectl.CiliumExec(ciliumPod, fmt.Sprintf(
 			"cilium policy trace --src-k8s-pod default:%s --dst-k8s-pod default:%s --dport 9092",
 			appPods[backupApp], appPods[kafkaApp]))
-		trace.ExpectSuccess(trace.CombineOutput().String())
+		trace.ExpectSuccess("Cilium policy trace failed")
 		trace.ExpectContains("Final verdict: ALLOWED")
 
 		trace = kubectl.CiliumExec(ciliumPod, fmt.Sprintf(
 			"cilium policy trace --src-k8s-pod default:%s --dst-k8s-pod default:%s --dport 80",
 			appPods[empireHqApp], appPods[kafkaApp]))
-		trace.ExpectSuccess(trace.CombineOutput().String())
+		trace.ExpectSuccess("Failed cilium policy trace")
 		trace.ExpectContains("Final verdict: DENIED")
 
 		By("Testing Kafka L7 policy enforcement status")

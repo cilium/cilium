@@ -85,7 +85,7 @@ var _ = Describe("K8sValidatedTunnelTest", func() {
 
 		It("Check VXLAN mode", func() {
 			res := kubectl.Apply(vxlanDSPath)
-			res.ExpectSuccess("Unable to apply %s: %s", vxlanDSPath, res.CombineOutput())
+			res.ExpectSuccess("Unable to apply %q", vxlanDSPath)
 
 			ExpectCiliumReady(kubectl)
 
@@ -125,7 +125,7 @@ var _ = Describe("K8sValidatedTunnelTest", func() {
 
 		It("Check Geneve mode", func() {
 			res := kubectl.Apply(geneveDSPath)
-			res.ExpectSuccess("unable to apply %s: %s", geneveDSPath, res.CombineOutput())
+			res.ExpectSuccess("unable to apply %s", geneveDSPath)
 			ExpectCiliumReady(kubectl)
 
 			ciliumPod, err := kubectl.GetCiliumPodOnNode(helpers.KubeSystemNamespace, helpers.K8s1)

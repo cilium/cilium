@@ -122,7 +122,7 @@ var _ = Describe("RuntimeValidatedPolicyValidationTests", func() {
 		for _, file := range jsonFiles {
 			yamlPolicyPath := filepath.Join(yamlExamplesPathVM, file)
 			res := vm.Exec(fmt.Sprintf("yamllint -c %s %s", filepath.Join(helpers.BasePath, "yaml.config"), yamlPolicyPath))
-			res.ExpectSuccess("Unable to validate YAML %s: %s", yamlPolicyPath, res.CombineOutput())
+			res.ExpectSuccess("Unable to validate YAML %s", yamlPolicyPath)
 		}
 	})
 })
