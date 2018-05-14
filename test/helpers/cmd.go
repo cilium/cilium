@@ -25,6 +25,7 @@ import (
 	"github.com/cilium/cilium/test/config"
 
 	"github.com/onsi/gomega"
+	"github.com/onsi/gomega/types"
 	"k8s.io/client-go/util/jsonpath"
 )
 
@@ -74,15 +75,15 @@ func (res *CmdRes) WasSuccessful() bool {
 // ExpectFail asserts whether res failed to execute. It accepts an optional
 // parameter that can be used to annotate failure messages.
 func (res *CmdRes) ExpectFail(optionalDescription ...interface{}) bool {
-	return gomega.ExpectWithOffset(1, res.WasSuccessful()).Should(
-		gomega.BeFalse(), optionalDescription...)
+	return gomega.ExpectWithOffset(1, res).ShouldNot(
+		CMDSuccess(), optionalDescription...)
 }
 
 // ExpectSuccess asserts whether res executed successfully. It accepts an optional
 // parameter that can be used to annotate failure messages.
 func (res *CmdRes) ExpectSuccess(optionalDescription ...interface{}) bool {
-	return gomega.ExpectWithOffset(1, res.WasSuccessful()).Should(
-		gomega.BeTrue(), optionalDescription...)
+	return gomega.ExpectWithOffset(1, res).Should(
+		CMDSuccess(), optionalDescription...)
 }
 
 // ExpectContains asserts a string into the stdout of the response of executed
@@ -183,6 +184,24 @@ func (res *CmdRes) Output() *bytes.Buffer {
 	return res.stdout
 }
 
+// OutputPrettyPrint returns a string with the ExitCode, stdout and stderr in a
+// pretty format.
+func (res *CmdRes) OutputPrettyPrint() string {
+	format := func(message string) string {
+		result := []string{}
+		for _, line := range strings.Split(message, "\n") {
+			result = append(result, fmt.Sprintf("\t %s", line))
+		}
+		return strings.Join(result, "\n")
+
+	}
+	return fmt.Sprintf(
+		"Exitcode: %d \nStdout:\n %s\nStderr:\n %s\n",
+		res.GetExitCode(),
+		format(res.GetStdOut()),
+		format(res.GetStdErr()))
+}
+
 // ExpectEqual asserts whether cmdRes.Output().String() and expected are equal.
 // It accepts an optional parameter that can be used to annotate failure
 // messages.
@@ -225,4 +244,39 @@ func (res *CmdRes) WaitUntilMatch(substr string) error {
 		body,
 		fmt.Sprintf("%s is not in the output after timeout", substr),
 		&TimeoutConfig{Timeout: HelperTimeout})
+}
+
+// BeSuccesfulMatcher a new Ginkgo matcher for CmdRes struct
+type BeSuccesfulMatcher struct{}
+
+// Match validates that the given interface will be a `*CmdRes` struct and it
+// was successful. In case of not a valid CmdRes will return an error. If the
+// command was not successful it returns false.
+func (matcher *BeSuccesfulMatcher) Match(actual interface{}) (success bool, err error) {
+	res, ok := actual.(*CmdRes)
+	if !ok {
+		return false, fmt.Errorf("%q is not a valid *CmdRes type", actual)
+	}
+	return res.WasSuccessful(), nil
+}
+
+// FailureMessage it returns a pretty printed error message in the case of the
+// command was not successful.
+func (matcher *BeSuccesfulMatcher) FailureMessage(actual interface{}) (message string) {
+	res, _ := actual.(*CmdRes)
+	return fmt.Sprintf("Expected command: %s \nTo succeed, but it fails:\n%s",
+		res.GetCmd(), res.OutputPrettyPrint())
+}
+
+// NegatedFailureMessage returns a pretty printed error message in case of the
+// command is tested with a negative
+func (matcher *BeSuccesfulMatcher) NegatedFailureMessage(actual interface{}) (message string) {
+	res, _ := actual.(*CmdRes)
+	return fmt.Sprintf("Expected command: %s\nTo fails, but it was successful:\n%s",
+		res.GetCmd(), res.OutputPrettyPrint())
+}
+
+// CMDSuccess return a new Matcher that expects a CmdRes is a successful run command.
+func CMDSuccess() types.GomegaMatcher {
+	return &BeSuccesfulMatcher{}
 }
