@@ -121,10 +121,10 @@ func CreateMap(mapType int, keySize, valueSize, maxEntries, flags uint32) (int, 
 		unsafe.Sizeof(uba),
 	)
 
-	if ret != 0 {
-		return int(ret), nil
+	if err != 0 {
+		return 0, fmt.Errorf("Unable to create map: %s", err)
 	}
-	return 0, fmt.Errorf("Unable to create map: %s", err)
+	return int(ret), nil
 }
 
 // This struct must be in sync with union bpf_attr's anonymous struct used by
