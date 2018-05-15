@@ -20,7 +20,7 @@ import (
 	"text/tabwriter"
 
 	"github.com/cilium/cilium/common"
-	"github.com/cilium/cilium/pkg/endpoint"
+	endpointid "github.com/cilium/cilium/pkg/endpoint/id"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 
@@ -38,7 +38,7 @@ var endpointLabelsCmd = &cobra.Command{
 	Short:  "Manage label configuration of endpoint",
 	PreRun: requireEndpointID,
 	Run: func(cmd *cobra.Command, args []string) {
-		_, id, _ := endpoint.ValidateID(args[0])
+		_, id, _ := endpointid.ValidateID(args[0])
 		addLabels := labels.NewLabelsFromModel(toAdd).GetModel()
 
 		deleteLabels := labels.NewLabelsFromModel(toDelete).GetModel()
