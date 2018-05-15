@@ -333,10 +333,6 @@ func AddEndpoint(owner endpoint.Owner, ep *endpoint.Endpoint, reason string) err
 	if state == endpoint.StateReady {
 		ep.SetStateLocked(endpoint.StateWaitingToRegenerate, reason)
 		build = true
-	} else if state == endpoint.StateWaitingForIdentity {
-		// state not changed if it is "waiting-for-identity",
-		// but we still trigger the initial build.
-		build = true
 	}
 	ep.Mutex.Unlock()
 	if build {
