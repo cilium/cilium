@@ -2,6 +2,21 @@
 NEWS
 ******
 
+v1.0.3
+======
+
+Joe Stringer (2):
+      k8s: Bump CRD schema version.
+      bpf: Ensure maps are restored on load failure
+
+Ray Bejjani (1):
+      controller: Cleanup global manager on UpdateController
+
+Romain Lenglet (2):
+      controller: Skip StopFunc when stopping controller for update
+      k8s: Consistently check for namespace labels in endpoint selectors
+
+
 v1.0.2
 ======
 
