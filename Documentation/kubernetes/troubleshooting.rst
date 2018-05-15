@@ -4,8 +4,8 @@
 Troubleshooting
 ***************
 
-Veryfing the installation
-=========================
+Verifying the installation
+==========================
 
 Check the status of the `DaemonSet` and verify that all desired instances are in
 "ready" state:

@@ -13,6 +13,7 @@ CILIUMDIR     = ../cilium
 AGENTDIR      = ../daemon
 BUGTOOLDIR    = ../bugtool
 HEALTHDIR     = ../cilium-health
+SPELLING_LIST = spelling_wordlist.txt
 
 # Put it first so that "make" without argument is like "make help".
 help:
@@ -43,10 +44,20 @@ cmdref:
 	@$(ECHO_GEN)cmdref/cilium-health
 	$(QUIET) ${HEALTHDIR}/cilium-health --cmdref $(CMDREFDIR)
 
+spellcheck: check-requirements
+	@$(ECHO_CHECK) documentation spelling...
+	$(SPHINXBUILD) -b spelling -d "$(BUILDDIR)/doctrees" "$(SOURCEDIR)" "$(BUILDDIR)/spelling" $(SPHINXOPTS)
+	@if [ "$$(wc -l < "$(BUILDDIR)/spelling/output.txt")" -ne "0" ]; then \
+		echo "Please fix the following spelling mistakes:"; \
+		sed 's/^/* Documentation\//' $(BUILDDIR)/spelling/output.txt; \
+		echo "If the words are not misspelled, add them to Documentation/$(SPELLING_LIST)."; \
+		exit 1; \
+	fi
+
 .PHONY: help Makefile ../Makefile.quiet check-requirements cmdref
 
 # Catch-all target: route all unknown targets to Sphinx using the new
 # "make mode" option.  $(O) is meant as a shortcut for $(SPHINXOPTS).
-%: Makefile check-requirements
+%: Makefile check-requirements spellcheck
 	@$(ECHO_GEN)_build/$@
 	$(SPHINXBUILD) -M $@ "$(SOURCEDIR)" "$(BUILDDIR)" $(SPHINXOPTS) $(O)
