@@ -29,6 +29,7 @@ import (
 	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/endpoint"
+	endpointid "github.com/cilium/cilium/pkg/endpoint/id"
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/ipam"
@@ -197,7 +198,7 @@ func (h *putEndpointID) Handle(params PutEndpointIDParams) middleware.Responder 
 	log.WithField(logfields.Params, logfields.Repr(params)).Debug("PUT /endpoint/{id} request")
 
 	epTemplate := params.Endpoint
-	if n, err := endpoint.ParseCiliumID(params.ID); err != nil {
+	if n, err := endpointid.ParseCiliumID(params.ID); err != nil {
 		return apierror.Error(PutEndpointIDInvalidCode, err)
 	} else if n != epTemplate.ID {
 		return apierror.New(PutEndpointIDInvalidCode,
