@@ -16,6 +16,7 @@ package ip
 
 import (
 	"bytes"
+	"encoding/binary"
 	"fmt"
 	"math/big"
 	"net"
@@ -337,31 +338,32 @@ func getPreviousIP(ip net.IP) net.IP {
 }
 
 func getNextIP(ip net.IP) net.IP {
-	if ip.Equal(net.IP(upperIPv4)) || ip.Equal(net.IP(upperIPv6)) {
+	if ip.Equal(upperIPv4) || ip.Equal(upperIPv6) {
 		return ip
 	}
+
 	nextIP := make(net.IP, len(ip))
-	copy(nextIP, ip)
-
-	var overflow bool
-	var lowerByteBound int
-	if ip.To4() != nil {
-		lowerByteBound = net.IPv6len - net.IPv4len
-	} else {
-		lowerByteBound = 0
-	}
-	for i := len(ip) - 1; i >= lowerByteBound; i-- {
-		if overflow || i == len(ip)-1 {
-			nextIP[i]++
-		}
-
-		if ip[i] == 255 && nextIP[i] == 0 {
-			overflow = true
+	switch len(ip) {
+	case net.IPv4len:
+		ipU32 := binary.BigEndian.Uint32(ip)
+		ipU32++
+		binary.BigEndian.PutUint32(nextIP, ipU32)
+		return nextIP
+	case net.IPv6len:
+		ipU64 := binary.BigEndian.Uint64(ip[net.IPv6len/2:])
+		ipU64++
+		binary.BigEndian.PutUint64(nextIP[net.IPv6len/2:], ipU64)
+		if ipU64 == 0 {
+			ipU64 = binary.BigEndian.Uint64(ip[:net.IPv6len/2])
+			ipU64++
+			binary.BigEndian.PutUint64(nextIP[:net.IPv6len/2], ipU64)
 		} else {
-			overflow = false
+			copy(nextIP[:net.IPv6len/2], ip[:net.IPv6len/2])
 		}
+		return nextIP
+	default:
+		return ip
 	}
-	return nextIP
 }
 
 func createSpanningCIDR(r netWithRange) net.IPNet {
