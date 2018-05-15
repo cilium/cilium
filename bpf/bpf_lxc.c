@@ -647,7 +647,7 @@ __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV4) int tail_handle_ipv4(struct _
 __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_ARP) int tail_handle_arp(struct __sk_buff *skb)
 {
 	union macaddr mac = NODE_MAC;
-	return arp_respond(skb, &mac, IPV4_GATEWAY);
+	return arp_respond(skb, &mac);
 }
 
 __section("from-container")
