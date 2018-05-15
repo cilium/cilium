@@ -31,7 +31,6 @@
 #include "lib/dbg.h"
 #include "lib/trace.h"
 #include "lib/l3.h"
-#include "lib/geneve.h"
 #include "lib/drop.h"
 #include "lib/policy.h"
 
@@ -50,21 +49,6 @@ static inline int handle_ipv6(struct __sk_buff *skb)
 		return DROP_NO_TUNNEL_KEY;
 
 	cilium_dbg(skb, DBG_DECAP, key.tunnel_id, key.tunnel_label);
-
-#ifdef ENCAP_GENEVE
-	if (1) {
-		uint8_t buf[MAX_GENEVE_OPT_LEN] = {};
-		struct geneveopt_val geneveopt_val = {};
-		int ret;
-
-		if (unlikely(skb_get_tunnel_opt(skb, buf, sizeof(buf)) < 0))
-			return DROP_NO_TUNNEL_OPT;
-
-		ret = parse_geneve_options(&geneveopt_val, buf);
-		if (IS_ERR(ret))
-			return ret;
-	}
-#endif
 
 	/* Lookup IPv6 address in list of local endpoints */
 	if ((ep = lookup_ip6_endpoint(ip6)) != NULL) {

@@ -149,7 +149,6 @@ func (ds *DaemonSuite) TestUpdateConsumerMap(c *C) {
 	err2 := os.Mkdir("1", 755)
 	c.Assert(err2, IsNil)
 	defer func() {
-		os.RemoveAll("1/geneve_opts.cfg")
 		os.RemoveAll("1/lxc_config.h")
 		time.Sleep(1 * time.Second)
 		os.RemoveAll("1")
@@ -438,7 +437,6 @@ func (ds *DaemonSuite) TestRemovePolicy(c *C) {
 	err2 := os.Mkdir("1", 755)
 	c.Assert(err2, IsNil)
 	defer func() {
-		os.RemoveAll("1/geneve_opts.cfg")
 		os.RemoveAll("1/lxc_config.h")
 		time.Sleep(1 * time.Second)
 		os.RemoveAll("1")
