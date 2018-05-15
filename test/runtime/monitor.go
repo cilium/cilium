@@ -72,6 +72,10 @@ var _ = Describe("RuntimeValidatedMonitorTest", func() {
 			vm.SampleContainersActions(helpers.Create, helpers.CiliumDockerNetwork)
 		})
 
+		AfterEach(func() {
+			_ = vm.PolicyDelAll()
+		})
+
 		AfterAll(func() {
 			vm.SampleContainersActions(helpers.Delete, helpers.CiliumDockerNetwork)
 		})
@@ -110,10 +114,6 @@ var _ = Describe("RuntimeValidatedMonitorTest", func() {
 
 			_, err := vm.PolicyImportAndWait(vm.GetFullPath(policiesL3JSON), helpers.HelperTimeout)
 			Expect(err).Should(BeNil())
-
-			defer func() {
-				vm.PolicyDelAll().ExpectSuccess("cannot delete the policy")
-			}()
 
 			areEndpointsReady := vm.WaitEndpointsReady()
 			Expect(areEndpointsReady).Should(BeTrue(), "Endpoints are not ready after timeout")
