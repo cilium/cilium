@@ -25,7 +25,7 @@ import (
 	"time"
 
 	"github.com/cilium/cilium/common/addressing"
-	"github.com/cilium/cilium/pkg/endpoint"
+	endpointid "github.com/cilium/cilium/pkg/endpoint/id"
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/ipam"
 	"github.com/cilium/cilium/pkg/k8s"
@@ -138,7 +138,7 @@ func processEvent(m dTypesEvents.Message) {
 			stopIgnoringContainer(m.ID)
 			handleCreateContainer(m.ID, true)
 		case "die":
-			workloads.Owner().DeleteEndpoint(endpoint.NewID(endpoint.ContainerIdPrefix, m.ID))
+			workloads.Owner().DeleteEndpoint(endpointid.NewID(endpointid.ContainerIdPrefix, m.ID))
 		}
 	}
 }
