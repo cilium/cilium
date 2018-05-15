@@ -259,24 +259,24 @@ var _ = Describe("K8sValidatedServicesTest", func() {
 			kubectl.WaitforPods(helpers.DefaultNamespace, "", 300)
 
 			pods, err := kubectl.GetPodsNodes(helpers.DefaultNamespace, "")
-			Expect(err).To(BeNil())
+			ExpectWithOffset(1, err).To(BeNil())
 
 			node := pods[podName]
 			ciliumPod, err := kubectl.GetCiliumPodOnNode(helpers.KubeSystemNamespace, node)
-			Expect(err).Should(BeNil())
+			ExpectWithOffset(1, err).Should(BeNil())
 
 			status := kubectl.CiliumEndpointWait(ciliumPod)
-			Expect(status).To(BeTrue())
+			ExpectWithOffset(1, status).To(BeTrue())
 
 			endpointIDs := kubectl.CiliumEndpointsIDs(ciliumPod)
 			endpointID := endpointIDs[fmt.Sprintf("%s:%s", helpers.DefaultNamespace, podName)]
-			Expect(endpointID).NotTo(BeNil())
+			ExpectWithOffset(1, endpointID).NotTo(BeNil())
 
 			Eventually(func() string {
 				res := kubectl.CiliumEndpointGet(ciliumPod, endpointID)
 
 				data, err := res.Filter(`{[0].status.policy.realized.cidr-policy.egress}`)
-				Expect(err).To(BeNil())
+				ExpectWithOffset(1, err).To(BeNil())
 				return data.String()
 
 			}, 5*time.Minute, 10*time.Second).Should(ContainSubstring(expectedCIDR))
