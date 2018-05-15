@@ -27,7 +27,7 @@ import (
 
 	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/pkg/bpf"
-	"github.com/cilium/cilium/pkg/endpoint"
+	endpointid "github.com/cilium/cilium/pkg/endpoint/id"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/maps/policymap"
 	"github.com/cilium/cilium/pkg/option"
@@ -59,7 +59,7 @@ func requireEndpointID(cmd *cobra.Command, args []string) {
 	}
 
 	if id := identity.ReservedIdentities[args[0]]; id == identity.IdentityUnknown {
-		_, _, err := endpoint.ValidateID(args[0])
+		_, _, err := endpointid.ValidateID(args[0])
 
 		if err != nil {
 			Fatalf("Cannot parse endpoint id \"%s\": %s", args[0], err)
