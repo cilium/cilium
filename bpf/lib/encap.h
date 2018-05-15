@@ -20,15 +20,10 @@
 
 #include "common.h"
 #include "dbg.h"
-#include "geneve.h"
-
-/* validating options on tx is optional */
-#undef VALIDATE_GENEVE_TX
 
 #ifdef ENCAP_IFINDEX
-
-static inline int __encap_and_redirect(struct __sk_buff *skb, struct endpoint_key *k,
-				       __u32 seclabel, uint8_t *buf, int sz)
+static inline int __inline__ encap_and_redirect(struct __sk_buff *skb, struct endpoint_key *k,
+						__u32 seclabel)
 {
 	struct endpoint_key *tunnel;
 	struct bpf_tunnel_key key = {};
@@ -49,38 +44,10 @@ static inline int __encap_and_redirect(struct __sk_buff *skb, struct endpoint_ke
 	if (unlikely(ret < 0))
 		return DROP_WRITE_ERROR;
 
-#ifdef GENEVE_OPTS
-	ret = skb_set_tunnel_opt(skb, buf, sz);
-	if (unlikely(ret < 0))
-		return DROP_WRITE_ERROR;
-#ifdef VALIDATE_GENEVE_TX
-	if (1) {
-		struct geneveopt_val geneveopt_val = {};
-
-		ret = parse_geneve_options(&geneveopt_val, buf);
-		if (IS_ERR(ret))
-			return ret;
-	}
-#endif /* VALIDATE_GENEVE_TX */
-#endif /* GENEVE_OPTS */
-
 	send_trace_notify(skb, TRACE_TO_OVERLAY, seclabel, 0, 0, ENCAP_IFINDEX, 0);
 
 	return redirect(ENCAP_IFINDEX, 0);
 }
 
-static inline int __inline__ encap_and_redirect(struct __sk_buff *skb, struct endpoint_key *key,
-						__u32 seclabel)
-{
-#ifdef GENEVE_OPTS
-	uint8_t buf[] = GENEVE_OPTS;
-#else
-	uint8_t buf[] = {};
-#endif
-	return __encap_and_redirect(skb, key, seclabel, buf, sizeof(buf));
-}
-
-
 #endif /* ENCAP_IFINDEX */
-
 #endif /* __LIB_ENCAP_H_ */

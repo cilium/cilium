@@ -34,7 +34,6 @@ import (
 	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/completion"
-	"github.com/cilium/cilium/pkg/geneve"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -224,13 +223,6 @@ func (e *Endpoint) writeHeaderfile(prefix string, owner Owner) error {
 		fmt.Fprintf(fw, "#define LXC_IPV4 %#x\n", byteorder.HostSliceToNetwork(e.IPv4, reflect.Uint32))
 	}
 	fw.WriteString(common.FmtDefineAddress("NODE_MAC", e.NodeMAC))
-
-	geneveOpts, err := writeGeneve(prefix, e)
-	if err != nil {
-		return err
-	}
-	fw.WriteString(common.FmtDefineArray("GENEVE_OPTS", geneveOpts))
-
 	fmt.Fprintf(fw, "#define LXC_ID %#x\n", e.ID)
 	fmt.Fprintf(fw, "#define LXC_ID_NB %#x\n", byteorder.HostToNetwork(e.ID))
 	if e.SecurityIdentity != nil {
@@ -346,28 +338,6 @@ func hashHeaderfile(prefix string) (string, error) {
 
 	hash := hashWriter.Sum(nil)
 	return hex.EncodeToString(hash[:]), nil
-}
-
-// FIXME: Clean this function up
-func writeGeneve(prefix string, e *Endpoint) ([]byte, error) {
-	// Write container options values for each available option in
-	// bpf/lib/geneve.h
-	// GENEVE_CLASS_EXPERIMENTAL, GENEVE_TYPE_SECLABEL
-
-	// The int() cast here is required as otherwise Sprintf does the
-	// conversion incorrectly. Looks like a golang bug.
-	identityHex := fmt.Sprintf("%08x", int(e.GetIdentity()))
-	err := geneve.WriteOpts(filepath.Join(prefix, "geneve_opts.cfg"), "0xffff", "0x1", "4", identityHex)
-	if err != nil {
-		return nil, fmt.Errorf("Could not write geneve options %s", err)
-	}
-
-	_, rawData, err := geneve.ReadOpts(filepath.Join(prefix, "geneve_opts.cfg"))
-	if err != nil {
-		return nil, fmt.Errorf("Could not read geneve options %s", err)
-	}
-
-	return rawData, nil
 }
 
 func (e *Endpoint) runInit(libdir, rundir, epdir, ifName, debug string) error {
