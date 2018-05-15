@@ -21,10 +21,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/byteorder"
-	"github.com/cilium/cilium/pkg/comparator"
 	"github.com/cilium/cilium/pkg/identity"
-	"github.com/cilium/cilium/pkg/logging"
-	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/u8proto"
 )
 
@@ -45,10 +42,6 @@ const (
 	// are allowed. In the datapath, this is represented with the value 0 in the
 	// port field of map elements.
 	AllPorts = uint16(0)
-)
-
-var (
-	log = logging.DefaultLogger.WithField(logfields.LogSubsys, "policy-map")
 )
 
 type PolicyMap struct {
@@ -225,10 +218,8 @@ func Validate(path string) (bool, error) {
 		return true, err
 	}
 
-	logging.MultiLine(log.Debug, comparator.Compare(existing, dummy))
-
-	if existing != nil && !existing.DeepEquals(dummy) {
-		return false, nil
+	if existing != nil {
+		return existing.MetadataDiff(dummy), nil
 	}
 
 	return true, nil
