@@ -18,7 +18,6 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
-	"sync"
 
 	. "github.com/cilium/cilium/test/ginkgo-ext"
 	"github.com/cilium/cilium/test/helpers"
@@ -32,18 +31,12 @@ var _ = Describe("RuntimeValidatedCLI", func() {
 	var logger *logrus.Entry
 	var vm *helpers.SSHMeta
 
-	var once sync.Once
-
-	initialize := func() {
+	BeforeAll(func() {
 		logger = log.WithFields(logrus.Fields{"testName": "RuntimeCLI"})
 		logger.Info("Starting")
 		vm = helpers.CreateNewRuntimeHelper(helpers.Runtime, logger)
 		areEndpointsReady := vm.WaitEndpointsReady()
 		Expect(areEndpointsReady).Should(BeTrue())
-	}
-
-	BeforeEach(func() {
-		once.Do(initialize)
 	})
 
 	JustAfterEach(func() {
