@@ -225,13 +225,25 @@ func (e *Endpoint) computeDesiredL3PolicyMapEntries(owner Owner, identityCache *
 		egressCtx.Trace = policy.TRACE_ENABLED
 	}
 
+	enableIngressEnforcement, enableEgressEnforcement := owner.EnableEndpointPolicyEnforcement(e)
+
 	// Only L3 (label-based) policy apply.
 	// Complexity increases linearly by the number of identities in the map.
 	for identity, labels := range *identityCache {
 		ingressCtx.From = labels
 		egressCtx.To = labels
 
-		ingressAccess := repo.AllowsIngressLabelAccess(&ingressCtx)
+		var ingressAccess api.Decision
+		if enableIngressEnforcement {
+			ingressAccess = repo.AllowsIngressLabelAccess(&ingressCtx)
+		} else {
+			// If policy enforcement is disabled, set the policy to an
+			// allow-all policy. That policy will be set in the L4 policy map
+			// until the BPF program is generated and installed, which will
+			// then ignore the policy. That way, we won't drop traffic between
+			// the BPF map update and the BPF program installation.
+			ingressAccess = api.Allowed
+		}
 		if ingressAccess == api.Allowed {
 			keyToAdd := policymap.PolicyKey{
 				Identity:         identity.Uint32(),
@@ -240,7 +252,17 @@ func (e *Endpoint) computeDesiredL3PolicyMapEntries(owner Owner, identityCache *
 			desiredPolicyKeys[keyToAdd] = struct{}{}
 		}
 
-		egressAccess := repo.AllowsEgressLabelAccess(&egressCtx)
+		var egressAccess api.Decision
+		if enableEgressEnforcement {
+			egressAccess = repo.AllowsEgressLabelAccess(&egressCtx)
+		} else {
+			// If policy enforcement is disabled, set the policy to an
+			// allow-all policy. That policy will be set in the L4 policy map
+			// until the BPF program is generated and installed, which will
+			// then ignore the policy. That way, we won't drop traffic between
+			// the BPF map update and the BPF program installation.
+			egressAccess = api.Allowed
+		}
 		if egressAccess == api.Allowed {
 			keyToAdd := policymap.PolicyKey{
 				Identity:         identity.Uint32(),
