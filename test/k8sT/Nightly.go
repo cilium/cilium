@@ -320,14 +320,13 @@ var _ = Describe("NightlyExamples", func() {
 
 	var kubectl *helpers.Kubectl
 	var logger *logrus.Entry
-	var once sync.Once
 	var ciliumPath string
 	var demoPath string
 	var l3Policy, l7Policy string
 	var appService = "app1-service"
 	var apps []string
 
-	initialize := func() {
+	BeforeAll(func() {
 		logger = log.WithFields(logrus.Fields{"testName": "NightlyK8sEpsMeasurement"})
 		logger.Info("Starting")
 
@@ -348,10 +347,6 @@ var _ = Describe("NightlyExamples", func() {
 			"%s delete --all pods,svc,cnp -n %s", helpers.KubectlCmd, helpers.DefaultNamespace))
 
 		ExpectAllPodsTerminated(kubectl)
-	}
-
-	BeforeEach(func() {
-		once.Do(initialize)
 	})
 
 	AfterFailed(func() {
