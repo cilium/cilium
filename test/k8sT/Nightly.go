@@ -35,7 +35,7 @@ import (
 var (
 	endpointTimeout  = (60 * time.Second)
 	timeout          = time.Duration(300)
-	netcatDsManifest = "netcat_ds.yaml"
+	netcatDsManifest = helpers.ManifestGet("netcat_ds.yaml")
 )
 
 var _ = Describe("NightlyEpsMeasurement", func() {
@@ -292,21 +292,26 @@ var _ = Describe("NightlyEpsMeasurement", func() {
 			testNcConnectivity(360)
 		}
 
-		It("Test TCP Keepalive with L7 Policy", func() {
-			kubectl.ValidateNoErrorsOnLogs(CurrentGinkgoTestDescription().Duration)
-			manifest := helpers.ManifestGet(netcatDsManifest)
-			kubectl.Apply(manifest).ExpectSuccess("Cannot apply netcat ds")
-			defer kubectl.Delete(manifest)
-			testConnectivity()
-		})
+		Context("Test TCP Keepalive", func() {
 
-		It("Test TCP Keepalive without L7 Policy", func() {
-			manifest := helpers.ManifestGet(netcatDsManifest)
-			kubectl.Apply(manifest).ExpectSuccess("Cannot apply netcat ds")
-			defer kubectl.Delete(manifest)
-			kubectl.Exec(fmt.Sprintf(
-				"%s delete --all cnp -n %s", helpers.KubectlCmd, helpers.DefaultNamespace))
-			testConnectivity()
+			BeforeEach(func() {
+				kubectl.Apply(netcatDsManifest).ExpectSuccess("Cannot apply netcat ds")
+			})
+
+			AfterEach(func() {
+				_ = kubectl.Delete(netcatDsManifest)
+			})
+
+			It("With L7 Policy", func() {
+				kubectl.ValidateNoErrorsOnLogs(CurrentGinkgoTestDescription().Duration)
+				testConnectivity()
+			})
+
+			It("Without L7 Policy", func() {
+				kubectl.Exec(fmt.Sprintf(
+					"%s delete --all cnp -n %s", helpers.KubectlCmd, helpers.DefaultNamespace))
+				testConnectivity()
+			})
 		})
 	})
 })
