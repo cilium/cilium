@@ -103,10 +103,10 @@ func (m *Monitor) agentPipeReader(ctx context.Context, agentPipe io.Reader) {
 			return
 
 		case err == io.EOF || err == io.ErrUnexpectedEOF:
-			log.Panic("Agent pipe unexpectedly closed, shutting down")
+			log.Fatal("Agent pipe unexpectedly closed, shutting down")
 
 		case err != nil:
-			log.WithError(err).Panic("Unable to read cilium agent events from pipe")
+			log.WithError(err).Fatal("Unable to read cilium agent events from pipe")
 		}
 
 		m.send(&p)
@@ -191,7 +191,7 @@ func (m *Monitor) perfEventReader(stopCtx context.Context, nPages int) {
 
 	monitorEvents, err := bpf.NewPerCpuEvents(c)
 	if err != nil {
-		scopedLog.WithError(err).Panic("Cannot initialise BPF perf ring buffer sockets")
+		scopedLog.WithError(err).Fatal("Cannot initialise BPF perf ring buffer sockets")
 	}
 	defer monitorEvents.CloseAll()
 
