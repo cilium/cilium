@@ -1310,52 +1310,63 @@ var _ = Describe("RuntimeValidatedPolicyImportTests", func() {
 		testInvalidPolicy(tooManyTCPPorts)
 	})
 
-	It("Policy cmd", func() {
-		By("Policy Labels")
-
-		policy := `[{
+	Context("Policy command", func() {
+		var (
+			policy = `[{
 			"endpointSelector": {"matchLabels":{"role":"frontend"}},
-			"labels": ["key1"]
-		},{
+				"labels": ["key1"]
+			},{
 			"endpointSelector": {"matchLabels":{"role":"frontend"}},
-			"labels": ["key2"]
-		},{
+				"labels": ["key2"]
+			},{
 			"endpointSelector": {"matchLabels":{"role":"frontend"}},
-			"labels": ["key3"]
-		}]`
+				"labels": ["key3"]
+			}]`
+		)
 
-		err := helpers.RenderTemplateToFile(policyJSON, policy, 0777)
-		Expect(err).Should(BeNil())
+		BeforeEach(func() {
+			err := helpers.RenderTemplateToFile(policyJSON, policy, 0777)
+			Expect(err).Should(BeNil())
 
-		path := helpers.GetFilePath(policyJSON)
-		_, err = vm.PolicyImportAndWait(path, helpers.HelperTimeout)
-		Expect(err).Should(BeNil())
-		defer os.Remove(policyJSON)
-		for _, v := range []string{"key1", "key2", "key3"} {
-			res := vm.PolicyGet(v)
-			res.ExpectSuccess(fmt.Sprintf("cannot get key %q", v))
-		}
+			path := helpers.GetFilePath(policyJSON)
+			_, err = vm.PolicyImportAndWait(path, helpers.HelperTimeout)
+			Expect(err).Should(BeNil())
+		})
 
-		res := vm.PolicyDel("key2")
-		res.ExpectSuccess()
+		AfterEach(func() {
+			_ = vm.PolicyDelAll()
+			_ = os.Remove(policyJSON)
+		})
 
-		res = vm.PolicyGet("key2")
-		res.ExpectFail()
+		It("Tests getting policy by labels", func() {
+			for _, v := range []string{"key1", "key2", "key3"} {
+				res := vm.PolicyGet(v)
+				res.ExpectSuccess(fmt.Sprintf("cannot get key %q", v))
+			}
+		})
 
-		//Key1 and key3 should still exist. Test to delete it
-		for _, v := range []string{"key1", "key3"} {
-			res := vm.PolicyGet(v)
-			res.ExpectSuccess(fmt.Sprintf("Key %s can't get get", v))
+		It("Tests deleting policy key", func() {
+			res := vm.PolicyDel("key2")
+			res.ExpectSuccess("Unable to delete policy rule with label key2 despite rule having been imported with that label")
 
-			res = vm.PolicyDel(v)
-			res.ExpectSuccess()
-		}
+			res = vm.PolicyGet("key2")
+			res.ExpectFail("Was able to retrieve policy rule with label key2 despite having deleted it")
 
-		res = vm.PolicyGetAll()
-		res.ExpectSuccess()
+			//Key1 and key3 should still exist. Test to delete it
+			for _, v := range []string{"key1", "key3"} {
+				res := vm.PolicyGet(v)
+				res.ExpectSuccess(fmt.Sprintf("Cannot get policy rule with key %s", v))
 
-		res = vm.PolicyDelAll()
-		res.ExpectSuccess()
+				res = vm.PolicyDel(v)
+				res.ExpectSuccess("Unable to delete policy rule with key %s", v)
+			}
+
+			res = vm.PolicyGetAll()
+			res.ExpectSuccess("unable to get policy rules from cilium")
+
+			res = vm.PolicyDelAll()
+			res.ExpectSuccess("deleting all policy rules should not fail even if no rules are imported to cilium")
+		})
 	})
 
 	It("Check Endpoint PolicyMap Generation", func() {
