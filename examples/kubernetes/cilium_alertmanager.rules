@@ -1,0 +1,20 @@
+ALERT CiliumL7ParserErrors
+  IF increase(cilium_policy_l7_parse_errors_total[5m]) > 0
+  FOR 2m
+  LABELS {
+    severity = "critical"
+  }
+  ANNOTATIONS {
+    sumary = "L7 Parser Errors detected",
+    description = "Instance: {{$labels.instance}} ; Pod: {{$labels.pod}} ; value: {{$value}}"
+  }
+ALERT CiliumPolicyImportErrors
+  IF increase(cilium_policy_import_errors[5m]) > 0
+  FOR 2m
+  LABELS {
+    severity = "critical"
+  }
+  ANNOTATIONS {
+    sumary = "Cilium Policy Import Errors detected",
+    description = "Instance: {{$labels.instance}} ; Pod: {{$labels.pod}} ; value: {{$value}}"
+  }
