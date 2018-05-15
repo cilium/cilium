@@ -15,14 +15,13 @@
 package cmd
 
 import (
+	"fmt"
 	"os"
 
 	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/pkg/command"
-
-	"fmt"
-
 	"github.com/cilium/cilium/pkg/maps/ipcache"
+
 	"github.com/spf13/cobra"
 )
 
