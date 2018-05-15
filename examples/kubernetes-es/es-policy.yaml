@@ -1,0 +1,42 @@
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+description: "Allow only permitted Elasticsearch requests"
+metadata:
+  name: "secure-empire-es"
+  namespace: default
+specs:
+- endpointSelector:
+    matchLabels:
+      component: elasticsearch
+  ingress:
+  - fromEndpoints:
+    - matchLabels:
+        name: sidious
+        role: lord
+    toPorts:
+    - ports:
+      - port: "9200"
+        protocol: TCP
+      rules:
+        http:
+        - method: ^GET$
+          path: ^/_search/??[^/]*$
+        - method: ^POST$
+          path: ^/sithorder/secretdocs/101$
+        - method: ^GET$
+          path: ^/sithorder/secretdocs/[^/]+/??[^/]*$
+  - fromEndpoints:
+    - matchLabels:
+        name: vader
+        role: apprentice
+    toPorts:
+    - ports:
+      - port: "9200"
+        protocol: TCP
+      rules:
+        http:
+        - method: ^GET$
+          path: ^/_search/??[^/]*$
+        - method: ^GET$
+          path: ^/sithorder/secretdocs/[^/]+/??[^/]*$
+
