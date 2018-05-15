@@ -228,6 +228,8 @@ var _ = Describe("K8sValidatedServicesTest", func() {
 		})
 
 		AfterEach(func() {
+			_ = kubectl.Delete(policyPath)
+
 			res := kubectl.Delete(endpointPath)
 			res.ExpectSuccess()
 
@@ -280,25 +282,16 @@ var _ = Describe("K8sValidatedServicesTest", func() {
 			}, 5*time.Minute, 10*time.Second).Should(ContainSubstring(expectedCIDR))
 		}
 
-		deletePath := func(path string) {
-			res := kubectl.Delete(path)
-			res.ExpectSuccess()
-		}
-
 		It("To Services first endpoint creation", func() {
 			res := kubectl.Apply(endpointPath)
 			res.ExpectSuccess()
 
 			applyPolicy(policyPath)
-			defer deletePath(policyPath)
-
 			validateEgress()
 		})
 
 		It("To Services first policy", func() {
 			applyPolicy(policyPath)
-			defer deletePath(policyPath)
-
 			res := kubectl.Apply(endpointPath)
 			res.ExpectSuccess()
 
@@ -310,14 +303,12 @@ var _ = Describe("K8sValidatedServicesTest", func() {
 			res.ExpectSuccess()
 
 			applyPolicy(policyLabeledPath)
-			defer deletePath(policyLabeledPath)
 
 			validateEgress()
 		})
 
 		It("To Services first policy, match service by labels", func() {
 			applyPolicy(policyLabeledPath)
-			defer deletePath(policyLabeledPath)
 
 			res := kubectl.Apply(endpointPath)
 			res.ExpectSuccess()
