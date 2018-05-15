@@ -1,0 +1,39 @@
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: cilium-metrics-svc
+  namespace: kube-system
+  labels:
+    k8s-app: cilium-metrics-svc
+    app: cilium-metrics-svc
+spec:
+  type: ClusterIP
+  ports:
+  - port: 9090
+    protocol: TCP
+    name: http-metrics
+  selector:
+    k8s-app: cilium
+  clusterIP: None
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: cilium-metrics
+  labels:
+    k8s-app: cilium-metrics
+  namespace: monitoring
+spec:
+  jobLabel: k8s-app
+  selector:
+    matchLabels:
+      k8s-app: cilium-metrics-svc
+      app: cilium-metrics-svc
+  namespaceSelector:
+    matchNames:
+    - kube-system
+  endpoints:
+  - port: http-metrics
+    interval: 30s
+    scheme: http
