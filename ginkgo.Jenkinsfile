@@ -1,15 +1,10 @@
-def failFast = { String branch ->
-  if (branch == "v1.0") {
-    return '--failFast=false'
-  } else {
-    return '--failFast=true'
-  }
-}
+@Library('cilium') _
 
 pipeline {
     agent {
         label 'baremetal'
     }
+
     environment {
         PROJ_PATH = "src/github.com/cilium/cilium"
         TESTDIR = "${WORKSPACE}/${PROJ_PATH}/"
@@ -19,10 +14,16 @@ pipeline {
     options {
         timeout(time: 120, unit: 'MINUTES')
         timestamps()
+        ansiColor('xterm')
     }
+
     stages {
         stage('Checkout') {
             steps {
+                Status("PENDING", "$JOB_BASE_NAME")
+                BuildIfLabel('area/k8s', 'Cilium-PR-Kubernetes-Upstream')
+                BuildIfLabel('area/k8s', 'Cilium-PR-Ginkgo-Tests-K8s')
+                BuildIfLabel('area/documentation', 'Cilium-PR-Doc-Tests')
                 sh 'env'
                 sh 'rm -rf src; mkdir -p src/github.com/cilium'
                 sh 'ln -s $WORKSPACE src/github.com/cilium/cilium'
@@ -56,21 +57,23 @@ pipeline {
             environment {
                 GOPATH="${WORKSPACE}"
                 TESTDIR="${WORKSPACE}/${PROJ_PATH}/test"
-                FAILFAST = failFast(env.GIT_BRANCH)
+                FAILFAST=setIfPR("true", "false")
             }
+
             options {
                 timeout(time: 90, unit: 'MINUTES')
             }
+
             steps {
                 parallel(
                     "Runtime":{
-                        sh 'cd ${TESTDIR}; ginkgo --focus=" RuntimeValidated*" -v -noColor ${FAILFAST}'
+                        sh 'cd ${TESTDIR}; ginkgo --focus=" RuntimeValidated*" -v --failFast=${FAILFAST}'
                     },
                     "K8s-1.7":{
-                        sh 'cd ${TESTDIR}; K8S_VERSION=1.7 ginkgo --focus=" K8sValidated*" -v -noColor ${FAILFAST}'
+                        sh 'cd ${TESTDIR}; K8S_VERSION=1.7 ginkgo --focus=" K8sValidated*" -v --failFast=${FAILFAST}'
                     },
                     "K8s-1.10":{
-                        sh 'cd ${TESTDIR}; K8S_VERSION=1.10 ginkgo --focus=" K8sValidated*" -v -noColor ${FAILFAST}'
+                        sh 'cd ${TESTDIR}; K8S_VERSION=1.10 ginkgo --focus=" K8sValidated*" -v --failFast=${FAILFAST}'
                     },
                     failFast: true
                 )
@@ -82,7 +85,7 @@ pipeline {
                     // rm -rf ${GOPATH}/src/github.com/cilium/cilium
                     sh 'cd test/; ./post_build_agent.sh || true'
                     sh 'cd test/; ./archive_test_results.sh || true'
-                    archiveArtifacts artifacts: "test_results_${JOB_BASE_NAME}_${BUILD_NUMBER}.tar", allowEmptyArchive: true
+                    archiveArtifacts artifacts: "test_results_${JOB_BASE_NAME}_${BUILD_NUMBER}.zip", allowEmptyArchive: true
                 }
             }
         }
@@ -92,6 +95,12 @@ pipeline {
             sh 'cd ${TESTDIR}/test/; K8S_VERSION=1.7 vagrant destroy -f || true'
             sh 'cd ${TESTDIR}/test/; K8S_VERSION=1.10 vagrant destroy -f || true'
             cleanWs()
+        }
+        success {
+            Status("SUCCESS", "$JOB_BASE_NAME")
+        }
+        failure {
+            Status("FAILURE", "$JOB_BASE_NAME")
         }
     }
 }
