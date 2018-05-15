@@ -182,16 +182,17 @@ If for some reason, running of the provisioning script fails, you should bring t
     $ vagrant halt
 
 Packer-CI-Build
-^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^
 
 As part of Cilium development, we use a custom base box with a bunch of
 pre-installed libraries and tools that we need to enhance our daily workflow.
 That base box is built with `Packer <https://www.packer.io/>`_ and it is hosted
-in the `packer-ci-build <https://github.com/cilium/packer-ci-build>`_ GitHub
+in the `packer-ci-build
+<https://jenkins.cilium.io/job/Vagrant-Master-Boxes-Packer-Build/>`_ GitHub
 repository.
 
 New versions of this box can be created via `Jenkins
-<https://jenkins.cilium.io/job/cilium/job/packer-ci-build/job/master/>`_, where
+<https://jenkins.cilium.io/job/Vagrant-Master-Boxes-Packer-Build/>`_, where
 new builds of the image will be pushed to  `Vagrant Cloud
 <https://app.vagrantup.com/cilium>`_ . The version of the image corresponds to
 the `BUILD_ID <https://qa.nuxeo.org/jenkins/pipeline-syntax/globals#env>`_
@@ -201,7 +202,11 @@ environment variable in the Jenkins job. That version ID will be used in Cilium
 
 Changes to this image are made via contributions to the packer-ci-build
 repository. Authorized GitHub users can trigger builds with a GitHub comment on
-the PR containing the trigger phrase ``build-me-please``.
+the PR containing the trigger phrase ``build-me-please``. In case that a new box
+needs to be rebased with a different branch than master, authorized developers
+can run the build with custom parameters. To use a different Cilium branch in
+the `job <https://jenkins.cilium.io/job/Vagrant-Master-Boxes-Packer-Build/>`_ go
+to *Build with parameters* and a base branch can be set as the user needs.
 
 This box will need to be updated when a new developer needs a new dependency
 that is not installed in the current version of the box, or if a dependency that
@@ -342,6 +347,8 @@ commands, respectively:
     $ sudo systemctl status cilium
     $ cilium status
 
+.. _testsuite:
+
 End-To-End Testing Framework
 ----------------------------
 
@@ -349,16 +356,17 @@ Introduction
 ~~~~~~~~~~~~
 
 Cilium uses `Ginkgo <https://onsi.github.io/ginkgo>`_ as a testing framework for
-writing end-to-end tests which test Cilium all the way from the API level (e.g. 
+writing end-to-end tests which test Cilium all the way from the API level (e.g.
 importing policies, CLI) to the datapath (i.e, whether policy that is imported
-is enforced accordingly in the datapath).
-The tests in the ``test`` directory are built on top of Ginkgo. Ginkgo provides
-a rich framework for developing tests alongside the benefits of Golang
-(compilation-time checks, types, etc.). To get accustomed to the basics of
-Ginkgo, we recommend reading the
-`Ginkgo Getting-Started Guide <https://onsi.github.io/ginkgo/#getting-started-writing-your-first-test>`_ ,
-as well as running `example tests <https://github.com/onsi/composition-ginkgo-example>`_
-to get a feel for the Ginkgo workflow.
+is enforced accordingly in the datapath).  The tests in the ``test`` directory
+are built on top of Ginkgo. Ginkgo provides a rich framework for developing
+tests alongside the benefits of Golang (compilation-time checks, types, etc.).
+To get accustomed to the basics of Ginkgo, we recommend reading the `Ginkgo
+Getting-Started Guide
+<https://onsi.github.io/ginkgo/#getting-started-writing-your-first-test>`_ , as
+well as running `example tests
+<https://github.com/onsi/composition-ginkgo-example>`_ to get a feel for the
+Ginkgo workflow.
 
 These test scripts will invoke ``vagrant`` to create virtual machine(s) to
 run the tests. The tests make heavy use of the Ginkgo `focus <https://onsi.github.io/ginkgo/#focused-specs>`_ concept to
@@ -561,33 +569,33 @@ Best Practices for Writing Tests
 
 * Provide informative output to console during a test using the `By construct <https://onsi.github.io/ginkgo/#documenting-complex-its-by>`_. This helps with debugging and gives those who did not write the test a good idea of what is going on. The lower the barrier of entry is for understanding tests, the better our tests will be!
 * Leave the testing environment in the same state that it was in when the test started by deleting resources, resetting configuration, etc.
-* Gather logs in the case that a test fails. If a test fails while running on Jenkins, a postmortem needs to be done to analyze why. So, dumping logs to a location where Jenkins can pick them up is of the highest imperative. Use the following code in an `AfterEach <https://onsi.github.io/ginkgo/#extracting-common-setup-beforeeach>`_ for all tests:
+* Gather logs in the case that a test fails. If a test fails while running on Jenkins, a postmortem needs to be done to analyze why. So, dumping logs to a location where Jenkins can pick them up is of the highest imperative. Use the following code in an ``AfterFailed`` method:
 
 ::
 
-    if CurrentGinkgoTestDescription().Failed {
-        vm.ReportFailed()
-    }
+	AfterFailed(func() {
+		vm.ReportFailed()
+	})
 
 
 Ginkgo Extensions
-~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~
 
 In Cilium, some Ginkgo features are extended to cover some uses cases that are
 useful for testing Cilium.
 
 BeforeAll
-^^^^^^^^^^
+^^^^^^^^^
 
 This function will run before all `BeforeEach
 <https://onsi.github.io/ginkgo/#extracting-common-setup-beforeeach>`_ within a
 `Describe or Context
 <https://onsi.github.io/ginkgo/#organizing-specs-with-containers-describe-and-context>`_.
-This method is an equivalent to ``SetUp`` or initalize functions in common
+This method is an equivalent to ``SetUp`` or initialize functions in common
 unit test frameworks.
 
 AfterAll
-^^^^^^^^^
+^^^^^^^^
 
 This method will run after all `AfterEach
 <https://onsi.github.io/ginkgo/#extracting-common-setup-beforeeach>`_ functions
@@ -601,8 +609,79 @@ common unit test frameworks.
 A good use case for using ``AfterAll`` method is to remove containers or pods
 that are needed for multiple ``Its`` in the given ``Context`` or ``Describe``.
 
+JustAfterEach
+^^^^^^^^^^^^^
+
+This method will run just after each test and before ``AfterFailed`` and
+``AfterEach``. The main reason of this method is to to perform some assertions
+for a group of tests.  A good example of using a global ``JustAfterEach``
+function is for deadlock detection, which checks the Cilium logs for deadlocks
+that may have occurred in the duration of the tests.
+
+AfterFailed
+^^^^^^^^^^^
+
+This method will run before all ``AfterEach`` and after ``JustAfterEach``. This
+function is only called when the test failed.This construct is used to gather
+logs, the status of Cilium, etc, which provide data for analysis when tests
+fail.
+
+Example Test Layout
+^^^^^^^^^^^^^^^^^^^
+
+Here is an example layout of how a test may be written with the aforementioned
+constructs:
+
+Test description diagram:
+::
+
+    Describe
+        BeforeAll(A)
+        AfterAll(A)
+        AfterFailed(A)
+        AfterEach(A)
+        JustAfterEach(A)
+        TESTA1
+        TESTA2
+        TESTA3
+        Context
+            BeforeAll(B)
+            AfterAll(B)
+            AfterFailed(B)
+            AfterEach(B)
+            JustAfterEach(B)
+            TESTB1
+            TESTB2
+            TESTB3
+
+
+Test execution flow:
+::
+
+    Describe
+        BeforeAll
+        TESTA1; JustAfterEach(A), AfterFailed(A), AfterEach(A)
+        TESTA2; JustAfterEach(A), AfterFailed(A), AfterEach(A)
+        TESTA3; JustAfterEach(A), AfterFailed(A), AfterEach(A)
+        Context
+            BeforeAll(B)
+            TESTB1:
+               JustAfterEach(B); JustAfterEach(A)
+               AfterFailed(B); AfterFailed(A);
+               AfterEach(B) ; AfterEach(A);
+            TESTB2:
+               JustAfterEach(B); JustAfterEach(A)
+               AfterFailed(B); AfterFailed(A);
+               AfterEach(B) ; AfterEach(A);
+            TESTB3:
+               JustAfterEach(B); JustAfterEach(A)
+               AfterFailed(B); AfterFailed(A);
+               AfterEach(B) ; AfterEach(A);
+            AfterAll(B)
+        AfterAll(A)
+
 Debugging:
-~~~~~~~~~~~
+~~~~~~~~~~
 
 Ginkgo provides to us different ways of debugging. In case that you want to see
 all the logs messages in the console you can run the test in verbose mode using
@@ -686,6 +765,26 @@ To run this you can use the following command:
 
     ginkgo  -v -- --cilium.provision=false --cilium.SSHConfig="cat ssh-config"
 
+
+VMs for Testing
+~~~~~~~~~~~~~~~~
+
+The VMs used for testing are defined in ``test/Vagrantfile``. There are a variety of
+configuration options that can be passed as environment variables:
+
++----------------------+-----------------+--------------+------------------------------------------------------------------+
+| ENV variable         | Default Value   | Options      | Description                                                      |
++======================+=================+==============+==================================================================+
+| K8S\_NODES           | 2               | 0..100       | Number of Kubernetes nodes in the cluster                        |
++----------------------+-----------------+--------------+------------------------------------------------------------------+
+| NFS                  | 0               | 1            | If Cilium folder needs to be shared using NFS                    |
++----------------------+-----------------+--------------+------------------------------------------------------------------+
+| IPv6                 | 0               | 0-1          | If 1 the Kubernetes cluster will use IPv6                        |
++----------------------+-----------------+--------------+------------------------------------------------------------------+
+| CONTAINER\_RUNTIME   | docker          | containerd   | To set the default container runtime in the Kubernetes cluster   |
++----------------------+-----------------+--------------+------------------------------------------------------------------+
+| K8S\_VERSION         | 1.10            | 1.\*\*       | Kubernetes version to install                                    |
++----------------------+-----------------+--------------+------------------------------------------------------------------+
 
 Further Assistance
 ~~~~~~~~~~~~~~~~~~
@@ -785,6 +884,116 @@ for debugging what is going on inside them, for example:
     00000000  01 00 00 00 00 00 00 00  00 00 00 00 00 00 00 00  |................|
     00000010  00 00 00 00 00 00 00 00                           |........|
 
+Update cilium-builder and cilium-runtime images
+-----------------------------------------------
+
+Login to quay.io with your credentials to the repository that you want to
+update:
+
+`cilium-builder <https://quay.io/repository/cilium/cilium-builder?tab=builds>`__ - contains all envoy dependencies
+`cilium-runtime <https://quay.io/repository/cilium/cilium-runtime?tab=builds>`__ - contains all cilium dependencies (excluding envoy dependencies)
+
+0. After login, select the tab "builds" on the left menu.
+
+.. image:: images/cilium-quayio-tag-0.png
+    :width: 600px
+    :align: center
+    :height: 300px
+
+1. Click on the wheel.
+2. Enable the trigger for that build trigger.
+
+.. image:: images/cilium-quayio-tag-1.png
+    :width: 600px
+    :align: center
+    :height: 300px
+
+3. Confirm that you want to enable the trigger.
+
+.. image:: images/cilium-quayio-tag-2.png
+    :width: 600px
+    :align: center
+    :height: 300px
+
+4. After enabling the trigger, click again on the wheel.
+5. And click on "Run Trigger Now".
+
+.. image:: images/cilium-quayio-tag-3.png
+    :width: 600px
+    :align: center
+    :height: 300px
+
+6. A new pop-up will appear and you can select the branch that contains your
+   changes.
+7. Select the branch that contains the new changes.
+
+.. image:: images/cilium-quayio-tag-4.png
+    :width: 600px
+    :align: center
+    :height: 300px
+
+8. After selecting your branch click on "Start Build".
+
+.. image:: images/cilium-quayio-tag-5.png
+    :width: 600px
+    :align: center
+    :height: 300px
+
+9. Once the build has started you can disable the Build trigger by clicking on
+   the wheel.
+10. And click on "Disable Trigger".
+
+.. image:: images/cilium-quayio-tag-6.png
+    :width: 600px
+    :align: center
+    :height: 300px
+
+11. Confirm that you want to disable the build trigger.
+
+.. image:: images/cilium-quayio-tag-7.png
+    :width: 600px
+    :align: center
+    :height: 300px
+
+12. Once the build is finished click under Tags (on the left menu).
+13. Click on the wheel and;
+14. Add a new tag to the image that was built.
+
+.. image:: images/cilium-quayio-tag-8.png
+    :width: 600px
+    :align: center
+    :height: 300px
+
+15. Write the name of the tag that you want to give for the newly built image.
+16. Confirm the name is correct and click on "Create Tag".
+
+.. image:: images/cilium-quayio-tag-9.png
+    :width: 600px
+    :align: center
+    :height: 300px
+
+17. After the new tag was created you can delete the other tag, which is the
+    name of your branch. Select the tag name.
+18. Click in Actions.
+19. Click in "Delete Tags".
+
+.. image:: images/cilium-quayio-tag-10.png
+    :width: 600px
+    :align: center
+    :height: 300px
+
+20. Confirm that you want to delete tag with your branch name.
+
+.. image:: images/cilium-quayio-tag-11.png
+    :width: 600px
+    :align: center
+    :height: 300px
+
+You have created a new image build with a new tag. The next steps should be to
+update the repository root's Dockerfile so that it points to the new
+``cilium-builder`` or ``cilium-runtime`` image recently created.
+
+
 Submitting a pull request
 -------------------------
 
@@ -816,19 +1025,21 @@ regarding which phrase triggers which build, which build is required for
 a pull-request to be merged, etc. Each linked job contains a description
 illustrating which subset of tests the job runs.
 
-+-------------------------------------------------------------------------------------------------------+-----------------+--------------------+
-| Jenkins Job                                                                                           | Trigger Phrase  | Required To Merge? |
-+=======================================================================================================+=================+====================+
-| `Cilium-Master-Bash-Tests-All <https://jenkins.cilium.io/job/Cilium-PR-Bash-Tests-All/>`_             | test-me-please  | Yes                |
-+-------------------------------------------------------------------------------------+-----------------+-----------------+--------------------+
-| `Cilium-PR-Ginkgo-Tests-Validated <https://jenkins.cilium.io/job/Cilium-PR-Ginkgo-Tests-Validated/>`_ | test-me-please  | Yes                |
-+-------------------------------------------------------------------------------------+-----------------+-----------------+--------------------+
-| `Cilium-PR-Ginkgo-Tests-All <https://jenkins.cilium.io/job/Cilium-PR-Ginkgo-Tests-All/>`_             | test-all-ginkgo | No                 |
-+-------------------------------------------------------------------------------------------------------+-----------------+--------------------+
-| `Cilium-Pr-Ginkgo-Test-k8s <https://jenkins.cilium.io/job/Cilium-PR-Ginkgo-Tests-k8s/>`_              | test-missed-k8s | No                 |
-+-------------------------------------------------------------------------------------------------------+-----------------+--------------------+
-| `Cilium-Nightly-Tests-PR <https://jenkins.cilium.io/job/Cilium-PR-Nightly-Tests-All/>`_               | test-nightly    | No                 |
-+-------------------------------------------------------------------------------------------------------+-----------------+--------------------+
+
++----------------------------------------------------------------------------------------------------------+-------------------+--------------------+
+| Jenkins Job                                                                                              | Trigger Phrase    | Required To Merge? |
++==========================================================================================================+===================+====================+
+| `Cilium-PR-Ginkgo-Tests-Validated <https://jenkins.cilium.io/job/Cilium-PR-Ginkgo-Tests-Validated/>`_    | test-me-please    | Yes                |
++----------------------------------------------------------------------------------------------------------+-------------------+--------------------+
+| `Cilium-Pr-Ginkgo-Test-k8s <https://jenkins.cilium.io/job/Cilium-PR-Ginkgo-Tests-k8s/>`_                 | test-missed-k8s   | No                 |
++----------------------------------------------------------------------------------------------------------+-------------------+--------------------+
+| `Cilium-Nightly-Tests-PR <https://jenkins.cilium.io/job/Cilium-PR-Nightly-Tests-All/>`_                  | test-nightly      | No                 |
++----------------------------------------------------------------------------------------------------------+-------------------+--------------------+
+| `Cilium-PR-Doc-Tests <https://jenkins.cilium.io/view/all/job/Cilium-PR-Doc-Tests/>`_                     | test-docs-please  | No                 |
++----------------------------------------------------------------------------------------------------------+-------------------+--------------------+
+| `Cilium-PR-Kubernetes-Upstream </https://jenkins.cilium.io/view/PR/job/Cilium-PR-Kubernetes-Upstream/>`_ | test-upstream-k8s | No                 |
++----------------------------------------------------------------------------------------------------------+-------------------+--------------------+
+
 
 Using Jenkins for testing
 ~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -910,7 +1121,7 @@ Cilium-PR-Ginkgo-Tests-k8s
 
 Runs the Kubernetes e2e tests against all Kubernetes versions that are not currently not tested as part
 of each pull-request, but which Cilium still supports, as well as the the most-recently-released versions
-of Kuberentes that are not yet declared stable by Kubernetes upstream:
+of Kubernetes that are not yet declared stable by Kubernetes upstream:
 
 First stage (stable versions which Cilium still supports):
 
@@ -947,6 +1158,21 @@ Logging into VM running tests
 .. code:: bash
 
     $ JOB_BASE_NAME=PR-1588 BUILD_NUMBER=6 vagrant ssh 6e68c6c
+
+
+Jenkinsfiles Extensions
+------------------------
+Cilium uses a custom `Jenkins helper library
+<https://github.com/cilium/Jenkins-library>`_ to gather metadata from PRs and
+simplify our Jenkinsfiles. The exported methods are:
+
+- **ispr()**: return true if the current build is a PR.
+- **setIfPr(string, string)**: return the first argument in case of a PR, if not
+  a PR return the second one.
+- **BuildIfLabel(String label, String Job)**: trigger a new Job if the PR has
+  that specific Label.
+- **Status(String status, String context)**: set pull request check status on
+  the given context, example `Status("SUCCESS", "$JOB_BASE_NAME"`
 
 
 Release Process
@@ -1023,7 +1249,7 @@ Steps to release
 Backporting process
 ~~~~~~~~~~~~~~~~~~~
 
-Cilium PRs that are marked with label ``stable/needs-backporting`` need to be backported to the stable branch(es), listed below. Following steps summarize the process.
+Cilium PRs that are marked with label ``stable/needs-backport`` need to be backported to the stable branch(es), listed below. Following steps summarize the process.
 
 1. Make sure the Github labels are up-to-date, as this process will
    deal with all commits from PRs that have the

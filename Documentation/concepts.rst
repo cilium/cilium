@@ -141,7 +141,7 @@ The Key-Value (KV) Store is used for the following state:
 * Encapsulation VTEP mapping (optional)
 
 To simplify things in a larger deployment, the key-value store can be the same
-one used by the container orchestrater (e.g., Kubernetes using etcd).
+one used by the container orchestrator (e.g., Kubernetes using etcd).
 
 Assurances
 ==========
@@ -184,7 +184,7 @@ Terminology
 Labels
 ======
 
-Labels are a generic, flexible and highly scaleable way of addressing a large
+Labels are a generic, flexible and highly scalable way of addressing a large
 set of resources as they allow for arbitrary grouping and creation of sets.
 Whenever something needs to be described, addressed or selected this is done
 based on labels:
@@ -225,7 +225,7 @@ To resolve this potential conflict, Cilium prefixes all label keys with
 ``k8s:role=frontend``, ``container:user=joe``, ``k8s:role=backend``. This means
 that when you run a Docker container using ``docker run [...] -l foo=bar``, the
 label ``container:foo=bar`` will appear on the Cilium endpoint representing the
-container. Similiarly, a Kubernetes pod started with the label ``foo: bar``
+container. Similarly, a Kubernetes pod started with the label ``foo: bar``
 will be represented with a Cilium endpoint associated with the label
 ``k8s:foo=bar``. A unique name is allocated for each potential source. The
 following label sources are currently supported:
@@ -259,11 +259,11 @@ range by each endpoint. This essentially allows multiple application containers
 running on the same cluster node to all bind to well known ports such ``80``
 without causing any conflicts.
 
-The default behaviour of Cilium is to assign both an IPv6 and IPv4 address to
-every endpoint. However, this behaviour can be configured to only allocate an
+The default behavior of Cilium is to assign both an IPv6 and IPv4 address to
+every endpoint. However, this behavior can be configured to only allocate an
 IPv6 address with the ``--disable-ipv4`` option. If both an IPv6 and IPv4
 address are assigned, either address can be used to reach the endpoint. The
-same behaviour will apply with regard to policy rules, load-balancing, etc. See
+same behavior will apply with regard to policy rules, load-balancing, etc. See
 :ref:`address_management` for more details.
 
 Identification
@@ -619,7 +619,7 @@ default route which is installed on the node of the cluster.
 As the IP addresses used for the **cluster prefix** are typically allocated
 from RFC1918 private address blocks and are not publicly routable. Cilium will
 automatically masquerade the source IP address of all traffic that is leaving
-the cluster. This behaviour can be disabled by running ``cilium-agent`` with
+the cluster. This behavior can be disabled by running ``cilium-agent`` with
 the option ``--masquerade=false``.
 
 Public Endpoint Exposure
@@ -736,15 +736,12 @@ well.  However, ``B`` is not automatically allowed to initiate connections to
 ``A``. If that outcome is desired, then both directions must be explicitly
 allowed.
 
-Security policies are primarily enforced at *ingress* which means that each
-cluster node verifies all incoming packets and determines whether the packet is
-allowed to be transmitted to the intended endpoint. Policy enforcement also
-occurs at *egress* if required by the specific policy, e.g. a Layer 7 policy
-restricting outgoing API calls.
-
-Layer 3 policies are currently not enforced at *egress* to avoid the complexity
-of resolving the destination endpoint identity before sending out the packet.
-Instead, the identity of the source endpoint is embedded into the packet.
+Security policies are may be enforced at *ingress* or *egress*. For *ingress*,
+this means that each cluster node verifies all incoming packets and determines
+whether the packet is allowed to be transmitted to the intended endpoint.
+Correspondingly, for *egress* each cluster node verifies outgoing packets and
+determines whether the packet is allowed to be transmitted to its intended
+destination.
 
 In order to enforce identity based security in a multi host cluster, the
 identity of the transmitting endpoint is embedded into every network packet
@@ -755,7 +752,7 @@ to communicate with any of the local endpoints.
 Default Security Policy
 -----------------------
 
-If no policy is loaded, the default behaviour is to allow all communication
+If no policy is loaded, the default behavior is to allow all communication
 unless policy enforcement has been explicitly enabled. As soon as the first
 policy rule is loaded, policy enforcement is enabled automatically and any
 communication must then be white listed or the relevant packets will be

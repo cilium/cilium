@@ -15,6 +15,8 @@ ENV PACKAGES="\
     python \
     py-pip \
     sphinx-python \
+    enchant \
+    aspell-en \
 "
 RUN apk add --no-cache --virtual --update $PACKAGES && \
     pip install --upgrade pip && \

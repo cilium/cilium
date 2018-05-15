@@ -34,10 +34,28 @@ Labels Based
 ------------
 
 Label-based L3 policy is used to establish policy between endpoints inside the
-cluster managed by Cilium. An endpoint is allowed to talk to another endpoint
-if at least one rule exists which selects the destination endpoint with the
-`EndpointSelector` in the ``endpointSelector`` field and selects the source
-endpoint with the `EndpointSelector` in the ``fromEndpoints`` field.
+cluster managed by Cilium. Label-based L3 policies are defined by using an
+`EndpointSelector` inside a rule to choose what kind of traffic that can be
+received (on ingress), or sent (on egress). An empty `EndpointSelector` allows
+all traffic. The examples below demonstrate this in further detail.
+
+When Cilium is running with Kubernetes as an orchestrator, Cilium Network
+Policies are enforced by ``Namespace``. If an explicit namespace selector is
+not defined in the rule's `EndpointSelector`, then an implicit selector will be
+added to the rule which matches on the namespace where the policy is installed.
+A special case for this is that empty `EndpointSelector` only allows *endpoints
+managed by Cilium within the namespace where the policy is installed* to
+send/receive traffic, rather than allowing the endpoint to send/receive *all*
+traffic.
+
+Ingress
+~~~~~~~
+
+An endpoint is allowed to receive traffic from another endpoint if at least one
+ingress rule exists which selects the destination endpoint with the
+`EndpointSelector` in the ``endpointSelector`` field. To restrict traffic upon
+ingress to the selected endpoint, the rule selects the source endpoint with the
+`EndpointSelector` in the ``fromEndpoints`` field.
 
 Simple Ingress Allow
 ~~~~~~~~~~~~~~~~~~~~
@@ -81,6 +99,66 @@ all ingress traffic to an endpoint may be done as follows:
 
         .. literalinclude:: ../../examples/policies/l3/ingress-allow-all/ingress-allow-all.json
 
+Note that while the above examples allow all ingress traffic to an endpoint, this does not 
+mean that all endpoints are allowed to send traffic to this endpoint per their policies. 
+In other words, policy must be configured on both sides (sender and receiver).
+
+Egress
+~~~~~~
+
+An endpoint is allowed to send traffic to another endpoint if at least one
+egress rule exists which selects the destination endpoint with the 
+`EndpointSelector` in the ``endpointSelector`` field. To restrict traffic upon
+egress to the selected endpoint, the rule selects the destination endpoint with
+the `EndpointSelector` in the ``toEndpoints`` field.
+
+Simple Egress Allow
+~~~~~~~~~~~~~~~~~~~~
+
+The following example illustrates how to use a simple egress rule to allow
+communication to endpoints with the label ``role=backend`` from endpoints with
+the label ``role=frontend``.
+
+.. only:: html
+
+   .. tabs::
+     .. group-tab:: k8s YAML
+
+        .. literalinclude:: ../../examples/policies/l3/simple/l3_egress.yaml
+     .. group-tab:: JSON
+
+        .. literalinclude:: ../../examples/policies/l3/simple/l3_egress.json
+
+.. only:: epub or latex
+
+        .. literalinclude:: ../../examples/policies/l3/simple/l3_egress.json
+
+
+Egress Allow All
+~~~~~~~~~~~~~~~~~
+
+An empty `EndpointSelector` will select all endpoints, thus writing a rule that will allow
+all egress traffic from an endpoint may be done as follows:
+
+.. only:: html
+
+   .. tabs::
+     .. group-tab:: k8s YAML
+
+        .. literalinclude:: ../../examples/policies/l3/egress-allow-all/egress-allow-all.yaml
+     .. group-tab:: JSON
+
+        .. literalinclude:: ../../examples/policies/l3/egress-allow-all/egress-allow-all.json
+
+.. only:: epub or latex
+
+        .. literalinclude:: ../../examples/policies/l3/egress-allow-all/egress-allow-all.json
+
+
+Note that while the above examples allow all egress traffic from an endpoint, the receivers
+of the egress traffic may have ingress rules that deny the traffic. In other words, 
+policy must be configured on both sides (sender and receiver).
+
 Ingress/Egress Default Deny
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -118,7 +196,8 @@ requirements which serve as a foundation for any ``fromEndpoints``
 relationship.  ``fromRequires`` is a list of additional constraints which must
 be met in order for the selected endpoints to be reachable. These additional
 constraints do not grant access privileges by themselves, so to allow traffic
-there must also be rules which match ``fromEndpoints``.
+there must also be rules which match ``fromEndpoints``. The same applies for
+egress policies, with ``toRequires`` and ``toEndpoints``.
 
 The purpose of this rule is to allow establishing base requirements such as, any
 endpoint in ``env=prod`` can only be accessed if the source endpoint also carries
@@ -226,7 +305,7 @@ serving the particular endpoint.
 
 .. note:: Kubernetes will automatically allow all communication from and to the
 	  local host of all local endpoints. You can run the agent with the
-	  option ``--allow-localhost=policy`` to disable this behaviour which
+	  option ``--allow-localhost=policy`` to disable this behavior which
 	  will give you control over this via policy.
 
 .. only:: html
@@ -417,6 +496,7 @@ endpoints with the label ``role=frontend`` will not be able to communicate with
 
         .. literalinclude:: ../../examples/policies/l4/l3_l4_combined.json
 
+
 Layer 7 Examples
 ================
 
@@ -597,7 +677,7 @@ Topic
   multiple topics, then all topics in the message must be allowed by the policy
   or the message will be rejected.
 
-  This constraint is ignored if the matched request message type doesn't
+  This constraint is ignored if the matched request message type does not
   contain any topic. The maximum length of the Topic is 249 characters,
   which must be either ``a-z``, ``A-Z``, ``0-9``, ``-``, ``.`` or ``_``.
 
