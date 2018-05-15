@@ -264,7 +264,7 @@ func (matcher *BeSuccesfulMatcher) Match(actual interface{}) (success bool, err 
 // command was not successful.
 func (matcher *BeSuccesfulMatcher) FailureMessage(actual interface{}) (message string) {
 	res, _ := actual.(*CmdRes)
-	return fmt.Sprintf("Expected command: %s \nTo succeed, but it fails:\n%s",
+	return fmt.Sprintf("Expected command: %s \nTo succeed, but it failed:\n%s",
 		res.GetCmd(), res.OutputPrettyPrint())
 }
 
@@ -272,7 +272,7 @@ func (matcher *BeSuccesfulMatcher) FailureMessage(actual interface{}) (message s
 // command is tested with a negative
 func (matcher *BeSuccesfulMatcher) NegatedFailureMessage(actual interface{}) (message string) {
 	res, _ := actual.(*CmdRes)
-	return fmt.Sprintf("Expected command: %s\nTo fails, but it was successful:\n%s",
+	return fmt.Sprintf("Expected command: %s\nTo have failed, but it was successful:\n%s",
 		res.GetCmd(), res.OutputPrettyPrint())
 }
 
