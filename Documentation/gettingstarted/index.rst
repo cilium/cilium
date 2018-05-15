@@ -18,6 +18,7 @@ complete will help you to get started in your area of choice:
    istio
    kafka
    grpc
+   elasticsearch
    mesos
    docker
 
