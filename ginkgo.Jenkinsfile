@@ -20,7 +20,6 @@ pipeline {
     stages {
         stage('Checkout') {
             steps {
-                Status("PENDING", "$JOB_BASE_NAME")
                 BuildIfLabel('area/k8s', 'Cilium-PR-Kubernetes-Upstream')
                 BuildIfLabel('area/k8s', 'Cilium-PR-Ginkgo-Tests-K8s')
                 BuildIfLabel('area/documentation', 'Cilium-PR-Doc-Tests')
@@ -95,12 +94,6 @@ pipeline {
             sh 'cd ${TESTDIR}/test/; K8S_VERSION=1.7 vagrant destroy -f || true'
             sh 'cd ${TESTDIR}/test/; K8S_VERSION=1.10 vagrant destroy -f || true'
             cleanWs()
-        }
-        success {
-            Status("SUCCESS", "$JOB_BASE_NAME")
-        }
-        failure {
-            Status("FAILURE", "$JOB_BASE_NAME")
         }
     }
 }
