@@ -101,9 +101,6 @@ func (d *Daemon) getNodeStatus() *models.ClusterStatus {
 	for _, node := range node.GetNodes() {
 		clusterStatus.Nodes = append(clusterStatus.Nodes, node.GetModel(ipv4))
 	}
-	if len(clusterStatus.Nodes) == 0 {
-		return nil
-	}
 	return &clusterStatus
 }
 
