@@ -1130,15 +1130,6 @@ func NewDaemon(c *Config) (*Daemon, error) {
 	log.Infof("  IPv4 allocation prefix: %s", node.GetIPv4AllocRange())
 	log.Infof("  IPv6 router address: %s", node.GetIPv6Router())
 
-	// Populate list of nodes with local node entry
-	log.Info("Adding local node to local cluster node list")
-	ni, n := node.GetLocalNode()
-	node.UpdateNode(ni, n, node.TunnelRoute, nil)
-
-	// This needs to be done after the node addressing has been configured
-	// as the node address is required as sufix
-	identity.InitIdentityAllocator(&d)
-
 	if !d.conf.IPv4Disabled {
 		// Allocate IPv4 service loopback IP
 		loopbackIPv4, _, err := ipam.AllocateNext("ipv4")
@@ -1148,6 +1139,15 @@ func NewDaemon(c *Config) (*Daemon, error) {
 		d.loopbackIPv4 = loopbackIPv4
 		log.Infof("  Loopback IPv4: %s", d.loopbackIPv4.String())
 	}
+
+	// Populate list of nodes with local node entry
+	log.Info("Adding local node to local cluster node list")
+	ni, n := node.GetLocalNode()
+	node.UpdateNode(ni, n, node.TunnelRoute, nil)
+
+	// This needs to be done after the node addressing has been configured
+	// as the node address is required as sufix
+	identity.InitIdentityAllocator(&d)
 
 	if err = d.init(); err != nil {
 		log.WithError(err).Error("Error while initializing daemon")
