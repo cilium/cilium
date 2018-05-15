@@ -414,8 +414,10 @@ var _ = Describe("NightlyExamples", func() {
 	Context("Getting started guides", func() {
 
 		var (
-			GRPCManifest = "../examples/kubernetes-grpc/cc-door-app.yaml"
-			GRPCPolicy   = "../examples/kubernetes-grpc/cc-door-ingress-security.yaml"
+			GRPCManifest   = "../examples/kubernetes-grpc/cc-door-app.yaml"
+			GRPCPolicy     = "../examples/kubernetes-grpc/cc-door-ingress-security.yaml"
+			AppManifest    = helpers.GetFilePath(GRPCManifest)
+			PolicyManifest = helpers.GetFilePath(GRPCPolicy)
 		)
 
 		BeforeEach(func() {
@@ -427,19 +429,14 @@ var _ = Describe("NightlyExamples", func() {
 		})
 
 		AfterEach(func() {
+			kubectl.Delete(AppManifest)
+			kubectl.Delete(PolicyManifest)
+
 			ExpectAllPodsTerminated(kubectl)
 		})
 
 		It("GRPC example", func() {
-
-			AppManifest := helpers.GetFilePath(GRPCManifest)
-			PolicyManifest := helpers.GetFilePath(GRPCPolicy)
 			clientPod := "terminal-87"
-
-			defer func() {
-				kubectl.Delete(AppManifest)
-				kubectl.Delete(PolicyManifest)
-			}()
 
 			By("Testing the example config")
 			kubectl.Apply(AppManifest).ExpectSuccess("cannot install the GRPC application")
