@@ -97,7 +97,6 @@ func runNodeMonitor() {
 	log.Infof("Serving cilium node monitor at unix://%s", defaults.MonitorSockPath)
 
 	mainCtx, mainCtxCancel := context.WithCancel(context.Background())
-	defer mainCtxCancel() // Signal a shutdown to spawned goroutines
 
 	monitorSingleton, err = NewMonitor(mainCtx, npages, pipe, server)
 	if err != nil {
@@ -108,4 +107,5 @@ func runNodeMonitor() {
 	signal.Notify(shutdownChan, syscall.SIGQUIT, syscall.SIGINT, syscall.SIGTERM, syscall.SIGINT)
 	sig := <-shutdownChan
 	log.WithField(logfields.Signal, sig).Info("Exiting due to signal")
+	mainCtxCancel() // Signal a shutdown to spawned goroutines
 }
