@@ -259,24 +259,24 @@ var _ = Describe("K8sValidatedServicesTest", func() {
 			kubectl.WaitforPods(helpers.DefaultNamespace, "", 300)
 
 			pods, err := kubectl.GetPodsNodes(helpers.DefaultNamespace, "")
-			ExpectWithOffset(1, err).To(BeNil())
+			ExpectWithOffset(1, err).To(BeNil(), "unable to retrieve pod-node mapping")
 
 			node := pods[podName]
 			ciliumPod, err := kubectl.GetCiliumPodOnNode(helpers.KubeSystemNamespace, node)
-			ExpectWithOffset(1, err).Should(BeNil())
+			ExpectWithOffset(1, err).Should(BeNil(), "was not able to retrieve Cilium pod on node %s", node)
 
 			status := kubectl.CiliumEndpointWait(ciliumPod)
-			ExpectWithOffset(1, status).To(BeTrue())
+			ExpectWithOffset(1, status).To(BeTrue(), "timed out waiting for endpoints to be ready")
 
 			endpointIDs := kubectl.CiliumEndpointsIDs(ciliumPod)
 			endpointID := endpointIDs[fmt.Sprintf("%s:%s", helpers.DefaultNamespace, podName)]
-			ExpectWithOffset(1, endpointID).NotTo(BeNil())
+			ExpectWithOffset(1, endpointID).NotTo(BeNil(), "unable to get endpoint ID for pod %s:%s", helpers.DefaultNamespace, podName)
 
 			Eventually(func() string {
 				res := kubectl.CiliumEndpointGet(ciliumPod, endpointID)
 
 				data, err := res.Filter(`{[0].status.policy.realized.cidr-policy.egress}`)
-				ExpectWithOffset(1, err).To(BeNil())
+				ExpectWithOffset(1, err).To(BeNil(), "unable to get endpoint %d metadata from cilium pod %s", endpointID, ciliumPod)
 				return data.String()
 
 			}, 5*time.Minute, 10*time.Second).Should(ContainSubstring(expectedCIDR))
