@@ -48,15 +48,26 @@ var _ = Describe("RuntimeValidatedCLI", func() {
 	})
 
 	Context("Identity CLI testing", func() {
-		It("Test labelsSHA256", func() {
-			fooID := "id.foo"
-			namesLabels := [][]string{{"foo", fooID}, {"bar", "id.bar"}, {"baz", "id.baz"}}
 
+		var (
+			fooID       = "id.foo"
+			namesLabels = [][]string{{"foo", fooID}, {"bar", "id.bar"}, {"baz", "id.baz"}}
+		)
+
+		BeforeAll(func() {
 			for _, set := range namesLabels {
 				res := vm.ContainerCreate(set[0], helpers.NetperfImage, helpers.CiliumDockerNetwork, fmt.Sprintf("-l %s", set[1]))
-				defer vm.ContainerRm(set[0])
 				res.ExpectSuccess("Unable to create container")
 			}
+		})
+
+		AfterAll(func() {
+			for _, set := range namesLabels {
+				_ = vm.ContainerRm(set[0])
+			}
+		})
+
+		It("Test labelsSHA256", func() {
 			areEndpointsReady := vm.WaitEndpointsReady()
 			Expect(areEndpointsReady).Should(BeTrue(), "endpoints not ready")
 
@@ -73,14 +84,9 @@ var _ = Describe("RuntimeValidatedCLI", func() {
 
 		It("test identity list", func() {
 			By("Testing 'cilium identity list' for an endpoint's identity")
-			fooID := "id.foo"
-			namesLabels := [][]string{{"foo", fooID}, {"bar", "id.bar"}, {"baz", "id.baz"}}
 
-			for _, set := range namesLabels {
-				res := vm.ContainerCreate(set[0], helpers.NetperfImage, helpers.CiliumDockerNetwork, fmt.Sprintf("-l %s", set[1]))
-				defer vm.ContainerRm(set[0])
-				res.ExpectSuccess("Unable to create container")
-			}
+			areEndpointsReady := vm.WaitEndpointsReady()
+			Expect(areEndpointsReady).Should(BeTrue(), "endpoints not ready")
 
 			epModel := vm.EndpointGet(fmt.Sprintf("-l container:%s", fooID))
 			Expect(epModel).ShouldNot(BeNil(), "no endpoint model returned")
