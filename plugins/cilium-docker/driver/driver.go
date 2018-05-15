@@ -30,6 +30,7 @@ import (
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/mtu"
 
 	"github.com/docker/libnetwork/drivers/remote/api"
 	lnTypes "github.com/docker/libnetwork/types"
@@ -127,7 +128,7 @@ func (driver *driver) updateRoutes(addressing *models.NodeAddressing) {
 	driver.routes = []api.StaticRoute{}
 
 	if driver.conf.Addressing.IPV6 != nil {
-		if routes, err := plugins.IPv6Routes(driver.conf.Addressing); err != nil {
+		if routes, err := plugins.IPv6Routes(driver.conf.Addressing, mtu.StandardMTU); err != nil {
 			log.Fatalf("Unable to generate IPv6 routes: %s", err)
 		} else {
 			for _, r := range routes {
@@ -139,7 +140,7 @@ func (driver *driver) updateRoutes(addressing *models.NodeAddressing) {
 	}
 
 	if driver.conf.Addressing.IPV4 != nil {
-		if routes, err := plugins.IPv4Routes(driver.conf.Addressing); err != nil {
+		if routes, err := plugins.IPv4Routes(driver.conf.Addressing, mtu.StandardMTU); err != nil {
 			log.Fatalf("Unable to generate IPv4 routes: %s", err)
 		} else {
 			for _, r := range routes {
@@ -306,7 +307,7 @@ func (driver *driver) createEndpoint(w http.ResponseWriter, r *http.Request) {
 
 	endpoint := &models.EndpointChangeRequest{
 		ID:               int64(ip6.EndpointID()),
-		State:            models.EndpointStateCreating,
+		State:            models.EndpointStateWaitingForIdentity,
 		DockerEndpointID: create.EndpointID,
 		DockerNetworkID:  create.NetworkID,
 		Addressing: &models.AddressPair{
@@ -314,6 +315,19 @@ func (driver *driver) createEndpoint(w http.ResponseWriter, r *http.Request) {
 			IPV4: create.Interface.Address,
 		},
 	}
+
+	veth, _, _, err := plugins.SetupVeth(create.EndpointID, mtu.StandardMTU, endpoint)
+	if err != nil {
+		sendError(w, "Error while setting up veth pair: "+err.Error(), http.StatusBadRequest)
+		return
+	}
+	defer func() {
+		if err != nil {
+			if err = netlink.LinkDel(veth); err != nil {
+				log.WithError(err).WithField(logfields.Veth, veth.Name).Warn("failed to clean up veth")
+			}
+		}
+	}()
 
 	// FIXME: Translate port mappings to RuleL4 policy elements
 
@@ -385,37 +399,10 @@ func (driver *driver) joinEndpoint(w http.ResponseWriter, r *http.Request) {
 	}
 
 	log.WithField(logfields.Object, old).Debug("Existing endpoint")
-	if old.Status.State != models.EndpointStateCreating {
-		sendError(w, "Error: endpoint not in creating state", http.StatusBadRequest)
-		return
-	}
-
-	ep := &models.EndpointChangeRequest{
-		State: models.EndpointStateWaitingForIdentity,
-	}
-
-	veth, _, tmpIfName, err := plugins.SetupVeth(j.EndpointID, 1450, ep)
-	if err != nil {
-		sendError(w, "Error while setting up veth pair: "+err.Error(), http.StatusBadRequest)
-		return
-	}
-	defer func() {
-		if err != nil {
-			if err = netlink.LinkDel(veth); err != nil {
-				log.WithError(err).WithField(logfields.Veth, veth.Name).Warn("failed to clean up veth")
-			}
-		}
-	}()
-
-	if err = driver.client.EndpointPatch(endpointPkg.NewCiliumID(old.ID), ep); err != nil {
-		log.WithError(err).Error("Joining endpoint failed")
-		sendError(w, "Unable to connect endpoint to network: "+err.Error(),
-			http.StatusInternalServerError)
-	}
 
 	res := &api.JoinResponse{
 		InterfaceName: &api.InterfaceName{
-			SrcName:   tmpIfName,
+			SrcName:   plugins.Endpoint2TempIfName(j.EndpointID),
 			DstPrefix: ContainerInterfacePrefix,
 		},
 		StaticRoutes:          driver.routes,

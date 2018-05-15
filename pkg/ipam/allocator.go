@@ -22,7 +22,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/node"
 
-	k8sAPI "k8s.io/kubernetes/pkg/api"
+	k8sAPI "k8s.io/kubernetes/pkg/apis/core"
 )
 
 // Error definitions

@@ -6,14 +6,20 @@ package endpoint
 import proto "github.com/golang/protobuf/proto"
 import fmt "fmt"
 import math "math"
-import envoy_api_v2_core1 "github.com/cilium/cilium/pkg/envoy/envoy/api/v2/core"
-import _ "github.com/lyft/protoc-gen-validate/validate"
+import core "github.com/cilium/cilium/pkg/envoy/envoy/api/v2/core"
 import _ "github.com/gogo/protobuf/gogoproto"
+import _ "github.com/lyft/protoc-gen-validate/validate"
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal
 var _ = fmt.Errorf
 var _ = math.Inf
+
+// This is a compile-time assertion to ensure that this generated file
+// is compatible with the proto package it is being compiled against.
+// A compilation error at this line likely means your copy of the
+// proto package needs to be updated.
+const _ = proto.ProtoPackageIsVersion2 // please upgrade the proto package
 
 // These are stats Envoy reports to GLB every so often. Report frequency is
 // defined by
@@ -23,7 +29,7 @@ var _ = math.Inf
 type UpstreamLocalityStats struct {
 	// Name of zone, region and optionally endpoint group these metrics were
 	// collected from. Zone and region names could be empty if unknown.
-	Locality *envoy_api_v2_core1.Locality `protobuf:"bytes,1,opt,name=locality" json:"locality,omitempty"`
+	Locality *core.Locality `protobuf:"bytes,1,opt,name=locality" json:"locality,omitempty"`
 	// The total number of requests sent by this Envoy since the last report. A
 	// single HTTP or gRPC request or stream is counted as one request. A TCP
 	// connection is also treated as one request. There is no explicit
@@ -56,15 +62,37 @@ type UpstreamLocalityStats struct {
 	LoadMetricStats []*EndpointLoadMetricStats `protobuf:"bytes,5,rep,name=load_metric_stats,json=loadMetricStats" json:"load_metric_stats,omitempty"`
 	// [#not-implemented-hide:] The priority of the endpoint group these metrics
 	// were collected from.
-	Priority uint32 `protobuf:"varint,6,opt,name=priority" json:"priority,omitempty"`
+	Priority             uint32   `protobuf:"varint,6,opt,name=priority" json:"priority,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
 }
 
-func (m *UpstreamLocalityStats) Reset()                    { *m = UpstreamLocalityStats{} }
-func (m *UpstreamLocalityStats) String() string            { return proto.CompactTextString(m) }
-func (*UpstreamLocalityStats) ProtoMessage()               {}
-func (*UpstreamLocalityStats) Descriptor() ([]byte, []int) { return fileDescriptor1, []int{0} }
+func (m *UpstreamLocalityStats) Reset()         { *m = UpstreamLocalityStats{} }
+func (m *UpstreamLocalityStats) String() string { return proto.CompactTextString(m) }
+func (*UpstreamLocalityStats) ProtoMessage()    {}
+func (*UpstreamLocalityStats) Descriptor() ([]byte, []int) {
+	return fileDescriptor_load_report_e23988f9d87d0742, []int{0}
+}
+func (m *UpstreamLocalityStats) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_UpstreamLocalityStats.Unmarshal(m, b)
+}
+func (m *UpstreamLocalityStats) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_UpstreamLocalityStats.Marshal(b, m, deterministic)
+}
+func (dst *UpstreamLocalityStats) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_UpstreamLocalityStats.Merge(dst, src)
+}
+func (m *UpstreamLocalityStats) XXX_Size() int {
+	return xxx_messageInfo_UpstreamLocalityStats.Size(m)
+}
+func (m *UpstreamLocalityStats) XXX_DiscardUnknown() {
+	xxx_messageInfo_UpstreamLocalityStats.DiscardUnknown(m)
+}
 
-func (m *UpstreamLocalityStats) GetLocality() *envoy_api_v2_core1.Locality {
+var xxx_messageInfo_UpstreamLocalityStats proto.InternalMessageInfo
+
+func (m *UpstreamLocalityStats) GetLocality() *core.Locality {
 	if m != nil {
 		return m.Locality
 	}
@@ -114,13 +142,35 @@ type EndpointLoadMetricStats struct {
 	NumRequestsFinishedWithMetric uint64 `protobuf:"varint,2,opt,name=num_requests_finished_with_metric,json=numRequestsFinishedWithMetric" json:"num_requests_finished_with_metric,omitempty"`
 	// Sum of metric values across all calls that finished with this metric for
 	// load_reporting_interval.
-	TotalMetricValue float64 `protobuf:"fixed64,3,opt,name=total_metric_value,json=totalMetricValue" json:"total_metric_value,omitempty"`
+	TotalMetricValue     float64  `protobuf:"fixed64,3,opt,name=total_metric_value,json=totalMetricValue" json:"total_metric_value,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
 }
 
-func (m *EndpointLoadMetricStats) Reset()                    { *m = EndpointLoadMetricStats{} }
-func (m *EndpointLoadMetricStats) String() string            { return proto.CompactTextString(m) }
-func (*EndpointLoadMetricStats) ProtoMessage()               {}
-func (*EndpointLoadMetricStats) Descriptor() ([]byte, []int) { return fileDescriptor1, []int{1} }
+func (m *EndpointLoadMetricStats) Reset()         { *m = EndpointLoadMetricStats{} }
+func (m *EndpointLoadMetricStats) String() string { return proto.CompactTextString(m) }
+func (*EndpointLoadMetricStats) ProtoMessage()    {}
+func (*EndpointLoadMetricStats) Descriptor() ([]byte, []int) {
+	return fileDescriptor_load_report_e23988f9d87d0742, []int{1}
+}
+func (m *EndpointLoadMetricStats) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_EndpointLoadMetricStats.Unmarshal(m, b)
+}
+func (m *EndpointLoadMetricStats) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_EndpointLoadMetricStats.Marshal(b, m, deterministic)
+}
+func (dst *EndpointLoadMetricStats) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_EndpointLoadMetricStats.Merge(dst, src)
+}
+func (m *EndpointLoadMetricStats) XXX_Size() int {
+	return xxx_messageInfo_EndpointLoadMetricStats.Size(m)
+}
+func (m *EndpointLoadMetricStats) XXX_DiscardUnknown() {
+	xxx_messageInfo_EndpointLoadMetricStats.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_EndpointLoadMetricStats proto.InternalMessageInfo
 
 func (m *EndpointLoadMetricStats) GetMetricName() string {
 	if m != nil {
@@ -163,13 +213,35 @@ type ClusterStats struct {
 	//
 	// The total number of dropped requests. This covers requests
 	// deliberately dropped by the drop_overload policy and circuit breaking.
-	TotalDroppedRequests uint64 `protobuf:"varint,3,opt,name=total_dropped_requests,json=totalDroppedRequests" json:"total_dropped_requests,omitempty"`
+	TotalDroppedRequests uint64   `protobuf:"varint,3,opt,name=total_dropped_requests,json=totalDroppedRequests" json:"total_dropped_requests,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
 }
 
-func (m *ClusterStats) Reset()                    { *m = ClusterStats{} }
-func (m *ClusterStats) String() string            { return proto.CompactTextString(m) }
-func (*ClusterStats) ProtoMessage()               {}
-func (*ClusterStats) Descriptor() ([]byte, []int) { return fileDescriptor1, []int{2} }
+func (m *ClusterStats) Reset()         { *m = ClusterStats{} }
+func (m *ClusterStats) String() string { return proto.CompactTextString(m) }
+func (*ClusterStats) ProtoMessage()    {}
+func (*ClusterStats) Descriptor() ([]byte, []int) {
+	return fileDescriptor_load_report_e23988f9d87d0742, []int{2}
+}
+func (m *ClusterStats) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_ClusterStats.Unmarshal(m, b)
+}
+func (m *ClusterStats) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_ClusterStats.Marshal(b, m, deterministic)
+}
+func (dst *ClusterStats) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ClusterStats.Merge(dst, src)
+}
+func (m *ClusterStats) XXX_Size() int {
+	return xxx_messageInfo_ClusterStats.Size(m)
+}
+func (m *ClusterStats) XXX_DiscardUnknown() {
+	xxx_messageInfo_ClusterStats.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_ClusterStats proto.InternalMessageInfo
 
 func (m *ClusterStats) GetClusterName() string {
 	if m != nil {
@@ -198,9 +270,11 @@ func init() {
 	proto.RegisterType((*ClusterStats)(nil), "envoy.api.v2.endpoint.ClusterStats")
 }
 
-func init() { proto.RegisterFile("envoy/api/v2/endpoint/load_report.proto", fileDescriptor1) }
+func init() {
+	proto.RegisterFile("envoy/api/v2/endpoint/load_report.proto", fileDescriptor_load_report_e23988f9d87d0742)
+}
 
-var fileDescriptor1 = []byte{
+var fileDescriptor_load_report_e23988f9d87d0742 = []byte{
 	// 502 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x74, 0x93, 0xc1, 0x6e, 0xd3, 0x40,
 	0x10, 0x86, 0xb5, 0x49, 0x5a, 0xa5, 0x93, 0x22, 0x60, 0xd5, 0x90, 0x10, 0x40, 0x98, 0x5c, 0xc8,

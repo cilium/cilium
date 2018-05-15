@@ -29,7 +29,7 @@
 #include "csum.h"
 
 static inline int __inline__ ipv6_l3(struct __sk_buff *skb, int l3_off,
-				     __u8 *smac, __u8 *dmac)
+				     __u8 *smac, __u8 *dmac, __u8 direction)
 {
 	int ret;
 
@@ -39,7 +39,7 @@ static inline int __inline__ ipv6_l3(struct __sk_buff *skb, int l3_off,
 
 	if (ret > 0) {
 		/* Hoplimit was reached */
-		return icmp6_send_time_exceeded(skb, l3_off);
+		return icmp6_send_time_exceeded(skb, l3_off, direction);
 	}
 
 	if (smac && eth_store_saddr(skb, smac, 0) < 0)
@@ -70,7 +70,7 @@ static inline int __inline__ ipv4_l3(struct __sk_buff *skb, int l3_off,
 
 static inline int ipv6_local_delivery(struct __sk_buff *skb, int l3_off, int l4_off,
 				      __u32 seclabel, struct ipv6hdr *ip6, __u8 nexthdr,
-				      struct endpoint_info *ep)
+				      struct endpoint_info *ep, __u8 direction)
 {
 	int ret;
 
@@ -80,7 +80,7 @@ static inline int ipv6_local_delivery(struct __sk_buff *skb, int l3_off, int l4_
 	mac_t router_mac = ep->node_mac;
 
 	/* This will invalidate the size check */
-	ret = ipv6_l3(skb, l3_off, (__u8 *) &router_mac, (__u8 *) &lxc_mac);
+	ret = ipv6_l3(skb, l3_off, (__u8 *) &router_mac, (__u8 *) &lxc_mac, direction);
 	if (ret != TC_ACT_OK)
 		return ret;
 
@@ -88,13 +88,21 @@ static inline int ipv6_local_delivery(struct __sk_buff *skb, int l3_off, int l4_
 	skb->cb[CB_SRC_LABEL] = seclabel;
 	skb->cb[CB_IFINDEX] = ep->ifindex;
 
+#if defined LXC_ID
+	/*
+	 * Special LXC case for updating egress forwarding metrics.
+	 * Note that the packet could still be dropped but it would show up
+	 * as an ingress drop counter in metrics.
+	 */
+	update_metrics(skb->len, direction, REASON_FORWARDED);
+#endif
 	tail_call(skb, &cilium_policy, ep->lxc_id);
 	return DROP_MISSED_TAIL_CALL;
 }
 
 static inline int __inline__ ipv4_local_delivery(struct __sk_buff *skb, int l3_off, int l4_off,
 						 __u32 seclabel, struct iphdr *ip4,
-						 struct endpoint_info *ep)
+						 struct endpoint_info *ep, __u8 direction)
 {
 	int ret;
 
@@ -111,6 +119,14 @@ static inline int __inline__ ipv4_local_delivery(struct __sk_buff *skb, int l3_o
 	skb->cb[CB_SRC_LABEL] = seclabel;
 	skb->cb[CB_IFINDEX] = ep->ifindex;
 
+#if defined LXC_ID
+	/*
+	 * Special LXC case for updating egress forwarding metrics.
+	 * Note that the packet could still be dropped but it would show up
+	 * as an ingress drop counter in metrics.
+	 */
+	update_metrics(skb->len, direction, REASON_FORWARDED);
+#endif
 	tail_call(skb, &cilium_policy, ep->lxc_id);
 	return DROP_MISSED_TAIL_CALL;
 }

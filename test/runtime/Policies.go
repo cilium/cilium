@@ -48,6 +48,7 @@ const (
 	policiesL7JSON                  = "Policies-l7-simple.json"
 	policiesL3JSON                  = "Policies-l3-policy.json"
 	policiesL3DependentL7EgressJSON = "Policies-l3-dependent-l7-egress.json"
+	policiesReservedInitJSON        = "Policies-reserved-init.json"
 )
 
 var _ = Describe("RuntimeValidatedPolicyEnforcement", func() {
@@ -241,10 +242,10 @@ var _ = Describe("RuntimeValidatedPolicyEnforcement", func() {
 var _ = Describe("RuntimeValidatedPolicies", func() {
 
 	var (
-		logger           *logrus.Entry
-		vm               *helpers.SSHMeta
-		monitorStop      func() error
-		dropAllContainer string
+		logger        *logrus.Entry
+		vm            *helpers.SSHMeta
+		monitorStop   func() error
+		initContainer string
 	)
 
 	BeforeAll(func() {
@@ -255,7 +256,7 @@ var _ = Describe("RuntimeValidatedPolicies", func() {
 		vm.SampleContainersActions(helpers.Create, helpers.CiliumDockerNetwork)
 		vm.PolicyDelAll()
 
-		dropAllContainer = "dropAllContainer"
+		initContainer = "initContainer"
 
 		areEndpointsReady := vm.WaitEndpointsReady()
 		Expect(areEndpointsReady).Should(BeTrue(), "Endpoints are not ready after timeout")
@@ -485,6 +486,81 @@ var _ = Describe("RuntimeValidatedPolicies", func() {
 		connectivityTest(allRequests, helpers.App2, helpers.Httpd1, true)
 	})
 
+	It("Tests Endpoint Connectivity Functions After Daemon Configuration Is Updated", func() {
+		httpd1DockerNetworking, err := vm.ContainerInspectNet(helpers.Httpd1)
+		Expect(err).ToNot(HaveOccurred(), "unable to get container networking metadata for %s", helpers.Httpd1)
+
+		// Importing a policy to ensure that not only does endpoint connectivity
+		// work after updating daemon configuration, but that policy works as well.
+		By("Importing policy and waiting for revision to increase for endpoints")
+		_, err = vm.PolicyImportAndWait(vm.GetFullPath(policiesL7JSON), helpers.HelperTimeout)
+		Expect(err).ToNot(HaveOccurred(), "unable to import policy after timeout")
+
+		By("Trying to access %s:80/public from %s before daemon configuration is updated (should be allowed by policy)", helpers.Httpd1, helpers.App1)
+		res := vm.ContainerExec(helpers.App1, helpers.CurlFail("http://%s:80/public", httpd1DockerNetworking[helpers.IPv4]))
+		res.ExpectSuccess("unable to access %s:80/public from %s (should have worked)", helpers.Httpd1, helpers.App1)
+
+		By("Trying to access %s:80/private from %s before daemon configuration is updated (should not be allowed by policy)", helpers.Httpd1, helpers.App1)
+		res = vm.ContainerExec(helpers.App1, helpers.CurlFail("http://%s:80/private", httpd1DockerNetworking[helpers.IPv4]))
+		res.ExpectFail("unable to access %s:80/private from %s (should not have worked)", helpers.Httpd1, helpers.App1)
+
+		By("Getting configuration for daemon")
+		daemonDebugConfig, err := vm.ExecCilium("config -o json").Filter("{.Debug}")
+		Expect(err).ToNot(HaveOccurred(), "Unable to get configuration for daemon")
+
+		daemonDebugConfigString := daemonDebugConfig.String()
+
+		var daemonDebugConfigSwitched string
+
+		switch daemonDebugConfigString {
+		case "Disabled":
+			daemonDebugConfigSwitched = "Enabled"
+		case "Enabled":
+			daemonDebugConfigSwitched = "Disabled"
+		default:
+			Fail(fmt.Sprintf("invalid configuration value for daemon: Debug=%s", daemonDebugConfigString))
+		}
+
+		currentRev, err := vm.PolicyGetRevision()
+		Expect(err).ToNot(HaveOccurred(), "unable to get policy revision")
+
+		// TODO: would be a good idea to factor out daemon configuration updates
+		// into a function in the future.
+		By("Changing daemon configuration from Debug=%s to Debug=%s to induce policy recalculation for endpoints", daemonDebugConfigString, daemonDebugConfigSwitched)
+		res = vm.ExecCilium(fmt.Sprintf("config Debug=%s", daemonDebugConfigSwitched))
+		res.ExpectSuccess("unable to change daemon configuration")
+
+		By("Getting policy revision after daemon configuration change")
+		revAfterConfig, err := vm.PolicyGetRevision()
+		Expect(err).ToNot(HaveOccurred(), "unable to get policy revision")
+		Expect(revAfterConfig).To(BeNumerically(">=", currentRev+1))
+
+		By("Waiting for policy revision to increase after daemon configuration change")
+		res = vm.PolicyWait(revAfterConfig)
+		res.ExpectSuccess("policy revision was not bumped after daemon configuration changes")
+
+		By("Changing daemon configuration back from Debug=%s to Debug=%s", daemonDebugConfigSwitched, daemonDebugConfigString)
+		res = vm.ExecCilium(fmt.Sprintf("config Debug=%s", daemonDebugConfigString))
+		res.ExpectSuccess("unable to change daemon configuration")
+
+		By("Getting policy revision after daemon configuration change")
+		revAfterSecondConfig, err := vm.PolicyGetRevision()
+		Expect(err).To(BeNil())
+		Expect(revAfterSecondConfig).To(BeNumerically(">=", revAfterConfig+1))
+
+		By("Waiting for policy revision to increase after daemon configuration change")
+		res = vm.PolicyWait(revAfterSecondConfig)
+		res.ExpectSuccess("policy revision was not bumped after daemon configuration changes")
+
+		By("Trying to access %s:80/public from %s after daemon configuration was updated (should be allowed by policy)", helpers.Httpd1, helpers.App1)
+		res = vm.ContainerExec(helpers.App1, helpers.CurlFail("http://%s:80/public", httpd1DockerNetworking[helpers.IPv4]))
+		res.ExpectSuccess("unable to access %s:80/public from %s (should have worked)", helpers.Httpd1, helpers.App1)
+
+		By("Trying to access %s:80/private from %s after daemon configuration is updated (should not be allowed by policy)", helpers.Httpd1, helpers.App1)
+		res = vm.ContainerExec(helpers.App1, helpers.CurlFail("http://%s:80/private", httpd1DockerNetworking[helpers.IPv4]))
+		res.ExpectFail("unable to access %s:80/private from %s (should not have worked)", helpers.Httpd1, helpers.App1)
+	})
+
 	It("L3-Dependent L7 Egress", func() {
 		_, err := vm.PolicyImportAndWait(vm.GetFullPath(policiesL3DependentL7EgressJSON), helpers.HelperTimeout)
 		Expect(err).Should(BeNil(), "unable to import %s", policiesL3DependentL7EgressJSON)
@@ -544,6 +620,7 @@ var _ = Describe("RuntimeValidatedPolicies", func() {
 		// allowing connectivity via http / http6.
 		checkProxyStatistics(app3EndpointID, 6, 8, 2, 6, 6)
 	})
+
 	It("Checks CIDR L3 Policy", func() {
 
 		ipv4OtherHost := "192.168.254.111"
@@ -1139,84 +1216,145 @@ var _ = Describe("RuntimeValidatedPolicies", func() {
 			res.ExpectContains("403", "unexpectedly able to access http://%q:80/private when access should only be allowed to /index.html", otherHostIP)
 		})
 	})
-
-	Context("DROP_ALL Policy test", func() {
+	Context("Init Policy Default Drop Test", func() {
 		BeforeEach(func() {
-			// Install a policy that will not apply to any endpoints in this test. If we don't install any policy
-			// DROP_ALL mode will not be turned on in the "default" policy enforcement mode.
-			_, err := vm.PolicyImportAndWait(vm.GetFullPath(sampleJSON), helpers.HelperTimeout)
-			Expect(err).Should(BeNil(), "Dummy policy import failed")
+			vm.ContainerRm(initContainer)
+			ExpectPolicyEnforcementUpdated(vm, helpers.PolicyEnforcementAlways)
 		})
 
 		AfterEach(func() {
-			vm.ContainerRm(dropAllContainer).ExpectSuccess("Container dropAllContainer cannot be deleted")
+			vm.ContainerRm(initContainer).ExpectSuccess("Container initContainer cannot be deleted")
 		})
 
-		It("DROP_ALL Ingress Policy test", func() {
-			res := vm.ContainerCreate(dropAllContainer, helpers.NetperfImage, helpers.CiliumDockerNetwork, "", "")
-			res.ExpectSuccess("Failed to create containter with no labels.")
-			By("Starting cilium monitor in background to filter DROP requests")
+		It("Init Ingress Policy Default Drop Test", func() {
+			By("Starting cilium monitor in background")
 			ctx, cancel := context.WithCancel(context.Background())
-			dropRes := vm.ExecContext(ctx, "cilium monitor --type drop")
+			monitorRes := vm.ExecContext(ctx, "cilium monitor --type drop --type trace")
 			defer cancel()
+
+			By("Creating an endpoint")
+			res := vm.ContainerCreate(initContainer, helpers.NetperfImage, helpers.CiliumDockerNetwork, "-l somelabel")
+			res.ExpectSuccess("Failed to create container")
 
 			endpoints, err := vm.GetAllEndpointsIds()
 			Expect(err).Should(BeNil(), "Unable to get IDs of endpoints")
-			endpointID, exists := endpoints[dropAllContainer]
-			Expect(exists).To(BeTrue(), "Expected endpoint ID to exist for %s", dropAllContainer)
+			endpointID, exists := endpoints[initContainer]
+			Expect(exists).To(BeTrue(), "Expected endpoint ID to exist for %s", initContainer)
 			ingressEpModel := vm.EndpointGet(endpointID)
 			Expect(ingressEpModel).NotTo(BeNil(), "nil model returned for endpoint %s", endpointID)
-			Expect(ingressEpModel.Status.State).To(BeEquivalentTo(models.EndpointStateWaitingForIdentity), "endpoint %s not in waiting for identity state", endpointID)
 
 			endpointIP := ingressEpModel.Status.Networking.Addressing[0]
 
-			By("Testing endpoint lxc_config.h for DROP_ALL")
-
-			lxcCmd := fmt.Sprintf("cat /var/run/cilium/state/%s/lxc_config.h | grep 'DROP_ALL'", endpointID)
-
-			res = vm.ExecWithSudo(lxcCmd)
-			res.ExpectSuccess("Cannot get lxc_config")
-			res.ExpectContains("#define DROP_ALL", "DROP_ALL is not defined in lxc_config.h for endpoint %s", endpointID)
-
-			By("Testing ingress with ping from localhost to endpoint with no labels")
+			// Normally, we start pinging fast enough that the endpoint still has identity "init" / 5,
+			// and we continue pinging as the endpoint changes its identity for label "somelabel".
+			// So these pings will be dropped by the policies for both identity 5 and the new identity
+			// for label "somelabel".
+			By("Testing ingress with ping from host to endpoint")
 			res = vm.Exec(helpers.Ping(endpointIP.IPV4))
-			res.ExpectFail("Unexpectedly able to ping endpoint with DROP_ALL ingress policy")
+			res.ExpectFail("Unexpectedly able to ping endpoint with no ingress policy")
 
-			By("Testing cilium monitor drop")
-			err = dropRes.WaitUntilMatch("drop (Policy denied (L3))")
-			Expect(err).To(BeNil(), "DROP all on ingress failed.")
+			By("Testing cilium monitor output")
+			err = monitorRes.WaitUntilMatch("xx drop (Policy denied")
+			Expect(err).To(BeNil(), "Default drop on ingress failed")
+			monitorRes.ExpectDoesNotContain(fmt.Sprintf("-> endpoint %s ", endpointID),
+				"Unexpected ingress traffic to endpoint")
 		})
 
-		It("DROP_ALL Egress Policy test", func() {
-			By("Create an endpoint with no labels to test DROP_ALL")
-			res := vm.ContainerCreate(dropAllContainer, helpers.NetperfImage, helpers.CiliumDockerNetwork, "", "ping 8.8.8.8")
-			res.ExpectSuccess("Failed to create container with no labels.")
+		It("Init Egress Policy Default Drop Test", func() {
+			hostIP := "10.0.2.15"
 
-			By("Starting cilium monitor in background to filter DROP requests")
+			By("Starting cilium monitor in background")
 			ctx, cancel := context.WithCancel(context.Background())
-			dropRes := vm.ExecContext(ctx, "cilium monitor --type drop")
+			monitorRes := vm.ExecContext(ctx, "cilium monitor --type drop --type trace")
 			defer cancel()
+
+			By("Creating an endpoint")
+			res := vm.ContainerCreate(initContainer, helpers.NetperfImage, helpers.CiliumDockerNetwork, "-l somelabel", "ping", hostIP)
+			res.ExpectSuccess("Failed to create container")
 
 			endpoints, err := vm.GetAllEndpointsIds()
 			Expect(err).To(BeNil(), "Unable to get IDs of endpoints")
-			endpointID, exists := endpoints[dropAllContainer]
-			Expect(exists).To(BeTrue(), "Expected endpoint ID to exist for %s", dropAllContainer)
+			endpointID, exists := endpoints[initContainer]
+			Expect(exists).To(BeTrue(), "Expected endpoint ID to exist for %s", initContainer)
 			egressEpModel := vm.EndpointGet(endpointID)
 			Expect(egressEpModel).NotTo(BeNil(), "nil model returned for endpoint %s", endpointID)
 
-			Expect(egressEpModel.Status.State).To(BeEquivalentTo(models.EndpointStateWaitingForIdentity), "endpoint %s not in waiting for identity state", endpointID)
+			By("Testing cilium monitor output")
+			err = monitorRes.WaitUntilMatch("xx drop (Policy denied")
+			Expect(err).To(BeNil(), "Default drop on egress failed")
+			monitorRes.ExpectDoesNotContain(fmt.Sprintf("-> endpoint %s ", endpointID),
+				"Unexpected reply traffic to endpoint")
+		})
+	})
+	Context("Init Policy Test", func() {
+		BeforeEach(func() {
+			vm.ContainerRm(initContainer)
+			ExpectPolicyEnforcementUpdated(vm, helpers.PolicyEnforcementAlways)
 
-			By("Testing endpoint lxc_config.h for DROP_ALL")
+			_, err := vm.PolicyImportAndWait(vm.GetFullPath(policiesReservedInitJSON), helpers.HelperTimeout)
+			Expect(err).Should(BeNil(), "Init policy import failed")
+		})
 
-			lxcCmd := fmt.Sprintf("cat /var/run/cilium/state/%s/lxc_config.h | grep 'DROP_ALL'", endpointID)
+		AfterEach(func() {
+			vm.ContainerRm(initContainer).ExpectSuccess("Container initContainer cannot be deleted")
+		})
 
-			res = vm.ExecWithSudo(lxcCmd)
-			res.ExpectSuccess("Cannot get lxc_config")
-			res.ExpectContains("#define DROP_ALL", "DROP_ALL is not defined in lxc_config.h for endpoint %s", endpointID)
+		It("Init Ingress Policy Test", func() {
+			By("Starting cilium monitor in background")
+			ctx, cancel := context.WithCancel(context.Background())
+			monitorRes := vm.ExecContext(ctx, "cilium monitor --type drop --type trace")
+			defer cancel()
 
-			By("Testing cilium monitor drop")
-			err = dropRes.WaitUntilMatch("drop (Policy denied (L3))")
-			Expect(err).To(BeNil(), "DROP all on egress failed.")
+			By("Creating an endpoint")
+			res := vm.ContainerCreate(initContainer, helpers.NetperfImage, helpers.CiliumDockerNetwork, "-l somelabel")
+			res.ExpectSuccess("Failed to create container")
+
+			endpoints, err := vm.GetAllEndpointsIds()
+			Expect(err).Should(BeNil(), "Unable to get IDs of endpoints")
+			endpointID, exists := endpoints[initContainer]
+			Expect(exists).To(BeTrue(), "Expected endpoint ID to exist for %s", initContainer)
+			ingressEpModel := vm.EndpointGet(endpointID)
+			Expect(ingressEpModel).NotTo(BeNil(), "nil model returned for endpoint %s", endpointID)
+
+			endpointIP := ingressEpModel.Status.Networking.Addressing[0]
+
+			// Normally, we start pinging fast enough that the endpoint still has identity "init" / 5,
+			// and we continue pinging as the endpoint changes its identity for label "somelabel".
+			// So these pings will be allowed by the policies for both identity 5 and the new identity
+			// for label "somelabel".
+			By("Testing ingress with ping from host to endpoint")
+			res = vm.Exec(helpers.Ping(endpointIP.IPV4))
+			res.ExpectSuccess("Cannot ping endpoint with init policy")
+
+			By("Testing cilium monitor output")
+			err = monitorRes.WaitUntilMatchRegexp(fmt.Sprintf(`-> endpoint %s flow [^ ]+ identity 1->`, endpointID))
+			Expect(err).To(BeNil(), "Allow on ingress failed")
+			monitorRes.ExpectDoesNotMatchRegexp(fmt.Sprintf(`xx drop \(Policy denied \([^)]+\)\) flow [^ ]+ to endpoint %s, identity 1->[^0]`, endpointID), "Unexpected drop")
+		})
+
+		It("Init Egress Policy Test", func() {
+			hostIP := "10.0.2.15"
+
+			By("Starting cilium monitor in background")
+			ctx, cancel := context.WithCancel(context.Background())
+			monitorRes := vm.ExecContext(ctx, "cilium monitor --type drop --type trace")
+			defer cancel()
+
+			By("Creating an endpoint")
+			res := vm.ContainerCreate(initContainer, helpers.NetperfImage, helpers.CiliumDockerNetwork, "-l somelabel", "ping", hostIP)
+			res.ExpectSuccess("Failed to create container")
+
+			endpoints, err := vm.GetAllEndpointsIds()
+			Expect(err).To(BeNil(), "Unable to get IDs of endpoints")
+			endpointID, exists := endpoints[initContainer]
+			Expect(exists).To(BeTrue(), "Expected endpoint ID to exist for %s", initContainer)
+			egressEpModel := vm.EndpointGet(endpointID)
+			Expect(egressEpModel).NotTo(BeNil(), "nil model returned for endpoint %s", endpointID)
+
+			By("Testing cilium monitor output")
+			err = monitorRes.WaitUntilMatchRegexp(fmt.Sprintf(`-> endpoint %s flow [^ ]+ identity 1->`, endpointID))
+			Expect(err).To(BeNil(), "Allow on egress failed")
+			monitorRes.ExpectDoesNotMatchRegexp(fmt.Sprintf(`xx drop \(Policy denied \([^)]+\)\) flow [^ ]+ to endpoint %s, identity 1->[^0]`, endpointID), "Unexpected drop")
 		})
 	})
 })

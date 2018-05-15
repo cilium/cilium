@@ -17,7 +17,9 @@ package RuntimeTest
 import (
 	"crypto/md5"
 	"fmt"
+	"strings"
 
+	"github.com/cilium/cilium/pkg/identity"
 	. "github.com/cilium/cilium/test/ginkgo-ext"
 	"github.com/cilium/cilium/test/helpers"
 
@@ -62,7 +64,27 @@ var _ = Describe("RuntimeValidatedChaos", func() {
 		curl -s --unix-socket /var/run/cilium/cilium.sock \
 		http://localhost/v1beta/healthz/ | jq ".ipam.ipv4|length"`)
 
-		endpointListCmd := "cilium endpoint list | grep -v reserved"
+		// List the endpoints, but skip the reserved:health endpoint
+		// (4) because it doesn't matter if that endpoint is different.
+		// Remove fields that are expected to change across restart.
+		//
+		// We don't use -o jsonpath... here due to GH-2395.
+		//
+		// jq 'map(select(.status.identity.id != 4), del(.status.controllers, ..., (.status.identity.labels | sort)))'
+		filterHealthEP := fmt.Sprintf("select(.status.identity.id != %d)", identity.GetReservedID("health"))
+		nonPersistentEndpointFields := strings.Join([]string{
+			".status.controllers",     // Timestamps, UUIDs
+			".status.labels",          // Slice ordering
+			".status.log",             // Timestamp
+			".status.identity.labels", // Slice ordering
+			".status.policy",          // Allowed identities order
+		}, ", ")
+		// Delete fields we're not interested in
+		filterFields := fmt.Sprintf("del(%s)", nonPersistentEndpointFields)
+		// Go back and add the identity labels back into the output
+		getSortedLabels := "(.status.identity.labels | sort)"
+		jqCmd := fmt.Sprintf("jq 'map(%s) | map(%s, %s)'", filterHealthEP, filterFields, getSortedLabels)
+		endpointListCmd := fmt.Sprintf("cilium endpoint list -o json | %s", jqCmd)
 		originalEndpointList := vm.Exec(endpointListCmd)
 
 		err := vm.RestartCilium()

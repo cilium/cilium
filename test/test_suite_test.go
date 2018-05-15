@@ -17,6 +17,8 @@ package ciliumTest
 import (
 	"fmt"
 	"os"
+	"os/exec"
+	"path/filepath"
 	"strconv"
 	"testing"
 	"time"
@@ -84,6 +86,11 @@ func TestTest(t *testing.T) {
 	configLogsOutput()
 	ShowCommands()
 
+	if config.CiliumTestConfig.CiliumDSManifest != "" {
+		helpers.CiliumDSPath = config.CiliumTestConfig.CiliumDSManifest
+		log.Info("Using new Cilium daemonset manifest '%s'", helpers.CiliumDSPath)
+	}
+
 	if config.CiliumTestConfig.HoldEnvironment {
 		RegisterFailHandler(helpers.Fail)
 	} else {
@@ -130,6 +137,18 @@ func goReportVagrantStatus() chan bool {
 	return exit
 }
 
+func reportCreateVMFailure(vm string, err error) {
+	failmsg := fmt.Sprintf(`
+        ===================== ERROR - VM PROVISION FAILED =====================
+
+        Unable to provision and start VM %q: %s", vm, err
+
+        =======================================================================
+        `, vm, err)
+	ginkgoext.GinkgoPrint(failmsg)
+	Fail(failmsg)
+}
+
 var _ = BeforeAll(func() {
 	var err error
 
@@ -154,7 +173,7 @@ var _ = BeforeAll(func() {
 		err = helpers.CreateVM(helpers.Runtime)
 		if err != nil {
 			log.WithError(err).Error("Error starting VM")
-			Fail(fmt.Sprintf("error starting VM %q: %s", helpers.Runtime, err))
+			reportCreateVMFailure(helpers.Runtime, err)
 		}
 
 		vm := helpers.InitRuntimeHelper(helpers.Runtime, log.WithFields(
@@ -167,7 +186,7 @@ var _ = BeforeAll(func() {
 			// #3428
 			vm.ReportFailed()
 			log.WithError(err).Error("Cilium was unable to be set up correctly")
-			Fail(fmt.Sprintf("Cilium was unable to be set up correctly: %s", err))
+			reportCreateVMFailure(helpers.Runtime, err)
 		}
 
 	case helpers.K8s:
@@ -181,14 +200,14 @@ var _ = BeforeAll(func() {
 
 		err = helpers.CreateVM(helpers.K8s1VMName())
 		if err != nil {
-			Fail(fmt.Sprintf("error starting VM %q: %s", helpers.K8s1VMName(), err))
+			reportCreateVMFailure(helpers.K8s1VMName(), err)
 		}
 
 		err = helpers.CreateVM(helpers.K8s2VMName())
-
 		if err != nil {
-			Fail(fmt.Sprintf("error starting VM %q: %s", helpers.K8s2VMName(), err))
+			reportCreateVMFailure(helpers.K8s2VMName(), err)
 		}
+
 		// For Nightly test we need to have more than two kubernetes nodes. If
 		// the env variable K8S_NODES is present, more nodes will be created.
 		if nodes := os.Getenv(k8sNodesEnv); nodes != "" {
@@ -200,7 +219,7 @@ var _ = BeforeAll(func() {
 				vmName := fmt.Sprintf("%s%d-%s", helpers.K8s, i, helpers.GetCurrentK8SEnv())
 				err = helpers.CreateVM(vmName)
 				if err != nil {
-					Fail(fmt.Sprintf("error starting VM %q: %s", vmName, err))
+					reportCreateVMFailure(vmName, err)
 				}
 			}
 		}
@@ -247,5 +266,22 @@ var _ = AfterEach(func() {
 	if err != nil {
 		log.WithError(err).Errorf("cannot create log file '%s'", commandsLogFileName)
 		return
+	}
+
+	// This piece of code is to enable zip attachments on Junit Output.
+	if ginkgo.CurrentGinkgoTestDescription().Failed && helpers.IsRunningOnJenkins() {
+		// ReportDirectory is already created. No check the error
+		path, _ := helpers.CreateReportDirectory()
+		zipFileName := fmt.Sprintf("%s_%s.zip", helpers.MakeUID(), ginkgoext.GetTestName())
+		zipFilePath := filepath.Join(helpers.TestResultsPath, zipFileName)
+
+		_, err := exec.Command(
+			"/bin/bash", "-c",
+			fmt.Sprintf("zip -qr %s %s", zipFilePath, path)).CombinedOutput()
+		if err != nil {
+			log.WithError(err).Errorf("cannot create zip file '%s'", zipFilePath)
+		}
+
+		ginkgoext.GinkgoPrint("[[ATTACHMENT|%s]]", zipFileName)
 	}
 })

@@ -34,17 +34,25 @@ type IdentityTestSuite struct{}
 var _ = Suite(&IdentityTestSuite{})
 
 func (s *IdentityTestSuite) TestReservedID(c *C) {
-	i1 := GetReservedID("host")
-	c.Assert(i1, Equals, NumericIdentity(1))
-	c.Assert(i1.String(), Equals, "host")
+	i := GetReservedID("host")
+	c.Assert(i, Equals, NumericIdentity(1))
+	c.Assert(i.String(), Equals, "host")
 
-	i2 := GetReservedID("world")
-	c.Assert(i2, Equals, NumericIdentity(2))
-	c.Assert(i2.String(), Equals, "world")
+	i = GetReservedID("world")
+	c.Assert(i, Equals, NumericIdentity(2))
+	c.Assert(i.String(), Equals, "world")
 
-	i2 = GetReservedID("cluster")
-	c.Assert(i2, Equals, NumericIdentity(3))
-	c.Assert(i2.String(), Equals, "cluster")
+	i = GetReservedID("cluster")
+	c.Assert(i, Equals, NumericIdentity(3))
+	c.Assert(i.String(), Equals, "cluster")
+
+	i = GetReservedID("health")
+	c.Assert(i, Equals, NumericIdentity(4))
+	c.Assert(i.String(), Equals, "health")
+
+	i = GetReservedID("init")
+	c.Assert(i, Equals, NumericIdentity(5))
+	c.Assert(i.String(), Equals, "init")
 
 	c.Assert(GetReservedID("unknown"), Equals, IdentityUnknown)
 	unknown := NumericIdentity(700)
@@ -52,13 +60,67 @@ func (s *IdentityTestSuite) TestReservedID(c *C) {
 }
 
 func (s *IdentityTestSuite) TestIsReservedIdentity(c *C) {
-
 	c.Assert(ReservedIdentityCluster.IsReservedIdentity(), Equals, true)
 	c.Assert(ReservedIdentityHealth.IsReservedIdentity(), Equals, true)
 	c.Assert(ReservedIdentityHost.IsReservedIdentity(), Equals, true)
 	c.Assert(ReservedIdentityWorld.IsReservedIdentity(), Equals, true)
+	c.Assert(ReservedIdentityInit.IsReservedIdentity(), Equals, true)
 
 	c.Assert(NumericIdentity(123456).IsReservedIdentity(), Equals, false)
+}
+
+func (s *IdentityTestSuite) TestAllocateIdentityReserved(c *C) {
+	var (
+		lbls  labels.Labels
+		i     *Identity
+		isNew bool
+		err   error
+	)
+
+	lbls = labels.Labels{
+		labels.IDNameHost: labels.NewLabel(labels.IDNameHost, "", labels.LabelSourceReserved),
+	}
+	c.Assert(IdentityAllocationIsLocal(lbls), Equals, true)
+	i, isNew, err = AllocateIdentity(lbls)
+	c.Assert(err, IsNil)
+	c.Assert(i.ID, Equals, ReservedIdentityHost)
+	c.Assert(isNew, Equals, false)
+
+	lbls = labels.Labels{
+		labels.IDNameWorld: labels.NewLabel(labels.IDNameWorld, "", labels.LabelSourceReserved),
+	}
+	c.Assert(IdentityAllocationIsLocal(lbls), Equals, true)
+	i, isNew, err = AllocateIdentity(lbls)
+	c.Assert(err, IsNil)
+	c.Assert(i.ID, Equals, ReservedIdentityWorld)
+	c.Assert(isNew, Equals, false)
+
+	lbls = labels.Labels{
+		labels.IDNameCluster: labels.NewLabel(labels.IDNameCluster, "", labels.LabelSourceReserved),
+	}
+	c.Assert(IdentityAllocationIsLocal(lbls), Equals, true)
+	i, isNew, err = AllocateIdentity(lbls)
+	c.Assert(err, IsNil)
+	c.Assert(i.ID, Equals, ReservedIdentityCluster)
+	c.Assert(isNew, Equals, false)
+
+	lbls = labels.Labels{
+		labels.IDNameHealth: labels.NewLabel(labels.IDNameHealth, "", labels.LabelSourceReserved),
+	}
+	c.Assert(IdentityAllocationIsLocal(lbls), Equals, true)
+	i, isNew, err = AllocateIdentity(lbls)
+	c.Assert(err, IsNil)
+	c.Assert(i.ID, Equals, ReservedIdentityHealth)
+	c.Assert(isNew, Equals, false)
+
+	lbls = labels.Labels{
+		labels.IDNameInit: labels.NewLabel(labels.IDNameInit, "", labels.LabelSourceReserved),
+	}
+	c.Assert(IdentityAllocationIsLocal(lbls), Equals, true)
+	i, isNew, err = AllocateIdentity(lbls)
+	c.Assert(err, IsNil)
+	c.Assert(i.ID, Equals, ReservedIdentityInit)
+	c.Assert(isNew, Equals, false)
 }
 
 type IdentityAllocatorSuite struct{}

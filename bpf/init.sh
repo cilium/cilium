@@ -23,6 +23,7 @@ MODE=$5
 NATIVE_DEV=$6
 XDP_DEV=$7
 XDP_MODE=$8
+MTU=$9
 
 ID_HOST=1
 ID_WORLD=2
@@ -86,8 +87,12 @@ function setup_veth_pair()
 	local -r NAME1=$1
 	local -r NAME2=$2
 
-	ip link del $NAME1 2> /dev/null || true
-	ip link add $NAME1 type veth peer name $NAME2
+	# Only recreate the veth pair if it does not exist already.
+	# This avoids problems with changing MAC addresses.
+ 	if [ "$(ip link show $NAME1 type veth | cut -d ' ' -f 2)" != "${NAME1}@${NAME2}:" ] ; then
+		ip link del $NAME1 2> /dev/null || true
+		ip link add $NAME1 type veth peer name $NAME2
+	fi
 
 	setup_veth $NAME1
 	setup_veth $NAME2
@@ -148,14 +153,14 @@ function setup_proxy_rules()
 	fi
 
 	if [ -n "$IP4_HOST" ]; then
-		ip route add table $PROXY_RT_TABLE $IP4_HOST/32 dev $HOST_DEV1
-		ip route add table $PROXY_RT_TABLE default via $IP4_HOST
+		ip route replace table $PROXY_RT_TABLE $IP4_HOST/32 dev $HOST_DEV1
+		ip route replace table $PROXY_RT_TABLE default via $IP4_HOST
 	fi
 
 	IP6_LLADDR=$(ip -6 addr show dev $HOST_DEV2 | grep inet6 | head -1 | awk '{print $2}' | awk -F'/' '{print $1}')
 	if [ -n "$IP6_LLADDR" ]; then
-		ip -6 route add table $PROXY_RT_TABLE ${IP6_LLADDR}/128 dev $HOST_DEV1
-		ip -6 route add table $PROXY_RT_TABLE default via $IP6_LLADDR dev $HOST_DEV1
+		ip -6 route replace table $PROXY_RT_TABLE ${IP6_LLADDR}/128 dev $HOST_DEV1
+		ip -6 route replace table $PROXY_RT_TABLE default via $IP6_LLADDR dev $HOST_DEV1
 	fi
 }
 
@@ -250,8 +255,8 @@ setup_veth_pair $HOST_DEV1 $HOST_DEV2
 ip link set $HOST_DEV1 arp off
 ip link set $HOST_DEV2 arp off
 
-ip link set $HOST_DEV1 mtu 1450
-ip link set $HOST_DEV2 mtu 1450
+ip link set $HOST_DEV1 mtu $MTU
+ip link set $HOST_DEV2 mtu $MTU
 
 sed -i '/^#.*CILIUM_NET_MAC.*$/d' $RUNDIR/globals/node_config.h
 CILIUM_NET_MAC=$(ip link show $HOST_DEV2 | grep ether | awk '{print $2}')

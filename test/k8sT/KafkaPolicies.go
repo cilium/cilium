@@ -56,12 +56,13 @@ var _ = Describe("K8sValidatedKafkaPolicyTest", func() {
 		logger = log.WithFields(logrus.Fields{"testName": "K8sValidatedKafkaPolicyTest"})
 		kubectl = helpers.CreateKubectl(helpers.K8s1VMName(), logger)
 
-		kubectl.Apply(helpers.ManifestGet("cilium_ds.yaml"))
+		err := kubectl.CiliumInstall(helpers.CiliumDSPath)
+		Expect(err).To(BeNil(), "Cilium cannot be installed")
 		ExpectCiliumReady(kubectl)
 		ExpectKubeDNSReady(kubectl)
 
 		kubectl.Apply(demoPath)
-		err := kubectl.WaitforPods(helpers.DefaultNamespace, "-l zgroup=kafkaTestApp", 300)
+		err = kubectl.WaitforPods(helpers.DefaultNamespace, "-l zgroup=kafkaTestApp", 300)
 		Expect(err).Should(BeNil(), "Kafka Pods are not ready after timeout")
 
 		appPods = helpers.GetAppPods(apps, helpers.DefaultNamespace, kubectl, "app")
@@ -126,15 +127,6 @@ var _ = Describe("K8sValidatedKafkaPolicyTest", func() {
 			helpers.DefaultNamespace, appPods[outpostApp], fmt.Sprintf(prodOutAnnounce))
 		Expect(err).Should(BeNil(), "Failed to produce to outpost on topic empire-announce")
 
-		By("Waiting for CEP to exist for %q", appPods[kafkaApp])
-		err = kubectl.WaitForCEPToExist(appPods[kafkaApp], helpers.DefaultNamespace)
-		Expect(err).To(BeNil(), "CEP did not get created for %s", appPods[kafkaApp])
-
-		By("Getting policy revision number for each endpoint")
-		cep := kubectl.CepGet(helpers.DefaultNamespace, appPods[kafkaApp])
-		Expect(cep).ToNot(BeNil(), "cannot get cep for app %q and pod %s", kafkaApp, appPods[kafkaApp])
-		kafkaRevBeforeUpdate := cep.Status.Policy.Realized.PolicyRevision
-
 		By("Apply L7 kafka policy and wait")
 
 		_, err = kubectl.CiliumPolicyAction(
@@ -142,9 +134,9 @@ var _ = Describe("K8sValidatedKafkaPolicyTest", func() {
 			helpers.KubectlApply, helpers.HelperTimeout)
 		Expect(err).To(BeNil(), "L7 policy cannot be imported correctly")
 
-		By("validate that the pods have the correct policy")
+		ExpectCEPUpdates(kubectl)
 
-		err = kubectl.WaitCEPRevisionIncrease(appPods[kafkaApp], helpers.DefaultNamespace, kafkaRevBeforeUpdate)
+		By("validate that the pods have the correct policy")
 
 		desiredPolicyStatus := map[string]models.EndpointPolicyEnabled{
 			backupApp:   models.EndpointPolicyEnabledNone,

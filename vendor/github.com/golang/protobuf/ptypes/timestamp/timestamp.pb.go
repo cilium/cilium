@@ -101,7 +101,7 @@ const _ = proto.ProtoPackageIsVersion2 // please upgrade the proto package
 // to this format using [`strftime`](https://docs.python.org/2/library/time.html#time.strftime)
 // with the time format spec '%Y-%m-%dT%H:%M:%S.%fZ'. Likewise, in Java, one
 // can use the Joda Time's [`ISODateTimeFormat.dateTime()`](
-// http://joda-time.sourceforge.net/apidocs/org/joda/time/format/ISODateTimeFormat.html#dateTime())
+// http://www.joda.org/joda-time/apidocs/org/joda/time/format/ISODateTimeFormat.html#dateTime--)
 // to obtain a formatter capable of generating timestamps in this format.
 //
 //
@@ -114,7 +114,10 @@ type Timestamp struct {
 	// second values with fractions must still have non-negative nanos values
 	// that count forward in time. Must be from 0 to 999,999,999
 	// inclusive.
-	Nanos int32 `protobuf:"varint,2,opt,name=nanos" json:"nanos,omitempty"`
+	Nanos                int32    `protobuf:"varint,2,opt,name=nanos" json:"nanos,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `protobuf_unrecognized:"proto3" json:"-"`
+	XXX_sizecache        int32    `json:"-"`
 }
 
 func (m *Timestamp) Reset()                    { *m = Timestamp{} }
@@ -122,6 +125,23 @@ func (m *Timestamp) String() string            { return proto.CompactTextString(
 func (*Timestamp) ProtoMessage()               {}
 func (*Timestamp) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{0} }
 func (*Timestamp) XXX_WellKnownType() string   { return "Timestamp" }
+func (m *Timestamp) Unmarshal(b []byte) error {
+	return xxx_messageInfo_Timestamp.Unmarshal(m, b)
+}
+func (m *Timestamp) Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_Timestamp.Marshal(b, m, deterministic)
+}
+func (dst *Timestamp) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_Timestamp.Merge(dst, src)
+}
+func (m *Timestamp) XXX_Size() int {
+	return xxx_messageInfo_Timestamp.Size(m)
+}
+func (m *Timestamp) XXX_DiscardUnknown() {
+	xxx_messageInfo_Timestamp.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_Timestamp proto.InternalMessageInfo
 
 func (m *Timestamp) GetSeconds() int64 {
 	if m != nil {

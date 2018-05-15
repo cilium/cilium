@@ -19,6 +19,7 @@ build:
 	# GH #1839
 	@$(ECHO_GINKGO)$@
 	$(GINKGO) build || true
+	$(QUIET)$(MAKE) -C bpf/
 
 test: run k8s
 

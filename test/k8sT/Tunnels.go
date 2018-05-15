@@ -68,29 +68,29 @@ var _ = Describe("K8sValidatedTunnelTest", func() {
 
 	Context("VXLan", func() {
 
-		var (
-			vxlanDSPath string
-		)
-
 		BeforeEach(func() {
-			vxlanDSPath = helpers.ManifestGet("cilium_ds.yaml")
+			err := kubectl.CiliumInstall(helpers.CiliumDSPath)
+			Expect(err).To(BeNil(), "Cilium cannot be installed")
 		})
 
 		AfterEach(func() {
 			// Do not assert on success in AfterEach intentionally to avoid
 			// incomplete teardown.
-			_ = kubectl.Delete(vxlanDSPath)
+			_ = kubectl.DeleteResource(
+				"ds", fmt.Sprintf("-n %s cilium", helpers.KubeSystemNamespace))
 			waitToDeleteCilium(kubectl, logger)
 		})
 
 		It("Check VXLAN mode", func() {
-			res := kubectl.Apply(vxlanDSPath)
-			res.ExpectSuccess("Unable to apply %q", vxlanDSPath)
 
 			ExpectCiliumReady(kubectl)
 
 			ciliumPod, err := kubectl.GetCiliumPodOnNode(helpers.KubeSystemNamespace, helpers.K8s1)
 			Expect(err).Should(BeNil())
+
+			By("Making sure all endpoints are in ready state")
+			err = kubectl.CiliumEndpointWaitReady()
+			Expect(err).To(BeNil(), "Endpoints are not ready after timeout")
 
 			_, err = kubectl.CiliumNodesWait()
 			Expect(err).Should(BeNil())
@@ -108,24 +108,21 @@ var _ = Describe("K8sValidatedTunnelTest", func() {
 
 	Context("Geneve", func() {
 
-		var (
-			geneveDSPath string
-		)
-
 		BeforeEach(func() {
-			geneveDSPath = helpers.ManifestGet("cilium_ds_geneve.yaml")
+			err := kubectl.CiliumInstall("cilium_ds_geneve.jsonnet")
+			Expect(err).To(BeNil(), "Cilium cannot be installed")
 		})
 
 		AfterEach(func() {
 			// Do not assert on success in AfterEach intentionally to avoid
 			// incomplete teardown.
-			_ = kubectl.Delete(geneveDSPath)
+			_ = kubectl.DeleteResource(
+				"ds", fmt.Sprintf("-n %s cilium", helpers.KubeSystemNamespace))
 			waitToDeleteCilium(kubectl, logger)
 		})
 
 		It("Check Geneve mode", func() {
-			res := kubectl.Apply(geneveDSPath)
-			res.ExpectSuccess("unable to apply %s", geneveDSPath)
+
 			ExpectCiliumReady(kubectl)
 
 			ciliumPod, err := kubectl.GetCiliumPodOnNode(helpers.KubeSystemNamespace, helpers.K8s1)
@@ -133,6 +130,10 @@ var _ = Describe("K8sValidatedTunnelTest", func() {
 
 			_, err = kubectl.CiliumNodesWait()
 			Expect(err).Should(BeNil())
+
+			By("Making sure all endpoints are in ready state")
+			err = kubectl.CiliumEndpointWaitReady()
+			Expect(err).To(BeNil(), "Endpoints are not ready after timeout")
 
 			//Check that cilium detects a
 			By("Checking that BPF tunnels are in place")

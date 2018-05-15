@@ -37,8 +37,10 @@ var _ = Describe(testName, func() {
 		logger.Info("Starting")
 
 		kubectl = helpers.CreateKubectl(helpers.K8s1VMName(), logger)
-		ciliumYAML := helpers.ManifestGet("cilium_ds.yaml")
-		kubectl.Apply(ciliumYAML)
+
+		err := kubectl.CiliumInstall(helpers.CiliumDSPath)
+		Expect(err).To(BeNil(), "Cilium cannot be installed")
+
 		ExpectCiliumReady(kubectl)
 	})
 

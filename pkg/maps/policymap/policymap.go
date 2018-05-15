@@ -22,7 +22,12 @@ import (
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/identity"
+	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/logging"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/u8proto"
+
+	"github.com/sirupsen/logrus"
 )
 
 const (
@@ -44,9 +49,12 @@ const (
 	AllPorts = uint16(0)
 )
 
+var log = logging.DefaultLogger
+
 type PolicyMap struct {
-	path string
-	Fd   int
+	path  string
+	Fd    int
+	mutex lock.Mutex
 }
 
 func (pe *PolicyEntry) String() string {
@@ -257,9 +265,32 @@ func (pm *PolicyMap) Flush() error {
 	return nil
 }
 
-// Close closes the FD of the given PolicyMap
+// Close closes the FD of the given PolicyMap. Returns an error if the close
+// operation failed. If the close operation succeeds, pm's file descriptor
+// is set to zero.
 func (pm *PolicyMap) Close() error {
-	return bpf.ObjClose(pm.Fd)
+	pm.mutex.Lock()
+	defer pm.mutex.Unlock()
+	log.WithFields(logrus.Fields{
+		logfields.BPFMapPath: pm.path,
+		logfields.BPFMapFD:   pm.Fd,
+	}).Debug("closing PolicyMap")
+	err := bpf.ObjClose(pm.Fd)
+
+	// Unconditionally set file descriptor to zero so that if accesses are
+	// attempted on this PolicyMap even after this call to Close, the accesses
+	// aren't to a file descriptor that has been reassigned elsewhere. Even
+	// if the close fails, per close(2) manpages:
+	//
+	// "on Linux and many other implementations, where, as with other errors that
+	// may be reported by close(), the file descriptor is guaranteed to be
+	// closed".
+	//
+	// We are relying upon this behavior, so we can safely zero out the file
+	// descriptor in the PolicyMap.
+	pm.Fd = 0
+
+	return err
 }
 
 // Validate checks the map pinned to the specified path to ensure that the map

@@ -20,6 +20,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 )
 
@@ -36,6 +37,29 @@ func goArray2C(array []byte) string {
 		} else {
 			ret = ret + fmt.Sprintf(", %#x", e)
 		}
+	}
+	return ret
+}
+
+// C2GoArray transforms an hexadecimal string representation into a byte slice.
+// Example:
+// str := "0x12, 0xff, 0x0, 0x1"
+// fmt.Print(C2GoArray(str)) //`{0x12, 0xFF, 0x0, 0x01}`"
+func C2GoArray(str string) []byte {
+	ret := []byte{}
+
+	if str == "" {
+		return ret
+	}
+
+	hexStr := strings.Split(str, ", ")
+	for _, hexDigit := range hexStr {
+		strDigit := strings.TrimPrefix(hexDigit, "0x")
+		digit, err := strconv.ParseInt(strDigit, 16, 9)
+		if err != nil {
+			return nil
+		}
+		ret = append(ret, byte(digit))
 	}
 	return ret
 }

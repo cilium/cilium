@@ -31,7 +31,7 @@ previous step.
 version: '2'
 services:
   cilium:
-    image: cilium:cilium-ubuntu-16-04
+    image: docker.io/cilium:cilium-ubuntu-16-04
     command: cilium-agent --debug --logstash 192.168.33.21:9302
 ...
 ```

@@ -20,7 +20,6 @@ pipeline {
     stages {
         stage('Checkout') {
             steps {
-                Status("PENDING", "$JOB_BASE_NAME")
                 BuildIfLabel('area/k8s', 'Cilium-PR-Kubernetes-Upstream')
                 BuildIfLabel('area/k8s', 'Cilium-PR-Ginkgo-Tests-K8s')
                 BuildIfLabel('area/documentation', 'Cilium-PR-Doc-Tests')
@@ -58,6 +57,7 @@ pipeline {
                 GOPATH="${WORKSPACE}"
                 TESTDIR="${WORKSPACE}/${PROJ_PATH}/test"
                 FAILFAST=setIfPR("true", "false")
+                CONTAINER_RUNTIME=setIfLabel("area/containerd", "containerd", "docker")
             }
 
             options {
@@ -80,12 +80,12 @@ pipeline {
             }
             post {
                 always {
-                    junit 'test/*.xml'
                     // Temporary workaround to test cleanup
                     // rm -rf ${GOPATH}/src/github.com/cilium/cilium
                     sh 'cd test/; ./post_build_agent.sh || true'
                     sh 'cd test/; ./archive_test_results.sh || true'
-                    archiveArtifacts artifacts: "test_results_${JOB_BASE_NAME}_${BUILD_NUMBER}.zip", allowEmptyArchive: true
+                    archiveArtifacts artifacts: '*.zip'
+                    junit testDataPublishers: [[$class: 'AttachmentPublisher']], testResults: 'test/*.xml'
                 }
             }
         }
@@ -95,12 +95,6 @@ pipeline {
             sh 'cd ${TESTDIR}/test/; K8S_VERSION=1.7 vagrant destroy -f || true'
             sh 'cd ${TESTDIR}/test/; K8S_VERSION=1.10 vagrant destroy -f || true'
             cleanWs()
-        }
-        success {
-            Status("SUCCESS", "$JOB_BASE_NAME")
-        }
-        failure {
-            Status("FAILURE", "$JOB_BASE_NAME")
         }
     }
 }

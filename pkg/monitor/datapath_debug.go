@@ -127,7 +127,7 @@ func ctState(state uint32) string {
 		return txt
 	}
 
-	return dropReason(uint8(state))
+	return DropReason(uint8(state))
 }
 
 var tupleFlags = map[int16]string{

@@ -19,6 +19,7 @@ import (
 	"net"
 
 	"github.com/cilium/cilium/api/v1/models"
+	"github.com/cilium/cilium/pkg/mtu"
 	"github.com/cilium/cilium/pkg/node"
 )
 
@@ -37,6 +38,7 @@ func IPv4Gateway(addr *models.NodeAddressing) string {
 type Route struct {
 	Prefix  net.IPNet
 	Nexthop *net.IP
+	MTU     int
 }
 
 // ToIPCommand converts the route into a full "ip route ..." command
@@ -48,6 +50,9 @@ func (r *Route) ToIPCommand(dev string) []string {
 	res = append(res, "route", "add", r.Prefix.String())
 	if r.Nexthop != nil {
 		res = append(res, "via", r.Nexthop.String())
+	}
+	if r.MTU != 0 {
+		res = append(res, "mtu", fmt.Sprintf("%d", r.MTU))
 	}
 	res = append(res, "dev", dev)
 	return res
@@ -71,7 +76,7 @@ func (a ByMask) Swap(i, j int) {
 }
 
 // IPv6Routes returns IPv6 routes to be installed in endpoint's networking namespace.
-func IPv6Routes(addr *models.NodeAddressing) ([]Route, error) {
+func IPv6Routes(addr *models.NodeAddressing, linkMTU int) ([]Route, error) {
 	ip := net.ParseIP(addr.IPV6.IP)
 	if ip == nil {
 		return []Route{}, fmt.Errorf("Invalid IP address: %s", addr.IPV6.IP)
@@ -86,12 +91,13 @@ func IPv6Routes(addr *models.NodeAddressing) ([]Route, error) {
 		{
 			Prefix:  node.IPv6DefaultRoute,
 			Nexthop: &ip,
+			MTU:     linkMTU - mtu.TunnelOverhead,
 		},
 	}, nil
 }
 
 // IPv4Routes returns IPv4 routes to be installed in endpoint's networking namespace.
-func IPv4Routes(addr *models.NodeAddressing) ([]Route, error) {
+func IPv4Routes(addr *models.NodeAddressing, linkMTU int) ([]Route, error) {
 	ip := net.ParseIP(addr.IPV4.IP)
 	if ip == nil {
 		return []Route{}, fmt.Errorf("Invalid IP address: %s", addr.IPV4.IP)
@@ -106,6 +112,7 @@ func IPv4Routes(addr *models.NodeAddressing) ([]Route, error) {
 		{
 			Prefix:  node.IPv4DefaultRoute,
 			Nexthop: &ip,
+			MTU:     linkMTU - mtu.TunnelOverhead,
 		},
 	}, nil
 }

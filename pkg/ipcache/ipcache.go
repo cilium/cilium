@@ -19,7 +19,6 @@ import (
 	"fmt"
 	"net"
 	"path"
-	"sort"
 	"strings"
 	"sync"
 
@@ -321,35 +320,6 @@ func (ipc *IPCache) deleteLocked(IP string) {
 	}
 }
 
-// ToBPFData renders the ipcache into the relevant set of CIDR prefixes for
-// the BPF datapath to use for lookup.
-func (ipc *IPCache) ToBPFData() (s6, s4 []int) {
-	ipc.mutex.RLock()
-	defer ipc.mutex.RUnlock()
-	s6 = make([]int, 0, len(ipc.v6PrefixLengths))
-	s4 = make([]int, 0, len(ipc.v4PrefixLengths))
-
-	// Always include host prefix
-	s6 = append(s6, net.IPv6len*8)
-	for prefix := range ipc.v6PrefixLengths {
-		if prefix != net.IPv6len*8 {
-			s6 = append(s6, prefix)
-		}
-	}
-	sort.Sort(sort.Reverse(sort.IntSlice(s6)))
-
-	// Always include host prefix
-	s4 = append(s4, net.IPv4len*8)
-	for prefix := range ipc.v4PrefixLengths {
-		if prefix != net.IPv4len*8 {
-			s4 = append(s4, prefix)
-		}
-	}
-	sort.Sort(sort.Reverse(sort.IntSlice(s4)))
-
-	return
-}
-
 // delete removes the provided IP-to-security-identity mapping from the IPCache.
 func (ipc *IPCache) delete(IP string) {
 	ipc.mutex.Lock()
@@ -417,8 +387,9 @@ func (ipc *IPCache) LookupByIdentity(id identity.NumericIdentity) (map[string]st
 // learning about IP to Identity mapping events.
 type IPIdentityMappingListener interface {
 	// OnIPIdentityCacheChange will be called whenever there the state of the
-	// IPCache has changed.
-	OnIPIdentityCacheChange(modType CacheModification, ipIDPair identity.IPIdentityPair)
+	// IPCache has changed. If an existing IP->ID mapping is updated, then
+	// the old IPIdentityPair will be provided; otherwise it is nil.
+	OnIPIdentityCacheChange(modType CacheModification, oldIPIDPair *identity.IPIdentityPair, newIPIDPair identity.IPIdentityPair)
 
 	// OnIPIdentityCacheGC will be called to sync other components which are
 	// reliant upon the IPIdentityCache with the IPIdentityCache.
@@ -609,21 +580,24 @@ func ipIdentityWatcher(listeners []IPIdentityMappingListener) {
 				log.WithFields(logrus.Fields{
 					logfields.IPAddr:       ipIDPair.IP,
 					logfields.IPMask:       ipIDPair.Mask,
-					"cached-identity":      cachedIdentity,
+					logfields.OldIdentity:  cachedIdentity,
 					logfields.Identity:     ipIDPair.ID,
 					logfields.Modification: cacheModification,
 				}).Debugf("endpoint IP cache state change")
 
+				var oldIPIDPair *identity.IPIdentityPair
+				if ipIsInCache && cacheModification == Upsert {
+					// If an existing mapping is updated,
+					// provide the existing mapping to the
+					// listener so it can easily clean up
+					// the old mapping.
+					pair := ipIDPair
+					pair.ID = cachedIdentity
+					oldIPIDPair = &pair
+				}
 				// Callback upon cache updates.
 				for _, listener := range listeners {
-					// In the case the mapping for an IP is updated (vs.
-					// inserted), first delete the mapping to the old ID.
-					if ipIsInCache && cacheModification == Upsert {
-						cachedPair := ipIDPair
-						cachedPair.ID = cachedIdentity
-						listener.OnIPIdentityCacheChange(Delete, cachedPair)
-					}
-					listener.OnIPIdentityCacheChange(cacheModification, ipIDPair)
+					listener.OnIPIdentityCacheChange(cacheModification, oldIPIDPair, ipIDPair)
 				}
 			}
 		}

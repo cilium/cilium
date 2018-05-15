@@ -281,7 +281,7 @@ type Endpoint struct {
 	// ContainerName is the name given to the endpoint by the container runtime
 	ContainerName string
 
-	// DockerID is the container ID that containerd has assigned to the endpoint
+	// DockerID is the container ID that docker has assigned to the endpoint
 	//
 	// FIXME: Rename this field to ContainerID
 	DockerID string
@@ -335,15 +335,11 @@ type Endpoint struct {
 	LabelsMap *identityPkg.IdentityCache
 
 	// Iteration policy of the Endpoint
-	// TODO: this was moved from Consumable to Endpoint. This documentation is
-	// not clear, and needs to be more specific.
+	// TODO: update documentation; description is not clear, and needs to be
+	// more specific.
 	Iteration uint64 `json:"-"`
 
-	// RealizedL4Policy is the L4Policy in effect for the
-	// endpoint. Outside of policy recalculation, it is the same as the
-	// Consumable's RealizedL4Policy, but this is needed during policy recalculation to
-	// be able to clean up PolicyMap after the endpoint's consumable has already
-	// been updated.
+	// RealizedL4Policy is the L4Policy in effect for the endpoint.
 	RealizedL4Policy *policy.L4Policy `json:"-"`
 
 	// DesiredL4Policy is the desired L4Policy for the endpoint. It is populated
@@ -354,9 +350,7 @@ type Endpoint struct {
 	// reference to all policy related BPF
 	PolicyMap *policymap.PolicyMap `json:"-"`
 
-	// CIDRPolicy is the CIDR based policy configuration of the endpoint. This
-	// is not contained within the Consumable for this endpoint because the
-	// Consumable only contains identity-based policy information.
+	// CIDRPolicy is the CIDR based policy configuration of the endpoint.
 	L3Policy *policy.CIDRPolicy `json:"-"`
 
 	// L3Maps is the datapath representation of CIDRPolicy
@@ -624,7 +618,7 @@ func NewEndpointWithState(ID uint16, state string) *Endpoint {
 }
 
 // NewEndpointFromChangeModel creates a new endpoint from a request
-func NewEndpointFromChangeModel(base *models.EndpointChangeRequest, l pkgLabels.Labels) (*Endpoint, error) {
+func NewEndpointFromChangeModel(base *models.EndpointChangeRequest) (*Endpoint, error) {
 	if base == nil {
 		return nil, nil
 	}
@@ -640,7 +634,7 @@ func NewEndpointFromChangeModel(base *models.EndpointChangeRequest, l pkgLabels.
 		OpLabels: pkgLabels.OpLabels{
 			Custom:                pkgLabels.Labels{},
 			Disabled:              pkgLabels.Labels{},
-			OrchestrationIdentity: l.DeepCopy(),
+			OrchestrationIdentity: pkgLabels.Labels{},
 			OrchestrationInfo:     pkgLabels.Labels{},
 		},
 		state:  string(base.State),
@@ -1367,15 +1361,15 @@ func (e *Endpoint) RemoveFromGlobalPolicyMap() error {
 
 // GetBPFKeys returns all keys which should represent this endpoint in the BPF
 // endpoints map
-func (e *Endpoint) GetBPFKeys() []lxcmap.EndpointKey {
+func (e *Endpoint) GetBPFKeys() []*lxcmap.EndpointKey {
 	key := lxcmap.NewEndpointKey(e.IPv6.IP())
 
 	if e.IPv4 != nil {
 		key4 := lxcmap.NewEndpointKey(e.IPv4.IP())
-		return []lxcmap.EndpointKey{key, key4}
+		return []*lxcmap.EndpointKey{key, key4}
 	}
 
-	return []lxcmap.EndpointKey{key}
+	return []*lxcmap.EndpointKey{key}
 }
 
 // GetBPFValue returns the value which should represent this endpoint in the
@@ -1383,12 +1377,12 @@ func (e *Endpoint) GetBPFKeys() []lxcmap.EndpointKey {
 func (e *Endpoint) GetBPFValue() (*lxcmap.EndpointInfo, error) {
 	mac, err := e.LXCMAC.Uint64()
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("invalid LXC MAC: %v", err)
 	}
 
 	nodeMAC, err := e.NodeMAC.Uint64()
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("invalid node MAC: %v", err)
 	}
 
 	info := &lxcmap.EndpointInfo{
@@ -1632,8 +1626,9 @@ func (e *Endpoint) HasLabels(l pkgLabels.Labels) bool {
 	return true
 }
 
+// replaceInformationLabels replaces the information labels of the endpoint.
+// Must be called with e.Mutex.Lock().
 func (e *Endpoint) replaceInformationLabels(l pkgLabels.Labels) {
-	e.Mutex.Lock()
 	e.OpLabels.OrchestrationInfo.MarkAllForDeletion()
 
 	for _, v := range l {
@@ -1642,14 +1637,13 @@ func (e *Endpoint) replaceInformationLabels(l pkgLabels.Labels) {
 		}
 	}
 	e.OpLabels.OrchestrationInfo.DeleteMarked()
-	e.Mutex.Unlock()
 }
 
-// replaceIdentityLabels replaces the identity labels of an endpoint. If a net
-// changed occurred, the identityRevision is bumped and return, otherwise 0 is
+// replaceIdentityLabels replaces the identity labels of the endpoint. If a net
+// changed occurred, the identityRevision is bumped and returned, otherwise 0 is
 // returned.
+// Must be called with e.Mutex.Lock().
 func (e *Endpoint) replaceIdentityLabels(l pkgLabels.Labels) int {
-	e.Mutex.Lock()
 	changed := false
 
 	e.OpLabels.OrchestrationIdentity.MarkAllForDeletion()
@@ -1674,8 +1668,6 @@ func (e *Endpoint) replaceIdentityLabels(l pkgLabels.Labels) int {
 		e.identityRevision++
 		rev = e.identityRevision
 	}
-
-	e.Mutex.Unlock()
 
 	return rev
 }
@@ -1893,7 +1885,7 @@ func (e *Endpoint) SetStateLocked(toState, reason string) bool {
 		}
 	case StateReady:
 		switch toState {
-		case StateDisconnecting, StateWaitingToRegenerate:
+		case StateWaitingForIdentity, StateDisconnecting, StateWaitingToRegenerate:
 			goto OKState
 		}
 	case StateDisconnecting:
@@ -1906,7 +1898,7 @@ func (e *Endpoint) SetStateLocked(toState, reason string) bool {
 	case StateWaitingToRegenerate:
 		switch toState {
 		// Note that transitions to waiting-to-regenerate state
-		case StateDisconnecting:
+		case StateWaitingForIdentity, StateDisconnecting:
 			goto OKState
 		}
 	case StateRegenerating:
@@ -1915,8 +1907,8 @@ func (e *Endpoint) SetStateLocked(toState, reason string) bool {
 		// possible that further changes require a new
 		// build. In this case the endpoint is transitioned
 		// from the regenerating state to
-		// waiting-to-regenerate state.
-		case StateDisconnecting, StateWaitingToRegenerate:
+		// waiting-for-identity or waiting-to-regenerate state.
+		case StateWaitingForIdentity, StateDisconnecting, StateWaitingToRegenerate:
 			goto OKState
 		}
 	case StateRestoring:
@@ -2080,6 +2072,9 @@ func (e *Endpoint) UpdateProxyStatistics(l7Protocol string, port uint16, ingress
 // APICanModify determines whether API requests from a user are allowed to
 // modify this endpoint.
 func APICanModify(e *Endpoint) error {
+	if e.IsInit() {
+		return nil
+	}
 	if lbls := e.OpLabels.OrchestrationIdentity.FindReserved(); lbls != nil {
 		return fmt.Errorf("Endpoint cannot be modified by API call")
 	}
@@ -2098,52 +2093,55 @@ func (e *Endpoint) getIDandLabels() string {
 	return fmt.Sprintf("%d (%s)", e.ID, labels)
 }
 
-// ModifyIdentityLabels changes the identity relevant labels of an endpoint.
-// labels can be added or deleted. If a net label changed is performed, the
+// SetIdentityLabels resets the identity labels of an endpoint.
+// If a label change is performed, the endpoint will receive a new identity and will be regenerated.
+// Both of these operations will happen in the background.
+func (e *Endpoint) SetIdentityLabels(owner Owner, l pkgLabels.Labels) {
+	e.Mutex.Lock()
+	rev := e.replaceIdentityLabels(l)
+	e.Mutex.Unlock()
+
+	if rev != 0 {
+		e.runLabelsResolver(owner, rev)
+	}
+}
+
+// ModifyIdentityLabels changes the custom and orchestration identity labels of an endpoint.
+// Labels can be added or deleted. If a label change is performed, the
 // endpoint will receive a new identity and will be regenerated. Both of these
 // operations will happen in the background.
 func (e *Endpoint) ModifyIdentityLabels(owner Owner, addLabels, delLabels pkgLabels.Labels) error {
 	e.Mutex.Lock()
-	defer e.Mutex.Unlock()
 
 	newLabels := e.OpLabels.DeepCopy()
 
-	if len(delLabels) > 0 {
-		for k := range delLabels {
-			// The change request is accepted if the label is on
-			// any of the lists. If the label is already disabled,
-			// we will simply ignore that change.
-			if newLabels.OrchestrationIdentity[k] != nil ||
-				newLabels.Custom[k] != nil ||
-				newLabels.Disabled[k] != nil {
-				break
-			}
-
+	for k := range delLabels {
+		// The change request is accepted if the label is on
+		// any of the lists. If the label is already disabled,
+		// we will simply ignore that change.
+		if newLabels.Custom[k] == nil && newLabels.OrchestrationIdentity[k] == nil && newLabels.Disabled[k] == nil {
+			e.Mutex.Unlock()
 			return fmt.Errorf("label %s not found", k)
 		}
-	}
 
-	if len(delLabels) > 0 {
-		for k, v := range delLabels {
-			if newLabels.OrchestrationIdentity[k] != nil {
-				delete(newLabels.OrchestrationIdentity, k)
-				newLabels.Disabled[k] = v
-			}
+		if v := newLabels.OrchestrationIdentity[k]; v != nil {
+			delete(newLabels.OrchestrationIdentity, k)
+			newLabels.Disabled[k] = v
+		}
 
-			if newLabels.Custom[k] != nil {
-				delete(newLabels.Custom, k)
-			}
+		if newLabels.Custom[k] != nil {
+			delete(newLabels.Custom, k)
 		}
 	}
 
-	if len(addLabels) > 0 {
-		for k, v := range addLabels {
-			if newLabels.Disabled[k] != nil {
-				delete(newLabels.Disabled, k)
-				newLabels.OrchestrationIdentity[k] = v
-			} else if newLabels.OrchestrationIdentity[k] == nil {
-				newLabels.Custom[k] = v
-			}
+	for k, v := range addLabels {
+		if newLabels.Disabled[k] != nil { // Restore label.
+			delete(newLabels.Disabled, k)
+			newLabels.OrchestrationIdentity[k] = v
+		} else if newLabels.OrchestrationIdentity[k] != nil { // Replace label's source and value.
+			newLabels.OrchestrationIdentity[k] = v
+		} else {
+			newLabels.Custom[k] = v
 		}
 	}
 
@@ -2152,14 +2150,24 @@ func (e *Endpoint) ModifyIdentityLabels(owner Owner, addLabels, delLabels pkgLab
 	// Mark with StateWaitingForIdentity, it will be set to
 	// StateWaitingToRegenerate after the identity resolution has been
 	// completed
-	e.SetStateLocked(StateWaitingForIdentity, "Triggering identity resolution due to updated security labels")
+	e.SetStateLocked(StateWaitingForIdentity, "Triggering identity resolution due to updated identity labels")
 
 	e.identityRevision++
 	rev := e.identityRevision
 
+	e.Mutex.Unlock()
+
 	e.runLabelsResolver(owner, rev)
 
 	return nil
+}
+
+// IsInit returns true if the endpoint still hasn't received identity labels,
+// i.e. has the special identity with label reserved:init.
+func (e *Endpoint) IsInit() bool {
+	lbls := e.OpLabels.IdentityLabels()
+	init := lbls[pkgLabels.IDNameInit]
+	return init != nil && init.Source == pkgLabels.LabelSourceReserved
 }
 
 // UpdateLabels is called to update the labels of an endpoint. Calls to this
@@ -2177,10 +2185,12 @@ func (e *Endpoint) UpdateLabels(owner Owner, identityLabels, infoLabels pkgLabel
 		logfields.InfoLabels:     infoLabels.String(),
 	}).Debug("Refreshing labels of endpoint")
 
+	e.Mutex.Lock()
 	e.replaceInformationLabels(infoLabels)
-
 	// replace identity labels and update the identity if labels have changed
-	if rev := e.replaceIdentityLabels(identityLabels); rev != 0 {
+	rev := e.replaceIdentityLabels(identityLabels)
+	e.Mutex.Unlock()
+	if rev != 0 {
 		e.runLabelsResolver(owner, rev)
 	}
 }
@@ -2201,14 +2211,31 @@ func (e *Endpoint) identityResolutionIsObsolete(myChangeRev int) bool {
 	return false
 }
 
+// Must be called with e.Mutex NOT held.
 func (e *Endpoint) runLabelsResolver(owner Owner, myChangeRev int) {
+	e.Mutex.Lock()
+	newLabels := e.OpLabels.IdentityLabels()
+	scopedLog := e.getLogger().WithField(logfields.IdentityLabels, newLabels)
+	e.Mutex.Unlock()
+
+	// If we are certain we can resolve the identity without accessing the KV
+	// store, do it first synchronously right now. This can reduce the number
+	// of regenerations for the endpoint during its initialization.
+	if identityPkg.IdentityAllocationIsLocal(newLabels) {
+		scopedLog.Debug("Endpoint has reserved identity, changing synchronously")
+		err := e.identityLabelsChanged(owner, myChangeRev)
+		if err != nil {
+			scopedLog.WithError(err).Warn("Error changing endpoint identity")
+		}
+	}
+
 	ctrlName := fmt.Sprintf("resolve-identity-%d", e.ID)
 	e.controllers.UpdateController(ctrlName,
 		controller.ControllerParams{
 			DoFunc: func() error {
 				return e.identityLabelsChanged(owner, myChangeRev)
 			},
-			RunInterval: time.Duration(5) * time.Minute,
+			RunInterval: 5 * time.Minute,
 		},
 	)
 }
@@ -2216,7 +2243,7 @@ func (e *Endpoint) runLabelsResolver(owner Owner, myChangeRev int) {
 func (e *Endpoint) identityLabelsChanged(owner Owner, myChangeRev int) error {
 	e.Mutex.RLock()
 	newLabels := e.OpLabels.IdentityLabels()
-	elog := log.WithFields(logrus.Fields{
+	elog := e.getLogger().WithFields(logrus.Fields{
 		logfields.EndpointID:     e.ID,
 		logfields.IdentityLabels: newLabels,
 	})
@@ -2228,9 +2255,7 @@ func (e *Endpoint) identityLabelsChanged(owner Owner, myChangeRev int) error {
 		return nil
 	}
 
-	if e.SecurityIdentity != nil &&
-		string(e.SecurityIdentity.Labels.SortedList()) == string(newLabels.SortedList()) {
-
+	if e.SecurityIdentity != nil && e.SecurityIdentity.Labels.Equals(newLabels) {
 		e.Mutex.RUnlock()
 		elog.Debug("Endpoint labels unchanged, skipping resolution of identity")
 		return nil
@@ -2387,10 +2412,39 @@ func (e *Endpoint) syncPolicyMap() error {
 		e.realizedMapState = make(map[policymap.PolicyKey]struct{})
 	}
 
+	if e.desiredMapState == nil {
+		e.desiredMapState = make(map[policymap.PolicyKey]struct{})
+	}
+
+	if e.PolicyMap == nil {
+		return fmt.Errorf("not syncing PolicyMap state for endpoint because PolicyMap is nil")
+	}
+
 	currentMapContents, err := e.PolicyMap.DumpToSlice()
 
+	// If map is unable to be dumped, attempt to close map and open it again.
+	// See GH-4229.
 	if err != nil {
-		return fmt.Errorf("unable to dump PolicyMap for endpoint: %s", err)
+		e.getLogger().WithError(err).Error("unable to dump PolicyMap when trying to sync desired and realized PolicyMap state")
+
+		// Close to avoid leaking of file descriptors, but still continue in case
+		// Close() does not succeed, because otherwise the map will never be
+		// opened again unless the agent is restarted.
+		err := e.PolicyMap.Close()
+		if err != nil {
+			e.getLogger().WithError(err).Error("unable to close PolicyMap which was not able to be dumped")
+		}
+
+		e.PolicyMap, _, err = policymap.OpenMap(e.PolicyMapPathLocked())
+		if err != nil {
+			return fmt.Errorf("unable to open PolicyMap for endpoint: %s", err)
+		}
+
+		// Try to dump again, fail if error occurs.
+		currentMapContents, err = e.PolicyMap.DumpToSlice()
+		if err != nil {
+			return err
+		}
 	}
 
 	errors := []error{}

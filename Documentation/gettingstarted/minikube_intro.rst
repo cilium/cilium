@@ -1,15 +1,12 @@
 Step 0: Install kubectl & minikube
 ==================================
 
-1. Install ``kubectl`` version ``>= 1.7.0`` as described in the
-`Kubernetes Docs
-<https://kubernetes.io/docs/tasks/tools/install-kubectl/>`_.
+1. Install ``kubectl`` version ``>= 1.7.0`` as described in the `Kubernetes Docs <https://kubernetes.io/docs/tasks/tools/install-kubectl/>`_.
 
-2. Install one of the `hypervisors supported by minikube
-   <https://kubernetes.io/docs/tasks/tools/install-minikube/>`_.
+2. Install one of the `hypervisors supported by minikube <https://kubernetes.io/docs/tasks/tools/install-minikube/>`_ .
 
-3. Install ``minikube`` ``>= 0.22.3`` as described on `minikube's
-github page <https://github.com/kubernetes/minikube/releases>`_.
+3. Install ``minikube`` ``>= 0.22.3`` as described on `minikube's github page <https://github.com/kubernetes/minikube/releases>`_ .
+
 
 Boot a minikube cluster with the Container Network Interface (CNI) network
 plugin, the ``localkube`` bootstrapper.
@@ -19,7 +16,7 @@ dependency.
 
 ::
 
-    $ minikube start --network-plugin=cni --bootstrapper=localkube --memory=4096 --extra-config=apiserver.Authorization.Mode=RBAC
+    $ minikube start --network-plugin=cni --extra-config=kubelet.network-plugin=cni --memory=5120
 
 After minikube has finished setting up your new Kubernetes cluster, you can
 check the status of the cluster by running ``kubectl get cs``:
@@ -32,13 +29,6 @@ check the status of the cluster by running ``kubectl get cs``:
     scheduler            Healthy   ok
     etcd-0               Healthy   {"health": "true"}
 
-Bind the Kubernetes system account to the ``cluster-admin`` role to enable the
-``kube-dns`` service to run with RBAC enabled:
-
-::
-
-    $ kubectl create clusterrolebinding kube-system-default-binding-cluster-admin --clusterrole=cluster-admin --serviceaccount=kube-system:default
-
 
 4. Install etcd as a dependency of cilium in minikube by running:
 
@@ -47,6 +37,7 @@ Bind the Kubernetes system account to the ``cluster-admin`` role to enable the
   $ kubectl create -f \ |SCM_WEB|\/examples/kubernetes/addons/etcd/standalone-etcd.yaml
   service "etcd-cilium" created
   statefulset.apps "etcd-cilium" created
+
 
 To check that all pods are ``Running`` and 100% ready, including ``kube-dns``
 and ``etcd-cilium-0`` run:
@@ -70,4 +61,4 @@ If you see output similar to this, you are ready to proceed to the next step.
 .. note::
 
     The output might differ between minikube versions, you should expect to have
-    all pods in READY state before continuing.
+    all pods in READY / Running state before continuing.

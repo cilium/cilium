@@ -125,9 +125,10 @@ reverse_proxy6(struct __sk_buff *skb, int l4_off, struct ipv6hdr *ip6, __u8 nh)
 #endif
 
 #ifdef FROM_HOST
-static inline void __inline__ handle_identity_from_proxy(struct __sk_buff *skb, __u32 *identity)
+static inline bool __inline__ handle_identity_from_host(struct __sk_buff *skb, __u32 *identity)
 {
-	__u32 magic = skb->mark & MARK_MAGIC_PROXY_MASK;
+	__u32 magic = skb->mark & MARK_MAGIC_HOST_MASK;
+	bool from_proxy = false;
 
 	/* Packets from the ingress proxy must skip the proxy when the
 	 * destination endpoint evaluates the policy. As the packet
@@ -135,12 +136,20 @@ static inline void __inline__ handle_identity_from_proxy(struct __sk_buff *skb, 
 	if (magic == MARK_MAGIC_PROXY_INGRESS) {
 		*identity = get_identity_via_proxy(skb);
 		skb->tc_index |= TC_INDEX_F_SKIP_PROXY;
+		from_proxy = true;
 	} else if (magic == MARK_MAGIC_PROXY_EGRESS) {
 		*identity = get_identity_via_proxy(skb);
+		from_proxy = true;
+	} else if (magic == MARK_MAGIC_HOST) {
+		*identity = HOST_ID;
+	} else {
+		*identity = WORLD_ID;
 	}
 
 	/* Reset packet mark to avoid hitting routing rules again */
 	skb->mark = 0;
+
+	return from_proxy;
 }
 #endif
 
@@ -154,19 +163,19 @@ static inline int rewrite_dmac_to_host(struct __sk_buff *skb)
 
 	/* Rewrite to destination MAC of cilium_net (remote peer) */
 	if (eth_store_daddr(skb, (__u8 *) &cilium_net_mac.addr, 0) < 0)
-		return send_drop_notify_error(skb, DROP_WRITE_ERROR, TC_ACT_OK);
+		return send_drop_notify_error(skb, DROP_WRITE_ERROR, TC_ACT_OK, METRIC_INGRESS);
 
 	return TC_ACT_OK;
 }
 #endif
 
-static inline int handle_ipv6(struct __sk_buff *skb, __u32 proxy_identity)
+static inline int handle_ipv6(struct __sk_buff *skb, __u32 src_identity)
 {
 	union v6addr node_ip = { };
 	void *data, *data_end;
 	struct ipv6hdr *ip6;
 	union v6addr *dst;
-	int l4_off, l3_off = ETH_HLEN;
+	int l4_off, l3_off = ETH_HLEN, hdrlen;
 	struct endpoint_info *ep;
 	__u8 nexthdr;
 	__u32 flowlabel;
@@ -175,11 +184,15 @@ static inline int handle_ipv6(struct __sk_buff *skb, __u32 proxy_identity)
 		return DROP_INVALID;
 
 	nexthdr = ip6->nexthdr;
-	l4_off = l3_off + ipv6_hdrlen(skb, l3_off, &nexthdr);
+	hdrlen = ipv6_hdrlen(skb, l3_off, &nexthdr);
+	if (hdrlen < 0)
+		return hdrlen;
+
+	l4_off = l3_off + hdrlen;
 
 #ifdef HANDLE_NS
 	if (unlikely(nexthdr == IPPROTO_ICMPV6)) {
-		int ret = icmp6_handle(skb, ETH_HLEN, ip6);
+		int ret = icmp6_handle(skb, ETH_HLEN, ip6, METRIC_INGRESS);
 		if (IS_ERR(ret))
 			return ret;
 	}
@@ -192,9 +205,7 @@ static inline int handle_ipv6(struct __sk_buff *skb, __u32 proxy_identity)
 	if (1) {
 		int ret;
 
-		if (proxy_identity)
-			flowlabel = proxy_identity;
-
+		flowlabel = src_identity;
 		ret = reverse_proxy6(skb, l4_off, ip6, ip6->nexthdr);
 		/* DIRECT PACKET READ INVALID */
 		if (IS_ERR(ret))
@@ -219,7 +230,7 @@ static inline int handle_ipv6(struct __sk_buff *skb, __u32 proxy_identity)
 		if (ep->flags & ENDPOINT_F_HOST)
 			return TC_ACT_OK;
 
-		return ipv6_local_delivery(skb, l3_off, l4_off, flowlabel, ip6, nexthdr, ep);
+		return ipv6_local_delivery(skb, l3_off, l4_off, flowlabel, ip6, nexthdr, ep, METRIC_INGRESS);
 	}
 
 #ifdef ENCAP_IFINDEX
@@ -325,7 +336,7 @@ reverse_proxy(struct __sk_buff *skb, int l4_off, struct iphdr *ip4, __u8 nh)
 }
 #endif
 
-static inline int handle_ipv4(struct __sk_buff *skb, __u32 proxy_identity)
+static inline int handle_ipv4(struct __sk_buff *skb, __u32 src_identity)
 {
 	struct ipv4_ct_tuple tuple = {};
 	struct endpoint_info *ep;
@@ -345,9 +356,7 @@ static inline int handle_ipv4(struct __sk_buff *skb, __u32 proxy_identity)
 	if (1) {
 		int ret;
 
-		if (proxy_identity)
-			secctx = proxy_identity;
-
+		secctx = src_identity;
 		ret = reverse_proxy(skb, l4_off, ip4, tuple.nexthdr);
 		/* DIRECT PACKET READ INVALID */
 		if (IS_ERR(ret))
@@ -372,7 +381,7 @@ static inline int handle_ipv4(struct __sk_buff *skb, __u32 proxy_identity)
 		if (ep->flags & ENDPOINT_F_HOST)
 			return TC_ACT_OK;
 
-		return ipv4_local_delivery(skb, ETH_HLEN, l4_off, secctx, ip4, ep);
+		return ipv4_local_delivery(skb, ETH_HLEN, l4_off, secctx, ip4, ep, METRIC_INGRESS);
 	}
 
 #ifdef ENCAP_IFINDEX
@@ -403,7 +412,7 @@ __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV4) int tail_handle_ipv4(struct _
 	int ret = handle_ipv4(skb, proxy_identity);
 
 	if (IS_ERR(ret))
-		return send_drop_notify_error(skb, ret, TC_ACT_SHOT);
+		return send_drop_notify_error(skb, ret, TC_ACT_SHOT, METRIC_INGRESS);
 
 	return ret;
 }
@@ -413,24 +422,20 @@ __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV4) int tail_handle_ipv4(struct _
 __section("from-netdev")
 int from_netdev(struct __sk_buff *skb)
 {
-	__u32 proxy_identity = 0;
+	__u32 identity = 0;
 	int ret;
 
 	bpf_clear_cb(skb);
 
 #ifdef FROM_HOST
 	if (1) {
-		int report_identity, trace = TRACE_FROM_HOST;
+		int trace = TRACE_FROM_HOST;
+		bool from_proxy;
 
-		handle_identity_from_proxy(skb, &proxy_identity);
-		if (proxy_identity) {
+		from_proxy = handle_identity_from_host(skb, &identity);
+		if (from_proxy)
 			trace = TRACE_FROM_PROXY;
-			report_identity = proxy_identity;
-		} else {
-			report_identity = HOST_ID;
-		}
-
-		send_trace_notify(skb, trace, report_identity, 0, 0, skb->ingress_ifindex, 0);
+		send_trace_notify(skb, trace, identity, 0, 0, skb->ingress_ifindex, 0);
 	}
 #else
 	send_trace_notify(skb, TRACE_FROM_STACK, 0, 0, 0, skb->ingress_ifindex, 0);
@@ -439,24 +444,25 @@ int from_netdev(struct __sk_buff *skb)
 	switch (skb->protocol) {
 	case bpf_htons(ETH_P_IPV6):
 		/* This is considered the fast path, no tail call */
-		ret = handle_ipv6(skb, proxy_identity);
+		ret = handle_ipv6(skb, identity);
 
 		/* We should only be seeing an error here for packets which have
 		 * been targetting an endpoint managed by us. */
 		if (IS_ERR(ret))
-			return send_drop_notify_error(skb, ret, TC_ACT_SHOT);
+			return send_drop_notify_error(skb, ret, TC_ACT_SHOT, METRIC_INGRESS);
 		break;
 
 #ifdef ENABLE_IPV4
 	case bpf_htons(ETH_P_IP):
-		skb->cb[CB_SRC_IDENTITY] = proxy_identity;
+		skb->cb[CB_SRC_IDENTITY] = identity;
 		ep_tail_call(skb, CILIUM_CALL_IPV4);
 		/* We are not returning an error here to always allow traffic to
 		 * the stack in case maps have become unavailable.
 		 *
 		 * Note: Since drop notification requires a tail call as well,
 		 * this notification is unlikely to succeed. */
-		return send_drop_notify_error(skb, DROP_MISSED_TAIL_CALL, TC_ACT_OK);
+		return send_drop_notify_error(skb, DROP_MISSED_TAIL_CALL,
+		                              TC_ACT_OK, METRIC_INGRESS);
 #endif
 
 	default:

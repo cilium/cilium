@@ -562,8 +562,6 @@ func (p *Repository) GetJSON() string {
 
 // GetRulesMatching returns whether any of the rules in a repository contain a
 // rule with labels matching the labels in the provided LabelArray.
-// If includeEntities is true, we check if repository contains rules matching
-// fromEntities and toEntities.
 //
 // Must be called with p.Mutex held
 func (p *Repository) GetRulesMatching(labels labels.LabelArray) (ingressMatch bool, egressMatch bool) {

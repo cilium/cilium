@@ -37,6 +37,14 @@ func (s *CommonSuite) TestGoArray2C(c *check.C) {
 	c.Assert(goArray2C([]byte{}), check.Equals, "")
 }
 
+func (s *CommonSuite) TestC2GoArray(c *check.C) {
+	c.Assert(C2GoArray("0x0, 0x1, 0x2, 0x3"), check.DeepEquals, []byte{0, 0x01, 0x02, 0x03})
+	c.Assert(C2GoArray("0x0, 0xff, 0xff, 0xff"), check.DeepEquals, []byte{0, 0xFF, 0xFF, 0xFF})
+	c.Assert(C2GoArray("0xa, 0xbc, 0xde, 0xf1"), check.DeepEquals, []byte{0xa, 0xbc, 0xde, 0xf1})
+	c.Assert(C2GoArray("0x0"), check.DeepEquals, []byte{0})
+	c.Assert(C2GoArray(""), check.DeepEquals, []byte{})
+}
+
 func (s *CommonSuite) TestFmtDefineComma(c *check.C) {
 	c.Assert(FmtDefineComma("foo", []byte{1, 2, 3}), check.Equals, "#define foo 0x1, 0x2, 0x3\n")
 	c.Assert(FmtDefineComma("foo", []byte{}), check.Equals, "#define foo \n")

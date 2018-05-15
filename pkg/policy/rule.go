@@ -251,19 +251,19 @@ func (r *rule) resolveCIDRPolicy(ctx *SearchContext, state *traceState, result *
 		}
 	}
 
-	// CIDR egress policy is purely used for visibility of desired state in
-	// the API, it is not plumbed down into the datapath for policy!
+	// CIDR egress policy is used for visibility of desired state in
+	// the API and for determining which prefix lengths are available,
+	// however it does not determine the actual CIDRs in the BPF maps
+	// for allowing traffic by CIDR!
 	for _, egressRule := range r.Egress {
 		var allCIDRs []api.CIDR
 		allCIDRs = append(allCIDRs, egressRule.ToCIDR...)
 		allCIDRs = append(allCIDRs, api.ComputeResultantCIDRSet(egressRule.ToCIDRSet)...)
 
-		// CIDR + L4 rules are handled via mergeL4Egress(),
-		// skip them here.
-		if len(allCIDRs) > 0 && len(egressRule.ToPorts) > 0 {
-			continue
-		}
-
+		// Unlike the Ingress policy which only counts L3 policy in
+		// this function, we count the CIDR+L4 policy in the
+		// desired egress CIDR policy here as well. This ensures
+		// proper computation of IPcache prefix lengths.
 		if cnt := mergeCIDR(ctx, "Egress", allCIDRs, r.Labels, &result.Egress); cnt > 0 {
 			found += cnt
 		}

@@ -6,8 +6,8 @@ package v2alpha
 import proto "github.com/golang/protobuf/proto"
 import fmt "fmt"
 import math "math"
-import google_rpc "google.golang.org/genproto/googleapis/rpc/status"
 import _ "github.com/lyft/protoc-gen-validate/validate"
+import status "google.golang.org/genproto/googleapis/rpc/status"
 
 import (
 	context "golang.org/x/net/context"
@@ -19,15 +19,43 @@ var _ = proto.Marshal
 var _ = fmt.Errorf
 var _ = math.Inf
 
+// This is a compile-time assertion to ensure that this generated file
+// is compatible with the proto package it is being compiled against.
+// A compilation error at this line likely means your copy of the
+// proto package needs to be updated.
+const _ = proto.ProtoPackageIsVersion2 // please upgrade the proto package
+
 type CheckRequest struct {
 	// The request attributes.
-	Attributes *AttributeContext `protobuf:"bytes,1,opt,name=attributes" json:"attributes,omitempty"`
+	Attributes           *AttributeContext `protobuf:"bytes,1,opt,name=attributes" json:"attributes,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}          `json:"-"`
+	XXX_unrecognized     []byte            `json:"-"`
+	XXX_sizecache        int32             `json:"-"`
 }
 
-func (m *CheckRequest) Reset()                    { *m = CheckRequest{} }
-func (m *CheckRequest) String() string            { return proto.CompactTextString(m) }
-func (*CheckRequest) ProtoMessage()               {}
-func (*CheckRequest) Descriptor() ([]byte, []int) { return fileDescriptor1, []int{0} }
+func (m *CheckRequest) Reset()         { *m = CheckRequest{} }
+func (m *CheckRequest) String() string { return proto.CompactTextString(m) }
+func (*CheckRequest) ProtoMessage()    {}
+func (*CheckRequest) Descriptor() ([]byte, []int) {
+	return fileDescriptor_external_auth_630f628bdc10f3a2, []int{0}
+}
+func (m *CheckRequest) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_CheckRequest.Unmarshal(m, b)
+}
+func (m *CheckRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_CheckRequest.Marshal(b, m, deterministic)
+}
+func (dst *CheckRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_CheckRequest.Merge(dst, src)
+}
+func (m *CheckRequest) XXX_Size() int {
+	return xxx_messageInfo_CheckRequest.Size(m)
+}
+func (m *CheckRequest) XXX_DiscardUnknown() {
+	xxx_messageInfo_CheckRequest.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_CheckRequest proto.InternalMessageInfo
 
 func (m *CheckRequest) GetAttributes() *AttributeContext {
 	if m != nil {
@@ -38,15 +66,37 @@ func (m *CheckRequest) GetAttributes() *AttributeContext {
 
 type CheckResponse struct {
 	// Status `OK` allows the request. Any other status indicates the request should be denied.
-	Status *google_rpc.Status `protobuf:"bytes,1,opt,name=status" json:"status,omitempty"`
+	Status               *status.Status `protobuf:"bytes,1,opt,name=status" json:"status,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}       `json:"-"`
+	XXX_unrecognized     []byte         `json:"-"`
+	XXX_sizecache        int32          `json:"-"`
 }
 
-func (m *CheckResponse) Reset()                    { *m = CheckResponse{} }
-func (m *CheckResponse) String() string            { return proto.CompactTextString(m) }
-func (*CheckResponse) ProtoMessage()               {}
-func (*CheckResponse) Descriptor() ([]byte, []int) { return fileDescriptor1, []int{1} }
+func (m *CheckResponse) Reset()         { *m = CheckResponse{} }
+func (m *CheckResponse) String() string { return proto.CompactTextString(m) }
+func (*CheckResponse) ProtoMessage()    {}
+func (*CheckResponse) Descriptor() ([]byte, []int) {
+	return fileDescriptor_external_auth_630f628bdc10f3a2, []int{1}
+}
+func (m *CheckResponse) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_CheckResponse.Unmarshal(m, b)
+}
+func (m *CheckResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_CheckResponse.Marshal(b, m, deterministic)
+}
+func (dst *CheckResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_CheckResponse.Merge(dst, src)
+}
+func (m *CheckResponse) XXX_Size() int {
+	return xxx_messageInfo_CheckResponse.Size(m)
+}
+func (m *CheckResponse) XXX_DiscardUnknown() {
+	xxx_messageInfo_CheckResponse.DiscardUnknown(m)
+}
 
-func (m *CheckResponse) GetStatus() *google_rpc.Status {
+var xxx_messageInfo_CheckResponse proto.InternalMessageInfo
+
+func (m *CheckResponse) GetStatus() *status.Status {
 	if m != nil {
 		return m.Status
 	}
@@ -62,13 +112,35 @@ type CheckResponse_HttpResponse struct {
 	// Http entity headers.
 	Headers map[string]string `protobuf:"bytes,2,rep,name=headers" json:"headers,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
 	// Http entity body.
-	Body string `protobuf:"bytes,3,opt,name=body" json:"body,omitempty"`
+	Body                 string   `protobuf:"bytes,3,opt,name=body" json:"body,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
 }
 
-func (m *CheckResponse_HttpResponse) Reset()                    { *m = CheckResponse_HttpResponse{} }
-func (m *CheckResponse_HttpResponse) String() string            { return proto.CompactTextString(m) }
-func (*CheckResponse_HttpResponse) ProtoMessage()               {}
-func (*CheckResponse_HttpResponse) Descriptor() ([]byte, []int) { return fileDescriptor1, []int{1, 0} }
+func (m *CheckResponse_HttpResponse) Reset()         { *m = CheckResponse_HttpResponse{} }
+func (m *CheckResponse_HttpResponse) String() string { return proto.CompactTextString(m) }
+func (*CheckResponse_HttpResponse) ProtoMessage()    {}
+func (*CheckResponse_HttpResponse) Descriptor() ([]byte, []int) {
+	return fileDescriptor_external_auth_630f628bdc10f3a2, []int{1, 0}
+}
+func (m *CheckResponse_HttpResponse) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_CheckResponse_HttpResponse.Unmarshal(m, b)
+}
+func (m *CheckResponse_HttpResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_CheckResponse_HttpResponse.Marshal(b, m, deterministic)
+}
+func (dst *CheckResponse_HttpResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_CheckResponse_HttpResponse.Merge(dst, src)
+}
+func (m *CheckResponse_HttpResponse) XXX_Size() int {
+	return xxx_messageInfo_CheckResponse_HttpResponse.Size(m)
+}
+func (m *CheckResponse_HttpResponse) XXX_DiscardUnknown() {
+	xxx_messageInfo_CheckResponse_HttpResponse.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_CheckResponse_HttpResponse proto.InternalMessageInfo
 
 func (m *CheckResponse_HttpResponse) GetStatusCode() uint32 {
 	if m != nil {
@@ -95,6 +167,7 @@ func init() {
 	proto.RegisterType((*CheckRequest)(nil), "envoy.service.auth.v2alpha.CheckRequest")
 	proto.RegisterType((*CheckResponse)(nil), "envoy.service.auth.v2alpha.CheckResponse")
 	proto.RegisterType((*CheckResponse_HttpResponse)(nil), "envoy.service.auth.v2alpha.CheckResponse.HttpResponse")
+	proto.RegisterMapType((map[string]string)(nil), "envoy.service.auth.v2alpha.CheckResponse.HttpResponse.HeadersEntry")
 }
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -173,9 +246,11 @@ var _Authorization_serviceDesc = grpc.ServiceDesc{
 	Metadata: "envoy/service/auth/v2alpha/external_auth.proto",
 }
 
-func init() { proto.RegisterFile("envoy/service/auth/v2alpha/external_auth.proto", fileDescriptor1) }
+func init() {
+	proto.RegisterFile("envoy/service/auth/v2alpha/external_auth.proto", fileDescriptor_external_auth_630f628bdc10f3a2)
+}
 
-var fileDescriptor1 = []byte{
+var fileDescriptor_external_auth_630f628bdc10f3a2 = []byte{
 	// 390 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x8c, 0x92, 0x41, 0x8a, 0x9c, 0x40,
 	0x14, 0x86, 0x51, 0xa7, 0xa7, 0x99, 0xd7, 0x36, 0x0c, 0x45, 0x20, 0xe2, 0xaa, 0x99, 0x95, 0x19,

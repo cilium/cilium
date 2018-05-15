@@ -6,9 +6,9 @@ package cilium
 import proto "github.com/golang/protobuf/proto"
 import fmt "fmt"
 import math "math"
-import envoy_api_v2 "github.com/cilium/cilium/pkg/envoy/envoy/api/v2"
-import _ "google.golang.org/genproto/googleapis/api/annotations"
+import v2 "github.com/cilium/cilium/pkg/envoy/envoy/api/v2"
 import _ "github.com/lyft/protoc-gen-validate/validate"
+import _ "google.golang.org/genproto/googleapis/api/annotations"
 
 import (
 	context "golang.org/x/net/context"
@@ -20,6 +20,12 @@ var _ = proto.Marshal
 var _ = fmt.Errorf
 var _ = math.Inf
 
+// This is a compile-time assertion to ensure that this generated file
+// is compatible with the proto package it is being compiled against.
+// A compilation error at this line likely means your copy of the
+// proto package needs to be updated.
+const _ = proto.ProtoPackageIsVersion2 // please upgrade the proto package
+
 // The mapping of a network policy identifier to the IP addresses of all the
 // hosts on which the network policy is enforced.
 // A host may be associated only with one network policy.
@@ -28,13 +34,35 @@ type NetworkPolicyHosts struct {
 	Policy uint64 `protobuf:"varint,1,opt,name=policy" json:"policy,omitempty"`
 	// The set of IP addresses of the hosts on which the network policy is enforced.
 	// Optional. May be empty.
-	HostAddresses []string `protobuf:"bytes,2,rep,name=host_addresses,json=hostAddresses" json:"host_addresses,omitempty"`
+	HostAddresses        []string `protobuf:"bytes,2,rep,name=host_addresses,json=hostAddresses" json:"host_addresses,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
 }
 
-func (m *NetworkPolicyHosts) Reset()                    { *m = NetworkPolicyHosts{} }
-func (m *NetworkPolicyHosts) String() string            { return proto.CompactTextString(m) }
-func (*NetworkPolicyHosts) ProtoMessage()               {}
-func (*NetworkPolicyHosts) Descriptor() ([]byte, []int) { return fileDescriptor4, []int{0} }
+func (m *NetworkPolicyHosts) Reset()         { *m = NetworkPolicyHosts{} }
+func (m *NetworkPolicyHosts) String() string { return proto.CompactTextString(m) }
+func (*NetworkPolicyHosts) ProtoMessage()    {}
+func (*NetworkPolicyHosts) Descriptor() ([]byte, []int) {
+	return fileDescriptor_nphds_9150389911c00044, []int{0}
+}
+func (m *NetworkPolicyHosts) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_NetworkPolicyHosts.Unmarshal(m, b)
+}
+func (m *NetworkPolicyHosts) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_NetworkPolicyHosts.Marshal(b, m, deterministic)
+}
+func (dst *NetworkPolicyHosts) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_NetworkPolicyHosts.Merge(dst, src)
+}
+func (m *NetworkPolicyHosts) XXX_Size() int {
+	return xxx_messageInfo_NetworkPolicyHosts.Size(m)
+}
+func (m *NetworkPolicyHosts) XXX_DiscardUnknown() {
+	xxx_messageInfo_NetworkPolicyHosts.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_NetworkPolicyHosts proto.InternalMessageInfo
 
 func (m *NetworkPolicyHosts) GetPolicy() uint64 {
 	if m != nil {
@@ -66,7 +94,7 @@ const _ = grpc.SupportPackageIsVersion4
 
 type NetworkPolicyHostsDiscoveryServiceClient interface {
 	StreamNetworkPolicyHosts(ctx context.Context, opts ...grpc.CallOption) (NetworkPolicyHostsDiscoveryService_StreamNetworkPolicyHostsClient, error)
-	FetchNetworkPolicyHosts(ctx context.Context, in *envoy_api_v2.DiscoveryRequest, opts ...grpc.CallOption) (*envoy_api_v2.DiscoveryResponse, error)
+	FetchNetworkPolicyHosts(ctx context.Context, in *v2.DiscoveryRequest, opts ...grpc.CallOption) (*v2.DiscoveryResponse, error)
 }
 
 type networkPolicyHostsDiscoveryServiceClient struct {
@@ -87,8 +115,8 @@ func (c *networkPolicyHostsDiscoveryServiceClient) StreamNetworkPolicyHosts(ctx 
 }
 
 type NetworkPolicyHostsDiscoveryService_StreamNetworkPolicyHostsClient interface {
-	Send(*envoy_api_v2.DiscoveryRequest) error
-	Recv() (*envoy_api_v2.DiscoveryResponse, error)
+	Send(*v2.DiscoveryRequest) error
+	Recv() (*v2.DiscoveryResponse, error)
 	grpc.ClientStream
 }
 
@@ -96,20 +124,20 @@ type networkPolicyHostsDiscoveryServiceStreamNetworkPolicyHostsClient struct {
 	grpc.ClientStream
 }
 
-func (x *networkPolicyHostsDiscoveryServiceStreamNetworkPolicyHostsClient) Send(m *envoy_api_v2.DiscoveryRequest) error {
+func (x *networkPolicyHostsDiscoveryServiceStreamNetworkPolicyHostsClient) Send(m *v2.DiscoveryRequest) error {
 	return x.ClientStream.SendMsg(m)
 }
 
-func (x *networkPolicyHostsDiscoveryServiceStreamNetworkPolicyHostsClient) Recv() (*envoy_api_v2.DiscoveryResponse, error) {
-	m := new(envoy_api_v2.DiscoveryResponse)
+func (x *networkPolicyHostsDiscoveryServiceStreamNetworkPolicyHostsClient) Recv() (*v2.DiscoveryResponse, error) {
+	m := new(v2.DiscoveryResponse)
 	if err := x.ClientStream.RecvMsg(m); err != nil {
 		return nil, err
 	}
 	return m, nil
 }
 
-func (c *networkPolicyHostsDiscoveryServiceClient) FetchNetworkPolicyHosts(ctx context.Context, in *envoy_api_v2.DiscoveryRequest, opts ...grpc.CallOption) (*envoy_api_v2.DiscoveryResponse, error) {
-	out := new(envoy_api_v2.DiscoveryResponse)
+func (c *networkPolicyHostsDiscoveryServiceClient) FetchNetworkPolicyHosts(ctx context.Context, in *v2.DiscoveryRequest, opts ...grpc.CallOption) (*v2.DiscoveryResponse, error) {
+	out := new(v2.DiscoveryResponse)
 	err := grpc.Invoke(ctx, "/cilium.NetworkPolicyHostsDiscoveryService/FetchNetworkPolicyHosts", in, out, c.cc, opts...)
 	if err != nil {
 		return nil, err
@@ -121,7 +149,7 @@ func (c *networkPolicyHostsDiscoveryServiceClient) FetchNetworkPolicyHosts(ctx c
 
 type NetworkPolicyHostsDiscoveryServiceServer interface {
 	StreamNetworkPolicyHosts(NetworkPolicyHostsDiscoveryService_StreamNetworkPolicyHostsServer) error
-	FetchNetworkPolicyHosts(context.Context, *envoy_api_v2.DiscoveryRequest) (*envoy_api_v2.DiscoveryResponse, error)
+	FetchNetworkPolicyHosts(context.Context, *v2.DiscoveryRequest) (*v2.DiscoveryResponse, error)
 }
 
 func RegisterNetworkPolicyHostsDiscoveryServiceServer(s *grpc.Server, srv NetworkPolicyHostsDiscoveryServiceServer) {
@@ -133,8 +161,8 @@ func _NetworkPolicyHostsDiscoveryService_StreamNetworkPolicyHosts_Handler(srv in
 }
 
 type NetworkPolicyHostsDiscoveryService_StreamNetworkPolicyHostsServer interface {
-	Send(*envoy_api_v2.DiscoveryResponse) error
-	Recv() (*envoy_api_v2.DiscoveryRequest, error)
+	Send(*v2.DiscoveryResponse) error
+	Recv() (*v2.DiscoveryRequest, error)
 	grpc.ServerStream
 }
 
@@ -142,12 +170,12 @@ type networkPolicyHostsDiscoveryServiceStreamNetworkPolicyHostsServer struct {
 	grpc.ServerStream
 }
 
-func (x *networkPolicyHostsDiscoveryServiceStreamNetworkPolicyHostsServer) Send(m *envoy_api_v2.DiscoveryResponse) error {
+func (x *networkPolicyHostsDiscoveryServiceStreamNetworkPolicyHostsServer) Send(m *v2.DiscoveryResponse) error {
 	return x.ServerStream.SendMsg(m)
 }
 
-func (x *networkPolicyHostsDiscoveryServiceStreamNetworkPolicyHostsServer) Recv() (*envoy_api_v2.DiscoveryRequest, error) {
-	m := new(envoy_api_v2.DiscoveryRequest)
+func (x *networkPolicyHostsDiscoveryServiceStreamNetworkPolicyHostsServer) Recv() (*v2.DiscoveryRequest, error) {
+	m := new(v2.DiscoveryRequest)
 	if err := x.ServerStream.RecvMsg(m); err != nil {
 		return nil, err
 	}
@@ -155,7 +183,7 @@ func (x *networkPolicyHostsDiscoveryServiceStreamNetworkPolicyHostsServer) Recv(
 }
 
 func _NetworkPolicyHostsDiscoveryService_FetchNetworkPolicyHosts_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(envoy_api_v2.DiscoveryRequest)
+	in := new(v2.DiscoveryRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -167,7 +195,7 @@ func _NetworkPolicyHostsDiscoveryService_FetchNetworkPolicyHosts_Handler(srv int
 		FullMethod: "/cilium.NetworkPolicyHostsDiscoveryService/FetchNetworkPolicyHosts",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(NetworkPolicyHostsDiscoveryServiceServer).FetchNetworkPolicyHosts(ctx, req.(*envoy_api_v2.DiscoveryRequest))
+		return srv.(NetworkPolicyHostsDiscoveryServiceServer).FetchNetworkPolicyHosts(ctx, req.(*v2.DiscoveryRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -192,9 +220,9 @@ var _NetworkPolicyHostsDiscoveryService_serviceDesc = grpc.ServiceDesc{
 	Metadata: "cilium/nphds.proto",
 }
 
-func init() { proto.RegisterFile("cilium/nphds.proto", fileDescriptor4) }
+func init() { proto.RegisterFile("cilium/nphds.proto", fileDescriptor_nphds_9150389911c00044) }
 
-var fileDescriptor4 = []byte{
+var fileDescriptor_nphds_9150389911c00044 = []byte{
 	// 319 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xb4, 0x51, 0x31, 0x4f, 0xf3, 0x30,
 	0x14, 0xfc, 0x9c, 0xf6, 0x8b, 0xa8, 0x25, 0x18, 0x3c, 0xd0, 0x28, 0xaa, 0xa0, 0xca, 0x42, 0x85,

@@ -104,12 +104,7 @@
 
 [[constraint]]
   name = "k8s.io/kubernetes"
-  revision = "v1.5.1"
-
-# Once we update "k8s.io/kubernetes" we can remove this override
-[[override]]
-  name = "github.com/ugorji/go"
-  revision = "f1f1a805ed361a0e078bb537e4ea78cd37dcf065"
+  revision = "v1.10.2"
 
 [[constraint]]
   name = "github.com/Jeffail/gabs"
@@ -170,7 +165,7 @@
 
 [[constraint]]
   name = "github.com/golang/protobuf"
-  revision = "1643683e1b54a9e88ad26d98f81400c8c9d9f4f9"
+  revision = "8cc9e46429bfb16289d40d30b2ee3f4923b47345"
 
 [[constraint]]
   name = "github.com/google/gopacket"
@@ -250,7 +245,7 @@
 
 [[constraint]]
   name = "github.com/vishvananda/netlink"
-  revision = "4e28683688429fdf8413cc610d59fb1841986300"
+  revision = "63ca7e48f59f463578ae6b6e839bef6906f048e2"
 
 [[constraint]]
   name = "golang.org/x/crypto"
@@ -271,3 +266,7 @@
 [[constraint]]
   name = "gopkg.in/check.v1"
   revision = "4f90aeace3a26ad7021961c297b22c42160c7b25"
+
+[[constraint]]
+  name = "github.com/containerd/containerd"
+  revision = "v1.1.0"

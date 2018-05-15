@@ -40,7 +40,7 @@ static inline int handle_ipv6(struct __sk_buff *skb)
 	struct ipv6hdr *ip6;
 	struct bpf_tunnel_key key = {};
 	struct endpoint_info *ep;
-	int l4_off, l3_off = ETH_HLEN;
+	int l4_off, l3_off = ETH_HLEN, hdrlen;
 
 	if (!revalidate_data(skb, &data, &data_end, &ip6))
 		return DROP_INVALID;
@@ -58,8 +58,12 @@ static inline int handle_ipv6(struct __sk_buff *skb)
 			goto to_host;
 
 		__u8 nexthdr = ip6->nexthdr;
-		l4_off = l3_off + ipv6_hdrlen(skb, l3_off, &nexthdr);
-		return ipv6_local_delivery(skb, l3_off, l4_off, key.tunnel_id, ip6, nexthdr, ep);
+		hdrlen = ipv6_hdrlen(skb, l3_off, &nexthdr);
+		if (hdrlen < 0)
+			return hdrlen;
+
+		l4_off = l3_off + hdrlen;
+		return ipv6_local_delivery(skb, l3_off, l4_off, key.tunnel_id, ip6, nexthdr, ep, METRIC_INGRESS);
 	} else {
 		return DROP_NON_LOCAL;
 	}
@@ -73,7 +77,7 @@ to_host:
 
 		cilium_dbg(skb, DBG_TO_HOST, is_policy_skip(skb), 0);
 
-		ret = ipv6_l3(skb, ETH_HLEN, (__u8 *) &router_mac.addr, (__u8 *) &host_mac.addr);
+		ret = ipv6_l3(skb, ETH_HLEN, (__u8 *) &router_mac.addr, (__u8 *) &host_mac.addr, METRIC_INGRESS);
 		if (ret != TC_ACT_OK)
 			return ret;
 
@@ -110,7 +114,7 @@ static inline int handle_ipv4(struct __sk_buff *skb)
 		if (ep->flags & ENDPOINT_F_HOST)
 			goto to_host;
 
-		return ipv4_local_delivery(skb, ETH_HLEN, l4_off, key.tunnel_id, ip4, ep);
+		return ipv4_local_delivery(skb, ETH_HLEN, l4_off, key.tunnel_id, ip4, ep, METRIC_INGRESS);
 	} else {
 		return DROP_NON_LOCAL;
 	}
@@ -141,7 +145,7 @@ __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV4) int tail_handle_ipv4(struct _
 	int ret = handle_ipv4(skb);
 
 	if (IS_ERR(ret))
-		return send_drop_notify_error(skb, ret, TC_ACT_SHOT);
+		return send_drop_notify_error(skb, ret, TC_ACT_SHOT, METRIC_INGRESS);
 
 	return ret;
 }
@@ -178,7 +182,7 @@ int from_overlay(struct __sk_buff *skb)
 	}
 
 	if (IS_ERR(ret))
-		return send_drop_notify_error(skb, ret, TC_ACT_SHOT);
+		return send_drop_notify_error(skb, ret, TC_ACT_SHOT, METRIC_INGRESS);
 	else
 		return ret;
 }

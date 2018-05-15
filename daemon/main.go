@@ -30,8 +30,8 @@ import (
 	"github.com/cilium/cilium/api/v1/server/restapi"
 	health "github.com/cilium/cilium/cilium-health/launch"
 	"github.com/cilium/cilium/common"
-	"github.com/cilium/cilium/daemon/defaults"
 	"github.com/cilium/cilium/pkg/bpf"
+	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/envoy"
 	"github.com/cilium/cilium/pkg/flowdebug"
@@ -49,7 +49,6 @@ import (
 	"github.com/cilium/cilium/pkg/pprof"
 	"github.com/cilium/cilium/pkg/version"
 	"github.com/cilium/cilium/pkg/workloads"
-	"github.com/cilium/cilium/pkg/workloads/containerd"
 
 	"github.com/go-openapi/loads"
 	gops "github.com/google/gops/agent"
@@ -86,7 +85,6 @@ var (
 	autoIPv6NodeRoutes    bool
 	bpfRoot               string
 	cmdRefDir             string
-	containerRuntimes     []string
 	debugVerboseFlags     []string
 	disableConntrack      bool
 	dockerEndpoint        string
@@ -317,10 +315,10 @@ func init() {
 		"bpf-root", "", "Path to BPF filesystem")
 	flags.StringVar(&cfgFile,
 		"config", "", `Configuration file (default "$HOME/ciliumd.yaml")`)
-	flags.StringSliceVar(&containerRuntimes,
-		"container-runtime", []string{"auto"}, `Sets the container runtime(s) used by Cilium { docker | none | auto }"`)
+	flags.StringSliceVar(&option.Config.Workloads,
+		"container-runtime", []string{"auto"}, `Sets the container runtime(s) used by Cilium { containerd | crio | docker | none | auto } ( "auto" uses the container runtime found in the order: "docker", "containerd", "crio" )`)
 	flags.Var(option.NewNamedMapOptions("container-runtime-endpoints", &containerRuntimesOpts, nil),
-		"container-runtime-endpoint", `Container runtime(s) endpoint(s). (default: --container-runtime-endpoint=docker=`+workloads.GetRuntimeDefaultOpt(workloads.Docker).Endpoint+`)`)
+		"container-runtime-endpoint", `Container runtime(s) endpoint(s). (default: `+workloads.GetDefaultEPOptsStringWithPrefix("--container-runtime-endpoint=")+`)`)
 	flags.BoolP(
 		"debug", "D", false, "Enable debugging mode")
 	flags.StringSliceVar(&debugVerboseFlags, argDebugVerbose, []string{}, "List of enabled verbose debug groups")
@@ -333,7 +331,7 @@ func init() {
 	flags.Bool("disable-k8s-services",
 		false, "Disable east-west K8s load balancing by cilium")
 	flags.StringVarP(&dockerEndpoint,
-		"docker", "e", workloads.GetRuntimeDefaultOpt(workloads.Docker).Endpoint, "Path to docker runtime socket (DEPRECATED: use container-runtime-endpoint instead)")
+		"docker", "e", workloads.GetRuntimeDefaultOpt(workloads.Docker, "endpoint"), "Path to docker runtime socket (DEPRECATED: use container-runtime-endpoint instead)")
 	flags.String("enable-policy", option.DefaultEnforcement, "Enable policy enforcement")
 	flags.BoolVar(&enableTracing,
 		"enable-tracing", false, "Enable tracing while determining policy (debugging)")
@@ -350,6 +348,8 @@ func init() {
 		"ipv4-range", AutoCIDR, "Per-node IPv4 endpoint prefix, e.g. 10.16.0.0/16")
 	flags.StringVar(&v6Prefix,
 		"ipv6-range", AutoCIDR, "Per-node IPv6 endpoint prefix, must be /96, e.g. fd02:1:1::/96")
+	flags.StringVar(&option.Config.IPv6ClusterAllocCIDR,
+		option.IPv6ClusterAllocCIDRName, defaults.IPv6ClusterAllocCIDR, "IPv6 /64 CIDR used to allocate per node endpoint /96 CIDR")
 	flags.StringVar(&v4ServicePrefix,
 		"ipv4-service-range", AutoCIDR, "Kubernetes IPv4 services CIDR if not inside cluster prefix")
 	flags.StringVar(&v6ServicePrefix,
@@ -358,6 +358,7 @@ func init() {
 		"k8s-api-server", "", "Kubernetes api address server (for https use --k8s-kubeconfig-path instead)")
 	flags.StringVar(&k8sKubeConfigPath,
 		"k8s-kubeconfig-path", "", "Absolute path of the kubernetes kubeconfig file")
+	viper.BindEnv("k8s-legacy-host-allows-world", "CILIUM_LEGACY_HOST_ALLOWS_WORLD")
 	flags.BoolVar(&option.Config.KeepConfig,
 		"keep-config", false, "When restoring state, keeps containers' configuration in place")
 	flags.BoolVar(&option.Config.KeepTemplates,
@@ -562,6 +563,10 @@ func initEnv(cmd *cobra.Command) {
 			scopedLog.WithError(err).Fatal("Unable to restore agent assets")
 		}
 	}
+
+	if !(viper.GetString("tunnel") == "vxlan" || viper.GetString("tunnel") == "geneve") {
+		log.Fatalf("Invalid setting for -t, must be {vxlan, geneve}")
+	}
 	checkMinRequirements()
 
 	if err := pidfile.Write(defaults.PidFilePath); err != nil {
@@ -672,20 +677,20 @@ func initEnv(cmd *cobra.Command) {
 
 	// workaround for to use the values of the deprecated dockerEndpoint
 	// variable if it is set with a different value than defaults.
-	defaultDockerEndpoint := workloads.GetRuntimeDefaultOpt(workloads.Docker).Endpoint
+	defaultDockerEndpoint := workloads.GetRuntimeDefaultOpt(workloads.Docker, "endpoint")
 	if defaultDockerEndpoint != dockerEndpoint {
 		containerRuntimesOpts[string(workloads.Docker)] = dockerEndpoint
 		log.Warn(`"docker" flag is deprecated.` +
 			`Please use "--container-runtime-endpoint=docker=` + defaultDockerEndpoint + `" instead`)
 	}
 
-	err = workloads.ParseConfig(containerRuntimes, containerRuntimesOpts)
+	err = workloads.ParseConfigEndpoint(option.Config.Workloads, containerRuntimesOpts)
 	if err != nil {
 		log.WithError(err).Fatal("Unable to initialize policy container runtimes")
 		return
 	}
 
-	log.Infof("Container runtimes being used: %s", workloads.GetRuntimesString())
+	log.Infof("Container runtime options set: %s", workloads.GetRuntimeOptions())
 }
 func runDaemon() {
 	log.Info("Initializing daemon")
@@ -704,7 +709,7 @@ func runDaemon() {
 	}
 
 	log.Info("Launching node monitor daemon")
-	go d.nodeMonitor.Run(path.Join(defaults.RuntimePath, defaults.EventsPipe))
+	go d.nodeMonitor.Run(path.Join(defaults.RuntimePath, defaults.EventsPipe), bpf.GetMapRoot())
 
 	// Launch cilium-health in the same namespace as cilium.
 	log.Info("Launching Cilium health daemon")
@@ -717,8 +722,11 @@ func runDaemon() {
 	cancelHealth := health.LaunchAsEndpoint(d, addressing, option.Config.Opts)
 	defer cancelHealth()
 
-	if err := containerd.EnableEventListener(); err != nil {
-		log.WithError(err).Fatal("Error while enabling containerd event watcher")
+	eventsCh, err := workloads.EnableEventListener()
+	if err != nil {
+		log.WithError(err).Fatal("Error while enabling docker event watcher")
+	} else {
+		d.workloadsEventsCh = eventsCh
 	}
 
 	if err := d.EnableK8sWatcher(5 * time.Minute); err != nil {

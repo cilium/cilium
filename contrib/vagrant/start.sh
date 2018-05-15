@@ -209,6 +209,7 @@ export K8S_NODE_CIDR_MASK_SIZE="${k8s_node_cidr_mask_size}"
 export K8S_SERVICE_CLUSTER_IP_RANGE="${k8s_service_cluster_ip_range}"
 export K8S_CLUSTER_API_SERVER_IP="${k8s_cluster_api_server_ip}"
 export K8S_CLUSTER_DNS_IP="${k8s_cluster_dns_ip}"
+export RUNTIME="${RUNTIME}"
 # Only do installation if RELOAD is not set
 if [ -z "${RELOAD}" ]; then
     export INSTALL="1"
@@ -243,6 +244,7 @@ export K8S_NODE_CIDR_MASK_SIZE="${k8s_node_cidr_mask_size}"
 export K8S_SERVICE_CLUSTER_IP_RANGE="${k8s_service_cluster_ip_range}"
 export K8S_CLUSTER_API_SERVER_IP="${k8s_cluster_api_server_ip}"
 export K8S_CLUSTER_DNS_IP="${k8s_cluster_dns_ip}"
+export RUNTIME="${RUNTIME}"
 export K8STAG="${VM_BASENAME}"
 export NWORKERS="${NWORKERS}"
 # Only do installation if RELOAD is not set
@@ -289,6 +291,19 @@ function write_cilium_cfg() {
         fi
         cilium_options+=" --kvstore consul"
     fi
+    # container runtime options
+    case "${RUNTIME}" in
+        "containerd" | "containerD")
+            cilium_options+=" --container-runtime=containerd --container-runtime-endpoint=/var/run/containerd/containerd.sock"
+            ;;
+        "crio" | "cri-o")
+            cilium_options+=" --container-runtime=crio --container-runtime-endpoint=/var/run/crio/crio.sock"
+            ;;
+        *)
+            cilium_options+=" --container-runtime=docker --container-runtime-endpoint=unix:///var/run/docker.sock"
+            ;;
+    esac
+
 
     if [ "$LB" = 1 ]; then
         # The LB interface needs to be the "exposed" to the host

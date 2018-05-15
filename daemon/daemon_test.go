@@ -24,6 +24,7 @@ import (
 
 	"github.com/cilium/cilium/common"
 	e "github.com/cilium/cilium/pkg/endpoint"
+	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/labels"
@@ -97,6 +98,10 @@ func (ds *DaemonSuite) SetUpTest(c *C) {
 	option.Config.Opts.Set(option.DropNotify, true)
 	option.Config.Opts.Set(option.TraceNotify, true)
 
+	// Disable restore of host IPs for unit tests. There can be arbitrary
+	// state left on disk.
+	option.Config.EnableHostIPRestore = false
+
 	d, err := NewDaemon()
 	c.Assert(err, IsNil)
 	ds.d = d
@@ -129,6 +134,8 @@ func (ds *DaemonSuite) SetUpTest(c *C) {
 }
 
 func (ds *DaemonSuite) TearDownTest(c *C) {
+	endpointmanager.RemoveAll()
+
 	if ds.d != nil {
 		os.RemoveAll(option.Config.RunDir)
 	}
@@ -172,7 +179,7 @@ func (e *DaemonConsulSuite) TearDownTest(c *C) {
 	e.DaemonSuite.TearDownTest(c)
 }
 
-func (ds *DaemonSuite) TestMiniumWorkerThreadsIsSet(c *C) {
+func (ds *DaemonSuite) TestMinimumWorkerThreadsIsSet(c *C) {
 	c.Assert(numWorkerThreads() >= 4, Equals, true)
 	c.Assert(numWorkerThreads() >= runtime.NumCPU(), Equals, true)
 }

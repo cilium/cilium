@@ -34,7 +34,8 @@ spec:
       serviceAccountName: cilium
       initContainers:
       - name: clean-cilium-state
-        image: busybox
+        image: docker.io/library/busybox:1.28.4
+        imagePullPolicy: IfNotPresent
         command: ['sh', '-c', 'if [ "${CLEAN_CILIUM_STATE}" = "true" ]; then rm -rf /var/run/cilium/state; rm -rf /sys/fs/bpf/tc/globals/cilium_*; fi']
         volumeMounts:
           - name: bpf-maps
@@ -44,12 +45,12 @@ spec:
         env:
           - name: "CLEAN_CILIUM_STATE"
             valueFrom:
-                configMapKeyRef:
-                  name: cilium-config
-                  optional: true
-                  key: clean-cilium-state
+              configMapKeyRef:
+                name: cilium-config
+                optional: true
+                key: clean-cilium-state
       containers:
-      - image: cilium/cilium:__CILIUM_VERSION__
+      - image: docker.io/cilium/cilium:__CILIUM_VERSION__
         imagePullPolicy: Always
         name: cilium-agent
         command: [ "cilium-agent" ]
@@ -100,6 +101,12 @@ spec:
                 name: cilium-metrics-config
                 optional: true
                 key: prometheus-serve-addr
+          - name: "CILIUM_LEGACY_HOST_ALLOWS_WORLD"
+            valueFrom:
+              configMapKeyRef:
+                name: cilium-config
+                optional: true
+                key: legacy-host-allows-world
         livenessProbe:
           exec:
             command:

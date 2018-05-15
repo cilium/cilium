@@ -6,10 +6,10 @@ package v2
 import proto "github.com/golang/protobuf/proto"
 import fmt "fmt"
 import math "math"
-import envoy_api_v2_endpoint "github.com/cilium/cilium/pkg/envoy/envoy/api/v2/endpoint"
-import _ "google.golang.org/genproto/googleapis/api/annotations"
-import _ "github.com/lyft/protoc-gen-validate/validate"
+import endpoint "github.com/cilium/cilium/pkg/envoy/envoy/api/v2/endpoint"
 import _ "github.com/gogo/protobuf/gogoproto"
+import _ "github.com/lyft/protoc-gen-validate/validate"
+import _ "google.golang.org/genproto/googleapis/api/annotations"
 
 import (
 	context "golang.org/x/net/context"
@@ -20,6 +20,12 @@ import (
 var _ = proto.Marshal
 var _ = fmt.Errorf
 var _ = math.Inf
+
+// This is a compile-time assertion to ensure that this generated file
+// is compatible with the proto package it is being compiled against.
+// A compilation error at this line likely means your copy of the
+// proto package needs to be updated.
+const _ = proto.ProtoPackageIsVersion2 // please upgrade the proto package
 
 // Each route from RDS will map to a single cluster or traffic split across
 // clusters using weights expressed in the RDS WeightedCluster.
@@ -36,15 +42,37 @@ type ClusterLoadAssignment struct {
 	// <envoy_api_msg_Cluster.EdsClusterConfig>`.
 	ClusterName string `protobuf:"bytes,1,opt,name=cluster_name,json=clusterName" json:"cluster_name,omitempty"`
 	// List of endpoints to load balance to.
-	Endpoints []*envoy_api_v2_endpoint.LocalityLbEndpoints `protobuf:"bytes,2,rep,name=endpoints" json:"endpoints,omitempty"`
+	Endpoints []*endpoint.LocalityLbEndpoints `protobuf:"bytes,2,rep,name=endpoints" json:"endpoints,omitempty"`
 	// Load balancing policy settings.
-	Policy *ClusterLoadAssignment_Policy `protobuf:"bytes,4,opt,name=policy" json:"policy,omitempty"`
+	Policy               *ClusterLoadAssignment_Policy `protobuf:"bytes,4,opt,name=policy" json:"policy,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}                      `json:"-"`
+	XXX_unrecognized     []byte                        `json:"-"`
+	XXX_sizecache        int32                         `json:"-"`
 }
 
-func (m *ClusterLoadAssignment) Reset()                    { *m = ClusterLoadAssignment{} }
-func (m *ClusterLoadAssignment) String() string            { return proto.CompactTextString(m) }
-func (*ClusterLoadAssignment) ProtoMessage()               {}
-func (*ClusterLoadAssignment) Descriptor() ([]byte, []int) { return fileDescriptor2, []int{0} }
+func (m *ClusterLoadAssignment) Reset()         { *m = ClusterLoadAssignment{} }
+func (m *ClusterLoadAssignment) String() string { return proto.CompactTextString(m) }
+func (*ClusterLoadAssignment) ProtoMessage()    {}
+func (*ClusterLoadAssignment) Descriptor() ([]byte, []int) {
+	return fileDescriptor_eds_67a9695caaec9f00, []int{0}
+}
+func (m *ClusterLoadAssignment) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_ClusterLoadAssignment.Unmarshal(m, b)
+}
+func (m *ClusterLoadAssignment) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_ClusterLoadAssignment.Marshal(b, m, deterministic)
+}
+func (dst *ClusterLoadAssignment) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ClusterLoadAssignment.Merge(dst, src)
+}
+func (m *ClusterLoadAssignment) XXX_Size() int {
+	return xxx_messageInfo_ClusterLoadAssignment.Size(m)
+}
+func (m *ClusterLoadAssignment) XXX_DiscardUnknown() {
+	xxx_messageInfo_ClusterLoadAssignment.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_ClusterLoadAssignment proto.InternalMessageInfo
 
 func (m *ClusterLoadAssignment) GetClusterName() string {
 	if m != nil {
@@ -53,7 +81,7 @@ func (m *ClusterLoadAssignment) GetClusterName() string {
 	return ""
 }
 
-func (m *ClusterLoadAssignment) GetEndpoints() []*envoy_api_v2_endpoint.LocalityLbEndpoints {
+func (m *ClusterLoadAssignment) GetEndpoints() []*endpoint.LocalityLbEndpoints {
 	if m != nil {
 		return m.Endpoints
 	}
@@ -74,13 +102,35 @@ type ClusterLoadAssignment_Policy struct {
 	// recover from an outage or should they be unable to autoscale and hence
 	// overall incoming traffic volume need to be trimmed to protect them.
 	// [#v2-api-diff: This is known as maintenance mode in v1.]
-	DropOverload float64 `protobuf:"fixed64,1,opt,name=drop_overload,json=dropOverload" json:"drop_overload,omitempty"`
+	DropOverload         float64  `protobuf:"fixed64,1,opt,name=drop_overload,json=dropOverload" json:"drop_overload,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
 }
 
-func (m *ClusterLoadAssignment_Policy) Reset()                    { *m = ClusterLoadAssignment_Policy{} }
-func (m *ClusterLoadAssignment_Policy) String() string            { return proto.CompactTextString(m) }
-func (*ClusterLoadAssignment_Policy) ProtoMessage()               {}
-func (*ClusterLoadAssignment_Policy) Descriptor() ([]byte, []int) { return fileDescriptor2, []int{0, 0} }
+func (m *ClusterLoadAssignment_Policy) Reset()         { *m = ClusterLoadAssignment_Policy{} }
+func (m *ClusterLoadAssignment_Policy) String() string { return proto.CompactTextString(m) }
+func (*ClusterLoadAssignment_Policy) ProtoMessage()    {}
+func (*ClusterLoadAssignment_Policy) Descriptor() ([]byte, []int) {
+	return fileDescriptor_eds_67a9695caaec9f00, []int{0, 0}
+}
+func (m *ClusterLoadAssignment_Policy) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_ClusterLoadAssignment_Policy.Unmarshal(m, b)
+}
+func (m *ClusterLoadAssignment_Policy) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_ClusterLoadAssignment_Policy.Marshal(b, m, deterministic)
+}
+func (dst *ClusterLoadAssignment_Policy) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ClusterLoadAssignment_Policy.Merge(dst, src)
+}
+func (m *ClusterLoadAssignment_Policy) XXX_Size() int {
+	return xxx_messageInfo_ClusterLoadAssignment_Policy.Size(m)
+}
+func (m *ClusterLoadAssignment_Policy) XXX_DiscardUnknown() {
+	xxx_messageInfo_ClusterLoadAssignment_Policy.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_ClusterLoadAssignment_Policy proto.InternalMessageInfo
 
 func (m *ClusterLoadAssignment_Policy) GetDropOverload() float64 {
 	if m != nil {
@@ -236,9 +286,9 @@ var _EndpointDiscoveryService_serviceDesc = grpc.ServiceDesc{
 	Metadata: "envoy/api/v2/eds.proto",
 }
 
-func init() { proto.RegisterFile("envoy/api/v2/eds.proto", fileDescriptor2) }
+func init() { proto.RegisterFile("envoy/api/v2/eds.proto", fileDescriptor_eds_67a9695caaec9f00) }
 
-var fileDescriptor2 = []byte{
+var fileDescriptor_eds_67a9695caaec9f00 = []byte{
 	// 414 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xac, 0x52, 0x3d, 0x8b, 0xd4, 0x40,
 	0x18, 0xce, 0xe4, 0x96, 0x95, 0x9d, 0x5b, 0x15, 0x86, 0xd3, 0xcb, 0x85, 0xe5, 0x2e, 0x04, 0x8b,

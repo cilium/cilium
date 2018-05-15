@@ -28,6 +28,7 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	dto "github.com/prometheus/client_model/go"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -52,8 +53,8 @@ var (
 	// LabelEventSourceK8s marks event-related metrics that come from k8s
 	LabelEventSourceK8s = "k8s"
 
-	// LabelEventSourceContainerd marks event-related metrics that come from containerd
-	LabelEventSourceContainerd = "containerd"
+	// LabelEventSourceContainerd marks event-related metrics that come from docker
+	LabelEventSourceContainerd = "docker"
 
 	// Endpoint
 
@@ -104,7 +105,7 @@ var (
 
 	// EventTS*is the time in seconds since epoch that we last received an
 	// event that we will handle
-	// source is one of k8s, containerd or apia
+	// source is one of k8s, docker or apia
 
 	// EventTSK8s is the timestamp of k8s events
 	EventTSK8s = prometheus.NewGauge(prometheus.GaugeOpts{
@@ -114,7 +115,7 @@ var (
 		ConstLabels: prometheus.Labels{"source": LabelEventSourceK8s},
 	})
 
-	// EventTSContainerd is the timestamp of containerd events
+	// EventTSContainerd is the timestamp of docker events
 	EventTSContainerd = prometheus.NewGauge(prometheus.GaugeOpts{
 		Namespace:   Namespace,
 		Name:        "event_ts",
@@ -122,7 +123,7 @@ var (
 		ConstLabels: prometheus.Labels{"source": LabelEventSourceContainerd},
 	})
 
-	// EventTSAPI is the timestamp of containerd events
+	// EventTSAPI is the timestamp of docker events
 	EventTSAPI = prometheus.NewGauge(prometheus.GaugeOpts{
 		Namespace:   Namespace,
 		Name:        "event_ts",
@@ -159,6 +160,26 @@ var (
 		Name:      "policy_l7_received_total",
 		Help:      "Number of total L7 received requests/responses",
 	})
+
+	// L3-L4 statistics
+
+	// DropCount is the total drop requests,
+	// tagged by drop reason and direction(ingress/egress)
+	DropCount = prometheus.NewCounterVec(prometheus.CounterOpts{
+		Namespace: Namespace,
+		Name:      "drop_count_total",
+		Help:      "Total dropped packets, tagged by drop reason and ingress/egress direction",
+	},
+		[]string{"reason", "direction"})
+
+	// ForwardCount is the total forward requests,
+	// tagged by ingress/egress direction
+	ForwardCount = prometheus.NewCounterVec(prometheus.CounterOpts{
+		Namespace: Namespace,
+		Name:      "forward_count_total",
+		Help:      "Total forwarded packets, tagged by ingress/egress direction",
+	},
+		[]string{"direction"})
 )
 
 func init() {
@@ -181,6 +202,9 @@ func init() {
 	MustRegister(ProxyForwarded)
 	MustRegister(ProxyDenied)
 	MustRegister(ProxyReceived)
+
+	MustRegister(DropCount)
+	MustRegister(ForwardCount)
 }
 
 // MustRegister adds the collector to the registry, exposing this metric to
@@ -208,4 +232,15 @@ func SetTSValue(c prometheus.Gauge, ts time.Time) {
 	// Build time in seconds since the epoch. Prometheus only takes floating
 	// point values, however, and urges times to be in seconds
 	c.Set(float64(ts.UnixNano()) / float64(1000000000))
+}
+
+// GetCounterValue returns the current value
+// stored for the counter
+func GetCounterValue(m prometheus.Counter) float64 {
+	var pm dto.Metric
+	err := m.Write(&pm)
+	if err == nil {
+		return *pm.Counter.Value
+	}
+	return 0
 }

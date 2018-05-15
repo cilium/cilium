@@ -98,7 +98,10 @@ type Duration struct {
 	// of one second or more, a non-zero value for the `nanos` field must be
 	// of the same sign as the `seconds` field. Must be from -999,999,999
 	// to +999,999,999 inclusive.
-	Nanos int32 `protobuf:"varint,2,opt,name=nanos" json:"nanos,omitempty"`
+	Nanos                int32    `protobuf:"varint,2,opt,name=nanos" json:"nanos,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `protobuf_unrecognized:"proto3" json:"-"`
+	XXX_sizecache        int32    `json:"-"`
 }
 
 func (m *Duration) Reset()                    { *m = Duration{} }
@@ -106,6 +109,23 @@ func (m *Duration) String() string            { return proto.CompactTextString(m
 func (*Duration) ProtoMessage()               {}
 func (*Duration) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{0} }
 func (*Duration) XXX_WellKnownType() string   { return "Duration" }
+func (m *Duration) Unmarshal(b []byte) error {
+	return xxx_messageInfo_Duration.Unmarshal(m, b)
+}
+func (m *Duration) Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_Duration.Marshal(b, m, deterministic)
+}
+func (dst *Duration) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_Duration.Merge(dst, src)
+}
+func (m *Duration) XXX_Size() int {
+	return xxx_messageInfo_Duration.Size(m)
+}
+func (m *Duration) XXX_DiscardUnknown() {
+	xxx_messageInfo_Duration.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_Duration proto.InternalMessageInfo
 
 func (m *Duration) GetSeconds() int64 {
 	if m != nil {

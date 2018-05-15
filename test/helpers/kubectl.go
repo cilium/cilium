@@ -40,7 +40,6 @@ import (
 	"github.com/sirupsen/logrus"
 	"golang.org/x/crypto/ssh"
 	"k8s.io/api/core/v1"
-	networkingv1 "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8sClient "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
@@ -52,6 +51,14 @@ const (
 	KubectlCmd    = "kubectl"
 	manifestsPath = "k8sT/manifests/"
 	kubeDNSLabel  = "k8s-app=kube-dns"
+
+	// DNSHelperTimeout is a predefined timeout value for K8s DNS commands. It
+	// must be larger than 5 minutes because kubedns has a hardcoded resync
+	// period of 5 minutes. We have experienced test failures because kubedns
+	// needed this time to recover from a connection problem to kube-apiserver.
+	// The kubedns resyncPeriod is defined at
+	// https://github.com/kubernetes/dns/blob/80fdd88276adba36a87c4f424b66fdf37cd7c9a8/pkg/dns/dns.go#L53
+	DNSHelperTimeout time.Duration = 420 // WithTimeout helper translates it to seconds
 )
 
 // GetCurrentK8SEnv returns the value of K8S_VERSION from the OS environment.
@@ -191,6 +198,48 @@ func (kub *Kubectl) CepGet(namespace string, pod string) *models.Endpoint {
 		return nil
 	}
 	return data
+}
+
+// WaitCEPReady waits until all Cilium endpoints are sync in Kubernetes resource.
+func (kub *Kubectl) WaitCEPReady() error {
+	pods, err := kub.GetCiliumPods(KubeSystemNamespace)
+	if err != nil {
+		return err
+	}
+	body := func() bool {
+		// Created a map of .id and IPv4 because endpoint id can be the same in different nodes.
+		endpointFilter := `{range [*]}{@.id}{"_"}{@.status.networking.addressing[0].ipv4}{"="}{@.status.policy.spec.policy-revision}{"\n"}{end}`
+		cepFilter := `{range .items[*]}{@.status.id}{"_"}{@.status.status.networking.addressing[0].ipv4}{"="}{@.status.status.policy.spec.policy-revision}{"\n"}{end}`
+		endpoints := map[string]string{}
+		for _, ciliumPod := range pods {
+			res := kub.ExecPodCmd(
+				KubeSystemNamespace,
+				ciliumPod,
+				fmt.Sprintf("cilium endpoint list -o jsonpath='%s'", endpointFilter))
+			for k, v := range res.KVOutput() {
+				endpoints[k] = v
+			}
+		}
+		cepCMD := fmt.Sprintf("%s get cep --all-namespaces -o jsonpath='%s'", KubectlCmd, cepFilter)
+		res := kub.Exec(cepCMD)
+		if !res.WasSuccessful() {
+			return false
+		}
+		cepValues := res.KVOutput()
+		for k, v := range endpoints {
+			cepPolicy, ok := cepValues[k]
+			if !ok {
+				kub.logger.Infof("Endpoint '%s' is not present in cep", k)
+				return false
+			}
+			if cepPolicy != v {
+				kub.logger.Infof("Endpoint '%s' policies mismatch '%s'='%s'", k, cepPolicy, v)
+				return false
+			}
+		}
+		return true
+	}
+	return WithTimeout(body, "CEP not ready after timeout", &TimeoutConfig{Timeout: HelperTimeout})
 }
 
 // ExecKafkaPodCmd executes shell command with arguments arg in the specified pod residing in the specified
@@ -533,7 +582,7 @@ func (kub *Kubectl) Delete(filePath string) *CmdRes {
 // WaitKubeDNS waits until the kubeDNS pods are ready. In case of exceeding the
 // default timeout it returns an error.
 func (kub *Kubectl) WaitKubeDNS() error {
-	return kub.WaitforPods(KubeSystemNamespace, fmt.Sprintf("-l %s", kubeDNSLabel), 300)
+	return kub.WaitforPods(KubeSystemNamespace, fmt.Sprintf("-l %s", kubeDNSLabel), DNSHelperTimeout)
 }
 
 // WaitForKubeDNSEntry waits until the given DNS entry is ready in kube-dns
@@ -548,7 +597,7 @@ func (kub *Kubectl) WaitForKubeDNSEntry(name string) error {
 		name = fmt.Sprintf("%s.%s", name, svcSuffix)
 	}
 	// https://bugs.launchpad.net/ubuntu/+source/bind9/+bug/854705
-	digCMD := "dig +short %s @%s | grep -v -e '^$'"
+	digCMD := "dig +short %s @%s | grep -v -e '^;'"
 
 	// If it fails we want to know if it's because of connection cannot be
 	// established or DNS does not exist.
@@ -571,7 +620,7 @@ func (kub *Kubectl) WaitForKubeDNSEntry(name string) error {
 	return WithTimeout(
 		body,
 		fmt.Sprintf("DNS %q is not ready after timeout", name),
-		&TimeoutConfig{Timeout: HelperTimeout})
+		&TimeoutConfig{Timeout: DNSHelperTimeout})
 }
 
 // WaitCleanAllTerminatingPods waits until all nodes that are in `Terminating`
@@ -606,70 +655,29 @@ func (kub *Kubectl) WaitCleanAllTerminatingPods() error {
 	return err
 }
 
-// ApplyNetworkPolicyUsingAPI applies a Kubernetes network policy using the API
-// and waits up until timeout seconds for the policy to be applied in all
-// Cilium endpoints. Returns an error if the policy is not imported before the
-// timeout is exceeded.
-func (kub *Kubectl) ApplyNetworkPolicyUsingAPI(namespace string, networkPolicy *networkingv1.NetworkPolicy) error {
-	revisions := map[string]int{}
-
-	kub.logger.Infof("Creating a new policy %q", networkPolicy)
-	pods, err := kub.GetCiliumPods(KubeSystemNamespace)
-	if err != nil {
-		return err
+// CiliumInstall receives a manifestName which needs to be in jsonnet format
+// and will be used in `kubecfg show` and applied to Kubernetes. It will return
+// a error if any action fails.
+func (kub *Kubectl) CiliumInstall(manifestName string) error {
+	ciliumDSManifest := ManifestGet(manifestName)
+	// debugYaml only dumps the full created yaml file to the test output if
+	// the cilium manifest can not be created correctly.
+	debugYaml := func() {
+		_ = kub.Exec(fmt.Sprintf("kubecfg show %s", ciliumDSManifest))
 	}
 
-	for _, v := range pods {
-		revi, err := kub.CiliumPolicyRevision(v)
-		if err != nil {
-			return err
-		}
-		revisions[v] = revi
-		kub.logger.Infof("ApplyNetworkPolicyUsingAPI: pod '%s' has revision '%v'", v, revi)
+	res := kub.Exec(fmt.Sprintf("kubecfg validate %s", ciliumDSManifest))
+	if !res.WasSuccessful() {
+		debugYaml()
+		return fmt.Errorf(res.GetDebugMessage())
 	}
 
-	_, err = kub.NetworkingV1().NetworkPolicies(namespace).Create(networkPolicy)
-	if err != nil {
-		return err
+	res = kub.Exec(fmt.Sprintf("kubecfg update %s", ciliumDSManifest))
+	if !res.WasSuccessful() {
+		debugYaml()
+		return fmt.Errorf(res.GetDebugMessage())
 	}
-
-	body := func() bool {
-		waitingRev := map[string]int{}
-
-		valid := true
-		for _, v := range pods {
-			revi, err := kub.CiliumPolicyRevision(v)
-			if err != nil {
-				kub.logger.Errorf("ApplyNetworkPolicyUsingAPI: error on get revision %s", err)
-				return false
-			}
-			if revi <= revisions[v] {
-				kub.logger.Infof("ApplyNetworkPolicyUsingAPI: pod '%s' still on old revision '%v', need '%v'", v, revi, revisions[v])
-				valid = false
-			} else {
-				waitingRev[v] = revi
-			}
-		}
-
-		if valid == true {
-			// Wait until all the pods are synced
-			for pod, rev := range waitingRev {
-				kub.logger.Infof("ApplyNetworkPolicyUsingAPI: Wait for endpoints to sync on pod '%s'", pod)
-				res := kub.CiliumExec(pod, fmt.Sprintf("cilium policy wait %d", rev))
-				if !res.WasSuccessful() {
-					return false
-				}
-				kub.logger.Infof("ApplyNetworkPolicyUsingAPI: revision %d in pod '%s' is ready", rev, pod)
-			}
-			return true
-		}
-		return false
-	}
-	err = WithTimeout(
-		body,
-		"Cannot apply network policy",
-		&TimeoutConfig{Timeout: HelperTimeout})
-	return err
+	return nil
 }
 
 // GetCiliumPods returns a list of all Cilium pods in the specified namespace,
@@ -741,42 +749,59 @@ func (kub *Kubectl) CiliumEndpointsListByLabel(pod, label string) (EndpointMap, 
 	return result, nil
 }
 
-// CiliumEndpointWait waits until all endpoints managed by the specified Cilium
-// pod are ready. Returns false if the command to retrieve the state of the
-// endpoints times out.
-func (kub *Kubectl) CiliumEndpointWait(pod string) bool {
+// CiliumEndpointWaitReady waits until all endpoints managed by all Cilium pod
+// are ready. Returns an error if the Cilium pods cannot be retrieved via
+// Kubernetes, or endpoints are not ready after a specified timeout
+func (kub *Kubectl) CiliumEndpointWaitReady() error {
+	ciliumPods, err := kub.GetCiliumPods(KubeSystemNamespace)
+	if err != nil {
+		kub.logger.WithError(err).Error("cannot get Cilium pods")
+		return err
+	}
 
 	body := func() bool {
-		status, err := kub.CiliumEndpointsList(pod).Filter("{[*].status.state}")
-		if err != nil {
-			return false
-		}
+		for _, pod := range ciliumPods {
+			logCtx := kub.logger.WithField("pod", pod)
+			status, err := kub.CiliumEndpointsList(pod).Filter(`{range [*]}{.status.state}{"="}{.status.identity.id}{"\n"}{end}`)
+			if err != nil {
+				logCtx.WithError(err).Errorf("cannot get endpoints states on Cilium pod")
+				return false
+			}
+			total := 0
+			invalid := 0
+			for _, line := range strings.Split(status.String(), "\n") {
+				if line == "" {
+					continue
+				}
+				// each line is like status=identityID.
+				// IdentityID is needed because the reserved:init identity
+				// means that the pod is not ready to accept traffic.
+				total++
+				vals := strings.Split(line, "=")
+				if len(vals) != 2 {
+					logCtx.Errorf("Endpoint list does not have a correct output '%s'", line)
+					return false
+				}
+				if vals[0] != "ready" {
+					invalid++
+				}
+				// Consider an endpoint with reserved identity 5 (reserved:init) as not ready.
+				if vals[1] == "5" {
+					invalid++
+				}
+			}
+			logCtx.WithFields(logrus.Fields{
+				"total":   total,
+				"invalid": invalid,
+			}).Info("Waiting for cilium endpoints to be ready")
 
-		var valid, invalid int
-		for _, endpoint := range strings.Split(status.String(), " ") {
-			if endpoint != "ready" {
-				invalid++
-			} else {
-				valid++
+			if invalid != 0 {
+				return false
 			}
 		}
-		if invalid == 0 {
-			return true
-		}
-
-		kub.logger.WithFields(logrus.Fields{
-			"pod":     pod,
-			"valid":   valid,
-			"invalid": invalid,
-		}).Info("Waiting for cilium endpoints")
-		return false
+		return true
 	}
-
-	err := WithTimeout(body, "cannot retrieve endpoints", &TimeoutConfig{Timeout: HelperTimeout})
-	if err != nil {
-		return false
-	}
-	return true
+	return WithTimeout(body, "cannot retrieve endpoints", &TimeoutConfig{Timeout: HelperTimeout})
 }
 
 // CiliumEndpointPolicyVersion returns a mapping of each endpoint's ID to its
@@ -1003,7 +1028,7 @@ func (kub *Kubectl) CiliumReport(namespace string, commands ...string) {
 func (kub *Kubectl) ValidateNoErrorsOnLogs(duration time.Duration) {
 	cmd := fmt.Sprintf("%s -n %s logs --timestamps=true -l k8s-app=cilium --since=%vs",
 		KubectlCmd, KubeSystemNamespace, duration.Seconds())
-	res := kub.Exec(fmt.Sprintf("%s --previous", cmd))
+	res := kub.Exec(fmt.Sprintf("%s --previous", cmd), ExecOptions{SkipLog: true})
 	if !res.WasSuccessful() {
 		res = kub.Exec(cmd)
 	}
@@ -1134,8 +1159,10 @@ func (kub *Kubectl) GatherLogs() {
 	reportCmds := map[string]string{
 		"kubectl get pods --all-namespaces -o json":                    "pods.txt",
 		"kubectl get services --all-namespaces -o json":                "svc.txt",
+		"kubectl get nodes -o json":                                    "nodes.txt",
 		"kubectl get ds --all-namespaces -o json":                      "ds.txt",
 		"kubectl get cnp --all-namespaces -o json":                     "cnp.txt",
+		"kubectl get cep --all-namespaces -o json":                     "cep.txt",
 		"kubectl get netpol --all-namespaces -o json":                  "netpol.txt",
 		"kubectl describe pods --all-namespaces":                       "pods_status.txt",
 		"kubectl get replicationcontroller --all-namespaces -o json":   "replicationcontroller.txt",
@@ -1217,6 +1244,10 @@ func (kub *Kubectl) isPodReady(ns, podName string) (bool, error) {
 	case v1.PodFailed, v1.PodSucceeded:
 		return false, errors.New("Pod is not running")
 	case v1.PodRunning:
+		// Consider an endpoint with reserved identity 5 / "init" (reserved:init) as not ready.
+		if pod.Annotations["cilium.io/identity"] == "init" {
+			return false, nil
+		}
 		for _, cond := range pod.Status.Conditions {
 			if cond.Type == v1.PodReady && cond.Status == v1.ConditionTrue {
 				return true, nil
@@ -1292,46 +1323,14 @@ func (epMap *EndpointMap) GetPolicyStatus() map[models.EndpointPolicyEnabled]int
 	return result
 }
 
-// AreReady returns true if all Cilium endpoints are in 'ready' state
+// AreReady returns true if all Cilium endpoints are in 'ready' state and have
+// an identity different from 'reserved:init'.
 func (epMap *EndpointMap) AreReady() bool {
 	for _, ep := range *epMap {
-		if ep.Status.State != models.EndpointStateReady {
+		// Consider an endpoint with reserved identity 5 (reserved:init) as not ready.
+		if ep.Status.State != models.EndpointStateReady || ep.Status.Identity.ID == 5 {
 			return false
 		}
 	}
 	return true
-}
-
-// WaitCEPRevisionIncrease waits for the policy revision number for pod with name
-// podName in namespace podNamespace to increase past oldRev. Returns an error
-// if the revision number does not increase after a specified timeout.
-func (kub *Kubectl) WaitCEPRevisionIncrease(podName, podNamespace string, oldRev int64) error {
-
-	body := func() bool {
-		cep := kub.CepGet(podNamespace, podName)
-
-		if cep == nil || cep.Status.Policy.Realized.PolicyRevision <= oldRev {
-			log.Debugf("CEP revision has not updated: waiting for revision to be greater than %d", oldRev)
-			return false
-		}
-		return true
-	}
-
-	return WithTimeout(body, "CEP revision did not increase after specified timeout", &TimeoutConfig{Timeout: HelperTimeout})
-
-}
-
-// WaitForCEPToExist waits for the endpoint model representing the CiliumEndpoint
-// for pod podName in the specified namespace podNamespace to be non-nil. If it
-// is still nil after a specified timeout, returns an error.
-func (kub *Kubectl) WaitForCEPToExist(podName, podNamespace string) error {
-	body := func() bool {
-		cep := kub.CepGet(podNamespace, podName)
-		if cep == nil {
-			return false
-		}
-		return true
-	}
-
-	return WithTimeout(body, "CEP was still nil after specified timeout", &TimeoutConfig{Timeout: HelperTimeout})
 }

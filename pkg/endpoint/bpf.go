@@ -21,6 +21,7 @@ import (
 	"crypto/md5"
 	"encoding/hex"
 	"fmt"
+	"hash"
 	"io"
 	"os"
 	"os/exec"
@@ -35,7 +36,6 @@ import (
 	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/identity"
-	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/cidrmap"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
@@ -263,9 +263,13 @@ func (e *Endpoint) writeHeaderfile(prefix string, owner Owner) error {
 		return err
 	}
 
+	ipcachePrefixes6, ipcachePrefixes4 := policy.GetDefaultPrefixLengths()
 	if e.L3Policy != nil {
-		ipv6Ingress, ipv4Ingress := e.L3Policy.Ingress.ToBPFData()
+		// Only egress CIDR policy uses IPCache for now.
+		// This will include the default prefix lengths from above.
+		ipcachePrefixes6, ipcachePrefixes4 = e.L3Policy.Egress.ToBPFData()
 
+		ipv6Ingress, ipv4Ingress := e.L3Policy.Ingress.ToBPFData()
 		if len(ipv6Ingress) > 0 {
 			fw.WriteString("#define CIDR6_INGRESS_PREFIXES ")
 			for _, m := range ipv6Ingress {
@@ -282,8 +286,6 @@ func (e *Endpoint) writeHeaderfile(prefix string, owner Owner) error {
 		}
 	}
 
-	// IPCache only supports hosts at the moment, only set host prefix
-	ipcachePrefixes6, ipcachePrefixes4 := ipcache.IPIdentityCache.ToBPFData()
 	fw.WriteString("#define IPCACHE6_PREFIXES ")
 	for _, prefix := range ipcachePrefixes6 {
 		fmt.Fprintf(fw, "%d,", prefix)
@@ -298,18 +300,36 @@ func (e *Endpoint) writeHeaderfile(prefix string, owner Owner) error {
 	return fw.Flush()
 }
 
-// hashHeaderfile returns the MD5 hash of the BPF headerfile with the given prefix.
-// This ignores all lines that don't start with "#", incl. all comments, since
-// they have no effect on the BPF compilation.
-func hashHeaderfile(prefix string) (string, error) {
-	headerPath := filepath.Join(prefix, common.CHeaderFileName)
-	file, err := os.Open(headerPath)
+// hashEndpointHeaderFiles returns the MD5 hash of any header files that are
+// used in the compilation of an endpoint's BPF program. Currently, this
+// includes the endpoint's headerfile, and the node's headerfile.
+func hashEndpointHeaderfiles(prefix string) (string, error) {
+	endpointHeaderPath := filepath.Join(prefix, common.CHeaderFileName)
+	hashWriter := md5.New()
+	hashWriter, err := hashHeaderfile(hashWriter, endpointHeaderPath)
 	if err != nil {
 		return "", err
 	}
+
+	hashWriter, err = hashHeaderfile(hashWriter, option.Config.GetNodeConfigPath())
+	if err != nil {
+		return "", err
+	}
+
+	combinedHeaderHashSum := hashWriter.Sum(nil)
+	return hex.EncodeToString(combinedHeaderHashSum[:]), nil
+}
+
+// hashHeaderfile returns the hash of the BPF headerfile at the given filepath.
+// This ignores all lines that don't start with "#", incl. all comments, since
+// they have no effect on the BPF compilation.
+func hashHeaderfile(hashWriter hash.Hash, filepath string) (hash.Hash, error) {
+	file, err := os.Open(filepath)
+	if err != nil {
+		return nil, err
+	}
 	defer file.Close()
 
-	hashWriter := md5.New()
 	reader := bufio.NewReader(file)
 	firstFragmentOfLine := true
 	lineToHash := false
@@ -319,7 +339,7 @@ func hashHeaderfile(prefix string) (string, error) {
 			if err == io.EOF {
 				break
 			}
-			return "", err
+			return nil, err
 		}
 		if firstFragmentOfLine && len(fragment) > 0 && fragment[0] == '#' {
 			lineToHash = true
@@ -334,8 +354,7 @@ func hashHeaderfile(prefix string) (string, error) {
 		}
 	}
 
-	hash := hashWriter.Sum(nil)
-	return hex.EncodeToString(hash[:]), nil
+	return hashWriter, nil
 }
 
 func (e *Endpoint) runInit(libdir, rundir, epdir, ifName, debug string) error {
@@ -374,7 +393,7 @@ func (e *Endpoint) runInit(libdir, rundir, epdir, ifName, debug string) error {
 // after releasing that lock to push the entries into the datapath.
 // Functions below implement the EndpointFrontend interface with this cached information.
 type epInfoCache struct {
-	keys     []lxcmap.EndpointKey
+	keys     []*lxcmap.EndpointKey
 	value    *lxcmap.EndpointInfo
 	ifName   string
 	revision uint64
@@ -395,7 +414,7 @@ func (e *Endpoint) createEpInfoCache() *epInfoCache {
 
 // GetBPFKeys returns all keys which should represent this endpoint in the BPF
 // endpoints map
-func (ep *epInfoCache) GetBPFKeys() []lxcmap.EndpointKey {
+func (ep *epInfoCache) GetBPFKeys() []*lxcmap.EndpointKey {
 	return ep.keys
 }
 
@@ -406,10 +425,9 @@ func (ep *epInfoCache) GetBPFValue() (*lxcmap.EndpointInfo, error) {
 	return ep.value, nil
 }
 
-// addNewRedirectsFromMap must be called while holding the endpoint and consumable
-// locks for writing. On success, returns nil; otherwise, returns an error
-// indicating the problem that occurred while adding an l7 redirect for the
-// specified policy.
+// addNewRedirectsFromMap must be called while holding the endpoint lock for
+// writing. On success, returns nil; otherwise, returns an error  indicating the
+// problem that occurred while adding an l7 redirect for the specified policy.
 // Must be called with endpoint.Mutex held.
 func (e *Endpoint) addNewRedirectsFromMap(owner Owner, m policy.L4PolicyMap, desiredRedirects map[string]bool) error {
 	if owner.DryModeEnabled() {
@@ -446,10 +464,9 @@ func (e *Endpoint) addNewRedirectsFromMap(owner Owner, m policy.L4PolicyMap, des
 	return nil
 }
 
-// addNewRedirects must be called while holding the endpoint and consumable
-// locks for writing. On success, returns nil; otherwise, returns an error
-// indicating the problem that occurred while adding an l7 redirect for the
-// specified policy.
+// addNewRedirects must be called while holding the endpoint lock for writing.
+// On success, returns nil; otherwise, returns an error indicating the problem
+// that occurred while adding an l7 redirect for the specified policy.
 // The returned map contains the exact set of IDs of proxy redirects that is
 // required to implement the given L4 policy.
 // Must be called with endpoint.Mutex held.
@@ -605,7 +622,6 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir, reason string) (uint64, err
 		}
 	}()
 
-	// Create the policymap on the first pass
 	if e.PolicyMap == nil {
 		e.PolicyMap, createdPolicyMap, err = policymap.OpenMap(e.PolicyMapPathLocked())
 		if err != nil {
@@ -613,7 +629,7 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir, reason string) (uint64, err
 			return 0, err
 		}
 		// Clean up map contents
-		log.Debugf("Flushing old policies map")
+		e.getLogger().Debug("flushing old PolicyMap")
 		err = e.PolicyMap.Flush()
 		if err != nil {
 			e.Mutex.Unlock()
@@ -670,16 +686,17 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir, reason string) (uint64, err
 		return 0, fmt.Errorf("unable to write header file: %s", err)
 	}
 
-	// Avoid BPF program compilation and installation if the headerfile hasn't changed.
-	bpfHeaderfileHash, err := hashHeaderfile(epdir)
-	var bpfHeaderfileChanged bool
+	// Avoid BPF program compilation and installation if the headerfile for the endpoint
+	// or the node have not changed.
+	bpfHeaderfilesHash, err := hashEndpointHeaderfiles(epdir)
+	var bpfHeaderfilesChanged bool
 	if err != nil {
 		e.getLogger().WithError(err).Warn("Unable to hash header file")
-		bpfHeaderfileHash = ""
-		bpfHeaderfileChanged = true
+		bpfHeaderfilesHash = ""
+		bpfHeaderfilesChanged = true
 	} else {
-		bpfHeaderfileChanged = (bpfHeaderfileHash != e.bpfHeaderfileHash)
-		e.getLogger().WithField(logfields.BPFHeaderfileHash, bpfHeaderfileHash).
+		bpfHeaderfilesChanged = (bpfHeaderfilesHash != e.bpfHeaderfileHash)
+		e.getLogger().WithField(logfields.BPFHeaderfileHash, bpfHeaderfilesHash).
 			Debugf("BPF header file hashed (was: %q)", e.bpfHeaderfileHash)
 	}
 
@@ -728,16 +745,16 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir, reason string) (uint64, err
 		return 0, fmt.Errorf("Error while configuring proxy redirects: %s", err)
 	}
 
-	if bpfHeaderfileChanged {
+	if bpfHeaderfilesChanged {
 		// Compile and install BPF programs for this endpoint
 		err = e.runInit(libdir, rundir, epdir, epInfoCache.ifName, debug)
 		if err != nil {
 			return epInfoCache.revision, err
 		}
-		e.bpfHeaderfileHash = bpfHeaderfileHash
+		e.bpfHeaderfileHash = bpfHeaderfilesHash
 	} else {
 		e.Mutex.RLock()
-		e.getLogger().WithField(logfields.BPFHeaderfileHash, bpfHeaderfileHash).
+		e.getLogger().WithField(logfields.BPFHeaderfileHash, bpfHeaderfilesHash).
 			Debug("BPF header file unchanged, skipping BPF compilation and installation")
 		e.Mutex.RUnlock()
 	}

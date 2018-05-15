@@ -169,6 +169,12 @@ func Dissect(dissect bool, data []byte) {
 	}
 }
 
+// Flow contains source and destination
+type Flow struct {
+	Src string `json:"src"`
+	Dst string `json:"dst"`
+}
+
 // DissectSummary bundles decoded layers into json-marshallable message
 type DissectSummary struct {
 	Ethernet string `json:"ethernet,omitempty"`
@@ -178,6 +184,9 @@ type DissectSummary struct {
 	UDP      string `json:"udp,omitempty"`
 	ICMPv4   string `json:"icmpv4,omitempty"`
 	ICMPv6   string `json:"icmpv4,omitempty"`
+	L2       *Flow  `json:"l2,omitempty"`
+	L3       *Flow  `json:"l3,omitempty"`
+	L4       *Flow  `json:"l4,omitempty"`
 }
 
 // GetDissectSummary returns DissectSummary created from data
@@ -193,14 +202,24 @@ func GetDissectSummary(data []byte) *DissectSummary {
 		switch typ {
 		case layers.LayerTypeEthernet:
 			ret.Ethernet = gopacket.LayerString(&eth)
+			src, dst := eth.LinkFlow().Endpoints()
+			ret.L2 = &Flow{Src: src.String(), Dst: dst.String()}
 		case layers.LayerTypeIPv4:
 			ret.IPv4 = gopacket.LayerString(&ip4)
+			src, dst := ip4.NetworkFlow().Endpoints()
+			ret.L3 = &Flow{Src: src.String(), Dst: dst.String()}
 		case layers.LayerTypeIPv6:
 			ret.IPv6 = gopacket.LayerString(&ip6)
+			src, dst := ip6.NetworkFlow().Endpoints()
+			ret.L3 = &Flow{Src: src.String(), Dst: dst.String()}
 		case layers.LayerTypeTCP:
 			ret.TCP = gopacket.LayerString(&tcp)
+			src, dst := tcp.TransportFlow().Endpoints()
+			ret.L4 = &Flow{Src: src.String(), Dst: dst.String()}
 		case layers.LayerTypeUDP:
 			ret.UDP = gopacket.LayerString(&udp)
+			src, dst := udp.TransportFlow().Endpoints()
+			ret.L4 = &Flow{Src: src.String(), Dst: dst.String()}
 		case layers.LayerTypeICMPv4:
 			ret.ICMPv4 = gopacket.LayerString(&icmp4)
 		case layers.LayerTypeICMPv6:

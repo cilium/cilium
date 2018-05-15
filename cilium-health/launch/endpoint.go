@@ -34,6 +34,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/mtu"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 
@@ -68,13 +69,13 @@ func logFromCommand(cmd *exec.Cmd, netns string) error {
 
 func configureHealthRouting(netns, dev string, addressing *models.NodeAddressing) error {
 	routes := []plugins.Route{}
-	v4Routes, err := plugins.IPv4Routes(addressing)
+	v4Routes, err := plugins.IPv4Routes(addressing, mtu.StandardMTU)
 	if err == nil {
 		routes = append(routes, v4Routes...)
 	} else {
 		log.Debugf("Couldn't get IPv4 routes for health routing")
 	}
-	v6Routes, err := plugins.IPv6Routes(addressing)
+	v6Routes, err := plugins.IPv6Routes(addressing, mtu.StandardMTU)
 	if err != nil {
 		return fmt.Errorf("Failed to get IPv6 routes")
 	}
@@ -128,7 +129,7 @@ func LaunchAsEndpoint(owner endpoint.Owner, hostAddressing *models.NodeAddressin
 	} else {
 		log.Debug("Didn't find existing link")
 	}
-	veth, _, err := plugins.SetupVethWithNames(vethName, vethPeerName, 1450, info)
+	veth, _, err := plugins.SetupVethWithNames(vethName, vethPeerName, mtu.StandardMTU, info)
 	if err != nil {
 		log.WithError(err).Fatal("Error while creating cilium-health veth")
 	}
@@ -171,8 +172,7 @@ func LaunchAsEndpoint(owner endpoint.Owner, hostAddressing *models.NodeAddressin
 	}
 
 	// Create the endpoint
-	lbl := labels.Labels{labels.IDNameHealth: labels.NewLabel(labels.IDNameHealth, "", labels.LabelSourceReserved)}
-	ep, err := endpoint.NewEndpointFromChangeModel(info, lbl)
+	ep, err := endpoint.NewEndpointFromChangeModel(info)
 	if err != nil {
 		log.WithError(err).Fatal("Error while creating cilium-health endpoint")
 	}
@@ -184,9 +184,8 @@ func LaunchAsEndpoint(owner endpoint.Owner, hostAddressing *models.NodeAddressin
 	}
 
 	// Give the endpoint a security identity
-	if errLabelsAdd := ep.ModifyIdentityLabels(owner, lbl, labels.Labels{}); errLabelsAdd != nil {
-		log.WithError(errLabelsAdd).Fatal("Failed to set labels on cilium-health endpoint")
-	}
+	lbls := labels.Labels{labels.IDNameHealth: labels.NewLabel(labels.IDNameHealth, "", labels.LabelSourceReserved)}
+	ep.SetIdentityLabels(owner, lbls)
 
 	// Wait until the cilium-health endpoint is running before setting up routes
 	deadline := time.Now().Add(5 * time.Second)

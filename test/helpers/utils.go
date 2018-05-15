@@ -30,11 +30,12 @@ import (
 	"time"
 
 	"github.com/cilium/cilium/test/config"
+	ginkgoext "github.com/cilium/cilium/test/ginkgo-ext"
 
 	"github.com/Jeffail/gabs"
 	"github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"k8s.io/kubernetes/pkg/util/yaml"
+	"k8s.io/apimachinery/pkg/util/yaml"
 )
 
 // IsRunningOnJenkins detects if the currently running Ginkgo application is
@@ -156,7 +157,7 @@ func InstallExampleCilium(kubectl *Kubectl) {
 
 	var path = filepath.Join("..", "examples", "kubernetes", GetCurrentK8SEnv(), "cilium.yaml")
 	var result bytes.Buffer
-	timeout := time.Duration(300)
+	timeout := time.Duration(800)
 
 	newCiliumDSName := fmt.Sprintf("cilium_ds_%s.json", MakeUID())
 
@@ -196,7 +197,7 @@ func InstallExampleCilium(kubectl *Kubectl) {
 		KubeSystemNamespace, "-l k8s-app=cilium", timeout)
 	ExpectWithOffset(1, err).Should(BeNil(), "Cilium is not ready after timeout")
 
-	ginkgo.By(fmt.Sprintf("Checking that installed image is %q", StableImage))
+	ginkgoext.By(fmt.Sprintf("Checking that installed image is %q", StableImage))
 
 	filter := `{.items[*].status.containerStatuses[0].image}`
 	data, err := kubectl.GetPods(
@@ -232,7 +233,8 @@ func (kubectl *Kubectl) WaitCiliumEndpointReady(podFilter string, k8sNode string
 	status := kubectl.CiliumExec(ciliumPod, fmt.Sprintf("cilium config %s=%s", PolicyEnforcement, PolicyEnforcementDefault))
 	status.ExpectSuccess()
 
-	kubectl.CiliumEndpointWait(ciliumPod)
+	err = kubectl.CiliumEndpointWaitReady()
+	Expect(err).To(BeNil(), "Endpoints are not ready after timeout")
 
 	epsStatus := WithTimeout(func() bool {
 		endpoints, err := kubectl.CiliumEndpointsListByLabel(ciliumPod, podFilter)
@@ -289,23 +291,23 @@ func Fail(description string, callerSkip ...int) {
 		fmt.Fprintf(os.Stdout, "\nRun \"kill -SIGCONT %d\" to continue.\n", pid)
 		syscall.Kill(pid, syscall.SIGSTOP)
 	}
-	ginkgo.Fail(description, callerSkip...)
+	ginkgoext.Fail(description, callerSkip...)
 }
 
 // CreateReportDirectory creates and returns the directory path to export all report
 // commands that need to be run in the case that a test has failed.
 // If the directory cannot be created it'll return an error
 func CreateReportDirectory() (string, error) {
-	testDesc := ginkgo.CurrentGinkgoTestDescription()
 	prefix := ""
-	if strings.HasPrefix(strings.ToLower(testDesc.FullTestText), K8s) {
+	testName := ginkgoext.GetTestName()
+	if strings.HasPrefix(strings.ToLower(testName), K8s) {
 		prefix = fmt.Sprintf("%s-", strings.Replace(GetCurrentK8SEnv(), ".", "", -1))
 	}
 
 	testPath := filepath.Join(
 		TestResultsPath,
 		prefix,
-		strings.Replace(testDesc.FullTestText, " ", "", -1))
+		testName)
 	if _, err := os.Stat(testPath); err == nil {
 		return testPath, nil
 	}

@@ -15,7 +15,6 @@ var _ = Describe("K8sValidatedUpdates", func() {
 
 	var kubectl *helpers.Kubectl
 	var logger *logrus.Entry
-	var ciliumPath string
 	var demoPath string
 	var l3Policy, l7Policy string
 	var apps []string
@@ -27,8 +26,8 @@ var _ = Describe("K8sValidatedUpdates", func() {
 
 		kubectl = helpers.CreateKubectl(helpers.K8s1VMName(), logger)
 
-		ciliumPath = helpers.ManifestGet("cilium_ds.yaml")
-		kubectl.Delete(ciliumPath)
+		_ = kubectl.DeleteResource(
+			"ds", fmt.Sprintf("-n %s cilium", helpers.KubeSystemNamespace))
 
 		apps = []string{helpers.App1, helpers.App2, helpers.App3}
 
@@ -58,9 +57,8 @@ var _ = Describe("K8sValidatedUpdates", func() {
 		kubectl.Delete(l3Policy)
 		kubectl.Delete(demoPath)
 
-		res := kubectl.DeleteResource(
+		_ = kubectl.DeleteResource(
 			"ds", fmt.Sprintf("-n %s cilium", helpers.KubeSystemNamespace))
-		res.ExpectSuccess("Cilium DS cannot be deleted")
 
 		ExpectAllPodsTerminated(kubectl)
 	})
@@ -88,15 +86,6 @@ var _ = Describe("K8sValidatedUpdates", func() {
 		}
 	}
 
-	waitEndpointReady := func() {
-		ciliumPods, err := kubectl.GetCiliumPods(helpers.KubeSystemNamespace)
-		Expect(err).To(BeNil(), "cannot retrieve cilium pods")
-		for _, pod := range ciliumPods {
-			ExpectWithOffset(1, kubectl.CiliumEndpointWait(pod)).To(BeTrue(),
-				"Pod %v is not ready", pod)
-		}
-	}
-
 	It("Updating Cilium stable to master", func() {
 
 		By("Creating some endpoints and L7 policy")
@@ -109,7 +98,8 @@ var _ = Describe("K8sValidatedUpdates", func() {
 			helpers.KubeSystemNamespace, l7Policy, helpers.KubectlApply, timeout)
 		Expect(err).Should(BeNil(), "cannot import l7 policy: %v", l7Policy)
 
-		waitEndpointReady()
+		err = kubectl.CiliumEndpointWaitReady()
+		Expect(err).To(BeNil(), "Endpoints are not ready after timeout")
 
 		appPods := helpers.GetAppPods(apps, helpers.DefaultNamespace, kubectl, "id")
 
@@ -171,6 +161,9 @@ var _ = Describe("K8sValidatedUpdates", func() {
 
 		err = kubectl.WaitForKubeDNSEntry(app1Service)
 		Expect(err).To(BeNil(), "DNS entry is not ready after timeout")
+
+		err = kubectl.CiliumEndpointWaitReady()
+		Expect(err).To(BeNil(), "Endpoints are not ready after timeout")
 
 		res = kubectl.ExecPodCmd(
 			helpers.DefaultNamespace, appPods[helpers.App2],

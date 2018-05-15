@@ -43,6 +43,14 @@ const (
 
 	// IDNameHealth is the label used for the local cilium-health endpoint
 	IDNameHealth = "health"
+
+	// IDNameInit is the label used to identify any endpoint that has not
+	// received any labels yet.
+	IDNameInit = "init"
+
+	// IDNameUnknown is the label used to to idenfity an endpoint with an
+	// unknown identity.
+	IDNameUnknown = "unknown"
 )
 
 // OpLabels represents the the possible types.
@@ -243,6 +251,23 @@ func (l Labels) AppendPrefixInKey(prefix string) Labels {
 		}
 	}
 	return newLabels
+}
+
+// Equals returns true if the two Labels contain the same set of labels.
+func (l Labels) Equals(other Labels) bool {
+	if len(l) != len(other) {
+		return false
+	}
+
+	for k, lbl1 := range l {
+		if lbl2, ok := other[k]; ok {
+			if lbl1.Source == lbl2.Source && lbl1.Key == lbl2.Key && lbl1.Value == lbl2.Value {
+				continue
+			}
+		}
+		return false
+	}
+	return true
 }
 
 // NewLabel returns a new label from the given key, value and source. If source is empty,

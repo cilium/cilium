@@ -21,6 +21,7 @@ import (
 	"github.com/cilium/cilium/test/helpers"
 	"github.com/cilium/cilium/test/helpers/policygen"
 
+	. "github.com/onsi/gomega"
 	"github.com/sirupsen/logrus"
 )
 
@@ -34,8 +35,10 @@ var _ = Describe("NightlyPolicies", func() {
 		logger.Info("Starting")
 
 		kubectl = helpers.CreateKubectl(helpers.K8s1VMName(), logger)
-		ciliumPath := helpers.ManifestGet("cilium_ds.yaml")
-		kubectl.Apply(ciliumPath)
+
+		err := kubectl.CiliumInstall(helpers.CiliumDSPath)
+		Expect(err).To(BeNil(), "Cilium cannot be installed")
+
 		ExpectCiliumReady(kubectl)
 		ExpectKubeDNSReady(kubectl)
 	})

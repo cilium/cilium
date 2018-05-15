@@ -169,6 +169,14 @@ func Remove(ep *endpoint.Endpoint) {
 	}
 }
 
+// RemoveAll removes all endpoints from the global maps.
+func RemoveAll() {
+	mutex.Lock()
+	defer mutex.Unlock()
+	endpoints = map[uint16]*endpoint.Endpoint{}
+	endpointsAux = map[string]*endpoint.Endpoint{}
+}
+
 // lookupCiliumID looks up endpoint by endpoint ID
 func lookupCiliumID(id uint16) *endpoint.Endpoint {
 	if ep, ok := endpoints[id]; ok {
@@ -245,7 +253,7 @@ func updateReferences(ep *endpoint.Endpoint) {
 // and cannot be modified.
 // Returns a waiting group that can be used to know when all the endpoints are
 // regenerated.
-func TriggerPolicyUpdates(owner endpoint.Owner) *sync.WaitGroup {
+func TriggerPolicyUpdates(owner endpoint.Owner, force bool) *sync.WaitGroup {
 	var wg sync.WaitGroup
 
 	eps := GetEndpoints()
@@ -256,7 +264,7 @@ func TriggerPolicyUpdates(owner endpoint.Owner) *sync.WaitGroup {
 			ep.Mutex.Lock()
 			policyChanges, err := ep.TriggerPolicyUpdatesLocked(owner, nil)
 			regen := false
-			if err == nil && policyChanges {
+			if err == nil && (policyChanges || force) {
 				// Regenerate only if state transition succeeds
 				regen = ep.SetStateLocked(endpoint.StateWaitingToRegenerate, "Triggering endpoint regeneration due to policy updates")
 			}
@@ -266,7 +274,7 @@ func TriggerPolicyUpdates(owner endpoint.Owner) *sync.WaitGroup {
 				log.WithError(err).Warn("Error while handling policy updates for endpoint")
 				ep.LogStatus(endpoint.Policy, endpoint.Failure, "Error while handling policy updates for endpoint: "+err.Error())
 			} else {
-				if !policyChanges {
+				if !policyChanges && !force {
 					ep.LogStatusOK(endpoint.Policy, "Endpoint policy update skipped because no changes were needed")
 				} else if regen {
 					// Regenerate logs status according to the build success/failure
@@ -324,10 +332,6 @@ func AddEndpoint(owner endpoint.Owner, ep *endpoint.Endpoint, reason string) err
 	// request will be needed to change the state and trigger bpf build.
 	if state == endpoint.StateReady {
 		ep.SetStateLocked(endpoint.StateWaitingToRegenerate, reason)
-		build = true
-	} else if state == endpoint.StateWaitingForIdentity {
-		// state not changed if it is "waiting-for-identity",
-		// but we still trigger the initial build.
 		build = true
 	}
 	ep.Mutex.Unlock()

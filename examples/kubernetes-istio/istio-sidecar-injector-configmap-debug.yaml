@@ -34,7 +34,7 @@ data:
           unlimited
         command:
         - /bin/sh
-        image: alpine
+        image: docker.io/library/alpine
         imagePullPolicy: Always
         name: enable-core-dump
         resources: {}

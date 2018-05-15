@@ -16,6 +16,7 @@ package cmd
 
 import (
 	"archive/tar"
+	"compress/gzip"
 	"fmt"
 	"io"
 	"os"
@@ -74,4 +75,36 @@ func createArchive(dbgDir string) (string, error) {
 		_, err = io.Copy(writer, file)
 		return err
 	})
+}
+
+func createGzip(dbgDir string) (string, error) {
+	// Based on http://blog.ralch.com/tutorial/golang-working-with-tar-and-gzip/
+	source, err := createArchive(dbgDir)
+	if err != nil {
+		return "", err
+	}
+
+	reader, err := os.Open(source)
+	if err != nil {
+		return "", err
+	}
+
+	filename := filepath.Base(source)
+	target := fmt.Sprintf("%s.gz", source)
+	writer, err := os.Create(target)
+	if err != nil {
+		return "", err
+	}
+	defer writer.Close()
+
+	archiver := gzip.NewWriter(writer)
+	archiver.Name = filename
+	defer archiver.Close()
+
+	_, err = io.Copy(archiver, reader)
+	if err != nil {
+		return "", err
+	}
+
+	return target, nil
 }

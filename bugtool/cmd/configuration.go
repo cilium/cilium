@@ -22,7 +22,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/cilium/cilium/daemon/defaults"
+	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/test/helpers"
 
@@ -54,7 +54,7 @@ func defaultCommands(confDir string, cmdDir string, k8sPods []string) []string {
 		"ip link",
 		"uname -a",
 		"dig",
-		"netstat",
+		"netstat -a",
 		"pidstat",
 		"arp",
 		"top -b -n 1",
@@ -64,6 +64,7 @@ func defaultCommands(confDir string, cmdDir string, k8sPods []string) []string {
 		"bpftool prog show",
 		// Versions
 		"docker version",
+		"docker info",
 		// Docker and Kubernetes logs from systemd
 		"journalctl -u cilium*",
 		"journalctl -u kubelet",
@@ -77,6 +78,8 @@ func defaultCommands(confDir string, cmdDir string, k8sPods []string) []string {
 		fmt.Sprintf("gops memstats $(pidof %s)", helpers.AgentDaemon),
 		fmt.Sprintf("gops stack $(pidof %s)", helpers.AgentDaemon),
 		fmt.Sprintf("gops stats $(pidof %s)", helpers.AgentDaemon),
+		// Get list of open file descriptors managed by the agent
+		fmt.Sprintf("ls -la /proc/$(pidof %s)/fd", helpers.AgentDaemon),
 	}
 
 	// Commands that require variables and / or more configuration are added
@@ -217,6 +220,7 @@ func copyCiliumInfoCommands(cmdDir string, k8sPods []string) []string {
 		"cilium bpf proxy list",
 		"cilium bpf ipcache list",
 		"cilium status --verbose",
+		"cilium identity list",
 		"cilium-health status",
 	}
 	var commands []string

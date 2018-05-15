@@ -51,7 +51,13 @@ contribute to Cilium:
 +----------------------------------------------------------------------------------+--------------------------+-------------------------------------------------------------------------------+
 + `Cmake  <https://cmake.org/download/>`_                                          | OS-Dependent             | N/A (OS-specific)                                                             |
 +----------------------------------------------------------------------------------+--------------------------+-------------------------------------------------------------------------------+
-+ `Bazel <https://docs.bazel.build/versions/master/install.html>`_                 | >= 0.8.1                 | N/A (OS-specific)                                                             |
++ `Bazel <https://docs.bazel.build/versions/master/install.html>`_                 | 0.13.0                   | N/A (OS-specific)                                                             |
++----------------------------------------------------------------------------------+--------------------------+-------------------------------------------------------------------------------+
++ `Libtool <https://www.gnu.org/software/libtool/>`_                               | >= 1.4.2                 | N/A (OS-specific)                                                             |
++----------------------------------------------------------------------------------+--------------------------+-------------------------------------------------------------------------------+
++ `Automake <https://www.gnu.org/software/automake/>`_                             | OS-Dependent             | N/A (OS-specific)                                                             |
++----------------------------------------------------------------------------------+--------------------------+-------------------------------------------------------------------------------+
++ `Kubecfg <https://github.com/ksonnet/kubecfg>`_                                  | >=0.8.0                  | go get github.com/ksonnet/kubecfg                                             |
 +----------------------------------------------------------------------------------+--------------------------+-------------------------------------------------------------------------------+
 
 
@@ -108,22 +114,31 @@ brought up by vagrant:
 
 * ``NWORKERS=n``: Number of child nodes you want to start with the master,
   default 0.
-* ``RELOAD=1``: Issue a ``vagrant reload`` instead of ``vagrant up``
-* ``NFS=1``: Use NFS for vagrant shared directories instead of rsync
-* ``K8S=1``: Build & install kubernetes on the nodes
-* ``IPV4=1``: Run Cilium with IPv4 enabled
-* VAGRANT\_DEFAULT\_PROVIDER={virtualbox \| libvirt \| ...}
+* ``RELOAD=1``: Issue a ``vagrant reload`` instead of ``vagrant up``, useful
+  to resume halted VMs.
+* ``NFS=1``: Use NFS for vagrant shared directories instead of rsync.
+* ``K8S=1``: Build & install kubernetes on the nodes. ``k8s1`` is the master
+  node, which contains both master components: etcd, kube-controller-manager,
+  kube-scheduler, kube-apiserver, and node components: kubelet,
+  kube-proxy, kubectl and Cilium. When used in combination with ``NWORKERS=1`` a
+  second node is created, where ``k8s2`` will be a kubernetes node, which
+  contains: kubelet, kube-proxy, kubectl and cilium.
+* ``IPV4=1``: Run Cilium with IPv4 enabled.
+* ``RUNTIME=x``: Sets up the container runtime to be used inside a kubernetes
+  cluster. Valid options are: ``docker``, ``containerd`` and ``crio``. If not
+  set, it defaults to ``docker``.
+* ``VAGRANT_DEFAULT_PROVIDER={virtualbox \| libvirt \| ...}``
 
-If you want to start the VM with cilium enabled with IPv4, with
+If you want to start the VM with cilium enabled with ``containerd``, with
 kubernetes installed and plus a worker, run:
 
 ::
 
-	$ IPV4=1 K8S=1 NWORKERS=1 contrib/vagrant/start.sh
+	$ RUNTIME=containerd K8S=1 NWORKERS=1 contrib/vagrant/start.sh
 
 If you have any issue with the provided vagrant box
-``cilium/ubuntu-16.10`` or need a different box format, you may
-build the box yourself using the `packer scripts <https://github.com/cilium/packer-ubuntu-16.10>`_
+``cilium/ubuntu`` or need a different box format, you may
+build the box yourself using the `packer scripts <https://github.com/cilium/packer-ci-build>`_
 
 Manual Installation
 ^^^^^^^^^^^^^^^^^^^
@@ -522,6 +537,8 @@ framework in the ``test/`` directory and interact with ginkgo directly:
             Provision Vagrant boxes and Cilium before running test (default true)
       -cilium.showCommands
             Output which commands are ran to stdout
+      -cilium.dsManifest
+            Cilium daemon set manifest to use for running the test (only Kubernetes)
     $ ginkgo --focus "Policies*" -- --cilium.provision=false
 
 For more information about other built-in options to Ginkgo, consult the
@@ -884,6 +901,41 @@ for debugging what is going on inside them, for example:
     00000000  01 00 00 00 00 00 00 00  00 00 00 00 00 00 00 00  |................|
     00000010  00 00 00 00 00 00 00 00                           |........|
 
+Update a golang dependency with dep
+-----------------------------------
+
+Once you have downloaded dep make sure you have version >= 0.4.1
+
+.. code:: bash
+
+    $ dep version
+    dep:
+     version     : v0.4.1
+     build date  : 2018-01-24
+     git hash    : 37d9ea0a
+     go version  : go1.9.1
+     go compiler : gc
+     platform    : linux/amd64
+
+After that, you can edit the ``Gopkg.toml`` file, add the library that you want
+to add. Lets assume we want to add ``github.com/containernetworking/cni``
+version ``v0.5.2``:
+
+.. code:: bash
+
+    [[constraint]]
+      name = "github.com/containernetworking/cni"
+      revision = "v0.5.2"
+
+Once you add the libraries that you need you can save the file and run
+
+.. code:: bash
+
+    $ dep ensure -v
+
+For a first run, it can take a while as it will download all dependencies to
+your local cache but the remaining runs will be faster.
+
 Update cilium-builder and cilium-runtime images
 -----------------------------------------------
 
@@ -1039,6 +1091,12 @@ illustrating which subset of tests the job runs.
 +----------------------------------------------------------------------------------------------------------+-------------------+--------------------+
 | `Cilium-PR-Kubernetes-Upstream </https://jenkins.cilium.io/view/PR/job/Cilium-PR-Kubernetes-Upstream/>`_ | test-upstream-k8s | No                 |
 +----------------------------------------------------------------------------------------------------------+-------------------+--------------------+
+
+
+There are some feature flags based on Pull Requests labels, the list of labels
+are the following:
+
+- area/containerd: Enable containerd runtime on all Kubernetes test.
 
 
 Using Jenkins for testing

@@ -19,6 +19,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"reflect"
+	"regexp"
 	"strconv"
 	"strings"
 
@@ -92,6 +93,22 @@ func (res *CmdRes) ExpectSuccess(optionalDescription ...interface{}) bool {
 func (res *CmdRes) ExpectContains(data string, optionalDescription ...interface{}) bool {
 	return gomega.ExpectWithOffset(1, res.Output().String()).To(
 		gomega.ContainSubstring(data), optionalDescription...)
+}
+
+// ExpectDoesNotContain asserts that a string is not contained in the stdout of
+// the executed command. It accepts an optional parameter that can be used to
+// annotate failure messages.
+func (res *CmdRes) ExpectDoesNotContain(data string, optionalDescription ...interface{}) bool {
+	return gomega.ExpectWithOffset(1, res.Output().String()).ToNot(
+		gomega.ContainSubstring(data), optionalDescription...)
+}
+
+// ExpectDoesNotMatchRegexp asserts that the stdout of the executed command
+// doesn't match the regexp. It accepts an optional parameter that can be used
+// to annotate failure messages.
+func (res *CmdRes) ExpectDoesNotMatchRegexp(regexp string, optionalDescription ...interface{}) bool {
+	return gomega.ExpectWithOffset(1, res.Output().String()).ToNot(
+		gomega.MatchRegexp(regexp), optionalDescription...)
 }
 
 // CountLines return the number of lines in the stdout of res.
@@ -243,6 +260,20 @@ func (res *CmdRes) WaitUntilMatch(substr string) error {
 	return WithTimeout(
 		body,
 		fmt.Sprintf("%s is not in the output after timeout", substr),
+		&TimeoutConfig{Timeout: HelperTimeout})
+}
+
+// WaitUntilMatchRegexp waits until the `CmdRes.stdout` matches the given regexp.
+// If the timeout is reached it will return an error.
+func (res *CmdRes) WaitUntilMatchRegexp(expr string) error {
+	r := regexp.MustCompile(expr)
+	body := func() bool {
+		return r.Match(res.Output().Bytes())
+	}
+
+	return WithTimeout(
+		body,
+		fmt.Sprintf("The output doesn't match regexp %q after timeout", expr),
 		&TimeoutConfig{Timeout: HelperTimeout})
 }
 

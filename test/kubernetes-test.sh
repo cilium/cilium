@@ -1,6 +1,6 @@
 #!/bin/bash
 
-/usr/bin/kubectl apply -f /vagrant/k8sT/manifests/cilium_ds.yaml
+kubecfg show /vagrant/k8sT/manifests/cilium_ds.jsonnet | /usr/bin/kubectl apply -f -
 
 while true; do
     result=$(kubectl -n kube-system get pods -l k8s-app=cilium | grep "Running" -c)
@@ -13,14 +13,14 @@ while true; do
     sleep 1
 done
 
-KUBERNETES_VERSION=$(kubectl version -o json | jq -r '.serverVersion | .major + "." +.minor')
+KUBERNETES_VERSION=$(kubectl version -o json | jq -r '.serverVersion | .gitVersion')
 
 set -e
 echo "Installing kubernetes"
 
 mkdir -p $HOME/go/src/github.com/kubernetes/
 cd $HOME/go/src/github.com/kubernetes/
-git clone https://github.com/kubernetes/kubernetes.git -b release-${KUBERNETES_VERSION} --depth 1
+git clone https://github.com/kubernetes/kubernetes.git -b ${KUBERNETES_VERSION} --depth 1
 cd kubernetes
 make ginkgo
 make WHAT='test/e2e/e2e.test'

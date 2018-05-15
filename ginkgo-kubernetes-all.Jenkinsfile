@@ -1,14 +1,34 @@
-def failFast = { String branch ->
-  if (branch == "origin/master" || branch == "master") {
-    return '--failFast=false'
-  } else {
-    return '--failFast=true'
-  }
-}
+@Library('cilium') _
 
 pipeline {
     agent {
         label 'baremetal'
+    }
+
+    parameters {
+        string(defaultValue: '${ghprbPullDescription}', name: 'ghprbPullDescription')
+        string(defaultValue: '${ghprbActualCommit}', name: 'ghprbActualCommit')
+        string(defaultValue: '${ghprbTriggerAuthorLoginMention}', name: 'ghprbTriggerAuthorLoginMention')
+        string(defaultValue: '${ghprbPullAuthorLoginMention}', name: 'ghprbPullAuthorLoginMention')
+        string(defaultValue: '${ghprbGhRepository}', name: 'ghprbGhRepository')
+        string(defaultValue: '${ghprbPullLongDescription}', name: 'ghprbPullLongDescription')
+        string(defaultValue: '${ghprbCredentialsId}', name: 'ghprbCredentialsId')
+        string(defaultValue: '${ghprbTriggerAuthorLogin}', name: 'ghprbTriggerAuthorLogin')
+        string(defaultValue: '${ghprbPullAuthorLogin}', name: 'ghprbPullAuthorLogin')
+        string(defaultValue: '${ghprbTriggerAuthor}', name: 'ghprbTriggerAuthor')
+        string(defaultValue: '${ghprbCommentBody}', name: 'ghprbCommentBody')
+        string(defaultValue: '${ghprbPullTitle}', name: 'ghprbPullTitle')
+        string(defaultValue: '${ghprbPullLink}', name: 'ghprbPullLink')
+        string(defaultValue: '${ghprbAuthorRepoGitUrl}', name: 'ghprbAuthorRepoGitUrl')
+        string(defaultValue: '${ghprbTargetBranch}', name: 'ghprbTargetBranch')
+        string(defaultValue: '${ghprbPullId}', name: 'ghprbPullId')
+        string(defaultValue: '${ghprbActualCommitAuthor}', name: 'ghprbActualCommitAuthor')
+        string(defaultValue: '${ghprbActualCommitAuthorEmail}', name: 'ghprbActualCommitAuthorEmail')
+        string(defaultValue: '${ghprbTriggerAuthorEmail}', name: 'ghprbTriggerAuthorEmail')
+        string(defaultValue: '${GIT_BRANCH}', name: 'GIT_BRANCH')
+        string(defaultValue: '${ghprbPullAuthorEmail}', name: 'ghprbPullAuthorEmail')
+        string(defaultValue: '${sha1}', name: 'sha1')
+        string(defaultValue: '${ghprbSourceBranch}', name: 'ghprbSourceBranch')
     }
 
     environment {
@@ -23,10 +43,12 @@ pipeline {
         timestamps()
         ansiColor('xterm')
     }
+
     stages {
         stage('Checkout') {
             steps {
                 sh 'env'
+                Status("PENDING", "${env.JOB_NAME}")
                 sh 'rm -rf src; mkdir -p src/github.com/cilium'
                 sh 'ln -s $WORKSPACE src/github.com/cilium/cilium'
                 checkout scm
@@ -40,7 +62,8 @@ pipeline {
         }
         stage('BDD-Test-k8s') {
             environment {
-                FAILFAST = failFast(env.GIT_BRANCH)
+                FAILFAST=setIfPR("true", "false")
+                CONTAINER_RUNTIME=setIfLabel("area/containerd", "containerd", "docker")
             }
             options {
                 timeout(time: 120, unit: 'MINUTES')
@@ -48,18 +71,18 @@ pipeline {
             steps {
                 parallel(
                     "K8s-1.8":{
-                        sh 'cd ${TESTDIR}; K8S_VERSION=1.8 ginkgo --focus=" K8s*" -v ${FAILFAST}'
+                        sh 'cd ${TESTDIR}; K8S_VERSION=1.8 ginkgo --focus=" K8s*" -v --failFast=${FAILFAST}'
                     },
                     "K8s-1.9":{
-                        sh 'cd ${TESTDIR}; K8S_VERSION=1.9 ginkgo --focus=" K8s*" -v ${FAILFAST}'
+                        sh 'cd ${TESTDIR}; K8S_VERSION=1.9 ginkgo --focus=" K8s*" -v --failFast=${FAILFAST}'
                     },
                 )
             }
             post {
                 always {
                     sh 'cd test/; ./archive_test_results.sh || true'
-                    archiveArtifacts artifacts: "test_results_${JOB_BASE_NAME}_${BUILD_NUMBER}.zip", allowEmptyArchive: true
-                    junit 'test/*.xml'
+                    archiveArtifacts artifacts: '*.zip'
+                    junit testDataPublishers: [[$class: 'AttachmentPublisher']], testResults: 'test/*.xml'
                     sh 'cd test/; ./post_build_agent.sh || true'
                 }
             }
@@ -75,7 +98,8 @@ pipeline {
         }
         stage('Non-release-k8s-versions') {
             environment {
-                FAILFAST = failFast(env.GIT_BRANCH)
+                FAILFAST=setIfPR("true", "false")
+                CONTAINER_RUNTIME=setIfLabel("area/containerd", "containerd", "docker")
             }
             options {
                 timeout(time: 120, unit: 'MINUTES')
@@ -83,16 +107,16 @@ pipeline {
             steps {
                 parallel(
                     "K8s-1.11":{
-                        sh 'cd ${TESTDIR}; K8S_VERSION=1.11 ginkgo --focus=" K8s*" -v ${FAILFAST}'
+                        sh 'cd ${TESTDIR}; K8S_VERSION=1.11 ginkgo --focus=" K8s*" --failFast=${FAILFAST}'
                     },
                 )
             }
             post {
                 always {
-                    junit 'test/*.xml'
                     sh 'cd test/; ./post_build_agent.sh || true'
                     sh 'cd test/; ./archive_test_results.sh || true'
-                    archiveArtifacts artifacts: "test_results_${JOB_BASE_NAME}_${BUILD_NUMBER}.zip", allowEmptyArchive: true
+                    archiveArtifacts artifacts: '*.zip'
+                    junit testDataPublishers: [[$class: 'AttachmentPublisher']], testResults: 'test/*.xml'
                 }
             }
         }
@@ -105,6 +129,12 @@ pipeline {
             sh "cd ${TESTDIR}; K8S_VERSION=1.11 vagrant destroy -f || true"
             sh "cd ${TESTDIR}; ./post_build_agent.sh || true"
             cleanWs()
+        }
+        success {
+            Status("SUCCESS", "${env.JOB_NAME}")
+        }
+        failure {
+            Status("FAILURE", "${env.JOB_NAME}")
         }
     }
 }

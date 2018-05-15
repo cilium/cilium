@@ -15,6 +15,8 @@
 package endpoint
 
 import (
+	"crypto/md5"
+	"encoding/hex"
 	"io/ioutil"
 	"path/filepath"
 
@@ -46,26 +48,38 @@ ignored
 
 `
 	ioutil.WriteFile(headerPath, []byte(text), 0644)
-	hash1, err := hashHeaderfile(dir)
-	c.Assert(hash1, Not(Equals), "")
+
+	hashWriter := md5.New()
+	hash1, err := hashHeaderfile(hashWriter, headerPath)
 	c.Assert(err, IsNil)
+	hashSum := hash1.Sum(nil)
+	hashToString1 := hex.EncodeToString(hashSum[:])
+	c.Assert(hashToString1, Not(Equals), "")
 
 	// Same as above but with all the ignored lines removed.
 	text = `#line1
 #line2`
 	ioutil.WriteFile(headerPath, []byte(text), 0644)
-	hash2, err := hashHeaderfile(dir)
-	c.Assert(hash2, Not(Equals), "")
+
+	hashWriter = md5.New()
+	hash2, err := hashHeaderfile(hashWriter, headerPath)
+	hashSum = hash2.Sum(nil)
+	hashToString2 := hex.EncodeToString(hashSum[:])
+	c.Assert(hashToString2, Not(Equals), "")
 	c.Assert(err, IsNil)
 
-	c.Assert(hash1, Equals, hash2)
+	c.Assert(hashToString1, Equals, hashToString2)
 
 	// Only non-ignored lines, including one line that is longer than the ReadLine buffer.
 	text = "#line1\n" +
 		"#line2 " + longString + "\n#line3"
 	ioutil.WriteFile(headerPath, []byte(text), 0644)
-	hash3, err := hashHeaderfile(dir)
-	c.Assert(hash3, Not(Equals), "")
+
+	hashWriter = md5.New()
+	hash3, err := hashHeaderfile(hashWriter, headerPath)
+	hashSum = hash3.Sum(nil)
+	hashToString3 := hex.EncodeToString(hashSum[:])
+	c.Assert(hashToString3, Not(Equals), "")
 	c.Assert(err, IsNil)
 
 	// Same as above but with an extra character at the end of the long line.
@@ -73,9 +87,13 @@ ignored
 	text = "#line1\n" +
 		"#line2 " + longString + "z\n#line3"
 	ioutil.WriteFile(headerPath, []byte(text), 0644)
-	hash4, err := hashHeaderfile(dir)
-	c.Assert(hash4, Not(Equals), "")
+
+	hashWriter = md5.New()
+	hash4, err := hashHeaderfile(hashWriter, headerPath)
+	hashSum = hash4.Sum(nil)
+	hashToString4 := hex.EncodeToString(hashSum[:])
+	c.Assert(hashToString4, Not(Equals), "")
 	c.Assert(err, IsNil)
 
-	c.Assert(hash3, Not(Equals), hash4)
+	c.Assert(hashToString3, Not(Equals), hashToString4)
 }

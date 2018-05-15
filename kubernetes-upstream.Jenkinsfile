@@ -1,3 +1,5 @@
+@Library('cilium') _
+
 pipeline {
     agent {
         label 'baremetal'
@@ -25,6 +27,8 @@ pipeline {
         string(defaultValue: '${ghprbTriggerAuthorEmail}', name: 'ghprbTriggerAuthorEmail')
         string(defaultValue: '${GIT_BRANCH}', name: 'GIT_BRANCH')
         string(defaultValue: '${ghprbPullAuthorEmail}', name: 'ghprbPullAuthorEmail')
+        string(defaultValue: '${sha1}', name: 'sha1')
+        string(defaultValue: '${ghprbSourceBranch}', name: 'ghprbSourceBranch')
     }
 
     environment {

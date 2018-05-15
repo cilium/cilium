@@ -44,7 +44,7 @@ spec:
     spec:
       containers:
       - name: details
-        image: istio/examples-bookinfo-details-v1:1.6.0
+        image: docker.io/istio/examples-bookinfo-details-v1:1.6.0
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 9080
@@ -81,7 +81,7 @@ spec:
     spec:
       containers:
       - name: reviews
-        image: istio/examples-bookinfo-reviews-v1:1.6.0
+        image: docker.io/istio/examples-bookinfo-reviews-v1:1.6.0
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 9080
@@ -119,7 +119,7 @@ spec:
       containers:
       # Use v0.2.3 because it still contains 'wget', necessary for tests.
       - name: productpage
-        image: istio/examples-bookinfo-productpage-v1:0.2.3
+        image: docker.io/istio/examples-bookinfo-productpage-v1:0.2.3
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 9080

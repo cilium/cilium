@@ -35,9 +35,6 @@ if [[ -f  "/etc/provision_finished" ]]; then
     exit 0
 fi
 
-go get github.com/subfuzion/envtpl
-mv ~/go/bin/envtpl /usr/local/bin/
-
 $PROVISIONSRC/dns.sh
 
 cat <<EOF > /etc/hosts
@@ -69,10 +66,8 @@ api:
 criSocket: "{{ .KUBEADM_CRI_SOCKET }}"
 kubernetesVersion: "v{{ .K8S_FULL_VERSION }}"
 token: "{{ .TOKEN }}"
-controllerManagerExtraArgs:
-  allocate-node-cidrs: "true"
-  cluster-cidr: "{{ .KUBEADM_POD_NETWORK }}/{{ .KUBEADM_POD_CIDR}}"
-  node-cidr-mask-size: "{{ .KUBEADM_POD_CIDR }}"
+networking:
+  podSubnet: "{{ .KUBEADM_POD_NETWORK }}/{{ .KUBEADM_POD_CIDR}}"
 EOF
 )
 
@@ -86,22 +81,22 @@ case $K8S_VERSION in
         ;;
     "1.8")
         KUBERNETES_CNI_VERSION="0.5.1-00"
-        K8S_FULL_VERSION="1.8.11"
+        K8S_FULL_VERSION="1.8.13"
         ;;
     "1.9")
         KUBERNETES_CNI_VERSION="0.6.0-00"
-        K8S_FULL_VERSION="1.9.7"
+        K8S_FULL_VERSION="1.9.8"
         KUBEADM_SLAVE_OPTIONS="--discovery-token-unsafe-skip-ca-verification --ignore-preflight-errors=cri"
         KUBEADM_OPTIONS="--ignore-preflight-errors=cri"
         ;;
     "1.10")
         KUBERNETES_CNI_VERSION="0.6.0-00"
-        K8S_FULL_VERSION="1.10.1"
+        K8S_FULL_VERSION="1.10.3"
         KUBEADM_SLAVE_OPTIONS="--discovery-token-unsafe-skip-ca-verification --ignore-preflight-errors=cri"
         ;;
     "1.11")
         KUBERNETES_CNI_VERSION="v0.6.0"
-        K8S_FULL_VERSION="1.11.0-alpha.1"
+        K8S_FULL_VERSION="1.11.0-beta.0"
         KUBEADM_OPTIONS="--ignore-preflight-errors=cri"
         KUBEADM_SLAVE_OPTIONS="--discovery-token-unsafe-skip-ca-verification --ignore-preflight-errors=cri"
         ;;
