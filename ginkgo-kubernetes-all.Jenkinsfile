@@ -27,6 +27,7 @@ pipeline {
         stage('Checkout') {
             steps {
                 sh 'env'
+                Status("PENDING", "${env.JOB_NAME}")
                 sh 'rm -rf src; mkdir -p src/github.com/cilium'
                 sh 'ln -s $WORKSPACE src/github.com/cilium/cilium'
                 checkout scm
@@ -105,6 +106,12 @@ pipeline {
             sh "cd ${TESTDIR}; K8S_VERSION=1.11 vagrant destroy -f || true"
             sh "cd ${TESTDIR}; ./post_build_agent.sh || true"
             cleanWs()
+        }
+        success {
+            Status("SUCCESS", "${env.JOB_NAME}")
+        }
+        failure {
+            Status("FAILURE", "${env.JOB_NAME}")
         }
     }
 }

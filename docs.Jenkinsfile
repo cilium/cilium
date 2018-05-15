@@ -26,6 +26,8 @@ pipeline {
         string(defaultValue: '${ghprbTriggerAuthorEmail}', name: 'ghprbTriggerAuthorEmail')
         string(defaultValue: '${GIT_BRANCH}', name: 'GIT_BRANCH')
         string(defaultValue: '${ghprbPullAuthorEmail}', name: 'ghprbPullAuthorEmail')
+        string(defaultValue: '${sha1}', name: 'sha1')
+        string(defaultValue: '${ghprbSourceBranch}', name: 'ghprbSourceBranch')
     }
 
     options {
@@ -40,7 +42,7 @@ pipeline {
                 timeout(time: 10, unit: 'MINUTES')
             }
             steps {
-                Status("PENDING", "$JOB_BASE_NAME")
+                Status("PENDING", "${env.JOB_NAME}")
                 checkout scm
                 sh "make test-docs"
             }
@@ -51,10 +53,10 @@ pipeline {
             cleanWs()
         }
         success {
-            Status("SUCCESS", "$JOB_BASE_NAME")
+            Status("SUCCESS", "${env.JOB_NAME}")
         }
         failure {
-            Status("FAILURE", "$JOB_BASE_NAME")
+            Status("FAILURE", "${env.JOB_NAME}")
         }
     }
 }
