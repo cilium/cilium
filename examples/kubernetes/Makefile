@@ -1,7 +1,7 @@
 include ../../Makefile.defs
 
 ifeq ($(CILIUM_VERSION),)
-    CILIUM_VERSION = "v$(shell cat ../../VERSION)"
+    CILIUM_VERSION = "$(shell cat ../../VERSION)"
 endif
 
 K8S_VERSIONS = 1.7 1.8 1.9 1.10 1.11
@@ -38,8 +38,9 @@ $(foreach K8S_VERSION,$(K8S_VERSIONS), \
 # Add all YAML files as dependencies of concatenated files.
 $(foreach K8S_VERSION,$(K8S_VERSIONS), \
 	$(foreach CONCAT_FILE,$(CONCAT_FILES), \
-		$(eval $(K8S_VERSION)/$(CONCAT_FILE): $(patsubst %,$(K8S_VERSION)/%,$(NON_DAEMONSET_YAMLS))) \
-		$(eval $(K8S_VERSION)/$(CONCAT_FILE): $(K8S_VERSION)/$(patsubst %.yaml,%-ds.yaml,$(CONCAT_FILE)))))
+		$(eval $(K8S_VERSION)/$(CONCAT_FILE): $(sort    $(patsubst %,$(K8S_VERSION)/%,$(NON_DAEMONSET_YAMLS)) \
+														$(K8S_VERSION)/$(patsubst %.yaml,%-ds.yaml,$(CONCAT_FILE)))) \
+	))
 
 # Add dependencies for individual YAML files.
 $(foreach K8S_VERSION,$(K8S_VERSIONS), \
