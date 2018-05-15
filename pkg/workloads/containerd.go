@@ -22,6 +22,7 @@ import (
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/endpoint"
+	endpointid "github.com/cilium/cilium/pkg/endpoint/id"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 
 	"github.com/containerd/containerd"
@@ -234,7 +235,7 @@ func (c *containerDClient) processEvent(m message) {
 		stopIgnoringContainer(m.workloadID)
 		c.handleCreateWorkload(m.workloadID, true)
 	case eventTypeDelete:
-		Owner().DeleteEndpoint(endpoint.NewID(endpoint.ContainerIdPrefix, m.workloadID))
+		Owner().DeleteEndpoint(endpointid.NewID(endpointid.ContainerIdPrefix, m.workloadID))
 	}
 }
 

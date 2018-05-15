@@ -30,6 +30,7 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/common/addressing"
 	"github.com/cilium/cilium/pkg/endpoint"
+	endpointid "github.com/cilium/cilium/pkg/endpoint/id"
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/ipam"
 	"github.com/cilium/cilium/pkg/k8s"
@@ -345,7 +346,7 @@ func (d *dockerClient) processEvent(m message) {
 		stopIgnoringContainer(m.workloadID)
 		d.handleCreateWorkload(m.workloadID, true)
 	case eventTypeDelete:
-		Owner().DeleteEndpoint(endpoint.NewID(endpoint.ContainerIdPrefix, m.workloadID))
+		Owner().DeleteEndpoint(endpointid.NewID(endpointid.ContainerIdPrefix, m.workloadID))
 	}
 }
 
