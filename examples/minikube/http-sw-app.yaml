@@ -31,42 +31,26 @@ spec:
       - name: deathstar
         image: cilium/starwars
 ---
-apiVersion: extensions/v1beta1
-kind: Deployment
+apiVersion: v1
+kind: Pod
 metadata:
   name: tiefighter
+  labels:
+    org: empire
+    class: tiefighter
 spec:
-  replicas: 1
-  selector:
-    matchLabels:
-      org: empire
-      class: tiefighter
-  template:
-    metadata:
-      labels:
-        org: empire
-        class: tiefighter
-    spec:
-      containers:
-      - name: spaceship
-        image: tgraf/netperf
+  containers:
+  - name: spaceship
+    image: tgraf/netperf
 ---
-apiVersion: extensions/v1beta1
-kind: Deployment
+apiVersion: v1
+kind: Pod
 metadata:
   name: xwing
+  labels:
+    org: alliance
+    class: xwing
 spec:
-  replicas: 1
-  selector:
-    matchLabels:
-      org: alliance
-      class: xwing
-  template:
-    metadata:
-      labels:
-        org: alliance
-        class: xwing
-    spec:
-      containers:
-      - name: spaceship
-        image: tgraf/netperf
+  containers:
+  - name: spaceship
+    image: tgraf/netperf
