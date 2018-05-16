@@ -128,7 +128,6 @@ func catCommands() []string {
 		"/proc/sys/net/core/bpf_jit_enable",
 		"/proc/kallsyms",
 		"/etc/resolv.conf",
-		"/var/log/upstart/docker.log",
 		"/var/log/docker.log",
 		"/var/log/daemon.log",
 		"/var/log/messages",

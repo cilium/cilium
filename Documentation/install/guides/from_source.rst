@@ -50,12 +50,9 @@ You can also add it in your ``~/.bashrc`` file:
    $ make
    $ sudo make install
 
-3. Optional: Install upstart/systemd init files:
+3. Optional: Install systemd init files:
 
 .. code:: bash
-
-    sudo cp contrib/upstart/* /etc/init/
-    service cilium start
 
     sudo cp contrib/systemd/*.service /lib/systemd/system
     sudo cp contrib/systemd/sys-fs-bpf.mount /lib/systemd/system
