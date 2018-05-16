@@ -337,7 +337,9 @@ func getPreviousIP(ip net.IP) net.IP {
 	return previousIP
 }
 
-func getNextIP(ip net.IP) net.IP {
+// GetNextIP returns the next IP from the given IP address. If the given IP is
+// the last IP of a v4 or v6 range, the same IP is returned.
+func GetNextIP(ip net.IP) net.IP {
 	if ip.Equal(upperIPv4) || ip.Equal(upperIPv6) {
 		return ip
 	}
@@ -562,7 +564,7 @@ func rangeToCIDRs(firstIP, lastIP net.IP) []*net.IPNet {
 	if bytes.Compare(*lastIPSpanning, lastIP) > 0 {
 		// Split on the next IP of the last IP so that the left list of IPs
 		// of the partition include the lastIP.
-		nextFirstRangeIP := getNextIP(lastIP)
+		nextFirstRangeIP := GetNextIP(lastIP)
 		var bitLen int
 		if nextFirstRangeIP.To4() != nil {
 			bitLen = ipv4BitLen
