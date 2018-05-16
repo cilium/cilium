@@ -166,7 +166,6 @@ func GetBasicTestSpec() TestSpec {
 			},
 		},
 		l4: PolicyTestKind{
-
 			name:  "Ingress Port 80 TCP",
 			kind:  ingress,
 			tests: ConnResultOnlyHTTP,

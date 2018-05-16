@@ -432,6 +432,7 @@ metadata:
   labels:
     id: "%[2]s"
     zgroup: "%[1]s"
+    test: "policygen"
 spec:
   containers:
   - name: app-frontend
@@ -791,7 +792,11 @@ func (tg TestSpecsGroup) CreateAndApplyManifests(kub *helpers.Kubectl) {
 	for _, test := range tg {
 		test.CreateManifests()
 		manifests = append(manifests, test.GetManifestsPath())
+		test.Kub = kub
+		err := test.Destination.CreateApplyManifest(test)
+		gomega.ExpectWithOffset(1, err).To(gomega.BeNil(), "cannot apply destination for %s", test.Prefix)
 	}
+
 	res := kub.Exec(fmt.Sprintf("cat %s > %s", strings.Join(manifests, " "), completeManifest))
 	res.ExpectSuccess()
 
@@ -814,10 +819,7 @@ func (tg TestSpecsGroup) CreateAndApplyCNP(kub *helpers.Kubectl) {
 // the TestSpecsGroup
 func (tg TestSpecsGroup) ConnectivityTest() {
 	for _, test := range tg {
-		err := test.Destination.CreateApplyManifest(test)
-		gomega.ExpectWithOffset(1, err).To(gomega.BeNil(), "cannot apply destination for %s", test.Prefix)
-
-		err = test.ExecTest()
+		err := test.ExecTest()
 		gomega.ExpectWithOffset(1, err).To(gomega.BeNil(), "cannot execute test for %s", test.Prefix)
 	}
 }
