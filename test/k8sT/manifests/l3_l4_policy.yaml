@@ -1,1 +1,17 @@
-../../../examples/minikube/l3_l4_policy.yaml
+apiVersion: "cilium.io/v2"
+kind: CiliumNetworkPolicy
+description: "L3-L4 policy"
+metadata:
+  name: "rule1"
+spec:
+  endpointSelector:
+    matchLabels:
+      id: app1
+  ingress:
+  - fromEndpoints:
+    - matchLabels:
+        id: app2
+    toPorts:
+    - ports:
+      - port: "80"
+        protocol: TCP
