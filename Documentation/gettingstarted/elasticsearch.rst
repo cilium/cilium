@@ -38,8 +38,8 @@ The file ``es-sw-app.yaml`` will deploy the Elasticsearch service which stores S
 
       NAME                         READY     STATUS    RESTARTS   AGE
       po/es-mpzh2                  1/1       Running   0          3m
-      po/sidious-9f76c45c7-r2nkw   1/1       Running   0          3m
-      po/vader-65bbb8cc6f-b94rm    1/1       Running   0          3m
+      po/sidious                   1/1       Running   0          3m
+      po/vader                     1/1       Running   0          3m
 
 Step 3: Security Risks for Elasticsearch Access
 ===============================================
@@ -48,12 +48,12 @@ A fundamental security concern for Elasticsearch service is *what client service
 
 .. parsed-literal::
 
-    $ kubectl exec sidious-9f76c45c7-r2nkw -- python create.py
+    $ kubectl exec sidious -- python create.py
       Creating/Updating Books
       created :  {'_index': 'sidious', '_type': 'tome', '_id': '1', '_version': 3, 'result': 'created', '_shards': {'total': 2, 'successful': 1, 'failed': 0}, 'created': True}
       created :  {'_index': 'sidious', '_type': 'tome', '_id': '2', '_version': 4, 'result': 'created', '_shards': {'total': 2, 'successful': 1, 'failed': 0}, 'created': True}    
     
-    $ kubectl exec sidious-9f76c45c7-r2nkw -- python get_search.py 
+    $ kubectl exec sidious -- python get_search.py 
       Searching for Books by Darth Sidious
       Got 2 Hits:
       {'_index': 'sidious', '_type': 'tome', '_id': '2', '_score': 1.0, '_source': {'author': 'sidious', 'title': 'Welcome to the Dark Side'}}
@@ -61,16 +61,16 @@ A fundamental security concern for Elasticsearch service is *what client service
       Get Book 1 by Darth Sidious
       {'author': 'sidious', 'title': 'Convert Jedi to Dark Side: 101'}
 
-Good that Sidious has access to perform PUT and GET. But see what happens when Vader has both ``GET`` and ``PUT`` access. Vader can completely modify the books! (Note the change in book titles e.g. *Why convert a Jedi!*) 
+Good that Sidious has access to perform PUT and GET. Let's see what happens when Vader has both ``GET`` and ``PUT`` access. Vader can completely modify the books! (Note the change in book titles e.g. *Why convert a Jedi!*) 
 
 .. parsed-literal::
 
-    $ kubectl exec vader-65bbb8cc6f-b94rm -- python update.py 
+    $ kubectl exec vader -- python update.py 
       Creating/Updating Books
       updated :  {'_index': 'sidious', '_type': 'tome', '_id': '1', '_version': 4, 'result': 'updated', '_shards': {'total': 2, 'successful': 1, 'failed': 0}, 'created': False}
       updated :  {'_index': 'sidious', '_type': 'tome', '_id': '2', '_version': 5, 'result': 'updated', '_shards': {'total': 2, 'successful': 1, 'failed': 0}, 'created': False}
 
-    $ kubectl exec vader-65bbb8cc6f-b94rm -- python get_search.py 
+    $ kubectl exec vader -- python get_search.py 
       Searching for Books by Darth Sidious
       Got 2 Hits:
       {'_index': 'sidious', '_type': 'tome', '_id': '2', '_score': 1.0, '_source': {'author': 'sidious', 'title': 'Force is Same for Dark Side and Jedi'}}
@@ -104,12 +104,12 @@ Testing the security policy, Sidious still has both the ``GET`` and ``PUT`` acce
 
 .. parsed-literal::
 
-    $ kubectl exec sidious-9f76c45c7-vhszk -- python create.py 
+    $ kubectl exec sidious -- python create.py 
       Creating/Updating Books
       updated :  {'_index': 'sidious', '_type': 'tome', '_id': '1', '_version': 5, 'result': 'updated', '_shards': {'total': 2, 'successful': 1, 'failed': 0}, 'created': False}
       updated :  {'_index': 'sidious', '_type': 'tome', '_id': '2', '_version': 6, 'result': 'updated', '_shards': {'total': 2, 'successful': 1, 'failed': 0}, 'created': False}
 
-    $ kubectl exec sidious-9f76c45c7-vhszk -- python get_search.py
+    $ kubectl exec sidious -- python get_search.py
       Searching for Books by Darth Sidious
       Got 2 Hits:
       {'_index': 'sidious', '_type': 'tome', '_id': '2', '_score': 1.0, '_source': {'author': 'sidious', 'title': 'Welcome to the Dark Side'}}
@@ -117,7 +117,7 @@ Testing the security policy, Sidious still has both the ``GET`` and ``PUT`` acce
       Get Book 1 by Darth Sidious
       {'author': 'sidious', 'title': 'Convert Jedi to Dark Side: 101'}
 
-    $ kubectl exec vader-65bbb8cc6f-gvhdw -- python get_search.py
+    $ kubectl exec vader -- python get_search.py
       Searching for Books by Darth Sidious
       Got 2 Hits:
       {'_index': 'sidious', '_type': 'tome', '_id': '2', '_score': 1.0, '_source': {'author': 'sidious', 'title': 'Welcome to the Dark Side'}}
@@ -126,7 +126,7 @@ Testing the security policy, Sidious still has both the ``GET`` and ``PUT`` acce
       {'author': 'sidious', 'title': 'Convert Jedi to Dark Side: 101'}
     
 
-    $ kubectl exec vader-65bbb8cc6f-gvhdw -- python update.py
+    $ kubectl exec vader -- python update.py
       PUT http://elasticsearch.default.svc.cluster.local:9200/sidious/tome/1 [status:403 request:0.007s]
       Undecodable raw error response from server: Expecting value: line 1 column 1 (char 0)
       Creating/Updating Books
@@ -145,7 +145,7 @@ Another common problem that the DevOps team encountered was accidental/deliberat
 
 .. parsed-literal::
 
-    $ kubectl exec vader-6456ddc97c-9hmxp -- python delete.py
+    $ kubectl exec vader -- python delete.py
       DELETE http://elasticsearch.default.svc.cluster.local:9200/sidious/tome/1 [status:403 request:0.006s]
       Deleting Book 1
       Undecodable raw error response from server: Expecting value: line 1 column 1 (char 0)
@@ -157,7 +157,7 @@ Another common problem that the DevOps team encountered was accidental/deliberat
       elasticsearch.exceptions.AuthorizationException: TransportError(403, 'Access denied\r\n')
       command terminated with exit code 1
 
-    $ kubectl exec sidious-75b9c5c585-m87wb -- python delete.py
+    $ kubectl exec sidious -- python delete.py
       DELETE http://elasticsearch.default.svc.cluster.local:9200/sidious/tome/1 [status:403 request:0.005s]
       Undecodable raw error response from server: Expecting value: line 1 column 1 (char 0)
       Deleting Book 1

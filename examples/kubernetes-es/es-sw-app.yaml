@@ -106,42 +106,26 @@ subjects:
   name: elasticsearch
   namespace: default
 ---
-apiVersion: extensions/v1beta1
-kind: Deployment
+apiVersion: v1
+kind: Pod
 metadata:
   name: sidious
+  labels:
+    name: sidious
+    role: lord
 spec:
-  replicas: 1
-  selector:
-    matchLabels:
-      name: sidious
-      role: lord
-  template:
-    metadata:
-      labels:
-        name: sidious
-        role: lord
-    spec:
-      containers:
-      - name: spaceship
-        image: cilium/esclient:v1
+  containers:
+  - name: bookreader
+    image: cilium/esclient:v1 
 ---
-apiVersion: extensions/v1beta1
-kind: Deployment
+apiVersion: v1
+kind: Pod
 metadata:
   name: vader
+  labels:
+    name: vader
+    role: apprentice
 spec:
-  replicas: 1
-  selector:
-    matchLabels:
-      name: vader
-      role: apprentice
-  template:
-    metadata:
-      labels:
-        name: vader
-        role: apprentice
-    spec:
-      containers:
-      - name: spaceship
-        image: cilium/esclient:v1 
+  containers:
+  - name: bookreader
+    image: cilium/esclient:v1 
