@@ -1,7 +1,7 @@
 # How to Contribute
 
 This is the short version of the instructions on how to contribute to Cilium,
-for more details, see the [Developer / Contributor Guide](http://docs.cilium.io/en/stable/contributing/).
+for more details, see the [Developer / Contributor Guide](http://docs.cilium.io/en/doc-1.0/contributing/).
 
 ## Getting Started
 
@@ -148,5 +148,5 @@ please refer to the [Issue template] directly.
 * `stable/backport-done`: Backport has been done.
 * `wip`: Work in progress, do not review yet.
 
-[Developer’s Certificate of Origin]: http://docs.cilium.io/en/stable/contributing/#developer-s-certificate-of-origin
+[Developer’s Certificate of Origin]: http://docs.cilium.io/en/doc-1.0/contributing/#developer-s-certificate-of-origin
 [Issue template]: https://raw.githubusercontent.com/cilium/cilium/master/.github/issue_template.md

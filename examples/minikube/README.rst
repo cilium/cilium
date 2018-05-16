@@ -11,7 +11,7 @@ plugin, the ``localkube`` bootstrapper, and CustomResourceValidation.
 The ``localkube`` bootstrapper provides ``etcd`` >= ``3.1.0``, a cilium
 dependency. ``CustomResourceValidation`` will allow Cilium to install the Cilium
 Network Policy validator into kubernetes
-(`more info <https://kubernetes.io/docs/tasks/access kubernetes-api/extend-api-custom-resource-definitions/#validation>`_)
+(`more info <https://kubernetes.io/docs/tasks/access-kubernetes-api/extend-api-custom-resource-definitions/#validation>`_)
 
 ::
 
@@ -23,4 +23,4 @@ Please see full `Getting Started on Kubernetes`_  guide for additional details
 on how to get started on Kubernetes including details on how to import
 Kubernetes NetworkPolicies.
 
-.. _Getting Started on Kubernetes: http://cilium.readthedocs.io/en/stable/gettingstarted/#getting-started-using-kubernetes
+.. _Getting Started on Kubernetes: http://cilium.readthedocs.io/en/doc-1.0/kubernetes/

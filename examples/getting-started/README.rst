@@ -6,7 +6,7 @@ simply run ``vagrant up`` and then log into the VM with ``vagrant ssh``.
 
 For further instructions, please see the `Getting started guide`_.
 
-.. _Getting started guide: http://cilium.readthedocs.io/en/stable/gettingstarted/#getting-started-using-docker
+.. _Getting started guide: http://cilium.readthedocs.io/en/doc-1.0/gettingstarted/docker
 
 ::
 
