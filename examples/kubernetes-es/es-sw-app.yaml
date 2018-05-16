@@ -124,7 +124,7 @@ spec:
     spec:
       containers:
       - name: spaceship
-        image: tgraf/netperf
+        image: arvindsoni80/es-client:v1
 ---
 apiVersion: extensions/v1beta1
 kind: Deployment
@@ -144,4 +144,4 @@ spec:
     spec:
       containers:
       - name: spaceship
-        image: tgraf/netperf
+        image: arvindsoni80/es-client:v1 
