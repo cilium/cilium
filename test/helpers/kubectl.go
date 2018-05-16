@@ -979,8 +979,7 @@ func (kub *Kubectl) CiliumReport(namespace string, commands ...string) {
 
 	for _, pod := range pods {
 		for _, cmd := range commands {
-			command := fmt.Sprintf("%s exec -n %s %s -- %s", KubectlCmd, namespace, pod, cmd)
-			res = kub.Exec(command)
+			res = kub.ExecPodCmd(namespace, pod, cmd)
 			ginkgoext.GinkgoPrint(res.GetDebugMessage())
 		}
 	}

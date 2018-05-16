@@ -43,7 +43,6 @@ var _ = Describe("RuntimeValidatedConnectivityTest", func() {
 
 	AfterEach(func() {
 		vm.PolicyDelAll().ExpectSuccess("Policies cannot be deleted")
-		return
 	})
 
 	JustAfterEach(func() {
@@ -648,7 +647,7 @@ var _ = Describe("RuntimeValidatedConntrackTest", func() {
 	})
 
 	AfterFailed(func() {
-		vm.ReportFailed()
+		vm.ReportFailed("cilium policy get")
 	})
 
 	It("Conntrack-related configuration options for endpoints", func() {

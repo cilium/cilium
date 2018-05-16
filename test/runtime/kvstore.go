@@ -63,9 +63,7 @@ var _ = Describe("RuntimeValidatedKVStoreTest", func() {
 	})
 
 	AfterFailed(func() {
-		vm.ReportFailed(
-			"sudo docker ps -a",
-			"sudo cilium endpoint list")
+		vm.ReportFailed("cilium status")
 	})
 
 	It("Consul KVStore", func() {

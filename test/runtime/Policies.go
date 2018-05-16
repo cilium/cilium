@@ -83,7 +83,7 @@ var _ = Describe("RuntimeValidatedPolicyEnforcement", func() {
 	})
 
 	AfterFailed(func() {
-		vm.ReportFailed()
+		vm.ReportFailed("cilium config", "cilium policy get")
 	})
 
 	Context("Policy Enforcement Default", func() {
@@ -1251,7 +1251,7 @@ var _ = Describe("RuntimeValidatedPolicyImportTests", func() {
 	})
 
 	AfterFailed(func() {
-		vm.ReportFailed()
+		vm.ReportFailed("cilium policy get")
 	})
 
 	AfterAll(func() {

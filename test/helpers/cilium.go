@@ -608,7 +608,7 @@ func (s *SSHMeta) ReportFailed(commands ...string) {
 	ginkgoext.GinkgoPrint(res.GetDebugMessage())
 
 	for _, cmd := range commands {
-		res = s.Exec(fmt.Sprintf("%s", cmd))
+		res = s.ExecWithSudo(fmt.Sprintf("%s", cmd))
 		ginkgoext.GinkgoPrint(res.GetDebugMessage())
 	}
 
