@@ -1,18 +1,18 @@
 apiVersion: cilium.io/v2
 kind: CiliumNetworkPolicy
-description: "Allow only permitted Elasticsearch requests"
+description: "Restrict Elasticsearch Requests"
 metadata:
   name: "secure-empire-es"
   namespace: default
 specs:
 - endpointSelector:
     matchLabels:
-      component: elasticsearch
+      k8s:component: elasticsearch
   ingress:
   - fromEndpoints:
     - matchLabels:
-        name: sidious
-        role: lord
+        k8s:name: sidious
+        k8s:role: lord
     toPorts:
     - ports:
       - port: "9200"
@@ -20,15 +20,15 @@ specs:
       rules:
         http:
         - method: ^GET$
-          path: ^/_search/??[^/]*$
-        - method: ^POST$
-          path: ^/sithorder/secretdocs/101$
+          path: ^/sidious/tome/[^/]+/??[^/]*$
         - method: ^GET$
-          path: ^/sithorder/secretdocs/[^/]+/??[^/]*$
+          path: ^/sidious/_search/??[^/]*$
+        - method: ^PUT$
+          path: ^/sidious/tome/[^/]+/??[^/]*$
   - fromEndpoints:
     - matchLabels:
-        name: vader
-        role: apprentice
+        k8s:name: vader
+        k8s:role: apprentice
     toPorts:
     - ports:
       - port: "9200"
@@ -36,7 +36,17 @@ specs:
       rules:
         http:
         - method: ^GET$
-          path: ^/_search/??[^/]*$
+          path: ^/sidious/tome/[^/]+/??[^/]*$
         - method: ^GET$
-          path: ^/sithorder/secretdocs/[^/]+/??[^/]*$
-
+          path: ^/sidious/_search/??[^/]*$
+- egress:
+  - toEndpoints:
+    - matchExpressions:
+      - key: k8s:io.kubernetes.pod.namespace
+        operator: Exists
+  - toEntities:
+    - cluster
+    - host
+  endpointSelector: {}
+  ingress:
+  - {}
