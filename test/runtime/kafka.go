@@ -141,7 +141,7 @@ var _ = Describe("RuntimeValidatedKafka", func() {
 	})
 
 	AfterFailed(func() {
-		vm.ReportFailed()
+		vm.ReportFailed("cilium policy get")
 	})
 
 	It("Kafka Policy Ingress", func() {

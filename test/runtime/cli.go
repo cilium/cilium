@@ -44,7 +44,7 @@ var _ = Describe("RuntimeValidatedCLI", func() {
 	})
 
 	AfterFailed(func() {
-		vm.ReportFailed("cilium endpoint list")
+		vm.ReportFailed()
 	})
 
 	Context("Identity CLI testing", func() {

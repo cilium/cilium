@@ -149,8 +149,7 @@ var _ = Describe("DisabledRuntimeValidatedConntrackTable", func() {
 
 	AfterFailed(func() {
 		vm.ReportFailed(
-			"sudo cilium bpf ct list global",
-			"sudo cilium endpoint list")
+			"sudo cilium bpf ct list global")
 
 	})
 

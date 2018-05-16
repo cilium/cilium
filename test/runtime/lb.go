@@ -53,8 +53,9 @@ var _ = Describe("RuntimeValidatedLB", func() {
 
 	AfterFailed(func() {
 		vm.ReportFailed(
-			"sudo cilium service list",
-			"sudo cilium endpoint list")
+			"cilium service list",
+			"cilium bpf lb list",
+			"cilium policy get")
 	})
 
 	AfterEach(func() {

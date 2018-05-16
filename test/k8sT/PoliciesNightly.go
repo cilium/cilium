@@ -42,7 +42,6 @@ var _ = Describe("NightlyPolicies", func() {
 
 	AfterFailed(func() {
 		kubectl.CiliumReport(helpers.KubeSystemNamespace,
-			"cilium policy get",
 			"cilium endpoint list",
 			"cilium service list")
 	})
