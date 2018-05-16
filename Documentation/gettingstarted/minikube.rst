@@ -117,18 +117,16 @@ In our Star Wars inspired, simple example, there are three microservices applica
 **Application Topology for Cilium and Kubernetes**
 
 .. image:: images/cilium_http_gsg.png
-   :height: 250px
-   :width: 750px
-   :scale: 50 %
+   :scale: 30 %
 
 The file ``http-sw-app.yaml`` contains a `Kubernetes Deployment <https://kubernetes.io/docs/concepts/workloads/controllers/deployment/>`_ for each of the three services.
 Each deployment is identified using the Kubernetes labels (org=empire, class=deathstar), (org=empire, class=tiefighter),
 and (org=alliance, class=xwing).
 It also includes a deathstar-service, which load-balances traffic to all pods with label (org=empire, class=deathstar).
-
+ 
 .. parsed-literal::
-
-    $ kubectl create -f \ |SCM_WEB|\/examples/minikube/http-sw-app.yaml
+    
+    $ kubectl create -f \ |SCM_WEB|\/examples/minikube/http-sw-app.yaml    
     service "deathstar" created
     deployment "deathstar" created
     deployment "tiefighter" created
@@ -146,8 +144,8 @@ point the pod is ready.
     NAME                             READY     STATUS    RESTARTS   AGE
     po/deathstar-76995f4687-2mxb2    1/1       Running   0          1m
     po/deathstar-76995f4687-xbgnl    1/1       Running   0          1m
-    po/tiefighter-68c6cb4b4b-rxcb2   1/1       Running   0          1m
-    po/xwing-cc65988f5-7cvn8         1/1       Running   0          1m
+    po/tiefighter                    1/1       Running   0          1m
+    po/xwing                         1/1       Running   0          1m
 
     NAME             TYPE        CLUSTER-IP       EXTERNAL-IP   PORT(S)   AGE
     svc/deathstar    ClusterIP   10.109.254.198   <none>        80/TCP    3h
@@ -187,9 +185,9 @@ From the perspective of *deathstar* service providers only the ships with label 
 
 .. parsed-literal::
 
-    $ kubectl exec xwing-cc65988f5-7cvn8 -- curl -s -XPOST deathstar.default.svc.cluster.local/v1/request-landing
+    $ kubectl exec xwing -- curl -s -XPOST deathstar.default.svc.cluster.local/v1/request-landing
     Ship landed
-    $ kubectl exec  tiefighter-68c6cb4b4b-rxcb2  -- curl -s -XPOST deathstar.default.svc.cluster.local/v1/request-landing
+    $ kubectl exec  tiefighter  -- curl -s -XPOST deathstar.default.svc.cluster.local/v1/request-landing
     Ship landed
 
 Step 4: Apply an L3/L4 Policy
@@ -210,9 +208,7 @@ same TCP/UDP connection.
 **L4 Policy with Cilium and Kubernetes**
 
 .. image:: images/cilium_http_l3_l4_gsg.png
-   :height: 250px
-   :width: 750px
-   :scale: 50 %
+   :scale: 30 %
 
 We can achieve that with the following CiliumNetworkPolicy:
 
@@ -231,13 +227,13 @@ To apply this L3/L4 policy, run:
 Now if we run the landing requests again, only the *tiefighter* pods with the label *org=empire* will succeed. The *xwing* pods will be blocked!
 
 .. parsed-literal::
-    $ kubectl exec  tiefighter-68c6cb4b4b-rxcb2  -- curl -s -XPOST deathstar.default.svc.cluster.local/v1/request-landing
+    $ kubectl exec  tiefighter -- curl -s -XPOST deathstar.default.svc.cluster.local/v1/request-landing
     Ship landed
 
 This works as expected. Now the same request run from an *xwing* pod will fail:
 
 .. parsed-literal::
-    $ kubectl exec xwing-cc65988f5-7cvn8 -- curl -s -XPOST deathstar.default.svc.cluster.local/v1/request-landing
+    $ kubectl exec xwing -- curl -s -XPOST deathstar.default.svc.cluster.local/v1/request-landing
     
 This request will hang, so press Control-C to kill the curl request, or wait for it
 to time out.
@@ -322,9 +318,10 @@ limited to making only the set of HTTP requests it requires for legitimate
 operation.
 
 For example, consider that the *deathstar* service exposes some maintenance APIs which should not be called by random empire ships. To see this run:
+
 ::
 
-    $ kubectl exec tiefighter-68c6cb4b4b-rxcb2 -- curl -s -XPUT deathstar.default.svc.cluster.local/v1/exhaust-port
+    $ kubectl exec tiefighter -- curl -s -XPUT deathstar.default.svc.cluster.local/v1/exhaust-port
     Panic: deathstar exploded
 
     goroutine 1 [running]:
@@ -341,9 +338,7 @@ While this is an illustrative example, unauthorized access such as above can hav
 **L7 Policy with Cilium and Kubernetes**
 
 .. image:: images/cilium_http_l3_l4_l7_gsg.png
-   :height: 250px
-   :width: 750px
-   :scale: 50 %
+   :scale: 30 %
 
 Cilium is capable of enforcing HTTP-layer (i.e., L7) policies to limit what
 URLs *tiefighter* is allowed to reach.  Here is an example policy file that
@@ -363,7 +358,7 @@ We can now re-run the same test as above, but we will see a different outcome:
 
 ::
 
-    $ kubectl exec tiefighter-68c6cb4b4b-rxcb2 -- curl -s -XPOST deathstar.default.svc.cluster.local/v1/request-landing
+    $ kubectl exec tiefighter -- curl -s -XPOST deathstar.default.svc.cluster.local/v1/request-landing
     Ship landed
 
 
@@ -371,7 +366,7 @@ and
 
 ::
 
-    $ kubectl exec tiefighter-68c6cb4b4b-rxcb2 -- curl -s -XPUT deathstar.default.svc.cluster.local/v1/exhaust-port
+    $ kubectl exec tiefighter -- curl -s -XPUT deathstar.default.svc.cluster.local/v1/exhaust-port
     Access denied
 
 As you can see, with Cilium L7 security policies, we are able to permit
