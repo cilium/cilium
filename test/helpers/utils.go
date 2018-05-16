@@ -30,6 +30,7 @@ import (
 	"time"
 
 	"github.com/cilium/cilium/test/config"
+	ginkgoext "github.com/cilium/cilium/test/ginkgo-ext"
 
 	"github.com/Jeffail/gabs"
 	"github.com/onsi/ginkgo"
@@ -296,16 +297,16 @@ func Fail(description string, callerSkip ...int) {
 // commands that need to be run in the case that a test has failed.
 // If the directory cannot be created it'll return an error
 func CreateReportDirectory() (string, error) {
-	testDesc := ginkgo.CurrentGinkgoTestDescription()
 	prefix := ""
-	if strings.HasPrefix(strings.ToLower(testDesc.FullTestText), K8s) {
+	testName := ginkgoext.GetTestName()
+	if strings.HasPrefix(strings.ToLower(testName), K8s) {
 		prefix = fmt.Sprintf("%s-", strings.Replace(GetCurrentK8SEnv(), ".", "", -1))
 	}
 
 	testPath := filepath.Join(
 		TestResultsPath,
 		prefix,
-		strings.Replace(testDesc.FullTestText, " ", "", -1))
+		testName)
 	if _, err := os.Stat(testPath); err == nil {
 		return testPath, nil
 	}

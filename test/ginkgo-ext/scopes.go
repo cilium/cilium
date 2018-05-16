@@ -123,6 +123,13 @@ func GinkgoPrint(message string, optionalValues ...interface{}) {
 	fmt.Fprintln(ginkgo.GinkgoWriter, message)
 }
 
+// GetTestName returns the test Name in a single string without spaces or /
+func GetTestName() string {
+	testDesc := ginkgo.CurrentGinkgoTestDescription()
+	name := strings.Replace(testDesc.FullTestText, " ", "_", -1)
+	return strings.Replace(name, "/", "-", -1)
+}
+
 // BeforeAll runs the function once before any test in context
 func BeforeAll(body func()) bool {
 	if currentScope != nil {

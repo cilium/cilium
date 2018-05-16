@@ -80,12 +80,12 @@ pipeline {
             }
             post {
                 always {
-                    junit 'test/*.xml'
                     // Temporary workaround to test cleanup
                     // rm -rf ${GOPATH}/src/github.com/cilium/cilium
                     sh 'cd test/; ./post_build_agent.sh || true'
                     sh 'cd test/; ./archive_test_results.sh || true'
-                    archiveArtifacts artifacts: "test_results_${JOB_BASE_NAME}_${BUILD_NUMBER}.zip", allowEmptyArchive: true
+                    archiveArtifacts artifacts: '*.zip'
+                    junit testDataPublishers: [[$class: 'AttachmentPublisher']], testResults: 'test/*.xml'
                 }
             }
         }

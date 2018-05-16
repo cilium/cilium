@@ -58,8 +58,8 @@ pipeline {
             post {
                 always {
                     sh 'cd test/; ./archive_test_results.sh || true'
-                    archiveArtifacts artifacts: "test_results_${JOB_BASE_NAME}_${BUILD_NUMBER}.zip", allowEmptyArchive: true
-                    junit 'test/*.xml'
+                    archiveArtifacts artifacts: '*.zip'
+                    junit testDataPublishers: [[$class: 'AttachmentPublisher']], testResults: 'test/*.xml'
                     sh 'cd test/; ./post_build_agent.sh || true'
                 }
             }
@@ -89,10 +89,10 @@ pipeline {
             }
             post {
                 always {
-                    junit 'test/*.xml'
                     sh 'cd test/; ./post_build_agent.sh || true'
                     sh 'cd test/; ./archive_test_results.sh || true'
-                    archiveArtifacts artifacts: "test_results_${JOB_BASE_NAME}_${BUILD_NUMBER}.zip", allowEmptyArchive: true
+                    archiveArtifacts artifacts: '*.zip'
+                    junit testDataPublishers: [[$class: 'AttachmentPublisher']], testResults: 'test/*.xml'
                 }
             }
         }
