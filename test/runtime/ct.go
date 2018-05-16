@@ -437,10 +437,11 @@ var _ = Describe("DisabledRuntimeValidatedConntrackTable", func() {
 	It("testing conntrack entries clean up with L7 policy after a L3-L4 connectivity", func() {
 
 		meta := containersMeta()
+		policyLabels := "l3-l4-policy-server-3"
 
 		By("Installing L3-L4 policy")
 
-		policy := `
+		policy := fmt.Sprintf(`
 		[{
 			"endpointSelector": {"matchLabels":{"id.server-3":""}},
 			"ingress": [{
@@ -451,9 +452,9 @@ var _ = Describe("DisabledRuntimeValidatedConntrackTable", func() {
 					"ports": [{"port": "80", "protocol": "tcp"}]
 				}]
 			}],
-			"labels": ["l3-l4-policy-server-3"]
+			"labels": [%q]
 		}]
-		`
+		`, policyLabels)
 		_, err := vm.PolicyRenderAndImport(policy)
 		Expect(err).To(BeNil())
 
@@ -473,12 +474,12 @@ var _ = Describe("DisabledRuntimeValidatedConntrackTable", func() {
 			testReach(testCase.src[helpers.Name], testCase.destination[testCase.kind], testCase.dstPort, testCase.mode, BeTrue)
 		}
 
-		res := vm.PolicyDel("l3-l4-policy-server-3")
+		res := vm.PolicyDel(policyLabels)
 		res.WasSuccessful()
 
 		By("Installing L3-L4-L7 policy")
 
-		policy2 := `
+		policy2 := fmt.Sprintf(`
 		[{
 			"endpointSelector": {"matchLabels":{"id.server-3":""}},
 			"ingress": [{
@@ -493,8 +494,8 @@ var _ = Describe("DisabledRuntimeValidatedConntrackTable", func() {
 					}]}
 				}]
 			}],
-			"labels": ["l3-l4-policy-server-3"]
-		}]`
+			"labels": [%q]
+		}]`, policyLabels)
 
 		_, err = vm.PolicyRenderAndImport(policy2)
 		Expect(err).To(BeNil(), "Installing an L3-L4-L7 policy")
@@ -508,8 +509,8 @@ var _ = Describe("DisabledRuntimeValidatedConntrackTable", func() {
 			testReach(testCase.src[helpers.Name], testCase.destination[testCase.kind], testCase.dstPort, testCase.mode, assertfn)
 		}
 
-		By("Removing policy `l3-l4-policy-server-3`")
-		res = vm.PolicyDel("l3-l4-policy-server-3")
+		By("Removing policy %q", policyLabels)
+		res = vm.PolicyDel(policyLabels)
 		res.WasSuccessful()
 
 		By("Installing other L7 rule after testing L7. The previous rule shouldn't work!")
