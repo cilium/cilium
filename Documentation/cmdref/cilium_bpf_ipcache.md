@@ -2,22 +2,12 @@
 
 ## cilium bpf ipcache
 
-List endpoint IPs (local and remote) and their corresponding security identities
+Manage the IPCache mappings for IP/CIDR <-> Identity
 
 ### Synopsis
 
 
-List endpoint IPs (local and remote) and their corresponding security identities
-
-```
-cilium bpf ipcache list
-```
-
-### Options
-
-```
-  -o, --output string   json| jsonpath='{}'
-```
+Manage the IPCache mappings for IP/CIDR <-> Identity
 
 ### Options inherited from parent commands
 
@@ -29,4 +19,5 @@ cilium bpf ipcache list
 
 ### SEE ALSO
 * [cilium bpf](cilium_bpf.html)	 - Direct access to local BPF maps
+* [cilium bpf ipcache list](cilium_bpf_ipcache_list.html)	 - List endpoint IPs (local and remote) and their corresponding security identities
 
