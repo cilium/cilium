@@ -9,6 +9,9 @@ GOLANG_SRCFILES=$(shell for pkg in $(subst github.com/cilium/cilium/,,$(GOFILES)
 BPF_FILES ?= $(shell git ls-files ../bpf/ | tr "\n" ' ')
 BPF_SRCFILES=$(subst ../,,$(BPF_FILES))
 
+SWAGGER_VERSION = 0.12.0
+SWAGGER = $(QUIET)docker run --rm -v $(CURDIR):$(CURDIR) -w $(CURDIR) -e GOPATH=$(GOPATH) --entrypoint swagger quay.io/goswagger/swagger:$(SWAGGER_VERSION)
+
 GOTEST_OPTS = -test.v -check.v
 
 UTC_DATE=$(shell date -u "+%Y-%m-%d")
@@ -60,6 +63,7 @@ start-kvstores:
         etcd -name etcd0 \
         -advertise-client-urls http://0.0.0.0:4001 \
         -listen-client-urls http://0.0.0.0:4001 \
+        -listen-peer-urls http://0.0.0.0:2380 \
         -initial-cluster-token etcd-cluster-1 \
         -initial-cluster-state new
 	@docker rm -f "cilium-consul-test-container" 2> /dev/null || true
@@ -77,8 +81,8 @@ unit-tests: start-kvstores
 	$(QUIET) $(MAKE) -C daemon/ check-bindata
 	$(QUIET) echo "mode: count" > coverage-all.out
 	$(QUIET) echo "mode: count" > coverage.out
-	$(foreach pkg,$(TESTPKGS),\
-	$(QUIET) go test \
+	$(QUIET)$(foreach pkg,$(TESTPKGS),\
+	go test \
             -timeout 360s -coverprofile=coverage.out -covermode=count $(pkg) $(GOTEST_OPTS) || exit 1;\
             tail -n +2 coverage.out >> coverage-all.out;)
 	$(GO) tool cover -html=coverage-all.out -o=coverage-all.html
@@ -126,15 +130,9 @@ docker-image: clean GIT_VERSION envoy/SOURCE_VERSION
 
 docker-image-runtime:
 	cd contrib/packaging/docker && docker build -t "cilium/cilium-runtime:$(UTC_DATE)" -f Dockerfile.runtime .
-	@echo "Update Dockerfile with the new tag and push like this when ready:"
-	@echo "docker push cilium/cilium-runtime:$(UTC_DATE)"
 
 docker-image-builder:
-	cp contrib/packaging/docker/Dockerfile.builder envoy/.
-	cd envoy && docker build -t "cilium/cilium-builder:$(UTC_DATE)" -f Dockerfile.builder .
-	rm envoy/Dockerfile.builder
-	@echo "Update Dockerfile with the new tag and push like this when ready:"
-	@echo "docker push cilium/cilium-builder:$(UTC_DATE)"
+	cd envoy && docker build -t "quay.io/cilium/cilium-builder:$(UTC_DATE)" .
 
 build-deb:
 	$(MAKE) -C ./contrib/packaging/deb
@@ -148,16 +146,19 @@ runtime-tests:
 k8s-tests:
 	$(MAKE) -C tests k8s-tests
 
-generate-api:
-	swagger generate server -t api/v1 -f api/v1/openapi.yaml -a restapi \
-	    -s server --default-scheme=unix -C api/v1/cilium-server.yml
-	swagger generate client -t api/v1 -f api/v1/openapi.yaml -a restapi
+generate-api: api/v1/openapi.yaml
+	@$(ECHO_GEN)api/v1/openapi.yaml
+	-$(SWAGGER) generate server -s server -a restapi \
+		-t api/v1 -f api/v1/openapi.yaml --default-scheme=unix -C api/v1/cilium-server.yml
+	-$(SWAGGER) generate client -a restapi \
+		-t api/v1 -f api/v1/openapi.yaml
 
-generate-health-api:
-	swagger generate server -t api/v1 -f api/v1/health/openapi.yaml \
-	    -a restapi -t api/v1/health/ -s server
-	swagger generate client -t api/v1 -f api/v1/health/openapi.yaml \
-	    -a restapi -t api/v1/health/
+generate-health-api: api/v1/health/openapi.yaml
+	@$(ECHO_GEN)api/v1/health/openapi.yaml
+	-$(SWAGGER) generate server -s server -a restapi \
+		-t api/v1 -t api/v1/health/ -f api/v1/health/openapi.yaml
+	-$(SWAGGER) generate client -a restapi \
+		-t api/v1 -t api/v1/health/ -f api/v1/health/openapi.yaml
 
 generate-k8s-api:
 	cd "$(GOPATH)/src/k8s.io/code-generator" && \
@@ -250,11 +251,16 @@ docs-container:
 	echo ".*" >>.dockerignore # .git pruned out
 	docker image build -t cilium/docs-builder -f Documentation/Dockerfile .
 
+
 render-docs: docs-container
 	-docker container rm -f docs-cilium >/dev/null
 	docker container run -ti -u $$(id -u):$$(id -g $(USER)) -v $$(pwd):/srv/ cilium/docs-builder /bin/bash -c 'make html' && \
 	docker container run -dit --name docs-cilium -p 8080:80 -v $$(pwd)/Documentation/_build/html/:/usr/local/apache2/htdocs/ httpd:2.4
 	@echo "$$(tput setaf 2)Running at http://localhost:8080$$(tput sgr0)"
+
+test-docs: docs-container
+	-docker container rm -f docs-cilium >/dev/null
+	docker container run --rm -v $$(pwd):/srv/ cilium/docs-builder /bin/bash -c 'make html'
 
 manpages:
 	-rm -r man
@@ -272,5 +278,5 @@ postcheck: build
 	$(QUIET) contrib/scripts/lock-check.sh
 	-$(QUIET) $(MAKE) -C Documentation/ dummy SPHINXOPTS="-q" 2>&1 | grep -v "tabs assets"
 
-.PHONY: force
+.PHONY: force generate-api generate-health-api
 force :;
