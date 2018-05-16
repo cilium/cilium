@@ -27,14 +27,16 @@ import (
 )
 
 const (
-	ipAddrTitle   = "IP PREFIX/ADDRESS"
-	identityTitle = "IDENTITY"
+	ipAddrTitle      = "IP PREFIX/ADDRESS"
+	identityTitle    = "IDENTITY"
+	ipCacheListUsage = "List endpoint IPs (local and remote) and their corresponding security identities."
 )
 
 var bpfIPCacheListCmd = &cobra.Command{
-	Use:     "ipcache list",
+	Use:     "list",
 	Aliases: []string{"ls"},
 	Short:   "List endpoint IPs (local and remote) and their corresponding security identities",
+	Long:    ipCacheListUsage,
 	Run: func(cmd *cobra.Command, args []string) {
 		common.RequireRootPrivilege("cilium bpf ipcache list")
 
@@ -52,11 +54,15 @@ var bpfIPCacheListCmd = &cobra.Command{
 			return
 		}
 
-		TablePrinter(ipAddrTitle, identityTitle, bpfIPCacheList)
+		if len(bpfIPCacheList) == 0 {
+			fmt.Fprintf(os.Stderr, "No entries found.\n")
+		} else {
+			TablePrinter(ipAddrTitle, identityTitle, bpfIPCacheList)
+		}
 	},
 }
 
 func init() {
-	bpfCmd.AddCommand(bpfIPCacheListCmd)
+	bpfIPCacheCmd.AddCommand(bpfIPCacheListCmd)
 	command.AddJSONOutput(bpfIPCacheListCmd)
 }
