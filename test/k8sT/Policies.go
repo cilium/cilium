@@ -22,7 +22,6 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	. "github.com/cilium/cilium/test/ginkgo-ext"
 	"github.com/cilium/cilium/test/helpers"
-
 	. "github.com/onsi/gomega"
 	"github.com/sirupsen/logrus"
 	"k8s.io/api/core/v1"
@@ -43,6 +42,8 @@ var _ = Describe("K8sValidatedPolicyTest", func() {
 		knpDenyIngressEgress = helpers.ManifestGet("knp-default-deny-ingress-egress.yaml")
 		cnpDenyIngress       = helpers.ManifestGet("cnp-default-deny-ingress.yaml")
 		cnpDenyEgress        = helpers.ManifestGet("cnp-default-deny-egress.yaml")
+		knpAllowIngress      = helpers.ManifestGet("knp-default-allow-ingress.yaml")
+		knpAllowEgress       = helpers.ManifestGet("knp-default-allow-egress.yaml")
 		logger               *logrus.Entry
 		service              *v1.Service
 		podServer            *v1.Pod
@@ -138,6 +139,8 @@ var _ = Describe("K8sValidatedPolicyTest", func() {
 			kubectl.Delete(knpDenyIngressEgress)
 			kubectl.Delete(cnpDenyIngress)
 			kubectl.Delete(cnpDenyEgress)
+			kubectl.Delete(knpAllowEgress)
+			kubectl.Delete(knpAllowIngress)
 		})
 
 		It("tests PolicyEnforcement updates", func() {
@@ -595,6 +598,81 @@ var _ = Describe("K8sValidatedPolicyTest", func() {
 				res.ExpectFail("Egress DNS connectivity should be denied for pod %q", pod)
 			}
 		})
+
+		It("Allows traffic with k8s default-allow ingress policy", func() {
+			By("Installing ingress default-allow")
+			_, err := kubectl.CiliumPolicyAction(
+				helpers.KubeSystemNamespace, knpAllowIngress, helpers.KubectlApply, helpers.HelperTimeout)
+			Expect(err).Should(BeNil(),
+				"L3 allow-ingress Policy cannot be applied in %q namespace", helpers.DefaultNamespace)
+
+			By("Checking that all endpoints have ingress enforcement enabled")
+			endpoints, err := kubectl.CiliumEndpointsListByLabel(ciliumPod, podFilter)
+			Expect(err).Should(BeNil())
+			Expect(endpoints.AreReady()).Should(BeTrue())
+			policyStatus := endpoints.GetPolicyStatus()
+			// Always-on mode with no policy, all endpoints must be in default deny
+			Expect(policyStatus[models.EndpointPolicyEnabledNone]).Should(Equal(0))
+			Expect(policyStatus[models.EndpointPolicyEnabledIngress]).Should(Equal(4))
+			Expect(policyStatus[models.EndpointPolicyEnabledEgress]).Should(Equal(0))
+			Expect(policyStatus[models.EndpointPolicyEnabledBoth]).Should(Equal(0))
+
+			By("Testing connectivity with ingress default-allow policy loaded")
+
+			res := kubectl.ExecPodCmd(
+				helpers.DefaultNamespace, appPods[helpers.App2],
+				helpers.CurlWithHTTPCode("http://%s/public", clusterIP))
+			res.ExpectSuccess("Ingress connectivity should be allowed by policy")
+
+			res = kubectl.ExecPodCmd(
+				helpers.DefaultNamespace, appPods[helpers.App3],
+				helpers.CurlWithHTTPCode("http://%s/public", clusterIP))
+			res.ExpectSuccess("Ingress connectivity should be allowed by policy")
+		})
+
+		It("Allows traffic with k8s default-allow egress policy", func() {
+
+			if helpers.GetCurrentK8SEnv() == "1.7" {
+				log.Info("K8s 1.7 doesn't offer a default allow for egress")
+				return
+			}
+
+			By("Installing egress default-allow")
+			_, err := kubectl.CiliumPolicyAction(
+				helpers.KubeSystemNamespace, knpAllowEgress, helpers.KubectlApply, helpers.HelperTimeout)
+			Expect(err).Should(BeNil(),
+				"L3 allow-egress Policy cannot be applied in %q namespace", helpers.DefaultNamespace)
+
+			By("Checking that all endpoints have egress enforcement enabled")
+			endpoints, err := kubectl.CiliumEndpointsListByLabel(ciliumPod, podFilter)
+			Expect(err).Should(BeNil())
+			Expect(endpoints.AreReady()).Should(BeTrue())
+			policyStatus := endpoints.GetPolicyStatus()
+			// Always-on mode with no policy, all endpoints must be in default deny
+			Expect(policyStatus[models.EndpointPolicyEnabledNone]).Should(Equal(0))
+			Expect(policyStatus[models.EndpointPolicyEnabledIngress]).Should(Equal(0))
+			Expect(policyStatus[models.EndpointPolicyEnabledEgress]).Should(Equal(4))
+			Expect(policyStatus[models.EndpointPolicyEnabledBoth]).Should(Equal(0))
+
+			By("Checking connectivity between pods and external services after installing egress policy")
+
+			for _, pod := range []string{appPods[helpers.App2], appPods[helpers.App3]} {
+				res := kubectl.ExecPodCmd(
+					helpers.DefaultNamespace, pod,
+					helpers.CurlWithHTTPCode("http://www.google.com/"))
+				res.ExpectSuccess("Egress connectivity should be allowed for pod %q", pod)
+
+				res = kubectl.ExecPodCmd(
+					helpers.DefaultNamespace, pod,
+					helpers.Ping("8.8.8.8"))
+				res.ExpectSuccess("Egress ping connectivity should be allowed for pod %q", pod)
+
+				res = kubectl.ExecPodCmd(
+					helpers.DefaultNamespace, pod,
+					"host www.google.com")
+				res.ExpectSuccess("Egress DNS connectivity should be allowed for pod %q", pod)
+			}
+		})
 	})
 
 	Context("GuestBook Examples", func() {
@@ -818,6 +896,7 @@ EOF`, k, v)
 			testCanConnect(kubectl, namespace, "client-cannot-connect", service, 80, false)
 		})
 	})
+
 })
 
 var _ = Describe("K8sValidatedPolicyTestAcrossNamespaces", func() {
