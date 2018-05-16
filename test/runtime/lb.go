@@ -89,7 +89,6 @@ var _ = Describe("RuntimeValidatedLB", func() {
 	}, 500)
 
 	It("validates basic service management functionality", func() {
-
 		result := vm.ServiceAdd(1, "[::]:80", []string{"[::1]:90", "[::2]:91"})
 		result.ExpectSuccess("unexpected failure to add service")
 		result = vm.ServiceGet(1)

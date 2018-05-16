@@ -17,6 +17,8 @@ package ciliumTest
 import (
 	"fmt"
 	"os"
+	"os/exec"
+	"path/filepath"
 	"strconv"
 	"testing"
 	"time"
@@ -247,5 +249,22 @@ var _ = AfterEach(func() {
 	if err != nil {
 		log.WithError(err).Errorf("cannot create log file '%s'", commandsLogFileName)
 		return
+	}
+
+	// This piece of code is to enable zip attachments on Junit Output.
+	if ginkgo.CurrentGinkgoTestDescription().Failed && helpers.IsRunningOnJenkins() {
+		// ReportDirectory is already created. No check the error
+		path, _ := helpers.CreateReportDirectory()
+		zipFileName := fmt.Sprintf("%s_%s.zip", helpers.MakeUID(), ginkgoext.GetTestName())
+		zipFilePath := filepath.Join(helpers.TestResultsPath, zipFileName)
+
+		_, err := exec.Command(
+			"/bin/bash", "-c",
+			fmt.Sprintf("zip -qr %s %s", zipFilePath, path)).CombinedOutput()
+		if err != nil {
+			log.WithError(err).Errorf("cannot create zip file '%s'", zipFilePath)
+		}
+
+		ginkgoext.GinkgoPrint("[[ATTACHMENT|%s]]", zipFileName)
 	}
 })

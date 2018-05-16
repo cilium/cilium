@@ -71,8 +71,8 @@ pipeline {
                     sh 'cd test/; ./post_build_agent.sh || true'
                     sh 'cd test/; vagrant destroy -f || true'
                     sh 'cd test/; ./archive_test_results.sh || true'
-                    archiveArtifacts artifacts: "test_results_${JOB_BASE_NAME}_${BUILD_NUMBER}.zip", allowEmptyArchive: true
-                    junit 'test/*.xml'
+                    archiveArtifacts artifacts: '*.zip'
+                    junit testDataPublishers: [[$class: 'AttachmentPublisher']], testResults: 'test/*.xml'
                 }
             }
         }
@@ -91,8 +91,8 @@ pipeline {
             post {
                 always {
                     sh 'cd ${TEST_DIR}; ./archive_test_results.sh || true'
-                    archiveArtifacts artifacts: "test_results_k8s_${JOB_BASE_NAME}_${BUILD_NUMBER}.zip", allowEmptyArchive: true
-                    junit 'test/*.xml'
+                    archiveArtifacts artifacts: '*.zip'
+                    junit testDataPublishers: [[$class: 'AttachmentPublisher']], testResults: 'test/*.xml'
                 }
             }
         }
