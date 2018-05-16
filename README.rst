@@ -270,7 +270,7 @@ under the `General Public License, Version 2.0 <bpf/COPYING>`_.
 .. _`Installing Cilium`: http://docs.cilium.io/en/latest/install/guides/
 .. _`Frequently Asked Questions`: https://github.com/cilium/cilium/issues?utf8=%E2%9C%93&q=is%3Aissue+label%3Akind%2Fquestion+
 .. _Contributing: http://docs.cilium.io/en/latest/contributing
-.. _Prerequisites: http://docs.cilium.io/en/stable/install/#system-requirements
+.. _Prerequisites: http://docs.cilium.io/en/doc-1.0/install/system_requirements
 .. _`BPF and XDP Reference Guide`: http://docs.cilium.io/en/latest/bpf/
 
 .. |logo| image:: https://cdn.rawgit.com/cilium/cilium/master/Documentation/images/logo.svg
