@@ -5,17 +5,26 @@ NEWS
 v1.0.3
 ======
 
-Joe Stringer (2):
+Ian Vernon (1):
+      pkg/policy/api: add basic HTTP Rule sanitization
+
+Joe Stringer (4):
       k8s: Bump CRD schema version.
       bpf: Ensure maps are restored on load failure
+      bpf: Fix failure handling in CreateMap
+      bpf: Respond to all ARP requests
 
-Ray Bejjani (1):
+Ray Bejjani (3):
       controller: Cleanup global manager on UpdateController
+      monitor: More correctly cancel contexts on exit
+      monitor: Fatal on critical errors instead of panic
 
 Romain Lenglet (2):
       controller: Skip StopFunc when stopping controller for update
       k8s: Consistently check for namespace labels in endpoint selectors
 
+Thomas Graf (2):
+      agent: Fix panic when node.GetNodes() is empty
 
 v1.0.2
 ======
