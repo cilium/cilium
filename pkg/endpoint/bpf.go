@@ -642,6 +642,7 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir, reason string) (uint64, err
 		// with the old one.
 		err := e.syncPolicyMap()
 		if err != nil {
+			e.Mutex.Unlock()
 			return 0, fmt.Errorf("unable to regenerate policy because PolicyMap synchronization failed: %s", err)
 		}
 
