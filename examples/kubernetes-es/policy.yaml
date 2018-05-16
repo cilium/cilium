@@ -1,0 +1,52 @@
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+description: "Restrict Elasticsearch Requests"
+metadata:
+  name: "secure-empire-es"
+  namespace: default
+specs:
+- endpointSelector:
+    matchLabels:
+      k8s:component: elasticsearch
+  ingress:
+  - fromEndpoints:
+    - matchLabels:
+        k8s:name: sidious
+        k8s:role: lord
+    toPorts:
+    - ports:
+      - port: "9200"
+        protocol: TCP
+      rules:
+        http:
+        - method: ^GET$
+          path: ^/sidious/tome/[^/]+/??[^/]*$
+        - method: ^GET$
+          path: ^/sidious/_search/??[^/]*$
+        - method: ^PUT$
+          path: ^/sidious/tome/[^/]+/??[^/]*$
+  - fromEndpoints:
+    - matchLabels:
+        k8s:name: vader
+        k8s:role: apprentice
+    toPorts:
+    - ports:
+      - port: "9200"
+        protocol: TCP
+      rules:
+        http:
+        - method: ^GET$
+          path: ^/sidious/tome/[^/]+/??[^/]*$
+        - method: ^GET$
+          path: ^/sidious/_search/??[^/]*$
+- egress:
+  - toEndpoints:
+    - matchExpressions:
+      - key: k8s:io.kubernetes.pod.namespace
+        operator: Exists
+  - toEntities:
+    - cluster
+    - host
+  endpointSelector: {}
+  ingress:
+  - {}
