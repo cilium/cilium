@@ -139,7 +139,7 @@ func getLabelsMap() (*identityPkg.IdentityCache, error) {
 }
 
 // Must be called with global endpoint.Mutex held
-func (e *Endpoint) resolveL4Policy(owner Owner, repo *policy.Repository) error {
+func (e *Endpoint) resolveL4Policy(repo *policy.Repository) error {
 
 	ingressCtx := policy.SearchContext{
 		To: e.SecurityIdentity.LabelArray,
@@ -149,7 +149,7 @@ func (e *Endpoint) resolveL4Policy(owner Owner, repo *policy.Repository) error {
 		From: e.SecurityIdentity.LabelArray,
 	}
 
-	if owner.TracingEnabled() {
+	if option.Config.TracingEnabled() {
 		ingressCtx.Trace = policy.TRACE_ENABLED
 		egressCtx.Trace = policy.TRACE_ENABLED
 	}
@@ -176,15 +176,15 @@ func (e *Endpoint) resolveL4Policy(owner Owner, repo *policy.Repository) error {
 	return nil
 }
 
-func (e *Endpoint) computeDesiredPolicyMapState(owner Owner, labelsMap *identityPkg.IdentityCache,
+func (e *Endpoint) computeDesiredPolicyMapState(labelsMap *identityPkg.IdentityCache,
 	repo *policy.Repository) {
 	desiredPolicyKeys := make(map[policymap.PolicyKey]struct{})
 	if e.LabelsMap != labelsMap {
 		e.LabelsMap = labelsMap
 	}
 	e.computeDesiredL4PolicyMapEntries(desiredPolicyKeys)
-	e.determineAllowLocalhost(owner, desiredPolicyKeys)
-	e.computeDesiredL3PolicyMapEntries(owner, labelsMap, repo, desiredPolicyKeys)
+	e.determineAllowLocalhost(desiredPolicyKeys)
+	e.computeDesiredL3PolicyMapEntries(labelsMap, repo, desiredPolicyKeys)
 	e.desiredMapState = desiredPolicyKeys
 }
 
@@ -192,7 +192,7 @@ func (e *Endpoint) computeDesiredPolicyMapState(owner Owner, labelsMap *identity
 // communicate with the localhost. It inserts the PolicyKey corresponding to
 // the localhost in the desiredPolicyKeys if the endpoint is allowed to
 // communicate with the localhost.
-func (e *Endpoint) determineAllowLocalhost(owner Owner, desiredPolicyKeys map[policymap.PolicyKey]struct{}) {
+func (e *Endpoint) determineAllowLocalhost(desiredPolicyKeys map[policymap.PolicyKey]struct{}) {
 
 	if desiredPolicyKeys == nil {
 		desiredPolicyKeys = map[policymap.PolicyKey]struct{}{}
@@ -207,7 +207,7 @@ func (e *Endpoint) determineAllowLocalhost(owner Owner, desiredPolicyKeys map[po
 	}
 }
 
-func (e *Endpoint) computeDesiredL3PolicyMapEntries(owner Owner, identityCache *identityPkg.IdentityCache, repo *policy.Repository, desiredPolicyKeys map[policymap.PolicyKey]struct{}) {
+func (e *Endpoint) computeDesiredL3PolicyMapEntries(identityCache *identityPkg.IdentityCache, repo *policy.Repository, desiredPolicyKeys map[policymap.PolicyKey]struct{}) {
 
 	if desiredPolicyKeys == nil {
 		desiredPolicyKeys = map[policymap.PolicyKey]struct{}{}
@@ -220,7 +220,7 @@ func (e *Endpoint) computeDesiredL3PolicyMapEntries(owner Owner, identityCache *
 		From: e.SecurityIdentity.LabelArray,
 	}
 
-	if owner.TracingEnabled() {
+	if option.Config.TracingEnabled() {
 		ingressCtx.Trace = policy.TRACE_ENABLED
 		egressCtx.Trace = policy.TRACE_ENABLED
 	}
@@ -274,12 +274,12 @@ func (e *Endpoint) computeDesiredL3PolicyMapEntries(owner Owner, identityCache *
 }
 
 // Must be called with global repo.Mutrex, e.Mutex, and c.Mutex held
-func (e *Endpoint) regenerateL3Policy(owner Owner, repo *policy.Repository, revision uint64) (bool, error) {
+func (e *Endpoint) regenerateL3Policy(repo *policy.Repository, revision uint64) (bool, error) {
 
 	ctx := policy.SearchContext{
 		To: e.SecurityIdentity.LabelArray, // keep c.Mutex taken to protect this.
 	}
-	if owner.TracingEnabled() {
+	if option.Config.TracingEnabled() {
 		ctx.Trace = policy.TRACE_ENABLED
 	}
 	newL3policy := repo.ResolveCIDRPolicy(&ctx)
@@ -322,7 +322,7 @@ func (e *Endpoint) updateNetworkPolicy(owner Owner) error {
 	ctx := policy.SearchContext{
 		To: e.SecurityIdentity.LabelArray,
 	}
-	if owner.TracingEnabled() {
+	if option.Config.TracingEnabled() {
 		ctx.Trace = policy.TRACE_ENABLED
 	}
 	deniedIngressIdentities := make(map[identityPkg.NumericIdentity]bool)
@@ -463,7 +463,7 @@ func (e *Endpoint) regeneratePolicy(owner Owner, opts models.ConfigurationMap) (
 	// Skip L4 policy recomputation if possible. However, the rest of the
 	// policy computation still needs to be done for each endpoint separately.
 	if e.Iteration != revision {
-		err = e.resolveL4Policy(owner, repo)
+		err = e.resolveL4Policy(repo)
 		if err != nil {
 			return false, err
 		}
@@ -475,7 +475,7 @@ func (e *Endpoint) regeneratePolicy(owner Owner, opts models.ConfigurationMap) (
 
 	// Calculate L3 (CIDR) policy.
 	var policyChanged bool
-	if policyChanged, err = e.regenerateL3Policy(owner, repo, revision); err != nil {
+	if policyChanged, err = e.regenerateL3Policy(repo, revision); err != nil {
 		return false, err
 	}
 
@@ -516,7 +516,7 @@ func (e *Endpoint) regeneratePolicy(owner Owner, opts models.ConfigurationMap) (
 
 	optsChanged := e.applyOptsLocked(opts)
 
-	e.computeDesiredPolicyMapState(owner, labelsMap, repo)
+	e.computeDesiredPolicyMapState(labelsMap, repo)
 
 	// If we are in this function, then policy has been calculated.
 	if !e.PolicyCalculated {

@@ -261,10 +261,6 @@ func (d *Daemon) GetPolicyRepository() *policy.Repository {
 	return d.policy
 }
 
-func (d *Daemon) TracingEnabled() bool {
-	return option.Config.Opts.IsEnabled(option.PolicyTracing)
-}
-
 func (d *Daemon) DryModeEnabled() bool {
 	return option.Config.DryMode
 }

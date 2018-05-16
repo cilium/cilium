@@ -23,8 +23,6 @@ import (
 
 // Owner is the interface defines the requirements for anybody owning policies.
 type Owner interface {
-	// Must return true if tracing of the policy resolution is to be enabled
-	TracingEnabled() bool
 
 	// Must return true if dry mode is enabled
 	DryModeEnabled() bool
