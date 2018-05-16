@@ -335,15 +335,11 @@ type Endpoint struct {
 	LabelsMap *identityPkg.IdentityCache
 
 	// Iteration policy of the Endpoint
-	// TODO: this was moved from Consumable to Endpoint. This documentation is
-	// not clear, and needs to be more specific.
+	// TODO: update documentation; description is not clear, and needs to be
+	// more specific.
 	Iteration uint64 `json:"-"`
 
-	// RealizedL4Policy is the L4Policy in effect for the
-	// endpoint. Outside of policy recalculation, it is the same as the
-	// Consumable's RealizedL4Policy, but this is needed during policy recalculation to
-	// be able to clean up PolicyMap after the endpoint's consumable has already
-	// been updated.
+	// RealizedL4Policy is the L4Policy in effect for the endpoint.
 	RealizedL4Policy *policy.L4Policy `json:"-"`
 
 	// DesiredL4Policy is the desired L4Policy for the endpoint. It is populated
@@ -354,9 +350,7 @@ type Endpoint struct {
 	// reference to all policy related BPF
 	PolicyMap *policymap.PolicyMap `json:"-"`
 
-	// CIDRPolicy is the CIDR based policy configuration of the endpoint. This
-	// is not contained within the Consumable for this endpoint because the
-	// Consumable only contains identity-based policy information.
+	// CIDRPolicy is the CIDR based policy configuration of the endpoint.
 	L3Policy *policy.CIDRPolicy `json:"-"`
 
 	// L3Maps is the datapath representation of CIDRPolicy
