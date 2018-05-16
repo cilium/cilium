@@ -2412,6 +2412,14 @@ func (e *Endpoint) syncPolicyMap() error {
 		e.realizedMapState = make(map[policymap.PolicyKey]struct{})
 	}
 
+	if e.desiredMapState == nil {
+		e.desiredMapState = make(map[policymap.PolicyKey]struct{})
+	}
+
+	if e.PolicyMap == nil {
+		return fmt.Errorf("not syncing PolicyMap state for endpoint because PolicyMap is nil")
+	}
+
 	currentMapContents, err := e.PolicyMap.DumpToSlice()
 
 	if err != nil {
