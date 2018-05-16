@@ -375,8 +375,7 @@ func (e *Endpoint) updateNetworkPolicy(owner Owner) error {
 }
 
 // regeneratePolicy regenerates endpoint's policy if needed and returns
-// whether the BPF for the given endpoint should be regenerated. Only
-// called when e.Consumable != nil.
+// whether the BPF for the given endpoint should be regenerated.
 //
 // In a typical workflow this is first called to regenerate the policy
 // (if needed), and second time when the BPF program is

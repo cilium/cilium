@@ -155,8 +155,7 @@ func (lr *LogRecord) fillEndpointInfo(info *accesslog.EndpointInfo, ip net.IP) {
 	}
 }
 
-// fillIngressSourceInfo fills the EndpointInfo fields, by fetching
-// the consumable from the consumable cache of endpoint using identity sent by
+// fillIngressSourceInfo fills the EndpointInfo fields using identity sent by
 // source. This is needed in ingress proxy while logging the source endpoint
 // info.  Since there will be 2 proxies on the same host, if both egress and
 // ingress policies are set, the ingress policy cannot determine the source

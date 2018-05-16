@@ -406,10 +406,9 @@ func (ep *epInfoCache) GetBPFValue() (*lxcmap.EndpointInfo, error) {
 	return ep.value, nil
 }
 
-// addNewRedirectsFromMap must be called while holding the endpoint and consumable
-// locks for writing. On success, returns nil; otherwise, returns an error
-// indicating the problem that occurred while adding an l7 redirect for the
-// specified policy.
+// addNewRedirectsFromMap must be called while holding the endpoint lock for
+// writing. On success, returns nil; otherwise, returns an error  indicating the
+// problem that occurred while adding an l7 redirect for the specified policy.
 // Must be called with endpoint.Mutex held.
 func (e *Endpoint) addNewRedirectsFromMap(owner Owner, m policy.L4PolicyMap, desiredRedirects map[string]bool) error {
 	if owner.DryModeEnabled() {
@@ -446,10 +445,9 @@ func (e *Endpoint) addNewRedirectsFromMap(owner Owner, m policy.L4PolicyMap, des
 	return nil
 }
 
-// addNewRedirects must be called while holding the endpoint and consumable
-// locks for writing. On success, returns nil; otherwise, returns an error
-// indicating the problem that occurred while adding an l7 redirect for the
-// specified policy.
+// addNewRedirects must be called while holding the endpoint lock for writing.
+// On success, returns nil; otherwise, returns an error indicating the problem
+// that occurred while adding an l7 redirect for the specified policy.
 // The returned map contains the exact set of IDs of proxy redirects that is
 // required to implement the given L4 policy.
 // Must be called with endpoint.Mutex held.
