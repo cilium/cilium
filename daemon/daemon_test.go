@@ -177,13 +177,6 @@ func (ds *DaemonSuite) TestMiniumWorkerThreadsIsSet(c *C) {
 	c.Assert(numWorkerThreads() >= runtime.NumCPU(), Equals, true)
 }
 
-func (ds *DaemonSuite) TracingEnabled() bool {
-	if ds.OnTracingEnabled != nil {
-		return ds.OnTracingEnabled()
-	}
-	panic("TracingEnabled should not have been called")
-}
-
 func (ds *DaemonSuite) DryModeEnabled() bool {
 	if ds.OnDryModeEnabled != nil {
 		return ds.OnDryModeEnabled()

@@ -123,3 +123,9 @@ func (c *daemonConfig) AlwaysAllowLocalhost() bool {
 		return false
 	}
 }
+
+// TracingEnabled returns if tracing policy (outlining which rules apply to a
+// specific set of labels) is enabled.
+func (c *daemonConfig) TracingEnabled() bool {
+	return c.Opts.IsEnabled(PolicyTracing)
+}
