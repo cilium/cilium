@@ -14,7 +14,7 @@ minutes.
 Step 2: Deploy the Demo Application
 ===================================
 
-Now that we have Cilium running, we can deploy our demo Elasticsearch application. The demo application aligns with our tradition of using Star Wars-themed examples. We go back to the time when Vader had recently been converted to the Dark side. Darth Sidious wanted to share some of the books that he had authored. The books were stored in a Elasticsearch database and exposed via service of the same name. Both Sidious and Vader accessed these books using *python-based clients* running in Kubernetes pods. 
+With Cilium running, we can deploy our demo Elasticsearch application. The demo application aligns with our tradition of using Star Wars-themed examples. We go back to the time when Vader had recently been converted to the Dark side. Darth Sidious wanted to share some of the books that he had authored. The books were stored in a Elasticsearch database and exposed via service of the same name. Both Sidious and Vader accessed these books using *python-based clients* running in Kubernetes pods. 
 
 .. image:: images/cilium_es_gsg_topology.png
 
