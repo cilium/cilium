@@ -753,7 +753,11 @@ func (h *putEndpointIDLabels) Handle(params PatchEndpointIDLabelsParams) middlew
 // OnIPIdentityCacheChange is called whenever there is a change of state in the
 // IPCache (pkg/ipcache).
 // TODO (FIXME): GH-3161.
-func (d *Daemon) OnIPIdentityCacheChange(modType ipcache.CacheModification, newIPIDPair identity.IPIdentityPair) {
+//
+// 'oldIPIDPair' is ignored here, because in the BPF maps an update for the
+// IP->ID mapping will replace any existing contents; knowledge of the old pair
+// is not required to upsert the new pair.
+func (d *Daemon) OnIPIdentityCacheChange(modType ipcache.CacheModification, oldIPIDPair *identity.IPIdentityPair, newIPIDPair identity.IPIdentityPair) {
 
 	log.WithFields(logrus.Fields{logfields.Modification: modType,
 		logfields.IPAddr:   newIPIDPair.IP,
