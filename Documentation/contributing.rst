@@ -1172,7 +1172,7 @@ simplify our Jenkinsfiles. The exported methods are:
 - **BuildIfLabel(String label, String Job)**: trigger a new Job if the PR has
   that specific Label.
 - **Status(String status, String context)**: set pull request check status on
-  the given context, example `Status("SUCCESS", "$JOB_BASE_NAME"`
+  the given context, example ``Status("SUCCESS", "$JOB_BASE_NAME")``
 
 
 Release Process
