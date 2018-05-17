@@ -78,21 +78,30 @@ func (cache *NPHDSCache) OnIPIdentityCacheChange(
 
 	switch modType {
 	case ipcache.Upsert:
-		var npHost *envoyAPI.NetworkPolicyHosts
+		var hostAddresses []string
 		if msg == nil {
-			npHost = &envoyAPI.NetworkPolicyHosts{Policy: uint64(ipIDPair.ID), HostAddresses: make([]string, 0, 1)}
+			hostAddresses = make([]string, 0, 1)
 		} else {
-			npHost = msg.(*envoyAPI.NetworkPolicyHosts)
+			// If the resource already exists, create a copy of it and insert
+			// the new IP address into its HostAddresses list.
+			npHost := msg.(*envoyAPI.NetworkPolicyHosts)
+			hostAddresses = make([]string, 0, len(npHost.HostAddresses)+1)
+			hostAddresses = append(hostAddresses, npHost.HostAddresses...)
 		}
-		npHost.HostAddresses = append(npHost.HostAddresses, ipIDPair.PrefixString())
-		sort.Strings(npHost.HostAddresses)
-		if err := npHost.Validate(); err != nil {
+		hostAddresses = append(hostAddresses, ipIDPair.PrefixString())
+		sort.Strings(hostAddresses)
+
+		newNpHost := envoyAPI.NetworkPolicyHosts{
+			Policy:        uint64(ipIDPair.ID),
+			HostAddresses: hostAddresses,
+		}
+		if err := newNpHost.Validate(); err != nil {
 			scopedLog.WithError(err).WithFields(logrus.Fields{
-				logfields.XDSResource: npHost,
+				logfields.XDSResource: newNpHost,
 			}).Warning("Could not validate NPHDS resource update on upsert")
 			return
 		}
-		cache.Upsert(NetworkPolicyHostsTypeURL, ipIDPair.ID.StringID(), npHost, false)
+		cache.Upsert(NetworkPolicyHostsTypeURL, ipIDPair.ID.StringID(), &newNpHost, false)
 	case ipcache.Delete:
 		if msg == nil {
 			// Doesn't exist; already deleted.
@@ -127,15 +136,23 @@ func (cache *NPHDSCache) handleIPDelete(npHost *envoyAPI.NetworkPolicyHosts, pee
 	if len(npHost.HostAddresses) <= 1 {
 		cache.Delete(NetworkPolicyHostsTypeURL, peerIdentity, false)
 	} else {
+		// If the resource is to be updated, create a copy of it before
+		// removing the IP address from its HostAddresses list.
+		var hostAddresses []string
 		if len(npHost.HostAddresses) == targetIndex {
-			npHost.HostAddresses = npHost.HostAddresses[0:targetIndex]
+			hostAddresses = npHost.HostAddresses[0:targetIndex]
 		} else {
-			npHost.HostAddresses = append(npHost.HostAddresses[0:targetIndex], npHost.HostAddresses[targetIndex+1:]...)
+			hostAddresses = append(npHost.HostAddresses[0:targetIndex], npHost.HostAddresses[targetIndex+1:]...)
 		}
-		if err := npHost.Validate(); err != nil {
+
+		newNpHost := envoyAPI.NetworkPolicyHosts{
+			Policy:        uint64(npHost.Policy),
+			HostAddresses: hostAddresses,
+		}
+		if err := newNpHost.Validate(); err != nil {
 			scopedLog.WithError(err).Warning("Could not validate NPHDS resource update on delete")
 			return
 		}
-		cache.Upsert(NetworkPolicyHostsTypeURL, peerIdentity, npHost, false)
+		cache.Upsert(NetworkPolicyHostsTypeURL, peerIdentity, &newNpHost, false)
 	}
 }
