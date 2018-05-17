@@ -408,7 +408,7 @@ func (s *SharedStore) watcher(listDone chan bool) {
 				"eventType": event.Typ,
 			})
 
-			logger.Infof("Received key update via kvstore [value %s]", event.Value)
+			logger.Infof("Received key update via kvstore [value %s]", string(event.Value))
 
 			keyName := strings.TrimPrefix(event.Key, s.conf.Prefix)
 			if keyName[0] == '/' {
@@ -418,7 +418,7 @@ func (s *SharedStore) watcher(listDone chan bool) {
 			switch event.Typ {
 			case kvstore.EventTypeCreate, kvstore.EventTypeModify:
 				if err := s.updateKey(keyName, event.Value); err != nil {
-					logger.WithError(err).Warningf("Unable to unmarshal store value: %s", event.Value)
+					logger.WithError(err).Warningf("Unable to unmarshal store value: %s", string(event.Value))
 				}
 
 			case kvstore.EventTypeDelete:
