@@ -29,8 +29,8 @@ var printPolicy bool
 // policyImportCmd represents the policy_import command
 var policyImportCmd = &cobra.Command{
 	Use:   "import <path>",
-	Short: "Import security policy",
-	Example: `  cilium policy import ~/app.policy
+	Short: "Import security policy in JSON format",
+	Example: `  cilium policy import ~/policy.json
   cilium policy import ./policies/app/`,
 	PreRun: requirePath,
 	Run: func(cmd *cobra.Command, args []string) {

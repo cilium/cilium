@@ -2,12 +2,12 @@
 
 ## cilium policy import
 
-Import security policy
+Import security policy in JSON format
 
 ### Synopsis
 
 
-Import security policy
+Import security policy in JSON format
 
 ```
 cilium policy import <path>
@@ -16,7 +16,7 @@ cilium policy import <path>
 ### Examples
 
 ```
-  cilium policy import ~/app.policy
+  cilium policy import ~/policy.json
   cilium policy import ./policies/app/
 ```
 
