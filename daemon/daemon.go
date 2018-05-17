@@ -827,7 +827,7 @@ func (d *Daemon) init() error {
 
 		// Set up the list of IPCache listeners in the daemon, to be
 		// used by syncLXCMap().
-		d.ipcacheListeners = []ipcache.IPIdentityMappingListener{d, &envoy.NetworkPolicyHostsCache}
+		d.ipcacheListeners = []ipcache.IPIdentityMappingListener{&envoy.NetworkPolicyHostsCache, d}
 
 		// Insert local host entries to bpf maps
 		if err := d.syncLXCMap(); err != nil {
