@@ -192,7 +192,7 @@ int from_netdev(struct __sk_buff *skb)
 	}
 
 	if (IS_ERR(ret))
-		return send_drop_notify_error(skb, ret, TC_ACT_SHOT);
+		return send_drop_notify_error(skb, ret, TC_ACT_SHOT, DIRECTION_INGRESS);
 
 #ifdef LB_REDIRECT
 	if (ret == TC_ACT_REDIRECT) {

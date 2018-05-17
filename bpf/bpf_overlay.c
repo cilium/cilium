@@ -141,7 +141,7 @@ __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV4) int tail_handle_ipv4(struct _
 	int ret = handle_ipv4(skb);
 
 	if (IS_ERR(ret))
-		return send_drop_notify_error(skb, ret, TC_ACT_SHOT);
+		return send_drop_notify_error(skb, ret, TC_ACT_SHOT, DIRECTION_EGRESS); //Check if direction is correct
 
 	return ret;
 }
@@ -178,7 +178,7 @@ int from_overlay(struct __sk_buff *skb)
 	}
 
 	if (IS_ERR(ret))
-		return send_drop_notify_error(skb, ret, TC_ACT_SHOT);
+		return send_drop_notify_error(skb, ret, TC_ACT_SHOT, DIRECTION_EGRESS);  //Check if direction is correct
 	else
 		return ret;
 }
