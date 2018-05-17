@@ -62,15 +62,16 @@ func (cache *NPHDSCache) OnIPIdentityCacheGC() {
 // OnIPIdentityCacheChange pushes modifications to the IP<->Identity mapping
 // into the Network Policy Host Discovery Service (NPHDS).
 func (cache *NPHDSCache) OnIPIdentityCacheChange(
-	modType ipcache.CacheModification, ipIDPair identity.IPIdentityPair) {
+	modType ipcache.CacheModification, newIPIDPair identity.IPIdentityPair) {
 
 	scopedLog := log.WithFields(logrus.Fields{
-		logfields.IPAddr:       ipIDPair.IP,
-		logfields.Identity:     ipIDPair.ID,
+		logfields.IPAddr:       newIPIDPair.IP,
+		logfields.Identity:     newIPIDPair.ID,
 		logfields.Modification: modType,
 	})
 	// Look up the current resources for the specified Identity.
-	msg, err := cache.Lookup(NetworkPolicyHostsTypeURL, ipIDPair.ID.StringID())
+	resourceName := newIPIDPair.ID.StringID()
+	msg, err := cache.Lookup(NetworkPolicyHostsTypeURL, resourceName)
 	if err != nil {
 		scopedLog.WithError(err).Warning("Can't lookup NPHDS cache")
 		return
@@ -88,11 +89,11 @@ func (cache *NPHDSCache) OnIPIdentityCacheChange(
 			hostAddresses = make([]string, 0, len(npHost.HostAddresses)+1)
 			hostAddresses = append(hostAddresses, npHost.HostAddresses...)
 		}
-		hostAddresses = append(hostAddresses, ipIDPair.PrefixString())
+		hostAddresses = append(hostAddresses, newIPIDPair.PrefixString())
 		sort.Strings(hostAddresses)
 
 		newNpHost := envoyAPI.NetworkPolicyHosts{
-			Policy:        uint64(ipIDPair.ID),
+			Policy:        uint64(newIPIDPair.ID),
 			HostAddresses: hostAddresses,
 		}
 		if err := newNpHost.Validate(); err != nil {
@@ -101,13 +102,13 @@ func (cache *NPHDSCache) OnIPIdentityCacheChange(
 			}).Warning("Could not validate NPHDS resource update on upsert")
 			return
 		}
-		cache.Upsert(NetworkPolicyHostsTypeURL, ipIDPair.ID.StringID(), &newNpHost, false)
+		cache.Upsert(NetworkPolicyHostsTypeURL, resourceName, &newNpHost, false)
 	case ipcache.Delete:
 		if msg == nil {
 			// Doesn't exist; already deleted.
 			return
 		}
-		cache.handleIPDelete(msg.(*envoyAPI.NetworkPolicyHosts), ipIDPair.ID.StringID(), ipIDPair.PrefixString())
+		cache.handleIPDelete(msg.(*envoyAPI.NetworkPolicyHosts), resourceName, newIPIDPair.PrefixString())
 	}
 }
 
