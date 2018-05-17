@@ -11,7 +11,7 @@ to navigate this documentation section:
 * If you are looking for a simple and safe playground to experiment with Cilium
   and Kubernetes `gs_minikube`.
 * If you want to learn more about Cilium on Kubernetes first: `k8s_intro`.
-* If you want to run Cilium on your kops cluster: `kops_guide`
+* If you want to run Cilium on your kops cluster: `kops_guide`.
 
 The following sections describe the Kubernetes integration in detail:
 
