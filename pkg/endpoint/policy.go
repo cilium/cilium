@@ -176,7 +176,7 @@ func (e *Endpoint) resolveL4Policy(repo *policy.Repository) error {
 	return nil
 }
 
-func (e *Endpoint) computeDesiredPolicyMapState(labelsMap *identityPkg.IdentityCache,
+func (e *Endpoint) computeDesiredPolicyMapState(owner Owner, labelsMap *identityPkg.IdentityCache,
 	repo *policy.Repository) {
 	desiredPolicyKeys := make(map[policymap.PolicyKey]struct{})
 	if e.LabelsMap != labelsMap {
@@ -184,7 +184,7 @@ func (e *Endpoint) computeDesiredPolicyMapState(labelsMap *identityPkg.IdentityC
 	}
 	e.computeDesiredL4PolicyMapEntries(desiredPolicyKeys)
 	e.determineAllowLocalhost(desiredPolicyKeys)
-	e.computeDesiredL3PolicyMapEntries(labelsMap, repo, desiredPolicyKeys)
+	e.computeDesiredL3PolicyMapEntries(owner, labelsMap, repo, desiredPolicyKeys)
 	e.desiredMapState = desiredPolicyKeys
 }
 
@@ -207,7 +207,7 @@ func (e *Endpoint) determineAllowLocalhost(desiredPolicyKeys map[policymap.Polic
 	}
 }
 
-func (e *Endpoint) computeDesiredL3PolicyMapEntries(identityCache *identityPkg.IdentityCache, repo *policy.Repository, desiredPolicyKeys map[policymap.PolicyKey]struct{}) {
+func (e *Endpoint) computeDesiredL3PolicyMapEntries(owner Owner, identityCache *identityPkg.IdentityCache, repo *policy.Repository, desiredPolicyKeys map[policymap.PolicyKey]struct{}) {
 
 	if desiredPolicyKeys == nil {
 		desiredPolicyKeys = map[policymap.PolicyKey]struct{}{}
@@ -516,7 +516,7 @@ func (e *Endpoint) regeneratePolicy(owner Owner, opts models.ConfigurationMap) (
 
 	optsChanged := e.applyOptsLocked(opts)
 
-	e.computeDesiredPolicyMapState(labelsMap, repo)
+	e.computeDesiredPolicyMapState(owner, labelsMap, repo)
 
 	// If we are in this function, then policy has been calculated.
 	if !e.PolicyCalculated {
