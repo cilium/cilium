@@ -118,10 +118,11 @@ static inline int __icmp6_send_echo_reply(struct __sk_buff *skb, int nh_off)
 __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_SEND_ICMP6_ECHO_REPLY) int tail_icmp6_send_echo_reply(struct __sk_buff *skb)
 {
 	int ret, nh_off = skb->cb[0];
+	__u8 direction  = skb->cb[1];
 
 	ret = __icmp6_send_echo_reply(skb, nh_off);
 	if (IS_ERR(ret))
-		return send_drop_notify_error(skb, ret, TC_ACT_SHOT);
+		return send_drop_notify_error(skb, ret, TC_ACT_SHOT, direction);
 
 	return ret;
 }
@@ -135,9 +136,11 @@ __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_SEND_ICMP6_ECHO_REPLY) int tail_icm
  *
  * NOTE: This is terminal function and will cause the BPF program to exit
  */
-static inline int icmp6_send_echo_reply(struct __sk_buff *skb, int nh_off)
+static inline int icmp6_send_echo_reply(struct __sk_buff *skb, int nh_off,
+					__u8 direction)
 {
 	skb->cb[0] = nh_off;
+	skb->cb[1] = direction;
 	ep_tail_call(skb, CILIUM_CALL_SEND_ICMP6_ECHO_REPLY);
 
 	return DROP_MISSED_TAIL_CALL;
@@ -300,10 +303,11 @@ __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_SEND_ICMP6_TIME_EXCEEDED) int tail_
 {
 #ifdef HAVE_SKB_CHANGE_TAIL
 	int ret, nh_off = skb->cb[0];
+	__u8 direction  = skb->cb[1];
 
 	ret = __icmp6_send_time_exceeded(skb, nh_off);
 	if (IS_ERR(ret))
-		return send_drop_notify_error(skb, ret, TC_ACT_SHOT);
+		return send_drop_notify_error(skb, ret, TC_ACT_SHOT, direction);
 
 	return ret;
 #else
@@ -315,14 +319,16 @@ __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_SEND_ICMP6_TIME_EXCEEDED) int tail_
  * icmp6_send_time_exceeded
  * @skb:	socket buffer
  * @nh_off:	offset to the IPv6 header
- *
+ * @direction:  direction of packet (can be ingress or egress)
  * Send a ICMPv6 time exceeded in response to an IPv6 frame.
  *
  * NOTE: This is terminal function and will cause the BPF program to exit
  */
-static inline int icmp6_send_time_exceeded(struct __sk_buff *skb, int nh_off)
+static inline int icmp6_send_time_exceeded(struct __sk_buff *skb, int nh_off, __u8 direction)
 {
 	skb->cb[0] = nh_off;
+	skb->cb[1] = direction;
+
 	ep_tail_call(skb, CILIUM_CALL_SEND_ICMP6_TIME_EXCEEDED);
 
 	return DROP_MISSED_TAIL_CALL;
@@ -352,10 +358,11 @@ static inline int __icmp6_handle_ns(struct __sk_buff *skb, int nh_off)
 __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_HANDLE_ICMP6_NS) int tail_icmp6_handle_ns(struct __sk_buff *skb)
 {
 	int ret, nh_off = skb->cb[0];
+	__u8 direction  = skb->cb[1];
 
 	ret = __icmp6_handle_ns(skb, nh_off);
 	if (IS_ERR(ret))
-		return send_drop_notify_error(skb, ret, TC_ACT_SHOT);
+		return send_drop_notify_error(skb, ret, TC_ACT_SHOT, direction);
 
 	return ret;
 }
@@ -364,20 +371,24 @@ __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_HANDLE_ICMP6_NS) int tail_icmp6_han
  * icmp6_handle_ns
  * @skb:	socket buffer
  * @nh_off:	offset to the IPv6 header
+ * @direction:  direction of packet(ingress or egress)
  *
  * Respond to ICMPv6 Neighbour Solicitation
  *
  * NOTE: This is terminal function and will cause the BPF program to exit
  */
-static inline int icmp6_handle_ns(struct __sk_buff *skb, int nh_off)
+static inline int icmp6_handle_ns(struct __sk_buff *skb, int nh_off, __u8 direction)
 {
 	skb->cb[0] = nh_off;
+	skb->cb[1] = direction;
+
 	ep_tail_call(skb, CILIUM_CALL_HANDLE_ICMP6_NS);
 
 	return DROP_MISSED_TAIL_CALL;
 }
 
-static inline int icmp6_handle(struct __sk_buff *skb, int nh_off, struct ipv6hdr *ip6)
+static inline int icmp6_handle(struct __sk_buff *skb, int nh_off,
+			       struct ipv6hdr *ip6, __u8 direction)
 {
 	union v6addr router_ip;
 	__u8 type = icmp6_load_type(skb, nh_off);
@@ -387,10 +398,10 @@ static inline int icmp6_handle(struct __sk_buff *skb, int nh_off, struct ipv6hdr
 
 	switch(type) {
 	case 135:
-		return icmp6_handle_ns(skb, nh_off);
+		return icmp6_handle_ns(skb, nh_off, direction);
 	case ICMPV6_ECHO_REQUEST:
 		if (!ipv6_addrcmp((union v6addr *) &ip6->daddr, &router_ip))
-			return icmp6_send_echo_reply(skb, nh_off);
+			return icmp6_send_echo_reply(skb, nh_off, direction);
 		break;
 	}
 

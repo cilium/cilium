@@ -32,6 +32,16 @@ struct bpf_elf_map __section_maps cilium_lxc = {
 	.max_elem	= ENDPOINTS_MAP_SIZE,
 };
 
+// Change this to BPF_MAP_TYPE_PERCPU_HASH for better
+// performance. GH #4196
+struct bpf_elf_map __section_maps cilium_metrics = {
+	.type		= BPF_MAP_TYPE_HASH,
+	.size_key	= sizeof(struct metrics_key),
+	.size_value	= sizeof(struct metrics_value),
+	.pinning	= PIN_GLOBAL_NS,
+	.max_elem	= METRICS_MAP_SIZE,
+};
+
 /* Global map to jump into policy enforcement of receiving endpoint */
 struct bpf_elf_map __section_maps cilium_policy = {
 	.type		= BPF_MAP_TYPE_PROG_ARRAY,
