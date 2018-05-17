@@ -962,7 +962,7 @@ func (d *Daemon) syncLXCMap() error {
 			log.WithField(logfields.IPAddr, prefix).Debug("Adding special identity to ipcache")
 			ipcache.IPIdentityCache.Upsert(prefix, pair.ID)
 			for _, listener := range d.ipcacheListeners {
-				listener.OnIPIdentityCacheChange(ipcache.Upsert, pair)
+				listener.OnIPIdentityCacheChange(ipcache.Upsert, nil, pair)
 			}
 		}
 	}

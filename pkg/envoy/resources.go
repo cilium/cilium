@@ -61,8 +61,14 @@ func (cache *NPHDSCache) OnIPIdentityCacheGC() {
 
 // OnIPIdentityCacheChange pushes modifications to the IP<->Identity mapping
 // into the Network Policy Host Discovery Service (NPHDS).
-func (cache *NPHDSCache) OnIPIdentityCacheChange(
-	modType ipcache.CacheModification, newIPIDPair identity.IPIdentityPair) {
+func (cache *NPHDSCache) OnIPIdentityCacheChange(modType ipcache.CacheModification,
+	oldIPIDPair *identity.IPIdentityPair, newIPIDPair identity.IPIdentityPair) {
+
+	// An upsert where an existing pair exists should translate into a
+	// delete (for the old Identity) followed by an upsert (for the new).
+	if oldIPIDPair != nil && modType == ipcache.Upsert {
+		cache.OnIPIdentityCacheChange(ipcache.Delete, nil, *oldIPIDPair)
+	}
 
 	scopedLog := log.WithFields(logrus.Fields{
 		logfields.IPAddr:       newIPIDPair.IP,

@@ -417,8 +417,9 @@ func (ipc *IPCache) LookupByIdentity(id identity.NumericIdentity) (map[string]st
 // learning about IP to Identity mapping events.
 type IPIdentityMappingListener interface {
 	// OnIPIdentityCacheChange will be called whenever there the state of the
-	// IPCache has changed.
-	OnIPIdentityCacheChange(modType CacheModification, newIPIDPair identity.IPIdentityPair)
+	// IPCache has changed. If an existing IP->ID mapping is updated, then
+	// the old IPIdentityPair will be provided; otherwise it is nil.
+	OnIPIdentityCacheChange(modType CacheModification, oldIPIDPair *identity.IPIdentityPair, newIPIDPair identity.IPIdentityPair)
 
 	// OnIPIdentityCacheGC will be called to sync other components which are
 	// reliant upon the IPIdentityCache with the IPIdentityCache.
@@ -614,16 +615,19 @@ func ipIdentityWatcher(listeners []IPIdentityMappingListener) {
 					logfields.Modification: cacheModification,
 				}).Debugf("endpoint IP cache state change")
 
+				var oldIPIDPair *identity.IPIdentityPair
+				if ipIsInCache && cacheModification == Upsert {
+					// If an existing mapping is updated,
+					// provide the existing mapping to the
+					// listener so it can easily clean up
+					// the old mapping.
+					pair := ipIDPair
+					pair.ID = cachedIdentity
+					oldIPIDPair = &pair
+				}
 				// Callback upon cache updates.
 				for _, listener := range listeners {
-					// In the case the mapping for an IP is updated (vs.
-					// inserted), first delete the mapping to the old ID.
-					if ipIsInCache && cacheModification == Upsert {
-						cachedPair := ipIDPair
-						cachedPair.ID = cachedIdentity
-						listener.OnIPIdentityCacheChange(Delete, cachedPair)
-					}
-					listener.OnIPIdentityCacheChange(cacheModification, ipIDPair)
+					listener.OnIPIdentityCacheChange(cacheModification, oldIPIDPair, ipIDPair)
 				}
 			}
 		}
