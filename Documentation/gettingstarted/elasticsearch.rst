@@ -41,6 +41,7 @@ The file ``es-sw-app.yaml`` will deploy the Elasticsearch service which stores S
       po/sidious                   1/1       Running   0          3m
       po/vader                     1/1       Running   0          3m
 
+
 Step 3: Security Risks for Elasticsearch Access
 ===============================================
 
@@ -138,6 +139,7 @@ Testing the security policy, Sidious still has both the ``GET`` and ``PUT`` acce
       elasticsearch.exceptions.AuthorizationException: TransportError(403, 'Access denied\r\n')
       command terminated with exit code 1
     
+
 Step 5: Bonus
 =============
 
@@ -168,6 +170,7 @@ Another common problem that the DevOps team encountered was accidental/deliberat
         ...
       elasticsearch.exceptions.AuthorizationException: TransportError(403, 'Access denied\r\n')
       command terminated with exit code 1
+
 
 Step 6: Clean Up
 ================
