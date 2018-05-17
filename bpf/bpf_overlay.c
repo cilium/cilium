@@ -73,7 +73,7 @@ to_host:
 
 		cilium_dbg(skb, DBG_TO_HOST, is_policy_skip(skb), 0);
 
-		ret = ipv6_l3(skb, ETH_HLEN, (__u8 *) &router_mac.addr, (__u8 *) &host_mac.addr);
+		ret = ipv6_l3(skb, ETH_HLEN, (__u8 *) &router_mac.addr, (__u8 *) &host_mac.addr, DIRECTION_EGRESS);
 		if (ret != TC_ACT_OK)
 			return ret;
 
@@ -141,7 +141,7 @@ __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV4) int tail_handle_ipv4(struct _
 	int ret = handle_ipv4(skb);
 
 	if (IS_ERR(ret))
-		return send_drop_notify_error(skb, ret, TC_ACT_SHOT);
+		return send_drop_notify_error(skb, ret, TC_ACT_SHOT, DIRECTION_INGRESS);
 
 	return ret;
 }
@@ -178,7 +178,7 @@ int from_overlay(struct __sk_buff *skb)
 	}
 
 	if (IS_ERR(ret))
-		return send_drop_notify_error(skb, ret, TC_ACT_SHOT);
+		return send_drop_notify_error(skb, ret, TC_ACT_SHOT, DIRECTION_INGRESS);
 	else
 		return ret;
 }

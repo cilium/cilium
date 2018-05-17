@@ -230,7 +230,7 @@ skip_service_lookup:
 
 		cilium_dbg(skb, DBG_TO_HOST, skb->cb[CB_POLICY], 0);
 
-		ret = ipv6_l3(skb, l3_off, (__u8 *) &router_mac.addr, (__u8 *) &host_mac.addr);
+		ret = ipv6_l3(skb, l3_off, (__u8 *) &router_mac.addr, (__u8 *) &host_mac.addr, DIRECTION_EGRESS);
 		if (ret != TC_ACT_OK)
 			return ret;
 
@@ -316,7 +316,7 @@ to_host:
 
 		cilium_dbg(skb, DBG_TO_HOST, is_policy_skip(skb), 0);
 
-		ret = ipv6_l3(skb, l3_off, (__u8 *) &router_mac.addr, (__u8 *) &host_mac.addr);
+		ret = ipv6_l3(skb, l3_off, (__u8 *) &router_mac.addr, (__u8 *) &host_mac.addr, DIRECTION_EGRESS);
 		if (ret != TC_ACT_OK)
 			return ret;
 
@@ -330,7 +330,7 @@ to_host:
 pass_to_stack:
 	cilium_dbg(skb, DBG_TO_STACK, is_policy_skip(skb), 0);
 
-	ret = ipv6_l3(skb, l3_off, NULL, (__u8 *) &router_mac.addr);
+	ret = ipv6_l3(skb, l3_off, NULL, (__u8 *) &router_mac.addr, DIRECTION_EGRESS);
 	if (unlikely(ret != TC_ACT_OK))
 		return ret;
 
@@ -363,7 +363,7 @@ static inline int __inline__ handle_ipv6(struct __sk_buff *skb)
 			return DROP_INVALID;
 		}
 
-		ret = icmp6_handle(skb, ETH_HLEN, ip6);
+		ret = icmp6_handle(skb, ETH_HLEN, ip6, DIRECTION_EGRESS);
 		if (IS_ERR(ret))
 			return ret;
 	}
@@ -378,7 +378,8 @@ __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV6) int tail_handle_ipv6(struct _
 	int ret = handle_ipv6(skb);
 
 	if (IS_ERR(ret))
-		return send_drop_notify(skb, SECLABEL, 0, 0, 0, ret, TC_ACT_SHOT);
+		return send_drop_notify(skb, SECLABEL, 0, 0, 0, ret, TC_ACT_SHOT,
+		                        DIRECTION_EGRESS);
 
 	return ret;
 }
@@ -633,7 +634,8 @@ __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV4) int tail_handle_ipv4(struct _
 	int ret = handle_ipv4_from_lxc(skb);
 
 	if (IS_ERR(ret))
-		return send_drop_notify(skb, SECLABEL, 0, 0, 0, ret, TC_ACT_SHOT);
+		return send_drop_notify(skb, SECLABEL, 0, 0, 0, ret, TC_ACT_SHOT,
+		                        DIRECTION_EGRESS);
 
 	return ret;
 }
@@ -692,9 +694,9 @@ int handle_ingress(struct __sk_buff *skb)
 #endif
 
 	if (IS_ERR(ret))
-		return send_drop_notify(skb, SECLABEL, 0, 0, 0, ret, TC_ACT_SHOT);
-	else
-		return ret;
+		return send_drop_notify(skb, SECLABEL, 0, 0, 0, ret, TC_ACT_SHOT,
+					DIRECTION_EGRESS);
+	return ret;
 }
 
 static inline int __inline__ ipv6_policy(struct __sk_buff *skb, int ifindex, __u32 src_label,
@@ -963,7 +965,7 @@ __section_tail(CILIUM_MAP_POLICY, LXC_ID) int handle_policy(struct __sk_buff *sk
 
 	if (IS_ERR(ret))
 		return send_drop_notify(skb, src_label, SECLABEL, LXC_ID,
-					ifindex, ret, TC_ACT_SHOT);
+					ifindex, ret, TC_ACT_SHOT, DIRECTION_INGRESS);
 
 	if (ifindex == skb->cb[CB_IFINDEX]) { // Not redirected to host / proxy.
 		send_trace_notify(skb, TRACE_TO_LXC, src_label, SECLABEL, LXC_ID, ifindex,

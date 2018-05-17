@@ -31,6 +31,7 @@
 #include "events.h"
 #include "common.h"
 #include "utils.h"
+#include "metrics.h"
 
 /* Available observation points. */
 enum {
@@ -100,6 +101,21 @@ static inline void send_trace_notify(struct __sk_buff *skb, __u8 obs_point, __u3
 		.ifindex = ifindex,
 	};
 
+	switch (obs_point) {
+		case TRACE_TO_LXC:
+			update_metrics(skb->len, DIRECTION_INGRESS, REASON_FORWARDED);
+			break;
+
+		/* TRACE_FROM_LXC, i.e endpoint-to-endpoint delivery
+		 * is handled separately in ipv*_local_delivery() where we can bump
+		 * an egress forward. It could still be dropped but it would show
+		 * up later as an ingress drop, in that scenario.
+		 */
+		case TRACE_TO_HOST:
+		case TRACE_TO_STACK:
+		case TRACE_TO_OVERLAY:
+			update_metrics(skb->len, DIRECTION_EGRESS, REASON_FORWARDED);
+	}
 	skb_event_output(skb, &cilium_events,
 			 (cap_len << 32) | BPF_F_CURRENT_CPU,
 			 &msg, sizeof(msg));
@@ -110,6 +126,21 @@ static inline void send_trace_notify(struct __sk_buff *skb, __u8 obs_point, __u3
 static inline void send_trace_notify(struct __sk_buff *skb, __u8 obs_point, __u32 src, __u32 dst,
 				     __u16 dst_id, __u32 ifindex, __u8 reason)
 {
+	switch (obs_point) {
+		case TRACE_TO_LXC:
+			update_metrics(skb->len, DIRECTION_INGRESS, REASON_FORWARDED);
+			break;
+
+		/* TRACE_FROM_LXC, i.e endpoint-to-endpoint delivery
+		 * is handled separately in ipv*_local_delivery() where we can bump
+		 * an egress forward. It could still be dropped but it would show
+		 * up later as an ingress drop, in that scenario.
+		 */
+		case TRACE_TO_HOST:
+		case TRACE_TO_STACK:
+		case TRACE_TO_OVERLAY:
+			update_metrics(skb->len, DIRECTION_EGRESS, REASON_FORWARDED);
+	}
 }
 
 #endif

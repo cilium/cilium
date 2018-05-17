@@ -29,7 +29,7 @@
 #include "csum.h"
 
 static inline int __inline__ ipv6_l3(struct __sk_buff *skb, int l3_off,
-				     __u8 *smac, __u8 *dmac)
+				     __u8 *smac, __u8 *dmac, __u8 direction)
 {
 	int ret;
 
@@ -39,7 +39,7 @@ static inline int __inline__ ipv6_l3(struct __sk_buff *skb, int l3_off,
 
 	if (ret > 0) {
 		/* Hoplimit was reached */
-		return icmp6_send_time_exceeded(skb, l3_off);
+		return icmp6_send_time_exceeded(skb, l3_off, direction);
 	}
 
 	if (smac && eth_store_saddr(skb, smac, 0) < 0)
@@ -80,13 +80,20 @@ static inline int ipv6_local_delivery(struct __sk_buff *skb, int l3_off, int l4_
 	mac_t router_mac = ep->node_mac;
 
 	/* This will invalidate the size check */
-	ret = ipv6_l3(skb, l3_off, (__u8 *) &router_mac, (__u8 *) &lxc_mac);
+	ret = ipv6_l3(skb, l3_off, (__u8 *) &router_mac, (__u8 *) &lxc_mac, DIRECTION_EGRESS);
 	if (ret != TC_ACT_OK)
 		return ret;
 
 	cilium_dbg(skb, DBG_LXC_FOUND, ep->ifindex, ep->sec_label);
 	skb->cb[CB_SRC_LABEL] = seclabel;
 	skb->cb[CB_IFINDEX] = ep->ifindex;
+
+	/*
+	 * Special LXC case for updating egress forwarding metrics.
+	 * Note that the packet could still be dropped but it would show up
+	 * as an ingress drop counter in metrics.
+	 */
+	update_metrics(skb->len, DIRECTION_EGRESS, REASON_FORWARDED);
 
 	tail_call(skb, &cilium_policy, ep->lxc_id);
 	return DROP_MISSED_TAIL_CALL;
@@ -110,6 +117,13 @@ static inline int __inline__ ipv4_local_delivery(struct __sk_buff *skb, int l3_o
 	cilium_dbg(skb, DBG_LXC_FOUND, ep->ifindex, ep->sec_label);
 	skb->cb[CB_SRC_LABEL] = seclabel;
 	skb->cb[CB_IFINDEX] = ep->ifindex;
+
+	/*
+	 * Special LXC case for updating egress forwarding metrics.
+	 * Note that the packet could still be dropped but it would show up
+	 * as an ingress drop counter in metrics.
+	 */
+	update_metrics(skb->len, DIRECTION_EGRESS, REASON_FORWARDED);
 
 	tail_call(skb, &cilium_policy, ep->lxc_id);
 	return DROP_MISSED_TAIL_CALL;
