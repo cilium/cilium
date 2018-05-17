@@ -753,12 +753,12 @@ func (h *putEndpointIDLabels) Handle(params PatchEndpointIDLabelsParams) middlew
 // OnIPIdentityCacheChange is called whenever there is a change of state in the
 // IPCache (pkg/ipcache).
 // TODO (FIXME): GH-3161.
-func (d *Daemon) OnIPIdentityCacheChange(modType ipcache.CacheModification, ipIDPair identity.IPIdentityPair) {
+func (d *Daemon) OnIPIdentityCacheChange(modType ipcache.CacheModification, newIPIDPair identity.IPIdentityPair) {
 
 	log.WithFields(logrus.Fields{logfields.Modification: modType,
-		logfields.IPAddr:   ipIDPair.IP,
-		logfields.IPMask:   ipIDPair.Mask,
-		logfields.Identity: ipIDPair.ID}).
+		logfields.IPAddr:   newIPIDPair.IP,
+		logfields.IPMask:   newIPIDPair.Mask,
+		logfields.Identity: newIPIDPair.ID}).
 		Debug("daemon notified of IP-Identity cache state change")
 
 	// TODO - see if we can factor this into an interface under something like
@@ -766,11 +766,11 @@ func (d *Daemon) OnIPIdentityCacheChange(modType ipcache.CacheModification, ipID
 	// logically located.
 
 	// Update BPF Maps.
-	key := ipCacheBPF.NewKey(ipIDPair.IP, ipIDPair.Mask)
+	key := ipCacheBPF.NewKey(newIPIDPair.IP, newIPIDPair.Mask)
 
 	switch modType {
 	case ipcache.Upsert:
-		value := ipCacheBPF.RemoteEndpointInfo{SecurityIdentity: uint16(ipIDPair.ID)}
+		value := ipCacheBPF.RemoteEndpointInfo{SecurityIdentity: uint16(newIPIDPair.ID)}
 		err := ipCacheBPF.IPCache.Update(key, &value)
 		if err != nil {
 			log.WithError(err).WithFields(logrus.Fields{"key": key.String(),

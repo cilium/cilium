@@ -418,7 +418,7 @@ func (ipc *IPCache) LookupByIdentity(id identity.NumericIdentity) (map[string]st
 type IPIdentityMappingListener interface {
 	// OnIPIdentityCacheChange will be called whenever there the state of the
 	// IPCache has changed.
-	OnIPIdentityCacheChange(modType CacheModification, ipIDPair identity.IPIdentityPair)
+	OnIPIdentityCacheChange(modType CacheModification, newIPIDPair identity.IPIdentityPair)
 
 	// OnIPIdentityCacheGC will be called to sync other components which are
 	// reliant upon the IPIdentityCache with the IPIdentityCache.
