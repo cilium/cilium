@@ -17,6 +17,7 @@ Step 2: Deploy the Demo Application
 With Cilium running, we can deploy our demo Elasticsearch application. The demo application aligns with our tradition of using Star Wars-themed examples. We go back to the time when Vader had recently been converted to the Dark side. Darth Sidious wanted to share some of the books that he had authored. The books were stored in a Elasticsearch database and exposed via service of the same name. Both Sidious and Vader accessed these books using *python-based clients* running in Kubernetes pods. 
 
 .. image:: images/cilium_es_gsg_topology.png
+   :scale: 30 %
 
 The file ``es-sw-app.yaml`` will deploy the Elasticsearch service which stores Sidious' books and it will create one Vader and Sidious client pods each.
 
@@ -30,6 +31,8 @@ The file ``es-sw-app.yaml`` will deploy the Elasticsearch service which stores S
       rolebinding "elasticsearch" created
       deployment "sidious" created
       deployment "vader" created
+
+::
 
     $ kubectl get svc,pods
       NAME                TYPE           CLUSTER-IP       EXTERNAL-IP   PORT(S)                         AGE
@@ -47,7 +50,7 @@ Step 3: Security Risks for Elasticsearch Access
 
 A fundamental security concern for Elasticsearch service is *what client services should be allowed to access which content and perform what actions*. This is an access control problem at the API-layer (i.e L7-layer). In this example, the security challenge for Darth Sidious is that he does not trust Vader, a newly converted apprentice. So he is very worried that Vader can manipulate and ``PUT`` new versions of his books! Sidious wants Vader to have only ``GET`` access including ability to *search* the database. But he does not want Vader to have "PUT" access. Run the following commands to see that both Sidious and Vader have ``GET`` and ``PUT`` access to the Elasticsearch service.
 
-.. parsed-literal::
+::
 
     $ kubectl exec sidious -- python create.py
       Creating/Updating Books
@@ -64,7 +67,7 @@ A fundamental security concern for Elasticsearch service is *what client service
 
 Good that Sidious has access to perform PUT and GET. Let's see what happens when Vader has both ``GET`` and ``PUT`` access. Vader can completely modify the books! (Note the change in book titles e.g. *Why convert a Jedi!*) 
 
-.. parsed-literal::
+::
 
     $ kubectl exec vader -- python update.py 
       Creating/Updating Books
@@ -103,7 +106,7 @@ Apply this Elasticsearch-aware network security policy using ``kubectl``:
 
 Testing the security policy, Sidious still has both the ``GET`` and ``PUT`` access. But Vader now only has ``GET`` access and any attempts to ``PUT`` results in access denied. 
 
-.. parsed-literal::
+::
 
     $ kubectl exec sidious -- python create.py 
       Creating/Updating Books
@@ -145,7 +148,7 @@ Step 5: Bonus
 
 Another common problem that the DevOps team encountered was accidental/deliberate deletion of the books. So with the above Cilium security policy, they are able to restrict ``DELETE`` calls as well! Run below commands to confirm that neither Sidious nor Vader can delete the books.
 
-.. parsed-literal::
+::
 
     $ kubectl exec vader -- python delete.py
       DELETE http://elasticsearch.default.svc.cluster.local:9200/sidious/tome/1 [status:403 request:0.006s]
