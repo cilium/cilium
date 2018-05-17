@@ -1,14 +1,19 @@
+.. _kops_guide:
+
 **********************************
 Kubernetes Kops Installation Guide
 **********************************
 
-As of `kops<https://github.com/kubernetes/kops>`_ 1.9 release, Cilium is a supported CNI plugin for kops-deployed clusters.
+As of `kops`_ 1.9 release, Cilium is a supported CNI plugin for kops-deployed clusters.
 
-Cilium needs a newer kernel version than the default kops images provide (minimum kernel version for Cilium is 4.8), so you need to supply an `ami<https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/AMIs.html>`_ which will be new enough for Cilium to run on it.
+Cilium needs a newer kernel version than the default kops images provide (minimum kernel version for Cilium is 4.8), so you need to supply an `ami`_ which will be new enough for Cilium to run on it.
 
 CoreOS images have new enough kernels for Cilium to run on them and are tested by kops developers, which makes them a perfect candidate.
 
 The latest stable CoreOS AMI can be found using aws cli:
+
+.. _kops: https://github.com/kubernetes/kops
+.. _ami: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/AMIs.html
 
 .. code:: bash
 
