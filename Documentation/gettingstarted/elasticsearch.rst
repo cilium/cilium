@@ -152,28 +152,28 @@ Another common problem that the DevOps team encountered was accidental/deliberat
 ::
 
     $ kubectl exec vader -- python delete.py
-      DELETE http://elasticsearch.default.svc.cluster.local:9200/sidious/tome/1 [status:403 request:0.006s]
-      Deleting Book 1
-      Undecodable raw error response from server: Expecting value: line 1 column 1 (char 0)
-      Traceback (most recent call last):
-        File "delete.py", line 6, in <module>
-          res = es.delete(index="sidious", doc_type="tome", id=1)
-        ...
-        ...
-      elasticsearch.exceptions.AuthorizationException: TransportError(403, 'Access denied\r\n')
-      command terminated with exit code 1
+    DELETE http://elasticsearch.default.svc.cluster.local:9200/sidious/tome/1 [status:403 request:0.006s]
+    Deleting Book 1
+    Undecodable raw error response from server: Expecting value: line 1 column 1 (char 0)
+    Traceback (most recent call last):
+      File "delete.py", line 6, in <module>
+        res = es.delete(index="sidious", doc_type="tome", id=1)
+      ...
+      ...
+    elasticsearch.exceptions.AuthorizationException: TransportError(403, 'Access denied\r\n')
+    command terminated with exit code 1
 
     $ kubectl exec sidious -- python delete.py
-      DELETE http://elasticsearch.default.svc.cluster.local:9200/sidious/tome/1 [status:403 request:0.005s]
-      Undecodable raw error response from server: Expecting value: line 1 column 1 (char 0)
-      Deleting Book 1
-      Traceback (most recent call last):
-        File "delete.py", line 6, in <module>
-          res = es.delete(index="sidious", doc_type="tome", id=1)
-        ...
-        ...
-      elasticsearch.exceptions.AuthorizationException: TransportError(403, 'Access denied\r\n')
-      command terminated with exit code 1
+    DELETE http://elasticsearch.default.svc.cluster.local:9200/sidious/tome/1 [status:403 request:0.005s]
+    Undecodable raw error response from server: Expecting value: line 1 column 1 (char 0)
+    Deleting Book 1
+    Traceback (most recent call last):
+      File "delete.py", line 6, in <module>
+        res = es.delete(index="sidious", doc_type="tome", id=1)
+      ...
+      ...
+    elasticsearch.exceptions.AuthorizationException: TransportError(403, 'Access denied\r\n')
+    command terminated with exit code 1
 
 
 Step 6: Clean Up
