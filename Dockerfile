@@ -8,7 +8,7 @@
 # versions to be built while allowing the new versions to make changes
 # that are not backwards compatible.
 #
-FROM quay.io/cilium/cilium-builder:2018-05-18 as builder
+FROM quay.io/cilium/cilium-builder:2018-05-22 as builder
 LABEL maintainer="maintainer@cilium.io"
 WORKDIR /go/src/github.com/cilium/cilium
 COPY . ./

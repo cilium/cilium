@@ -37,7 +37,7 @@ STRIP ?= $(QUIET) strip
 # https://github.com/istio/istio/tree/master/release#daily-releases
 # https://gcsweb.istio.io/gcs/istio-prerelease/daily-build/
 # TODO: Update to "0.8.0" when it's released.
-ISTIO_VERSION = 0.8.0-pre20180421-09-15
+ISTIO_VERSION = release-0.8-20180521-15-16
 
 ifdef CILIUM_DISABLE_ENVOY_BUILD
 all install clean:
