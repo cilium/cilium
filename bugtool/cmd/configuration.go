@@ -54,7 +54,7 @@ func defaultCommands(confDir string, cmdDir string, k8sPods []string) []string {
 		"ip link",
 		"uname -a",
 		"dig",
-		"netstat",
+		"netstat -a",
 		"pidstat",
 		"arp",
 		"top -b -n 1",
