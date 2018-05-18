@@ -193,6 +193,48 @@ func (kub *Kubectl) CepGet(namespace string, pod string) *models.Endpoint {
 	return data
 }
 
+// WaitCEPReady waits until all Cilium endpoints are sync in Kubernetes resource.
+func (kub *Kubectl) WaitCEPReady() error {
+	pods, err := kub.GetCiliumPods(KubeSystemNamespace)
+	if err != nil {
+		return err
+	}
+	body := func() bool {
+		// Created a map of .id and IPv4 because endpoint id can be the same in different nodes.
+		endpointFilter := `{range [*]}{@.id}{"_"}{@.status.networking.addressing[0].ipv4}{"="}{@.status.policy.spec.policy-revision}{"\n"}{end}`
+		cepFilter := `{range .items[*]}{@.status.id}{"_"}{@.status.status.networking.addressing[0].ipv4}{"="}{@.status.status.policy.spec.policy-revision}{"\n"}{end}`
+		endpoints := map[string]string{}
+		for _, ciliumPod := range pods {
+			res := kub.ExecPodCmd(
+				KubeSystemNamespace,
+				ciliumPod,
+				fmt.Sprintf("cilium endpoint list -o jsonpath='%s'", endpointFilter))
+			for k, v := range res.KVOutput() {
+				endpoints[k] = v
+			}
+		}
+		cepCMD := fmt.Sprintf("%s get cep --all-namespaces -o jsonpath='%s'", KubectlCmd, cepFilter)
+		res := kub.Exec(cepCMD)
+		if !res.WasSuccessful() {
+			return false
+		}
+		cepValues := res.KVOutput()
+		for k, v := range endpoints {
+			cepPolicy, ok := cepValues[k]
+			if !ok {
+				kub.logger.Infof("Endpoint '%s' is not present in cep", k)
+				return false
+			}
+			if cepPolicy != v {
+				kub.logger.Infof("Endpoint '%s' policies mismatch '%s'='%s'", k, cepPolicy, v)
+				return false
+			}
+		}
+		return true
+	}
+	return WithTimeout(body, "CEP not ready after timeout", &TimeoutConfig{Timeout: HelperTimeout})
+}
+
 // ExecKafkaPodCmd executes shell command with arguments arg in the specified pod residing in the specified
 // namespace. It returns the stdout of the command that was executed.
 // The kafka producer and consumer scripts do not return error if command
@@ -1310,38 +1352,4 @@ func (epMap *EndpointMap) AreReady() bool {
 		}
 	}
 	return true
-}
-
-// WaitCEPRevisionIncrease waits for the policy revision number for pod with name
-// podName in namespace podNamespace to increase past oldRev. Returns an error
-// if the revision number does not increase after a specified timeout.
-func (kub *Kubectl) WaitCEPRevisionIncrease(podName, podNamespace string, oldRev int64) error {
-
-	body := func() bool {
-		cep := kub.CepGet(podNamespace, podName)
-
-		if cep == nil || cep.Status.Policy.Realized.PolicyRevision <= oldRev {
-			log.Debugf("CEP revision has not updated: waiting for revision to be greater than %d", oldRev)
-			return false
-		}
-		return true
-	}
-
-	return WithTimeout(body, "CEP revision did not increase after specified timeout", &TimeoutConfig{Timeout: HelperTimeout})
-
-}
-
-// WaitForCEPToExist waits for the endpoint model representing the CiliumEndpoint
-// for pod podName in the specified namespace podNamespace to be non-nil. If it
-// is still nil after a specified timeout, returns an error.
-func (kub *Kubectl) WaitForCEPToExist(podName, podNamespace string) error {
-	body := func() bool {
-		cep := kub.CepGet(podNamespace, podName)
-		if cep == nil {
-			return false
-		}
-		return true
-	}
-
-	return WithTimeout(body, "CEP was still nil after specified timeout", &TimeoutConfig{Timeout: HelperTimeout})
 }
