@@ -118,6 +118,25 @@ func (w *ResourceWatcher) WatchResources(ctx context.Context, typeURL string, la
 
 	for ctx.Err() == nil && res == nil {
 		w.versionLocker.Lock()
+		// If the client ACKed a version that we have never sent back, this
+		// indicates that this server restarted but the client survived and had
+		// received a higher version number from the previous server instance.
+		// Bump the resource set's version number to match the client's and
+		// send a response immediately.
+		if waitForVersion && w.version < waitVersion {
+			w.versionLocker.Unlock()
+			// Calling EnsureVersion will increase the version of the resource
+			// set, which in turn will callback w.HandleNewResourceVersion with
+			// that new version number. In order for that callback to not
+			// deadlock, temporarily unlock w.versionLocker.
+			// The w.HandleNewResourceVersion callback will update w.version to
+			// the new resource set version.
+			w.resourceSet.EnsureVersion(typeURL, waitVersion+1)
+			w.versionLocker.Lock()
+		}
+
+		// Re-check w.version, since it may have been modified by calling
+		// EnsureVersion above.
 		for ctx.Err() == nil && waitForVersion && w.version <= waitVersion {
 			watchLog.Debugf("current resource version is %d, waiting for it to become > %d", w.version, waitVersion)
 			w.versionCond.Wait()

@@ -1059,3 +1059,69 @@ func (s *ServerSuite) TestNAckFromTheStart(c *C) {
 	case <-streamDone:
 	}
 }
+
+func (s *ServerSuite) TestRequestHighVersionFromTheStart(c *C) {
+	typeURL := "type.googleapis.com/envoy.api.v2.DummyConfiguration"
+
+	var err error
+	var req *envoy_api_v2.DiscoveryRequest
+	var resp *envoy_api_v2.DiscoveryResponse
+
+	ctx, cancel := context.WithTimeout(context.Background(), TestTimeout)
+	defer cancel()
+	wg := completion.NewWaitGroup(ctx)
+
+	cache := NewCache()
+	mutator := NewAckingResourceMutatorWrapper(cache, IstioNodeToIP)
+
+	streamCtx, closeStream := context.WithCancel(ctx)
+	stream := NewMockStream(streamCtx, 1, 1, StreamTimeout, StreamTimeout)
+	defer stream.Close()
+
+	server := NewServer(map[string]*ResourceTypeConfiguration{typeURL: {Source: cache, AckObserver: mutator}},
+		TestTimeout)
+
+	streamDone := make(chan struct{})
+
+	// Run the server's stream handler concurrently.
+	go func() {
+		err := server.HandleRequestStream(ctx, stream, AnyTypeURL)
+		close(streamDone)
+		c.Check(err, IsNil)
+	}()
+
+	// Create version 1 with resource 0.
+	time.Sleep(CacheUpdateDelay)
+	comp1 := wg.AddCompletion()
+	defer comp1.Complete()
+	mutator.Upsert(typeURL, resources[0].Name, resources[0], []string{node0}, comp1)
+	c.Assert(comp1, Not(IsCompleted))
+
+	// Request all resources, with a version higher than the version currently
+	// in Cilium's cache. This happens after the server restarts but the
+	// xDS client survives and continues to request the same version.
+	req = &envoy_api_v2.DiscoveryRequest{
+		TypeUrl:       typeURL,
+		VersionInfo:   "64",
+		Node:          nodes[node0],
+		ResourceNames: nil,
+		ResponseNonce: "12",
+	}
+	err = stream.SendRequest(req)
+	c.Assert(err, IsNil)
+
+	// Expecting a response with that resource, and an updated version.
+	resp, err = stream.RecvResponse()
+	c.Assert(err, IsNil)
+	c.Assert(resp, ResponseMatches, "65", []proto.Message{resources[0]}, false, typeURL)
+	c.Assert(resp.Nonce, Not(Equals), "")
+
+	// Close the stream.
+	closeStream()
+
+	select {
+	case <-ctx.Done():
+		c.Errorf("HandleRequestStream(%v, %v, %v) took too long to return after stream was closed", "ctx", "stream", AnyTypeURL)
+	case <-streamDone:
+	}
+}
