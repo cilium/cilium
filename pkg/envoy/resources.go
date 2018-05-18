@@ -127,15 +127,24 @@ func (cache *NPHDSCache) handleIPDelete(npHost *envoyAPI.NetworkPolicyHosts, pee
 	if len(npHost.HostAddresses) <= 1 {
 		cache.Delete(NetworkPolicyHostsTypeURL, peerIdentity, false)
 	} else {
+		// If the resource is to be updated, create a copy of it before
+		// removing the IP address from its HostAddresses list.
+		hostAddresses := make([]string, 0, len(npHost.HostAddresses)-1)
 		if len(npHost.HostAddresses) == targetIndex {
-			npHost.HostAddresses = npHost.HostAddresses[0:targetIndex]
+			hostAddresses = append(hostAddresses, npHost.HostAddresses[0:targetIndex]...)
 		} else {
-			npHost.HostAddresses = append(npHost.HostAddresses[0:targetIndex], npHost.HostAddresses[targetIndex+1:]...)
+			hostAddresses = append(hostAddresses, npHost.HostAddresses[0:targetIndex]...)
+			hostAddresses = append(hostAddresses, npHost.HostAddresses[targetIndex+1:]...)
 		}
-		if err := npHost.Validate(); err != nil {
+
+		newNpHost := envoyAPI.NetworkPolicyHosts{
+			Policy:        uint64(npHost.Policy),
+			HostAddresses: hostAddresses,
+		}
+		if err := newNpHost.Validate(); err != nil {
 			scopedLog.WithError(err).Warning("Could not validate NPHDS resource update on delete")
 			return
 		}
-		cache.Upsert(NetworkPolicyHostsTypeURL, peerIdentity, npHost, false)
+		cache.Upsert(NetworkPolicyHostsTypeURL, peerIdentity, &newNpHost, false)
 	}
 }
