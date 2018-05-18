@@ -1182,6 +1182,10 @@ var _ = Describe("RuntimePolicies", func() {
 		It("Tests egress with CIDR+L4 policy to external https service", func() {
 			cloudFlare := "1.1.1.1"
 
+			By("Checking connectivity to %q without policy", cloudFlare)
+			res := vm.ContainerExec(helpers.App1, helpers.Ping(cloudFlare))
+			res.ExpectSuccess("Expected to be able to connect to cloudflare (%q); external connectivity not available", cloudFlare)
+
 			By("Importing policy which allows egress to %q from %q", otherHostIP, helpers.App1)
 			policy := fmt.Sprintf(`
 			[{
