@@ -22,8 +22,9 @@ import (
 	"strings"
 
 	"github.com/cilium/cilium/test/config"
-	ginkgo "github.com/cilium/cilium/test/ginkgo-ext"
+	ginkgoext "github.com/cilium/cilium/test/ginkgo-ext"
 
+	"github.com/onsi/ginkgo"
 	"github.com/sirupsen/logrus"
 )
 
@@ -55,6 +56,9 @@ func CreateVM(scope string) error {
 	if err != nil {
 		return fmt.Errorf("error getting stderr: %s", err)
 	}
+
+	go io.Copy(ginkgoext.GinkgoWriter, stderr)
+	go io.Copy(ginkgoext.GinkgoWriter, stdout)
 
 	go io.Copy(ginkgo.GinkgoWriter, stderr)
 	go io.Copy(ginkgo.GinkgoWriter, stdout)
