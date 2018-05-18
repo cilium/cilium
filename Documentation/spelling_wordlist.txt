@@ -109,6 +109,8 @@ DTrace
 ebpf
 eBPF
 ec
+elasticsearch
+Elasticsearch
 endian
 endianness
 endpointSelector
@@ -361,6 +363,9 @@ sfc
 sgr
 Sharma
 Shirokov
+sidious
+Sidious
+Sith
 skb
 Spectre
 stap
@@ -397,6 +402,7 @@ tcptop
 tcptracer
 testsuite
 thunderx
+tiefighter
 Tierney
 timestamp
 timestamps
@@ -422,6 +428,8 @@ uretprobes
 url
 username
 Userspace
+vader
+Vader
 Vagrantfile
 validator
 vCPUs
@@ -451,7 +459,6 @@ workflow
 workflows
 wouldn
 writeable
-tiefighter
 xdp
 XDP
 Xenial
