@@ -40,3 +40,10 @@ func ExpectAllPodsTerminated(vm *helpers.Kubectl) {
 	err := vm.WaitCleanAllTerminatingPods()
 	ExpectWithOffset(1, err).To(BeNil(), "terminating containers are not deleted after timeout")
 }
+
+// ExpectCEPUpdates is a wrapper around helpers/WaitCEPReady.
+// It asserts that the error returned by that function is nil.
+func ExpectCEPUpdates(vm *helpers.Kubectl) {
+	err := vm.WaitCEPReady()
+	ExpectWithOffset(1, err).To(BeNil(), "CEP does not updated correctly")
+}
