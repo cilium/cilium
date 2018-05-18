@@ -16,6 +16,7 @@ package apipanic
 
 import (
 	"net/http"
+	"runtime/debug"
 
 	"github.com/sirupsen/logrus"
 
@@ -39,6 +40,7 @@ func (h *APIPanicHandler) ServeHTTP(r http.ResponseWriter, req *http.Request) {
 				"client":        req.RemoteAddr,
 			}
 			logging.DefaultLogger.WithFields(fields).Warn("Cilium API handler panicked")
+			logging.DefaultLogger.Debug(debug.Stack())
 		}
 	}()
 	h.Next.ServeHTTP(r, req)
