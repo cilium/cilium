@@ -63,7 +63,10 @@ func (NullValue) XXX_WellKnownType() string       { return "NullValue" }
 // The JSON representation for `Struct` is JSON object.
 type Struct struct {
 	// Unordered map of dynamically typed values.
-	Fields map[string]*Value `protobuf:"bytes,1,rep,name=fields" json:"fields,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	Fields               map[string]*Value `protobuf:"bytes,1,rep,name=fields" json:"fields,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	XXX_NoUnkeyedLiteral struct{}          `json:"-"`
+	XXX_unrecognized     []byte            `protobuf_unrecognized:"proto3" json:"-"`
+	XXX_sizecache        int32             `json:"-"`
 }
 
 func (m *Struct) Reset()                    { *m = Struct{} }
@@ -71,6 +74,23 @@ func (m *Struct) String() string            { return proto.CompactTextString(m) 
 func (*Struct) ProtoMessage()               {}
 func (*Struct) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{0} }
 func (*Struct) XXX_WellKnownType() string   { return "Struct" }
+func (m *Struct) Unmarshal(b []byte) error {
+	return xxx_messageInfo_Struct.Unmarshal(m, b)
+}
+func (m *Struct) Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_Struct.Marshal(b, m, deterministic)
+}
+func (dst *Struct) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_Struct.Merge(dst, src)
+}
+func (m *Struct) XXX_Size() int {
+	return xxx_messageInfo_Struct.Size(m)
+}
+func (m *Struct) XXX_DiscardUnknown() {
+	xxx_messageInfo_Struct.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_Struct proto.InternalMessageInfo
 
 func (m *Struct) GetFields() map[string]*Value {
 	if m != nil {
@@ -95,7 +115,10 @@ type Value struct {
 	//	*Value_BoolValue
 	//	*Value_StructValue
 	//	*Value_ListValue
-	Kind isValue_Kind `protobuf_oneof:"kind"`
+	Kind                 isValue_Kind `protobuf_oneof:"kind"`
+	XXX_NoUnkeyedLiteral struct{}     `json:"-"`
+	XXX_unrecognized     []byte       `protobuf_unrecognized:"proto3" json:"-"`
+	XXX_sizecache        int32        `json:"-"`
 }
 
 func (m *Value) Reset()                    { *m = Value{} }
@@ -103,6 +126,23 @@ func (m *Value) String() string            { return proto.CompactTextString(m) }
 func (*Value) ProtoMessage()               {}
 func (*Value) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{1} }
 func (*Value) XXX_WellKnownType() string   { return "Value" }
+func (m *Value) Unmarshal(b []byte) error {
+	return xxx_messageInfo_Value.Unmarshal(m, b)
+}
+func (m *Value) Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_Value.Marshal(b, m, deterministic)
+}
+func (dst *Value) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_Value.Merge(dst, src)
+}
+func (m *Value) XXX_Size() int {
+	return xxx_messageInfo_Value.Size(m)
+}
+func (m *Value) XXX_DiscardUnknown() {
+	xxx_messageInfo_Value.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_Value proto.InternalMessageInfo
 
 type isValue_Kind interface {
 	isValue_Kind()
@@ -323,7 +363,10 @@ func _Value_OneofSizer(msg proto.Message) (n int) {
 // The JSON representation for `ListValue` is JSON array.
 type ListValue struct {
 	// Repeated field of dynamically typed values.
-	Values []*Value `protobuf:"bytes,1,rep,name=values" json:"values,omitempty"`
+	Values               []*Value `protobuf:"bytes,1,rep,name=values" json:"values,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `protobuf_unrecognized:"proto3" json:"-"`
+	XXX_sizecache        int32    `json:"-"`
 }
 
 func (m *ListValue) Reset()                    { *m = ListValue{} }
@@ -331,6 +374,23 @@ func (m *ListValue) String() string            { return proto.CompactTextString(
 func (*ListValue) ProtoMessage()               {}
 func (*ListValue) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{2} }
 func (*ListValue) XXX_WellKnownType() string   { return "ListValue" }
+func (m *ListValue) Unmarshal(b []byte) error {
+	return xxx_messageInfo_ListValue.Unmarshal(m, b)
+}
+func (m *ListValue) Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_ListValue.Marshal(b, m, deterministic)
+}
+func (dst *ListValue) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ListValue.Merge(dst, src)
+}
+func (m *ListValue) XXX_Size() int {
+	return xxx_messageInfo_ListValue.Size(m)
+}
+func (m *ListValue) XXX_DiscardUnknown() {
+	xxx_messageInfo_ListValue.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_ListValue proto.InternalMessageInfo
 
 func (m *ListValue) GetValues() []*Value {
 	if m != nil {
@@ -341,6 +401,7 @@ func (m *ListValue) GetValues() []*Value {
 
 func init() {
 	proto.RegisterType((*Struct)(nil), "google.protobuf.Struct")
+	proto.RegisterMapType((map[string]*Value)(nil), "google.protobuf.Struct.FieldsEntry")
 	proto.RegisterType((*Value)(nil), "google.protobuf.Value")
 	proto.RegisterType((*ListValue)(nil), "google.protobuf.ListValue")
 	proto.RegisterEnum("google.protobuf.NullValue", NullValue_name, NullValue_value)

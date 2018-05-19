@@ -132,7 +132,10 @@ type Any struct {
 	//
 	TypeUrl string `protobuf:"bytes,1,opt,name=type_url,json=typeUrl" json:"type_url,omitempty"`
 	// Must be a valid serialized protocol buffer of the above specified type.
-	Value []byte `protobuf:"bytes,2,opt,name=value,proto3" json:"value,omitempty"`
+	Value                []byte   `protobuf:"bytes,2,opt,name=value,proto3" json:"value,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `protobuf_unrecognized:"proto3" json:"-"`
+	XXX_sizecache        int32    `json:"-"`
 }
 
 func (m *Any) Reset()                    { *m = Any{} }
@@ -140,6 +143,23 @@ func (m *Any) String() string            { return proto.CompactTextString(m) }
 func (*Any) ProtoMessage()               {}
 func (*Any) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{0} }
 func (*Any) XXX_WellKnownType() string   { return "Any" }
+func (m *Any) Unmarshal(b []byte) error {
+	return xxx_messageInfo_Any.Unmarshal(m, b)
+}
+func (m *Any) Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_Any.Marshal(b, m, deterministic)
+}
+func (dst *Any) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_Any.Merge(dst, src)
+}
+func (m *Any) XXX_Size() int {
+	return xxx_messageInfo_Any.Size(m)
+}
+func (m *Any) XXX_DiscardUnknown() {
+	xxx_messageInfo_Any.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_Any proto.InternalMessageInfo
 
 func (m *Any) GetTypeUrl() string {
 	if m != nil {

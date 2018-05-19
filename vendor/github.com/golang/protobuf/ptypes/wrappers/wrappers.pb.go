@@ -40,7 +40,10 @@ const _ = proto.ProtoPackageIsVersion2 // please upgrade the proto package
 // The JSON representation for `DoubleValue` is JSON number.
 type DoubleValue struct {
 	// The double value.
-	Value float64 `protobuf:"fixed64,1,opt,name=value" json:"value,omitempty"`
+	Value                float64  `protobuf:"fixed64,1,opt,name=value" json:"value,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `protobuf_unrecognized:"proto3" json:"-"`
+	XXX_sizecache        int32    `json:"-"`
 }
 
 func (m *DoubleValue) Reset()                    { *m = DoubleValue{} }
@@ -48,6 +51,23 @@ func (m *DoubleValue) String() string            { return proto.CompactTextStrin
 func (*DoubleValue) ProtoMessage()               {}
 func (*DoubleValue) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{0} }
 func (*DoubleValue) XXX_WellKnownType() string   { return "DoubleValue" }
+func (m *DoubleValue) Unmarshal(b []byte) error {
+	return xxx_messageInfo_DoubleValue.Unmarshal(m, b)
+}
+func (m *DoubleValue) Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_DoubleValue.Marshal(b, m, deterministic)
+}
+func (dst *DoubleValue) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_DoubleValue.Merge(dst, src)
+}
+func (m *DoubleValue) XXX_Size() int {
+	return xxx_messageInfo_DoubleValue.Size(m)
+}
+func (m *DoubleValue) XXX_DiscardUnknown() {
+	xxx_messageInfo_DoubleValue.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_DoubleValue proto.InternalMessageInfo
 
 func (m *DoubleValue) GetValue() float64 {
 	if m != nil {
@@ -61,7 +81,10 @@ func (m *DoubleValue) GetValue() float64 {
 // The JSON representation for `FloatValue` is JSON number.
 type FloatValue struct {
 	// The float value.
-	Value float32 `protobuf:"fixed32,1,opt,name=value" json:"value,omitempty"`
+	Value                float32  `protobuf:"fixed32,1,opt,name=value" json:"value,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `protobuf_unrecognized:"proto3" json:"-"`
+	XXX_sizecache        int32    `json:"-"`
 }
 
 func (m *FloatValue) Reset()                    { *m = FloatValue{} }
@@ -69,6 +92,23 @@ func (m *FloatValue) String() string            { return proto.CompactTextString
 func (*FloatValue) ProtoMessage()               {}
 func (*FloatValue) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{1} }
 func (*FloatValue) XXX_WellKnownType() string   { return "FloatValue" }
+func (m *FloatValue) Unmarshal(b []byte) error {
+	return xxx_messageInfo_FloatValue.Unmarshal(m, b)
+}
+func (m *FloatValue) Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_FloatValue.Marshal(b, m, deterministic)
+}
+func (dst *FloatValue) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_FloatValue.Merge(dst, src)
+}
+func (m *FloatValue) XXX_Size() int {
+	return xxx_messageInfo_FloatValue.Size(m)
+}
+func (m *FloatValue) XXX_DiscardUnknown() {
+	xxx_messageInfo_FloatValue.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_FloatValue proto.InternalMessageInfo
 
 func (m *FloatValue) GetValue() float32 {
 	if m != nil {
@@ -82,7 +122,10 @@ func (m *FloatValue) GetValue() float32 {
 // The JSON representation for `Int64Value` is JSON string.
 type Int64Value struct {
 	// The int64 value.
-	Value int64 `protobuf:"varint,1,opt,name=value" json:"value,omitempty"`
+	Value                int64    `protobuf:"varint,1,opt,name=value" json:"value,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `protobuf_unrecognized:"proto3" json:"-"`
+	XXX_sizecache        int32    `json:"-"`
 }
 
 func (m *Int64Value) Reset()                    { *m = Int64Value{} }
@@ -90,6 +133,23 @@ func (m *Int64Value) String() string            { return proto.CompactTextString
 func (*Int64Value) ProtoMessage()               {}
 func (*Int64Value) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{2} }
 func (*Int64Value) XXX_WellKnownType() string   { return "Int64Value" }
+func (m *Int64Value) Unmarshal(b []byte) error {
+	return xxx_messageInfo_Int64Value.Unmarshal(m, b)
+}
+func (m *Int64Value) Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_Int64Value.Marshal(b, m, deterministic)
+}
+func (dst *Int64Value) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_Int64Value.Merge(dst, src)
+}
+func (m *Int64Value) XXX_Size() int {
+	return xxx_messageInfo_Int64Value.Size(m)
+}
+func (m *Int64Value) XXX_DiscardUnknown() {
+	xxx_messageInfo_Int64Value.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_Int64Value proto.InternalMessageInfo
 
 func (m *Int64Value) GetValue() int64 {
 	if m != nil {
@@ -103,7 +163,10 @@ func (m *Int64Value) GetValue() int64 {
 // The JSON representation for `UInt64Value` is JSON string.
 type UInt64Value struct {
 	// The uint64 value.
-	Value uint64 `protobuf:"varint,1,opt,name=value" json:"value,omitempty"`
+	Value                uint64   `protobuf:"varint,1,opt,name=value" json:"value,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `protobuf_unrecognized:"proto3" json:"-"`
+	XXX_sizecache        int32    `json:"-"`
 }
 
 func (m *UInt64Value) Reset()                    { *m = UInt64Value{} }
@@ -111,6 +174,23 @@ func (m *UInt64Value) String() string            { return proto.CompactTextStrin
 func (*UInt64Value) ProtoMessage()               {}
 func (*UInt64Value) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{3} }
 func (*UInt64Value) XXX_WellKnownType() string   { return "UInt64Value" }
+func (m *UInt64Value) Unmarshal(b []byte) error {
+	return xxx_messageInfo_UInt64Value.Unmarshal(m, b)
+}
+func (m *UInt64Value) Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_UInt64Value.Marshal(b, m, deterministic)
+}
+func (dst *UInt64Value) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_UInt64Value.Merge(dst, src)
+}
+func (m *UInt64Value) XXX_Size() int {
+	return xxx_messageInfo_UInt64Value.Size(m)
+}
+func (m *UInt64Value) XXX_DiscardUnknown() {
+	xxx_messageInfo_UInt64Value.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_UInt64Value proto.InternalMessageInfo
 
 func (m *UInt64Value) GetValue() uint64 {
 	if m != nil {
@@ -124,7 +204,10 @@ func (m *UInt64Value) GetValue() uint64 {
 // The JSON representation for `Int32Value` is JSON number.
 type Int32Value struct {
 	// The int32 value.
-	Value int32 `protobuf:"varint,1,opt,name=value" json:"value,omitempty"`
+	Value                int32    `protobuf:"varint,1,opt,name=value" json:"value,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `protobuf_unrecognized:"proto3" json:"-"`
+	XXX_sizecache        int32    `json:"-"`
 }
 
 func (m *Int32Value) Reset()                    { *m = Int32Value{} }
@@ -132,6 +215,23 @@ func (m *Int32Value) String() string            { return proto.CompactTextString
 func (*Int32Value) ProtoMessage()               {}
 func (*Int32Value) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{4} }
 func (*Int32Value) XXX_WellKnownType() string   { return "Int32Value" }
+func (m *Int32Value) Unmarshal(b []byte) error {
+	return xxx_messageInfo_Int32Value.Unmarshal(m, b)
+}
+func (m *Int32Value) Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_Int32Value.Marshal(b, m, deterministic)
+}
+func (dst *Int32Value) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_Int32Value.Merge(dst, src)
+}
+func (m *Int32Value) XXX_Size() int {
+	return xxx_messageInfo_Int32Value.Size(m)
+}
+func (m *Int32Value) XXX_DiscardUnknown() {
+	xxx_messageInfo_Int32Value.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_Int32Value proto.InternalMessageInfo
 
 func (m *Int32Value) GetValue() int32 {
 	if m != nil {
@@ -145,7 +245,10 @@ func (m *Int32Value) GetValue() int32 {
 // The JSON representation for `UInt32Value` is JSON number.
 type UInt32Value struct {
 	// The uint32 value.
-	Value uint32 `protobuf:"varint,1,opt,name=value" json:"value,omitempty"`
+	Value                uint32   `protobuf:"varint,1,opt,name=value" json:"value,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `protobuf_unrecognized:"proto3" json:"-"`
+	XXX_sizecache        int32    `json:"-"`
 }
 
 func (m *UInt32Value) Reset()                    { *m = UInt32Value{} }
@@ -153,6 +256,23 @@ func (m *UInt32Value) String() string            { return proto.CompactTextStrin
 func (*UInt32Value) ProtoMessage()               {}
 func (*UInt32Value) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{5} }
 func (*UInt32Value) XXX_WellKnownType() string   { return "UInt32Value" }
+func (m *UInt32Value) Unmarshal(b []byte) error {
+	return xxx_messageInfo_UInt32Value.Unmarshal(m, b)
+}
+func (m *UInt32Value) Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_UInt32Value.Marshal(b, m, deterministic)
+}
+func (dst *UInt32Value) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_UInt32Value.Merge(dst, src)
+}
+func (m *UInt32Value) XXX_Size() int {
+	return xxx_messageInfo_UInt32Value.Size(m)
+}
+func (m *UInt32Value) XXX_DiscardUnknown() {
+	xxx_messageInfo_UInt32Value.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_UInt32Value proto.InternalMessageInfo
 
 func (m *UInt32Value) GetValue() uint32 {
 	if m != nil {
@@ -166,7 +286,10 @@ func (m *UInt32Value) GetValue() uint32 {
 // The JSON representation for `BoolValue` is JSON `true` and `false`.
 type BoolValue struct {
 	// The bool value.
-	Value bool `protobuf:"varint,1,opt,name=value" json:"value,omitempty"`
+	Value                bool     `protobuf:"varint,1,opt,name=value" json:"value,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `protobuf_unrecognized:"proto3" json:"-"`
+	XXX_sizecache        int32    `json:"-"`
 }
 
 func (m *BoolValue) Reset()                    { *m = BoolValue{} }
@@ -174,6 +297,23 @@ func (m *BoolValue) String() string            { return proto.CompactTextString(
 func (*BoolValue) ProtoMessage()               {}
 func (*BoolValue) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{6} }
 func (*BoolValue) XXX_WellKnownType() string   { return "BoolValue" }
+func (m *BoolValue) Unmarshal(b []byte) error {
+	return xxx_messageInfo_BoolValue.Unmarshal(m, b)
+}
+func (m *BoolValue) Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_BoolValue.Marshal(b, m, deterministic)
+}
+func (dst *BoolValue) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_BoolValue.Merge(dst, src)
+}
+func (m *BoolValue) XXX_Size() int {
+	return xxx_messageInfo_BoolValue.Size(m)
+}
+func (m *BoolValue) XXX_DiscardUnknown() {
+	xxx_messageInfo_BoolValue.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_BoolValue proto.InternalMessageInfo
 
 func (m *BoolValue) GetValue() bool {
 	if m != nil {
@@ -187,7 +327,10 @@ func (m *BoolValue) GetValue() bool {
 // The JSON representation for `StringValue` is JSON string.
 type StringValue struct {
 	// The string value.
-	Value string `protobuf:"bytes,1,opt,name=value" json:"value,omitempty"`
+	Value                string   `protobuf:"bytes,1,opt,name=value" json:"value,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `protobuf_unrecognized:"proto3" json:"-"`
+	XXX_sizecache        int32    `json:"-"`
 }
 
 func (m *StringValue) Reset()                    { *m = StringValue{} }
@@ -195,6 +338,23 @@ func (m *StringValue) String() string            { return proto.CompactTextStrin
 func (*StringValue) ProtoMessage()               {}
 func (*StringValue) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{7} }
 func (*StringValue) XXX_WellKnownType() string   { return "StringValue" }
+func (m *StringValue) Unmarshal(b []byte) error {
+	return xxx_messageInfo_StringValue.Unmarshal(m, b)
+}
+func (m *StringValue) Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_StringValue.Marshal(b, m, deterministic)
+}
+func (dst *StringValue) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_StringValue.Merge(dst, src)
+}
+func (m *StringValue) XXX_Size() int {
+	return xxx_messageInfo_StringValue.Size(m)
+}
+func (m *StringValue) XXX_DiscardUnknown() {
+	xxx_messageInfo_StringValue.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_StringValue proto.InternalMessageInfo
 
 func (m *StringValue) GetValue() string {
 	if m != nil {
@@ -208,7 +368,10 @@ func (m *StringValue) GetValue() string {
 // The JSON representation for `BytesValue` is JSON string.
 type BytesValue struct {
 	// The bytes value.
-	Value []byte `protobuf:"bytes,1,opt,name=value,proto3" json:"value,omitempty"`
+	Value                []byte   `protobuf:"bytes,1,opt,name=value,proto3" json:"value,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `protobuf_unrecognized:"proto3" json:"-"`
+	XXX_sizecache        int32    `json:"-"`
 }
 
 func (m *BytesValue) Reset()                    { *m = BytesValue{} }
@@ -216,6 +379,23 @@ func (m *BytesValue) String() string            { return proto.CompactTextString
 func (*BytesValue) ProtoMessage()               {}
 func (*BytesValue) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{8} }
 func (*BytesValue) XXX_WellKnownType() string   { return "BytesValue" }
+func (m *BytesValue) Unmarshal(b []byte) error {
+	return xxx_messageInfo_BytesValue.Unmarshal(m, b)
+}
+func (m *BytesValue) Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_BytesValue.Marshal(b, m, deterministic)
+}
+func (dst *BytesValue) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_BytesValue.Merge(dst, src)
+}
+func (m *BytesValue) XXX_Size() int {
+	return xxx_messageInfo_BytesValue.Size(m)
+}
+func (m *BytesValue) XXX_DiscardUnknown() {
+	xxx_messageInfo_BytesValue.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_BytesValue proto.InternalMessageInfo
 
 func (m *BytesValue) GetValue() []byte {
 	if m != nil {
