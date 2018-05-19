@@ -23,7 +23,7 @@ SINGLETON_MANAGER_REGISTRATION(cilium_network_policy);
 class ConfigFactory
     : public Server::Configuration::NamedHttpFilterConfigFactory {
 public:
-  Server::Configuration::HttpFilterFactoryCb
+  Http::FilterFactoryCb
   createFilterFactory(const Json::Object& json, const std::string &,
                       Server::Configuration::FactoryContext& context) override {
     auto config = std::make_shared<Cilium::Config>(json, context);
@@ -33,7 +33,7 @@ public:
     };
   }
 
-  Server::Configuration::HttpFilterFactoryCb
+  Http::FilterFactoryCb
   createFilterFactoryFromProto(const Protobuf::Message& proto_config, const std::string&,
                                Server::Configuration::FactoryContext& context) override {
     auto config = std::make_shared<Cilium::Config>(
@@ -171,13 +171,7 @@ Http::FilterHeadersStatus AccessFilter::decodeHeaders(Http::HeaderMap& headers, 
     config_->stats_.access_denied_.inc();
 
     // Return a 403 response
-    Http::HeaderMapPtr response_headers{new Http::HeaderMapImpl{
-        {Http::Headers::get().Status,
-         std::to_string(enumToInt(Http::Code::Forbidden))}}};
-    Buffer::OwnedImpl response_data{config_->denied_403_body_};
-
-    callbacks_->encodeHeaders(std::move(response_headers), false);
-    callbacks_->encodeData(response_data, true);
+    callbacks_->sendLocalReply(Http::Code::Forbidden, config_->denied_403_body_, nullptr);
     return Http::FilterHeadersStatus::StopIteration;
   }
 

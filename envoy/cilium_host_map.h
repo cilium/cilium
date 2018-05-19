@@ -161,7 +161,7 @@ public:
   }
 
   // Config::SubscriptionCallbacks
-  void onConfigUpdate(const ResourceVector& resources) override;
+  void onConfigUpdate(const ResourceVector& resources, const std::string& version_info) override;
   void onConfigUpdateFailed(const EnvoyException* e) override;
   std::string resourceName(const ProtobufWkt::Any& resource) override {
     return fmt::format("{}", MessageUtil::anyConvert<cilium::NetworkPolicyHosts>(resource).policy());

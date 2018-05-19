@@ -19,14 +19,14 @@ namespace Configuration {
 class CiliumNetworkConfigFactory : public NamedNetworkFilterConfigFactory {
 public:
   // NamedNetworkFilterConfigFactory
-  Configuration::NetworkFilterFactoryCb
+  Network::FilterFactoryCb
   createFilterFactoryFromProto(const Protobuf::Message&, FactoryContext&) override {
     return [](Network::FilterManager &filter_manager) mutable -> void {
       filter_manager.addReadFilter(std::make_shared<Filter::CiliumL3::Instance>());
     };
   }
 
-  Configuration::NetworkFilterFactoryCb
+  Network::FilterFactoryCb
   createFilterFactory(const Json::Object&, FactoryContext&) override {
     return [](Network::FilterManager &filter_manager) mutable -> void {
       filter_manager.addReadFilter(std::make_shared<Filter::CiliumL3::Instance>());

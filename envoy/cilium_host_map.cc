@@ -151,17 +151,13 @@ PolicyHostMap::PolicyHostMap(const envoy::api::v2::core::Node& node, Upstream::C
   subscription_ = subscribe<cilium::NetworkPolicyHosts>("cilium.NetworkPolicyHostsDiscoveryService.StreamNetworkPolicyHosts", node, cm, dispatcher, *scope_);
 }
 
-void PolicyHostMap::onConfigUpdate(const ResourceVector& resources) {
-  std::string version;
-  if (subscription_) {
-    version = subscription_->versionInfo();
-  }
-  ENVOY_LOG(debug, "PolicyHostMap::onConfigUpdate({}), {} resources, current version: {}", name_, resources.size(), version);
+void PolicyHostMap::onConfigUpdate(const ResourceVector& resources, const std::string& version_info) {
+  ENVOY_LOG(debug, "PolicyHostMap::onConfigUpdate({}), {} resources, version: {}", name_, resources.size(), version_info);
 
   auto newmap = std::make_shared<ThreadLocalHostMapInitializer>();
   
   for (const auto& config: resources) {
-    ENVOY_LOG(trace, "Received NetworkPolicyHosts for policy {} in onConfigUpdate() version {}", config.policy(), version);
+    ENVOY_LOG(trace, "Received NetworkPolicyHosts for policy {} in onConfigUpdate() version {}", config.policy(), version_info);
 
     MessageUtil::validate(config);
 

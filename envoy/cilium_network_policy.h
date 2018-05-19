@@ -5,7 +5,7 @@
 #include "envoy/event/dispatcher.h"
 
 #include "common/common/logger.h"
-#include "common/router/config_utility.h"
+#include "common/http/header_utility.h"
 #include "envoy/config/subscription.h"
 #include "envoy/singleton/instance.h"
 #include "envoy/thread_local/thread_local.h"
@@ -56,21 +56,21 @@ public:
 	  const auto& header_data = headers_.back();
 	  ENVOY_LOG(trace, "Cilium L7 HttpNetworkPolicyRule(): HeaderData {}={}",
 		    header_data.name_.get(),
-		    header_data.header_match_type_ == Router::ConfigUtility::HeaderMatchType::Range
+		    header_data.header_match_type_ == Http::HeaderUtility::HeaderMatchType::Range
 		    ? fmt::format("[{}-{})", header_data.range_.start(), header_data.range_.end())
-		    : header_data.header_match_type_ == Router::ConfigUtility::HeaderMatchType::Value
+		    : header_data.header_match_type_ == Http::HeaderUtility::HeaderMatchType::Value
 		    ? header_data.value_
-		    : header_data.header_match_type_ == Router::ConfigUtility::HeaderMatchType::Regex
+		    : header_data.header_match_type_ == Http::HeaderUtility::HeaderMatchType::Regex
 		    ? "<REGEX>" : "<UNKNOWN>");
 	}
       }
 
       bool Matches(const Envoy::Http::HeaderMap& headers) const {
 	// Empty set matches any headers.
-	return Envoy::Router::ConfigUtility::matchHeaders(headers, headers_);
+	return Envoy::Http::HeaderUtility::matchHeaders(headers, headers_);
       }
 
-      std::vector<Envoy::Router::ConfigUtility::HeaderData> headers_; // Allowed if empty.
+      std::vector<Envoy::Http::HeaderUtility::HeaderData> headers_; // Allowed if empty.
     };
     
     class PortNetworkPolicyRule : public Logger::Loggable<Logger::Id::config> {
@@ -237,7 +237,7 @@ public:
   }
 
   // Config::SubscriptionCallbacks
-  void onConfigUpdate(const ResourceVector& resources) override;
+  void onConfigUpdate(const ResourceVector& resources, const std::string& version_info) override;
   void onConfigUpdateFailed(const EnvoyException* e) override;
   std::string resourceName(const ProtobufWkt::Any& resource) override {
     return MessageUtil::anyConvert<cilium::NetworkPolicy>(resource).name();
