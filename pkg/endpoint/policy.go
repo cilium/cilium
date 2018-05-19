@@ -138,8 +138,16 @@ func getLabelsMap() (*identityPkg.IdentityCache, error) {
 	return &labelsMap, nil
 }
 
-// Must be called with global endpoint.Mutex held
-func (e *Endpoint) resolveL4Policy(repo *policy.Repository) error {
+// resolveL4Policy iterates through the policy repository to determine whether
+// any L4 (including L4-dependent L7) policy changes have occurred. If an error
+// occurs during calculation, it will return (false, err). Otherwise, it will
+// determine whether there is a difference between the current realized state
+// and the desired state, and return if there is a difference (true, nil) or
+// not (false, nil).
+//
+// Must be called with global endpoint.Mutex held.
+func (e *Endpoint) resolveL4Policy(repo *policy.Repository) (policyChanged bool, err error) {
+	var newL4IngressPolicy, newL4EgressPolicy *policy.L4PolicyMap
 
 	ingressCtx := policy.SearchContext{
 		To: e.SecurityIdentity.LabelArray,
@@ -154,26 +162,25 @@ func (e *Endpoint) resolveL4Policy(repo *policy.Repository) error {
 		egressCtx.Trace = policy.TRACE_ENABLED
 	}
 
-	newL4IngressPolicy, err := repo.ResolveL4IngressPolicy(&ingressCtx)
+	newL4IngressPolicy, err = repo.ResolveL4IngressPolicy(&ingressCtx)
 	if err != nil {
-		return err
+		return
 	}
 
-	newL4EgressPolicy, err := repo.ResolveL4EgressPolicy(&egressCtx)
-
+	newL4EgressPolicy, err = repo.ResolveL4EgressPolicy(&egressCtx)
 	if err != nil {
-		return err
+		return
 	}
 
 	newL4Policy := &policy.L4Policy{Ingress: *newL4IngressPolicy,
 		Egress: *newL4EgressPolicy}
 
-	if reflect.DeepEqual(e.DesiredL4Policy, newL4Policy) {
-		return nil
+	if !reflect.DeepEqual(e.DesiredL4Policy, newL4Policy) {
+		policyChanged = true
+		e.DesiredL4Policy = newL4Policy
 	}
 
-	e.DesiredL4Policy = newL4Policy
-	return nil
+	return
 }
 
 func (e *Endpoint) computeDesiredPolicyMapState(owner Owner, labelsMap *identityPkg.IdentityCache,
@@ -462,8 +469,9 @@ func (e *Endpoint) regeneratePolicy(owner Owner, opts models.ConfigurationMap) (
 
 	// Skip L4 policy recomputation if possible. However, the rest of the
 	// policy computation still needs to be done for each endpoint separately.
+	l4PolicyChanged := false
 	if e.Iteration != revision {
-		err = e.resolveL4Policy(repo)
+		l4PolicyChanged, err = e.resolveL4Policy(repo)
 		if err != nil {
 			return false, err
 		}
@@ -474,12 +482,11 @@ func (e *Endpoint) regeneratePolicy(owner Owner, opts models.ConfigurationMap) (
 	}
 
 	// Calculate L3 (CIDR) policy.
-	var policyChanged bool
-	if policyChanged, err = e.regenerateL3Policy(repo, revision); err != nil {
+	var l3PolicyChanged bool
+	if l3PolicyChanged, err = e.regenerateL3Policy(repo, revision); err != nil {
 		return false, err
 	}
-
-	if policyChanged {
+	if l3PolicyChanged {
 		e.getLogger().Debug("regeneration of L3 (CIDR) policy caused policy change")
 	}
 
@@ -542,6 +549,7 @@ func (e *Endpoint) regeneratePolicy(owner Owner, opts models.ConfigurationMap) (
 	// If no policy or options change occurred for this endpoint then the endpoint is
 	// already running the latest revision, otherwise we have to wait for
 	// the regeneration of the endpoint to complete.
+	policyChanged := l3PolicyChanged || l4PolicyChanged
 	if !policyChanged && !optsChanged {
 		e.setPolicyRevision(revision)
 	}

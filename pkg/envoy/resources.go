@@ -138,11 +138,12 @@ func (cache *NPHDSCache) handleIPDelete(npHost *envoyAPI.NetworkPolicyHosts, pee
 	} else {
 		// If the resource is to be updated, create a copy of it before
 		// removing the IP address from its HostAddresses list.
-		var hostAddresses []string
+		hostAddresses := make([]string, 0, len(npHost.HostAddresses)-1)
 		if len(npHost.HostAddresses) == targetIndex {
-			hostAddresses = npHost.HostAddresses[0:targetIndex]
+			hostAddresses = append(hostAddresses, npHost.HostAddresses[0:targetIndex]...)
 		} else {
-			hostAddresses = append(npHost.HostAddresses[0:targetIndex], npHost.HostAddresses[targetIndex+1:]...)
+			hostAddresses = append(hostAddresses, npHost.HostAddresses[0:targetIndex]...)
+			hostAddresses = append(hostAddresses, npHost.HostAddresses[targetIndex+1:]...)
 		}
 
 		newNpHost := envoyAPI.NetworkPolicyHosts{

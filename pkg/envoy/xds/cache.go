@@ -255,6 +255,22 @@ func (c *Cache) GetResources(ctx context.Context, typeURL string, lastVersion *u
 	return res, nil
 }
 
+func (c *Cache) EnsureVersion(typeURL string, version uint64) {
+	c.locker.Lock()
+	defer c.locker.Unlock()
+
+	if c.version < version {
+		cacheLog := log.WithFields(logrus.Fields{
+			logfields.XDSTypeURL:     typeURL,
+			logfields.XDSVersionInfo: version,
+		})
+		cacheLog.Debug("increasing version to match client and notifying of new version")
+
+		c.version = version
+		c.NotifyNewResourceVersionRLocked(typeURL, c.version)
+	}
+}
+
 // Lookup finds the resource corresponding to the specified typeURL and resourceName,
 // if available, and returns it. Otherwise, returns nil. If an error occurs while
 // fetching the resource, also returns the error.
