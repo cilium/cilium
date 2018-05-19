@@ -342,14 +342,33 @@ func (MethodOptions_IdempotencyLevel) EnumDescriptor() ([]byte, []int) {
 // The protocol compiler can output a FileDescriptorSet containing the .proto
 // files it parses.
 type FileDescriptorSet struct {
-	File             []*FileDescriptorProto `protobuf:"bytes,1,rep,name=file" json:"file,omitempty"`
-	XXX_unrecognized []byte                 `json:"-"`
+	File                 []*FileDescriptorProto `protobuf:"bytes,1,rep,name=file" json:"file,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}               `json:"-"`
+	XXX_unrecognized     []byte                 `json:"-"`
+	XXX_sizecache        int32                  `json:"-"`
 }
 
 func (m *FileDescriptorSet) Reset()                    { *m = FileDescriptorSet{} }
 func (m *FileDescriptorSet) String() string            { return proto.CompactTextString(m) }
 func (*FileDescriptorSet) ProtoMessage()               {}
 func (*FileDescriptorSet) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{0} }
+func (m *FileDescriptorSet) Unmarshal(b []byte) error {
+	return xxx_messageInfo_FileDescriptorSet.Unmarshal(m, b)
+}
+func (m *FileDescriptorSet) Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_FileDescriptorSet.Marshal(b, m, deterministic)
+}
+func (dst *FileDescriptorSet) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_FileDescriptorSet.Merge(dst, src)
+}
+func (m *FileDescriptorSet) XXX_Size() int {
+	return xxx_messageInfo_FileDescriptorSet.Size(m)
+}
+func (m *FileDescriptorSet) XXX_DiscardUnknown() {
+	xxx_messageInfo_FileDescriptorSet.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_FileDescriptorSet proto.InternalMessageInfo
 
 func (m *FileDescriptorSet) GetFile() []*FileDescriptorProto {
 	if m != nil {
@@ -382,14 +401,33 @@ type FileDescriptorProto struct {
 	SourceCodeInfo *SourceCodeInfo `protobuf:"bytes,9,opt,name=source_code_info,json=sourceCodeInfo" json:"source_code_info,omitempty"`
 	// The syntax of the proto file.
 	// The supported values are "proto2" and "proto3".
-	Syntax           *string `protobuf:"bytes,12,opt,name=syntax" json:"syntax,omitempty"`
-	XXX_unrecognized []byte  `json:"-"`
+	Syntax               *string  `protobuf:"bytes,12,opt,name=syntax" json:"syntax,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
 }
 
 func (m *FileDescriptorProto) Reset()                    { *m = FileDescriptorProto{} }
 func (m *FileDescriptorProto) String() string            { return proto.CompactTextString(m) }
 func (*FileDescriptorProto) ProtoMessage()               {}
 func (*FileDescriptorProto) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{1} }
+func (m *FileDescriptorProto) Unmarshal(b []byte) error {
+	return xxx_messageInfo_FileDescriptorProto.Unmarshal(m, b)
+}
+func (m *FileDescriptorProto) Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_FileDescriptorProto.Marshal(b, m, deterministic)
+}
+func (dst *FileDescriptorProto) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_FileDescriptorProto.Merge(dst, src)
+}
+func (m *FileDescriptorProto) XXX_Size() int {
+	return xxx_messageInfo_FileDescriptorProto.Size(m)
+}
+func (m *FileDescriptorProto) XXX_DiscardUnknown() {
+	xxx_messageInfo_FileDescriptorProto.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_FileDescriptorProto proto.InternalMessageInfo
 
 func (m *FileDescriptorProto) GetName() string {
 	if m != nil && m.Name != nil {
@@ -488,14 +526,33 @@ type DescriptorProto struct {
 	ReservedRange  []*DescriptorProto_ReservedRange  `protobuf:"bytes,9,rep,name=reserved_range,json=reservedRange" json:"reserved_range,omitempty"`
 	// Reserved field names, which may not be used by fields in the same message.
 	// A given name may only be reserved once.
-	ReservedName     []string `protobuf:"bytes,10,rep,name=reserved_name,json=reservedName" json:"reserved_name,omitempty"`
-	XXX_unrecognized []byte   `json:"-"`
+	ReservedName         []string `protobuf:"bytes,10,rep,name=reserved_name,json=reservedName" json:"reserved_name,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
 }
 
 func (m *DescriptorProto) Reset()                    { *m = DescriptorProto{} }
 func (m *DescriptorProto) String() string            { return proto.CompactTextString(m) }
 func (*DescriptorProto) ProtoMessage()               {}
 func (*DescriptorProto) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{2} }
+func (m *DescriptorProto) Unmarshal(b []byte) error {
+	return xxx_messageInfo_DescriptorProto.Unmarshal(m, b)
+}
+func (m *DescriptorProto) Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_DescriptorProto.Marshal(b, m, deterministic)
+}
+func (dst *DescriptorProto) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_DescriptorProto.Merge(dst, src)
+}
+func (m *DescriptorProto) XXX_Size() int {
+	return xxx_messageInfo_DescriptorProto.Size(m)
+}
+func (m *DescriptorProto) XXX_DiscardUnknown() {
+	xxx_messageInfo_DescriptorProto.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_DescriptorProto proto.InternalMessageInfo
 
 func (m *DescriptorProto) GetName() string {
 	if m != nil && m.Name != nil {
@@ -568,10 +625,12 @@ func (m *DescriptorProto) GetReservedName() []string {
 }
 
 type DescriptorProto_ExtensionRange struct {
-	Start            *int32                 `protobuf:"varint,1,opt,name=start" json:"start,omitempty"`
-	End              *int32                 `protobuf:"varint,2,opt,name=end" json:"end,omitempty"`
-	Options          *ExtensionRangeOptions `protobuf:"bytes,3,opt,name=options" json:"options,omitempty"`
-	XXX_unrecognized []byte                 `json:"-"`
+	Start                *int32                 `protobuf:"varint,1,opt,name=start" json:"start,omitempty"`
+	End                  *int32                 `protobuf:"varint,2,opt,name=end" json:"end,omitempty"`
+	Options              *ExtensionRangeOptions `protobuf:"bytes,3,opt,name=options" json:"options,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}               `json:"-"`
+	XXX_unrecognized     []byte                 `json:"-"`
+	XXX_sizecache        int32                  `json:"-"`
 }
 
 func (m *DescriptorProto_ExtensionRange) Reset()         { *m = DescriptorProto_ExtensionRange{} }
@@ -580,6 +639,23 @@ func (*DescriptorProto_ExtensionRange) ProtoMessage()    {}
 func (*DescriptorProto_ExtensionRange) Descriptor() ([]byte, []int) {
 	return fileDescriptor0, []int{2, 0}
 }
+func (m *DescriptorProto_ExtensionRange) Unmarshal(b []byte) error {
+	return xxx_messageInfo_DescriptorProto_ExtensionRange.Unmarshal(m, b)
+}
+func (m *DescriptorProto_ExtensionRange) Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_DescriptorProto_ExtensionRange.Marshal(b, m, deterministic)
+}
+func (dst *DescriptorProto_ExtensionRange) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_DescriptorProto_ExtensionRange.Merge(dst, src)
+}
+func (m *DescriptorProto_ExtensionRange) XXX_Size() int {
+	return xxx_messageInfo_DescriptorProto_ExtensionRange.Size(m)
+}
+func (m *DescriptorProto_ExtensionRange) XXX_DiscardUnknown() {
+	xxx_messageInfo_DescriptorProto_ExtensionRange.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_DescriptorProto_ExtensionRange proto.InternalMessageInfo
 
 func (m *DescriptorProto_ExtensionRange) GetStart() int32 {
 	if m != nil && m.Start != nil {
@@ -606,9 +682,11 @@ func (m *DescriptorProto_ExtensionRange) GetOptions() *ExtensionRangeOptions {
 // fields or extension ranges in the same message. Reserved ranges may
 // not overlap.
 type DescriptorProto_ReservedRange struct {
-	Start            *int32 `protobuf:"varint,1,opt,name=start" json:"start,omitempty"`
-	End              *int32 `protobuf:"varint,2,opt,name=end" json:"end,omitempty"`
-	XXX_unrecognized []byte `json:"-"`
+	Start                *int32   `protobuf:"varint,1,opt,name=start" json:"start,omitempty"`
+	End                  *int32   `protobuf:"varint,2,opt,name=end" json:"end,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
 }
 
 func (m *DescriptorProto_ReservedRange) Reset()         { *m = DescriptorProto_ReservedRange{} }
@@ -617,6 +695,23 @@ func (*DescriptorProto_ReservedRange) ProtoMessage()    {}
 func (*DescriptorProto_ReservedRange) Descriptor() ([]byte, []int) {
 	return fileDescriptor0, []int{2, 1}
 }
+func (m *DescriptorProto_ReservedRange) Unmarshal(b []byte) error {
+	return xxx_messageInfo_DescriptorProto_ReservedRange.Unmarshal(m, b)
+}
+func (m *DescriptorProto_ReservedRange) Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_DescriptorProto_ReservedRange.Marshal(b, m, deterministic)
+}
+func (dst *DescriptorProto_ReservedRange) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_DescriptorProto_ReservedRange.Merge(dst, src)
+}
+func (m *DescriptorProto_ReservedRange) XXX_Size() int {
+	return xxx_messageInfo_DescriptorProto_ReservedRange.Size(m)
+}
+func (m *DescriptorProto_ReservedRange) XXX_DiscardUnknown() {
+	xxx_messageInfo_DescriptorProto_ReservedRange.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_DescriptorProto_ReservedRange proto.InternalMessageInfo
 
 func (m *DescriptorProto_ReservedRange) GetStart() int32 {
 	if m != nil && m.Start != nil {
@@ -635,8 +730,10 @@ func (m *DescriptorProto_ReservedRange) GetEnd() int32 {
 type ExtensionRangeOptions struct {
 	// The parser stores options it doesn't recognize here. See above.
 	UninterpretedOption          []*UninterpretedOption `protobuf:"bytes,999,rep,name=uninterpreted_option,json=uninterpretedOption" json:"uninterpreted_option,omitempty"`
+	XXX_NoUnkeyedLiteral         struct{}               `json:"-"`
 	proto.XXX_InternalExtensions `json:"-"`
 	XXX_unrecognized             []byte `json:"-"`
+	XXX_sizecache                int32  `json:"-"`
 }
 
 func (m *ExtensionRangeOptions) Reset()                    { *m = ExtensionRangeOptions{} }
@@ -651,6 +748,23 @@ var extRange_ExtensionRangeOptions = []proto.ExtensionRange{
 func (*ExtensionRangeOptions) ExtensionRangeArray() []proto.ExtensionRange {
 	return extRange_ExtensionRangeOptions
 }
+func (m *ExtensionRangeOptions) Unmarshal(b []byte) error {
+	return xxx_messageInfo_ExtensionRangeOptions.Unmarshal(m, b)
+}
+func (m *ExtensionRangeOptions) Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_ExtensionRangeOptions.Marshal(b, m, deterministic)
+}
+func (dst *ExtensionRangeOptions) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ExtensionRangeOptions.Merge(dst, src)
+}
+func (m *ExtensionRangeOptions) XXX_Size() int {
+	return xxx_messageInfo_ExtensionRangeOptions.Size(m)
+}
+func (m *ExtensionRangeOptions) XXX_DiscardUnknown() {
+	xxx_messageInfo_ExtensionRangeOptions.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_ExtensionRangeOptions proto.InternalMessageInfo
 
 func (m *ExtensionRangeOptions) GetUninterpretedOption() []*UninterpretedOption {
 	if m != nil {
@@ -689,15 +803,34 @@ type FieldDescriptorProto struct {
 	// user has set a "json_name" option on this field, that option's value
 	// will be used. Otherwise, it's deduced from the field's name by converting
 	// it to camelCase.
-	JsonName         *string       `protobuf:"bytes,10,opt,name=json_name,json=jsonName" json:"json_name,omitempty"`
-	Options          *FieldOptions `protobuf:"bytes,8,opt,name=options" json:"options,omitempty"`
-	XXX_unrecognized []byte        `json:"-"`
+	JsonName             *string       `protobuf:"bytes,10,opt,name=json_name,json=jsonName" json:"json_name,omitempty"`
+	Options              *FieldOptions `protobuf:"bytes,8,opt,name=options" json:"options,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}      `json:"-"`
+	XXX_unrecognized     []byte        `json:"-"`
+	XXX_sizecache        int32         `json:"-"`
 }
 
 func (m *FieldDescriptorProto) Reset()                    { *m = FieldDescriptorProto{} }
 func (m *FieldDescriptorProto) String() string            { return proto.CompactTextString(m) }
 func (*FieldDescriptorProto) ProtoMessage()               {}
 func (*FieldDescriptorProto) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{4} }
+func (m *FieldDescriptorProto) Unmarshal(b []byte) error {
+	return xxx_messageInfo_FieldDescriptorProto.Unmarshal(m, b)
+}
+func (m *FieldDescriptorProto) Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_FieldDescriptorProto.Marshal(b, m, deterministic)
+}
+func (dst *FieldDescriptorProto) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_FieldDescriptorProto.Merge(dst, src)
+}
+func (m *FieldDescriptorProto) XXX_Size() int {
+	return xxx_messageInfo_FieldDescriptorProto.Size(m)
+}
+func (m *FieldDescriptorProto) XXX_DiscardUnknown() {
+	xxx_messageInfo_FieldDescriptorProto.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_FieldDescriptorProto proto.InternalMessageInfo
 
 func (m *FieldDescriptorProto) GetName() string {
 	if m != nil && m.Name != nil {
@@ -771,15 +904,34 @@ func (m *FieldDescriptorProto) GetOptions() *FieldOptions {
 
 // Describes a oneof.
 type OneofDescriptorProto struct {
-	Name             *string       `protobuf:"bytes,1,opt,name=name" json:"name,omitempty"`
-	Options          *OneofOptions `protobuf:"bytes,2,opt,name=options" json:"options,omitempty"`
-	XXX_unrecognized []byte        `json:"-"`
+	Name                 *string       `protobuf:"bytes,1,opt,name=name" json:"name,omitempty"`
+	Options              *OneofOptions `protobuf:"bytes,2,opt,name=options" json:"options,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}      `json:"-"`
+	XXX_unrecognized     []byte        `json:"-"`
+	XXX_sizecache        int32         `json:"-"`
 }
 
 func (m *OneofDescriptorProto) Reset()                    { *m = OneofDescriptorProto{} }
 func (m *OneofDescriptorProto) String() string            { return proto.CompactTextString(m) }
 func (*OneofDescriptorProto) ProtoMessage()               {}
 func (*OneofDescriptorProto) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{5} }
+func (m *OneofDescriptorProto) Unmarshal(b []byte) error {
+	return xxx_messageInfo_OneofDescriptorProto.Unmarshal(m, b)
+}
+func (m *OneofDescriptorProto) Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_OneofDescriptorProto.Marshal(b, m, deterministic)
+}
+func (dst *OneofDescriptorProto) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_OneofDescriptorProto.Merge(dst, src)
+}
+func (m *OneofDescriptorProto) XXX_Size() int {
+	return xxx_messageInfo_OneofDescriptorProto.Size(m)
+}
+func (m *OneofDescriptorProto) XXX_DiscardUnknown() {
+	xxx_messageInfo_OneofDescriptorProto.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_OneofDescriptorProto proto.InternalMessageInfo
 
 func (m *OneofDescriptorProto) GetName() string {
 	if m != nil && m.Name != nil {
@@ -797,16 +949,35 @@ func (m *OneofDescriptorProto) GetOptions() *OneofOptions {
 
 // Describes an enum type.
 type EnumDescriptorProto struct {
-	Name             *string                     `protobuf:"bytes,1,opt,name=name" json:"name,omitempty"`
-	Value            []*EnumValueDescriptorProto `protobuf:"bytes,2,rep,name=value" json:"value,omitempty"`
-	Options          *EnumOptions                `protobuf:"bytes,3,opt,name=options" json:"options,omitempty"`
-	XXX_unrecognized []byte                      `json:"-"`
+	Name                 *string                     `protobuf:"bytes,1,opt,name=name" json:"name,omitempty"`
+	Value                []*EnumValueDescriptorProto `protobuf:"bytes,2,rep,name=value" json:"value,omitempty"`
+	Options              *EnumOptions                `protobuf:"bytes,3,opt,name=options" json:"options,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}                    `json:"-"`
+	XXX_unrecognized     []byte                      `json:"-"`
+	XXX_sizecache        int32                       `json:"-"`
 }
 
 func (m *EnumDescriptorProto) Reset()                    { *m = EnumDescriptorProto{} }
 func (m *EnumDescriptorProto) String() string            { return proto.CompactTextString(m) }
 func (*EnumDescriptorProto) ProtoMessage()               {}
 func (*EnumDescriptorProto) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{6} }
+func (m *EnumDescriptorProto) Unmarshal(b []byte) error {
+	return xxx_messageInfo_EnumDescriptorProto.Unmarshal(m, b)
+}
+func (m *EnumDescriptorProto) Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_EnumDescriptorProto.Marshal(b, m, deterministic)
+}
+func (dst *EnumDescriptorProto) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_EnumDescriptorProto.Merge(dst, src)
+}
+func (m *EnumDescriptorProto) XXX_Size() int {
+	return xxx_messageInfo_EnumDescriptorProto.Size(m)
+}
+func (m *EnumDescriptorProto) XXX_DiscardUnknown() {
+	xxx_messageInfo_EnumDescriptorProto.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_EnumDescriptorProto proto.InternalMessageInfo
 
 func (m *EnumDescriptorProto) GetName() string {
 	if m != nil && m.Name != nil {
@@ -831,16 +1002,35 @@ func (m *EnumDescriptorProto) GetOptions() *EnumOptions {
 
 // Describes a value within an enum.
 type EnumValueDescriptorProto struct {
-	Name             *string           `protobuf:"bytes,1,opt,name=name" json:"name,omitempty"`
-	Number           *int32            `protobuf:"varint,2,opt,name=number" json:"number,omitempty"`
-	Options          *EnumValueOptions `protobuf:"bytes,3,opt,name=options" json:"options,omitempty"`
-	XXX_unrecognized []byte            `json:"-"`
+	Name                 *string           `protobuf:"bytes,1,opt,name=name" json:"name,omitempty"`
+	Number               *int32            `protobuf:"varint,2,opt,name=number" json:"number,omitempty"`
+	Options              *EnumValueOptions `protobuf:"bytes,3,opt,name=options" json:"options,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}          `json:"-"`
+	XXX_unrecognized     []byte            `json:"-"`
+	XXX_sizecache        int32             `json:"-"`
 }
 
 func (m *EnumValueDescriptorProto) Reset()                    { *m = EnumValueDescriptorProto{} }
 func (m *EnumValueDescriptorProto) String() string            { return proto.CompactTextString(m) }
 func (*EnumValueDescriptorProto) ProtoMessage()               {}
 func (*EnumValueDescriptorProto) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{7} }
+func (m *EnumValueDescriptorProto) Unmarshal(b []byte) error {
+	return xxx_messageInfo_EnumValueDescriptorProto.Unmarshal(m, b)
+}
+func (m *EnumValueDescriptorProto) Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_EnumValueDescriptorProto.Marshal(b, m, deterministic)
+}
+func (dst *EnumValueDescriptorProto) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_EnumValueDescriptorProto.Merge(dst, src)
+}
+func (m *EnumValueDescriptorProto) XXX_Size() int {
+	return xxx_messageInfo_EnumValueDescriptorProto.Size(m)
+}
+func (m *EnumValueDescriptorProto) XXX_DiscardUnknown() {
+	xxx_messageInfo_EnumValueDescriptorProto.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_EnumValueDescriptorProto proto.InternalMessageInfo
 
 func (m *EnumValueDescriptorProto) GetName() string {
 	if m != nil && m.Name != nil {
@@ -865,16 +1055,35 @@ func (m *EnumValueDescriptorProto) GetOptions() *EnumValueOptions {
 
 // Describes a service.
 type ServiceDescriptorProto struct {
-	Name             *string                  `protobuf:"bytes,1,opt,name=name" json:"name,omitempty"`
-	Method           []*MethodDescriptorProto `protobuf:"bytes,2,rep,name=method" json:"method,omitempty"`
-	Options          *ServiceOptions          `protobuf:"bytes,3,opt,name=options" json:"options,omitempty"`
-	XXX_unrecognized []byte                   `json:"-"`
+	Name                 *string                  `protobuf:"bytes,1,opt,name=name" json:"name,omitempty"`
+	Method               []*MethodDescriptorProto `protobuf:"bytes,2,rep,name=method" json:"method,omitempty"`
+	Options              *ServiceOptions          `protobuf:"bytes,3,opt,name=options" json:"options,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}                 `json:"-"`
+	XXX_unrecognized     []byte                   `json:"-"`
+	XXX_sizecache        int32                    `json:"-"`
 }
 
 func (m *ServiceDescriptorProto) Reset()                    { *m = ServiceDescriptorProto{} }
 func (m *ServiceDescriptorProto) String() string            { return proto.CompactTextString(m) }
 func (*ServiceDescriptorProto) ProtoMessage()               {}
 func (*ServiceDescriptorProto) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{8} }
+func (m *ServiceDescriptorProto) Unmarshal(b []byte) error {
+	return xxx_messageInfo_ServiceDescriptorProto.Unmarshal(m, b)
+}
+func (m *ServiceDescriptorProto) Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_ServiceDescriptorProto.Marshal(b, m, deterministic)
+}
+func (dst *ServiceDescriptorProto) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ServiceDescriptorProto.Merge(dst, src)
+}
+func (m *ServiceDescriptorProto) XXX_Size() int {
+	return xxx_messageInfo_ServiceDescriptorProto.Size(m)
+}
+func (m *ServiceDescriptorProto) XXX_DiscardUnknown() {
+	xxx_messageInfo_ServiceDescriptorProto.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_ServiceDescriptorProto proto.InternalMessageInfo
 
 func (m *ServiceDescriptorProto) GetName() string {
 	if m != nil && m.Name != nil {
@@ -908,14 +1117,33 @@ type MethodDescriptorProto struct {
 	// Identifies if client streams multiple client messages
 	ClientStreaming *bool `protobuf:"varint,5,opt,name=client_streaming,json=clientStreaming,def=0" json:"client_streaming,omitempty"`
 	// Identifies if server streams multiple server messages
-	ServerStreaming  *bool  `protobuf:"varint,6,opt,name=server_streaming,json=serverStreaming,def=0" json:"server_streaming,omitempty"`
-	XXX_unrecognized []byte `json:"-"`
+	ServerStreaming      *bool    `protobuf:"varint,6,opt,name=server_streaming,json=serverStreaming,def=0" json:"server_streaming,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
 }
 
 func (m *MethodDescriptorProto) Reset()                    { *m = MethodDescriptorProto{} }
 func (m *MethodDescriptorProto) String() string            { return proto.CompactTextString(m) }
 func (*MethodDescriptorProto) ProtoMessage()               {}
 func (*MethodDescriptorProto) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{9} }
+func (m *MethodDescriptorProto) Unmarshal(b []byte) error {
+	return xxx_messageInfo_MethodDescriptorProto.Unmarshal(m, b)
+}
+func (m *MethodDescriptorProto) Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_MethodDescriptorProto.Marshal(b, m, deterministic)
+}
+func (dst *MethodDescriptorProto) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_MethodDescriptorProto.Merge(dst, src)
+}
+func (m *MethodDescriptorProto) XXX_Size() int {
+	return xxx_messageInfo_MethodDescriptorProto.Size(m)
+}
+func (m *MethodDescriptorProto) XXX_DiscardUnknown() {
+	xxx_messageInfo_MethodDescriptorProto.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_MethodDescriptorProto proto.InternalMessageInfo
 
 const Default_MethodDescriptorProto_ClientStreaming bool = false
 const Default_MethodDescriptorProto_ServerStreaming bool = false
@@ -1038,8 +1266,10 @@ type FileOptions struct {
 	PhpNamespace *string `protobuf:"bytes,41,opt,name=php_namespace,json=phpNamespace" json:"php_namespace,omitempty"`
 	// The parser stores options it doesn't recognize here. See above.
 	UninterpretedOption          []*UninterpretedOption `protobuf:"bytes,999,rep,name=uninterpreted_option,json=uninterpretedOption" json:"uninterpreted_option,omitempty"`
+	XXX_NoUnkeyedLiteral         struct{}               `json:"-"`
 	proto.XXX_InternalExtensions `json:"-"`
 	XXX_unrecognized             []byte `json:"-"`
+	XXX_sizecache                int32  `json:"-"`
 }
 
 func (m *FileOptions) Reset()                    { *m = FileOptions{} }
@@ -1054,6 +1284,23 @@ var extRange_FileOptions = []proto.ExtensionRange{
 func (*FileOptions) ExtensionRangeArray() []proto.ExtensionRange {
 	return extRange_FileOptions
 }
+func (m *FileOptions) Unmarshal(b []byte) error {
+	return xxx_messageInfo_FileOptions.Unmarshal(m, b)
+}
+func (m *FileOptions) Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_FileOptions.Marshal(b, m, deterministic)
+}
+func (dst *FileOptions) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_FileOptions.Merge(dst, src)
+}
+func (m *FileOptions) XXX_Size() int {
+	return xxx_messageInfo_FileOptions.Size(m)
+}
+func (m *FileOptions) XXX_DiscardUnknown() {
+	xxx_messageInfo_FileOptions.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_FileOptions proto.InternalMessageInfo
 
 const Default_FileOptions_JavaMultipleFiles bool = false
 const Default_FileOptions_JavaStringCheckUtf8 bool = false
@@ -1251,8 +1498,10 @@ type MessageOptions struct {
 	MapEntry *bool `protobuf:"varint,7,opt,name=map_entry,json=mapEntry" json:"map_entry,omitempty"`
 	// The parser stores options it doesn't recognize here. See above.
 	UninterpretedOption          []*UninterpretedOption `protobuf:"bytes,999,rep,name=uninterpreted_option,json=uninterpretedOption" json:"uninterpreted_option,omitempty"`
+	XXX_NoUnkeyedLiteral         struct{}               `json:"-"`
 	proto.XXX_InternalExtensions `json:"-"`
 	XXX_unrecognized             []byte `json:"-"`
+	XXX_sizecache                int32  `json:"-"`
 }
 
 func (m *MessageOptions) Reset()                    { *m = MessageOptions{} }
@@ -1267,6 +1516,23 @@ var extRange_MessageOptions = []proto.ExtensionRange{
 func (*MessageOptions) ExtensionRangeArray() []proto.ExtensionRange {
 	return extRange_MessageOptions
 }
+func (m *MessageOptions) Unmarshal(b []byte) error {
+	return xxx_messageInfo_MessageOptions.Unmarshal(m, b)
+}
+func (m *MessageOptions) Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_MessageOptions.Marshal(b, m, deterministic)
+}
+func (dst *MessageOptions) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_MessageOptions.Merge(dst, src)
+}
+func (m *MessageOptions) XXX_Size() int {
+	return xxx_messageInfo_MessageOptions.Size(m)
+}
+func (m *MessageOptions) XXX_DiscardUnknown() {
+	xxx_messageInfo_MessageOptions.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_MessageOptions proto.InternalMessageInfo
 
 const Default_MessageOptions_MessageSetWireFormat bool = false
 const Default_MessageOptions_NoStandardDescriptorAccessor bool = false
@@ -1369,8 +1635,10 @@ type FieldOptions struct {
 	Weak *bool `protobuf:"varint,10,opt,name=weak,def=0" json:"weak,omitempty"`
 	// The parser stores options it doesn't recognize here. See above.
 	UninterpretedOption          []*UninterpretedOption `protobuf:"bytes,999,rep,name=uninterpreted_option,json=uninterpretedOption" json:"uninterpreted_option,omitempty"`
+	XXX_NoUnkeyedLiteral         struct{}               `json:"-"`
 	proto.XXX_InternalExtensions `json:"-"`
 	XXX_unrecognized             []byte `json:"-"`
+	XXX_sizecache                int32  `json:"-"`
 }
 
 func (m *FieldOptions) Reset()                    { *m = FieldOptions{} }
@@ -1385,6 +1653,23 @@ var extRange_FieldOptions = []proto.ExtensionRange{
 func (*FieldOptions) ExtensionRangeArray() []proto.ExtensionRange {
 	return extRange_FieldOptions
 }
+func (m *FieldOptions) Unmarshal(b []byte) error {
+	return xxx_messageInfo_FieldOptions.Unmarshal(m, b)
+}
+func (m *FieldOptions) Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_FieldOptions.Marshal(b, m, deterministic)
+}
+func (dst *FieldOptions) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_FieldOptions.Merge(dst, src)
+}
+func (m *FieldOptions) XXX_Size() int {
+	return xxx_messageInfo_FieldOptions.Size(m)
+}
+func (m *FieldOptions) XXX_DiscardUnknown() {
+	xxx_messageInfo_FieldOptions.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_FieldOptions proto.InternalMessageInfo
 
 const Default_FieldOptions_Ctype FieldOptions_CType = FieldOptions_STRING
 const Default_FieldOptions_Jstype FieldOptions_JSType = FieldOptions_JS_NORMAL
@@ -1444,8 +1729,10 @@ func (m *FieldOptions) GetUninterpretedOption() []*UninterpretedOption {
 type OneofOptions struct {
 	// The parser stores options it doesn't recognize here. See above.
 	UninterpretedOption          []*UninterpretedOption `protobuf:"bytes,999,rep,name=uninterpreted_option,json=uninterpretedOption" json:"uninterpreted_option,omitempty"`
+	XXX_NoUnkeyedLiteral         struct{}               `json:"-"`
 	proto.XXX_InternalExtensions `json:"-"`
 	XXX_unrecognized             []byte `json:"-"`
+	XXX_sizecache                int32  `json:"-"`
 }
 
 func (m *OneofOptions) Reset()                    { *m = OneofOptions{} }
@@ -1460,6 +1747,23 @@ var extRange_OneofOptions = []proto.ExtensionRange{
 func (*OneofOptions) ExtensionRangeArray() []proto.ExtensionRange {
 	return extRange_OneofOptions
 }
+func (m *OneofOptions) Unmarshal(b []byte) error {
+	return xxx_messageInfo_OneofOptions.Unmarshal(m, b)
+}
+func (m *OneofOptions) Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_OneofOptions.Marshal(b, m, deterministic)
+}
+func (dst *OneofOptions) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_OneofOptions.Merge(dst, src)
+}
+func (m *OneofOptions) XXX_Size() int {
+	return xxx_messageInfo_OneofOptions.Size(m)
+}
+func (m *OneofOptions) XXX_DiscardUnknown() {
+	xxx_messageInfo_OneofOptions.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_OneofOptions proto.InternalMessageInfo
 
 func (m *OneofOptions) GetUninterpretedOption() []*UninterpretedOption {
 	if m != nil {
@@ -1479,8 +1783,10 @@ type EnumOptions struct {
 	Deprecated *bool `protobuf:"varint,3,opt,name=deprecated,def=0" json:"deprecated,omitempty"`
 	// The parser stores options it doesn't recognize here. See above.
 	UninterpretedOption          []*UninterpretedOption `protobuf:"bytes,999,rep,name=uninterpreted_option,json=uninterpretedOption" json:"uninterpreted_option,omitempty"`
+	XXX_NoUnkeyedLiteral         struct{}               `json:"-"`
 	proto.XXX_InternalExtensions `json:"-"`
 	XXX_unrecognized             []byte `json:"-"`
+	XXX_sizecache                int32  `json:"-"`
 }
 
 func (m *EnumOptions) Reset()                    { *m = EnumOptions{} }
@@ -1495,6 +1801,23 @@ var extRange_EnumOptions = []proto.ExtensionRange{
 func (*EnumOptions) ExtensionRangeArray() []proto.ExtensionRange {
 	return extRange_EnumOptions
 }
+func (m *EnumOptions) Unmarshal(b []byte) error {
+	return xxx_messageInfo_EnumOptions.Unmarshal(m, b)
+}
+func (m *EnumOptions) Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_EnumOptions.Marshal(b, m, deterministic)
+}
+func (dst *EnumOptions) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_EnumOptions.Merge(dst, src)
+}
+func (m *EnumOptions) XXX_Size() int {
+	return xxx_messageInfo_EnumOptions.Size(m)
+}
+func (m *EnumOptions) XXX_DiscardUnknown() {
+	xxx_messageInfo_EnumOptions.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_EnumOptions proto.InternalMessageInfo
 
 const Default_EnumOptions_Deprecated bool = false
 
@@ -1527,8 +1850,10 @@ type EnumValueOptions struct {
 	Deprecated *bool `protobuf:"varint,1,opt,name=deprecated,def=0" json:"deprecated,omitempty"`
 	// The parser stores options it doesn't recognize here. See above.
 	UninterpretedOption          []*UninterpretedOption `protobuf:"bytes,999,rep,name=uninterpreted_option,json=uninterpretedOption" json:"uninterpreted_option,omitempty"`
+	XXX_NoUnkeyedLiteral         struct{}               `json:"-"`
 	proto.XXX_InternalExtensions `json:"-"`
 	XXX_unrecognized             []byte `json:"-"`
+	XXX_sizecache                int32  `json:"-"`
 }
 
 func (m *EnumValueOptions) Reset()                    { *m = EnumValueOptions{} }
@@ -1543,6 +1868,23 @@ var extRange_EnumValueOptions = []proto.ExtensionRange{
 func (*EnumValueOptions) ExtensionRangeArray() []proto.ExtensionRange {
 	return extRange_EnumValueOptions
 }
+func (m *EnumValueOptions) Unmarshal(b []byte) error {
+	return xxx_messageInfo_EnumValueOptions.Unmarshal(m, b)
+}
+func (m *EnumValueOptions) Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_EnumValueOptions.Marshal(b, m, deterministic)
+}
+func (dst *EnumValueOptions) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_EnumValueOptions.Merge(dst, src)
+}
+func (m *EnumValueOptions) XXX_Size() int {
+	return xxx_messageInfo_EnumValueOptions.Size(m)
+}
+func (m *EnumValueOptions) XXX_DiscardUnknown() {
+	xxx_messageInfo_EnumValueOptions.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_EnumValueOptions proto.InternalMessageInfo
 
 const Default_EnumValueOptions_Deprecated bool = false
 
@@ -1568,8 +1910,10 @@ type ServiceOptions struct {
 	Deprecated *bool `protobuf:"varint,33,opt,name=deprecated,def=0" json:"deprecated,omitempty"`
 	// The parser stores options it doesn't recognize here. See above.
 	UninterpretedOption          []*UninterpretedOption `protobuf:"bytes,999,rep,name=uninterpreted_option,json=uninterpretedOption" json:"uninterpreted_option,omitempty"`
+	XXX_NoUnkeyedLiteral         struct{}               `json:"-"`
 	proto.XXX_InternalExtensions `json:"-"`
 	XXX_unrecognized             []byte `json:"-"`
+	XXX_sizecache                int32  `json:"-"`
 }
 
 func (m *ServiceOptions) Reset()                    { *m = ServiceOptions{} }
@@ -1584,6 +1928,23 @@ var extRange_ServiceOptions = []proto.ExtensionRange{
 func (*ServiceOptions) ExtensionRangeArray() []proto.ExtensionRange {
 	return extRange_ServiceOptions
 }
+func (m *ServiceOptions) Unmarshal(b []byte) error {
+	return xxx_messageInfo_ServiceOptions.Unmarshal(m, b)
+}
+func (m *ServiceOptions) Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_ServiceOptions.Marshal(b, m, deterministic)
+}
+func (dst *ServiceOptions) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ServiceOptions.Merge(dst, src)
+}
+func (m *ServiceOptions) XXX_Size() int {
+	return xxx_messageInfo_ServiceOptions.Size(m)
+}
+func (m *ServiceOptions) XXX_DiscardUnknown() {
+	xxx_messageInfo_ServiceOptions.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_ServiceOptions proto.InternalMessageInfo
 
 const Default_ServiceOptions_Deprecated bool = false
 
@@ -1610,8 +1971,10 @@ type MethodOptions struct {
 	IdempotencyLevel *MethodOptions_IdempotencyLevel `protobuf:"varint,34,opt,name=idempotency_level,json=idempotencyLevel,enum=google.protobuf.MethodOptions_IdempotencyLevel,def=0" json:"idempotency_level,omitempty"`
 	// The parser stores options it doesn't recognize here. See above.
 	UninterpretedOption          []*UninterpretedOption `protobuf:"bytes,999,rep,name=uninterpreted_option,json=uninterpretedOption" json:"uninterpreted_option,omitempty"`
+	XXX_NoUnkeyedLiteral         struct{}               `json:"-"`
 	proto.XXX_InternalExtensions `json:"-"`
 	XXX_unrecognized             []byte `json:"-"`
+	XXX_sizecache                int32  `json:"-"`
 }
 
 func (m *MethodOptions) Reset()                    { *m = MethodOptions{} }
@@ -1626,6 +1989,23 @@ var extRange_MethodOptions = []proto.ExtensionRange{
 func (*MethodOptions) ExtensionRangeArray() []proto.ExtensionRange {
 	return extRange_MethodOptions
 }
+func (m *MethodOptions) Unmarshal(b []byte) error {
+	return xxx_messageInfo_MethodOptions.Unmarshal(m, b)
+}
+func (m *MethodOptions) Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_MethodOptions.Marshal(b, m, deterministic)
+}
+func (dst *MethodOptions) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_MethodOptions.Merge(dst, src)
+}
+func (m *MethodOptions) XXX_Size() int {
+	return xxx_messageInfo_MethodOptions.Size(m)
+}
+func (m *MethodOptions) XXX_DiscardUnknown() {
+	xxx_messageInfo_MethodOptions.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_MethodOptions proto.InternalMessageInfo
 
 const Default_MethodOptions_Deprecated bool = false
 const Default_MethodOptions_IdempotencyLevel MethodOptions_IdempotencyLevel = MethodOptions_IDEMPOTENCY_UNKNOWN
@@ -1661,19 +2041,38 @@ type UninterpretedOption struct {
 	Name []*UninterpretedOption_NamePart `protobuf:"bytes,2,rep,name=name" json:"name,omitempty"`
 	// The value of the uninterpreted option, in whatever type the tokenizer
 	// identified it as during parsing. Exactly one of these should be set.
-	IdentifierValue  *string  `protobuf:"bytes,3,opt,name=identifier_value,json=identifierValue" json:"identifier_value,omitempty"`
-	PositiveIntValue *uint64  `protobuf:"varint,4,opt,name=positive_int_value,json=positiveIntValue" json:"positive_int_value,omitempty"`
-	NegativeIntValue *int64   `protobuf:"varint,5,opt,name=negative_int_value,json=negativeIntValue" json:"negative_int_value,omitempty"`
-	DoubleValue      *float64 `protobuf:"fixed64,6,opt,name=double_value,json=doubleValue" json:"double_value,omitempty"`
-	StringValue      []byte   `protobuf:"bytes,7,opt,name=string_value,json=stringValue" json:"string_value,omitempty"`
-	AggregateValue   *string  `protobuf:"bytes,8,opt,name=aggregate_value,json=aggregateValue" json:"aggregate_value,omitempty"`
-	XXX_unrecognized []byte   `json:"-"`
+	IdentifierValue      *string  `protobuf:"bytes,3,opt,name=identifier_value,json=identifierValue" json:"identifier_value,omitempty"`
+	PositiveIntValue     *uint64  `protobuf:"varint,4,opt,name=positive_int_value,json=positiveIntValue" json:"positive_int_value,omitempty"`
+	NegativeIntValue     *int64   `protobuf:"varint,5,opt,name=negative_int_value,json=negativeIntValue" json:"negative_int_value,omitempty"`
+	DoubleValue          *float64 `protobuf:"fixed64,6,opt,name=double_value,json=doubleValue" json:"double_value,omitempty"`
+	StringValue          []byte   `protobuf:"bytes,7,opt,name=string_value,json=stringValue" json:"string_value,omitempty"`
+	AggregateValue       *string  `protobuf:"bytes,8,opt,name=aggregate_value,json=aggregateValue" json:"aggregate_value,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
 }
 
 func (m *UninterpretedOption) Reset()                    { *m = UninterpretedOption{} }
 func (m *UninterpretedOption) String() string            { return proto.CompactTextString(m) }
 func (*UninterpretedOption) ProtoMessage()               {}
 func (*UninterpretedOption) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{18} }
+func (m *UninterpretedOption) Unmarshal(b []byte) error {
+	return xxx_messageInfo_UninterpretedOption.Unmarshal(m, b)
+}
+func (m *UninterpretedOption) Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_UninterpretedOption.Marshal(b, m, deterministic)
+}
+func (dst *UninterpretedOption) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_UninterpretedOption.Merge(dst, src)
+}
+func (m *UninterpretedOption) XXX_Size() int {
+	return xxx_messageInfo_UninterpretedOption.Size(m)
+}
+func (m *UninterpretedOption) XXX_DiscardUnknown() {
+	xxx_messageInfo_UninterpretedOption.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_UninterpretedOption proto.InternalMessageInfo
 
 func (m *UninterpretedOption) GetName() []*UninterpretedOption_NamePart {
 	if m != nil {
@@ -1730,9 +2129,11 @@ func (m *UninterpretedOption) GetAggregateValue() string {
 // E.g.,{ ["foo", false], ["bar.baz", true], ["qux", false] } represents
 // "foo.(bar.baz).qux".
 type UninterpretedOption_NamePart struct {
-	NamePart         *string `protobuf:"bytes,1,req,name=name_part,json=namePart" json:"name_part,omitempty"`
-	IsExtension      *bool   `protobuf:"varint,2,req,name=is_extension,json=isExtension" json:"is_extension,omitempty"`
-	XXX_unrecognized []byte  `json:"-"`
+	NamePart             *string  `protobuf:"bytes,1,req,name=name_part,json=namePart" json:"name_part,omitempty"`
+	IsExtension          *bool    `protobuf:"varint,2,req,name=is_extension,json=isExtension" json:"is_extension,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
 }
 
 func (m *UninterpretedOption_NamePart) Reset()         { *m = UninterpretedOption_NamePart{} }
@@ -1741,6 +2142,23 @@ func (*UninterpretedOption_NamePart) ProtoMessage()    {}
 func (*UninterpretedOption_NamePart) Descriptor() ([]byte, []int) {
 	return fileDescriptor0, []int{18, 0}
 }
+func (m *UninterpretedOption_NamePart) Unmarshal(b []byte) error {
+	return xxx_messageInfo_UninterpretedOption_NamePart.Unmarshal(m, b)
+}
+func (m *UninterpretedOption_NamePart) Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_UninterpretedOption_NamePart.Marshal(b, m, deterministic)
+}
+func (dst *UninterpretedOption_NamePart) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_UninterpretedOption_NamePart.Merge(dst, src)
+}
+func (m *UninterpretedOption_NamePart) XXX_Size() int {
+	return xxx_messageInfo_UninterpretedOption_NamePart.Size(m)
+}
+func (m *UninterpretedOption_NamePart) XXX_DiscardUnknown() {
+	xxx_messageInfo_UninterpretedOption_NamePart.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_UninterpretedOption_NamePart proto.InternalMessageInfo
 
 func (m *UninterpretedOption_NamePart) GetNamePart() string {
 	if m != nil && m.NamePart != nil {
@@ -1802,14 +2220,33 @@ type SourceCodeInfo struct {
 	// - Code which tries to interpret locations should probably be designed to
 	//   ignore those that it doesn't understand, as more types of locations could
 	//   be recorded in the future.
-	Location         []*SourceCodeInfo_Location `protobuf:"bytes,1,rep,name=location" json:"location,omitempty"`
-	XXX_unrecognized []byte                     `json:"-"`
+	Location             []*SourceCodeInfo_Location `protobuf:"bytes,1,rep,name=location" json:"location,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}                   `json:"-"`
+	XXX_unrecognized     []byte                     `json:"-"`
+	XXX_sizecache        int32                      `json:"-"`
 }
 
 func (m *SourceCodeInfo) Reset()                    { *m = SourceCodeInfo{} }
 func (m *SourceCodeInfo) String() string            { return proto.CompactTextString(m) }
 func (*SourceCodeInfo) ProtoMessage()               {}
 func (*SourceCodeInfo) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{19} }
+func (m *SourceCodeInfo) Unmarshal(b []byte) error {
+	return xxx_messageInfo_SourceCodeInfo.Unmarshal(m, b)
+}
+func (m *SourceCodeInfo) Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_SourceCodeInfo.Marshal(b, m, deterministic)
+}
+func (dst *SourceCodeInfo) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_SourceCodeInfo.Merge(dst, src)
+}
+func (m *SourceCodeInfo) XXX_Size() int {
+	return xxx_messageInfo_SourceCodeInfo.Size(m)
+}
+func (m *SourceCodeInfo) XXX_DiscardUnknown() {
+	xxx_messageInfo_SourceCodeInfo.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_SourceCodeInfo proto.InternalMessageInfo
 
 func (m *SourceCodeInfo) GetLocation() []*SourceCodeInfo_Location {
 	if m != nil {
@@ -1899,13 +2336,32 @@ type SourceCodeInfo_Location struct {
 	LeadingComments         *string  `protobuf:"bytes,3,opt,name=leading_comments,json=leadingComments" json:"leading_comments,omitempty"`
 	TrailingComments        *string  `protobuf:"bytes,4,opt,name=trailing_comments,json=trailingComments" json:"trailing_comments,omitempty"`
 	LeadingDetachedComments []string `protobuf:"bytes,6,rep,name=leading_detached_comments,json=leadingDetachedComments" json:"leading_detached_comments,omitempty"`
+	XXX_NoUnkeyedLiteral    struct{} `json:"-"`
 	XXX_unrecognized        []byte   `json:"-"`
+	XXX_sizecache           int32    `json:"-"`
 }
 
 func (m *SourceCodeInfo_Location) Reset()                    { *m = SourceCodeInfo_Location{} }
 func (m *SourceCodeInfo_Location) String() string            { return proto.CompactTextString(m) }
 func (*SourceCodeInfo_Location) ProtoMessage()               {}
 func (*SourceCodeInfo_Location) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{19, 0} }
+func (m *SourceCodeInfo_Location) Unmarshal(b []byte) error {
+	return xxx_messageInfo_SourceCodeInfo_Location.Unmarshal(m, b)
+}
+func (m *SourceCodeInfo_Location) Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_SourceCodeInfo_Location.Marshal(b, m, deterministic)
+}
+func (dst *SourceCodeInfo_Location) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_SourceCodeInfo_Location.Merge(dst, src)
+}
+func (m *SourceCodeInfo_Location) XXX_Size() int {
+	return xxx_messageInfo_SourceCodeInfo_Location.Size(m)
+}
+func (m *SourceCodeInfo_Location) XXX_DiscardUnknown() {
+	xxx_messageInfo_SourceCodeInfo_Location.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_SourceCodeInfo_Location proto.InternalMessageInfo
 
 func (m *SourceCodeInfo_Location) GetPath() []int32 {
 	if m != nil {
@@ -1948,14 +2404,33 @@ func (m *SourceCodeInfo_Location) GetLeadingDetachedComments() []string {
 type GeneratedCodeInfo struct {
 	// An Annotation connects some span of text in generated code to an element
 	// of its generating .proto file.
-	Annotation       []*GeneratedCodeInfo_Annotation `protobuf:"bytes,1,rep,name=annotation" json:"annotation,omitempty"`
-	XXX_unrecognized []byte                          `json:"-"`
+	Annotation           []*GeneratedCodeInfo_Annotation `protobuf:"bytes,1,rep,name=annotation" json:"annotation,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}                        `json:"-"`
+	XXX_unrecognized     []byte                          `json:"-"`
+	XXX_sizecache        int32                           `json:"-"`
 }
 
 func (m *GeneratedCodeInfo) Reset()                    { *m = GeneratedCodeInfo{} }
 func (m *GeneratedCodeInfo) String() string            { return proto.CompactTextString(m) }
 func (*GeneratedCodeInfo) ProtoMessage()               {}
 func (*GeneratedCodeInfo) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{20} }
+func (m *GeneratedCodeInfo) Unmarshal(b []byte) error {
+	return xxx_messageInfo_GeneratedCodeInfo.Unmarshal(m, b)
+}
+func (m *GeneratedCodeInfo) Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_GeneratedCodeInfo.Marshal(b, m, deterministic)
+}
+func (dst *GeneratedCodeInfo) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_GeneratedCodeInfo.Merge(dst, src)
+}
+func (m *GeneratedCodeInfo) XXX_Size() int {
+	return xxx_messageInfo_GeneratedCodeInfo.Size(m)
+}
+func (m *GeneratedCodeInfo) XXX_DiscardUnknown() {
+	xxx_messageInfo_GeneratedCodeInfo.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_GeneratedCodeInfo proto.InternalMessageInfo
 
 func (m *GeneratedCodeInfo) GetAnnotation() []*GeneratedCodeInfo_Annotation {
 	if m != nil {
@@ -1976,8 +2451,10 @@ type GeneratedCodeInfo_Annotation struct {
 	// Identifies the ending offset in bytes in the generated code that
 	// relates to the identified offset. The end offset should be one past
 	// the last relevant byte (so the length of the text = end - begin).
-	End              *int32 `protobuf:"varint,4,opt,name=end" json:"end,omitempty"`
-	XXX_unrecognized []byte `json:"-"`
+	End                  *int32   `protobuf:"varint,4,opt,name=end" json:"end,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
 }
 
 func (m *GeneratedCodeInfo_Annotation) Reset()         { *m = GeneratedCodeInfo_Annotation{} }
@@ -1986,6 +2463,23 @@ func (*GeneratedCodeInfo_Annotation) ProtoMessage()    {}
 func (*GeneratedCodeInfo_Annotation) Descriptor() ([]byte, []int) {
 	return fileDescriptor0, []int{20, 0}
 }
+func (m *GeneratedCodeInfo_Annotation) Unmarshal(b []byte) error {
+	return xxx_messageInfo_GeneratedCodeInfo_Annotation.Unmarshal(m, b)
+}
+func (m *GeneratedCodeInfo_Annotation) Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_GeneratedCodeInfo_Annotation.Marshal(b, m, deterministic)
+}
+func (dst *GeneratedCodeInfo_Annotation) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_GeneratedCodeInfo_Annotation.Merge(dst, src)
+}
+func (m *GeneratedCodeInfo_Annotation) XXX_Size() int {
+	return xxx_messageInfo_GeneratedCodeInfo_Annotation.Size(m)
+}
+func (m *GeneratedCodeInfo_Annotation) XXX_DiscardUnknown() {
+	xxx_messageInfo_GeneratedCodeInfo_Annotation.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_GeneratedCodeInfo_Annotation proto.InternalMessageInfo
 
 func (m *GeneratedCodeInfo_Annotation) GetPath() []int32 {
 	if m != nil {

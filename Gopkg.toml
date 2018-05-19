@@ -170,7 +170,7 @@
 
 [[constraint]]
   name = "github.com/golang/protobuf"
-  revision = "1643683e1b54a9e88ad26d98f81400c8c9d9f4f9"
+  revision = "8cc9e46429bfb16289d40d30b2ee3f4923b47345"
 
 [[constraint]]
   name = "github.com/google/gopacket"

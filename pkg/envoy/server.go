@@ -154,34 +154,34 @@ func StartXDSServer(stateDir string) *XDSServer {
 			}, {
 				Name: "envoy.http_connection_manager",
 				Config: &structpb.Struct{Fields: map[string]*structpb.Value{
-					"stat_prefix": {&structpb.Value_StringValue{StringValue: "proxy"}},
-					"http_filters": {&structpb.Value_ListValue{ListValue: &structpb.ListValue{Values: []*structpb.Value{
-						{&structpb.Value_StructValue{StructValue: &structpb.Struct{Fields: map[string]*structpb.Value{
-							"name": {&structpb.Value_StringValue{StringValue: "cilium.l7policy"}},
-							"config": {&structpb.Value_StructValue{StructValue: &structpb.Struct{Fields: map[string]*structpb.Value{
-								"access_log_path": {&structpb.Value_StringValue{StringValue: accessLogPath}},
-								"denied_403_body": {&structpb.Value_StringValue{StringValue: denied403body}},
+					"stat_prefix": {Kind: &structpb.Value_StringValue{StringValue: "proxy"}},
+					"http_filters": {Kind: &structpb.Value_ListValue{ListValue: &structpb.ListValue{Values: []*structpb.Value{
+						{Kind: &structpb.Value_StructValue{StructValue: &structpb.Struct{Fields: map[string]*structpb.Value{
+							"name": {Kind: &structpb.Value_StringValue{StringValue: "cilium.l7policy"}},
+							"config": {Kind: &structpb.Value_StructValue{StructValue: &structpb.Struct{Fields: map[string]*structpb.Value{
+								"access_log_path": {Kind: &structpb.Value_StringValue{StringValue: accessLogPath}},
+								"denied_403_body": {Kind: &structpb.Value_StringValue{StringValue: denied403body}},
 							}}}},
 						}}}},
-						{&structpb.Value_StructValue{StructValue: &structpb.Struct{Fields: map[string]*structpb.Value{
-							"name":   {&structpb.Value_StringValue{StringValue: "envoy.router"}},
-							"config": {&structpb.Value_StructValue{StructValue: &structpb.Struct{Fields: map[string]*structpb.Value{}}}},
+						{Kind: &structpb.Value_StructValue{StructValue: &structpb.Struct{Fields: map[string]*structpb.Value{
+							"name":   {Kind: &structpb.Value_StringValue{StringValue: "envoy.router"}},
+							"config": {Kind: &structpb.Value_StructValue{StructValue: &structpb.Struct{Fields: map[string]*structpb.Value{}}}},
 						}}}},
 					}}}},
-					"route_config": {&structpb.Value_StructValue{StructValue: &structpb.Struct{Fields: map[string]*structpb.Value{
-						"virtual_hosts": {&structpb.Value_ListValue{ListValue: &structpb.ListValue{Values: []*structpb.Value{
-							{&structpb.Value_StructValue{StructValue: &structpb.Struct{Fields: map[string]*structpb.Value{
-								"name": {&structpb.Value_StringValue{StringValue: "default_route"}},
-								"domains": {&structpb.Value_ListValue{ListValue: &structpb.ListValue{Values: []*structpb.Value{
-									{&structpb.Value_StringValue{StringValue: "*"}},
+					"route_config": {Kind: &structpb.Value_StructValue{StructValue: &structpb.Struct{Fields: map[string]*structpb.Value{
+						"virtual_hosts": {Kind: &structpb.Value_ListValue{ListValue: &structpb.ListValue{Values: []*structpb.Value{
+							{Kind: &structpb.Value_StructValue{StructValue: &structpb.Struct{Fields: map[string]*structpb.Value{
+								"name": {Kind: &structpb.Value_StringValue{StringValue: "default_route"}},
+								"domains": {Kind: &structpb.Value_ListValue{ListValue: &structpb.ListValue{Values: []*structpb.Value{
+									{Kind: &structpb.Value_StringValue{StringValue: "*"}},
 								}}}},
-								"routes": {&structpb.Value_ListValue{ListValue: &structpb.ListValue{Values: []*structpb.Value{
-									{&structpb.Value_StructValue{StructValue: &structpb.Struct{Fields: map[string]*structpb.Value{
-										"match": {&structpb.Value_StructValue{StructValue: &structpb.Struct{Fields: map[string]*structpb.Value{
-											"prefix": {&structpb.Value_StringValue{StringValue: "/"}},
+								"routes": {Kind: &structpb.Value_ListValue{ListValue: &structpb.ListValue{Values: []*structpb.Value{
+									{Kind: &structpb.Value_StructValue{StructValue: &structpb.Struct{Fields: map[string]*structpb.Value{
+										"match": {Kind: &structpb.Value_StructValue{StructValue: &structpb.Struct{Fields: map[string]*structpb.Value{
+											"prefix": {Kind: &structpb.Value_StringValue{StringValue: "/"}},
 										}}}},
-										"route": {&structpb.Value_StructValue{StructValue: &structpb.Struct{Fields: map[string]*structpb.Value{
-											"cluster": {&structpb.Value_StringValue{StringValue: "cluster1"}},
+										"route": {Kind: &structpb.Value_StructValue{StructValue: &structpb.Struct{Fields: map[string]*structpb.Value{
+											"cluster": {Kind: &structpb.Value_StringValue{StringValue: "cluster1"}},
 										}}}},
 									}}}},
 								}}}},
@@ -194,8 +194,8 @@ func StartXDSServer(stateDir string) *XDSServer {
 		ListenerFilters: []*envoy_api_v2_listener.ListenerFilter{{
 			Name: "cilium.bpf_metadata",
 			Config: &structpb.Struct{Fields: map[string]*structpb.Value{
-				"is_ingress": {&structpb.Value_BoolValue{BoolValue: false}},
-				"bpf_root":   {&structpb.Value_StringValue{StringValue: "/sys/fs/bpf"}},
+				"is_ingress": {Kind: &structpb.Value_BoolValue{BoolValue: false}},
+				"bpf_root":   {Kind: &structpb.Value_StringValue{StringValue: "/sys/fs/bpf"}},
 			}},
 		}},
 	}

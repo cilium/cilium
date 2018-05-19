@@ -261,6 +261,15 @@ func equalExtMap(base reflect.Type, em1, em2 map[int32]Extension) bool {
 
 		m1, m2 := e1.value, e2.value
 
+		if m1 == nil && m2 == nil {
+			// Both have only encoded form.
+			if bytes.Equal(e1.enc, e2.enc) {
+				continue
+			}
+			// The bytes are different, but the extensions might still be
+			// equal. We need to decode them to compare.
+		}
+
 		if m1 != nil && m2 != nil {
 			// Both are unencoded.
 			if !equalAny(reflect.ValueOf(m1), reflect.ValueOf(m2), nil) {
@@ -276,8 +285,12 @@ func equalExtMap(base reflect.Type, em1, em2 map[int32]Extension) bool {
 			desc = m[extNum]
 		}
 		if desc == nil {
+			// If both have only encoded form and the bytes are the same,
+			// it is handled above. We get here when the bytes are different.
+			// We don't know how to decode it, so just compare them as byte
+			// slices.
 			log.Printf("proto: don't know how to compare extension %d of %v", extNum, base)
-			continue
+			return false
 		}
 		var err error
 		if m1 == nil {
