@@ -6,15 +6,21 @@ package v2
 import proto "github.com/golang/protobuf/proto"
 import fmt "fmt"
 import math "math"
-import envoy_api_v2_core1 "github.com/cilium/cilium/pkg/envoy/envoy/api/v2/core"
-import google_protobuf5 "github.com/golang/protobuf/ptypes/any"
-import google_rpc "google.golang.org/genproto/googleapis/rpc/status"
+import core "github.com/cilium/cilium/pkg/envoy/envoy/api/v2/core"
 import _ "github.com/gogo/protobuf/gogoproto"
+import any "github.com/golang/protobuf/ptypes/any"
+import status "google.golang.org/genproto/googleapis/rpc/status"
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal
 var _ = fmt.Errorf
 var _ = math.Inf
+
+// This is a compile-time assertion to ensure that this generated file
+// is compatible with the proto package it is being compiled against.
+// A compilation error at this line likely means your copy of the
+// proto package needs to be updated.
+const _ = proto.ProtoPackageIsVersion2 // please upgrade the proto package
 
 // A DiscoveryRequest requests a set of versioned resources of the same type for
 // a given Envoy node on some API.
@@ -28,7 +34,7 @@ type DiscoveryRequest struct {
 	// (see below) has an independent version associated with it.
 	VersionInfo string `protobuf:"bytes,1,opt,name=version_info,json=versionInfo" json:"version_info,omitempty"`
 	// The node making the request.
-	Node *envoy_api_v2_core1.Node `protobuf:"bytes,2,opt,name=node" json:"node,omitempty"`
+	Node *core.Node `protobuf:"bytes,2,opt,name=node" json:"node,omitempty"`
 	// List of resources to subscribe to, e.g. list of cluster names or a route
 	// configuration name. If this is empty, all resources for the API are
 	// returned. LDS/CDS expect empty resource_names, since this is global
@@ -50,13 +56,35 @@ type DiscoveryRequest struct {
 	// failed to update configuration. The *message* field in *error_details* provides the Envoy
 	// internal exception related to the failure. It is only intended for consumption during manual
 	// debugging, the string provided is not guaranteed to be stable across Envoy versions.
-	ErrorDetail *google_rpc.Status `protobuf:"bytes,6,opt,name=error_detail,json=errorDetail" json:"error_detail,omitempty"`
+	ErrorDetail          *status.Status `protobuf:"bytes,6,opt,name=error_detail,json=errorDetail" json:"error_detail,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}       `json:"-"`
+	XXX_unrecognized     []byte         `json:"-"`
+	XXX_sizecache        int32          `json:"-"`
 }
 
-func (m *DiscoveryRequest) Reset()                    { *m = DiscoveryRequest{} }
-func (m *DiscoveryRequest) String() string            { return proto.CompactTextString(m) }
-func (*DiscoveryRequest) ProtoMessage()               {}
-func (*DiscoveryRequest) Descriptor() ([]byte, []int) { return fileDescriptor1, []int{0} }
+func (m *DiscoveryRequest) Reset()         { *m = DiscoveryRequest{} }
+func (m *DiscoveryRequest) String() string { return proto.CompactTextString(m) }
+func (*DiscoveryRequest) ProtoMessage()    {}
+func (*DiscoveryRequest) Descriptor() ([]byte, []int) {
+	return fileDescriptor_discovery_b412db76c3d05c43, []int{0}
+}
+func (m *DiscoveryRequest) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_DiscoveryRequest.Unmarshal(m, b)
+}
+func (m *DiscoveryRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_DiscoveryRequest.Marshal(b, m, deterministic)
+}
+func (dst *DiscoveryRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_DiscoveryRequest.Merge(dst, src)
+}
+func (m *DiscoveryRequest) XXX_Size() int {
+	return xxx_messageInfo_DiscoveryRequest.Size(m)
+}
+func (m *DiscoveryRequest) XXX_DiscardUnknown() {
+	xxx_messageInfo_DiscoveryRequest.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_DiscoveryRequest proto.InternalMessageInfo
 
 func (m *DiscoveryRequest) GetVersionInfo() string {
 	if m != nil {
@@ -65,7 +93,7 @@ func (m *DiscoveryRequest) GetVersionInfo() string {
 	return ""
 }
 
-func (m *DiscoveryRequest) GetNode() *envoy_api_v2_core1.Node {
+func (m *DiscoveryRequest) GetNode() *core.Node {
 	if m != nil {
 		return m.Node
 	}
@@ -93,7 +121,7 @@ func (m *DiscoveryRequest) GetResponseNonce() string {
 	return ""
 }
 
-func (m *DiscoveryRequest) GetErrorDetail() *google_rpc.Status {
+func (m *DiscoveryRequest) GetErrorDetail() *status.Status {
 	if m != nil {
 		return m.ErrorDetail
 	}
@@ -104,7 +132,7 @@ type DiscoveryResponse struct {
 	// The version of the response data.
 	VersionInfo string `protobuf:"bytes,1,opt,name=version_info,json=versionInfo" json:"version_info,omitempty"`
 	// The response resources. These resources are typed and depend on the API being called.
-	Resources []*google_protobuf5.Any `protobuf:"bytes,2,rep,name=resources" json:"resources,omitempty"`
+	Resources []*any.Any `protobuf:"bytes,2,rep,name=resources" json:"resources,omitempty"`
 	// [#not-implemented-hide:]
 	// Canary is used to support two Envoy command line flags:
 	//
@@ -132,13 +160,35 @@ type DiscoveryResponse struct {
 	// to ignore any further DiscoveryRequests for the previous version until a
 	// DiscoveryRequest bearing the nonce. The nonce is optional and is not
 	// required for non-stream based xDS implementations.
-	Nonce string `protobuf:"bytes,5,opt,name=nonce" json:"nonce,omitempty"`
+	Nonce                string   `protobuf:"bytes,5,opt,name=nonce" json:"nonce,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
 }
 
-func (m *DiscoveryResponse) Reset()                    { *m = DiscoveryResponse{} }
-func (m *DiscoveryResponse) String() string            { return proto.CompactTextString(m) }
-func (*DiscoveryResponse) ProtoMessage()               {}
-func (*DiscoveryResponse) Descriptor() ([]byte, []int) { return fileDescriptor1, []int{1} }
+func (m *DiscoveryResponse) Reset()         { *m = DiscoveryResponse{} }
+func (m *DiscoveryResponse) String() string { return proto.CompactTextString(m) }
+func (*DiscoveryResponse) ProtoMessage()    {}
+func (*DiscoveryResponse) Descriptor() ([]byte, []int) {
+	return fileDescriptor_discovery_b412db76c3d05c43, []int{1}
+}
+func (m *DiscoveryResponse) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_DiscoveryResponse.Unmarshal(m, b)
+}
+func (m *DiscoveryResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_DiscoveryResponse.Marshal(b, m, deterministic)
+}
+func (dst *DiscoveryResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_DiscoveryResponse.Merge(dst, src)
+}
+func (m *DiscoveryResponse) XXX_Size() int {
+	return xxx_messageInfo_DiscoveryResponse.Size(m)
+}
+func (m *DiscoveryResponse) XXX_DiscardUnknown() {
+	xxx_messageInfo_DiscoveryResponse.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_DiscoveryResponse proto.InternalMessageInfo
 
 func (m *DiscoveryResponse) GetVersionInfo() string {
 	if m != nil {
@@ -147,7 +197,7 @@ func (m *DiscoveryResponse) GetVersionInfo() string {
 	return ""
 }
 
-func (m *DiscoveryResponse) GetResources() []*google_protobuf5.Any {
+func (m *DiscoveryResponse) GetResources() []*any.Any {
 	if m != nil {
 		return m.Resources
 	}
@@ -180,9 +230,11 @@ func init() {
 	proto.RegisterType((*DiscoveryResponse)(nil), "envoy.api.v2.DiscoveryResponse")
 }
 
-func init() { proto.RegisterFile("envoy/api/v2/discovery.proto", fileDescriptor1) }
+func init() {
+	proto.RegisterFile("envoy/api/v2/discovery.proto", fileDescriptor_discovery_b412db76c3d05c43)
+}
 
-var fileDescriptor1 = []byte{
+var fileDescriptor_discovery_b412db76c3d05c43 = []byte{
 	// 382 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x8c, 0x91, 0xc1, 0xea, 0xd3, 0x40,
 	0x10, 0xc6, 0x4d, 0xd2, 0x7f, 0x6d, 0x37, 0xad, 0xe8, 0x52, 0xec, 0xb6, 0x88, 0xc6, 0x82, 0x10,

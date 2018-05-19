@@ -39,15 +39,15 @@ NetworkPolicyMap::NetworkPolicyMap(const envoy::api::v2::core::Node& node,
   subscription_ = subscribe<cilium::NetworkPolicy>("cilium.NetworkPolicyDiscoveryService.StreamNetworkPolicies", node, cm, dispatcher, *scope_);
 }
 
-void NetworkPolicyMap::onConfigUpdate(const ResourceVector& resources) {
-  ENVOY_LOG(debug, "NetworkPolicyMap::onConfigUpdate({}), {} resources, current version: {}", name_, resources.size(), subscription_->versionInfo());
+void NetworkPolicyMap::onConfigUpdate(const ResourceVector& resources, const std::string& version_info) {
+  ENVOY_LOG(debug, "NetworkPolicyMap::onConfigUpdate({}), {} resources, version: {}", name_, resources.size(), version_info);
 
   std::unordered_set<std::string> keeps;
 
   // Collect a shared vector of policies to be added
   auto to_be_added = std::make_shared<std::vector<std::shared_ptr<PolicyInstance>>>();
   for (const auto& config: resources) {
-    ENVOY_LOG(debug, "Received Network Policy for endpoint {} in onConfigUpdate() version {}", config.name(), subscription_->versionInfo(), config.name());
+    ENVOY_LOG(debug, "Received Network Policy for endpoint {} in onConfigUpdate() version {}", config.name(), version_info);
     keeps.insert(config.name());
 
     MessageUtil::validate(config);

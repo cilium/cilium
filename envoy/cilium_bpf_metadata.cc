@@ -25,7 +25,7 @@ namespace Configuration {
 class BpfMetadataConfigFactory : public NamedListenerFilterConfigFactory {
 public:
   // NamedListenerFilterConfigFactory
-  Configuration::ListenerFilterFactoryCb
+  Network::ListenerFilterFactoryCb
   createFilterFactoryFromProto(const Protobuf::Message& proto_config,
 			       Configuration::ListenerFactoryContext& context) override {
     auto config = std::make_shared<Filter::BpfMetadata::Config>(MessageUtil::downcastAndValidate<const ::cilium::BpfMetadata&>(proto_config), context);

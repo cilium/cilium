@@ -6,11 +6,11 @@ package v2
 import proto "github.com/golang/protobuf/proto"
 import fmt "fmt"
 import math "math"
-import envoy_api_v2_core1 "github.com/cilium/cilium/pkg/envoy/envoy/api/v2/core"
-import envoy_api_v2_route "github.com/cilium/cilium/pkg/envoy/envoy/api/v2/route"
-import _ "google.golang.org/genproto/googleapis/api/annotations"
-import google_protobuf "github.com/golang/protobuf/ptypes/wrappers"
+import core "github.com/cilium/cilium/pkg/envoy/envoy/api/v2/core"
+import route "github.com/cilium/cilium/pkg/envoy/envoy/api/v2/route"
 import _ "github.com/gogo/protobuf/gogoproto"
+import wrappers "github.com/golang/protobuf/ptypes/wrappers"
+import _ "google.golang.org/genproto/googleapis/api/annotations"
 
 import (
 	context "golang.org/x/net/context"
@@ -22,6 +22,12 @@ var _ = proto.Marshal
 var _ = fmt.Errorf
 var _ = math.Inf
 
+// This is a compile-time assertion to ensure that this generated file
+// is compatible with the proto package it is being compiled against.
+// A compilation error at this line likely means your copy of the
+// proto package needs to be updated.
+const _ = proto.ProtoPackageIsVersion2 // please upgrade the proto package
+
 type RouteConfiguration struct {
 	// The name of the route configuration. For example, it might match
 	// :ref:`route_config_name
@@ -29,7 +35,7 @@ type RouteConfiguration struct {
 	// :ref:`envoy_api_msg_config.filter.network.http_connection_manager.v2.Rds`.
 	Name string `protobuf:"bytes,1,opt,name=name" json:"name,omitempty"`
 	// An array of virtual hosts that make up the route table.
-	VirtualHosts []*envoy_api_v2_route.VirtualHost `protobuf:"bytes,2,rep,name=virtual_hosts,json=virtualHosts" json:"virtual_hosts,omitempty"`
+	VirtualHosts []*route.VirtualHost `protobuf:"bytes,2,rep,name=virtual_hosts,json=virtualHosts" json:"virtual_hosts,omitempty"`
 	// Optionally specifies a list of HTTP headers that the connection manager
 	// will consider to be internal only. If they are found on external requests they will be cleaned
 	// prior to filter invocation. See :ref:`config_http_conn_man_headers_x-envoy-internal` for more
@@ -41,7 +47,7 @@ type RouteConfiguration struct {
 	// :ref:`envoy_api_msg_route.RouteAction`. For more information, including details on
 	// header value syntax, see the documentation on :ref:`custom request headers
 	// <config_http_conn_man_headers_custom_request_headers>`.
-	ResponseHeadersToAdd []*envoy_api_v2_core1.HeaderValueOption `protobuf:"bytes,4,rep,name=response_headers_to_add,json=responseHeadersToAdd" json:"response_headers_to_add,omitempty"`
+	ResponseHeadersToAdd []*core.HeaderValueOption `protobuf:"bytes,4,rep,name=response_headers_to_add,json=responseHeadersToAdd" json:"response_headers_to_add,omitempty"`
 	// Specifies a list of HTTP headers that should be removed from each response
 	// that the connection manager encodes.
 	ResponseHeadersToRemove []string `protobuf:"bytes,5,rep,name=response_headers_to_remove,json=responseHeadersToRemove" json:"response_headers_to_remove,omitempty"`
@@ -51,7 +57,7 @@ type RouteConfiguration struct {
 	// :ref:`envoy_api_msg_route.RouteAction`. For more information, including details on
 	// header value syntax, see the documentation on :ref:`custom request headers
 	// <config_http_conn_man_headers_custom_request_headers>`.
-	RequestHeadersToAdd []*envoy_api_v2_core1.HeaderValueOption `protobuf:"bytes,6,rep,name=request_headers_to_add,json=requestHeadersToAdd" json:"request_headers_to_add,omitempty"`
+	RequestHeadersToAdd []*core.HeaderValueOption `protobuf:"bytes,6,rep,name=request_headers_to_add,json=requestHeadersToAdd" json:"request_headers_to_add,omitempty"`
 	// An optional boolean that specifies whether the clusters that the route
 	// table refers to will be validated by the cluster manager. If set to true
 	// and a route refers to a non-existent cluster, the route table will not
@@ -65,13 +71,35 @@ type RouteConfiguration struct {
 	// <envoy_api_field_config.filter.network.http_connection_manager.v2.HttpConnectionManager.rds>`
 	// option. Users may which to override the default behavior in certain cases (for example when
 	// using CDS with a static route table).
-	ValidateClusters *google_protobuf.BoolValue `protobuf:"bytes,7,opt,name=validate_clusters,json=validateClusters" json:"validate_clusters,omitempty"`
+	ValidateClusters     *wrappers.BoolValue `protobuf:"bytes,7,opt,name=validate_clusters,json=validateClusters" json:"validate_clusters,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}            `json:"-"`
+	XXX_unrecognized     []byte              `json:"-"`
+	XXX_sizecache        int32               `json:"-"`
 }
 
-func (m *RouteConfiguration) Reset()                    { *m = RouteConfiguration{} }
-func (m *RouteConfiguration) String() string            { return proto.CompactTextString(m) }
-func (*RouteConfiguration) ProtoMessage()               {}
-func (*RouteConfiguration) Descriptor() ([]byte, []int) { return fileDescriptor4, []int{0} }
+func (m *RouteConfiguration) Reset()         { *m = RouteConfiguration{} }
+func (m *RouteConfiguration) String() string { return proto.CompactTextString(m) }
+func (*RouteConfiguration) ProtoMessage()    {}
+func (*RouteConfiguration) Descriptor() ([]byte, []int) {
+	return fileDescriptor_rds_616abccd5cb89738, []int{0}
+}
+func (m *RouteConfiguration) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_RouteConfiguration.Unmarshal(m, b)
+}
+func (m *RouteConfiguration) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_RouteConfiguration.Marshal(b, m, deterministic)
+}
+func (dst *RouteConfiguration) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_RouteConfiguration.Merge(dst, src)
+}
+func (m *RouteConfiguration) XXX_Size() int {
+	return xxx_messageInfo_RouteConfiguration.Size(m)
+}
+func (m *RouteConfiguration) XXX_DiscardUnknown() {
+	xxx_messageInfo_RouteConfiguration.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_RouteConfiguration proto.InternalMessageInfo
 
 func (m *RouteConfiguration) GetName() string {
 	if m != nil {
@@ -80,7 +108,7 @@ func (m *RouteConfiguration) GetName() string {
 	return ""
 }
 
-func (m *RouteConfiguration) GetVirtualHosts() []*envoy_api_v2_route.VirtualHost {
+func (m *RouteConfiguration) GetVirtualHosts() []*route.VirtualHost {
 	if m != nil {
 		return m.VirtualHosts
 	}
@@ -94,7 +122,7 @@ func (m *RouteConfiguration) GetInternalOnlyHeaders() []string {
 	return nil
 }
 
-func (m *RouteConfiguration) GetResponseHeadersToAdd() []*envoy_api_v2_core1.HeaderValueOption {
+func (m *RouteConfiguration) GetResponseHeadersToAdd() []*core.HeaderValueOption {
 	if m != nil {
 		return m.ResponseHeadersToAdd
 	}
@@ -108,14 +136,14 @@ func (m *RouteConfiguration) GetResponseHeadersToRemove() []string {
 	return nil
 }
 
-func (m *RouteConfiguration) GetRequestHeadersToAdd() []*envoy_api_v2_core1.HeaderValueOption {
+func (m *RouteConfiguration) GetRequestHeadersToAdd() []*core.HeaderValueOption {
 	if m != nil {
 		return m.RequestHeadersToAdd
 	}
 	return nil
 }
 
-func (m *RouteConfiguration) GetValidateClusters() *google_protobuf.BoolValue {
+func (m *RouteConfiguration) GetValidateClusters() *wrappers.BoolValue {
 	if m != nil {
 		return m.ValidateClusters
 	}
@@ -264,9 +292,9 @@ var _RouteDiscoveryService_serviceDesc = grpc.ServiceDesc{
 	Metadata: "envoy/api/v2/rds.proto",
 }
 
-func init() { proto.RegisterFile("envoy/api/v2/rds.proto", fileDescriptor4) }
+func init() { proto.RegisterFile("envoy/api/v2/rds.proto", fileDescriptor_rds_616abccd5cb89738) }
 
-var fileDescriptor4 = []byte{
+var fileDescriptor_rds_616abccd5cb89738 = []byte{
 	// 488 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xac, 0x53, 0x4f, 0x6b, 0xd4, 0x40,
 	0x14, 0xef, 0x74, 0xd7, 0x96, 0xce, 0xae, 0xa0, 0xd3, 0x6d, 0x1b, 0x17, 0xd9, 0x5d, 0x16, 0x0f,
