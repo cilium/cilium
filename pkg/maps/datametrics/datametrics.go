@@ -32,6 +32,48 @@ const (
 	MaxEntries = 65536
 )
 
+var direction = map[uint8]string{
+	0: "INGRESS",
+	1: "EGRESS",
+}
+
+var dropForwardReason = map[uint8]string{
+	0:   "FORWARD",
+	130: "DROP_INVALID_SMAC",
+	131: "DROP_INVALID_DMAC",
+	132: "DROP_INVALID_SIP",
+	133: "DROP_POLICY",
+	134: "DROP_INVALID",
+	135: "DROP_CT_INVALID_HDR",
+	136: "DROP_CT_MISSING_ACK",
+	137: "DROP_CT_UNKNOWN_PROTO",
+	138: "DROP_CT_CANT_CREATE",
+	139: "DROP_UNKNOWN_L3",
+	140: "DROP_MISSED_TAIL_CALL",
+	141: "DROP_WRITE_ERROR",
+	142: "DROP_UNKNOWN_L4",
+	143: "DROP_UNKNOWN_ICMP_CODE",
+	144: "DROP_UNKNOWN_ICMP_TYPE",
+	145: "DROP_UNKNOWN_ICMP6_CODE",
+	146: "DROP_UNKNOWN_ICMP6_TYPE",
+	147: "DROP_NO_TUNNEL_KEY",
+	148: "DROP_NO_TUNNEL_OPT",
+	149: "DROP_INVALID_GENEVE",
+	150: "DROP_UNKNOWN_TARGET",
+	151: "DROP_NON_LOCAL",
+	152: "DROP_NO_LXC",
+	153: "DROP_CSUM_L3",
+	154: "DROP_CSUM_L4",
+	155: "DROP_CT_CREATE_FAILED",
+	156: "DROP_INVALID_EXTHDR",
+	157: "DROP_FRAG_NOSUPPORT",
+	158: "DROP_NO_SERVICE",
+	159: "DROP_POLICY_L4",
+	160: "DROP_NO_TUNNEL_ENDPOINT",
+	161: "DROP_PROXYMAP_CREATE_FAILED",
+	162: "DROP_POLICY_CIDR",
+}
+
 // Key must be in sync with struct metrics_key in <bpf/lib/common.h>
 type Key struct {
 	reason   uint8
@@ -48,6 +90,36 @@ type Value struct {
 // String converts the key into a human readable string format
 func (k Key) String() string {
 	return fmt.Sprintf("reason:%d dir:%d", k.reason, k.dir)
+}
+
+// String converts the key into a human readable string format
+func (k Key) GetDirection() string {
+	//TODO confirm if direction is valid?
+	return dropForwardReason[k.dir]
+}
+
+// String converts the key into a human readable string format
+func (k Key) IsDrop() bool {
+	//TODO confirm if direction is valid?
+	return k.reason != 0
+}
+
+// String converts the reason into a human readable string format
+func (k Key) GetDropReason() string {
+	//TODO confirm if reason is valid?
+	return dropForwardReason[k.reason]
+}
+
+// String converts the request count into a human readable string format
+func (v Value) GetCount() float64 {
+	//TODO confirm if reason is valid?
+	return float64(v.count)
+}
+
+// String converts the request bytes into a human readable string format
+func (v Value) GetBytes() float64 {
+	//TODO confirm if reason is valid?
+	return float64(v.count)
 }
 
 // GetKeyPtr returns the unsafe pointer to the BPF key
