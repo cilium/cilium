@@ -1,8 +1,8 @@
 .. _gs_minikube:
 
-********************************
+******************************
 Getting Started Using Minikube
-********************************
+******************************
 
 This guide uses `minikube <https://kubernetes.io/docs/getting-started-guides/minikube/>`_
 to demonstrate deployment and operation of Cilium in a single-node Kubernetes cluster.
@@ -15,97 +15,8 @@ deploying Cilium on a full fledged Kubernetes cluster, then go straight to
 
 .. include:: gsg_intro.rst
 .. include:: minikube_intro.rst
+.. include:: cilium_install.rst
 
-Step 1: Installing Cilium
-=========================
-
-The next step is to install Cilium into your Kubernetes cluster.  Cilium installation
-leverages the `Kubernetes Daemon Set <https://kubernetes.io/docs/concepts/workloads/controllers/daemonset/>`_
-abstraction, which will deploy one Cilium pod per
-cluster node.  This Cilium pod will run in the ``kube-system`` namespace along with
-all other system relevant daemons and services.  The Cilium pod will run both the Cilium
-agent and the Cilium CNI plugin.
-
-To deploy Cilium, run:
-
-.. tabs::
-  .. group-tab:: K8s 1.7
-
-    .. parsed-literal::
-
-      $ kubectl create -f \ |SCM_WEB|\/examples/kubernetes/1.7/cilium.yaml
-      clusterrole "cilium" created
-      serviceaccount "cilium" created
-      clusterrolebinding "cilium" created
-      configmap "cilium-config" created
-      secret "cilium-etcd-secrets" created
-      daemonset "cilium" created
-
-  .. group-tab:: K8s 1.8
-
-    .. parsed-literal::
-
-      $ kubectl create -f \ |SCM_WEB|\/examples/kubernetes/1.8/cilium.yaml
-      clusterrole "cilium" created
-      serviceaccount "cilium" created
-      clusterrolebinding "cilium" created
-      configmap "cilium-config" created
-      secret "cilium-etcd-secrets" created
-      daemonset "cilium" created
-
-  .. group-tab:: K8s 1.9
-
-    .. parsed-literal::
-
-      $ kubectl create -f \ |SCM_WEB|\/examples/kubernetes/1.9/cilium.yaml
-      clusterrole "cilium" created
-      serviceaccount "cilium" created
-      clusterrolebinding "cilium" created
-      configmap "cilium-config" created
-      secret "cilium-etcd-secrets" created
-      daemonset "cilium" created
-
-  .. group-tab:: K8s 1.10
-
-    .. parsed-literal::
-
-      $ kubectl create -f \ |SCM_WEB|\/examples/kubernetes/1.10/cilium.yaml
-      clusterrole "cilium" created
-      serviceaccount "cilium" created
-      clusterrolebinding "cilium" created
-      configmap "cilium-config" created
-      secret "cilium-etcd-secrets" created
-      daemonset "cilium" created
-
-  .. group-tab:: K8s 1.11
-
-    .. parsed-literal::
-
-      $ kubectl create -f \ |SCM_WEB|\/examples/kubernetes/1.11/cilium.yaml
-      clusterrole "cilium" created
-      serviceaccount "cilium" created
-      clusterrolebinding "cilium" created
-      configmap "cilium-config" created
-      secret "cilium-etcd-secrets" created
-      daemonset "cilium" created
-
-Kubernetes is now deploying Cilium with its RBAC, ConfigMap and Daemon Set as a
-pod on all cluster nodes. This operation is performed in the background.
-
-Run the following command to check the progress of the deployment:
-
-::
-
-    $ kubectl get pods --namespace kube-system
-    NAME                          READY     STATUS    RESTARTS   AGE
-    cilium-1c2cz                  1/1       Running   0          21m
-    kube-addon-manager-minikube   1/1       Running   0          23m
-    kube-dns-910330662-jqdjk      3/3       Running   0          23m
-    kubernetes-dashboard-g8nzs    1/1       Running   0          23m
-
-
-Wait until the Cilium pod shows the ``STATUS`` as ``Running``, like above. In this tutorial, it's okay to 
-move forward with the ``READY`` status as 0.
 
 Step 2: Deploy the Demo Application
 ===================================
