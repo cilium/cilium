@@ -545,7 +545,7 @@ func (d *Daemon) installIptablesRules() error {
 	// performed by kube-proxy for all packets destined for Cilium. Cilium
 	// installs a dedicated rule which does the source PAT to the right
 	// source IP.
-	clearMasqBit := fmt.Sprintf("%#04x/%#04x", 0, proxy.MagicMarkK8sMasq)
+	clearMasqBit := fmt.Sprintf("%#08x/%#08x", 0, proxy.MagicMarkK8sMasq)
 	if err := runProg("iptables", []string{
 		"-t", "mangle",
 		"-A", ciliumPostMangleChain,
@@ -586,8 +586,8 @@ func (d *Daemon) installIptablesRules() error {
 	// special marker so that we can differentiate traffic sourced locally
 	// vs. traffic from the outside world that was masqueraded to appear
 	// like it's from the host.
-	matchFromProxy := fmt.Sprintf("%#04x/%#04x", proxy.MagicMarkIsProxy, proxy.MagicMarkProxyMask)
-	markAsFromHost := fmt.Sprintf("%#04x/%#04x", proxy.MagicMarkHost, proxy.MagicMarkHostMask)
+	matchFromProxy := fmt.Sprintf("%#08x/%#08x", proxy.MagicMarkIsProxy, proxy.MagicMarkProxyMask)
+	markAsFromHost := fmt.Sprintf("%#08x/%#08x", proxy.MagicMarkHost, proxy.MagicMarkHostMask)
 	if err := runProg("iptables", []string{
 		"-t", "filter",
 		"-A", ciliumOutputChain,
