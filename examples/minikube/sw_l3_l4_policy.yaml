@@ -1,15 +1,17 @@
 apiVersion: "cilium.io/v2"
 kind: CiliumNetworkPolicy
+description: "L3-L4 policy to restrict deathstar access to empire ships only"
 metadata:
-  name: "l4-rule"
+  name: "rule1"
 spec:
   endpointSelector:
     matchLabels:
-      role: backend
+      org: empire
+      class: deathstar
   ingress:
   - fromEndpoints:
     - matchLabels:
-        role: frontend
+        org: empire
     toPorts:
     - ports:
       - port: "80"
