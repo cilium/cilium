@@ -789,14 +789,14 @@ func (d *Daemon) OnIPIdentityCacheChange(modType ipcache.CacheModification, ipID
 	switch modType {
 	case ipcache.Upsert:
 		value := ipCacheBPF.RemoteEndpointInfo{SecurityIdentity: uint16(ipIDPair.ID)}
-		err := ipCacheBPF.IPCache.Update(key, &value)
+		err := ipCacheBPF.IPCache.Update(&key, &value)
 		if err != nil {
 			log.WithError(err).WithFields(logrus.Fields{"key": key.String(),
 				"value": value.String()}).
 				Warning("unable to update bpf map")
 		}
 	case ipcache.Delete:
-		err := ipCacheBPF.IPCache.Delete(key)
+		err := ipCacheBPF.IPCache.Delete(&key)
 		if err != nil {
 			log.WithError(err).WithFields(logrus.Fields{"key": key.String()}).
 				Warning("unable to delete from bpf map")
@@ -828,19 +828,19 @@ func (d *Daemon) OnIPIdentityCacheGC() {
 				ipcache.IPIdentityCache.RLock()
 				defer ipcache.IPIdentityCache.RUnlock()
 
-				keysToRemove := map[ipCacheBPF.EndpointKey]struct{}{}
+				keysToRemove := map[string]*ipCacheBPF.EndpointKey{}
 
 				// Add all keys which are in BPF map but not in in-memory cache
 				// to set of keys to remove from BPF map.
 				cb := func(key bpf.MapKey, value bpf.MapValue) {
-					k := key.(ipCacheBPF.EndpointKey)
+					k := key.(*ipCacheBPF.EndpointKey)
 					keyToIP := k.String()
 
 					// Don't RLock as part of the same goroutine.
 					if _, exists := ipcache.IPIdentityCache.LookupByIPRLocked(keyToIP); !exists {
 						// Cannot delete from map during callback because DumpWithCallback
 						// RLocks the map.
-						keysToRemove[k] = struct{}{}
+						keysToRemove[keyToIP] = k
 					}
 				}
 
@@ -850,7 +850,7 @@ func (d *Daemon) OnIPIdentityCacheGC() {
 
 				// Remove all keys which are not in in-memory cache from BPF map
 				// for consistency.
-				for k := range keysToRemove {
+				for _, k := range keysToRemove {
 					log.WithFields(logrus.Fields{logfields.BPFMapKey: k}).
 						Debug("deleting from ipcache BPF map")
 					if err := ipCacheBPF.IPCache.Delete(k); err != nil {

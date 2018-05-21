@@ -392,7 +392,7 @@ func (e *Endpoint) runInit(libdir, rundir, epdir, ifName, debug string) error {
 // after releasing that lock to push the entries into the datapath.
 // Functions below implement the EndpointFrontend interface with this cached information.
 type epInfoCache struct {
-	keys     []lxcmap.EndpointKey
+	keys     []*lxcmap.EndpointKey
 	value    *lxcmap.EndpointInfo
 	ifName   string
 	revision uint64
@@ -413,7 +413,7 @@ func (e *Endpoint) createEpInfoCache() *epInfoCache {
 
 // GetBPFKeys returns all keys which should represent this endpoint in the BPF
 // endpoints map
-func (ep *epInfoCache) GetBPFKeys() []lxcmap.EndpointKey {
+func (ep *epInfoCache) GetBPFKeys() []*lxcmap.EndpointKey {
 	return ep.keys
 }
 
