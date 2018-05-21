@@ -56,7 +56,7 @@ type Key struct {
 }
 
 // GetKeyPtr returns the unsafe pointer to the BPF key
-func (k Key) GetKeyPtr() unsafe.Pointer { return unsafe.Pointer(&k) }
+func (k *Key) GetKeyPtr() unsafe.Pointer { return unsafe.Pointer(k) }
 
 // NewValue returns a new empty instance of the structure representing the BPF
 // map value
@@ -150,7 +150,7 @@ func NewMap() *Map {
 				if err := bpf.ConvertKeyValue(key, value, &k, &v); err != nil {
 					return nil, nil, err
 				}
-				return k, &v, nil
+				return &k, &v, nil
 			},
 		),
 	}

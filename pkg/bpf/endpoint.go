@@ -38,7 +38,7 @@ type EndpointKey struct {
 }
 
 // GetKeyPtr returns the unsafe pointer to the BPF key
-func (k EndpointKey) GetKeyPtr() unsafe.Pointer { return unsafe.Pointer(&k) }
+func (k *EndpointKey) GetKeyPtr() unsafe.Pointer { return unsafe.Pointer(k) }
 
 // GetValuePtr returns the unsafe pointer to the BPF key for users that
 // use EndpointKey as a value in bpf maps
