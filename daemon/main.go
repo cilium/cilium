@@ -562,6 +562,10 @@ func initEnv(cmd *cobra.Command) {
 			scopedLog.WithError(err).Fatal("Unable to restore agent assets")
 		}
 	}
+
+	if !(viper.GetString("tunnel") == "vxlan" || viper.GetString("tunnel") == "geneve") {
+		log.Fatalf("Invalid setting for -t, must be {vxlan, geneve}")
+	}
 	checkMinRequirements()
 
 	if err := pidfile.Write(defaults.PidFilePath); err != nil {
