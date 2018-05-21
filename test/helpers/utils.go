@@ -197,7 +197,7 @@ func InstallExampleCilium(kubectl *Kubectl) {
 		KubeSystemNamespace, "-l k8s-app=cilium", timeout)
 	ExpectWithOffset(1, err).Should(BeNil(), "Cilium is not ready after timeout")
 
-	ginkgo.By(fmt.Sprintf("Checking that installed image is %q", StableImage))
+	ginkgoext.By(fmt.Sprintf("Checking that installed image is %q", StableImage))
 
 	filter := `{.items[*].status.containerStatuses[0].image}`
 	data, err := kubectl.GetPods(
@@ -290,7 +290,7 @@ func Fail(description string, callerSkip ...int) {
 		fmt.Fprintf(os.Stdout, "\nRun \"kill -SIGCONT %d\" to continue.\n", pid)
 		syscall.Kill(pid, syscall.SIGSTOP)
 	}
-	ginkgo.Fail(description, callerSkip...)
+	ginkgoext.Fail(description, callerSkip...)
 }
 
 // CreateReportDirectory creates and returns the directory path to export all report
