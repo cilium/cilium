@@ -138,7 +138,7 @@ func runServer() {
 
 	// Write the pidfile (if specified)
 	if path := viper.GetString("pidfile"); path != "" {
-		if err := pidfile.Write(path); err != nil {
+		if err := pidfile.Write(path, ""); err != nil {
 			fmt.Printf("Failed to write pidfile %s: %s\n", path, err.Error())
 			os.Exit(-1)
 		}

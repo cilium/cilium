@@ -568,7 +568,7 @@ func initEnv(cmd *cobra.Command) {
 	}
 	checkMinRequirements()
 
-	if err := pidfile.Write(defaults.PidFilePath); err != nil {
+	if err := pidfile.Write(defaults.PidFilePath, option.Config.Tunnel); err != nil {
 		log.WithField(logfields.Path, defaults.PidFilePath).WithError(err).Fatal("Failed to create Pidfile")
 	}
 
