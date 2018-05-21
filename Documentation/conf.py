@@ -65,8 +65,10 @@ author = u'Cilium Authors'
 # The short X.Y version.
 release = open("../VERSION", "r").read().strip()
 
-# Asume the current branch is master but check with VERSION file.
-branch = subprocess.check_output("git describe --tags --exact-match 2>/dev/null || git rev-parse --abbrev-ref HEAD", shell=True)
+# Fetch the docs version from an environment variable. Map latest -> master.
+branch = os.environ.get('READTHEDOCS_VERSION')
+if branch == None or branch == 'latest':
+    branch = 'HEAD'
 githubusercontent = 'https://raw.githubusercontent.com/cilium/cilium/'
 scm_web = githubusercontent + branch
 
