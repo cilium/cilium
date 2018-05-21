@@ -19,7 +19,7 @@ dependency.
 
 ::
 
-    $ minikube start --network-plugin=cni --bootstrapper=localkube --memory=4096 --extra-config=apiserver.Authorization.Mode=RBAC
+    $ minikube start --network-plugin=cni --extra-config=kubelet.network-plugin=cni --memory=4096
 
 After minikube has finished setting up your new Kubernetes cluster, you can
 check the status of the cluster by running ``kubectl get cs``:
@@ -31,13 +31,6 @@ check the status of the cluster by running ``kubectl get cs``:
     controller-manager   Healthy   ok
     scheduler            Healthy   ok
     etcd-0               Healthy   {"health": "true"}
-
-Bind the Kubernetes system account to the ``cluster-admin`` role to enable the
-``kube-dns`` service to run with RBAC enabled:
-
-::
-
-    $ kubectl create clusterrolebinding kube-system-default-binding-cluster-admin --clusterrole=cluster-admin --serviceaccount=kube-system:default
 
 
 4. Install etcd as a dependency of cilium in minikube by running:
@@ -70,4 +63,4 @@ If you see output similar to this, you are ready to proceed to the next step.
 .. note::
 
     The output might differ between minikube versions, you should expect to have
-    all pods in READY state before continuing.
+    all pods in READY / Running state before continuing.
