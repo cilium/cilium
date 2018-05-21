@@ -51,7 +51,7 @@ var (
 				return nil, nil, err
 			}
 
-			return k, &v, nil
+			return &k, &v, nil
 		})
 )
 
@@ -67,8 +67,8 @@ type tunnelEndpoint struct {
 	bpf.EndpointKey
 }
 
-func newTunnelEndpoint(ip net.IP) tunnelEndpoint {
-	return tunnelEndpoint{
+func newTunnelEndpoint(ip net.IP) *tunnelEndpoint {
+	return &tunnelEndpoint{
 		EndpointKey: bpf.NewEndpointKey(ip),
 	}
 }
@@ -84,7 +84,7 @@ func SetTunnelEndpoint(prefix net.IP, endpoint net.IP) error {
 		fieldEndpoint: endpoint,
 	}).Debug("Updating tunnel map entry")
 
-	return TunnelMap.Update(key, &val)
+	return TunnelMap.Update(key, val)
 }
 
 // DeleteTunnelEndpoint removes a prefix => tunnel-endpoint mapping

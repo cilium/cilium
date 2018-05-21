@@ -51,7 +51,7 @@ var (
 				return nil, nil, err
 			}
 
-			return k, &v, nil
+			return &k, &v, nil
 		},
 	)
 )
@@ -96,7 +96,7 @@ const (
 // with the endpoint BPF map
 type EndpointFrontend interface {
 	// GetBPFKeys must return a slice of EndpointKey which all represent the endpoint
-	GetBPFKeys() []EndpointKey
+	GetBPFKeys() []*EndpointKey
 
 	// GetBPFValue must return an EndpointInfo structure representing the frontend
 	GetBPFValue() (*EndpointInfo, error)
@@ -128,8 +128,8 @@ func (k EndpointKey) NewValue() bpf.MapValue { return &EndpointInfo{} }
 
 // NewEndpointKey returns an EndpointKey based on the provided IP address. The
 // address family is automatically detected
-func NewEndpointKey(ip net.IP) EndpointKey {
-	return EndpointKey{
+func NewEndpointKey(ip net.IP) *EndpointKey {
+	return &EndpointKey{
 		EndpointKey: bpf.NewEndpointKey(ip),
 	}
 }
@@ -158,8 +158,8 @@ func WriteEndpoint(f EndpointFrontend) error {
 	}
 
 	// FIXME: Revert on failure
-	for _, k := range f.GetBPFKeys() {
-		if err := LXCMap.Update(k, info); err != nil {
+	for _, v := range f.GetBPFKeys() {
+		if err := LXCMap.Update(v, info); err != nil {
 			return err
 		}
 	}
