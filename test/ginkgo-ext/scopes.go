@@ -51,6 +51,15 @@ var (
 	rootScope           = currentScope
 	countersInitialized bool
 
+	// failEnabled for tests that have failed on JustAfterEach function we need
+	// to handle differently, because `ginkgo.Fail` do a panic, and all the
+	// following functions will not be called. With the WrapFailfn if the fail
+	// is on any After function, will not panic, will mark the test as failed,
+	// and will trigger the Fail function at the end.
+	failEnabled     = true
+	afterEachFailed = map[string]bool{}
+	afterEachCB     = map[string]func(){}
+
 	Context                               = wrapContextFunc(ginkgo.Context, false)
 	FContext                              = wrapContextFunc(ginkgo.FContext, true)
 	PContext                              = wrapNilContextFunc(ginkgo.PContext)
@@ -68,7 +77,7 @@ var (
 	BeforeSuite                           = ginkgo.BeforeSuite
 	AfterSuite                            = ginkgo.AfterSuite
 	Skip                                  = ginkgo.Skip
-	Fail                                  = ginkgo.Fail
+	Fail                                  = FailWithToggle
 	CurrentGinkgoTestDescription          = ginkgo.CurrentGinkgoTestDescription
 	GinkgoRecover                         = ginkgo.GinkgoRecover
 	GinkgoT                               = ginkgo.GinkgoT
@@ -219,8 +228,9 @@ func runAllAfterFail(cs *scope, testName string) {
 		return
 	}
 
+	hasFailed, _ := afterEachFailed[testName]
 	for _, body := range cs.afterFail {
-		if ginkgo.CurrentGinkgoTestDescription().Failed {
+		if ginkgo.CurrentGinkgoTestDescription().Failed || hasFailed {
 			body()
 		}
 	}
@@ -236,7 +246,20 @@ func RunAfterEach(cs *scope) {
 	if cs == nil {
 		return
 	}
+
+	// Disabling the `ginkgo.Fail` function to avoid the panic and be able to
+	// gather all the logs.
+	failEnabled = false
+	defer func() {
+		failEnabled = true
+	}()
+
 	testName := ginkgo.CurrentGinkgoTestDescription().FullTestText
+
+	if _, ok := afterEachFailed[testName]; !ok {
+		afterEachFailed[testName] = false
+	}
+
 	runAllJustAfterEach(cs, testName)
 	justAfterEachStatus[testName] = true
 
@@ -256,6 +279,11 @@ func RunAfterEach(cs *scope) {
 		}
 	}
 	after()
+
+	cb := afterEachCB[testName]
+	if cb != nil {
+		cb()
+	}
 }
 
 // AfterEach runs the function after each test in context
@@ -414,4 +442,19 @@ func calculateCounters(s *scope, focusedOnly bool) (int, bool) {
 	}
 	s.counter = int32(count)
 	return count, haveFocused
+}
+
+// FailWithToggle wraps `ginkgo.Fail` function to have a option to disable the
+// panic when something fails when is running on AfterEach.
+func FailWithToggle(message string, callerSkip ...int) {
+	if failEnabled {
+		ginkgo.Fail(message, callerSkip...)
+	}
+
+	testName := ginkgo.CurrentGinkgoTestDescription().FullTestText
+	afterEachFailed[testName] = true
+
+	afterEachCB[testName] = func() {
+		ginkgo.Fail(message, callerSkip...)
+	}
 }
