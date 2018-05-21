@@ -81,8 +81,9 @@ Run the following command to check the progress of the deployment:
 ::
 
     $ kubectl get daemonsets -n kube-system
-    NAME      DESIRED   CURRENT   READY     UP-TO-DATE   AVAILABLE   NODE-SELECTOR   AGE
-    cilium    1         1         0         1            0           <none>          6s
-    
+    NAME         DESIRED   CURRENT   READY     UP-TO-DATE   AVAILABLE   NODE SELECTOR   AGE
+    cilium       1         1         0         1            1           <none>          3m
+    kube-proxy   1         1         1         1            1           <none>          8m
+
 Wait until the cilium Deployment shows a ``CURRENT`` count of ``1``
 like above (a ``READY`` value of ``0`` is OK for this tutorial).
