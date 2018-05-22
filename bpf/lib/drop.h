@@ -19,8 +19,9 @@
  * Drop & error notification via perf event ring buffer
  *
  * API:
- * int send_drop_notify(skb, src, dst, dst_id, ifindex, reason, exitcode)
- * int send_drop_notify_error(skb, error, exitcode)
+ * int send_drop_notify(skb, src, dst, dst_id, ifindex, reason, exitcode,
+                        __u8 direction)
+ * int send_drop_notify_error(skb, error, exitcode, __u8 direction)
  *
  * If DROP_NOTIFY is not defined, the API will be compiled in as a NOP.
  */
@@ -32,6 +33,7 @@
 #include "events.h"
 #include "common.h"
 #include "utils.h"
+#include "metrics.h"
 
 #ifdef DROP_NOTIFY
 
@@ -91,13 +93,15 @@ __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_DROP_NOTIFY) int __send_drop_notify
  */
 static inline int send_drop_notify(struct __sk_buff *skb, __u32 src, __u32 dst,
 				   __u32 dst_id, __u32 ifindex, int reason,
-				   int exitcode)
+				   int exitcode, __u8 direction)
 {
 	skb->cb[0] = exitcode;
 	skb->cb[1] = (src << 16) | (dst & 0xFFFF);
 	skb->cb[2] = reason;
 	skb->cb[3] = dst_id;
 	skb->cb[4] = ifindex,
+
+	update_metrics(skb->len, direction, -reason);
 
 	ep_tail_call(skb, CILIUM_CALL_DROP_NOTIFY);
 
@@ -107,16 +111,19 @@ static inline int send_drop_notify(struct __sk_buff *skb, __u32 src, __u32 dst,
 #else
 
 static inline int send_drop_notify(struct __sk_buff *skb, __u32 src, __u32 dst,
-				    __u32 dst_id, __u32 ifindex, int reason, int exitcode)
+				   __u32 dst_id, __u32 ifindex, int reason,
+				   int exitcode, __u8 direction)
 {
+    	update_metrics(skb->len, direction, -reason);
 	return exitcode;
 }
 
 #endif
 
-static inline int send_drop_notify_error(struct __sk_buff *skb, int error, int exitcode)
+static inline int send_drop_notify_error(struct __sk_buff *skb, int error,
+                                         int exitcode, __u8 direction)
 {
-	return send_drop_notify(skb, 0, 0, 0, 0, error, exitcode);
+	return send_drop_notify(skb, 0, 0, 0, 0, error, exitcode, direction);
 }
 
 #endif /* __LIB_DROP__ */

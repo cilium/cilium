@@ -154,7 +154,7 @@ static inline int rewrite_dmac_to_host(struct __sk_buff *skb)
 
 	/* Rewrite to destination MAC of cilium_net (remote peer) */
 	if (eth_store_daddr(skb, (__u8 *) &cilium_net_mac.addr, 0) < 0)
-		return send_drop_notify_error(skb, DROP_WRITE_ERROR, TC_ACT_OK);
+		return send_drop_notify_error(skb, DROP_WRITE_ERROR, TC_ACT_OK, DIRECTION_INGRESS);
 
 	return TC_ACT_OK;
 }
@@ -179,7 +179,7 @@ static inline int handle_ipv6(struct __sk_buff *skb, __u32 proxy_identity)
 
 #ifdef HANDLE_NS
 	if (unlikely(nexthdr == IPPROTO_ICMPV6)) {
-		int ret = icmp6_handle(skb, ETH_HLEN, ip6);
+		int ret = icmp6_handle(skb, ETH_HLEN, ip6, DIRECTION_INGRESS);
 		if (IS_ERR(ret))
 			return ret;
 	}
@@ -403,7 +403,7 @@ __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV4) int tail_handle_ipv4(struct _
 	int ret = handle_ipv4(skb, proxy_identity);
 
 	if (IS_ERR(ret))
-		return send_drop_notify_error(skb, ret, TC_ACT_SHOT);
+		return send_drop_notify_error(skb, ret, TC_ACT_SHOT, DIRECTION_INGRESS);
 
 	return ret;
 }
@@ -444,7 +444,7 @@ int from_netdev(struct __sk_buff *skb)
 		/* We should only be seeing an error here for packets which have
 		 * been targetting an endpoint managed by us. */
 		if (IS_ERR(ret))
-			return send_drop_notify_error(skb, ret, TC_ACT_SHOT);
+			return send_drop_notify_error(skb, ret, TC_ACT_SHOT, DIRECTION_INGRESS);
 		break;
 
 #ifdef ENABLE_IPV4
@@ -456,7 +456,8 @@ int from_netdev(struct __sk_buff *skb)
 		 *
 		 * Note: Since drop notification requires a tail call as well,
 		 * this notification is unlikely to succeed. */
-		return send_drop_notify_error(skb, DROP_MISSED_TAIL_CALL, TC_ACT_OK);
+		return send_drop_notify_error(skb, DROP_MISSED_TAIL_CALL,
+		                              TC_ACT_OK, DIRECTION_INGRESS);
 #endif
 
 	default:

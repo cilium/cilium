@@ -69,6 +69,7 @@ import (
 	"github.com/cilium/cilium/pkg/workloads"
 	"github.com/cilium/cilium/pkg/workloads/containerd"
 
+	"github.com/cilium/cilium/pkg/maps/metricsmap"
 	"github.com/go-openapi/runtime/middleware"
 	"github.com/mattn/go-shellwords"
 	"github.com/sirupsen/logrus"
@@ -799,6 +800,7 @@ func (d *Daemon) init() error {
 	fmt.Fprintf(fw, "#define TUNNEL_ENDPOINT_MAP_SIZE %d\n", tunnel.MaxEntries)
 	fmt.Fprintf(fw, "#define PROXY_MAP_SIZE %d\n", proxymap.MaxEntries)
 	fmt.Fprintf(fw, "#define ENDPOINTS_MAP_SIZE %d\n", lxcmap.MaxEntries)
+	fmt.Fprintf(fw, "#define METRICS_MAP_SIZE %d\n", metricsmap.MaxEntries)
 	fmt.Fprintf(fw, "#define LPM_MAP_SIZE %d\n", cidrmap.MaxEntries)
 	fmt.Fprintf(fw, "#define POLICY_MAP_SIZE %d\n", policymap.MaxEntries)
 	fmt.Fprintf(fw, "#define IPCACHE_MAP_SIZE %d\n", ipcachemap.MaxEntries)

@@ -188,6 +188,20 @@ struct policy_entry {
 	__u64		bytes;
 };
 
+struct metrics_key {
+    __u8      reason;     //0: forwarded, >0 dropped
+    __u8      dir:2,      //1: ingress 2: egress
+              pad:6;
+    __u16     reserved[3]; // reserved for future extension
+};
+
+
+struct metrics_value {
+     __u64	count;
+     __u64	bytes;
+};
+
+
 enum {
 	CILIUM_NOTIFY_UNSPEC,
 	CILIUM_NOTIFY_DROP,
@@ -212,7 +226,10 @@ enum {
 
 #define IS_ERR(x) (unlikely((x < 0) || (x == TC_ACT_SHOT)))
 
-/* Cilium error codes, must NOT overlap with TC return codes */
+/* Cilium error codes, must NOT overlap with TC return codes.
+ * These also serve as drop reasons for metrics,
+ * where reason > 0 corresponds to -(DROP_*)
+ */
 #define DROP_INVALID_SMAC	-130
 #define DROP_INVALID_DMAC	-131
 #define DROP_INVALID_SIP	-132
@@ -247,6 +264,14 @@ enum {
 #define DROP_PROXYMAP_CREATE_FAILED	-161
 #define DROP_POLICY_CIDR		-162
 
+/* Cilium metrics reason for forwarding packet.
+ * If reason > 0 then this is a drop reason and value corresponds to -(DROP_*)
+ */
+#define REASON_FORWARDED  0
+
+/* Cilium metrics direction for dropping/forwarding packet */
+#define DIRECTION_INGRESS  1
+#define DIRECTION_EGRESS   2
 
 /* Magic skb->mark markers which identify packets originating from the proxy
  *
