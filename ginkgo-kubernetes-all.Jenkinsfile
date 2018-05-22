@@ -42,6 +42,7 @@ pipeline {
         stage('BDD-Test-k8s') {
             environment {
                 FAILFAST = failFast(env.GIT_BRANCH)
+                CONTAINER_RUNTIME=setIfLabel("area/containerd", "containerd", "docker")
             }
             options {
                 timeout(time: 120, unit: 'MINUTES')
@@ -77,6 +78,7 @@ pipeline {
         stage('Non-release-k8s-versions') {
             environment {
                 FAILFAST = failFast(env.GIT_BRANCH)
+                CONTAINER_RUNTIME=setIfLabel("area/containerd", "containerd", "docker")
             }
             options {
                 timeout(time: 120, unit: 'MINUTES')

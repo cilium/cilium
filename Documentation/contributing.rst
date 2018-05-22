@@ -1041,6 +1041,12 @@ illustrating which subset of tests the job runs.
 +----------------------------------------------------------------------------------------------------------+-------------------+--------------------+
 
 
+There are some feature flags based on Pull Requets labels, the list of lables
+are the following:
+
+- area/containerd: Enable containerd runtime on all Kubernetes test.
+
+
 Using Jenkins for testing
 ~~~~~~~~~~~~~~~~~~~~~~~~~
 
