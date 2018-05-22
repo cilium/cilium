@@ -57,6 +57,7 @@ pipeline {
                 GOPATH="${WORKSPACE}"
                 TESTDIR="${WORKSPACE}/${PROJ_PATH}/test"
                 FAILFAST=setIfPR("true", "false")
+                CONTAINER_RUNTIME=setIfLabel("area/containerd", "containerd", "docker")
             }
 
             options {
