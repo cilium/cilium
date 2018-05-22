@@ -27,4 +27,5 @@ mechanisms:
 
    intro
    language
+   lifecycle
    troubleshooting
