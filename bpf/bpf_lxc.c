@@ -378,7 +378,8 @@ __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV6) int tail_handle_ipv6(struct _
 	int ret = handle_ipv6(skb);
 
 	if (IS_ERR(ret))
-		return send_drop_notify(skb, SECLABEL, 0, 0, 0, ret, TC_ACT_SHOT);
+		return send_drop_notify(skb, SECLABEL, 0, 0, 0, ret, TC_ACT_SHOT,
+		                        DIRECTION_EGRESS);
 
 	return ret;
 }
@@ -633,7 +634,8 @@ __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV4) int tail_handle_ipv4(struct _
 	int ret = handle_ipv4_from_lxc(skb);
 
 	if (IS_ERR(ret))
-		return send_drop_notify(skb, SECLABEL, 0, 0, 0, ret, TC_ACT_SHOT);
+		return send_drop_notify(skb, SECLABEL, 0, 0, 0, ret, TC_ACT_SHOT,
+		                        DIRECTION_EGRESS);
 
 	return ret;
 }
@@ -692,9 +694,9 @@ int handle_ingress(struct __sk_buff *skb)
 #endif
 
 	if (IS_ERR(ret))
-		return send_drop_notify(skb, SECLABEL, 0, 0, 0, ret, TC_ACT_SHOT);
-	else
-		return ret;
+		return send_drop_notify(skb, SECLABEL, 0, 0, 0, ret, TC_ACT_SHOT,
+					DIRECTION_EGRESS);
+	return ret;
 }
 
 static inline int __inline__ ipv6_policy(struct __sk_buff *skb, int ifindex, __u32 src_label,
@@ -963,7 +965,7 @@ __section_tail(CILIUM_MAP_POLICY, LXC_ID) int handle_policy(struct __sk_buff *sk
 
 	if (IS_ERR(ret))
 		return send_drop_notify(skb, src_label, SECLABEL, LXC_ID,
-					ifindex, ret, TC_ACT_SHOT);
+					ifindex, ret, TC_ACT_SHOT, DIRECTION_INGRESS);
 
 	if (ifindex == skb->cb[CB_IFINDEX]) { // Not redirected to host / proxy.
 		send_trace_notify(skb, TRACE_TO_LXC, src_label, SECLABEL, LXC_ID, ifindex,

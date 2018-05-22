@@ -90,7 +90,7 @@ static inline int arp_respond(struct __sk_buff *skb, union macaddr *mac)
 	return TC_ACT_OK;
 
 error:
-	return send_drop_notify_error(skb, ret, TC_ACT_SHOT);
+	return send_drop_notify_error(skb, ret, TC_ACT_SHOT, DIRECTION_EGRESS);
 }
 
 #endif /* __LIB_ARP__ */

@@ -53,12 +53,14 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/cidrmap"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
+	"github.com/cilium/cilium/pkg/maps/datametrics"
 	ipcachemap "github.com/cilium/cilium/pkg/maps/ipcache"
 	"github.com/cilium/cilium/pkg/maps/lbmap"
 	"github.com/cilium/cilium/pkg/maps/lxcmap"
 	"github.com/cilium/cilium/pkg/maps/policymap"
 	"github.com/cilium/cilium/pkg/maps/proxymap"
 	"github.com/cilium/cilium/pkg/maps/tunnel"
+	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/monitor"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
@@ -799,6 +801,7 @@ func (d *Daemon) init() error {
 	fmt.Fprintf(fw, "#define TUNNEL_ENDPOINT_MAP_SIZE %d\n", tunnel.MaxEntries)
 	fmt.Fprintf(fw, "#define PROXY_MAP_SIZE %d\n", proxymap.MaxEntries)
 	fmt.Fprintf(fw, "#define ENDPOINTS_MAP_SIZE %d\n", lxcmap.MaxEntries)
+	fmt.Fprintf(fw, "#define METRICS_MAP_SIZE %d\n", datametrics.MaxEntries)
 	fmt.Fprintf(fw, "#define LPM_MAP_SIZE %d\n", cidrmap.MaxEntries)
 	fmt.Fprintf(fw, "#define POLICY_MAP_SIZE %d\n", policymap.MaxEntries)
 	fmt.Fprintf(fw, "#define IPCACHE_MAP_SIZE %d\n", ipcachemap.MaxEntries)
@@ -842,6 +845,14 @@ func (d *Daemon) init() error {
 		controller.NewManager().UpdateController("lxcmap-bpf-host-sync",
 			controller.ControllerParams{
 				DoFunc:      func() error { return d.syncLXCMap() },
+				RunInterval: time.Duration(5) * time.Second,
+			})
+
+		// Start the controller for periodic sync of the metrics map with
+		// the prometheus server.
+		controller.NewManager().UpdateController("metricsmap-bpf-prom-sync",
+			controller.ControllerParams{
+				DoFunc:      func() error { return metrics.SyncMetricsMap() },
 				RunInterval: time.Duration(5) * time.Second,
 			})
 

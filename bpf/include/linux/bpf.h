@@ -555,6 +555,8 @@ enum bpf_func_id {
 
 /* user accessible mirror of in-kernel sk_buff.
  * new fields can only be added to the end of this structure
+ * kernel reference:
+ * https://elixir.bootlin.com/linux/latest/source/include/linux/skbuff.h
  */
 struct __sk_buff {
 	__u32 len;		/*  0 */
