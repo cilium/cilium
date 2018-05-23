@@ -43,7 +43,6 @@ var _ = Describe("NightlyEpsMeasurement", func() {
 	var kubectl *helpers.Kubectl
 	var logger *logrus.Entry
 	var once sync.Once
-	var ciliumPath string
 
 	endpointCount := 45
 	endpointsTimeout := endpointTimeout * time.Duration(endpointCount)
@@ -58,8 +57,8 @@ var _ = Describe("NightlyEpsMeasurement", func() {
 
 		kubectl = helpers.CreateKubectl(helpers.K8s1VMName(), logger)
 
-		ciliumPath = helpers.ManifestGet("cilium_ds.yaml")
-		kubectl.Apply(ciliumPath)
+		err := kubectl.CiliumInstall(helpers.CiliumDSPath)
+		Expect(err).To(BeNil(), "Cilium cannot be installed")
 
 		ExpectCiliumReady(kubectl)
 		ExpectKubeDNSReady(kubectl)
@@ -316,7 +315,6 @@ var _ = Describe("NightlyExamples", func() {
 	var kubectl *helpers.Kubectl
 	var logger *logrus.Entry
 	var once sync.Once
-	var ciliumPath string
 	var demoPath string
 	var l3Policy, l7Policy string
 	var appService = "app1-service"
@@ -328,8 +326,8 @@ var _ = Describe("NightlyExamples", func() {
 
 		kubectl = helpers.CreateKubectl(helpers.K8s1VMName(), logger)
 
-		ciliumPath = helpers.ManifestGet("cilium_ds.yaml")
-		kubectl.Delete(ciliumPath)
+		err := kubectl.CiliumInstall(helpers.CiliumDSPath)
+		Expect(err).To(BeNil(), "Cilium cannot be installed")
 
 		apps = []string{helpers.App1, helpers.App2, helpers.App3}
 
@@ -419,8 +417,9 @@ var _ = Describe("NightlyExamples", func() {
 		)
 
 		BeforeEach(func() {
-			path := helpers.ManifestGet("cilium_ds.yaml")
-			kubectl.Apply(path)
+			err := kubectl.CiliumInstall(helpers.CiliumDSPath)
+			Expect(err).To(BeNil(), "Cilium cannot be installed")
+
 			ExpectCiliumReady(kubectl)
 
 			ExpectKubeDNSReady(kubectl)

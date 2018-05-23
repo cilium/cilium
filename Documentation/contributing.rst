@@ -57,6 +57,8 @@ contribute to Cilium:
 +----------------------------------------------------------------------------------+--------------------------+-------------------------------------------------------------------------------+
 + `Automake <https://www.gnu.org/software/automake/>`_                             | OS-Dependent             | N/A (OS-specific)                                                             |
 +----------------------------------------------------------------------------------+--------------------------+-------------------------------------------------------------------------------+
++ `Kubecfg <https://github.com/ksonnet/kubecfg>`_                                  | >=0.8.0                  | go get github.com/ksonnet/kubecfg                                             |
++----------------------------------------------------------------------------------+--------------------------+-------------------------------------------------------------------------------+
 
 
 To run Cilium locally on VMs, you need:
@@ -526,6 +528,8 @@ framework in the ``test/`` directory and interact with ginkgo directly:
             Provision Vagrant boxes and Cilium before running test (default true)
       -cilium.showCommands
             Output which commands are ran to stdout
+      -cilium.dsManifest
+            Cilium daemon set manifest to use for running the test (only Kubernetes)
     $ ginkgo --focus "Policies*" -- --cilium.provision=false
 
 For more information about other built-in options to Ginkgo, consult the
