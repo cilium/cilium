@@ -72,7 +72,7 @@ var (
 	Metrics = bpf.NewMap(
 		MapName,
 		bpf.BPF_MAP_TYPE_HASH,
-		int(unsafe.Sizeof(Value{})),
+		int(unsafe.Sizeof(Key{})),
 		int(unsafe.Sizeof(Value{})),
 		MaxEntries,
 		0,
