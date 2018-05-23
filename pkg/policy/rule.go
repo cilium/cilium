@@ -251,8 +251,10 @@ func (r *rule) resolveCIDRPolicy(ctx *SearchContext, state *traceState, result *
 		}
 	}
 
-	// CIDR egress policy is purely used for visibility of desired state in
-	// the API, it is not plumbed down into the datapath for policy!
+	// CIDR egress policy is used for visibility of desired state in
+	// the API and for determining which prefix lengths are available,
+	// however it does not determine the actual CIDRs in the BPF maps
+	// for allowing traffic by CIDR!
 	for _, egressRule := range r.Egress {
 		var allCIDRs []api.CIDR
 		allCIDRs = append(allCIDRs, egressRule.ToCIDR...)
