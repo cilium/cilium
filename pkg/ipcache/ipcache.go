@@ -19,7 +19,6 @@ import (
 	"fmt"
 	"net"
 	"path"
-	"sort"
 	"strings"
 	"sync"
 
@@ -319,35 +318,6 @@ func (ipc *IPCache) deleteLocked(IP string) {
 			}
 		}
 	}
-}
-
-// ToBPFData renders the ipcache into the relevant set of CIDR prefixes for
-// the BPF datapath to use for lookup.
-func (ipc *IPCache) ToBPFData() (s6, s4 []int) {
-	ipc.mutex.RLock()
-	defer ipc.mutex.RUnlock()
-	s6 = make([]int, 0, len(ipc.v6PrefixLengths))
-	s4 = make([]int, 0, len(ipc.v4PrefixLengths))
-
-	// Always include host prefix
-	s6 = append(s6, net.IPv6len*8)
-	for prefix := range ipc.v6PrefixLengths {
-		if prefix != net.IPv6len*8 {
-			s6 = append(s6, prefix)
-		}
-	}
-	sort.Sort(sort.Reverse(sort.IntSlice(s6)))
-
-	// Always include host prefix
-	s4 = append(s4, net.IPv4len*8)
-	for prefix := range ipc.v4PrefixLengths {
-		if prefix != net.IPv4len*8 {
-			s4 = append(s4, prefix)
-		}
-	}
-	sort.Sort(sort.Reverse(sort.IntSlice(s4)))
-
-	return
 }
 
 // delete removes the provided IP-to-security-identity mapping from the IPCache.

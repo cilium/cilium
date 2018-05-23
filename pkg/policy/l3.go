@@ -23,6 +23,7 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/maps/cidrmap"
+	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/policy/api"
 )
 
@@ -43,6 +44,22 @@ type CIDRPolicyMap struct {
 
 	IPv6PrefixCount map[int]int // Count of IPv6 prefixes in 'Map' indexed by prefix length
 	IPv4PrefixCount map[int]int // Count of IPv4 prefixes in 'Map' indexed by prefix length
+}
+
+// GetDefaultPrefixLengths returns the set of prefix lengths for handling
+// CIDRs that are unconditionally mapped to identities, ie for the reserved
+// identities 'host', 'cluster', 'world'.
+//
+// This function is dynamic in case the cluster range changes during runtime.
+func GetDefaultPrefixLengths() (s6 []int, s4 []int) {
+	v6ClusterRange, _ := node.GetIPv6ClusterRange().Mask.Size()
+	v4ClusterRange, _ := node.GetIPv4ClusterRange().Mask.Size()
+
+	// These *must* be in the order of longest prefix to shortest, as the
+	// LPM implementation on older kernels depends on this ordering.
+	s6 = []int{net.IPv6len * 8, v6ClusterRange, 0}
+	s4 = []int{net.IPv4len * 8, v4ClusterRange, 0}
+	return
 }
 
 // Insert places 'cidr' and its corresponding rule labels into map 'm'. Returns
@@ -88,6 +105,9 @@ func (m *CIDRPolicyMap) Insert(cidr string, ruleLabels labels.LabelArray) int {
 
 // ToBPFData converts map 'm' into int slices 's6' (IPv6) and 's4' (IPv4),
 // formatted for insertion into bpf program as prefix lengths.
+//
+// Note that this will always include the CIDR prefix lengths for host (eg /32
+// for host), cluster (typically /8 or /64), and world (/0).
 func (m *CIDRPolicyMap) ToBPFData() (s6, s4 []int) {
 	for p := range m.IPv6PrefixCount {
 		s6 = append(s6, p)
@@ -130,14 +150,16 @@ func (m *CIDRPolicyMap) PopulateBPF(cidrmap *cidrmap.CIDRMap) error {
 type CIDRPolicy struct {
 	Ingress CIDRPolicyMap
 
-	// Egress is not used for policy generation; this is only used as a way
-	// to reflect desired state in the API.
+	// Egress is not used for map entry generation; It has two uses:
+	// * On older kernels, generate the set of CIDR prefix lengths that
+	//   are necessary to implement an LPM
+	// * Reflect desired state of the CIDR policy in the API.
 	Egress CIDRPolicyMap
 }
 
 // NewCIDRPolicy creates a new CIDRPolicy.
-func NewCIDRPolicy() *CIDRPolicy {
-	return &CIDRPolicy{
+func NewCIDRPolicy() (policy *CIDRPolicy) {
+	policy = &CIDRPolicy{
 		Ingress: CIDRPolicyMap{
 			Map:             make(map[string]*CIDRPolicyMapRule),
 			IPv6PrefixCount: make(map[int]int),
@@ -149,6 +171,16 @@ func NewCIDRPolicy() *CIDRPolicy {
 			IPv4PrefixCount: make(map[int]int),
 		},
 	}
+	// Add a default reference to the default {host, cluster, world} prefix
+	// to ensure that ToBPFData() always serializes these lengths for LPM.
+	s6, s4 := GetDefaultPrefixLengths()
+	for _, i := range s6 {
+		policy.Egress.IPv6PrefixCount[i] = 0
+	}
+	for _, i := range s4 {
+		policy.Egress.IPv4PrefixCount[i] = 0
+	}
+	return
 }
 
 // GetModel returns the API model representation of the CIDRPolicy.

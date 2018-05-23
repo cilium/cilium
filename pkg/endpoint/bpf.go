@@ -36,7 +36,6 @@ import (
 	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/identity"
-	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/cidrmap"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
@@ -264,9 +263,13 @@ func (e *Endpoint) writeHeaderfile(prefix string, owner Owner) error {
 		return err
 	}
 
+	ipcachePrefixes6, ipcachePrefixes4 := policy.GetDefaultPrefixLengths()
 	if e.L3Policy != nil {
-		ipv6Ingress, ipv4Ingress := e.L3Policy.Ingress.ToBPFData()
+		// Only egress CIDR policy uses IPCache for now.
+		// This will include the default prefix lengths from above.
+		ipcachePrefixes6, ipcachePrefixes4 = e.L3Policy.Egress.ToBPFData()
 
+		ipv6Ingress, ipv4Ingress := e.L3Policy.Ingress.ToBPFData()
 		if len(ipv6Ingress) > 0 {
 			fw.WriteString("#define CIDR6_INGRESS_PREFIXES ")
 			for _, m := range ipv6Ingress {
@@ -283,8 +286,6 @@ func (e *Endpoint) writeHeaderfile(prefix string, owner Owner) error {
 		}
 	}
 
-	// IPCache only supports hosts at the moment, only set host prefix
-	ipcachePrefixes6, ipcachePrefixes4 := ipcache.IPIdentityCache.ToBPFData()
 	fw.WriteString("#define IPCACHE6_PREFIXES ")
 	for _, prefix := range ipcachePrefixes6 {
 		fmt.Fprintf(fw, "%d,", prefix)

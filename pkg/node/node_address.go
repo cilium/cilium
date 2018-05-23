@@ -244,6 +244,13 @@ func SetIPv4AllocRange(net *net.IPNet) {
 	ipv4AllocRange = net
 }
 
+// Uninitialize resets this package to the default state, for use in
+// testsuite code.
+func Uninitialize() {
+	ipv4AllocRange = nil
+	ipv6AllocRange = nil
+}
+
 // SetIPv6NodeRange sets the IPv6 address pool to be used on this node
 func SetIPv6NodeRange(net *net.IPNet) error {
 	if ones, _ := net.Mask.Size(); ones != IPv6NodePrefixLen {
