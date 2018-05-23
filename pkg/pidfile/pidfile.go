@@ -22,13 +22,26 @@ import (
 	"syscall"
 
 	"github.com/cilium/cilium/pkg/logging"
+	"github.com/vishvananda/netlink"
 )
 
 var log = logging.DefaultLogger
 
+func cleanNetDevices(tunnel string) {
+	if tunnel != "" {
+		devices := []string{"cilium_" + tunnel, "cilium_net"}
+		for _, dev := range devices {
+			link, err := netlink.LinkByName(dev)
+			if err == nil {
+				netlink.LinkDel(link)
+			}
+		}
+	}
+}
+
 // Write the pid of the process to the specified path, and attach a cleanup
 // handler to the exit of the program so it's removed afterwards.
-func Write(path string) error {
+func Write(path string, tunnel string) error {
 	pid := os.Getpid()
 	pidBytes := []byte(strconv.Itoa(pid) + "\n")
 	if err := ioutil.WriteFile(path, pidBytes, 0660); err != nil {
@@ -41,6 +54,7 @@ func Write(path string) error {
 	go func() {
 		for s := range sig {
 			log.WithField("signal", s).Info("Exiting due to signal")
+			cleanNetDevices(tunnel)
 			os.Remove(path)
 			os.Exit(0)
 		}
