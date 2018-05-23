@@ -1,4 +1,4 @@
-// Copyright 2016-2017 Authors of Cilium
+// Copyright 2016-2018 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,13 +15,19 @@
 package node
 
 import (
+	"bufio"
 	"fmt"
 	"net"
+	"os"
+	"strconv"
+	"strings"
 
 	"github.com/cilium/cilium/api/v1/models"
+	"github.com/cilium/cilium/common"
+	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-
 	"github.com/cilium/cilium/pkg/option"
+
 	"github.com/vishvananda/netlink"
 	"golang.org/x/sys/unix"
 )
@@ -113,8 +119,13 @@ func SetIPv4ClusterCidrMaskSize(size int) {
 // network device of the system in which case the first address with global
 // scope will be regarded as the system's node address.
 func InitDefaultPrefix(device string) {
-	// Find a IPv6 node address first
-	ipv6Address = findIPv6NodeAddr()
+	if ipv6Address == nil {
+		// Find a IPv6 node address first
+		ipv6Address = findIPv6NodeAddr()
+		if ipv6Address == nil {
+			ipv6Address = makeIPv6HostIP()
+		}
+	}
 
 	ip, err := firstGlobalV4Addr(device)
 	if err != nil {
@@ -247,12 +258,18 @@ func SetIPv6NodeRange(net *net.IPNet) error {
 
 // AutoComplete completes the parts of addressing that can be auto derived
 func AutoComplete() error {
-	if ipv6AllocRange == nil {
-		return fmt.Errorf("IPv6 per node allocation prefix is not configured. Please specificy --ipv6-range")
+	// Read the previous cilium host IPs from node_config.h for backward
+	// compatibility
+	ipv4GW, ipv6Router := getCiliumHostIPs()
+	SetInternalIPv4(ipv4GW)
+	SetIPv6Router(ipv6Router)
+
+	if option.Config.Device == "undefined" {
+		InitDefaultPrefix("")
 	}
 
-	if ipv6Address == nil {
-		ipv6Address = makeIPv6HostIP()
+	if ipv6AllocRange == nil {
+		return fmt.Errorf("IPv6 per node allocation prefix is not configured. Please specificy --ipv6-range")
 	}
 
 	return nil
@@ -401,4 +418,82 @@ func GetNodeAddressing(enableIPv4 bool) *models.NodeAddressing {
 			AllocRange: GetIPv4AllocRange().String(),
 		},
 	}
+}
+
+func getCiliumHostIPsFromFile(nodeConfig string) (ipv4GW, ipv6Router net.IP) {
+	f, err := os.Open(nodeConfig)
+	switch {
+	case err != nil:
+	default:
+		defer f.Close()
+		scanner := bufio.NewScanner(f)
+		for scanner.Scan() {
+			txt := scanner.Text()
+			switch {
+			case strings.Contains(txt, "IPV4_GATEWAY"):
+				// #define IPV4_GATEWAY 0xee1c000a
+				defineLine := strings.Split(txt, " ")
+				if len(defineLine) != 3 {
+					continue
+				}
+				ipv4GWHex := strings.TrimPrefix(defineLine[2], "0x")
+				ipv4GWint64, err := strconv.ParseInt(ipv4GWHex, 16, 0)
+				if err != nil {
+					continue
+				}
+				bs := make([]byte, net.IPv4len)
+				byteorder.NetworkToHostPut(bs, uint32(ipv4GWint64))
+				ipv4GW = net.IPv4(bs[0], bs[1], bs[2], bs[3])
+			case strings.Contains(txt, " ROUTER_IP "):
+				// #define ROUTER_IP 0xf0, 0xd, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0xa, 0x0, 0x0, 0x0, 0x0, 0x0, 0x8a, 0xd6
+				defineLine := strings.Split(txt, " ROUTER_IP ")
+				if len(defineLine) != 2 {
+					continue
+				}
+				ipv6 := common.C2GoArray(defineLine[1])
+				if len(ipv6) != net.IPv6len {
+					continue
+				}
+				ipv6Router = net.IP(ipv6)
+			}
+		}
+	}
+	return ipv4GW, ipv6Router
+}
+
+// getCiliumHostIPsFromNetDev returns the first IPv4 link local and returns
+// it
+func getCiliumHostIPsFromNetDev(devName string) (ipv4GW, ipv6Router net.IP) {
+	hostDev, err := netlink.LinkByName(devName)
+	if err != nil {
+		return nil, nil
+	}
+	addrs, err := netlink.AddrList(hostDev, netlink.FAMILY_ALL)
+	if err != nil {
+		return nil, nil
+	}
+	for _, addr := range addrs {
+		if addr.IP.To4() != nil {
+			if addr.Scope == int(netlink.SCOPE_LINK) {
+				ipv4GW = addr.IP
+			}
+		} else {
+			if addr.Scope != int(netlink.SCOPE_LINK) {
+				ipv6Router = addr.IP
+			}
+		}
+	}
+	return nil, nil
+}
+
+// getCiliumHostIPs returns the Cilium IPv4 gateway and router IPv6 address from
+// the node_config.h file if is present; or by deriving it from cilium_host
+// interface, on which only the IPv4 is possible to derive.
+func getCiliumHostIPs() (ipv4GW, ipv6Router net.IP) {
+	nodeConfig := option.Config.GetNodeConfigPath()
+	ipv4GW, ipv6Router = getCiliumHostIPsFromFile(nodeConfig)
+	if ipv4GW != nil {
+		return ipv4GW, ipv6Router
+	}
+	return getCiliumHostIPsFromNetDev(HostDevice)
 }

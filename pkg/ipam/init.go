@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"net"
 
+	"github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/node"
@@ -33,6 +34,8 @@ var (
 	log      = logging.DefaultLogger
 	ipamConf *Config
 )
+
+type ErrAllocation error
 
 func nextIP(ip net.IP) {
 	for j := len(ip) - 1; j >= 0; j-- {
@@ -144,11 +147,25 @@ func Init() error {
 		}
 	}
 
-	internalIP, err := ipamConf.IPv4Allocator.AllocateNext()
-	if err != nil {
-		return fmt.Errorf("Unable to allocate internal IPv4 node IP: %s", err)
+	internalIP := node.GetInternalIPv4()
+	if internalIP == nil {
+		internalIP = ip.GetNextIP(node.GetIPv4AllocRange().IP)
 	}
-
+	err := ipamConf.IPv4Allocator.Allocate(internalIP)
+	if err != nil {
+		// If the allocation fails here it is likely that, in a kubernetes
+		// environment, cilium was not able to retrieve the node's pod-cidr
+		// which will cause cilium to start with a default IPv4 allocation range
+		// different from the previous running instance.
+		// Since cilium_host IP is always automatically derived from the IPv4
+		// allocation range it is safe to assume cilium_host IP will always
+		// belong to the IPv4AllocationRange.
+		// Unless of course the user manually specifies a different IPv4range
+		// between restarts which he can only solve by deleting the IPv4
+		// address from cilium_host as well deleting the node_config.h.
+		return ErrAllocation(fmt.Errorf("Unable to allocate internal IPv4 node IP %s: %s.",
+			internalIP, err))
+	}
 	node.SetInternalIPv4(internalIP)
 
 	// Reserve the IPv6 router and node IP if it is part of the IPv6
@@ -164,11 +181,17 @@ func Init() error {
 		}
 	}
 
-	routerIP, err := ipamConf.IPv6Allocator.AllocateNext()
-	if err != nil {
-		return fmt.Errorf("Unable to allocate IPv6 router IP: %s", err)
+	routerIP := node.GetIPv6Router()
+	if routerIP == nil {
+		routerIP = ip.GetNextIP(node.GetIPv6AllocRange().IP)
 	}
-
+	if !routerIP.Equal(node.GetIPv6()) {
+		err = ipamConf.IPv6Allocator.Allocate(routerIP)
+		if err != nil {
+			return ErrAllocation(fmt.Errorf("Unable to allocate internal IPv6 router IP %s: %s.",
+				routerIP, err))
+		}
+	}
 	node.SetIPv6Router(routerIP)
 
 	return nil
