@@ -41,7 +41,6 @@ var _ = Describe(demoTestName, func() {
 	var (
 		kubectl          *helpers.Kubectl
 		logger           *logrus.Entry
-		ciliumYAML       = helpers.ManifestGet("cilium_ds.yaml")
 		microscopeErr    error
 		microscopeCancel func() error
 
@@ -56,10 +55,9 @@ var _ = Describe(demoTestName, func() {
 		logger.Info("Starting")
 		kubectl = helpers.CreateKubectl(helpers.K8s1VMName(), logger)
 
-		// TODO (ianvernon) - factor this code out into separate functions as it's
-		// boilerplate for most K8s test setup.
-		res := kubectl.Apply(ciliumYAML)
-		res.ExpectSuccess("unable to apply %s: %s", ciliumYAML, res.CombineOutput())
+		err := kubectl.CiliumInstall(helpers.CiliumDSPath)
+		Expect(err).To(BeNil(), "Cilium cannot be installed")
+
 		ExpectCiliumReady(kubectl)
 		ExpectKubeDNSReady(kubectl)
 	})

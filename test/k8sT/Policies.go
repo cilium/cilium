@@ -61,7 +61,9 @@ var _ = Describe("K8sValidatedPolicyTest", func() {
 		logger.Info("Starting")
 		kubectl = helpers.CreateKubectl(helpers.K8s1VMName(), logger)
 
-		_ = kubectl.Apply(helpers.ManifestGet("cilium_ds.yaml"))
+		err := kubectl.CiliumInstall(helpers.CiliumDSPath)
+		Expect(err).To(BeNil(), "Cilium cannot be installed")
+
 		ExpectCiliumReady(kubectl)
 		ExpectKubeDNSReady(kubectl)
 	})
@@ -823,17 +825,16 @@ EOF`, k, v)
 var _ = Describe("K8sValidatedPolicyTestAcrossNamespaces", func() {
 
 	var (
-		namespace           = "namespace"
-		qaNs                = "qa"
-		developmentNs       = "development"
-		resources           = []string{"1-frontend.json", "2-backend-server.json", "3-backend.json"}
-		kubectl             *helpers.Kubectl
-		logger              *logrus.Entry
-		ciliumDaemonSetPath = helpers.ManifestGet("cilium_ds.yaml")
-		cnpL7Stresstest     = helpers.ManifestGet("cnp-l7-stresstest.yaml")
-		cnpAnyNamespace     = helpers.ManifestGet("cnp-any-namespace.yaml")
-		microscopeErr       error
-		microscopeCancel    func() error
+		namespace        = "namespace"
+		qaNs             = "qa"
+		developmentNs    = "development"
+		resources        = []string{"1-frontend.json", "2-backend-server.json", "3-backend.json"}
+		kubectl          *helpers.Kubectl
+		logger           *logrus.Entry
+		cnpL7Stresstest  = helpers.ManifestGet("cnp-l7-stresstest.yaml")
+		cnpAnyNamespace  = helpers.ManifestGet("cnp-any-namespace.yaml")
+		microscopeErr    error
+		microscopeCancel func() error
 	)
 
 	namespaceAction := func(ns string, action string) {
@@ -853,7 +854,9 @@ var _ = Describe("K8sValidatedPolicyTestAcrossNamespaces", func() {
 		logger.Info("Starting")
 		kubectl = helpers.CreateKubectl(helpers.K8s1VMName(), logger)
 
-		_ = kubectl.Apply(ciliumDaemonSetPath)
+		err := kubectl.CiliumInstall(helpers.CiliumDSPath)
+		Expect(err).To(BeNil(), "Cilium cannot be installed")
+
 		ExpectCiliumReady(kubectl)
 		ExpectKubeDNSReady(kubectl)
 	})

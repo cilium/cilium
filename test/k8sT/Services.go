@@ -50,8 +50,9 @@ var _ = Describe("K8sValidatedServicesTest", func() {
 		logger.Info("Starting")
 
 		kubectl = helpers.CreateKubectl(helpers.K8s1VMName(), logger)
-		path := helpers.ManifestGet("cilium_ds.yaml")
-		kubectl.Apply(path)
+		err = kubectl.CiliumInstall(helpers.CiliumDSPath)
+		Expect(err).To(BeNil(), "Cilium cannot be installed")
+
 		ExpectCiliumReady(kubectl)
 
 		ExpectKubeDNSReady(kubectl)

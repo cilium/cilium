@@ -56,12 +56,13 @@ var _ = Describe("K8sValidatedKafkaPolicyTest", func() {
 		logger = log.WithFields(logrus.Fields{"testName": "K8sValidatedKafkaPolicyTest"})
 		kubectl = helpers.CreateKubectl(helpers.K8s1VMName(), logger)
 
-		kubectl.Apply(helpers.ManifestGet("cilium_ds.yaml"))
+		err := kubectl.CiliumInstall(helpers.CiliumDSPath)
+		Expect(err).To(BeNil(), "Cilium cannot be installed")
 		ExpectCiliumReady(kubectl)
 		ExpectKubeDNSReady(kubectl)
 
 		kubectl.Apply(demoPath)
-		err := kubectl.WaitforPods(helpers.DefaultNamespace, "-l zgroup=kafkaTestApp", 300)
+		err = kubectl.WaitforPods(helpers.DefaultNamespace, "-l zgroup=kafkaTestApp", 300)
 		Expect(err).Should(BeNil(), "Kafka Pods are not ready after timeout")
 
 		appPods = helpers.GetAppPods(apps, helpers.DefaultNamespace, kubectl, "app")

@@ -714,6 +714,23 @@ func (kub *Kubectl) ApplyNetworkPolicyUsingAPI(namespace string, networkPolicy *
 	return err
 }
 
+// CiliumInstall receives a manifestName which needs to be in jsonnet format
+// and will be used in `kubecfg show` and applied to Kubernetes. It will return
+// a error if any action fails.
+func (kub *Kubectl) CiliumInstall(manifestName string) error {
+	manifestTmpPath := GetFilePath(fmt.Sprintf("%s_%s", MakeUID(), manifestName))
+	res := kub.Exec(fmt.Sprintf("kubecfg show %s | tee %s",
+		ManifestGet(manifestName), manifestTmpPath))
+	if !res.WasSuccessful() {
+		return fmt.Errorf(res.GetDebugMessage())
+	}
+	res = kub.Apply(manifestTmpPath)
+	if !res.WasSuccessful() {
+		return fmt.Errorf(res.GetDebugMessage())
+	}
+	return nil
+}
+
 // GetCiliumPods returns a list of all Cilium pods in the specified namespace,
 // and an error if the Cilium pods were not able to be retrieved.
 func (kub *Kubectl) GetCiliumPods(namespace string) ([]string, error) {
