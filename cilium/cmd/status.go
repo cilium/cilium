@@ -69,7 +69,11 @@ func statusDaemon() {
 		healthLines = 0
 	}
 	if resp, err := client.Daemon.GetHealthz(nil); err != nil {
-		fmt.Fprintf(os.Stderr, "%s\n", pkg.Hint(err))
+		if brief {
+			fmt.Fprintf(os.Stderr, "%s\n", "cilium: daemon unreachable")
+		} else {
+			fmt.Fprintf(os.Stderr, "%s\n", pkg.Hint(err))
+		}
 		os.Exit(1)
 	} else if command.OutputJSON() {
 		if err := command.PrintOutput(resp.Payload); err != nil {
