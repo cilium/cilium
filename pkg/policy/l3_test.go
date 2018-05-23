@@ -17,6 +17,7 @@ package policy
 import (
 	"net"
 
+	"github.com/cilium/cilium/pkg/comparator"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/node"
 
@@ -62,4 +63,13 @@ func (ds *PolicyTestSuite) TestToBPFData(c *C) {
 	_, s4 = m.ToBPFData()
 	exp = []int{32, 26, 24, 20, 16, 8, 0}
 	c.Assert(s4, comparator.DeepEquals, exp)
+}
+
+func (ds *PolicyTestSuite) TestGetDefaultPrefixLengths(c *C) {
+	expected6 := []int{128, 64, 0}
+	expected4 := []int{32, 8, 0}
+	s6, s4 := GetDefaultPrefixLengths()
+
+	c.Assert(s6, comparator.DeepEquals, expected6)
+	c.Assert(s4, comparator.DeepEquals, expected4)
 }
