@@ -141,7 +141,7 @@ createHostMap(const std::string& config, Server::Configuration::ListenerFactoryC
 class TestBpfMetadataConfigFactory : public NamedListenerFilterConfigFactory {
 public:
   // NamedListenerFilterConfigFactory
-  ListenerFilterFactoryCb
+  Network::ListenerFilterFactoryCb
   createFilterFactoryFromProto(const Protobuf::Message& proto_config,
 			       ListenerFactoryContext &context) override {
     // Create the file-based policy map before the filter is created, so that the singleton
@@ -196,14 +196,14 @@ createPolicyMap(const std::string& config, Server::Configuration::FactoryContext
 class TestConfigFactory
     : public Server::Configuration::NamedHttpFilterConfigFactory {
 public:
-  Server::Configuration::HttpFilterFactoryCb
+  Http::FilterFactoryCb
   createFilterFactory(const Json::Object&, const std::string &,
                       Server::Configuration::FactoryContext&) override {
     // json config not supported
     return [](Http::FilterChainFactoryCallbacks &) mutable -> void {};
   }
 
-  Server::Configuration::HttpFilterFactoryCb
+  Http::FilterFactoryCb
   createFilterFactoryFromProto(const Protobuf::Message& proto_config, const std::string&,
                                Server::Configuration::FactoryContext& context) override {
     // Create the file-based policy map before the filter is created, so that the singleton
@@ -331,19 +331,19 @@ public:
     policy_config = BASIC_POLICY;
     initialize();
     codec_client_ = makeHttpConnection(lookupPort("http"));
-    codec_client_->makeHeaderOnlyRequest(headers, *response_);
-    response_->waitForEndStream();
+    auto response = codec_client_->makeHeaderOnlyRequest(headers);
+    response->waitForEndStream();
 
-    EXPECT_STREQ("403", response_->headers().Status()->value().c_str());
+    EXPECT_STREQ("403", response->headers().Status()->value().c_str());
   }
 
   void Accepted(Http::TestHeaderMapImpl headers) {
     policy_config = BASIC_POLICY;
     initialize();
     codec_client_ = makeHttpConnection(lookupPort("http"));
-    sendRequestAndWaitForResponse(headers, 0, default_response_headers_, 0);
+    auto response = sendRequestAndWaitForResponse(headers, 0, default_response_headers_, 0);
 
-    EXPECT_STREQ("200", response_->headers().Status()->value().c_str());
+    EXPECT_STREQ("200", response->headers().Status()->value().c_str());
   }
 
   void InvalidHostMap(const std::string& config, const char* exmsg) {
@@ -355,7 +355,7 @@ public:
     const auto typed_resources = Config::Utility::getTypedResources<cilium::NetworkPolicyHosts>(message);
     Envoy::Cilium::PolicyHostMap hmap(tls);
 
-    EXPECT_THROW_WITH_MESSAGE(hmap.onConfigUpdate(typed_resources), EnvoyException, exmsg);
+    EXPECT_THROW_WITH_MESSAGE(hmap.onConfigUpdate(typed_resources, "1"), EnvoyException, exmsg);
     tls.shutdownGlobalThreading();
   }
 };
@@ -395,7 +395,7 @@ resources:
   const auto typed_resources = Config::Utility::getTypedResources<cilium::NetworkPolicyHosts>(message);
   auto hmap = std::make_shared<Envoy::Cilium::PolicyHostMap>(tls);
 
-  VERBOSE_EXPECT_NO_THROW(hmap->onConfigUpdate(typed_resources));
+  VERBOSE_EXPECT_NO_THROW(hmap->onConfigUpdate(typed_resources, "2"));
 
   EXPECT_EQ(hmap->resolve(Network::Address::Ipv4Instance("192.168.0.1").ip()), 173);
   EXPECT_EQ(hmap->resolve(Network::Address::Ipv4Instance("192.168.0.0").ip()), 12);
@@ -653,10 +653,10 @@ TEST_P(CiliumIntegrationTest, DuplicatePort) {
     {{":method", "GET"}, {":path", "/allowed"}, {":authority", "host"}};
   initialize();
   codec_client_ = makeHttpConnection(lookupPort("http"));
-  codec_client_->makeHeaderOnlyRequest(headers, *response_);
-  response_->waitForEndStream();
+  auto response = codec_client_->makeHeaderOnlyRequest(headers);
+  response->waitForEndStream();
 
-  EXPECT_STREQ("403", response_->headers().Status()->value().c_str());
+  EXPECT_STREQ("403", response->headers().Status()->value().c_str());
 }
 
 class CiliumIntegrationEgressTest : public CiliumIntegrationTestBase {
