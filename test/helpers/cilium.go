@@ -645,7 +645,7 @@ func (s *SSHMeta) ReportFailed(commands ...string) {
 func (s *SSHMeta) ValidateNoErrorsOnLogs(duration time.Duration) {
 	logsCmd := fmt.Sprintf(`sudo journalctl -au %s --since '%v seconds ago'`,
 		DaemonName, duration.Seconds())
-	logs := s.Exec(logsCmd).Output().String()
+	logs := s.Exec(logsCmd, ExecOptions{SkipLog: true}).Output().String()
 
 	for _, message := range checkLogsMessages {
 		gomega.ExpectWithOffset(1, logs).ToNot(gomega.ContainSubstring(message),
