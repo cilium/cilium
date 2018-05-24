@@ -803,7 +803,7 @@ func (d *Daemon) init() error {
 		controller.NewManager().UpdateController("lxcmap-bpf-host-sync",
 			controller.ControllerParams{
 				DoFunc:      func() error { return d.syncLXCMap() },
-				RunInterval: time.Duration(5) * time.Second,
+				RunInterval: 5 * time.Second,
 			})
 
 		// Start the controller for periodic sync of the metrics map with
