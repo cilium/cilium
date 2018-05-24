@@ -244,7 +244,7 @@ func updateReferences(ep *endpoint.Endpoint) {
 // and cannot be modified.
 // Returns a waiting group that can be used to know when all the endpoints are
 // regenerated.
-func TriggerPolicyUpdates(owner endpoint.Owner) *sync.WaitGroup {
+func TriggerPolicyUpdates(owner endpoint.Owner, force bool) *sync.WaitGroup {
 	var wg sync.WaitGroup
 
 	eps := GetEndpoints()
@@ -255,7 +255,7 @@ func TriggerPolicyUpdates(owner endpoint.Owner) *sync.WaitGroup {
 			ep.Mutex.Lock()
 			policyChanges, ctCleaned, err := ep.TriggerPolicyUpdatesLocked(owner, nil)
 			regen := false
-			if err == nil && policyChanges {
+			if err == nil && (policyChanges || force) {
 				// Regenerate only if state transition succeeds
 				regen = ep.SetStateLocked(endpoint.StateWaitingToRegenerate, "Triggering endpoint regeneration due to policy updates")
 			}
@@ -268,7 +268,7 @@ func TriggerPolicyUpdates(owner endpoint.Owner) *sync.WaitGroup {
 				// Wait for endpoint CT clean has complete before
 				// regenerating endpoint.
 				ctCleaned.Wait()
-				if !policyChanges {
+				if !policyChanges && !force {
 					ep.LogStatusOK(endpoint.Policy, "Endpoint policy update skipped because no changes were needed")
 				} else if regen {
 					// Regenerate logs status according to the build success/failure
