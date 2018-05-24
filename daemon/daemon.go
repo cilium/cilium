@@ -1401,7 +1401,6 @@ func (h *patchConfig) Handle(params PatchConfigParams) middleware.Responder {
 				log.Debug("configuration request to change PolicyEnforcement for daemon")
 				changes++
 				policy.SetPolicyEnabled(enforcement)
-				d.TriggerPolicyUpdates(true)
 			}
 
 		default:
@@ -1420,10 +1419,10 @@ func (h *patchConfig) Handle(params PatchConfigParams) middleware.Responder {
 		// Only recompile if configuration has changed.
 		log.Debug("daemon configuration has changed; recompiling base programs")
 		if err := d.compileBase(); err != nil {
-			log.WithError(err).Warn("Invalid option for PolicyEnforcement")
 			msg := fmt.Errorf("Unable to recompile base programs: %s", err)
 			return apierror.Error(PatchConfigFailureCode, msg)
 		}
+		d.TriggerPolicyUpdates(true)
 	}
 
 	return NewPatchConfigOK()
