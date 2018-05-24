@@ -37,7 +37,7 @@ func SetGatewayURL(URL string, user string, password string) error {
 }
 
 // PushInfo pushes the given metrics to Prometheus gateway
-func PushInfo(metrics *PrometheusMetrics) error {
+func PushInfo(metrics PrometheusMetrics) error {
 
 	if !PrometheusEnabled {
 		logrus.Debug("Prometheus Exporter is not enabled")
@@ -45,18 +45,17 @@ func PushInfo(metrics *PrometheusMetrics) error {
 	}
 
 	data := []prometheus.Collector{}
-	for k, v := range *metrics {
+	for k, v := range metrics {
 		gauge := prometheus.NewGauge(prometheus.GaugeOpts{
 			Name: k,
 			Help: k,
 		})
 		number, err := strconv.ParseFloat(v, 64)
 		if err != nil {
-			return fmt.Errorf("cannot convert '%v' to float: %s", v, err)
+			return fmt.Errorf("cannot convert '%s' to float: %s", v, err)
 		}
 		gauge.Set(number)
 		data = append(data, gauge)
 	}
-	err := push.Collectors(PrometheusJob, PrometheusGroups, GatewayURL, data...)
-	return err
+	return push.Collectors(PrometheusJob, PrometheusGroups, GatewayURL, data...)
 }
