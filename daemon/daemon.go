@@ -755,6 +755,9 @@ func (d *Daemon) compileBase() error {
 }
 
 func (d *Daemon) init() error {
+
+	var err error
+
 	globalsDir := option.Config.GetGlobalsDir()
 	if err := os.MkdirAll(globalsDir, defaults.RuntimePathRights); err != nil {
 		log.WithError(err).WithField(logfields.Path, globalsDir).Fatal("Could not create runtime directory")
@@ -764,76 +767,9 @@ func (d *Daemon) init() error {
 		log.WithError(err).WithField(logfields.Path, option.Config.StateDir).Fatal("Could not change to runtime directory")
 	}
 
-	nodeConfigPath := option.Config.GetNodeConfigPath()
-	f, err := os.Create(nodeConfigPath)
-	if err != nil {
-		log.WithError(err).WithField(logfields.Path, nodeConfigPath).Fatal("Failed to create node configuration file")
-		return err
-
+	if err = d.createNodeConfigHeaderfile(); err != nil {
+		return nil
 	}
-	fw := bufio.NewWriter(f)
-
-	routerIP := node.GetIPv6Router()
-	hostIP := node.GetIPv6()
-
-	fmt.Fprintf(fw, ""+
-		"/*\n"+
-		" * Node-IPv6: %s\n"+
-		" * Router-IPv6: %s\n",
-		hostIP.String(), routerIP.String())
-
-	if option.Config.IPv4Disabled {
-		fw.WriteString(" */\n\n")
-	} else {
-		fmt.Fprintf(fw, ""+
-			" * Host-IPv4: %s\n"+
-			" */\n\n"+
-			"#define ENABLE_IPV4\n",
-			node.GetInternalIPv4().String())
-	}
-
-	fw.WriteString(common.FmtDefineComma("ROUTER_IP", routerIP))
-
-	if !option.Config.IPv4Disabled {
-		ipv4GW := node.GetInternalIPv4()
-		fmt.Fprintf(fw, "#define IPV4_GATEWAY %#x\n", byteorder.HostSliceToNetwork(ipv4GW, reflect.Uint32).(uint32))
-		fmt.Fprintf(fw, "#define IPV4_LOOPBACK %#x\n", byteorder.HostSliceToNetwork(d.loopbackIPv4, reflect.Uint32).(uint32))
-	} else {
-		// FIXME: Workaround so the bpf program compiles
-		fmt.Fprintf(fw, "#define IPV4_GATEWAY %#x\n", 0)
-		fmt.Fprintf(fw, "#define IPV4_LOOPBACK %#x\n", 0)
-	}
-
-	ipv4Range := node.GetIPv4AllocRange()
-	fmt.Fprintf(fw, "#define IPV4_MASK %#x\n", byteorder.HostSliceToNetwork(ipv4Range.Mask, reflect.Uint32).(uint32))
-
-	ipv4ClusterRange := node.GetIPv4ClusterRange()
-	fmt.Fprintf(fw, "#define IPV4_CLUSTER_RANGE %#x\n", byteorder.HostSliceToNetwork(ipv4ClusterRange.IP, reflect.Uint32).(uint32))
-	fmt.Fprintf(fw, "#define IPV4_CLUSTER_MASK %#x\n", byteorder.HostSliceToNetwork(ipv4ClusterRange.Mask, reflect.Uint32).(uint32))
-
-	if nat46Range := option.Config.NAT46Prefix; nat46Range != nil {
-		fw.WriteString(common.FmtDefineAddress("NAT46_PREFIX", nat46Range.IP))
-	}
-
-	fw.WriteString(common.FmtDefineComma("HOST_IP", hostIP))
-	fmt.Fprintf(fw, "#define HOST_ID %d\n", identity.GetReservedID(labels.IDNameHost))
-	fmt.Fprintf(fw, "#define WORLD_ID %d\n", identity.GetReservedID(labels.IDNameWorld))
-	fmt.Fprintf(fw, "#define CLUSTER_ID %d\n", identity.GetReservedID(labels.IDNameCluster))
-	fmt.Fprintf(fw, "#define LB_RR_MAX_SEQ %d\n", lbmap.MaxSeq)
-	fmt.Fprintf(fw, "#define CILIUM_LB_MAP_MAX_ENTRIES %d\n", lbmap.MaxEntries)
-	fmt.Fprintf(fw, "#define TUNNEL_ENDPOINT_MAP_SIZE %d\n", tunnel.MaxEntries)
-	fmt.Fprintf(fw, "#define PROXY_MAP_SIZE %d\n", proxymap.MaxEntries)
-	fmt.Fprintf(fw, "#define ENDPOINTS_MAP_SIZE %d\n", lxcmap.MaxEntries)
-	fmt.Fprintf(fw, "#define METRICS_MAP_SIZE %d\n", metricsmap.MaxEntries)
-	fmt.Fprintf(fw, "#define LPM_MAP_SIZE %d\n", cidrmap.MaxEntries)
-	fmt.Fprintf(fw, "#define POLICY_MAP_SIZE %d\n", policymap.MaxEntries)
-	fmt.Fprintf(fw, "#define IPCACHE_MAP_SIZE %d\n", ipcachemap.MaxEntries)
-	fmt.Fprintf(fw, "#define POLICY_PROG_MAP_SIZE %d\n", policymap.ProgArrayMaxEntries)
-
-	fmt.Fprintf(fw, "#define TRACE_PAYLOAD_LEN %dULL\n", tracePayloadLen)
-
-	fw.Flush()
-	f.Close()
 
 	if !d.DryModeEnabled() {
 		// Validate existing map paths before attempting BPF compile.
@@ -918,6 +854,81 @@ func (d *Daemon) init() error {
 			}
 		}
 	}
+
+	return nil
+}
+
+func (d *Daemon) createNodeConfigHeaderfile() error {
+	nodeConfigPath := option.Config.GetNodeConfigPath()
+	f, err := os.Create(nodeConfigPath)
+	if err != nil {
+		log.WithError(err).WithField(logfields.Path, nodeConfigPath).Fatal("Failed to create node configuration file")
+		return err
+
+	}
+	fw := bufio.NewWriter(f)
+
+	routerIP := node.GetIPv6Router()
+	hostIP := node.GetIPv6()
+
+	fmt.Fprintf(fw, ""+
+		"/*\n"+
+		" * Node-IPv6: %s\n"+
+		" * Router-IPv6: %s\n",
+		hostIP.String(), routerIP.String())
+
+	if option.Config.IPv4Disabled {
+		fw.WriteString(" */\n\n")
+	} else {
+		fmt.Fprintf(fw, ""+
+			" * Host-IPv4: %s\n"+
+			" */\n\n"+
+			"#define ENABLE_IPV4\n",
+			node.GetInternalIPv4().String())
+	}
+
+	fw.WriteString(common.FmtDefineComma("ROUTER_IP", routerIP))
+
+	if !option.Config.IPv4Disabled {
+		ipv4GW := node.GetInternalIPv4()
+		fmt.Fprintf(fw, "#define IPV4_GATEWAY %#x\n", byteorder.HostSliceToNetwork(ipv4GW, reflect.Uint32).(uint32))
+		fmt.Fprintf(fw, "#define IPV4_LOOPBACK %#x\n", byteorder.HostSliceToNetwork(d.loopbackIPv4, reflect.Uint32).(uint32))
+	} else {
+		// FIXME: Workaround so the bpf program compiles
+		fmt.Fprintf(fw, "#define IPV4_GATEWAY %#x\n", 0)
+		fmt.Fprintf(fw, "#define IPV4_LOOPBACK %#x\n", 0)
+	}
+
+	ipv4Range := node.GetIPv4AllocRange()
+	fmt.Fprintf(fw, "#define IPV4_MASK %#x\n", byteorder.HostSliceToNetwork(ipv4Range.Mask, reflect.Uint32).(uint32))
+
+	ipv4ClusterRange := node.GetIPv4ClusterRange()
+	fmt.Fprintf(fw, "#define IPV4_CLUSTER_RANGE %#x\n", byteorder.HostSliceToNetwork(ipv4ClusterRange.IP, reflect.Uint32).(uint32))
+	fmt.Fprintf(fw, "#define IPV4_CLUSTER_MASK %#x\n", byteorder.HostSliceToNetwork(ipv4ClusterRange.Mask, reflect.Uint32).(uint32))
+
+	if nat46Range := option.Config.NAT46Prefix; nat46Range != nil {
+		fw.WriteString(common.FmtDefineAddress("NAT46_PREFIX", nat46Range.IP))
+	}
+
+	fw.WriteString(common.FmtDefineComma("HOST_IP", hostIP))
+	fmt.Fprintf(fw, "#define HOST_ID %d\n", identity.GetReservedID(labels.IDNameHost))
+	fmt.Fprintf(fw, "#define WORLD_ID %d\n", identity.GetReservedID(labels.IDNameWorld))
+	fmt.Fprintf(fw, "#define CLUSTER_ID %d\n", identity.GetReservedID(labels.IDNameCluster))
+	fmt.Fprintf(fw, "#define LB_RR_MAX_SEQ %d\n", lbmap.MaxSeq)
+	fmt.Fprintf(fw, "#define CILIUM_LB_MAP_MAX_ENTRIES %d\n", lbmap.MaxEntries)
+	fmt.Fprintf(fw, "#define TUNNEL_ENDPOINT_MAP_SIZE %d\n", tunnel.MaxEntries)
+	fmt.Fprintf(fw, "#define PROXY_MAP_SIZE %d\n", proxymap.MaxEntries)
+	fmt.Fprintf(fw, "#define ENDPOINTS_MAP_SIZE %d\n", lxcmap.MaxEntries)
+	fmt.Fprintf(fw, "#define METRICS_MAP_SIZE %d\n", metricsmap.MaxEntries)
+	fmt.Fprintf(fw, "#define LPM_MAP_SIZE %d\n", cidrmap.MaxEntries)
+	fmt.Fprintf(fw, "#define POLICY_MAP_SIZE %d\n", policymap.MaxEntries)
+	fmt.Fprintf(fw, "#define IPCACHE_MAP_SIZE %d\n", ipcachemap.MaxEntries)
+	fmt.Fprintf(fw, "#define POLICY_PROG_MAP_SIZE %d\n", policymap.ProgArrayMaxEntries)
+
+	fmt.Fprintf(fw, "#define TRACE_PAYLOAD_LEN %dULL\n", tracePayloadLen)
+
+	fw.Flush()
+	f.Close()
 
 	return nil
 }
