@@ -1,3 +1,17 @@
+// Copyright 2017-2018 Authors of Cilium
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package config
 
 import (
@@ -37,7 +51,7 @@ func SetGatewayURL(URL string, user string, password string) error {
 }
 
 // PushInfo pushes the given metrics to Prometheus gateway
-func PushInfo(metrics *PrometheusMetrics) error {
+func PushInfo(metrics PrometheusMetrics) error {
 
 	if !PrometheusEnabled {
 		logrus.Debug("Prometheus Exporter is not enabled")
@@ -45,18 +59,17 @@ func PushInfo(metrics *PrometheusMetrics) error {
 	}
 
 	data := []prometheus.Collector{}
-	for k, v := range *metrics {
+	for k, v := range metrics {
 		gauge := prometheus.NewGauge(prometheus.GaugeOpts{
 			Name: k,
 			Help: k,
 		})
 		number, err := strconv.ParseFloat(v, 64)
 		if err != nil {
-			return fmt.Errorf("cannot convert '%v' to float: %s", v, err)
+			return fmt.Errorf("cannot convert '%s' to float: %s", v, err)
 		}
 		gauge.Set(number)
 		data = append(data, gauge)
 	}
-	err := push.Collectors(PrometheusJob, PrometheusGroups, GatewayURL, data...)
-	return err
+	return push.Collectors(PrometheusJob, PrometheusGroups, GatewayURL, data...)
 }

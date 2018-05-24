@@ -31,7 +31,6 @@ import (
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/annotation"
-
 	cnpv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/test/config"
 	"github.com/cilium/cilium/test/ginkgo-ext"
@@ -68,8 +67,8 @@ const (
 
 var (
 	heapsterYamls = []string{
-		"https://raw.githubusercontent.com/kubernetes/heapster/v1.5.1/deploy/kube-config/rbac/heapster-rbac.yaml",
-		"https://raw.githubusercontent.com/kubernetes/heapster/v1.5.1/deploy/kube-config/standalone/heapster-controller.yaml",
+		"https://raw.githubusercontent.com/kubernetes/heapster/v1.5.3/deploy/kube-config/rbac/heapster-rbac.yaml",
+		"https://raw.githubusercontent.com/kubernetes/heapster/v1.5.3/deploy/kube-config/standalone/heapster-controller.yaml",
 	}
 )
 
@@ -621,6 +620,7 @@ func (kub *Kubectl) HeapsterDeploy() error {
 	for _, manifest := range heapsterYamls {
 		res := kub.Apply(manifest)
 		if !res.WasSuccessful() {
+			_ = kub.Exec(fmt.Sprintf("curl %s", manifest)) // debug manifest output
 			return fmt.Errorf("cannot install Heapster %s: %s", manifest, res.CombineOutput())
 		}
 	}
@@ -649,7 +649,7 @@ func (kub *Kubectl) HeapsterDelete() error {
 	for _, manifest := range heapsterYamls {
 		res := kub.Delete(manifest)
 		if !res.WasSuccessful() {
-			return fmt.Errorf("cannot install Heapster %s: %s", manifest, res.CombineOutput())
+			return fmt.Errorf("cannot delete Heapster %s: %s", manifest, res.CombineOutput())
 		}
 	}
 
@@ -1084,6 +1084,7 @@ func (kub *Kubectl) CiliumExportInfo(ctx context.Context, prefix string, cmds ma
 		memory, err := kub.CiliumReportMemory()
 		if err != nil {
 			kub.logger.WithError(err).Warn("cannot get memory report")
+			return result
 		}
 
 		// Memory report first
@@ -1109,7 +1110,7 @@ func (kub *Kubectl) CiliumExportInfo(ctx context.Context, prefix string, cmds ma
 			select {
 			case <-ticker.C:
 				data := ExecReport()
-				err := config.PushInfo(&data)
+				err := config.PushInfo(data)
 				if err != nil {
 					kub.logger.WithError(err).Warn("cannot push info to Prometheus")
 				}
