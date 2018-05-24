@@ -86,8 +86,12 @@ function setup_veth_pair()
 	local -r NAME1=$1
 	local -r NAME2=$2
 
-	ip link del $NAME1 2> /dev/null || true
-	ip link add $NAME1 type veth peer name $NAME2
+	# Only recreate the veth pair if it does not exist already.
+	# This avoids problems with changing MAC addresses.
+ 	if [ "$(ip link show $NAME1 type veth | cut -d ' ' -f 2)" != "${NAME1}@${NAME2}:" ] ; then
+		ip link del $NAME1 2> /dev/null || true
+		ip link add $NAME1 type veth peer name $NAME2
+	fi
 
 	setup_veth $NAME1
 	setup_veth $NAME2
