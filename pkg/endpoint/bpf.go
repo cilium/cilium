@@ -21,6 +21,7 @@ import (
 	"crypto/md5"
 	"encoding/hex"
 	"fmt"
+	"hash"
 	"io"
 	"os"
 	"os/exec"
@@ -337,31 +338,62 @@ func (e *Endpoint) writeHeaderfile(prefix string, owner Owner) error {
 	return fw.Flush()
 }
 
-// hashHeaderfile returns the MD5 hash of the BPF headerfile with the given prefix.
-// This ignores all lines that don't start with "#", incl. all comments, since
-// they have no effect on the BPF compilation.
-func (e *Endpoint) hashHeaderfile(prefix string) (string, error) {
-	headerPath := filepath.Join(prefix, common.CHeaderFileName)
-	file, err := os.Open(headerPath)
+// hashEndpointHeaderFiles returns the MD5 hash of any header files that are
+// used in the compilation of an endpoint's BPF program. Currently, this
+// includes the endpoint's headerfile, and the node's headerfile.
+func hashEndpointHeaderfiles(prefix string) (string, error) {
+	endpointHeaderPath := filepath.Join(prefix, common.CHeaderFileName)
+	nodeConfigPath := "./globals/node_config.h"
+	hashWriter := md5.New()
+	hashWriter, err := hashHeaderfile(hashWriter, endpointHeaderPath)
 	if err != nil {
 		return "", err
 	}
-	defer file.Close()
 
-	scanner := bufio.NewScanner(file)
-	hashWriter := md5.New()
-	for scanner.Scan() {
-		line := scanner.Text()
-		if strings.HasPrefix(line, "#") {
-			io.WriteString(hashWriter, line)
-		}
-	}
-	if err := scanner.Err(); err != nil {
+	hashWriter, err = hashHeaderfile(hashWriter, nodeConfigPath)
+	if err != nil {
 		return "", err
 	}
 
-	hash := hashWriter.Sum(nil)
-	return hex.EncodeToString(hash[:]), nil
+	combinedHeaderHashSum := hashWriter.Sum(nil)
+	return hex.EncodeToString(combinedHeaderHashSum[:]), nil
+}
+
+// hashHeaderfile returns the hash of the BPF headerfile at the given filepath.
+// This ignores all lines that don't start with "#", incl. all comments, since
+// they have no effect on the BPF compilation.
+func hashHeaderfile(hashWriter hash.Hash, filepath string) (hash.Hash, error) {
+	file, err := os.Open(filepath)
+	if err != nil {
+		return nil, err
+	}
+	defer file.Close()
+
+	reader := bufio.NewReader(file)
+	firstFragmentOfLine := true
+	lineToHash := false
+	for {
+		fragment, isPrefix, err := reader.ReadLine()
+		if err != nil {
+			if err == io.EOF {
+				break
+			}
+			return nil, err
+		}
+		if firstFragmentOfLine && len(fragment) > 0 && fragment[0] == '#' {
+			lineToHash = true
+		}
+		if lineToHash {
+			hashWriter.Write(fragment)
+		}
+		firstFragmentOfLine = !isPrefix
+		if firstFragmentOfLine {
+			// The next fragment is the beginning of a new line.
+			lineToHash = false
+		}
+	}
+
+	return hashWriter, nil
 }
 
 // FIXME: Clean this function up
@@ -780,16 +812,17 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir, reason string) (uint64, err
 		return 0, fmt.Errorf("unable to write header file: %s", err)
 	}
 
-	// Avoid BPF program compilation and installation if the headerfile hasn't changed.
-	bpfHeaderfileHash, err := e.hashHeaderfile(epdir)
-	var bpfHeaderfileChanged bool
+	// Avoid BPF program compilation and installation if the headerfile for the endpoint
+	// or the node have not changed.
+	bpfHeaderfilesHash, err := hashEndpointHeaderfiles(epdir)
+	var bpfHeaderfilesChanged bool
 	if err != nil {
 		e.getLogger().WithError(err).Warn("Unable to hash header file")
-		bpfHeaderfileHash = ""
-		bpfHeaderfileChanged = true
+		bpfHeaderfilesHash = ""
+		bpfHeaderfilesChanged = true
 	} else {
-		bpfHeaderfileChanged = (bpfHeaderfileHash != e.bpfHeaderfileHash)
-		e.getLogger().WithField(logfields.BPFHeaderfileHash, bpfHeaderfileHash).
+		bpfHeaderfilesChanged = (bpfHeaderfilesHash != e.bpfHeaderfileHash)
+		e.getLogger().WithField(logfields.BPFHeaderfileHash, bpfHeaderfilesHash).
 			Debugf("BPF header file hashed (was: %q)", e.bpfHeaderfileHash)
 	}
 
@@ -850,16 +883,16 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir, reason string) (uint64, err
 		return 0, fmt.Errorf("Error while configuring proxy redirects: %s", err)
 	}
 
-	if bpfHeaderfileChanged {
+	if bpfHeaderfilesChanged {
 		// Compile and install BPF programs for this endpoint
 		err = e.runInit(libdir, rundir, epdir, epInfoCache.ifName, debug)
 		if err != nil {
 			return epInfoCache.revision, err
 		}
-		e.bpfHeaderfileHash = bpfHeaderfileHash
+		e.bpfHeaderfileHash = bpfHeaderfilesHash
 	} else {
 		e.Mutex.RLock()
-		e.getLogger().WithField(logfields.BPFHeaderfileHash, bpfHeaderfileHash).
+		e.getLogger().WithField(logfields.BPFHeaderfileHash, bpfHeaderfilesHash).
 			Debug("BPF header file unchanged, skipping BPF compilation and installation")
 		e.Mutex.RUnlock()
 	}
