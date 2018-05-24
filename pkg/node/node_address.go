@@ -35,6 +35,7 @@ import (
 var (
 	ipv4ClusterCidrMaskSize = DefaultIPv4ClusterPrefixLen
 
+	ipv4Loopback        net.IP
 	ipv4ExternalAddress net.IP
 	ipv4InternalAddress net.IP
 	ipv6Address         net.IP
@@ -182,6 +183,16 @@ func GetIPv4ClusterRange() *net.IPNet {
 		IP:   ipv4AllocRange.IP.Mask(mask),
 		Mask: mask,
 	}
+}
+
+// GetIPv4Loopback returns the loopback IPv4 address of this node.
+func GetIPv4Loopback() net.IP {
+	return ipv4Loopback
+}
+
+// SetIPv4Loopback sets the loopback IPv4 address of this node.
+func SetIPv4Loopback(ip net.IP) {
+	ipv4Loopback = ip
 }
 
 // GetIPv4AllocRange returns the IPv4 allocation prefix of this node
