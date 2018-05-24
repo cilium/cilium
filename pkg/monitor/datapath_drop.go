@@ -77,7 +77,8 @@ var errors = map[uint8]string{
 	162: "Policy denied (CIDR)",
 }
 
-func dropReason(reason uint8) string {
+// DropReason prints the drop reason in a human readable string
+func DropReason(reason uint8) string {
 	if err, ok := errors[reason]; ok {
 		return err
 	}
@@ -87,14 +88,14 @@ func dropReason(reason uint8) string {
 // DumpInfo prints a summary of the drop messages.
 func (n *DropNotify) DumpInfo(data []byte) {
 	fmt.Printf("xx drop (%s) flow %#x to endpoint %d, identity %d->%d: %s\n",
-		dropReason(n.SubType), n.Hash, n.DstID, n.SrcLabel, n.DstLabel,
+		DropReason(n.SubType), n.Hash, n.DstID, n.SrcLabel, n.DstLabel,
 		GetConnectionSummary(data[DropNotifyLen:]))
 }
 
 // DumpVerbose prints the drop notification in human readable form
 func (n *DropNotify) DumpVerbose(dissect bool, data []byte, prefix string) {
 	fmt.Printf("%s MARK %#x FROM %d DROP: %d bytes, reason %s, to ifindex %s",
-		prefix, n.Hash, n.Source, n.OrigLen, dropReason(n.SubType), ifname(int(n.Ifindex)))
+		prefix, n.Hash, n.Source, n.OrigLen, DropReason(n.SubType), ifname(int(n.Ifindex)))
 
 	if n.SrcLabel != 0 || n.DstLabel != 0 {
 		fmt.Printf(", identity %d->%d", n.SrcLabel, n.DstLabel)
@@ -154,7 +155,7 @@ func DropNotifyToVerbose(n *DropNotify) DropNotifyVerbose {
 		Type:     "drop",
 		Mark:     fmt.Sprintf("%#x", n.Hash),
 		Ifindex:  ifname(int(n.Ifindex)),
-		Reason:   dropReason(n.SubType),
+		Reason:   DropReason(n.SubType),
 		Source:   n.Source,
 		Bytes:    n.OrigLen,
 		SrcLabel: n.SrcLabel,
