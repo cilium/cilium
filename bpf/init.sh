@@ -152,14 +152,14 @@ function setup_proxy_rules()
 	fi
 
 	if [ -n "$IP4_HOST" ]; then
-		ip route add table $PROXY_RT_TABLE $IP4_HOST/32 dev $HOST_DEV1
-		ip route add table $PROXY_RT_TABLE default via $IP4_HOST
+		ip route replace table $PROXY_RT_TABLE $IP4_HOST/32 dev $HOST_DEV1
+		ip route replace table $PROXY_RT_TABLE default via $IP4_HOST
 	fi
 
 	IP6_LLADDR=$(ip -6 addr show dev $HOST_DEV2 | grep inet6 | head -1 | awk '{print $2}' | awk -F'/' '{print $1}')
 	if [ -n "$IP6_LLADDR" ]; then
-		ip -6 route add table $PROXY_RT_TABLE ${IP6_LLADDR}/128 dev $HOST_DEV1
-		ip -6 route add table $PROXY_RT_TABLE default via $IP6_LLADDR dev $HOST_DEV1
+		ip -6 route replace table $PROXY_RT_TABLE ${IP6_LLADDR}/128 dev $HOST_DEV1
+		ip -6 route replace table $PROXY_RT_TABLE default via $IP6_LLADDR dev $HOST_DEV1
 	fi
 }
 
