@@ -29,6 +29,49 @@ type OptionSuite struct{}
 
 var _ = Suite(&OptionSuite{})
 
+func (s *OptionSuite) TestGetFmtOpts(c *C) {
+	OptionTest := Option{
+		Define:      "TEST_DEFINE",
+		Description: "This is a test",
+	}
+
+	o := BoolOptions{
+		Opts: OptionMap{
+			"test": true,
+			"BAR":  false,
+			"foo":  true,
+			"bar":  false,
+		},
+		Library: &OptionLibrary{
+			"test": &OptionTest,
+		},
+	}
+
+	fmtList := o.GetFmtList()
+	fmtList2 := o.GetFmtList()
+
+	// Both strings should be equal because the formatted options should be sorted.
+	c.Assert(fmtList, Equals, fmtList2)
+
+	o2 := BoolOptions{
+		Opts: OptionMap{
+			"foo":  true,
+			"BAR":  false,
+			"bar":  false,
+			"test": true,
+		},
+		Library: &OptionLibrary{
+			"test": &OptionTest,
+		},
+	}
+
+	fmtListO := o.GetFmtList()
+	fmtListO2 := o2.GetFmtList()
+
+	// Both strings should be equal because the formatted options should be sorted.
+	c.Assert(fmtListO, Equals, fmtListO2)
+}
+
 func (s *OptionSuite) TestGetFmtOpt(c *C) {
 	OptionTest := Option{
 		Define:      "TEST_DEFINE",
