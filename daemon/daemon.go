@@ -102,7 +102,6 @@ type Daemon struct {
 	buildEndpointChan chan *endpoint.Request
 	l7Proxy           *proxy.Proxy
 	loadBalancer      *types.LoadBalancer
-	loopbackIPv4      net.IP
 	policy            *policy.Repository
 	preFilter         *policy.PreFilter
 
