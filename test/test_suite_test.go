@@ -68,7 +68,7 @@ func init() {
 			os.Getenv("METRICS_USR"),
 			os.Getenv("METRICS_PSW"))
 		config.PrometheusJob = os.Getenv("BUILD_ID")
-		config.PrometheusGroups["JenkisJobName"] = os.Getenv("JOB_NAME")
+		config.PrometheusGroups["JenkinsJobName"] = os.Getenv("JOB_NAME")
 	}
 	config.CiliumTestConfig.ParseFlags()
 	os.RemoveAll(helpers.TestResultsPath)
