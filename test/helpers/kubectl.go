@@ -1049,7 +1049,7 @@ func (kub *Kubectl) CiliumReport(namespace string, commands ...string) {
 func (kub *Kubectl) ValidateNoErrorsOnLogs(duration time.Duration) {
 	cmd := fmt.Sprintf("%s -n %s logs --timestamps=true -l k8s-app=cilium --since=%vs",
 		KubectlCmd, KubeSystemNamespace, duration.Seconds())
-	res := kub.Exec(fmt.Sprintf("%s --previous", cmd))
+	res := kub.Exec(fmt.Sprintf("%s --previous", cmd), ExecOptions{SkipLog: true})
 	if !res.WasSuccessful() {
 		res = kub.Exec(cmd)
 	}
