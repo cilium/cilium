@@ -210,7 +210,17 @@ func (e *Endpoint) determineAllowLocalhost(desiredPolicyKeys map[policymap.Polic
 			Identity:         identityPkg.ReservedIdentityHost.Uint32(),
 			TrafficDirection: policymap.Ingress.Uint8(),
 		}
+
+		// Remove eventual existing ingress L4 localhost restrictions
+		for key := range desiredPolicyKeys {
+			if key.Identity == identityPkg.ReservedIdentityHost.Uint32() &&
+				key.TrafficDirection == policymap.Ingress.Uint8() {
+				delete(desiredPolicyKeys, key)
+			}
+		}
+
 		desiredPolicyKeys[localHostKey] = struct{}{}
+
 	}
 }
 
