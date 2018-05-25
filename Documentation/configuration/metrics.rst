@@ -29,6 +29,12 @@ Endpoint
 * ``endpoint_regenerating``: Number of endpoints currently regenerating
 * ``endpoint_regenerations``: Count of all endpoint regenerations that have completed, tagged by outcome
 
+Drops/Forwards (L3/L4)
+---------------------
+
+* ``drop_count_total``: Total dropped packets, tagged by drop reason and ingress/egress direction
+* ``forward_count_total``: Total forwarded packets, tagged by ingress/egress direction
+
 Policy Imports
 --------------
 
