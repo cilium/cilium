@@ -87,6 +87,14 @@ type CiliumNetworkPolicyNodeStatus struct {
 	// Enforcing is set to true once all endpoints present at the time the
 	// policy has been imported are enforcing this policy.
 	Enforcing bool `json:"enforcing,omitempty"`
+
+	// Annotations corresponds to the Annotations in the ObjectMeta of the CNP
+	// that have been realized on the node for CNP. That is, if a CNP has been
+	// imported and has been assigned annotation X=Y by the user,
+	// Annotations in CiliumNetworkPolicyNodeStatus will be X=Y once the
+	// CNP that was imported corresponding to Annotation X=Y has been realized on
+	// the node.
+	Annotations map[string]string `json:"annotations,omitempty"`
 }
 
 // NewTimestamp creates a new Timestamp with the current time.Now()
