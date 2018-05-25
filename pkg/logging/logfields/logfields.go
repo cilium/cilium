@@ -199,6 +199,9 @@ const (
 	// XDSResource is an xDS resource message.
 	XDSResource = "xdsResource"
 
+	// XDSErrorDetail is an optional error message returned with a NACK
+	XDSErrorDetail = "xdsErrorDetail"
+
 	// K8s-specific
 
 	// K8sNodeID is the k8s ID of a K8sNode

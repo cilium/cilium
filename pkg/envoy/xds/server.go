@@ -104,12 +104,18 @@ func NewServer(resourceTypes map[string]*ResourceTypeConfiguration,
 }
 
 func getXDSRequestFields(req *envoy_api_v2.DiscoveryRequest) logrus.Fields {
-	return logrus.Fields{
+	fields := logrus.Fields{
 		logfields.XDSVersionInfo: req.GetVersionInfo(),
 		logfields.XDSClientNode:  req.GetNode(),
 		logfields.XDSTypeURL:     req.GetTypeUrl(),
 		logfields.XDSNonce:       req.GetResponseNonce(),
 	}
+
+	if detail := req.GetErrorDetail(); detail != nil {
+		fields[logfields.XDSErrorDetail] = detail.GetMessage()
+	}
+
+	return fields
 }
 
 // HandleRequestStream receives and processes the requests from an xDS stream.
@@ -178,6 +184,11 @@ type perTypeStreamState struct {
 	// resourceNames is the list of names of resources sent in the last
 	// response to a request for this resource type.
 	resourceNames []string
+
+	// nackReceived it true if the last request received was a NACK. A NACK indicates
+	// an error on the xDS protocol, which always is a bug. Further messages on the stream
+	// are then logged at info level until we receive an ACK.
+	nackReceived bool
 }
 
 // processRequestStream processes the requests in an xDS stream from a channel.
@@ -301,6 +312,7 @@ func (s *Server) processRequestStream(ctx context.Context, streamLog *logrus.Ent
 			// that response and sends a request with that response's nonce.
 			if state.nonce == "" || state.nonce == req.GetResponseNonce() {
 				if versionInfo != nil && *versionInfo == state.version {
+					state.nackReceived = false
 					// This request is an ACK.
 					// Notify every observer of the ACK.
 					ackObserver := s.ackObservers[typeURL]
@@ -311,6 +323,7 @@ func (s *Server) processRequestStream(ctx context.Context, streamLog *logrus.Ent
 						requestLog.Debug("ACK received but no observers are waiting for ACKs")
 					}
 				} else if state.nonce != "" {
+					state.nackReceived = true
 					requestLog.Warningf("NACK received for version %d; waiting for a version update before sending again", state.version)
 					// Watcher will behave as if the sent version was acked.
 					// Otherwise we will just be sending the same failing
@@ -381,7 +394,11 @@ func (s *Server) processRequestStream(ctx context.Context, streamLog *logrus.Ent
 				}
 			}
 
-			responseLog.Debugf("sending xDS response with %d resources", len(resp.Resources))
+			if state.nackReceived {
+				responseLog.Infof("sending xDS response with %d resources after receiving a NACK", len(resp.Resources))
+			} else {
+				responseLog.Debugf("sending xDS response with %d resources", len(resp.Resources))
+			}
 
 			out := &envoy_api_v2.DiscoveryResponse{
 				VersionInfo: strconv.FormatUint(resp.Version, 10),
