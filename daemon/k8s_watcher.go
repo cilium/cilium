@@ -1362,6 +1362,7 @@ func (d *Daemon) addCiliumNetworkPolicyV2(ciliumV2Store cache.Store, cnp *cilium
 					Enforcing:   waitForEPsErr == nil,
 					Revision:    rev,
 					LastUpdated: cilium_v2.NewTimestamp(),
+					Annotations: cnp.Annotations,
 				}
 
 				// Most important is the error while adding the CNP
