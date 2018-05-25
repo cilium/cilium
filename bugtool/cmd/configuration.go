@@ -64,6 +64,7 @@ func defaultCommands(confDir string, cmdDir string, k8sPods []string) []string {
 		"bpftool prog show",
 		// Versions
 		"docker version",
+		"docker info",
 		// Docker and Kubernetes logs from systemd
 		"journalctl -u cilium*",
 		"journalctl -u kubelet",
