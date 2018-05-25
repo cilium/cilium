@@ -408,7 +408,7 @@ func (s *SharedStore) watcher(listDone chan bool) {
 				"eventType": event.Typ,
 			})
 
-			logger.Infof("Received key update via kvstore [value %s]", string(event.Value))
+			logger.Debugf("Received key update via kvstore [value %s]", string(event.Value))
 
 			keyName := strings.TrimPrefix(event.Key, s.conf.Prefix)
 			if keyName[0] == '/' {
