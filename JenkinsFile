@@ -1,0 +1,36 @@
+@Library('cilium') _
+
+pipeline {
+    agent any
+
+    options {
+        timeout(time: 10, unit: 'MINUTES')
+        timestamps()
+        ansiColor('xterm')
+    }
+
+    stages {
+        stage('Router') {
+            when {
+                expression { params.ghprbCommentBody ==~ 't-please' }
+            }
+            steps {
+                BuildIfLabel('area/k8s', 'BETA-Cilium-PR-K8s-all')
+                BuildIfLabel('area/k8s', 'BETA-Cilium-PR-K8s-Upstream')
+                BuildIfLabel('area/documentation', 'BETA-Cilium-PR-Docs')
+                Build('BETA-Cilium-PR-standard')
+            }
+        }
+        stage('selected') {
+            steps {
+                BuildIfMatch("${params.ghprbCommentBody}", '^t-missed-k8s.*', 'BETA-Cilium-PR-K8s-all')
+                BuildIfMatch("${params.ghprbCommentBody}", '^t-k8s-upstream.*', 'BETA-Cilium-PR-K8s-Upstream')
+                BuildIfMatch("${params.ghprbCommentBody}", '^t-me-please.*', 'BETA-Cilium-PR-standard')
+                BuildIfMatch("${params.ghprbCommentBody}", '^t-nightly.*', 'BETA-Cilium-PR-Nightly')
+                BuildIfMatch("${params.ghprbCommentBody}", '^t-docs-please.*', 'BETA-Cilium-PR-Docs')
+            }
+        }
+    }
+}
+
+
