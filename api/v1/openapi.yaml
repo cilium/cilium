@@ -1382,6 +1382,9 @@ definitions:
       health-endpoint-address:
         description: Address used for probing cluster connectivity
         "$ref": "#/definitions/NodeAddressing"
+      routing-configuration:
+        description: Routing configuration of node
+        "$ref": "#/definitions/RoutingConfiguration"
   NodeAddressing:
     description: Addressing information of a node for all address families
     type: object
@@ -1658,5 +1661,35 @@ definitions:
           last-failure-msg:
             description: Error message of last failed run
             type: string
+  DirectRoutingConfiguration:
+    description: Direct routing configuration of a node
+    type: object
+    properties:
+      install-routes:
+        type: boolean
+        description: |
+          Indicates that this node installs and uses direct routes to reach
+          endpoints on other cluster nodes.
+  RoutingConfiguration:
+    description: |
+     Routing configuration of a cluster node. It defines how to other cluster
+     nodes can reach endpoints running on the node
+    type: object
+    properties:
+      encapsulation:
+        description: |
+          Encapsulation defines whether and how networking encapsulation can be
+          utilized. Encapsulation is the preferred routing mode unless
+          explicitly disabled. The encapsulation mode announced by the receiver
+          must be respected by the sender. It is valid to build a mesh of cluster
+          nodes with mixed encapsulation protocols.
+        type: string
+        enum:
+        - disabled
+        - vxlan
+        - geneve
+      directRouting:
+        description: Direct routing configuration of the node
+        "$ref": "#/definitions/DirectRoutingConfiguration"
   Error:
     type: string

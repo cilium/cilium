@@ -27,6 +27,7 @@ CLI for interacting with the local Cilium Agent
 * [cilium identity](cilium_identity.html)	 - Manage security identities
 * [cilium kvstore](cilium_kvstore.html)	 - Direct access to the kvstore
 * [cilium monitor](cilium_monitor.html)	 - Display BPF program events
+* [cilium node](cilium_node.html)	 - Manage cluster nodes
 * [cilium policy](cilium_policy.html)	 - Manage security policies
 * [cilium prefilter](cilium_prefilter.html)	 - Manage XDP CIDR filters
 * [cilium service](cilium_service.html)	 - Manage services & loadbalancers

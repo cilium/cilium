@@ -1,4 +1,4 @@
-// Copyright 2016-2017 Authors of Cilium
+// Copyright 2016-2018 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -38,33 +38,71 @@ func (s *NodeSuite) TestGetNodeIP(c *C) {
 			{IP: net.ParseIP("192.0.2.3"), AddressType: v1.NodeExternalIP},
 		},
 	}
-	ip := n.GetNodeIP(false)
+	ip := n.GetIPv4()
 	// Return the only IP present
 	c.Assert(ip.Equal(net.ParseIP("192.0.2.3")), Equals, true)
 
 	n.IPAddresses = append(n.IPAddresses, Address{IP: net.ParseIP("192.0.2.3"), AddressType: v1.NodeExternalIP})
-	ip = n.GetNodeIP(false)
+	ip = n.GetIPv4()
 	// The next priority should be NodeExternalIP
 	c.Assert(ip.Equal(net.ParseIP("192.0.2.3")), Equals, true)
 
 	n.IPAddresses = append(n.IPAddresses, Address{IP: net.ParseIP("198.51.100.2"), AddressType: v1.NodeInternalIP})
-	ip = n.GetNodeIP(false)
+	ip = n.GetIPv4()
 	// The next priority should be NodeInternalIP
 	c.Assert(ip.Equal(net.ParseIP("198.51.100.2")), Equals, true)
 
 	n.IPAddresses = append(n.IPAddresses, Address{IP: net.ParseIP("2001:DB8::1"), AddressType: v1.NodeExternalIP})
-	ip = n.GetNodeIP(true)
+	ip = n.GetIPv6()
 	// The next priority should be NodeExternalIP and IPv6
 	c.Assert(ip.Equal(net.ParseIP("2001:DB8::1")), Equals, true)
 
 	n.IPAddresses = append(n.IPAddresses, Address{IP: net.ParseIP("2001:DB8::2"), AddressType: v1.NodeInternalIP})
-	ip = n.GetNodeIP(true)
+	ip = n.GetIPv6()
 	// The next priority should be NodeInternalIP and IPv6
 	c.Assert(ip.Equal(net.ParseIP("2001:DB8::2")), Equals, true)
 
 	n.IPAddresses = append(n.IPAddresses, Address{IP: net.ParseIP("198.51.100.2"), AddressType: v1.NodeInternalIP})
-	ip = n.GetNodeIP(false)
+	ip = n.GetIPv4()
 	// Should still return NodeInternalIP and IPv4
 	c.Assert(ip.Equal(net.ParseIP("198.51.100.2")), Equals, true)
 
+}
+
+func (s *NodeSuite) TestAddressEqual(c *C) {
+	addr1 := Address{AddressType: v1.NodeExternalIP, IP: net.ParseIP("10.1.1.1")}
+	addr2 := Address{AddressType: v1.NodeInternalIP, IP: net.ParseIP("10.1.1.1")}
+	addr3 := Address{AddressType: v1.NodeInternalIP, IP: net.ParseIP("10.2.2.2")}
+	addr4 := Address{AddressType: v1.NodeExternalIP, IP: net.ParseIP("::1")}
+	addr5 := Address{}
+
+	c.Assert(addr1.Equal(addr1), Equals, true)
+	c.Assert(addr1.Equal(addr2), Equals, false)
+	c.Assert(addr1.Equal(addr3), Equals, false)
+	c.Assert(addr1.Equal(addr4), Equals, false)
+	c.Assert(addr1.Equal(addr5), Equals, false)
+
+	c.Assert(addr2.Equal(addr1), Equals, false)
+	c.Assert(addr2.Equal(addr2), Equals, true)
+	c.Assert(addr2.Equal(addr3), Equals, false)
+	c.Assert(addr2.Equal(addr4), Equals, false)
+	c.Assert(addr2.Equal(addr5), Equals, false)
+
+	c.Assert(addr3.Equal(addr1), Equals, false)
+	c.Assert(addr3.Equal(addr2), Equals, false)
+	c.Assert(addr3.Equal(addr3), Equals, true)
+	c.Assert(addr3.Equal(addr4), Equals, false)
+	c.Assert(addr3.Equal(addr5), Equals, false)
+
+	c.Assert(addr4.Equal(addr1), Equals, false)
+	c.Assert(addr4.Equal(addr2), Equals, false)
+	c.Assert(addr4.Equal(addr3), Equals, false)
+	c.Assert(addr4.Equal(addr4), Equals, true)
+	c.Assert(addr4.Equal(addr5), Equals, false)
+
+	c.Assert(addr5.Equal(addr1), Equals, false)
+	c.Assert(addr5.Equal(addr2), Equals, false)
+	c.Assert(addr5.Equal(addr3), Equals, false)
+	c.Assert(addr5.Equal(addr4), Equals, false)
+	c.Assert(addr5.Equal(addr5), Equals, true)
 }

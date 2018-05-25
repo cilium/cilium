@@ -62,8 +62,8 @@ func Init() error {
 
 		log.WithFields(logrus.Fields{
 			logfields.NodeName:         n.Name,
-			logfields.IPAddr + ".ipv4": n.GetNodeIP(false),
-			logfields.IPAddr + ".ipv6": n.GetNodeIP(true),
+			logfields.IPAddr + ".ipv4": n.GetIPv4(),
+			logfields.IPAddr + ".ipv6": n.GetIPv6(),
 		}).Info("Received own node information from API server")
 
 		if err := node.UseNodeCIDR(n); err != nil {

@@ -19,7 +19,7 @@ cilium-agent
       --access-log string                 Path to access log of supported L7 requests observed
       --agent-labels stringSlice          Additional labels to identify this agent
       --allow-localhost string            Policy when to allow local stack to reach local endpoints { auto | always | policy }  (default "auto")
-      --auto-ipv6-node-routes             Automatically adds IPv6 L3 routes to reach other nodes for non-overlay mode (--device) (BETA)
+      --auto-routing                      Install direct Linux routes to endpoint CIDRs of cluster nodes announcing them
       --bpf-root string                   Path to BPF filesystem
       --config string                     Configuration file (default "$HOME/ciliumd.yaml")
       --container-runtime stringSlice     Sets the container runtime(s) used by Cilium { containerd | docker | none | auto } ( "auto" the uses the container runtime found in the order: "docker", "containerd" ) (default [auto])
@@ -43,6 +43,7 @@ cilium-agent
       --ipv6-service-range string         Kubernetes IPv6 services CIDR if not inside cluster prefix (default "auto")
       --k8s-api-server string             Kubernetes api address server (for https use --k8s-kubeconfig-path instead)
       --k8s-kubeconfig-path string        Absolute path of the kubernetes kubeconfig file
+      --k8s-use-node-annotations          Use Kubernetes node annotations instead of kvstore to distribute endpoint CIDR ranges
       --keep-bpf-templates                Do not restore BPF template files from binary
       --keep-config                       When restoring state, keeps containers' configuration in place
       --kvstore string                    Key-value store type

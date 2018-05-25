@@ -398,12 +398,12 @@ func UseNodeCIDR(node *Node) error {
 // addresses defined in the given node.
 func UseNodeAddresses(node *Node) error {
 	scopedLog := log.WithField(logfields.Node, node.Name)
-	nodeIP4 := node.GetNodeIP(false)
+	nodeIP4 := node.GetIPv4()
 	if nodeIP4 != nil {
 		scopedLog.WithField(logfields.IPAddr, nodeIP4).Info("Automatically retrieved IP for node. Using it for ipv4-node")
 		SetExternalIPv4(nodeIP4)
 	}
-	nodeIP6 := node.GetNodeIP(true)
+	nodeIP6 := node.GetIPv6()
 	if nodeIP6 != nil {
 		scopedLog.WithField(logfields.IPAddr, nodeIP6).Info("Automatically retrieved IP for node. Using it for ipv6-node")
 		SetIPv6(nodeIP6)

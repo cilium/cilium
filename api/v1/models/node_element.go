@@ -28,6 +28,9 @@ type NodeElement struct {
 	// Primary address used for intra-cluster communication
 	PrimaryAddress *NodeAddressing `json:"primary-address,omitempty"`
 
+	// Routing configuration of node
+	RoutingConfiguration *RoutingConfiguration `json:"routing-configuration,omitempty"`
+
 	// Alternative addresses assigned to the node
 	SecondaryAddresses []*NodeAddressingElement `json:"secondary-addresses"`
 }
@@ -37,6 +40,8 @@ type NodeElement struct {
 /* polymorph NodeElement name false */
 
 /* polymorph NodeElement primary-address false */
+
+/* polymorph NodeElement routing-configuration false */
 
 /* polymorph NodeElement secondary-addresses false */
 
@@ -50,6 +55,11 @@ func (m *NodeElement) Validate(formats strfmt.Registry) error {
 	}
 
 	if err := m.validatePrimaryAddress(formats); err != nil {
+		// prop
+		res = append(res, err)
+	}
+
+	if err := m.validateRoutingConfiguration(formats); err != nil {
 		// prop
 		res = append(res, err)
 	}
@@ -95,6 +105,25 @@ func (m *NodeElement) validatePrimaryAddress(formats strfmt.Registry) error {
 		if err := m.PrimaryAddress.Validate(formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("primary-address")
+			}
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (m *NodeElement) validateRoutingConfiguration(formats strfmt.Registry) error {
+
+	if swag.IsZero(m.RoutingConfiguration) { // not required
+		return nil
+	}
+
+	if m.RoutingConfiguration != nil {
+
+		if err := m.RoutingConfiguration.Validate(formats); err != nil {
+			if ve, ok := err.(*errors.Validation); ok {
+				return ve.ValidateName("routing-configuration")
 			}
 			return err
 		}

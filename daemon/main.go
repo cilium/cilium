@@ -81,8 +81,6 @@ var (
 
 	// Arguments variables keep in alphabetical order
 
-	// autoIPv6NodeRoutes automatically adds L3 direct routing when using direct mode (-d)
-	autoIPv6NodeRoutes    bool
 	bpfRoot               string
 	cmdRefDir             string
 	debugVerboseFlags     []string
@@ -310,7 +308,11 @@ func init() {
 	flags.StringVar(&option.Config.AllowLocalhost,
 		"allow-localhost", option.AllowLocalhostAuto, "Policy when to allow local stack to reach local endpoints { auto | always | policy } ")
 	flags.Bool(
-		"auto-ipv6-node-routes", false, "Automatically adds IPv6 L3 routes to reach other nodes for non-overlay mode (--device) (BETA)")
+		option.AutoIPv6NodeRoutes, false, "Obsolete, use --auto-routing")
+	flags.MarkHidden(option.AutoIPv6NodeRoutes)
+	flags.Bool(
+		option.AutoRouting, false, "Install direct Linux routes to endpoint CIDRs of cluster nodes announcing them")
+	viper.BindEnv(option.AutoRouting, "CILIUM_AUTO_ROUTING")
 	flags.StringVar(&bpfRoot,
 		"bpf-root", "", "Path to BPF filesystem")
 	flags.StringVar(&cfgFile,
@@ -356,6 +358,9 @@ func init() {
 		"k8s-api-server", "", "Kubernetes api address server (for https use --k8s-kubeconfig-path instead)")
 	flags.StringVar(&k8sKubeConfigPath,
 		"k8s-kubeconfig-path", "", "Absolute path of the kubernetes kubeconfig file")
+	flags.Bool(
+		option.K8sUseNodeAnnotations, false, "Use Kubernetes node annotations instead of kvstore to distribute endpoint CIDR ranges")
+	viper.BindEnv(option.K8sUseNodeAnnotations, "CILIUM_K8S_USE_NODE_ANNOTATIONS")
 	flags.BoolVar(&option.Config.KeepConfig,
 		"keep-config", false, "When restoring state, keeps containers' configuration in place")
 	flags.BoolVar(&option.Config.KeepTemplates,
@@ -527,6 +532,8 @@ func initEnv(cmd *cobra.Command) {
 		}
 	}
 
+	option.Initialize()
+
 	if viper.GetBool("pprof") {
 		pprof.Enable()
 	}
@@ -609,7 +616,10 @@ func initEnv(cmd *cobra.Command) {
 	logging.DefaultLogLevel = defaults.DefaultLogLevel
 	option.Config.Opts.Set(option.Debug, viper.GetBool("debug"))
 
-	autoIPv6NodeRoutes = viper.GetBool("auto-ipv6-node-routes")
+	// Provide backwards compatibility (Scheduled for removal via GH-4082)
+	if viper.GetBool(option.AutoIPv6NodeRoutes) {
+		viper.Set(option.AutoRouting, true)
+	}
 
 	option.Config.Opts.Set(option.DropNotify, true)
 	option.Config.Opts.Set(option.TraceNotify, true)
@@ -685,6 +695,7 @@ func initEnv(cmd *cobra.Command) {
 
 	log.Infof("Container runtime options set: %s", workloads.GetRuntimeOptions())
 }
+
 func runDaemon() {
 	log.Info("Initializing daemon")
 	d, err := NewDaemon()

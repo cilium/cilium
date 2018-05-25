@@ -1233,6 +1233,16 @@ func init() {
         }
       }
     },
+    "DirectRoutingConfiguration": {
+      "description": "Direct routing configuration of a node",
+      "type": "object",
+      "properties": {
+        "install-routes": {
+          "description": "Indicates that this node installs and uses direct routes to reach\nendpoints on other cluster nodes.\n",
+          "type": "boolean"
+        }
+      }
+    },
     "Endpoint": {
       "description": "An endpoint is a namespaced network interface to which cilium applies policies",
       "type": "object",
@@ -1893,6 +1903,10 @@ func init() {
           "description": "Primary address used for intra-cluster communication",
           "$ref": "#/definitions/NodeAddressing"
         },
+        "routing-configuration": {
+          "description": "Routing configuration of node",
+          "$ref": "#/definitions/RoutingConfiguration"
+        },
         "secondary-addresses": {
           "description": "Alternative addresses assigned to the node",
           "type": "array",
@@ -2056,6 +2070,25 @@ func init() {
         },
         "responses": {
           "$ref": "#/definitions/MessageForwardingStatistics"
+        }
+      }
+    },
+    "RoutingConfiguration": {
+      "description": "Routing configuration of a cluster node. It defines how to other cluster\nnodes can reach endpoints running on the node\n",
+      "type": "object",
+      "properties": {
+        "directRouting": {
+          "description": "Direct routing configuration of the node",
+          "$ref": "#/definitions/DirectRoutingConfiguration"
+        },
+        "encapsulation": {
+          "description": "Encapsulation defines whether and how networking encapsulation can be\nutilized. Encapsulation is the preferred routing mode unless\nexplicitly disabled. The encapsulation mode announced by the receiver\nmust be respected by the sender. It is valid to build a mesh of cluster\nnodes with mixed encapsulation protocols.\n",
+          "type": "string",
+          "enum": [
+            "disabled",
+            "vxlan",
+            "geneve"
+          ]
         }
       }
     },

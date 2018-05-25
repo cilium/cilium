@@ -20,6 +20,7 @@ import (
 	"github.com/cilium/cilium/pkg/annotation"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/node"
+	"github.com/cilium/cilium/pkg/option"
 
 	"github.com/sirupsen/logrus"
 	"k8s.io/api/core/v1"
@@ -121,6 +122,11 @@ func ParseNode(k8sNode *v1.Node) *node.Node {
 			node.IPv6HealthIP = ip
 		}
 	}
+
+	// Kubernetes node resources do not carry the routing configuration,
+	// use the local routing configuration. In Kubernetes node discovery
+	// mode, all nodes share the same routing configuration.
+	node.Routing = option.GetRoutingConfiguration()
 
 	return node
 }
