@@ -21,15 +21,34 @@ import (
 	"io/ioutil"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"text/tabwriter"
 
+	"github.com/cilium/cilium/api/v1/models"
 	pkg "github.com/cilium/cilium/pkg/client"
 
 	"github.com/russross/blackfriday"
 	"github.com/spf13/cobra"
 )
+
+// outputTypes enum definition
+type outputType int
+
+// outputTypes enum values
+const (
+	STDOUT outputType = 0 + iota
+	MARKDOWN
+	HTML
+)
+
+// outputTypes enum strings
+var outputTypes = [...]string{
+	"STDOUT",
+	"MARKDOWN",
+	"HTML",
+}
 
 var debuginfoCmd = &cobra.Command{
 	Use:   "debuginfo",
@@ -38,14 +57,29 @@ var debuginfoCmd = &cobra.Command{
 }
 
 var (
-	file string
-	html string
+	file           string
+	html           string
+	filePerCommand bool
 )
+
+type addSection func(*tabwriter.Writer, *models.DebugInfo)
+
+var sections = map[string]addSection{
+	"cilium-version":          addCiliumVersion,
+	"kernel-version":          addKernelVersion,
+	"cilium-status":           addCiliumStatus,
+	"cilium-environment-keys": addCiliumEnvironmentKeys,
+	"cilium-endpoint-list":    addCiliumEndpointList,
+	"cilium-service-list":     addCiliumServiceList,
+	"cilium-policy":           addCiliumPolicy,
+	"cilium-memory-map":       addCiliumMemoryMap,
+}
 
 func init() {
 	rootCmd.AddCommand(debuginfoCmd)
 	debuginfoCmd.Flags().StringVarP(&file, "file", "f", "", "Redirect output to file")
 	debuginfoCmd.Flags().StringVarP(&html, "html-file", "", "", "Convert default output to HTML file")
+	debuginfoCmd.Flags().BoolVarP(&filePerCommand, "file-per-command", "", false, "Generate a single file per command")
 }
 
 func runDebugInfo(cmd *cobra.Command, args []string) {
@@ -59,21 +93,70 @@ func runDebugInfo(cmd *cobra.Command, args []string) {
 		os.Exit(1)
 	}
 
+	// define output type and file path
+	var output outputType
+	var path string
+
+	switch {
+	case len(file) > 0: // Markdown file
+		output = MARKDOWN
+		path = file
+	case len(html) > 0: // HTML file
+		output = HTML
+		path = html
+	default: // Write to standard output
+		output = STDOUT
+	}
+
+	// create tab-writer to fill buffer
 	var buf bytes.Buffer
 	w := tabwriter.NewWriter(&buf, 5, 0, 3, ' ', 0)
 	p := resp.Payload
+
+	// generate multiple files
+	if (len(file) > 0 || len(html) > 0) && filePerCommand {
+		for cmdName, section := range sections {
+			addHeader(w)
+			section(w, p)
+			writeToOutput(buf, output, path, cmdName)
+			buf.Reset()
+		}
+		return
+	}
+
+	// generate a single file
+	addHeader(w)
+	for _, section := range sections {
+		section(w, p)
+	}
+	writeToOutput(buf, output, path, "")
+
+}
+
+func addHeader(w *tabwriter.Writer) {
 	fmt.Fprintf(w, "# Cilium debug information\n")
+}
 
+func addCiliumVersion(w *tabwriter.Writer, p *models.DebugInfo) {
 	printMD(w, "Cilium version", p.CiliumVersion)
-	printMD(w, "Kernel version", p.KernelVersion)
+}
 
+func addKernelVersion(w *tabwriter.Writer, p *models.DebugInfo) {
+	printMD(w, "Kernel version", p.KernelVersion)
+}
+
+func addCiliumStatus(w *tabwriter.Writer, p *models.DebugInfo) {
 	printMD(w, "Cilium status", "")
 	printTicks(w)
 	pkg.FormatStatusResponse(w, p.CiliumStatus, true, true, true, true)
 	printTicks(w)
+}
 
+func addCiliumEnvironmentKeys(w *tabwriter.Writer, p *models.DebugInfo) {
 	printMD(w, "Cilium environment keys", strings.Join(p.EnvironmentVariables, "\n"))
+}
 
+func addCiliumEndpointList(w *tabwriter.Writer, p *models.DebugInfo) {
 	printMD(w, "Endpoint list", "")
 	printTicks(w)
 	printEndpointList(w, p.EndpointList)
@@ -92,29 +175,61 @@ func runDebugInfo(cmd *cobra.Command, args []string) {
 			printList(w, "Identity get "+id, "identity", "get", id)
 		}
 	}
+}
 
+func addCiliumServiceList(w *tabwriter.Writer, p *models.DebugInfo) {
 	printMD(w, "Service list", "")
 	printTicks(w)
 	printServiceList(w, p.ServiceList)
 	printTicks(w)
+}
 
+func addCiliumPolicy(w *tabwriter.Writer, p *models.DebugInfo) {
 	printMD(w, "Policy get", fmt.Sprintf(":\n %s\nRevision: %d\n", p.Policy.Policy, p.Policy.Revision))
+}
+
+func addCiliumMemoryMap(w *tabwriter.Writer, p *models.DebugInfo) {
 	printMD(w, "Cilium memory map\n", p.CiliumMemoryMap)
 	if nm := p.CiliumNodemonitorMemoryMap; len(nm) > 0 {
 		printMD(w, "Cilium nodemonitor memory map", p.CiliumNodemonitorMemoryMap)
 	}
+}
 
+func writeToOutput(buf bytes.Buffer, output outputType, path string, suffix string) {
 	data := buf.Bytes()
-	switch {
-	case len(file) > 0: // Markdown file
-		writeMarkdown(data, file)
-		fmt.Printf("Markdown output at %s\n", file)
-	case len(html) > 0: // HTML file
-		writeHTML(data, html)
-		fmt.Printf("HTML output at %s\n", html)
-	default: // Write to standard output
+	if output == STDOUT {
+		// Write to standard output
 		fmt.Println(string(data))
+		return
 	}
+
+	fileName := fileName(path, suffix)
+
+	switch output {
+	case MARKDOWN:
+		// Markdown file
+		writeMarkdown(data, fileName)
+	case HTML:
+		// HTML file
+		writeHTML(data, fileName)
+	}
+
+	fmt.Printf("%s output at %s\n", outputTypes[output], fileName)
+}
+
+func fileName(path, suffix string) string {
+	if len(suffix) == 0 {
+		// no suffix, return path
+		return path
+	}
+
+	ext := filepath.Ext(path)
+	if ext != "" {
+		// insert suffix and move extension to back
+		return fmt.Sprintf("%s-%s%s", strings.TrimSuffix(path, ext), suffix, ext)
+	}
+	// no extension, just append suffix
+	return fmt.Sprintf("%s-%s", path, suffix)
 }
 
 func printList(w io.Writer, header string, args ...string) {
@@ -143,9 +258,9 @@ func writeHTML(data []byte, path string) {
 }
 
 func writeMarkdown(data []byte, path string) {
-	f, err := os.OpenFile(file, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0600)
+	f, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0600)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Could not create file %s", file)
+		fmt.Fprintf(os.Stderr, "Could not create file %s", path)
 	}
 	w := tabwriter.NewWriter(f, 5, 0, 3, ' ', 0)
 	w.Write(data)
