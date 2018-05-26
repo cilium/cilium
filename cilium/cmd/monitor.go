@@ -51,7 +51,7 @@ programs attached to endpoints and devices. This includes:
   * Captured packet traces
   * Debugging information`,
 	Run: func(cmd *cobra.Command, args []string) {
-		runMonitor()
+		runMonitor(args)
 	},
 }
 
@@ -312,7 +312,12 @@ func setupSigHandler() {
 	}()
 }
 
-func runMonitor() {
+func runMonitor(args []string) {
+	if len(args) > 0 {
+		fmt.Println("Error: arguments not recognized")
+		os.Exit(1)
+	}
+
 	setVerbosity()
 	setupSigHandler()
 	if resp, err := client.Daemon.GetHealthz(nil); err == nil {
