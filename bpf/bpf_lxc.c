@@ -85,7 +85,7 @@ static inline int ipv6_l3_from_lxc(struct __sk_buff *skb,
 {
 	union macaddr router_mac = NODE_MAC;
 	union v6addr router_ip = {};
-	int ret, verdict, l4_off, forwarding_reason;
+	int ret, verdict, l4_off, forwarding_reason, hdrlen;
 	struct csum_offset csum_off = {};
 	struct endpoint_info *ep;
 	struct lb6_service *svc;
@@ -106,7 +106,11 @@ static inline int ipv6_l3_from_lxc(struct __sk_buff *skb,
 	ipv6_addr_copy(&tuple->daddr, (union v6addr *) &ip6->daddr);
 	ipv6_addr_copy(&tuple->saddr, (union v6addr *) &ip6->saddr);
 
-	l4_off = l3_off + ipv6_hdrlen(skb, l3_off, &tuple->nexthdr);
+	hdrlen = ipv6_hdrlen(skb, l3_off, &tuple->nexthdr);
+	if (hdrlen < 0)
+		return hdrlen;
+
+	l4_off = l3_off + hdrlen;
 
 	ret = lb6_extract_key(skb, tuple, l4_off, &key, &csum_off, CT_EGRESS);
 	if (IS_ERR(ret)) {
@@ -706,7 +710,7 @@ static inline int __inline__ ipv6_policy(struct __sk_buff *skb, int ifindex, __u
 	void *data, *data_end;
 	struct ipv6hdr *ip6;
 	struct csum_offset csum_off = {};
-	int ret, l4_off, verdict;
+	int ret, l4_off, verdict, hdrlen;
 	struct ct_state ct_state = {};
 	struct ct_state ct_state_new = {};
 	bool skip_proxy;
@@ -726,7 +730,11 @@ static inline int __inline__ ipv6_policy(struct __sk_buff *skb, int ifindex, __u
 	 * redirection to the egress proxy as we would loop forever. */
 	skip_proxy = tc_index_skip_proxy(skb);
 
-	l4_off = ETH_HLEN + ipv6_hdrlen(skb, ETH_HLEN, &tuple.nexthdr);
+	hdrlen = ipv6_hdrlen(skb, ETH_HLEN, &tuple.nexthdr);
+	if (hdrlen < 0)
+		return hdrlen;
+
+	l4_off = ETH_HLEN + hdrlen;
 	csum_l4_offset_and_flags(tuple.nexthdr, &csum_off);
 
 	/* derive reverse NAT index and zero it. */
