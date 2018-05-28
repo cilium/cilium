@@ -288,7 +288,7 @@ You can observe the L7 policy via ``kubectl``:
 
 ::
 
-    $ kubectl get ciliumnetworkpolicies
+    $ kubectl describe ciliumnetworkpolicies
     Name:         rule1
     Namespace:    default
     Labels:       <none>
