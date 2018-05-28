@@ -37,6 +37,7 @@ cilium-bugtool [OPTIONS]
 
 ```
       --archive                 Create archive when false skips deletion of the output directory (default true)
+  -o, --archiveType string      Archive type: tar | gz (default "tar")
       --config string           Configuration to decide what should be run (default "./.cilium-bugtool.config")
       --dry-run                 Create configuration file of all commands that would have been executed
       --exec-timeout duration   The default timeout for any cmd execution in seconds (default 30s)

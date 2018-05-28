@@ -67,6 +67,7 @@ for sensitive information.
 
 var (
 	archive      bool
+	archiveType  string
 	k8s          bool
 	serve        bool
 	port         int
@@ -81,6 +82,7 @@ var (
 
 func init() {
 	BugtoolRootCmd.Flags().BoolVar(&archive, "archive", true, "Create archive when false skips deletion of the output directory")
+	BugtoolRootCmd.Flags().StringVarP(&archiveType, "archiveType", "o", "tar", "Archive type: tar | gz")
 	BugtoolRootCmd.Flags().BoolVar(&serve, "serve", false, "Start HTTP server to serve static files")
 	BugtoolRootCmd.Flags().BoolVar(&k8s, "k8s-mode", false, "Require Kubernetes pods to be found or fail")
 	BugtoolRootCmd.Flags().BoolVar(&dryRunMode, "dry-run", false, "Create configuration file of all commands that would have been executed")
@@ -140,7 +142,23 @@ func removeIfEmpty(dir string) {
 	fmt.Printf("Deleted empty directory %s\n", dir)
 }
 
+func isValidArchiveType(archiveType string) bool {
+	switch archiveType {
+	case
+		"tar",
+		"gz":
+		return true
+	}
+	return false
+}
+
 func runTool() {
+	// Validate archive type
+	if !isValidArchiveType(archiveType) {
+		fmt.Fprintf(os.Stderr, "Error: unsupported output type: %s, must be one of tar|gz\n", archiveType)
+		os.Exit(1)
+	}
+
 	// Prevent collision with other directories
 	nowStr := time.Now().Format("20060102-150405.999-0700-MST")
 	prefix := fmt.Sprintf("cilium-bugtool-%s-", nowStr)
@@ -178,16 +196,23 @@ func runTool() {
 	removeIfEmpty(cmdDir)
 	removeIfEmpty(confDir)
 
-	// Please don't change the output below for the archive or directory.
-	// The order matters and is being used by scripts to copy the right
-	// file(s).
 	if archive {
-		archivePath, err := createArchive(dbgDir)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "Failed to create archive %s\n", err)
-			os.Exit(1)
+		switch archiveType {
+		case "gz":
+			gzipPath, err := createGzip(dbgDir)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "Failed to create gzip %s\n", err)
+				os.Exit(1)
+			}
+			fmt.Printf("\nGZIP at %s\n", gzipPath)
+		case "tar":
+			archivePath, err := createArchive(dbgDir)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "Failed to create archive %s\n", err)
+				os.Exit(1)
+			}
+			fmt.Printf("\nARCHIVE at %s\n", archivePath)
 		}
-		fmt.Printf("\nARCHIVE at %s\n", archivePath)
 	} else {
 		fmt.Printf("\nDIRECTORY at %s\n", dbgDir)
 	}
@@ -214,12 +239,22 @@ func printDisclaimer() {
 }
 
 func cleanup(dbgDir string) {
-	if !archive {
-		// Preserve directory when archive is not created
-		return
-	}
-	if err := os.RemoveAll(dbgDir); err != nil {
-		fmt.Fprintf(os.Stderr, "Failed to cleanup temporary files %s\n", err)
+	if archive {
+		var files []string
+
+		switch archiveType {
+		case "gz":
+			files = append(files, dbgDir)
+			files = append(files, fmt.Sprintf("%s.tar", dbgDir))
+		case "tar":
+			files = append(files, dbgDir)
+		}
+
+		for _, file := range files {
+			if err := os.RemoveAll(file); err != nil {
+				fmt.Fprintf(os.Stderr, "Failed to cleanup temporary files %s\n", err)
+			}
+		}
 	}
 }
 
