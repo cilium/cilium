@@ -62,7 +62,7 @@ static inline int handle_ipv6(struct __sk_buff *skb)
 	struct lb6_service *svc;
 	struct ipv6hdr *ip6;
 	struct csum_offset csum_off = {};
-	int l3_off, l4_off, ret;
+	int l3_off, l4_off, ret, hdrlen;
 	union v6addr new_dst;
 	__u8 nexthdr;
 	__u16 slave;
@@ -75,7 +75,11 @@ static inline int handle_ipv6(struct __sk_buff *skb)
 	nexthdr = ip6->nexthdr;
 	ipv6_addr_copy(&key.address, (union v6addr *) &ip6->daddr);
 	l3_off = ETH_HLEN;
-	l4_off = ETH_HLEN + ipv6_hdrlen(skb, ETH_HLEN, &nexthdr);
+	hdrlen = ipv6_hdrlen(skb, ETH_HLEN, &nexthdr);
+	if (hdrlen < 0)
+		return hdrlen;
+
+	l4_off = ETH_HLEN + hdrlen;
 	csum_l4_offset_and_flags(nexthdr, &csum_off);
 
 #ifdef LB_L4
