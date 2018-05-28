@@ -1061,7 +1061,8 @@ func NewDaemon() (*Daemon, error) {
 		// pods. Therefore unless the AllowLocalhost policy is set to a
 		// specific mode, always allow localhost to reach local
 		// endpoints.
-		if option.Config.AlwaysAllowLocalhost() {
+		if option.Config.AllowLocalhost == option.AllowLocalhostAuto {
+			option.Config.AllowLocalhost = option.AllowLocalhostAlways
 			log.Info("k8s mode: Allowing localhost to reach local endpoints")
 		}
 
