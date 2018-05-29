@@ -33,6 +33,9 @@ func EndpointCorrelationSleepTime(try int) time.Duration {
 }
 
 func shortContainerID(id string) string {
+	if len(id) < 10 {
+		return id
+	}
 	return id[:10]
 }
 

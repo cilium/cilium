@@ -291,6 +291,19 @@ function write_cilium_cfg() {
         fi
         cilium_options+=" --kvstore consul"
     fi
+    # container runtime options
+    case "${RUNTIME}" in
+        "containerd" | "containerD")
+            cilium_options+=" --container-runtime=containerd --container-runtime-endpoint=/var/run/containerd/containerd.sock"
+            ;;
+        "crio" | "cri-o")
+            cilium_options+=" --container-runtime=crio --container-runtime-endpoint=/var/run/crio/crio.sock"
+            ;;
+        *)
+            cilium_options+=" --container-runtime=docker --container-runtime-endpoint=unix:///var/run/docker.sock"
+            ;;
+    esac
+
 
     if [ "$LB" = 1 ]; then
         # The LB interface needs to be the "exposed" to the host

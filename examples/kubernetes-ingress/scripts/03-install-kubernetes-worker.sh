@@ -248,6 +248,7 @@ ExecStart=/usr/bin/kubelet \\
   --cluster-domain=cluster.local \\
   --container-runtime=${container_runtime_kubelet} \\
   --container-runtime-endpoint=${container_runtime_endpoint} \\
+  ${cgroup_driver} \\
   --kubeconfig=/var/lib/kubelet/kubelet.kubeconfig \\
   --fail-swap-on=false \\
   --make-iptables-util-chains=false \\

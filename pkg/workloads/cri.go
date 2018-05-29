@@ -16,7 +16,6 @@ package workloads
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"net"
 	"time"
@@ -44,7 +43,7 @@ func getGRPCCLient(ctx context.Context) (*grpc.ClientConn, error) {
 	if !ok {
 		return nil, fmt.Errorf("unknown runtime endpoint")
 	}
-	log.Debugf("using cri endpoint %s", ep)
+	log.Debugf("using CRI endpoint %s", ep)
 	addr, dialer, err := util.GetAddressAndDialer(ep)
 	if err != nil {
 		return nil, err
@@ -121,11 +120,66 @@ func (c *criClient) Status() *models.Status {
 
 // EnableEventListener watches for containerD events. Performs the plumbing for the
 // containers started or dead.
-func (c *criClient) EnableEventListener() error {
-	return errors.New("event listener not available in CRI")
+func (c *criClient) EnableEventListener() (chan<- *EventMessage, error) {
+	if c == nil {
+		log.Debug("Not enabling CRI event listener because CRI client is nil")
+		return nil, nil
+	}
+	log.Info("Enabling CRI event listener")
+
+	ws := newWatcherState(eventQueueBufferSize)
+	// start a go routine which periodically synchronizes containers
+	// managed by the local container runtime and checks if any of them
+	// need to be managed by Cilium. This is a fall back mechanism in case
+	// an event notification has been lost.
+	// Note: We do the sync before the first sleep
+	go func(state *watcherState) {
+		for {
+			state.reapEmpty()
+			ws.syncWithRuntime()
+			time.Sleep(syncRateContainerD)
+		}
+	}(ws)
+
+	eventsCh := make(chan *EventMessage, 100)
+	go func(state *watcherState, eventsCh <-chan *EventMessage) {
+		for event := range eventsCh {
+			ws.enqueueByContainerID(event.WorkloadID, event)
+		}
+	}(ws, eventsCh)
+	return eventsCh, nil
 }
 
-func (c *criClient) processEvents(events chan message) {}
+func (c *criClient) processEvent(m EventMessage) {
+	switch m.EventType {
+	case EventTypeStart:
+		req := &criRuntime.PodSandboxStatusRequest{
+			PodSandboxId: m.WorkloadID,
+		}
+		_, err := c.PodSandboxStatus(context.Background(), req)
+		if err != nil {
+			// ignore containers if not found
+			//	startIgnoringContainer(m.WorkloadID)
+			log.WithError(err).Debugf("Unable to get more details for workload %s", m.WorkloadID)
+			return
+		}
+		stopIgnoringContainer(m.WorkloadID)
+		c.handleCreateWorkload(m.WorkloadID, true)
+	case EventTypeDelete:
+		Owner().DeleteEndpoint(endpoint.NewID(endpoint.ContainerIdPrefix, m.WorkloadID))
+	}
+}
+
+func (c *criClient) processEvents(events chan EventMessage) {
+	for m := range events {
+		if m.WorkloadID != "" {
+			log.WithFields(logrus.Fields{
+				logfields.ContainerID: shortContainerID(m.WorkloadID),
+			}).Debug("Processing event for Container")
+			c.processEvent(m)
+		}
+	}
+}
 
 func (c *criClient) getCiliumEndpointID(pod *criRuntime.PodSandboxStatus) uint16 {
 	scopedLog := log.WithField(logfields.ContainerID, shortContainerID(pod.GetId()))
