@@ -482,9 +482,9 @@ specified manually with the option ``--ipv4-range`` respectively
 .. _arch_ip_connectivity:
 .. _multi host networking:
 
-*********************
-Multi Host Networking
-*********************
+**********
+Networking
+**********
 
 Cilium is in full control over both ends of the connection for connections
 inside the cluster. It can thus transmit state and security context information
@@ -544,15 +544,14 @@ advantages:
 
 .. _arch_direct_routing:
 
-Direct / Native Routing Mode
-============================
+Delegated Networking
+====================
 
-.. note:: This is an advanced networking mode which requires the underlying
-          network to be made aware of container IPs. You can enable this mode
-          by running Cilium with the option ``--tunnel disabled``.
+In delegation mode, Cilium will hand all packets which are not addressed to
+another local endpoint to the routing subsystem of the Linux kernel. This allows
+integration with a variety of 
 
-In direct routing mode, Cilium will hand all packets which are not addressed
-for another local endpoint to the routing subsystem of the Linux kernel. This
+This
 means that the packet will be routed as if a local process would have emitted
 the packet. As a result, the network connecting the cluster nodes must be aware
 that each of the node IP prefixes are reachable by using the node's primary IP
