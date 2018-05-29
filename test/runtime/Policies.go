@@ -486,6 +486,33 @@ var _ = Describe("RuntimeValidatedPolicies", func() {
 		connectivityTest(allRequests, helpers.App2, helpers.Httpd1, true)
 	})
 
+	It("Tests Endpoint Regeneration Occurs When Daemon Configuration Is Updated", func() {
+		httpd1DockerNetworking, err := vm.ContainerInspectNet(helpers.Httpd1)
+
+		By("Importing policy and waiting for revision to increase for endpoints")
+		_, err = vm.PolicyImportAndWait(vm.GetFullPath(policiesL7JSON), helpers.HelperTimeout)
+		Expect(err).ToNot(HaveOccurred(), "unable to import policy after timeout")
+
+		By("Trying to access %s:80/public from %s (should be allowed by policy)", helpers.Httpd1, helpers.App1)
+		res := vm.ContainerExec(helpers.App1, helpers.CurlFail("http://%s:80/public", fmt.Sprintf(httpd1DockerNetworking[helpers.IPv4])))
+		res.ExpectSuccess("unable to access %s:80/public from %s (should have worked)", helpers.Httpd1, helpers.App1)
+
+		By("Changing daemon configuration")
+		res = vm.ExecCilium("config Debug=true")
+		res.ExpectSuccess("unable to change daemon configuration")
+
+		res = vm.ExecCilium("config Debug=false")
+		res.ExpectSuccess("unable to change daemon configuration")
+
+		By("Waiting for endpoints to be ready after daemon configuration change")
+		areEndpointsReady := vm.WaitEndpointsReady()
+		Expect(areEndpointsReady).Should(BeTrue(), "endpoints are not ready after timeout")
+
+		By("Trying to access %s:80/public from %s (should be allowed by policy)", helpers.Httpd1, helpers.App1)
+		res = vm.ContainerExec(helpers.App1, helpers.CurlFail("http://%s:80/public", fmt.Sprintf(httpd1DockerNetworking[helpers.IPv4])))
+		res.ExpectSuccess("unable to access %s:80/public from %s (should have worked)", helpers.Httpd1, helpers.App1)
+	})
+
 	It("L3-Dependent L7 Egress", func() {
 		_, err := vm.PolicyImportAndWait(vm.GetFullPath(policiesL3DependentL7EgressJSON), helpers.HelperTimeout)
 		Expect(err).Should(BeNil(), "unable to import %s", policiesL3DependentL7EgressJSON)
@@ -545,6 +572,7 @@ var _ = Describe("RuntimeValidatedPolicies", func() {
 		// allowing connectivity via http / http6.
 		checkProxyStatistics(app3EndpointID, 6, 8, 2, 6, 6)
 	})
+
 	It("Checks CIDR L3 Policy", func() {
 
 		ipv4OtherHost := "192.168.254.111"
