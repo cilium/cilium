@@ -246,10 +246,10 @@ func (d *dockerClient) Status() *models.Status {
 	}
 
 	if _, err := d.Info(ctx.Background()); err != nil {
-		return &models.Status{State: models.StatusStateFailure, Msg: err.Error()}
+		return &models.Status{State: models.StatusStateFailure, Msg: "docker daemon: " + err.Error()}
 	}
 
-	return &models.Status{State: models.StatusStateOk, Msg: ""}
+	return &models.Status{State: models.StatusStateOk, Msg: "docker daemon: OK"}
 }
 
 const (
