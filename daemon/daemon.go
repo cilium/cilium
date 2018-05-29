@@ -61,6 +61,7 @@ import (
 	"github.com/cilium/cilium/pkg/maps/proxymap"
 	"github.com/cilium/cilium/pkg/maps/tunnel"
 	"github.com/cilium/cilium/pkg/monitor"
+	"github.com/cilium/cilium/pkg/mtu"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
@@ -92,6 +93,7 @@ const (
 	initArgDevice
 	initArgDevicePreFilter
 	initArgModePreFilter
+	initArgMTU
 	initArgMax
 )
 
@@ -682,6 +684,7 @@ func (d *Daemon) compileBase() error {
 	args[initArgRundir] = option.Config.StateDir
 	args[initArgIPv4NodeIP] = node.GetInternalIPv4().String()
 	args[initArgIPv6NodeIP] = node.GetIPv6().String()
+	args[initArgMTU] = fmt.Sprintf("%d", mtu.StandardMTU)
 
 	if option.Config.Device != "undefined" {
 		_, err := netlink.LinkByName(option.Config.Device)
