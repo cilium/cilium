@@ -175,11 +175,16 @@ func hasMultipleMounts() (bool, error) {
 	}
 	defer scanner.Close()
 
-	newmapRoot := mapRoot + " " // Append space to ignore /sys/fs/bpf/xdp and /sys/fs/bpf/ip mountpoints.
+	// Clean the last trailing / character from map root
+	cleanMapRoot := filepath.Clean(mapRoot)
 
 	num := 0
 	for scanner.Scan() {
-		if strings.Contains(scanner.Text(), newmapRoot) {
+		mountinfo := strings.Split(scanner.Text(), " ")
+		if len(mountinfo) < 2 {
+			return false, fmt.Errorf("incorrect entry in /proc/mounts")
+		}
+		if mountinfo[1] == cleanMapRoot {
 			num++
 		}
 	}
