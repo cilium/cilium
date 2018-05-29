@@ -35,7 +35,7 @@ import (
 var (
 	endpointTimeout  = (60 * time.Second)
 	timeout          = time.Duration(300)
-	netcatDsManifest = "netcat_ds.yaml"
+	netcatDsManifest = helpers.ManifestGet("netcat_ds.yaml")
 )
 
 var _ = Describe("NightlyEpsMeasurement", func() {
@@ -292,21 +292,26 @@ var _ = Describe("NightlyEpsMeasurement", func() {
 			testNcConnectivity(360)
 		}
 
-		It("Test TCP Keepalive with L7 Policy", func() {
-			kubectl.ValidateNoErrorsOnLogs(CurrentGinkgoTestDescription().Duration)
-			manifest := helpers.ManifestGet(netcatDsManifest)
-			kubectl.Apply(manifest).ExpectSuccess("Cannot apply netcat ds")
-			defer kubectl.Delete(manifest)
-			testConnectivity()
-		})
+		Context("Test TCP Keepalive", func() {
 
-		It("Test TCP Keepalive without L7 Policy", func() {
-			manifest := helpers.ManifestGet(netcatDsManifest)
-			kubectl.Apply(manifest).ExpectSuccess("Cannot apply netcat ds")
-			defer kubectl.Delete(manifest)
-			kubectl.Exec(fmt.Sprintf(
-				"%s delete --all cnp -n %s", helpers.KubectlCmd, helpers.DefaultNamespace))
-			testConnectivity()
+			BeforeEach(func() {
+				kubectl.Apply(netcatDsManifest).ExpectSuccess("Cannot apply netcat ds")
+			})
+
+			AfterEach(func() {
+				_ = kubectl.Delete(netcatDsManifest)
+			})
+
+			It("With L7 Policy", func() {
+				kubectl.ValidateNoErrorsOnLogs(CurrentGinkgoTestDescription().Duration)
+				testConnectivity()
+			})
+
+			It("Without L7 Policy", func() {
+				kubectl.Exec(fmt.Sprintf(
+					"%s delete --all cnp -n %s", helpers.KubectlCmd, helpers.DefaultNamespace))
+				testConnectivity()
+			})
 		})
 	})
 })
@@ -315,14 +320,13 @@ var _ = Describe("NightlyExamples", func() {
 
 	var kubectl *helpers.Kubectl
 	var logger *logrus.Entry
-	var once sync.Once
 	var ciliumPath string
 	var demoPath string
 	var l3Policy, l7Policy string
 	var appService = "app1-service"
 	var apps []string
 
-	initialize := func() {
+	BeforeAll(func() {
 		logger = log.WithFields(logrus.Fields{"testName": "NightlyK8sEpsMeasurement"})
 		logger.Info("Starting")
 
@@ -343,10 +347,6 @@ var _ = Describe("NightlyExamples", func() {
 			"%s delete --all pods,svc,cnp -n %s", helpers.KubectlCmd, helpers.DefaultNamespace))
 
 		ExpectAllPodsTerminated(kubectl)
-	}
-
-	BeforeEach(func() {
-		once.Do(initialize)
 	})
 
 	AfterFailed(func() {
@@ -414,8 +414,10 @@ var _ = Describe("NightlyExamples", func() {
 	Context("Getting started guides", func() {
 
 		var (
-			GRPCManifest = "../examples/kubernetes-grpc/cc-door-app.yaml"
-			GRPCPolicy   = "../examples/kubernetes-grpc/cc-door-ingress-security.yaml"
+			GRPCManifest   = "../examples/kubernetes-grpc/cc-door-app.yaml"
+			GRPCPolicy     = "../examples/kubernetes-grpc/cc-door-ingress-security.yaml"
+			AppManifest    = helpers.GetFilePath(GRPCManifest)
+			PolicyManifest = helpers.GetFilePath(GRPCPolicy)
 		)
 
 		BeforeEach(func() {
@@ -427,19 +429,14 @@ var _ = Describe("NightlyExamples", func() {
 		})
 
 		AfterEach(func() {
+			kubectl.Delete(AppManifest)
+			kubectl.Delete(PolicyManifest)
+
 			ExpectAllPodsTerminated(kubectl)
 		})
 
 		It("GRPC example", func() {
-
-			AppManifest := helpers.GetFilePath(GRPCManifest)
-			PolicyManifest := helpers.GetFilePath(GRPCPolicy)
 			clientPod := "terminal-87"
-
-			defer func() {
-				kubectl.Delete(AppManifest)
-				kubectl.Delete(PolicyManifest)
-			}()
 
 			By("Testing the example config")
 			kubectl.Apply(AppManifest).ExpectSuccess("cannot install the GRPC application")
