@@ -717,9 +717,7 @@ func (d *Daemon) compileBase() error {
 	prog := filepath.Join(option.Config.BpfDir, "init.sh")
 	ctx, cancel := context.WithTimeout(context.Background(), ExecTimeout)
 	defer cancel()
-	cmd := exec.CommandContext(ctx, prog, args...)
-	cmd.Env = bpf.TcEnvironment()
-	out, err := cmd.CombinedOutput()
+	out, err := exec.CommandContext(ctx, prog, args...).CombinedOutput()
 	if ctx.Err() == context.DeadlineExceeded {
 		cmd := fmt.Sprintf("%s %s", prog, strings.Join(args, " "))
 		log.WithField("cmd", cmd).Error("Command execution failed: Timeout")
