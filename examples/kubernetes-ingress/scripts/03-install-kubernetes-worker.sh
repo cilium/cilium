@@ -37,6 +37,13 @@ if [ -n "${INSTALL}" ]; then
 
     sudo tar -xvf cni-plugins-amd64-v0.6.0.tgz -C /opt/cni/bin
 
+    cat <<EOF > /etc/apt/sources.list.d/projectatomic-ubuntu-ppa-artful.list
+deb http://ppa.launchpad.net/projectatomic/ppa/ubuntu xenial main
+# deb-src http://ppa.launchpad.net/projectatomic/ppa/ubuntu artful main
+EOF
+    sudo apt-get update
+    sudo apt-get install cri-o-1.10 -y
+
     download_to "${cache_dir}/containerd" "cri-containerd-1.1.0.linux-amd64.tar.gz" \
         "https://storage.googleapis.com/cri-containerd-release/cri-containerd-1.1.0.linux-amd64.tar.gz"
 
@@ -48,6 +55,21 @@ if [ -n "${INSTALL}" ]; then
 
     sudo cp kubelet kubectl kube-proxy /usr/bin/
 fi
+
+case "${RUNTIME}" in
+    "containerd" | "containerD")
+        cat <<EOF > /etc/crictl.yaml
+runtime-endpoint: unix:///var/run/containerd/containerd.sock
+EOF
+        ;;
+    "crio" | "cri-o")
+        cat <<EOF > /etc/crictl.yaml
+runtime-endpoint: /var/run/crio/crio.sock
+EOF
+        ;;
+    *)
+        ;;
+esac
 
 # Copy cilium certificates to /var/lib/cilium
 sudo mkdir -p /var/lib/cilium
@@ -248,6 +270,7 @@ ExecStart=/usr/bin/kubelet \\
   --cluster-domain=cluster.local \\
   --container-runtime=${container_runtime_kubelet} \\
   ${container_runtime_endpoint} \\
+  ${cgroup_driver} \\
   --kubeconfig=/var/lib/kubelet/kubelet.kubeconfig \\
   --fail-swap-on=false \\
   --make-iptables-util-chains=false \\

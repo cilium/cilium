@@ -38,6 +38,7 @@ import (
 	ipCacheBPF "github.com/cilium/cilium/pkg/maps/ipcache"
 	"github.com/cilium/cilium/pkg/maps/lxcmap"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/workloads"
 
 	"github.com/go-openapi/runtime/middleware"
 	"github.com/sirupsen/logrus"
@@ -179,6 +180,14 @@ func (d *Daemon) createEndpoint(epTemplate *models.EndpointChangeRequest, id str
 	if err := endpointmanager.AddEndpoint(d, ep, "Create endpoint from API PUT"); err != nil {
 		log.WithError(err).Warn("Aborting endpoint join")
 		return PutEndpointIDFailedCode, err
+	}
+
+	// Only used for CRI-O since it does not support events.
+	if d.workloadsEventsCh != nil && ep.GetContainerID() != "" {
+		d.workloadsEventsCh <- &workloads.EventMessage{
+			WorkloadID: ep.GetContainerID(),
+			EventType:  workloads.EventTypeStart,
+		}
 	}
 
 	return PutEndpointIDCreatedCode, nil
@@ -368,6 +377,15 @@ func (d *Daemon) deleteEndpoint(ep *endpoint.Endpoint) int {
 }
 
 func (d *Daemon) deleteEndpointQuiet(ep *endpoint.Endpoint) []error {
+
+	// Only used for CRI-O since it does not support events.
+	if d.workloadsEventsCh != nil && ep.GetContainerID() != "" {
+		d.workloadsEventsCh <- &workloads.EventMessage{
+			WorkloadID: ep.GetContainerID(),
+			EventType:  workloads.EventTypeDelete,
+		}
+	}
+
 	errors := []error{}
 
 	// Wait for existing builds to complete and prevent further builds

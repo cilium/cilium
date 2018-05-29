@@ -28,13 +28,16 @@ import (
 type eventType string
 
 const (
-	eventTypeStart  eventType = "start"
-	eventTypeDelete eventType = "delete"
+	// EventTypeStart represents when a workload was started
+	EventTypeStart eventType = "start"
+	// EventTypeDelete represents when a workload was deleted
+	EventTypeDelete eventType = "delete"
 )
 
-type message struct {
-	workloadID string
-	eventType  eventType
+// EventMessage is the structure use for the different workload events.
+type EventMessage struct {
+	WorkloadID string
+	EventType  eventType
 }
 
 // watcherState holds global close flag, per-container queues for events and
@@ -43,13 +46,13 @@ type watcherState struct {
 	lock.Mutex
 
 	eventQueueBufferSize int
-	events               map[string]chan message
+	events               map[string]chan EventMessage
 }
 
 func newWatcherState(eventQueueBufferSize int) *watcherState {
 	return &watcherState{
 		eventQueueBufferSize: eventQueueBufferSize,
-		events:               make(map[string]chan message),
+		events:               make(map[string]chan EventMessage),
 	}
 }
 
@@ -60,12 +63,12 @@ func newWatcherState(eventQueueBufferSize int) *watcherState {
 // This parallelism is desirable to respond to events faster; each event might
 // require talking to an outside daemon (docker) and a single noisy container
 // might starve others.
-func (ws *watcherState) enqueueByContainerID(containerID string, e *message) {
+func (ws *watcherState) enqueueByContainerID(containerID string, e *EventMessage) {
 	ws.Lock()
 	defer ws.Unlock()
 
 	if _, found := ws.events[containerID]; !found {
-		q := make(chan message, eventQueueBufferSize)
+		q := make(chan EventMessage, eventQueueBufferSize)
 		ws.events[containerID] = q
 		go Client().processEvents(q)
 	}

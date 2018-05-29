@@ -103,6 +103,8 @@ type Daemon struct {
 	loadBalancer      *types.LoadBalancer
 	policy            *policy.Repository
 	preFilter         *policy.PreFilter
+	// Only used for CRI-O since it does not support events.
+	workloadsEventsCh chan<- *workloads.EventMessage
 
 	statusCollectMutex lock.RWMutex
 	statusResponse     models.StatusResponse

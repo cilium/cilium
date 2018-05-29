@@ -316,7 +316,7 @@ func init() {
 	flags.StringVar(&cfgFile,
 		"config", "", `Configuration file (default "$HOME/ciliumd.yaml")`)
 	flags.StringSliceVar(&option.Config.Workloads,
-		"container-runtime", []string{"auto"}, `Sets the container runtime(s) used by Cilium { containerd | docker | none | auto } ( "auto" the uses the container runtime found in the order: "docker", "containerd" )`)
+		"container-runtime", []string{"auto"}, `Sets the container runtime(s) used by Cilium { containerd | crio | docker | none | auto } ( "auto" uses the container runtime found in the order: "docker", "containerd", "crio" )`)
 	flags.Var(option.NewNamedMapOptions("container-runtime-endpoints", &containerRuntimesOpts, nil),
 		"container-runtime-endpoint", `Container runtime(s) endpoint(s). (default: `+workloads.GetDefaultEPOptsStringWithPrefix("--container-runtime-endpoint=")+`)`)
 	flags.BoolP(
@@ -719,8 +719,11 @@ func runDaemon() {
 	cancelHealth := health.LaunchAsEndpoint(d, addressing, option.Config.Opts)
 	defer cancelHealth()
 
-	if err := workloads.EnableEventListener(); err != nil {
+	eventsCh, err := workloads.EnableEventListener()
+	if err != nil {
 		log.WithError(err).Fatal("Error while enabling docker event watcher")
+	} else {
+		d.workloadsEventsCh = eventsCh
 	}
 
 	if err := d.EnableK8sWatcher(5 * time.Minute); err != nil {
