@@ -118,13 +118,20 @@ func Setup(workloadRuntimes []string, opts map[string]string) error {
 				case Auto:
 					err1 := setup(Docker, opts)
 					st := Status()
-					if err1 != nil || st.State != models.StatusStateOk {
-						err = setup(ContainerD, opts)
-						st := Status()
-						if err != nil || st.State != models.StatusStateOk {
-							err = err1
-						}
+					if err1 == nil && st.State == models.StatusStateOk {
+						return
 					}
+					err2 := setup(ContainerD, opts)
+					st = Status()
+					if err2 == nil && st.State == models.StatusStateOk {
+						return
+					}
+					err3 := setup(CRIO, opts)
+					st = Status()
+					if err3 == nil && st.State == models.StatusStateOk {
+						return
+					}
+					err = err1
 					return
 				default:
 					err = setup(crt, opts)

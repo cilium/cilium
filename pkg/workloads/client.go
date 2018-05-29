@@ -57,7 +57,7 @@ func Status() *models.Status {
 
 // EnableEventListener watches for docker events. Performs the plumbing for the
 // containers started or dead.
-func EnableEventListener() error {
+func EnableEventListener() (eventsCh chan<- *EventMessage, err error) {
 	return Client().EnableEventListener()
 }
 
