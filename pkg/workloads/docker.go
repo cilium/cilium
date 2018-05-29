@@ -260,10 +260,10 @@ const (
 
 // EnableEventListener watches for docker events. Performs the plumbing for the
 // containers started or dead.
-func (d *dockerClient) EnableEventListener() error {
+func (d *dockerClient) EnableEventListener() (eventsCh chan<- *EventMessage, err error) {
 	if d == nil {
 		log.Debug("Not enabling docker event listener because dockerClient is nil")
-		return nil
+		return nil, nil
 	}
 	log.Info("Enabling docker event listener")
 
@@ -285,13 +285,13 @@ func (d *dockerClient) EnableEventListener() error {
 	eo := dTypes.EventsOptions{Since: strconv.FormatInt(since.Unix(), 10)}
 	r, err := d.Events(ctx.Background(), eo)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	go d.listenForDockerEvents(ws, r)
 
 	log.Debug("Started to listen for docker events")
-	return nil
+	return nil, nil
 }
 
 func (d *dockerClient) listenForDockerEvents(ws *watcherState, reader io.ReadCloser) {
@@ -315,9 +315,9 @@ func (d *dockerClient) listenForDockerEvents(ws *watcherState, reader io.ReadClo
 
 		switch e.Status {
 		case "start":
-			ws.enqueueByContainerID(e.ID, &message{workloadID: e.ID, eventType: eventTypeStart})
+			ws.enqueueByContainerID(e.ID, &EventMessage{WorkloadID: e.ID, EventType: EventTypeStart})
 		case "die":
-			ws.enqueueByContainerID(e.ID, &message{workloadID: e.ID, eventType: eventTypeDelete})
+			ws.enqueueByContainerID(e.ID, &EventMessage{WorkloadID: e.ID, EventType: EventTypeDelete})
 		}
 	}
 
@@ -326,26 +326,26 @@ func (d *dockerClient) listenForDockerEvents(ws *watcherState, reader io.ReadClo
 	}
 }
 
-func (d *dockerClient) processEvents(events chan message) {
+func (d *dockerClient) processEvents(events chan EventMessage) {
 	for m := range events {
-		if m.workloadID != "" {
+		if m.WorkloadID != "" {
 			log.WithFields(logrus.Fields{
-				"event":               m.eventType,
-				logfields.ContainerID: shortContainerID(m.workloadID),
+				"event":               m.EventType,
+				logfields.ContainerID: shortContainerID(m.WorkloadID),
 			}).Debug("Processing event for Container")
 			d.processEvent(m)
 		}
 	}
 }
 
-func (d *dockerClient) processEvent(m message) {
-	switch m.eventType {
-	case eventTypeStart:
+func (d *dockerClient) processEvent(m EventMessage) {
+	switch m.EventType {
+	case EventTypeStart:
 		// A real event overwrites any memory of ignored containers
-		stopIgnoringContainer(m.workloadID)
-		d.handleCreateWorkload(m.workloadID, true)
-	case eventTypeDelete:
-		Owner().DeleteEndpoint(endpoint.NewID(endpoint.ContainerIdPrefix, m.workloadID))
+		stopIgnoringContainer(m.WorkloadID)
+		d.handleCreateWorkload(m.WorkloadID, true)
+	case EventTypeDelete:
+		Owner().DeleteEndpoint(endpoint.NewID(endpoint.ContainerIdPrefix, m.WorkloadID))
 	}
 }
 

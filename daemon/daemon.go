@@ -103,6 +103,7 @@ type Daemon struct {
 	loadBalancer      *types.LoadBalancer
 	policy            *policy.Repository
 	preFilter         *policy.PreFilter
+	workloadsEventsCh chan<- *workloads.EventMessage
 
 	statusCollectMutex lock.RWMutex
 	statusResponse     models.StatusResponse

@@ -305,6 +305,7 @@ func TestGetDefaultEPOptsStringWithPrefix(t *testing.T) {
 				prefix: "--container-runtime-endpoint=",
 			},
 			want: `--container-runtime-endpoint=` + string(ContainerD) + "=" + containerDInstance.opts[epOpt].value + ", " +
+				`--container-runtime-endpoint=` + string(CRIO) + "=" + criOInstance.opts[epOpt].value + ", " +
 				`--container-runtime-endpoint=` + string(Docker) + "=" + dockerInstance.opts[epOpt].value,
 		},
 	}
