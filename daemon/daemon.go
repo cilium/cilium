@@ -109,8 +109,9 @@ type Daemon struct {
 	// Only used for CRI-O since it does not support events.
 	workloadsEventsCh chan<- *workloads.EventMessage
 
-	statusCollectMutex lock.RWMutex
-	statusResponse     models.StatusResponse
+	statusCollectMutex      lock.RWMutex
+	statusResponse          models.StatusResponse
+	statusResponseTimestamp time.Time
 
 	uniqueIDMU lock.Mutex
 	uniqueID   map[uint64]bool
