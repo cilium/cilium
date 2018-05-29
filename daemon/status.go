@@ -34,6 +34,9 @@ import (
 
 const (
 	collectStatusInterval = 5 * time.Second
+
+	// status data older than staleTimeout triggers the stale warning
+	staleTimeout = 1 * time.Minute
 )
 
 func (d *Daemon) getK8sStatus() *models.K8sStatus {
@@ -111,6 +114,7 @@ func (d *Daemon) collectStatus() {
 
 		d.statusCollectMutex.Lock()
 		d.statusResponse = response
+		d.statusResponseTimestamp = time.Now()
 		d.statusCollectMutex.Unlock()
 
 		time.Sleep(collectStatusInterval)
@@ -125,7 +129,16 @@ func (h *getHealthz) Handle(params GetHealthzParams) middleware.Responder {
 	d := h.daemon
 	d.statusCollectMutex.RLock()
 	sr := d.statusResponse
+	timestamp := d.statusResponseTimestamp
 	d.statusCollectMutex.RUnlock()
+
+	if time.Since(timestamp) > staleTimeout {
+		sr.Cilium = &models.Status{
+			State: models.StatusStateWarning,
+			Msg:   fmt.Sprintf("Stale status data (since %v)", timestamp),
+		}
+	}
+
 	return NewGetHealthzOK().WithPayload(&sr)
 }
 
@@ -146,6 +159,8 @@ func (d *Daemon) getStatus() models.StatusResponse {
 
 	sr.Kubernetes = d.getK8sStatus()
 
+	// Note: A final, overriding, check is made in Handle to check the staleness
+	// of this data, and will clobber these messages if set.
 	if sr.Kvstore.State != models.StatusStateOk {
 		sr.Cilium = &models.Status{
 			State: sr.Kvstore.State,

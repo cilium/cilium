@@ -104,8 +104,9 @@ type Daemon struct {
 	policy            *policy.Repository
 	preFilter         *policy.PreFilter
 
-	statusCollectMutex lock.RWMutex
-	statusResponse     models.StatusResponse
+	statusCollectMutex      lock.RWMutex
+	statusResponse          models.StatusResponse
+	statusResponseTimestamp time.Time
 
 	uniqueIDMU lock.Mutex
 	uniqueID   map[uint64]bool
