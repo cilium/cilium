@@ -486,6 +486,81 @@ var _ = Describe("RuntimeValidatedPolicies", func() {
 		connectivityTest(allRequests, helpers.App2, helpers.Httpd1, true)
 	})
 
+	It("Tests Endpoint Connectivity Functions After Daemon Configuration Is Updated", func() {
+		httpd1DockerNetworking, err := vm.ContainerInspectNet(helpers.Httpd1)
+		Expect(err).ToNot(HaveOccurred(), "unable to get container networking metadata for %s", helpers.Httpd1)
+
+		// Importing a policy to ensure that not only does endpoint connectivity
+		// work after updating daemon configuration, but that policy works as well.
+		By("Importing policy and waiting for revision to increase for endpoints")
+		_, err = vm.PolicyImportAndWait(vm.GetFullPath(policiesL7JSON), helpers.HelperTimeout)
+		Expect(err).ToNot(HaveOccurred(), "unable to import policy after timeout")
+
+		By("Trying to access %s:80/public from %s before daemon configuration is updated (should be allowed by policy)", helpers.Httpd1, helpers.App1)
+		res := vm.ContainerExec(helpers.App1, helpers.CurlFail("http://%s:80/public", httpd1DockerNetworking[helpers.IPv4]))
+		res.ExpectSuccess("unable to access %s:80/public from %s (should have worked)", helpers.Httpd1, helpers.App1)
+
+		By("Trying to access %s:80/private from %s before daemon configuration is updated (should not be allowed by policy)", helpers.Httpd1, helpers.App1)
+		res = vm.ContainerExec(helpers.App1, helpers.CurlFail("http://%s:80/private", httpd1DockerNetworking[helpers.IPv4]))
+		res.ExpectFail("unable to access %s:80/private from %s (should not have worked)", helpers.Httpd1, helpers.App1)
+
+		By("Getting configuration for daemon")
+		daemonDebugConfig, err := vm.ExecCilium("config -o json").Filter("{.Debug}")
+		Expect(err).ToNot(HaveOccurred(), "Unable to get configuration for daemon")
+
+		daemonDebugConfigString := daemonDebugConfig.String()
+
+		var daemonDebugConfigSwitched string
+
+		switch daemonDebugConfigString {
+		case "Disabled":
+			daemonDebugConfigSwitched = "Enabled"
+		case "Enabled":
+			daemonDebugConfigSwitched = "Disabled"
+		default:
+			Fail(fmt.Sprintf("invalid configuration value for daemon: Debug=%s", daemonDebugConfigString))
+		}
+
+		currentRev, err := vm.PolicyGetRevision()
+		Expect(err).ToNot(HaveOccurred(), "unable to get policy revision")
+
+		// TODO: would be a good idea to factor out daemon configuration updates
+		// into a function in the future.
+		By("Changing daemon configuration from Debug=%s to Debug=%s to induce policy recalculation for endpoints", daemonDebugConfigString, daemonDebugConfigSwitched)
+		res = vm.ExecCilium(fmt.Sprintf("config Debug=%s", daemonDebugConfigSwitched))
+		res.ExpectSuccess("unable to change daemon configuration")
+
+		By("Getting policy revision after daemon configuration change")
+		revAfterConfig, err := vm.PolicyGetRevision()
+		Expect(err).ToNot(HaveOccurred(), "unable to get policy revision")
+		Expect(revAfterConfig).To(BeNumerically(">=", currentRev+1))
+
+		By("Waiting for policy revision to increase after daemon configuration change")
+		res = vm.PolicyWait(revAfterConfig)
+		res.ExpectSuccess("policy revision was not bumped after daemon configuration changes")
+
+		By("Changing daemon configuration back from Debug=%s to Debug=%s", daemonDebugConfigSwitched, daemonDebugConfigString)
+		res = vm.ExecCilium(fmt.Sprintf("config Debug=%s", daemonDebugConfigString))
+		res.ExpectSuccess("unable to change daemon configuration")
+
+		By("Getting policy revision after daemon configuration change")
+		revAfterSecondConfig, err := vm.PolicyGetRevision()
+		Expect(err).To(BeNil())
+		Expect(revAfterSecondConfig).To(BeNumerically(">=", revAfterConfig+1))
+
+		By("Waiting for policy revision to increase after daemon configuration change")
+		res = vm.PolicyWait(revAfterSecondConfig)
+		res.ExpectSuccess("policy revision was not bumped after daemon configuration changes")
+
+		By("Trying to access %s:80/public from %s after daemon configuration was updated (should be allowed by policy)", helpers.Httpd1, helpers.App1)
+		res = vm.ContainerExec(helpers.App1, helpers.CurlFail("http://%s:80/public", httpd1DockerNetworking[helpers.IPv4]))
+		res.ExpectSuccess("unable to access %s:80/public from %s (should have worked)", helpers.Httpd1, helpers.App1)
+
+		By("Trying to access %s:80/private from %s after daemon configuration is updated (should not be allowed by policy)", helpers.Httpd1, helpers.App1)
+		res = vm.ContainerExec(helpers.App1, helpers.CurlFail("http://%s:80/private", httpd1DockerNetworking[helpers.IPv4]))
+		res.ExpectFail("unable to access %s:80/private from %s (should not have worked)", helpers.Httpd1, helpers.App1)
+	})
+
 	It("L3-Dependent L7 Egress", func() {
 		_, err := vm.PolicyImportAndWait(vm.GetFullPath(policiesL3DependentL7EgressJSON), helpers.HelperTimeout)
 		Expect(err).Should(BeNil(), "unable to import %s", policiesL3DependentL7EgressJSON)
@@ -545,6 +620,7 @@ var _ = Describe("RuntimeValidatedPolicies", func() {
 		// allowing connectivity via http / http6.
 		checkProxyStatistics(app3EndpointID, 6, 8, 2, 6, 6)
 	})
+
 	It("Checks CIDR L3 Policy", func() {
 
 		ipv4OtherHost := "192.168.254.111"
