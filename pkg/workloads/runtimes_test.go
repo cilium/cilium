@@ -278,6 +278,7 @@ func TestGetRuntimeOptions(t *testing.T) {
 		{
 			name: "default options",
 			want: epOpt + "=" + containerDInstance.opts[epOpt].value + "," +
+				epOpt + "=" + criOInstance.opts[epOpt].value + "," +
 				epOpt + "=" + dockerInstance.opts[epOpt].value,
 		},
 	}
@@ -305,6 +306,7 @@ func TestGetDefaultEPOptsStringWithPrefix(t *testing.T) {
 				prefix: "--container-runtime-endpoint=",
 			},
 			want: `--container-runtime-endpoint=` + string(ContainerD) + "=" + containerDInstance.opts[epOpt].value + ", " +
+				`--container-runtime-endpoint=` + string(CRIO) + "=" + criOInstance.opts[epOpt].value + ", " +
 				`--container-runtime-endpoint=` + string(Docker) + "=" + dockerInstance.opts[epOpt].value,
 		},
 	}

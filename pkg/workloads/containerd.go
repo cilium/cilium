@@ -147,10 +147,10 @@ const (
 
 // EnableEventListener watches for containerD events. Performs the plumbing for
 // the containers started or dead.
-func (c *containerDClient) EnableEventListener() error {
+func (c *containerDClient) EnableEventListener() (eventsCh chan<- *EventMessage, err error) {
 	if c == nil {
 		log.Debug("Not enabling containerD event listener because containerDClient is nil")
-		return nil
+		return nil, nil
 	}
 	log.Info("Enabling containerD event listener")
 
@@ -176,7 +176,7 @@ func (c *containerDClient) EnableEventListener() error {
 			log.WithError(err).Errorf("failed to listen events")
 		}
 	}(ws)
-	return nil
+	return nil, nil
 }
 
 func (c *containerDClient) listenForContainerDEvents(ws *watcherState, eventsCh <-chan *events.Envelope, errCh <-chan error) error {
@@ -196,9 +196,9 @@ func (c *containerDClient) listenForContainerDEvents(ws *watcherState, eventsCh 
 			}
 			switch event := v.(type) {
 			case *apiEvents.ContainerCreate:
-				ws.enqueueByContainerID(event.ID, &message{workloadID: event.ID, eventType: eventTypeStart})
+				ws.enqueueByContainerID(event.ID, &EventMessage{WorkloadID: event.ID, EventType: EventTypeStart})
 			case *apiEvents.ContainerDelete:
-				ws.enqueueByContainerID(event.ID, &message{workloadID: event.ID, eventType: eventTypeDelete})
+				ws.enqueueByContainerID(event.ID, &EventMessage{WorkloadID: event.ID, EventType: EventTypeDelete})
 			default:
 				log.Debugf("received unknown containerD event %v", v)
 			}
@@ -208,35 +208,35 @@ func (c *containerDClient) listenForContainerDEvents(ws *watcherState, eventsCh 
 	return fmt.Errorf("channel closed")
 }
 
-func (c *containerDClient) processEvents(events chan message) {
+func (c *containerDClient) processEvents(events chan EventMessage) {
 	for m := range events {
-		if m.workloadID != "" {
+		if m.WorkloadID != "" {
 			log.WithFields(logrus.Fields{
-				logfields.ContainerID: shortContainerID(m.workloadID),
+				logfields.ContainerID: shortContainerID(m.WorkloadID),
 			}).Debug("Processing event for Container")
 			c.processEvent(m)
 		}
 	}
 }
 
-func (c *containerDClient) processEvent(m message) {
-	switch m.eventType {
-	case eventTypeStart:
+func (c *containerDClient) processEvent(m EventMessage) {
+	switch m.EventType {
+	case EventTypeStart:
 		ns := namespaces.WithNamespace(context.Background(), k8sContainerdNamespace)
-		f, err := c.Client.ContainerService().Get(ns, m.workloadID)
+		f, err := c.Client.ContainerService().Get(ns, m.WorkloadID)
 		if err != nil {
-			log.WithError(err).Debugf("Unable to get more details for workload %s", m.workloadID)
+			log.WithError(err).Debugf("Unable to get more details for workload %s", m.WorkloadID)
 			return
 		}
 		// only handle pod events and ignore all other types
 		if f.Labels[containerKindLabel] != containerKindSandbox {
-			startIgnoringContainer(m.workloadID)
+			startIgnoringContainer(m.WorkloadID)
 			return
 		}
-		stopIgnoringContainer(m.workloadID)
-		c.handleCreateWorkload(m.workloadID, true)
-	case eventTypeDelete:
-		Owner().DeleteEndpoint(endpoint.NewID(endpoint.ContainerIdPrefix, m.workloadID))
+		stopIgnoringContainer(m.WorkloadID)
+		c.handleCreateWorkload(m.WorkloadID, true)
+	case EventTypeDelete:
+		Owner().DeleteEndpoint(endpoint.NewID(endpoint.ContainerIdPrefix, m.WorkloadID))
 	}
 }
 
