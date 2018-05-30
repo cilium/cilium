@@ -245,7 +245,7 @@
 
 [[constraint]]
   name = "github.com/vishvananda/netlink"
-  revision = "4e28683688429fdf8413cc610d59fb1841986300"
+  revision = "63ca7e48f59f463578ae6b6e839bef6906f048e2"
 
 [[constraint]]
   name = "golang.org/x/crypto"
