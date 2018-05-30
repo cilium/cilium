@@ -42,6 +42,10 @@ const (
 
 	// IDNameHealth is the label used for the local cilium-health endpoint
 	IDNameHealth = "health"
+
+	// IDNameUnknown is the label used to to idenfity an endpoint with an
+	// unknown identity.
+	IDNameUnknown = "unknown"
 )
 
 // OpLabels represents the the possible types.

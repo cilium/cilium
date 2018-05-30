@@ -103,9 +103,15 @@ func LookupIdentity(lbls labels.Labels) *Identity {
 	return NewIdentity(NumericIdentity(id), lbls)
 }
 
+var unknownIdentity = NewIdentity(IdentityUnknown, labels.Labels{labels.IDNameUnknown: labels.NewLabel(labels.IDNameUnknown, "", labels.LabelSourceReserved)})
+
 // LookupIdentityByID returns the identity by ID. This function will first
 // search through the local cache and fall back to querying the kvstore.
 func LookupIdentityByID(id NumericIdentity) *Identity {
+	if id == IdentityUnknown {
+		return unknownIdentity
+	}
+
 	if identity, ok := reservedIdentityCache[id]; ok {
 		return identity
 	}
