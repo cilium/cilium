@@ -25,6 +25,7 @@ import (
 	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/daemon/defaults"
 	"github.com/cilium/cilium/pkg/apisocket"
+	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 
@@ -49,10 +50,15 @@ var (
 		},
 	}
 	npages int
+
+	// bpfRoot is the path to the BPF mount. This can be non-default if
+	// cilium-agent mounts bpf at an alternate location.
+	bpfRoot string
 )
 
 func init() {
 	rootCmd.Flags().IntVar(&npages, "num-pages", 64, "Number of pages for ring buffer")
+	rootCmd.Flags().StringVar(&bpfRoot, "bpf-root", "/sys/fs/bpf", "Path to the root of the bpf mount")
 }
 
 func execute() {
@@ -67,6 +73,8 @@ func main() {
 }
 
 func runNodeMonitor() {
+	bpf.SetMapRoot(bpfRoot)
+
 	eventSockPath := path.Join(defaults.RuntimePath, defaults.EventsPipe)
 	pipe, err := os.OpenFile(eventSockPath, os.O_RDONLY, 0600)
 	if err != nil {

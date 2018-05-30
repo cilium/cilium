@@ -706,7 +706,7 @@ func runDaemon() {
 	}
 
 	log.Info("Launching node monitor daemon")
-	go d.nodeMonitor.Run(path.Join(defaults.RuntimePath, defaults.EventsPipe))
+	go d.nodeMonitor.Run(path.Join(defaults.RuntimePath, defaults.EventsPipe), bpf.GetMapRoot())
 
 	// Launch cilium-health in the same namespace as cilium.
 	log.Info("Launching Cilium health daemon")
