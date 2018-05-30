@@ -4,7 +4,11 @@ set -eu
 
 HOST_PREFIX=${HOST_PREFIX:-/host}
 CNI_CONF_NAME=${CNI_CONF_NAME:-10-cilium.conf}
-MTU=${MTU:-1450}
+CILIUM_HOST_MTU="1500"
+if [ "$CILIUM_AUTOMTU" != "false" ] && ip link show dev cilium_host; then
+	CILIUM_HOST_MTU=$(ip link show dev cilium_host | sed -e 's/.*mtu \([0-9]*\).*/\1/;t;d')
+fi
+MTU=${MTU:-${CILIUM_HOST_MTU}}
 
 BIN_NAME=cilium-cni
 CNI_DIR=${CNI_DIR:-${HOST_PREFIX}/opt/cni}
