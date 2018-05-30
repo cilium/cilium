@@ -8,7 +8,7 @@ metadata:
 spec:
   containers:
   - name: app-frontend
-    image: cilium/connectivity-container:v1.0
+    image: docker.io/cilium/connectivity-container:v1.0
     command: [ "sleep" ]
     args:
       - "1000h"

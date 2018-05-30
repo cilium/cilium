@@ -74,7 +74,7 @@ spec:
     spec:
       containers:
       - name:  kafka
-        image: spotify/kafka:latest
+        image: docker.io/spotify/kafka:latest
         ports:
         - containerPort: 9092
           name: kafka

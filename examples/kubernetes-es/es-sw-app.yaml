@@ -38,7 +38,7 @@ spec:
       serviceAccount: elasticsearch
       initContainers:
       - name: init-sysctl
-        image: busybox
+        image: docker.io/library/busybox
         imagePullPolicy: IfNotPresent
         command: ["sysctl", "-w", "vm.max_map_count=262144"]
         securityContext:
@@ -116,7 +116,7 @@ metadata:
 spec:
   containers:
   - name: bookreader
-    image: cilium/esclient:v1 
+    image: docker.io/cilium/esclient:v1
 ---
 apiVersion: v1
 kind: Pod
@@ -128,4 +128,4 @@ metadata:
 spec:
   containers:
   - name: bookreader
-    image: cilium/esclient:v1 
+    image: docker.io/cilium/esclient:v1

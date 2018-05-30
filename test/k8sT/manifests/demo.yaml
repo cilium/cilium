@@ -23,7 +23,7 @@ spec:
     spec:
       containers:
       - name: web
-        image: cilium/demo-httpd
+        image: docker.io/cilium/demo-httpd
         ports:
         - containerPort: 80
       nodeSelector:
@@ -43,7 +43,7 @@ spec:
     spec:
       containers:
       - name: app-frontend
-        image: cilium/demo-client
+        image: docker.io/cilium/demo-client
         command: [ "sleep" ]
         args:
           - "1000h"
@@ -64,7 +64,7 @@ spec:
     spec:
       containers:
       - name: app-frontend
-        image: cilium/demo-client
+        image: docker.io/cilium/demo-client
         command: [ "sleep" ]
         args:
           - "1000h"
