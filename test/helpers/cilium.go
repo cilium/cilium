@@ -41,6 +41,9 @@ const (
 	// MaxRetries is the number of times that a loop should iterate until a
 	// specified condition is not met
 	MaxRetries = 30
+
+	// DefaultCiliumAgentCLIArgs are the basic parameters to run cilium-agent with during testing
+	DefaultCiliumAgentCLIArgs = `CILIUM_OPTS=--kvstore consul --kvstore-opt consul.address=127.0.0.1:8500 --debug --debug-verbose flow`
 )
 
 // BpfLBList returns the output of `cilium bpf lb list -o json` as a map
@@ -834,11 +837,13 @@ func (s *SSHMeta) ServiceDelAll() *CmdRes {
 
 // SetUpCilium sets up Cilium as a systemd service with a hardcoded set of options. It
 // returns an error if any of the operations needed to start Cilium fails.
-func (s *SSHMeta) SetUpCilium() error {
-	template := `
-PATH=/usr/lib/llvm-3.8/bin:/usr/local/sbin:/usr/local/bin:/usr/bin:/usr/sbin:/sbin:/bin
-CILIUM_OPTS=--kvstore consul --kvstore-opt consul.address=127.0.0.1:8500 --debug --debug-verbose flow
-INITSYSTEM=SYSTEMD`
+func (s *SSHMeta) SetUpCilium(cliArgs string) error {
+	template := strings.Join([]string{
+		`PATH=/usr/lib/llvm-3.8/bin:/usr/local/sbin:/usr/local/bin:/usr/bin:/usr/sbin:/sbin:/bin`,
+		cliArgs,
+		`INITSYSTEM=SYSTEMD`,
+	},
+		"\n")
 
 	err := RenderTemplateToFile("cilium", template, os.ModePerm)
 	if err != nil {
