@@ -57,11 +57,10 @@ func CreateVM(scope string) error {
 		return fmt.Errorf("error getting stderr: %s", err)
 	}
 
-	go io.Copy(ginkgoext.GinkgoWriter, stderr)
-	go io.Copy(ginkgoext.GinkgoWriter, stdout)
+	globalWriter := ginkgoext.NewWriter(ginkgo.GinkgoWriter)
 
-	go io.Copy(ginkgo.GinkgoWriter, stderr)
-	go io.Copy(ginkgo.GinkgoWriter, stdout)
+	go io.Copy(globalWriter, stderr)
+	go io.Copy(globalWriter, stdout)
 
 	if err := cmd.Start(); err != nil {
 		log.WithFields(logrus.Fields{
@@ -70,7 +69,9 @@ func CreateVM(scope string) error {
 		}).Fatalf("Create error on start")
 		return err
 	}
-	return cmd.Wait()
+	result := cmd.Wait()
+	io.Copy(ginkgoext.GinkgoWriter, globalWriter.Buffer)
+	return result
 }
 
 // GetVagrantSSHMetadata returns a string containing the output of `vagrant ssh-config`
