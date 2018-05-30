@@ -29,7 +29,7 @@ spec:
     spec:
       containers:
       - name: deathstar
-        image: cilium/starwars
+        image: docker.io/cilium/starwars
 ---
 apiVersion: v1
 kind: Pod
@@ -41,7 +41,7 @@ metadata:
 spec:
   containers:
   - name: spaceship
-    image: tgraf/netperf
+    image: docker.io/tgraf/netperf
 ---
 apiVersion: v1
 kind: Pod
@@ -53,4 +53,4 @@ metadata:
 spec:
   containers:
   - name: spaceship
-    image: tgraf/netperf
+    image: docker.io/tgraf/netperf

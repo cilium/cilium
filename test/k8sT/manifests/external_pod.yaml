@@ -8,5 +8,5 @@ metadata:
 spec:
   containers:
   - name: app-reach-services
-    image: cilium/demo-client
+    image: docker.io/cilium/demo-client
     command: [ "bash", "-c", "while true; do sleep 5; done" ]

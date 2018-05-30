@@ -12,7 +12,7 @@ spec:
     spec:
       containers:
       - name: netcat
-        image: cilium/demo-client
+        image: docker.io/cilium/demo-client
         command: [ "sleep" ]
         args:
           - "1000h"
