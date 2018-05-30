@@ -1,14 +1,15 @@
 package nl
 
 import (
-	"syscall"
 	"unsafe"
+
+	"golang.org/x/sys/unix"
 )
 
 const (
 	DEFAULT_CHANGE = 0xFFFFFFFF
 	// doesn't exist in syscall
-	IFLA_VFINFO_LIST = syscall.IFLA_IFALIAS + 1 + iota
+	IFLA_VFINFO_LIST = unix.IFLA_IFALIAS + 1 + iota
 	IFLA_STATS64
 	IFLA_VF_PORTS
 	IFLA_PORT_SELF
@@ -231,7 +232,8 @@ const (
 	 * on/off switch
 	 */
 	IFLA_VF_STATS /* network device statistics */
-	IFLA_VF_MAX   = IFLA_VF_STATS
+	IFLA_VF_TRUST /* Trust state of VF */
+	IFLA_VF_MAX   = IFLA_VF_TRUST
 )
 
 const (
@@ -259,6 +261,7 @@ const (
 	SizeofVfSpoofchk   = 0x08
 	SizeofVfLinkState  = 0x08
 	SizeofVfRssQueryEn = 0x08
+	SizeofVfTrust      = 0x08
 )
 
 // struct ifla_vf_mac {
@@ -419,12 +422,42 @@ func (msg *VfRssQueryEn) Serialize() []byte {
 	return (*(*[SizeofVfRssQueryEn]byte)(unsafe.Pointer(msg)))[:]
 }
 
+// struct ifla_vf_trust {
+//   __u32 vf;
+//   __u32 setting;
+// };
+
+type VfTrust struct {
+	Vf      uint32
+	Setting uint32
+}
+
+func (msg *VfTrust) Len() int {
+	return SizeofVfTrust
+}
+
+func DeserializeVfTrust(b []byte) *VfTrust {
+	return (*VfTrust)(unsafe.Pointer(&b[0:SizeofVfTrust][0]))
+}
+
+func (msg *VfTrust) Serialize() []byte {
+	return (*(*[SizeofVfTrust]byte)(unsafe.Pointer(msg)))[:]
+}
+
+const (
+	XDP_FLAGS_UPDATE_IF_NOEXIST = 1 << iota
+	XDP_FLAGS_SKB_MODE
+	XDP_FLAGS_DRV_MODE
+	XDP_FLAGS_MASK = XDP_FLAGS_UPDATE_IF_NOEXIST | XDP_FLAGS_SKB_MODE | XDP_FLAGS_DRV_MODE
+)
+
 const (
 	IFLA_XDP_UNSPEC   = iota
 	IFLA_XDP_FD       /* fd of xdp program to attach, or -1 to remove */
 	IFLA_XDP_ATTACHED /* read-only bool indicating if prog is attached */
 	IFLA_XDP_FLAGS    /* xdp prog related flags */
-	IFLA_XDP_MAX      = IFLA_XDP_FLAGS
+	IFLA_XDP_PROG_ID  /* xdp prog id */
+	IFLA_XDP_MAX      = IFLA_XDP_PROG_ID
 )
 
 const (
@@ -443,7 +476,12 @@ const (
 	IFLA_IPTUN_6RD_RELAY_PREFIX
 	IFLA_IPTUN_6RD_PREFIXLEN
 	IFLA_IPTUN_6RD_RELAY_PREFIXLEN
-	IFLA_IPTUN_MAX = IFLA_IPTUN_6RD_RELAY_PREFIXLEN
+	IFLA_IPTUN_ENCAP_TYPE
+	IFLA_IPTUN_ENCAP_FLAGS
+	IFLA_IPTUN_ENCAP_SPORT
+	IFLA_IPTUN_ENCAP_DPORT
+	IFLA_IPTUN_COLLECT_METADATA
+	IFLA_IPTUN_MAX = IFLA_IPTUN_COLLECT_METADATA
 )
 
 const (
