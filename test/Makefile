@@ -8,7 +8,7 @@ TEST_ARTIFACTS = ./tmp.yaml ./*_service_manifest.json ./*_manifest.yaml
 TEST_ARTIFACTS += ./*_policy.json ./k8s-*.xml ./runtime.xml ./test_results
 TEST_ARTIFACTS += ./test.test
 
-GINKGO = $(QUIET) ginkgo
+GINKGO := $(QUIET) $(GO) run -v ../vendor/github.com/onsi/ginkgo/ginkgo/*.go
 
 all: build
 
@@ -24,10 +24,10 @@ build:
 test: run k8s
 
 run:
-	ginkgo --focus " Runtime*" -v -- --cilium.provision=$(provision)
+	$(GINKGO) --focus " Runtime*" -v -- --cilium.provision=$(provision)
 
 k8s:
-	ginkgo --focus " K8s*" -v -- --cilium.provision=$(provision)
+	$(GINKGO) --focus " K8s*" -v -- --cilium.provision=$(provision)
 
 clean:
 	@$(ECHO_CLEAN) $(notdir $(shell pwd))

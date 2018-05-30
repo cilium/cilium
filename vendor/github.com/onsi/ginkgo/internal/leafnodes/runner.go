@@ -87,6 +87,9 @@ func (r *runner) runAsync() (outcome types.SpecState, failure types.SpecFailure)
 		finished = true
 	}()
 
+	// If this goroutine gets no CPU time before the select block,
+	// the <-done case may complete even if the test took longer than the timeoutThreshold.
+	// This can cause flaky behaviour, but we haven't seen it in the wild.
 	select {
 	case <-done:
 	case <-time.After(r.timeoutThreshold):

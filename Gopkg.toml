@@ -28,7 +28,8 @@ required = [
             "k8s.io/code-generator/cmd/client-gen",
             "k8s.io/gengo/examples/defaulter-gen/generators",
             "k8s.io/gengo/examples/deepcopy-gen/generators",
-            "github.com/cilium/go-bindata/go-bindata"
+            "github.com/cilium/go-bindata/go-bindata",
+            "github.com/onsi/ginkgo/ginkgo"
             ]
 
 [[constraint]]
@@ -212,7 +213,7 @@ required = [
 
 [[constraint]]
   name = "github.com/onsi/ginkgo"
-  revision = "ba8e856bb854d6771a72ddf6497a42dad3a0c971"
+  revision = "v1.6.0"
 
 [[constraint]]
   name = "github.com/onsi/gomega"
