@@ -24,10 +24,11 @@
 #   go-tests = true
 #   unused-packages = true
 
-[prune]
-  go-tests = true
-  unused-packages = true
-  non-go = true
+required = [
+            "k8s.io/code-generator/cmd/client-gen",
+            "k8s.io/gengo/examples/defaulter-gen/generators",
+            "k8s.io/gengo/examples/deepcopy-gen/generators"
+            ]
 
 [[constraint]]
   name = "github.com/c9s/goprocinfo"
@@ -101,6 +102,10 @@
 [[constraint]]
   name = "k8s.io/client-go"
   revision = "kubernetes-1.10.2"
+
+[[constraint]]
+  name = "k8s.io/code-generator"
+  revision = "kubernetes-1.11.0"
 
 [[constraint]]
   name = "k8s.io/kubernetes"
@@ -270,3 +275,13 @@
 [[constraint]]
   name = "github.com/containerd/containerd"
   revision = "v1.1.0"
+
+[prune]
+  non-go = true
+  go-tests = true
+  unused-packages = true
+
+  [[prune.project]]
+    name = "k8s.io/code-generator"
+    unused-packages = false
+    non-go = false

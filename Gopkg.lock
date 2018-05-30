@@ -920,6 +920,16 @@
   revision = "fbb02b2291d28baffd63558aa44b4b56f178d650"
 
 [[projects]]
+  branch = "master"
+  name = "golang.org/x/tools"
+  packages = [
+    "go/ast/astutil",
+    "imports",
+    "internal/fastwalk"
+  ]
+  revision = "a5b4c53f6e8bdcafa95a94671bf2d1203365858b"
+
+[[projects]]
   name = "google.golang.org/genproto"
   packages = [
     "googleapis/api/annotations",
@@ -1134,6 +1144,35 @@
   revision = "kubernetes-1.10.2"
 
 [[projects]]
+  name = "k8s.io/code-generator"
+  packages = [
+    "cmd/client-gen",
+    "cmd/client-gen/args",
+    "cmd/client-gen/generators",
+    "cmd/client-gen/generators/fake",
+    "cmd/client-gen/generators/scheme",
+    "cmd/client-gen/generators/util",
+    "cmd/client-gen/path",
+    "cmd/client-gen/types",
+    "pkg/util"
+  ]
+  revision = "kubernetes-1.11.0"
+
+[[projects]]
+  name = "k8s.io/gengo"
+  packages = [
+    "args",
+    "examples/deepcopy-gen/generators",
+    "examples/defaulter-gen/generators",
+    "examples/set-gen/sets",
+    "generator",
+    "namer",
+    "parser",
+    "types"
+  ]
+  revision = "01a732e01d00cb9a81bb0ca050d3e6d2b947927b"
+
+[[projects]]
   name = "k8s.io/kubernetes"
   packages = [
     "pkg/apis/core",
@@ -1149,6 +1188,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "6590f3a172b658e4352e3826e8195a6050b62f1371c2a210ce637f14c459361b"
+  inputs-digest = "70825e57b0885d6eb2d9a1f1afd4d75a2b440a31ddf0fbe2f9939ca56612d322"
   solver-name = "gps-cdcl"
   solver-version = 1
