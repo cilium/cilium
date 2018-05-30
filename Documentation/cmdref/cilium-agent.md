@@ -38,6 +38,7 @@ cilium-agent
       --ipv4-node string                  IPv4 address of node (default "auto")
       --ipv4-range string                 Per-node IPv4 endpoint prefix, e.g. 10.16.0.0/16 (default "auto")
       --ipv4-service-range string         Kubernetes IPv4 services CIDR if not inside cluster prefix (default "auto")
+      --ipv6-cluster-alloc-cidr string    IPv6 /64 CIDR used to allocate per node endpoint /96 CIDR (default "fdfd::/64")
       --ipv6-node string                  IPv6 address of node (default "auto")
       --ipv6-range string                 Per-node IPv6 endpoint prefix, must be /96, e.g. fd02:1:1::/96 (default "auto")
       --ipv6-service-range string         Kubernetes IPv6 services CIDR if not inside cluster prefix (default "auto")

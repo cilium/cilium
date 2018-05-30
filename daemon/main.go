@@ -348,6 +348,8 @@ func init() {
 		"ipv4-range", AutoCIDR, "Per-node IPv4 endpoint prefix, e.g. 10.16.0.0/16")
 	flags.StringVar(&v6Prefix,
 		"ipv6-range", AutoCIDR, "Per-node IPv6 endpoint prefix, must be /96, e.g. fd02:1:1::/96")
+	flags.StringVar(&option.Config.IPv6ClusterAllocCIDR,
+		option.IPv6ClusterAllocCIDRName, defaults.IPv6ClusterAllocCIDR, "IPv6 /64 CIDR used to allocate per node endpoint /96 CIDR")
 	flags.StringVar(&v4ServicePrefix,
 		"ipv4-service-range", AutoCIDR, "Kubernetes IPv4 services CIDR if not inside cluster prefix")
 	flags.StringVar(&v6ServicePrefix,

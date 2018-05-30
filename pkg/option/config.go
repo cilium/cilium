@@ -15,6 +15,7 @@
 package option
 
 import (
+	"fmt"
 	"net"
 	"os"
 	"path/filepath"
@@ -22,6 +23,7 @@ import (
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/common"
+	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/lock"
 )
 
@@ -44,6 +46,9 @@ const (
 
 	// ModePreFilterGeneric for loading progs with xdpgeneric
 	ModePreFilterGeneric = "generic"
+
+	// IPv6ClusterAllocCIDRName is the name of the IPv6ClusterAllocCIDR option
+	IPv6ClusterAllocCIDRName = "ipv6-cluster-alloc-cidr"
 )
 
 // daemonConfig is the configuration used by Daemon.
@@ -89,12 +94,25 @@ type daemonConfig struct {
 
 	// AgentLabels contains additional labels to identify this agent in monitor events.
 	AgentLabels []string
+
+	// IPv6ClusterAllocCIDR is the base CIDR used to allocate IPv6 node
+	// CIDRs if allocation is not performed by an orchestration system
+	IPv6ClusterAllocCIDR string
+
+	// IPv6ClusterAllocCIDRBase is derived from IPv6ClusterAllocCIDR and
+	// contains the CIDR without the mask, e.g. "fdfd::1/64" -> "fdfd::"
+	//
+	// This variable should never be written to, it is initialized via
+	// daemonConfig.Validate()
+	IPv6ClusterAllocCIDRBase string
 }
 
 var (
 	Config = &daemonConfig{
-		Opts:    NewBoolOptions(&daemonLibrary),
-		Monitor: &models.MonitorStatus{Cpus: int64(runtime.NumCPU()), Npages: 64, Pagesize: int64(os.Getpagesize()), Lost: 0, Unknown: 0},
+		Opts:                     NewBoolOptions(&daemonLibrary),
+		Monitor:                  &models.MonitorStatus{Cpus: int64(runtime.NumCPU()), Npages: 64, Pagesize: int64(os.Getpagesize()), Lost: 0, Unknown: 0},
+		IPv6ClusterAllocCIDR:     defaults.IPv6ClusterAllocCIDR,
+		IPv6ClusterAllocCIDRBase: defaults.IPv6ClusterAllocCIDRBase,
 	}
 )
 
@@ -129,4 +147,33 @@ func (c *daemonConfig) AlwaysAllowLocalhost() bool {
 // specific set of labels) is enabled.
 func (c *daemonConfig) TracingEnabled() bool {
 	return c.Opts.IsEnabled(PolicyTracing)
+}
+
+func (c *daemonConfig) validateIPv6ClusterAllocCIDR() error {
+	ip, cidr, err := net.ParseCIDR(c.IPv6ClusterAllocCIDR)
+	if err != nil {
+		return err
+	}
+
+	if cidr == nil {
+		return fmt.Errorf("ParseCIDR returned nil")
+	}
+
+	if ones, _ := cidr.Mask.Size(); ones != 64 {
+		return fmt.Errorf("CIDR length must be /64")
+	}
+
+	c.IPv6ClusterAllocCIDRBase = ip.Mask(cidr.Mask).String()
+
+	return nil
+}
+
+// Validate validates the daemon configuration
+func (c *daemonConfig) Validate() error {
+	if err := c.validateIPv6ClusterAllocCIDR(); err != nil {
+		return fmt.Errorf("unable to parse CIDR value '%s' of option --%s: %s",
+			c.IPv6ClusterAllocCIDR, IPv6ClusterAllocCIDRName, err)
+	}
+
+	return nil
 }

@@ -1017,6 +1017,11 @@ func (d *Daemon) syncLXCMap() error {
 
 // NewDaemon creates and returns a new Daemon with the parameters set in c.
 func NewDaemon() (*Daemon, error) {
+	// Validate the daemon specific global options
+	if err := option.Config.Validate(); err != nil {
+		return nil, fmt.Errorf("invalid daemon configuration: %s", err)
+	}
+
 	if err := workloads.Setup(option.Config.Workloads, map[string]string{}); err != nil {
 		return nil, fmt.Errorf("unable to setup workload: %s", err)
 	}
