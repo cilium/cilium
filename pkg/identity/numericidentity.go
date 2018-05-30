@@ -54,6 +54,7 @@ const (
 
 var (
 	ReservedIdentities = map[string]NumericIdentity{
+		labels.IDNameUnknown: IdentityUnknown,
 		labels.IDNameHost:    ReservedIdentityHost,
 		labels.IDNameWorld:   ReservedIdentityWorld,
 		labels.IDNameHealth:  ReservedIdentityHealth,
@@ -61,6 +62,7 @@ var (
 		labels.IDNameInit:    ReservedIdentityInit,
 	}
 	ReservedIdentityNames = map[NumericIdentity]string{
+		IdentityUnknown:         labels.IDNameUnknown,
 		ReservedIdentityHost:    labels.IDNameHost,
 		ReservedIdentityWorld:   labels.IDNameWorld,
 		ReservedIdentityHealth:  labels.IDNameHealth,
