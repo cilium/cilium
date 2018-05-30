@@ -77,6 +77,16 @@
   revision = "0010a05ce49fde7f50669bc7ecda7d41dd6ab824"
 
 [[projects]]
+  digest = "1:21f0975dcb15bd0b18959c8633c8aa0b7b7ab5dea97afa64872bf7424a984167"
+  name = "github.com/cilium/go-bindata"
+  packages = [
+    ".",
+    "go-bindata",
+  ]
+  pruneopts = "NUT"
+  revision = "e950ad39c6092155a6d89f04c90b1c46d8c97d49"
+
+[[projects]]
   digest = "1:7d39d7f6f0947a8ecbce768541e6737ae71bf756d6d3ed0bd78b1c0290a59c8d"
   name = "github.com/containerd/containerd"
   packages = [
@@ -1580,6 +1590,7 @@
   input-imports = [
     "github.com/asaskevich/govalidator",
     "github.com/c9s/goprocinfo/linux",
+    "github.com/cilium/go-bindata/go-bindata",
     "github.com/containerd/containerd",
     "github.com/containerd/containerd/api/events",
     "github.com/containerd/containerd/events",

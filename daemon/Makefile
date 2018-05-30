@@ -13,7 +13,9 @@ $(TARGET): $(SOURCES) check-bindata
 	@$(ECHO_GO)
 	$(GO) build $(GOBUILD) -o $(TARGET)
 
-GO_BINDATA := $(QUIET) go-bindata -prefix ../ -mode 0640 -modtime 1450269211 \
+GO_BINDATA_BIN := $(GO) run ../vendor/github.com/cilium/go-bindata/go-bindata/*.go
+
+GO_BINDATA := $(QUIET) $(GO_BINDATA_BIN) -prefix ../ -mode 0640 -modtime 1450269211 \
 	-ignore Makefile -ignore bpf_features.h -ignore lxc_config.h \
 	-ignore netdev_config.h -ignore node_config.h -ignore filter_config.h \
 	-ignore '.+\.o$$' -ignore '.+\.orig$$' -ignore '.+~$$' \

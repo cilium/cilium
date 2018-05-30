@@ -27,8 +27,13 @@
 required = [
             "k8s.io/code-generator/cmd/client-gen",
             "k8s.io/gengo/examples/defaulter-gen/generators",
-            "k8s.io/gengo/examples/deepcopy-gen/generators"
+            "k8s.io/gengo/examples/deepcopy-gen/generators",
+            "github.com/cilium/go-bindata/go-bindata"
             ]
+
+[[constraint]]
+  name = "github.com/cilium/go-bindata"
+  revision = "e950ad39c6092155a6d89f04c90b1c46d8c97d49"
 
 [[constraint]]
   name = "github.com/c9s/goprocinfo"
