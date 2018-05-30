@@ -2,6 +2,72 @@
 NEWS
 ******
 
+v1.1.0-rc2
+==========
+
+André Martins (12):
+      daemon: in k8s mode always allow localhost traffic
+      test: download exact k8s version of k8s upstream e2e
+      contrib/vagrant: add container-d-integration
+      pkg rename containerd to docker
+      pkg/workloads: add containerd integration
+      daemon: add containerd integration
+      vendor: add containerd
+      contrib/vagrant: fix container-d-integration
+      workloads/containerd: add 10 second timeout for Status()
+      pkg/workloads: show docker messages
+      Revert "common/files: Add fileScanner struct"
+      Revert "pkg/bpf: Use the other directory when /sys/fs/bpf is not BPFFS"
+
+Eloy Coto (4):
+      Vagrantfiles: Update base image to 77
+      Test: K8st update how cilium is installed.
+      Contrib: Add Systemd parameters
+      Test: Dump Vagrant output to Jenkins console
+
+Ian Vernon (4):
+      pkg/option: sort options in GetFmtList
+      tests: remove unmaintained / unused tests
+      pkg/endpointmanager: always regenerate if policy forcibly computed
+      daemon: trigger policy updates upon daemon configuration update
+
+Jarno Rajahalme (1):
+      init.sh: Use 'ip route replace' instead of 'ip route add'
+
+Joe Stringer (2):
+      test: Add bpf/verifier-test.sh to ginkgo
+      chaos: Use JSON output for endpoint restore check
+
+Manali Bhutiyani (5):
+      bpf: Add metricsmap helper funcs and controller metricsmap-bpf-prom-sync
+      daemon: Remove unnecessary explicit conversion of time
+      pkg/metrics: Add prometheus counterVectors for Drops and Forwards
+      pkg/monitor: Export DropReason to be consistent with cilium monitor
+      docs: update docs with L3/L4 drop/forward metrics
+
+Michael Schubert (1):
+      docs: fix shown command in minikube guide
+
+Michal Rostecki (2):
+      common/files: Add fileScanner struct
+      pkg/bpf: Use the other directory when /sys/fs/bpf is not BPFFS
+
+Nirmoy Das (1):
+      cilium status: fix --brief to print less when cilium isn't running
+
+Romain Lenglet (1):
+      doc: Document the endpoint lifecycle and reserved:init identity
+
+Steven Ceuppens (4):
+      Fix: `cilium monitor` allows invalid arguments
+      Add "docker info" output to bugtool
+      bugtool: make archive output configurable
+      Split debuginfo into separate files
+
+Thomas Graf (1):
+      Merge branch 'master' into v1.1
+
+
 v1.1.0-rc1
 ==========
 
