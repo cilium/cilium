@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"reflect"
+	"sort"
 	"strings"
 
 	"github.com/onsi/gomega/format"
@@ -82,6 +83,8 @@ func parseXmlContent(content string) (*xmlNode, error) {
 
 		switch tok := tok.(type) {
 		case xml.StartElement:
+			attrs := attributesSlice(tok.Attr)
+			sort.Sort(attrs)
 			allNodes = append(allNodes, &xmlNode{XMLName: tok.Name, XMLAttr: tok.Attr})
 		case xml.EndElement:
 			if len(allNodes) > 1 {
