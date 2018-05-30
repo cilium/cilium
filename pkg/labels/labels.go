@@ -47,6 +47,10 @@ const (
 	// IDNameInit is the label used to identify any endpoint that has not
 	// received any labels yet.
 	IDNameInit = "init"
+
+	// IDNameUnknown is the label used to to idenfity an endpoint with an
+	// unknown identity.
+	IDNameUnknown = "unknown"
 )
 
 // OpLabels represents the the possible types.
