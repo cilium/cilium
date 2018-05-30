@@ -34,8 +34,8 @@ var _ = Describe("K8sValidatedKafkaPolicyTest", func() {
 
 	var (
 		logger      = log.WithFields(logrus.Fields{"testName": "K8sValidatedKafkaPolicyTest"})
-		l7Policy    = helpers.ManifestGet("kafka-sw-security-policy.yaml")
-		demoPath    = helpers.ManifestGet("kafka-sw-app.yaml")
+		l7Policy    = helpers.GetFilePath("../examples/kubernetes-kafka/kafka-sw-security-policy.yaml")
+		demoPath    = helpers.GetFilePath("../examples/kubernetes-kafka/kafka-sw-app.yaml")
 		kafkaApp    = "kafka"
 		zookApp     = "zook"
 		backupApp   = "empire-backup"
@@ -45,9 +45,9 @@ var _ = Describe("K8sValidatedKafkaPolicyTest", func() {
 		appPods     = map[string]string{}
 
 		prodHqAnnounce    = `-c "echo 'Happy 40th Birthday to General Tagge' | ./kafka-produce.sh --topic empire-announce"`
-		conOutpostAnnoune = `-c "./kafka-consume.sh --topic empire-announce --from-beginning --max-messages 1"`
+		conOutpostAnnoune = `-c "timeout 60 sh -c './kafka-consume.sh --topic empire-announce --from-beginning --max-messages 1'"`
 		prodHqDeathStar   = `-c "echo 'deathstar reactor design v3' | ./kafka-produce.sh --topic deathstar-plans"`
-		conOutDeathStar   = `-c "./kafka-consume.sh --topic deathstar-plans --from-beginning --max-messages 1"`
+		conOutDeathStar   = `-c "timeout 60 sh -c './kafka-consume.sh --topic deathstar-plans --from-beginning --max-messages 1'"`
 		prodBackAnnounce  = `-c "echo 'Happy 40th Birthday to General Tagge' | ./kafka-produce.sh --topic empire-announce"`
 		prodOutAnnounce   = `-c "echo 'Vader Booed at Empire Karaoke Party' | ./kafka-produce.sh --topic empire-announce"`
 	)

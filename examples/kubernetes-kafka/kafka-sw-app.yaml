@@ -1,4 +1,3 @@
----
 apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
@@ -9,6 +8,7 @@ spec:
     metadata:
       labels:
         app: kafka
+        zgroup: kafkaTestApp
     spec:
       containers:
       - name: kafka
@@ -28,6 +28,17 @@ spec:
           value: "20000"
         - name: KAFKA_ZOOKEEPER_CONNECTION_TIMEOUT_MS
           value: "20000"
+        livenessProbe:
+          tcpSocket:
+            port: 9092
+          initialDelaySeconds: 30
+          failureThreshold: 10
+          periodSeconds: 10
+        readinessProbe:
+          tcpSocket:
+            port: 9092
+          initialDelaySeconds: 5
+          periodSeconds: 5
 ---
 apiVersion: extensions/v1beta1
 kind: Deployment
@@ -39,6 +50,7 @@ spec:
     metadata:
       labels:
         app: zook
+        zgroup: kafkaTestApp
     spec:
       containers:
       - name: zookeeper
@@ -87,6 +99,7 @@ spec:
     metadata:
       labels:
         app: empire-hq
+        zgroup: kafkaTestApp
     spec:
       containers:
       - name: empire-hq
@@ -103,6 +116,7 @@ spec:
       labels:
         app: empire-outpost
         outpostid: "8888"
+        zgroup: kafkaTestApp
     spec:
       containers:
       - name: empire-outpost-8888
@@ -119,6 +133,7 @@ spec:
       labels:
         app: empire-outpost
         outpostid: "9999"
+        zgroup: kafkaTestApp
     spec:
       containers:
       - name: empire-outpost-9999
@@ -134,6 +149,7 @@ spec:
     metadata:
       labels:
         app: empire-backup
+        zgroup: kafkaTestApp
     spec:
       containers:
       - name: empire-backup
