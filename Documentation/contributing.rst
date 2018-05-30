@@ -114,22 +114,31 @@ brought up by vagrant:
 
 * ``NWORKERS=n``: Number of child nodes you want to start with the master,
   default 0.
-* ``RELOAD=1``: Issue a ``vagrant reload`` instead of ``vagrant up``
-* ``NFS=1``: Use NFS for vagrant shared directories instead of rsync
-* ``K8S=1``: Build & install kubernetes on the nodes
-* ``IPV4=1``: Run Cilium with IPv4 enabled
-* VAGRANT\_DEFAULT\_PROVIDER={virtualbox \| libvirt \| ...}
+* ``RELOAD=1``: Issue a ``vagrant reload`` instead of ``vagrant up``, useful
+  to resume halted VMs.
+* ``NFS=1``: Use NFS for vagrant shared directories instead of rsync.
+* ``K8S=1``: Build & install kubernetes on the nodes. ``k8s1`` is the master
+  node, which contains both master components: etcd, kube-controller-manager,
+  kube-scheduler, kube-apiserver, and node components: kubelet,
+  kube-proxy, kubectl and Cilium. When used in combination with ``NWORKERS=1`` a
+  second node is created, where ``k8s2`` will be a kubernetes node, which
+  contains: kubelet, kube-proxy, kubectl and cilium.
+* ``IPV4=1``: Run Cilium with IPv4 enabled.
+* ``RUNTIME=x``: Sets up the container runtime to be used inside a kubernetes
+  cluster. Valid options are: ``docker``, ``containerd`` and ``crio``. If not
+  set, it defaults to ``docker``.
+* ``VAGRANT_DEFAULT_PROVIDER``={virtualbox \| libvirt \| ...}
 
-If you want to start the VM with cilium enabled with IPv4, with
+If you want to start the VM with cilium enabled with ``containerd``, with
 kubernetes installed and plus a worker, run:
 
 ::
 
-	$ IPV4=1 K8S=1 NWORKERS=1 contrib/vagrant/start.sh
+	$ RUNTIME=containerd K8S=1 NWORKERS=1 contrib/vagrant/start.sh
 
 If you have any issue with the provided vagrant box
-``cilium/ubuntu-16.10`` or need a different box format, you may
-build the box yourself using the `packer scripts <https://github.com/cilium/packer-ubuntu-16.10>`_
+``cilium/ubuntu`` or need a different box format, you may
+build the box yourself using the `packer scripts <https://github.com/cilium/packer-ci-build>`_
 
 Manual Installation
 ^^^^^^^^^^^^^^^^^^^
