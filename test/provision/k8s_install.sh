@@ -35,9 +35,6 @@ if [[ -f  "/etc/provision_finished" ]]; then
     exit 0
 fi
 
-go get github.com/subfuzion/envtpl
-mv ~/go/bin/envtpl /usr/local/bin/
-
 $PROVISIONSRC/dns.sh
 
 cat <<EOF > /etc/hosts

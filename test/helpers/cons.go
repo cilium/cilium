@@ -177,6 +177,9 @@ const (
 
 )
 
+// CiliumDSPath is the default Cilium DaemonSet path to use in all test.
+var CiliumDSPath = "cilium_ds.jsonnet"
+
 var checkLogsMessages = []string{panicMessage, deadLockHeader, segmentationFault, NACKreceived}
 
 var ciliumCLICommands = map[string]string{

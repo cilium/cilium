@@ -16,6 +16,8 @@ package workloads
 
 import (
 	"time"
+
+	"github.com/cilium/cilium/pkg/labels"
 )
 
 const (
@@ -28,4 +30,22 @@ const (
 // attempts
 func EndpointCorrelationSleepTime(try int) time.Duration {
 	return time.Duration(try) * time.Second
+}
+
+func shortContainerID(id string) string {
+	return id[:10]
+}
+
+func getFilteredLabels(allLabels map[string]string) (identityLabels, informationLabels labels.Labels) {
+	combinedLabels := labels.Map2Labels(allLabels, labels.LabelSourceContainer)
+
+	k8sNormalLabels, err := fetchK8sLabels(allLabels)
+	if err != nil {
+		log.WithError(err).Warn("Error while getting Kubernetes labels")
+	} else if k8sNormalLabels != nil {
+		k8sLbls := labels.Map2Labels(k8sNormalLabels, labels.LabelSourceK8s)
+		combinedLabels.MergeLabels(k8sLbls)
+	}
+
+	return labels.FilterLabels(combinedLabels)
 }

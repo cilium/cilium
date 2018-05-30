@@ -56,6 +56,7 @@ import (
 	ipcachemap "github.com/cilium/cilium/pkg/maps/ipcache"
 	"github.com/cilium/cilium/pkg/maps/lbmap"
 	"github.com/cilium/cilium/pkg/maps/lxcmap"
+	"github.com/cilium/cilium/pkg/maps/metricsmap"
 	"github.com/cilium/cilium/pkg/maps/policymap"
 	"github.com/cilium/cilium/pkg/maps/proxymap"
 	"github.com/cilium/cilium/pkg/maps/tunnel"
@@ -67,9 +68,7 @@ import (
 	"github.com/cilium/cilium/pkg/proxy/logger"
 	"github.com/cilium/cilium/pkg/u8proto"
 	"github.com/cilium/cilium/pkg/workloads"
-	"github.com/cilium/cilium/pkg/workloads/containerd"
 
-	"github.com/cilium/cilium/pkg/maps/metricsmap"
 	"github.com/go-openapi/runtime/middleware"
 	"github.com/mattn/go-shellwords"
 	"github.com/sirupsen/logrus"
@@ -803,7 +802,15 @@ func (d *Daemon) init() error {
 		controller.NewManager().UpdateController("lxcmap-bpf-host-sync",
 			controller.ControllerParams{
 				DoFunc:      func() error { return d.syncLXCMap() },
-				RunInterval: time.Duration(5) * time.Second,
+				RunInterval: 5 * time.Second,
+			})
+
+		// Start the controller for periodic sync of the metrics map with
+		// the prometheus server.
+		controller.NewManager().UpdateController("metricsmap-bpf-prom-sync",
+			controller.ControllerParams{
+				DoFunc:      metricsmap.SyncMetricsMap,
+				RunInterval: 5 * time.Second,
 			})
 
 		if _, err := lbmap.Service6Map.OpenOrCreate(); err != nil {
@@ -1008,10 +1015,8 @@ func (d *Daemon) syncLXCMap() error {
 
 // NewDaemon creates and returns a new Daemon with the parameters set in c.
 func NewDaemon() (*Daemon, error) {
-	if opts := workloads.GetRuntimeOpt(workloads.Docker); opts != nil {
-		if err := containerd.Init(dockerEndpoint); err != nil {
-			return nil, err
-		}
+	if err := workloads.Setup(option.Config.Workloads, map[string]string{}); err != nil {
+		return nil, fmt.Errorf("unable to setup workload: %s", err)
 	}
 
 	lb := types.NewLoadBalancer()
@@ -1053,7 +1058,8 @@ func NewDaemon() (*Daemon, error) {
 		// pods. Therefore unless the AllowLocalhost policy is set to a
 		// specific mode, always allow localhost to reach local
 		// endpoints.
-		if option.Config.AlwaysAllowLocalhost() {
+		if option.Config.AllowLocalhost == option.AllowLocalhostAuto {
+			option.Config.AllowLocalhost = option.AllowLocalhostAlways
 			log.Info("k8s mode: Allowing localhost to reach local endpoints")
 		}
 
@@ -1218,7 +1224,7 @@ func NewDaemon() (*Daemon, error) {
 		// We need to read all docker containers so we know we won't
 		// going to allocate the same IP addresses and we will ignore
 		// these containers from reading.
-		containerd.IgnoreRunningContainers()
+		workloads.IgnoreRunningWorkloads()
 	}
 
 	d.collectStaleMapGarbage()
@@ -1401,7 +1407,6 @@ func (h *patchConfig) Handle(params PatchConfigParams) middleware.Responder {
 				log.Debug("configuration request to change PolicyEnforcement for daemon")
 				changes++
 				policy.SetPolicyEnabled(enforcement)
-				d.TriggerPolicyUpdates(true)
 			}
 
 		default:
@@ -1420,10 +1425,10 @@ func (h *patchConfig) Handle(params PatchConfigParams) middleware.Responder {
 		// Only recompile if configuration has changed.
 		log.Debug("daemon configuration has changed; recompiling base programs")
 		if err := d.compileBase(); err != nil {
-			log.WithError(err).Warn("Invalid option for PolicyEnforcement")
 			msg := fmt.Errorf("Unable to recompile base programs: %s", err)
 			return apierror.Error(PatchConfigFailureCode, msg)
 		}
+		d.TriggerPolicyUpdates(true)
 	}
 
 	return NewPatchConfigOK()

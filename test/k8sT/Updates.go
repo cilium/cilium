@@ -15,7 +15,6 @@ var _ = Describe("K8sValidatedUpdates", func() {
 
 	var kubectl *helpers.Kubectl
 	var logger *logrus.Entry
-	var ciliumPath string
 	var demoPath string
 	var l3Policy, l7Policy string
 	var apps []string
@@ -27,8 +26,8 @@ var _ = Describe("K8sValidatedUpdates", func() {
 
 		kubectl = helpers.CreateKubectl(helpers.K8s1VMName(), logger)
 
-		ciliumPath = helpers.ManifestGet("cilium_ds.yaml")
-		kubectl.Delete(ciliumPath)
+		_ = kubectl.DeleteResource(
+			"ds", fmt.Sprintf("-n %s cilium", helpers.KubeSystemNamespace))
 
 		apps = []string{helpers.App1, helpers.App2, helpers.App3}
 
@@ -58,9 +57,8 @@ var _ = Describe("K8sValidatedUpdates", func() {
 		kubectl.Delete(l3Policy)
 		kubectl.Delete(demoPath)
 
-		res := kubectl.DeleteResource(
+		_ = kubectl.DeleteResource(
 			"ds", fmt.Sprintf("-n %s cilium", helpers.KubeSystemNamespace))
-		res.ExpectSuccess("Cilium DS cannot be deleted")
 
 		ExpectAllPodsTerminated(kubectl)
 	})

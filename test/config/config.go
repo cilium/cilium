@@ -18,10 +18,11 @@ import "flag"
 
 // CiliumTestConfigType holds all of the configurable elements of the testsuite
 type CiliumTestConfigType struct {
-	Reprovision     bool
-	HoldEnvironment bool
-	SSHConfig       string
-	ShowCommands    bool
+	Reprovision      bool
+	HoldEnvironment  bool
+	SSHConfig        string
+	ShowCommands     bool
+	CiliumDSManifest string
 }
 
 // CiliumTestConfig holds the global configuration of commandline flags
@@ -38,4 +39,7 @@ func (c *CiliumTestConfigType) ParseFlags() {
 		"Specify a custom command to fetch SSH configuration (eg: 'vagrant ssh-config')")
 	flag.BoolVar(&c.ShowCommands, "cilium.showCommands", false,
 		"Output which commands are ran to stdout")
+	flag.StringVar(&c.CiliumDSManifest, "cilium.dsManifest", "",
+		"Cilium daemon set manifest to use for running the test (only Kubernetes)")
+
 }

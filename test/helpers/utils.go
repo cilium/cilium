@@ -157,7 +157,7 @@ func InstallExampleCilium(kubectl *Kubectl) {
 
 	var path = filepath.Join("..", "examples", "kubernetes", GetCurrentK8SEnv(), "cilium.yaml")
 	var result bytes.Buffer
-	timeout := time.Duration(300)
+	timeout := time.Duration(800)
 
 	newCiliumDSName := fmt.Sprintf("cilium_ds_%s.json", MakeUID())
 

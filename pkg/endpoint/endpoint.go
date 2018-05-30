@@ -281,7 +281,7 @@ type Endpoint struct {
 	// ContainerName is the name given to the endpoint by the container runtime
 	ContainerName string
 
-	// DockerID is the container ID that containerd has assigned to the endpoint
+	// DockerID is the container ID that docker has assigned to the endpoint
 	//
 	// FIXME: Rename this field to ContainerID
 	DockerID string

@@ -252,7 +252,13 @@ func (bo *BoolOptions) GetFmtList() string {
 	txt := ""
 
 	bo.optsMU.RLock()
+	opts := []string{}
 	for k := range bo.Opts {
+		opts = append(opts, k)
+	}
+	sort.Strings(opts)
+
+	for _, k := range opts {
 		def := bo.getFmtOpt(k)
 		if def != "" {
 			txt += def + "\n"

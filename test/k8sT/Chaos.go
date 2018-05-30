@@ -30,14 +30,15 @@ var _ = Describe("K8sValidatedChaosTest", func() {
 		kubectl       *helpers.Kubectl
 		logger        = log.WithFields(logrus.Fields{"testName": "K8sChaosTest"})
 		demoDSPath    = helpers.ManifestGet("demo_ds.yaml")
-		ciliumPath    = helpers.ManifestGet("cilium_ds.yaml")
 		testDSService = "testds-service.default.svc.cluster.local"
 	)
 
 	BeforeAll(func() {
 		logger.Info("Starting")
 		kubectl = helpers.CreateKubectl(helpers.K8s1VMName(), logger)
-		kubectl.Apply(ciliumPath)
+
+		err := kubectl.CiliumInstall(helpers.CiliumDSPath)
+		Expect(err).To(BeNil(), "Cilium cannot be installed")
 
 		ExpectCiliumReady(kubectl)
 		ExpectKubeDNSReady(kubectl)
@@ -114,16 +115,19 @@ var _ = Describe("K8sValidatedChaosTest", func() {
 		PingService()
 
 		By("Uninstall cilium pods")
-		res = kubectl.Delete(ciliumPath)
-		res.ExpectSuccess(res.GetDebugMessage())
+
+		res = kubectl.DeleteResource(
+			"ds", fmt.Sprintf("-n %s cilium", helpers.KubeSystemNamespace))
+		res.ExpectSuccess("Cilium DS cannot be deleted")
 
 		ExpectAllPodsTerminated(kubectl)
 
 		PingService()
 
 		By("Install cilium pods")
-		res = kubectl.Apply(ciliumPath)
-		res.ExpectSuccess(res.GetDebugMessage())
+
+		err = kubectl.CiliumInstall(helpers.CiliumDSPath)
+		Expect(err).To(BeNil(), "Cilium cannot be installed")
 
 		ExpectCiliumReady(kubectl)
 

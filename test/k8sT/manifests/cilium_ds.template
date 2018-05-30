@@ -1,0 +1,446 @@
+{
+  "apiVersion": "v1",
+  "items": [
+    {
+      "apiVersion": "v1",
+      "kind": "ConfigMap",
+      "metadata": {
+        "name": "cilium-config",
+        "namespace": "kube-system"
+      },
+      "data": {
+        "etcd-config": "---\nendpoints:\n- http://" + $.etcdEndpoint + "\n#\n# In case you want to use TLS in etcd, uncomment the following line\n# and add the certificate as explained in the comment labeled \"ETCD-CERT\"\n#ca-file: '/var/lib/etcd-secrets/etcd-ca'\n#\n# In case you want client to server authentication, uncomment the following\n# lines and add the certificate and key in cilium-etcd-secrets below\n#key-file: '/var/lib/etcd-secrets/etcd-client-key'\n#cert-file: '/var/lib/etcd-secrets/etcd-client-crt'",
+        "debug": "false",
+        "disable-ipv4": "false",
+        "sidecar-http-proxy": "false",
+        "clean-cilium-state": "false"
+      }
+    },
+    {
+      "kind": "Secret",
+      "apiVersion": "v1",
+      "type": "Opaque",
+      "metadata": {
+        "name": "cilium-etcd-secrets",
+        "namespace": "kube-system"
+      },
+      "data": {
+        "etcd-ca": "",
+        "etcd-client-key": "",
+        "etcd-client-crt": ""
+      }
+    },
+    {
+      "kind": "DaemonSet",
+      "apiVersion": "extensions/v1beta1",
+      "metadata": {
+        "name": "cilium",
+        "namespace": "kube-system"
+      },
+      "spec": {
+        "updateStrategy": {
+          "type": "RollingUpdate",
+          "rollingUpdate": {
+            "maxUnavailable": "100%"
+          }
+        },
+        "selector": {
+          "matchLabels": {
+            "k8s-app": "cilium",
+            "kubernetes.io/cluster-service": "true"
+          }
+        },
+        "template": {
+          "metadata": {
+            "labels": {
+              "k8s-app": "cilium",
+              "kubernetes.io/cluster-service": "true"
+            },
+            "annotations": {
+              "scheduler.alpha.kubernetes.io/critical-pod": "",
+              "scheduler.alpha.kubernetes.io/tolerations": "[{\"key\":\"dedicated\",\"operator\":\"Equal\",\"value\":\"master\",\"effect\":\"NoSchedule\"}]",
+              "prometheus.io/scrape": "true",
+              "prometheus.io/port": "9090"
+            }
+          },
+          "spec": {
+            "serviceAccountName": "cilium",
+            "initContainers": [
+              {
+                "name": "clean-cilium-state",
+                "image": "busybox",
+                "command": [
+                  "sh",
+                  "-c",
+                  "if [ \"${CLEAN_CILIUM_STATE}\" = \"true\" ]; then rm -rf /var/run/cilium/state; rm -rf /sys/fs/bpf/tc/globals/cilium_*; fi"
+                ],
+                "volumeMounts": [
+                  {
+                    "name": "bpf-maps",
+                    "mountPath": "/sys/fs/bpf"
+                  },
+                  {
+                    "name": "cilium-run",
+                    "mountPath": "/var/run/cilium"
+                  }
+                ],
+                "env": [
+                  {
+                    "name": "CLEAN_CILIUM_STATE",
+                    "valueFrom": {
+                      "configMapKeyRef": {
+                        "name": "cilium-config",
+                        "optional": true,
+                        "key": "clean-cilium-state"
+                      }
+                    }
+                  }
+                ]
+              }
+            ],
+            "containers": [
+              {
+                "image": $.image,
+                "imagePullPolicy": "Always",
+                "name": "cilium-agent",
+                "command": [
+                  "cilium-agent"
+                ],
+                "args": $.ciliumArgs,
+                "ports": [
+                  {
+                    "name": "prometheus",
+                    "containerPort": 9090
+                  }
+                ],
+                "lifecycle": {
+                  "postStart": {
+                    "exec": {
+                      "command": [
+                        "/cni-install.sh"
+                      ]
+                    }
+                  },
+                  "preStop": {
+                    "exec": {
+                      "command": [
+                        "/cni-uninstall.sh"
+                      ]
+                    }
+                  }
+                },
+                "env": [
+                  {
+                    "name": "K8S_NODE_NAME",
+                    "valueFrom": {
+                      "fieldRef": {
+                        "fieldPath": "spec.nodeName"
+                      }
+                    }
+                  },
+                  {
+                    "name": "CILIUM_DEBUG",
+                    "valueFrom": {
+                      "configMapKeyRef": {
+                        "name": "cilium-config",
+                        "key": "debug"
+                      }
+                    }
+                  },
+                  {
+                    "name": "DISABLE_IPV4",
+                    "valueFrom": {
+                      "configMapKeyRef": {
+                        "name": "cilium-config",
+                        "key": "disable-ipv4"
+                      }
+                    }
+                  },
+                  {
+                    "name": "CILIUM_SIDECAR_HTTP_PROXY",
+                    "valueFrom": {
+                      "configMapKeyRef": {
+                        "name": "cilium-config",
+                        "key": "sidecar-http-proxy",
+                        "optional": true
+                      }
+                    }
+                  },
+                  {
+                    "name": "CILIUM_PROMETHEUS_SERVE_ADDR",
+                    "valueFrom": {
+                      "configMapKeyRef": {
+                        "name": "cilium-metrics-config",
+                        "optional": true,
+                        "key": "prometheus-serve-addr"
+                      }
+                    }
+                  }
+                ],
+                "livenessProbe": {
+                  "exec": {
+                    "command": [
+                      "cilium",
+                      "status"
+                    ]
+                  },
+                  "initialDelaySeconds": 120,
+                  "failureThreshold": 10,
+                  "periodSeconds": 10
+                },
+                "readinessProbe": {
+                  "exec": {
+                    "command": [
+                      "cilium",
+                      "status"
+                    ]
+                  },
+                  "initialDelaySeconds": 5,
+                  "periodSeconds": 5
+                },
+                "volumeMounts": [
+                  {
+                    "name": "bpf-maps",
+                    "mountPath": "/sys/fs/bpf"
+                  },
+                  {
+                    "name": "cilium-run",
+                    "mountPath": "/var/run/cilium"
+                  },
+                  {
+                    "name": "cni-path",
+                    "mountPath": "/host/opt/cni/bin"
+                  },
+                  {
+                    "name": "etc-cni-netd",
+                    "mountPath": "/host/etc/cni/net.d"
+                  },
+                  {
+                    "name": "docker-socket",
+                    "mountPath": "/var/run/docker.sock",
+                    "readOnly": true
+                  },
+                  {
+                    "name": "etcd-config-path",
+                    "mountPath": "/var/lib/etcd-config",
+                    "readOnly": true
+                  },
+                  {
+                    "name": "etcd-secrets",
+                    "mountPath": "/var/lib/etcd-secrets",
+                    "readOnly": true
+                  }
+                ],
+                "securityContext": {
+                  "capabilities": {
+                    "add": [
+                      "NET_ADMIN"
+                    ]
+                  },
+                  "privileged": true
+                }
+              }
+            ],
+            "hostNetwork": true,
+            "volumes": [
+              {
+                "name": "cilium-run",
+                "hostPath": {
+                  "path": "/var/run/cilium"
+                }
+              },
+              {
+                "name": "bpf-maps",
+                "hostPath": {
+                  "path": "/sys/fs/bpf"
+                }
+              },
+              {
+                "name": "docker-socket",
+                "hostPath": {
+                  "path": "/var/run/docker.sock"
+                }
+              },
+              {
+                "name": "cni-path",
+                "hostPath": {
+                  "path": "/opt/cni/bin"
+                }
+              },
+              {
+                "name": "etc-cni-netd",
+                "hostPath": {
+                  "path": "/etc/cni/net.d"
+                }
+              },
+              {
+                "name": "etcd-config-path",
+                "configMap": {
+                  "name": "cilium-config",
+                  "items": [
+                    {
+                      "key": "etcd-config",
+                      "path": "etcd.config"
+                    }
+                  ]
+                }
+              },
+              {
+                "name": "etcd-secrets",
+                "secret": {
+                  "secretName": "cilium-etcd-secrets"
+                }
+              }
+            ],
+            "restartPolicy": "Always",
+            "tolerations": [
+              {
+                "effect": "NoSchedule",
+                "key": "node-role.kubernetes.io/master"
+              },
+              {
+                "effect": "NoSchedule",
+                "key": "node.cloudprovider.kubernetes.io/uninitialized",
+                "value": "true"
+              },
+              {
+                "key": "CriticalAddonsOnly",
+                "operator": "Exists"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "kind": "ClusterRoleBinding",
+      "apiVersion": "rbac.authorization.k8s.io/v1beta1",
+      "metadata": {
+        "name": "cilium"
+      },
+      "roleRef": {
+        "apiGroup": "rbac.authorization.k8s.io",
+        "kind": "ClusterRole",
+        "name": "cilium"
+      },
+      "subjects": [
+        {
+          "kind": "ServiceAccount",
+          "name": "cilium",
+          "namespace": "kube-system"
+        },
+        {
+          "kind": "Group",
+          "name": "system:nodes"
+        }
+      ]
+    },
+    {
+      "kind": "ClusterRole",
+      "apiVersion": "rbac.authorization.k8s.io/v1beta1",
+      "metadata": {
+        "name": "cilium"
+      },
+      "rules": [
+        {
+          "apiGroups": [
+            "networking.k8s.io"
+          ],
+          "resources": [
+            "networkpolicies"
+          ],
+          "verbs": [
+            "get",
+            "list",
+            "watch"
+          ]
+        },
+        {
+          "apiGroups": [
+            ""
+          ],
+          "resources": [
+            "namespaces",
+            "services",
+            "nodes",
+            "endpoints",
+            "componentstatuses"
+          ],
+          "verbs": [
+            "get",
+            "list",
+            "watch"
+          ]
+        },
+        {
+          "apiGroups": [
+            ""
+          ],
+          "resources": [
+            "pods",
+            "nodes"
+          ],
+          "verbs": [
+            "get",
+            "list",
+            "watch",
+            "update"
+          ]
+        },
+        {
+          "apiGroups": [
+            "extensions"
+          ],
+          "resources": [
+            "networkpolicies",
+            "thirdpartyresources",
+            "ingresses"
+          ],
+          "verbs": [
+            "create",
+            "get",
+            "list",
+            "watch"
+          ]
+        },
+        {
+          "apiGroups": [
+            "apiextensions.k8s.io"
+          ],
+          "resources": [
+            "customresourcedefinitions"
+          ],
+          "verbs": [
+            "create",
+            "get",
+            "list",
+            "watch",
+            "update"
+          ]
+        },
+        {
+          "apiGroups": [
+            "cilium.io"
+          ],
+          "resources": [
+            "ciliumnetworkpolicies",
+            "ciliumendpoints"
+          ],
+          "verbs": [
+            "*"
+          ]
+        }
+      ]
+    },
+    {
+      "kind": "ServiceAccount",
+      "apiVersion": "v1",
+      "metadata": {
+        "name": "cilium",
+        "namespace": "kube-system"
+      }
+    }
+  ],
+  "kind": "List",
+  "metadata": {}
+}
