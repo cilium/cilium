@@ -47,7 +47,7 @@ spec:
       serviceAccountName: prometheus-k8s
       containers:
       - name: prometheus
-        image: prom/prometheus:v1.7.0
+        image: docker.io/prom/prometheus:v1.7.0
         args:
           - '-storage.local.retention=12h'
           - '-storage.local.memory-chunks=500000'

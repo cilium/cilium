@@ -2,7 +2,7 @@ version: '2'
 services:
   cilium:
     container_name: cilium
-    image: cilium/cilium:stable
+    image: docker.io/cilium/cilium:stable
     command: cilium-agent --debug -d ${IFACE} --kvstore consul --kvstore-opt consul.address=127.0.0.1:8500
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
@@ -18,7 +18,7 @@ services:
 
   cilium_docker:
     container_name: cilium-docker-plugin
-    image: cilium/cilium:stable
+    image: docker.io/cilium/cilium:stable
     command: cilium-docker -D
     volumes:
       - /var/run/cilium:/var/run/cilium
@@ -36,6 +36,6 @@ services:
       - "8500:8500"
     environment:
       - "CONSUL_LOCAL_CONFIG={\"skip_leave_on_interrupt\": true, \"disable_update_check\": true}"
-    image: consul:0.8.3
+    image: docker.io/library/consul:0.8.3
     command: agent -client=0.0.0.0 -server -bootstrap-expect 1
 

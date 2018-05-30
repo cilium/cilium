@@ -65,7 +65,7 @@ spec:
     spec:
       containers:
       - name: reviews
-        image: istio/examples-bookinfo-reviews-v1:0.2.8
+        image: docker.io/istio/examples-bookinfo-reviews-v1:0.2.8
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 9080

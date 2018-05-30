@@ -1,7 +1,7 @@
 version: '2'
 services:
   elastic:
-    image: elasticsearch:2.3.4
+    image: docker.io/library/elasticsearch:2.3.4
     command: elasticsearch -Des.network.bind_host=_non_loopback:ipv4_
     container_name: cilium-elastic
     ports:
@@ -9,7 +9,7 @@ services:
       - 9300:9300
 
   logstash:
-    image: logstash:2.3.4-1
+    image: docker.io/library/logstash:2.3.4-1
     command: -f /logstash.conf
     container_name: cilium-logstash
     volumes:
@@ -20,7 +20,7 @@ services:
       - 9302:9302
 
   kibana:
-    image: kibana:4.5.3
+    image: docker.io/library/kibana:4.5.3
     container_name: cilium-kibana
     environment:
       - ELASTICSEARCH_URL=http://elastic:9200

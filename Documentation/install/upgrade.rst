@@ -59,7 +59,7 @@ version.
 
 ::
 
-    kubectl set image daemonset/cilium -n kube-system cilium-agent=cilium/cilium:vX.Y.Z
+    kubectl set image daemonset/cilium -n kube-system cilium-agent=docker.io/cilium/cilium:vX.Y.Z
 
 To monitor the rollout and confirm it is complete, run: 
 

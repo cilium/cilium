@@ -61,7 +61,7 @@ spec:
     spec:
       containers:
       - name: productpage
-        image: cilium/istio-examples-bookinfo-productpage-v2:0.3.0
+        image: docker.io/cilium/istio-examples-bookinfo-productpage-v2:0.3.0
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 9080

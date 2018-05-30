@@ -94,7 +94,7 @@ spec:
     spec:
       serviceAccountName: cilium
       containers:
-      - image: cilium/cilium:stable
+      - image: docker.io/cilium/cilium:stable
         imagePullPolicy: Always
         name: cilium-agent
         command: [ "cilium-agent" ]

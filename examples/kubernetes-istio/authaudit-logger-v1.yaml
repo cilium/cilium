@@ -12,7 +12,7 @@ spec:
     spec:
       containers:
       - name: authaudit-logger
-        image: spotify/kafka:latest
+        image: docker.io/spotify/kafka:latest
         command:
         - /opt/kafka_2.11-0.10.1.0/bin/kafka-console-consumer.sh
         - --bootstrap-server=kafka:9092

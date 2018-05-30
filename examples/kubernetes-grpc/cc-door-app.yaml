@@ -18,7 +18,7 @@ spec:
     spec:
       containers:
       - name: cc-door-mgr
-        image: cilium/cc-grpc-demo
+        image: docker.io/cilium/cc-grpc-demo
         command: ["python3"]
         args: ["/cloudcity/cc_door_server.py"]
         ports:
@@ -52,6 +52,6 @@ metadata:
 spec:
   containers:
   - name: cc-door-client
-    image: cilium/cc-grpc-demo
+    image: docker.io/cilium/cc-grpc-demo
     command: ["sleep"]
     args: ["300000"]
