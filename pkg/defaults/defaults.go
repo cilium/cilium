@@ -19,6 +19,12 @@ import (
 )
 
 const (
+	// IPv6ClusterAllocCIDR is the default value for option.IPv6ClusterAllocCIDR
+	IPv6ClusterAllocCIDR = IPv6ClusterAllocCIDRBase + "/64"
+
+	// IPv6ClusterAllocCIDRBase is the default base for IPv6ClusterAllocCIDR
+	IPv6ClusterAllocCIDRBase = "fdfd::"
+
 	// RuntimePath is the default path to the runtime directory
 	RuntimePath = "/var/run/cilium"
 
