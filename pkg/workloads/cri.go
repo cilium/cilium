@@ -52,7 +52,7 @@ func getGRPCCLient(ctx context.Context) (*grpc.ClientConn, error) {
 	c, cancel := context.WithTimeout(ctx, time.Duration(5*time.Second))
 	defer cancel()
 
-	conn, err := grpc.DialContext(c, addr, grpc.WithDialer(dialer), grpc.WithInsecure())
+	conn, err := grpc.DialContext(c, addr, grpc.WithDialer(dialer), grpc.WithInsecure(), grpc.WithBackoffMaxDelay(15*time.Second))
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect: %s", err)
 	}
@@ -353,7 +353,6 @@ func (c *criClient) workloadIDsList(ctx context.Context) ([]string, error) {
 	req := &criRuntime.ListPodSandboxRequest{}
 	resp, err := c.RuntimeServiceClient.ListPodSandbox(context.Background(), req)
 	if err != nil {
-		log.WithError(err).Errorf("error1")
 		return nil, err
 	}
 
