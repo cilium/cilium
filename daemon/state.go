@@ -1,4 +1,4 @@
-// Copyright 2016-2017 Authors of Cilium
+// Copyright 2016-2018 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -34,16 +34,36 @@ import (
 	"github.com/vishvananda/netlink"
 )
 
-// SyncState syncs cilium state against the containers running in the host. dir is the
-// cilium's running directory. If clean is set, the endpoints that don't have its
-// container in running state are deleted.
-func (d *Daemon) SyncState(dir string, clean bool) error {
+type endpointRestoreState struct {
+	restored []*endpoint.Endpoint
+	toClean  []*endpoint.Endpoint
+}
+
+// restoreOldEndpoints reads the list of existing endpoints previously managed
+// Cilium when it was last run and associated it with container workloads. This
+// function performs the first step in restoring the endpoint structure,
+// allocating their existing IP out of the CIDR block and then inserting the
+// endpoints into the endpoints list. It needs to be followed by a call to
+// regenerateRestoredEndpoints() once the endpoint builder is ready.
+//
+// If clean is true, endpoints which cannot be associated with a container
+// workloads are deleted.
+func (d *Daemon) restoreOldEndpoints(dir string, clean bool) (*endpointRestoreState, error) {
+	state := &endpointRestoreState{
+		restored: []*endpoint.Endpoint{},
+		toClean:  []*endpoint.Endpoint{},
+	}
+
+	if !option.Config.RestoreState {
+		log.Info("Endpoint restore is disabled, skipping restore step")
+		return state, nil
+	}
 
 	log.Info("Restoring endpoints from former life...")
 
 	dirFiles, err := ioutil.ReadDir(dir)
 	if err != nil {
-		return err
+		return state, err
 	}
 	eptsID := endpoint.FilterEPDir(dirFiles)
 
@@ -51,62 +71,77 @@ func (d *Daemon) SyncState(dir string, clean bool) error {
 
 	if len(possibleEPs) == 0 {
 		log.Info("No old endpoints found.")
-		return nil
+		return state, nil
 	}
 
-	nEndpoints := len(possibleEPs)
+	for _, ep := range possibleEPs {
+		scopedLog := log.WithField(logfields.EndpointID, ep.ID)
+		skipRestore := false
+		if _, err := netlink.LinkByName(ep.IfName); err != nil {
+			scopedLog.Infof("Interface %s could not be found for endpoint being restored, ignoring", ep.IfName)
+			skipRestore = true
+		} else if !workloads.IsRunning(ep) {
+			scopedLog.Info("No workload could be associated with endpoint being restored, ignoring")
+			skipRestore = true
+		}
 
-	// we need to signalize when the endpoints are restored, i.e., when the
-	// essential attributes were populated on the daemon, such as: IPs allocated
-	// and endpoint default options.
-	epRestored := make(chan bool, nEndpoints)
+		if clean && skipRestore {
+			state.toClean = append(state.toClean, ep)
+			continue
+		}
+
+		ep.Mutex.Lock()
+		scopedLog.Debug("Restoring endpoint")
+		ep.LogStatusOKLocked(endpoint.Other, "Restoring endpoint from previous cilium instance")
+
+		if err := d.allocateIPsLocked(ep); err != nil {
+			ep.Mutex.Unlock()
+			scopedLog.WithError(err).Error("Failed to re-allocate IP of endpoint. Not restoring endpoint.")
+			state.toClean = append(state.toClean, ep)
+			continue
+		}
+
+		if option.Config.KeepConfig {
+			ep.SetDefaultOpts(nil)
+		} else {
+			ep.SetDefaultOpts(option.Config.Opts)
+			alwaysEnforce := policy.GetPolicyEnabled() == option.AlwaysEnforce
+			ep.Opts.Set(option.IngressPolicy, alwaysEnforce)
+			ep.Opts.Set(option.EgressPolicy, alwaysEnforce)
+		}
+
+		endpointmanager.Insert(ep)
+		ep.Mutex.Unlock()
+
+		state.restored = append(state.restored, ep)
+	}
+
+	log.WithFields(logrus.Fields{
+		"count.restored": len(state.restored),
+		"count.total":    len(possibleEPs),
+	}).Info("Endpoints restored, endpoints will be regenerated in background")
+
+	return state, nil
+}
+
+func (d *Daemon) regenerateRestoredEndpoints(state *endpointRestoreState) {
+	log.Infof("Regenerating %d restored endpoints", len(state.restored))
+
 	// we need to signalize when the endpoints are regenerated, i.e., when
 	// they have finished to rebuild after being restored.
-	epRegenerated := make(chan bool, nEndpoints)
+	epRegenerated := make(chan bool, len(state.restored))
 
-	for _, ep := range possibleEPs {
-		go func(ep *endpoint.Endpoint, epRestored, epRegenerated chan<- bool) {
-			scopedLog := log.WithField(logfields.EndpointID, ep.ID)
-			skipRestore := false
-			if _, err := netlink.LinkByName(ep.IfName); err != nil {
-				scopedLog.Infof("Interface %s could not be found for endpoint being restored, ignoring", ep.IfName)
-				skipRestore = true
-			} else if !workloads.IsRunning(ep) {
-				scopedLog.Info("No workload could be associated with endpoint being restored, ignoring")
-				skipRestore = true
-			}
-
-			if clean && skipRestore {
-				d.deleteEndpointQuiet(ep)
-				epRegenerated <- false
-				epRestored <- false
-				return
-			}
-
+	for _, ep := range state.restored {
+		go func(ep *endpoint.Endpoint, epRegenerated chan<- bool) {
 			ep.Mutex.Lock()
-			scopedLog.Debug("Restoring endpoint")
-			ep.LogStatusOKLocked(endpoint.Other, "Restoring endpoint from previous cilium instance")
+			scopedLog := log.WithField(logfields.EndpointID, ep.ID)
 
-			if err := d.allocateIPsLocked(ep); err != nil {
+			state := ep.GetStateLocked()
+			if state == endpoint.StateDisconnected || state == endpoint.StateDisconnecting {
+				scopedLog.Warn("Endpoint to restore has been deleted")
 				ep.Mutex.Unlock()
-				scopedLog.WithError(err).Error("Failed to re-allocate IP of endpoint. Not restoring endpoint.")
-				d.deleteEndpointQuiet(ep)
-				epRegenerated <- false
-				epRestored <- false
 				return
 			}
-
-			if option.Config.KeepConfig {
-				ep.SetDefaultOpts(nil)
-			} else {
-				ep.SetDefaultOpts(option.Config.Opts)
-				alwaysEnforce := policy.GetPolicyEnabled() == option.AlwaysEnforce
-				ep.Opts.Set(option.IngressPolicy, alwaysEnforce)
-				ep.Opts.Set(option.EgressPolicy, alwaysEnforce)
-			}
-
-			endpointmanager.Insert(ep)
-			epRestored <- true
 
 			ep.LogStatusOKLocked(endpoint.Other, "Synchronizing endpoint labels with KVStore")
 			if err := d.syncLabels(ep); err != nil {
@@ -133,18 +168,22 @@ func (d *Daemon) SyncState(dir string, clean bool) error {
 			scopedLog.WithField(logfields.IPAddr, []string{ep.IPv4.String(), ep.IPv6.String()}).Info("Restored endpoint")
 			ep.Mutex.RUnlock()
 			epRegenerated <- true
-		}(ep, epRestored, epRegenerated)
+		}(ep, epRegenerated)
+	}
+
+	for _, ep := range state.toClean {
+		go d.deleteEndpointQuiet(ep)
 	}
 
 	go func() {
 		regenerated, total := 0, 0
-		if nEndpoints > 0 {
+		if len(state.restored) > 0 {
 			for buildSuccess := range epRegenerated {
 				if buildSuccess {
 					regenerated++
 				}
 				total++
-				if total >= nEndpoints {
+				if total >= len(state.restored) {
 					break
 				}
 			}
@@ -156,26 +195,6 @@ func (d *Daemon) SyncState(dir string, clean bool) error {
 			"total":       total,
 		}).Info("Finished regenerating restored endpoints")
 	}()
-
-	if nEndpoints > 0 {
-		// We need to wait for the endpoints IPs and labels
-		// are properly synced before continuing.
-		nEPsRestored := 0
-		for range epRestored {
-			nEPsRestored++
-			if nEPsRestored >= nEndpoints {
-				break
-			}
-		}
-		close(epRestored)
-
-		log.WithFields(logrus.Fields{
-			"count.restored": nEPsRestored,
-			"count.total":    nEndpoints,
-		}).Info("Endpoints restored, endpoints will continue to regenerate in background")
-	}
-
-	return nil
 }
 
 func (d *Daemon) allocateIPsLocked(ep *endpoint.Endpoint) error {
