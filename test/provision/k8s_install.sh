@@ -70,6 +70,8 @@ controllerManagerExtraArgs:
   allocate-node-cidrs: "true"
   cluster-cidr: "{{ .KUBEADM_POD_NETWORK }}/{{ .KUBEADM_POD_CIDR}}"
   node-cidr-mask-size: "{{ .KUBEADM_POD_CIDR }}"
+networking:
+  podSubnet: "{{ .KUBEADM_POD_NETWORK }}/{{ .KUBEADM_POD_CIDR}}"
 EOF
 )
 
