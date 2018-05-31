@@ -27,9 +27,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/cilium/cilium/daemon/defaults"
 	"github.com/cilium/cilium/monitor/payload"
 	"github.com/cilium/cilium/pkg/byteorder"
+	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/monitor"
 
 	"github.com/spf13/cobra"

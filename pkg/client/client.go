@@ -28,7 +28,7 @@ import (
 
 	clientapi "github.com/cilium/cilium/api/v1/client"
 	"github.com/cilium/cilium/api/v1/models"
-	"github.com/cilium/cilium/daemon/defaults"
+	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/ip"
 
 	runtime_client "github.com/go-openapi/runtime/client"
