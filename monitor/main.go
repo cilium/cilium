@@ -23,9 +23,9 @@ import (
 	"syscall"
 
 	"github.com/cilium/cilium/common"
-	"github.com/cilium/cilium/daemon/defaults"
 	"github.com/cilium/cilium/pkg/apisocket"
 	"github.com/cilium/cilium/pkg/bpf"
+	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 

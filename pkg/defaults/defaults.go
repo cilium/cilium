@@ -14,7 +14,9 @@
 
 package defaults
 
-import "github.com/sirupsen/logrus"
+import (
+	"github.com/sirupsen/logrus"
+)
 
 const (
 	// RuntimePath is the default path to the runtime directory
