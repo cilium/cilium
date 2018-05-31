@@ -2422,8 +2422,29 @@ func (e *Endpoint) syncPolicyMap() error {
 
 	currentMapContents, err := e.PolicyMap.DumpToSlice()
 
+	// If map is unable to be dumped, attempt to close map and open it again.
+	// See GH-4229.
 	if err != nil {
-		return fmt.Errorf("unable to dump PolicyMap for endpoint: %s", err)
+		e.getLogger().WithError(err).Error("unable to dump PolicyMap when trying to sync desired and realized PolicyMap state")
+
+		// Close to avoid leaking of file descriptors, but still continue in case
+		// Close() does not succeed, because otherwise the map will never be
+		// opened again unless the agent is restarted.
+		err := e.PolicyMap.Close()
+		if err != nil {
+			e.getLogger().WithError(err).Error("unable to close PolicyMap which was not able to be dumped")
+		}
+
+		e.PolicyMap, _, err = policymap.OpenMap(e.PolicyMapPathLocked())
+		if err != nil {
+			return fmt.Errorf("unable to open PolicyMap for endpoint: %s", err)
+		}
+
+		// Try to dump again, fail if error occurs.
+		currentMapContents, err = e.PolicyMap.DumpToSlice()
+		if err != nil {
+			return err
+		}
 	}
 
 	errors := []error{}
