@@ -901,6 +901,41 @@ for debugging what is going on inside them, for example:
     00000000  01 00 00 00 00 00 00 00  00 00 00 00 00 00 00 00  |................|
     00000010  00 00 00 00 00 00 00 00                           |........|
 
+Update a golang dependency with dep
+-----------------------------------
+
+Once you have downloaded dep make sure you have version >= 0.4.1
+
+.. code:: bash
+
+    $ dep version
+    dep:
+     version     : v0.4.1
+     build date  : 2018-01-24
+     git hash    : 37d9ea0a
+     go version  : go1.9.1
+     go compiler : gc
+     platform    : linux/amd64
+
+After that, you can edit the ``Gopkg.toml`` file, add the library that you want
+to add. Lets assume we want to add ``github.com/containernetworking/cni``
+version ``v0.5.2``:
+
+.. code:: bash
+
+    [[constraint]]
+      name = "github.com/containernetworking/cni"
+      revision = "v0.5.2"
+
+Once you add the libraries that you need you can save the file and run
+
+.. code:: bash
+
+    $ dep ensure -v
+
+For a first run, it can take a while as it will download all dependencies to
+your local cache but the remaining runs will be faster.
+
 Update cilium-builder and cilium-runtime images
 -----------------------------------------------
 

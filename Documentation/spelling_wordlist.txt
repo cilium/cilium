@@ -92,6 +92,7 @@ decapsulated
 decapsulation
 deletetopic
 demux
+dep
 deserialization
 dev
 Devel
@@ -147,6 +148,7 @@ gluecon
 gobpf
 gocheck
 Golang
+golang
 GOPATH
 Gospodarek
 Graf
