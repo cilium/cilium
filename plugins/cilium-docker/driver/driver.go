@@ -79,6 +79,10 @@ func newLibnetworkRoute(route plugins.Route) api.StaticRoute {
 
 // NewDriver creates and returns a new Driver for the given API URL
 func NewDriver(url string) (Driver, error) {
+	if url == "" {
+		url = client.DefaultSockPath()
+	}
+
 	scopedLog := log.WithField("url", url)
 	c, err := client.NewClient(url)
 	if err != nil {

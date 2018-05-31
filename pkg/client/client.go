@@ -39,6 +39,17 @@ type Client struct {
 	clientapi.Cilium
 }
 
+func DefaultSockPath() string {
+	// Check if environment variable points to socket
+	e := os.Getenv(defaults.SockPathEnv)
+	if e == "" {
+		// If unset, fall back to default value
+		e = defaults.SockPath
+	}
+	return "unix://" + e
+
+}
+
 func configureTransport(tr *http.Transport, proto, addr string) *http.Transport {
 	if tr == nil {
 		tr = &http.Transport{}
@@ -60,19 +71,13 @@ func configureTransport(tr *http.Transport, proto, addr string) *http.Transport 
 
 // NewDefaultClient creates a client with default parameters connecting to UNIX domain socket.
 func NewDefaultClient() (*Client, error) {
-	return NewClient("")
+	return NewClient(DefaultSockPath())
 }
 
 // NewClient creates a client for the given `host`.
 func NewClient(host string) (*Client, error) {
 	if host == "" {
-		// Check if environment variable points to socket
-		e := os.Getenv(defaults.SockPathEnv)
-		if e == "" {
-			// If unset, fall back to default value
-			e = defaults.SockPath
-		}
-		host = "unix://" + e
+		host = DefaultSockPath()
 	}
 	tmp := strings.SplitN(host, "://", 2)
 	if len(tmp) != 2 {
