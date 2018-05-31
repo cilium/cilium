@@ -993,7 +993,8 @@ __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_NAT64) int tail_ipv6_to_ipv4(struct
 {
 	int ret = ipv6_to_ipv4(skb, 14, LXC_IPV4);
 	if (IS_ERR(ret))
-		return ret;
+		return  send_drop_notify(skb, SECLABEL, 0, 0, 0, ret, TC_ACT_SHOT,
+				METRIC_EGRESS);
 
 	cilium_dbg_capture(skb, DBG_CAPTURE_AFTER_V64, skb->ingress_ifindex);
 
@@ -1011,12 +1012,14 @@ __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_NAT46) int tail_ipv4_to_ipv6(struct
 	int ret;
 
 	if (!revalidate_data(skb, &data, &data_end, &ip4))
-		return DROP_INVALID;
+		return  send_drop_notify(skb, SECLABEL, 0, 0, 0, DROP_INVALID, TC_ACT_SHOT,
+				METRIC_INGRESS);
 
 	BPF_V6(dp, LXC_IP);
 	ret = ipv4_to_ipv6(skb, ip4, 14, &dp);
 	if (IS_ERR(ret))
-		return ret;
+		return  send_drop_notify(skb, SECLABEL, 0, 0, 0, ret, TC_ACT_SHOT,
+				METRIC_INGRESS);
 
 	cilium_dbg_capture(skb, DBG_CAPTURE_AFTER_V46, skb->ingress_ifindex);
 
