@@ -33,7 +33,8 @@ var _ = Suite(&IPAMSuite{})
 
 func (s *IPAMSuite) TestLock(c *C) {
 	node.InitDefaultPrefix("")
-	err := Init()
+	Init()
+	err := AllocateInternalIPs()
 	c.Assert(err, IsNil)
 
 	// Since the IPs we have allocated to the endpoints might or might not

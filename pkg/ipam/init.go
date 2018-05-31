@@ -96,7 +96,7 @@ func ReserveLocalRoutes() {
 }
 
 // Init initializes the IPAM package
-func Init() error {
+func Init() {
 	ipamSubnets := net.IPNet{
 		IP:   node.GetIPv6Router(),
 		Mask: node.StateIPv6Mask,
@@ -134,7 +134,12 @@ func Init() error {
 			Dst: node.IPv4DefaultRoute,
 			GW:  node.GetInternalIPv4(),
 		})
+}
 
+// AllocateInternalIPs allocates all non endpoint IPs in the CIDR required for
+// operation. This mustbe called *after* endpoints have been restored to avoid
+// allocation conflicts
+func AllocateInternalIPs() error {
 	// Reserve the IPv4 router IP if it is part of the IPv4
 	// allocation range to ensure that we do not hand out the
 	// router IP to a container.
