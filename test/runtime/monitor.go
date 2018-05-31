@@ -53,6 +53,7 @@ var _ = Describe("RuntimeValidatedMonitorTest", func() {
 		vm = helpers.CreateNewRuntimeHelper(helpers.Runtime, logger)
 
 		err := vm.SetUpCilium(helpers.DefaultCiliumAgentCLIArgs + "--bpf-root /run/cilium/bpffs")
+		logger.Warn("FFF:" + err.Error())
 		Expect(err).To(BeNil(), "Error launching cilium-agent with custom bpf mount path")
 
 		areEndpointsReady := vm.WaitEndpointsReady()
@@ -84,6 +85,7 @@ var _ = Describe("RuntimeValidatedMonitorTest", func() {
 		AfterAll(func() {
 			vm.SampleContainersActions(helpers.Delete, helpers.CiliumDockerNetwork)
 			err := vm.SetUpCilium(helpers.DefaultCiliumAgentCLIArgs)
+			logger.Warn("FFF:" + err.Error())
 			Expect(err).To(BeNil(), "Error restoring cilium-agent to default bpf mount path")
 
 		})
