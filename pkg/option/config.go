@@ -89,6 +89,10 @@ type daemonConfig struct {
 
 	// AgentLabels contains additional labels to identify this agent in monitor events.
 	AgentLabels []string
+
+	// DisableHostIPRestore disables restoring the host IPs based on state
+	// left behind by previous Cilium runs.
+	DisableHostIPRestore bool
 }
 
 var (
