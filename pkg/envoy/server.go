@@ -24,6 +24,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/envoy/cilium"
 	envoy_api_v2 "github.com/cilium/cilium/pkg/envoy/envoy/api/v2"
@@ -195,7 +196,7 @@ func StartXDSServer(stateDir string) *XDSServer {
 			Name: "cilium.bpf_metadata",
 			Config: &structpb.Struct{Fields: map[string]*structpb.Value{
 				"is_ingress": {Kind: &structpb.Value_BoolValue{BoolValue: false}},
-				"bpf_root":   {Kind: &structpb.Value_StringValue{StringValue: "/sys/fs/bpf"}},
+				"bpf_root":   {Kind: &structpb.Value_StringValue{StringValue: bpf.GetMapRoot()}},
 			}},
 		}},
 	}
