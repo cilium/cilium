@@ -501,7 +501,7 @@ func getCiliumHostIPsFromNetDev(devName string) (ipv4GW, ipv6Router net.IP) {
 			}
 		}
 	}
-	return nil, nil
+	return ipv4GW, ipv6Router
 }
 
 // getCiliumHostIPs returns the Cilium IPv4 gateway and router IPv6 address from
