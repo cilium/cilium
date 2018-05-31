@@ -993,7 +993,8 @@ __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_NAT64) int tail_ipv6_to_ipv4(struct
 {
 	int ret = ipv6_to_ipv4(skb, 14, LXC_IPV4);
 	if (IS_ERR(ret))
-		return ret;
+		return  send_drop_notify(skb, SECLABEL, 0, 0, 0, ret, TC_ACT_SHOT,
+				METRIC_EGRESS);
 
 	cilium_dbg_capture(skb, DBG_CAPTURE_AFTER_V64, skb->ingress_ifindex);
 
@@ -1003,20 +1004,26 @@ __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_NAT64) int tail_ipv6_to_ipv4(struct
 	return DROP_MISSED_TAIL_CALL;
 }
 
-__section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_NAT46) int tail_ipv4_to_ipv6(struct __sk_buff *skb)
+static inline int __inline__ handle_ipv4_to_ipv6(struct __sk_buff *skb)
 {
 	union v6addr dp = {};
 	void *data, *data_end;
 	struct iphdr *ip4;
-	int ret;
 
 	if (!revalidate_data(skb, &data, &data_end, &ip4))
 		return DROP_INVALID;
 
 	BPF_V6(dp, LXC_IP);
-	ret = ipv4_to_ipv6(skb, ip4, 14, &dp);
+	return ipv4_to_ipv6(skb, ip4, 14, &dp);
+
+}
+__section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_NAT46) int tail_ipv4_to_ipv6(struct __sk_buff *skb)
+{
+	int ret = handle_ipv4_to_ipv6(skb);
+
 	if (IS_ERR(ret))
-		return ret;
+		return send_drop_notify(skb, SECLABEL, 0, 0, 0, ret, TC_ACT_SHOT,
+				METRIC_INGRESS);
 
 	cilium_dbg_capture(skb, DBG_CAPTURE_AFTER_V46, skb->ingress_ifindex);
 
