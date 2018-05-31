@@ -164,16 +164,21 @@ func (s *SSHMeta) Exec(cmd string, options ...ExecOptions) *CmdRes {
 	if err != nil {
 		exit = false
 	}
+
 	res := CmdRes{
 		cmd:     cmd,
 		stdout:  stdout,
 		stderr:  stderr,
 		success: exit,
 	}
-	// Set the exitCode if the error is an ExitError
+	// Set res's exitcode if the error is an ExitError
 	if exiterr, ok := err.(*ssh.ExitError); ok {
 		res.exitcode = exiterr.Waitmsg.ExitStatus()
+	} else {
+		// Log other error types. They are likely from SSH or the network
+		log.WithError(err).Errorf("Error executing command '%s'", cmd)
 	}
+
 	if !ops.SkipLog {
 		res.SendToLog()
 	}
