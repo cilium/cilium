@@ -1,0 +1,15 @@
+apiVersion: extensions/v1beta1
+kind: NetworkPolicy
+metadata:
+  name: second
+spec:
+  ingress:
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          nslabel: second
+  podSelector:
+    matchLabels:
+      id: app1
+  policyTypes:
+  - Ingress
