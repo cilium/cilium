@@ -50,8 +50,8 @@ static inline void update_metrics(__u32 bytes, __u8 direction, __u8 reason)
 
 
     if ((entry = map_lookup_elem(&cilium_metrics, &key))) {
-            __sync_fetch_and_add(&entry->count, 1);
-            __sync_fetch_and_add(&entry->bytes, (__u64)bytes);
+            entry->count += 1;
+            entry->bytes += (__u64)bytes;
     } else {
             newEntry.count = 1;
             newEntry.bytes = (__u64)bytes;
