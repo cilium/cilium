@@ -1197,6 +1197,7 @@ func (kub *Kubectl) GatherLogs() {
 	reportCmds := map[string]string{
 		"kubectl get pods --all-namespaces -o json":                    "pods.txt",
 		"kubectl get services --all-namespaces -o json":                "svc.txt",
+		"kubectl get nodes -o json":                                    "nodes.txt",
 		"kubectl get ds --all-namespaces -o json":                      "ds.txt",
 		"kubectl get cnp --all-namespaces -o json":                     "cnp.txt",
 		"kubectl get netpol --all-namespaces -o json":                  "netpol.txt",
