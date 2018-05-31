@@ -40,7 +40,6 @@ import (
 	"github.com/sirupsen/logrus"
 	"golang.org/x/crypto/ssh"
 	"k8s.io/api/core/v1"
-	networkingv1 "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8sClient "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
@@ -645,72 +644,6 @@ func (kub *Kubectl) WaitCleanAllTerminatingPods() error {
 		body,
 		"Pods are still not deleted after a timeout",
 		&TimeoutConfig{Timeout: HelperTimeout * time.Second})
-	return err
-}
-
-// ApplyNetworkPolicyUsingAPI applies a Kubernetes network policy using the API
-// and waits up until timeout seconds for the policy to be applied in all
-// Cilium endpoints. Returns an error if the policy is not imported before the
-// timeout is exceeded.
-func (kub *Kubectl) ApplyNetworkPolicyUsingAPI(namespace string, networkPolicy *networkingv1.NetworkPolicy) error {
-	revisions := map[string]int{}
-
-	kub.logger.Infof("Creating a new policy %q", networkPolicy)
-	pods, err := kub.GetCiliumPods(KubeSystemNamespace)
-	if err != nil {
-		return err
-	}
-
-	for _, v := range pods {
-		revi, err := kub.CiliumPolicyRevision(v)
-		if err != nil {
-			return err
-		}
-		revisions[v] = revi
-		kub.logger.Infof("ApplyNetworkPolicyUsingAPI: pod '%s' has revision '%v'", v, revi)
-	}
-
-	_, err = kub.NetworkingV1().NetworkPolicies(namespace).Create(networkPolicy)
-	if err != nil {
-		return err
-	}
-
-	body := func() bool {
-		waitingRev := map[string]int{}
-
-		valid := true
-		for _, v := range pods {
-			revi, err := kub.CiliumPolicyRevision(v)
-			if err != nil {
-				kub.logger.Errorf("ApplyNetworkPolicyUsingAPI: error on get revision %s", err)
-				return false
-			}
-			if revi <= revisions[v] {
-				kub.logger.Infof("ApplyNetworkPolicyUsingAPI: pod '%s' still on old revision '%v', need '%v'", v, revi, revisions[v])
-				valid = false
-			} else {
-				waitingRev[v] = revi
-			}
-		}
-
-		if valid == true {
-			// Wait until all the pods are synced
-			for pod, rev := range waitingRev {
-				kub.logger.Infof("ApplyNetworkPolicyUsingAPI: Wait for endpoints to sync on pod '%s'", pod)
-				res := kub.CiliumExec(pod, fmt.Sprintf("cilium policy wait %d", rev))
-				if !res.WasSuccessful() {
-					return false
-				}
-				kub.logger.Infof("ApplyNetworkPolicyUsingAPI: revision %d in pod '%s' is ready", rev, pod)
-			}
-			return true
-		}
-		return false
-	}
-	err = WithTimeout(
-		body,
-		"Cannot apply network policy",
-		&TimeoutConfig{Timeout: HelperTimeout})
 	return err
 }
 
