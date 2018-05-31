@@ -20,7 +20,7 @@ import (
 
 const (
 	// DefaultIPv6Prefix is the prefix for all the IPv6 addresses.
-	DefaultIPv6Prefix = "f00d::"
+	DefaultIPv6Prefix = "fdfd::"
 
 	// IPv6NodeAllocPrefixLen is the length of the prefix used for allocation per node
 	IPv6NodeAllocPrefixLen = 112
