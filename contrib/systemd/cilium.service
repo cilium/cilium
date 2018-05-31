@@ -2,8 +2,6 @@
 Description=cilium
 Documentation=http://docs.cilium.io
 Requires=docker.service cilium-consul.service cilium-docker.service
-StartLimitInterval=200
-StartLimitBurst=5
 
 [Service]
 Type=simple
@@ -11,7 +9,6 @@ LimitCORE=infinity
 EnvironmentFile=-/etc/sysconfig/cilium
 ExecStart=/usr/bin/cilium-agent $CILIUM_OPTS
 Restart=on-failure
-RestartSec=30
 
 [Install]
 WantedBy=multi-user.target
