@@ -127,7 +127,7 @@ brought up by vagrant:
 * ``RUNTIME=x``: Sets up the container runtime to be used inside a kubernetes
   cluster. Valid options are: ``docker``, ``containerd`` and ``crio``. If not
   set, it defaults to ``docker``.
-* ``VAGRANT_DEFAULT_PROVIDER``={virtualbox \| libvirt \| ...}
+* ``VAGRANT_DEFAULT_PROVIDER={virtualbox \| libvirt \| ...}``
 
 If you want to start the VM with cilium enabled with ``containerd``, with
 kubernetes installed and plus a worker, run:
