@@ -59,6 +59,8 @@
 
 #define STATE_PENDING	"pending"
 
+#define BPF_ENV_MNT "CILIUM_BPF_MNT"
+
 struct bpf_elf_sec_data {
 	GElf_Shdr	sec_hdr;
 	Elf_Data	*sec_data;
@@ -305,7 +307,18 @@ typedef int (*bpf_handle_state_t)(struct bpf_elf_ctx *ctx,
 				  const struct bpf_elf_map *map,
 				  const char *name, int exit);
 
-static const char *fs_base = "/sys/fs/bpf/tc/globals";
+char fs_base[PATH_MAX + 1];
+
+void fs_base_init()
+{
+	const char *mnt_env = getenv(BPF_ENV_MNT);
+
+	if (mnt_env) {
+		snprintf(fs_base, sizeof(fs_base), "%s/tc/globals", mnt_env);
+	} else {
+		strcpy(fs_base, "/sys/fs/bpf/tc/globals");
+	}
+}
 
 static int bpf_handle_pending(struct bpf_elf_ctx *ctx,
 			      const struct bpf_elf_map *map,
@@ -541,6 +554,8 @@ int main(int argc, char **argv)
 	const char *pathname = NULL;
 	bpf_handle_state_t fn;
 	int opt, exit = 0;
+
+	fs_base_init();
 
 	openlog("cilium-map-migrate", LOG_NDELAY, 0);
 	while ((opt = getopt(argc, argv, "s:e:r:")) != -1) {
