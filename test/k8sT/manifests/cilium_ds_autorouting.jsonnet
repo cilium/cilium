@@ -9,6 +9,7 @@ deploy {
         "--tunnel=disabled --auto-routing",
         "--kvstore=etcd",
         "--kvstore-opt=etcd.config=/var/lib/etcd-config/etcd.config",
-        "--disable-ipv4=$(DISABLE_IPV4)"
+        "--disable-ipv4=$(DISABLE_IPV4)",
+        "--debug-verbose=flow"
     ]
 }
