@@ -1,6 +1,6 @@
 #!/bin/bash
 
-/usr/bin/kubectl apply -f /vagrant/k8sT/manifests/cilium_ds.yaml
+kubecfg show /vagrant/k8sT/manifests/cilium_ds.jsonnet | /usr/bin/kubectl apply -f -
 
 while true; do
     result=$(kubectl -n kube-system get pods -l k8s-app=cilium | grep "Running" -c)
