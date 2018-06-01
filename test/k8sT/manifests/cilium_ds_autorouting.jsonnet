@@ -10,6 +10,7 @@ deploy {
         "--kvstore=etcd",
         "--kvstore-opt=etcd.config=/var/lib/etcd-config/etcd.config",
         "--disable-ipv4=$(DISABLE_IPV4)",
+        "--autodetect-mtu=$(CILIUM_AUTOMTU)",
         "--debug-verbose=flow"
     ]
 }

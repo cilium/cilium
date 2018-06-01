@@ -42,6 +42,7 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/monitor"
+	"github.com/cilium/cilium/pkg/mtu"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/pidfile"
@@ -311,6 +312,8 @@ func init() {
 		"allow-localhost", option.AllowLocalhostAuto, "Policy when to allow local stack to reach local endpoints { auto | always | policy } ")
 	flags.Bool(
 		"auto-ipv6-node-routes", false, "Automatically adds IPv6 L3 routes to reach other nodes for non-overlay mode (--device) (BETA)")
+	flags.Bool(
+		"autodetect-mtu", true, "Automatically determines the MTU that should be configured for endpoints based on existing system devices")
 	flags.StringVar(&bpfRoot,
 		"bpf-root", "", "Path to BPF filesystem")
 	flags.StringVar(&cfgFile,
@@ -690,7 +693,19 @@ func initEnv(cmd *cobra.Command) {
 	}
 
 	log.Infof("Container runtime options set: %s", workloads.GetRuntimeOptions())
+
+	if viper.GetBool("autodetect-mtu") {
+		err = mtu.DetectMTU()
+		if err == nil {
+			log.Infof("Using MTU %d", mtu.StandardMTU)
+		} else {
+			log.WithError(err).Warnf("Lowering default MTU")
+		}
+	} else {
+		log.Infof("Using MTU %d", mtu.StandardMTU)
+	}
 }
+
 func runDaemon() {
 	log.Info("Initializing daemon")
 	d, err := NewDaemon()
