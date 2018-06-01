@@ -42,6 +42,7 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/monitor"
+	"github.com/cilium/cilium/pkg/mtu"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/pidfile"
@@ -688,7 +689,15 @@ func initEnv(cmd *cobra.Command) {
 	}
 
 	log.Infof("Container runtime options set: %s", workloads.GetRuntimeOptions())
+
+	err = mtu.DetectMTU()
+	if err == nil {
+		log.Infof("Using MTU %s", mtu.StandardMTU)
+	} else {
+		log.WithError(err).Warnf("Lowering default MTU")
+	}
 }
+
 func runDaemon() {
 	log.Info("Initializing daemon")
 	d, err := NewDaemon()
