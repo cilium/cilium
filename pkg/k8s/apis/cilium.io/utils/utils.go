@@ -15,8 +15,6 @@
 package utils
 
 import (
-	"fmt"
-
 	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging"
@@ -61,10 +59,10 @@ func GetObjNamespaceName(obj *metav1.ObjectMeta) string {
 
 // GetPolicyLabels returns a LabelArray for the given namespace and name.
 func GetPolicyLabels(ns, name string) labels.LabelArray {
-	return labels.ParseLabelArray(
-		fmt.Sprintf("%s=%s", k8sConst.PolicyLabelName, name),
-		fmt.Sprintf("%s=%s", k8sConst.PolicyLabelNamespace, ns),
-	)
+	return []*labels.Label{
+		labels.NewLabel(k8sConst.PolicyLabelName, name, labels.LabelSourceK8s),
+		labels.NewLabel(k8sConst.PolicyLabelNamespace, ns, labels.LabelSourceK8s),
+	}
 }
 
 func parseToCiliumIngressRule(namespace string, inRule, retRule *api.Rule) {
