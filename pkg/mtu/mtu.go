@@ -14,6 +14,13 @@
 
 package mtu
 
+import (
+	"fmt"
+	"strings"
+
+	"github.com/vishvananda/netlink"
+)
+
 const (
 	// MaxMTU is the highest MTU that can be used for devices and routes
 	// handled by Cilium. It will typically be used to configure inbound
@@ -55,6 +62,11 @@ var (
 	//
 	// Similar to StandardMTU, this is a singleton for the process.
 	TunnelMTU = EthernetMTU - TunnelOverhead
+
+	// deviceMTUPrefixes is a slice of device prefixes used for detecting
+	// existing MTU settings. The MTU of the device with the lowest MTU
+	// will be used as the StandardMTU by default.
+	deviceMTUPrefixes = []string{"cilium", "lxc"}
 )
 
 // UseMTU modifies StandardMTU so that all subsequent link and route MTU
@@ -62,4 +74,41 @@ var (
 func UseMTU(mtu int) {
 	StandardMTU = mtu
 	TunnelMTU = mtu - TunnelOverhead
+}
+
+func DetectMTU() (err error) {
+	mtu := MaxMTU
+	devname := ""
+
+	links, err := netlink.LinkList()
+	for _, link := range links {
+		attrs := link.Attrs()
+
+		skip := true
+		for _, prefix := range deviceMTUPrefixes {
+			if strings.HasPrefix(attrs.Name, prefix) {
+				skip = false
+			}
+		}
+		if skip {
+			// XXX: Debug msg
+			continue
+		}
+
+		if mtu < attrs.MTU {
+			mtu = attrs.MTU
+			devname = attrs.Name
+		}
+	}
+
+	if mtu < StandardMTU {
+		UseMTU(mtu)
+	}
+	if mtu < EthernetMTU {
+		err = fmt.Errorf("detected device %q with low MTU %d. To"+
+			"maintain connectivity, this MTU will be used for"+
+			"all endpoints. For more information, see"+
+			"https://cilium.link/err-low-mtu", devname, mtu)
+	}
+	return
 }
