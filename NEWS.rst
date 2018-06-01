@@ -2,6 +2,47 @@
 NEWS
 ******
 
+v1.1.0-rc3
+==========
+
+André Martins (5):
+      add cri-o support
+      docs: document runtime integration for developer VMs
+      Revert "Contrib: Add Systemd parameters"
+      docs: document dep usage for developers
+      examples: add registry address to all container images
+
+Eloy Coto (4):
+      Test: Fix assert line on CMDRes.Expect*
+      Test: Kubernetes upstream fix Cilium installation.
+      Test: re-enable debug on Cilium
+      Test: Fix PodCIDR on Kubeadm init.
+
+Ian Vernon (1):
+      test/k8sT: add k8s default-allow tests
+
+Nirmoy Das (2):
+      bpf: drop incase of unsupported IPv6 headers
+      bpf: monitor drops in NAT64/NAT46 tail calls
+
+Ray Bejjani (2):
+      monitor: cilium-agent passes along BPF mount path
+      test: report collection prints error from ssh.RunCommand
+
+Romain Lenglet (1):
+      docs: Update Istio GSG to Istio 0.8.0 pre-release
+
+Thomas Graf (9):
+      identity: Ignore nil identity when generating IdentityCache
+      Documentation: Fix warnings
+      identity: Resolve unknown identity to label reserved:unknown
+      defaults: Move defaults into pkg/defaults
+      agent: Add --ipv6-cluster-alloc-cidr option to specify IPv6 cluster prefix
+      agent: Reserve existing endpoint IPs before allocating auxiliary IPs
+      identity: Make API resilient if allocator is not initialized yet
+      node: Undo default IPv6 prefix change
+      Merge branch 'master' into v1.1
+
 v1.1.0-rc2
 ==========
 
