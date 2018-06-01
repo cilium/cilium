@@ -182,8 +182,8 @@ func (s *K8sSuite) TestParseNetworkPolicyIngress(c *C) {
 			Ingress:      true,
 			DerivedFromRules: []labels.LabelArray{
 				labels.ParseLabelArray(
-					"unspec:"+k8sConst.PolicyLabelName,
-					"unspec:"+k8sConst.PolicyLabelNamespace+"=default",
+					"k8s:"+k8sConst.PolicyLabelName,
+					"k8s:"+k8sConst.PolicyLabelNamespace+"=default",
 				),
 			},
 		},
@@ -280,8 +280,8 @@ func (s *K8sSuite) TestParseNetworkPolicyNoSelectors(c *C) {
 			},
 			Egress: []api.EgressRule{},
 			Labels: labels.ParseLabelArray(
-				"unspec:"+k8sConst.PolicyLabelName+"=ingress-cidr-test",
-				"unspec:"+k8sConst.PolicyLabelNamespace+"=myns",
+				"k8s:"+k8sConst.PolicyLabelName+"=ingress-cidr-test",
+				"k8s:"+k8sConst.PolicyLabelNamespace+"=myns",
 			),
 		},
 	}
@@ -378,8 +378,8 @@ func (s *K8sSuite) TestParseNetworkPolicyEgress(c *C) {
 			Ingress:      false,
 			DerivedFromRules: []labels.LabelArray{
 				labels.ParseLabelArray(
-					"unspec:"+k8sConst.PolicyLabelName,
-					"unspec:"+k8sConst.PolicyLabelNamespace+"=default",
+					"k8s:"+k8sConst.PolicyLabelName,
+					"k8s:"+k8sConst.PolicyLabelNamespace+"=default",
 				),
 			},
 		},
