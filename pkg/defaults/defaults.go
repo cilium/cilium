@@ -14,9 +14,17 @@
 
 package defaults
 
-import "github.com/sirupsen/logrus"
+import (
+	"github.com/sirupsen/logrus"
+)
 
 const (
+	// IPv6ClusterAllocCIDR is the default value for option.IPv6ClusterAllocCIDR
+	IPv6ClusterAllocCIDR = IPv6ClusterAllocCIDRBase + "/64"
+
+	// IPv6ClusterAllocCIDRBase is the default base for IPv6ClusterAllocCIDR
+	IPv6ClusterAllocCIDRBase = "f00d::"
+
 	// RuntimePath is the default path to the runtime directory
 	RuntimePath = "/var/run/cilium"
 

@@ -75,7 +75,7 @@ func (nm *NodeMonitor) GetPid() int {
 }
 
 // Run starts the node monitor.
-func (nm *NodeMonitor) Run(sockPath string) {
+func (nm *NodeMonitor) Run(sockPath, bpfRoot string) {
 	nm.SetTarget(targetName)
 	for {
 		os.Remove(sockPath)
@@ -94,6 +94,7 @@ func (nm *NodeMonitor) Run(sockPath string) {
 		nm.pipe = pipe
 		nm.Mutex.Unlock()
 
+		nm.Launcher.SetArgs([]string{"--bpf-root", bpfRoot})
 		nm.Launcher.Run()
 
 		r := bufio.NewReader(nm.GetStdout())

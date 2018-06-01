@@ -85,7 +85,7 @@ static inline int ipv6_l3_from_lxc(struct __sk_buff *skb,
 {
 	union macaddr router_mac = NODE_MAC;
 	union v6addr router_ip = {};
-	int ret, verdict, l4_off, forwarding_reason;
+	int ret, verdict, l4_off, forwarding_reason, hdrlen;
 	struct csum_offset csum_off = {};
 	struct endpoint_info *ep;
 	struct lb6_service *svc;
@@ -106,7 +106,11 @@ static inline int ipv6_l3_from_lxc(struct __sk_buff *skb,
 	ipv6_addr_copy(&tuple->daddr, (union v6addr *) &ip6->daddr);
 	ipv6_addr_copy(&tuple->saddr, (union v6addr *) &ip6->saddr);
 
-	l4_off = l3_off + ipv6_hdrlen(skb, l3_off, &tuple->nexthdr);
+	hdrlen = ipv6_hdrlen(skb, l3_off, &tuple->nexthdr);
+	if (hdrlen < 0)
+		return hdrlen;
+
+	l4_off = l3_off + hdrlen;
 
 	ret = lb6_extract_key(skb, tuple, l4_off, &key, &csum_off, CT_EGRESS);
 	if (IS_ERR(ret)) {
@@ -706,7 +710,7 @@ static inline int __inline__ ipv6_policy(struct __sk_buff *skb, int ifindex, __u
 	void *data, *data_end;
 	struct ipv6hdr *ip6;
 	struct csum_offset csum_off = {};
-	int ret, l4_off, verdict;
+	int ret, l4_off, verdict, hdrlen;
 	struct ct_state ct_state = {};
 	struct ct_state ct_state_new = {};
 	bool skip_proxy;
@@ -726,7 +730,11 @@ static inline int __inline__ ipv6_policy(struct __sk_buff *skb, int ifindex, __u
 	 * redirection to the egress proxy as we would loop forever. */
 	skip_proxy = tc_index_skip_proxy(skb);
 
-	l4_off = ETH_HLEN + ipv6_hdrlen(skb, ETH_HLEN, &tuple.nexthdr);
+	hdrlen = ipv6_hdrlen(skb, ETH_HLEN, &tuple.nexthdr);
+	if (hdrlen < 0)
+		return hdrlen;
+
+	l4_off = ETH_HLEN + hdrlen;
 	csum_l4_offset_and_flags(tuple.nexthdr, &csum_off);
 
 	/* derive reverse NAT index and zero it. */
@@ -985,7 +993,8 @@ __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_NAT64) int tail_ipv6_to_ipv4(struct
 {
 	int ret = ipv6_to_ipv4(skb, 14, LXC_IPV4);
 	if (IS_ERR(ret))
-		return ret;
+		return  send_drop_notify(skb, SECLABEL, 0, 0, 0, ret, TC_ACT_SHOT,
+				METRIC_EGRESS);
 
 	cilium_dbg_capture(skb, DBG_CAPTURE_AFTER_V64, skb->ingress_ifindex);
 
@@ -995,20 +1004,26 @@ __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_NAT64) int tail_ipv6_to_ipv4(struct
 	return DROP_MISSED_TAIL_CALL;
 }
 
-__section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_NAT46) int tail_ipv4_to_ipv6(struct __sk_buff *skb)
+static inline int __inline__ handle_ipv4_to_ipv6(struct __sk_buff *skb)
 {
 	union v6addr dp = {};
 	void *data, *data_end;
 	struct iphdr *ip4;
-	int ret;
 
 	if (!revalidate_data(skb, &data, &data_end, &ip4))
 		return DROP_INVALID;
 
 	BPF_V6(dp, LXC_IP);
-	ret = ipv4_to_ipv6(skb, ip4, 14, &dp);
+	return ipv4_to_ipv6(skb, ip4, 14, &dp);
+
+}
+__section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_NAT46) int tail_ipv4_to_ipv6(struct __sk_buff *skb)
+{
+	int ret = handle_ipv4_to_ipv6(skb);
+
 	if (IS_ERR(ret))
-		return ret;
+		return send_drop_notify(skb, SECLABEL, 0, 0, 0, ret, TC_ACT_SHOT,
+				METRIC_INGRESS);
 
 	cilium_dbg_capture(skb, DBG_CAPTURE_AFTER_V46, skb->ingress_ifindex);
 

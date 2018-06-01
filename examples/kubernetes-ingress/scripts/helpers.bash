@@ -38,6 +38,12 @@ case "${RUNTIME}" in
         container_runtime_kubelet="remote"
         container_runtime_endpoint="--container-runtime-endpoint=unix:///var/run/containerd/containerd.sock"
         ;;
+    "crio" | "cri-o")
+        container_runtime_name="crio"
+        container_runtime_kubelet="remote"
+        container_runtime_endpoint="--container-runtime-endpoint=/var/run/crio/crio.sock"
+        cgroup_driver='--cgroup-driver=systemd'
+        ;;
     *)
         container_runtime_name="docker"
         container_runtime_kubelet="docker"

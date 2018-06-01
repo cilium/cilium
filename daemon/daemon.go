@@ -34,12 +34,12 @@ import (
 	health "github.com/cilium/cilium/cilium-health/launch"
 	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/common/types"
-	"github.com/cilium/cilium/daemon/defaults"
 	monitorLaunch "github.com/cilium/cilium/monitor/launch"
 	"github.com/cilium/cilium/pkg/apierror"
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/controller"
+	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/envoy"
@@ -103,6 +103,8 @@ type Daemon struct {
 	loadBalancer      *types.LoadBalancer
 	policy            *policy.Repository
 	preFilter         *policy.PreFilter
+	// Only used for CRI-O since it does not support events.
+	workloadsEventsCh chan<- *workloads.EventMessage
 
 	statusCollectMutex lock.RWMutex
 	statusResponse     models.StatusResponse
@@ -1015,6 +1017,11 @@ func (d *Daemon) syncLXCMap() error {
 
 // NewDaemon creates and returns a new Daemon with the parameters set in c.
 func NewDaemon() (*Daemon, error) {
+	// Validate the daemon specific global options
+	if err := option.Config.Validate(); err != nil {
+		return nil, fmt.Errorf("invalid daemon configuration: %s", err)
+	}
+
 	if err := workloads.Setup(option.Config.Workloads, map[string]string{}); err != nil {
 		return nil, fmt.Errorf("unable to setup workload: %s", err)
 	}
@@ -1137,7 +1144,17 @@ func NewDaemon() (*Daemon, error) {
 
 	// Set up ipam conf after init() because we might be running d.conf.KVStoreIPv4Registration
 	log.Info("Initializing IPAM")
-	switch err := ipam.Init(); err.(type) {
+	ipam.Init()
+
+	// restore endpoints before any IPs are allocated to avoid eventual IP
+	// conflicts later on, otherwise any IP conflict will result in the
+	// endpoint not being able to be restored.
+	restoredEndpoints, err := d.restoreOldEndpoints(option.Config.StateDir, true)
+	if err != nil {
+		log.WithError(err).Error("Unable to restore existing endpoints")
+	}
+
+	switch err := ipam.AllocateInternalIPs(); err.(type) {
 	case ipam.ErrAllocation:
 		if v4Prefix == AutoCIDR || v6Prefix == AutoCIDR {
 			log.WithError(err).Fatalf(
@@ -1210,10 +1227,8 @@ func NewDaemon() (*Daemon, error) {
 		option.Config.AccessLog, &d, option.Config.AgentLabels)
 
 	if option.Config.RestoreState {
-		log.Info("Restoring state...")
-		if err := d.SyncState(option.Config.StateDir, true); err != nil {
-			log.WithError(err).Warn("Error while recovering endpoints")
-		}
+		d.regenerateRestoredEndpoints(restoredEndpoints)
+
 		go func() {
 			if err := d.SyncLBMap(); err != nil {
 				log.WithError(err).Warn("Error while recovering endpoints")

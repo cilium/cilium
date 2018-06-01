@@ -22,8 +22,8 @@ cilium-agent
       --auto-ipv6-node-routes             Automatically adds IPv6 L3 routes to reach other nodes for non-overlay mode (--device) (BETA)
       --bpf-root string                   Path to BPF filesystem
       --config string                     Configuration file (default "$HOME/ciliumd.yaml")
-      --container-runtime stringSlice     Sets the container runtime(s) used by Cilium { containerd | docker | none | auto } ( "auto" the uses the container runtime found in the order: "docker", "containerd" ) (default [auto])
-      --container-runtime-endpoint map    Container runtime(s) endpoint(s). (default: --container-runtime-endpoint=containerd=/var/run/containerd/containerd.sock, --container-runtime-endpoint=docker=unix:///var/run/docker.sock) (default map[])
+      --container-runtime stringSlice     Sets the container runtime(s) used by Cilium { containerd | crio | docker | none | auto } ( "auto" uses the container runtime found in the order: "docker", "containerd", "crio" ) (default [auto])
+      --container-runtime-endpoint map    Container runtime(s) endpoint(s). (default: --container-runtime-endpoint=containerd=/var/run/containerd/containerd.sock, --container-runtime-endpoint=crio=/var/run/crio/crio.sock, --container-runtime-endpoint=docker=unix:///var/run/docker.sock) (default map[])
   -D, --debug                             Enable debugging mode
       --debug-verbose stringSlice         List of enabled verbose debug groups
   -d, --device string                     Device facing cluster/external network for direct L3 (non-overlay mode) (default "undefined")
@@ -38,6 +38,7 @@ cilium-agent
       --ipv4-node string                  IPv4 address of node (default "auto")
       --ipv4-range string                 Per-node IPv4 endpoint prefix, e.g. 10.16.0.0/16 (default "auto")
       --ipv4-service-range string         Kubernetes IPv4 services CIDR if not inside cluster prefix (default "auto")
+      --ipv6-cluster-alloc-cidr string    IPv6 /64 CIDR used to allocate per node endpoint /96 CIDR (default "fdfd::/64")
       --ipv6-node string                  IPv6 address of node (default "auto")
       --ipv6-range string                 Per-node IPv6 endpoint prefix, must be /96, e.g. fd02:1:1::/96 (default "auto")
       --ipv6-service-range string         Kubernetes IPv6 services CIDR if not inside cluster prefix (default "auto")

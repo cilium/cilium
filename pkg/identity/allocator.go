@@ -15,6 +15,7 @@
 package identity
 
 import (
+	"fmt"
 	"path"
 	"sync"
 
@@ -123,6 +124,10 @@ func AllocateIdentity(lbls labels.Labels) (*Identity, bool, error) {
 		return reservedIdentity, false, nil
 	}
 
+	if identityAllocator == nil {
+		return nil, false, fmt.Errorf("allocator not initialized")
+	}
+
 	id, isNew, err := identityAllocator.Allocate(globalIdentity{lbls})
 	if err != nil {
 		return nil, false, err
@@ -145,6 +150,11 @@ func (id *Identity) Release() error {
 	if reservedIdentityCache[id.ID] != nil {
 		return nil
 	}
+
+	if identityAllocator == nil {
+		return fmt.Errorf("allocator not initialized")
+	}
+
 	return identityAllocator.Release(globalIdentity{id.Labels})
 }
 

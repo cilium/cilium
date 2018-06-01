@@ -217,11 +217,25 @@ func GetDefaultEPOptsStringWithPrefix(prefix string) string {
 // WorkloadRuntime are the individual workload runtime operations that each
 // workload must implement.
 type WorkloadRuntime interface {
-	EnableEventListener() error
+	// EnableEventListener enables the event listener of the workload runtime
+	// If the workload runtime does not support events, it will return a
+	// events channel where the caller will be in charge of sending the
+	// create and stop events.
+	EnableEventListener() (eventsCh chan<- *EventMessage, err error)
+	// Status returns the status of the workload runtime.
 	Status() *models.Status
+	// IsRunning returns true if the endpoint is available and in a running
+	// state in the respective workload runtime.
 	IsRunning(ep *endpoint.Endpoint) bool
+	// IgnoreRunningWorkloads sets the runtime to ignore all running workloads.
 	IgnoreRunningWorkloads()
-	processEvents(events chan message)
+	// processEvents processes events from the given event channel.
+	processEvents(events chan EventMessage)
+	// handleCreateWorkload handles the creation of the given workload, if
+	// retry is set, it keeps retrying until the workload is found running or
+	// until the workload runtime stops retrying.
 	handleCreateWorkload(id string, retry bool)
+	// workloadIDsList returns a list of workload IDs running in the workload
+	// runtime.
 	workloadIDsList(ctx context.Context) ([]string, error)
 }

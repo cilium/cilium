@@ -30,8 +30,8 @@ import (
 	"github.com/cilium/cilium/api/v1/server/restapi"
 	health "github.com/cilium/cilium/cilium-health/launch"
 	"github.com/cilium/cilium/common"
-	"github.com/cilium/cilium/daemon/defaults"
 	"github.com/cilium/cilium/pkg/bpf"
+	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/envoy"
 	"github.com/cilium/cilium/pkg/flowdebug"
@@ -316,7 +316,7 @@ func init() {
 	flags.StringVar(&cfgFile,
 		"config", "", `Configuration file (default "$HOME/ciliumd.yaml")`)
 	flags.StringSliceVar(&option.Config.Workloads,
-		"container-runtime", []string{"auto"}, `Sets the container runtime(s) used by Cilium { containerd | docker | none | auto } ( "auto" the uses the container runtime found in the order: "docker", "containerd" )`)
+		"container-runtime", []string{"auto"}, `Sets the container runtime(s) used by Cilium { containerd | crio | docker | none | auto } ( "auto" uses the container runtime found in the order: "docker", "containerd", "crio" )`)
 	flags.Var(option.NewNamedMapOptions("container-runtime-endpoints", &containerRuntimesOpts, nil),
 		"container-runtime-endpoint", `Container runtime(s) endpoint(s). (default: `+workloads.GetDefaultEPOptsStringWithPrefix("--container-runtime-endpoint=")+`)`)
 	flags.BoolP(
@@ -348,6 +348,8 @@ func init() {
 		"ipv4-range", AutoCIDR, "Per-node IPv4 endpoint prefix, e.g. 10.16.0.0/16")
 	flags.StringVar(&v6Prefix,
 		"ipv6-range", AutoCIDR, "Per-node IPv6 endpoint prefix, must be /96, e.g. fd02:1:1::/96")
+	flags.StringVar(&option.Config.IPv6ClusterAllocCIDR,
+		option.IPv6ClusterAllocCIDRName, defaults.IPv6ClusterAllocCIDR, "IPv6 /64 CIDR used to allocate per node endpoint /96 CIDR")
 	flags.StringVar(&v4ServicePrefix,
 		"ipv4-service-range", AutoCIDR, "Kubernetes IPv4 services CIDR if not inside cluster prefix")
 	flags.StringVar(&v6ServicePrefix,
@@ -706,7 +708,7 @@ func runDaemon() {
 	}
 
 	log.Info("Launching node monitor daemon")
-	go d.nodeMonitor.Run(path.Join(defaults.RuntimePath, defaults.EventsPipe))
+	go d.nodeMonitor.Run(path.Join(defaults.RuntimePath, defaults.EventsPipe), bpf.GetMapRoot())
 
 	// Launch cilium-health in the same namespace as cilium.
 	log.Info("Launching Cilium health daemon")
@@ -719,8 +721,11 @@ func runDaemon() {
 	cancelHealth := health.LaunchAsEndpoint(d, addressing, option.Config.Opts)
 	defer cancelHealth()
 
-	if err := workloads.EnableEventListener(); err != nil {
+	eventsCh, err := workloads.EnableEventListener()
+	if err != nil {
 		log.WithError(err).Fatal("Error while enabling docker event watcher")
+	} else {
+		d.workloadsEventsCh = eventsCh
 	}
 
 	if err := d.EnableK8sWatcher(5 * time.Minute); err != nil {

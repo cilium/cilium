@@ -12,7 +12,7 @@ spec:
     spec:
       containers:
       - name: kafka
-        image: wurstmeister/kafka
+        image: docker.io/wurstmeister/kafka
         ports:
         - containerPort: 9092
         env:
@@ -54,7 +54,7 @@ spec:
     spec:
       containers:
       - name: zookeeper
-        image: digitalwonderland/zookeeper
+        image: docker.io/digitalwonderland/zookeeper
         ports:
         - containerPort: 2181
 ---
@@ -103,7 +103,7 @@ spec:
     spec:
       containers:
       - name: empire-hq
-        image: cilium/kafkaclient
+        image: docker.io/cilium/kafkaclient
       nodeSelector:
         "kubernetes.io/hostname": k8s1
 ---
@@ -122,7 +122,7 @@ spec:
     spec:
       containers:
       - name: empire-outpost-8888
-        image: cilium/kafkaclient
+        image: docker.io/cilium/kafkaclient
 ---
 apiVersion: extensions/v1beta1
 kind: Deployment
@@ -139,7 +139,7 @@ spec:
     spec:
       containers:
       - name: empire-outpost-9999
-        image: cilium/kafkaclient
+        image: docker.io/cilium/kafkaclient
 ---
 apiVersion: extensions/v1beta1
 kind: Deployment
@@ -155,4 +155,4 @@ spec:
     spec:
       containers:
       - name: empire-backup
-        image: cilium/kafkaclient
+        image: docker.io/cilium/kafkaclient

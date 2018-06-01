@@ -27,7 +27,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/cilium/cilium/daemon/defaults"
+	"github.com/cilium/cilium/pkg/defaults"
 
 	"github.com/spf13/cobra"
 )

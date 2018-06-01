@@ -15,6 +15,8 @@
 package identity
 
 import (
+	"reflect"
+
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/kvstore/allocator"
@@ -33,8 +35,14 @@ func GetIdentityCache() IdentityCache {
 	cache := IdentityCache{}
 
 	identityAllocator.ForeachCache(func(id allocator.ID, val allocator.AllocatorKey) {
-		gi := val.(globalIdentity)
-		cache[NumericIdentity(id)] = gi.LabelArray()
+		if val != nil {
+			if gi, ok := val.(globalIdentity); ok {
+				cache[NumericIdentity(id)] = gi.LabelArray()
+			} else {
+				log.Warning("Ignoring unknown identity type '%s': %+v",
+					reflect.TypeOf(val), val)
+			}
+		}
 	})
 
 	return cache
@@ -112,9 +120,15 @@ func LookupReservedIdentity(lbls labels.Labels) *Identity {
 	return nil
 }
 
+var unknownIdentity = NewIdentity(IdentityUnknown, labels.Labels{labels.IDNameUnknown: labels.NewLabel(labels.IDNameUnknown, "", labels.LabelSourceReserved)})
+
 // LookupIdentityByID returns the identity by ID. This function will first
 // search through the local cache and fall back to querying the kvstore.
 func LookupIdentityByID(id NumericIdentity) *Identity {
+	if id == IdentityUnknown {
+		return unknownIdentity
+	}
+
 	if identity, ok := reservedIdentityCache[id]; ok {
 		return identity
 	}

@@ -175,7 +175,7 @@ static inline int handle_ipv6(struct __sk_buff *skb, __u32 src_identity)
 	void *data, *data_end;
 	struct ipv6hdr *ip6;
 	union v6addr *dst;
-	int l4_off, l3_off = ETH_HLEN;
+	int l4_off, l3_off = ETH_HLEN, hdrlen;
 	struct endpoint_info *ep;
 	__u8 nexthdr;
 	__u32 flowlabel;
@@ -184,7 +184,11 @@ static inline int handle_ipv6(struct __sk_buff *skb, __u32 src_identity)
 		return DROP_INVALID;
 
 	nexthdr = ip6->nexthdr;
-	l4_off = l3_off + ipv6_hdrlen(skb, l3_off, &nexthdr);
+	hdrlen = ipv6_hdrlen(skb, l3_off, &nexthdr);
+	if (hdrlen < 0)
+		return hdrlen;
+
+	l4_off = l3_off + hdrlen;
 
 #ifdef HANDLE_NS
 	if (unlikely(nexthdr == IPPROTO_ICMPV6)) {
