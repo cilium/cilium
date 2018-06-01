@@ -78,6 +78,8 @@ func defaultCommands(confDir string, cmdDir string, k8sPods []string) []string {
 		fmt.Sprintf("gops memstats $(pidof %s)", helpers.AgentDaemon),
 		fmt.Sprintf("gops stack $(pidof %s)", helpers.AgentDaemon),
 		fmt.Sprintf("gops stats $(pidof %s)", helpers.AgentDaemon),
+		// Get list of open file descriptors managed by the agent
+		fmt.Sprintf("ls -la /proc/$(pidof %s)/fd", helpers.AgentDaemon),
 	}
 
 	// Commands that require variables and / or more configuration are added
