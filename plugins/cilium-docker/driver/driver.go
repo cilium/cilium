@@ -30,6 +30,7 @@ import (
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/mtu"
 
 	"github.com/docker/libnetwork/drivers/remote/api"
 	lnTypes "github.com/docker/libnetwork/types"
@@ -110,6 +111,13 @@ func NewDriver(url string) (Driver, error) {
 	}
 
 	d.updateRoutes(nil)
+
+	err = mtu.DetectMTU()
+	if err == nil {
+		scopedLog.Infof("Using MTU %s", mtu.StandardMTU)
+	} else {
+		scopedLog.WithError(err).Infof("Lowering default MTU")
+	}
 
 	log.Infof("Cilium Docker plugin ready")
 
@@ -315,7 +323,7 @@ func (driver *driver) createEndpoint(w http.ResponseWriter, r *http.Request) {
 		},
 	}
 
-	veth, _, _, err := plugins.SetupVeth(create.EndpointID, 1450, endpoint)
+	veth, _, _, err := plugins.SetupVeth(create.EndpointID, mtu.StandardMTU, endpoint)
 	if err != nil {
 		sendError(w, "Error while setting up veth pair: "+err.Error(), http.StatusBadRequest)
 		return
