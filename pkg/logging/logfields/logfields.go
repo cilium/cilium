@@ -253,4 +253,10 @@ const (
 
 	// BPFHeaderHash is the hash of the BPF header.
 	BPFHeaderfileHash = "bpfHeaderfileHash"
+
+	// BPFMapPath is the path of a BPF map in the filesystem.
+	BPFMapPath = "bpfMapPath"
+
+	// BPFMapFD is the file descriptor for a BPF map.
+	BPFMapFD = "bpfMapFileDescriptor"
 )
