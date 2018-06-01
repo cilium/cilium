@@ -1200,6 +1200,7 @@ func (kub *Kubectl) GatherLogs() {
 		"kubectl get nodes -o json":                                    "nodes.txt",
 		"kubectl get ds --all-namespaces -o json":                      "ds.txt",
 		"kubectl get cnp --all-namespaces -o json":                     "cnp.txt",
+		"kubectl get cep --all-namespaces -o json":                     "cep.txt",
 		"kubectl get netpol --all-namespaces -o json":                  "netpol.txt",
 		"kubectl describe pods --all-namespaces":                       "pods_status.txt",
 		"kubectl get replicationcontroller --all-namespaces -o json":   "replicationcontroller.txt",
