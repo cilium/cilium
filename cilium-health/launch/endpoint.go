@@ -34,6 +34,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/mtu"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 
@@ -128,7 +129,7 @@ func LaunchAsEndpoint(owner endpoint.Owner, hostAddressing *models.NodeAddressin
 	} else {
 		log.Debug("Didn't find existing link")
 	}
-	veth, _, err := plugins.SetupVethWithNames(vethName, vethPeerName, 1450, info)
+	veth, _, err := plugins.SetupVethWithNames(vethName, vethPeerName, mtu.StandardMTU, info)
 	if err != nil {
 		log.WithError(err).Fatal("Error while creating cilium-health veth")
 	}
