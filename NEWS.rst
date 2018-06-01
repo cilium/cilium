@@ -12,14 +12,16 @@ André Martins (5):
       docs: document dep usage for developers
       examples: add registry address to all container images
 
-Eloy Coto (4):
+Eloy Coto (5):
       Test: Fix assert line on CMDRes.Expect*
       Test: Kubernetes upstream fix Cilium installation.
       Test: re-enable debug on Cilium
       Test: Fix PodCIDR on Kubeadm init.
+      Test: Add cep output on Kubernetes report
 
-Ian Vernon (1):
+Ian Vernon (2):
       test/k8sT: add k8s default-allow tests
+      Documentation/cmdref: update cilium-agent cmdref
 
 Nirmoy Das (2):
       bpf: drop incase of unsupported IPv6 headers
@@ -32,7 +34,7 @@ Ray Bejjani (2):
 Romain Lenglet (1):
       docs: Update Istio GSG to Istio 0.8.0 pre-release
 
-Thomas Graf (9):
+Thomas Graf (11):
       identity: Ignore nil identity when generating IdentityCache
       Documentation: Fix warnings
       identity: Resolve unknown identity to label reserved:unknown
@@ -42,6 +44,9 @@ Thomas Graf (9):
       identity: Make API resilient if allocator is not initialized yet
       node: Undo default IPv6 prefix change
       Merge branch 'master' into v1.1
+      Prepare 1.1.0-rc3 release
+      Merge branch 'master' into v1.1
+
 
 v1.1.0-rc2
 ==========
