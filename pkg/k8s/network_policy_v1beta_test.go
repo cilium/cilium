@@ -116,8 +116,8 @@ func (s *K8sSuite) TestParseNetworkPolicyDeprecated(c *C) {
 			Ingress:      true,
 			DerivedFromRules: []labels.LabelArray{
 				labels.ParseLabelArray(
-					"unspec:"+k8sConst.PolicyLabelName,
-					"unspec:"+k8sConst.PolicyLabelNamespace+"=default",
+					"k8s:"+k8sConst.PolicyLabelName,
+					"k8s:"+k8sConst.PolicyLabelNamespace+"=default",
 				),
 			},
 		},
