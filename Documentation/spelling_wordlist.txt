@@ -80,6 +80,8 @@ cpuma
 cpumap
 createtopic
 CreationDate
+cri
+crio
 daemonset
 Dangaard
 datacenter
@@ -363,6 +365,7 @@ retransmission
 roadmap
 rollout
 routable
+rst
 rsync
 runtime
 Runtime
@@ -404,6 +407,7 @@ Suchakra
 superset
 Suricata
 Suricate
+svc
 sw
 syscall
 Syscall

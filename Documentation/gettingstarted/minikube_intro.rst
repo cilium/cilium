@@ -7,16 +7,19 @@ Step 0: Install kubectl & minikube
 
 3. Install ``minikube`` ``>= 0.22.3`` as described on `minikube's github page <https://github.com/kubernetes/minikube/releases>`_ .
 
+.. tabs::
+  .. group-tab:: docker
 
-Boot a minikube cluster with the Container Network Interface (CNI) network
-plugin, the ``localkube`` bootstrapper.
+    .. parsed-literal::
 
-The ``localkube`` bootstrapper provides ``etcd`` >= ``3.1.0``, a cilium
-dependency.
+      $ minikube start --network-plugin=cni --extra-config=kubelet.network-plugin=cni --memory=5120
 
-::
+  .. group-tab:: cri-o
 
-    $ minikube start --network-plugin=cni --extra-config=kubelet.network-plugin=cni --memory=5120
+    .. parsed-literal::
+
+      $ minikube start --network-plugin=cni --container-runtime=cri-o --extra-config=kubelet.network-plugin=cni --memory=5120
+
 
 After minikube has finished setting up your new Kubernetes cluster, you can
 check the status of the cluster by running ``kubectl get cs``:
