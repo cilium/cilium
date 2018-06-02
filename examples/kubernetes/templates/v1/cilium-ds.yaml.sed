@@ -60,6 +60,7 @@ spec:
           - "--kvstore=etcd"
           - "--kvstore-opt=etcd.config=/var/lib/etcd-config/etcd.config"
           - "--disable-ipv4=$(DISABLE_IPV4)"
+          - "--autodetect-mtu=$(CILIUM_AUTOMTU)"
         ports:
           - name: prometheus
             containerPort: 9090
@@ -82,6 +83,11 @@ spec:
               configMapKeyRef:
                 name: cilium-config
                 key: debug
+          - name: "CILIUM_AUTOMTU"
+            valueFrom:
+              configMapKeyRef:
+                name: cilium-config
+                key: autodetect-mtu
           - name: "DISABLE_IPV4"
             valueFrom:
               configMapKeyRef:
