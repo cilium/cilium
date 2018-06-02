@@ -98,6 +98,10 @@ func (ds *DaemonSuite) SetUpTest(c *C) {
 	option.Config.Opts.Set(option.DropNotify, true)
 	option.Config.Opts.Set(option.TraceNotify, true)
 
+	// Disable restore of host IPs for unit tests. There can be arbitrary
+	// state left on disk.
+	option.Config.EnableHostIPRestore = false
+
 	d, err := NewDaemon()
 	c.Assert(err, IsNil)
 	ds.d = d

@@ -68,8 +68,15 @@ type daemonConfig struct {
 
 	Tunnel string // Tunnel mode
 
-	DryMode       bool // Do not create BPF maps, devices, ..
-	RestoreState  bool // RestoreState restores the state from previous running daemons.
+	DryMode bool // Do not create BPF maps, devices, ..
+
+	// RestoreState enables restoring the state from previous running daemons.
+	RestoreState bool
+
+	// EnableHostIPRestore enables restoring the host IPs based on state
+	// left behind by previous Cilium runs.
+	EnableHostIPRestore bool
+
 	KeepConfig    bool // Keep configuration of existing endpoints when starting up.
 	KeepTemplates bool // Do not overwrite the template files
 
@@ -113,6 +120,7 @@ var (
 		Monitor:                  &models.MonitorStatus{Cpus: int64(runtime.NumCPU()), Npages: 64, Pagesize: int64(os.Getpagesize()), Lost: 0, Unknown: 0},
 		IPv6ClusterAllocCIDR:     defaults.IPv6ClusterAllocCIDR,
 		IPv6ClusterAllocCIDRBase: defaults.IPv6ClusterAllocCIDRBase,
+		EnableHostIPRestore:      defaults.EnableHostIPRestore,
 	}
 )
 

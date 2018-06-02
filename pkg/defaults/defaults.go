@@ -62,4 +62,8 @@ const (
 
 	// EventsPipe is the name of the named pipe for agent <=> monitor events
 	EventsPipe = "events.sock"
+
+	// EnableHostIPRestore controls whether the host IP should be restored
+	// from previous state automatically
+	EnableHostIPRestore = true
 )
