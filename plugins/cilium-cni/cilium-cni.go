@@ -182,6 +182,7 @@ func addIPConfigToLink(ip addressing.CiliumIP, routes []plugins.Route, link netl
 			LinkIndex: link.Attrs().Index,
 			Scope:     netlink.SCOPE_UNIVERSE,
 			Dst:       &r.Prefix,
+			MTU:       r.MTU,
 		}
 
 		if r.Nexthop == nil {
@@ -241,7 +242,7 @@ func newCNIRoute(r plugins.Route) *cniTypes.Route {
 	return rt
 }
 
-func prepareIP(ipAddr string, isIPv6 bool, state *CmdState) (*cniTypesVer.IPConfig, []*cniTypes.Route, error) {
+func prepareIP(ipAddr string, isIPv6 bool, state *CmdState, mtu int) (*cniTypesVer.IPConfig, []*cniTypes.Route, error) {
 	var (
 		routes  []plugins.Route
 		err     error
@@ -254,7 +255,7 @@ func prepareIP(ipAddr string, isIPv6 bool, state *CmdState) (*cniTypesVer.IPConf
 		if state.IP6, err = addressing.NewCiliumIPv6(ipAddr); err != nil {
 			return nil, nil, err
 		}
-		if state.IP6routes, err = plugins.IPv6Routes(state.HostAddr); err != nil {
+		if state.IP6routes, err = plugins.IPv6Routes(state.HostAddr, mtu); err != nil {
 			return nil, nil, err
 		}
 		routes = state.IP6routes
@@ -265,7 +266,7 @@ func prepareIP(ipAddr string, isIPv6 bool, state *CmdState) (*cniTypesVer.IPConf
 		if state.IP4, err = addressing.NewCiliumIPv4(ipAddr); err != nil {
 			return nil, nil, err
 		}
-		if state.IP4routes, err = plugins.IPv4Routes(state.HostAddr); err != nil {
+		if state.IP4routes, err = plugins.IPv4Routes(state.HostAddr, mtu); err != nil {
 			return nil, nil, err
 		}
 		routes = state.IP4routes
@@ -388,7 +389,7 @@ func cmdAdd(args *skel.CmdArgs) error {
 	res := &cniTypesVer.Result{}
 
 	if IPv6IsEnabled(ipam) {
-		ipConfig, routes, err := prepareIP(ep.Addressing.IPV6, true, &state)
+		ipConfig, routes, err := prepareIP(ep.Addressing.IPV6, true, &state, n.MTU)
 		if err != nil {
 			return err
 		}
@@ -400,7 +401,7 @@ func cmdAdd(args *skel.CmdArgs) error {
 	}
 
 	if IPv4IsEnabled(ipam) {
-		ipConfig, routes, err := prepareIP(ep.Addressing.IPV4, false, &state)
+		ipConfig, routes, err := prepareIP(ep.Addressing.IPV4, false, &state, n.MTU)
 		if err != nil {
 			return err
 		}

@@ -127,7 +127,7 @@ func (driver *driver) updateRoutes(addressing *models.NodeAddressing) {
 	driver.routes = []api.StaticRoute{}
 
 	if driver.conf.Addressing.IPV6 != nil {
-		if routes, err := plugins.IPv6Routes(driver.conf.Addressing); err != nil {
+		if routes, err := plugins.IPv6Routes(driver.conf.Addressing, mtu.StandardMTU); err != nil {
 			log.Fatalf("Unable to generate IPv6 routes: %s", err)
 		} else {
 			for _, r := range routes {
@@ -139,7 +139,7 @@ func (driver *driver) updateRoutes(addressing *models.NodeAddressing) {
 	}
 
 	if driver.conf.Addressing.IPV4 != nil {
-		if routes, err := plugins.IPv4Routes(driver.conf.Addressing); err != nil {
+		if routes, err := plugins.IPv4Routes(driver.conf.Addressing, mtu.StandardMTU); err != nil {
 			log.Fatalf("Unable to generate IPv4 routes: %s", err)
 		} else {
 			for _, r := range routes {
