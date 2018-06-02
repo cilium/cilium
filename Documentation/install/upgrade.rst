@@ -98,3 +98,75 @@ also disable the usage of the feature.
 +==============================================+===================+==============================================+===========================================================+
 | CIDR policies matching on IPv6 prefix ranges | ``v1.0.2``        | Remove policies that contain IPv6 CIDR rules | `Github PR <https://github.com/cilium/cilium/pull/4004>`_ |
 +----------------------------------------------+-------------------+----------------------------------------------+-----------------------------------------------------------+
+
+Upgrade notes
+=============
+
+.. _err_low_mtu:
+MTU handling behavior change in Cilium 1.1
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Cilium 1.0 by default configured the MTU of all Cilium-related devices and
+endpoint devices to 1450 bytes, to guarantee that packets sent from an endpoint
+would remain below the MTU of a tunnel. This had the side-effect that when a
+Cilium-managed pod made a request to an outside (world) IP, if the response
+came back in 1500B chunks, then it would be fragmented when transmitted to the
+``cilium_host`` device. These fragments then pass through the Cilium policy
+logic. Latter IP fragments would not contain L4 ports, so if any L4 or L4+L7
+policy was applied to the destination endpoint, then the fragments would be
+dropped. This could cause disruption to network traffic.
+
+Cilium 1.1 fixes the above issue by increasing the MTU of the Cilium-related
+devices and endpoint devices to 1500B (or larger based on container runtime
+settings), then configuring a route within the endpoint at a lower MTU to
+ensure that transmitted packets will fit within tunnel encapsulation. This
+addresses the above issue for all new pods.
+
+When upgrading from Cilium 1.0 to 1.1 or later, existing pods will not
+automatically inherit these new settings. To apply the new MTU settings to
+existing endpoints, they must be re-deployed. To fetch a list of affected pods
+in kubernetes environments, run the following command:
+
+.. code-block:: shell-session
+
+  $ kubectl get cep --all-namespaces
+  NAMESPACE     NAME                         AGE
+  default       deathstar-765fd545f9-m6bpt   50m
+  default       deathstar-765fd545f9-vlfth   50m
+  default       tiefighter                   50m
+  default       xwing                        50m
+  kube-system   cilium-health-k8s1           27s
+  kube-system   cilium-health-k8s2           25s
+  kube-system   kube-dns-59d8c5f9b5-g2pnt    2h
+
+The ``cilium-health`` endpoints do not need to be redeployed, as Cilium will
+redeploy them automatically upon upgrade. Depending on how the endpoints were
+originally deployed, this may be as simple as running
+``kubectl delete pod <podname>``. Once each pod has been redeployed, you can
+fetch a list of the related interfaces and confirm that the new MTU settings
+have been applied via the following commands:
+
+.. code-block:: shell-session
+
+  $ kubectl get cep --all-namespaces -o yaml | grep -e "pod-name:" -e "interface-name"
+        pod-name: default:deathstar-765fd545f9-m6bpt
+        interface-name: lxc55330
+        pod-name: default:deathstar-765fd545f9-vlfth
+        interface-name: lxc4fe9b
+        pod-name: default:tiefighter
+        interface-name: lxcf1e94
+        pod-name: default:xwing
+        interface-name: lxc7cb0f
+        pod-name: ':'
+        interface-name: cilium_health
+        pod-name: ':'
+        interface-name: cilium_health
+        pod-name: kube-system:kube-dns-59d8c5f9b5-g2pnt
+        interface-name: lxc0e2f6
+  $ ip link show lxc0e2f6 | grep mtu
+  22: lxc0e2f6@if21: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc noqueue state UP mode DEFAULT group default
+
+The first command above lists all Cilium endpoints and their corresponding
+interface names, and the second command demonstrates how to find the MTU for
+the interface. Typically the MTU should be 1500 bytes after the endpoints have
+been re-deployed, unless the Cilium CNI configuration requests a different MTU.
