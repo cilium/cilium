@@ -23,7 +23,7 @@ cilium-agent
       --bpf-root string                   Path to BPF filesystem
       --config string                     Configuration file (default "$HOME/ciliumd.yaml")
       --container-runtime stringSlice     Sets the container runtime(s) used by Cilium { containerd | crio | docker | none | auto } ( "auto" uses the container runtime found in the order: "docker", "containerd", "crio" ) (default [auto])
-      --container-runtime-endpoint map    Container runtime(s) endpoint(s). (default: --container-runtime-endpoint=containerd=/var/run/containerd/containerd.sock, --container-runtime-endpoint=crio=/var/run/crio/crio.sock, --container-runtime-endpoint=docker=unix:///var/run/docker.sock) (default map[])
+      --container-runtime-endpoint map    Container runtime(s) endpoint(s). (default: --container-runtime-endpoint=containerd=/var/run/containerd/containerd.sock, --container-runtime-endpoint=crio=/var/run/crio.sock, --container-runtime-endpoint=docker=unix:///var/run/docker.sock) (default map[])
   -D, --debug                             Enable debugging mode
       --debug-verbose stringSlice         List of enabled verbose debug groups
   -d, --device string                     Device facing cluster/external network for direct L3 (non-overlay mode) (default "undefined")
