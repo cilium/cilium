@@ -88,6 +88,10 @@ var _ = Describe("K8sValidatedTunnelTest", func() {
 			ciliumPod, err := kubectl.GetCiliumPodOnNode(helpers.KubeSystemNamespace, helpers.K8s1)
 			Expect(err).Should(BeNil())
 
+			By("Making sure all endpoints are in ready state")
+			err = kubectl.CiliumEndpointWaitReady()
+			Expect(err).To(BeNil(), "Endpoints are not ready after timeout")
+
 			_, err = kubectl.CiliumNodesWait()
 			Expect(err).Should(BeNil())
 
@@ -126,6 +130,10 @@ var _ = Describe("K8sValidatedTunnelTest", func() {
 
 			_, err = kubectl.CiliumNodesWait()
 			Expect(err).Should(BeNil())
+
+			By("Making sure all endpoints are in ready state")
+			err = kubectl.CiliumEndpointWaitReady()
+			Expect(err).To(BeNil(), "Endpoints are not ready after timeout")
 
 			//Check that cilium detects a
 			By("Checking that BPF tunnels are in place")

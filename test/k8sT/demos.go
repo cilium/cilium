@@ -97,10 +97,6 @@ var _ = Describe(demoTestName, func() {
 
 		exhaustPortPath := filepath.Join(deathstarServiceName, "/v1/exhaust-port")
 
-		By("Getting Cilium Pod on node %s", helpers.K8s2)
-		ciliumPod2, err := kubectl.GetCiliumPodOnNode(helpers.KubeSystemNamespace, helpers.K8s2)
-		Expect(err).Should(BeNil(), "unable to get Cilium pod on node %s", helpers.K8s2)
-
 		// Taint the node instead of adding a nodeselector in the file so that we
 		// don't have to customize the YAML for this test.
 		By("Tainting %s so that all pods run on %s", helpers.K8s1, helpers.K8s2)
@@ -117,7 +113,7 @@ var _ = Describe(demoTestName, func() {
 		res.ExpectSuccess("unable to apply %s: %s", deathStarYAMLLink, res.CombineOutput())
 
 		By("Waiting for deathstar deployment pods to be ready")
-		err = kubectl.WaitforPods(helpers.DefaultNamespace, fmt.Sprintf("-l %s", empireLabel), 300)
+		err := kubectl.WaitforPods(helpers.DefaultNamespace, fmt.Sprintf("-l %s", empireLabel), 300)
 		Expect(err).Should(BeNil(), "Empire pods are not ready after timeout")
 
 		By("Applying policy and waiting for policy revision to increase in Cilium pods")
@@ -141,8 +137,8 @@ var _ = Describe(demoTestName, func() {
 		xwingPod := xwingPods[0]
 
 		By("Making sure all endpoints are in ready state")
-		arePodsReady := kubectl.CiliumEndpointWait(ciliumPod2)
-		Expect(arePodsReady).To(BeTrue(), "pods running on k8s2 are not ready")
+		err = kubectl.CiliumEndpointWaitReady()
+		Expect(err).To(BeNil(), "Endpoints are not ready after timeout")
 
 		By("Showing how alliance can execute REST API call to main API endpoint")
 
@@ -159,8 +155,8 @@ var _ = Describe(demoTestName, func() {
 		res.ExpectSuccess("unable to apply %s: %s", l7PolicyYAMLLink, res.CombineOutput())
 
 		By("Waiting for endpoints to be ready after importing policy")
-		arePodsReady = kubectl.CiliumEndpointWait(ciliumPod2)
-		Expect(arePodsReady).To(BeTrue(), "pods running on k8s2 are not ready")
+		err = kubectl.CiliumEndpointWaitReady()
+		Expect(err).To(BeNil(), "Endpoints are not ready after timeout")
 
 		By("Showing how alliance cannot access %q without force header in API request after importing L7 Policy", exhaustPortPath)
 		res = kubectl.ExecPodCmd(helpers.DefaultNamespace, xwingPod,

@@ -233,7 +233,8 @@ func (kubectl *Kubectl) WaitCiliumEndpointReady(podFilter string, k8sNode string
 	status := kubectl.CiliumExec(ciliumPod, fmt.Sprintf("cilium config %s=%s", PolicyEnforcement, PolicyEnforcementDefault))
 	status.ExpectSuccess()
 
-	kubectl.CiliumEndpointWait(ciliumPod)
+	err = kubectl.CiliumEndpointWaitReady()
+	Expect(err).To(BeNil(), "Endpoints are not ready after timeout")
 
 	epsStatus := WithTimeout(func() bool {
 		endpoints, err := kubectl.CiliumEndpointsListByLabel(ciliumPod, podFilter)
