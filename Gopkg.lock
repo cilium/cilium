@@ -468,7 +468,7 @@
   revision = "23def4e6c14b4da8ac2ed8007337bc5eb5007998"
 
 [[projects]]
-  digest = "1:a69e319c474caf18c6b5ff39aa57366ee12c72b3366506695f3e3617c75d4ba4"
+  digest = "1:acfc668207e4667e872edfbecd672034dfb982c252a625f332b86a44c627d9f3"
   name = "github.com/golang/protobuf"
   packages = [
     "proto",
@@ -487,7 +487,8 @@
     "ptypes/wrappers",
   ]
   pruneopts = "NUT"
-  revision = "5831880292e721c76b58a16ecc60adc27d8e6355"
+  revision = "aa810b61a9c79d51363740d207bb46cf8e620ed5"
+  version = "v1.2.0"
 
 [[projects]]
   branch = "master"
@@ -706,11 +707,26 @@
   version = "v0.1.0"
 
 [[projects]]
-  digest = "1:06fc5328859ae6e2d7bf900483d4489d0f826acab879fb8bc1c8607caf95a9a9"
-  name = "github.com/lyft/protoc-gen-validate"
-  packages = ["validate"]
+  digest = "1:81bf95f4344d5710b1b87c7d014939249512c2126c3726b81565d80bb45d0d31"
+  name = "github.com/lyft/protoc-gen-star"
+  packages = ["."]
   pruneopts = "NUT"
-  revision = "d75a15c1da0f853ca31399f30c49088ca5716b04"
+  revision = "f3b83fca61817e55058744eb1a3c8e2e95a0dada"
+  version = "v0.3.7"
+
+[[projects]]
+  digest = "1:570b2374526e4d5bc8bbc33ca5c1c997d4b454bd879d0fcb421163934fc1f854"
+  name = "github.com/lyft/protoc-gen-validate"
+  packages = [
+    ".",
+    "templates",
+    "templates/cc",
+    "templates/go",
+    "templates/shared",
+    "validate",
+  ]
+  pruneopts = "NUT"
+  revision = "v0.0.6"
 
 [[projects]]
   digest = "1:d244f8666a838fe6ad70ec8fe77f50ebc29fdc3331a2729ba5886bef8435d10d"
@@ -1681,6 +1697,7 @@
     "github.com/jessevdk/go-flags",
     "github.com/kevinburke/ssh_config",
     "github.com/kr/pretty",
+    "github.com/lyft/protoc-gen-validate",
     "github.com/lyft/protoc-gen-validate/validate",
     "github.com/mattn/go-shellwords",
     "github.com/mitchellh/hashstructure",

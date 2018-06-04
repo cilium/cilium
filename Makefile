@@ -273,6 +273,7 @@ docs-container:
 
 install-deps:
 	go build -o ../../../../bin/protoc-gen-go vendor/github.com/golang/protobuf/protoc-gen-go/.
+	go build -o ../../../../bin/protoc-gen-validate ./vendor/github.com/lyft/protoc-gen-validate/.
 
 render-docs: docs-container
 	-$(DOCKER) container rm -f docs-cilium >/dev/null

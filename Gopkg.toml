@@ -30,7 +30,8 @@ required = [
             "k8s.io/gengo/examples/deepcopy-gen/generators",
             "github.com/cilium/go-bindata/go-bindata",
             "github.com/onsi/ginkgo/ginkgo",
-            "github.com/golang/protobuf/protoc-gen-go"
+            "github.com/golang/protobuf/protoc-gen-go",
+            "github.com/lyft/protoc-gen-validate"
             ]
 
 [[constraint]]
@@ -174,7 +175,7 @@ required = [
 
 [[constraint]]
   name = "github.com/golang/protobuf"
-  revision = "5831880292e721c76b58a16ecc60adc27d8e6355"
+  version = "1.2.0"
 
 [[constraint]]
   name = "github.com/google/gopacket"
@@ -206,7 +207,7 @@ required = [
 
 [[constraint]]
   name = "github.com/lyft/protoc-gen-validate"
-  revision = "d75a15c1da0f853ca31399f30c49088ca5716b04"
+  revision = "v0.0.6"
 
 [[constraint]]
   name = "github.com/mattn/go-shellwords"
