@@ -6,6 +6,7 @@ deploy {
     ciliumArgs: [
         "--debug=$(CILIUM_DEBUG)",
         "-t=vxlan",
+        "--k8s-legacy-host-allows-world=$(CILIUM_LEGACY_HOST_ALLOWS_WORLD)",
         "--kvstore=etcd",
         "--kvstore-opt=etcd.config=/var/lib/etcd-config/etcd.config",
         "--disable-ipv4=$(DISABLE_IPV4)",

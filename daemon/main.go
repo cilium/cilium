@@ -82,35 +82,36 @@ var (
 	// Arguments variables keep in alphabetical order
 
 	// autoIPv6NodeRoutes automatically adds L3 direct routing when using direct mode (-d)
-	autoIPv6NodeRoutes    bool
-	bpfRoot               string
-	cmdRefDir             string
-	debugVerboseFlags     []string
-	disableConntrack      bool
-	dockerEndpoint        string
-	enableLogstash        bool
-	enableTracing         bool
-	k8sAPIServer          string
-	k8sKubeConfigPath     string
-	kvStore               string
-	labelPrefixFile       string
-	loggers               []string
-	logstashAddr          string
-	logstashProbeTimer    uint32
-	masquerade            bool
-	nat46prefix           string
-	prometheusServeAddr   string
-	singleClusterRoute    bool
-	socketPath            string
-	tracePayloadLen       int
-	v4Address             string
-	v4ClusterCidrMaskSize int
-	v4Prefix              string
-	v4ServicePrefix       string
-	v6Address             string
-	v6Prefix              string
-	v6ServicePrefix       string
-	validLabels           []string
+	autoIPv6NodeRoutes       bool
+	bpfRoot                  string
+	cmdRefDir                string
+	debugVerboseFlags        []string
+	disableConntrack         bool
+	dockerEndpoint           string
+	enableLogstash           bool
+	enableTracing            bool
+	k8sAPIServer             string
+	k8sKubeConfigPath        string
+	k8sLegacyHostAllowsWorld bool
+	kvStore                  string
+	labelPrefixFile          string
+	loggers                  []string
+	logstashAddr             string
+	logstashProbeTimer       uint32
+	masquerade               bool
+	nat46prefix              string
+	prometheusServeAddr      string
+	singleClusterRoute       bool
+	socketPath               string
+	tracePayloadLen          int
+	v4Address                string
+	v4ClusterCidrMaskSize    int
+	v4Prefix                 string
+	v4ServicePrefix          string
+	v6Address                string
+	v6Prefix                 string
+	v6ServicePrefix          string
+	validLabels              []string
 )
 
 var (
@@ -358,6 +359,8 @@ func init() {
 		"k8s-api-server", "", "Kubernetes api address server (for https use --k8s-kubeconfig-path instead)")
 	flags.StringVar(&k8sKubeConfigPath,
 		"k8s-kubeconfig-path", "", "Absolute path of the kubernetes kubeconfig file")
+	flags.BoolVar(&k8sLegacyHostAllowsWorld,
+		"k8s-legacy-host-allows-world", true, "Classify world traffic as from host in k8s environments")
 	flags.BoolVar(&option.Config.KeepConfig,
 		"keep-config", false, "When restoring state, keeps containers' configuration in place")
 	flags.BoolVar(&option.Config.KeepTemplates,

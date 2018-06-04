@@ -1073,6 +1073,15 @@ func NewDaemon() (*Daemon, error) {
 			log.Info("k8s mode: Allowing localhost to reach local endpoints")
 		}
 
+		// In Cilium 1.0, due to limitations on the data path, traffic
+		// from the outside world on ingress was treated as though it
+		// was from the host for policy purposes. In order to not break
+		// existing policies, this option retains the behavior.
+		if k8sLegacyHostAllowsWorld {
+			option.Config.HostAllowsWorld = true
+			log.Info("k8s mode: Configuring ingress policy for host to also allow from world. For more information, see https://cilium.link/host-vs-world")
+		}
+
 		if !singleClusterRoute {
 			node.EnablePerNodeRoutes()
 		}

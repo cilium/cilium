@@ -13,7 +13,8 @@
         "debug": "true",
         "disable-ipv4": "false",
         "sidecar-http-proxy": "false",
-        "clean-cilium-state": "false"
+        "clean-cilium-state": "false",
+        "k8s-legacy-host-allows-world": "false"
       }
     },
     {
@@ -173,6 +174,16 @@
                         "name": "cilium-metrics-config",
                         "optional": true,
                         "key": "prometheus-serve-addr"
+                      }
+                    }
+                  },
+                  {
+                    "name": "CILIUM_LEGACY_HOST_ALLOWS_WORLD",
+                    "valueFrom": {
+                      "configMapKeyRef": {
+                        "name": "cilium-config",
+                        "key": "legacy-host-allows-world",
+                        "optional": true
                       }
                     }
                   }
