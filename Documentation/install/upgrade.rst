@@ -102,9 +102,101 @@ also disable the usage of the feature.
 Upgrade notes
 =============
 
+The below issues have been fixed in Cilium 1.1, but require user interaction to
+mitigate or remediate the issue for users upgrading from an earlier release.
+
+.. _host_vs_world:
+
+Traffic from world to endpoints is classified as from host
+----------------------------------------------------------
+
+In Cilium 1.0, all traffic from the host, including from local processes and
+traffic that is masqueraded from the outside world to the host IP, would be
+classified as from the ``host`` entity (``reserved:host`` label).
+Furthermore, to allow Kubernetes agents to perform health checks over IP into
+the endpoints, the host is allowed by default. This means that all traffic from
+the outside world is also allowed by default, regardless of security policy.
+
+Affected versions
+~~~~~~~~~~~~~~~~~
+
+* Cilium 1.0 or earlier deployed using the DaemonSet and ConfigMap YAMLs
+  provided with that release, or
+* Later versions of Cilium deployed using the YAMLs provided with Cilium 1.0 or
+  earlier.
+
+Affected environments will see no output for one or more of the below commands:
+
+.. code-block:: shell-session
+
+  $ kubectl get ds cilium -n kube-system -o yaml | grep -B 3 -A 2 -i legacy-host-allows-world
+  $ kubectl get cm cilium-config -n kube-system -o yaml | grep -i legacy-host-allows-world
+
+Unaffected environments will see the following output, note the setting of the
+ConfigMap (``legacy-host-allows-world: "false"``):
+
+.. code-block:: shell-session
+
+  $ kubectl get ds cilium -n kube-system -o yaml | grep -B 3 -A 2 -i legacy-host-allows-world
+            - name: CILIUM_LEGACY_HOST_ALLOWS_WORLD
+              valueFrom:
+                configMapKeyRef:
+                  name: cilium-config
+                  optional: true
+                  key: legacy-host-allows-world
+  $ kubectl get cm cilium-config -n kube-system -o yaml | grep -i legacy-host-allows-world
+    legacy-host-allows-world: "false"
+
+Mitigation
+~~~~~~~~~~
+
+Users who are not reliant upon IP-based health checks for their kubernetes pods
+may mitigate this issue on earlier versions of Cilium by adding the argument
+``--allow-localhost=policy`` to the Cilium DaemonSet for the Cilium container.
+This prevents the automatic insertion of L3 allow policy in kubernetes
+environments. Note however that with this option, if the Cilium Network Policy
+allows traffic from the host, then it will still allow access from the outside
+world.
+
+.. code-block:: shell-session
+
+  $ kubectl edit ds cilium -n kube-system
+  (Edit the "args" section to add the option "--allow-localhost=policy")
+  $ kubectl rollout status daemonset/cilium -n kube-system
+  (Wait for kubernetes to redeploy Cilium with the new options)
+
+Solution
+~~~~~~~~
+
+Cilium 1.1 and later only classify traffic from a process on the local host as
+from the ``host`` entity; other traffic that is masqueraded to the host IP is
+now classified as from the ``world`` entity (``reserved:world`` label).
+Fresh deployments using the Cilium 1.1 YAMLs are not affected.
+
+Affected users are recommended to upgrade using the steps below.
+
+Upgrade steps
+~~~~~~~~~~~~~
+
+#. Redeploy the Cilium DaemonSet with the YAMLs provided with the Cilium 1.1 or
+   later release. The instructions for this are found at the top of the
+   :ref:`admin_upgrade`.
+
+#. Add the config option ``legacy-host-allows-world: "false"`` to the Cilium
+   ConfigMap.
+
+     .. code-block:: shell-session
+
+       $ kubectl edit configmap cilium-config -n kube-system
+       (Add a new line with the above configuration)
+
+#. (Optional) Update the Cilium Network Policies to allow specific traffic from
+   the outside world. For more information, see :ref:`network_policy`.
+
 .. _err_low_mtu:
+
 MTU handling behavior change in Cilium 1.1
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+------------------------------------------
 
 Cilium 1.0 by default configured the MTU of all Cilium-related devices and
 endpoint devices to 1450 bytes, to guarantee that packets sent from an endpoint
