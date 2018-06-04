@@ -61,9 +61,9 @@ strip bpf-map && \
 #
 # cni/loopback
 #
-curl -sS -L https://storage.googleapis.com/kubernetes-release/network-plugins/cni-0799f5732f2a11b329d9e3d51b9c8f2e3759f2ff.tar.gz -o cni.tar.gz && \
-tar -xvf cni.tar.gz bin/loopback && \
-strip -s bin/loopback && \
+curl -sS -L https://github.com/containernetworking/plugins/releases/download/v0.6.0/cni-plugins-amd64-v0.6.0.tgz -o cni.tar.gz && \
+tar -xvf cni.tar.gz ./loopback && \
+strip -s ./loopback && \
 #
 # Cleanup
 #
@@ -92,4 +92,4 @@ WORKDIR /usr/local/clang+llvm
 COPY --from=runtime-build /usr/local/clang+llvm ./
 ENV PATH="/usr/local/clang+llvm/bin:$PATH"
 WORKDIR /cni
-COPY --from=runtime-build /tmp/bin/loopback ./
+COPY --from=runtime-build /tmp/loopback ./
