@@ -29,7 +29,8 @@ required = [
             "k8s.io/gengo/examples/defaulter-gen/generators",
             "k8s.io/gengo/examples/deepcopy-gen/generators",
             "github.com/cilium/go-bindata/go-bindata",
-            "github.com/onsi/ginkgo/ginkgo"
+            "github.com/onsi/ginkgo/ginkgo",
+            "github.com/golang/protobuf/protoc-gen-go"
             ]
 
 [[constraint]]

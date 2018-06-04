@@ -271,6 +271,8 @@ docs-container:
 	$(DOCKER) image build -t cilium/docs-builder -f Documentation/Dockerfile ./Documentation; \
 	  (ret=$$?; rm -r ./Documentation/_api && exit $$ret)
 
+install-deps:
+	go build -o ../../../../bin/protoc-gen-go vendor/github.com/golang/protobuf/protoc-gen-go/.
 
 render-docs: docs-container
 	-$(DOCKER) container rm -f docs-cilium >/dev/null
