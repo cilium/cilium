@@ -395,6 +395,7 @@ startup
 stateful
 Stateful
 statsd
+Stormtroopers
 structs
 subclasses
 subcommand
