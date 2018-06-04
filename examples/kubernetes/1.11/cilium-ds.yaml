@@ -57,6 +57,7 @@ spec:
         args:
           - "--debug=$(CILIUM_DEBUG)"
           - "-t=vxlan"
+          - "--k8s-legacy-host-allows-world=$(CILIUM_LEGACY_HOST_ALLOWS_WORLD)"
           - "--kvstore=etcd"
           - "--kvstore-opt=etcd.config=/var/lib/etcd-config/etcd.config"
           - "--disable-ipv4=$(DISABLE_IPV4)"
@@ -101,6 +102,12 @@ spec:
                 name: cilium-metrics-config
                 optional: true
                 key: prometheus-serve-addr
+          - name: "CILIUM_LEGACY_HOST_ALLOWS_WORLD"
+            valueFrom:
+              configMapKeyRef:
+                name: cilium-config
+                optional: true
+                key: legacy-host-allows-world
         livenessProbe:
           exec:
             command:
