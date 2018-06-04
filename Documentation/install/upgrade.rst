@@ -208,11 +208,32 @@ logic. Latter IP fragments would not contain L4 ports, so if any L4 or L4+L7
 policy was applied to the destination endpoint, then the fragments would be
 dropped. This could cause disruption to network traffic.
 
+Affected versions
+~~~~~~~~~~~~~~~~~
+
+* Cilium 1.0 or earlier.
+
+Cilium 1.1 and later are not affected.
+
+Mitigation
+~~~~~~~~~~
+
+There is no known mitigation for users running Cilium 1.0 at this time.
+
+Solution
+~~~~~~~~
+
 Cilium 1.1 fixes the above issue by increasing the MTU of the Cilium-related
 devices and endpoint devices to 1500B (or larger based on container runtime
 settings), then configuring a route within the endpoint at a lower MTU to
 ensure that transmitted packets will fit within tunnel encapsulation. This
 addresses the above issue for all new pods.
+
+Endpoints that were deployed on Cilium 1.0 must be redeployed to remediate this
+issue.
+
+Upgrade Steps
+~~~~~~~~~~~~~
 
 When upgrading from Cilium 1.0 to 1.1 or later, existing pods will not
 automatically inherit these new settings. To apply the new MTU settings to
