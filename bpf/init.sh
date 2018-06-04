@@ -23,6 +23,7 @@ MODE=$5
 NATIVE_DEV=$6
 XDP_DEV=$7
 XDP_MODE=$8
+MTU=$9
 
 ID_HOST=1
 ID_WORLD=2
@@ -254,8 +255,8 @@ setup_veth_pair $HOST_DEV1 $HOST_DEV2
 ip link set $HOST_DEV1 arp off
 ip link set $HOST_DEV2 arp off
 
-ip link set $HOST_DEV1 mtu 1450
-ip link set $HOST_DEV2 mtu 1450
+ip link set $HOST_DEV1 mtu $MTU
+ip link set $HOST_DEV2 mtu $MTU
 
 sed -i '/^#.*CILIUM_NET_MAC.*$/d' $RUNDIR/globals/node_config.h
 CILIUM_NET_MAC=$(ip link show $HOST_DEV2 | grep ether | awk '{print $2}')

@@ -276,11 +276,21 @@ func SetIPv6NodeRange(net *net.IPNet) error {
 
 // AutoComplete completes the parts of addressing that can be auto derived
 func AutoComplete() error {
-	// Read the previous cilium host IPs from node_config.h for backward
-	// compatibility
-	ipv4GW, ipv6Router := getCiliumHostIPs()
-	SetInternalIPv4(ipv4GW)
-	SetIPv6Router(ipv6Router)
+	if option.Config.EnableHostIPRestore {
+		// Read the previous cilium host IPs from node_config.h for backward
+		// compatibility
+		ipv4GW, ipv6Router := getCiliumHostIPs()
+
+		if ipv4GW != nil {
+			log.Infof("Restored IPv4 internal node IP: %s", ipv4GW.String())
+			SetInternalIPv4(ipv4GW)
+		}
+
+		if ipv6Router != nil {
+			log.Infof("Restored IPv6 router IP: %s", ipv6Router.String())
+			SetIPv6Router(ipv6Router)
+		}
+	}
 
 	if option.Config.Device == "undefined" {
 		InitDefaultPrefix("")
@@ -501,7 +511,7 @@ func getCiliumHostIPsFromNetDev(devName string) (ipv4GW, ipv6Router net.IP) {
 			}
 		}
 	}
-	return nil, nil
+	return ipv4GW, ipv6Router
 }
 
 // getCiliumHostIPs returns the Cilium IPv4 gateway and router IPv6 address from

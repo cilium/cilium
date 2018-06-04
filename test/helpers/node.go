@@ -159,24 +159,25 @@ func (s *SSHMeta) Exec(cmd string, options ...ExecOptions) *CmdRes {
 	log.Debugf("running command: %s", cmd)
 	stdout := new(bytes.Buffer)
 	stderr := new(bytes.Buffer)
-	exit := true
 	err := s.Execute(cmd, stdout, stderr)
-	if err != nil {
-		exit = false
-	}
 
 	res := CmdRes{
 		cmd:     cmd,
 		stdout:  stdout,
 		stderr:  stderr,
-		success: exit,
+		success: true, // this may be toggled when err != nil below
 	}
-	// Set res's exitcode if the error is an ExitError
-	if exiterr, ok := err.(*ssh.ExitError); ok {
-		res.exitcode = exiterr.Waitmsg.ExitStatus()
-	} else {
-		// Log other error types. They are likely from SSH or the network
-		log.WithError(err).Errorf("Error executing command '%s'", cmd)
+
+	if err != nil {
+		res.success = false
+		exiterr, isExitError := err.(*ssh.ExitError)
+		if isExitError {
+			// Set res's exitcode if the error is an ExitError
+			res.exitcode = exiterr.Waitmsg.ExitStatus()
+		} else {
+			// Log other error types. They are likely from SSH or the network
+			log.WithError(err).Errorf("Error executing command '%s'", cmd)
+		}
 	}
 
 	if !ops.SkipLog {
