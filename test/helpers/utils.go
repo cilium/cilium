@@ -38,6 +38,12 @@ import (
 	"k8s.io/apimachinery/pkg/util/yaml"
 )
 
+const (
+	// legacyArg is the legacy argument that should be stripped from
+	// Cilium DaemonSet YAMLs to run older versions of Cilium.
+	legacyArg = "--k8s-legacy-host-allows-world"
+)
+
 // IsRunningOnJenkins detects if the currently running Ginkgo application is
 // most likely running in a Jenkins environment. Returns true if certain
 // environment variables that are present in Jenkins jobs are set, false
@@ -151,6 +157,29 @@ func WithTimeoutErr(ctx context.Context, f func() (bool, error), freq time.Durat
 	}
 }
 
+// removeLegacyArguments removes options from the Cilium YAML which were not
+// present in earlier versions of Cilium. This allows us to run older versions
+// of Cilium using the latest YAML files, without causing the Cilium agent to
+// immediately exit due to unrecognized arguments.
+func removeLegacyArguments(args *gabs.Container) error {
+	count, err := args.ArrayCount()
+	if err != nil {
+		return fmt.Errorf("Failed to find DS args array: %s", err)
+	}
+	for i := 0; i < count; i++ {
+		elem, err := args.ArrayElement(i)
+		if err != nil {
+			return fmt.Errorf("Invalid array elem in DS: %s", err)
+		}
+		argument := strings.TrimPrefix(elem.String(), "\"")
+		if strings.HasPrefix(argument, legacyArg) {
+			args.ArrayRemove(i)
+			return nil
+		}
+	}
+	return nil
+}
+
 // InstallExampleCilium uses Cilium Kubernetes example from the repo,
 // changes the etcd parameter and installs the stable tag from docker-hub
 func InstallExampleCilium(kubectl *Kubectl) {
@@ -180,6 +209,8 @@ func InstallExampleCilium(kubectl *Kubectl) {
 		if value == daemonSet {
 			container := jsonObj.Path("spec.template.spec.containers").Index(0)
 			container.Set(StableImage, "image")
+			err = removeLegacyArguments(container.Path("args"))
+			Expect(err).To(BeNil())
 		}
 		result.WriteString(jsonObj.String())
 	}
