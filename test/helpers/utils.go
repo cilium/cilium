@@ -177,7 +177,7 @@ func removeLegacyArguments(args *gabs.Container) error {
 			return nil
 		}
 	}
-	return nil
+	return fmt.Errorf("Failed to find the legacy argument in Cilium DS")
 }
 
 // InstallExampleCilium uses Cilium Kubernetes example from the repo,
