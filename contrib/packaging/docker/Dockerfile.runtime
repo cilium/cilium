@@ -1,8 +1,9 @@
 #
 # Cilium runtime base image
 #
-FROM ubuntu:17.10 as runtime-base
+FROM ubuntu:18.04 as runtime-base
 RUN apt-get update && \
+apt-get upgrade -y && \
 #
 # Prepackaged Cilium runtime dependencies
 #
