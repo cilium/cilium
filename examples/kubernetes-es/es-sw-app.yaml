@@ -109,23 +109,33 @@ subjects:
 apiVersion: v1
 kind: Pod
 metadata:
-  name: sidious
+  name: outpost
   labels:
-    name: sidious
-    role: lord
+    app: outpost
 spec:
   containers:
-  - name: bookreader
-    image: docker.io/cilium/esclient:v1
+  - name: esclient
+    image: docker.io/cilium/esclient:v2 
 ---
 apiVersion: v1
 kind: Pod
 metadata:
-  name: vader
+  name: empire-hq
   labels:
-    name: vader
-    role: apprentice
+    app: empire-hq
 spec:
   containers:
-  - name: bookreader
-    image: docker.io/cilium/esclient:v1
+  - name: esclient
+    image: docker.io/cilium/esclient:v2 
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: spaceship
+  labels:
+    app: spaceship
+spec:
+  containers:
+  - name: esclient
+    image: docker.io/cilium/esclient:v2
+
