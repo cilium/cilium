@@ -71,6 +71,7 @@ committer
 committers
 conf
 config
+ConfigMap
 containerd
 contributing
 CoreOS
@@ -352,6 +353,7 @@ rebased
 recompiles
 regenerations
 regex
+remediate
 reparsing
 repo
 repos
