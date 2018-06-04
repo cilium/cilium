@@ -12,6 +12,9 @@ André Martins (5):
       docs: document dep usage for developers
       examples: add registry address to all container images
 
+Ashwin Paranjpe (1):
+      GH-4339 Add k8s label source in GetPolicyLabels
+
 Eloy Coto (5):
       Test: Fix assert line on CMDRes.Expect*
       Test: Kubernetes upstream fix Cilium installation.
@@ -23,18 +26,27 @@ Ian Vernon (2):
       test/k8sT: add k8s default-allow tests
       Documentation/cmdref: update cilium-agent cmdref
 
+Joe Stringer (6):
+      pkg: Add MTU package
+      vendor: Update netlink library for route MTU
+      node: Configure route MTUs depending on destination
+      cni: Configure default route MTU in endpoints
+      daemon: Configure MTU for devices using pkg/mtu
+      docs: Describe MTU changes from v1.0 to v1.1
+
 Nirmoy Das (2):
       bpf: drop incase of unsupported IPv6 headers
       bpf: monitor drops in NAT64/NAT46 tail calls
 
-Ray Bejjani (2):
+Ray Bejjani (3):
       monitor: cilium-agent passes along BPF mount path
       test: report collection prints error from ssh.RunCommand
+      test: Do not print nil errors in ssh.Exec
 
 Romain Lenglet (1):
       docs: Update Istio GSG to Istio 0.8.0 pre-release
 
-Thomas Graf (11):
+Thomas Graf (14):
       identity: Ignore nil identity when generating IdentityCache
       Documentation: Fix warnings
       identity: Resolve unknown identity to label reserved:unknown
@@ -45,7 +57,7 @@ Thomas Graf (11):
       node: Undo default IPv6 prefix change
       Merge branch 'master' into v1.1
       Prepare 1.1.0-rc3 release
-      Merge branch 'master' into v1.1
+      agent: Correctly restore router IPs from cilium_host interface
 
 
 v1.1.0-rc2
