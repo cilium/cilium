@@ -12,6 +12,7 @@
         "etcd-config": "---\nendpoints:\n- http://" + $.etcdEndpoint + "\n#\n# In case you want to use TLS in etcd, uncomment the following line\n# and add the certificate as explained in the comment labeled \"ETCD-CERT\"\n#ca-file: '/var/lib/etcd-secrets/etcd-ca'\n#\n# In case you want client to server authentication, uncomment the following\n# lines and add the certificate and key in cilium-etcd-secrets below\n#key-file: '/var/lib/etcd-secrets/etcd-client-key'\n#cert-file: '/var/lib/etcd-secrets/etcd-client-crt'",
         "debug": "true",
         "disable-ipv4": "false",
+        "legacy-host-allows-world": "false",
         "sidecar-http-proxy": "false",
         "clean-cilium-state": "false"
       }
@@ -173,6 +174,16 @@
                         "name": "cilium-metrics-config",
                         "optional": true,
                         "key": "prometheus-serve-addr"
+                      }
+                    }
+                  },
+                  {
+                    "name": "CILIUM_LEGACY_HOST_ALLOWS_WORLD",
+                    "valueFrom": {
+                      "configMapKeyRef": {
+                        "name": "cilium-config",
+                        "key": "legacy-host-allows-world",
+                        "optional": true
                       }
                     }
                   }

@@ -84,6 +84,10 @@ type daemonConfig struct {
 	// values: { auto | always | policy }
 	AllowLocalhost string
 
+	// HostAllowsWorld applies the same policy to world-sourced traffic as
+	// host-sourced traffic, to provide compatibility with Cilium 1.0.
+	HostAllowsWorld bool
+
 	// StateDir is the directory where runtime state of endpoints is stored
 	StateDir string
 

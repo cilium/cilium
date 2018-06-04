@@ -358,6 +358,7 @@ func init() {
 		"k8s-api-server", "", "Kubernetes api address server (for https use --k8s-kubeconfig-path instead)")
 	flags.StringVar(&k8sKubeConfigPath,
 		"k8s-kubeconfig-path", "", "Absolute path of the kubernetes kubeconfig file")
+	viper.BindEnv("k8s-legacy-host-allows-world", "CILIUM_LEGACY_HOST_ALLOWS_WORLD")
 	flags.BoolVar(&option.Config.KeepConfig,
 		"keep-config", false, "When restoring state, keeps containers' configuration in place")
 	flags.BoolVar(&option.Config.KeepTemplates,
