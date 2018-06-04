@@ -156,24 +156,39 @@ func NewESFromLabels(lbls ...*labels.Label) EndpointSelector {
 
 // NewESFromK8sLabelSelector returns a new endpoint selector from the label
 // where it the given srcPrefix will be encoded in the label's keys.
-func NewESFromK8sLabelSelector(srcPrefix string, ls *metav1.LabelSelector) EndpointSelector {
-	newLs := &metav1.LabelSelector{}
-	if ls.MatchLabels != nil {
-		newLabels := map[string]string{}
-		for k, v := range ls.MatchLabels {
-			newLabels[srcPrefix+k] = v
+func NewESFromK8sLabelSelector(srcPrefix string, lss ...*metav1.LabelSelector) EndpointSelector {
+	var (
+		matchLabels      map[string]string
+		matchExpressions []metav1.LabelSelectorRequirement
+	)
+	for _, ls := range lss {
+		if ls == nil {
+			continue
 		}
-		newLs.MatchLabels = newLabels
-	}
-	if ls.MatchExpressions != nil {
-		newMatchExpr := make([]metav1.LabelSelectorRequirement, len(ls.MatchExpressions))
-		for i, v := range ls.MatchExpressions {
-			v.Key = srcPrefix + v.Key
-			newMatchExpr[i] = v
+		if ls.MatchLabels != nil {
+			if matchLabels == nil {
+				matchLabels = map[string]string{}
+			}
+			for k, v := range ls.MatchLabels {
+				matchLabels[srcPrefix+k] = v
+			}
 		}
-		newLs.MatchExpressions = newMatchExpr
+		if ls.MatchExpressions != nil {
+			if matchExpressions == nil {
+				matchExpressions = make([]metav1.LabelSelectorRequirement, 0, len(ls.MatchExpressions))
+			}
+			for _, v := range ls.MatchExpressions {
+				v.Key = srcPrefix + v.Key
+				matchExpressions = append(matchExpressions, v)
+			}
+		}
 	}
-	return EndpointSelector{newLs}
+	return EndpointSelector{
+		LabelSelector: &metav1.LabelSelector{
+			MatchLabels:      matchLabels,
+			MatchExpressions: matchExpressions,
+		},
+	}
 }
 
 // Matches returns true if the endpoint selector Matches the `lblsToMatch`.
