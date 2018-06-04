@@ -26,7 +26,6 @@ import (
 	"github.com/cilium/cilium/pkg/policy/api"
 
 	networkingv1 "k8s.io/api/networking/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // GetPolicyLabelsv1 extracts the name of np. It uses the name  from the Cilium
@@ -52,26 +51,14 @@ func GetPolicyLabelsv1(np *networkingv1.NetworkPolicy) labels.LabelArray {
 }
 
 func parseNetworkPolicyPeer(namespace string, peer *networkingv1.NetworkPolicyPeer) *api.EndpointSelector {
-
-	// TODO add unit test (GH-3080).
 	if peer == nil {
 		return nil
 	}
 
-	var labelSelector *metav1.LabelSelector
+	var retSel *api.EndpointSelector
 
-	// Only one or the other can be set, not both
-	if peer.PodSelector != nil {
-		labelSelector = peer.PodSelector
-		if peer.PodSelector.MatchLabels == nil {
-			peer.PodSelector.MatchLabels = map[string]string{}
-		}
-		// The PodSelector should only reflect to the same namespace
-		// the policy is being stored, thus we add the namespace to
-		// the MatchLabels map.
-		peer.PodSelector.MatchLabels[k8sConst.PodNamespaceLabel] = namespace
-	} else if peer.NamespaceSelector != nil {
-		labelSelector = peer.NamespaceSelector
+	if peer.NamespaceSelector != nil {
+		labelSelector := peer.NamespaceSelector
 		matchLabels := map[string]string{}
 		// We use our own special label prefix for namespace metadata,
 		// thus we need to prefix that prefix to all NamespaceSelector.MatchLabels
@@ -86,13 +73,24 @@ func parseNetworkPolicyPeer(namespace string, peer *networkingv1.NetworkPolicyPe
 			lsr.Key = policy.JoinPath(k8sConst.PodNamespaceMetaLabels, lsr.Key)
 			peer.NamespaceSelector.MatchExpressions[i] = lsr
 		}
-	} else {
-		// Neither PodSelector nor NamespaceSelector set.
-		return nil
+
+		selector := api.NewESFromK8sLabelSelector(labels.LabelSourceK8sKeyPrefix, labelSelector, peer.PodSelector)
+		retSel = &selector
+	} else if peer.PodSelector != nil {
+		labelSelector := peer.PodSelector
+		if peer.PodSelector.MatchLabels == nil {
+			peer.PodSelector.MatchLabels = map[string]string{}
+		}
+		// The PodSelector should only reflect to the same namespace
+		// the policy is being stored, thus we add the namespace to
+		// the MatchLabels map.
+		peer.PodSelector.MatchLabels[k8sConst.PodNamespaceLabel] = namespace
+
+		selector := api.NewESFromK8sLabelSelector(labels.LabelSourceK8sKeyPrefix, labelSelector)
+		retSel = &selector
 	}
 
-	selector := api.NewESFromK8sLabelSelector(labels.LabelSourceK8sKeyPrefix, labelSelector)
-	return &selector
+	return retSel
 }
 
 func hasV1PolicyType(pTypes []networkingv1.PolicyType, typ networkingv1.PolicyType) bool {
