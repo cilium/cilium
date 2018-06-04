@@ -101,6 +101,12 @@ spec:
                 name: cilium-metrics-config
                 optional: true
                 key: prometheus-serve-addr
+          - name: "CILIUM_LEGACY_HOST_ALLOWS_WORLD"
+            valueFrom:
+              configMapKeyRef:
+                name: cilium-config
+                optional: true
+                key: legacy-host-allows-world
         livenessProbe:
           exec:
             command:
