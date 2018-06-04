@@ -583,8 +583,8 @@ func (d *Daemon) updateK8sNetworkPolicyV1(oldk8sNP, newk8sNP *networkingv1.Netwo
 		logfields.K8sAPIVersion:                 oldk8sNP.TypeMeta.APIVersion,
 		logfields.K8sNetworkPolicyName + ".old": oldk8sNP.ObjectMeta.Name,
 		logfields.K8sNamespace + ".old":         oldk8sNP.ObjectMeta.Namespace,
-		logfields.K8sNetworkPolicyName + ".new": newk8sNP.ObjectMeta.Name,
-		logfields.K8sNamespace + ".new":         newk8sNP.ObjectMeta.Namespace,
+		logfields.K8sNetworkPolicyName:          newk8sNP.ObjectMeta.Name,
+		logfields.K8sNamespace:                  newk8sNP.ObjectMeta.Namespace,
 	}).Debug("Received policy update")
 
 	d.addK8sNetworkPolicyV1(newk8sNP)
@@ -676,9 +676,9 @@ func (d *Daemon) updateK8sServiceV1(oldSvc, newSvc *v1.Service) {
 		logfields.K8sSvcName + ".old":   oldSvc.ObjectMeta.Name,
 		logfields.K8sNamespace + ".old": oldSvc.ObjectMeta.Namespace,
 		logfields.K8sSvcType + ".old":   oldSvc.Spec.Type,
-		logfields.K8sSvcName + ".new":   newSvc.ObjectMeta.Name,
-		logfields.K8sNamespace + ".new": newSvc.ObjectMeta.Namespace,
-		logfields.K8sSvcType + ".new":   newSvc.Spec.Type,
+		logfields.K8sSvcName:            newSvc.ObjectMeta.Name,
+		logfields.K8sNamespace:          newSvc.ObjectMeta.Namespace,
+		logfields.K8sSvcType:            newSvc.Spec.Type,
 	}).Debug("Received service update")
 
 	d.addK8sServiceV1(newSvc)
@@ -762,8 +762,8 @@ func (d *Daemon) updateK8sEndpointV1(oldEP, newEP *v1.Endpoints) {
 	//	logfields.K8sAPIVersion:            oldEP.TypeMeta.APIVersion,
 	//	logfields.K8sEndpointName + ".old": oldEP.ObjectMeta.Name,
 	//	logfields.K8sNamespace + ".old":    oldEP.ObjectMeta.Namespace,
-	//	logfields.K8sEndpointName + ".new": newEP.ObjectMeta.Name,
-	//	logfields.K8sNamespace + ".new":    newEP.ObjectMeta.Namespace,
+	//	logfields.K8sEndpointName: newEP.ObjectMeta.Name,
+	//	logfields.K8sNamespace:    newEP.ObjectMeta.Namespace,
 	//}).Debug("Received endpoint update")
 
 	d.addK8sEndpointV1(newEP)
@@ -1120,9 +1120,9 @@ func (d *Daemon) updateIngressV1beta1(oldIngress, newIngress *v1beta1.Ingress) {
 		logfields.K8sIngressName + ".old": oldIngress.ObjectMeta.Name,
 		logfields.K8sAPIVersion + ".old":  oldIngress.TypeMeta.APIVersion,
 		logfields.K8sNamespace + ".old":   oldIngress.ObjectMeta.Namespace,
-		logfields.K8sIngressName + ".new": newIngress.ObjectMeta.Name,
-		logfields.K8sAPIVersion + ".new":  newIngress.TypeMeta.APIVersion,
-		logfields.K8sNamespace + ".new":   newIngress.ObjectMeta.Namespace,
+		logfields.K8sIngressName:          newIngress.ObjectMeta.Name,
+		logfields.K8sAPIVersion:           newIngress.TypeMeta.APIVersion,
+		logfields.K8sNamespace:            newIngress.ObjectMeta.Namespace,
 	})
 
 	if oldIngress.Spec.Backend == nil || newIngress.Spec.Backend == nil {
@@ -1453,8 +1453,8 @@ func (d *Daemon) updateCiliumNetworkPolicyV2(ciliumV2Store cache.Store,
 		logfields.K8sAPIVersion:                    oldRuleCpy.TypeMeta.APIVersion,
 		logfields.CiliumNetworkPolicyName + ".old": oldRuleCpy.ObjectMeta.Name,
 		logfields.K8sNamespace + ".old":            oldRuleCpy.ObjectMeta.Namespace,
-		logfields.CiliumNetworkPolicyName + ".new": newRuleCpy.ObjectMeta.Name,
-		logfields.K8sNamespace + ".new":            newRuleCpy.ObjectMeta.Namespace,
+		logfields.CiliumNetworkPolicyName:          newRuleCpy.ObjectMeta.Name,
+		logfields.K8sNamespace:                     newRuleCpy.ObjectMeta.Namespace,
 	}).Debug("Modified CiliumNetworkPolicy")
 
 	d.deleteCiliumNetworkPolicyV2(oldRuleCpy)
