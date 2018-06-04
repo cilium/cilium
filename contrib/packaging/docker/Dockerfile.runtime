@@ -45,7 +45,7 @@ strip /usr/local/clang+llvm/bin/* && \
 #
 # iproute2
 #
-git clone -b v4.12.0 git://git.kernel.org/pub/scm/network/iproute2/iproute2.git && \
+git clone -b v4.16.0 git://git.kernel.org/pub/scm/network/iproute2/iproute2.git && \
 cd iproute2 && \
 ./configure && \
 make -j `getconf _NPROCESSORS_ONLN` && \
