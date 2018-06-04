@@ -66,4 +66,11 @@ const (
 	// EnableHostIPRestore controls whether the host IP should be restored
 	// from previous state automatically
 	EnableHostIPRestore = true
+
+	// DefaultMapRoot is the default path where BPFFS should be mounted
+	DefaultMapRoot = "/sys/fs/bpf"
+
+	// DefaultMapRootFallback is the path which is used when /sys/fs/bpf has
+	// a mount, but with the other filesystem than BPFFS.
+	DefaultMapRootFallback = "/run/cilium/bpffs"
 )
