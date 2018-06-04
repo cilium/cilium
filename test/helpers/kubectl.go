@@ -741,46 +741,59 @@ func (kub *Kubectl) CiliumEndpointsListByLabel(pod, label string) (EndpointMap, 
 	return result, nil
 }
 
-// CiliumEndpointWait waits until all endpoints managed by the specified Cilium
-// pod are ready. Returns false if the command to retrieve the state of the
-// endpoints times out.
-func (kub *Kubectl) CiliumEndpointWait(pod string) bool {
+// CiliumEndpointWaitReady waits until all endpoints managed by all Cilium pod
+// are ready. Returns an error if the Cilium pods cannot be retrieved via
+// Kubernetes, or endpoints are not ready after a specified timeout
+func (kub *Kubectl) CiliumEndpointWaitReady() error {
+	ciliumPods, err := kub.GetCiliumPods(KubeSystemNamespace)
+	if err != nil {
+		kub.logger.WithError(err).Error("cannot get Cilium pods")
+		return err
+	}
 
 	body := func() bool {
-		status, err := kub.CiliumEndpointsList(pod).Filter("{range [*]}{.status.state},{.status.identity.id} {end}")
-		if err != nil {
-			return false
-		}
+		for _, pod := range ciliumPods {
+			logCtx := kub.logger.WithField("pod", pod)
+			status, err := kub.CiliumEndpointsList(pod).Filter(`{range [*]}{.status.state}{"="}{.status.identity.id}{"\n"}{end}`)
+			if err != nil {
+				logCtx.WithError(err).Errorf("cannot get endpoints states on Cilium pod")
+				return false
+			}
+			total := 0
+			invalid := 0
+			for _, line := range strings.Split(status.String(), "\n") {
+				if line == "" {
+					continue
+				}
+				// each line is like status=identityID.
+				// IdentityID is needed because the reserved:init identity
+				// means that the pod is not ready to accept traffic.
+				total++
+				vals := strings.Split(line, "=")
+				if len(vals) != 2 {
+					logCtx.Errorf("Endpoint list does not have a correct output '%s'", line)
+					return false
+				}
+				if vals[0] != "ready" {
+					invalid++
+				}
+				// Consider an endpoint with reserved identity 5 (reserved:init) as not ready.
+				if vals[1] == "5" {
+					invalid++
+				}
+			}
+			logCtx.WithFields(logrus.Fields{
+				"total":   total,
+				"invalid": invalid,
+			}).Info("Waiting for cilium endpoints to be ready")
 
-		var valid, invalid int
-		for _, endpoint := range strings.Split(strings.TrimRight(status.String(), " "), " ") {
-			fields := strings.Split(endpoint, ",")
-			state := fields[0]
-			secID := fields[1]
-			// Consider an endpoint with reserved identity 5 (reserved:init) as not ready.
-			if state != "ready" || secID == "5" {
-				invalid++
-			} else {
-				valid++
+			if invalid != 0 {
+				return false
 			}
 		}
-		if invalid == 0 {
-			return true
-		}
-
-		kub.logger.WithFields(logrus.Fields{
-			"pod":     pod,
-			"valid":   valid,
-			"invalid": invalid,
-		}).Info("Waiting for cilium endpoints")
-		return false
+		return true
 	}
-
-	err := WithTimeout(body, "cannot retrieve endpoints", &TimeoutConfig{Timeout: HelperTimeout})
-	if err != nil {
-		return false
-	}
-	return true
+	return WithTimeout(body, "cannot retrieve endpoints", &TimeoutConfig{Timeout: HelperTimeout})
 }
 
 // CiliumEndpointPolicyVersion returns a mapping of each endpoint's ID to its

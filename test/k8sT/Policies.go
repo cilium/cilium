@@ -113,9 +113,11 @@ var _ = Describe("K8sValidatedPolicyTest", func() {
 				ciliumPod, fmt.Sprintf("cilium config %s=%s",
 					helpers.PolicyEnforcement, helpers.PolicyEnforcementDefault))
 			status.ExpectSuccess()
-			kubectl.CiliumEndpointWait(ciliumPod)
 
-			err := kubectl.WaitforPods(helpers.DefaultNamespace, "-l zgroup=testapp", 300)
+			err := kubectl.CiliumEndpointWaitReady()
+			Expect(err).To(BeNil(), "Endpoints are not ready after timeout")
+
+			err = kubectl.WaitforPods(helpers.DefaultNamespace, "-l zgroup=testapp", 300)
 			Expect(err).Should(BeNil())
 
 		})
@@ -150,9 +152,10 @@ var _ = Describe("K8sValidatedPolicyTest", func() {
 					helpers.PolicyEnforcement, helpers.PolicyEnforcementAlways))
 			status.ExpectSuccess()
 
-			kubectl.CiliumEndpointWait(ciliumPod)
+			err := kubectl.CiliumEndpointWaitReady()
+			Expect(err).To(BeNil(), "Endpoints are not ready after timeout")
 
-			endpoints, err := kubectl.CiliumEndpointsListByLabel(ciliumPod, podFilter)
+			endpoints, err = kubectl.CiliumEndpointsListByLabel(ciliumPod, podFilter)
 			Expect(err).Should(BeNil())
 			Expect(endpoints.AreReady()).Should(BeTrue())
 			policyStatus = endpoints.GetPolicyStatus()
@@ -169,7 +172,8 @@ var _ = Describe("K8sValidatedPolicyTest", func() {
 					helpers.PolicyEnforcement, helpers.PolicyEnforcementDefault))
 			status.ExpectSuccess()
 
-			kubectl.CiliumEndpointWait(ciliumPod)
+			err = kubectl.CiliumEndpointWaitReady()
+			Expect(err).To(BeNil(), "Endpoints are not ready after timeout")
 
 			endpoints, err = kubectl.CiliumEndpointsListByLabel(ciliumPod, podFilter)
 			Expect(err).Should(BeNil())
@@ -1019,15 +1023,13 @@ var _ = Describe("K8sValidatedPolicyTestAcrossNamespaces", func() {
 			res.ExpectContains("403", "Unexpected response code,wanted HTTP 403")
 		}
 
-		ciliumPodK8s2, err := kubectl.GetCiliumPodOnNode(helpers.KubeSystemNamespace, helpers.K8s2)
-		Expect(err).Should(BeNil())
-
 		ciliumPods, err := kubectl.GetCiliumPods(helpers.KubeSystemNamespace)
 		Expect(err).To(BeNil(), "cannot get cilium pods")
 
-		By("Waiting for endpoints to be ready on k8s-2 node")
-		areEndpointsReady := kubectl.CiliumEndpointWait(ciliumPodK8s2)
-		Expect(areEndpointsReady).Should(BeTrue())
+		By("Waiting for endpoints to be ready on cilium")
+
+		err = kubectl.CiliumEndpointWaitReady()
+		Expect(err).To(BeNil(), "Endpoints are not ready after timeout")
 
 		err = kubectl.WaitForServiceEndpoints(
 			developmentNs, "", "backend", "80", helpers.HelperTimeout)

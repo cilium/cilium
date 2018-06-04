@@ -265,8 +265,8 @@ var _ = Describe("K8sValidatedServicesTest", func() {
 			ciliumPod, err := kubectl.GetCiliumPodOnNode(helpers.KubeSystemNamespace, node)
 			ExpectWithOffset(1, err).Should(BeNil(), "was not able to retrieve Cilium pod on node %s", node)
 
-			status := kubectl.CiliumEndpointWait(ciliumPod)
-			ExpectWithOffset(1, status).To(BeTrue(), "timed out waiting for endpoints to be ready")
+			err = kubectl.CiliumEndpointWaitReady()
+			Expect(err).To(BeNil(), "Endpoints are not ready after timeout")
 
 			endpointIDs := kubectl.CiliumEndpointsIDs(ciliumPod)
 			endpointID := endpointIDs[fmt.Sprintf("%s:%s", helpers.DefaultNamespace, podName)]
