@@ -7,7 +7,7 @@ apt-get upgrade -y && \
 #
 # Prepackaged Cilium runtime dependencies
 #
-apt-get install -y --no-install-recommends libelf-dev libc6-dev-i386 iptables libgcc-5-dev bash-completion binutils && \
+apt-get install -y --no-install-recommends gpg gpg-agent libelf-dev libc6-dev-i386 iptables libgcc-5-dev bash-completion binutils && \
 apt-get purge --auto-remove && \
 apt-get clean
 
@@ -67,7 +67,7 @@ strip -s ./loopback && \
 #
 # Cleanup
 #
-apt-get purge --auto-remove -y gcc make bison flex git curl xz-utils ca-certificates && \
+apt-get purge --auto-remove -y gpg gpg-agent gcc make bison flex git curl xz-utils ca-certificates && \
 apt-get clean
 
 #
