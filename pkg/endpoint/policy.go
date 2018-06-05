@@ -722,7 +722,7 @@ func (e *Endpoint) Regenerate(owner Owner, reason string) <-chan bool {
 	}
 
 	go func(owner Owner, req *Request, e *Endpoint) {
-		buildSuccess := true
+		var buildSuccess bool
 
 		e.Mutex.Lock()
 		// This must be accessed in a locked section, so we grab it here.

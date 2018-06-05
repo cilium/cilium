@@ -127,7 +127,7 @@ func (pair *IPIdentityPair) IsHost() bool {
 func (pair *IPIdentityPair) PrefixString() string {
 	var suffix string
 	if !pair.IsHost() {
-		ones := net.IPv6len
+		var ones int
 		if pair.Mask == nil && pair.IP.To4() != nil {
 			ones = net.IPv4len
 		} else {

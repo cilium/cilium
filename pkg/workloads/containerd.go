@@ -106,7 +106,7 @@ func newContainerDClient(opts workloadRuntimeOpts) (WorkloadRuntime, error) {
 		ep = "unix://" + ep
 	}
 	rsc, err := newCRIClient(context.WithValue(context.Background(), epOpt, ep))
-	return &containerDClient{c, rsc}, nil
+	return &containerDClient{c, rsc}, err
 }
 
 // IsRunning returns false if the provided endpoint cannot be associated with a

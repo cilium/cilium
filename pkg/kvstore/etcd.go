@@ -580,7 +580,7 @@ reList:
 					}
 
 					// Retrieve latest revision
-					lastRev = 0
+					// lastRev = 0
 
 					// mark all local keys in state for
 					// deletion unless the upcoming GET

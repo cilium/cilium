@@ -117,6 +117,7 @@ var _ = Describe("RuntimeValidatedChaos", func() {
 		status.ExpectFail("leftover interface were not properly cleaned up")
 
 		links, err := vm.Exec("sudo ip link show | wc -l").IntOutput()
+		Expect(err).Should(BeNil())
 		Expect(links).Should(Equal(originalLinks),
 			"Some network interfaces were accidentally removed!")
 	}, 300)
