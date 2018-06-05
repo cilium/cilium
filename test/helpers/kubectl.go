@@ -651,14 +651,22 @@ func (kub *Kubectl) WaitCleanAllTerminatingPods() error {
 // and will be used in `kubecfg show` and applied to Kubernetes. It will return
 // a error if any action fails.
 func (kub *Kubectl) CiliumInstall(manifestName string) error {
-	manifestTmpPath := GetFilePath(fmt.Sprintf("%s_%s", MakeUID(), manifestName))
-	res := kub.Exec(fmt.Sprintf("kubecfg show %s | tee %s",
-		ManifestGet(manifestName), manifestTmpPath))
+	ciliumDSManifest := ManifestGet(manifestName)
+	// debugYaml only dumps the full created yaml file to the test output if
+	// the cilium manifest can not be created correctly.
+	debugYaml := func() {
+		_ = kub.Exec(fmt.Sprintf("kubecfg show %s", ciliumDSManifest))
+	}
+
+	res := kub.Exec(fmt.Sprintf("kubecfg validate %s", ciliumDSManifest))
 	if !res.WasSuccessful() {
+		debugYaml()
 		return fmt.Errorf(res.GetDebugMessage())
 	}
-	res = kub.Apply(manifestTmpPath)
+
+	res = kub.Exec(fmt.Sprintf("kubecfg update %s", ciliumDSManifest))
 	if !res.WasSuccessful() {
+		debugYaml()
 		return fmt.Errorf(res.GetDebugMessage())
 	}
 	return nil
