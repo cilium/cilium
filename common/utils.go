@@ -18,6 +18,7 @@ import (
 	"bufio"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -121,4 +122,30 @@ func RequireRootPrivilege(cmd string) {
 		fmt.Fprintf(os.Stderr, "Please run %q command(s) with root privileges.\n", cmd)
 		os.Exit(1)
 	}
+}
+
+// MoveNewFilesTo copies all files, that do not exist in newDir, from oldDir.
+func MoveNewFilesTo(oldDir, newDir string) error {
+	oldFiles, err := ioutil.ReadDir(oldDir)
+	if err != nil {
+		return err
+	}
+	newFiles, err := ioutil.ReadDir(newDir)
+	if err != nil {
+		return err
+	}
+
+	for _, oldFile := range oldFiles {
+		exists := false
+		for _, newFile := range newFiles {
+			if oldFile.Name() == newFile.Name() {
+				exists = true
+				break
+			}
+		}
+		if !exists {
+			os.Rename(filepath.Join(oldDir, oldFile.Name()), filepath.Join(newDir, oldFile.Name()))
+		}
+	}
+	return nil
 }
