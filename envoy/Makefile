@@ -33,11 +33,7 @@ CLANG_FORMAT ?= clang-format
 BUILDIFIER ?= buildifier
 STRIP ?= $(QUIET) strip
 
-# Use a pre-release of Istio 0.8.0, until it's officially released.
-# https://github.com/istio/istio/tree/master/release#daily-releases
-# https://gcsweb.istio.io/gcs/istio-prerelease/daily-build/
-# TODO: Update to "0.8.0" when it's released.
-ISTIO_VERSION = release-0.8-20180521-15-16
+ISTIO_VERSION = 0.8.0
 
 ifdef CILIUM_DISABLE_ENVOY_BUILD
 all install clean:

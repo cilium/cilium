@@ -368,8 +368,9 @@ var _ grpc.ClientConn
 // is compatible with the grpc package it is being compiled against.
 const _ = grpc.SupportPackageIsVersion4
 
-// Client API for AccessLogService service
-
+// AccessLogServiceClient is the client API for AccessLogService service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://godoc.org/google.golang.org/grpc#ClientConn.NewStream.
 type AccessLogServiceClient interface {
 	// Envoy will connect and send StreamAccessLogsMessage messages forever. It does not expect any
 	// response to be sent as nothing would be done in the case of failure. The server should
@@ -389,7 +390,7 @@ func NewAccessLogServiceClient(cc *grpc.ClientConn) AccessLogServiceClient {
 }
 
 func (c *accessLogServiceClient) StreamAccessLogs(ctx context.Context, opts ...grpc.CallOption) (AccessLogService_StreamAccessLogsClient, error) {
-	stream, err := grpc.NewClientStream(ctx, &_AccessLogService_serviceDesc.Streams[0], c.cc, "/envoy.service.accesslog.v2.AccessLogService/StreamAccessLogs", opts...)
+	stream, err := c.cc.NewStream(ctx, &_AccessLogService_serviceDesc.Streams[0], "/envoy.service.accesslog.v2.AccessLogService/StreamAccessLogs", opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -422,8 +423,7 @@ func (x *accessLogServiceStreamAccessLogsClient) CloseAndRecv() (*StreamAccessLo
 	return m, nil
 }
 
-// Server API for AccessLogService service
-
+// AccessLogServiceServer is the server API for AccessLogService service.
 type AccessLogServiceServer interface {
 	// Envoy will connect and send StreamAccessLogsMessage messages forever. It does not expect any
 	// response to be sent as nothing would be done in the case of failure. The server should

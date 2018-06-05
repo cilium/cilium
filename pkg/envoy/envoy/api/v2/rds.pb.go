@@ -162,8 +162,9 @@ var _ grpc.ClientConn
 // is compatible with the grpc package it is being compiled against.
 const _ = grpc.SupportPackageIsVersion4
 
-// Client API for RouteDiscoveryService service
-
+// RouteDiscoveryServiceClient is the client API for RouteDiscoveryService service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://godoc.org/google.golang.org/grpc#ClientConn.NewStream.
 type RouteDiscoveryServiceClient interface {
 	StreamRoutes(ctx context.Context, opts ...grpc.CallOption) (RouteDiscoveryService_StreamRoutesClient, error)
 	FetchRoutes(ctx context.Context, in *DiscoveryRequest, opts ...grpc.CallOption) (*DiscoveryResponse, error)
@@ -178,7 +179,7 @@ func NewRouteDiscoveryServiceClient(cc *grpc.ClientConn) RouteDiscoveryServiceCl
 }
 
 func (c *routeDiscoveryServiceClient) StreamRoutes(ctx context.Context, opts ...grpc.CallOption) (RouteDiscoveryService_StreamRoutesClient, error) {
-	stream, err := grpc.NewClientStream(ctx, &_RouteDiscoveryService_serviceDesc.Streams[0], c.cc, "/envoy.api.v2.RouteDiscoveryService/StreamRoutes", opts...)
+	stream, err := c.cc.NewStream(ctx, &_RouteDiscoveryService_serviceDesc.Streams[0], "/envoy.api.v2.RouteDiscoveryService/StreamRoutes", opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -210,15 +211,14 @@ func (x *routeDiscoveryServiceStreamRoutesClient) Recv() (*DiscoveryResponse, er
 
 func (c *routeDiscoveryServiceClient) FetchRoutes(ctx context.Context, in *DiscoveryRequest, opts ...grpc.CallOption) (*DiscoveryResponse, error) {
 	out := new(DiscoveryResponse)
-	err := grpc.Invoke(ctx, "/envoy.api.v2.RouteDiscoveryService/FetchRoutes", in, out, c.cc, opts...)
+	err := c.cc.Invoke(ctx, "/envoy.api.v2.RouteDiscoveryService/FetchRoutes", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-// Server API for RouteDiscoveryService service
-
+// RouteDiscoveryServiceServer is the server API for RouteDiscoveryService service.
 type RouteDiscoveryServiceServer interface {
 	StreamRoutes(RouteDiscoveryService_StreamRoutesServer) error
 	FetchRoutes(context.Context, *DiscoveryRequest) (*DiscoveryResponse, error)

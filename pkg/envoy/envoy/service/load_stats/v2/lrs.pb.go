@@ -141,8 +141,9 @@ var _ grpc.ClientConn
 // is compatible with the grpc package it is being compiled against.
 const _ = grpc.SupportPackageIsVersion4
 
-// Client API for LoadReportingService service
-
+// LoadReportingServiceClient is the client API for LoadReportingService service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://godoc.org/google.golang.org/grpc#ClientConn.NewStream.
 type LoadReportingServiceClient interface {
 	// Advanced API to allow for multi-dimensional load balancing by remote
 	// server. For receiving LB assignments, the steps are:
@@ -184,7 +185,7 @@ func NewLoadReportingServiceClient(cc *grpc.ClientConn) LoadReportingServiceClie
 }
 
 func (c *loadReportingServiceClient) StreamLoadStats(ctx context.Context, opts ...grpc.CallOption) (LoadReportingService_StreamLoadStatsClient, error) {
-	stream, err := grpc.NewClientStream(ctx, &_LoadReportingService_serviceDesc.Streams[0], c.cc, "/envoy.service.load_stats.v2.LoadReportingService/StreamLoadStats", opts...)
+	stream, err := c.cc.NewStream(ctx, &_LoadReportingService_serviceDesc.Streams[0], "/envoy.service.load_stats.v2.LoadReportingService/StreamLoadStats", opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -214,8 +215,7 @@ func (x *loadReportingServiceStreamLoadStatsClient) Recv() (*LoadStatsResponse, 
 	return m, nil
 }
 
-// Server API for LoadReportingService service
-
+// LoadReportingServiceServer is the server API for LoadReportingService service.
 type LoadReportingServiceServer interface {
 	// Advanced API to allow for multi-dimensional load balancing by remote
 	// server. For receiving LB assignments, the steps are:

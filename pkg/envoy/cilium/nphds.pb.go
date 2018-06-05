@@ -90,8 +90,9 @@ var _ grpc.ClientConn
 // is compatible with the grpc package it is being compiled against.
 const _ = grpc.SupportPackageIsVersion4
 
-// Client API for NetworkPolicyHostsDiscoveryService service
-
+// NetworkPolicyHostsDiscoveryServiceClient is the client API for NetworkPolicyHostsDiscoveryService service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://godoc.org/google.golang.org/grpc#ClientConn.NewStream.
 type NetworkPolicyHostsDiscoveryServiceClient interface {
 	StreamNetworkPolicyHosts(ctx context.Context, opts ...grpc.CallOption) (NetworkPolicyHostsDiscoveryService_StreamNetworkPolicyHostsClient, error)
 	FetchNetworkPolicyHosts(ctx context.Context, in *v2.DiscoveryRequest, opts ...grpc.CallOption) (*v2.DiscoveryResponse, error)
@@ -106,7 +107,7 @@ func NewNetworkPolicyHostsDiscoveryServiceClient(cc *grpc.ClientConn) NetworkPol
 }
 
 func (c *networkPolicyHostsDiscoveryServiceClient) StreamNetworkPolicyHosts(ctx context.Context, opts ...grpc.CallOption) (NetworkPolicyHostsDiscoveryService_StreamNetworkPolicyHostsClient, error) {
-	stream, err := grpc.NewClientStream(ctx, &_NetworkPolicyHostsDiscoveryService_serviceDesc.Streams[0], c.cc, "/cilium.NetworkPolicyHostsDiscoveryService/StreamNetworkPolicyHosts", opts...)
+	stream, err := c.cc.NewStream(ctx, &_NetworkPolicyHostsDiscoveryService_serviceDesc.Streams[0], "/cilium.NetworkPolicyHostsDiscoveryService/StreamNetworkPolicyHosts", opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -138,15 +139,14 @@ func (x *networkPolicyHostsDiscoveryServiceStreamNetworkPolicyHostsClient) Recv(
 
 func (c *networkPolicyHostsDiscoveryServiceClient) FetchNetworkPolicyHosts(ctx context.Context, in *v2.DiscoveryRequest, opts ...grpc.CallOption) (*v2.DiscoveryResponse, error) {
 	out := new(v2.DiscoveryResponse)
-	err := grpc.Invoke(ctx, "/cilium.NetworkPolicyHostsDiscoveryService/FetchNetworkPolicyHosts", in, out, c.cc, opts...)
+	err := c.cc.Invoke(ctx, "/cilium.NetworkPolicyHostsDiscoveryService/FetchNetworkPolicyHosts", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-// Server API for NetworkPolicyHostsDiscoveryService service
-
+// NetworkPolicyHostsDiscoveryServiceServer is the server API for NetworkPolicyHostsDiscoveryService service.
 type NetworkPolicyHostsDiscoveryServiceServer interface {
 	StreamNetworkPolicyHosts(NetworkPolicyHostsDiscoveryService_StreamNetworkPolicyHostsServer) error
 	FetchNetworkPolicyHosts(context.Context, *v2.DiscoveryRequest) (*v2.DiscoveryResponse, error)

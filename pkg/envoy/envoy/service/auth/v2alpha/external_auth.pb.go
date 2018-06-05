@@ -178,8 +178,9 @@ var _ grpc.ClientConn
 // is compatible with the grpc package it is being compiled against.
 const _ = grpc.SupportPackageIsVersion4
 
-// Client API for Authorization service
-
+// AuthorizationClient is the client API for Authorization service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://godoc.org/google.golang.org/grpc#ClientConn.NewStream.
 type AuthorizationClient interface {
 	// Performs authorization check based on the attributes associated with the
 	// incoming request, and returns status `OK` or not `OK`.
@@ -196,15 +197,14 @@ func NewAuthorizationClient(cc *grpc.ClientConn) AuthorizationClient {
 
 func (c *authorizationClient) Check(ctx context.Context, in *CheckRequest, opts ...grpc.CallOption) (*CheckResponse, error) {
 	out := new(CheckResponse)
-	err := grpc.Invoke(ctx, "/envoy.service.auth.v2alpha.Authorization/Check", in, out, c.cc, opts...)
+	err := c.cc.Invoke(ctx, "/envoy.service.auth.v2alpha.Authorization/Check", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-// Server API for Authorization service
-
+// AuthorizationServer is the server API for Authorization service.
 type AuthorizationServer interface {
 	// Performs authorization check based on the attributes associated with the
 	// incoming request, and returns status `OK` or not `OK`.

@@ -69,8 +69,9 @@ var _ grpc.ClientConn
 // is compatible with the grpc package it is being compiled against.
 const _ = grpc.SupportPackageIsVersion4
 
-// Client API for SecretDiscoveryService service
-
+// SecretDiscoveryServiceClient is the client API for SecretDiscoveryService service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://godoc.org/google.golang.org/grpc#ClientConn.NewStream.
 type SecretDiscoveryServiceClient interface {
 	StreamSecrets(ctx context.Context, opts ...grpc.CallOption) (SecretDiscoveryService_StreamSecretsClient, error)
 	FetchSecrets(ctx context.Context, in *v2.DiscoveryRequest, opts ...grpc.CallOption) (*v2.DiscoveryResponse, error)
@@ -85,7 +86,7 @@ func NewSecretDiscoveryServiceClient(cc *grpc.ClientConn) SecretDiscoveryService
 }
 
 func (c *secretDiscoveryServiceClient) StreamSecrets(ctx context.Context, opts ...grpc.CallOption) (SecretDiscoveryService_StreamSecretsClient, error) {
-	stream, err := grpc.NewClientStream(ctx, &_SecretDiscoveryService_serviceDesc.Streams[0], c.cc, "/envoy.service.discovery.v2.SecretDiscoveryService/StreamSecrets", opts...)
+	stream, err := c.cc.NewStream(ctx, &_SecretDiscoveryService_serviceDesc.Streams[0], "/envoy.service.discovery.v2.SecretDiscoveryService/StreamSecrets", opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -117,15 +118,14 @@ func (x *secretDiscoveryServiceStreamSecretsClient) Recv() (*v2.DiscoveryRespons
 
 func (c *secretDiscoveryServiceClient) FetchSecrets(ctx context.Context, in *v2.DiscoveryRequest, opts ...grpc.CallOption) (*v2.DiscoveryResponse, error) {
 	out := new(v2.DiscoveryResponse)
-	err := grpc.Invoke(ctx, "/envoy.service.discovery.v2.SecretDiscoveryService/FetchSecrets", in, out, c.cc, opts...)
+	err := c.cc.Invoke(ctx, "/envoy.service.discovery.v2.SecretDiscoveryService/FetchSecrets", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-// Server API for SecretDiscoveryService service
-
+// SecretDiscoveryServiceServer is the server API for SecretDiscoveryService service.
 type SecretDiscoveryServiceServer interface {
 	StreamSecrets(SecretDiscoveryService_StreamSecretsServer) error
 	FetchSecrets(context.Context, *v2.DiscoveryRequest) (*v2.DiscoveryResponse, error)
