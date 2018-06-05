@@ -992,27 +992,44 @@ func (d *Daemon) syncLXCMap() error {
 		},
 	}
 
-	for _, pair := range specialIdentities {
-		isHost := pair.ID == identity.ReservedIdentityHost
+	for _, ipIDPair := range specialIdentities {
+		isHost := ipIDPair.ID == identity.ReservedIdentityHost
 		if isHost {
-			added, err := lxcmap.SyncHostEntry(pair.IP)
+			added, err := lxcmap.SyncHostEntry(ipIDPair.IP)
 			if err != nil {
 				return fmt.Errorf("Unable to add host entry to endpoint map: %s", err)
 			}
 			if added {
-				log.WithField(logfields.IPAddr, pair.IP).Debugf("Added local ip to endpoint map")
+				log.WithField(logfields.IPAddr, ipIDPair.IP).Debugf("Added local ip to endpoint map")
 			}
 		}
-		prefix := pair.PrefixString()
-		id, exists := ipcache.IPIdentityCache.LookupByIP(prefix)
-		if !exists || id != pair.ID {
+		prefix := ipIDPair.PrefixString()
+		cachedIdentity, exists := ipcache.IPIdentityCache.LookupByIP(prefix)
+		if !exists || cachedIdentity != ipIDPair.ID {
 			// Upsert will not propagate (reserved:foo->ID) mappings across the cluster,
 			// and we specifically don't want to do so.
 			// Manually push it into each IPIdentityMappingListener.
-			log.WithField(logfields.IPAddr, prefix).Debug("Adding special identity to ipcache")
-			ipcache.IPIdentityCache.Upsert(prefix, pair.ID)
+			log.WithFields(logrus.Fields{
+				logfields.IPAddr:       ipIDPair.IP,
+				logfields.IPMask:       ipIDPair.Mask,
+				logfields.OldIdentity:  cachedIdentity,
+				logfields.Identity:     ipIDPair.ID,
+				logfields.Modification: ipcache.Upsert,
+			}).Debug("Adding special identity to ipcache")
+			ipcache.IPIdentityCache.Upsert(prefix, ipIDPair.ID)
+
+			var oldIPIDPair *identity.IPIdentityPair
+			if cachedIdentity != ipIDPair.ID {
+				// If an existing mapping is updated,
+				// provide the existing mapping to the
+				// listener so it can easily clean up
+				// the old mapping.
+				pair := ipIDPair
+				pair.ID = cachedIdentity
+				oldIPIDPair = &pair
+			}
 			for _, listener := range d.ipcacheListeners {
-				listener.OnIPIdentityCacheChange(ipcache.Upsert, nil, pair)
+				listener.OnIPIdentityCacheChange(ipcache.Upsert, oldIPIDPair, ipIDPair)
 			}
 		}
 	}

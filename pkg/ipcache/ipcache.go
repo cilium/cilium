@@ -580,7 +580,7 @@ func ipIdentityWatcher(listeners []IPIdentityMappingListener) {
 				log.WithFields(logrus.Fields{
 					logfields.IPAddr:       ipIDPair.IP,
 					logfields.IPMask:       ipIDPair.Mask,
-					"cached-identity":      cachedIdentity,
+					logfields.OldIdentity:  cachedIdentity,
 					logfields.Identity:     ipIDPair.ID,
 					logfields.Modification: cacheModification,
 				}).Debugf("endpoint IP cache state change")
