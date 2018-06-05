@@ -38,6 +38,7 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	ipCacheBPF "github.com/cilium/cilium/pkg/maps/ipcache"
 	"github.com/cilium/cilium/pkg/maps/lxcmap"
+	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/uuid"
 	"github.com/cilium/cilium/pkg/workloads"
@@ -142,10 +143,12 @@ func NewPutEndpointIDHandler(d *Daemon) PutEndpointIDHandler {
 // request that was specified. Returns an HTTP code response code and an
 // error msg (or nil on success).
 func (d *Daemon) createEndpoint(epTemplate *models.EndpointChangeRequest, id string, lbls []string) (int, error) {
+
 	ep, err := endpoint.NewEndpointFromChangeModel(epTemplate)
 	if err != nil {
 		return PutEndpointIDInvalidCode, err
 	}
+
 	ep.SetDefaultOpts(option.Config.Opts)
 
 	oldEp, err2 := endpointmanager.Lookup(id)
@@ -176,6 +179,13 @@ func (d *Daemon) createEndpoint(epTemplate *models.EndpointChangeRequest, id str
 			labels.IDNameInit: labels.NewLabel(labels.IDNameInit, "", labels.LabelSourceReserved),
 		}
 	}
+
+	// In order to capture initial "waiting-for-identity" state
+	// we need to increment the counters before `SetIdentityLabels`
+	// since `SetIdentityLabels` can trigger an endpoint regenerate
+	// and change the state to "waiting-to-regenerate"
+	metrics.EndpointStateCount.
+		WithLabelValues(ep.GetState()).Inc()
 
 	ep.SetIdentityLabels(d, addLabels)
 
@@ -440,6 +450,7 @@ func (d *Daemon) deleteEndpoint(ep *endpoint.Endpoint) int {
 	for _, err := range errors {
 		scopedLog.WithError(err).Warn("Ignoring error while deleting endpoint")
 	}
+
 	return len(errors)
 }
 
@@ -451,7 +462,6 @@ func (d *Daemon) deleteEndpoint(ep *endpoint.Endpoint) int {
 // Specific users such as the cilium-health EP may choose not to release the IP
 // when deleting the endpoint. Most users should pass true for releaseIP.
 func (d *Daemon) deleteEndpointQuiet(ep *endpoint.Endpoint, releaseIP bool) []error {
-
 	// Only used for CRI-O since it does not support events.
 	if d.workloadsEventsCh != nil && ep.GetContainerID() != "" {
 		d.workloadsEventsCh <- &workloads.EventMessage{
@@ -480,6 +490,9 @@ func (d *Daemon) deleteEndpointQuiet(ep *endpoint.Endpoint, releaseIP bool) []er
 	// Remove the endpoint before we clean up. This ensures it is no longer
 	// listed or queued for rebuilds.
 	endpointmanager.Remove(ep)
+
+	metrics.EndpointStateCount.
+		WithLabelValues(ep.GetState()).Dec()
 
 	// If dry mode is enabled, no changes to BPF maps are performed
 	if !d.DryModeEnabled() {
