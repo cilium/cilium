@@ -522,8 +522,13 @@ func (e *Endpoint) removeOldRedirects(owner Owner, desiredRedirects map[string]b
 // regenerateBPF rewrites all headers and updates all BPF maps to reflect the
 // specified endpoint.
 // Must be called with endpoint.Mutex not held and endpoint.BuildMutex held.
-func (e *Endpoint) regenerateBPF(owner Owner, epdir, reason string) (uint64, error) {
-	var err error
+// Returns the policy revision number when the regeneration has called, a
+// boolean if the BPF compilation was executed and an error in case of an error.
+func (e *Endpoint) regenerateBPF(owner Owner, epdir, reason string) (uint64, bool, error) {
+	var (
+		err                 error
+		compilationExecuted bool
+	)
 
 	// Make sure that owner is not compiling base programs while we are
 	// regenerating an endpoint.
@@ -551,7 +556,7 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir, reason string) (uint64, err
 
 		e.getLogger().WithField(logfields.EndpointState, e.state).Debug("Skipping build due to invalid state")
 		e.Mutex.Unlock()
-		return 0, fmt.Errorf("Skipping build due to invalid state: %s", e.state)
+		return 0, compilationExecuted, fmt.Errorf("Skipping build due to invalid state: %s", e.state)
 	}
 
 	// If dry mode is enabled, no further changes to BPF maps are performed
@@ -562,21 +567,21 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir, reason string) (uint64, err
 		// policy change.
 		// Note that PolicyMap is not initialized!
 		if _, err = e.regeneratePolicy(owner, nil); err != nil {
-			return 0, fmt.Errorf("Unable to regenerate policy: %s", err)
+			return 0, compilationExecuted, fmt.Errorf("Unable to regenerate policy: %s", err)
 		}
 
 		// Dry mode needs Network Policy Updates, but e.ProxyWaitGroup must not
 		// be initialized, as there is no proxy ACKing the changes.
 		if err = e.updateNetworkPolicy(owner); err != nil {
-			return 0, err
+			return 0, compilationExecuted, err
 		}
 
 		if err = e.writeHeaderfile(epdir, owner); err != nil {
-			return 0, fmt.Errorf("Unable to write header file: %s", err)
+			return 0, compilationExecuted, fmt.Errorf("Unable to write header file: %s", err)
 		}
 
 		log.WithField(logfields.EndpointID, e.ID).Debug("Skipping bpf updates due to dry mode")
-		return e.nextPolicyRevision, nil
+		return e.nextPolicyRevision, compilationExecuted, nil
 	}
 
 	completionCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
@@ -626,14 +631,14 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir, reason string) (uint64, err
 		e.PolicyMap, createdPolicyMap, err = policymap.OpenMap(e.PolicyMapPathLocked())
 		if err != nil {
 			e.Mutex.Unlock()
-			return 0, err
+			return 0, compilationExecuted, err
 		}
 		// Clean up map contents
 		e.getLogger().Debug("flushing old PolicyMap")
 		err = e.PolicyMap.Flush()
 		if err != nil {
 			e.Mutex.Unlock()
-			return 0, err
+			return 0, compilationExecuted, err
 		}
 	}
 
@@ -647,7 +652,7 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir, reason string) (uint64, err
 		_, err = e.regeneratePolicy(owner, nil)
 		if err != nil {
 			e.Mutex.Unlock()
-			return 0, fmt.Errorf("unable to regenerate policy for '%s': %s", e.PolicyMap.String(), err)
+			return 0, compilationExecuted, fmt.Errorf("unable to regenerate policy for '%s': %s", e.PolicyMap.String(), err)
 		}
 
 		// Synchronously try to update PolicyMap for this endpoint. If any
@@ -659,7 +664,7 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir, reason string) (uint64, err
 		err := e.syncPolicyMap()
 		if err != nil {
 			e.Mutex.Unlock()
-			return 0, fmt.Errorf("unable to regenerate policy because PolicyMap synchronization failed: %s", err)
+			return 0, compilationExecuted, fmt.Errorf("unable to regenerate policy because PolicyMap synchronization failed: %s", err)
 		}
 
 		// Walk the L4Policy for ports that require
@@ -668,14 +673,14 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir, reason string) (uint64, err
 			desiredRedirects, err = e.addNewRedirects(owner, e.DesiredL4Policy)
 			if err != nil {
 				e.Mutex.Unlock()
-				return 0, err
+				return 0, compilationExecuted, err
 			}
 		}
 		// Update policies after adding redirects, otherwise we will not wait for
 		// acks for the first policy upates for the first added redirects.
 		if err = e.updateNetworkPolicy(owner); err != nil {
 			e.Mutex.Unlock()
-			return 0, err
+			return 0, compilationExecuted, err
 		}
 	}
 
@@ -683,7 +688,7 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir, reason string) (uint64, err
 	// BPF programs for this endpoint.
 	if err = e.writeHeaderfile(epdir, owner); err != nil {
 		e.Mutex.Unlock()
-		return 0, fmt.Errorf("unable to write header file: %s", err)
+		return 0, compilationExecuted, fmt.Errorf("unable to write header file: %s", err)
 	}
 
 	// Avoid BPF program compilation and installation if the headerfile for the endpoint
@@ -706,7 +711,7 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir, reason string) (uint64, err
 	if epInfoCache == nil {
 		e.Mutex.Unlock()
 		err = fmt.Errorf("Unable to cache endpoint information")
-		return 0, err
+		return 0, compilationExecuted, err
 	}
 
 	// Populate maps used for CIDR-based policy. If the maps would be empty,
@@ -742,15 +747,16 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir, reason string) (uint64, err
 	// traffic to those ports.
 	err = e.WaitForProxyCompletions()
 	if err != nil {
-		return 0, fmt.Errorf("Error while configuring proxy redirects: %s", err)
+		return 0, compilationExecuted, fmt.Errorf("Error while configuring proxy redirects: %s", err)
 	}
 
 	if bpfHeaderfilesChanged {
 		// Compile and install BPF programs for this endpoint
 		err = e.runInit(libdir, rundir, epdir, epInfoCache.ifName, debug)
 		if err != nil {
-			return epInfoCache.revision, err
+			return epInfoCache.revision, compilationExecuted, err
 		}
+		compilationExecuted = true
 		e.bpfHeaderfileHash = bpfHeaderfilesHash
 	} else {
 		e.Mutex.RLock()
@@ -770,7 +776,7 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir, reason string) (uint64, err
 	e.Mutex.Unlock()
 	err = e.WaitForProxyCompletions()
 	if err != nil {
-		return 0, fmt.Errorf("Error while deleting obsolete proxy redirects: %s", err)
+		return 0, compilationExecuted, fmt.Errorf("Error while deleting obsolete proxy redirects: %s", err)
 	}
 
 	// The last operation hooks the endpoint into the endpoint table and exposes it
@@ -779,5 +785,5 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir, reason string) (uint64, err
 		log.WithField(logfields.EndpointID, e.ID).WithError(err).Error("Exposing new bpf failed")
 	}
 
-	return epInfoCache.revision, err
+	return epInfoCache.revision, compilationExecuted, err
 }
