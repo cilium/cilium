@@ -606,21 +606,29 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir, reason string) (uint64, boo
 	defer func() {
 		if err != nil {
 			e.Mutex.Lock()
+			epLogger := e.getLogger()
+			epLogger.WithError(err).Error("destroying BPF maps due to" +
+				"errors during regeneration")
 			if createdPolicyMap {
+				epLogger.Debug("removing endpoint PolicyMap")
 				os.RemoveAll(e.PolicyMapPathLocked())
 				e.PolicyMap = nil
 			}
 
 			if createdIPv6IngressMap {
+				epLogger.WithField(logfields.BPFMapName, e.IPv6IngressMapPathLocked()).Debug("removing endpoint CIDR map")
 				e.L3Maps.DestroyBpfMap(IPv6Ingress, e.IPv6IngressMapPathLocked())
 			}
 			if createdIPv6EgressMap {
+				epLogger.WithField(logfields.BPFMapName, e.IPv6EgressMapPathLocked()).Debug("removing endpoint CIDR map")
 				e.L3Maps.DestroyBpfMap(IPv6Egress, e.IPv6EgressMapPathLocked())
 			}
 			if createdIPv4IngressMap {
+				epLogger.WithField(logfields.BPFMapName, e.IPv4IngressMapPathLocked()).Debug("removing endpoint CIDR map")
 				e.L3Maps.DestroyBpfMap(IPv4Ingress, e.IPv4IngressMapPathLocked())
 			}
 			if createdIPv4EgressMap {
+				epLogger.WithField(logfields.BPFMapName, e.IPv4EgressMapPathLocked()).Debug("removing endpoint CIDR map")
 				e.L3Maps.DestroyBpfMap(IPv4Egress, e.IPv4EgressMapPathLocked())
 			}
 			e.Mutex.Unlock()
