@@ -18,6 +18,9 @@ import (
 	"testing"
 
 	"gopkg.in/check.v1"
+	"io/ioutil"
+	"os"
+	"path/filepath"
 )
 
 // Hook up gocheck into the "go test" runner.
@@ -58,4 +61,69 @@ func (s *CommonSuite) TestFmtDefineAddress(c *check.C) {
 func (s *CommonSuite) TestFmtDefineArray(c *check.C) {
 	c.Assert(FmtDefineArray("foo", []byte{1, 2, 3}), check.Equals, "#define foo { 0x1, 0x2, 0x3 }\n")
 	c.Assert(FmtDefineArray("foo", []byte{}), check.Equals, "#define foo {  }\n")
+}
+
+func (s *CommonSuite) TestMoveNewFilesTo(c *check.C) {
+	oldDir := c.MkDir()
+	newDir := c.MkDir()
+	f1, err := ioutil.TempFile(oldDir, "")
+	c.Assert(err, check.IsNil)
+	f2, err := ioutil.TempFile(oldDir, "")
+	c.Assert(err, check.IsNil)
+	f3, err := ioutil.TempFile(newDir, "")
+	c.Assert(err, check.IsNil)
+
+	// Copy the same f4 file in both directories to make sure the same files
+	// are not moved from the old directory into the new directory.
+	err = ioutil.WriteFile(filepath.Join(oldDir, "foo"), []byte(""), os.FileMode(0644))
+	c.Assert(err, check.IsNil)
+	err = ioutil.WriteFile(filepath.Join(newDir, "foo"), []byte(""), os.FileMode(0644))
+	c.Assert(err, check.IsNil)
+
+	compareDir := func(dir string, wantedFiles []string) {
+		files, err := ioutil.ReadDir(dir)
+		c.Assert(err, check.IsNil)
+		filesNames := make([]string, 0, len(wantedFiles))
+		for _, file := range files {
+			filesNames = append(filesNames, file.Name())
+		}
+		c.Assert(wantedFiles, check.DeepEquals, filesNames)
+	}
+
+	type args struct {
+		oldDir string
+		newDir string
+	}
+	tests := []struct {
+		name       string
+		args       args
+		wantErr    bool
+		wantOldDir []string
+		wantNewDir []string
+	}{
+		{
+			name: "copying from one directory to the other",
+			args: args{
+				oldDir: oldDir,
+				newDir: newDir,
+			},
+			wantErr: false,
+			wantOldDir: []string{
+				"foo",
+			},
+			wantNewDir: []string{
+				f1.Name(),
+				f2.Name(),
+				f3.Name(),
+				"foo",
+			},
+		},
+	}
+	for _, tt := range tests {
+		if err := MoveNewFilesTo(tt.args.oldDir, tt.args.newDir); (err != nil) != tt.wantErr {
+			c.Assert(err != nil, check.Equals, tt.wantErr)
+			compareDir(tt.args.oldDir, tt.wantOldDir)
+			compareDir(tt.args.newDir, tt.wantNewDir)
+		}
+	}
 }

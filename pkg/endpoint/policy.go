@@ -654,7 +654,7 @@ func (e *Endpoint) regenerate(owner Owner, reason string) (retErr error) {
 		e.Mutex.Unlock()
 	}()
 
-	revision, err := e.regenerateBPF(owner, tmpDir, reason)
+	revision, compilationExecuted, err := e.regenerateBPF(owner, tmpDir, reason)
 
 	// If generation fails, keep the directory around. If it ever succeeds
 	// again, clean up the XXX_next_fail copy.
@@ -688,6 +688,16 @@ func (e *Endpoint) regenerate(owner Owner, reason string) (retErr error) {
 		}
 
 		return fmt.Errorf("Restored original endpoint directory, atomic replace failed: %s", err)
+	}
+
+	// If the compilation was skipped then we need to copy the old bpf objects
+	// into the new directory
+	if !compilationExecuted {
+		err := common.MoveNewFilesTo(backupDir, origDir)
+		if err != nil {
+			log.WithError(err).Debugf("Unable to copy old bpf object "+
+				"files from %s into the new directory %s.", backupDir, origDir)
+		}
 	}
 
 	os.RemoveAll(backupDir)
