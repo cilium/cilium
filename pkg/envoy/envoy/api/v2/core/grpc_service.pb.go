@@ -46,7 +46,7 @@ func (m *GrpcService) Reset()         { *m = GrpcService{} }
 func (m *GrpcService) String() string { return proto.CompactTextString(m) }
 func (*GrpcService) ProtoMessage()    {}
 func (*GrpcService) Descriptor() ([]byte, []int) {
-	return fileDescriptor_grpc_service_941a4bbb24811f43, []int{0}
+	return fileDescriptor_grpc_service_582afe3ef2862683, []int{0}
 }
 func (m *GrpcService) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_GrpcService.Unmarshal(m, b)
@@ -203,7 +203,7 @@ func (m *GrpcService_EnvoyGrpc) Reset()         { *m = GrpcService_EnvoyGrpc{} }
 func (m *GrpcService_EnvoyGrpc) String() string { return proto.CompactTextString(m) }
 func (*GrpcService_EnvoyGrpc) ProtoMessage()    {}
 func (*GrpcService_EnvoyGrpc) Descriptor() ([]byte, []int) {
-	return fileDescriptor_grpc_service_941a4bbb24811f43, []int{0, 0}
+	return fileDescriptor_grpc_service_582afe3ef2862683, []int{0, 0}
 }
 func (m *GrpcService_EnvoyGrpc) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_GrpcService_EnvoyGrpc.Unmarshal(m, b)
@@ -230,6 +230,7 @@ func (m *GrpcService_EnvoyGrpc) GetClusterName() string {
 	return ""
 }
 
+// [#proto-status: draft]
 type GrpcService_GoogleGrpc struct {
 	// The target URI when using the `Google C++ gRPC client
 	// <https://github.com/grpc/grpc>`_. SSL credentials will be supplied in
@@ -265,7 +266,7 @@ func (m *GrpcService_GoogleGrpc) Reset()         { *m = GrpcService_GoogleGrpc{}
 func (m *GrpcService_GoogleGrpc) String() string { return proto.CompactTextString(m) }
 func (*GrpcService_GoogleGrpc) ProtoMessage()    {}
 func (*GrpcService_GoogleGrpc) Descriptor() ([]byte, []int) {
-	return fileDescriptor_grpc_service_941a4bbb24811f43, []int{0, 1}
+	return fileDescriptor_grpc_service_582afe3ef2862683, []int{0, 1}
 }
 func (m *GrpcService_GoogleGrpc) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_GrpcService_GoogleGrpc.Unmarshal(m, b)
@@ -344,7 +345,7 @@ func (m *GrpcService_GoogleGrpc_SslCredentials) Reset()         { *m = GrpcServi
 func (m *GrpcService_GoogleGrpc_SslCredentials) String() string { return proto.CompactTextString(m) }
 func (*GrpcService_GoogleGrpc_SslCredentials) ProtoMessage()    {}
 func (*GrpcService_GoogleGrpc_SslCredentials) Descriptor() ([]byte, []int) {
-	return fileDescriptor_grpc_service_941a4bbb24811f43, []int{0, 1, 0}
+	return fileDescriptor_grpc_service_582afe3ef2862683, []int{0, 1, 0}
 }
 func (m *GrpcService_GoogleGrpc_SslCredentials) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_GrpcService_GoogleGrpc_SslCredentials.Unmarshal(m, b)
@@ -403,7 +404,7 @@ func (m *GrpcService_GoogleGrpc_ChannelCredentials) Reset() {
 func (m *GrpcService_GoogleGrpc_ChannelCredentials) String() string { return proto.CompactTextString(m) }
 func (*GrpcService_GoogleGrpc_ChannelCredentials) ProtoMessage()    {}
 func (*GrpcService_GoogleGrpc_ChannelCredentials) Descriptor() ([]byte, []int) {
-	return fileDescriptor_grpc_service_941a4bbb24811f43, []int{0, 1, 1}
+	return fileDescriptor_grpc_service_582afe3ef2862683, []int{0, 1, 1}
 }
 func (m *GrpcService_GoogleGrpc_ChannelCredentials) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_GrpcService_GoogleGrpc_ChannelCredentials.Unmarshal(m, b)
@@ -554,7 +555,7 @@ func (m *GrpcService_GoogleGrpc_CallCredentials) Reset() {
 func (m *GrpcService_GoogleGrpc_CallCredentials) String() string { return proto.CompactTextString(m) }
 func (*GrpcService_GoogleGrpc_CallCredentials) ProtoMessage()    {}
 func (*GrpcService_GoogleGrpc_CallCredentials) Descriptor() ([]byte, []int) {
-	return fileDescriptor_grpc_service_941a4bbb24811f43, []int{0, 1, 2}
+	return fileDescriptor_grpc_service_582afe3ef2862683, []int{0, 1, 2}
 }
 func (m *GrpcService_GoogleGrpc_CallCredentials) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_GrpcService_GoogleGrpc_CallCredentials.Unmarshal(m, b)
@@ -817,7 +818,7 @@ func (m *GrpcService_GoogleGrpc_CallCredentials_ServiceAccountJWTAccessCredentia
 }
 func (*GrpcService_GoogleGrpc_CallCredentials_ServiceAccountJWTAccessCredentials) ProtoMessage() {}
 func (*GrpcService_GoogleGrpc_CallCredentials_ServiceAccountJWTAccessCredentials) Descriptor() ([]byte, []int) {
-	return fileDescriptor_grpc_service_941a4bbb24811f43, []int{0, 1, 2, 0}
+	return fileDescriptor_grpc_service_582afe3ef2862683, []int{0, 1, 2, 0}
 }
 func (m *GrpcService_GoogleGrpc_CallCredentials_ServiceAccountJWTAccessCredentials) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_GrpcService_GoogleGrpc_CallCredentials_ServiceAccountJWTAccessCredentials.Unmarshal(m, b)
@@ -867,7 +868,7 @@ func (m *GrpcService_GoogleGrpc_CallCredentials_GoogleIAMCredentials) String() s
 }
 func (*GrpcService_GoogleGrpc_CallCredentials_GoogleIAMCredentials) ProtoMessage() {}
 func (*GrpcService_GoogleGrpc_CallCredentials_GoogleIAMCredentials) Descriptor() ([]byte, []int) {
-	return fileDescriptor_grpc_service_941a4bbb24811f43, []int{0, 1, 2, 1}
+	return fileDescriptor_grpc_service_582afe3ef2862683, []int{0, 1, 2, 1}
 }
 func (m *GrpcService_GoogleGrpc_CallCredentials_GoogleIAMCredentials) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_GrpcService_GoogleGrpc_CallCredentials_GoogleIAMCredentials.Unmarshal(m, b)
@@ -917,7 +918,7 @@ func (m *GrpcService_GoogleGrpc_CallCredentials_MetadataCredentialsFromPlugin) S
 }
 func (*GrpcService_GoogleGrpc_CallCredentials_MetadataCredentialsFromPlugin) ProtoMessage() {}
 func (*GrpcService_GoogleGrpc_CallCredentials_MetadataCredentialsFromPlugin) Descriptor() ([]byte, []int) {
-	return fileDescriptor_grpc_service_941a4bbb24811f43, []int{0, 1, 2, 2}
+	return fileDescriptor_grpc_service_582afe3ef2862683, []int{0, 1, 2, 2}
 }
 func (m *GrpcService_GoogleGrpc_CallCredentials_MetadataCredentialsFromPlugin) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_GrpcService_GoogleGrpc_CallCredentials_MetadataCredentialsFromPlugin.Unmarshal(m, b)
@@ -964,10 +965,10 @@ func init() {
 }
 
 func init() {
-	proto.RegisterFile("envoy/api/v2/core/grpc_service.proto", fileDescriptor_grpc_service_941a4bbb24811f43)
+	proto.RegisterFile("envoy/api/v2/core/grpc_service.proto", fileDescriptor_grpc_service_582afe3ef2862683)
 }
 
-var fileDescriptor_grpc_service_941a4bbb24811f43 = []byte{
+var fileDescriptor_grpc_service_582afe3ef2862683 = []byte{
 	// 969 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x9c, 0x55, 0xdd, 0x6e, 0x1c, 0x35,
 	0x14, 0xce, 0x76, 0x37, 0x49, 0xf7, 0x4c, 0xc9, 0x8f, 0x13, 0x92, 0xcd, 0xd0, 0x44, 0x51, 0xe1,

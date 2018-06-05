@@ -46,21 +46,23 @@ func (x RBAC_Action) String() string {
 	return proto.EnumName(RBAC_Action_name, int32(x))
 }
 func (RBAC_Action) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptor_rbac_09b42bf12f38e636, []int{0, 0}
+	return fileDescriptor_rbac_2a9fa32af012594a, []int{0, 0}
 }
 
-// Role Based Access Control (RBAC) provides service-level and method-level access control for a service.
-// The RBAC engine authorizes a request by evaluating the request context (expressed in the form of
-// :ref: `AttributeContext <envoy_api_msg_service.auth.v2alpha.AttributeContext>`) against the RBAC policies.
+// Role Based Access Control (RBAC) provides service-level and method-level access control for a
+// service. The RBAC engine authorizes a request by evaluating the request context (expressed in the
+// form of :ref: `AttributeContext <envoy_api_msg_service.auth.v2alpha.AttributeContext>`) against
+// the RBAC policies.
 //
-// RBAC policies are additive. The policies are examined in order. A request is allowed once a matching policy
-// is found (suppose the `action` is ALLOW).
+// RBAC policies are additive. The policies are examined in order. A request is allowed once a
+// matching policy is found (suppose the `action` is ALLOW).
 //
 // Here is an example of RBAC configuration. It has two policies:
-// * Service account "cluster.local/ns/default/sa/admin" has full access (empty permission entry means full access)
-//   to the service.
-// * Any user (empty principal entry means any user) can read ("GET") the service at paths with prefix "/products" or
-//   suffix "/reviews" when request header "version" set to either "v1" or "v2".
+// * Service account "cluster.local/ns/default/sa/admin" has full access (empty permission entry
+//   means full access) to the service.
+// * Any user (empty principal entry means any user) can read ("GET") the service at paths with
+//   prefix "/products" or suffix "/reviews" when request header "version" set to either "v1" or
+//   "v2".
 //
 //   action: ALLOW
 //   policies:
@@ -94,7 +96,7 @@ func (m *RBAC) Reset()         { *m = RBAC{} }
 func (m *RBAC) String() string { return proto.CompactTextString(m) }
 func (*RBAC) ProtoMessage()    {}
 func (*RBAC) Descriptor() ([]byte, []int) {
-	return fileDescriptor_rbac_09b42bf12f38e636, []int{0}
+	return fileDescriptor_rbac_2a9fa32af012594a, []int{0}
 }
 func (m *RBAC) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_RBAC.Unmarshal(m, b)
@@ -143,7 +145,7 @@ func (m *Policy) Reset()         { *m = Policy{} }
 func (m *Policy) String() string { return proto.CompactTextString(m) }
 func (*Policy) ProtoMessage()    {}
 func (*Policy) Descriptor() ([]byte, []int) {
-	return fileDescriptor_rbac_09b42bf12f38e636, []int{1}
+	return fileDescriptor_rbac_2a9fa32af012594a, []int{1}
 }
 func (m *Policy) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_Policy.Unmarshal(m, b)
@@ -192,7 +194,7 @@ func (m *MapEntryMatch) Reset()         { *m = MapEntryMatch{} }
 func (m *MapEntryMatch) String() string { return proto.CompactTextString(m) }
 func (*MapEntryMatch) ProtoMessage()    {}
 func (*MapEntryMatch) Descriptor() ([]byte, []int) {
-	return fileDescriptor_rbac_09b42bf12f38e636, []int{2}
+	return fileDescriptor_rbac_2a9fa32af012594a, []int{2}
 }
 func (m *MapEntryMatch) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_MapEntryMatch.Unmarshal(m, b)
@@ -239,7 +241,7 @@ func (m *IpMatch) Reset()         { *m = IpMatch{} }
 func (m *IpMatch) String() string { return proto.CompactTextString(m) }
 func (*IpMatch) ProtoMessage()    {}
 func (*IpMatch) Descriptor() ([]byte, []int) {
-	return fileDescriptor_rbac_09b42bf12f38e636, []int{3}
+	return fileDescriptor_rbac_2a9fa32af012594a, []int{3}
 }
 func (m *IpMatch) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_IpMatch.Unmarshal(m, b)
@@ -279,7 +281,7 @@ func (m *PortMatch) Reset()         { *m = PortMatch{} }
 func (m *PortMatch) String() string { return proto.CompactTextString(m) }
 func (*PortMatch) ProtoMessage()    {}
 func (*PortMatch) Descriptor() ([]byte, []int) {
-	return fileDescriptor_rbac_09b42bf12f38e636, []int{4}
+	return fileDescriptor_rbac_2a9fa32af012594a, []int{4}
 }
 func (m *PortMatch) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_PortMatch.Unmarshal(m, b)
@@ -327,7 +329,7 @@ func (m *Permission) Reset()         { *m = Permission{} }
 func (m *Permission) String() string { return proto.CompactTextString(m) }
 func (*Permission) ProtoMessage()    {}
 func (*Permission) Descriptor() ([]byte, []int) {
-	return fileDescriptor_rbac_09b42bf12f38e636, []int{5}
+	return fileDescriptor_rbac_2a9fa32af012594a, []int{5}
 }
 func (m *Permission) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_Permission.Unmarshal(m, b)
@@ -384,7 +386,7 @@ func (m *Permission_Condition) Reset()         { *m = Permission_Condition{} }
 func (m *Permission_Condition) String() string { return proto.CompactTextString(m) }
 func (*Permission_Condition) ProtoMessage()    {}
 func (*Permission_Condition) Descriptor() ([]byte, []int) {
-	return fileDescriptor_rbac_09b42bf12f38e636, []int{5, 0}
+	return fileDescriptor_rbac_2a9fa32af012594a, []int{5, 0}
 }
 func (m *Permission_Condition) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_Permission_Condition.Unmarshal(m, b)
@@ -558,7 +560,7 @@ func (m *Principal) Reset()         { *m = Principal{} }
 func (m *Principal) String() string { return proto.CompactTextString(m) }
 func (*Principal) ProtoMessage()    {}
 func (*Principal) Descriptor() ([]byte, []int) {
-	return fileDescriptor_rbac_09b42bf12f38e636, []int{6}
+	return fileDescriptor_rbac_2a9fa32af012594a, []int{6}
 }
 func (m *Principal) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_Principal.Unmarshal(m, b)
@@ -608,7 +610,7 @@ func (m *Principal_Authenticated) Reset()         { *m = Principal_Authenticated
 func (m *Principal_Authenticated) String() string { return proto.CompactTextString(m) }
 func (*Principal_Authenticated) ProtoMessage()    {}
 func (*Principal_Authenticated) Descriptor() ([]byte, []int) {
-	return fileDescriptor_rbac_09b42bf12f38e636, []int{6, 0}
+	return fileDescriptor_rbac_2a9fa32af012594a, []int{6, 0}
 }
 func (m *Principal_Authenticated) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_Principal_Authenticated.Unmarshal(m, b)
@@ -651,7 +653,7 @@ func (m *Principal_Attribute) Reset()         { *m = Principal_Attribute{} }
 func (m *Principal_Attribute) String() string { return proto.CompactTextString(m) }
 func (*Principal_Attribute) ProtoMessage()    {}
 func (*Principal_Attribute) Descriptor() ([]byte, []int) {
-	return fileDescriptor_rbac_09b42bf12f38e636, []int{6, 1}
+	return fileDescriptor_rbac_2a9fa32af012594a, []int{6, 1}
 }
 func (m *Principal_Attribute) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_Principal_Attribute.Unmarshal(m, b)
@@ -822,10 +824,10 @@ func init() {
 }
 
 func init() {
-	proto.RegisterFile("envoy/config/rbac/v2alpha/rbac.proto", fileDescriptor_rbac_09b42bf12f38e636)
+	proto.RegisterFile("envoy/config/rbac/v2alpha/rbac.proto", fileDescriptor_rbac_2a9fa32af012594a)
 }
 
-var fileDescriptor_rbac_09b42bf12f38e636 = []byte{
+var fileDescriptor_rbac_2a9fa32af012594a = []byte{
 	// 699 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x9c, 0x94, 0xdf, 0x6e, 0xd3, 0x30,
 	0x14, 0xc6, 0x9b, 0x66, 0x6d, 0x97, 0x53, 0x75, 0x14, 0x0b, 0x69, 0xa5, 0x62, 0x62, 0x0b, 0x03,

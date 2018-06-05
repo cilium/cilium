@@ -545,8 +545,9 @@ var _ grpc.ClientConn
 // is compatible with the grpc package it is being compiled against.
 const _ = grpc.SupportPackageIsVersion4
 
-// Client API for HealthDiscoveryService service
-
+// HealthDiscoveryServiceClient is the client API for HealthDiscoveryService service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://godoc.org/google.golang.org/grpc#ClientConn.NewStream.
 type HealthDiscoveryServiceClient interface {
 	// 1. Envoy starts up and if its can_healthcheck option in the static
 	//    bootstrap config is enabled, sends HealthCheckRequest to the management
@@ -598,7 +599,7 @@ func NewHealthDiscoveryServiceClient(cc *grpc.ClientConn) HealthDiscoveryService
 }
 
 func (c *healthDiscoveryServiceClient) StreamHealthCheck(ctx context.Context, opts ...grpc.CallOption) (HealthDiscoveryService_StreamHealthCheckClient, error) {
-	stream, err := grpc.NewClientStream(ctx, &_HealthDiscoveryService_serviceDesc.Streams[0], c.cc, "/envoy.service.discovery.v2.HealthDiscoveryService/StreamHealthCheck", opts...)
+	stream, err := c.cc.NewStream(ctx, &_HealthDiscoveryService_serviceDesc.Streams[0], "/envoy.service.discovery.v2.HealthDiscoveryService/StreamHealthCheck", opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -630,15 +631,14 @@ func (x *healthDiscoveryServiceStreamHealthCheckClient) Recv() (*HealthCheckSpec
 
 func (c *healthDiscoveryServiceClient) FetchHealthCheck(ctx context.Context, in *HealthCheckRequestOrEndpointHealthResponse, opts ...grpc.CallOption) (*HealthCheckSpecifier, error) {
 	out := new(HealthCheckSpecifier)
-	err := grpc.Invoke(ctx, "/envoy.service.discovery.v2.HealthDiscoveryService/FetchHealthCheck", in, out, c.cc, opts...)
+	err := c.cc.Invoke(ctx, "/envoy.service.discovery.v2.HealthDiscoveryService/FetchHealthCheck", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-// Server API for HealthDiscoveryService service
-
+// HealthDiscoveryServiceServer is the server API for HealthDiscoveryService service.
 type HealthDiscoveryServiceServer interface {
 	// 1. Envoy starts up and if its can_healthcheck option in the static
 	//    bootstrap config is enabled, sends HealthCheckRequest to the management

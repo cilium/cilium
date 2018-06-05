@@ -54,7 +54,7 @@ func (x Listener_DrainType) String() string {
 	return proto.EnumName(Listener_DrainType_name, int32(x))
 }
 func (Listener_DrainType) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptor_lds_8ab83995aba9200d, []int{0, 0}
+	return fileDescriptor_lds_7e06a10aa9b72207, []int{0, 0}
 }
 
 type Listener struct {
@@ -74,15 +74,8 @@ type Listener struct {
 	// :ref:`FilterChainMatch <envoy_api_msg_listener.FilterChainMatch>` criteria is used on a
 	// connection.
 	//
-	// .. attention::
-	//
-	//   In the current version, multiple filter chains are supported **only** so that SNI can be
-	//   configured. See the :ref:`FAQ entry <faq_how_to_setup_sni>` on how to configure SNI for more
-	//   information. When multiple filter chains are configured, each filter chain must have an
-	//   **identical** set of :ref:`filters <envoy_api_field_listener.FilterChain.filters>`. If the
-	//   filters differ, the configuration will fail to load. In the future, this limitation will be
-	//   relaxed such that different filters can be used depending on which filter chain matches
-	//   (based on SNI or some other parameter).
+	// Example using SNI for filter chain selection can be found in the
+	// :ref:`FAQ entry <faq_how_to_setup_sni>`.
 	FilterChains []*listener.FilterChain `protobuf:"bytes,3,rep,name=filter_chains,json=filterChains" json:"filter_chains,omitempty"`
 	// If a connection is redirected using *iptables*, the port on which the proxy
 	// receives it might be different from the original destination address. When this flag is set to
@@ -161,7 +154,7 @@ func (m *Listener) Reset()         { *m = Listener{} }
 func (m *Listener) String() string { return proto.CompactTextString(m) }
 func (*Listener) ProtoMessage()    {}
 func (*Listener) Descriptor() ([]byte, []int) {
-	return fileDescriptor_lds_8ab83995aba9200d, []int{0}
+	return fileDescriptor_lds_7e06a10aa9b72207, []int{0}
 }
 func (m *Listener) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_Listener.Unmarshal(m, b)
@@ -286,7 +279,7 @@ func (m *Listener_DeprecatedV1) Reset()         { *m = Listener_DeprecatedV1{} }
 func (m *Listener_DeprecatedV1) String() string { return proto.CompactTextString(m) }
 func (*Listener_DeprecatedV1) ProtoMessage()    {}
 func (*Listener_DeprecatedV1) Descriptor() ([]byte, []int) {
-	return fileDescriptor_lds_8ab83995aba9200d, []int{0, 0}
+	return fileDescriptor_lds_7e06a10aa9b72207, []int{0, 0}
 }
 func (m *Listener_DeprecatedV1) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_Listener_DeprecatedV1.Unmarshal(m, b)
@@ -327,8 +320,9 @@ var _ grpc.ClientConn
 // is compatible with the grpc package it is being compiled against.
 const _ = grpc.SupportPackageIsVersion4
 
-// Client API for ListenerDiscoveryService service
-
+// ListenerDiscoveryServiceClient is the client API for ListenerDiscoveryService service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://godoc.org/google.golang.org/grpc#ClientConn.NewStream.
 type ListenerDiscoveryServiceClient interface {
 	StreamListeners(ctx context.Context, opts ...grpc.CallOption) (ListenerDiscoveryService_StreamListenersClient, error)
 	FetchListeners(ctx context.Context, in *DiscoveryRequest, opts ...grpc.CallOption) (*DiscoveryResponse, error)
@@ -343,7 +337,7 @@ func NewListenerDiscoveryServiceClient(cc *grpc.ClientConn) ListenerDiscoverySer
 }
 
 func (c *listenerDiscoveryServiceClient) StreamListeners(ctx context.Context, opts ...grpc.CallOption) (ListenerDiscoveryService_StreamListenersClient, error) {
-	stream, err := grpc.NewClientStream(ctx, &_ListenerDiscoveryService_serviceDesc.Streams[0], c.cc, "/envoy.api.v2.ListenerDiscoveryService/StreamListeners", opts...)
+	stream, err := c.cc.NewStream(ctx, &_ListenerDiscoveryService_serviceDesc.Streams[0], "/envoy.api.v2.ListenerDiscoveryService/StreamListeners", opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -375,15 +369,14 @@ func (x *listenerDiscoveryServiceStreamListenersClient) Recv() (*DiscoveryRespon
 
 func (c *listenerDiscoveryServiceClient) FetchListeners(ctx context.Context, in *DiscoveryRequest, opts ...grpc.CallOption) (*DiscoveryResponse, error) {
 	out := new(DiscoveryResponse)
-	err := grpc.Invoke(ctx, "/envoy.api.v2.ListenerDiscoveryService/FetchListeners", in, out, c.cc, opts...)
+	err := c.cc.Invoke(ctx, "/envoy.api.v2.ListenerDiscoveryService/FetchListeners", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-// Server API for ListenerDiscoveryService service
-
+// ListenerDiscoveryServiceServer is the server API for ListenerDiscoveryService service.
 type ListenerDiscoveryServiceServer interface {
 	StreamListeners(ListenerDiscoveryService_StreamListenersServer) error
 	FetchListeners(context.Context, *DiscoveryRequest) (*DiscoveryResponse, error)
@@ -457,9 +450,9 @@ var _ListenerDiscoveryService_serviceDesc = grpc.ServiceDesc{
 	Metadata: "envoy/api/v2/lds.proto",
 }
 
-func init() { proto.RegisterFile("envoy/api/v2/lds.proto", fileDescriptor_lds_8ab83995aba9200d) }
+func init() { proto.RegisterFile("envoy/api/v2/lds.proto", fileDescriptor_lds_7e06a10aa9b72207) }
 
-var fileDescriptor_lds_8ab83995aba9200d = []byte{
+var fileDescriptor_lds_7e06a10aa9b72207 = []byte{
 	// 744 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xac, 0x94, 0xcf, 0x6e, 0xf3, 0x44,
 	0x14, 0xc5, 0x3b, 0x69, 0xbf, 0x2f, 0xc9, 0x24, 0x4d, 0xa3, 0x11, 0x6a, 0xad, 0x50, 0xda, 0x10,
