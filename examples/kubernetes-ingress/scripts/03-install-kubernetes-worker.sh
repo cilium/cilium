@@ -11,12 +11,30 @@ dir=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
 source "${dir}/helpers.bash"
 
 cache_dir="${dir}/../../../hack/cache"
-
 k8s_cache_dir="${cache_dir}/k8s/${k8s_version}"
+certs_dir="${dir}/certs"
+
+function install_crio() {
+  sudo apt-key adv --recv-key --keyserver keyserver.ubuntu.com 8BECF1637AD8C79D
+
+   cat <<EOF > /etc/apt/sources.list.d/projectatomic-ubuntu-ppa-artful.list
+deb http://ppa.launchpad.net/projectatomic/ppa/ubuntu xenial main
+deb-src http://ppa.launchpad.net/projectatomic/ppa/ubuntu artful main
+EOF
+   sudo apt-get update
+   sudo apt-get install cri-o-1.10 -y
+}
+
+function install_containerd() {
+   download_to "${cache_dir}/containerd" "cri-containerd-1.1.0.linux-amd64.tar.gz" \
+       "https://storage.googleapis.com/cri-containerd-release/cri-containerd-1.1.0.linux-amd64.tar.gz"
+
+   cp "${cache_dir}/containerd/cri-containerd-1.1.0.linux-amd64.tar.gz" .
+
+   sudo tar -xvf cri-containerd-1.1.0.linux-amd64.tar.gz -C / --no-same-owner
+}
 
 log "Installing kubernetes worker components..."
-
-certs_dir="${dir}/certs"
 
 set -e
 
@@ -36,20 +54,6 @@ if [ -n "${INSTALL}" ]; then
     cp "${cache_dir}/cni/cni-plugins-amd64-v0.6.0.tgz" .
 
     sudo tar -xvf cni-plugins-amd64-v0.6.0.tgz -C /opt/cni/bin
-
-    cat <<EOF > /etc/apt/sources.list.d/projectatomic-ubuntu-ppa-artful.list
-deb http://ppa.launchpad.net/projectatomic/ppa/ubuntu xenial main
-# deb-src http://ppa.launchpad.net/projectatomic/ppa/ubuntu artful main
-EOF
-    sudo apt-get update
-    sudo apt-get install cri-o-1.10 -y
-
-    download_to "${cache_dir}/containerd" "cri-containerd-1.1.0.linux-amd64.tar.gz" \
-        "https://storage.googleapis.com/cri-containerd-release/cri-containerd-1.1.0.linux-amd64.tar.gz"
-
-    cp "${cache_dir}/containerd/cri-containerd-1.1.0.linux-amd64.tar.gz" .
-
-    sudo tar -xvf cri-containerd-1.1.0.linux-amd64.tar.gz -C / --no-same-owner
 
     chmod +x kubelet kubectl kube-proxy
 
