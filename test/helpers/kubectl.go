@@ -597,7 +597,7 @@ func (kub *Kubectl) WaitForKubeDNSEntry(name string) error {
 		name = fmt.Sprintf("%s.%s", name, svcSuffix)
 	}
 	// https://bugs.launchpad.net/ubuntu/+source/bind9/+bug/854705
-	digCMD := "dig +short %s @%s | grep -v -e '^$'"
+	digCMD := "dig +short %s @%s | grep -v -e '^;'"
 
 	// If it fails we want to know if it's because of connection cannot be
 	// established or DNS does not exist.
