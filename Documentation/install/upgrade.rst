@@ -61,22 +61,22 @@ version.
 
     kubectl set image daemonset/cilium -n kube-system cilium-agent=docker.io/cilium/cilium:vX.Y.Z
 
-To monitor the rollout and confirm it is complete, run: 
+To monitor the rollout and confirm it is complete, run:
 
 ::
 
     kubectl rollout status daemonset/cilium -n kube-system
 
 To undo the rollout via rollback, run:
-    
+
 ::
 
     kubectl rollout undo daemonset/cilium -n kube-system
 
 Cilium will continue to forward traffic at L3/L4 during the roll-out, and all endpoints and their configuration will be preserved across
-the upgrade rollout.   However, because the L7 proxies implementing HTTP, gRPC, and Kafka-aware filtering currently reside in the 
-same Pod as Cilium, they are removed and re-installed as part of the rollout.   As a result, any proxied connections will be lost and 
-clients must reconnect.   
+the upgrade rollout.   However, because the L7 proxies implementing HTTP, gRPC, and Kafka-aware filtering currently reside in the
+same Pod as Cilium, they are removed and re-installed as part of the rollout.   As a result, any proxied connections will be lost and
+clients must reconnect.
 
 Downgrade
 =========
@@ -132,8 +132,7 @@ Affected environments will see no output for one or more of the below commands:
   $ kubectl get ds cilium -n kube-system -o yaml | grep -B 3 -A 2 -i legacy-host-allows-world
   $ kubectl get cm cilium-config -n kube-system -o yaml | grep -i legacy-host-allows-world
 
-Unaffected environments will see the following output, note the setting of the
-ConfigMap (``legacy-host-allows-world: "false"``):
+Unaffected environments will see the following output (note the configMapKeyRef key in the Cilium DaemonSet and the ``legacy-host-allows-world: "false"`` setting of the ConfigMap):
 
 .. code-block:: shell-session
 
@@ -183,12 +182,12 @@ Upgrade steps
    :ref:`admin_upgrade`.
 
 #. Add the config option ``legacy-host-allows-world: "false"`` to the Cilium
-   ConfigMap.
+   ConfigMap under the "data" paragraph.
 
      .. code-block:: shell-session
 
        $ kubectl edit configmap cilium-config -n kube-system
-       (Add a new line with the above configuration)
+       (Add a new line with the config option above in the "data" paragraph)
 
 #. (Optional) Update the Cilium Network Policies to allow specific traffic from
    the outside world. For more information, see :ref:`network_policy`.
