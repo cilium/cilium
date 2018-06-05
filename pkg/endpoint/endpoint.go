@@ -652,10 +652,11 @@ func NewEndpointFromChangeModel(base *models.EndpointChangeRequest) (*Endpoint, 
 			OrchestrationIdentity: pkgLabels.Labels{},
 			OrchestrationInfo:     pkgLabels.Labels{},
 		},
-		state:  string(base.State),
+		state:  "",
 		Status: NewEndpointStatus(),
 	}
 
+	ep.SetStateLocked(string(base.State), "Endpoint creation")
 	if base.Mac != "" {
 		m, err := mac.ParseMAC(base.Mac)
 		if err != nil {
@@ -1373,7 +1374,7 @@ func ParseEndpoint(strEp string) (*Endpoint, error) {
 		ep.Status = NewEndpointStatus()
 	}
 
-	ep.state = StateRestoring
+	ep.SetStateLocked(StateRestoring, "Endpoint restoring")
 
 	return &ep, nil
 }
@@ -1902,10 +1903,17 @@ func (e *Endpoint) GetState() string {
 func (e *Endpoint) SetStateLocked(toState, reason string) bool {
 	// Validate the state transition.
 	fromState := e.state
+
 	switch fromState { // From state
+	case "": // Special case for capturing initial state transitions like
+		// nil --> StateWaitingForIdentity, StateRestoring
+		switch toState {
+		case StateWaitingForIdentity, StateRestoring:
+			goto OKState
+		}
 	case StateCreating:
 		switch toState {
-		case StateDisconnecting, StateWaitingForIdentity:
+		case StateDisconnecting, StateWaitingForIdentity, StateRestoring:
 			goto OKState
 		}
 	case StateWaitingForIdentity:
@@ -1915,7 +1923,7 @@ func (e *Endpoint) SetStateLocked(toState, reason string) bool {
 		}
 	case StateReady:
 		switch toState {
-		case StateWaitingForIdentity, StateDisconnecting, StateWaitingToRegenerate:
+		case StateWaitingForIdentity, StateDisconnecting, StateWaitingToRegenerate, StateRestoring:
 			goto OKState
 		}
 	case StateDisconnecting:
@@ -1928,7 +1936,7 @@ func (e *Endpoint) SetStateLocked(toState, reason string) bool {
 	case StateWaitingToRegenerate:
 		switch toState {
 		// Note that transitions to waiting-to-regenerate state
-		case StateWaitingForIdentity, StateDisconnecting:
+		case StateWaitingForIdentity, StateDisconnecting, StateRestoring:
 			goto OKState
 		}
 	case StateRegenerating:
@@ -1938,12 +1946,12 @@ func (e *Endpoint) SetStateLocked(toState, reason string) bool {
 		// build. In this case the endpoint is transitioned
 		// from the regenerating state to
 		// waiting-for-identity or waiting-to-regenerate state.
-		case StateWaitingForIdentity, StateDisconnecting, StateWaitingToRegenerate:
+		case StateWaitingForIdentity, StateDisconnecting, StateWaitingToRegenerate, StateRestoring:
 			goto OKState
 		}
 	case StateRestoring:
 		switch toState {
-		case StateDisconnecting, StateWaitingToRegenerate:
+		case StateDisconnecting, StateWaitingToRegenerate, StateRestoring:
 			goto OKState
 		}
 	}
@@ -1962,6 +1970,23 @@ func (e *Endpoint) SetStateLocked(toState, reason string) bool {
 OKState:
 	e.state = toState
 	e.logStatusLocked(Other, OK, reason)
+
+	// Initial state transitions i.e nil --> waiting-for-identity
+	// need to be handled correctly while updating metrics.
+	// Note that if we are transitioning from some state to restoring
+	// state, we cannot decrement the old state counters as they will not
+	// be accounted for in the metrics.
+	if fromState != "" && toState != StateRestoring {
+		metrics.EndpointStateCount.
+			WithLabelValues(fromState).Dec()
+	}
+
+	// Since StateDisconnected is the final state, after which the
+	// endpoint is gone, we should not increment metrics for this state.
+	if toState != "" && toState != StateDisconnected {
+		metrics.EndpointStateCount.
+			WithLabelValues(toState).Inc()
+	}
 	return true
 }
 
@@ -2010,6 +2035,18 @@ func (e *Endpoint) BuilderSetStateLocked(toState, reason string) bool {
 OKState:
 	e.state = toState
 	e.logStatusLocked(Other, OK, reason)
+
+	if fromState != "" && toState != StateRestoring {
+		metrics.EndpointStateCount.
+			WithLabelValues(fromState).Dec()
+	}
+
+	// Since StateDisconnected is the final state, after which the
+	// endpoint is gone, we should not increment metrics for this state.
+	if toState != "" && toState != StateDisconnected {
+		metrics.EndpointStateCount.
+			WithLabelValues(toState).Inc()
+	}
 	return true
 }
 
