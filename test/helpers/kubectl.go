@@ -51,6 +51,14 @@ const (
 	KubectlCmd    = "kubectl"
 	manifestsPath = "k8sT/manifests/"
 	kubeDNSLabel  = "k8s-app=kube-dns"
+
+	// DNSHelperTimeout is a predefined timeout value for K8s DNS commands. It
+	// must be larger than 5 minutes because kubedns has a hardcoded resync
+	// period of 5 minutes. We have experienced test failures because kubedns
+	// needed this time to recover from a connection problem to kube-apiserver.
+	// The kubedns resyncPeriod is defined at
+	// https://github.com/kubernetes/dns/blob/80fdd88276adba36a87c4f424b66fdf37cd7c9a8/pkg/dns/dns.go#L53
+	DNSHelperTimeout time.Duration = 420 // WithTimeout helper translates it to seconds
 )
 
 // GetCurrentK8SEnv returns the value of K8S_VERSION from the OS environment.
@@ -574,7 +582,7 @@ func (kub *Kubectl) Delete(filePath string) *CmdRes {
 // WaitKubeDNS waits until the kubeDNS pods are ready. In case of exceeding the
 // default timeout it returns an error.
 func (kub *Kubectl) WaitKubeDNS() error {
-	return kub.WaitforPods(KubeSystemNamespace, fmt.Sprintf("-l %s", kubeDNSLabel), 300)
+	return kub.WaitforPods(KubeSystemNamespace, fmt.Sprintf("-l %s", kubeDNSLabel), DNSHelperTimeout)
 }
 
 // WaitForKubeDNSEntry waits until the given DNS entry is ready in kube-dns
@@ -612,7 +620,7 @@ func (kub *Kubectl) WaitForKubeDNSEntry(name string) error {
 	return WithTimeout(
 		body,
 		fmt.Sprintf("DNS %q is not ready after timeout", name),
-		&TimeoutConfig{Timeout: HelperTimeout})
+		&TimeoutConfig{Timeout: DNSHelperTimeout})
 }
 
 // WaitCleanAllTerminatingPods waits until all nodes that are in `Terminating`
