@@ -122,9 +122,11 @@ func (s *IPCacheTestSuite) TestIPCache(c *C) {
 
 	cachedIdentity, exists = IPIdentityCache.LookupByIP("127.0.0.1")
 	c.Assert(cachedIdentity, Equals, identityPkg.NumericIdentity(29))
+	c.Assert(exists, Equals, true)
 
 	cachedIdentity, exists = IPIdentityCache.LookupByPrefix("127.0.0.1/32")
 	c.Assert(cachedIdentity, Equals, identityPkg.NumericIdentity(29))
+	c.Assert(exists, Equals, true)
 
 	IPIdentityCache.delete("127.0.0.1")
 

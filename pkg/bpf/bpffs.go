@@ -258,7 +258,7 @@ func checkOrMountDefaultLocations() error {
 			return err
 		}
 		if !cMounted {
-			err = mountFS()
+			err = mountFS() // ineffassign: ignore
 		} else if !cBpffsInstance {
 			log.Fatalf("%s is mounted but has a different filesystem than BPFFS", defaults.DefaultMapRootFallback)
 		}

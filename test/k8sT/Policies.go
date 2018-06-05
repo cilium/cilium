@@ -196,6 +196,7 @@ var _ = Describe("K8sValidatedPolicyTest", func() {
 			Expect(err).Should(BeNil())
 
 			endpoints, err := kubectl.CiliumEndpointsListByLabel(ciliumPod, podFilter)
+			Expect(err).Should(BeNil())
 			policyStatus := endpoints.GetPolicyStatus()
 			// only the two app1 replicas should be in default-deny at ingress
 			Expect(policyStatus[models.EndpointPolicyEnabledNone]).Should(Equal(2))
@@ -237,6 +238,7 @@ var _ = Describe("K8sValidatedPolicyTest", func() {
 			Expect(err).Should(BeNil(), "Cannot install %q policy", l7Policy)
 
 			endpoints, err = kubectl.CiliumEndpointsListByLabel(ciliumPod, podFilter)
+			Expect(err).Should(BeNil())
 			policyStatus = endpoints.GetPolicyStatus()
 			// only the two app1 replicas should be in default-deny at ingress
 			Expect(policyStatus[models.EndpointPolicyEnabledNone]).Should(Equal(2))
@@ -662,6 +664,7 @@ var _ = Describe("K8sValidatedPolicyTest", func() {
 			Expect(err).To(BeNil(), "Cannot get web pods")
 
 			serviceIP, port, err := kubectl.GetServiceHostPort(helpers.DefaultNamespace, "redis-master")
+			Expect(err).To(BeNil())
 
 			serviceName := "redis-master.default.svc.cluster.local"
 			err = kubectl.WaitForKubeDNSEntry(serviceName)

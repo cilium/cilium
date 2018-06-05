@@ -1652,7 +1652,6 @@ var _ = Describe("RuntimeValidatedPolicyImportTests", func() {
 		Expect(httpd1EndpointModel.Status.Identity).To(Not(BeNil()), "Expected non-nil identity for endpoint %s", helpers.Httpd1)
 		Expect(httpd1EndpointModel.Status.Policy).To(Not(BeNil()), "Expected non-nil policy for endpoint %s", helpers.Httpd1)
 
-		httpd1SecurityIdentity = httpd1EndpointModel.Status.Identity.ID
 		httpd2SecurityIdentity = httpd2EndpointModel.Status.Identity.ID
 
 		By("Verifying allowed identities for ingress traffic to %q", helpers.Httpd1)

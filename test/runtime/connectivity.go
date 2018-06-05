@@ -263,6 +263,7 @@ var _ = Describe("RuntimeValidatedConnectivityTest", func() {
 			err = helpers.RenderTemplateToFile(policyFileName, policy, os.ModePerm)
 			Expect(err).Should(BeNil())
 			_, err = vm.PolicyImportAndWait(helpers.GetFilePath(policyFileName), helpers.HelperTimeout)
+			Expect(err).Should(BeNil())
 
 			By("Adding containers")
 
