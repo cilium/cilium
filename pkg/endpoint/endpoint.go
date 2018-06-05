@@ -2306,14 +2306,15 @@ func (e *Endpoint) identityLabelsChanged(owner Owner, myChangeRev int) error {
 
 	e.SetIdentity(identity)
 
-	ready := e.SetStateLocked(StateWaitingToRegenerate, "Triggering regeneration due to new identity")
-	if ready {
-		e.ForcePolicyCompute()
-	}
+	readyToRegenerate := e.SetStateLocked(StateWaitingToRegenerate, "Triggering regeneration due to new identity")
+
+	// Unconditionally force policy recomputation after a new identity has been
+	// assigned.
+	e.ForcePolicyCompute()
 
 	e.Mutex.Unlock()
 
-	if ready {
+	if readyToRegenerate {
 		e.Regenerate(owner, "updated security labels")
 	}
 
