@@ -208,7 +208,10 @@ govet:
 	@$(ECHO_CHECK) vetting all GOFILES...
 	$(GO) tool vet $(SUBDIRS)
 
-precheck: govet
+ineffassign:
+	ineffassign .
+
+precheck: govet ineffassign
 	@$(ECHO_CHECK) contrib/scripts/check-fmt.sh
 	$(QUIET) contrib/scripts/check-fmt.sh
 	@$(ECHO_CHECK) contrib/scripts/check-log-newlines.sh
