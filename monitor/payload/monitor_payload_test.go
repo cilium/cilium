@@ -16,6 +16,7 @@ package payload
 
 import (
 	"bytes"
+	"encoding/gob"
 	"testing"
 
 	"github.com/cilium/cilium/pkg/comparator"
@@ -101,8 +102,7 @@ func (s *PayloadSuite) BenchmarkWriteMetaPayload(c *C) {
 }
 
 func (s *PayloadSuite) BenchmarkReadMetaPayload(c *C) {
-	meta1 := Meta{Size: 1234}
-	payload1 := Payload{
+	payload := Payload{
 		Data: []byte{1, 2, 3, 4},
 		Lost: 5243,
 		CPU:  12,
@@ -110,14 +110,58 @@ func (s *PayloadSuite) BenchmarkReadMetaPayload(c *C) {
 	}
 
 	var buf bytes.Buffer
-	err := WriteMetaPayload(&buf, &meta1, &payload1)
+	for i := 0; i < c.N; i++ {
+		err := payload.WriteBinary(&buf)
+		c.Assert(err, Equals, nil)
+	}
+
+	for i := 0; i < c.N; i++ {
+		err := payload.ReadBinary(&buf)
+		c.Assert(err, Equals, nil)
+	}
+}
+
+func (s *PayloadSuite) BenchmarkWritePayloadReuseEncoder(c *C) {
+	payload := Payload{
+		Data: []byte{1, 2, 3, 4},
+		Lost: 5243,
+		CPU:  12,
+		Type: 9,
+	}
+
+	// Do a first dry run to pre-allocate the buffer capacity.
+	var buf bytes.Buffer
+	enc := gob.NewEncoder(&buf)
+	err := payload.EncodeBinary(enc)
 	c.Assert(err, Equals, nil)
 
-	var meta2 Meta
-	var payload2 Payload
 	for i := 0; i < c.N; i++ {
-		readBuf := bytes.NewBuffer(buf.Bytes())
-		err = ReadMetaPayload(readBuf, &meta2, &payload2)
+		buf.Reset()
+		err := payload.EncodeBinary(enc)
+		c.Assert(err, Equals, nil)
+	}
+}
+
+func (s *PayloadSuite) BenchmarkReadPayloadRuseEncoder(c *C) {
+	payload := Payload{
+		Data: []byte{1, 2, 3, 4},
+		Lost: 5243,
+		CPU:  12,
+		Type: 9,
+	}
+
+	var buf bytes.Buffer
+
+	// prefill an encoded stream
+	enc := gob.NewEncoder(&buf)
+	for i := 0; i < c.N; i++ {
+		err := payload.EncodeBinary(enc)
+		c.Assert(err, Equals, nil)
+	}
+
+	dec := gob.NewDecoder(&buf)
+	for i := 0; i < c.N; i++ {
+		err := payload.DecodeBinary(dec)
 		c.Assert(err, Equals, nil)
 	}
 }
