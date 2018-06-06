@@ -788,5 +788,5 @@ Kubernetes Integration
 The following diagram shows the integration of iptables rules as installed by
 kube-proxy and the iptables rules as installed by Cilium.
 
-.. image:: _static/kubernetes_iptables.svg
-   :target: _static/kubernetes_iptables.svg
+.. image:: /_static/kubernetes_iptables.svg
+   :target: /_static/kubernetes_iptables.svg
