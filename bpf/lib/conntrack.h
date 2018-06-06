@@ -28,9 +28,26 @@
 #include "l4.h"
 #include "nat46.h"
 
-#define CT_DEFAULT_LIFETIME	43200
-#define CT_SYN_TIMEOUT		300
-#define CT_CLOSE_TIMEOUT	10
+#define CT_DEFAULT_LIFETIME_TCP		21600	/* 6 hours */
+#define CT_DEFAULT_LIFETIME_NONTCP	60	/* 60 seconds */
+#define CT_DEFAULT_SYN_TIMEOUT		60	/* 60 seconds */
+#define CT_DEFAULT_CLOSE_TIMEOUT	10	/* 10 seconds */
+
+#ifndef CT_LIFETIME_TCP
+#define CT_LIFETIME_TCP CT_DEFAULT_LIFETIME_TCP
+#endif
+
+#ifndef CT_LIFETIME_NONTCP
+#define CT_LIFETIME_NONTCP CT_DEFAULT_LIFETIME_NONTCP
+#endif
+
+#ifndef CT_SYN_TIMEOUT
+#define CT_SYN_TIMEOUT CT_DEFAULT_SYN_TIMEOUT
+#endif
+
+#ifndef CT_CLOSE_TIMEOUT
+#define CT_CLOSE_TIMEOUT CT_DEFAULT_CLOSE_TIMEOUT
+#endif
 
 #ifdef CONNTRACK
 
@@ -52,13 +69,20 @@ static inline void __inline__ __ct_update_timeout(struct ct_entry *entry,
 #endif
 }
 
-static inline void __inline__ ct_update_timeout(struct ct_entry *entry, bool syn)
+static inline void __inline__ ct_update_timeout(struct ct_entry *entry, bool syn, bool tcp)
 {
-	entry->seen_non_syn |= !syn;
-	if (entry->seen_non_syn)
-		__ct_update_timeout(entry, CT_DEFAULT_LIFETIME);
-	else
-		__ct_update_timeout(entry, CT_SYN_TIMEOUT);
+	__u32 lifetime = CT_LIFETIME_NONTCP;
+
+	if (tcp) {
+		entry->seen_non_syn |= !syn;
+
+		if (entry->seen_non_syn)
+			lifetime = CT_LIFETIME_TCP;
+		else
+			lifetime = CT_SYN_TIMEOUT;
+	}
+
+	__ct_update_timeout(entry, lifetime);
 }
 
 static inline void __inline__ ct_reset_closing(struct ct_entry *entry)
@@ -75,7 +99,7 @@ static inline bool __inline__ ct_entry_alive(const struct ct_entry *entry)
 static inline int __inline__ __ct_lookup(void *map, struct __sk_buff *skb,
 					 void *tuple, int action, int dir,
 					 struct ct_state *ct_state,
-					 bool pkt_is_syn)
+					 bool pkt_is_syn, bool is_tcp)
 {
 	struct ct_entry *entry;
 	int ret;
@@ -83,7 +107,7 @@ static inline int __inline__ __ct_lookup(void *map, struct __sk_buff *skb,
 	if ((entry = map_lookup_elem(map, tuple))) {
 		cilium_dbg(skb, DBG_CT_MATCH, entry->lifetime, entry->rev_nat_index);
 		if (ct_entry_alive(entry)) {
-			ct_update_timeout(entry, pkt_is_syn);
+			ct_update_timeout(entry, pkt_is_syn, is_tcp);
 		}
 		if (ct_state) {
 			ct_state->rev_nat_index = entry->rev_nat_index;
@@ -112,7 +136,7 @@ static inline int __inline__ __ct_lookup(void *map, struct __sk_buff *skb,
 			ret = entry->rx_closing + entry->tx_closing;
 			if (unlikely(ret >= 1)) {
 				ct_reset_closing(entry);
-				ct_update_timeout(entry, pkt_is_syn);
+				ct_update_timeout(entry, pkt_is_syn, is_tcp);
 			}
 			break;
 		case ACTION_CLOSE:
@@ -173,6 +197,7 @@ static inline int __inline__ ct_lookup6(void *map, struct ipv6_ct_tuple *tuple,
 {
 	int ret = CT_NEW, action = ACTION_UNSPEC;
 	bool syn = false;
+	bool is_tcp = tuple->nexthdr == IPPROTO_TCP;
 
 	/* The tuple is created in reverse order initially to find a
 	 * potential reverse flow. This is required because the RELATED
@@ -265,7 +290,7 @@ static inline int __inline__ ct_lookup6(void *map, struct ipv6_ct_tuple *tuple,
 	cilium_dbg3(skb, DBG_CT_LOOKUP6_1, (__u32) tuple->saddr.p4, (__u32) tuple->daddr.p4,
 		      (bpf_ntohs(tuple->sport) << 16) | bpf_ntohs(tuple->dport));
 	cilium_dbg3(skb, DBG_CT_LOOKUP6_2, (tuple->nexthdr << 8) | tuple->flags, 0, 0);
-	ret = __ct_lookup(map, skb, tuple, action, dir, ct_state, syn);
+	ret = __ct_lookup(map, skb, tuple, action, dir, ct_state, syn, is_tcp);
 	if (ret != CT_NEW) {
 		if (likely(ret == CT_ESTABLISHED)) {
 			if (unlikely(tuple->flags & TUPLE_F_RELATED))
@@ -278,7 +303,7 @@ static inline int __inline__ ct_lookup6(void *map, struct ipv6_ct_tuple *tuple,
 
 	/* Lookup entry in forward direction */
 	ipv6_ct_tuple_reverse(tuple);
-	ret = __ct_lookup(map, skb, tuple, action, dir, ct_state, syn);
+	ret = __ct_lookup(map, skb, tuple, action, dir, ct_state, syn, is_tcp);
 
 #ifdef LXC_NAT46
 	skb->cb[CB_NAT46_STATE] = NAT46_CLEAR;
@@ -322,6 +347,7 @@ static inline int __inline__ ct_lookup4(void *map, struct ipv4_ct_tuple *tuple,
 {
 	int ret = CT_NEW, action = ACTION_UNSPEC;
 	bool syn = false;
+	bool is_tcp = tuple->nexthdr == IPPROTO_TCP;
 
 	/* The tuple is created in reverse order initially to find a
 	 * potential reverse flow. This is required because the RELATED
@@ -414,7 +440,7 @@ static inline int __inline__ ct_lookup4(void *map, struct ipv4_ct_tuple *tuple,
 		      (bpf_ntohs(tuple->sport) << 16) | bpf_ntohs(tuple->dport));
 	cilium_dbg3(skb, DBG_CT_LOOKUP4_2, (tuple->nexthdr << 8) | tuple->flags, 0, 0);
 #endif
-	ret = __ct_lookup(map, skb, tuple, action, dir, ct_state, syn);
+	ret = __ct_lookup(map, skb, tuple, action, dir, ct_state, syn, is_tcp);
 	if (ret != CT_NEW) {
 		if (likely(ret == CT_ESTABLISHED)) {
 			if (unlikely(tuple->flags & TUPLE_F_RELATED))
@@ -427,7 +453,7 @@ static inline int __inline__ ct_lookup4(void *map, struct ipv4_ct_tuple *tuple,
 
 	/* Lookup entry in forward direction */
 	ipv4_ct_tuple_reverse(tuple);
-	ret = __ct_lookup(map, skb, tuple, action, dir, ct_state, syn);
+	ret = __ct_lookup(map, skb, tuple, action, dir, ct_state, syn, is_tcp);
 
 out:
 	cilium_dbg(skb, DBG_CT_VERDICT, ret < 0 ? -ret : ret, ct_state->rev_nat_index);
@@ -449,10 +475,11 @@ static inline int __inline__ ct_create6(void *map, struct ipv6_ct_tuple *tuple,
 {
 	/* Create entry in original direction */
 	struct ct_entry entry = { };
+	bool is_tcp = tuple->nexthdr == IPPROTO_TCP;
 
 	entry.rev_nat_index = ct_state->rev_nat_index;
 	entry.lb_loopback = ct_state->loopback;
-	ct_update_timeout(&entry, tuple->nexthdr == IPPROTO_TCP);
+	ct_update_timeout(&entry, is_tcp, is_tcp);
 
 	if (dir == CT_INGRESS) {
 		entry.rx_packets = 1;
@@ -506,10 +533,11 @@ static inline int __inline__ ct_create4(void *map, struct ipv4_ct_tuple *tuple,
 {
 	/* Create entry in original direction */
 	struct ct_entry entry = { };
+	bool is_tcp = tuple->nexthdr == IPPROTO_TCP;
 
 	entry.rev_nat_index = ct_state->rev_nat_index;
 	entry.lb_loopback = ct_state->loopback;
-	ct_update_timeout(&entry, tuple->nexthdr == IPPROTO_TCP);
+	ct_update_timeout(&entry, is_tcp, is_tcp);
 
 	if (dir == CT_INGRESS) {
 		entry.rx_packets = 1;

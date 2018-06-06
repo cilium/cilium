@@ -64,7 +64,7 @@
  *  If you're from a future where all supported kernels include LPM map type,
  *  consider deprecating the hash-based CIDR lookup and removing the below.
  */
-#define CIDR4_EGRESS_PREFIXES 32, 31, 30, 29, 28, 27, 26, 25, 24, 23, 22, 21, \
+#define CIDR4_EGRESS_PREFIXES 26, 25, 24, 23, 22, 21, \
 20, 19, 18, 17, 16, 15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0
 #define CIDR6_EGRESS_PREFIXES CIDR4_EGRESS_PREFIXES
 #define CIDR6_INGRESS_PREFIXES CIDR6_EGRESS_PREFIXES
@@ -81,6 +81,6 @@
  *  If you're from a future where all supported kernels include LPM map type,
  *  consider deprecating the hash-based CIDR lookup and removing the below.
  */
-#define IPCACHE4_PREFIXES 32, 31, 30, 29, 28, 27, 26, 25, 24, 23, 22, 21, \
+#define IPCACHE4_PREFIXES 26, 25, 24, 23, 22, 21, \
 20, 19, 18, 17, 16, 15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0
 #define IPCACHE6_PREFIXES IPCACHE4_PREFIXES
