@@ -20,7 +20,6 @@ import (
 	"fmt"
 	"io"
 	"net"
-	"os"
 	"syscall"
 	"time"
 
@@ -68,24 +67,6 @@ type Monitor struct {
 	listeners        map[*monitorListener]struct{}
 	nPages           int
 	monitorEvents    *bpf.PerCpuEvents
-}
-
-type monitorListener struct {
-	conn      net.Conn
-	queue     chan []byte
-	cleanupFn func(*monitorListener)
-}
-
-func newMonitorListener(c net.Conn, cleanupFn func(*monitorListener)) *monitorListener {
-	ml := &monitorListener{
-		conn:      c,
-		queue:     make(chan []byte, queueSize),
-		cleanupFn: cleanupFn,
-	}
-
-	go ml.drainQueue()
-
-	return ml
 }
 
 // agentPipeReader reads agent events from the agentPipe and distributes to all listeners
@@ -151,7 +132,7 @@ func (m *Monitor) registerNewListener(parentCtx context.Context, conn net.Conn) 
 		go m.perfEventReader(perfEventReaderCtx, m.nPages)
 	}
 
-	newListener := newMonitorListener(conn, m.removeListener)
+	newListener := newMonitorListener(conn, queueSize, m.removeListener)
 	m.listeners[newListener] = struct{}{}
 
 	log.WithField("count.listener", len(m.listeners)).Info("New listener connected.")
@@ -285,38 +266,6 @@ func (m *Monitor) send(pl *payload.Payload) {
 	defer m.Unlock()
 	for ml := range m.listeners {
 		ml.enqueue(buf)
-	}
-}
-
-func (ml *monitorListener) enqueue(msg []byte) {
-	select {
-	case ml.queue <- msg:
-	default:
-		log.Debugf("Per listener queue is full, dropping message")
-	}
-}
-
-func (ml *monitorListener) drainQueue() {
-	defer func() {
-		ml.conn.Close()
-		ml.cleanupFn(ml)
-	}()
-
-	for msgBuf := range ml.queue {
-		if _, err := ml.conn.Write(msgBuf); err != nil {
-			if op, ok := err.(*net.OpError); ok {
-				if syscerr, ok := op.Err.(*os.SyscallError); ok {
-					if errn, ok := syscerr.Err.(syscall.Errno); ok {
-						if errn == syscall.EPIPE {
-							log.Info("Listener disconnected")
-							return
-						}
-					}
-				}
-			}
-			log.WithError(err).Warn("Removing listener due to write failure")
-			return
-		}
 	}
 }
 
