@@ -35,6 +35,9 @@ const (
 
 	// Version1_0 is the API 1.0 version of the protocol (see above).
 	Version1_0 = Version("1.0")
+
+	// Version1_2 is the API 1.0 version of the protocol (see above).
+	Version1_2 = Version("1.2")
 )
 
 // IsDisconnected is a convenience function that wraps the absurdly long set of

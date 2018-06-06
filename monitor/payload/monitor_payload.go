@@ -91,13 +91,23 @@ func (pl *Payload) Encode() ([]byte, error) {
 // ReadBinary reads the payload from its binary representation.
 func (pl *Payload) ReadBinary(r io.Reader) error {
 	dec := gob.NewDecoder(r)
-	return dec.Decode(pl)
+	return pl.DecodeBinary(dec)
 }
 
 // WriteBinary writes the payload into its binary representation.
 func (pl *Payload) WriteBinary(w io.Writer) error {
 	enc := gob.NewEncoder(w)
+	return pl.EncodeBinary(enc)
+}
+
+// EncodeBinary writes the payload into its binary representation.
+func (pl *Payload) EncodeBinary(enc *gob.Encoder) error {
 	return enc.Encode(pl)
+}
+
+// DecodeBinary reads the payload from its binary representation.
+func (pl *Payload) DecodeBinary(dec *gob.Decoder) error {
+	return dec.Decode(pl)
 }
 
 // ReadMetaPayload reads a Meta and Payload from a Cilium monitor connection.
