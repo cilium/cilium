@@ -1260,6 +1260,19 @@ func (e *Endpoint) SetDefaultOpts(opts *option.BoolOptions) {
 	}
 }
 
+// ConntrackLocal determines whether this endpoint is currently using a local
+// table to handle connection tracking (true), or the global table (false).
+func (e *Endpoint) ConntrackLocal() bool {
+	e.Mutex.RLock()
+	defer e.Mutex.RUnlock()
+
+	if e.SecurityIdentity == nil || !e.Opts.IsEnabled(option.ConntrackLocal) {
+		return false
+	}
+
+	return true
+}
+
 type orderEndpoint func(e1, e2 *models.Endpoint) bool
 
 // OrderEndpointAsc orders the slice of Endpoint in ascending ID order.
