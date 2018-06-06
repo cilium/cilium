@@ -110,7 +110,6 @@ func (d *Daemon) restoreOldEndpoints(dir string, clean bool) (*endpointRestoreSt
 			ep.Opts.Set(option.EgressPolicy, alwaysEnforce)
 		}
 
-		endpointmanager.Insert(ep)
 		ep.Mutex.Unlock()
 
 		state.restored = append(state.restored, ep)
@@ -119,7 +118,7 @@ func (d *Daemon) restoreOldEndpoints(dir string, clean bool) (*endpointRestoreSt
 	log.WithFields(logrus.Fields{
 		"count.restored": len(state.restored),
 		"count.total":    len(possibleEPs),
-	}).Info("Endpoints restored, endpoints will be regenerated in background")
+	}).Info("Endpoints restored")
 
 	return state, nil
 }
@@ -134,14 +133,12 @@ func (d *Daemon) regenerateRestoredEndpoints(state *endpointRestoreState) {
 	for _, ep := range state.restored {
 		go func(ep *endpoint.Endpoint, epRegenerated chan<- bool) {
 			ep.Mutex.Lock()
-			scopedLog := log.WithField(logfields.EndpointID, ep.ID)
 
-			state := ep.GetStateLocked()
-			if state == endpoint.StateDisconnected || state == endpoint.StateDisconnecting {
-				scopedLog.Warn("Endpoint to restore has been deleted")
-				ep.Mutex.Unlock()
-				return
-			}
+			// Insert into endpoint manager so it can be regenerated when calls to
+			// TriggerPolicyUpdates() are made.
+			endpointmanager.Insert(ep)
+
+			scopedLog := log.WithField(logfields.EndpointID, ep.ID)
 
 			ep.LogStatusOKLocked(endpoint.Other, "Synchronizing endpoint labels with KVStore")
 			if err := d.syncLabels(ep); err != nil {
