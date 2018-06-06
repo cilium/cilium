@@ -18,18 +18,19 @@ import (
 	"net"
 
 	"github.com/cilium/cilium/monitor/listener"
+	"github.com/cilium/cilium/monitor/payload"
 )
 
 type listenerv1_0 struct {
 	conn      net.Conn
-	queue     chan []byte
+	queue     chan *payload.Payload
 	cleanupFn func(*listenerv1_0)
 }
 
 func newListenerv1_0(c net.Conn, queueSize int, cleanupFn func(*listenerv1_0)) *listenerv1_0 {
 	ml := &listenerv1_0{
 		conn:      c,
-		queue:     make(chan []byte, queueSize),
+		queue:     make(chan *payload.Payload, queueSize),
 		cleanupFn: cleanupFn,
 	}
 
@@ -38,9 +39,9 @@ func newListenerv1_0(c net.Conn, queueSize int, cleanupFn func(*listenerv1_0)) *
 	return ml
 }
 
-func (ml *listenerv1_0) enqueue(msg []byte) {
+func (ml *listenerv1_0) enqueue(pl *payload.Payload) {
 	select {
-	case ml.queue <- msg:
+	case ml.queue <- pl:
 	default:
 		log.Debugf("Per listener queue is full, dropping message")
 	}
@@ -52,14 +53,23 @@ func (ml *listenerv1_0) drainQueue() {
 		ml.cleanupFn(ml)
 	}()
 
-	for msgBuf := range ml.queue {
-		if _, err := ml.conn.Write(msgBuf); err != nil {
-			if listener.IsDisconnected(err) {
+	for pl := range ml.queue {
+		buf, err := pl.BuildMessage()
+		if err != nil {
+			log.WithError(err).Error("Unable to send notification to listeners")
+			continue
+		}
+
+		if _, err := ml.conn.Write(buf); err != nil {
+			switch {
+			case listener.IsDisconnected(err):
 				log.Info("Listener disconnected")
 				return
+
+			default:
+				log.WithError(err).Warn("Removing listener due to write failure")
+				return
 			}
-			log.WithError(err).Warn("Removing listener due to write failure")
-			return
 		}
 	}
 }
