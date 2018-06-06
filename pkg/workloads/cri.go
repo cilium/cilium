@@ -351,7 +351,7 @@ func (c *criClient) IgnoreRunningWorkloads() {
 func (c *criClient) workloadIDsList(ctx context.Context) ([]string, error) {
 	ctx = namespaces.WithNamespace(ctx, k8sContainerdNamespace)
 	req := &criRuntime.ListPodSandboxRequest{}
-	resp, err := c.RuntimeServiceClient.ListPodSandbox(context.Background(), req)
+	resp, err := c.RuntimeServiceClient.ListPodSandbox(ctx, req)
 	if err != nil {
 		return nil, err
 	}
