@@ -35,6 +35,7 @@ pipeline {
         PROJ_PATH = "src/github.com/cilium/cilium"
         GOPATH = "${WORKSPACE}"
         TESTDIR = "${WORKSPACE}/${PROJ_PATH}/test"
+        SERVER_BOX = "cilium/ubuntu"
     }
 
     options {

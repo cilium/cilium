@@ -36,6 +36,7 @@ pipeline {
         MEMORY = "3072"
         TESTDIR="${WORKSPACE}/${PROJ_PATH}/test"
         GOPATH="${WORKSPACE}"
+        SERVER_BOX = "cilium/ubuntu"
     }
 
     options {

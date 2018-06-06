@@ -36,6 +36,7 @@ pipeline {
         TESTDIR = "${WORKSPACE}/${PROJ_PATH}/"
         MEMORY = "4096"
         K8S_VERSION="1.10"
+        SERVER_BOX = "cilium/ubuntu"
     }
 
     options {
