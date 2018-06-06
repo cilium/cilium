@@ -114,9 +114,13 @@ func runNodeMonitor() {
 	defer server1_0.Close() // Stop accepting new v1.0 connections
 	log.Infof("Serving cilium node monitor v1.0 API at unix://%s", defaults.MonitorSockPath1_0)
 
+	server1_2 := buildServerOrExit(defaults.MonitorSockPath1_2)
+	defer server1_2.Close() // Stop accepting new v1.2 connections
+	log.Infof("Serving cilium node monitor v1.2 API at unix://%s", defaults.MonitorSockPath1_2)
+
 	mainCtx, mainCtxCancel := context.WithCancel(context.Background())
 
-	monitorSingleton, err = NewMonitor(mainCtx, npages, pipe, server1_0)
+	monitorSingleton, err = NewMonitor(mainCtx, npages, pipe, server1_0, server1_2)
 	if err != nil {
 		log.WithError(err).Fatal("Error initialising monitor handlers")
 	}

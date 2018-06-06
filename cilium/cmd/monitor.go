@@ -318,6 +318,13 @@ func setupSigHandler() {
 func openMonitorSock() (conn net.Conn, version listener.Version, err error) {
 	errors := make([]string, 0)
 
+	// try the 1.2 socket
+	conn, err = net.Dial("unix", defaults.MonitorSockPath1_2)
+	if err == nil {
+		return conn, listener.Version1_2, nil
+	}
+	errors = append(errors, defaults.MonitorSockPath1_2+": "+err.Error())
+
 	// try the 1.1 socket
 	conn, err = net.Dial("unix", defaults.MonitorSockPath1_0)
 	if err == nil {
@@ -379,6 +386,20 @@ func getMonitorParser(conn net.Conn, version listener.Version) (parser eventPars
 		// both with full gob type information
 		return func() (*payload.Payload, error) {
 			if err := payload.ReadMetaPayload(conn, &meta, &pl); err != nil {
+				return nil, err
+			}
+			return &pl, nil
+		}, nil
+
+	case listener.Version1_2:
+		var (
+			pl  payload.Payload
+			dec = gob.NewDecoder(conn)
+		)
+		// This implemenents the newer 1.2 API. Each listener maintains its own gob
+		// session, and type information is only ever sent once.
+		return func() (*payload.Payload, error) {
+			if err := pl.DecodeBinary(dec); err != nil {
 				return nil, err
 			}
 			return &pl, nil
