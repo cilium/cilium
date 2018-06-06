@@ -76,9 +76,9 @@ func (m *Monitor) agentPipeReader(ctx context.Context, agentPipe io.Reader) {
 	log.Info("Beginning to read cilium agent events")
 	defer log.Info("Stopped reading cilium agent events")
 
-	meta, p := payload.Meta{}, payload.Payload{}
+	p := payload.Payload{}
 	for !isCtxDone(ctx) {
-		err := payload.ReadMetaPayload(agentPipe, &meta, &p)
+		err := p.ReadBinary(agentPipe)
 		switch {
 		// this captures the case where we are shutting down and main closes the
 		// pipe socket
@@ -100,7 +100,7 @@ func (m *Monitor) agentPipeReader(ctx context.Context, agentPipe io.Reader) {
 // handling.
 // Note that the perf buffer reader is started only when listeners are
 // connected.
-func NewMonitor(ctx context.Context, nPages int, agentPipe io.Reader, server1_0 net.Listener) (m *Monitor, err error) {
+func NewMonitor(ctx context.Context, nPages int, agentPipe io.Reader, server1_0, server1_2 net.Listener) (m *Monitor, err error) {
 	m = &Monitor{
 		ctx:              ctx,
 		listeners:        make(map[listener.MonitorListener]struct{}),
@@ -110,6 +110,7 @@ func NewMonitor(ctx context.Context, nPages int, agentPipe io.Reader, server1_0 
 
 	// start new MonitorListener handler
 	go m.connectionHandler1_0(ctx, server1_0)
+	go m.connectionHandler1_2(ctx, server1_2)
 
 	// start agent event pipe reader
 	go m.agentPipeReader(ctx, agentPipe)
@@ -139,7 +140,9 @@ func (m *Monitor) registerNewListener(parentCtx context.Context, conn net.Conn, 
 		newListener := newListenerv1_0(conn, queueSize, m.removeListener)
 		m.listeners[newListener] = struct{}{}
 
-		log.WithField("count.listener", len(m.listeners)).Info("New listener connected.")
+	case listener.Version1_2:
+		newListener := newListenerv1_2(conn, queueSize, m.removeListener)
+		m.listeners[newListener] = struct{}{}
 
 	default:
 		conn.Close()
@@ -248,7 +251,7 @@ func (m *Monitor) dumpStat() {
 	fmt.Println(string(mp))
 }
 
-// connectionHandler handles all the incoming connections and sets up the
+// connectionHandler1_0 handles all the incoming connections and sets up the
 // listener objects. It will block on Accept, but expects the caller to close
 // server, inducing a return.
 func (m *Monitor) connectionHandler1_0(parentCtx context.Context, server net.Listener) {
@@ -268,6 +271,29 @@ func (m *Monitor) connectionHandler1_0(parentCtx context.Context, server net.Lis
 		}
 
 		m.registerNewListener(parentCtx, conn, listener.Version1_0)
+	}
+}
+
+// connectionHandler1_2 handles all the incoming connections and sets up the
+// listener objects. It will block on Accept, but expects the caller to close
+// server, inducing a return.
+func (m *Monitor) connectionHandler1_2(parentCtx context.Context, server net.Listener) {
+	for !isCtxDone(parentCtx) {
+		conn, err := server.Accept()
+		switch {
+		case isCtxDone(parentCtx) && conn != nil:
+			conn.Close()
+			fallthrough
+
+		case isCtxDone(parentCtx) && conn == nil:
+			return
+
+		case err != nil:
+			log.WithError(err).Warn("error accepting connection")
+			continue
+		}
+
+		m.registerNewListener(parentCtx, conn, listener.Version1_2)
 	}
 }
 
