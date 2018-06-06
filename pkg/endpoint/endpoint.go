@@ -449,6 +449,10 @@ type Endpoint struct {
 // WaitForProxyCompletions blocks until all proxy changes have been completed.
 // Called with BuildMutex held.
 func (e *Endpoint) WaitForProxyCompletions() error {
+	if e.ProxyWaitGroup == nil {
+		return nil
+	}
+
 	start := time.Now()
 	e.getLogger().Debug("Waiting for proxy updates to complete...")
 	err := e.ProxyWaitGroup.Wait()

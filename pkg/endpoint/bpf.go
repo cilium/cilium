@@ -584,13 +584,6 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir, reason string) (uint64, boo
 		return e.nextPolicyRevision, compilationExecuted, nil
 	}
 
-	completionCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	e.ProxyWaitGroup = completion.NewWaitGroup(completionCtx)
-	defer func() {
-		cancel()
-		e.ProxyWaitGroup = nil
-	}()
-
 	// The set of IDs of proxy redirects that are required to implement the
 	// policy.
 	var desiredRedirects map[string]bool
@@ -674,6 +667,15 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir, reason string) (uint64, boo
 			e.Mutex.Unlock()
 			return 0, compilationExecuted, fmt.Errorf("unable to regenerate policy because PolicyMap synchronization failed: %s", err)
 		}
+
+		// Now that policy has been regenerated, set up a context to
+		// wait for proxy completions.
+		completionCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		e.ProxyWaitGroup = completion.NewWaitGroup(completionCtx)
+		defer func() {
+			cancel()
+			e.ProxyWaitGroup = nil
+		}()
 
 		// Walk the L4Policy for ports that require
 		// an L7 redirect and add them to the endpoint.
@@ -776,7 +778,7 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir, reason string) (uint64, boo
 	// To avoid traffic loss, wait for the policy to be pushed into BPF before
 	// deleting obsolete redirects, to make sure no packets are redirected to
 	// those ports.
-	completionCtx, cancel = context.WithTimeout(context.Background(), 10*time.Second)
+	completionCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	e.ProxyWaitGroup = completion.NewWaitGroup(completionCtx)
 	defer cancel()
 	e.Mutex.Lock()
