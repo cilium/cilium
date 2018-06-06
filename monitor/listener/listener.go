@@ -23,6 +23,7 @@ type ListenerVersion string
 const (
 	ListenerVersionUnsupported = ListenerVersion("unsupported")
 	ListenerVersion1_0         = ListenerVersion("1.0")
+	ListenerVersion1_2         = ListenerVersion("1.2")
 )
 
 // MonitorListener is a generic consumer of monitor events. Implementers are
