@@ -211,6 +211,62 @@ func (h *putEndpointID) Handle(params PutEndpointIDParams) middleware.Responder 
 	if err != nil {
 		apierror.Error(code, err)
 	}
+
+	// Wait for endpoint to be in "ready" state if specified in API call.
+	if params.Endpoint.SyncBuildEndpoint {
+
+		e, err := endpointmanager.Lookup(params.ID)
+		if err != nil {
+			// Delete endpoint if any operation that occurs during PUT, fails,
+			// so that endpoints in an unhealthy state are not left lying around.
+			if e != nil {
+				h.d.deleteEndpoint(e)
+			}
+			return apierror.Error(PutEndpointIDFailedCode, err)
+		}
+
+		if e == nil {
+			return apierror.Error(PutEndpointIDFailedCode, fmt.Errorf("error retrieving endpoint to check if it is in %s state", endpoint.StateReady))
+		}
+
+		log.Debug("synchronously waiting for endpoint %d to be in %s state", e.ID, endpoint.StateReady)
+
+		// Default timeout for PUT /endpoint/{id} is 30 seconds, so put timeout
+		// in this function a bit below that timeout. If the timeout for clients
+		// in API is below this value, they will get a message containing
+		// "context deadline exceeded" if the operation takes longer than the
+		// client's configured timeout value.
+		stateChangeTimeout := time.Duration(25 * time.Second)
+
+		// Check up until stateChangeTimeout seconds for endpoint state before
+		// waiting for endpoint to be in ready state.
+		timeout := time.After(stateChangeTimeout)
+
+		// Check for endpoint state every second.
+		ticker := time.NewTicker(1 * time.Second)
+		defer ticker.Stop()
+
+		for {
+			select {
+			case <-ticker.C:
+				e.Mutex.Lock()
+				epState := e.GetStateLocked()
+				e.Mutex.Unlock()
+				if epState == endpoint.StateReady {
+					return nil
+				} else if epState == endpoint.StateDisconnected || epState == endpoint.StateDisconnecting {
+					// Short circuit in case a call to delete the endpoint is
+					// made while we are waiting for it to be in "ready" state.
+					return apierror.Error(PutEndpointIDFailedCode, fmt.Errorf("endpoint %d went into state %s while waiting for it to be %s", e.ID, epState, endpoint.StateReady))
+				}
+			case <-timeout:
+				// Delete endpoint because PUT operation fails if timeout is
+				// exceeded.
+				h.d.deleteEndpoint(e)
+				return apierror.Error(PutEndpointIDFailedCode, fmt.Errorf("endpoint %d did not synchronously regenerate after timeout", e.ID))
+			}
+		}
+	}
 	return NewPutEndpointIDCreated()
 }
 
