@@ -159,6 +159,8 @@ var _ = Describe("K8sValidatedUpdates", func() {
 
 		validatedImage(localImage)
 
+		ExpectKubeDNSReady(kubectl)
+
 		err = kubectl.WaitForKubeDNSEntry(app1Service)
 		Expect(err).To(BeNil(), "DNS entry is not ready after timeout")
 
