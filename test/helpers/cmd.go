@@ -62,10 +62,12 @@ func (res *CmdRes) GetStdErr() string {
 
 // SendToLog writes to `TestLogWriter` the debug message for the running command
 func (res *CmdRes) SendToLog() {
-	fmt.Fprintf(&config.TestLogWriter, "cmd: %q exitCode: %d \n %s\n",
-		res.cmd,
-		res.GetExitCode(),
-		res.CombineOutput())
+	logformat := "cmd: %q exitCode: %d stdout:\n%s\n"
+	log := fmt.Sprintf(logformat, res.cmd, res.GetExitCode(), res.stdout.String())
+	if res.stderr.Len() > 0 {
+		log = fmt.Sprintf("%sstderr:\n%s\n", log, res.stderr.String())
+	}
+	fmt.Fprintf(&config.TestLogWriter, log)
 }
 
 // WasSuccessful returns true if cmd completed successfully.
