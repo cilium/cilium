@@ -429,6 +429,8 @@ func cmdAdd(args *skel.CmdArgs) error {
 		Sandbox: "/proc/" + args.Netns + "/ns/net",
 	})
 
+	// Specify that endpoint must be regenerated synchronously. See GH-4409.
+	ep.SyncBuildEndpoint = true
 	if err = client.EndpointCreate(ep); err != nil {
 		return fmt.Errorf("Unable to create endpoint: %s", err)
 	}
