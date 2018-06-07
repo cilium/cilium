@@ -218,9 +218,6 @@ func RunK8sCiliumEndpointSyncGC() {
 }
 
 const (
-	// StateCreating is used to set the endpoint is being created.
-	StateCreating = string(models.EndpointStateCreating)
-
 	// StateWaitingForIdentity is used to set if the endpoint is waiting
 	// for an identity from the KVStore.
 	StateWaitingForIdentity = string(models.EndpointStateWaitingForIdentity)
@@ -784,13 +781,6 @@ func (e *Endpoint) getHealthModel() *models.EndpointHealth {
 			Policy:        models.EndpointHealthStatusPending,
 			Connected:     true,
 			OverallHealth: models.EndpointHealthStatusPending,
-		}
-	case models.EndpointStateCreating:
-		h = models.EndpointHealth{
-			Bpf:           models.EndpointHealthStatusBootstrap,
-			Policy:        models.EndpointHealthStatusDisabled,
-			Connected:     true,
-			OverallHealth: models.EndpointHealthStatusDisabled,
 		}
 	case models.EndpointStateWaitingForIdentity:
 		h = models.EndpointHealth{
@@ -1873,11 +1863,6 @@ func (e *Endpoint) SetStateLocked(toState, reason string) bool {
 	// Validate the state transition.
 	fromState := e.state
 	switch fromState { // From state
-	case StateCreating:
-		switch toState {
-		case StateDisconnecting, StateWaitingForIdentity:
-			goto OKState
-		}
 	case StateWaitingForIdentity:
 		switch toState {
 		case StateReady, StateDisconnecting:
@@ -1942,7 +1927,7 @@ func (e *Endpoint) BuilderSetStateLocked(toState, reason string) bool {
 	// Validate the state transition.
 	fromState := e.state
 	switch fromState { // From state
-	case StateCreating, StateWaitingForIdentity, StateReady, StateDisconnecting, StateDisconnected:
+	case StateWaitingForIdentity, StateReady, StateDisconnecting, StateDisconnected:
 		// No valid transitions for the builder
 	case StateWaitingToRegenerate:
 		switch toState {

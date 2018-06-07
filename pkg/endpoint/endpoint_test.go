@@ -221,19 +221,7 @@ func (s *EndpointSuite) TestEndpointState(c *C) {
 	e.SetDefaultOpts(nil)
 	defer e.Mutex.Unlock()
 
-	e.state = StateCreating
-	c.Assert(e.SetStateLocked(StateCreating, "test"), Equals, false)
-	c.Assert(e.SetStateLocked(StateWaitingForIdentity, "test"), Equals, true)
-	e.state = StateCreating
-	c.Assert(e.SetStateLocked(StateReady, "test"), Equals, false)
-	c.Assert(e.SetStateLocked(StateWaitingToRegenerate, "test"), Equals, false)
-	c.Assert(e.SetStateLocked(StateRegenerating, "test"), Equals, false)
-	c.Assert(e.SetStateLocked(StateDisconnecting, "test"), Equals, true)
-	e.state = StateCreating
-	c.Assert(e.SetStateLocked(StateDisconnected, "test"), Equals, false)
-
 	e.state = StateWaitingForIdentity
-	c.Assert(e.SetStateLocked(StateCreating, "test"), Equals, false)
 	c.Assert(e.SetStateLocked(StateWaitingForIdentity, "test"), Equals, false)
 	c.Assert(e.SetStateLocked(StateReady, "test"), Equals, true)
 	e.state = StateWaitingForIdentity
@@ -244,7 +232,6 @@ func (s *EndpointSuite) TestEndpointState(c *C) {
 	c.Assert(e.SetStateLocked(StateDisconnected, "test"), Equals, false)
 
 	e.state = StateReady
-	c.Assert(e.SetStateLocked(StateCreating, "test"), Equals, false)
 	c.Assert(e.SetStateLocked(StateWaitingForIdentity, "test"), Equals, true)
 	e.state = StateReady
 	c.Assert(e.SetStateLocked(StateReady, "test"), Equals, false)
@@ -256,7 +243,6 @@ func (s *EndpointSuite) TestEndpointState(c *C) {
 	c.Assert(e.SetStateLocked(StateDisconnected, "test"), Equals, false)
 
 	e.state = StateWaitingToRegenerate
-	c.Assert(e.SetStateLocked(StateCreating, "test"), Equals, false)
 	c.Assert(e.SetStateLocked(StateWaitingForIdentity, "test"), Equals, true)
 	e.state = StateWaitingToRegenerate
 	c.Assert(e.SetStateLocked(StateReady, "test"), Equals, false)
@@ -267,7 +253,6 @@ func (s *EndpointSuite) TestEndpointState(c *C) {
 	c.Assert(e.SetStateLocked(StateDisconnected, "test"), Equals, false)
 
 	e.state = StateRegenerating
-	c.Assert(e.SetStateLocked(StateCreating, "test"), Equals, false)
 	c.Assert(e.SetStateLocked(StateWaitingForIdentity, "test"), Equals, true)
 	e.state = StateRegenerating
 	c.Assert(e.SetStateLocked(StateReady, "test"), Equals, false)
@@ -279,7 +264,6 @@ func (s *EndpointSuite) TestEndpointState(c *C) {
 	c.Assert(e.SetStateLocked(StateDisconnected, "test"), Equals, false)
 
 	e.state = StateDisconnecting
-	c.Assert(e.SetStateLocked(StateCreating, "test"), Equals, false)
 	c.Assert(e.SetStateLocked(StateWaitingForIdentity, "test"), Equals, false)
 	c.Assert(e.SetStateLocked(StateReady, "test"), Equals, false)
 	c.Assert(e.SetStateLocked(StateWaitingToRegenerate, "test"), Equals, false)
@@ -288,7 +272,6 @@ func (s *EndpointSuite) TestEndpointState(c *C) {
 	c.Assert(e.SetStateLocked(StateDisconnected, "test"), Equals, true)
 
 	e.state = StateDisconnected
-	c.Assert(e.SetStateLocked(StateCreating, "test"), Equals, false)
 	c.Assert(e.SetStateLocked(StateWaitingForIdentity, "test"), Equals, false)
 	c.Assert(e.SetStateLocked(StateReady, "test"), Equals, false)
 	c.Assert(e.SetStateLocked(StateWaitingToRegenerate, "test"), Equals, false)
@@ -310,8 +293,7 @@ func (s *EndpointSuite) TestEndpointState(c *C) {
 	c.Assert(e.BuilderSetStateLocked(StateReady, "test"), Equals, true)
 
 	// Typical lifecycle
-	e.state = StateCreating
-	c.Assert(e.SetStateLocked(StateWaitingForIdentity, "test"), Equals, true)
+	e.state = StateWaitingForIdentity
 	// Initial build does not change the state
 	c.Assert(e.BuilderSetStateLocked(StateRegenerating, "test"), Equals, false)
 	c.Assert(e.BuilderSetStateLocked(StateReady, "test"), Equals, false)
@@ -391,7 +373,7 @@ func (s *EndpointSuite) TestWaitForPolicyRevision(c *C) {
 	// Number of policy revision signals should be 0
 	c.Assert(len(e.policyRevisionSignals), Equals, 0)
 
-	e.state = StateCreating
+	e.state = StateWaitingForIdentity
 	ctx, cancel = context.WithCancel(context.Background())
 	ch = e.WaitForPolicyRevision(ctx, 99)
 
