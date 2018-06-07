@@ -327,9 +327,9 @@ func AddEndpoint(owner endpoint.Owner, ep *endpoint.Endpoint, reason string) err
 	ep.Mutex.Lock()
 	build := false
 	state := ep.GetStateLocked()
-	// Note that the endpoint state can initially also be "creating", and the
-	// initial build will not be done yet in that case. A following PATCH
-	// request will be needed to change the state and trigger bpf build.
+
+	// We can only trigger regeneration of endpoints if the endpoint is in a
+	// state where it can regenerate. See endpoint.SetStateLocked().
 	if state == endpoint.StateReady {
 		ep.SetStateLocked(endpoint.StateWaitingToRegenerate, reason)
 		build = true
