@@ -71,6 +71,10 @@ var _ = Describe("K8sValidatedPolicyTest", func() {
 	})
 
 	JustBeforeEach(func() {
+		// restart kubedns every time!
+		kubectl.Exec("kubectl delete pod -l k8s-app=kube-dns -n kube-system")
+		ExpectKubeDNSReady(kubectl)
+
 		microscopeErr, microscopeCancel = kubectl.MicroscopeStart()
 		Expect(microscopeErr).To(BeNil(), "Microscope cannot be started")
 	})
