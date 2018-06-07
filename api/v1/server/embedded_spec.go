@@ -1308,6 +1308,10 @@ func init() {
         "state": {
           "description": "Current state of endpoint",
           "$ref": "#/definitions/EndpointState"
+        },
+        "sync-build-endpoint": {
+          "description": "Whether to build an endpoint synchronously\n",
+          "type": "boolean"
         }
       }
     },
