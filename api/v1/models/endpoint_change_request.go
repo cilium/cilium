@@ -57,6 +57,10 @@ type EndpointChangeRequest struct {
 	// Current state of endpoint
 	// Required: true
 	State EndpointState `json:"state"`
+
+	// Whether to build an endpoint synchronously
+	//
+	SyncBuildEndpoint bool `json:"sync-build-endpoint,omitempty"`
 }
 
 /* polymorph EndpointChangeRequest addressing false */
@@ -84,6 +88,8 @@ type EndpointChangeRequest struct {
 /* polymorph EndpointChangeRequest policy-enabled false */
 
 /* polymorph EndpointChangeRequest state false */
+
+/* polymorph EndpointChangeRequest sync-build-endpoint false */
 
 // Validate validates this endpoint change request
 func (m *EndpointChangeRequest) Validate(formats strfmt.Registry) error {
