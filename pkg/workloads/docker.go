@@ -17,6 +17,7 @@ package workloads
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -38,7 +39,6 @@ import (
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/node"
 
-	"context"
 	"github.com/docker/engine-api/client"
 	dTypes "github.com/docker/engine-api/types"
 	dTypesEvents "github.com/docker/engine-api/types/events"
@@ -442,6 +442,13 @@ func (d *dockerClient) handleCreateWorkload(id string, retry bool) {
 			// We will retry a couple of times to wait for this to
 			// happen.
 			retryLog.Debug("Matching cilium endpoint for container create event does not exist yet")
+
+			// Sometimes on restore the endpointManager is still empty (because
+			// GH-4390) and the function that triggers this regenaration is
+			// `watcherState.syncWithRuntime()` where the default is
+			// retry=false. To avoid a race here we should retry to be sure
+			// that the endpoint is on the endpointManager
+			retry = true
 			continue
 		}
 
