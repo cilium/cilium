@@ -2,6 +2,73 @@
 NEWS
 ******
 
+v1.0.4
+======
+
+André Martins (11):
+      docs: backported all document changes from master
+      docs: update kubernetes generated files
+      jenkins: update all jenkins files
+      makefile: backported master's makefile
+      examples/policies: add missing policies from GSGs
+      docs: change minikube GSG to have necessary flags to run CNI
+      docs: remove duplicated cilium installation instructions from GSG
+      docs: layout fixes in GSG
+      pkg/bpf: Use pointer receivers for MapKeys types
+      test: update k8s versions to 1.7.15, 1.8.13, 1.9.8, 1.10.3 and 1.11.0-beta.0
+      test: download exact k8s version of k8s upstream e2e
+
+Arvind Soni (1):
+      Fix image formatting and simplifies app yaml
+
+Ashwin Paranjpe (2):
+      GH4164 Append rule labels while parsing api.Rule
+      GH-4339 Add k8s label source in GetPolicyLabels
+
+Eloy Coto (1):
+      Test: Fix issues with Ginkgo Kubernetes Job
+
+Ian Vernon (2):
+      pkg/endpointmanager: always regenerate if policy forcibly computed
+      daemon: trigger policy updates upon daemon configuration update
+
+Jarno Rajahalme (3):
+      bugtool: Add '-a' option to netstat.
+      bpf: Only create veth pair if it does not already exist.
+      init.sh: Use 'ip route replace' instead of 'ip route add'
+
+Joe Stringer (2):
+      docs: Attempt to use RTD version for GH URLs
+      test: Don't gather logs in -holdEnvironment
+
+Nirmoy Das (1):
+      cilium status: fix --brief to print less when cilium isn't running
+
+Ray Bejjani (2):
+      endpoint: Force regeneration when there are underlying errors
+      fixup: Remove incompatible example policy
+
+Romain Lenglet (2):
+      ipcache: Create copies of NPHDS cache resources when deleting
+      xds: Match the client's version if higher than the server's
+
+Shantanu Deshpande (3):
+      Add org to spellcheck wordlist
+      Fixes 'any' reference target not found warning
+      Misc fixes for kops installation guide
+
+Steven Ceuppens (1):
+      Add "docker info" output to bugtool
+
+Tasdik Rahman (2):
+      docs: k8s: updating docs for k8s v1.9, 1.10 and 1.11 support
+      docs: k8s: updating formatting
+
+Thomas Graf (2):
+      identity: Ignore nil identity when generating IdentityCache
+      identity: Resolve unknown identity to label reserved:unknown
+
+
 v1.0.3
 ======
 
