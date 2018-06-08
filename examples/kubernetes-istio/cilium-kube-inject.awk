@@ -1,16 +1,30 @@
 # Replace the Istio sidecar proxy image with the Cilium-specific image.
-/proxy:/ || /proxy_debug:/ || /proxyv2:/ {
-	gsub(/[^" ]*proxy:/, "docker.io/cilium/istio_proxy:")
-	gsub(/[^" ]*proxy_debug:/, "docker.io/cilium/istio_proxy_debug:")
-	gsub(/[^" ]*proxyv2:/, "docker.io/cilium/istio_proxy:")
+
+/{{ .Values.global.hub }}\/{{ .Values.global.proxy.image }}/ {
+	indent = $0 ; gsub(/[^ ].*/, "", indent)
+	print indent "{{ if eq .Values.global.proxy.image \"proxy_debug\" -}}"
+	print indent "docker.io/cilium/istio_proxy_debug:{{ .Values.global.tag }}"
+	print indent "{{ else -}}"
+	print indent "docker.io/cilium/istio_proxy:{{ .Values.global.tag }}"
+	$0 = indent "{{ end -}}"
 }
 
 { print }
 
+# Add an init container to delay the start of the application containers for
+# 10 seconds, to reduce the chance of dropping early traffic.
+/initContainers:/ {
+	indent = $0 ; gsub(/[^ ].*/, "", indent)
+	print indent "- name: sleep"
+	print indent "  image: busybox"
+	print indent "  imagePullPolicy: IfNotPresent"
+	print indent "  command: ['sh', '-c', 'sleep 10']"
+}
+
 # Mount the Cilium state directory to give Cilium's Envoy filters access to the
 # Cilium API.
 /volumeMounts:/ {
-	indent = $0 ; gsub(/[^ ]*/, "", indent)
+	indent = $0 ; gsub(/[^ ].*/, "", indent)
 	print indent "- mountPath: /var/run/cilium"
 	print indent "  name: cilium-unix-sock-dir"
 }
