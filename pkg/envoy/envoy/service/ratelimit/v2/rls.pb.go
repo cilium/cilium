@@ -326,9 +326,8 @@ var _ grpc.ClientConn
 // is compatible with the grpc package it is being compiled against.
 const _ = grpc.SupportPackageIsVersion4
 
-// RateLimitServiceClient is the client API for RateLimitService service.
-//
-// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://godoc.org/google.golang.org/grpc#ClientConn.NewStream.
+// Client API for RateLimitService service
+
 type RateLimitServiceClient interface {
 	// Determine whether rate limiting should take place.
 	ShouldRateLimit(ctx context.Context, in *RateLimitRequest, opts ...grpc.CallOption) (*RateLimitResponse, error)
@@ -344,14 +343,15 @@ func NewRateLimitServiceClient(cc *grpc.ClientConn) RateLimitServiceClient {
 
 func (c *rateLimitServiceClient) ShouldRateLimit(ctx context.Context, in *RateLimitRequest, opts ...grpc.CallOption) (*RateLimitResponse, error) {
 	out := new(RateLimitResponse)
-	err := c.cc.Invoke(ctx, "/envoy.service.ratelimit.v2.RateLimitService/ShouldRateLimit", in, out, opts...)
+	err := grpc.Invoke(ctx, "/envoy.service.ratelimit.v2.RateLimitService/ShouldRateLimit", in, out, c.cc, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-// RateLimitServiceServer is the server API for RateLimitService service.
+// Server API for RateLimitService service
+
 type RateLimitServiceServer interface {
 	// Determine whether rate limiting should take place.
 	ShouldRateLimit(context.Context, *RateLimitRequest) (*RateLimitResponse, error)

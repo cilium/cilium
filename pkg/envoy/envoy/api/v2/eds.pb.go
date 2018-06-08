@@ -152,9 +152,8 @@ var _ grpc.ClientConn
 // is compatible with the grpc package it is being compiled against.
 const _ = grpc.SupportPackageIsVersion4
 
-// EndpointDiscoveryServiceClient is the client API for EndpointDiscoveryService service.
-//
-// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://godoc.org/google.golang.org/grpc#ClientConn.NewStream.
+// Client API for EndpointDiscoveryService service
+
 type EndpointDiscoveryServiceClient interface {
 	// The resource_names field in DiscoveryRequest specifies a list of clusters
 	// to subscribe to updates for.
@@ -171,7 +170,7 @@ func NewEndpointDiscoveryServiceClient(cc *grpc.ClientConn) EndpointDiscoverySer
 }
 
 func (c *endpointDiscoveryServiceClient) StreamEndpoints(ctx context.Context, opts ...grpc.CallOption) (EndpointDiscoveryService_StreamEndpointsClient, error) {
-	stream, err := c.cc.NewStream(ctx, &_EndpointDiscoveryService_serviceDesc.Streams[0], "/envoy.api.v2.EndpointDiscoveryService/StreamEndpoints", opts...)
+	stream, err := grpc.NewClientStream(ctx, &_EndpointDiscoveryService_serviceDesc.Streams[0], c.cc, "/envoy.api.v2.EndpointDiscoveryService/StreamEndpoints", opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -203,14 +202,15 @@ func (x *endpointDiscoveryServiceStreamEndpointsClient) Recv() (*DiscoveryRespon
 
 func (c *endpointDiscoveryServiceClient) FetchEndpoints(ctx context.Context, in *DiscoveryRequest, opts ...grpc.CallOption) (*DiscoveryResponse, error) {
 	out := new(DiscoveryResponse)
-	err := c.cc.Invoke(ctx, "/envoy.api.v2.EndpointDiscoveryService/FetchEndpoints", in, out, opts...)
+	err := grpc.Invoke(ctx, "/envoy.api.v2.EndpointDiscoveryService/FetchEndpoints", in, out, c.cc, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-// EndpointDiscoveryServiceServer is the server API for EndpointDiscoveryService service.
+// Server API for EndpointDiscoveryService service
+
 type EndpointDiscoveryServiceServer interface {
 	// The resource_names field in DiscoveryRequest specifies a list of clusters
 	// to subscribe to updates for.
