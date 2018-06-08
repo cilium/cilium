@@ -131,14 +131,27 @@ func (d *Daemon) regenerateRestoredEndpoints(state *endpointRestoreState) {
 	epRegenerated := make(chan bool, len(state.restored))
 
 	for _, ep := range state.restored {
+
+		// Insert into endpoint manager so it can be regenerated when calls to
+		// TriggerPolicyUpdates() are made. This must be done synchronously (i.e.,
+		// not in a goroutine) because regenerateRestoredEndpoints must guarantee
+		// upon returning that endpoints are exposed to other subsystems via
+		// endpointmanager.
+		ep.Mutex.RLock()
+		endpointmanager.Insert(ep)
+		ep.Mutex.RUnlock()
+
 		go func(ep *endpoint.Endpoint, epRegenerated chan<- bool) {
 			ep.Mutex.Lock()
 
-			// Insert into endpoint manager so it can be regenerated when calls to
-			// TriggerPolicyUpdates() are made.
-			endpointmanager.Insert(ep)
-
 			scopedLog := log.WithField(logfields.EndpointID, ep.ID)
+
+			state := ep.GetStateLocked()
+			if state == endpoint.StateDisconnected || state == endpoint.StateDisconnecting {
+				scopedLog.Warn("Endpoint to restore has been deleted")
+				ep.Mutex.Unlock()
+				return
+			}
 
 			ep.LogStatusOKLocked(endpoint.Other, "Synchronizing endpoint labels with KVStore")
 			if err := d.syncLabels(ep); err != nil {
