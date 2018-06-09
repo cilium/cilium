@@ -1,4 +1,4 @@
-// Copyright 2016-2017 Authors of Cilium
+// Copyright 2016-2018 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -132,15 +132,6 @@ func (n EndpointSelector) HasKey(key string) bool {
 	return false
 }
 
-// newWildcardEndpointSelector returns a selector that matches on all endpoints
-func newWildcardEndpointSelector() EndpointSelector {
-	return EndpointSelector{&metav1.LabelSelector{MatchLabels: map[string]string{}}}
-}
-
-// WildcardEndpointSelector is a wildcard endpoint selector matching all
-// endpoints that can be described with labels.
-var WildcardEndpointSelector = newWildcardEndpointSelector()
-
 // NewESFromLabels creates a new endpoint selector from the given labels.
 func NewESFromLabels(lbls ...*labels.Label) EndpointSelector {
 	ml := map[string]string{}
@@ -153,6 +144,26 @@ func NewESFromLabels(lbls ...*labels.Label) EndpointSelector {
 		},
 	}
 }
+
+// newReservedEndpointSelector returns a selector that matches on all
+// endpoints with the specified reserved label.
+func newReservedEndpointSelector(ID string) EndpointSelector {
+	reservedLabels := labels.NewLabel(ID, "", labels.LabelSourceReserved)
+	return NewESFromLabels(reservedLabels)
+}
+
+var (
+	// WildcardEndpointSelector is a wildcard endpoint selector matching
+	// all endpoints that can be described with labels.
+	WildcardEndpointSelector = NewESFromLabels()
+
+	// ReservedEndpointSelectors map reserved labels to EndpointSelectors
+	// that will match those endpoints.
+	ReservedEndpointSelectors = map[string]EndpointSelector{
+		labels.IDNameHost:  newReservedEndpointSelector(labels.IDNameHost),
+		labels.IDNameWorld: newReservedEndpointSelector(labels.IDNameWorld),
+	}
+)
 
 // NewESFromK8sLabelSelector returns a new endpoint selector from the label
 // where it the given srcPrefix will be encoded in the label's keys.
