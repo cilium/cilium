@@ -188,8 +188,23 @@ var _ = Describe("RuntimeValidatedConnectivityTest", func() {
 			dockerImage = "busybox:latest"
 			cniServer   = "cni-server"
 			cniClient   = "cni-client"
+			netDPath    = "/etc/cni/net.d/"
+			tmpDir      *helpers.CmdRes
 		)
-		var tmpDir *helpers.CmdRes
+
+		BeforeAll(func() {
+			// Remove any CNI plugin installed in the provision server. This
+			// helps to avoid issues on installing the new CNI
+			_ = vm.ExecWithSudo(fmt.Sprintf("rm -rf %[1]s/*.conf", netDPath)).ExpectSuccess(
+				"CNI config cannot be deleted")
+
+			tmpDir = vm.Exec("mktemp -d")
+			tmpDir.ExpectSuccess("TMP folder cannot be created %s", tmpDir.Output())
+		})
+
+		AfterAll(func() {
+			vm.Exec(fmt.Sprintf("rm -rf %s", tmpDir.Output()))
+		})
 
 		BeforeEach(func() {
 			vm.PolicyDelAll().ExpectSuccess("Policies cannot be deleted")
@@ -223,22 +238,16 @@ var _ = Describe("RuntimeValidatedConnectivityTest", func() {
 
 		It("Basic connectivity test", func() {
 			filename := "10-cilium-cni.conf"
-			tmpDir = vm.Exec("mktemp -d")
-			tmpDir.ExpectSuccess("TMP folder cannot be created %s", tmpDir.Output())
-			defer vm.Exec(fmt.Sprintf("rm -rf %s", tmpDir.Output()))
-			netDPath := filepath.Join(tmpDir.SingleOut(), "net.d")
-			vm.Exec(fmt.Sprintf("mkdir -p %s", netDPath)).ExpectSuccess()
-
 			cniConf := `{"name": "cilium",
 				"type": "cilium-cni",
 				"mtu": 1450}`
-
 			err := helpers.RenderTemplateToFile(filename, cniConf, os.ModePerm)
 			Expect(err).To(BeNil())
 
-			cmd := vm.Exec(fmt.Sprintf("cat %s > %s/%s",
-				helpers.GetFilePath(filename), netDPath, filename))
-			cmd.ExpectSuccess()
+			cmd := vm.ExecWithSudo(fmt.Sprintf("mv %s %s",
+				helpers.GetFilePath(filename),
+				filepath.Join(netDPath, filename)))
+			cmd.ExpectSuccess("cannot install cilium cni plugin conf")
 			script := fmt.Sprintf(`
 				cd %s && \
 				git clone https://github.com/containernetworking/cni -b v0.5.2 --single-branch && \
