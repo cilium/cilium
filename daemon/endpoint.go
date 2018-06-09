@@ -253,7 +253,7 @@ func (h *putEndpointID) Handle(params PutEndpointIDParams) middleware.Responder 
 				epState := e.GetStateLocked()
 				e.Mutex.RUnlock()
 				if epState == endpoint.StateReady {
-					return nil
+					return NewPutEndpointIDCreated()
 				} else if epState == endpoint.StateDisconnected || epState == endpoint.StateDisconnecting {
 					// Short circuit in case a call to delete the endpoint is
 					// made while we are waiting for it to be in "ready" state.
