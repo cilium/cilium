@@ -27,6 +27,7 @@ import (
 	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/common/addressing"
 	"github.com/cilium/cilium/pkg/controller"
+	endpointid "github.com/cilium/cilium/pkg/endpoint/id"
 	identityPkg "github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/k8s"
@@ -825,7 +826,7 @@ func (e *Endpoint) runIdentityToK8sPodSync() {
 // / <global ID Prefix>:<cluster name>:<node name>:<endpoint ID> as a string.
 func (e *Endpoint) FormatGlobalEndpointID() string {
 	nodeIdentity, _ := node.GetLocalNode()
-	metadata := []string{CiliumGlobalIdPrefix, ipcache.AddressSpace, nodeIdentity.Name, strconv.Itoa(int(e.ID))}
+	metadata := []string{endpointid.CiliumGlobalIdPrefix, ipcache.AddressSpace, nodeIdentity.Name, strconv.Itoa(int(e.ID))}
 	return strings.Join(metadata, ":")
 }
 
