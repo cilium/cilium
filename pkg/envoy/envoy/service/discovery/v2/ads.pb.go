@@ -68,9 +68,8 @@ var _ grpc.ClientConn
 // is compatible with the grpc package it is being compiled against.
 const _ = grpc.SupportPackageIsVersion4
 
-// AggregatedDiscoveryServiceClient is the client API for AggregatedDiscoveryService service.
-//
-// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://godoc.org/google.golang.org/grpc#ClientConn.NewStream.
+// Client API for AggregatedDiscoveryService service
+
 type AggregatedDiscoveryServiceClient interface {
 	// This is a gRPC-only API.
 	StreamAggregatedResources(ctx context.Context, opts ...grpc.CallOption) (AggregatedDiscoveryService_StreamAggregatedResourcesClient, error)
@@ -85,7 +84,7 @@ func NewAggregatedDiscoveryServiceClient(cc *grpc.ClientConn) AggregatedDiscover
 }
 
 func (c *aggregatedDiscoveryServiceClient) StreamAggregatedResources(ctx context.Context, opts ...grpc.CallOption) (AggregatedDiscoveryService_StreamAggregatedResourcesClient, error) {
-	stream, err := c.cc.NewStream(ctx, &_AggregatedDiscoveryService_serviceDesc.Streams[0], "/envoy.service.discovery.v2.AggregatedDiscoveryService/StreamAggregatedResources", opts...)
+	stream, err := grpc.NewClientStream(ctx, &_AggregatedDiscoveryService_serviceDesc.Streams[0], c.cc, "/envoy.service.discovery.v2.AggregatedDiscoveryService/StreamAggregatedResources", opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -115,7 +114,8 @@ func (x *aggregatedDiscoveryServiceStreamAggregatedResourcesClient) Recv() (*v2.
 	return m, nil
 }
 
-// AggregatedDiscoveryServiceServer is the server API for AggregatedDiscoveryService service.
+// Server API for AggregatedDiscoveryService service
+
 type AggregatedDiscoveryServiceServer interface {
 	// This is a gRPC-only API.
 	StreamAggregatedResources(AggregatedDiscoveryService_StreamAggregatedResourcesServer) error

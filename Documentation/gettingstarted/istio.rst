@@ -121,43 +121,53 @@ like above (a ``READY`` value of ``0`` is OK for this tutorial).
 Step 2: Install Istio
 =====================
 
-Install the `Helm client <https://docs.helm.sh/using_helm/#installing-helm>`_.
+Download `Istio version 0.8.0 RC (release-0.8-20180521-15-16)
+<https://github.com/istio/istio/releases/>`_:
 
-Download `Istio version 0.8.0
-<https://github.com/istio/istio/releases/tag/0.8.0>`_:
-
-::
-
+.. TODO: Update the ISTIO_VERSION to 0.8.0 once released.
    $ export ISTIO_VERSION=0.8.0
    $ curl -L https://git.io/getLatestIstio | sh -
    $ export ISTIO_HOME=`pwd`/istio-${ISTIO_VERSION}
    $ export PATH="$PATH:${ISTIO_HOME}/bin"
 
-Create a copy of Istio's Helm charts in order to customize them:
+.. tabs::
+  .. group-tab:: Linux
 
-::
+    ::
 
-    $ cp -r ${ISTIO_HOME}/install/kubernetes/helm/istio istio-cilium-helm
+      $ export ISTIO_VERSION=release-0.8-20180521-15-16
+      $ curl -L https://storage.googleapis.com/istio-prerelease/daily-build/${ISTIO_VERSION}/istio-${ISTIO_VERSION}-linux.tar.gz | tar xz
+      $ export ISTIO_HOME=`pwd`/istio-${ISTIO_VERSION}
+      $ export PATH="${ISTIO_HOME}/bin:${PATH}"
 
-Configure Istio to use a Cilium-specific variant of Pilot which injects the
-Cilium network policy filters into each Istio sidecar proxy:
+  .. group-tab:: macOS
 
-::
+    ::
 
-    $ sed -e 's,{{ .Values.global.hub }}/{{ .Values.image }},docker.io/cilium/istio_pilot,' \
-          -i istio-cilium-helm/charts/pilot/templates/deployment.yaml
+      $ export ISTIO_VERSION=release-0.8-20180521-15-16
+      $ curl -L https://storage.googleapis.com/istio-prerelease/daily-build/${ISTIO_VERSION}/istio-${ISTIO_VERSION}-osx.tar.gz | tar xz
+      $ export ISTIO_HOME=`pwd`/istio-${ISTIO_VERSION}
+      $ export PATH="${ISTIO_HOME}/bin:${PATH}"
 
-Configure the Istio's sidecar injection to setup the transparent proxy mode
+Deploy Istio on Kubernetes, with a Cilium-specific variant of Pilot which
+injects the Cilium network policy filters into each Istio sidecar proxy, and
+with Istio's sidecar injection configured to setup the transparent proxy mode
 (TPROXY) as required by Cilium's proxy filters:
 
 ::
 
-    $ sed -e 's,#interceptionMode: .*,interceptionMode: TPROXY,' \
-          -i istio-cilium-helm/templates/configmap.yaml
+    $ sed -e 's,image: ".*/pilot:,image: "docker.io/cilium/istio_pilot:,' \
+          -e 's,#interceptionMode: .*,interceptionMode: TPROXY,' \
+          -e 's/mtlsExcludedServices: \[\(.*\)\]/mtlsExcludedServices: [\1, "kafka.default.svc.cluster.local"]/' \
+          < ${ISTIO_HOME}/install/kubernetes/istio-demo-auth.yaml | \
+          kubectl create -f -
 
-Modify the Istio sidecar injection template to uses Cilium's proxy Docker
-images and mount Cilium's API Unix domain sockets into each sidecar to allow
-Cilium's Envoy filters to query the Cilium agent for policy configuration:
+Generate an Istio injection template file named ``istio-inject-config.yaml``
+that we will use to configure ``istioctl kube-inject`` when injecting sidecar
+proxy containers into application pods.
+This template file uses Cilium's proxy Docker images and mounts Cilium's API
+Unix domain sockets into each sidecar to allow Cilium's Envoy filters to query
+the Cilium agent for policy configuration:
 
 .. parsed-literal::
 
@@ -165,32 +175,9 @@ Cilium's Envoy filters to query the Cilium agent for policy configuration:
 
 ::
 
-    $ cat istio-cilium-helm/templates/sidecar-injector-configmap.yaml | \
+    $ istioctl kube-inject --emitTemplate --debug --imagePullPolicy=IfNotPresent | \
           awk -f cilium-kube-inject.awk \
-          > istio-cilium-helm/templates/sidecar-injector-configmap-cilium.yaml
-    $ mv istio-cilium-helm/templates/sidecar-injector-configmap-cilium.yaml istio-cilium-helm/templates/sidecar-injector-configmap.yaml
-
-Create an Istio deployment spec:
-
-::
-
-    $ helm template istio-cilium-helm --name istio --namespace istio-system \
-          --set sidecarInjectorWebhook.enabled=false \
-          --set global.controlPlaneSecurityEnabled=false \
-          --set global.mtls.enabled=false \
-          --set global.proxy.image=proxy_debug \
-          > istio-cilium.yaml
-
-.. TODO: Set global.controlPlaneSecurityEnabled=true and
-   global.mtls.enabled=true when we stop seeing TLS connections getting
-   forcefully closed by sidecar proxies sporadically.
-
-Deploy Istio onto Kubernetes:
-
-::
-
-    $ kubectl create namespace istio-system
-    $ kubectl create -f istio-cilium.yaml
+          > istio-inject-config.yaml
 
 Check the progress of the deployment (every service should have an
 ``AVAILABLE`` count of ``1``):
@@ -199,15 +186,13 @@ Check the progress of the deployment (every service should have an
 
     $ kubectl get deployments -n istio-system
     NAME                       DESIRED   CURRENT   UP-TO-DATE   AVAILABLE   AGE
-    istio-citadel              1         1         1            1           4m
-    istio-egressgateway        1         1         1            1           4m
-    istio-ingress              1         1         1            1           4m
-    istio-ingressgateway       1         1         1            1           4m
-    istio-pilot                1         1         1            1           4m
-    istio-policy               1         1         1            1           4m
-    istio-statsd-prom-bridge   1         1         1            1           4m
-    istio-telemetry            1         1         1            1           4m
-    prometheus                 1         1         1            1           4m
+    istio-citadel              1         1         1            1           2m
+    istio-ingress              1         1         1            1           2m
+    istio-pilot                1         1         1            1           2m
+    istio-policy               1         1         1            1           2m
+    istio-statsd-prom-bridge   1         1         1            1           2m
+    istio-telemetry            1         1         1            1           2m
+    prometheus                 1         1         1            1           2m
 
 Once all Istio pods are ready, we are ready to install the demo
 application.
@@ -262,11 +247,9 @@ Create an Istio ingress gateway for the productpage service:
 To package the Istio sidecar proxy and generate final YAML
 specifications, run:
 
-.. parsed-literal::
-
     $ for service in productpage-service productpage-v1 details-v1 reviews-v1; do \\
           curl -s \ |SCM_WEB|\/examples/kubernetes-istio/bookinfo-${service}.yaml | \\
-          istioctl kube-inject -f - | \\
+          istioctl kube-inject --injectConfigFile istio-inject-config.yaml -f - | \\
           kubectl create -f - ; done
     service "productpage" created
     ciliumnetworkpolicy "productpage-v1" created
@@ -338,7 +321,7 @@ Deploy the ``ratings v1`` and ``reviews v2`` services:
 
     $ for service in ratings-v1 reviews-v2; do \\
           curl -s \ |SCM_WEB|\/examples/kubernetes-istio/bookinfo-${service}.yaml | \\
-          istioctl kube-inject -f - | \\
+          istioctl kube-inject --injectConfigFile istio-inject-config.yaml -f - | \\
           kubectl create -f - ; done
     service "ratings" created
     ciliumnetworkpolicy "ratings-v1" created
@@ -488,7 +471,7 @@ deploy a Kafka broker:
 
 .. TODO: Re-enable sidecar injection after we support Kafka with mTLS.
     $ curl -s \ |SCM_WEB|\/examples/kubernetes-istio/kafka-v1.yaml | \\
-          istioctl kube-inject -f - | \\
+          istioctl kube-inject --injectConfigFile istio-inject-config.yaml -f - | \\
           kubectl create -f -
 
 .. parsed-literal::
@@ -524,7 +507,7 @@ CiliumNetworkPolicy and delete ``productpage v1``:
 .. parsed-literal::
 
     $ curl -s \ |SCM_WEB|\/examples/kubernetes-istio/bookinfo-productpage-v2.yaml | \\
-          istioctl kube-inject -f - | \\
+          istioctl kube-inject --injectConfigFile istio-inject-config.yaml -f - | \\
           kubectl create -f -
     ciliumnetworkpolicy "productpage-v2" created
     deployment "productpage-v2" created
@@ -550,7 +533,7 @@ this service:
 .. parsed-literal::
 
     $ curl -s \ |SCM_WEB|\/examples/kubernetes-istio/authaudit-logger-v1.yaml | \\
-          istioctl kube-inject -f - | \\
+          istioctl kube-inject --injectConfigFile istio-inject-config.yaml -f - | \\
           kubectl apply -f -
     deployment "authaudit-logger-v1" created
 

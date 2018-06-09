@@ -1339,9 +1339,8 @@ var _ grpc.ClientConn
 // is compatible with the grpc package it is being compiled against.
 const _ = grpc.SupportPackageIsVersion4
 
-// ClusterDiscoveryServiceClient is the client API for ClusterDiscoveryService service.
-//
-// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://godoc.org/google.golang.org/grpc#ClientConn.NewStream.
+// Client API for ClusterDiscoveryService service
+
 type ClusterDiscoveryServiceClient interface {
 	StreamClusters(ctx context.Context, opts ...grpc.CallOption) (ClusterDiscoveryService_StreamClustersClient, error)
 	FetchClusters(ctx context.Context, in *DiscoveryRequest, opts ...grpc.CallOption) (*DiscoveryResponse, error)
@@ -1356,7 +1355,7 @@ func NewClusterDiscoveryServiceClient(cc *grpc.ClientConn) ClusterDiscoveryServi
 }
 
 func (c *clusterDiscoveryServiceClient) StreamClusters(ctx context.Context, opts ...grpc.CallOption) (ClusterDiscoveryService_StreamClustersClient, error) {
-	stream, err := c.cc.NewStream(ctx, &_ClusterDiscoveryService_serviceDesc.Streams[0], "/envoy.api.v2.ClusterDiscoveryService/StreamClusters", opts...)
+	stream, err := grpc.NewClientStream(ctx, &_ClusterDiscoveryService_serviceDesc.Streams[0], c.cc, "/envoy.api.v2.ClusterDiscoveryService/StreamClusters", opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -1388,14 +1387,15 @@ func (x *clusterDiscoveryServiceStreamClustersClient) Recv() (*DiscoveryResponse
 
 func (c *clusterDiscoveryServiceClient) FetchClusters(ctx context.Context, in *DiscoveryRequest, opts ...grpc.CallOption) (*DiscoveryResponse, error) {
 	out := new(DiscoveryResponse)
-	err := c.cc.Invoke(ctx, "/envoy.api.v2.ClusterDiscoveryService/FetchClusters", in, out, opts...)
+	err := grpc.Invoke(ctx, "/envoy.api.v2.ClusterDiscoveryService/FetchClusters", in, out, c.cc, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-// ClusterDiscoveryServiceServer is the server API for ClusterDiscoveryService service.
+// Server API for ClusterDiscoveryService service
+
 type ClusterDiscoveryServiceServer interface {
 	StreamClusters(ClusterDiscoveryService_StreamClustersServer) error
 	FetchClusters(context.Context, *DiscoveryRequest) (*DiscoveryResponse, error)
