@@ -19,6 +19,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/maps/policymap"
+	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy/api"
 )
 
@@ -35,19 +36,24 @@ func (r *rule) String() string {
 // port and protocol with the contents of the provided PortRule. If the rule
 // being merged has conflicting L7 rules with those already in the provided
 // L4PolicyMap for the specified port-protocol tuple, it returns an error.
-func mergeL4IngressPort(ctx *SearchContext, endpoints []api.EndpointSelector, r api.PortRule, p api.PortProtocol,
+//
+// If any rules contain L7 rules that overlap with the endpointsWithL3Override,
+// then for the endpoints with L3 override, the L7 rules will be translated
+// into L7 wildcards (ie, traffic will be forwarded to the proxy for endpoints
+// matching those labels, but the proxy will allow all such traffic).
+func mergeL4IngressPort(ctx *SearchContext, endpoints []api.EndpointSelector, endpointsWithL3Override []api.EndpointSelector, r api.PortRule, p api.PortProtocol,
 	proto api.L4Proto, ruleLabels labels.LabelArray, resMap L4PolicyMap) (int, error) {
 
 	key := p.Port + "/" + string(proto)
 	existingFilter, ok := resMap[key]
 	if !ok {
-		resMap[key] = CreateL4IngressFilter(endpoints, r, p, proto, ruleLabels)
+		resMap[key] = CreateL4IngressFilter(endpoints, endpointsWithL3Override, r, p, proto, ruleLabels)
 		return 1, nil
 	}
 
 	// Create a new L4Filter based off of the arguments provided to this function
 	// for merging with the filter which is already in the policy map.
-	filterToMerge := CreateL4IngressFilter(endpoints, r, p, proto, ruleLabels)
+	filterToMerge := CreateL4IngressFilter(endpoints, endpointsWithL3Override, r, p, proto, ruleLabels)
 
 	// Handle cases where filter we are merging new rule with, new rule itself
 	// allows all traffic on L3, or both rules allow all traffic on L3.
@@ -130,6 +136,19 @@ func mergeL4Ingress(ctx *SearchContext, rule api.IngressRule, ruleLabels labels.
 
 	ctx.PolicyTrace("    Found all required labels")
 
+	// Daemon options may induce L3 allows for host/world. In this case, if
+	// we find any L7 rules matching host/world then we need to turn any L7
+	// restrictions on these endpoints into L7 allow-all so that the
+	// traffic is always allowed, but is also always redirected through the
+	// proxy
+	endpointsWithL3Override := []api.EndpointSelector{}
+	if option.Config.AlwaysAllowLocalhost() {
+		endpointsWithL3Override = append(endpointsWithL3Override, api.ReservedEndpointSelectors[labels.IDNameHost])
+		if option.Config.HostAllowsWorld {
+			endpointsWithL3Override = append(endpointsWithL3Override, api.ReservedEndpointSelectors[labels.IDNameWorld])
+		}
+	}
+
 	for _, r := range rule.ToPorts {
 		ctx.PolicyTrace("    Allows %s port %v from endpoints %v\n", policymap.Ingress, r.Ports, fromEndpoints)
 		if r.Rules != nil {
@@ -140,19 +159,19 @@ func mergeL4Ingress(ctx *SearchContext, rule api.IngressRule, ruleLabels labels.
 
 		for _, p := range r.Ports {
 			if p.Protocol != api.ProtoAny {
-				cnt, err := mergeL4IngressPort(ctx, fromEndpoints, r, p, p.Protocol, ruleLabels, resMap)
+				cnt, err := mergeL4IngressPort(ctx, fromEndpoints, endpointsWithL3Override, r, p, p.Protocol, ruleLabels, resMap)
 				if err != nil {
 					return found, err
 				}
 				found += cnt
 			} else {
-				cnt, err := mergeL4IngressPort(ctx, fromEndpoints, r, p, api.ProtoTCP, ruleLabels, resMap)
+				cnt, err := mergeL4IngressPort(ctx, fromEndpoints, endpointsWithL3Override, r, p, api.ProtoTCP, ruleLabels, resMap)
 				if err != nil {
 					return found, err
 				}
 				found += cnt
 
-				cnt, err = mergeL4IngressPort(ctx, fromEndpoints, r, p, api.ProtoUDP, ruleLabels, resMap)
+				cnt, err = mergeL4IngressPort(ctx, fromEndpoints, endpointsWithL3Override, r, p, api.ProtoUDP, ruleLabels, resMap)
 				if err != nil {
 					return found, err
 				}
