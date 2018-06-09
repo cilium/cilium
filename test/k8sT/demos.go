@@ -117,8 +117,9 @@ var _ = Describe(demoTestName, func() {
 		Expect(err).Should(BeNil(), "Empire pods are not ready after timeout")
 
 		By("Applying policy and waiting for policy revision to increase in Cilium pods")
-		res = kubectl.Apply(l4PolicyYAMLLink)
-		res.ExpectSuccess("unable to apply %s: %s", l4PolicyYAMLLink, res.CombineOutput())
+		_, err = kubectl.CiliumPolicyAction(
+			helpers.KubeSystemNamespace, l4PolicyYAMLLink, helpers.KubectlApply, 300)
+		Expect(err).Should(BeNil(), "Unable to apply %s", l4PolicyYAMLLink)
 
 		By("Applying alliance deployment")
 		res = kubectl.Apply(xwingYAMLLink)
@@ -150,9 +151,13 @@ var _ = Describe(demoTestName, func() {
 		res.ExpectContains("200", "unable to curl %s/v1: %s", deathstarServiceName, res.Output())
 
 		By("Importing L7 Policy which restricts access to %q", exhaustPortPath)
-		kubectl.Delete(l4PolicyYAMLLink)
-		res = kubectl.Apply(l7PolicyYAMLLink)
-		res.ExpectSuccess("unable to apply %s: %s", l7PolicyYAMLLink, res.CombineOutput())
+		_, err = kubectl.CiliumPolicyAction(
+			helpers.KubeSystemNamespace, l4PolicyYAMLLink, helpers.KubectlDelete, 300)
+		Expect(err).Should(BeNil(), "Unable to delete %s", l4PolicyYAMLLink)
+
+		_, err = kubectl.CiliumPolicyAction(
+			helpers.KubeSystemNamespace, l7PolicyYAMLLink, helpers.KubectlApply, 300)
+		Expect(err).Should(BeNil(), "Unable to apply %s", l7PolicyYAMLLink)
 
 		By("Waiting for endpoints to be ready after importing policy")
 		err = kubectl.CiliumEndpointWaitReady()
