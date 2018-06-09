@@ -200,7 +200,7 @@ function xdp_load()
 	bpf_compile $IN $OUT obj "$OPTS"
 
 	ip link set dev $DEV $MODE off
-	rm -f "/sys/fs/bpf/xdp/globals/$CIDR_MAP" 2> /dev/null || true
+	rm -f "$CILIUM_BPF_MNT/xdp/globals/$CIDR_MAP" 2> /dev/null || true
 	cilium-map-migrate -s $OUT
 	set +e
 	ip link set dev $DEV $MODE obj $OUT sec $SEC
