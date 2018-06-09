@@ -183,6 +183,7 @@ hvm
 Hypercalls
 hypervisors
 ie
+indices
 ImageLocation
 imm
 incrementing
