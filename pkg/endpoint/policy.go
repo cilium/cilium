@@ -221,14 +221,6 @@ func (e *Endpoint) determineAllowLocalhost(desiredPolicyKeys map[policymap.Polic
 	}
 
 	if option.Config.AlwaysAllowLocalhost() || (e.DesiredL4Policy != nil && e.DesiredL4Policy.HasRedirect()) {
-		// Remove eventual existing ingress L4 localhost restrictions
-		for key := range desiredPolicyKeys {
-			if key.Identity == identityPkg.ReservedIdentityHost.Uint32() &&
-				key.TrafficDirection == policymap.Ingress.Uint8() {
-				delete(desiredPolicyKeys, key)
-			}
-		}
-
 		desiredPolicyKeys[localHostKey] = struct{}{}
 	}
 }
@@ -249,14 +241,6 @@ func (e *Endpoint) determineAllowFromWorld(desiredPolicyKeys map[policymap.Polic
 
 	_, localHostAllowed := desiredPolicyKeys[localHostKey]
 	if option.Config.HostAllowsWorld && localHostAllowed {
-		// Remove eventual existing ingress L4 world restrictions
-		for key := range desiredPolicyKeys {
-			if key.Identity == identityPkg.ReservedIdentityWorld.Uint32() &&
-				key.TrafficDirection == policymap.Ingress.Uint8() {
-				delete(desiredPolicyKeys, key)
-			}
-		}
-
 		desiredPolicyKeys[worldKey] = struct{}{}
 	}
 }
