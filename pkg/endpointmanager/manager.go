@@ -61,10 +61,27 @@ func init() {
 func Insert(ep *endpoint.Endpoint) {
 	mutex.Lock()
 	defer mutex.Unlock()
+	insertLocked(ep)
+}
 
+// insertLocked inserts endpoint into the endpointmanager with the
+// endpointmanager's mutex already being held by the caller.
+func insertLocked(ep *endpoint.Endpoint) {
 	endpoints[ep.ID] = ep
 	updateReferences(ep)
 	ep.RunK8sCiliumEndpointSync() // start the k8s update controller
+}
+
+// InsertEndpoints inserts all endpoints in eps into the endpointmanager's
+// global maps. Must be called with ep.Mutex NOT held.
+func InsertEndpoints(eps []*endpoint.Endpoint) {
+	mutex.Lock()
+	defer mutex.Unlock()
+	for _, ep := range eps {
+		ep.Mutex.RLock()
+		insertLocked(ep)
+		ep.Mutex.RUnlock()
+	}
 }
 
 // Lookup looks up the endpoint by prefix id
