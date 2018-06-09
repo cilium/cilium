@@ -249,9 +249,9 @@ func (h *putEndpointID) Handle(params PutEndpointIDParams) middleware.Responder 
 		for {
 			select {
 			case <-ticker.C:
-				e.Mutex.Lock()
+				e.Mutex.RLock()
 				epState := e.GetStateLocked()
-				e.Mutex.Unlock()
+				e.Mutex.RUnlock()
 				if epState == endpoint.StateReady {
 					return nil
 				} else if epState == endpoint.StateDisconnected || epState == endpoint.StateDisconnecting {
