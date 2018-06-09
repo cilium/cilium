@@ -194,7 +194,7 @@ func (h *putEndpointID) Handle(params PutEndpointIDParams) middleware.Responder 
 
 	code, err := h.d.createEndpoint(epTemplate, params.ID, params.Endpoint.Labels)
 	if err != nil {
-		apierror.Error(code, err)
+		return apierror.Error(code, err)
 	}
 	return NewPutEndpointIDCreated()
 }
