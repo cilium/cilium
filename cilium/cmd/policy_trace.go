@@ -24,7 +24,7 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/pkg/command"
-	endpointid "github.com/cilium/cilium/pkg/endpoint/id"
+	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/policy/trace"
@@ -233,8 +233,8 @@ func parseLabels(slice []string) ([]string, error) {
 }
 
 func getSecIDFromK8s(podName string) (string, error) {
-	fmtdPodName := endpointid.NewID(endpointid.PodNamePrefix, podName)
-	_, _, err := endpointid.ValidateID(fmtdPodName)
+	fmtdPodName := endpoint.NewID(endpoint.PodNamePrefix, podName)
+	_, _, err := endpoint.ValidateID(fmtdPodName)
 	if err != nil {
 		Fatalf("Cannot parse pod name \"%s\": %s", fmtdPodName, err)
 	}

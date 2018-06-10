@@ -26,7 +26,7 @@ import (
 	"github.com/cilium/cilium/common/addressing"
 	"github.com/cilium/cilium/common/plugins"
 	"github.com/cilium/cilium/pkg/client"
-	endpointIDPkg "github.com/cilium/cilium/pkg/endpoint/id"
+	endpointPkg "github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -61,7 +61,7 @@ type driver struct {
 }
 
 func endpointID(id string) string {
-	return endpointIDPkg.NewID(endpointIDPkg.DockerEndpointPrefix, id)
+	return endpointPkg.NewID(endpointPkg.DockerEndpointPrefix, id)
 }
 
 func newLibnetworkRoute(route plugins.Route) api.StaticRoute {
