@@ -17,7 +17,7 @@ package client
 import (
 	"github.com/cilium/cilium/api/v1/client/endpoint"
 	"github.com/cilium/cilium/api/v1/models"
-	pkgEndpointID "github.com/cilium/cilium/pkg/endpoint/id"
+	pkgEndpoint "github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/labels"
 )
 
@@ -45,7 +45,7 @@ func (c *Client) EndpointGet(id string) (*models.Endpoint, error) {
 
 // EndpointCreate creates a new endpoint
 func (c *Client) EndpointCreate(ep *models.EndpointChangeRequest) error {
-	id := pkgEndpointID.NewCiliumID(ep.ID)
+	id := pkgEndpoint.NewCiliumID(ep.ID)
 	params := endpoint.NewPutEndpointIDParams().WithID(id).WithEndpoint(ep)
 	_, err := c.Endpoint.PutEndpointID(params)
 	return Hint(err)

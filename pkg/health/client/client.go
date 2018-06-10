@@ -138,9 +138,7 @@ func formatPathStatus(w io.Writer, name string, cp *models.PathStatus, indent st
 	}
 }
 
-// PathIsHealthy checks whether ICMP and TCP(HTTP) connectivity to the given
-// path is available.
-func PathIsHealthy(cp *models.PathStatus) bool {
+func pathIsHealthy(cp *models.PathStatus) bool {
 	if cp == nil {
 		return false
 	}
@@ -158,8 +156,8 @@ func PathIsHealthy(cp *models.PathStatus) bool {
 }
 
 func nodeIsHealthy(node *models.NodeStatus) bool {
-	return PathIsHealthy(node.Host.PrimaryAddress) &&
-		(node.Endpoint == nil || PathIsHealthy(node.Endpoint))
+	return pathIsHealthy(node.Host.PrimaryAddress) &&
+		(node.Endpoint == nil || pathIsHealthy(node.Endpoint))
 }
 
 func nodeIsLocalhost(node *models.NodeStatus, self *models.SelfStatus) bool {
@@ -175,8 +173,8 @@ func formatNodeStatus(w io.Writer, node *models.NodeStatus, printAll, succinct, 
 		if printAll || !nodeIsHealthy(node) {
 			fmt.Fprintf(w, "  %s%s\t%s\t%t\t%t\n", node.Name,
 				localStr, node.Host.PrimaryAddress.IP,
-				PathIsHealthy(node.Host.PrimaryAddress),
-				PathIsHealthy(node.Endpoint))
+				pathIsHealthy(node.Host.PrimaryAddress),
+				pathIsHealthy(node.Endpoint))
 		}
 	} else {
 		fmt.Fprintf(w, "  %s%s:\n", node.Name, localStr)

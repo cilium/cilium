@@ -20,7 +20,6 @@ import (
 
 	"github.com/cilium/cilium/pkg/command"
 	"github.com/cilium/cilium/pkg/endpoint"
-	endpointid "github.com/cilium/cilium/pkg/endpoint/id"
 	"github.com/cilium/cilium/pkg/option"
 
 	"github.com/spf13/cobra"
@@ -57,7 +56,7 @@ func listEndpointOptions() {
 }
 
 func configEndpoint(cmd *cobra.Command, args []string) {
-	_, id, _ := endpointid.ValidateID(args[0])
+	_, id, _ := endpoint.ValidateID(args[0])
 	cfg, err := client.EndpointConfigGet(id)
 	if err != nil {
 		Fatalf("Cannot get configuration of endpoint %s: %s\n", id, err)

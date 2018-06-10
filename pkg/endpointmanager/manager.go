@@ -20,7 +20,6 @@ import (
 	"sync"
 
 	"github.com/cilium/cilium/pkg/endpoint"
-	endpointid "github.com/cilium/cilium/pkg/endpoint/id"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/metrics"
@@ -73,35 +72,35 @@ func Lookup(id string) (*endpoint.Endpoint, error) {
 	mutex.RLock()
 	defer mutex.RUnlock()
 
-	prefix, eid, err := endpointid.ParseID(id)
+	prefix, eid, err := endpoint.ParseID(id)
 	if err != nil {
 		return nil, err
 	}
 
 	switch prefix {
-	case endpointid.CiliumLocalIdPrefix:
-		n, err := endpointid.ParseCiliumID(id)
+	case endpoint.CiliumLocalIdPrefix:
+		n, err := endpoint.ParseCiliumID(id)
 		if err != nil {
 			return nil, err
 		}
 		return lookupCiliumID(uint16(n)), nil
 
-	case endpointid.CiliumGlobalIdPrefix:
+	case endpoint.CiliumGlobalIdPrefix:
 		return nil, fmt.Errorf("Unsupported id format for now")
 
-	case endpointid.ContainerIdPrefix:
+	case endpoint.ContainerIdPrefix:
 		return lookupDockerID(eid), nil
 
-	case endpointid.DockerEndpointPrefix:
+	case endpoint.DockerEndpointPrefix:
 		return lookupDockerEndpoint(eid), nil
 
-	case endpointid.ContainerNamePrefix:
+	case endpoint.ContainerNamePrefix:
 		return lookupDockerContainerName(eid), nil
 
-	case endpointid.PodNamePrefix:
+	case endpoint.PodNamePrefix:
 		return lookupPodNameLocked(eid), nil
 
-	case endpointid.IPv4Prefix:
+	case endpoint.IPv4Prefix:
 		return lookupIPv4(eid), nil
 
 	default:
@@ -150,23 +149,23 @@ func Remove(ep *endpoint.Endpoint) {
 	delete(endpoints, ep.ID)
 
 	if ep.DockerID != "" {
-		delete(endpointsAux, endpointid.NewID(endpointid.ContainerIdPrefix, ep.DockerID))
+		delete(endpointsAux, endpoint.NewID(endpoint.ContainerIdPrefix, ep.DockerID))
 	}
 
 	if ep.DockerEndpointID != "" {
-		delete(endpointsAux, endpointid.NewID(endpointid.DockerEndpointPrefix, ep.DockerEndpointID))
+		delete(endpointsAux, endpoint.NewID(endpoint.DockerEndpointPrefix, ep.DockerEndpointID))
 	}
 
 	if ep.IPv4.String() != "" {
-		delete(endpointsAux, endpointid.NewID(endpointid.IPv4Prefix, ep.IPv4.String()))
+		delete(endpointsAux, endpoint.NewID(endpoint.IPv4Prefix, ep.IPv4.String()))
 	}
 
 	if ep.ContainerName != "" {
-		delete(endpointsAux, endpointid.NewID(endpointid.ContainerNamePrefix, ep.ContainerName))
+		delete(endpointsAux, endpoint.NewID(endpoint.ContainerNamePrefix, ep.ContainerName))
 	}
 
 	if podName := ep.GetK8sNamespaceAndPodNameLocked(); podName != "" {
-		delete(endpointsAux, endpointid.NewID(endpointid.PodNamePrefix, podName))
+		delete(endpointsAux, endpoint.NewID(endpoint.PodNamePrefix, podName))
 	}
 }
 
@@ -187,42 +186,42 @@ func lookupCiliumID(id uint16) *endpoint.Endpoint {
 }
 
 func lookupDockerEndpoint(id string) *endpoint.Endpoint {
-	if ep, ok := endpointsAux[endpointid.NewID(endpointid.DockerEndpointPrefix, id)]; ok {
+	if ep, ok := endpointsAux[endpoint.NewID(endpoint.DockerEndpointPrefix, id)]; ok {
 		return ep
 	}
 	return nil
 }
 
 func lookupPodNameLocked(name string) *endpoint.Endpoint {
-	if ep, ok := endpointsAux[endpointid.NewID(endpointid.PodNamePrefix, name)]; ok {
+	if ep, ok := endpointsAux[endpoint.NewID(endpoint.PodNamePrefix, name)]; ok {
 		return ep
 	}
 	return nil
 }
 
 func lookupDockerContainerName(name string) *endpoint.Endpoint {
-	if ep, ok := endpointsAux[endpointid.NewID(endpointid.ContainerNamePrefix, name)]; ok {
+	if ep, ok := endpointsAux[endpoint.NewID(endpoint.ContainerNamePrefix, name)]; ok {
 		return ep
 	}
 	return nil
 }
 
 func lookupIPv4(ipv4 string) *endpoint.Endpoint {
-	if ep, ok := endpointsAux[endpointid.NewID(endpointid.IPv4Prefix, ipv4)]; ok {
+	if ep, ok := endpointsAux[endpoint.NewID(endpoint.IPv4Prefix, ipv4)]; ok {
 		return ep
 	}
 	return nil
 }
 
 func lookupDockerID(id string) *endpoint.Endpoint {
-	if ep, ok := endpointsAux[endpointid.NewID(endpointid.ContainerIdPrefix, id)]; ok {
+	if ep, ok := endpointsAux[endpoint.NewID(endpoint.ContainerIdPrefix, id)]; ok {
 		return ep
 	}
 	return nil
 }
 
 func linkContainerID(ep *endpoint.Endpoint) {
-	endpointsAux[endpointid.NewID(endpointid.ContainerIdPrefix, ep.DockerID)] = ep
+	endpointsAux[endpoint.NewID(endpoint.ContainerIdPrefix, ep.DockerID)] = ep
 }
 
 // UpdateReferences updates the mappings of various values to their corresponding
@@ -233,19 +232,19 @@ func updateReferences(ep *endpoint.Endpoint) {
 	}
 
 	if ep.DockerEndpointID != "" {
-		endpointsAux[endpointid.NewID(endpointid.DockerEndpointPrefix, ep.DockerEndpointID)] = ep
+		endpointsAux[endpoint.NewID(endpoint.DockerEndpointPrefix, ep.DockerEndpointID)] = ep
 	}
 
 	if ep.IPv4.String() != "" {
-		endpointsAux[endpointid.NewID(endpointid.IPv4Prefix, ep.IPv4.String())] = ep
+		endpointsAux[endpoint.NewID(endpoint.IPv4Prefix, ep.IPv4.String())] = ep
 	}
 
 	if ep.ContainerName != "" {
-		endpointsAux[endpointid.NewID(endpointid.ContainerNamePrefix, ep.ContainerName)] = ep
+		endpointsAux[endpoint.NewID(endpoint.ContainerNamePrefix, ep.ContainerName)] = ep
 	}
 
 	if podName := ep.GetK8sNamespaceAndPodNameLocked(); podName != "" {
-		endpointsAux[endpointid.NewID(endpointid.PodNamePrefix, podName)] = ep
+		endpointsAux[endpoint.NewID(endpoint.PodNamePrefix, podName)] = ep
 	}
 }
 
