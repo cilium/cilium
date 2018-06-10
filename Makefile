@@ -1,7 +1,7 @@
 include Makefile.defs
 include daemon/bpf.sha
 
-SUBDIRS = envoy plugins bpf cilium daemon monitor cilium-health bugtool
+SUBDIRS = envoy bpf cilium daemon monitor cilium-health bugtool plugins
 GOFILES ?= $(shell go list ./... | grep -v /vendor/ | grep -v /contrib/ | grep -v envoy/envoy)
 TESTPKGS ?= $(shell go list ./... | grep -v /vendor/ | grep -v /contrib/ | grep -v envoy/envoy | grep -v test)
 GOLANGVERSION = $(shell go version 2>/dev/null | grep -Eo '(go[0-9].[0-9])')
@@ -16,7 +16,9 @@ GOTEST_OPTS = -test.v -check.v
 
 UTC_DATE=$(shell date -u "+%Y-%m-%d")
 
-all: precheck build postcheck
+all: precheck build
+	@echo "Build finished.Test cilium-docker"
+	find plugins
 	@echo "Build finished."
 
 build: $(SUBDIRS)
