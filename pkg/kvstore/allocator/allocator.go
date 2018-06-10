@@ -27,6 +27,7 @@ import (
 	"github.com/cilium/cilium/pkg/backoff"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/uuid"
 
@@ -34,7 +35,7 @@ import (
 )
 
 var (
-	log = logrus.WithField(logfields.LogSubsys, "allocator")
+	log = logging.DefaultLogger.WithField(logfields.LogSubsys, "allocator")
 )
 
 const (
