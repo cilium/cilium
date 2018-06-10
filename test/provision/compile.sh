@@ -26,6 +26,9 @@ then
     fi
 else
     sudo -u vagrant -H -E make PKG_BUILD=1 LOCKDEBUG=1
+    df -h
+    free -m
+    find .
     make install
     mkdir -p /etc/sysconfig/
     cp -f contrib/systemd/cilium /etc/sysconfig/cilium

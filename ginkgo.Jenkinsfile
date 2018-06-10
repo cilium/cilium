@@ -8,7 +8,7 @@ pipeline {
     environment {
         PROJ_PATH = "src/github.com/cilium/cilium"
         TESTDIR = "${WORKSPACE}/${PROJ_PATH}/"
-        MEMORY = "3072"
+        MEMORY = "4096"
     }
 
     options {
@@ -27,6 +27,11 @@ pipeline {
                 sh 'rm -rf src; mkdir -p src/github.com/cilium'
                 sh 'ln -s $WORKSPACE src/github.com/cilium/cilium'
                 checkout scm
+                sh 'df -h'
+                sh 'free -m'
+                sh 'git status'
+                sh 'git diff'
+                sh 'find src'
             }
         }
         stage('UnitTesting') {
@@ -92,6 +97,8 @@ pipeline {
     }
     post {
         always {
+            sh 'df -h'
+            sh 'free -m'
             sh 'cd ${TESTDIR}/test/; K8S_VERSION=1.7 vagrant destroy -f || true'
             sh 'cd ${TESTDIR}/test/; K8S_VERSION=1.10 vagrant destroy -f || true'
             cleanWs()
