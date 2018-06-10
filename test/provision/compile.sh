@@ -16,7 +16,9 @@ cd ${GOPATH}/src/github.com/cilium/cilium
 if echo $(hostname) | grep "k8s" -q;
 then
     if [[ "$(hostname)" == "k8s1" ]]; then
+        echo "building cilium/cilium container image..."
         make LOCKDEBUG=1 docker-image
+        echo "pushing container image to k8s1:5000/cilium/cilium-dev..."
         docker tag cilium/cilium k8s1:5000/cilium/cilium-dev
         docker push k8s1:5000/cilium/cilium-dev
         echo "Executing: $KUBECTL delete pods -n $KUBE_SYSTEM_NAMESPACE -l $CILIUM_DS_TAG"
@@ -25,7 +27,9 @@ then
         echo "Not on master K8S node; no need to compile Cilium container"
     fi
 else
+    echo "compiling cilium..."
     sudo -u vagrant -H -E make PKG_BUILD=1 LOCKDEBUG=1
+    echo "installing cilium..."
     make install
     mkdir -p /etc/sysconfig/
     cp -f contrib/systemd/cilium /etc/sysconfig/cilium
