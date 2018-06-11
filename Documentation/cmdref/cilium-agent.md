@@ -44,6 +44,8 @@ cilium-agent
       --ipv6-service-range string         Kubernetes IPv6 services CIDR if not inside cluster prefix (default "auto")
       --k8s-api-server string             Kubernetes api address server (for https use --k8s-kubeconfig-path instead)
       --k8s-kubeconfig-path string        Absolute path of the kubernetes kubeconfig file
+      --k8s-require-ipv4-pod-cidr         Require IPv4 PodCIDR to be specified in node resource
+      --k8s-require-ipv6-pod-cidr         Require IPv6 PodCIDR to be specified in node resource
       --keep-bpf-templates                Do not restore BPF template files from binary
       --keep-config                       When restoring state, keeps containers' configuration in place
       --kvstore string                    Key-value store type
