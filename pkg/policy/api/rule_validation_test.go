@@ -196,3 +196,43 @@ func (s *PolicyAPITestSuite) TestHTTPRuleRegexes(c *C) {
 	err = invalidHTTPRegexMethodRule.Sanitize()
 	c.Assert(err, Not(IsNil))
 }
+
+// Test the validation of CIDR rule prefix definitions
+func (s *PolicyAPITestSuite) TestCIDRsanitize(c *C) {
+	// IPv4
+	cidr := CIDRRule{Cidr: "0.0.0.0/0"}
+	length, err := cidr.sanitize()
+	c.Assert(err, IsNil)
+	c.Assert(length, Equals, 0)
+
+	cidr = CIDRRule{Cidr: "10.0.0.0/24"}
+	length, err = cidr.sanitize()
+	c.Assert(err, IsNil)
+	c.Assert(length, Equals, 24)
+
+	cidr = CIDRRule{Cidr: "192.0.2.3/32"}
+	length, err = cidr.sanitize()
+	c.Assert(err, IsNil)
+	c.Assert(length, Equals, 32)
+
+	// IPv6
+	cidr = CIDRRule{Cidr: "::/0"}
+	length, err = cidr.sanitize()
+	c.Assert(err, IsNil)
+	c.Assert(length, Equals, 0)
+
+	cidr = CIDRRule{Cidr: "ff02::/64"}
+	length, err = cidr.sanitize()
+	c.Assert(err, IsNil)
+	c.Assert(length, Equals, 64)
+
+	cidr = CIDRRule{Cidr: "2001:0db8:85a3:0000:0000:8a2e:0370:7334/128"}
+	length, err = cidr.sanitize()
+	c.Assert(err, IsNil)
+	c.Assert(length, Equals, 128)
+
+	// Non-contiguous mask.
+	cidr = CIDRRule{Cidr: "10.0.0.0/254.0.0.255"}
+	_, err = cidr.sanitize()
+	c.Assert(err, NotNil)
+}
