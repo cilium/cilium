@@ -1364,6 +1364,9 @@ func (d *Daemon) addCiliumNetworkPolicyV2(ciliumV2Store cache.Store, cnp *cilium
 					return errors.New("Received object of unknown type from API server, expecting v2.CiliumNetworkPolicy")
 				}
 
+				// Make a copy since the rule is a pointer, and any of its fields
+				// which are also pointers could be modified outside of this
+				// function.
 				serverRuleCpy := serverRule.DeepCopy()
 				_, err2 = serverRuleCpy.Parse()
 				if err2 != nil {
@@ -1380,7 +1383,7 @@ func (d *Daemon) addCiliumNetworkPolicyV2(ciliumV2Store cache.Store, cnp *cilium
 					Enforcing:   waitForEPsErr == nil,
 					Revision:    rev,
 					LastUpdated: cilium_v2.NewTimestamp(),
-					Annotations: cnp.Annotations,
+					Annotations: serverRuleCpy.Annotations,
 				}
 
 				// Most important is the error while adding the CNP
@@ -1452,6 +1455,53 @@ func (d *Daemon) deleteCiliumNetworkPolicyV2(cnp *cilium_v2.CiliumNetworkPolicy)
 	}
 }
 
+func updateRuleAnnotations(ciliumV2Store cache.Store, cnp *cilium_v2.CiliumNetworkPolicy) error {
+
+	// Get the most recent version of this CNP, as it may have been updated.
+	serverRuleStore, exists, err2 := ciliumV2Store.Get(cnp)
+	if err2 != nil {
+		return fmt.Errorf("unable to find v2.CiliumNetworkPolicy in local cache: %s", err2)
+	}
+	if !exists {
+		return errors.New("v2.CiliumNetworkPolicy does not exist in local cache")
+	}
+
+	serverRule, ok := serverRuleStore.(*cilium_v2.CiliumNetworkPolicy)
+	if !ok {
+		log.WithFields(logrus.Fields{
+			logfields.CiliumNetworkPolicy: logfields.Repr(serverRuleStore),
+		}).Warn("Received object of unknown type from API server, expecting v2.CiliumNetworkPolicy")
+		return errors.New("Received object of unknown type from API server, expecting v2.CiliumNetworkPolicy")
+	}
+
+	// Make a copy since the rule is a pointer, and any of its fields
+	// which are also pointers could be modified outside of this
+	// function.
+	serverRuleCpy := serverRule.DeepCopy()
+
+	// Only update annotations for node on which this agent is running.
+	nodeName := node.GetName()
+	cnpns := serverRuleCpy.GetPolicyStatus(nodeName)
+	cnpns.Annotations = serverRuleCpy.Annotations
+
+	// Do not update annotations if policy rule is not enforced on the node.
+	if !cnpns.Enforcing {
+		return fmt.Errorf("policy has not been enforced; not updating annotations")
+	}
+
+	// Update server with updated rule with new annotations.
+	serverRuleCpy.SetPolicyStatus(nodeName, cnpns)
+	ns := k8sUtils.ExtractNamespace(&serverRuleCpy.ObjectMeta)
+	_, err := ciliumNPClient.CiliumV2().CiliumNetworkPolicies(ns).Update(serverRuleCpy)
+	if err != nil {
+		return err
+	}
+
+	log.WithField("rule", logfields.Repr(serverRuleCpy)).Debug("rule had no policy changes, but had annotation changes; successfully updated annotations of rule")
+
+	return nil
+}
+
 func (d *Daemon) updateCiliumNetworkPolicyV2(ciliumV2Store cache.Store,
 	oldRuleCpy, newRuleCpy *cilium_v2.CiliumNetworkPolicy) {
 
@@ -1468,9 +1518,30 @@ func (d *Daemon) updateCiliumNetworkPolicyV2(ciliumV2Store cache.Store,
 		return
 	}
 
-	// Ignore updates of the spec remains unchanged.
+	// Do not add rule into policy repository if the spec remains unchanged, as
+	// policy recalculation is not needed.
 	if oldRuleCpy.SpecEquals(newRuleCpy) {
+		// If the annotations differ between the rules, but the specs are the same,
+		// just update the annotations within the CNP new rule directly, but
+		// only if the policy has already been realized for all endpoints.
+		if !oldRuleCpy.AnnotationsEquals(newRuleCpy) {
+
+			// Update annotations within a controller so the status of the update
+			// is trackable from the list of running controllers, and so we do
+			// not block subsequent policy lifecycle operations from Kubernetes
+			// until the update is complete.
+			ctrlName := oldRuleCpy.GetControllerName()
+			k8sCM.UpdateController(ctrlName,
+				controller.ControllerParams{
+					DoFunc: func() error {
+						return updateRuleAnnotations(ciliumV2Store, newRuleCpy)
+					},
+				},
+			)
+		}
+
 		return
+
 	}
 
 	log.WithFields(logrus.Fields{
@@ -1479,6 +1550,8 @@ func (d *Daemon) updateCiliumNetworkPolicyV2(ciliumV2Store cache.Store,
 		logfields.K8sNamespace + ".old":            oldRuleCpy.ObjectMeta.Namespace,
 		logfields.CiliumNetworkPolicyName:          newRuleCpy.ObjectMeta.Name,
 		logfields.K8sNamespace:                     newRuleCpy.ObjectMeta.Namespace,
+		"annotations.old":                          oldRuleCpy.ObjectMeta.Annotations,
+		"annotations":                              newRuleCpy.ObjectMeta.Annotations,
 	}).Debug("Modified CiliumNetworkPolicy")
 
 	d.deleteCiliumNetworkPolicyV2(oldRuleCpy)
