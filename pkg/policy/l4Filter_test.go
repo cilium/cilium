@@ -491,7 +491,7 @@ func (ds *PolicyTestSuite) TestMergeIdenticalAllowAllL3AndMismatchingParsers(c *
 // in another rule. Should resolve to just allowing all on L3/L7 (first rule
 // shadows the second).
 func (ds *PolicyTestSuite) TestL3RuleShadowedByL3AllowAll(c *C) {
-	// Case 1A: Specify WildcardEndpointSelector explicitly.
+	// Case 6A: Specify WildcardEndpointSelector explicitly.
 	shadowRule := &rule{
 		Rule: api.Rule{
 			EndpointSelector: endpointSelectorA,
@@ -547,6 +547,7 @@ func (ds *PolicyTestSuite) TestL3RuleShadowedByL3AllowAll(c *C) {
 	c.Assert(state.selectedRules, Equals, 0)
 	c.Assert(state.matchedRules, Equals, 0)
 
+	// Case 6B: Reverse the ordering of the rules. Result should be the same.
 	shadowRule = &rule{
 		Rule: api.Rule{
 			EndpointSelector: endpointSelectorA,
