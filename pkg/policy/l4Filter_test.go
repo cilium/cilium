@@ -331,7 +331,7 @@ func (ds *PolicyTestSuite) TestMergeIdenticalAllowAllL3AndRestrictedL7Kafka(c *C
 					FromEndpoints: api.EndpointSelectorSlice{api.WildcardEndpointSelector},
 					ToPorts: []api.PortRule{{
 						Ports: []api.PortProtocol{
-							{Port: "80", Protocol: api.ProtoTCP},
+							{Port: "9092", Protocol: api.ProtoTCP},
 						},
 						Rules: &api.L7Rules{
 							Kafka: []api.PortRuleKafka{
@@ -344,7 +344,7 @@ func (ds *PolicyTestSuite) TestMergeIdenticalAllowAllL3AndRestrictedL7Kafka(c *C
 					FromEndpoints: api.EndpointSelectorSlice{api.WildcardEndpointSelector},
 					ToPorts: []api.PortRule{{
 						Ports: []api.PortProtocol{
-							{Port: "80", Protocol: api.ProtoTCP},
+							{Port: "9092", Protocol: api.ProtoTCP},
 						},
 						Rules: &api.L7Rules{
 							Kafka: []api.PortRuleKafka{
@@ -362,8 +362,8 @@ func (ds *PolicyTestSuite) TestMergeIdenticalAllowAllL3AndRestrictedL7Kafka(c *C
 	c.Log(buffer)
 
 	expected := NewL4Policy()
-	expected.Ingress["80/TCP"] = L4Filter{
-		Port:      80,
+	expected.Ingress["9092/TCP"] = L4Filter{
+		Port:      9092,
 		Protocol:  api.ProtoTCP,
 		U8Proto:   6,
 		Endpoints: api.EndpointSelectorSlice{api.WildcardEndpointSelector},
