@@ -19,7 +19,6 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/cilium/cilium/pkg/identity"
 	. "github.com/cilium/cilium/test/ginkgo-ext"
 	"github.com/cilium/cilium/test/helpers"
 
@@ -71,7 +70,7 @@ var _ = Describe("RuntimeValidatedChaos", func() {
 		// We don't use -o jsonpath... here due to GH-2395.
 		//
 		// jq 'map(select(.status.identity.id != 4), del(.status.controllers, ..., (.status.identity.labels | sort)))'
-		filterHealthEP := fmt.Sprintf("select(.status.identity.id != %d)", identity.GetReservedID("health"))
+		filterHealthEP := fmt.Sprintf("select(.status.identity.id != %d)", helpers.ReservedIdentityHealth)
 		nonPersistentEndpointFields := strings.Join([]string{
 			".status.controllers",     // Timestamps, UUIDs
 			".status.labels",          // Slice ordering
