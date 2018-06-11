@@ -693,11 +693,9 @@ func (e *Endpoint) regenerate(owner Owner, reason string) (retErr error) {
 	// Update desired policy for endpoint because policy has now been realized
 	// in the datapath. PolicyMap state is not updated here, because that is
 	// performed in endpoint.syncPolicyMap().
-	if err == nil {
-		e.Mutex.Lock()
-		e.RealizedL4Policy = e.DesiredL4Policy
-		e.Mutex.Unlock()
-	}
+	e.Mutex.Lock()
+	e.RealizedL4Policy = e.DesiredL4Policy
+	e.Mutex.Unlock()
 
 	// The policy revision update was deferred due to required
 	// regeneration, announce the calculated policy revision
