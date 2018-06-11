@@ -208,10 +208,23 @@ func (client *SSHClient) RunCommandContext(ctx context.Context, cmd *SSHCommand)
 	}
 	session.RequestPty("xterm-256color", 80, 80, modes)
 
+	stdin, err := session.StdinPipe()
+	if err != nil {
+		log.Errorf("Could not get stdin", err)
+	}
+
 	go func() {
 		select {
 		case <-ctx.Done():
-			if err := session.Signal(ssh.SIGHUP); err != nil {
+			_, err := stdin.Write([]byte{3})
+			if err != nil {
+				log.Errorf("write ^C error:", err)
+			}
+			err = session.Wait()
+			if err != nil {
+				log.Errorf("wait error:", err)
+			}
+			if err = session.Signal(ssh.SIGHUP); err != nil {
 				log.Errorf("failed to kill command: %s", err)
 			}
 			session.Close()
