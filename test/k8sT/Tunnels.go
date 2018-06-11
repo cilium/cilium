@@ -16,7 +16,6 @@ package k8sTest
 
 import (
 	"fmt"
-	"sync"
 	"time"
 
 	. "github.com/cilium/cilium/test/ginkgo-ext"
@@ -30,26 +29,33 @@ var _ = Describe("K8sValidatedTunnelTest", func() {
 
 	var kubectl *helpers.Kubectl
 	var demoDSPath string
-	var once sync.Once
 	var logger *logrus.Entry
 
-	initialize := func() {
+	BeforeAll(func() {
 		logger = log.WithFields(logrus.Fields{"testName": "K8sTunnelTest"})
 		logger.Info("Starting")
 
 		kubectl = helpers.CreateKubectl(helpers.K8s1VMName(), logger)
 		demoDSPath = helpers.ManifestGet("demo_ds.yaml")
+
 		kubectl.Exec("kubectl -n kube-system delete ds cilium")
 		// Expect(res.Correct()).Should(BeTrue())
 
 		waitToDeleteCilium(kubectl, logger)
-	}
+	})
 
 	BeforeEach(func() {
-		once.Do(initialize)
+		kubectl.Apply(demoDSPath).ExpectSuccess("cannot install Demo application")
 		kubectl.NodeCleanMetadata()
-		kubectl.Apply(demoDSPath)
-	}, 600)
+	})
+
+	AfterEach(func() {
+		_ = kubectl.Delete(demoDSPath)
+	})
+
+	AfterAll(func() {
+		ExpectAllPodsTerminated(kubectl)
+	})
 
 	AfterFailed(func() {
 		kubectl.CiliumReport(helpers.KubeSystemNamespace,
@@ -61,18 +67,13 @@ var _ = Describe("K8sValidatedTunnelTest", func() {
 		kubectl.ValidateNoErrorsOnLogs(CurrentGinkgoTestDescription().Duration)
 	})
 
-	AfterEach(func() {
-		kubectl.Delete(demoDSPath)
-		ExpectAllPodsTerminated(kubectl)
-	})
+	cleanService := func() {
+		// To avoid hit GH-4384
+		kubectl.DeleteResource("service", "test-nodeport testds-service").ExpectSuccess(
+			"Service is deleted")
+	}
 
 	Context("VXLan", func() {
-
-		BeforeEach(func() {
-			err := kubectl.CiliumInstall(helpers.CiliumDSPath)
-			Expect(err).To(BeNil(), "Cilium cannot be installed")
-		})
-
 		AfterEach(func() {
 			// Do not assert on success in AfterEach intentionally to avoid
 			// incomplete teardown.
@@ -83,7 +84,13 @@ var _ = Describe("K8sValidatedTunnelTest", func() {
 
 		It("Check VXLAN mode", func() {
 
+			err := kubectl.CiliumInstall(helpers.CiliumDSPath)
+			Expect(err).To(BeNil(), "Cilium cannot be installed")
+
 			ExpectCiliumReady(kubectl)
+
+			err = kubectl.WaitforPods(helpers.DefaultNamespace, "", 300)
+			Expect(err).Should(BeNil(), "Pods are not ready after timeout")
 
 			ciliumPod, err := kubectl.GetCiliumPodOnNode(helpers.KubeSystemNamespace, helpers.K8s1)
 			Expect(err).Should(BeNil())
@@ -103,15 +110,13 @@ var _ = Describe("K8sValidatedTunnelTest", func() {
 			By("Checking that BPF tunnels are working correctly")
 			tunnStatus := isNodeNetworkingWorking(kubectl, "zgroup=testDS")
 			Expect(tunnStatus).Should(BeTrue())
+
+			// FIXME GH-4456
+			cleanService()
 		}, 600)
 	})
 
 	Context("Geneve", func() {
-
-		BeforeEach(func() {
-			err := kubectl.CiliumInstall("cilium_ds_geneve.jsonnet")
-			Expect(err).To(BeNil(), "Cilium cannot be installed")
-		})
 
 		AfterEach(func() {
 			// Do not assert on success in AfterEach intentionally to avoid
@@ -123,7 +128,13 @@ var _ = Describe("K8sValidatedTunnelTest", func() {
 
 		It("Check Geneve mode", func() {
 
+			err := kubectl.CiliumInstall("cilium_ds_geneve.jsonnet")
+			Expect(err).To(BeNil(), "Cilium cannot be installed")
+
 			ExpectCiliumReady(kubectl)
+
+			err = kubectl.WaitforPods(helpers.DefaultNamespace, "", 300)
+			Expect(err).Should(BeNil(), "Pods are not ready after timeout")
 
 			ciliumPod, err := kubectl.GetCiliumPodOnNode(helpers.KubeSystemNamespace, helpers.K8s1)
 			Expect(err).Should(BeNil())
@@ -144,7 +155,9 @@ var _ = Describe("K8sValidatedTunnelTest", func() {
 			By("Checking that BPF tunnels are working correctly")
 			tunnStatus := isNodeNetworkingWorking(kubectl, "zgroup=testDS")
 			Expect(tunnStatus).Should(BeTrue())
-			//FIXME: Maybe added here a cilium bpf tunnel status?
+
+			// FIXME GH-4456
+			cleanService()
 		}, 600)
 
 	})
