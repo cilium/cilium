@@ -79,6 +79,18 @@ func (s *CIDRLabelsSuite) TestGetCIDRLabels(c *C) {
 	// CIDRs that are covered by the prefix should not be in the labels
 	c.Assert(lblArray.Has("cidr.192.0.2.3/32"), Equals, false)
 
+	// Zero-length prefix / default route should become reserved:world.
+	_, cidr, err = net.ParseCIDR("0.0.0.0/0")
+	c.Assert(err, IsNil)
+	expected = labels.ParseLabelArray(
+		"reserved:world",
+	)
+
+	lbls = GetCIDRLabels(cidr)
+	lblArray = lbls.LabelArray()
+	c.Assert(lblArray.Lacks(expected), comparator.DeepEquals, labels.LabelArray{})
+	c.Assert(lblArray.Has("cidr.0.0.0.0/0"), Equals, false)
+
 	// Note that we convert the colons in IPv6 addresses into dashes when
 	// translating into labels, because endpointSelectors don't support
 	// colons.
