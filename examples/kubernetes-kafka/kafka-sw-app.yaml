@@ -12,7 +12,7 @@ spec:
     spec:
       containers:
       - name: kafka
-        image: docker.io/wurstmeister/kafka
+        image: docker.io/wurstmeister/kafka:1.1.0
         ports:
         - containerPort: 9092
         env:
