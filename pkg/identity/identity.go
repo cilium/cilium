@@ -105,6 +105,12 @@ func (id *Identity) GetModel() *models.Identity {
 	return ret
 }
 
+// IsReserved returns whether the identity represents a reserved identity
+// (true), or not (false).
+func (id *Identity) IsReserved() bool {
+	return reservedIdentityCache[id.ID] != nil
+}
+
 // NewIdentity creates a new identity
 func NewIdentity(id NumericIdentity, lbls labels.Labels) *Identity {
 	var lblArray labels.LabelArray
