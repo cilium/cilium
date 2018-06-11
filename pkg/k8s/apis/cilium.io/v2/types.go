@@ -70,10 +70,13 @@ type CiliumNetworkPolicyStatus struct {
 // CiliumNetworkPolicyNodeStatus is the status of a Cilium policy rule for a
 // specific node
 type CiliumNetworkPolicyNodeStatus struct {
-	// OK is true when the policy has been installed successfully
+	// OK is true when the policy has been parsed and imported successfully
+	// into the in-memory policy repository on the node.
 	OK bool `json:"ok,omitempty"`
 
-	// Error describes the error condition if OK is false
+	// Error describes any error that occurred when parsing or importing the
+	// policy, or realizing the policy for the endpoints to which it applies
+	// on the node.
 	Error string `json:"error,omitempty"`
 
 	// LastUpdated contains the last time this status was updated
@@ -114,6 +117,16 @@ func (t *Timestamp) DeepCopyInto(out *Timestamp) {
 	*out = *t
 }
 
+// GetPolicyStatus returns the CiliumNetworkPolicyNodeStatus corresponding to
+// nodeName in the provided CiliumNetworkPolicy. If Nodes within the rule's
+// Status is nil, returns an empty CiliumNetworkPolicyNodeStatus.
+func (r *CiliumNetworkPolicy) GetPolicyStatus(nodeName string) CiliumNetworkPolicyNodeStatus {
+	if r.Status.Nodes == nil {
+		return CiliumNetworkPolicyNodeStatus{}
+	}
+	return r.Status.Nodes[nodeName]
+}
+
 // SetPolicyStatus sets the given policy status for the given nodes' map
 func (r *CiliumNetworkPolicy) SetPolicyStatus(nodeName string, cnpns CiliumNetworkPolicyNodeStatus) {
 	if r.Status.Nodes == nil {
@@ -129,6 +142,16 @@ func (r *CiliumNetworkPolicy) SpecEquals(o *CiliumNetworkPolicy) bool {
 	}
 	return reflect.DeepEqual(r.Spec, o.Spec) &&
 		reflect.DeepEqual(r.Specs, o.Specs)
+}
+
+// AnnotationsEquals returns true if ObjectMeta.Annotations of each
+// CiliumNetworkPolicy are equivalent (i.e., they contain equivalent key-value
+// pairs).
+func (r *CiliumNetworkPolicy) AnnotationsEquals(o *CiliumNetworkPolicy) bool {
+	if o == nil {
+		return r == nil
+	}
+	return reflect.DeepEqual(r.ObjectMeta.Annotations, o.ObjectMeta.Annotations)
 }
 
 // Parse parses a CiliumNetworkPolicy and returns a list of cilium policy
