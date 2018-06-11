@@ -334,7 +334,7 @@ func (c *CIDRRule) sanitize() (prefixLength int, err error) {
 	// the logic in api.CIDR.Sanitize().
 	_, cidrNet, err := net.ParseCIDR(string(c.Cidr))
 	if err != nil {
-		return 0, err
+		return 0, fmt.Errorf("Unable to parse CIDRRule %q: %s", c.Cidr, err)
 	}
 
 	// Returns the prefix length as zero if the mask is not continuous.
