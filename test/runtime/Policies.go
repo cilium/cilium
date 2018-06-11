@@ -992,6 +992,20 @@ var _ = Describe("RuntimeValidatedPolicies", func() {
 
 		vm.PolicyDelAll().ExpectSuccess("Unable to delete all policies")
 
+		By("testing basic egress to 0.0.0.0/0")
+		policy = fmt.Sprintf(`
+		[{
+			"endpointSelector": {"matchLabels":{"%s":""}},
+			"egress": [{
+				"toCIDR": [
+					"0.0.0.0/0"
+				]
+			}]
+		}]`, app1Label)
+		setupPolicyAndTestEgressToWorld(policy)
+
+		vm.PolicyDelAll().ExpectSuccess("Unable to delete all policies")
+
 		By("testing that in-cluster L7 doesn't affect egress L3")
 		app2Label := fmt.Sprintf("id.%s", helpers.App2)
 		policy = fmt.Sprintf(`
