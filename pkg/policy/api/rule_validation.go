@@ -309,10 +309,11 @@ func (cidr CIDR) sanitize() (prefixLength int, err error) {
 
 	_, ipnet, err := net.ParseCIDR(strCIDR)
 	if err == nil {
-		// Returns the prefix length as zero if the mask is not continuous.
-		prefixLength, _ = ipnet.Mask.Size()
-		if prefixLength == 0 {
-			return 0, fmt.Errorf("Mask length can not be zero")
+		var bits int
+		prefixLength, bits = ipnet.Mask.Size()
+		if prefixLength == 0 && bits == 0 {
+			return 0, fmt.Errorf("CIDR cannot specify non-contiguous mask %s",
+				ipnet.Mask.String())
 		}
 	} else {
 		// Try to parse as a fully masked IP or an IP subnetwork
@@ -337,10 +338,11 @@ func (c *CIDRRule) sanitize() (prefixLength int, err error) {
 		return 0, fmt.Errorf("Unable to parse CIDRRule %q: %s", c.Cidr, err)
 	}
 
-	// Returns the prefix length as zero if the mask is not continuous.
-	prefixLength, _ = cidrNet.Mask.Size()
-	if prefixLength == 0 {
-		return 0, fmt.Errorf("Mask length can not be zero")
+	var bits int
+	prefixLength, bits = cidrNet.Mask.Size()
+	if prefixLength == 0 && bits == 0 {
+		return 0, fmt.Errorf("CIDR cannot specify non-contiguous mask %s",
+			cidrNet.Mask.String())
 	}
 
 	// Ensure that each provided exception CIDR prefix  is formatted correctly,
