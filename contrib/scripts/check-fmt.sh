@@ -1,6 +1,10 @@
 #!/usr/bin/env sh
 
-set -e
+set -exv
+
+echo "pwd: $PWD"
+pwd
+
 diff="$(find . ! \( -path './contrib' -prune \) \
         ! \( -path './vendor' -prune \) \
         ! \( -path './.git' -prune \) \
