@@ -72,6 +72,27 @@ func main() {
 	execute()
 }
 
+// buildServerOrExit opens a listener socket at path. It exits with logging on
+// all errors.
+func buildServerOrExit(path string) net.Listener {
+	scopedLog := log.WithField(logfields.Path, path)
+
+	os.Remove(path)
+	server, err := net.Listen("unix", path)
+	if err != nil {
+		scopedLog.WithError(err).Fatal("Cannot listen on socket")
+	}
+
+	if os.Getuid() == 0 {
+		err := api.SetDefaultPermissions(path)
+		if err != nil {
+			scopedLog.WithError(err).Fatal("Cannot set default permissions on socket")
+		}
+	}
+
+	return server
+}
+
 func runNodeMonitor() {
 	bpf.SetMapRoot(bpfRoot)
 
@@ -82,31 +103,20 @@ func runNodeMonitor() {
 	}
 	defer pipe.Close() // stop receiving agent events
 
-	scopedLog := log.WithField(logfields.Path, defaults.MonitorSockPath)
 	// Open socket for using gops to get stacktraces of the agent.
 	if err := gops.Listen(gops.Options{}); err != nil {
-		scopedLog.WithError(err).Fatal("Unable to start gops")
+		log.WithError(err).Fatal("Unable to start gops")
 	}
 
 	common.RequireRootPrivilege(targetName)
-	os.Remove(defaults.MonitorSockPath)
-	server, err := net.Listen("unix", defaults.MonitorSockPath)
-	if err != nil {
-		scopedLog.WithError(err).Fatal("Cannot listen on socket")
-	}
-	defer server.Close() // Do not accept new connections
 
-	if os.Getuid() == 0 {
-		err := api.SetDefaultPermissions(defaults.MonitorSockPath)
-		if err != nil {
-			scopedLog.WithError(err).Fatal("Cannot set default permissions on socket")
-		}
-	}
-	log.Infof("Serving cilium node monitor at unix://%s", defaults.MonitorSockPath)
+	server1_0 := buildServerOrExit(defaults.MonitorSockPath1_0)
+	defer server1_0.Close() // Stop accepting new v1.0 connections
+	log.Infof("Serving cilium node monitor v1.0 API at unix://%s", defaults.MonitorSockPath1_0)
 
 	mainCtx, mainCtxCancel := context.WithCancel(context.Background())
 
-	monitorSingleton, err = NewMonitor(mainCtx, npages, pipe, server)
+	monitorSingleton, err = NewMonitor(mainCtx, npages, pipe, server1_0)
 	if err != nil {
 		log.WithError(err).Fatal("Error initialising monitor handlers")
 	}
