@@ -31,6 +31,7 @@ import (
 	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/test/helpers"
 
+	"github.com/asaskevich/govalidator"
 	"github.com/onsi/ginkgo"
 	"github.com/onsi/gomega"
 	log "github.com/sirupsen/logrus"
@@ -660,8 +661,32 @@ func (t *TestSpec) NetworkPolicyApply() error {
 		helpers.KubectlApply,
 		helpers.HelperTimeout)
 
-	if err != nil {
-		return fmt.Errorf("Network policy cannot be imported prefix=%s: %s", t.Prefix, err)
+	if err == nil {
+		return nil
+	}
+
+	// Some test flakes awaiting for the policy version to being updated
+	// correctly, some times pods are not scheduled in the node and policy
+	// didn't update correctly. Just validated that the policy is ok in all
+	// nodes and do not give false positives.
+	res := t.Kub.Exec(fmt.Sprintf(
+		"%s get cnp %s -o json | jq -r '.status.nodes | . as $in | keys[] | $in[.].ok'",
+		helpers.KubectlCmd, t.Prefix))
+	if !res.WasSuccessful() {
+		return fmt.Errorf(
+			"Network policy cannot be imported prefix=%s: %s cnp: %s",
+			t.Prefix, err, res.CombineOutput())
+	}
+	log.WithField("CNPStatus", res.Output().String()).Info("CNP status")
+	for _, v := range res.ByLines() {
+		if v == "" {
+			continue
+		}
+		if val, _ := govalidator.ToBoolean(v); val != true {
+			return fmt.Errorf(
+				"Network policy cannot be imported prefix=%q, CNP is not ready in cilium pod",
+				t.Prefix)
+		}
 	}
 	return nil
 }
