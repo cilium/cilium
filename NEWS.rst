@@ -2,6 +2,134 @@
 NEWS
 ******
 
+v1.1.0-rc4
+==========
+
+André Martins (12):
+      workloads: cri allow grpc reconnectivity after failure
+      workloads/crio: set default path to /var/run/crio.sock
+      test/helpers: Fix WaitForKubeDNSEntry function on timeout
+      daemon/k8s: remove .new in log messages when updating values
+      pkg/endpoint: Keep BPF object files if compilation is skipped.
+      examples/minikube: remove unused cilium-ds.yaml
+      docs: add cri-o minikube guide
+      pkg/k8s: allow from both namespace and pod selector in KNP
+      kubernetes/templates: add DaemonSet file for CRI-o
+      daemon: return error if createEndpoint fails
+      daemon: use endpoint RLock in HandleEndpoint
+      daemon: return NewPutEndpointIDCreated if endpoint is StateReady
+
+Arvind Soni (1):
+      revised elasticsearch getting started guide
+
+Cynthia Thomas (1):
+      Upgrade Note edit
+
+Eloy Coto (12):
+      Test: Fix PodCIDR issues on Kubernetes 1.7
+      Ginkgo-ext: Fix Codelocation on asserts
+      Test: Refactoring how policies are applied.
+      Test: Delete helper.ApplyNetworkPolicyUsingAPI
+      Test: Use Kubecfg native options.
+      Test: Refactor CiliumEndpointWait
+      Test: CurlFail wrapper log HTTP response headers
+      Test: Cmd.SendToLog change format
+      Nightly: Fix issues on test.
+      Test: Wait for kubedns to be ready after cilium upgrade
+      Test: Demo tests waiting to policies to be applied.
+      Test: K8st Tunnels delete services before delete Cilium
+
+Ian Vernon (17):
+      pkg/bpf: include map file descriptor in error messages
+      bugtool: get list of open file descriptors
+      test/runtime: add connectivity test after daemon configuration update
+      pkg/endpoint: close and reopen policy map if dump fails
+      pkg/logging/logfields: add new BPF map logfields
+      pkg/maps/policymap: set fd to 0 after close
+      pkg/endpoint: always ForcePolicyCompute if endpoint assigned new identity
+      pkg/endpoint: log clearing maps upon regen failure
+      examples/kubernetes-ingress/scripts: factor out cri-o installation into function
+      daemon: change when restored endpoints are inserted into endpoint manager
+      api/v1: add "sync-build-endpoint" to EndpointChangeRequest
+      pkg/endpointmanager: update comment to remove reference to endpoint creating state
+      plugins/cilium-cni: specify that endpoints should synchronously be regenerated via API
+      daemon: wait for endpoint to be in ready state if specified via EndpointChangeRequest
+      GH-4248: Return Annotations in CNP NodeStatus
+      test/k8sT: wrap KafkaPolicies test within Context
+      daemon: synchronously add endpoints to endpointmanager in \`regenerateRestoredEndpoints\`
+
+Joe Stringer (19):
+      daemon: Add --k8s-legacy-host-allows-world option
+      k8s: Regenerate example YAMLs for host-allows-world
+      docs: Document the v1.1 host vs world policy
+      docs: Improve formatting of upgrade notes
+      docs: Use absolute paths for iptables diagram
+      docs: Update k8s iptables diagram for Cilium 1.1
+      endpoint: Initialize ProxyWaitGroup later
+      test: Bump journald log ratelimit to 10000
+      identity: Return errors from ReleaseSlice()
+      policy: Expose EndpointSelectors for reserved labels
+      policy: Wildcard L7 for AllowsLocalhost, HostAllowsWorld
+      policy: Don't remove L4+ policies for host/world
+      labels: Fix source for existing cidr tests
+      labels: Resolve CIDR 0.0.0.0/0 to reserved:world
+      ipcache: Don't push reserved identities to kvstore
+      policy: Make CIDRRule error more consistent
+      policy: Allow 0/0 CIDR to match reserved:world
+      policy: Support CIDRs in rules with zero length prefix
+      test: Add runtime policy test for 0.0.0.0/0
+
+Manali Bhutiyani (2):
+      bpf: Change BPF metrics map to type BPF_PER_CPU_HASH_MAP.
+      pkg/maps/metricsmap: userspace aggregation of BPF_PER_CPU_HASH_MAP metrics map.
+
+Michal Rostecki (10):
+      pkg/identity: Fix ineffassign errors
+      pkg/workloads: Fix ineffassign errors
+      pkg/mountinfo: Add utility for getting mountinfo
+      bpf: Allow to define BPF map root via env variable
+      pkg/envoy: Don't hardcode BPFFS mount path
+      pkg/default: Add defaults for pkg/bpffs package
+      pkg/bpf: Use the other directory when /sys/fs/bpf is not BPFFS
+      pkg/health/client: PathIsHealthy as a public function
+      pkg/endpoint/id: New package to avoid import cycle
+      pkg/metrics: Define Prometheus metrics for `cilium status` data
+
+Ray Bejjani (2):
+      test: Increase kubedns timeouts above 5 minutes
+      daemon: Warn on too-old status data
+
+Romain Lenglet (11):
+      daemon: Delete old ID mapping when updating the IP for a reserved ID
+      Update to Istio 0.8 release
+      docs: In GSGs, create the etcd-cilium deployment in kube-system
+      docs: Add Istio injection annotations into all Istio examples
+      docs: Remove the unnecessary init policy to Kafka in Istio example
+      docs: Move the Istio GSG to use Helm
+      vagrant: Revert updating the Vagrant box and cilium-builder tag
+      Revert "vagrant: Revert updating the Vagrant box and cilium-builder tag"
+      Revert to working Vagrant box and cilium-builder image
+      Revert "Revert to working Vagrant box and cilium-builder image"
+      Revert to working Vagrant box and cilium-builder image (#4430)
+
+Thomas Graf (15):
+      test: Be verbose about VM provision failures
+      bpf: Separate conntrack timeouts for TCP and non-TCP
+      conntrack: Increase conntrack interval to 1 minute
+      doc: Add missing indices to spelling list
+      allocator: Use DefaultLogger
+      test: Print status message while building & installing cilium
+      test: Do not compile non container build with PKG_BUILD=1
+      byteorder: Do not depend on external Linux only library
+      test: Hardcode identity for health endpoint
+      maps/tunnel: Use DefaultLogger
+      tunnel: Make BPF tunnel map updates atomic
+      k8s: Add --k8s-require-ipv4-pod-cidr and --k8s-require-ipv6-pod-cidr option
+      test: Require IPv4 PodCIDR to be specified in the node resource
+      Merge branch 'master' into v1.1
+      Prepare for 1.1.0-rc4 release
+
+
 v1.1.0-rc3
 ==========
 
