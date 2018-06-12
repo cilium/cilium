@@ -21,7 +21,7 @@ define make_yaml
 $(1)/$(patsubst templates/v1/%,%,$(patsubst %.yaml.sed,%.yaml,$(2))):
 	@$(ECHO_GEN)$$@
 	@echo "$(CILIUM_VERSION)" | egrep -Eq 'v\d+\.\d+\.\d+(-.+)?' || \
-	echo "\"$(CILIUM_VERSION)\" is not a valid version. Must match regexp 'v\d+\.\d+\.\d+(-.+)?'. Please fix VERSION file" && false
+	(echo "\"$(CILIUM_VERSION)\" is not a valid version. Must match regexp 'v\d+\.\d+\.\d+(-.+)?'. Please fix VERSION file" && false)
 	-$(QUIET)sed -f $(1)/transforms2sed.sed -e s+__CILIUM_VERSION__+$$(CILIUM_VERSION)+ <$$< >$$@
 endef
 
