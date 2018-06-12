@@ -105,7 +105,7 @@ func configureHealthRouting(netns, dev string, addressing *models.NodeAddressing
 // LaunchAsEndpoint launches the cilium-health agent in a nested network
 // namespace and attaches it to Cilium the same way as any other endpoint,
 // but with special reserved labels.
-func LaunchAsEndpoint(owner endpoint.Owner, hostAddressing *models.NodeAddressing, opts *option.BoolOptions) context.CancelFunc {
+func LaunchAsEndpoint(owner endpoint.Owner, hostAddressing *models.NodeAddressing) context.CancelFunc {
 	ip4 := node.GetIPv4HealthIP()
 	ip6 := node.GetIPv6HealthIP()
 
@@ -177,7 +177,7 @@ func LaunchAsEndpoint(owner endpoint.Owner, hostAddressing *models.NodeAddressin
 	if err != nil {
 		log.WithError(err).Fatal("Error while creating cilium-health endpoint")
 	}
-	ep.SetDefaultOpts(opts)
+	ep.SetDefaultOpts(option.Config.Opts)
 
 	// Add the endpoint
 	if err := endpointmanager.AddEndpoint(owner, ep, "Create cilium-health endpoint"); err != nil {
