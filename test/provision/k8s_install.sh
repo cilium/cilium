@@ -23,6 +23,7 @@ export KUBEADM_CRI_SOCKET="unix:///var/run/docker.sock"
 export KUBEADM_SLAVE_OPTIONS=""
 export KUBEADM_OPTIONS=""
 export K8S_FULL_VERSION=""
+export INSTALL_KUBEDNS=1
 
 source ${PROVISIONSRC}/helpers.bash
 
@@ -99,6 +100,7 @@ case $K8S_VERSION in
         K8S_FULL_VERSION="1.11.0-beta.0"
         KUBEADM_OPTIONS="--ignore-preflight-errors=cri"
         KUBEADM_SLAVE_OPTIONS="--discovery-token-unsafe-skip-ca-verification --ignore-preflight-errors=cri"
+        INSTALL_KUBEDNS=0
         ;;
 esac
 
@@ -160,9 +162,10 @@ if [[ "${HOST}" == "k8s1" ]]; then
     kubectl taint nodes --all node-role.kubernetes.io/master-
 
     sudo systemctl start etcd
-
-    kubectl -n kube-system delete svc,deployment,sa,cm kube-dns || true
-    kubectl -n kube-system apply -f ${PROVISIONSRC}/manifest/dns_deployment.yaml
+    if [[ $INSTALL_KUBEDNS -eq 1 ]]; then
+        kubectl -n kube-system delete svc,deployment,sa,cm kube-dns || true
+        kubectl -n kube-system apply -f ${PROVISIONSRC}/manifest/dns_deployment.yaml
+    fi
 
     $PROVISIONSRC/compile.sh
 else
