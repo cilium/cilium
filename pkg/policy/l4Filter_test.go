@@ -37,6 +37,39 @@ var (
 	toFoo = &SearchContext{To: labels.ParseSelectLabelArray("foo")}
 )
 
+// Tests in this file:
+//
+// How to read this table:
+//   Case:  The test / subtest number.
+//   L3:    Matches at L3 for rule 1,  followed by rule 2.
+//   L4:    Matches at L4.
+//   L7:    Rules at L7 for rule 1, followed by rule 2.
+//   Notes: Extra information about the test.
+//
+// +-----+-----------------+----------+-----------------+------------------------------------------------------+
+// |Case | L3 (1, 2) match | L4 match | L7 match (1, 2) | Notes                                                |
+// +=====+=================+==========+=================+======================================================+
+// |  1A |      *, *       |  80/TCP  |      *, *       | Allow all communication on the specified port        |
+// |  1B |      *, *       |  80/TCP  |      *, *       | Same as 1A, with implicit L3 wildcards               |
+// |  2A |      *, *       |  80/TCP  |   *, "GET /"    | Rule 1 shadows rule 2                                |
+// |  2B |      *, *       |  80/TCP  |   "GET /", *    | Same as 2A, but import in reverse order              |
+// |  3  |      *, *       |  80/TCP  | "GET /","GET /" | Exactly duplicate rules (HTTP)                       |
+// |  4  |      *, *       | 9092/TCP |   "foo","foo"   | Exactly duplicate rules (Kafka)                      |
+// |  5A |      *, *       |  80/TCP  |  "foo","GET /"  | Rules with conflicting L7 parser                     |
+// |  5B |      *, *       |  80/TCP  |  "GET /","foo"  | Same as 5A, but import in reverse order              |
+// |  6A |   "id=a", *     |  80/TCP  |      *, *       | Rule 2 is a superset of rule 1                       |
+// |  6B |   *, "id=a"     |  80/TCP  |      *, *       | Same as 6A, but import in reverse order              |
+// |  7A |   "id=a", *     |  80/TCP  |   "GET /", *    | All traffic is allowed; traffic to A goes via proxy  |
+// |  7B |   *, "id=a"     |  80/TCP  |   *, "GET /"    | Same as 7A, but import in reverse order              |
+// |  8A |   "id=a", *     |  80/TCP  | "GET /","GET /" | Rule 2 is the same as rule 1, except matching all L3 |
+// |  8B |   *, "id=a"     |  80/TCP  | "GET /","GET /" | Same as 8A, but import in reverse order              |
+// |  9A |   "id=a", *     |  80/TCP  |  "foo","GET /"  | Rules with conflicting L7 parser (+L3 match)         |
+// |  9B |   *, "id=a"     |  80/TCP  |  "GET /","foo"  | Same as 9A, but import in reverse order              |
+// | 10  | "id=a", "id=c"  |  80/TCP  | "GET /","GET /" | Allow at L7 for two distinct labels (disjoint set)   |
+// | 11  | "id=a", "id=c"  |  80/TCP  |      *, *       | Allow at L4 for two distinct labels (disjoint set)   |
+// | 12  |     "id=a",     |  80/TCP  |     "GET /"     | Configure to allow localhost traffic always          |
+// +-----+-----------------+----------+-----------------+------------------------------------------------------+
+
 // Case 1: allow all at L3 in both rules, and all at L7 (duplicate rule).
 func (ds *PolicyTestSuite) TestMergeAllowAllL3AndAllowAllL7(c *C) {
 	// Case 1A: Specify WildcardEndpointSelector explicitly.
@@ -56,11 +89,6 @@ func (ds *PolicyTestSuite) TestMergeAllowAllL3AndAllowAllL7(c *C) {
 				ToPorts: []api.PortRule{{
 					Ports: []api.PortProtocol{
 						{Port: "80", Protocol: api.ProtoTCP},
-					},
-					Rules: &api.L7Rules{
-						HTTP: []api.PortRuleHTTP{
-							{Method: "GET", Path: "/"},
-						},
 					},
 				}},
 			},
@@ -83,15 +111,15 @@ func (ds *PolicyTestSuite) TestMergeAllowAllL3AndAllowAllL7(c *C) {
 
 	c.Assert(filter.Endpoints.SelectsAllEndpoints(), Equals, true)
 
-	c.Assert(filter.L7Parser, Equals, ParserTypeHTTP)
-	c.Assert(len(filter.L7RulesPerEp), Equals, 1)
+	c.Assert(filter.L7Parser, Equals, ParserTypeNone)
+	c.Assert(len(filter.L7RulesPerEp), Equals, 0)
 
 	// Case1B: implicitly wildcard all endpoints.
 	repo = parseAndAddRules(c, api.Rules{&api.Rule{
 		EndpointSelector: endpointSelectorA,
 		Ingress: []api.IngressRule{
 			{
-				FromEndpoints: []api.EndpointSelector{api.WildcardEndpointSelector},
+				FromEndpoints: []api.EndpointSelector{},
 				ToPorts: []api.PortRule{{
 					Ports: []api.PortProtocol{
 						{Port: "80", Protocol: api.ProtoTCP},
@@ -99,15 +127,10 @@ func (ds *PolicyTestSuite) TestMergeAllowAllL3AndAllowAllL7(c *C) {
 				}},
 			},
 			{
-				FromEndpoints: []api.EndpointSelector{api.WildcardEndpointSelector},
+				FromEndpoints: []api.EndpointSelector{},
 				ToPorts: []api.PortRule{{
 					Ports: []api.PortProtocol{
 						{Port: "80", Protocol: api.ProtoTCP},
-					},
-					Rules: &api.L7Rules{
-						HTTP: []api.PortRuleHTTP{
-							{Method: "GET", Path: "/"},
-						},
 					},
 				}},
 			},
@@ -130,8 +153,8 @@ func (ds *PolicyTestSuite) TestMergeAllowAllL3AndAllowAllL7(c *C) {
 
 	c.Assert(filter.Endpoints.SelectsAllEndpoints(), Equals, true)
 
-	c.Assert(filter.L7Parser, Equals, ParserTypeHTTP)
-	c.Assert(len(filter.L7RulesPerEp), Equals, 1)
+	c.Assert(filter.L7Parser, Equals, ParserTypeNone)
+	c.Assert(len(filter.L7RulesPerEp), Equals, 0)
 }
 
 // Case 2: allow all at L3 in both rules. Allow all in one L7 rule, but second
@@ -178,6 +201,11 @@ func (ds *PolicyTestSuite) TestMergeAllowAllL3AndShadowedL7(c *C) {
 
 	c.Log(buffer)
 
+	// The expected policy contains the L7 Rules below, but in practice
+	// when the policy is being resolved and sent to the proxy, it actually
+	// allows all at L7, based on the first API rule imported above. We
+	// just set the expected set of L7 rules below to include this to match
+	// the current implementation.
 	expected := NewL4Policy()
 	expected.Ingress["80/TCP"] = L4Filter{
 		Port:      80,
@@ -331,7 +359,7 @@ func (ds *PolicyTestSuite) TestMergeIdenticalAllowAllL3AndRestrictedL7Kafka(c *C
 					FromEndpoints: api.EndpointSelectorSlice{api.WildcardEndpointSelector},
 					ToPorts: []api.PortRule{{
 						Ports: []api.PortProtocol{
-							{Port: "80", Protocol: api.ProtoTCP},
+							{Port: "9092", Protocol: api.ProtoTCP},
 						},
 						Rules: &api.L7Rules{
 							Kafka: []api.PortRuleKafka{
@@ -344,7 +372,7 @@ func (ds *PolicyTestSuite) TestMergeIdenticalAllowAllL3AndRestrictedL7Kafka(c *C
 					FromEndpoints: api.EndpointSelectorSlice{api.WildcardEndpointSelector},
 					ToPorts: []api.PortRule{{
 						Ports: []api.PortProtocol{
-							{Port: "80", Protocol: api.ProtoTCP},
+							{Port: "9092", Protocol: api.ProtoTCP},
 						},
 						Rules: &api.L7Rules{
 							Kafka: []api.PortRuleKafka{
@@ -362,8 +390,8 @@ func (ds *PolicyTestSuite) TestMergeIdenticalAllowAllL3AndRestrictedL7Kafka(c *C
 	c.Log(buffer)
 
 	expected := NewL4Policy()
-	expected.Ingress["80/TCP"] = L4Filter{
-		Port:      80,
+	expected.Ingress["9092/TCP"] = L4Filter{
+		Port:      9092,
 		Protocol:  api.ProtoTCP,
 		U8Proto:   6,
 		Endpoints: api.EndpointSelectorSlice{api.WildcardEndpointSelector},
@@ -491,7 +519,7 @@ func (ds *PolicyTestSuite) TestMergeIdenticalAllowAllL3AndMismatchingParsers(c *
 // in another rule. Should resolve to just allowing all on L3/L7 (first rule
 // shadows the second).
 func (ds *PolicyTestSuite) TestL3RuleShadowedByL3AllowAll(c *C) {
-	// Case 1A: Specify WildcardEndpointSelector explicitly.
+	// Case 6A: Specify WildcardEndpointSelector explicitly.
 	shadowRule := &rule{
 		Rule: api.Rule{
 			EndpointSelector: endpointSelectorA,
@@ -547,6 +575,7 @@ func (ds *PolicyTestSuite) TestL3RuleShadowedByL3AllowAll(c *C) {
 	c.Assert(state.selectedRules, Equals, 0)
 	c.Assert(state.matchedRules, Equals, 0)
 
+	// Case 6B: Reverse the ordering of the rules. Result should be the same.
 	shadowRule = &rule{
 		Rule: api.Rule{
 			EndpointSelector: endpointSelectorA,

@@ -17,6 +17,7 @@ package helpers
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io/ioutil"
@@ -32,7 +33,7 @@ import (
 	"github.com/cilium/cilium/pkg/annotation"
 	cnpv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/test/config"
-	ginkgoext "github.com/cilium/cilium/test/ginkgo-ext"
+	"github.com/cilium/cilium/test/ginkgo-ext"
 
 	"github.com/asaskevich/govalidator"
 	"github.com/onsi/ginkgo"
@@ -344,6 +345,29 @@ func (kub *Kubectl) GetEndpoints(namespace string, filter string) *CmdRes {
 	return kub.Exec(fmt.Sprintf("%s -n %s get endpoints %s -o json", KubectlCmd, namespace, filter))
 }
 
+// GetAllPods returns a slice of all pods present in Kubernetes cluster, along
+// with an error if the pods could not be retrieved via `kubectl`, or if the
+// pod objects are unable to be marshaled from JSON.
+func (kub *Kubectl) GetAllPods() ([]v1.Pod, error) {
+	var podsList v1.List
+	err := kub.Exec(fmt.Sprintf("%s get pods --all-namespaces -o json", KubectlCmd)).Unmarshal(&podsList)
+	if err != nil {
+		return nil, err
+	}
+
+	pods := make([]v1.Pod, len(podsList.Items))
+	for _, item := range podsList.Items {
+		var pod v1.Pod
+		err = json.Unmarshal(item.Raw, &pod)
+		if err != nil {
+			return nil, err
+		}
+		pods = append(pods, pod)
+	}
+
+	return pods, nil
+}
+
 // GetPodNames returns the names of all of the pods that are labeled with label
 // in the specified namespace, along with an error if the pod names cannot be
 // retrieved.
@@ -351,9 +375,10 @@ func (kub *Kubectl) GetPodNames(namespace string, label string) ([]string, error
 	stdout := new(bytes.Buffer)
 	filter := "-o jsonpath='{.items[*].metadata.name}'"
 
+	cmd := fmt.Sprintf("%s -n %s get pods -l %s %s", KubectlCmd, namespace, label, filter)
+
 	err := kub.Execute(
-		fmt.Sprintf("%s -n %s get pods -l %s %s", KubectlCmd, namespace, label, filter),
-		stdout, nil)
+		cmd, stdout, nil)
 
 	if err != nil {
 		return nil, fmt.Errorf(
@@ -1157,36 +1182,19 @@ func (kub *Kubectl) DumpCiliumCommandOutput(namespace string) {
 // directory
 func (kub *Kubectl) GatherLogs() {
 	reportCmds := map[string]string{
-		"kubectl get pods --all-namespaces -o json":                    "pods.txt",
-		"kubectl get services --all-namespaces -o json":                "svc.txt",
-		"kubectl get nodes -o json":                                    "nodes.txt",
-		"kubectl get ds --all-namespaces -o json":                      "ds.txt",
-		"kubectl get cnp --all-namespaces -o json":                     "cnp.txt",
-		"kubectl get cep --all-namespaces -o json":                     "cep.txt",
-		"kubectl get netpol --all-namespaces -o json":                  "netpol.txt",
-		"kubectl describe pods --all-namespaces":                       "pods_status.txt",
-		"kubectl get replicationcontroller --all-namespaces -o json":   "replicationcontroller.txt",
-		"kubectl get deployment --all-namespaces -o json":              "deployment.txt",
-		"kubectl -n kube-system logs -l k8s-app='kube-dns' -c kubedns": "kubedns.log",
-		"kubectl -n kube-system logs -l k8s-app='kube-dns' -c dnsmasq": "dnsmasq.log",
-		"kubectl -n kube-system logs -l k8s-app='kube-dns' -c sidecar": "kubedns-sidecar.log",
+		"kubectl get pods --all-namespaces -o json":                  "pods.txt",
+		"kubectl get services --all-namespaces -o json":              "svc.txt",
+		"kubectl get nodes -o json":                                  "nodes.txt",
+		"kubectl get ds --all-namespaces -o json":                    "ds.txt",
+		"kubectl get cnp --all-namespaces -o json":                   "cnp.txt",
+		"kubectl get cep --all-namespaces -o json":                   "cep.txt",
+		"kubectl get netpol --all-namespaces -o json":                "netpol.txt",
+		"kubectl describe pods --all-namespaces":                     "pods_status.txt",
+		"kubectl get replicationcontroller --all-namespaces -o json": "replicationcontroller.txt",
+		"kubectl get deployment --all-namespaces -o json":            "deployment.txt",
 	}
 
-	ciliumPods, err := kub.GetCiliumPods(KubeSystemNamespace)
-	if err != nil {
-		kub.logger.WithError(err).Error("Cannot get cilium pods")
-	}
-
-	for _, pod := range ciliumPods {
-		key := fmt.Sprintf("kubectl -n kube-system logs --timestamps %s", pod)
-		value := fmt.Sprintf("%s-logs.log", pod)
-		reportCmds[key] = value
-
-		prevKey := fmt.Sprintf("kubectl -n kube-system logs --timestamps --previous %s", pod)
-		prevValue := fmt.Sprintf("%s-logs-previous.log", pod)
-
-		reportCmds[prevKey] = prevValue
-	}
+	kub.GeneratePodLogGatheringCommands(reportCmds)
 
 	testPath, err := CreateReportDirectory()
 	if err != nil {
@@ -1195,6 +1203,33 @@ func (kub *Kubectl) GatherLogs() {
 		return
 	}
 	reportMap(testPath, reportCmds, kub.SSHMeta)
+}
+
+// GeneratePodLogGatheringCommands generates the commands to gather logs for
+// all pods in the Kubernetes cluster, and maps the commands to the filename
+// in which they will be stored in reportCmds.
+func (kub *Kubectl) GeneratePodLogGatheringCommands(reportCmds map[string]string) {
+	if reportCmds == nil {
+		reportCmds = make(map[string]string)
+	}
+	pods, err := kub.GetAllPods()
+	if err != nil {
+		kub.logger.WithError(err).Error("Unable to get pods from Kubernetes via kubectl")
+	}
+
+	for _, pod := range pods {
+		for _, containerStatus := range pod.Status.ContainerStatuses {
+			logCmd := fmt.Sprintf("%s -n %s logs --timestamps %s -c %s", KubectlCmd, pod.Namespace, pod.Name, containerStatus.Name)
+			logfileName := fmt.Sprintf("pod-%s-%s-%s.log", pod.Namespace, pod.Name, containerStatus.Name)
+			reportCmds[logCmd] = logfileName
+
+			if containerStatus.RestartCount > 0 {
+				previousLogCmd := fmt.Sprintf("%s -n %s logs --timestamps %s -c %s --previous", KubectlCmd, pod.Namespace, pod.Name, containerStatus.Name)
+				previousLogfileName := fmt.Sprintf("pod-%s-%s-%s-previous.log", pod.Namespace, pod.Name, containerStatus.Name)
+				reportCmds[previousLogCmd] = previousLogfileName
+			}
+		}
+	}
 }
 
 // GetCiliumPodOnNode returns the name of the Cilium pod that is running on / in

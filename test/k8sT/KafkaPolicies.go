@@ -27,22 +27,21 @@ import (
 
 var _ = Describe("K8sValidatedKafkaPolicyTest", func() {
 
-	var microscopeErr error
-	var microscopeCancel func() error
-	var kubectl *helpers.Kubectl
-	var ciliumPod string
-
 	var (
-		logger      = log.WithFields(logrus.Fields{"testName": "K8sValidatedKafkaPolicyTest"})
-		l7Policy    = helpers.ManifestGet("kafka-sw-security-policy.yaml")
-		demoPath    = helpers.ManifestGet("kafka-sw-app.yaml")
-		kafkaApp    = "kafka"
-		zookApp     = "zook"
-		backupApp   = "empire-backup"
-		empireHqApp = "empire-hq"
-		outpostApp  = "empire-outpost"
-		apps        = []string{kafkaApp, zookApp, backupApp, empireHqApp, outpostApp}
-		appPods     = map[string]string{}
+		kubectl          *helpers.Kubectl
+		ciliumPod        string
+		microscopeErr    error
+		microscopeCancel = func() error { return nil }
+		logger           = log.WithFields(logrus.Fields{"testName": "K8sValidatedKafkaPolicyTest"})
+		l7Policy         = helpers.ManifestGet("kafka-sw-security-policy.yaml")
+		demoPath         = helpers.ManifestGet("kafka-sw-app.yaml")
+		kafkaApp         = "kafka"
+		zookApp          = "zook"
+		backupApp        = "empire-backup"
+		empireHqApp      = "empire-hq"
+		outpostApp       = "empire-outpost"
+		apps             = []string{kafkaApp, zookApp, backupApp, empireHqApp, outpostApp}
+		appPods          = map[string]string{}
 
 		prodHqAnnounce    = `-c "echo 'Happy 40th Birthday to General Tagge' | ./kafka-produce.sh --topic empire-announce"`
 		conOutpostAnnoune = `-c "./kafka-consume.sh --topic empire-announce --from-beginning --max-messages 1"`
@@ -91,6 +90,11 @@ var _ = Describe("K8sValidatedKafkaPolicyTest", func() {
 			kubectl.Apply(demoPath)
 			err = kubectl.WaitforPods(helpers.DefaultNamespace, "-l zgroup=kafkaTestApp", 300)
 			Expect(err).Should(BeNil(), "Kafka Pods are not ready after timeout")
+
+			err = kubectl.WaitForKubeDNSEntry("kafka-service." + helpers.DefaultNamespace)
+			Expect(err).To(BeNil(), "DNS entry of kafka-service is not ready after timeout")
+			err = kubectl.WaitForKubeDNSEntry("zook." + helpers.DefaultNamespace)
+			Expect(err).To(BeNil(), "DNS entry of zook is not ready after timeout")
 
 			appPods = helpers.GetAppPods(apps, helpers.DefaultNamespace, kubectl, "app")
 

@@ -42,7 +42,7 @@ var _ = Describe(demoTestName, func() {
 		kubectl          *helpers.Kubectl
 		logger           *logrus.Entry
 		microscopeErr    error
-		microscopeCancel func() error
+		microscopeCancel = func() error { return nil }
 
 		deathStarYAMLLink = getStarWarsResourceLink("02-deathstar.yaml")
 		l4PolicyYAMLLink  = getStarWarsResourceLink("policy/l4_policy.yaml")

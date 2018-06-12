@@ -78,8 +78,15 @@ func newLibnetworkRoute(route plugins.Route) api.StaticRoute {
 	return rt
 }
 
-// NewDriver creates and returns a new Driver for the given API URL
+// NewDriver creates and returns a new Driver for the given API URL.
+// If url is nil then use SockPath provided by CILIUM_SOCK
+// or the cilium default SockPath
 func NewDriver(url string) (Driver, error) {
+
+	if url == "" {
+		url = client.DefaultSockPath()
+	}
+
 	scopedLog := log.WithField("url", url)
 	c, err := client.NewClient(url)
 	if err != nil {
