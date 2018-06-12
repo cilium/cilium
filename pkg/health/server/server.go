@@ -93,8 +93,7 @@ type Server struct {
 	// the list of statuses as most recently seen, and the last time a
 	// probe was conducted.
 	lock.RWMutex
-	connectivity []*healthModels.NodeStatus
-	lastProbe    time.Time
+	connectivity *healthReport
 	localStatus  *healthModels.SelfStatus
 }
 
@@ -153,12 +152,12 @@ func (s *Server) getNodes() (nodeMap, error) {
 	return nodes, nil
 }
 
-func (s *Server) updateCluster(connectivity []*healthModels.NodeStatus) {
+// updateCluster makes the specified health report visible to the API.
+func (s *Server) updateCluster(report *healthReport) {
 	s.Lock()
 	defer s.Unlock()
 
-	s.lastProbe = time.Now()
-	s.connectivity = connectivity
+	s.connectivity = report
 }
 
 // GetStatusResponse returns the most recent cluster connectivity status.
@@ -176,8 +175,8 @@ func (s *Server) GetStatusResponse() *healthModels.HealthStatusResponse {
 		Local: &healthModels.SelfStatus{
 			Name: name,
 		},
-		Nodes:     s.connectivity,
-		Timestamp: s.lastProbe.Format(time.RFC3339),
+		Nodes:     s.connectivity.nodes,
+		Timestamp: s.connectivity.startTime.Format(time.RFC3339),
 	}
 }
 
@@ -311,7 +310,7 @@ func NewServer(config Config) (*Server, error) {
 		startTime:    time.Now(),
 		Config:       config,
 		tcpServers:   []*healthApi.Server{},
-		connectivity: []*healthModels.NodeStatus{},
+		connectivity: &healthReport{},
 	}
 
 	swaggerSpec, err := loads.Analyzed(healthApi.SwaggerJSON, "")
