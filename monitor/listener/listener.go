@@ -14,9 +14,24 @@
 
 package listener
 
+import (
+	"github.com/cilium/cilium/monitor/payload"
+)
+
 type ListenerVersion string
 
 const (
 	ListenerVersionUnsupported = ListenerVersion("unsupported")
 	ListenerVersion1_0         = ListenerVersion("1.0")
 )
+
+// MonitorListener is a generic consumer of monitor events. Implementers are
+// expected to handle errors as needed, including exiting.
+type MonitorListener interface {
+	// Enqueue adds this payload to the send queue. Any errors should be logged
+	// and handled appropriately.
+	Enqueue(pl *payload.Payload)
+
+	// Version returns the API version of this listener
+	Version() ListenerVersion
+}
