@@ -57,11 +57,6 @@ func (ds *PolicyTestSuite) TestMergeAllowAllL3AndAllowAllL7(c *C) {
 					Ports: []api.PortProtocol{
 						{Port: "80", Protocol: api.ProtoTCP},
 					},
-					Rules: &api.L7Rules{
-						HTTP: []api.PortRuleHTTP{
-							{Method: "GET", Path: "/"},
-						},
-					},
 				}},
 			},
 		},
@@ -83,15 +78,15 @@ func (ds *PolicyTestSuite) TestMergeAllowAllL3AndAllowAllL7(c *C) {
 
 	c.Assert(filter.Endpoints.SelectsAllEndpoints(), Equals, true)
 
-	c.Assert(filter.L7Parser, Equals, ParserTypeHTTP)
-	c.Assert(len(filter.L7RulesPerEp), Equals, 1)
+	c.Assert(filter.L7Parser, Equals, ParserTypeNone)
+	c.Assert(len(filter.L7RulesPerEp), Equals, 0)
 
 	// Case1B: implicitly wildcard all endpoints.
 	repo = parseAndAddRules(c, api.Rules{&api.Rule{
 		EndpointSelector: endpointSelectorA,
 		Ingress: []api.IngressRule{
 			{
-				FromEndpoints: []api.EndpointSelector{api.WildcardEndpointSelector},
+				FromEndpoints: []api.EndpointSelector{},
 				ToPorts: []api.PortRule{{
 					Ports: []api.PortProtocol{
 						{Port: "80", Protocol: api.ProtoTCP},
@@ -99,15 +94,10 @@ func (ds *PolicyTestSuite) TestMergeAllowAllL3AndAllowAllL7(c *C) {
 				}},
 			},
 			{
-				FromEndpoints: []api.EndpointSelector{api.WildcardEndpointSelector},
+				FromEndpoints: []api.EndpointSelector{},
 				ToPorts: []api.PortRule{{
 					Ports: []api.PortProtocol{
 						{Port: "80", Protocol: api.ProtoTCP},
-					},
-					Rules: &api.L7Rules{
-						HTTP: []api.PortRuleHTTP{
-							{Method: "GET", Path: "/"},
-						},
 					},
 				}},
 			},
@@ -130,8 +120,8 @@ func (ds *PolicyTestSuite) TestMergeAllowAllL3AndAllowAllL7(c *C) {
 
 	c.Assert(filter.Endpoints.SelectsAllEndpoints(), Equals, true)
 
-	c.Assert(filter.L7Parser, Equals, ParserTypeHTTP)
-	c.Assert(len(filter.L7RulesPerEp), Equals, 1)
+	c.Assert(filter.L7Parser, Equals, ParserTypeNone)
+	c.Assert(len(filter.L7RulesPerEp), Equals, 0)
 }
 
 // Case 2: allow all at L3 in both rules. Allow all in one L7 rule, but second
