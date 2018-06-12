@@ -1,0 +1,59 @@
+// Copyright 2018 Authors of Cilium
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+package listener
+
+import (
+	"net"
+	"os"
+	"syscall"
+)
+
+// Version is the version of a node-monitor listener client. There are
+// two API versions:
+// - 1.0 which encodes the gob type information with each payload sent, and
+//   adds a meta object before it.
+// - 1.2 which maintains a gob session per listener, thus only encoding the
+//   type information on the first payload sent. It does NOT prepend the a meta
+//   object.
+type Version string
+
+const (
+	// VersionUnsupported is here for use in error returns etc.
+	VersionUnsupported = Version("unsupported")
+
+	// Version1_0 is the API 1.0 version of the protocol (see above).
+	Version1_0 = Version("1.0")
+)
+
+// IsDisconnected is a convenience function that wraps the absurdly long set of
+// checks for a disconnect.
+func IsDisconnected(err error) bool {
+	if err == nil {
+		return false
+	}
+
+	op, ok := err.(*net.OpError)
+	if !ok {
+		return false
+	}
+
+	syscerr, ok := op.Err.(*os.SyscallError)
+	if !ok {
+		return false
+	}
+
+	errn := syscerr.Err.(syscall.Errno)
+	return errn == syscall.EPIPE
+}

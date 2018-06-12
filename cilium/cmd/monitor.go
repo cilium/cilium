@@ -27,6 +27,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/cilium/cilium/monitor/listener"
 	"github.com/cilium/cilium/monitor/payload"
 	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/defaults"
@@ -312,6 +313,82 @@ func setupSigHandler() {
 	}()
 }
 
+// openMonitorSock attempts to open a version specific monitor socket It
+// returns a connection, with a version, or an error.
+func openMonitorSock() (conn net.Conn, version listener.Version, err error) {
+	errors := make([]string, 0)
+
+	// try the 1.1 socket
+	conn, err = net.Dial("unix", defaults.MonitorSockPath1_0)
+	if err == nil {
+		return conn, listener.Version1_0, nil
+	}
+	errors = append(errors, defaults.MonitorSockPath1_0+": "+err.Error())
+
+	return nil, listener.VersionUnsupported, fmt.Errorf("Cannot find or open a supported node-monitor socket. %s", strings.Join(errors, ","))
+}
+
+// consumeMonitorEvents handles and prints events on a monitor connection. It
+// calls getMonitorParsed to construct a monitor-version appropraite parser.
+// It closes conn on return, and returns on error, including io.EOF
+func consumeMonitorEvents(conn net.Conn, version listener.Version) error {
+	defer conn.Close()
+
+	getParsedPayload, err := getMonitorParser(conn, version)
+	if err != nil {
+		return err
+	}
+
+	for {
+		pl, err := getParsedPayload()
+		if err != nil {
+			return err
+		}
+
+		switch pl.Type {
+		case payload.EventSample:
+			receiveEvent(pl.Data, pl.CPU)
+
+		case payload.RecordLost:
+			lostEvent(pl.Lost, pl.CPU)
+
+		default:
+			// earlier code used an else to handle this case, along with pl.Type ==
+			// payload.RecordLost above. It should be safe to call lostEvent to match
+			// the earlier behaviour, despite it not being wholly correct.
+			log.WithError(err).WithField("type", pl.Type).Warn("Unknown payload type")
+			lostEvent(pl.Lost, pl.CPU)
+		}
+	}
+}
+
+// eventParseFunc is a convenience function type used as a version-specific
+// parser of monitor events
+type eventParserFunc func() (*payload.Payload, error)
+
+// getMonitorParser constructs and returns an eventParserFunc. It is
+// appropriate for the monitor API version passed in.
+func getMonitorParser(conn net.Conn, version listener.Version) (parser eventParserFunc, err error) {
+	switch version {
+	case listener.Version1_0:
+		var (
+			meta payload.Meta
+			pl   payload.Payload
+		)
+		// This implements the older API. Always encode a Meta and Payload object,
+		// both with full gob type information
+		return func() (*payload.Payload, error) {
+			if err := payload.ReadMetaPayload(conn, &meta, &pl); err != nil {
+				return nil, err
+			}
+			return &pl, nil
+		}, nil
+
+	default:
+		return nil, fmt.Errorf("unsupported version %s", version)
+	}
+}
+
 func runMonitor(args []string) {
 	if len(args) > 0 {
 		fmt.Println("Error: arguments not recognized")
@@ -327,34 +404,28 @@ func runMonitor(args []string) {
 		}
 	}
 	fmt.Printf("Press Ctrl-C to quit\n")
-start:
-	conn, err := net.Dial("unix", defaults.MonitorSockPath)
-	if err != nil {
-		fmt.Printf("Error: unable to connect to monitor %s\n", err)
-		os.Exit(1)
-	}
 
-	defer conn.Close()
-
-	var meta payload.Meta
-	var pl payload.Payload
-	for {
-		if err := payload.ReadMetaPayload(conn, &meta, &pl); err != nil {
-			if err == io.EOF || err == io.ErrUnexpectedEOF {
-				// EOF may be due to invalid payload size. Close the connection just in case.
-				conn.Close()
-				log.WithError(err).Warn("connection closed")
-				time.Sleep(connTimeout)
-				goto start
-			} else {
-				log.WithError(err).Fatal("decoding error")
-			}
+	// On EOF, retry
+	// On other errors, exit
+	// always wait connTimeout when retrying
+	for ; ; time.Sleep(connTimeout) {
+		conn, version, err := openMonitorSock()
+		if err != nil {
+			log.WithError(err).Error("Cannot open monitor socket")
+			return
 		}
 
-		if pl.Type == payload.EventSample {
-			receiveEvent(pl.Data, pl.CPU)
-		} else /* if pl.Type == payload.RecordLost */ {
-			lostEvent(pl.Lost, pl.CPU)
+		err = consumeMonitorEvents(conn, version)
+		switch {
+		case err == nil:
+		// no-op
+
+		case err == io.EOF, err == io.ErrUnexpectedEOF:
+			log.WithError(err).Warn("connection closed")
+			continue
+
+		default:
+			log.WithError(err).Fatal("decoding error")
 		}
 	}
 }
