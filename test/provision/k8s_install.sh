@@ -72,6 +72,13 @@ networking:
 EOF
 )
 
+# CRIO bridge disabled.
+if [[ -f  "/etc/cni/net.d/100-crio-bridge.conf" ]]; then
+    echo "Disabling crio CNI bridge"
+    sudo rm -rfv /etc/cni/net.d/100-crio-bridge.conf
+    sudo rm -rfv /etc/cni/net.d/200-loopback.conf || true
+fi
+
 # Around the `--ignore-preflight-errors=cri` is used because
 # /var/run/dockershim.sock is not present (because base image has containerid)
 # so with that option Kubeadm fallbacks to /var/run/docker.sock
