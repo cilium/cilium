@@ -21,13 +21,16 @@ import (
 	"github.com/cilium/cilium/monitor/payload"
 )
 
+// listenerv1_0 implements the ciliim-node-monitor API protocol compatible with
+// cilium 1.0
+// cleanupFn is called on exit
 type listenerv1_0 struct {
 	conn      net.Conn
 	queue     chan *payload.Payload
-	cleanupFn func(*listenerv1_0)
+	cleanupFn func(listener.MonitorListener)
 }
 
-func newListenerv1_0(c net.Conn, queueSize int, cleanupFn func(*listenerv1_0)) *listenerv1_0 {
+func newListenerv1_0(c net.Conn, queueSize int, cleanupFn func(listener.MonitorListener)) *listenerv1_0 {
 	ml := &listenerv1_0{
 		conn:      c,
 		queue:     make(chan *payload.Payload, queueSize),
@@ -39,7 +42,7 @@ func newListenerv1_0(c net.Conn, queueSize int, cleanupFn func(*listenerv1_0)) *
 	return ml
 }
 
-func (ml *listenerv1_0) enqueue(pl *payload.Payload) {
+func (ml *listenerv1_0) Enqueue(pl *payload.Payload) {
 	select {
 	case ml.queue <- pl:
 	default:
@@ -47,6 +50,8 @@ func (ml *listenerv1_0) enqueue(pl *payload.Payload) {
 	}
 }
 
+// drainQueue encodes and sends monitor payloads to the listener. It is
+// intended to be a goroutine.
 func (ml *listenerv1_0) drainQueue() {
 	defer func() {
 		ml.conn.Close()

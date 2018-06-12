@@ -54,11 +54,11 @@ func isCtxDone(ctx context.Context) bool {
 // Monitor structure for centralizing the responsibilities of the main events
 // reader.
 // There is some racey-ness around perfReaderCancel since it replaces on every
-// perf reader start. In the event that a listenerv1_0 from a previous
+// perf reader start. In the event that a MonitorListener from a previous
 // generation calls its cleanup after the start of the new perf reader, we
 // might call the new, and incorrect, cancel function. We guard for this by
 // checking the number of listeners during the cleanup call. The perf reader
-// must have at least one listenerv1_0 (since it started) so no cancel is called.
+// must have at least one MonitorListener (since it started) so no cancel is called.
 // If it doesn't, the cancel is the correct behavior (the older generation
 // cancel must have been called for us to get this far anyway).
 type Monitor struct {
@@ -66,7 +66,7 @@ type Monitor struct {
 
 	ctx              context.Context
 	perfReaderCancel context.CancelFunc
-	listeners        map[*listenerv1_0]struct{}
+	listeners        map[listener.MonitorListener]struct{}
 	nPages           int
 	monitorEvents    *bpf.PerCpuEvents
 }
@@ -103,12 +103,12 @@ func (m *Monitor) agentPipeReader(ctx context.Context, agentPipe io.Reader) {
 func NewMonitor(ctx context.Context, nPages int, agentPipe io.Reader, server1_0 net.Listener) (m *Monitor, err error) {
 	m = &Monitor{
 		ctx:              ctx,
-		listeners:        make(map[*listenerv1_0]struct{}),
+		listeners:        make(map[listener.MonitorListener]struct{}),
 		nPages:           nPages,
 		perfReaderCancel: func() {}, // no-op to avoid doing null checks everywhere
 	}
 
-	// start new monitorListener handler
+	// start new MonitorListener handler
 	go m.connectionHandler1_0(ctx, server1_0)
 
 	// start agent event pipe reader
@@ -117,7 +117,7 @@ func NewMonitor(ctx context.Context, nPages int, agentPipe io.Reader, server1_0 
 	return m, nil
 }
 
-// registerNewListener adds the new listenerv1_0 to the global list. It also spawns
+// registerNewListener adds the new MonitorListener to the global list. It also spawns
 // a singleton goroutine to read and distribute the events. It passes a
 // cancelable context to this goroutine and the cancelFunc is assigned to
 // perfReaderCancel. Note that cancelling parentCtx (e.g. on program shutdown)
@@ -152,9 +152,9 @@ func (m *Monitor) registerNewListener(parentCtx context.Context, conn net.Conn, 
 	}).Info("New listener connected.")
 }
 
-// removeListener deletes the monitorListener from the list, closes its queue, and
-// stops perfReader if this is the last monitorListener
-func (m *Monitor) removeListener(ml *listenerv1_0) {
+// removeListener deletes the MonitorListener from the list, closes its queue, and
+// stops perfReader if this is the last MonitorListener
+func (m *Monitor) removeListener(ml listener.MonitorListener) {
 	m.Lock()
 	defer m.Unlock()
 
@@ -276,7 +276,7 @@ func (m *Monitor) send(pl *payload.Payload) {
 	m.Lock()
 	defer m.Unlock()
 	for ml := range m.listeners {
-		ml.enqueue(pl)
+		ml.Enqueue(pl)
 	}
 }
 
