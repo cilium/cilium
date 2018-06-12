@@ -1,4 +1,4 @@
-// Copyright 2018 Authors of Cilium
+// Copyright 2017-2018 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -16,18 +16,18 @@ package main
 
 import (
 	"net"
-	"os"
-	"syscall"
+
+	"github.com/cilium/cilium/monitor/listener"
 )
 
-type monitorListener struct {
+type listenerv1_0 struct {
 	conn      net.Conn
 	queue     chan []byte
-	cleanupFn func(*monitorListener)
+	cleanupFn func(*listenerv1_0)
 }
 
-func newMonitorListener(c net.Conn, queueSize int, cleanupFn func(*monitorListener)) *monitorListener {
-	ml := &monitorListener{
+func newListenerv1_0(c net.Conn, queueSize int, cleanupFn func(*listenerv1_0)) *listenerv1_0 {
+	ml := &listenerv1_0{
 		conn:      c,
 		queue:     make(chan []byte, queueSize),
 		cleanupFn: cleanupFn,
@@ -38,7 +38,7 @@ func newMonitorListener(c net.Conn, queueSize int, cleanupFn func(*monitorListen
 	return ml
 }
 
-func (ml *monitorListener) enqueue(msg []byte) {
+func (ml *listenerv1_0) enqueue(msg []byte) {
 	select {
 	case ml.queue <- msg:
 	default:
@@ -46,7 +46,7 @@ func (ml *monitorListener) enqueue(msg []byte) {
 	}
 }
 
-func (ml *monitorListener) drainQueue() {
+func (ml *listenerv1_0) drainQueue() {
 	defer func() {
 		ml.conn.Close()
 		ml.cleanupFn(ml)
@@ -54,18 +54,16 @@ func (ml *monitorListener) drainQueue() {
 
 	for msgBuf := range ml.queue {
 		if _, err := ml.conn.Write(msgBuf); err != nil {
-			if op, ok := err.(*net.OpError); ok {
-				if syscerr, ok := op.Err.(*os.SyscallError); ok {
-					if errn, ok := syscerr.Err.(syscall.Errno); ok {
-						if errn == syscall.EPIPE {
-							log.Info("Listener disconnected")
-							return
-						}
-					}
-				}
+			if listener.IsDisconnected(err) {
+				log.Info("Listener disconnected")
+				return
 			}
 			log.WithError(err).Warn("Removing listener due to write failure")
 			return
 		}
 	}
+}
+
+func (ml *listenerv1_0) Version() listener.Version {
+	return listener.Version1_0
 }
