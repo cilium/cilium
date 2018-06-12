@@ -41,12 +41,12 @@ type statusCollector struct {
 func newStatusCollector() *statusCollector {
 	ciliumClient, err := clientPkg.NewClient("")
 	if err != nil {
-		log.WithError(err).Error("Error while creating client")
+		log.WithError(err).Fatal("Error while creating Cilium API client")
 	}
 
 	healthClient, err := healthClientPkg.NewClient("")
 	if err != nil {
-		log.WithError(err).Error("Error while creating cilium-health client")
+		log.WithError(err).Fatal("Error while creating cilium-health API client")
 	}
 
 	return &statusCollector{
