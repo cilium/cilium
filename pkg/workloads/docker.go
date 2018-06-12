@@ -496,7 +496,7 @@ func (d *dockerClient) retrieveDockerLabels(dockerID string) (*dTypes.ContainerJ
 	newLabels := labels.Labels{}
 	informationLabels := labels.Labels{}
 	if dockerCont.Config != nil {
-		newLabels, informationLabels = getFilteredLabels(dockerCont.Config.Labels)
+		newLabels, informationLabels = getFilteredLabels(dockerID, dockerCont.Config.Labels)
 	}
 
 	return &dockerCont, newLabels, informationLabels, nil

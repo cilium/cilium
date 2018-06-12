@@ -300,7 +300,7 @@ func (c *criClient) retrieveCRIPodLabels(podID string) (*criRuntime.PodSandboxSt
 		return nil, nil, nil, fmt.Errorf("unable to inspect container '%s': %s", podID, err)
 	}
 
-	newLabels, informationLabels := getFilteredLabels(cont.GetStatus().Labels)
+	newLabels, informationLabels := getFilteredLabels(podID, cont.GetStatus().Labels)
 
 	return cont.GetStatus(), newLabels, informationLabels, nil
 }
