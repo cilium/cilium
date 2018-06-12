@@ -111,20 +111,22 @@ func (s *statusCollector) Collect(ch chan<- prometheus.Metric) {
 		float64(controllersFailing),
 	)
 
-	// Address count
-	ch <- prometheus.MustNewConstMetric(
-		s.ipAddressesDesc,
-		prometheus.GaugeValue,
-		float64(len(statusResponse.Payload.IPAM.IPV4)),
-		"ipv4",
-	)
+	if statusResponse.Payload.IPAM != nil {
+		// Address count
+		ch <- prometheus.MustNewConstMetric(
+			s.ipAddressesDesc,
+			prometheus.GaugeValue,
+			float64(len(statusResponse.Payload.IPAM.IPV4)),
+			"ipv4",
+		)
 
-	ch <- prometheus.MustNewConstMetric(
-		s.ipAddressesDesc,
-		prometheus.GaugeValue,
-		float64(len(statusResponse.Payload.IPAM.IPV6)),
-		"ipv6",
-	)
+		ch <- prometheus.MustNewConstMetric(
+			s.ipAddressesDesc,
+			prometheus.GaugeValue,
+			float64(len(statusResponse.Payload.IPAM.IPV6)),
+			"ipv6",
+		)
+	}
 
 	healthStatusResponse, err := s.healthClient.Connectivity.GetStatus(nil)
 	if err != nil {
