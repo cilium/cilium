@@ -42,6 +42,17 @@ import (
 	"github.com/vishvananda/netlink"
 )
 
+var (
+	// vethName is the host-side link device name for cilium-health EP.
+	vethName = "cilium_health"
+
+	// vethPeerName is the endpoint-side link device name for cilium-health.
+	vethPeerName = "cilium"
+
+	// healthPidfile
+	healthPidfile = "health-endpoint.pid"
+)
+
 func logFromCommand(cmd *exec.Cmd, netns string) error {
 	scopedLog := log.WithField("netns", netns)
 	stdout, err := cmd.StdoutPipe()
@@ -102,10 +113,48 @@ func configureHealthRouting(netns, dev string, addressing *models.NodeAddressing
 	return err
 }
 
+// CleanupEndpoint attempts to kill any existing cilium-health endpoint and
+// clean up its devices and pidfiles.
+func CleanupEndpoint(owner endpoint.Owner) {
+	pidfile := filepath.Join(option.Config.StateDir, healthPidfile)
+	if pid, err := ioutil.ReadFile(pidfile); err == nil {
+		// Existing cilium-health exists, kill it so we can create a
+		// new one and steal all its logs (om nom nom!)
+		pidInt, err := strconv.Atoi(string(pid))
+		if err == nil {
+			scopedLog := log.WithField("pid", pidInt)
+			scopedLog.Debug("Killing existing cilium-health instance")
+			if oldProc, err := os.FindProcess(pidInt); err == nil {
+				err = oldProc.Kill()
+				if err != nil {
+					scopedLog.WithError(err).Info("Couldn't kill cilium-health")
+				}
+			} else {
+				scopedLog.WithError(err).Debug("Couldn't find cilium-health")
+			}
+		}
+	}
+	// Ignore any errors; we just need to remove the old pidfile.
+	_ = os.RemoveAll(pidfile)
+
+	scopedLog := log.WithField(logfields.Veth, vethName)
+	if link, err := netlink.LinkByName(vethName); err == nil {
+		err = netlink.LinkDel(link)
+		if err != nil {
+			scopedLog.WithError(err).Info("Couldn't delete cilium-health device")
+		}
+	} else {
+		scopedLog.WithError(err).Debug("Didn't find existing device")
+	}
+}
+
 // LaunchAsEndpoint launches the cilium-health agent in a nested network
 // namespace and attaches it to Cilium the same way as any other endpoint,
 // but with special reserved labels.
 func LaunchAsEndpoint(owner endpoint.Owner, hostAddressing *models.NodeAddressing) context.CancelFunc {
+
+	CleanupEndpoint(owner)
+
 	ip4 := node.GetIPv4HealthIP()
 	ip6 := node.GetIPv6HealthIP()
 
@@ -122,14 +171,6 @@ func LaunchAsEndpoint(owner endpoint.Owner, hostAddressing *models.NodeAddressin
 		},
 	}
 
-	// Create the veth pair for the health endpoint
-	vethName := "cilium_health"
-	vethPeerName := "cilium"
-	if link, err := netlink.LinkByName(vethName); err == nil {
-		netlink.LinkDel(link)
-	} else {
-		log.Debug("Didn't find existing link")
-	}
 	veth, _, err := plugins.SetupVethWithNames(vethName, vethPeerName, mtu.StandardMTU, info)
 	if err != nil {
 		log.WithError(err).Fatal("Error while creating cilium-health veth")
@@ -143,20 +184,7 @@ func LaunchAsEndpoint(owner endpoint.Owner, hostAddressing *models.NodeAddressin
 		}
 	}()
 
-	// Invoke spawn_netns.sh to spin up the health endpoint
-	pidfile := filepath.Join(owner.GetStateDir(), "health-endpoint.pid")
-	if pid, err := ioutil.ReadFile(pidfile); err == nil {
-		// Existing cilium-health exists, kill it so we can create a
-		// new one and steal all its logs (om nom nom!)
-		pidInt, err := strconv.Atoi(string(pid))
-		if err == nil {
-			log.WithField("pid", pidInt).Debug("Killing existing cilium-health instance")
-			if oldProc, err := os.FindProcess(pidInt); err == nil {
-				oldProc.Kill()
-			}
-		}
-	}
-	os.RemoveAll(pidfile)
+	pidfile := filepath.Join(option.Config.StateDir, healthPidfile)
 	healthArgs := fmt.Sprintf("-d --admin=unix --passive --pidfile %s", pidfile)
 	args := []string{info.ContainerName, info.InterfaceName, vethPeerName,
 		ip6.String(), ip4.String(), "cilium-health", healthArgs}
