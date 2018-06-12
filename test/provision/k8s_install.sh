@@ -141,9 +141,10 @@ if [[ "${HOST}" == "k8s1" ]]; then
     kubectl taint nodes --all node-role.kubernetes.io/master-
 
     sudo systemctl start etcd
-
-    kubectl -n kube-system delete svc,deployment,sa,cm kube-dns || true
-    kubectl -n kube-system apply -f ${PROVISIONSRC}/manifest/dns_deployment.yaml
+    if [[ $INSTALL_KUBEDNS -eq 1 ]]; then
+        kubectl -n kube-system delete svc,deployment,sa,cm kube-dns || true
+        kubectl -n kube-system apply -f ${PROVISIONSRC}/manifest/dns_deployment.yaml
+    fi
 
     $PROVISIONSRC/compile.sh
 else
