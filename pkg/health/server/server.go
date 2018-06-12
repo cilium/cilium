@@ -153,11 +153,16 @@ func (s *Server) getNodes() (nodeMap, error) {
 }
 
 // updateCluster makes the specified health report visible to the API.
+//
+// It only updates the server's API-visible health report if the provided
+// report started after the current report.
 func (s *Server) updateCluster(report *healthReport) {
 	s.Lock()
 	defer s.Unlock()
 
-	s.connectivity = report
+	if s.connectivity.startTime.Before(report.startTime) {
+		s.connectivity = report
+	}
 }
 
 // GetStatusResponse returns the most recent cluster connectivity status.
