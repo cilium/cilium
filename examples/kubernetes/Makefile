@@ -1,7 +1,7 @@
 include ../../Makefile.defs
 
 ifeq ($(CILIUM_VERSION),)
-    CILIUM_VERSION = "$(shell cat ../../VERSION)"
+    CILIUM_VERSION = "v$(shell cat ../../VERSION)"
 endif
 
 K8S_VERSIONS = 1.7 1.8 1.9 1.10 1.11
@@ -20,6 +20,8 @@ endef
 define make_yaml
 $(1)/$(patsubst templates/v1/%,%,$(patsubst %.yaml.sed,%.yaml,$(2))):
 	@$(ECHO_GEN)$$@
+	@echo "$(CILIUM_VERSION)" | egrep -Eq 'v\d+\.\d+\.\d+(-.+)?' || \
+	echo "\"$(CILIUM_VERSION)\" is not a valid version. Must match regexp 'v\d+\.\d+\.\d+(-.+)?'. Please fix VERSION file" && false
 	-$(QUIET)sed -f $(1)/transforms2sed.sed -e s+__CILIUM_VERSION__+$$(CILIUM_VERSION)+ <$$< >$$@
 endef
 
