@@ -1,0 +1,8 @@
+version: "2"
+services:
+  precheck:
+    image: "quay.io/cilium/cilium-builder:2018-05-22"
+    command: "bash -c 'cd /go/src/github.com/cilium/cilium/; make precheck || exit 1'"
+    privileged: true
+    volumes:
+      - "./../:/go/src/github.com/cilium/cilium/"
