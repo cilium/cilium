@@ -27,6 +27,7 @@ import (
 	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/common/addressing"
 	"github.com/cilium/cilium/pkg/controller"
+	endpointid "github.com/cilium/cilium/pkg/endpoint/id"
 	identityPkg "github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/k8s"
@@ -47,6 +48,20 @@ import (
 const (
 	optionEnabled  = "enabled"
 	optionDisabled = "disabled"
+)
+
+var (
+	// localHostKey represents an ingress L3 allow from the local host.
+	localHostKey = policymap.PolicyKey{
+		Identity:         identityPkg.ReservedIdentityHost.Uint32(),
+		TrafficDirection: policymap.Ingress.Uint8(),
+	}
+
+	// worldKey represents an ingress L3 allow from the world.
+	worldKey = policymap.PolicyKey{
+		Identity:         identityPkg.ReservedIdentityWorld.Uint32(),
+		TrafficDirection: policymap.Ingress.Uint8(),
+	}
 )
 
 // ProxyID returns a unique string to identify a proxy mapping.
@@ -191,6 +206,7 @@ func (e *Endpoint) computeDesiredPolicyMapState(owner Owner, labelsMap *identity
 	}
 	e.computeDesiredL4PolicyMapEntries(desiredPolicyKeys)
 	e.determineAllowLocalhost(desiredPolicyKeys)
+	e.determineAllowFromWorld(desiredPolicyKeys)
 	e.computeDesiredL3PolicyMapEntries(owner, labelsMap, repo, desiredPolicyKeys)
 	e.desiredMapState = desiredPolicyKeys
 }
@@ -206,21 +222,27 @@ func (e *Endpoint) determineAllowLocalhost(desiredPolicyKeys map[policymap.Polic
 	}
 
 	if option.Config.AlwaysAllowLocalhost() || (e.DesiredL4Policy != nil && e.DesiredL4Policy.HasRedirect()) {
-		localHostKey := policymap.PolicyKey{
-			Identity:         identityPkg.ReservedIdentityHost.Uint32(),
-			TrafficDirection: policymap.Ingress.Uint8(),
-		}
-
-		// Remove eventual existing ingress L4 localhost restrictions
-		for key := range desiredPolicyKeys {
-			if key.Identity == identityPkg.ReservedIdentityHost.Uint32() &&
-				key.TrafficDirection == policymap.Ingress.Uint8() {
-				delete(desiredPolicyKeys, key)
-			}
-		}
-
 		desiredPolicyKeys[localHostKey] = struct{}{}
+	}
+}
 
+// determineAllowFromWorld determines whether world should be allowed to
+// communicate with the endpoint, based on legacy Cilium 1.0 behaviour. It
+// inserts the PolicyKey corresponding to the world in the desiredPolicyKeys
+// if the legacy mode is enabled.
+//
+// This must be run after determineAllowLocalhost().
+//
+// For more information, see https://cilium.link/host-vs-world
+func (e *Endpoint) determineAllowFromWorld(desiredPolicyKeys map[policymap.PolicyKey]struct{}) {
+
+	if desiredPolicyKeys == nil {
+		desiredPolicyKeys = map[policymap.PolicyKey]struct{}{}
+	}
+
+	_, localHostAllowed := desiredPolicyKeys[localHostKey]
+	if option.Config.HostAllowsWorld && localHostAllowed {
+		desiredPolicyKeys[worldKey] = struct{}{}
 	}
 }
 
@@ -617,7 +639,7 @@ func (e *Endpoint) regenerate(owner Owner, reason string) (retErr error) {
 		e.Mutex.Unlock()
 	}()
 
-	revision, err := e.regenerateBPF(owner, tmpDir, reason)
+	revision, compilationExecuted, err := e.regenerateBPF(owner, tmpDir, reason)
 
 	// If generation fails, keep the directory around. If it ever succeeds
 	// again, clean up the XXX_next_fail copy.
@@ -651,6 +673,16 @@ func (e *Endpoint) regenerate(owner Owner, reason string) (retErr error) {
 		}
 
 		return fmt.Errorf("Restored original endpoint directory, atomic replace failed: %s", err)
+	}
+
+	// If the compilation was skipped then we need to copy the old bpf objects
+	// into the new directory
+	if !compilationExecuted {
+		err := common.MoveNewFilesTo(backupDir, origDir)
+		if err != nil {
+			log.WithError(err).Debugf("Unable to copy old bpf object "+
+				"files from %s into the new directory %s.", backupDir, origDir)
+		}
 	}
 
 	os.RemoveAll(backupDir)
@@ -794,7 +826,7 @@ func (e *Endpoint) runIdentityToK8sPodSync() {
 // / <global ID Prefix>:<cluster name>:<node name>:<endpoint ID> as a string.
 func (e *Endpoint) FormatGlobalEndpointID() string {
 	nodeIdentity, _ := node.GetLocalNode()
-	metadata := []string{CiliumGlobalIdPrefix, ipcache.AddressSpace, nodeIdentity.Name, strconv.Itoa(int(e.ID))}
+	metadata := []string{endpointid.CiliumGlobalIdPrefix, ipcache.AddressSpace, nodeIdentity.Name, strconv.Itoa(int(e.ID))}
 	return strings.Join(metadata, ":")
 }
 

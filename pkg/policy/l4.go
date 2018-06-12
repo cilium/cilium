@@ -189,10 +189,23 @@ func CreateL4Filter(peerEndpoints api.EndpointSelectorSlice, rule api.PortRule, 
 // specified endpoints and port/protocol for ingress traffic, with reference
 // to the original rules that the filter is derived from. This filter may be
 // associated with a series of L7 rules via the `rule` parameter.
-func CreateL4IngressFilter(fromEndpoints api.EndpointSelectorSlice, rule api.PortRule, port api.PortProtocol,
+//
+// endpointsWithL3Override determines selectors for which L7 rules should be
+// wildcarded (eg, host / world in the relevant daemon modes).
+func CreateL4IngressFilter(fromEndpoints api.EndpointSelectorSlice, endpointsWithL3Override []api.EndpointSelector, rule api.PortRule, port api.PortProtocol,
 	protocol api.L4Proto, ruleLabels labels.LabelArray) L4Filter {
 
-	return CreateL4Filter(fromEndpoints, rule, port, protocol, ruleLabels, true)
+	filter := CreateL4Filter(fromEndpoints, rule, port, protocol, ruleLabels, true)
+
+	// If the filter would apply L7 rules for endpointsWithL3Override,
+	// then wildcard those specific endpoints at L7.
+	if rule.Rules != nil && rule.Rules.Len() > 0 {
+		for _, selector := range endpointsWithL3Override {
+			filter.L7RulesPerEp[selector] = api.L7Rules{}
+		}
+	}
+
+	return filter
 }
 
 // CreateL4EgressFilter creates a filter for L4 policy that applies to the

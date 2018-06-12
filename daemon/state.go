@@ -110,7 +110,6 @@ func (d *Daemon) restoreOldEndpoints(dir string, clean bool) (*endpointRestoreSt
 			ep.Opts.Set(option.EgressPolicy, alwaysEnforce)
 		}
 
-		endpointmanager.Insert(ep)
 		ep.Mutex.Unlock()
 
 		state.restored = append(state.restored, ep)
@@ -119,7 +118,7 @@ func (d *Daemon) restoreOldEndpoints(dir string, clean bool) (*endpointRestoreSt
 	log.WithFields(logrus.Fields{
 		"count.restored": len(state.restored),
 		"count.total":    len(possibleEPs),
-	}).Info("Endpoints restored, endpoints will be regenerated in background")
+	}).Info("Endpoints restored")
 
 	return state, nil
 }
@@ -132,8 +131,19 @@ func (d *Daemon) regenerateRestoredEndpoints(state *endpointRestoreState) {
 	epRegenerated := make(chan bool, len(state.restored))
 
 	for _, ep := range state.restored {
+
+		// Insert into endpoint manager so it can be regenerated when calls to
+		// TriggerPolicyUpdates() are made. This must be done synchronously (i.e.,
+		// not in a goroutine) because regenerateRestoredEndpoints must guarantee
+		// upon returning that endpoints are exposed to other subsystems via
+		// endpointmanager.
+		ep.Mutex.RLock()
+		endpointmanager.Insert(ep)
+		ep.Mutex.RUnlock()
+
 		go func(ep *endpoint.Endpoint, epRegenerated chan<- bool) {
 			ep.Mutex.Lock()
+
 			scopedLog := log.WithField(logfields.EndpointID, ep.ID)
 
 			state := ep.GetStateLocked()

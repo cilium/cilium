@@ -81,7 +81,7 @@ func GetNode(ni Identity) *Node {
 	return clusterConf.getNode(ni)
 }
 
-func deleteNodeCIDR(ip *net.IPNet) {
+func deleteTunnelMapping(ip *net.IPNet) {
 	if ip == nil {
 		return
 	}
@@ -266,7 +266,17 @@ func EnablePerNodeRoutes() {
 	clusterConf.Unlock()
 }
 
-func updateNodeCIDR(n *Node, ip *net.IPNet) {
+func tunnelCIDRDeletionRequired(oldCIDR, newCIDR *net.IPNet) bool {
+	// Deletion is required when CIDR is no longer announced
+	if newCIDR == nil && oldCIDR != nil {
+		return true
+	}
+
+	// Deletion is required when CIDR has changed
+	return oldCIDR != nil && newCIDR != nil && !oldCIDR.IP.Equal(newCIDR.IP)
+}
+
+func updateTunnelMapping(n *Node, ip *net.IPNet) {
 	if ip == nil {
 		return
 	}
@@ -287,10 +297,6 @@ func UpdateNode(ni Identity, n *Node, routesTypes RouteType, ownAddr net.IP) {
 
 	oldNode, oldNodeExists := clusterConf.nodes[ni]
 	if (routesTypes & TunnelRoute) != 0 {
-		if oldNodeExists {
-			deleteNodeCIDR(oldNode.IPv4AllocCIDR)
-			deleteNodeCIDR(oldNode.IPv6AllocCIDR)
-		}
 		// FIXME if PodCIDR is empty retrieve the CIDR from the KVStore
 		log.WithFields(logrus.Fields{
 			logfields.IPAddr:   n.GetNodeIP(false),
@@ -298,9 +304,27 @@ func UpdateNode(ni Identity, n *Node, routesTypes RouteType, ownAddr net.IP) {
 			logfields.V6Prefix: n.IPv6AllocCIDR,
 		}).Debug("bpf: Setting tunnel endpoint")
 
-		updateNodeCIDR(n, n.IPv4AllocCIDR)
-		updateNodeCIDR(n, n.IPv6AllocCIDR)
+		// Update the tunnel mapping of the node. In case the node has
+		// changed its CIDR range, a new entry in the map is created.
+		// The old entry is removed in the next step to ensure that the
+		// update appears atomic in the datapath.
+		updateTunnelMapping(n, n.IPv4AllocCIDR)
+		updateTunnelMapping(n, n.IPv6AllocCIDR)
+
+		// Handle the case when the CIDR range of the node has changed
+		// or the node no longer announce a CIDR range and remove the
+		// entry in the tunnel map
+		if oldNodeExists {
+			if tunnelCIDRDeletionRequired(oldNode.IPv4AllocCIDR, n.IPv4AllocCIDR) {
+				deleteTunnelMapping(oldNode.IPv4AllocCIDR)
+			}
+
+			if tunnelCIDRDeletionRequired(oldNode.IPv6AllocCIDR, n.IPv6AllocCIDR) {
+				deleteTunnelMapping(oldNode.IPv6AllocCIDR)
+			}
+		}
 	}
+
 	if (routesTypes & DirectRoute) != 0 {
 		updateIPRoute(oldNode, n, ownAddr)
 	}
@@ -323,8 +347,8 @@ func DeleteNode(ni Identity, routesTypes RouteType) {
 				logfields.V6Prefix: n.IPv6AllocCIDR,
 			}).Debug("bpf: Removing tunnel endpoint")
 
-			deleteNodeCIDR(n.IPv4AllocCIDR)
-			deleteNodeCIDR(n.IPv6AllocCIDR)
+			deleteTunnelMapping(n.IPv4AllocCIDR)
+			deleteTunnelMapping(n.IPv6AllocCIDR)
 		}
 		if (routesTypes & DirectRoute) != 0 {
 			deleteIPRoute(n)

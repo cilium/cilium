@@ -26,22 +26,23 @@ still being developed in Cilium's `inject-cilium-filters` branch.
 
 Only one image needs to be built: `cilium/istio_pilot`.
 
-    TAG=release-0.8-20180521-15-16 make docker.pilot
+    TAG=0.8.0 make docker.pilot
 
-The `istio/proxy` and `istio/proxy_debug` for pre-releases are not available on
-Docker Hub. Build them here:
+The `istio/proxy` and `istio/proxy_debug` for pre-releases are not
+available on Docker Hub. If the version built is a pre-release, build
+them here:
 
-    TAG=release-0.8-20180521-15-16 make docker.proxy docker.proxy_debug
+    TAG=0.8.0 make docker.proxy docker.proxy_debug
 
 ## (Optional) Check that the upstream proxy Docker images are consistent
 
 Build the upstream proxy images to check them:
 
-    TAG=release-0.8-20180521-15-16 make docker.proxy_init docker.proxyv2 docker.proxy_debugv2
+    TAG=0.8.0 make docker.proxy_init docker.proxyv2 docker.proxy_debugv2
 
 ### `istio/proxy_init`
 
-    docker run --rm -it --cap-add=NET_ADMIN --entrypoint /bin/bash istio/proxy_init:release-0.8-20180521-15-16
+    docker run --rm -it --cap-add=NET_ADMIN --entrypoint /bin/bash istio/proxy_init:0.8.0
 
 In the container, run the iptables configuration script with various
 combinations of parameters, for example:
@@ -59,7 +60,7 @@ For each combination, check the iptables and routing tables and rules:
 
 ### `istio/proxyv2`
 
-    docker run --rm -it --entrypoint /bin/bash istio/proxyv2:release-0.8-20180521-15-16
+    docker run --rm -it --entrypoint /bin/bash istio/proxyv2:0.8.0
 
 Check that the binaries have the right size, mode, owner, and group.
 
@@ -71,7 +72,7 @@ Check that the Envoy bootstrap configures Envoy v2 API and ADS (not v1 API):
 
 ### `istio/proxy_debugv2`
 
-    docker run --rm -it --entrypoint /bin/bash istio/proxy_debugv2:release-0.8-20180521-15-16
+    docker run --rm -it --entrypoint /bin/bash istio/proxy_debugv2:0.8.0
 
 Check that the binaries have the right size, mode, owner, and group.
 
@@ -80,6 +81,14 @@ Check that the binaries have the right size, mode, owner, and group.
 Check that the Envoy bootstrap configures Envoy v2 API and ADS (not v1 API):
 
     cat /var/lib/istio/envoy/envoy_bootstrap_tmpl.json
+
+## Make sure that the Envoy bootstrap file is up-to-date
+
+The file is at `envoy/envoy_bootstrap_tmpl.json` and extends the
+upstream version to configure Envoy to use API v2 and to define the
+`xds-grpc-cilium` cluster used by the Cilium filters to connect to
+Cilium agent via a Unix domain socket.  The upstream version is at
+https://github.com/istio/istio/blob/release-0.8/tools/deb/envoy_bootstrap_v2.json
 
 ## Build Cilium's sidecar proxy Docker images
 
@@ -92,6 +101,6 @@ Check that the Envoy bootstrap configures Envoy v2 API and ADS (not v1 API):
 ## Push the Docker images to Docker Hub
 
     docker login -u ...
-    docker image push cilium/istio_pilot:release-0.8-20180521-15-16
-    docker image push cilium/istio_proxy:release-0.8-20180521-15-16
-    docker image push cilium/istio_proxy_debug:release-0.8-20180521-15-16
+    docker image push cilium/istio_pilot:0.8.0
+    docker image push cilium/istio_proxy:0.8.0
+    docker image push cilium/istio_proxy_debug:0.8.0

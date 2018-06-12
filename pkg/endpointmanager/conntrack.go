@@ -30,9 +30,7 @@ import (
 
 const (
 	// GcInterval is the garbage collection interval.
-	// #FIXME find a way to change this value otherwise we'll have lots of tests flakes
-	// Change to be a flag
-	GcInterval int = 10
+	GcInterval int = 60
 )
 
 // RunGC run CT's garbage collector for the given endpoint. `isLocal` refers if

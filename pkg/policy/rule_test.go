@@ -997,11 +997,11 @@ func (ds *PolicyTestSuite) TestL3Policy(c *C) {
 	}.Sanitize()
 	c.Assert(err, Not(IsNil))
 
-	// Must have a mask, make sure Validate fails when not.
+	// Must have a contiguous mask, make sure Validate fails when not.
 	err = api.Rule{
 		EndpointSelector: api.NewESFromLabels(labels.ParseSelectLabel("bar")),
 		Ingress: []api.IngressRule{{
-			FromCIDR: []api.CIDR{"10.0.1.0/0"},
+			FromCIDR: []api.CIDR{"10.0.1.0/128.0.0.128"},
 		}},
 	}.Sanitize()
 	c.Assert(err, Not(IsNil))
@@ -1018,18 +1018,8 @@ func (ds *PolicyTestSuite) TestL3Policy(c *C) {
 }
 
 func (ds *PolicyTestSuite) TestL3PolicyRestrictions(c *C) {
-	// Check rejection of allow-all CIDRs
-	barSelector := api.NewESFromLabels(labels.ParseSelectLabel("bar"))
-	cidrs := []api.CIDR{"0.0.0.0/0"}
-	apiRule1 := api.Rule{
-		EndpointSelector: barSelector,
-		Ingress:          []api.IngressRule{{FromCIDR: cidrs}},
-	}
-	err := apiRule1.Sanitize()
-	c.Assert(err, Not(IsNil))
-
 	// Check rejection of too many prefix lengths
-	cidrs = []api.CIDR{}
+	cidrs := []api.CIDR{}
 	for i := 1; i < 42; i++ {
 		cidrs = append(cidrs, api.CIDR(fmt.Sprintf("%d::/%d", i, i)))
 	}
@@ -1037,7 +1027,7 @@ func (ds *PolicyTestSuite) TestL3PolicyRestrictions(c *C) {
 		EndpointSelector: barSelector,
 		Ingress:          []api.IngressRule{{FromCIDR: cidrs}},
 	}
-	err = apiRule2.Sanitize()
+	err := apiRule2.Sanitize()
 	c.Assert(err, Not(IsNil))
 	apiRule3 := api.Rule{
 		EndpointSelector: barSelector,

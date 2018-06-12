@@ -9,6 +9,7 @@ deploy {
         "--kvstore=etcd",
         "--kvstore-opt=etcd.config=/var/lib/etcd-config/etcd.config",
         "--disable-ipv4=$(DISABLE_IPV4)",
-        "--debug-verbose=flow"
+        "--debug-verbose=flow",
+        "--k8s-require-ipv4-pod-cidr"
     ]
 }

@@ -14,12 +14,17 @@ minutes.
 Step 2: Deploy the Demo Application
 ===================================
 
-Now that we have Cilium running, we can deploy our demo Elasticsearch application. The demo application aligns with our tradition of using Star Wars-themed examples. We go back to the time when Vader had recently been converted to the Dark side. Darth Sidious wanted to share some of the books that he had authored. The books were stored in an Elasticsearch database and exposed via a service of the same name. Both Sidious and Vader accessed these books using python-based clients running in Kubernetes pods.
+Following the Cilium tradition, we will use a Star Wars-inspired example. The Empire has a large scale Elasticsearch cluster which is used for storing a variety of data including: 
 
-.. image:: images/cilium_es_gsg_topology.png
-   :scale: 40 %
+* ``index: troop_logs``: Stormtroopers performance logs collected from every outpost which are used to identify and eliminate weak performers!
+* ``index: spaceship_diagnostics``: Spaceships diagnostics data collected from every spaceship which is used for R&D and improvement of the spaceships.
 
-The file ``es-sw-app.yaml`` will deploy the Elasticsearch service which stores Sidious' books and it will create one Vader and one Sidious client pod each.
+Every outpost has an Elasticsearch client service to upload the Stormtroopers logs. And every spaceship has a service to upload diagnostics. Similarly, the Empire headquarters has a service to search and analyze the troop logs and spaceship diagnostics data. Before we look into the security concerns, let's first create this application scenario in minikube.
+
+Deploy the app using command below, which will create
+
+* An ``elasticsearch`` service with the selector label ``component:elasticsearch`` and a pod running Elasticsearch.
+* Three Elasticsearch clients one each for ``empire-hq``, ``outpost`` and ``spaceship``. 
 
 .. parsed-literal::
 
@@ -29,153 +34,154 @@ The file ``es-sw-app.yaml`` will deploy the Elasticsearch service which stores S
     replicationcontroller "es" created
     role "elasticsearch" created
     rolebinding "elasticsearch" created
-    pod "sidious" created
-    pod "vader" created
+    pod "outpost" created
+    pod "empire-hq" created
+    pod "spaceship" created
 
 ::
 
     $ kubectl get svc,pods
-    NAME                TYPE        CLUSTER-IP    EXTERNAL-IP   PORT(S)                           AGE
-    svc/elasticsearch   NodePort    10.98.18.52   <none>        9200:30068/TCP,9300:32396/TCP     1m
-    svc/etcd-cilium     NodePort    10.98.67.60   <none>        32379:31079/TCP,32380:31080/TCP   7m
-    svc/kubernetes      ClusterIP   10.96.0.1     <none>        443/TCP                           8m
+    NAME                TYPE        CLUSTER-IP       EXTERNAL-IP   PORT(S)                           AGE
+    svc/elasticsearch   NodePort    10.111.238.254   <none>        9200:30130/TCP,9300:31721/TCP     2d
+    svc/etcd-cilium     NodePort    10.98.67.60      <none>        32379:31079/TCP,32380:31080/TCP   9d
+    svc/kubernetes      ClusterIP   10.96.0.1        <none>        443/TCP                           9d
 
     NAME               READY     STATUS    RESTARTS   AGE
-    po/es-bwvnp        1/1       Running   0          1m
-    po/etcd-cilium-0   1/1       Running   0          7m
-    po/sidious         1/1       Running   0          1m
-    po/vader           1/1       Running   0          1m
+    po/empire-hq       1/1       Running   0          2d
+    po/es-g9qk2        1/1       Running   0          2d
+    po/etcd-cilium-0   1/1       Running   0          9d
+    po/outpost         1/1       Running   0          2d
+    po/spaceship       1/1       Running   0          2d
 
 
 Step 3: Security Risks for Elasticsearch Access
 ===============================================
 
-A fundamental security concern for Elasticsearch service is **which client services should be allowed to access what content and perform what actions**. This is an access control problem at the API-layer (i.e L7-layer). In this example, the security challenge for Darth Sidious is that he does not trust Vader, a newly converted apprentice. So he is very worried that Vader can manipulate and ``PUT`` new versions of his books! Sidious wants Vader to have only ``GET`` access including the ability to *search* the database. But he does not want Vader to have ``PUT`` access. Run the following commands to see that both Sidious and Vader have ``GET`` and ``PUT`` access to the Elasticsearch service.
+For Elasticsearch clusters the **least privilege security** challenge is to give clients access only to particular indices, and to limit the operations each client is allowed to perform on each index. In this example, the ``outpost`` Elasticsearch clients only need access to upload troop logs; and the ``empire-hq`` client only needs search access to both the indices.  From the security perspective, the outposts are weak spots and susceptible to be captured by the rebels. Once compromised, the clients can be used to search and manipulate the critical data in Elasticsearch. We can simulate this attack, but first let's run the commands for legitimate behavior for all the client services. 
+
+``outpost`` client uploading troop logs 
 
 ::
 
-    $ kubectl exec sidious -- python create.py
-    Creating/Updating Books
-    created :  {'_index': 'sidious', '_type': 'tome', '_id': '1', '_version': 1, 'result': 'created', '_shards': {'total': 2, 'successful': 1, 'failed': 0}, 'created': True}
-    created :  {'_index': 'sidious', '_type': 'tome', '_id': '2', '_version': 1, 'result': 'created', '_shards': {'total': 2, 'successful': 1, 'failed': 0}, 'created': True}    
+    $ kubectl exec outpost -- python upload_logs.py 
+    Uploading Stormtroopers Performance Logs
+    created :  {'_index': 'troop_logs', '_type': 'log', '_id': '1', '_version': 1, 'result': 'created', '_shards': {'total': 2, 'successful': 1, 'failed': 0}, 'created': True}
 
-    $ kubectl exec sidious -- python get_search.py
-    Searching for Books by Darth Sidious
-    Got 2 Hits:
-    {'_index': 'sidious', '_type': 'tome', '_id': '2', '_score': 1.0, '_source': {'author': 'sidious', 'title': 'Welcome to the Dark Side'}}
-    {'_index': 'sidious', '_type': 'tome', '_id': '1', '_score': 1.0, '_source': {'author': 'sidious', 'title': 'Convert Jedi to Dark Side: 101'}}
-    Get Book 1 by Darth Sidious
-    {'author': 'sidious', 'title': 'Convert Jedi to Dark Side: 101'}
-
-
-Sidious has access to perform ``GET`` and ``PUT`` as expected. But see what happens when Vader has both ``GET`` and ``PUT`` access. Vader can and did completely modify the books! (Note the change in book titles from 'Convert Jedi to Dark Side: 101' to "Why Convert a Jedi!").
+``spaceship`` uploading diagnostics
 
 ::
 
-    $ kubectl exec vader -- python update.py
-    Creating/Updating Books
-    updated :  {'_index': 'sidious', '_type': 'tome', '_id': '1', '_version': 3, 'result': 'updated', '_shards': {'total': 2, 'successful': 1, 'failed': 0}, 'created': False}
-    updated :  {'_index': 'sidious', '_type': 'tome', '_id': '2', '_version': 3, 'result': 'updated', '_shards': {'total': 2, 'successful': 1, 'failed': 0}, 'created': False}
+    $ kubectl exec spaceship -- python upload_diagnostics.py 
+    Uploading Spaceship Diagnostics
+    created :  {'_index': 'spaceship_diagnostics', '_type': 'stats', '_id': '1', '_version': 1, 'result': 'created', '_shards': {'total': 2, 'successful': 1, 'failed': 0}, 'created': True}
 
-    $ kubectl exec vader -- python get_search.py
-    Searching for Books by Darth Sidious
-    Got 2 Hits:
-    {'_index': 'sidious', '_type': 'tome', '_id': '2', '_score': 1.0, '_source': {'author': 'sidious', 'title': 'Force is Same for Dark Side and Jedi'}}
-    {'_index': 'sidious', '_type': 'tome', '_id': '1', '_score': 1.0, '_source': {'author': 'sidious', 'title': 'Why Convert a Jedi!'}}
-    Get Book 1 by Darth Sidious
-    {'author': 'sidious', 'title': 'Why Convert a Jedi!'}
+``empire-hq`` running search queries for logs and diagnostics
+
+::
+
+    $ kubectl exec empire-hq -- python search.py 
+    Searching for Spaceship Diagnostics
+    Got 1 Hits:
+    {'_index': 'spaceship_diagnostics', '_type': 'stats', '_id': '1', '_score': 1.0, \
+     '_source': {'spaceshipid': '3459B78XNZTF', 'type': 'tiefighter', 'title': 'Engine Diagnostics', \
+                 'stats': '[CRITICAL] [ENGINE BURN @SPEED 5000 km/s] [CHANCE 80%]'}}
+    Searching for Stormtroopers Performance Logs
+    Got 1 Hits:
+    {'_index': 'troop_logs', '_type': 'log', '_id': '1', '_score': 1.0, \
+     '_source': {'outpost': 'Endor', 'datetime': '33 ABY 4AM DST', 'title': 'Endor Corps 1: Morning Drill', \
+                 'notes': '5100 PRESENT; 15 ABSENT; 130 CODE-RED BELOW PAR PERFORMANCE'}}
+
+
+Now imagine an outpost captured by the rebels. In the commands below, the rebels first search all the indices and then manipulate the diagnostics data from a compromised outpost. 
+
+::
+
+    $ kubectl exec outpost -- python search.py 
+    Searching for Spaceship Diagnostics
+    Got 1 Hits:
+    {'_index': 'spaceship_diagnostics', '_type': 'stats', '_id': '1', '_score': 1.0, \
+     '_source': {'spaceshipid': '3459B78XNZTF', 'type': 'tiefighter', 'title': 'Engine Diagnostics', \
+                 'stats': '[CRITICAL] [ENGINE BURN @SPEED 5000 km/s] [CHANCE 80%]'}}
+    Searching for Stormtroopers Performance Logs
+    Got 1 Hits:
+    {'_index': 'troop_logs', '_type': 'log', '_id': '1', '_score': 1.0, \
+     '_source': {'outpost': 'Endor', 'datetime': '33 ABY 4AM DST', 'title': 'Endor Corps 1: Morning Drill', \
+                 'notes': '5100 PRESENT; 15 ABSENT; 130 CODE-RED BELOW PAR PERFORMANCE'}}
+
+Rebels manipulate spaceship diagnostics data so that the spaceship defects are not known to the empire-hq! (Hint: Rebels have changed the ``stats`` for the tiefighter spaceship, a change hard to detect but with adverse impact!)
+
+
+:: 
+
+    $ kubectl exec outpost -- python update.py 
+    Uploading Spaceship Diagnostics
+    {'_index': 'spaceship_diagnostics', '_type': 'stats', '_id': '1', '_score': 1.0, \
+     '_source': {'spaceshipid': '3459B78XNZTF', 'type': 'tiefighter', 'title': 'Engine Diagnostics', \
+                 'stats': '[OK] [ENGINE OK @SPEED 5000 km/s]'}}
 
 
 Step 4: Securing Elasticsearch Using Cilium
 ===========================================
 
-Fortunately for Darth Sidious, the Empire DevOps team is using Cilium for their Kubernetes cluster. Cilium provides L7 visibility and security policies to control Elasticsearch API access. In this case, Sidious orders to get the following policy pushed which gives him both ``GET`` and ``PUT`` access to his pods but restricts Vader's pods to only ``GET`` access.
+
+.. image:: images/cilium_es_gsg_topology.png
+   :scale: 40 %
+
+Following the least privilege security principle, we want to the allow the following legitimate actions and nothing more:
+
+* ``outpost`` service only has upload access to ``index: troop_logs``
+* ``spaceship`` service only has upload access to ``index: spaceship_diagnostics``
+* ``empire-hq`` service only has search access for both the indices 
+
+Fortunately, the Empire DevOps team is using Cilium for their Kubernetes cluster. Cilium provides L7 visibility and security policies to control Elasticsearch API access. Cilium follows the **white-list, least privilege model** for security. That is to say, a *CiliumNetworkPolicy* contains a list of rules that define **allowed requests** and any request that does not match the rules is denied. 
+
+In this example, the policy rules are defined for inbound traffic (i.e., "ingress") connections to the *elasticsearch* service. Note that endpoints selected as backend pods for the service are defined by the *selector* labels. *Selector* labels use the same concept as Kubernetes to define a service. In this example, label ``component: elasticsearch`` defines the pods that are part of the *elasticsearch* service in Kubernetes.
+
+In the policy file below, you will see the following rules for controlling the indices access and actions performed:
+
+* ``fromEndpoints`` with labels ``app:spaceship`` only ``HTTP`` ``PUT`` is allowed on paths matching regex ``^/spaceship_diagnostics/stats/.*$``
+* ``fromEndpoints`` with labels ``app:outpost`` only ``HTTP`` ``PUT`` is allowed on paths matching regex ``^/troop_logs/log/.*$``
+* ``fromEndpoints`` with labels ``app:empire`` only ``HTTP`` ``GET`` is allowed on paths matching regex ``^/spaceship_diagnostics/_search/??.*$`` and ``^/troop_logs/search/??.*$``
 
 .. literalinclude:: ../../examples/kubernetes-es/es-sw-policy.yaml
-
-
-Cilium follows the white-list, least privilege model for security. A *CiliumNetworkPolicy* contains a list of rules that define allowed requests, meaning that requests that do not match any rules are denied.
-
-In this example, the policy rules are defined for inbound traffic (i.e., "ingress") connections to the *elasticsearch* service. Note that endpoints selected as backend pods for the service are defined by the *selector* labels. *Selector* labels use the same concept as Kubernetes to define a service. In this example, label ``'k8s:component': elasticsearch`` defines the pods that are part of the *elasticsearch* service in Kubernetes.
-
-Since this is an ingress rule, ``fromEndpoints`` uses labels for endpoints which are calling into the *elasticsearch* service. One set of ``fromEndpoints`` are identified by labels ``name: sidious, role: lord`` (i.e. all Sith Lords named Sidious). These endpoints have both ``GET`` and ``PUT`` access as seen in the http rules section. The other ``fromEndpoints`` identified by labels ``name: vader, role: apprentice`` (i.e. all apprentices named Vader) only have ``GET`` access to specific paths including *search*.
 
 Apply this Elasticsearch-aware network security policy using ``kubectl``:
 
 .. parsed-literal::
 
     $ kubectl create -f \ |SCM_WEB|\/examples/kubernetes-es/es-sw-policy.yaml
-    ciliumnetworkpolicy "secure-empire-es" created
+    ciliumnetworkpolicy "secure-empire-elasticsearch" created
 
-
-Testing the security policy, Sidious still has both the ``GET`` and ``PUT`` access. But Vader now only has ``GET`` access and any attempts to ``PUT`` results in access denied.
+Let's test the security policies. Firstly, the search access is blocked for both outpost and spaceship. So from a compromised outpost, rebels will not be able to search and obtain knowledge about troops and spaceship diagnostics. Secondly, the outpost clients don't have access to create or update the ``index: spaceship_diagnostics``. 
 
 ::
 
-    $ kubectl exec sidious -- python create.py
-    Creating/Updating Books
-    updated :  {'_index': 'sidious', '_type': 'tome', '_id': '1', '_version': 5, 'result': 'updated', '_shards': {'total': 2, 'successful': 1, 'failed': 0}, 'created': False}
-    updated :  {'_index': 'sidious', '_type': 'tome', '_id': '2', '_version': 6, 'result': 'updated', '_shards': {'total': 2, 'successful': 1, 'failed': 0}, 'created': False}
-
-    $ kubectl exec sidious -- python get_search.py
-    Searching for Books by Darth Sidious
-    Got 2 Hits:
-    {'_index': 'sidious', '_type': 'tome', '_id': '2', '_score': 1.0, '_source': {'author': 'sidious', 'title': 'Welcome to the Dark Side'}}
-    {'_index': 'sidious', '_type': 'tome', '_id': '1', '_score': 1.0, '_source': {'author': 'sidious', 'title': 'Convert Jedi to Dark Side: 101'}}
-    Get Book 1 by Darth Sidious
-    {'author': 'sidious', 'title': 'Convert Jedi to Dark Side: 101'}
-
-    $ kubectl exec vader -- python get_search.py
-    Searching for Books by Darth Sidious
-    Got 2 Hits:
-    {'_index': 'sidious', '_type': 'tome', '_id': '2', '_score': 1.0, '_source': {'author': 'sidious', 'title': 'Welcome to the Dark Side'}}
-    {'_index': 'sidious', '_type': 'tome', '_id': '1', '_score': 1.0, '_source': {'author': 'sidious', 'title': 'Convert Jedi to Dark Side: 101'}}
-    Get Book 1 by Darth Sidious
-    {'author': 'sidious', 'title': 'Convert Jedi to Dark Side: 101'}
-
-    $ kubectl exec vader -- python update.py
-    PUT http://elasticsearch.default.svc.cluster.local:9200/sidious/tome/1 [status:403 request:0.007s]
-    Undecodable raw error response from server: Expecting value: line 1 column 1 (char 0)
-    Creating/Updating Books
-    Traceback (most recent call last):
-      File "update.py", line 10, in <module>
-        res = es.index(index="sidious", doc_type="tome", id=1, body=book1)
+    $ kubectl exec outpost -- python search.py 
+    GET http://elasticsearch:9200/spaceship_diagnostics/_search [status:403 request:0.008s]
     ...
     ...
     elasticsearch.exceptions.AuthorizationException: TransportError(403, 'Access denied\r\n')
     command terminated with exit code 1
 
+:: 
 
-Step 5: Bonus
-=============
+    $ kubectl exec outpost -- python update.py 
+    PUT http://elasticsearch:9200/spaceship_diagnostics/stats/1 [status:403 request:0.006s]
+    ...
+    ...
+    elasticsearch.exceptions.AuthorizationException: TransportError(403, 'Access denied\r\n')
+    command terminated with exit code 1
 
-Another common problem that the DevOps team encountered was accidental/deliberate deletion of the books. So with the above Cilium security policy, they are able to restrict ``DELETE`` calls as well! Run below commands to confirm that neither Sidious nor Vader can delete the books.
+We can re-run any of the below commands to show that the security policy still allows all legitimate requests (i.e., no 403 errors are returned).
 
 ::
 
-    $ kubectl exec vader -- python delete.py
-    DELETE http://elasticsearch.default.svc.cluster.local:9200/sidious/tome/1 [status:403 request:0.006s]
-    Deleting Book 1
-    Undecodable raw error response from server: Expecting value: line 1 column 1 (char 0)
-    Traceback (most recent call last):
-      File "delete.py", line 6, in <module>
-        res = es.delete(index="sidious", doc_type="tome", id=1)
-      ...
-      ...
-    elasticsearch.exceptions.AuthorizationException: TransportError(403, 'Access denied\r\n')
-    command terminated with exit code 1
-
-    $ kubectl exec sidious -- python delete.py
-    DELETE http://elasticsearch.default.svc.cluster.local:9200/sidious/tome/1 [status:403 request:0.005s]
-    Undecodable raw error response from server: Expecting value: line 1 column 1 (char 0)
-    Deleting Book 1
-    Traceback (most recent call last):
-      File "delete.py", line 6, in <module>
-        res = es.delete(index="sidious", doc_type="tome", id=1)
-      ...
-      ...
-    elasticsearch.exceptions.AuthorizationException: TransportError(403, 'Access denied\r\n')
-    command terminated with exit code 1
+    $ kubectl exec outpost -- python upload_logs.py 
+    ...
+    $ kubectl exec spaceship -- python upload_diagnostics.py 
+    ...
+    $ kubectl exec empire-hq -- python search.py 
+    ...
 
 
 Step 6: Clean Up

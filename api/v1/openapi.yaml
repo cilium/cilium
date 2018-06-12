@@ -782,6 +782,10 @@ definitions:
       policy-enabled:
         description: Whether policy enforcement is enabled or not
         type: boolean
+      sync-build-endpoint:
+        description: |
+          Whether to build an endpoint synchronously
+        type: boolean
   EndpointStatus:
     description: The current state and configuration of the endpoint, its policy & datapath, and subcomponents
     type: object

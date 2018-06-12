@@ -28,6 +28,7 @@ data:
   sidecar-http-proxy: "false"
   # If you want to clean cilium state; change this value to true
   clean-cilium-state: "false"
+  legacy-host-allows-world: "false"
 ---
 # The etcd secrets can be populated in kubernetes.
 # For more information see: https://kubernetes.io/docs/concepts/configuration/secret

@@ -19,7 +19,6 @@ import (
 	"fmt"
 	"path"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/cilium/cilium/api/v1/models"
@@ -42,7 +41,6 @@ var _ = Describe("NightlyEpsMeasurement", func() {
 
 	var kubectl *helpers.Kubectl
 	var logger *logrus.Entry
-	var once sync.Once
 
 	endpointCount := 45
 	endpointsTimeout := endpointTimeout * time.Duration(endpointCount)
@@ -51,7 +49,7 @@ var _ = Describe("NightlyEpsMeasurement", func() {
 	var lastServer int
 	var err error
 
-	initialize := func() {
+	BeforeAll(func() {
 		logger = log.WithFields(logrus.Fields{"testName": "NightlyK8sEpsMeasurement"})
 		logger.Info("Starting")
 
@@ -62,17 +60,13 @@ var _ = Describe("NightlyEpsMeasurement", func() {
 
 		ExpectCiliumReady(kubectl)
 		ExpectKubeDNSReady(kubectl)
+	})
 
-		// Sometimes PolicyGen has a lot of pods running around without delete
-		// it. Using this we are sure that we delete before this test start
+	AfterAll(func() {
 		kubectl.Exec(fmt.Sprintf(
 			"%s delete --all pods,svc,cnp -n %s", helpers.KubectlCmd, helpers.DefaultNamespace))
 
 		ExpectAllPodsTerminated(kubectl)
-	}
-
-	BeforeEach(func() {
-		once.Do(initialize)
 	})
 
 	AfterFailed(func() {
@@ -156,6 +150,9 @@ var _ = Describe("NightlyEpsMeasurement", func() {
 		pods, err := kubectl.GetPodNames(helpers.DefaultNamespace, "zgroup=testapp")
 		Expect(err).To(BeNil(), "cannot retrieve pods names")
 
+		err = kubectl.WaitforPods(helpers.DefaultNamespace, "", 300)
+		Expect(err).Should(BeNil(), "Pods are not ready after timeout")
+
 		By("Testing if http requests to multiple endpoints do not timeout")
 		for i := 0; i < 5; i++ {
 			for _, pod := range pods {
@@ -198,7 +195,10 @@ var _ = Describe("NightlyEpsMeasurement", func() {
 
 				endpoints := b.Time("Runtime", func() {
 					testSpecGroup.CreateAndApplyManifests(kubectl)
+					err := kubectl.WaitforPods(helpers.DefaultNamespace, "-l test=policygen", 600)
+					Expect(err).To(BeNil(), "Pods are not ready after timeout")
 				})
+
 				b.RecordValue("Endpoint Creation in seconds", endpoints.Seconds())
 				By("Apply Policies")
 
@@ -314,13 +314,12 @@ var _ = Describe("NightlyExamples", func() {
 
 	var kubectl *helpers.Kubectl
 	var logger *logrus.Entry
-	var once sync.Once
 	var demoPath string
 	var l3Policy, l7Policy string
 	var appService = "app1-service"
 	var apps []string
 
-	initialize := func() {
+	BeforeAll(func() {
 		logger = log.WithFields(logrus.Fields{"testName": "NightlyK8sEpsMeasurement"})
 		logger.Info("Starting")
 
@@ -334,17 +333,6 @@ var _ = Describe("NightlyExamples", func() {
 		demoPath = helpers.ManifestGet("demo.yaml")
 		l3Policy = helpers.ManifestGet("l3_l4_policy.yaml")
 		l7Policy = helpers.ManifestGet("l7_policy.yaml")
-
-		// Sometimes PolicyGen has a lot of pods running around without delete
-		// it. Using this we are sure that we delete before this test start
-		kubectl.Exec(fmt.Sprintf(
-			"%s delete --all pods,svc,cnp -n %s", helpers.KubectlCmd, helpers.DefaultNamespace))
-
-		ExpectAllPodsTerminated(kubectl)
-	}
-
-	BeforeEach(func() {
-		once.Do(initialize)
 	})
 
 	AfterFailed(func() {
@@ -414,31 +402,28 @@ var _ = Describe("NightlyExamples", func() {
 		var (
 			GRPCManifest = "../examples/kubernetes-grpc/cc-door-app.yaml"
 			GRPCPolicy   = "../examples/kubernetes-grpc/cc-door-ingress-security.yaml"
+
+			AppManifest    = helpers.GetFilePath(GRPCManifest)
+			PolicyManifest = helpers.GetFilePath(GRPCPolicy)
 		)
 
-		BeforeEach(func() {
+		BeforeAll(func() {
 			err := kubectl.CiliumInstall(helpers.CiliumDSPath)
 			Expect(err).To(BeNil(), "Cilium cannot be installed")
 
 			ExpectCiliumReady(kubectl)
-
 			ExpectKubeDNSReady(kubectl)
 		})
 
-		AfterEach(func() {
+		AfterAll(func() {
 			ExpectAllPodsTerminated(kubectl)
+			kubectl.Delete(AppManifest)
+			kubectl.Delete(PolicyManifest)
 		})
 
 		It("GRPC example", func() {
 
-			AppManifest := helpers.GetFilePath(GRPCManifest)
-			PolicyManifest := helpers.GetFilePath(GRPCPolicy)
 			clientPod := "terminal-87"
-
-			defer func() {
-				kubectl.Delete(AppManifest)
-				kubectl.Delete(PolicyManifest)
-			}()
 
 			By("Testing the example config")
 			kubectl.Apply(AppManifest).ExpectSuccess("cannot install the GRPC application")

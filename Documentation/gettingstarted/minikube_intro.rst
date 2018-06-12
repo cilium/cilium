@@ -7,16 +7,19 @@ Step 0: Install kubectl & minikube
 
 3. Install ``minikube`` ``>= 0.22.3`` as described on `minikube's github page <https://github.com/kubernetes/minikube/releases>`_ .
 
+.. tabs::
+  .. group-tab:: docker
 
-Boot a minikube cluster with the Container Network Interface (CNI) network
-plugin, the ``localkube`` bootstrapper.
+    .. parsed-literal::
 
-The ``localkube`` bootstrapper provides ``etcd`` >= ``3.1.0``, a cilium
-dependency.
+      $ minikube start --network-plugin=cni --extra-config=kubelet.network-plugin=cni --memory=5120
 
-::
+  .. group-tab:: cri-o
 
-    $ minikube start --network-plugin=cni --extra-config=kubelet.network-plugin=cni --memory=5120
+    .. parsed-literal::
+
+      $ minikube start --network-plugin=cni --container-runtime=cri-o --extra-config=kubelet.network-plugin=cni --memory=5120
+
 
 After minikube has finished setting up your new Kubernetes cluster, you can
 check the status of the cluster by running ``kubectl get cs``:
@@ -34,7 +37,7 @@ check the status of the cluster by running ``kubectl get cs``:
 
 .. parsed-literal::
 
-  $ kubectl create -f \ |SCM_WEB|\/examples/kubernetes/addons/etcd/standalone-etcd.yaml
+  $ kubectl create -n kube-system -f \ |SCM_WEB|\/examples/kubernetes/addons/etcd/standalone-etcd.yaml
   service "etcd-cilium" created
   statefulset.apps "etcd-cilium" created
 
@@ -46,7 +49,7 @@ and ``etcd-cilium-0`` run:
 
     $ kubectl get pods --all-namespaces
     NAMESPACE     NAME                               READY     STATUS    RESTARTS   AGE
-    default       etcd-cilium-0                      1/1       Running   0          1m
+    kube-system   etcd-cilium-0                      1/1       Running   0          1m
     kube-system   etcd-minikube                      1/1       Running   0          3m
     kube-system   kube-addon-manager-minikube        1/1       Running   0          4m
     kube-system   kube-apiserver-minikube            1/1       Running   0          3m

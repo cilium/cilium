@@ -23,7 +23,7 @@ cilium-agent
       --bpf-root string                   Path to BPF filesystem
       --config string                     Configuration file (default "$HOME/ciliumd.yaml")
       --container-runtime stringSlice     Sets the container runtime(s) used by Cilium { containerd | crio | docker | none | auto } ( "auto" uses the container runtime found in the order: "docker", "containerd", "crio" ) (default [auto])
-      --container-runtime-endpoint map    Container runtime(s) endpoint(s). (default: --container-runtime-endpoint=containerd=/var/run/containerd/containerd.sock, --container-runtime-endpoint=crio=/var/run/crio/crio.sock, --container-runtime-endpoint=docker=unix:///var/run/docker.sock) (default map[])
+      --container-runtime-endpoint map    Container runtime(s) endpoint(s). (default: --container-runtime-endpoint=containerd=/var/run/containerd/containerd.sock, --container-runtime-endpoint=crio=/var/run/crio.sock, --container-runtime-endpoint=docker=unix:///var/run/docker.sock) (default map[])
   -D, --debug                             Enable debugging mode
       --debug-verbose stringSlice         List of enabled verbose debug groups
   -d, --device string                     Device facing cluster/external network for direct L3 (non-overlay mode) (default "undefined")
@@ -44,6 +44,8 @@ cilium-agent
       --ipv6-service-range string         Kubernetes IPv6 services CIDR if not inside cluster prefix (default "auto")
       --k8s-api-server string             Kubernetes api address server (for https use --k8s-kubeconfig-path instead)
       --k8s-kubeconfig-path string        Absolute path of the kubernetes kubeconfig file
+      --k8s-require-ipv4-pod-cidr         Require IPv4 PodCIDR to be specified in node resource
+      --k8s-require-ipv6-pod-cidr         Require IPv6 PodCIDR to be specified in node resource
       --keep-bpf-templates                Do not restore BPF template files from binary
       --keep-config                       When restoring state, keeps containers' configuration in place
       --kvstore string                    Key-value store type

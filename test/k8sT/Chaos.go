@@ -103,6 +103,9 @@ var _ = Describe("K8sValidatedChaosTest", func() {
 			fmt.Sprintf("-l zgroup=testDSClient"), 300)
 		Expect(err).Should(BeNil(), "Pods are not ready after timeout")
 
+		err = kubectl.CiliumEndpointWaitReady()
+		Expect(err).To(BeNil(), "Endpoints are not ready after timeout")
+
 		PingService()
 
 		By("Deleting cilium pods")
@@ -130,6 +133,9 @@ var _ = Describe("K8sValidatedChaosTest", func() {
 		Expect(err).To(BeNil(), "Cilium cannot be installed")
 
 		ExpectCiliumReady(kubectl)
+
+		err = kubectl.CiliumEndpointWaitReady()
+		Expect(err).To(BeNil(), "Endpoints are not ready after timeout")
 
 		PingService()
 	})

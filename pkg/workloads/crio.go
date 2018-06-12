@@ -27,7 +27,7 @@ const (
 	CRIO workloadRuntimeType = "crio"
 
 	// criOEndpoint is the default value for the crio socket
-	criOEndpoint = "/var/run/crio/crio.sock"
+	criOEndpoint = "/var/run/crio.sock"
 )
 
 var (
@@ -82,7 +82,7 @@ func newCRIOClient(opts workloadRuntimeOpts) (WorkloadRuntime, error) {
 		ep = "unix://" + ep
 	}
 	rsc, err := newCRIClient(context.WithValue(context.Background(), epOpt, ep))
-	return &criOClient{rsc}, nil
+	return &criOClient{rsc}, err
 }
 
 // IsRunning returns false if the provided endpoint cannot be associated with a

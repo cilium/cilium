@@ -49,7 +49,8 @@ func CurlFail(endpoint string, optionalValues ...interface{}) string {
 	if len(optionalValues) > 0 {
 		endpoint = fmt.Sprintf(endpoint, optionalValues...)
 	}
-	return fmt.Sprintf("curl -s --fail --connect-timeout %[1]d --max-time %[1]d %[2]s",
+	return fmt.Sprintf(
+		"curl -s -D /dev/stderr --fail --connect-timeout %[1]d --max-time %[1]d %[2]s",
 		CurlConnectTimeout, endpoint)
 }
 

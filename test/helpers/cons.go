@@ -177,6 +177,13 @@ const (
 
 )
 
+// Re-definitions of stable constants in the API. The re-definition is on
+// purpose to validate these values in the API. They may never change
+const (
+	// ReservedIdentityHealth is equivalent to pkg/identity.ReservedIdentityHealth
+	ReservedIdentityHealth = 4
+)
+
 // CiliumDSPath is the default Cilium DaemonSet path to use in all test.
 var CiliumDSPath = "cilium_ds.jsonnet"
 

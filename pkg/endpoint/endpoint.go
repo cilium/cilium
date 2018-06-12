@@ -449,6 +449,10 @@ type Endpoint struct {
 // WaitForProxyCompletions blocks until all proxy changes have been completed.
 // Called with BuildMutex held.
 func (e *Endpoint) WaitForProxyCompletions() error {
+	if e.ProxyWaitGroup == nil {
+		return nil
+	}
+
 	start := time.Now()
 	e.getLogger().Debug("Waiting for proxy updates to complete...")
 	err := e.ProxyWaitGroup.Wait()
@@ -2306,14 +2310,15 @@ func (e *Endpoint) identityLabelsChanged(owner Owner, myChangeRev int) error {
 
 	e.SetIdentity(identity)
 
-	ready := e.SetStateLocked(StateWaitingToRegenerate, "Triggering regeneration due to new identity")
-	if ready {
-		e.ForcePolicyCompute()
-	}
+	readyToRegenerate := e.SetStateLocked(StateWaitingToRegenerate, "Triggering regeneration due to new identity")
+
+	// Unconditionally force policy recomputation after a new identity has been
+	// assigned.
+	e.ForcePolicyCompute()
 
 	e.Mutex.Unlock()
 
-	if ready {
+	if readyToRegenerate {
 		e.Regenerate(owner, "updated security labels")
 	}
 
@@ -2422,8 +2427,29 @@ func (e *Endpoint) syncPolicyMap() error {
 
 	currentMapContents, err := e.PolicyMap.DumpToSlice()
 
+	// If map is unable to be dumped, attempt to close map and open it again.
+	// See GH-4229.
 	if err != nil {
-		return fmt.Errorf("unable to dump PolicyMap for endpoint: %s", err)
+		e.getLogger().WithError(err).Error("unable to dump PolicyMap when trying to sync desired and realized PolicyMap state")
+
+		// Close to avoid leaking of file descriptors, but still continue in case
+		// Close() does not succeed, because otherwise the map will never be
+		// opened again unless the agent is restarted.
+		err := e.PolicyMap.Close()
+		if err != nil {
+			e.getLogger().WithError(err).Error("unable to close PolicyMap which was not able to be dumped")
+		}
+
+		e.PolicyMap, _, err = policymap.OpenMap(e.PolicyMapPathLocked())
+		if err != nil {
+			return fmt.Errorf("unable to open PolicyMap for endpoint: %s", err)
+		}
+
+		// Try to dump again, fail if error occurs.
+		currentMapContents, err = e.PolicyMap.DumpToSlice()
+		if err != nil {
+			return err
+		}
 	}
 
 	errors := []error{}

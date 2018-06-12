@@ -41,7 +41,7 @@ const (
 	// (/8) will always be inserted, which is what the first parameter
 	// denotes. The CIDR for the CIDRSet is the second parameter, and the
 	// exception is the third parameter.
-	maxPrefixLengths = 2 - 8 + 32
+	maxPrefixLengths = 2 - 8 + 26
 )
 
 // Key implements the bpf.MapKey interface.

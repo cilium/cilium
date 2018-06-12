@@ -137,6 +137,11 @@ func UpsertIPToKVStore(IP net.IP, ID identity.NumericIdentity, metadata string) 
 // into the kvstore, which will subsequently trigger an event in
 // ipIdentityWatcher().
 func UpsertIPNetToKVStore(prefix *net.IPNet, ID *identity.Identity) error {
+	// Reserved identities are handled locally, don't push them to kvstore.
+	if ID.IsReserved() {
+		return nil
+	}
+
 	ipKey := path.Join(IPIdentitiesPath, AddressSpace, prefix.String())
 	ipIDPair := identity.IPIdentityPair{
 		IP:       prefix.IP,
@@ -580,7 +585,7 @@ func ipIdentityWatcher(listeners []IPIdentityMappingListener) {
 				log.WithFields(logrus.Fields{
 					logfields.IPAddr:       ipIDPair.IP,
 					logfields.IPMask:       ipIDPair.Mask,
-					"cached-identity":      cachedIdentity,
+					logfields.OldIdentity:  cachedIdentity,
 					logfields.Identity:     ipIDPair.ID,
 					logfields.Modification: cacheModification,
 				}).Debugf("endpoint IP cache state change")

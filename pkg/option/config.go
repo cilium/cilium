@@ -49,6 +49,12 @@ const (
 
 	// IPv6ClusterAllocCIDRName is the name of the IPv6ClusterAllocCIDR option
 	IPv6ClusterAllocCIDRName = "ipv6-cluster-alloc-cidr"
+
+	// K8sRequireIPv4PodCIDRName is the name of the K8sRequireIPv4PodCIDR option
+	K8sRequireIPv4PodCIDRName = "k8s-require-ipv4-pod-cidr"
+
+	// K8sRequireIPv6PodCIDRName is the name of the K8sRequireIPv6PodCIDR option
+	K8sRequireIPv6PodCIDRName = "k8s-require-ipv6-pod-cidr"
 )
 
 // daemonConfig is the configuration used by Daemon.
@@ -84,6 +90,10 @@ type daemonConfig struct {
 	// values: { auto | always | policy }
 	AllowLocalhost string
 
+	// HostAllowsWorld applies the same policy to world-sourced traffic as
+	// host-sourced traffic, to provide compatibility with Cilium 1.0.
+	HostAllowsWorld bool
+
 	// StateDir is the directory where runtime state of endpoints is stored
 	StateDir string
 
@@ -112,6 +122,16 @@ type daemonConfig struct {
 	// This variable should never be written to, it is initialized via
 	// daemonConfig.Validate()
 	IPv6ClusterAllocCIDRBase string
+
+	// K8sRequireIPv4PodCIDR requires the k8s node resource to specify the
+	// IPv4 PodCIDR. Cilium will block bootstrapping until the information
+	// is available.
+	K8sRequireIPv4PodCIDR bool
+
+	// K8sRequireIPv6PodCIDR requires the k8s node resource to specify the
+	// IPv6 PodCIDR. Cilium will block bootstrapping until the information
+	// is available.
+	K8sRequireIPv6PodCIDR bool
 }
 
 var (

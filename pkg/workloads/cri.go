@@ -23,6 +23,7 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/common/addressing"
 	"github.com/cilium/cilium/pkg/endpoint"
+	endpointid "github.com/cilium/cilium/pkg/endpoint/id"
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/ipam"
 	"github.com/cilium/cilium/pkg/k8s"
@@ -52,7 +53,7 @@ func getGRPCCLient(ctx context.Context) (*grpc.ClientConn, error) {
 	c, cancel := context.WithTimeout(ctx, time.Duration(5*time.Second))
 	defer cancel()
 
-	conn, err := grpc.DialContext(c, addr, grpc.WithDialer(dialer), grpc.WithInsecure())
+	conn, err := grpc.DialContext(c, addr, grpc.WithDialer(dialer), grpc.WithInsecure(), grpc.WithBackoffMaxDelay(15*time.Second))
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect: %s", err)
 	}
@@ -166,7 +167,7 @@ func (c *criClient) processEvent(m EventMessage) {
 		stopIgnoringContainer(m.WorkloadID)
 		c.handleCreateWorkload(m.WorkloadID, true)
 	case EventTypeDelete:
-		Owner().DeleteEndpoint(endpoint.NewID(endpoint.ContainerIdPrefix, m.WorkloadID))
+		Owner().DeleteEndpoint(endpointid.NewID(endpointid.ContainerIdPrefix, m.WorkloadID))
 	}
 }
 
@@ -351,9 +352,8 @@ func (c *criClient) IgnoreRunningWorkloads() {
 func (c *criClient) workloadIDsList(ctx context.Context) ([]string, error) {
 	ctx = namespaces.WithNamespace(ctx, k8sContainerdNamespace)
 	req := &criRuntime.ListPodSandboxRequest{}
-	resp, err := c.RuntimeServiceClient.ListPodSandbox(context.Background(), req)
+	resp, err := c.RuntimeServiceClient.ListPodSandbox(ctx, req)
 	if err != nil {
-		log.WithError(err).Errorf("error1")
 		return nil, err
 	}
 

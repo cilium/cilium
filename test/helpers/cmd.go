@@ -62,10 +62,12 @@ func (res *CmdRes) GetStdErr() string {
 
 // SendToLog writes to `TestLogWriter` the debug message for the running command
 func (res *CmdRes) SendToLog() {
-	fmt.Fprintf(&config.TestLogWriter, "cmd: %q exitCode: %d \n %s\n",
-		res.cmd,
-		res.GetExitCode(),
-		res.CombineOutput())
+	logformat := "cmd: %q exitCode: %d stdout:\n%s\n"
+	log := fmt.Sprintf(logformat, res.cmd, res.GetExitCode(), res.stdout.String())
+	if res.stderr.Len() > 0 {
+		log = fmt.Sprintf("%sstderr:\n%s\n", log, res.stderr.String())
+	}
+	fmt.Fprintf(&config.TestLogWriter, log)
 }
 
 // WasSuccessful returns true if cmd completed successfully.
@@ -76,14 +78,14 @@ func (res *CmdRes) WasSuccessful() bool {
 // ExpectFail asserts whether res failed to execute. It accepts an optional
 // parameter that can be used to annotate failure messages.
 func (res *CmdRes) ExpectFail(optionalDescription ...interface{}) bool {
-	return gomega.ExpectWithOffset(2, res).ShouldNot(
+	return gomega.ExpectWithOffset(1, res).ShouldNot(
 		CMDSuccess(), optionalDescription...)
 }
 
 // ExpectSuccess asserts whether res executed successfully. It accepts an optional
 // parameter that can be used to annotate failure messages.
 func (res *CmdRes) ExpectSuccess(optionalDescription ...interface{}) bool {
-	return gomega.ExpectWithOffset(2, res).Should(
+	return gomega.ExpectWithOffset(1, res).Should(
 		CMDSuccess(), optionalDescription...)
 }
 

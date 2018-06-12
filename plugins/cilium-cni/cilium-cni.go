@@ -28,7 +28,7 @@ import (
 	"github.com/cilium/cilium/common/addressing"
 	"github.com/cilium/cilium/common/plugins"
 	"github.com/cilium/cilium/pkg/client"
-	"github.com/cilium/cilium/pkg/endpoint"
+	endpointid "github.com/cilium/cilium/pkg/endpoint/id"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -429,6 +429,8 @@ func cmdAdd(args *skel.CmdArgs) error {
 		Sandbox: "/proc/" + args.Netns + "/ns/net",
 	})
 
+	// Specify that endpoint must be regenerated synchronously. See GH-4409.
+	ep.SyncBuildEndpoint = true
 	if err = client.EndpointCreate(ep); err != nil {
 		return fmt.Errorf("Unable to create endpoint: %s", err)
 	}
@@ -444,7 +446,7 @@ func cmdDel(args *skel.CmdArgs) error {
 		return fmt.Errorf("unable to connect to Cilium daemon: %s", err)
 	}
 
-	id := endpoint.NewID(endpoint.ContainerIdPrefix, args.ContainerID)
+	id := endpointid.NewID(endpointid.ContainerIdPrefix, args.ContainerID)
 	if ep, err := client.EndpointGet(id); err != nil {
 		// Ignore endpoints not found
 		log.WithError(err).WithField(logfields.EndpointID, id).Debug("Agent is not aware of endpoint")

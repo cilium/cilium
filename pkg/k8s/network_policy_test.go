@@ -17,6 +17,7 @@ package k8s
 import (
 	"encoding/json"
 	"fmt"
+	"reflect"
 	"testing"
 
 	"github.com/cilium/cilium/api/v1/models"
@@ -25,7 +26,6 @@ import (
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
-
 	. "gopkg.in/check.v1"
 	"k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
@@ -1426,4 +1426,152 @@ func (s *K8sSuite) TestCIDRPolicyExamples(c *C) {
 
 	c.Assert(len(rules[0].Egress), Equals, 1)
 
+}
+
+func Test_parseNetworkPolicyPeer(t *testing.T) {
+	type args struct {
+		namespace string
+		peer      *networkingv1.NetworkPolicyPeer
+	}
+	tests := []struct {
+		name string
+		args args
+		want *api.EndpointSelector
+	}{
+		{
+			name: "peer-with-pod-selector",
+			args: args{
+				namespace: "foo-namespace",
+				peer: &networkingv1.NetworkPolicyPeer{
+					PodSelector: &metav1.LabelSelector{
+						MatchLabels: map[string]string{
+							"foo": "bar",
+						},
+						MatchExpressions: []metav1.LabelSelectorRequirement{
+							{
+								Key:      "foo",
+								Operator: metav1.LabelSelectorOpIn,
+								Values:   []string{"bar", "baz"},
+							},
+						},
+					},
+				},
+			},
+			want: &api.EndpointSelector{
+				LabelSelector: &metav1.LabelSelector{
+					MatchLabels: map[string]string{
+						"k8s.foo":                         "bar",
+						"k8s.io.kubernetes.pod.namespace": "foo-namespace",
+					},
+					MatchExpressions: []metav1.LabelSelectorRequirement{
+						{
+							Key:      "k8s.foo",
+							Operator: metav1.LabelSelectorOpIn,
+							Values:   []string{"bar", "baz"},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "peer-nil",
+			args: args{
+				namespace: "foo-namespace",
+			},
+			want: nil,
+		},
+		{
+			name: "peer-with-pod-selector-and-ns-selector",
+			args: args{
+				namespace: "foo-namespace",
+				peer: &networkingv1.NetworkPolicyPeer{
+					PodSelector: &metav1.LabelSelector{
+						MatchLabels: map[string]string{
+							"foo": "bar",
+						},
+						MatchExpressions: []metav1.LabelSelectorRequirement{
+							{
+								Key:      "foo",
+								Operator: metav1.LabelSelectorOpIn,
+								Values:   []string{"bar", "baz"},
+							},
+						},
+					},
+					NamespaceSelector: &metav1.LabelSelector{
+						MatchLabels: map[string]string{
+							"ns-foo": "ns-bar",
+						},
+						MatchExpressions: []metav1.LabelSelectorRequirement{
+							{
+								Key:      "ns-foo-expression",
+								Operator: metav1.LabelSelectorOpExists,
+								Values:   []string{"bar", "baz"},
+							},
+						},
+					},
+				},
+			},
+			want: &api.EndpointSelector{
+				LabelSelector: &metav1.LabelSelector{
+					MatchLabels: map[string]string{
+						"k8s.foo": "bar",
+						"k8s.io.cilium.k8s.namespace.labels.ns-foo": "ns-bar",
+					},
+					MatchExpressions: []metav1.LabelSelectorRequirement{
+						{
+							Key:      "k8s.io.cilium.k8s.namespace.labels.ns-foo-expression",
+							Operator: metav1.LabelSelectorOpExists,
+							Values:   []string{"bar", "baz"},
+						},
+						{
+							Key:      "k8s.foo",
+							Operator: metav1.LabelSelectorOpIn,
+							Values:   []string{"bar", "baz"},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "peer-with-ns-selector",
+			args: args{
+				namespace: "foo-namespace",
+				peer: &networkingv1.NetworkPolicyPeer{
+					NamespaceSelector: &metav1.LabelSelector{
+						MatchLabels: map[string]string{
+							"ns-foo": "ns-bar",
+						},
+						MatchExpressions: []metav1.LabelSelectorRequirement{
+							{
+								Key:      "ns-foo-expression",
+								Operator: metav1.LabelSelectorOpExists,
+								Values:   []string{"bar", "baz"},
+							},
+						},
+					},
+				},
+			},
+			want: &api.EndpointSelector{
+				LabelSelector: &metav1.LabelSelector{
+					MatchLabels: map[string]string{
+						"k8s.io.cilium.k8s.namespace.labels.ns-foo": "ns-bar",
+					},
+					MatchExpressions: []metav1.LabelSelectorRequirement{
+						{
+							Key:      "k8s.io.cilium.k8s.namespace.labels.ns-foo-expression",
+							Operator: metav1.LabelSelectorOpExists,
+							Values:   []string{"bar", "baz"},
+						},
+					},
+				},
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := parseNetworkPolicyPeer(tt.args.namespace, tt.args.peer); !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("parseNetworkPolicyPeer() = \n%v, want \n%v", got, tt.want)
+			}
+		})
+	}
 }

@@ -17,17 +17,19 @@ package policy
 import (
 	"bytes"
 
-	"github.com/cilium/cilium/pkg/policy/api"
-	"github.com/op/go-logging"
-
 	"github.com/cilium/cilium/pkg/comparator"
 	"github.com/cilium/cilium/pkg/labels"
+	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/policy/api"
+
+	"github.com/op/go-logging"
 	. "gopkg.in/check.v1"
 )
 
 var (
 	fooSelector      = api.NewESFromLabels(labels.ParseSelectLabel("foo"))
 	barSelector      = api.NewESFromLabels(labels.ParseSelectLabel("bar"))
+	hostSelector     = api.ReservedEndpointSelectors[labels.IDNameHost]
 	fooSelectorSlice = []api.EndpointSelector{
 		fooSelector,
 	}
@@ -1148,6 +1150,83 @@ func (ds *PolicyTestSuite) TestMergingWithDifferentEndpointSelectedAllowAllL7(c 
 
 	state = traceState{}
 	res, err = selectDifferentEndpointsAllowAllL7.resolveL4IngressPolicy(toFoo, &state, NewL4Policy())
+	c.Assert(err, IsNil)
+	c.Assert(res, IsNil)
+	c.Assert(state.selectedRules, Equals, 0)
+	c.Assert(state.matchedRules, Equals, 0)
+}
+
+// Case 12: allow all at L3 in one rule with restrictions at L7. Determine that
+//          the host should always be allowed. From Host should go to proxy
+//          allow all; other L3 should restrict at L7 in a separate filter.
+func (ds *PolicyTestSuite) TestAllowingLocalhostShadowsL7(c *C) {
+
+	// This test checks that when the AllowLocalhost=always option is
+	// enabled, we always wildcard the host at L7. That means we need to
+	// set the option in the config, and of course clean up afterwards so
+	// that this test doesn't affect subsequent tests.
+	oldLocalhostOpt := option.Config.AllowLocalhost
+	option.Config.AllowLocalhost = option.AllowLocalhostAlways
+	defer func() { option.Config.AllowLocalhost = oldLocalhostOpt }()
+
+	rule := &rule{
+		Rule: api.Rule{
+			EndpointSelector: endpointSelectorA,
+			Ingress: []api.IngressRule{
+				{
+					FromEndpoints: []api.EndpointSelector{api.WildcardEndpointSelector},
+					ToPorts: []api.PortRule{{
+						Ports: []api.PortProtocol{
+							{Port: "80", Protocol: api.ProtoTCP},
+						},
+						Rules: &api.L7Rules{
+							HTTP: []api.PortRuleHTTP{
+								{Method: "GET", Path: "/"},
+							},
+						},
+					}},
+				},
+			},
+		}}
+
+	buffer := new(bytes.Buffer)
+	ctxToA := SearchContext{To: labelsA, Trace: TRACE_VERBOSE}
+	ctxToA.Logging = logging.NewLogBackend(buffer, "", 0)
+	c.Log(buffer)
+
+	expected := NewL4Policy()
+	expected.Ingress["80/TCP"] = L4Filter{
+		Port:      80,
+		Protocol:  api.ProtoTCP,
+		U8Proto:   6,
+		Endpoints: api.EndpointSelectorSlice{api.WildcardEndpointSelector},
+		L7Parser:  ParserTypeHTTP,
+		L7RulesPerEp: L7DataMap{
+			api.WildcardEndpointSelector: api.L7Rules{
+				HTTP: []api.PortRuleHTTP{{Path: "/", Method: "GET"}},
+			},
+			hostSelector: api.L7Rules{}, // Empty => Allow all
+		},
+		Ingress:          true,
+		DerivedFromRules: labels.LabelArrayList{nil},
+	}
+
+	state := traceState{}
+	res, err := rule.resolveL4IngressPolicy(&ctxToA, &state, NewL4Policy())
+	c.Assert(err, IsNil)
+	c.Assert(res, Not(IsNil))
+	c.Assert(*res, comparator.DeepEquals, *expected)
+	c.Assert(state.selectedRules, Equals, 1)
+	c.Assert(state.matchedRules, Equals, 0)
+
+	// Endpoints not selected by the rule should not match the rule.
+	buffer = new(bytes.Buffer)
+	ctxToC := SearchContext{To: labelsC, Trace: TRACE_VERBOSE}
+	ctxToC.Logging = logging.NewLogBackend(buffer, "", 0)
+	c.Log(buffer)
+
+	state = traceState{}
+	res, err = rule.resolveL4IngressPolicy(toFoo, &state, NewL4Policy())
 	c.Assert(err, IsNil)
 	c.Assert(res, IsNil)
 	c.Assert(state.selectedRules, Equals, 0)

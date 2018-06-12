@@ -410,8 +410,9 @@ var _ grpc.ClientConn
 // is compatible with the grpc package it is being compiled against.
 const _ = grpc.SupportPackageIsVersion4
 
-// Client API for NetworkPolicyDiscoveryService service
-
+// NetworkPolicyDiscoveryServiceClient is the client API for NetworkPolicyDiscoveryService service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://godoc.org/google.golang.org/grpc#ClientConn.NewStream.
 type NetworkPolicyDiscoveryServiceClient interface {
 	StreamNetworkPolicies(ctx context.Context, opts ...grpc.CallOption) (NetworkPolicyDiscoveryService_StreamNetworkPoliciesClient, error)
 	FetchNetworkPolicies(ctx context.Context, in *v2.DiscoveryRequest, opts ...grpc.CallOption) (*v2.DiscoveryResponse, error)
@@ -426,7 +427,7 @@ func NewNetworkPolicyDiscoveryServiceClient(cc *grpc.ClientConn) NetworkPolicyDi
 }
 
 func (c *networkPolicyDiscoveryServiceClient) StreamNetworkPolicies(ctx context.Context, opts ...grpc.CallOption) (NetworkPolicyDiscoveryService_StreamNetworkPoliciesClient, error) {
-	stream, err := grpc.NewClientStream(ctx, &_NetworkPolicyDiscoveryService_serviceDesc.Streams[0], c.cc, "/cilium.NetworkPolicyDiscoveryService/StreamNetworkPolicies", opts...)
+	stream, err := c.cc.NewStream(ctx, &_NetworkPolicyDiscoveryService_serviceDesc.Streams[0], "/cilium.NetworkPolicyDiscoveryService/StreamNetworkPolicies", opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -458,15 +459,14 @@ func (x *networkPolicyDiscoveryServiceStreamNetworkPoliciesClient) Recv() (*v2.D
 
 func (c *networkPolicyDiscoveryServiceClient) FetchNetworkPolicies(ctx context.Context, in *v2.DiscoveryRequest, opts ...grpc.CallOption) (*v2.DiscoveryResponse, error) {
 	out := new(v2.DiscoveryResponse)
-	err := grpc.Invoke(ctx, "/cilium.NetworkPolicyDiscoveryService/FetchNetworkPolicies", in, out, c.cc, opts...)
+	err := c.cc.Invoke(ctx, "/cilium.NetworkPolicyDiscoveryService/FetchNetworkPolicies", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-// Server API for NetworkPolicyDiscoveryService service
-
+// NetworkPolicyDiscoveryServiceServer is the server API for NetworkPolicyDiscoveryService service.
 type NetworkPolicyDiscoveryServiceServer interface {
 	StreamNetworkPolicies(NetworkPolicyDiscoveryService_StreamNetworkPoliciesServer) error
 	FetchNetworkPolicies(context.Context, *v2.DiscoveryRequest) (*v2.DiscoveryResponse, error)

@@ -105,6 +105,12 @@ func (id *Identity) GetModel() *models.Identity {
 	return ret
 }
 
+// IsReserved returns whether the identity represents a reserved identity
+// (true), or not (false).
+func (id *Identity) IsReserved() bool {
+	return reservedIdentityCache[id.ID] != nil
+}
+
 // NewIdentity creates a new identity
 func NewIdentity(id NumericIdentity, lbls labels.Labels) *Identity {
 	var lblArray labels.LabelArray
@@ -127,9 +133,13 @@ func (pair *IPIdentityPair) IsHost() bool {
 func (pair *IPIdentityPair) PrefixString() string {
 	var suffix string
 	if !pair.IsHost() {
-		ones := net.IPv6len
-		if pair.Mask == nil && pair.IP.To4() != nil {
-			ones = net.IPv4len
+		var ones int
+		if pair.Mask == nil {
+			if pair.IP.To4() != nil {
+				ones = net.IPv4len
+			} else {
+				ones = net.IPv6len
+			}
 		} else {
 			ones, _ = pair.Mask.Size()
 		}
