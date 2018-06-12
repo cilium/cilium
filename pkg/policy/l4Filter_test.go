@@ -201,6 +201,11 @@ func (ds *PolicyTestSuite) TestMergeAllowAllL3AndShadowedL7(c *C) {
 
 	c.Log(buffer)
 
+	// The expected policy contains the L7 Rules below, but in practice
+	// when the policy is being resolved and sent to the proxy, it actually
+	// allows all at L7, based on the first API rule imported above. We
+	// just set the expected set of L7 rules below to include this to match
+	// the current implementation.
 	expected := NewL4Policy()
 	expected.Ingress["80/TCP"] = L4Filter{
 		Port:      80,
