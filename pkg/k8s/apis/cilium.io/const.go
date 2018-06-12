@@ -24,6 +24,11 @@ const (
 	PolicyLabelName = "io.cilium.k8s.policy.name"
 	// PolicyLabelNamespace is the policy's namespace set in k8s.
 	PolicyLabelNamespace = "io.cilium.k8s.policy.namespace"
+
+	// PolicyLabelServiceAccount is the name of the label associated with
+	// an endpoint to represent the Kubernetes ServiceAccount name
+	PolicyLabelServiceAccount = "io.cilium.k8s.policy.serviceaccount"
+
 	// PodNamespaceMetaLabels is the label used to store the labels of the
 	// kubernetes namespace's labels.
 	PodNamespaceMetaLabels = "io.cilium.k8s.namespace.labels"
