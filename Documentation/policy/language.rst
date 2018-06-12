@@ -743,3 +743,45 @@ Allow producing to topic empire-announce using apiKeys
 
         .. literalinclude:: ../../examples/policies/l7/kafka/kafka.json
 
+Kubernetes
+==========
+
+This section covers Kubernetes specific network policy aspects.
+
+ServiceAccounts
+----------------
+
+Matching on the ServiceAccount name of a Kubernetes pod 
+
+
+Service
+
+
+Example
+~~~~~~~
+
+.. bash::
+        apiVersion: v1
+        kind: Pod
+        metadata:
+          name: my-pod
+        spec:
+          serviceAccountName: leia
+          ...
+
+
+.. only:: html
+
+   .. tabs::
+     .. group-tab:: k8s YAML
+
+        .. literalinclude:: ../../examples/policies/l7/kafka/kafka-role.yaml
+     .. group-tab:: JSON
+
+        .. literalinclude:: ../../examples/policies/l7/kafka/kafka-role.json
+
+.. only:: epub or latex
+
+        .. literalinclude:: ../../examples/policies/l7/kafka/kafka-role.json
+
+.. _ServiceAccount: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/
