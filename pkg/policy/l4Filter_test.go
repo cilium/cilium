@@ -37,6 +37,39 @@ var (
 	toFoo = &SearchContext{To: labels.ParseSelectLabelArray("foo")}
 )
 
+// Tests in this file:
+//
+// How to read this table:
+//   Case:  The test / subtest number.
+//   L3:    Matches at L3 for rule 1,  followed by rule 2.
+//   L4:    Matches at L4.
+//   L7:    Rules at L7 for rule 1, followed by rule 2.
+//   Notes: Extra information about the test.
+//
+// +-----+-----------------+----------+-----------------+------------------------------------------------------+
+// |Case | L3 (1, 2) match | L4 match | L7 match (1, 2) | Notes                                                |
+// +=====+=================+==========+=================+======================================================+
+// |  1A |      *, *       |  80/TCP  |      *, *       | Allow all communication on the specified port        |
+// |  1B |      *, *       |  80/TCP  |      *, *       | Same as 1A, with implicit L3 wildcards               |
+// |  2A |      *, *       |  80/TCP  |   *, "GET /"    | Rule 1 shadows rule 2                                |
+// |  2B |      *, *       |  80/TCP  |   "GET /", *    | Same as 2A, but import in reverse order              |
+// |  3  |      *, *       |  80/TCP  | "GET /","GET /" | Exactly duplicate rules (HTTP)                       |
+// |  4  |      *, *       | 9092/TCP |   "foo","foo"   | Exactly duplicate rules (Kafka)                      |
+// |  5A |      *, *       |  80/TCP  |  "foo","GET /"  | Rules with conflicting L7 parser                     |
+// |  5B |      *, *       |  80/TCP  |  "GET /","foo"  | Same as 5A, but import in reverse order              |
+// |  6A |   "id=a", *     |  80/TCP  |      *, *       | Rule 2 is a superset of rule 1                       |
+// |  6B |   *, "id=a"     |  80/TCP  |      *, *       | Same as 6A, but import in reverse order              |
+// |  7A |   "id=a", *     |  80/TCP  |   "GET /", *    | All traffic is allowed; traffic to A goes via proxy  |
+// |  7B |   *, "id=a"     |  80/TCP  |   *, "GET /"    | Same as 7A, but import in reverse order              |
+// |  8A |   "id=a", *     |  80/TCP  | "GET /","GET /" | Rule 2 is the same as rule 1, except matching all L3 |
+// |  8B |   *, "id=a"     |  80/TCP  | "GET /","GET /" | Same as 8A, but import in reverse order              |
+// |  9A |   "id=a", *     |  80/TCP  |  "foo","GET /"  | Rules with conflicting L7 parser (+L3 match)         |
+// |  9B |   *, "id=a"     |  80/TCP  |  "GET /","foo"  | Same as 9A, but import in reverse order              |
+// | 10  | "id=a", "id=c"  |  80/TCP  | "GET /","GET /" | Allow at L7 for two distinct labels (disjoint set)   |
+// | 11  | "id=a", "id=c"  |  80/TCP  |      *, *       | Allow at L4 for two distinct labels (disjoint set)   |
+// | 12  |     "id=a",     |  80/TCP  |     "GET /"     | Configure to allow localhost traffic always          |
+// +-----+-----------------+----------+-----------------+------------------------------------------------------+
+
 // Case 1: allow all at L3 in both rules, and all at L7 (duplicate rule).
 func (ds *PolicyTestSuite) TestMergeAllowAllL3AndAllowAllL7(c *C) {
 	// Case 1A: Specify WildcardEndpointSelector explicitly.
