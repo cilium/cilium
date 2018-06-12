@@ -27,22 +27,21 @@ import (
 
 var _ = Describe("K8sValidatedKafkaPolicyTest", func() {
 
-	var microscopeErr error
-	var microscopeCancel func() error
-	var kubectl *helpers.Kubectl
-	var ciliumPod string
-
 	var (
-		logger      = log.WithFields(logrus.Fields{"testName": "K8sValidatedKafkaPolicyTest"})
-		l7Policy    = helpers.ManifestGet("kafka-sw-security-policy.yaml")
-		demoPath    = helpers.ManifestGet("kafka-sw-app.yaml")
-		kafkaApp    = "kafka"
-		zookApp     = "zook"
-		backupApp   = "empire-backup"
-		empireHqApp = "empire-hq"
-		outpostApp  = "empire-outpost"
-		apps        = []string{kafkaApp, zookApp, backupApp, empireHqApp, outpostApp}
-		appPods     = map[string]string{}
+		kubectl          *helpers.Kubectl
+		ciliumPod        string
+		microscopeErr    error
+		microscopeCancel = func() error { return nil }
+		logger           = log.WithFields(logrus.Fields{"testName": "K8sValidatedKafkaPolicyTest"})
+		l7Policy         = helpers.ManifestGet("kafka-sw-security-policy.yaml")
+		demoPath         = helpers.ManifestGet("kafka-sw-app.yaml")
+		kafkaApp         = "kafka"
+		zookApp          = "zook"
+		backupApp        = "empire-backup"
+		empireHqApp      = "empire-hq"
+		outpostApp       = "empire-outpost"
+		apps             = []string{kafkaApp, zookApp, backupApp, empireHqApp, outpostApp}
+		appPods          = map[string]string{}
 
 		prodHqAnnounce    = `-c "echo 'Happy 40th Birthday to General Tagge' | ./kafka-produce.sh --topic empire-announce"`
 		conOutpostAnnoune = `-c "./kafka-consume.sh --topic empire-announce --from-beginning --max-messages 1"`

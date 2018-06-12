@@ -30,13 +30,14 @@ import (
 )
 
 var _ = Describe("K8sValidatedServicesTest", func() {
-
-	var kubectl *helpers.Kubectl
-	var logger *logrus.Entry
-	var serviceName = "app1-service"
-	var microscopeErr error
-	var microscopeCancel func() error
-	var ciliumPodK8s1 string
+	var (
+		kubectl          *helpers.Kubectl
+		logger           *logrus.Entry
+		serviceName      = "app1-service"
+		microscopeErr    error
+		microscopeCancel = func() error { return nil }
+		ciliumPodK8s1    string
+	)
 
 	applyPolicy := func(path string) {
 		_, err := kubectl.CiliumPolicyAction(helpers.KubeSystemNamespace, path, helpers.KubectlApply, helpers.HelperTimeout)

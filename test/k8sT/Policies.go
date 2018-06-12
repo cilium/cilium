@@ -41,7 +41,7 @@ var _ = Describe("K8sValidatedPolicyTest", func() {
 		logger               *logrus.Entry
 		app1Service          = "app1-service"
 		microscopeErr        error
-		microscopeCancel     func() error
+		microscopeCancel     = func() error { return nil }
 
 		podFilter = "k8s:zgroup=testapp"
 		apps      = []string{helpers.App1, helpers.App2, helpers.App3}
@@ -914,7 +914,7 @@ var _ = Describe("K8sValidatedPolicyTestAcrossNamespaces", func() {
 		cnpL7Stresstest  = helpers.ManifestGet("cnp-l7-stresstest.yaml")
 		cnpAnyNamespace  = helpers.ManifestGet("cnp-any-namespace.yaml")
 		microscopeErr    error
-		microscopeCancel func() error
+		microscopeCancel = func() error { return nil }
 	)
 
 	namespaceAction := func(ns string, action string) {
