@@ -719,7 +719,7 @@ func runDaemon() {
 	// Launch another cilium-health as an endpoint, managed by cilium.
 	log.Info("Launching Cilium health endpoint")
 	addressing := d.getNodeAddressing()
-	cancelHealth := health.LaunchAsEndpoint(d, addressing, option.Config.Opts)
+	cancelHealth := health.LaunchAsEndpoint(d, addressing)
 	defer cancelHealth()
 
 	eventsCh, err := workloads.EnableEventListener()
