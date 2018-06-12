@@ -179,11 +179,6 @@ func LaunchAsEndpoint(owner endpoint.Owner, hostAddressing *models.NodeAddressin
 	}
 	ep.SetDefaultOpts(option.Config.Opts)
 
-	// Add the endpoint
-	if err := endpointmanager.AddEndpoint(owner, ep, "Create cilium-health endpoint"); err != nil {
-		log.WithError(err).Fatal("Error while adding cilium-health endpoint")
-	}
-
 	// Give the endpoint a security identity
 	lbls := labels.Labels{labels.IDNameHealth: labels.NewLabel(labels.IDNameHealth, "", labels.LabelSourceReserved)}
 	ep.SetIdentityLabels(owner, lbls)
@@ -205,6 +200,11 @@ func LaunchAsEndpoint(owner endpoint.Owner, hostAddressing *models.NodeAddressin
 	// Set up the endpoint routes
 	if err = configureHealthRouting(info.ContainerName, vethPeerName, hostAddressing); err != nil {
 		log.WithError(err).Fatal("Error while configuring cilium-health routes")
+	}
+
+	// Add the endpoint
+	if err := endpointmanager.AddEndpoint(owner, ep, "Create cilium-health endpoint"); err != nil {
+		log.WithError(err).Fatal("Error while adding cilium-health endpoint")
 	}
 
 	// Propagate health IPs to all other nodes
