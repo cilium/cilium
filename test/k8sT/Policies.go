@@ -31,6 +31,7 @@ var _ = Describe("K8sValidatedPolicyTest", func() {
 		demoPath             = helpers.ManifestGet("demo.yaml")
 		l3Policy             = helpers.ManifestGet("l3_l4_policy.yaml")
 		l7Policy             = helpers.ManifestGet("l7_policy.yaml")
+		serviceAccountPolicy = helpers.ManifestGet("service_account.yaml")
 		knpDenyIngress       = helpers.ManifestGet("knp-default-deny-ingress.yaml")
 		knpDenyEgress        = helpers.ManifestGet("knp-default-deny-egress.yaml")
 		knpDenyIngressEgress = helpers.ManifestGet("knp-default-deny-ingress-egress.yaml")
@@ -126,6 +127,7 @@ var _ = Describe("K8sValidatedPolicyTest", func() {
 			// TO make sure that are not in place, so no assert messages here
 			kubectl.Delete(l3Policy)
 			kubectl.Delete(l7Policy)
+			kubectl.Delete(serviceAccountPolicy)
 			kubectl.Delete(knpDenyIngress)
 			kubectl.Delete(knpDenyEgress)
 			kubectl.Delete(knpDenyIngressEgress)
@@ -282,6 +284,49 @@ var _ = Describe("K8sValidatedPolicyTest", func() {
 				helpers.DefaultNamespace, appPods[helpers.App2],
 				helpers.CurlFail("http://%s/public", clusterIP))
 			res.ExpectSuccess("%q cannot curl to %q public", appPods[helpers.App2], clusterIP)
+		}, 500)
+
+		It("ServiceAccount Based Enforcement", func() {
+			// Load policy allowing serviceAccount of app2 to talk
+			// to app1 on port 80 TCP
+			_, err := kubectl.CiliumPolicyAction(
+				helpers.KubeSystemNamespace, serviceAccountPolicy, helpers.KubectlApply, 300)
+			Expect(err).Should(BeNil())
+
+			endpoints, err := kubectl.CiliumEndpointsListByLabel(ciliumPod, podFilter)
+			policyStatus := endpoints.GetPolicyStatus()
+			// only the two app1 replicas should be in default-deny at ingress
+			Expect(policyStatus[models.EndpointPolicyEnabledNone]).Should(Equal(2))
+			Expect(policyStatus[models.EndpointPolicyEnabledIngress]).Should(Equal(2))
+			Expect(policyStatus[models.EndpointPolicyEnabledEgress]).Should(Equal(0))
+			Expect(policyStatus[models.EndpointPolicyEnabledBoth]).Should(Equal(0))
+
+			trace := kubectl.CiliumExec(ciliumPod, fmt.Sprintf(
+				"cilium policy trace --src-k8s-pod default:%s --dst-k8s-pod default:%s --dport 80",
+				appPods[helpers.App2], appPods[helpers.App1]))
+			trace.ExpectSuccess(trace.CombineOutput().String())
+			trace.ExpectContains("Final verdict: ALLOWED", "Policy trace output mismatch")
+
+			trace = kubectl.CiliumExec(ciliumPod, fmt.Sprintf(
+				"cilium policy trace --src-k8s-pod default:%s --dst-k8s-pod default:%s",
+				appPods[helpers.App3], appPods[helpers.App1]))
+			trace.ExpectSuccess(trace.CombineOutput().String())
+			trace.ExpectContains("Final verdict: DENIED", "Policy trace output mismatch")
+
+			res := kubectl.ExecPodCmd(
+				helpers.DefaultNamespace, appPods[helpers.App2],
+				helpers.CurlFail(fmt.Sprintf("http://%s/public", clusterIP)))
+			res.ExpectSuccess("%q cannot curl clusterIP %q", appPods[helpers.App2], clusterIP)
+
+			res = kubectl.ExecPodCmd(
+				helpers.DefaultNamespace, appPods[helpers.App3],
+				helpers.CurlFail(fmt.Sprintf("http://%s/public", clusterIP)))
+			res.ExpectFail("%q can curl to %q", appPods[helpers.App3], clusterIP)
+
+			_, err = kubectl.CiliumPolicyAction(
+				helpers.KubeSystemNamespace, serviceAccountPolicy,
+				helpers.KubectlDelete, helpers.HelperTimeout)
+			Expect(err).Should(BeNil(), "Cannot delete service account policy")
 		}, 500)
 
 		It("Denies traffic with k8s default-deny ingress policy", func() {
