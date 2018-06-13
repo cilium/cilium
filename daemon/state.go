@@ -182,7 +182,7 @@ func (d *Daemon) regenerateRestoredEndpoints(state *endpointRestoreState) {
 	}
 
 	for _, ep := range state.toClean {
-		go d.deleteEndpointQuiet(ep)
+		go d.deleteEndpointQuiet(ep, true)
 	}
 
 	go func() {
