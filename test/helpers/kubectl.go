@@ -1062,7 +1062,7 @@ func (kub *Kubectl) ValidateNoErrorsOnLogs(duration time.Duration) {
 		KubectlCmd, KubeSystemNamespace, duration.Seconds())
 	res := kub.Exec(fmt.Sprintf("%s --previous", cmd), ExecOptions{SkipLog: true})
 	if !res.WasSuccessful() {
-		res = kub.Exec(cmd)
+		res = kub.Exec(cmd, ExecOptions{SkipLog: true})
 	}
 	logs := res.Output().String()
 	for _, message := range checkLogsMessages {
