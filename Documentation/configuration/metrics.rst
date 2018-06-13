@@ -29,6 +29,11 @@ Endpoint
 * ``endpoint_regenerating``: Number of endpoints currently regenerating
 * ``endpoint_regenerations``: Count of all endpoint regenerations that have completed, tagged by outcome
 
+Datapath
+--------
+
+* ``datapath_errors_total``: Total number of errors occurred in datapath management, labelled by area, name and address family.
+
 Drops/Forwards (L3/L4)
 ----------------------
 
