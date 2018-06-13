@@ -30,6 +30,8 @@ import (
 	"github.com/cilium/cilium/pkg/endpoint"
 	endpointid "github.com/cilium/cilium/pkg/endpoint/id"
 	"github.com/cilium/cilium/pkg/endpointmanager"
+	healthPkg "github.com/cilium/cilium/pkg/health/client"
+	"github.com/cilium/cilium/pkg/health/defaults"
 	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -50,6 +52,9 @@ var (
 
 	// healthPidfile
 	healthPidfile = "health-endpoint.pid"
+
+	// client is used to ping the cilium-health endpoint as a health check.
+	client *healthPkg.Client
 )
 
 func logFromCommand(cmd *exec.Cmd, netns string) error {
@@ -112,6 +117,16 @@ func configureHealthRouting(netns, dev string, addressing *models.NodeAddressing
 	return err
 }
 
+// PingEndpoint attempts to make an API ping request to the local cilium-health
+// endpoint, and returns whether this was successful.
+func PingEndpoint() error {
+	if client == nil {
+		return fmt.Errorf("cilium-health endpoint hasn't yet been initialized")
+	}
+	_, err := client.Restapi.GetHello(nil)
+	return err
+}
+
 // CleanupEndpoint attempts to kill any existing cilium-health endpoint and
 // clean up its devices and pidfiles.
 func CleanupEndpoint(owner endpoint.Owner) {
@@ -135,9 +150,10 @@ func CleanupEndpoint(owner endpoint.Owner) {
 // LaunchAsEndpoint launches the cilium-health agent in a nested network
 // namespace and attaches it to Cilium the same way as any other endpoint,
 // but with special reserved labels.
+//
+// CleanupEndpoint() must be called before calling LaunchAsEndpoint() to ensure
+// cleanup of prior cilium-health endpoint instances.
 func LaunchAsEndpoint(owner endpoint.Owner, hostAddressing *models.NodeAddressing) error {
-
-	CleanupEndpoint(owner)
 
 	ip4 := node.GetIPv4HealthIP()
 	ip6 := node.GetIPv6HealthIP()
@@ -214,6 +230,11 @@ func LaunchAsEndpoint(owner endpoint.Owner, hostAddressing *models.NodeAddressin
 		if err != nil {
 			return fmt.Errorf("Cannot annotate node CIDR range data: %s", err)
 		}
+	}
+
+	client, err = healthPkg.NewClient(fmt.Sprintf("tcp://%s:%d", ip4, defaults.HTTPPathPort))
+	if err != nil {
+		return fmt.Errorf("Cannot establish connection to health endpoint: %s", err)
 	}
 
 	return nil
