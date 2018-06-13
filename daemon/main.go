@@ -31,6 +31,7 @@ import (
 	health "github.com/cilium/cilium/cilium-health/launch"
 	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/pkg/bpf"
+	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/envoy"
@@ -718,11 +719,28 @@ func runDaemon() {
 
 	// Launch another cilium-health as an endpoint, managed by cilium.
 	log.Info("Launching Cilium health endpoint")
-	addressing := d.getNodeAddressing()
-	if err = health.LaunchAsEndpoint(d, addressing); err != nil {
-		log.WithError(err).Fatal("Error while launching cilium-health endpoint")
-	}
-	defer health.CleanupEndpoint(d)
+	controller.NewManager().UpdateController("cilium-health-ep",
+		controller.ControllerParams{
+			DoFunc: func() error {
+				addressing := d.getNodeAddressing()
+
+				// If we can't ping the health endpoint, then
+				// assume some error has occurred (including
+				// that it hasn't yet been initialized).
+				// Restart the endpoint.
+				if err = health.PingEndpoint(); err != nil {
+					health.CleanupEndpoint(d)
+					return health.LaunchAsEndpoint(d, addressing)
+				}
+				return nil
+			},
+			StopFunc: func() error {
+				err = health.PingEndpoint()
+				health.CleanupEndpoint(d)
+				return err
+			},
+			RunInterval: 5 * time.Minute,
+		})
 
 	eventsCh, err := workloads.EnableEventListener()
 	if err != nil {
