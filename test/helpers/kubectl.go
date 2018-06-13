@@ -348,9 +348,16 @@ func (kub *Kubectl) GetEndpoints(namespace string, filter string) *CmdRes {
 // GetAllPods returns a slice of all pods present in Kubernetes cluster, along
 // with an error if the pods could not be retrieved via `kubectl`, or if the
 // pod objects are unable to be marshaled from JSON.
-func (kub *Kubectl) GetAllPods() ([]v1.Pod, error) {
+func (kub *Kubectl) GetAllPods(options ...ExecOptions) ([]v1.Pod, error) {
+	var ops ExecOptions
+	if len(options) > 0 {
+		ops = options[0]
+	}
+
 	var podsList v1.List
-	err := kub.Exec(fmt.Sprintf("%s get pods --all-namespaces -o json", KubectlCmd)).Unmarshal(&podsList)
+	err := kub.Exec(
+		fmt.Sprintf("%s get pods --all-namespaces -o json", KubectlCmd),
+		ExecOptions{SkipLog: ops.SkipLog}).Unmarshal(&podsList)
 	if err != nil {
 		return nil, err
 	}
@@ -1223,7 +1230,7 @@ func (kub *Kubectl) GeneratePodLogGatheringCommands(reportCmds map[string]string
 	if reportCmds == nil {
 		reportCmds = make(map[string]string)
 	}
-	pods, err := kub.GetAllPods()
+	pods, err := kub.GetAllPods(ExecOptions{SkipLog: true})
 	if err != nil {
 		kub.logger.WithError(err).Error("Unable to get pods from Kubernetes via kubectl")
 	}
