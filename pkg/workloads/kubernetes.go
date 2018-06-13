@@ -62,5 +62,12 @@ func fetchK8sLabels(containerLbls map[string]string) (map[string]string, error) 
 		k8sLabels[policy.JoinPath(k8sConst.PodNamespaceMetaLabels, k)] = v
 	}
 	k8sLabels[k8sConst.PodNamespaceLabel] = ns
+
+	if result.Spec.ServiceAccountName != "" {
+		k8sLabels[k8sConst.PolicyLabelServiceAccount] = result.Spec.ServiceAccountName
+	} else {
+		delete(k8sLabels, k8sConst.PolicyLabelServiceAccount)
+	}
+
 	return k8sLabels, nil
 }
