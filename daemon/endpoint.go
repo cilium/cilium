@@ -426,14 +426,21 @@ func (h *patchEndpointID) Handle(params PatchEndpointIDParams) middleware.Respon
 
 func (d *Daemon) deleteEndpoint(ep *endpoint.Endpoint) int {
 	scopedLog := log.WithField(logfields.EndpointID, ep.ID)
-	errors := d.deleteEndpointQuiet(ep)
+	errors := d.deleteEndpointQuiet(ep, true)
 	for _, err := range errors {
 		scopedLog.WithError(err).Warn("Ignoring error while deleting endpoint")
 	}
 	return len(errors)
 }
 
-func (d *Daemon) deleteEndpointQuiet(ep *endpoint.Endpoint) []error {
+// deleteEndpointQuiet sets the endpoint into disconnecting state and removes
+// it from Cilium, releasing all resources associated with it such as its
+// visibility in the endpointmanager, its BPF programs and maps, (optional) IP,
+// L7 policy configuration, directories and controllers.
+//
+// Specific users such as the cilium-health EP may choose not to release the IP
+// when deleting the endpoint. Most users should pass true for releaseIP.
+func (d *Daemon) deleteEndpointQuiet(ep *endpoint.Endpoint, releaseIP bool) []error {
 
 	// Only used for CRI-O since it does not support events.
 	if d.workloadsEventsCh != nil && ep.GetContainerID() != "" {
@@ -496,14 +503,15 @@ func (d *Daemon) deleteEndpointQuiet(ep *endpoint.Endpoint) []error {
 		}
 	}
 
-	if !option.Config.IPv4Disabled {
-		if err := ipam.ReleaseIP(ep.IPv4.IP()); err != nil {
-			errors = append(errors, fmt.Errorf("unable to release ipv4 address: %s", err))
+	if releaseIP {
+		if !option.Config.IPv4Disabled {
+			if err := ipam.ReleaseIP(ep.IPv4.IP()); err != nil {
+				errors = append(errors, fmt.Errorf("unable to release ipv4 address: %s", err))
+			}
 		}
-	}
-
-	if err := ipam.ReleaseIP(ep.IPv6.IP()); err != nil {
-		errors = append(errors, fmt.Errorf("unable to release ipv6 address: %s", err))
+		if err := ipam.ReleaseIP(ep.IPv6.IP()); err != nil {
+			errors = append(errors, fmt.Errorf("unable to release ipv6 address: %s", err))
+		}
 	}
 
 	completionCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
