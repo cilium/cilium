@@ -119,7 +119,12 @@ func configureHealthRouting(netns, dev string, addressing *models.NodeAddressing
 
 // PingEndpoint attempts to make an API ping request to the local cilium-health
 // endpoint, and returns whether this was successful.
+//
+// This function must only be used from the same goroutine as LaunchAsEndpoint().
+// It is safe to call PingEndpoint() before LaunchAsEndpoint() so long as the
+// goroutine is the same for both calls.
 func PingEndpoint() error {
+	// client is shared with LaunchAsEndpoint().
 	if client == nil {
 		return fmt.Errorf("cilium-health endpoint hasn't yet been initialized")
 	}
@@ -128,7 +133,14 @@ func PingEndpoint() error {
 }
 
 // CleanupEndpoint attempts to kill any existing cilium-health endpoint and
-// clean up its devices and pidfiles.
+// clean up its devices and pidfiles. If any existing cilium-health endpoint
+// exists in Cilium, it is removed from the endpoint manager.
+//
+// This is intended to be invoked in multiple situations:
+// * The health endpoint has never been run before
+// * The health endpoint was run during a previous run of the Cilium agent
+// * The health endpoint crashed during the current run of the Cilium agent
+//   and needs to be cleaned up before it is restarted.
 func CleanupEndpoint(owner endpoint.Owner) {
 	path := filepath.Join(option.Config.StateDir, healthPidfile)
 	if err := pidfile.Kill(path); err != nil {
@@ -232,6 +244,8 @@ func LaunchAsEndpoint(owner endpoint.Owner, hostAddressing *models.NodeAddressin
 		}
 	}
 
+	// Initialize the health client to talk to this instance. This is why
+	// the caller must limit usage of this package to a single goroutine.
 	client, err = healthPkg.NewClient(fmt.Sprintf("tcp://%s:%d", ip4, defaults.HTTPPathPort))
 	if err != nil {
 		return fmt.Errorf("Cannot establish connection to health endpoint: %s", err)
