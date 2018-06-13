@@ -15,6 +15,7 @@
 package pidfile
 
 import (
+	"fmt"
 	"io/ioutil"
 	"os"
 	"os/signal"
@@ -47,4 +48,47 @@ func Write(path string) error {
 	}()
 
 	return nil
+}
+
+// kill parses the PID in the provided slice and attempts to kill the process
+// associated with that PID.
+func kill(buf []byte) error {
+	pidStr := string(buf)
+	pid, err := strconv.Atoi(pidStr)
+	if err != nil {
+		return fmt.Errorf("Failed to parse pid from %q: %s", pidStr, err)
+	}
+	oldProc, err := os.FindProcess(pid)
+	if err != nil {
+		return fmt.Errorf("Could not find process %d: %s", pid, err)
+	}
+	if err := oldProc.Kill(); err != nil {
+		return fmt.Errorf("Couldn't kill cilium-health pid=%d: %s", pid, err)
+	}
+	return nil
+}
+
+// Kill opens the pidfile at the specified path, attempts to read the PID and
+// kill the process represented by that PID. If the file doesn't exist, the
+// corresponding process doesn't exist, or the process is successfully killed,
+// returns nil. Otherwise, returns an error indicating the failure to kill the
+// process.
+//
+// On success, deletes the pidfile from the filesystem. Otherwise, leaves it
+// in place.
+func Kill(pidfilePath string) error {
+	if _, err := os.Stat(pidfilePath); os.IsNotExist(err) {
+		return nil
+	}
+
+	pidfile, err := ioutil.ReadFile(pidfilePath)
+	if err != nil {
+		return err
+	}
+
+	if err := kill(pidfile); err != nil {
+		return err
+	}
+
+	return os.RemoveAll(pidfilePath)
 }
