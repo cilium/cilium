@@ -18,11 +18,9 @@ import (
 	"bufio"
 	"context"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"os/exec"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"time"
 
@@ -38,6 +36,7 @@ import (
 	"github.com/cilium/cilium/pkg/mtu"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/pidfile"
 
 	"github.com/vishvananda/netlink"
 )
@@ -116,26 +115,11 @@ func configureHealthRouting(netns, dev string, addressing *models.NodeAddressing
 // CleanupEndpoint attempts to kill any existing cilium-health endpoint and
 // clean up its devices and pidfiles.
 func CleanupEndpoint(owner endpoint.Owner) {
-	pidfile := filepath.Join(option.Config.StateDir, healthPidfile)
-	if pid, err := ioutil.ReadFile(pidfile); err == nil {
-		// Existing cilium-health exists, kill it so we can create a
-		// new one and steal all its logs (om nom nom!)
-		pidInt, err := strconv.Atoi(string(pid))
-		if err == nil {
-			scopedLog := log.WithField("pid", pidInt)
-			scopedLog.Debug("Killing existing cilium-health instance")
-			if oldProc, err := os.FindProcess(pidInt); err == nil {
-				err = oldProc.Kill()
-				if err != nil {
-					scopedLog.WithError(err).Info("Couldn't kill cilium-health")
-				}
-			} else {
-				scopedLog.WithError(err).Debug("Couldn't find cilium-health")
-			}
-		}
+	path := filepath.Join(option.Config.StateDir, healthPidfile)
+	if err := pidfile.Kill(path); err != nil {
+		scopedLog := log.WithField(logfields.Path, path).WithError(err)
+		scopedLog.Info("Failed to kill previous cilium-health instance")
 	}
-	// Ignore any errors; we just need to remove the old pidfile.
-	_ = os.RemoveAll(pidfile)
 
 	scopedLog := log.WithField(logfields.Veth, vethName)
 	if link, err := netlink.LinkByName(vethName); err == nil {
