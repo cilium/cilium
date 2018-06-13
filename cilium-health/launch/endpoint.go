@@ -32,6 +32,8 @@ import (
 	"github.com/cilium/cilium/pkg/endpoint"
 	endpointid "github.com/cilium/cilium/pkg/endpoint/id"
 	"github.com/cilium/cilium/pkg/endpointmanager"
+	healthPkg "github.com/cilium/cilium/pkg/health/client"
+	"github.com/cilium/cilium/pkg/health/defaults"
 	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -51,6 +53,9 @@ var (
 
 	// healthPidfile
 	healthPidfile = "health-endpoint.pid"
+
+	// client is used to ping the cilium-health endpoint as a health check.
+	client *healthPkg.Client
 )
 
 func logFromCommand(cmd *exec.Cmd, netns string) error {
@@ -110,6 +115,16 @@ func configureHealthRouting(netns, dev string, addressing *models.NodeAddressing
 		log.Warn(out)
 	}
 
+	return err
+}
+
+// PingEndpoint attempts to make an API ping request to the local cilium-health
+// endpoint, and returns whether this was successful.
+func PingEndpoint() error {
+	if client == nil {
+		return fmt.Errorf("cilium-health endpoint hasn't yet been initialized")
+	}
+	_, err := client.Restapi.GetHello(nil)
 	return err
 }
 
@@ -231,6 +246,11 @@ func LaunchAsEndpoint(owner endpoint.Owner, hostAddressing *models.NodeAddressin
 		if err != nil {
 			return fmt.Errorf("Cannot annotate node CIDR range data: %s", err)
 		}
+	}
+
+	client, err = healthPkg.NewClient(fmt.Sprintf("tcp://%s:%d", ip4, defaults.HTTPPathPort))
+	if err != nil {
+		return fmt.Errorf("Cannot establish connection to health endpoint: %s", err)
 	}
 
 	return nil
