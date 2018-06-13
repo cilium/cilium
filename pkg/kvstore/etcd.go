@@ -486,7 +486,7 @@ func (e *etcdClient) DeletePrefix(path string) error {
 
 // Watch starts watching for changes in a prefix
 func (e *etcdClient) Watch(w *Watcher) {
-	lastRev := int64(0)
+	var lastRev int64
 	localCache := watcherCache{}
 	listSignalSent := false
 
@@ -496,6 +496,9 @@ func (e *etcdClient) Watch(w *Watcher) {
 	})
 
 reList:
+	// Retrieve latest revision
+	lastRev = 0
+
 	for {
 		res, err := e.client.Get(ctx.Background(), w.prefix, client.WithPrefix(),
 			client.WithRev(lastRev), client.WithSerializable())
@@ -579,15 +582,12 @@ reList:
 						scopedLog.WithError(err).Debug("Tried watching on compacted revision")
 					}
 
-					// Retrieve latest revision
-					lastRev = 0
-
 					// mark all local keys in state for
 					// deletion unless the upcoming GET
 					// marks them alive
 					localCache.MarkAllForDeletion()
 
-					continue reList
+					goto reList
 				}
 
 				lastRev = r.Header.Revision
