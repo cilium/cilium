@@ -743,3 +743,60 @@ Allow producing to topic empire-announce using apiKeys
 
         .. literalinclude:: ../../examples/policies/l7/kafka/kafka.json
 
+Kubernetes
+==========
+
+This section covers Kubernetes specific network policy aspects.
+
+ServiceAccounts
+----------------
+
+Kubernetes `Service Accounts
+<https://kubernetes.io/docs/concepts/configuration/assign-pod-node/>`_ are used
+to associate an identity to a pod or process managed by Kubernetes and grant
+identities access to Kubernetes resources and secrets. Cilium supports the
+specification of network security policies based on the service account
+identity of a pod.
+
+The service account of a pod is either defined via the `service account
+addmision controller
+<https://kubernetes.io/docs/reference/access-authn-authz/admission-controllers/#serviceaccount>`_
+or can be directly specified in the Pod, Deployment, ReplicationController
+resource like this:
+
+.. code:: bash
+
+        apiVersion: v1
+        kind: Pod
+        metadata:
+          name: my-pod
+        spec:
+          serviceAccountName: leia
+          ...
+
+Example
+~~~~~~~
+
+The following example grants any pod running under the service account of
+"leia" to issue a ``HTTP GET /public`` request on TCP port 80 to all pods
+running associated to the service account of "luke".
+
+Refer to the :git-tree:`example YAML files <examples/policies/kubernetes/serviceaccount/demo-pods.yaml>`
+for a fully functional example including deployment and service account
+resources.
+
+
+.. only:: html
+
+   .. tabs::
+     .. group-tab:: k8s YAML
+
+        .. literalinclude:: ../../examples/policies/kubernetes/serviceaccount/serviceaccount-policy.yaml
+     .. group-tab:: JSON
+
+        .. literalinclude:: ../../examples/policies/kubernetes/serviceaccount/serviceaccount-policy.json
+
+.. only:: epub or latex
+
+        .. literalinclude:: ../../examples/policies/kubernetes/serviceaccount/serviceaccount-policy.json
+
