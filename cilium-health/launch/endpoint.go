@@ -146,6 +146,17 @@ func CleanupEndpoint(owner endpoint.Owner) {
 	} else {
 		scopedLog.WithError(err).Debug("Didn't find existing device")
 	}
+
+	// If the endpoint crashed, remove it so that subsequent calls to
+	// LaunchAsEndpoint() don't insert duplicate endpoints.
+	ip4 := node.GetIPv4HealthIP()
+	ep := endpointmanager.LookupIPv4(ip4.String())
+	if ep == nil {
+		log.Debug("Didn't find existing cilium-health IPv4 endpoint")
+	} else {
+		log.Debug("Removing existing cilium-health endpoint from manager")
+		endpointmanager.Remove(ep)
+	}
 }
 
 // LaunchAsEndpoint launches the cilium-health agent in a nested network
