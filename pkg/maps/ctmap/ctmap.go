@@ -24,9 +24,25 @@ import (
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/logging"
+	"github.com/cilium/cilium/pkg/metrics"
 )
 
-var log = logging.DefaultLogger
+var (
+	log = logging.DefaultLogger
+
+	// labelIPv6CTDumpInterrupts marks the count for conntrack dump resets (IPv6).
+	labelIPv6CTDumpInterrupts = map[string]string{
+		metrics.LabelDatapathArea:   "conntrack",
+		metrics.LabelDatapathName:   "dump_interrupts",
+		metrics.LabelDatapathFamily: "ipv6",
+	}
+	// labelIPv4CTDumpInterrupts marks the count for conntrack dump resets (IPv4).
+	labelIPv4CTDumpInterrupts = map[string]string{
+		metrics.LabelDatapathArea:   "conntrack",
+		metrics.LabelDatapathName:   "dump_interrupts",
+		metrics.LabelDatapathFamily: "ipv4",
+	}
+)
 
 const (
 	MapName6       = "cilium_ct6_"
@@ -225,7 +241,7 @@ func dumpToSlice(m *bpf.Map, mapType string) ([]CtEntryDump, error) {
 // filter.
 func doGC6(m *bpf.Map, filter *GCFilter) int {
 	var (
-		action, deleted              int
+		action, deleted, interrupted int
 		prevKey, currentKey, nextKey CtKey6Global
 	)
 
@@ -257,6 +273,7 @@ func doGC6(m *bpf.Map, filter *GCFilter) int {
 				// Depending on exactly when currentKey was deleted from the map, nextKey may be the actual
 				// keyelement after the deleted one, or the first element in the map.
 				currentKey = nextKey
+				interrupted++
 			}
 			continue
 		}
@@ -289,9 +306,10 @@ func doGC6(m *bpf.Map, filter *GCFilter) int {
 		currentKey = nextKey
 	}
 
+	metrics.DatapathErrors.With(labelIPv6CTDumpInterrupts).Add(float64(interrupted))
 	if count > m.MapInfo.MaxEntries {
-		// TODO Add a metric we can bump and observe here.
-		log.WithError(err).Warning("Garbage collection on IPv6 CT map failed to finish")
+		log.WithError(err).WithField("interrupted", interrupted).Warning(
+			"Garbage collection on IPv6 CT map failed to finish")
 	}
 
 	return deleted
@@ -301,7 +319,7 @@ func doGC6(m *bpf.Map, filter *GCFilter) int {
 // filter.
 func doGC4(m *bpf.Map, filter *GCFilter) int {
 	var (
-		action, deleted              int
+		action, deleted, interrupted int
 		prevKey, currentKey, nextKey CtKey4Global
 	)
 
@@ -333,6 +351,7 @@ func doGC4(m *bpf.Map, filter *GCFilter) int {
 				// Depending on exactly when currentKey was deleted from the map, nextKey may be the actual
 				// keyelement after the deleted one, or the first element in the map.
 				currentKey = nextKey
+				interrupted++
 			}
 			continue
 		}
@@ -365,9 +384,10 @@ func doGC4(m *bpf.Map, filter *GCFilter) int {
 		currentKey = nextKey
 	}
 
+	metrics.DatapathErrors.With(labelIPv4CTDumpInterrupts).Add(float64(interrupted))
 	if count > m.MapInfo.MaxEntries {
-		// TODO Add a metric we can bump and observe here.
-		log.WithError(err).Warning("Garbage collection on IPv4 CT map failed to finish")
+		log.WithError(err).WithField("interrupted", interrupted).Warning(
+			"Garbage collection on IPv4 CT map failed to finish")
 	}
 
 	return deleted
