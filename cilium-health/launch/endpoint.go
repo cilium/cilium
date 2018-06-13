@@ -229,7 +229,7 @@ func LaunchAsEndpoint(owner endpoint.Owner, hostAddressing *models.NodeAddressin
 	ep.SetIdentityLabels(owner, lbls)
 
 	// Wait until the cilium-health endpoint is running before setting up routes
-	deadline := time.Now().Add(5 * time.Second)
+	deadline := time.Now().Add(1 * time.Minute)
 	for {
 		if _, err := os.Stat(pidfile); err == nil {
 			log.WithField("pidfile", pidfile).Debug("cilium-health agent running")
@@ -237,7 +237,7 @@ func LaunchAsEndpoint(owner endpoint.Owner, hostAddressing *models.NodeAddressin
 		} else if time.Now().After(deadline) {
 			return fmt.Errorf("Cilium endpoint failed to run: %s", err)
 		} else {
-			time.Sleep(100 * time.Millisecond)
+			time.Sleep(1 * time.Second)
 		}
 	}
 
