@@ -30,7 +30,9 @@ import (
 	"github.com/cilium/cilium/api/v1/server/restapi"
 	health "github.com/cilium/cilium/cilium-health/launch"
 	"github.com/cilium/cilium/common"
+	"github.com/cilium/cilium/common/addressing"
 	"github.com/cilium/cilium/pkg/bpf"
+	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/envoy"
@@ -692,6 +694,34 @@ func initEnv(cmd *cobra.Command) {
 
 	log.Infof("Container runtime options set: %s", workloads.GetRuntimeOptions())
 }
+
+// runCiliumHealthEndpoint attempts to contact the cilium-health endpoint, and
+// if it cannot be reached, restarts it.
+func runCiliumHealthEndpoint(d *Daemon) error {
+	// PingEndpoint will always fail the first time (initialization).
+	if err := health.PingEndpoint(); err != nil {
+		// Delete the process
+		health.CleanupEndpoint(d)
+		// Clean up agent resources
+		ip6 := node.GetIPv6HealthIP()
+		id := addressing.CiliumIPv6(ip6).EndpointID()
+		ep := endpointmanager.LookupCiliumID(id)
+		if ep == nil {
+			log.WithField(logfields.EndpointID, id).Debug("Didn't find existing cilium-health endpoint to delete")
+		} else {
+			log.Debug("Removing existing cilium-health endpoint")
+			errs := d.deleteEndpointQuiet(ep, false)
+			for _, err := range errs {
+				log.WithError(err).Debug("Error occurred while deleting cilium-health endpoint")
+			}
+		}
+		addressing := d.getNodeAddressing()
+		// Launch new instance
+		return health.LaunchAsEndpoint(d, addressing)
+	}
+	return nil
+}
+
 func runDaemon() {
 	log.Info("Initializing daemon")
 	d, err := NewDaemon()
@@ -718,11 +748,18 @@ func runDaemon() {
 
 	// Launch another cilium-health as an endpoint, managed by cilium.
 	log.Info("Launching Cilium health endpoint")
-	addressing := d.getNodeAddressing()
-	if err = health.LaunchAsEndpoint(d, addressing); err != nil {
-		log.WithError(err).Fatal("Error while launching cilium-health endpoint")
-	}
-	defer health.CleanupEndpoint(d)
+	controller.NewManager().UpdateController("cilium-health-ep",
+		controller.ControllerParams{
+			DoFunc: func() error {
+				return runCiliumHealthEndpoint(d)
+			},
+			StopFunc: func() error {
+				err = health.PingEndpoint()
+				health.CleanupEndpoint(d)
+				return err
+			},
+			RunInterval: 30 * time.Second,
+		})
 
 	eventsCh, err := workloads.EnableEventListener()
 	if err != nil {
