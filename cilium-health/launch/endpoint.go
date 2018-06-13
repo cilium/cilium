@@ -171,18 +171,10 @@ func LaunchAsEndpoint(owner endpoint.Owner, hostAddressing *models.NodeAddressin
 		},
 	}
 
-	veth, _, err := plugins.SetupVethWithNames(vethName, vethPeerName, mtu.StandardMTU, info)
+	_, _, err := plugins.SetupVethWithNames(vethName, vethPeerName, mtu.StandardMTU, info)
 	if err != nil {
 		log.WithError(err).Fatal("Error while creating cilium-health veth")
 	}
-	defer func() {
-		if err == nil {
-			return
-		}
-		if err = netlink.LinkDel(veth); err != nil {
-			log.WithError(err).WithField(logfields.Veth, veth.Name).Warn("failed to clean up veth")
-		}
-	}()
 
 	pidfile := filepath.Join(option.Config.StateDir, healthPidfile)
 	healthArgs := fmt.Sprintf("-d --admin=unix --passive --pidfile %s", pidfile)
@@ -190,8 +182,7 @@ func LaunchAsEndpoint(owner endpoint.Owner, hostAddressing *models.NodeAddressin
 		ip6.String(), ip4.String(), "cilium-health", healthArgs}
 	prog := filepath.Join(owner.GetBpfDir(), "spawn_netns.sh")
 
-	ctx, cancelHealth := context.WithCancel(context.Background())
-	cmd := exec.CommandContext(ctx, prog, args...)
+	cmd := exec.CommandContext(context.Background(), prog, args...)
 	if err = logFromCommand(cmd, info.ContainerName); err != nil {
 		log.WithError(err).Fatal("Error while opening pipes to health endpoint")
 	}
@@ -244,7 +235,6 @@ func LaunchAsEndpoint(owner endpoint.Owner, hostAddressing *models.NodeAddressin
 	}
 
 	return func() {
-		cancelHealth()
-		netlink.LinkDel(veth)
+		CleanupEndpoint(owner)
 	}
 }
