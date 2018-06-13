@@ -39,6 +39,10 @@ var (
 	// names and separated with a '_'
 	Namespace = "cilium"
 
+	// Datapath is the subsystem to scope metrics related to management of
+	// the datapath. It is prepended to metric names and separated with a '_'.
+	Datapath = "datapath"
+
 	// Labels
 
 	// LabelValueOutcomeSuccess is used as a successful outcome of an operation
@@ -55,6 +59,16 @@ var (
 
 	// LabelEventSourceContainerd marks event-related metrics that come from docker
 	LabelEventSourceContainerd = "docker"
+
+	// LabelDatapathArea marks which area the metrics are related to (eg, which BPF map)
+	LabelDatapathArea = "area"
+
+	// LabelDatapathName marks a unique identifier for this metric.
+	// The name should be defined once for a given type of error.
+	LabelDatapathName = "name"
+
+	// LabelDatapathFamily marks which protocol family (IPv4, IPV6) the metric is related to.
+	LabelDatapathFamily = "family"
 
 	// Endpoint
 
@@ -180,6 +194,18 @@ var (
 		Help:      "Total forwarded packets, tagged by ingress/egress direction",
 	},
 		[]string{"direction"})
+
+	// Datapath statistics
+
+	// DatapathErrors is the number of errors managing datapath components
+	// such as BPF maps.
+	DatapathErrors = prometheus.NewCounterVec(prometheus.CounterOpts{
+		Namespace: Namespace,
+		Subsystem: Datapath,
+		Name:      "errors_total",
+		Help:      "Number of errors that occurred in the datapath or datapath management",
+	},
+		[]string{LabelDatapathArea, LabelDatapathName, LabelDatapathFamily})
 )
 
 func init() {
@@ -207,6 +233,8 @@ func init() {
 	MustRegister(ForwardCount)
 
 	MustRegister(newStatusCollector())
+
+	MustRegister(DatapathErrors)
 }
 
 // MustRegister adds the collector to the registry, exposing this metric to
