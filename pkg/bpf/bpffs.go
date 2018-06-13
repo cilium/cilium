@@ -223,8 +223,6 @@ func checkOrMountCustomLocation(bpfRoot string) error {
 //    from host, but host doesn't have proper BPFFS mount, so that mount is just
 //    the empty directory. In that case, mount BPFFS under /run/cilium/bpffs.
 func checkOrMountDefaultLocations() error {
-	var err error
-
 	// Check whether /sys/fs/bpf has a BPFFS mount.
 	mounted, bpffsInstance, err := isBPFFS()
 	if err != nil {
@@ -234,7 +232,9 @@ func checkOrMountDefaultLocations() error {
 	// If /sys/fs/bpf is not mounted at all, we should mount
 	// BPFFS there.
 	if !mounted {
-		err = mountFS()
+		if err := mountFS(); err != nil {
+			return err
+		}
 	} else if !bpffsInstance {
 		// If /sys/fs/bpf has a mount but with some other filesystem
 		// than BPFFS, it means that Cilium is running inside container
@@ -258,13 +258,15 @@ func checkOrMountDefaultLocations() error {
 			return err
 		}
 		if !cMounted {
-			err = mountFS()
+			if err := mountFS(); err != nil {
+				return err
+			}
 		} else if !cBpffsInstance {
 			log.Fatalf("%s is mounted but has a different filesystem than BPFFS", defaults.DefaultMapRootFallback)
 		}
 	}
 
-	return err
+	return nil
 }
 
 func checkOrMountFS(bpfRoot string) error {
