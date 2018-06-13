@@ -222,10 +222,12 @@ func dumpToSlice(m *bpf.Map, mapType string) ([]CtEntryDump, error) {
 }
 
 // doGC6 iterates through a CTv6 map and drops entries based on the given
-// filter.
-func doGC6(m *bpf.Map, filter *GCFilter) int {
+// filter. It returns the number of CT entries that were deleted, and the
+// number of times that the garbage collection was interrupted by deletes
+// occurring on the datapath side.
+func doGC6(m *bpf.Map, filter *GCFilter) (deleted, interrupts int) {
 	var (
-		action, deleted              int
+		action                       int
 		prevKey, currentKey, nextKey CtKey6Global
 	)
 
@@ -234,7 +236,7 @@ func doGC6(m *bpf.Map, filter *GCFilter) int {
 	err := m.GetNextKey(&prevKey, &currentKey)
 	if err != nil {
 		// Map is empty, nothing to clean up.
-		return 0
+		return
 	}
 
 	var count uint32
@@ -257,6 +259,9 @@ func doGC6(m *bpf.Map, filter *GCFilter) int {
 				// Depending on exactly when currentKey was deleted from the map, nextKey may be the actual
 				// keyelement after the deleted one, or the first element in the map.
 				currentKey = nextKey
+				if !prevKeyValid {
+					interrupts++
+				}
 			}
 			continue
 		}
@@ -294,14 +299,16 @@ func doGC6(m *bpf.Map, filter *GCFilter) int {
 		log.WithError(err).Warning("Garbage collection on IPv6 CT map failed to finish")
 	}
 
-	return deleted
+	return
 }
 
 // doGC4 iterates through a CTv4 map and drops entries based on the given
-// filter.
-func doGC4(m *bpf.Map, filter *GCFilter) int {
+// filter. It returns the number of CT entries that were deleted, and the
+// number of times that the garbage collection was interrupted by deletes
+// occurring on the datapath side.
+func doGC4(m *bpf.Map, filter *GCFilter) (deleted, interrupts int) {
 	var (
-		action, deleted              int
+		action                       int
 		prevKey, currentKey, nextKey CtKey4Global
 	)
 
@@ -310,7 +317,7 @@ func doGC4(m *bpf.Map, filter *GCFilter) int {
 	err := m.GetNextKey(&prevKey, &currentKey)
 	if err != nil {
 		// Map is empty, nothing to clean up.
-		return 0
+		return
 	}
 
 	var count uint32
@@ -333,6 +340,9 @@ func doGC4(m *bpf.Map, filter *GCFilter) int {
 				// Depending on exactly when currentKey was deleted from the map, nextKey may be the actual
 				// keyelement after the deleted one, or the first element in the map.
 				currentKey = nextKey
+				if !prevKeyValid {
+					interrupts++
+				}
 			}
 			continue
 		}
@@ -370,7 +380,7 @@ func doGC4(m *bpf.Map, filter *GCFilter) int {
 		log.WithError(err).Warning("Garbage collection on IPv4 CT map failed to finish")
 	}
 
-	return deleted
+	return
 }
 
 func (f *GCFilter) doFiltering(srcIP net.IP, dstIP net.IP, dstPort uint16, nextHdr, flags uint8, entry *CtEntry) (action int) {
@@ -383,8 +393,9 @@ func (f *GCFilter) doFiltering(srcIP net.IP, dstIP net.IP, dstPort uint16, nextH
 }
 
 // GC runs garbage collection for map m with name mapName with the given filter.
-// It returns how many items were deleted from m.
-func GC(m *bpf.Map, mapName string, filter *GCFilter) int {
+// It returns how many items were deleted from m, and the number of times that
+// the garbage collection was interrupted by a deletion event in the datapath.
+func GC(m *bpf.Map, mapName string, filter *GCFilter) (deleted, interrupts int) {
 	if filter.Type == GCFilterByTime {
 		// If LRUHashtable, no need to garbage collect as LRUHashtable cleans itself up.
 		// FIXME: GH-3239 LRU logic is not handling timeouts gracefully enough
@@ -402,7 +413,7 @@ func GC(m *bpf.Map, mapName string, filter *GCFilter) int {
 	case MapName4, MapName4Global:
 		return doGC4(m, filter)
 	default:
-		return 0
+		return
 	}
 }
 
@@ -414,9 +425,11 @@ func Flush(m *bpf.Map, mapName string) int {
 
 	switch mapName {
 	case MapName6, MapName6Global:
-		return doGC6(m, filter)
+		result, _ := doGC6(m, filter)
+		return result
 	case MapName4, MapName4Global:
-		return doGC4(m, filter)
+		result, _ := doGC4(m, filter)
+		return result
 	default:
 		return 0
 	}

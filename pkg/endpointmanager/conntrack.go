@@ -23,6 +23,7 @@ import (
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
+	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/option"
 
 	"github.com/sirupsen/logrus"
@@ -33,11 +34,26 @@ const (
 	GcInterval int = 60
 )
 
+var (
+	// labelIPv6CTDumpReset marks the count for conntrack dump resets (IPv6).
+	labelIPv6CTDumpReset = map[string]string{
+		metrics.LabelDatapathArea:   "conntrack",
+		metrics.LabelDatapathName:   "dump_reset",
+		metrics.LabelDatapathFamily: "ipv6",
+	}
+	// labelIPv4CTDumpReset marks the count for conntrack dump resets (IPv4).
+	labelIPv4CTDumpReset = map[string]string{
+		metrics.LabelDatapathArea:  "conntrack",
+		metrics.LabelDatapathName:  "dump_reset",
+		metrics.LabelDatapathFamily: "ipv4",
+	}
+)
+
 // RunGC run CT's garbage collector for the given endpoint. `isLocal` refers if
 // the CT map is set to local. If `isIPv6` is set specifies that is the IPv6
 // map. `filter` represents the filter type to be used while looping all CT
 // entries.
-func RunGC(e *endpoint.Endpoint, isLocal, isIPv6 bool, filter *ctmap.GCFilter) {
+func RunGC(e *endpoint.Endpoint, isLocal, isIPv6 bool, filter *ctmap.GCFilter) int {
 	var file string
 	var mapType string
 	// TODO: We need to optimize this a bit in future, so we traverse
@@ -64,11 +80,11 @@ func RunGC(e *endpoint.Endpoint, isLocal, isIPv6 bool, filter *ctmap.GCFilter) {
 	if err != nil {
 		log.WithError(err).WithField(logfields.Path, file).Warn("Unable to open map")
 		e.LogStatus(endpoint.BPF, endpoint.Warning, fmt.Sprintf("Unable to open CT map %s: %s", file, err))
-		return
+		return 0
 	}
 	defer m.Close()
 
-	deleted := ctmap.GC(m, mapType, filter)
+	deleted, resets := ctmap.GC(m, mapType, filter)
 
 	if deleted > 0 {
 		log.WithFields(logrus.Fields{
@@ -77,14 +93,26 @@ func RunGC(e *endpoint.Endpoint, isLocal, isIPv6 bool, filter *ctmap.GCFilter) {
 			"count":         deleted,
 		}).Debug("Deleted filtered entries from map")
 	}
+
+	return resets
 }
 
 // EnableConntrackGC enables the connection tracking garbage collection.
 func EnableConntrackGC(ipv4, ipv6 bool) {
+	v6ResetMetrics, err := metrics.DatapathManagementErrors.GetMetricWith(labelIPv6CTDumpReset)
+	if err != nil {
+		log.WithError(err).Info("Failed to fetch IPv6 CT Dump gauge; disabling metric")
+	}
+	v4ResetMetrics, err := metrics.DatapathManagementErrors.GetMetricWith(labelIPv4CTDumpReset)
+	if err != nil {
+		log.WithError(err).Info("Failed to fetch IPv4 CT Dump gauge; disabling metric")
+	}
+
 	go func() {
 		seenGlobal := false
 		sleepTime := time.Duration(GcInterval) * time.Second
 		for {
+			var ipv4Resets, ipv6Resets int
 			eps := GetEndpoints()
 			for _, e := range eps {
 				e.Mutex.RLock()
@@ -116,11 +144,18 @@ func EnableConntrackGC(ipv4, ipv6 bool) {
 				// We can unlock the endpoint mutex sense
 				// in runGC it will be locked as needed.
 				if ipv6 {
-					RunGC(e, isLocal, true, ctmap.NewGCFilterBy(ctmap.GCFilterByTime))
+					ipv6Resets += RunGC(e, isLocal, true, ctmap.NewGCFilterBy(ctmap.GCFilterByTime))
 				}
 				if ipv4 {
-					RunGC(e, isLocal, false, ctmap.NewGCFilterBy(ctmap.GCFilterByTime))
+					ipv4Resets += RunGC(e, isLocal, false, ctmap.NewGCFilterBy(ctmap.GCFilterByTime))
 				}
+			}
+
+			if v6ResetMetrics != nil {
+				v6ResetMetrics.Set(float64(ipv6Resets))
+			}
+			if v4ResetMetrics != nil {
+				v4ResetMetrics.Set(float64(ipv4Resets))
 			}
 			time.Sleep(sleepTime)
 			seenGlobal = false
