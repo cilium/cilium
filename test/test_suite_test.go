@@ -167,6 +167,7 @@ var _ = BeforeAll(func() {
 	if progressChan := goReportVagrantStatus(); progressChan != nil {
 		defer func() { progressChan <- err == nil }()
 	}
+	logger := log.WithFields(logrus.Fields{"testName": "BeforeSuite"})
 
 	switch helpers.GetScope() {
 	case helpers.Runtime:
@@ -176,8 +177,7 @@ var _ = BeforeAll(func() {
 			reportCreateVMFailure(helpers.Runtime, err)
 		}
 
-		vm := helpers.InitRuntimeHelper(helpers.Runtime, log.WithFields(
-			logrus.Fields{"testName": "BeforeSuite"}))
+		vm := helpers.InitRuntimeHelper(helpers.Runtime, logger)
 		err = vm.SetUpCilium()
 
 		if err != nil {
@@ -223,6 +223,8 @@ var _ = BeforeAll(func() {
 				}
 			}
 		}
+		kubectl := helpers.CreateKubectl(helpers.K8s1VMName(), logger)
+		kubectl.Apply(helpers.GetFilePath("../examples/kubernetes/prometheus.yaml"))
 	}
 	return
 })
