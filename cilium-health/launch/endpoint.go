@@ -135,7 +135,7 @@ func CleanupEndpoint(owner endpoint.Owner) {
 // LaunchAsEndpoint launches the cilium-health agent in a nested network
 // namespace and attaches it to Cilium the same way as any other endpoint,
 // but with special reserved labels.
-func LaunchAsEndpoint(owner endpoint.Owner, hostAddressing *models.NodeAddressing) context.CancelFunc {
+func LaunchAsEndpoint(owner endpoint.Owner, hostAddressing *models.NodeAddressing) error {
 
 	CleanupEndpoint(owner)
 
@@ -155,9 +155,8 @@ func LaunchAsEndpoint(owner endpoint.Owner, hostAddressing *models.NodeAddressin
 		},
 	}
 
-	_, _, err := plugins.SetupVethWithNames(vethName, vethPeerName, mtu.StandardMTU, info)
-	if err != nil {
-		log.WithError(err).Fatal("Error while creating cilium-health veth")
+	if _, _, err := plugins.SetupVethWithNames(vethName, vethPeerName, mtu.StandardMTU, info); err != nil {
+		return fmt.Errorf("Error while creating veth: %s", err)
 	}
 
 	pidfile := filepath.Join(option.Config.StateDir, healthPidfile)
@@ -167,18 +166,18 @@ func LaunchAsEndpoint(owner endpoint.Owner, hostAddressing *models.NodeAddressin
 	prog := filepath.Join(owner.GetBpfDir(), "spawn_netns.sh")
 
 	cmd := exec.CommandContext(context.Background(), prog, args...)
-	if err = logFromCommand(cmd, info.ContainerName); err != nil {
-		log.WithError(err).Fatal("Error while opening pipes to health endpoint")
+	if err := logFromCommand(cmd, info.ContainerName); err != nil {
+		return fmt.Errorf("Error while opening pipes to health endpoint: %s", err)
 	}
-	if err = cmd.Start(); err != nil {
+	if err := cmd.Start(); err != nil {
 		target := fmt.Sprintf("%s %s", prog, strings.Join(args, " "))
-		log.WithField("cmd", target).WithError(err).Fatal("Error spawning cilium-health endpoint")
+		return fmt.Errorf("Error spawning endpoint (%q): %s", target, err)
 	}
 
 	// Create the endpoint
 	ep, err := endpoint.NewEndpointFromChangeModel(info)
 	if err != nil {
-		log.WithError(err).Fatal("Error while creating cilium-health endpoint")
+		return fmt.Errorf("Error while creating endpoint model: %s", err)
 	}
 	ep.SetDefaultOpts(option.Config.Opts)
 
@@ -193,8 +192,7 @@ func LaunchAsEndpoint(owner endpoint.Owner, hostAddressing *models.NodeAddressin
 			log.WithField("pidfile", pidfile).Debug("cilium-health agent running")
 			break
 		} else if time.Now().After(deadline) {
-			log.WithError(err).Fatal("Cilium endpoint failed to run")
-			break
+			return fmt.Errorf("Endpoint failed to run: %s", err)
 		} else {
 			time.Sleep(100 * time.Millisecond)
 		}
@@ -202,23 +200,21 @@ func LaunchAsEndpoint(owner endpoint.Owner, hostAddressing *models.NodeAddressin
 
 	// Set up the endpoint routes
 	if err = configureHealthRouting(info.ContainerName, vethPeerName, hostAddressing); err != nil {
-		log.WithError(err).Fatal("Error while configuring cilium-health routes")
+		return fmt.Errorf("Error while configuring routes: %s", err)
 	}
 
 	// Add the endpoint
 	if err := endpointmanager.AddEndpoint(owner, ep, "Create cilium-health endpoint"); err != nil {
-		log.WithError(err).Fatal("Error while adding cilium-health endpoint")
+		return fmt.Errorf("Error while adding endpoint: %s", err)
 	}
 
 	// Propagate health IPs to all other nodes
 	if k8s.IsEnabled() {
 		err := k8s.AnnotateNode(k8s.Client(), node.GetName(), nil, nil, ip4, ip6)
 		if err != nil {
-			log.WithError(err).Fatal("Cannot annotate node CIDR range data")
+			return fmt.Errorf("Cannot annotate node CIDR range data: %s", err)
 		}
 	}
 
-	return func() {
-		CleanupEndpoint(owner)
-	}
+	return nil
 }
