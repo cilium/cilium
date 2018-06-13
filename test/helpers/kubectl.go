@@ -1137,33 +1137,44 @@ func (kub *Kubectl) DumpCiliumCommandOutput(namespace string) {
 		bugtoolCmd := fmt.Sprintf("%s exec -n %s %s -- %s",
 			KubectlCmd, namespace, pod, CiliumBugtool)
 		res := kub.Exec(bugtoolCmd, ExecOptions{SkipLog: true})
-		if res.WasSuccessful() {
-			// Default output directory is /tmp for bugtool.
-			res = kub.Exec(fmt.Sprintf("%s exec -n %s %s -- ls /tmp/", KubectlCmd, namespace, pod))
-			tmpList := res.ByLines()
-			for _, line := range tmpList {
-				// Only copy over bugtool output to directory.
-				if strings.Contains(line, CiliumBugtool) {
-					archiveName := fmt.Sprintf("%s-%s", pod, line)
-					res = kub.Exec(fmt.Sprintf("%[1]s cp %[2]s/%[3]s:/tmp/%[4]s /tmp/%[4]s",
-						KubectlCmd, namespace, pod, line),
-						ExecOptions{SkipLog: true})
-					if !res.WasSuccessful() {
-						logger.Errorf("'%s' failed: %s", res.GetCmd(), res.CombineOutput())
-					}
-					res = kub.Exec(fmt.Sprintf(
-						"cp %s %s",
-						filepath.Join("/tmp/", line),
-						filepath.Join(logsPath, archiveName)),
-						ExecOptions{SkipLog: true})
-
-					if !res.WasSuccessful() {
-						logger.Errorf("'%s' failed: %s", res.GetCmd(), res.CombineOutput())
-					}
-				}
-			}
-		} else {
+		if !res.WasSuccessful() {
 			logger.Errorf("%s failed: %s", bugtoolCmd, res.CombineOutput().String())
+			return
+		}
+		// Default output directory is /tmp for bugtool.
+		res = kub.Exec(fmt.Sprintf("%s exec -n %s %s -- ls /tmp/", KubectlCmd, namespace, pod))
+		tmpList := res.ByLines()
+		for _, line := range tmpList {
+			// Only copy over bugtool output to directory.
+			if !strings.Contains(line, CiliumBugtool) {
+				continue
+			}
+
+			res = kub.Exec(fmt.Sprintf("%[1]s cp %[2]s/%[3]s:/tmp/%[4]s /tmp/%[4]s",
+				KubectlCmd, namespace, pod, line),
+				ExecOptions{SkipLog: true})
+			if !res.WasSuccessful() {
+				logger.Errorf("'%s' failed: %s", res.GetCmd(), res.CombineOutput())
+				continue
+			}
+
+			archiveName := filepath.Join(logsPath, fmt.Sprintf("bugtool-%s", pod))
+			res = kub.Exec(fmt.Sprintf("mkdir -p %s", archiveName))
+			if !res.WasSuccessful() {
+				logger.WithField("cmd", res.GetCmd()).Errorf(
+					"cannot create bugtool archive folder: %s", res.CombineOutput())
+				continue
+			}
+
+			cmd := fmt.Sprintf("tar -xf /tmp/%s -C %s --strip-components=1", line, archiveName)
+			res = kub.Exec(cmd, ExecOptions{SkipLog: true})
+			if !res.WasSuccessful() {
+				logger.WithField("cmd", cmd).Errorf(
+					"Cannot untar bugtool output: %s", res.CombineOutput())
+				continue
+			}
+			//Remove bugtool artifact, so it'll be not used if any other fail test
+			_ = kub.ExecPodCmd(KubeSystemNamespace, pod, fmt.Sprintf("rm %s", line))
 		}
 	}
 
