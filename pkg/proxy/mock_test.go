@@ -23,11 +23,12 @@ import (
 
 type proxyUpdaterMock struct {
 	lock.RWMutex
-	id       uint64
-	ipv4     string
-	ipv6     string
-	labels   []string
-	identity identity.NumericIdentity
+	id              uint64
+	ipv4            string
+	ipv6            string
+	labels          []string
+	identity        identity.NumericIdentity
+	hasSidecarProxy bool
 }
 
 func (m *proxyUpdaterMock) RLock()   { m.RWMutex.RLock() }
@@ -41,6 +42,7 @@ func (m *proxyUpdaterMock) GetIdentity() identity.NumericIdentity { return m.ide
 func (m *proxyUpdaterMock) GetLabelsSHA() string {
 	return labels.NewLabelsFromModel(m.labels).SHA256Sum()
 }
+func (m *proxyUpdaterMock) HasSidecarProxy() bool { return m.hasSidecarProxy }
 
 func (m *proxyUpdaterMock) OnProxyPolicyUpdate(policyRevision uint64) {}
 func (m *proxyUpdaterMock) UpdateProxyStatistics(l7Protocol string, port uint16, ingress, request bool,

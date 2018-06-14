@@ -693,6 +693,10 @@ func initEnv(cmd *cobra.Command) {
 	}
 
 	log.Infof("Container runtime options set: %s", workloads.GetRuntimeOptions())
+
+	if viper.GetBool("sidecar-http-proxy") {
+		log.Warn(`"sidecar-http-proxy" flag is deprecated and has no effect`)
+	}
 }
 
 // runCiliumHealthEndpoint attempts to contact the cilium-health endpoint, and

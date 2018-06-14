@@ -31,6 +31,8 @@ import (
 	identityPkg "github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/k8s"
+	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
+	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/policymap"
 	"github.com/cilium/cilium/pkg/metrics"
@@ -887,6 +889,13 @@ func (e *Endpoint) runIPIdentitySync(endpointIP addressing.CiliumIP) {
 // Caller triggers policy regeneration if needed.
 // Called with e.Mutex Locked
 func (e *Endpoint) SetIdentity(identity *identityPkg.Identity) {
+
+	// Set a boolean flag to indicate whether the endpoint has been injected by
+	// Istio with a Cilium-compatible sidecar proxy.
+	istioSidecarProxyLabel := identity.Labels[k8sConst.PolicyLabelIstioSidecarProxy]
+	e.hasSidecarProxy = istioSidecarProxyLabel != nil &&
+		istioSidecarProxyLabel.Source == labels.LabelSourceK8s &&
+		strings.ToLower(istioSidecarProxyLabel.Value) == "true"
 
 	if e.SecurityIdentity != nil && identity.ID == e.SecurityIdentity.ID {
 		// Even if the numeric identity is the same, the order in which the

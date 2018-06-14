@@ -32,6 +32,7 @@ type EndpointInfoSource interface {
 	GetIdentity() identity.NumericIdentity
 	GetLabels() []string
 	GetLabelsSHA() string
+	HasSidecarProxy() bool
 }
 
 // getEndpointInfo returns a consistent snapshot of the given source.
