@@ -759,7 +759,7 @@ specification of network security policies based on the service account
 identity of a pod.
 
 The service account of a pod is either defined via the `service account
-addmision controller
+admission controller
 <https://kubernetes.io/docs/reference/access-authn-authz/admission-controllers/#serviceaccount>`_
 or can be directly specified in the Pod, Deployment, ReplicationController
 resource like this:
