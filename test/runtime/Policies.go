@@ -244,7 +244,7 @@ var _ = Describe("RuntimeValidatedPolicies", func() {
 	var (
 		logger        *logrus.Entry
 		vm            *helpers.SSHMeta
-		monitorStop   func() error
+		monitorStop   = func() error { return nil }
 		initContainer string
 	)
 
