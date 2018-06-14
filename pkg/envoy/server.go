@@ -553,7 +553,7 @@ func (s *XDSServer) UpdateNetworkPolicy(ep logger.EndpointUpdater, policy *polic
 		policies = append(policies, networkPolicy)
 	}
 
-	if viper.GetBool("sidecar-http-proxy") { // Sidecar proxy.
+	if ep.HasSidecarProxy() { // Use sidecar proxy.
 		// If there are no L7 rules, we expect Envoy to NOT be configured with
 		// an L7 filter, in which case we'd never receive an ACK for the policy,
 		// and we'd wait forever.
@@ -582,7 +582,7 @@ func (s *XDSServer) UpdateNetworkPolicy(ep logger.EndpointUpdater, policy *polic
 		if !hasL7Rules {
 			wg = nil
 		}
-	} else { // Node proxy.
+	} else { // Use node proxy.
 		// If there are no listeners configured, the local node's Envoy proxy won't
 		// query for network policies and therefore will never ACK them, and we'd
 		// wait forever.
@@ -607,7 +607,7 @@ func (s *XDSServer) UpdateNetworkPolicy(ep logger.EndpointUpdater, policy *polic
 			c = wg.AddCompletionWithCallback(callback)
 		}
 		nodeIDs := make([]string, 0, 1)
-		if viper.GetBool("sidecar-http-proxy") {
+		if ep.HasSidecarProxy() {
 			if ep.GetIPv4Address() == "" {
 				log.Fatal("Envoy: Sidecar proxy has no IPv4 address")
 			}
