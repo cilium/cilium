@@ -1521,9 +1521,10 @@ func (e *Endpoint) logStatusLocked(typ StatusType, code StatusCode, msg string) 
 	}
 	e.Status.addStatusLog(sts)
 	e.getLogger().WithFields(logrus.Fields{
-		"code":                  sts.Status.Code,
-		"type":                  sts.Status.Type,
-		logfields.EndpointState: sts.Status.State,
+		"code":                   sts.Status.Code,
+		"type":                   sts.Status.Type,
+		logfields.EndpointState:  sts.Status.State,
+		logfields.PolicyRevision: e.policyRevision,
 	}).Debug(msg)
 }
 
