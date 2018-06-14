@@ -148,7 +148,7 @@ var _ = Describe("RuntimeValidatedKafka", func() {
 	})
 
 	It("Kafka Policy Ingress", func() {
-		_, err := vm.PolicyImportAndWait(vm.GetFullPath("Policies-kafka.json"), 300)
+		_, err := vm.PolicyImportAndWait(vm.GetFullPath("Policies-kafka.json"), helpers.HelperTimeout)
 		Expect(err).Should(BeNil())
 
 		endPoints, err := vm.PolicyEndpointsSummary()
@@ -182,7 +182,7 @@ var _ = Describe("RuntimeValidatedKafka", func() {
 	})
 
 	It("Kafka Policy Role Ingress", func() {
-		_, err := vm.PolicyImportAndWait(vm.GetFullPath("Policies-kafka-Role.json"), 300)
+		_, err := vm.PolicyImportAndWait(vm.GetFullPath("Policies-kafka-Role.json"), helpers.HelperTimeout)
 		Expect(err).Should(BeNil(), "Expected nil got %s while importing policy Policies-kafka-Role.json", err)
 
 		endPoints, err := vm.PolicyEndpointsSummary()
