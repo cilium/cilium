@@ -328,9 +328,6 @@ type Endpoint struct {
 	// the endpoint's labels.
 	SecurityIdentity *identityPkg.Identity `json:"SecLabel"`
 
-	// LabelsHash is a SHA256 hash over the SecurityIdentity labels
-	LabelsHash string
-
 	// LabelsMap is the Set of all security labels used in the last policy computation
 	LabelsMap *identityPkg.IdentityCache
 
