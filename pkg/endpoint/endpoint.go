@@ -328,6 +328,13 @@ type Endpoint struct {
 	// the endpoint's labels.
 	SecurityIdentity *identityPkg.Identity `json:"SecLabel"`
 
+	// hasSidecarProxy indicates whether the endpoint has been injected by
+	// Istio with a Cilium-compatible sidecar proxy. If true, the sidecar proxy
+	// will be used to apply L7 policy rules. Otherwise, Cilium's node-wide
+	// proxy will be used.
+	// TODO: Currently this applies only to HTTP L7 rules. Kafka L7 rules are still enforced by Cilium's node-wide Kafka proxy.
+	hasSidecarProxy bool
+
 	// LabelsMap is the Set of all security labels used in the last policy computation
 	LabelsMap *identityPkg.IdentityCache
 
@@ -1012,6 +1019,10 @@ func (e *Endpoint) GetIPv4Address() string {
 // GetIPv6Address returns the IPv6 address of the endpoint
 func (e *Endpoint) GetIPv6Address() string {
 	return e.IPv6.String()
+}
+
+func (e *Endpoint) HasSidecarProxy() bool {
+	return e.hasSidecarProxy
 }
 
 // statusLogMsg represents a log message.
