@@ -175,6 +175,7 @@ spec:
         - name: etcd-secrets
           secret:
             secretName: cilium-etcd-secrets
+            optional: true
       restartPolicy: Always
       tolerations:
       - effect: NoSchedule
