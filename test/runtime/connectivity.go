@@ -15,11 +15,12 @@ import (
 )
 
 var _ = Describe("RuntimeValidatedConnectivityTest", func() {
-
-	var once sync.Once
-	var logger *logrus.Entry
-	var vm *helpers.SSHMeta
-	var monitorStop func() error
+	var (
+		once        sync.Once
+		logger      *logrus.Entry
+		vm          *helpers.SSHMeta
+		monitorStop = func() error { return nil }
+	)
 
 	initialize := func() {
 		logger = log.WithFields(logrus.Fields{"test": "RuntimeConnectivityTest"})
@@ -299,14 +300,16 @@ var _ = Describe("RuntimeValidatedConnectivityTest", func() {
 })
 
 var _ = Describe("RuntimeValidatedConntrackTest", func() {
-	var logger *logrus.Entry
-	var vm *helpers.SSHMeta
-	var once sync.Once
-	var monitorStop func() error
+	var (
+		logger      *logrus.Entry
+		vm          *helpers.SSHMeta
+		once        sync.Once
+		monitorStop = func() error { return nil }
 
-	var curl1ContainerName = "curl"
-	var curl2ContainerName = "curl2"
-	var CTPolicyConntrackLocalDisabled = "ct-test-policy-conntrack-local-disabled.json"
+		curl1ContainerName             = "curl"
+		curl2ContainerName             = "curl2"
+		CTPolicyConntrackLocalDisabled = "ct-test-policy-conntrack-local-disabled.json"
+	)
 
 	type conntestCases struct {
 		from        string

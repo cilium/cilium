@@ -27,18 +27,21 @@ import (
 
 var _ = Describe("RuntimeValidatedKafka", func() {
 
-	var logger *logrus.Entry
-	var vm *helpers.SSHMeta
-	var monitorStop func() error
+	var (
+		logger      *logrus.Entry
+		vm          *helpers.SSHMeta
+		monitorStop = func() error { return nil }
 
-	var allowedTopic string = "allowedTopic"
-	var disallowTopic string = "disallowTopic"
-	var produceCmd string = fmt.Sprintf(
-		"echo \"Message 0\" | docker exec -i client /opt/kafka/bin/kafka-console-producer.sh "+
-			"--broker-list kafka:9092 --topic %s", allowedTopic)
-	var listTopicsCmd string = "/opt/kafka/bin/kafka-topics.sh --list --zookeeper zook:2181"
-	var MaxMessages int = 6
-	var client string = "client"
+		allowedTopic  = "allowedTopic"
+		disallowTopic = "disallowTopic"
+		listTopicsCmd = "/opt/kafka/bin/kafka-topics.sh --list --zookeeper zook:2181"
+		MaxMessages   = 6
+		client        = "client"
+
+		produceCmd = fmt.Sprintf(
+			"echo \"Message 0\" | docker exec -i client /opt/kafka/bin/kafka-console-producer.sh "+
+				"--broker-list kafka:9092 --topic %s", allowedTopic)
+	)
 
 	containers := func(mode string) {
 
