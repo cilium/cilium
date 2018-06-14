@@ -776,12 +776,6 @@ func runDaemon() {
 		log.WithError(err).Fatal("Unable to establish connection to Kubernetes apiserver")
 	}
 
-	// This block is deprecated and will be removed later (GH-3050)
-	logPath := filepath.Join(viper.GetString("state-dir"), "cilium-envoy.log")
-	if err := os.Remove(logPath); !os.IsNotExist(err) && err != nil {
-		log.WithError(err).Warn("Error deleting cilium-envoy.log")
-	}
-
 	swaggerSpec, err := loads.Analyzed(server.SwaggerJSON, "")
 	if err != nil {
 		log.WithError(err).Fatal("Cannot load swagger spec")
