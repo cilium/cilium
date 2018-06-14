@@ -30,11 +30,13 @@ Bertin
 bgpd
 bindata
 Blanco
+blog
 bnxt
 bookinfo
 Bookinfo
 bootstrapper
 Borkmann
+Blog
 bpf
 BPF
 bpftool
@@ -453,6 +455,7 @@ uretprobes
 url
 username
 Userspace
+Ubuntu
 vader
 Vader
 Vagrantfile
