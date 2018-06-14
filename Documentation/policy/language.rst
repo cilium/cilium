@@ -39,14 +39,9 @@ cluster managed by Cilium. Label-based L3 policies are defined by using an
 received (on ingress), or sent (on egress). An empty `EndpointSelector` allows
 all traffic. The examples below demonstrate this in further detail.
 
-When Cilium is running with Kubernetes as an orchestrator, Cilium Network
-Policies are enforced by ``Namespace``. If an explicit namespace selector is
-not defined in the rule's `EndpointSelector`, then an implicit selector will be
-added to the rule which matches on the namespace where the policy is installed.
-A special case for this is that empty `EndpointSelector` only allows *endpoints
-managed by Cilium within the namespace where the policy is installed* to
-send/receive traffic, rather than allowing the endpoint to send/receive *all*
-traffic.
+.. note:: **Kubernetes:** See section :ref:`k8s_namespace` for details on how
+	  the `EndpointSelector` applies in a Kubernetes environment with
+	  regard to namespaces.
 
 Ingress
 ~~~~~~~
@@ -747,6 +742,58 @@ Kubernetes
 ==========
 
 This section covers Kubernetes specific network policy aspects.
+
+.. _k8s_namespaces:
+
+Namespaces
+----------
+
+`Namespaces <https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/>`_
+are used to create virtual clusters within a Kubernetes cluster. All Kubernetes objects
+including NetworkPolicy and CiliumNetworkPolicy belong to a particular
+namespace. Depending on how a policy is being defined and created, Kubernetes
+namespaces are automatically being taken into account:
+
+* Network policies created and imported as `CiliumNetworkPolicy` CRD and
+  `NetworkPolicy` apply within the namespace, i.e. the policy only applies
+  to pods within that namespace. It is however possible to grant access to and
+  from pods in other namespaces as described below.
+
+* Network policies imported directly via the :ref:`api_ref` apply to all
+  namespaces unless a namespace selector is specified as described below.
+
+.. note:: While specification of the namespace via the label
+	  ``k8s:io.kubernetes.pod.namespace`` in the ``fromEndpoints`` and
+	  ``toEndpoints`` fields is deliberately supported. Specification of the
+	  namespace in the ``endpointSelector`` is prohibited as it would
+	  violate the namespace isolation principle of Kubernetes. The
+	  ``endpointSelector`` always applies to pods of the namespace which is
+	  associated with the CiliumNetworkPolicy resource itself.
+
+Example: Expose pods across namespaces
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The following example exposes all pods with the label ``name=leia`` in the
+namespace ``ns1`` to all pods with the label ``name=luke`` in the namespace
+``ns2``.
+
+Refer to the :git-tree:`example YAML files <examples/policies/kubernetes/namespace/demo-pods.yaml>`
+for a fully functional example including pods deployed to different namespaces.
+
+.. only:: html
+
+   .. tabs::
+     .. group-tab:: k8s YAML
+
+        .. literalinclude:: ../../examples/policies/kubernetes/namespace/namespace-policy.yaml
+     .. group-tab:: JSON
+
+        .. literalinclude:: ../../examples/policies/kubernetes/namespace/namespace-policy.json
+
+.. only:: epub or latex
+
+        .. literalinclude:: ../../examples/policies/kubernetes/namespace/namespace-policy.json
+
 
 ServiceAccounts
 ----------------
