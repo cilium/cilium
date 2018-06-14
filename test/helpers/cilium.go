@@ -28,9 +28,8 @@ import (
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/test/config"
-	ginkgoext "github.com/cilium/cilium/test/ginkgo-ext"
+	"github.com/cilium/cilium/test/ginkgo-ext"
 
-	"github.com/onsi/ginkgo"
 	"github.com/onsi/gomega"
 	"github.com/sirupsen/logrus"
 )
@@ -521,7 +520,7 @@ func (s *SSHMeta) PolicyGetRevision() (int, error) {
 // until the policy revision number increments. Returns an error if the policy
 // is invalid or could not be imported.
 func (s *SSHMeta) PolicyImportAndWait(path string, timeout time.Duration) (int, error) {
-	ginkgo.By(fmt.Sprintf("Setting up policy: %s", path))
+	ginkgoext.By(fmt.Sprintf("Setting up policy: %s", path))
 
 	revision, err := s.PolicyGetRevision()
 	if err != nil {
@@ -874,7 +873,7 @@ func (s *SSHMeta) WaitUntilReady(timeout time.Duration) error {
 // RestartCilium reloads cilium on this host, then waits for it to become
 // ready again.
 func (s *SSHMeta) RestartCilium() error {
-	ginkgo.By("Restarting Cilium")
+	ginkgoext.By("Restarting Cilium")
 
 	res := s.ExecWithSudo("systemctl restart cilium")
 	if !res.WasSuccessful() {
