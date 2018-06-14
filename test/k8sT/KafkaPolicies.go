@@ -28,20 +28,23 @@ import (
 var _ = Describe("K8sValidatedKafkaPolicyTest", func() {
 
 	var (
-		kubectl          *helpers.Kubectl
-		ciliumPod        string
-		microscopeErr    error
-		microscopeCancel = func() error { return nil }
-		logger           = log.WithFields(logrus.Fields{"testName": "K8sValidatedKafkaPolicyTest"})
-		l7Policy         = helpers.ManifestGet("kafka-sw-security-policy.yaml")
-		demoPath         = helpers.ManifestGet("kafka-sw-app.yaml")
-		kafkaApp         = "kafka"
-		zookApp          = "zook"
-		backupApp        = "empire-backup"
-		empireHqApp      = "empire-hq"
-		outpostApp       = "empire-outpost"
-		apps             = []string{kafkaApp, zookApp, backupApp, empireHqApp, outpostApp}
-		appPods          = map[string]string{}
+		kubectl             *helpers.Kubectl
+		ciliumPod           string
+		microscopeErr       error
+		microscopeCancel    = func() error { return nil }
+		logger              = log.WithFields(logrus.Fields{"testName": "K8sValidatedKafkaPolicyTest"})
+		l7Policy            = helpers.ManifestGet("kafka-sw-security-policy.yaml")
+		demoPath            = helpers.ManifestGet("kafka-sw-app.yaml")
+		kafkaApp            = "kafka"
+		zookApp             = "zook"
+		backupApp           = "empire-backup"
+		empireHqApp         = "empire-hq"
+		outpostApp          = "empire-outpost"
+		apps                = []string{kafkaApp, zookApp, backupApp, empireHqApp, outpostApp}
+		appPods             = map[string]string{}
+		topicEmpireAnnounce = "empire-announce"
+		topicDeathstarPlans = "deathstar-plans"
+		topicTest           = "test-topic"
 
 		prodHqAnnounce    = `-c "echo 'Happy 40th Birthday to General Tagge' | ./kafka-produce.sh --topic empire-announce"`
 		conOutpostAnnoune = `-c "./kafka-consume.sh --topic empire-announce --from-beginning --max-messages 1"`
@@ -57,9 +60,30 @@ var _ = Describe("K8sValidatedKafkaPolicyTest", func() {
 			"cilium endpoint list")
 	})
 
-	// GH-4414: put test in a context so that if any failures occur in BeforeAll,
-	// logs will be gathered by the above "AfterFailed".
 	Context("Kafka Policy Tests", func() {
+		createTopicCmd := func(topic string) string {
+			return fmt.Sprintf("/opt/kafka/bin/kafka-topics.sh --create --zookeeper zook:2181 "+
+				"--replication-factor 1 --partitions 1 --topic %s", topic)
+		}
+
+		createTopic := func(topic string, pod string) error {
+			return kubectl.ExecKafkaPodCmd(helpers.DefaultNamespace, pod, createTopicCmd(topic))
+		}
+
+		// WaitKafkaBroker waits for the broker to be ready, by executing
+		// a command repeatedly until it succeeds, or a timeout occurs
+		waitForKafkaBroker := func(pod string, cmd string) error {
+			body := func() bool {
+				err := kubectl.ExecKafkaPodCmd(helpers.DefaultNamespace, pod, cmd)
+				if err != nil {
+					return false
+				}
+				return true
+			}
+			err := helpers.WithTimeout(body, "Kafka Broker not ready", &helpers.TimeoutConfig{Timeout: helpers.HelperTimeout})
+			return err
+		}
+
 		JustBeforeEach(func() {
 			microscopeErr, microscopeCancel = kubectl.MicroscopeStart()
 			Expect(microscopeErr).To(BeNil(), "Microscope cannot be started")
@@ -88,7 +112,7 @@ var _ = Describe("K8sValidatedKafkaPolicyTest", func() {
 			ExpectKubeDNSReady(kubectl)
 
 			kubectl.Apply(demoPath)
-			err = kubectl.WaitforPods(helpers.DefaultNamespace, "-l zgroup=kafkaTestApp", 300)
+			err = kubectl.WaitforPods(helpers.DefaultNamespace, "-l zgroup=kafkaTestApp", helpers.HelperTimeout)
 			Expect(err).Should(BeNil(), "Kafka Pods are not ready after timeout")
 
 			err = kubectl.WaitForKubeDNSEntry("kafka-service." + helpers.DefaultNamespace)
@@ -100,15 +124,26 @@ var _ = Describe("K8sValidatedKafkaPolicyTest", func() {
 
 			ciliumPod, err = kubectl.GetCiliumPodOnNode(helpers.KubeSystemNamespace, helpers.K8s2)
 			Expect(err).To(BeNil(), "Cannot get cilium Pod")
+
+			By("Wait for Kafka broker to be up")
+			err = waitForKafkaBroker(appPods[empireHqApp], createTopicCmd(topicTest))
+			Expect(err).To(BeNil(), "Timeout: Kafka cluster failed to come up correctly")
 		})
 
 		It("KafkaPolicies", func() {
+			By("Creating new kafka topic %s", topicEmpireAnnounce)
+			err := createTopic(topicEmpireAnnounce, appPods[empireHqApp])
+			Expect(err).Should(BeNil(), "Failed to create topic empire-announce")
+
+			By("Creating new kafka topic %s", topicDeathstarPlans)
+			err = createTopic(topicDeathstarPlans, appPods[empireHqApp])
+			Expect(err).Should(BeNil(), "Failed to create topic deathstar-plans")
 
 			By("Testing basic Kafka Produce and Consume")
 			// We need to produce first, since consumer script waits for
 			// some messages to be already there by the producer.
 
-			err := kubectl.ExecKafkaPodCmd(
+			err = kubectl.ExecKafkaPodCmd(
 				helpers.DefaultNamespace, appPods[empireHqApp], fmt.Sprintf(prodHqAnnounce))
 			Expect(err).Should(BeNil(), "Failed to produce to empire-hq on topic empire-announce")
 
