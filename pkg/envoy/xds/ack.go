@@ -32,6 +32,11 @@ type ResourceVersionAckObserver interface {
 	// has acknowledged having applied the resources.
 	// Calls to this function must not block.
 	HandleResourceVersionAck(version uint64, node *envoy_api_v2_core.Node, resourceNames []string, typeURL string)
+
+	// HandleResourceVersionNack notifies that the node with the given Node ID
+	// failed to apply the resources.
+	// Calls to this function must not block.
+	HandleResourceVersionNack(version uint64, node *envoy_api_v2_core.Node, resourceNames []string, typeURL string)
 }
 
 // AckingResourceMutator is a variant of ResourceMutator which calls back a
@@ -200,11 +205,60 @@ func (m *AckingResourceMutatorWrapper) HandleResourceVersionAck(version uint64, 
 				}
 				if len(comp.remainingNodesResources) == 0 {
 					// Completed. Notify and remove from pending list.
-					ackLog.Debug("completing ACK: %v", comp)
-					comp.completion.Complete()
+					ackLog.Debugf("completing ACK: %v", comp)
+					comp.completion.Complete(true)
 					continue
 				}
 
+			}
+		}
+
+		// Completion didn't match or is still waiting for some ACKs. Keep it
+		// in the pending list.
+		remainingCompletions = append(remainingCompletions, comp)
+	}
+
+	m.pendingCompletions = remainingCompletions
+}
+
+func (m *AckingResourceMutatorWrapper) HandleResourceVersionNack(version uint64, node *envoy_api_v2_core.Node, resourceNames []string, typeURL string) {
+	ackLog := log.WithFields(logrus.Fields{
+		logfields.XDSVersionInfo: version,
+		logfields.XDSClientNode:  node,
+		logfields.XDSTypeURL:     typeURL,
+	})
+
+	nodeID, err := m.nodeToID(node)
+	if err != nil {
+		// Ignore NACKs from unknown or misconfigured nodes which have invalid
+		// node identifiers.
+		ackLog.Warning("invalid ID in Node identifier; ignoring NACK")
+		return
+	}
+
+	m.locker.Lock()
+	defer m.locker.Unlock()
+
+	remainingCompletions := make([]*pendingCompletion, 0, len(m.pendingCompletions))
+
+	for _, comp := range m.pendingCompletions {
+		if comp.completion.Context().Err() != nil {
+			// Completion was canceled or timed out.
+			// Remove from pending list.
+			ackLog.Debugf("completion context was canceled: %v", comp)
+			continue
+		}
+
+		if comp.version > version && comp.typeURL == typeURL {
+			// Check if this nodeID is still waiting for an ACK.
+			_, found := comp.remainingNodesResources[nodeID]
+			if found {
+				ackLog.Debug("Notifying resource owner of NACK: %v", comp)
+				newVersion := comp.completion.Complete(false)
+				if newVersion != 0 {
+					ackLog.Debugf("Resource updated, trying again with version %u", newVersion)
+					comp.version = newVersion
+				}
 			}
 		}
 

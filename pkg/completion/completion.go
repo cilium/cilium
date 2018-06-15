@@ -46,14 +46,10 @@ func (wg *WaitGroup) Context() context.Context {
 
 // AddCompletionWithCallback creates a new completion, adds it to the wait
 // group, and returns it. The callback will be called upon completion.
-func (wg *WaitGroup) AddCompletionWithCallback(callback func()) *Completion {
+func (wg *WaitGroup) AddCompletionWithCallback(callback func(success bool) uint64) *Completion {
 	wg.counterLocker.Lock()
 	defer wg.counterLocker.Unlock()
-	c := &Completion{
-		ctx:       wg.ctx,
-		completed: make(chan struct{}),
-		callback:  callback,
-	}
+	c := NewCallback(wg.ctx, callback)
 	wg.pendingCompletions = append(wg.pendingCompletions, c)
 	return c
 }
@@ -80,7 +76,7 @@ Loop:
 			// Complete the remaining completions to make sure their completed
 			// channels are closed.
 			for _, comp := range wg.pendingCompletions[i:] {
-				comp.complete(false)
+				comp.complete(false, false)
 			}
 			break Loop
 		}
@@ -103,7 +99,9 @@ type Completion struct {
 	completed chan struct{}
 
 	// callback is called when Complete is called the first time.
-	callback func()
+	// 'success' tells if the operation was successful or not.
+	// returns updated version number or 0.
+	callback func(success bool) uint64
 }
 
 // Context returns the context of the asynchronous computation.
@@ -115,8 +113,8 @@ func (c *Completion) Context() context.Context {
 
 // Complete notifies of the completion of the asynchronous computation.
 // Idempotent.
-func (c *Completion) Complete() {
-	c.complete(true)
+func (c *Completion) Complete(success bool) uint64 {
+	return c.complete(true, success)
 }
 
 // Complete notifies of the completion of the asynchronous computation.
@@ -124,7 +122,8 @@ func (c *Completion) Complete() {
 // the Completion was created by calling WaitGroup.AddCompletionWithCallback or
 // NewCallback with a non-nil callback, that callback is called.
 // Idempotent.
-func (c *Completion) complete(runCallback bool) {
+// Returns the version number of the updated resource, or 0.
+func (c *Completion) complete(runCallback bool, success bool) uint64 {
 	c.lock.Lock()
 	select {
 	case <-c.completed:
@@ -133,9 +132,10 @@ func (c *Completion) complete(runCallback bool) {
 		close(c.completed)
 		c.lock.Unlock()
 		if runCallback && c.callback != nil {
-			c.callback()
+			return c.callback(success)
 		}
 	}
+	return 0
 }
 
 // Completed returns a channel that's closed when the completion is completed,
@@ -146,7 +146,7 @@ func (c *Completion) Completed() <-chan struct{} {
 }
 
 // NewCallback creates a Completion which calls a function upon Complete().
-func NewCallback(ctx context.Context, callback func()) *Completion {
+func NewCallback(ctx context.Context, callback func(success bool) uint64) *Completion {
 	return &Completion{
 		ctx:       ctx,
 		completed: make(chan struct{}),

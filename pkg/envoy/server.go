@@ -70,6 +70,9 @@ type XDSServer struct {
 	// listenerProto is a generic Envoy Listener protobuf. Immutable.
 	listenerProto *envoy_api_v2.Listener
 
+	// listenerCache publishes listener configuration updates to Envoy host proxy.
+	listenerCache *xds.Cache
+
 	// listenerMutator publishes listener updates to Envoy proxies.
 	listenerMutator xds.AckingResourceMutator
 
@@ -204,6 +207,7 @@ func StartXDSServer(stateDir string) *XDSServer {
 	return &XDSServer{
 		socketPath:             xdsPath,
 		listenerProto:          listenerProto,
+		listenerCache:          ldsCache,
 		listenerMutator:        ldsMutator,
 		listeners:              make(map[string]struct{}),
 		networkPolicyCache:     npdsCache,
@@ -237,7 +241,29 @@ func (s *XDSServer) AddListener(name string, endpointPolicyName string, port uin
 
 	listenerConf.FilterChains[0].Filters[1].Config.Fields["http_filters"].GetListValue().Values[0].GetStructValue().Fields["config"].GetStructValue().Fields["policy_name"] = &structpb.Value{Kind: &structpb.Value_StringValue{StringValue: endpointPolicyName}}
 
-	s.listenerMutator.Upsert(ListenerTypeURL, name, listenerConf, []string{"127.0.0.1"}, wg.AddCompletion())
+	retries := 0
+	maxRetries := 10
+	callback := func(success bool) uint64 {
+		if success {
+			log.Debug("Envoy: Successfully applied new listener configuration (ACK received)")
+		} else if retries < maxRetries {
+			retries++
+			// Upsert a new version of the Listener
+			// TODO: Try to recover by reallocating the proxy port
+			version, updated := s.listenerCache.Upsert(ListenerTypeURL, name, listenerConf, true)
+			if updated {
+				log.Debug("Envoy: Listener updated after NACK, trying again")
+				return version
+			} else {
+				log.Error("Envoy: Listener update after NACK failed")
+			}
+		} else {
+			log.Errorf("Envoy: Failed to apply new listener configuration after %u retries (NACK received)", maxRetries)
+		}
+		return 0 // No new version
+	}
+
+	s.listenerMutator.Upsert(ListenerTypeURL, name, listenerConf, []string{"127.0.0.1"}, wg.AddCompletionWithCallback(callback))
 }
 
 // RemoveListener removes an existing Envoy Listener.
@@ -526,7 +552,7 @@ func getNetworkPolicy(name string, id identity.NumericIdentity, policy *policy.L
 // UpdateNetworkPolicy adds or updates a network policy in the set published
 // to L7 proxies.
 // When the proxy acknowledges the network policy update, it will result in
-// a subsequent call to the endpoint's OnProxyPolicyAcknowledge() function.
+// a subsequent call to the endpoint's OnProxyPolicyUpdate() function.
 func (s *XDSServer) UpdateNetworkPolicy(ep logger.EndpointUpdater, policy *policy.L4Policy,
 	ingressPolicyEnforced, egressPolicyEnforced bool, labelsMap identity.IdentityCache,
 	deniedIngressIdentities, deniedEgressIdentities map[identity.NumericIdentity]bool, wg *completion.WaitGroup) error {
@@ -593,11 +619,16 @@ func (s *XDSServer) UpdateNetworkPolicy(ep logger.EndpointUpdater, policy *polic
 
 	// When successful, push them into the cache.
 	for _, p := range policies {
-		var callback func()
+		var callback func(success bool) uint64
 		if policy != nil {
 			policyRevision := policy.Revision
-			callback = func() {
-				go ep.OnProxyPolicyUpdate(policyRevision)
+			callback = func(success bool) uint64 {
+				if success {
+					go ep.OnProxyPolicyUpdate(policyRevision)
+				} else {
+					log.Errorf("Envoy: Failed to apply updated Network Policy revision %u (NACK received)", policyRevision)
+				}
+				return 0
 			}
 		}
 		var c *completion.Completion
