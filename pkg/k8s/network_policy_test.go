@@ -16,7 +16,6 @@ package k8s
 
 import (
 	"encoding/json"
-	"fmt"
 	"testing"
 
 	"github.com/cilium/cilium/api/v1/models"
@@ -158,17 +157,7 @@ func (s *K8sSuite) TestParseNetworkPolicyIngress(c *C) {
 	repo.AddList(rules)
 	c.Assert(repo.AllowsIngressRLocked(&ctx), Equals, api.Denied)
 
-	matchLabels := make(map[string]string)
-	for _, v := range fromEndpoints {
-		matchLabels[fmt.Sprintf("%s.%s", v.Source, v.Key)] = v.Value
-	}
-	lblSelector := metav1.LabelSelector{
-		MatchLabels: matchLabels,
-	}
-	epSelector := api.EndpointSelector{
-		LabelSelector: &lblSelector,
-	}
-
+	epSelector := api.NewESFromLabels(fromEndpoints...)
 	ingressL4Policy, err := repo.ResolveL4IngressPolicy(&ctx)
 	c.Assert(ingressL4Policy, Not(IsNil))
 	c.Assert(err, IsNil)
@@ -247,17 +236,7 @@ func (s *K8sSuite) TestParseNetworkPolicyNoSelectors(c *C) {
 		labels.NewLabel("role", "backend", labels.LabelSourceK8s),
 	}
 
-	matchLabels := make(map[string]string)
-	for _, v := range fromEndpoints {
-		matchLabels[fmt.Sprintf("%s.%s", v.Source, v.Key)] = v.Value
-	}
-	lblSelector := metav1.LabelSelector{
-		MatchLabels: matchLabels,
-	}
-	epSelector := api.EndpointSelector{
-		LabelSelector: &lblSelector,
-	}
-
+	epSelector := api.NewESFromLabels(fromEndpoints...)
 	np := networkingv1.NetworkPolicy{}
 	err := json.Unmarshal(ex1, &np)
 	c.Assert(err, IsNil)
@@ -354,17 +333,7 @@ func (s *K8sSuite) TestParseNetworkPolicyEgress(c *C) {
 	// expected.
 	c.Assert(repo.AllowsEgressRLocked(&ctx), Equals, api.Denied)
 
-	matchLabels := make(map[string]string)
-	for _, v := range toEndpoints {
-		matchLabels[fmt.Sprintf("%s.%s", v.Source, v.Key)] = v.Value
-	}
-	lblSelector := metav1.LabelSelector{
-		MatchLabels: matchLabels,
-	}
-	epSelector := api.EndpointSelector{
-		LabelSelector: &lblSelector,
-	}
-
+	epSelector := api.NewESFromLabels(toEndpoints...)
 	egressL4Policy, err := repo.ResolveL4EgressPolicy(&ctx)
 	c.Assert(egressL4Policy, Not(IsNil))
 	c.Assert(err, IsNil)
@@ -1427,6 +1396,10 @@ func (s *K8sSuite) TestCIDRPolicyExamples(c *C) {
 
 }
 
+func getSelectorPointer(sel api.EndpointSelector) *api.EndpointSelector {
+	return &sel
+}
+
 func Test_parseNetworkPolicyPeer(t *testing.T) {
 	type args struct {
 		namespace string
@@ -1456,21 +1429,21 @@ func Test_parseNetworkPolicyPeer(t *testing.T) {
 					},
 				},
 			},
-			want: &api.EndpointSelector{
-				LabelSelector: &metav1.LabelSelector{
-					MatchLabels: map[string]string{
+			want: getSelectorPointer(
+				api.NewESFromMatchRequirements(
+					map[string]string{
 						"k8s.foo":                         "bar",
 						"k8s.io.kubernetes.pod.namespace": "foo-namespace",
 					},
-					MatchExpressions: []metav1.LabelSelectorRequirement{
+					[]metav1.LabelSelectorRequirement{
 						{
 							Key:      "k8s.foo",
 							Operator: metav1.LabelSelectorOpIn,
 							Values:   []string{"bar", "baz"},
 						},
 					},
-				},
-			},
+				),
+			),
 		},
 		{
 			name: "peer-nil",
@@ -1510,13 +1483,13 @@ func Test_parseNetworkPolicyPeer(t *testing.T) {
 					},
 				},
 			},
-			want: &api.EndpointSelector{
-				LabelSelector: &metav1.LabelSelector{
-					MatchLabels: map[string]string{
+			want: getSelectorPointer(
+				api.NewESFromMatchRequirements(
+					map[string]string{
 						"k8s.foo": "bar",
 						"k8s.io.cilium.k8s.namespace.labels.ns-foo": "ns-bar",
 					},
-					MatchExpressions: []metav1.LabelSelectorRequirement{
+					[]metav1.LabelSelectorRequirement{
 						{
 							Key:      "k8s.io.cilium.k8s.namespace.labels.ns-foo-expression",
 							Operator: metav1.LabelSelectorOpExists,
@@ -1528,8 +1501,8 @@ func Test_parseNetworkPolicyPeer(t *testing.T) {
 							Values:   []string{"bar", "baz"},
 						},
 					},
-				},
-			},
+				),
+			),
 		},
 		{
 			name: "peer-with-ns-selector",
@@ -1550,20 +1523,20 @@ func Test_parseNetworkPolicyPeer(t *testing.T) {
 					},
 				},
 			},
-			want: &api.EndpointSelector{
-				LabelSelector: &metav1.LabelSelector{
-					MatchLabels: map[string]string{
+			want: getSelectorPointer(
+				api.NewESFromMatchRequirements(
+					map[string]string{
 						"k8s.io.cilium.k8s.namespace.labels.ns-foo": "ns-bar",
 					},
-					MatchExpressions: []metav1.LabelSelectorRequirement{
+					[]metav1.LabelSelectorRequirement{
 						{
 							Key:      "k8s.io.cilium.k8s.namespace.labels.ns-foo-expression",
 							Operator: metav1.LabelSelectorOpExists,
 							Values:   []string{"bar", "baz"},
 						},
 					},
-				},
-			},
+				),
+			),
 		},
 	}
 	for _, tt := range tests {

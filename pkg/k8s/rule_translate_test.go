@@ -15,8 +15,6 @@
 package k8s
 
 import (
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
 	"github.com/cilium/cilium/common/types"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/policy"
@@ -113,12 +111,7 @@ func (s *K8sSuite) TestTranslatorLabels(c *C) {
 		},
 	}
 
-	selector := api.ServiceSelector{
-		LabelSelector: &metav1.LabelSelector{
-			MatchLabels: svcLabels,
-		},
-	}
-
+	selector := api.ServiceSelector(api.NewESFromMatchRequirements(svcLabels, nil))
 	rule1 := api.Rule{
 		EndpointSelector: api.NewESFromLabels(labels.ParseSelectLabel("bar")),
 		Egress: []api.EgressRule{{
