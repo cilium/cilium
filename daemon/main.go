@@ -326,6 +326,7 @@ func init() {
 	flags.StringSliceVar(&debugVerboseFlags, argDebugVerbose, []string{}, "List of enabled verbose debug groups")
 	flags.StringVarP(&option.Config.Device,
 		"device", "d", "undefined", "Device facing cluster/external network for direct L3 (non-overlay mode)")
+	flags.IntP("gc-interval", "", 60, "Garbage collection interval in seconds")
 	flags.BoolVar(&disableConntrack,
 		"disable-conntrack", false, "Disable connection tracking")
 	flags.BoolVar(&option.Config.IPv4Disabled,
@@ -735,7 +736,7 @@ func runDaemon() {
 	}
 
 	log.Info("Starting connection tracking garbage collector")
-	endpointmanager.EnableConntrackGC(!option.Config.IPv4Disabled, true)
+	endpointmanager.EnableConntrackGC(!option.Config.IPv4Disabled, true, viper.GetInt("gc-interval"))
 
 	if enableLogstash {
 		log.Info("Enabling Logstash")
