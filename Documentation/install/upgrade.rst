@@ -7,12 +7,165 @@ Upgrade Guide
 Kubernetes Cilium Upgrade
 =========================
 
-Cilium should be upgraded using Kubernetes rolling upgrade functionality in order to minimize network disruptions for running workloads.
+Cilium should be upgraded using Kubernetes rolling upgrade functionality in
+order to minimize network disruptions for running workloads.
+
+If you have followed the installation guide from :ref:`ds_deploy`, you probably
+have deployed a single ``cilium.yaml`` file. That file contains all the
+necessary components to run Cilium in your Kubernetes cluster. Those components
+were a `ConfigMap`, a ``ServiceAccount``, a ``DaemonSet``, and the ``RBAC`` for
+Cilium to access the Kubernetes api-server.
+
+Since Cilium might need more, or fewer permissions to access Kubernetes
+api-server between releases, the ``RBAC`` might change between versions as well.
 
 The safest way to upgrade Cilium to version "\ |SCM_BRANCH|" is by updating the
-RBAC rules and the DaemonSet file provided, which makes sure the ConfigMap,
-initially set up by ``cilium.yaml``, already stored in the cluster will not be
-affected by the upgrade.
+``RBAC`` rules and the ``DaemonSet`` files separately, which makes sure the
+`ConfigMap` initially set up by ``cilium.yaml`` and already stored in Kubernetes
+will not be affected by the upgrade.
+
+It is also recommended to upgrade the `ConfigMap`, but this is a process that
+should be done manually before upgrading the ``RBAC`` and the ``DaemonSet``.
+Upgrading the `ConfigMap` first will not affect current Cilium pods as the
+new `ConfigMap` configurations are only used when a pod is restarted.
+
+Upgrade ConfigMap
+~~~~~~~~~~~~~~~~~
+
+1. To update your current `ConfigMap` store it locally so you can modify it:
+
+::
+
+        $ kubectl get configmap -n kube-system cilium-config -o yaml --export > cilium-cm-old.yaml
+        $ cat ./cilium-cm-old.yaml
+        apiVersion: v1
+        data:
+          clean-cilium-state: "false"
+          debug: "true"
+          disable-ipv4: "false"
+          etcd-config: |-
+            ---
+            endpoints:
+            - https://192.168.33.11:2379
+            #
+            # In case you want to use TLS in etcd, uncomment the 'ca-file' line
+            # and create a kubernetes secret by following the tutorial in
+            # https://cilium.link/etcd-config
+            ca-file: '/var/lib/etcd-secrets/etcd-ca'
+            #
+            # In case you want client to server authentication, uncomment the following
+            # lines and add the certificate and key in cilium-etcd-secrets below
+            key-file: '/var/lib/etcd-secrets/etcd-client-key'
+            cert-file: '/var/lib/etcd-secrets/etcd-client-crt'
+          sidecar-http-proxy: "false"
+        kind: ConfigMap
+        metadata:
+          creationTimestamp: null
+          name: cilium-config
+          selfLink: /api/v1/namespaces/kube-system/configmaps/cilium-config
+
+
+In the `ConfigMap` above, we can verify that Cilium is using ``debug`` with
+``true``, it has a etcd endpoint running with `TLS <https://coreos.com/etcd/docs/latest/op-guide/security.html>`_,
+and the etcd is set up to have `client to server authentication <https://coreos.com/etcd/docs/latest/op-guide/security.html#example-2-client-to-server-authentication-with-https-client-certificates>`_.
+
+2. Download the `ConfigMap` with the changes for "\ |SCM_BRANCH|":
+
+.. tabs::
+  .. group-tab:: K8s 1.7
+
+    .. parsed-literal::
+
+      $ wget \ |SCM_WEB|\/examples/kubernetes/1.7/cilium-cm.yaml
+
+  .. group-tab:: K8s 1.8
+
+    .. parsed-literal::
+
+      $ wget \ |SCM_WEB|\/examples/kubernetes/1.8/cilium-cm.yaml
+
+  .. group-tab:: K8s 1.9
+
+    .. parsed-literal::
+
+      $ wget \ |SCM_WEB|\/examples/kubernetes/1.9/cilium-cm.yaml
+
+  .. group-tab:: K8s 1.10
+
+    .. parsed-literal::
+
+      $ wget \ |SCM_WEB|\/examples/kubernetes/1.10/cilium-cm.yaml
+
+  .. group-tab:: K8s 1.11
+
+    .. parsed-literal::
+
+      $ wget \ |SCM_WEB|\/examples/kubernetes/1.11/cilium-cm.yaml
+
+
+Verify its contents:
+
+.. literalinclude:: ../../examples/kubernetes/1.7/cilium-cm.yaml
+
+
+3. Add the new options manually to your old `ConfigMap`, and make the necessary
+changes.
+
+In this example, the ``debug`` option is meant to be kept with ``true``, the
+``etcd-config`` is kept unchanged, and ``legacy-host-allows-world`` is a new
+option, but after reading the :ref:`upgrade_notes` the value was kept unchanged
+from the default value.
+
+After making the necessary changes, the old `ConfigMap` was migrated with the
+new options while keeping the configuration that we wanted:
+
+::
+
+        $ cat ./cilium-cm-old.yaml
+        apiVersion: v1
+        data:
+          debug: "true"
+          disable-ipv4: "false"
+          # If you want to clean cilium state; change this value to true
+          clean-cilium-state: "false"
+          legacy-host-allows-world: "false"
+          etcd-config: |-
+            ---
+            endpoints:
+            - https://192.168.33.11:2379
+            #
+            # In case you want to use TLS in etcd, uncomment the 'ca-file' line
+            # and create a kubernetes secret by following the tutorial in
+            # https://cilium.link/etcd-config
+            ca-file: '/var/lib/etcd-secrets/etcd-ca'
+            #
+            # In case you want client to server authentication, uncomment the following
+            # lines and add the certificate and key in cilium-etcd-secrets below
+            key-file: '/var/lib/etcd-secrets/etcd-client-key'
+            cert-file: '/var/lib/etcd-secrets/etcd-client-crt'
+        kind: ConfigMap
+        metadata:
+          creationTimestamp: null
+          name: cilium-config
+          selfLink: /api/v1/namespaces/kube-system/configmaps/cilium-config
+
+After adding the options, manually save the file with your changes and install
+the `ConfigMap` in your cluster.
+
+::
+
+        $ kubectl apply -f ./cilium-cm-old.yaml
+
+As the `ConfigMap` is successfully upgraded we can start upgrading Cilium
+``DaemonSet`` and ``RBAC`` which will pick up the latest configuration from the
+`ConfigMap`.
+
+Upgrading Cilium DaemonSet and RBAC
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Simply pick your Kubernetes version and run ``kubectl apply`` for the ``RBAC``
+and the ``DaemonSet``.
+
 Both files are dedicated to "\ |SCM_BRANCH|" for each Kubernetes version.
 
 .. tabs::
@@ -101,6 +254,8 @@ also disable the usage of the feature.
 + CIDR policies matching on default prefix     | ``v1.1.0``        | Remove policies that match a ``/0`` prefix   | `Github PR <https://github.com/cilium/cilium/pull/4458>`_ |
 +----------------------------------------------+-------------------+----------------------------------------------+-----------------------------------------------------------+
 
+.. _upgrade_notes:
+
 Upgrade notes
 =============
 
@@ -110,7 +265,7 @@ mitigate or remediate the issue for users upgrading from an earlier release.
 .. _host_vs_world:
 
 Traffic from world to endpoints is classified as from host
-----------------------------------------------------------
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 In Cilium 1.0, all traffic from the host, including from local processes and
 traffic that is masqueraded from the outside world to the host IP, would be
