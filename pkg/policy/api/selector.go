@@ -152,10 +152,20 @@ func NewESFromLabels(lbls ...*labels.Label) EndpointSelector {
 	for _, lbl := range lbls {
 		ml[lbl.GetExtendedKey()] = lbl.Value
 	}
+
+	return NewESFromMatchRequirements(ml, nil)
+}
+
+// NewESFromMatchRequirements creates a new endpoint selector from the given
+// match specifications: An optional set of labels that must match, and
+// an optional slice of LabelSelectorRequirements.
+func NewESFromMatchRequirements(matchLabels map[string]string, reqs []metav1.LabelSelectorRequirement) EndpointSelector {
+	labelSelector := &metav1.LabelSelector{
+		MatchLabels:      matchLabels,
+		MatchExpressions: reqs,
+	}
 	return EndpointSelector{
-		&metav1.LabelSelector{
-			MatchLabels: ml,
-		},
+		LabelSelector: labelSelector,
 	}
 }
 

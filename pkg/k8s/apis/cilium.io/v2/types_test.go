@@ -16,6 +16,7 @@ package v2
 
 import (
 	"encoding/json"
+	"fmt"
 	"testing"
 
 	"github.com/cilium/cilium/pkg/comparator"
@@ -254,11 +255,16 @@ var (
 )
 
 func (s *CiliumV2Suite) TestParseSpec(c *C) {
-
-	es := api.NewESFromLabels(labels.ParseSelectLabel("role=backend"))
-	es.MatchExpressions = []metav1.LabelSelectorRequirement{
-		{Key: "any.role", Operator: "NotIn", Values: []string{"production"}},
-	}
+	es := api.NewESFromMatchRequirements(
+		map[string]string{
+			fmt.Sprintf("%s.role", labels.LabelSourceAny): "backend",
+		},
+		[]metav1.LabelSelectorRequirement{{
+			Key:      fmt.Sprintf("%s.role", labels.LabelSourceAny),
+			Operator: "NotIn",
+			Values:   []string{"production"},
+		}},
+	)
 
 	apiRule.EndpointSelector = es
 
@@ -278,9 +284,17 @@ func (s *CiliumV2Suite) TestParseSpec(c *C) {
 		Spec: &apiRuleWithLabels,
 	}
 
-	expectedES := api.NewESFromLabels(labels.ParseSelectLabel("role=backend"), labels.ParseSelectLabel("k8s:"+k8sConst.PodNamespaceLabel+"=default"))
-	expectedES.MatchExpressions = []metav1.LabelSelectorRequirement{{Key: "any.role", Operator: "NotIn", Values: []string{"production"}}}
-
+	expectedES := api.NewESFromMatchRequirements(
+		map[string]string{
+			fmt.Sprintf("%s.role", labels.LabelSourceAny):                           "backend",
+			fmt.Sprintf("%s.%s", labels.LabelSourceK8s, k8sConst.PodNamespaceLabel): "default",
+		},
+		[]metav1.LabelSelectorRequirement{{
+			Key:      fmt.Sprintf("%s.role", labels.LabelSourceAny),
+			Operator: "NotIn",
+			Values:   []string{"production"},
+		}},
+	)
 	expectedSpecRule.EndpointSelector = expectedES
 
 	rules, err := expectedPolicyRule.Parse()
@@ -302,8 +316,16 @@ func (s *CiliumV2Suite) TestParseSpec(c *C) {
 }
 
 func (s *CiliumV2Suite) TestParseRules(c *C) {
-	es := api.NewESFromLabels(labels.ParseSelectLabel("role=backend"))
-	es.MatchExpressions = []metav1.LabelSelectorRequirement{{Key: "any.role", Operator: "NotIn", Values: []string{"production"}}}
+	es := api.NewESFromMatchRequirements(
+		map[string]string{
+			fmt.Sprintf("%s.role", labels.LabelSourceAny): "backend",
+		},
+		[]metav1.LabelSelectorRequirement{{
+			Key:      fmt.Sprintf("%s.role", labels.LabelSourceAny),
+			Operator: "NotIn",
+			Values:   []string{"production"},
+		}},
+	)
 
 	apiRule.EndpointSelector = es
 
@@ -323,11 +345,18 @@ func (s *CiliumV2Suite) TestParseRules(c *C) {
 		Specs: api.Rules{&apiRuleWithLabels, &apiRuleWithLabels},
 	}
 
-	expectedES := api.NewESFromLabels(labels.ParseSelectLabel("role=backend"), labels.ParseSelectLabel("k8s:"+k8sConst.PodNamespaceLabel+"=default"))
-	expectedES.MatchExpressions = []metav1.LabelSelectorRequirement{{Key: "any.role", Operator: "NotIn", Values: []string{"production"}}}
-
+	expectedES := api.NewESFromMatchRequirements(
+		map[string]string{
+			fmt.Sprintf("%s.role", labels.LabelSourceAny):                           "backend",
+			fmt.Sprintf("%s.%s", labels.LabelSourceK8s, k8sConst.PodNamespaceLabel): "default",
+		},
+		[]metav1.LabelSelectorRequirement{{
+			Key:      fmt.Sprintf("%s.role", labels.LabelSourceAny),
+			Operator: "NotIn",
+			Values:   []string{"production"},
+		}},
+	)
 	expectedSpecRule.EndpointSelector = expectedES
-
 	expectedSpecRules := api.Rules{&expectedSpecRule, &expectedSpecRule}
 
 	rules, err := expectedPolicyRuleList.Parse()
