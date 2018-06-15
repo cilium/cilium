@@ -32,6 +32,7 @@ var log = logging.DefaultLogger
 // EndpointSelector is a wrapper for k8s LabelSelector.
 type EndpointSelector struct {
 	*metav1.LabelSelector
+	k8sLbls.Selector
 }
 
 // LabelSelectorString returns a user-friendly string representation of
@@ -138,10 +139,21 @@ func NewESFromLabels(lbls ...*labels.Label) EndpointSelector {
 	for _, lbl := range lbls {
 		ml[lbl.GetExtendedKey()] = lbl.Value
 	}
+	labelSelector := &metav1.LabelSelector{
+		MatchLabels: ml,
+	}
+	// This validates the labels, which can be expensive (and may fail..)
+	// If there's an error, the selector will be nil and the Matches()
+	// implementation will refuse to match any labels.
+	selector, err := metav1.LabelSelectorAsSelector(labelSelector)
+	if err != nil {
+		log.WithError(err).WithField(logfields.EndpointLabelSelector,
+			logfields.Repr(labelSelector)).Error("unable to construct selector in label selector")
+	}
+	// Ignore err: Matches() will check it against nil and match nothing.
 	return EndpointSelector{
-		&metav1.LabelSelector{
-			MatchLabels: ml,
-		},
+		LabelSelector: labelSelector,
+		Selector:      selector,
 	}
 }
 
@@ -194,11 +206,22 @@ func NewESFromK8sLabelSelector(srcPrefix string, lss ...*metav1.LabelSelector) E
 			}
 		}
 	}
+	labelSelector := &metav1.LabelSelector{
+		MatchLabels:      matchLabels,
+		MatchExpressions: matchExpressions,
+	}
+	// This validates the labels, which can be expensive (and may fail..)
+	// If there's an error, the selector will be nil and the Matches()
+	// implementation will refuse to match any labels.
+	selector, err := metav1.LabelSelectorAsSelector(labelSelector)
+	if err != nil {
+		log.WithError(err).WithField(logfields.EndpointLabelSelector,
+			logfields.Repr(labelSelector)).Error("unable to construct selector in label selector")
+	}
+	// Ignore err: Matches() will check it against nil and match nothing.
 	return EndpointSelector{
-		LabelSelector: &metav1.LabelSelector{
-			MatchLabels:      matchLabels,
-			MatchExpressions: matchExpressions,
-		},
+		LabelSelector: labelSelector,
+		Selector:      selector,
 	}
 }
 
@@ -206,13 +229,7 @@ func NewESFromK8sLabelSelector(srcPrefix string, lss ...*metav1.LabelSelector) E
 // Returns always true if the endpoint selector contains the reserved label for
 // "all".
 func (n *EndpointSelector) Matches(lblsToMatch k8sLbls.Labels) bool {
-	lbSelector, err := metav1.LabelSelectorAsSelector(n.LabelSelector)
-	if err != nil {
-		// FIXME: Omit this error or throw it to the caller?
-		// We are doing the verification in the ParseEndpointSelector but
-		// don't make sure the user can modify the current labels.
-		log.WithError(err).WithField(logfields.EndpointLabelSelector,
-			logfields.Repr(n)).Error("unable to match label selector in selector")
+	if n.Selector == nil {
 		return false
 	}
 
@@ -222,7 +239,7 @@ func (n *EndpointSelector) Matches(lblsToMatch k8sLbls.Labels) bool {
 		}
 	}
 
-	return lbSelector.Matches(lblsToMatch)
+	return n.Selector.Matches(lblsToMatch)
 }
 
 // IsWildcard returns true if the endpoint selector selects all endpoints.
