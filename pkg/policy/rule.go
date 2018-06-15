@@ -221,8 +221,9 @@ func (r *rule) resolveL4IngressPolicy(ctx *SearchContext, state *traceState, res
 			// in the policy repository.
 			ruleCopy = *ingressRule.DeepCopy()
 			// Update each EndpointSelector in FromEndpoints to contain requirements.
-			for _, fromEndpoint := range ruleCopy.FromEndpoints {
-				fromEndpoint.MatchExpressions = append(fromEndpoint.MatchExpressions, requirements...)
+			for idx := range ruleCopy.FromEndpoints {
+				ruleCopy.FromEndpoints[idx].MatchExpressions = append(ruleCopy.FromEndpoints[idx].MatchExpressions, requirements...)
+				ruleCopy.FromEndpoints[idx].SyncRequirementsWithLabelSelector()
 			}
 		}
 
@@ -560,10 +561,11 @@ func (r *rule) resolveL4EgressPolicy(ctx *SearchContext, state *traceState, resu
 			// ToEndpoints with requirements; we don't want to modify the rule
 			// in the repository.
 			ruleCopy = *egressRule.DeepCopy()
-			for _, toEndpoint := range ruleCopy.ToEndpoints {
+			for idx := range ruleCopy.ToEndpoints {
 				// Update each EndpointSelector in ToEndpoints to contain
 				// requirements.
-				toEndpoint.MatchExpressions = append(toEndpoint.MatchExpressions, requirements...)
+				ruleCopy.ToEndpoints[idx].MatchExpressions = append(ruleCopy.ToEndpoints[idx].MatchExpressions, requirements...)
+				ruleCopy.ToEndpoints[idx].SyncRequirementsWithLabelSelector()
 			}
 		}
 		cnt, err := mergeL4Egress(ctx, ruleCopy, r.Rule.Labels.DeepCopy(), result.Egress)

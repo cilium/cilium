@@ -94,7 +94,9 @@ func (k RuleTranslator) depopulateEgress(r *api.EgressRule) error {
 func (k RuleTranslator) serviceMatches(service api.Service) bool {
 	if service.K8sServiceSelector != nil {
 		es := api.EndpointSelector(service.K8sServiceSelector.Selector)
-		return es.Matches(labels.Set(k.ServiceLabels)) &&
+		es.SyncRequirementsWithLabelSelector()
+		esMatches := es.Matches(labels.Set(k.ServiceLabels))
+		return esMatches &&
 			(service.K8sServiceSelector.Namespace == k.Service.Namespace || service.K8sServiceSelector.Namespace == "")
 	}
 
