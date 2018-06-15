@@ -28,11 +28,6 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-const (
-	// GcInterval is the garbage collection interval.
-	GcInterval int = 60
-)
-
 // RunGC run CT's garbage collector for the given endpoint. `isLocal` refers if
 // the CT map is set to local. If `isIPv6` is set specifies that is the IPv6
 // map. `filter` represents the filter type to be used while looping all CT
@@ -80,10 +75,10 @@ func RunGC(e *endpoint.Endpoint, isLocal, isIPv6 bool, filter *ctmap.GCFilter) {
 }
 
 // EnableConntrackGC enables the connection tracking garbage collection.
-func EnableConntrackGC(ipv4, ipv6 bool) {
+func EnableConntrackGC(ipv4, ipv6 bool, gcinterval int) {
 	go func() {
 		seenGlobal := false
-		sleepTime := time.Duration(GcInterval) * time.Second
+		sleepTime := time.Duration(gcinterval) * time.Second
 		for {
 			eps := GetEndpoints()
 			for _, e := range eps {
