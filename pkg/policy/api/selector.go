@@ -21,7 +21,6 @@ import (
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-
 	"github.com/mitchellh/hashstructure"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8sLbls "k8s.io/apimachinery/pkg/labels"
@@ -32,6 +31,12 @@ var log = logging.DefaultLogger
 // EndpointSelector is a wrapper for k8s LabelSelector.
 type EndpointSelector struct {
 	*metav1.LabelSelector
+
+	// requirements provides a cache for a k8s-friendly format of the
+	// LabelSelector, which allows more efficient matching in Matches().
+	//
+	// Kept as a pointer to allow EndpointSelector to be used as a map key.
+	requirements *k8sLbls.Requirements `json:"-"`
 }
 
 // LabelSelectorString returns a user-friendly string representation of
@@ -73,6 +78,7 @@ func (n *EndpointSelector) UnmarshalJSON(b []byte) error {
 		}
 		n.MatchExpressions = newMatchExpr
 	}
+	n.requirements = labelSelectorToRequirements(n.LabelSelector)
 	return nil
 }
 
@@ -146,6 +152,28 @@ func (n EndpointSelector) GetMatch(key string) ([]string, bool) {
 	return nil, false
 }
 
+// labelSelectorToRequirements turns a kubernetes Selector into a slice of
+// requirements equivalent to the selector. These are cached internally in the
+// EndpointSelector to speed up Matches().
+//
+// This validates the labels, which can be expensive (and may fail..)
+// If there's an error, the selector will be nil and the Matches()
+// implementation will refuse to match any labels.
+func labelSelectorToRequirements(labelSelector *metav1.LabelSelector) *k8sLbls.Requirements {
+	selector, err := metav1.LabelSelectorAsSelector(labelSelector)
+	if err != nil {
+		log.WithError(err).WithField(logfields.EndpointLabelSelector,
+			logfields.Repr(labelSelector)).Error("unable to construct selector in label selector")
+		return nil
+	}
+
+	requirements, selectable := selector.Requirements()
+	if !selectable {
+		return nil
+	}
+	return &requirements
+}
+
 // NewESFromLabels creates a new endpoint selector from the given labels.
 func NewESFromLabels(lbls ...*labels.Label) EndpointSelector {
 	ml := map[string]string{}
@@ -159,6 +187,9 @@ func NewESFromLabels(lbls ...*labels.Label) EndpointSelector {
 // NewESFromMatchRequirements creates a new endpoint selector from the given
 // match specifications: An optional set of labels that must match, and
 // an optional slice of LabelSelectorRequirements.
+//
+// If the caller intends to reuse 'matchLabels' or 'reqs' after creating the
+// EndpointSelector, they must make a copy of the parameter.
 func NewESFromMatchRequirements(matchLabels map[string]string, reqs []metav1.LabelSelectorRequirement) EndpointSelector {
 	labelSelector := &metav1.LabelSelector{
 		MatchLabels:      matchLabels,
@@ -166,7 +197,17 @@ func NewESFromMatchRequirements(matchLabels map[string]string, reqs []metav1.Lab
 	}
 	return EndpointSelector{
 		LabelSelector: labelSelector,
+		requirements:  labelSelectorToRequirements(labelSelector),
 	}
+}
+
+// SyncRequirementsWithLabelSelector ensures that the requirements within the
+// specified EndpointSelector are in sync with the LabelSelector. This is
+// because the LabelSelector has publicly accessible fields, which can be
+// updated without concurrently updating the requirements, so the two fields can
+// become out of sync.
+func (n *EndpointSelector) SyncRequirementsWithLabelSelector() {
+	n.requirements = labelSelectorToRequirements(n.LabelSelector)
 }
 
 // newReservedEndpointSelector returns a selector that matches on all
@@ -218,12 +259,7 @@ func NewESFromK8sLabelSelector(srcPrefix string, lss ...*metav1.LabelSelector) E
 			}
 		}
 	}
-	return EndpointSelector{
-		LabelSelector: &metav1.LabelSelector{
-			MatchLabels:      matchLabels,
-			MatchExpressions: matchExpressions,
-		},
-	}
+	return NewESFromMatchRequirements(matchLabels, matchExpressions)
 }
 
 // AddMatch adds a match for 'key' == 'value' to the endpoint selector.
@@ -232,20 +268,23 @@ func (n *EndpointSelector) AddMatch(key, value string) {
 		n.MatchLabels = map[string]string{}
 	}
 	n.MatchLabels[key] = value
+	n.requirements = labelSelectorToRequirements(n.LabelSelector)
 }
 
 // Matches returns true if the endpoint selector Matches the `lblsToMatch`.
 // Returns always true if the endpoint selector contains the reserved label for
 // "all".
 func (n *EndpointSelector) Matches(lblsToMatch k8sLbls.Labels) bool {
-	lbSelector, err := metav1.LabelSelectorAsSelector(n.LabelSelector)
-	if err != nil {
-		// FIXME: Omit this error or throw it to the caller?
-		// We are doing the verification in the ParseEndpointSelector but
-		// don't make sure the user can modify the current labels.
-		log.WithError(err).WithField(logfields.EndpointLabelSelector,
-			logfields.Repr(n)).Error("unable to match label selector in selector")
-		return false
+
+	// Try to update cached requirements for this EndpointSelector if possible.
+	if n.requirements == nil {
+		n.requirements = labelSelectorToRequirements(n.LabelSelector)
+		// Nil indicates that requirements failed validation in some way,
+		// so we cannot parse the labels for matching purposes; thus, we cannot
+		// match if labels cannot be parsed, so return false.
+		if n.requirements == nil {
+			return false
+		}
 	}
 
 	for k := range n.MatchLabels {
@@ -254,7 +293,12 @@ func (n *EndpointSelector) Matches(lblsToMatch k8sLbls.Labels) bool {
 		}
 	}
 
-	return lbSelector.Matches(lblsToMatch)
+	for _, req := range *n.requirements {
+		if !req.Matches(lblsToMatch) {
+			return false
+		}
+	}
+	return true
 }
 
 // IsWildcard returns true if the endpoint selector selects all endpoints.
