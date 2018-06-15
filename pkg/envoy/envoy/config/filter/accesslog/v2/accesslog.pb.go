@@ -9,11 +9,7 @@ import math "math"
 import core "github.com/cilium/cilium/pkg/envoy/envoy/api/v2/core"
 import route "github.com/cilium/cilium/pkg/envoy/envoy/api/v2/route"
 import _type "github.com/cilium/cilium/pkg/envoy/envoy/type"
-import _ "github.com/gogo/protobuf/gogoproto"
-import duration "github.com/golang/protobuf/ptypes/duration"
 import _struct "github.com/golang/protobuf/ptypes/struct"
-import timestamp "github.com/golang/protobuf/ptypes/timestamp"
-import wrappers "github.com/golang/protobuf/ptypes/wrappers"
 import _ "github.com/lyft/protoc-gen-validate/validate"
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -26,93 +22,6 @@ var _ = math.Inf
 // A compilation error at this line likely means your copy of the
 // proto package needs to be updated.
 const _ = proto.ProtoPackageIsVersion2 // please upgrade the proto package
-
-// Reasons why the request was unauthorized
-type ResponseFlags_Unauthorized_Reason int32
-
-const (
-	ResponseFlags_Unauthorized_REASON_UNSPECIFIED ResponseFlags_Unauthorized_Reason = 0
-	// The request was denied by the external authorization service.
-	ResponseFlags_Unauthorized_EXTERNAL_SERVICE ResponseFlags_Unauthorized_Reason = 1
-)
-
-var ResponseFlags_Unauthorized_Reason_name = map[int32]string{
-	0: "REASON_UNSPECIFIED",
-	1: "EXTERNAL_SERVICE",
-}
-var ResponseFlags_Unauthorized_Reason_value = map[string]int32{
-	"REASON_UNSPECIFIED": 0,
-	"EXTERNAL_SERVICE":   1,
-}
-
-func (x ResponseFlags_Unauthorized_Reason) String() string {
-	return proto.EnumName(ResponseFlags_Unauthorized_Reason_name, int32(x))
-}
-func (ResponseFlags_Unauthorized_Reason) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptor_accesslog_3a9c471c87d22a71, []int{1, 0, 0}
-}
-
-type TLSProperties_TLSVersion int32
-
-const (
-	TLSProperties_VERSION_UNSPECIFIED TLSProperties_TLSVersion = 0
-	TLSProperties_TLSv1               TLSProperties_TLSVersion = 1
-	TLSProperties_TLSv1_1             TLSProperties_TLSVersion = 2
-	TLSProperties_TLSv1_2             TLSProperties_TLSVersion = 3
-	TLSProperties_TLSv1_3             TLSProperties_TLSVersion = 4
-)
-
-var TLSProperties_TLSVersion_name = map[int32]string{
-	0: "VERSION_UNSPECIFIED",
-	1: "TLSv1",
-	2: "TLSv1_1",
-	3: "TLSv1_2",
-	4: "TLSv1_3",
-}
-var TLSProperties_TLSVersion_value = map[string]int32{
-	"VERSION_UNSPECIFIED": 0,
-	"TLSv1":               1,
-	"TLSv1_1":             2,
-	"TLSv1_2":             3,
-	"TLSv1_3":             4,
-}
-
-func (x TLSProperties_TLSVersion) String() string {
-	return proto.EnumName(TLSProperties_TLSVersion_name, int32(x))
-}
-func (TLSProperties_TLSVersion) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptor_accesslog_3a9c471c87d22a71, []int{2, 0}
-}
-
-// HTTP version
-type HTTPAccessLogEntry_HTTPVersion int32
-
-const (
-	HTTPAccessLogEntry_PROTOCOL_UNSPECIFIED HTTPAccessLogEntry_HTTPVersion = 0
-	HTTPAccessLogEntry_HTTP10               HTTPAccessLogEntry_HTTPVersion = 1
-	HTTPAccessLogEntry_HTTP11               HTTPAccessLogEntry_HTTPVersion = 2
-	HTTPAccessLogEntry_HTTP2                HTTPAccessLogEntry_HTTPVersion = 3
-)
-
-var HTTPAccessLogEntry_HTTPVersion_name = map[int32]string{
-	0: "PROTOCOL_UNSPECIFIED",
-	1: "HTTP10",
-	2: "HTTP11",
-	3: "HTTP2",
-}
-var HTTPAccessLogEntry_HTTPVersion_value = map[string]int32{
-	"PROTOCOL_UNSPECIFIED": 0,
-	"HTTP10":               1,
-	"HTTP11":               2,
-	"HTTP2":                3,
-}
-
-func (x HTTPAccessLogEntry_HTTPVersion) String() string {
-	return proto.EnumName(HTTPAccessLogEntry_HTTPVersion_name, int32(x))
-}
-func (HTTPAccessLogEntry_HTTPVersion) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptor_accesslog_3a9c471c87d22a71, []int{6, 0}
-}
 
 type ComparisonFilter_Op int32
 
@@ -140,834 +49,26 @@ func (x ComparisonFilter_Op) String() string {
 	return proto.EnumName(ComparisonFilter_Op_name, int32(x))
 }
 func (ComparisonFilter_Op) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptor_accesslog_3a9c471c87d22a71, []int{9, 0}
-}
-
-// Defines fields that are shared by all Envoy access logs.
-// [#not-implemented-hide:] Not configuration. TBD how to doc proto APIs.
-type AccessLogCommon struct {
-	// This field indicates the rate at which this log entry was sampled.
-	// Valid range is (0.0, 1.0].
-	SampleRate float64 `protobuf:"fixed64,1,opt,name=sample_rate,json=sampleRate" json:"sample_rate,omitempty"`
-	// This field is the remote/origin address on which the request from the user was received.
-	// Note: This may not be the physical peer. E.g, if the remote address is inferred from for
-	//       example the x-forwarder-for header, proxy protocol, etc.
-	DownstreamRemoteAddress *core.Address `protobuf:"bytes,2,opt,name=downstream_remote_address,json=downstreamRemoteAddress" json:"downstream_remote_address,omitempty"`
-	// This field is the local/destination address on which the request from the user was received.
-	DownstreamLocalAddress *core.Address `protobuf:"bytes,3,opt,name=downstream_local_address,json=downstreamLocalAddress" json:"downstream_local_address,omitempty"`
-	// If the connection is secure, this field will contain TLS properties.
-	TlsProperties *TLSProperties `protobuf:"bytes,4,opt,name=tls_properties,json=tlsProperties" json:"tls_properties,omitempty"`
-	// The time that Envoy started servicing this request. This is effectively the time that the first
-	// downstream byte is received.
-	StartTime *timestamp.Timestamp `protobuf:"bytes,5,opt,name=start_time,json=startTime" json:"start_time,omitempty"`
-	// Interval between the first downstream byte received and the last
-	// downstream byte received (i.e. time it takes to receive a request).
-	TimeToLastRxByte *duration.Duration `protobuf:"bytes,6,opt,name=time_to_last_rx_byte,json=timeToLastRxByte" json:"time_to_last_rx_byte,omitempty"`
-	// Interval between the first downstream byte received and the first upstream byte sent. There may
-	// by considerable delta between *time_to_last_rx_byte* and this value due to filters.
-	// Additionally, the same caveats apply as documented in *time_to_last_downstream_tx_byte* about
-	// not accounting for kernel socket buffer time, etc.
-	TimeToFirstUpstreamTxByte *duration.Duration `protobuf:"bytes,7,opt,name=time_to_first_upstream_tx_byte,json=timeToFirstUpstreamTxByte" json:"time_to_first_upstream_tx_byte,omitempty"`
-	// Interval between the first downstream byte received and the last upstream byte sent. There may
-	// by considerable delta between *time_to_last_rx_byte* and this value due to filters.
-	// Additionally, the same caveats apply as documented in *time_to_last_downstream_tx_byte* about
-	// not accounting for kernel socket buffer time, etc.
-	TimeToLastUpstreamTxByte *duration.Duration `protobuf:"bytes,8,opt,name=time_to_last_upstream_tx_byte,json=timeToLastUpstreamTxByte" json:"time_to_last_upstream_tx_byte,omitempty"`
-	// Interval between the first downstream byte received and the first upstream
-	// byte received (i.e. time it takes to start receiving a response).
-	TimeToFirstUpstreamRxByte *duration.Duration `protobuf:"bytes,9,opt,name=time_to_first_upstream_rx_byte,json=timeToFirstUpstreamRxByte" json:"time_to_first_upstream_rx_byte,omitempty"`
-	// Interval between the first downstream byte received and the last upstream
-	// byte received (i.e. time it takes to receive a complete response).
-	TimeToLastUpstreamRxByte *duration.Duration `protobuf:"bytes,10,opt,name=time_to_last_upstream_rx_byte,json=timeToLastUpstreamRxByte" json:"time_to_last_upstream_rx_byte,omitempty"`
-	// Interval between the first downstream byte received and the first downstream byte sent.
-	// There may be a considerable delta between the *time_to_first_upstream_rx_byte* and this field
-	// due to filters. Additionally, the same caveats apply as documented in
-	// *time_to_last_downstream_tx_byte* about not accounting for kernel socket buffer time, etc.
-	TimeToFirstDownstreamTxByte *duration.Duration `protobuf:"bytes,11,opt,name=time_to_first_downstream_tx_byte,json=timeToFirstDownstreamTxByte" json:"time_to_first_downstream_tx_byte,omitempty"`
-	// Interval between the first downstream byte received and the last downstream byte sent.
-	// Depending on protocol, buffering, windowing, filters, etc. there may be a considerable delta
-	// between *time_to_last_upstream_rx_byte* and this field. Note also that this is an approximate
-	// time. In the current implementation it does not include kernel socket buffer time. In the
-	// current implementation it also does not include send window buffering inside the HTTP/2 codec.
-	// In the future it is likely that work will be done to make this duration more accurate.
-	TimeToLastDownstreamTxByte *duration.Duration `protobuf:"bytes,12,opt,name=time_to_last_downstream_tx_byte,json=timeToLastDownstreamTxByte" json:"time_to_last_downstream_tx_byte,omitempty"`
-	// The upstream remote/destination address that handles this exchange. This does not include
-	// retries.
-	UpstreamRemoteAddress *core.Address `protobuf:"bytes,13,opt,name=upstream_remote_address,json=upstreamRemoteAddress" json:"upstream_remote_address,omitempty"`
-	// The upstream local/origin address that handles this exchange. This does not include retries.
-	UpstreamLocalAddress *core.Address `protobuf:"bytes,14,opt,name=upstream_local_address,json=upstreamLocalAddress" json:"upstream_local_address,omitempty"`
-	// The upstream cluster that *upstream_remote_address* belongs to.
-	UpstreamCluster string `protobuf:"bytes,15,opt,name=upstream_cluster,json=upstreamCluster" json:"upstream_cluster,omitempty"`
-	// Flags indicating occurrences during request/response processing.
-	ResponseFlags *ResponseFlags `protobuf:"bytes,16,opt,name=response_flags,json=responseFlags" json:"response_flags,omitempty"`
-	// All metadata encountered during request processing, including endpoint
-	// selection.
-	//
-	// This can be used to associate IDs attached to the various configurations
-	// used to process this request with the access log entry. For example, a
-	// route created from a higher level forwarding rule with some ID can place
-	// that ID in this field and cross reference later. It can also be used to
-	// determine if a canary endpoint was used or not.
-	Metadata             *core.Metadata `protobuf:"bytes,17,opt,name=metadata" json:"metadata,omitempty"`
-	XXX_NoUnkeyedLiteral struct{}       `json:"-"`
-	XXX_unrecognized     []byte         `json:"-"`
-	XXX_sizecache        int32          `json:"-"`
-}
-
-func (m *AccessLogCommon) Reset()         { *m = AccessLogCommon{} }
-func (m *AccessLogCommon) String() string { return proto.CompactTextString(m) }
-func (*AccessLogCommon) ProtoMessage()    {}
-func (*AccessLogCommon) Descriptor() ([]byte, []int) {
-	return fileDescriptor_accesslog_3a9c471c87d22a71, []int{0}
-}
-func (m *AccessLogCommon) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_AccessLogCommon.Unmarshal(m, b)
-}
-func (m *AccessLogCommon) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_AccessLogCommon.Marshal(b, m, deterministic)
-}
-func (dst *AccessLogCommon) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_AccessLogCommon.Merge(dst, src)
-}
-func (m *AccessLogCommon) XXX_Size() int {
-	return xxx_messageInfo_AccessLogCommon.Size(m)
-}
-func (m *AccessLogCommon) XXX_DiscardUnknown() {
-	xxx_messageInfo_AccessLogCommon.DiscardUnknown(m)
-}
-
-var xxx_messageInfo_AccessLogCommon proto.InternalMessageInfo
-
-func (m *AccessLogCommon) GetSampleRate() float64 {
-	if m != nil {
-		return m.SampleRate
-	}
-	return 0
-}
-
-func (m *AccessLogCommon) GetDownstreamRemoteAddress() *core.Address {
-	if m != nil {
-		return m.DownstreamRemoteAddress
-	}
-	return nil
-}
-
-func (m *AccessLogCommon) GetDownstreamLocalAddress() *core.Address {
-	if m != nil {
-		return m.DownstreamLocalAddress
-	}
-	return nil
-}
-
-func (m *AccessLogCommon) GetTlsProperties() *TLSProperties {
-	if m != nil {
-		return m.TlsProperties
-	}
-	return nil
-}
-
-func (m *AccessLogCommon) GetStartTime() *timestamp.Timestamp {
-	if m != nil {
-		return m.StartTime
-	}
-	return nil
-}
-
-func (m *AccessLogCommon) GetTimeToLastRxByte() *duration.Duration {
-	if m != nil {
-		return m.TimeToLastRxByte
-	}
-	return nil
-}
-
-func (m *AccessLogCommon) GetTimeToFirstUpstreamTxByte() *duration.Duration {
-	if m != nil {
-		return m.TimeToFirstUpstreamTxByte
-	}
-	return nil
-}
-
-func (m *AccessLogCommon) GetTimeToLastUpstreamTxByte() *duration.Duration {
-	if m != nil {
-		return m.TimeToLastUpstreamTxByte
-	}
-	return nil
-}
-
-func (m *AccessLogCommon) GetTimeToFirstUpstreamRxByte() *duration.Duration {
-	if m != nil {
-		return m.TimeToFirstUpstreamRxByte
-	}
-	return nil
-}
-
-func (m *AccessLogCommon) GetTimeToLastUpstreamRxByte() *duration.Duration {
-	if m != nil {
-		return m.TimeToLastUpstreamRxByte
-	}
-	return nil
-}
-
-func (m *AccessLogCommon) GetTimeToFirstDownstreamTxByte() *duration.Duration {
-	if m != nil {
-		return m.TimeToFirstDownstreamTxByte
-	}
-	return nil
-}
-
-func (m *AccessLogCommon) GetTimeToLastDownstreamTxByte() *duration.Duration {
-	if m != nil {
-		return m.TimeToLastDownstreamTxByte
-	}
-	return nil
-}
-
-func (m *AccessLogCommon) GetUpstreamRemoteAddress() *core.Address {
-	if m != nil {
-		return m.UpstreamRemoteAddress
-	}
-	return nil
-}
-
-func (m *AccessLogCommon) GetUpstreamLocalAddress() *core.Address {
-	if m != nil {
-		return m.UpstreamLocalAddress
-	}
-	return nil
-}
-
-func (m *AccessLogCommon) GetUpstreamCluster() string {
-	if m != nil {
-		return m.UpstreamCluster
-	}
-	return ""
-}
-
-func (m *AccessLogCommon) GetResponseFlags() *ResponseFlags {
-	if m != nil {
-		return m.ResponseFlags
-	}
-	return nil
-}
-
-func (m *AccessLogCommon) GetMetadata() *core.Metadata {
-	if m != nil {
-		return m.Metadata
-	}
-	return nil
-}
-
-// [#not-implemented-hide:] Not configuration. TBD how to doc proto APIs.
-// Flags indicating occurrences during request/response processing.
-type ResponseFlags struct {
-	// Indicates local server healthcheck failed.
-	FailedLocalHealthcheck bool `protobuf:"varint,1,opt,name=failed_local_healthcheck,json=failedLocalHealthcheck" json:"failed_local_healthcheck,omitempty"`
-	// Indicates there was no healthy upstream.
-	NoHealthyUpstream bool `protobuf:"varint,2,opt,name=no_healthy_upstream,json=noHealthyUpstream" json:"no_healthy_upstream,omitempty"`
-	// Indicates an there was an upstream request timeout.
-	UpstreamRequestTimeout bool `protobuf:"varint,3,opt,name=upstream_request_timeout,json=upstreamRequestTimeout" json:"upstream_request_timeout,omitempty"`
-	// Indicates local codec level reset was sent on the stream.
-	LocalReset bool `protobuf:"varint,4,opt,name=local_reset,json=localReset" json:"local_reset,omitempty"`
-	// Indicates remote codec level reset was received on the stream.
-	UpstreamRemoteReset bool `protobuf:"varint,5,opt,name=upstream_remote_reset,json=upstreamRemoteReset" json:"upstream_remote_reset,omitempty"`
-	// Indicates there was a local reset by a connection pool due to an initial connection failure.
-	UpstreamConnectionFailure bool `protobuf:"varint,6,opt,name=upstream_connection_failure,json=upstreamConnectionFailure" json:"upstream_connection_failure,omitempty"`
-	// Indicates the stream was reset locally due to connection termination.
-	UpstreamConnectionTermination bool `protobuf:"varint,7,opt,name=upstream_connection_termination,json=upstreamConnectionTermination" json:"upstream_connection_termination,omitempty"`
-	// Indicates the stream was reset because of a resource overflow.
-	UpstreamOverflow bool `protobuf:"varint,8,opt,name=upstream_overflow,json=upstreamOverflow" json:"upstream_overflow,omitempty"`
-	// Indicates no route was found for the request.
-	NoRouteFound bool `protobuf:"varint,9,opt,name=no_route_found,json=noRouteFound" json:"no_route_found,omitempty"`
-	// Indicates that the request was delayed before proxying.
-	DelayInjected bool `protobuf:"varint,10,opt,name=delay_injected,json=delayInjected" json:"delay_injected,omitempty"`
-	// Indicates that the request was aborted with an injected error code.
-	FaultInjected bool `protobuf:"varint,11,opt,name=fault_injected,json=faultInjected" json:"fault_injected,omitempty"`
-	// Indicates that the request was rate-limited locally.
-	RateLimited bool `protobuf:"varint,12,opt,name=rate_limited,json=rateLimited" json:"rate_limited,omitempty"`
-	// Indicates if the request was deemed unauthorized and the reason for it.
-	UnauthorizedDetails  *ResponseFlags_Unauthorized `protobuf:"bytes,13,opt,name=unauthorized_details,json=unauthorizedDetails" json:"unauthorized_details,omitempty"`
-	XXX_NoUnkeyedLiteral struct{}                    `json:"-"`
-	XXX_unrecognized     []byte                      `json:"-"`
-	XXX_sizecache        int32                       `json:"-"`
-}
-
-func (m *ResponseFlags) Reset()         { *m = ResponseFlags{} }
-func (m *ResponseFlags) String() string { return proto.CompactTextString(m) }
-func (*ResponseFlags) ProtoMessage()    {}
-func (*ResponseFlags) Descriptor() ([]byte, []int) {
-	return fileDescriptor_accesslog_3a9c471c87d22a71, []int{1}
-}
-func (m *ResponseFlags) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_ResponseFlags.Unmarshal(m, b)
-}
-func (m *ResponseFlags) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_ResponseFlags.Marshal(b, m, deterministic)
-}
-func (dst *ResponseFlags) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_ResponseFlags.Merge(dst, src)
-}
-func (m *ResponseFlags) XXX_Size() int {
-	return xxx_messageInfo_ResponseFlags.Size(m)
-}
-func (m *ResponseFlags) XXX_DiscardUnknown() {
-	xxx_messageInfo_ResponseFlags.DiscardUnknown(m)
-}
-
-var xxx_messageInfo_ResponseFlags proto.InternalMessageInfo
-
-func (m *ResponseFlags) GetFailedLocalHealthcheck() bool {
-	if m != nil {
-		return m.FailedLocalHealthcheck
-	}
-	return false
-}
-
-func (m *ResponseFlags) GetNoHealthyUpstream() bool {
-	if m != nil {
-		return m.NoHealthyUpstream
-	}
-	return false
-}
-
-func (m *ResponseFlags) GetUpstreamRequestTimeout() bool {
-	if m != nil {
-		return m.UpstreamRequestTimeout
-	}
-	return false
-}
-
-func (m *ResponseFlags) GetLocalReset() bool {
-	if m != nil {
-		return m.LocalReset
-	}
-	return false
-}
-
-func (m *ResponseFlags) GetUpstreamRemoteReset() bool {
-	if m != nil {
-		return m.UpstreamRemoteReset
-	}
-	return false
-}
-
-func (m *ResponseFlags) GetUpstreamConnectionFailure() bool {
-	if m != nil {
-		return m.UpstreamConnectionFailure
-	}
-	return false
-}
-
-func (m *ResponseFlags) GetUpstreamConnectionTermination() bool {
-	if m != nil {
-		return m.UpstreamConnectionTermination
-	}
-	return false
-}
-
-func (m *ResponseFlags) GetUpstreamOverflow() bool {
-	if m != nil {
-		return m.UpstreamOverflow
-	}
-	return false
-}
-
-func (m *ResponseFlags) GetNoRouteFound() bool {
-	if m != nil {
-		return m.NoRouteFound
-	}
-	return false
-}
-
-func (m *ResponseFlags) GetDelayInjected() bool {
-	if m != nil {
-		return m.DelayInjected
-	}
-	return false
-}
-
-func (m *ResponseFlags) GetFaultInjected() bool {
-	if m != nil {
-		return m.FaultInjected
-	}
-	return false
-}
-
-func (m *ResponseFlags) GetRateLimited() bool {
-	if m != nil {
-		return m.RateLimited
-	}
-	return false
-}
-
-func (m *ResponseFlags) GetUnauthorizedDetails() *ResponseFlags_Unauthorized {
-	if m != nil {
-		return m.UnauthorizedDetails
-	}
-	return nil
-}
-
-type ResponseFlags_Unauthorized struct {
-	Reason               ResponseFlags_Unauthorized_Reason `protobuf:"varint,1,opt,name=reason,enum=envoy.config.filter.accesslog.v2.ResponseFlags_Unauthorized_Reason" json:"reason,omitempty"`
-	XXX_NoUnkeyedLiteral struct{}                          `json:"-"`
-	XXX_unrecognized     []byte                            `json:"-"`
-	XXX_sizecache        int32                             `json:"-"`
-}
-
-func (m *ResponseFlags_Unauthorized) Reset()         { *m = ResponseFlags_Unauthorized{} }
-func (m *ResponseFlags_Unauthorized) String() string { return proto.CompactTextString(m) }
-func (*ResponseFlags_Unauthorized) ProtoMessage()    {}
-func (*ResponseFlags_Unauthorized) Descriptor() ([]byte, []int) {
-	return fileDescriptor_accesslog_3a9c471c87d22a71, []int{1, 0}
-}
-func (m *ResponseFlags_Unauthorized) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_ResponseFlags_Unauthorized.Unmarshal(m, b)
-}
-func (m *ResponseFlags_Unauthorized) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_ResponseFlags_Unauthorized.Marshal(b, m, deterministic)
-}
-func (dst *ResponseFlags_Unauthorized) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_ResponseFlags_Unauthorized.Merge(dst, src)
-}
-func (m *ResponseFlags_Unauthorized) XXX_Size() int {
-	return xxx_messageInfo_ResponseFlags_Unauthorized.Size(m)
-}
-func (m *ResponseFlags_Unauthorized) XXX_DiscardUnknown() {
-	xxx_messageInfo_ResponseFlags_Unauthorized.DiscardUnknown(m)
-}
-
-var xxx_messageInfo_ResponseFlags_Unauthorized proto.InternalMessageInfo
-
-func (m *ResponseFlags_Unauthorized) GetReason() ResponseFlags_Unauthorized_Reason {
-	if m != nil {
-		return m.Reason
-	}
-	return ResponseFlags_Unauthorized_REASON_UNSPECIFIED
-}
-
-// [#not-implemented-hide:] Not configuration. TBD how to doc proto APIs.
-// Properties of a negotiated TLS connection.
-type TLSProperties struct {
-	// Version of TLS that was negotiated.
-	TlsVersion TLSProperties_TLSVersion `protobuf:"varint,1,opt,name=tls_version,json=tlsVersion,enum=envoy.config.filter.accesslog.v2.TLSProperties_TLSVersion" json:"tls_version,omitempty"`
-	// TLS cipher suite negotiated during handshake. The value is a
-	// four-digit hex code defined by the IANA TLS Cipher Suite Registry
-	// (e.g. ``009C`` for ``TLS_RSA_WITH_AES_128_GCM_SHA256``).
-	//
-	// Here it is expressed as an integer.
-	TlsCipherSuite *wrappers.UInt32Value `protobuf:"bytes,2,opt,name=tls_cipher_suite,json=tlsCipherSuite" json:"tls_cipher_suite,omitempty"`
-	// SNI hostname from handshake.
-	TlsSniHostname       string   `protobuf:"bytes,3,opt,name=tls_sni_hostname,json=tlsSniHostname" json:"tls_sni_hostname,omitempty"`
-	XXX_NoUnkeyedLiteral struct{} `json:"-"`
-	XXX_unrecognized     []byte   `json:"-"`
-	XXX_sizecache        int32    `json:"-"`
-}
-
-func (m *TLSProperties) Reset()         { *m = TLSProperties{} }
-func (m *TLSProperties) String() string { return proto.CompactTextString(m) }
-func (*TLSProperties) ProtoMessage()    {}
-func (*TLSProperties) Descriptor() ([]byte, []int) {
-	return fileDescriptor_accesslog_3a9c471c87d22a71, []int{2}
-}
-func (m *TLSProperties) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_TLSProperties.Unmarshal(m, b)
-}
-func (m *TLSProperties) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_TLSProperties.Marshal(b, m, deterministic)
-}
-func (dst *TLSProperties) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_TLSProperties.Merge(dst, src)
-}
-func (m *TLSProperties) XXX_Size() int {
-	return xxx_messageInfo_TLSProperties.Size(m)
-}
-func (m *TLSProperties) XXX_DiscardUnknown() {
-	xxx_messageInfo_TLSProperties.DiscardUnknown(m)
-}
-
-var xxx_messageInfo_TLSProperties proto.InternalMessageInfo
-
-func (m *TLSProperties) GetTlsVersion() TLSProperties_TLSVersion {
-	if m != nil {
-		return m.TlsVersion
-	}
-	return TLSProperties_VERSION_UNSPECIFIED
-}
-
-func (m *TLSProperties) GetTlsCipherSuite() *wrappers.UInt32Value {
-	if m != nil {
-		return m.TlsCipherSuite
-	}
-	return nil
-}
-
-func (m *TLSProperties) GetTlsSniHostname() string {
-	if m != nil {
-		return m.TlsSniHostname
-	}
-	return ""
-}
-
-// [#not-implemented-hide:] Not configuration. TBD how to doc proto APIs.
-type TCPAccessLogEntry struct {
-	// Common properties shared by all Envoy access logs.
-	CommonProperties     *AccessLogCommon `protobuf:"bytes,1,opt,name=common_properties,json=commonProperties" json:"common_properties,omitempty"`
-	XXX_NoUnkeyedLiteral struct{}         `json:"-"`
-	XXX_unrecognized     []byte           `json:"-"`
-	XXX_sizecache        int32            `json:"-"`
-}
-
-func (m *TCPAccessLogEntry) Reset()         { *m = TCPAccessLogEntry{} }
-func (m *TCPAccessLogEntry) String() string { return proto.CompactTextString(m) }
-func (*TCPAccessLogEntry) ProtoMessage()    {}
-func (*TCPAccessLogEntry) Descriptor() ([]byte, []int) {
-	return fileDescriptor_accesslog_3a9c471c87d22a71, []int{3}
-}
-func (m *TCPAccessLogEntry) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_TCPAccessLogEntry.Unmarshal(m, b)
-}
-func (m *TCPAccessLogEntry) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_TCPAccessLogEntry.Marshal(b, m, deterministic)
-}
-func (dst *TCPAccessLogEntry) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_TCPAccessLogEntry.Merge(dst, src)
-}
-func (m *TCPAccessLogEntry) XXX_Size() int {
-	return xxx_messageInfo_TCPAccessLogEntry.Size(m)
-}
-func (m *TCPAccessLogEntry) XXX_DiscardUnknown() {
-	xxx_messageInfo_TCPAccessLogEntry.DiscardUnknown(m)
-}
-
-var xxx_messageInfo_TCPAccessLogEntry proto.InternalMessageInfo
-
-func (m *TCPAccessLogEntry) GetCommonProperties() *AccessLogCommon {
-	if m != nil {
-		return m.CommonProperties
-	}
-	return nil
-}
-
-// [#not-implemented-hide:] Not configuration. TBD how to doc proto APIs.
-type HTTPRequestProperties struct {
-	// The request method (RFC 7231/2616).
-	// [#comment:TODO(htuch): add (validate.rules).enum.defined_only = true once
-	// https://github.com/lyft/protoc-gen-validate/issues/42 is resolved.]
-	RequestMethod core.RequestMethod `protobuf:"varint,1,opt,name=request_method,json=requestMethod,enum=envoy.api.v2.core.RequestMethod" json:"request_method,omitempty"`
-	// The scheme portion of the incoming request URI.
-	Scheme string `protobuf:"bytes,2,opt,name=scheme" json:"scheme,omitempty"`
-	// HTTP/2 ``:authority`` or HTTP/1.1 ``Host`` header value.
-	Authority string `protobuf:"bytes,3,opt,name=authority" json:"authority,omitempty"`
-	// The port of the incoming request URI
-	// (unused currently, as port is composed onto authority).
-	Port *wrappers.UInt32Value `protobuf:"bytes,4,opt,name=port" json:"port,omitempty"`
-	// The path portion from the incoming request URI.
-	Path string `protobuf:"bytes,5,opt,name=path" json:"path,omitempty"`
-	// Value of the ``User-Agent`` request header.
-	UserAgent string `protobuf:"bytes,6,opt,name=user_agent,json=userAgent" json:"user_agent,omitempty"`
-	// Value of the ``Referer`` request header.
-	Referer string `protobuf:"bytes,7,opt,name=referer" json:"referer,omitempty"`
-	// Value of the ``X-Forwarded-For`` request header.
-	ForwardedFor string `protobuf:"bytes,8,opt,name=forwarded_for,json=forwardedFor" json:"forwarded_for,omitempty"`
-	// Value of the ``X-Request-Id`` request header
-	//
-	// This header is used by Envoy to uniquely identify a request.
-	// It will be generated for all external requests and internal requests that
-	// do not already have a request ID.
-	RequestId string `protobuf:"bytes,9,opt,name=request_id,json=requestId" json:"request_id,omitempty"`
-	// Value of the ``X-Envoy-Original-Path`` request header.
-	OriginalPath string `protobuf:"bytes,10,opt,name=original_path,json=originalPath" json:"original_path,omitempty"`
-	// Size of the HTTP request headers in bytes.
-	//
-	// This value is captured from the OSI layer 7 perspective, i.e. it does not
-	// include overhead from framing or encoding at other networking layers.
-	RequestHeadersBytes uint64 `protobuf:"varint,11,opt,name=request_headers_bytes,json=requestHeadersBytes" json:"request_headers_bytes,omitempty"`
-	// Size of the HTTP request body in bytes.
-	//
-	// This value is captured from the OSI layer 7 perspective, i.e. it does not
-	// include overhead from framing or encoding at other networking layers.
-	RequestBodyBytes uint64 `protobuf:"varint,12,opt,name=request_body_bytes,json=requestBodyBytes" json:"request_body_bytes,omitempty"`
-	// Map of additional headers that have been configured to be logged.
-	RequestHeaders       map[string]string `protobuf:"bytes,13,rep,name=request_headers,json=requestHeaders" json:"request_headers,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
-	XXX_NoUnkeyedLiteral struct{}          `json:"-"`
-	XXX_unrecognized     []byte            `json:"-"`
-	XXX_sizecache        int32             `json:"-"`
-}
-
-func (m *HTTPRequestProperties) Reset()         { *m = HTTPRequestProperties{} }
-func (m *HTTPRequestProperties) String() string { return proto.CompactTextString(m) }
-func (*HTTPRequestProperties) ProtoMessage()    {}
-func (*HTTPRequestProperties) Descriptor() ([]byte, []int) {
-	return fileDescriptor_accesslog_3a9c471c87d22a71, []int{4}
-}
-func (m *HTTPRequestProperties) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_HTTPRequestProperties.Unmarshal(m, b)
-}
-func (m *HTTPRequestProperties) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_HTTPRequestProperties.Marshal(b, m, deterministic)
-}
-func (dst *HTTPRequestProperties) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_HTTPRequestProperties.Merge(dst, src)
-}
-func (m *HTTPRequestProperties) XXX_Size() int {
-	return xxx_messageInfo_HTTPRequestProperties.Size(m)
-}
-func (m *HTTPRequestProperties) XXX_DiscardUnknown() {
-	xxx_messageInfo_HTTPRequestProperties.DiscardUnknown(m)
-}
-
-var xxx_messageInfo_HTTPRequestProperties proto.InternalMessageInfo
-
-func (m *HTTPRequestProperties) GetRequestMethod() core.RequestMethod {
-	if m != nil {
-		return m.RequestMethod
-	}
-	return core.RequestMethod_METHOD_UNSPECIFIED
-}
-
-func (m *HTTPRequestProperties) GetScheme() string {
-	if m != nil {
-		return m.Scheme
-	}
-	return ""
-}
-
-func (m *HTTPRequestProperties) GetAuthority() string {
-	if m != nil {
-		return m.Authority
-	}
-	return ""
-}
-
-func (m *HTTPRequestProperties) GetPort() *wrappers.UInt32Value {
-	if m != nil {
-		return m.Port
-	}
-	return nil
-}
-
-func (m *HTTPRequestProperties) GetPath() string {
-	if m != nil {
-		return m.Path
-	}
-	return ""
-}
-
-func (m *HTTPRequestProperties) GetUserAgent() string {
-	if m != nil {
-		return m.UserAgent
-	}
-	return ""
-}
-
-func (m *HTTPRequestProperties) GetReferer() string {
-	if m != nil {
-		return m.Referer
-	}
-	return ""
-}
-
-func (m *HTTPRequestProperties) GetForwardedFor() string {
-	if m != nil {
-		return m.ForwardedFor
-	}
-	return ""
-}
-
-func (m *HTTPRequestProperties) GetRequestId() string {
-	if m != nil {
-		return m.RequestId
-	}
-	return ""
-}
-
-func (m *HTTPRequestProperties) GetOriginalPath() string {
-	if m != nil {
-		return m.OriginalPath
-	}
-	return ""
-}
-
-func (m *HTTPRequestProperties) GetRequestHeadersBytes() uint64 {
-	if m != nil {
-		return m.RequestHeadersBytes
-	}
-	return 0
-}
-
-func (m *HTTPRequestProperties) GetRequestBodyBytes() uint64 {
-	if m != nil {
-		return m.RequestBodyBytes
-	}
-	return 0
-}
-
-func (m *HTTPRequestProperties) GetRequestHeaders() map[string]string {
-	if m != nil {
-		return m.RequestHeaders
-	}
-	return nil
-}
-
-// [#not-implemented-hide:] Not configuration. TBD how to doc proto APIs.
-type HTTPResponseProperties struct {
-	// The HTTP response code returned by Envoy.
-	ResponseCode *wrappers.UInt32Value `protobuf:"bytes,1,opt,name=response_code,json=responseCode" json:"response_code,omitempty"`
-	// Size of the HTTP response headers in bytes.
-	//
-	// This value is captured from the OSI layer 7 perspective, i.e. it does not
-	// include overhead from framing or encoding at other networking layers.
-	ResponseHeadersBytes uint64 `protobuf:"varint,2,opt,name=response_headers_bytes,json=responseHeadersBytes" json:"response_headers_bytes,omitempty"`
-	// Size of the HTTP response body in bytes.
-	//
-	// This value is captured from the OSI layer 7 perspective, i.e. it does not
-	// include overhead from framing or encoding at other networking layers.
-	ResponseBodyBytes uint64 `protobuf:"varint,3,opt,name=response_body_bytes,json=responseBodyBytes" json:"response_body_bytes,omitempty"`
-	// Map of additional headers configured to be logged.
-	ResponseHeaders map[string]string `protobuf:"bytes,4,rep,name=response_headers,json=responseHeaders" json:"response_headers,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
-	// Map of trailers configured to be logged.
-	ResponseTrailers     map[string]string `protobuf:"bytes,5,rep,name=response_trailers,json=responseTrailers" json:"response_trailers,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
-	XXX_NoUnkeyedLiteral struct{}          `json:"-"`
-	XXX_unrecognized     []byte            `json:"-"`
-	XXX_sizecache        int32             `json:"-"`
-}
-
-func (m *HTTPResponseProperties) Reset()         { *m = HTTPResponseProperties{} }
-func (m *HTTPResponseProperties) String() string { return proto.CompactTextString(m) }
-func (*HTTPResponseProperties) ProtoMessage()    {}
-func (*HTTPResponseProperties) Descriptor() ([]byte, []int) {
-	return fileDescriptor_accesslog_3a9c471c87d22a71, []int{5}
-}
-func (m *HTTPResponseProperties) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_HTTPResponseProperties.Unmarshal(m, b)
-}
-func (m *HTTPResponseProperties) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_HTTPResponseProperties.Marshal(b, m, deterministic)
-}
-func (dst *HTTPResponseProperties) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_HTTPResponseProperties.Merge(dst, src)
-}
-func (m *HTTPResponseProperties) XXX_Size() int {
-	return xxx_messageInfo_HTTPResponseProperties.Size(m)
-}
-func (m *HTTPResponseProperties) XXX_DiscardUnknown() {
-	xxx_messageInfo_HTTPResponseProperties.DiscardUnknown(m)
-}
-
-var xxx_messageInfo_HTTPResponseProperties proto.InternalMessageInfo
-
-func (m *HTTPResponseProperties) GetResponseCode() *wrappers.UInt32Value {
-	if m != nil {
-		return m.ResponseCode
-	}
-	return nil
-}
-
-func (m *HTTPResponseProperties) GetResponseHeadersBytes() uint64 {
-	if m != nil {
-		return m.ResponseHeadersBytes
-	}
-	return 0
-}
-
-func (m *HTTPResponseProperties) GetResponseBodyBytes() uint64 {
-	if m != nil {
-		return m.ResponseBodyBytes
-	}
-	return 0
-}
-
-func (m *HTTPResponseProperties) GetResponseHeaders() map[string]string {
-	if m != nil {
-		return m.ResponseHeaders
-	}
-	return nil
-}
-
-func (m *HTTPResponseProperties) GetResponseTrailers() map[string]string {
-	if m != nil {
-		return m.ResponseTrailers
-	}
-	return nil
-}
-
-// [#not-implemented-hide:] Not configuration. TBD how to doc proto APIs.
-type HTTPAccessLogEntry struct {
-	// Common properties shared by all Envoy access logs.
-	CommonProperties *AccessLogCommon               `protobuf:"bytes,1,opt,name=common_properties,json=commonProperties" json:"common_properties,omitempty"`
-	ProtocolVersion  HTTPAccessLogEntry_HTTPVersion `protobuf:"varint,2,opt,name=protocol_version,json=protocolVersion,enum=envoy.config.filter.accesslog.v2.HTTPAccessLogEntry_HTTPVersion" json:"protocol_version,omitempty"`
-	// Description of the incoming HTTP request.
-	Request *HTTPRequestProperties `protobuf:"bytes,3,opt,name=request" json:"request,omitempty"`
-	// Description of the outgoing HTTP response.
-	Response             *HTTPResponseProperties `protobuf:"bytes,4,opt,name=response" json:"response,omitempty"`
-	XXX_NoUnkeyedLiteral struct{}                `json:"-"`
-	XXX_unrecognized     []byte                  `json:"-"`
-	XXX_sizecache        int32                   `json:"-"`
-}
-
-func (m *HTTPAccessLogEntry) Reset()         { *m = HTTPAccessLogEntry{} }
-func (m *HTTPAccessLogEntry) String() string { return proto.CompactTextString(m) }
-func (*HTTPAccessLogEntry) ProtoMessage()    {}
-func (*HTTPAccessLogEntry) Descriptor() ([]byte, []int) {
-	return fileDescriptor_accesslog_3a9c471c87d22a71, []int{6}
-}
-func (m *HTTPAccessLogEntry) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_HTTPAccessLogEntry.Unmarshal(m, b)
-}
-func (m *HTTPAccessLogEntry) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_HTTPAccessLogEntry.Marshal(b, m, deterministic)
-}
-func (dst *HTTPAccessLogEntry) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_HTTPAccessLogEntry.Merge(dst, src)
-}
-func (m *HTTPAccessLogEntry) XXX_Size() int {
-	return xxx_messageInfo_HTTPAccessLogEntry.Size(m)
-}
-func (m *HTTPAccessLogEntry) XXX_DiscardUnknown() {
-	xxx_messageInfo_HTTPAccessLogEntry.DiscardUnknown(m)
-}
-
-var xxx_messageInfo_HTTPAccessLogEntry proto.InternalMessageInfo
-
-func (m *HTTPAccessLogEntry) GetCommonProperties() *AccessLogCommon {
-	if m != nil {
-		return m.CommonProperties
-	}
-	return nil
-}
-
-func (m *HTTPAccessLogEntry) GetProtocolVersion() HTTPAccessLogEntry_HTTPVersion {
-	if m != nil {
-		return m.ProtocolVersion
-	}
-	return HTTPAccessLogEntry_PROTOCOL_UNSPECIFIED
-}
-
-func (m *HTTPAccessLogEntry) GetRequest() *HTTPRequestProperties {
-	if m != nil {
-		return m.Request
-	}
-	return nil
-}
-
-func (m *HTTPAccessLogEntry) GetResponse() *HTTPResponseProperties {
-	if m != nil {
-		return m.Response
-	}
-	return nil
+	return fileDescriptor_accesslog_052946e753344636, []int{2, 0}
 }
 
 type AccessLog struct {
 	// The name of the access log implementation to instantiate. The name must
 	// match a statically registered access log. Current built-in loggers include:
-	// 1) "envoy.file_access_log"
-	Name string `protobuf:"bytes,1,opt,name=name" json:"name,omitempty"`
+	//
+	// #. "envoy.file_access_log"
+	// #. "envoy.http_grpc_access_log"
+	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
 	// Filter which is used to determine if the access log needs to be written.
-	Filter *AccessLogFilter `protobuf:"bytes,2,opt,name=filter" json:"filter,omitempty"`
-	// Custom configuration that depends on the access log being instantiated. built-in configurations
+	Filter *AccessLogFilter `protobuf:"bytes,2,opt,name=filter,proto3" json:"filter,omitempty"`
+	// Custom configuration that depends on the access log being instantiated. Built-in configurations
 	// include:
-	// 1) "envoy.file_access_log": :ref:`FileAccessLog
-	// <envoy_api_msg_config.filter.accesslog.v2.FileAccessLog>`
-	Config               *_struct.Struct `protobuf:"bytes,3,opt,name=config" json:"config,omitempty"`
+	//
+	// #. "envoy.file_access_log": :ref:`FileAccessLog
+	//    <envoy_api_msg_config.accesslog.v2.FileAccessLog>`
+	// #. "envoy.http_grpc_access_log": :ref:`HttpGrpcAccessLogConfig
+	//    <envoy_api_msg_config.accesslog.v2.HttpGrpcAccessLogConfig>`
+	Config               *_struct.Struct `protobuf:"bytes,3,opt,name=config,proto3" json:"config,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}        `json:"-"`
 	XXX_unrecognized     []byte          `json:"-"`
 	XXX_sizecache        int32           `json:"-"`
@@ -977,7 +78,7 @@ func (m *AccessLog) Reset()         { *m = AccessLog{} }
 func (m *AccessLog) String() string { return proto.CompactTextString(m) }
 func (*AccessLog) ProtoMessage()    {}
 func (*AccessLog) Descriptor() ([]byte, []int) {
-	return fileDescriptor_accesslog_3a9c471c87d22a71, []int{7}
+	return fileDescriptor_accesslog_052946e753344636, []int{0}
 }
 func (m *AccessLog) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_AccessLog.Unmarshal(m, b)
@@ -1038,7 +139,7 @@ func (m *AccessLogFilter) Reset()         { *m = AccessLogFilter{} }
 func (m *AccessLogFilter) String() string { return proto.CompactTextString(m) }
 func (*AccessLogFilter) ProtoMessage()    {}
 func (*AccessLogFilter) Descriptor() ([]byte, []int) {
-	return fileDescriptor_accesslog_3a9c471c87d22a71, []int{8}
+	return fileDescriptor_accesslog_052946e753344636, []int{1}
 }
 func (m *AccessLogFilter) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_AccessLogFilter.Unmarshal(m, b)
@@ -1063,28 +164,28 @@ type isAccessLogFilter_FilterSpecifier interface {
 }
 
 type AccessLogFilter_StatusCodeFilter struct {
-	StatusCodeFilter *StatusCodeFilter `protobuf:"bytes,1,opt,name=status_code_filter,json=statusCodeFilter,oneof"`
+	StatusCodeFilter *StatusCodeFilter `protobuf:"bytes,1,opt,name=status_code_filter,json=statusCodeFilter,proto3,oneof"`
 }
 type AccessLogFilter_DurationFilter struct {
-	DurationFilter *DurationFilter `protobuf:"bytes,2,opt,name=duration_filter,json=durationFilter,oneof"`
+	DurationFilter *DurationFilter `protobuf:"bytes,2,opt,name=duration_filter,json=durationFilter,proto3,oneof"`
 }
 type AccessLogFilter_NotHealthCheckFilter struct {
-	NotHealthCheckFilter *NotHealthCheckFilter `protobuf:"bytes,3,opt,name=not_health_check_filter,json=notHealthCheckFilter,oneof"`
+	NotHealthCheckFilter *NotHealthCheckFilter `protobuf:"bytes,3,opt,name=not_health_check_filter,json=notHealthCheckFilter,proto3,oneof"`
 }
 type AccessLogFilter_TraceableFilter struct {
-	TraceableFilter *TraceableFilter `protobuf:"bytes,4,opt,name=traceable_filter,json=traceableFilter,oneof"`
+	TraceableFilter *TraceableFilter `protobuf:"bytes,4,opt,name=traceable_filter,json=traceableFilter,proto3,oneof"`
 }
 type AccessLogFilter_RuntimeFilter struct {
-	RuntimeFilter *RuntimeFilter `protobuf:"bytes,5,opt,name=runtime_filter,json=runtimeFilter,oneof"`
+	RuntimeFilter *RuntimeFilter `protobuf:"bytes,5,opt,name=runtime_filter,json=runtimeFilter,proto3,oneof"`
 }
 type AccessLogFilter_AndFilter struct {
-	AndFilter *AndFilter `protobuf:"bytes,6,opt,name=and_filter,json=andFilter,oneof"`
+	AndFilter *AndFilter `protobuf:"bytes,6,opt,name=and_filter,json=andFilter,proto3,oneof"`
 }
 type AccessLogFilter_OrFilter struct {
-	OrFilter *OrFilter `protobuf:"bytes,7,opt,name=or_filter,json=orFilter,oneof"`
+	OrFilter *OrFilter `protobuf:"bytes,7,opt,name=or_filter,json=orFilter,proto3,oneof"`
 }
 type AccessLogFilter_HeaderFilter struct {
-	HeaderFilter *HeaderFilter `protobuf:"bytes,8,opt,name=header_filter,json=headerFilter,oneof"`
+	HeaderFilter *HeaderFilter `protobuf:"bytes,8,opt,name=header_filter,json=headerFilter,proto3,oneof"`
 }
 
 func (*AccessLogFilter_StatusCodeFilter) isAccessLogFilter_FilterSpecifier()     {}
@@ -1350,9 +451,9 @@ func _AccessLogFilter_OneofSizer(msg proto.Message) (n int) {
 // Filter on an integer comparison.
 type ComparisonFilter struct {
 	// Comparison operator.
-	Op ComparisonFilter_Op `protobuf:"varint,1,opt,name=op,enum=envoy.config.filter.accesslog.v2.ComparisonFilter_Op" json:"op,omitempty"`
+	Op ComparisonFilter_Op `protobuf:"varint,1,opt,name=op,proto3,enum=envoy.config.filter.accesslog.v2.ComparisonFilter_Op" json:"op,omitempty"`
 	// Value to compare against.
-	Value                *core.RuntimeUInt32 `protobuf:"bytes,2,opt,name=value" json:"value,omitempty"`
+	Value                *core.RuntimeUInt32 `protobuf:"bytes,2,opt,name=value,proto3" json:"value,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}            `json:"-"`
 	XXX_unrecognized     []byte              `json:"-"`
 	XXX_sizecache        int32               `json:"-"`
@@ -1362,7 +463,7 @@ func (m *ComparisonFilter) Reset()         { *m = ComparisonFilter{} }
 func (m *ComparisonFilter) String() string { return proto.CompactTextString(m) }
 func (*ComparisonFilter) ProtoMessage()    {}
 func (*ComparisonFilter) Descriptor() ([]byte, []int) {
-	return fileDescriptor_accesslog_3a9c471c87d22a71, []int{9}
+	return fileDescriptor_accesslog_052946e753344636, []int{2}
 }
 func (m *ComparisonFilter) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_ComparisonFilter.Unmarshal(m, b)
@@ -1399,7 +500,7 @@ func (m *ComparisonFilter) GetValue() *core.RuntimeUInt32 {
 // Filters on HTTP response/status code.
 type StatusCodeFilter struct {
 	// Comparison.
-	Comparison           *ComparisonFilter `protobuf:"bytes,1,opt,name=comparison" json:"comparison,omitempty"`
+	Comparison           *ComparisonFilter `protobuf:"bytes,1,opt,name=comparison,proto3" json:"comparison,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}          `json:"-"`
 	XXX_unrecognized     []byte            `json:"-"`
 	XXX_sizecache        int32             `json:"-"`
@@ -1409,7 +510,7 @@ func (m *StatusCodeFilter) Reset()         { *m = StatusCodeFilter{} }
 func (m *StatusCodeFilter) String() string { return proto.CompactTextString(m) }
 func (*StatusCodeFilter) ProtoMessage()    {}
 func (*StatusCodeFilter) Descriptor() ([]byte, []int) {
-	return fileDescriptor_accesslog_3a9c471c87d22a71, []int{10}
+	return fileDescriptor_accesslog_052946e753344636, []int{3}
 }
 func (m *StatusCodeFilter) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_StatusCodeFilter.Unmarshal(m, b)
@@ -1439,7 +540,7 @@ func (m *StatusCodeFilter) GetComparison() *ComparisonFilter {
 // Filters on total request duration in milliseconds.
 type DurationFilter struct {
 	// Comparison.
-	Comparison           *ComparisonFilter `protobuf:"bytes,1,opt,name=comparison" json:"comparison,omitempty"`
+	Comparison           *ComparisonFilter `protobuf:"bytes,1,opt,name=comparison,proto3" json:"comparison,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}          `json:"-"`
 	XXX_unrecognized     []byte            `json:"-"`
 	XXX_sizecache        int32             `json:"-"`
@@ -1449,7 +550,7 @@ func (m *DurationFilter) Reset()         { *m = DurationFilter{} }
 func (m *DurationFilter) String() string { return proto.CompactTextString(m) }
 func (*DurationFilter) ProtoMessage()    {}
 func (*DurationFilter) Descriptor() ([]byte, []int) {
-	return fileDescriptor_accesslog_3a9c471c87d22a71, []int{11}
+	return fileDescriptor_accesslog_052946e753344636, []int{4}
 }
 func (m *DurationFilter) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_DurationFilter.Unmarshal(m, b)
@@ -1488,7 +589,7 @@ func (m *NotHealthCheckFilter) Reset()         { *m = NotHealthCheckFilter{} }
 func (m *NotHealthCheckFilter) String() string { return proto.CompactTextString(m) }
 func (*NotHealthCheckFilter) ProtoMessage()    {}
 func (*NotHealthCheckFilter) Descriptor() ([]byte, []int) {
-	return fileDescriptor_accesslog_3a9c471c87d22a71, []int{12}
+	return fileDescriptor_accesslog_052946e753344636, []int{5}
 }
 func (m *NotHealthCheckFilter) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_NotHealthCheckFilter.Unmarshal(m, b)
@@ -1520,7 +621,7 @@ func (m *TraceableFilter) Reset()         { *m = TraceableFilter{} }
 func (m *TraceableFilter) String() string { return proto.CompactTextString(m) }
 func (*TraceableFilter) ProtoMessage()    {}
 func (*TraceableFilter) Descriptor() ([]byte, []int) {
-	return fileDescriptor_accesslog_3a9c471c87d22a71, []int{13}
+	return fileDescriptor_accesslog_052946e753344636, []int{6}
 }
 func (m *TraceableFilter) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_TraceableFilter.Unmarshal(m, b)
@@ -1544,9 +645,9 @@ var xxx_messageInfo_TraceableFilter proto.InternalMessageInfo
 type RuntimeFilter struct {
 	// Runtime key to get an optional overridden numerator for use in the *percent_sampled* field.
 	// If found in runtime, this value will replace the default numerator.
-	RuntimeKey string `protobuf:"bytes,1,opt,name=runtime_key,json=runtimeKey" json:"runtime_key,omitempty"`
+	RuntimeKey string `protobuf:"bytes,1,opt,name=runtime_key,json=runtimeKey,proto3" json:"runtime_key,omitempty"`
 	// The default sampling percentage. If not specified, defaults to 0% with denominator of 100.
-	PercentSampled *_type.FractionalPercent `protobuf:"bytes,2,opt,name=percent_sampled,json=percentSampled" json:"percent_sampled,omitempty"`
+	PercentSampled *_type.FractionalPercent `protobuf:"bytes,2,opt,name=percent_sampled,json=percentSampled,proto3" json:"percent_sampled,omitempty"`
 	// By default, sampling pivots on the header
 	// :ref:`x-request-id<config_http_conn_man_headers_x-request-id>` being present. If
 	// :ref:`x-request-id<config_http_conn_man_headers_x-request-id>` is present, the filter will
@@ -1559,7 +660,7 @@ type RuntimeFilter struct {
 	// <envoy_api_msg_config.filter.accesslog.v2.OrFilter>` blocks that are easier to reason about
 	// from a probability perspective (i.e., setting to true will cause the filter to behave like
 	// an independent random variable when composed within logical operator filters).
-	UseIndependentRandomness bool     `protobuf:"varint,3,opt,name=use_independent_randomness,json=useIndependentRandomness" json:"use_independent_randomness,omitempty"`
+	UseIndependentRandomness bool     `protobuf:"varint,3,opt,name=use_independent_randomness,json=useIndependentRandomness,proto3" json:"use_independent_randomness,omitempty"`
 	XXX_NoUnkeyedLiteral     struct{} `json:"-"`
 	XXX_unrecognized         []byte   `json:"-"`
 	XXX_sizecache            int32    `json:"-"`
@@ -1569,7 +670,7 @@ func (m *RuntimeFilter) Reset()         { *m = RuntimeFilter{} }
 func (m *RuntimeFilter) String() string { return proto.CompactTextString(m) }
 func (*RuntimeFilter) ProtoMessage()    {}
 func (*RuntimeFilter) Descriptor() ([]byte, []int) {
-	return fileDescriptor_accesslog_3a9c471c87d22a71, []int{14}
+	return fileDescriptor_accesslog_052946e753344636, []int{7}
 }
 func (m *RuntimeFilter) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_RuntimeFilter.Unmarshal(m, b)
@@ -1614,7 +715,7 @@ func (m *RuntimeFilter) GetUseIndependentRandomness() bool {
 // Filters are evaluated sequentially and if one of them returns false, the
 // filter returns false immediately.
 type AndFilter struct {
-	Filters              []*AccessLogFilter `protobuf:"bytes,1,rep,name=filters" json:"filters,omitempty"`
+	Filters              []*AccessLogFilter `protobuf:"bytes,1,rep,name=filters,proto3" json:"filters,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}           `json:"-"`
 	XXX_unrecognized     []byte             `json:"-"`
 	XXX_sizecache        int32              `json:"-"`
@@ -1624,7 +725,7 @@ func (m *AndFilter) Reset()         { *m = AndFilter{} }
 func (m *AndFilter) String() string { return proto.CompactTextString(m) }
 func (*AndFilter) ProtoMessage()    {}
 func (*AndFilter) Descriptor() ([]byte, []int) {
-	return fileDescriptor_accesslog_3a9c471c87d22a71, []int{15}
+	return fileDescriptor_accesslog_052946e753344636, []int{8}
 }
 func (m *AndFilter) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_AndFilter.Unmarshal(m, b)
@@ -1655,7 +756,7 @@ func (m *AndFilter) GetFilters() []*AccessLogFilter {
 // Filters are evaluated sequentially and if one of them returns true, the
 // filter returns true immediately.
 type OrFilter struct {
-	Filters              []*AccessLogFilter `protobuf:"bytes,2,rep,name=filters" json:"filters,omitempty"`
+	Filters              []*AccessLogFilter `protobuf:"bytes,2,rep,name=filters,proto3" json:"filters,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}           `json:"-"`
 	XXX_unrecognized     []byte             `json:"-"`
 	XXX_sizecache        int32              `json:"-"`
@@ -1665,7 +766,7 @@ func (m *OrFilter) Reset()         { *m = OrFilter{} }
 func (m *OrFilter) String() string { return proto.CompactTextString(m) }
 func (*OrFilter) ProtoMessage()    {}
 func (*OrFilter) Descriptor() ([]byte, []int) {
-	return fileDescriptor_accesslog_3a9c471c87d22a71, []int{16}
+	return fileDescriptor_accesslog_052946e753344636, []int{9}
 }
 func (m *OrFilter) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_OrFilter.Unmarshal(m, b)
@@ -1696,7 +797,7 @@ func (m *OrFilter) GetFilters() []*AccessLogFilter {
 type HeaderFilter struct {
 	// Only requests with a header which matches the specified HeaderMatcher will pass the filter
 	// check.
-	Header               *route.HeaderMatcher `protobuf:"bytes,1,opt,name=header" json:"header,omitempty"`
+	Header               *route.HeaderMatcher `protobuf:"bytes,1,opt,name=header,proto3" json:"header,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}             `json:"-"`
 	XXX_unrecognized     []byte               `json:"-"`
 	XXX_sizecache        int32                `json:"-"`
@@ -1706,7 +807,7 @@ func (m *HeaderFilter) Reset()         { *m = HeaderFilter{} }
 func (m *HeaderFilter) String() string { return proto.CompactTextString(m) }
 func (*HeaderFilter) ProtoMessage()    {}
 func (*HeaderFilter) Descriptor() ([]byte, []int) {
-	return fileDescriptor_accesslog_3a9c471c87d22a71, []int{17}
+	return fileDescriptor_accesslog_052946e753344636, []int{10}
 }
 func (m *HeaderFilter) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_HeaderFilter.Unmarshal(m, b)
@@ -1733,70 +834,7 @@ func (m *HeaderFilter) GetHeader() *route.HeaderMatcher {
 	return nil
 }
 
-// Custom configuration for an AccessLog that writes log entries directly to a file.
-// Configures the built-in *envoy.file_access_log* AccessLog.
-type FileAccessLog struct {
-	// A path to a local file to which to write the access log entries.
-	Path string `protobuf:"bytes,1,opt,name=path" json:"path,omitempty"`
-	// Access log format. Envoy supports :ref:`custom access log formats
-	// <config_access_log_format>` as well as a :ref:`default format
-	// <config_access_log_default_format>`.
-	Format               string   `protobuf:"bytes,2,opt,name=format" json:"format,omitempty"`
-	XXX_NoUnkeyedLiteral struct{} `json:"-"`
-	XXX_unrecognized     []byte   `json:"-"`
-	XXX_sizecache        int32    `json:"-"`
-}
-
-func (m *FileAccessLog) Reset()         { *m = FileAccessLog{} }
-func (m *FileAccessLog) String() string { return proto.CompactTextString(m) }
-func (*FileAccessLog) ProtoMessage()    {}
-func (*FileAccessLog) Descriptor() ([]byte, []int) {
-	return fileDescriptor_accesslog_3a9c471c87d22a71, []int{18}
-}
-func (m *FileAccessLog) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_FileAccessLog.Unmarshal(m, b)
-}
-func (m *FileAccessLog) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_FileAccessLog.Marshal(b, m, deterministic)
-}
-func (dst *FileAccessLog) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_FileAccessLog.Merge(dst, src)
-}
-func (m *FileAccessLog) XXX_Size() int {
-	return xxx_messageInfo_FileAccessLog.Size(m)
-}
-func (m *FileAccessLog) XXX_DiscardUnknown() {
-	xxx_messageInfo_FileAccessLog.DiscardUnknown(m)
-}
-
-var xxx_messageInfo_FileAccessLog proto.InternalMessageInfo
-
-func (m *FileAccessLog) GetPath() string {
-	if m != nil {
-		return m.Path
-	}
-	return ""
-}
-
-func (m *FileAccessLog) GetFormat() string {
-	if m != nil {
-		return m.Format
-	}
-	return ""
-}
-
 func init() {
-	proto.RegisterType((*AccessLogCommon)(nil), "envoy.config.filter.accesslog.v2.AccessLogCommon")
-	proto.RegisterType((*ResponseFlags)(nil), "envoy.config.filter.accesslog.v2.ResponseFlags")
-	proto.RegisterType((*ResponseFlags_Unauthorized)(nil), "envoy.config.filter.accesslog.v2.ResponseFlags.Unauthorized")
-	proto.RegisterType((*TLSProperties)(nil), "envoy.config.filter.accesslog.v2.TLSProperties")
-	proto.RegisterType((*TCPAccessLogEntry)(nil), "envoy.config.filter.accesslog.v2.TCPAccessLogEntry")
-	proto.RegisterType((*HTTPRequestProperties)(nil), "envoy.config.filter.accesslog.v2.HTTPRequestProperties")
-	proto.RegisterMapType((map[string]string)(nil), "envoy.config.filter.accesslog.v2.HTTPRequestProperties.RequestHeadersEntry")
-	proto.RegisterType((*HTTPResponseProperties)(nil), "envoy.config.filter.accesslog.v2.HTTPResponseProperties")
-	proto.RegisterMapType((map[string]string)(nil), "envoy.config.filter.accesslog.v2.HTTPResponseProperties.ResponseHeadersEntry")
-	proto.RegisterMapType((map[string]string)(nil), "envoy.config.filter.accesslog.v2.HTTPResponseProperties.ResponseTrailersEntry")
-	proto.RegisterType((*HTTPAccessLogEntry)(nil), "envoy.config.filter.accesslog.v2.HTTPAccessLogEntry")
 	proto.RegisterType((*AccessLog)(nil), "envoy.config.filter.accesslog.v2.AccessLog")
 	proto.RegisterType((*AccessLogFilter)(nil), "envoy.config.filter.accesslog.v2.AccessLogFilter")
 	proto.RegisterType((*ComparisonFilter)(nil), "envoy.config.filter.accesslog.v2.ComparisonFilter")
@@ -1808,162 +846,64 @@ func init() {
 	proto.RegisterType((*AndFilter)(nil), "envoy.config.filter.accesslog.v2.AndFilter")
 	proto.RegisterType((*OrFilter)(nil), "envoy.config.filter.accesslog.v2.OrFilter")
 	proto.RegisterType((*HeaderFilter)(nil), "envoy.config.filter.accesslog.v2.HeaderFilter")
-	proto.RegisterType((*FileAccessLog)(nil), "envoy.config.filter.accesslog.v2.FileAccessLog")
-	proto.RegisterEnum("envoy.config.filter.accesslog.v2.ResponseFlags_Unauthorized_Reason", ResponseFlags_Unauthorized_Reason_name, ResponseFlags_Unauthorized_Reason_value)
-	proto.RegisterEnum("envoy.config.filter.accesslog.v2.TLSProperties_TLSVersion", TLSProperties_TLSVersion_name, TLSProperties_TLSVersion_value)
-	proto.RegisterEnum("envoy.config.filter.accesslog.v2.HTTPAccessLogEntry_HTTPVersion", HTTPAccessLogEntry_HTTPVersion_name, HTTPAccessLogEntry_HTTPVersion_value)
 	proto.RegisterEnum("envoy.config.filter.accesslog.v2.ComparisonFilter_Op", ComparisonFilter_Op_name, ComparisonFilter_Op_value)
 }
 
 func init() {
-	proto.RegisterFile("envoy/config/filter/accesslog/v2/accesslog.proto", fileDescriptor_accesslog_3a9c471c87d22a71)
+	proto.RegisterFile("envoy/config/filter/accesslog/v2/accesslog.proto", fileDescriptor_accesslog_052946e753344636)
 }
 
-var fileDescriptor_accesslog_3a9c471c87d22a71 = []byte{
-	// 2316 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xbc, 0x59, 0x4d, 0x73, 0x1b, 0x49,
-	0xf9, 0x8f, 0x64, 0x59, 0x91, 0x1e, 0x59, 0xf6, 0xb8, 0xed, 0xd8, 0xb2, 0x93, 0xac, 0x1d, 0xfd,
-	0xff, 0x54, 0x85, 0x5d, 0x4a, 0x4a, 0x14, 0xc8, 0xa6, 0xb6, 0xb6, 0x58, 0x6c, 0x45, 0xda, 0x98,
-	0x75, 0x62, 0xa7, 0x2d, 0x7b, 0xb7, 0x48, 0x55, 0x86, 0xb6, 0xa6, 0x65, 0x0d, 0x19, 0x4d, 0x0f,
-	0x3d, 0x2d, 0x27, 0x82, 0x1b, 0x27, 0x8a, 0x13, 0xc5, 0x09, 0x8a, 0x23, 0x17, 0xbe, 0x01, 0xd4,
-	0x72, 0xc9, 0x7e, 0x09, 0xae, 0x9c, 0x53, 0x5c, 0xf8, 0x08, 0x54, 0xbf, 0x8d, 0x5e, 0xec, 0x5d,
-	0x29, 0x59, 0x20, 0x87, 0x68, 0xfa, 0xe9, 0xe7, 0xf7, 0x7b, 0xba, 0x9f, 0xb7, 0xee, 0x19, 0xc3,
-	0x1d, 0x1a, 0x9e, 0xb3, 0x41, 0xb5, 0xcd, 0xc2, 0x8e, 0x7f, 0x56, 0xed, 0xf8, 0x81, 0xa0, 0xbc,
-	0x4a, 0xda, 0x6d, 0x1a, 0xc7, 0x01, 0x3b, 0xab, 0x9e, 0xd7, 0x86, 0x83, 0x4a, 0xc4, 0x99, 0x60,
-	0x68, 0x5b, 0x21, 0x2a, 0x1a, 0x51, 0xd1, 0x88, 0xca, 0x50, 0xe9, 0xbc, 0xb6, 0xb9, 0xa5, 0x39,
-	0x49, 0xe4, 0x4b, 0x7c, 0x9b, 0x71, 0x5a, 0x25, 0x9e, 0xc7, 0x69, 0x1c, 0x6b, 0x8a, 0xcd, 0x1b,
-	0x17, 0x15, 0x4e, 0x49, 0x4c, 0xcd, 0xec, 0x7b, 0x63, 0xb3, 0x9c, 0xf5, 0x05, 0xd5, 0xff, 0x9b,
-	0xf9, 0x92, 0x9e, 0x17, 0x83, 0x88, 0x56, 0x23, 0xca, 0xdb, 0x34, 0x14, 0x16, 0x79, 0xc6, 0xd8,
-	0x59, 0x40, 0xab, 0x6a, 0x74, 0xda, 0xef, 0x54, 0xbd, 0x3e, 0x27, 0xc2, 0x67, 0xa1, 0xb5, 0x3b,
-	0x39, 0x1f, 0x0b, 0xde, 0x6f, 0x5b, 0xf4, 0xd6, 0xe4, 0xac, 0xf0, 0x7b, 0x34, 0x16, 0xa4, 0x17,
-	0x7d, 0x1d, 0xfd, 0x4b, 0x4e, 0xa2, 0x88, 0x72, 0xbb, 0xad, 0xf5, 0x73, 0x12, 0xf8, 0x1e, 0x11,
-	0xb4, 0x6a, 0x1f, 0xcc, 0xc4, 0xea, 0x19, 0x3b, 0x63, 0xea, 0xb1, 0x2a, 0x9f, 0xb4, 0xb4, 0xfc,
-	0xe7, 0x02, 0x2c, 0xed, 0x28, 0xbf, 0xed, 0xb3, 0xb3, 0x3a, 0xeb, 0xf5, 0x58, 0x88, 0x76, 0xa0,
-	0x10, 0x93, 0x5e, 0x14, 0x50, 0x97, 0x13, 0x41, 0x4b, 0xa9, 0xed, 0xd4, 0xed, 0xd4, 0xee, 0xf6,
-	0x97, 0x6f, 0x5e, 0xcf, 0x15, 0x50, 0xfe, 0xd6, 0x15, 0xf3, 0xcf, 0x8c, 0x37, 0xf4, 0xe8, 0x5f,
-	0x9f, 0x60, 0xd0, 0x20, 0x4c, 0x04, 0x45, 0x27, 0xb0, 0xe1, 0xb1, 0x97, 0x61, 0x2c, 0x38, 0x25,
-	0x3d, 0x97, 0xd3, 0x1e, 0x13, 0xd4, 0x35, 0xfe, 0x2f, 0xa5, 0xb7, 0x53, 0xb7, 0x0b, 0xb5, 0xcd,
-	0x8a, 0x8e, 0x21, 0x89, 0xfc, 0xca, 0x79, 0xad, 0x22, 0x03, 0x50, 0xd9, 0xd1, 0x1a, 0x78, 0x7d,
-	0x08, 0xc6, 0x0a, 0x6b, 0x26, 0x50, 0x0b, 0x4a, 0x23, 0xbc, 0x01, 0x6b, 0x93, 0x20, 0xa1, 0x9d,
-	0x9b, 0x4a, 0xbb, 0x36, 0xc4, 0xee, 0x4b, 0xa8, 0x65, 0x3d, 0x81, 0x45, 0x11, 0xc4, 0x6e, 0xc4,
-	0x59, 0x44, 0xb9, 0xf0, 0x69, 0x5c, 0xca, 0x28, 0xae, 0x6a, 0x65, 0x5a, 0x9a, 0x55, 0x5a, 0xfb,
-	0x47, 0x87, 0x09, 0x0c, 0x17, 0x45, 0x10, 0x0f, 0x87, 0xe8, 0x13, 0x80, 0x58, 0x10, 0x2e, 0x5c,
-	0x19, 0xc4, 0xd2, 0xbc, 0x59, 0x9f, 0x0e, 0x60, 0xc5, 0x06, 0xb0, 0xd2, 0xb2, 0x11, 0xde, 0xcd,
-	0xfc, 0xf6, 0x1f, 0x5b, 0x29, 0x9c, 0x57, 0x18, 0x29, 0x45, 0x07, 0xb0, 0x2a, 0xa1, 0xae, 0x60,
-	0x6e, 0x40, 0x62, 0xe1, 0xf2, 0x57, 0xee, 0xe9, 0x40, 0xd0, 0x52, 0x56, 0x51, 0x6d, 0x5c, 0xa0,
-	0x7a, 0x68, 0x52, 0x6d, 0x37, 0xf3, 0x7b, 0xc9, 0xe4, 0x48, 0x70, 0x8b, 0xed, 0x93, 0x58, 0xe0,
-	0x57, 0xbb, 0x03, 0x41, 0xd1, 0x29, 0xbc, 0x67, 0x09, 0x3b, 0x3e, 0x8f, 0x85, 0xdb, 0x8f, 0x8c,
-	0x2f, 0x85, 0xa1, 0xbe, 0x3a, 0x1b, 0xf5, 0x86, 0xa6, 0x6e, 0x4a, 0x92, 0x63, 0xc3, 0xd1, 0xd2,
-	0x36, 0x7e, 0x0a, 0x37, 0xc7, 0x16, 0x7d, 0xc1, 0x44, 0x6e, 0x36, 0x13, 0xa5, 0xe1, 0xea, 0x27,
-	0x2c, 0x7c, 0xfd, 0x2e, 0xac, 0x83, 0xf2, 0xef, 0xbe, 0x0b, 0x3c, 0x65, 0x17, 0xd6, 0x04, 0xbc,
-	0xf3, 0x2e, 0x8c, 0x85, 0x0e, 0x6c, 0x8f, 0xef, 0x62, 0x24, 0xb3, 0xad, 0xab, 0x0a, 0xb3, 0x19,
-	0xb9, 0x3e, 0xb2, 0x8f, 0x87, 0x09, 0x8b, 0xf1, 0x96, 0x07, 0x5b, 0x63, 0x3b, 0xb9, 0xc4, 0xcc,
-	0xc2, 0x6c, 0x66, 0x36, 0x87, 0x7b, 0xb9, 0x60, 0x05, 0xc3, 0xfa, 0xd0, 0x45, 0xe3, 0xf5, 0x5e,
-	0x9c, 0x5a, 0x98, 0xd7, 0x2c, 0x74, 0xbc, 0xda, 0x0f, 0x61, 0x2d, 0xe1, 0x1c, 0xaf, 0xf5, 0xc5,
-	0xa9, 0x94, 0xab, 0x16, 0x39, 0x56, 0xe9, 0xdf, 0x05, 0x27, 0x61, 0x6c, 0x07, 0xfd, 0x58, 0x50,
-	0x5e, 0x5a, 0xda, 0x4e, 0xdd, 0xce, 0xe3, 0x25, 0x2b, 0xaf, 0x6b, 0xb1, 0x6c, 0x0a, 0x9c, 0xc6,
-	0x11, 0x0b, 0x63, 0xea, 0x76, 0x02, 0x72, 0x16, 0x97, 0x9c, 0x59, 0x9b, 0x02, 0x36, 0xb8, 0xa6,
-	0x84, 0xe1, 0x22, 0x1f, 0x1d, 0xa2, 0x0f, 0x21, 0xd7, 0xa3, 0x82, 0x78, 0x44, 0x90, 0xd2, 0xb2,
-	0x62, 0xbc, 0x7e, 0xc9, 0x36, 0x1e, 0x1b, 0x15, 0x9c, 0x28, 0x97, 0xff, 0x99, 0x85, 0xe2, 0x18,
-	0x33, 0x7a, 0x00, 0xa5, 0x0e, 0xf1, 0x03, 0xea, 0x19, 0xef, 0x74, 0x29, 0x09, 0x44, 0xb7, 0xdd,
-	0xa5, 0xed, 0x17, 0xaa, 0x6b, 0xe7, 0xf0, 0x9a, 0x9e, 0x57, 0x3e, 0x78, 0x34, 0x9c, 0x45, 0x15,
-	0x58, 0x09, 0x99, 0xd1, 0x1f, 0x24, 0xb9, 0xad, 0x3a, 0x73, 0x0e, 0x2f, 0x87, 0x4c, 0xeb, 0x0e,
-	0x6c, 0xc6, 0x4a, 0x4b, 0x23, 0xd1, 0xfd, 0x79, 0x9f, 0xc6, 0xba, 0xa9, 0xb1, 0xbe, 0x50, 0x7d,
-	0x37, 0x87, 0xd7, 0x86, 0x21, 0x54, 0xd3, 0x2d, 0x3d, 0x8b, 0xb6, 0xa0, 0xa0, 0x17, 0xc7, 0x69,
-	0x4c, 0x85, 0x6a, 0xac, 0x39, 0x0c, 0x4a, 0x84, 0xa5, 0x04, 0xd5, 0xe0, 0xda, 0x64, 0xe2, 0x68,
-	0xd5, 0x79, 0xa5, 0xba, 0x32, 0x9e, 0x1a, 0x1a, 0xf3, 0x43, 0xb8, 0x3e, 0x0c, 0x23, 0x0b, 0x43,
-	0xda, 0x96, 0x59, 0xea, 0xca, 0xcd, 0xf6, 0xb9, 0x6e, 0x8f, 0x39, 0xbc, 0x91, 0x44, 0x34, 0xd1,
-	0x68, 0x6a, 0x05, 0xd4, 0x84, 0xad, 0xcb, 0xf0, 0x82, 0xf2, 0x9e, 0x1f, 0xaa, 0x8c, 0x57, 0x7d,
-	0x30, 0x87, 0x6f, 0x5e, 0xe4, 0x68, 0x0d, 0x95, 0xd0, 0x07, 0xb0, 0x9c, 0xf0, 0xb0, 0x73, 0xca,
-	0x3b, 0x01, 0x7b, 0xa9, 0xda, 0x5b, 0x0e, 0x27, 0x79, 0x76, 0x60, 0xe4, 0xe8, 0xff, 0x61, 0x31,
-	0x64, 0xae, 0xba, 0x44, 0xb8, 0x1d, 0xd6, 0x0f, 0x3d, 0xd5, 0xa5, 0x72, 0x78, 0x21, 0x64, 0x58,
-	0x0a, 0x9b, 0x52, 0x86, 0xbe, 0x03, 0x8b, 0x1e, 0x0d, 0xc8, 0xc0, 0xf5, 0xc3, 0x9f, 0xd1, 0xb6,
-	0xa0, 0x9e, 0x6a, 0x34, 0x39, 0x5c, 0x54, 0xd2, 0x3d, 0x23, 0x94, 0x6a, 0x1d, 0xd2, 0x0f, 0xc4,
-	0x50, 0xad, 0xa0, 0xd5, 0x94, 0x34, 0x51, 0xbb, 0x05, 0x0b, 0xf2, 0x0c, 0x77, 0x03, 0xbf, 0xe7,
-	0x4b, 0xa5, 0x05, 0xa5, 0x54, 0x90, 0xb2, 0x7d, 0x2d, 0x42, 0x0c, 0x56, 0xfb, 0x21, 0xe9, 0x8b,
-	0x2e, 0xe3, 0xfe, 0x2f, 0xa8, 0xe7, 0x7a, 0x54, 0x10, 0x3f, 0xb0, 0x55, 0xfb, 0xf1, 0x5b, 0x66,
-	0x7b, 0xe5, 0x78, 0x84, 0x0b, 0xaf, 0x8c, 0x32, 0x3f, 0xd4, 0xc4, 0x9b, 0x7f, 0x4a, 0xc1, 0xc2,
-	0xa8, 0x16, 0x7a, 0x06, 0x59, 0x4e, 0x49, 0xcc, 0x42, 0x95, 0xb4, 0x8b, 0xb5, 0xfa, 0xb7, 0xb1,
-	0x59, 0xc1, 0x8a, 0x0a, 0x1b, 0xca, 0xf2, 0x7d, 0xc8, 0x6a, 0x09, 0x5a, 0x03, 0x84, 0x1b, 0x3b,
-	0x47, 0x07, 0x4f, 0xdc, 0xe3, 0x27, 0x47, 0x87, 0x8d, 0xfa, 0x5e, 0x73, 0xaf, 0xf1, 0xd0, 0xb9,
-	0x82, 0x56, 0xc1, 0x69, 0x7c, 0xd1, 0x6a, 0xe0, 0x27, 0x3b, 0xfb, 0xee, 0x51, 0x03, 0x9f, 0xec,
-	0xd5, 0x1b, 0x4e, 0xaa, 0xfc, 0x97, 0x34, 0x14, 0xc7, 0x0e, 0x77, 0xf4, 0x0c, 0x0a, 0xf2, 0x96,
-	0x70, 0x4e, 0x79, 0xec, 0x27, 0x6b, 0xfd, 0xe8, 0x2d, 0xaf, 0x08, 0x72, 0x74, 0xa2, 0x19, 0x30,
-	0x88, 0x20, 0x36, 0xcf, 0xa8, 0x09, 0x8e, 0x24, 0x6f, 0xfb, 0x51, 0x97, 0x72, 0x37, 0xee, 0xfb,
-	0x82, 0x9a, 0x7b, 0xd2, 0x8d, 0x0b, 0x5d, 0xf9, 0x78, 0x2f, 0x14, 0xf7, 0x6a, 0x27, 0x24, 0xe8,
-	0x53, 0x2c, 0x2f, 0x2e, 0x75, 0x05, 0x3a, 0x92, 0x18, 0x74, 0x5b, 0xf3, 0xc4, 0xa1, 0xef, 0x76,
-	0x59, 0x2c, 0x42, 0xd2, 0xa3, 0xaa, 0x40, 0xf3, 0x4a, 0xf3, 0x28, 0xf4, 0x1f, 0x19, 0x69, 0xf9,
-	0x73, 0x80, 0xe1, 0x5a, 0xd0, 0x3a, 0xac, 0x9c, 0x34, 0xf0, 0xd1, 0xde, 0x05, 0xef, 0xe4, 0x61,
-	0xbe, 0xb5, 0x7f, 0x74, 0x7e, 0xd7, 0x49, 0xa1, 0x02, 0x5c, 0x55, 0x8f, 0xee, 0x5d, 0x27, 0x3d,
-	0x1c, 0xd4, 0x9c, 0xb9, 0xe1, 0xe0, 0x9e, 0x93, 0x29, 0xc7, 0xb0, 0xdc, 0xaa, 0x1f, 0x26, 0x97,
-	0xca, 0x46, 0x28, 0xf8, 0x00, 0x3d, 0x87, 0xe5, 0xb6, 0xba, 0x5d, 0x8e, 0xde, 0xb2, 0x52, 0x6a,
-	0x83, 0x77, 0xa7, 0xbb, 0x70, 0xe2, 0x86, 0x8a, 0x1d, 0xcd, 0x35, 0x74, 0x6b, 0xf9, 0x0f, 0xf3,
-	0x70, 0xed, 0x51, 0xab, 0x75, 0x68, 0xba, 0xcf, 0x48, 0xd8, 0x3e, 0x95, 0x7d, 0x5c, 0x77, 0xac,
-	0x1e, 0x15, 0x5d, 0xe6, 0x99, 0xc8, 0x6d, 0x5f, 0xd2, 0x75, 0x0d, 0xfa, 0xb1, 0xd2, 0x93, 0x8d,
-	0x7b, 0x64, 0x88, 0xd6, 0x20, 0x1b, 0xb7, 0xbb, 0xb4, 0xa7, 0x03, 0x93, 0xc7, 0x66, 0x84, 0x6e,
-	0x40, 0xde, 0xa4, 0x9f, 0x18, 0x18, 0x5f, 0x0f, 0x05, 0xe8, 0x0e, 0x64, 0x22, 0xc6, 0x85, 0xb9,
-	0x51, 0x7e, 0x73, 0x30, 0x95, 0x26, 0x42, 0x90, 0x89, 0x88, 0xe8, 0xaa, 0xfe, 0x97, 0xc7, 0xea,
-	0x19, 0xdd, 0x04, 0xe8, 0xc7, 0x94, 0xbb, 0xe4, 0x8c, 0x86, 0x42, 0xf5, 0xb7, 0x3c, 0xce, 0x4b,
-	0xc9, 0x8e, 0x14, 0xa0, 0x12, 0x5c, 0xe5, 0xb4, 0x43, 0x39, 0xe5, 0xaa, 0x6f, 0xe5, 0xb1, 0x1d,
-	0xa2, 0xff, 0x83, 0x62, 0x87, 0xf1, 0x97, 0x84, 0x7b, 0xd4, 0x73, 0x3b, 0x8c, 0xab, 0xee, 0x94,
-	0xc7, 0x0b, 0x89, 0xb0, 0xc9, 0xb8, 0x64, 0xb7, 0x2e, 0xf2, 0x75, 0x57, 0xca, 0xe3, 0xbc, 0x91,
-	0xec, 0x79, 0x92, 0x83, 0x71, 0xff, 0xcc, 0x0f, 0x49, 0xe0, 0xaa, 0x95, 0x81, 0xe6, 0xb0, 0xc2,
-	0x43, 0xb9, 0xc2, 0x1a, 0x5c, 0xb3, 0x1c, 0x5d, 0x4a, 0x3c, 0xca, 0x63, 0x75, 0xb5, 0x88, 0x55,
-	0x5f, 0xca, 0xe0, 0x15, 0x33, 0xf9, 0x48, 0xcf, 0xc9, 0x2b, 0x43, 0x8c, 0xbe, 0x07, 0xc8, 0x62,
-	0x4e, 0x99, 0x37, 0x30, 0x80, 0x05, 0x05, 0x70, 0xcc, 0xcc, 0x2e, 0xf3, 0x06, 0x5a, 0x5b, 0xc0,
-	0xd2, 0x84, 0x85, 0x52, 0x71, 0x7b, 0xee, 0x76, 0xa1, 0xf6, 0xd9, 0xf4, 0x04, 0xba, 0x34, 0x35,
-	0x6c, 0xb8, 0xcd, 0x9a, 0x54, 0xa2, 0xe2, 0xc5, 0xf1, 0x85, 0x6e, 0xee, 0xc0, 0xca, 0x25, 0x6a,
-	0xc8, 0x81, 0xb9, 0x17, 0x74, 0xa0, 0x52, 0x29, 0x8f, 0xe5, 0x23, 0x5a, 0x85, 0xf9, 0x73, 0x19,
-	0x45, 0x93, 0x1d, 0x7a, 0xf0, 0x51, 0xfa, 0x41, 0xaa, 0xfc, 0x55, 0x06, 0xd6, 0xf4, 0x02, 0x74,
-	0xd3, 0x1a, 0x49, 0xce, 0x1d, 0x48, 0x6e, 0x07, 0x6e, 0x9b, 0x79, 0xd4, 0x94, 0xc4, 0x37, 0xa7,
-	0xc9, 0x82, 0x85, 0xd4, 0x99, 0x47, 0xd1, 0xf7, 0x61, 0x2d, 0xa1, 0x18, 0xf7, 0x7c, 0x5a, 0x39,
-	0x72, 0xd5, 0xce, 0x8e, 0xb9, 0xbe, 0x02, 0x2b, 0x09, 0x6a, 0xc4, 0xf7, 0x73, 0x0a, 0xb2, 0x6c,
-	0xa7, 0x86, 0xce, 0x7f, 0x05, 0xce, 0xa4, 0x95, 0x52, 0x46, 0x79, 0xff, 0xf1, 0xac, 0xde, 0x9f,
-	0xdc, 0x7c, 0xd2, 0xc4, 0xc7, 0xfc, 0xbf, 0x34, 0xb1, 0x5c, 0xf4, 0x4b, 0x48, 0x96, 0xe3, 0x0a,
-	0x2e, 0xaf, 0x33, 0x3c, 0x2e, 0xcd, 0x2b, 0xd3, 0x4f, 0xbe, 0xb5, 0xe9, 0x96, 0x21, 0xd4, 0xb6,
-	0x93, 0x2d, 0x5a, 0xf1, 0xe6, 0x2e, 0xac, 0x5e, 0xb6, 0xca, 0xb7, 0x09, 0xff, 0x66, 0x1d, 0xae,
-	0x5d, 0x6a, 0xee, 0xad, 0x72, 0xe8, 0xef, 0x73, 0x80, 0xe4, 0x5e, 0xfe, 0xb7, 0x6d, 0x15, 0xbd,
-	0x00, 0x47, 0xa5, 0x60, 0x9b, 0x05, 0xc9, 0xc1, 0x97, 0x56, 0xed, 0xf3, 0x47, 0xb3, 0xf9, 0x7e,
-	0x7c, 0xbd, 0x4a, 0x64, 0x8f, 0xbf, 0x25, 0xcb, 0x6c, 0xcf, 0xa0, 0xa7, 0xb2, 0x8b, 0xa9, 0x52,
-	0x33, 0xef, 0xf2, 0x1f, 0xbe, 0x63, 0x61, 0x63, 0xcb, 0x83, 0x5a, 0x90, 0xb3, 0x31, 0x35, 0x1d,
-	0xf8, 0xc1, 0xbb, 0xe6, 0x0c, 0x4e, 0x98, 0xca, 0x3f, 0x86, 0xc2, 0xc8, 0x46, 0x50, 0x09, 0x56,
-	0x0f, 0xf1, 0x41, 0xeb, 0xa0, 0x7e, 0xb0, 0x3f, 0x71, 0x78, 0x02, 0x64, 0xa5, 0xe2, 0xdd, 0x3b,
-	0x4e, 0x2a, 0x79, 0x96, 0x87, 0x67, 0x1e, 0xe6, 0xe5, 0x73, 0xcd, 0x99, 0x2b, 0xff, 0x31, 0x05,
-	0xf9, 0xc4, 0x49, 0xb2, 0xf7, 0xab, 0x23, 0x5b, 0xe7, 0x84, 0x7a, 0x46, 0x7b, 0x90, 0xd5, 0xab,
-	0x34, 0x17, 0x82, 0xb7, 0x09, 0x6c, 0x53, 0x4d, 0x62, 0x43, 0x80, 0xaa, 0x90, 0xd5, 0x28, 0xe3,
-	0xe0, 0xf5, 0x0b, 0x7d, 0xe6, 0x48, 0x7d, 0x8c, 0xc2, 0x46, 0xad, 0xfc, 0xeb, 0xec, 0xc8, 0xe7,
-	0x21, 0x4d, 0x86, 0x4e, 0x01, 0xc5, 0x82, 0x88, 0x7e, 0xac, 0x3a, 0x96, 0x6b, 0xd6, 0xa6, 0x93,
-	0xae, 0x36, 0x7d, 0x6d, 0x47, 0x0a, 0x2b, 0x5b, 0x97, 0xe6, 0x7b, 0x74, 0x05, 0x3b, 0xf1, 0x84,
-	0x0c, 0x3d, 0x83, 0x25, 0xfb, 0xd9, 0xcc, 0x1d, 0xdb, 0xfc, 0x9d, 0xe9, 0x06, 0xec, 0x4b, 0x6b,
-	0x42, 0xbf, 0xe8, 0x8d, 0x49, 0x10, 0x83, 0xf5, 0x90, 0x09, 0xf3, 0xf6, 0xe3, 0xaa, 0x17, 0x22,
-	0x6b, 0x44, 0xbb, 0xe5, 0xfe, 0x74, 0x23, 0x4f, 0x98, 0xd0, 0xef, 0x48, 0x75, 0x09, 0x4f, 0x4c,
-	0xad, 0x86, 0x97, 0xc8, 0xd1, 0x73, 0x70, 0x04, 0x27, 0x6d, 0x4a, 0x4e, 0x83, 0xc4, 0x5f, 0x99,
-	0x59, 0x63, 0xd9, 0xb2, 0xc8, 0xc4, 0xc8, 0x92, 0x18, 0x17, 0xa1, 0x2f, 0x60, 0x91, 0xf7, 0x43,
-	0xf5, 0x92, 0x6f, 0xd8, 0xe7, 0x67, 0x7e, 0x55, 0xd5, 0xb8, 0x84, 0xbb, 0xc8, 0x47, 0x05, 0x68,
-	0x1f, 0x80, 0x84, 0x9e, 0x65, 0xd5, 0x9f, 0x9d, 0x3e, 0x98, 0x21, 0xff, 0x42, 0x2f, 0x61, 0xcc,
-	0x13, 0x3b, 0x40, 0x7b, 0x90, 0x67, 0xdc, 0x92, 0xe9, 0x0f, 0x4d, 0xef, 0x4f, 0x27, 0x3b, 0xe0,
-	0x09, 0x57, 0x8e, 0x99, 0x67, 0x74, 0x0c, 0x45, 0x7d, 0x0c, 0x59, 0x3a, 0xfd, 0x51, 0xa9, 0x32,
-	0x43, 0x75, 0x2b, 0x58, 0x42, 0xb9, 0xd0, 0x1d, 0x19, 0xef, 0x6e, 0x80, 0xa3, 0x31, 0x6e, 0x1c,
-	0xd1, 0xb6, 0xdf, 0xf1, 0x29, 0x47, 0xf3, 0x7f, 0x7d, 0xf3, 0x7a, 0x2e, 0x55, 0xfe, 0x5b, 0x0a,
-	0x9c, 0x3a, 0xeb, 0x45, 0x84, 0xfb, 0x71, 0x92, 0x4a, 0x4f, 0x21, 0xcd, 0x22, 0x73, 0xa1, 0xfc,
-	0xc1, 0x74, 0xdb, 0x93, 0xf8, 0xca, 0x41, 0xb4, 0x0b, 0x5f, 0xbe, 0x79, 0x3d, 0x37, 0xff, 0xab,
-	0x54, 0xda, 0x49, 0xe1, 0x34, 0x8b, 0xd0, 0xfd, 0xd1, 0x33, 0xa0, 0x70, 0xf9, 0x35, 0x55, 0xc7,
-	0x48, 0xdf, 0x09, 0xcc, 0x29, 0x51, 0xbe, 0x01, 0xe9, 0x83, 0x08, 0x65, 0x21, 0xdd, 0x78, 0xea,
-	0x5c, 0x91, 0xbf, 0x9f, 0x36, 0x9c, 0x94, 0xfc, 0xdd, 0x6f, 0x38, 0xe9, 0x32, 0x07, 0x67, 0xb2,
-	0xf0, 0xd0, 0x73, 0x80, 0x76, 0xb2, 0xa0, 0xd9, 0x0b, 0x78, 0x72, 0x13, 0x66, 0x07, 0xbf, 0x51,
-	0x3b, 0x18, 0x61, 0x2c, 0x47, 0xb0, 0x38, 0x5e, 0x8b, 0xff, 0x75, 0x8b, 0x6b, 0xb0, 0x7a, 0x59,
-	0x61, 0x96, 0x97, 0x61, 0x69, 0xa2, 0x8c, 0xca, 0x5f, 0xa5, 0xa0, 0x38, 0x96, 0xfc, 0xe8, 0x7d,
-	0x28, 0xd8, 0x2a, 0x4a, 0x8e, 0xe5, 0xdd, 0xbc, 0xb4, 0x94, 0xe1, 0xe9, 0xed, 0x14, 0x06, 0x33,
-	0xfb, 0x19, 0x1d, 0xa0, 0x26, 0x2c, 0x99, 0xaf, 0xfe, 0xae, 0xfe, 0xea, 0xed, 0x99, 0x70, 0xdd,
-	0x34, 0xbb, 0x11, 0x83, 0x88, 0x56, 0x9a, 0x9c, 0xa8, 0x4f, 0x06, 0x24, 0x38, 0xd4, 0xca, 0x78,
-	0xd1, 0xa0, 0x8e, 0x34, 0x08, 0x7d, 0x0c, 0x9b, 0xfd, 0x98, 0xba, 0x7e, 0xe8, 0xd1, 0x88, 0x86,
-	0x9e, 0xe4, 0xe3, 0x24, 0xf4, 0x58, 0x2f, 0xb4, 0x5f, 0xb4, 0x73, 0xb8, 0xd4, 0x8f, 0xe9, 0xde,
-	0x50, 0x01, 0x27, 0xf3, 0x65, 0x0f, 0xf2, 0x49, 0xa5, 0xa1, 0xcf, 0xe1, 0xaa, 0xf6, 0x9d, 0xbc,
-	0x00, 0xcc, 0xbd, 0xd3, 0x39, 0x61, 0xfc, 0xfa, 0xbb, 0x54, 0x3a, 0x97, 0xc6, 0x96, 0xad, 0xdc,
-	0x86, 0x9c, 0x2d, 0xc1, 0x51, 0x23, 0xe9, 0xff, 0xa8, 0x91, 0x63, 0x58, 0x18, 0x2d, 0x4c, 0xd4,
-	0x80, 0xac, 0x2e, 0x4c, 0x93, 0x25, 0xb7, 0xc6, 0xcb, 0x40, 0xff, 0x29, 0x46, 0x23, 0x1e, 0x13,
-	0xd1, 0xee, 0x4e, 0x24, 0x85, 0x01, 0x97, 0x9b, 0x50, 0x6c, 0xfa, 0x01, 0x1d, 0x1e, 0xb0, 0x37,
-	0xcd, 0xcb, 0xd5, 0x85, 0xe8, 0xea, 0xf7, 0xac, 0x35, 0xc8, 0x76, 0x18, 0xef, 0x11, 0x61, 0xdf,
-	0xf1, 0xf4, 0x68, 0x37, 0xf3, 0x93, 0xf4, 0x79, 0xed, 0x34, 0xab, 0x8e, 0xc9, 0x7b, 0xff, 0x0e,
-	0x00, 0x00, 0xff, 0xff, 0xf0, 0x89, 0x0f, 0x3d, 0xb0, 0x1a, 0x00, 0x00,
+var fileDescriptor_accesslog_052946e753344636 = []byte{
+	// 802 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xb4, 0x95, 0xcd, 0x6e, 0xe3, 0x36,
+	0x10, 0xc7, 0x23, 0xf9, 0x23, 0xf6, 0x24, 0xb1, 0x55, 0x22, 0x68, 0xdc, 0x20, 0x2d, 0x5c, 0x9d,
+	0x82, 0x14, 0x90, 0x52, 0x07, 0xcd, 0xa9, 0x97, 0x3a, 0x75, 0x1a, 0xa3, 0x69, 0xd3, 0x28, 0x0d,
+	0x5a, 0xb4, 0x40, 0x04, 0x5a, 0xa2, 0x6d, 0x21, 0xb2, 0x28, 0x50, 0x94, 0x01, 0x5f, 0x7b, 0x2a,
+	0x7a, 0xec, 0x75, 0x5f, 0x64, 0xb1, 0x7b, 0xc9, 0x3e, 0x4e, 0xde, 0x62, 0x21, 0x92, 0x52, 0x6c,
+	0x23, 0x80, 0x82, 0xc5, 0xee, 0xc5, 0x16, 0x39, 0xfc, 0xff, 0x66, 0x86, 0x9c, 0x21, 0xe1, 0x98,
+	0x44, 0x73, 0xba, 0xb0, 0x3d, 0x1a, 0x8d, 0x83, 0x89, 0x3d, 0x0e, 0x42, 0x4e, 0x98, 0x8d, 0x3d,
+	0x8f, 0x24, 0x49, 0x48, 0x27, 0xf6, 0xbc, 0xf7, 0x34, 0xb0, 0x62, 0x46, 0x39, 0x45, 0x5d, 0xa1,
+	0xb0, 0xa4, 0xc2, 0x92, 0x0a, 0xeb, 0x69, 0xd1, 0xbc, 0xb7, 0x7f, 0x20, 0x99, 0x38, 0x0e, 0x32,
+	0xbd, 0x47, 0x19, 0xb1, 0x47, 0x38, 0x21, 0x52, 0xbf, 0xff, 0xd5, 0x8a, 0x95, 0xd1, 0x94, 0x13,
+	0xf9, 0xab, 0xec, 0x1d, 0x69, 0xe7, 0x8b, 0x98, 0xd8, 0x31, 0x61, 0x1e, 0x89, 0xb8, 0xb2, 0x1c,
+	0x4c, 0x28, 0x9d, 0x84, 0xc4, 0x16, 0xa3, 0x51, 0x3a, 0xb6, 0x13, 0xce, 0x52, 0x2f, 0xb7, 0xee,
+	0xcd, 0x71, 0x18, 0xf8, 0x98, 0x13, 0x3b, 0xff, 0x90, 0x06, 0xf3, 0x95, 0x06, 0xcd, 0x1f, 0x44,
+	0x7c, 0x97, 0x74, 0x82, 0x10, 0x54, 0x23, 0x3c, 0x23, 0x1d, 0xad, 0xab, 0x1d, 0x36, 0x1d, 0xf1,
+	0x8d, 0x86, 0x50, 0x97, 0x79, 0x74, 0xf4, 0xae, 0x76, 0xb8, 0xd5, 0xfb, 0xd6, 0x2a, 0xcb, 0xd1,
+	0x2a, 0x80, 0xe7, 0xc2, 0xe8, 0x28, 0x00, 0xb2, 0xa1, 0x2e, 0x55, 0x9d, 0x8a, 0x40, 0xed, 0x59,
+	0x32, 0x68, 0x2b, 0x0f, 0xda, 0xba, 0x11, 0x41, 0x3b, 0x6a, 0x99, 0xf9, 0x6f, 0x1d, 0xda, 0x6b,
+	0x30, 0x34, 0x02, 0x94, 0x70, 0xcc, 0xd3, 0xc4, 0xf5, 0xa8, 0x4f, 0x5c, 0x15, 0x9b, 0x26, 0x80,
+	0xbd, 0xf2, 0xd8, 0x6e, 0x84, 0xf6, 0x8c, 0xfa, 0x44, 0xf2, 0x2e, 0x36, 0x1c, 0x23, 0x59, 0x9b,
+	0x43, 0x7f, 0x43, 0xdb, 0x4f, 0x19, 0xe6, 0x01, 0x8d, 0xdc, 0x95, 0xe4, 0x8f, 0xcb, 0x1d, 0xfc,
+	0xa8, 0x84, 0x05, 0xbe, 0xe5, 0xaf, 0xcc, 0x20, 0x0a, 0x7b, 0x11, 0xe5, 0xee, 0x94, 0xe0, 0x90,
+	0x4f, 0x5d, 0x6f, 0x4a, 0xbc, 0xfb, 0xdc, 0x89, 0xdc, 0x96, 0xd3, 0x72, 0x27, 0xbf, 0x52, 0x7e,
+	0x21, 0xf4, 0x67, 0x99, 0xbc, 0x70, 0xb5, 0x1b, 0x3d, 0x33, 0x8f, 0xee, 0xc0, 0xe0, 0x0c, 0x7b,
+	0x04, 0x8f, 0xc2, 0x62, 0xbf, 0xaa, 0x2f, 0x3d, 0xcb, 0xdf, 0x73, 0x65, 0xe1, 0xa4, 0xcd, 0x57,
+	0xa7, 0xd0, 0x9f, 0xd0, 0x62, 0x69, 0xc4, 0x83, 0x59, 0x41, 0xaf, 0x09, 0xba, 0x5d, 0x4e, 0x77,
+	0xa4, 0xae, 0x60, 0xef, 0xb0, 0xe5, 0x09, 0x74, 0x09, 0x80, 0x23, 0x3f, 0xa7, 0xd6, 0x05, 0xf5,
+	0x9b, 0x17, 0xd4, 0x5f, 0xe4, 0x17, 0xc4, 0x26, 0xce, 0x07, 0x68, 0x08, 0x4d, 0xca, 0x72, 0xd8,
+	0xa6, 0x80, 0x1d, 0x95, 0xc3, 0xae, 0x58, 0xc1, 0x6a, 0x50, 0xf5, 0x8d, 0x6e, 0x61, 0x67, 0x4a,
+	0xb0, 0x4f, 0x0a, 0x5c, 0x43, 0xe0, 0xac, 0x72, 0xdc, 0x85, 0x90, 0x15, 0xc8, 0xed, 0xe9, 0xd2,
+	0xb8, 0xff, 0x05, 0x18, 0x52, 0xe3, 0x26, 0x31, 0xf1, 0x82, 0x71, 0x40, 0x18, 0xaa, 0xbd, 0x7e,
+	0x7c, 0xa8, 0x68, 0xe6, 0x5b, 0x0d, 0x8c, 0x33, 0x3a, 0x8b, 0x31, 0x0b, 0x92, 0xa2, 0x94, 0xae,
+	0x41, 0xa7, 0xb1, 0xa8, 0xfd, 0x56, 0xef, 0xbb, 0x72, 0xdf, 0xeb, 0x7a, 0xeb, 0x2a, 0xee, 0xc3,
+	0x9b, 0xc7, 0x87, 0x4a, 0xed, 0x1f, 0x4d, 0x37, 0x34, 0x47, 0xa7, 0x31, 0x3a, 0x85, 0xda, 0x1c,
+	0x87, 0x29, 0x51, 0x05, 0xdf, 0x55, 0x54, 0x1c, 0x07, 0x19, 0x21, 0xbb, 0xaf, 0xf2, 0x43, 0xbb,
+	0x1d, 0x46, 0xfc, 0xa4, 0xe7, 0xc8, 0xe5, 0xe6, 0x01, 0xe8, 0x57, 0x31, 0xaa, 0x83, 0x3e, 0xb8,
+	0x36, 0x36, 0xb2, 0xff, 0x9f, 0x06, 0x86, 0x96, 0xfd, 0x5f, 0x0e, 0x0c, 0xdd, 0x64, 0x60, 0xac,
+	0x37, 0x1e, 0xba, 0x03, 0xf0, 0x8a, 0x80, 0x5e, 0xde, 0xc0, 0xeb, 0x49, 0xa8, 0x0c, 0xfe, 0x13,
+	0x19, 0x2c, 0x11, 0xcd, 0x18, 0x5a, 0xab, 0xbd, 0xf8, 0xc9, 0x3d, 0x7e, 0x0e, 0xbb, 0xcf, 0x35,
+	0xa6, 0xf9, 0x19, 0xb4, 0xd7, 0xda, 0xc8, 0x7c, 0xa7, 0xc1, 0xce, 0x4a, 0xf1, 0xa3, 0x23, 0xd8,
+	0xca, 0xbb, 0xe8, 0x9e, 0x2c, 0xe4, 0x15, 0xdc, 0x6f, 0x66, 0x9e, 0xaa, 0x4c, 0xef, 0x6a, 0x0e,
+	0x28, 0xeb, 0xcf, 0x64, 0x81, 0xce, 0xa1, 0xad, 0x6e, 0x7f, 0x37, 0xc1, 0xb3, 0x38, 0x24, 0xbe,
+	0x3a, 0xae, 0x2f, 0x55, 0x36, 0xd9, 0x03, 0x61, 0x9d, 0x33, 0xec, 0x65, 0xd9, 0xe3, 0xf0, 0x37,
+	0xb9, 0xd8, 0x69, 0x29, 0xd5, 0x8d, 0x14, 0xa1, 0xef, 0x61, 0x3f, 0x4d, 0x88, 0x1b, 0x44, 0x3e,
+	0x89, 0x49, 0xe4, 0x67, 0x3c, 0x86, 0x23, 0x9f, 0xce, 0x22, 0x92, 0x24, 0xe2, 0x36, 0x6a, 0x38,
+	0x9d, 0x34, 0x21, 0xc3, 0xa7, 0x05, 0x4e, 0x61, 0x37, 0x7d, 0x68, 0x16, 0x9d, 0x86, 0xfe, 0x80,
+	0x4d, 0xb9, 0x77, 0x49, 0x47, 0xeb, 0x56, 0x3e, 0xe8, 0x9d, 0x50, 0xfb, 0xfa, 0xbf, 0xa6, 0x37,
+	0x74, 0x27, 0xa7, 0x99, 0x1e, 0x34, 0xf2, 0x16, 0x5c, 0x76, 0xa2, 0x7f, 0x54, 0x27, 0xb7, 0xb0,
+	0xbd, 0xdc, 0x98, 0x68, 0x00, 0x75, 0xd9, 0x98, 0xaa, 0x4a, 0xbe, 0x5e, 0x6d, 0x03, 0xf9, 0x24,
+	0x4b, 0xc5, 0x2f, 0x98, 0x7b, 0xd3, 0xb5, 0xa2, 0x50, 0xe2, 0x7e, 0xf5, 0x2f, 0x7d, 0xde, 0x1b,
+	0xd5, 0xc5, 0xf3, 0x76, 0xf2, 0x3e, 0x00, 0x00, 0xff, 0xff, 0xee, 0x1a, 0x4b, 0x92, 0x4f, 0x08,
+	0x00, 0x00,
 }

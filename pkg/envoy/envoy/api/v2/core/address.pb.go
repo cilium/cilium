@@ -50,7 +50,7 @@ type Pipe struct {
 	// abstract namespace. The starting '@' is replaced by a null byte by Envoy.
 	// Paths starting with '@' will result in an error in environments other than
 	// Linux.
-	Path                 string   `protobuf:"bytes,1,opt,name=path" json:"path,omitempty"`
+	Path                 string   `protobuf:"bytes,1,opt,name=path,proto3" json:"path,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -88,7 +88,7 @@ func (m *Pipe) GetPath() string {
 }
 
 type SocketAddress struct {
-	Protocol SocketAddress_Protocol `protobuf:"varint,1,opt,name=protocol,enum=envoy.api.v2.core.SocketAddress_Protocol" json:"protocol,omitempty"`
+	Protocol SocketAddress_Protocol `protobuf:"varint,1,opt,name=protocol,proto3,enum=envoy.api.v2.core.SocketAddress_Protocol" json:"protocol,omitempty"`
 	// The address for this socket. :ref:`Listeners <config_listeners>` will bind
 	// to the address or outbound connections will be made. An empty address is
 	// not allowed, specify ``0.0.0.0`` or ``::`` to bind any. It's still possible to
@@ -98,7 +98,7 @@ type SocketAddress struct {
 	// hostname to be resolved via DNS. If it is a hostname, :ref:`resolver_name
 	// <envoy_api_field_core.SocketAddress.resolver_name>` should be set unless default
 	// (i.e. DNS) resolution is expected.
-	Address string `protobuf:"bytes,2,opt,name=address" json:"address,omitempty"`
+	Address string `protobuf:"bytes,2,opt,name=address,proto3" json:"address,omitempty"`
 	// Types that are valid to be assigned to PortSpecifier:
 	//	*SocketAddress_PortValue
 	//	*SocketAddress_NamedPort
@@ -107,12 +107,12 @@ type SocketAddress struct {
 	// empty, a context dependent default applies. If address is a hostname this
 	// should be set for resolution other than DNS. If the address is a concrete
 	// IP address, no resolution will occur.
-	ResolverName string `protobuf:"bytes,5,opt,name=resolver_name,json=resolverName" json:"resolver_name,omitempty"`
+	ResolverName string `protobuf:"bytes,5,opt,name=resolver_name,json=resolverName,proto3" json:"resolver_name,omitempty"`
 	// When binding to an IPv6 address above, this enables `IPv4 compatibity
 	// <https://tools.ietf.org/html/rfc3493#page-11>`_. Binding to ``::`` will
 	// allow both IPv4 and IPv6 connections, with peer IPv4 addresses mapped into
 	// IPv6 space as ``::FFFF:<IPv4-address>``.
-	Ipv4Compat           bool     `protobuf:"varint,6,opt,name=ipv4_compat,json=ipv4Compat" json:"ipv4_compat,omitempty"`
+	Ipv4Compat           bool     `protobuf:"varint,6,opt,name=ipv4_compat,json=ipv4Compat,proto3" json:"ipv4_compat,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -147,10 +147,10 @@ type isSocketAddress_PortSpecifier interface {
 }
 
 type SocketAddress_PortValue struct {
-	PortValue uint32 `protobuf:"varint,3,opt,name=port_value,json=portValue,oneof"`
+	PortValue uint32 `protobuf:"varint,3,opt,name=port_value,json=portValue,proto3,oneof"`
 }
 type SocketAddress_NamedPort struct {
-	NamedPort string `protobuf:"bytes,4,opt,name=named_port,json=namedPort,oneof"`
+	NamedPort string `protobuf:"bytes,4,opt,name=named_port,json=namedPort,proto3,oneof"`
 }
 
 func (*SocketAddress_PortValue) isSocketAddress_PortSpecifier() {}
@@ -274,14 +274,14 @@ type TcpKeepalive struct {
 	// Maximum number of keepalive probes to send without response before deciding
 	// the connection is dead. Default is to use the OS level configuration (unless
 	// overridden, Linux defaults to 9.)
-	KeepaliveProbes *wrappers.UInt32Value `protobuf:"bytes,1,opt,name=keepalive_probes,json=keepaliveProbes" json:"keepalive_probes,omitempty"`
+	KeepaliveProbes *wrappers.UInt32Value `protobuf:"bytes,1,opt,name=keepalive_probes,json=keepaliveProbes,proto3" json:"keepalive_probes,omitempty"`
 	// The number of seconds a connection needs to be idle before keep-alive probes
 	// start being sent. Default is to use the OS level configuration (unless
 	// overridden, Linux defaults to 7200s (ie 2 hours.)
-	KeepaliveTime *wrappers.UInt32Value `protobuf:"bytes,2,opt,name=keepalive_time,json=keepaliveTime" json:"keepalive_time,omitempty"`
+	KeepaliveTime *wrappers.UInt32Value `protobuf:"bytes,2,opt,name=keepalive_time,json=keepaliveTime,proto3" json:"keepalive_time,omitempty"`
 	// The number of seconds between keep-alive probes. Default is to use the OS
 	// level configuration (unless overridden, Linux defaults to 75s.)
-	KeepaliveInterval    *wrappers.UInt32Value `protobuf:"bytes,3,opt,name=keepalive_interval,json=keepaliveInterval" json:"keepalive_interval,omitempty"`
+	KeepaliveInterval    *wrappers.UInt32Value `protobuf:"bytes,3,opt,name=keepalive_interval,json=keepaliveInterval,proto3" json:"keepalive_interval,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}              `json:"-"`
 	XXX_unrecognized     []byte                `json:"-"`
 	XXX_sizecache        int32                 `json:"-"`
@@ -334,7 +334,7 @@ func (m *TcpKeepalive) GetKeepaliveInterval() *wrappers.UInt32Value {
 
 type BindConfig struct {
 	// The address to bind to when creating a socket.
-	SourceAddress *SocketAddress `protobuf:"bytes,1,opt,name=source_address,json=sourceAddress" json:"source_address,omitempty"`
+	SourceAddress *SocketAddress `protobuf:"bytes,1,opt,name=source_address,json=sourceAddress,proto3" json:"source_address,omitempty"`
 	// Whether to set the *IP_FREEBIND* option when creating the socket. When this
 	// flag is set to true, allows the :ref:`source_address
 	// <envoy_api_field_UpstreamBindConfig.source_address>` to be an IP address
@@ -342,7 +342,7 @@ type BindConfig struct {
 	// to false, the option *IP_FREEBIND* is disabled on the socket. When this
 	// flag is not set (default), the socket is not modified, i.e. the option is
 	// neither enabled nor disabled.
-	Freebind             *wrappers.BoolValue `protobuf:"bytes,2,opt,name=freebind" json:"freebind,omitempty"`
+	Freebind             *wrappers.BoolValue `protobuf:"bytes,2,opt,name=freebind,proto3" json:"freebind,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}            `json:"-"`
 	XXX_unrecognized     []byte              `json:"-"`
 	XXX_sizecache        int32               `json:"-"`
@@ -428,10 +428,10 @@ type isAddress_Address interface {
 }
 
 type Address_SocketAddress struct {
-	SocketAddress *SocketAddress `protobuf:"bytes,1,opt,name=socket_address,json=socketAddress,oneof"`
+	SocketAddress *SocketAddress `protobuf:"bytes,1,opt,name=socket_address,json=socketAddress,proto3,oneof"`
 }
 type Address_Pipe struct {
-	Pipe *Pipe `protobuf:"bytes,2,opt,name=pipe,oneof"`
+	Pipe *Pipe `protobuf:"bytes,2,opt,name=pipe,proto3,oneof"`
 }
 
 func (*Address_SocketAddress) isAddress_Address() {}
@@ -536,9 +536,9 @@ func _Address_OneofSizer(msg proto.Message) (n int) {
 // the subnet mask for a `CIDR <https://tools.ietf.org/html/rfc4632>`_ range.
 type CidrRange struct {
 	// IPv4 or IPv6 address, e.g. ``192.0.0.0`` or ``2001:db8::``.
-	AddressPrefix string `protobuf:"bytes,1,opt,name=address_prefix,json=addressPrefix" json:"address_prefix,omitempty"`
+	AddressPrefix string `protobuf:"bytes,1,opt,name=address_prefix,json=addressPrefix,proto3" json:"address_prefix,omitempty"`
 	// Length of prefix, e.g. 0, 32.
-	PrefixLen            *wrappers.UInt32Value `protobuf:"bytes,2,opt,name=prefix_len,json=prefixLen" json:"prefix_len,omitempty"`
+	PrefixLen            *wrappers.UInt32Value `protobuf:"bytes,2,opt,name=prefix_len,json=prefixLen,proto3" json:"prefix_len,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}              `json:"-"`
 	XXX_unrecognized     []byte                `json:"-"`
 	XXX_sizecache        int32                 `json:"-"`

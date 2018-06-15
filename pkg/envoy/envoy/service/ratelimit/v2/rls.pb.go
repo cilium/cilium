@@ -94,14 +94,14 @@ func (RateLimitResponse_RateLimit_Unit) EnumDescriptor() ([]byte, []int) {
 type RateLimitRequest struct {
 	// All rate limit requests must specify a domain. This enables the configuration to be per
 	// application without fear of overlap. E.g., "envoy".
-	Domain string `protobuf:"bytes,1,opt,name=domain" json:"domain,omitempty"`
+	Domain string `protobuf:"bytes,1,opt,name=domain,proto3" json:"domain,omitempty"`
 	// All rate limit requests must specify at least one RateLimitDescriptor. Each descriptor is
 	// processed by the service (see below). If any of the descriptors are over limit, the entire
 	// request is considered to be over limit.
-	Descriptors []*ratelimit.RateLimitDescriptor `protobuf:"bytes,2,rep,name=descriptors" json:"descriptors,omitempty"`
+	Descriptors []*ratelimit.RateLimitDescriptor `protobuf:"bytes,2,rep,name=descriptors,proto3" json:"descriptors,omitempty"`
 	// Rate limit requests can optionally specify the number of hits a request adds to the matched
 	// limit. If the value is not set in the message, a request increases the matched limit by 1.
-	HitsAddend           uint32   `protobuf:"varint,3,opt,name=hits_addend,json=hitsAddend" json:"hits_addend,omitempty"`
+	HitsAddend           uint32   `protobuf:"varint,3,opt,name=hits_addend,json=hitsAddend,proto3" json:"hits_addend,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -157,11 +157,11 @@ func (m *RateLimitRequest) GetHitsAddend() uint32 {
 type RateLimitResponse struct {
 	// The overall response code which takes into account all of the descriptors that were passed
 	// in the RateLimitRequest message.
-	OverallCode RateLimitResponse_Code `protobuf:"varint,1,opt,name=overall_code,json=overallCode,enum=envoy.service.ratelimit.v2.RateLimitResponse_Code" json:"overall_code,omitempty"`
+	OverallCode RateLimitResponse_Code `protobuf:"varint,1,opt,name=overall_code,json=overallCode,proto3,enum=envoy.service.ratelimit.v2.RateLimitResponse_Code" json:"overall_code,omitempty"`
 	// A list of DescriptorStatus messages which matches the length of the descriptor list passed
 	// in the RateLimitRequest. This can be used by the caller to determine which individual
 	// descriptors failed and/or what the currently configured limits are for all of them.
-	Statuses             []*RateLimitResponse_DescriptorStatus `protobuf:"bytes,2,rep,name=statuses" json:"statuses,omitempty"`
+	Statuses             []*RateLimitResponse_DescriptorStatus `protobuf:"bytes,2,rep,name=statuses,proto3" json:"statuses,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}                              `json:"-"`
 	XXX_unrecognized     []byte                                `json:"-"`
 	XXX_sizecache        int32                                 `json:"-"`
@@ -207,8 +207,8 @@ func (m *RateLimitResponse) GetStatuses() []*RateLimitResponse_DescriptorStatus 
 
 // Defines an actual rate limit in terms of requests per unit of time and the unit itself.
 type RateLimitResponse_RateLimit struct {
-	RequestsPerUnit      uint32                           `protobuf:"varint,1,opt,name=requests_per_unit,json=requestsPerUnit" json:"requests_per_unit,omitempty"`
-	Unit                 RateLimitResponse_RateLimit_Unit `protobuf:"varint,2,opt,name=unit,enum=envoy.service.ratelimit.v2.RateLimitResponse_RateLimit_Unit" json:"unit,omitempty"`
+	RequestsPerUnit      uint32                           `protobuf:"varint,1,opt,name=requests_per_unit,json=requestsPerUnit,proto3" json:"requests_per_unit,omitempty"`
+	Unit                 RateLimitResponse_RateLimit_Unit `protobuf:"varint,2,opt,name=unit,proto3,enum=envoy.service.ratelimit.v2.RateLimitResponse_RateLimit_Unit" json:"unit,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}                         `json:"-"`
 	XXX_unrecognized     []byte                           `json:"-"`
 	XXX_sizecache        int32                            `json:"-"`
@@ -254,11 +254,11 @@ func (m *RateLimitResponse_RateLimit) GetUnit() RateLimitResponse_RateLimit_Unit
 
 type RateLimitResponse_DescriptorStatus struct {
 	// The response code for an individual descriptor.
-	Code RateLimitResponse_Code `protobuf:"varint,1,opt,name=code,enum=envoy.service.ratelimit.v2.RateLimitResponse_Code" json:"code,omitempty"`
+	Code RateLimitResponse_Code `protobuf:"varint,1,opt,name=code,proto3,enum=envoy.service.ratelimit.v2.RateLimitResponse_Code" json:"code,omitempty"`
 	// The current limit as configured by the server. Useful for debugging, etc.
-	CurrentLimit *RateLimitResponse_RateLimit `protobuf:"bytes,2,opt,name=current_limit,json=currentLimit" json:"current_limit,omitempty"`
+	CurrentLimit *RateLimitResponse_RateLimit `protobuf:"bytes,2,opt,name=current_limit,json=currentLimit,proto3" json:"current_limit,omitempty"`
 	// The limit remaining in the current time unit.
-	LimitRemaining       uint32   `protobuf:"varint,3,opt,name=limit_remaining,json=limitRemaining" json:"limit_remaining,omitempty"`
+	LimitRemaining       uint32   `protobuf:"varint,3,opt,name=limit_remaining,json=limitRemaining,proto3" json:"limit_remaining,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`

@@ -25,7 +25,7 @@ const _ = proto.ProtoPackageIsVersion2 // please upgrade the proto package
 // [#proto-status: experimental]
 type Squash struct {
 	// The name of the cluster that hosts the Squash server.
-	Cluster string `protobuf:"bytes,1,opt,name=cluster" json:"cluster,omitempty"`
+	Cluster string `protobuf:"bytes,1,opt,name=cluster,proto3" json:"cluster,omitempty"`
 	// When the filter requests the Squash server to create a DebugAttachment, it will use this
 	// structure as template for the body of the request. It can contain reference to environment
 	// variables in the form of '{{ ENV_VAR_NAME }}'. These can be used to provide the Squash server
@@ -45,15 +45,15 @@ type Squash struct {
 	//  }
 	//
 	// (where POD_NAME, POD_NAMESPACE are configured in the pod via the Downward API)
-	AttachmentTemplate *_struct.Struct `protobuf:"bytes,2,opt,name=attachment_template,json=attachmentTemplate" json:"attachment_template,omitempty"`
+	AttachmentTemplate *_struct.Struct `protobuf:"bytes,2,opt,name=attachment_template,json=attachmentTemplate,proto3" json:"attachment_template,omitempty"`
 	// The timeout for individual requests sent to the Squash cluster. Defaults to 1 second.
-	RequestTimeout *duration.Duration `protobuf:"bytes,3,opt,name=request_timeout,json=requestTimeout" json:"request_timeout,omitempty"`
+	RequestTimeout *duration.Duration `protobuf:"bytes,3,opt,name=request_timeout,json=requestTimeout,proto3" json:"request_timeout,omitempty"`
 	// The total timeout Squash will delay a request and wait for it to be attached. Defaults to 60
 	// seconds.
-	AttachmentTimeout *duration.Duration `protobuf:"bytes,4,opt,name=attachment_timeout,json=attachmentTimeout" json:"attachment_timeout,omitempty"`
+	AttachmentTimeout *duration.Duration `protobuf:"bytes,4,opt,name=attachment_timeout,json=attachmentTimeout,proto3" json:"attachment_timeout,omitempty"`
 	// Amount of time to poll for the status of the attachment object in the Squash server
 	// (to check if has been attached). Defaults to 1 second.
-	AttachmentPollPeriod *duration.Duration `protobuf:"bytes,5,opt,name=attachment_poll_period,json=attachmentPollPeriod" json:"attachment_poll_period,omitempty"`
+	AttachmentPollPeriod *duration.Duration `protobuf:"bytes,5,opt,name=attachment_poll_period,json=attachmentPollPeriod,proto3" json:"attachment_poll_period,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}           `json:"-"`
 	XXX_unrecognized     []byte             `json:"-"`
 	XXX_sizecache        int32              `json:"-"`

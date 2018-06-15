@@ -32,11 +32,11 @@ type StatsSink struct {
 	// * :ref:`envoy.metrics_service <envoy_api_msg_config.metrics.v2.MetricsServiceConfig>`
 	//
 	// Sinks optionally support tagged/multiple dimensional metrics.
-	Name string `protobuf:"bytes,1,opt,name=name" json:"name,omitempty"`
+	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
 	// Stats sink specific configuration which depends on the sink being
 	// instantiated. See :ref:`StatsdSink <envoy_api_msg_config.metrics.v2.StatsdSink>` for an
 	// example.
-	Config               *_struct.Struct `protobuf:"bytes,2,opt,name=config" json:"config,omitempty"`
+	Config               *_struct.Struct `protobuf:"bytes,2,opt,name=config,proto3" json:"config,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}        `json:"-"`
 	XXX_unrecognized     []byte          `json:"-"`
 	XXX_sizecache        int32           `json:"-"`
@@ -86,7 +86,7 @@ type StatsConfig struct {
 	// When a tag is matched, the first capture group is removed from the name so
 	// later :ref:`TagSpecifiers <envoy_api_msg_config.metrics.v2.TagSpecifier>` cannot match that
 	// same portion of the match.
-	StatsTags []*TagSpecifier `protobuf:"bytes,1,rep,name=stats_tags,json=statsTags" json:"stats_tags,omitempty"`
+	StatsTags []*TagSpecifier `protobuf:"bytes,1,rep,name=stats_tags,json=statsTags,proto3" json:"stats_tags,omitempty"`
 	// Use all default tag regexes specified in Envoy. These can be combined with
 	// custom tags specified in :ref:`stats_tags
 	// <envoy_api_field_config.metrics.v2.StatsConfig.stats_tags>`. They will be processed before
@@ -102,7 +102,7 @@ type StatsConfig struct {
 	// for a list of the default tags in Envoy.
 	//
 	// If not provided, the value is assumed to be true.
-	UseAllDefaultTags    *wrappers.BoolValue `protobuf:"bytes,2,opt,name=use_all_default_tags,json=useAllDefaultTags" json:"use_all_default_tags,omitempty"`
+	UseAllDefaultTags    *wrappers.BoolValue `protobuf:"bytes,2,opt,name=use_all_default_tags,json=useAllDefaultTags,proto3" json:"use_all_default_tags,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}            `json:"-"`
 	XXX_unrecognized     []byte              `json:"-"`
 	XXX_sizecache        int32               `json:"-"`
@@ -164,7 +164,7 @@ type TagSpecifier struct {
 	// .. note::
 	//
 	//   It is invalid to specify the same tag name twice in a config.
-	TagName string `protobuf:"bytes,1,opt,name=tag_name,json=tagName" json:"tag_name,omitempty"`
+	TagName string `protobuf:"bytes,1,opt,name=tag_name,json=tagName,proto3" json:"tag_name,omitempty"`
 	// Types that are valid to be assigned to TagValue:
 	//	*TagSpecifier_Regex
 	//	*TagSpecifier_FixedValue
@@ -203,10 +203,10 @@ type isTagSpecifier_TagValue interface {
 }
 
 type TagSpecifier_Regex struct {
-	Regex string `protobuf:"bytes,2,opt,name=regex,oneof"`
+	Regex string `protobuf:"bytes,2,opt,name=regex,proto3,oneof"`
 }
 type TagSpecifier_FixedValue struct {
-	FixedValue string `protobuf:"bytes,3,opt,name=fixed_value,json=fixedValue,oneof"`
+	FixedValue string `protobuf:"bytes,3,opt,name=fixed_value,json=fixedValue,proto3,oneof"`
 }
 
 func (*TagSpecifier_Regex) isTagSpecifier_TagValue()      {}
@@ -339,7 +339,7 @@ type StatsdSink struct {
 	//
 	//   envoy.test_counter:1|c
 	//   envoy.test_timer:5|ms
-	Prefix               string   `protobuf:"bytes,3,opt,name=prefix" json:"prefix,omitempty"`
+	Prefix               string   `protobuf:"bytes,3,opt,name=prefix,proto3" json:"prefix,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -374,10 +374,10 @@ type isStatsdSink_StatsdSpecifier interface {
 }
 
 type StatsdSink_Address struct {
-	Address *core.Address `protobuf:"bytes,1,opt,name=address,oneof"`
+	Address *core.Address `protobuf:"bytes,1,opt,name=address,proto3,oneof"`
 }
 type StatsdSink_TcpClusterName struct {
-	TcpClusterName string `protobuf:"bytes,2,opt,name=tcp_cluster_name,json=tcpClusterName,oneof"`
+	TcpClusterName string `protobuf:"bytes,2,opt,name=tcp_cluster_name,json=tcpClusterName,proto3,oneof"`
 }
 
 func (*StatsdSink_Address) isStatsdSink_StatsdSpecifier()        {}
@@ -524,7 +524,7 @@ type isDogStatsdSink_DogStatsdSpecifier interface {
 }
 
 type DogStatsdSink_Address struct {
-	Address *core.Address `protobuf:"bytes,1,opt,name=address,oneof"`
+	Address *core.Address `protobuf:"bytes,1,opt,name=address,proto3,oneof"`
 }
 
 func (*DogStatsdSink_Address) isDogStatsdSink_DogStatsdSpecifier() {}

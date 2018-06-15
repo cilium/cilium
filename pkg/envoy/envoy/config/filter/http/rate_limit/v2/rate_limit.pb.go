@@ -23,24 +23,24 @@ const _ = proto.ProtoPackageIsVersion2 // please upgrade the proto package
 
 type RateLimit struct {
 	// The rate limit domain to use when calling the rate limit service.
-	Domain string `protobuf:"bytes,1,opt,name=domain" json:"domain,omitempty"`
+	Domain string `protobuf:"bytes,1,opt,name=domain,proto3" json:"domain,omitempty"`
 	// Specifies the rate limit configurations to be applied with the same
 	// stage number. If not set, the default stage number is 0.
 	//
 	// .. note::
 	//
 	//  The filter supports a range of 0 - 10 inclusively for stage numbers.
-	Stage uint32 `protobuf:"varint,2,opt,name=stage" json:"stage,omitempty"`
+	Stage uint32 `protobuf:"varint,2,opt,name=stage,proto3" json:"stage,omitempty"`
 	// The type of requests the filter should apply to. The supported
 	// types are *internal*, *external* or *both*. A request is considered internal if
 	// :ref:`x-envoy-internal<config_http_conn_man_headers_x-envoy-internal>` is set to true. If
 	// :ref:`x-envoy-internal<config_http_conn_man_headers_x-envoy-internal>` is not set or false, a
 	// request is considered external. The filter defaults to *both*, and it will apply to all request
 	// types.
-	RequestType string `protobuf:"bytes,3,opt,name=request_type,json=requestType" json:"request_type,omitempty"`
+	RequestType string `protobuf:"bytes,3,opt,name=request_type,json=requestType,proto3" json:"request_type,omitempty"`
 	// The timeout in milliseconds for the rate limit service RPC. If not
 	// set, this defaults to 20ms.
-	Timeout              *duration.Duration `protobuf:"bytes,4,opt,name=timeout" json:"timeout,omitempty"`
+	Timeout              *duration.Duration `protobuf:"bytes,4,opt,name=timeout,proto3" json:"timeout,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}           `json:"-"`
 	XXX_unrecognized     []byte             `json:"-"`
 	XXX_sizecache        int32              `json:"-"`

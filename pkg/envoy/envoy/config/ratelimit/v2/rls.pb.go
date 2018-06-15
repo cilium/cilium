@@ -60,10 +60,10 @@ type isRateLimitServiceConfig_ServiceSpecifier interface {
 }
 
 type RateLimitServiceConfig_ClusterName struct {
-	ClusterName string `protobuf:"bytes,1,opt,name=cluster_name,json=clusterName,oneof"`
+	ClusterName string `protobuf:"bytes,1,opt,name=cluster_name,json=clusterName,proto3,oneof"`
 }
 type RateLimitServiceConfig_GrpcService struct {
-	GrpcService *core.GrpcService `protobuf:"bytes,2,opt,name=grpc_service,json=grpcService,oneof"`
+	GrpcService *core.GrpcService `protobuf:"bytes,2,opt,name=grpc_service,json=grpcService,proto3,oneof"`
 }
 
 func (*RateLimitServiceConfig_ClusterName) isRateLimitServiceConfig_ServiceSpecifier() {}

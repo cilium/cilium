@@ -25,10 +25,10 @@ const _ = proto.ProtoPackageIsVersion2 // please upgrade the proto package
 type Buffer struct {
 	// The maximum request size that the filter will buffer before the connection
 	// manager will stop buffering and return a 413 response.
-	MaxRequestBytes *wrappers.UInt32Value `protobuf:"bytes,1,opt,name=max_request_bytes,json=maxRequestBytes" json:"max_request_bytes,omitempty"`
+	MaxRequestBytes *wrappers.UInt32Value `protobuf:"bytes,1,opt,name=max_request_bytes,json=maxRequestBytes,proto3" json:"max_request_bytes,omitempty"`
 	// The maximum number of seconds that the filter will wait for a complete
 	// request before returning a 408 response.
-	MaxRequestTime       *duration.Duration `protobuf:"bytes,2,opt,name=max_request_time,json=maxRequestTime" json:"max_request_time,omitempty"`
+	MaxRequestTime       *duration.Duration `protobuf:"bytes,2,opt,name=max_request_time,json=maxRequestTime,proto3" json:"max_request_time,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}           `json:"-"`
 	XXX_unrecognized     []byte             `json:"-"`
 	XXX_sizecache        int32              `json:"-"`
@@ -111,10 +111,10 @@ type isBufferPerRoute_Override interface {
 }
 
 type BufferPerRoute_Disabled struct {
-	Disabled bool `protobuf:"varint,1,opt,name=disabled,oneof"`
+	Disabled bool `protobuf:"varint,1,opt,name=disabled,proto3,oneof"`
 }
 type BufferPerRoute_Buffer struct {
-	Buffer *Buffer `protobuf:"bytes,2,opt,name=buffer,oneof"`
+	Buffer *Buffer `protobuf:"bytes,2,opt,name=buffer,proto3,oneof"`
 }
 
 func (*BufferPerRoute_Disabled) isBufferPerRoute_Override() {}

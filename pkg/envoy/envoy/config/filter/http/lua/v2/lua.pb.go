@@ -24,7 +24,7 @@ type Lua struct {
 	// further loads code from disk if desired. Note that if JSON configuration is used, the code must
 	// be properly escaped. YAML configuration may be easier to read since YAML supports multi-line
 	// strings so complex scripts can be easily expressed inline in the configuration.
-	InlineCode           string   `protobuf:"bytes,1,opt,name=inline_code,json=inlineCode" json:"inline_code,omitempty"`
+	InlineCode           string   `protobuf:"bytes,1,opt,name=inline_code,json=inlineCode,proto3" json:"inline_code,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`

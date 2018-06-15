@@ -35,7 +35,7 @@ type ConfigDump struct {
 	// * *listeners*: :ref:`ListenersConfigDump <envoy_api_msg_admin.v2alpha.ListenersConfigDump>`
 	// * *clusters*: :ref:`ClustersConfigDump <envoy_api_msg_admin.v2alpha.ClustersConfigDump>`
 	// * *routes*:  :ref:`RoutesConfigDump <envoy_api_msg_admin.v2alpha.RoutesConfigDump>`
-	Configs              map[string]*any.Any `protobuf:"bytes,1,rep,name=configs" json:"configs,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	Configs              map[string]*any.Any `protobuf:"bytes,1,rep,name=configs,proto3" json:"configs,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
 	XXX_NoUnkeyedLiteral struct{}            `json:"-"`
 	XXX_unrecognized     []byte              `json:"-"`
 	XXX_sizecache        int32               `json:"-"`
@@ -77,7 +77,7 @@ func (m *ConfigDump) GetConfigs() map[string]*any.Any {
 // the static portions of an Envoy configuration by reusing the output as the bootstrap
 // configuration for another Envoy.
 type BootstrapConfigDump struct {
-	Bootstrap            *v2.Bootstrap `protobuf:"bytes,1,opt,name=bootstrap" json:"bootstrap,omitempty"`
+	Bootstrap            *v2.Bootstrap `protobuf:"bytes,1,opt,name=bootstrap,proto3" json:"bootstrap,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}      `json:"-"`
 	XXX_unrecognized     []byte        `json:"-"`
 	XXX_sizecache        int32         `json:"-"`
@@ -121,22 +121,22 @@ type ListenersConfigDump struct {
 	// This is the :ref:`version_info <envoy_api_field_DiscoveryResponse.version_info>` in the
 	// last processed LDS discovery response. If there are only static bootstrap listeners, this field
 	// will be "".
-	VersionInfo string `protobuf:"bytes,1,opt,name=version_info,json=versionInfo" json:"version_info,omitempty"`
+	VersionInfo string `protobuf:"bytes,1,opt,name=version_info,json=versionInfo,proto3" json:"version_info,omitempty"`
 	// The statically loaded listener configs.
-	StaticListeners []*v21.Listener `protobuf:"bytes,2,rep,name=static_listeners,json=staticListeners" json:"static_listeners,omitempty"`
+	StaticListeners []*v21.Listener `protobuf:"bytes,2,rep,name=static_listeners,json=staticListeners,proto3" json:"static_listeners,omitempty"`
 	// The dynamically loaded active listeners. These are listeners that are available to service
 	// data plane traffic.
-	DynamicActiveListeners []*ListenersConfigDump_DynamicListener `protobuf:"bytes,3,rep,name=dynamic_active_listeners,json=dynamicActiveListeners" json:"dynamic_active_listeners,omitempty"`
+	DynamicActiveListeners []*ListenersConfigDump_DynamicListener `protobuf:"bytes,3,rep,name=dynamic_active_listeners,json=dynamicActiveListeners,proto3" json:"dynamic_active_listeners,omitempty"`
 	// The dynamically loaded warming listeners. These are listeners that are currently undergoing
 	// warming in preparation to service data plane traffic. Note that if attempting to recreate an
 	// Envoy configuration from a configuration dump, the warming listeners should generally be
 	// discarded.
-	DynamicWarmingListeners []*ListenersConfigDump_DynamicListener `protobuf:"bytes,4,rep,name=dynamic_warming_listeners,json=dynamicWarmingListeners" json:"dynamic_warming_listeners,omitempty"`
+	DynamicWarmingListeners []*ListenersConfigDump_DynamicListener `protobuf:"bytes,4,rep,name=dynamic_warming_listeners,json=dynamicWarmingListeners,proto3" json:"dynamic_warming_listeners,omitempty"`
 	// The dynamically loaded draining listeners. These are listeners that are currently undergoing
 	// draining in preparation to stop servicing data plane traffic. Note that if attempting to
 	// recreate an Envoy configuration from a configuration dump, the draining listeners should
 	// generally be discarded.
-	DynamicDrainingListeners []*ListenersConfigDump_DynamicListener `protobuf:"bytes,5,rep,name=dynamic_draining_listeners,json=dynamicDrainingListeners" json:"dynamic_draining_listeners,omitempty"`
+	DynamicDrainingListeners []*ListenersConfigDump_DynamicListener `protobuf:"bytes,5,rep,name=dynamic_draining_listeners,json=dynamicDrainingListeners,proto3" json:"dynamic_draining_listeners,omitempty"`
 	XXX_NoUnkeyedLiteral     struct{}                               `json:"-"`
 	XXX_unrecognized         []byte                                 `json:"-"`
 	XXX_sizecache            int32                                  `json:"-"`
@@ -207,9 +207,9 @@ type ListenersConfigDump_DynamicListener struct {
 	// :ref:`version_info <envoy_api_field_DiscoveryResponse.version_info>` field at the time
 	// that the listener was loaded. In the future, discrete per-listener versions may be supported
 	// by the API.
-	VersionInfo string `protobuf:"bytes,1,opt,name=version_info,json=versionInfo" json:"version_info,omitempty"`
+	VersionInfo string `protobuf:"bytes,1,opt,name=version_info,json=versionInfo,proto3" json:"version_info,omitempty"`
 	// The listener config.
-	Listener             *v21.Listener `protobuf:"bytes,2,opt,name=listener" json:"listener,omitempty"`
+	Listener             *v21.Listener `protobuf:"bytes,2,opt,name=listener,proto3" json:"listener,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}      `json:"-"`
 	XXX_unrecognized     []byte        `json:"-"`
 	XXX_sizecache        int32         `json:"-"`
@@ -260,17 +260,17 @@ type ClustersConfigDump struct {
 	// This is the :ref:`version_info <envoy_api_field_DiscoveryResponse.version_info>` in the
 	// last processed CDS discovery response. If there are only static bootstrap clusters, this field
 	// will be "".
-	VersionInfo string `protobuf:"bytes,1,opt,name=version_info,json=versionInfo" json:"version_info,omitempty"`
+	VersionInfo string `protobuf:"bytes,1,opt,name=version_info,json=versionInfo,proto3" json:"version_info,omitempty"`
 	// The statically loaded cluster configs.
-	StaticClusters []*v21.Cluster `protobuf:"bytes,2,rep,name=static_clusters,json=staticClusters" json:"static_clusters,omitempty"`
+	StaticClusters []*v21.Cluster `protobuf:"bytes,2,rep,name=static_clusters,json=staticClusters,proto3" json:"static_clusters,omitempty"`
 	// The dynamically loaded active clusters. These are clusters that are available to service
 	// data plane traffic.
-	DynamicActiveClusters []*ClustersConfigDump_DynamicCluster `protobuf:"bytes,3,rep,name=dynamic_active_clusters,json=dynamicActiveClusters" json:"dynamic_active_clusters,omitempty"`
+	DynamicActiveClusters []*ClustersConfigDump_DynamicCluster `protobuf:"bytes,3,rep,name=dynamic_active_clusters,json=dynamicActiveClusters,proto3" json:"dynamic_active_clusters,omitempty"`
 	// The dynamically loaded warming clusters. These are clusters that are currently undergoing
 	// warming in preparation to service data plane traffic. Note that if attempting to recreate an
 	// Envoy configuration from a configuration dump, the warming clusters should generally be
 	// discarded.
-	DynamicWarmingClusters []*ClustersConfigDump_DynamicCluster `protobuf:"bytes,4,rep,name=dynamic_warming_clusters,json=dynamicWarmingClusters" json:"dynamic_warming_clusters,omitempty"`
+	DynamicWarmingClusters []*ClustersConfigDump_DynamicCluster `protobuf:"bytes,4,rep,name=dynamic_warming_clusters,json=dynamicWarmingClusters,proto3" json:"dynamic_warming_clusters,omitempty"`
 	XXX_NoUnkeyedLiteral   struct{}                             `json:"-"`
 	XXX_unrecognized       []byte                               `json:"-"`
 	XXX_sizecache          int32                                `json:"-"`
@@ -334,9 +334,9 @@ type ClustersConfigDump_DynamicCluster struct {
 	// :ref:`version_info <envoy_api_field_DiscoveryResponse.version_info>` field at the time
 	// that the cluster was loaded. In the future, discrete per-cluster versions may be supported by
 	// the API.
-	VersionInfo string `protobuf:"bytes,1,opt,name=version_info,json=versionInfo" json:"version_info,omitempty"`
+	VersionInfo string `protobuf:"bytes,1,opt,name=version_info,json=versionInfo,proto3" json:"version_info,omitempty"`
 	// The cluster config.
-	Cluster              *v21.Cluster `protobuf:"bytes,2,opt,name=cluster" json:"cluster,omitempty"`
+	Cluster              *v21.Cluster `protobuf:"bytes,2,opt,name=cluster,proto3" json:"cluster,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}     `json:"-"`
 	XXX_unrecognized     []byte       `json:"-"`
 	XXX_sizecache        int32        `json:"-"`
@@ -387,9 +387,9 @@ func (m *ClustersConfigDump_DynamicCluster) GetCluster() *v21.Cluster {
 // in RDS responses.
 type RoutesConfigDump struct {
 	// The statically loaded route configs.
-	StaticRouteConfigs []*v21.RouteConfiguration `protobuf:"bytes,2,rep,name=static_route_configs,json=staticRouteConfigs" json:"static_route_configs,omitempty"`
+	StaticRouteConfigs []*v21.RouteConfiguration `protobuf:"bytes,2,rep,name=static_route_configs,json=staticRouteConfigs,proto3" json:"static_route_configs,omitempty"`
 	// The dynamically loaded route configs.
-	DynamicRouteConfigs  []*RoutesConfigDump_DynamicRouteConfig `protobuf:"bytes,3,rep,name=dynamic_route_configs,json=dynamicRouteConfigs" json:"dynamic_route_configs,omitempty"`
+	DynamicRouteConfigs  []*RoutesConfigDump_DynamicRouteConfig `protobuf:"bytes,3,rep,name=dynamic_route_configs,json=dynamicRouteConfigs,proto3" json:"dynamic_route_configs,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}                               `json:"-"`
 	XXX_unrecognized     []byte                                 `json:"-"`
 	XXX_sizecache        int32                                  `json:"-"`
@@ -437,9 +437,9 @@ type RoutesConfigDump_DynamicRouteConfig struct {
 	// This is the per-resource version information. This version is currently taken from the
 	// :ref:`version_info <envoy_api_field_DiscoveryResponse.version_info>` field at the time that
 	// the route configuration was loaded.
-	VersionInfo string `protobuf:"bytes,1,opt,name=version_info,json=versionInfo" json:"version_info,omitempty"`
+	VersionInfo string `protobuf:"bytes,1,opt,name=version_info,json=versionInfo,proto3" json:"version_info,omitempty"`
 	// The route config.
-	RouteConfig          *v21.RouteConfiguration `protobuf:"bytes,2,opt,name=route_config,json=routeConfig" json:"route_config,omitempty"`
+	RouteConfig          *v21.RouteConfiguration `protobuf:"bytes,2,opt,name=route_config,json=routeConfig,proto3" json:"route_config,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}                `json:"-"`
 	XXX_unrecognized     []byte                  `json:"-"`
 	XXX_sizecache        int32                   `json:"-"`

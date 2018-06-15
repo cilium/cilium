@@ -24,7 +24,7 @@ const _ = proto.ProtoPackageIsVersion2 // please upgrade the proto package
 type FaultAbort struct {
 	// An integer between 0-100 indicating the percentage of requests/operations/connections
 	// that will be aborted with the error code provided.
-	Percent uint32 `protobuf:"varint,1,opt,name=percent" json:"percent,omitempty"`
+	Percent uint32 `protobuf:"varint,1,opt,name=percent,proto3" json:"percent,omitempty"`
 	// Types that are valid to be assigned to ErrorType:
 	//	*FaultAbort_HttpStatus
 	ErrorType            isFaultAbort_ErrorType `protobuf_oneof:"error_type"`
@@ -62,7 +62,7 @@ type isFaultAbort_ErrorType interface {
 }
 
 type FaultAbort_HttpStatus struct {
-	HttpStatus uint32 `protobuf:"varint,2,opt,name=http_status,json=httpStatus,oneof"`
+	HttpStatus uint32 `protobuf:"varint,2,opt,name=http_status,json=httpStatus,proto3,oneof"`
 }
 
 func (*FaultAbort_HttpStatus) isFaultAbort_ErrorType() {}
@@ -141,14 +141,14 @@ func _FaultAbort_OneofSizer(msg proto.Message) (n int) {
 type HTTPFault struct {
 	// If specified, the filter will inject delays based on the values in the
 	// object. At least *abort* or *delay* must be specified.
-	Delay *v2.FaultDelay `protobuf:"bytes,1,opt,name=delay" json:"delay,omitempty"`
+	Delay *v2.FaultDelay `protobuf:"bytes,1,opt,name=delay,proto3" json:"delay,omitempty"`
 	// If specified, the filter will abort requests based on the values in
 	// the object. At least *abort* or *delay* must be specified.
-	Abort *FaultAbort `protobuf:"bytes,2,opt,name=abort" json:"abort,omitempty"`
+	Abort *FaultAbort `protobuf:"bytes,2,opt,name=abort,proto3" json:"abort,omitempty"`
 	// Specifies the name of the (destination) upstream cluster that the
 	// filter should match on. Fault injection will be restricted to requests
 	// bound to the specific upstream cluster.
-	UpstreamCluster string `protobuf:"bytes,3,opt,name=upstream_cluster,json=upstreamCluster" json:"upstream_cluster,omitempty"`
+	UpstreamCluster string `protobuf:"bytes,3,opt,name=upstream_cluster,json=upstreamCluster,proto3" json:"upstream_cluster,omitempty"`
 	// Specifies a set of headers that the filter should match on. The fault
 	// injection filter can be applied selectively to requests that match a set of
 	// headers specified in the fault filter config. The chances of actual fault
@@ -158,14 +158,14 @@ type HTTPFault struct {
 	// config. A match will happen if all the headers in the config are present in
 	// the request with the same values (or based on presence if the *value* field
 	// is not in the config).
-	Headers []*route.HeaderMatcher `protobuf:"bytes,4,rep,name=headers" json:"headers,omitempty"`
+	Headers []*route.HeaderMatcher `protobuf:"bytes,4,rep,name=headers,proto3" json:"headers,omitempty"`
 	// Faults are injected for the specified list of downstream hosts. If this
 	// setting is not set, faults are injected for all downstream nodes.
 	// Downstream node name is taken from :ref:`the HTTP
 	// x-envoy-downstream-service-node
 	// <config_http_conn_man_headers_downstream-service-node>` header and compared
 	// against downstream_nodes list.
-	DownstreamNodes      []string `protobuf:"bytes,5,rep,name=downstream_nodes,json=downstreamNodes" json:"downstream_nodes,omitempty"`
+	DownstreamNodes      []string `protobuf:"bytes,5,rep,name=downstream_nodes,json=downstreamNodes,proto3" json:"downstream_nodes,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`

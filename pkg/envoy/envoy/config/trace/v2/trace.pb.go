@@ -28,7 +28,7 @@ const _ = proto.ProtoPackageIsVersion2 // please upgrade the proto package
 // in the future, but right now the HTTP tracer is the only one supported.
 type Tracing struct {
 	// Provides configuration for the HTTP tracer.
-	Http                 *Tracing_Http `protobuf:"bytes,1,opt,name=http" json:"http,omitempty"`
+	Http                 *Tracing_Http `protobuf:"bytes,1,opt,name=http,proto3" json:"http,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}      `json:"-"`
 	XXX_unrecognized     []byte        `json:"-"`
 	XXX_sizecache        int32         `json:"-"`
@@ -69,13 +69,13 @@ type Tracing_Http struct {
 	// The name of the HTTP trace driver to instantiate. The name must match a
 	// supported HTTP trace driver. *envoy.lightstep*, *envoy.zipkin*, and
 	// *envoy.dynamic.ot* are built-in trace drivers.
-	Name string `protobuf:"bytes,1,opt,name=name" json:"name,omitempty"`
+	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
 	// Trace driver specific configuration which depends on the driver being
 	// instantiated. See the :ref:`LightstepConfig
 	// <envoy_api_msg_config.trace.v2.LightstepConfig>`, :ref:`ZipkinConfig
 	// <envoy_api_msg_config.trace.v2.ZipkinConfig>`, and :ref:`DynamicOtConfig
 	// <envoy_api_msg_config.trace.v2.DynamicOtConfig>` trace drivers for examples.
-	Config               *_struct.Struct `protobuf:"bytes,2,opt,name=config" json:"config,omitempty"`
+	Config               *_struct.Struct `protobuf:"bytes,2,opt,name=config,proto3" json:"config,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}        `json:"-"`
 	XXX_unrecognized     []byte          `json:"-"`
 	XXX_sizecache        int32           `json:"-"`
@@ -122,10 +122,10 @@ func (m *Tracing_Http) GetConfig() *_struct.Struct {
 // Configuration for the LightStep tracer.
 type LightstepConfig struct {
 	// The cluster manager cluster that hosts the LightStep collectors.
-	CollectorCluster string `protobuf:"bytes,1,opt,name=collector_cluster,json=collectorCluster" json:"collector_cluster,omitempty"`
+	CollectorCluster string `protobuf:"bytes,1,opt,name=collector_cluster,json=collectorCluster,proto3" json:"collector_cluster,omitempty"`
 	// File containing the access token to the `LightStep
 	// <http://lightstep.com/>`_ API.
-	AccessTokenFile      string   `protobuf:"bytes,2,opt,name=access_token_file,json=accessTokenFile" json:"access_token_file,omitempty"`
+	AccessTokenFile      string   `protobuf:"bytes,2,opt,name=access_token_file,json=accessTokenFile,proto3" json:"access_token_file,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -173,14 +173,14 @@ type ZipkinConfig struct {
 	// The cluster manager cluster that hosts the Zipkin collectors. Note that the
 	// Zipkin cluster must be defined in the :ref:`Bootstrap static cluster
 	// resources <envoy_api_field_config.bootstrap.v2.Bootstrap.StaticResources.clusters>`.
-	CollectorCluster string `protobuf:"bytes,1,opt,name=collector_cluster,json=collectorCluster" json:"collector_cluster,omitempty"`
+	CollectorCluster string `protobuf:"bytes,1,opt,name=collector_cluster,json=collectorCluster,proto3" json:"collector_cluster,omitempty"`
 	// The API endpoint of the Zipkin service where the spans will be sent. When
 	// using a standard Zipkin installation, the API endpoint is typically
 	// /api/v1/spans, which is the default value.
-	CollectorEndpoint string `protobuf:"bytes,2,opt,name=collector_endpoint,json=collectorEndpoint" json:"collector_endpoint,omitempty"`
+	CollectorEndpoint string `protobuf:"bytes,2,opt,name=collector_endpoint,json=collectorEndpoint,proto3" json:"collector_endpoint,omitempty"`
 	// Determines whether a 128bit trace id will be used when creating a new
 	// trace instance. The default value is false, which will result in a 64 bit trace id being used.
-	TraceId_128Bit       bool     `protobuf:"varint,3,opt,name=trace_id_128bit,json=traceId128bit" json:"trace_id_128bit,omitempty"`
+	TraceId_128Bit       bool     `protobuf:"varint,3,opt,name=trace_id_128bit,json=traceId128bit,proto3" json:"trace_id_128bit,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -237,10 +237,10 @@ func (m *ZipkinConfig) GetTraceId_128Bit() bool {
 type DynamicOtConfig struct {
 	// Dynamic library implementing the `OpenTracing API
 	// <https://github.com/opentracing/opentracing-cpp>`_.
-	Library string `protobuf:"bytes,1,opt,name=library" json:"library,omitempty"`
+	Library string `protobuf:"bytes,1,opt,name=library,proto3" json:"library,omitempty"`
 	// The configuration to use when creating a tracer from the given dynamic
 	// library.
-	Config               *_struct.Struct `protobuf:"bytes,2,opt,name=config" json:"config,omitempty"`
+	Config               *_struct.Struct `protobuf:"bytes,2,opt,name=config,proto3" json:"config,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}        `json:"-"`
 	XXX_unrecognized     []byte          `json:"-"`
 	XXX_sizecache        int32           `json:"-"`
@@ -287,7 +287,7 @@ func (m *DynamicOtConfig) GetConfig() *_struct.Struct {
 // Configuration structure.
 type TraceServiceConfig struct {
 	// The upstream gRPC cluster that hosts the metrics service.
-	GrpcService          *core.GrpcService `protobuf:"bytes,1,opt,name=grpc_service,json=grpcService" json:"grpc_service,omitempty"`
+	GrpcService          *core.GrpcService `protobuf:"bytes,1,opt,name=grpc_service,json=grpcService,proto3" json:"grpc_service,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}          `json:"-"`
 	XXX_unrecognized     []byte            `json:"-"`
 	XXX_sizecache        int32             `json:"-"`

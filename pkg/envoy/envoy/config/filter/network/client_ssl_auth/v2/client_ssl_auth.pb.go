@@ -27,19 +27,19 @@ type ClientSSLAuth struct {
 	// the authentication service. The filter will connect to the service every 60s to fetch the list
 	// of principals. The service must support the expected :ref:`REST API
 	// <config_network_filters_client_ssl_auth_rest_api>`.
-	AuthApiCluster string `protobuf:"bytes,1,opt,name=auth_api_cluster,json=authApiCluster" json:"auth_api_cluster,omitempty"`
+	AuthApiCluster string `protobuf:"bytes,1,opt,name=auth_api_cluster,json=authApiCluster,proto3" json:"auth_api_cluster,omitempty"`
 	// The prefix to use when emitting :ref:`statistics
 	// <config_network_filters_client_ssl_auth_stats>`.
-	StatPrefix string `protobuf:"bytes,2,opt,name=stat_prefix,json=statPrefix" json:"stat_prefix,omitempty"`
+	StatPrefix string `protobuf:"bytes,2,opt,name=stat_prefix,json=statPrefix,proto3" json:"stat_prefix,omitempty"`
 	// Time in milliseconds between principal refreshes from the
 	// authentication service. Default is 60000 (60s). The actual fetch time
 	// will be this value plus a random jittered value between
 	// 0-refresh_delay_ms milliseconds.
-	RefreshDelay *duration.Duration `protobuf:"bytes,3,opt,name=refresh_delay,json=refreshDelay" json:"refresh_delay,omitempty"`
+	RefreshDelay *duration.Duration `protobuf:"bytes,3,opt,name=refresh_delay,json=refreshDelay,proto3" json:"refresh_delay,omitempty"`
 	// An optional list of IP address and subnet masks that should be white
 	// listed for access by the filter. If no list is provided, there is no
 	// IP white list.
-	IpWhiteList          []*core.CidrRange `protobuf:"bytes,4,rep,name=ip_white_list,json=ipWhiteList" json:"ip_white_list,omitempty"`
+	IpWhiteList          []*core.CidrRange `protobuf:"bytes,4,rep,name=ip_white_list,json=ipWhiteList,proto3" json:"ip_white_list,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}          `json:"-"`
 	XXX_unrecognized     []byte            `json:"-"`
 	XXX_sizecache        int32             `json:"-"`

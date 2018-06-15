@@ -61,16 +61,16 @@ type isStringMatch_MatchPattern interface {
 }
 
 type StringMatch_Simple struct {
-	Simple string `protobuf:"bytes,1,opt,name=simple,oneof"`
+	Simple string `protobuf:"bytes,1,opt,name=simple,proto3,oneof"`
 }
 type StringMatch_Prefix struct {
-	Prefix string `protobuf:"bytes,2,opt,name=prefix,oneof"`
+	Prefix string `protobuf:"bytes,2,opt,name=prefix,proto3,oneof"`
 }
 type StringMatch_Suffix struct {
-	Suffix string `protobuf:"bytes,3,opt,name=suffix,oneof"`
+	Suffix string `protobuf:"bytes,3,opt,name=suffix,proto3,oneof"`
 }
 type StringMatch_Regex struct {
-	Regex string `protobuf:"bytes,4,opt,name=regex,oneof"`
+	Regex string `protobuf:"bytes,4,opt,name=regex,proto3,oneof"`
 }
 
 func (*StringMatch_Simple) isStringMatch_MatchPattern() {}

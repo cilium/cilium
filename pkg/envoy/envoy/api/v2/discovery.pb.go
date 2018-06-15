@@ -32,31 +32,31 @@ type DiscoveryRequest struct {
 	// configuration. ACK/NACK takes place by returning the new API config version
 	// as applied or the previous API config version respectively. Each type_url
 	// (see below) has an independent version associated with it.
-	VersionInfo string `protobuf:"bytes,1,opt,name=version_info,json=versionInfo" json:"version_info,omitempty"`
+	VersionInfo string `protobuf:"bytes,1,opt,name=version_info,json=versionInfo,proto3" json:"version_info,omitempty"`
 	// The node making the request.
-	Node *core.Node `protobuf:"bytes,2,opt,name=node" json:"node,omitempty"`
+	Node *core.Node `protobuf:"bytes,2,opt,name=node,proto3" json:"node,omitempty"`
 	// List of resources to subscribe to, e.g. list of cluster names or a route
 	// configuration name. If this is empty, all resources for the API are
 	// returned. LDS/CDS expect empty resource_names, since this is global
 	// discovery for the Envoy instance. The LDS and CDS responses will then imply
 	// a number of resources that need to be fetched via EDS/RDS, which will be
 	// explicitly enumerated in resource_names.
-	ResourceNames []string `protobuf:"bytes,3,rep,name=resource_names,json=resourceNames" json:"resource_names,omitempty"`
+	ResourceNames []string `protobuf:"bytes,3,rep,name=resource_names,json=resourceNames,proto3" json:"resource_names,omitempty"`
 	// Type of the resource that is being requested, e.g.
 	// "type.googleapis.com/envoy.api.v2.ClusterLoadAssignment". This is implicit
 	// in requests made via singleton xDS APIs such as CDS, LDS, etc. but is
 	// required for ADS.
-	TypeUrl string `protobuf:"bytes,4,opt,name=type_url,json=typeUrl" json:"type_url,omitempty"`
+	TypeUrl string `protobuf:"bytes,4,opt,name=type_url,json=typeUrl,proto3" json:"type_url,omitempty"`
 	// nonce corresponding to DiscoveryResponse being ACK/NACKed. See above
 	// discussion on version_info and the DiscoveryResponse nonce comment. This
 	// may be empty if no nonce is available, e.g. at startup or for non-stream
 	// xDS implementations.
-	ResponseNonce string `protobuf:"bytes,5,opt,name=response_nonce,json=responseNonce" json:"response_nonce,omitempty"`
+	ResponseNonce string `protobuf:"bytes,5,opt,name=response_nonce,json=responseNonce,proto3" json:"response_nonce,omitempty"`
 	// This is populated when the previous :ref:`DiscoveryResponse <envoy_api_msg_DiscoveryResponse>`
 	// failed to update configuration. The *message* field in *error_details* provides the Envoy
 	// internal exception related to the failure. It is only intended for consumption during manual
 	// debugging, the string provided is not guaranteed to be stable across Envoy versions.
-	ErrorDetail          *status.Status `protobuf:"bytes,6,opt,name=error_detail,json=errorDetail" json:"error_detail,omitempty"`
+	ErrorDetail          *status.Status `protobuf:"bytes,6,opt,name=error_detail,json=errorDetail,proto3" json:"error_detail,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}       `json:"-"`
 	XXX_unrecognized     []byte         `json:"-"`
 	XXX_sizecache        int32          `json:"-"`
@@ -130,9 +130,9 @@ func (m *DiscoveryRequest) GetErrorDetail() *status.Status {
 
 type DiscoveryResponse struct {
 	// The version of the response data.
-	VersionInfo string `protobuf:"bytes,1,opt,name=version_info,json=versionInfo" json:"version_info,omitempty"`
+	VersionInfo string `protobuf:"bytes,1,opt,name=version_info,json=versionInfo,proto3" json:"version_info,omitempty"`
 	// The response resources. These resources are typed and depend on the API being called.
-	Resources []*any.Any `protobuf:"bytes,2,rep,name=resources" json:"resources,omitempty"`
+	Resources []*any.Any `protobuf:"bytes,2,rep,name=resources,proto3" json:"resources,omitempty"`
 	// [#not-implemented-hide:]
 	// Canary is used to support two Envoy command line flags:
 	//
@@ -147,11 +147,11 @@ type DiscoveryResponse struct {
 	//   clean slate.
 	// * --dry-run-canary. When set, a canary response will never be applied, only
 	//   validated via a dry run.
-	Canary bool `protobuf:"varint,3,opt,name=canary" json:"canary,omitempty"`
+	Canary bool `protobuf:"varint,3,opt,name=canary,proto3" json:"canary,omitempty"`
 	// Type URL for resources. This must be consistent with the type_url in the
 	// Any messages for resources if resources is non-empty. This effectively
 	// identifies the xDS API when muxing over ADS.
-	TypeUrl string `protobuf:"bytes,4,opt,name=type_url,json=typeUrl" json:"type_url,omitempty"`
+	TypeUrl string `protobuf:"bytes,4,opt,name=type_url,json=typeUrl,proto3" json:"type_url,omitempty"`
 	// For gRPC based subscriptions, the nonce provides a way to explicitly ack a
 	// specific DiscoveryResponse in a following DiscoveryRequest. Additional
 	// messages may have been sent by Envoy to the management server for the
@@ -160,7 +160,7 @@ type DiscoveryResponse struct {
 	// to ignore any further DiscoveryRequests for the previous version until a
 	// DiscoveryRequest bearing the nonce. The nonce is optional and is not
 	// required for non-stream based xDS implementations.
-	Nonce                string   `protobuf:"bytes,5,opt,name=nonce" json:"nonce,omitempty"`
+	Nonce                string   `protobuf:"bytes,5,opt,name=nonce,proto3" json:"nonce,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`

@@ -50,7 +50,7 @@ type JwtRule struct {
 	// Example: https://securetoken.google.com
 	// Example: 1234567-compute@developer.gserviceaccount.com
 	//
-	Issuer string `protobuf:"bytes,1,opt,name=issuer" json:"issuer,omitempty"`
+	Issuer string `protobuf:"bytes,1,opt,name=issuer,proto3" json:"issuer,omitempty"`
 	// The list of JWT `audiences <https://tools.ietf.org/html/rfc7519#section-4.1.3>`_. that are
 	// allowed to access. A JWT containing any of these audiences will be accepted. If not specified,
 	// will not check audiences in the token.
@@ -63,7 +63,7 @@ type JwtRule struct {
 	//     - bookstore_android.apps.googleusercontent.com
 	//       bookstore_web.apps.googleusercontent.com
 	//
-	Audiences []string `protobuf:"bytes,2,rep,name=audiences" json:"audiences,omitempty"`
+	Audiences []string `protobuf:"bytes,2,rep,name=audiences,proto3" json:"audiences,omitempty"`
 	// `JSON Web Key Set <https://tools.ietf.org/html/rfc7517#appendix-A>`_ is needed. to validate
 	// signature of the JWT. This field specifies where to fetch JWKS.
 	//
@@ -73,7 +73,7 @@ type JwtRule struct {
 	JwksSourceSpecifier isJwtRule_JwksSourceSpecifier `protobuf_oneof:"jwks_source_specifier"`
 	// If false, the JWT is removed in the request after a success verification. If true, the JWT is
 	// not removed in the request. Default value is false.
-	Forward bool `protobuf:"varint,5,opt,name=forward" json:"forward,omitempty"`
+	Forward bool `protobuf:"varint,5,opt,name=forward,proto3" json:"forward,omitempty"`
 	// Specify the HTTP headers to extract JWT token. For examples, following config:
 	//
 	// .. code-block:: yaml
@@ -85,7 +85,7 @@ type JwtRule struct {
 	//
 	//   x-goog-iap-jwt-assertion: <JWT>.
 	//
-	FromHeaders []*JwtHeader `protobuf:"bytes,6,rep,name=from_headers,json=fromHeaders" json:"from_headers,omitempty"`
+	FromHeaders []*JwtHeader `protobuf:"bytes,6,rep,name=from_headers,json=fromHeaders,proto3" json:"from_headers,omitempty"`
 	// JWT is sent in a query parameter. `jwt_params` represents the query parameter names.
 	//
 	// For example, if config is:
@@ -99,7 +99,7 @@ type JwtRule struct {
 	//
 	//    /path?jwt_token=<JWT>
 	//
-	FromParams []string `protobuf:"bytes,7,rep,name=from_params,json=fromParams" json:"from_params,omitempty"`
+	FromParams []string `protobuf:"bytes,7,rep,name=from_params,json=fromParams,proto3" json:"from_params,omitempty"`
 	// This field specifies the header name to forward a successfully verified JWT payload to the
 	// backend. The forwarded data is::
 	//
@@ -110,7 +110,7 @@ type JwtRule struct {
 	// same issuer will not be supported. Each issuer can config this `forward_payload_header`. If
 	// multiple JWTs from different issuers want to forward their payloads, their
 	// `forward_payload_header` should be different.
-	ForwardPayloadHeader string   `protobuf:"bytes,8,opt,name=forward_payload_header,json=forwardPayloadHeader" json:"forward_payload_header,omitempty"`
+	ForwardPayloadHeader string   `protobuf:"bytes,8,opt,name=forward_payload_header,json=forwardPayloadHeader,proto3" json:"forward_payload_header,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -145,10 +145,10 @@ type isJwtRule_JwksSourceSpecifier interface {
 }
 
 type JwtRule_RemoteJwks struct {
-	RemoteJwks *RemoteJwks `protobuf:"bytes,3,opt,name=remote_jwks,json=remoteJwks,oneof"`
+	RemoteJwks *RemoteJwks `protobuf:"bytes,3,opt,name=remote_jwks,json=remoteJwks,proto3,oneof"`
 }
 type JwtRule_LocalJwks struct {
-	LocalJwks *core.DataSource `protobuf:"bytes,4,opt,name=local_jwks,json=localJwks,oneof"`
+	LocalJwks *core.DataSource `protobuf:"bytes,4,opt,name=local_jwks,json=localJwks,proto3,oneof"`
 }
 
 func (*JwtRule_RemoteJwks) isJwtRule_JwksSourceSpecifier() {}
@@ -301,10 +301,10 @@ type RemoteJwks struct {
 	//    - uri: https://www.googleapis.com/oauth2/v1/certs
 	//      cluster: jwt.www.googleapis.com|443
 	//
-	HttpUri *core.HttpUri `protobuf:"bytes,1,opt,name=http_uri,json=httpUri" json:"http_uri,omitempty"`
+	HttpUri *core.HttpUri `protobuf:"bytes,1,opt,name=http_uri,json=httpUri,proto3" json:"http_uri,omitempty"`
 	// Duration after which the cached JWKS should be expired. If not specified, default cache
 	// duration is 5 minutes.
-	CacheDuration        *duration.Duration `protobuf:"bytes,2,opt,name=cache_duration,json=cacheDuration" json:"cache_duration,omitempty"`
+	CacheDuration        *duration.Duration `protobuf:"bytes,2,opt,name=cache_duration,json=cacheDuration,proto3" json:"cache_duration,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}           `json:"-"`
 	XXX_unrecognized     []byte             `json:"-"`
 	XXX_sizecache        int32              `json:"-"`
@@ -351,11 +351,11 @@ func (m *RemoteJwks) GetCacheDuration() *duration.Duration {
 // This message specifies a header location to extract JWT token.
 type JwtHeader struct {
 	// The HTTP header name.
-	Name string `protobuf:"bytes,1,opt,name=name" json:"name,omitempty"`
+	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
 	// The value prefix. The value format is "value_prefix<token>"
 	// For example, for "Authorization: Bearer <token>", value_prefix="Bearer " with a space at the
 	// end.
-	ValuePrefix          string   `protobuf:"bytes,2,opt,name=value_prefix,json=valuePrefix" json:"value_prefix,omitempty"`
+	ValuePrefix          string   `protobuf:"bytes,2,opt,name=value_prefix,json=valuePrefix,proto3" json:"value_prefix,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -403,10 +403,10 @@ func (m *JwtHeader) GetValuePrefix() string {
 // [#not-implemented-hide:]
 type JwtAuthentication struct {
 	// List of JWT rules to valide.
-	Rules []*JwtRule `protobuf:"bytes,1,rep,name=rules" json:"rules,omitempty"`
+	Rules []*JwtRule `protobuf:"bytes,1,rep,name=rules,proto3" json:"rules,omitempty"`
 	// If true, the request is allowed if JWT is missing or JWT verification fails.
 	// Default is false, a request without JWT or failed JWT verification is not allowed.
-	AllowMissingOrFailed bool `protobuf:"varint,2,opt,name=allow_missing_or_failed,json=allowMissingOrFailed" json:"allow_missing_or_failed,omitempty"`
+	AllowMissingOrFailed bool `protobuf:"varint,2,opt,name=allow_missing_or_failed,json=allowMissingOrFailed,proto3" json:"allow_missing_or_failed,omitempty"`
 	// This field lists the patterns allowed to bypass JWT verification. This only applies when
 	// `allow_missing_or_failed_jwt` is false. Under this config, if a request doesn't have JWT, it
 	// will be rejected. But some requests still needed to be forwarded without JWT, such as OPTIONS
@@ -436,7 +436,7 @@ type JwtAuthentication struct {
 	//     - name: :path
 	//       exact_match: /healthz
 	//
-	Bypass               []*route.RouteMatch `protobuf:"bytes,3,rep,name=bypass" json:"bypass,omitempty"`
+	Bypass               []*route.RouteMatch `protobuf:"bytes,3,rep,name=bypass,proto3" json:"bypass,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}            `json:"-"`
 	XXX_unrecognized     []byte              `json:"-"`
 	XXX_sizecache        int32               `json:"-"`

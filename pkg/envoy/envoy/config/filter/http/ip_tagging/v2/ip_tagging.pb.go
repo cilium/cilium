@@ -58,11 +58,11 @@ func (IPTagging_RequestType) EnumDescriptor() ([]byte, []int) {
 
 type IPTagging struct {
 	// The type of request the filter should apply to.
-	RequestType IPTagging_RequestType `protobuf:"varint,1,opt,name=request_type,json=requestType,enum=envoy.config.filter.http.ip_tagging.v2.IPTagging_RequestType" json:"request_type,omitempty"`
+	RequestType IPTagging_RequestType `protobuf:"varint,1,opt,name=request_type,json=requestType,proto3,enum=envoy.config.filter.http.ip_tagging.v2.IPTagging_RequestType" json:"request_type,omitempty"`
 	// [#comment:TODO(ccaraman): Extend functionality to load IP tags from file system.
 	// Tracked by issue https://github.com/envoyproxy/envoy/issues/2695]
 	// The set of IP tags for the filter.
-	IpTags               []*IPTagging_IPTag `protobuf:"bytes,4,rep,name=ip_tags,json=ipTags" json:"ip_tags,omitempty"`
+	IpTags               []*IPTagging_IPTag `protobuf:"bytes,4,rep,name=ip_tags,json=ipTags,proto3" json:"ip_tags,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}           `json:"-"`
 	XXX_unrecognized     []byte             `json:"-"`
 	XXX_sizecache        int32              `json:"-"`
@@ -109,10 +109,10 @@ func (m *IPTagging) GetIpTags() []*IPTagging_IPTag {
 // Supplies the IP tag name and the IP address subnets.
 type IPTagging_IPTag struct {
 	// Specifies the IP tag name to apply.
-	IpTagName string `protobuf:"bytes,1,opt,name=ip_tag_name,json=ipTagName" json:"ip_tag_name,omitempty"`
+	IpTagName string `protobuf:"bytes,1,opt,name=ip_tag_name,json=ipTagName,proto3" json:"ip_tag_name,omitempty"`
 	// A list of IP address subnets that will be tagged with
 	// ip_tag_name. Both IPv4 and IPv6 are supported.
-	IpList               []*core.CidrRange `protobuf:"bytes,2,rep,name=ip_list,json=ipList" json:"ip_list,omitempty"`
+	IpList               []*core.CidrRange `protobuf:"bytes,2,rep,name=ip_list,json=ipList,proto3" json:"ip_list,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}          `json:"-"`
 	XXX_unrecognized     []byte            `json:"-"`
 	XXX_sizecache        int32             `json:"-"`

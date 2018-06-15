@@ -29,7 +29,7 @@ const _ = proto.ProtoPackageIsVersion2 // please upgrade the proto package
 type UpstreamLocalityStats struct {
 	// Name of zone, region and optionally endpoint group these metrics were
 	// collected from. Zone and region names could be empty if unknown.
-	Locality *core.Locality `protobuf:"bytes,1,opt,name=locality" json:"locality,omitempty"`
+	Locality *core.Locality `protobuf:"bytes,1,opt,name=locality,proto3" json:"locality,omitempty"`
 	// The total number of requests sent by this Envoy since the last report. A
 	// single HTTP or gRPC request or stream is counted as one request. A TCP
 	// connection is also treated as one request. There is no explicit
@@ -44,9 +44,9 @@ type UpstreamLocalityStats struct {
 	// locality. These include non-5xx responses for HTTP, where errors
 	// originate at the client and the endpoint responded successfully. For gRPC,
 	// the grpc-status values are those not covered by total_error_requests below.
-	TotalSuccessfulRequests uint64 `protobuf:"varint,2,opt,name=total_successful_requests,json=totalSuccessfulRequests" json:"total_successful_requests,omitempty"`
+	TotalSuccessfulRequests uint64 `protobuf:"varint,2,opt,name=total_successful_requests,json=totalSuccessfulRequests,proto3" json:"total_successful_requests,omitempty"`
 	// The total number of unfinished requests
-	TotalRequestsInProgress uint64 `protobuf:"varint,3,opt,name=total_requests_in_progress,json=totalRequestsInProgress" json:"total_requests_in_progress,omitempty"`
+	TotalRequestsInProgress uint64 `protobuf:"varint,3,opt,name=total_requests_in_progress,json=totalRequestsInProgress,proto3" json:"total_requests_in_progress,omitempty"`
 	// The total number of requests that failed due to errors at the endpoint.
 	// For HTTP these are responses with 5xx status codes and for gRPC the
 	// grpc-status values:
@@ -57,12 +57,12 @@ type UpstreamLocalityStats struct {
 	//   - Unavailable
 	//   - Unknown
 	//   - DataLoss
-	TotalErrorRequests uint64 `protobuf:"varint,4,opt,name=total_error_requests,json=totalErrorRequests" json:"total_error_requests,omitempty"`
+	TotalErrorRequests uint64 `protobuf:"varint,4,opt,name=total_error_requests,json=totalErrorRequests,proto3" json:"total_error_requests,omitempty"`
 	// Stats for multi-dimensional load balancing.
-	LoadMetricStats []*EndpointLoadMetricStats `protobuf:"bytes,5,rep,name=load_metric_stats,json=loadMetricStats" json:"load_metric_stats,omitempty"`
+	LoadMetricStats []*EndpointLoadMetricStats `protobuf:"bytes,5,rep,name=load_metric_stats,json=loadMetricStats,proto3" json:"load_metric_stats,omitempty"`
 	// [#not-implemented-hide:] The priority of the endpoint group these metrics
 	// were collected from.
-	Priority             uint32   `protobuf:"varint,6,opt,name=priority" json:"priority,omitempty"`
+	Priority             uint32   `protobuf:"varint,6,opt,name=priority,proto3" json:"priority,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -137,12 +137,12 @@ func (m *UpstreamLocalityStats) GetPriority() uint32 {
 // [#not-implemented-hide:] Not configuration. TBD how to doc proto APIs.
 type EndpointLoadMetricStats struct {
 	// Name of the metric; may be empty.
-	MetricName string `protobuf:"bytes,1,opt,name=metric_name,json=metricName" json:"metric_name,omitempty"`
+	MetricName string `protobuf:"bytes,1,opt,name=metric_name,json=metricName,proto3" json:"metric_name,omitempty"`
 	// Number of calls that finished and included this metric.
-	NumRequestsFinishedWithMetric uint64 `protobuf:"varint,2,opt,name=num_requests_finished_with_metric,json=numRequestsFinishedWithMetric" json:"num_requests_finished_with_metric,omitempty"`
+	NumRequestsFinishedWithMetric uint64 `protobuf:"varint,2,opt,name=num_requests_finished_with_metric,json=numRequestsFinishedWithMetric,proto3" json:"num_requests_finished_with_metric,omitempty"`
 	// Sum of metric values across all calls that finished with this metric for
 	// load_reporting_interval.
-	TotalMetricValue     float64  `protobuf:"fixed64,3,opt,name=total_metric_value,json=totalMetricValue" json:"total_metric_value,omitempty"`
+	TotalMetricValue     float64  `protobuf:"fixed64,3,opt,name=total_metric_value,json=totalMetricValue,proto3" json:"total_metric_value,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -198,9 +198,9 @@ func (m *EndpointLoadMetricStats) GetTotalMetricValue() float64 {
 // [#not-implemented-hide:] Not configuration. TBD how to doc proto APIs.
 type ClusterStats struct {
 	// The name of the cluster.
-	ClusterName string `protobuf:"bytes,1,opt,name=cluster_name,json=clusterName" json:"cluster_name,omitempty"`
+	ClusterName string `protobuf:"bytes,1,opt,name=cluster_name,json=clusterName,proto3" json:"cluster_name,omitempty"`
 	// Need at least one.
-	UpstreamLocalityStats []*UpstreamLocalityStats `protobuf:"bytes,2,rep,name=upstream_locality_stats,json=upstreamLocalityStats" json:"upstream_locality_stats,omitempty"`
+	UpstreamLocalityStats []*UpstreamLocalityStats `protobuf:"bytes,2,rep,name=upstream_locality_stats,json=upstreamLocalityStats,proto3" json:"upstream_locality_stats,omitempty"`
 	// Cluster-level stats such as total_successful_requests may be computed by
 	// summing upstream_locality_stats. In addition, below there are additional
 	// cluster-wide stats. The following total_requests equality holds at the
@@ -213,7 +213,7 @@ type ClusterStats struct {
 	//
 	// The total number of dropped requests. This covers requests
 	// deliberately dropped by the drop_overload policy and circuit breaking.
-	TotalDroppedRequests uint64   `protobuf:"varint,3,opt,name=total_dropped_requests,json=totalDroppedRequests" json:"total_dropped_requests,omitempty"`
+	TotalDroppedRequests uint64   `protobuf:"varint,3,opt,name=total_dropped_requests,json=totalDroppedRequests,proto3" json:"total_dropped_requests,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`

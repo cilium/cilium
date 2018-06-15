@@ -56,14 +56,14 @@ func (x TlsParameters_TlsProtocol) String() string {
 	return proto.EnumName(TlsParameters_TlsProtocol_name, int32(x))
 }
 func (TlsParameters_TlsProtocol) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptor_cert_06562aad874967fd, []int{0, 0}
+	return fileDescriptor_cert_2c560db9cc18db68, []int{0, 0}
 }
 
 type TlsParameters struct {
 	// Minimum TLS protocol version.
-	TlsMinimumProtocolVersion TlsParameters_TlsProtocol `protobuf:"varint,1,opt,name=tls_minimum_protocol_version,json=tlsMinimumProtocolVersion,enum=envoy.api.v2.auth.TlsParameters_TlsProtocol" json:"tls_minimum_protocol_version,omitempty"`
+	TlsMinimumProtocolVersion TlsParameters_TlsProtocol `protobuf:"varint,1,opt,name=tls_minimum_protocol_version,json=tlsMinimumProtocolVersion,proto3,enum=envoy.api.v2.auth.TlsParameters_TlsProtocol" json:"tls_minimum_protocol_version,omitempty"`
 	// Maximum TLS protocol version.
-	TlsMaximumProtocolVersion TlsParameters_TlsProtocol `protobuf:"varint,2,opt,name=tls_maximum_protocol_version,json=tlsMaximumProtocolVersion,enum=envoy.api.v2.auth.TlsParameters_TlsProtocol" json:"tls_maximum_protocol_version,omitempty"`
+	TlsMaximumProtocolVersion TlsParameters_TlsProtocol `protobuf:"varint,2,opt,name=tls_maximum_protocol_version,json=tlsMaximumProtocolVersion,proto3,enum=envoy.api.v2.auth.TlsParameters_TlsProtocol" json:"tls_maximum_protocol_version,omitempty"`
 	// If specified, the TLS listener will only support the specified `cipher list
 	// <https://commondatastorage.googleapis.com/chromium-boringssl-docs/ssl.h.html#Cipher-suite-configuration>`_.
 	// If not specified, the default list:
@@ -84,10 +84,10 @@ type TlsParameters struct {
 	//   AES256-SHA
 	//
 	// will be used.
-	CipherSuites []string `protobuf:"bytes,3,rep,name=cipher_suites,json=cipherSuites" json:"cipher_suites,omitempty"`
+	CipherSuites []string `protobuf:"bytes,3,rep,name=cipher_suites,json=cipherSuites,proto3" json:"cipher_suites,omitempty"`
 	// If specified, the TLS connection will only support the specified ECDH
 	// curves. If not specified, the default curves (X25519, P-256) will be used.
-	EcdhCurves           []string `protobuf:"bytes,4,rep,name=ecdh_curves,json=ecdhCurves" json:"ecdh_curves,omitempty"`
+	EcdhCurves           []string `protobuf:"bytes,4,rep,name=ecdh_curves,json=ecdhCurves,proto3" json:"ecdh_curves,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -97,7 +97,7 @@ func (m *TlsParameters) Reset()         { *m = TlsParameters{} }
 func (m *TlsParameters) String() string { return proto.CompactTextString(m) }
 func (*TlsParameters) ProtoMessage()    {}
 func (*TlsParameters) Descriptor() ([]byte, []int) {
-	return fileDescriptor_cert_06562aad874967fd, []int{0}
+	return fileDescriptor_cert_2c560db9cc18db68, []int{0}
 }
 func (m *TlsParameters) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_TlsParameters.Unmarshal(m, b)
@@ -147,15 +147,15 @@ func (m *TlsParameters) GetEcdhCurves() []string {
 
 type TlsCertificate struct {
 	// The TLS certificate chain.
-	CertificateChain *core.DataSource `protobuf:"bytes,1,opt,name=certificate_chain,json=certificateChain" json:"certificate_chain,omitempty"`
+	CertificateChain *core.DataSource `protobuf:"bytes,1,opt,name=certificate_chain,json=certificateChain,proto3" json:"certificate_chain,omitempty"`
 	// The TLS private key.
-	PrivateKey *core.DataSource `protobuf:"bytes,2,opt,name=private_key,json=privateKey" json:"private_key,omitempty"`
+	PrivateKey *core.DataSource `protobuf:"bytes,2,opt,name=private_key,json=privateKey,proto3" json:"private_key,omitempty"`
 	// [#not-implemented-hide:]
-	Password *core.DataSource `protobuf:"bytes,3,opt,name=password" json:"password,omitempty"`
+	Password *core.DataSource `protobuf:"bytes,3,opt,name=password,proto3" json:"password,omitempty"`
 	// [#not-implemented-hide:]
-	OcspStaple *core.DataSource `protobuf:"bytes,4,opt,name=ocsp_staple,json=ocspStaple" json:"ocsp_staple,omitempty"`
+	OcspStaple *core.DataSource `protobuf:"bytes,4,opt,name=ocsp_staple,json=ocspStaple,proto3" json:"ocsp_staple,omitempty"`
 	// [#not-implemented-hide:]
-	SignedCertificateTimestamp []*core.DataSource `protobuf:"bytes,5,rep,name=signed_certificate_timestamp,json=signedCertificateTimestamp" json:"signed_certificate_timestamp,omitempty"`
+	SignedCertificateTimestamp []*core.DataSource `protobuf:"bytes,5,rep,name=signed_certificate_timestamp,json=signedCertificateTimestamp,proto3" json:"signed_certificate_timestamp,omitempty"`
 	XXX_NoUnkeyedLiteral       struct{}           `json:"-"`
 	XXX_unrecognized           []byte             `json:"-"`
 	XXX_sizecache              int32              `json:"-"`
@@ -165,7 +165,7 @@ func (m *TlsCertificate) Reset()         { *m = TlsCertificate{} }
 func (m *TlsCertificate) String() string { return proto.CompactTextString(m) }
 func (*TlsCertificate) ProtoMessage()    {}
 func (*TlsCertificate) Descriptor() ([]byte, []int) {
-	return fileDescriptor_cert_06562aad874967fd, []int{1}
+	return fileDescriptor_cert_2c560db9cc18db68, []int{1}
 }
 func (m *TlsCertificate) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_TlsCertificate.Unmarshal(m, b)
@@ -244,7 +244,7 @@ type TlsSessionTicketKeys struct {
 	//   * Keep the session ticket keys at least as secure as your TLS certificate private keys
 	//   * Rotate session ticket keys at least daily, and preferably hourly
 	//   * Always generate keys using a cryptographically-secure random data source
-	Keys                 []*core.DataSource `protobuf:"bytes,1,rep,name=keys" json:"keys,omitempty"`
+	Keys                 []*core.DataSource `protobuf:"bytes,1,rep,name=keys,proto3" json:"keys,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}           `json:"-"`
 	XXX_unrecognized     []byte             `json:"-"`
 	XXX_sizecache        int32              `json:"-"`
@@ -254,7 +254,7 @@ func (m *TlsSessionTicketKeys) Reset()         { *m = TlsSessionTicketKeys{} }
 func (m *TlsSessionTicketKeys) String() string { return proto.CompactTextString(m) }
 func (*TlsSessionTicketKeys) ProtoMessage()    {}
 func (*TlsSessionTicketKeys) Descriptor() ([]byte, []int) {
-	return fileDescriptor_cert_06562aad874967fd, []int{2}
+	return fileDescriptor_cert_2c560db9cc18db68, []int{2}
 }
 func (m *TlsSessionTicketKeys) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_TlsSessionTicketKeys.Unmarshal(m, b)
@@ -288,6 +288,8 @@ type CertificateValidationContext struct {
 	// verified. By default, a client certificate is optional, unless one of the additional
 	// options (:ref:`require_client_certificate
 	// <envoy_api_field_auth.DownstreamTlsContext.require_client_certificate>`,
+	// :ref:`verify_certificate_spki
+	// <envoy_api_field_auth.CertificateValidationContext.verify_certificate_spki>`,
 	// :ref:`verify_certificate_hash
 	// <envoy_api_field_auth.CertificateValidationContext.verify_certificate_hash>`, or
 	// :ref:`verify_subject_alt_name
@@ -296,7 +298,38 @@ type CertificateValidationContext struct {
 	//
 	// See :ref:`the TLS overview <arch_overview_ssl_enabling_verification>` for a list of common
 	// system CA locations.
-	TrustedCa *core.DataSource `protobuf:"bytes,1,opt,name=trusted_ca,json=trustedCa" json:"trusted_ca,omitempty"`
+	TrustedCa *core.DataSource `protobuf:"bytes,1,opt,name=trusted_ca,json=trustedCa,proto3" json:"trusted_ca,omitempty"`
+	// An optional list of base64-encoded SHA-256 hashes. If specified, Envoy will verify that the
+	// SHA-256 of the DER-encoded Subject Public Key Information (SPKI) of the presented certificate
+	// matches one of the specified values.
+	//
+	// A base64-encoded SHA-256 of the Subject Public Key Information (SPKI) of the certificate
+	// can be generated with the following command:
+	//
+	// .. code-block:: bash
+	//
+	//   $ openssl x509 -in path/to/client.crt -noout -pubkey \
+	//     | openssl pkey -pubin -outform DER \
+	//     | openssl dgst -sha256 -binary \
+	//     | openssl enc -base64
+	//   NvqYIYSbgK2vCJpQhObf77vv+bQWtc5ek5RIOwPiC9A=
+	//
+	// This is the format used in HTTP Public Key Pinning.
+	//
+	// When both:
+	// :ref:`verify_certificate_hash
+	// <envoy_api_field_auth.CertificateValidationContext.verify_certificate_hash>` and
+	// :ref:`verify_certificate_spki
+	// <envoy_api_field_auth.CertificateValidationContext.verify_certificate_spki>` are specified,
+	// a hash matching value from either of the lists will result in the certificate being accepted.
+	//
+	// .. attention::
+	//
+	//   This option is preferred over :ref:`verify_certificate_hash
+	//   <envoy_api_field_auth.CertificateValidationContext.verify_certificate_hash>`,
+	//   because SPKI is tied to a private key, so it doesn't change when the certificate
+	//   is renewed using the same private key.
+	VerifyCertificateSpki []string `protobuf:"bytes,3,rep,name=verify_certificate_spki,json=verifyCertificateSpki,proto3" json:"verify_certificate_spki,omitempty"`
 	// An optional list of hex-encoded SHA-256 hashes. If specified, Envoy will verify that
 	// the SHA-256 of the DER-encoded presented certificate matches one of the specified values.
 	//
@@ -316,35 +349,45 @@ type CertificateValidationContext struct {
 	//   DF:6F:F7:2F:E9:11:65:21:26:8F:6F:2D:D4:96:6F:51:DF:47:98:83:FE:70:37:B3:9F:75:91:6A:C3:04:9D:1A
 	//
 	// Both of those formats are acceptable.
-	VerifyCertificateHash []string `protobuf:"bytes,2,rep,name=verify_certificate_hash,json=verifyCertificateHash" json:"verify_certificate_hash,omitempty"`
-	// If specified, Envoy will verify (pin) base64-encoded SHA-256 hash of
-	// the Subject Public Key Information (SPKI) of the presented certificate.
-	// This is the same format as used in HTTP Public Key Pinning.
-	// [#not-implemented-hide:]
-	VerifySpkiSha256 []string `protobuf:"bytes,3,rep,name=verify_spki_sha256,json=verifySpkiSha256" json:"verify_spki_sha256,omitempty"`
+	//
+	// When both:
+	// :ref:`verify_certificate_hash
+	// <envoy_api_field_auth.CertificateValidationContext.verify_certificate_hash>` and
+	// :ref:`verify_certificate_spki
+	// <envoy_api_field_auth.CertificateValidationContext.verify_certificate_spki>` are specified,
+	// a hash matching value from either of the lists will result in the certificate being accepted.
+	VerifyCertificateHash []string `protobuf:"bytes,2,rep,name=verify_certificate_hash,json=verifyCertificateHash,proto3" json:"verify_certificate_hash,omitempty"`
 	// An optional list of Subject Alternative Names. If specified, Envoy will verify that the
 	// Subject Alternative Name of the presented certificate matches one of the specified values.
-	VerifySubjectAltName []string `protobuf:"bytes,4,rep,name=verify_subject_alt_name,json=verifySubjectAltName" json:"verify_subject_alt_name,omitempty"`
+	//
+	// .. attention::
+	//
+	//   Subject Alternative Names are easily spoofable and verifying only them is insecure,
+	//   therefore this option must be used together with :ref:`trusted_ca
+	//   <envoy_api_field_auth.CertificateValidationContext.trusted_ca>`.
+	VerifySubjectAltName []string `protobuf:"bytes,4,rep,name=verify_subject_alt_name,json=verifySubjectAltName,proto3" json:"verify_subject_alt_name,omitempty"`
 	// [#not-implemented-hide:] Must present a signed time-stamped OCSP response.
-	RequireOcspStaple *wrappers.BoolValue `protobuf:"bytes,5,opt,name=require_ocsp_staple,json=requireOcspStaple" json:"require_ocsp_staple,omitempty"`
+	RequireOcspStaple *wrappers.BoolValue `protobuf:"bytes,5,opt,name=require_ocsp_staple,json=requireOcspStaple,proto3" json:"require_ocsp_staple,omitempty"`
 	// [#not-implemented-hide:] Must present signed certificate time-stamp.
-	RequireSignedCertificateTimestamp *wrappers.BoolValue `protobuf:"bytes,6,opt,name=require_signed_certificate_timestamp,json=requireSignedCertificateTimestamp" json:"require_signed_certificate_timestamp,omitempty"`
+	RequireSignedCertificateTimestamp *wrappers.BoolValue `protobuf:"bytes,6,opt,name=require_signed_certificate_timestamp,json=requireSignedCertificateTimestamp,proto3" json:"require_signed_certificate_timestamp,omitempty"`
 	// An optional `certificate revocation list
 	// <http://https://en.wikipedia.org/wiki/Certificate_revocation_list>`_
 	// (in PEM format). If specified, Envoy will verify that the presented peer
 	// certificate has not been revoked by this CRL. If this DataSource contains
 	// multiple CRLs, all of them will be used.
-	Crl                  *core.DataSource `protobuf:"bytes,7,opt,name=crl" json:"crl,omitempty"`
-	XXX_NoUnkeyedLiteral struct{}         `json:"-"`
-	XXX_unrecognized     []byte           `json:"-"`
-	XXX_sizecache        int32            `json:"-"`
+	Crl *core.DataSource `protobuf:"bytes,7,opt,name=crl,proto3" json:"crl,omitempty"`
+	// If specified, Envoy will not reject expired certificates.
+	AllowExpiredCertificate bool     `protobuf:"varint,8,opt,name=allow_expired_certificate,json=allowExpiredCertificate,proto3" json:"allow_expired_certificate,omitempty"`
+	XXX_NoUnkeyedLiteral    struct{} `json:"-"`
+	XXX_unrecognized        []byte   `json:"-"`
+	XXX_sizecache           int32    `json:"-"`
 }
 
 func (m *CertificateValidationContext) Reset()         { *m = CertificateValidationContext{} }
 func (m *CertificateValidationContext) String() string { return proto.CompactTextString(m) }
 func (*CertificateValidationContext) ProtoMessage()    {}
 func (*CertificateValidationContext) Descriptor() ([]byte, []int) {
-	return fileDescriptor_cert_06562aad874967fd, []int{3}
+	return fileDescriptor_cert_2c560db9cc18db68, []int{3}
 }
 func (m *CertificateValidationContext) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_CertificateValidationContext.Unmarshal(m, b)
@@ -371,16 +414,16 @@ func (m *CertificateValidationContext) GetTrustedCa() *core.DataSource {
 	return nil
 }
 
-func (m *CertificateValidationContext) GetVerifyCertificateHash() []string {
+func (m *CertificateValidationContext) GetVerifyCertificateSpki() []string {
 	if m != nil {
-		return m.VerifyCertificateHash
+		return m.VerifyCertificateSpki
 	}
 	return nil
 }
 
-func (m *CertificateValidationContext) GetVerifySpkiSha256() []string {
+func (m *CertificateValidationContext) GetVerifyCertificateHash() []string {
 	if m != nil {
-		return m.VerifySpkiSha256
+		return m.VerifyCertificateHash
 	}
 	return nil
 }
@@ -413,10 +456,17 @@ func (m *CertificateValidationContext) GetCrl() *core.DataSource {
 	return nil
 }
 
+func (m *CertificateValidationContext) GetAllowExpiredCertificate() bool {
+	if m != nil {
+		return m.AllowExpiredCertificate
+	}
+	return false
+}
+
 // TLS context shared by both client and server TLS contexts.
 type CommonTlsContext struct {
 	// TLS protocol versions, cipher suites etc.
-	TlsParams *TlsParameters `protobuf:"bytes,1,opt,name=tls_params,json=tlsParams" json:"tls_params,omitempty"`
+	TlsParams *TlsParameters `protobuf:"bytes,1,opt,name=tls_params,json=tlsParams,proto3" json:"tls_params,omitempty"`
 	// Multiple TLS certificates can be associated with the same context.
 	// E.g. to allow both RSA and ECDSA certificates, two TLS certificates can be configured.
 	//
@@ -424,11 +474,13 @@ type CommonTlsContext struct {
 	//
 	//   Although this is a list, currently only a single certificate is supported. This will be
 	//   relaxed in the future.
-	TlsCertificates []*TlsCertificate `protobuf:"bytes,2,rep,name=tls_certificates,json=tlsCertificates" json:"tls_certificates,omitempty"`
+	TlsCertificates []*TlsCertificate `protobuf:"bytes,2,rep,name=tls_certificates,json=tlsCertificates,proto3" json:"tls_certificates,omitempty"`
 	// [#not-implemented-hide:]
-	TlsCertificateSdsSecretConfigs []*SdsSecretConfig `protobuf:"bytes,6,rep,name=tls_certificate_sds_secret_configs,json=tlsCertificateSdsSecretConfigs" json:"tls_certificate_sds_secret_configs,omitempty"`
-	// How to validate peer certificates.
-	ValidationContext *CertificateValidationContext `protobuf:"bytes,3,opt,name=validation_context,json=validationContext" json:"validation_context,omitempty"`
+	TlsCertificateSdsSecretConfigs []*SdsSecretConfig `protobuf:"bytes,6,rep,name=tls_certificate_sds_secret_configs,json=tlsCertificateSdsSecretConfigs,proto3" json:"tls_certificate_sds_secret_configs,omitempty"`
+	// Types that are valid to be assigned to ValidationContextType:
+	//	*CommonTlsContext_ValidationContext
+	//	*CommonTlsContext_ValidationContextSdsSecretConfig
+	ValidationContextType isCommonTlsContext_ValidationContextType `protobuf_oneof:"validation_context_type"`
 	// Supplies the list of ALPN protocols that the listener should expose. In
 	// practice this is likely to be set to one of two values (see the
 	// :ref:`codec_type <config_http_conn_man_codec_type>` parameter in the HTTP connection
@@ -438,9 +490,9 @@ type CommonTlsContext struct {
 	// * "http/1.1" If the listener is only going to support HTTP/1.1.
 	//
 	// There is no default for this parameter. If empty, Envoy will not expose ALPN.
-	AlpnProtocols []string `protobuf:"bytes,4,rep,name=alpn_protocols,json=alpnProtocols" json:"alpn_protocols,omitempty"`
+	AlpnProtocols []string `protobuf:"bytes,4,rep,name=alpn_protocols,json=alpnProtocols,proto3" json:"alpn_protocols,omitempty"`
 	// [#not-implemented-hide:]
-	DeprecatedV1         *CommonTlsContext_DeprecatedV1 `protobuf:"bytes,5,opt,name=deprecated_v1,json=deprecatedV1" json:"deprecated_v1,omitempty"` // Deprecated: Do not use.
+	DeprecatedV1         *CommonTlsContext_DeprecatedV1 `protobuf:"bytes,5,opt,name=deprecated_v1,json=deprecatedV1,proto3" json:"deprecated_v1,omitempty"` // Deprecated: Do not use.
 	XXX_NoUnkeyedLiteral struct{}                       `json:"-"`
 	XXX_unrecognized     []byte                         `json:"-"`
 	XXX_sizecache        int32                          `json:"-"`
@@ -450,7 +502,7 @@ func (m *CommonTlsContext) Reset()         { *m = CommonTlsContext{} }
 func (m *CommonTlsContext) String() string { return proto.CompactTextString(m) }
 func (*CommonTlsContext) ProtoMessage()    {}
 func (*CommonTlsContext) Descriptor() ([]byte, []int) {
-	return fileDescriptor_cert_06562aad874967fd, []int{4}
+	return fileDescriptor_cert_2c560db9cc18db68, []int{4}
 }
 func (m *CommonTlsContext) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_CommonTlsContext.Unmarshal(m, b)
@@ -469,6 +521,27 @@ func (m *CommonTlsContext) XXX_DiscardUnknown() {
 }
 
 var xxx_messageInfo_CommonTlsContext proto.InternalMessageInfo
+
+type isCommonTlsContext_ValidationContextType interface {
+	isCommonTlsContext_ValidationContextType()
+}
+
+type CommonTlsContext_ValidationContext struct {
+	ValidationContext *CertificateValidationContext `protobuf:"bytes,3,opt,name=validation_context,json=validationContext,proto3,oneof"`
+}
+type CommonTlsContext_ValidationContextSdsSecretConfig struct {
+	ValidationContextSdsSecretConfig *SdsSecretConfig `protobuf:"bytes,7,opt,name=validation_context_sds_secret_config,json=validationContextSdsSecretConfig,proto3,oneof"`
+}
+
+func (*CommonTlsContext_ValidationContext) isCommonTlsContext_ValidationContextType()                {}
+func (*CommonTlsContext_ValidationContextSdsSecretConfig) isCommonTlsContext_ValidationContextType() {}
+
+func (m *CommonTlsContext) GetValidationContextType() isCommonTlsContext_ValidationContextType {
+	if m != nil {
+		return m.ValidationContextType
+	}
+	return nil
+}
 
 func (m *CommonTlsContext) GetTlsParams() *TlsParameters {
 	if m != nil {
@@ -492,8 +565,15 @@ func (m *CommonTlsContext) GetTlsCertificateSdsSecretConfigs() []*SdsSecretConfi
 }
 
 func (m *CommonTlsContext) GetValidationContext() *CertificateValidationContext {
-	if m != nil {
-		return m.ValidationContext
+	if x, ok := m.GetValidationContextType().(*CommonTlsContext_ValidationContext); ok {
+		return x.ValidationContext
+	}
+	return nil
+}
+
+func (m *CommonTlsContext) GetValidationContextSdsSecretConfig() *SdsSecretConfig {
+	if x, ok := m.GetValidationContextType().(*CommonTlsContext_ValidationContextSdsSecretConfig); ok {
+		return x.ValidationContextSdsSecretConfig
 	}
 	return nil
 }
@@ -513,11 +593,85 @@ func (m *CommonTlsContext) GetDeprecatedV1() *CommonTlsContext_DeprecatedV1 {
 	return nil
 }
 
+// XXX_OneofFuncs is for the internal use of the proto package.
+func (*CommonTlsContext) XXX_OneofFuncs() (func(msg proto.Message, b *proto.Buffer) error, func(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error), func(msg proto.Message) (n int), []interface{}) {
+	return _CommonTlsContext_OneofMarshaler, _CommonTlsContext_OneofUnmarshaler, _CommonTlsContext_OneofSizer, []interface{}{
+		(*CommonTlsContext_ValidationContext)(nil),
+		(*CommonTlsContext_ValidationContextSdsSecretConfig)(nil),
+	}
+}
+
+func _CommonTlsContext_OneofMarshaler(msg proto.Message, b *proto.Buffer) error {
+	m := msg.(*CommonTlsContext)
+	// validation_context_type
+	switch x := m.ValidationContextType.(type) {
+	case *CommonTlsContext_ValidationContext:
+		b.EncodeVarint(3<<3 | proto.WireBytes)
+		if err := b.EncodeMessage(x.ValidationContext); err != nil {
+			return err
+		}
+	case *CommonTlsContext_ValidationContextSdsSecretConfig:
+		b.EncodeVarint(7<<3 | proto.WireBytes)
+		if err := b.EncodeMessage(x.ValidationContextSdsSecretConfig); err != nil {
+			return err
+		}
+	case nil:
+	default:
+		return fmt.Errorf("CommonTlsContext.ValidationContextType has unexpected type %T", x)
+	}
+	return nil
+}
+
+func _CommonTlsContext_OneofUnmarshaler(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error) {
+	m := msg.(*CommonTlsContext)
+	switch tag {
+	case 3: // validation_context_type.validation_context
+		if wire != proto.WireBytes {
+			return true, proto.ErrInternalBadWireType
+		}
+		msg := new(CertificateValidationContext)
+		err := b.DecodeMessage(msg)
+		m.ValidationContextType = &CommonTlsContext_ValidationContext{msg}
+		return true, err
+	case 7: // validation_context_type.validation_context_sds_secret_config
+		if wire != proto.WireBytes {
+			return true, proto.ErrInternalBadWireType
+		}
+		msg := new(SdsSecretConfig)
+		err := b.DecodeMessage(msg)
+		m.ValidationContextType = &CommonTlsContext_ValidationContextSdsSecretConfig{msg}
+		return true, err
+	default:
+		return false, nil
+	}
+}
+
+func _CommonTlsContext_OneofSizer(msg proto.Message) (n int) {
+	m := msg.(*CommonTlsContext)
+	// validation_context_type
+	switch x := m.ValidationContextType.(type) {
+	case *CommonTlsContext_ValidationContext:
+		s := proto.Size(x.ValidationContext)
+		n += 1 // tag and wire
+		n += proto.SizeVarint(uint64(s))
+		n += s
+	case *CommonTlsContext_ValidationContextSdsSecretConfig:
+		s := proto.Size(x.ValidationContextSdsSecretConfig)
+		n += 1 // tag and wire
+		n += proto.SizeVarint(uint64(s))
+		n += s
+	case nil:
+	default:
+		panic(fmt.Sprintf("proto: unexpected type %T in oneof", x))
+	}
+	return n
+}
+
 // These fields are deprecated and only are used during the interim v1 -> v2
 // transition period for internal purposes. They should not be used outside of
 // the Envoy binary. [#not-implemented-hide:]
 type CommonTlsContext_DeprecatedV1 struct {
-	AltAlpnProtocols     string   `protobuf:"bytes,1,opt,name=alt_alpn_protocols,json=altAlpnProtocols" json:"alt_alpn_protocols,omitempty"`
+	AltAlpnProtocols     string   `protobuf:"bytes,1,opt,name=alt_alpn_protocols,json=altAlpnProtocols,proto3" json:"alt_alpn_protocols,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -527,7 +681,7 @@ func (m *CommonTlsContext_DeprecatedV1) Reset()         { *m = CommonTlsContext_
 func (m *CommonTlsContext_DeprecatedV1) String() string { return proto.CompactTextString(m) }
 func (*CommonTlsContext_DeprecatedV1) ProtoMessage()    {}
 func (*CommonTlsContext_DeprecatedV1) Descriptor() ([]byte, []int) {
-	return fileDescriptor_cert_06562aad874967fd, []int{4, 0}
+	return fileDescriptor_cert_2c560db9cc18db68, []int{4, 0}
 }
 func (m *CommonTlsContext_DeprecatedV1) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_CommonTlsContext_DeprecatedV1.Unmarshal(m, b)
@@ -556,9 +710,15 @@ func (m *CommonTlsContext_DeprecatedV1) GetAltAlpnProtocols() string {
 
 type UpstreamTlsContext struct {
 	// Common TLS context settings.
-	CommonTlsContext *CommonTlsContext `protobuf:"bytes,1,opt,name=common_tls_context,json=commonTlsContext" json:"common_tls_context,omitempty"`
+	CommonTlsContext *CommonTlsContext `protobuf:"bytes,1,opt,name=common_tls_context,json=commonTlsContext,proto3" json:"common_tls_context,omitempty"`
 	// SNI string to use when creating TLS backend connections.
-	Sni                  string   `protobuf:"bytes,2,opt,name=sni" json:"sni,omitempty"`
+	Sni string `protobuf:"bytes,2,opt,name=sni,proto3" json:"sni,omitempty"`
+	// If true, server-initiated TLS renegotiation will be allowed.
+	//
+	// .. attention::
+	//
+	//   TLS renegotiation is considered insecure and shouldn't be used unless absolutely necessary.
+	AllowRenegotiation   bool     `protobuf:"varint,3,opt,name=allow_renegotiation,json=allowRenegotiation,proto3" json:"allow_renegotiation,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -568,7 +728,7 @@ func (m *UpstreamTlsContext) Reset()         { *m = UpstreamTlsContext{} }
 func (m *UpstreamTlsContext) String() string { return proto.CompactTextString(m) }
 func (*UpstreamTlsContext) ProtoMessage()    {}
 func (*UpstreamTlsContext) Descriptor() ([]byte, []int) {
-	return fileDescriptor_cert_06562aad874967fd, []int{5}
+	return fileDescriptor_cert_2c560db9cc18db68, []int{5}
 }
 func (m *UpstreamTlsContext) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_UpstreamTlsContext.Unmarshal(m, b)
@@ -602,15 +762,22 @@ func (m *UpstreamTlsContext) GetSni() string {
 	return ""
 }
 
+func (m *UpstreamTlsContext) GetAllowRenegotiation() bool {
+	if m != nil {
+		return m.AllowRenegotiation
+	}
+	return false
+}
+
 type DownstreamTlsContext struct {
 	// Common TLS context settings.
-	CommonTlsContext *CommonTlsContext `protobuf:"bytes,1,opt,name=common_tls_context,json=commonTlsContext" json:"common_tls_context,omitempty"`
+	CommonTlsContext *CommonTlsContext `protobuf:"bytes,1,opt,name=common_tls_context,json=commonTlsContext,proto3" json:"common_tls_context,omitempty"`
 	// If specified, Envoy will reject connections without a valid client
 	// certificate.
-	RequireClientCertificate *wrappers.BoolValue `protobuf:"bytes,2,opt,name=require_client_certificate,json=requireClientCertificate" json:"require_client_certificate,omitempty"`
+	RequireClientCertificate *wrappers.BoolValue `protobuf:"bytes,2,opt,name=require_client_certificate,json=requireClientCertificate,proto3" json:"require_client_certificate,omitempty"`
 	// If specified, Envoy will reject connections without a valid and matching SNI.
 	// [#not-implemented-hide:]
-	RequireSni *wrappers.BoolValue `protobuf:"bytes,3,opt,name=require_sni,json=requireSni" json:"require_sni,omitempty"`
+	RequireSni *wrappers.BoolValue `protobuf:"bytes,3,opt,name=require_sni,json=requireSni,proto3" json:"require_sni,omitempty"`
 	// Types that are valid to be assigned to SessionTicketKeysType:
 	//	*DownstreamTlsContext_SessionTicketKeys
 	//	*DownstreamTlsContext_SessionTicketKeysSdsSecretConfig
@@ -624,7 +791,7 @@ func (m *DownstreamTlsContext) Reset()         { *m = DownstreamTlsContext{} }
 func (m *DownstreamTlsContext) String() string { return proto.CompactTextString(m) }
 func (*DownstreamTlsContext) ProtoMessage()    {}
 func (*DownstreamTlsContext) Descriptor() ([]byte, []int) {
-	return fileDescriptor_cert_06562aad874967fd, []int{6}
+	return fileDescriptor_cert_2c560db9cc18db68, []int{6}
 }
 func (m *DownstreamTlsContext) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_DownstreamTlsContext.Unmarshal(m, b)
@@ -649,10 +816,10 @@ type isDownstreamTlsContext_SessionTicketKeysType interface {
 }
 
 type DownstreamTlsContext_SessionTicketKeys struct {
-	SessionTicketKeys *TlsSessionTicketKeys `protobuf:"bytes,4,opt,name=session_ticket_keys,json=sessionTicketKeys,oneof"`
+	SessionTicketKeys *TlsSessionTicketKeys `protobuf:"bytes,4,opt,name=session_ticket_keys,json=sessionTicketKeys,proto3,oneof"`
 }
 type DownstreamTlsContext_SessionTicketKeysSdsSecretConfig struct {
-	SessionTicketKeysSdsSecretConfig *SdsSecretConfig `protobuf:"bytes,5,opt,name=session_ticket_keys_sds_secret_config,json=sessionTicketKeysSdsSecretConfig,oneof"`
+	SessionTicketKeysSdsSecretConfig *SdsSecretConfig `protobuf:"bytes,5,opt,name=session_ticket_keys_sds_secret_config,json=sessionTicketKeysSdsSecretConfig,proto3,oneof"`
 }
 
 func (*DownstreamTlsContext_SessionTicketKeys) isDownstreamTlsContext_SessionTicketKeysType() {}
@@ -781,8 +948,8 @@ type SdsSecretConfig struct {
 	// Name (FQDN, UUID, SPKI, SHA256, etc.) by which the secret can be uniquely referred to.
 	// When both name and config are specified, then secret can be fetched and/or reloaded via SDS.
 	// When only name is specified, then secret will be loaded from static resources [V2-API-DIFF].
-	Name                 string             `protobuf:"bytes,1,opt,name=name" json:"name,omitempty"`
-	SdsConfig            *core.ConfigSource `protobuf:"bytes,2,opt,name=sds_config,json=sdsConfig" json:"sds_config,omitempty"`
+	Name                 string             `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	SdsConfig            *core.ConfigSource `protobuf:"bytes,2,opt,name=sds_config,json=sdsConfig,proto3" json:"sds_config,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}           `json:"-"`
 	XXX_unrecognized     []byte             `json:"-"`
 	XXX_sizecache        int32              `json:"-"`
@@ -792,7 +959,7 @@ func (m *SdsSecretConfig) Reset()         { *m = SdsSecretConfig{} }
 func (m *SdsSecretConfig) String() string { return proto.CompactTextString(m) }
 func (*SdsSecretConfig) ProtoMessage()    {}
 func (*SdsSecretConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_cert_06562aad874967fd, []int{7}
+	return fileDescriptor_cert_2c560db9cc18db68, []int{7}
 }
 func (m *SdsSecretConfig) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_SdsSecretConfig.Unmarshal(m, b)
@@ -830,10 +997,11 @@ func (m *SdsSecretConfig) GetSdsConfig() *core.ConfigSource {
 // [#not-implemented-hide:]
 type Secret struct {
 	// Name (FQDN, UUID, SPKI, SHA256, etc.) by which the secret can be uniquely referred to.
-	Name string `protobuf:"bytes,1,opt,name=name" json:"name,omitempty"`
+	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
 	// Types that are valid to be assigned to Type:
 	//	*Secret_TlsCertificate
 	//	*Secret_SessionTicketKeys
+	//	*Secret_ValidationContext
 	Type                 isSecret_Type `protobuf_oneof:"type"`
 	XXX_NoUnkeyedLiteral struct{}      `json:"-"`
 	XXX_unrecognized     []byte        `json:"-"`
@@ -844,7 +1012,7 @@ func (m *Secret) Reset()         { *m = Secret{} }
 func (m *Secret) String() string { return proto.CompactTextString(m) }
 func (*Secret) ProtoMessage()    {}
 func (*Secret) Descriptor() ([]byte, []int) {
-	return fileDescriptor_cert_06562aad874967fd, []int{8}
+	return fileDescriptor_cert_2c560db9cc18db68, []int{8}
 }
 func (m *Secret) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_Secret.Unmarshal(m, b)
@@ -869,14 +1037,18 @@ type isSecret_Type interface {
 }
 
 type Secret_TlsCertificate struct {
-	TlsCertificate *TlsCertificate `protobuf:"bytes,2,opt,name=tls_certificate,json=tlsCertificate,oneof"`
+	TlsCertificate *TlsCertificate `protobuf:"bytes,2,opt,name=tls_certificate,json=tlsCertificate,proto3,oneof"`
 }
 type Secret_SessionTicketKeys struct {
-	SessionTicketKeys *TlsSessionTicketKeys `protobuf:"bytes,3,opt,name=session_ticket_keys,json=sessionTicketKeys,oneof"`
+	SessionTicketKeys *TlsSessionTicketKeys `protobuf:"bytes,3,opt,name=session_ticket_keys,json=sessionTicketKeys,proto3,oneof"`
+}
+type Secret_ValidationContext struct {
+	ValidationContext *CertificateValidationContext `protobuf:"bytes,4,opt,name=validation_context,json=validationContext,proto3,oneof"`
 }
 
 func (*Secret_TlsCertificate) isSecret_Type()    {}
 func (*Secret_SessionTicketKeys) isSecret_Type() {}
+func (*Secret_ValidationContext) isSecret_Type() {}
 
 func (m *Secret) GetType() isSecret_Type {
 	if m != nil {
@@ -906,11 +1078,19 @@ func (m *Secret) GetSessionTicketKeys() *TlsSessionTicketKeys {
 	return nil
 }
 
+func (m *Secret) GetValidationContext() *CertificateValidationContext {
+	if x, ok := m.GetType().(*Secret_ValidationContext); ok {
+		return x.ValidationContext
+	}
+	return nil
+}
+
 // XXX_OneofFuncs is for the internal use of the proto package.
 func (*Secret) XXX_OneofFuncs() (func(msg proto.Message, b *proto.Buffer) error, func(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error), func(msg proto.Message) (n int), []interface{}) {
 	return _Secret_OneofMarshaler, _Secret_OneofUnmarshaler, _Secret_OneofSizer, []interface{}{
 		(*Secret_TlsCertificate)(nil),
 		(*Secret_SessionTicketKeys)(nil),
+		(*Secret_ValidationContext)(nil),
 	}
 }
 
@@ -926,6 +1106,11 @@ func _Secret_OneofMarshaler(msg proto.Message, b *proto.Buffer) error {
 	case *Secret_SessionTicketKeys:
 		b.EncodeVarint(3<<3 | proto.WireBytes)
 		if err := b.EncodeMessage(x.SessionTicketKeys); err != nil {
+			return err
+		}
+	case *Secret_ValidationContext:
+		b.EncodeVarint(4<<3 | proto.WireBytes)
+		if err := b.EncodeMessage(x.ValidationContext); err != nil {
 			return err
 		}
 	case nil:
@@ -954,6 +1139,14 @@ func _Secret_OneofUnmarshaler(msg proto.Message, tag, wire int, b *proto.Buffer)
 		err := b.DecodeMessage(msg)
 		m.Type = &Secret_SessionTicketKeys{msg}
 		return true, err
+	case 4: // type.validation_context
+		if wire != proto.WireBytes {
+			return true, proto.ErrInternalBadWireType
+		}
+		msg := new(CertificateValidationContext)
+		err := b.DecodeMessage(msg)
+		m.Type = &Secret_ValidationContext{msg}
+		return true, err
 	default:
 		return false, nil
 	}
@@ -970,6 +1163,11 @@ func _Secret_OneofSizer(msg proto.Message) (n int) {
 		n += s
 	case *Secret_SessionTicketKeys:
 		s := proto.Size(x.SessionTicketKeys)
+		n += 1 // tag and wire
+		n += proto.SizeVarint(uint64(s))
+		n += s
+	case *Secret_ValidationContext:
+		s := proto.Size(x.ValidationContext)
 		n += 1 // tag and wire
 		n += proto.SizeVarint(uint64(s))
 		n += s
@@ -994,81 +1192,86 @@ func init() {
 	proto.RegisterEnum("envoy.api.v2.auth.TlsParameters_TlsProtocol", TlsParameters_TlsProtocol_name, TlsParameters_TlsProtocol_value)
 }
 
-func init() { proto.RegisterFile("envoy/api/v2/auth/cert.proto", fileDescriptor_cert_06562aad874967fd) }
+func init() { proto.RegisterFile("envoy/api/v2/auth/cert.proto", fileDescriptor_cert_2c560db9cc18db68) }
 
-var fileDescriptor_cert_06562aad874967fd = []byte{
-	// 1162 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xbc, 0x55, 0x4f, 0x6f, 0x1b, 0x45,
-	0x14, 0xcf, 0x7a, 0xdd, 0x34, 0x79, 0x4e, 0xd2, 0xcd, 0x34, 0xa8, 0x8b, 0x15, 0x5a, 0x77, 0x4b,
-	0x45, 0x0e, 0x95, 0xdd, 0xb8, 0x2a, 0x12, 0xa2, 0x14, 0x6a, 0xf7, 0x10, 0xd1, 0x42, 0x61, 0xed,
-	0x46, 0x2d, 0x07, 0x46, 0x93, 0xf5, 0xc4, 0x1e, 0xbc, 0xde, 0x5d, 0x66, 0xc6, 0x9b, 0xfa, 0x8a,
-	0xc4, 0x17, 0xe8, 0x99, 0x0f, 0xc0, 0x67, 0x40, 0x42, 0xe2, 0x0b, 0xf0, 0x25, 0xb8, 0x71, 0xe1,
-	0x86, 0xc4, 0x0d, 0x34, 0xb3, 0x63, 0x7b, 0xfd, 0xa7, 0x89, 0x25, 0x10, 0xb7, 0x99, 0xf7, 0xe7,
-	0xf7, 0xde, 0xcc, 0xfb, 0xbd, 0xf7, 0x60, 0x9f, 0x46, 0x69, 0x3c, 0xaa, 0x91, 0x84, 0xd5, 0xd2,
-	0x7a, 0x8d, 0x0c, 0x65, 0xaf, 0x16, 0x50, 0x2e, 0xab, 0x09, 0x8f, 0x65, 0x8c, 0x76, 0xb5, 0xb6,
-	0x4a, 0x12, 0x56, 0x4d, 0xeb, 0x55, 0xa5, 0x2d, 0xcf, 0x3a, 0x04, 0x31, 0xa7, 0xb5, 0x13, 0x22,
-	0x68, 0xe6, 0x50, 0xbe, 0xbd, 0xa8, 0x0d, 0xe2, 0xe8, 0x94, 0x75, 0xb1, 0x88, 0x87, 0x3c, 0x18,
-	0x9b, 0x5d, 0xef, 0xc6, 0x71, 0x37, 0xa4, 0x35, 0x7d, 0x3b, 0x19, 0x9e, 0xd6, 0xce, 0x38, 0x49,
-	0x12, 0xca, 0x85, 0xd1, 0x5f, 0x4b, 0x49, 0xc8, 0x3a, 0x44, 0xd2, 0xda, 0xf8, 0x60, 0x14, 0x7b,
-	0xdd, 0xb8, 0x1b, 0xeb, 0x63, 0x4d, 0x9d, 0x32, 0xa9, 0xf7, 0x83, 0x0d, 0xdb, 0xed, 0x50, 0x7c,
-	0x41, 0x38, 0x19, 0x50, 0x49, 0xb9, 0x40, 0x23, 0xd8, 0x97, 0xa1, 0xc0, 0x03, 0x16, 0xb1, 0xc1,
-	0x70, 0x80, 0xb5, 0x59, 0x10, 0x87, 0x38, 0xa5, 0x5c, 0xb0, 0x38, 0x72, 0xad, 0x8a, 0x75, 0xb0,
-	0x53, 0xbf, 0x53, 0x5d, 0x78, 0x5f, 0x75, 0x06, 0x47, 0xdf, 0x8c, 0x6f, 0x03, 0x7e, 0xfa, 0xfd,
-	0x17, 0xfb, 0xd2, 0x77, 0x56, 0xc1, 0xb1, 0xfc, 0xb7, 0x65, 0x28, 0x3e, 0xcb, 0xc0, 0xc7, 0xfa,
-	0xe3, 0x0c, 0x7a, 0x12, 0x9a, 0xbc, 0x5a, 0x1e, 0xba, 0xf0, 0x5f, 0x84, 0xce, 0xc0, 0xe7, 0x43,
-	0xdf, 0x82, 0xed, 0x80, 0x25, 0x3d, 0xca, 0xb1, 0x18, 0x32, 0x49, 0x85, 0x6b, 0x57, 0xec, 0x83,
-	0x4d, 0x7f, 0x2b, 0x13, 0xb6, 0xb4, 0x0c, 0xdd, 0x80, 0x12, 0x0d, 0x3a, 0x3d, 0x1c, 0x0c, 0x79,
-	0x4a, 0x85, 0x5b, 0xd4, 0x26, 0xa0, 0x44, 0x4d, 0x2d, 0xf1, 0x9e, 0x41, 0x29, 0x17, 0x1b, 0x6d,
-	0xc1, 0x46, 0xfb, 0x69, 0x0b, 0x3f, 0x7a, 0xde, 0x7e, 0xe6, 0xac, 0xa1, 0x12, 0x5c, 0x6e, 0x3f,
-	0x6d, 0xa5, 0x87, 0xf8, 0xae, 0x63, 0x4d, 0x2f, 0x87, 0x4e, 0x61, 0x7a, 0xa9, 0x3b, 0xf6, 0xf4,
-	0x72, 0xcf, 0x29, 0x7a, 0x7f, 0x15, 0x60, 0xa7, 0x1d, 0x8a, 0x26, 0xe5, 0x92, 0x9d, 0xb2, 0x80,
-	0x48, 0x8a, 0x3e, 0x85, 0xdd, 0x60, 0x7a, 0xc5, 0x41, 0x8f, 0xb0, 0xac, 0x28, 0xa5, 0xfa, 0x3b,
-	0xb3, 0x3f, 0xa3, 0x38, 0x54, 0x7d, 0x4c, 0x24, 0x69, 0x69, 0x02, 0xf9, 0x4e, 0xce, 0xaf, 0xa9,
-	0xdc, 0xd0, 0x43, 0x28, 0x25, 0x9c, 0xa5, 0x0a, 0xa7, 0x4f, 0x47, 0xfa, 0x7f, 0x2f, 0x44, 0x01,
-	0xe3, 0xf1, 0x84, 0x8e, 0xd0, 0x07, 0xb0, 0x91, 0x10, 0x21, 0xce, 0x62, 0xde, 0x71, 0xed, 0x55,
-	0x9c, 0x27, 0xe6, 0x2a, 0x74, 0x1c, 0x88, 0x04, 0x0b, 0x49, 0x92, 0x90, 0xba, 0xc5, 0x95, 0x42,
-	0x2b, 0x8f, 0x96, 0x76, 0x40, 0x18, 0xf6, 0x05, 0xeb, 0x46, 0xb4, 0x83, 0xf3, 0xbf, 0x21, 0xd9,
-	0x80, 0x0a, 0x49, 0x06, 0x89, 0x7b, 0xa9, 0x62, 0x5f, 0x0c, 0x58, 0xce, 0x20, 0x72, 0xdf, 0xdb,
-	0x1e, 0x03, 0x78, 0xcf, 0x61, 0xaf, 0x1d, 0x8a, 0x16, 0x15, 0x8a, 0x1f, 0x6d, 0x16, 0xf4, 0xa9,
-	0x7c, 0x42, 0x47, 0x02, 0x7d, 0x04, 0xc5, 0x3e, 0x1d, 0x09, 0xd7, 0x5a, 0x21, 0x80, 0x61, 0xdf,
-	0x6b, 0xab, 0xb0, 0x61, 0xf9, 0xda, 0xcd, 0xfb, 0xd3, 0x86, 0xfd, 0x5c, 0xbc, 0xe3, 0xac, 0x49,
-	0x59, 0x1c, 0x35, 0xe3, 0x48, 0xd2, 0x57, 0x12, 0x3d, 0x00, 0x90, 0x7c, 0x28, 0xa4, 0x7a, 0x19,
-	0x59, 0xad, 0xb0, 0x9b, 0xc6, 0xa1, 0x49, 0xd0, 0x11, 0x5c, 0x4b, 0x29, 0x67, 0xa7, 0xa3, 0x99,
-	0x6f, 0xe9, 0x11, 0xd1, 0x73, 0x0b, 0x8a, 0xae, 0x0d, 0x47, 0x65, 0x54, 0x7a, 0x6d, 0x6d, 0x78,
-	0xeb, 0xbc, 0x58, 0xf9, 0xe4, 0x00, 0xfb, 0x6f, 0x65, 0x0e, 0xb9, 0xa4, 0x8e, 0x88, 0xe8, 0xa1,
-	0x3b, 0x80, 0x0c, 0x92, 0x48, 0xfa, 0x0c, 0x8b, 0x1e, 0xa9, 0xdf, 0x7f, 0xdf, 0xb4, 0x85, 0x93,
-	0x69, 0x5a, 0x49, 0x9f, 0xb5, 0xb4, 0x1c, 0xdd, 0x9f, 0xc4, 0x15, 0xc3, 0x93, 0x6f, 0x68, 0x20,
-	0x31, 0x09, 0x25, 0x8e, 0xc8, 0x80, 0x9a, 0x36, 0xd9, 0x33, 0x2e, 0x99, 0xf6, 0x51, 0x28, 0x3f,
-	0x27, 0x03, 0x45, 0xe6, 0xab, 0x9c, 0x7e, 0x3b, 0x64, 0x9c, 0xe2, 0x3c, 0x1b, 0x2e, 0xe9, 0x57,
-	0x97, 0xab, 0xd9, 0xac, 0xab, 0x8e, 0x67, 0x5d, 0xb5, 0x11, 0xc7, 0xe1, 0x31, 0x09, 0x87, 0xd4,
-	0xdf, 0x35, 0x6e, 0xcf, 0xa6, 0x8c, 0xe8, 0xc3, 0xbb, 0x63, 0xac, 0x73, 0x99, 0xb1, 0x7e, 0x21,
-	0xf8, 0x4d, 0x83, 0xd3, 0x7a, 0x23, 0x3b, 0x50, 0x0d, 0xec, 0x80, 0x87, 0xee, 0xe5, 0x55, 0xca,
-	0xa3, 0x2c, 0xbd, 0x9f, 0x8b, 0xe0, 0x34, 0xe3, 0xc1, 0x20, 0x8e, 0x54, 0x3f, 0x9b, 0x5a, 0x7f,
-	0x0c, 0xa0, 0x06, 0x5e, 0xa2, 0x46, 0x97, 0x30, 0xb5, 0xae, 0x5c, 0x34, 0xde, 0xfc, 0x4d, 0x69,
-	0xae, 0x02, 0xbd, 0x00, 0x47, 0x01, 0xe4, 0x1e, 0x2a, 0x74, 0x9d, 0x4b, 0xf5, 0x9b, 0xcb, 0x61,
-	0x72, 0x8f, 0x99, 0x92, 0xd3, 0xb1, 0xfc, 0x2b, 0x72, 0x46, 0x27, 0x50, 0x04, 0xde, 0x1c, 0x32,
-	0x16, 0x1d, 0x81, 0x05, 0x0d, 0x38, 0x95, 0x38, 0xdb, 0x4c, 0xc2, 0x5d, 0xd7, 0xb1, 0xbc, 0x25,
-	0xb1, 0x5a, 0x1d, 0xd1, 0xd2, 0xb6, 0x4d, 0x6d, 0xea, 0x5f, 0x9f, 0x0d, 0x30, 0xa7, 0x16, 0xe8,
-	0x6b, 0x40, 0xe9, 0xa4, 0x17, 0x14, 0xbe, 0xfa, 0x20, 0x33, 0x54, 0x6a, 0x4b, 0xf0, 0xcf, 0xeb,
-	0x21, 0x7f, 0x37, 0x5d, 0x68, 0xab, 0xdb, 0xb0, 0x43, 0xc2, 0x24, 0x9a, 0x2c, 0x95, 0xf1, 0xf8,
-	0xde, 0x56, 0xd2, 0xf1, 0xc4, 0x16, 0xe8, 0x25, 0x6c, 0x77, 0x68, 0xc2, 0xa9, 0xc2, 0xed, 0xe0,
-	0xf4, 0xd0, 0x50, 0xf1, 0xee, 0xb2, 0x0c, 0xe6, 0xaa, 0x59, 0x7d, 0x3c, 0x71, 0x3c, 0x3e, 0x6c,
-	0x14, 0x5c, 0xcb, 0xdf, 0xea, 0xe4, 0x24, 0xe5, 0x07, 0xb0, 0x95, 0xb7, 0x50, 0x0d, 0xa6, 0x7a,
-	0x64, 0x2e, 0x2b, 0x45, 0x82, 0x4d, 0xdf, 0x21, 0xa1, 0x7c, 0x94, 0x4f, 0xcc, 0xfb, 0xde, 0x02,
-	0xf4, 0x3c, 0x11, 0x92, 0x53, 0x32, 0xc8, 0x31, 0xe8, 0x4b, 0x40, 0x81, 0xce, 0x03, 0xeb, 0x6a,
-	0x99, 0x6f, 0xcb, 0x98, 0x74, 0x6b, 0x85, 0xa4, 0x7d, 0x27, 0x98, 0x27, 0xe5, 0x3e, 0xd8, 0x22,
-	0x62, 0x7a, 0x19, 0x6c, 0x1a, 0x8e, 0x70, 0xfb, 0xe0, 0x6f, 0xcb, 0x57, 0x62, 0xef, 0x0f, 0x1b,
-	0xf6, 0x1e, 0xc7, 0x67, 0xd1, 0xff, 0x91, 0xc9, 0x0b, 0x28, 0x8f, 0x3b, 0x3a, 0x08, 0x19, 0x8d,
-	0x64, 0x9e, 0x8e, 0x66, 0x5b, 0x9d, 0xd7, 0xc7, 0xae, 0xf1, 0x6e, 0x6a, 0xe7, 0xfc, 0x12, 0xfd,
-	0x10, 0x4a, 0x93, 0x59, 0x11, 0x31, 0x43, 0xb3, 0xf3, 0xa0, 0x60, 0x3c, 0x12, 0x22, 0x86, 0x5e,
-	0xc2, 0x55, 0x91, 0xad, 0x05, 0x2c, 0xf5, 0x5e, 0xc0, 0x7a, 0x21, 0x64, 0x2b, 0xec, 0xbd, 0xe5,
-	0x7d, 0xb7, 0xb0, 0x47, 0x8e, 0xd6, 0xfc, 0x5d, 0xb1, 0xb0, 0x5c, 0x86, 0x70, 0x7b, 0x09, 0xf4,
-	0x62, 0xe7, 0x19, 0x5a, 0xae, 0xd0, 0x78, 0x47, 0x6b, 0x7e, 0x65, 0x21, 0xce, 0x9c, 0x4d, 0xa3,
-	0x0c, 0xee, 0xb2, 0xb0, 0x72, 0x94, 0x50, 0x8f, 0xc2, 0x95, 0x39, 0x73, 0x84, 0xa0, 0xa8, 0x27,
-	0x7b, 0xc6, 0x55, 0x7d, 0x46, 0x0f, 0x01, 0x54, 0x96, 0x26, 0xbd, 0xac, 0x36, 0x37, 0x96, 0xcc,
-	0xc5, 0x0c, 0x62, 0xbc, 0xb8, 0x44, 0x47, 0x64, 0x02, 0xef, 0x57, 0x0b, 0xd6, 0xb3, 0x20, 0x4b,
-	0xe1, 0x9f, 0xc2, 0x95, 0xb9, 0x71, 0x64, 0x62, 0x5c, 0x3c, 0xe7, 0x8e, 0xd6, 0xfc, 0x9d, 0xd9,
-	0xe1, 0xf3, 0xa6, 0x0a, 0xda, 0xff, 0xbe, 0x82, 0x8d, 0x75, 0x28, 0xaa, 0x6f, 0x6b, 0xc0, 0x8f,
-	0xbf, 0x5d, 0xb7, 0xbe, 0x2a, 0x2a, 0xef, 0x93, 0x75, 0x4d, 0xa8, 0x7b, 0xff, 0x04, 0x00, 0x00,
-	0xff, 0xff, 0xe5, 0xf0, 0xfe, 0xff, 0x32, 0x0c, 0x00, 0x00,
+var fileDescriptor_cert_2c560db9cc18db68 = []byte{
+	// 1237 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xbc, 0x56, 0xc1, 0x72, 0x1b, 0x45,
+	0x13, 0xf6, 0x4a, 0xb2, 0x23, 0xb7, 0x6c, 0x67, 0x3d, 0xf1, 0x5f, 0xde, 0xa8, 0xfc, 0x27, 0x8a,
+	0x92, 0x14, 0x3e, 0xb8, 0xb4, 0xb1, 0x53, 0x1c, 0x80, 0x10, 0x88, 0x14, 0xaa, 0x5c, 0x24, 0x10,
+	0x58, 0x29, 0xae, 0x84, 0xcb, 0x30, 0x5e, 0x8d, 0xa5, 0xc1, 0xab, 0xdd, 0x65, 0x66, 0xb4, 0x8e,
+	0xae, 0x3c, 0x42, 0xce, 0x3c, 0x00, 0x37, 0x6e, 0x1c, 0x38, 0xf1, 0x02, 0x54, 0xf1, 0x0c, 0xdc,
+	0xb8, 0x70, 0xe6, 0x06, 0x35, 0x33, 0x2b, 0x79, 0x25, 0x6d, 0x62, 0x51, 0xe5, 0xe2, 0xb6, 0x33,
+	0xdd, 0xfd, 0x7d, 0x3d, 0x33, 0x5f, 0x77, 0x2f, 0xec, 0xd0, 0x30, 0x89, 0x46, 0x2e, 0x89, 0x99,
+	0x9b, 0x1c, 0xb8, 0x64, 0x28, 0xfb, 0xae, 0x4f, 0xb9, 0x6c, 0xc4, 0x3c, 0x92, 0x11, 0xda, 0xd4,
+	0xd6, 0x06, 0x89, 0x59, 0x23, 0x39, 0x68, 0x28, 0x6b, 0x75, 0x3a, 0xc0, 0x8f, 0x38, 0x75, 0x8f,
+	0x89, 0xa0, 0x26, 0xa0, 0x7a, 0x77, 0xde, 0xea, 0x47, 0xe1, 0x09, 0xeb, 0x61, 0x11, 0x0d, 0xb9,
+	0x3f, 0x76, 0xbb, 0xd1, 0x8b, 0xa2, 0x5e, 0x40, 0x5d, 0xbd, 0x3a, 0x1e, 0x9e, 0xb8, 0x67, 0x9c,
+	0xc4, 0x31, 0xe5, 0x22, 0xb5, 0x6f, 0x27, 0x24, 0x60, 0x5d, 0x22, 0xa9, 0x3b, 0xfe, 0x48, 0x0d,
+	0x5b, 0xbd, 0xa8, 0x17, 0xe9, 0x4f, 0x57, 0x7d, 0x99, 0xdd, 0xfa, 0xf7, 0x45, 0x58, 0xef, 0x04,
+	0xe2, 0x0b, 0xc2, 0xc9, 0x80, 0x4a, 0xca, 0x05, 0x1a, 0xc1, 0x8e, 0x0c, 0x04, 0x1e, 0xb0, 0x90,
+	0x0d, 0x86, 0x03, 0xac, 0xdd, 0xfc, 0x28, 0xc0, 0x09, 0xe5, 0x82, 0x45, 0xa1, 0x63, 0xd5, 0xac,
+	0xdd, 0x8d, 0x83, 0xbd, 0xc6, 0xdc, 0xf9, 0x1a, 0x53, 0x38, 0x7a, 0x95, 0xc6, 0x36, 0xe1, 0xe7,
+	0x3f, 0x7e, 0x29, 0x2e, 0x7f, 0x67, 0x15, 0x6c, 0xcb, 0xbb, 0x2e, 0x03, 0xf1, 0x99, 0x01, 0x1f,
+	0xdb, 0x8f, 0x0c, 0xf4, 0x84, 0x9a, 0xbc, 0xca, 0xa7, 0x2e, 0x5c, 0x06, 0xb5, 0x01, 0x9f, 0xa5,
+	0xbe, 0x0d, 0xeb, 0x3e, 0x8b, 0xfb, 0x94, 0x63, 0x31, 0x64, 0x92, 0x0a, 0xa7, 0x58, 0x2b, 0xee,
+	0xae, 0x7a, 0x6b, 0x66, 0xb3, 0xad, 0xf7, 0xd0, 0x4d, 0xa8, 0x50, 0xbf, 0xdb, 0xc7, 0xfe, 0x90,
+	0x27, 0x54, 0x38, 0x25, 0xed, 0x02, 0x6a, 0xab, 0xa5, 0x77, 0xea, 0xcf, 0xa0, 0x92, 0xe1, 0x46,
+	0x6b, 0x50, 0xee, 0x3c, 0x6d, 0xe3, 0x47, 0xcf, 0x3b, 0xcf, 0xec, 0x25, 0x54, 0x81, 0x2b, 0x9d,
+	0xa7, 0xed, 0x64, 0x1f, 0xdf, 0xb3, 0xad, 0xf3, 0xc5, 0xbe, 0x5d, 0x38, 0x5f, 0x1c, 0xd8, 0xc5,
+	0xf3, 0xc5, 0x7d, 0xbb, 0x54, 0xff, 0xab, 0x00, 0x1b, 0x9d, 0x40, 0xb4, 0x28, 0x97, 0xec, 0x84,
+	0xf9, 0x44, 0x52, 0xf4, 0x29, 0x6c, 0xfa, 0xe7, 0x4b, 0xec, 0xf7, 0x09, 0x33, 0x8f, 0x52, 0x39,
+	0xf8, 0xff, 0xf4, 0xcd, 0x28, 0x0d, 0x35, 0x1e, 0x13, 0x49, 0xda, 0x5a, 0x40, 0x9e, 0x9d, 0x89,
+	0x6b, 0xa9, 0x30, 0xf4, 0x10, 0x2a, 0x31, 0x67, 0x89, 0xc2, 0x39, 0xa5, 0x23, 0x7d, 0xbf, 0x17,
+	0xa2, 0x40, 0x1a, 0xf1, 0x84, 0x8e, 0xd0, 0x7b, 0x50, 0x8e, 0x89, 0x10, 0x67, 0x11, 0xef, 0x3a,
+	0xc5, 0x45, 0x82, 0x27, 0xee, 0x8a, 0x3a, 0xf2, 0x45, 0x8c, 0x85, 0x24, 0x71, 0x40, 0x9d, 0xd2,
+	0x42, 0xd4, 0x2a, 0xa2, 0xad, 0x03, 0x10, 0x86, 0x1d, 0xc1, 0x7a, 0x21, 0xed, 0xe2, 0xec, 0x6d,
+	0x48, 0x36, 0xa0, 0x42, 0x92, 0x41, 0xec, 0x2c, 0xd7, 0x8a, 0x17, 0x03, 0x56, 0x0d, 0x44, 0xe6,
+	0x7a, 0x3b, 0x63, 0x80, 0xfa, 0x73, 0xd8, 0xea, 0x04, 0xa2, 0x4d, 0x85, 0xd2, 0x47, 0x87, 0xf9,
+	0xa7, 0x54, 0x3e, 0xa1, 0x23, 0x81, 0x3e, 0x84, 0xd2, 0x29, 0x1d, 0x09, 0xc7, 0x5a, 0x80, 0x20,
+	0x55, 0xdf, 0x6b, 0xab, 0x50, 0xb6, 0x3c, 0x1d, 0x56, 0xff, 0xb5, 0x04, 0x3b, 0x19, 0xbe, 0x23,
+	0x53, 0xa4, 0x2c, 0x0a, 0x5b, 0x51, 0x28, 0xe9, 0x2b, 0x89, 0x1e, 0x00, 0x48, 0x3e, 0x14, 0x52,
+	0x9d, 0x8c, 0x2c, 0xf6, 0xb0, 0xab, 0x69, 0x40, 0x8b, 0xa0, 0x43, 0xd8, 0x4e, 0x28, 0x67, 0x27,
+	0xa3, 0xa9, 0x6b, 0x11, 0xf1, 0x29, 0x33, 0x8a, 0x6e, 0xda, 0x2a, 0xa3, 0xca, 0x6b, 0xab, 0x5c,
+	0x5f, 0xe1, 0xa5, 0xda, 0xde, 0xee, 0x9e, 0xf7, 0x3f, 0x13, 0x90, 0x49, 0xaa, 0x1d, 0x9f, 0xb2,
+	0x37, 0x20, 0xf5, 0x89, 0xe8, 0x3b, 0x85, 0x1c, 0xa4, 0x8f, 0x77, 0x71, 0x0e, 0xd2, 0x21, 0x11,
+	0x7d, 0xf4, 0xee, 0x04, 0x49, 0x0c, 0x8f, 0xbf, 0xa1, 0xbe, 0xc4, 0x24, 0x90, 0x38, 0x24, 0x03,
+	0x9a, 0x96, 0xd0, 0x96, 0x31, 0xb7, 0x8d, 0xf5, 0x51, 0x20, 0x3f, 0x27, 0x03, 0x25, 0xf4, 0x6b,
+	0x9c, 0x7e, 0x3b, 0x64, 0x9c, 0xe2, 0xac, 0x52, 0x96, 0xf5, 0x8d, 0x54, 0x1b, 0xa6, 0x0f, 0x36,
+	0xc6, 0x7d, 0xb0, 0xd1, 0x8c, 0xa2, 0xe0, 0x88, 0x04, 0x43, 0xea, 0x6d, 0xa6, 0x61, 0xcf, 0xce,
+	0xd5, 0x72, 0x0a, 0x77, 0xc6, 0x58, 0x6f, 0x55, 0xcd, 0xca, 0x85, 0xe0, 0xb7, 0x52, 0x9c, 0xf6,
+	0x1b, 0x95, 0x83, 0x5c, 0x28, 0xfa, 0x3c, 0x70, 0xae, 0x2c, 0xf2, 0x74, 0xca, 0x13, 0xbd, 0x0f,
+	0xd7, 0x49, 0x10, 0x44, 0x67, 0x98, 0xbe, 0x8a, 0x19, 0x9f, 0x4e, 0xce, 0x29, 0xd7, 0xac, 0xdd,
+	0xb2, 0xb7, 0xad, 0x1d, 0x3e, 0x31, 0xf6, 0x0c, 0x6b, 0xfd, 0xb7, 0x65, 0xb0, 0x5b, 0xd1, 0x60,
+	0x10, 0x85, 0xaa, 0x4f, 0xa4, 0x1a, 0xfa, 0x08, 0x40, 0x35, 0xd2, 0x58, 0xb5, 0x44, 0x91, 0x6a,
+	0xa8, 0x76, 0x51, 0xdb, 0xf4, 0x56, 0x65, 0xba, 0x14, 0xe8, 0x05, 0xd8, 0x0a, 0x20, 0x93, 0x87,
+	0xd0, 0xaf, 0x5e, 0x39, 0xb8, 0x95, 0x0f, 0x93, 0x49, 0xe9, 0x5c, 0xf4, 0xb6, 0xe5, 0x5d, 0x95,
+	0x53, 0x36, 0x81, 0x42, 0xa8, 0xcf, 0x20, 0x63, 0xd1, 0x15, 0x58, 0x50, 0x9f, 0x53, 0x89, 0xcd,
+	0xc4, 0x13, 0xce, 0x8a, 0xe6, 0xaa, 0xe7, 0x70, 0xb5, 0xbb, 0xa2, 0xad, 0x7d, 0x5b, 0xda, 0xd5,
+	0xbb, 0x31, 0x4d, 0x30, 0x63, 0x16, 0xe8, 0x6b, 0x40, 0xc9, 0xa4, 0xc6, 0x14, 0xbe, 0xba, 0xa0,
+	0xb4, 0x59, 0xb9, 0x39, 0xf8, 0x6f, 0xab, 0xcd, 0xc3, 0x25, 0x6f, 0x33, 0x99, 0x2b, 0x58, 0x09,
+	0x77, 0xe6, 0x19, 0xe6, 0x0f, 0x95, 0xea, 0x61, 0x81, 0x33, 0x1d, 0x2e, 0x79, 0xb5, 0x39, 0x9a,
+	0x19, 0x1f, 0x74, 0x17, 0x36, 0x48, 0x10, 0x87, 0x93, 0x21, 0x39, 0x1e, 0x47, 0xeb, 0x6a, 0x77,
+	0x3c, 0x81, 0x04, 0x7a, 0x09, 0xeb, 0x5d, 0x1a, 0x73, 0xaa, 0xce, 0xd3, 0xc5, 0xc9, 0x7e, 0x5a,
+	0x3e, 0xf7, 0xf2, 0x4e, 0x3e, 0xa3, 0xa2, 0xc6, 0xe3, 0x49, 0xe0, 0xd1, 0x7e, 0xb3, 0xe0, 0x58,
+	0xde, 0x5a, 0x37, 0xb3, 0x53, 0x7d, 0x00, 0x6b, 0x59, 0x0f, 0xb4, 0x07, 0x48, 0xd5, 0xf5, 0x4c,
+	0x56, 0x4a, 0x7c, 0xab, 0x9e, 0x4d, 0x02, 0xf9, 0x28, 0x9b, 0x58, 0xf3, 0x3a, 0x6c, 0xe7, 0xdc,
+	0x9a, 0x1c, 0xc5, 0xb4, 0xfe, 0x93, 0x05, 0xe8, 0x79, 0x2c, 0x24, 0xa7, 0x64, 0x90, 0x11, 0xf5,
+	0x97, 0x80, 0x7c, 0x9d, 0x22, 0xd6, 0x02, 0x4a, 0x5f, 0xd2, 0x88, 0xfb, 0xf6, 0x02, 0xe7, 0xf1,
+	0x6c, 0x7f, 0xb6, 0x4e, 0x76, 0xa0, 0x28, 0x42, 0xa6, 0xe7, 0xde, 0x6a, 0x2a, 0x5b, 0x5e, 0xdc,
+	0xfd, 0xdb, 0xf2, 0xd4, 0x36, 0x72, 0xe1, 0x9a, 0x29, 0x4b, 0x4e, 0x43, 0xda, 0x8b, 0x24, 0xd3,
+	0xb9, 0x6a, 0xed, 0x94, 0x3d, 0xa4, 0x4d, 0x5e, 0xd6, 0x52, 0xff, 0xb3, 0x08, 0x5b, 0x8f, 0xa3,
+	0xb3, 0xf0, 0xbf, 0x48, 0xfd, 0x05, 0x54, 0xc7, 0x1d, 0xcd, 0x0f, 0x18, 0x0d, 0xe5, 0x54, 0xd3,
+	0x28, 0x5c, 0xd8, 0xc7, 0x9c, 0x34, 0xba, 0xa5, 0x83, 0xb3, 0x3f, 0x18, 0x1f, 0x40, 0x65, 0xd2,
+	0x2b, 0x43, 0x96, 0x96, 0xca, 0xdb, 0xa0, 0x60, 0xdc, 0x12, 0x43, 0x86, 0x5e, 0xc2, 0x35, 0x61,
+	0x46, 0x26, 0x96, 0x7a, 0x66, 0x62, 0x3d, 0x2c, 0xcd, 0x78, 0x7f, 0x27, 0xbf, 0x77, 0xcc, 0xcd,
+	0x58, 0x55, 0x67, 0x62, 0x6e, 0xf0, 0x0e, 0xe1, 0x6e, 0x0e, 0x74, 0x4e, 0xa1, 0x2d, 0xff, 0x9b,
+	0x42, 0x9b, 0xe3, 0x99, 0xf1, 0x69, 0x56, 0xc1, 0xc9, 0xa3, 0xd5, 0x4a, 0xa5, 0x70, 0x75, 0xb6,
+	0x2e, 0x11, 0x94, 0xf4, 0x64, 0x33, 0xba, 0xd7, 0xdf, 0xe8, 0x21, 0x80, 0xca, 0x32, 0x4d, 0xcf,
+	0xbc, 0xcd, 0xcd, 0x9c, 0xb9, 0x60, 0x20, 0xc6, 0x43, 0x5d, 0x74, 0x85, 0xd9, 0xa8, 0xff, 0x58,
+	0x80, 0x15, 0x43, 0x92, 0x0b, 0xff, 0x14, 0xae, 0xce, 0xb4, 0xd4, 0x94, 0xe3, 0xe2, 0x5e, 0x7d,
+	0xb8, 0xe4, 0x6d, 0x4c, 0x37, 0xd0, 0x37, 0xbd, 0x60, 0xf1, 0x12, 0x5e, 0x30, 0xbf, 0x17, 0x97,
+	0x2e, 0xaf, 0x17, 0x37, 0x57, 0xa0, 0xa4, 0x1e, 0xa6, 0x09, 0x3f, 0xfc, 0x7e, 0xc3, 0xfa, 0xaa,
+	0xa4, 0x50, 0x8e, 0x57, 0xb4, 0x64, 0xef, 0xff, 0x13, 0x00, 0x00, 0xff, 0xff, 0xe4, 0x48, 0xa9,
+	0x42, 0xb0, 0x0d, 0x00, 0x00,
 }

@@ -23,9 +23,9 @@ const _ = proto.ProtoPackageIsVersion2 // please upgrade the proto package
 // end).
 type Int64Range struct {
 	// start of the range (inclusive)
-	Start int64 `protobuf:"varint,1,opt,name=start" json:"start,omitempty"`
+	Start int64 `protobuf:"varint,1,opt,name=start,proto3" json:"start,omitempty"`
 	// end of the range (exclusive)
-	End                  int64    `protobuf:"varint,2,opt,name=end" json:"end,omitempty"`
+	End                  int64    `protobuf:"varint,2,opt,name=end,proto3" json:"end,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`

@@ -31,9 +31,9 @@ const _ = proto.ProtoPackageIsVersion2 // please upgrade the proto package
 // [#not-implemented-hide:] Not configuration. TBD how to doc proto APIs.
 type LoadStatsRequest struct {
 	// Node identifier for Envoy instance.
-	Node *core.Node `protobuf:"bytes,1,opt,name=node" json:"node,omitempty"`
+	Node *core.Node `protobuf:"bytes,1,opt,name=node,proto3" json:"node,omitempty"`
 	// A list of load stats to report.
-	ClusterStats         []*endpoint.ClusterStats `protobuf:"bytes,2,rep,name=cluster_stats,json=clusterStats" json:"cluster_stats,omitempty"`
+	ClusterStats         []*endpoint.ClusterStats `protobuf:"bytes,2,rep,name=cluster_stats,json=clusterStats,proto3" json:"cluster_stats,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}                 `json:"-"`
 	XXX_unrecognized     []byte                   `json:"-"`
 	XXX_sizecache        int32                    `json:"-"`
@@ -82,9 +82,9 @@ func (m *LoadStatsRequest) GetClusterStats() []*endpoint.ClusterStats {
 // [#not-implemented-hide:] Not configuration. TBD how to doc proto APIs.
 type LoadStatsResponse struct {
 	// Clusters to report stats for.
-	Clusters []string `protobuf:"bytes,1,rep,name=clusters" json:"clusters,omitempty"`
+	Clusters []string `protobuf:"bytes,1,rep,name=clusters,proto3" json:"clusters,omitempty"`
 	// The interval of time to collect stats. The default is 10 seconds.
-	LoadReportingInterval *duration.Duration `protobuf:"bytes,2,opt,name=load_reporting_interval,json=loadReportingInterval" json:"load_reporting_interval,omitempty"`
+	LoadReportingInterval *duration.Duration `protobuf:"bytes,2,opt,name=load_reporting_interval,json=loadReportingInterval,proto3" json:"load_reporting_interval,omitempty"`
 	XXX_NoUnkeyedLiteral  struct{}           `json:"-"`
 	XXX_unrecognized      []byte             `json:"-"`
 	XXX_sizecache         int32              `json:"-"`
