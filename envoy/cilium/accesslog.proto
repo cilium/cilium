@@ -1,7 +1,6 @@
 syntax = "proto3";
 
 package cilium;
-option go_package = "cilium";
 
 message KeyValue {
   string key = 1;
