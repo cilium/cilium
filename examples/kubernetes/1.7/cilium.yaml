@@ -5,20 +5,20 @@ metadata:
   namespace: kube-system
 data:
   # This etcd-config contains the etcd endpoints of your cluster. If you use
-  # TLS please make sure you uncomment the ca-file line and add the respective
-  # certificate has a k8s secret, see explanation below in the comment labeled
-  # "ETCD-CERT"
+  # TLS please make sure you follow the tutorial in https://cilium.link/etcd-config
   etcd-config: |-
     ---
     endpoints:
     - http://127.0.0.1:31079
     #
-    # In case you want to use TLS in etcd, uncomment the following line
-    # and add the certificate as explained in the comment labeled "ETCD-CERT"
+    # In case you want to use TLS in etcd, uncomment the 'ca-file' line
+    # and create a kubernetes secret by following the tutorial in
+    # https://cilium.link/etcd-config
     #ca-file: '/var/lib/etcd-secrets/etcd-ca'
     #
     # In case you want client to server authentication, uncomment the following
-    # lines and add the certificate and key in cilium-etcd-secrets below
+    # lines and create a kubernetes secret by following the tutorial in
+    # https://cilium.link/etcd-config
     #key-file: '/var/lib/etcd-secrets/etcd-client-key'
     #cert-file: '/var/lib/etcd-secrets/etcd-client-crt'
 
@@ -28,22 +28,6 @@ data:
   # If you want to clean cilium state; change this value to true
   clean-cilium-state: "false"
   legacy-host-allows-world: "false"
----
-# The etcd secrets can be populated in kubernetes.
-# For more information see: https://kubernetes.io/docs/concepts/configuration/secret
-kind: Secret
-apiVersion: v1
-type: Opaque
-metadata:
-  name: cilium-etcd-secrets
-  namespace: kube-system
-data:
-  # ETCD-CERT: Each value should contain the whole certificate in base64, on a
-  # single line. You can generate the base64 with: $ base64 -w 0 ./ca.pem
-  # (the "-w 0" generates the output on a single line)
-  etcd-ca: ""
-  etcd-client-key: ""
-  etcd-client-crt: ""
 ---
 kind: DaemonSet
 apiVersion: extensions/v1beta1
@@ -222,6 +206,7 @@ spec:
         - name: etcd-secrets
           secret:
             secretName: cilium-etcd-secrets
+            optional: true
       restartPolicy: Always
       tolerations:
       - effect: NoSchedule
