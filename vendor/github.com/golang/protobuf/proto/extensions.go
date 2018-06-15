@@ -97,12 +97,12 @@ func extendable(p interface{}) (extendableProto, error) {
 	case extendableProto:
 		if isNilPtr(p) {
 			return nil, fmt.Errorf("proto: nil %T is not extendable", p)
-	}
+		}
 		return p, nil
 	case extendableProtoV1:
 		if isNilPtr(p) {
 			return nil, fmt.Errorf("proto: nil %T is not extendable", p)
-	}
+		}
 		return extensionAdapter{p}, nil
 	}
 	// Don't allocate a specific error containing %T:
@@ -218,7 +218,7 @@ func checkExtensionTypes(pb extendableProto, extension *ExtensionDesc) error {
 		pbi = ea.extendableProtoV1
 	}
 	if a, b := reflect.TypeOf(pbi), reflect.TypeOf(extension.ExtendedType); a != b {
-		return errors.New("proto: bad extended type; " + b.String() + " does not extend " + a.String())
+		return fmt.Errorf("proto: bad extended type; %v does not extend %v", b, a)
 	}
 	// Check the range.
 	if !isExtensionField(pb, extension.Field) {
@@ -291,16 +291,26 @@ func ClearExtension(pb Message, extension *ExtensionDesc) {
 	delete(extmap, extension.Field)
 }
 
-// GetExtension parses and returns the given extension of pb.
-// If the extension is not present and has no default value it returns ErrMissingExtension.
+// GetExtension retrieves a proto2 extended field from pb.
+//
+// If the descriptor is type complete (i.e., ExtensionDesc.ExtensionType is non-nil),
+// then GetExtension parses the encoded field and returns a Go value of the specified type.
+// If the field is not present, then the default value is returned (if one is specified),
+// otherwise ErrMissingExtension is reported.
+//
+// If the descriptor is not type complete (i.e., ExtensionDesc.ExtensionType is nil),
+// then GetExtension returns the raw encoded bytes of the field extension.
 func GetExtension(pb Message, extension *ExtensionDesc) (interface{}, error) {
 	epb, err := extendable(pb)
 	if err != nil {
 		return nil, err
 	}
 
-	if err := checkExtensionTypes(epb, extension); err != nil {
-		return nil, err
+	if extension.ExtendedType != nil {
+		// can only check type if this is a complete descriptor
+		if err := checkExtensionTypes(epb, extension); err != nil {
+			return nil, err
+		}
 	}
 
 	emap, mu := epb.extensionsRead()
@@ -327,6 +337,11 @@ func GetExtension(pb Message, extension *ExtensionDesc) (interface{}, error) {
 		return e.value, nil
 	}
 
+	if extension.ExtensionType == nil {
+		// incomplete descriptor
+		return e.enc, nil
+	}
+
 	v, err := decodeExtension(e.enc, extension)
 	if err != nil {
 		return nil, err
@@ -344,6 +359,11 @@ func GetExtension(pb Message, extension *ExtensionDesc) (interface{}, error) {
 // defaultExtensionValue returns the default value for extension.
 // If no default for an extension is defined ErrMissingExtension is returned.
 func defaultExtensionValue(extension *ExtensionDesc) (interface{}, error) {
+	if extension.ExtensionType == nil {
+		// incomplete descriptor, so no default
+		return nil, ErrMissingExtension
+	}
+
 	t := reflect.TypeOf(extension.ExtensionType)
 	props := extensionProperties(extension)
 
