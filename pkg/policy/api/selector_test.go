@@ -15,6 +15,9 @@
 package api
 
 import (
+	"fmt"
+	"testing"
+
 	"github.com/cilium/cilium/pkg/labels"
 
 	. "gopkg.in/check.v1"
@@ -37,4 +40,47 @@ func (s *PolicyAPITestSuite) TestSelectsAllEndpoints(c *C) {
 
 	selectorSlice = EndpointSelectorSlice{NewESFromLabels(labels.ParseSelectLabel("bar")), NewESFromLabels(labels.ParseSelectLabel("foo"))}
 	c.Assert(selectorSlice.SelectsAllEndpoints(), Equals, false)
+}
+
+func benchmarkMatchesSetup(match string, count int) (EndpointSelector, labels.LabelArray) {
+	stringLabels := []string{}
+	for i := 0; i < count; i++ {
+		stringLabels = append(stringLabels, fmt.Sprintf("%d", i))
+	}
+	lbls := labels.NewLabelsFromModel(stringLabels)
+	return NewESFromLabels(lbls.ToSlice()...), labels.ParseLabelArray(match)
+}
+
+func BenchmarkMatchesValid1000(b *testing.B) {
+	es, match := benchmarkMatchesSetup("42", 1000)
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		es.Matches(match)
+	}
+}
+
+func BenchmarkMatchesInvalid1000(b *testing.B) {
+	es, match := benchmarkMatchesSetup("foo", 1000)
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		es.Matches(match)
+	}
+}
+
+func BenchmarkMatchesValid1000Parallel(b *testing.B) {
+	es, match := benchmarkMatchesSetup("42", 1000)
+	b.RunParallel(func(pb *testing.PB) {
+		for pb.Next() {
+			es.Matches(match)
+		}
+	})
+}
+
+func BenchmarkMatchesInvalid1000Parallel(b *testing.B) {
+	es, match := benchmarkMatchesSetup("foo", 1000)
+	b.RunParallel(func(pb *testing.PB) {
+		for pb.Next() {
+			es.Matches(match)
+		}
+	})
 }
