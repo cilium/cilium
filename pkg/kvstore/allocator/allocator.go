@@ -49,7 +49,7 @@ const (
 
 	// listTimeout is the time to wait for the initial list operation to
 	// succeed when creating a new allocator
-	listTimeout = 60 * time.Second
+	listTimeout = 2 * time.Minute
 
 	// gcInterval is the interval in which allocator identities are
 	// attempted to be expired from the kvstore

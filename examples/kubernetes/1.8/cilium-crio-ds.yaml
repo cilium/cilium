@@ -88,12 +88,6 @@ spec:
               configMapKeyRef:
                 name: cilium-config
                 key: disable-ipv4
-          - name: "CILIUM_SIDECAR_HTTP_PROXY"
-            valueFrom:
-              configMapKeyRef:
-                name: cilium-config
-                key: sidecar-http-proxy
-                optional: true
           # Note: this variable is a no-op if not defined, and is used in the
           # prometheus examples.
           - name: "CILIUM_PROMETHEUS_SERVE_ADDR"

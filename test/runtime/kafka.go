@@ -17,7 +17,6 @@ package RuntimeTest
 import (
 	"context"
 	"fmt"
-	"sync"
 
 	. "github.com/cilium/cilium/test/ginkgo-ext"
 	"github.com/cilium/cilium/test/helpers"
@@ -28,25 +27,21 @@ import (
 
 var _ = Describe("RuntimeValidatedKafka", func() {
 
-	var once sync.Once
-	var logger *logrus.Entry
-	var vm *helpers.SSHMeta
-	var monitorStop func() error
+	var (
+		logger      *logrus.Entry
+		vm          *helpers.SSHMeta
+		monitorStop = func() error { return nil }
 
-	var allowedTopic string = "allowedTopic"
-	var disallowTopic string = "disallowTopic"
-	var produceCmd string = fmt.Sprintf(
-		"echo \"Message 0\" | docker exec -i client /opt/kafka/bin/kafka-console-producer.sh "+
-			"--broker-list kafka:9092 --topic %s", allowedTopic)
-	var listTopicsCmd string = "/opt/kafka/bin/kafka-topics.sh --list --zookeeper zook:2181"
-	var MaxMessages int = 6
-	var client string = "client"
+		allowedTopic  = "allowedTopic"
+		disallowTopic = "disallowTopic"
+		listTopicsCmd = "/opt/kafka/bin/kafka-topics.sh --list --zookeeper zook:2181"
+		MaxMessages   = 6
+		client        = "client"
 
-	initialize := func() {
-		logger = log.WithFields(logrus.Fields{"testName": "RuntimeKafka"})
-		logger.Info("Starting")
-		vm = helpers.CreateNewRuntimeHelper(helpers.Runtime, logger)
-	}
+		produceCmd = fmt.Sprintf(
+			"echo \"Message 0\" | docker exec -i client /opt/kafka/bin/kafka-console-producer.sh "+
+				"--broker-list kafka:9092 --topic %s", allowedTopic)
+	)
 
 	containers := func(mode string) {
 
@@ -110,17 +105,21 @@ var _ = Describe("RuntimeValidatedKafka", func() {
 		return err
 	}
 
-	BeforeEach(func() {
-		once.Do(initialize)
+	BeforeAll(func() {
+		logger = log.WithFields(logrus.Fields{"testName": "RuntimeValidatedKafka"})
+		vm = helpers.CreateNewRuntimeHelper(helpers.Runtime, logger)
+
 		containers("create")
 		epsReady := vm.WaitEndpointsReady()
-		Expect(epsReady).Should(BeTrue())
-		// Waiting for kafka broker to be up.
+		Expect(epsReady).Should(BeTrue(), "Endpoints are not ready after timeout")
+
 		err := waitForKafkaBroker(client, listTopicsCmd)
 		Expect(err).To(BeNil(), "Kafka broker failed to come up")
+
 		By("Creating kafka topics")
 		createTopic(allowedTopic)
 		createTopic(disallowTopic)
+
 		By("Listing created Kafka topics")
 		res := vm.ContainerExec(client, listTopicsCmd)
 		res.ExpectSuccess("Cannot list kafka topics")
@@ -128,6 +127,10 @@ var _ = Describe("RuntimeValidatedKafka", func() {
 
 	AfterEach(func() {
 		vm.PolicyDelAll()
+
+	})
+
+	AfterAll(func() {
 		containers("delete")
 	})
 

@@ -328,8 +328,12 @@ type Endpoint struct {
 	// the endpoint's labels.
 	SecurityIdentity *identityPkg.Identity `json:"SecLabel"`
 
-	// LabelsHash is a SHA256 hash over the SecurityIdentity labels
-	LabelsHash string
+	// hasSidecarProxy indicates whether the endpoint has been injected by
+	// Istio with a Cilium-compatible sidecar proxy. If true, the sidecar proxy
+	// will be used to apply L7 policy rules. Otherwise, Cilium's node-wide
+	// proxy will be used.
+	// TODO: Currently this applies only to HTTP L7 rules. Kafka L7 rules are still enforced by Cilium's node-wide Kafka proxy.
+	hasSidecarProxy bool
 
 	// LabelsMap is the Set of all security labels used in the last policy computation
 	LabelsMap *identityPkg.IdentityCache
@@ -1017,6 +1021,10 @@ func (e *Endpoint) GetIPv6Address() string {
 	return e.IPv6.String()
 }
 
+func (e *Endpoint) HasSidecarProxy() bool {
+	return e.hasSidecarProxy
+}
+
 // statusLogMsg represents a log message.
 type statusLogMsg struct {
 	Status    Status    `json:"status"`
@@ -1250,6 +1258,19 @@ func (e *Endpoint) SetDefaultOpts(opts *option.BoolOptions) {
 			e.Opts.Set(k, opts.IsEnabled(k))
 		}
 	}
+}
+
+// ConntrackLocal determines whether this endpoint is currently using a local
+// table to handle connection tracking (true), or the global table (false).
+func (e *Endpoint) ConntrackLocal() bool {
+	e.Mutex.RLock()
+	defer e.Mutex.RUnlock()
+
+	if e.SecurityIdentity == nil || !e.Opts.IsEnabled(option.ConntrackLocal) {
+		return false
+	}
+
+	return true
 }
 
 type orderEndpoint func(e1, e2 *models.Endpoint) bool

@@ -29,6 +29,19 @@ pipeline {
                 checkout scm
             }
         }
+        stage('Precheck') {
+            environment {
+                TESTDIR="${WORKSPACE}/${PROJ_PATH}/"
+            }
+            steps {
+               sh "cd ${TESTDIR}; make jenkins-precheck"
+            }
+            post {
+               always {
+                   sh "cd ${TESTDIR}; make clean-jenkins-precheck || true"
+               }
+            }
+        }
         stage('UnitTesting') {
             environment {
                 GOPATH="${WORKSPACE}"

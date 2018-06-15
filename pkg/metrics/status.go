@@ -41,12 +41,12 @@ type statusCollector struct {
 func newStatusCollector() *statusCollector {
 	ciliumClient, err := clientPkg.NewClient("")
 	if err != nil {
-		log.WithError(err).Error("Error while creating client")
+		log.WithError(err).Fatal("Error while creating Cilium API client")
 	}
 
 	healthClient, err := healthClientPkg.NewClient("")
 	if err != nil {
-		log.WithError(err).Error("Error while creating cilium-health client")
+		log.WithError(err).Fatal("Error while creating cilium-health API client")
 	}
 
 	return &statusCollector{
@@ -86,15 +86,16 @@ func (s *statusCollector) Collect(ch chan<- prometheus.Metric) {
 	statusResponse, err := s.ciliumClient.Daemon.GetHealthz(nil)
 	if err != nil {
 		log.WithError(err).Error("Error while getting Cilium status")
+		return
 	}
 
-	healthStatusResponse, err := s.healthClient.Connectivity.GetStatus(nil)
-	if err != nil {
-		log.WithError(err).Error("Error while getting cilium-health status")
+	if statusResponse.Payload == nil {
+		return
 	}
 
 	// Controllers failing
 	controllersFailing := 0
+
 	for _, ctrl := range statusResponse.Payload.Controllers {
 		if ctrl.Status == nil {
 			continue
@@ -110,20 +111,32 @@ func (s *statusCollector) Collect(ch chan<- prometheus.Metric) {
 		float64(controllersFailing),
 	)
 
-	// Address count
-	ch <- prometheus.MustNewConstMetric(
-		s.ipAddressesDesc,
-		prometheus.GaugeValue,
-		float64(len(statusResponse.Payload.IPAM.IPV4)),
-		"ipv4",
-	)
+	if statusResponse.Payload.IPAM != nil {
+		// Address count
+		ch <- prometheus.MustNewConstMetric(
+			s.ipAddressesDesc,
+			prometheus.GaugeValue,
+			float64(len(statusResponse.Payload.IPAM.IPV4)),
+			"ipv4",
+		)
 
-	ch <- prometheus.MustNewConstMetric(
-		s.ipAddressesDesc,
-		prometheus.GaugeValue,
-		float64(len(statusResponse.Payload.IPAM.IPV6)),
-		"ipv6",
-	)
+		ch <- prometheus.MustNewConstMetric(
+			s.ipAddressesDesc,
+			prometheus.GaugeValue,
+			float64(len(statusResponse.Payload.IPAM.IPV6)),
+			"ipv6",
+		)
+	}
+
+	healthStatusResponse, err := s.healthClient.Connectivity.GetStatus(nil)
+	if err != nil {
+		log.WithError(err).Error("Error while getting cilium-health status")
+		return
+	}
+
+	if healthStatusResponse.Payload == nil {
+		return
+	}
 
 	// Nodes and endpoints healthStatusResponse
 	var (

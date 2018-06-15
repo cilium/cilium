@@ -24,6 +24,14 @@ build: $(SUBDIRS)
 $(SUBDIRS): force
 	@ $(MAKE) -C $@ all
 
+
+jenkins-precheck:
+	docker-compose -f test/precheck.yml -p $$JOB_BASE_NAME-$$BUILD_NUMBER run --rm precheck
+
+clean-jenkins-precheck:
+	docker-compose -f test/precheck.yml -p $$JOB_BASE_NAME-$$BUILD_NUMBER down
+	docker-compose -f test/precheck.yml -p $$JOB_BASE_NAME-$$BUILD_NUMBER rm
+
 # invoked from ginkgo Jenkinsfile
 tests-ginkgo: force
 	# Make the bindata to run the unittest

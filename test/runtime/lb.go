@@ -26,10 +26,11 @@ import (
 )
 
 var _ = Describe("RuntimeValidatedLB", func() {
-
-	var logger *logrus.Entry
-	var vm *helpers.SSHMeta
-	var monitorStop func() error
+	var (
+		logger      *logrus.Entry
+		vm          *helpers.SSHMeta
+		monitorStop = func() error { return nil }
+	)
 
 	BeforeAll(func() {
 		logger = log.WithFields(logrus.Fields{"test": "RuntimeLB"})

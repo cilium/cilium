@@ -31,6 +31,12 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+// healthReport is a snapshot of the health of the cluster.
+type healthReport struct {
+	startTime time.Time
+	nodes     []*models.NodeStatus
+}
+
 type prober struct {
 	*fastping.Pinger
 	server *Server
@@ -46,6 +52,9 @@ type prober struct {
 	// and probes initiated via "GET /status/probe". It is also used to
 	// co-ordinate updates of the ICMP responses and the HTTP responses.
 	lock.RWMutex
+
+	// start is the start time for the current probe cycle.
+	start   time.Time
 	results map[ipString]*models.PathStatus
 	nodes   nodeMap
 
@@ -94,7 +103,7 @@ func getHealthIP(node *ciliumModels.NodeElement) string {
 
 // getResults gathers a copy of all of the results for nodes currently in the
 // cluster.
-func (p *prober) getResults() []*models.NodeStatus {
+func (p *prober) getResults() *healthReport {
 	p.RLock()
 	defer p.RUnlock()
 
@@ -126,9 +135,9 @@ func (p *prober) getResults() []*models.NodeStatus {
 		resultMap[node.Name] = status
 	}
 
-	result := []*models.NodeStatus{}
+	result := &healthReport{startTime: p.start}
 	for _, res := range resultMap {
-		result = append(result, res)
+		result.nodes = append(result.nodes, res)
 	}
 	return result
 }
@@ -254,13 +263,17 @@ func (p *prober) httpProbe(node string, ip string, port int) *models.Connectivit
 }
 
 func (p *prober) runHTTPProbe() {
-	nodes := make(map[string][]*net.IPAddr)
+	startTime := time.Now()
+	p.Lock()
+	p.start = startTime
+	p.Unlock()
 
 	// p.nodes is mapped from all known IPs -> nodes in N:M configuration,
 	// so multiple IPs could refer to the same node. To ensure we only
 	// ping each node once, deduplicate nodes into map of nodeName -> []IP.
 	// When probing below, we won't hold the lock on 'p.nodes' so take
 	// a copy of all of the IPs we need to reference.
+	nodes := make(map[string][]*net.IPAddr)
 	p.RLock()
 	for _, node := range p.nodes {
 		if nodes[node.Name] != nil {

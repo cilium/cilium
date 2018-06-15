@@ -23,7 +23,6 @@ import (
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
-	"github.com/cilium/cilium/pkg/option"
 
 	"github.com/sirupsen/logrus"
 )
@@ -37,14 +36,16 @@ const (
 // the CT map is set to local. If `isIPv6` is set specifies that is the IPv6
 // map. `filter` represents the filter type to be used while looping all CT
 // entries.
-func RunGC(e *endpoint.Endpoint, isLocal, isIPv6 bool, filter *ctmap.GCFilter) {
+//
+// The provided endpoint is optional; if it is provided, then its map will be
+// garbage collected and any failures will be logged to the endpoint log.
+// Otherwise it will garbage-collect the global map and use the global log.
+func RunGC(e *endpoint.Endpoint, isIPv6 bool, filter *ctmap.GCFilter) {
 	var file string
 	var mapType string
-	// TODO: We need to optimize this a bit in future, so we traverse
-	// the global table less often.
 
-	// Use local or global conntrack maps depending on configuration settings.
-	if isLocal {
+	// Choose whether to garbage collect the local or global conntrack map
+	if e != nil {
 		if isIPv6 {
 			mapType = ctmap.MapName6
 		} else {
@@ -63,7 +64,9 @@ func RunGC(e *endpoint.Endpoint, isLocal, isIPv6 bool, filter *ctmap.GCFilter) {
 	m, err := bpf.OpenMap(file)
 	if err != nil {
 		log.WithError(err).WithField(logfields.Path, file).Warn("Unable to open map")
-		e.LogStatus(endpoint.BPF, endpoint.Warning, fmt.Sprintf("Unable to open CT map %s: %s", file, err))
+		if e != nil {
+			e.LogStatus(endpoint.BPF, endpoint.Warning, fmt.Sprintf("Unable to open CT map %s: %s", file, err))
+		}
 		return
 	}
 	defer m.Close()
@@ -82,48 +85,30 @@ func RunGC(e *endpoint.Endpoint, isLocal, isIPv6 bool, filter *ctmap.GCFilter) {
 // EnableConntrackGC enables the connection tracking garbage collection.
 func EnableConntrackGC(ipv4, ipv6 bool) {
 	go func() {
-		seenGlobal := false
 		sleepTime := time.Duration(GcInterval) * time.Second
 		for {
 			eps := GetEndpoints()
-			for _, e := range eps {
-				e.Mutex.RLock()
-
-				if e.SecurityIdentity == nil {
-					e.Mutex.RUnlock()
-					continue
-				}
-
-				// Only process global CT once per round.
-				// We don't really care about which EP
-				// triggers the traversal as long as we do
-				// traverse it eventually. Update/delete
-				// combo only serialized done from here,
-				// so no extra mutex for global CT needed
-				// right now. We still need to traverse
-				// other EPs since some may not be part
-				// of the global CT, but have a local one.
-				isLocal := e.Opts.IsEnabled(option.ConntrackLocal)
-				if isLocal == false {
-					if seenGlobal == true {
-						e.Mutex.RUnlock()
-						continue
-					}
-					seenGlobal = true
-				}
-
-				e.Mutex.RUnlock()
-				// We can unlock the endpoint mutex sense
-				// in runGC it will be locked as needed.
+			if len(eps) > 0 {
 				if ipv6 {
-					RunGC(e, isLocal, true, ctmap.NewGCFilterBy(ctmap.GCFilterByTime))
+					RunGC(nil, true, ctmap.NewGCFilterBy(ctmap.GCFilterByTime))
 				}
 				if ipv4 {
-					RunGC(e, isLocal, false, ctmap.NewGCFilterBy(ctmap.GCFilterByTime))
+					RunGC(nil, false, ctmap.NewGCFilterBy(ctmap.GCFilterByTime))
+				}
+			}
+			for _, e := range eps {
+				if !e.ConntrackLocal() {
+					// Skip because GC was handled above.
+					continue
+				}
+				if ipv6 {
+					RunGC(e, true, ctmap.NewGCFilterBy(ctmap.GCFilterByTime))
+				}
+				if ipv4 {
+					RunGC(e, false, ctmap.NewGCFilterBy(ctmap.GCFilterByTime))
 				}
 			}
 			time.Sleep(sleepTime)
-			seenGlobal = false
 		}
 	}()
 }

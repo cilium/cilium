@@ -348,9 +348,16 @@ func (kub *Kubectl) GetEndpoints(namespace string, filter string) *CmdRes {
 // GetAllPods returns a slice of all pods present in Kubernetes cluster, along
 // with an error if the pods could not be retrieved via `kubectl`, or if the
 // pod objects are unable to be marshaled from JSON.
-func (kub *Kubectl) GetAllPods() ([]v1.Pod, error) {
+func (kub *Kubectl) GetAllPods(options ...ExecOptions) ([]v1.Pod, error) {
+	var ops ExecOptions
+	if len(options) > 0 {
+		ops = options[0]
+	}
+
 	var podsList v1.List
-	err := kub.Exec(fmt.Sprintf("%s get pods --all-namespaces -o json", KubectlCmd)).Unmarshal(&podsList)
+	err := kub.Exec(
+		fmt.Sprintf("%s get pods --all-namespaces -o json", KubectlCmd),
+		ExecOptions{SkipLog: ops.SkipLog}).Unmarshal(&podsList)
 	if err != nil {
 		return nil, err
 	}
@@ -1055,7 +1062,7 @@ func (kub *Kubectl) ValidateNoErrorsOnLogs(duration time.Duration) {
 		KubectlCmd, KubeSystemNamespace, duration.Seconds())
 	res := kub.Exec(fmt.Sprintf("%s --previous", cmd), ExecOptions{SkipLog: true})
 	if !res.WasSuccessful() {
-		res = kub.Exec(cmd)
+		res = kub.Exec(cmd, ExecOptions{SkipLog: true})
 	}
 	logs := res.Output().String()
 	for _, message := range checkLogsMessages {
@@ -1137,33 +1144,44 @@ func (kub *Kubectl) DumpCiliumCommandOutput(namespace string) {
 		bugtoolCmd := fmt.Sprintf("%s exec -n %s %s -- %s",
 			KubectlCmd, namespace, pod, CiliumBugtool)
 		res := kub.Exec(bugtoolCmd, ExecOptions{SkipLog: true})
-		if res.WasSuccessful() {
-			// Default output directory is /tmp for bugtool.
-			res = kub.Exec(fmt.Sprintf("%s exec -n %s %s -- ls /tmp/", KubectlCmd, namespace, pod))
-			tmpList := res.ByLines()
-			for _, line := range tmpList {
-				// Only copy over bugtool output to directory.
-				if strings.Contains(line, CiliumBugtool) {
-					archiveName := fmt.Sprintf("%s-%s", pod, line)
-					res = kub.Exec(fmt.Sprintf("%[1]s cp %[2]s/%[3]s:/tmp/%[4]s /tmp/%[4]s",
-						KubectlCmd, namespace, pod, line),
-						ExecOptions{SkipLog: true})
-					if !res.WasSuccessful() {
-						logger.Errorf("'%s' failed: %s", res.GetCmd(), res.CombineOutput())
-					}
-					res = kub.Exec(fmt.Sprintf(
-						"cp %s %s",
-						filepath.Join("/tmp/", line),
-						filepath.Join(logsPath, archiveName)),
-						ExecOptions{SkipLog: true})
-
-					if !res.WasSuccessful() {
-						logger.Errorf("'%s' failed: %s", res.GetCmd(), res.CombineOutput())
-					}
-				}
-			}
-		} else {
+		if !res.WasSuccessful() {
 			logger.Errorf("%s failed: %s", bugtoolCmd, res.CombineOutput().String())
+			return
+		}
+		// Default output directory is /tmp for bugtool.
+		res = kub.Exec(fmt.Sprintf("%s exec -n %s %s -- ls /tmp/", KubectlCmd, namespace, pod))
+		tmpList := res.ByLines()
+		for _, line := range tmpList {
+			// Only copy over bugtool output to directory.
+			if !strings.Contains(line, CiliumBugtool) {
+				continue
+			}
+
+			res = kub.Exec(fmt.Sprintf("%[1]s cp %[2]s/%[3]s:/tmp/%[4]s /tmp/%[4]s",
+				KubectlCmd, namespace, pod, line),
+				ExecOptions{SkipLog: true})
+			if !res.WasSuccessful() {
+				logger.Errorf("'%s' failed: %s", res.GetCmd(), res.CombineOutput())
+				continue
+			}
+
+			archiveName := filepath.Join(logsPath, fmt.Sprintf("bugtool-%s", pod))
+			res = kub.Exec(fmt.Sprintf("mkdir -p %s", archiveName))
+			if !res.WasSuccessful() {
+				logger.WithField("cmd", res.GetCmd()).Errorf(
+					"cannot create bugtool archive folder: %s", res.CombineOutput())
+				continue
+			}
+
+			cmd := fmt.Sprintf("tar -xf /tmp/%s -C %s --strip-components=1", line, archiveName)
+			res = kub.Exec(cmd, ExecOptions{SkipLog: true})
+			if !res.WasSuccessful() {
+				logger.WithField("cmd", cmd).Errorf(
+					"Cannot untar bugtool output: %s", res.CombineOutput())
+				continue
+			}
+			//Remove bugtool artifact, so it'll be not used if any other fail test
+			_ = kub.ExecPodCmd(KubeSystemNamespace, pod, fmt.Sprintf("rm %s", line))
 		}
 	}
 
@@ -1212,7 +1230,7 @@ func (kub *Kubectl) GeneratePodLogGatheringCommands(reportCmds map[string]string
 	if reportCmds == nil {
 		reportCmds = make(map[string]string)
 	}
-	pods, err := kub.GetAllPods()
+	pods, err := kub.GetAllPods(ExecOptions{SkipLog: true})
 	if err != nil {
 		kub.logger.WithError(err).Error("Unable to get pods from Kubernetes via kubectl")
 	}
