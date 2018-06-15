@@ -827,6 +827,19 @@ func (kub *Kubectl) CiliumEndpointWaitReady() error {
 				"invalid": invalid,
 			}).Info("Waiting for cilium endpoints to be ready")
 
+			ciliumPolicyRevision, err := kub.CiliumPolicyRevision(pod)
+			if err != nil {
+				logCtx.WithError(err).Errorf("cannot get policy revision")
+				return false
+			}
+			res := kub.CiliumExec(pod, fmt.Sprintf("cilium policy wait %d", ciliumPolicyRevision))
+			if !res.WasSuccessful() {
+				logCtx.WithFields(logrus.Fields{
+					"policyRevision": ciliumPolicyRevision,
+					"error":          res.CombineOutput(),
+				}).Errorf("Wait for policy revision failed")
+				return true
+			}
 			if invalid != 0 {
 				return false
 			}
