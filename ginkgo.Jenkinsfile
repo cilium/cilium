@@ -50,7 +50,7 @@ pipeline {
             }
             steps {
                 sh 'cd ${TESTDIR}; K8S_VERSION=1.7 vagrant up --no-provision'
-                sh 'cd ${TESTDIR}; K8S_VERSION=1.10 vagrant up --no-provision'
+                sh 'cd ${TESTDIR}; K8S_VERSION=1.11 vagrant up --no-provision'
             }
         }
         stage('BDD-Test-PR') {
@@ -72,8 +72,8 @@ pipeline {
                     "K8s-1.7":{
                         sh 'cd ${TESTDIR}; K8S_VERSION=1.7 ginkgo --focus=" K8sValidated*" -v --failFast=${FAILFAST}'
                     },
-                    "K8s-1.10":{
-                        sh 'cd ${TESTDIR}; K8S_VERSION=1.10 ginkgo --focus=" K8sValidated*" -v --failFast=${FAILFAST}'
+                    "K8s-1.11":{
+                        sh 'cd ${TESTDIR}; K8S_VERSION=1.11 ginkgo --focus=" K8sValidated*" -v --failFast=${FAILFAST}'
                     },
                     failFast: true
                 )
@@ -93,7 +93,7 @@ pipeline {
     post {
         always {
             sh 'cd ${TESTDIR}/test/; K8S_VERSION=1.7 vagrant destroy -f || true'
-            sh 'cd ${TESTDIR}/test/; K8S_VERSION=1.10 vagrant destroy -f || true'
+            sh 'cd ${TESTDIR}/test/; K8S_VERSION=1.11 vagrant destroy -f || true'
             cleanWs()
         }
         success {
