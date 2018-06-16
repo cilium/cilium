@@ -57,7 +57,7 @@ pipeline {
         stage('Nightly-Tests') {
             environment {
                 K8S_NODES=4
-                K8S_VERSION=1.9
+                K8S_VERSION=1.11
                 MEMORY=4096
                 CPU=4
                 FAILFAST=setIfPR("true", "false")
@@ -115,7 +115,7 @@ pipeline {
         always {
             sh "cd ${TESTDIR}; K8S_VERSION=1.8 vagrant destroy -f || true"
             sh "cd ${TESTDIR}; K8S_VERSION=1.7 vagrant destroy -f || true"
-            sh "cd ${TESTDIR}; K8S_VERSION=1.9 vagrant destroy -f || true"
+            sh "cd ${TESTDIR}; K8S_VERSION=1.11 vagrant destroy -f || true"
             sh "cd ${TESTDIR}; vagrant destroy -f || true"
             sh 'cd ${TEST_DIR}; ./post_build_agent.sh || true'
             cleanWs()
