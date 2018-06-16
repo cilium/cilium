@@ -794,6 +794,27 @@ for a fully functional example including pods deployed to different namespaces.
 
         .. literalinclude:: ../../examples/policies/kubernetes/namespace/namespace-policy.json
 
+Example: Allow egress to kube-dns in kube-system namespace
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The following example allows all pods in the namespace in which the policy is
+created to communicate with kube-dns on port 53/UDP in the ``kube-system``
+namespace.
+
+.. only:: html
+
+   .. tabs::
+     .. group-tab:: k8s YAML
+
+        .. literalinclude:: ../../examples/policies/kubernetes/namespace/kubedns-policy.yaml
+     .. group-tab:: JSON
+
+        .. literalinclude:: ../../examples/policies/kubernetes/namespace/kubedns-policy.json
+
+.. only:: epub or latex
+
+        .. literalinclude:: ../../examples/policies/kubernetes/namespace/kubedns-policy.json
+
 
 ServiceAccounts
 ----------------
