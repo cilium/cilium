@@ -85,6 +85,41 @@ func (s *K8sSuite) TestTranslatorDirect(c *C) {
 	c.Assert(len(rule.ToCIDRSet), Equals, 0)
 }
 
+func (s *K8sSuite) TestServiceMatches(c *C) {
+	svcLabels := map[string]string{
+		"app": "tested-service",
+	}
+
+	serviceInfo := types.K8sServiceNamespace{
+		ServiceName: "doesn't matter",
+		Namespace:   "default",
+	}
+
+	epIP := "10.1.1.1"
+	endpointInfo := types.K8sServiceEndpoint{
+		BEIPs: map[string]bool{
+			epIP: true,
+		},
+		Ports: map[types.FEPortName]*types.L4Addr{
+			"port": {
+				Protocol: types.TCP,
+				Port:     80,
+			},
+		},
+	}
+
+	selector := api.ServiceSelector(api.NewESFromMatchRequirements(svcLabels, nil))
+	service := api.Service{
+		K8sServiceSelector: &api.K8sServiceSelectorNamespace{
+			Selector:  selector,
+			Namespace: "",
+		},
+	}
+
+	translator := NewK8sTranslator(serviceInfo, endpointInfo, false, svcLabels)
+	c.Assert(translator.serviceMatches(service), Equals, true)
+}
+
 func (s *K8sSuite) TestTranslatorLabels(c *C) {
 	repo := policy.NewPolicyRepository()
 	svcLabels := map[string]string{
