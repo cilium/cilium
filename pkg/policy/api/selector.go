@@ -132,6 +132,20 @@ func (n EndpointSelector) HasKey(key string) bool {
 	return false
 }
 
+// GetMatch checks for a match on the specified key, and returns the value that
+// the key must match, and true. If a match cannot be found, returns nil, false.
+func (n EndpointSelector) GetMatch(key string) ([]string, bool) {
+	if value, ok := n.MatchLabels[key]; ok {
+		return []string{value}, true
+	}
+	for _, v := range n.MatchExpressions {
+		if v.Key == key && v.Operator == metav1.LabelSelectorOpIn {
+			return v.Values, true
+		}
+	}
+	return nil, false
+}
+
 // NewESFromLabels creates a new endpoint selector from the given labels.
 func NewESFromLabels(lbls ...*labels.Label) EndpointSelector {
 	ml := map[string]string{}
@@ -200,6 +214,14 @@ func NewESFromK8sLabelSelector(srcPrefix string, lss ...*metav1.LabelSelector) E
 			MatchExpressions: matchExpressions,
 		},
 	}
+}
+
+// AddMatch adds a match for 'key' == 'value' to the endpoint selector.
+func (n *EndpointSelector) AddMatch(key, value string) {
+	if n.MatchLabels == nil {
+		n.MatchLabels = map[string]string{}
+	}
+	n.MatchLabels[key] = value
 }
 
 // Matches returns true if the endpoint selector Matches the `lblsToMatch`.
