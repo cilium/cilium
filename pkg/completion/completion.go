@@ -44,16 +44,15 @@ func (wg *WaitGroup) Context() context.Context {
 	return wg.ctx
 }
 
-// AddCompletionWithCallback creates a new completion, adds it to the wait
+// AddCompletionWithCallbacks creates a new completion, adds it to the wait
 // group, and returns it. The callback will be called upon completion.
-func (wg *WaitGroup) AddCompletionWithCallback(callback func()) *Completion {
+// The retryCallback will be called if the asynchronous operation fails.
+// Calling retryCallback does not complete the operation, but it can cancel the
+// operation if needed.
+func (wg *WaitGroup) AddCompletionWithCallbacks(callback func(), retryCallback func()) *Completion {
 	wg.counterLocker.Lock()
 	defer wg.counterLocker.Unlock()
-	c := &Completion{
-		ctx:       wg.ctx,
-		completed: make(chan struct{}),
-		callback:  callback,
-	}
+	c := NewCompletion(wg.ctx, callback, retryCallback)
 	wg.pendingCompletions = append(wg.pendingCompletions, c)
 	return c
 }
@@ -61,7 +60,7 @@ func (wg *WaitGroup) AddCompletionWithCallback(callback func()) *Completion {
 // AddCompletion creates a new completion, adds it into the wait group, and
 // returns it.
 func (wg *WaitGroup) AddCompletion() *Completion {
-	return wg.AddCompletionWithCallback(nil)
+	return wg.AddCompletionWithCallbacks(nil, nil)
 }
 
 // Wait blocks until all completions added by calling AddCompletion are
@@ -104,6 +103,10 @@ type Completion struct {
 
 	// callback is called when Complete is called the first time.
 	callback func()
+
+	// retryCallback is called when the asynchronous operations fails but there is still
+	// time to retry the operation.
+	retryCallback func()
 }
 
 // Context returns the context of the asynchronous computation.
@@ -119,10 +122,24 @@ func (c *Completion) Complete() {
 	c.complete(true)
 }
 
+// Retry notifies of the failure of the asynchronous computation.
+func (c *Completion) Retry() {
+	c.lock.Lock()
+	select {
+	case <-c.completed:
+		c.lock.Unlock() // Do not retry if already completed
+	default:
+		c.lock.Unlock()
+		if c.retryCallback != nil {
+			c.retryCallback()
+		}
+	}
+}
+
 // Complete notifies of the completion of the asynchronous computation.
 // If this is the first time this method is called, runCallback is true, and
-// the Completion was created by calling WaitGroup.AddCompletionWithCallback or
-// NewCallback with a non-nil callback, that callback is called.
+// the Completion was created by calling WaitGroup.AddCompletionWithCallbacks or
+// NewCompletion with a non-nil callback, that callback is called.
 // Idempotent.
 func (c *Completion) complete(runCallback bool) {
 	c.lock.Lock()
@@ -145,11 +162,12 @@ func (c *Completion) Completed() <-chan struct{} {
 	return c.completed
 }
 
-// NewCallback creates a Completion which calls a function upon Complete().
-func NewCallback(ctx context.Context, callback func()) *Completion {
+// NewCompletion creates a Completion which calls a function upon Complete() or Retry().
+func NewCompletion(ctx context.Context, callback func(), retryCallback func()) *Completion {
 	return &Completion{
-		ctx:       ctx,
-		completed: make(chan struct{}),
-		callback:  callback,
+		ctx:           ctx,
+		completed:     make(chan struct{}),
+		callback:      callback,
+		retryCallback: retryCallback,
 	}
 }

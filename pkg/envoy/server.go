@@ -237,7 +237,25 @@ func (s *XDSServer) AddListener(name string, endpointPolicyName string, port uin
 
 	listenerConf.FilterChains[0].Filters[1].Config.Fields["http_filters"].GetListValue().Values[0].GetStructValue().Fields["config"].GetStructValue().Fields["policy_name"] = &structpb.Value{Kind: &structpb.Value_StringValue{StringValue: endpointPolicyName}}
 
-	s.listenerMutator.Upsert(ListenerTypeURL, name, listenerConf, []string{"127.0.0.1"}, wg.AddCompletion())
+	retries := 0
+	maxRetries := 10
+	var comp *completion.Completion
+	comp = wg.AddCompletionWithCallbacks(nil, func() {
+		if retries < maxRetries {
+			retries++
+			// Upsert cannot be called from the callback due to a locks being held
+			go func() {
+				// Upsert a new version of the Listener
+				// TODO: Try to recover by reallocating the proxy port
+				s.listenerMutator.Upsert(ListenerTypeURL, name, listenerConf, []string{"127.0.0.1"}, comp)
+				log.Debug("Envoy: Listener updated after NACK, trying again")
+			}()
+		} else {
+			log.Errorf("Envoy: Failed to apply new listener configuration after %u retries (NACK received)", maxRetries)
+		}
+	})
+
+	s.listenerMutator.Upsert(ListenerTypeURL, name, listenerConf, []string{"127.0.0.1"}, comp)
 }
 
 // RemoveListener removes an existing Envoy Listener.
@@ -526,7 +544,7 @@ func getNetworkPolicy(name string, id identity.NumericIdentity, policy *policy.L
 // UpdateNetworkPolicy adds or updates a network policy in the set published
 // to L7 proxies.
 // When the proxy acknowledges the network policy update, it will result in
-// a subsequent call to the endpoint's OnProxyPolicyAcknowledge() function.
+// a subsequent call to the endpoint's OnProxyPolicyUpdate() function.
 func (s *XDSServer) UpdateNetworkPolicy(ep logger.EndpointUpdater, policy *policy.L4Policy,
 	ingressPolicyEnforced, egressPolicyEnforced bool, labelsMap identity.IdentityCache,
 	deniedIngressIdentities, deniedEgressIdentities map[identity.NumericIdentity]bool, wg *completion.WaitGroup) error {
@@ -602,9 +620,9 @@ func (s *XDSServer) UpdateNetworkPolicy(ep logger.EndpointUpdater, policy *polic
 		}
 		var c *completion.Completion
 		if wg == nil {
-			c = completion.NewCallback(context.Background(), callback)
+			c = completion.NewCompletion(context.Background(), callback, nil)
 		} else {
-			c = wg.AddCompletionWithCallback(callback)
+			c = wg.AddCompletionWithCallbacks(callback, nil)
 		}
 		nodeIDs := make([]string, 0, 1)
 		if ep.HasSidecarProxy() {

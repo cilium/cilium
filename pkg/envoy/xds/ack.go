@@ -32,6 +32,11 @@ type ResourceVersionAckObserver interface {
 	// has acknowledged having applied the resources.
 	// Calls to this function must not block.
 	HandleResourceVersionAck(version uint64, node *envoy_api_v2_core.Node, resourceNames []string, typeURL string)
+
+	// HandleResourceVersionNack notifies that the node with the given Node ID
+	// failed to apply the resources.
+	// Calls to this function must not block.
+	HandleResourceVersionNack(version uint64, node *envoy_api_v2_core.Node, resourceNames []string, typeURL string)
 }
 
 // AckingResourceMutator is a variant of ResourceMutator which calls back a
@@ -69,7 +74,7 @@ type AckingResourceMutatorWrapper struct {
 	locker lock.Mutex
 
 	// pendingCompletions is the list of updates that are pending completion.
-	pendingCompletions []*pendingCompletion
+	pendingCompletions map[*completion.Completion]*pendingCompletion
 }
 
 // pendingCompletion is an update that is pending completion.
@@ -93,8 +98,9 @@ type pendingCompletion struct {
 // a string identifier from an Envoy Node identifier.
 func NewAckingResourceMutatorWrapper(mutator ResourceMutator, nodeToID NodeToIDFunc) *AckingResourceMutatorWrapper {
 	return &AckingResourceMutatorWrapper{
-		mutator:  mutator,
-		nodeToID: nodeToID,
+		mutator:            mutator,
+		nodeToID:           nodeToID,
+		pendingCompletions: make(map[*completion.Completion]*pendingCompletion),
 	}
 }
 
@@ -112,19 +118,50 @@ func (m *AckingResourceMutatorWrapper) Upsert(typeURL string, resourceName strin
 
 	version, _ := m.mutator.Upsert(typeURL, resourceName, resource, true)
 
-	comp := &pendingCompletion{
-		completion:              completion,
-		version:                 version,
-		typeURL:                 typeURL,
-		remainingNodesResources: make(map[string]map[string]struct{}, len(nodeIDs)),
-	}
+	comp, found := m.pendingCompletions[completion]
+	if found {
+		if comp.typeURL != typeURL {
+			log.WithFields(logrus.Fields{
+				logfields.XDSTypeURL: typeURL,
+			}).Fatalf("Completion reused with mismatching typeURL (have %s)",
+				comp.typeURL)
+		}
+		if len(nodeIDs) != len(comp.remainingNodesResources) {
+			log.WithFields(logrus.Fields{
+				logfields.XDSTypeURL: typeURL,
+			}).Fatalf("Completion reused with mismatching nodeIDs: %v (have %v)",
+				nodeIDs, comp.remainingNodesResources)
+		}
+		for _, nodeID := range nodeIDs {
+			if resMap, ok := comp.remainingNodesResources[nodeID]; !ok {
+				log.WithFields(logrus.Fields{
+					logfields.XDSTypeURL: typeURL,
+				}).Fatalf("Completion reused with mismatching nodeID: %s",
+					nodeID)
+			} else if _, ok := resMap[resourceName]; !ok {
+				log.WithFields(logrus.Fields{
+					logfields.XDSTypeURL: typeURL,
+				}).Fatalf("Completion reused with mismatching resourceName: %s",
+					resourceName)
+			}
+		}
+		// Update the version in the existing pendingCompletion
+		comp.version = version
+	} else {
+		// Create a new pendingCompletion
+		comp = &pendingCompletion{
+			completion:              completion,
+			version:                 version,
+			typeURL:                 typeURL,
+			remainingNodesResources: make(map[string]map[string]struct{}, len(nodeIDs)),
+		}
 
-	for _, nodeID := range nodeIDs {
-		comp.remainingNodesResources[nodeID] = make(map[string]struct{}, 1)
-		comp.remainingNodesResources[nodeID][resourceName] = struct{}{}
+		for _, nodeID := range nodeIDs {
+			comp.remainingNodesResources[nodeID] = make(map[string]struct{}, 1)
+			comp.remainingNodesResources[nodeID][resourceName] = struct{}{}
+		}
+		m.pendingCompletions[completion] = comp
 	}
-
-	m.pendingCompletions = append(m.pendingCompletions, comp)
 }
 
 func (m *AckingResourceMutatorWrapper) Delete(typeURL string, resourceName string, nodeIDs []string, completion *completion.Completion) {
@@ -145,7 +182,13 @@ func (m *AckingResourceMutatorWrapper) Delete(typeURL string, resourceName strin
 
 	version, _ := m.mutator.Delete(typeURL, resourceName, true)
 
-	comp := &pendingCompletion{
+	comp, found := m.pendingCompletions[completion]
+	if found {
+		log.WithFields(logrus.Fields{
+			logfields.XDSTypeURL: typeURL,
+		}).Fatalf("Completion reused for Delete: %v", completion)
+	}
+	comp = &pendingCompletion{
 		completion:              completion,
 		version:                 version,
 		typeURL:                 typeURL,
@@ -156,7 +199,7 @@ func (m *AckingResourceMutatorWrapper) Delete(typeURL string, resourceName strin
 		comp.remainingNodesResources[nodeID] = nil
 	}
 
-	m.pendingCompletions = append(m.pendingCompletions, comp)
+	m.pendingCompletions[completion] = comp
 }
 
 func (m *AckingResourceMutatorWrapper) HandleResourceVersionAck(version uint64, node *envoy_api_v2_core.Node, resourceNames []string, typeURL string) {
@@ -177,7 +220,7 @@ func (m *AckingResourceMutatorWrapper) HandleResourceVersionAck(version uint64, 
 	m.locker.Lock()
 	defer m.locker.Unlock()
 
-	remainingCompletions := make([]*pendingCompletion, 0, len(m.pendingCompletions))
+	remainingCompletions := make(map[*completion.Completion]*pendingCompletion, len(m.pendingCompletions))
 
 	for _, comp := range m.pendingCompletions {
 		if comp.completion.Context().Err() != nil {
@@ -200,7 +243,7 @@ func (m *AckingResourceMutatorWrapper) HandleResourceVersionAck(version uint64, 
 				}
 				if len(comp.remainingNodesResources) == 0 {
 					// Completed. Notify and remove from pending list.
-					ackLog.Debug("completing ACK: %v", comp)
+					ackLog.Debugf("completing ACK: %v", comp)
 					comp.completion.Complete()
 					continue
 				}
@@ -210,7 +253,52 @@ func (m *AckingResourceMutatorWrapper) HandleResourceVersionAck(version uint64, 
 
 		// Completion didn't match or is still waiting for some ACKs. Keep it
 		// in the pending list.
-		remainingCompletions = append(remainingCompletions, comp)
+		remainingCompletions[comp.completion] = comp
+	}
+
+	m.pendingCompletions = remainingCompletions
+}
+
+func (m *AckingResourceMutatorWrapper) HandleResourceVersionNack(version uint64, node *envoy_api_v2_core.Node, resourceNames []string, typeURL string) {
+	ackLog := log.WithFields(logrus.Fields{
+		logfields.XDSVersionInfo: version,
+		logfields.XDSClientNode:  node,
+		logfields.XDSTypeURL:     typeURL,
+	})
+
+	nodeID, err := m.nodeToID(node)
+	if err != nil {
+		// Ignore NACKs from unknown or misconfigured nodes which have invalid
+		// node identifiers.
+		ackLog.Warning("invalid ID in Node identifier; ignoring NACK")
+		return
+	}
+
+	m.locker.Lock()
+	defer m.locker.Unlock()
+
+	remainingCompletions := make(map[*completion.Completion]*pendingCompletion, len(m.pendingCompletions))
+
+	for _, comp := range m.pendingCompletions {
+		if comp.completion.Context().Err() != nil {
+			// Completion was canceled or timed out.
+			// Remove from pending list.
+			ackLog.Debugf("completion context was canceled: %v", comp)
+			continue
+		}
+
+		if comp.version > version && comp.typeURL == typeURL {
+			// Check if this nodeID is still waiting for an ACK.
+			_, found := comp.remainingNodesResources[nodeID]
+			if found {
+				ackLog.Debug("Notifying resource owner of NACK: %v", comp)
+				comp.completion.Retry()
+			}
+		}
+
+		// Completion didn't match or is still waiting for some ACKs. Keep it
+		// in the pending list.
+		remainingCompletions[comp.completion] = comp
 	}
 
 	m.pendingCompletions = remainingCompletions

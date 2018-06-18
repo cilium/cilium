@@ -174,13 +174,47 @@ func (s *CompletionSuite) TestCompletionWithCallback(c *C) {
 	// Set a shorter timeout to shorten the test duration.
 	wg := NewWaitGroup(ctx)
 
-	comp := wg.AddCompletionWithCallback(func() { callbackCount++ })
+	comp := wg.AddCompletionWithCallbacks(func() { callbackCount++ }, nil)
 	c.Assert(comp.Context(), Equals, ctx)
 
 	// Complete is idempotent.
 	comp.Complete()
 	comp.Complete()
 	comp.Complete()
+
+	// The callback is called exactly once.
+	c.Assert(callbackCount, Equals, 1)
+
+	// Wait should return immediately, since the only completion is already completed.
+	err = wg.Wait()
+	c.Assert(err, IsNil)
+}
+
+func (s *CompletionSuite) TestCompletionWithRetryCallback(c *C) {
+	var err error
+	var callbackCount, retryCount int
+
+	ctx, cancel := context.WithTimeout(context.Background(), TestTimeout)
+	defer cancel()
+
+	// Set a shorter timeout to shorten the test duration.
+	wg := NewWaitGroup(ctx)
+
+	comp := wg.AddCompletionWithCallbacks(func() { callbackCount++ }, func() { retryCount++ } )
+	c.Assert(comp.Context(), Equals, ctx)
+
+	// Retry is not idempotent.
+	comp.Retry()
+	comp.Retry()
+	comp.Retry()
+
+	// Complete is idempotent.
+	comp.Complete()
+	comp.Complete()
+	comp.Complete()
+
+	// Retried three times.
+	c.Assert(retryCount, Equals, 3)
 
 	// The callback is called exactly once.
 	c.Assert(callbackCount, Equals, 1)
@@ -202,7 +236,7 @@ func (s *CompletionSuite) TestCompletionWithCallbackTimeout(c *C) {
 	defer cancel()
 	wg := NewWaitGroup(wgCtx)
 
-	comp := wg.AddCompletionWithCallback(func() { callbackCount++ })
+	comp := wg.AddCompletionWithCallbacks(func() { callbackCount++ }, nil)
 	c.Assert(comp.Context(), Equals, wgCtx)
 
 	// comp never completes.
@@ -215,6 +249,46 @@ func (s *CompletionSuite) TestCompletionWithCallbackTimeout(c *C) {
 	// Complete is idempotent and harmless, and can be called after the
 	// context is canceled.
 	comp.Complete()
+
+	// The callback is never called.
+	c.Assert(callbackCount, Equals, 0)
+}
+
+func (s *CompletionSuite) TestCompletionWithRetryCallbackTimeout(c *C) {
+	var err error
+	var callbackCount, retryCount int
+
+	ctx, cancel := context.WithTimeout(context.Background(), TestTimeout)
+	defer cancel()
+
+	// Set a shorter timeout to shorten the test duration.
+	wgCtx, cancel := context.WithTimeout(ctx, WaitGroupTimeout)
+	defer cancel()
+	wg := NewWaitGroup(wgCtx)
+
+	comp := wg.AddCompletionWithCallbacks(func() { callbackCount++ }, func() { retryCount++ })
+	c.Assert(comp.Context(), Equals, wgCtx)
+
+	// Retry is not idempotent.
+	comp.Retry()
+	comp.Retry()
+
+	// comp never completes.
+
+	// Wait should block until wgCtx expires.
+	err = wg.Wait()
+	c.Assert(err, Not(IsNil))
+	c.Assert(err, Equals, wgCtx.Err())
+
+	// Retry after context is cancelled is harmless
+	comp.Retry()
+	
+	// Complete is idempotent and harmless, and can be called after the
+	// context is canceled.
+	comp.Complete()
+
+	// Retried two times.
+	c.Assert(retryCount, Equals, 2)
 
 	// The callback is never called.
 	c.Assert(callbackCount, Equals, 0)

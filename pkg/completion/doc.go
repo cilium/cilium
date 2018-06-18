@@ -60,7 +60,8 @@
 // once when the Completion is successfully completed before the context is
 // cancelled:
 //
-//    comp := wg.AddCompletionWithCallback(func() { fmt.Println("completed') })
+//    comp := wg.AddCompletionWithCallbacks(func() { fmt.Println("completed') },
+//                                          func() { fmt.Println("failed') })
 //
 // The callback is called in the goroutine which calls Complete the first time.
 package completion
