@@ -12,6 +12,18 @@ MOUNT_SYSTEMD="sys-fs-bpf.mount"
 NODE=$1
 IP=$2
 K8S_VERSION=$3
+IPv6=$4
+CONTAINER_RUNTIME=$5
+
+# Kubeadm default parameters
+export KUBEADM_ADDR='192.168.36.11'
+export KUBEADM_POD_NETWORK='10.10.0.0'
+export KUBEADM_POD_CIDR='16'
+export KUBEADM_CRI_SOCKET="/var/run/dockershim.sock"
+export KUBEADM_SLAVE_OPTIONS=""
+export KUBEADM_OPTIONS=""
+export K8S_FULL_VERSION=""
+export INSTALL_KUBEDNS=1
 
 source ${PROVISIONSRC}/helpers.bash
 
@@ -69,6 +81,7 @@ case $K8S_VERSION in
         KUBERNETES_CNI_VERSION="0.6.0-00"
         K8S_FULL_VERSION="1.10.3"
         KUBEADM_SLAVE_OPTIONS="--discovery-token-unsafe-skip-ca-verification --ignore-preflight-errors=cri"
+        KUBEADM_OPTIONS="--ignore-preflight-errors=cri"
         ;;
     "1.11")
         KUBERNETES_CNI_VERSION="v0.6.0"
