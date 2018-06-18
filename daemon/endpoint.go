@@ -230,7 +230,8 @@ func (h *putEndpointID) Handle(params PutEndpointIDParams) middleware.Responder 
 			return apierror.Error(PutEndpointIDFailedCode, fmt.Errorf("error retrieving endpoint to check if it is in %s state", endpoint.StateReady))
 		}
 
-		log.Debug("synchronously waiting for endpoint %d to be in %s state", e.ID, endpoint.StateReady)
+		log.Debugf("synchronously waiting for endpoint '%d' to be in '%s' state",
+			e.ID, endpoint.StateReady)
 
 		// Default timeout for PUT /endpoint/{id} is 30 seconds, so put timeout
 		// in this function a bit below that timeout. If the timeout for clients
