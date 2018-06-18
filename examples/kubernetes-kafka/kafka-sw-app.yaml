@@ -25,9 +25,9 @@ spec:
         - name: KAFKA_CREATE_TOPICS
           value: "empire-announce:1:1,deathstar-plans:1:1"
         - name: KAFKA_ZOOKEEPER_SESSION_TIMEOUT_MS
-          value: "20000"
+          value: "60000"
         - name: KAFKA_ZOOKEEPER_CONNECTION_TIMEOUT_MS
-          value: "20000"
+          value: "60000"
 ---
 apiVersion: extensions/v1beta1
 kind: Deployment
