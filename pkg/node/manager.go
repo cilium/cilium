@@ -26,8 +26,10 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/tunnel"
 	"github.com/cilium/cilium/pkg/mtu"
+	"github.com/cilium/cilium/pkg/option"
 
 	"github.com/sirupsen/logrus"
+	"github.com/spf13/viper"
 	"github.com/vishvananda/netlink"
 )
 
@@ -49,7 +51,6 @@ type clusterConfiguation struct {
 
 	nodes                 map[Identity]*Node
 	ciliumHostInitialized bool
-	usePerNodeRoutes      bool
 	auxPrefixes           []*net.IPNet
 }
 
@@ -218,7 +219,7 @@ func (cc *clusterConfiguation) replaceHostRoutes() {
 	// allows to share a CIDR with legacy endpoints outside of the cluster
 	// but requires individual routes to be installed which creates an
 	// overhead with many nodes.
-	if cc.usePerNodeRoutes {
+	if !viper.GetBool(option.SingleClusterRouteName) {
 		for _, n := range cc.nodes {
 			replaceNodeRoute(n.IPv4AllocCIDR)
 			replaceNodeRoute(n.IPv6AllocCIDR)
@@ -256,14 +257,6 @@ func InstallHostRoutes() {
 // the route but schedules it for addition by InstallHostRoutes
 func AddAuxPrefix(prefix *net.IPNet) {
 	clusterConf.addAuxPrefix(prefix)
-}
-
-// EnablePerNodeRoutes enables use of per node routes. This function must be called
-// at init time before any routes are installed.
-func EnablePerNodeRoutes() {
-	clusterConf.Lock()
-	clusterConf.usePerNodeRoutes = true
-	clusterConf.Unlock()
 }
 
 func tunnelCIDRDeletionRequired(oldCIDR, newCIDR *net.IPNet) bool {
