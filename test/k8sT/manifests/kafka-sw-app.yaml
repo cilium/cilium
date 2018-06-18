@@ -23,9 +23,9 @@ spec:
         - name: KAFKA_BROKER_ID
           value: "1"
         - name: KAFKA_ZOOKEEPER_SESSION_TIMEOUT_MS
-          value: "20000"
+          value: "60000"
         - name: KAFKA_ZOOKEEPER_CONNECTION_TIMEOUT_MS
-          value: "20000"
+          value: "60000"
         livenessProbe:
           tcpSocket:
             port: 9092
