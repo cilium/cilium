@@ -17,7 +17,6 @@ package k8s
 import (
 	"encoding/json"
 	"fmt"
-	"reflect"
 	"testing"
 
 	"github.com/cilium/cilium/api/v1/models"
@@ -1569,8 +1568,11 @@ func Test_parseNetworkPolicyPeer(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := parseNetworkPolicyPeer(tt.args.namespace, tt.args.peer); !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("parseNetworkPolicyPeer() = \n%v, want \n%v", got, tt.want)
+			got := parseNetworkPolicyPeer(tt.args.namespace, tt.args.peer)
+			args := []interface{}{got, tt.want}
+			names := []string{"obtained", "expected"}
+			if equal, err := comparator.DeepEquals.Check(args, names); !equal {
+				t.Errorf("Failed to parseNetworkPolicyPeer():\n%s", err)
 			}
 		})
 	}
