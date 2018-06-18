@@ -169,6 +169,31 @@ func (e *Endpoint) writeHeaderfile(prefix string, owner Owner) error {
 		fmt.Fprintf(fw, " * Docker Container ID: %s\n", e.DockerID)
 	}
 
+	policyMapPath, err := e.PolicyMapPathLocked()
+	if err != nil {
+		return err
+	}
+	ipv6IngressMapPath, err := e.IPv6IngressMapPathLocked()
+	if err != nil {
+		return err
+	}
+	ipv6EgressMapPath, err := e.IPv6EgressMapPathLocked()
+	if err != nil {
+		return err
+	}
+	ipv4IngressMapPath, err := e.IPv4IngressMapPathLocked()
+	if err != nil {
+		return err
+	}
+	ipv4EgressMapPath, err := e.IPv4EgressMapPathLocked()
+	if err != nil {
+		return err
+	}
+	callsMapPath, err := e.CallsMapPathLocked()
+	if err != nil {
+		return err
+	}
+
 	fmt.Fprintf(fw, ""+
 		" * MAC: %s\n"+
 		" * IPv6 address: %s\n"+
@@ -182,11 +207,11 @@ func (e *Endpoint) writeHeaderfile(prefix string, owner Owner) error {
 		" * NodeMAC: %s\n"+
 		" */\n\n",
 		e.LXCMAC, e.IPv6.String(), e.IPv4.String(),
-		e.GetIdentity(), path.Base(e.PolicyMapPathLocked()),
-		path.Base(e.IPv6IngressMapPathLocked()),
-		path.Base(e.IPv6EgressMapPathLocked()),
-		path.Base(e.IPv4IngressMapPathLocked()),
-		path.Base(e.IPv4EgressMapPathLocked()),
+		e.GetIdentity(), path.Base(policyMapPath),
+		path.Base(ipv6IngressMapPath),
+		path.Base(ipv6EgressMapPath),
+		path.Base(ipv4IngressMapPath),
+		path.Base(ipv4EgressMapPath),
 		e.NodeMAC)
 
 	fw.WriteString("/*\n")
@@ -230,17 +255,17 @@ func (e *Endpoint) writeHeaderfile(prefix string, owner Owner) error {
 		fmt.Fprintf(fw, "#define SECLABEL %s\n", invalid.StringID())
 		fmt.Fprintf(fw, "#define SECLABEL_NB %#x\n", byteorder.HostToNetwork(invalid.Uint32()))
 	}
-	fmt.Fprintf(fw, "#define POLICY_MAP %s\n", path.Base(e.PolicyMapPathLocked()))
+	fmt.Fprintf(fw, "#define POLICY_MAP %s\n", path.Base(policyMapPath))
 	if e.L3Policy != nil {
 		fmt.Fprintf(fw, "#define LPM_MAP_VALUE_SIZE %s\n", strconv.Itoa(cidrmap.LPM_MAP_VALUE_SIZE))
 		if len(e.L3Policy.Ingress.IPv6PrefixCount) > 0 {
-			fmt.Fprintf(fw, "#define CIDR6_INGRESS_MAP %s\n", path.Base(e.IPv6IngressMapPathLocked()))
+			fmt.Fprintf(fw, "#define CIDR6_INGRESS_MAP %s\n", path.Base(ipv6IngressMapPath))
 		}
 		if len(e.L3Policy.Ingress.IPv4PrefixCount) > 0 {
-			fmt.Fprintf(fw, "#define CIDR4_INGRESS_MAP %s\n", path.Base(e.IPv4IngressMapPathLocked()))
+			fmt.Fprintf(fw, "#define CIDR4_INGRESS_MAP %s\n", path.Base(ipv4IngressMapPath))
 		}
 	}
-	fmt.Fprintf(fw, "#define CALLS_MAP %s\n", path.Base(e.CallsMapPathLocked()))
+	fmt.Fprintf(fw, "#define CALLS_MAP %s\n", path.Base(callsMapPath))
 	if e.Opts.IsEnabled(option.ConntrackLocal) {
 		fmt.Fprintf(fw, "#define CT_MAP_SIZE %s\n", strconv.Itoa(ctmap.MapNumEntriesLocal))
 		fmt.Fprintf(fw, "#define CT_MAP6 %s\n", ctmap.MapName6+strconv.Itoa(int(e.ID)))
@@ -597,6 +622,27 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir, reason string) (uint64, boo
 	createdIPv4IngressMap := false
 	createdIPv4EgressMap := false
 
+	policyMapPath, err := e.PolicyMapPathLocked()
+	if err != nil {
+		return 0, compilationExecuted, err
+	}
+	ipv6IngressMapPath, err := e.IPv6IngressMapPathLocked()
+	if err != nil {
+		return 0, compilationExecuted, err
+	}
+	ipv6EgressMapPath, err := e.IPv6EgressMapPathLocked()
+	if err != nil {
+		return 0, compilationExecuted, err
+	}
+	ipv4IngressMapPath, err := e.IPv4IngressMapPathLocked()
+	if err != nil {
+		return 0, compilationExecuted, err
+	}
+	ipv4EgressMapPath, err := e.IPv4EgressMapPathLocked()
+	if err != nil {
+		return 0, compilationExecuted, err
+	}
+
 	defer func() {
 		if err != nil {
 			e.Mutex.Lock()
@@ -605,32 +651,32 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir, reason string) (uint64, boo
 				"errors during regeneration")
 			if createdPolicyMap {
 				epLogger.Debug("removing endpoint PolicyMap")
-				os.RemoveAll(e.PolicyMapPathLocked())
+				os.RemoveAll(policyMapPath)
 				e.PolicyMap = nil
 			}
 
 			if createdIPv6IngressMap {
-				epLogger.WithField(logfields.BPFMapName, e.IPv6IngressMapPathLocked()).Debug("removing endpoint CIDR map")
-				e.L3Maps.DestroyBpfMap(IPv6Ingress, e.IPv6IngressMapPathLocked())
+				epLogger.WithField(logfields.BPFMapName, ipv6IngressMapPath).Debug("removing endpoint CIDR map")
+				e.L3Maps.DestroyBpfMap(IPv6Ingress, ipv6IngressMapPath)
 			}
 			if createdIPv6EgressMap {
-				epLogger.WithField(logfields.BPFMapName, e.IPv6EgressMapPathLocked()).Debug("removing endpoint CIDR map")
-				e.L3Maps.DestroyBpfMap(IPv6Egress, e.IPv6EgressMapPathLocked())
+				epLogger.WithField(logfields.BPFMapName, ipv6EgressMapPath).Debug("removing endpoint CIDR map")
+				e.L3Maps.DestroyBpfMap(IPv6Egress, ipv6EgressMapPath)
 			}
 			if createdIPv4IngressMap {
-				epLogger.WithField(logfields.BPFMapName, e.IPv4IngressMapPathLocked()).Debug("removing endpoint CIDR map")
-				e.L3Maps.DestroyBpfMap(IPv4Ingress, e.IPv4IngressMapPathLocked())
+				epLogger.WithField(logfields.BPFMapName, ipv4IngressMapPath).Debug("removing endpoint CIDR map")
+				e.L3Maps.DestroyBpfMap(IPv4Ingress, ipv4IngressMapPath)
 			}
 			if createdIPv4EgressMap {
-				epLogger.WithField(logfields.BPFMapName, e.IPv4EgressMapPathLocked()).Debug("removing endpoint CIDR map")
-				e.L3Maps.DestroyBpfMap(IPv4Egress, e.IPv4EgressMapPathLocked())
+				epLogger.WithField(logfields.BPFMapName, ipv4EgressMapPath).Debug("removing endpoint CIDR map")
+				e.L3Maps.DestroyBpfMap(IPv4Egress, ipv4EgressMapPath)
 			}
 			e.Mutex.Unlock()
 		}
 	}()
 
 	if e.PolicyMap == nil {
-		e.PolicyMap, createdPolicyMap, err = policymap.OpenMap(e.PolicyMapPathLocked())
+		e.PolicyMap, createdPolicyMap, err = policymap.OpenMap(policyMapPath)
 		if err != nil {
 			e.Mutex.Unlock()
 			return 0, compilationExecuted, err
@@ -729,22 +775,22 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir, reason string) (uint64, boo
 	// just delete the maps.
 	if e.L3Policy != nil {
 		if len(e.L3Policy.Ingress.IPv6PrefixCount) > 0 &&
-			e.L3Maps.ResetBpfMap(IPv6Ingress, e.IPv6IngressMapPathLocked()) == nil {
+			e.L3Maps.ResetBpfMap(IPv6Ingress, ipv6IngressMapPath) == nil {
 			createdIPv6IngressMap = true
 			e.L3Policy.Ingress.PopulateBPF(e.L3Maps[IPv6Ingress])
 		} else {
-			e.L3Maps.DestroyBpfMap(IPv6Ingress, e.IPv6IngressMapPathLocked())
+			e.L3Maps.DestroyBpfMap(IPv6Ingress, ipv6IngressMapPath)
 		}
 		if len(e.L3Policy.Ingress.IPv4PrefixCount) > 0 &&
-			e.L3Maps.ResetBpfMap(IPv4Ingress, e.IPv4IngressMapPathLocked()) == nil {
+			e.L3Maps.ResetBpfMap(IPv4Ingress, ipv4IngressMapPath) == nil {
 			createdIPv4IngressMap = true
 			e.L3Policy.Ingress.PopulateBPF(e.L3Maps[IPv4Ingress])
 		} else {
-			e.L3Maps.DestroyBpfMap(IPv4Ingress, e.IPv4IngressMapPathLocked())
+			e.L3Maps.DestroyBpfMap(IPv4Ingress, ipv4IngressMapPath)
 		}
 		// TODO: In Cilium v1.4 or later cycle, remove this.
-		e.L3Maps.DestroyBpfMap(IPv6Egress, e.IPv6EgressMapPathLocked())
-		e.L3Maps.DestroyBpfMap(IPv4Egress, e.IPv4EgressMapPathLocked())
+		e.L3Maps.DestroyBpfMap(IPv6Egress, ipv6EgressMapPath)
+		e.L3Maps.DestroyBpfMap(IPv4Egress, ipv4EgressMapPath)
 	}
 
 	e.Mutex.Unlock()

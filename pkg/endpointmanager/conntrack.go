@@ -51,14 +51,18 @@ func RunGC(e *endpoint.Endpoint, isIPv6 bool, filter *ctmap.GCFilter) {
 		} else {
 			mapType = ctmap.MapName4
 		}
-		file = bpf.MapPath(mapType + strconv.Itoa(int(e.ID)))
+		// NOTE: GC is a periodical goroutine and the chance of MapPath
+		// lookup error is very small, so it is ignored.
+		file, _ = bpf.MapPath(mapType + strconv.Itoa(int(e.ID)))
 	} else {
 		if isIPv6 {
 			mapType = ctmap.MapName6Global
 		} else {
 			mapType = ctmap.MapName4Global
 		}
-		file = bpf.MapPath(mapType)
+		// NOTE: GC is a periodical goroutine and the chance of MapPath
+		// lookup error is very small, so it is ignored.
+		file, _ = bpf.MapPath(mapType)
 	}
 
 	m, err := bpf.OpenMap(file)

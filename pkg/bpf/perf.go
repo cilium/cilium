@@ -443,7 +443,11 @@ func NewPerCpuEvents(config *PerfEventConfig) (*PerCpuEvents, error) {
 
 	mapPath := config.MapName
 	if !path.IsAbs(mapPath) {
-		mapPath = MapPath(mapPath)
+		fullMapPath, err := MapPath(mapPath)
+		if err != nil {
+			return nil, err
+		}
+		mapPath = fullMapPath
 	}
 
 	e.eventMap, err = openMap(mapPath)

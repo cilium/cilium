@@ -1319,22 +1319,32 @@ func (d *Daemon) removeStaleMap(path string) {
 	}
 }
 
-func (d *Daemon) removeStaleIDFromPolicyMap(id uint32) {
-	gpm, err := policymap.OpenGlobalMap(bpf.MapPath(endpoint.PolicyGlobalMapName))
+func (d *Daemon) removeStaleIDFromPolicyMap(id uint32) error {
+	policyMapPath, err := bpf.MapPath(endpoint.PolicyGlobalMapName)
+	if err != nil {
+		return err
+	}
+	gpm, err := policymap.OpenGlobalMap(policyMapPath)
 	if err == nil {
 		gpm.Delete(id, policymap.AllPorts, u8proto.All, policymap.Ingress)
 		gpm.Delete(id, policymap.AllPorts, u8proto.All, policymap.Egress)
 		gpm.Close()
 	}
+
+	return nil
 }
 
-func (d *Daemon) checkStaleMap(path string, filename string, id string) {
+func (d *Daemon) checkStaleMap(path string, filename string, id string) error {
 	if tmp, err := strconv.ParseUint(id, 0, 16); err == nil {
 		if ep := endpointmanager.LookupCiliumID(uint16(tmp)); ep == nil {
-			d.removeStaleIDFromPolicyMap(uint32(tmp))
+			if err := d.removeStaleIDFromPolicyMap(uint32(tmp)); err != nil {
+				return err
+			}
 			d.removeStaleMap(path)
 		}
 	}
+
+	return nil
 }
 
 func (d *Daemon) checkStaleGlobalMap(path string, filename string) {
@@ -1362,7 +1372,9 @@ func (d *Daemon) staleMapWalker(path string) error {
 	for _, m := range mapPrefix {
 		if strings.HasPrefix(filename, m) {
 			if id := strings.TrimPrefix(filename, m); id != filename {
-				d.checkStaleMap(path, filename, id)
+				if err := d.checkStaleMap(path, filename, id); err != nil {
+					return err
+				}
 			}
 		}
 	}

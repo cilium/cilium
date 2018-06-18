@@ -230,7 +230,10 @@ func updatePolicyKey(cmd *cobra.Command, args []string, add bool) {
 		endpointID = "reserved_" + strconv.FormatUint(uint64(numericIdentity), 10)
 	}
 
-	policyMapPath := bpf.MapPath(policymap.MapName + endpointID)
+	policyMapPath, err := bpf.MapPath(policymap.MapName + endpointID)
+	if err != nil {
+		Fatalf("Cannot get BPF map path: %s", err)
+	}
 	policyMap, _, err := policymap.OpenMap(policyMapPath)
 	if err != nil {
 		Fatalf("Cannot open policymap '%s' : %s", policyMapPath, err)

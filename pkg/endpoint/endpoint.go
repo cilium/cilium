@@ -1372,7 +1372,11 @@ func ParseEndpoint(strEp string) (*Endpoint, error) {
 }
 
 func (e *Endpoint) RemoveFromGlobalPolicyMap() error {
-	gpm, err := policymap.OpenGlobalMap(e.PolicyGlobalMapPathLocked())
+	policyGlobalMapPath, err := e.PolicyGlobalMapPathLocked()
+	if err != nil {
+		return err
+	}
+	gpm, err := policymap.OpenGlobalMap(policyGlobalMapPath)
 	if err == nil {
 		// We need to remove ourselves from global map, so that
 		// resources (prog/map reference counts) can be released.
@@ -1425,64 +1429,64 @@ func (e *Endpoint) GetBPFValue() (*lxcmap.EndpointInfo, error) {
 }
 
 // mapPath returns the path to a map for endpoint ID.
-func mapPath(mapname string, id int) string {
+func mapPath(mapname string, id int) (string, error) {
 	return bpf.MapPath(mapname + strconv.Itoa(id))
 }
 
 // PolicyMapPathLocked returns the path to the policy map of endpoint.
-func (e *Endpoint) PolicyMapPathLocked() string {
+func (e *Endpoint) PolicyMapPathLocked() (string, error) {
 	return mapPath(policymap.MapName, int(e.ID))
 }
 
 // IPv6IngressMapPathLocked returns the path to policy map of endpoint.
-func (e *Endpoint) IPv6IngressMapPathLocked() string {
+func (e *Endpoint) IPv6IngressMapPathLocked() (string, error) {
 	return mapPath(cidrmap.MapName+"ingress6_", int(e.ID))
 }
 
 // IPv6EgressMapPathLocked returns the path to policy map of endpoint.
-func (e *Endpoint) IPv6EgressMapPathLocked() string {
+func (e *Endpoint) IPv6EgressMapPathLocked() (string, error) {
 	return mapPath(cidrmap.MapName+"egress6_", int(e.ID))
 }
 
 // IPv4IngressMapPathLocked returns the path to policy map of endpoint.
-func (e *Endpoint) IPv4IngressMapPathLocked() string {
+func (e *Endpoint) IPv4IngressMapPathLocked() (string, error) {
 	return mapPath(cidrmap.MapName+"ingress4_", int(e.ID))
 }
 
 // IPv4EgressMapPathLocked returns the path to policy map of endpoint.
-func (e *Endpoint) IPv4EgressMapPathLocked() string {
+func (e *Endpoint) IPv4EgressMapPathLocked() (string, error) {
 	return mapPath(cidrmap.MapName+"egress4_", int(e.ID))
 }
 
 // PolicyGlobalMapPathLocked returns the path to the global policy map.
-func (e *Endpoint) PolicyGlobalMapPathLocked() string {
+func (e *Endpoint) PolicyGlobalMapPathLocked() (string, error) {
 	return bpf.MapPath(PolicyGlobalMapName)
 }
 
-func CallsMapPath(id int) string {
+func CallsMapPath(id int) (string, error) {
 	return bpf.MapPath(CallsMapName + strconv.Itoa(id))
 }
 
 // CallsMapPathLocked returns the path to cilium tail calls map of an endpoint.
-func (e *Endpoint) CallsMapPathLocked() string {
+func (e *Endpoint) CallsMapPathLocked() (string, error) {
 	return CallsMapPath(int(e.ID))
 }
 
 // Ct6MapPath returns the path to IPv6 connection tracking map of endpoint.
-func Ct6MapPath(id int) string {
+func Ct6MapPath(id int) (string, error) {
 	return bpf.MapPath(ctmap.MapName6 + strconv.Itoa(id))
 }
 
-func (e *Endpoint) Ct6MapPathLocked() string {
+func (e *Endpoint) Ct6MapPathLocked() (string, error) {
 	return Ct6MapPath(int(e.ID))
 }
 
 // Ct4MapPath returns the path to IPv4 connection tracking map of endpoint.
-func Ct4MapPath(id int) string {
+func Ct4MapPath(id int) (string, error) {
 	return bpf.MapPath(ctmap.MapName4 + strconv.Itoa(id))
 }
 
-func (e *Endpoint) Ct4MapPathLocked() string {
+func (e *Endpoint) Ct4MapPathLocked() (string, error) {
 	return Ct4MapPath(int(e.ID))
 }
 
@@ -1711,7 +1715,12 @@ func (e *Endpoint) LeaveLocked(owner Owner) []error {
 
 	if e.PolicyMap != nil {
 		if err := e.PolicyMap.Close(); err != nil {
-			errors = append(errors, fmt.Errorf("unable to close policymap %s: %s", e.PolicyGlobalMapPathLocked(), err))
+			policyGlobalMapPath, err := e.PolicyGlobalMapPathLocked()
+			if err != nil {
+				errors = append(errors, fmt.Errorf("unable to close policymap: %s", err))
+			} else {
+				errors = append(errors, fmt.Errorf("unable to close policymap %s: %s", policyGlobalMapPath, err))
+			}
 		}
 	}
 
@@ -2462,7 +2471,12 @@ func (e *Endpoint) syncPolicyMap() error {
 			e.getLogger().WithError(err).Error("unable to close PolicyMap which was not able to be dumped")
 		}
 
-		e.PolicyMap, _, err = policymap.OpenMap(e.PolicyMapPathLocked())
+		policyMapPath, err := e.PolicyMapPathLocked()
+		if err != nil {
+			return fmt.Errorf("unable to get PolicyMap path: %s", err)
+		}
+
+		e.PolicyMap, _, err = policymap.OpenMap(policyMapPath)
 		if err != nil {
 			return fmt.Errorf("unable to open PolicyMap for endpoint: %s", err)
 		}

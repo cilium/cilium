@@ -215,25 +215,37 @@ func (p *PreFilter) initOneMap(which preFilterMapType) error {
 		prefixlen = net.IPv4len * 8
 		prefixdyn = true
 		maxelems = maxLKeys
-		path = bpf.MapPath(cidrmap.MapName + "v4_dyn")
+		path, err = bpf.MapPath(cidrmap.MapName + "v4_dyn")
+		if err != nil {
+			return err
+		}
 		skip = p.config.dyn4Enabled == false
 	case prefixesV4Fix:
 		prefixlen = net.IPv4len * 8
 		prefixdyn = false
 		maxelems = maxHKeys
-		path = bpf.MapPath(cidrmap.MapName + "v4_fix")
+		path, err = bpf.MapPath(cidrmap.MapName + "v4_fix")
+		if err != nil {
+			return err
+		}
 		skip = p.config.fix4Enabled == false
 	case prefixesV6Dyn:
 		prefixlen = net.IPv6len * 8
 		prefixdyn = true
 		maxelems = maxLKeys
-		path = bpf.MapPath(cidrmap.MapName + "v6_dyn")
+		path, err = bpf.MapPath(cidrmap.MapName + "v6_dyn")
+		if err != nil {
+			return err
+		}
 		skip = p.config.dyn6Enabled == false
 	case prefixesV6Fix:
 		prefixlen = net.IPv6len * 8
 		prefixdyn = false
 		maxelems = maxHKeys
-		path = bpf.MapPath(cidrmap.MapName + "v6_fix")
+		path, err = bpf.MapPath(cidrmap.MapName + "v6_fix")
+		if err != nil {
+			return err
+		}
 		skip = p.config.fix4Enabled == false
 	}
 	if skip == false {

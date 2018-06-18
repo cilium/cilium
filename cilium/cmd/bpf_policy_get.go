@@ -63,7 +63,10 @@ func listMap(cmd *cobra.Command, args []string) {
 		Fatalf("Need ID or label\n")
 	}
 
-	file := bpf.MapPath(policymap.MapName + lbl)
+	file, err := bpf.MapPath(policymap.MapName + lbl)
+	if err != nil {
+		Fatalf("Cannot get BPF map path: %s", err)
+	}
 	fd, err := bpf.ObjGet(file)
 	if err != nil {
 		Fatalf("%s\n", err)

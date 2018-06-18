@@ -212,7 +212,11 @@ func GetMapInfo(pid int, fd int) (*MapInfo, error) {
 func OpenMap(name string) (*Map, error) {
 	// Expand path if needed
 	if !path.IsAbs(name) {
-		name = MapPath(name)
+		fullName, err := MapPath(name)
+		if err != nil {
+			return nil, err
+		}
+		name = fullName
 	}
 
 	fd, err := ObjGet(name)
@@ -247,7 +251,11 @@ func (m *Map) setPathIfUnset() error {
 			return fmt.Errorf("either path or name must be set")
 		}
 
-		m.path = MapPath(m.name)
+		mapPath, err := MapPath(m.name)
+		if err != nil {
+			return err
+		}
+		m.path = mapPath
 	}
 
 	return nil

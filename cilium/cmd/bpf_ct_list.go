@@ -51,7 +51,10 @@ func init() {
 
 func dumpCtProto(mapType, eID string) {
 
-	file := bpf.MapPath(mapType + eID)
+	file, err := bpf.MapPath(mapType + eID)
+	if err != nil {
+		Fatalf("Cannot get BPF map path: %s", err)
+	}
 	m, err := bpf.OpenMap(file)
 	if err != nil {
 		if err == os.ErrNotExist {

@@ -168,7 +168,10 @@ func updatePrometheusMetrics(key *Key, val *Value) {
 // forwards (by direction) with the prometheus server.
 func SyncMetricsMap() error {
 	var entry [possibleCPUsFileLength]Value
-	file := bpf.MapPath(MapName)
+	file, err := bpf.MapPath(MapName)
+	if err != nil {
+		return err
+	}
 	metricsmap, err := bpf.OpenMap(file)
 
 	if err != nil {
