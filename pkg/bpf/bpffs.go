@@ -21,6 +21,7 @@ import (
 	"sync"
 	"syscall"
 
+	"github.com/cilium/cilium/pkg/components"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -72,9 +73,29 @@ func MapPrefixPath() string {
 	return filepath.Join(mapRoot, mapPrefix)
 }
 
+func mapPathFromMountInfo(name string) string {
+	mountInfos, err := mountinfo.GetMountInfo()
+	if err != nil {
+		log.WithError(err).Fatal("Could not get mount info for map root lookup")
+	}
+
+	for _, mountInfo := range mountInfos {
+		if mountInfo.FilesystemType == mountinfo.FilesystemTypeBPFFS {
+			return filepath.Join(mountInfo.MountPoint, mapPrefix, name)
+		}
+	}
+
+	log.Fatal("Could not find BPF map root")
+	return ""
+}
+
+// MapPath returns a path for a BPF map with a given name.
 func MapPath(name string) string {
-	once.Do(lockDown)
-	return filepath.Join(mapRoot, mapPrefix, name)
+	if components.IsCiliumAgent() {
+		once.Do(lockDown)
+		return filepath.Join(mapRoot, mapPrefix, name)
+	}
+	return mapPathFromMountInfo(name)
 }
 
 // Environment returns a list of environment variables which are needed to make
