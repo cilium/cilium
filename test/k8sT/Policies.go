@@ -687,6 +687,12 @@ var _ = Describe("K8sValidatedPolicyTest", func() {
 		})
 
 		waitforPods := func() {
+
+			err = kubectl.WaitforPods(
+				helpers.DefaultNamespace,
+				fmt.Sprintf("-l %s", groupLabel), 300)
+			ExpectWithOffset(1, err).Should(BeNil(), "Bookinfo pods are not ready after timeout")
+
 			port := "6379"
 			err := kubectl.WaitForServiceEndpoints(
 				helpers.DefaultNamespace, "", "redis-master", port, helpers.HelperTimeout)
@@ -696,10 +702,6 @@ var _ = Describe("K8sValidatedPolicyTest", func() {
 				helpers.DefaultNamespace, "", "redis-slave", port, helpers.HelperTimeout)
 			Expect(err).Should(BeNil(), "error waiting for redis-slave service to be ready on port %s", port)
 
-			err = kubectl.WaitforPods(
-				helpers.DefaultNamespace,
-				fmt.Sprintf("-l %s", groupLabel), 300)
-			ExpectWithOffset(1, err).Should(BeNil())
 		}
 
 		testConnectivitytoRedis := func() {
