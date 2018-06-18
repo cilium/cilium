@@ -85,10 +85,7 @@ func getEndpointSelector(namespace string, labelSelector *metav1.LabelSelector, 
 	// Don't add a namespace label to those endpoint selectors, or we wouldn't be
 	// able to match on those pods.
 	if !matchesInit && !es.HasKey(podPrefixLbl) {
-		if es.MatchLabels == nil {
-			es.MatchLabels = map[string]string{}
-		}
-		es.MatchLabels[podPrefixLbl] = namespace
+		es.AddMatch(podPrefixLbl, namespace)
 	}
 
 	return es
@@ -193,17 +190,14 @@ func ParseToCiliumRule(namespace, name string, r *api.Rule) *api.Rule {
 		// The PodSelector should only reflect to the same namespace
 		// the policy is being stored, thus we add the namespace to
 		// the MatchLabels map.
-		if retRule.EndpointSelector.LabelSelector.MatchLabels == nil {
-			retRule.EndpointSelector.LabelSelector.MatchLabels = map[string]string{}
-		}
-
+		//
 		// Policies applying on initializing pods are a special case.
 		// Those pods don't have any labels, so they don't have a namespace label either.
 		// Don't add a namespace label to those endpoint selectors, or we wouldn't be
 		// able to match on those pods.
-		if _, ok := retRule.EndpointSelector.LabelSelector.MatchLabels[podInitLbl]; !ok {
-			userNamespace, ok := retRule.EndpointSelector.LabelSelector.MatchLabels[podPrefixLbl]
-			if ok && userNamespace != namespace {
+		if !retRule.EndpointSelector.HasKey(podInitLbl) {
+			userNamespace, ok := retRule.EndpointSelector.GetMatch(podPrefixLbl)
+			if ok && (len(userNamespace) > 1 || (len(userNamespace) == 1 && userNamespace[1] != namespace)) {
 				log.WithFields(logrus.Fields{
 					logfields.K8sNamespace:              namespace,
 					logfields.CiliumNetworkPolicyName:   name,
@@ -211,7 +205,7 @@ func ParseToCiliumRule(namespace, name string, r *api.Rule) *api.Rule {
 				}).Warn("CiliumNetworkPolicy contains illegal namespace match in EndpointSelector." +
 					" EndpointSelector always applies in namespace of the policy resource, removing illegal namespace match'.")
 			}
-			retRule.EndpointSelector.LabelSelector.MatchLabels[podPrefixLbl] = namespace
+			retRule.EndpointSelector.AddMatch(podPrefixLbl, namespace)
 		}
 	}
 
