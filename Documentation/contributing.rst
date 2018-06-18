@@ -507,14 +507,14 @@ but can be changed using the environment variable ``K8S_VERSION``.
 Nightly Testing Jenkins Setup
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Nightly tests run once per day in the `Cilium-Nightly-Tests Job <https://jenkins.cilium.io/job/Cilium-Nightly-Tests/>`_.
+Nightly tests run once per day in the `Cilium-Nightly-Tests Job <https://jenkins.cilium.io/job/Cilium-Master-Nightly-Tests-All/>`_.
 The configuration for this job is stored in ``Jenkinsfile.nightly``.
 
 To see the results of these tests, you can view the JUnit Report for an individual job:
 
 1. Click on the build number you wish to get test results from on the left hand
    side of the `Cilium-Nightly-Tests Job
-   <https://jenkins.cilium.io/job/Cilium-Nightly-Tests/>`_.
+   <https://jenkins.cilium.io/job/Cilium-Master-Nightly-Tests-All/>`_.
 2. Click on 'Test Results' on the left side of the page to view the results from the build.
    This will give you a report of which tests passed and failed. You can click on each test
    to view its corresponding output created from Ginkgo.

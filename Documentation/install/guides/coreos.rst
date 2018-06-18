@@ -88,7 +88,7 @@ with Cilium networking configured.
              --mount volume=cni-bin,target=/opt/cni/bin
 
     * `Mount the BPF filesystem
-      <http://docs.cilium.io/en/latest/admin/#mounting-the-bpf-fs>`_ so that
+      <http://cilium.readthedocs.io/en/latest/kubernetes/install/?#mounting-the-bpf-fs-optional>`_ so that
       the information stored there persists across Cilium restarts:
 
         ::
@@ -407,7 +407,7 @@ with Cilium networking configured.
             --volume cni-bin,kind=host,source=/opt/cni/bin \
             --mount volume=cni-bin,target=/opt/cni/bin 
 
-    * `Mount the BPF filesystem <http://docs.cilium.io/en/latest/admin/#mounting-the-bpf-fs>`_ so that the information stored there persists across Cilium restarts:
+    * `Mount the BPF filesystem <http://cilium.readthedocs.io/en/latest/kubernetes/install/?#mounting-the-bpf-fs-optional>`_ so that the information stored there persists across Cilium restarts:
 
         ::  
 
