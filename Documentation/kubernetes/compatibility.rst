@@ -18,5 +18,5 @@ All Kubernetes versions listed are compatible with Cilium:
 | 1.8, 1.9, 1.10, 1.11 | * `networking.k8s.io/v1`_ |                            |
 +----------------------+---------------------------+----------------------------+
 
-.. _extensions/v1beta1: https://kubernetes.io/docs/api-reference/extensions/v1beta1/definitions/#_v1beta1_networkpolicy
+.. _extensions/v1beta1: https://v1-7.docs.kubernetes.io/docs/api-reference/v1.7/#networkpolicy-v1beta1-extensions
 .. _networking.k8s.io/v1: https://kubernetes.io/docs/api-reference/v1.8/#networkpolicy-v1-networking
