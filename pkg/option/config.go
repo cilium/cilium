@@ -25,6 +25,8 @@ import (
 	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/lock"
+
+	"github.com/spf13/viper"
 )
 
 const (
@@ -55,7 +57,27 @@ const (
 
 	// K8sRequireIPv6PodCIDRName is the name of the K8sRequireIPv6PodCIDR option
 	K8sRequireIPv6PodCIDRName = "k8s-require-ipv6-pod-cidr"
+
+	// TunnelName is the name of the Tunnel option
+	TunnelName = "tunnel"
 )
+
+// Available option for daemonConfig.Tunnel
+const (
+	// TunnelVXLAN specifies VXLAN encapsulation
+	TunnelVXLAN = "vxlan"
+
+	// TunnelGeneve specifies Geneve encapsulation
+	TunnelGeneve = "geneve"
+
+	// TunnelDisabled specifies to disable encapsulation
+	TunnelDisabled = "disabled"
+)
+
+// GetTunnelModes returns the list of all tunnel modes
+func GetTunnelModes() string {
+	return fmt.Sprintf("%s, %s, %s", TunnelVXLAN, TunnelGeneve, TunnelDisabled)
+}
 
 // daemonConfig is the configuration used by Daemon.
 type daemonConfig struct {
@@ -201,6 +223,14 @@ func (c *daemonConfig) Validate() error {
 	if err := c.validateIPv6ClusterAllocCIDR(); err != nil {
 		return fmt.Errorf("unable to parse CIDR value '%s' of option --%s: %s",
 			c.IPv6ClusterAllocCIDR, IPv6ClusterAllocCIDRName, err)
+	}
+
+	tunnel := viper.GetString(TunnelName)
+	switch tunnel {
+	case TunnelVXLAN, TunnelGeneve, TunnelDisabled:
+		c.Tunnel = tunnel
+	default:
+		return fmt.Errorf("invalid tunnel mode '%s', valid modes = {%s}", c.Tunnel, GetTunnelModes())
 	}
 
 	return nil
