@@ -257,7 +257,9 @@ update-authors:
 docs-container:
 	grep -v -E "(SOURCE|GIT)_VERSION" .gitignore >.dockerignore
 	echo ".*" >>.dockerignore # .git pruned out
-	docker image build -t cilium/docs-builder -f Documentation/Dockerfile .
+	cp -r ./api ./Documentation/_api
+	docker image build -t cilium/docs-builder -f Documentation/Dockerfile ./Documentation
+	rm -r ./Documentation/_api
 
 
 render-docs: docs-container
