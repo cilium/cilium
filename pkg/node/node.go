@@ -193,3 +193,9 @@ func GetLocalNode() (Identity, *Node) {
 	}
 
 }
+
+// IsLocal returns true if this is the node on which the agent itself is
+// running on
+func (n *Node) IsLocal() bool {
+	return n != nil && n.Name == GetName()
+}

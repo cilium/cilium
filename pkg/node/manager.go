@@ -208,6 +208,37 @@ func replaceNodeRoute(ip *net.IPNet) {
 	}
 }
 
+// deleteNodeRoute removes a node route of a particular CIDR
+func deleteNodeRoute(ip *net.IPNet) {
+	if ip == nil {
+		return
+	}
+
+	link, err := netlink.LinkByName(HostDevice)
+	if err != nil {
+		log.WithError(err).WithField(logfields.Interface, HostDevice).Error("Unable to lookup interface")
+		return
+	}
+
+	var via, local net.IP
+	if ip.IP.To4() != nil {
+		via = GetInternalIPv4()
+		local = GetInternalIPv4()
+	} else {
+		via = GetIPv6Router()
+		local = GetIPv6()
+	}
+
+	route := netlink.Route{LinkIndex: link.Attrs().Index, Dst: ip, Gw: via, Src: local}
+	scopedLog := log.WithField(logfields.Route, route)
+
+	if err := netlink.RouteDel(&route); err != nil {
+		scopedLog.WithError(err).Error("Unable to add node route")
+	} else {
+		scopedLog.Info("Removed node route")
+	}
+}
+
 func (cc *clusterConfiguation) replaceHostRoutes() {
 	if !cc.ciliumHostInitialized {
 		log.Debug("Deferring node routes installation, host device not present yet")
@@ -221,8 +252,19 @@ func (cc *clusterConfiguation) replaceHostRoutes() {
 	// overhead with many nodes.
 	if !viper.GetBool(option.SingleClusterRouteName) {
 		for _, n := range cc.nodes {
-			replaceNodeRoute(n.IPv4AllocCIDR)
-			replaceNodeRoute(n.IPv6AllocCIDR)
+			// Insert node routes in the form of:
+			//   Node-CIDR via GetRouterIP() dev cilium_host
+			//
+			// This is always required for the local node.
+			// Otherwise it is only required when running in
+			// tunneling mode
+			if n.IsLocal() || option.Config.Tunnel != option.TunnelDisabled {
+				replaceNodeRoute(n.IPv4AllocCIDR)
+				replaceNodeRoute(n.IPv6AllocCIDR)
+			} else {
+				deleteNodeRoute(n.IPv4AllocCIDR)
+				deleteNodeRoute(n.IPv6AllocCIDR)
+			}
 		}
 	} else {
 		replaceNodeRoute(GetIPv4AllocRange())
