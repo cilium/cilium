@@ -50,7 +50,7 @@ please come and seek help on our `Slack channel`.
 Migrating Cilium TPR to CRD
 ===========================
 
-Prior to Kubernetes 1.7, Cilium Network Policy (CNP) objects were imported as a `Kubernetes ThirdPartyResource (TPRs) <https://kubernetes.io/docs/tasks/access-kubernetes-api/extend-api-third-party-resource/>`_.
+Prior to Kubernetes 1.7, Cilium Network Policy (CNP) objects were imported as a `Kubernetes ThirdPartyResource (TPRs) <https://kubernetes.io/docs/tasks/access-kubernetes-api/migrate-third-party-resource/>`_.
 In Kubernetes ``>=1.7.0``, TPRs are now deprecated, and will be removed in Kubernetes 1.8. TPRs are  replaced by `Custom Resource Definitions (CRDs) <https://kubernetes.io/docs/concepts/api-extension/custom-resources/#customresourcedefinitions>`_.  Thus, as part of the upgrade process to Kubernetes 1.7, Kubernetes has provided documentation for `migrating TPRs to CRDS <http://cilium.link/migrate-tpr>`_. 
 
 The following instructions document how to migrate CiliumNetworkPolicies existing as TPRs from a Kubernetes cluster which was previously running versions ``< 1.7.0`` to CRDs on a Kubernetes cluster running versions ``>= 1.7.0``. This is meant to correspond to steps 4-6 of the `aforementioned guide <http://cilium.link/migrate-tpr>`_.

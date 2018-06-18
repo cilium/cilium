@@ -3758,7 +3758,7 @@ are mainly targeted for kernel developers involved in the BPF subsystem.
   reporting workflows, questions around BPF's extensibility and interaction
   with LLVM and more.
 
-  https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/Documentation/bpf/bpf_devel_QA.txt
+  https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/Documentation/bpf/bpf_devel_QA.rst
 
 ..
 
@@ -3766,7 +3766,7 @@ are mainly targeted for kernel developers involved in the BPF subsystem.
   around BPF design decisions related to the instruction set, verifier,
   calling convention, JITs, etc.
 
-  https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/Documentation/bpf/bpf_design_QA.txt
+  https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/Documentation/bpf/bpf_design_QA.rst
 
 Projects using BPF
 ------------------
