@@ -59,7 +59,7 @@ func defaultCommands(confDir string, cmdDir string, k8sPods []string) []string {
 		"arp",
 		"top -b -n 1",
 		"uptime",
-		"dmesg",
+		"dmesg --time-format=iso",
 		"bpftool map show",
 		"bpftool prog show",
 		// Versions
