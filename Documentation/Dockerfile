@@ -1,11 +1,11 @@
 FROM alpine:3.7
 
-LABEL "author"="Cilium"
+LABEL maintainer="maintainer@cilium.io"
 
 ENV DOCS_DIR=/srv/Documentation
 ENV API_DIR=/srv/api
 
-ADD Documentation/requirements.txt $DOCS_DIR/requirements.txt
+ADD ./requirements.txt $DOCS_DIR/requirements.txt
 
 ENV PACKAGES="\
     bash \
@@ -23,5 +23,5 @@ RUN apk add --no-cache --virtual --update $PACKAGES && \
     pip install -r $DOCS_DIR/requirements.txt
 
 WORKDIR $DOCS_DIR
-ADD api $API_DIR
-ADD Documentation $DOCS_DIR
+ADD _api $API_DIR
+ADD . $DOCS_DIR
