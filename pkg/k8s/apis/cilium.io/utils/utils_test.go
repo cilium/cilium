@@ -32,9 +32,16 @@ func Test(t *testing.T) {
 	TestingT(t)
 }
 
-type CiliumV2Suite struct{}
+type CiliumUtilsSuite struct{}
 
-var _ = Suite(&CiliumV2Suite{})
+var _ = Suite(&CiliumUtilsSuite{})
+
+func (s *CiliumUtilsSuite) Test_namespacesAreValid(c *C) {
+	c.Assert(namespacesAreValid("default", []string{}), Equals, true)
+	c.Assert(namespacesAreValid("default", []string{"default"}), Equals, true)
+	c.Assert(namespacesAreValid("default", []string{"foo"}), Equals, false)
+	c.Assert(namespacesAreValid("default", []string{"default", "foo"}), Equals, false)
+}
 
 func Test_ParseToCiliumRule(t *testing.T) {
 	role := fmt.Sprintf("%s.role", labels.LabelSourceAny)

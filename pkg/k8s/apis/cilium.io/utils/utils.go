@@ -181,6 +181,14 @@ func parseToCiliumEgressRule(namespace string, inRule, retRule *api.Rule) {
 	}
 }
 
+// namespacesAreValid checks the set of namespaces from a rule returns true if
+// they are not specified, or if they are specified and match the namespace
+// where the rule is being inserted.
+func namespacesAreValid(namespace string, userNamespaces []string) bool {
+	return len(userNamespaces) == 0 ||
+		(len(userNamespaces) == 1 && userNamespaces[0] == namespace)
+}
+
 // ParseToCiliumRule returns an api.Rule with all the labels parsed into cilium
 // labels.
 func ParseToCiliumRule(namespace, name string, r *api.Rule) *api.Rule {
@@ -196,8 +204,8 @@ func ParseToCiliumRule(namespace, name string, r *api.Rule) *api.Rule {
 		// Don't add a namespace label to those endpoint selectors, or we wouldn't be
 		// able to match on those pods.
 		if !retRule.EndpointSelector.HasKey(podInitLbl) {
-			userNamespace, ok := retRule.EndpointSelector.GetMatch(podPrefixLbl)
-			if ok && (len(userNamespace) > 1 || (len(userNamespace) == 1 && userNamespace[0] != namespace)) {
+			userNamespace, present := r.EndpointSelector.GetMatch(podPrefixLbl)
+			if present && !namespacesAreValid(namespace, userNamespace) {
 				log.WithFields(logrus.Fields{
 					logfields.K8sNamespace:              namespace,
 					logfields.CiliumNetworkPolicyName:   name,
