@@ -266,8 +266,6 @@ func (e *Endpoint) computeDesiredL3PolicyMapEntries(owner Owner, identityCache *
 		egressCtx.Trace = policy.TRACE_ENABLED
 	}
 
-	enableIngressEnforcement, enableEgressEnforcement := owner.EnableEndpointPolicyEnforcement(e)
-
 	// Only L3 (label-based) policy apply.
 	// Complexity increases linearly by the number of identities in the map.
 	for identity, labels := range *identityCache {
@@ -275,7 +273,7 @@ func (e *Endpoint) computeDesiredL3PolicyMapEntries(owner Owner, identityCache *
 		egressCtx.To = labels
 
 		var ingressAccess api.Decision
-		if enableIngressEnforcement {
+		if e.Opts.IsEnabled(option.IngressPolicy) {
 			ingressAccess = repo.AllowsIngressLabelAccess(&ingressCtx)
 		} else {
 			// If policy enforcement is disabled, set the policy to an
@@ -294,7 +292,7 @@ func (e *Endpoint) computeDesiredL3PolicyMapEntries(owner Owner, identityCache *
 		}
 
 		var egressAccess api.Decision
-		if enableEgressEnforcement {
+		if e.Opts.IsEnabled(option.EgressPolicy) {
 			egressAccess = repo.AllowsEgressLabelAccess(&egressCtx)
 		} else {
 			// If policy enforcement is disabled, set the policy to an
