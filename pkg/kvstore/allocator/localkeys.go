@@ -25,6 +25,7 @@ import (
 
 type localKey struct {
 	val    ID
+	key    string
 	refcnt uint64
 
 	// verified is true when the key has been synced with the kvstore
@@ -36,10 +37,14 @@ type localKey struct {
 type localKeys struct {
 	lock.RWMutex
 	keys map[string]*localKey
+	ids  map[ID]*localKey
 }
 
 func newLocalKeys() *localKeys {
-	return &localKeys{keys: map[string]*localKey{}}
+	return &localKeys{
+		keys: map[string]*localKey{},
+		ids:  map[ID]*localKey{},
+	}
 }
 
 // allocate creates an entry for key in localKeys if needed and increments the
@@ -59,7 +64,9 @@ func (lk *localKeys) allocate(key string, val ID) (ID, error) {
 		return k.val, nil
 	}
 
-	lk.keys[key] = &localKey{val: val, refcnt: 1}
+	k := &localKey{key: key, val: val, refcnt: 1}
+	lk.keys[key] = k
+	lk.ids[val] = k
 	kvstore.Trace("New local key", nil, logrus.Fields{fieldKey: key, fieldID: val, fieldRefCnt: 1})
 	return val, nil
 }
@@ -82,10 +89,8 @@ func (lk *localKeys) lookupID(id ID) string {
 	lk.RLock()
 	defer lk.RUnlock()
 
-	for k, v := range lk.keys {
-		if v.val == id {
-			return k
-		}
+	if k, ok := lk.ids[id]; ok {
+		return k.key
 	}
 
 	return ""
@@ -120,6 +125,7 @@ func (lk *localKeys) release(key string) (lastUse bool, err error) {
 		kvstore.Trace("Decremented local key refcnt", nil, logrus.Fields{fieldKey: key, fieldID: k.val, fieldRefCnt: k.refcnt})
 		if k.refcnt == 0 {
 			delete(lk.keys, key)
+			delete(lk.ids, k.val)
 			return true, nil
 		}
 
