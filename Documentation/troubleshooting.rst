@@ -378,6 +378,47 @@ Below is an approximate list of the kind of information in the archive.
 * ``cilium service list``
 * ...
 
+Useful Scripts
+==============
+
+Retrieve Cilium pod managing a particular pod
+---------------------------------------------
+
+Identifies the Cilium pod that is managing a particular pod in a namespace:
+
+.. code:: bash
+
+    $ curl -sLO releases.cilium.io/v1.1.0/tools/k8s-get-cilium-pod.sh
+    $ k8s-get-cilium-pod.sh <podname> <namespace>
+
+
+Execute a command in all Kubernetes Cilium pods
+-----------------------------------------------
+
+Run a command within all Cilium pods of a cluster:
+
+.. code:: bash
+
+    $ curl -sLO releases.cilium.io/v1.1.0/tools/k8s-cilium-exec.sh
+    $ ./k8s-cilium-exec.sh <command>
+
+List unmanaged Kubernetes pods
+------------------------------
+
+Lists all Kubernetes pods in the cluster for which Cilium does *not* provide
+networking. This includes pods running in host-networking mode and pods that
+were started before Cilium was deployed.
+
+.. code:: bash
+
+    $ curl -sLO releases.cilium.io/v1.1.0/tools/k8s-unmanaged.sh
+    $ ./contrib/k8s/k8s-unmanaged.sh
+    kube-system/cilium-hqpk7
+    kube-system/kube-addon-manager-minikube
+    kube-system/kube-dns-54cccfbdf8-zmv2c
+    kube-system/kubernetes-dashboard-77d8b98585-g52k5
+    kube-system/storage-provisioner
+
 .. _Slack channel: https://cilium.herokuapp.com
 .. _NodeSelector: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/
 .. _RBAC: https://kubernetes.io/docs/admin/authorization/rbac/
