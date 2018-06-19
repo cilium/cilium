@@ -227,11 +227,25 @@ func NewESFromK8sLabelSelector(srcPrefix string, lss ...*metav1.LabelSelector) E
 }
 
 // AddMatch adds a match for 'key' == 'value' to the endpoint selector.
+// It will remove any other match expressions for 'key'.
 func (n *EndpointSelector) AddMatch(key, value string) {
 	if n.MatchLabels == nil {
 		n.MatchLabels = map[string]string{}
 	}
 	n.MatchLabels[key] = value
+	var newRequirements []metav1.LabelSelectorRequirement
+	for i, v := range n.MatchExpressions {
+		if v.Key == key {
+			if i > 0 {
+				newRequirements = append(newRequirements, n.MatchExpressions[0:i]...)
+			}
+			if len(n.MatchExpressions) > i {
+				newRequirements = append(newRequirements, n.MatchExpressions[i+1:]...)
+			}
+			break
+		}
+	}
+	n.MatchExpressions = newRequirements
 }
 
 // Matches returns true if the endpoint selector Matches the `lblsToMatch`.

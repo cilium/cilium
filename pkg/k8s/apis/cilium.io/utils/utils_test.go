@@ -164,6 +164,53 @@ func Test_ParseToCiliumRule(t *testing.T) {
 				},
 			},
 		},
+		{
+			// When the rule specifies multiple namespaces, these
+			// are overridden by the namespace where the rule was
+			// inserted.
+			name: "parse-in-namespace-with-multiple-ns-selectors",
+			args: args{
+				namespace: metav1.NamespaceDefault,
+				rule: &api.Rule{
+					EndpointSelector: api.NewESFromMatchRequirements(
+						map[string]string{
+							role:      "backend",
+						},
+						[]metav1.LabelSelectorRequirement{
+							{
+								Key:      namespace,
+								Operator: "AnyOf",
+								Values: []string{
+									"foo",
+									"default",
+								},
+							},
+						},
+					),
+				},
+			},
+			want: &api.Rule{
+				EndpointSelector: api.NewESFromMatchRequirements(
+					map[string]string{
+						role:      "backend",
+						namespace: "default",
+					},
+					nil,
+				),
+				Labels: labels.LabelArray{
+					{
+						Key:    "io.cilium.k8s.policy.name",
+						Value:  "parse-in-namespace-with-multiple-ns-selectors",
+						Source: labels.LabelSourceK8s,
+					},
+					{
+						Key:    "io.cilium.k8s.policy.namespace",
+						Value:  "default",
+						Source: labels.LabelSourceK8s,
+					},
+				},
+			},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
