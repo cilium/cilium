@@ -135,9 +135,9 @@ type IDMap map[ID]AllocatorKey
 //  3. If the node goes down, all slave keys of that node are removed after
 //     the TTL expires (auto release).
 type Allocator struct {
-	// Events is a channel which will receive AllocatorEvent as IDs are
+	// events is a channel which will receive AllocatorEvent as IDs are
 	// added, modified or removed from the allocator
-	Events AllocatorEventChan
+	events AllocatorEventChan
 
 	// keyType is an instance of the type to be used as allocator key.
 	keyType AllocatorKey
@@ -247,7 +247,6 @@ func NewAllocator(basePath string, typ AllocatorKey, opts ...AllocatorOption) (*
 		suffix:      uuid.NewUUID().String()[:10],
 		cache:       IDMap{},
 		lockless:    locklessCapability(),
-		Events:      make(AllocatorEventChan, 1024),
 		backoffTemplate: backoff.Exponential{
 			Min:    time.Duration(20) * time.Millisecond,
 			Factor: 2.0,
@@ -279,6 +278,16 @@ func NewAllocator(basePath string, typ AllocatorKey, opts ...AllocatorOption) (*
 	return a, nil
 }
 
+// WithEvents enables receiving of events.
+//
+// CAUTION: When using this function. The provided channel must be continuously
+// read while NewAllocator() is being called to ensure that the channel does
+// not block indefinitely while NewAllocator() emits events on it while
+// populating the initial cache.
+func WithEvents(events AllocatorEventChan) AllocatorOption {
+	return func(a *Allocator) { a.events = events }
+}
+
 // WithSuffix sets the suffix of the allocator to the specified value
 func WithSuffix(v string) AllocatorOption {
 	return func(a *Allocator) { a.suffix = v }
@@ -298,7 +307,10 @@ func WithMax(id ID) AllocatorOption {
 func (a *Allocator) Delete() {
 	close(a.stopGC)
 	a.stopWatch()
-	close(a.Events)
+
+	if a.events != nil {
+		close(a.events)
+	}
 }
 
 // lockPath locks a key in the scope of an allocator
@@ -784,10 +796,12 @@ func (a *Allocator) startWatch() waitChan {
 					}
 					a.mutex.Unlock()
 
-					a.Events <- AllocatorEvent{
-						Typ: event.Typ,
-						ID:  ID(id),
-						Key: key,
+					if a.events != nil {
+						a.events <- AllocatorEvent{
+							Typ: event.Typ,
+							ID:  ID(id),
+							Key: key,
+						}
 					}
 				}
 

@@ -65,7 +65,7 @@ func GetIdentities() []*models.Identity {
 	return identities
 }
 
-func identityWatcher(owner IdentityAllocatorOwner) {
+func identityWatcher(owner IdentityAllocatorOwner, events allocator.AllocatorEventChan) {
 	// The event queue handler is kept as lightweight as possible, it uses
 	// a non-blocking trigger to run a background routine which will call
 	// TriggerPolicyUpdates() with an enforced minimum interval of one
@@ -78,7 +78,7 @@ func identityWatcher(owner IdentityAllocatorOwner) {
 	})
 
 	for {
-		event := <-identityAllocator.Events
+		event := <-events
 
 		switch event.Typ {
 		case kvstore.EventTypeCreate, kvstore.EventTypeDelete:
