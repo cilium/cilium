@@ -87,6 +87,11 @@ message PortNetworkPolicyRule {
     // An HTTP request is matched by this predicate if any of its rules matches
     // the request.
     HttpNetworkPolicyRules http_rules = 100;
+
+    // The set of Kafka network policy rules.
+    // A Kafka request is matched by this predicate if any of its rules matches
+    // the request.
+    KafkaNetworkPolicyRules kafka_rules = 101;
  }
 }
 
@@ -114,4 +119,37 @@ message HttpNetworkPolicyRule {
   //
   // Optional. If empty, matches any HTTP request.
   repeated envoy.api.v2.route.HeaderMatcher headers = 1;
+}
+
+// A set of network policy rules that match Kafka requests.
+message KafkaNetworkPolicyRules {
+  // The set of Kafka network policy rules.
+  // A Kafka request is matched if any of its rules matches the request.
+  // Required and may not be empty.
+  repeated KafkaNetworkPolicyRule kafka_rules = 1 [(validate.rules).repeated.min_items = 1];
+}
+
+// A Kafka network policy rule, as a conjunction of predicates on Kafka requests.
+// If all the predicates of a rule match a Kafka request, the request is allowed. Otherwise, it is
+// denied.
+message KafkaNetworkPolicyRule {
+  // The Kafka request's API key.
+  // If <0, all Kafka requests are matched by this predicate.
+  int32 api_key = 1;
+
+  // The Kafka request's API version.
+  // If <0, all Kafka requests are matched by this predicate.
+  int32 api_version = 2;
+
+  // The Kafka request's topic.
+  // Optional. If not specified, all Kafka requests are matched by this predicate.
+  // If specified, this predicates only matches requests that contain this topic, and never
+  // matches requests that don't contain any topic.
+  string topic = 3 [(validate.rules).string = {max_len: 255, pattern: "^[a-zA-Z0-9._-]*$"}];
+
+  // The Kafka request's client ID.
+  // Optional. If not specified, all Kafka requests are matched by this predicate.
+  // If specified, this predicates only matches requests that contain this client ID, and never
+  // matches requests that don't contain any client ID.
+  string client_id = 4 [(validate.rules).string.pattern = "^[a-zA-Z0-9._-]*$"];
 }
