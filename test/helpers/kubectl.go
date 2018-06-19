@@ -1044,7 +1044,6 @@ func (kub *Kubectl) CiliumReport(namespace string, commands ...string) {
 
 	kub.DumpCiliumCommandOutput(namespace)
 	kub.GatherLogs()
-	kub.CheckLogsForDeadlock()
 	ginkgoext.GinkgoPrint("===================== EXITING REPORT GENERATION =====================")
 }
 
