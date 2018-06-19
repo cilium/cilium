@@ -197,7 +197,7 @@ func ParseToCiliumRule(namespace, name string, r *api.Rule) *api.Rule {
 		// able to match on those pods.
 		if !retRule.EndpointSelector.HasKey(podInitLbl) {
 			userNamespace, ok := retRule.EndpointSelector.GetMatch(podPrefixLbl)
-			if ok && (len(userNamespace) > 1 || (len(userNamespace) == 1 && userNamespace[1] != namespace)) {
+			if ok && (len(userNamespace) > 1 || (len(userNamespace) == 1 && userNamespace[0] != namespace)) {
 				log.WithFields(logrus.Fields{
 					logfields.K8sNamespace:              namespace,
 					logfields.CiliumNetworkPolicyName:   name,
