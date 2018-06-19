@@ -13,15 +13,8 @@ Summary
 When running Cilium using the container image ``cilium/cilium``, the host
 system must meet these requirements:
 
-- `Linux kernel`_ >= 4.8 (>= 4.9.17 LTS recommended)
+- `Linux kernel`_ >= 4.9.17
 - :ref:`req_kvstore` etcd >= 3.1.0 or consul >= 0.6.4
-
-.. note:: Kernel versions <4.9 are likely vulnerable to `Meltdown and Spectre`_ (CVE-2017-5715_, CVE-2017-5753_ and CVE-2017-5754_)
-
-.. _`Meltdown and Spectre`: https://meltdownattack.com/
-.. _CVE-2017-5715: https://cve.mitre.org/cgi-bin/cvename.cgi?name=2017-5715
-.. _CVE-2017-5753: https://cve.mitre.org/cgi-bin/cvename.cgi?name=2017-5753
-.. _CVE-2017-5754: https://cve.mitre.org/cgi-bin/cvename.cgi?name=2017-5754
 
 When running Cilium as a native process on your host (i.e. **not** running the
 ``cilium/cilium`` container image) these additional requirements must be met:
@@ -33,15 +26,15 @@ When running Cilium as a native process on your host (i.e. **not** running the
 .. _iproute2: https://www.kernel.org/pub/linux/utils/net/iproute2/
 
 
-======================== =============== =================== ===================
-Requirement              Minimum Version Recommended Version In cilium container
-======================== =============== =================== ===================
-`Linux kernel`_          >= 4.8          >= 4.9.17 LTS       no
-Key-Value store (etcd)   >= 3.1.0                            no
-Key-Value store (consul) >= 0.6.4                            no 
-clang+LLVM               >= 3.7.1                            yes
-iproute2                 >= 4.8.0                            yes
-======================== =============== =================== ===================
+======================== =============== ===================
+Requirement              Minimum Version In cilium container
+======================== =============== ===================
+`Linux kernel`_          >= 4.9.17       no
+Key-Value store (etcd)   >= 3.1.0        no
+Key-Value store (consul) >= 0.6.4        no
+clang+LLVM               >= 3.7.1        yes
+iproute2                 >= 4.8.0        yes
+======================== =============== ===================
 
 Linux Distribution Compatibility Matrix
 =======================================
@@ -79,8 +72,6 @@ subsystems which integrate with BPF. Therefore, host systems are required to
 run Linux kernel version 4.8.0 or later to run a Cilium agent. More recent
 kernels may provide additional BPF functionality that Cilium will automatically
 detect and use on agent start.
-
-.. note:: Kernel versions <4.9 are likely vulnerable to `Meltdown and Spectre`_ (CVE-2017-5715_, CVE-2017-5753_ and CVE-2017-5754_)
 
 In order for the BPF feature to be enabled properly, the following kernel
 configuration options must be enabled. This is typically the case  with
@@ -145,5 +136,3 @@ and ``tc``, which is part of iproute2, to load BPF programs into the kernel.
 The minimum version of iproute2_ must be >= 4.8.0. Please see
 https://www.kernel.org/pub/linux/utils/net/iproute2/ for documentation on how
 to install iproute2.
-
-
