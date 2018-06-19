@@ -16,23 +16,58 @@ We use GitHub issues to maintain a list of `Cilium Frequently Asked Questions
 (FAQ)`_. You can also check there to see if your question(s) is already
 addressed.
 
-Overall Health
-==============
-
-The first step in troubleshooting is to retrieve an overview of the overall
-health. This is achieved by running the ``cilium status`` command.
+Component & Cluster Health
+==========================
 
 Kubernetes
 ----------
 
-When using Kubernetes, refer o the ``k8s-cilium-exec.sh`` script to execute
-``cilium status`` on all cluster nodes with ease. Download the
-``k8s-cilium-exec.sh`` script:
+An initial overview of Cilium can be retrieved by listing all pods to verify
+whether all pods have the status ``Running``:
 
 .. code:: bash
 
-    $ curl -sLO releases.cilium.io/v1.0.0-rc11/tools/k8s-cilium-exec.sh
-    $ chmod +x ./k8s-cilium-exec.sh
+    $ kubectl -n kube-system get pods -l k8s-app=cilium
+    NAME           READY     STATUS    RESTARTS   AGE
+    cilium-2hq5z   1/1       Running   0          4d
+    cilium-6kbtz   1/1       Running   0          4d
+    cilium-klj4b   1/1       Running   0          4d
+    cilium-zmjj9   1/1       Running   0          4d
+
+If Cilium encounters a problem that it cannot recover from, it will
+automatically report the failure state via ``cilium status`` which is regularly
+queried by the Kubernetes liveness probe to automatically restart Cilium pods.
+If a Cilium pod is in state ``CrashLoopBackoff`` then this indicates a
+permanent failure scenario.
+
+Detailed Status
+~~~~~~~~~~~~~~~
+
+If a particular Cilium pod is not in running state, the status and health of
+the agent on that node can be retrieved by running ``cilium status`` in the
+context of that pod:
+
+.. code:: bash
+
+    $ kubectl -n kube-system exec -ti cilium-2hq5z -- cilium status
+    KVStore:                Ok   etcd: 1/1 connected: http://demo-etcd-lab--a.etcd.tgraf.test1.lab.corp.covalent.link:2379 - 3.2.5 (Leader)
+    ContainerRuntime:       Ok   docker daemon: OK
+    Kubernetes:             Ok   OK
+    Kubernetes APIs:        ["cilium/v2::CiliumNetworkPolicy", "networking.k8s.io/v1::NetworkPolicy", "core/v1::Service", "core/v1::Endpoint", "core/v1::Node", "CustomResourceDefinition"]
+    Cilium:                 Ok   OK
+    NodeMonitor:            Disabled
+    Cilium health daemon:   Ok
+    Controller Status:      14/14 healthy
+    Proxy Status:           OK, ip 10.2.0.172, port-range 10000-20000
+    Cluster health:   4/4 reachable   (2018-06-16T09:49:58Z)
+
+Alternatively, the ``k8s-cilium-exec.sh`` script can be used to run ``cilium
+status`` on all nodes. This will provide detailed status and health information
+of all nodes in the cluster:
+
+.. code:: bash
+
+    $ curl -sLO releases.cilium.io/v1.1.0/tools/k8s-cilium-exec.sh
 
 ... and run ``cilium status`` on all nodes:
 
@@ -50,8 +85,25 @@ When using Kubernetes, refer o the ``k8s-cilium-exec.sh`` script to execute
     Proxy Status:           OK, ip 10.15.28.238, 0 redirects, port-range 10000-20000
     Cluster health:   1/1 reachable   (2018-02-27T00:24:34Z)
 
-Generic Instructions
---------------------
+Logs
+~~~~
+
+To retrieve log files of a cilium pod, run
+
+.. code:: bash
+
+    $ kubectl -n kube-system logs --timestamps cilium-1234
+
+If the cilium pod was already restarted due to the liveness problem after
+encountering an issue, it can be useful to retrieve the logs of the pod before
+the last restart:
+
+.. code:: bash
+
+    $ kubectl -n kube-system logs --timestamps -p cilium-1234
+
+Generic
+-------
 
 .. code:: bash
 
@@ -69,8 +121,146 @@ Generic Instructions
     Proxy Status:           OK, ip 10.0.28.238, port-range 10000-20000
     Cluster health:   2/2 reachable   (2018-04-11T15:41:01Z)
 
-Connectivity Issues
+Connectivity Problems
+=====================
+
+Checking cluster connectivity health
+------------------------------------
+
+Cilium allows to rule out network fabric related issues when troubleshooting
+connectivity issues by providing reliable health and latency probes between all
+cluster nodes and between a simulated workload running on each node.
+
+By default when Cilium is run, it launches instances of ``cilium-health`` in
+the background to determine overall connectivity status of the cluster. This
+tool periodically runs bidirectional traffic across multiple paths through the
+cluster and through each node using different protocols to determine the health
+status of each path and protocol. At any point in time, cilium-health may be
+queried for the connectivity status of the last probe.
+
+.. code:: bash
+
+    $ kubectl -n kube-system exec -ti cilium-2hq5z -- cilium-health status
+    Probe time:   2018-06-16T09:51:58Z
+    Nodes:
+      ip-172-0-52-116.us-west-2.compute.internal (localhost):
+        Host connectivity to 172.0.52.116:
+          ICMP:          OK, RTT=315.254µs
+          HTTP via L3:   OK, RTT=368.579µs
+        Endpoint connectivity to 10.2.0.183:
+          ICMP:          OK, RTT=190.658µs
+          HTTP via L3:   OK, RTT=536.665µs
+      ip-172-0-117-198.us-west-2.compute.internal:
+        Host connectivity to 172.0.117.198:
+          ICMP:          OK, RTT=1.009679ms
+          HTTP via L3:   OK, RTT=1.808628ms
+        Endpoint connectivity to 10.2.1.234:
+          ICMP:          OK, RTT=1.016365ms
+          HTTP via L3:   OK, RTT=2.29877ms
+
+For each node, the connectivity will be displayed for each protocol and path,
+both to the node itself and to an endpoint on that node. The latency specified
+is a snapshot at the last time a probe was run, which is typically once per
+minute.
+
+Monitoring Packet Drops
+-----------------------
+
+Cilium provides extensive visibility into 
+
+When connectivity is not as it should be. A main cause can be unwanted packet
+drops on the networking level. There can be various causes for this. The tool
+``cilium monitor`` allows you to quickly inspect and see if and where packet
+drops happen.
+
+.. code:: bash
+
+    $ cilium monitor --type drop
+    Listening for events on 2 CPUs with 64x4096 of shared memory
+    Press Ctrl-C to quit
+    xx drop (Policy denied (L3)) to endpoint 25729, identity 261->264: fd02::c0a8:210b:0:bf00 -> fd02::c0a8:210b:0:6481 EchoRequest
+    xx drop (Policy denied (L3)) to endpoint 25729, identity 261->264: fd02::c0a8:210b:0:bf00 -> fd02::c0a8:210b:0:6481 EchoRequest
+    xx drop (Policy denied (L3)) to endpoint 25729, identity 261->264: 10.11.13.37 -> 10.11.101.61 EchoRequest
+    xx drop (Policy denied (L3)) to endpoint 25729, identity 261->264: 10.11.13.37 -> 10.11.101.61 EchoRequest
+    xx drop (Invalid destination mac) to endpoint 0, identity 0->0: fe80::5c25:ddff:fe8e:78d8 -> ff02::2 RouterSolicitation
+
+The above indicates that a packet to endpoint ID ``25729`` has been dropped due
+to violation of the Layer 3 policy.
+
+Policy Troubleshooting
+======================
+
+Ensure pod is managed by Cilium
+-------------------------------
+
+A potential cause for policy enforcement not functioning as expected is that
+the networking of the pod selected by the policy is not being managed by
+Cilium. The following situations result in unmanaged pods:
+
+* The pod is running in host networking and will use the host's IP address
+  directly. Such pods have full network connectivity but Cilium will not
+  provide security policy enforcement for such pods.
+
+* The pod was started before Cilium was deployed. Cilium only manages pods
+  that have been deployed after Cilium itself was started. Cilium will not
+  provide security policy enforcement for such pods.
+
+If pod networking is not managed by Cilium. Ingress and egress policy rules
+selecting the respective pods will not be applied. See the section
+:ref:`network_policy` for more details.
+
+You can run the following script to list the pods which are *not* managed by
+Cilium:
+
+.. code:: bash
+
+    $ ./contrib/k8s/k8s-unmanaged.sh
+    kube-system/cilium-hqpk7
+    kube-system/kube-addon-manager-minikube
+    kube-system/kube-dns-54cccfbdf8-zmv2c
+    kube-system/kubernetes-dashboard-77d8b98585-g52k5
+    kube-system/storage-provisioner
+
+See section :ref:`policy_tracing` for details and examples on how to use the
+policy tracing feature.
+
+Automatic Diagnosis
 ===================
+
+The ``cluster-diagnosis`` tool can help identify the most commonly encountered
+issues in Cilium deployments. The tool currently supports Kubernetes
+and Minikube clusters only.
+
+The tool performs various checks and provides hints to fix specific
+issues that it has identified.
+
+The following is a list of prerequisites:
+
+* Requires Python >= 2.7.*
+* Requires ``kubectl``.
+* ``kubectl`` should be pointing to your cluster before running the tool.
+
+You can download the latest version of the cluster-diagnosis.zip file
+using the following command:
+
+::
+
+    curl -sLO releases.cilium.io/tools/cluster-diagnosis.zip
+
+Command to run the cluster-diagnosis tool:
+
+.. code:: bash
+
+    python cluster-diagnosis.zip
+
+Command to collect the system dump using the cluster-diagnosis tool:
+
+.. code:: bash
+
+    python cluster-diagnosis.zip sysdump
+
+Symptom Library
+===============
 
 Node to node traffic is being dropped
 -------------------------------------
@@ -116,16 +306,83 @@ When running in :ref:`arch_direct_routing` mode:
 
 4. Verify that the firewall on each node permits to route the endpoint IPs.
 
-Cluster Diagnosis Tool
-===========================
-The ``cluster-diagnosis`` tool can help identify the most commonly encountered
-issues in Cilium deployments. The tool currently supports Kubernetes
-and Minikube clusters only.
 
-The tool performs various checks and provides hints to fix specific
-issues that it has identified.
+Useful Scripts
+==============
 
-The following is a list of prerequisites:
+Retrieve Cilium pod managing a particular pod
+---------------------------------------------
+
+Identifies the Cilium pod that is managing a particular pod in a namespace:
+
+.. code:: bash
+
+    k8s-get-cilium-pod.sh <pod> <namespace>
+
+**Example:**
+
+.. code:: bash
+
+    $ curl -sLO releases.cilium.io/v1.1.0/tools/k8s-get-cilium-pod.sh
+    $ ./k8s-get-cilium-pod.sh luke-pod default
+    cilium-zmjj9
+
+
+Execute a command in all Kubernetes Cilium pods
+-----------------------------------------------
+
+Run a command within all Cilium pods of a cluster
+
+.. code:: bash
+
+    k8s-cilium-exec.sh <command>
+
+**Example:**
+
+.. code:: bash
+
+    $ curl -sLO releases.cilium.io/v1.1.0/tools/k8s-cilium-exec.sh
+    $ ./k8s-cilium-exec.sh uptime
+     10:15:16 up 6 days,  7:37,  0 users,  load average: 0.00, 0.02, 0.00
+     10:15:16 up 6 days,  7:32,  0 users,  load average: 0.00, 0.03, 0.04
+     10:15:16 up 6 days,  7:30,  0 users,  load average: 0.75, 0.27, 0.15
+     10:15:16 up 6 days,  7:28,  0 users,  load average: 0.14, 0.04, 0.01
+
+List unmanaged Kubernetes pods
+------------------------------
+
+Lists all Kubernetes pods in the cluster for which Cilium does *not* provide
+networking. This includes pods running in host-networking mode and pods that
+were started before Cilium was deployed.
+
+.. code:: bash
+
+    k8s-unmanaged.sh
+
+**Example:**
+
+.. code:: bash
+
+    $ curl -sLO releases.cilium.io/v1.1.0/tools/k8s-unmanaged.sh
+    $ ./k8s-unmanaged.sh
+    kube-system/cilium-hqpk7
+    kube-system/kube-addon-manager-minikube
+    kube-system/kube-dns-54cccfbdf8-zmv2c
+    kube-system/kubernetes-dashboard-77d8b98585-g52k5
+    kube-system/storage-provisioner
+
+Reporting a problem
+===================
+
+Automatic log & state collection
+--------------------------------
+
+Before you report a problem, make sure to retrieve the necessary information
+from your cluster before the failure state is lost. Cilium provides a script
+to automatically grab logs and retrieve debug information from all Cilium pods
+in the cluster.
+
+The script has the following list of prerequisites:
 
 * Requires Python >= 2.7.*
 * Requires ``kubectl``.
@@ -134,173 +391,16 @@ The following is a list of prerequisites:
 You can download the latest version of the cluster-diagnosis.zip file
 using the following command:
 
-::
-
-    curl -sLO releases.cilium.io/tools/cluster-diagnosis.zip
-
-Command to run the cluster-diagnosis tool:
-
-::
-
-    python cluster-diagnosis.zip
-
-Command to collect the system dump using the cluster-diagnosis tool:
-
-::
-
-    python cluster-diagnosis.zip sysdump
-
-
-Cluster connectivity check
-==========================
-
-By default when Cilium is run, it launches instances of ``cilium-health`` in
-the background to determine overall connectivity status of the cluster. This
-tool periodically runs bidirectional traffic across multiple paths through the
-cluster and through each node using different protocols to determine the health
-status of each path and protocol. At any point in time, cilium-health may be
-queried for the connectivity status of the last probe.
-
 .. code:: bash
 
-    $ cilium-health status
-    Probe time:   2018-04-11T15:44:01Z
-    Nodes:
-      k8s1 (localhost):
-        Host connectivity to 192.168.34.11:
-          ICMP:          OK, RTT=12.50832ms
-          HTTP via L3:   OK, RTT=1.341462ms
-        Endpoint connectivity to 10.0.242.54:
-          ICMP:          OK, RTT=12.760288ms
-          HTTP via L3:   OK, RTT=5.419183m
-      ...
-
-For each node, the connectivity will be displayed for each protocol and path,
-both to the node itself and to an endpoint on that node. The latency specified
-is a snapshot at the last time a probe was run, which is typically once per
-minute.
-
-Kubernetes
-==========
-
-Pod not managed by Cilium
--------------------------
-
-In some situations, Cilium is not managing networking of a pod. These
-situations are:
-
-* The pod is running in host networking and will use the host's IP address
-  directly. Such pods have full network connectivity but Cilium will not
-  provide security policy enforcement for such pods.
-
-* The pod was started before Cilium was deployed. Cilium only manages pods
-  that have been deployed after Cilium itself was started. Cilium will not
-  provide security policy enforcement for such pods.
-
-You can run the following script to list the pods which are *not* managed by
-Cilium:
-
-.. code:: bash
-
-    $ ./contrib/k8s/k8s-unmanaged.sh
-    kube-system/cilium-hqpk7
-    kube-system/kube-addon-manager-minikube
-    kube-system/kube-dns-54cccfbdf8-zmv2c
-    kube-system/kubernetes-dashboard-77d8b98585-g52k5
-    kube-system/storage-provisioner
-
-Monitoring Packet Drops
-=======================
-
-When connectivity is not as it should be. A main cause can be unwanted packet
-drops on the networking level. There can be various causes for this. The tool
-``cilium monitor`` allows you to quickly inspect and see if and where packet
-drops happen.
-
-.. code:: bash
-
-    $ cilium monitor --type drop
-    Listening for events on 2 CPUs with 64x4096 of shared memory
-    Press Ctrl-C to quit
-    xx drop (Policy denied (L3)) to endpoint 25729, identity 261->264: fd02::c0a8:210b:0:bf00 -> fd02::c0a8:210b:0:6481 EchoRequest
-    xx drop (Policy denied (L3)) to endpoint 25729, identity 261->264: fd02::c0a8:210b:0:bf00 -> fd02::c0a8:210b:0:6481 EchoRequest
-    xx drop (Policy denied (L3)) to endpoint 25729, identity 261->264: 10.11.13.37 -> 10.11.101.61 EchoRequest
-    xx drop (Policy denied (L3)) to endpoint 25729, identity 261->264: 10.11.13.37 -> 10.11.101.61 EchoRequest
-    xx drop (Invalid destination mac) to endpoint 0, identity 0->0: fe80::5c25:ddff:fe8e:78d8 -> ff02::2 RouterSolicitation
-
-The above indicates that a packet to endpoint ID ``25729`` has been dropped due
-to violation of the Layer 3 policy.
-
-Policy Tracing
-==============
-
-See section :ref:`policy_tracing` for details and examples on how to use the
-policy tracing feature.
-
-Debugging the datapath
-======================
-
-The tool ``cilium monitor`` can also be used to retrieve debugging information
-from the BPF based datapath. Debugging messages are sent if either the
-``cilium-agent`` itself or the respective endpoint is in debug mode. The debug
-mode of the agent can be enabled by starting ``cilium-agent`` with the option
-``--debug`` enabled or by running ``cilium config debug=true`` for an already
-running agent. Debugging of an individual endpoint can be enabled by running
-``cilium endpoint config ID debug=true``
-
-
-.. code:: bash
-
-    $ cilium endpoint config 3978 debug=true
-    Endpoint 3978 configuration updated successfully
-    $ cilium monitor -v --hex
-    Listening for events on 2 CPUs with 64x4096 of shared memory
-    Press Ctrl-C to quit
-    ------------------------------------------------------------------------------
-    CPU 00: MARK 0x1c56d86c FROM 3978 DEBUG: 70 bytes Incoming packet from container ifindex 85
-    00000000  33 33 00 00 00 02 ae 45  75 73 11 04 86 dd 60 00  |33.....Eus....`.|
-    00000010  00 00 00 10 3a ff fe 80  00 00 00 00 00 00 ac 45  |....:..........E|
-    00000020  75 ff fe 73 11 04 ff 02  00 00 00 00 00 00 00 00  |u..s............|
-    00000030  00 00 00 00 00 02 85 00  15 b4 00 00 00 00 01 01  |................|
-    00000040  ae 45 75 73 11 04 00 00  00 00 00 00              |.Eus........|
-    CPU 00: MARK 0x1c56d86c FROM 3978 DEBUG: Handling ICMPv6 type=133
-    ------------------------------------------------------------------------------
-    CPU 00: MARK 0x1c56d86c FROM 3978 Packet dropped 131 (Invalid destination mac) 70 bytes ifindex=0 284->0
-    00000000  33 33 00 00 00 02 ae 45  75 73 11 04 86 dd 60 00  |33.....Eus....`.|
-    00000010  00 00 00 10 3a ff fe 80  00 00 00 00 00 00 ac 45  |....:..........E|
-    00000020  75 ff fe 73 11 04 ff 02  00 00 00 00 00 00 00 00  |u..s............|
-    00000030  00 00 00 00 00 02 85 00  15 b4 00 00 00 00 01 01  |................|
-    00000040  00 00 00 00                                       |....|
-    ------------------------------------------------------------------------------
-    CPU 00: MARK 0x7dc2b704 FROM 3978 DEBUG: 86 bytes Incoming packet from container ifindex 85
-    00000000  33 33 ff 00 8a d6 ae 45  75 73 11 04 86 dd 60 00  |33.....Eus....`.|
-    00000010  00 00 00 20 3a ff fe 80  00 00 00 00 00 00 ac 45  |... :..........E|
-    00000020  75 ff fe 73 11 04 ff 02  00 00 00 00 00 00 00 00  |u..s............|
-    00000030  00 01 ff 00 8a d6 87 00  20 40 00 00 00 00 fd 02  |........ @......|
-    00000040  00 00 00 00 00 00 c0 a8  21 0b 00 00 8a d6 01 01  |........!.......|
-    00000050  ae 45 75 73 11 04 00 00  00 00 00 00              |.Eus........|
-    CPU 00: MARK 0x7dc2b704 FROM 3978 DEBUG: Handling ICMPv6 type=135
-    CPU 00: MARK 0x7dc2b704 FROM 3978 DEBUG: ICMPv6 neighbour soliciation for address b21a8c0:d68a0000
-
-Debugging information
-=====================
-
-``cilium debuginfo`` can print useful output from the Cilium API. The output
-format is in Markdown format so this can be used when reporting a bug on the
-`issue tracker`_.  Running without arguments will print to standard output, but
-you can also redirect to a file like
-
-::
-
-    cilium debuginfo -f debuginfo.md
-
-.. Note::
-
-          Please check the debuginfo file for sensitive information and strip it
-          away before sharing it with us.
+    $ curl -sLO releases.cilium.io/tools/cluster-diagnosis.zip
+    $ python cluster-diagnosis.zip sysdump
 
 Single Node Bugtool
-===================
+~~~~~~~~~~~~~~~~~~~
+
+If you are not running Kubernetes, it is also possible to run the bug
+collection tool manually with the scope of a single node:
 
 The ``cilium-bugtool`` captures potentially useful information about your
 environment for debugging. The tool is meant to be used for debugging a single
@@ -309,9 +409,9 @@ the tool can retrieve debugging information from all of them. The tool works by
 archiving a collection of command output and files from several places. By
 default, it writes to the ``tmp`` directory.
 
-::
+.. code:: bash
 
-  cilium-bugtool
+    $ cilium-bugtool
 
 When running it with no option as shown above, it will try to copy various
 files and execute some commands. If ``kubectl`` is detected, it will search for
@@ -320,15 +420,15 @@ namespace can be changed via ``k8s-namespace`` and ``k8s-label`` respectively.
 
 If you'd prefer to browse the dump, there is a HTTP flag.
 
-::
+.. code:: bash
 
-  cilium-bugtool --serve
+    $ cilium-bugtool --serve
 
 
 If you want to capture the archive from a Kubernetes pod, then the process is a
 bit different
 
-::
+.. code:: bash:
 
     # First we need to get the Cilium pod
     $ kubectl get pods --namespace kube-system
@@ -378,46 +478,45 @@ Below is an approximate list of the kind of information in the archive.
 * ``cilium service list``
 * ...
 
-Useful Scripts
-==============
 
-Retrieve Cilium pod managing a particular pod
----------------------------------------------
+Debugging information
+~~~~~~~~~~~~~~~~~~~~~
 
-Identifies the Cilium pod that is managing a particular pod in a namespace:
+If you are not running Kubernetes, you can use the ``cilium debuginfo`` command
+to retrieve useful debugging information. If you are running Kubernetes, this
+command is automatically run as part of the system dump.
 
-.. code:: bash
-
-    $ curl -sLO releases.cilium.io/v1.1.0/tools/k8s-get-cilium-pod.sh
-    $ k8s-get-cilium-pod.sh <podname> <namespace>
-
-
-Execute a command in all Kubernetes Cilium pods
------------------------------------------------
-
-Run a command within all Cilium pods of a cluster:
+``cilium debuginfo`` can print useful output from the Cilium API. The output
+format is in Markdown format so this can be used when reporting a bug on the
+`issue tracker`_.  Running without arguments will print to standard output, but
+you can also redirect to a file like
 
 .. code:: bash
 
-    $ curl -sLO releases.cilium.io/v1.1.0/tools/k8s-cilium-exec.sh
-    $ ./k8s-cilium-exec.sh <command>
+    $ cilium debuginfo -f debuginfo.md
 
-List unmanaged Kubernetes pods
-------------------------------
+.. Note::
 
-Lists all Kubernetes pods in the cluster for which Cilium does *not* provide
-networking. This includes pods running in host-networking mode and pods that
-were started before Cilium was deployed.
+    Please check the debuginfo file for sensitive information and strip it
+    away before sharing it with us.
 
-.. code:: bash
 
-    $ curl -sLO releases.cilium.io/v1.1.0/tools/k8s-unmanaged.sh
-    $ ./contrib/k8s/k8s-unmanaged.sh
-    kube-system/cilium-hqpk7
-    kube-system/kube-addon-manager-minikube
-    kube-system/kube-dns-54cccfbdf8-zmv2c
-    kube-system/kubernetes-dashboard-77d8b98585-g52k5
-    kube-system/storage-provisioner
+Slack Assistance
+----------------
+
+The Cilium slack community is helpful first point of assistance to get help
+troubleshooting a problem or to discuss options on how to address a problem.
+
+The slack community is open to everyone. You can request an invite email by
+visiting `Slack <https://cilium.herokuapp.com/>`_.
+
+Report an issue via GitHub
+--------------------------
+
+If you believe to have found an issue in Cilium, please report a `GitHub issue
+<https://github.com/cilium/cilium/issues>`_ and make sure to attach a system
+dump as described above to ensure that developers have the best chance to
+reproduce the issue.
 
 .. _Slack channel: https://cilium.herokuapp.com
 .. _NodeSelector: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/
