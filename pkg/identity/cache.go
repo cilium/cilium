@@ -16,11 +16,13 @@ package identity
 
 import (
 	"reflect"
+	"time"
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/kvstore/allocator"
 	"github.com/cilium/cilium/pkg/labels"
+	"github.com/cilium/cilium/pkg/lock"
 )
 
 var (
@@ -64,12 +66,43 @@ func GetIdentities() []*models.Identity {
 }
 
 func identityWatcher(owner IdentityAllocatorOwner) {
+	var (
+		needPolicyUpdateMutex lock.RWMutex
+		needPolicyUpdate      bool
+	)
+
+	// The event queue handler is kept as lightweight as possible, it only
+	// sets a flag to signal the requirement to trigger policy
+	// recalculation.  A separate go routine in the background checks for
+	// the flag and sequentially invokes the policy update function. After
+	// an update period, the flag is immediately checked again. If no
+	// update was required, the routine sleeps for a second and tries again
+	go func() {
+		for {
+			triggerPolicyUpdate := false
+
+			// keep critical section as small as possible
+			needPolicyUpdateMutex.Lock()
+			triggerPolicyUpdate = needPolicyUpdate
+			needPolicyUpdate = false
+			needPolicyUpdateMutex.Unlock()
+
+			if triggerPolicyUpdate {
+				owner.TriggerPolicyUpdates(true)
+			} else {
+				time.Sleep(time.Second)
+			}
+		}
+	}()
+
 	for {
 		event := <-identityAllocator.Events
 
 		switch event.Typ {
 		case kvstore.EventTypeCreate, kvstore.EventTypeDelete:
-			owner.TriggerPolicyUpdates(true)
+			needPolicyUpdateMutex.Lock()
+			needPolicyUpdate = true
+			needPolicyUpdateMutex.Unlock()
 
 		case kvstore.EventTypeModify:
 			// Ignore modify events
