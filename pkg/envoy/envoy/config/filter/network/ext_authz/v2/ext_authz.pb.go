@@ -20,22 +20,21 @@ var _ = math.Inf
 // proto package needs to be updated.
 const _ = proto.ProtoPackageIsVersion2 // please upgrade the proto package
 
-// [#not-implemented-hide:]
 // External Authorization filter calls out to an external service over the
 // gRPC Authorization API defined by
-// :ref:`external_auth <envoy_api_msg_auth.CheckRequest>`.
+// :ref:`CheckRequest <envoy_api_msg_service.auth.v2alpha.CheckRequest>`.
 // A failed check will cause this filter to close the TCP connection.
 type ExtAuthz struct {
 	// The prefix to use when emitting statistics.
-	StatPrefix string `protobuf:"bytes,1,opt,name=stat_prefix,json=statPrefix" json:"stat_prefix,omitempty"`
+	StatPrefix string `protobuf:"bytes,1,opt,name=stat_prefix,json=statPrefix,proto3" json:"stat_prefix,omitempty"`
 	// The external authorization gRPC service configuration.
-	GrpcService *core.GrpcService `protobuf:"bytes,2,opt,name=grpc_service,json=grpcService" json:"grpc_service,omitempty"`
+	// The default timeout is set to 200ms by this filter.
+	GrpcService *core.GrpcService `protobuf:"bytes,2,opt,name=grpc_service,json=grpcService,proto3" json:"grpc_service,omitempty"`
 	// The filter's behaviour in case the external authorization service does
-	// not respond back. If set to true then in case of failure to get a
-	// response back from the authorization service or getting a response that
-	// is NOT denied then traffic will be permitted.
+	// not respond back. When it is set to true, Envoy will also allow traffic in case of
+	// communication failure between authorization service and the proxy.
 	// Defaults to false.
-	FailureModeAllow     bool     `protobuf:"varint,3,opt,name=failure_mode_allow,json=failureModeAllow" json:"failure_mode_allow,omitempty"`
+	FailureModeAllow     bool     `protobuf:"varint,3,opt,name=failure_mode_allow,json=failureModeAllow,proto3" json:"failure_mode_allow,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -45,7 +44,7 @@ func (m *ExtAuthz) Reset()         { *m = ExtAuthz{} }
 func (m *ExtAuthz) String() string { return proto.CompactTextString(m) }
 func (*ExtAuthz) ProtoMessage()    {}
 func (*ExtAuthz) Descriptor() ([]byte, []int) {
-	return fileDescriptor_ext_authz_49319682798c11c2, []int{0}
+	return fileDescriptor_ext_authz_417b48a632e25e3d, []int{0}
 }
 func (m *ExtAuthz) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_ExtAuthz.Unmarshal(m, b)
@@ -91,10 +90,10 @@ func init() {
 }
 
 func init() {
-	proto.RegisterFile("envoy/config/filter/network/ext_authz/v2/ext_authz.proto", fileDescriptor_ext_authz_49319682798c11c2)
+	proto.RegisterFile("envoy/config/filter/network/ext_authz/v2/ext_authz.proto", fileDescriptor_ext_authz_417b48a632e25e3d)
 }
 
-var fileDescriptor_ext_authz_49319682798c11c2 = []byte{
+var fileDescriptor_ext_authz_417b48a632e25e3d = []byte{
 	// 268 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x4c, 0x8e, 0xc1, 0x4a, 0xc4, 0x30,
 	0x10, 0x86, 0xc9, 0xee, 0x22, 0xbb, 0xa9, 0x07, 0xe9, 0xc5, 0xb2, 0x07, 0x29, 0xe2, 0xa1, 0x88,

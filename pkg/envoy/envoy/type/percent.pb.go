@@ -58,7 +58,7 @@ func (FractionalPercent_DenominatorType) EnumDescriptor() ([]byte, []int) {
 
 // Identifies a percentage, in the range [0.0, 100.0].
 type Percent struct {
-	Value                float64  `protobuf:"fixed64,1,opt,name=value" json:"value,omitempty"`
+	Value                float64  `protobuf:"fixed64,1,opt,name=value,proto3" json:"value,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -103,10 +103,10 @@ func (m *Percent) GetValue() float64 {
 // * **Example**: 3/10000 = 0.03%.
 type FractionalPercent struct {
 	// Specifies the numerator. Defaults to 0.
-	Numerator uint32 `protobuf:"varint,1,opt,name=numerator" json:"numerator,omitempty"`
+	Numerator uint32 `protobuf:"varint,1,opt,name=numerator,proto3" json:"numerator,omitempty"`
 	// Specifies the denominator. If the denominator specified is less than the numerator, the final
 	// fractional percentage is capped at 1 (100%).
-	Denominator          FractionalPercent_DenominatorType `protobuf:"varint,2,opt,name=denominator,enum=envoy.type.FractionalPercent_DenominatorType" json:"denominator,omitempty"`
+	Denominator          FractionalPercent_DenominatorType `protobuf:"varint,2,opt,name=denominator,proto3,enum=envoy.type.FractionalPercent_DenominatorType" json:"denominator,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}                          `json:"-"`
 	XXX_unrecognized     []byte                            `json:"-"`
 	XXX_sizecache        int32                             `json:"-"`

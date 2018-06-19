@@ -24,14 +24,14 @@ const _ = proto.ProtoPackageIsVersion2 // please upgrade the proto package
 
 type RateLimit struct {
 	// The prefix to use when emitting :ref:`statistics <config_network_filters_rate_limit_stats>`.
-	StatPrefix string `protobuf:"bytes,1,opt,name=stat_prefix,json=statPrefix" json:"stat_prefix,omitempty"`
+	StatPrefix string `protobuf:"bytes,1,opt,name=stat_prefix,json=statPrefix,proto3" json:"stat_prefix,omitempty"`
 	// The rate limit domain to use in the rate limit service request.
-	Domain string `protobuf:"bytes,2,opt,name=domain" json:"domain,omitempty"`
+	Domain string `protobuf:"bytes,2,opt,name=domain,proto3" json:"domain,omitempty"`
 	// The rate limit descriptor list to use in the rate limit service request.
-	Descriptors []*ratelimit.RateLimitDescriptor `protobuf:"bytes,3,rep,name=descriptors" json:"descriptors,omitempty"`
+	Descriptors []*ratelimit.RateLimitDescriptor `protobuf:"bytes,3,rep,name=descriptors,proto3" json:"descriptors,omitempty"`
 	// The timeout in milliseconds for the rate limit service RPC. If not
 	// set, this defaults to 20ms.
-	Timeout              *duration.Duration `protobuf:"bytes,4,opt,name=timeout" json:"timeout,omitempty"`
+	Timeout              *duration.Duration `protobuf:"bytes,4,opt,name=timeout,proto3" json:"timeout,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}           `json:"-"`
 	XXX_unrecognized     []byte             `json:"-"`
 	XXX_sizecache        int32              `json:"-"`

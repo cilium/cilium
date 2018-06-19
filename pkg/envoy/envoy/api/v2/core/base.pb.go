@@ -100,7 +100,7 @@ func (RequestMethod) EnumDescriptor() ([]byte, []int) {
 // Identifies location of where either Envoy runs or where upstream hosts run.
 type Locality struct {
 	// Region this :ref:`zone <envoy_api_field_core.Locality.zone>` belongs to.
-	Region string `protobuf:"bytes,1,opt,name=region" json:"region,omitempty"`
+	Region string `protobuf:"bytes,1,opt,name=region,proto3" json:"region,omitempty"`
 	// Defines the local service zone where Envoy is running. Though optional, it
 	// should be set if discovery service routing is used and the discovery
 	// service exposes :ref:`zone data <config_cluster_manager_sds_api_host_az>`,
@@ -109,11 +109,11 @@ type Locality struct {
 	// <https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/using-regions-availability-zones.html>`_
 	// on AWS, `Zone <https://cloud.google.com/compute/docs/regions-zones/>`_ on
 	// GCP, etc.
-	Zone string `protobuf:"bytes,2,opt,name=zone" json:"zone,omitempty"`
+	Zone string `protobuf:"bytes,2,opt,name=zone,proto3" json:"zone,omitempty"`
 	// When used for locality of upstream hosts, this field further splits zone
 	// into smaller chunks of sub-zones so they can be load balanced
 	// independently.
-	SubZone              string   `protobuf:"bytes,3,opt,name=sub_zone,json=subZone" json:"sub_zone,omitempty"`
+	SubZone              string   `protobuf:"bytes,3,opt,name=sub_zone,json=subZone,proto3" json:"sub_zone,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -174,7 +174,7 @@ type Node struct {
 	// <config_cluster_manager_cds>`, and :ref:`HTTP tracing
 	// <arch_overview_tracing>`, either in this message or via
 	// :option:`--service-node`.
-	Id string `protobuf:"bytes,1,opt,name=id" json:"id,omitempty"`
+	Id string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
 	// Defines the local service cluster name where Envoy is running. Though
 	// optional, it should be set if any of the following features are used:
 	// :ref:`statsd <arch_overview_statistics>`, :ref:`health check cluster
@@ -185,16 +185,16 @@ type Node struct {
 	// :ref:`CDS <config_cluster_manager_cds>`, and :ref:`HTTP tracing
 	// <arch_overview_tracing>`, either in this message or via
 	// :option:`--service-cluster`.
-	Cluster string `protobuf:"bytes,2,opt,name=cluster" json:"cluster,omitempty"`
+	Cluster string `protobuf:"bytes,2,opt,name=cluster,proto3" json:"cluster,omitempty"`
 	// Opaque metadata extending the node identifier. Envoy will pass this
 	// directly to the management server.
-	Metadata *_struct.Struct `protobuf:"bytes,3,opt,name=metadata" json:"metadata,omitempty"`
+	Metadata *_struct.Struct `protobuf:"bytes,3,opt,name=metadata,proto3" json:"metadata,omitempty"`
 	// Locality specifying where the Envoy instance is running.
-	Locality *Locality `protobuf:"bytes,4,opt,name=locality" json:"locality,omitempty"`
+	Locality *Locality `protobuf:"bytes,4,opt,name=locality,proto3" json:"locality,omitempty"`
 	// This is motivated by informing a management server during canary which
 	// version of Envoy is being tested in a heterogeneous fleet. This will be set
 	// by Envoy in management server RPCs.
-	BuildVersion         string   `protobuf:"bytes,5,opt,name=build_version,json=buildVersion" json:"build_version,omitempty"`
+	BuildVersion         string   `protobuf:"bytes,5,opt,name=build_version,json=buildVersion,proto3" json:"build_version,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -280,7 +280,7 @@ func (m *Node) GetBuildVersion() string {
 type Metadata struct {
 	// Key is the reverse DNS filter name, e.g. com.acme.widget. The envoy.*
 	// namespace is reserved for Envoy's built-in filters.
-	FilterMetadata       map[string]*_struct.Struct `protobuf:"bytes,1,rep,name=filter_metadata,json=filterMetadata" json:"filter_metadata,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	FilterMetadata       map[string]*_struct.Struct `protobuf:"bytes,1,rep,name=filter_metadata,json=filterMetadata,proto3" json:"filter_metadata,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
 	XXX_NoUnkeyedLiteral struct{}                   `json:"-"`
 	XXX_unrecognized     []byte                     `json:"-"`
 	XXX_sizecache        int32                      `json:"-"`
@@ -320,9 +320,9 @@ func (m *Metadata) GetFilterMetadata() map[string]*_struct.Struct {
 // Runtime derived uint32 with a default when not specified.
 type RuntimeUInt32 struct {
 	// Default value if runtime value is not available.
-	DefaultValue uint32 `protobuf:"varint,2,opt,name=default_value,json=defaultValue" json:"default_value,omitempty"`
+	DefaultValue uint32 `protobuf:"varint,2,opt,name=default_value,json=defaultValue,proto3" json:"default_value,omitempty"`
 	// Runtime key to get value for comparison. This value is used if defined.
-	RuntimeKey           string   `protobuf:"bytes,3,opt,name=runtime_key,json=runtimeKey" json:"runtime_key,omitempty"`
+	RuntimeKey           string   `protobuf:"bytes,3,opt,name=runtime_key,json=runtimeKey,proto3" json:"runtime_key,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -369,13 +369,13 @@ func (m *RuntimeUInt32) GetRuntimeKey() string {
 // Header name/value pair.
 type HeaderValue struct {
 	// Header name.
-	Key string `protobuf:"bytes,1,opt,name=key" json:"key,omitempty"`
+	Key string `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
 	// Header value.
 	//
 	// The same :ref:`format specifier <config_access_log_format>` as used for
 	// :ref:`HTTP access logging <config_access_log>` applies here, however
 	// unknown header values are replaced with the empty string instead of `-`.
-	Value                string   `protobuf:"bytes,2,opt,name=value" json:"value,omitempty"`
+	Value                string   `protobuf:"bytes,2,opt,name=value,proto3" json:"value,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -422,10 +422,10 @@ func (m *HeaderValue) GetValue() string {
 // Header name/value pair plus option to control append behavior.
 type HeaderValueOption struct {
 	// Header name/value pair that this option applies to.
-	Header *HeaderValue `protobuf:"bytes,1,opt,name=header" json:"header,omitempty"`
+	Header *HeaderValue `protobuf:"bytes,1,opt,name=header,proto3" json:"header,omitempty"`
 	// Should the value be appended? If true (default), the value is appended to
 	// existing values.
-	Append               *wrappers.BoolValue `protobuf:"bytes,2,opt,name=append" json:"append,omitempty"`
+	Append               *wrappers.BoolValue `protobuf:"bytes,2,opt,name=append,proto3" json:"append,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}            `json:"-"`
 	XXX_unrecognized     []byte              `json:"-"`
 	XXX_sizecache        int32               `json:"-"`
@@ -510,13 +510,13 @@ type isDataSource_Specifier interface {
 }
 
 type DataSource_Filename struct {
-	Filename string `protobuf:"bytes,1,opt,name=filename,oneof"`
+	Filename string `protobuf:"bytes,1,opt,name=filename,proto3,oneof"`
 }
 type DataSource_InlineBytes struct {
 	InlineBytes []byte `protobuf:"bytes,2,opt,name=inline_bytes,json=inlineBytes,proto3,oneof"`
 }
 type DataSource_InlineString struct {
-	InlineString string `protobuf:"bytes,3,opt,name=inline_string,json=inlineString,oneof"`
+	InlineString string `protobuf:"bytes,3,opt,name=inline_string,json=inlineString,proto3,oneof"`
 }
 
 func (*DataSource_Filename) isDataSource_Specifier()     {}
@@ -639,10 +639,10 @@ func _DataSource_OneofSizer(msg proto.Message) (n int) {
 type TransportSocket struct {
 	// The name of the transport socket to instantiate. The name must match a supported transport
 	// socket implementation.
-	Name string `protobuf:"bytes,1,opt,name=name" json:"name,omitempty"`
+	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
 	// Implementation specific configuration which depends on the implementation being instantiated.
 	// See the supported transport socket implementations for further documentation.
-	Config               *_struct.Struct `protobuf:"bytes,2,opt,name=config" json:"config,omitempty"`
+	Config               *_struct.Struct `protobuf:"bytes,2,opt,name=config,proto3" json:"config,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}        `json:"-"`
 	XXX_unrecognized     []byte          `json:"-"`
 	XXX_sizecache        int32           `json:"-"`

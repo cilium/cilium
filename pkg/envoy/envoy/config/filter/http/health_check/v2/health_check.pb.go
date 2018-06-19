@@ -26,23 +26,25 @@ const _ = proto.ProtoPackageIsVersion2 // please upgrade the proto package
 
 type HealthCheck struct {
 	// Specifies whether the filter operates in pass through mode or not.
-	PassThroughMode *wrappers.BoolValue `protobuf:"bytes,1,opt,name=pass_through_mode,json=passThroughMode" json:"pass_through_mode,omitempty"`
+	PassThroughMode *wrappers.BoolValue `protobuf:"bytes,1,opt,name=pass_through_mode,json=passThroughMode,proto3" json:"pass_through_mode,omitempty"`
 	// Specifies the incoming HTTP endpoint that should be considered the
 	// health check endpoint. For example */healthcheck*.
-	Endpoint string `protobuf:"bytes,2,opt,name=endpoint" json:"endpoint,omitempty"` // Deprecated: Do not use.
+	// Note that this field is deprecated in favor of
+	// :ref:`headers <envoy_api_field_config.filter.http.health_check.v2.HealthCheck.headers>`.
+	Endpoint string `protobuf:"bytes,2,opt,name=endpoint,proto3" json:"endpoint,omitempty"` // Deprecated: Do not use.
 	// If operating in pass through mode, the amount of time in milliseconds
 	// that the filter should cache the upstream response.
-	CacheTime *duration.Duration `protobuf:"bytes,3,opt,name=cache_time,json=cacheTime" json:"cache_time,omitempty"`
+	CacheTime *duration.Duration `protobuf:"bytes,3,opt,name=cache_time,json=cacheTime,proto3" json:"cache_time,omitempty"`
 	// If operating in non-pass-through mode, specifies a set of upstream cluster
 	// names and the minimum percentage of servers in each of those clusters that
 	// must be healthy in order for the filter to return a 200.
-	ClusterMinHealthyPercentages map[string]*_type.Percent `protobuf:"bytes,4,rep,name=cluster_min_healthy_percentages,json=clusterMinHealthyPercentages" json:"cluster_min_healthy_percentages,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	ClusterMinHealthyPercentages map[string]*_type.Percent `protobuf:"bytes,4,rep,name=cluster_min_healthy_percentages,json=clusterMinHealthyPercentages,proto3" json:"cluster_min_healthy_percentages,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
 	// Specifies a set of health check request headers to match on. The health check filter will
 	// check a request’s headers against all the specified headers. To specify the health check
 	// endpoint, set the ``:path`` header to match on. Note that if the
 	// :ref:`endpoint <envoy_api_field_config.filter.http.health_check.v2.HealthCheck.endpoint>`
 	// field is set, it will overwrite any ``:path`` header to match.
-	Headers              []*route.HeaderMatcher `protobuf:"bytes,5,rep,name=headers" json:"headers,omitempty"`
+	Headers              []*route.HeaderMatcher `protobuf:"bytes,5,rep,name=headers,proto3" json:"headers,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}               `json:"-"`
 	XXX_unrecognized     []byte                 `json:"-"`
 	XXX_sizecache        int32                  `json:"-"`
@@ -52,7 +54,7 @@ func (m *HealthCheck) Reset()         { *m = HealthCheck{} }
 func (m *HealthCheck) String() string { return proto.CompactTextString(m) }
 func (*HealthCheck) ProtoMessage()    {}
 func (*HealthCheck) Descriptor() ([]byte, []int) {
-	return fileDescriptor_health_check_855578a6ba69cf68, []int{0}
+	return fileDescriptor_health_check_93fab441d25775b1, []int{0}
 }
 func (m *HealthCheck) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_HealthCheck.Unmarshal(m, b)
@@ -114,10 +116,10 @@ func init() {
 }
 
 func init() {
-	proto.RegisterFile("envoy/config/filter/http/health_check/v2/health_check.proto", fileDescriptor_health_check_855578a6ba69cf68)
+	proto.RegisterFile("envoy/config/filter/http/health_check/v2/health_check.proto", fileDescriptor_health_check_93fab441d25775b1)
 }
 
-var fileDescriptor_health_check_855578a6ba69cf68 = []byte{
+var fileDescriptor_health_check_93fab441d25775b1 = []byte{
 	// 461 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x8c, 0x52, 0x41, 0x8b, 0xd4, 0x30,
 	0x14, 0xa6, 0x9d, 0x19, 0x75, 0x32, 0x07, 0xd7, 0x2a, 0x58, 0x07, 0xd9, 0x9d, 0xf5, 0x34, 0x5e,
