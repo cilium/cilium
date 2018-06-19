@@ -1215,6 +1215,14 @@ func (kub *Kubectl) GatherLogs() {
 		return
 	}
 	reportMap(testPath, reportCmds, kub.SSHMeta)
+
+	for _, node := range []string{K8s1VMName(), K8s2VMName()} {
+		vm := GetVagrantSSHMeta(node)
+		reportCmds := map[string]string{
+			"journalctl --no-pager -au kubelet": fmt.Sprintf("kubelet-%s.log", node),
+		}
+		reportMap(testPath, reportCmds, vm)
+	}
 }
 
 // GeneratePodLogGatheringCommands generates the commands to gather logs for
