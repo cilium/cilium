@@ -44,7 +44,6 @@ var _ = Describe(microscopeTestName, func() {
 		Expect(err).To(BeNil(), "Cilium cannot be installed")
 
 		ExpectCiliumReady(kubectl)
-		ExpectKubeDNSReady(kubectl)
 	})
 
 	AfterFailed(func() {
@@ -56,14 +55,19 @@ var _ = Describe(microscopeTestName, func() {
 		microscopeErr, microscopeCancel := kubectl.MicroscopeStart()
 		Expect(microscopeErr).To(BeNil(), "Microscope cannot be started")
 
-		time.Sleep(time.Second * 10)
+		Eventually(func() bool {
+			res := kubectl.ExecPodCmd("kube-system", "microscope", "pgrep -f microscope")
+			return res.WasSuccessful()
+
+		}, time.Second*120, time.Second*5).Should(BeTrue())
 
 		kubectl.ValidateNoErrorsOnLogs(CurrentGinkgoTestDescription().Duration)
 		Expect(microscopeCancel()).To(BeNil(), "cannot stop microscope")
 
-		time.Sleep(time.Second * 10)
+		Eventually(func() bool {
+			res := kubectl.ExecPodCmd("kube-system", "microscope", "pgrep -f microscope")
+			return res.WasSuccessful()
 
-		res := kubectl.ExecPodCmd("kube-system", "microscope", "pgrep -f microscope")
-		res.ExpectFail()
+		}, time.Second*120, time.Second*5).Should(BeFalse())
 	})
 })

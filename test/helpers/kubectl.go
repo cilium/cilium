@@ -445,6 +445,7 @@ func (kub *Kubectl) MicroscopeStart() (error, func() error) {
 
 	cb := func() error {
 		cancel()
+		<-ctx.Done()
 		testPath, err := CreateReportDirectory()
 		if err != nil {
 			kub.logger.WithError(err).Errorf(

@@ -240,7 +240,9 @@ func (s *SSHMeta) ExecContext(ctx context.Context, cmd string, options ...ExecOp
 	}
 
 	go func() {
-		s.sshClient.RunCommandContext(ctx, command)
+		if err := s.sshClient.RunCommandContext(ctx, command); err != nil {
+			log.WithError(err).Error("Error running context")
+		}
 		if !ops.SkipLog {
 			res.SendToLog()
 		}
