@@ -17,7 +17,7 @@ Step 0: Install Vagrant
 =======================
 
 You need to run at least Vagrant version 1.8.3 or you will run into issues
-booting the Ubuntu 16.10 base image. You can verify by running ``vagrant
+booting the Ubuntu 17.04 base image. You can verify by running ``vagrant
 --version``.
 
 If you don't already have Vagrant installed, follow the
@@ -96,16 +96,17 @@ status``:
 ::
 
     $ cilium status
-    Allocated IPv4 addresses:
-     10.15.28.238
-     10.15.247.232
-    Allocated IPv6 addresses:
-     f00d::a00:20f:0:1
-     f00d::a00:20f:0:8ad6
-    KVStore:            Ok         Consul: 172.18.0.2:8300
-    ContainerRuntime:   Ok
-    ...
-    Cilium:             Ok
+    KVStore:                Ok         Consul: 172.18.0.2:8300
+    ContainerRuntime:       Ok         docker daemon: OK
+    Kubernetes:             Disabled
+    Cilium:                 Ok         OK
+    NodeMonitor:            Disabled
+    Cilium health daemon:   Ok
+    IPv4 address pool:      3/65535 allocated
+    IPv6 address pool:      2/65535 allocated
+    Controller Status:      10/10 healthy
+    Proxy Status:           OK, ip 10.15.0.1, port-range 10000-20000
+    Cluster health:   1/1 reachable   (2018-06-19T15:10:28Z)
 
 The status indicates that all necessary components are operational.
 
@@ -150,15 +151,16 @@ endpoint with label ``mesos:id=web-server`` and the assigned IP:
 ::
 
     $ cilium endpoint list
-    ENDPOINT   POLICY        IDENTITY   LABELS (source:key[=value])   IPv6                   IPv4           STATUS   
-               ENFORCEMENT                                                                                           
-    29898      Disabled      256        mesos:id=web-server           f00d::a00:20f:0:74ca   10.15.242.54   ready
+    ENDPOINT   POLICY (ingress)   POLICY (egress)   IDENTITY   LABELS (source:key[=value])   IPv6                 IPv4            STATUS
+               ENFORCEMENT        ENFORCEMENT
+    20928      Disabled           Disabled          59281      mesos:id=web-server           f00d::a0f:0:0:51c0   10.15.137.206   ready
+    23520      Disabled           Disabled          4          reserved:health               f00d::a0f:0:0:5be0   10.15.162.64    ready
 
 Test the web-server provides OK output:
 
 ::    
 
-    $ export WEB_IP=`cilium endpoint list | grep web-server | awk '{print $6}'`
+    $ export WEB_IP=`cilium endpoint list | grep web-server | awk '{print $7}'`
     $ curl $WEB_IP:8181/api
     OK
 
@@ -187,11 +189,12 @@ You can observe the newly created endpoints in Cilium, similar to the following 
 ::
 
     $ cilium endpoint list
-    ENDPOINT   POLICY        IDENTITY   LABELS (source:key[=value])   IPv6                   IPv4           STATUS   
-               ENFORCEMENT                                                                                           
-    29898      Disabled      256        mesos:id=web-server           f00d::a00:20f:0:74ca   10.15.242.54   ready    
-    33115      Disabled      257        mesos:id=goodclient           f00d::a00:20f:0:815b   10.15.220.6    ready
-    64189      Disabled      258        mesos:id=badclient            f00d::a00:20f:0:fabd   10.15.152.27   ready    
+    ENDPOINT   POLICY (ingress)   POLICY (egress)   IDENTITY   LABELS (source:key[=value])   IPv6                 IPv4            STATUS
+               ENFORCEMENT        ENFORCEMENT
+    20928      Disabled           Disabled          59281      mesos:id=web-server           f00d::a0f:0:0:51c0   10.15.137.206   ready
+    23520      Disabled           Disabled          4          reserved:health               f00d::a0f:0:0:5be0   10.15.162.64    ready
+    37835      Disabled           Disabled          15197      mesos:id=goodclient           f00d::a0f:0:0:93cb   10.15.152.208   ready
+    51053      Disabled           Disabled          5113       mesos:id=badclient            f00d::a0f:0:0:c76d   10.15.34.97     ready
 
 Marathon runs the tasks as batch jobs with ``stdout`` logged to task-specific
 files located in ``/var/lib/mesos``. To simplify the retrieval of the
@@ -248,11 +251,12 @@ You can observe that the policy is applied via ``cilium`` CLI as the *POLICY ENF
 ::
 
     $ cilium endpoint list
-    ENDPOINT   POLICY        IDENTITY   LABELS (source:key[=value])   IPv6                   IPv4           STATUS   
-               ENFORCEMENT                                                                                           
-    29898      Enabled       256        mesos:id=web-server           f00d::a00:20f:0:74ca   10.15.242.54   ready    
-    33115      Enabled       257        mesos:id=goodclient           f00d::a00:20f:0:815b   10.15.220.6    ready    
-    64189      Enabled       258        mesos:id=badclient            f00d::a00:20f:0:fabd   10.15.152.27   ready 
+    ENDPOINT   POLICY (ingress)   POLICY (egress)   IDENTITY   LABELS (source:key[=value])   IPv6                 IPv4            STATUS
+               ENFORCEMENT        ENFORCEMENT
+    20928      Enabled            Disabled          59281      mesos:id=web-server           f00d::a0f:0:0:51c0   10.15.137.206   ready
+    23520      Disabled           Disabled          4          reserved:health               f00d::a0f:0:0:5be0   10.15.162.64    ready
+    37835      Disabled           Disabled          15197      mesos:id=goodclient           f00d::a0f:0:0:93cb   10.15.152.208   ready
+    51053      Disabled           Disabled          5113       mesos:id=badclient            f00d::a0f:0:0:c76d   10.15.34.97     ready
 
 You should also observe that the *goodclient* logs continue to output the *web-server* responses, whereas the *badclient* request does not reach the *web-server* because of policy enforcement, and logging output similar to below. 
 
@@ -280,11 +284,12 @@ The *badclient* logs should resume outputting the *web-server*'s response and Ci
 ::
 
     $ cilium endpoint list
-    ENDPOINT   POLICY        IDENTITY   LABELS (source:key[=value])   IPv6                   IPv4           STATUS   
-               ENFORCEMENT                                                                                           
-    29898      Disabled      256        mesos:id=web-server           f00d::a00:20f:0:74ca   10.15.242.54   ready    
-    33115      Disabled      257        mesos:id=goodclient           f00d::a00:20f:0:815b   10.15.220.6    ready    
-    64189      Disabled      258        mesos:id=badclient            f00d::a00:20f:0:fabd   10.15.152.27   ready
+    ENDPOINT   POLICY (ingress)   POLICY (egress)   IDENTITY   LABELS (source:key[=value])   IPv6                 IPv4            STATUS
+               ENFORCEMENT        ENFORCEMENT
+    29898      Disabled           Disabled          37948      reserved:health               f00d::a0f:0:0:74ca   10.15.242.54   ready
+    33115      Disabled           Disabled          38072      mesos:id=web-server           f00d::a0f:0:0:815b   10.15.220.6    ready
+    38061      Disabled           Disabled          46430      mesos:id=badclient            f00d::a0f:0:0:94ad   10.15.0.173    ready
+    64189      Disabled           Disabled          31645      mesos:id=goodclient           f00d::a0f:0:0:fabd   10.15.152.27   ready
 
 Step 8: Apply L7 Policy with Cilium
 ===================================
