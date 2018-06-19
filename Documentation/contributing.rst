@@ -1381,10 +1381,12 @@ Cilium PRs that are marked with label ``stable/needs-backport`` need to be backp
 8. Run the ``check-stable`` script, referring to your Github access
    token, this will list the commits that need backporting, from the
    newest to oldest:
+9. ``check-stable`` has a optional argument that it's the target version to
+   backport.
 
 .. code-block:: bash
 
-        $ GITHUB_TOKEN=xxx contrib/backporting/check-stable
+        $ GITHUB_TOKEN=xxx contrib/backporting/check-stable 1.0
 
 9. Cherry-pick the commits using the master git SHAs listed, starting
    from the oldest (bottom), working your way up and fixing any merge
