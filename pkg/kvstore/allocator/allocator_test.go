@@ -112,6 +112,7 @@ func (s *AllocatorSuite) TestSelectID(c *C) {
 }
 
 func (s *AllocatorSuite) BenchmarkAllocate(c *C) {
+
 	allocatorName := randStringRunes(12)
 	maxID := ID(c.N)
 	allocator, err := NewAllocator(allocatorName, TestType(""), WithMax(maxID), WithSuffix("a"))
