@@ -109,15 +109,6 @@ func equalStruct(v1, v2 reflect.Value) bool {
 				// set/unset mismatch
 				return false
 			}
-			b1, ok := f1.Interface().(raw)
-			if ok {
-				b2 := f2.Interface().(raw)
-				// RawMessage
-				if !bytes.Equal(b1.Bytes(), b2.Bytes()) {
-					return false
-				}
-				continue
-			}
 			f1, f2 = f1.Elem(), f2.Elem()
 		}
 		if !equalAny(f1, f2, sprop.Prop[i]) {
@@ -146,11 +137,7 @@ func equalStruct(v1, v2 reflect.Value) bool {
 
 	u1 := uf.Bytes()
 	u2 := v2.FieldByName("XXX_unrecognized").Bytes()
-	if !bytes.Equal(u1, u2) {
-		return false
-	}
-
-	return true
+	return bytes.Equal(u1, u2)
 }
 
 // v1 and v2 are known to have the same type.
