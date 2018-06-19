@@ -293,6 +293,9 @@ static_resources:
               routes:
               - route:
                   cluster: cluster1
+                  max_grpc_timeout:
+                    seconds: 0
+                    nanos: 0
                 match:
                   prefix: "/"
 )EOF";
