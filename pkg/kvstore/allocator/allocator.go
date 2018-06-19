@@ -71,6 +71,9 @@ func (i ID) String() string {
 // IDMap provides mapping from ID to an AllocatorKey
 type IDMap map[ID]AllocatorKey
 
+// KeyMap provides mapping from AllocatorKey to ID
+type KeyMap map[string]ID
+
 // Allocator is a distributed ID allocator backed by a KVstore. It maps
 // arbitrary keys to identifiers. Multiple users on different cluster nodes can
 // in parallel request the ID for keys and are guaranteed to retrieve the same
@@ -150,6 +153,9 @@ type Allocator struct {
 	// behind.
 	cache IDMap
 
+	// keyCache shadows cache and allows access by key
+	keyCache KeyMap
+
 	// nextCache is the cache is constantly being filled by startWatch(),
 	// when startWatch has successfully performed the initial fill using
 	// ListPrefix, the cache above will be pointed to nextCache. If the
@@ -157,6 +163,9 @@ type Allocator struct {
 	// never pointed to nextCache. This guarantees that a valid cache is
 	// kept at all times.
 	nextCache IDMap
+
+	// nextKeyCache follows the same logic as nextCache but for keyCache
+	nextKeyCache KeyMap
 
 	// basePrefix is the prefix in the kvstore that all keys share which
 	// are being managed by this allocator. The basePrefix typically
@@ -246,6 +255,7 @@ func NewAllocator(basePath string, typ AllocatorKey, opts ...AllocatorOption) (*
 		stopGC:      make(chan struct{}, 0),
 		suffix:      uuid.NewUUID().String()[:10],
 		cache:       IDMap{},
+		keyCache:    KeyMap{},
 		lockless:    locklessCapability(),
 		backoffTemplate: backoff.Exponential{
 			Min:    time.Duration(20) * time.Millisecond,
@@ -535,6 +545,7 @@ func (a *Allocator) Allocate(key AllocatorKey) (ID, bool, error) {
 		kvstore.Trace("Reusing local id", nil, logrus.Fields{fieldID: val, fieldKey: key})
 		a.mutex.Lock()
 		a.nextCache[val] = key
+		a.nextKeyCache[k] = val
 		a.mutex.Unlock()
 		return val, false, nil
 	}
@@ -551,6 +562,7 @@ func (a *Allocator) Allocate(key AllocatorKey) (ID, bool, error) {
 		if err == nil {
 			a.mutex.Lock()
 			a.nextCache[value] = key
+			a.nextKeyCache[k] = value
 			a.mutex.Unlock()
 			return value, isNew, nil
 		}
@@ -581,11 +593,9 @@ func (a *Allocator) Allocate(key AllocatorKey) (ID, bool, error) {
 // has been allocated to this key yet.
 func (a *Allocator) Get(key AllocatorKey) (ID, error) {
 	a.mutex.RLock()
-	for k, v := range a.cache {
-		if v.GetKey() == key.GetKey() {
-			a.mutex.RUnlock()
-			return k, nil
-		}
+	if id, ok := a.keyCache[key.GetKey()]; ok {
+		a.mutex.RUnlock()
+		return id, nil
 	}
 	a.mutex.RUnlock()
 
@@ -745,6 +755,7 @@ func (a *Allocator) startWatch() waitChan {
 
 	// start with a fresh nextCache
 	a.nextCache = IDMap{}
+	a.nextKeyCache = KeyMap{}
 	a.mutex.Unlock()
 
 	a.idWatcherWg.Add(1)
@@ -762,6 +773,7 @@ func (a *Allocator) startWatch() waitChan {
 					a.mutex.Lock()
 					// nextCache is valid, point the live cache to it
 					a.cache = a.nextCache
+					a.keyCache = a.nextKeyCache
 					a.mutex.Unlock()
 
 					// report that the list operation has
@@ -787,11 +799,31 @@ func (a *Allocator) startWatch() waitChan {
 					}
 
 					switch event.Typ {
-					case kvstore.EventTypeCreate, kvstore.EventTypeModify:
+					case kvstore.EventTypeCreate:
 						kvstore.Trace("Adding id to cache", nil, logrus.Fields{fieldKey: key, fieldID: id})
 						a.nextCache[id] = key
+						if key != nil {
+							a.nextKeyCache[key.GetKey()] = id
+						}
+
+					case kvstore.EventTypeModify:
+						kvstore.Trace("Modifying id in cache", nil, logrus.Fields{fieldKey: key, fieldID: id})
+						if k, ok := a.nextCache[id]; ok {
+							delete(a.nextKeyCache, k.GetKey())
+						}
+
+						a.nextCache[id] = key
+						if key != nil {
+							a.nextKeyCache[key.GetKey()] = id
+						}
+
 					case kvstore.EventTypeDelete:
 						kvstore.Trace("Removing id from cache", nil, logrus.Fields{fieldID: id})
+
+						if k, ok := a.nextCache[id]; ok {
+							delete(a.nextKeyCache, k.GetKey())
+						}
+
 						delete(a.nextCache, id)
 					}
 					a.mutex.Unlock()
