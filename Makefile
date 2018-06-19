@@ -67,7 +67,7 @@ start-kvstores:
 	-docker run -d \
 	    --name "cilium-etcd-test-container" \
 	    -p 4002:4001 \
-        quay.io/coreos/etcd:v3.1.0 \
+        quay.io/coreos/etcd:v3.2.17 \
         etcd -name etcd0 \
         -advertise-client-urls http://0.0.0.0:4001 \
         -listen-client-urls http://0.0.0.0:4001 \
@@ -79,7 +79,7 @@ start-kvstores:
            --name "cilium-consul-test-container" \
            -p 8501:8500 \
            -e 'CONSUL_LOCAL_CONFIG={"skip_leave_on_interrupt": true, "disable_update_check": true}' \
-           consul:0.8.3 \
+           consul:1.1.0 \
            agent -client=0.0.0.0 -server -bootstrap-expect 1
 
 tests: force
