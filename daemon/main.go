@@ -317,6 +317,7 @@ func init() {
 		"bpf-root", "", "Path to BPF filesystem")
 	flags.StringVar(&cfgFile,
 		"config", "", `Configuration file (default "$HOME/ciliumd.yaml")`)
+	flags.Uint("conntrack-garbage-collector-interval", 60, "Garbage collection interval for the connection tracking table (in seconds)")
 	flags.StringSliceVar(&option.Config.Workloads,
 		"container-runtime", []string{"auto"}, `Sets the container runtime(s) used by Cilium { containerd | crio | docker | none | auto } ( "auto" uses the container runtime found in the order: "docker", "containerd", "crio" )`)
 	flags.Var(option.NewNamedMapOptions("container-runtime-endpoints", &containerRuntimesOpts, nil),
@@ -735,7 +736,7 @@ func runDaemon() {
 	}
 
 	log.Info("Starting connection tracking garbage collector")
-	endpointmanager.EnableConntrackGC(!option.Config.IPv4Disabled, true)
+	endpointmanager.EnableConntrackGC(!option.Config.IPv4Disabled, true, viper.GetInt("conntrack-garbage-collector-interval"))
 
 	if enableLogstash {
 		log.Info("Enabling Logstash")
