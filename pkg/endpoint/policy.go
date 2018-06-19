@@ -489,10 +489,6 @@ func (e *Endpoint) regeneratePolicy(owner Owner, opts models.ConfigurationMap) (
 		return e.nextPolicyRevision > e.policyRevision, nil
 	}
 
-	if opts == nil {
-		opts = make(models.ConfigurationMap)
-	}
-
 	// Containers without a security identity are not accessible
 	if e.SecurityIdentity == nil {
 		e.getLogger().Warn("Endpoint lacks identity, skipping policy calculation")
@@ -524,36 +520,7 @@ func (e *Endpoint) regeneratePolicy(owner Owner, opts models.ConfigurationMap) (
 
 	// no failures after this point
 
-	// Apply possible option changes before regenerating maps, as map regeneration
-	// depends on the conntrack options
-	if e.DesiredL4Policy != nil {
-		if e.DesiredL4Policy.RequiresConntrack() {
-			opts[option.Conntrack] = optionEnabled
-		}
-	}
-
-	ingress, egress := owner.EnableEndpointPolicyEnforcement(e)
-
-	opts[option.IngressPolicy] = optionDisabled
-	opts[option.EgressPolicy] = optionDisabled
-
-	if !ingress && !egress {
-		e.getLogger().Debug("ingress and egress policy enforcement not enabled")
-	} else {
-		if ingress && egress {
-			e.getLogger().Debug("policy enforcement for ingress and egress enabled")
-			opts[option.IngressPolicy] = optionEnabled
-			opts[option.EgressPolicy] = optionEnabled
-		} else if ingress {
-			e.getLogger().Debug("policy enforcement for ingress enabled")
-			opts[option.IngressPolicy] = optionEnabled
-		} else {
-			e.getLogger().Debug("policy enforcement for egress enabled")
-			opts[option.EgressPolicy] = optionEnabled
-		}
-	}
-
-	optsChanged := e.applyOptsLocked(opts)
+	optsChanged := e.updateAndOverrideEndpointOptions(owner, opts)
 
 	e.computeDesiredPolicyMapState(owner, labelsMap, repo)
 
@@ -592,6 +559,50 @@ func (e *Endpoint) regeneratePolicy(owner Owner, opts models.ConfigurationMap) (
 	needToRegenerateBPF := optsChanged || policyChanged || e.nextPolicyRevision > e.policyRevision
 
 	return needToRegenerateBPF, nil
+}
+
+// updateAndOverrideEndpointOptions updates the boolean configuration options for the endpoint
+// based off of policy configuration, daemon policy enforcement mode, and any
+// configuration options provided in opts. Returns whether the options changed
+// from prior endpoint configuration. Note that the policy which applies
+// to the endpoint, as well as the daemon's policy enforcement, may override
+// configuration changes which were made via the API that were provided in opts.
+// Must be called with endpoint mutex held.
+func (e *Endpoint) updateAndOverrideEndpointOptions(owner Owner, opts models.ConfigurationMap) (optsChanged bool) {
+	if opts == nil {
+		opts = make(models.ConfigurationMap)
+	}
+	// Apply possible option changes before regenerating maps, as map regeneration
+	// depends on the conntrack options
+	if e.DesiredL4Policy != nil {
+		if e.DesiredL4Policy.RequiresConntrack() {
+			opts[option.Conntrack] = optionEnabled
+		}
+	}
+
+	ingress, egress := owner.EnableEndpointPolicyEnforcement(e)
+
+	opts[option.IngressPolicy] = optionDisabled
+	opts[option.EgressPolicy] = optionDisabled
+
+	if !ingress && !egress {
+		e.getLogger().Debug("ingress and egress policy enforcement not enabled")
+	} else {
+		if ingress && egress {
+			e.getLogger().Debug("policy enforcement for ingress and egress enabled")
+			opts[option.IngressPolicy] = optionEnabled
+			opts[option.EgressPolicy] = optionEnabled
+		} else if ingress {
+			e.getLogger().Debug("policy enforcement for ingress enabled")
+			opts[option.IngressPolicy] = optionEnabled
+		} else {
+			e.getLogger().Debug("policy enforcement for egress enabled")
+			opts[option.EgressPolicy] = optionEnabled
+		}
+	}
+
+	optsChanged = e.applyOptsLocked(opts)
+	return
 }
 
 // Called with e.Mutex UNlocked
