@@ -77,18 +77,25 @@ type IdentityAllocatorOwner interface {
 func InitIdentityAllocator(owner IdentityAllocatorOwner) {
 	setupOnce.Do(func() {
 		log.Info("Initializing identity allocator")
+
 		minID := allocator.ID(MinimalNumericIdentity)
 		maxID := allocator.ID(^uint16(0))
+		events := make(allocator.AllocatorEventChan, 65536)
+
+		// It is important to start listening for events before calling
+		// NewAllocator() as it will emit events while filling the
+		// initial cache
+		go identityWatcher(owner, events)
+
 		a, err := allocator.NewAllocator(IdentitiesPath, globalIdentity{},
 			allocator.WithMax(maxID), allocator.WithMin(minID),
-			allocator.WithSuffix(owner.GetNodeSuffix()))
+			allocator.WithSuffix(owner.GetNodeSuffix()),
+			allocator.WithEvents(events))
 		if err != nil {
 			log.WithError(err).Fatal("Unable to initialize identity allocator")
 		}
 
 		identityAllocator = a
-
-		go identityWatcher(owner)
 	})
 }
 

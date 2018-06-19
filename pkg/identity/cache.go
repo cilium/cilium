@@ -65,7 +65,7 @@ func GetIdentities() []*models.Identity {
 	return identities
 }
 
-func identityWatcher(owner IdentityAllocatorOwner) {
+func identityWatcher(owner IdentityAllocatorOwner, events allocator.AllocatorEventChan) {
 	var (
 		needPolicyUpdateMutex lock.RWMutex
 		needPolicyUpdate      bool
@@ -96,7 +96,7 @@ func identityWatcher(owner IdentityAllocatorOwner) {
 	}()
 
 	for {
-		event := <-identityAllocator.Events
+		event := <-events
 
 		switch event.Typ {
 		case kvstore.EventTypeCreate, kvstore.EventTypeDelete:
