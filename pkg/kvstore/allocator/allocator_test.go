@@ -100,7 +100,7 @@ func (s *AllocatorSuite) TestSelectID(c *C) {
 
 func (s *AllocatorSuite) BenchmarkAllocate(c *C) {
 	allocatorName := randomTestName()
-	maxID := ID(c.N)
+	maxID := ID(256 + c.N)
 	allocator, err := NewAllocator(allocatorName, TestType(""), WithMax(maxID), WithSuffix("a"))
 	c.Assert(err, IsNil)
 	c.Assert(allocator, Not(IsNil))
