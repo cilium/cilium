@@ -175,7 +175,7 @@ drops happen.
 
 .. code:: bash
 
-    $ cilium monitor --type drop
+    $ kubectl -n kube-system exec -ti cilium-2hq5z -- cilium monitor --type drop
     Listening for events on 2 CPUs with 64x4096 of shared memory
     Press Ctrl-C to quit
     xx drop (Policy denied (L3)) to endpoint 25729, identity 261->264: fd02::c0a8:210b:0:bf00 -> fd02::c0a8:210b:0:6481 EchoRequest
@@ -408,6 +408,8 @@ Cilium agent node. In the Kubernetes case, if you have multiple Cilium pods,
 the tool can retrieve debugging information from all of them. The tool works by
 archiving a collection of command output and files from several places. By
 default, it writes to the ``tmp`` directory.
+
+Note that the command needs to be run from inside the Cilium pod/container. 
 
 .. code:: bash
 

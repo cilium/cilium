@@ -32,7 +32,7 @@ Endpoint
 Datapath
 --------
 
-* ``datapath_errors_total``: Total number of errors occurred in datapath management, labelled by area, name and address family.
+* ``datapath_errors_total``: Total number of errors occurred in datapath management, labeled by area, name and address family.
 
 Drops/Forwards (L3/L4)
 ----------------------
