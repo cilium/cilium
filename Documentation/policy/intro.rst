@@ -128,9 +128,9 @@ egress
 
 labels
   Labels are used to identify the rule. Rules can be listed and deleted by
-  labels. Policy rules which are imported via :ref:`k8s_policy` automatically
-  get the label ``io.cilium.k8s.policy.name=NAME`` assigned where ``NAME``
-  corresponds to the name specified in the `NetworkPolicy` or
+  labels. Policy rules which are imported via :ref:`kubernetes<k8s_policy>`
+  automatically get the label ``io.cilium.k8s.policy.name=NAME`` assigned where
+  ``NAME`` corresponds to the name specified in the `NetworkPolicy` or
   `CiliumNetworkPolicy` resource.
 
 description
