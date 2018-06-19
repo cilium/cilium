@@ -16,11 +16,13 @@ package identity
 
 import (
 	"reflect"
+	"time"
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/kvstore/allocator"
 	"github.com/cilium/cilium/pkg/labels"
+	"github.com/cilium/cilium/pkg/trigger"
 )
 
 var (
@@ -64,12 +66,23 @@ func GetIdentities() []*models.Identity {
 }
 
 func identityWatcher(owner IdentityAllocatorOwner) {
+	// The event queue handler is kept as lightweight as possible, it uses
+	// a non-blocking trigger to run a background routine which will call
+	// TriggerPolicyUpdates() with an enforced minimum interval of one
+	// second.
+	policyTrigger := trigger.NewTrigger(trigger.Parameters{
+		MinInterval: time.Second,
+		TriggerFunc: func() {
+			owner.TriggerPolicyUpdates(true)
+		},
+	})
+
 	for {
 		event := <-identityAllocator.Events
 
 		switch event.Typ {
 		case kvstore.EventTypeCreate, kvstore.EventTypeDelete:
-			owner.TriggerPolicyUpdates(true)
+			policyTrigger.Trigger()
 
 		case kvstore.EventTypeModify:
 			// Ignore modify events
