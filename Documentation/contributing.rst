@@ -842,9 +842,48 @@ Now the documentation page should be browsable on http://localhost:8080.
 Debugging datapath code
 ~~~~~~~~~~~~~~~~~~~~~~~
 
-.. note::
+The tool ``cilium monitor`` can also be used to retrieve debugging information
+from the BPF based datapath. Debugging messages are sent if either the
+``cilium-agent`` itself or the respective endpoint is in debug mode. The debug
+mode of the agent can be enabled by starting ``cilium-agent`` with the option
+``--debug`` enabled or by running ``cilium config debug=true`` for an already
+running agent. Debugging of an individual endpoint can be enabled by running
+``cilium endpoint config ID debug=true``
 
-    See also the user troubleshooting guide in the section :ref:`admin_guide`.
+
+.. code:: bash
+
+    $ cilium endpoint config 3978 debug=true
+    Endpoint 3978 configuration updated successfully
+    $ cilium monitor -v --hex
+    Listening for events on 2 CPUs with 64x4096 of shared memory
+    Press Ctrl-C to quit
+    ------------------------------------------------------------------------------
+    CPU 00: MARK 0x1c56d86c FROM 3978 DEBUG: 70 bytes Incoming packet from container ifindex 85
+    00000000  33 33 00 00 00 02 ae 45  75 73 11 04 86 dd 60 00  |33.....Eus....`.|
+    00000010  00 00 00 10 3a ff fe 80  00 00 00 00 00 00 ac 45  |....:..........E|
+    00000020  75 ff fe 73 11 04 ff 02  00 00 00 00 00 00 00 00  |u..s............|
+    00000030  00 00 00 00 00 02 85 00  15 b4 00 00 00 00 01 01  |................|
+    00000040  ae 45 75 73 11 04 00 00  00 00 00 00              |.Eus........|
+    CPU 00: MARK 0x1c56d86c FROM 3978 DEBUG: Handling ICMPv6 type=133
+    ------------------------------------------------------------------------------
+    CPU 00: MARK 0x1c56d86c FROM 3978 Packet dropped 131 (Invalid destination mac) 70 bytes ifindex=0 284->0
+    00000000  33 33 00 00 00 02 ae 45  75 73 11 04 86 dd 60 00  |33.....Eus....`.|
+    00000010  00 00 00 10 3a ff fe 80  00 00 00 00 00 00 ac 45  |....:..........E|
+    00000020  75 ff fe 73 11 04 ff 02  00 00 00 00 00 00 00 00  |u..s............|
+    00000030  00 00 00 00 00 02 85 00  15 b4 00 00 00 00 01 01  |................|
+    00000040  00 00 00 00                                       |....|
+    ------------------------------------------------------------------------------
+    CPU 00: MARK 0x7dc2b704 FROM 3978 DEBUG: 86 bytes Incoming packet from container ifindex 85
+    00000000  33 33 ff 00 8a d6 ae 45  75 73 11 04 86 dd 60 00  |33.....Eus....`.|
+    00000010  00 00 00 20 3a ff fe 80  00 00 00 00 00 00 ac 45  |... :..........E|
+    00000020  75 ff fe 73 11 04 ff 02  00 00 00 00 00 00 00 00  |u..s............|
+    00000030  00 01 ff 00 8a d6 87 00  20 40 00 00 00 00 fd 02  |........ @......|
+    00000040  00 00 00 00 00 00 c0 a8  21 0b 00 00 8a d6 01 01  |........!.......|
+    00000050  ae 45 75 73 11 04 00 00  00 00 00 00              |.Eus........|
+    CPU 00: MARK 0x7dc2b704 FROM 3978 DEBUG: Handling ICMPv6 type=135
+    CPU 00: MARK 0x7dc2b704 FROM 3978 DEBUG: ICMPv6 neighbour soliciation for address b21a8c0:d68a0000
+
 
 One of the most common issues when developing datapath code is that the BPF
 code cannot be loaded into the kernel. This frequently manifests as the
