@@ -360,7 +360,7 @@
     "ptypes/timestamp",
     "ptypes/wrappers"
   ]
-  revision = "8cc9e46429bfb16289d40d30b2ee3f4923b47345"
+  revision = "5831880292e721c76b58a16ecc60adc27d8e6355"
 
 [[projects]]
   branch = "master"
@@ -1149,6 +1149,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "8587dcabe33a56ed80a7293cd982810929f17d0c58ad75c5dc799b1501cd8748"
+  inputs-digest = "6590f3a172b658e4352e3826e8195a6050b62f1371c2a210ce637f14c459361b"
   solver-name = "gps-cdcl"
   solver-version = 1
