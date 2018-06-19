@@ -77,12 +77,19 @@ func (d *Daemon) restoreOldEndpoints(dir string, clean bool) (*endpointRestoreSt
 	for _, ep := range possibleEPs {
 		scopedLog := log.WithField(logfields.EndpointID, ep.ID)
 		skipRestore := false
-		if _, err := netlink.LinkByName(ep.IfName); err != nil {
-			scopedLog.Infof("Interface %s could not be found for endpoint being restored, ignoring", ep.IfName)
+
+		// On each restart, the health endpoint is supposed to be recreated.
+		// Hence we need to clean health endpoint state unconditionally.
+		if ep.SecurityIdentity.ID == identityPkg.ReservedIdentityHealth {
 			skipRestore = true
-		} else if !workloads.IsRunning(ep) {
-			scopedLog.Info("No workload could be associated with endpoint being restored, ignoring")
-			skipRestore = true
+		} else {
+			if _, err := netlink.LinkByName(ep.IfName); err != nil {
+				scopedLog.Infof("Interface %s could not be found for endpoint being restored, ignoring", ep.IfName)
+				skipRestore = true
+			} else if !workloads.IsRunning(ep) {
+				scopedLog.Info("No workload could be associated with endpoint being restored, ignoring")
+				skipRestore = true
+			}
 		}
 
 		if clean && skipRestore {
