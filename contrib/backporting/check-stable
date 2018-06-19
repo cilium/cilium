@@ -16,6 +16,8 @@
 #
 # Set PROGram name
 PROG=${0##*/}
+STABLE_BRANCH=${1:-1.0}
+echo "Checking for backports on branch '${STABLE_BRANCH}'"
 
 source $(dirname $(readlink -ne $BASH_SOURCE))/../release/lib/common.sh
 source $TOOL_LIB_PATH/gitlib.sh
@@ -165,7 +167,7 @@ MYLOG=/tmp/$PROG.log
 # Check token
 gitlib::github_api_token
 
-stable_prs=($(get_prs "stable/needs-backport" "stable/backport-done"))
+stable_prs=($(get_prs "needs-backport/${STABLE_BRANCH}" "backport-done/${STABLE_BRANCH}"))
 echo -e "PRs for stable backporting: ${#stable_prs[@]}\n"
 if [[ ${#stable_prs[@]} > 0 ]]; then
   for pr in "${stable_prs[@]}"; do
