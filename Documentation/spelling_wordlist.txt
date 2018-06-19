@@ -264,6 +264,7 @@ linearize
 linux
 linuxconf
 Liveblog
+liveness
 llc
 llvm
 LLVM
@@ -448,6 +449,7 @@ ui
 Uncomment
 underrepresents
 uninline
+unmanaged
 unmounting
 untrusted
 uprobes
