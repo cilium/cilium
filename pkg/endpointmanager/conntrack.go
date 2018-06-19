@@ -28,8 +28,8 @@ import (
 )
 
 const (
-	// GcInterval is the garbage collection interval.
-	GcInterval int = 60
+	// MinGcInterval is the minimum garbage collection interval.
+	MinGcInterval int = 5
 )
 
 // RunGC run CT's garbage collector for the given endpoint. `isLocal` refers if
@@ -83,8 +83,12 @@ func RunGC(e *endpoint.Endpoint, isIPv6 bool, filter *ctmap.GCFilter) {
 }
 
 // EnableConntrackGC enables the connection tracking garbage collection.
-func EnableConntrackGC(ipv4, ipv6 bool) {
+func EnableConntrackGC(ipv4, ipv6 bool, GcInterval int) {
 	go func() {
+		if GcInterval < MinGcInterval {
+			GcInterval = MinGcInterval
+			log.Warnf("Setting conntrack garbage collector interval to its minimum value(%d seconds)", GcInterval)
+		}
 		sleepTime := time.Duration(GcInterval) * time.Second
 		for {
 			eps := GetEndpoints()
