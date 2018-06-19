@@ -445,6 +445,7 @@ func (kub *Kubectl) MicroscopeStart() (error, func() error) {
 
 	cb := func() error {
 		cancel()
+		<-ctx.Done()
 		testPath, err := CreateReportDirectory()
 		if err != nil {
 			kub.logger.WithError(err).Errorf(
@@ -460,6 +461,7 @@ func (kub *Kubectl) MicroscopeStart() (error, func() error) {
 			log.WithError(err).Errorf("cannot create monitor log file")
 			return err
 		}
+		kub.Delete(microscopeManifest)
 		return nil
 	}
 

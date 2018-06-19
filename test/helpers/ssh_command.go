@@ -227,7 +227,9 @@ func (client *SSHClient) RunCommandContext(ctx context.Context, cmd *SSHCommand)
 			if err = session.Signal(ssh.SIGHUP); err != nil {
 				log.Errorf("failed to kill command: %s", err)
 			}
-			session.Close()
+			if err = session.Close(); err != nil {
+				log.Errorf("failed to close session: %s", err)
+			}
 		}
 	}()
 	return runCommand(session, cmd)

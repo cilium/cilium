@@ -15,8 +15,6 @@
 package k8sTest
 
 import (
-	"time"
-
 	. "github.com/cilium/cilium/test/ginkgo-ext"
 	"github.com/cilium/cilium/test/helpers"
 
@@ -44,7 +42,6 @@ var _ = Describe(microscopeTestName, func() {
 		Expect(err).To(BeNil(), "Cilium cannot be installed")
 
 		ExpectCiliumReady(kubectl)
-		ExpectKubeDNSReady(kubectl)
 	})
 
 	AfterFailed(func() {
@@ -56,14 +53,28 @@ var _ = Describe(microscopeTestName, func() {
 		microscopeErr, microscopeCancel := kubectl.MicroscopeStart()
 		Expect(microscopeErr).To(BeNil(), "Microscope cannot be started")
 
-		time.Sleep(time.Second * 10)
+		err := helpers.WithTimeout(func() bool {
+			res := kubectl.ExecPodCmd("kube-system", "microscope", "pgrep -f microscope")
+			return res.WasSuccessful()
+		}, "running microscope processes not found",
+			&helpers.TimeoutConfig{
+				Ticker:  5,
+				Timeout: 120,
+			})
+
+		Expect(err).To(BeNil())
 
 		kubectl.ValidateNoErrorsOnLogs(CurrentGinkgoTestDescription().Duration)
 		Expect(microscopeCancel()).To(BeNil(), "cannot stop microscope")
 
-		time.Sleep(time.Second * 10)
-
-		res := kubectl.ExecPodCmd("kube-system", "microscope", "pgrep -f microscope")
-		res.ExpectFail()
+		err = helpers.WithTimeout(func() bool {
+			res := kubectl.ExecPodCmd("kube-system", "microscope", "pgrep -f microscope")
+			return !res.WasSuccessful()
+		}, "found running microscope processes; no microscope processes should be running",
+			&helpers.TimeoutConfig{
+				Ticker:  5,
+				Timeout: 120,
+			})
+		Expect(err).To(BeNil())
 	})
 })
