@@ -47,10 +47,10 @@ func (FaultDelay_FaultDelayType) EnumDescriptor() ([]byte, []int) {
 type FaultDelay struct {
 	// Delay type to use (fixed|exponential|..). Currently, only fixed delay (step function) is
 	// supported.
-	Type FaultDelay_FaultDelayType `protobuf:"varint,1,opt,name=type,enum=envoy.config.filter.fault.v2.FaultDelay_FaultDelayType" json:"type,omitempty"`
+	Type FaultDelay_FaultDelayType `protobuf:"varint,1,opt,name=type,proto3,enum=envoy.config.filter.fault.v2.FaultDelay_FaultDelayType" json:"type,omitempty"`
 	// An integer between 0-100 indicating the percentage of operations/connection requests
 	// on which the delay will be injected.
-	Percent uint32 `protobuf:"varint,2,opt,name=percent" json:"percent,omitempty"`
+	Percent uint32 `protobuf:"varint,2,opt,name=percent,proto3" json:"percent,omitempty"`
 	// Types that are valid to be assigned to FaultDelaySecifier:
 	//	*FaultDelay_FixedDelay
 	FaultDelaySecifier   isFaultDelay_FaultDelaySecifier `protobuf_oneof:"fault_delay_secifier"`
@@ -88,7 +88,7 @@ type isFaultDelay_FaultDelaySecifier interface {
 }
 
 type FaultDelay_FixedDelay struct {
-	FixedDelay *duration.Duration `protobuf:"bytes,3,opt,name=fixed_delay,json=fixedDelay,oneof"`
+	FixedDelay *duration.Duration `protobuf:"bytes,3,opt,name=fixed_delay,json=fixedDelay,proto3,oneof"`
 }
 
 func (*FaultDelay_FixedDelay) isFaultDelay_FaultDelaySecifier() {}

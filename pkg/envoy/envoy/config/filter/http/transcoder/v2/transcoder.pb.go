@@ -29,15 +29,15 @@ type GrpcJsonTranscoder struct {
 	// the transcoder will translate. If the service name doesn't exist in ``proto_descriptor``,
 	// Envoy will fail at startup. The ``proto_descriptor`` may contain more services than
 	// the service names specified here, but they won't be translated.
-	Services []string `protobuf:"bytes,2,rep,name=services" json:"services,omitempty"`
+	Services []string `protobuf:"bytes,2,rep,name=services,proto3" json:"services,omitempty"`
 	// Control options for response JSON. These options are passed directly to
 	// `JsonPrintOptions <https://developers.google.com/protocol-buffers/docs/reference/cpp/
 	// google.protobuf.util.json_util#JsonPrintOptions>`_.
-	PrintOptions *GrpcJsonTranscoder_PrintOptions `protobuf:"bytes,3,opt,name=print_options,json=printOptions" json:"print_options,omitempty"`
+	PrintOptions *GrpcJsonTranscoder_PrintOptions `protobuf:"bytes,3,opt,name=print_options,json=printOptions,proto3" json:"print_options,omitempty"`
 	// Whether to keep the incoming request route after the outgoing headers have been transformed to
 	// the match the upstream gRPC service. Note: This means that routes for gRPC services that are
 	// not transcoded cannot be used in combination with *match_incoming_request_route*.
-	MatchIncomingRequestRoute bool     `protobuf:"varint,5,opt,name=match_incoming_request_route,json=matchIncomingRequestRoute" json:"match_incoming_request_route,omitempty"`
+	MatchIncomingRequestRoute bool     `protobuf:"varint,5,opt,name=match_incoming_request_route,json=matchIncomingRequestRoute,proto3" json:"match_incoming_request_route,omitempty"`
 	XXX_NoUnkeyedLiteral      struct{} `json:"-"`
 	XXX_unrecognized          []byte   `json:"-"`
 	XXX_sizecache             int32    `json:"-"`
@@ -72,7 +72,7 @@ type isGrpcJsonTranscoder_DescriptorSet interface {
 }
 
 type GrpcJsonTranscoder_ProtoDescriptor struct {
-	ProtoDescriptor string `protobuf:"bytes,1,opt,name=proto_descriptor,json=protoDescriptor,oneof"`
+	ProtoDescriptor string `protobuf:"bytes,1,opt,name=proto_descriptor,json=protoDescriptor,proto3,oneof"`
 }
 type GrpcJsonTranscoder_ProtoDescriptorBin struct {
 	ProtoDescriptorBin []byte `protobuf:"bytes,4,opt,name=proto_descriptor_bin,json=protoDescriptorBin,proto3,oneof"`
@@ -192,20 +192,20 @@ func _GrpcJsonTranscoder_OneofSizer(msg proto.Message) (n int) {
 type GrpcJsonTranscoder_PrintOptions struct {
 	// Whether to add spaces, line breaks and indentation to make the JSON
 	// output easy to read. Defaults to false.
-	AddWhitespace bool `protobuf:"varint,1,opt,name=add_whitespace,json=addWhitespace" json:"add_whitespace,omitempty"`
+	AddWhitespace bool `protobuf:"varint,1,opt,name=add_whitespace,json=addWhitespace,proto3" json:"add_whitespace,omitempty"`
 	// Whether to always print primitive fields. By default primitive
 	// fields with default values will be omitted in JSON output. For
 	// example, an int32 field set to 0 will be omitted. Setting this flag to
 	// true will override the default behavior and print primitive fields
 	// regardless of their values. Defaults to false.
-	AlwaysPrintPrimitiveFields bool `protobuf:"varint,2,opt,name=always_print_primitive_fields,json=alwaysPrintPrimitiveFields" json:"always_print_primitive_fields,omitempty"`
+	AlwaysPrintPrimitiveFields bool `protobuf:"varint,2,opt,name=always_print_primitive_fields,json=alwaysPrintPrimitiveFields,proto3" json:"always_print_primitive_fields,omitempty"`
 	// Whether to always print enums as ints. By default they are rendered
 	// as strings. Defaults to false.
-	AlwaysPrintEnumsAsInts bool `protobuf:"varint,3,opt,name=always_print_enums_as_ints,json=alwaysPrintEnumsAsInts" json:"always_print_enums_as_ints,omitempty"`
+	AlwaysPrintEnumsAsInts bool `protobuf:"varint,3,opt,name=always_print_enums_as_ints,json=alwaysPrintEnumsAsInts,proto3" json:"always_print_enums_as_ints,omitempty"`
 	// Whether to preserve proto field names. By default protobuf will
 	// generate JSON field names using the ``json_name`` option, or lower camel case,
 	// in that order. Setting this flag will preserve the original field names. Defaults to false.
-	PreserveProtoFieldNames bool     `protobuf:"varint,4,opt,name=preserve_proto_field_names,json=preserveProtoFieldNames" json:"preserve_proto_field_names,omitempty"`
+	PreserveProtoFieldNames bool     `protobuf:"varint,4,opt,name=preserve_proto_field_names,json=preserveProtoFieldNames,proto3" json:"preserve_proto_field_names,omitempty"`
 	XXX_NoUnkeyedLiteral    struct{} `json:"-"`
 	XXX_unrecognized        []byte   `json:"-"`
 	XXX_sizecache           int32    `json:"-"`

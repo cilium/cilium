@@ -31,39 +31,39 @@ const _ = proto.ProtoPackageIsVersion2 // please upgrade the proto package
 type Bootstrap struct {
 	// Node identity to present to the management server and for instance
 	// identification purposes (e.g. in generated headers).
-	Node *core.Node `protobuf:"bytes,1,opt,name=node" json:"node,omitempty"`
+	Node *core.Node `protobuf:"bytes,1,opt,name=node,proto3" json:"node,omitempty"`
 	// Statically specified resources.
-	StaticResources *Bootstrap_StaticResources `protobuf:"bytes,2,opt,name=static_resources,json=staticResources" json:"static_resources,omitempty"`
+	StaticResources *Bootstrap_StaticResources `protobuf:"bytes,2,opt,name=static_resources,json=staticResources,proto3" json:"static_resources,omitempty"`
 	// xDS configuration sources.
-	DynamicResources *Bootstrap_DynamicResources `protobuf:"bytes,3,opt,name=dynamic_resources,json=dynamicResources" json:"dynamic_resources,omitempty"`
+	DynamicResources *Bootstrap_DynamicResources `protobuf:"bytes,3,opt,name=dynamic_resources,json=dynamicResources,proto3" json:"dynamic_resources,omitempty"`
 	// Configuration for the cluster manager which owns all upstream clusters
 	// within the server.
-	ClusterManager *ClusterManager `protobuf:"bytes,4,opt,name=cluster_manager,json=clusterManager" json:"cluster_manager,omitempty"`
+	ClusterManager *ClusterManager `protobuf:"bytes,4,opt,name=cluster_manager,json=clusterManager,proto3" json:"cluster_manager,omitempty"`
 	// Optional file system path to search for startup flag files.
-	FlagsPath string `protobuf:"bytes,5,opt,name=flags_path,json=flagsPath" json:"flags_path,omitempty"`
+	FlagsPath string `protobuf:"bytes,5,opt,name=flags_path,json=flagsPath,proto3" json:"flags_path,omitempty"`
 	// Optional set of stats sinks.
-	StatsSinks []*v2.StatsSink `protobuf:"bytes,6,rep,name=stats_sinks,json=statsSinks" json:"stats_sinks,omitempty"`
+	StatsSinks []*v2.StatsSink `protobuf:"bytes,6,rep,name=stats_sinks,json=statsSinks,proto3" json:"stats_sinks,omitempty"`
 	// Configuration for internal processing of stats.
-	StatsConfig *v2.StatsConfig `protobuf:"bytes,13,opt,name=stats_config,json=statsConfig" json:"stats_config,omitempty"`
+	StatsConfig *v2.StatsConfig `protobuf:"bytes,13,opt,name=stats_config,json=statsConfig,proto3" json:"stats_config,omitempty"`
 	// Optional duration between flushes to configured stats sinks. For
 	// performance reasons Envoy latches counters and only flushes counters and
 	// gauges at a periodic interval. If not specified the default is 5000ms (5
 	// seconds).
-	StatsFlushInterval *duration.Duration `protobuf:"bytes,7,opt,name=stats_flush_interval,json=statsFlushInterval" json:"stats_flush_interval,omitempty"`
+	StatsFlushInterval *duration.Duration `protobuf:"bytes,7,opt,name=stats_flush_interval,json=statsFlushInterval,proto3" json:"stats_flush_interval,omitempty"`
 	// Optional watchdog configuration.
-	Watchdog *Watchdog `protobuf:"bytes,8,opt,name=watchdog" json:"watchdog,omitempty"`
+	Watchdog *Watchdog `protobuf:"bytes,8,opt,name=watchdog,proto3" json:"watchdog,omitempty"`
 	// Configuration for an external tracing provider. If not specified, no
 	// tracing will be performed.
-	Tracing *v21.Tracing `protobuf:"bytes,9,opt,name=tracing" json:"tracing,omitempty"`
+	Tracing *v21.Tracing `protobuf:"bytes,9,opt,name=tracing,proto3" json:"tracing,omitempty"`
 	// Configuration for an external rate limit service provider. If not
 	// specified, any calls to the rate limit service will immediately return
 	// success.
-	RateLimitService *v22.RateLimitServiceConfig `protobuf:"bytes,10,opt,name=rate_limit_service,json=rateLimitService" json:"rate_limit_service,omitempty"`
+	RateLimitService *v22.RateLimitServiceConfig `protobuf:"bytes,10,opt,name=rate_limit_service,json=rateLimitService,proto3" json:"rate_limit_service,omitempty"`
 	// Configuration for the runtime configuration provider. If not specified, a
 	// “null” provider will be used which will result in all defaults being used.
-	Runtime *Runtime `protobuf:"bytes,11,opt,name=runtime" json:"runtime,omitempty"`
+	Runtime *Runtime `protobuf:"bytes,11,opt,name=runtime,proto3" json:"runtime,omitempty"`
 	// Configuration for the local administration HTTP server.
-	Admin                *Admin   `protobuf:"bytes,12,opt,name=admin" json:"admin,omitempty"`
+	Admin                *Admin   `protobuf:"bytes,12,opt,name=admin,proto3" json:"admin,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -187,16 +187,16 @@ func (m *Bootstrap) GetAdmin() *Admin {
 type Bootstrap_StaticResources struct {
 	// Static :ref:`Listeners <envoy_api_msg_Listener>`. These listeners are
 	// available regardless of LDS configuration.
-	Listeners []*v23.Listener `protobuf:"bytes,1,rep,name=listeners" json:"listeners,omitempty"`
+	Listeners []*v23.Listener `protobuf:"bytes,1,rep,name=listeners,proto3" json:"listeners,omitempty"`
 	// If a network based configuration source is specified for :ref:`cds_config
 	// <envoy_api_field_config.bootstrap.v2.Bootstrap.DynamicResources.cds_config>`, it's necessary
 	// to have some initial cluster definitions available to allow Envoy to know
 	// how to speak to the management server. These cluster definitions may not
 	// use :ref:`EDS <arch_overview_dynamic_config_sds>` (i.e. they should be static
 	// IP or DNS-based).
-	Clusters []*v23.Cluster `protobuf:"bytes,2,rep,name=clusters" json:"clusters,omitempty"`
+	Clusters []*v23.Cluster `protobuf:"bytes,2,rep,name=clusters,proto3" json:"clusters,omitempty"`
 	// [#not-implemented-hide:]
-	Secrets              []*auth.Secret `protobuf:"bytes,3,rep,name=secrets" json:"secrets,omitempty"`
+	Secrets              []*auth.Secret `protobuf:"bytes,3,rep,name=secrets,proto3" json:"secrets,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}       `json:"-"`
 	XXX_unrecognized     []byte         `json:"-"`
 	XXX_sizecache        int32          `json:"-"`
@@ -250,11 +250,11 @@ func (m *Bootstrap_StaticResources) GetSecrets() []*auth.Secret {
 type Bootstrap_DynamicResources struct {
 	// All :ref:`Listeners <envoy_api_msg_Listener>` are provided by a single
 	// :ref:`LDS <arch_overview_dynamic_config_lds>` configuration source.
-	LdsConfig *core.ConfigSource `protobuf:"bytes,1,opt,name=lds_config,json=ldsConfig" json:"lds_config,omitempty"`
+	LdsConfig *core.ConfigSource `protobuf:"bytes,1,opt,name=lds_config,json=ldsConfig,proto3" json:"lds_config,omitempty"`
 	// All post-bootstrap :ref:`Cluster <envoy_api_msg_Cluster>` definitions are
 	// provided by a single :ref:`CDS <arch_overview_dynamic_config_cds>`
 	// configuration source.
-	CdsConfig *core.ConfigSource `protobuf:"bytes,2,opt,name=cds_config,json=cdsConfig" json:"cds_config,omitempty"`
+	CdsConfig *core.ConfigSource `protobuf:"bytes,2,opt,name=cds_config,json=cdsConfig,proto3" json:"cds_config,omitempty"`
 	// A single :ref:`ADS <config_overview_v2_ads>` source may be optionally
 	// specified. This must have :ref:`api_type
 	// <envoy_api_field_core.ApiConfigSource.api_type>` :ref:`GRPC
@@ -262,9 +262,9 @@ type Bootstrap_DynamicResources struct {
 	// :ref:`ConfigSources <envoy_api_msg_core.ConfigSource>` that have
 	// the :ref:`ads <envoy_api_field_core.ConfigSource.ads>` field set will be
 	// streamed on the ADS channel.
-	AdsConfig *core.ApiConfigSource `protobuf:"bytes,3,opt,name=ads_config,json=adsConfig" json:"ads_config,omitempty"`
+	AdsConfig *core.ApiConfigSource `protobuf:"bytes,3,opt,name=ads_config,json=adsConfig,proto3" json:"ads_config,omitempty"`
 	// [#not-implemented-hide:] Hide from docs.
-	DeprecatedV1         *Bootstrap_DynamicResources_DeprecatedV1 `protobuf:"bytes,4,opt,name=deprecated_v1,json=deprecatedV1" json:"deprecated_v1,omitempty"` // Deprecated: Do not use.
+	DeprecatedV1         *Bootstrap_DynamicResources_DeprecatedV1 `protobuf:"bytes,4,opt,name=deprecated_v1,json=deprecatedV1,proto3" json:"deprecated_v1,omitempty"` // Deprecated: Do not use.
 	XXX_NoUnkeyedLiteral struct{}                                 `json:"-"`
 	XXX_unrecognized     []byte                                   `json:"-"`
 	XXX_sizecache        int32                                    `json:"-"`
@@ -329,7 +329,7 @@ type Bootstrap_DynamicResources_DeprecatedV1 struct {
 	// when using v1 REST for :ref:`CDS
 	// <arch_overview_dynamic_config_cds>`/:ref:`EDS
 	// <arch_overview_dynamic_config_sds>`.
-	SdsConfig            *core.ConfigSource `protobuf:"bytes,1,opt,name=sds_config,json=sdsConfig" json:"sds_config,omitempty"`
+	SdsConfig            *core.ConfigSource `protobuf:"bytes,1,opt,name=sds_config,json=sdsConfig,proto3" json:"sds_config,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}           `json:"-"`
 	XXX_unrecognized     []byte             `json:"-"`
 	XXX_sizecache        int32              `json:"-"`
@@ -373,12 +373,12 @@ func (m *Bootstrap_DynamicResources_DeprecatedV1) GetSdsConfig() *core.ConfigSou
 type Admin struct {
 	// The path to write the access log for the administration server. If no
 	// access log is desired specify ‘/dev/null’.
-	AccessLogPath string `protobuf:"bytes,1,opt,name=access_log_path,json=accessLogPath" json:"access_log_path,omitempty"`
+	AccessLogPath string `protobuf:"bytes,1,opt,name=access_log_path,json=accessLogPath,proto3" json:"access_log_path,omitempty"`
 	// The cpu profiler output path for the administration server. If no profile
 	// path is specified, the default is ‘/var/log/envoy/envoy.prof’.
-	ProfilePath string `protobuf:"bytes,2,opt,name=profile_path,json=profilePath" json:"profile_path,omitempty"`
+	ProfilePath string `protobuf:"bytes,2,opt,name=profile_path,json=profilePath,proto3" json:"profile_path,omitempty"`
 	// The TCP address that the administration server will listen on.
-	Address              *core.Address `protobuf:"bytes,3,opt,name=address" json:"address,omitempty"`
+	Address              *core.Address `protobuf:"bytes,3,opt,name=address,proto3" json:"address,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}      `json:"-"`
 	XXX_unrecognized     []byte        `json:"-"`
 	XXX_sizecache        int32         `json:"-"`
@@ -440,17 +440,17 @@ type ClusterManager struct {
 	// <envoy_api_field_config.bootstrap.v2.Bootstrap.StaticResources.clusters>`. This is unrelated to
 	// the :option:`--service-cluster` option which does not `affect zone aware
 	// routing <https://github.com/envoyproxy/envoy/issues/774>`_.
-	LocalClusterName string `protobuf:"bytes,1,opt,name=local_cluster_name,json=localClusterName" json:"local_cluster_name,omitempty"`
+	LocalClusterName string `protobuf:"bytes,1,opt,name=local_cluster_name,json=localClusterName,proto3" json:"local_cluster_name,omitempty"`
 	// Optional global configuration for outlier detection.
-	OutlierDetection *ClusterManager_OutlierDetection `protobuf:"bytes,2,opt,name=outlier_detection,json=outlierDetection" json:"outlier_detection,omitempty"`
+	OutlierDetection *ClusterManager_OutlierDetection `protobuf:"bytes,2,opt,name=outlier_detection,json=outlierDetection,proto3" json:"outlier_detection,omitempty"`
 	// Optional configuration used to bind newly established upstream connections.
 	// This may be overridden on a per-cluster basis by upstream_bind_config in the cds_config.
-	UpstreamBindConfig *core.BindConfig `protobuf:"bytes,3,opt,name=upstream_bind_config,json=upstreamBindConfig" json:"upstream_bind_config,omitempty"`
+	UpstreamBindConfig *core.BindConfig `protobuf:"bytes,3,opt,name=upstream_bind_config,json=upstreamBindConfig,proto3" json:"upstream_bind_config,omitempty"`
 	// A management server endpoint to stream load stats to via
 	// *StreamLoadStats*. This must have :ref:`api_type
 	// <envoy_api_field_core.ApiConfigSource.api_type>` :ref:`GRPC
 	// <envoy_api_enum_value_core.ApiConfigSource.ApiType.GRPC>`.
-	LoadStatsConfig      *core.ApiConfigSource `protobuf:"bytes,4,opt,name=load_stats_config,json=loadStatsConfig" json:"load_stats_config,omitempty"`
+	LoadStatsConfig      *core.ApiConfigSource `protobuf:"bytes,4,opt,name=load_stats_config,json=loadStatsConfig,proto3" json:"load_stats_config,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}              `json:"-"`
 	XXX_unrecognized     []byte                `json:"-"`
 	XXX_sizecache        int32                 `json:"-"`
@@ -510,7 +510,7 @@ func (m *ClusterManager) GetLoadStatsConfig() *core.ApiConfigSource {
 
 type ClusterManager_OutlierDetection struct {
 	// Specifies the path to the outlier event log.
-	EventLogPath         string   `protobuf:"bytes,1,opt,name=event_log_path,json=eventLogPath" json:"event_log_path,omitempty"`
+	EventLogPath         string   `protobuf:"bytes,1,opt,name=event_log_path,json=eventLogPath,proto3" json:"event_log_path,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -552,19 +552,19 @@ func (m *ClusterManager_OutlierDetection) GetEventLogPath() string {
 type Watchdog struct {
 	// The duration after which Envoy counts a nonresponsive thread in the
 	// *server.watchdog_miss* statistic. If not specified the default is 200ms.
-	MissTimeout *duration.Duration `protobuf:"bytes,1,opt,name=miss_timeout,json=missTimeout" json:"miss_timeout,omitempty"`
+	MissTimeout *duration.Duration `protobuf:"bytes,1,opt,name=miss_timeout,json=missTimeout,proto3" json:"miss_timeout,omitempty"`
 	// The duration after which Envoy counts a nonresponsive thread in the
 	// *server.watchdog_mega_miss* statistic. If not specified the default is
 	// 1000ms.
-	MegamissTimeout *duration.Duration `protobuf:"bytes,2,opt,name=megamiss_timeout,json=megamissTimeout" json:"megamiss_timeout,omitempty"`
+	MegamissTimeout *duration.Duration `protobuf:"bytes,2,opt,name=megamiss_timeout,json=megamissTimeout,proto3" json:"megamiss_timeout,omitempty"`
 	// If a watched thread has been nonresponsive for this duration, assume a
 	// programming error and kill the entire Envoy process. Set to 0 to disable
 	// kill behavior. If not specified the default is 0 (disabled).
-	KillTimeout *duration.Duration `protobuf:"bytes,3,opt,name=kill_timeout,json=killTimeout" json:"kill_timeout,omitempty"`
+	KillTimeout *duration.Duration `protobuf:"bytes,3,opt,name=kill_timeout,json=killTimeout,proto3" json:"kill_timeout,omitempty"`
 	// If at least two watched threads have been nonresponsive for at least this
 	// duration assume a true deadlock and kill the entire Envoy process. Set to 0
 	// to disable this behavior. If not specified the default is 0 (disabled).
-	MultikillTimeout     *duration.Duration `protobuf:"bytes,4,opt,name=multikill_timeout,json=multikillTimeout" json:"multikill_timeout,omitempty"`
+	MultikillTimeout     *duration.Duration `protobuf:"bytes,4,opt,name=multikill_timeout,json=multikillTimeout,proto3" json:"multikill_timeout,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}           `json:"-"`
 	XXX_unrecognized     []byte             `json:"-"`
 	XXX_sizecache        int32              `json:"-"`
@@ -629,18 +629,18 @@ type Runtime struct {
 	// switched to. This parameter specifies the path to the symbolic link. Envoy
 	// will watch the location for changes and reload the file system tree when
 	// they happen.
-	SymlinkRoot string `protobuf:"bytes,1,opt,name=symlink_root,json=symlinkRoot" json:"symlink_root,omitempty"`
+	SymlinkRoot string `protobuf:"bytes,1,opt,name=symlink_root,json=symlinkRoot,proto3" json:"symlink_root,omitempty"`
 	// Specifies the subdirectory to load within the root directory. This is
 	// useful if multiple systems share the same delivery mechanism. Envoy
 	// configuration elements can be contained in a dedicated subdirectory.
-	Subdirectory string `protobuf:"bytes,2,opt,name=subdirectory" json:"subdirectory,omitempty"`
+	Subdirectory string `protobuf:"bytes,2,opt,name=subdirectory,proto3" json:"subdirectory,omitempty"`
 	// Specifies an optional subdirectory to load within the root directory. If
 	// specified and the directory exists, configuration values within this
 	// directory will override those found in the primary subdirectory. This is
 	// useful when Envoy is deployed across many different types of servers.
 	// Sometimes it is useful to have a per service cluster directory for runtime
 	// configuration. See below for exactly how the override directory is used.
-	OverrideSubdirectory string   `protobuf:"bytes,3,opt,name=override_subdirectory,json=overrideSubdirectory" json:"override_subdirectory,omitempty"`
+	OverrideSubdirectory string   `protobuf:"bytes,3,opt,name=override_subdirectory,json=overrideSubdirectory,proto3" json:"override_subdirectory,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`

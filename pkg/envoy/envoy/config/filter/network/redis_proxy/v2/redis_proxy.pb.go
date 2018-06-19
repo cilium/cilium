@@ -23,13 +23,13 @@ const _ = proto.ProtoPackageIsVersion2 // please upgrade the proto package
 
 type RedisProxy struct {
 	// The prefix to use when emitting :ref:`statistics <config_network_filters_redis_proxy_stats>`.
-	StatPrefix string `protobuf:"bytes,1,opt,name=stat_prefix,json=statPrefix" json:"stat_prefix,omitempty"`
+	StatPrefix string `protobuf:"bytes,1,opt,name=stat_prefix,json=statPrefix,proto3" json:"stat_prefix,omitempty"`
 	// Name of cluster from cluster manager. See the :ref:`configuration section
 	// <arch_overview_redis_configuration>` of the architecture overview for recommendations on
 	// configuring the backing cluster.
-	Cluster string `protobuf:"bytes,2,opt,name=cluster" json:"cluster,omitempty"`
+	Cluster string `protobuf:"bytes,2,opt,name=cluster,proto3" json:"cluster,omitempty"`
 	// Network settings for the connection pool to the upstream cluster.
-	Settings             *RedisProxy_ConnPoolSettings `protobuf:"bytes,3,opt,name=settings" json:"settings,omitempty"`
+	Settings             *RedisProxy_ConnPoolSettings `protobuf:"bytes,3,opt,name=settings,proto3" json:"settings,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}                     `json:"-"`
 	XXX_unrecognized     []byte                       `json:"-"`
 	XXX_sizecache        int32                        `json:"-"`
@@ -88,7 +88,7 @@ type RedisProxy_ConnPoolSettings struct {
 	// The only exception to this behavior is when a connection to a backend is not yet established.
 	// In that case, the connect timeout on the cluster will govern the timeout until the connection
 	// is ready.
-	OpTimeout            *duration.Duration `protobuf:"bytes,1,opt,name=op_timeout,json=opTimeout" json:"op_timeout,omitempty"`
+	OpTimeout            *duration.Duration `protobuf:"bytes,1,opt,name=op_timeout,json=opTimeout,proto3" json:"op_timeout,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}           `json:"-"`
 	XXX_unrecognized     []byte             `json:"-"`
 	XXX_sizecache        int32              `json:"-"`
