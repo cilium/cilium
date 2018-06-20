@@ -238,7 +238,7 @@ var _ = Describe("RuntimeValidatedConnectivityTest", func() {
 		}
 
 		It("Basic connectivity test", func() {
-			filename := "10-cilium-cni.conf"
+			filename := "00-cilium-cni.conf"
 			cniConf := `{"name": "cilium",
 				"type": "cilium-cni",
 				"mtu": 1450}`
