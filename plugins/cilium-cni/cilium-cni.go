@@ -32,6 +32,7 @@ import (
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/uuid"
 
 	"github.com/containernetworking/cni/pkg/ns"
 	"github.com/containernetworking/cni/pkg/skel"
@@ -297,7 +298,8 @@ func prepareIP(ipAddr string, isIPv6 bool, state *CmdState, mtu int) (*cniTypesV
 }
 
 func cmdAdd(args *skel.CmdArgs) error {
-	log.WithField("args", args).Debug("Processing CNI ADD request")
+	logger := log.WithField("eventUUID", uuid.NewUUID())
+	logger.WithField("args", args).Debug("Processing CNI ADD request")
 
 	n, cniVersion, err := loadNetConf(args.StdinData)
 	if err != nil {
@@ -340,7 +342,7 @@ func cmdAdd(args *skel.CmdArgs) error {
 	defer func() {
 		if err != nil {
 			if err = netlink.LinkDel(veth); err != nil {
-				log.WithError(err).WithField(logfields.Veth, veth.Name).Warn("failed to clean up and delete veth")
+				logger.WithError(err).WithField(logfields.Veth, veth.Name).Warn("failed to clean up and delete veth")
 			}
 		}
 	}()
@@ -415,7 +417,7 @@ func cmdAdd(args *skel.CmdArgs) error {
 		allInterfacesPath := filepath.Join("/proc", "sys", "net", "ipv6", "conf", "all", "disable_ipv6")
 		err = plugins.WriteSysConfig(allInterfacesPath, "0\n")
 		if err != nil {
-			log.WithError(err).Warn("unable to disable ipv6 on all interfaces")
+			logger.WithError(err).Warn("unable to disable ipv6 on all interfaces")
 		}
 		macAddrStr, err = configureIface(ipam, args.IfName, &state)
 		return err
@@ -432,9 +434,15 @@ func cmdAdd(args *skel.CmdArgs) error {
 	// Specify that endpoint must be regenerated synchronously. See GH-4409.
 	ep.SyncBuildEndpoint = true
 	if err = client.EndpointCreate(ep); err != nil {
+		logger.WithError(err).WithFields(logrus.Fields{
+			logfields.EndpointID:  ep.ID,
+			logfields.ContainerID: ep.ContainerID}).Warn("Unable to create endpoint")
 		return fmt.Errorf("Unable to create endpoint: %s", err)
 	}
 
+	logger.WithFields(logrus.Fields{
+		logfields.EndpointID:  ep.ID,
+		logfields.ContainerID: ep.ContainerID}).Debug("Endpoint successfully created")
 	return cniTypes.PrintResult(res, cniVersion)
 }
 

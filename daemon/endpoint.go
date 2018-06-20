@@ -39,6 +39,7 @@ import (
 	ipCacheBPF "github.com/cilium/cilium/pkg/maps/ipcache"
 	"github.com/cilium/cilium/pkg/maps/lxcmap"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/uuid"
 	"github.com/cilium/cilium/pkg/workloads"
 
 	"github.com/go-openapi/runtime/middleware"
@@ -196,8 +197,14 @@ func (d *Daemon) createEndpoint(epTemplate *models.EndpointChangeRequest, id str
 
 func (h *putEndpointID) Handle(params PutEndpointIDParams) middleware.Responder {
 	log.WithField(logfields.Params, logfields.Repr(params)).Debug("PUT /endpoint/{id} request")
-
 	epTemplate := params.Endpoint
+
+	logger := log.WithFields(logrus.Fields{
+		logfields.EndpointID:  epTemplate.ID,
+		logfields.ContainerID: epTemplate.ContainerID,
+		logfields.EventUUID:   uuid.NewUUID(),
+	})
+
 	if n, err := endpointid.ParseCiliumID(params.ID); err != nil {
 		return apierror.Error(PutEndpointIDInvalidCode, err)
 	} else if n != epTemplate.ID {
@@ -210,6 +217,7 @@ func (h *putEndpointID) Handle(params PutEndpointIDParams) middleware.Responder 
 
 	code, err := h.d.createEndpoint(epTemplate, params.ID, params.Endpoint.Labels)
 	if err != nil {
+		logger.WithError(err).Error("Endpoint cannot be created")
 		return apierror.Error(code, err)
 	}
 
@@ -230,7 +238,7 @@ func (h *putEndpointID) Handle(params PutEndpointIDParams) middleware.Responder 
 			return apierror.Error(PutEndpointIDFailedCode, fmt.Errorf("error retrieving endpoint to check if it is in %s state", endpoint.StateReady))
 		}
 
-		log.Debugf("synchronously waiting for endpoint '%d' to be in '%s' state",
+		logger.Debugf("synchronously waiting for endpoint '%d' to be in '%s' state",
 			e.ID, endpoint.StateReady)
 
 		// Default timeout for PUT /endpoint/{id} is 30 seconds, so put timeout
@@ -264,6 +272,7 @@ func (h *putEndpointID) Handle(params PutEndpointIDParams) middleware.Responder 
 			case <-timeout:
 				// Delete endpoint because PUT operation fails if timeout is
 				// exceeded.
+				logger.Warning("Endpoint did not synchronously regenerate after timeout")
 				h.d.deleteEndpoint(e)
 				return apierror.Error(PutEndpointIDFailedCode, fmt.Errorf("endpoint %d did not synchronously regenerate after timeout", e.ID))
 			}
