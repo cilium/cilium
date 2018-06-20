@@ -73,7 +73,7 @@ func kill(buf []byte) error {
 		log.WithError(err).Debug("Ignoring process kill failure")
 	}
 	if err := oldProc.Release(); err != nil {
-		return fmt.Errorf("Couldn't release process: %s", pid, err)
+		return fmt.Errorf("Couldn't release process %d: %s", pid, err)
 	}
 	return nil
 }
