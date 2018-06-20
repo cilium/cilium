@@ -623,7 +623,7 @@ func (s *SSHMeta) ReportFailed(commands ...string) {
 	ginkgoext.GinkgoPrint(res.GetDebugMessage())
 
 	for _, cmd := range commands {
-		res = s.ExecWithSudo(fmt.Sprintf("%s", cmd))
+		res = s.ExecWithSudo(fmt.Sprintf("%s", cmd), ExecOptions{SkipLog: true})
 		ginkgoext.GinkgoPrint(res.GetDebugMessage())
 	}
 

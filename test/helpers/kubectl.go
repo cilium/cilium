@@ -265,9 +265,9 @@ func (kub *Kubectl) ExecKafkaPodCmd(namespace string, pod string, arg string) er
 
 // ExecPodCmd executes command cmd in the specified pod residing in the specified
 // namespace. It returns a pointer to CmdRes with all the output
-func (kub *Kubectl) ExecPodCmd(namespace string, pod string, cmd string) *CmdRes {
+func (kub *Kubectl) ExecPodCmd(namespace string, pod string, cmd string, options ...ExecOptions) *CmdRes {
 	command := fmt.Sprintf("%s exec -n %s %s -- %s", KubectlCmd, namespace, pod, cmd)
-	return kub.Exec(command)
+	return kub.Exec(command, options...)
 }
 
 // ExecPodCmd executes command cmd in background in the specified pod residing
@@ -1035,7 +1035,7 @@ func (kub *Kubectl) CiliumReport(namespace string, commands ...string) {
 
 	for _, pod := range pods {
 		for _, cmd := range commands {
-			res = kub.ExecPodCmd(namespace, pod, cmd)
+			res = kub.ExecPodCmd(namespace, pod, cmd, ExecOptions{SkipLog: true})
 			ginkgoext.GinkgoPrint(res.GetDebugMessage())
 		}
 	}
