@@ -21,6 +21,7 @@ import (
 	"strings"
 
 	"github.com/cilium/cilium/api/v1/models"
+	"github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -212,6 +213,19 @@ func NewK8sServiceEndpoint() *K8sServiceEndpoint {
 		BEIPs: map[string]bool{},
 		Ports: map[FEPortName]*L4Addr{},
 	}
+}
+
+// CIDRPrefixes returns the endpoint's backends as a slice of IPNets.
+func (e *K8sServiceEndpoint) CIDRPrefixes() ([]*net.IPNet, error) {
+	prefixes := make([]string, 0, len(e.BEIPs))
+	for backend := range e.BEIPs {
+		prefixes = append(prefixes, backend)
+	}
+	valid, invalid := ip.ParseCIDRs(prefixes)
+	if len(invalid) > 0 {
+		return nil, fmt.Errorf("invalid IPs specified as backends: %+v", invalid)
+	}
+	return valid, nil
 }
 
 // L4Addr is an abstraction for the backend port with a L4Type, usually tcp or udp, and
