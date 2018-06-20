@@ -114,6 +114,8 @@ var _ = Describe("K8sValidatedChaosTest", func() {
 		res.ExpectSuccess()
 
 		ExpectCiliumReady(kubectl)
+		err = kubectl.CiliumEndpointWaitReady()
+		Expect(err).To(BeNil(), "Endpoints are not ready after Cilium restarts")
 
 		PingService()
 
