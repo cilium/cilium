@@ -25,6 +25,7 @@ import (
 	"regexp"
 	"strings"
 	"sync/atomic"
+	"time"
 
 	"github.com/onsi/ginkgo"
 	"github.com/onsi/ginkgo/config"
@@ -229,10 +230,12 @@ func runAllAfterFail(cs *scope, testName string) {
 	}
 
 	hasFailed, _ := afterEachFailed[testName]
-	for _, body := range cs.afterFail {
-		if ginkgo.CurrentGinkgoTestDescription().Failed || hasFailed {
+	if (ginkgo.CurrentGinkgoTestDescription().Failed || hasFailed) && len(cs.afterFail) > 0 {
+		GinkgoPrint("===================== TEST FAILED =====================")
+		for _, body := range cs.afterFail {
 			body()
 		}
+		GinkgoPrint("===================== Existing AfterFailed =====================")
 	}
 
 	if cs.parent != nil {
@@ -407,6 +410,7 @@ func wrapTest(f interface{}) interface{} {
 			atomic.AddInt32(&cs.counter, -1)
 			cs = cs.parent
 		}
+		GinkgoPrint("=== Test Finished at %s====", time.Now().Format(time.RFC3339))
 	}
 	return applyAdvice(f, nil, after)
 }

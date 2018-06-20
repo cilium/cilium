@@ -1030,8 +1030,6 @@ func (kub *Kubectl) CiliumReport(namespace string, commands ...string) {
 		kub.logger.WithError(err).Error("cannot retrieve cilium pods on ReportDump")
 		return
 	}
-	ginkgoext.GinkgoPrint("===================== TEST FAILED =====================")
-	// Dump a human readable view of pods in the test-output log
 	res := kub.Exec(fmt.Sprintf("%s get pods -o wide --all-namespaces", KubectlCmd))
 	ginkgoext.GinkgoPrint(res.GetDebugMessage())
 
@@ -1044,7 +1042,6 @@ func (kub *Kubectl) CiliumReport(namespace string, commands ...string) {
 
 	kub.DumpCiliumCommandOutput(namespace)
 	kub.GatherLogs()
-	ginkgoext.GinkgoPrint("===================== EXITING REPORT GENERATION =====================")
 }
 
 // ValidateNoErrorsOnLogs checks in cilium logs since the given duration (By
