@@ -70,6 +70,9 @@ var _ = Describe("K8sValidatedUpdates", func() {
 		kubectl.DeleteResource("ds", fmt.Sprintf("-n %s cilium", helpers.KubeSystemNamespace))
 		helpers.InstallExampleCilium(kubectl)
 
+		err := kubectl.CiliumEndpointWaitReady()
+		Expect(err).To(BeNil(), "Endpoints are not ready after timeout")
+
 		ExpectKubeDNSReady(kubectl)
 	})
 
@@ -159,13 +162,13 @@ var _ = Describe("K8sValidatedUpdates", func() {
 
 		validatedImage(localImage)
 
+		err = kubectl.CiliumEndpointWaitReady()
+		Expect(err).To(BeNil(), "Endpoints are not ready after timeout")
+
 		ExpectKubeDNSReady(kubectl)
 
 		err = kubectl.WaitForKubeDNSEntry(app1Service)
 		Expect(err).To(BeNil(), "DNS entry is not ready after timeout")
-
-		err = kubectl.CiliumEndpointWaitReady()
-		Expect(err).To(BeNil(), "Endpoints are not ready after timeout")
 
 		res = kubectl.ExecPodCmd(
 			helpers.DefaultNamespace, appPods[helpers.App2],
