@@ -358,6 +358,9 @@ func cmdAdd(args *skel.CmdArgs) error {
 		}
 		return nil
 	})
+	if err != nil {
+		return err
+	}
 
 	ipam, err := client.IPAMAllocate("")
 	if err != nil {
