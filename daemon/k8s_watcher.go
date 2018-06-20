@@ -35,6 +35,7 @@ import (
 	informer "github.com/cilium/cilium/pkg/k8s/client/informers/externalversions"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	bpfIPCache "github.com/cilium/cilium/pkg/maps/ipcache"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
@@ -745,7 +746,7 @@ func (d *Daemon) addK8sEndpointV1(ep *v1.Endpoints) {
 
 	svc, ok := d.loadBalancer.K8sServices[svcns]
 	if ok && svc.IsExternal() {
-		translator := k8s.NewK8sTranslator(svcns, *newSvcEP, false, svc.Labels)
+		translator := k8s.NewK8sTranslator(svcns, *newSvcEP, false, svc.Labels, bpfIPCache.IPCache)
 		err := d.policy.TranslateRules(translator)
 		if err != nil {
 			log.Errorf("Unable to repopulate egress policies from ToService rules: %v", err)
@@ -787,7 +788,7 @@ func (d *Daemon) deleteK8sEndpointV1(ep *v1.Endpoints) {
 	if endpoint, ok := d.loadBalancer.K8sEndpoints[svcns]; ok {
 		svc, ok := d.loadBalancer.K8sServices[svcns]
 		if ok && svc.IsExternal() {
-			translator := k8s.NewK8sTranslator(svcns, *endpoint, true, svc.Labels)
+			translator := k8s.NewK8sTranslator(svcns, *endpoint, true, svc.Labels, bpfIPCache.IPCache)
 			err := d.policy.TranslateRules(translator)
 			if err != nil {
 				log.Errorf("Unable to depopulate egress policies from ToService rules: %v", err)
