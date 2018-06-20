@@ -212,7 +212,7 @@ The CNI auto installation is performed as follows:
 1. The ``/etc/cni/net.d`` and ``/opt/cni/bin`` directories are mounted from the
    host filesystem into the pod where Cilium is running.
 
-2. The file ``/etc/cni/net.d/10-cilium.conf`` is written in case it does not
+2. The file ``/etc/cni/net.d/00-cilium.conf`` is written in case it does not
    exist yet.
 
 3. The binary ``cilium-cni`` is installed to ``/opt/cni/bin``. Any existing
@@ -256,11 +256,11 @@ The following variables are supported:
 +---------------------+--------------------------------------+------------------------+
 | CNI_DIR             | Path to mounted CNI directory        | ${HOST_PREFIX}/opt/cni |
 +---------------------+--------------------------------------+------------------------+
-| CNI_CONF_NAME       | Name of configuration file           | 10-cilium.conf         |
+| CNI_CONF_NAME       | Name of configuration file           | 00-cilium.conf         |
 +---------------------+--------------------------------------+------------------------+
 
 If you want to further adjust the CNI configuration you may do so by creating
-the CNI configuration ``/etc/cni/net.d/10-cilium.conf`` manually:
+the CNI configuration ``/etc/cni/net.d/00-cilium.conf`` manually:
 
 .. code:: bash
 
@@ -270,9 +270,9 @@ the CNI configuration ``/etc/cni/net.d/10-cilium.conf`` manually:
         "type": "cilium-cni",
         "mtu": 1450
     }
-    " > /etc/cni/net.d/10-cilium.conf'
+    " > /etc/cni/net.d/00-cilium.conf'
 
-Cilium will use any existing ``/etc/cni/net.d/10-cilium.conf`` file if it
+Cilium will use any existing ``/etc/cni/net.d/00-cilium.conf`` file if it
 already exists on a worker node and only creates it if it does not exist yet.
 
 .. _ds_deploy:
