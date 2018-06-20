@@ -47,6 +47,7 @@ const (
 	hostLinkPrefix   = "lxc"
 	hostLinkLen      = len(hostLinkPrefix + "XXXXX")
 	cniConfig        = "/etc/cni/net.d/10-cilium-cni.conf"
+	legacyCniConfig  = "/etc/cni/net.d/10-cilium-cni.conf"
 )
 
 func init() {
@@ -121,6 +122,8 @@ func confirmCleanup() bool {
 }
 
 func removeCNI() error {
+	os.Remove(legacyCniConfig)
+
 	err := os.Remove(cniConfig)
 	if os.IsNotExist(err) {
 		return nil
