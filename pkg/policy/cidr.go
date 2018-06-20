@@ -28,9 +28,11 @@ func getPrefixesFromCIDR(cidrs api.CIDRSlice) []*net.IPNet {
 	return result
 }
 
-// getPrefixesFromCIDRSet fetches all CIDRs referred to by the specified slice
+// GetPrefixesFromCIDRSet fetches all CIDRs referred to by the specified slice
 // and returns them as regular golang CIDR objects.
-func getPrefixesFromCIDRSet(rules api.CIDRRuleSlice) []*net.IPNet {
+//
+// Assumes that validation already occurred on 'rules'.
+func GetPrefixesFromCIDRSet(rules api.CIDRRuleSlice) []*net.IPNet {
 	cidrs := api.ComputeResultantCIDRSet(rules)
 	return getPrefixesFromCIDR(cidrs)
 }
@@ -52,7 +54,7 @@ func GetCIDRPrefixes(rules api.Rules) []*net.IPNet {
 				res = append(res, getPrefixesFromCIDR(ir.FromCIDR)...)
 			}
 			if len(ir.FromCIDRSet) > 0 {
-				res = append(res, getPrefixesFromCIDRSet(ir.FromCIDRSet)...)
+				res = append(res, GetPrefixesFromCIDRSet(ir.FromCIDRSet)...)
 			}
 		}
 		for _, er := range r.Egress {
@@ -60,7 +62,7 @@ func GetCIDRPrefixes(rules api.Rules) []*net.IPNet {
 				res = append(res, getPrefixesFromCIDR(er.ToCIDR)...)
 			}
 			if len(er.ToCIDRSet) > 0 {
-				res = append(res, getPrefixesFromCIDRSet(er.ToCIDRSet)...)
+				res = append(res, GetPrefixesFromCIDRSet(er.ToCIDRSet)...)
 			}
 		}
 	}
