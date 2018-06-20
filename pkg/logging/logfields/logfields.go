@@ -35,6 +35,9 @@ const (
 	// EndpointState is the current endpoint state
 	EndpointState = "endpointState"
 
+	// EventUUID is an event unique identifier
+	EventUUID = "eventID"
+
 	// ContainerID is the container identifier
 	ContainerID = "containerID"
 
