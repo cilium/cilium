@@ -80,6 +80,15 @@ func (s CIDRSlice) GetAsEndpointSelectors() EndpointSelectorSlice {
 	return slice
 }
 
+// StringSlice returns the CIDR slice as a slice of strings.
+func (s CIDRSlice) StringSlice() []string {
+	result := make([]string, 0, len(s))
+	for _, c := range s {
+		result = append(result, string(c))
+	}
+	return result
+}
+
 // CIDRRuleSlice is a slice of CIDRRules. It allows receiver methods to be
 // defined for transforming the slice into other convenient forms such as
 // EndpointSelectorSlice.
