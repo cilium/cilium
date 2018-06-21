@@ -15,6 +15,8 @@
 package envoy
 
 import (
+	"bufio"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"net/http"
@@ -26,6 +28,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/flowdebug"
 	"github.com/cilium/cilium/pkg/logging"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 
 	"github.com/sirupsen/logrus"
 	"gopkg.in/natefinch/lumberjack.v2"
@@ -150,7 +153,7 @@ func StartEnvoy(adminPort uint32, stateDir, logPath string, baseID uint64) *Envo
 	// case no one reader reads it.
 	started := make(chan bool, 1)
 	go func() {
-		var logWriter io.Writer
+		var logWriter io.WriteCloser
 		var logFormat string
 		if logPath != "" {
 			// Use the Envoy default log format when logging to a separate file
@@ -162,18 +165,20 @@ func StartEnvoy(adminPort uint32, stateDir, logPath string, baseID uint64) *Envo
 				MaxAge:     28,   //days
 				Compress:   true, // disabled by default
 			}
-			defer logger.Close()
 			logWriter = logger
 		} else {
 			// Use log format that looks like Cilium logs when integrating logs
 			// The logs will be reported as coming from the cilium-agent, so
 			// we add the thread id to be able to differentiate between Envoy's
 			// main and worker threads.
-			logFormat = "level=%l msg=\"%v\" subsys=envoy-%n thread=%t"
+			logFormat = "%t|%l|%n|%v"
 
-			// Create a logrus logger for Envoy
-			logWriter = log.WriterLevel(logrus.DebugLevel)
+			// Create a piper that parses and writes into logrus the log
+			// messages from Envoy.
+			logWriter = newEnvoyLogPiper()
 		}
+		defer logWriter.Close()
+
 		for {
 			cmd := exec.Command("cilium-envoy", "-l", mapLogLevel(log.Level), "-c", bootstrapPath, "--base-id", strconv.FormatUint(baseID, 10), "--log-format", logFormat)
 			cmd.Stderr = logWriter
@@ -240,6 +245,68 @@ func StartEnvoy(adminPort uint32, stateDir, logPath string, baseID uint64) *Envo
 	}
 
 	return nil
+}
+
+// newEnvoyLogPiper creates a writer that parses and logs log messages written by Envoy.
+func newEnvoyLogPiper() io.WriteCloser {
+	reader, writer := io.Pipe()
+	scanner := bufio.NewScanner(reader)
+	go func() {
+		scopedLog := log.WithFields(logrus.Fields{
+			logfields.LogSubsys: "unknown",
+			logfields.ThreadID:  "unknown",
+		})
+		level := "debug"
+
+		for scanner.Scan() {
+			line := scanner.Text()
+			var msg string
+
+			parts := strings.SplitN(line, "|", 4)
+			// Parse the line as a log message written by Envoy, assuming it
+			// uses the configured format: "%t|%l|%n|%v".
+			if len(parts) == 4 {
+				threadID := parts[0]
+				level = parts[1]
+				loggerName := parts[2]
+				// TODO: Parse msg to extract the source filename, line number, etc.
+				msg = fmt.Sprintf("[%s", parts[3])
+
+				scopedLog = log.WithFields(logrus.Fields{
+					logfields.LogSubsys: fmt.Sprintf("envoy-%s", loggerName),
+					logfields.ThreadID:  threadID,
+				})
+			} else {
+				// If this line can't be parsed, it continues a multi-line log
+				// message. In this case, log it at the same level and with the
+				// same fields as the previous line.
+				msg = line
+			}
+
+			if len(msg) == 0 {
+				continue
+			}
+
+			// Map the Envoy log level to a logrus level.
+			switch level {
+			case "off", "critical", "error":
+				scopedLog.Error(msg)
+			case "warning":
+				scopedLog.Warn(msg)
+			case "info":
+				scopedLog.Info(msg)
+			case "debug", "trace":
+				scopedLog.Debug(msg)
+			default:
+				scopedLog.Debug(msg)
+			}
+		}
+		if err := scanner.Err(); err != nil {
+			log.WithError(err).Error("Error while parsing Envoy logs")
+		}
+		reader.Close()
+	}()
+	return writer
 }
 
 // isEOF returns true if the error message ends in "EOF". ReadMsgUnix returns extra info in the beginning.
