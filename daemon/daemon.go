@@ -169,8 +169,7 @@ func (d *Daemon) UpdateNetworkPolicy(e *endpoint.Endpoint, policy *policy.L4Poli
 	if d.l7Proxy == nil {
 		return fmt.Errorf("can't update network policy, proxy disabled")
 	}
-	ingressPolicyEnforced, egressPolicyEnforced := d.EnableEndpointPolicyEnforcement(e)
-	return d.l7Proxy.UpdateNetworkPolicy(e, policy, ingressPolicyEnforced, egressPolicyEnforced,
+	return d.l7Proxy.UpdateNetworkPolicy(e, policy, e.Opts.IsEnabled(option.IngressPolicy), e.Opts.IsEnabled(option.EgressPolicy),
 		labelsMap, deniedIngressIdentities, deniedEgressIdentities, e.ProxyWaitGroup)
 }
 
