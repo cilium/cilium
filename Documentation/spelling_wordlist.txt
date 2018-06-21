@@ -444,6 +444,7 @@ Tracepoints
 transpiling
 Tu
 Twilio
+ubuntu
 udp
 ui
 Uncomment
@@ -461,6 +462,7 @@ Userspace
 Ubuntu
 vader
 Vader
+Vagrantcloud
 Vagrantfile
 validator
 vCPUs
