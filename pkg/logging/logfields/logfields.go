@@ -262,4 +262,6 @@ const (
 
 	// BPFMapFD is the file descriptor for a BPF map.
 	BPFMapFD = "bpfMapFileDescriptor"
+
+	ThreadID = "threadID"
 )
