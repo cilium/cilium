@@ -15,6 +15,7 @@
 package identity
 
 import (
+	"errors"
 	"strconv"
 
 	"github.com/cilium/cilium/pkg/labels"
@@ -25,6 +26,10 @@ const (
 	// MinimalNumericIdentity represents the minimal numeric identity not
 	// used for reserved purposes.
 	MinimalNumericIdentity = NumericIdentity(256)
+
+	// UserReservedNumericIdentity represents the minimal numeric identity that
+	// can be used by users for reserved purposes.
+	UserReservedNumericIdentity = NumericIdentity(128)
 
 	// InvalidIdentity is the identity assigned if the identity is invalid
 	// or not determined yet
@@ -69,7 +74,51 @@ var (
 		ReservedIdentityCluster: labels.IDNameCluster,
 		ReservedIdentityInit:    labels.IDNameInit,
 	}
+
+	// ErrNotUserIdentity is an error returned for an identity that is not user
+	// reserved.
+	ErrNotUserIdentity = errors.New("not a user reserved identity")
 )
+
+// IsUserReservedIdentity returns true if the given NumericIdentity belongs
+// to the space reserved for users.
+func IsUserReservedIdentity(id NumericIdentity) bool {
+	return id.Uint32() >= UserReservedNumericIdentity.Uint32() &&
+		id.Uint32() < MinimalNumericIdentity.Uint32()
+}
+
+// AddUserDefinedNumericIdentity adds the given numeric identity and respective
+// label to the list of reservedIdentities. If the numeric identity is not
+// between UserReservedNumericIdentity and MinimalNumericIdentity it will return
+// ErrNotUserIdentity.
+func AddUserDefinedNumericIdentity(identity NumericIdentity, label string) error {
+	if !IsUserReservedIdentity(identity) {
+		return ErrNotUserIdentity
+	}
+	reservedIdentitiesMutex.Lock()
+	defer reservedIdentitiesMutex.Unlock()
+	reservedIdentities[label] = identity
+	reservedIdentityNames[identity] = label
+	return nil
+}
+
+// DelReservedNumericIdentity deletes the given Numeric Identity from the list
+// of reservedIdentities. If the numeric identity is not between
+// UserReservedNumericIdentity and MinimalNumericIdentity it will return
+// ErrNotUserIdentity.
+func DelReservedNumericIdentity(identity NumericIdentity) error {
+	if !IsUserReservedIdentity(identity) {
+		return ErrNotUserIdentity
+	}
+	reservedIdentitiesMutex.Lock()
+	defer reservedIdentitiesMutex.Unlock()
+	label, ok := reservedIdentityNames[identity]
+	if ok {
+		delete(reservedIdentities, label)
+		delete(reservedIdentityNames, identity)
+	}
+	return nil
+}
 
 // NumericIdentity is the numeric representation of a security identity / a
 // security policy.
