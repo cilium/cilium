@@ -27,6 +27,7 @@ import (
 	serverPkg "github.com/cilium/cilium/pkg/health/server"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/pidfile"
 
 	gops "github.com/google/gops/agent"
@@ -81,6 +82,8 @@ func init() {
 	flags.StringP("host", "H", "", "URI to cilium-health server API")
 	flags.StringP("cilium", "c", "", "URI to Cilium server API")
 	flags.UintP("interval", "i", 60, "Interval (in seconds) for periodic connectivity probes")
+	flags.String("prometheus-serve-addr", "", "IP:Port on which to serve prometheus metrics (pass \":Port\" to bind on all interfaces, \"\" is off)")
+	viper.BindEnv("prometheus-serve-addr", "CILIUM_HEALTH_PROMETHEUS_SERVE_ADDR")
 	viper.BindPFlags(flags)
 
 	flags.StringVar(&cmdRefDir, "cmdref", "", "Path to cmdref output directory")
@@ -166,6 +169,13 @@ func runServer() {
 			scopedLog.WithError(err).Fatal("Cannot set default permissions on socket")
 		}
 	}()
+
+	if prometheusServeAddr := viper.GetString("prometheus-serve-addr"); prometheusServeAddr != "" {
+		log.Info("Serving cilium-health prometheus metrics")
+		if err := metrics.EnableHealth(prometheusServeAddr); err != nil {
+			log.WithError(err).Fatal("Failed to serve prometheus metrics")
+		}
+	}
 
 	defer server.Shutdown()
 	if err := server.Serve(); err != nil {
