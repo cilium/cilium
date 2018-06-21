@@ -66,8 +66,7 @@ func GetPolicyLabels(ns, name string, uid types.UID, derivedFrom string) labels.
 func getEndpointSelector(namespace string, labelSelector *metav1.LabelSelector, addK8sPrefix, matchesInit bool) api.EndpointSelector {
 	es := api.NewESFromK8sLabelSelector("", labelSelector)
 
-	// There's no need to prefixed K8s
-	// prefix for reserved labels
+	// The k8s prefix must not be added to reserved labels.
 	if addK8sPrefix && es.HasKeyPrefix(labels.LabelSourceReservedKeyPrefix) {
 		return es
 	}
