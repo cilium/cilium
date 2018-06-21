@@ -26,9 +26,17 @@ import (
 	"github.com/cilium/cilium/pkg/health/defaults"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/metrics"
 
 	"github.com/servak/go-fastping"
 	"github.com/sirupsen/logrus"
+)
+
+const (
+	failedProbeLatency = float64(0)
+
+	endpointTypeHost     = "host"
+	endpointTypeEndpoint = "endpoint"
 )
 
 // healthReport is a snapshot of the health of the cluster.
@@ -197,6 +205,42 @@ func resolveIP(node *ciliumModels.NodeElement, addr *ciliumModels.NodeAddressing
 	return node.Name, ra
 }
 
+func isPrimary(node *ciliumModels.NodeElement, addr *net.IPAddr) (bool, error) {
+	if node.PrimaryAddress != nil {
+		if node.PrimaryAddress.IPV4.Enabled && node.PrimaryAddress.IPV4.IP == addr.String() {
+			return true, nil
+		}
+		if node.PrimaryAddress.IPV6.Enabled && node.PrimaryAddress.IPV6.IP == addr.String() {
+			return true, nil
+		}
+	}
+	if node.HealthEndpointAddress != nil {
+		if node.HealthEndpointAddress.IPV4.Enabled && node.HealthEndpointAddress.IPV4.IP == addr.String() {
+			return false, nil
+		}
+		if node.HealthEndpointAddress.IPV6.Enabled && node.HealthEndpointAddress.IPV6.IP == addr.String() {
+			return false, nil
+		}
+	}
+	for _, elem := range node.SecondaryAddresses {
+		if elem.Enabled && elem.IP == addr.String() {
+			return false, nil
+		}
+	}
+	return false, fmt.Errorf("address %v doesn't belong to the node %s", addr, node.Name)
+}
+
+func endpointType(node *ciliumModels.NodeElement, addr *net.IPAddr) (string, error) {
+	primary, err := isPrimary(node, addr)
+	if err != nil {
+		return "", err
+	}
+	if primary {
+		return endpointTypeHost, nil
+	}
+	return endpointTypeEndpoint, nil
+}
+
 // setNodes sets the list of nodes for the prober, and updates the pinger to
 // start sending pings to all of the nodes.
 // setNodes will steal references to nodes referenced from 'nodes', so the
@@ -229,16 +273,23 @@ func (p *prober) setNodes(nodes nodeMap) {
 	}
 }
 
-func (p *prober) httpProbe(node string, ip string, port int) *models.ConnectivityStatus {
+func (p *prober) httpProbe(node *ciliumModels.NodeElement, addr *net.IPAddr, port int) *models.ConnectivityStatus {
 	result := &models.ConnectivityStatus{}
 
-	host := fmt.Sprintf("http://%s:%d", ip, port)
+	host := fmt.Sprintf("http://%s:%d", addr, port)
 	scopedLog := log.WithFields(logrus.Fields{
-		logfields.NodeName: node,
-		logfields.IPAddr:   ip,
+		logfields.NodeName: node.Name,
+		logfields.IPAddr:   addr.String(),
 		"host":             host,
 		"path":             PortToPaths[port],
 	})
+
+	etype, err := endpointType(node, addr)
+	if err != nil {
+		scopedLog.WithError(err).Error("Failed to detect endpoint type")
+		result.Status = err.Error()
+		return result
+	}
 
 	client, err := client.NewClient(host)
 	if err == nil {
@@ -250,13 +301,34 @@ func (p *prober) httpProbe(node string, ip string, port int) *models.Connectivit
 			scopedLog.WithField("rtt", rtt).Debug("Greeting successful")
 			result.Status = ""
 			result.Latency = rtt.Nanoseconds()
+
+			metrics.Latency.WithLabelValues(
+				node.Name,
+				addr.String(),
+				etype,
+				"http",
+			).Observe(rtt.Seconds())
 		} else {
 			scopedLog.WithError(err).Debug("Greeting snubbed")
 			result.Status = "Connection timed out"
+
+			metrics.Latency.WithLabelValues(
+				node.Name,
+				addr.String(),
+				etype,
+				"http",
+			).Observe(failedProbeLatency)
 		}
 	} else {
 		scopedLog.WithError(err).Info("Failed to express greeting to host")
 		result.Status = err.Error()
+
+		metrics.Latency.WithLabelValues(
+			node.Name,
+			addr.String(),
+			etype,
+			"http",
+		).Observe(failedProbeLatency)
 	}
 
 	return result
@@ -273,33 +345,33 @@ func (p *prober) runHTTPProbe() {
 	// ping each node once, deduplicate nodes into map of nodeName -> []IP.
 	// When probing below, we won't hold the lock on 'p.nodes' so take
 	// a copy of all of the IPs we need to reference.
-	nodes := make(map[string][]*net.IPAddr)
+	nodes := make(map[*ciliumModels.NodeElement][]*net.IPAddr)
 	p.RLock()
 	for _, node := range p.nodes {
-		if nodes[node.Name] != nil {
+		if nodes[node] != nil {
 			// Already handled this node.
 			continue
 		}
-		nodes[node.Name] = []*net.IPAddr{}
+		nodes[node] = []*net.IPAddr{}
 		for elem, primary := range getNodeAddresses(node) {
 			if _, addr := resolveIP(node, elem, "http", primary); addr != nil {
-				nodes[node.Name] = append(nodes[node.Name], addr)
+				nodes[node] = append(nodes[node], addr)
 			}
 		}
 	}
 	p.RUnlock()
 
-	for name, ips := range nodes {
+	for node, ips := range nodes {
 		for _, ip := range ips {
 			status := &models.PathStatus{}
 			ports := map[int]**models.ConnectivityStatus{
 				defaults.HTTPPathPort: &status.HTTP,
 			}
 			for port, result := range ports {
-				*result = p.httpProbe(name, ip.String(), port)
+				*result = p.httpProbe(node, ip, port)
 				if status.HTTP.Status != "" {
 					log.WithFields(logrus.Fields{
-						logfields.NodeName: name,
+						logfields.NodeName: node.Name,
 						logfields.IPAddr:   ip.String(),
 						logfields.Port:     port,
 					}).Debugf("Failed to probe: %s", status.HTTP.Status)
@@ -391,12 +463,25 @@ func newProber(s *Server, nodes nodeMap) *prober {
 			return
 		}
 
+		etype, err := endpointType(node, addr)
+		if err != nil {
+			scopedLog.WithError(err).Error("Failed to detect endpoint type")
+			return
+		}
+
 		prober.Lock()
 		prober.results[ipString(addr.String())].Icmp = &models.ConnectivityStatus{
 			Latency: rtt.Nanoseconds(),
 			Status:  "",
 		}
 		prober.Unlock()
+
+		metrics.Latency.WithLabelValues(
+			node.Name,
+			addr.String(),
+			etype,
+			"icmp",
+		).Observe(rtt.Seconds())
 
 		scopedLog.WithFields(logrus.Fields{
 			logfields.NodeName: node.Name,
