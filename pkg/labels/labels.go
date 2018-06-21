@@ -139,6 +139,10 @@ const (
 
 	// LabelSourceReservedKeyPrefix is the prefix of a reserved label
 	LabelSourceReservedKeyPrefix = LabelSourceReserved + "."
+
+	// LabelKeyFixedIdentity is the label that can be used to define a fixed
+	// identity.
+	LabelKeyFixedIdentity = "io.cilium.fixed-identity"
 )
 
 // Label is the cilium's representation of a container label.
@@ -306,6 +310,11 @@ func (l *Label) IsAllLabel() bool {
 // IsAnySource return if the label was set with source "any".
 func (l *Label) IsAnySource() bool {
 	return l.Source == LabelSourceAny
+}
+
+// IsReservedSource return if the label was set with source "Reserved".
+func (l *Label) IsReservedSource() bool {
+	return l.Source == LabelSourceReserved
 }
 
 // Matches returns true if l matches the target

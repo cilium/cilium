@@ -37,6 +37,7 @@ import (
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/envoy"
 	"github.com/cilium/cilium/pkg/flowdebug"
+	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/labels"
@@ -117,8 +118,32 @@ var (
 )
 
 var (
-	logOpts               = make(map[string]string)
-	kvStoreOpts           = make(map[string]string)
+	logOpts                = make(map[string]string)
+	kvStoreOpts            = make(map[string]string)
+	fixedIdentity          = make(map[string]string)
+	fixedIdentityValidator = option.Validator(func(val string) (string, error) {
+		vals := strings.Split(val, "=")
+		if len(vals) != 2 {
+			return "", fmt.Errorf(`invalid fixed identity: expecting "<numeric-identity>=<identity-name>" got %q`, val)
+		}
+		ni, err := identity.ParseNumericIdentity(vals[0])
+		if err != nil {
+			return "", fmt.Errorf(`invalid numeric identity %q: %s`, val, err)
+		}
+		if !identity.IsUserReservedIdentity(ni) {
+			return "", fmt.Errorf(`invalid numeric identity %q: valid numeric identity is between %d and %d`,
+				val, identity.UserReservedNumericIdentity.Uint32(), identity.MinimalNumericIdentity.Uint32())
+		}
+		lblStr := vals[1]
+		lbl := labels.ParseLabel(lblStr)
+		switch {
+		case lbl == nil:
+			return "", fmt.Errorf(`unable to parse given label: %s`, lblStr)
+		case lbl.IsReservedSource():
+			return "", fmt.Errorf(`invalid source %q for label: %s`, labels.LabelSourceReserved, lblStr)
+		}
+		return val, nil
+	})
 	containerRuntimesOpts = make(map[string]string)
 	cfgFile               string
 
@@ -346,6 +371,8 @@ func init() {
 	flags.MarkHidden("disable-envoy-version-check")
 	// Disable version check if Envoy build is disabled
 	viper.BindEnv("disable-envoy-version-check", "CILIUM_DISABLE_ENVOY_BUILD")
+	flags.Var(option.NewNamedMapOptions("fixed-identity-mapping", &fixedIdentity, fixedIdentityValidator),
+		"fixed-identity-mapping", "Key-value for the fixed identity mapping which allows to use reserved label for fixed identities")
 	flags.IntVar(&v4ClusterCidrMaskSize,
 		"ipv4-cluster-cidr-mask-size", 8, "Mask size for the cluster wide CIDR")
 	flags.StringVar(&v4Prefix,
@@ -638,6 +665,10 @@ func initEnv(cmd *cobra.Command) {
 	option.Config.Opts.Set(option.ConntrackLocal, false)
 
 	policy.SetPolicyEnabled(strings.ToLower(viper.GetString("enable-policy")))
+
+	if err := identity.AddUserDefinedNumericIdentitySet(fixedIdentity); err != nil {
+		log.Fatal("Invalid fixed identities provided: %s", err)
+	}
 
 	if err := kvstore.Setup(kvStore, kvStoreOpts); err != nil {
 		addrkey := fmt.Sprintf("%s.address", kvStore)

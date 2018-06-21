@@ -119,24 +119,37 @@ func LookupIdentity(lbls labels.Labels) *Identity {
 // LookupReservedIdentityByLabels looks up a reserved identity by its labels and
 // returns it if found. Returns nil if not found.
 func LookupReservedIdentityByLabels(lbls labels.Labels) *Identity {
-	// If there is only one label with the "reserved" source and a well-known
-	// key, return the well-known identity for that key.
-	if len(lbls) != 1 {
-		return nil
-	}
 	for _, lbl := range lbls {
-		if lbl.Source != labels.LabelSourceReserved {
+		switch {
+		// If the set of labels contain a fixed identity then and exists in
+		// the map of reserved IDs then return the identity of that reserved ID.
+		case lbl.Key == labels.LabelKeyFixedIdentity:
+			id := GetReservedID(lbl.Value)
+			if id != IdentityUnknown && IsUserReservedIdentity(id) {
+				return LookupReservedIdentity(id)
+			}
+			// If a fixed identity was not found then we return nil to avoid
+			// falling to a reserved identity.
 			return nil
-		}
-		if id := GetReservedID(lbl.Key); id != IdentityUnknown {
-			return LookupReservedIdentity(id)
+		// If it doesn't contain a fixed-identity then make sure the set of
+		// labels only contains a single label and that label is of the reserved
+		// type. This is to prevent users from adding cilium-reserved labels
+		// into the workloads.
+		case lbl.Source == labels.LabelSourceReserved:
+			if len(lbls) != 1 {
+				return nil
+			}
+			id := GetReservedID(lbl.Key)
+			if id != IdentityUnknown && !IsUserReservedIdentity(id) {
+				return LookupReservedIdentity(id)
+			}
 		}
 	}
 	return nil
 }
 
-// LookupReservedIdentity looks up a reserved identity by its labels and
-// returns it if found. Returns nil if not found.
+// LookupReservedIdentity looks up a reserved identity by its NumericIdentity
+// and returns it if found. Returns nil if not found.
 func LookupReservedIdentity(ni NumericIdentity) *Identity {
 	mutex.RLock()
 	defer mutex.RUnlock()
@@ -192,4 +205,26 @@ func init() {
 		reservedIdentityCache[ni] = identity
 	})
 	mutex.Unlock()
+}
+
+// AddUserDefinedNumericIdentitySet adds all key-value pairs from the given map
+// to the map of user defined numeric identities and reserved identities.
+// The key-value pairs should map a numeric identity to a valid label.
+func AddUserDefinedNumericIdentitySet(m map[string]string) error {
+	// Validate first
+	for k := range m {
+		ni, err := ParseNumericIdentity(k)
+		if err != nil {
+			return err
+		}
+		if !IsUserReservedIdentity(ni) {
+			return ErrNotUserIdentity
+		}
+	}
+	for k, lbl := range m {
+		ni, _ := ParseNumericIdentity(k)
+		AddUserDefinedNumericIdentity(ni, lbl)
+		AddReservedIdentity(ni, lbl)
+	}
+	return nil
 }
