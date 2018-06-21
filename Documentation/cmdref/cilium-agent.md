@@ -35,6 +35,7 @@ cilium-agent
       --enable-policy string                        Enable policy enforcement (default "default")
       --enable-tracing                              Enable tracing while determining policy (debugging)
       --envoy-log string                            Path to a separate Envoy log file, if any
+      --fixed-identity-mapping map                  Key-value for the fixed identity mapping which allows to use reserved label for fixed identities (default map[])
       --ipv4-cluster-cidr-mask-size int             Mask size for the cluster wide CIDR (default 8)
       --ipv4-node string                            IPv4 address of node (default "auto")
       --ipv4-range string                           Per-node IPv4 endpoint prefix, e.g. 10.16.0.0/16 (default "auto")
