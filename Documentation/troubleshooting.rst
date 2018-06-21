@@ -68,6 +68,7 @@ of all nodes in the cluster:
 .. code:: bash
 
     $ curl -sLO releases.cilium.io/v1.1.0/tools/k8s-cilium-exec.sh
+    $ chmod +x ./k8s-cilium-exec.sh
 
 ... and run ``cilium status`` on all nodes:
 
@@ -88,7 +89,8 @@ of all nodes in the cluster:
 Logs
 ~~~~
 
-To retrieve log files of a cilium pod, run
+To retrieve log files of a cilium pod, run (replace `cilium-1234` with a pod
+name returned by `kubectl -n kube-system get pods -l k8s-app=cilium`)
 
 .. code:: bash
 
@@ -104,6 +106,9 @@ the last restart:
 
 Generic
 -------
+
+When logged in a host running Cilium, the cilium CLI can be invoked directly,
+e.g.:
 
 .. code:: bash
 
@@ -166,12 +171,12 @@ minute.
 Monitoring Packet Drops
 -----------------------
 
-Cilium provides extensive visibility into 
-
-When connectivity is not as it should be. A main cause can be unwanted packet
-drops on the networking level. There can be various causes for this. The tool
+Sometimes you may experience broken connectivity, which may be due to a
+number of different causes. A main cause can be unwanted packet drops on
+the networking level. The tool
 ``cilium monitor`` allows you to quickly inspect and see if and where packet
-drops happen.
+drops happen. Following is an example output (use `kubectl exec` as in previous
+examples if running with Kubernetes):
 
 .. code:: bash
 
