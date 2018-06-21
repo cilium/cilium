@@ -16,7 +16,7 @@ WORKDIR /go/src/github.com/cilium/cilium/envoy
 ENV GOROOT /usr/local/go
 ENV GOPATH /go
 ENV PATH "$GOROOT/bin:$GOPATH/bin:$PATH"
-ENV GO_VERSION 1.9
+ENV GO_VERSION 1.10.3
 
 #
 # Build dependencies
@@ -50,7 +50,7 @@ RUN apt-get update \
 #
 # Install Go
 #
-RUN curl -sfL https://storage.googleapis.com/golang/go${GO_VERSION}.linux-amd64.tar.gz | tar -xzC /usr/local \
+RUN curl -sfL https://dl.google.com/go/go${GO_VERSION}.linux-amd64.tar.gz | tar -xzC /usr/local \
 	&& go get -u github.com/cilium/go-bindata/... \
 	&& go get -u github.com/golang/protobuf/protoc-gen-go \
 	&& go get -d github.com/lyft/protoc-gen-validate \
