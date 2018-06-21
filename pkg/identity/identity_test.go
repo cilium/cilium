@@ -104,9 +104,8 @@ func (s *IdentityTestSuite) TestAllocateIdentityReserved(c *C) {
 	c.Assert(i.ID, Equals, ReservedIdentityCluster)
 	c.Assert(isNew, Equals, false)
 
-	lbls = labels.Labels{
-		labels.IDNameHealth: labels.NewLabel(labels.IDNameHealth, "", labels.LabelSourceReserved),
-	}
+	lbls = labels.LabelHealth.DeepCopy()
+
 	c.Assert(IdentityAllocationIsLocal(lbls), Equals, true)
 	i, isNew, err = AllocateIdentity(lbls)
 	c.Assert(err, IsNil)

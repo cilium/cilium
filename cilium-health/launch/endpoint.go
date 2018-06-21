@@ -211,7 +211,7 @@ func LaunchAsEndpoint(owner endpoint.Owner, hostAddressing *models.NodeAddressin
 	ep.SetDefaultOpts(option.Config.Opts)
 
 	// Give the endpoint a security identity
-	lbls := labels.Labels{labels.IDNameHealth: labels.NewLabel(labels.IDNameHealth, "", labels.LabelSourceReserved)}
+	lbls := labels.LabelHealth.DeepCopy()
 	ep.SetIdentityLabels(owner, lbls)
 
 	// Wait until the cilium-health endpoint is running before setting up routes
