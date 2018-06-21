@@ -62,13 +62,19 @@ message PortNetworkPolicy {
   uint32 port = 1 [(validate.rules).uint32.lte = 65535];
 
   // The flows' L4 transport protocol.
-  // Required.
+  // Required. This predicate is ignored, i.e. it matches any L4 transport
+  // protocol, if protocol_wildcard is true.
   envoy.api.v2.core.SocketAddress.Protocol protocol = 2;
 
   // The network policy rules to be enforced on the flows to the port.
   // Optional. A flow is matched by this predicate if either the set of
   // rules is empty or any of the rules matches it.
   repeated PortNetworkPolicyRule rules = 3;
+
+  // Whether this rule wildcards all protocols at L3.
+  // Optional. If true, any L4 transport protocol is matched by this
+  // predicate.
+  bool protocol_wildcard = 4;
 }
 
 // A network policy rule, as a conjunction of predicates on L3/L7 flows.

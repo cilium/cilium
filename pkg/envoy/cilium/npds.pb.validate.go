@@ -148,6 +148,8 @@ func (m *PortNetworkPolicy) Validate() error {
 
 	}
 
+	// no validation rules for ProtocolWildcard
+
 	return nil
 }
 
