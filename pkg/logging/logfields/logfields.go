@@ -262,4 +262,7 @@ const (
 
 	// BPFMapFD is the file descriptor for a BPF map.
 	BPFMapFD = "bpfMapFileDescriptor"
+
+	// ThreadID is the Envoy thread ID.
+	ThreadID = "threadID"
 )
