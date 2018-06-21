@@ -57,7 +57,6 @@ Upgrade ConfigMap
             # lines and add the certificate and key in cilium-etcd-secrets below
             key-file: '/var/lib/etcd-secrets/etcd-client-key'
             cert-file: '/var/lib/etcd-secrets/etcd-client-crt'
-          sidecar-http-proxy: "false"
         kind: ConfigMap
         metadata:
           creationTimestamp: null
