@@ -415,7 +415,6 @@ func cmdAdd(args *skel.CmdArgs) error {
 	}
 
 	var macAddrStr string
-	// FIXME: use nsenter
 	if err = netNs.Do(func(_ ns.NetNS) error {
 		allInterfacesPath := filepath.Join("/proc", "sys", "net", "ipv6", "conf", "all", "disable_ipv6")
 		err = plugins.WriteSysConfig(allInterfacesPath, "0\n")
