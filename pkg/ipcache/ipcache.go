@@ -15,42 +15,21 @@
 package ipcache
 
 import (
-	"encoding/json"
 	"fmt"
 	"net"
-	"path"
-	"strings"
-	"sync"
 
 	"github.com/cilium/cilium/pkg/identity"
-	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 
 	"github.com/sirupsen/logrus"
 )
 
-const (
-	// DefaultAddressSpace is the address space used if none is provided.
-	// TODO - once pkg/node adds this to clusterConfiguration, remove.
-	DefaultAddressSpace = "default"
-)
-
 var (
-	// IPIdentitiesPath is the path to where endpoint IPs are stored in the key-value
-	//store.
-	IPIdentitiesPath = path.Join(kvstore.BaseKeyPrefix, "state", "ip", "v1")
-
 	// IPIdentityCache caches the mapping of endpoint IPs to their corresponding
 	// security identities across the entire cluster in which this instance of
 	// Cilium is running.
 	IPIdentityCache = NewIPCache()
-
-	// AddressSpace is the address space (cluster, etc.) in which policy is
-	// computed. It is determined by the orchestration system / runtime.
-	AddressSpace = DefaultAddressSpace
-
-	setupIPIdentityWatcher sync.Once
 )
 
 // IPCache is a caching of endpoint IP to security identity (and vice-versa) for
@@ -104,55 +83,6 @@ func (ipc *IPCache) RUnlock() {
 	ipc.mutex.RUnlock()
 }
 
-func upsertToKVStore(ipKey string, ipIDPair identity.IPIdentityPair) error {
-	marshaledIPIDPair, err := json.Marshal(ipIDPair)
-	if err != nil {
-		return err
-	}
-
-	log.WithFields(logrus.Fields{
-		logfields.IPAddr:       ipIDPair.IP,
-		logfields.IPMask:       ipIDPair.Mask,
-		logfields.Identity:     ipIDPair.ID,
-		logfields.Modification: Upsert,
-	}).Debug("upserting IP->ID mapping to kvstore")
-
-	return kvstore.Update(ipKey, marshaledIPIDPair, true)
-}
-
-// UpsertIPToKVStore updates / inserts the provided IP->Identity mapping into the
-// kvstore, which will subsequently trigger an event in ipIdentityWatcher().
-func UpsertIPToKVStore(IP net.IP, ID identity.NumericIdentity, metadata string) error {
-	ipKey := path.Join(IPIdentitiesPath, AddressSpace, IP.String())
-	ipIDPair := identity.IPIdentityPair{
-		IP:       IP,
-		ID:       ID,
-		Metadata: metadata,
-	}
-
-	return upsertToKVStore(ipKey, ipIDPair)
-}
-
-// UpsertIPNetToKVStore updates / inserts the provided CIDR->Identity mapping
-// into the kvstore, which will subsequently trigger an event in
-// ipIdentityWatcher().
-func UpsertIPNetToKVStore(prefix *net.IPNet, ID *identity.Identity) error {
-	// Reserved identities are handled locally, don't push them to kvstore.
-	if ID.IsReserved() {
-		return nil
-	}
-
-	ipKey := path.Join(IPIdentitiesPath, AddressSpace, prefix.String())
-	ipIDPair := identity.IPIdentityPair{
-		IP:       prefix.IP,
-		Mask:     prefix.Mask,
-		ID:       ID.ID,
-		Metadata: AddressSpace, // XXX: Should we associate more metadata?
-	}
-
-	return upsertToKVStore(ipKey, ipIDPair)
-}
-
 func checkPrefixLengthsAgainstMap(impl Implementation, prefixes []*net.IPNet, existingPrefixes map[int]int) error {
 	prefixLengths := make(map[int]struct{})
 
@@ -187,60 +117,6 @@ func CheckPrefixes(impl Implementation, prefixes []*net.IPNet) (err error) {
 		return
 	}
 	return checkPrefixLengthsAgainstMap(impl, prefixes, IPIdentityCache.v6PrefixLengths)
-}
-
-// UpsertIPNetsToKVStore inserts a CIDR->Identity mapping into the kvstore
-// ipcache for each of the specified prefixes and identities. That is to say,
-// prefixes[0] is mapped to identities[0].
-//
-// If any Prefix->Identity mapping cannot be created, it will not create any
-// of the mappings and returns an error.
-//
-// The caller should check the prefix lengths against the underlying IPCache
-// implementation using CheckPrefixLengths prior to upserting to the kvstore.
-func UpsertIPNetsToKVStore(prefixes []*net.IPNet, identities []*identity.Identity) (err error) {
-	if len(prefixes) != len(identities) {
-		return fmt.Errorf("Invalid []Prefix->[]Identity ipcache mapping requested: prefixes=%d identities=%d", len(prefixes), len(identities))
-	}
-	for i, prefix := range prefixes {
-		id := identities[i]
-		err = UpsertIPNetToKVStore(prefix, id)
-		if err != nil {
-			for j := 0; j < i; j++ {
-				err2 := DeleteIPFromKVStore(prefix.String())
-				if err2 != nil {
-					log.WithFields(logrus.Fields{
-						"prefix": prefix.String(),
-					}).Error("Failed to clean up CIDR->ID mappings")
-				}
-			}
-		}
-	}
-
-	return
-}
-
-// DeleteIPFromKVStore removes the IP->Identity mapping for the specified ip from the
-// kvstore, which will subsequently trigger an event in ipIdentityWatcher().
-func DeleteIPFromKVStore(ip string) error {
-	ipKey := path.Join(IPIdentitiesPath, AddressSpace, ip)
-	return kvstore.Delete(ipKey)
-}
-
-// DeleteIPNetsFromKVStore removes the Prefix->Identity mappings for the
-// specified slice of prefixes from the kvstore, which will subsequently
-// trigger an event in ipIdentityWatcher().
-func DeleteIPNetsFromKVStore(prefixes []*net.IPNet) (err error) {
-	for _, prefix := range prefixes {
-		if err2 := DeleteIPFromKVStore(prefix.String()); err2 != nil {
-			err = err2
-			log.WithFields(logrus.Fields{
-				"prefix": prefix.String(),
-			}).Error("Failed to delete CIDR->ID mappings")
-		}
-	}
-
-	return
 }
 
 // refPrefixLength adds one reference to the prefix length in the map.
@@ -388,233 +264,9 @@ func (ipc *IPCache) LookupByIdentity(id identity.NumericIdentity) (map[string]st
 	return ips, exists
 }
 
-// IPIdentityMappingListener represents a component that is interested in
-// learning about IP to Identity mapping events.
-type IPIdentityMappingListener interface {
-	// OnIPIdentityCacheChange will be called whenever there the state of the
-	// IPCache has changed. If an existing IP->ID mapping is updated, then
-	// the old IPIdentityPair will be provided; otherwise it is nil.
-	OnIPIdentityCacheChange(modType CacheModification, oldIPIDPair *identity.IPIdentityPair, newIPIDPair identity.IPIdentityPair)
-
-	// OnIPIdentityCacheGC will be called to sync other components which are
-	// reliant upon the IPIdentityCache with the IPIdentityCache.
-	OnIPIdentityCacheGC()
-}
-
 // GetIPIdentityMapModel returns all known endpoint IP to security identity mappings
 // stored in the key-value store.
 func GetIPIdentityMapModel() {
 	// TODO (ianvernon) return model of ip to identity mapping. For use in CLI.
 	// see GH-2555
-}
-
-// CacheModification represents the type of operation performed upon IPCache.
-type CacheModification string
-
-const (
-	// Upsert represents Upsertion into IPCache.
-	Upsert CacheModification = "Upsert"
-
-	// Delete represents deletion of an entry in IPCache.
-	Delete CacheModification = "Delete"
-)
-
-// keyToIPNet returns the IPNet describing the key, whether it is a host, and
-// an error (if one occurs)
-func keyToIPNet(key string) (parsedPrefix *net.IPNet, host bool, err error) {
-	requiredPrefix := fmt.Sprintf("%s/", path.Join(IPIdentitiesPath, AddressSpace))
-	if !strings.HasPrefix(key, requiredPrefix) {
-		err = fmt.Errorf("Found invalid key %s outside of prefix %s", key, IPIdentitiesPath)
-		return
-	}
-
-	suffix := strings.TrimPrefix(key, requiredPrefix)
-
-	// Key is formatted as "prefix/192.0.2.0/24" for CIDRs
-	_, parsedPrefix, err = net.ParseCIDR(suffix)
-	if err != nil {
-		// Key is likely a host in the format "prefix/192.0.2.3"
-		parsedIP := net.ParseIP(suffix)
-		if parsedIP == nil {
-			err = fmt.Errorf("unable to parse IP from suffix %s", suffix)
-			return
-		}
-		err = nil
-		host = true
-		ipv4 := parsedIP.To4()
-		bits := net.IPv6len * 8
-		if ipv4 != nil {
-			parsedIP = ipv4
-			bits = net.IPv4len * 8
-		}
-		parsedPrefix = &net.IPNet{IP: parsedIP, Mask: net.CIDRMask(bits, bits)}
-	}
-
-	return
-}
-
-// findShadowedCIDR attempts to search for a CIDR with a full prefix (eg, /32
-// for IPv4) which matches the IP in the specified pair. Only performs the
-// search if the pair's IP represents a host IP.
-// Returns the identity and whether the IP was found.
-func findShadowedCIDR(pair *identity.IPIdentityPair) (identity.NumericIdentity, bool) {
-	if !pair.IsHost() {
-		return identity.InvalidIdentity, false
-	}
-	bits := net.IPv6len * 8
-	if pair.IP.To4() != nil {
-		bits = net.IPv4len * 8
-	}
-	cidrStr := fmt.Sprintf("%s/%d", pair.PrefixString(), bits)
-	return IPIdentityCache.LookupByIP(cidrStr)
-}
-
-func ipIdentityWatcher(listeners []IPIdentityMappingListener) {
-	log.Info("Starting IP identity watcher")
-
-	for {
-
-		watcher := kvstore.ListAndWatch("endpointIPWatcher", IPIdentitiesPath, 512)
-
-		// Get events from channel as they come in.
-		for event := range watcher.Events {
-
-			scopedLog := log.WithFields(logrus.Fields{"kvstore-event": event.Typ.String(), "key": event.Key})
-			scopedLog.Debug("received event")
-
-			var (
-				cacheChanged      bool
-				cacheModification CacheModification
-				ipIDPair          identity.IPIdentityPair
-				cachedIdentity    identity.NumericIdentity
-				ipIsInCache       bool
-			)
-
-			// Synchronize local caching of endpoint IP to ipIDPair mapping with
-			// operation key-value store has informed us about.
-			//
-			// To resolve conflicts between hosts and full CIDR prefixes:
-			// - Insert hosts into the cache as ".../w.x.y.z"
-			// - Insert CIDRS into the cache as ".../w.x.y.z/N"
-			// - If a host entry created, notify the listeners.
-			// - If a CIDR is created and there's no overlapping host
-			//   entry, ie it is a less than fully masked CIDR, OR
-			//   it is a fully masked CIDR and there is no corresponding
-			//   host entry, then:
-			//   - Notify the listeners.
-			//   - Otherwise, do not notify listeners.
-			// - If a host is removed, check for an overlapping CIDR
-			//   and if it exists, notify the listeners with an upsert
-			//   for the CIDR's identity
-			// - If any other deletion case, notify listeners of
-			//   the deletion event.
-			switch event.Typ {
-			case kvstore.EventTypeListDone:
-				for _, listener := range listeners {
-					listener.OnIPIdentityCacheGC()
-				}
-			case kvstore.EventTypeCreate, kvstore.EventTypeModify:
-				err := json.Unmarshal(event.Value, &ipIDPair)
-				if err != nil {
-					scopedLog.WithError(err).Errorf("not adding entry to ip cache; error unmarshaling data from key-value store")
-					continue
-				}
-
-				ipStr := ipIDPair.PrefixString()
-				cachedIdentity, ipIsInCache = IPIdentityCache.LookupByIP(ipStr)
-
-				// Host IP identities take precedence over CIDR
-				// identities, so if this event is for a full
-				// CIDR prefix and there's an existing entry
-				// with a different ID, then break out.
-				if !ipIDPair.IsHost() {
-					ones, bits := ipIDPair.Mask.Size()
-					if ipIsInCache && ones == bits {
-						if cachedIdentity != ipIDPair.ID {
-							IPIdentityCache.Upsert(ipStr, ipIDPair.ID)
-							scopedLog.WithField(logfields.IPAddr, ipIDPair.IP).
-								Infof("Received KVstore update for CIDR overlapping with endpoint IP.")
-						}
-						continue
-					}
-				}
-
-				// Insert or update the IP -> ID mapping.
-				if !ipIsInCache || cachedIdentity != ipIDPair.ID {
-					IPIdentityCache.Upsert(ipStr, ipIDPair.ID)
-					cacheChanged = true
-					cacheModification = Upsert
-				}
-			case kvstore.EventTypeDelete:
-				// Value is not present in deletion event;
-				// need to convert kvstore key to IP.
-				ipnet, isHost, err := keyToIPNet(event.Key)
-				if err != nil {
-					scopedLog.Error("error parsing IP from key: %s", err)
-					continue
-				}
-
-				ipIDPair.IP = ipnet.IP
-				if isHost {
-					ipIDPair.Mask = nil
-				} else {
-					ipIDPair.Mask = ipnet.Mask
-				}
-				ipStr := ipIDPair.PrefixString()
-				cachedIdentity, ipIsInCache = IPIdentityCache.LookupByIP(ipStr)
-
-				if ipIsInCache {
-					cacheChanged = true
-					IPIdentityCache.delete(ipStr)
-
-					// Set up the IPIDPair and cacheModification for listener callbacks
-					prefixIdentity, shadowedCIDR := findShadowedCIDR(&ipIDPair)
-					if shadowedCIDR {
-						scopedLog.WithField(logfields.IPAddr, ipIDPair.IP).
-							Infof("Received KVstore deletion for endpoint IP shadowing CIDR, restoring CIDR.")
-						ipIDPair.ID = prefixIdentity
-						cacheModification = Upsert
-					} else {
-						ipIDPair.ID = cachedIdentity
-						cacheModification = Delete
-					}
-				}
-			}
-
-			if cacheChanged {
-				log.WithFields(logrus.Fields{
-					logfields.IPAddr:       ipIDPair.IP,
-					logfields.IPMask:       ipIDPair.Mask,
-					logfields.OldIdentity:  cachedIdentity,
-					logfields.Identity:     ipIDPair.ID,
-					logfields.Modification: cacheModification,
-				}).Debugf("endpoint IP cache state change")
-
-				var oldIPIDPair *identity.IPIdentityPair
-				if ipIsInCache && cacheModification == Upsert {
-					// If an existing mapping is updated,
-					// provide the existing mapping to the
-					// listener so it can easily clean up
-					// the old mapping.
-					pair := ipIDPair
-					pair.ID = cachedIdentity
-					oldIPIDPair = &pair
-				}
-				// Callback upon cache updates.
-				for _, listener := range listeners {
-					listener.OnIPIdentityCacheChange(cacheModification, oldIPIDPair, ipIDPair)
-				}
-			}
-		}
-
-		log.Debugf("%s closed, restarting watch", watcher.String())
-	}
-}
-
-// InitIPIdentityWatcher initializes the watcher for ip-identity mapping events
-// in the key-value store.
-func InitIPIdentityWatcher(listeners []IPIdentityMappingListener) {
-	setupIPIdentityWatcher.Do(func() {
-		go ipIdentityWatcher(listeners)
-	})
 }
