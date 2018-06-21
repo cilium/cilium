@@ -21,7 +21,6 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/cilium/cilium/common"
 	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
@@ -159,16 +158,16 @@ func defaultLabelPrefixCfg() *labelPrefixCfg {
 	}
 
 	expressions := []string{
-		k8sConst.PodNamespaceLabel,                                 // include io.kubernetes.pod.namspace
-		k8sConst.PodNamespaceMetaLabels,                            // include all namespace labels
-		"!io.kubernetes",                                           // ignore all other io.kubernetes labels
-		"!.*kubernetes.io",                                         // ignore all other kubernetes.io labels (annotation.*.k8s.io)
-		"!pod-template-generation",                                 // ignore pod-template-generation
-		"!pod-template-hash",                                       // ignore pod-template-hash
-		"!controller-revision-hash",                                // ignore controller-revision-hash
-		"!annotation." + common.CiliumK8sAnnotationPrefix,          // ignore all cilium annotations
-		"!annotation." + common.CiliumIdentityAnnotationDeprecated, // ignore all cilium annotations
-		"!annotation.sidecar.istio.io",                             // ignore all istio sidecar annotation labels
+		k8sConst.PodNamespaceLabel,                                   // include io.kubernetes.pod.namspace
+		k8sConst.PodNamespaceMetaLabels,                              // include all namespace labels
+		"!io.kubernetes",                                             // ignore all other io.kubernetes labels
+		"!.*kubernetes.io",                                           // ignore all other kubernetes.io labels (annotation.*.k8s.io)
+		"!pod-template-generation",                                   // ignore pod-template-generation
+		"!pod-template-hash",                                         // ignore pod-template-hash
+		"!controller-revision-hash",                                  // ignore controller-revision-hash
+		"!annotation." + k8sConst.CiliumK8sAnnotationPrefix,          // ignore all cilium annotations
+		"!annotation." + k8sConst.CiliumIdentityAnnotationDeprecated, // ignore all cilium annotations
+		"!annotation.sidecar.istio.io",                               // ignore all istio sidecar annotation labels
 	}
 
 	for _, e := range expressions {
