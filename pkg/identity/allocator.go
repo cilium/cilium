@@ -108,7 +108,7 @@ func InitIdentityAllocator(owner IdentityAllocatorOwner) {
 func IdentityAllocationIsLocal(lbls labels.Labels) bool {
 	// If there is only one label with the "reserved" source and a well-known
 	// key, the well-known identity for it can be allocated locally.
-	return LookupReservedIdentity(lbls) != nil
+	return LookupReservedIdentityByLabels(lbls) != nil
 }
 
 // AllocateIdentity allocates an identity described by the specified labels. If
@@ -122,7 +122,7 @@ func AllocateIdentity(lbls labels.Labels) (*Identity, bool, error) {
 
 	// If there is only one label with the "reserved" source and a well-known
 	// key, use the well-known identity for that key.
-	if reservedIdentity := LookupReservedIdentity(lbls); reservedIdentity != nil {
+	if reservedIdentity := LookupReservedIdentityByLabels(lbls); reservedIdentity != nil {
 		log.WithFields(logrus.Fields{
 			logfields.Identity:       reservedIdentity.ID,
 			logfields.IdentityLabels: lbls.String(),
@@ -154,7 +154,7 @@ func AllocateIdentity(lbls labels.Labels) (*Identity, bool, error) {
 // After the last user has released the ID, the returned lastUse value is true.
 func (id *Identity) Release() error {
 	// Ignore reserved identities.
-	if reservedIdentityCache[id.ID] != nil {
+	if LookupReservedIdentity(id.ID) != nil {
 		return nil
 	}
 

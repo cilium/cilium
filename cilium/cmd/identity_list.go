@@ -42,9 +42,9 @@ func init() {
 
 func listIdentities(args []string) {
 	reserved := []*models.Identity{}
-	for k, v := range identity.ReservedIdentities {
+	identity.IterateReservedIdentities(func(k string, v identity.NumericIdentity) {
 		reserved = append(reserved, identity.NewIdentity(v, labels.NewLabelsFromModel([]string{"reserved:" + k})).GetModel())
-	}
+	})
 
 	var params *identityApi.GetIdentityParams
 	if len(args) != 0 {

@@ -22,10 +22,12 @@ import (
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/kvstore/allocator"
 	"github.com/cilium/cilium/pkg/labels"
+	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/trigger"
 )
 
 var (
+	mutex                 lock.RWMutex
 	reservedIdentityCache = map[NumericIdentity]*Identity{}
 )
 
@@ -94,7 +96,7 @@ func identityWatcher(owner IdentityAllocatorOwner, events allocator.AllocatorEve
 // This function will first search through the local cache and fall back to
 // querying the kvstore.
 func LookupIdentity(lbls labels.Labels) *Identity {
-	if reservedIdentity := LookupReservedIdentity(lbls); reservedIdentity != nil {
+	if reservedIdentity := LookupReservedIdentityByLabels(lbls); reservedIdentity != nil {
 		return reservedIdentity
 	}
 
@@ -114,9 +116,9 @@ func LookupIdentity(lbls labels.Labels) *Identity {
 	return NewIdentity(NumericIdentity(id), lbls)
 }
 
-// LookupReservedIdentity looks up a reserved identity by its labels and
+// LookupReservedIdentityByLabels looks up a reserved identity by its labels and
 // returns it if found. Returns nil if not found.
-func LookupReservedIdentity(lbls labels.Labels) *Identity {
+func LookupReservedIdentityByLabels(lbls labels.Labels) *Identity {
 	// If there is only one label with the "reserved" source and a well-known
 	// key, return the well-known identity for that key.
 	if len(lbls) != 1 {
@@ -126,11 +128,19 @@ func LookupReservedIdentity(lbls labels.Labels) *Identity {
 		if lbl.Source != labels.LabelSourceReserved {
 			return nil
 		}
-		if id, ok := ReservedIdentities[lbl.Key]; ok {
-			return reservedIdentityCache[id]
+		if id := GetReservedID(lbl.Key); id != IdentityUnknown {
+			return LookupReservedIdentity(id)
 		}
 	}
 	return nil
+}
+
+// LookupReservedIdentity looks up a reserved identity by its labels and
+// returns it if found. Returns nil if not found.
+func LookupReservedIdentity(ni NumericIdentity) *Identity {
+	mutex.RLock()
+	defer mutex.RUnlock()
+	return reservedIdentityCache[ni]
 }
 
 var unknownIdentity = NewIdentity(IdentityUnknown, labels.Labels{labels.IDNameUnknown: labels.NewLabel(labels.IDNameUnknown, "", labels.LabelSourceReserved)})
@@ -142,7 +152,7 @@ func LookupIdentityByID(id NumericIdentity) *Identity {
 		return unknownIdentity
 	}
 
-	if identity, ok := reservedIdentityCache[id]; ok {
+	if identity := LookupReservedIdentity(id); identity != nil {
 		return identity
 	}
 
@@ -163,10 +173,12 @@ func LookupIdentityByID(id NumericIdentity) *Identity {
 }
 
 func init() {
-	for key, val := range ReservedIdentities {
-		identity := NewIdentity(val, labels.Labels{key: labels.NewLabel(key, "", labels.LabelSourceReserved)})
+	mutex.Lock()
+	IterateReservedIdentities(func(lbl string, ni NumericIdentity) {
+		identity := NewIdentity(ni, labels.Labels{lbl: labels.NewLabel(lbl, "", labels.LabelSourceReserved)})
 		// Pre-calculate the SHA256 hash.
 		identity.GetLabelsSHA256()
-		reservedIdentityCache[val] = identity
-	}
+		reservedIdentityCache[ni] = identity
+	})
+	mutex.Unlock()
 }
