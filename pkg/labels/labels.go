@@ -23,7 +23,6 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/common"
 )
 
@@ -110,20 +109,6 @@ func (o *OpLabels) AllLabels() Labels {
 		all[k] = v
 	}
 	return all
-}
-
-// NewOplabelsFromModel creates new label from the model.
-func NewOplabelsFromModel(base *models.LabelConfigurationStatus) *OpLabels {
-	if base == nil {
-		return nil
-	}
-
-	return &OpLabels{
-		Custom:                NewLabelsFromModel(base.Realized.User),
-		Disabled:              NewLabelsFromModel(base.Disabled),
-		OrchestrationIdentity: NewLabelsFromModel(base.SecurityRelevant),
-		OrchestrationInfo:     NewLabelsFromModel(base.Derived),
-	}
 }
 
 const (
