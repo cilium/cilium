@@ -814,7 +814,7 @@ func (e *Endpoint) runIdentityToK8sPodSync() {
 				e.Mutex.RUnlock()
 
 				if id != "" && e.GetK8sNamespace() != "" && e.GetK8sPodName() != "" {
-					return k8s.AnnotatePod(e, common.CiliumIdentityAnnotation, id)
+					return k8s.AnnotatePod(e, k8sConst.CiliumIdentityAnnotation, id)
 				}
 
 				return nil

@@ -22,11 +22,11 @@ import (
 
 	. "github.com/cilium/cilium/api/v1/client/policy"
 	"github.com/cilium/cilium/api/v1/models"
-	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/pkg/command"
 	endpointid "github.com/cilium/cilium/pkg/endpoint/id"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/k8s"
+	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	"github.com/cilium/cilium/pkg/policy/trace"
 
 	"github.com/spf13/cobra"
@@ -265,7 +265,7 @@ func getSecIDFromK8s(podName string) (string, error) {
 		return "", fmt.Errorf("unable to get pod %s in namespace %s", pod, namespace)
 	}
 
-	secID := p.GetAnnotations()[common.CiliumIdentityAnnotation]
+	secID := p.GetAnnotations()[k8sConst.CiliumIdentityAnnotation]
 	if secID == "" {
 		return "", fmt.Errorf("cilium-identity annotation not set for pod %s in namespace %s", pod, namespace)
 	}
