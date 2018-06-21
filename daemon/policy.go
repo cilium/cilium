@@ -26,6 +26,7 @@ import (
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/identity"
+	"github.com/cilium/cilium/pkg/identity/cidr"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -237,7 +238,7 @@ func (d *Daemon) PolicyAdd(rules api.Rules, opts *AddOptions) (uint64, error) {
 	prefixes := policy.GetCIDRPrefixes(rules)
 	log.WithField("prefixes", prefixes).Debug("Policy imported via API, found CIDR prefixes...")
 
-	prefixIdentities, err := identity.AllocateCIDRIdentities(prefixes)
+	prefixIdentities, err := cidr.AllocateCIDRIdentities(prefixes)
 	if err != nil {
 		metrics.PolicyImportErrors.Inc()
 		return d.policy.GetRevision(), err
@@ -311,7 +312,7 @@ func (d *Daemon) PolicyDelete(labels labels.LabelArray) (uint64, error) {
 	prefixes := policy.GetCIDRPrefixes(rules)
 	log.WithField("prefixes", prefixes).Debug("Policy deleted via API, found prefixes...")
 
-	prefixIdentities, err := identity.LookupCIDRIdentities(prefixes)
+	prefixIdentities, err := cidr.LookupCIDRIdentities(prefixes)
 	if err == nil {
 		if err = identity.ReleaseSlice(prefixIdentities); err != nil {
 			log.WithError(err).WithFields(logrus.Fields{
