@@ -22,6 +22,8 @@ package metrics
 // - Register the new object in the init function
 
 import (
+	"context"
+	"net"
 	"net/http"
 	"os"
 	"time"
@@ -32,8 +34,14 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+const (
+	healthSocket = "/run/cilium/prometheus_health.sock"
+)
+
 var (
-	registry = prometheus.NewPedanticRegistry()
+	Registry = prometheus.NewPedanticRegistry()
+
+	healthRegistry = prometheus.NewPedanticRegistry()
 
 	// Namespace is used to scope metrics from cilium. It is prepended to metric
 	// names and separated with a '_'
@@ -206,42 +214,46 @@ var (
 		Help:      "Number of errors that occurred in the datapath or datapath management",
 	},
 		[]string{LabelDatapathArea, LabelDatapathName, LabelDatapathFamily})
+
+	// Health statistics
+
+	// Latency is a histogram showing latency to nodes
+	Latency = prometheus.NewHistogramVec(prometheus.HistogramOpts{
+		Namespace: Namespace,
+		Name:      "latency",
+		Help:      "Latency to nodes",
+	}, []string{"node", "type", "ip", "protocol"})
 )
 
 func init() {
-	MustRegister(prometheus.NewProcessCollector(os.Getpid(), Namespace))
+	Registry.MustRegister(prometheus.NewProcessCollector(os.Getpid(), Namespace))
 	// TODO: Figure out how to put this into a Namespace
 	//MustRegister(prometheus.NewGoCollector())
 
-	MustRegister(EndpointCountRegenerating)
-	MustRegister(EndpointRegenerationCount)
+	Registry.MustRegister(EndpointCountRegenerating)
+	Registry.MustRegister(EndpointRegenerationCount)
 
-	MustRegister(PolicyCount)
-	MustRegister(PolicyRevision)
-	MustRegister(PolicyImportErrors)
+	Registry.MustRegister(PolicyCount)
+	Registry.MustRegister(PolicyRevision)
+	Registry.MustRegister(PolicyImportErrors)
 
-	MustRegister(EventTSK8s)
-	MustRegister(EventTSContainerd)
-	MustRegister(EventTSAPI)
+	Registry.MustRegister(EventTSK8s)
+	Registry.MustRegister(EventTSContainerd)
+	Registry.MustRegister(EventTSAPI)
 
-	MustRegister(ProxyParseErrors)
-	MustRegister(ProxyForwarded)
-	MustRegister(ProxyDenied)
-	MustRegister(ProxyReceived)
+	Registry.MustRegister(ProxyParseErrors)
+	Registry.MustRegister(ProxyForwarded)
+	Registry.MustRegister(ProxyDenied)
+	Registry.MustRegister(ProxyReceived)
 
-	MustRegister(DropCount)
-	MustRegister(ForwardCount)
+	Registry.MustRegister(DropCount)
+	Registry.MustRegister(ForwardCount)
 
-	MustRegister(newStatusCollector())
+	Registry.MustRegister(newStatusCollector())
 
-	MustRegister(DatapathErrors)
-}
+	Registry.MustRegister(DatapathErrors)
 
-// MustRegister adds the collector to the registry, exposing this metric to
-// prometheus scrapes.
-// It will panic on error.
-func MustRegister(c prometheus.Collector) {
-	registry.MustRegister(c)
+	healthRegistry.MustRegister(Latency)
 }
 
 // Enable begins serving prometheus metrics on the address passed in. Addresses
@@ -250,10 +262,56 @@ func Enable(addr string) error {
 	go func() {
 		// The Handler function provides a default handler to expose metrics
 		// via an HTTP server. "/metrics" is the usual endpoint for that.
-		http.Handle("/metrics", promhttp.HandlerFor(registry, promhttp.HandlerOpts{}))
+		http.Handle("/metrics", promhttp.HandlerFor(Registry, promhttp.HandlerOpts{}))
 		log.WithError(http.ListenAndServe(addr, nil)).Warn("Cannot start metrics server on %s", addr)
 	}()
 
+	return nil
+}
+
+func EnableHealth() error {
+	server := http.Server{Handler: promhttp.HandlerFor(healthRegistry, promhttp.HandlerOpts{})}
+	listener, err := net.Listen("unix", healthSocket)
+	if err != nil {
+		return err
+	}
+	go func() {
+		log.WithError(server.Serve(listener)).Warn("Cannot start health metrics server on %s", healthSocket)
+	}()
+
+	return nil
+}
+
+func healthProxyHandler(w http.ResponseWriter, r *http.Request) {
+	healthClient := http.Client{
+		Transport: &http.Transport{
+			DialContext: func(_ context.Context, _, _ string) (net.Conn, error) {
+				return net.Dial("unix", healthSocket)
+			},
+		},
+	}
+
+	response, err := healthClient.Do(r)
+	if err != nil {
+		log.WithError(err).Errorf("Cannot send request to health metrics server: %s", err)
+	}
+
+	w.WriteHeader(response.StatusCode)
+
+	var body []byte
+	if _, err := response.Body.Read(body); err != nil {
+		log.WithError(err).Error("Cannot read health metrics response body: %s", err)
+	}
+	if _, err := w.Write(body); err != nil {
+		log.WithError(err).Errorf("Cannot write response from healh metrics server: %s", err)
+	}
+}
+
+func EnableHealthProxy(addr string) error {
+	go func() {
+		http.HandleFunc("/metrics", healthProxyHandler)
+		log.WithError(http.ListenAndServe(addr, nil)).Warn("Cannot start health metrics proxy on %s", addr)
+	}()
 	return nil
 }
 

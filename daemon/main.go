@@ -84,35 +84,36 @@ var (
 	// Arguments variables keep in alphabetical order
 
 	// autoIPv6NodeRoutes automatically adds L3 direct routing when using direct mode (-d)
-	autoIPv6NodeRoutes    bool
-	bpfRoot               string
-	cmdRefDir             string
-	debugVerboseFlags     []string
-	disableConntrack      bool
-	dockerEndpoint        string
-	enableLogstash        bool
-	enableTracing         bool
-	k8sAPIServer          string
-	k8sKubeConfigPath     string
-	kvStore               string
-	labelPrefixFile       string
-	loggers               []string
-	logstashAddr          string
-	logstashProbeTimer    uint32
-	masquerade            bool
-	nat46prefix           string
-	prometheusServeAddr   string
-	singleClusterRoute    bool
-	socketPath            string
-	tracePayloadLen       int
-	v4Address             string
-	v4ClusterCidrMaskSize int
-	v4Prefix              string
-	v4ServicePrefix       string
-	v6Address             string
-	v6Prefix              string
-	v6ServicePrefix       string
-	validLabels           []string
+	autoIPv6NodeRoutes        bool
+	bpfRoot                   string
+	cmdRefDir                 string
+	debugVerboseFlags         []string
+	disableConntrack          bool
+	dockerEndpoint            string
+	enableLogstash            bool
+	enableTracing             bool
+	k8sAPIServer              string
+	k8sKubeConfigPath         string
+	kvStore                   string
+	labelPrefixFile           string
+	loggers                   []string
+	logstashAddr              string
+	logstashProbeTimer        uint32
+	masquerade                bool
+	nat46prefix               string
+	prometheusServeAddr       string
+	healthPrometheusServeAddr string
+	singleClusterRoute        bool
+	socketPath                string
+	tracePayloadLen           int
+	v4Address                 string
+	v4ClusterCidrMaskSize     int
+	v4Prefix                  string
+	v4ServicePrefix           string
+	v6Address                 string
+	v6Prefix                  string
+	v6ServicePrefix           string
+	validLabels               []string
 )
 
 var (
@@ -432,6 +433,9 @@ func init() {
 		"prometheus-serve-addr", "", "IP:Port on which to serve prometheus metrics (pass \":Port\" to bind on all interfaces, \"\" is off)")
 	viper.BindEnv("prometheus-serve-addr", "CILIUM_PROMETHEUS_SERVE_ADDR")
 	viper.BindEnv("prometheus-serve-addr-deprecated", "PROMETHEUS_SERVE_ADDR")
+	flags.StringVar(&healthPrometheusServeAddr,
+		"health-prometheus-serve-addr", "", "IP:Port on which to serve prometheus metrics from cilium-health (pass \":Port\" to bind on all interfaces, \"\" is off)")
+	viper.BindEnv("health-prometheus-serve-addr", "CILIUM_HEALTH_PROMETHEUS_SERVE_ADDR")
 
 	flags.StringVar(&cmdRefDir,
 		"cmdref", "", "Path to cmdref output directory")
@@ -746,9 +750,15 @@ func runDaemon() {
 	log.Info("Launching node monitor daemon")
 	go d.nodeMonitor.Run(path.Join(defaults.RuntimePath, defaults.EventsPipe), bpf.GetMapRoot())
 
+	// Check whether cilium-health should serve prometheus metrics
+	healthPromAddr := viper.GetString("health-prometheus-serve-addr")
+	enableHealthPrometheusMetrics := healthPromAddr != ""
+
 	// Launch cilium-health in the same namespace as cilium.
 	log.Info("Launching Cilium health daemon")
-	d.ciliumHealth = &health.CiliumHealth{}
+	d.ciliumHealth = &health.CiliumHealth{
+		EnablePrometheusMetrics: enableHealthPrometheusMetrics,
+	}
 	go d.ciliumHealth.Run()
 
 	// Launch another cilium-health as an endpoint, managed by cilium.
@@ -790,6 +800,13 @@ func runDaemon() {
 		log.Infof("Serving prometheus metrics on %s", promAddr)
 		if err := metrics.Enable(promAddr); err != nil {
 			log.WithError(err).Fatal("Error while starting metrics")
+		}
+	}
+
+	if enableHealthPrometheusMetrics {
+		log.Infof("Serving prometheus health metrics on %s", healthPromAddr)
+		if err := metrics.EnableHealthProxy(healthPromAddr); err != nil {
+			log.WithError(err).Fatal("Error while starting health metrics proxy")
 		}
 	}
 

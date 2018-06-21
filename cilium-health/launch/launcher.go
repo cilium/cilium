@@ -31,6 +31,8 @@ type CiliumHealth struct {
 	launcher.Launcher
 	client *healthPkg.Client
 	status *models.Status
+
+	EnablePrometheusMetrics bool
 }
 
 var (
@@ -44,8 +46,13 @@ const targetName = "cilium-health"
 
 // Run launches the cilium-health daemon.
 func (ch *CiliumHealth) Run() {
+	args := []string{"-d"}
+	if ch.EnablePrometheusMetrics {
+		args = append(args, "-m")
+	}
+
 	ch.SetTarget(targetName)
-	ch.SetArgs([]string{"-d"})
+	ch.SetArgs(args)
 
 	// Wait until Cilium API is available
 	for {

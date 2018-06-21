@@ -27,6 +27,7 @@ import (
 	serverPkg "github.com/cilium/cilium/pkg/health/server"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/pidfile"
 
 	gops "github.com/google/gops/agent"
@@ -81,6 +82,7 @@ func init() {
 	flags.StringP("host", "H", "", "URI to cilium-health server API")
 	flags.StringP("cilium", "c", "", "URI to Cilium server API")
 	flags.IntP("interval", "i", 60, "Interval (in seconds) for periodic connectivity probes")
+	flags.BoolP("prometheus-metrics", "m", false, "Enable prometheus metrics server")
 	viper.BindPFlags(flags)
 
 	flags.StringVar(&cmdRefDir, "cmdref", "", "Path to cmdref output directory")
@@ -170,6 +172,13 @@ func runServer() {
 	defer server.Shutdown()
 	if err := server.Serve(); err != nil {
 		log.WithError(err).Fatal("Failed to serve cilium-health API")
+	}
+
+	enablePrometheusMetrics := viper.GetBool("prometheus-metrics")
+	if enablePrometheusMetrics {
+		if err := metrics.EnableHealth(); err != nil {
+			log.WithError(err).Fatal("Failed to serve prometheus metrics")
+		}
 	}
 }
 

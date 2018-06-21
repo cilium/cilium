@@ -54,7 +54,7 @@ func init() {
 	},
 		func() float64 { return float64(len(GetEndpoints())) },
 	)
-	metrics.MustRegister(metrics.EndpointCount)
+	metrics.Registry.MustRegister(metrics.EndpointCount)
 }
 
 // Insert inserts the endpoint into the global maps.

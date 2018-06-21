@@ -35,6 +35,7 @@ cilium-agent
       --enable-policy string                        Enable policy enforcement (default "default")
       --enable-tracing                              Enable tracing while determining policy (debugging)
       --envoy-log string                            Path to a separate Envoy log file, if any
+      --health-prometheus-serve-addr string         IP:Port on which to serve prometheus metrics from cilium-health (pass ":Port" to bind on all interfaces, "" is off)
       --ipv4-cluster-cidr-mask-size int             Mask size for the cluster wide CIDR (default 8)
       --ipv4-node string                            IPv4 address of node (default "auto")
       --ipv4-range string                           Per-node IPv4 endpoint prefix, e.g. 10.16.0.0/16 (default "auto")
