@@ -172,6 +172,17 @@ func LookupIdentityByID(id NumericIdentity) *Identity {
 	return nil
 }
 
+// AddReservedIdentity adds the reserved numeric identity with the respective
+// label into the map of reserved identity cache.
+func AddReservedIdentity(ni NumericIdentity, lbl string) {
+	identity := NewIdentity(ni, labels.Labels{lbl: labels.NewLabel(lbl, "", labels.LabelSourceReserved)})
+	// Pre-calculate the SHA256 hash.
+	identity.GetLabelsSHA256()
+	mutex.Lock()
+	reservedIdentityCache[ni] = identity
+	mutex.Unlock()
+}
+
 func init() {
 	mutex.Lock()
 	IterateReservedIdentities(func(lbl string, ni NumericIdentity) {
