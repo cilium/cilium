@@ -1659,8 +1659,12 @@ func (e *Endpoint) HasLabels(l pkgLabels.Labels) bool {
 }
 
 // replaceInformationLabels replaces the information labels of the endpoint.
+// Passing a nil set of labels will not perform any action.
 // Must be called with e.Mutex.Lock().
 func (e *Endpoint) replaceInformationLabels(l pkgLabels.Labels) {
+	if l == nil {
+		return
+	}
 	e.OpLabels.OrchestrationInfo.MarkAllForDeletion()
 
 	for _, v := range l {
@@ -1674,8 +1678,14 @@ func (e *Endpoint) replaceInformationLabels(l pkgLabels.Labels) {
 // replaceIdentityLabels replaces the identity labels of the endpoint. If a net
 // changed occurred, the identityRevision is bumped and returned, otherwise 0 is
 // returned.
+// Passing a nil set of labels will not perform any action and will return the
+// current endpoint's identityRevision.
 // Must be called with e.Mutex.Lock().
 func (e *Endpoint) replaceIdentityLabels(l pkgLabels.Labels) int {
+	if l == nil {
+		return e.identityRevision
+	}
+
 	changed := false
 
 	e.OpLabels.OrchestrationIdentity.MarkAllForDeletion()
@@ -2158,19 +2168,6 @@ func (e *Endpoint) getIDandLabels() string {
 	}
 
 	return fmt.Sprintf("%d (%s)", e.ID, labels)
-}
-
-// SetIdentityLabels resets the identity labels of an endpoint.
-// If a label change is performed, the endpoint will receive a new identity and will be regenerated.
-// Both of these operations will happen in the background.
-func (e *Endpoint) SetIdentityLabels(owner Owner, l pkgLabels.Labels) {
-	e.Mutex.Lock()
-	rev := e.replaceIdentityLabels(l)
-	e.Mutex.Unlock()
-
-	if rev != 0 {
-		e.runLabelsResolver(owner, rev)
-	}
 }
 
 // ModifyIdentityLabels changes the custom and orchestration identity labels of an endpoint.

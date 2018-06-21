@@ -212,7 +212,7 @@ func LaunchAsEndpoint(owner endpoint.Owner, hostAddressing *models.NodeAddressin
 
 	// Give the endpoint a security identity
 	lbls := labels.LabelHealth.DeepCopy()
-	ep.SetIdentityLabels(owner, lbls)
+	ep.UpdateLabels(owner, lbls, nil)
 
 	// Wait until the cilium-health endpoint is running before setting up routes
 	deadline := time.Now().Add(1 * time.Minute)

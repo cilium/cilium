@@ -177,7 +177,7 @@ func (d *Daemon) createEndpoint(epTemplate *models.EndpointChangeRequest, id str
 		}
 	}
 
-	ep.SetIdentityLabels(d, addLabels)
+	ep.UpdateLabels(d, addLabels, nil)
 
 	if err := endpointmanager.AddEndpoint(d, ep, "Create endpoint from API PUT"); err != nil {
 		log.WithError(err).Warn("Aborting endpoint join")
