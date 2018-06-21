@@ -43,9 +43,6 @@ const (
 
 	// Miscellaneous dedicated constants
 
-	// PathDelimiter is the delimiter used in the labels paths.
-	PathDelimiter = "."
-
 	// NodeConfigFile is the name of the C header which contains the node's
 	// network parameters.
 	NodeConfigFile = "node_config.h"

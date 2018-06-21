@@ -22,11 +22,12 @@ import (
 	"net"
 	"sort"
 	"strings"
-
-	"github.com/cilium/cilium/common"
 )
 
 const (
+	// PathDelimiter is the delimiter used in the labels paths.
+	PathDelimiter = "."
+
 	// IDNameAll is a special label which matches all labels.
 	IDNameAll = "all"
 
@@ -377,13 +378,13 @@ func (l *Label) UnmarshalJSON(data []byte) error {
 
 // GetExtendedKey returns the key of a label with the source encoded.
 func (l *Label) GetExtendedKey() string {
-	return l.Source + common.PathDelimiter + l.Key
+	return l.Source + PathDelimiter + l.Key
 }
 
 // GetCiliumKeyFrom returns the label's source and key from the an extended key
 // in the format SOURCE:KEY.
 func GetCiliumKeyFrom(extKey string) string {
-	sourceSplit := strings.SplitN(extKey, common.PathDelimiter, 2)
+	sourceSplit := strings.SplitN(extKey, PathDelimiter, 2)
 	if len(sourceSplit) == 2 {
 		return sourceSplit[0] + ":" + sourceSplit[1]
 	}
@@ -403,7 +404,7 @@ func GetExtendedKeyFrom(str string) string {
 	// Remove an eventually value
 	nextSplit := strings.SplitN(next, "=", 2)
 	next = nextSplit[0]
-	return src + common.PathDelimiter + next
+	return src + PathDelimiter + next
 }
 
 // Map2Labels transforms in the form: map[key(string)]value(string) into Labels. The
