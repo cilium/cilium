@@ -1,0 +1,43 @@
+// Copyright 2018 Authors of Cilium
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+package ipcache
+
+import (
+	"github.com/cilium/cilium/pkg/identity"
+)
+
+// CacheModification represents the type of operation performed upon IPCache.
+type CacheModification string
+
+const (
+	// Upsert represents Upsertion into IPCache.
+	Upsert CacheModification = "Upsert"
+
+	// Delete represents deletion of an entry in IPCache.
+	Delete CacheModification = "Delete"
+)
+
+// IPIdentityMappingListener represents a component that is interested in
+// learning about IP to Identity mapping events.
+type IPIdentityMappingListener interface {
+	// OnIPIdentityCacheChange will be called whenever there the state of the
+	// IPCache has changed. If an existing IP->ID mapping is updated, then
+	// the old IPIdentityPair will be provided; otherwise it is nil.
+	OnIPIdentityCacheChange(modType CacheModification, oldIPIDPair *identity.IPIdentityPair, newIPIDPair identity.IPIdentityPair)
+
+	// OnIPIdentityCacheGC will be called to sync other components which are
+	// reliant upon the IPIdentityCache with the IPIdentityCache.
+	OnIPIdentityCacheGC()
+}
