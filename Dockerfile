@@ -8,7 +8,7 @@
 # versions to be built while allowing the new versions to make changes
 # that are not backwards compatible.
 #
-FROM quay.io/cilium/cilium-builder:2018-06-14 as builder
+FROM quay.io/cilium/cilium-builder:2018-06-21 as builder
 LABEL maintainer="maintainer@cilium.io"
 WORKDIR /go/src/github.com/cilium/cilium
 COPY . ./
@@ -29,7 +29,7 @@ RUN make LOCKDEBUG=$LOCKDEBUG PKG_BUILD=1 DESTDIR=/tmp/install clean-container b
 # built while allowing the new versions to make changes that are not
 # backwards compatible.
 #
-FROM quay.io/cilium/cilium-runtime:2018-06-04
+FROM quay.io/cilium/cilium-runtime:2018-06-21
 LABEL maintainer="maintainer@cilium.io"
 COPY --from=builder /tmp/install /
 COPY plugins/cilium-cni/cni-install.sh /cni-install.sh
