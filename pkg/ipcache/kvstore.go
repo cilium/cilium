@@ -24,6 +24,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/kvstore"
+	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 
 	"github.com/sirupsen/logrus"
@@ -44,10 +45,70 @@ var (
 	// computed. It is determined by the orchestration system / runtime.
 	AddressSpace = DefaultAddressSpace
 
+	// globalMap wraps the kvstore and provides reference-tracking for keys
+	// that are upserted or released from the kvstore.
+	globalMap *kvReferenceCounter
+
 	setupIPIdentityWatcher sync.Once
 )
 
-func upsertToKVStore(ipKey string, ipIDPair identity.IPIdentityPair) error {
+// store is a key-value store for an underlying implementation, provided to
+// mock out the kvstore for unit testing.
+type store interface {
+	// update will insert the {key, value} tuple into the underlying
+	// kvstore.
+	upsert(key string, value []byte, lease bool) error
+
+	// delete will remove the key from the underlying kvstore.
+	release(key string) error
+}
+
+// kvstoreImplementation is provided to mock out the kvstore for unit testing.
+type kvstoreImplementation struct{}
+
+// upsert places the mapping of {key, value} into the kvstore, optionally with
+// a lease.
+func (k kvstoreImplementation) upsert(key string, value []byte, lease bool) error {
+	return kvstore.Update(key, value, lease)
+}
+
+// release removes the specified key from the kvstore.
+func (k kvstoreImplementation) release(key string) error {
+	return kvstore.Delete(key)
+}
+
+// kvReferenceCounter provides a thin wrapper around the kvstore which adds
+// reference tracking for all entries being updated. When the first key is
+// updated, it adds a reference to the kvstore and tracks the reference
+// internally. Subsequent updates also update the kvstore, and add a referenc.
+// Deletes from the referenceCounter are only propagated to the kvstore when
+// the final reference is released.
+//
+// This has some small overlap with the pkg/kvstore/allocator but this is only
+// a map from key to reference count rather than also tracking values.
+type kvReferenceCounter struct {
+	lock.Mutex
+	store
+
+	// keys is a map from key to reference count for locally-referenced
+	// keys in the global kvstore.
+	keys map[string]uint64
+}
+
+// newKVReferenceCounter creates a new reference counter using the global
+// kvstore package as the underlying store.
+func newKVReferenceCounter(s store) *kvReferenceCounter {
+	return &kvReferenceCounter{
+		store: s,
+		keys:  map[string]uint64{},
+	}
+}
+
+// upsert attempts to insert the specified {key, ipIDPair} into the kvstore. If
+// the key has previously been upserted, increments a reference on the key.
+// Always updates the underlying store with this {key, ipIDPair} tuple.
+// Only adds a reference to the key if the upsert is successful.
+func (r *kvReferenceCounter) upsert(ipKey string, ipIDPair identity.IPIdentityPair) error {
 	marshaledIPIDPair, err := json.Marshal(ipIDPair)
 	if err != nil {
 		return err
@@ -60,7 +121,35 @@ func upsertToKVStore(ipKey string, ipIDPair identity.IPIdentityPair) error {
 		logfields.Modification: Upsert,
 	}).Debug("upserting IP->ID mapping to kvstore")
 
-	return kvstore.Update(ipKey, marshaledIPIDPair, true)
+	r.Lock()
+	defer r.Unlock()
+	refcnt := r.keys[ipKey] // 0 if not found
+	refcnt++
+	err = r.store.upsert(ipKey, marshaledIPIDPair, true)
+	if err == nil {
+		r.keys[ipKey] = refcnt
+	}
+	return err
+}
+
+// release removes a reference to the specified key. If the number of
+// references reaches 0, the key is removed from the underlying kvstore.
+func (r *kvReferenceCounter) release(key string) (err error) {
+	r.Lock()
+	defer r.Unlock()
+
+	refcnt, ok := r.keys[key] // 0 if not found
+	if ok {
+		refcnt--
+	}
+
+	if refcnt == 0 {
+		err = r.store.release(key)
+		delete(r.keys, key)
+	} else {
+		r.keys[key] = refcnt
+	}
+	return err
 }
 
 // UpsertIPToKVStore updates / inserts the provided IP->Identity mapping into the
@@ -73,7 +162,7 @@ func UpsertIPToKVStore(IP net.IP, ID identity.NumericIdentity, metadata string) 
 		Metadata: metadata,
 	}
 
-	return upsertToKVStore(ipKey, ipIDPair)
+	return globalMap.upsert(ipKey, ipIDPair)
 }
 
 // UpsertIPNetToKVStore updates / inserts the provided CIDR->Identity mapping
@@ -93,7 +182,7 @@ func UpsertIPNetToKVStore(prefix *net.IPNet, ID *identity.Identity) error {
 		Metadata: AddressSpace, // XXX: Should we associate more metadata?
 	}
 
-	return upsertToKVStore(ipKey, ipIDPair)
+	return globalMap.upsert(ipKey, ipIDPair)
 }
 
 // keyToIPNet returns the IPNet describing the key, whether it is a host, and
@@ -148,7 +237,8 @@ func UpsertIPNetsToKVStore(prefixes []*net.IPNet, identities []*identity.Identit
 		err = UpsertIPNetToKVStore(prefix, id)
 		if err != nil {
 			for j := 0; j < i; j++ {
-				err2 := DeleteIPFromKVStore(prefix.String())
+				ipKey := path.Join(IPIdentitiesPath, AddressSpace, prefix.String())
+				err2 := globalMap.release(ipKey)
 				if err2 != nil {
 					log.WithFields(logrus.Fields{
 						"prefix": prefix.String(),
@@ -161,11 +251,12 @@ func UpsertIPNetsToKVStore(prefixes []*net.IPNet, identities []*identity.Identit
 	return
 }
 
-// DeleteIPFromKVStore removes the IP->Identity mapping for the specified ip from the
-// kvstore, which will subsequently trigger an event in ipIdentityWatcher().
+// DeleteIPFromKVStore removes the IP->Identity mapping for the specified ip
+// from the kvstore, which will subsequently trigger an event in
+// ipIdentityWatcher().
 func DeleteIPFromKVStore(ip string) error {
 	ipKey := path.Join(IPIdentitiesPath, AddressSpace, ip)
-	return kvstore.Delete(ipKey)
+	return globalMap.release(ipKey)
 }
 
 // DeleteIPNetsFromKVStore removes the Prefix->Identity mappings for the
@@ -173,7 +264,8 @@ func DeleteIPFromKVStore(ip string) error {
 // trigger an event in ipIdentityWatcher().
 func DeleteIPNetsFromKVStore(prefixes []*net.IPNet) (err error) {
 	for _, prefix := range prefixes {
-		if err2 := DeleteIPFromKVStore(prefix.String()); err2 != nil {
+		ipKey := path.Join(IPIdentitiesPath, AddressSpace, prefix.String())
+		if err2 := globalMap.release(ipKey); err2 != nil {
 			err = err2
 			log.WithFields(logrus.Fields{
 				"prefix": prefix.String(),
@@ -345,6 +437,7 @@ func ipIdentityWatcher(listeners []IPIdentityMappingListener) {
 // InitIPIdentityWatcher initializes the watcher for ip-identity mapping events
 // in the key-value store.
 func InitIPIdentityWatcher(listeners []IPIdentityMappingListener) {
+	globalMap = newKVReferenceCounter(kvstoreImplementation{})
 	setupIPIdentityWatcher.Do(func() {
 		go ipIdentityWatcher(listeners)
 	})
