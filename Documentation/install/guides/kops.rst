@@ -60,7 +60,7 @@ The above steps are sufficient for getting a working cluster installed. Please c
 Cilium Prerequisites
 ====================
 
-* Important to consult the `Cilium System Requirements <http://localhost:8080/install/system_requirements.html>`_ particularly for Linux kernel and key-value store versions.  
+* Important to consult the :ref:`admin_system_reqs` particularly for Linux kernel and key-value store versions.  
 * (Recommended) Kubernetes with `CRD validation <https://kubernetes.io/docs/tasks/access-kubernetes-api/extend-api-custom-resource-definitions/>`_ (more on this after initial dry run setup of the cluster)
 
 In this guide we will use the etcd version as 3.1.11 and the latest CoreOS stable image which satisfies the minimum kernel version requirement of cilium. To get the latest CoreOS ami image, you can change the region value to your choice in the command below.
@@ -80,11 +80,12 @@ Creating the Cluster
 ====================
 
 * Note that you will need to specify the ``--master-zones`` and ``--zones`` for creating the master and worker nodes. The number of master zones should be odd (1, 3, ...) for the HA. For simplicity, you can just use 1 region.
-* the cluster ``NAME`` variable should end in ``k8s.local`` to use the gossip protocol. 
+* the cluster ``NAME`` variable should end in ``k8s.local`` to use the gossip protocol. If creating multiple clusters using the same kops user, then make cluster name unique by adding a prefix such as `com-company-emailid-`. 
+
 
 .. code:: bash
 
-        export NAME=cilium.k8s.local
+        export NAME=com-company-emailid-cilium.k8s.local
         export KOPS_FEATURE_FLAGS=SpecOverrideFlag 
         kops create cluster  --state=${KOPS_STATE_STORE}  --node-count 3 --node-size t2.medium --master-size t2.medium --topology private --master-zones us-west-2a,us-west-2b,us-west-2c --zones us-west-2a,us-west-2b,us-west-2c --image 595879546273/CoreOS-stable-1745.5.0-hvm --networking cilium --override "cluster.spec.etcdClusters[*].version=3.1.11" --kubernetes-version 1.10.3  --cloud-labels "Team=Dev,Owner=Admin"  ${NAME}
 
