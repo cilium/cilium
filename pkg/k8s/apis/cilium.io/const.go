@@ -14,10 +14,6 @@
 
 package ciliumio
 
-import (
-	"k8s.io/kubernetes/pkg/kubelet/types"
-)
-
 const (
 	// PolicyLabelName is the name of the policy label which refers to the
 	// k8s policy name.
@@ -40,7 +36,7 @@ const (
 	PodNamespaceMetaLabels = "io.cilium.k8s.namespace.labels"
 	// PodNamespaceLabel is the label used in kubernetes containers to
 	// specify which namespace they belong to.
-	PodNamespaceLabel = types.KubernetesPodNamespaceLabel
+	PodNamespaceLabel = "io.kubernetes.pod.namespace"
 	// CtrlPrefixPolicyStatus is the prefix used for the controllers set up
 	// to sync the CNP with kube-apiserver.
 	CtrlPrefixPolicyStatus = "sync-cnp-policy-status"
