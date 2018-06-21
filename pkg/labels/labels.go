@@ -53,6 +53,11 @@ const (
 	IDNameUnknown = "unknown"
 )
 
+var (
+	// LabelHealth is the label used for health.
+	LabelHealth = Labels{IDNameHealth: NewLabel(IDNameHealth, "", LabelSourceReserved)}
+)
+
 // OpLabels represents the the possible types.
 // +k8s:openapi-gen=false
 type OpLabels struct {

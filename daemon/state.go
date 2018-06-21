@@ -80,7 +80,7 @@ func (d *Daemon) restoreOldEndpoints(dir string, clean bool) (*endpointRestoreSt
 
 		// On each restart, the health endpoint is supposed to be recreated.
 		// Hence we need to clean health endpoint state unconditionally.
-		if ep.SecurityIdentity.ID == identityPkg.ReservedIdentityHealth {
+		if ep.HasLabels(labels.LabelHealth) {
 			skipRestore = true
 		} else {
 			if _, err := netlink.LinkByName(ep.IfName); err != nil {
