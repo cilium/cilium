@@ -20,14 +20,6 @@ const (
 	// OperationalPath is the base path to store the operational details in the kvstore.
 	OperationalPath = "cilium-net/operational"
 
-	// LastFreeLabelIDKeyPath is the path where the Last free UUID is stored in the kvstore.
-	LastFreeLabelIDKeyPath = OperationalPath + "/Labels/LastUUID"
-	// LabelsKeyPath is the base path where labels are stored in the kvstore.
-	LabelsKeyPath = OperationalPath + "/Labels/SHA256SUMLabels"
-	// LabelIDKeyPath is the base path where the IDs are stored in the kvstore.
-	LabelIDKeyPath = OperationalPath + "/Labels/IDs"
-	// MaxSetOfLabels is maximum number of set of labels that can be stored in the kvstore.
-	MaxSetOfLabels = uint32(0xFFFF)
 	// LastFreeServiceIDKeyPath is the path where the Last free UUID is stored in the kvstore.
 	LastFreeServiceIDKeyPath = OperationalPath + "/ServicesV2/LastUUID"
 	// ServicesKeyPath is the base path where services are stored in the kvstore.
