@@ -12,14 +12,20 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package identity
+package cidr
 
 import (
 	"fmt"
 	"net"
 
+	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/labels/cidr"
+	"github.com/cilium/cilium/pkg/logging"
+)
+
+var (
+	log = logging.DefaultLogger
 )
 
 // AllocateCIDRIdentities allocates identities for each of the specified CIDR
@@ -29,7 +35,7 @@ import (
 // CIDR in the provided prefixes slice, eg the identity for prefixes[0] will
 // be held in identities[0].
 // On failure, attempts to clean up after itself and returns the error.
-func AllocateCIDRIdentities(prefixes []*net.IPNet) (res []*Identity, err error) {
+func AllocateCIDRIdentities(prefixes []*net.IPNet) (res []*identity.Identity, err error) {
 	if len(prefixes) == 0 {
 		return nil, nil
 	}
@@ -38,17 +44,17 @@ func AllocateCIDRIdentities(prefixes []*net.IPNet) (res []*Identity, err error) 
 
 	// Allocate identities for each CIDR.
 	var lbls labels.Labels
-	res = make([]*Identity, 0, len(prefixes))
+	res = make([]*identity.Identity, 0, len(prefixes))
 	for _, prefix := range prefixes {
 		if prefix == nil {
 			continue
 		}
 		lbls := cidr.GetCIDRLabels(prefix)
-		id, _, err := AllocateIdentity(lbls)
+		id, _, err := identity.AllocateIdentity(lbls)
 		if err != nil {
 			// If any identity allocation failed, release existing identities
 			// and log the error.
-			if err2 := ReleaseSlice(res); err2 != nil {
+			if err2 := identity.ReleaseSlice(res); err2 != nil {
 				log.WithError(err2).Error("Could not recover from error during CIDR identity allocation")
 			}
 			res = nil
@@ -74,16 +80,15 @@ func AllocateCIDRIdentities(prefixes []*net.IPNet) (res []*Identity, err error) 
 // On success, returns a slice of identities with a 1-to-1 correspondence to
 // the specified slice of prefixes, and nil.
 // On error, returns all identities that can be resolved and an error.
-func LookupCIDRIdentities(prefixes []*net.IPNet) (res []*Identity, err error) {
-	res = make([]*Identity, 0, len(prefixes))
+func LookupCIDRIdentities(prefixes []*net.IPNet) (res []*identity.Identity, err error) {
+	res = make([]*identity.Identity, 0, len(prefixes))
 
 	for _, prefix := range prefixes {
 		labels := cidr.GetCIDRLabels(prefix)
-		id, err2 := identityAllocator.Get(globalIdentity{labels})
-		if err2 == nil {
-			res = append(res, NewIdentity(NumericIdentity(id), labels))
+		if id := identity.LookupIdentity(labels); id != nil {
+			res = append(res, id)
 		} else {
-			err = err2
+			err = fmt.Errorf("Unable to find CIDR identity for labels %s", labels)
 			log.Infof("Cannot locate identity for CIDR %s", prefix.String())
 		}
 	}
