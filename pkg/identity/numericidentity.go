@@ -18,6 +18,7 @@ import (
 	"strconv"
 
 	"github.com/cilium/cilium/pkg/labels"
+	"github.com/cilium/cilium/pkg/lock"
 )
 
 const (
@@ -53,14 +54,15 @@ const (
 )
 
 var (
-	ReservedIdentities = map[string]NumericIdentity{
+	reservedIdentitiesMutex lock.RWMutex
+	reservedIdentities      = map[string]NumericIdentity{
 		labels.IDNameHost:    ReservedIdentityHost,
 		labels.IDNameWorld:   ReservedIdentityWorld,
 		labels.IDNameHealth:  ReservedIdentityHealth,
 		labels.IDNameCluster: ReservedIdentityCluster,
 		labels.IDNameInit:    ReservedIdentityInit,
 	}
-	ReservedIdentityNames = map[NumericIdentity]string{
+	reservedIdentityNames = map[NumericIdentity]string{
 		ReservedIdentityHost:    labels.IDNameHost,
 		ReservedIdentityWorld:   labels.IDNameWorld,
 		ReservedIdentityHealth:  labels.IDNameHealth,
@@ -86,7 +88,9 @@ func (id NumericIdentity) StringID() string {
 }
 
 func (id NumericIdentity) String() string {
-	if v, exists := ReservedIdentityNames[id]; exists {
+	reservedIdentitiesMutex.RLock()
+	defer reservedIdentitiesMutex.RUnlock()
+	if v, exists := reservedIdentityNames[id]; exists {
 		return v
 	}
 
@@ -99,7 +103,9 @@ func (id NumericIdentity) Uint32() uint32 {
 }
 
 func GetReservedID(name string) NumericIdentity {
-	if v, ok := ReservedIdentities[name]; ok {
+	reservedIdentitiesMutex.RLock()
+	defer reservedIdentitiesMutex.RUnlock()
+	if v, ok := reservedIdentities[name]; ok {
 		return v
 	}
 	return IdentityUnknown
@@ -107,15 +113,29 @@ func GetReservedID(name string) NumericIdentity {
 
 // IsReservedIdentity returns whether id is one of the special reserved identities.
 func (id NumericIdentity) IsReservedIdentity() bool {
-	_, isReservedIdentity := ReservedIdentityNames[id]
+	reservedIdentitiesMutex.RLock()
+	defer reservedIdentitiesMutex.RUnlock()
+	_, isReservedIdentity := reservedIdentityNames[id]
 	return isReservedIdentity
 }
 
 // GetAllReservedIdentities returns a list of all reserved numeric identities.
 func GetAllReservedIdentities() []NumericIdentity {
+	reservedIdentitiesMutex.RLock()
+	defer reservedIdentitiesMutex.RUnlock()
 	identities := []NumericIdentity{}
-	for _, id := range ReservedIdentities {
+	for _, id := range reservedIdentities {
 		identities = append(identities, id)
 	}
 	return identities
+}
+
+// IterateReservedIdentities iterates over all reservedIdentities and executes
+// the given function for each key, value pair in reservedIdentities.
+func IterateReservedIdentities(f func(key string, value NumericIdentity)) {
+	reservedIdentitiesMutex.RLock()
+	defer reservedIdentitiesMutex.RUnlock()
+	for key, value := range reservedIdentities {
+		f(key, value)
+	}
 }
