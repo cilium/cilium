@@ -21,7 +21,7 @@ cilium-health ping
   -d, --daemon           Run as a daemon
   -D, --debug            Enable debug messages
   -H, --host string      URI to cilium-health server API
-  -i, --interval int     Interval (in seconds) for periodic connectivity probes (default 60)
+  -i, --interval uint    Interval (in seconds) for periodic connectivity probes (default 60)
   -p, --passive          Only respond to HTTP health checks
       --pidfile string   Write the PID to the specified file
 ```

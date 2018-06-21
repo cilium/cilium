@@ -80,7 +80,7 @@ func init() {
 	flags.StringP("pidfile", "", "", "Write the PID to the specified file")
 	flags.StringP("host", "H", "", "URI to cilium-health server API")
 	flags.StringP("cilium", "c", "", "URI to Cilium server API")
-	flags.IntP("interval", "i", 60, "Interval (in seconds) for periodic connectivity probes")
+	flags.UintP("interval", "i", 60, "Interval (in seconds) for periodic connectivity probes")
 	viper.BindPFlags(flags)
 
 	flags.StringVar(&cmdRefDir, "cmdref", "", "Path to cmdref output directory")
