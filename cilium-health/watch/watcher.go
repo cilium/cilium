@@ -1,4 +1,4 @@
-// Copyright 2017 Authors of Cilium
+// Copyright 2017-2018 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -22,14 +22,15 @@ import (
 	ciliumPkg "github.com/cilium/cilium/pkg/client"
 	healthPkg "github.com/cilium/cilium/pkg/health/client"
 	"github.com/cilium/cilium/pkg/health/defaults"
-	"github.com/cilium/cilium/pkg/launcher"
+	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
 )
 
-// CiliumHealth is used to wrap the node executable binary.
+// CiliumHealth is used to watch the cilium-health deamon by communication
+// through client.
 type CiliumHealth struct {
-	launcher.Launcher
 	client *healthPkg.Client
+	mutex  lock.RWMutex
 	status *models.Status
 }
 
@@ -40,13 +41,8 @@ var (
 	statusProbeInterval  = 5 * time.Second
 )
 
-const targetName = "cilium-health"
-
-// Run launches the cilium-health daemon.
-func (ch *CiliumHealth) Run() {
-	ch.SetTarget(targetName)
-	ch.SetArgs([]string{"-d"})
-
+// Watch watches the cilium-health daemon.
+func (ch *CiliumHealth) Watch() {
 	// Wait until Cilium API is available
 	for {
 		cli, err := ciliumPkg.NewDefaultClient()
@@ -63,10 +59,9 @@ func (ch *CiliumHealth) Run() {
 		var err error
 
 		os.Remove(defaults.SockPath)
-		ch.Launcher.Run()
 		ch.client, err = healthPkg.NewDefaultClient()
 		if err != nil {
-			log.WithError(err).Infof("Cannot establish connection to local %s instance", targetName)
+			log.WithError(err).Infof("Cannot establish connection to local cilium-health instance")
 			time.Sleep(connectRetryInterval)
 			continue
 		}
@@ -87,15 +82,15 @@ func (ch *CiliumHealth) Run() {
 
 // GetStatus returns the status of the cilium-health daemon.
 func (ch *CiliumHealth) GetStatus() *models.Status {
-	ch.Mutex.RLock()
+	ch.mutex.RLock()
 	status := ch.status
-	ch.Mutex.RUnlock()
+	ch.mutex.RUnlock()
 	return status
 }
 
 // setStatus updates the status of the cilium-health daemon.
 func (ch *CiliumHealth) setStatus(status *models.Status) {
-	ch.Mutex.Lock()
+	ch.mutex.Lock()
 	ch.status = status
-	ch.Mutex.Unlock()
+	ch.mutex.Unlock()
 }

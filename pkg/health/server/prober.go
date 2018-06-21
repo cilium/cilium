@@ -26,9 +26,14 @@ import (
 	"github.com/cilium/cilium/pkg/health/defaults"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/metrics"
 
 	"github.com/servak/go-fastping"
 	"github.com/sirupsen/logrus"
+)
+
+const (
+	FailedProbeLatency = float64(0)
 )
 
 // healthReport is a snapshot of the health of the cluster.
@@ -250,13 +255,31 @@ func (p *prober) httpProbe(node string, ip string, port int) *models.Connectivit
 			scopedLog.WithField("rtt", rtt).Debug("Greeting successful")
 			result.Status = ""
 			result.Latency = rtt.Nanoseconds()
+
+			metrics.Latency.WithLabelValues(
+				node,
+				ip,
+				"http",
+			).Observe(rtt.Seconds())
 		} else {
 			scopedLog.WithError(err).Debug("Greeting snubbed")
 			result.Status = "Connection timed out"
+
+			metrics.Latency.WithLabelValues(
+				node,
+				ip,
+				"http",
+			).Observe(FailedProbeLatency)
 		}
 	} else {
 		scopedLog.WithError(err).Info("Failed to express greeting to host")
 		result.Status = err.Error()
+
+		metrics.Latency.WithLabelValues(
+			node,
+			ip,
+			"http",
+		).Observe(FailedProbeLatency)
 	}
 
 	return result
@@ -397,6 +420,13 @@ func newProber(s *Server, nodes nodeMap) *prober {
 			Status:  "",
 		}
 		prober.Unlock()
+
+		metrics.Latency.WithLabelValues(
+			node.Name,
+			"",
+			addr.String(),
+			"icmp",
+		).Observe(rtt.Seconds())
 
 		scopedLog.WithFields(logrus.Fields{
 			logfields.NodeName: node.Name,
