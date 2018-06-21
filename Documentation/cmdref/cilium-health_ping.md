@@ -16,14 +16,15 @@ cilium-health ping
 ### Options inherited from parent commands
 
 ```
-      --admin string     Expose resources over 'unix' socket, 'any' socket (default "unix")
-  -c, --cilium string    URI to Cilium server API
-  -d, --daemon           Run as a daemon
-  -D, --debug            Enable debug messages
-  -H, --host string      URI to cilium-health server API
-  -i, --interval uint    Interval (in seconds) for periodic connectivity probes (default 60)
-  -p, --passive          Only respond to HTTP health checks
-      --pidfile string   Write the PID to the specified file
+      --admin string                   Expose resources over 'unix' socket, 'any' socket (default "unix")
+  -c, --cilium string                  URI to Cilium server API
+  -d, --daemon                         Run as a daemon
+  -D, --debug                          Enable debug messages
+  -H, --host string                    URI to cilium-health server API
+  -i, --interval uint                  Interval (in seconds) for periodic connectivity probes (default 60)
+  -p, --passive                        Only respond to HTTP health checks
+      --pidfile string                 Write the PID to the specified file
+      --prometheus-serve-addr string   IP:Port on which to serve prometheus metrics (pass ":Port" to bind on all interfaces, "" is off)
 ```
 
 ### SEE ALSO
