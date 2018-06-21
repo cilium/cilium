@@ -22,6 +22,7 @@ import (
 	"github.com/cilium/cilium/common"
 	endpointid "github.com/cilium/cilium/pkg/endpoint/id"
 	"github.com/cilium/cilium/pkg/labels"
+	"github.com/cilium/cilium/pkg/labels/model"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 
 	"github.com/spf13/cobra"
@@ -56,7 +57,7 @@ var endpointLabelsCmd = &cobra.Command{
 		case lbls == nil || lbls.Status == nil:
 			Fatalf("Cannot get endpoint labels: empty response")
 		default:
-			printEndpointLabels(labels.NewOplabelsFromModel(lbls.Status))
+			printEndpointLabels(model.NewOplabelsFromModel(lbls.Status))
 		}
 	},
 }
