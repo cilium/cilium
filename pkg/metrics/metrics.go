@@ -32,8 +32,14 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+const (
+	healthSocket = "/run/cilium/prometheus_health.sock"
+)
+
 var (
-	registry = prometheus.NewPedanticRegistry()
+	AgentRegistry = prometheus.NewPedanticRegistry()
+
+	healthRegistry = prometheus.NewPedanticRegistry()
 
 	// Namespace is used to scope metrics from cilium. It is prepended to metric
 	// names and separated with a '_'
@@ -206,55 +212,72 @@ var (
 		Help:      "Number of errors that occurred in the datapath or datapath management",
 	},
 		[]string{LabelDatapathArea, LabelDatapathName, LabelDatapathFamily})
+
+	// Health statistics
+
+	// Latency is a histogram showing latency to nodes
+	Latency = prometheus.NewHistogramVec(prometheus.HistogramOpts{
+		Namespace: Namespace,
+		Name:      "latency",
+		Help:      "Latency to nodes",
+	}, []string{"node", "type", "ip", "protocol"})
 )
 
 func init() {
-	MustRegister(prometheus.NewProcessCollector(os.Getpid(), Namespace))
+	AgentRegistry.MustRegister(prometheus.NewProcessCollector(os.Getpid(), Namespace))
 	// TODO: Figure out how to put this into a Namespace
 	//MustRegister(prometheus.NewGoCollector())
 
-	MustRegister(EndpointCountRegenerating)
-	MustRegister(EndpointRegenerationCount)
+	AgentRegistry.MustRegister(EndpointCountRegenerating)
+	AgentRegistry.MustRegister(EndpointRegenerationCount)
 
-	MustRegister(PolicyCount)
-	MustRegister(PolicyRevision)
-	MustRegister(PolicyImportErrors)
+	AgentRegistry.MustRegister(PolicyCount)
+	AgentRegistry.MustRegister(PolicyRevision)
+	AgentRegistry.MustRegister(PolicyImportErrors)
 
-	MustRegister(EventTSK8s)
-	MustRegister(EventTSContainerd)
-	MustRegister(EventTSAPI)
+	AgentRegistry.MustRegister(EventTSK8s)
+	AgentRegistry.MustRegister(EventTSContainerd)
+	AgentRegistry.MustRegister(EventTSAPI)
 
-	MustRegister(ProxyParseErrors)
-	MustRegister(ProxyForwarded)
-	MustRegister(ProxyDenied)
-	MustRegister(ProxyReceived)
+	AgentRegistry.MustRegister(ProxyParseErrors)
+	AgentRegistry.MustRegister(ProxyForwarded)
+	AgentRegistry.MustRegister(ProxyDenied)
+	AgentRegistry.MustRegister(ProxyReceived)
 
-	MustRegister(DropCount)
-	MustRegister(ForwardCount)
+	AgentRegistry.MustRegister(DropCount)
+	AgentRegistry.MustRegister(ForwardCount)
 
-	MustRegister(newStatusCollector())
+	AgentRegistry.MustRegister(newStatusCollector())
 
-	MustRegister(DatapathErrors)
+	AgentRegistry.MustRegister(DatapathErrors)
+
+	healthRegistry.MustRegister(Latency)
 }
 
-// MustRegister adds the collector to the registry, exposing this metric to
-// prometheus scrapes.
-// It will panic on error.
-func MustRegister(c prometheus.Collector) {
-	registry.MustRegister(c)
-}
-
-// Enable begins serving prometheus metrics on the address passed in. Addresses
+// enable begins serving prometheus metrics on the address passed in. Addresses
 // of the form ":8080" will bind the port on all interfaces.
-func Enable(addr string) error {
+func enable(registry *prometheus.Registry, addr string) error {
 	go func() {
 		// The Handler function provides a default handler to expose metrics
 		// via an HTTP server. "/metrics" is the usual endpoint for that.
-		http.Handle("/metrics", promhttp.HandlerFor(registry, promhttp.HandlerOpts{}))
-		log.WithError(http.ListenAndServe(addr, nil)).Warn("Cannot start metrics server on %s", addr)
+		mux := http.NewServeMux()
+		mux.Handle("/metrics", promhttp.HandlerFor(registry, promhttp.HandlerOpts{}))
+		log.WithError(http.ListenAndServe(addr, mux)).Warn("Cannot start metrics server on %s", addr)
 	}()
 
 	return nil
+}
+
+// EnableAgent begins serving prometheus metrics for cilium-agent on the address
+// passed in. Addresses of the form ":8080" will bind the port on all interfaces.
+func EnableAgent(addr string) error {
+	return enable(AgentRegistry, addr)
+}
+
+// EnableHealth begins serving prometheus metrics for cilium-health on the address
+// passed in. Addresses of the form ":8080" will bind the port on all interfaces.
+func EnableHealth(addr string) error {
+	return enable(healthRegistry, addr)
 }
 
 // SetTSValue sets the gauge to the time value provided

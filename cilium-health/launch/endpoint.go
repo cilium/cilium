@@ -34,6 +34,7 @@ import (
 	"github.com/cilium/cilium/pkg/health/defaults"
 	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/labels"
+	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/mtu"
 	"github.com/cilium/cilium/pkg/node"
@@ -44,6 +45,8 @@ import (
 )
 
 var (
+	log = logging.DefaultLogger
+
 	// vethName is the host-side link device name for cilium-health EP.
 	vethName = "cilium_health"
 

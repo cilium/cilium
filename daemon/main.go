@@ -28,7 +28,8 @@ import (
 
 	"github.com/cilium/cilium/api/v1/server"
 	"github.com/cilium/cilium/api/v1/server/restapi"
-	health "github.com/cilium/cilium/cilium-health/launch"
+	healthlaunch "github.com/cilium/cilium/cilium-health/launch"
+	healthwatch "github.com/cilium/cilium/cilium-health/watch"
 	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/common/addressing"
 	"github.com/cilium/cilium/pkg/bpf"
@@ -84,35 +85,36 @@ var (
 	// Arguments variables keep in alphabetical order
 
 	// autoIPv6NodeRoutes automatically adds L3 direct routing when using direct mode (-d)
-	autoIPv6NodeRoutes    bool
-	bpfRoot               string
-	cmdRefDir             string
-	debugVerboseFlags     []string
-	disableConntrack      bool
-	dockerEndpoint        string
-	enableLogstash        bool
-	enableTracing         bool
-	k8sAPIServer          string
-	k8sKubeConfigPath     string
-	kvStore               string
-	labelPrefixFile       string
-	loggers               []string
-	logstashAddr          string
-	logstashProbeTimer    uint32
-	masquerade            bool
-	nat46prefix           string
-	prometheusServeAddr   string
-	singleClusterRoute    bool
-	socketPath            string
-	tracePayloadLen       int
-	v4Address             string
-	v4ClusterCidrMaskSize int
-	v4Prefix              string
-	v4ServicePrefix       string
-	v6Address             string
-	v6Prefix              string
-	v6ServicePrefix       string
-	validLabels           []string
+	autoIPv6NodeRoutes        bool
+	bpfRoot                   string
+	cmdRefDir                 string
+	debugVerboseFlags         []string
+	disableConntrack          bool
+	dockerEndpoint            string
+	enableLogstash            bool
+	enableTracing             bool
+	k8sAPIServer              string
+	k8sKubeConfigPath         string
+	kvStore                   string
+	labelPrefixFile           string
+	loggers                   []string
+	logstashAddr              string
+	logstashProbeTimer        uint32
+	masquerade                bool
+	nat46prefix               string
+	prometheusServeAddr       string
+	healthPrometheusServeAddr string
+	singleClusterRoute        bool
+	socketPath                string
+	tracePayloadLen           int
+	v4Address                 string
+	v4ClusterCidrMaskSize     int
+	v4Prefix                  string
+	v4ServicePrefix           string
+	v6Address                 string
+	v6Prefix                  string
+	v6ServicePrefix           string
+	validLabels               []string
 )
 
 var (
@@ -704,9 +706,9 @@ func initEnv(cmd *cobra.Command) {
 // if it cannot be reached, restarts it.
 func runCiliumHealthEndpoint(d *Daemon) error {
 	// PingEndpoint will always fail the first time (initialization).
-	if err := health.PingEndpoint(); err != nil {
+	if err := healthlaunch.PingEndpoint(); err != nil {
 		// Delete the process
-		health.CleanupEndpoint(d)
+		healthlaunch.CleanupEndpoint(d)
 		// Clean up agent resources
 		ip6 := node.GetIPv6HealthIP()
 		id := addressing.CiliumIPv6(ip6).EndpointID()
@@ -722,7 +724,7 @@ func runCiliumHealthEndpoint(d *Daemon) error {
 		}
 		addressing := d.getNodeAddressing()
 		// Launch new instance
-		return health.LaunchAsEndpoint(d, addressing)
+		return healthlaunch.LaunchAsEndpoint(d, addressing)
 	}
 	return nil
 }
@@ -746,10 +748,10 @@ func runDaemon() {
 	log.Info("Launching node monitor daemon")
 	go d.nodeMonitor.Run(path.Join(defaults.RuntimePath, defaults.EventsPipe), bpf.GetMapRoot())
 
-	// Launch cilium-health in the same namespace as cilium.
-	log.Info("Launching Cilium health daemon")
-	d.ciliumHealth = &health.CiliumHealth{}
-	go d.ciliumHealth.Run()
+	// Watch cilium-health daemon.
+	log.Info("Watching Cilium health daemon")
+	d.ciliumHealth = &healthwatch.CiliumHealth{}
+	go d.ciliumHealth.Watch()
 
 	// Launch another cilium-health as an endpoint, managed by cilium.
 	log.Info("Launching Cilium health endpoint")
@@ -759,8 +761,8 @@ func runDaemon() {
 				return runCiliumHealthEndpoint(d)
 			},
 			StopFunc: func() error {
-				err = health.PingEndpoint()
-				health.CleanupEndpoint(d)
+				err = healthlaunch.PingEndpoint()
+				healthlaunch.CleanupEndpoint(d)
 				return err
 			},
 			RunInterval: 30 * time.Second,
@@ -788,7 +790,7 @@ func runDaemon() {
 	}
 	if promAddr != "" {
 		log.Infof("Serving prometheus metrics on %s", promAddr)
-		if err := metrics.Enable(promAddr); err != nil {
+		if err := metrics.EnableAgent(promAddr); err != nil {
 			log.WithError(err).Fatal("Error while starting metrics")
 		}
 	}

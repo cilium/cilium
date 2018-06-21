@@ -26,6 +26,7 @@ import (
 	"github.com/cilium/cilium/pkg/health/defaults"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/metrics"
 
 	"github.com/servak/go-fastping"
 	"github.com/sirupsen/logrus"
@@ -250,6 +251,13 @@ func (p *prober) httpProbe(node string, ip string, port int) *models.Connectivit
 			scopedLog.WithField("rtt", rtt).Debug("Greeting successful")
 			result.Status = ""
 			result.Latency = rtt.Nanoseconds()
+
+			metrics.Latency.WithLabelValues(
+				node,
+				"",
+				ip,
+				"http",
+			).Observe(rtt.Seconds())
 		} else {
 			scopedLog.WithError(err).Debug("Greeting snubbed")
 			result.Status = "Connection timed out"
@@ -397,6 +405,13 @@ func newProber(s *Server, nodes nodeMap) *prober {
 			Status:  "",
 		}
 		prober.Unlock()
+
+		metrics.Latency.WithLabelValues(
+			node.Name,
+			"",
+			addr.String(),
+			"icmp",
+		).Observe(rtt.Seconds())
 
 		scopedLog.WithFields(logrus.Fields{
 			logfields.NodeName: node.Name,
