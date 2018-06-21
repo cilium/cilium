@@ -483,7 +483,6 @@ func (e *Endpoint) RunK8sCiliumEndpointSync() {
 		endpointID     = e.ID
 		controllerName = fmt.Sprintf("sync-to-k8s-ciliumendpoint (%v)", endpointID)
 		scopedLog      = e.getLogger().WithField("controller", controllerName)
-		healthLbls     = pkgLabels.Labels{pkgLabels.IDNameHealth: pkgLabels.NewLabel(pkgLabels.IDNameHealth, "", pkgLabels.LabelSourceReserved)}
 	)
 
 	if !k8s.IsEnabled() {
@@ -522,7 +521,7 @@ func (e *Endpoint) RunK8sCiliumEndpointSync() {
 				var (
 					podName    string
 					namespace  string
-					isHealthEP = e.HasLabels(healthLbls)
+					isHealthEP = e.HasLabels(pkgLabels.LabelHealth)
 				)
 
 				switch isHealthEP {
