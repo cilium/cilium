@@ -312,24 +312,25 @@ func (d *Daemon) PolicyDelete(labels labels.LabelArray) (uint64, error) {
 	// not appropriately performing garbage collection.
 	prefixes := policy.GetCIDRPrefixes(rules)
 	log.WithField("prefixes", prefixes).Debug("Policy deleted via API, found prefixes...")
+	if prefixes != nil {
+		if err := ipcache.DeleteIPNetsFromKVStore(prefixes); err != nil {
+			log.WithError(err).WithFields(logrus.Fields{
+				logfields.Labels: labels,
+			}).Debug("Could not delete prefix->Identity mappings during policy delete")
+		}
+	}
 
 	prefixIdentities, err := cidr.LookupCIDRIdentities(prefixes)
-	if err == nil {
+	if err != nil {
+		log.WithError(err).Debug(
+			"Could not find identities for CIDRs during release")
+	}
+	if prefixIdentities != nil {
 		if err = identity.ReleaseSlice(prefixIdentities); err != nil {
 			log.WithError(err).WithFields(logrus.Fields{
 				logfields.Labels: labels,
 			}).Debug("Cannot delete identities for CIDR prefixes by labels")
 		}
-
-		if err = ipcache.DeleteIPNetsFromKVStore(prefixes); err != nil {
-			log.WithError(err).WithFields(logrus.Fields{
-				logfields.Labels: labels,
-			}).Debug("Could not delete prefix->Identity mappings during policy delete")
-		}
-	} else {
-		log.WithError(err).WithFields(logrus.Fields{
-			logfields.Labels: labels,
-		}).Debug("Cannot find identities for CIDR prefixes by labels")
 	}
 
 	d.TriggerPolicyUpdates(false)
