@@ -25,8 +25,6 @@ import (
 	"github.com/cilium/cilium/pkg/apierror"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/endpointmanager"
-	"github.com/cilium/cilium/pkg/identity"
-	"github.com/cilium/cilium/pkg/identity/cidr"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -39,7 +37,6 @@ import (
 
 	"github.com/go-openapi/runtime/middleware"
 	"github.com/op/go-logging"
-	"github.com/sirupsen/logrus"
 )
 
 // TriggerPolicyUpdates triggers policy updates for every daemon's endpoint.
@@ -238,29 +235,20 @@ func (d *Daemon) PolicyAdd(rules api.Rules, opts *AddOptions) (uint64, error) {
 	prefixes := policy.GetCIDRPrefixes(rules)
 	log.WithField("prefixes", prefixes).Debug("Policy imported via API, found CIDR prefixes...")
 
-	prefixIdentities, err := cidr.AllocateCIDRIdentities(prefixes)
-	if err != nil {
+	if err := ipcache.AllocateCIDRs(bpfIPCache.IPCache, prefixes); err != nil {
 		metrics.PolicyImportErrors.Inc()
-		return d.policy.GetRevision(), err
-	}
-
-	if err = ipcache.CheckPrefixes(bpfIPCache.IPCache, prefixes); err == nil {
-		err = ipcache.UpsertIPNetsToKVStore(prefixes, prefixIdentities)
-	}
-	if err != nil {
-		metrics.PolicyImportErrors.Inc()
-
-		// Failed to update Prefix->ID mappings; don't leak identities
-		identity.ReleaseSlice(prefixIdentities)
+		log.WithError(err).WithField("prefixes", prefixes).Warn(
+			"Failed to allocate identities for CIDRs during policy add")
 		return d.policy.GetRevision(), err
 	}
 
 	rev, err := d.policyAdd(rules, opts)
 	if err != nil {
 		// Don't leak identities allocated above.
-		ipcache.DeleteIPNetsFromKVStore(prefixes)
-		identity.ReleaseSlice(prefixIdentities)
-
+		if err2 := ipcache.ReleaseCIDRs(prefixes); err2 != nil {
+			log.WithError(err2).WithField("prefixes", prefixes).Warn(
+				"Failed to release CIDRs during policy import failure")
+		}
 		return 0, apierror.Error(PutPolicyFailureCode, err)
 	}
 
@@ -312,25 +300,9 @@ func (d *Daemon) PolicyDelete(labels labels.LabelArray) (uint64, error) {
 	// not appropriately performing garbage collection.
 	prefixes := policy.GetCIDRPrefixes(rules)
 	log.WithField("prefixes", prefixes).Debug("Policy deleted via API, found prefixes...")
-	if prefixes != nil {
-		if err := ipcache.DeleteIPNetsFromKVStore(prefixes); err != nil {
-			log.WithError(err).WithFields(logrus.Fields{
-				logfields.Labels: labels,
-			}).Debug("Could not delete prefix->Identity mappings during policy delete")
-		}
-	}
-
-	prefixIdentities, err := cidr.LookupCIDRIdentities(prefixes)
-	if err != nil {
-		log.WithError(err).Debug(
-			"Could not find identities for CIDRs during release")
-	}
-	if prefixIdentities != nil {
-		if err = identity.ReleaseSlice(prefixIdentities); err != nil {
-			log.WithError(err).WithFields(logrus.Fields{
-				logfields.Labels: labels,
-			}).Debug("Cannot delete identities for CIDR prefixes by labels")
-		}
+	if err := ipcache.ReleaseCIDRs(prefixes); err != nil {
+		log.WithError(err).WithField("prefixes", prefixes).Warn(
+			"Failed to release CIDRs during policy delete")
 	}
 
 	d.TriggerPolicyUpdates(false)
