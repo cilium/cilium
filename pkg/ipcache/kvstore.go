@@ -63,7 +63,7 @@ type store interface {
 	release(key string) error
 }
 
-// kvstoreImplementation is provided to mock out the kvstore for unit testing.
+// kvstoreImplementation is a store implementation backed by the kvstore.
 type kvstoreImplementation struct{}
 
 // upsert places the mapping of {key, value} into the kvstore, optionally with
@@ -80,8 +80,8 @@ func (k kvstoreImplementation) release(key string) error {
 // kvReferenceCounter provides a thin wrapper around the kvstore which adds
 // reference tracking for all entries being updated. When the first key is
 // updated, it adds a reference to the kvstore and tracks the reference
-// internally. Subsequent updates also update the kvstore, and add a referenc.
-// Deletes from the referenceCounter are only propagated to the kvstore when
+// internally. Subsequent updates also update the kvstore, and add a reference.
+// Deletes from the kvReferenceCounter are only propagated to the kvstore when
 // the final reference is released.
 //
 // This has some small overlap with the pkg/kvstore/allocator but this is only
@@ -95,8 +95,8 @@ type kvReferenceCounter struct {
 	keys map[string]uint64
 }
 
-// newKVReferenceCounter creates a new reference counter using the global
-// kvstore package as the underlying store.
+// newKVReferenceCounter creates a new reference counter using the specified
+// store as the underlying location for key/value pairs to be stored.
 func newKVReferenceCounter(s store) *kvReferenceCounter {
 	return &kvReferenceCounter{
 		store: s,
