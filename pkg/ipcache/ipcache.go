@@ -106,10 +106,10 @@ func checkPrefixLengthsAgainstMap(impl Implementation, prefixes []*net.IPNet, ex
 	return nil
 }
 
-// CheckPrefixes ensures that we will reject rules if the import of those
+// checkPrefixes ensures that we will reject rules if the import of those
 // rules would cause the underlying implementation of the ipcache to exceed
 // the maximum number of supported CIDR prefix lengths.
-func CheckPrefixes(impl Implementation, prefixes []*net.IPNet) (err error) {
+func checkPrefixes(impl Implementation, prefixes []*net.IPNet) (err error) {
 	IPIdentityCache.RLock()
 	defer IPIdentityCache.RUnlock()
 
