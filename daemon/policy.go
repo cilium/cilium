@@ -258,6 +258,7 @@ func (d *Daemon) PolicyAdd(rules api.Rules, opts *AddOptions) (uint64, error) {
 	rev, err := d.policyAdd(rules, opts)
 	if err != nil {
 		// Don't leak identities allocated above.
+		ipcache.DeleteIPNetsFromKVStore(prefixes)
 		identity.ReleaseSlice(prefixIdentities)
 
 		return 0, apierror.Error(PutPolicyFailureCode, err)
