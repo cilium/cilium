@@ -2341,9 +2341,16 @@ func (e *Endpoint) identityLabelsChanged(owner Owner, myChangeRev int) error {
 	e.Mutex.Unlock()
 
 	if readyToRegenerate {
-		e.Regenerate(owner, "updated security labels")
+		status := e.Regenerate(owner, "updated security labels")
+		go func(endpointBuildStatus <-chan bool, e *Endpoint) {
+			buildStatus := <-endpointBuildStatus
+			if !buildStatus {
+				e.Mutex.Lock()
+				e.SetStateLocked(StateRegenerating, "Endpoint regeneration failed")
+				e.Mutex.Unlock()
+			}
+		}(status, e)
 	}
-
 	return nil
 }
 
