@@ -997,6 +997,8 @@ var _ = Describe("K8sValidatedPolicyTestAcrossNamespaces", func() {
 			res := kubectl.Create(resourcePath)
 			res.ExpectSuccess()
 		}
+		kubectl.WaitforPods(qaNs, "", 300)
+		kubectl.WaitforPods(developmentNs, "", 300)
 	})
 
 	AfterFailed(func() {
