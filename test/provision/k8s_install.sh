@@ -27,8 +27,10 @@ export INSTALL_KUBEDNS=1
 
 source ${PROVISIONSRC}/helpers.bash
 
-# TODO: Check if the k8s version is the same
+sudo bash -c "echo MaxSessions 200 >> /etc/ssh/sshd_config"
+sudo systemctl restart ssh
 
+# TODO: Check if the k8s version is the same
 if [[ -f  "/etc/provision_finished" ]]; then
     sudo dpkg -l | grep kubelet
     echo "provision is finished, recompiling"
