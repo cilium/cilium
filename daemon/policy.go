@@ -249,6 +249,9 @@ func (d *Daemon) PolicyAdd(rules api.Rules, opts *AddOptions) (uint64, error) {
 			log.WithError(err2).WithField("prefixes", prefixes).Warn(
 				"Failed to release CIDRs during policy import failure")
 		}
+		ipcache.DeleteIPNetsFromKVStore(prefixes)
+		identity.ReleaseSlice(prefixIdentities)
+
 		return 0, apierror.Error(PutPolicyFailureCode, err)
 	}
 
