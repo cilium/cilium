@@ -14,7 +14,7 @@ all: $(TARGETS)
 
 perf-event-test: perf-event-test.go
 	@$(ECHO_GO)
-	$(GO) build -i $(GOBUILD) -o $@ $<
+	$(GO) build $(GOBUILD) -o $@ $<
 
 bpf-event-test.o: bpf-event-test.c
 	@$(ECHO_CC)

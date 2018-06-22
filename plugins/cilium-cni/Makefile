@@ -13,7 +13,7 @@ SOURCES := $(shell find ../../api/v1/models ../../common ../../pkg/client ../../
 
 $(TARGET): $(SOURCES)
 	@$(ECHO_GO)
-	$(GO) build -i $(GOBUILD) -o $(TARGET) ./cilium-cni.go
+	$(GO) build $(GOBUILD) -o $(TARGET) ./cilium-cni.go
 
 install:
 	$(INSTALL) -m 0755 -d $(DESTDIR)/etc/cni/net.d
