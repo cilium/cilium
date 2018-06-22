@@ -5,55 +5,47 @@
 Policy Enforcement Modes
 ========================
 
-Whether an endpoint accepts traffic from source is dependent upon the
-configuration of the agent and the policy. The agent or specific endpoints
-can be put into the following three policy enforcement modes:
+The configuration of the Cilium agent and the Cilium Network Policy determines whether an endpoint accepts traffic from a source or not. The agent can be put into the following three policy enforcement modes:
 
 default
-  This is the behavior for policy enforcement when Cilium is launched without
-  any specified value for policy enforcement configuration. The following rule
-  applies:
+  This is the default behavior for policy enforcement when Cilium is launched without
+  any specified value for the policy enforcement configuration. The following rules
+  apply:
 
   * If any rule selects an :ref:`endpoint` and the rule has an ingress
-    section, the endpoint goes into default deny at ingress
+    section, the endpoint goes into default deny at ingress.
   * If any rule selects an :ref:`endpoint` and the rule has an egress section, the
     endpoint goes into default deny at egress.
 
-  This means that endpoints will start out without any restrictions, as soon as
+  This means that endpoints will start without any restrictions and as soon as
   a rule restricts their ability to receive traffic on ingress or to transmit
   traffic on egress, then the endpoint goes into whitelisting mode and all
   traffic must be explicitly allowed.
 
 always
-  With this mode, policy enforcement is enabled on all endpoints, even if no
+  With always mode, policy enforcement is enabled on all endpoints even if no
   rules select specific endpoints.
- 
+
 never
-  With this mode, policy enforcement is disabled on all endpoints, even if
+  With never mode, policy enforcement is disabled on all endpoints, even if
   rules do select specific endpoints. In other words, all traffic is allowed
   from any source (on ingress) or destination (on egress).
 
-Policy enforcement for all endpoints is configurable at runtime by running:
+To configure the policy enforcement mode at runtime for all endpoints managed by a Cilium agent, use:
 
 .. code:: bash
 
     $ cilium config PolicyEnforcement={default,always,never}
 
-If you want to have a certain policy enforcement configuration value at
-launch-time, you can provide the following flag when you launch the Cilium
+If you want to configure the policy enforcement mode at start-time for a particular agent, provide the following flag when launching the Cilium
 daemon:
 
 .. code:: bash
 
     $ cilium-agent --enable-policy={default,always,never} [...]
 
-If there is only a specific endpoint that you want to put into a particular
-enforcement mode, you can do that with the following command, using an ID
-from ``cilium endpoint list``:
+Similarly, you can enable the policy enforcement mode across a Kubernetes cluster by including the parameter above in the Cilium DaemonSet.
 
-.. code:: bash
-
-    $ cilium endpoint config <ID> PolicyEnforcement={default,always,never}
 
 .. _policy_rule:
 
