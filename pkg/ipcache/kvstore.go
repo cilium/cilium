@@ -165,10 +165,10 @@ func UpsertIPToKVStore(IP net.IP, ID identity.NumericIdentity, metadata string) 
 	return globalMap.upsert(ipKey, ipIDPair)
 }
 
-// UpsertIPNetToKVStore updates / inserts the provided CIDR->Identity mapping
+// upsertIPNetToKVStore updates / inserts the provided CIDR->Identity mapping
 // into the kvstore, which will subsequently trigger an event in
 // ipIdentityWatcher().
-func UpsertIPNetToKVStore(prefix *net.IPNet, ID *identity.Identity) error {
+func upsertIPNetToKVStore(prefix *net.IPNet, ID *identity.Identity) error {
 	// Reserved identities are handled locally, don't push them to kvstore.
 	if ID.IsReserved() {
 		return nil
@@ -219,7 +219,7 @@ func keyToIPNet(key string) (parsedPrefix *net.IPNet, host bool, err error) {
 	return
 }
 
-// UpsertIPNetsToKVStore inserts a CIDR->Identity mapping into the kvstore
+// upsertIPNetsToKVStore inserts a CIDR->Identity mapping into the kvstore
 // ipcache for each of the specified prefixes and identities. That is to say,
 // prefixes[0] is mapped to identities[0].
 //
@@ -228,13 +228,13 @@ func keyToIPNet(key string) (parsedPrefix *net.IPNet, host bool, err error) {
 //
 // The caller should check the prefix lengths against the underlying IPCache
 // implementation using CheckPrefixLengths prior to upserting to the kvstore.
-func UpsertIPNetsToKVStore(prefixes []*net.IPNet, identities []*identity.Identity) (err error) {
+func upsertIPNetsToKVStore(prefixes []*net.IPNet, identities []*identity.Identity) (err error) {
 	if len(prefixes) != len(identities) {
 		return fmt.Errorf("Invalid []Prefix->[]Identity ipcache mapping requested: prefixes=%d identities=%d", len(prefixes), len(identities))
 	}
 	for i, prefix := range prefixes {
 		id := identities[i]
-		err = UpsertIPNetToKVStore(prefix, id)
+		err = upsertIPNetToKVStore(prefix, id)
 		if err != nil {
 			for j := 0; j < i; j++ {
 				ipKey := path.Join(IPIdentitiesPath, AddressSpace, prefix.String())
@@ -259,10 +259,10 @@ func DeleteIPFromKVStore(ip string) error {
 	return globalMap.release(ipKey)
 }
 
-// DeleteIPNetsFromKVStore removes the Prefix->Identity mappings for the
+// deleteIPNetsFromKVStore removes the Prefix->Identity mappings for the
 // specified slice of prefixes from the kvstore, which will subsequently
 // trigger an event in ipIdentityWatcher().
-func DeleteIPNetsFromKVStore(prefixes []*net.IPNet) (err error) {
+func deleteIPNetsFromKVStore(prefixes []*net.IPNet) (err error) {
 	for _, prefix := range prefixes {
 		ipKey := path.Join(IPIdentitiesPath, AddressSpace, prefix.String())
 		if err2 := globalMap.release(ipKey); err2 != nil {
