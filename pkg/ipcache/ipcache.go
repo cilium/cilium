@@ -133,10 +133,10 @@ func UpsertIPToKVStore(IP net.IP, ID identity.NumericIdentity, metadata string) 
 	return upsertToKVStore(ipKey, ipIDPair)
 }
 
-// UpsertIPNetToKVStore updates / inserts the provided CIDR->Identity mapping
+// upsertIPNetToKVStore updates / inserts the provided CIDR->Identity mapping
 // into the kvstore, which will subsequently trigger an event in
 // ipIdentityWatcher().
-func UpsertIPNetToKVStore(prefix *net.IPNet, ID *identity.Identity) error {
+func upsertIPNetToKVStore(prefix *net.IPNet, ID *identity.Identity) error {
 	// Reserved identities are handled locally, don't push them to kvstore.
 	if ID.IsReserved() {
 		return nil
@@ -176,10 +176,10 @@ func checkPrefixLengthsAgainstMap(impl Implementation, prefixes []*net.IPNet, ex
 	return nil
 }
 
-// CheckPrefixes ensures that we will reject rules if the import of those
+// checkPrefixes ensures that we will reject rules if the import of those
 // rules would cause the underlying implementation of the ipcache to exceed
 // the maximum number of supported CIDR prefix lengths.
-func CheckPrefixes(impl Implementation, prefixes []*net.IPNet) (err error) {
+func checkPrefixes(impl Implementation, prefixes []*net.IPNet) (err error) {
 	IPIdentityCache.RLock()
 	defer IPIdentityCache.RUnlock()
 
@@ -189,7 +189,7 @@ func CheckPrefixes(impl Implementation, prefixes []*net.IPNet) (err error) {
 	return checkPrefixLengthsAgainstMap(impl, prefixes, IPIdentityCache.v6PrefixLengths)
 }
 
-// UpsertIPNetsToKVStore inserts a CIDR->Identity mapping into the kvstore
+// upsertIPNetsToKVStore inserts a CIDR->Identity mapping into the kvstore
 // ipcache for each of the specified prefixes and identities. That is to say,
 // prefixes[0] is mapped to identities[0].
 //
@@ -198,13 +198,13 @@ func CheckPrefixes(impl Implementation, prefixes []*net.IPNet) (err error) {
 //
 // The caller should check the prefix lengths against the underlying IPCache
 // implementation using CheckPrefixLengths prior to upserting to the kvstore.
-func UpsertIPNetsToKVStore(prefixes []*net.IPNet, identities []*identity.Identity) (err error) {
+func upsertIPNetsToKVStore(prefixes []*net.IPNet, identities []*identity.Identity) (err error) {
 	if len(prefixes) != len(identities) {
 		return fmt.Errorf("Invalid []Prefix->[]Identity ipcache mapping requested: prefixes=%d identities=%d", len(prefixes), len(identities))
 	}
 	for i, prefix := range prefixes {
 		id := identities[i]
-		err = UpsertIPNetToKVStore(prefix, id)
+		err = upsertIPNetToKVStore(prefix, id)
 		if err != nil {
 			for j := 0; j < i; j++ {
 				err2 := DeleteIPFromKVStore(prefix.String())
@@ -227,10 +227,10 @@ func DeleteIPFromKVStore(ip string) error {
 	return kvstore.Delete(ipKey)
 }
 
-// DeleteIPNetsFromKVStore removes the Prefix->Identity mappings for the
+// deleteIPNetsFromKVStore removes the Prefix->Identity mappings for the
 // specified slice of prefixes from the kvstore, which will subsequently
 // trigger an event in ipIdentityWatcher().
-func DeleteIPNetsFromKVStore(prefixes []*net.IPNet) (err error) {
+func deleteIPNetsFromKVStore(prefixes []*net.IPNet) (err error) {
 	for _, prefix := range prefixes {
 		if err2 := DeleteIPFromKVStore(prefix.String()); err2 != nil {
 			err = err2
