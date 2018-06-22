@@ -60,7 +60,7 @@ func (s *IPCacheTestSuite) TestKVReferenceCounter(c *C) {
 	err = refcnt.release(key1)
 	c.Assert(err, IsNil)
 	c.Assert(ts[key1], Equals, 2)
-	// Remove the second referenc, "foo" should be deleted from the store.
+	// Remove the second reference, "foo" should be deleted from the store.
 	err = refcnt.release(key1)
 	c.Assert(err, IsNil)
 	_, ok := ts[key1]
