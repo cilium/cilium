@@ -152,6 +152,19 @@ func newReservedEndpointSelector(ID string) EndpointSelector {
 	return NewESFromLabels(reservedLabels)
 }
 
+// NewESFromMatchRequirements creates a new endpoint selector from the given
+// match specifications: An optional set of labels that must match, and
+// an optional slice of LabelSelectorRequirements.
+func NewESFromMatchRequirements(matchLabels map[string]string, reqs []metav1.LabelSelectorRequirement) EndpointSelector {
+	labelSelector := &metav1.LabelSelector{
+		MatchLabels:      matchLabels,
+		MatchExpressions: reqs,
+	}
+	return EndpointSelector{
+		LabelSelector: labelSelector,
+	}
+}
+
 var (
 	// WildcardEndpointSelector is a wildcard endpoint selector matching
 	// all endpoints that can be described with labels.
