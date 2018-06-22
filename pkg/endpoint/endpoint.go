@@ -2204,21 +2204,46 @@ func (e *Endpoint) IsInit() bool {
 // identity and will be regenerated. Both of these operations will happen in
 // the background.
 func (e *Endpoint) UpdateLabels(owner Owner, identityLabels, infoLabels pkgLabels.Labels) {
-	log.WithFields(logrus.Fields{
-		logfields.ContainerID:    e.GetShortContainerID(),
-		logfields.EndpointID:     e.StringID(),
-		logfields.IdentityLabels: identityLabels.String(),
-		logfields.InfoLabels:     infoLabels.String(),
-	}).Debug("Refreshing labels of endpoint")
+	// Start a controller to delay the update of the labels until we have at
+	// least generated completely one policy for the endpoint.
+	// This allows configuring the init policy for the endpoint completely, in
+	// order to allow enough connectivity for a sidecar proxy to get
+	// configured, which can be required to enforce L7 policy rules as a result
+	// of the labels update.
+	ctrlName := fmt.Sprintf("update-labels-%d", e.ID)
+	e.controllers.UpdateController(ctrlName,
+		controller.ControllerParams{
+			DoFunc: func() error {
+				scopedLog := log.WithFields(logrus.Fields{
+					logfields.ContainerID:    e.GetShortContainerID(),
+					logfields.EndpointID:     e.StringID(),
+					logfields.IdentityLabels: identityLabels.String(),
+					logfields.InfoLabels:     infoLabels.String(),
+				})
 
-	e.Mutex.Lock()
-	e.replaceInformationLabels(infoLabels)
-	// replace identity labels and update the identity if labels have changed
-	rev := e.replaceIdentityLabels(identityLabels)
-	e.Mutex.Unlock()
-	if rev != 0 {
-		e.runLabelsResolver(owner, rev)
-	}
+				e.Mutex.Lock()
+				if e.RealizedL4Policy == nil {
+					e.Mutex.Unlock()
+					scopedLog.Debug("Deferring update of endpoint labels until a policy has been realized")
+					// If no policy has been realized yet, continue trying.
+					return errors.New("no policy has been realized yet")
+				}
+
+				scopedLog.Debug("Updating endpoint labels")
+
+				e.replaceInformationLabels(infoLabels)
+				// replace identity labels and update the identity if labels have changed
+				rev := e.replaceIdentityLabels(identityLabels)
+				e.Mutex.Unlock()
+				if rev != 0 {
+					e.runLabelsResolver(owner, rev)
+				}
+
+				return nil
+			},
+			ErrorRetryBaseDuration: 1 * time.Second,
+		},
+	)
 }
 
 func (e *Endpoint) identityResolutionIsObsolete(myChangeRev int) bool {
