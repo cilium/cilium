@@ -170,6 +170,10 @@ func (s *SSHMeta) Exec(cmd string, options ...ExecOptions) *CmdRes {
 
 	if err != nil {
 		res.success = false
+		// Set error code to 1 in case that it's another error to see that the
+		// command failed. If the default value (0) indicates that command
+		// works but it was not executed at all.
+		res.exitcode = 1
 		exiterr, isExitError := err.(*ssh.ExitError)
 		if isExitError {
 			// Set res's exitcode if the error is an ExitError
