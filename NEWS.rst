@@ -505,7 +505,7 @@ v1.1.0
     Jess Frazelle (1):
           pkg/bpf: add function wrappers for prog syscalls.
 
-    Joe Stringer (173):
+    Joe Stringer (174):
           daemon: Sync loadbalancer BPF maps from goroutine
           k8s: Gather timestamps in cilium_logs on failure
           docs: Update kubernetes policy page
@@ -679,6 +679,7 @@ v1.1.0
           k8s: Allocate ipcache mappings for service backends
           ipcache: Improve comments for reference counter
           treewide: Avoid go build `-i`
+          metricsmap: Fix index out of range error
 
     Julien Kassar (2):
           Replace ADD with COPY instruction in Dockerfile
@@ -932,7 +933,7 @@ v1.1.0
           docs: k8s: updating docs for k8s v1.9, 1.10 and 1.11 support
           docs: k8s: updating formatting
 
-    Thomas Graf (96):
+    Thomas Graf (97):
           labels: Ignore istio sidecar annotation labels
           etcd: Move etcd status check into the background
           cilium: Make cilium endpoint list resilient
@@ -1029,6 +1030,7 @@ v1.1.0
           agent: Require go 1.10 for safe namespace operations
           identity: Move CIDR identity code into pkg/identity/cidr
           k8s: Simplify EndpointSelector creation in tests
+          NEWS: Update after latest backports
 
     Tobias Klauser (1):
           pkg/bpf: update BPF_* constants as of Linux kernel 4.17-rc3
