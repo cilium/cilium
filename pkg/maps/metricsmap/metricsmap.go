@@ -167,7 +167,7 @@ func updatePrometheusMetrics(key *Key, val *Value) {
 // aggregating it into drops (by drop reason and direction) and
 // forwards (by direction) with the prometheus server.
 func SyncMetricsMap() error {
-	var entry [possibleCPUsFileLength]Value
+	entry := make([]Value, possibleCpus)
 	file := bpf.MapPath(MapName)
 	metricsmap, err := bpf.OpenMap(file)
 
@@ -182,7 +182,7 @@ func SyncMetricsMap() error {
 		if err != nil {
 			break
 		}
-		err = bpf.LookupElement(metricsmap.GetFd(), unsafe.Pointer(&nextKey), unsafe.Pointer(&entry))
+		err = bpf.LookupElement(metricsmap.GetFd(), unsafe.Pointer(&nextKey), unsafe.Pointer(&entry[0]))
 		if err != nil {
 			return fmt.Errorf("unable to lookup metrics map: %s", err)
 		}
