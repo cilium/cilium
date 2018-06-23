@@ -2,7 +2,7 @@
 NEWS
 ******
 
-v1.1.
+v1.1.0
 ======
 
 ::
@@ -127,12 +127,15 @@ v1.1.
           docs: fix mesos guide
           daemon: skip health endpoint on restore
 
-    Arvind Soni (5):
+    Arvind Soni (8):
           doc: Star Wars theme HTTP Getting Started Guide
           Text edits based on the reviews
           Fix image formatting and simplifies app yaml
           Elasticsearch Getting Started Guide
           revised elasticsearch getting started guide
+          Added example for the policy trace Added kubectl exec ... part to the cilium monitor command
+          expanded install guide for kops with complete steps from scratch
+          Fixed a reference that was to localhost Changed the clustername to include a username to avoid stepping on multiple clusters
 
     Ashwin Paranjpe (3):
           Update docs related to cluster-diagnosis
@@ -161,7 +164,7 @@ v1.1.
     Diego Casati (1):
           add '[bB]log and Ubuntu to the spelling list. This fixes the issue when creating an ePub out of the docs
 
-    Eloy Coto (106):
+    Eloy Coto (107):
           Test: Trigger `vm.ReportFailed` in the global AfterAll
           Test: Enable egress-deny
           Test: Fix hack in `SetAndWaitForEndpointConfiguration`
@@ -268,6 +271,7 @@ v1.1.
           apipanic: Log stack as string
           Documentation: Update docs to minimun 4.9.17 kernel version
           Docs: Update minikube GSG.
+          Test: Wait until all pods are ready
 
     Eohyung Lee (1):
           Fix broken kubernetes-ingress example
@@ -450,7 +454,7 @@ v1.1.
           test/helpers: gather logs from all pods
           Makefile: add jenkins-precheck Makefile target
 
-    Jarno Rajahalme (44):
+    Jarno Rajahalme (46):
           envoy: Update generated go-files for Cilium HTTP filter.
           envoy: Set SO_LINGER and SO_KEEPALIVE on accepted sockets.
           envoy: Fix integration test
@@ -495,11 +499,13 @@ v1.1.
           envoy: Update generated Cilium protobufs.
           envoy: Update integration test.
           init.sh: Use 'ip route replace' instead of 'ip route add'
+          Docs: Troubleshooting updates.
+          Docs: Remove CoreOS Installation Guide
 
     Jess Frazelle (1):
           pkg/bpf: add function wrappers for prog syscalls.
 
-    Joe Stringer (163):
+    Joe Stringer (173):
           daemon: Sync loadbalancer BPF maps from goroutine
           k8s: Gather timestamps in cilium_logs on failure
           docs: Update kubernetes policy page
@@ -663,6 +669,16 @@ v1.1.
           metrics: Add datapath management metrics
           ctmap: Add metrics for conntrack dump resets
           k8s: Fix auto-generated deepycopy functions
+          ipcache: Split into multiple files
+          ipcache: Set logging subsys to 'ipcache'
+          ipcache: Count references to ipcache mappings
+          daemon: Release ipcache entries on policy add failure
+          daemon: Release identities in failure condition
+          daemon: Refactor ipcache CIDR allocations to ipcache
+          policy: Refactor getting CIDR prefixes from CIDR strings
+          k8s: Allocate ipcache mappings for service backends
+          ipcache: Improve comments for reference counter
+          treewide: Avoid go build `-i`
 
     Julien Kassar (2):
           Replace ADD with COPY instruction in Dockerfile
@@ -735,6 +751,9 @@ v1.1.
     Marius Gerling (2):
           Dependency to LLVM >= 6.0 in Documentation added
           Dependency to LLVM >= 6.0 in Documentation modified
+
+    Mark deVilliers (1):
+          Check for nil before accessing Status
 
     Matt Layher (3):
           pkg/labels: fix go vet issues
@@ -815,7 +834,7 @@ v1.1.
           test: Increase kubedns timeouts above 5 minutes
           daemon: Warn on too-old status data
 
-    Romain Lenglet (75):
+    Romain Lenglet (76):
           npds: Properly translate L4-only rules
           envoy: Rename the xDS cluster into xds-grpc-cilium
           proxy: Create access log file and setup notifier at startup
@@ -891,6 +910,7 @@ v1.1.
           examples/kubernetes: Remove sidecar-http-proxy setting from examples
           docs: Remove use of the sidecar-http-proxy flag in the Istio GSG
           test: Remove sidecar-http-proxy setting from template
+          docs: Remove sidecar-http-proxy config from upgrade instructions
 
     Shantanu Deshpande (7):
           Miscellaneous typo fixes in documentation.
@@ -912,7 +932,7 @@ v1.1.
           docs: k8s: updating docs for k8s v1.9, 1.10 and 1.11 support
           docs: k8s: updating formatting
 
-    Thomas Graf (90):
+    Thomas Graf (96):
           labels: Ignore istio sidecar annotation labels
           etcd: Move etcd status check into the background
           cilium: Make cilium endpoint list resilient
@@ -1003,6 +1023,12 @@ v1.1.
           identity: Fix allocator init with more than pre-existing 1024 keys
           allocator: Avoid scanning sequentual list when allocating
           Prepare for 1.1.0 release
+          AUTHORS: Update to latest list
+          allocator: Re-use randomly generated ID sequence between allocations
+          cni: Change default configuration filename to 00-cilium.conf
+          agent: Require go 1.10 for safe namespace operations
+          identity: Move CIDR identity code into pkg/identity/cidr
+          k8s: Simplify EndpointSelector creation in tests
 
     Tobias Klauser (1):
           pkg/bpf: update BPF_* constants as of Linux kernel 4.17-rc3
@@ -1011,6 +1037,7 @@ v1.1.
           Update minikube.rst
           examples/minikube: update http-sw-app.yaml
           examples/minikube: delete unused yamls
+
 
 v1.0.0-rc9
 ==========
