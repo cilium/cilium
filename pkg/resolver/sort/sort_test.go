@@ -12,9 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package envoy
+package sort
 
 import (
+	"testing"
+
+	"github.com/cilium/cilium/pkg/comparator"
 	"github.com/cilium/cilium/pkg/envoy/cilium"
 	envoy_api_v2_core "github.com/cilium/cilium/pkg/envoy/envoy/api/v2/core"
 	envoy_api_v2_route "github.com/cilium/cilium/pkg/envoy/envoy/api/v2/route"
@@ -27,6 +30,11 @@ import (
 type SortSuite struct{}
 
 var _ = Suite(&SortSuite{})
+
+// Hook up gocheck into the "go test" runner.
+func Test(t *testing.T) {
+	TestingT(t)
+}
 
 var HeaderMatcher1 = &envoy_api_v2_route.HeaderMatcher{
 	Name:  "aaa",
@@ -189,7 +197,7 @@ func (s *SortSuite) TestSortPortNetworkPolicyRules(c *C) {
 		PortNetworkPolicyRule7,
 	}
 	SortPortNetworkPolicyRules(slice)
-	c.Assert(slice, DeepEquals, expected)
+	c.Assert(slice, comparator.DeepEquals, expected)
 }
 
 var PortNetworkPolicy1 = &cilium.PortNetworkPolicy{
