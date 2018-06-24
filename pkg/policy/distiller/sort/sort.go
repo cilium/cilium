@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package envoy
+package sort
 
 import (
 	"sort"
@@ -222,9 +222,12 @@ func HeaderMatcherLess(m1, m2 *envoy_api_v2_route.HeaderMatcher) bool {
 	}
 
 	switch {
-	case !m1.Regex.Value && m2.Regex.Value:
+	// Nil values of Regex are equivalent to 'false' (header is not a regex).
+	// So, if m1 is not a regex, and m2 is a regex, m1 < m2.
+	case (m1.Regex == nil || !m1.Regex.Value) && (m2.Regex != nil && m2.Regex.Value):
 		return true
-	case m1.Regex.Value && !m2.Regex.Value:
+	// Otherwise, if m1 is a regex, and m2 isn't, m1 > m2.
+	case (m1.Regex != nil && m1.Regex.Value) && (m2.Regex == nil || !m2.Regex.Value):
 		return false
 	}
 
