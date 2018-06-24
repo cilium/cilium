@@ -36,6 +36,93 @@ func Test(t *testing.T) {
 	TestingT(t)
 }
 
+var KafkaNetworkPolicyRule1 = &cilium.KafkaNetworkPolicyRule{}
+
+var KafkaNetworkPolicyRule2 = &cilium.KafkaNetworkPolicyRule{
+	ApiKey:     -1,
+	ApiVersion: -1,
+	Topic:      "",
+	ClientId:   "",
+}
+
+var KafkaNetworkPolicyRule3 = &cilium.KafkaNetworkPolicyRule{
+	ApiKey:     -1,
+	ApiVersion: -1,
+	Topic:      "",
+	ClientId:   "",
+}
+
+var KafkaNetworkPolicyRule4 = &cilium.KafkaNetworkPolicyRule{
+	ApiKey:     -1,
+	ApiVersion: 0,
+	Topic:      "",
+	ClientId:   "",
+}
+
+var KafkaNetworkPolicyRule5 = &cilium.KafkaNetworkPolicyRule{
+	ApiKey:     -1,
+	ApiVersion: 0,
+	Topic:      "",
+	ClientId:   "",
+}
+
+var KafkaNetworkPolicyRule6 = &cilium.KafkaNetworkPolicyRule{
+	ApiKey:     -1,
+	ApiVersion: 0,
+	Topic:      "bar",
+	ClientId:   "",
+}
+
+var KafkaNetworkPolicyRule7 = &cilium.KafkaNetworkPolicyRule{
+	ApiKey:     -1,
+	ApiVersion: 0,
+	Topic:      "foo",
+	ClientId:   "",
+}
+
+var KafkaNetworkPolicyRule8 = &cilium.KafkaNetworkPolicyRule{
+	ApiKey:     -1,
+	ApiVersion: 0,
+	Topic:      "foo",
+	ClientId:   "joe",
+}
+
+var KafkaNetworkPolicyRule9 = &cilium.KafkaNetworkPolicyRule{
+	ApiKey:     -1,
+	ApiVersion: 0,
+	Topic:      "foo",
+	ClientId:   "romain",
+}
+
+func (s *SortSuite) TestSortKafkaPolicyRules(c *C) {
+	var slice, expected []*cilium.KafkaNetworkPolicyRule
+
+	slice = []*cilium.KafkaNetworkPolicyRule{
+		KafkaNetworkPolicyRule9,
+		KafkaNetworkPolicyRule8,
+		KafkaNetworkPolicyRule7,
+		KafkaNetworkPolicyRule6,
+		KafkaNetworkPolicyRule5,
+		KafkaNetworkPolicyRule4,
+		KafkaNetworkPolicyRule3,
+		KafkaNetworkPolicyRule2,
+		KafkaNetworkPolicyRule1,
+	}
+	expected = []*cilium.KafkaNetworkPolicyRule{
+		KafkaNetworkPolicyRule2,
+		KafkaNetworkPolicyRule3,
+		KafkaNetworkPolicyRule4,
+		KafkaNetworkPolicyRule5,
+		KafkaNetworkPolicyRule6,
+		KafkaNetworkPolicyRule7,
+		KafkaNetworkPolicyRule8,
+		KafkaNetworkPolicyRule9,
+		KafkaNetworkPolicyRule1,
+	}
+	SortKafkaNetworkPolicyRules(slice)
+	c.Assert(slice, comparator.DeepEquals, expected)
+}
+
 var HeaderMatcher1 = &envoy_api_v2_route.HeaderMatcher{
 	Name:  "aaa",
 	Value: "aaa",
@@ -173,12 +260,25 @@ var PortNetworkPolicyRule7 = &cilium.PortNetworkPolicyRule{
 	},
 }
 
+var PortNetworkPolicyRule8 = &cilium.PortNetworkPolicyRule{
+	RemotePolicies: []uint64{1, 2},
+	L7Rules: &cilium.PortNetworkPolicyRule_KafkaRules{
+		KafkaRules: &cilium.KafkaNetworkPolicyRules{
+			KafkaRules: []*cilium.KafkaNetworkPolicyRule{
+				KafkaNetworkPolicyRule2,
+				KafkaNetworkPolicyRule1,
+			},
+		},
+	},
+}
+
 // TODO: Test sorting Kafka rules.
 
 func (s *SortSuite) TestSortPortNetworkPolicyRules(c *C) {
 	var slice, expected []*cilium.PortNetworkPolicyRule
 
 	slice = []*cilium.PortNetworkPolicyRule{
+		PortNetworkPolicyRule8,
 		PortNetworkPolicyRule7,
 		PortNetworkPolicyRule6,
 		PortNetworkPolicyRule5,
@@ -191,6 +291,7 @@ func (s *SortSuite) TestSortPortNetworkPolicyRules(c *C) {
 		PortNetworkPolicyRule1,
 		PortNetworkPolicyRule2,
 		PortNetworkPolicyRule3,
+		PortNetworkPolicyRule8,
 		PortNetworkPolicyRule4,
 		PortNetworkPolicyRule5,
 		PortNetworkPolicyRule6,

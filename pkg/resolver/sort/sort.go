@@ -85,9 +85,8 @@ type PortNetworkPolicyRuleSlice []*cilium.PortNetworkPolicyRule
 // the r2 rule.
 // L3-L4-only rules are less than L7 rules.
 func PortNetworkPolicyRuleLess(r1, r2 *cilium.PortNetworkPolicyRule) bool {
-	// TODO: Support Kafka.
 
-	http1, http2 := r1.GetHttpRules(), r2.GetHttpRules()
+	http1, http2, kafka1, kafka2 := r1.GetHttpRules(), r2.GetHttpRules(), r1.GetKafkaRules(), r2.GetKafkaRules()
 	switch {
 	case http1 == nil && http2 != nil:
 		return true
@@ -110,6 +109,32 @@ func PortNetworkPolicyRuleLess(r1, r2 *cilium.PortNetworkPolicyRule) bool {
 			case HTTPNetworkPolicyRuleLess(httpRule1, httpRule2):
 				return true
 			case HTTPNetworkPolicyRuleLess(httpRule2, httpRule1):
+				return false
+			}
+		}
+	}
+
+	switch {
+	case kafka1 == nil && kafka2 != nil:
+		return true
+	case kafka1 != nil && kafka2 == nil:
+		return false
+	}
+
+	if kafka1 != nil && kafka2 != nil {
+		kafkaRules1, kafkaRules2 := kafka1.KafkaRules, kafka2.KafkaRules
+		switch {
+		case len(kafkaRules1) < len(kafkaRules2):
+			return true
+		case len(kafkaRules1) > len(kafkaRules2):
+			return false
+		}
+		for idx := range kafkaRules1 {
+			kafkaRule1, kafkaRule2 := kafkaRules1[idx], kafkaRules2[idx]
+			switch {
+			case KafkaNetworkPolicyRuleLess(kafkaRule1, kafkaRule2):
+				return true
+			case KafkaNetworkPolicyRuleLess(kafkaRule2, kafkaRule1):
 				return false
 			}
 		}
@@ -226,7 +251,7 @@ func HeaderMatcherLess(m1, m2 *envoy_api_v2_route.HeaderMatcher) bool {
 	// So, if m1 is not a regex, and m2 is a regex, m1 < m2.
 	case (m1.Regex == nil || !m1.Regex.Value) && (m2.Regex != nil && m2.Regex.Value):
 		return true
-	// Otherwise, if m1 is a regex, and m2 isn't, m1 > m2.
+		// Otherwise, if m1 is a regex, and m2 isn't, m1 > m2.
 	case (m1.Regex != nil && m1.Regex.Value) && (m2.Regex == nil || !m2.Regex.Value):
 		return false
 	}
@@ -250,4 +275,60 @@ func (s HeaderMatcherSlice) Swap(i, j int) {
 // SortHeaderMatchers sorts the given slice.
 func SortHeaderMatchers(headers []*envoy_api_v2_route.HeaderMatcher) {
 	sort.Sort(HeaderMatcherSlice(headers))
+}
+
+// KafkaNetworkPolicyRuleSlice implements sort.Interface to sort a slice of
+// *cilium.KafkaNetworkPolicyRule.
+type KafkaNetworkPolicyRuleSlice []*cilium.KafkaNetworkPolicyRule
+
+// KafkaNetworkPolicyRuleLess reports whether the r1 rule should sort before the
+// r2 rule.
+func KafkaNetworkPolicyRuleLess(r1, r2 *cilium.KafkaNetworkPolicyRule) bool {
+	switch {
+	case r1.ApiVersion < r2.ApiVersion:
+		return true
+	case r1.ApiVersion > r2.ApiVersion:
+		return false
+	}
+
+	switch {
+	case r1.ApiKey < r2.ApiKey:
+		return true
+	case r2.ApiKey > r2.ApiKey:
+		return false
+	}
+
+	switch {
+	case r1.Topic < r2.Topic:
+		return true
+	case r1.Topic > r2.Topic:
+		return false
+	}
+
+	switch {
+	case r1.ClientId < r2.ClientId:
+		return true
+	case r1.ClientId > r2.ClientId:
+		return false
+	}
+
+	// Elements are equal.
+	return false
+}
+
+func (s KafkaNetworkPolicyRuleSlice) Len() int {
+	return len(s)
+}
+
+func (s KafkaNetworkPolicyRuleSlice) Less(i, j int) bool {
+	return KafkaNetworkPolicyRuleLess(s[i], s[j])
+}
+
+func (s KafkaNetworkPolicyRuleSlice) Swap(i, j int) {
+	s[i], s[j] = s[j], s[i]
+}
+
+// SortKafkaNetworkPolicyRules sorts the given slice.
+func SortKafkaNetworkPolicyRules(rules []*cilium.KafkaNetworkPolicyRule) {
+	sort.Sort(KafkaNetworkPolicyRuleSlice(rules))
 }
