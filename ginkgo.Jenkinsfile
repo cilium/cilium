@@ -13,13 +13,17 @@ pipeline {
     }
 
     options {
-        timeout(time: 120, unit: 'MINUTES')
+        timeout(time: 180, unit: 'MINUTES')
         timestamps()
         ansiColor('xterm')
     }
 
     stages {
         stage('Checkout') {
+            options {
+                timeout(time: 10, unit: 'MINUTES')
+            }
+
             steps {
                 BuildIfLabel('area/k8s', 'Cilium-PR-Kubernetes-Upstream')
                 BuildIfLabel('area/k8s', 'Cilium-PR-Ginkgo-Tests-K8s')
@@ -31,6 +35,10 @@ pipeline {
             }
         }
         stage('Precheck') {
+            options {
+                timeout(time: 20, unit: 'MINUTES')
+            }
+
             environment {
                 TESTDIR="${WORKSPACE}/${PROJ_PATH}/"
             }
@@ -44,6 +52,10 @@ pipeline {
             }
         }
         stage('UnitTesting') {
+            options {
+                timeout(time: 20, unit: 'MINUTES')
+            }
+
             environment {
                 GOPATH="${WORKSPACE}"
                 TESTDIR="${WORKSPACE}/${PROJ_PATH}/"
@@ -58,6 +70,9 @@ pipeline {
             }
         }
         stage('Boot VMs'){
+            options {
+                timeout(time: 30, unit: 'MINUTES')
+            }
             environment {
                 TESTDIR="${WORKSPACE}/${PROJ_PATH}/test"
             }

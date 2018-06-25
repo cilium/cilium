@@ -40,13 +40,17 @@ pipeline {
     }
 
     options {
-        timeout(time: 140, unit: 'MINUTES')
+        timeout(time: 240, unit: 'MINUTES')
         timestamps()
         ansiColor('xterm')
     }
 
     stages {
         stage('Checkout') {
+            options {
+                timeout(time: 10, unit: 'MINUTES')
+            }
+
             steps {
                 sh 'env'
                 Status("PENDING", "${env.JOB_NAME}")
@@ -56,6 +60,9 @@ pipeline {
             }
         }
         stage('Boot VMs'){
+            options {
+                timeout(time: 30, unit: 'MINUTES')
+            }
             steps {
                 sh 'cd ${TESTDIR}; K8S_VERSION=1.8 vagrant up --no-provision'
                 sh 'cd ${TESTDIR}; K8S_VERSION=1.9 vagrant up --no-provision'
@@ -67,7 +74,7 @@ pipeline {
                 CONTAINER_RUNTIME=setIfLabel("area/containerd", "containerd", "docker")
             }
             options {
-                timeout(time: 120, unit: 'MINUTES')
+                timeout(time: 90, unit: 'MINUTES')
             }
             steps {
                 parallel(
@@ -89,10 +96,16 @@ pipeline {
             }
         }
         stage('Boot VMs k8s-next'){
+
+            options {
+                timeout(time: 30, unit: 'MINUTES')
+            }
+
             environment {
                 GOPATH="${WORKSPACE}"
                 TESTDIR="${WORKSPACE}/${PROJ_PATH}/test"
             }
+
             steps {
                 sh 'cd ${TESTDIR}; K8S_VERSION=1.11 vagrant up --no-provision'
             }
@@ -103,7 +116,7 @@ pipeline {
                 CONTAINER_RUNTIME=setIfLabel("area/containerd", "containerd", "docker")
             }
             options {
-                timeout(time: 120, unit: 'MINUTES')
+                timeout(time: 90, unit: 'MINUTES')
             }
             steps {
                 parallel(
