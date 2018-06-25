@@ -888,6 +888,25 @@ func (kub *Kubectl) CiliumExecUntilMatch(pod, cmd, substr string) error {
 		&TimeoutConfig{Timeout: HelperTimeout})
 }
 
+// CiliumExecAll runs cmd in all cilium instances
+func (kub *Kubectl) CiliumExecAll(cmd string) error {
+	pods, err := kub.GetCiliumPods(KubeSystemNamespace)
+	if err != nil {
+		return err
+	}
+	if len(pods) == 0 {
+		return fmt.Errorf("No cilium pods available")
+	}
+
+	for _, pod := range pods {
+		res := kub.CiliumExec(pod, cmd)
+		if !res.WasSuccessful() {
+			return fmt.Errorf("Command failed on %s: %s", pod, res.CombineOutput())
+		}
+	}
+	return nil
+}
+
 // CiliumNodesWait waits until all nodes in the Kubernetes cluster are annotated
 // with Cilium annotations. Its runtime is bounded by a maximum of `HelperTimeout`.
 // When a node is annotated with said annotations, it indicates
