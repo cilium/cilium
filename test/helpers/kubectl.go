@@ -753,32 +753,6 @@ func (kub *Kubectl) CiliumEndpointsIdentityIDs(pod string) map[string]string {
 		"cilium endpoint list -o jsonpath='%s'", filter)).KVOutput()
 }
 
-// CiliumEndpointsListByLabel returns all endpoints that are labeled with label
-// in the form of an EndpointMap, which maps an endpoint's container name to its
-// corresponding Cilium API endpoint model. It returns an error if the extraction
-// of the command to retrieve the endpoints via the Cilium API fails.
-func (kub *Kubectl) CiliumEndpointsListByLabel(pod, label string) (EndpointMap, error) {
-	result := make(EndpointMap)
-	var data []models.Endpoint
-	eps := kub.CiliumEndpointsList(pod)
-
-	err := eps.Unmarshal(&data)
-	if err != nil {
-		return nil, err
-	}
-
-	for _, ep := range data {
-		for _, orchLabel := range ep.Status.Labels.SecurityRelevant {
-			if label == orchLabel {
-				result[ep.Status.ExternalIdentifiers.ContainerName] = ep
-				break
-			}
-		}
-
-	}
-	return result, nil
-}
-
 // CiliumEndpointWaitReady waits until all endpoints managed by all Cilium pod
 // are ready. Returns an error if the Cilium pods cannot be retrieved via
 // Kubernetes, or endpoints are not ready after a specified timeout
