@@ -44,10 +44,10 @@ You can also add it in your ``~/.bashrc`` file:
 
 .. code:: bash
 
-   $ git checkout v0.11
+   $ git checkout v1.1.0
    $ # We are pointing to $GOPATH/bin as well since it's where go-bindata is
    $ # installed
-   $ make
+   $ make build
    $ sudo make install
 
 3. Optional: Install systemd init files:
