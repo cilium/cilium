@@ -274,7 +274,7 @@ the endpoints, the host is allowed by default. This means that all traffic from
 the outside world is also allowed by default, regardless of security policy.
 
 Affected versions
-~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^
 
 * Cilium 1.0 or earlier deployed using the DaemonSet and ConfigMap YAMLs
   provided with that release, or
@@ -303,7 +303,7 @@ Unaffected environments will see the following output (note the configMapKeyRef 
     legacy-host-allows-world: "false"
 
 Mitigation
-~~~~~~~~~~
+^^^^^^^^^^
 
 Users who are not reliant upon IP-based health checks for their kubernetes pods
 may mitigate this issue on earlier versions of Cilium by adding the argument
@@ -321,7 +321,7 @@ world.
   (Wait for kubernetes to redeploy Cilium with the new options)
 
 Solution
-~~~~~~~~
+^^^^^^^^
 
 Cilium 1.1 and later only classify traffic from a process on the local host as
 from the ``host`` entity; other traffic that is masqueraded to the host IP is
@@ -331,7 +331,7 @@ Fresh deployments using the Cilium 1.1 YAMLs are not affected.
 Affected users are recommended to upgrade using the steps below.
 
 Upgrade steps
-~~~~~~~~~~~~~
+^^^^^^^^^^^^^
 
 #. Redeploy the Cilium DaemonSet with the YAMLs provided with the Cilium 1.1 or
    later release. The instructions for this are found at the top of the
@@ -351,7 +351,7 @@ Upgrade steps
 .. _err_low_mtu:
 
 MTU handling behavior change in Cilium 1.1
-------------------------------------------
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Cilium 1.0 by default configured the MTU of all Cilium-related devices and
 endpoint devices to 1450 bytes, to guarantee that packets sent from an endpoint
@@ -364,19 +364,19 @@ policy was applied to the destination endpoint, then the fragments would be
 dropped. This could cause disruption to network traffic.
 
 Affected versions
-~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^
 
 * Cilium 1.0 or earlier.
 
 Cilium 1.1 and later are not affected.
 
 Mitigation
-~~~~~~~~~~
+^^^^^^^^^^
 
 There is no known mitigation for users running Cilium 1.0 at this time.
 
 Solution
-~~~~~~~~
+^^^^^^^^
 
 Cilium 1.1 fixes the above issue by increasing the MTU of the Cilium-related
 devices and endpoint devices to 1500B (or larger based on container runtime
@@ -388,7 +388,7 @@ Endpoints that were deployed on Cilium 1.0 must be redeployed to remediate this
 issue.
 
 Upgrade Steps
-~~~~~~~~~~~~~
+^^^^^^^^^^^^^
 
 When upgrading from Cilium 1.0 to 1.1 or later, existing pods will not
 automatically inherit these new settings. To apply the new MTU settings to
