@@ -1362,28 +1362,28 @@ func (d *Daemon) addCiliumNetworkPolicyV2(ciliumV2Store cache.Store, cnp *cilium
 					// the given policy.
 					Enforcing:   waitForEPsErr == nil,
 					Revision:    rev,
+					LastUpdated: cilium_v2.NewTimestamp(),
 					Annotations: cnp.Annotations,
 				}
 
 				// Most important is the error while adding the CNP
 				if err != nil {
 					cnpns = cilium_v2.CiliumNetworkPolicyNodeStatus{
-						Error: err.Error(),
-						OK:    false,
+						Error:       err.Error(),
+						OK:          false,
+						LastUpdated: cilium_v2.NewTimestamp(),
 					}
 				} else if err2 != nil {
 					cnpns = cilium_v2.CiliumNetworkPolicyNodeStatus{
-						Error: err2.Error(),
-						OK:    false,
+						Error:       err2.Error(),
+						OK:          false,
+						LastUpdated: cilium_v2.NewTimestamp(),
 					}
 				}
 
 				nodeName := node.GetName()
 				serverRuleCpy.SetPolicyStatus(nodeName, cnpns)
 				ns := k8sUtils.ExtractNamespace(&serverRuleCpy.ObjectMeta)
-
-				// Update LastUpdated last to have an accurate timestamp
-				cnpns.LastUpdated = cilium_v2.NewTimestamp()
 
 				_, err2 = ciliumNPClient.CiliumV2().CiliumNetworkPolicies(ns).Update(serverRuleCpy)
 				if err2 == nil {
