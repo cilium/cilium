@@ -581,9 +581,6 @@ func (e *Endpoint) regeneratePolicy(owner Owner, opts models.ConfigurationMap) (
 	// already running the latest revision, otherwise we have to wait for
 	// the regeneration of the endpoint to complete.
 	policyChanged := l3PolicyChanged || l4PolicyChanged
-	if !policyChanged && !optsChanged {
-		e.setPolicyRevision(revision)
-	}
 
 	e.getLogger().WithFields(logrus.Fields{
 		"policyChanged":       policyChanged,
@@ -785,6 +782,11 @@ func (e *Endpoint) TriggerPolicyUpdatesLocked(owner Owner, opts models.Configura
 	needToRegenerateBPF, err := e.regeneratePolicy(owner, opts)
 	if err != nil {
 		return false, fmt.Errorf("%s: %s", e.StringID(), err)
+	}
+	// If it does not need datapath regeneration then we should set the policy
+	// revision with nextPolicyRevision.
+	if !needToRegenerateBPF {
+		e.setPolicyRevision(e.nextPolicyRevision)
 	}
 
 	// CurrentStatus will be not OK when we have an uncleared error in BPF,
