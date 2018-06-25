@@ -484,7 +484,7 @@ func (d *Daemon) deleteEndpointQuiet(ep *endpoint.Endpoint, releaseIP bool) []er
 	// If dry mode is enabled, no changes to BPF maps are performed
 	if !d.DryModeEnabled() {
 		if err := lxcmap.DeleteElement(ep); err != nil {
-			errors = append(errors, fmt.Errorf("unable to delete element %d from map %s: %s", ep.ID, ep.PolicyMapPathLocked(), err))
+			errors = append(errors, fmt.Errorf("unable to delete element %d from map %s: %v", ep.ID, ep.PolicyMapPathLocked(), err))
 		}
 
 		// Remove policy BPF map
