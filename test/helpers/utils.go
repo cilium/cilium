@@ -224,24 +224,6 @@ func GetAppPods(apps []string, namespace string, kubectl *Kubectl, appFmt string
 	return appPods
 }
 
-// WaitUntilEndpointUpdates checks the policy version and then iterates through
-// all endpoints waiting for the endpoints to have updated policies.
-func WaitUntilEndpointUpdates(pod string, eps map[string]int64, min int, kubectl *Kubectl) error {
-	body := func() bool {
-		updated := 0
-		newEps := kubectl.CiliumEndpointPolicyVersion(pod)
-		for k, v := range newEps {
-			if eps[k] < v {
-				log.Infof("Endpoint %s had version %d now %d updated : %d", k, eps[k], v, updated)
-				updated++
-			}
-		}
-		return updated >= min
-	}
-	err := WithTimeout(body, "No new version applied", &TimeoutConfig{Timeout: 100})
-	return err
-}
-
 // Fail is a Ginkgo failure handler which raises a SIGSTOP for the test process
 // when there is a failure, so that developers can debug the live environment.
 // It is only triggered if the developer provides a commandline flag.
