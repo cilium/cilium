@@ -45,6 +45,7 @@ breakpoint
 Brenden
 Brouer
 browsable
+bugfix
 bugfixes
 bugtool
 Bugtool
@@ -358,6 +359,7 @@ qdisc
 qdiscs
 qede
 queueing
+rebase
 rebased
 recompiles
 regenerations
@@ -368,6 +370,7 @@ repo
 repos
 retpoline
 retransmission
+Reviewable
 roadmap
 rollout
 routable
@@ -442,6 +445,7 @@ tracepoint
 tracepoints
 Tracepoints
 transpiling
+triaged
 Tu
 Twilio
 ubuntu
@@ -484,6 +488,7 @@ walkthrough
 webservice
 Wendlandt
 Wireshark
+wip
 whitelist
 whitelisted
 whitelisting
