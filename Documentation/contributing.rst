@@ -1861,6 +1861,8 @@ For the final release
 #. Follow the :ref:`generic_release_process` to create the final replace and replace
    ``X.Y.0-rcX`` with ``X.Y.0``.
 
+#. Update the ``VERSION`` file to contain ``vX.Y.90``
+
 .. _backport_process:
 
 Backporting process
