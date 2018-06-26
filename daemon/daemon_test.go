@@ -63,7 +63,6 @@ type DaemonSuite struct {
 	OnRemoveNetworkPolicy             func(e *e.Endpoint)
 	OnGetStateDir                     func() string
 	OnGetBpfDir                       func() string
-	OnGetTunnelMode                   func() string
 	OnQueueEndpointBuild              func(r *e.Request)
 	OnRemoveFromEndpointQueue         func(epID uint64)
 	OnDebugEnabled                    func() bool
@@ -124,7 +123,6 @@ func (ds *DaemonSuite) SetUpTest(c *C) {
 	ds.OnRemoveNetworkPolicy = nil
 	ds.OnGetStateDir = nil
 	ds.OnGetBpfDir = nil
-	ds.OnGetTunnelMode = nil
 	ds.OnQueueEndpointBuild = nil
 	ds.OnRemoveFromEndpointQueue = nil
 	ds.OnDebugEnabled = nil
@@ -267,13 +265,6 @@ func (ds *DaemonSuite) GetBpfDir() string {
 		return ds.OnGetBpfDir()
 	}
 	panic("GetBpfDir should not have been called")
-}
-
-func (ds *DaemonSuite) GetTunnelMode() string {
-	if ds.OnGetTunnelMode != nil {
-		return ds.OnGetTunnelMode()
-	}
-	panic("GetTunnelMode should not have been called")
 }
 
 func (ds *DaemonSuite) QueueEndpointBuild(r *e.Request) {
