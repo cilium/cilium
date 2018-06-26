@@ -1174,7 +1174,7 @@ func (kub *Kubectl) DumpCiliumCommandOutput(namespace string) {
 				continue
 			}
 			//Remove bugtool artifact, so it'll be not used if any other fail test
-			_ = kub.ExecPodCmd(KubeSystemNamespace, pod, fmt.Sprintf("rm %s", line))
+			_ = kub.ExecPodCmd(KubeSystemNamespace, pod, fmt.Sprintf("rm /tmp/%s", line))
 		}
 	}
 
