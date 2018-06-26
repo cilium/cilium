@@ -324,6 +324,7 @@ enum {
 
 #define CT_EGRESS 0
 #define CT_INGRESS 1
+#define CT_SERVICE 2
 
 enum {
 	CT_NEW,
@@ -387,7 +388,7 @@ struct ct_entry {
 	      seen_non_syn:1,
 	      reserve:11;
 	__u16 rev_nat_index;
-	__be16 unused;
+	__u16 slave;
 	__u32 src_sec_id;
 };
 
@@ -443,6 +444,7 @@ struct ct_state {
 	__be32 addr;
 	__be32 svc_addr;
 	__u32 src_sec_id;
+	__u16 slave;
 };
 
 /* Lifetime of a proxy redirection entry. All proxies should be using TCP

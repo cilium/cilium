@@ -54,6 +54,7 @@
 #define TUPLE_F_OUT		0	/* Outgoing flow */
 #define TUPLE_F_IN		1	/* Incoming flow */
 #define TUPLE_F_RELATED		2	/* Flow represents related packets */
+#define TUPLE_F_SERVICE		4	/* Flow represents service/slave map */
 
 enum {
 	ACTION_UNSPEC,
@@ -112,6 +113,7 @@ static inline int __inline__ __ct_lookup(void *map, struct __sk_buff *skb,
 		if (ct_state) {
 			ct_state->rev_nat_index = entry->rev_nat_index;
 			ct_state->loopback = entry->lb_loopback;
+			ct_state->slave = entry->slave;
 		}
 
 #ifdef LXC_NAT46
@@ -213,8 +215,12 @@ static inline int __inline__ ct_lookup6(void *map, struct ipv6_ct_tuple *tuple,
 	 */
 	if (dir == CT_INGRESS)
 		tuple->flags = TUPLE_F_OUT;
-	else
+	else if (dir == CT_EGRESS)
 		tuple->flags = TUPLE_F_IN;
+	else if (dir == CT_SERVICE)
+		tuple->flags = TUPLE_F_SERVICE;
+	else
+		return DROP_CT_INVALID_HDR;
 
 	switch (tuple->nexthdr) {
 	case IPPROTO_ICMPV6:
@@ -302,8 +308,10 @@ static inline int __inline__ ct_lookup6(void *map, struct ipv6_ct_tuple *tuple,
 	}
 
 	/* Lookup entry in forward direction */
-	ipv6_ct_tuple_reverse(tuple);
-	ret = __ct_lookup(map, skb, tuple, action, dir, ct_state, syn, is_tcp);
+	if (dir != CT_SERVICE) {
+		ipv6_ct_tuple_reverse(tuple);
+		ret = __ct_lookup(map, skb, tuple, action, dir, ct_state, syn, is_tcp);
+	}
 
 #ifdef LXC_NAT46
 	skb->cb[CB_NAT46_STATE] = NAT46_CLEAR;
@@ -363,8 +371,12 @@ static inline int __inline__ ct_lookup4(void *map, struct ipv4_ct_tuple *tuple,
 	 */
 	if (dir == CT_INGRESS)
 		tuple->flags = TUPLE_F_OUT;
-	else
+	else if (dir == CT_EGRESS)
 		tuple->flags = TUPLE_F_IN;
+	else if (dir == CT_SERVICE)
+		tuple->flags = TUPLE_F_SERVICE;
+	else
+		return DROP_CT_INVALID_HDR;
 
 	switch (tuple->nexthdr) {
 	case IPPROTO_ICMP:
@@ -452,9 +464,10 @@ static inline int __inline__ ct_lookup4(void *map, struct ipv4_ct_tuple *tuple,
 	}
 
 	/* Lookup entry in forward direction */
-	ipv4_ct_tuple_reverse(tuple);
-	ret = __ct_lookup(map, skb, tuple, action, dir, ct_state, syn, is_tcp);
-
+	if (dir != CT_SERVICE) {
+		ipv4_ct_tuple_reverse(tuple);
+		ret = __ct_lookup(map, skb, tuple, action, dir, ct_state, syn, is_tcp);
+	}
 out:
 	cilium_dbg(skb, DBG_CT_VERDICT, ret < 0 ? -ret : ret, ct_state->rev_nat_index);
 	return ret;
@@ -468,6 +481,21 @@ static inline void __inline__ ct_delete6(void *map, struct ipv6_ct_tuple *tuple,
 		cilium_dbg(skb, DBG_ERROR_RET, BPF_FUNC_map_delete_elem, err);
 }
 
+static inline void __inline__ ct_update6_slave(void *map,
+					       struct ipv6_ct_tuple *tuple,
+					       struct ct_state *state)
+{
+	struct ct_entry *entry;
+
+	entry = map_lookup_elem(map, tuple);
+	if (!entry)
+		return;
+
+	entry->slave = state->slave;
+	return;
+}
+
+
 /* Offset must point to IPv6 */
 static inline int __inline__ ct_create6(void *map, struct ipv6_ct_tuple *tuple,
 					struct __sk_buff *skb, int dir,
@@ -479,6 +507,7 @@ static inline int __inline__ ct_create6(void *map, struct ipv6_ct_tuple *tuple,
 
 	entry.rev_nat_index = ct_state->rev_nat_index;
 	entry.lb_loopback = ct_state->loopback;
+	entry.slave = ct_state->slave;
 	ct_update_timeout(&entry, is_tcp, is_tcp);
 
 	if (dir == CT_INGRESS) {
@@ -527,6 +556,20 @@ static inline void __inline__ ct_delete4(void *map, struct ipv4_ct_tuple *tuple,
 		cilium_dbg(skb, DBG_ERROR_RET, BPF_FUNC_map_delete_elem, err);
 }
 
+static inline void __inline__ ct_update4_slave(void *map,
+					       struct ipv4_ct_tuple *tuple,
+					       struct ct_state *state)
+{
+	struct ct_entry *entry;
+
+	entry = map_lookup_elem(map, tuple);
+	if (!entry)
+		return;
+
+	entry->slave = state->slave;
+	return;
+}
+
 static inline int __inline__ ct_create4(void *map, struct ipv4_ct_tuple *tuple,
 					struct __sk_buff *skb, int dir,
 					struct ct_state *ct_state)
@@ -537,6 +580,7 @@ static inline int __inline__ ct_create4(void *map, struct ipv4_ct_tuple *tuple,
 
 	entry.rev_nat_index = ct_state->rev_nat_index;
 	entry.lb_loopback = ct_state->loopback;
+	entry.slave = ct_state->slave;
 	ct_update_timeout(&entry, is_tcp, is_tcp);
 
 	if (dir == CT_INGRESS) {
@@ -626,6 +670,12 @@ static inline void __inline__ ct_delete6(void *map, struct ipv6_ct_tuple *tuple,
 {
 }
 
+static inline void __inline__ ct_update6_slave(void *map,
+					      struct ipv6_ct_tuple *tuple,
+					      struct ct_state *state)
+{
+}
+
 static inline int __inline__ ct_create6(void *map, struct ipv6_ct_tuple *tuple,
 					struct __sk_buff *skb, int dir,
 					struct ct_state *ct_state)
@@ -634,6 +684,12 @@ static inline int __inline__ ct_create6(void *map, struct ipv6_ct_tuple *tuple,
 }
 
 static inline void __inline__ ct_delete4(void *map, struct ipv4_ct_tuple *tuple, struct __sk_buff *skb)
+{
+}
+
+static inline void __inline__ ct_update4_slave(void *map,
+					       struct ipv4_ct_tuple *tuple,
+					       struct ct_state *state)
 {
 }
 
