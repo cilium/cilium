@@ -205,81 +205,45 @@ var _ = Describe("K8sValidatedServicesTest", func() {
 	Context("External services", func() {
 
 		var (
-			endpointPath      string
-			expectedCIDR      = "198.49.23.144/32"
-			podName           = "toservices"
-			podPath           string
-			policyPath        string
-			policyLabeledPath string
-			servicePath       string
+			expectedCIDR = "198.49.23.144/32"
+			podName      = "toservices"
+
+			endpointPath      = helpers.ManifestGet("external_endpoint.yaml")
+			podPath           = helpers.ManifestGet("external_pod.yaml")
+			policyPath        = helpers.ManifestGet("external_policy.yaml")
+			policyLabeledPath = helpers.ManifestGet("external_policy_labeled.yaml")
+			servicePath       = helpers.ManifestGet("external_service.yaml")
 		)
 
 		BeforeEach(func() {
-			servicePath = helpers.ManifestGet("external_service.yaml")
-			res := kubectl.Apply(servicePath)
-			res.ExpectSuccess(res.GetDebugMessage())
+			kubectl.Apply(servicePath).ExpectSuccess("cannot install external service")
+			kubectl.Apply(podPath).ExpectSuccess("cannot install pod path")
 
-			endpointPath = helpers.ManifestGet("external_endpoint.yaml")
-			podPath = helpers.ManifestGet("external_pod.yaml")
-			policyPath = helpers.ManifestGet("external_policy.yaml")
-			policyLabeledPath = helpers.ManifestGet("external_policy_labeled.yaml")
-
-			res = kubectl.Apply(podPath)
-			res.ExpectSuccess()
+			err := kubectl.WaitforPods(helpers.DefaultNamespace, "", 300)
+			Expect(err).To(BeNil(), "Pods are not ready after timeout")
 		})
 
 		AfterEach(func() {
 			_ = kubectl.Delete(policyPath)
+			_ = kubectl.Delete(endpointPath)
+			_ = kubectl.Delete(servicePath)
+			_ = kubectl.Delete(podPath)
 
-			res := kubectl.Delete(endpointPath)
-			res.ExpectSuccess()
-
-			res = kubectl.Delete(servicePath)
-			res.ExpectSuccess()
-
-			res = kubectl.Delete(podPath)
-			res.ExpectSuccess()
-
-			waitFinish := func() bool {
-				data, err := kubectl.GetPodNames(helpers.DefaultNamespace, "zgroup=external")
-				if err != nil {
-					return false
-				}
-				if len(data) == 0 {
-					return true
-				}
-				return false
-			}
-			err := helpers.WithTimeout(waitFinish, "cannot finish deleting containers",
-				&helpers.TimeoutConfig{Timeout: helpers.HelperTimeout})
-			Expect(err).To(BeNil())
-
+			kubectl.WaitCleanAllTerminatingPods()
 		})
 
 		validateEgress := func() {
-			kubectl.WaitforPods(helpers.DefaultNamespace, "", 300)
-
-			pods, err := kubectl.GetPodsNodes(helpers.DefaultNamespace, "")
-			ExpectWithOffset(1, err).To(BeNil(), "unable to retrieve pod-node mapping")
-
-			node := pods[podName]
-			ciliumPod, err := kubectl.GetCiliumPodOnNode(helpers.KubeSystemNamespace, node)
-			ExpectWithOffset(1, err).Should(BeNil(), "was not able to retrieve Cilium pod on node %s", node)
-
-			err = kubectl.CiliumEndpointWaitReady()
-			Expect(err).To(BeNil(), "Endpoints are not ready after timeout")
-
-			endpointIDs := kubectl.CiliumEndpointsIDs(ciliumPod)
-			endpointID := endpointIDs[fmt.Sprintf("%s:%s", helpers.DefaultNamespace, podName)]
-			ExpectWithOffset(1, endpointID).NotTo(BeNil(), "unable to get endpoint ID for pod %s:%s", helpers.DefaultNamespace, podName)
-
+			ExpectWithOffset(1, kubectl.WaitCEPReady()).To(BeNil(), "Cep is not ready after timeout")
 			Eventually(func() string {
-				res := kubectl.CiliumEndpointGet(ciliumPod, endpointID)
-
-				data, err := res.Filter(`{[0].status.policy.realized.cidr-policy.egress}`)
-				ExpectWithOffset(1, err).To(BeNil(), "unable to get endpoint %d metadata from cilium pod %s", endpointID, ciliumPod)
+				res := kubectl.Exec(fmt.Sprintf(
+					"%s -n %s get cep %s -o json",
+					helpers.KubectlCmd,
+					helpers.DefaultNamespace,
+					podName))
+				res.ExpectSuccess("cannot get Cilium Endpoint")
+				data, err := res.Filter(`{.status.status.policy.realized.cidr-policy.egress}`)
+				ExpectWithOffset(1, err).To(BeNil(), "unable to get endpoint %s metadata", podName)
 				return data.String()
-
 			}, 5*time.Minute, 10*time.Second).Should(ContainSubstring(expectedCIDR))
 		}
 
