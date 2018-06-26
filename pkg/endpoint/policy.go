@@ -586,7 +586,7 @@ func (e *Endpoint) regeneratePolicy(owner Owner, opts models.ConfigurationMap) (
 		"policyChanged":       policyChanged,
 		"optsChanged":         optsChanged,
 		"policyRevision.next": e.nextPolicyRevision,
-	}).Debug("Done regenerating")
+	}).Debug("Done calculating policy")
 
 	needToRegenerateBPF := optsChanged || policyChanged || e.nextPolicyRevision > e.policyRevision
 
