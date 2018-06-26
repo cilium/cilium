@@ -1,13 +1,13 @@
 version: "2"
 services:
   consul:
-    image: "consul:0.8.3"
+    image: "docker.io/library/consul:1.1.0"
     hostname: "consul"
     environment:
       - 'CONSUL_LOCAL_CONFIG={"skip_leave_on_interrupt": true, "disable_update_check": true}'
     privileged: true
   etcd:
-    image: "quay.io/coreos/etcd:v3.1.0"
+    image: "quay.io/coreos/etcd:v3.2.17"
     hostname: "etcd"
     command: "etcd -name etcd0 -advertise-client-urls http://0.0.0.0:4002 -listen-client-urls http://0.0.0.0:4002 -initial-cluster-token etcd-cluster-1 -initial-cluster-state new"
     privileged: true
