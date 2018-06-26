@@ -581,17 +581,20 @@ func (e *Endpoint) regeneratePolicy(owner Owner, opts models.ConfigurationMap) (
 	// already running the latest revision, otherwise we have to wait for
 	// the regeneration of the endpoint to complete.
 	policyChanged := l3PolicyChanged || l4PolicyChanged
-	if !policyChanged && !optsChanged {
-		e.setPolicyRevision(revision)
-	}
 
 	e.getLogger().WithFields(logrus.Fields{
 		"policyChanged":       policyChanged,
 		"optsChanged":         optsChanged,
 		"policyRevision.next": e.nextPolicyRevision,
-	}).Debug("Done regenerating")
+	}).Debug("Done calculating policy")
 
-	needToRegenerateBPF := optsChanged || policyChanged || e.nextPolicyRevision > e.policyRevision
+	needToRegenerateBPF := optsChanged || policyChanged
+
+	// If no regeneration is required, all policy effects have been
+	// implemented and the policy revision can be marked as implemented
+	if !needToRegenerateBPF {
+		e.setPolicyRevision(revision)
+	}
 
 	return needToRegenerateBPF, nil
 }
@@ -690,15 +693,15 @@ func (e *Endpoint) regenerate(owner Owner, reason string) (retErr error) {
 	// Update desired policy for endpoint because policy has now been realized
 	// in the datapath. PolicyMap state is not updated here, because that is
 	// performed in endpoint.syncPolicyMap().
-	if err == nil {
-		e.Mutex.Lock()
-		e.RealizedL4Policy = e.DesiredL4Policy
-		e.Mutex.Unlock()
-	}
+	e.Mutex.Lock()
+	e.RealizedL4Policy = e.DesiredL4Policy
+	e.Mutex.Unlock()
 
-	// Mark the endpoint to be running the policy revision it was
-	// compiled for
-	e.bumpPolicyRevision(revision)
+	// The policy revision update was deferred due to required
+	// regeneration, announce the calculated policy revision
+	e.Mutex.Lock()
+	e.setPolicyRevision(revision)
+	e.Mutex.Unlock()
 
 	e.getLogger().Info("Endpoint policy recalculated")
 

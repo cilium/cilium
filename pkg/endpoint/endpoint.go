@@ -2009,16 +2009,6 @@ OKState:
 	return true
 }
 
-// bumpPolicyRevision marks the endpoint to be running the next scheduled
-// policy revision as setup by e.regenerate(). endpoint.Mutex should not be held.
-func (e *Endpoint) bumpPolicyRevision(revision uint64) {
-	e.Mutex.Lock()
-	if revision > e.policyRevision {
-		e.setPolicyRevision(revision)
-	}
-	e.Mutex.Unlock()
-}
-
 // OnProxyPolicyUpdate is a callback used to update the Endpoint's
 // proxyPolicyRevision when the specified revision has been applied in the
 // proxy.
@@ -2347,16 +2337,20 @@ func (e *Endpoint) identityLabelsChanged(owner Owner, myChangeRev int) error {
 	return nil
 }
 
-// setPolicyRevision sets the policy wantedRev with the given revision.
+// setPolicyRevision announces the specified policy revision rev to have been
+// implemented. The endpoint must be holding the e.Mutex for writing.
 func (e *Endpoint) setPolicyRevision(rev uint64) {
-	e.policyRevision = rev
+	if rev > e.policyRevision {
+		e.policyRevision = rev
+	}
+
 	for ps := range e.policyRevisionSignals {
 		select {
 		case <-ps.ctx.Done():
 			close(ps.ch)
 			delete(e.policyRevisionSignals, ps)
 		default:
-			if rev >= ps.wantedRev {
+			if e.policyRevision >= ps.wantedRev {
 				close(ps.ch)
 				delete(e.policyRevisionSignals, ps)
 			}
