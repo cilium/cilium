@@ -428,6 +428,7 @@ func (kub *Kubectl) Logs(namespace string, pod string) *CmdRes {
 // the output to `helpers.monitorLogFileName` file.
 func (kub *Kubectl) MicroscopeStart() (error, func() error) {
 	microscope := "microscope"
+	var cb = func() error { return nil }
 	cmd := fmt.Sprintf("%[1]s -ti -n %[2]s exec %[3]s -- %[3]s",
 		KubectlCmd, KubeSystemNamespace, microscope)
 	_ = kub.Apply(microscopeManifest)
@@ -437,13 +438,13 @@ func (kub *Kubectl) MicroscopeStart() (error, func() error) {
 		fmt.Sprintf("-l k8s-app=%s", microscope),
 		300)
 	if err != nil {
-		return err, nil
+		return err, cb
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
 	res := kub.ExecContext(ctx, cmd, ExecOptions{SkipLog: true})
 
-	cb := func() error {
+	cb = func() error {
 		cancel()
 		<-ctx.Done()
 		testPath, err := CreateReportDirectory()
