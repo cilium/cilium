@@ -846,8 +846,8 @@ Example
 ~~~~~~~
 
 The following example grants any pod running under the service account of
-"leia" to issue a ``HTTP GET /public`` request on TCP port 80 to all pods
-running associated to the service account of "luke".
+"luke" to issue a ``HTTP GET /public`` request on TCP port 80 to all pods
+running associated to the service account of "leia".
 
 Refer to the :git-tree:`example YAML files <examples/policies/kubernetes/serviceaccount/demo-pods.yaml>`
 for a fully functional example including deployment and service account
