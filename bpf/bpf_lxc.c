@@ -130,8 +130,8 @@ static inline int ipv6_l3_from_lxc(struct __sk_buff *skb,
 	 * address.
 	 */
 	if ((svc = lb6_lookup_service(skb, &key)) != NULL) {
-		ret = lb6_local(skb, l3_off, l4_off, &csum_off, &key, tuple, svc,
-				&ct_state_new);
+		ret = lb6_local(&CT_MAP6, skb, l3_off, l4_off,
+				&csum_off, &key, tuple, svc, &ct_state_new);
 		if (IS_ERR(ret))
 			return ret;
 	}
@@ -436,7 +436,7 @@ static inline int handle_ipv4_from_lxc(struct __sk_buff *skb)
 	ct_state_new.orig_dport = key.dport;
 #ifdef ENABLE_IPV4
 	if ((svc = lb4_lookup_service(skb, &key)) != NULL) {
-		ret = lb4_local(skb, l3_off, l4_off, &csum_off,
+		ret = lb4_local(&CT_MAP4, skb, l3_off, l4_off, &csum_off,
 				&key, &tuple, svc, &ct_state_new, ip4->saddr);
 		if (IS_ERR(ret))
 			return ret;

@@ -56,6 +56,7 @@ const (
 	TUPLE_F_OUT     = 0
 	TUPLE_F_IN      = 1
 	TUPLE_F_RELATED = 2
+	TUPLE_F_SERVICE = 4
 
 	// MaxTime specifies the last possible time for GCFilter.Time
 	MaxTime = math.MaxUint32

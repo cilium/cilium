@@ -31,6 +31,7 @@
 #define __LB_H_
 
 #include "csum.h"
+#include "conntrack.h"
 
 #define CILIUM_LB_MAP_MAX_FE		256
 
@@ -422,18 +423,54 @@ static inline int __inline__ lb6_xlate(struct __sk_buff *skb, union v6addr *new_
 	return TC_ACT_OK;
 }
 
-static inline int __inline__ lb6_local(struct __sk_buff *skb, int l3_off, int l4_off,
+static inline int __inline__ lb6_local(void *map, struct __sk_buff *skb, int l3_off, int l4_off,
 				       struct csum_offset *csum_off, struct lb6_key *key,
 				       struct ipv6_ct_tuple *tuple, struct lb6_service *svc,
 				       struct ct_state *state)
 {
-	__u16 slave;
 	union v6addr *addr;
+	__u8 flags = tuple->flags;
+	int ret;
 
-	slave = lb6_select_slave(skb, key, svc->count, svc->weight);
-	if (!(svc = lb6_lookup_slave(skb, key, slave)))
+	ret = ct_lookup6(map, tuple, skb, l4_off, CT_SERVICE, state);
+	switch(ret) {
+	case CT_NEW:
+		state->slave = lb6_select_slave(skb, key, svc->count, svc->weight);
+		ret = ct_create6(map, tuple, skb, CT_SERVICE, state);
+		/* Fail closed, if the conntrack entry create fails drop
+		 * service lookup.
+		 */
+		if (IS_ERR(ret)) {
+			tuple->flags = flags;
+			return DROP_NO_SERVICE;
+		}
+		break;
+	case CT_ESTABLISHED:
+	case CT_RELATED:
+	case CT_REPLY:
+		break;
+	default:
+		tuple->flags = flags;
 		return DROP_NO_SERVICE;
+	}
 
+	/* If the lookup fails it means the user deleted the backend out from
+	 * underneath us. To resolve this fall back to hash. If this is a TCP
+	 * session we are likely to get a TCP RST.
+	 */
+	if (!(svc = lb6_lookup_slave(skb, key, state->slave))) {
+		if ((svc = lb6_lookup_service(skb, key)) == NULL) {
+			tuple->flags = flags;
+			return DROP_NO_SERVICE;
+		}
+		state->slave = lb6_select_slave(skb, key, svc->count, svc->weight);
+		ct_update6_slave(map, tuple, state);
+	}
+
+	/* Restore flags so that SERVICE flag is only used in used when the
+	 * service lookup happens and future lookups use EGRESS or INGRESS.
+	 */
+	tuple->flags = flags;
 	ipv6_addr_copy(&tuple->daddr, &svc->target);
 	addr = &tuple->daddr;
 
@@ -659,18 +696,55 @@ lb4_xlate(struct __sk_buff *skb, __be32 *new_daddr, __be32 *new_saddr,
 }
 
 #ifdef ENABLE_IPV4
-static inline int __inline__ lb4_local(struct __sk_buff *skb, int l3_off, int l4_off,
+static inline int __inline__ lb4_local(void *map, struct __sk_buff *skb,
+				       int l3_off, int l4_off,
 				       struct csum_offset *csum_off, struct lb4_key *key,
 				       struct ipv4_ct_tuple *tuple, struct lb4_service *svc,
 				       struct ct_state *state, __be32 saddr)
 {
 	__be32 new_saddr = 0, new_daddr;
-	__u16 slave;
+	__u8 flags = tuple->flags;
+	int ret;
 
-	slave = lb4_select_slave(skb, key, svc->count, svc->weight);
-	if (!(svc = lb4_lookup_slave(skb, key, slave)))
+	ret = ct_lookup4(map, tuple, skb, l4_off, CT_SERVICE, state);
+	switch(ret) {
+	case CT_NEW:
+		state->slave = lb4_select_slave(skb, key, svc->count, svc->weight);
+		ret = ct_create4(map, tuple, skb, CT_SERVICE, state);
+		/* Fail closed, if the conntrack entry create fails drop
+		 * service lookup.
+		 */
+		if (IS_ERR(ret)) {
+			tuple->flags = flags;
+			return DROP_NO_SERVICE;
+		}
+		break;
+	case CT_ESTABLISHED:
+	case CT_RELATED:
+	case CT_REPLY:
+		break;
+	default:
+		tuple->flags = flags;
 		return DROP_NO_SERVICE;
+	}
 
+	/* If the lookup fails it means the user deleted the backend out from
+	 * underneath us. To resolve this fall back to hash. If this is a TCP
+	 * session we are likely to get a TCP RST.
+	 */
+	if (!(svc = lb4_lookup_slave(skb, key, state->slave))) {
+		if ((svc = lb4_lookup_service(skb, key)) == NULL) {
+			tuple->flags = flags;
+			return DROP_NO_SERVICE;
+		}
+		state->slave = lb4_select_slave(skb, key, svc->count, svc->weight);
+		ct_update4_slave(map, tuple, state);
+	}
+
+	/* Restore flags so that SERVICE flag is only used in used when the
+	 * service lookup happens and future lookups use EGRESS or INGRESS.
+	 */
+	tuple->flags = flags;
 	state->rev_nat_index = svc->rev_nat_index;
 	state->addr = new_daddr = svc->target;
 
