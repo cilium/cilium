@@ -49,6 +49,10 @@ var _ = Describe(microscopeTestName, func() {
 			"cilium endpoint list")
 	})
 
+	AfterAll(func() {
+		ExpectAllPodsTerminated(kubectl)
+	})
+
 	It("Runs microscope", func() {
 		microscopeErr, microscopeCancel := kubectl.MicroscopeStart()
 		Expect(microscopeErr).To(BeNil(), "Microscope cannot be started")
