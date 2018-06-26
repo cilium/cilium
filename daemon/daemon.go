@@ -246,11 +246,6 @@ func (d *Daemon) StartEndpointBuilders(nRoutines int) {
 	}
 }
 
-// GetTunnelMode returns the path to the state directory
-func (d *Daemon) GetTunnelMode() string {
-	return option.Config.Tunnel
-}
-
 // GetStateDir returns the path to the state directory
 func (d *Daemon) GetStateDir() string {
 	return option.Config.StateDir

@@ -67,9 +67,6 @@ type Owner interface {
 	// Returns true if debugging has been enabled
 	DebugEnabled() bool
 
-	// TunnelMode
-	GetTunnelMode() string
-
 	// GetCompilationLock returns the mutex responsible for synchronizing compilation
 	// of BPF programs.
 	GetCompilationLock() *lock.RWMutex
