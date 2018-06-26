@@ -81,6 +81,8 @@ const (
 var (
 	log = logging.DefaultLogger
 
+	bootstrapTimestamp = time.Now()
+
 	// Arguments variables keep in alphabetical order
 
 	// autoIPv6NodeRoutes automatically adds L3 direct routing when using direct mode (-d)
@@ -874,7 +876,8 @@ func runDaemon() {
 		d.SendNotification(monitor.AgentNotifyStart, repr)
 	}
 
-	log.Info("Daemon initialization completed")
+	log.WithField("bootstrapTime", time.Since(bootstrapTimestamp)).
+		Info("Daemon initialization completed")
 
 	if err := server.Serve(); err != nil {
 		log.WithError(err).Fatal("Error returned from non-returning Serve() call")
