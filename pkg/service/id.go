@@ -16,19 +16,52 @@ package service
 
 import (
 	"github.com/cilium/cilium/common/types"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
 // AcquireID acquires a service ID
 func AcquireID(l3n4Addr types.L3n4Addr, baseID uint32) (*types.L3n4AddrID, error) {
-	return acquireGlobalID(l3n4Addr, baseID)
+	log.WithField(logfields.L3n4Addr, logfields.Repr(l3n4Addr)).Debug("Resolving service")
+
+	if enableGlobalServiceIDs {
+		return acquireGlobalID(l3n4Addr, baseID)
+	}
+
+	return acquireLocalID(l3n4Addr, baseID)
 }
 
 // GetID returns the L3n4AddrID that belongs to the given id.
 func GetID(id uint32) (*types.L3n4AddrID, error) {
-	return getGlobalID(id)
+	if enableGlobalServiceIDs {
+		return getGlobalID(id)
+	}
+
+	return getLocalID(id)
 }
 
 // DeleteID deletes the L3n4AddrID belonging to the given id from the kvstore.
 func DeleteID(id uint32) error {
-	return deleteGlobalID(id)
+	log.WithField(logfields.L3n4AddrID, id).Debug("deleting L3n4Addr by ID")
+
+	if enableGlobalServiceIDs {
+		return deleteGlobalID(id)
+	}
+
+	return deleteLocalID(id)
+}
+
+func setIDSpace(next, max uint32) error {
+	if enableGlobalServiceIDs {
+		return setGlobalIDSpace(next, max)
+	}
+
+	return setLocalIDSpace(next, max)
+}
+
+func getMaxServiceID() (uint32, error) {
+	if enableGlobalServiceIDs {
+		return getGlobalMaxServiceID()
+	}
+
+	return getLocalMaxServiceID()
 }

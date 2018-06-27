@@ -25,6 +25,10 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
+var (
+	serviceKvstorePrefix = common.OperationalPath + "/ServicesV2/"
+)
+
 func updateL3n4AddrIDRef(id types.ServiceID, l3n4AddrID types.L3n4AddrID) error {
 	key := path.Join(common.ServiceIDKeyPath, strconv.FormatUint(uint64(id), 10))
 	return kvstore.Client().SetValue(key, l3n4AddrID)
@@ -35,7 +39,7 @@ func updateL3n4AddrIDRef(id types.ServiceID, l3n4AddrID types.L3n4AddrID) error 
 func gasNewL3n4AddrID(l3n4AddrID *types.L3n4AddrID, baseID uint32) error {
 	if baseID == 0 {
 		var err error
-		baseID, err = getMaxServiceID()
+		baseID, err = getGlobalMaxServiceID()
 		if err != nil {
 			return err
 		}
@@ -48,8 +52,6 @@ func gasNewL3n4AddrID(l3n4AddrID *types.L3n4AddrID, baseID uint32) error {
 // created for the given l3n4Addr. If baseID is different than 0, it tries to acquire that
 // ID to the l3n4Addr.
 func acquireGlobalID(l3n4Addr types.L3n4Addr, baseID uint32) (*types.L3n4AddrID, error) {
-	log.WithField(logfields.L3n4Addr, logfields.Repr(l3n4Addr)).Debug("Resolving service")
-
 	// Retrieve unique SHA256Sum for service
 	sha256Sum := l3n4Addr.SHA256Sum()
 	svcPath := path.Join(common.ServicesKeyPath, sha256Sum)
@@ -111,7 +113,6 @@ func getGlobalID(id uint32) (*types.L3n4AddrID, error) {
 
 // deleteGlobalID deletes the L3n4AddrID belonging to the given id from the kvstore.
 func deleteGlobalID(id uint32) error {
-	log.WithField(logfields.L3n4AddrID, id).Debug("deleting L3n4Addr by ID")
 	l3n4AddrID, err := getGlobalID(id)
 	if err != nil {
 		return err
@@ -161,7 +162,10 @@ func deleteL3n4AddrIDBySHA256(sha256Sum string) error {
 	return kvstore.Client().SetValue(svcPath, l3n4AddrID)
 }
 
-// getMaxServiceID returns the maximum possible free UUID stored in the kvstore.
-func getMaxServiceID() (uint32, error) {
+func getGlobalMaxServiceID() (uint32, error) {
 	return kvstore.Client().GetMaxID(common.LastFreeServiceIDKeyPath, common.FirstFreeServiceID)
+}
+
+func setGlobalIDSpace(next, max uint32) error {
+	return kvstore.Client().SetMaxID(common.LastFreeServiceIDKeyPath, next, max)
 }
