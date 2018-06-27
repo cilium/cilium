@@ -106,6 +106,11 @@ type EgressRule struct {
 	// initiate connections to all cidrs backing the "external-service" service
 	// + optional
 	ToServices []Service `json:"toServices,omitempty"`
+
+	// ToFQDN selects DNS targets.
+	//
+	// +optional
+	ToFQDNs []FQDNSelector `json:"toFQDNs,omitempty"`
 }
 
 // GetDestinationEndpointSelectors returns a slice of endpoints selectors
