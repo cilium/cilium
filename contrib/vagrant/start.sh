@@ -228,7 +228,8 @@ export ETCD_CLEAN="${ETCD_CLEAN}"
 
 # Stop cilium before until we install kubelet. This prevents cilium from
 # allocating its own podCIDR without using the kubernetes allocated podCIDR.
-sudo service cilium stop
+sudo systemctl stop cilium-health
+sudo systemctl stop cilium
 EOF
     cat <<EOF >> "${filename}"
 if [[ "\$(hostname)" == "${VM_BASENAME}1" ]]; then
@@ -279,7 +280,7 @@ function write_cilium_cfg() {
     ipv6_addr="${3}"
     filename="${4}"
 
-    cilium_options="--auto-ipv6-node-routes --debug-verbose flow"
+    cilium_options="--auto-ipv6-node-routes --debug-verbose flow --prometheus-serve-addr=:9090"
 
     if [[ "${IPV4}" -eq "1" ]]; then
         if [[ -z "${K8S}" ]]; then
@@ -353,7 +354,8 @@ if [ -n "\${K8S}" ]; then
     done
 fi
 
-service cilium restart
+systemctl restart cilium-health
+systemctl restart cilium
 
 cilium_started=false
 
