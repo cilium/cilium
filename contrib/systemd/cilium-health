@@ -1,0 +1,1 @@
+CILIUM_HEALTH_OPTS="-d --prometheus-serve-addr=:9091"
