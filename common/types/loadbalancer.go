@@ -400,6 +400,13 @@ func (a *L3n4Addr) String() string {
 	return fmt.Sprintf("%s:%d", a.IP.String(), a.Port)
 }
 
+// StringID returns the L3n4Addr as string to be used for unique identification
+func (a *L3n4Addr) StringID() string {
+	// This does not include the protocol right now as the datapath does
+	// not include the protocol in the lookup of the service IP.
+	return a.String()
+}
+
 // DeepCopy returns a DeepCopy of the given L3n4Addr.
 func (a *L3n4Addr) DeepCopy() *L3n4Addr {
 	copyIP := make(net.IP, len(a.IP))

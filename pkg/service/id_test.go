@@ -92,7 +92,7 @@ func (ds *ServiceTestSuite) TestServices(c *C) {
 	err = DeleteID(common.FirstFreeServiceID)
 	c.Assert(err, Equals, nil)
 
-	err = kvstore.Client().SetMaxID(common.LastFreeServiceIDKeyPath, common.FirstFreeServiceID, common.FirstFreeServiceID)
+	err = setIDSpace(common.FirstFreeServiceID, common.FirstFreeServiceID)
 	c.Assert(err, Equals, nil)
 
 	err = DeleteID(common.FirstFreeServiceID)
@@ -105,8 +105,7 @@ func (ds *ServiceTestSuite) TestServices(c *C) {
 	c.Assert(err, Equals, nil)
 	c.Assert(gotL3n4AddrID.ID, Equals, types.ServiceID(common.FirstFreeServiceID+1))
 
-	sha256sum := l3n4Addr2.SHA256Sum()
-	err = deleteL3n4AddrIDBySHA256(sha256sum)
+	err = DeleteID(uint32(gotL3n4AddrID.ID))
 	c.Assert(err, Equals, nil)
 	err = DeleteID(common.FirstFreeServiceID + 1)
 	c.Assert(err, Equals, nil)
@@ -135,10 +134,32 @@ func (ds *ServiceTestSuite) TestServices(c *C) {
 
 func (ds *ServiceTestSuite) TestGetMaxServiceID(c *C) {
 	lastID := uint32(common.MaxSetOfServiceID - 1)
-	err := kvstore.Client().SetValue(common.LastFreeServiceIDKeyPath, lastID)
-	c.Assert(err, Equals, nil)
+
+	if enableGlobalServiceIDs {
+		err := kvstore.Client().SetValue(common.LastFreeServiceIDKeyPath, lastID)
+		c.Assert(err, IsNil)
+	} else {
+		err := setIDSpace(lastID, common.MaxSetOfServiceID)
+		c.Assert(err, IsNil)
+	}
 
 	id, err := getMaxServiceID()
 	c.Assert(err, Equals, nil)
 	c.Assert(id, Equals, (common.MaxSetOfServiceID - 1))
+}
+
+func (ds *ServiceTestSuite) BenchmarkAllocation(c *C) {
+	addr := types.L3n4Addr{
+		IP:     net.IPv6loopback,
+		L4Addr: types.L4Addr{Port: 0, Protocol: "UDP"},
+	}
+
+	c.ResetTimer()
+	for i := 0; i < c.N; i++ {
+		addr.L4Addr.Port = uint16(c.N)
+		_, err := AcquireID(addr, 0)
+		c.Assert(err, IsNil)
+	}
+	c.StopTimer()
+
 }
