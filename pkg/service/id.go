@@ -1,4 +1,4 @@
-// Copyright 2016-2017 Authors of Cilium
+// Copyright 2016-2018 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package main
+package service
 
 import (
 	"encoding/json"
@@ -35,7 +35,7 @@ func updateL3n4AddrIDRef(id types.ServiceID, l3n4AddrID types.L3n4AddrID) error 
 func gasNewL3n4AddrID(l3n4AddrID *types.L3n4AddrID, baseID uint32) error {
 	if baseID == 0 {
 		var err error
-		baseID, err = GetMaxServiceID()
+		baseID, err = getMaxServiceID()
 		if err != nil {
 			return err
 		}
@@ -109,11 +109,6 @@ func GetL3n4AddrID(id uint32) (*types.L3n4AddrID, error) {
 	return getL3n4AddrID(path.Join(common.ServiceIDKeyPath, strID))
 }
 
-// GetL3n4AddrIDBySHA256 returns the L3n4AddrID that have the given SHA256SUM.
-func GetL3n4AddrIDBySHA256(sha256sum string) (*types.L3n4AddrID, error) {
-	return getL3n4AddrID(path.Join(common.ServicesKeyPath, sha256sum))
-}
-
 // DeleteL3n4AddrIDByUUID deletes the L3n4AddrID belonging to the given id from the kvstore.
 func DeleteL3n4AddrIDByUUID(id uint32) error {
 	log.WithField(logfields.L3n4AddrID, id).Debug("deleting L3n4Addr by ID")
@@ -125,12 +120,12 @@ func DeleteL3n4AddrIDByUUID(id uint32) error {
 		return nil
 	}
 
-	return DeleteL3n4AddrIDBySHA256(l3n4AddrID.SHA256Sum())
+	return deleteL3n4AddrIDBySHA256(l3n4AddrID.SHA256Sum())
 }
 
-// DeleteL3n4AddrIDBySHA256 deletes the L3n4AddrID from the kvstore corresponding to the service's
+// deleteL3n4AddrIDBySHA256 deletes the L3n4AddrID from the kvstore corresponding to the service's
 // sha256Sum.
-func DeleteL3n4AddrIDBySHA256(sha256Sum string) error {
+func deleteL3n4AddrIDBySHA256(sha256Sum string) error {
 	log.WithField(logfields.SHA, sha256Sum).Debug("deleting L3n4AddrID with SHA256")
 	if sha256Sum == "" {
 		return nil
@@ -166,7 +161,7 @@ func DeleteL3n4AddrIDBySHA256(sha256Sum string) error {
 	return kvstore.Client().SetValue(svcPath, l3n4AddrID)
 }
 
-// GetMaxServiceID returns the maximum possible free UUID stored in the kvstore.
-func GetMaxServiceID() (uint32, error) {
+// getMaxServiceID returns the maximum possible free UUID stored in the kvstore.
+func getMaxServiceID() (uint32, error) {
 	return kvstore.Client().GetMaxID(common.LastFreeServiceIDKeyPath, common.FirstFreeServiceID)
 }
