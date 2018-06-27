@@ -1085,6 +1085,8 @@ func (kub *Kubectl) GatherLogs() {
 		vm := GetVagrantSSHMeta(node)
 		reportCmds := map[string]string{
 			"journalctl --no-pager -au kubelet": fmt.Sprintf("kubelet-%s.log", node),
+			"sudo top -n 1":                     fmt.Sprintf("top-%s.log", node),
+			"sudo ps aux":                       fmt.Sprintf("ps-%s.log", node),
 		}
 		reportMap(testPath, reportCmds, vm)
 	}
