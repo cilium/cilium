@@ -53,82 +53,82 @@ func (ds *ServiceTestSuite) TestServices(c *C) {
 
 	ffsIDu16 := types.ServiceID(uint16(common.FirstFreeServiceID))
 
-	l3n4AddrID, err := PutL3n4Addr(l3n4Addr1, 0)
+	l3n4AddrID, err := AcquireID(l3n4Addr1, 0)
 	c.Assert(err, Equals, nil)
 	c.Assert(l3n4AddrID.ID, Equals, ffsIDu16)
 
-	l3n4AddrID, err = PutL3n4Addr(l3n4Addr1, 0)
+	l3n4AddrID, err = AcquireID(l3n4Addr1, 0)
 	c.Assert(err, Equals, nil)
 	c.Assert(l3n4AddrID.ID, Equals, ffsIDu16)
 
-	l3n4AddrID, err = PutL3n4Addr(l3n4Addr2, 0)
+	l3n4AddrID, err = AcquireID(l3n4Addr2, 0)
 	c.Assert(err, Equals, nil)
 	c.Assert(l3n4AddrID.ID, Equals, ffsIDu16+1)
 
 	// l3n4Addr3 should have the same ID as l3n4Addr2 since we are omitting the
 	// protocol type.
-	l3n4AddrID, err = PutL3n4Addr(l3n4Addr3, 0)
+	l3n4AddrID, err = AcquireID(l3n4Addr3, 0)
 	c.Assert(err, Equals, nil)
 	c.Assert(l3n4AddrID.ID, Equals, ffsIDu16+1)
 
-	gotL3n4AddrID, err := GetL3n4AddrID(common.FirstFreeServiceID)
+	gotL3n4AddrID, err := GetID(common.FirstFreeServiceID)
 	c.Assert(err, Equals, nil)
 	wantL3n4AddrID.ID = ffsIDu16
 	wantL3n4AddrID.L3n4Addr = l3n4Addr1
 	c.Assert(gotL3n4AddrID, comparator.DeepEquals, wantL3n4AddrID)
 
-	err = DeleteL3n4AddrIDByUUID(common.FirstFreeServiceID)
+	err = DeleteID(common.FirstFreeServiceID)
 	c.Assert(err, Equals, nil)
-	gotL3n4AddrID, err = GetL3n4AddrID(common.FirstFreeServiceID)
+	gotL3n4AddrID, err = GetID(common.FirstFreeServiceID)
 	c.Assert(err, Equals, nil)
 	c.Assert(gotL3n4AddrID, Equals, nilL3n4AddrID)
 
-	gotL3n4AddrID, err = GetL3n4AddrID(common.FirstFreeServiceID + 1)
+	gotL3n4AddrID, err = GetID(common.FirstFreeServiceID + 1)
 	c.Assert(err, Equals, nil)
 	wantL3n4AddrID.ID = types.ServiceID(common.FirstFreeServiceID + 1)
 	wantL3n4AddrID.L3n4Addr = l3n4Addr2
 	c.Assert(gotL3n4AddrID, comparator.DeepEquals, wantL3n4AddrID)
 
-	err = DeleteL3n4AddrIDByUUID(common.FirstFreeServiceID)
+	err = DeleteID(common.FirstFreeServiceID)
 	c.Assert(err, Equals, nil)
 
 	err = kvstore.Client().SetMaxID(common.LastFreeServiceIDKeyPath, common.FirstFreeServiceID, common.FirstFreeServiceID)
 	c.Assert(err, Equals, nil)
 
-	err = DeleteL3n4AddrIDByUUID(common.FirstFreeServiceID)
+	err = DeleteID(common.FirstFreeServiceID)
 	c.Assert(err, Equals, nil)
-	gotL3n4AddrID, err = GetL3n4AddrID(common.FirstFreeServiceID)
+	gotL3n4AddrID, err = GetID(common.FirstFreeServiceID)
 	c.Assert(err, Equals, nil)
 	c.Assert(gotL3n4AddrID, Equals, nilL3n4AddrID)
 
-	gotL3n4AddrID, err = PutL3n4Addr(l3n4Addr2, 0)
+	gotL3n4AddrID, err = AcquireID(l3n4Addr2, 0)
 	c.Assert(err, Equals, nil)
 	c.Assert(gotL3n4AddrID.ID, Equals, types.ServiceID(common.FirstFreeServiceID+1))
 
 	sha256sum := l3n4Addr2.SHA256Sum()
 	err = deleteL3n4AddrIDBySHA256(sha256sum)
 	c.Assert(err, Equals, nil)
-	err = DeleteL3n4AddrIDByUUID(common.FirstFreeServiceID + 1)
+	err = DeleteID(common.FirstFreeServiceID + 1)
 	c.Assert(err, Equals, nil)
-	err = DeleteL3n4AddrIDByUUID(common.FirstFreeServiceID + 1)
+	err = DeleteID(common.FirstFreeServiceID + 1)
 	c.Assert(err, Equals, nil)
 
-	gotL3n4AddrID, err = PutL3n4Addr(l3n4Addr2, 0)
+	gotL3n4AddrID, err = AcquireID(l3n4Addr2, 0)
 	c.Assert(err, Equals, nil)
 	c.Assert(gotL3n4AddrID.ID, Equals, ffsIDu16)
 
-	gotL3n4AddrID, err = PutL3n4Addr(l3n4Addr1, 0)
+	gotL3n4AddrID, err = AcquireID(l3n4Addr1, 0)
 	c.Assert(err, Equals, nil)
 	c.Assert(gotL3n4AddrID.ID, Equals, types.ServiceID(common.FirstFreeServiceID+1))
 
-	gotL3n4AddrID, err = PutL3n4Addr(l3n4Addr1, 99)
+	gotL3n4AddrID, err = AcquireID(l3n4Addr1, 99)
 	c.Assert(err, Equals, nil)
 	c.Assert(gotL3n4AddrID.ID, Equals, types.ServiceID(common.FirstFreeServiceID+1))
 
-	err = DeleteL3n4AddrIDByUUID(uint32(common.FirstFreeServiceID + 1))
+	err = DeleteID(uint32(common.FirstFreeServiceID + 1))
 	c.Assert(err, Equals, nil)
 
-	gotL3n4AddrID, err = PutL3n4Addr(l3n4Addr1, 99)
+	gotL3n4AddrID, err = AcquireID(l3n4Addr1, 99)
 	c.Assert(err, Equals, nil)
 	c.Assert(gotL3n4AddrID.ID, Equals, types.ServiceID(99))
 }
