@@ -40,6 +40,7 @@ import (
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/serializer"
+	"github.com/cilium/cilium/pkg/service"
 
 	go_version "github.com/hashicorp/go-version"
 	"github.com/sirupsen/logrus"
@@ -873,7 +874,7 @@ func (d *Daemon) delK8sSVCs(svc types.K8sServiceNamespace, svcInfo *types.K8sSer
 		repPorts[svcPort.Port] = false
 
 		if svcPort.ID != 0 {
-			if err := DeleteL3n4AddrIDByUUID(uint32(svcPort.ID)); err != nil {
+			if err := service.DeleteL3n4AddrIDByUUID(uint32(svcPort.ID)); err != nil {
 				scopedLog.WithError(err).Warn("Error while cleaning service ID")
 			}
 		}
@@ -944,7 +945,7 @@ func (d *Daemon) addK8sSVCs(svc types.K8sServiceNamespace, svcInfo *types.K8sSer
 				}).Error("Error while creating a new L3n4Addr. Ignoring service...")
 				continue
 			}
-			feAddrID, err := PutL3n4Addr(*feAddr, 0)
+			feAddrID, err := service.PutL3n4Addr(*feAddr, 0)
 			if err != nil {
 				scopedLog.WithError(err).WithFields(logrus.Fields{
 					logfields.ServiceID: fePortName,
@@ -1146,7 +1147,7 @@ func (d *Daemon) updateIngressV1beta1(oldIngress, newIngress *v1beta1.Ingress) {
 				scopedLog.WithError(err).Error("Error while creating a new L3n4Addr. Ignoring ingress...")
 				continue
 			}
-			feAddrID, err := PutL3n4Addr(*feAddr, 0)
+			feAddrID, err := service.PutL3n4Addr(*feAddr, 0)
 			if err != nil {
 				scopedLog.WithError(err).Error("Error while getting a new service ID. Ignoring ingress...")
 				continue
