@@ -17,7 +17,6 @@ package service
 import (
 	"testing"
 
-	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/pkg/kvstore"
 
 	. "gopkg.in/check.v1"
@@ -37,13 +36,13 @@ type ServiceEtcdSuite struct {
 var _ = Suite(&ServiceEtcdSuite{})
 
 func (e *ServiceEtcdSuite) SetUpTest(c *C) {
+	EnableGlobalServiceID(true)
 	kvstore.SetupDummy("etcd")
-	kvstore.DeletePrefix(common.OperationalPath)
-	kvstore.DeletePrefix(kvstore.BaseKeyPrefix)
+	kvstore.DeletePrefix(serviceKvstorePrefix)
 }
 
 func (e *ServiceEtcdSuite) TearDownTest(c *C) {
-	// FIXME: Cleanup test prefix
+	kvstore.DeletePrefix(serviceKvstorePrefix)
 	kvstore.Close()
 }
 
@@ -54,12 +53,27 @@ type ServiceConsulSuite struct {
 var _ = Suite(&ServiceConsulSuite{})
 
 func (e *ServiceConsulSuite) SetUpTest(c *C) {
+	EnableGlobalServiceID(true)
 	kvstore.SetupDummy("consul")
-	kvstore.DeletePrefix(common.OperationalPath)
-	kvstore.DeletePrefix(kvstore.BaseKeyPrefix)
+	kvstore.DeletePrefix(serviceKvstorePrefix)
 }
 
 func (e *ServiceConsulSuite) TearDownTest(c *C) {
-	// FIXME: Cleanup test prefix
+	kvstore.DeletePrefix(serviceKvstorePrefix)
 	kvstore.Close()
+}
+
+type ServiceLocalSuite struct {
+	ServiceTestSuite
+}
+
+var _ = Suite(&ServiceLocalSuite{})
+
+func (e *ServiceLocalSuite) SetUpTest(c *C) {
+	EnableGlobalServiceID(false)
+	resetLocalID()
+}
+
+func (e *ServiceLocalSuite) TearDownTest(c *C) {
+	resetLocalID()
 }
