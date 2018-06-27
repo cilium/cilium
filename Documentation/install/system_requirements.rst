@@ -56,6 +56,7 @@ Debian_               >= 9 Stretch
 `Fedora Atomic/Core`_ >= 25
 LinuxKit_             all
 Ubuntu_               >= 16.04.2, >= 16.10
+Opensuse_             Tumbleweed, >=Leap 15.0
 ===================== ====================
 
 .. _CoreOS: https://coreos.com/releases/
@@ -63,6 +64,7 @@ Ubuntu_               >= 16.04.2, >= 16.10
 .. _Fedora Atomic/Core: http://www.projectatomic.io/blog/2017/03/fedora_atomic_2week_2/
 .. _LinuxKit: https://github.com/linuxkit/linuxkit/tree/master/kernel
 .. _Ubuntu: https://wiki.ubuntu.com/YakketyYak/ReleaseNotes#Linux_kernel_4.8
+.. _Opensuse: https://www.opensuse.org/
 
 .. note:: The above list is based on feedback by users. If you find an unlisted
           Linux distribution that works well, please let us know by opening a
