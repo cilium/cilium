@@ -177,6 +177,11 @@ func parseToCiliumEgressRule(namespace string, inRule, retRule *api.Rule) {
 				retRule.Egress[i].ToEntities = make([]api.Entity, len(egr.ToEntities))
 				copy(retRule.Egress[i].ToEntities, egr.ToEntities)
 			}
+
+			if egr.ToFQDN != nil {
+				retRule.Egress[i].ToFQDN = make([]api.FQDNSelector, len(egr.ToFQDN))
+				copy(retRule.Egress[i].ToFQDN, egr.ToFQDN)
+			}
 		}
 	}
 }

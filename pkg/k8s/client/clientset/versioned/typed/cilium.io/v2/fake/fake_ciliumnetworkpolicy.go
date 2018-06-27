@@ -60,7 +60,7 @@ func (c *FakeCiliumNetworkPolicies) List(opts v1.ListOptions) (result *v2.Cilium
 	if label == nil {
 		label = labels.Everything()
 	}
-	list := &v2.CiliumNetworkPolicyList{}
+	list := &v2.CiliumNetworkPolicyList{ListMeta: obj.(*v2.CiliumNetworkPolicyList).ListMeta}
 	for _, item := range obj.(*v2.CiliumNetworkPolicyList).Items {
 		if label.Matches(labels.Set(item.Labels)) {
 			list.Items = append(list.Items, item)
