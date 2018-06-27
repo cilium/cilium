@@ -18,11 +18,13 @@ PATH=/usr/lib/llvm-3.8/bin:/usr/local/sbin:/usr/local/bin:/usr/bin:/usr/sbin:/sb
 # --kvstore consul
 # Set Key-value store options:
 # --kvstore-opt consul.address=127.0.0.1:8500
+# Set IP:Port on which to serve prometheus metrics:
+# --prometheus-serve-addr=:9090
 #
 # Note: A key-value store is require for cilium to function.
 # Check more cli options using cilium-agent -h
 
-CILIUM_OPTS=--kvstore consul --kvstore-opt consul.address=127.0.0.1:8500
+CILIUM_OPTS=--kvstore consul --kvstore-opt consul.address=127.0.0.1:8500 --prometheus-serve-addr=:9090
 
 ## Path:                System/Management
 ## Description:         init system cilium is running on 
