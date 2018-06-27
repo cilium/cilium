@@ -57,7 +57,8 @@ export 'BAZEL_VERSION'=$(<envoy/BAZEL_VERSION)
 # vagrant status.
 function set_reload_if_vm_exists(){
     if [ -z "${RELOAD}" ]; then
-        if [[ $(vagrant status 2>/dev/null | wc -l) -gt 1 ]]; then
+        if [[ $(vagrant status 2>/dev/null | wc -l) -gt 1 && \
+                ! $(vagrant status 2>/dev/null | grep "not created") ]]; then
             RELOAD=1
         fi
     fi
