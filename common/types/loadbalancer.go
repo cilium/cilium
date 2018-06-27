@@ -400,6 +400,13 @@ func (a *L3n4Addr) String() string {
 	return fmt.Sprintf("%s:%d", a.IP.String(), a.Port)
 }
 
+func (a *L3n4Addr) StringID() string {
+	if a.IsIPv6() {
+		return fmt.Sprintf("[%s]:%d:%s", a.IP.String(), a.Port, string(a.Protocol))
+	}
+	return fmt.Sprintf("%s:%d:%s", a.IP.String(), a.Port, string(a.Protocol))
+}
+
 // DeepCopy returns a DeepCopy of the given L3n4Addr.
 func (a *L3n4Addr) DeepCopy() *L3n4Addr {
 	copyIP := make(net.IP, len(a.IP))
