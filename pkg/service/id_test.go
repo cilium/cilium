@@ -1,4 +1,4 @@
-// Copyright 2016-2017 Authors of Cilium
+// Copyright 2016-2018 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package main
+package service
 
 import (
 	"net"
@@ -44,10 +44,10 @@ var (
 	}
 )
 
-func (ds *DaemonSuite) TestServices(c *C) {
+func (ds *ServiceTestSuite) TestServices(c *C) {
 	var nilL3n4AddrID *types.L3n4AddrID
 	// Set up last free ID with zero
-	id, err := GetMaxServiceID()
+	id, err := getMaxServiceID()
 	c.Assert(err, Equals, nil)
 	c.Assert(id, Equals, common.FirstFreeServiceID)
 
@@ -106,11 +106,7 @@ func (ds *DaemonSuite) TestServices(c *C) {
 	c.Assert(gotL3n4AddrID.ID, Equals, types.ServiceID(common.FirstFreeServiceID+1))
 
 	sha256sum := l3n4Addr2.SHA256Sum()
-	gotL3n4AddrID, err = GetL3n4AddrIDBySHA256(sha256sum)
-	c.Assert(err, Equals, nil)
-	c.Assert(gotL3n4AddrID, comparator.DeepEquals, wantL3n4AddrID)
-
-	err = DeleteL3n4AddrIDBySHA256(sha256sum)
+	err = deleteL3n4AddrIDBySHA256(sha256sum)
 	c.Assert(err, Equals, nil)
 	err = DeleteL3n4AddrIDByUUID(common.FirstFreeServiceID + 1)
 	c.Assert(err, Equals, nil)
@@ -137,12 +133,12 @@ func (ds *DaemonSuite) TestServices(c *C) {
 	c.Assert(gotL3n4AddrID.ID, Equals, types.ServiceID(99))
 }
 
-func (ds *DaemonSuite) TestGetMaxServiceID(c *C) {
+func (ds *ServiceTestSuite) TestGetMaxServiceID(c *C) {
 	lastID := uint32(common.MaxSetOfServiceID - 1)
 	err := kvstore.Client().SetValue(common.LastFreeServiceIDKeyPath, lastID)
 	c.Assert(err, Equals, nil)
 
-	id, err := GetMaxServiceID()
+	id, err := getMaxServiceID()
 	c.Assert(err, Equals, nil)
 	c.Assert(id, Equals, (common.MaxSetOfServiceID - 1))
 }

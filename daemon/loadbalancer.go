@@ -24,6 +24,7 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/lbmap"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/service"
 
 	"github.com/go-openapi/runtime/middleware"
 	"github.com/sirupsen/logrus"
@@ -67,12 +68,12 @@ func (d *Daemon) SVCAdd(feL3n4Addr types.L3n4AddrID, be []types.LBBackEnd, addRe
 		return false, fmt.Errorf("invalid service ID 0")
 	}
 	// Check if the service is already registered with this ID.
-	feAddr, err := GetL3n4AddrID(uint32(feL3n4Addr.ID))
+	feAddr, err := service.GetL3n4AddrID(uint32(feL3n4Addr.ID))
 	if err != nil {
 		return false, fmt.Errorf("unable to get service %d: %s", feL3n4Addr.ID, err)
 	}
 	if feAddr == nil {
-		feAddr, err = PutL3n4Addr(feL3n4Addr.L3n4Addr, uint32(feL3n4Addr.ID))
+		feAddr, err = service.PutL3n4Addr(feL3n4Addr.L3n4Addr, uint32(feL3n4Addr.ID))
 		if err != nil {
 			return false, fmt.Errorf("unable to store service %s in kvstore: %s", feL3n4Addr.String(), err)
 		}
@@ -205,7 +206,7 @@ func (h *deleteServiceID) Handle(params DeleteServiceIDParams) middleware.Respon
 	}
 
 	// FIXME: How to handle error?
-	err := DeleteL3n4AddrIDByUUID(uint32(params.ID))
+	err := service.DeleteL3n4AddrIDByUUID(uint32(params.ID))
 
 	if err != nil {
 		log.WithError(err).Warn("error, DeleteL3n4AddrIDByUUID failed")
@@ -569,7 +570,7 @@ func (d *Daemon) SyncLBMap() error {
 	for _, svc := range newSVCList {
 		// Check if the services read from the lbmap have the same ID set in the
 		// KVStore.
-		kvL3n4AddrID, err := PutL3n4Addr(svc.FE.L3n4Addr, 0)
+		kvL3n4AddrID, err := service.PutL3n4Addr(svc.FE.L3n4Addr, 0)
 		if err != nil {
 			log.WithError(err).WithFields(logrus.Fields{
 				logfields.L3n4Addr: logfields.Repr(svc.FE.L3n4Addr),
