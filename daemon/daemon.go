@@ -44,6 +44,7 @@ import (
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/envoy"
+	"github.com/cilium/cilium/pkg/fqdn"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/ipam"
 	"github.com/cilium/cilium/pkg/ipcache"
@@ -65,6 +66,7 @@ import (
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
+	policyApi "github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/proxy"
 	"github.com/cilium/cilium/pkg/proxy/logger"
 	"github.com/cilium/cilium/pkg/u8proto"
@@ -118,6 +120,9 @@ type Daemon struct {
 
 	nodeMonitor  *monitorLaunch.NodeMonitor
 	ciliumHealth *health.CiliumHealth
+
+	// dnsPoller is used to implement ToFQDN rules
+	dnsPoller *fqdn.DNSPoller
 
 	// k8sAPIs is a set of k8s API in use. They are setup in EnableK8sWatcher,
 	// and may be disabled while the agent runs.
@@ -1317,6 +1322,16 @@ func NewDaemon() (*Daemon, error) {
 	log.Debugf("IPv6 health endpoint address: %s", node.GetIPv6HealthIP())
 
 	d.startStatusCollector()
+	d.dnsPoller = fqdn.NewDNSPoller(fqdn.DNSPollerConfig{
+		LookupDNSNames: fqdn.DNSLookupDefaultResolver,
+		AddGeneratedRules: func(generatedRules []*policyApi.Rule) error {
+			// Insert the new rules into the policy repository. We need them to
+			// replace the previous set. This requires the labels to match (including
+			// the ToFQDN-UUID one).
+			_, err := d.PolicyAdd(generatedRules, &AddOptions{Replace: true})
+			return err
+		}})
+	fqdn.StartDNSPoller(d.dnsPoller)
 
 	return &d, nil
 }

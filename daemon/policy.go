@@ -25,6 +25,7 @@ import (
 	"github.com/cilium/cilium/pkg/api"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/endpointmanager"
+	"github.com/cilium/cilium/pkg/fqdn"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -232,6 +233,10 @@ func (d *Daemon) policyAdd(rules policyAPI.Rules, opts *AddOptions) (uint64, err
 func (d *Daemon) PolicyAdd(rules policyAPI.Rules, opts *AddOptions) (uint64, error) {
 	log.WithField(logfields.CiliumNetworkPolicy, logfields.Repr(rules)).Debug("Policy Add Request")
 
+	// These must be marked before actually adding them to the repository since a
+	// copy may be made and we won't be able to add the ToFQDN tracking labels
+	fqdn.MarkToFQDNRules(rules)
+
 	prefixes := policy.GetCIDRPrefixes(rules)
 	log.WithField("prefixes", prefixes).Debug("Policy imported via API, found CIDR prefixes...")
 
@@ -249,8 +254,12 @@ func (d *Daemon) PolicyAdd(rules policyAPI.Rules, opts *AddOptions) (uint64, err
 			log.WithError(err2).WithField("prefixes", prefixes).Warn(
 				"Failed to release CIDRs during policy import failure")
 		}
+
 		return 0, api.Error(PutPolicyFailureCode, err)
 	}
+
+	// The rules are added, we can begin ToFQDN DNS polling for them
+	d.dnsPoller.StartPollForDNSName(rules)
 
 	log.WithField(logfields.PolicyRevision, rev).Info("Policy imported via API, recalculating...")
 
@@ -304,6 +313,9 @@ func (d *Daemon) PolicyDelete(labels labels.LabelArray) (uint64, error) {
 		log.WithError(err).WithField("prefixes", prefixes).Warn(
 			"Failed to release CIDRs during policy delete")
 	}
+
+	// Stop polling for ToFQDN DNS names for these rules
+	d.dnsPoller.StopPollForDNSName(rules)
 
 	d.TriggerPolicyUpdates(false)
 
