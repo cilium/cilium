@@ -145,6 +145,9 @@ func UpdateReferences(ep *endpoint.Endpoint) {
 // Remove removes the endpoint from the global maps.
 // Must be called with ep.Mutex.RLock held.
 func Remove(ep *endpoint.Endpoint) {
+	scopedLog := log.WithField(string(ep.ID), ep.GetLabels())
+	scopedLog.Info("MK in Remove(manager.go) START endpoint state:", ep.GetState())
+
 	mutex.Lock()
 	defer mutex.Unlock()
 	delete(endpoints, ep.ID)
@@ -168,6 +171,7 @@ func Remove(ep *endpoint.Endpoint) {
 	if podName := ep.GetK8sNamespaceAndPodNameLocked(); podName != "" {
 		delete(endpointsAux, endpointid.NewID(endpointid.PodNamePrefix, podName))
 	}
+	scopedLog.Info("MK in Remove(manager.go) END endpoint state:", ep.GetState())
 }
 
 // RemoveAll removes all endpoints from the global maps.

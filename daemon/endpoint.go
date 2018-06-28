@@ -470,6 +470,9 @@ func (d *Daemon) deleteEndpointQuiet(ep *endpoint.Endpoint, releaseIP bool) []er
 		}
 	}
 
+	scopedLog := log.WithField(string(ep.ID), ep.GetLabels())
+	scopedLog.Info("MK in deleteEndpointQuiet endpoint state:", ep.GetState())
+
 	errors := []error{}
 
 	// Wait for existing builds to complete and prevent further builds
@@ -486,6 +489,8 @@ func (d *Daemon) deleteEndpointQuiet(ep *endpoint.Endpoint, releaseIP bool) []er
 		return []error{}
 	}
 	ep.SetStateLocked(endpoint.StateDisconnecting, "Deleting endpoint")
+	scopedLog.Info("MK in deleteEndpointQuiet AFTER SetStateLocked(StateDisconnecting) endpoint state:", ep.GetState())
+	fmt.Printf("MK in deleteEndpointQuiet AFTER SetStateLocked(StateDisconnecting) endpoint state:", ep.GetState())
 
 	// Remove the endpoint before we clean up. This ensures it is no longer
 	// listed or queued for rebuilds.
@@ -493,6 +498,8 @@ func (d *Daemon) deleteEndpointQuiet(ep *endpoint.Endpoint, releaseIP bool) []er
 
 	metrics.EndpointStateCount.
 		WithLabelValues(ep.GetState()).Dec()
+	scopedLog.Info("MK in deleteEndpointQuiet AFTER endpointmanager.Remove and metrics dec endpoint state:", ep.GetState())
+	fmt.Printf("MK in deleteEndpointQuiet AFTER endpointmanager.Remove and metrics dec endpoint state:", ep.GetState())
 
 	// If dry mode is enabled, no changes to BPF maps are performed
 	if !d.DryModeEnabled() {
@@ -540,7 +547,11 @@ func (d *Daemon) deleteEndpointQuiet(ep *endpoint.Endpoint, releaseIP bool) []er
 	completionCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	ep.ProxyWaitGroup = completion.NewWaitGroup(completionCtx)
 
+	scopedLog.Info("MK in deleteEndpointQuiet BEFORE  LeaveLocked endpoint state:", ep.GetState())
+	fmt.Printf("MK in deleteEndpointQuiet BEFORE  LeaveLocked endpoint state:", ep.GetState())
 	errors = append(errors, ep.LeaveLocked(d)...)
+	scopedLog.Info("MK in deleteEndpointQuiet AFTER  LeaveLocked endpoint state:", ep.GetState())
+	fmt.Printf("MK in deleteEndpointQuiet AFTER  LeaveLocked endpoint state:", ep.GetState())
 	ep.Mutex.Unlock()
 
 	err := ep.WaitForProxyCompletions()
