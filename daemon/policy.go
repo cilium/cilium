@@ -232,6 +232,12 @@ func (d *Daemon) policyAdd(rules policyAPI.Rules, opts *AddOptions) (uint64, err
 func (d *Daemon) PolicyAdd(rules policyAPI.Rules, opts *AddOptions) (uint64, error) {
 	log.WithField(logfields.CiliumNetworkPolicy, logfields.Repr(rules)).Debug("Policy Add Request")
 
+	fqdnMarkedRules, err := StartPollForDNSName(rules)
+	if err != nil {
+		return 0, api.Error(PutPolicyFailureCode, err)
+	}
+	rules = fqdnMarkedRules
+
 	prefixes := policy.GetCIDRPrefixes(rules)
 	log.WithField("prefixes", prefixes).Debug("Policy imported via API, found CIDR prefixes...")
 
@@ -291,6 +297,8 @@ func (d *Daemon) PolicyDelete(labels labels.LabelArray) (uint64, error) {
 	}
 	rev, deleted := d.policy.DeleteByLabelsLocked(labels)
 	d.policy.Mutex.Unlock()
+
+	StopPollForDNSName(rules)
 
 	// Now that the policies are deleted, we can also attempt to remove
 	// all CIDR identities referenced by the deleted rules.

@@ -1303,6 +1303,7 @@ func NewDaemon() (*Daemon, error) {
 	log.Debugf("IPv6 health endpoint address: %s", node.GetIPv6HealthIP())
 
 	d.startStatusCollector()
+	d.StartDNSPoller()
 
 	return &d, nil
 }
