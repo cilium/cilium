@@ -1568,7 +1568,7 @@ func (d *Daemon) clearCiliumVeths() error {
 // numWorkerThreads returns the number of worker threads with a minimum of 4.
 func numWorkerThreads() int {
 	ncpu := runtime.NumCPU()
-	minWorkerThreads := 4
+	minWorkerThreads := 2
 
 	if ncpu < minWorkerThreads {
 		return minWorkerThreads
