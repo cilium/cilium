@@ -34,6 +34,11 @@ var _ = Describe("K8sValidatedUpdates", func() {
 		_ = kubectl.DeleteResource(
 			"ds", fmt.Sprintf("-n %s cilium", helpers.KubeSystemNamespace))
 
+		// Delete kube-dns because if not will be a restore the old endpoints
+		// from master instead of create the new ones.
+		_ = kubectl.DeleteResource(
+			"deploy", fmt.Sprintf("-n %s kube-dns", helpers.KubeSystemNamespace))
+
 		apps = []string{helpers.App1, helpers.App2, helpers.App3}
 
 		demoPath = helpers.ManifestGet("demo.yaml")
@@ -51,6 +56,10 @@ var _ = Describe("K8sValidatedUpdates", func() {
 	JustBeforeEach(func() {
 		microscopeErr, microscopeCancel = kubectl.MicroscopeStart()
 		Expect(microscopeErr).To(BeNil(), "Microscope cannot be started")
+	})
+
+	AfterAll(func() {
+		_ = kubectl.Apply(helpers.KubeDNSdeployment)
 	})
 
 	AfterFailed(func() {
@@ -84,7 +93,6 @@ var _ = Describe("K8sValidatedUpdates", func() {
 		err := kubectl.CiliumEndpointWaitReady()
 		Expect(err).To(BeNil(), "Endpoints are not ready after timeout")
 
-		ExpectKubeDNSReady(kubectl)
 	})
 
 	validatedImage := func(image string) {
@@ -101,12 +109,16 @@ var _ = Describe("K8sValidatedUpdates", func() {
 	}
 
 	It("Updating Cilium stable to master", func() {
+		By("Installing kube-dns")
+		kubectl.Apply(helpers.KubeDNSdeployment).ExpectSuccess("Kube-dns cannot be installed")
 
 		By("Creating some endpoints and L7 policy")
 		kubectl.Apply(demoPath).ExpectSuccess()
 
 		err := kubectl.WaitforPods(helpers.DefaultNamespace, "-l zgroup=testapp", timeout)
 		Expect(err).Should(BeNil())
+
+		ExpectKubeDNSReady(kubectl)
 
 		_, err = kubectl.CiliumPolicyAction(
 			helpers.KubeSystemNamespace, l7Policy, helpers.KubectlApply, timeout)
