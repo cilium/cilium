@@ -170,7 +170,7 @@ func (ds *PolicyTestSuite) TestMergeAllowAllL3AndShadowedL7(c *C) {
 	ctx.Logging = logging.NewLogBackend(buffer, "", 0)
 
 	ingressState := traceState{}
-	res, err := rule1.resolveL4IngressPolicy(&ctx, &ingressState, NewL4Policy())
+	res, err := rule1.resolveL4IngressPolicy(&ctx, &ingressState, NewL4Policy(), nil)
 	c.Assert(err, IsNil)
 	c.Assert(res, Not(IsNil))
 
@@ -303,7 +303,7 @@ func (ds *PolicyTestSuite) TestMergeIdenticalAllowAllL3AndRestrictedL7HTTP(c *C)
 	c.Log(buffer)
 
 	state := traceState{}
-	res, err := identicalHTTPRule.resolveL4IngressPolicy(&ctxToA, &state, NewL4Policy())
+	res, err := identicalHTTPRule.resolveL4IngressPolicy(&ctxToA, &state, NewL4Policy(), nil)
 	c.Assert(err, IsNil)
 	c.Assert(res, Not(IsNil))
 	c.Assert(*res, comparator.DeepEquals, *expected)
@@ -311,7 +311,7 @@ func (ds *PolicyTestSuite) TestMergeIdenticalAllowAllL3AndRestrictedL7HTTP(c *C)
 	c.Assert(state.matchedRules, Equals, 0)
 
 	state = traceState{}
-	res, err = identicalHTTPRule.resolveL4IngressPolicy(toFoo, &state, NewL4Policy())
+	res, err = identicalHTTPRule.resolveL4IngressPolicy(toFoo, &state, NewL4Policy(), nil)
 	c.Assert(err, IsNil)
 	c.Assert(res, IsNil)
 	c.Assert(state.selectedRules, Equals, 0)
@@ -376,7 +376,7 @@ func (ds *PolicyTestSuite) TestMergeIdenticalAllowAllL3AndRestrictedL7Kafka(c *C
 	}
 
 	state := traceState{}
-	res, err := identicalKafkaRule.resolveL4IngressPolicy(&ctxToA, &state, NewL4Policy())
+	res, err := identicalKafkaRule.resolveL4IngressPolicy(&ctxToA, &state, NewL4Policy(), nil)
 	c.Assert(err, IsNil)
 	c.Assert(res, Not(IsNil))
 	c.Assert(*res, comparator.DeepEquals, *expected)
@@ -384,7 +384,7 @@ func (ds *PolicyTestSuite) TestMergeIdenticalAllowAllL3AndRestrictedL7Kafka(c *C
 	c.Assert(state.matchedRules, Equals, 0)
 
 	state = traceState{}
-	res, err = identicalKafkaRule.resolveL4IngressPolicy(toFoo, &state, NewL4Policy())
+	res, err = identicalKafkaRule.resolveL4IngressPolicy(toFoo, &state, NewL4Policy(), nil)
 	c.Assert(err, IsNil)
 	c.Assert(res, IsNil)
 	c.Assert(state.selectedRules, Equals, 0)
@@ -436,7 +436,7 @@ func (ds *PolicyTestSuite) TestMergeIdenticalAllowAllL3AndMismatchingParsers(c *
 	c.Log(buffer)
 
 	state := traceState{}
-	res, err := conflictingParsersRule.resolveL4IngressPolicy(&ctxToA, &state, NewL4Policy())
+	res, err := conflictingParsersRule.resolveL4IngressPolicy(&ctxToA, &state, NewL4Policy(), nil)
 	c.Assert(err, Not(IsNil))
 	c.Assert(res, IsNil)
 
@@ -480,7 +480,7 @@ func (ds *PolicyTestSuite) TestMergeIdenticalAllowAllL3AndMismatchingParsers(c *
 	c.Log(buffer)
 
 	state = traceState{}
-	res, err = conflictingParsersRule.resolveL4IngressPolicy(&ctxToA, &state, NewL4Policy())
+	res, err = conflictingParsersRule.resolveL4IngressPolicy(&ctxToA, &state, NewL4Policy(), nil)
 	c.Assert(err, Not(IsNil))
 	c.Assert(res, IsNil)
 }
@@ -531,7 +531,7 @@ func (ds *PolicyTestSuite) TestL3RuleShadowedByL3AllowAll(c *C) {
 	}
 
 	state := traceState{}
-	res, err := shadowRule.resolveL4IngressPolicy(&ctxToA, &state, NewL4Policy())
+	res, err := shadowRule.resolveL4IngressPolicy(&ctxToA, &state, NewL4Policy(), nil)
 	c.Assert(err, IsNil)
 	c.Assert(res, Not(IsNil))
 	c.Assert(*res, comparator.DeepEquals, *expected)
@@ -539,7 +539,7 @@ func (ds *PolicyTestSuite) TestL3RuleShadowedByL3AllowAll(c *C) {
 	c.Assert(state.matchedRules, Equals, 0)
 
 	state = traceState{}
-	res, err = shadowRule.resolveL4IngressPolicy(toFoo, &state, NewL4Policy())
+	res, err = shadowRule.resolveL4IngressPolicy(toFoo, &state, NewL4Policy(), nil)
 	c.Assert(err, IsNil)
 	c.Assert(res, IsNil)
 	c.Assert(state.selectedRules, Equals, 0)
@@ -586,7 +586,7 @@ func (ds *PolicyTestSuite) TestL3RuleShadowedByL3AllowAll(c *C) {
 	}
 
 	state = traceState{}
-	res, err = shadowRule.resolveL4IngressPolicy(&ctxToA, &state, NewL4Policy())
+	res, err = shadowRule.resolveL4IngressPolicy(&ctxToA, &state, NewL4Policy(), nil)
 	c.Assert(err, IsNil)
 	c.Assert(res, Not(IsNil))
 	c.Assert(*res, comparator.DeepEquals, *expected)
@@ -594,7 +594,7 @@ func (ds *PolicyTestSuite) TestL3RuleShadowedByL3AllowAll(c *C) {
 	c.Assert(state.matchedRules, Equals, 0)
 
 	state = traceState{}
-	res, err = shadowRule.resolveL4IngressPolicy(toFoo, &state, NewL4Policy())
+	res, err = shadowRule.resolveL4IngressPolicy(toFoo, &state, NewL4Policy(), nil)
 	c.Assert(err, IsNil)
 	c.Assert(res, IsNil)
 	c.Assert(state.selectedRules, Equals, 0)
@@ -666,7 +666,7 @@ func (ds *PolicyTestSuite) TestL3RuleWithL7RulePartiallyShadowedByL3AllowAll(c *
 	}
 
 	state := traceState{}
-	res, err := shadowRule.resolveL4IngressPolicy(&ctxToA, &state, NewL4Policy())
+	res, err := shadowRule.resolveL4IngressPolicy(&ctxToA, &state, NewL4Policy(), nil)
 	c.Assert(err, IsNil)
 	c.Assert(res, Not(IsNil))
 	c.Assert(*res, comparator.DeepEquals, *expected)
@@ -674,7 +674,7 @@ func (ds *PolicyTestSuite) TestL3RuleWithL7RulePartiallyShadowedByL3AllowAll(c *
 	c.Assert(state.matchedRules, Equals, 0)
 
 	state = traceState{}
-	res, err = shadowRule.resolveL4IngressPolicy(toFoo, &state, NewL4Policy())
+	res, err = shadowRule.resolveL4IngressPolicy(toFoo, &state, NewL4Policy(), nil)
 	c.Assert(err, IsNil)
 	c.Assert(res, IsNil)
 	c.Assert(state.selectedRules, Equals, 0)
@@ -733,7 +733,7 @@ func (ds *PolicyTestSuite) TestL3RuleWithL7RulePartiallyShadowedByL3AllowAll(c *
 	}
 
 	state = traceState{}
-	res, err = shadowRule.resolveL4IngressPolicy(&ctxToA, &state, NewL4Policy())
+	res, err = shadowRule.resolveL4IngressPolicy(&ctxToA, &state, NewL4Policy(), nil)
 	c.Assert(err, IsNil)
 	c.Assert(res, Not(IsNil))
 	c.Assert(*res, comparator.DeepEquals, *expected)
@@ -741,7 +741,7 @@ func (ds *PolicyTestSuite) TestL3RuleWithL7RulePartiallyShadowedByL3AllowAll(c *
 	c.Assert(state.matchedRules, Equals, 0)
 
 	state = traceState{}
-	res, err = shadowRule.resolveL4IngressPolicy(toFoo, &state, NewL4Policy())
+	res, err = shadowRule.resolveL4IngressPolicy(toFoo, &state, NewL4Policy(), nil)
 	c.Assert(err, IsNil)
 	c.Assert(res, IsNil)
 	c.Assert(state.selectedRules, Equals, 0)
@@ -816,7 +816,7 @@ func (ds *PolicyTestSuite) TestL3RuleWithL7RuleShadowedByL3AllowAll(c *C) {
 	}
 
 	state := traceState{}
-	res, err := case8Rule.resolveL4IngressPolicy(&ctxToA, &state, NewL4Policy())
+	res, err := case8Rule.resolveL4IngressPolicy(&ctxToA, &state, NewL4Policy(), nil)
 	c.Assert(err, IsNil)
 	c.Assert(res, Not(IsNil))
 	c.Assert(*res, comparator.DeepEquals, *expected)
@@ -824,7 +824,7 @@ func (ds *PolicyTestSuite) TestL3RuleWithL7RuleShadowedByL3AllowAll(c *C) {
 	c.Assert(state.matchedRules, Equals, 0)
 
 	state = traceState{}
-	res, err = case8Rule.resolveL4IngressPolicy(toFoo, &state, NewL4Policy())
+	res, err = case8Rule.resolveL4IngressPolicy(toFoo, &state, NewL4Policy(), nil)
 	c.Assert(err, IsNil)
 	c.Assert(res, IsNil)
 	c.Assert(state.selectedRules, Equals, 0)
@@ -892,7 +892,7 @@ func (ds *PolicyTestSuite) TestL3RuleWithL7RuleShadowedByL3AllowAll(c *C) {
 	}
 
 	state = traceState{}
-	res, err = case8Rule.resolveL4IngressPolicy(&ctxToA, &state, NewL4Policy())
+	res, err = case8Rule.resolveL4IngressPolicy(&ctxToA, &state, NewL4Policy(), nil)
 	c.Assert(err, IsNil)
 	c.Assert(res, Not(IsNil))
 	c.Assert(*res, comparator.DeepEquals, *expected)
@@ -900,7 +900,7 @@ func (ds *PolicyTestSuite) TestL3RuleWithL7RuleShadowedByL3AllowAll(c *C) {
 	c.Assert(state.matchedRules, Equals, 0)
 
 	state = traceState{}
-	res, err = case8Rule.resolveL4IngressPolicy(toFoo, &state, NewL4Policy())
+	res, err = case8Rule.resolveL4IngressPolicy(toFoo, &state, NewL4Policy(), nil)
 	c.Assert(err, IsNil)
 	c.Assert(res, IsNil)
 	c.Assert(state.selectedRules, Equals, 0)
@@ -952,12 +952,12 @@ func (ds *PolicyTestSuite) TestL3SelectingEndpointAndL3AllowAllMergeConflictingL
 	c.Log(buffer)
 
 	state := traceState{}
-	res, err := conflictingL7Rule.resolveL4IngressPolicy(&ctxToA, &state, NewL4Policy())
+	res, err := conflictingL7Rule.resolveL4IngressPolicy(&ctxToA, &state, NewL4Policy(), nil)
 	c.Assert(err, Not(IsNil))
 	c.Assert(res, IsNil)
 
 	state = traceState{}
-	res, err = conflictingL7Rule.resolveL4IngressPolicy(toFoo, &state, NewL4Policy())
+	res, err = conflictingL7Rule.resolveL4IngressPolicy(toFoo, &state, NewL4Policy(), nil)
 	c.Assert(err, IsNil)
 	c.Assert(res, IsNil)
 	c.Assert(state.selectedRules, Equals, 0)
@@ -1003,12 +1003,12 @@ func (ds *PolicyTestSuite) TestL3SelectingEndpointAndL3AllowAllMergeConflictingL
 	c.Log(buffer)
 
 	state = traceState{}
-	res, err = conflictingL7Rule.resolveL4IngressPolicy(&ctxToA, &state, NewL4Policy())
+	res, err = conflictingL7Rule.resolveL4IngressPolicy(&ctxToA, &state, NewL4Policy(), nil)
 	c.Assert(err, Not(IsNil))
 	c.Assert(res, IsNil)
 
 	state = traceState{}
-	res, err = conflictingL7Rule.resolveL4IngressPolicy(toFoo, &state, NewL4Policy())
+	res, err = conflictingL7Rule.resolveL4IngressPolicy(toFoo, &state, NewL4Policy(), nil)
 	c.Assert(err, IsNil)
 	c.Assert(res, IsNil)
 	c.Assert(state.selectedRules, Equals, 0)
@@ -1077,7 +1077,7 @@ func (ds *PolicyTestSuite) TestMergingWithDifferentEndpointsSelectedAllowSameL7(
 	}
 
 	state := traceState{}
-	res, err := selectDifferentEndpointsRestrictL7.resolveL4IngressPolicy(&ctxToA, &state, NewL4Policy())
+	res, err := selectDifferentEndpointsRestrictL7.resolveL4IngressPolicy(&ctxToA, &state, NewL4Policy(), nil)
 	c.Assert(err, IsNil)
 	c.Assert(res, Not(IsNil))
 	c.Assert(*res, comparator.DeepEquals, *expected)
@@ -1090,7 +1090,7 @@ func (ds *PolicyTestSuite) TestMergingWithDifferentEndpointsSelectedAllowSameL7(
 	c.Log(buffer)
 
 	state = traceState{}
-	res, err = selectDifferentEndpointsRestrictL7.resolveL4IngressPolicy(toFoo, &state, NewL4Policy())
+	res, err = selectDifferentEndpointsRestrictL7.resolveL4IngressPolicy(toFoo, &state, NewL4Policy(), nil)
 	c.Assert(err, IsNil)
 	c.Assert(res, IsNil)
 	c.Assert(state.selectedRules, Equals, 0)
@@ -1141,7 +1141,7 @@ func (ds *PolicyTestSuite) TestMergingWithDifferentEndpointSelectedAllowAllL7(c 
 	}
 
 	state := traceState{}
-	res, err := selectDifferentEndpointsAllowAllL7.resolveL4IngressPolicy(&ctxToA, &state, NewL4Policy())
+	res, err := selectDifferentEndpointsAllowAllL7.resolveL4IngressPolicy(&ctxToA, &state, NewL4Policy(), nil)
 	c.Assert(err, IsNil)
 	c.Assert(res, Not(IsNil))
 	c.Assert(*res, comparator.DeepEquals, *expected)
@@ -1154,7 +1154,7 @@ func (ds *PolicyTestSuite) TestMergingWithDifferentEndpointSelectedAllowAllL7(c 
 	c.Log(buffer)
 
 	state = traceState{}
-	res, err = selectDifferentEndpointsAllowAllL7.resolveL4IngressPolicy(toFoo, &state, NewL4Policy())
+	res, err = selectDifferentEndpointsAllowAllL7.resolveL4IngressPolicy(toFoo, &state, NewL4Policy(), nil)
 	c.Assert(err, IsNil)
 	c.Assert(res, IsNil)
 	c.Assert(state.selectedRules, Equals, 0)
