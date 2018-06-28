@@ -895,13 +895,6 @@ func (e *Endpoint) SetIdentity(identity *identityPkg.Identity) {
 		istioSidecarProxyLabel.Source == labels.LabelSourceK8s &&
 		strings.ToLower(istioSidecarProxyLabel.Value) == "true"
 
-	if e.SecurityIdentity != nil && identity.ID == e.SecurityIdentity.ID {
-		// Even if the numeric identity is the same, the order in which the
-		// labels are represented may change.
-		e.SecurityIdentity = identity
-		return
-	}
-
 	oldIdentity := "no identity"
 	if e.SecurityIdentity != nil {
 		oldIdentity = e.SecurityIdentity.StringID()
