@@ -1160,25 +1160,13 @@ func (e *Endpoint) runIPIdentitySync(endpointIP addressing.CiliumIP) {
 // Caller triggers policy regeneration if needed.
 // Called with e.Mutex Locked
 func (e *Endpoint) SetIdentity(identity *identityPkg.Identity) {
-	cache := policy.GetConsumableCache()
 
-	if e.Consumable != nil {
-		if e.SecurityIdentity != nil && identity.ID == e.Consumable.ID {
-			// Even if the numeric identity is the same, the order in which the
-			// labels are represented may change.
-			e.SecurityIdentity = identity
-			e.Consumable.Mutex.Lock()
-			e.Consumable.Labels = identity
-			e.Consumable.LabelArray = identity.Labels.ToSlice()
-			e.Consumable.Mutex.Unlock()
-			return
-		}
-		// TODO: This removes the consumable from the cache even if other endpoints
-		// would still point to it. Consumable should be removed from the cache
-		// only when no endpoint refers to it. Fix by implementing explicit reference
-		// counting via the cache?
-		cache.Remove(e.Consumable)
-	}
+	// Set a boolean flag to indicate whether the endpoint has been injected by
+	// Istio with a Cilium-compatible sidecar proxy.
+	istioSidecarProxyLabel := identity.Labels[k8sConst.PolicyLabelIstioSidecarProxy]
+	e.hasSidecarProxy = istioSidecarProxyLabel != nil &&
+		istioSidecarProxyLabel.Source == labels.LabelSourceK8s &&
+		strings.ToLower(istioSidecarProxyLabel.Value) == "true"
 
 	oldIdentity := "no identity"
 	if e.SecurityIdentity != nil {
