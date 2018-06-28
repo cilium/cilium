@@ -234,7 +234,23 @@ func (p *Repository) wildcardL3L4Rules(ctx *SearchContext, ingress bool, l4Polic
 //
 // TODO: Coalesce l7 rules?
 func (p *Repository) ResolveL4IngressPolicy(ctx *SearchContext) (*L4PolicyMap, error) {
+
 	result := NewL4Policy()
+
+	// Determine if there any restrictions based off of FromRequires (i.e.,
+	// the SearchContext does not meet required labels in all rules).
+	// Hack: to not mess up output of policy trace, disable tracing if it's
+	// enabled in this call to CanReachIngressRLocked. Cache the value in the
+	// search context and replace it after this call.
+	savedTracing := ctx.Trace
+	ctx.Trace = TRACE_DISABLED
+	decision := p.CanReachIngressRLocked(ctx)
+	if decision == api.Denied {
+		ctx.Trace = savedTracing
+		return &result.Ingress, nil
+	}
+
+	ctx.Trace = savedTracing
 
 	ctx.PolicyTrace("\n")
 	ctx.PolicyTrace("Resolving ingress port policy for %+v\n", ctx.To)
@@ -265,6 +281,19 @@ func (p *Repository) ResolveL4IngressPolicy(ctx *SearchContext) (*L4PolicyMap, e
 // rule found in the repository takes precedence.
 func (p *Repository) ResolveL4EgressPolicy(ctx *SearchContext) (*L4PolicyMap, error) {
 	result := NewL4Policy()
+
+	// Determine if there any restrictions based off of ToRequires (i.e.,
+	// the SearchContext does not meet required labels in all rules).
+	// Hack: to not mess up output of policy trace, disable tracing if it's
+	// enabled in this call to CanReachEgressRLocked. Cache the value in the
+	// search context and replace it after this call.
+	savedTracing := ctx.Trace
+	ctx.Trace = TRACE_DISABLED
+	decision := p.CanReachEgressRLocked(ctx)
+	if decision == api.Denied {
+		ctx.Trace = savedTracing
+		return &result.Egress, nil
+	}
 
 	ctx.PolicyTrace("\n")
 	ctx.PolicyTrace("Resolving egress port policy for %+v\n", ctx.To)
@@ -330,6 +359,7 @@ func (p *Repository) allowsL4Egress(ctx *SearchContext) api.Decision {
 }
 
 func (p *Repository) allowsL4Ingress(ctx *SearchContext) api.Decision {
+
 	ingressPolicy, err := p.ResolveL4IngressPolicy(ctx)
 	if err != nil {
 		log.WithError(err).Warn("Evaluation error while resolving L4 ingress policy")
