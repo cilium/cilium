@@ -80,7 +80,7 @@ var (
 	EndpointCountRegenerating = prometheus.NewGauge(prometheus.GaugeOpts{
 		Namespace: Namespace,
 		Name:      "endpoint_regenerating",
-		Help:      "Number of endpoints currently regenerating",
+		Help:      "Number of endpoints currently regenerating. Deprecated. Use endpoint_state with proper labels instead",
 	})
 
 	// EndpointRegenerationCount is a count of the number of times any endpoint
