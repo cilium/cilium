@@ -69,6 +69,9 @@ const (
 	// L4PolicyID is the identifier of a L4 Policy
 	L4PolicyID = "PolicyID.L4"
 
+	// DNSName is a FQDN or not fully qualified name intended for DNS lookups
+	DNSName = "dnsName"
+
 	// IPAddr is an IPV4 or IPv6 address
 	IPAddr = "ipAddr"
 

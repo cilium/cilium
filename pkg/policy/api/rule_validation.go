@@ -19,6 +19,8 @@ import (
 	"net"
 	"strconv"
 	"strings"
+
+	"github.com/cilium/cilium/pkg/labels"
 )
 
 const (
@@ -33,6 +35,15 @@ type exists struct{}
 // capitalization of the protocol name are automatically fixed up. More
 // fundamental violations will cause an error to be returned.
 func (r Rule) Sanitize() error {
+
+	// reject cilium-generated labels on insert.
+	// This isn't a proper function because r.Labels is a labels.LabelArray and
+	// not a labels.Labels, where we could add a function similar to GetReserved
+	for _, lbl := range r.Labels {
+		if lbl.Source == labels.LabelSourceCiliumGenerated {
+			return fmt.Errorf("rule labels cannot have cilium-generated source")
+		}
+	}
 
 	if r.EndpointSelector.LabelSelector == nil {
 		return fmt.Errorf("rule cannot have nil EndpointSelector")
@@ -125,6 +136,7 @@ func (e *EgressRule) sanitize() error {
 		"ToEndpoints": len(e.ToEndpoints),
 		"ToEntities":  len(e.ToEntities),
 		"ToServices":  len(e.ToServices),
+		"ToFQDNs":     len(e.ToFQDNs),
 	}
 	l3DependentL4Support := map[interface{}]bool{
 		"ToCIDR":      true,
@@ -132,6 +144,7 @@ func (e *EgressRule) sanitize() error {
 		"ToEndpoints": true,
 		"ToEntities":  true,
 		"ToServices":  true,
+		"ToFQDNs":     true,
 	}
 	for m1 := range l3Members {
 		for m2 := range l3Members {
