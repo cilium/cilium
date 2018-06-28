@@ -21,6 +21,8 @@ import (
 	"github.com/cilium/cilium/pkg/maps/policymap"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy/api"
+
+	"k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 type rule struct {
@@ -193,7 +195,7 @@ func (state *traceState) unSelectRule(ctx *SearchContext, labels labels.LabelArr
 }
 
 // resolveL4IngressPolicy determines whether (TODO ianvernon)
-func (r *rule) resolveL4IngressPolicy(ctx *SearchContext, state *traceState, result *L4Policy) (*L4Policy, error) {
+func (r *rule) resolveL4IngressPolicy(ctx *SearchContext, state *traceState, result *L4Policy, requirements []v1.LabelSelectorRequirement) (*L4Policy, error) {
 	if !r.EndpointSelector.Matches(ctx.To) {
 		state.unSelectRule(ctx, ctx.To, r)
 		return nil, nil
@@ -206,7 +208,25 @@ func (r *rule) resolveL4IngressPolicy(ctx *SearchContext, state *traceState, res
 		ctx.PolicyTrace("    No L4 ingress rules\n")
 	}
 	for _, ingressRule := range r.Ingress {
-		cnt, err := mergeL4Ingress(ctx, ingressRule, r.Rule.Labels.DeepCopy(), result.Ingress)
+		ruleCopy := ingressRule
+
+		// For each FromEndpoints in each ingress rule, add requirements, which
+		// is a flattened list of all EndpointSelectors from all FromRequires
+		// from rules which select the labels in ctx.To. This ensures that
+		// FromRequires is taken into account even if it isn't part of the current
+		// rule over which we are iterating.
+		if len(requirements) > 0 {
+			// Create a deep copy of the rule, as we are going to modify FromEndpoints
+			// with requirementsSelector. We don't want to modify the rule itself
+			// in the policy repository.
+			ruleCopy = *ingressRule.DeepCopy()
+			// Update each EndpointSelector in FromEndpoints to contain requirements.
+			for _, fromEndpoint := range ruleCopy.FromEndpoints {
+				fromEndpoint.MatchExpressions = append(fromEndpoint.MatchExpressions, requirements...)
+			}
+		}
+
+		cnt, err := mergeL4Ingress(ctx, ruleCopy, r.Rule.Labels.DeepCopy(), result.Ingress)
 		if err != nil {
 			return nil, err
 		}
@@ -515,7 +535,7 @@ func mergeL4EgressPort(ctx *SearchContext, endpoints []api.EndpointSelector, r a
 	return 1, nil
 }
 
-func (r *rule) resolveL4EgressPolicy(ctx *SearchContext, state *traceState, result *L4Policy) (*L4Policy, error) {
+func (r *rule) resolveL4EgressPolicy(ctx *SearchContext, state *traceState, result *L4Policy, requirements []v1.LabelSelectorRequirement) (*L4Policy, error) {
 
 	if !r.EndpointSelector.Matches(ctx.From) {
 		state.unSelectRule(ctx, ctx.From, r)
@@ -529,7 +549,24 @@ func (r *rule) resolveL4EgressPolicy(ctx *SearchContext, state *traceState, resu
 		ctx.PolicyTrace("    No L4 rules\n")
 	}
 	for _, egressRule := range r.Egress {
-		cnt, err := mergeL4Egress(ctx, egressRule, r.Rule.Labels.DeepCopy(), result.Egress)
+		ruleCopy := egressRule
+		// For each ToEndpoints in each egress rule, add the requirements, which
+		// is a flattened list of all EndpointSelectors from all ToRequires
+		// from rules which select the labels in ctx.From. This ensures that
+		// ToRequires is taken into account even if it isn't part of the current
+		// rule over which we are iterating.
+		if len(requirements) > 0 {
+			// Create a deep copy of the rule, as we are going to modify
+			// ToEndpoints with requirements; we don't want to modify the rule
+			// in the repository.
+			ruleCopy = *egressRule.DeepCopy()
+			for _, toEndpoint := range ruleCopy.ToEndpoints {
+				// Update each EndpointSelector in ToEndpoints to contain
+				// requirements.
+				toEndpoint.MatchExpressions = append(toEndpoint.MatchExpressions, requirements...)
+			}
+		}
+		cnt, err := mergeL4Egress(ctx, ruleCopy, r.Rule.Labels.DeepCopy(), result.Egress)
 		if err != nil {
 			return nil, err
 		}

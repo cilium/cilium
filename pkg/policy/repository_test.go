@@ -22,6 +22,8 @@ import (
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/policy/api"
 
+	"k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	"github.com/op/go-logging"
 	. "gopkg.in/check.v1"
 )
@@ -558,6 +560,137 @@ func (ds *PolicyTestSuite) TestWildcardL4RulesIngress(c *C) {
 				},
 			},
 			DerivedFromRules: labels.LabelArrayList{labelsL4, labelsKafka, labelsL4},
+		},
+	}
+	c.Assert((*policy), comparator.DeepEquals, expectedPolicy)
+}
+
+func (ds *PolicyTestSuite) TestL3DependentL4IngressFromRequires(c *C) {
+	repo := NewPolicyRepository()
+
+	selFoo := api.NewESFromLabels(labels.ParseSelectLabel("id=foo"))
+	selBar1 := api.NewESFromLabels(labels.ParseSelectLabel("id=bar1"))
+	selBar2 := api.NewESFromLabels(labels.ParseSelectLabel("id=bar2"))
+
+	l480Rule := api.Rule{
+		EndpointSelector: selFoo,
+		Ingress: []api.IngressRule{
+			{
+				FromEndpoints: []api.EndpointSelector{
+					selBar1,
+				},
+				ToPorts: []api.PortRule{{
+					Ports: []api.PortProtocol{
+						{Port: "80", Protocol: api.ProtoTCP},
+					},
+				}},
+			},
+			{
+				FromRequires: []api.EndpointSelector{selBar2},
+			},
+		},
+	}
+	l480Rule.Sanitize()
+	_, err := repo.Add(l480Rule)
+	c.Assert(err, IsNil)
+
+	ctx := &SearchContext{
+		To: labels.ParseSelectLabelArray("id=foo"),
+	}
+
+	repo.Mutex.RLock()
+	defer repo.Mutex.RUnlock()
+
+	policy, err := repo.ResolveL4IngressPolicy(ctx)
+	c.Assert(err, IsNil)
+
+	expectedPolicy := L4PolicyMap{
+		"80/TCP": L4Filter{
+			Port:     80,
+			Protocol: api.ProtoTCP,
+			U8Proto:  0x6,
+			Endpoints: api.EndpointSelectorSlice{
+				api.EndpointSelector{
+					LabelSelector: &v1.LabelSelector{
+						MatchLabels: map[string]string{"any.id": "bar1"},
+						MatchExpressions: []v1.LabelSelectorRequirement{
+							{
+								Key:      "any.id",
+								Operator: v1.LabelSelectorOpIn,
+								Values:   []string{"bar2"},
+							},
+						},
+					},
+				},
+			},
+			L7RulesPerEp:     L7DataMap{},
+			Ingress:          true,
+			DerivedFromRules: labels.LabelArrayList{nil},
+		},
+	}
+	c.Assert((*policy), comparator.DeepEquals, expectedPolicy)
+}
+
+func (ds *PolicyTestSuite) TestL3DependentL4EgressFromRequires(c *C) {
+	repo := NewPolicyRepository()
+
+	selFoo := api.NewESFromLabels(labels.ParseSelectLabel("id=foo"))
+	selBar1 := api.NewESFromLabels(labels.ParseSelectLabel("id=bar1"))
+	selBar2 := api.NewESFromLabels(labels.ParseSelectLabel("id=bar2"))
+
+	l480Rule := api.Rule{
+		EndpointSelector: selFoo,
+		Egress: []api.EgressRule{
+			{
+				ToEndpoints: []api.EndpointSelector{
+					selBar1,
+				},
+				ToPorts: []api.PortRule{{
+					Ports: []api.PortProtocol{
+						{Port: "80", Protocol: api.ProtoTCP},
+					},
+				}},
+			},
+			{
+				ToRequires: []api.EndpointSelector{selBar2},
+			},
+		},
+	}
+	l480Rule.Sanitize()
+	_, err := repo.Add(l480Rule)
+	c.Assert(err, IsNil)
+
+	ctx := &SearchContext{
+		From: labels.ParseSelectLabelArray("id=foo"),
+	}
+
+	repo.Mutex.RLock()
+	defer repo.Mutex.RUnlock()
+
+	policy, err := repo.ResolveL4EgressPolicy(ctx)
+	c.Assert(err, IsNil)
+
+	expectedPolicy := L4PolicyMap{
+		"80/TCP": L4Filter{
+			Port:     80,
+			Protocol: api.ProtoTCP,
+			U8Proto:  0x6,
+			Endpoints: api.EndpointSelectorSlice{
+				api.EndpointSelector{
+					LabelSelector: &v1.LabelSelector{
+						MatchLabels: map[string]string{"any.id": "bar1"},
+						MatchExpressions: []v1.LabelSelectorRequirement{
+							{
+								Key:      "any.id",
+								Operator: v1.LabelSelectorOpIn,
+								Values:   []string{"bar2"},
+							},
+						},
+					},
+				},
+			},
+			L7RulesPerEp:     L7DataMap{},
+			DerivedFromRules: labels.LabelArrayList{nil},
 		},
 	}
 	c.Assert((*policy), comparator.DeepEquals, expectedPolicy)
