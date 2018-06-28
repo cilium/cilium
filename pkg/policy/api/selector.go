@@ -263,6 +263,24 @@ func (n *EndpointSelector) IsWildcard() bool {
 		len(n.LabelSelector.MatchLabels)+len(n.LabelSelector.MatchExpressions) == 0
 }
 
+// ConvertToLabelSelectorRequirementSlice converts the MatchLabels and
+// MatchExpressions within the specified EndpointSelector into a list of
+// LabelSelectorRequirements.
+func (n *EndpointSelector) ConvertToLabelSelectorRequirementSlice() []metav1.LabelSelectorRequirement {
+	requirements := make([]metav1.LabelSelectorRequirement, 0, len(n.MatchExpressions)+len(n.MatchLabels))
+	// Append already existing match expressions.
+	requirements = append(requirements, n.MatchExpressions...)
+	// Convert each MatchLables to LabelSelectorRequirement.
+	for key, value := range n.MatchLabels {
+		requirementFromMatchLabels := metav1.LabelSelectorRequirement{
+			Key:      key,
+			Operator: metav1.LabelSelectorOpIn,
+			Values:   []string{value},
+		}
+		requirements = append(requirements, requirementFromMatchLabels)
+	}
+}
+
 // EndpointSelectorSlice is a slice of EndpointSelectors that can be sorted.
 type EndpointSelectorSlice []EndpointSelector
 
