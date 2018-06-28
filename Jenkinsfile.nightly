@@ -36,6 +36,7 @@ pipeline {
         GOPATH = "${WORKSPACE}"
         TESTDIR = "${WORKSPACE}/${PROJ_PATH}/test"
         SERVER_BOX = "cilium/ubuntu"
+        CPU = "4"
     }
 
     options {
