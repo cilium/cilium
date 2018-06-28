@@ -23,6 +23,7 @@ import (
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/policy/api"
+	"k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // Repository is a list of policy rules which in combination form the security
@@ -240,8 +241,24 @@ func (p *Repository) ResolveL4IngressPolicy(ctx *SearchContext) (*L4PolicyMap, e
 	ctx.PolicyTrace("Resolving ingress port policy for %+v\n", ctx.To)
 
 	state := traceState{}
+	var requirements []v1.LabelSelectorRequirement
+
+	// Iterate over all FromRequires which select ctx.To. These requirements
+	// will be appended to each EndpointSelector's MatchExpressions in
+	// each FromEndpoints for all ingress rules. This ensures that FromRequires
+	// is taken into account when evaluating policy at L4.
 	for _, r := range p.rules {
-		found, err := r.resolveL4IngressPolicy(ctx, &state, result)
+		for _, ingressRule := range r.Ingress {
+			if r.EndpointSelector.Matches(ctx.To) {
+				for _, requirement := range ingressRule.FromRequires {
+					requirements = append(requirements, requirement.ConvertToLabelSelectorRequirementSlice()...)
+				}
+			}
+		}
+	}
+
+	for _, r := range p.rules {
+		found, err := r.resolveL4IngressPolicy(ctx, &state, result, requirements)
 		if err != nil {
 			return nil, err
 		}
@@ -269,9 +286,26 @@ func (p *Repository) ResolveL4EgressPolicy(ctx *SearchContext) (*L4PolicyMap, er
 	ctx.PolicyTrace("\n")
 	ctx.PolicyTrace("Resolving egress port policy for %+v\n", ctx.To)
 
-	state := traceState{}
+	var requirements []v1.LabelSelectorRequirement
+
+	// Iterate over all ToRequires which select ctx.To. These requirements will
+	// be appended to each EndpointSelector's MatchExpressions in each
+	// ToEndpoints for all ingress rules. This ensures that ToRequires is
+	// taken into account when evaluating policy at L4.
 	for _, r := range p.rules {
-		found, err := r.resolveL4EgressPolicy(ctx, &state, result)
+		for _, egressRule := range r.Egress {
+			if r.EndpointSelector.Matches(ctx.From) {
+				for _, requirement := range egressRule.ToRequires {
+					requirements = append(requirements, requirement.ConvertToLabelSelectorRequirementSlice()...)
+				}
+			}
+		}
+	}
+
+	state := traceState{}
+	for i, r := range p.rules {
+		state.ruleID = i
+		found, err := r.resolveL4EgressPolicy(ctx, &state, result, requirements)
 		if err != nil {
 			return nil, err
 		}
