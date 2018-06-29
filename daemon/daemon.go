@@ -38,6 +38,7 @@ import (
 	"github.com/cilium/cilium/pkg/apierror"
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/byteorder"
+	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/endpoint"
@@ -135,12 +136,12 @@ type Daemon struct {
 
 // UpdateProxyRedirect updates the redirect rules in the proxy for a particular
 // endpoint using the provided L4 filter. Returns the allocated proxy port
-func (d *Daemon) UpdateProxyRedirect(e *endpoint.Endpoint, l4 *policy.L4Filter) (uint16, error) {
+func (d *Daemon) UpdateProxyRedirect(e *endpoint.Endpoint, l4 *policy.L4Filter, proxyWaitGroup *completion.WaitGroup) (uint16, error) {
 	if d.l7Proxy == nil {
 		return 0, fmt.Errorf("can't redirect, proxy disabled")
 	}
 
-	r, err := d.l7Proxy.CreateOrUpdateRedirect(l4, e.ProxyID(l4), e, e.ProxyWaitGroup)
+	r, err := d.l7Proxy.CreateOrUpdateRedirect(l4, e.ProxyID(l4), e, proxyWaitGroup)
 	if err != nil {
 		return 0, err
 	}
@@ -150,7 +151,7 @@ func (d *Daemon) UpdateProxyRedirect(e *endpoint.Endpoint, l4 *policy.L4Filter) 
 
 // RemoveProxyRedirect removes a previously installed proxy redirect for an
 // endpoint
-func (d *Daemon) RemoveProxyRedirect(e *endpoint.Endpoint, id string) error {
+func (d *Daemon) RemoveProxyRedirect(e *endpoint.Endpoint, id string, proxyWaitGroup *completion.WaitGroup) error {
 	if d.l7Proxy == nil {
 		return nil
 	}
@@ -159,18 +160,18 @@ func (d *Daemon) RemoveProxyRedirect(e *endpoint.Endpoint, id string) error {
 		logfields.EndpointID: e.ID,
 		logfields.L4PolicyID: id,
 	}).Debug("Removing redirect to endpoint")
-	return d.l7Proxy.RemoveRedirect(id, e.ProxyWaitGroup)
+	return d.l7Proxy.RemoveRedirect(id, proxyWaitGroup)
 }
 
 // UpdateNetworkPolicy adds or updates a network policy in the set
 // published to L7 proxies.
 func (d *Daemon) UpdateNetworkPolicy(e *endpoint.Endpoint, policy *policy.L4Policy,
-	labelsMap identity.IdentityCache, deniedIngressIdentities, deniedEgressIdentities map[identity.NumericIdentity]bool) error {
+	labelsMap identity.IdentityCache, deniedIngressIdentities, deniedEgressIdentities map[identity.NumericIdentity]bool, proxyWaitGroup *completion.WaitGroup) error {
 	if d.l7Proxy == nil {
 		return fmt.Errorf("can't update network policy, proxy disabled")
 	}
 	return d.l7Proxy.UpdateNetworkPolicy(e, policy, e.Opts.IsEnabled(option.IngressPolicy), e.Opts.IsEnabled(option.EgressPolicy),
-		labelsMap, deniedIngressIdentities, deniedEgressIdentities, e.ProxyWaitGroup)
+		labelsMap, deniedIngressIdentities, deniedEgressIdentities, proxyWaitGroup)
 }
 
 // RemoveNetworkPolicy removes a network policy from the set published to

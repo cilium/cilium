@@ -459,7 +459,7 @@ func (ds *DaemonSuite) TestRemovePolicy(c *C) {
 
 	// Delete the endpoint.
 	e.Mutex.Lock()
-	e.LeaveLocked(ds.d)
+	e.LeaveLocked(ds.d, nil)
 	e.Mutex.Unlock()
 
 	// Check that the policy has been removed from the xDS cache.
