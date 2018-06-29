@@ -40,6 +40,7 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/pidfile"
 
+	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/vishvananda/netlink"
 )
 
@@ -182,6 +183,12 @@ func LaunchAsEndpoint(owner endpoint.Owner, hostAddressing *models.NodeAddressin
 			IPV4: ip4.String(),
 		},
 	}
+
+	// Increment initial state counters for cilium-health endpoint
+	// since it does not follow the createEndpoint flow like
+	// other endpoints.
+	metrics.EndpointStateCount.
+		WithLabelValues(endpoint.StateWaitingForIdentity).Inc()
 
 	if _, _, err := plugins.SetupVethWithNames(vethName, vethPeerName, mtu.StandardMTU, info); err != nil {
 		return fmt.Errorf("Error while creating veth: %s", err)

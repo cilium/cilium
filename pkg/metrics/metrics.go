@@ -80,7 +80,7 @@ var (
 	EndpointCountRegenerating = prometheus.NewGauge(prometheus.GaugeOpts{
 		Namespace: Namespace,
 		Name:      "endpoint_regenerating",
-		Help:      "Number of endpoints currently regenerating",
+		Help:      "Number of endpoints currently regenerating. Deprecated. Use endpoint_state with proper labels instead",
 	})
 
 	// EndpointRegenerationCount is a count of the number of times any endpoint
@@ -91,6 +91,16 @@ var (
 		Help:      "Count of all endpoint regenerations that have completed, tagged by outcome",
 	},
 		[]string{"outcome"})
+
+	// EndpointStateCount is the total count of the endpoints in various states.
+	EndpointStateCount = prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Namespace: Namespace,
+			Name:      "endpoint_state",
+			Help:      "Count of all endpoints, tagged by different endpoint states",
+		},
+		[]string{"endpoint_state"},
+	)
 
 	// Policy
 
@@ -215,6 +225,7 @@ func init() {
 
 	MustRegister(EndpointCountRegenerating)
 	MustRegister(EndpointRegenerationCount)
+	MustRegister(EndpointStateCount)
 
 	MustRegister(PolicyCount)
 	MustRegister(PolicyRevision)

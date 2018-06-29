@@ -1367,6 +1367,8 @@ func ParseEndpoint(strEp string) (*Endpoint, error) {
 	}
 
 	ep.state = StateRestoring
+	metrics.EndpointStateCount.
+		WithLabelValues(StateRestoring).Inc()
 
 	return &ep, nil
 }
@@ -1702,7 +1704,13 @@ func (e *Endpoint) replaceIdentityLabels(l pkgLabels.Labels) int {
 // with Endpoint's mutex AND BuildMutex locked.
 func (e *Endpoint) LeaveLocked(owner Owner) []error {
 	errors := []error{}
+	elog := e.getLogger().WithFields(logrus.Fields{
+		logfields.EndpointID:     e.ID,
+		logfields.IdentityLabels: e.GetLabels(),
+	})
 
+	elog.Info("MK in LeaveLocked with endpoint state:", e.GetState())
+	fmt.Printf("MK in LeaveLocked with endpoint state:", e.GetState())
 	owner.RemoveFromEndpointQueue(uint64(e.ID))
 	if e.SecurityIdentity != nil && e.RealizedL4Policy != nil {
 		// Passing a new map of nil will purge all redirects
@@ -1732,8 +1740,11 @@ func (e *Endpoint) LeaveLocked(owner Owner) []error {
 	e.cleanPolicySignals()
 
 	e.SetStateLocked(StateDisconnected, "Endpoint removed")
+	elog.Info("MK in LeaveLocked AFTER  SetStateLocked(StateDisconnected) endpoint state:", e.GetState())
+	fmt.Printf("MK in LeaveLocked AFTER  SetStateLocked(StateDisconnected) endpoint state:", e.GetState())
 
 	e.getLogger().Info("Removed endpoint")
+	fmt.Printf("Removed endpoint")
 
 	return errors
 }
@@ -1896,6 +1907,10 @@ func (e *Endpoint) GetState() string {
 // endpoint.Mutex must be held
 // Returns true only if endpoints state was changed as requested
 func (e *Endpoint) SetStateLocked(toState, reason string) bool {
+	elog := e.getLogger().WithFields(logrus.Fields{
+		logfields.EndpointID:     e.ID,
+		logfields.IdentityLabels: e.GetLabels(),
+	})
 	// Validate the state transition.
 	fromState := e.state
 	switch fromState { // From state
@@ -1958,6 +1973,12 @@ func (e *Endpoint) SetStateLocked(toState, reason string) bool {
 OKState:
 	e.state = toState
 	e.logStatusLocked(Other, OK, reason)
+	metrics.EndpointStateCount.
+		WithLabelValues(fromState).Dec()
+	metrics.EndpointStateCount.
+		WithLabelValues(toState).Inc()
+	elog.Info("MK in SetStateLocked decremented fromState:", fromState)
+	elog.Info("MK in SetStateLocked incremented toState:", toState)
 	return true
 }
 
@@ -2006,6 +2027,10 @@ func (e *Endpoint) BuilderSetStateLocked(toState, reason string) bool {
 OKState:
 	e.state = toState
 	e.logStatusLocked(Other, OK, reason)
+	metrics.EndpointStateCount.
+		WithLabelValues(fromState).Dec()
+	metrics.EndpointStateCount.
+		WithLabelValues(toState).Inc()
 	return true
 }
 
