@@ -16,6 +16,7 @@ package endpoint
 
 import (
 	"fmt"
+	"math"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -451,7 +452,8 @@ func (e *Endpoint) updateNetworkPolicy(owner Owner, proxyWaitGroup *completion.W
 //  - changed: true if the policy was changed for this endpoint;
 //  - err: error in case of an error.
 // Must be called with endpoint mutex held.
-func (e *Endpoint) regeneratePolicy(owner Owner, opts models.ConfigurationMap) (bool, error) {
+func (e *Endpoint) regeneratePolicy(owner Owner, opts models.ConfigurationMap) (isPolicyComp bool, err error) {
+	var labelsMap *identityPkg.IdentityCache
 	// Dry mode does not regenerate policy via bpf regeneration, so we let it pass
 	// through. Some bpf/redirect updates are skipped in that case.
 	//
@@ -477,11 +479,26 @@ func (e *Endpoint) regeneratePolicy(owner Owner, opts models.ConfigurationMap) (
 	// GH-1128 should allow optimizing this away, but currently we can't
 	// reliably know if the KV-store has changed or not, so we must scan
 	// through it each time.
-	labelsMap, err := getLabelsMap()
+	labelsMap, err = getLabelsMap()
 	if err != nil {
 		e.getLogger().WithError(err).Debug("Received error while evaluating policy")
 		return false, err
 	}
+
+	regenerateStart := time.Now()
+	// Capture successful regeneration time
+	defer func() {
+		if err == nil && isPolicyComp {
+			regenerateTimeNs := time.Since(regenerateStart)
+			regenerateTimeSec := float64(regenerateTimeNs) / float64(time.Second)
+			e.getLogger().WithField(logfields.PolicyRegenerationTime, time.Since(regenerateStart).String()).
+				Info("Regeneration of policy has completed")
+			metrics.PolicyRegenerationCount.Inc()
+			metrics.PolicyRegenerationTime.Add(regenerateTimeSec)
+			metrics.PolicyRegenerationTimeSquare.Add(math.Pow(regenerateTimeSec, 2))
+		}
+	}()
+
 	// Use the old labelsMap instance if the new one is still the same.
 	// Later we can compare the pointers to figure out if labels have changed or not.
 	if reflect.DeepEqual(e.LabelsMap, labelsMap) {
@@ -625,12 +642,24 @@ func (e *Endpoint) updateAndOverrideEndpointOptions(owner Owner, opts models.Con
 
 // Called with e.Mutex UNlocked
 func (e *Endpoint) regenerate(owner Owner, reason string) (retErr error) {
+	var revision uint64
+	var compilationExecuted bool
+	var err error
+
 	metrics.EndpointCountRegenerating.Inc()
+	regenerateStart := time.Now()
 	defer func() {
 		metrics.EndpointCountRegenerating.Dec()
-		if retErr == nil {
+		if retErr == nil && compilationExecuted {
 			metrics.EndpointRegenerationCount.
 				WithLabelValues(metrics.LabelValueOutcomeSuccess).Inc()
+
+			// Capture successful endpoint generation time
+			regenerateTimeNs := time.Since(regenerateStart)
+			regenerateTimeSec := float64(regenerateTimeNs) / float64(time.Second)
+			e.getLogger().WithField(logfields.EndpointRegenerationTime, time.Since(regenerateStart).String()).Info("Regeneration of endpoint has completed")
+			metrics.EndpointRegenerationTime.Add(regenerateTimeSec)
+			metrics.EndpointRegenerationTimeSquare.Add(math.Pow(regenerateTimeSec, 2))
 		} else {
 			metrics.EndpointRegenerationCount.
 				WithLabelValues(metrics.LabelValueOutcomeFail).Inc()
@@ -666,7 +695,7 @@ func (e *Endpoint) regenerate(owner Owner, reason string) (retErr error) {
 		e.Mutex.Unlock()
 	}()
 
-	revision, compilationExecuted, err := e.regenerateBPF(owner, tmpDir, reason)
+	revision, compilationExecuted, err = e.regenerateBPF(owner, tmpDir, reason)
 
 	// If generation fails, keep the directory around. If it ever succeeds
 	// again, clean up the XXX_next_fail copy.

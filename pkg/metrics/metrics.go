@@ -92,6 +92,21 @@ var (
 	},
 		[]string{"outcome"})
 
+	// EndpointRegenerationTime is the total time taken to regenerate endpoint
+	EndpointRegenerationTime = prometheus.NewCounter(prometheus.CounterOpts{
+		Namespace: Namespace,
+		Name:      "endpoint_regeneration_seconds_total",
+		Help:      "Total sum of successful endpoint regeneration times",
+	})
+
+	// EndpointRegenerationTimeSquare is the sum of squares of total time taken
+	// to regenerate endpoint.
+	EndpointRegenerationTimeSquare = prometheus.NewCounter(prometheus.CounterOpts{
+		Namespace: Namespace,
+		Name:      "endpoint_regeneration_square_seconds_total",
+		Help:      "Total sum of squares of successful endpoint regeneration times",
+	})
+
 	// Policy
 
 	// PolicyCount is the number of policies loaded into the agent
@@ -99,6 +114,29 @@ var (
 		Namespace: Namespace,
 		Name:      "policy_count",
 		Help:      "Number of policies currently loaded",
+	})
+
+	// PolicyRegenerationCount is the total number of successful policy
+	// regenerations.
+	PolicyRegenerationCount = prometheus.NewCounter(prometheus.CounterOpts{
+		Namespace: Namespace,
+		Name:      "policy_regeneration_total",
+		Help:      "Total number of successful policy regenerations",
+	})
+
+	// PolicyRegenerationTime is the total time taken to generate policies
+	PolicyRegenerationTime = prometheus.NewCounter(prometheus.CounterOpts{
+		Namespace: Namespace,
+		Name:      "policy_regeneration_seconds_total",
+		Help:      "Total sum of successful policy regeneration times",
+	})
+
+	// PolicyRegenerationTimeSquare is the sum of squares of total time taken
+	// to generate policies
+	PolicyRegenerationTimeSquare = prometheus.NewCounter(prometheus.CounterOpts{
+		Namespace: Namespace,
+		Name:      "policy_regeneration_square_seconds_total",
+		Help:      "Total sum of squares of successful policy regeneration times",
 	})
 
 	// PolicyRevision is the current policy revision number for this agent
@@ -215,8 +253,13 @@ func init() {
 
 	MustRegister(EndpointCountRegenerating)
 	MustRegister(EndpointRegenerationCount)
+	MustRegister(EndpointRegenerationTime)
+	MustRegister(EndpointRegenerationTimeSquare)
 
 	MustRegister(PolicyCount)
+	MustRegister(PolicyRegenerationCount)
+	MustRegister(PolicyRegenerationTime)
+	MustRegister(PolicyRegenerationTimeSquare)
 	MustRegister(PolicyRevision)
 	MustRegister(PolicyImportErrors)
 
