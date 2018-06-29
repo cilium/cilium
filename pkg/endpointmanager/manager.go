@@ -133,6 +133,14 @@ func LookupIPv4(ipv4 string) *endpoint.Endpoint {
 	return ep
 }
 
+// LookupPodName looks up endpoint by namespace + pod name
+func LookupPodName(name string) *endpoint.Endpoint {
+	mutex.RLock()
+	ep := lookupPodNameLocked(name)
+	mutex.RUnlock()
+	return ep
+}
+
 // UpdateReferences makes an endpoint available by all possible reference
 // fields as available for this endpoint (containerID, IPv4 address, ...)
 // Must be called with ep.Mutex.RLock held.

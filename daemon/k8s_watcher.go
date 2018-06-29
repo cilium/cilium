@@ -24,6 +24,7 @@ import (
 	"time"
 
 	"github.com/cilium/cilium/common/types"
+	"github.com/cilium/cilium/pkg/comparator"
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/endpointmanager"
@@ -32,6 +33,7 @@ import (
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	clientset "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned"
 	informer "github.com/cilium/cilium/pkg/k8s/client/informers/externalversions"
+	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	bpfIPCache "github.com/cilium/cilium/pkg/maps/ipcache"
@@ -61,6 +63,7 @@ const (
 	k8sAPIGroupNodeV1Core       = "core/v1::Node"
 	k8sAPIGroupServiceV1Core    = "core/v1::Service"
 	k8sAPIGroupEndpointV1Core   = "core/v1::Endpoint"
+	k8sAPIGroupPodV1Core        = "core/v1::Pods"
 	k8sAPIGroupNetworkingV1Core = "networking.k8s.io/v1::NetworkPolicy"
 	k8sAPIGroupIngressV1Beta1   = "extensions/v1beta1::Ingress"
 	k8sAPIGroupCiliumV2         = "cilium/v2::CiliumNetworkPolicy"
@@ -234,6 +237,7 @@ func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 	serSvcs := serializer.NewFunctionQueue(20)
 	serEps := serializer.NewFunctionQueue(20)
 	serCNPs := serializer.NewFunctionQueue(20)
+	serPods := serializer.NewFunctionQueue(1024)
 
 	switch {
 	case networkPolicyV1VerConstr.Check(sv):
@@ -441,6 +445,28 @@ func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 
 	si.Start(wait.NeverStop)
 
+	_, podsController := cache.NewInformer(
+		cache.NewListWatchFromClient(k8s.Client().CoreV1().RESTClient(),
+			"pods", v1.NamespaceAll, fields.Everything()),
+		&v1.Pod{},
+		reSyncPeriod,
+		cache.ResourceEventHandlerFuncs{
+			UpdateFunc: func(oldObj, newObj interface{}) {
+				metrics.SetTSValue(metrics.EventTSK8s, time.Now())
+				if oldK8sPod := copyObjToV1Pod(oldObj); oldK8sPod != nil {
+					if newK8sPod := copyObjToV1Pod(newObj); newK8sPod != nil {
+						serPods.Enqueue(func() error {
+							d.updateK8sPodV1(oldK8sPod, newK8sPod)
+							return nil
+						}, serializer.NoRetry)
+					}
+				}
+			},
+		},
+	)
+	go podsController.Run(wait.NeverStop)
+	d.k8sAPIGroups.addAPI(k8sAPIGroupPodV1Core)
+
 	endpoint.RunK8sCiliumEndpointSyncGC()
 
 	return nil
@@ -514,6 +540,16 @@ func copyObjToV1Node(obj interface{}) *v1.Node {
 		return nil
 	}
 	return node.DeepCopy()
+}
+
+func copyObjToV1Pod(obj interface{}) *v1.Pod {
+	pod, ok := obj.(*v1.Pod)
+	if !ok {
+		log.WithField(logfields.Object, logfields.Repr(obj)).
+			Warn("Ignoring invalid k8s v1 Pod")
+		return nil
+	}
+	return pod.DeepCopy()
 }
 
 func (d *Daemon) addK8sNetworkPolicyV1(k8sNP *networkingv1.NetworkPolicy) {
@@ -1420,4 +1456,41 @@ func (d *Daemon) updateCiliumNetworkPolicyV2(ciliumV2Store cache.Store,
 
 	d.deleteCiliumNetworkPolicyV2(oldRuleCpy)
 	d.addCiliumNetworkPolicyV2(ciliumV2Store, newRuleCpy)
+}
+
+func (d *Daemon) updateK8sPodV1(oldK8sPod, newK8sPod *v1.Pod) {
+	if oldK8sPod == nil || newK8sPod == nil {
+		return
+	}
+
+	// We only care about label updates
+	oldPodLabels := oldK8sPod.GetLabels()
+	newPodLabels := newK8sPod.GetLabels()
+	if comparator.MapStringEquals(oldPodLabels, newPodLabels) {
+		return
+	}
+
+	podNSName := k8sUtils.GetObjNamespaceName(&newK8sPod.ObjectMeta)
+
+	podEP := endpointmanager.LookupPodName(podNSName)
+	if podEP == nil {
+		log.WithField("pod", podNSName).Debugf("Endpoint not found running for the given pod")
+		return
+	}
+
+	newLabels := labels.Map2Labels(newPodLabels, labels.LabelSourceK8s)
+	newIdtyLabels, _ := labels.FilterLabels(newLabels)
+	oldLabels := labels.Map2Labels(oldPodLabels, labels.LabelSourceK8s)
+	oldIdtyLabels, _ := labels.FilterLabels(oldLabels)
+
+	err := podEP.ModifyIdentityLabels(d, newIdtyLabels, oldIdtyLabels)
+	if err != nil {
+		log.WithError(err).Debugf("error while updating endpoint with new labels")
+		return
+	}
+
+	log.WithFields(logrus.Fields{
+		logfields.EndpointID: podEP.GetID(),
+		logfields.Labels:     logfields.Repr(newIdtyLabels),
+	}).Debug("Update endpoint with new labels")
 }
