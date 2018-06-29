@@ -1168,6 +1168,10 @@ func init() {
         "addressing": {
           "$ref": "#/definitions/NodeAddressing"
         },
+        "deviceMTU": {
+          "description": "MTU on workload facing devices",
+          "type": "integer"
+        },
         "immutable": {
           "description": "Immutable configuration (read-only)",
           "$ref": "#/definitions/ConfigurationMap"
@@ -1188,6 +1192,10 @@ func init() {
         "realized": {
           "description": "Currently applied configuration",
           "$ref": "#/definitions/DaemonConfigurationSpec"
+        },
+        "routeMTU": {
+          "description": "MTU for network facing routes",
+          "type": "integer"
         }
       }
     },

@@ -195,8 +195,10 @@ func replaceNodeRoute(ip *net.IPNet) {
 	// If the route includes the local address, then the route is for
 	// local containers and we can use a high MTU for transmit. Otherwise,
 	// it needs to be able to fit within the MTU of tunnel devices.
-	if !ip.Contains(local) {
-		route.MTU = mtu.TunnelMTU
+	if ip.Contains(local) {
+		route.MTU = mtu.GetDeviceMTU()
+	} else {
+		route.MTU = mtu.GetRouteMTU()
 	}
 	scopedLog := log.WithField(logfields.Route, route)
 

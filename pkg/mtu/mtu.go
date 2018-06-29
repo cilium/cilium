@@ -63,3 +63,14 @@ func UseMTU(mtu int) {
 	StandardMTU = mtu
 	TunnelMTU = mtu - TunnelOverhead
 }
+
+// GetRouteMTU returns the MTU to be used on the network. When running in
+// tunneling mode, this will have tunnel overhead accounted for.
+func GetRouteMTU() int {
+	return TunnelMTU
+}
+
+// GetDeviceMTU returns the MTU to be used on workload facing devices.
+func GetDeviceMTU() int {
+	return StandardMTU
+}

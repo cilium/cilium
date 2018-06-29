@@ -1341,6 +1341,12 @@ definitions:
         "$ref": "#/definitions/MonitorStatus"
       kvstoreConfiguration:
         "$ref": "#/definitions/KVstoreConfiguration"
+      deviceMTU:
+        description: MTU on workload facing devices
+        type: integer
+      routeMTU:
+        description: MTU for network facing routes
+        type: integer
   EndpointConfigurationSpec:
     description: An endpoint's configuration
     type: object
