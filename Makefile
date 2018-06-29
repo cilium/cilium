@@ -128,7 +128,10 @@ GIT_VERSION: .git
 envoy/SOURCE_VERSION: .git
 	git rev-parse HEAD >envoy/SOURCE_VERSION
 
-docker-image: clean GIT_VERSION envoy/SOURCE_VERSION
+docker-compile:
+	docker-compose -f test/docker-compose.yml -p $$JOB_BASE_NAME-$$BUILD_NUMBER-compile run --rm compile
+
+docker-image: GIT_VERSION envoy/SOURCE_VERSION
 	grep -v -E "(SOURCE|GIT)_VERSION" .gitignore >.dockerignore
 	echo ".*" >>.dockerignore # .git pruned out
 	echo "Documentation" >>.dockerignore # Not needed
@@ -286,7 +289,6 @@ postcheck: build
 	$(QUIET) MAKE=$(MAKE) contrib/scripts/check-cmdref.sh
 	@$(ECHO_CHECK) contrib/scripts/lock-check.sh
 	$(QUIET) contrib/scripts/lock-check.sh
-	-$(QUIET) $(MAKE) -C Documentation/ dummy SPHINXOPTS="-q" 2>&1 | grep -v "tabs assets"
 
 .PHONY: force generate-api generate-health-api
 force :;

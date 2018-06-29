@@ -61,7 +61,14 @@ pipeline {
                 TESTDIR="${WORKSPACE}/${PROJ_PATH}/"
             }
             steps {
-                sh "cd ${TESTDIR}; make tests-ginkgo"
+                parallel (
+                    "UnitTesting": {
+                        sh "cd ${TESTDIR}; make tests-ginkgo"
+                    },
+                    "PreCompilation": {
+                        sh 'make docker-compile'
+                    }
+                )
             }
             post {
                 always {

@@ -20,3 +20,9 @@ services:
     privileged: true
     volumes:
       - "./../:/go/src/github.com/cilium/cilium/"
+  compile:
+    image: "quay.io/cilium/cilium-builder:2018-06-21"
+    command: "bash -c 'cd /go/src/github.com/cilium/cilium/; make LOCKDEBUG=$LOCKDEBUG PKG_BUILD=1'"
+    privileged: true
+    volumes:
+      - "./../:/go/src/github.com/cilium/cilium/"
