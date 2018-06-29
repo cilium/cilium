@@ -34,6 +34,9 @@ Endpoint
 * ``endpoint_count``: Number of endpoints managed by this agent
 * ``endpoint_regenerating``: Number of endpoints currently regenerating
 * ``endpoint_regenerations``: Count of all endpoint regenerations that have completed, tagged by outcome
+* ``endpoint_regeneration_seconds_total``: Total sum of successful endpoint regeneration times
+* ``endpoint_regeneration_square_seconds_total``: Total sum of squares of successful endpoint regeneration times
+
 
 Datapath
 --------
@@ -50,6 +53,9 @@ Policy Imports
 --------------
 
 * ``policy_count``: Number of policies currently loaded
+* ``policy_regeneration_total``: Total number of policies regenerated successfully
+* ``policy_regeneration_seconds_total``: Total sum of successful policy regeneration times
+* ``policy_regeneration_square_seconds_total``: Total sum of squares of successful policy regeneration times
 * ``policy_max_revision``: Highest policy revision number in the agent
 * ``policy_import_errors``: Number of times a policy import has failed
 
