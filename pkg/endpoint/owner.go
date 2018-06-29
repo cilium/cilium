@@ -15,6 +15,7 @@
 package endpoint
 
 import (
+	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/monitor"
@@ -38,15 +39,15 @@ type Owner interface {
 	GetPolicyRepository() *policy.Repository
 
 	// UpdateProxyRedirect must update the redirect configuration of an endpoint in the proxy
-	UpdateProxyRedirect(e *Endpoint, l4 *policy.L4Filter) (uint16, error)
+	UpdateProxyRedirect(e *Endpoint, l4 *policy.L4Filter, proxyWaitGroup *completion.WaitGroup) (uint16, error)
 
 	// RemoveProxyRedirect must remove the redirect installed by UpdateProxyRedirect
-	RemoveProxyRedirect(e *Endpoint, id string) error
+	RemoveProxyRedirect(e *Endpoint, id string, proxyWaitGroup *completion.WaitGroup) error
 
 	// UpdateNetworkPolicy adds or updates a network policy in the set
 	// published to L7 proxies.
 	UpdateNetworkPolicy(e *Endpoint, policy *policy.L4Policy,
-		labelsMap identity.IdentityCache, deniedIngressIdentities, deniedEgressIdentities map[identity.NumericIdentity]bool) error
+		labelsMap identity.IdentityCache, deniedIngressIdentities, deniedEgressIdentities map[identity.NumericIdentity]bool, proxyWaitGroup *completion.WaitGroup) error
 
 	// RemoveNetworkPolicy removes a network policy from the set published to
 	// L7 proxies.

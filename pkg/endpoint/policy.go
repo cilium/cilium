@@ -26,6 +26,7 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/common/addressing"
+	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/controller"
 	endpointid "github.com/cilium/cilium/pkg/endpoint/id"
 	identityPkg "github.com/cilium/cilium/pkg/identity"
@@ -345,7 +346,7 @@ func (e *Endpoint) IngressOrEgressIsEnforced() bool {
 		e.Opts.IsEnabled(option.EgressPolicy)
 }
 
-func (e *Endpoint) updateNetworkPolicy(owner Owner) error {
+func (e *Endpoint) updateNetworkPolicy(owner Owner, proxyWaitGroup *completion.WaitGroup) error {
 	// Skip updating the NetworkPolicy if no policy has been calculated.
 	// This breaks a circular dependency between configuring NetworkPolicies in
 	// sidecar Envoy proxies and those proxies needing network connectivity
@@ -398,7 +399,7 @@ func (e *Endpoint) updateNetworkPolicy(owner Owner) error {
 	}
 
 	// Publish the updated policy to L7 proxies.
-	err := owner.UpdateNetworkPolicy(e, e.DesiredL4Policy, *e.LabelsMap, deniedIngressIdentities, deniedEgressIdentities)
+	err := owner.UpdateNetworkPolicy(e, e.DesiredL4Policy, *e.LabelsMap, deniedIngressIdentities, deniedEgressIdentities, proxyWaitGroup)
 	if err != nil {
 		return err
 	}

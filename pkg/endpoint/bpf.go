@@ -430,7 +430,7 @@ func (ep *epInfoCache) GetBPFValue() (*lxcmap.EndpointInfo, error) {
 // writing. On success, returns nil; otherwise, returns an error  indicating the
 // problem that occurred while adding an l7 redirect for the specified policy.
 // Must be called with endpoint.Mutex held.
-func (e *Endpoint) addNewRedirectsFromMap(owner Owner, m policy.L4PolicyMap, desiredRedirects map[string]bool) error {
+func (e *Endpoint) addNewRedirectsFromMap(owner Owner, m policy.L4PolicyMap, desiredRedirects map[string]bool, proxyWaitGroup *completion.WaitGroup) error {
 	if owner.DryModeEnabled() {
 		return nil
 	}
@@ -442,7 +442,7 @@ func (e *Endpoint) addNewRedirectsFromMap(owner Owner, m policy.L4PolicyMap, des
 				continue
 			}
 
-			redirectPort, err := owner.UpdateProxyRedirect(e, &l4)
+			redirectPort, err := owner.UpdateProxyRedirect(e, &l4, proxyWaitGroup)
 			if err != nil {
 				return err
 			}
@@ -471,19 +471,19 @@ func (e *Endpoint) addNewRedirectsFromMap(owner Owner, m policy.L4PolicyMap, des
 // The returned map contains the exact set of IDs of proxy redirects that is
 // required to implement the given L4 policy.
 // Must be called with endpoint.Mutex held.
-func (e *Endpoint) addNewRedirects(owner Owner, m *policy.L4Policy) (desiredRedirects map[string]bool, err error) {
+func (e *Endpoint) addNewRedirects(owner Owner, m *policy.L4Policy, proxyWaitGroup *completion.WaitGroup) (desiredRedirects map[string]bool, err error) {
 	desiredRedirects = make(map[string]bool)
-	if err = e.addNewRedirectsFromMap(owner, m.Ingress, desiredRedirects); err != nil {
+	if err = e.addNewRedirectsFromMap(owner, m.Ingress, desiredRedirects, proxyWaitGroup); err != nil {
 		return desiredRedirects, fmt.Errorf("Unable to allocate ingress redirects: %s", err)
 	}
-	if err = e.addNewRedirectsFromMap(owner, m.Egress, desiredRedirects); err != nil {
+	if err = e.addNewRedirectsFromMap(owner, m.Egress, desiredRedirects, proxyWaitGroup); err != nil {
 		return desiredRedirects, fmt.Errorf("Unable to allocate egress redirects: %s", err)
 	}
 	return desiredRedirects, nil
 }
 
 // Must be called with endpoint.Mutex held.
-func (e *Endpoint) removeOldRedirects(owner Owner, desiredRedirects map[string]bool) {
+func (e *Endpoint) removeOldRedirects(owner Owner, desiredRedirects map[string]bool, proxyWaitGroup *completion.WaitGroup) {
 	if owner.DryModeEnabled() {
 		return
 	}
@@ -493,7 +493,7 @@ func (e *Endpoint) removeOldRedirects(owner Owner, desiredRedirects map[string]b
 		if desiredRedirects[id] {
 			continue
 		}
-		if err := owner.RemoveProxyRedirect(e, id); err != nil {
+		if err := owner.RemoveProxyRedirect(e, id, proxyWaitGroup); err != nil {
 			e.getLogger().WithError(err).WithField(logfields.L4PolicyID, id).Warn("Error while removing proxy redirect")
 		} else {
 			delete(e.realizedRedirects, id)
@@ -571,9 +571,9 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir, reason string) (uint64, boo
 			return 0, compilationExecuted, fmt.Errorf("Unable to regenerate policy: %s", err)
 		}
 
-		// Dry mode needs Network Policy Updates, but e.ProxyWaitGroup must not
-		// be initialized, as there is no proxy ACKing the changes.
-		if err = e.updateNetworkPolicy(owner); err != nil {
+		// Dry mode needs Network Policy Updates, but the proxy wait group must
+		// not be initialized, as there is no proxy ACKing the changes.
+		if err = e.updateNetworkPolicy(owner, nil); err != nil {
 			return 0, compilationExecuted, err
 		}
 
@@ -644,6 +644,8 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir, reason string) (uint64, boo
 		}
 	}
 
+	var proxyWaitGroup *completion.WaitGroup
+
 	// Only generate & populate policy map if a security identity is set up for
 	// this endpoint.
 	if e.SecurityIdentity != nil {
@@ -672,16 +674,15 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir, reason string) (uint64, boo
 		// Now that policy has been regenerated, set up a context to
 		// wait for proxy completions.
 		completionCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-		e.ProxyWaitGroup = completion.NewWaitGroup(completionCtx)
+		proxyWaitGroup = completion.NewWaitGroup(completionCtx)
 		defer func() {
 			cancel()
-			e.ProxyWaitGroup = nil
 		}()
 
 		// Walk the L4Policy for ports that require
 		// an L7 redirect and add them to the endpoint.
 		if e.DesiredL4Policy != nil {
-			desiredRedirects, err = e.addNewRedirects(owner, e.DesiredL4Policy)
+			desiredRedirects, err = e.addNewRedirects(owner, e.DesiredL4Policy, proxyWaitGroup)
 			if err != nil {
 				e.Mutex.Unlock()
 				return 0, compilationExecuted, err
@@ -689,7 +690,7 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir, reason string) (uint64, boo
 		}
 		// Update policies after adding redirects, otherwise we will not wait for
 		// acks for the first policy upates for the first added redirects.
-		if err = e.updateNetworkPolicy(owner); err != nil {
+		if err = e.updateNetworkPolicy(owner, proxyWaitGroup); err != nil {
 			e.Mutex.Unlock()
 			return 0, compilationExecuted, err
 		}
@@ -756,7 +757,7 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir, reason string) (uint64, boo
 	// To avoid traffic loss, wait for the proxy to be ready to accept traffic
 	// on new redirect ports, before we generate the policy that will redirect
 	// traffic to those ports.
-	err = e.WaitForProxyCompletions()
+	err = e.WaitForProxyCompletions(proxyWaitGroup)
 	if err != nil {
 		return 0, compilationExecuted, fmt.Errorf("Error while configuring proxy redirects: %s", err)
 	}
@@ -780,12 +781,12 @@ func (e *Endpoint) regenerateBPF(owner Owner, epdir, reason string) (uint64, boo
 	// deleting obsolete redirects, to make sure no packets are redirected to
 	// those ports.
 	completionCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	e.ProxyWaitGroup = completion.NewWaitGroup(completionCtx)
+	proxyWaitGroup = completion.NewWaitGroup(completionCtx)
 	defer cancel()
 	e.Mutex.Lock()
-	e.removeOldRedirects(owner, desiredRedirects)
+	e.removeOldRedirects(owner, desiredRedirects, proxyWaitGroup)
 	e.Mutex.Unlock()
-	err = e.WaitForProxyCompletions()
+	err = e.WaitForProxyCompletions(proxyWaitGroup)
 	if err != nil {
 		return 0, compilationExecuted, fmt.Errorf("Error while deleting obsolete proxy redirects: %s", err)
 	}

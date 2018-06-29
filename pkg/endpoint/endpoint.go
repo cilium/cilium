@@ -434,10 +434,6 @@ type Endpoint struct {
 	// You must hold Endpoint.Mutex to read or write it.
 	realizedRedirects map[string]uint16
 
-	// ProxyWaitGroup waits for pending proxy changes to complete.
-	// You must hold Endpoint.BuildMutex to read or write it.
-	ProxyWaitGroup *completion.WaitGroup `json:"-"`
-
 	// realizedMapState contains the current set of PolicyKeys which are presently
 	// inserted (realized) in the endpoint's BPF PolicyMap.
 	// All fields within the PolicyKey should be in host byte-order.
@@ -452,14 +448,14 @@ type Endpoint struct {
 
 // WaitForProxyCompletions blocks until all proxy changes have been completed.
 // Called with BuildMutex held.
-func (e *Endpoint) WaitForProxyCompletions() error {
-	if e.ProxyWaitGroup == nil {
+func (e *Endpoint) WaitForProxyCompletions(proxyWaitGroup *completion.WaitGroup) error {
+	if proxyWaitGroup == nil {
 		return nil
 	}
 
 	start := time.Now()
 	e.getLogger().Debug("Waiting for proxy updates to complete...")
-	err := e.ProxyWaitGroup.Wait()
+	err := proxyWaitGroup.Wait()
 	if err != nil {
 		return fmt.Errorf("proxy state changes failed: %s", err)
 	}
@@ -1700,13 +1696,13 @@ func (e *Endpoint) replaceIdentityLabels(l pkgLabels.Labels) int {
 
 // LeaveLocked removes the endpoint's directory from the system. Must be called
 // with Endpoint's mutex AND BuildMutex locked.
-func (e *Endpoint) LeaveLocked(owner Owner) []error {
+func (e *Endpoint) LeaveLocked(owner Owner, proxyWaitGroup *completion.WaitGroup) []error {
 	errors := []error{}
 
 	owner.RemoveFromEndpointQueue(uint64(e.ID))
 	if e.SecurityIdentity != nil && e.RealizedL4Policy != nil {
 		// Passing a new map of nil will purge all redirects
-		e.removeOldRedirects(owner, nil)
+		e.removeOldRedirects(owner, nil, proxyWaitGroup)
 	}
 
 	if e.PolicyMap != nil {
