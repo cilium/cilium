@@ -50,6 +50,7 @@ spec:
       labels:
         id: app2
         zgroup: testapp
+        appSecond: "true"
     spec:
       serviceAccountName: app2-account
       containers:
