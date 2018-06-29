@@ -19,7 +19,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -365,7 +364,7 @@ func (kub *Kubectl) MicroscopeStart() (error, func() error) {
 			return err
 		}
 
-		err = ioutil.WriteFile(
+		err = WriteOrAppendToFile(
 			filepath.Join(testPath, monitorLogFileName),
 			res.CombineOutput().Bytes(),
 			LogPerm)
