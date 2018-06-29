@@ -248,15 +248,13 @@ environment variables can be specified in the `DaemonSet` file like this:
 .. code:: bash
 
     env:
-      - name: "MTU"
-        value: "8950"
+      - name: "CNU_CONF_NAME"
+        value: "00-cilium.conf"
 
 The following variables are supported:
 
 +---------------------+--------------------------------------+------------------------+
 | Option              | Description                          | Default                |
-+---------------------+--------------------------------------+------------------------+
-| MTU                 | Pod MTU to be configured             | 1450                   |
 +---------------------+--------------------------------------+------------------------+
 | HOST_PREFIX         | Path prefix of all host mounts       | /host                  |
 +---------------------+--------------------------------------+------------------------+
@@ -274,7 +272,6 @@ the CNI configuration ``/etc/cni/net.d/00-cilium.conf`` manually:
     sudo sh -c 'echo "{
         "name": "cilium",
         "type": "cilium-cni",
-        "mtu": 1450
     }
     " > /etc/cni/net.d/00-cilium.conf'
 
