@@ -1,18 +1,16 @@
 apiVersion: "cilium.io/v2"
 kind: CiliumNetworkPolicy
-description: "Policy to stress test L7 proxy"
+description: "Policy to test matchExpressions key"
 metadata:
-  name: "l7-stresstest"
-  namespace: "development"
+  name: "l7-match-expressions"
 spec:
   endpointSelector:
     matchLabels:
-      id: server
+      id: app1
   ingress:
   - fromEndpoints:
-    - matchLabels:
-        id: client
-        "k8s:io.kubernetes.pod.namespace": qa
+    - matchExpressions:
+      - {key: 'appSecond', operator: Exists}
     toPorts:
     - ports:
       - port: "80"
@@ -20,4 +18,4 @@ spec:
       rules:
         http:
         - method: "GET"
-          path: "/$"
+          path: "/public"
