@@ -446,5 +446,4 @@ prometheus configuration. Navigate to the web ui with:
 
 ::
 
-   $ minikube service prometheus -n prometheus
-
+   $ minikube service prometheus -n monitoring 
