@@ -402,7 +402,7 @@ func (s *SSHMeta) MonitorStart() func() error {
 		}
 
 		err = ioutil.WriteFile(
-			filepath.Join(testPath, monitorLogFileName),
+			filepath.Join(testPath, MonitorLogFileName),
 			res.CombineOutput().Bytes(),
 			LogPerm)
 		if err != nil {
