@@ -84,6 +84,12 @@ const (
 	// BuildDuration is the time elapsed to build a BPF program
 	BuildDuration = "buildDuration"
 
+	// PolicyRegenerationTime is the time elapsed to generate a policy
+	PolicyRegenerationTime = "policyRegenerationTime"
+
+	// EndpointRegenerationTime is the time elapsed to generate an endpoint
+	EndpointRegenerationTime = "endpointRegenerationTime"
+
 	// StartTime is the start time of an event
 	StartTime = "startTime"
 
