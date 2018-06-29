@@ -338,3 +338,21 @@ func ManifestGet(manifestFilename string) string {
 	}
 	return filepath.Join(BasePath, "k8sT", "manifests", manifestFilename)
 }
+
+// WriteOrAppendToFile writes data to a file named by filename.
+// If the file does not exist, WriteFile creates it with permissions perm;
+// otherwise WriteFile appends the data to the file
+func WriteOrAppendToFile(filename string, data []byte, perm os.FileMode) error {
+	f, err := os.OpenFile(filename, os.O_APPEND|os.O_WRONLY|os.O_CREATE, perm)
+	if err != nil {
+		return err
+	}
+	n, err := f.Write(data)
+	if err == nil && n < len(data) {
+		err = io.ErrShortWrite
+	}
+	if err1 := f.Close(); err == nil {
+		err = err1
+	}
+	return err
+}
