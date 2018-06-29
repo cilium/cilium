@@ -174,8 +174,8 @@ func (e *DaemonConsulSuite) TearDownTest(c *C) {
 	e.DaemonSuite.TearDownTest(c)
 }
 
-func (ds *DaemonSuite) TestMiniumWorkerThreadsIsSet(c *C) {
-	c.Assert(numWorkerThreads() >= 4, Equals, true)
+func (ds *DaemonSuite) TestMinimumWorkerThreadsIsSet(c *C) {
+	c.Assert(numWorkerThreads() >= 2, Equals, true)
 	c.Assert(numWorkerThreads() >= runtime.NumCPU(), Equals, true)
 }
 
