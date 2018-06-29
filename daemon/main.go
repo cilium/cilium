@@ -44,6 +44,7 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/monitor"
+	"github.com/cilium/cilium/pkg/mtu"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/pidfile"
@@ -399,6 +400,8 @@ func init() {
 		"nat46-range", node.DefaultNAT46Prefix, "IPv6 prefix to map IPv4 addresses to")
 	flags.BoolVar(&masquerade,
 		"masquerade", true, "Masquerade packets from endpoints leaving the host")
+	flags.IntVar(&option.Config.MTU,
+		option.MTUName, mtu.AutoDetect(), "Overwrite auto-detected MTU of underlying network")
 	flags.StringVar(&v6Address,
 		"ipv6-node", "auto", "IPv6 address of node")
 	flags.StringVar(&v4Address,
@@ -542,6 +545,10 @@ func initEnv(cmd *cobra.Command) {
 
 	if viper.GetBool("pprof") {
 		pprof.Enable()
+	}
+
+	if configuredMTU := viper.GetInt(option.MTUName); configuredMTU != 0 {
+		mtu.UseMTU(configuredMTU)
 	}
 
 	scopedLog := log.WithFields(logrus.Fields{

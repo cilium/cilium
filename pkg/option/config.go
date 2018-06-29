@@ -55,6 +55,9 @@ const (
 
 	// K8sRequireIPv6PodCIDRName is the name of the K8sRequireIPv6PodCIDR option
 	K8sRequireIPv6PodCIDRName = "k8s-require-ipv6-pod-cidr"
+
+	// MTUName is the name of the MTU option
+	MTUName = "mtu"
 )
 
 // daemonConfig is the configuration used by Daemon.
@@ -132,6 +135,9 @@ type daemonConfig struct {
 	// IPv6 PodCIDR. Cilium will block bootstrapping until the information
 	// is available.
 	K8sRequireIPv6PodCIDR bool
+
+	// MTU is the maximum transmission unit of the underlying network
+	MTU int
 }
 
 var (
@@ -201,6 +207,10 @@ func (c *daemonConfig) Validate() error {
 	if err := c.validateIPv6ClusterAllocCIDR(); err != nil {
 		return fmt.Errorf("unable to parse CIDR value '%s' of option --%s: %s",
 			c.IPv6ClusterAllocCIDR, IPv6ClusterAllocCIDRName, err)
+	}
+
+	if c.MTU <= 0 {
+		return fmt.Errorf("MTU '%d' cannot be 0 or negative", c.MTU)
 	}
 
 	return nil
